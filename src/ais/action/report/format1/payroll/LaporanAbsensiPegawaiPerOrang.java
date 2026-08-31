@@ -66,6 +66,37 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Layar laporan payroll "Laporan Presensi/Absensi Pegawai Per Orang": menghasilkan PDF rekap
+ * kehadiran harian setiap pegawai terpilih pada rentang tanggal tertentu (satu baris per hari
+ * per pegawai), termasuk pengajuan cuti/izin yang menimpa hari tersebut. Kelas ini adalah window
+ * ZK mandiri di atas {@link MyWindow}, dengan panel filter di sisi barat (fakultas/satuan kerja,
+ * pilihan hari aktif dalam seminggu, jenis pegawai — dosen/guru/pegawai umum, ikatan dinas
+ * dosen, rentang tanggal) dan area pratinjau PDF di tengah.
+ *
+ * <p>
+ * Perhitungan data ({@link #generateDataDanImageAlbum(ProgressContext)}) adalah inti kelas ini:
+ * untuk setiap pegawai yang termasuk cakupan presensi ({@link #pegawaiMasukPresensi(Pegawai)} —
+ * dikecualikan bila {@code TipePegawai.masukPresensi} bernilai {@code false}), setiap hari dalam
+ * rentang tanggal diperiksa terhadap {@link PengajuanPegawai} (cuti/izin/dinas) yang berlaku pada
+ * hari tersebut, memakai peta parameter tambahan per {@link JenisPengajuanPegawai} yang di-cache
+ * agar tidak query berulang. Proses per pegawai dijalankan paralel lewat
+ * {@link ParallelTaskExecutor} (maksimum thread dari
+ * {@code ParallelTaskExecutor#getDefaultReportMaxThreads()}), dengan hasil dikumpulkan ke
+ * {@link java.util.Map} tersinkronisasi dan progres dilaporkan ke {@link ProgressContext} secara
+ * live lewat server push ZK ({@code AsyncTaskManager#jalankanDenganPush}) agar UI tidak
+ * terblokir selama query berat berjalan. {@link #onKHS(Event)} adalah pemicu utama: menampilkan
+ * kartu progress, memproses data, lalu membuat dan menampilkan PDF akhir — dijaga anti
+ * tumpang-tindih lewat flag {@link #sedangMemprosesLaporan}.
+ * </p>
+ *
+ * <p>
+ * Kelompok method privat pendek di bagian bawah kelas (mis. {@link #isCutiDisetujui},
+ * {@link #isStatus}, {@link #awalHari}, {@link #hitungJumlahHariInklusif}) adalah helper
+ * null-safe kecil yang dipakai berulang selama perhitungan data harian, menormalkan nilai
+ * cuti/status/tanggal agar logika utama tidak dipenuhi pengecekan {@code null} berulang.
+ * </p>
+ */
 public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 
 	private static final long serialVersionUID = -397946194166101691L;
@@ -117,6 +148,7 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 
 	private volatile boolean sedangMemprosesLaporan;
 
+	/** Kumpulan komponen ZK dan status yang membentuk kartu progress selama laporan diproses (dibangun oleh {@link #tampilkanProgressBar()}, diperbarui oleh {@link #updateProgress}). */
 	private static class ProgressContext {
 		private Vbox box;
 		private Progressmeter progressmeter;
@@ -126,6 +158,7 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 		private volatile boolean gagal;
 	}
 
+	/** Membangun window laporan dalam konfigurasi baku, tanpa pegawai terikat. */
 	public LaporanAbsensiPegawaiPerOrang() {
 		super();
 		try {
@@ -142,6 +175,7 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 		}
 	}
 
+	/** Membangun window laporan terikat pada satu {@code pegawai} tertentu. */
 	public LaporanAbsensiPegawaiPerOrang(Pegawai pegawai) {
 		super();
 		this.pegawai = pegawai;
@@ -159,16 +193,19 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 		}
 	}
 
+	/** Membangun window laporan dengan judul, tipe border, dan status closable yang dapat diatur eksplisit. */
 	public LaporanAbsensiPegawaiPerOrang(String title, String border, boolean closable) throws Exception {
 		super(title, border, closable);
 		initKHS();
 		init();
 	}
 
+	/** Menyiapkan model hierarki satuan kerja yang dipakai filter satuan kerja. */
 	private void initKHS() throws Exception {
 		satuanKerjaTreeModel = new SatuanKerjaTreeModel(false);
 	}
 
+	/** Membangun tata letak window: panel filter di barat (satuan kerja, hari aktif, jenis pegawai, rentang tanggal, tombol proses) dan area pratinjau PDF beserta toolbar ekspor di tengah. */
 	private void init() throws Exception {
 
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -341,6 +378,7 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 	}
 
 
+	/** Menampilkan kartu informasi awal (petunjuk penggunaan) di panel tengah sebelum laporan pernah dijalankan. */
 	private void tampilkanInfoAwal() {
 		if (center == null) {
 			return;

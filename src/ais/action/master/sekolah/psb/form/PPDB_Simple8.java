@@ -74,6 +74,18 @@ import ais.ui.util.MyLabelAgakKecilBoldBiru;
 import ais.ui.util.MyLabelBolder;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Varian formulir pendaftaran PSB (Penerimaan Siswa Baru) "Simple8" — versi ringkas yang hanya
+ * meminta data inti calon siswa (nama, tempat/tanggal lahir, kontak orang tua, email) beserta
+ * parameter tambahan dinamis (lewat {@link ParameterTambahanPsbListener}), info asal informasi
+ * pendaftaran, opsi siswa pindahan/alumni, foto, dan pernyataan persetujuan — dibandingkan varian
+ * PPDB lain di paket ini yang meminta data lebih lengkap. Memperluas {@code PPDB} untuk mewarisi
+ * kerangka baku formulir PSB (kop gelombang pendaftaran, info gelombang, dsb.). Alur simpan: validasi
+ * ({@link #check()}) lalu {@link #onSave(Event)} menyimpan {@link CalonSiswa} (nomor registrasi
+ * dibangkitkan otomatis untuk data baru lewat {@code CommonPSB.generateNoRegistrasi}), menautkan
+ * foto yang sudah diunggah sebelum entitas punya id, dan menyimpan penghubung berkas verifikasi
+ * kelengkapan.
+ */
 public class PPDB_Simple8 extends PPDB {
 
 	private static final long serialVersionUID = 1L;
@@ -138,16 +150,24 @@ public class PPDB_Simple8 extends PPDB {
 		}
 	};
 
+	/** Konstruktor kosong (dipakai framework/refleksi); tidak langsung membangun form. */
 	public PPDB_Simple8() {
 		super();
 	}
 
+	/** Konstruktor utama; langsung membangun form lewat {@link #init()} untuk calon siswa dan gelombang pendaftaran yang diberikan. */
 	public PPDB_Simple8(CalonSiswa calonSiswa, GelombangPendaftaranPsb gelombangPendaftaranPsb,
 			EventListener eventListener) {
 		super(calonSiswa, gelombangPendaftaranPsb, eventListener);
 		init();
 	}
 
+	/**
+	 * Membangun seluruh tampilan formulir pendaftaran: kop gelombang (gambar kustom bila diunggah,
+	 * jika tidak header baku {@code PSBAction.headerBox()}), judul dan informasi gelombang, tautan
+	 * lampiran info PPDB bila ada, lalu field data inti calon siswa, parameter tambahan dinamis,
+	 * opsi siswa pindahan/alumni, unggah foto, dan pernyataan persetujuan.
+	 */
 	@SuppressWarnings({ "deprecation", "unchecked" })
 	public void init() {
 
@@ -445,6 +465,16 @@ public class PPDB_Simple8 extends PPDB {
 		Common.masukkanListener(rows, masukkanPerubahan);
 	}
 
+	/**
+	 * Memvalidasi field wajib formulir sebelum disimpan: nama, tempat lahir, tanggal lahir, telepon
+	 * orang tua, batas umur sesuai aturan gelombang pendaftaran ({@link
+	 * GelombangPendaftaranPsb#chekUmur}), persetujuan pernyataan dicentang, dan kelengkapan info asal
+	 * pendaftaran ({@link CalonSiswaAction#checkInfoDariMana}). Setiap kegagalan menampilkan pesan
+	 * dan memfokuskan/menggulir ke field yang bermasalah.
+	 *
+	 * @return {@code true} bila seluruh validasi lolos, {@code false} sebaliknya
+	 * @throws Exception diteruskan apa adanya dari kegagalan pemeriksaan
+	 */
 	public boolean check() throws Exception {
 
 		if (nama.getValue().trim().isEmpty()) {
@@ -536,6 +566,16 @@ public class PPDB_Simple8 extends PPDB {
 		}
 	};
 
+	/**
+	 * Memvalidasi (lewat {@link #check()}) lalu menyimpan data calon siswa: menuliskan field form ke
+	 * entitas {@link CalonSiswa} (termasuk nomor registrasi baru bila data baru), menyimpan/memperbarui
+	 * entitas, menautkan foto yang sudah diunggah sebelum entitas punya id, menyimpan penghubung
+	 * berkas verifikasi kelengkapan, dan membersihkan cache sesi {@link CalonSiswa}.
+	 *
+	 * @param event event ZK pemicu penyimpanan (tombol simpan)
+	 * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal
+	 * @throws Exception diteruskan apa adanya dari kegagalan Hibernate saat menyimpan
+	 */
 	public boolean onSave(Event event) throws Exception {
 		if (!check()) {
 			return false;

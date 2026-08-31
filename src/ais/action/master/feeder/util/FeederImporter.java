@@ -39,10 +39,34 @@ import ais.database.model.StatusPegawai;
 import ais.database.model.Wilayah;
 import ais.database.model.employ.Golongan;
 
+/**
+ * Importer data dari PDDIKTI Feeder (basis data pendidikan tinggi nasional Kemdikbudristek) ke
+ * skema lokal AIS, dipakai untuk sinkronisasi awal/berkala data master perguruan tinggi. Kelas ini
+ * mengelola satu siklus impor penuh ({@link #doImport()}) yang menjalankan ~25 method impor per
+ * kategori data secara berurutan (referensi kecil lebih dulu: agama, jenis evaluasi, status,
+ * pekerjaan, penghasilan, jenjang, fakultas, jurusan, dst.; data besar belakangan: matakuliah,
+ * mahasiswa, dosen, penugasan dosen mengajar), memperbarui indikator progres UI di setiap langkah.
+ *
+ * <p>
+ * Hampir seluruh method impor mengikuti pola yang sama: (1) mengambil satu batch record XML dari
+ * Feeder lewat {@link FeederConnector#getRecordset} (data besar seperti mahasiswa/dosen diambil
+ * bertahap {@link #JUMLAH_SEKALI_AMBIL_DATA} baris per panggilan, diulang hingga hasil kosong);
+ * (2) mengonversi tiap {@link Node} XML menjadi entitas lokal lewat {@code FeederConverter};
+ * (3) mencari baris lokal yang sudah ada — diutamakan lewat kolom {@code feeder} (id unik dari
+ * Feeder), lalu jatuh ke pencocokan by nama/NIM/NIDN/kode dinormalisasi (trim + hapus titik) bila
+ * kolom feeder belum tersedia; (4) menggabungkan data baru ke baris yang sudah ada TANPA menimpa
+ * kolom yang sudah terisi (lewat {@code FeederUtil.copyDataJikaKosong} — "salin hanya bila
+ * kosong"), sehingga data lokal yang sudah diedit manual tidak tertimpa oleh impor Feeder; (5)
+ * menyimpan dalam transaksi Hibernate native per baris/batch. Setiap method impor dijalankan
+ * dalam sesi Hibernate native yang ditutup ulang di akhir setiap batch untuk mengendalikan memori
+ * pada volume data besar.
+ * </p>
+ */
 public class FeederImporter {
 
 	private String token;
 
+	/** Ukuran batch pengambilan data dari Feeder untuk kategori data besar (mahasiswa, dosen, penugasan dosen mengajar). */
 	private static Integer JUMLAH_SEKALI_AMBIL_DATA = 300;
 
 	private FeederConnector feederConnector;
@@ -53,11 +77,13 @@ public class FeederImporter {
 
 	private Label labelProses;
 
+	/** Membuat importer tanpa indikator progres UI (mis. dipakai dari proses latar/batch tanpa tampilan). */
 	public FeederImporter(FeederConnector feederConnector, String token) {
 		this.token = token;
 		this.feederConnector = feederConnector;
 	}
 
+	/** Membuat importer dengan indikator progres UI: {@code progressmeter} untuk progres keseluruhan siklus impor, {@code progressmeterChild} untuk progres dalam satu kategori/batch, dan {@code labelProses} untuk pesan tahap saat ini. */
 	public FeederImporter(FeederConnector feederConnector, String token, Progressmeter progressmeter,
 			Progressmeter progressmeterChild, Label labelProses) {
 		this.token = token;
@@ -67,6 +93,12 @@ public class FeederImporter {
 		this.labelProses = labelProses;
 	}
 
+	/**
+	 * Menjalankan satu siklus impor penuh dari PDDIKTI Feeder, memanggil seluruh method impor
+	 * kategori secara berurutan (referensi kecil lebih dulu, data besar seperti mahasiswa/dosen di
+	 * akhir agar bergantung pada referensi yang sudah tersedia), memperbarui indikator progres UI
+	 * di setiap langkah bila diberikan. Lihat javadoc kelas untuk pola umum tiap method impor.
+	 */
 	public void doImport() throws Exception {
 		ConstantValues.initNativeSesion();
 
@@ -214,6 +246,7 @@ public class FeederImporter {
 		penugasanDosenMengajar();
 	}
 
+	/** Mengimpor data {@link PerguruanTinggi} dari Feeder (kategori {@code satuan_pendidikan}); baris tanpa kode yayasan dilewati. Dicocokkan ke baris lokal via kolom {@code feeder}, lalu nama. */
 	public void perguruanTinggi() throws Exception {
 		Session session = HibernateUtil.currentNativeSession();
 		List<Node> result = feederConnector.getRecordset(token, "satuan_pendidikan", "", "", 1000, 0);
@@ -265,6 +298,7 @@ public class FeederImporter {
 		HibernateUtil.closeSession();
 	}
 
+	/** Mengimpor data referensi {@link Pekerjaan} dari Feeder. Lihat pola umum di javadoc kelas. */
 	public void pekerjaan() throws Exception {
 		Session session = HibernateUtil.currentNativeSession();
 		List<Node> result = feederConnector.getRecordset(token, "pekerjaan", "expired_date is null", "", 1000, 0);
@@ -297,6 +331,7 @@ public class FeederImporter {
 		HibernateUtil.closeSession();
 	}
 
+	/** Mengimpor data referensi {@link Penghasilan} dari Feeder. Lihat pola umum di javadoc kelas. */
 	public void penghasilan() throws Exception {
 		Session session = HibernateUtil.currentNativeSession();
 		List<Node> result = feederConnector.getRecordset(token, "penghasilan", "expired_date is null", "", 1000, 0);
@@ -329,6 +364,7 @@ public class FeederImporter {
 		HibernateUtil.closeSession();
 	}
 
+	/** Mengimpor data referensi {@link Agama} dari Feeder. Lihat pola umum di javadoc kelas. */
 	public void agama() throws Exception {
 		Session session = HibernateUtil.currentNativeSession();
 		List<Node> result = feederConnector.getRecordset(token, "agama", "", "", 1000, 0);
@@ -383,6 +419,7 @@ public class FeederImporter {
 		HibernateUtil.closeSession();
 	}
 
+	/** Mengimpor data referensi {@link JenisEvaluasi} dari Feeder. Lihat pola umum di javadoc kelas. */
 	public void jenisEvaluasi() throws Exception {
 		Session session = HibernateUtil.currentNativeSession();
 		List<Node> result = feederConnector.getRecordset(token, "jenis_evaluasi", "", "", 1000, 0);
@@ -420,6 +457,7 @@ public class FeederImporter {
 		HibernateUtil.closeSession();
 	}
 
+	/** Mengimpor data referensi {@link StatusAwalMahasiswa} dari Feeder. Lihat pola umum di javadoc kelas. */
 	public void statusAwalMahasiswa() throws Exception {
 		Session session = HibernateUtil.currentNativeSession();
 		List<Node> result = feederConnector.getRecordset(token, "jenis_pendaftaran", "", "", 1000, 0);
@@ -474,6 +512,7 @@ public class FeederImporter {
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Mengimpor data referensi {@link Wilayah} (kode wilayah administratif) dari Feeder. Lihat pola umum di javadoc kelas. */
 	public void wilayah() throws Exception {
 
 		for (int i = 0; i < 1000000; i += FeederImporter.JUMLAH_SEKALI_AMBIL_DATA) {
@@ -539,6 +578,7 @@ public class FeederImporter {
 
 	}
 
+	/** Mengimpor data referensi {@link KebutuhanKhusus} (jenis disabilitas/kebutuhan khusus) dari Feeder. Lihat pola umum di javadoc kelas. */
 	public void kebutuhanKhusus() throws Exception {
 
 		for (int i = 0; i < 1000000; i += FeederImporter.JUMLAH_SEKALI_AMBIL_DATA) {
@@ -583,6 +623,7 @@ public class FeederImporter {
 		}
 	}
 
+	/** Mengimpor data referensi {@link Jenjang} pendidikan (D3/S1/S2/dst.) dari Feeder. Lihat pola umum di javadoc kelas. */
 	public void jenjang() throws Exception {
 		Session session = HibernateUtil.currentNativeSession();
 		List<Node> result = feederConnector.getRecordset(token, "jenjang_pendidikan", "", "", 1000, 0);
@@ -638,6 +679,7 @@ public class FeederImporter {
 		HibernateUtil.closeSession();
 	}
 
+	/** Mengimpor data referensi {@link IkatanKerjaDosen} dari Feeder. Lihat pola umum di javadoc kelas. */
 	public void ikatanKerjaDosen() throws Exception {
 		Session session = HibernateUtil.currentNativeSession();
 		List<Node> result = feederConnector.getRecordset(token, "ikatan_kerja_dosen", "", "", 1000, 0);
@@ -674,6 +716,7 @@ public class FeederImporter {
 		HibernateUtil.closeSession();
 	}
 
+	/** Mengimpor data referensi {@link StatusKepegawaian} dari Feeder. Lihat pola umum di javadoc kelas. */
 	public void statusKepegawaian() throws Exception {
 		Session session = HibernateUtil.currentNativeSession();
 		List<Node> result = feederConnector.getRecordset(token, "status_kepegawaian", "", "", 1000, 0);
@@ -710,6 +753,7 @@ public class FeederImporter {
 		HibernateUtil.closeSession();
 	}
 
+	/** Mengimpor data referensi {@link LembagaPengangkat} dosen/pegawai dari Feeder. Lihat pola umum di javadoc kelas. Saat ini tidak dipanggil dari {@link #doImport()}. */
 	public void lembagaPengangkat() throws Exception {
 		Session session = HibernateUtil.currentNativeSession();
 		List<Node> result = feederConnector.getRecordset(token, "lembaga_pengangkat", "", "", 1000, 0);
@@ -740,6 +784,7 @@ public class FeederImporter {
 		HibernateUtil.closeSession();
 	}
 
+	/** Mengimpor data referensi {@link StatusPegawai} dari Feeder. Lihat pola umum di javadoc kelas. */
 	public void statusPegawai() throws Exception {
 		Session session = HibernateUtil.currentNativeSession();
 		List<Node> result = feederConnector.getRecordset(token, "status_keaktifan_pegawai", "", "", 1000, 0);
@@ -786,6 +831,7 @@ public class FeederImporter {
 		HibernateUtil.closeSession();
 	}
 
+	/** Mengimpor data referensi {@link Golongan} kepegawaian dari Feeder. Lihat pola umum di javadoc kelas. */
 	public void golongan() throws Exception {
 		Session session = HibernateUtil.currentNativeSession();
 		List<Node> result = feederConnector.getRecordset(token, "pangkat_golongan", "", "", 1000, 0);
@@ -832,6 +878,7 @@ public class FeederImporter {
 		HibernateUtil.closeSession();
 	}
 
+	/** Mengimpor data referensi {@link NilaiHuruf} (skala nilai akademik) dari Feeder. Lihat pola umum di javadoc kelas. */
 	public void nilaiHuruf() throws Exception {
 		Session session = HibernateUtil.currentNativeSession();
 		List<Node> result = feederConnector.getRecordset(token, "bobot_nilai", "", "", 1000, 0);
@@ -874,6 +921,7 @@ public class FeederImporter {
 		HibernateUtil.closeSession();
 	}
 
+	/** Mengimpor data {@link Fakultas} dari Feeder, ditautkan ke {@link PerguruanTinggi} lokal. Lihat pola umum di javadoc kelas. */
 	public void fakultas() throws Exception {
 		Session session = HibernateUtil.currentNativeSession();
 		List<Node> result = feederConnector.getRecordset(token, "sms", "id_jns_sms=1", "id_sms", 1000, 0);
@@ -931,6 +979,7 @@ public class FeederImporter {
 		HibernateUtil.closeSession();
 	}
 
+	/** Mengimpor data referensi {@link GrupJurusan} (rumpun ilmu) dari Feeder. Lihat pola umum di javadoc kelas. */
 	public void grupJurusan() throws Exception {
 		Session session = HibernateUtil.currentNativeSession();
 		List<Node> result = feederConnector.getRecordset(token, "sms", "id_jns_sms=2", "id_sms", 1000, 0);
@@ -975,6 +1024,7 @@ public class FeederImporter {
 		HibernateUtil.closeSession();
 	}
 
+	/** Mengimpor data {@link Jurusan}/program studi dari Feeder, ditautkan ke fakultas dan grup jurusan lokal. Lihat pola umum di javadoc kelas. */
 	public void jurusan() throws Exception {
 
 		Session session = HibernateUtil.currentNativeSession();
@@ -1033,6 +1083,7 @@ public class FeederImporter {
 		HibernateUtil.closeSession();
 	}
 
+	/** Mengimpor data {@link Matakuliah} dari Feeder, ditautkan ke jurusan lokal. Lihat pola umum di javadoc kelas. */
 	public void matakuliah() throws Exception {
 
 		for (int i = 0; i < 1000000; i += FeederImporter.JUMLAH_SEKALI_AMBIL_DATA) {
@@ -1095,6 +1146,7 @@ public class FeederImporter {
 		}
 	}
 
+	/** Mengimpor data {@link Kurikulum} dari Feeder, ditautkan ke jurusan lokal. Lihat pola umum di javadoc kelas. */
 	public void kurikulum() throws Exception {
 		Session session = HibernateUtil.currentNativeSession();
 		List<Node> result = feederConnector.getRecordset(token, "kurikulum", "", "id_sms", 100000, 0);
@@ -1140,6 +1192,7 @@ public class FeederImporter {
 		HibernateUtil.closeSession();
 	}
 
+	/** Mengimpor relasi {@link KurikulumPunyaMatakuliah} (mata kuliah per kurikulum) dari Feeder. Lihat pola umum di javadoc kelas. */
 	public void kurikulumPunyaMatakuliah() throws Exception {
 		for (int i = 0; i < 1000000; i += FeederImporter.JUMLAH_SEKALI_AMBIL_DATA) {
 			List<Node> result = feederConnector.getRecordset(token, "mata_kuliah_kurikulum", "", "id_kurikulum,id_mk",
@@ -1184,6 +1237,15 @@ public class FeederImporter {
 		}
 	}
 
+	/**
+	 * Mengimpor data mahasiswa dari Feeder (kategori {@code mahasiswa_pt}) dalam batch
+	 * {@link #JUMLAH_SEKALI_AMBIL_DATA} baris, diulang sampai hasil kosong. Baris tanpa jurusan
+	 * lokal yang cocok dilewati. Baris lokal yang sudah ada dicari lewat NIM yang dinormalisasi
+	 * (trim, tanda titik dihapus, dibandingkan via SQL {@code replace}), lalu digabung tanpa
+	 * menimpa kolom yang sudah terisi ({@code FeederUtil.copyDataJikaKosong}) — berlaku untuk
+	 * {@link Mahasiswa} maupun {@link BiodataMahasiswa} terkait. Kegagalan per-baris ditangkap dan
+	 * memicu pembukaan ulang sesi Hibernate agar batch selanjutnya tetap berjalan.
+	 */
 	public void mahasiswa() throws Exception {
 
 		for (int i = 0; i < 1000000; i += FeederImporter.JUMLAH_SEKALI_AMBIL_DATA) {
@@ -1257,6 +1319,14 @@ public class FeederImporter {
 		}
 	}
 
+	/**
+	 * Mengimpor data dosen dari Feeder (kategori {@code dosen}) dalam batch
+	 * {@link #JUMLAH_SEKALI_AMBIL_DATA} baris, diulang sampai hasil kosong. Baris lokal yang sudah
+	 * ada dicari berurutan lewat NIDN, lalu {@code code}, lalu {@code mycode} (masing-masing
+	 * dinormalisasi trim + hapus titik), digabung tanpa menimpa kolom yang sudah terisi — berlaku
+	 * untuk {@link Dosen} maupun {@link BiodataDosen} terkait (dibuat baru bila belum ada baris
+	 * biodata untuk dosen tersebut).
+	 */
 	public void dosen() throws Exception {
 
 		for (int i = 0; i < 1000000; i += FeederImporter.JUMLAH_SEKALI_AMBIL_DATA) {
@@ -1339,6 +1409,12 @@ public class FeederImporter {
 	// penugasanDosenMengajar();
 	// }
 
+	/**
+	 * Mengimpor data {@link PenugasanDosenMengajar} dari Feeder (kategori {@code dosen_pt}) dalam
+	 * batch {@link #JUMLAH_SEKALI_AMBIL_DATA} baris, diulang sampai hasil kosong. Baris tanpa kode
+	 * penugasan valid (kosong atau {@code "-"}) dilewati. Baris lokal yang sudah ada dicari lewat
+	 * kolom {@code feeder} dan digabung tanpa menimpa kolom yang sudah terisi.
+	 */
 	public void penugasanDosenMengajar() throws Exception {
 
 		for (int i = 0; i < 1000000; i += FeederImporter.JUMLAH_SEKALI_AMBIL_DATA) {

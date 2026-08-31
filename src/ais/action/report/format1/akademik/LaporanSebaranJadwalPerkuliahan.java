@@ -41,6 +41,23 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Jendela laporan "Sebaran Jadwal Perkuliahan": menampilkan seluruh {@link Perkuliahan} (jadwal
+ * kelas kuliah, dikecualikan mata kuliah ekstrakurikuler) untuk satu tahun akademik, opsional
+ * difilter semester (ganjil/genap), fakultas, dan jurusan, dikelompokkan per jurusan lalu per
+ * kelas dan diurutkan berdasarkan hari/jam mulai — membantu melihat sebaran (distribusi) jadwal
+ * kuliah untuk mendeteksi tumpang tindih atau ketidakseimbangan penjadwalan.
+ *
+ * <p>
+ * Berbeda dari kebanyakan laporan lain di paket ini yang dirender lewat komponen ZK/worksheet,
+ * laporan ini membangun halaman HTML mandiri ({@code buildHtmlPage}, dikelompokkan
+ * jurusan→kelas→daftar sesi berisi hari/jam/kode-nama matkul/SKS/ruang/dosen) dan membukanya di
+ * jendela browser baru lewat {@code window.open} + {@code document.write} (dieksekusi via
+ * {@code Clients.evalJavaScript}), sehingga hasilnya mudah dicetak/disimpan sebagai halaman web
+ * biasa oleh pengguna. Pengambilan data dijalankan asinkron lewat {@link Common#createDefaultTimer}
+ * agar antarmuka tidak terkunci selama kueri berjalan.
+ * </p>
+ */
 public class LaporanSebaranJadwalPerkuliahan extends MyWindow {
 
     private static final long serialVersionUID = 7829341056823740192L;
@@ -50,6 +67,7 @@ public class LaporanSebaranJadwalPerkuliahan extends MyWindow {
     private Combobox cbFakultas;
     private Combobox cbJurusan;
 
+    /** Membangun jendela laporan lengkap dengan filter tahun akademik/semester/fakultas/jurusan. */
     public LaporanSebaranJadwalPerkuliahan() {
         super();
         try {

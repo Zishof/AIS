@@ -46,6 +46,38 @@ import ais.ui.util.MyLabelAgakKecil;
 import ais.ui.util.MyPanelConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Dashboard admin "HR Control Center" (Dasbor Utama Kepegawaian): menampilkan ringkasan pegawai
+ * aktif, kelengkapan data (satuan kerja dan jenis kerja/tipe masa kerja), sebaran per unit dan
+ * per jenis kerja, serta rekomendasi tindak lanjut — seluruhnya dibangun murni sebagai HTML
+ * ter-generate (kartu, gauge, insight) di atas komponen tata letak portal
+ * ({@link ais.ui.util.MyPortallayout}/{@link ais.ui.util.MyPortalchildren}), bukan grid ZK biasa.
+ *
+ * <p>
+ * Alur muat data: konstruktor memanggil {@link #renderDashboard()}, yang menampilkan panel
+ * loading dengan progress bar HTML ({@link #tampilkanLoadingDashboardKepegawaian()}) lalu
+ * menjadwalkan {@link #renderDashboardContent()} lewat timer default agar UI loading sempat
+ * tergambar sebelum query berat dijalankan. Data agregat ({@link DashboardPegawaiData}) dihitung
+ * lewat serangkaian {@code COUNT} Hibernate per kombinasi filter (satuan kerja dipilih beserta
+ * seluruh turunannya lewat {@code SatuanKerjaTreeModel}, jenis kerja/tipe masa kerja), dengan
+ * progress persentase diperbarui langsung ke HTML loading di setiap tahap
+ * ({@link #updateLoadingDashboardKepegawaian}) — pola yang membedakan kelas ini dari dashboard
+ * ZK biasa karena tidak memakai indikator "busy" bawaan ZK. Hasil perhitungan di-cache in-memory
+ * statis ({@link #_CACHE}/{@link #_EXPIRY}, TTL 5 menit, kunci dari kombinasi pengguna+filter)
+ * lewat {@link #loadDashboardDataCached()} agar berpindah tab/reload singkat tidak menghitung
+ * ulang dari database.
+ * </p>
+ *
+ * <p>
+ * Setiap angka pada kartu metrik adalah tautan ({@link #createDetailNumber}) yang, saat diklik,
+ * membuka unduhan data pegawai terperinci sesuai kriteria kartu tersebut lewat
+ * {@code Common#cetakDataCustomButton} (mis. "Tanpa Satker" membuka daftar pegawai dengan
+ * {@code satuanKerja IS NULL}). Filter satuan kerja dan jenis kerja global di bagian atas
+ * memicu {@link #renderDashboard()} ulang saat diubah. Seluruh teks dinamis di-escape HTML lewat
+ * {@link #escapeHtml(String)} sebelum disisipkan ke markup untuk mencegah XSS dari data master
+ * (nama satuan kerja/jenis kerja).
+ * </p>
+ */
 public class DasboardUtamaKepegawaian extends MyPortallayout {
 
 	private static final long serialVersionUID = -2908183257156207891L;
@@ -79,6 +111,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 	private Component tabDashboardPanel;
 	private Html dashboardLoadingHtml;
 
+	/** Membangun dashboard dalam mode maksimal-layar penuh dan langsung memicu pemuatan data awal. */
 	public DasboardUtamaKepegawaian() throws Exception {
 		super();
 		setWidth("100%");
@@ -91,6 +124,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		renderDashboard();
 	}
 
+	/** Menampilkan panel loading, lalu menjadwalkan {@link #renderDashboardContent()} lewat timer default (menangkap galat dan menampilkannya sebagai panel error bila gagal). */
 	private void renderDashboard() throws Exception {
 		tampilkanLoadingDashboardKepegawaian();
 		Common.createDefaultTimer(new EventListener() {
@@ -107,6 +141,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		});
 	}
 
+	/** Membersihkan panel dashboard dan menampilkan kartu loading (progress bar 0%) sebagai placeholder awal. */
 	private void tampilkanLoadingDashboardKepegawaian() {
 		if (tabDashboardPanel == null) {
 			return;
@@ -146,6 +181,13 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		containerDasborGrid.appendChild(dashboardLoadingHtml);
 	}
 
+	/**
+	 * Memperbarui kartu loading dengan persentase, judul, dan keterangan tahap pemuatan
+	 * saat ini (dipanggil berulang kali selama {@link #loadDashboardData()} berjalan). Diam-diam
+	 * tidak melakukan apa pun bila komponen loading sudah lepas dari halaman (pengguna sudah
+	 * pindah/menutup tab) — kondisi normal, bukan galat, karena callback timer ZK dapat fire
+	 * setelah komponen dilepas.
+	 */
 	private void updateLoadingDashboardKepegawaian(int persen, String judul, String keterangan) {
 		// FIX Error C (NPE getAttachedUiEngine via Html.setContent): dipanggil dari callback
 		// CommonTimerHelper (Timer ZK) yang mungkin akhirnya fire SETELAH pengguna pindah
@@ -163,6 +205,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		dashboardLoadingHtml.setContent(buildLoadingDashboardHtml(persen, judul, keterangan));
 	}
 
+	/** Mengganti kartu loading dengan panel pesan galat bila pemuatan dashboard gagal (diam-diam diabaikan bila komponen sudah lepas dari halaman, sama seperti {@link #updateLoadingDashboardKepegawaian}). */
 	private void tampilkanErrorLoadingDashboardKepegawaian(Exception e) {
 		// FIX Error C (NPE getAttachedUiEngine via Html.setContent): sama seperti
 		// updateLoadingDashboardKepegawaian di atas -- callback Timer ZK bisa fire setelah
@@ -177,6 +220,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 				+ "</div>");
 	}
 
+	/** Menyusun markup kartu loading (ikon berputar, judul, keterangan, dan progress bar {@code persen}%), dengan teks di-escape HTML. */
 	private String buildLoadingDashboardHtml(int persen, String judul, String keterangan) {
 		if (persen < 0) {
 			persen = 0;
@@ -202,6 +246,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 				+ "</div></div>";
 	}
 
+	/** Memuat data agregat (lewat cache) dan menyusun ulang seluruh isi dashboard (hero, filter global, kartu metrik, kartu insight, dan tata letak analitik) menggantikan panel loading. */
 	private void renderDashboardContent() throws Exception {
 		if (tabDashboardPanel == null) {
 			tabDashboardPanel = this;
@@ -249,12 +294,14 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 	}
 
 
+	/** Membangun kunci cache dari kombinasi id pengguna, satuan kerja filter, dan tipe masa kerja filter saat ini. */
 	private String buildCacheKey() {
 		return (tbmuser == null ? "0" : String.valueOf(tbmuser.getId()))
 				+ "|" + (dashboardFilterSatker == null ? "" : dashboardFilterSatker.getId())
 				+ "|" + (dashboardFilterTipeMasaKerja == null ? "" : dashboardFilterTipeMasaKerja.getId());
 	}
 
+	/** Mengembalikan data dashboard dari cache in-memory ({@link #_CACHE}, TTL {@link #_TTL_MS}) bila masih berlaku untuk kombinasi filter saat ini, atau menghitung ulang lewat {@link #loadDashboardData()} dan menyimpannya ke cache. */
 	@SuppressWarnings("unchecked")
 	private DashboardPegawaiData loadDashboardDataCached() {
 		String _k = buildCacheKey();
@@ -268,6 +315,14 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		return data;
 	}
 
+	/**
+	 * Menghitung seluruh data agregat dashboard dari database: total pegawai aktif, jumlah
+	 * dengan/tanpa satuan kerja dan jenis kerja, sebaran per satuan kerja dan per jenis kerja,
+	 * serta insight turunan (jumlah unit/jenis kerja terisi, unit dan jenis kerja dengan jumlah
+	 * pegawai terbanyak). Memperbarui kartu loading di setiap tahap; galat ditangkap dan
+	 * dilaporkan tanpa menghentikan proses (data yang berhasil dihitung sebelumnya tetap
+	 * dikembalikan).
+	 */
 	private DashboardPegawaiData loadDashboardData() {
 		DashboardPegawaiData data = new DashboardPegawaiData();
 		try {
@@ -316,6 +371,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		return data;
 	}
 
+	/** Menghitung jumlah entri {@code counters} yang bernilai positif dan bukan kelompok "Tidak Ditentukan" (mis. jumlah unit/jenis kerja yang benar-benar terisi pegawai). */
 	private int countFilledCounters(List counters) {
 		int count = 0;
 		if (counters == null) {
@@ -330,6 +386,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		return count;
 	}
 
+	/** Mengembalikan entri {@link CounterItem} dengan nilai terbesar dari {@code counters}, atau {@code null} bila kosong/seluruhnya nol. */
 	private CounterItem getTopCounter(List counters) {
 		if (counters == null || counters.size() == 0) {
 			return null;
@@ -347,6 +404,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		return top;
 	}
 
+	/** Menghitung jumlah pegawai aktif per satuan kerja dalam cakupan filter (termasuk kelompok "Tidak Ditentukan" untuk pegawai tanpa satuan kerja), melewatkan hasil bernilai nol, memperbarui progres loading per satuan kerja yang diproses. */
 	private List loadSatuanKerjaCounters() throws Exception {
 		List result = new ArrayList();
 		List satuanKerjas = getSatuanKerjaScope();
@@ -388,6 +446,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		return result;
 	}
 
+	/** Menghitung jumlah pegawai aktif per jenis kerja/tipe masa kerja dalam cakupan filter (termasuk kelompok "Tidak Ditentukan"), melewatkan hasil bernilai nol, memperbarui progres loading per jenis kerja yang diproses. */
 	private List loadTipeMasaKerjaCounters() throws Exception {
 		List result = new ArrayList();
 		List tipeList = getTipeMasaKerjaScope();
@@ -429,6 +488,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		return result;
 	}
 
+	/** Mengembalikan nama {@code tipe}, atau {@code "Tidak Ditentukan"} bila {@code tipe} {@code null}/namanya kosong/terjadi galat. */
 	private String getNamaTipeMasaKerja(TipeMasaKerja tipe) {
 		try {
 			if (tipe != null && tipe.getNama() != null) {
@@ -440,6 +500,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		return "Tidak Ditentukan";
 	}
 
+	/** Mengembalikan daftar satuan kerja dalam cakupan: satuan kerja terpilih beserta seluruh turunannya bila filter diisi, atau seluruh satuan kerja yang dapat diakses pengguna bila tidak; selalu menambahkan {@code null} di akhir untuk mewakili kelompok "tanpa satuan kerja". */
 	@SuppressWarnings("unchecked")
 	private List getSatuanKerjaScope() throws Exception {
 		List satuanKerjas;
@@ -457,6 +518,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		return satuanKerjas;
 	}
 
+	/** Mengembalikan daftar jenis kerja dalam cakupan: hanya jenis kerja terpilih bila filter diisi, atau seluruh jenis kerja aktif ditambah {@code null} (kelompok "tanpa jenis kerja") bila tidak. */
 	@SuppressWarnings("unchecked")
 	private List getTipeMasaKerjaScope() throws Exception {
 		List list = new ArrayList();
@@ -471,6 +533,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		return list;
 	}
 
+	/** Menghitung jumlah pegawai sesuai kriteria dasar ({@link #createBasePegawaiCriteria()}) ditambah penyesuaian dari {@code customizer}. */
 	private int countPegawai(CriteriaCustomizer customizer) throws Exception {
 		Criteria criteria = createBasePegawaiCriteria();
 		if (customizer != null) {
@@ -481,6 +544,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		return number == null ? 0 : number.intValue();
 	}
 
+	/** Membangun kriteria dasar pegawai aktif, difilter berdasarkan satuan kerja (beserta turunannya, lewat SQL restriction) dan jenis kerja global saat ini bila diisi. */
 	private Criteria createBasePegawaiCriteria() throws Exception {
 		Criteria criteria = HibernateUtil.currentSession().createCriteria(Pegawai.class)
 				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
@@ -494,6 +558,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		return criteria;
 	}
 
+	/** Menyusun klausa SQL {@code satuan_kerja IN (...) OR satuan_kerja IS NULL} mencakup satuan kerja terpilih beserta seluruh turunannya, atau {@code null} bila tidak ada filter satuan kerja aktif. */
 	private String buildSatuanKerjaSqlRestriction() throws Exception {
 		if (dashboardFilterSatker == null) {
 			return null;
@@ -511,6 +576,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		return inSatker.length() == 0 ? "true" : "(this_.satuan_kerja in (" + inSatker + ") or this_.satuan_kerja is null)";
 	}
 
+	/** Membungkus kriteria pegawai dasar ditambah {@code customizer} sebagai {@link DataCriteriaWithColumn}, dipakai sebagai sumber unduhan detail saat kartu metrik diklik. */
 	private DataCriteriaWithColumn createPegawaiCriteria(final CriteriaCustomizer customizer) {
 		return new DataCriteriaWithColumn() {
 			@Override
@@ -530,6 +596,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		};
 	}
 
+	/** Merender banner "hero" gradien di puncak dashboard: judul, ringkasan filter aktif, dan dua angka besar (Pegawai Aktif, Unit Terisi) yang dapat diklik untuk detail. */
 	private void renderHero(Component parent, DashboardPegawaiData data) {
 		org.zkoss.zul.Div hero = new org.zkoss.zul.Div();
 		hero.setStyle("position:relative; overflow:hidden; border-radius:18px; padding:22px 24px; color:#ffffff;"
@@ -572,6 +639,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		}));
 	}
 
+	/** Merender toolbar filter global (satuan kerja, jenis kerja, tombol refresh) yang memicu {@link #renderDashboard()} ulang saat nilainya berubah. */
 	private void renderGlobalFilter(final Component parent) throws Exception {
 		final org.zkoss.zul.Div filterContainer = new org.zkoss.zul.Div();
 		filterContainer.setParent(parent);
@@ -622,6 +690,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		refresh.addEventListener("onClick", refreshListener);
 	}
 
+	/** Memilih item combobox {@code combobox} yang nilainya sama dengan {@code tipeMasaKerja}; tidak melakukan apa pun bila salah satu parameter {@code null}. */
 	private void selectTipeMasaKerja(Combobox combobox, TipeMasaKerja tipeMasaKerja) {
 		if (combobox == null || tipeMasaKerja == null) {
 			return;
@@ -636,6 +705,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		}
 	}
 
+	/** Merender baris lima kartu metrik ringkas (Pegawai Aktif, Dengan/Tanpa Satker, Dengan/Tanpa Jenis Kerja, Unit Terisi), masing-masing dengan angka yang dapat diklik untuk detail. */
 	private void renderMetricCards(Component parent, DashboardPegawaiData data) {
 		org.zkoss.zul.Div wrap = new org.zkoss.zul.Div();
 		wrap.setStyle("display:flex; gap:12px; flex-wrap:wrap; margin-top:12px;");
@@ -673,6 +743,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		}));
 	}
 
+	/** Merender empat kartu insight (persentase kelengkapan satker/jenis kerja, unit terbesar, jenis kerja dominan) dari data agregat. */
 	private void renderInsightCards(Component parent, DashboardPegawaiData data) {
 		org.zkoss.zul.Div wrap = new org.zkoss.zul.Div();
 		wrap.setStyle("display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px; margin-top:12px;");
@@ -689,6 +760,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		appendHtml(wrap, buildInsightCard("Jenis Kerja Dominan", escapeHtml(topTipe), "Jenis kerja dengan jumlah pegawai terbanyak pada filter saat ini.", "#fff7ed", "#9a3412"));
 	}
 
+	/** Menyusun markup satu kartu insight (label berwarna, nilai besar, deskripsi). */
 	private String buildInsightCard(String title, String value, String desc, String bg, String color) {
 		return "<div style='border:1px solid #e5e7eb; border-radius:16px; padding:14px; background:#ffffff; box-shadow:0 10px 22px rgba(15,23,42,.05);'>"
 				+ "<div style='display:inline-block; padding:5px 9px; border-radius:999px; background:" + bg + "; color:" + color + "; font-size:11px; font-weight:800;'>" + escapeHtml(title) + "</div>"
@@ -697,6 +769,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 				+ "</div>";
 	}
 
+	/** Membangun tata letak dua kolom (menumpuk satu kolom di layar mobile) berisi panel-panel analitik: sebaran unit/jenis kerja, kualitas data, watchlist prioritas, dan rencana eksekusi. */
 	private void renderAnalyticLayout(Component parent, DashboardPegawaiData data) {
 		MyPortallayout analyticLayout = new MyPortallayout();
 		analyticLayout.setParent(parent);
@@ -728,18 +801,21 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		renderRencanaEksekusi(pcBottom, data);
 	}
 
+	/** Merender panel daftar sebaran jumlah pegawai per satuan kerja sebagai baris-baris bar chart horizontal. */
 	private void renderSebaranUnitKerja(Component parent, DashboardPegawaiData data) {
 		Panelchildren pch = createModernPanel("Sebaran Pegawai per Satuan Kerja", parent);
 		appendHtml(pch, "<div style='font-size:12px; color:#64748b; margin-bottom:12px; line-height:1.55;'>Mengikuti pola tab Data pada dashboard kepegawaian existing: pegawai dihitung berdasarkan satuan kerja, termasuk turunan satker jika filter dipilih.</div>");
 		renderCounterRows(pch, data.perSatuanKerja, "Belum ada data satuan kerja pada filter ini.", "#2563eb");
 	}
 
+	/** Merender panel daftar sebaran jumlah pegawai per jenis kerja/tipe masa kerja sebagai baris-baris bar chart horizontal. */
 	private void renderSebaranJenisKerja(Component parent, DashboardPegawaiData data) {
 		Panelchildren pch = createModernPanel("Sebaran Pegawai per Jenis Kerja", parent);
 		appendHtml(pch, "<div style='font-size:12px; color:#64748b; margin-bottom:12px; line-height:1.55;'>Jenis kerja menggunakan field <b>tipeMasaKerja</b> seperti filter yang sudah dipakai di tab Data.</div>");
 		renderCounterRows(pch, data.perTipeMasaKerja, "Belum ada data jenis kerja pada filter ini.", "#7c3aed");
 	}
 
+	/** Merender panel gauge kualitas data master pegawai: persentase kelengkapan satuan kerja, kelengkapan jenis kerja, dan gabungan sinyal data yang masih perlu dilengkapi. */
 	private void renderKualitasDataPegawai(Component parent, DashboardPegawaiData data) {
 		Panelchildren pch = createModernPanel("Kualitas Data Master Pegawai", parent);
 		int satkerCompleteness = percent(data.denganSatuanKerja, Math.max(1, data.totalPegawaiAktif));
@@ -749,6 +825,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		renderGaugeRow(pch, "Data Perlu Dilengkapi", percent(data.tanpaSatuanKerja + data.tanpaTipeMasaKerja, Math.max(1, data.totalPegawaiAktif * 2)), "Gabungan sinyal data kosong pada satker dan jenis kerja.", "#dc2626");
 	}
 
+	/** Merender panel "watchlist" tiga kartu tekanan (Tanpa Satker, Tanpa Jenis Kerja, Pegawai Aktif) yang menandai area paling perlu ditindaklanjuti admin kepegawaian. */
 	private void renderPrioritasTindakLanjut(Component parent, DashboardPegawaiData data) {
 		Panelchildren pch = createModernPanel("Watchlist Prioritas Kepegawaian", parent);
 		appendHtml(pch, "<div style='font-size:12px; color:#64748b; line-height:1.55; margin-bottom:12px;'>Gunakan bagian ini untuk melihat area yang paling perlu ditindaklanjuti oleh admin kepegawaian.</div>");
@@ -770,6 +847,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		createPressureCard(wrap, "Pegawai Aktif", data.totalPegawaiAktif, "Basis data aktif sesuai filter", "#dbeafe", "#1e40af", "Detail Seluruh Pegawai Aktif", createPegawaiCriteria(null));
 	}
 
+	/** Merender panel empat kartu "rencana eksekusi" berisi narasi rekomendasi tindak lanjut yang disusun dinamis dari kondisi data (kelengkapan satker/jenis kerja, unit dan jenis kerja dominan). */
 	private void renderRencanaEksekusi(Component parent, DashboardPegawaiData data) {
 		Panelchildren pch = createModernPanel("Prioritas Eksekusi Data Kepegawaian", parent);
 		String prioritas1 = data.tanpaSatuanKerja > 0 ? "Lengkapi satuan kerja untuk " + formatNumber(data.tanpaSatuanKerja) + " pegawai agar laporan unit kerja lebih akurat."
@@ -790,6 +868,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		appendHtml(pch, html);
 	}
 
+	/** Membangun satu panel bergaya kartu modern (judul, tanpa border bawaan ZK, sudut membulat, bayangan) dan mengembalikan area kontennya. */
 	private Panelchildren createModernPanel(String title, Component parent) {
 		Panel panel = new MyPanelConfig();
 		panel.setTitle(title);
@@ -808,6 +887,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		return pch;
 	}
 
+	/** Membangun satu kartu metrik (ikon, angka besar yang dapat diklik untuk detail, judul, deskripsi). */
 	private void createMetricCard(Component parent, String title, int value, String desc, String bg, String color, String icon,
 			String detailTitle, DataCriteriaWithColumn criteria) {
 		org.zkoss.zul.Div card = new org.zkoss.zul.Div();
@@ -829,6 +909,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 				+ "<div style='font-size:11px; color:#94a3b8; margin-top:3px;'>" + escapeHtml(desc) + "</div>");
 	}
 
+	/** Membangun satu kotak angka besar semi-transparan pada banner hero, dapat diklik untuk detail. */
 	private void createHeroNumber(Component parent, String title, int value, String detailTitle, DataCriteriaWithColumn criteria) {
 		org.zkoss.zul.Div box = new org.zkoss.zul.Div();
 		box.setStyle("min-width:132px; border-radius:16px; padding:12px 14px; background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.24); backdrop-filter:blur(4px);");
@@ -837,6 +918,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		appendHtml(box, "<div style='font-size:11px; margin-top:8px; opacity:.86;'>" + escapeHtml(title) + "</div>");
 	}
 
+	/** Membangun satu kartu "tekanan"/prioritas berwarna pada panel watchlist, dengan angka yang dapat diklik untuk detail. */
 	private void createPressureCard(Component parent, String title, int value, String desc, String bg, String color,
 			String detailTitle, DataCriteriaWithColumn criteria) {
 		org.zkoss.zul.Div card = new org.zkoss.zul.Div();
@@ -847,6 +929,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 				+ "<div style='font-size:11px; color:#64748b; margin-top:4px; line-height:1.35;'>" + escapeHtml(desc) + "</div>");
 	}
 
+	/** Merender hingga 12 baris bar chart dari {@code counters} (diurutkan sesuai urutan daftar, dilewati bila melebihi batas), atau pesan {@code emptyText} bila daftar kosong. */
 	private void renderCounterRows(Component parent, List counters, String emptyText, String color) {
 		if (counters == null || counters.size() == 0) {
 			appendHtml(parent, "<div style='padding:14px; border-radius:14px; background:#f8fafc; color:#64748b; font-size:12px;'>" + escapeHtml(emptyText) + "</div>");
@@ -873,6 +956,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		}
 	}
 
+	/** Merender satu baris bar chart horizontal: label, angka (dapat diklik untuk detail), dan bar proporsional terhadap {@code max}. */
 	private void renderCounterRow(Component parent, CounterItem item, int max, String color) {
 		org.zkoss.zul.Div row = new org.zkoss.zul.Div();
 		row.setStyle("padding:8px 0; border-bottom:1px solid #e2e8f0;");
@@ -892,6 +976,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 				+ "</div>");
 	}
 
+	/** Merender satu baris gauge (judul, deskripsi, persentase besar, dan progress bar), {@code pct} dipaksa ke rentang 0-100. */
 	private void renderGaugeRow(Component parent, String title, int pct, String desc, String color) {
 		if (pct < 0) {
 			pct = 0;
@@ -910,6 +995,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 				+ "<div style='height:9px; width:" + pct + "%; background:" + color + "; border-radius:999px;'></div></div>");
 	}
 
+	/** Membangun tautan angka yang, saat diklik, memicu {@link #showPegawaiDetail(String, DataCriteriaWithColumn)} untuk menampilkan detail data pegawai di balik angka tersebut. */
 	private void createDetailNumber(Component parent, String text, final String title, final DataCriteriaWithColumn criteria, String style) {
 		A a = new A(text == null ? "0" : text);
 		a.setStyle(style);
@@ -923,6 +1009,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		});
 	}
 
+	/** Memicu unduhan/tampilan detail data pegawai sesuai {@code criteria} lewat {@code Common#cetakDataCustomButton}; tidak melakukan apa pun bila {@code criteria} {@code null}. */
 	private void showPegawaiDetail(String title, DataCriteriaWithColumn criteria) throws Exception {
 		if (criteria == null) {
 			return;
@@ -936,6 +1023,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		}
 	}
 
+	/** Membangun array 160 string kosong sebagai placeholder daftar kolom unduhan (kolom sesungguhnya ditentukan oleh {@link PegawaiAction}). */
 	private String[] createEmptyColumns() {
 		String[] columns = new String[160];
 		for (int i = 0; i < columns.length; i++) {
@@ -944,6 +1032,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		return columns;
 	}
 
+	/** Menyusun markup satu kartu rencana eksekusi (nomor urut, judul, narasi rekomendasi). */
 	private String buildActionPlanCard(String no, String title, String desc, String bg, String color) {
 		return "<div style='border:1px solid #e5e7eb; border-radius:16px; padding:14px; background:#ffffff; box-shadow:0 10px 22px rgba(15,23,42,.05);'>"
 				+ "<div style='width:30px; height:30px; border-radius:10px; display:flex; align-items:center; justify-content:center; background:" + bg + "; color:" + color + "; font-weight:900;'>" + escapeHtml(no) + "</div>"
@@ -952,6 +1041,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 				+ "</div>";
 	}
 
+	/** Menghitung persentase {@code value} terhadap {@code total} (dibulatkan), {@code 0} bila {@code total} tidak positif. */
 	private int percent(int value, int total) {
 		if (total <= 0) {
 			return 0;
@@ -959,15 +1049,18 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		return (int) Math.round((value * 100.0d) / total);
 	}
 
+	/** Memformat {@code value} sebagai angka lokal Indonesia (pemisah ribuan). */
 	private String formatNumber(int value) {
 		return NUMBER_FORMAT.get().format(value);
 	}
 
+	/** Menambahkan komponen {@link Html} berisi {@code html} sebagai anak {@code parent} (string kosong bila {@code html} {@code null}). */
 	private void appendHtml(Component parent, String html) {
 		Html h = new Html(html == null ? "" : html);
 		h.setParent(parent);
 	}
 
+	/** Meng-escape karakter khusus HTML ({@code & < > " '}) pada {@code text} agar aman disisipkan ke markup, string kosong bila {@code text} {@code null}. */
 	private String escapeHtml(String text) {
 		if (text == null) {
 			return "";
@@ -981,16 +1074,19 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		return s;
 	}
 
+	/** Mencetak dan mencatat {@code e} ke audit hanya bila flag {@link #debug}/{@link #debuh} aktif. */
 	private void printDebug(Exception e) {
 		if ((debug || debuh) && e != null) {
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/dashboard/admin/DasboardUtamaKepegawaian.java:974");
 		}
 	}
 
+	/** Callback penyesuai kriteria pencarian pegawai, dipakai untuk menambahkan filter spesifik (mis. satuan kerja/jenis kerja tertentu) di atas kriteria dasar pegawai aktif. */
 	private interface CriteriaCustomizer {
 		void customize(Criteria criteria) throws Exception;
 	}
 
+	/** Kumpulan seluruh angka dan daftar agregat yang ditampilkan di dashboard, hasil satu kali pemuatan {@link #loadDashboardData()}. */
 	private static class DashboardPegawaiData {
 		int totalPegawaiAktif;
 		int denganSatuanKerja;
@@ -1005,6 +1101,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 		CounterItem topTipeMasaKerja;
 	}
 
+	/** Satu baris hitungan berlabel (mis. satu satuan kerja atau satu jenis kerja) beserta kriteria untuk membuka detailnya. */
 	private static class CounterItem {
 		String label;
 		int value;

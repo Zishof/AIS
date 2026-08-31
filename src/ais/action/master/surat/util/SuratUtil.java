@@ -39,6 +39,24 @@ import ais.database.model.surat.OpsiSuratKeluar;
 import ais.database.model.surat.OpsiSuratMasuk;
 import ais.database.model.surat.SuratKeluar;
 
+/**
+ * Kumpulan utilitas statis untuk modul persuratan: inisialisasi data referensi baku (opsi surat
+ * masuk/keluar, klasifikasi peruntukan surat — dibuat otomatis sekali via blok {@code static} bila
+ * belum ada di database, lihat {@link #initOpsiKeluar}/{@link #initOpsiMasuk}/{@link #initKlasifikasi}),
+ * penyusunan parameter kop surat (kop atas/bawah sekolah/perguruan tinggi/satuan kerja, diresolusi
+ * berjenjang: satuan kerja pengguna → sekolah terkait → perguruan tinggi, dengan fallback ke
+ * pendaftar PT bila ada), dan penyusunan parameter tanda tangan pejabat (nama, NIP/kode, gelar,
+ * gambar tanda tangan — diresolusi dari {@link Pejabat} atau langsung dari {@link Tbmuser} berbasis
+ * peran/role) untuk disisipkan ke mesin pembuat laporan surat.
+ *
+ * <p>
+ * Sebagian besar method menerima {@code Map<String, Object> parameters} yang dimodifikasi DI TEMPAT
+ * (bukan dikembalikan) untuk mengisi placeholder template surat; sesuai komentar kode, versi
+ * sebelumnya memakai satu {@code Map} statis bersama yang rawan race condition/data tertukar antar
+ * permintaan bersamaan — kini setiap pemanggilan {@code ubahIsiSuratKeluar} membuat {@code Map}
+ * lokal baru sehingga thread-safe tanpa perlu {@code synchronized}.
+ * </p>
+ */
 @SuppressWarnings("unchecked")
 public class SuratUtil {
 
@@ -151,7 +169,23 @@ public class SuratUtil {
 		return o;
 	}
 
-	// FIX: Hapus kata kunci 'synchronized' karena dengan Map lokal, method ini sudah 100% Thread-Safe
+	/**
+	 * Menyusun parameter isi surat keluar untuk ditampilkan pada form editor surat (varian dengan
+	 * komponen {@code Rows}/{@code Groupbox} UI), mendelegasikan ke
+	 * {@link SuratUtilHelper#ubahIsiSuratKeluar}. Selalu memakai {@code Map} parameter lokal baru
+	 * (thread-safe, tidak lagi memerlukan {@code synchronized}).
+	 *
+	 * @param rows                     komponen baris form yang diisi
+	 * @param myKlasifikasiSuratKeluar klasifikasi surat keluar terpilih
+	 * @param mahasiswa                mahasiswa terkait surat (bila peruntukan mahasiswa), boleh {@code null}
+	 * @param dosen                    dosen terkait surat, boleh {@code null}
+	 * @param pegawai                  pegawai terkait surat, boleh {@code null}
+	 * @param tbmuser                  pengguna pembuat surat
+	 * @param mycode                   kode surat
+	 * @param suratKeluar              entitas surat keluar (baru atau sedang diedit)
+	 * @param west                     komponen panel pratinjau/pendukung
+	 * @return peta parameter yang tersusun
+	 */
 	public static Map<String, Object> ubahIsiSuratKeluar(Rows rows,
 			KlasifikasiSuratKeluar myKlasifikasiSuratKeluar, Mahasiswa mahasiswa, Dosen dosen, Pegawai pegawai,
 			Tbmuser tbmuser, String mycode, SuratKeluar suratKeluar, Groupbox west) {
@@ -163,21 +197,35 @@ public class SuratUtil {
 				mycode, suratKeluar, west, localParams);
 	}
 
+	/** Mengisi {@code parameters} dengan kop baku untuk pengguna saat ini; mendelegasikan ke varian lengkap. */
 	@SuppressWarnings("rawtypes")
 	public static void initDefaultKop(Map parameters) {
 		initDefaultKop(parameters, Common.getCurrentUser(), null);
 	}
 
+	/** Mengisi {@code parameters} dengan kop baku untuk pengguna yang diberikan; mendelegasikan ke varian lengkap. */
 	@SuppressWarnings("rawtypes")
 	public static void initDefaultKop(Map parameters, Tbmuser tbmuser) {
 		initDefaultKop(parameters, tbmuser, null);
 	}
 
+	/** Mengisi {@code parameters} dengan kop baku untuk pengguna saat ini (parameter {@code satuanKerja} pada overload ini TIDAK dipakai — diteruskan {@code null} ke varian lengkap). */
 	@SuppressWarnings("rawtypes")
 	public static void initDefaultKop(Map parameters, SatuanKerja satuanKerja) {
 		initDefaultKop(parameters, Common.getCurrentUser(), null);
 	}
 
+	/**
+	 * Mengisi {@code parameters} dengan seluruh data kop baku: properti setiap {@link Sekolah}/
+	 * {@link Yayasan}/{@link PerguruanTinggi}/{@link Fakultas}/{@link Jurusan} yang dikenal sistem
+	 * (untuk placeholder ber-akhiran id), data sekolah/PT konteks saat ini, path gambar kop
+	 * atas/bawah yang diresolusi lewat {@link #ambilKop}/{@link #ambilKopBawah}, dan kop khusus
+	 * satuan kerja pengaju ({@link #initDefaultKopAja}).
+	 *
+	 * @param parameters  peta parameter yang diisi di tempat
+	 * @param tbmuser     pengguna konteks (menentukan sekolah/fakultas/satuan kerja default)
+	 * @param satuanKerja satuan kerja eksplisit (mengesampingkan satuan kerja milik {@code tbmuser} bila diisi)
+	 */
 	@SuppressWarnings("rawtypes")
 	public static void initDefaultKop(Map parameters, Tbmuser tbmuser, SatuanKerja satuanKerja) {
 		for (Object o : ConstantValues.ambilBerdasarClass(Sekolah.class).values()) {
@@ -236,10 +284,18 @@ public class SuratUtil {
 				perguruanTinggi, parameters, "kop_pengaju");
 	}
 
+	/**
+	 * Meresolusi path file gambar kop surat ATAS yang berlaku untuk pengguna: sekolah pengguna bila
+	 * ada, jika tidak perguruan tinggi (fakultas) pengguna, jika tidak juga sekolah/PT konteks global.
+	 *
+	 * @param tbmuser pengguna konteks, boleh {@code null}
+	 * @return path absolut file gambar kop, atau string kosong bila tidak ditemukan
+	 */
 	public static String ambilKop(Tbmuser tbmuser) {
 		return resolveKopAtauBawah(tbmuser, LampiranLain.KOP_SEKOLAH, LampiranLain.KOP_PT);
 	}
 
+	/** Seperti {@link #ambilKop(Tbmuser)}, untuk kop surat BAWAH (footer). */
 	public static String ambilKopBawah(Tbmuser tbmuser) {
 		return resolveKopAtauBawah(tbmuser, LampiranLain.KOP_BAWAH_SEKOLAH, LampiranLain.KOP_BAWAH_PT);
 	}
@@ -277,6 +333,12 @@ public class SuratUtil {
 		return "";
 	}
 
+	/**
+	 * Meresolusi entitas {@link LampiranLain} kop surat (bukan hanya path file-nya) untuk sekolah
+	 * atau perguruan tinggi konteks global saat ini (tanpa memperhitungkan pengguna spesifik).
+	 *
+	 * @return lampiran kop yang berlaku, atau {@code null} bila tidak ditemukan
+	 */
 	public static LampiranLain ambilKopLampiranLain() {
 		Sekolah sekolah = SekolahUtil.getSekolah();
 		PerguruanTinggi perguruanTinggi = PerguruanTinggiUtil.getPerguruanTinggi();
@@ -300,6 +362,14 @@ public class SuratUtil {
 		return null;
 	}
 
+	/**
+	 * Mengisi {@code parameters} dengan path kop atas/bawah khusus satuan kerja
+	 * ({@code kop_satker}/{@code kop_bawah_satker}); mengisi string kosong bila satuan kerja
+	 * {@code null}/belum tersimpan.
+	 *
+	 * @param satuanKerja satuan kerja yang kopnya diambil, boleh {@code null}
+	 * @param parameters  peta parameter yang diisi di tempat
+	 */
 	public static void initSatker(SatuanKerja satuanKerja, Map<String, Object> parameters) {
 		if (satuanKerja != null && satuanKerja.getId() != null) {
 			parameters.put("kop_satker", getPathFileLampiran(satuanKerja.getId(), LampiranLain.KOP_SATKER, true));
@@ -311,6 +381,17 @@ public class SuratUtil {
 		}
 	}
 
+	/**
+	 * Mengisi {@code parameters} dengan kop khusus untuk unit/satuan kerja pengaju surat, dengan
+	 * urutan resolusi: sekolah yang tertaut ke {@code satuanKerja} bila ada, jika tidak PT pendaftar
+	 * atau PT langsung, jika tidak semuanya string kosong. Tidak menimpa kunci {@code nama} yang
+	 * sudah ada di {@code parameters}.
+	 *
+	 * @param satuanKerja      satuan kerja pengaju, boleh {@code null}
+	 * @param perguruanTinggi  perguruan tinggi fallback, boleh {@code null}
+	 * @param parameters       peta parameter yang diisi di tempat
+	 * @param nama             nama kunci dasar untuk kop atas ({@code nama+"_bawah"} untuk kop bawah)
+	 */
 	public static void initDefaultKopAja(SatuanKerja satuanKerja, PerguruanTinggi perguruanTinggi,
 			Map<String, Object> parameters, String nama) {
 		initSatker(satuanKerja, parameters);
@@ -374,24 +455,45 @@ public class SuratUtil {
 		return "";
 	}
 
+	/** Menyusun parameter isi surat keluar yang sudah tersimpan, tanpa panel pratinjau; mendelegasikan ke varian lengkap. */
 	public static Map<String, Object> ubahIsiSuratKeluar(SuratKeluar suratKeluar) {
 		return ubahIsiSuratKeluar(suratKeluar, null);
 	}
 
-	// FIX: Hapus synchronized, implementasikan Map lokal
+	/** Menyusun parameter isi surat keluar yang sudah tersimpan untuk pengguna saat ini; mendelegasikan ke varian lengkap. */
 	public static Map<String, Object> ubahIsiSuratKeluar(SuratKeluar suratKeluar, Groupbox west) {
 		return ubahIsiSuratKeluar(suratKeluar, Common.getCurrentUser(), west);
 	}
 
-	// FIX: Hapus synchronized, implementasikan Map lokal
+	/**
+	 * Menyusun parameter isi surat keluar yang sudah tersimpan (dipakai saat mencetak/melihat ulang
+	 * surat, berbeda dari varian berbasis {@code Rows} yang dipakai saat mengedit form), mendelegasikan
+	 * ke {@link SuratUtilHelper#ubahIsiSuratKeluar}. Selalu memakai {@code Map} parameter lokal baru.
+	 *
+	 * @param suratKeluar surat keluar yang parameternya disusun
+	 * @param tbmuser     pengguna konteks
+	 * @param west        komponen panel pratinjau/pendukung, boleh {@code null}
+	 * @return peta parameter yang tersusun
+	 */
 	public static Map<String, Object> ubahIsiSuratKeluar(SuratKeluar suratKeluar, Tbmuser tbmuser,
 			Groupbox west) {
-		
+
 		Map<String, Object> localParams = new HashMap<String, Object>();
-		
+
 		return SuratUtilHelper.ubahIsiSuratKeluar(suratKeluar, tbmuser, west, localParams);
 	}
 
+	/**
+	 * Mengisi {@code parameters} dengan data tanda tangan satu {@link Pejabat}: nama, NIP/kode,
+	 * kode pegawai, gelar depan/belakang, dan path gambar tanda tangan (dicoba berurutan dari
+	 * pegawai/dosen/guru sesuai jenis pejabat), diberi awalan {@code prefix} pada setiap kunci.
+	 * Juga menambahkan data aktor tambahan berdasarkan peran/user tertentu lewat
+	 * {@link #ttdpejabat(Map, String, String, String)}.
+	 *
+	 * @param pejabat    pejabat yang data tanda tangannya diambil
+	 * @param parameters peta parameter yang diisi di tempat
+	 * @param prefix     awalan kunci parameter (mis. {@code "penandatangan."})
+	 */
 	public static void ttdpejabat(Pejabat pejabat, Map<String, Object> parameters, String prefix) {
 		String key = pejabat.getJenisJabatan() != null ? pejabat.getJenisJabatan().getKey() : "";
 		String nama = getNamaPejabat(pejabat);
@@ -481,6 +583,17 @@ public class SuratUtil {
 		return "";
 	}
 
+	/**
+	 * Mengisi {@code parameters} dengan data tanda tangan sekumpulan {@link Tbmuser} yang diresolusi
+	 * dari peran/role (parameter {@code jenisPengguna}, dicocokkan case-insensitive terhadap peran
+	 * pengguna) dan/atau daftar username eksplisit ({@code khususUser}), dedup berdasarkan id
+	 * pegawai/mahasiswa/siswa/dosen agar satu orang tidak muncul dua kali walau cocok banyak kriteria.
+	 *
+	 * @param parameters    peta parameter yang diisi di tempat
+	 * @param jenisPengguna daftar peran (dipisah koma) yang dicari, boleh {@code null}/kosong
+	 * @param khususUser    daftar username (dipisah koma) yang disertakan langsung, boleh {@code null}/kosong
+	 * @param prefix        awalan kunci parameter
+	 */
 	public static void ttdpejabat(Map<String, Object> parameters, String jenisPengguna, String khususUser,
 			String prefix) {
 		Map<String, Tbmuser> datasAktor = new HashMap<String, Tbmuser>();
@@ -533,6 +646,16 @@ public class SuratUtil {
 			datasAktor.put(fallbackKey, tbmuser);
 	}
 
+	/**
+	 * Mengisi {@code parameters} dengan data tanda tangan satu {@link Tbmuser} (nama, NIP/kode, dan
+	 * path gambar tanda tangan pegawai/dosen/guru), diberi indeks urut ke kunci parameter bila
+	 * {@code index > 1} (mendukung banyak penandatangan dengan peran sama).
+	 *
+	 * @param parameters peta parameter yang diisi di tempat
+	 * @param pejabat    pengguna yang data tanda tangannya diambil
+	 * @param prefix     awalan kunci parameter
+	 * @param index      urutan penandatangan (1 = tanpa akhiran indeks pada kunci)
+	 */
 	public static void ttdpejabat(Map<String, Object> parameters, Tbmuser pejabat, String prefix, int index) {
 		String suffix = (index == 1) ? "" : "." + index;
 		String nama = (pejabat.getPegawai() == null) ? (pejabat.getDosen() == null ? "" : pejabat.getDosen().getNama())
@@ -556,6 +679,16 @@ public class SuratUtil {
 				pejabat.getGuru() != null ? pejabat.getGuru().getId() : null, LampiranLain.TTD_GURU, prefix);
 	}
 
+	/**
+	 * Mengisi {@code parameters} dengan data instansi terkait surat keluar (sekolah/yayasan/jurusan/
+	 * fakultas/satuan kerja yang tertaut ke surat) dan gambar tanda tangan pejabat yang SUDAH
+	 * menyetujui surat ini lewat alur persetujuan ({@link AlurPersetujuanSuratKeluarStatus}
+	 * berstatus disetujui dengan kode unik) — kunci parameter {@code "ttd."+kodeJabatan}. Tidak
+	 * melakukan apa pun bila surat belum tersimpan.
+	 *
+	 * @param suratKeluar surat keluar yang datanya diambil
+	 * @param parameters  peta parameter yang diisi di tempat
+	 */
 	public static void initGambarTandaTangan(SuratKeluar suratKeluar, Map<String, Object> parameters) {
 		if (suratKeluar == null || suratKeluar.getId() == null)
 			return;

@@ -71,8 +71,35 @@ import jxl.Cell;
 import jxl.Sheet;
 import jxl.Workbook;
 
+/**
+ * Utilitas modul SIRS untuk pengelolaan massal data <b>Item Medis</b> beserta struktur harga
+ * jualnya lewat impor/ekspor Excel, dan pembangunan UI grid harga jual per item. Format berkas
+ * Excel yang dipakai bersama oleh {@link #onUploadBiaya} dan {@link #onDownloadBiaya}: sheet
+ * pertama bernama {@code "1000000-DATA"} berisi data master {@link ItemMedis} (kode, nama, boleh
+ * retur, harga sama, barcode, dan referensi jenis/satuan/kelompok/kelas/generik item dalam format
+ * sel {@code "id-nama"}); sheet-sheet berikutnya masing-masing bernama {@code "<idKelasPerawatan>-
+ * <namaKelasPerawatan>"} berisi harga jual item per kelas perawatan. Dengan begitu, berkas hasil
+ * unduhan {@link #onDownloadBiaya} bisa langsung disunting dan diunggah ulang lewat
+ * {@link #onUploadBiaya} sebagai templat pembaruan massal.
+ */
 public class CommonItem {
 
+	/**
+	 * Menangani unggahan berkas Excel (.xls) berisi data massal item medis dan harga per kelas
+	 * perawatan (lihat javadoc kelas untuk format sheet). Diproses di thread terpisah agar UI tetap
+	 * responsif: sheet {@code "1000000-DATA"} di-upsert ke {@link ItemMedis} — dicocokkan
+	 * berurutan lewat id, lalu kode, lalu nama (exact match); referensi jenis/satuan/kelompok/
+	 * kelas/generik item diresolusi dari sel berformat {@code "id-nama"} dengan strategi bertingkat
+	 * (coba parse id bagian depan, lalu id bagian belakang sebagai negatif — tampak seperti bug
+	 * warisan tapi dipertahankan apa adanya, lalu nama bagian belakang, lalu seluruh sel sebagai
+	 * nama). Bila {@code tarifKhusus} diberikan, item yang diimpor turut ditautkan ke tarif khusus
+	 * tersebut lewat {@link TarifKhususPunyaItem} (bila belum ada tautannya). Sheet lain (per kelas
+	 * perawatan) mengisi harga jual item pada kelas tersebut. Setiap baris disimpan dalam transaksi
+	 * dan sesi Hibernate tersendiri untuk membatasi penggunaan memori pada berkas besar.
+	 *
+	 * @param event       event unggahan berkas ({@link UploadEvent} langsung atau dibungkus {@link ForwardEvent})
+	 * @param tarifKhusus tarif khusus yang item-nya ditautkan otomatis, atau {@code null} untuk impor ke katalog item umum
+	 */
 	public static void onUploadBiaya(Event event, final TarifKhusus tarifKhusus) throws Exception {
 
 		final Media media;
@@ -870,6 +897,17 @@ public class CommonItem {
 	}
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Menghasilkan dan mengunduh berkas Excel (.xls) berisi data item medis (seluruh katalog, atau
+	 * hanya item yang tertaut ke {@code tarifKhusus} bila diberikan) beserta harga jualnya per
+	 * kelas perawatan, dalam format sheet yang sama seperti yang diharapkan
+	 * {@link #onUploadBiaya} (lihat javadoc kelas) — sehingga berkas ini dapat langsung disunting
+	 * dan diunggah ulang sebagai pembaruan massal. Diproses di thread terpisah dengan indikator
+	 * progres.
+	 *
+	 * @param event       event pemicu unduhan
+	 * @param tarifKhusus tarif khusus yang membatasi cakupan item yang diekspor, atau {@code null} untuk seluruh katalog item
+	 */
 	public static void onDownloadBiaya(Event event, final TarifKhusus tarifKhusus) throws Exception {
 
 		Clients.showBusy("memproses data ..");

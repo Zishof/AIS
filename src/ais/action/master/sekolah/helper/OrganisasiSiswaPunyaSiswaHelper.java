@@ -62,6 +62,19 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper UI (implementasi {@link DataLoader}/{@link DataCriteria}/{@link DataSearchDefault})
+ * untuk kelola daftar siswa anggota satu {@link OrganisasiSiswa} (organisasi kesiswaan/intra
+ * kampus) lewat entitas relasi {@link OrganisasiSiswaPunyaSiswa}: daftar berpaginasi dengan
+ * filter nama/NIM, angkatan, yayasan/sekolah (dikunci bila organisasi sudah terikat ke
+ * yayasan/sekolah tertentu), dan guru pembina (BK); menambah anggota lewat dialog pemilihan
+ * banyak siswa ({@code AmbilDataSiswaForOrganisasiSiswaHelper}); membersihkan sekaligus seluruh
+ * anggota yang belum disetujui lewat SQL langsung; serta unduh Excel dengan kolom tambahan berisi
+ * tautan unduh Surat Keputusan (SK)/Surat Keterangan per baris. Baris keanggotaan yang belum
+ * {@code persetujuan} dapat diedit bebas (jabatan, mulai, sampai, keterangan, lampiran SK) dan
+ * disetujui oleh user non-siswa; baris yang sudah disetujui dibekukan (kolom nonaktif, tombol
+ * hapus disembunyikan) dan bagi siswa hanya ditampilkan sebagai label status Ya/Belum.
+ */
 public class OrganisasiSiswaPunyaSiswaHelper implements DataLoader, DataCriteria, DataSearchDefault {
 
 	private MyGrid grid;
@@ -76,6 +89,7 @@ public class OrganisasiSiswaPunyaSiswaHelper implements DataLoader, DataCriteria
 	private Tbmuser tbmuser;
 	private AmbilDataGuruBanbox searchguru;
 
+	/** Membuat helper untuk user yang sedang login: menyiapkan kombo yayasan/sekolah dan paginasi awal. */
 	public OrganisasiSiswaPunyaSiswaHelper() {
 
 		tbmuser = Common.getCurrentUser();
@@ -91,10 +105,18 @@ public class OrganisasiSiswaPunyaSiswaHelper implements DataLoader, DataCriteria
 		});
 	}
 
+	/**
+	 * Renderer baris tabel: NIM+nama (via {@link RevisiHelper}), panel unggah/unduh lampiran SK,
+	 * angkatan, yayasan, sekolah, tanggal mulai/sampai, kombo jabatan, keterangan (semuanya
+	 * langsung tersimpan saat diubah dan dibekukan bila sudah disetujui), checkbox/label
+	 * persetujuan (checkbox untuk non-siswa, label status Ya/Belum untuk siswa), dan tombol hapus
+	 * (disembunyikan bila sudah disetujui).
+	 */
 	class DetailOrganisasiSiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		private boolean delete = false;
 
+		/** Menentukan visibilitas tombol hapus dari hak akses {@link CommonPrivilages#DELETE} user saat ini. */
 		public DetailOrganisasiSiswaRenderer() {
 			delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 		}
@@ -255,6 +277,7 @@ public class OrganisasiSiswaPunyaSiswaHelper implements DataLoader, DataCriteria
 
 	}
 
+	/** @return kriteria pencarian {@link OrganisasiSiswaPunyaSiswa} milik {@link #organisasiSiswa}, difilter guru pembina/sekolah/yayasan/angkatan/NIM-nama, diurutkan menaik berdasarkan NIM siswa bila {@code order} true. */
 	public Criteria initCriteria(boolean order) {
 
 		Guru guru = (Guru) searchguru.getAttribute("guru");
@@ -289,6 +312,12 @@ public class OrganisasiSiswaPunyaSiswaHelper implements DataLoader, DataCriteria
 		return criteria;
 	}
 
+	/**
+	 * Memuat ulang paginasi dan grid daftar anggota organisasi sesuai filter formulir dan halaman
+	 * aktif saat ini, dijalankan lewat timer default.
+	 *
+	 * @param value tidak dipakai (parameter kontrak {@link DataLoader})
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -310,10 +339,22 @@ public class OrganisasiSiswaPunyaSiswaHelper implements DataLoader, DataCriteria
 
 	}
 
+	/** @return {@code this} sebagai {@link DataLoader}, diteruskan ke dialog tambah anggota agar dapat memicu {@link #loadData(Object)} setelah selesai. */
 	private DataLoader getDataloader() {
 		return this;
 	}
 
+	/**
+	 * Menyusun tata letak lengkap: judul, toolbar filter (nama/angkatan/yayasan/sekolah/guru
+	 * pembina) dengan tombol cari, tombol "Ambil Siswa" (membuka dialog pemilihan banyak siswa),
+	 * "Bersihkan" (menghapus seluruh anggota yang belum disetujui lewat SQL langsung), unggah, dan
+	 * unduh Excel (dengan kolom tautan SK tambahan), serta grid anggota berpaginasi 50 baris.
+	 * Selalu diakhiri dengan memuat data lewat {@link #loadData(Object)}.
+	 *
+	 * @param organisasiSiswa organisasi siswa yang anggotanya dikelola
+	 * @param component       komponen wadah yang akan diisi ulang (dikosongkan lebih dulu)
+	 * @param window          jendela induk, diteruskan ke dialog pemilihan siswa
+	 */
 	public void display(final OrganisasiSiswa organisasiSiswa, final Component component, final MyWindow window) {
 		this.organisasiSiswa = organisasiSiswa;
 		Common.clear(component);
@@ -623,6 +664,7 @@ public class OrganisasiSiswaPunyaSiswaHelper implements DataLoader, DataCriteria
 
 	}
 
+	/** Alias {@link #loadData(Object)} untuk memenuhi kontrak {@link DataSearchDefault}. */
 	@Override
 	public void onSearchDefault(Event event) {
 		loadData(null);

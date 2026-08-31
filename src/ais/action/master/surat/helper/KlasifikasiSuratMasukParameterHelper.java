@@ -40,6 +40,21 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper pengelola grid parameter tambahan (key-value) untuk satu klasifikasi surat masuk
+ * ({@link KlasifikasiSuratMasuk}) — memungkinkan setiap klasifikasi surat memiliki field
+ * konfigurasi kustom sendiri ({@link KlasifikasiSuratMasukParemeter}: nama, key, nilai, dan tipe
+ * data nilai seperti {@code String}), dipakai untuk menyimpan parameter khusus yang dibutuhkan
+ * alur disposisi/pengolahan surat pada klasifikasi tersebut.
+ *
+ * <p>
+ * {@link #initDetail(KlasifikasiSuratMasuk)} membangun panel dengan toolbar "Tambah Parameter"
+ * yang membuka dialog kecil untuk mendefinisikan parameter baru (nama + keterangan, key
+ * dibangkitkan otomatis dari nama). {@link #initRow(Row, KlasifikasiSuratMasukParemeter)}
+ * menampilkan satu baris parameter: nama dan key (baca-saja), nilai (dapat diedit langsung,
+ * tersimpan otomatis saat berubah bila baris sudah tersimpan), dan pilihan tipe data nilai.
+ * </p>
+ */
 public class KlasifikasiSuratMasukParameterHelper implements DataCriteria, DataSearchDefault {
 
 	private MyGrid gridParemeter;
@@ -47,12 +62,20 @@ public class KlasifikasiSuratMasukParameterHelper implements DataCriteria, DataS
 	private boolean delete = false;
 	private KlasifikasiSuratMasuk klasifikasiSuratMasuk;
 
+	/** Membuat helper yang akan mengelola isi {@code gridParemeter}; hak tambah/hapus ditentukan dari {@link CommonPrivilages} saat ini. */
 	public KlasifikasiSuratMasukParameterHelper(MyGrid gridParemeter) {
 		this.gridParemeter = gridParemeter;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun panel parameter untuk {@code klasifikasiSuratMasuk}: toolbar tambah parameter baru
+	 * (bila berhak) dan grid menampilkan seluruh parameter yang sudah didefinisikan.
+	 *
+	 * @param klasifikasiSuratMasuk klasifikasi surat masuk target
+	 * @return borderlayout siap ditambahkan sebagai panel tab/jendela
+	 */
 	public Borderlayout initDetail(final KlasifikasiSuratMasuk klasifikasiSuratMasuk) throws Exception {
 		this.klasifikasiSuratMasuk = klasifikasiSuratMasuk;
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -257,6 +280,13 @@ public class KlasifikasiSuratMasukParameterHelper implements DataCriteria, DataS
 		}
 	}
 
+	/**
+	 * Mengisi satu baris grid parameter: nama dan key (baca-saja), field nilai yang dapat diedit
+	 * langsung (auto-save saat berubah untuk baris yang sudah tersimpan), dan combobox tipe data.
+	 *
+	 * @param row                             baris grid target
+	 * @param klasifikasiSuratMasukParemeter  parameter untuk baris ini
+	 */
 	public void initRow(final Row row, final KlasifikasiSuratMasukParemeter klasifikasiSuratMasukParemeter)
 			throws Exception {
 		row.setValign("top");row.setAttribute("klasifikasiSuratMasukParemeter", klasifikasiSuratMasukParemeter);

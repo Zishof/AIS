@@ -53,6 +53,19 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyDatebox;
 import ais.ui.util.MyTextbox;
 
+/**
+ * Composer ZK ({@code GenericForwardComposer}, method di-bind otomatis via konvensi penamaan
+ * {@code on<Event>$<componentId>}) untuk layar jadwal dokter berbasis kalender mingguan/bulanan
+ * ({@code org.zkoss.calendar.Calendars}) pada modul SIRS. Setiap {@link JadwalDokter} direpresentasikan
+ * sebagai satu event kalender untuk satu tenaga medis terpilih ({@link AmbilDataDokterBanbox}); jam
+ * mulai/selesai kerja kalender, zona waktu, dan rentang jam tampil semuanya dikendalikan lewat
+ * konfigurasi ({@code penjadwalan_jam_mulai}/{@code penjadwalan_jam_selesai}/{@code
+ * penjadwalan_timezone}). Membuat jadwal baru (drag-select pada kalender) otomatis meresolusi
+ * {@link Shift} yang berlaku pada jam mulai yang dipilih (shift dengan jam mulai terbesar yang masih
+ * ≤ waktu terpilih); mengubah/menghapus jadwal dilakukan lewat jendela edit yang membaca id jadwal
+ * dari judul event kalender. Warna event dipilih dari lima palet baku dan disimpan sebagai pasangan
+ * kode warna header/isi.
+ */
 public class CalendarJadwalDokterComposer extends GenericForwardComposer {
 
 	private static final long serialVersionUID = 201011240904L;
@@ -81,6 +94,7 @@ public class CalendarJadwalDokterComposer extends GenericForwardComposer {
 
 	private JadwalDokter jadwalDokter;
 
+	/** Menggeser tampilan kalender mundur satu minggu dan memuat ulang model event. */
 	public void onBack(Event event) {
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 		calendar.setTime(calendars.getCurrentDate());
@@ -90,6 +104,7 @@ public class CalendarJadwalDokterComposer extends GenericForwardComposer {
 		calendars.invalidate();
 	}
 
+	/** Menggeser tampilan kalender maju satu minggu dan memuat ulang model event. */
 	public void onNext(Event event) {
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 		calendar.setTime(calendars.getCurrentDate());
@@ -334,11 +349,18 @@ public class CalendarJadwalDokterComposer extends GenericForwardComposer {
 		cancel.setParent(toolbar);
 	}
 
+	/** Memuat ulang model event kalender dari database dan me-redraw kalender. */
 	public void onRefresh(Event event) {
 		initCalendarModel();
 		calendars.invalidate();
 	}
 
+	/**
+	 * Menginisialisasi layar: mengecek sesi/hak baca (redirect ke logoff bila tidak valid),
+	 * memasang listener perubahan tenaga medis (memuat ulang kalender), mengonfigurasi format
+	 * tanggal, jumlah slot waktu, zona waktu dan rentang jam tampil kalender dari konfigurasi
+	 * aplikasi, dan mengisi combobox hari.
+	 */
 	@Override
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
@@ -417,6 +439,14 @@ public class CalendarJadwalDokterComposer extends GenericForwardComposer {
 		CommonSirs.initCalendarModel(null, myDokter, null, calendars);
 	}
 
+	/**
+	 * Menangani pembuatan event baru lewat drag-select pada kalender: mewajibkan tenaga medis sudah
+	 * dipilih, meresolusi {@link Shift} yang berlaku pada waktu mulai terpilih, lalu membuka jendela
+	 * tambah jadwal dengan {@link JadwalDokter} baru yang sudah diprapopulasi.
+	 *
+	 * @param event event kalender berisi rentang waktu yang dipilih pengguna
+	 * @throws Exception diteruskan apa adanya dari kegagalan pembangunan form
+	 */
 	public void onEventCreate$calendars(ForwardEvent event) throws Exception {
 
 		Dokter myDokter = (Dokter) dokter.getAttribute("dokter");
@@ -461,12 +491,14 @@ public class CalendarJadwalDokterComposer extends GenericForwardComposer {
 		evt.stopClearGhost();
 	}
 
+	/** Menutup jendela tambah jadwal dan membatalkan event kalender sementara (ghost) yang belum disimpan. */
 	public void onClose$addWindow(ForwardEvent event) {
 		event.getOrigin().stopPropagation();
 		((CalendarsEvent) addWindow.getAttribute("calevent")).clearGhost();
 		addWindow.setVisible(false);
 	}
 
+	/** Menangani klik tombol simpan pada jendela tambah: memvalidasi/menyimpan lewat {@link #onSave()}, menutup jendela, lalu memuat ulang kalender setelah jeda singkat. */
 	public void onClick$okBtn$addWindow(ForwardEvent event) throws Exception {
 
 		if (onSave()) {
@@ -486,6 +518,7 @@ public class CalendarJadwalDokterComposer extends GenericForwardComposer {
 
 	}
 
+	/** Menutup jendela tambah/ubah jadwal tanpa menyimpan, membatalkan event kalender sementara (ghost) pada keduanya bila ada. */
 	public void onClick$cancelBtn$addWindow(ForwardEvent event) {
 		addWindow.setVisible(false);
 		try {
@@ -499,6 +532,15 @@ public class CalendarJadwalDokterComposer extends GenericForwardComposer {
 		}
 	}
 
+	/**
+	 * Menangani klik/edit satu event kalender yang sudah ada: mewajibkan tenaga medis sudah dipilih,
+	 * memuat {@link JadwalDokter} berdasarkan id yang tersimpan di judul event kalender, membuka
+	 * jendela ubah dengan seluruh field diprapopulasi (termasuk pemetaan warna event ke pilihan
+	 * combobox warna).
+	 *
+	 * @param event event kalender yang diklik/diedit pengguna
+	 * @throws Exception diteruskan apa adanya dari kegagalan pembangunan form
+	 */
 	public void onEventEdit$calendars(ForwardEvent event) throws Exception {
 
 		Dokter myDokter = (Dokter) dokter.getAttribute("dokter");
@@ -569,11 +611,13 @@ public class CalendarJadwalDokterComposer extends GenericForwardComposer {
 		editWindow.setAttribute("ce", ce);
 	}
 
+	/** Menutup jendela ubah jadwal tanpa menyimpan perubahan. */
 	public void onClose$editWindow(ForwardEvent event) {
 		event.getOrigin().stopPropagation();
 		editWindow.setVisible(false);
 	}
 
+	/** Menangani klik tombol simpan pada jendela ubah: memvalidasi/menyimpan lewat {@link #onSave()}, menutup jendela, lalu memuat ulang kalender setelah jeda singkat. */
 	public void onClick$okBtn$editWindow(ForwardEvent event) throws Exception {
 
 		if (onSave()) {
@@ -594,6 +638,7 @@ public class CalendarJadwalDokterComposer extends GenericForwardComposer {
 
 	}
 
+	/** Menangani klik tombol hapus pada jendela ubah: menampilkan dialog konfirmasi, lalu menghapus {@link JadwalDokter} yang terkait dan memuat ulang kalender bila dikonfirmasi. */
 	public void onClick$deleteBtn$editWindow(ForwardEvent event) {
 		try {
 			MyMessageboxConfig.show("Apakah Bapak/Ibu yakin ingin menghapus jadwal ini? Data jadwal yang telah dihapus tidak dapat dikembalikan.", "Pertanyaan",

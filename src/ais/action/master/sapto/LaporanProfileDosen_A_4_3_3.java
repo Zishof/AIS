@@ -25,6 +25,21 @@ import ais.database.model.MengajarDiPerguruanTinggiLain;
 import ais.database.model.Perkuliahan;
 import ais.database.model.penelitiandanpengabdian.PengajuanPenelitianDanPengabdian;
 
+/**
+ * Laporan borang akreditasi BAN-PT butir A-4.3.3 (profil beban kerja/ekivalensi mengajar dosen
+ * tetap ber-NIDN): untuk setiap {@link Dosen} tetap prodi terpilih, menghitung jumlah kelas yang
+ * diampu di prodi sendiri, di prodi lain dalam institusi, mengajar di perguruan tinggi lain
+ * ({@link MengajarDiPerguruanTinggiLain}), SKS penelitian dan pengabdian yang disetujui
+ * ({@link PengajuanPenelitianDanPengabdian#DISETUJUI}), serta ekivalensi SKS jabatan struktural
+ * (di institusi sendiri dan di PT lain), difilter fakultas/jurusan, tahun akademik, dan semester.
+ *
+ * <p>
+ * Perhitungan berat berjalan di thread terpisah (progres ditampilkan lewat {@link Label}), hasilnya
+ * dirender ke worksheet {@link #sheetCode} ("A-4.3.3") lewat {@link SaptoUtil#displayWorksheet}.
+ * Klik pada baris data memicu {@link DosenAction#cetakDRHDosen} untuk dosen baris tersebut (offset
+ * baris tetap 11, mengikuti tata letak template worksheet).
+ * </p>
+ */
 public class LaporanProfileDosen_A_4_3_3 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-4.3.3";
@@ -32,6 +47,7 @@ public class LaporanProfileDosen_A_4_3_3 extends SaptoBaseWindow {
     private Combobox tahunAjaran;
     private Combobox semester;
 
+    /** Konstruktor default: menyiapkan filter fakultas/jurusan, tahun akademik (default periode berjalan), dan combo semester, lalu membangun kerangka jendela. */
     public LaporanProfileDosen_A_4_3_3() {
         super();
         try {
@@ -42,6 +58,7 @@ public class LaporanProfileDosen_A_4_3_3 extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Konstruktor dengan judul/border/closable eksplisit; kegagalan inisialisasi dilempar ke pemanggil. */
     public LaporanProfileDosen_A_4_3_3(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         initFakultasJurusan();
@@ -50,6 +67,7 @@ public class LaporanProfileDosen_A_4_3_3 extends SaptoBaseWindow {
         buildBase(false);
     }
 
+    /** Membangun combo semester (Genap/Ganjil/Semua, default "Semua"). */
     private void buildSemesterCombobox() {
         semester = new Combobox();
         org.zkoss.zul.Comboitem ci = new org.zkoss.zul.Comboitem();
@@ -66,8 +84,10 @@ public class LaporanProfileDosen_A_4_3_3 extends SaptoBaseWindow {
         semester.setReadonly(true);
     }
 
+    /** @return kode sheet template worksheet borang, {@link #sheetCode}. */
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Menambahkan filter fakultas/jurusan standar, tahun akademik (wajib), dan semester ke baris toolbar filter. */
     @Override
     protected void buildFilters(Row row) {
         addFakultasJurusanFilter(row);
@@ -80,6 +100,12 @@ public class LaporanProfileDosen_A_4_3_3 extends SaptoBaseWindow {
         row.appendChild(semester);
     }
 
+    /**
+     * Handler tombol cetak: mengambil seluruh {@link Dosen} tetap ber-NIDN pada jurusan terpilih,
+     * lalu di thread terpisah menghitung baris data per dosen (lihat dokumentasi kelas untuk rincian
+     * komponen yang dijumlahkan) dan menampilkannya lewat {@link SaptoUtil#displayWorksheet}. Klik
+     * sel data memicu {@link DosenAction#cetakDRHDosen} untuk dosen baris yang diklik.
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

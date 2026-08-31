@@ -67,6 +67,17 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK yang menampilkan dan mengelola daftar siswa peserta satu {@link KegiatanKesiswaan}
+ * ({@link KegiatanKesiswaanPunyaSiswa}, relasi "punya banyak"), pada modul kesiswaan. Setiap baris
+ * dapat diperluas ({@link MyDetail}) untuk menampilkan jabatan/status/tugas dan skala kegiatan
+ * (dipilih dari daftar yang diizinkan {@link DetailKelompokKegiatanKesiswaan} milik kegiatan) serta
+ * unggahan sertifikat/dokumen pendukung. Menyediakan pencarian (nama/angkatan/yayasan/sekolah),
+ * cetak sertifikat massal ({@link SertifikatAction}), dan ekspor daftar peserta ke Excel
+ * (menyertakan hyperlink dan pewarnaan sel khusus per baris lewat Apache POI/ZK POI). Mengimplementasikan
+ * {@link DataLoader}, {@link DataCriteria}, dan {@link DataSearchDefault} agar dapat dipasang
+ * langsung ke komponen baku (paging, tombol cetak/ekspor) yang mengharapkan ketiga kontrak tersebut.
+ */
 public class KegiatanKesiswaanPunyaSiswaHelper implements DataLoader, DataCriteria, DataSearchDefault {
 
 	private MyGrid grid;
@@ -98,6 +109,7 @@ public class KegiatanKesiswaanPunyaSiswaHelper implements DataLoader, DataCriter
 
 	}
 
+	/** Renderer baris grid daftar peserta kegiatan: baris dapat diperluas untuk memilih jabatan/skala kegiatan dan mengunggah dokumen pendukung, dengan hak hapus dievaluasi sekali per instance renderer. */
 	class DetailKegiatanKesiswaanRenderer extends ais.ui.util.MyRowRenderer {
 
 		private boolean delete = false;
@@ -309,6 +321,13 @@ public class KegiatanKesiswaanPunyaSiswaHelper implements DataLoader, DataCriter
 
 	}
 
+	/**
+	 * Menyusun kriteria pencarian {@link KegiatanKesiswaanPunyaSiswa} milik kegiatan kesiswaan aktif,
+	 * difilter nama/angkatan/yayasan/sekolah siswa, diurutkan bila diminta.
+	 *
+	 * @param order {@code true} untuk menyertakan pengurutan
+	 * @return kriteria Hibernate siap dieksekusi
+	 */
 	public Criteria initCriteria(boolean order) {
 
 		Siswa siswa = (Siswa) searchsiswa.getAttribute("siswa");
@@ -346,6 +365,7 @@ public class KegiatanKesiswaanPunyaSiswaHelper implements DataLoader, DataCriter
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Memuat halaman peserta kegiatan sesuai kriteria pencarian dan halaman paging aktif, lalu merender hasilnya ke grid. */
 	public void loadData(Object value) {
 
 		Common.createDefaultTimer(new EventListener() {
@@ -370,6 +390,14 @@ public class KegiatanKesiswaanPunyaSiswaHelper implements DataLoader, DataCriter
 		return this;
 	}
 
+	/**
+	 * Membangun panel daftar peserta kegiatan kesiswaan di dalam komponen target: filter pencarian,
+	 * toolbar cetak sertifikat massal dan ekspor Excel, serta grid daftar berpaging.
+	 *
+	 * @param kegiatanKesiswaan kegiatan kesiswaan yang daftar pesertanya ditampilkan/dikelola
+	 * @param component         komponen kontainer target, dibersihkan dan diisi ulang oleh method ini
+	 * @param window            jendela pemanggil (konteks tambahan untuk dialog terkait)
+	 */
 	public void display(final KegiatanKesiswaan kegiatanKesiswaan, final Component component, final MyWindow window) {
 		this.kegiatanKesiswaan = kegiatanKesiswaan;
 		Common.clear(component);
@@ -683,6 +711,7 @@ public class KegiatanKesiswaanPunyaSiswaHelper implements DataLoader, DataCriter
 
 	
 	@Override
+	/** Menjalankan pencarian default (memakai kriteria sekarang, halaman pertama) dan merender hasilnya ke grid. */
 	public void onSearchDefault(Event event) {
 		loadData(null);
 	}

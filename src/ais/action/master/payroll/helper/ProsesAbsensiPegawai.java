@@ -62,6 +62,27 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Layar "Proses Absensi Pegawai" modul payroll: menghitung rekap kehadiran bulanan pegawai
+ * (aktif/masuk/alpa/sakit/izin/belum/tidak-hadir/terlambat/pulang-cepat/lembur/masuk-di-hari-libur,
+ * digabung dengan cuti dan pengajuan pegawai yang disetujui) untuk periode terpilih — perhitungan
+ * memakai pola konkurensi yang sama dengan {@link ais.action.report.format1.payroll.LaporanAbsensiPegawai}
+ * (cache libur nasional, pengelompokan cuti/pengajuan per pegawai, eksekusi paralel lewat
+ * {@link ParallelTaskExecutor}, server push dikelola lewat
+ * {@link ais.common.AsyncTaskManager#jalankanDenganPush}) — lalu menampilkan hasilnya sebagai grid
+ * rekap yang dapat dicetak PDF.
+ *
+ * <p>
+ * <b>Berbeda dari layar laporan sejenis</b>: kelas ini menyediakan tombol "Proses Sebagai
+ * Kehadiran Pegawai bulan ..." yang <b>menulis hasil perhitungan ke database</b> — setiap baris
+ * rekap disimpan/dimutakhirkan sebagai satu baris {@link KehadiranPegawaiBulanan} (kunci
+ * pegawai+bulan+tahun) dalam satu transaksi Hibernate, menjadikan rekap bulanan ini sumber data
+ * resmi untuk proses payroll selanjutnya (mis. perhitungan potongan/tunjangan kehadiran). Bulan
+ * dan tahun yang dipakai sebagai kunci penyimpanan diambil dari tanggal akhir rentang filter
+ * ({@code sampai}), BUKAN dari rentang keseluruhan — penting diperhatikan bila rentang filter
+ * melewati batas bulan.
+ * </p>
+ */
 public class ProsesAbsensiPegawai extends MyWindow {
 
 	private static final long serialVersionUID = -397946194166101691L;
@@ -87,6 +108,7 @@ public class ProsesAbsensiPegawai extends MyWindow {
 
 	private MyCheckboxConfig abaikanKehadiranJikaHariTidakTerpilih;
 
+	/** Membuat layar proses untuk seluruh pegawai (tanpa pra-filter satu pegawai tertentu). */
 	public ProsesAbsensiPegawai() {
 		super();
 		try {
@@ -96,6 +118,7 @@ public class ProsesAbsensiPegawai extends MyWindow {
 		}
 	}
 
+	/** Membuat layar proses dibatasi ke satu {@code pegawai} tertentu (filter satuan kerja/pegawai pada panel disembunyikan). */
 	public ProsesAbsensiPegawai(Pegawai pegawai) {
 		super();
 		this.pegawai = pegawai;
@@ -106,11 +129,13 @@ public class ProsesAbsensiPegawai extends MyWindow {
 		}
 	}
 
+	/** Konstruktor varian dengan judul/border/closable eksplisit, dipakai saat jendela dibuat sebagai komponen tersemat. */
 	public ProsesAbsensiPegawai(String title, String border, boolean closable) throws Exception {
 		super(title, border, closable);
 		init();
 	}
 
+	/** Membangun panel filter (satuan kerja, pegawai, jenis pegawai, ikatan kerja, rentang tanggal default sebulan penuh, checkbox hari aktif) dan area hasil di sisi barat/tengah layar. */
 	private void init() throws Exception {
 
 		satuanKerjaTreeModel = new SatuanKerjaTreeModel(false);
@@ -254,6 +279,7 @@ public class ProsesAbsensiPegawai extends MyWindow {
 		ais.ui.util.ZkCompat.setFlex(centerUtama, true);
 	}
 
+	/** Menyusun peta parameter laporan (indeks hari aktif, rentang tanggal, dan {@link #maps} hasil {@link #generateDataDanImageAlbum} bila sudah tersedia) untuk mesin laporan {@link Report}. */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private Map generateParameter() throws Exception {
 		Map parameters = ais.common.HashMapGenerator.getRand();
@@ -273,6 +299,19 @@ public class ProsesAbsensiPegawai extends MyWindow {
 	}
 
 	
+	/**
+	 * Menghitung rekap kehadiran seluruh pegawai yang lolos filter untuk rentang tanggal terpilih
+	 * dan menyimpan hasilnya ke {@link #maps} (read-only sampai pengguna menekan tombol proses).
+	 * Alur: (1) memuat pegawai aktif, cuti-bersama tahun berjalan, cuti/izin, status kehadiran
+	 * harian, dan pengajuan pegawai (lembur/dinas dll.) yang disetujui dan relevan dalam satu sesi
+	 * native yang selalu ditutup di {@code finally}; (2) mengelompokkan cuti dan pengajuan per
+	 * pegawai untuk akses O(1); (3) memproses setiap pegawai paralel — untuk setiap hari, menentukan
+	 * status kehadiran, ketepatan waktu, jam lembur (hanya dihitung bila ada pengajuan lembur
+	 * disetujui pada tanggal tersebut), dan masuk di hari libur; (4) menggabungkan hasil ke
+	 * {@link #maps} dan memperbarui {@code label} progres lewat server push.
+	 *
+	 * @param label komponen label UI untuk menampilkan progres
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void generateDataDanImageAlbum(final Label label) throws Exception {
 
@@ -684,6 +723,17 @@ public class ProsesAbsensiPegawai extends MyWindow {
 
 	private Desktop desktop;
 
+	/**
+	 * Menangani klik "Tampilkan": menghitung rekap kehadiran ({@link #generateDataDanImageAlbum})
+	 * di bawah pengelolaan server push, lalu menampilkan grid rekap beserta tombol "Proses Sebagai
+	 * Kehadiran Pegawai" untuk bulan/tahun dari tanggal akhir filter. Menekan tombol proses tersebut
+	 * <b>menulis</b> setiap baris rekap ke database sebagai {@link KehadiranPegawaiBulanan}
+	 * (membuat baru atau memutakhirkan yang sudah ada, kunci pegawai+bulan+tahun) dalam satu
+	 * transaksi, lalu mencetak PDF laporan absensi hasil proses tersebut. Lihat javadoc kelas
+	 * untuk implikasi penulisan data ini.
+	 *
+	 * @param event event pemicu tombol "Tampilkan"
+	 */
 	@SuppressWarnings({})
 	public void onKHS(Event event) throws Exception {
 

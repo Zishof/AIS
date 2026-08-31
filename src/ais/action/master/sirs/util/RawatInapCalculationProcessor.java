@@ -14,13 +14,28 @@ import ais.database.model.sirs.KunjunganDokter;
 import ais.database.model.sirs.Pendaftaran;
 import ais.database.model.sirs.Tindakan;
 
+/**
+ * Prosesor terkait tarif rawat inap modul SIRS. Saat ini hanya satu jalur yang benar-benar aktif:
+ * {@link #checkKunjunganDokter} — menyusun/memperbarui {@link DetailTransaksiLayanan} untuk biaya
+ * kunjungan dokter berdasarkan {@link Tindakan} dan {@link KelasPerawatan} pasien.
+ *
+ * <p>
+ * <b>Catatan:</b> {@link #doProcess()} (dipanggil dari {@link #run()} sebagai {@link TimerTask})
+ * dan {@link #checkPendaftaran(Pendaftaran, Session)} (perhitungan tarif tempat tidur per hari
+ * rawat inap) seluruh isinya DIKOMENTARI — kedua method ini efektif TIDAK melakukan apa pun saat
+ * ini. Perilaku ini dipertahankan apa adanya sesuai cakupan dokumentasi ini, bukan diaktifkan
+ * kembali di sini.
+ * </p>
+ */
 public class RawatInapCalculationProcessor extends TimerTask {
 
+	/** Titik masuk {@link TimerTask}; mendelegasikan ke {@link #doProcess()} (saat ini tidak melakukan apa pun, lihat catatan javadoc kelas). */
 	@Override
 	public void run() {
 		doProcess();
 	}
 
+	/** Dimaksudkan untuk memproses pendaftaran rawat inap yang belum keluar secara berkala; seluruh isi method saat ini dikomentari sehingga tidak melakukan apa pun. */
 	private void doProcess() {
 		// Session session = HibernateUtil.getSessionFactory().openSession();
 		//
@@ -45,10 +60,18 @@ public class RawatInapCalculationProcessor extends TimerTask {
 		// if (session.isOpen()) {session.disconnect();session.close();}
 	}
 
+	/** Varian ringkas {@link #checkKunjunganDokter(KunjunganDokter, Session)} memakai sesi Hibernate thread-local saat ini. */
 	public static void checkKunjunganDokter(KunjunganDokter kunjunganDokter) {
 		checkKunjunganDokter(kunjunganDokter, HibernateUtil.currentSession());
 	}
 
+	/**
+	 * Menyusun (atau memperbarui bila sudah ada) satu {@link DetailTransaksiLayanan} untuk biaya
+	 * kunjungan dokter, dicocokkan lewat kombinasi {@code kunjunganDokter}+{@code tindakan}. Biaya
+	 * dihitung berdasarkan {@link KelasPerawatan} pasien (fallback ke {@code ConstantValues.kelasNormal}
+	 * bila pendaftaran belum punya kelas perawatan) lewat {@code CommonPendaftaranUtil.setDetailBiaya}.
+	 * Tidak melakukan apa pun bila {@code kunjunganDokter} tidak punya {@link Tindakan} terkait.
+	 */
 	public static void checkKunjunganDokter(KunjunganDokter kunjunganDokter, Session session) {
 
 		Tindakan jenisKunjungan = kunjunganDokter.getTindakan();
@@ -86,10 +109,21 @@ public class RawatInapCalculationProcessor extends TimerTask {
 
 	}
 
+	/** Varian ringkas {@link #checkPendaftaran(Pendaftaran, Session)} memakai sesi Hibernate thread-local saat ini. */
 	public static void checkPendaftaran(Pendaftaran pendaftaran) {
 		checkPendaftaran(pendaftaran, HibernateUtil.currentSession());
 	}
 
+	/**
+	 * Dimaksudkan untuk menghitung tarif tempat tidur per hari rawat inap (membuat
+	 * {@code AlatMedis} tarif BED otomatis bila belum ada, lalu menyusun
+	 * {@link DetailTransaksiLayanan} berdasarkan selisih hari sejak tanggal pendaftaran).
+	 *
+	 * <p>
+	 * <b>Catatan:</b> seluruh isi method ini saat ini DIKOMENTARI sehingga tidak melakukan apa pun
+	 * — lihat catatan pada javadoc kelas.
+	 * </p>
+	 */
 	public static void checkPendaftaran(Pendaftaran pendaftaran, Session session) {
 		// if (pendaftaran == null || pendaftaran.getJenis() == null
 		// || !pendaftaran.getJenis().equals(Pendaftaran.RAWAT_INAP)) {

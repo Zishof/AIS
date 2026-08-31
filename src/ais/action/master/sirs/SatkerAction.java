@@ -24,6 +24,11 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD modul SIRS untuk {@link Satker} (satuan kerja rumah sakit): nama (wajib unik, dicek
+ * lewat {@link #checkNamaSatker()}) dan keterangan, dibangun di atas kerangka generik
+ * {@link GenericCrudAction}.
+ */
 public class SatkerAction extends GenericCrudAction<Satker> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -34,15 +39,19 @@ public class SatkerAction extends GenericCrudAction<Satker> {
 
     // ======================== Abstract implementations ========================
 
+    /** @return kelas entitas yang dikelola layar ini, {@link Satker}. */
     @Override
     protected Class<Satker> getEntityClass() { return Satker.class; }
 
+    /** @return instance {@link Satker} kosong untuk form tambah baru. */
     @Override
     protected Satker createNewEntity() { return new Satker(); }
 
+    /** @return judul jendela form tambah/ubah. */
     @Override
     protected String getWindowTitle() { return "Pendataan Satker"; }
 
+    /** Membentuk criteria pencarian {@link Satker} berdasarkan filter nama (ILIKE), diurut nama bila {@code order} true. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -54,6 +63,7 @@ public class SatkerAction extends GenericCrudAction<Satker> {
         return criteria;
     }
 
+    /** @return renderer baris grid untuk {@link Satker} ({@link SatkerRenderer}). */
     @Override
     protected MyRowRenderer createRenderer() {
         return new SatkerRenderer();
@@ -61,6 +71,7 @@ public class SatkerAction extends GenericCrudAction<Satker> {
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/ubah {@link Satker}: nama dan keterangan, plus toolbar Batal/Simpan. */
     @Override
     protected void buildFormContent(MyWindow window, final Satker satker) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -134,6 +145,7 @@ public class SatkerAction extends GenericCrudAction<Satker> {
 
     // ======================== Save logic ========================
 
+    /** Memvalidasi (nama wajib diisi dan harus unik) dan menyimpan {@link Satker} dari nilai form saat ini. @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal. */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Nama Satuan Kerja (Satker) wajib diisi terlebih dahulu. Langkah yang dapat dilakukan: (1) isikan Nama Satker pada kolom yang tersedia; (2) pastikan kolom tidak dikosongkan; (3) simpan kembali data setelah kolom terisi.", "Peringatan",
@@ -157,6 +169,7 @@ public class SatkerAction extends GenericCrudAction<Satker> {
         return true;
     }
 
+    /** @return {@code true} bila sudah ada {@link Satker} lain dengan nama yang sama persis (mengecualikan entitas yang sedang diedit). */
     public Boolean checkNamaSatker() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(Satker.class)
@@ -171,6 +184,7 @@ public class SatkerAction extends GenericCrudAction<Satker> {
 
     // ======================== Renderer ========================
 
+    /** Renderer baris grid {@link Satker}: nama (dengan revisi), keterangan, dan tombol ubah/hapus. */
     class SatkerRenderer extends MyRowRenderer {
 
         @Override

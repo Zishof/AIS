@@ -47,6 +47,18 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper UI (bukan entitas/aksi tersendiri) untuk kelola riwayat perjalanan/kunjungan luar negeri
+ * pegawai ({@link RiwayatKeluarNegeriPegawai}): daftar dengan filter pegawai/satuan kerja
+ * (mendukung cakupan hierarkis lewat {@link SatuanKerjaTreeModel} bila satuan kerja induk
+ * dipilih)/status persetujuan, dan jendela isi/edit terpisah yang mewajibkan minimal satu lampiran
+ * dokumen pendukung ({@link FotoLampiranPegawaiHelper}) sebelum dapat disimpan. Bila helper
+ * dikonstruksi untuk satu {@code pegawai} tertentu, filter pegawai pada daftar dan formulir
+ * dikunci ke pegawai tersebut. Setelah status ditandai <b>disetujui</b>
+ * ({@link CommonPrivilages#APPROVE} diperlukan untuk mengubah status), seluruh formulir dibekukan
+ * ({@link Common#freeze}) dan tombol hapus pada baris disembunyikan — mencegah perubahan data yang
+ * sudah disetujui.
+ */
 public class RiwayatKeluarNegeriPegawaiHelper {
 
 	private MyGrid grid = new MyGrid();
@@ -68,11 +80,13 @@ public class RiwayatKeluarNegeriPegawaiHelper {
 	private SatuanKerjaTreeModel satuanKerjaTreeModel;
 	private AmbilDataSatuanKerjaBanbox searchparent;
 
+	/** @param pegawai pegawai yang riwayatnya dikelola; {@code null} untuk menampilkan/mengelola riwayat seluruh pegawai (dengan filter pegawai dan satuan kerja bebas dipilih) */
 	public RiwayatKeluarNegeriPegawaiHelper(Pegawai pegawai) {
 		this.pegawai = pegawai;
 
 	}
 
+	/** Renderer baris tabel: identitas pegawai, negara, tujuan, lama, pembiaya, ikon status persetujuan, dan tombol ubah/hapus (hapus disembunyikan bila sudah disetujui). */
 	class RiwayatKeluarNegeriPegawaiRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -149,6 +163,12 @@ public class RiwayatKeluarNegeriPegawaiHelper {
 		}
 	}
 
+	/**
+	 * Menyusun tata letak (filter pegawai/satuan kerja + status persetujuan, tombol tambah, grid
+	 * riwayat berpaginasi 50 baris) dan langsung memuat data lewat {@link #onSearchDefault(Event)}.
+	 *
+	 * @return komponen tata letak siap pakai untuk ditempelkan ke jendela pemanggil
+	 */
 	public Borderlayout display() throws Exception {
 
 		North north = new North();
@@ -311,6 +331,15 @@ public class RiwayatKeluarNegeriPegawaiHelper {
 		return borderlayout;
 	}
 
+	/**
+	 * Memuat ulang grid riwayat (hingga {@link Common#MAX_RESULT} baris, terbaru dahulu),
+	 * difilter pegawai/status bila dipilih, dan dibatasi ke satuan kerja terpilih beserta seluruh
+	 * turunannya (lewat {@link SatuanKerjaTreeModel#getChildsSet}) bila satuan kerja induk
+	 * dipilih pada filter; bila tidak dipilih, dibatasi ke cakupan satuan kerja user yang login
+	 * lewat {@link ais.action.master.sekolah.util.SekolahUtil#ambilSatuanKerjas()}.
+	 *
+	 * @param event event pemicu (boleh {@code null}, tidak dipakai)
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -345,6 +374,15 @@ public class RiwayatKeluarNegeriPegawaiHelper {
 
 	}
 
+	/**
+	 * Menampilkan jendela modal isi/edit satu {@link RiwayatKeluarNegeriPegawai}: pemilih
+	 * pegawai (dikunci bila helper dibuat untuk satu pegawai tertentu), negara, tujuan, lama, dan
+	 * pembiaya, panel lampiran dokumen ({@link FotoLampiranPegawaiHelper}), serta checkbox status
+	 * persetujuan (hanya untuk user berwenang {@link CommonPrivilages#APPROVE}) yang membekukan
+	 * seluruh formulir saat dicentang. Tombol simpan mendelegasikan ke {@link #save(Event)}.
+	 *
+	 * @param riwayatKeluarNegeriPegawai data yang diedit, atau instans baru untuk data baru
+	 */
 	public void init(final RiwayatKeluarNegeriPegawai riwayatKeluarNegeriPegawai) throws Exception {
 		this.riwayatKeluarNegeriPegawai = riwayatKeluarNegeriPegawai;
 
@@ -488,6 +526,15 @@ public class RiwayatKeluarNegeriPegawaiHelper {
 		window.onModal();
 	}
 
+	/**
+	 * Memvalidasi pegawai/negara/tujuan/lama/pembiaya wajib diisi dan minimal satu lampiran
+	 * dokumen sudah diunggah (setiap baris lampiran harus punya {@code item} tersimpan), lalu
+	 * menyimpan (buat baru atau perbarui) entitas {@link RiwayatKeluarNegeriPegawai} beserta
+	 * seluruh baris {@link FotoLampiranPegawai} lampirannya dalam transaksi terpisah.
+	 *
+	 * @param event event pemicu (tidak dipakai)
+	 * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal (jendela tetap terbuka)
+	 */
 	@SuppressWarnings("unchecked")
 	public boolean save(Event event) throws Exception {
 

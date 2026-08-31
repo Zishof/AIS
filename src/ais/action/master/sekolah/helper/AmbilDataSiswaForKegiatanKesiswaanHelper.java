@@ -48,6 +48,14 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Dialog pemilihan banyak siswa ZK untuk memasukkan siswa ke satu {@link KegiatanKesiswaan}
+ * (kegiatan kesiswaan/ekstrakurikuler) — pola dan alurnya identik dengan
+ * {@link AmbilDataSiswaForDiskonSiswaHelper}, hanya berbeda entitas relasi target
+ * ({@link KegiatanKesiswaanPunyaSiswa}) dan memakai paging client-side 50 baris ({@link Paging})
+ * alih-alih {@code AmbilDataPagingHelper}. Combo yayasan/sekolah otomatis terkunci bila sudah
+ * ditetapkan pada kegiatan; siswa yang sudah terdaftar tampil tercentang dan terkunci.
+ */
 public class AmbilDataSiswaForKegiatanKesiswaanHelper {
 
 	private KegiatanKesiswaan kegiatanKesiswaan;
@@ -62,6 +70,7 @@ public class AmbilDataSiswaForKegiatanKesiswaanHelper {
 
 	private Paging paging;
 
+	/** Menyiapkan dialog untuk {@code kegiatanKesiswaan}; combo yayasan/sekolah otomatis terisi dan terkunci bila sudah ditetapkan pada kegiatan, atau bebas dipilih bila belum. */
 	public AmbilDataSiswaForKegiatanKesiswaanHelper(KegiatanKesiswaan kegiatanKesiswaan) {
 		this.kegiatanKesiswaan = kegiatanKesiswaan;
 		Yayasan yayasan = kegiatanKesiswaan.getYayasan();
@@ -116,6 +125,7 @@ public class AmbilDataSiswaForKegiatanKesiswaanHelper {
 
 	}
 
+	/** Renderer baris grid untuk {@link Siswa}: checkbox pilih (tercentang dan terkunci bila siswa sudah terdaftar pada {@link #kegiatanKesiswaan}), NIM, nama, dan tahun masuk. */
 	class SiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -141,6 +151,7 @@ public class AmbilDataSiswaForKegiatanKesiswaanHelper {
 		}
 	}
 
+	/** Menyimpan relasi {@link KegiatanKesiswaanPunyaSiswa} untuk setiap siswa yang tercentang dan belum terkunci pada grid, mencatat pengguna dan sumber perubahan ({@link SiswaAction}). */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() throws InterruptedException {
 		Session session = HibernateUtil.currentSession();
@@ -175,6 +186,7 @@ public class AmbilDataSiswaForKegiatanKesiswaanHelper {
 
 	}
 
+	/** Membangun kerangka dialog: panel filter pencarian (NIS/nama/yayasan/sekolah/tahun angkatan) di utara, grid siswa berpaging di tengah, dan tombol Simpan/Batal di selatan, lalu langsung memuat data dan membuka dialog sebagai modal. */
 	public void display(final DataLoader dataLoader, final MyWindow window) {
 
 		Common.clear(window);
@@ -379,6 +391,7 @@ public class AmbilDataSiswaForKegiatanKesiswaanHelper {
 		}
 	}
 
+	/** Menyusun kriteria pencarian {@link Siswa} (bernama, punya sekolah; dibatasi ke anak dari user orang tua yang login bila berlaku), difilter berdasarkan NIS/NISN/nomor induk santri (ilike), nama (ilike), tahun masuk, sekolah, dan yayasan; terurut tahun masuk menurun lalu NIM bila {@code order} true. */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(Siswa.class).add(Restrictions.isNotNull("namaSiswa")).add(Restrictions.ne("namaSiswa","")).add(Restrictions.isNotNull("sekolah"));
@@ -428,6 +441,7 @@ public class AmbilDataSiswaForKegiatanKesiswaanHelper {
 		return criteria;
 	}
 
+	/** Memuat ulang daftar siswa sesuai filter aktif (dipaginasi 50 baris via {@link #paging}) ke grid. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

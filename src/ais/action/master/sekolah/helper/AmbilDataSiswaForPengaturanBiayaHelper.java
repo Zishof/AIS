@@ -50,6 +50,17 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Dialog pemilihan banyak siswa ZK untuk memasukkan siswa ke satu {@link PengaturanBiaya}
+ * (pengaturan biaya sekolah) — pola dasarnya sama dengan
+ * {@link AmbilDataSiswaForDiskonSiswaHelper}/{@link AmbilDataSiswaForKegiatanKesiswaanHelper},
+ * dengan perbedaan penting: centang siswa dipertahankan lintas halaman dan lintas pencarian lewat
+ * {@link #longs} (daftar id siswa terpilih di sisi klien), yang di-OR-kan ke kriteria pencarian
+ * ({@link #initCriteria}) sehingga siswa yang sudah dicentang tetap muncul di grid walau tidak
+ * lagi cocok filter aktif — memungkinkan pengguna memilih siswa dari beberapa halaman/pencarian
+ * berbeda sebelum menekan Simpan. Membangun {@link MyWindow} sendiri (tidak menerima window dari
+ * pemanggil seperti dua helper serupa lainnya).
+ */
 public class AmbilDataSiswaForPengaturanBiayaHelper {
 
 	private PengaturanBiaya pengaturanBiaya;
@@ -64,6 +75,7 @@ public class AmbilDataSiswaForPengaturanBiayaHelper {
 
 	private Paging paging;
 
+	/** Menyiapkan dialog untuk {@code pengaturanBiaya}; combo yayasan/sekolah otomatis terisi dan terkunci bila sudah ditetapkan pada pengaturan biaya, atau bebas dipilih bila belum. */
 	public AmbilDataSiswaForPengaturanBiayaHelper(PengaturanBiaya pengaturanBiaya) {
 		this.pengaturanBiaya = pengaturanBiaya;
 		Yayasan yayasan = pengaturanBiaya.getYayasan();
@@ -120,6 +132,7 @@ public class AmbilDataSiswaForPengaturanBiayaHelper {
 
 	private List<Long> longs = new ArrayList<Long>();
 
+	/** Renderer baris grid untuk {@link Siswa}: checkbox pilih (tercentang dan terkunci bila siswa sudah terdaftar pada {@link #pengaturanBiaya}; centang manual dicatat ke {@link #longs} agar bertahan lintas halaman/pencarian), NIM, nama, dan tahun masuk. */
 	class SiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -157,6 +170,12 @@ public class AmbilDataSiswaForPengaturanBiayaHelper {
 		}
 	}
 
+	/**
+	 * Menyimpan relasi {@link PengaturanBiayaPunyaSiswa} untuk siswa yang tercentang pada grid
+	 * halaman saat ini, lalu untuk seluruh id pada {@link #longs} (akumulasi centang lintas
+	 * halaman/pencarian) yang belum punya relasi. Kedua bagian memakai cek keberadaan terlebih
+	 * dahulu agar tidak membuat relasi duplikat.
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() throws InterruptedException {
 		Session session = HibernateUtil.currentSession();
@@ -205,6 +224,7 @@ public class AmbilDataSiswaForPengaturanBiayaHelper {
 		}
 	}
 
+	/** Membuka jendela dialog baru berisi panel filter pencarian (NIS/nama/yayasan/sekolah/tahun angkatan), grid siswa berpaging (dengan centang bertahan lintas halaman), dan tombol Simpan/Batal; langsung memuat data dan menampilkan sebagai modal. */
 	public void display(final DataLoader dataLoader) {
 
 		final MyWindow window = new MyWindow();
@@ -414,6 +434,7 @@ public class AmbilDataSiswaForPengaturanBiayaHelper {
 		}
 	}
 
+	/** Menyusun kriteria pencarian {@link Siswa} berdasarkan NIS/NISN/nomor induk santri (ilike), nama (ilike), tahun masuk, sekolah, dan yayasan (dibatasi ke anak dari user orang tua yang login bila berlaku) — hasilnya di-OR-kan dengan id yang sudah tercentang di {@link #longs} agar siswa terpilih sebelumnya tetap tampil; terurut tahun masuk menurun lalu NIM bila {@code order} true. */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 
@@ -465,6 +486,7 @@ public class AmbilDataSiswaForPengaturanBiayaHelper {
 		return criteria;
 	}
 
+	/** Memuat ulang daftar siswa sesuai filter aktif, digabung siswa yang sudah tercentang sebelumnya (dipaginasi 50 baris via {@link #paging}) ke grid. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

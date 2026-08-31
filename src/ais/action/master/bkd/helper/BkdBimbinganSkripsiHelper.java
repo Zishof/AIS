@@ -25,8 +25,29 @@ import ais.database.model.PenunjangKinerjaDosen;
 import ais.database.model.Perkuliahan;
 import ais.database.model.TahapanAtauCapaianPembelajaran;
 
+/**
+ * Helper batch modul BKD (Beban Kerja Dosen) yang menghitung SKS bimbingan tugas akhir/skripsi
+ * dosen dan mencatatnya sebagai {@link AsesemenPenilaian} (penilaian asesor, bidang
+ * {@link PenunjangKinerjaDosen#PENDIDIKAN}, spesifikasi {@link PenilaianAsesor#PEMBIMBING_TA}) untuk
+ * satu tahun akademik/semester. Dipanggil baik untuk satu {@link Pegawai}/{@link Dosen} spesifik
+ * maupun untuk seluruh dosen (dengan progres opsional ditulis ke {@link Label} UI, mendukung
+ * pemakaian dari proses batch berjalan lama).
+ *
+ * <p>
+ * Perhitungan SKS mengikuti konfigurasi {@link ParameterUmum} berkunci
+ * {@code jumlah_sks_bimbingan_tugas_akhir_<idJenjang>_<peran>_<idTahapan>}: jumlah mahasiswa
+ * bimbingan (dibatasi maksimum dari {@code info1} konfigurasi) dikalikan bobot SKS per mahasiswa
+ * ({@code nilai} konfigurasi), dijumlahkan lintas {@link TahapanAtauCapaianPembelajaran} bertipe
+ * {@code TATAPAN_BIMBINGAN}. Peran "Pembimbing Utama" dicocokkan ke kolom {@code dosen1} pada
+ * {@link MahasiswaRequestTugasAkhir}, sedangkan "Pembimbing Pendamping" mencakup {@code dosen2}
+ * ATAU {@code dosen3}. Setelah {@link AsesemenPenilaian} disimpan,
+ * {@code PenilaianAsesorAction.checkPenilaian} dipanggil untuk memastikan baris
+ * {@link PenilaianAsesor} terkait tersinkron dengan asesor yang berlaku.
+ * </p>
+ */
 public class BkdBimbinganSkripsiHelper {
 
+	/** Memproses seluruh {@link Jenjang} aktif untuk {@code pegawai} (atau seluruh dosen bila {@code null}) pada tahun akademik/semester tertentu, mendelegasikan ke overload per-jenjang. */
 	@SuppressWarnings("unchecked")
 	public static void populate(Session session, final Pegawai pegawai, String tahunAkademik, String semester,
 			Label label) {
@@ -38,6 +59,14 @@ public class BkdBimbinganSkripsiHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Untuk satu {@code jenjang}: bila {@code pegawai} diberikan (dan berelasi ke {@link Dosen}),
+	 * memproses dosen tersebut langsung sebagai pembimbing utama DAN pendamping. Bila
+	 * {@code pegawai} {@code null}, mengumpulkan seluruh dosen yang tercatat sebagai
+	 * pembimbing1/2/3 pada {@link MahasiswaRequestTugasAkhir} berstatus aktif/mengulang/seminar/lulus
+	 * pada periode tersebut, lalu memproses masing-masing (dosen1 sebagai utama, gabungan dosen2+
+	 * dosen3 sebagai pendamping — dideduplikasi lewat {@link TreeSet}).
+	 */
 	public static void populate(Session session, final Pegawai pegawai, Jenjang jenjang, String tahunAkademik,
 			String semester, Label label) {
 
@@ -117,6 +146,15 @@ public class BkdBimbinganSkripsiHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Implementasi kanonik: menghitung total SKS bimbingan tugas akhir {@code dosen} sebagai
+	 * {@code sebagai} ("Pembimbing Utama"/"Pembimbing Pendamping") pada {@code jenjang}/
+	 * {@code tahunAkademik}/{@code semester}, lalu menyimpan/memperbarui satu baris
+	 * {@link AsesemenPenilaian} berisi keterangan rinci per mahasiswa bimbingan. Tidak melakukan apa
+	 * pun bila {@code dosen} {@code null}/tidak berelasi pegawai, atau bila dosen tidak punya
+	 * {@link Asesor} aktif, atau bila tidak ada mahasiswa bimbingan sama sekali pada periode
+	 * tersebut ({@code jmlMhs == 0}).
+	 */
 	public static void populate(Session session, Dosen dosen, Jenjang jenjang, String tahunAkademik, String semester,
 			String sebagai, Label label) {
 

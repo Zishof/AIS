@@ -34,12 +34,28 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper ZK generik untuk lampiran file/foto ({@link FotoLampiranPegawai}) yang bisa ditempel ke
+ * entitas apa pun — target diidentifikasi lewat pasangan polymorphic {@code (clazz, item)}, sama
+ * seperti pola {@code KomunikasiPegawaiHelper}. Upload langsung menyimpan blob file ke database
+ * (bukan filesystem) lewat sesi Hibernate terpisah {@link StreamingHibernateUtil}; setiap baris
+ * menyediakan pratinjau ({@link CommonMedia#preview}), tautan unduh, dan tombol hapus.
+ *
+ * <p>
+ * <b>Catatan:</b> bila entitas induk ({@code generalValueObject}) belum tersimpan (id
+ * {@code null}), {@code item} lampiran diisi dari {@code new Random(Long.MIN_VALUE).nextLong()} —
+ * karena {@link Random} diinisialisasi dengan seed TETAP setiap panggilan, nilai yang dihasilkan
+ * SELALU SAMA pada tiap upload untuk entitas yang belum tersimpan (bukan benar-benar acak).
+ * Perilaku ini dipertahankan apa adanya sesuai cakupan dokumentasi ini.
+ * </p>
+ */
 public class FotoLampiranPegawaiHelper {
 
 	private MyGrid gridFotoGambar;
 	private boolean add = true;
 	private boolean delete = true;
 
+	/** Membuat helper untuk grid target {@code gridFotoGambar} (privilese tambah/hapus saat ini keduanya default aktif, pemeriksaan {@code CommonPrivilages} dikomentari/dinonaktifkan). */
 	public FotoLampiranPegawaiHelper(MyGrid gridFotoGambar) {
 		this.gridFotoGambar = gridFotoGambar;
 		// add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -47,6 +63,12 @@ public class FotoLampiranPegawaiHelper {
 	}
 
 	@SuppressWarnings({ "rawtypes" })
+	/**
+	 * Membangun kerangka grid lampiran: toolbar upload "Tambah Lampiran" (menyimpan file yang
+	 * diunggah langsung sebagai {@link FotoLampiranPegawai} baru terikat ke
+	 * {@code (clazz, generalValueObject.getId())}) dan kolom (Lampiran, aksi), lalu memuat lampiran
+	 * yang sudah ada lewat {@link #loadDataDetail}.
+	 */
 	public Borderlayout initDetail(final GeneralValueObject generalValueObject, final Class clazz) throws Exception {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -127,6 +149,7 @@ public class FotoLampiranPegawaiHelper {
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
+	/** Memuat ulang seluruh {@link FotoLampiranPegawai} milik pasangan {@code (clazz, generalValueObject.getId())}, terurut terbaru lebih dulu; kosong bila {@code generalValueObject} belum tersimpan. */
 	private void loadDataDetail(final GeneralValueObject generalValueObject, final Class clazz) throws Exception {
 
 		Session session = StreamingHibernateUtil.getInstance().currentSession();
@@ -148,6 +171,7 @@ public class FotoLampiranPegawaiHelper {
 		StreamingHibernateUtil.getInstance().closeSession();
 	}
 
+	/** Merender satu baris grid: pratinjau media, nama+keterangan sebagai tautan unduh, tombol unduh eksplisit, dan tombol hapus. */
 	public void initRow(final Row row, final FotoLampiranPegawai fotoLampiranPegawai) throws Exception {
 		row.setValign("top");row.setAttribute("fotoLampiranPegawai", fotoLampiranPegawai);
 		EventListener eventListener = new EventListener() {

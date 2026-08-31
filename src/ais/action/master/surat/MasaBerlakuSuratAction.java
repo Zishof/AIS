@@ -27,6 +27,12 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD modul surat untuk {@link MasaBerlakuSurat} (referensi masa berlaku dokumen/surat
+ * keluar, mis. "1 bulan"/"1 tahun"): kode, nama, rentang tanggal contoh mulai/sampai, dan
+ * keterangan, dibangun di atas kerangka generik {@link GenericCrudAction}. Layar juga menyediakan
+ * download/upload data massal lewat {@link Common#cetakData}/{@link Common#uploadData}.
+ */
 public class MasaBerlakuSuratAction extends GenericCrudAction<MasaBerlakuSurat> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -40,20 +46,25 @@ public class MasaBerlakuSuratAction extends GenericCrudAction<MasaBerlakuSurat> 
 
     // ======================== Abstract implementations ========================
 
+    /** @return kelas entitas yang dikelola layar ini, {@link MasaBerlakuSurat}. */
     @Override
     protected Class<MasaBerlakuSurat> getEntityClass() { return MasaBerlakuSurat.class; }
 
+    /** @return instance {@link MasaBerlakuSurat} kosong untuk form tambah baru. */
     @Override
     protected MasaBerlakuSurat createNewEntity() { return new MasaBerlakuSurat(); }
 
+    /** @return judul jendela form tambah/ubah. */
     @Override
     protected String getWindowTitle() { return "Pendataan Masa Berlaku Surat"; }
 
+    /** @return nama kolom yang disertakan pada download/upload data massal. */
     @Override
     protected String[] getDownloadUploadContents() {
         return new String[] { "id", "kode", "nama", "mulai", "sampai", "keterangan", "aktif" };
     }
 
+    /** Menambahkan tombol cetak (download template/data) dan upload massal di sebelah tombol tambah, sesuai privilese. */
     @Override
     protected void onAfterInit(Component comp) throws Exception {
         String[] contents = getDownloadUploadContents();
@@ -69,6 +80,7 @@ public class MasaBerlakuSuratAction extends GenericCrudAction<MasaBerlakuSurat> 
         }
     }
 
+    /** Membentuk criteria pencarian {@link MasaBerlakuSurat} berdasarkan filter aktif dan nama (ILIKE), diurut nama bila {@code order} true. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -83,6 +95,7 @@ public class MasaBerlakuSuratAction extends GenericCrudAction<MasaBerlakuSurat> 
         return criteria;
     }
 
+    /** @return renderer baris grid untuk {@link MasaBerlakuSurat} ({@link MasaBerlakuSuratRenderer}). */
     @Override
     protected MyRowRenderer createRenderer() {
         return new MasaBerlakuSuratRenderer();
@@ -90,6 +103,7 @@ public class MasaBerlakuSuratAction extends GenericCrudAction<MasaBerlakuSurat> 
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/ubah {@link MasaBerlakuSurat}: kode, nama (wajib), tanggal mulai/sampai, dan keterangan, plus toolbar Batal/Simpan. */
     @Override
     protected void buildFormContent(MyWindow window, final MasaBerlakuSurat masaBerlakuSurat) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -169,6 +183,7 @@ public class MasaBerlakuSuratAction extends GenericCrudAction<MasaBerlakuSurat> 
 
     // ======================== Save logic ========================
 
+    /** Memvalidasi (nama wajib diisi) dan menyimpan {@link MasaBerlakuSurat} dari nilai form saat ini. @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal. */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Nama Masa Berlaku Surat belum diisi. Langkah yang dapat dilakukan: (1) klik kolom Nama Masa Berlaku; (2) isikan nama masa berlaku surat secara lengkap; (3) ulangi proses simpan. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.", "Peringatan",
@@ -192,6 +207,7 @@ public class MasaBerlakuSuratAction extends GenericCrudAction<MasaBerlakuSurat> 
 
     // ======================== Renderer ========================
 
+    /** Renderer baris grid {@link MasaBerlakuSurat}: kode, nama (dengan revisi), tanggal mulai/sampai, keterangan, checkbox aktif (autosave), dan tombol ubah/hapus. */
     class MasaBerlakuSuratRenderer extends MyRowRenderer {
 
         @Override

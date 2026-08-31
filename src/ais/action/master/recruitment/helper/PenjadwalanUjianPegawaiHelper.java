@@ -44,6 +44,14 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Jendela dialog ZK untuk menjadwalkan sesi/{@link Pertemuan} ujian pada satu
+ * {@link JadwalUjianPegawai} (modul rekrutmen pegawai): menampilkan grid pertemuan yang dapat
+ * diedit langsung (topik, waktu mulai/selesai, status pertemuan), menambah pertemuan baru dengan
+ * tanggal otomatis digeser 7 hari dari pertemuan sebelumnya, dan menyimpan seluruh perubahan
+ * sekaligus (termasuk menomori ulang urutan pertemuan dan menghapus baris yang tidak lagi aktif)
+ * saat tombol Simpan ditekan.
+ */
 public class PenjadwalanUjianPegawaiHelper {
 
 	private JadwalUjianPegawai jadwalUjianPegawai;
@@ -52,6 +60,7 @@ public class PenjadwalanUjianPegawaiHelper {
 
 	private Date currDate;
 
+	/** Renderer baris grid untuk {@link Pertemuan}: topik, tanggal mulai/selesai, status pertemuan (semua tersimpan langsung saat diubah), dan tombol hapus (dengan pemeriksaan kelayakan via {@link PenjadwalanHelper#checkBolehHapus}). */
 	class PertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
 		public PertemuanRenderer() {
@@ -179,6 +188,15 @@ public class PenjadwalanUjianPegawaiHelper {
 
 	}
 
+	/**
+	 * Menyinkronkan seluruh baris grid ke database: menomori ulang urutan ({@code pertemuanKe})
+	 * pertemuan aktif berdasarkan urutan tanggal, lalu untuk tiap baris pada grid — bila
+	 * pertemuannya masih aktif — memperbarui/menyimpan data topik dan waktu; pertemuan yang
+	 * sebelumnya ada di database tapi tidak lagi muncul di antara baris yang diproses (aktif)
+	 * dihapus permanen.
+	 *
+	 * @return selalu {@code true}
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public boolean save() throws InterruptedException {
 
@@ -246,6 +264,11 @@ public class PenjadwalanUjianPegawaiHelper {
 		return true;
 	}
 
+	/**
+	 * Membuka dialog modal penjadwalan pertemuan untuk {@code jadwalUjianPegawai}: menampilkan
+	 * grid pertemuan yang sudah ada, tombol tambah pertemuan baru, dan tombol Simpan/Batal.
+	 * {@code dataLoader} dipanggil setelah penyimpanan untuk menyegarkan tampilan pemanggil.
+	 */
 	public void display(final JadwalUjianPegawai jadwalUjianPegawai, final DataLoader dataLoader) {
 		this.jadwalUjianPegawai = jadwalUjianPegawai;
 		this.dataLoader = dataLoader;
@@ -409,6 +432,7 @@ public class PenjadwalanUjianPegawaiHelper {
 		}
 	}
 
+	/** Memuat ulang seluruh {@link Pertemuan} aktif milik {@link #jadwalUjianPegawai} (terurut waktu mulai) ke grid. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

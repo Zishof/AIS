@@ -53,8 +53,52 @@ import ais.database.model.bni.BniRequestDetailBiaya;
 import ais.ui.util.MyDoublebox;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Kumpulan handler API (dipanggil oleh dispatcher servlet API dengan konvensi
+ * {@code (HttpServletRequest, JSONObject) -> JSONObject}, mengikuti pola yang sama seperti
+ * {@link TabunganSiswa}) untuk fitur tagihan dan pembayaran mahasiswa via aplikasi mobile:
+ * mengambil rincian tagihan per semester ({@link #tagihan}), mengambil riwayat kode Virtual
+ * Account (VA) yang pernah dibuat ({@link #daftar_va}), dan membuat kode VA baru untuk membayar
+ * satu atau lebih item tagihan terpilih ({@link #va}).
+ *
+ * <p>
+ * Setiap handler memvalidasi token akses lewat {@code ApiUtil#currentUser} lebih dulu. Kode
+ * status pada respons JSON mengikuti konvensi: {@code "00"} = berhasil, {@code "01"}/{@code
+ * "02"}/{@code "03"} = kegagalan bisnis spesifik (token bukan mahasiswa, tagihan kosong, bank
+ * tidak dikenal), {@code "90"} = galat internal, {@code "97"} = token tidak valid. Perhitungan
+ * tagihan menghormati dua metode biaya: <i>insidentil</i> ({@link DetailBiaya} langsung) dan
+ * <i>bulanan/cicilan</i> ({@link PengaturanPembayaranBulanan}, dengan kemungkinan denda
+ * keterlambatan dihitung otomatis atau kustom per {@link DetailKegiatan}); nilai
+ * {@code ItemBiaya.DIKALI_NILAI_MINUS} membalik tanda nominal menjadi kredit (mis. potongan/
+ * beasiswa). Pembuatan VA di {@link #va} bercabang menurut bank tujuan: rute BNI memakai
+ * {@link BniRequest}/{@link BniRequestDetail} lewat {@link BniCommon}, sedangkan bank lain
+ * (Mandiri/Online/Smartlink/BCA/MNC/BSI/BTN/Finpay/Flip) memakai {@link VirtualAccountBank} lewat
+ * jalur pembayaran umum.
+ * </p>
+ */
 public class TagihanMahasiswa {
 
+	/**
+	 * Mengambil rincian tagihan mahasiswa (pemilik token) untuk satu semester ({@code smt}),
+	 * dipecah per {@link JenisKegiatan} aktif (mis. SPP, her-registrasi) dan, di dalamnya, per
+	 * item biaya insidentil atau per bulan cicilan. Untuk setiap jenis kegiatan, prasyaratnya
+	 * diperiksa lebih dulu lewat {@code JenisKegiatanPrasyaratAction#checkSyarat}; kegiatan
+	 * pendaftaran (calon mahasiswa/her-registrasi mahasiswa baru) memakai jalur perhitungan
+	 * biaya berbeda ({@code PembayaranUtilHelper#getDetailBiayaCalonMahasiswa}) berdasarkan
+	 * prodi lulus/pilihan calon mahasiswa, sementara mahasiswa aktif biasa memakai
+	 * {@code PembayaranUtilHelper#getDetailBiayaMahasiswa}. Setiap baris tagihan menghitung
+	 * jumlah tertagih, total sudah dibayar (dari {@link CicilanPembayaran} tersimpan), sisa
+	 * belum dibayar, dan (untuk metode bulanan) denda keterlambatan berdasarkan tanggal
+	 * pembayaran cicilan sebelumnya bila ada. Hanya baris dengan tagihan positif (&gt; 0.1) yang
+	 * disertakan dalam hasil.
+	 *
+	 * @param req     request HTTP asli, sumber header autentikasi
+	 * @param request payload JSON berisi {@code smt} (nomor semester) dan {@code refresh}
+	 *                (opsional, paksa hitung ulang cache biaya bila {@code true})
+	 * @return JSON berisi daftar baris tagihan, biaya administrasi, dan bank VA mobile yang
+	 *         tersedia, atau JSON berisi {@code status} kegagalan/peringatan (mis. prasyarat
+	 *         kegiatan belum terpenuhi) bila ada
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static JSONObject tagihan(HttpServletRequest req, JSONObject request) {
 		JSONObject jsonObject = new JSONObject();
@@ -477,7 +521,7 @@ public class TagihanMahasiswa {
 		return jsonObject;
 	}
 
-	// Fungsi pembantu agar tidak ada try-catch berulang yang kosong
+	/** Mengurai {@code value} sebagai {@link Double}, mengembalikan {@code fallback} bila {@code value} kosong/{@code null}/tidak valid — menghindari try-catch kosong berulang di pemanggil. */
 	private static Double parseDoubleSafe(String value, Double fallback) {
 		if (value == null || value.trim().isEmpty()) {
 			return fallback;
@@ -489,6 +533,18 @@ public class TagihanMahasiswa {
 		}
 	}
 
+	/**
+	 * Mengambil hingga 50 kode Virtual Account (VA) terbaru yang pernah dibuat mahasiswa (pemilik
+	 * token) untuk {@code bank} tertentu: rute BNI membaca dari {@link BniRequest} (status
+	 * {@code "Payment Sukses"} dianggap lunas), rute bank lain (kosong/Mandiri/Online/Smartlink/
+	 * BCA/MNC Bank/BSI/BTN) membaca dari {@link VirtualAccountBank} (dianggap lunas bila kolom
+	 * {@code kegiatan} terisi).
+	 *
+	 * @param req     request HTTP asli, sumber header autentikasi
+	 * @param request payload JSON berisi {@code bank} (nama bank atau kosong)
+	 * @return JSON berisi daftar VA (kode, status lunas, total, tanggal kadaluarsa), atau JSON
+	 *         berisi {@code status} galat bila token tidak valid
+	 */
 	@SuppressWarnings("unchecked")
 	public static JSONObject daftar_va(HttpServletRequest req, JSONObject request) {
 		JSONObject jsonObject = new JSONObject();
@@ -580,6 +636,25 @@ public class TagihanMahasiswa {
 		return jsonObject;
 	}
 
+	/**
+	 * Membuat kode Virtual Account (VA) baru untuk membayar satu atau lebih baris tagihan
+	 * terpilih (identifikasi baris {@link PengaturanPembayaranBulanan} atau {@link DetailBiaya},
+	 * tergantung {@code metode}) beserta nominal masing-masing, ditambah opsional nominal
+	 * top-up tabungan. Bercabang menurut {@code bank} tujuan: bank Mandiri/Online/Smartlink/BCA/
+	 * MNC Bank/BSI/BTN/Finpay/Flip membuat entri {@link VirtualAccountBank} lewat jalur
+	 * pembayaran umum; bank BNI membuat {@link BniRequest} beserta rincian
+	 * {@link BniRequestDetail}/{@link BniRequestDetailBiaya} lewat {@link BniCommon} (kode VA
+	 * dapat pula dipetakan ke format VA bank lain via konfigurasi
+	 * {@code prefix_kode_bank_lain_online} bila diisi).
+	 *
+	 * @param request             payload JSON berisi {@code tagihans} (peta id baris ke nominal),
+	 *                            {@code bank}, {@code metode} ({@code "Bulanan"} atau lainnya),
+	 *                            dan {@code tabungan} (opsional, nominal top-up)
+	 * @param httpServletRequest request HTTP asli, sumber header autentikasi
+	 * @return JSON berisi kode VA, rincian tagihan yang tercakup, biaya administrasi, dan
+	 *         nominal top-up, atau JSON berisi {@code status} kegagalan (token bukan mahasiswa,
+	 *         tagihan kosong, bank tidak dikenal, atau galat internal)
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static JSONObject va(JSONObject request, HttpServletRequest httpServletRequest) {
 		JSONObject jsonObject = new JSONObject();

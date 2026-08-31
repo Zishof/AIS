@@ -693,13 +693,6 @@ public class RabReportHelper {
 	 * Variasi {@link #generateJadwalAnggaran} yang menambahkan {@code harga_total} teragregasi via
 	 * {@link #getHargaTotal} (per catatan javadocnya, method itu saat ini selalu mengembalikan
 	 * {@code 0.0}) dan menyertakan setiap node yang cocok tanpa filter {@code hanyaChild}.
-	 *
-	 * <p>
-	 * <b>Catatan:</b> panggilan rekursif di akhir method memanggil ulang dirinya dengan {@code root}
-	 * yang SAMA (bukan {@code workspace.getId()} seperti pola rekursi pada method
-	 * {@code generate*} lain di kelas ini) — perilaku (termasuk potensi rekursi tak berhenti bila ada
-	 * node yang cocok) dipertahankan apa adanya sesuai cakupan dokumentasi ini.
-	 * </p>
 	 */
 	public void generateJadwalAnggaranPerUnit(final Long parentId, final WorkspaceTreeModel workspaceTreeModel,
 			final Long root, Collection<Workspace> workspaces, List<Map<String, Object>> maps) {
@@ -763,7 +756,7 @@ public class RabReportHelper {
 
 				maps.add(map);
 
-				generateJadwalAnggaranPerUnit(parentId, workspaceTreeModel, root, workspaces, maps);
+				generateJadwalAnggaranPerUnit(parentId, workspaceTreeModel, workspace.getId(), workspaces, maps);
 
 			}
 		}

@@ -60,6 +60,19 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyLabelBold;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Composer ZK untuk kalender mingguan jadwal pelajaran ({@link JadwalPelajaran}/{@link Pertemuan})
+ * modul sekolah, memakai komponen {@code Calendars} (ZK Calendar) dengan navigasi per minggu
+ * (bukan per bulan seperti {@code CalendarJadwalPelajaranBulanIniComposer} terkait). Filter
+ * tersedia berdasarkan tahun ajaran, semester, kelas, yayasan/sekolah (dikunci otomatis ke
+ * yayasan/sekolah user bila cakupannya sudah tetap), ruang, guru, dan siswa; guru/siswa yang
+ * login otomatis membatasi hasil ke jadwal terkait mereka lewat {@link #ambilData} (guru: salah
+ * satu dari 12 slot pengajar pada jadwal; siswa: kelas reguler atau kelas les yang diikutinya).
+ * Mengklik event kalender membuka detail pertemuan lewat {@link #init(Pertemuan, EventListener)}.
+ * Menyediakan pula {@link #onAgendaGuru(Event)} untuk mencetak laporan PDF agenda/SKS guru pada
+ * periode pertemuan yang sedang ditampilkan. Akses diverifikasi lewat
+ * {@link Common#doCheckSecurity()}.
+ */
 public class CalendarJadwalPelajaranMingguIniComposer extends GenericForwardComposer {
 
 	protected static final long serialVersionUID = 201011240904L;
@@ -82,6 +95,14 @@ public class CalendarJadwalPelajaranMingguIniComposer extends GenericForwardComp
 	private Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 	// private Calendar calendar1 = ais.ui.util.WaktuUtil.getCalendar();
 
+	/**
+	 * Menyusun grid detail satu-baris yang dapat dibuka/ditutup ({@link MyDetail}) berisi
+	 * ringkasan pertemuan lewat {@link #displayRinci}.
+	 *
+	 * @param pertemuan     pertemuan yang detailnya ditampilkan
+	 * @param eventListener diteruskan ke {@link #displayRinci} untuk aksi lanjutan di dalam detail
+	 * @return grid siap ditempelkan ke jendela
+	 */
 	public static MyGrid tampilInit(final Pertemuan pertemuan, final EventListener eventListener) throws Exception {
 
 		MyGrid grid = new MyGrid();
@@ -114,6 +135,16 @@ public class CalendarJadwalPelajaranMingguIniComposer extends GenericForwardComp
 		return grid;
 	}
 
+	/**
+	 * Menampilkan info ringkas {@link JadwalPelajaran} pertemuan (bila ada) sebagai label tebal,
+	 * lalu menyusun panel aktivitas pembelajaran ({@code AktifitasPembelajaranHelper}) sebanyak
+	 * agenda yang dikonfigurasi ({@code tampilan_jumlah_agenda_jadwalPelajaran}, default 1).
+	 *
+	 * @param row           komponen induk tempat label info ditambahkan
+	 * @param pertemuan     pertemuan yang detailnya ditampilkan
+	 * @param eventListener diteruskan ke helper aktivitas pembelajaran
+	 * @return panel berisi detail aktivitas pembelajaran
+	 */
 	public static MyDiv displayRinci(Component row, Pertemuan pertemuan, EventListener eventListener) throws Exception {
 		Tbmuser tbmuser = Common.getCurrentUser();
 		JadwalPelajaran jadwalPelajaran = pertemuan.getJadwalPelajaran();
@@ -140,6 +171,14 @@ public class CalendarJadwalPelajaranMingguIniComposer extends GenericForwardComp
 		return groupbox;
 	}
 
+	/**
+	 * Menampilkan jendela modal berisi detail pertemuan ({@link #tampilInit}) dengan tombol
+	 * Tutup yang memanggil {@code eventListener} (mis. untuk menyegarkan kalender pemanggil)
+	 * sebelum melepas jendela.
+	 *
+	 * @param pertemuan     pertemuan yang ditampilkan
+	 * @param eventListener dipanggil saat jendela ditutup
+	 */
 	@SuppressWarnings({})
 	public static void init(final Pertemuan pertemuan, final EventListener eventListener) throws Exception {
 		Common.createDefaultTimer(new EventListener() {
@@ -183,18 +222,21 @@ public class CalendarJadwalPelajaranMingguIniComposer extends GenericForwardComp
 		});
 	}
 
+	/** Menggeser minggu acuan mundur satu minggu, membangun ulang model kalender, lalu berpindah ke halaman sebelumnya pada komponen kalender. */
 	public void onBack(Event event) {
 		calendar.set(Calendar.WEEK_OF_MONTH, calendar.get(Calendar.WEEK_OF_MONTH) - 1);
 		initCalendarModel();
 		calendars.previousPage();
 	}
 
+	/** Menggeser minggu acuan maju satu minggu, membangun ulang model kalender, lalu berpindah ke halaman berikutnya pada komponen kalender. */
 	public void onNext(Event event) {
 		calendar.set(Calendar.WEEK_OF_MONTH, calendar.get(Calendar.WEEK_OF_MONTH) + 1);
 		initCalendarModel();
 		calendars.nextPage();
 	}
 
+	/** Membangun ulang model kalender ({@link #initCalendarModel()}) dan menyegarkan tampilan, dijalankan lewat timer. */
 	public void onRefresh(Event event) {
 
 		Common.createDefaultTimer(new EventListener() {
@@ -208,6 +250,7 @@ public class CalendarJadwalPelajaranMingguIniComposer extends GenericForwardComp
 
 	}
 
+	/** Memverifikasi keamanan sesi lewat {@link Common#doCheckSecurity()} sebelum halaman disusun. */
 	@Override
 	public ComponentInfo doBeforeCompose(Page page, Component parent, ComponentInfo compInfo) {
 		Common.doCheckSecurity();
@@ -217,6 +260,13 @@ public class CalendarJadwalPelajaranMingguIniComposer extends GenericForwardComp
 	private Row row1;
 	private Row row2;
 
+	/**
+	 * Memasang listener refresh pada filter kelas/guru/siswa/ruang, mengisi kombo semester dan
+	 * tahun ajaran, menerapkan pengaturan jam/zona waktu kalender dari konfigurasi, mengisi kombo
+	 * yayasan/sekolah (dikunci dan disaring ke cakupan user bila yayasan/sekolahnya sudah tetap),
+	 * menyembunyikan filter tahun ajaran/kelas untuk guru dan siswa (karena hasil sudah otomatis
+	 * dibatasi ke mereka), lalu memuat kalender awal.
+	 */
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
 
@@ -366,6 +416,26 @@ public class CalendarJadwalPelajaranMingguIniComposer extends GenericForwardComp
 
 	}
 
+	/**
+	 * Mengambil daftar {@link Pertemuan} aktif ber-{@link JadwalPelajaran} dalam rentang tanggal
+	 * {@code [mulai, sampai]}. Prioritas filter: bila {@code guru} diisi, dibatasi ke jadwal yang
+	 * mencantumkan guru tersebut di salah satu dari 12 slot pengajar; jika tidak tapi
+	 * {@code siswa} diisi, dibatasi ke jadwal pelajaran/kelas les yang diikuti siswa tersebut
+	 * (lewat subquery SQL langsung); jika keduanya kosong, dibatasi berdasarkan kombinasi
+	 * tahun akademik/semester/kelas/ruang/yayasan/sekolah yang diberikan.
+	 *
+	 * @param tahunAkademik tahun ajaran, atau {@code null} untuk semua
+	 * @param semester      kode semester, atau {@code null} untuk semua
+	 * @param kelas         nama kelas, atau {@code null}/kosong untuk semua
+	 * @param yayasan       filter yayasan, atau {@code null} untuk semua
+	 * @param sekolah       filter sekolah, atau {@code null} untuk semua
+	 * @param ruang         filter ruang, atau {@code null} untuk semua
+	 * @param guru          bila diisi, hasil dibatasi ke jadwal yang diampu guru ini (mengesampingkan filter lain)
+	 * @param siswa         bila diisi (dan {@code guru} kosong), hasil dibatasi ke jadwal/les yang diikuti siswa ini
+	 * @param mulai         tanggal awal rentang, inklusif
+	 * @param sampai        tanggal akhir rentang, inklusif
+	 * @return daftar pertemuan yang cocok
+	 */
 	@SuppressWarnings("unchecked")
 	public static List<Pertemuan> ambilData(String tahunAkademik, Integer semester, String kelas, Yayasan yayasan,
 			Sekolah sekolah, Ruang ruang, Guru guru, Siswa siswa, Date mulai, Date sampai) {
@@ -439,6 +509,14 @@ public class CalendarJadwalPelajaranMingguIniComposer extends GenericForwardComp
 		return criteria.list();
 	}
 
+	/**
+	 * Mencetak laporan PDF "sks_guru_periode" (agenda/SKS guru pada periode pertemuan yang
+	 * sedang ditampilkan): mengelompokkan pertemuan per guru+tanggal+waktu (deduplikasi lewat
+	 * kunci gabungan), menghitung periode tanggal terpendek-terpanjang dari data yang ada, dan
+	 * menyusun baris laporan berisi nama guru, waktu, mata pelajaran, kelas, dan jumlah mahasiswa.
+	 *
+	 * @param event event pemicu (tidak dipakai selain memastikan {@link #pertemuan} sudah dimuat)
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void onAgendaGuru(Event event) throws Exception {
 		if (pertemuan != null) {
@@ -491,6 +569,12 @@ public class CalendarJadwalPelajaranMingguIniComposer extends GenericForwardComp
 
 	private List<Pertemuan> pertemuan = null;
 
+	/**
+	 * Membangun model kalender untuk rentang satu minggu di sekitar {@link #calendar} (satu
+	 * minggu sebelum s.d. satu minggu sesudah, agar navigasi mundur/maju terasa mulus) sesuai
+	 * filter formulir saat ini, mengambil data lewat {@link #ambilData} dan menambahkan tiap
+	 * pertemuan sebagai event kalender lewat {@code CalendarJadwalPelajaranBulanIniComposer#createEvent}.
+	 */
 	protected void initCalendarModel() {
 
 		String tahunAkademik = tahunAjaran.getSelectedItem() == null || tahunAjaran.getSelectedItem().getValue() == null
@@ -528,6 +612,7 @@ public class CalendarJadwalPelajaranMingguIniComposer extends GenericForwardComp
 		calendars.setModel(cm);
 	}
 
+	/** Mencegah komponen kalender membersihkan "ghost" (bayangan slot yang sedang dibuat) secara otomatis saat event baru dibuat lewat drag. */
 	public void onEventCreate$calendars(ForwardEvent event) throws Exception {
 
 		CalendarsEvent evt = (CalendarsEvent) event.getOrigin();
@@ -535,6 +620,12 @@ public class CalendarJadwalPelajaranMingguIniComposer extends GenericForwardComp
 		evt.stopClearGhost();
 	}
 
+	/**
+	 * Menampilkan detail pertemuan untuk event kalender yang diklik. Judul event membawa id
+	 * pertemuan (format {@code "<id>-..."}; bagian sebelum {@code "-"} kosong berarti id negatif,
+	 * ditandai lewat bagian kedua) yang diparsing untuk mengambil {@link Pertemuan} dari basis
+	 * data, lalu ditampilkan lewat {@link #init(Pertemuan, EventListener)}.
+	 */
 	public void onEventEdit$calendars(ForwardEvent event) throws Exception {
 
 		CalendarsEvent evt = (CalendarsEvent) event.getOrigin();
@@ -578,6 +669,7 @@ public class CalendarJadwalPelajaranMingguIniComposer extends GenericForwardComp
 
 	}
 
+	/** Menerapkan perubahan waktu mulai/selesai (drag-resize) suatu event kalender ke model. */
 	public void onEventUpdate$calendars(ForwardEvent event) {
 		CalendarsEvent evt = (CalendarsEvent) event.getOrigin();
 		org.zkoss.calendar.Calendars cal = (org.zkoss.calendar.Calendars) evt.getTarget();

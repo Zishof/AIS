@@ -45,6 +45,13 @@ import ais.database.model.epsbed.EpsbedPembiayaanPenelitian;
 import ais.database.model.epsbed.EpsbedPeranPenulisan;
 import ais.database.model.epsbed.EpsbedPublikasiDosen;
 
+/**
+ * Helper UI ZK untuk mengelola data {@link EpsbedPublikasiDosen} (publikasi karya ilmiah dosen
+ * untuk pelaporan EPSBED/PDDIKTI): daftar publikasi per dosen dalam grid berpaging, dengan form
+ * tambah/ubah lengkap (jenis penelitian, media publikasi, peran penulis, mandiri/kelompok, bulan/
+ * tahun, pembiayaan, jumlah biaya, hingga 5 judul), dan hapus per baris. Menggunakan
+ * {@link PublikasiDosenDao} (bukan Hibernate langsung) untuk operasi simpan/hapus.
+ */
 public class PublikasiDosenHelper {
 
 	private MyGrid grid = new MyGrid();
@@ -81,6 +88,7 @@ public class PublikasiDosenHelper {
 	MyToolbarbuttonConfig simpan = new MyToolbarbuttonConfig("Simpan", "/img/save.gif");
 	MyToolbarbuttonConfig kembali = new MyToolbarbuttonConfig("Kembali", "/img/cancel.gif");
 
+	/** Menyiapkan pilihan combobox statis (jenis penelitian, media publikasi, peran, mandiri/kelompok, no. urut 1-12, bulan 1-12, tahun 20 tahun terakhir sampai berjalan) yang dipakai berulang pada form tambah/ubah. */
 	public PublikasiDosenHelper() {
 		// this.dosen = dosen;
 		Common.insertCombo(jenisPenelitian = new Combobox(), "nama", EpsbedJenisKaryaIlmiah.class);
@@ -119,6 +127,7 @@ public class PublikasiDosenHelper {
 
 	}
 
+	/** Renderer baris grid untuk {@link EpsbedPublikasiDosen}: tahun/bulan publikasi, judul, kategori mandiri/kelompok, media publikasi, dan tombol ubah/hapus. */
 	class PublikasiDosenRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -183,6 +192,7 @@ public class PublikasiDosenHelper {
 		}
 	}
 
+	/** Membangun kerangka layar daftar publikasi untuk {@code dosen}: toolbar "Tambah Data" (membuka form via {@link #init}) dan grid rincian publikasi, lalu langsung memuat datanya. */
 	public Borderlayout display(final Dosen dosen) {
 		this.dosen = dosen;
 
@@ -266,6 +276,7 @@ public class PublikasiDosenHelper {
 		return borderlayout;
 	}
 
+	/** Memuat seluruh {@link EpsbedPublikasiDosen} milik {@code dosen} (terbaru dulu berdasarkan tahun/bulan publikasi) ke grid. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Dosen dosen) {
 
@@ -283,6 +294,7 @@ public class PublikasiDosenHelper {
 
 	}
 
+	/** Membangun form tambah/ubah untuk {@code epsbedPublikasiDosen} (baru atau sudah ada): seluruh field publikasi beserta tombol Simpan/Kembali yang menggantikan area konten sementara, lalu memulihkan tampilan daftar setelah selesai. */
 	public void init(final EpsbedPublikasiDosen epsbedPublikasiDosen) throws Exception {
 		this.publikasiDosen = epsbedPublikasiDosen;
 		// System.out.println("test");
@@ -425,6 +437,7 @@ public class PublikasiDosenHelper {
 
 	}
 
+	/** Menyalin nilai form ke {@link #publikasiDosen} dan menyimpan/memperbarui lewat {@link PublikasiDosenDao}; selalu mengembalikan {@code true} (tidak ada validasi wajib isi). */
 	public boolean save(Event event) {
 		PublikasiDosenDao publikasiDosenDao = DaoFactory.getInstance().getPublikasiDosenDao();
 		if (publikasiDosen.getId() != null) {

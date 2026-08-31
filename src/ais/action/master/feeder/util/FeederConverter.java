@@ -40,8 +40,29 @@ import ais.database.model.SumberGaji;
 import ais.database.model.Wilayah;
 import ais.database.model.employ.Golongan;
 
+/**
+ * Konverter XML PDDIKTI/Dapodik Feeder ke entitas AIS: kumpulan method statis, satu per jenis
+ * entitas, yang masing-masing mem-parsing satu {@link Node} XML respons Feeder (satu elemen data,
+ * mis. hasil query {@code GetPerguruanTinggi}, {@code GetDosen}, {@code GetMahasiswa}) menjadi
+ * entitas domain AIS terkait. Seluruh method mengikuti pola yang sama: bila {@code result} tidak
+ * memiliki anak node, mengembalikan {@code null} (dianggap data kosong/tidak valid); selain itu,
+ * membuat entitas baru dan mengisi field-nya dengan mencocokkan nama tag XML (case-insensitive)
+ * terhadap daftar field yang diketahui — tag yang tidak dikenali diabaikan begitu saja. Kegagalan
+ * parsing satu field (mis. format tanggal/angka tidak valid) dicatat ke audit dan tidak
+ * menghentikan pemrosesan field lain.
+ *
+ * <p>
+ * Varian method yang menerima parameter {@code session} (Hibernate) tidak hanya mengisi field
+ * skalar, tetapi juga me-resolve relasi ke entitas AIS lain yang sudah tersimpan — baik lewat kode
+ * Feeder milik entitas terkait ({@link FeederUtil#getDataByFeeder}) maupun lewat pencarian
+ * langsung berdasarkan kolom {@code feeder} pada entitas tujuan. Method-method ini dipakai saat
+ * proses integrasi/sinkronisasi data Feeder ke database AIS berjalan (bukan sekadar pratinjau),
+ * karena membutuhkan akses database untuk resolusi relasi tersebut.
+ * </p>
+ */
 public class FeederConverter {
 
+	/** Mengonversi satu elemen data perguruan tinggi (respons {@code GetPerguruanTinggi}) menjadi entitas {@link PerguruanTinggi} — identitas, alamat, kontak, legalitas pendirian/izin operasi, data rekening, dan luas tanah. Mengembalikan {@code null} bila node kosong. */
 	public static PerguruanTinggi perguruanTinggi(Node result) {
 		if (result.hasChildNodes()) {
 			PerguruanTinggi perguruanTinggi = new PerguruanTinggi();
@@ -157,6 +178,7 @@ public class FeederConverter {
 		}
 	}
 
+	/** Mengonversi satu elemen data agama Feeder menjadi entitas {@link Agama} (kode dan nama). Mengembalikan {@code null} bila node kosong. */
 	public static Agama agama(Node result) {
 		if (result.hasChildNodes()) {
 			Agama agama = new Agama();
@@ -177,6 +199,7 @@ public class FeederConverter {
 		}
 	}
 
+	/** Mengonversi satu elemen data jenis evaluasi Feeder menjadi entitas {@link JenisEvaluasi}. Mengembalikan {@code null} bila node kosong. */
 	public static JenisEvaluasi jenisEvaluasi(Node result) {
 		if (result.hasChildNodes()) {
 			JenisEvaluasi jenisEvaluasi = new JenisEvaluasi();
@@ -200,6 +223,7 @@ public class FeederConverter {
 		}
 	}
 
+	/** Mengonversi satu elemen data status awal mahasiswa (jalur masuk) Feeder menjadi entitas {@link StatusAwalMahasiswa}. Mengembalikan {@code null} bila node kosong. */
 	public static StatusAwalMahasiswa statusAwalMahasiswa(Node result) {
 		if (result.hasChildNodes()) {
 			StatusAwalMahasiswa statusAwalMahasiswa = new StatusAwalMahasiswa();
@@ -220,6 +244,7 @@ public class FeederConverter {
 		}
 	}
 
+	/** Mengonversi satu elemen data pekerjaan Feeder menjadi entitas {@link Pekerjaan}. Mengembalikan {@code null} bila node kosong. */
 	public static Pekerjaan pekerjaan(Node result) {
 		if (result.hasChildNodes()) {
 			Pekerjaan pekerjaan = new Pekerjaan();
@@ -240,6 +265,7 @@ public class FeederConverter {
 		}
 	}
 
+	/** Mengonversi satu elemen data rentang penghasilan Feeder menjadi entitas {@link Penghasilan}. Mengembalikan {@code null} bila node kosong. */
 	public static Penghasilan penghasilan(Node result) {
 		if (result.hasChildNodes()) {
 			Penghasilan penghasilan = new Penghasilan();
@@ -274,6 +300,7 @@ public class FeederConverter {
 		}
 	}
 
+	/** Mengonversi satu elemen data wilayah administratif Feeder menjadi entitas {@link Wilayah}. Mengembalikan {@code null} bila node kosong. */
 	public static Wilayah wilayah(Node result) {
 		if (result.hasChildNodes()) {
 			Wilayah wilayah = new Wilayah();
@@ -303,6 +330,7 @@ public class FeederConverter {
 		}
 	}
 
+	/** Mengonversi satu elemen data jenis kebutuhan khusus (disabilitas) Feeder menjadi entitas {@link KebutuhanKhusus}. Mengembalikan {@code null} bila node kosong. */
 	public static KebutuhanKhusus kebutuhanKhusus(Node result) {
 		if (result.hasChildNodes()) {
 			KebutuhanKhusus kebutuhanKhusus = new KebutuhanKhusus();
@@ -373,6 +401,7 @@ public class FeederConverter {
 		}
 	}
 
+	/** Mengonversi satu elemen data jenjang pendidikan Feeder menjadi entitas {@link Jenjang}. Mengembalikan {@code null} bila node kosong. */
 	public static Jenjang jenjang(Node result) {
 		if (result.hasChildNodes()) {
 			Jenjang jenjang = new Jenjang();
@@ -393,6 +422,7 @@ public class FeederConverter {
 		}
 	}
 
+	/** Mengonversi satu elemen data jenis ikatan kerja dosen Feeder menjadi entitas {@link IkatanKerjaDosen}. Mengembalikan {@code null} bila node kosong. */
 	public static IkatanKerjaDosen ikatanKerjaDosen(Node result) {
 		if (result.hasChildNodes()) {
 			IkatanKerjaDosen ikatanKerjaDosen = new IkatanKerjaDosen();
@@ -416,6 +446,7 @@ public class FeederConverter {
 		}
 	}
 
+	/** Mengonversi satu elemen data status kepegawaian Feeder menjadi entitas {@link StatusKepegawaian}. Mengembalikan {@code null} bila node kosong. */
 	public static StatusKepegawaian statusKepegawaian(Node result) {
 		if (result.hasChildNodes()) {
 			StatusKepegawaian statusKepegawaian = new StatusKepegawaian();
@@ -437,6 +468,7 @@ public class FeederConverter {
 		}
 	}
 
+	/** Mengonversi satu elemen data lembaga pengangkat pegawai Feeder menjadi entitas {@link LembagaPengangkat}. Mengembalikan {@code null} bila node kosong. */
 	public static LembagaPengangkat lembagaPengangkat(Node result) {
 		if (result.hasChildNodes()) {
 			LembagaPengangkat lembagaPengangkat = new LembagaPengangkat();
@@ -458,6 +490,7 @@ public class FeederConverter {
 		}
 	}
 
+	/** Mengonversi satu elemen data status pegawai Feeder menjadi entitas {@link StatusPegawai}. Mengembalikan {@code null} bila node kosong. */
 	public static StatusPegawai statusPegawai(Node result) {
 		if (result.hasChildNodes()) {
 			StatusPegawai statusPegawai = new StatusPegawai();
@@ -479,6 +512,7 @@ public class FeederConverter {
 		}
 	}
 
+	/** Mengonversi satu elemen data golongan kepegawaian Feeder menjadi entitas {@link Golongan}. Mengembalikan {@code null} bila node kosong. */
 	public static Golongan golongan(Node result) {
 		if (result.hasChildNodes()) {
 			Golongan golongan = new Golongan();
@@ -504,6 +538,7 @@ public class FeederConverter {
 		}
 	}
 
+	/** Mengonversi satu elemen data konversi nilai huruf Feeder menjadi entitas {@link NilaiHuruf}, me-resolve relasi terkait (mis. jenjang) lewat {@code session} berdasarkan kode Feeder. Mengembalikan {@code null} bila node kosong. */
 	public static NilaiHuruf nilaiHuruf(Node result, Session session) {
 		if (result.hasChildNodes()) {
 			NilaiHuruf nilaiHuruf = new NilaiHuruf();
@@ -569,6 +604,7 @@ public class FeederConverter {
 		}
 	}
 
+	/** Mengonversi satu elemen data program studi Feeder menjadi entitas {@link Jurusan}: identitas, kode prodi, dan resolusi relasi {@link Fakultas}/{@link GrupJurusan} induk serta {@link Jenjang} lewat {@code session} berdasarkan kode Feeder. Mengembalikan {@code null} bila node kosong. */
 	public static Jurusan jurusan(Node result, Session session) {
 		if (result.hasChildNodes()) {
 			Jurusan jurusan = new Jurusan();
@@ -615,6 +651,7 @@ public class FeederConverter {
 		}
 	}
 
+	/** Mengonversi satu elemen data fakultas Feeder menjadi entitas {@link Fakultas}, me-resolve relasi terkait lewat {@code session} berdasarkan kode Feeder. Mengembalikan {@code null} bila node kosong. */
 	public static Fakultas fakultas(Node result, Session session) {
 		if (result.hasChildNodes()) {
 			Fakultas fakultas = new Fakultas();
@@ -643,6 +680,7 @@ public class FeederConverter {
 		}
 	}
 
+	/** Mengonversi satu elemen data grup jurusan/rumpun ilmu Feeder menjadi entitas {@link GrupJurusan}, me-resolve relasi terkait lewat {@code session} berdasarkan kode Feeder. Mengembalikan {@code null} bila node kosong. */
 	public static GrupJurusan grupJurusan(Node result, Session session) {
 		if (result.hasChildNodes()) {
 			GrupJurusan grupJurusan = new GrupJurusan();
@@ -685,6 +723,7 @@ public class FeederConverter {
 		}
 	}
 
+	/** Mengonversi satu elemen data mata kuliah Feeder menjadi entitas {@link Matakuliah}: identitas, SKS, dan resolusi relasi (mis. jurusan pemilik) lewat {@code session} berdasarkan kode Feeder. Mengembalikan {@code null} bila node kosong. */
 	public static Matakuliah matakuliah(Node result, Session session) {
 		if (result.hasChildNodes()) {
 			Matakuliah matakuliah = new Matakuliah();
@@ -766,6 +805,7 @@ public class FeederConverter {
 		}
 	}
 
+	/** Mengonversi satu elemen data kurikulum Feeder menjadi entitas {@link Kurikulum}, me-resolve relasi jurusan pemilik lewat {@code session} berdasarkan kode Feeder. Mengembalikan {@code null} bila node kosong. */
 	public static Kurikulum kurikulum(Node result, Session session) {
 		if (result.hasChildNodes()) {
 			Kurikulum kurikulum = new Kurikulum();
@@ -807,6 +847,7 @@ public class FeederConverter {
 		}
 	}
 
+	/** Mengonversi satu elemen data relasi kurikulum-matakuliah Feeder menjadi entitas {@link KurikulumPunyaMatakuliah}, me-resolve {@link Kurikulum} dan {@link Matakuliah} terkait lewat {@code session} berdasarkan kode Feeder. Mengembalikan {@code null} bila node kosong. */
 	public static KurikulumPunyaMatakuliah kurikulumPunyaMatakuliah(Node result, Session session) {
 		if (result.hasChildNodes()) {
 			KurikulumPunyaMatakuliah kurikulumPunyaMatakuliah = new KurikulumPunyaMatakuliah();
@@ -842,6 +883,14 @@ public class FeederConverter {
 		}
 	}
 
+	/**
+	 * Mengonversi satu elemen data mahasiswa Feeder (respons mis. {@code GetMahasiswa}) menjadi
+	 * entitas {@link BiodataMahasiswa}: biodata lengkap (identitas, kelahiran, alamat, kontak,
+	 * kebutuhan khusus), status akademik (jenjang, status awal, program), dan resolusi seluruh
+	 * relasi rujukan (jurusan, agama, pekerjaan orang tua, penghasilan, wilayah, dsb) lewat
+	 * {@code session} berdasarkan kode Feeder. Mahasiswa ini adalah method konversi terbesar dan
+	 * paling banyak field di kelas ini. Mengembalikan {@code null} bila node kosong.
+	 */
 	public static BiodataMahasiswa mahasiswa(Node result, Session session) {
 		if (result.hasChildNodes()) {
 			Mahasiswa mahasiswa = new Mahasiswa();
@@ -999,6 +1048,13 @@ public class FeederConverter {
 		}
 	}
 
+	/**
+	 * Mengonversi satu elemen data dosen Feeder (respons mis. {@code GetDosen}) menjadi entitas
+	 * {@link BiodataDosen}: biodata lengkap, status kepegawaian, ikatan kerja, golongan, lembaga
+	 * pengangkat, sumber gaji, dan resolusi seluruh relasi rujukan lewat {@code session}
+	 * berdasarkan kode Feeder. Bersama {@link #mahasiswa(Node, Session)}, ini adalah salah satu
+	 * method konversi terbesar di kelas ini. Mengembalikan {@code null} bila node kosong.
+	 */
 	public static BiodataDosen dosen(Node result, Session session) {
 		if (result.hasChildNodes()) {
 			Dosen dosen = new Dosen();
@@ -1247,6 +1303,7 @@ public class FeederConverter {
 		}
 	}
 
+	/** Mengonversi satu elemen data penugasan mengajar dosen (ajar dosen) Feeder menjadi entitas {@link PenugasanDosenMengajar}, me-resolve dosen dan mata kuliah terkait lewat {@code session} berdasarkan kode Feeder. Mengembalikan {@code null} bila node kosong. */
 	public static PenugasanDosenMengajar penugasanDosenMengajar(Node result, Session session) {
 		if (result.hasChildNodes()) {
 			PenugasanDosenMengajar penugasanDosenMengajar = new PenugasanDosenMengajar();
@@ -1304,6 +1361,7 @@ public class FeederConverter {
 		}
 	}
 
+	/** Utilitas umum: mencari anak node dari {@code result} yang nama tag-nya cocok (case-insensitive) dengan {@code key} dan mengembalikan teks isinya (di-trim); mengembalikan {@code null} bila tidak ditemukan atau node kosong. Dipakai untuk membaca satu field XML Feeder tanpa perlu menulis method konversi entitas penuh. */
 	public static String value(Node result, String key) {
 		if (result.hasChildNodes()) {
 			NodeList nodeList = result.getChildNodes();

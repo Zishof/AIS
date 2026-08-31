@@ -46,6 +46,23 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper pengelola galeri gambar hasil pindai (scan) per halaman suatu item pustaka
+ * ({@link Item}) — dipakai untuk mengunggah dan menampilkan koleksi digital (mis. e-book hasil
+ * scan) sebagai kumpulan gambar {@link FotoImagePerHalamanItem}, masing-masing terikat ke nomor
+ * halaman tertentu. Isi gambar disimpan sebagai BLOB lewat sesi Hibernate terpisah
+ * ({@link StreamingHibernateUtil}) yang dipakai khusus untuk operasi biner besar, terpisah dari
+ * sesi thread-local baku.
+ *
+ * <p>
+ * Alur unggah ({@link #initDetail(Item)}): mengunggah berkas gambar langsung menyimpannya sebagai
+ * baris baru (nomor halaman awalnya kosong/sementara), lalu menampilkan dialog untuk menetapkan
+ * nomor halaman tujuan gambar tersebut. {@link #initRow(Row, FotoImagePerHalamanItem)} merender
+ * satu baris grid: pratinjau gambar (lewat {@code CommonMedia.getImageItemPerHalaman}), tautan
+ * unduh berkas asli (membuka kembali sesi streaming untuk membaca BLOB), dan checkbox status
+ * tampil/tidak.
+ * </p>
+ */
 public class FotoImagePerHalamanItemHelper {
 
 	private MyGrid gridFotoImagePerHalamanItem;
@@ -56,12 +73,21 @@ public class FotoImagePerHalamanItemHelper {
 	private Intbox halamanSampai = new Intbox(10);
 	private Item item;
 
+	/** Membuat helper yang akan mengelola isi {@code gridFotoImagePerHalamanItem}; hak tambah/hapus ditentukan dari {@link CommonPrivilages} saat ini. */
 	public FotoImagePerHalamanItemHelper(MyGrid gridFotoImagePerHalamanItem) {
 		this.gridFotoImagePerHalamanItem = gridFotoImagePerHalamanItem;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun panel galeri untuk {@code item}: toolbar unggah (bila berhak tambah) yang langsung
+	 * menyimpan berkas terunggah sebagai baris baru dan meminta nomor halaman tujuan, serta grid
+	 * menampilkan seluruh halaman tersimpan.
+	 *
+	 * @param item item pustaka target
+	 * @return borderlayout siap ditambahkan sebagai panel tab/jendela
+	 */
 	public Borderlayout initDetail(final Item item) throws Exception {
 		this.item = item;
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -291,6 +317,13 @@ public class FotoImagePerHalamanItemHelper {
 
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan pratinjau gambar halaman, tautan unduh berkas asli (membaca
+	 * BLOB lewat sesi {@link StreamingHibernateUtil}), dan checkbox status tampil/tidak.
+	 *
+	 * @param row                     baris grid target
+	 * @param fotoImagePerHalamanItem data gambar halaman untuk baris ini
+	 */
 	public void initRow(final Row row, final FotoImagePerHalamanItem fotoImagePerHalamanItem) throws Exception {
 		row.setValign("top");row.setAttribute("fotoImagePerHalamanItem", fotoImagePerHalamanItem);
 		EventListener eventListener = new EventListener() {

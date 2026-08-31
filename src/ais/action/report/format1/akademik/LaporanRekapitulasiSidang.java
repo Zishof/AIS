@@ -60,6 +60,18 @@ import ais.ui.util.MyComboitemConfig;
 import ais.ui.util.MyGrid;
 import ais.ui.util.MyWindow;
 
+/**
+ * Jendela laporan rekapitulasi sidang tugas akhir/skripsi ({@link Skripsi}): untuk setiap peran
+ * pembimbing/penguji (Pembimbing I/II, Penguji I-V — 7 peran, masing-masing kolom dosen berbeda
+ * pada {@link Skripsi}), menghasilkan satu baris data per (skripsi, peran) yang dosennya terisi,
+ * difilter fakultas/jurusan/program/angkatan/status mahasiswa/status keluar/dosen/mahasiswa/tahun
+ * akademik/semester/status sidang. Data ditampilkan sebagai dashboard HTML
+ * ({@link LaporanSkripsiDashboardUtil}) yang dimuat asinkron di thread terpisah (dengan progress
+ * bar), atau dapat dicetak sebagai PDF lewat mesin laporan lama ({@link Report}). Bila dibuka
+ * untuk satu {@link JadwalSidangTugasAkhir} tertentu, filter TA dikosongkan dan laporan langsung
+ * dimuat. Setiap baris data diperkaya dengan snapshot akademik mahasiswa (IPK/IPS, judisium,
+ * status aktif historis, dosen PA) lewat {@link #buildMapSidang}.
+ */
 public class LaporanRekapitulasiSidang extends MyWindow {
 
     private static final long serialVersionUID = 4766478176972379068L;
@@ -82,6 +94,7 @@ public class LaporanRekapitulasiSidang extends MyWindow {
     @SuppressWarnings("rawtypes")
     private List<Map> maps = null;
 
+    /** Membuat jendela laporan tanpa jadwal sidang spesifik (mode rekapitulasi umum) dan langsung menyusun tampilan dasar. */
     public LaporanRekapitulasiSidang() {
         super();
         try {
@@ -98,6 +111,12 @@ public class LaporanRekapitulasiSidang extends MyWindow {
         }
     }
 
+    /**
+     * Membuat jendela laporan terikat ke satu {@code jadwalSidangTugasAkhir}: filter tahun
+     * akademik dikosongkan (semua TA) dan laporan langsung dimuat setelah tampilan tersusun.
+     *
+     * @param jadwalSidangTugasAkhir jadwal sidang yang menjadi cakupan laporan
+     */
     public LaporanRekapitulasiSidang(JadwalSidangTugasAkhir jadwalSidangTugasAkhir) {
         super();
         this.jadwalSidangTugasAkhir = jadwalSidangTugasAkhir;
@@ -115,18 +134,27 @@ public class LaporanRekapitulasiSidang extends MyWindow {
         }
     }
 
+    /**
+     * Membuat jendela laporan dengan judul, gaya border, dan status dapat-ditutup kustom.
+     *
+     * @param title    judul jendela
+     * @param border   gaya border jendela
+     * @param closable apakah jendela dapat ditutup pengguna
+     */
     public LaporanRekapitulasiSidang(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         initComboboxFakultasJurusan();
         init();
     }
 
+    /** Menyiapkan kombo fakultas/jurusan berpasangan (jurusan disaring ulang sesuai fakultas terpilih). */
     private void initComboboxFakultasJurusan() {
         fakultas = new Combobox();
         jurusan = new Combobox();
         Common.initFakultasDanJurusan(fakultas, jurusan, null, null);
     }
 
+    /** Menyusun tata letak (panel filter di West, toolbar ekspor di North, area dashboard di Center), menampilkan dashboard kosong awal, dan langsung memuat laporan bila jendela dibuka untuk satu jadwal sidang tertentu. */
     @SuppressWarnings("deprecation")
     private void init() throws Exception {
         Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -181,6 +209,7 @@ public class LaporanRekapitulasiSidang extends MyWindow {
         }
     }
 
+    /** Menyusun seluruh baris filter (fakultas, prodi, program, angkatan, status mahasiswa/keluar, dosen, mahasiswa, tahun akademik, semester, status sidang) beserta tombol tampil dashboard dan cetak PDF lama. */
     private void buildFilterRows(Rows rows) {
         tambahRow(rows, "Fakultas", fakultas);
         fakultas.setWidth("92%");
@@ -277,6 +306,7 @@ public class LaporanRekapitulasiSidang extends MyWindow {
         });
     }
 
+    /** Menambahkan satu baris label+komponen ke {@code rows} (helper tata letak formulir filter). */
     private void tambahRow(Rows rows, String label, org.zkoss.zk.ui.Component component) {
         MyFormRow row = new MyFormRow();
         row.setValign("top");
@@ -285,6 +315,7 @@ public class LaporanRekapitulasiSidang extends MyWindow {
         row.appendChild(component);
     }
 
+    /** @return peta parameter laporan (filter terpilih + {@link #maps} bila sudah dihitung) untuk mesin cetak PDF lama. */
     @SuppressWarnings({ "unchecked", "rawtypes" })
     private Map generateParameter() throws Exception {
         Dosen dosen = getSelectedDosen();
@@ -306,6 +337,17 @@ public class LaporanRekapitulasiSidang extends MyWindow {
         return parameters;
     }
 
+    /**
+     * Menghitung ulang {@link #maps} (satu baris per skripsi+peran dosen yang terisi): untuk
+     * masing-masing dari 7 peran (Pembimbing I/II, Penguji I-V), mengambil id
+     * {@link Skripsi} yang cocok dengan seluruh filter formulir dan kolom dosen peran tersebut
+     * tidak kosong, lalu untuk tiap skripsi menyinkronkan {@link KrsMahasiswa} terkait, mengambil
+     * status historis mahasiswa, melewati baris bila tidak cocok filter status mahasiswa
+     * ({@link #cocokStatusMahasiswa}), dan membangun baris data lewat {@link #buildMapSidang}.
+     * Progres ditulis ke {@code label} di setiap iterasi.
+     *
+     * @param label komponen label UI untuk menampilkan progres, boleh {@code null}
+     */
     @SuppressWarnings({ "unchecked", "rawtypes" })
     protected void generateDataDanImageAlbum(Label label) {
         maps = new ArrayList<Map>();
@@ -387,6 +429,7 @@ public class LaporanRekapitulasiSidang extends MyWindow {
         updateLabel(label, null, 0, 0, "");
     }
 
+    /** @return nilai yang diberikan pada peran {@code kolomDosen} (pembimbing/ketuaSidang/penguji1-5) untuk {@code skripsi}, atau {@code null} bila peran tidak dikenal. */
     private Object getNilaiPeran(Skripsi skripsi, String kolomDosen) {
         if ("pembimbing".equals(kolomDosen)) {
             return skripsi.getNilaiPembimbing();
@@ -412,6 +455,16 @@ public class LaporanRekapitulasiSidang extends MyWindow {
         return null;
     }
 
+    /**
+     * Membangun satu baris data laporan dari {@code skripsi}: menyalin seluruh properti
+     * {@link Skripsi} (dan {@link KrsMahasiswa} bila ada) apa adanya lewat
+     * {@link Common#insertProperty}, lalu menambahkan turunan akademik (foto lulus, judisium,
+     * dosen PA, SKS, IPK/IPS beserta varian pembulatan dan terbilang, mutu), identitas jadwal
+     * sidang, nama ketujuh peran dosen, status sidang, dan status aktif historis mahasiswa
+     * ({@link #getNamaStatusAktif}).
+     *
+     * @return peta data satu baris laporan
+     */
     @SuppressWarnings({ "rawtypes", "unchecked" })
     private Map buildMapSidang(Skripsi skripsi, Mahasiswa mahasiswa, KrsMahasiswa krsMahasiswa,
             HistoryStatusMahasiswa historyStatus) {
@@ -473,6 +526,12 @@ public class LaporanRekapitulasiSidang extends MyWindow {
         return map;
     }
 
+    /**
+     * Menampilkan progress bar, lalu menghitung ulang data ({@link #generateDataDanImageAlbum})
+     * di thread terpisah dan merender dashboard HTML ({@link #renderDashboard()}) setelah selesai.
+     *
+     * @param event event pemicu (tidak dipakai)
+     */
     public void onLaporan(Event event) throws Exception {
         final Label label = Common.displayLoadBar(new EventListener() {
             @Override
@@ -493,6 +552,12 @@ public class LaporanRekapitulasiSidang extends MyWindow {
         }).start();
     }
 
+    /**
+     * Menampilkan progress bar, menghitung ulang data di thread terpisah, lalu menghasilkan dan
+     * menampilkan berkas PDF lewat mesin laporan lama ({@link Report#generateFileReportWithProgress}).
+     *
+     * @param event event pemicu (tidak dipakai)
+     */
     public void onCetakLama(Event event) throws Exception {
         final Label label = Common.displayLoadBar(new EventListener() {
             @Override
@@ -515,6 +580,7 @@ public class LaporanRekapitulasiSidang extends MyWindow {
         }).start();
     }
 
+    /** Mengosongkan area dashboard dan mengisinya dengan hasil rekap ({@link #maps}) atau tampilan kosong bila belum ada data. */
     private void renderDashboard() {
         center.getChildren().clear();
         String html = (maps == null || maps.isEmpty()) ? LaporanSkripsiDashboardUtil.empty("Dashboard Rekapitulasi Sidang", getFilterInfo())
@@ -522,6 +588,7 @@ public class LaporanRekapitulasiSidang extends MyWindow {
         center.appendChild(new Html(html));
     }
 
+    /** Menampilkan dashboard kosong (belum ada data) sebagai tampilan awal sebelum laporan pertama kali dijalankan. */
     private void tampilkanDashboardAwal() {
         center.getChildren().clear();
         center.appendChild(new Html(LaporanSkripsiDashboardUtil.empty("Dashboard Rekapitulasi Sidang", getFilterInfo())));

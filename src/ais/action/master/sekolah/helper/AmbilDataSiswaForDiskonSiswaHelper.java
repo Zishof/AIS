@@ -49,6 +49,15 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Dialog pemilihan banyak siswa ZK untuk memasukkan siswa ke satu {@link DiskonSiswa} (kebijakan
+ * diskon biaya sekolah): menampilkan grid siswa (dengan paging server-side via
+ * {@link ais.ui.util.AmbilDataPagingHelper}) yang dapat difilter berdasarkan NIS, nama, yayasan,
+ * sekolah, dan tahun angkatan — dibatasi ke yayasan/sekolah yang sudah ditetapkan pada
+ * {@code diskonSiswa} bila ada (combo terkait dikunci). Siswa yang sudah terdaftar pada diskon ini
+ * ({@link DiskonSiswaPunyaSiswa}) tampil sudah tercentang dan tidak dapat diubah; centang baru
+ * disimpan sebagai relasi {@link DiskonSiswaPunyaSiswa} saat tombol Simpan ditekan.
+ */
 public class AmbilDataSiswaForDiskonSiswaHelper {
 
 	private DiskonSiswa diskonSiswa;
@@ -64,6 +73,7 @@ public class AmbilDataSiswaForDiskonSiswaHelper {
 	private Combobox searchyayasan = new Combobox();
 	private Combobox searchsekolah = new Combobox();
 
+	/** Menyiapkan dialog untuk {@code diskonSiswa}; combo yayasan/sekolah otomatis terisi dan terkunci bila sudah ditetapkan pada {@code diskonSiswa}, atau bebas dipilih bila belum. */
 	public AmbilDataSiswaForDiskonSiswaHelper(DiskonSiswa diskonSiswa) {
 		this.diskonSiswa = diskonSiswa;
 		Yayasan yayasan = diskonSiswa.getYayasan();
@@ -109,6 +119,7 @@ public class AmbilDataSiswaForDiskonSiswaHelper {
 
 	}
 
+	/** Renderer baris grid untuk {@link Siswa}: checkbox pilih (tercentang dan terkunci bila siswa sudah terdaftar pada {@link #diskonSiswa}), NIM, nama, dan tahun masuk. */
 	class SiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -134,6 +145,7 @@ public class AmbilDataSiswaForDiskonSiswaHelper {
 		}
 	}
 
+	/** Menyimpan relasi {@link DiskonSiswaPunyaSiswa} untuk setiap siswa yang tercentang dan belum terkunci pada grid (mencegah duplikasi lewat pencarian relasi yang sudah ada), mencatat pengguna dan sumber perubahan ({@link SiswaAction}). */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() throws InterruptedException {
 		Session session = HibernateUtil.currentSession();
@@ -167,6 +179,7 @@ public class AmbilDataSiswaForDiskonSiswaHelper {
 
 	}
 
+	/** Membangun kerangka dialog: panel filter pencarian (NIS/nama/yayasan/sekolah/tahun angkatan) di utara, grid siswa dengan checkbox pilih-semua di tengah, dan tombol Simpan/Batal di selatan, lalu langsung memuat data dan membuka dialog sebagai modal. */
 	public void display(final DataLoader dataLoader, final MyWindow window) {
 
 		Common.clear(window);
@@ -371,6 +384,7 @@ public class AmbilDataSiswaForDiskonSiswaHelper {
 		}
 	}
 
+	/** Menyusun kriteria pencarian {@link Siswa} (bernama, punya sekolah; dibatasi ke anak dari user orang tua yang login bila berlaku), difilter berdasarkan NIS/NISN/nomor induk santri (ilike), nama (ilike), tahun masuk, sekolah, dan yayasan; terurut tahun masuk menurun lalu NIM bila {@code order} true. */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(Siswa.class).add(Restrictions.isNotNull("namaSiswa"))
@@ -421,6 +435,7 @@ public class AmbilDataSiswaForDiskonSiswaHelper {
 		return criteria;
 	}
 
+	/** Memuat ulang daftar siswa sesuai filter aktif (dipaginasi server-side via {@link #pagingHelper}) ke grid. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

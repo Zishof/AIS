@@ -47,6 +47,14 @@ import ais.ui.util.MyDatebox;
 import ais.ui.util.MyDoublebox;
 import ais.ui.util.MyTextbox;
 
+/**
+ * Helper UI ZK untuk mengelola daftar pemakaian alat medis umum ({@link AlatMedisDiagnosaPenyakit})
+ * yang dikaitkan ke satu {@link DiagnosaPenyakit} pasien SIRS — pola dan alurnya identik dengan
+ * {@link TindakanHelper}, hanya berbeda entitas: menambah alat dari dialog pemilihan banyak
+ * (menolak menambahkan alat yang belum punya {@link BiayaAlatMedisPerKelas} untuk kelas perawatan
+ * pasien, menampilkan peringatan dan melewatinya), mengedit jumlah/tanggal/keterangan langsung
+ * dari grid, menghapus per baris, serta menerapkan isi paket perawatan ({@link #setPaket}).
+ */
 public class AlatMedisHelper {
 
 	private Grid gridAlatMedis;
@@ -60,6 +68,7 @@ public class AlatMedisHelper {
 
 	private North north;
 
+	/** Menyiapkan helper; {@code onSave} dipanggil untuk memaksa penyimpanan diagnosa penyakit terlebih dahulu bila belum tersimpan (id null) saat pengguna mulai menambah alat medis, {@code save} adalah tombol simpan utama yang statusnya ikut diperbarui. Hak hapus ditentukan dari privilese {@link CommonPrivilages#DELETE} user yang sedang login. */
 	public AlatMedisHelper(OnSave onSave, Toolbarbutton save) {
 		this.save = save;
 		this.onSave = onSave;
@@ -74,11 +83,20 @@ public class AlatMedisHelper {
 		});
 	}
 
+	/** Menyiapkan helper untuk {@code diagnosaPenyakit} tertentu lalu membangun kerangka layarnya — lihat {@link #display()}. */
 	public Borderlayout init(DiagnosaPenyakit diagnosaPenyakit) {
 		this.diagnosaPenyakit = diagnosaPenyakit;
 		return display();
 	}
 
+	/**
+	 * Membangun kerangka layar alat medis: toolbar tombol "Ambil Data Alat Medis" (membuka dialog
+	 * pemilihan banyak, memaksa penyimpanan diagnosa penyakit dulu bila belum tersimpan, lalu
+	 * untuk tiap alat terpilih membuat {@link AlatMedisDiagnosaPenyakit} dengan biaya diambil dari
+	 * {@link BiayaAlatMedisPerKelas} sesuai kelas perawatan pasien — alat tanpa biaya terdaftar
+	 * untuk kelas tersebut dilewati dengan peringatan) dan grid rincian pemakaian, lalu langsung
+	 * memuat datanya.
+	 */
 	public Borderlayout display() {
 
 		Borderlayout borderlayout = new Borderlayout();
@@ -213,6 +231,7 @@ public class AlatMedisHelper {
 		return borderlayout;
 	}
 
+	/** Renderer baris grid untuk {@link AlatMedisDiagnosaPenyakit}: nama alat, jumlah/tanggal/keterangan yang dapat diedit langsung (tersimpan saat berubah), dan tombol hapus dengan konfirmasi. */
 	class AlatMedisDiagnosaPenyakitRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -309,6 +328,7 @@ public class AlatMedisHelper {
 
 	}
 
+	/** Memuat halaman {@link AlatMedisDiagnosaPenyakit} milik {@link #diagnosaPenyakit} saat ini (terbaru dulu, dipaginasi sesuai halaman aktif) ke grid. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Event event) {
 		Session session = HibernateUtil.currentSession();
@@ -328,6 +348,16 @@ public class AlatMedisHelper {
 
 	}
 
+	/**
+	 * Menerapkan satu atau lebih paket perawatan ({@code pakets}, masing-masing sebuah
+	 * {@link Tindakan} yang berperan sebagai paket) ke {@code diagnosaPenyakit}: memecah tiap
+	 * paket menjadi {@link PaketPerawatanDetail}-nya, lalu membuat {@link AlatMedisDiagnosaPenyakit}
+	 * untuk tiap alat medis anggota paket yang belum ada (idempoten). Bila diagnosa belum
+	 * tersimpan, memaksa penyimpanan lebih dulu lewat {@link #onSave}. Grid ditampilkan dalam mode
+	 * read-only/beku ({@link Common#freeze}) setelah paket diterapkan.
+	 *
+	 * @return {@code true} bila berhasil diterapkan (termasuk bila paket kosong), {@code false} bila penyimpanan awal diagnosa gagal
+	 */
 	@SuppressWarnings("unchecked")
 	public boolean setPaket(Set<Tindakan> pakets, DiagnosaPenyakit diagnosaPenyakit) throws Exception {
 		this.diagnosaPenyakit = diagnosaPenyakit;

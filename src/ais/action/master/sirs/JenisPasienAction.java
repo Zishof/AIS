@@ -25,6 +25,11 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD modul SIRS untuk {@link JenisPasien} (klasifikasi jenis pasien, mis. umum/BPJS/asuransi):
+ * nama (wajib unik, dicek lewat {@link #checkNamaJenisPasien()}) dan keterangan, dibangun di atas
+ * kerangka generik {@link GenericCrudAction}.
+ */
 public class JenisPasienAction extends GenericCrudAction<JenisPasien> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -35,15 +40,19 @@ public class JenisPasienAction extends GenericCrudAction<JenisPasien> {
 
     // ======================== Abstract implementations ========================
 
+    /** @return kelas entitas yang dikelola layar ini, {@link JenisPasien}. */
     @Override
     protected Class<JenisPasien> getEntityClass() { return JenisPasien.class; }
 
+    /** @return instance {@link JenisPasien} kosong untuk form tambah baru. */
     @Override
     protected JenisPasien createNewEntity() { return new JenisPasien(); }
 
+    /** @return judul jendela form tambah/ubah. */
     @Override
     protected String getWindowTitle() { return "Pendataan Jenis Pasien"; }
 
+    /** Membentuk criteria pencarian {@link JenisPasien} berdasarkan filter nama (ILIKE), diurut nama bila {@code order} true. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();

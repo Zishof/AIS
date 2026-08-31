@@ -87,6 +87,33 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.UIUtil;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD data master "Jurusan" (Program Studi) — salah satu entitas paling sentral di AIS
+ * (dirujuk oleh mahasiswa, kurikulum, dosen, akreditasi, dsb). Form-nya multi-tab: data pokok
+ * (kode, nama, fakultas, jenjang, gelar, pejabat prodi/kaprodi, akreditasi umum &amp; kesehatan,
+ * satuan kerja), lampiran gambar (kop surat, kop+stempel, ikon, info prodi — kop wajib berformat
+ * JPG), "Tentang Prodi" ({@link JenjangProgramStudi}, dibuat otomatis bila belum ada saat prodi
+ * pertama dibuka), Kapasitas Prodi ({@link KapasitasProdiHelper}), Fasilitas Akademik Penunjang
+ * ({@link FasilitasAkademikJurusan} — luas &amp; jumlah ruang kuliah/lab/dosen/administrasi,
+ * koleksi buku), dan beberapa tab lazy-load berbasis iframe ZUL terpisah (Akreditasi, Konsentrasi,
+ * Capaian Pembelajaran Lulusan, Jenis Capaian Pembelajaran Lulusan). Menyimpan satu Jurusan juga
+ * menyinkronkan baris {@link Staff} kaprodi (jabatan {@code ConstantValues.KAPRODI}) secara
+ * otomatis.
+ *
+ * <p>
+ * Dua integrasi eksternal opsional (keduanya di balik konfigurasi {@code terhubung_ke_dspace}/
+ * {@code aktifkan_terhubung_langsung_ke_feeder}): (1) publikasi ke repositori DSpace — setiap
+ * Jurusan direpresentasikan sebagai "community" DSpace ({@link #getDspace(String, Jurusan, boolean)},
+ * dengan opsi Jurusan sebagai root atau anak Fakultas), dan berkas hasil akreditasi diekspor
+ * sebagai "collection"/"item" DSpace berikut metadata Dublin Core lengkap
+ * ({@link #getDspace(String, BerkasHasilAkreditasiPunyaNama, boolean)}); (2) sinkronisasi data
+ * prodi dari Neo Feeder PDDIKTI ({@link #exportKeFeeder}, mencocokkan prodi lokal ke prodi Feeder
+ * lewat kode EPSBED+nama, lalu mengimpor lewat {@link FeederJSONImport#jurusan}). Kedua alur
+ * berjalan di thread terpisah dengan progres ditampilkan via {@link Label}, dan kegagalan
+ * (koneksi/login gagal) SELALU ditampilkan sebagai galat eksplisit — bukan ditutupi sebagai sukses
+ * semu (perbaikan atas bug lama "gagal diam-diam" yang dicatat dalam komentar kode).
+ * </p>
+ */
 public class JurusanAction extends GenericCrudAction<Jurusan> {
 
     private static final long serialVersionUID = 3786091220301468178L;
@@ -178,6 +205,7 @@ public class JurusanAction extends GenericCrudAction<Jurusan> {
     @Override
     protected String getWindowTitle() { return "Pendataan " + Common.getBahasaConfig("Jurusan"); }
 
+    /** Kolom yang disertakan pada operasi unduh/unggah massal data Jurusan. */
     @Override
     protected String[] getDownloadUploadContents() {
         return new String[] { "id", "kode", "nama", "fakultas", "jenjang", "kaprodi", "deskripsi",
@@ -185,6 +213,13 @@ public class JurusanAction extends GenericCrudAction<Jurusan> {
                 "satuanKerja", "dosenHarusPakaiSatuanKerja" };
     }
 
+    /**
+     * Menginisialisasi filter fakultas/jenjang (dikunci ke fakultas pengguna bila terikat),
+     * tombol cetak data, dan tombol integrasi opsional: ekspor ke DSpace ({@code Jurusan} dan
+     * berkas hasil akreditasi), pembatalan ekspor DSpace, dan sinkronisasi ke Neo Feeder
+     * (khusus admin berhak akses Feeder). Seluruh tombol integrasi hanya tampil sesuai
+     * konfigurasi terkait.
+     */
     @Override
     @SuppressWarnings("deprecation")
     protected void onAfterInit(Component comp) throws Exception {
@@ -507,6 +542,7 @@ public class JurusanAction extends GenericCrudAction<Jurusan> {
         }
     }
 
+    /** Membangun kriteria pencarian {@link Jurusan} berdasarkan perguruan tinggi aktif, status aktif, filter nama/kode/fakultas/jenjang, dan dibatasi ke prodi pengguna sendiri bila pengguna terikat pada satu jurusan. Diurutkan menurut kode lalu nama bila {@code order} true. */
     @Override
     public Criteria initCriteria(boolean order) {
         PerguruanTinggi selectedPerguruanTinggi = PerguruanTinggiUtil.getPerguruanTinggi();
@@ -552,6 +588,7 @@ public class JurusanAction extends GenericCrudAction<Jurusan> {
 
     // ======================== ZUL lazy-tab event handlers ========================
 
+    /** Memuat tab "Akreditasi" secara lazy (sekali saja) dengan menyisipkan iframe {@code /pages/master/akreditasi.zul}. */
     public void onAkreditasi(Event event) {
         if (akreditasiTab.getChildren().size() == 0) {
             MyWindow window = new MyWindow("", "none", false);
@@ -563,6 +600,7 @@ public class JurusanAction extends GenericCrudAction<Jurusan> {
         }
     }
 
+    /** Memuat tab "Konsentrasi" secara lazy (sekali saja) dengan menyisipkan iframe {@code /pages/master/konsentrasi.zul}. */
     public void onKonsentrasi(Event event) {
         if (konsentrasiTab.getChildren().size() == 0) {
             MyWindow window = new MyWindow("", "none", false);
@@ -574,6 +612,7 @@ public class JurusanAction extends GenericCrudAction<Jurusan> {
         }
     }
 
+    /** Memuat tab "Capaian Pembelajaran Lulusan" secara lazy (sekali saja) dengan menyisipkan iframe {@code /pages/master/capaian_jurusan.zul}. */
     public void onCapaianPembelajaranLulusan(Event event) {
         if (capaianPembelajaranLulusanTab.getChildren().size() == 0) {
             MyWindow window = new MyWindow("", "none", false);
@@ -585,6 +624,7 @@ public class JurusanAction extends GenericCrudAction<Jurusan> {
         }
     }
 
+    /** Memuat tab "Jenis Capaian Pembelajaran Lulusan" secara lazy (sekali saja) dengan menyisipkan iframe {@code /pages/master/jenis_capaian_jurusan.zul}. */
     public void onJenisCapaianPembelajaranLulusan(Event event) {
         if (jenisCapaianPembelajaranLulusanTab.getChildren().size() == 0) {
             MyWindow window = new MyWindow("", "none", false);
@@ -598,6 +638,19 @@ public class JurusanAction extends GenericCrudAction<Jurusan> {
 
     // ======================== Static DSpace methods ========================
 
+    /**
+     * Membuat/memperbarui satu "community" DSpace yang merepresentasikan {@code jurusan}
+     * (nama, deskripsi, teks hak cipta). Bila konfigurasi
+     * {@code dpsace_jadikan_jurusan_sebagai_root} aktif, community dibuat sebagai root; selain
+     * itu dibuat sebagai anak dari community fakultas terkait (memicu pembuatan community
+     * fakultas terlebih dahulu bila belum ada lewat {@code FakultasAction.getDspace}).
+     *
+     * @param cookie sesi login DSpace yang sudah diautentikasi
+     * @param jurusan jurusan yang direpresentasikan
+     * @param update  perbarui community yang sudah ada bila {@code true}, buat baru bila belum ada
+     * @return informasi community DSpace tersimpan ({@link DspaceInformation})
+     * @throws Exception diteruskan dari kegagalan panggilan REST API DSpace
+     */
     public static DspaceInformation getDspace(String cookie, Jurusan jurusan, boolean update) throws Exception {
         JSONObject jsonPost = new JSONObject();
         jsonPost.put("name", jurusan.getNama());
@@ -618,6 +671,17 @@ public class JurusanAction extends GenericCrudAction<Jurusan> {
         }
     }
 
+    /**
+     * Membuat/memperbarui satu "collection" DSpace yang merepresentasikan satu kategori berkas
+     * hasil akreditasi ({@code berkasHasilAkreditasi}), ditempatkan di bawah community
+     * jurusan/fakultas/perguruan tinggi terkait (dipilih berdasarkan level mana yang terisi pada
+     * entitas). Collection selalu dibuat baru ({@code update=false}).
+     *
+     * @param cookie                 sesi login DSpace yang sudah diautentikasi
+     * @param berkasHasilAkreditasi  kategori berkas akreditasi yang direpresentasikan
+     * @return informasi collection DSpace tersimpan, atau {@code null} bila tidak ada level (jurusan/fakultas/PT) yang terisi
+     * @throws Exception diteruskan dari kegagalan panggilan REST API DSpace
+     */
     public static DspaceInformation getDspaceBerkasHasilAkreditasi(String cookie,
             BerkasHasilAkreditasi berkasHasilAkreditasi) throws Exception {
         Jurusan jurusan = berkasHasilAkreditasi.getJurusan();
@@ -666,6 +730,20 @@ public class JurusanAction extends GenericCrudAction<Jurusan> {
         }
     }
 
+    /**
+     * Membuat/memperbarui satu "item" DSpace (dokumen individual) untuk
+     * {@code berkasHasilAkreditasiPunyaNama}, ditempatkan di dalam collection kategori terkait
+     * ({@link #getDspaceBerkasHasilAkreditasi}). Menyusun metadata Dublin Core lengkap (penulis,
+     * editor, hak cipta, deskripsi, abstrak, identifier, judul, kata kunci, penerbit, tanggal
+     * terbit) dan, bila item memiliki lampiran berkas ({@link LampiranLain}), mengunggah berkas
+     * fisiknya ke item DSpace setelah item dibuat.
+     *
+     * @param cookie                             sesi login DSpace yang sudah diautentikasi
+     * @param berkasHasilAkreditasiPunyaNama      dokumen berkas akreditasi yang direpresentasikan
+     * @param update                              perbarui item yang sudah ada bila {@code true}
+     * @return informasi item DSpace tersimpan
+     * @throws Exception diteruskan dari kegagalan panggilan REST API DSpace atau unggah berkas
+     */
     public static DspaceInformation getDspace(String cookie,
             BerkasHasilAkreditasiPunyaNama berkasHasilAkreditasiPunyaNama, boolean update) throws Exception {
         JSONArray jsonArray = new JSONArray();
@@ -754,6 +832,7 @@ public class JurusanAction extends GenericCrudAction<Jurusan> {
 
     // ======================== Static info mode (read-only view) ========================
 
+    /** Membuka jendela modal read-only berisi informasi lengkap {@code jurusan} (mode "info", bukan form edit), dipanggil dari layar lain yang perlu menampilkan detail prodi tanpa mengizinkan perubahan. */
     public static void onInfo(Jurusan jurusan) throws Exception {
         JurusanAction jurusanAction = new JurusanAction();
         jurusanAction.addWindow = new MyWindow();
@@ -766,6 +845,7 @@ public class JurusanAction extends GenericCrudAction<Jurusan> {
         jurusanAction.addWindow.onModal();
     }
 
+    /** Membangun tampilan mode-info (read-only) untuk {@code jurusan} ke dalam {@link #addWindow}, mendelegasikan ke {@link #buildFormInternal} dengan {@code info=true}. */
     public void buildInfoMode(Jurusan jurusan) throws Exception {
         currentEntity = jurusan;
         Common.clear(addWindow);
@@ -774,11 +854,25 @@ public class JurusanAction extends GenericCrudAction<Jurusan> {
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/edit Jurusan (mode dapat diedit), mendelegasikan ke {@link #buildFormInternal} dengan {@code info=false}. */
     @Override
     protected void buildFormContent(MyWindow window, Jurusan jurusan) throws Exception {
         buildFormInternal(window, jurusan, false);
     }
 
+    /**
+     * Implementasi bersama form tambah/edit maupun tampilan read-only Jurusan: membangun seluruh
+     * field data pokok (kode, nama, fakultas, jenjang, gelar, pejabat, akreditasi umum &amp;
+     * kesehatan, satuan kerja) plus tab-tab tambahan (lampiran gambar, "Tentang Prodi" via
+     * {@link #initTentangProdi}, Kapasitas Prodi via {@link #initKapasitasProdi}, Fasilitas
+     * Akademik via {@link #initFasilitasAkademik}). Saat {@code info=true}, kontrol input
+     * dinonaktifkan/disembunyikan sesuai kebutuhan tampilan read-only.
+     *
+     * @param window jendela tempat form dibangun
+     * @param jurusan entitas yang diedit/ditampilkan
+     * @param info    bila {@code true}, bangun sebagai tampilan read-only; bila {@code false}, form dapat diedit
+     * @throws Exception diteruskan dari kegagalan pembangunan komponen
+     */
     @SuppressWarnings("deprecation")
     private void buildFormInternal(MyWindow window, final Jurusan jurusan, final boolean info) throws Exception {
         currentEntity = jurusan;
@@ -1213,6 +1307,7 @@ public class JurusanAction extends GenericCrudAction<Jurusan> {
         return scrollWrap;
     }
 
+    /** Menampilkan/membangun tab "Tentang Prodi" ({@link JenjangProgramStudi}): mengambil baris terbaru milik {@code jurusan}, atau membuatnya otomatis (disalin dari jenjang jurusan) bila belum ada, lalu mendelegasikan render form ke {@link JenjangProgramStudiAction#init}. Mengembalikan layout kosong bila {@code jurusan} belum tersimpan. */
     private Borderlayout initTentangProdi(Jurusan jurusan) throws Exception {
         if (jurusan == null || jurusan.getId() == null) {
             return new ais.ui.util.MyBorderlayout();
@@ -1237,6 +1332,7 @@ public class JurusanAction extends GenericCrudAction<Jurusan> {
         return jenjangProgramStudiAction.init(jenjangProgramStudi, false);
     }
 
+    /** Menampilkan tab "Kapasitas Prodi" lewat {@link KapasitasProdiHelper#display}. Mengembalikan layout kosong bila {@link #currentEntity} belum tersimpan. */
     private Borderlayout initKapasitasProdi() throws Exception {
         if (currentEntity == null || currentEntity.getId() == null) {
             return new ais.ui.util.MyBorderlayout();
@@ -1244,6 +1340,7 @@ public class JurusanAction extends GenericCrudAction<Jurusan> {
         return kapasitasProdiHelper.display(currentEntity);
     }
 
+    /** Membangun form tab "Fasilitas Penunjang Akademik" ({@link FasilitasAkademikJurusan} — luas &amp; jumlah ruang kuliah/lab, luas ruang dosen tetap/administrasi, koleksi buku), memuat baris tersimpan milik {@code jurusan} atau membuat entitas baru (default nol) bila belum ada. */
     private Borderlayout initFasilitasAkademik(final Jurusan jurusan) {
         Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -1322,6 +1419,19 @@ public class JurusanAction extends GenericCrudAction<Jurusan> {
 
     // ======================== Feeder export ========================
 
+    /**
+     * Menyinkronkan seluruh program studi milik {@code perguruanTinggi} dari Neo Feeder PDDIKTI
+     * ({@code GetAllProdi}): untuk setiap prodi Feeder yang cocok id perguruan tingginya,
+     * mencocokkan ke {@link Jurusan} lokal lewat kode EPSBED+nama persis (fallback ke kode
+     * EPSBED saja bila tidak ditemukan), menyimpan kode Feeder ({@code id_sms}) ke jurusan yang
+     * cocok, lalu mengimpor/memperbarui data lewat {@link FeederJSONImport#jurusan}. Kegagalan
+     * ditampilkan sebagai galat, tidak ditelan diam-diam.
+     *
+     * @param perguruanTinggi  perguruan tinggi konteks sinkronisasi
+     * @param feederImporter   helper importer Feeder (diteruskan untuk konsistensi API, tidak dipakai langsung di method ini)
+     * @param token            token autentikasi sesi Neo Feeder
+     * @param feederConnector  koneksi ke server Neo Feeder
+     */
     private void exportKeFeeder(PerguruanTinggi perguruanTinggi, FeederExporter feederImporter, String token,
             FeederConnector feederConnector) {
         try {
@@ -1363,6 +1473,18 @@ public class JurusanAction extends GenericCrudAction<Jurusan> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi (kode, nama, fakultas, jenjang, jenis jurusan, dan status akreditasi wajib
+     * diisi; berkas kop bila diunggah harus JPG) lalu menyimpan/memperbarui entitas
+     * {@link Jurusan} dengan seluruh field form. Setelah entitas utama tersimpan, juga
+     * menyinkronkan sub-entitas terkait: {@link JenjangProgramStudi} (lewat
+     * {@code jenjangProgramStudiAction.onSave}), baris {@link Staff} kaprodi (jabatan
+     * {@code ConstantValues.KAPRODI}, dibuat/diperbarui dari data kaprodi jurusan), dan
+     * {@link FasilitasAkademikJurusan} (dari field-field fasilitas), serta mengaitkan lampiran
+     * gambar (kop, kop+stempel, ikon, info prodi) ke id jurusan lewat {@link #saveLampiran}.
+     *
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal
+     */
     public boolean onSave(Event event) throws Exception {
         if (kode.getValue().equals("")) {
             PesanFormalHelper.tampilkanGagal("penyimpanan data Kode",
@@ -1524,6 +1646,7 @@ public class JurusanAction extends GenericCrudAction<Jurusan> {
         return true;
     }
 
+    /** Mengaitkan satu lampiran ({@code lampiran}) yang sudah diunggah ke id entitas {@code ref}, dalam sesi Hibernate streaming terpisah; tidak melakukan apa pun bila {@code lampiran} {@code null}/belum tersimpan. */
     private void saveLampiran(LampiranLain lampiran, Long ref) {
         if (lampiran == null || lampiran.getId() == null) return;
         try {
@@ -1542,6 +1665,7 @@ public class JurusanAction extends GenericCrudAction<Jurusan> {
 
     // ======================== Renderer ========================
 
+    /** Renderer baris daftar Jurusan: menampilkan kode, label revisi+nama, fakultas, jenjang, kaprodi, dan status akreditasi beserta tombol aksi baris (edit/hapus/info sesuai hak akses). */
     class JurusanRenderer extends MyRowRenderer {
 
         @Override

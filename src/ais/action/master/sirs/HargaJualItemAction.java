@@ -34,6 +34,11 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.UIUtil;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD modul SIRS untuk {@link HargaJualItem} (harga jual barang medis per
+ * {@link KelasPerawatan}): item {@link ItemMedis}, kelas perawatan, harga jual, dan keterangan,
+ * dibangun di atas kerangka generik {@link GenericCrudAction}.
+ */
 public class HargaJualItemAction extends GenericCrudAction<HargaJualItem> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -46,15 +51,19 @@ public class HargaJualItemAction extends GenericCrudAction<HargaJualItem> {
 
     // ======================== Abstract implementations ========================
 
+    /** @return kelas entitas yang dikelola layar ini, {@link HargaJualItem}. */
     @Override
     protected Class<HargaJualItem> getEntityClass() { return HargaJualItem.class; }
 
+    /** @return instance {@link HargaJualItem} kosong untuk form tambah baru. */
     @Override
     protected HargaJualItem createNewEntity() { return new HargaJualItem(); }
 
+    /** @return judul jendela form tambah/ubah. */
     @Override
     protected String getWindowTitle() { return "Pendataan Harga Jual Barang Medis"; }
 
+    /** Membentuk criteria pencarian {@link HargaJualItem} berdasarkan filter nama item (ILIKE), diurut nama item bila {@code order} true. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -67,6 +76,7 @@ public class HargaJualItemAction extends GenericCrudAction<HargaJualItem> {
         return criteria;
     }
 
+    /** @return renderer baris grid untuk {@link HargaJualItem} ({@link HargaJualItemRenderer}). */
     @Override
     protected MyRowRenderer createRenderer() {
         return new HargaJualItemRenderer();
@@ -74,6 +84,7 @@ public class HargaJualItemAction extends GenericCrudAction<HargaJualItem> {
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/ubah {@link HargaJualItem}: item barang medis, kelas perawatan, harga jual, dan keterangan, plus toolbar Batal/Simpan. */
     @Override
     protected void buildFormContent(MyWindow window, final HargaJualItem hargaJualItem) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -161,6 +172,7 @@ public class HargaJualItemAction extends GenericCrudAction<HargaJualItem> {
 
     // ======================== Save logic ========================
 
+    /** Memvalidasi (item dan kelas perawatan wajib dipilih) dan menyimpan {@link HargaJualItem} dari nilai form saat ini. @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal. */
     public boolean onSave(Event event) throws Exception {
         if (item.getAttribute("item") == null) {
             MyMessageboxConfig.show("Mohon maaf, Nama Item wajib dipilih terlebih dahulu. Langkah yang dapat dilakukan: (1) gunakan kolom pencarian untuk memilih Item; (2) pastikan pilihan tidak dikosongkan; (3) simpan kembali data setelah Item ditentukan.", "Peringatan",
@@ -188,6 +200,7 @@ public class HargaJualItemAction extends GenericCrudAction<HargaJualItem> {
 
     // ======================== Renderer ========================
 
+    /** Renderer baris grid {@link HargaJualItem}: item (dengan revisi), kelas perawatan, harga jual, keterangan, dan tombol ubah/hapus. */
     class HargaJualItemRenderer extends MyRowRenderer {
 
         @Override

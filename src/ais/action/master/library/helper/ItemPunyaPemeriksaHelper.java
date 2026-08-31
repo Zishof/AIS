@@ -30,6 +30,13 @@ import ais.database.model.Tbmuser;
 import ais.database.model.library.Item;
 import ais.database.model.library.ItemPunyaPemeriksa;
 
+/**
+ * Helper ZK modul perpustakaan yang mengelola grid pemeriksa/reviewer ({@link ItemPunyaPemeriksa})
+ * untuk satu {@link Item} (karya ilmiah/koleksi yang perlu diperiksa sebelum terbit). Pemeriksa
+ * ditambahkan lewat picker banyak-pilih {@link AmbilDataPemeriksaBanyak} yang mengecualikan
+ * pemeriksa yang sudah ada di grid; baris langsung tersimpan bila {@code item} sudah punya id, atau
+ * ditahan di memori saja bila item belum tersimpan (menunggu form induk disimpan).
+ */
 public class ItemPunyaPemeriksaHelper {
 
 	private MyGrid gridPemeriksa;
@@ -37,12 +44,18 @@ public class ItemPunyaPemeriksaHelper {
 	// private boolean edit = false;
 	private boolean delete = false;
 
+	/** Membuat helper untuk grid target {@code gridPemeriksa}, membaca privilese CREATE/DELETE saat ini. */
 	public ItemPunyaPemeriksaHelper(MyGrid gridPemeriksa) {
 		this.gridPemeriksa = gridPemeriksa;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun kerangka grid: toolbar "Tambah Pemeriksa" (membuka picker banyak-pilih yang
+	 * mengecualikan pemeriksa yang sudah ada di grid) dan kolom (Pemeriksa, Status, Hapus), lalu
+	 * memuat baris yang sudah ada lewat {@link #loadDataDetail}.
+	 */
 	public Borderlayout initDetail(final Item item) {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -136,6 +149,7 @@ public class ItemPunyaPemeriksaHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Memuat ulang seluruh {@link ItemPunyaPemeriksa} milik {@code item} ke grid (kosong bila {@code item} belum tersimpan). */
 	private void loadDataDetail(final Item item) {
 
 		List<ItemPunyaPemeriksa> itemPunyaPemeriksas = item == null
@@ -155,6 +169,7 @@ public class ItemPunyaPemeriksaHelper {
 		}
 	}
 
+	/** Merender satu baris grid untuk {@code itemPunyaPemeriksa}: nama pemeriksa, status review, dan tombol hapus. */
 	public void initRow(final Row row,
 			final ItemPunyaPemeriksa itemPunyaPemeriksa) {
 		row.setValign("top");row.setAttribute("itemPunyaPemeriksa", itemPunyaPemeriksa);

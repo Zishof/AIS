@@ -29,6 +29,26 @@ import ais.ui.util.MyCheckboxConfig;
 import ais.ui.util.MyIntbox;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Action pengelola "Daftar Tilik/Skenario SPMI" ({@link SkenarioSPMI}) — item pertanyaan/bukti
+ * audit terkecil pada hierarki Sistem Penjaminan Mutu Internal:
+ * {@link JenisSPMI} → {@link StandarSPMI} → {@link ButirMutuSPMI} → {@link IndikatorSPMI} →
+ * {@link SkenarioSPMI}. Setiap skenario merupakan satu poin yang diperiksa auditor saat audit mutu
+ * internal (AMI), terkait ke satu indikator pada butir mutu tertentu.
+ *
+ * <p>
+ * Filter pencarian ({@link #doAfterCompose(Component)}) berjenjang: memilih Jenis SPMI menyaring
+ * ulang pilihan Standar, memilih Standar menyaring ulang pilihan Butir Mutu, dst., masing-masing
+ * lewat listener {@code onChange} berantai. Form tambah/ubah ({@link #init(GeneralValueObject)} →
+ * {@code buildForm}) memiliki struktur bertingkat serupa: memilih Jenis SPMI (dikunci
+ * read-only bila konteks sudah menentukan salah satu tingkat lebih rendah, lihat
+ * {@code resolveJenis}) menentukan pilihan Standar yang tersedia, dan seterusnya hingga Indikator.
+ * {@link #onSave(Event)} memvalidasi seluruh field wajib (nomor urut, teks skenario, dan keempat
+ * tingkat hierarki di atasnya) sebelum menyimpan. {@link #initCriteria(boolean)} membangun kueri
+ * pencarian dengan filter pada keempat tingkat hierarki tersebut, digunakan oleh
+ * {@link #onSearchDefault(Event)}.
+ * </p>
+ */
 public class SkenarioSPMIAction extends BaseSPMIAction {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -55,6 +75,11 @@ public class SkenarioSPMIAction extends BaseSPMIAction {
     // ZK lifecycle
     // =====================================================================
 
+    /**
+     * Inisialisasi composer setelah komponen ZK ter-wiring: menyiapkan filter pencarian berjenjang
+     * (Jenis → Standar → Butir Mutu → Indikator SPMI), setiap perubahan pada satu tingkat
+     * menyaring ulang pilihan tingkat di bawahnya dan memicu pencarian ulang.
+     */
     @Override
     public void doAfterCompose(Component comp) throws Exception {
         super.doAfterCompose(comp);
@@ -151,10 +176,17 @@ public class SkenarioSPMIAction extends BaseSPMIAction {
     // Add / Edit entry points
     // =====================================================================
 
+    /** Handler tombol tambah: membuka form dengan entitas {@link SkenarioSPMI} baru (kosong). */
     public void onAdd(Event event) throws Exception {
         init(new SkenarioSPMI());
     }
 
+    /**
+     * Membangun dan menampilkan form tambah/ubah skenario SPMI dengan pilihan hierarki
+     * Jenis/Standar/Butir Mutu/Indikator berjenjang.
+     *
+     * @param obj entitas {@link SkenarioSPMI} yang akan diedit, atau baru (id {@code null}) untuk data baru
+     */
     @Override
     public void init(GeneralValueObject obj) throws Exception {
         skenarioSPMI = (SkenarioSPMI) obj;
@@ -281,6 +313,14 @@ public class SkenarioSPMIAction extends BaseSPMIAction {
     // Save
     // =====================================================================
 
+    /**
+     * Memvalidasi dan menyimpan satu skenario SPMI. Field wajib: nomor urut, teks daftar
+     * tilik/skenario, dan pilihan Jenis/Standar/Butir Mutu/Indikator SPMI. Setiap pelanggaran
+     * validasi menampilkan pesan peringatan dan mengembalikan {@code false} tanpa menyimpan.
+     *
+     * @param event event ZK asal aksi simpan
+     * @return {@code true} bila data berhasil disimpan
+     */
     public boolean onSave(Event event) throws Exception {
         if (nomorUrut.getValue() == null) {
             MyMessageboxConfig.show("Mohon maaf, nomor urut skenario SPMI belum diisi. "
@@ -352,6 +392,14 @@ public class SkenarioSPMIAction extends BaseSPMIAction {
     // Criteria & search
     // =====================================================================
 
+    /**
+     * Membangun kueri pencarian skenario SPMI, difilter status aktif, kata kunci teks, dan
+     * hierarki Jenis/Standar/Butir Mutu/Indikator (dijoin lewat alias
+     * {@code indikatorSPMI}/{@code butirMutuSPMI} dst.).
+     *
+     * @param order {@code true} untuk menyertakan pengurutan hasil
+     * @return kriteria Hibernate siap dieksekusi/dipaginasi
+     */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -390,6 +438,7 @@ public class SkenarioSPMIAction extends BaseSPMIAction {
         return criteria;
     }
 
+    /** Mengeksekusi ulang pencarian ({@link #initCriteria(boolean)}) untuk halaman aktif dan merender hasilnya ke grid daftar skenario SPMI. */
     @SuppressWarnings("unchecked")
     @Override
     public void onSearchDefault(Event event) {

@@ -702,6 +702,20 @@ public class AktifitasPembelajaranHelper {
 		}
 	}
 
+	/**
+	 * Membangun seluruh tab-box "Aktifitas Pembelajaran" untuk {@code jadwalPelajaran} ke dalam
+	 * {@code groupbox}: tab Home (dimuat eager, lewat {@link #displayHeader}), dan tab Agenda/
+	 * Referensi/Tugas Kelompok/Nilai/Laporan (masing-masing dimuat lazy saat pertama diklik, lihat
+	 * catatan teknis pada javadoc kelas soal re-dispatch {@code onClick}). Tinggi setiap panel
+	 * diskalakan kasar dari {@code banyak} (jumlah pertemuan yang ditampilkan sekaligus).
+	 *
+	 * @param jadwalPelajaran jadwal pelajaran yang aktivitasnya ditampilkan
+	 * @param mydataLoader    callback penyegaran data kustom; bila {@code null}, dibuat default yang memanggil {@link #tampilRinci}
+	 * @param groupbox        komponen ZK tempat tabbox dibangun (dibersihkan lebih dulu)
+	 * @param mulai           indeks pertemuan awal yang ditampilkan pada tab Agenda
+	 * @param banyak          jumlah pertemuan ditampilkan sekaligus (memengaruhi tinggi panel dan ukuran halaman paging)
+	 * @throws Exception diteruskan dari kegagalan pembangunan komponen
+	 */
 	@SuppressWarnings({})
 	public void initDetail(final JadwalPelajaran jadwalPelajaran, final DataLoader mydataLoader,
 			final Component groupbox, final int mulai, final int banyak) throws Exception {
@@ -932,12 +946,27 @@ public class AktifitasPembelajaranHelper {
 
 	}
 
+	/** Menampilkan daftar pertemuan tanpa memaksa hitung ulang total halaman; lihat overload lengkap. */
 	@SuppressWarnings({})
 	private void tampilRinci(final JadwalPelajaran jadwalPelajaran, final DataLoader dataLoader,
 			final Tabpanel tabpanel, final Component groupbox, final int mulai, final int banyak) throws Exception {
 		tampilRinci(jadwalPelajaran, dataLoader, tabpanel, groupbox, mulai, banyak, false);
 	}
 
+	/**
+	 * Inti tab Agenda: memastikan urutan {@link Pertemuan} sudah diinisialisasi
+	 * ({@code jadwalPelajaran.reInitPertemuan} bila belum), mengambil satu halaman id pertemuan
+	 * ({@code jadwalPelajaran.ambilPertemuan}), lalu untuk setiap pertemuan merender toolbar
+	 * agenda, kartu status/topik/dosen tamu, kontrol video conference dan absensi, keterangan
+	 * kehadiran dosen, serta (bila konfigurasi {@code tampilkan_komentar_di_aktifitas_jadwalPelajaran}
+	 * aktif) thread komentar/diskusi. Bila belum ada pertemuan sama sekali dan pemanggil bukan
+	 * siswa/calon siswa, menampilkan pesan "Agenda Pelajaran belum dibuat" beserta tombol buat/
+	 * ambil pertemuan (hanya bila dosen berhak mengubah tanggal jadwal). Paginasi ditampilkan bila
+	 * jumlah pertemuan induk melebihi {@code banyak}, dengan halaman aktif di-clamp ke rentang
+	 * valid untuk menghindari {@code WrongValueException} saat data berkurang di antara render.
+	 *
+	 * @param tampilHal bila {@code true}, memaksa penghitungan ulang total halaman (dipakai saat tab Agenda pertama kali dibuka)
+	 */
 	@SuppressWarnings({ "unchecked" })
 	private void tampilRinci(final JadwalPelajaran jadwalPelajaran, final DataLoader dataLoader,
 			final Tabpanel tabpanel, final Component groupbox, final int m, final int banyak, boolean tampilHal)

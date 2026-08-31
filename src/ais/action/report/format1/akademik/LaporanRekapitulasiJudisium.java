@@ -55,6 +55,19 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyGrid;
 import ais.ui.util.MyWindow;
 
+/**
+ * Jendela laporan rekapitulasi yudisium (predikat kelulusan) mahasiswa: menampilkan dashboard
+ * HTML (via {@link LaporanSkripsiDashboardUtil}) dan mendukung cetak PDF gaya lama (via
+ * {@link Report}). Data dasar diambil dari {@link Skripsi} yang sudah lulus (nilai total {@code >
+ * 0}), difilter berdasarkan kombinasi fakultas/prodi, program, angkatan, status mahasiswa,
+ * gelombang/jadwal sidang, predikat yudisium, dosen pembimbing/penguji (hingga 7 slot), dan
+ * mahasiswa tertentu. Untuk tiap skripsi yang cocok, KRS mahasiswa disinkronkan ulang
+ * ({@link Common#singkronkanKrsMahasiswa}, opsional menghitung ulang IP/IPK) untuk mengambil
+ * SKS/IPK terkini dan status histori mahasiswa saat kelulusan, lalu predikat dihitung
+ * ({@link Common#hitungJudisium}) bila belum tersimpan pada mahasiswa. Pemrosesan data berjalan
+ * asinkron di thread terpisah dengan indikator progres (persentase mahasiswa terproses)
+ * ditampilkan ke pengguna.
+ */
 public class LaporanRekapitulasiJudisium extends MyWindow {
 
     private static final long serialVersionUID = 4766478176972379068L;
@@ -77,6 +90,7 @@ public class LaporanRekapitulasiJudisium extends MyWindow {
     @SuppressWarnings("rawtypes")
     private List<Map> maps = null;
 
+    /** Konstruktor default: menyiapkan combo fakultas/jurusan dan membangun kerangka jendela; kegagalan pemuatan awal ditangani dengan pesan formal ({@link PesanFormalHelper}) berisi langkah pemulihan bagi pengguna. */
     public LaporanRekapitulasiJudisium() {
         super();
         try {
@@ -93,18 +107,21 @@ public class LaporanRekapitulasiJudisium extends MyWindow {
         }
     }
 
+    /** Seperti konstruktor default, dengan judul/border/closable jendela yang dapat disesuaikan. */
     public LaporanRekapitulasiJudisium(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         initComboboxFakultasJurusan();
         init();
     }
 
+    /** Menyiapkan combobox fakultas/jurusan berpasangan (jurusan mengikuti pilihan fakultas). */
     private void initComboboxFakultasJurusan() {
         fakultas = new Combobox();
         jurusan = new Combobox();
         Common.initFakultasDanJurusan(fakultas, jurusan, null, null);
     }
 
+    /** Membangun kerangka jendela: panel filter di barat (lihat {@link #buildFilterRows}), area konten dashboard di tengah, dan toolbar ekspor/cetak di utara ({@link CommonReport#exportReport}), lalu menampilkan dashboard kosong awal. */
     @SuppressWarnings("deprecation")
     private void init() throws Exception {
         Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();

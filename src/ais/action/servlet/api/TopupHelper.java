@@ -52,9 +52,31 @@ import ais.database.model.sekolah.Sekolah;
 import ais.database.model.sekolah.Siswa;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Kumpulan endpoint servlet API untuk fitur <b>topup saldo</b> dan <b>pembayaran QR di toko/
+ * koperasi</b> (siswa, mahasiswa, dan anggota koperasi), dipanggil dari aplikasi mobile/klien API.
+ * Method-method di kelas ini pada dasarnya membangkitkan tagihan Virtual Account (VA) topup ke
+ * berbagai kanal bank/payment gateway (BNI, BTN, Flip, Smartlink, Finpay, Maja, dan bank online
+ * generik lainnya — didelegasikan ke helper {@code DownloadTagihan*BankOnline}/{@code BankBtn}
+ * masing-masing) dan memproses pembayaran QR di kasir/toko (kode unik VA dipindai kasir,
+ * transaksi dicatat sebagai {@link PembelianAnggotaKoperasi}).
+ *
+ * <p>
+ * <b>Catatan keamanan</b> — pada {@link #bayarOnline(JSONObject, HttpServletRequest, Tbmuser)},
+ * parameter {@code idMember} dibaca dari isi kode QR yang dipindai klien sehingga TIDAK tepercaya
+ * (QR buatan sendiri berpotensi mencantumkan id anggota koperasi milik orang lain untuk memotong
+ * saldo mereka). Kode sudah memiliki pagar eksplisit untuk ini (lihat komentar "GERBANG
+ * KEPEMILIKAN" di badan method): akun biasa (bukan pedagang/admin) yang mengirim {@code idMember}
+ * milik anggota lain akan dipaksa kembali memakai anggota koperasinya sendiri; hanya
+ * pedagang/admin yang diizinkan menyebut anggota koperasi lain (karena merekalah pihak yang
+ * menagih). Perilaku ini dipertahankan apa adanya sesuai kode asli, dicatat di sini sebagai
+ * dokumentasi kontrol keamanan yang sudah ada, bukan temuan baru.
+ * </p>
+ */
 public class TopupHelper {
 
 	// Fungsi pembantu agar tidak ada try-catch berulang yang kosong
+	/** Mem-parsing {@code value} menjadi {@link Double}, mengembalikan {@code fallback} bila {@code null}/kosong/tidak valid — pengganti try-catch berulang untuk parsing nominal dari JSON. */
 	private static Double parseDoubleSafe(String value, Double fallback) {
 		if (value == null || value.trim().isEmpty()) {
 			return fallback;
@@ -67,6 +89,7 @@ public class TopupHelper {
 	}
 
 	// Fungsi pembantu untuk menutup session di blok finally
+	/** Menutup {@code session} Hibernate dengan aman (clear, disconnect, close, masing-masing diselubungi try-catch) dan menutup sesi thread-local aktif; dipakai berulang di blok {@code finally}. */
 	private static void closeSessionSafely(Session session) {
 		if (session != null && session.isOpen()) {
 			try {
@@ -85,6 +108,15 @@ public class TopupHelper {
 		}
 	}
 
+	/**
+	 * Titik masuk topup utama: memvalidasi token pemanggil, lalu meneruskan ke implementasi sesuai
+	 * jenis akun (siswa/calon siswa → {@link #topupSiswa}, mahasiswa → {@link #topup_mahasiswa},
+	 * anggota koperasi → {@link #topupAnggotaKoperasi}).
+	 *
+	 * @param request             payload permintaan (wajib memuat {@code bank} dan {@code topup})
+	 * @param httpServletRequest  permintaan HTTP asli, dipakai untuk resolusi token dan host/protokol
+	 * @return objek JSON respons berisi detail VA/link pembayaran, atau kode status kegagalan
+	 */
 	public static JSONObject topup(JSONObject request, HttpServletRequest httpServletRequest) {
 		JSONObject jsonObject = new JSONObject();
 		try {
@@ -116,6 +148,7 @@ public class TopupHelper {
 		return jsonObject;
 	}
 
+	/** Seperti {@link #topup(JSONObject, HttpServletRequest)}, tetapi memakai {@code tbmuser} yang sudah tervalidasi (tanpa memvalidasi token ulang). */
 	public static JSONObject topup(JSONObject request, HttpServletRequest httpServletRequest, Tbmuser tbmuser) {
 		JSONObject jsonObject = new JSONObject();
 		try {
@@ -141,6 +174,15 @@ public class TopupHelper {
 		return jsonObject;
 	}
 
+	/**
+	 * Mengambil riwayat pembelian ({@link Pembelian}) milik user login (siswa/calon
+	 * siswa/mahasiswa/tbmuser umum), berpaginasi dan dapat dicari berdasarkan nama, diurutkan id
+	 * terbaru.
+	 *
+	 * @param request             payload berisi {@code max} (default 5), {@code halaman} (default 0), {@code cari} (opsional)
+	 * @param httpServletRequest  permintaan HTTP asli, dipakai untuk resolusi token
+	 * @return objek JSON respons berisi {@code count} total dan {@code data} array riwayat pembelian
+	 */
 	@SuppressWarnings("unchecked")
 	public static JSONObject riwayatPembelian(JSONObject request, HttpServletRequest httpServletRequest) {
 		JSONObject jsonObject = new JSONObject();
@@ -218,6 +260,22 @@ public class TopupHelper {
 		return jsonObject;
 	}
 
+	/**
+	 * Menyelesaikan pembayaran QR koperasi/toko: menerima keranjang transaksi ({@code transaksi},
+	 * array item dengan harga/jumlah/diskon/cashback) beserta {@code kodeUnik} (minimal 50 digit)
+	 * yang sebelumnya dibangkitkan lewat {@link #bayarOnline}, lalu menghapus draft/placeholder
+	 * pembelian lama untuk kode tersebut dan mencatat baris {@link PembelianAnggotaKoperasi} final
+	 * (dengan rincian per item lewat {@code pembelianAnggotaKoperasi.simpanRinci}) dalam satu
+	 * transaksi. Membuat otomatis {@link CaraPembayaranKoperasi} "Online (Topup)" dan
+	 * {@link Lokasi} toko bila belum ada. Jumlah baris rincian yang benar-benar tersimpan divalidasi
+	 * terhadap jumlah item pada keranjang (termasuk item "ekstra"); ketidakcocokan menyebabkan
+	 * seluruh transaksi di-rollback dan mengembalikan status gagal — mencegah pencatatan pembelian
+	 * yang datanya tidak lengkap.
+	 *
+	 * @param request             payload berisi {@code kodeToko}, {@code kodeUnik}, {@code waktu} (opsional), {@code transaksi} (array item)
+	 * @param httpServletRequest  permintaan HTTP asli (tidak dipakai langsung untuk autentikasi di method ini)
+	 * @return objek JSON respons berisi rincian transaksi tersimpan, atau kode status kegagalan/validasi
+	 */
 	public static JSONObject checkBayar(JSONObject request, HttpServletRequest httpServletRequest) {
 		JSONObject jsonObject = new JSONObject();
 		try {
@@ -467,6 +525,7 @@ public class TopupHelper {
 		return jsonObject;
 	}
 
+	/** Titik masuk "bayar online" (pembuatan kode pembayaran QR): memvalidasi token, lalu meneruskan ke {@link #bayarOnline(JSONObject, HttpServletRequest, Tbmuser)}. */
 	public static JSONObject bayarOnline(JSONObject request, HttpServletRequest httpServletRequest) {
 		JSONObject jsonObject = new JSONObject();
 		try {
@@ -492,6 +551,19 @@ public class TopupHelper {
 		return jsonObject;
 	}
 
+	/**
+	 * Membuat/memutakhirkan {@link KodePembayaranOnline} (kode QR yang akan dipindai kasir toko)
+	 * untuk {@code tbmuser} yang membayar di {@code toko} dengan {@code kodeUnik} (minimal 50
+	 * digit) sebagai identifier transaksi. Membuat otomatis {@link AnggotaKoperasi} bagi user yang
+	 * belum terdaftar sebagai anggota koperasi. Lihat javadoc kelas untuk catatan keamanan terkait
+	 * parameter {@code idMember} yang berasal dari isi QR (tidak tepercaya, dilindungi gerbang
+	 * kepemilikan).
+	 *
+	 * @param request             payload berisi {@code kode} (JSON string berisi kodeToko/kodeUnik/idMember/nominal)
+	 * @param httpServletRequest  permintaan HTTP asli
+	 * @param tbmuser             user login yang membayar
+	 * @return objek JSON respons berisi data kode pembayaran online tersimpan, atau kode status kegagalan (mis. saldo tidak mencukupi)
+	 */
 	public static JSONObject bayarOnline(JSONObject request, HttpServletRequest httpServletRequest, Tbmuser tbmuser) {
 		JSONObject jsonObject = new JSONObject();
 		try {
@@ -715,6 +787,7 @@ public class TopupHelper {
 		return jsonObject;
 	}
 
+	/** Titik masuk topup siswa: memvalidasi token, lalu meneruskan ke {@link #topupSiswa(JSONObject, HttpServletRequest, Tbmuser)}. */
 	@SuppressWarnings({})
 	public static JSONObject topupSiswa(JSONObject request, HttpServletRequest httpServletRequest) throws Exception {
 		Tbmuser tbmuser = ApiUtil.currentUser(request, httpServletRequest);
@@ -728,6 +801,20 @@ public class TopupHelper {
 		}
 	}
 
+	/**
+	 * Membangkitkan tagihan Virtual Account (VA) topup untuk siswa/calon siswa sesuai {@code bank}
+	 * pilihan (BNI ditangani lewat {@link BniCommon#onSaveBni}; BTN, Flip, Smartlink, Finpay, Maja,
+	 * dan bank online generik lainnya didelegasikan ke helper {@code DownloadTagihanSiswaBankOnline}/
+	 * {@code BankBtn} masing-masing, dengan biaya administrasi diambil dari konfigurasi atau
+	 * pengaturan sekolah sesuai kanal). Bila konfigurasi {@code prefix_kode_bank_lain_online}
+	 * terisi, nomor VA turut diberi prefix (dari {@code kanalPembayaran.bsiUsername} atau
+	 * {@code sekolah.bsiUsername}) untuk ditampilkan sebagai alternatif VA bank lain.
+	 *
+	 * @param request             payload berisi {@code bank} dan {@code topup} (nominal)
+	 * @param httpServletRequest  permintaan HTTP asli, dipakai untuk resolusi host/protokol pada tautan Smartlink
+	 * @param tbmuser             user login, harus berupa siswa atau calon siswa
+	 * @return objek JSON respons berisi nomor VA/link pembayaran/biaya admin, atau kode status kegagalan
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static JSONObject topupSiswa(JSONObject request, HttpServletRequest httpServletRequest, Tbmuser tbmuser) {
 		JSONObject jsonObject = new JSONObject();
@@ -922,6 +1009,16 @@ public class TopupHelper {
 		return jsonObject;
 	}
 
+	/**
+	 * Membangkitkan tagihan VA topup saldo koperasi untuk {@code tbmuser} yang terdaftar sebagai
+	 * {@link AnggotaKoperasi}, mengikuti {@code caraPembayaranKoperasi} pilihan, didelegasikan ke
+	 * {@link DownloadTagihanAnggotaKoperasiBankOnline#downloadData}.
+	 *
+	 * @param request             payload berisi {@code bank}, {@code caraPembayaranKoperasi}, {@code topup} (nominal)
+	 * @param httpServletRequest  permintaan HTTP asli
+	 * @param tbmuser             user login, harus terdaftar sebagai anggota koperasi
+	 * @return objek JSON respons berisi nomor VA/link pembayaran, atau kode status kegagalan
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static JSONObject topupAnggotaKoperasi(JSONObject request, HttpServletRequest httpServletRequest,
 			Tbmuser tbmuser) {
@@ -1039,6 +1136,7 @@ public class TopupHelper {
 		return jsonObject;
 	}
 
+	/** Titik masuk topup mahasiswa: memvalidasi token, lalu meneruskan ke {@link #topup_mahasiswa(JSONObject, HttpServletRequest, Tbmuser)}. */
 	public static JSONObject topup_mahasiswa(JSONObject request, HttpServletRequest httpServletRequest)
 			throws Exception {
 		Tbmuser tbmuser = ApiUtil.currentUser(request, httpServletRequest);
@@ -1052,6 +1150,18 @@ public class TopupHelper {
 		}
 	}
 
+	/**
+	 * Membangkitkan tagihan VA topup untuk mahasiswa, mendukung kanal Mandiri/Online/Smartlink/
+	 * BSI/BCA/MNC Bank/Finpay/Flip, didelegasikan ke
+	 * {@link DownloadTagihanMahasiswaBankOnline#downloadData}. Untuk kanal Smartlink, turut
+	 * membangun tautan pembayaran langsung ({@code no_va2.zul}) berisi seluruh parameter transaksi
+	 * ter-encode URL. Bank di luar daftar yang didukung menghasilkan status gagal ({@code "03"}).
+	 *
+	 * @param request             payload berisi {@code bank} dan {@code topup} (nominal)
+	 * @param httpServletRequest  permintaan HTTP asli, dipakai untuk resolusi host/protokol pada tautan Smartlink
+	 * @param tbmuser             user login, harus berupa mahasiswa
+	 * @return objek JSON respons berisi nomor VA/link pembayaran/biaya admin, atau kode status kegagalan
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static JSONObject topup_mahasiswa(JSONObject request, HttpServletRequest httpServletRequest,
 			Tbmuser tbmuser) {

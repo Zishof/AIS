@@ -29,20 +29,49 @@ import ais.database.model.antarjemput.PesertaJadwalAntarJemput;
 import ais.database.model.antarjemput.TransaksiPenjemputanAntarJemput;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Servlet kiosk gerbang "Antar Jemput" (penjemputan siswa/mahasiswa oleh orang tua/penjemput
+ * terdaftar): memindai kartu/RFID/QR penjemput ({@link KartuPenjemputAntarJemput}), mencocokkannya
+ * ke peserta jadwal aktif ({@link PesertaJadwalAntarJemput}) pada jadwal penjemputan terkait
+ * ({@link JadwalAntarJemput}), lalu membuat transaksi antrian panggilan
+ * ({@link TransaksiPenjemputanAntarJemput} beserta rincian per peserta
+ * {@link DetailPenjemputanAntarJemput}) yang akan dipanggil lewat perangkat pengumuman (soundbox,
+ * dicatat sebagai {@link LogNotifikasiAntarJemput}). Tiga mode ditentukan lewat parameter
+ * {@code action}: {@code verify} (proses pemindaian kartu, respons JSON), {@code card} (halaman
+ * kartu), dan default (halaman tampilan gerbang untuk kiosk).
+ *
+ * <p>
+ * <b>Catatan keamanan:</b> endpoint ini — termasuk aksi {@code verify} yang menulis data
+ * (membuat baris transaksi/antrian baru di database) dan menerima parameter {@code kode}/
+ * {@code rfid}/{@code nomor} langsung dari request — TIDAK ditemukan pemeriksaan otentikasi/otorisasi
+ * apa pun (tidak ada pengecekan sesi login, token, atau kunci API) di seluruh berkas ini, dan
+ * menerima baik {@code GET} maupun {@code POST} untuk aksi yang sama. Siapa pun yang dapat
+ * menjangkau URL ini secara jaringan dapat memicu pembuatan transaksi penjemputan (spam antrian)
+ * atau mencoba menebak/memindai nomor kartu untuk mengetahui nama penjemput terdaftar
+ * ({@code namaPenjemput} dikembalikan dalam respons JSON bahkan untuk kartu tidak valid pada
+ * beberapa kasus). Ini kemungkinan disengaja mengingat sifatnya sebagai endpoint kiosk gerbang
+ * fisik (diasumsikan hanya dapat dijangkau dari jaringan lokal terbatas), namun perlu diverifikasi
+ * apakah pembatasan akses jaringan/reverse-proxy benar-benar diterapkan di lapisan infrastruktur,
+ * karena kode aplikasi sendiri tidak menegakkannya.
+ * </p>
+ */
 public class AntarJemput extends HttpServlet {
 
 	private static final long serialVersionUID = 14520260609L;
 
+	/** Menangani permintaan {@code GET} — didelegasikan ke {@link #process(HttpServletRequest, HttpServletResponse)} bersama {@code POST}. */
 	@Override
 	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		process(request, response);
 	}
 
+	/** Menangani permintaan {@code POST} — didelegasikan ke {@link #process(HttpServletRequest, HttpServletResponse)} bersama {@code GET}. */
 	@Override
 	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		process(request, response);
 	}
 
+	/** Merutekan permintaan berdasarkan parameter {@code action}: {@code verify} → {@link #verify}, {@code card} → {@code renderCardPage}, selain itu → {@code renderGatePage} (tampilan kiosk gerbang). */
 	private void process(HttpServletRequest request, HttpServletResponse response) throws IOException {
 		Common.ROOT = request.getContextPath();
 		String action = request.getParameter("action");
@@ -55,6 +84,15 @@ public class AntarJemput extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Memproses pemindaian kartu/RFID/QR penjemput: mencari {@link KartuPenjemputAntarJemput} yang
+	 * cocok dan aktif, memvalidasi masa berlaku, mencari peserta jadwal aktif yang terkait pemilik
+	 * kartu (siswa/mahasiswa/guru/dosen/pegawai), lalu membuat transaksi antrian panggilan beserta
+	 * rincian dan log notifikasi per peserta yang cocok. Setiap kegagalan (kartu tidak
+	 * ditemukan/nonaktif, masa berlaku habis, tidak ada peserta cocok) tetap mencatat transaksi
+	 * dengan status ditolak untuk keperluan audit, dan mengembalikan respons JSON
+	 * {@code {"success":..., "message":...}}.
+	 */
 	private void verify(HttpServletRequest request, HttpServletResponse response) throws IOException {
 		response.setContentType("application/json;charset=UTF-8");
 
