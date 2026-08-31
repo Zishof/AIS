@@ -26,6 +26,24 @@ import ais.database.model.Konfigurasi;
 import ais.database.model.asset.Lokasi;
 import ais.ui.util.MyButtonConfig;
 
+/**
+ * Helper terfokus untuk lokasi shape. Tipe ini membungkus satu variasi kecil dari alur yang lebih
+ * umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Lokasi lokasi}, {@code boolean
+ * editable}, {@code boolean edit}, {@code Gmaps theMap}, {@code Gmarker theMarker}, {@code Gpolygon thePolygon},
+ * {@code LinkedList linkBuffer}, {@code EventListener eventListener}; inisialisasi/lifecycle ({@code
+ * initMap()}); operasi domain lain ({@code display()}, {@code onMapClick()}, {@code bind()}, {@code
+ * redrawPolygon()}); konfigurasi constructor: {@code edit}, {@code indexMap}, {@code linkBuffer}. Bagian lain
+ * dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class LokasiShapeHelper {
 
 	private Lokasi lokasi;

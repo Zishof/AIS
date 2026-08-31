@@ -70,6 +70,36 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.UIUtil;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Controller/action ZK untuk antar jemput. Tipe ini merupakan titik masuk UI yang menghubungkan
+ * event layar dengan perilaku domain yang diwarisi atau dikonfigurasi khusus oleh kelas ini.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * GenericAutowireComposer}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code String KIND_KENDARAAN}, {@code String
+ * KIND_RUTE}, {@code String KIND_JADWAL}, {@code String KIND_PESERTA}, {@code String KIND_KARTU}, {@code String
+ * KIND_TRANSAKSI}, {@code String KIND_DETAIL}, {@code String KIND_LOG}; inisialisasi/lifecycle ({@code
+ * doBeforeCompose()}, {@code doAfterCompose()}, {@code initPagings()}); pembacaan/pencarian ({@code findById()},
+ * {@code onRefresh()}, {@code onSearchKendaraan()}, {@code onSearchRute()}, {@code onSearchJadwal()}, {@code
+ * onSearchPeserta()}); mutasi data ({@code saveForm()}, {@code updateTransaksiStatus()}, {@code
+ * updateDetailStatus()}, {@code setScanStatus()}); penghapusan/pembatalan ({@code deleteData()});
+ * pelaporan/ekspor ({@code renderKendaraan()}, {@code renderRute()}, {@code renderJadwal()}, {@code
+ * renderPeserta()}, {@code renderKartu()}, {@code renderTransaksi()}); operasi domain lain ({@code
+ * wireIncludedComponents()}, {@code or()}, {@code bindPaging()}, {@code onAddKendaraan()}, {@code onAddRute()},
+ * {@code onAddJadwal()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
+ * atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
+ * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
+ * serta session Hibernate milik request yang aktif.</p>
+ *
+ * @see GenericAutowireComposer
+ */
 public class AntarJemputAction extends GenericAutowireComposer {
 
     private static final long serialVersionUID = -2837473261882019021L;

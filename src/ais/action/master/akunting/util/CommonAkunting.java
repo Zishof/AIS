@@ -59,6 +59,26 @@ import ais.database.model.surat.NomorSurat;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Tipe khusus untuk common akunting. Kelas ini memberi nama dan batas tanggung jawab yang
+ * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code ThreadLocal dateFormat}, {@code Object
+ * KODE_JURNAL_LOCK}, {@code long lastNoJurnalSeq}, {@code long ids}; pembacaan/pencarian ({@code getindex()});
+ * validasi/perhitungan ({@code jelaskanTransaksiTidakValid()}, {@code jelaskanTransaksiTidakValid()}); mutasi
+ * data ({@code saveTransaksi()}, {@code saveTransaksi()}, {@code saveTransaksi()}, {@code saveTransaksi()},
+ * {@code saveTransaksi()}, {@code saveTransaksi()}); operasi domain lain ({@code generateNoJurnal()}, {@code
+ * hintPemetaanItemBiaya()}, {@code langkahLengkapiKolomAkun()}, {@code langkahIsiKonfigurasiAkun()}, {@code
+ * konteksItemBiayaKegiatan()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut
+ * di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class CommonAkunting {
 
 	public static final ThreadLocal<SimpleDateFormat> dateFormat = new ThreadLocal<SimpleDateFormat>() {
