@@ -39,6 +39,17 @@ public final class NewUiNativeJspResolverSelfTest {
         check(paketPmb != null && "/WEB-INF/new/root/pmb/services/paket_service.jsp".equals(paketPmb.getTarget()),
                 "service submodul tidak boleh melompat ke berkas modul induk");
 
+        // Pembangkit scaffold membuang akhiran "Window" dari nama kelas ZK,
+        // sehingga kunci route harus dinormalkan sama supaya menu laporan
+        // berbasis *Window menemukan halamannya.
+        Set<String> laporan = new HashSet<String>();
+        laporan.add("/WEB-INF/new/root/report/uiux/lkp/laporan_realisasi_lkp.jsp");
+        NewUiNativeJspResolver.Result lkp = NewUiNativeJspResolver.resolveFromPaths(
+                "ais.action.report.lkp.LaporanRealisasiLkpWindow", true, laporan);
+        check(lkp != null && "/WEB-INF/new/root/report/services/lkp/laporan_realisasi_lkp_service.jsp".equals(lkp.getTarget()),
+                "kelas *Window harus menemukan scaffold tanpa akhiran Window");
+        check("root/report".equals(lkp.getModule()), "modul laporan harus utuh root/report");
+
         System.out.println("NewUiNativeJspResolverSelfTest OK");
     }
 }

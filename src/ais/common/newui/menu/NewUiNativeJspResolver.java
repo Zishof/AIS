@@ -68,7 +68,8 @@ public final class NewUiNativeJspResolver {
                     || !path.endsWith(".jsp") || path.endsWith("/index.jsp")
                     || path.startsWith(ROOT + "_shared/")) continue;
             String file = path.substring(path.lastIndexOf('/') + 1, path.length() - 4);
-            if (key.equals(compact(file)) || key.equals(compact(stripSuffix(file, "action")))) candidates.add(path);
+            if (key.equals(compact(file)) || key.equals(compact(stripSuffix(file, "action")))
+                    || key.equals(compact(stripSuffix(file, "window")))) candidates.add(path);
         }
         if (candidates.isEmpty()) return null;
         Collections.sort(candidates);
@@ -139,6 +140,12 @@ public final class NewUiNativeJspResolver {
         }
         if (("list".equalsIgnoreCase(base) || "index".equalsIgnoreCase(base)) && parts.length > 2) base = parts[parts.length - 3];
         base = stripSuffix(base, "action");
+        // Pembangkit scaffold JSP membuang akhiran "Window" dari nama kelas ZK
+        // (mis. LaporanRealisasiLkpWindow -> laporan_realisasi_lkp.jsp), jadi
+        // kunci route harus dinormalkan dengan cara yang sama. Tanpa ini
+        // ratusan menu laporan berbasis *Window tidak pernah menemukan
+        // halamannya dan dilaporkan tidak punya adaptor.
+        base = stripSuffix(base, "window");
         return compact(base);
     }
 
