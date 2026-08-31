@@ -36,6 +36,18 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper ZK untuk mengelola galeri gambar tanda tangan pejabat ({@link FotoGambarTandaTanganPejabat})
+ * milik satu {@link Pejabat} (relasi "punya banyak") pada modul persuratan. Selain fitur
+ * unggah/hapus yang serupa {@code KopSuratPunyaGambarFotoHelper}, setiap baris gambar di sini juga
+ * punya koordinat penempatan tanda tangan pada dokumen ({@code posisiX}/{@code posisiY}, diedit
+ * langsung dari grid lewat {@link MyDoublebox}) yang dipakai saat tanda tangan dibubuhkan otomatis
+ * ke surat cetak. Toolbar unggah disembunyikan bila pengguna tidak punya hak
+ * {@link CommonPrivilages#CREATE}; tombol hapus disembunyikan bila tidak punya hak
+ * {@link CommonPrivilages#DELETE}. Catatan: saat pejabat induk belum tersimpan
+ * ({@code pejabat.getId()} masih {@code null}), unggahan gambar disimpan dengan id pejabat acak
+ * (placeholder) alih-alih menunggu id asli — lihat {@link #initDetail(Pejabat)}.
+ */
 public class FotoGambarTandaTanganPejabatHelper {
 
 	private MyGrid gridGambar;
@@ -43,12 +55,29 @@ public class FotoGambarTandaTanganPejabatHelper {
 	private boolean delete = false;
 	private Pejabat pejabat;
 
+	/**
+	 * Membuat helper terikat pada satu komponen grid target, sekaligus mengevaluasi hak akses
+	 * tambah dan hapus pengguna saat ini.
+	 *
+	 * @param gridgambar komponen grid ZK tempat baris gambar tanda tangan dirender
+	 */
 	public FotoGambarTandaTanganPejabatHelper(MyGrid gridgambar) {
 		this.gridGambar = gridgambar;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun kerangka layout detail (toolbar unggah + kolom grid) dan langsung memuat data gambar
+	 * tanda tangan untuk pejabat yang diberikan. Unggahan baru disimpan sebagai
+	 * {@link FotoGambarTandaTanganPejabat} lewat sesi {@link StreamingHibernateUtil} tersendiri;
+	 * bila pejabat belum memiliki id (belum tersimpan), dipakai id acak sementara sebagai penanda
+	 * relasi.
+	 *
+	 * @param pejabat pejabat yang galeri tanda tangannya ditampilkan/dikelola
+	 * @return komponen {@link Borderlayout} berisi toolbar dan grid gambar yang siap dipasang ke layar pemanggil
+	 * @throws Exception diteruskan apa adanya dari kegagalan pemuatan data
+	 */
 	public Borderlayout initDetail(final Pejabat pejabat) throws Exception {
 		this.pejabat = pejabat;
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -156,6 +185,16 @@ public class FotoGambarTandaTanganPejabatHelper {
 		StreamingHibernateUtil.getInstance().closeSession();
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan pratinjau gambar tanda tangan (dengan tautan buka gambar),
+	 * kolom koordinat X/Y penempatan tanda tangan pada dokumen (masing-masing tersimpan otomatis
+	 * saat berubah), dan tombol hapus beserta event handler-nya (dialog konfirmasi, hapus dari
+	 * database dan dari grid bila dikonfirmasi).
+	 *
+	 * @param row                          baris grid yang diisi
+	 * @param fotoGambarTandaTanganPejabat data gambar tanda tangan yang direpresentasikan baris ini
+	 * @throws Exception diteruskan apa adanya dari kegagalan pembangunan komponen
+	 */
 	public void initRow(final Row row, final FotoGambarTandaTanganPejabat fotoGambarTandaTanganPejabat)
 			throws Exception {
 		row.setValign("top");row.setAttribute("fotoGambarTandaTanganPejabat", fotoGambarTandaTanganPejabat);

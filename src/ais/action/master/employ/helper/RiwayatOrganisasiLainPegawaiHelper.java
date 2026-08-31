@@ -50,6 +50,21 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK CRUD untuk {@link RiwayatOrganisasiLainPegawai} (riwayat keanggotaan/kedudukan pegawai
+ * di organisasi luar institusi): grid pencarian (difilter pegawai/satuan kerja/status persetujuan)
+ * dan form tambah/ubah lengkap dengan lampiran dokumen pendukung ({@link FotoLampiranPegawai} lewat
+ * {@link FotoLampiranPegawaiHelper}). Bisa dipakai dalam dua mode: terikat satu {@code pegawai}
+ * (field pegawai disembunyikan/dikunci) atau mode umum admin yang menampilkan seluruh pegawai
+ * dengan filter satuan kerja.
+ *
+ * <p>
+ * Data yang statusnya sudah {@code true} (disetujui) dikunci ({@link Common#freeze}) dari
+ * pengeditan lebih lanjut kecuali oleh user berprivilese {@code APPROVE}, yang juga satu-satunya
+ * yang bisa melihat/mengubah checkbox status persetujuan itu sendiri. Baris yang sudah disetujui
+ * juga tidak bisa dihapus dari grid.
+ * </p>
+ */
 public class RiwayatOrganisasiLainPegawaiHelper {
 
 	private MyGrid grid = new MyGrid();
@@ -75,11 +90,13 @@ public class RiwayatOrganisasiLainPegawaiHelper {
 	private AmbilDataSatuanKerjaBanbox searchparent;
 	private SatuanKerjaTreeModel satuanKerjaTreeModel;
 
+	/** Membuat helper terikat {@code pegawai} tertentu (boleh {@code null} untuk mode umum yang menampilkan semua pegawai dengan filter satuan kerja). */
 	public RiwayatOrganisasiLainPegawaiHelper(Pegawai pegawai) {
 		this.pegawai = pegawai;
 
 	}
 
+	/** Renderer baris grid: identitas pegawai, nama organisasi, kedudukan, rentang tahun, tempat, pimpinan, periode, ikon status persetujuan, dan tombol ubah/hapus (hapus disembunyikan bila sudah disetujui). */
 	class RiwayatOrganisasiLainPegawaiRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -157,6 +174,14 @@ public class RiwayatOrganisasiLainPegawaiHelper {
 		}
 	}
 
+	/**
+	 * Membangun layar utama: toolbar pencarian (pegawai wajib bila mode umum, satuan kerja opsional,
+	 * status persetujuan) dan grid hasil dengan kolom pegawai disembunyikan bila helper terikat satu
+	 * pegawai. Kolom grid dibangun sekali di sini; isinya dimuat lewat {@link #onSearchDefault}
+	 * (dipicu setelah render pertama via timer default).
+	 *
+	 * @return borderlayout siap ditempelkan ke komponen host
+	 */
 	public Borderlayout display() throws Exception {
 
 		North north = new North();
@@ -331,6 +356,7 @@ public class RiwayatOrganisasiLainPegawaiHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Menjalankan ulang pencarian berdasarkan filter satuan kerja (beserta turunannya)/pegawai/status persetujuan saat ini dan memuat ulang grid. */
 	public void onSearchDefault(Event event) {
 
 		SatuanKerja parent = (SatuanKerja) searchparent.getAttribute("satuanKerja");
@@ -364,6 +390,13 @@ public class RiwayatOrganisasiLainPegawaiHelper {
 
 	}
 
+	/**
+	 * Membuka jendela modal tambah/ubah untuk {@code riwayatOrganisasiLainPegawai}: panel timur
+	 * berisi editor lampiran dokumen ({@link FotoLampiranPegawaiHelper}), panel tengah berisi form
+	 * (pegawai, nama organisasi, kedudukan, rentang tahun, tempat, pimpinan, periode, status
+	 * persetujuan). Grid form dikunci ({@link Common#freeze}) bila data sudah berstatus disetujui;
+	 * toggle checkbox status oleh approver membuka/mengunci kembali grid secara langsung.
+	 */
 	public void init(final RiwayatOrganisasiLainPegawai riwayatOrganisasiLainPegawai) throws Exception {
 		this.riwayatOrganisasiLainPegawai = riwayatOrganisasiLainPegawai;
 
@@ -525,6 +558,15 @@ public class RiwayatOrganisasiLainPegawaiHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Memvalidasi (pegawai, nama organisasi, tahun mulai/selesai, tempat wajib diisi; setiap baris
+	 * lampiran harus sudah punya file terunggah) dan menyimpan {@link RiwayatOrganisasiLainPegawai}
+	 * beserta seluruh baris {@link FotoLampiranPegawai} terkait (disimpan pada sesi Hibernate
+	 * terpisah {@link StreamingHibernateUtil}, dengan {@code item}/{@code clazz} diisi setelah id
+	 * entitas induk tersedia).
+	 *
+	 * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal
+	 */
 	public boolean save(Event event) throws Exception {
 
 		if (ambilDataPegawaiBanbox.getAttribute("pegawai") == null) {

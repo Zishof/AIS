@@ -39,11 +39,29 @@ import ais.ui.util.MyWindow;
 import ais.action.report.format1.library.LaporanRekapKunjunganWindow;
 
 import ais.ui.util.DashboardModernHtmlUtil;
+/**
+ * Kartu dasbor yang menampilkan statistik kunjungan anggota perpustakaan ({@code
+ * library.kunjungan_anggota}) dalam rentang tanggal yang dapat difilter, dirender sebagai
+ * HTML/CSS ringan (bukan grafik JS berat): kartu ringkasan (total aktivitas, jumlah tanggal,
+ * jumlah unit perpustakaan, unit teraktif), tren harian per perpustakaan (bar horizontal per
+ * tanggal), komposisi total per perpustakaan, dan "radar" tiga metrik (aktivitas, sebaran unit,
+ * hari aktif) sebagai gauge bar. Saat dibuat dengan konstruktor {@link #DashboardStatistikKunjunganAnggota(int, int)},
+ * kartu menampilkan tombol tambahan "Lihat Rinci" yang membuka {@link LaporanRekapKunjunganWindow}.
+ *
+ * <p>
+ * <b>Catatan akurasi</b> — {@link #buildSql} menambahkan klausa filter {@code c.jurusan=...} dan
+ * {@code e.fakultas=...} bila filter jurusan/fakultas dipilih, namun query dasarnya TIDAK
+ * mendefinisikan alias tabel {@code c} maupun {@code e} (hanya {@code a}/{@code b}/{@code d}).
+ * Filter jurusan/fakultas pada kartu ini karenanya berpotensi menghasilkan galat SQL alias-tidak-
+ * dikenal bila benar-benar dipilih pengguna. Kode fungsional TIDAK diubah sesuai batasan tugas
+ * dokumentasi ini; perilaku di atas didokumentasikan apa adanya.
+ * </p>
+ */
 public class DashboardStatistikKunjunganAnggota extends MyWindow {
 
 	private static final long serialVersionUID = -28636873241676666L;
 
-	
+
 	private int width;
 	private int height;
 	private Div center;
@@ -53,6 +71,7 @@ public class DashboardStatistikKunjunganAnggota extends MyWindow {
 	private MyDatebox sampai = new MyDatebox();
 	private boolean tampilRinci = false;
 
+	/** Membuat kartu ringkas (tanpa tombol "Lihat Rinci") dan langsung menyusun+mengisi isinya. */
 	public DashboardStatistikKunjunganAnggota() throws Exception {
 		super();
 		initFakultas();
@@ -60,12 +79,19 @@ public class DashboardStatistikKunjunganAnggota extends MyWindow {
 		initChart();
 	}
 
+	/**
+	 * Membuat kartu dengan tombol "Lihat Rinci" aktif (membuka {@link LaporanRekapKunjunganWindow}).
+	 *
+	 * @param width  lebar kartu yang diinginkan (disimpan, tidak dipakai langsung pada tata letak saat ini)
+	 * @param height tinggi kartu yang diinginkan (idem)
+	 */
 	public DashboardStatistikKunjunganAnggota(int width, int height) throws Exception {
 		super();
 		tampilRinci = true;
 		reinit(width, height);
 	}
 
+	/** Memperbarui ukuran tersimpan lalu menyusun ulang seluruh isi kartu (filter + grafik) dari awal. */
 	public void reinit(int width, int height) throws Exception {
 		this.width = width;
 		this.height = height;
@@ -74,6 +100,7 @@ public class DashboardStatistikKunjunganAnggota extends MyWindow {
 		initChart();
 	}
 
+	/** Membuat kartu dengan judul, gaya border, dan status dapat-ditutup kustom, lalu langsung menyusun+mengisi isinya. */
 	public DashboardStatistikKunjunganAnggota(String title, String border, boolean closable) throws Exception {
 		super(title, border, closable);
 		initFakultas();
@@ -81,9 +108,11 @@ public class DashboardStatistikKunjunganAnggota extends MyWindow {
 		initChart();
 	}
 
+	/** Titik perluasan inisialisasi fakultas; saat ini tidak melakukan apa pun. */
 	private void initFakultas() {
 	}
 
+	/** Menyusun kerangka kartu (panel saringan tanggal + area chart, dan tombol "Lihat Rinci" bila {@link #tampilRinci}). */
 	@SuppressWarnings("deprecation")
 	private void init() {
 		DashboardGridExportHelper.pasang(this, "Statistik Kunjungan Anggota");
@@ -159,6 +188,14 @@ public class DashboardStatistikKunjunganAnggota extends MyWindow {
 
 	}
 
+	/**
+	 * Mengambil data kunjungan dari {@code library.kunjungan_anggota} untuk rentang tanggal
+	 * mulai/sampai terpilih (sampai +1 hari agar tanggal akhir inklusif), mengelompokkannya per
+	 * tanggal dan per perpustakaan ke dalam {@link VisualData}. Daftar nama perpustakaan aktif
+	 * juga dimuat terpisah lewat Hibernate untuk keperluan lain di luar agregasi ini.
+	 *
+	 * @return data teragregasi siap divisualisasikan
+	 */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	private VisualData loadData() {
 		VisualData data = new VisualData();
@@ -207,6 +244,18 @@ public class DashboardStatistikKunjunganAnggota extends MyWindow {
 		return data;
 	}
 
+	/**
+	 * Menyusun SQL agregasi jumlah kunjungan per tanggal+perpustakaan dalam rentang
+	 * {@code [dateMulai, dateSelesai)}. Lihat catatan akurasi pada javadoc kelas: filter
+	 * {@code jurusan}/{@code fakultas} merujuk alias tabel ({@code c}/{@code e}) yang tidak
+	 * didefinisikan pada query dasar.
+	 *
+	 * @param dateMulai   tanggal mulai (format basis data), inklusif
+	 * @param dateSelesai tanggal batas atas (format basis data), eksklusif
+	 * @param fakultas    filter fakultas opsional (lihat catatan akurasi)
+	 * @param jurusan     filter jurusan opsional (lihat catatan akurasi)
+	 * @return teks SQL agregasi
+	 */
 	private String buildSql(String dateMulai, String dateSelesai, Fakultas fakultas, Jurusan jurusan) {
 		StringBuilder sql = new StringBuilder();
 		sql.append("select date(a.tanggal_dirubah) as tanggal, coalesce(d.nama,'Tanpa Perpustakaan') as perpustakaan, count(*) as qty ");
@@ -224,6 +273,7 @@ public class DashboardStatistikKunjunganAnggota extends MyWindow {
 		return sql.toString();
 	}
 
+	/** Mengosongkan area chart lalu mengisinya ulang dengan HTML hasil {@link #loadData()} + {@link #buildHtml}. */
 	private void initChart() throws Exception {
 		Common.clear(center);
 		VisualData data = loadData();

@@ -32,6 +32,13 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.UIUtil;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Aksi CRUD (via kerangka {@link GenericCrudAction}) untuk kelola master data
+ * {@link GolonganPns} (golongan Pegawai Negeri Sipil): daftar dengan pencarian nama dan filter
+ * aktif, formulir tambah/ubah (kode, nama, keterangan), validasi nama tidak boleh duplikat,
+ * toggle status aktif langsung dari baris tabel, serta unduh/unggah data massal lewat
+ * {@link Common#cetakData}/{@link Common#uploadData}.
+ */
 public class GolonganPnsAction extends GenericCrudAction<GolonganPns> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -43,20 +50,25 @@ public class GolonganPnsAction extends GenericCrudAction<GolonganPns> {
 
     // ======================== Abstract implementations ========================
 
+    /** @return {@link GolonganPns}, kelas entitas yang dikelola aksi ini. */
     @Override
     protected Class<GolonganPns> getEntityClass() { return GolonganPns.class; }
 
+    /** @return instans {@link GolonganPns} kosong untuk formulir tambah data baru. */
     @Override
     protected GolonganPns createNewEntity() { return new GolonganPns(); }
 
+    /** @return judul jendela daftar/aksi ini. */
     @Override
     protected String getWindowTitle() { return "Pendataan Golongan PNS"; }
 
+    /** @return nama kolom yang disertakan pada unduh/unggah data massal. */
     @Override
     protected String[] getDownloadUploadContents() {
         return new String[] { "id", "kode", "nama", "keterangan", "aktif" };
     }
 
+    /** Menambahkan tombol cetak dan unggah data massal ke toolbar setelah komponen dasar disiapkan. */
     @Override
     protected void onAfterInit(Component comp) throws Exception {
         String[] contents = getDownloadUploadContents();
@@ -72,6 +84,7 @@ public class GolonganPnsAction extends GenericCrudAction<GolonganPns> {
         }
     }
 
+    /** @return kriteria pencarian {@link GolonganPns} berdasarkan nama (ILIKE) dan status aktif bila filter dicentang, diurutkan menurut nama bila {@code order} true. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -86,6 +99,7 @@ public class GolonganPnsAction extends GenericCrudAction<GolonganPns> {
         return criteria;
     }
 
+    /** @return renderer baris tabel {@link GolonganPnsRenderer} untuk daftar golongan PNS. */
     @Override
     protected MyRowRenderer createRenderer() {
         return new GolonganPnsRenderer();
@@ -93,6 +107,7 @@ public class GolonganPnsAction extends GenericCrudAction<GolonganPns> {
 
     // ======================== Form content ========================
 
+    /** Menyusun formulir tambah/ubah (field kode, nama, keterangan) beserta tombol Batal/Simpan pada jendela modal. */
     @Override
     protected void buildFormContent(MyWindow window, final GolonganPns golonganPns) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -166,6 +181,13 @@ public class GolonganPnsAction extends GenericCrudAction<GolonganPns> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi nama wajib diisi dan belum terdaftar (lewat {@link #checkNamaGolonganPns()}),
+     * lalu menyimpan (buat baru atau perbarui) entitas {@link GolonganPns}.
+     *
+     * @param event event pemicu (tidak dipakai)
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal (jendela tetap terbuka)
+     */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             PesanFormalHelper.tampilkanGagal("penyimpanan data Golongan Pns",
@@ -198,6 +220,7 @@ public class GolonganPnsAction extends GenericCrudAction<GolonganPns> {
         return true;
     }
 
+    /** @return {@code true} bila nama pada formulir sudah dipakai golongan PNS lain (mengecualikan record yang sedang diedit). */
     public Boolean checkNamaGolonganPns() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(GolonganPns.class)
@@ -212,6 +235,7 @@ public class GolonganPnsAction extends GenericCrudAction<GolonganPns> {
 
     // ======================== Renderer ========================
 
+    /** Renderer baris tabel: kode, nama (via {@link RevisiHelper}), keterangan, checkbox aktif (toggle langsung tersimpan), dan tombol ubah/hapus. */
     class GolonganPnsRenderer extends MyRowRenderer {
 
         @Override

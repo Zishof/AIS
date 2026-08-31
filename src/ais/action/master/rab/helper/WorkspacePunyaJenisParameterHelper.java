@@ -36,6 +36,18 @@ import ais.ui.util.MyIntbox;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper ZK untuk mengelola parameter tambahan bertipe-dinamis ({@link WorkspacePunyaJenisParameter})
+ * milik satu {@link Workspace} pada modul RAB (relasi "punya banyak"). Setiap baris memilih satu
+ * {@link JenisParameter} (yang menentukan tipe data nilainya: String/Integer/Double/Date/Time) lalu
+ * menampilkan HANYA satu input yang sesuai tipe tersebut (input lain disembunyikan, bukan dihapus,
+ * lewat toggle visibilitas di {@link #initRow}) — pola "polymorphic value" satu baris menyimpan
+ * nilai ke salah satu dari lima kolom berbeda tergantung tipe data parameter yang dipilih. Baris
+ * baru langsung ditambahkan ke grid tanpa disimpan ke database (baru tersimpan saat workspace induk
+ * disimpan); tombol tambah/hapus disembunyikan sesuai hak akses
+ * {@link CommonPrivilages#CREATE}/{@code DELETE}, dan seluruh input dinonaktifkan bila tidak punya
+ * hak {@link CommonPrivilages#UPDATE}.
+ */
 public class WorkspacePunyaJenisParameterHelper {
 
 	private MyGrid gridParameter;
@@ -43,6 +55,12 @@ public class WorkspacePunyaJenisParameterHelper {
 	private boolean edit = false;
 	private boolean delete = false;
 
+	/**
+	 * Membuat helper terikat pada satu komponen grid target, sekaligus mengevaluasi hak akses
+	 * tambah, ubah, dan hapus pengguna saat ini.
+	 *
+	 * @param gridParameter komponen grid ZK tempat baris parameter dirender
+	 */
 	public WorkspacePunyaJenisParameterHelper(MyGrid gridParameter) {
 		this.gridParameter = gridParameter;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -50,6 +68,14 @@ public class WorkspacePunyaJenisParameterHelper {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun kerangka layout detail (toolbar tambah + kolom grid) dan langsung memuat data
+	 * parameter untuk workspace yang diberikan. Tombol tambah langsung menyisipkan baris kosong baru
+	 * ke grid (belum tersimpan ke database).
+	 *
+	 * @param workspace workspace yang daftar parameternya ditampilkan/dikelola
+	 * @return komponen {@link Borderlayout} berisi toolbar dan grid parameter yang siap dipasang ke layar pemanggil
+	 */
 	public Borderlayout initDetail(final Workspace workspace) {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -132,6 +158,16 @@ public class WorkspacePunyaJenisParameterHelper {
 		}
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan kombo pemilihan jenis parameter, lima input nilai bertipe
+	 * berbeda (String/Integer/Double/Date/Time) yang saling eksklusif — hanya satu yang tampil sesuai
+	 * tipe data jenis parameter terpilih, ditentukan ulang setiap kali pilihan jenis parameter
+	 * berubah — kolom keterangan, dan tombol hapus beserta event handler-nya (dialog konfirmasi,
+	 * hapus dari database dan dari grid bila dikonfirmasi).
+	 *
+	 * @param row                          baris grid yang diisi
+	 * @param workspacePunyaJenisParameter baris penghubung workspace-jenis parameter yang direpresentasikan baris ini
+	 */
 	public void initRow(final Row row,
 			final WorkspacePunyaJenisParameter workspacePunyaJenisParameter) {
 		row.setValign("top");row.setAttribute("workspacePunyaJenisParameter",

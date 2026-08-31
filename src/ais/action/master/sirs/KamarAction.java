@@ -27,6 +27,13 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD data master "Kamar" SIRS: mendata kamar rawat inap beserta kelas perawatan dan ruang
+ * (bangunan/gedung) tempatnya berada. Dibangun di atas kerangka kerja {@link GenericCrudAction}:
+ * pencarian dapat difilter berdasarkan kelas perawatan, ruang, dan nama kamar; form tambah/edit
+ * memuat nama, kelas perawatan, ruang, dan keterangan; renderer baris daftar menampilkan seluruh
+ * atribut tersebut dengan tombol revisi dan aksi edit/hapus.
+ */
 public class KamarAction extends GenericCrudAction<Kamar> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -52,6 +59,7 @@ public class KamarAction extends GenericCrudAction<Kamar> {
     @Override
     protected String getWindowTitle() { return "Pendataan Kamar"; }
 
+    /** Mengisi dropdown pencarian kelas perawatan dan ruang setelah komponen ZK selesai dirakit. */
     @Override
     public void doAfterCompose(Component comp) throws Exception {
         super.doAfterCompose(comp);
@@ -59,6 +67,7 @@ public class KamarAction extends GenericCrudAction<Kamar> {
         Common.insertCombo(searchruang, "nama", "keterangan", Ruang.class);
     }
 
+    /** Membangun kriteria pencarian {@link Kamar} berdasarkan filter kelas perawatan, ruang, dan nama (ILIKE sebagian), diurutkan menurut nama bila {@code order} true. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -83,6 +92,7 @@ public class KamarAction extends GenericCrudAction<Kamar> {
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/edit Kamar (field nama, kelas perawatan, ruang, keterangan) beserta toolbar Batal/Simpan di dalam jendela {@code window}. */
     @Override
     protected void buildFormContent(MyWindow window, final Kamar kamar) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -168,6 +178,7 @@ public class KamarAction extends GenericCrudAction<Kamar> {
 
     // ======================== Save logic ========================
 
+    /** Memvalidasi (nama wajib diisi) lalu menyimpan/memperbarui entitas {@link Kamar} dari nilai form (nama, kelas perawatan, ruang, keterangan). @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal. */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Nama Kamar wajib diisi terlebih dahulu. Langkah yang dapat dilakukan: (1) isikan Nama Kamar pada kolom yang tersedia; (2) pastikan kolom tidak dikosongkan; (3) simpan kembali data setelah kolom terisi.", "Peringatan",
@@ -192,6 +203,7 @@ public class KamarAction extends GenericCrudAction<Kamar> {
 
     // ======================== Renderer ========================
 
+    /** Merender satu baris daftar Kamar: label revisi+nama, kelas perawatan, ruang, keterangan, dan tombol edit/hapus. */
     class KamarRenderer extends MyRowRenderer {
 
         @Override

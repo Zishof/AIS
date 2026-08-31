@@ -44,18 +44,40 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper UI untuk mengelola galeri foto satu {@link Produk} modul inventory (mis. untuk kasir POS
+ * mengenali barang dengan cepat), ditampilkan sebagai grid unggah/hapus di dalam layar detail
+ * produk. Unggahan gambar dikonversi ke JPEG dan disimpan dua kali: sebagai berkas fisik di direktori
+ * konfigurasi {@code lokasi_penyimpanan_lampiran_perpustakaan} (nama berkas dari timestamp + nama
+ * asli, di-encode URL) dan sebagai BLOB pada baris {@link FotoGambarProduk} lewat sesi terpisah
+ * {@link StreamingHibernateUtil} (dipakai khusus operasi berorientasi BLOB/stream, bukan sesi
+ * Hibernate biasa). Gambar pertama yang diunggah pada produk yang sudah tersimpan otomatis dijadikan
+ * {@code imagePath} thumbnail produk. Hapus baris menghapus baris {@link FotoGambarProduk} dari
+ * database (bila sudah tersimpan) setelah konfirmasi. Visibilitas tombol tambah/hapus mengikuti hak
+ * akses pengguna.
+ */
 public class ProdukPunyaGambarFotoHelper {
 
 	private MyGrid gridPengarang;
 	private boolean add = false;
 	private boolean delete = false;
 
+	/** Membuat helper terikat ke {@code gridPengarang}, menentukan visibilitas tombol tambah/hapus dari hak akses pengguna saat ini. */
 	public ProdukPunyaGambarFotoHelper(MyGrid gridPengarang) {
 		this.gridPengarang = gridPengarang;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun tata letak grid galeri foto lengkap dengan toolbar unggah, tiga kolom (gambar, nama,
+	 * hapus), dan langsung memuat foto {@code produk} yang sudah ada. Unggahan baru dikonversi ke
+	 * JPEG, disimpan sebagai berkas fisik dan baris {@link FotoGambarProduk}; bila produk sudah
+	 * tersimpan, foto pertama otomatis dijadikan {@code imagePath} thumbnail produk.
+	 *
+	 * @param produk produk yang galerinya akan ditampilkan/dikelola
+	 * @return tata letak {@link Borderlayout} siap ditempel ke komponen induk
+	 */
 	public Borderlayout initDetail(final Produk produk) throws Exception {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -174,6 +196,7 @@ public class ProdukPunyaGambarFotoHelper {
 		return borderlayout;
 	}
 
+	/** Memuat seluruh foto tersimpan milik {@code produk} (diurutkan id terbaru dulu) ke grid, atau tidak menambah baris apa pun bila produk belum tersimpan. */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final Produk produk) throws Exception {
 
@@ -195,6 +218,7 @@ public class ProdukPunyaGambarFotoHelper {
 		StreamingHibernateUtil.getInstance().closeSession();
 	}
 
+	/** Mengisi satu baris grid dengan thumbnail (256x256, lewat {@link CommonMedia#getUrlFotoProduk}), nama berkas, dan tombol hapus (dengan konfirmasi) yang, saat disetujui, menghapus baris dari database bila sudah tersimpan lalu menyembunyikan/melepas baris dari grid. */
 	public void initRow(final Row row, final FotoGambarProduk fotoGambarProduk) throws Exception {
 		row.setValign("top");
 		row.setAttribute("fotoGambarProduk", fotoGambarProduk);
@@ -245,6 +269,7 @@ public class ProdukPunyaGambarFotoHelper {
 	}
 
 
+	/** Membangun kotak info HTML kecil (judul + deskripsi) yang ditampilkan di toolbar galeri, dengan konten di-escape lewat {@link #escapeHtmlInventoryV1(String)}. */
 	private org.zkoss.zul.Html buildInfoHtmlInventoryV1(String judul, String deskripsi) {
 		return new org.zkoss.zul.Html("<div style=\"padding:10px 12px;margin:4px 0;border-radius:12px;"
 				+ "background:#f8fafc;border:1px solid #e2e8f0;color:#475569;font-size:11.5px;line-height:1.55;\">"
@@ -252,6 +277,7 @@ public class ProdukPunyaGambarFotoHelper {
 				+ escapeHtmlInventoryV1(deskripsi) + "</div>");
 	}
 
+	/** Melakukan escape karakter HTML dasar ({@code & < > " '}) pada {@code value} agar aman disisipkan ke markup {@link org.zkoss.zul.Html}; mengembalikan string kosong bila {@code value} {@code null}. */
 	private String escapeHtmlInventoryV1(String value) {
 		if (value == null) {
 			return "";

@@ -45,6 +45,18 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper UI untuk mengelola daftar surat masuk yang dipinjam/didisposisikan pada satu
+ * {@link PeminjamanSuratItem} (sirkulasi surat), ditampilkan sebagai grid tambah/hapus di dalam
+ * layar detail peminjaman. Menu tambah membuka dialog pemilihan surat masuk secara massal
+ * ({@code AmbilDataSuratMasukBanyak}, terikat pada satuan kerja tujuan), mengecualikan surat yang
+ * sudah ada di daftar; item ditulis langsung ke database bila induk sudah tersimpan, atau hanya ke
+ * grid bila induk masih draft. Kolom keterangan dapat diedit langsung di grid selama peminjaman
+ * belum disetujui ({@code disetujuiOleh} kosong). Tombol "Lihat" membuka pratinjau gambar surat
+ * masuk terkait, dinonaktifkan di luar rentang tanggal peminjaman yang disetujui. Label tombol
+ * "tipe" (mis. "Surat Masuk") dan mode {@code persetujuan} (read-only saat menampilkan layar
+ * persetujuan) diberikan lewat konstruktor.
+ */
 public class PeminjamanSuratItemPunyaItemHelper {
 
 	private boolean edit = false;
@@ -53,6 +65,12 @@ public class PeminjamanSuratItemPunyaItemHelper {
 	private String tipe;
 	private boolean persetujuan;
 
+	/**
+	 * Membuat helper dengan label item ({@code tipe}, mis. "Surat Masuk") dan mode tampilan.
+	 *
+	 * @param tipe        label jenis item yang dipakai pada judul dan tombol UI
+	 * @param persetujuan bila {@code true}, grid ditampilkan read-only (mode layar persetujuan, tanpa toolbar tambah dan tanpa field keterangan yang dapat diedit)
+	 */
 	public PeminjamanSuratItemPunyaItemHelper(String tipe, boolean persetujuan) {
 		this.tipe = tipe;
 		this.persetujuan = persetujuan;
@@ -61,6 +79,17 @@ public class PeminjamanSuratItemPunyaItemHelper {
 //		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun kotak grup grid daftar surat, lengkap dengan toolbar "Ambil Data" (disembunyikan
+	 * saat mode {@code persetujuan}) dan kolom nomor surat/agenda, perihal, keterangan, dan aksi.
+	 * Langsung memuat detail {@code peminjamanSuratItem} yang sudah ada. Tombol "Ambil Data"
+	 * mewajibkan {@code kepadaSatuanKerja} sudah dipilih sebelum dialog pemilihan surat dibuka.
+	 *
+	 * @param peminjamanSuratItem induk peminjaman surat, boleh belum tersimpan (draft baru)
+	 * @param gridItem            grid tempat baris item ditampilkan
+	 * @param kepadaSatuanKerja   komponen pilihan satuan kerja tujuan, dipakai sebagai syarat dan filter dialog pemilihan surat
+	 * @return {@link Groupbox} siap ditempel ke komponen induk
+	 */
 	public Groupbox initDetail(final PeminjamanSuratItem peminjamanSuratItem, final MyGrid gridItem,
 			final AmbilDataSatuanKerjaBanbox kepadaSatuanKerja) throws Exception {
 
@@ -182,6 +211,7 @@ public class PeminjamanSuratItemPunyaItemHelper {
 		return myGroupboxStyled;
 	}
 
+	/** Memuat seluruh detail item tersimpan milik {@code peminjamanSuratItem} ke grid, atau tidak menambah baris apa pun bila induk belum tersimpan. */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final PeminjamanSuratItem peminjamanSuratItem, final MyGrid gridItem) throws Exception {
 
@@ -201,6 +231,14 @@ public class PeminjamanSuratItemPunyaItemHelper {
 		}
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan nomor surat, kode (dengan tautan riwayat revisi bila
+	 * tersedia), keterangan (label read-only pada mode persetujuan, atau textbox yang langsung
+	 * menyimpan perubahan ke database pada mode edit — dinonaktifkan bila peminjaman sudah
+	 * disetujui atau pengguna tidak punya hak edit), tombol lihat pratinjau gambar surat masuk
+	 * (aktif hanya dalam rentang tanggal peminjaman yang disetujui), dan tombol hapus (dengan
+	 * konfirmasi, hanya tampak bila belum disetujui dan pengguna punya hak hapus).
+	 */
 	public void initRow(final Row row, final PeminjamanSuratItemDetail peminjamanSuratItemDetail) throws Exception {
 
 		row.setValign("top");

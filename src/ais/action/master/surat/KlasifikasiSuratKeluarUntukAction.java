@@ -32,6 +32,19 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD master data "Klasifikasi Surat Keluar Untuk" (peruntukan/aturan penerbitan surat
+ * keluar bagi mahasiswa pada modul persuratan, mis. surat keterangan aktif kuliah). Setiap baris
+ * mendefinisikan syarat penerbitan surat berdasarkan status awal dan status mahasiswa saat ini
+ * ({@code statusAwalMahasiswa}/{@code statusMahasiswa}, kosong berarti berlaku untuk semua status),
+ * beserta tiga aturan tambahan: tanggal surat tidak bisa diubah, mahasiswa hanya bisa cetak sekali,
+ * dan mahasiswa harus sudah membayar sebelum bisa mencetak. Memperluas {@link GenericCrudAction}
+ * untuk mewarisi kerangka baku cari/tambah/ubah/hapus; penyimpanan dan penghapusan didelegasikan ke
+ * {@link KlasifikasiSuratKeluarUntukDao} (via {@link DaoFactory}). Renderer baris kelas ini
+ * membangun toolbar edit/hapus sendiri (berbeda dari pola {@code Common.copyEditDeleteButtons} yang
+ * dipakai sebagian besar layar CRUD sejenis), termasuk penanganan galat khusus saat penghapusan
+ * gagal karena data masih berelasi dengan data lain.
+ */
 public class KlasifikasiSuratKeluarUntukAction extends GenericCrudAction<KlasifikasiSuratKeluarUntuk> {
 
     private static final long serialVersionUID = 1L;
@@ -56,6 +69,7 @@ public class KlasifikasiSuratKeluarUntukAction extends GenericCrudAction<Klasifi
     @Override
     protected String getWindowTitle() { return "Pendataan Klasifikasi Surat Keluar"; }
 
+    /** Menyusun kriteria pencarian {@link KlasifikasiSuratKeluarUntuk} berdasarkan nama (filter {@code searchnama}), diurutkan berdasarkan nama bila diminta. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -67,6 +81,7 @@ public class KlasifikasiSuratKeluarUntukAction extends GenericCrudAction<Klasifi
         return criteria;
     }
 
+    /** Menyediakan renderer baris grid {@link KlasifikasiSuratKeluarUntukRenderer} untuk daftar hasil pencarian. */
     @Override
     protected MyRowRenderer createRenderer() {
         return new KlasifikasiSuratKeluarUntukRenderer();
@@ -74,6 +89,7 @@ public class KlasifikasiSuratKeluarUntukAction extends GenericCrudAction<Klasifi
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/ubah klasifikasi surat keluar (nama peruntukan, status awal/status mahasiswa, tiga checkbox aturan, keterangan) beserta tombol batal/simpan pada jendela dialog. */
     @Override
     protected void buildFormContent(MyWindow window, final KlasifikasiSuratKeluarUntuk entity) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -171,6 +187,15 @@ public class KlasifikasiSuratKeluarUntukAction extends GenericCrudAction<Klasifi
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi lalu menyimpan data klasifikasi surat keluar dari form: menolak bila nama
+     * peruntukan kosong atau sudah terdaftar pada baris lain; jika lolos menyimpan/memperbarui
+     * entitas lewat {@link KlasifikasiSuratKeluarUntukDao} dan mengembalikan {@code true}.
+     *
+     * @param event event ZK pemicu penyimpanan (tombol simpan)
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal
+     * @throws Exception diteruskan apa adanya dari kegagalan DAO saat menyimpan
+     */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Nama Peruntukan Klasifikasi Surat Keluar belum diisi. Langkah yang dapat dilakukan: (1) klik kolom Nama Peruntukan; (2) isikan nama peruntukan secara lengkap; (3) ulangi proses simpan. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.", "Peringatan",
@@ -205,6 +230,12 @@ public class KlasifikasiSuratKeluarUntukAction extends GenericCrudAction<Klasifi
         return true;
     }
 
+    /**
+     * Memeriksa apakah nama peruntukan yang diisi di form sudah dipakai baris lain (mengecualikan
+     * baris yang sedang diedit sendiri).
+     *
+     * @return {@code true} bila nama sudah terpakai baris lain, {@code false} bila belum
+     */
     public Boolean checkNamaKlasifikasiSuratKeluarUntuk() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(KlasifikasiSuratKeluarUntuk.class)
@@ -219,6 +250,7 @@ public class KlasifikasiSuratKeluarUntukAction extends GenericCrudAction<Klasifi
 
     // ======================== Renderer ========================
 
+    /** Renderer baris grid daftar klasifikasi surat keluar: kolom nama (dengan link riwayat revisi), status awal/status mahasiswa, keterangan, dan toolbar edit/hapus khusus (hapus menampilkan pesan galat rinci bila entitas masih berelasi dengan data lain). */
     class KlasifikasiSuratKeluarUntukRenderer extends MyRowRenderer {
 
         @Override

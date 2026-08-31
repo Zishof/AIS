@@ -42,6 +42,17 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.UIUtil;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD data master "Negara" (referensi kode &amp; nama negara). Dibangun di atas
+ * {@link GenericCrudAction}: pencarian dapat difilter nama negara dan kode; form tambah/edit
+ * memuat kode dan nama negara dengan validasi keduanya wajib diisi serta tidak duplikat (baik
+ * kode maupun nama, tanpa memandang huruf besar/kecil); mendukung unggah massal dari berkas Excel
+ * (.xlsx, kolom id/nama/kode, baris dengan id kosong/-1 dianggap data baru) lewat
+ * {@link #prosesUploadNegara}; dan dapat dibuka sebagai jendela modal dari modul lain lewat
+ * {@link #onAddExternal} (mis. untuk menambah negara baru langsung dari form lain tanpa
+ * meninggalkan halaman). Renderer baris menampilkan checkbox aktif yang langsung tersimpan saat
+ * diubah.
+ */
 public class NegaraAction extends GenericCrudAction<Negara> {
 
     private static final long serialVersionUID = 3786091220301468178L;
@@ -68,11 +79,13 @@ public class NegaraAction extends GenericCrudAction<Negara> {
     @Override
     protected String getWindowTitle() { return "Pendataan Negara"; }
 
+    /** Kolom yang disertakan pada operasi unduh/unggah massal data Negara. */
     @Override
     protected String[] getDownloadUploadContents() {
         return new String[] { "id", "namaNegara", "kode", "aktif" };
     }
 
+    /** Menambahkan tombol cetak dan tombol unggah Excel (memicu {@link #prosesUploadNegara}) ke toolbar setelah inisialisasi layar. */
     @Override
     protected void onAfterInit(Component comp) throws Exception {
         MyToolbarbuttonConfig cetakToolbarbutton = Common.cetakData(this, "id", "namaNegara", "kode", "aktif");
@@ -95,6 +108,7 @@ public class NegaraAction extends GenericCrudAction<Negara> {
         }
     }
 
+    /** Membangun kriteria pencarian {@link Negara} berdasarkan filter nama negara dan kode (masing-masing ILIKE sebagian), diurutkan menurut nama bila {@code order} true. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -116,6 +130,17 @@ public class NegaraAction extends GenericCrudAction<Negara> {
 
     // ======================== External open (dipanggil dari modul lain) ========================
 
+    /**
+     * Membuka form tambah/edit Negara sebagai jendela modal mandiri, dipanggil dari modul lain yang
+     * perlu menambah data negara tanpa berpindah halaman (mis. dari form biodata). Menyimpan
+     * instance {@link NegaraAction} baru dan jendela {@link MyWindow} sementara terpisah dari layar
+     * daftar Negara utama. Setelah simpan, {@code listener} dipanggil dengan entitas hasil simpan
+     * sebagai data event, memungkinkan pemanggil memilih negara yang baru dibuat.
+     *
+     * @param listener callback yang dipanggil setelah simpan (berhasil atau tidak) dengan entitas hasil sebagai data event
+     * @param negara   entitas awal (baru atau untuk diedit) yang ditampilkan di form
+     * @throws Exception diteruskan dari kegagalan pembangunan jendela/form
+     */
     public static void onAddExternal(EventListener listener, Negara negara) throws Exception {
         NegaraAction action = new NegaraAction();
         action.eventListener = listener;
@@ -131,6 +156,7 @@ public class NegaraAction extends GenericCrudAction<Negara> {
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/edit Negara (kode + nama) beserta toolbar Batal/Simpan; tombol Simpan juga memanggil {@code eventListener} eksternal bila diisi (jalur {@link #onAddExternal}). */
     @Override
     protected void buildFormContent(MyWindow window, final Negara negara) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new MyBorderlayout();
@@ -203,6 +229,7 @@ public class NegaraAction extends GenericCrudAction<Negara> {
 
     // ======================== Save logic ========================
 
+    /** Memvalidasi (kode dan nama wajib diisi, keduanya tidak boleh duplikat) lalu menyimpan/memperbarui entitas {@link Negara} lewat {@link NegaraDao}. @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal. */
     public boolean onSave(Event event) throws Exception {
         if (kode.getValue().trim().equals("")) {
             PesanFormalHelper.tampilkanGagal("penyimpanan data Kode Negara",
@@ -256,6 +283,7 @@ public class NegaraAction extends GenericCrudAction<Negara> {
         return true;
     }
 
+    /** Memeriksa apakah kode pada form sudah dipakai entitas {@link Negara} lain (tanpa memandang huruf besar/kecil, mengabaikan entitas yang sedang diedit). */
     public Boolean checkKodeNegara() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(Negara.class)
@@ -268,6 +296,7 @@ public class NegaraAction extends GenericCrudAction<Negara> {
         return count != 0;
     }
 
+    /** Memeriksa apakah nama negara pada form sudah dipakai entitas {@link Negara} lain (tanpa memandang huruf besar/kecil, mengabaikan entitas yang sedang diedit). */
     public Boolean checkNamaNegara() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(Negara.class)
@@ -282,6 +311,17 @@ public class NegaraAction extends GenericCrudAction<Negara> {
 
     // ======================== Upload logic ========================
 
+    /**
+     * Memproses unggahan berkas Excel (.xlsx) berisi data Negara: memvalidasi tipe berkas, menyimpan
+     * sementara ke folder {@code /temp}, lalu membaca baris demi baris (kolom id/nama/kode) untuk
+     * menyimpan (id kosong atau {@code -1}) atau memperbarui (id valid) entitas {@link Negara}
+     * masing-masing dalam transaksi terpisah. Baris tanpa nama menghentikan pembacaan lebih lanjut
+     * (dianggap akhir data); kegagalan per-baris ditangkap dan ditampilkan bila admin, tidak
+     * menghentikan pemrosesan baris lain.
+     *
+     * @param uploadEvent event unggah ZK berisi berkas Excel yang diunggah pengguna
+     * @throws Exception diteruskan dari kegagalan I/O berkas atau parsing workbook
+     */
     private void prosesUploadNegara(UploadEvent uploadEvent) throws Exception {
         Media media = uploadEvent.getMedia();
         if (!ais.action.master.helper.generic.AmbilDataTugasFileContent.checkFile(media)) return;
@@ -336,6 +376,7 @@ public class NegaraAction extends GenericCrudAction<Negara> {
 
     // ======================== Renderer ========================
 
+    /** Merender satu baris daftar Negara: nama, kode, checkbox aktif (langsung tersimpan saat diubah), dan tombol edit/hapus. */
     class NegaraRenderer extends MyRowRenderer {
 
         @Override

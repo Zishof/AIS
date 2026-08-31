@@ -34,6 +34,15 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper UI (bukan entitas/aksi tersendiri) untuk mengelola daftar akun <b>diskon</b>
+ * ({@link ItemBiayaPunyaDiskon}) terkait sebuah {@link ItemBiaya} pada modul akunting: setiap
+ * baris memetakan akun diskon ke kombinasi opsional fakultas/jurusan/program/angkatan sebagai
+ * cakupan berlakunya diskon tersebut. Tombol tambah membuka dialog pemilihan banyak
+ * {@link Akun} (via {@code AmbilDataBanyakAkun}); setiap perubahan kombo/textbox pada baris
+ * langsung tersimpan; tombol hapus per baris meminta konfirmasi. Visibilitas tombol tambah/hapus
+ * mengikuti hak akses {@link CommonPrivilages#CREATE}/{@link CommonPrivilages#DELETE}.
+ */
 public class ItemBiayaPunyaDiskonHelper {
 
 	private MyGrid gridDiskon;
@@ -41,6 +50,7 @@ public class ItemBiayaPunyaDiskonHelper {
 	// private boolean edit = false;
 	private boolean delete = false;
 
+	/** @param gridDiskon grid yang akan diisi/dikelola helper ini */
 	public ItemBiayaPunyaDiskonHelper(MyGrid gridDiskon) {
 		this.gridDiskon = gridDiskon;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -48,6 +58,14 @@ public class ItemBiayaPunyaDiskonHelper {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Menyusun tata letak (toolbar tambah + grid diskon dengan kolom Kode/Akun/Fakultas/
+	 * Jurusan/Program/Angkatan/Hapus) dan langsung memuat data diskon {@code itemBiaya} yang
+	 * sudah tersimpan.
+	 *
+	 * @param itemBiaya item biaya yang daftar akun diskonnya dikelola
+	 * @return komponen tata letak siap pakai untuk ditempelkan ke jendela detail
+	 */
 	public Borderlayout initDetail(final ItemBiaya itemBiaya) {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -142,6 +160,7 @@ public class ItemBiayaPunyaDiskonHelper {
 		return borderlayout;
 	}
 
+	/** Memuat baris {@link ItemBiayaPunyaDiskon} tersimpan milik {@code itemBiaya} ke dalam grid (kosong bila entitas belum tersimpan). */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final ItemBiaya itemBiaya) {
 
@@ -160,6 +179,15 @@ public class ItemBiayaPunyaDiskonHelper {
 		}
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan kode+nama akun (via {@link RevisiHelper}), kombo
+	 * fakultas/jurusan/program dan textbox angkatan (masing-masing menyimpan perubahan langsung
+	 * lewat {@link Common#refreshSaveOrUpdate}), dan tombol hapus (dengan dialog konfirmasi yang
+	 * menghapus baris database dan melepas baris UI bila dikonfirmasi).
+	 *
+	 * @param row                    baris grid yang diisi
+	 * @param itemBiayaPunyaDiskon   data relasi akun diskon untuk baris ini
+	 */
 	public void initRow(final Row row, final ItemBiayaPunyaDiskon itemBiayaPunyaDiskon) {
 		row.setValign("top");row.setAttribute("itemBiayaPunyaDiskon", itemBiayaPunyaDiskon);
 

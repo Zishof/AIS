@@ -34,6 +34,20 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper UI (bukan entitas/aksi tersendiri) untuk mengelola daftar akun pendapatan
+ * ({@link ItemBiayaPunyaAkun}) terkait sebuah {@link ItemBiaya} pada modul akunting: setiap baris
+ * memetakan akun ke kombinasi opsional fakultas/jurusan/program/angkatan sebagai cakupan
+ * berlakunya akun tersebut. Berpola sama dengan {@link ItemBiayaPunyaDiskonHelper}/
+ * {@link ItemBiayaPunyaPiutangHelper}, dengan satu perbedaan penting: saat menambah akun baru
+ * pada {@code itemBiaya} yang SUDAH tersimpan (punya id), baris langsung disimpan ke database
+ * begitu dipilih dari dialog (bukan menunggu perubahan kolom Fakultas/Jurusan/Program/Angkatan)
+ * — perbaikan atas bug lama di mana baris akun baru yang tidak disentuh kolomnya sama sekali
+ * (mis. sengaja dibiarkan berlaku untuk semua fakultas/jurusan) tidak pernah benar-benar
+ * tersimpan dan tampak "hilang" setelah grid dimuat ulang. Untuk item biaya BARU (belum punya
+ * id), penyimpanan baris tetap ditangani oleh loop eksplisit di {@code ItemBiayaAction.onSave()}
+ * setelah item biaya induknya tersimpan.
+ */
 public class ItemBiayaPunyaAkunHelper {
 
 	private MyGrid gridAkun;
@@ -41,6 +55,7 @@ public class ItemBiayaPunyaAkunHelper {
 	// private boolean edit = false;
 	private boolean delete = false;
 
+	/** @param gridAkun grid yang akan diisi/dikelola helper ini */
 	public ItemBiayaPunyaAkunHelper(MyGrid gridAkun) {
 		this.gridAkun = gridAkun;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -48,6 +63,15 @@ public class ItemBiayaPunyaAkunHelper {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Menyusun tata letak (toolbar tambah + grid akun dengan kolom Kode/Akun/Fakultas/Jurusan/
+	 * Program/Angkatan/Hapus) dan langsung memuat data akun {@code itemBiaya} yang sudah
+	 * tersimpan. Lihat javadoc kelas untuk perilaku simpan-langsung saat menambah akun pada item
+	 * biaya yang sudah punya id.
+	 *
+	 * @param itemBiaya item biaya yang daftar akunnya dikelola
+	 * @return komponen tata letak siap pakai untuk ditempelkan ke jendela detail
+	 */
 	public Borderlayout initDetail(final ItemBiaya itemBiaya) {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -158,6 +182,7 @@ public class ItemBiayaPunyaAkunHelper {
 		return borderlayout;
 	}
 
+	/** Memuat baris {@link ItemBiayaPunyaAkun} tersimpan milik {@code itemBiaya} ke dalam grid (kosong bila entitas belum tersimpan). */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final ItemBiaya itemBiaya) {
 
@@ -176,6 +201,15 @@ public class ItemBiayaPunyaAkunHelper {
 		}
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan kode+nama akun (via {@link RevisiHelper}), kombo
+	 * fakultas/jurusan/program dan textbox angkatan (masing-masing menyimpan perubahan langsung
+	 * lewat {@link Common#refreshSaveOrUpdate}), dan tombol hapus (dengan dialog konfirmasi yang
+	 * menghapus baris database dan melepas baris UI bila dikonfirmasi).
+	 *
+	 * @param row                  baris grid yang diisi
+	 * @param itemBiayaPunyaAkun   data relasi akun untuk baris ini
+	 */
 	public void initRow(final Row row, final ItemBiayaPunyaAkun itemBiayaPunyaAkun) {
 		row.setValign("top");row.setAttribute("itemBiayaPunyaAkun", itemBiayaPunyaAkun);
 

@@ -29,10 +29,58 @@ import ais.database.model.PengaturanPembayaranBulanan;
 import ais.database.model.Perkuliahan;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Implementasi logika <b>reversal</b> (pembatalan tagihan yang sudah tercatat lunas/terproses)
+ * untuk integrasi Host-to-Host (H2H) modul web service pembayaran bank. Dipanggil dari servlet H2H
+ * saat bank mengirim perintah reversal atas transaksi VA yang sebelumnya sukses — biasanya karena
+ * pembayaran dibatalkan/gagal di sisi bank setelah sempat dilaporkan berhasil ke AIS. Ketiga method
+ * publik menangani tiga jenis debitur (calon mahasiswa PMB, mahasiswa baru daftar ulang, mahasiswa
+ * lama semester berjalan) namun mengikuti pola yang sama:
+ * <ol>
+ * <li>Menentukan {@link Kegiatan} (tagihan) yang menjadi sasaran reversal, berdasarkan jenis
+ * kegiatan pembayaran yang relevan (registrasi, daftar ulang, atau kode kegiatan bebas untuk
+ * mahasiswa lama).</li>
+ * <li>Mengambil jadwal pembayaran yang berlaku ({@link JadwalPembayaran}) — bila tidak ditemukan
+ * (di luar periode pembayaran), mengembalikan respons "pembayaran terlambat" tanpa melakukan
+ * reversal apa pun.</li>
+ * <li>Menyusun kembali rincian tagihan ({@link DetailBiaya}/{@link DetailKegiatan}) persis seperti
+ * saat inquiry/pembayaran (memakai sumber rincian yang sama agar nominal reversal konsisten dengan
+ * nominal yang sebelumnya dibayar), lalu menjumlahkannya menjadi total tagihan.</li>
+ * <li>Bila tagihan ({@code kegiatan}) tidak ditemukan sama sekali, mengembalikan respons gagal
+ * ({@code BILLS_NOT_FOUND}) TANPA mengubah data apa pun.</li>
+ * <li>Bila ditemukan, <b>benar-benar membatalkan status pembayaran</b> lewat
+ * {@link PembayaranUtil#dropKegiatan} — inilah efek nyata reversal: kegiatan/tagihan yang
+ * sebelumnya tercatat lunas dikembalikan menjadi belum lunas. Bila operasi ini gagal, mengembalikan
+ * respons kesalahan sistem tanpa mengklaim reversal berhasil.</li>
+ * <li>Menyusun respons H2H standar (kode+deskripsi respons, rincian debitur, rincian tagihan per
+ * item biaya, total, jadwal berlaku) dan mencatat seluruh permintaan+respons ke
+ * {@link LogHostToHost} untuk audit — log ini SELALU disimpan, baik reversal berhasil maupun
+ * gagal.</li>
+ * </ol>
+ * Seluruh method membungkus proses dalam try-catch tunggal yang menelan exception (dicatat lewat
+ * {@code Common.tampilErrorJikaAdmin}), mengembalikan data yang sudah terkumpul sejauh proses
+ * berjalan — pemanggil perlu memeriksa isi {@code response_code} pada hasil, bukan mengandalkan
+ * exception, untuk mengetahui keberhasilan reversal.
+ */
 public class ReversalLogic {
 	public PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 	public DisplayUtil displayUtil = new DisplayUtil();
 
+	/**
+	 * Memproses reversal tagihan pendaftaran calon mahasiswa (PMB) baru. Menyusun kembali rincian
+	 * biaya pendaftaran calon mahasiswa dari {@link PembayaranUtil#getDetailBiayaCalonMahasiswa},
+	 * lalu — bila tagihan ditemukan — membatalkan status lunasnya lewat
+	 * {@link PembayaranUtil#dropKegiatan}. Lihat javadoc kelas untuk alur lengkap dan efek
+	 * finansial. Seluruh permintaan/respons dicatat ke {@code logHostToHost} baik sukses maupun
+	 * gagal.
+	 *
+	 * @param biodataCalonMahasiswa calon mahasiswa yang tagihannya di-reversal
+	 * @param bankHost              identitas bank pengirim perintah H2H
+	 * @param nama                  nama pemanggil/terminal H2H untuk keperluan log
+	 * @param logHostToHost         entitas log transaksi H2H yang akan diisi dan disimpan
+	 * @param nominalTagihan        nominal yang diklaim bank (saat ini tidak divalidasi terhadap nominal server — lihat blok validasi yang dikomentari)
+	 * @return array pasangan kunci-nilai (format respons H2H) berisi hasil reversal; kosong bila terjadi exception tak tertangani di jalur non-tagihan-ditemukan
+	 */
 	public String[][] reversalCalonMahasiswa(BiodataCalonMahasiswa biodataCalonMahasiswa, BankHost bankHost,
 			String nama, LogHostToHost logHostToHost, Double nominalTagihan) {
 		List<String[]> data = new ArrayList<String[]>();
@@ -235,6 +283,23 @@ public class ReversalLogic {
 		return data.toArray(new String[][] { null });
 	}
 
+	/**
+	 * Memproses reversal tagihan daftar ulang mahasiswa baru. Serupa dengan
+	 * {@link #reversalCalonMahasiswa}, tetapi memakai jenis kegiatan
+	 * {@code PENDAFTARAN_ULANG_MAHASISWA_BARU} dan rincian biaya dari program studi yang sudah
+	 * lulus seleksi ({@code getProdiLulus()}) bila tersedia; jatuh ke rincian dari {@code kegiatan}
+	 * yang sudah ada ({@link PembayaranUtil#getDetailBiayaDariKegiatan}) bila pencarian rincian
+	 * biaya standar kosong — memastikan reversal memakai sumber rincian yang sama dengan yang
+	 * dipakai saat inquiry/pembayaran berlangsung. Lihat javadoc kelas untuk alur lengkap dan efek
+	 * finansial ({@link PembayaranUtil#dropKegiatan}).
+	 *
+	 * @param biodataCalonMahasiswa mahasiswa baru (masih berstatus calon mahasiswa) yang tagihannya di-reversal
+	 * @param bankHost              identitas bank pengirim perintah H2H
+	 * @param nama                  nama pemanggil/terminal H2H untuk keperluan log
+	 * @param logHostToHost         entitas log transaksi H2H yang akan diisi dan disimpan
+	 * @param nominalTagihan        nominal yang diklaim bank (saat ini tidak divalidasi terhadap nominal server)
+	 * @return array pasangan kunci-nilai (format respons H2H) berisi hasil reversal
+	 */
 	public String[][] reversalMahasiswaBaru(BiodataCalonMahasiswa biodataCalonMahasiswa, BankHost bankHost, String nama,
 			LogHostToHost logHostToHost, Double nominalTagihan) {
 		List<String[]> data = new ArrayList<String[]>();
@@ -482,11 +547,39 @@ public class ReversalLogic {
 		return data.toArray(new String[][] { null });
 	}
 
+	/** Seperti {@link #reversalMahasiswaLama(Mahasiswa, BankHost, String, LogHostToHost, Double, String, String, String)} dengan jenis kegiatan default (SPP/pembayaran semester berjalan, {@code kode} dan {@code bulan} {@code null}). */
 	public String[][] reversalMahasiswaLama(Mahasiswa mahasiswa, BankHost bankHost, String nama,
 			LogHostToHost logHostToHost, Double nominalTagihan, String kodeAsli) {
 		return reversalMahasiswaLama(mahasiswa, bankHost, nama, logHostToHost, nominalTagihan, null, null, kodeAsli);
 	}
 
+	/**
+	 * Memproses reversal tagihan mahasiswa lama (aktif, semester berjalan) — jenis reversal paling
+	 * fleksibel di kelas ini karena mendukung {@code kode} jenis kegiatan pembayaran bebas (bukan
+	 * hanya SPP standar {@code PENDAFTARAN_MAHASISWA_LAMA}) dan {@code bulan} untuk tagihan bulanan
+	 * (mis. asrama/uang makan). Bila {@code kode} diberikan tapi tidak dikenali sistem, langsung
+	 * mengembalikan respons "kode pembayaran tidak ditemukan" tanpa reversal.
+	 *
+	 * <p>
+	 * Rincian tagihan disusun dari kombinasi {@link DetailBiaya} biasa dan, bila berlaku,
+	 * {@link PengaturanPembayaranBulanan} (tagihan bulanan berulang) — nilai masing-masing dihitung
+	 * lewat {@link Kegiatan#ambilJumlahTagihan}. Efek finansial nyata terjadi lewat
+	 * {@link PembayaranUtil#dropKegiatan(Kegiatan, String, String)} (parameter {@code bulan} dan
+	 * {@code kodeAsli} menentukan cakupan pembatalan pada tagihan bulanan), yang mengembalikan
+	 * status kegiatan/tagihan yang sebelumnya lunas menjadi belum lunas. Lihat javadoc kelas untuk
+	 * alur lengkap.
+	 * </p>
+	 *
+	 * @param mahasiswa      mahasiswa aktif yang tagihannya di-reversal
+	 * @param bankHost       identitas bank pengirim perintah H2H
+	 * @param nama           nama pemanggil/terminal H2H untuk keperluan log
+	 * @param logHostToHost  entitas log transaksi H2H yang akan diisi dan disimpan
+	 * @param nominalTagihan nominal yang diklaim bank (saat ini tidak divalidasi terhadap nominal server)
+	 * @param kode           kode jenis kegiatan pembayaran spesifik, atau {@code null} untuk default SPP
+	 * @param bulan          bulan tagihan (untuk pembayaran bulanan berulang), harus numerik atau diabaikan
+	 * @param kodeAsli       kode transaksi asli yang di-reversal, diteruskan ke {@link PembayaranUtil#dropKegiatan}
+	 * @return array pasangan kunci-nilai (format respons H2H) berisi hasil reversal
+	 */
 	@SuppressWarnings({ "rawtypes" })
 	public String[][] reversalMahasiswaLama(Mahasiswa mahasiswa, BankHost bankHost, String nama,
 			LogHostToHost logHostToHost, Double nominalTagihan, String kode, String bulan, String kodeAsli) {

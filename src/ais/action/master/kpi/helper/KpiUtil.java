@@ -22,8 +22,32 @@ import ais.ui.util.WaktuUtil;
 import net.objecthunter.exp4j.Expression;
 import net.objecthunter.exp4j.ExpressionBuilder;
 
+/**
+ * Mesin evaluasi formula KPI (Key Performance Indicator) modul KPI. {@code formula} pada seluruh
+ * method di kelas ini adalah string JSON berbentuk array objek {@code {tgl, target, <kode_skor>...}}
+ * — satu entri per periode efektif; entri yang tanggalnya (dikonversi ke granularitas hari,
+ * {@code Common.dateFormat8}) sudah lewat atau sama dengan tanggal evaluasi ({@code sekarang}), dan
+ * merupakan yang <b>paling baru</b> di antara yang memenuhi syarat itu (lewat {@link TreeMap}
+ * terurut terbalik), yang dipakai sebagai formula/target aktif — memungkinkan definisi KPI berubah
+ * dari waktu ke waktu tanpa kehilangan riwayat. Kolom {@code target} berisi ekspresi matematika
+ * bebas (mendukung placeholder kode skor KPI, kode {@link Konstanta} sistem, kode {@link Kpi} lain
+ * yang dievaluasi rekursif, dan opsional kode {@link ItemKpi}) yang dievaluasi lewat
+ * <a href="https://github.com/fasseg/exp4j">exp4j</a> ({@link ExpressionBuilder}) dengan fungsi dan
+ * operator kustom dari {@link LogicalUtil}. Rekursi antar-KPI dibatasi 500 percobaan
+ * ({@code coba > 500}) untuk mencegah loop tak berhingga akibat KPI yang saling merujuk.
+ */
 public class KpiUtil {
 
+	/**
+	 * Mengambil string target/formula mentah yang efektif berlaku pada tanggal {@code sekarang} dari
+	 * {@code formula} (array JSON entri {tgl, target}), memilih entri bertanggal efektif paling baru
+	 * yang tidak melampaui {@code sekarang}. Mengembalikan string kosong bila parsing gagal atau
+	 * tidak ada entri yang efektif (kegagalan diserap secara diam-diam, dicatat ke audit error).
+	 *
+	 * @param formula   array JSON entri formula ({@code [{tgl, target, ...}, ...]})
+	 * @param sekarang  tanggal acuan evaluasi
+	 * @return string target/ekspresi mentah yang efektif, atau string kosong bila tidak ditemukan
+	 */
 	public static String ambilTarget(String formula, Date sekarang) throws Exception {
 		String hasil = "";
 		try {
@@ -54,10 +78,28 @@ public class KpiUtil {
 		return hasil;
 	}
 
+	/** Seperti {@link #ambilPoint(JSONObject, Map, boolean)} tanpa peta {@link ItemKpi} tambahan (placeholder kode item KPI pada ekspresi tidak akan tersubstitusi). */
 	public static Double ambilPoint(JSONObject jsonObject, boolean refresh) throws Exception {
 		return ambilPoint(jsonObject, null, refresh);
 	}
 
+	/**
+	 * Menghitung nilai poin dari satu objek {@code jsonObject} (satu snapshot skor: kunci berupa
+	 * kode {@link SkorKpi} aktif dan {@code target}, BUKAN array JSON seperti method
+	 * {@link #ambilPoint(String, Date, Map, boolean, int)} lainnya). Ekspresi {@code target}
+	 * disubstitusi berturut-turut: kode {@link Konstanta} sistem → nilai keterangannya; kode
+	 * {@link Kpi} lain → hasil evaluasi rekursif formulanya; kode {@link ItemKpi} pada
+	 * {@code dataItemKpi} → nilai target-nya (atau hasil evaluasi ulang bila {@code refresh}
+	 * {@code true}). Bila hasil substitusi berupa angka murni, dikembalikan langsung; bila tidak,
+	 * dievaluasi sebagai ekspresi matematika lewat exp4j dengan variabel = skor KPI dari
+	 * {@code jsonObject}. Seluruh kegagalan ditangkap dan menghasilkan {@code 0.0} (dicatat ke audit
+	 * error, tidak melempar exception ke pemanggil).
+	 *
+	 * @param jsonObject snapshot data skor KPI beserta {@code target} (ekspresi/formula)
+	 * @param dataItemKpi peta id→{@link ItemKpi} untuk substitusi placeholder kode item KPI, boleh {@code null}
+	 * @param refresh    bila {@code true}, nilai item KPI dievaluasi ulang rekursif alih-alih memakai {@code target} tersimpan
+	 * @return nilai poin hasil evaluasi, {@code 0.0} bila gagal atau tidak ada target
+	 */
 	@SuppressWarnings("rawtypes")
 	public static Double ambilPoint(JSONObject jsonObject, Map dataItemKpi, boolean refresh) throws Exception {
 		Double hasil = 0.0;
@@ -168,10 +210,28 @@ public class KpiUtil {
 
 	}
 
+	/** Seperti {@link #ambilPoint(String, Date, Map, boolean, int)} tanpa peta {@link ItemKpi} tambahan dan hitungan rekursi awal 0. */
 	public static Double ambilPoint(String formula, Date sekarang, boolean refresh) throws Exception {
 		return ambilPoint(formula, sekarang, null, refresh, 0);
 	}
 
+	/**
+	 * Implementasi inti evaluasi poin KPI dari {@code formula} (array JSON multi-periode, lihat
+	 * javadoc kelas): memilih entri skor efektif untuk {@code sekarang}, mengambil target efektif
+	 * lewat {@link #ambilTarget}, mensubstitusi placeholder kode Konstanta/Kpi/ItemKpi (Kpi lain
+	 * dievaluasi rekursif dengan {@code coba} bertambah, dihentikan paksa mengembalikan {@code 0.0}
+	 * bila {@code coba > 500} untuk mencegah loop tak berhingga antar-KPI yang saling merujuk), lalu
+	 * mengevaluasi hasil akhirnya sebagai angka murni atau ekspresi matematika (exp4j) dengan
+	 * variabel = skor KPI periode efektif tersebut. Mengembalikan {@code 0.0} bila tidak ada periode
+	 * efektif ditemukan atau evaluasi gagal.
+	 *
+	 * @param formula     array JSON entri formula multi-periode ({@code [{tgl, <kode_skor>...}, ...]})
+	 * @param sekarang    tanggal acuan evaluasi
+	 * @param dataItemKpi peta id→{@link ItemKpi} untuk substitusi placeholder kode item KPI, boleh {@code null}
+	 * @param refresh     bila {@code true}, nilai item KPI dievaluasi ulang rekursif alih-alih memakai target tersimpan
+	 * @param coba        penghitung rekursi antar-KPI, dipakai internal untuk mencegah loop tak berhingga (mulai dari 0)
+	 * @return nilai poin hasil evaluasi, {@code 0.0} bila tidak ada periode efektif atau evaluasi gagal
+	 */
 	@SuppressWarnings({ "rawtypes" })
 	public static Double ambilPoint(String formula, Date sekarang, Map dataItemKpi, boolean refresh, int coba)
 			throws Exception {
@@ -316,6 +376,16 @@ public class KpiUtil {
 		return hasil;
 	}
 
+	/**
+	 * Menyusun deskripsi HTML (daftar bernomor {@code <ol>}) yang merangkum setiap entri periode
+	 * pada {@code formula} (array JSON multi-periode): tanggal, nilai tiap skor KPI aktif yang ada
+	 * pada entri tersebut, dan ekspresi target-nya — dipakai sebagai tooltip/penjelasan formula di
+	 * UI. Kegagalan parsing menghasilkan daftar kosong (elemen {@code <ol>} tetap dibuka/ditutup),
+	 * tidak melempar exception ke pemanggil.
+	 *
+	 * @param formula array JSON entri formula multi-periode
+	 * @return markup HTML {@code <ol>} berisi ringkasan tiap periode
+	 */
 	public static String ambilDeskripsi(String formula) throws Exception {
 
 		String t = "<ol style='font-size:x-small;text-align: left;'>";

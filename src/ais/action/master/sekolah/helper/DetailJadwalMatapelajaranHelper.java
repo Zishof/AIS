@@ -46,6 +46,17 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK yang menampilkan daftar siswa peserta satu jadwal pelajaran ({@link JadwalPelajaran}) —
+ * siswa anggota kelas ({@link KelasSiswaPunyaSiswa}) pada kelas jadwal tersebut, difilter lagi agar
+ * hanya menampilkan siswa yang benar-benar mengambil mata pelajaran jadwal ini
+ * ({@link KelasSiswaPunyaSiswa#filterMk}) — beserta pencarian (nama/NIS/NISN, angkatan), cetak, dan
+ * unggah massal penempatan kelas siswa dari file Excel. Mengimplementasikan {@link DataLoader} dan
+ * {@link DataCriteria} agar dapat dipasang langsung ke komponen baku (paging, tombol cetak) yang
+ * mengharapkan kedua kontrak tersebut. Sebagai efek samping, memuat data juga memperbaiki
+ * {@code siswa.getKelas()} yang masih kosong untuk tahun ajaran berjalan (auto-repair data kelas
+ * siswa yang belum tertaut).
+ */
 public class DetailJadwalMatapelajaranHelper implements DataLoader, DataCriteria {
 
 	private MyGrid grid;
@@ -60,6 +71,7 @@ public class DetailJadwalMatapelajaranHelper implements DataLoader, DataCriteria
 	private Paging paging;
 	private JadwalPelajaran jadwalPelajaran;
 
+	/** Membuat helper baru dan menyiapkan komponen paging yang memuat ulang data saat halaman berganti. */
 	public DetailJadwalMatapelajaranHelper() {
 		// delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 		// create = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -74,6 +86,7 @@ public class DetailJadwalMatapelajaranHelper implements DataLoader, DataCriteria
 		});
 	}
 
+	/** Renderer baris grid daftar siswa: foto kecil, NIS (dengan link riwayat revisi), nama, tahun masuk, dan status siswa; juga memperbaiki {@code siswa.getKelas()} yang kosong untuk tahun ajaran berjalan. */
 	class DetailPARenderer extends ais.ui.util.MyRowRenderer {
 
 		public DetailPARenderer() {
@@ -103,6 +116,13 @@ public class DetailJadwalMatapelajaranHelper implements DataLoader, DataCriteria
 
 	}
 
+	/**
+	 * Menyusun kriteria pencarian siswa anggota kelas dari jadwal pelajaran ini, difilter nama/NIS/NISN
+	 * dan angkatan, serta dibatasi ke anak kandung pengguna bila yang login adalah orang tua siswa.
+	 *
+	 * @param order {@code true} untuk menyertakan pengurutan (nomor urut, NISN, id siswa)
+	 * @return kriteria Hibernate siap dieksekusi
+	 */
 	public Criteria initCriteria(boolean order) {
 
 		Session session = HibernateUtil.currentSession();
@@ -137,6 +157,7 @@ public class DetailJadwalMatapelajaranHelper implements DataLoader, DataCriteria
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Memuat halaman siswa aktif sesuai kriteria pencarian, difilter agar hanya siswa yang mengambil mata pelajaran jadwal ini, lalu merender hasilnya ke grid. */
 	public void loadData(Object value) {
 		Common.initPaging(initCriteria(false), paging);
 		List<? extends VoKelasPunyaSiswa> siswa = ConstantValues.simpleList(
@@ -151,6 +172,15 @@ public class DetailJadwalMatapelajaranHelper implements DataLoader, DataCriteria
 
 	}
 
+	/**
+	 * Membangun dan menampilkan panel daftar siswa peserta jadwal pelajaran di dalam komponen target:
+	 * kotak pencarian (nama/angkatan), tombol cetak, dan grid berpaging (foto, NIS, nama, angkatan,
+	 * status).
+	 *
+	 * @param jadwalPelajaran jadwal pelajaran yang daftar siswanya ditampilkan
+	 * @param component       komponen kontainer target, dibersihkan dan diisi ulang oleh method ini
+	 * @param window          jendela pemanggil (disimpan sebagai konteks, tidak langsung dipakai di sini)
+	 */
 	public void displayDetailPA(final JadwalPelajaran jadwalPelajaran, final Component component,
 			final MyWindow window) {
 		this.jadwalPelajaran = jadwalPelajaran;
@@ -240,6 +270,20 @@ public class DetailJadwalMatapelajaranHelper implements DataLoader, DataCriteria
 
 	}
 
+	/**
+	 * Memproses unggahan massal penempatan kelas siswa dari file Excel: membaca setiap baris (mulai
+	 * baris kedua) di thread latar belakang terpisah, meresolusi entitas {@link Siswa} per baris,
+	 * dan menetapkan kelas siswa tersebut ke {@code kelasSiswa} milik jadwal ini. Menampilkan
+	 * indikator sibuk dan progres persentase lewat {@link Timer} yang memantau label status, lalu
+	 * menampilkan pesan selesai dan memanggil {@code eventListener} saat proses tuntas. Sengaja
+	 * memakai {@link HibernateUtil#openSession()} (bukan sesi native thread-local) karena
+	 * {@code Common.getSheetContentAsObject} di dalam loop dapat menutup sesi ThreadLocal, sehingga
+	 * sesi native akan tertutup sebelum dipakai bila tidak dipisah.
+	 *
+	 * @param file          file Excel (.xlsx) yang sudah diunggah dan tersimpan di disk
+	 * @param eventListener callback yang dipanggil setelah proses upload selesai (mis. memuat ulang layar)
+	 * @throws Exception diteruskan apa adanya dari kegagalan membuka workbook
+	 */
 	public void uploadDataSiswa(final File file, final EventListener eventListener) throws Exception {
 
 		final Label peringatan = new Label("");

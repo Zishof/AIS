@@ -28,6 +28,18 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyLabelStyled;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Listener ZK yang membangun dan mengelola baris-baris <b>parameter tambahan dinamis</b>
+ * (dikonfigurasi admin, dapat bertingkat/hierarkis lewat relasi parent-child) pada layar kegiatan
+ * siswa ({@link KegiatanSiswa}). Berbeda dari
+ * {@link ParameterTambahanCatatanKelasSiswaListener} sejenisnya, kelas ini mendukung: (1) parameter
+ * anak bersarang (rekursif lewat {@link #displayRinci}) yang muncul di grid indentasi begitu
+ * parameter induknya memiliki anak terdaftar; (2) <b>syarat tampil</b> (skip-logic) — parameter dapat
+ * disembunyikan/dilewati validasi berdasarkan jawaban parameter lain, dievaluasi lewat
+ * {@code ais.common.ParameterTambahanHtmlHelper#lolosSyaratTampil}. Validasi statis
+ * {@link #validate} dipanggil terpisah dari instance (dipakai saat form disimpan) dan turut
+ * menghormati syarat tampil agar parameter tersembunyi tidak memblok penyimpanan.
+ */
 public class ParameterTambahanKegiatanSiswaListener implements EventListener {
 
 	private List<Row> parameterRows;
@@ -35,6 +47,16 @@ public class ParameterTambahanKegiatanSiswaListener implements EventListener {
 	private KegiatanSiswa kegiatanSiswa;
 	private Map<String, LampiranLain> lampiranLains;
 
+	/**
+	 * Membuat listener yang akan membangun baris parameter tambahan ke dalam {@code rows} saat
+	 * dipicu (event membawa {@link KelompokKegiatanSiswa} target), dan menyimpan isiannya kembali
+	 * ke {@code kegiatanSiswa}.
+	 *
+	 * @param kegiatanSiswa   entitas kegiatan siswa yang sedang diedit
+	 * @param parameterRows   list baris form parameter tambahan yang dikelola listener ini, dimutasi langsung
+	 * @param lampiranLains   peta lampiran yang sudah diunggah, berkunci {@code "idKelompok->idParameter"}
+	 * @param rows            komponen {@link Rows} tempat baris form ditambahkan
+	 */
 	public ParameterTambahanKegiatanSiswaListener(KegiatanSiswa kegiatanSiswa, List<Row> parameterRows,
 			Map<String, LampiranLain> lampiranLains, Rows rows) {
 		this.parameterRows = parameterRows;
@@ -43,6 +65,18 @@ public class ParameterTambahanKegiatanSiswaListener implements EventListener {
 		this.lampiranLains = lampiranLains;
 	}
 
+	/**
+	 * Memvalidasi seluruh parameter tambahan kegiatan siswa yang aktif terhadap nilai tersimpan pada
+	 * {@code kegiatanSiswa.getNilaiInds()}: parameter wajib diisi (yang lolos syarat tampil dan bukan
+	 * bertipe {@code TIDAK_ADA}) harus memiliki nilai bukan kosong/{@code "null"}, dan parameter yang
+	 * mensyaratkan lampiran wajib harus sudah memiliki {@link LampiranLain} tersimpan. Parameter yang
+	 * tidak lolos syarat tampil (skip-logic) dilewati dari validasi wajib-isi.
+	 *
+	 * @param kegiatanSiswa   entitas kegiatan siswa yang divalidasi
+	 * @param eventListener   listener yang dipanggil/diteruskan saat validasi gagal (mis. untuk menutup dialog setelah pesan ditutup)
+	 * @param tampilMessage   bila {@code true}, tampilkan {@link MyMessageboxConfig} peringatan saat gagal; bila {@code false}, langsung panggil {@code eventListener} tanpa pesan
+	 * @return {@code true} bila seluruh parameter valid; {@code false} pada pelanggaran pertama yang ditemukan
+	 */
 	@SuppressWarnings("unchecked")
 	public static boolean validate(KegiatanSiswa kegiatanSiswa, EventListener eventListener,
 			final Boolean tampilMessage) throws Exception {
@@ -125,10 +159,12 @@ public class ParameterTambahanKegiatanSiswaListener implements EventListener {
 		return true;
 	}
 
+	/** Menulis kembali nilai-nilai parameter tambahan dari baris form saat ini ke {@code kegiatanSiswa}, dipanggil saat kegiatan siswa disimpan. */
 	public void onSave(KegiatanSiswa kegiatanSiswa) {
 		kegiatanSiswa.populateParameterTambahanKegiatanSiswa(parameterRows);
 	}
 
+	/** Memeriksa apakah ada minimal satu parameter tambahan kegiatan siswa yang aktif terdaftar di sistem (dipakai untuk menentukan apakah blok parameter tambahan perlu ditampilkan sama sekali). */
 	public boolean check() {
 		int c = ((Number) HibernateUtil.currentSession().createCriteria(ParameterTambahanKegiatanSiswa.class)
 				.createAlias("parameterTambahan", "parameterTambahan")
@@ -140,6 +176,13 @@ public class ParameterTambahanKegiatanSiswaListener implements EventListener {
 		return c != 0;
 	}
 
+	/**
+	 * Membangun ulang baris parameter tambahan untuk satu {@link KelompokKegiatanSiswa} (dibawa
+	 * oleh {@code event.getData()}): menghapus baris lama, menambahkan baris judul kelompok, lalu
+	 * mendelegasikan penyusunan baris parameter (termasuk yang bertingkat) ke {@link #displayRinci}.
+	 *
+	 * @param event event pemicu yang membawa {@link KelompokKegiatanSiswa} target sebagai data
+	 */
 	@SuppressWarnings({ "deprecation" })
 	@Override
 	public void onEvent(Event event) throws Exception {
@@ -166,6 +209,23 @@ public class ParameterTambahanKegiatanSiswaListener implements EventListener {
 		}
 	}
 
+	/**
+	 * Menyusun baris-baris parameter tambahan untuk {@code kelompokKegiatanSiswa} pada satu level
+	 * hierarki (parameter dengan {@code parent} tertentu, atau parameter tanpa induk bila
+	 * {@code parent} {@code null}), diurutkan sesuai {@link Comparable} bawaan
+	 * {@link ParameterTambahanKegiatanSiswa}. Setiap parameter dievaluasi syarat tampilnya
+	 * ({@code lolosSyaratTampil}) dan baris disembunyikan bila tidak lolos. Parameter yang memiliki
+	 * anak (dideteksi lewat pemetaan {@code parent} pada seluruh {@link ParameterTambahan}) dirender
+	 * dengan sub-grid berindentasi berisi baris anaknya, dibangun rekursif lewat panggilan
+	 * {@code displayRinci} berikutnya dengan {@code parent} = parameter ini.
+	 *
+	 * @param rowParameterTambahan baris judul kelompok, visibilitasnya diperbarui bila ada parameter yang tampil
+	 * @param rowsUtama             komponen {@link Rows} tempat baris parameter level ini ditambahkan
+	 * @param session               sesi Hibernate aktif
+	 * @param kelompokKegiatanSiswa kelompok parameter yang sedang disusun
+	 * @param parent                parameter induk untuk level ini, atau {@code null} untuk level teratas
+	 * @param indexParent           kedalaman rekursi saat ini (dipakai untuk pelacakan, tidak membatasi kedalaman)
+	 */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	private void displayRinci(Row rowParameterTambahan, Rows rowsUtama, Session session,
 			KelompokKegiatanSiswa kelompokKegiatanSiswa, ParameterTambahan parent, int indexParent) {

@@ -36,6 +36,18 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper UI untuk mengelola daftar barang/jasa (dengan harga, diskon, dan total per baris) pada
+ * satu {@link PerjanjianKerjasamaMasterAsset} modul asset, ditampilkan sebagai grid tambah/hapus
+ * berpaging di dalam layar detail perjanjian. Menu tambah membuka dialog pemilihan
+ * {@link MasterAsset} secara massal, mengecualikan asset yang sudah ada di daftar. Setiap baris
+ * dapat disunting langsung di grid (jumlah, harga beli, potongan harga) dengan total baris dihitung
+ * ulang otomatis dan disimpan langsung ke database saat berubah (bila detail sudah tersimpan);
+ * mengubah harga beli turut memperbarui harga beli default pada {@link MasterAsset} terkait.
+ * Footer grid menampilkan total keseluruhan, dihitung ulang lewat {@link #eventListenerHitungUlang}
+ * setiap kali baris berubah/dihapus. Grid dikunci (read-only) begitu perjanjian sudah disetujui
+ * ({@code disetujuiOleh} terisi).
+ */
 public class PerjanjianKerjasamaMasterAssetHelper {
 
 	private MyGrid gridMasterAsset;
@@ -46,10 +58,20 @@ public class PerjanjianKerjasamaMasterAssetHelper {
 
 	private Footer footerTotalSemua;
 
+	/** Membuat helper terikat ke {@code gridMasterAsset} (grid berpaging 10 baris). */
 	public PerjanjianKerjasamaMasterAssetHelper(MyGrid gridMasterAsset) {
 		this.gridMasterAsset = gridMasterAsset;
 	}
 
+	/**
+	 * Membangun kotak grup grid daftar barang/jasa lengkap dengan toolbar tambah + refresh
+	 * (disembunyikan/dinonaktifkan begitu perjanjian disetujui), kolom gambar/kode/nama/qty/harga/
+	 * diskon/total/keterangan/aksi, dan footer total keseluruhan. Langsung memuat detail
+	 * {@code perjanjianKerjasamaMasterAsset} yang sudah ada.
+	 *
+	 * @param perjanjianKerjasamaMasterAsset induk perjanjian, boleh belum tersimpan (draft baru)
+	 * @return {@link MyGroupboxStyled} siap ditempel ke komponen induk
+	 */
 	public MyGroupboxStyled initDetail(final PerjanjianKerjasamaMasterAsset perjanjianKerjasamaMasterAsset)
 			throws Exception {
 		MyGroupboxStyled myGroupboxStyled = new MyGroupboxStyled();
@@ -215,6 +237,7 @@ public class PerjanjianKerjasamaMasterAssetHelper {
 		return myGroupboxStyled;
 	}
 
+	/** Listener yang menghitung ulang total keseluruhan (jumlah x harga beli, dikurangi persentase potongan) dari seluruh baris grid yang masih tampak, lalu memperbarui {@link #footerTotalSemua}. */
 	public EventListener eventListenerHitungUlang = new EventListener() {
 
 		@SuppressWarnings("unchecked")
@@ -242,6 +265,7 @@ public class PerjanjianKerjasamaMasterAssetHelper {
 		}
 	};
 
+	/** Memuat seluruh detail tersimpan milik {@code perjanjianKerjasamaMasterAsset} ke grid, lalu menjadwalkan penghitungan ulang total lewat {@link Common#createDefaultTimer}. */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final PerjanjianKerjasamaMasterAsset perjanjianKerjasamaMasterAsset) throws Exception {
 
@@ -265,6 +289,15 @@ public class PerjanjianKerjasamaMasterAssetHelper {
 		Common.createDefaultTimer(eventListenerHitungUlang);
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan pratinjau gambar asset, kode, nama (dengan tautan riwayat
+	 * revisi, dan tautan ke permintaan pengadaan sumbernya bila detail ini berasal dari satu),
+	 * field jumlah/harga beli/potongan yang dapat disunting (langsung menyimpan perubahan ke
+	 * database dan memicu {@link #eventListenerHitungUlang} bila berubah — mengubah harga beli juga
+	 * memperbarui harga beli default {@link MasterAsset} terkait), total baris terhitung otomatis,
+	 * keterangan, dan tombol hapus (dengan konfirmasi). Seluruh field disunting dinonaktifkan bila
+	 * perjanjian sudah disetujui atau pengguna tidak punya hak edit.
+	 */
 	public void initRow(final Row row, final PerjanjianKerjasamaMasterAssetDetail perjanjianKerjasamaMasterAssetDetail)
 			throws Exception {
 

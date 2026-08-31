@@ -27,6 +27,23 @@ import ais.database.model.sekolah.ParameterTambahanGelombangPendaftaranPsb;
 import ais.ui.util.MyLabelBold;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Listener form dinamis untuk parameter tambahan pada Penerimaan Siswa Baru (PSB/PPDB), khusus
+ * satu gelombang pendaftaran ({@link GelombangPendaftaranPsb}). Mengikuti pola parameter tambahan
+ * generik ({@link ParameterTambahan}), dengan tambahan aturan visibilitas berlapis: baris
+ * parameter tersaring berdasarkan (1) gelombang pendaftaran yang berlaku (spesifik atau berlaku
+ * untuk semua gelombang), dan (2) status login pengguna — parameter dapat dikonfigurasi tampil
+ * hanya sebelum login (formulir publik) atau hanya setelah login, lewat flag
+ * {@code tampilDiFromSebelumLogin}/{@code tampilDiFromSetelahLogin} pada relasi
+ * {@link ParameterTambahanGelombangPendaftaranPsb}. Field {@code formPendaftaran} membedakan
+ * konteks form pendaftaran awal vs form login calon siswa, dicek terhadap
+ * {@code tampilFormTambahanSaatRegistrasi}/{@code tampilFormTambahanSaatLoginCalonMhs} pada
+ * gelombang — dengan pengecualian permisif: saat pengguna belum login, salah satu dari kedua
+ * centang tersebut sudah cukup untuk menampilkan form (perbaikan agar form pendaftaran publik
+ * tidak kehilangan tampilan parameter tambahan hanya karena centang yang salah yang diperiksa).
+ * Mendukung validasi wajib-isi/lampiran wajib lewat {@link #validate()} dan pemetaan nilai kembali
+ * ke entitas lewat {@link #onSave(CalonSiswa)}.
+ */
 public class ParameterTambahanPsbListener implements EventListener {
 
 	private List<Row> parameterRows;
@@ -37,6 +54,7 @@ public class ParameterTambahanPsbListener implements EventListener {
 	private Boolean formPendaftaran = true;
 	private GelombangPendaftaranPsb gel = null;
 
+	/** Membuat listener dengan gelombang pendaftaran diambil dari dropdown {@code gelombangPendaftaranPsb} (dievaluasi ulang tiap {@link #onEvent}). */
 	public ParameterTambahanPsbListener(CalonSiswa calonSiswa, List<Row> parameterRows,
 			Map<String, LampiranLain> lampiranLains, Combobox gelombangPendaftaranPsb, Boolean formPendaftaran,
 			Rows rows) {
@@ -48,6 +66,7 @@ public class ParameterTambahanPsbListener implements EventListener {
 		this.lampiranLains = lampiranLains;
 	}
 
+	/** Membuat listener dengan gelombang pendaftaran ({@code gel}) yang sudah diketahui secara eksplisit, tanpa bergantung pada dropdown. */
 	public ParameterTambahanPsbListener(CalonSiswa calonSiswa, List<Row> parameterRows,
 			Map<String, LampiranLain> lampiranLains, GelombangPendaftaranPsb gel, Boolean formPendaftaran, Rows rows) {
 		this.formPendaftaran = formPendaftaran;
@@ -58,6 +77,15 @@ public class ParameterTambahanPsbListener implements EventListener {
 		this.lampiranLains = lampiranLains;
 	}
 
+	/**
+	 * Memvalidasi seluruh baris parameter tambahan yang sedang ditampilkan: parameter wajib diisi
+	 * harus memiliki nilai, dan parameter yang mewajibkan lampiran harus sudah memiliki entri di
+	 * {@code lampiranLains}. Menampilkan {@link MyMessageboxConfig} dan menghentikan pemeriksaan
+	 * pada pelanggaran pertama.
+	 *
+	 * @return {@code true} bila seluruh parameter tambahan valid, {@code false} bila ada yang gagal
+	 * @throws Exception diteruskan dari kegagalan membaca nilai baris
+	 */
 	public boolean validate() throws Exception {
 		if (parameterRows == null || parameterRows.isEmpty()) {
 			return true;
@@ -92,6 +120,7 @@ public class ParameterTambahanPsbListener implements EventListener {
 		return true;
 	}
 
+	/** Menyalin nilai-nilai yang sedang diisikan pada {@code parameterRows} kembali ke entitas {@code calonSiswa}, dipanggil sebelum entitas disimpan. */
 	@SuppressWarnings({})
 	public void onSave(CalonSiswa calonSiswa) {
 
@@ -99,6 +128,16 @@ public class ParameterTambahanPsbListener implements EventListener {
 
 	}
 
+	/**
+	 * Membangun ulang seluruh baris parameter tambahan dinamis PSB sesuai gelombang pendaftaran
+	 * dan status login pengguna saat ini (lihat javadoc kelas untuk aturan visibilitasnya). Bila
+	 * gelombang tidak mengizinkan tampil pada konteks form saat ini, method berhenti tanpa
+	 * menampilkan apa pun. Selain itu berperilaku sama seperti
+	 * {@code ParameterTambahanCutiDanIzinListener#onEvent}: membangun baris judul kelompok dan
+	 * baris input per parameter aktif, memuat nilai tersimpan dari
+	 * {@code calonSiswa.getParameterTambahanInds()}, dan menempelkan tiap baris ke grid
+	 * {@code rows}.
+	 */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	@Override
 	public void onEvent(Event event) throws Exception {

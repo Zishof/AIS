@@ -36,6 +36,19 @@ import org.hibernate.envers.query.AuditQuery;
 import org.hibernate.envers.query.AuditEntity;
 import org.hibernate.envers.query.criteria.AuditCriterion;
 
+/**
+ * Layar penjelajah riwayat revisi (audit trail) LINTAS-ENTITAS berbasis Hibernate Envers: pengguna
+ * memilih satu kelas entitas turunan {@link GeneralValueObject} (daftar kelas dibangun otomatis dari
+ * metadata Hibernate — {@link #initClassCombobox()} — sehingga selalu sinkron dengan model data
+ * terbaru tanpa perlu didaftarkan manual), lalu mencari revisinya berdasarkan tipe perubahan
+ * (Tambah/Ubah/Hapus), ID (untuk pencarian "Semua Kolom"), atau nilai properti tertentu. Setiap
+ * baris hasil menampilkan ringkasan entitas pada revisi tersebut dan tombol untuk membuka riwayat
+ * revisi lengkap entitas itu lewat {@link GenericRevisiHelper}. Berbeda dari layar lain yang
+ * memakai session Hibernate bersama (thread-local), kelas ini sengaja membuka
+ * {@link Session Session} sendiri per operasi ({@link #initClassCombobox()}, {@link
+ * #onSearchDefault(Event)}) dan menutupnya eksplisit lewat {@link #closeSession(Session)}, karena
+ * query {@link AuditReader} lintas-kelas rawan konflik dengan sesi yang dipakai bersama.
+ */
 @SuppressWarnings({ "rawtypes", "unchecked" })
 public class RevisiAction extends GenericAutowireComposer {
 
@@ -51,6 +64,7 @@ public class RevisiAction extends GenericAutowireComposer {
     private Combobox searchTipe;
     private MyGrid grid;
 
+    /** Melakukan pengecekan keamanan baku, mengisi combobox tipe perubahan dan daftar kelas entitas, lalu menyegarkan dasbor ringkasan revisi. */
     @Override
     public void doAfterCompose(Component comp) throws Exception {
         super.doAfterCompose(comp);
@@ -125,6 +139,12 @@ public class RevisiAction extends GenericAutowireComposer {
         }
     }
 
+    /**
+     * Menyegarkan combobox pilihan kolom sesuai kelas entitas yang baru dipilih: selalu menyediakan
+     * opsi "Semua Kolom / ID" di awal, diikuti seluruh nama properti Hibernate kelas tersebut.
+     *
+     * @param event event ZK pemicu perubahan pilihan kelas
+     */
     public void onChangeClass(Event event) {
         if (searchKolom == null) {
             return;
@@ -155,6 +175,17 @@ public class RevisiAction extends GenericAutowireComposer {
         }
     }
 
+    /**
+     * Menjalankan pencarian riwayat revisi untuk kelas entitas terpilih (wajib dipilih lebih dulu),
+     * difilter tipe perubahan (Tambah/Ubah/Hapus) dan kata kunci opsional — pencarian "Semua Kolom"
+     * hanya menerima ID berupa angka (bukan teks bebas), sedang pencarian per kolom memakai
+     * pencocokan {@code LIKE} pada properti terpilih. Hasil dibatasi 200 baris terbaru, seluruh
+     * properti entitas hasil di-inisialisasi eager (mengatasi lazy-loading di luar sesi) lewat
+     * {@link #eagerInitialize}, lalu dirender ke grid memakai {@link GlobalAuditRenderer}.
+     *
+     * @param event event ZK pemicu pencarian
+     * @throws Exception diteruskan apa adanya dari kegagalan query Envers
+     */
     public void onSearchDefault(Event event) throws Exception {
         if (searchClass == null || searchClass.getSelectedItem() == null) {
             MyMessageboxConfig.show("Silakan pilih Nama Tabel / Class terlebih dahulu.", "Peringatan",

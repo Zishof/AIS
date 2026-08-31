@@ -25,6 +25,24 @@ import ais.database.model.Mahasiswa;
 import ais.database.model.epsbed.KapasitasMahasiswaBaru;
 import ais.ui.util.DataCriteriaWithColumn;
 
+/**
+ * Laporan borang akreditasi BAN-PT butir A-3.1.5 pada paket sapto: profil mahasiswa selama 5
+ * tahun terakhir (tahun ajaran terpilih dan empat tahun sebelumnya), dipecah per kelompok
+ * jenjang (S1/S2/S3, Profesi/Sp-1/Sp-2, D1-D4) — mencakup daya tampung, jumlah pendaftar, jumlah
+ * lulus seleksi, mahasiswa baru reguler dan transfer, serta total mahasiswa aktif reguler dan
+ * transfer. Kelas ini adalah window ZK yang dibangun di atas {@link SaptoBaseWindow}, mengikuti
+ * konvensi kode sheet {@link #sheetCode}. Perhitungan angka per baris/tahun didelegasikan ke
+ * {@link SaptoGenerator#generateProfileMahasiswa}.
+ *
+ * <p>
+ * Menampilkan filter combobox tahun ajaran yang memicu cetak ulang otomatis saat berubah.
+ * Laporan ini sangat interaktif: mengklik satu sel data ({@code onCellClick}) membuka daftar
+ * rinci di balik angka tersebut lewat {@code Common#cetakDataCustomButton}, dengan kriteria
+ * pencarian (entitas sumber berbeda per kolom: {@link KapasitasMahasiswaBaru},
+ * {@link BiodataCalonMahasiswa}, atau {@link Mahasiswa}) diturunkan dari posisi baris/kolom sel
+ * yang diklik, memetakan kembali ke kombinasi kelompok jenjang + tahun/kategori mahasiswa.
+ * </p>
+ */
 public class LaporanProfileMahasiswa_A_3_1_5 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-3.1.5";
@@ -34,6 +52,7 @@ public class LaporanProfileMahasiswa_A_3_1_5 extends SaptoBaseWindow {
     private static final String[] EMPTY_COLS = new String[180];
     static { Arrays.fill(EMPTY_COLS, ""); }
 
+    /** Membangun window laporan dengan pilihan tahun ajaran berjalan sebagai default (dipanggil dari kode yang membuat instance tanpa parameter tambahan). */
     public LaporanProfileMahasiswa_A_3_1_5() {
         super();
         try {
@@ -42,6 +61,7 @@ public class LaporanProfileMahasiswa_A_3_1_5 extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Membangun window laporan dengan judul, tipe border, dan status closable yang dapat diatur eksplisit, sekaligus memilih tahun ajaran berjalan sebagai default. */
     public LaporanProfileMahasiswa_A_3_1_5(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         Common.selectComboItem(tahunAjaran = Common.generateTahunAjaran(tahunAjaran), Common.getCurrentTahunAkademik());
@@ -50,6 +70,7 @@ public class LaporanProfileMahasiswa_A_3_1_5 extends SaptoBaseWindow {
 
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Menambahkan filter combobox tahun akademik (readonly, dipilih dari daftar) yang memicu cetak ulang otomatis saat berubah. */
     @Override
     protected void buildFilters(Row row) {
         row.appendChild(new ais.ui.util.MyLabelConfig("Tahun Akademik *"));
@@ -61,6 +82,13 @@ public class LaporanProfileMahasiswa_A_3_1_5 extends SaptoBaseWindow {
         });
     }
 
+    /**
+     * Menjalankan rekap profil mahasiswa 5 tahun terakhir per kelompok jenjang (lewat
+     * {@link SaptoGenerator#generateProfileMahasiswa}, dijalankan di thread terpisah) dan
+     * menampilkan hasilnya sebagai worksheet {@link #sheetCode}, sekaligus memasang listener
+     * klik-sel yang membuka daftar rinci (dari entitas sumber yang sesuai kolom) di balik angka
+     * yang diklik.
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

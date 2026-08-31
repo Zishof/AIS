@@ -22,9 +22,14 @@ public final class SocialSecurity {
     public static void requireCsrf(HttpServletRequest request){String expected=(String)request.getSession(true).getAttribute("SOCIAL_CSRF");String actual=request.getHeader("X-CSRF-Token");if(actual==null)actual=request.getParameter("csrf");if(expected==null||actual==null||!constantEquals(expected,actual))throw new SecurityException("CSRF token tidak valid.");}
     /** Membangkitkan token acak kriptografis sepanjang {@code bytes} byte, dikodekan sebagai heksadesimal. */
     public static String token(int bytes){byte[] b=new byte[bytes];RANDOM.nextBytes(b);return hex(b);}
+    /** Membangkitkan nomor referensi unik berformat {@code prefix-epochMillis-UUID12}, dipakai mis. untuk kode transaksi/order. */
     public static String reference(String prefix){return prefix+"-"+System.currentTimeMillis()+"-"+UUID.randomUUID().toString().replace("-","").substring(0,12).toUpperCase();}
+    /** Menghitung hash SHA-256 dari {@code value} (UTF-8), dikodekan sebagai heksadesimal. */
     public static String sha256(String value){try{return hex(MessageDigest.getInstance("SHA-256").digest(value.getBytes("UTF-8")));}catch(Exception e){throw new IllegalStateException(e);}}
+    /** Menghitung HMAC-SHA256 dari {@code body} memakai {@code secret} sebagai kunci, dikodekan sebagai heksadesimal — dipakai antara lain untuk memverifikasi signature webhook gateway pembayaran. */
     public static String hmacSha256(String secret,String body){try{Mac m=Mac.getInstance("HmacSHA256");m.init(new SecretKeySpec(secret.getBytes("UTF-8"),"HmacSHA256"));return hex(m.doFinal(body.getBytes("UTF-8")));}catch(Exception e){throw new IllegalStateException(e);}}
+    /** Membandingkan dua string secara waktu-konstan ({@link MessageDigest#isEqual}) untuk mencegah timing attack pada perbandingan token/signature rahasia; mengembalikan {@code false} (bukan melempar) bila salah satu {@code null} atau encoding gagal. */
     public static boolean constantEquals(String a,String b){try{return MessageDigest.isEqual(a.getBytes("UTF-8"),b.getBytes("UTF-8"));}catch(Exception e){return false;}}
+    /** Mengubah larik byte menjadi representasi string heksadesimal huruf kecil. */
     private static String hex(byte[] data){StringBuilder s=new StringBuilder(data.length*2);for(byte b:data)s.append(String.format("%02x",b&255));return s.toString();}
 }

@@ -12,13 +12,33 @@ import ais.database.model.library.BatchItemPunyaBarcode;
 import ais.database.model.library.ItemPunyaBarcode;
 import ais.database.model.library.TipeItem;
 
+/**
+ * Algoritma penomoran barcode item perpustakaan khusus institusi UMJ: barcode dibentuk dari
+ * {@code kode jenis item + "." + kode perpustakaan + 5 digit nomor urut global} (nomor urut
+ * diambil dari nilai maksimum barcode yang sudah ada di seluruh {@code library.item_punya_barcode}
+ * lewat SQL native, bukan per-perpustakaan/per-jenis).
+ */
 public class UMJBarcodeGenerator implements BarcodeGenerator {
 
+	/** Seperti {@link #generateBarcode(List, BatchItemPunyaBarcode)}, tanpa daftar pengecualian awal. */
 	@Override
 	public String generateBarcode(BatchItemPunyaBarcode batchItemPunyaBarcode) {
 		return generateBarcode(new ArrayList<String>(), batchItemPunyaBarcode);
 	}
 
+	/**
+	 * Membangkitkan barcode: nomor urut berikutnya diambil dari nilai maksimum barcode yang ada
+	 * (5 digit terakhir setelah karakter ke-5) ditambah jumlah kandidat yang sudah terbukti
+	 * bentrok di {@code barcodePengecualian}, digabung kode jenis item dan kode perpustakaan. Bila
+	 * hasil ternyata sudah dipakai {@link ItemPunyaBarcode} lain, nomor tersebut ditambahkan ke
+	 * {@code barcodePengecualian} dan method memanggil dirinya sendiri secara rekursif. Sebagai
+	 * pengaman terhadap rekursi tak berkesudahan, bila jumlah percobaan melebihi 10050, method
+	 * berhenti dan mengembalikan nilai bertanda {@code "--"} + barcode kandidat terakhir (bukan
+	 * barcode valid) alih-alih terus mencoba.
+	 *
+	 * @param barcodePengecualian barcode kandidat yang sudah terbukti bentrok pada percobaan sebelumnya
+	 * @return barcode yang belum dipakai item manapun, atau nilai bertanda {@code "--"} bila batas percobaan terlampaui
+	 */
 	@Override
 	public String generateBarcode(List<String> barcodePengecualian, BatchItemPunyaBarcode batchItemPunyaBarcode) {
 

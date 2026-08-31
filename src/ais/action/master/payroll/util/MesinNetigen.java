@@ -22,8 +22,18 @@ import ais.database.model.StatuskehadiranKaryawanHarian;
 import ais.database.model.payroll.UploadLog;
 import ais.database.model.sekolah.Siswa;
 
+/**
+ * Parser dan importer log mesin absensi sidik jari (fingerprint) bermerek/protokol "Netigen"
+ * untuk modul payroll. Format satu baris log: {@code [yyyy/MM/dd-HH:mm:ss]kode/no_mesin/type_absen/status_valid/in_out}
+ * — lihat {@link #testData} untuk contoh dan {@link #execute(String)} untuk parsing-nya.
+ * Hasil parse dicocokkan ke {@link Pegawai} (via {@code idfinger}, termasuk relasi dosen/guru),
+ * atau bila tidak ketemu, ke {@link Mahasiswa} (via NIM) atau {@link Siswa} (via NISN/nomor
+ * induk), lalu dicatat sebagai jam masuk/pulang pada
+ * {@link StatuskehadiranKaryawanHarian} milik tanggal bersangkutan.
+ */
 public class MesinNetigen {
 
+	/** Contoh data log mentah mesin absensi, dipakai {@link #main(String[])} untuk uji coba manual parsing. */
 	static String testData = "[2014/01/01-08:21:33]8888/1/128/1/1\n[2014/01/01-17:21:36]8888/1/128/1/2\n"
 			+ "[2014/01/02-08:21:40]8888/1/128/1/1\n[2014/01/02-17:21:42]8888/1/128/1/2\n"
 			+ "[2014/01/03-08:21:33]8888/1/128/1/1\n[2014/01/03-17:21:36]8888/1/128/1/2\n"
@@ -64,6 +74,7 @@ public class MesinNetigen {
 			+ "[2013/02/01-08:21:40]8888/1/128/1/1\n[2013/02/01-17:21:42]8888/1/128/1/2\n"
 			+ "[2013/02/02-08:21:33]8888/1/128/1/1\n[2013/02/02-17:21:36]8888/1/128/1/2";
 
+	/** Contoh penggunaan/uji coba manual {@link #execute(String)} terhadap {@link #testData}. */
 	@SuppressWarnings("rawtypes")
 	public static void main(String[] argv) {
 		List<Map> maps = execute(testData);
@@ -77,6 +88,12 @@ public class MesinNetigen {
 		}
 	};
 
+	/**
+	 * Mem-parsing teks log mentah mesin absensi baris demi baris menjadi daftar {@link Map}
+	 * ({@code dateTime}, {@code kode}, {@code no_mesin}, {@code type_absen}, {@code status_valid},
+	 * {@code in_out}, {@code origin}). Baris yang gagal diparsing (format tidak sesuai) dilewati
+	 * secara diam-diam, tidak menghentikan proses baris lain.
+	 */
 	@SuppressWarnings("rawtypes")
 	public static List<Map> execute(String text) {
 		List<Map> maps = new ArrayList<Map>();
@@ -107,6 +124,24 @@ public class MesinNetigen {
 		return maps;
 	}
 
+	/**
+	 * Memproses seluruh baris log pada {@code uploadLog.getTextUpload()}: untuk tiap baris,
+	 * mencocokkan {@code kode} ke {@link Pegawai} (termasuk lewat idfinger dosen/guru), lalu bila
+	 * tidak ketemu ke {@link Mahasiswa}, lalu bila masih tidak ketemu ke {@link Siswa}. Bila subjek
+	 * ditemukan dan data waktu/status valid/in-out lengkap, memperbarui
+	 * {@link StatuskehadiranKaryawanHarian} hari itu — jam masuk ({@code in_out="1"}, juga memicu
+	 * pencocokan shift kerja via {@link CommonPayroll#getDetailJenisShiftPegawai}) atau jam pulang
+	 * ({@code in_out="2"}). Setiap hasil (sukses/gagal beserta alasan) dicatat ke
+	 * {@code uploadLog.getLogDetail()} untuk ditampilkan kembali ke pengguna sebagai riwayat impor.
+	 * <p>
+	 * <b>Catatan</b>: kondisi kegagalan pada baris {@code if (pegawai == null || mahasiswa == null
+	 * || siswa == null)} tampak selalu bernilai {@code true} akibat pola pencarian bertingkat di
+	 * atasnya (setiap variabel hanya diisi bila variabel sebelumnya {@code null}, sehingga
+	 * setidaknya dua dari tiga variabel selalu tetap {@code null}) — berpotensi membuat jalur
+	 * sukses di bawahnya tidak pernah tereksekusi. Perilaku ini didokumentasikan apa adanya, tanpa
+	 * diubah, sesuai cakupan tugas dokumentasi.
+	 * </p>
+	 */
 	@SuppressWarnings("rawtypes")
 	public static void process(UploadLog uploadLog) {
 		List<Map> maps = execute(uploadLog.getTextUpload());

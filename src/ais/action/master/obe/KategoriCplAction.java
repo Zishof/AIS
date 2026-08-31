@@ -26,10 +26,20 @@ import ais.ui.util.MyCheckboxConfig;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyRowRenderer;
 
+/**
+ * Layar CRUD master data Kategori CPL (Capaian Pembelajaran Lulusan) pada modul OBE
+ * (Outcome-Based Education): Sikap, Pengetahuan, Keterampilan Umum, Keterampilan Khusus — empat
+ * kategori baku ({@link #DEFAULT_CATEGORIES}) yang otomatis dibuat per perguruan tinggi lewat
+ * {@link #ensureDefaults} bila belum ada data sama sekali, sehingga setiap institusi selalu punya
+ * kategori dasar tanpa perlu input manual. Memperluas {@code ObeBaseAction} untuk mewarisi kerangka
+ * layar CRUD OBE (pencarian, form, toolbar) yang seragam antar-entitas OBE. Kategori dapat
+ * dinonaktifkan langsung dari grid lewat checkbox "Aktif" tanpa membuka form edit.
+ */
 @SuppressWarnings({"deprecation", "unchecked"})
 public class KategoriCplAction extends ObeBaseAction {
 
     private static final long serialVersionUID = 1L;
+    /** Kategori CPL baku (kode, nama) yang dibuat otomatis untuk setiap perguruan tinggi baru. */
     private static final String[][] DEFAULT_CATEGORIES = {
         {"S", "Sikap"},
         {"P", "Pengetahuan"},
@@ -42,6 +52,7 @@ public class KategoriCplAction extends ObeBaseAction {
     private Textbox keterangan;
     private KategoriCpl kategoriCpl;
 
+    /** Menginisialisasi komponen umum layar, memastikan kategori CPL baku tersedia untuk perguruan tinggi berjalan, lalu memuat pencarian awal. */
     @Override
     public void doAfterCompose(Component comp) throws Exception {
         String[] contents = {"id", "kode", "nama", "keterangan", "aktif"};
@@ -50,15 +61,18 @@ public class KategoriCplAction extends ObeBaseAction {
         onSearchDefault(null);
     }
 
+    /** Membuka form tambah kategori CPL baru. */
     public void onAdd(Event event) throws Exception {
         initForm(new KategoriCpl());
     }
 
+    /** Membuka form ubah untuk kategori CPL yang dipilih dari grid. */
     @Override
     public void init(GeneralValueObject obj) throws Exception {
         initForm((KategoriCpl) obj);
     }
 
+    /** Membangun form tambah/ubah kategori CPL (kode, nama, keterangan) beserta tombol simpan pada jendela dialog. */
     private void initForm(KategoriCpl item) {
         kategoriCpl = item;
         FormContext ctx = buildFormBorderlayout("Pendataan Kategori CPL");
@@ -89,6 +103,15 @@ public class KategoriCplAction extends ObeBaseAction {
         attachAndShow(ctx.borderlayout);
     }
 
+    /**
+     * Memvalidasi lalu menyimpan data kategori CPL dari form: menolak bila nama kosong atau sudah
+     * dipakai kategori lain milik perguruan tinggi yang sama, jika lolos menyimpan/memperbarui
+     * entitas dan mengembalikan {@code true}.
+     *
+     * @param event event ZK pemicu penyimpanan (tombol simpan)
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal
+     * @throws Exception diteruskan apa adanya dari kegagalan Hibernate saat menyimpan
+     */
     public boolean onSave(Event event) throws Exception {
         if (!validateNamaRequired(nama, "Kategori CPL")) return false;
 
@@ -116,6 +139,7 @@ public class KategoriCplAction extends ObeBaseAction {
         return true;
     }
 
+    /** Menyusun kriteria pencarian {@link KategoriCpl} milik perguruan tinggi berjalan, difilter status aktif/kode/nama, diurutkan kode lalu nama bila diminta. */
     @Override
     public Criteria initCriteria(boolean order) {
         Criteria c = HibernateUtil.currentSession().createCriteria(KategoriCpl.class)
@@ -133,12 +157,22 @@ public class KategoriCplAction extends ObeBaseAction {
         return c;
     }
 
+    /** Menjalankan pencarian default (memakai kriteria sekarang) dan merender hasilnya ke grid, no-op bila komponen pencarian belum siap. */
     @Override
     public void onSearchDefault(Event event) {
         if (searchnama == null) return;
         executeSearch(initCriteria(false), initCriteria(true), new KategoriCplRenderer());
     }
 
+    /**
+     * Mengambil daftar kategori CPL aktif milik satu perguruan tinggi, diurutkan kode lalu nama.
+     * Memastikan kategori baku sudah tersedia (lewat {@link #ensureDefaults}) sebelum mengambil data
+     * — dipakai layar lain (mis. pengisian CPL) yang butuh daftar kategori tanpa membuka layar ini.
+     *
+     * @param session sesi Hibernate aktif
+     * @param pt      perguruan tinggi yang kategorinya diambil
+     * @return daftar kategori CPL aktif, diurutkan kode lalu nama
+     */
     public static List<KategoriCpl> activeCategories(Session session, PerguruanTinggi pt) {
         ensureDefaults(session, pt);
         return ConstantValues.simpleList(session.createCriteria(KategoriCpl.class)
@@ -147,6 +181,14 @@ public class KategoriCplAction extends ObeBaseAction {
                 .addOrder(Order.asc("kode")).addOrder(Order.asc("nama")), KategoriCpl.class);
     }
 
+    /**
+     * Memastikan perguruan tinggi yang diberikan memiliki setidaknya satu kategori CPL; bila belum
+     * punya data sama sekali, membuat keempat kategori baku {@link #DEFAULT_CATEGORIES} sekaligus.
+     * Tidak melakukan apa pun bila {@code session}/{@code pt} null atau kategori sudah ada.
+     *
+     * @param session sesi Hibernate aktif
+     * @param pt      perguruan tinggi yang diperiksa/diisi kategori bakunya
+     */
     public static void ensureDefaults(Session session, PerguruanTinggi pt) {
         if (session == null || pt == null) return;
         Number count = (Number) session.createCriteria(KategoriCpl.class)
@@ -163,6 +205,7 @@ public class KategoriCplAction extends ObeBaseAction {
         }
     }
 
+    /** Renderer baris grid daftar kategori CPL: kolom kode, nama (ringkas), keterangan (ringkas), checkbox aktif (toggle langsung tersimpan), dan tombol edit/hapus. */
     class KategoriCplRenderer extends MyRowRenderer {
         @Override
         public void render(final Row row, Object obj) throws Exception {

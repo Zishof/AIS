@@ -52,6 +52,18 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper UI untuk layar detail penghuni asrama siswa ({@link AsramaSiswa}/
+ * {@link AsramaSiswaPunyaSiswa}). Menampilkan daftar siswa penghuni berpaginasi dengan filter
+ * nama/NISN dan angkatan, mendukung penambahan penghuni lewat picker banyak-pilih
+ * ({@code AmbilDataSiswaBanyak}) atau unggah massal dari berkas Excel
+ * ({@link #uploadDataSiswa}, dijalankan di thread terpisah dengan progres dan laporan unduhan
+ * teks di akhir), penghapusan penghuni satu per satu, pembersihan seluruh penghuni sekaligus lewat
+ * SQL native ({@code UPDATE sekolah.siswa SET asrama=null}), pencetakan data, dan pencetakan
+ * laporan absensi lewat {@code CommonReportHelper}. Kolom {@code asrama} pada entitas
+ * {@link Siswa} selalu disinkronkan mengikuti keanggotaan {@link AsramaSiswaPunyaSiswa} (baik
+ * saat baris dirender pertama kali, ditambahkan, maupun dihapus).
+ */
 public class DetailAsramaSiswaHelper implements DataLoader, DataCriteria {
 
 	private MyGrid grid;
@@ -65,6 +77,7 @@ public class DetailAsramaSiswaHelper implements DataLoader, DataCriteria {
 
 	private Paging paging;
 
+	/** Membuat helper, menentukan hak hapus/tambah dari hak akses pengguna saat ini, dan menginisialisasi komponen paging yang memicu {@link #loadData} saat halaman berganti. */
 	public DetailAsramaSiswaHelper() {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 		create = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -79,6 +92,7 @@ public class DetailAsramaSiswaHelper implements DataLoader, DataCriteria {
 		});
 	}
 
+	/** Renderer baris grid: foto, label revisi+NIS, nama, tahun masuk, status siswa, dan tombol hapus (dengan dialog konfirmasi; melepas kaitan {@code siswa.asrama} sebelum menghapus baris relasi). Menyinkronkan {@code siswa.getAsrama()} ke asrama ini bila belum tersinkron saat baris dirender. */
 	class DetailPARenderer extends ais.ui.util.MyRowRenderer {
 
 		public DetailPARenderer() {
@@ -158,6 +172,7 @@ public class DetailAsramaSiswaHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/** Membangun kriteria pencarian {@link AsramaSiswaPunyaSiswa} milik {@code asramaSiswa}, opsional difilter nama/NISN siswa (ILIKE sebagian) dan tahun masuk, diurutkan menurut tahun masuk menurun lalu NISN dan id bila {@code order} true. */
 	public Criteria initCriteria(boolean order) {
 
 		Session session = HibernateUtil.currentSession();
@@ -181,6 +196,7 @@ public class DetailAsramaSiswaHelper implements DataLoader, DataCriteria {
 		return criteria;
 	}
 
+	/** Memuat satu halaman penghuni sesuai kriteria/paging saat ini dan menyegarkan grid dengan {@link DetailPARenderer}. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Common.initPaging(initCriteria(false), paging);
@@ -193,6 +209,17 @@ public class DetailAsramaSiswaHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/**
+	 * Membangun tampilan lengkap detail penghuni asrama ke dalam {@code component}: toolbar
+	 * pencarian nama/angkatan, tombol Absensi (mencetak laporan absensi asrama), "Ambil Siswa"
+	 * (picker banyak-pilih, hanya bila punya hak buat), "Bersihkan" (menghapus seluruh keanggotaan
+	 * lewat SQL native, dengan dialog konfirmasi), cetak data, dan unggah Excel; diikuti grid
+	 * berpaginasi (10 baris/halaman) daftar penghuni.
+	 *
+	 * @param asramaSiswa asrama yang penghuninya dikelola
+	 * @param component   komponen ZK tempat tata letak dibangun (dibersihkan lebih dulu)
+	 * @param window      jendela induk (tidak dipakai langsung, diteruskan untuk konteks pemanggil)
+	 */
 	public void displayDetailPA(final AsramaSiswa asramaSiswa, final Component component, final MyWindow window) {
 
 		this.asramaSiswa = asramaSiswa;

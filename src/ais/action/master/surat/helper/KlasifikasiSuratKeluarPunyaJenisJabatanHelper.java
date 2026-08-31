@@ -34,6 +34,16 @@ import ais.database.model.surat.KlasifikasiSuratKeluar;
 import ais.database.model.surat.KlasifikasiSuratKeluarPunyaJenisJabatan;
 import ais.ui.util.MyDoublebox;
 
+/**
+ * Helper ZK untuk mengelola daftar jenis jabatan yang berwenang menandatangani satu klasifikasi
+ * surat keluar ({@link KlasifikasiSuratKeluar}, lewat baris penghubung
+ * {@link KlasifikasiSuratKeluarPunyaJenisJabatan}) pada modul persuratan (relasi "punya banyak").
+ * Setiap baris menautkan {@link JenisJabatan} dengan satuan kerja spesifik (opsional, via
+ * {@code AmbilDataSatuanKerjaBanbox}) dan koordinat penempatan tanda tangan pada dokumen
+ * ({@code posisiX}/{@code posisiY}, diedit langsung dari grid). Tombol tambah memicu penyimpanan
+ * klasifikasi induk lebih dulu (lewat {@link OnSaveListener}) sebelum membuka dialog pemilihan jenis
+ * jabatan banyak sekaligus, mengecualikan jenis jabatan yang sudah ada di grid.
+ */
 public class KlasifikasiSuratKeluarPunyaJenisJabatanHelper {
 
 	private MyGrid gridJenisJabatan;
@@ -41,6 +51,12 @@ public class KlasifikasiSuratKeluarPunyaJenisJabatanHelper {
 	// private boolean edit = false;
 	private boolean delete = false;
 
+	/**
+	 * Membuat helper terikat pada satu komponen grid target, sekaligus mengevaluasi hak akses
+	 * tambah dan hapus pengguna saat ini.
+	 *
+	 * @param gridJenisJabatan komponen grid ZK tempat baris jenis jabatan dirender
+	 */
 	public KlasifikasiSuratKeluarPunyaJenisJabatanHelper(MyGrid gridJenisJabatan) {
 		this.gridJenisJabatan = gridJenisJabatan;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -48,6 +64,17 @@ public class KlasifikasiSuratKeluarPunyaJenisJabatanHelper {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun kerangka layout detail (toolbar tambah + kolom grid) dan langsung memuat data jenis
+	 * jabatan untuk klasifikasi surat keluar yang diberikan. Tombol tambah terlebih dahulu memicu
+	 * {@code onSaveListener} untuk memastikan klasifikasi induk tersimpan, baru membuka dialog
+	 * pemilihan jenis jabatan banyak sekaligus (mengecualikan yang sudah ada di grid); setiap jenis
+	 * jabatan terpilih disimpan sebagai baris {@link KlasifikasiSuratKeluarPunyaJenisJabatan} baru.
+	 *
+	 * @param klasifikasiSuratKeluar klasifikasi surat keluar yang daftar jenis jabatannya dikelola
+	 * @param onSaveListener         callback penyimpanan klasifikasi induk, dipanggil sebelum dialog tambah dibuka
+	 * @return komponen {@link Borderlayout} berisi toolbar dan grid jenis jabatan yang siap dipasang ke layar pemanggil
+	 */
 	public Borderlayout initDetail(final KlasifikasiSuratKeluar klasifikasiSuratKeluar,
 			final OnSaveListener onSaveListener) {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -170,6 +197,16 @@ public class KlasifikasiSuratKeluarPunyaJenisJabatanHelper {
 		}
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan nama jenis jabatan, kombo pemilihan satuan kerja terkait, kolom
+	 * koordinat X/Y penempatan tanda tangan pada dokumen (masing-masing tersimpan otomatis saat
+	 * berubah), dan tombol hapus beserta event handler-nya (dialog konfirmasi, hapus dari database
+	 * dan dari grid bila dikonfirmasi).
+	 *
+	 * @param row                                       baris grid yang diisi
+	 * @param klasifikasiSuratKeluarPunyaJenisJabatan   baris penghubung klasifikasi-jenis jabatan yang direpresentasikan baris ini
+	 * @throws Exception diteruskan apa adanya dari kegagalan pembangunan komponen
+	 */
 	public void initRow(final Row row,
 			final KlasifikasiSuratKeluarPunyaJenisJabatan klasifikasiSuratKeluarPunyaJenisJabatan) throws Exception {
 		row.setValign("top");row.setAttribute("klasifikasiSuratKeluarPunyaJenisJabatan", klasifikasiSuratKeluarPunyaJenisJabatan);

@@ -43,6 +43,20 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper ZK untuk mengelola lampiran file perkuliahan/pelajaran ({@link PertemuanFileContent}) yang
+ * dapat ditautkan ke salah satu dari empat konteks berbeda: {@link Pertemuan} tunggal,
+ * {@link GrupPertemuan}, {@link KurikulumPunyaMatakuliah}, atau
+ * {@link KurikulumPunyaMatakuliahDetail} — konteks mana yang dipakai ditentukan oleh parameter mana
+ * yang diberikan ke {@link #createFile}; konteks yang tidak dipakai diisi id acak negatif sebagai
+ * penanda "tidak berlaku" (bukan {@code null}), lihat penggunaan {@code -Common.randLong()}.
+ * Menyediakan toolbar unggah (hanya untuk admin/guru — disembunyikan bila {@code siswa} atau
+ * {@code calonSiswa} diisi, menandakan konteks tampilan-saja bagi siswa) yang mengirim email
+ * notifikasi lewat {@link CommonEmail#infoAdaFilePerkuliahan} setiap file baru, grid daftar file
+ * dengan pratinjau dan unduhan, kolom keterangan yang dapat diedit langsung (hanya untuk admin/guru),
+ * serta aksi hapus (juga hanya admin/guru) dengan penanganan galat khusus saat gagal karena relasi
+ * data lain.
+ */
 public class FilePerkuliahanSiswaHelper {
 
 	private Siswa siswa;
@@ -55,12 +69,21 @@ public class FilePerkuliahanSiswaHelper {
 	private KurikulumPunyaMatakuliahDetail kurikulumPunyaMatakuliahDetail;
 	private GrupPertemuan grupPertemuan;
 
+	/**
+	 * Membuat helper terikat pada satu siswa atau calon siswa (opsional, keduanya boleh
+	 * {@code null} untuk konteks admin/guru): kehadiran salah satu parameter ini menyembunyikan
+	 * toolbar unggah dan tombol hapus, membatasi tampilan menjadi lihat-dan-unduh saja.
+	 *
+	 * @param siswa      siswa pemilik konteks tampilan, boleh {@code null}
+	 * @param calonSiswa calon siswa pemilik konteks tampilan, boleh {@code null}
+	 */
 	public FilePerkuliahanSiswaHelper(final Siswa siswa, final CalonSiswa calonSiswa) {
 		this.siswa = siswa;
 		this.calonSiswa = calonSiswa;
 
 	}
 
+	/** Renderer baris grid daftar file: pratinjau + nama file, tanggal unggah, tipe MIME, keterangan (editable untuk admin/guru), tombol unduh, dan tombol hapus (khusus admin/guru). */
 	class FileUploadRenderer extends ais.ui.util.MyRowRenderer {
 
 		public FileUploadRenderer() {
@@ -177,6 +200,19 @@ public class FilePerkuliahanSiswaHelper {
 		}
 	}
 
+	/**
+	 * Membangun panel file (toolbar unggah + grid daftar) di dalam tab panel yang diberikan, terikat
+	 * pada salah satu konteks (pertemuan, grup pertemuan, atau kurikulum-matakuliah/detailnya —
+	 * bila {@code kurikulumPunyaMatakuliahDetail} diisi, konteks kurikulum-matakuliah diambil
+	 * darinya, menimpa {@code kurikulumPunyaMatakuliahTemp}). Toolbar unggah hanya tampil untuk
+	 * admin/guru (bukan siswa/calon siswa) dan bila minimal satu konteks relevan diberikan.
+	 *
+	 * @param pertemuan                        konteks pertemuan tunggal, boleh {@code null}
+	 * @param grupPertemuan                    konteks grup pertemuan, boleh {@code null}
+	 * @param kurikulumPunyaMatakuliahTemp      konteks kurikulum-matakuliah, boleh {@code null} (ditimpa bila {@code kurikulumPunyaMatakuliahDetail} diisi)
+	 * @param kurikulumPunyaMatakuliahDetail    konteks detail kurikulum-matakuliah, boleh {@code null}
+	 * @param tabpanelFilePertemuan             tab panel target tempat panel file dipasang; label tab diperbarui dengan jumlah file
+	 */
 	public void createFile(final Pertemuan pertemuan, final GrupPertemuan grupPertemuan,
 			KurikulumPunyaMatakuliah kurikulumPunyaMatakuliahTemp,
 			final KurikulumPunyaMatakuliahDetail kurikulumPunyaMatakuliahDetail, final Tabpanel tabpanelFilePertemuan) {
@@ -286,6 +322,11 @@ public class FilePerkuliahanSiswaHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Memuat ulang daftar file yang cocok dengan konteks aktif (grup pertemuan/detail
+	 * kurikulum-matakuliah atau pertemuan/kurikulum-matakuliah, tergantung yang diisi), memperbarui
+	 * label tab dengan jumlah file, dan merender ulang grid.
+	 */
 	private void reloadPertemuanFileContent() {
 		try {
 			Session session = StreamingHibernateUtil.getInstance().currentSession();

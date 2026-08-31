@@ -32,6 +32,27 @@ import ais.database.model.rab.WorkspacePunyaIndikator;
 import ais.ui.util.MyDoublebox;
 import ais.ui.util.MyTextbox;
 
+/**
+ * Helper UI ZK modul RAB (Rencana Anggaran Biaya) untuk mencatat realisasi indikator kinerja
+ * ({@link AcaraPunyaIndikator}) dari satu {@link Acara} (kegiatan) terhadap indikator yang sudah
+ * ditetapkan pada item perencanaan ({@link Workspace}) terkait, lewat
+ * {@link WorkspacePunyaIndikator}. Dipasang pada panel detail satu acara, menampilkan daftar
+ * indikator sebagai grid dengan kolom target (read-only, dari perencanaan) dan realisasi/
+ * keterangan yang dapat diedit.
+ *
+ * <p>
+ * Tombol "Tambah Realisasi" mengambil workspace terpilih dari {@code selecter} (atau workspace
+ * bawaan acara bila selecter tidak memilih apa pun), menolak bila workspace tidak aktif atau
+ * belum memiliki indikator, lalu menambahkan satu baris {@link AcaraPunyaIndikator} untuk
+ * <b>setiap</b> {@link WorkspacePunyaIndikator} milik workspace tersebut sekaligus. Setelah
+ * indikator ditambahkan (atau bila sudah ada indikator tersimpan), komponen pemilih workspace
+ * pada {@code selecter} dikunci — memastikan satu acara hanya terkait pada satu workspace/
+ * kelompok indikator. Mengubah nilai realisasi/keterangan pada baris memperbarui atribut objek
+ * di memori (belum tentu langsung ke database — lihat kode {@code onChange} masing-masing field);
+ * tombol hapus per baris meminta konfirmasi, menghapus dari database, dan membuka kembali kunci
+ * pemilih workspace bila grid menjadi kosong.
+ * </p>
+ */
 public class AcaraPunyaIndikatorHelper {
 
 	private MyGrid gridIndikator;
@@ -40,6 +61,7 @@ public class AcaraPunyaIndikatorHelper {
 	private boolean delete = false;
 	private WorkspaceSelecter selecter;
 
+	/** Membangun helper terikat pada {@code gridIndikator} dan menghitung hak tambah/ubah/hapus pengguna saat ini. */
 	public AcaraPunyaIndikatorHelper(MyGrid gridIndikator) {
 		this.gridIndikator = gridIndikator;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -47,6 +69,14 @@ public class AcaraPunyaIndikatorHelper {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun panel (border layout) berisi toolbar "Tambah Realisasi" dan grid daftar
+	 * indikator untuk {@code acara}, lalu memuat data indikator yang sudah tersimpan.
+	 *
+	 * @param acara    kegiatan yang detail realisasi indikatornya ditampilkan/dikelola
+	 * @param selecter komponen pemilih workspace/item perencanaan, sumber indikator saat menambah baris baru
+	 * @return border layout siap disisipkan sebagai konten panel detail
+	 */
 	public Borderlayout initDetail(final Acara acara,
 			final WorkspaceSelecter selecter) {
 		this.selecter = selecter;
@@ -158,6 +188,7 @@ public class AcaraPunyaIndikatorHelper {
 		return borderlayout;
 	}
 
+	/** Memuat baris-baris indikator tersimpan untuk {@code acara} dari database, mengunci pemilih workspace bila sudah ada indikator, dan merender baris ke grid. */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final Acara acara) {
 
@@ -183,6 +214,12 @@ public class AcaraPunyaIndikatorHelper {
 		}
 	}
 
+	/**
+	 * Mengisi {@code row} dengan kode dan nama indikator, target (read-only, dari perencanaan),
+	 * kolom realisasi dan keterangan yang dapat diedit (bila pengguna berhak ubah), serta tombol
+	 * hapus (bila pengguna berhak); tombol hapus meminta konfirmasi, menghapus baris dari
+	 * database, dan membuka kembali kunci pemilih workspace bila grid menjadi kosong.
+	 */
 	public void initRow(final Row row,
 			final AcaraPunyaIndikator acaraPunyaIndikator) {
 		row.setValign("top");row.setAttribute("acaraPunyaIndikator", acaraPunyaIndikator);

@@ -33,6 +33,24 @@ import ais.database.model.library.DataUdcItemDetail;
 import ais.database.model.library.Item;
 import ais.ui.util.MyTextbox;
 
+/**
+ * Helper UI ZK untuk mengelola relasi item pustaka ({@link Item}, lewat {@link
+ * DataUdcItemDetail}) yang tergabung dalam satu {@link DataUdcItem} (kelompok klasifikasi UDC —
+ * Universal Decimal Classification) di modul perpustakaan. Dipasang pada panel detail satu
+ * DataUdcItem, menampilkan daftar item anggota sebagai grid dengan keterangan yang dapat diedit
+ * inline dan tombol tambah/hapus.
+ *
+ * <p>
+ * Tombol tambah membuka dialog {@link AmbilDataItemBanyak} (pemilih item multi-pilih, dengan
+ * item yang sudah menjadi anggota dikecualikan dari pilihan); setiap item yang dipilih langsung
+ * disimpan sebagai baris {@link DataUdcItemDetail} baru (bila kelompok sudah tersimpan) dan
+ * kolom UDC pada entitas {@link Item} itu sendiri ikut diperbarui mengikuti klasifikasi kelompok
+ * ini. Menghapus baris juga mengosongkan kembali kolom UDC pada {@link Item} terkait. Kolom
+ * keterangan per baris memperbarui database langsung saat berubah, dinonaktifkan bila pengguna
+ * tidak memiliki hak ubah. Visibilitas tombol tambah/hapus dan status edit keterangan mengikuti
+ * privilese pengguna saat ini ({@link CommonPrivilages}).
+ * </p>
+ */
 public class DataUdcItemPunyaItemHelper {
 
 	private MyGrid gridItem;
@@ -40,6 +58,7 @@ public class DataUdcItemPunyaItemHelper {
 	private boolean edit = false;
 	private boolean delete = false;
 
+	/** Membangun helper terikat pada {@code gridItem} dan menghitung hak tambah/ubah/hapus pengguna saat ini. */
 	public DataUdcItemPunyaItemHelper(MyGrid gridItem) {
 		this.gridItem = gridItem;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -47,6 +66,13 @@ public class DataUdcItemPunyaItemHelper {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun panel (border layout) berisi toolbar "Tambah Item"/"Refresh" dan grid daftar
+	 * item anggota untuk {@code dataUdcItem}, lalu memuat data item yang sudah tersimpan.
+	 *
+	 * @param dataUdcItem kelompok klasifikasi UDC yang detail anggotanya ditampilkan/dikelola
+	 * @return border layout siap disisipkan sebagai konten panel detail
+	 */
 	public Borderlayout initDetail(final DataUdcItem dataUdcItem) throws Exception {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -158,6 +184,7 @@ public class DataUdcItemPunyaItemHelper {
 		return borderlayout;
 	}
 
+	/** Memuat baris-baris item anggota tersimpan untuk {@code dataUdcItem} dari database dan merendernya ke grid. */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final DataUdcItem dataUdcItem) throws Exception {
 
@@ -176,6 +203,13 @@ public class DataUdcItemPunyaItemHelper {
 		}
 	}
 
+	/**
+	 * Mengisi {@code row} dengan identitas item (ISBN/ISSN), tautan riwayat revisi, kolom
+	 * keterangan yang dapat diedit inline (memperbarui database langsung saat berubah, bila
+	 * pengguna berhak ubah), dan tombol hapus (bila pengguna berhak); tombol hapus meminta
+	 * konfirmasi, lalu mengosongkan kolom UDC pada {@link Item} terkait dan menghapus baris
+	 * relasi dari database (bila sudah tersimpan).
+	 */
 	public void initRow(final Row row, final DataUdcItemDetail dataUdcItemDetail) throws Exception {
 		row.setValign("top");row.setAttribute("dataUdcItemDetail", dataUdcItemDetail);
 

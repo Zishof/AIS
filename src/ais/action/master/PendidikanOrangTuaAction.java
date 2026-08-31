@@ -39,6 +39,20 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.UIUtil;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD master data Pendidikan Orang Tua (jenjang pendidikan terakhir ayah/ibu siswa/mahasiswa,
+ * dipakai pada data PMB/kesiswaan). Memperluas {@link GenericCrudAction} untuk mewarisi kerangka
+ * baku cari/tambah/ubah/hapus, ditambah aksi cetak dan unggah massal via file Excel
+ * (.xlsx — lihat {@link #prosesUpload}). Kelas ini mengisi bagian spesifik entitas: kriteria
+ * pencarian (nama + kode), form input (nama + kode + keterangan), validasi nama wajib dan tidak
+ * boleh duplikat, serta renderer baris. Penyimpanan didelegasikan ke {@link PendidikanOrangTuaDao}.
+ *
+ * <p>
+ * <b>Catatan keamanan:</b> {@link #prosesUpload(UploadEvent)} menulis file Excel yang diunggah ke
+ * disk memakai nama file asli dari klien tanpa sanitasi ({@code "/temp/" + media.getName()}) —
+ * berpotensi path traversal bila nama file memuat komponen path (mis. {@code "../"}).
+ * </p>
+ */
 public class PendidikanOrangTuaAction extends GenericCrudAction<PendidikanOrangTua> {
 
     private static final long serialVersionUID = -1036939833372046390L;
@@ -59,11 +73,13 @@ public class PendidikanOrangTuaAction extends GenericCrudAction<PendidikanOrangT
     @Override
     protected String getWindowTitle() { return "Pendataan Pendidikan Orang Tua"; }
 
+    /** Kolom yang disertakan pada template unduh/unggah massal data pendidikan orang tua. */
     @Override
     protected String[] getDownloadUploadContents() {
         return new String[] { "id", "nama", "kode" };
     }
 
+    /** Menambahkan tombol cetak dan unggah massal (Excel) di sebelah tombol tambah, mengikuti hak akses tambah/ubah/hapus pengguna. */
     @Override
     protected void onAfterInit(Component comp) throws Exception {
         MyToolbarbuttonConfig cetakToolbarbutton = Common.cetakData(this, "id", "nama", "kode");
@@ -86,6 +102,7 @@ public class PendidikanOrangTuaAction extends GenericCrudAction<PendidikanOrangT
         }
     }
 
+    /** Menyusun kriteria pencarian {@link PendidikanOrangTua} berdasarkan nama dan kode, diurutkan berdasarkan nama bila diminta. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -100,6 +117,7 @@ public class PendidikanOrangTuaAction extends GenericCrudAction<PendidikanOrangT
         return criteria;
     }
 
+    /** Menyediakan renderer baris grid {@link PendidikanOrangTuaRenderer} untuk daftar hasil pencarian. */
     @Override
     protected MyRowRenderer createRenderer() {
         return new PendidikanOrangTuaRenderer();
@@ -107,6 +125,7 @@ public class PendidikanOrangTuaAction extends GenericCrudAction<PendidikanOrangT
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/ubah pendidikan orang tua (field nama + kode + keterangan) beserta tombol batal/simpan pada jendela dialog. */
     @Override
     protected void buildFormContent(MyWindow window, final PendidikanOrangTua pendidikanOrangTua) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -180,6 +199,15 @@ public class PendidikanOrangTuaAction extends GenericCrudAction<PendidikanOrangT
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi lalu menyimpan data pendidikan orang tua dari form: menolak bila nama kosong atau
+     * sudah terdaftar pada baris lain; jika lolos menyimpan/memperbarui entitas lewat
+     * {@link PendidikanOrangTuaDao} dan mengembalikan {@code true}.
+     *
+     * @param event event ZK pemicu penyimpanan (tombol simpan)
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal
+     * @throws Exception diteruskan apa adanya dari kegagalan DAO saat menyimpan
+     */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             PesanFormalHelper.tampilkanGagal("penyimpanan data Pendidikan Orang Tua",
@@ -216,6 +244,12 @@ public class PendidikanOrangTuaAction extends GenericCrudAction<PendidikanOrangT
         return true;
     }
 
+    /**
+     * Memeriksa apakah nama pendidikan orang tua yang diisi di form sudah dipakai baris lain
+     * (mengecualikan baris yang sedang diedit sendiri).
+     *
+     * @return {@code true} bila nama sudah terpakai baris lain, {@code false} bila belum
+     */
     public Boolean checkNamaPendidikanOrangTua() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(PendidikanOrangTua.class)
@@ -230,6 +264,16 @@ public class PendidikanOrangTuaAction extends GenericCrudAction<PendidikanOrangT
 
     // ======================== Upload logic ========================
 
+    /**
+     * Memproses unggahan massal data pendidikan orang tua dari file Excel (.xlsx): membaca setiap
+     * baris mulai baris kedua (baris pertama header), memetakan kolom id/nama/kode, dan
+     * menyimpan/memperbarui entitas per baris (id {@code -1} atau kosong berarti baris baru).
+     * Berhenti membaca lebih awal saat kolom nama pada suatu baris kosong. Setiap baris disimpan
+     * dalam transaksi Hibernate tersendiri sehingga kegagalan satu baris tidak membatalkan baris lain.
+     *
+     * @param uploadEvent event unggah ZK berisi file Excel yang diunggah pengguna
+     * @throws Exception diteruskan apa adanya dari kegagalan I/O atau parsing workbook
+     */
     private void prosesUpload(UploadEvent uploadEvent) throws Exception {
         Media media = uploadEvent.getMedia();
         if (!ais.action.master.helper.generic.AmbilDataTugasFileContent.checkFile(media)) return;
@@ -285,6 +329,7 @@ public class PendidikanOrangTuaAction extends GenericCrudAction<PendidikanOrangT
 
     // ======================== Renderer ========================
 
+    /** Renderer baris grid daftar pendidikan orang tua: kolom nama, kode, keterangan, dan tombol edit/hapus. */
     class PendidikanOrangTuaRenderer extends MyRowRenderer {
 
         @Override

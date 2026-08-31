@@ -53,12 +53,31 @@ import ais.ui.util.MyLabelBoldMerah;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper UI ZK modul persuratan untuk mengelola lampiran gambar/scan
+ * ({@link FotoGambarSuratMasuk}) pada satu {@link SuratMasuk}, dengan pola penyimpanan ganda
+ * yang sama seperti {@link SuratKeluarPunyaGambarFotoHelper} (unggah langsung ke database via
+ * {@link StreamingHibernateUtil}, atau ke Google Drive via {@link GDriveUtilPerPengguna}).
+ *
+ * <p>
+ * Berbeda dari surat masuk biasa, {@link #initDetail(SuratMasuk, boolean)} memiliki jalur khusus
+ * bila {@code edit=false} dan surat masuk ini merupakan hasil tindak lanjut dari sebuah
+ * {@code suratKeluar}: alih-alih menampilkan grid lampiran, panel menampilkan langsung lampiran
+ * gambar surat keluar terkait bila ada, atau (bila belum ada) menyusun PDF surat keluar tersebut
+ * on-the-fly dari template JRXML ({@link LampiranLain}, hingga 15 halaman lampiran berurutan)
+ * dan menggabungkannya lewat {@link PDFMergerUtility} untuk pratinjau langsung. Untuk mode edit
+ * biasa, panel juga menghormati status kunci ({@code suratMasuk.getDikunci()}) — bila surat
+ * sedang dikunci pengguna lain, grid diganti pesan siapa yang menguncinya dan toolbar unggah
+ * disembunyikan.
+ * </p>
+ */
 public class SuratMasukPunyaGambarFotoHelper {
 
 	private MyGrid gridPengarang;
 	private boolean add = false;
 	private boolean delete = false;
 
+	/** Membangun helper terikat pada {@code gridPengarang} dan menghitung hak tambah/hapus pengguna saat ini. */
 	public SuratMasukPunyaGambarFotoHelper(MyGrid gridPengarang) {
 		this.gridPengarang = gridPengarang;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -67,6 +86,17 @@ public class SuratMasukPunyaGambarFotoHelper {
 
 	private com.google.api.services.drive.model.File fileUpload = null;
 
+	/**
+	 * Membangun panel detail lampiran untuk {@code suratMasuk}. Bila {@code edit=false} dan
+	 * surat ini tindak lanjut dari surat keluar, menampilkan lampiran/PDF surat keluar tersebut
+	 * (lihat javadoc kelas); selain itu menampilkan toolbar unggah (lokal/Google Drive, bila
+	 * belum dikunci pengguna lain dan pengguna berhak tambah) dan grid daftar lampiran.
+	 *
+	 * @param suratMasuk surat masuk yang detail lampirannya ditampilkan/dikelola
+	 * @param edit       {@code true} untuk mode edit lampiran biasa; {@code false} untuk mode
+	 *                   lihat, yang memicu jalur khusus pratinjau surat keluar terkait
+	 * @return border layout siap disisipkan sebagai konten panel detail
+	 */
 	public Borderlayout initDetail(final SuratMasuk suratMasuk, boolean edit) throws Exception {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -343,6 +373,7 @@ public class SuratMasukPunyaGambarFotoHelper {
 		return borderlayout;
 	}
 
+	/** Memuat baris-baris lampiran tersimpan untuk {@code suratMasuk} dari database (terurut terbaru dulu) dan merendernya ke grid. */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final SuratMasuk suratMasuk) throws Exception {
 
@@ -364,6 +395,12 @@ public class SuratMasukPunyaGambarFotoHelper {
 		StreamingHibernateUtil.getInstance().closeSession();
 	}
 
+	/**
+	 * Mengisi {@code row} dengan tautan nama berkas + pratinjau ({@code CommonMedia#preview}),
+	 * tombol unduh (mengarahkan ke URL Google Drive atau menyajikan unduhan blob lokal
+	 * tergantung tempat penyimpanan), dan tombol hapus (bila pengguna berhak); tombol hapus
+	 * meminta konfirmasi, lalu menghapus baris lampiran dari database dalam transaksi tersendiri.
+	 */
 	public void initRow(final Row row, final FotoGambarSuratMasuk fotoGambarSuratMasuk) throws Exception {
 		row.setValign("top");
 		row.setValign("top");

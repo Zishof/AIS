@@ -60,6 +60,32 @@ import ais.ui.util.MyComboitemConfig;
 import ais.ui.util.MyGrid;
 import ais.ui.util.MyWindow;
 
+/**
+ * Layar laporan akademik "Laporan Sidang" (sidang tugas akhir/skripsi): menampilkan dashboard
+ * ringkasan (HTML, lewat {@code LaporanSkripsiDashboardUtil}) dan cetak PDF daftar mahasiswa
+ * beserta status sidang skripsi mereka, dengan filter kombinasi fakultas, prodi, program,
+ * angkatan, status mahasiswa/keluar, dosen (pembimbing atau salah satu penguji), mahasiswa
+ * tertentu, tahun akademik, semester, dan status sudah/belum sidang. Kelas ini adalah window ZK
+ * mandiri di atas {@link MyWindow}, dapat pula dibuka terikat pada satu
+ * {@link JadwalSidangTugasAkhir} tertentu (konstruktor kedua), yang otomatis memuat laporan saat
+ * dibuka dan mengunci filter tahun akademik.
+ *
+ * <p>
+ * Inti pengambilan data ada di {@link #generateDataDanImageAlbum(Label)}: query
+ * {@link ais.database.model.Skripsi} sesuai seluruh filter aktif, lalu untuk setiap hasil
+ * menyinkronkan {@link ais.database.model.KrsMahasiswa} terkini
+ * ({@code Common#singkronkanKrsMahasiswa}), mengambil riwayat status mahasiswa, dan menyaring
+ * lebih lanjut berdasarkan status mahasiswa terpilih (filter status tidak dapat diterapkan
+ * langsung di query SQL karena bergantung pada riwayat status yang dihitung per baris). Setiap
+ * baris yang lolos diubah menjadi {@link Map} data lengkap ({@link #buildMapSidang}) — mencakup
+ * profil mahasiswa, IPK/IPS (beserta variannya: dibulatkan ke atas/bawah/terdekat, terbilang),
+ * data lima anggota tim penguji/pembimbing, nilai sidang, dan status aktif — dipakai baik untuk
+ * dashboard HTML maupun sebagai parameter laporan PDF (kunci {@code "maps"}). Proses ini berat
+ * dan dijalankan di thread terpisah dengan progress bar ({@link #onLaporan(Event)} untuk
+ * dashboard, {@link #onCetakLama(Event)} untuk PDF "cara lama" via
+ * {@link ais.action.report.Report}).
+ * </p>
+ */
 public class LaporanSidang extends MyWindow {
 
     private static final long serialVersionUID = 4766478176972379068L;
@@ -82,6 +108,7 @@ public class LaporanSidang extends MyWindow {
     @SuppressWarnings("rawtypes")
     private List<Map> maps = null;
 
+    /** Membangun window laporan dalam konfigurasi baku (tanpa jadwal sidang terikat), menyiapkan combobox fakultas/jurusan dan seluruh isi form filter. */
     public LaporanSidang() {
         super();
         try {
@@ -98,6 +125,7 @@ public class LaporanSidang extends MyWindow {
         }
     }
 
+    /** Membangun window laporan terikat pada {@code jadwalSidangTugasAkhir} tertentu; laporan otomatis dimuat setelah form filter siap ({@link #init()} memanggil {@link #onLaporan(Event)} bila jadwal terisi). */
     public LaporanSidang(JadwalSidangTugasAkhir jadwalSidangTugasAkhir) {
         super();
         this.jadwalSidangTugasAkhir = jadwalSidangTugasAkhir;

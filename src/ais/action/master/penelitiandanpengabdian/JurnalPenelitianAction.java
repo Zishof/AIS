@@ -56,6 +56,22 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Layar CRUD data master <b>Jurnal Penelitian</b> modul penelitian dan pengabdian: mengelola daftar
+ * jurnal (judul, path/sub-URL, daftar koresponden, grup pengguna koresponden) tempat artikel dosen
+ * dapat diajukan/dipublikasikan. Jurnal dapat ditautkan ke sistem OJS (Open Journal Systems)
+ * eksternal — bila konfigurasi {@code terhubung_ke_ojs} aktif, toolbar menampilkan tombol impor
+ * jurnal dan artikel yang mengalihkan ke alur importer OJS terintegrasi
+ * ({@link #redirectToIntegratedImporter()}, endpoint {@code /jurnal/admin/importOjs}).
+ *
+ * <p>
+ * Kelas ini juga dapat dipakai sebagai dialog pemilih tersemat lewat
+ * {@link #onAddExternal(Event, EventListener, JurnalPenelitian)} — dipanggil dari layar lain untuk
+ * membuat jurnal baru secara cepat tanpa membuka layar penuh; dalam mode ini ({@code eventListener}
+ * tidak {@code null}) sebagian besar field form (path, aktif, koresponden, grup) disembunyikan dan
+ * hasil simpan diteruskan balik ke pemanggil lewat callback.
+ * </p>
+ */
 public class JurnalPenelitianAction extends GenericAutowireComposer implements DataCriteria, DataSearchDefault {
 	private static final long serialVersionUID = 3786091220301468178L;
 	private MyWindow addWindow;
@@ -78,6 +94,7 @@ public class JurnalPenelitianAction extends GenericAutowireComposer implements D
 	private Textbox korespondensiGrupPengguna;
 	private EventListener eventListener = null;
 
+	/** Memeriksa keamanan sesi (lewat {@link Common#doCheckSecurity()}) sebelum komponen dibangun. */
 	@Override
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page,
 			org.zkoss.zk.ui.Component parent, org.zkoss.zk.ui.metainfo.ComponentInfo compInfo) {
@@ -85,6 +102,12 @@ public class JurnalPenelitianAction extends GenericAutowireComposer implements D
 		return super.doBeforeCompose(page, parent, compInfo);
 	}
 
+	/**
+	 * Inisialisasi layar: memeriksa sesi login masih valid (logoff otomatis bila tidak), menentukan
+	 * hak akses tambah/ubah/hapus, memuat data awal, mengaktifkan paginasi, dan menambahkan tombol
+	 * impor jurnal/artikel dari OJS ke toolbar (tampak hanya bila {@code terhubung_ke_ojs} aktif)
+	 * serta tombol cetak/unggah data massal.
+	 */
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
 		Common.initLaguage();
@@ -153,15 +176,24 @@ public class JurnalPenelitianAction extends GenericAutowireComposer implements D
 		Common.appendKeToolbar(upload, add, comp);
 	}
 
+	/** Memicu sinkronisasi artikel dari OJS — saat ini hanya mengalihkan browser ke importer OJS terintegrasi ({@link #redirectToIntegratedImporter()}); parameter {@code jurnalPenelitianData} dan {@code eventListener} tidak dipakai. */
 	public static void singkronkanArtikel(final JurnalPenelitian jurnalPenelitianData,
 			final EventListener eventListener) {
 		redirectToIntegratedImporter();
 	}
+	/** Mengalihkan (HTTP redirect) permintaan saat ini ke endpoint importer OJS terintegrasi ({@code /jurnal/admin/importOjs}). */
 	private static void redirectToIntegratedImporter() {
 		HttpServletRequest request = (HttpServletRequest) ExecutionsCtrl.getCurrent().getNativeRequest();
 		Executions.sendRedirect(request.getContextPath() + "/jurnal/admin/importOjs");
 	}
 
+	/**
+	 * Perender baris grid pencarian jurnal penelitian: menampilkan panel detail yang dapat
+	 * diciutkan (memuat daftar artikel yang diajukan ke jurnal ini lewat
+	 * {@link DetailArtikelHelper#displayPengajuan} saat dibuka), judul (dengan tautan riwayat
+	 * revisi), status aktif, path, daftar koresponden (username diterjemahkan menjadi nama
+	 * pengguna/mahasiswa bila cocok), grup pengguna koresponden, dan tombol ubah/hapus.
+	 */
 	class JurnalPenelitianRenderer extends ais.ui.util.MyRowRenderer {
 
 		private DetailArtikelHelper detailArtikelHelper = new DetailArtikelHelper(null);
@@ -275,6 +307,15 @@ public class JurnalPenelitianAction extends GenericAutowireComposer implements D
 		}
 	}
 
+	/**
+	 * Membuka dialog tambah/edit jurnal penelitian sebagai komponen tersemat kecil (300x200px) yang
+	 * dipanggil dari layar lain, dengan sebagian besar field disembunyikan (hanya judul yang
+	 * tampil). Hasil simpan diteruskan balik ke pemanggil lewat {@code eventListener}.
+	 *
+	 * @param event           tidak dipakai langsung, diteruskan sebagai konteks pemanggilan
+	 * @param eventListener   callback yang dipanggil setelah jurnal disimpan, membawa entitas jurnal sebagai data event
+	 * @param jurnalPenelitian jurnal yang akan diedit, atau instance baru untuk membuat jurnal baru
+	 */
 	public static void onAddExternal(Event event, EventListener eventListener, JurnalPenelitian jurnalPenelitian)
 			throws Exception {
 		JurnalPenelitianAction jurnalPenelitianAction = new JurnalPenelitianAction();
@@ -291,12 +332,20 @@ public class JurnalPenelitianAction extends GenericAutowireComposer implements D
 		jurnalPenelitianAction.addWindow.onModal();
 	}
 
+	/** Membuka dialog tambah jurnal penelitian baru (kosong) sebagai jendela modal penuh. */
 	public void onAdd(Event event) throws Exception {
 		init(new JurnalPenelitian());
 		addWindow.setVisible(true);
 		addWindow.onModal();
 	}
 
+	/**
+	 * Membangun form tambah/edit jurnal penelitian: judul, path/sub-URL, status aktif, daftar
+	 * koresponden (default terisi user login, dapat ditambah massal lewat dialog
+	 * {@link AmbilDataTbmuserBanyak}), dan grup pengguna koresponden. Field selain judul
+	 * disembunyikan saat dipanggil dalam mode tersemat ({@code eventListener != null}, lihat
+	 * {@link #onAddExternal}).
+	 */
 	private void init(JurnalPenelitian jurnalPenelitian) {
 		this.jurnalPenelitian = jurnalPenelitian;
 		addWindow.setTitle(jurnalPenelitian.getId() == null ? "Tambah Jurnal" : "Ubah Jurnal");
@@ -441,6 +490,17 @@ public class JurnalPenelitianAction extends GenericAutowireComposer implements D
 
 	}
 
+	/**
+	 * Memvalidasi (judul wajib diisi) dan menyimpan/memperbarui data jurnal penelitian dari isian
+	 * form saat ini. Untuk data baru dengan judul yang persis sama (case-insensitive) dengan jurnal
+	 * yang sudah ada, method ini memutakhirkan jurnal yang sudah ada tersebut alih-alih membuat
+	 * duplikat (deteksi via {@code Restrictions.ilike(..., MatchMode.EXACT)}). Path kosong diisi
+	 * otomatis dari judul; koresponden kosong diisi otomatis dengan user id pengguna yang sedang
+	 * login.
+	 *
+	 * @param event event pemicu tombol simpan
+	 * @return {@code true} bila validasi lolos dan data tersimpan; {@code false} bila judul kosong
+	 */
 	public boolean onSave(Event event) throws Exception {
 		if (judul.getValue().trim().equals("")) {
 			MyMessageboxConfig.show("Judul harus diisi", "Peringatan", MyMessageboxConfig.OK,
@@ -478,6 +538,7 @@ public class JurnalPenelitianAction extends GenericAutowireComposer implements D
 		return true;
 	}
 
+	/** Membangun kriteria pencarian jurnal penelitian, diurutkan berdasarkan judul, disaring berdasarkan kecocokan sebagian judul pada kotak pencarian bila diisi. */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(JurnalPenelitian.class);
@@ -488,6 +549,7 @@ public class JurnalPenelitianAction extends GenericAutowireComposer implements D
 		return criteria;
 	}
 
+	/** Menjalankan pencarian jurnal penelitian sesuai filter aktif, memuat ulang paginasi, dan merender hasil ke grid lewat {@link JurnalPenelitianRenderer}. Tidak melakukan apa pun bila komponen pencarian belum siap. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 		if (searchjudul == null) {

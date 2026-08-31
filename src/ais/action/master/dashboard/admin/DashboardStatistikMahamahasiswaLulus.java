@@ -38,9 +38,23 @@ import ais.ui.util.DataCriteriaWithColumn;
 import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Widget dashboard admin yang menampilkan statistik jumlah mahasiswa <b>lulus</b> per program
+ * studi dan tahun kelulusan (dan, terpisah, statistik mahasiswa <b>cuti</b> per prodi/tahun
+ * akademik/semester lewat {@link #initChartCuti}), dalam bentuk tabel + grafik batang HTML/CSS
+ * ({@link DashboardAkademikHtmlCssHelper}). Data diagregasi lewat SQL native ke tabel
+ * {@code mahasiswa} (kelulusan: {@code status_keluar=1}, tahun lulus 1900-2100) dan
+ * {@code pendaftaran_cuti_mahasiswa} (persetujuan disetujui), disaring otomatis sesuai
+ * fakultas/jurusan user login (bila bukan admin pusat) dan perguruan tinggi aktif. Untuk
+ * mengurangi jumlah baris, tahun-tahun lama digabung menjadi satu baris ringkasan
+ * ({@link #cetakBarisTahunLama}) berdasarkan ambang relatif terhadap tahun terbaru per jurusan
+ * (50 tahun ke belakang bila grafik ditampilkan, 5 tahun bila tidak). Setiap angka dapat diklik
+ * untuk mengunduh data rinci mahasiswa/cuti terkait lewat {@link Common#cetakDataCustomButton}.
+ */
 public class DashboardStatistikMahamahasiswaLulus extends MyWindow {
 
 	private static final long serialVersionUID = 1L;
+	/** Header kolom "DATA TAMBAHAN" kosong (150 kolom) untuk dialog unduh data rinci — dipertahankan kosong sesuai kebutuhan tampilan unduhan saat ini. */
 	private static final String[] DATA_TAMBAHAN = new String[] { "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
 			"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
 			"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
@@ -55,24 +69,29 @@ public class DashboardStatistikMahamahasiswaLulus extends MyWindow {
 	private int width = 750;
 	private int height = 100;
 
+	/** Membuat instance tanpa langsung membangun isi — pemanggil wajib memanggil {@link #init()} atau {@link #initChart(Component, boolean)} sendiri. */
 	public DashboardStatistikMahamahasiswaLulus() {
 		super();
 	}
 
+	/** Membuat dashboard sebagai komponen mini berukuran tetap; pemanggil masih perlu memanggil {@link #init()}/{@link #initChart} untuk mengisi konten. */
 	public DashboardStatistikMahamahasiswaLulus(int width, int height) throws Exception {
 		super();
 		reinit(width, height);
 	}
 
+	/** Mengatur ulang dimensi target dashboard tanpa membangun ulang isinya. */
 	public void reinit(int width, int height) throws Exception {
 		this.width = width;
 		this.height = height;
 	}
 
+	/** Konstruktor varian dengan judul/border/closable eksplisit, dipakai saat jendela dibuat sebagai komponen tersemat penuh. */
 	public DashboardStatistikMahamahasiswaLulus(String title, String border, boolean closable) {
 		super(title, border, closable);
 	}
 
+	/** Membangun kerangka portal responsif (kartu tunggal) dashboard dan langsung memuat grafik statistik kelulusan. */
 	public void init() {
 		setHeight("100%");
 		setWidth("100%");
@@ -85,16 +104,23 @@ public class DashboardStatistikMahamahasiswaLulus extends MyWindow {
 		initChart(center, true);
 	}
 
+	/**
+	 * Listener klik pada satu angka statistik kelulusan: membuka dialog unduh data rinci
+	 * {@link Mahasiswa} yang cocok kombinasi jurusan + tahun lulus (atau {@code <= mintahun} untuk
+	 * baris ringkasan tahun lama), lewat {@link Common#cetakDataCustomButton}.
+	 */
 	public class MyEventListener implements EventListener {
 		private Integer tahunMasuk;
 		private Long jurusanId;
 		private Integer mintahun = null;
 
+		/** Listener untuk satu sel tahun lulus spesifik (jurusan + tahun lulus tunggal, atau {@code -1}/{@code null} untuk "semua"). */
 		public MyEventListener(Integer tahunMasuk, Long jurusanId) {
 			this.tahunMasuk = tahunMasuk;
 			this.jurusanId = jurusanId;
 		}
 
+		/** Listener untuk sel ringkasan "tahun lama" (jurusan + ambang batas {@code mintahun}, mencakup {@code tahunLulus <= mintahun}). */
 		public MyEventListener(Integer tahunMasuk, Integer mintahun, Long jurusanId) {
 			this.tahunMasuk = tahunMasuk;
 			this.jurusanId = jurusanId;
@@ -135,11 +161,17 @@ public class DashboardStatistikMahamahasiswaLulus extends MyWindow {
 		}
 	}
 
+	/**
+	 * Listener klik pada satu angka statistik cuti: membuka dialog unduh data rinci
+	 * {@link PendaftaranCutiMahasiswa} yang disetujui, cocok kombinasi jurusan/tahun
+	 * akademik/semester, lewat {@link Common#cetakDataCustomButton}.
+	 */
 	public class MyEventListenerCuti implements EventListener {
 		private Long jurusanId;
 		private String tahunAkademik;
 		private String ganjilGenap;
 
+		/** Listener untuk satu sel statistik cuti (parameter {@code null} berarti tidak difilter pada dimensi tersebut). */
 		public MyEventListenerCuti(String tahunAkademik, String ganjilGenap, Long jurusanId) {
 			this.tahunAkademik = tahunAkademik;
 			this.ganjilGenap = ganjilGenap;
@@ -184,6 +216,14 @@ public class DashboardStatistikMahamahasiswaLulus extends MyWindow {
 		}
 	}
 
+	/**
+	 * Membangun tabel + grafik batang statistik mahasiswa lulus per prodi/tahun lewat kueri SQL
+	 * native ke tabel {@code mahasiswa} (disaring fakultas/jurusan user login dan perguruan tinggi
+	 * aktif bila berlaku), dirender ke {@code center} lewat {@link #renderTahunDashboard}.
+	 *
+	 * @param center         komponen tempat tabel/grafik ditempel
+	 * @param tampilkanChart bila {@code true}, grafik batang HTML disertakan dan ambang tahun lama diperluas ke 50 tahun; bila {@code false}, hanya tabel dengan ambang 5 tahun
+	 */
 	@SuppressWarnings({ "deprecation" })
 	public void initChart(Component center, boolean tampilkanChart) {
 		try {
@@ -225,6 +265,12 @@ public class DashboardStatistikMahamahasiswaLulus extends MyWindow {
 		}
 	}
 
+	/**
+	 * Membangun tabel + grafik batang statistik mahasiswa cuti (disetujui) per prodi/tahun
+	 * akademik/semester lewat kueri SQL native ke tabel {@code pendaftaran_cuti_mahasiswa} dan
+	 * {@code mahasiswa}, disaring fakultas/jurusan user login dan perguruan tinggi aktif bila
+	 * berlaku, dirender langsung ke {@code center}.
+	 */
 	@SuppressWarnings({ "deprecation" })
 	public void initChartCuti(Component center) {
 		try {
@@ -320,6 +366,7 @@ public class DashboardStatistikMahamahasiswaLulus extends MyWindow {
 		}
 	}
 
+	/** Membangun grid dua kolom tambahan (Prodi, Tahun, dan kolom jumlah berlabel {@code jumlahCaption}) dan menempelkannya ke {@code center}. */
 	private Grid createGrid(Component center, String jumlahCaption) {
 		Grid grid = new Grid();
 		grid.setSclass("dgrid");
@@ -337,6 +384,19 @@ public class DashboardStatistikMahamahasiswaLulus extends MyWindow {
 		return grid;
 	}
 
+	/**
+	 * Merender baris-baris hasil agregasi kelulusan per jurusan+tahun ke {@code rows}: tahun-tahun
+	 * yang lebih baru dari ambang (relatif terhadap tahun terbaru tiap jurusan) dirender sebagai
+	 * baris individual, sisanya digabung menjadi satu baris ringkasan
+	 * ({@link #cetakBarisTahunLama}) per jurusan. Menambahkan baris total keseluruhan di akhir, dan
+	 * grafik batang HTML bila {@code tampilkanChart}.
+	 *
+	 * @param rows              komponen {@link Rows} tempat baris ditambahkan
+	 * @param jurusans          hasil kueri SQL {@code [jurusan_id, jurusan, tahunlulus, jumlah_siswa]}, diurutkan per jurusan lalu tahun menurun
+	 * @param tampilkanChart    sertakan grafik batang HTML dan perlebar ambang tahun lama ke 50 tahun
+	 * @param chartTitle        judul grafik (bila ditampilkan)
+	 * @param chartDescription  deskripsi grafik (bila ditampilkan)
+	 */
 	private void renderTahunDashboard(Rows rows, List<Object[]> jurusans, boolean tampilkanChart, String chartTitle,
 			String chartDescription) {
 		Integer total = 0;
@@ -419,6 +479,7 @@ public class DashboardStatistikMahamahasiswaLulus extends MyWindow {
 		}
 	}
 
+	/** Menambahkan satu baris ringkasan "tahun lama" ({@code mintahun>=}) untuk {@code jurusanName}, dengan total dan tautan unduh data rinci. */
 	private void cetakBarisTahunLama(Rows rows, String jurusanName, int mintahun, int totalTahunLama, Long jurusanId,
 			List<DashboardAkademikHtmlCssHelper.BarItem> chartItems) {
 		Row row = new Row();

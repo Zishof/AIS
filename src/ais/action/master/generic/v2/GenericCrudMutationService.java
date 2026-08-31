@@ -17,12 +17,37 @@ import ais.action.master.generic.v2.adapter.GenericCrudSessionValueAdapter;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.GeneralValueObject;
 
+/**
+ * Mesin mutasi kanonik framework CRUD generik ({@code generic/v2}): satu-satunya tempat yang
+ * benar-benar membuat, mengubah, atau menonaktifkan (soft delete) baris entitas lewat definisi
+ * {@link GenericCrudDefinition}/adapter entitas. Setiap operasi mengikuti urutan pengaman yang
+ * sama: (1) periksa hak akses lewat {@link GenericCrudPrivilegeGuard}; (2) pastikan mode CRUD
+ * penuh dan operasi terkait diaktifkan pada definisi entitas (gagal-tertutup bila tidak); (3)
+ * verifikasi metadata Hibernate lewat {@link GenericCrudRuntimeMetadataVerifier}; (4) saring nilai
+ * yang dikirim klien agar hanya field yang ditandai boleh-diisi/diubah yang diterima (lihat
+ * {@link #allowedValues}); (5) jalankan validasi wajib-isi dan validasi khusus adapter; (6)
+ * jalankan operasi dalam satu transaksi Hibernate, dengan pemeriksaan cakupan (tenant/pemilik)
+ * lewat {@link GenericCrudScopeGuard} sebelum DAN sesudah adapter mengaplikasikan nilai (mencegah
+ * adapter memindahkan record ke luar cakupan aktif); (7) catat aktivitas lewat
+ * {@link CommonPrivilages#saveActivity}; (8) pada kegagalan, rollback transaksi dan petakan galat
+ * ke {@link GenericCrudException} lewat {@link #mapMutationError}. Kelas ini tidak menyimpan
+ * state antar-panggilan (semua guard/validator dibuat sekali sebagai bidang final, dipakai ulang
+ * untuk setiap operasi).
+ */
 @SuppressWarnings({ "rawtypes", "unchecked", "deprecation" })
 public class GenericCrudMutationService {
     private final GenericCrudPrivilegeGuard privilege = new GenericCrudPrivilegeGuard();
     private final GenericCrudScopeGuard scope = new GenericCrudScopeGuard();
     private final GenericCrudValidationService validation = new GenericCrudValidationService();
 
+    /**
+     * Membuat baris entitas baru sesuai definisi CRUD generik pada {@code context}.
+     *
+     * @param context   konteks permintaan (definisi entitas, user, cakupan)
+     * @param submitted nilai field yang dikirim klien (kunci = nama properti)
+     * @return hasil sukses berisi id baris baru, atau hasil galat validasi/bisnis
+     * @throws Exception bila operasi buat dinonaktifkan, field tidak diizinkan, atau kegagalan lain (dipetakan ke {@link GenericCrudException})
+     */
     public GenericCrudResult create(GenericCrudRequestContext context, Map submitted) throws Exception {
         privilege.require(context, GenericCrudOperation.CREATE);
         GenericCrudDefinition definition = context.getDefinition();
@@ -57,6 +82,19 @@ public class GenericCrudMutationService {
         } finally { HibernateUtil.closeSession(); }
     }
 
+    /**
+     * Memperbarui baris entitas yang sudah ada, dengan pemeriksaan token optimistic-locking bila
+     * definisi entitas memiliki kolom versi (lihat {@link #verifyOptimisticToken}) dan pemeriksaan
+     * cakupan ganda (sebelum dan sesudah nilai diterapkan) agar adapter tidak dapat memindahkan
+     * record ke luar cakupan aktif.
+     *
+     * @param context         konteks permintaan (definisi entitas, user, cakupan)
+     * @param id              id baris yang akan diubah
+     * @param submitted       nilai field yang dikirim klien
+     * @param optimisticToken token versi terakhir yang dilihat klien, atau {@code null} bila entitas tidak bervensi
+     * @return hasil sukses berisi id baris, atau hasil galat validasi/bisnis
+     * @throws Exception bila baris tidak ditemukan, operasi ubah dinonaktifkan, token versi tidak cocok, atau kegagalan lain
+     */
     public GenericCrudResult update(GenericCrudRequestContext context, Serializable id, Map submitted, Object optimisticToken) throws Exception {
         privilege.require(context, GenericCrudOperation.UPDATE);
         GenericCrudDefinition definition = context.getDefinition();
@@ -94,6 +132,15 @@ public class GenericCrudMutationService {
         } finally { HibernateUtil.closeSession(); }
     }
 
+    /**
+     * Menonaktifkan (soft delete) satu baris entitas, hanya bila adapter entitas mengizinkannya
+     * lewat {@code canDelete} (mis. entitas tidak memiliki data anak yang masih aktif).
+     *
+     * @param context konteks permintaan (definisi entitas, user, cakupan)
+     * @param id      id baris yang akan dinonaktifkan
+     * @return hasil sukses berisi id baris, atau melempar galat bila dilarang
+     * @throws Exception bila baris tidak ditemukan, operasi hapus dinonaktifkan, adapter menolak penghapusan, atau kegagalan lain
+     */
     public GenericCrudResult softDelete(GenericCrudRequestContext context, Serializable id) throws Exception {
         privilege.require(context, GenericCrudOperation.DELETE);
         GenericCrudDefinition definition = context.getDefinition();
@@ -121,6 +168,7 @@ public class GenericCrudMutationService {
         } finally { HibernateUtil.closeSession(); }
     }
 
+    /** Menyaring {@code submitted} agar hanya berisi field yang ditandai boleh-diisi ({@code create=true}) atau boleh-diubah; melempar galat bila ada field yang tidak diizinkan. */
     private Map allowedValues(GenericCrudDefinition definition, Map submitted, boolean create) throws GenericCrudException {
         Map values = new LinkedHashMap();
         Iterator iterator = submitted.keySet().iterator();
@@ -135,6 +183,7 @@ public class GenericCrudMutationService {
         return values;
     }
 
+    /** Memastikan {@code token} yang dikirim klien cocok dengan nilai kolom versi entitas saat ini; tidak melakukan apa pun bila entitas tidak memiliki kolom versi. */
     private void verifyOptimisticToken(GenericCrudDefinition definition, ClassMetadata metadata,
             Object target, Object token) throws GenericCrudException {
         if (definition.getVersionProperty() == null) { return; }
@@ -145,6 +194,7 @@ public class GenericCrudMutationService {
         }
     }
 
+    /** Mengubah daftar pesan galat mentah ({@code "field:pesan"} atau pesan tanpa field) menjadi {@link GenericCrudResult} gagal dengan peta {@code fieldErrors} siap tampil di formulir. */
     private GenericCrudResult validationError(List errors) {
         GenericCrudResult result = GenericCrudResult.error("VALIDATION_FAILED", "Periksa kembali data yang diisi.");
         Map fieldErrors = new LinkedHashMap();
@@ -160,6 +210,7 @@ public class GenericCrudMutationService {
     private Map idData(Serializable id) { Map result = new LinkedHashMap(); result.put("id", id); return result; }
     private void deny(String code, String message) throws GenericCrudException { throw new GenericCrudException(403, code, message); }
     private void rollback(Transaction tx) { try { if (tx != null && tx.isActive()) tx.rollback(); } catch (Exception ignored) { } }
+    /** Memetakan galat mentah ke {@link GenericCrudException}: diteruskan apa adanya bila sudah bertipe itu, dipetakan sebagai pelanggaran aturan bisnis (409) untuk {@link IllegalArgumentException}, atau sebagai kegagalan generik (500) untuk galat lainnya. */
     private GenericCrudException mapMutationError(Exception error) {
         if (error instanceof GenericCrudException) { return (GenericCrudException) error; }
         if (error instanceof IllegalArgumentException) { return new GenericCrudException(409, "BUSINESS_RULE", error.getMessage()); }

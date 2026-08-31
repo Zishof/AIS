@@ -11,14 +11,31 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.Mahasiswa;
 
+/**
+ * Algoritma penomoran NIM khusus institusi STIKES Surabaya: NIM disusun dari
+ * {@code 2 digit tahun masuk + kode program studi + 1 digit penanda mahasiswa pindahan
+ * ("2") atau baru ("1") + 3 digit nomor urut} pada kombinasi tahun angkatan, jenjang, dan
+ * program studi yang sama.
+ */
 public class StikesSbyNimGenerator implements NimGenerator {
 
+	/** Seperti {@link #generateNim(BiodataCalonMahasiswa, List)}, tanpa daftar pengecualian awal. */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa) {
 		return generateNim(calonMahasiswa, new ArrayList<String>());
 	}
 
-	// generate NIM
+	/**
+	 * Membangkitkan NIM: menghitung jumlah {@link Mahasiswa} aktif pada kombinasi tahun angkatan,
+	 * jenjang, dan program studi lulus yang sama (ditambah jumlah kandidat yang sudah ditolak di
+	 * {@code jumlahPengecualian}), lalu menyusun NIM dari 2 digit tahun, kode prodi (atau
+	 * {@code "--"} bila belum ditentukan), penanda pindahan/baru, dan 3 digit nomor urut. Bila NIM
+	 * hasil ternyata sudah dipakai mahasiswa lain, nomor tersebut ditambahkan ke
+	 * {@code jumlahPengecualian} dan method memanggil dirinya sendiri secara rekursif.
+	 *
+	 * @param jumlahPengecualian NIM kandidat yang sudah terbukti bentrok pada percobaan sebelumnya
+	 * @return NIM yang belum dipakai mahasiswa manapun
+	 */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa,
 			List<String> jumlahPengecualian) {

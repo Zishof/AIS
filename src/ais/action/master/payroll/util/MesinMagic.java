@@ -22,8 +22,21 @@ import ais.database.model.StatuskehadiranKaryawanHarian;
 import ais.database.model.payroll.UploadLog;
 import ais.database.model.sekolah.Siswa;
 
+/**
+ * Parser dan pemroses log mentah mesin absensi sidik jari ("mesin magic") pada modul payroll.
+ * Format satu baris log: {@code [yyyy/MM/dd-HH:mm:ss]kode/no_mesin/type_absen/status_valid/in_out}
+ * (mis. {@code [2014/01/01-08:21:33]8888/1/128/1/1}). {@link #execute(String)} mem-parsing teks log
+ * mentah menjadi daftar peta field per baris; {@link #process(UploadLog)} menerapkan hasil parsing
+ * tersebut ke database: setiap {@code kode} dicocokkan berurutan terhadap {@code idfinger} pegawai
+ * (dosen/guru/pegawai umum), lalu NIM mahasiswa, lalu NISN/nomor induk siswa; kode yang tidak
+ * cocok satupun dicatat sebagai gagal di {@code uploadLog.getLogDetail()}. Baris valid dengan
+ * {@code in_out=1} dicatat sebagai jam masuk (sekaligus menentukan shift kerja lewat
+ * {@code CommonPayroll.getDetailJenisShiftPegawai}); {@code in_out=2} dicatat sebagai jam pulang.
+ * {@link #testData} adalah data contoh statis untuk pengujian manual lewat {@link #main(String[])}.
+ */
 public class MesinMagic {
 
+	/** Contoh data log mentah mesin absensi untuk pengujian manual lewat {@link #main(String[])} — bukan data produksi. */
 	static String testData = "[2014/01/01-08:21:33]8888/1/128/1/1\n[2014/01/01-17:21:36]8888/1/128/1/2\n"
 			+ "[2014/01/02-08:21:40]8888/1/128/1/1\n[2014/01/02-17:21:42]8888/1/128/1/2\n"
 			+ "[2014/01/03-08:21:33]8888/1/128/1/1\n[2014/01/03-17:21:36]8888/1/128/1/2\n"
@@ -64,6 +77,7 @@ public class MesinMagic {
 			+ "[2013/02/01-08:21:40]8888/1/128/1/1\n[2013/02/01-17:21:42]8888/1/128/1/2\n"
 			+ "[2013/02/02-08:21:33]8888/1/128/1/1\n[2013/02/02-17:21:36]8888/1/128/1/2";
 
+	/** Harness uji manual: mem-parsing {@link #testData} lewat {@link #execute(String)} dan mencetak hasilnya ke konsol. */
 	@SuppressWarnings("rawtypes")
 	public static void main(String[] argv) {
 		List<Map> maps = execute(testData);
@@ -77,6 +91,17 @@ public class MesinMagic {
 		}
 	};
 
+	/**
+	 * Mem-parsing teks log mentah mesin absensi (satu entri per baris, format
+	 * {@code [yyyy/MM/dd-HH:mm:ss]kode/no_mesin/type_absen/status_valid/in_out}) menjadi daftar
+	 * peta field per baris. Baris yang gagal di-parsing (format tidak sesuai) dilewati secara diam-diam
+	 * (dicatat ke audit error, tidak menghentikan proses baris lain).
+	 *
+	 * @param text seluruh isi log mentah, baris dipisah {@code \n}
+	 * @return daftar peta per baris valid, masing-masing berisi kunci {@code dateTime}, {@code kode},
+	 *         {@code no_mesin}, {@code type_absen}, {@code status_valid}, {@code in_out}, {@code origin}
+	 *         (baris asli)
+	 */
 	@SuppressWarnings("rawtypes")
 	public static List<Map> execute(String text) {
 		List<Map> maps = new ArrayList<Map>();
@@ -107,6 +132,20 @@ public class MesinMagic {
 		return maps;
 	}
 
+	/**
+	 * Menerapkan hasil parsing log absensi ({@code uploadLog.getTextUpload()}, lewat
+	 * {@link #execute(String)}) ke database: setiap {@code kode} dicocokkan berurutan terhadap
+	 * {@code idfinger} pegawai/dosen/guru, lalu NIM mahasiswa, lalu nomor induk siswa. Baris yang
+	 * kode-nya tidak cocok satupun, tidak memiliki waktu, berstatus tidak valid
+	 * ({@code status_valid="0"}), atau tidak memiliki penanda in/out dicatat sebagai gagal di
+	 * {@code uploadLog.getLogDetail()} tanpa mengubah data. Baris valid dengan {@code in_out="1"}
+	 * mengisi/memperbarui {@link StatuskehadiranKaryawanHarian} sebagai jam masuk (sekaligus
+	 * menentukan shift kerja yang berlaku); {@code in_out="2"} mengisi jam pulang. Setiap hasil
+	 * (sukses maupun gagal) dicatat ke {@code uploadLog.getLogDetail()} untuk ditampilkan kembali
+	 * ke pengguna yang mengunggah log.
+	 *
+	 * @param uploadLog catatan unggahan berisi teks log mentah dan daftar log hasil pemrosesan (dimutasi langsung)
+	 */
 	@SuppressWarnings("rawtypes")
 	public static void process(UploadLog uploadLog) {
 		List<Map> maps = execute(uploadLog.getTextUpload());

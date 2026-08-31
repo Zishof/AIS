@@ -31,6 +31,16 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD (berbasis {@link GenericCrudAction}) untuk data master <b>Kelas Perawatan</b> modul
+ * SIRS (mis. VIP, Kelas I, II, III). Saat kelas perawatan baru dibuat, method
+ * {@link #onSave(Event)} otomatis membuat baris {@link HargaJualItem} untuk <b>seluruh</b>
+ * {@link ItemMedis} yang ada, dengan harga awal disalin dari harga jual default masing-masing item
+ * — sehingga kelas perawatan baru langsung memiliki daftar harga lengkap tanpa perlu diisi manual
+ * satu per satu. Penghapusan kelas perawatan (di {@link KelasPerawatanRenderer}) secara eksplisit
+ * menghapus dulu baris {@code sirs.harga_jual_item} terkait sebelum menghapus kelas perawatan itu
+ * sendiri, karena relasi tersebut tidak otomatis dibersihkan oleh cascade standar.
+ */
 public class KelasPerawatanAction extends GenericCrudAction<KelasPerawatan> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -41,15 +51,19 @@ public class KelasPerawatanAction extends GenericCrudAction<KelasPerawatan> {
 
     // ======================== Abstract implementations ========================
 
+    /** Mengembalikan kelas entitas yang dikelola layar ini: {@link KelasPerawatan}. */
     @Override
     protected Class<KelasPerawatan> getEntityClass() { return KelasPerawatan.class; }
 
+    /** Membuat instance {@link KelasPerawatan} kosong untuk form tambah data baru. */
     @Override
     protected KelasPerawatan createNewEntity() { return new KelasPerawatan(); }
 
+    /** Mengembalikan judul jendela form: {@code "Pendataan Kelas Perawatan"}. */
     @Override
     protected String getWindowTitle() { return "Pendataan Kelas Perawatan"; }
 
+    /** Membangun kriteria pencarian kelas perawatan, diurutkan berdasarkan nama, disaring berdasarkan kecocokan sebagian nama pada kotak pencarian bila diisi. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -61,6 +75,7 @@ public class KelasPerawatanAction extends GenericCrudAction<KelasPerawatan> {
         return criteria;
     }
 
+    /** Membuat perender baris grid pencarian kelas perawatan: {@link KelasPerawatanRenderer}. */
     @Override
     protected MyRowRenderer createRenderer() {
         return new KelasPerawatanRenderer();
@@ -68,6 +83,7 @@ public class KelasPerawatanAction extends GenericCrudAction<KelasPerawatan> {
 
     // ======================== Form content ========================
 
+    /** Membangun tata letak form tambah/edit kelas perawatan (nama, keterangan) dengan toolbar simpan/batal di dalam {@code window}. */
     @Override
     protected void buildFormContent(MyWindow window, final KelasPerawatan kelasPerawatan) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -141,6 +157,17 @@ public class KelasPerawatanAction extends GenericCrudAction<KelasPerawatan> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi (nama wajib, nama belum dipakai kelas perawatan lain) dan
+     * menyimpan/memperbarui data kelas perawatan dari isian form saat ini. Khusus data baru
+     * (bukan edit), setelah baris kelas perawatan tersimpan, otomatis membuat satu baris
+     * {@link HargaJualItem} untuk setiap {@link ItemMedis} yang ada di sistem, dengan harga awal
+     * disalin dari harga jual default masing-masing item (0 bila item belum punya harga jual
+     * default) — lihat javadoc kelas.
+     *
+     * @param event event pemicu tombol simpan
+     * @return {@code true} bila validasi lolos dan data tersimpan; {@code false} bila validasi gagal
+     */
     @SuppressWarnings("unchecked")
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
@@ -180,6 +207,7 @@ public class KelasPerawatanAction extends GenericCrudAction<KelasPerawatan> {
         return true;
     }
 
+    /** Memeriksa apakah nama pada form sudah dipakai kelas perawatan lain (mengecualikan record yang sedang diedit sendiri). */
     public Boolean checkNamaKelasPerawatan() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(KelasPerawatan.class)
@@ -194,6 +222,14 @@ public class KelasPerawatanAction extends GenericCrudAction<KelasPerawatan> {
 
     // ======================== Renderer ========================
 
+    /**
+     * Perender baris grid pencarian kelas perawatan: menampilkan nama (dengan tautan riwayat
+     * revisi) dan keterangan, dengan tombol hapus kustom (bukan tombol standar
+     * {@code Common.copyEditDeleteButtons}) — sebelum menghapus baris kelas perawatan, terlebih
+     * dahulu menghapus seluruh baris {@code sirs.harga_jual_item} yang tertaut lewat SQL native,
+     * karena relasi tersebut tidak otomatis dibersihkan cascade standar. Kegagalan hapus (mis.
+     * masih dipakai transaksi lain) ditangkap dan ditampilkan sebagai pesan error ke pengguna.
+     */
     class KelasPerawatanRenderer extends MyRowRenderer {
 
         @Override

@@ -30,6 +30,21 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD master data Shift kerja pada modul SIRS (Sistem Informasi Rumah Sakit), dibangun di
+ * atas {@link GenericCrudAction}. Setiap shift memiliki nama, lokasi ({@link Lokasi}), rentang
+ * waktu mulai-sampai, dan jenis shift ({@link JenisBiayaLain} bertipe
+ * {@code SETOR_TRANSAKSI_PENJUALAN} — menghubungkan shift dengan akun penerimaan transaksi
+ * penjualan terkait, mis. untuk rekonsiliasi setoran kasir per shift).
+ *
+ * <p>
+ * Pencarian daftar mendukung tiga filter sekaligus: kecocokan sebagian nama, lokasi, dan jenis
+ * shift ({@link #initCriteria(boolean)}), dengan combobox filter lokasi/jenis diisi di
+ * {@link #doAfterCompose(Component)}. Form simpan memvalidasi seluruh field wajib (nama, lokasi,
+ * waktu mulai, waktu sampai, jenis shift) serta nama tidak duplikat (dicek lewat
+ * {@link #checkNamaShift()}) sebelum menyimpan; baris tabel dirender lewat {@link ShiftRenderer}.
+ * </p>
+ */
 public class ShiftAction extends GenericCrudAction<Shift> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -57,6 +72,7 @@ public class ShiftAction extends GenericCrudAction<Shift> {
     @Override
     protected String getWindowTitle() { return "Pendataan Shift"; }
 
+    /** Mengisi combobox filter pencarian lokasi (aktif saja) dan jenis biaya lain (khusus setor transaksi penjualan) setelah komponen ZUL selesai dikomposisi. */
     @Override
     public void doAfterCompose(Component comp) throws Exception {
         super.doAfterCompose(comp);
@@ -66,6 +82,7 @@ public class ShiftAction extends GenericCrudAction<Shift> {
                 Restrictions.eq("jenis", JenisBiayaLain.SETOR_TRANSAKSI_PENJUALAN));
     }
 
+    /** Membangun kriteria pencarian daftar shift, difilter berdasarkan kecocokan sebagian nama, lokasi, dan jenis shift bila diisi. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -90,6 +107,7 @@ public class ShiftAction extends GenericCrudAction<Shift> {
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/ubah (nama, lokasi, waktu mulai/sampai, jenis shift, keterangan) beserta toolbar Batal/Simpan pada {@code window}. */
     @Override
     protected void buildFormContent(MyWindow window, final Shift shift) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -185,6 +203,13 @@ public class ShiftAction extends GenericCrudAction<Shift> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi (nama, lokasi, waktu mulai, waktu sampai, dan jenis shift wajib isi; nama
+     * tidak duplikat) dan menyimpan (create-or-update) entitas shift dari isian form.
+     *
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal (pesan
+     *         peringatan sudah ditampilkan ke pengguna)
+     */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Nama Shift wajib diisi terlebih dahulu. Langkah yang dapat dilakukan: (1) isikan Nama Shift pada kolom yang tersedia; (2) pastikan kolom tidak dikosongkan; (3) simpan kembali data setelah kolom terisi.", "Peringatan",
@@ -232,6 +257,7 @@ public class ShiftAction extends GenericCrudAction<Shift> {
         return true;
     }
 
+    /** Mengecek apakah nama pada form sudah dipakai shift lain (di luar entitas yang sedang diedit). */
     public Boolean checkNamaShift() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(Shift.class)
@@ -246,6 +272,7 @@ public class ShiftAction extends GenericCrudAction<Shift> {
 
     // ======================== Renderer ========================
 
+    /** Perenderan satu baris tabel shift: nama (dengan tautan riwayat revisi), waktu mulai/sampai, nama lokasi, jenis shift, keterangan, dan tombol edit/hapus. */
     class ShiftRenderer extends MyRowRenderer {
 
         @Override

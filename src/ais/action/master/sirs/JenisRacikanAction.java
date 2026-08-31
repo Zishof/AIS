@@ -25,6 +25,11 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD pendataan {@link JenisRacikan} (jenis racikan obat) pada modul SIRS, dibangun di
+ * atas kerangka {@link GenericCrudAction}. Menyediakan pencarian ilike berdasarkan nama, form
+ * tambah/ubah sederhana (nama + keterangan) dengan validasi nama wajib diisi dan unik.
+ */
 public class JenisRacikanAction extends GenericCrudAction<JenisRacikan> {
 
     private static final long serialVersionUID = -5779730267402400329L;
@@ -35,15 +40,19 @@ public class JenisRacikanAction extends GenericCrudAction<JenisRacikan> {
 
     // ======================== Abstract implementations ========================
 
+    /** Kelas entitas yang dikelola: {@link JenisRacikan}. */
     @Override
     protected Class<JenisRacikan> getEntityClass() { return JenisRacikan.class; }
 
+    /** Membuat instance {@link JenisRacikan} kosong untuk form tambah data baru. */
     @Override
     protected JenisRacikan createNewEntity() { return new JenisRacikan(); }
 
+    /** Judul jendela: {@code "Pendataan Jenis Racikan"}. */
     @Override
     protected String getWindowTitle() { return "Pendataan Jenis Racikan"; }
 
+    /** Menyusun kriteria pencarian {@link JenisRacikan}, difilter ilike berdasarkan nama, terurut nama bila {@code order} true. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -55,6 +64,7 @@ public class JenisRacikanAction extends GenericCrudAction<JenisRacikan> {
         return criteria;
     }
 
+    /** Penyedia renderer baris grid hasil pencarian: {@link JenisRacikanRenderer}. */
     @Override
     protected MyRowRenderer createRenderer() {
         return new JenisRacikanRenderer();
@@ -62,6 +72,7 @@ public class JenisRacikanAction extends GenericCrudAction<JenisRacikan> {
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/ubah {@link JenisRacikan}: kolom nama dan keterangan, beserta tombol Batal dan Simpan. */
     @Override
     protected void buildFormContent(MyWindow window, final JenisRacikan jenisRacikan) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -133,6 +144,13 @@ public class JenisRacikanAction extends GenericCrudAction<JenisRacikan> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi dan menyimpan data {@link JenisRacikan}: menolak bila nama kosong atau nama
+     * sudah dipakai jenis racikan lain (dicek via {@link #checkNamaJenisRacikan()}), lalu
+     * menyimpan/memperbarui entitas.
+     *
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal (pesan sudah ditampilkan ke pengguna)
+     */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Nama Jenis Racikan wajib diisi terlebih dahulu. Langkah yang dapat dilakukan: (1) isikan Nama Jenis Racikan pada kolom yang tersedia; (2) pastikan kolom tidak dikosongkan; (3) simpan kembali data setelah kolom terisi.", "Peringatan",
@@ -156,6 +174,7 @@ public class JenisRacikanAction extends GenericCrudAction<JenisRacikan> {
         return true;
     }
 
+    /** Memeriksa apakah nama pada form sudah dipakai {@link JenisRacikan} lain (mengecualikan entitas yang sedang diedit). */
     public Boolean checkNamaJenisRacikan() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(JenisRacikan.class)
@@ -170,6 +189,7 @@ public class JenisRacikanAction extends GenericCrudAction<JenisRacikan> {
 
     // ======================== Renderer ========================
 
+    /** Renderer baris grid untuk {@link JenisRacikan}: nama (dengan tombol riwayat revisi), keterangan, dan tombol edit/hapus. */
     class JenisRacikanRenderer extends MyRowRenderer {
 
         @Override

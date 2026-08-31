@@ -30,6 +30,16 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper UI (bukan entitas/aksi tersendiri) untuk mengelola daftar <b>sasaran</b> (target RAB,
+ * {@link Sasaran}) yang terkait dengan sebuah {@link KegiatanTugasJabatan} pada modul LKP:
+ * menampilkan grid sasaran dalam tata letak border, menyediakan tombol tambah (membuka dialog
+ * pemilihan banyak sasaran lewat {@link AmbilDataSasaranBanyak}, mengecualikan sasaran yang sudah
+ * ada di grid), serta tombol hapus per baris (dengan konfirmasi) yang menghapus baris
+ * {@link KegiatanTugasJabatanPunyaSasaran} dari basis data. Visibilitas tombol tambah/hapus
+ * mengikuti hak akses {@link CommonPrivilages#CREATE}/{@link CommonPrivilages#DELETE} pemanggil.
+ * Berpola sama dengan {@link KegiatanTugasJabatanPunyaPredecessorHelper}, hanya berbeda entitas relasi.
+ */
 public class KegiatanTugasJabatanPunyaSasaranHelper {
 
 	private MyGrid gridSasaran;
@@ -37,6 +47,7 @@ public class KegiatanTugasJabatanPunyaSasaranHelper {
 	// private boolean edit = false;
 	private boolean delete = false;
 
+	/** @param gridSasaran grid yang akan diisi/dikelola helper ini */
 	public KegiatanTugasJabatanPunyaSasaranHelper(MyGrid gridSasaran) {
 		this.gridSasaran = gridSasaran;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -44,6 +55,13 @@ public class KegiatanTugasJabatanPunyaSasaranHelper {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Menyusun tata letak (toolbar tambah + grid sasaran dengan kolom Kode/Isi Sasaran/Hapus)
+	 * dan langsung memuat data sasaran {@code kegiatanTugasJabatan} yang sudah tersimpan.
+	 *
+	 * @param kegiatanTugasJabatan kegiatan tugas jabatan yang sasarannya dikelola
+	 * @return komponen tata letak siap pakai untuk ditempelkan ke jendela detail
+	 */
 	public Borderlayout initDetail(final KegiatanTugasJabatan kegiatanTugasJabatan) {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -129,6 +147,7 @@ public class KegiatanTugasJabatanPunyaSasaranHelper {
 		return borderlayout;
 	}
 
+	/** Memuat baris {@link KegiatanTugasJabatanPunyaSasaran} tersimpan milik {@code kegiatanTugasJabatan} ke dalam grid (kosong bila entitas belum tersimpan). */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final KegiatanTugasJabatan kegiatanTugasJabatan) {
 
@@ -149,6 +168,13 @@ public class KegiatanTugasJabatanPunyaSasaranHelper {
 		}
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan kode/nama sasaran dan tombol hapus (dengan dialog
+	 * konfirmasi); menghapus baris database dan menyembunyikan+melepas baris UI bila dikonfirmasi.
+	 *
+	 * @param row                                 baris grid yang diisi
+	 * @param kegiatanTugasJabatanPunyaSasaran     data relasi sasaran untuk baris ini
+	 */
 	public void initRow(final Row row,
 			final KegiatanTugasJabatanPunyaSasaran kegiatanTugasJabatanPunyaSasaran) {
 		row.setValign("top");row.setAttribute("kegiatanTugasJabatanPunyaSasaran", kegiatanTugasJabatanPunyaSasaran);

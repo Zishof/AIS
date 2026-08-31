@@ -42,6 +42,21 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper ZK modul asset yang membangun grid rincian {@link PenghapusanMasterAsset} (penghapusan
+ * alat/fasilitas dari inventaris): menambahkan item {@link AssetDetail} lewat picker banyak-pilih,
+ * menghitung nilai buku dari {@link PenyusutanAsset} terkait per item, dan mengedit harga
+ * jual/keterangan tiap baris dengan autosave. Dipakai dalam dua mode via flag {@code disetujui}:
+ * mode "Penghapusan" (form editor sebelum disetujui) dan mode "Disetujui" (tampilan hasil setelah
+ * disetujui, dengan tata letak footer sedikit berbeda).
+ *
+ * <p>
+ * {@link #masukkanPenyusutan} memastikan baris {@link PenyusutanAsset} untuk setiap bulan sejak
+ * tanggal beli sampai tanggal pembuatan penghapusan sudah ada (dibuat bila belum), lalu mengikat
+ * baris penyusutan pada bulan/tahun penghapusan ke {@link PenghapusanMasterAssetDetail} yang
+ * bersangkutan — memastikan nilai buku yang ditampilkan konsisten dengan histori penyusutan.
+ * </p>
+ */
 public class PenghapusanMasterAssetHelper {
 
 	private MyGrid gridMasterAsset;
@@ -55,11 +70,19 @@ public class PenghapusanMasterAssetHelper {
 
 	private Footer footerTotalSemua;
 
+	/** Membuat helper untuk grid target {@code gridMasterAsset}; {@code disetujui} menentukan mode tampilan (editor penghapusan vs hasil disetujui). */
 	public PenghapusanMasterAssetHelper(MyGrid gridMasterAsset, Boolean disetujui) {
 		this.gridMasterAsset = gridMasterAsset;
 		this.disetujui = disetujui;
 	}
 
+	/**
+	 * Memastikan baris {@link PenyusutanAsset} untuk {@code assetDetail} pada bulan/tahun
+	 * {@code calendar1} (biasanya tanggal pembuatan penghapusan) tersedia, membuat baris penyusutan
+	 * yang belum ada untuk setiap bulan ke-0 sampai selisih bulan (tanggal beli -> tanggal
+	 * pembuatan penghapusan) bila baris pada tanggal spesifik tersebut belum ada, lalu mengikat
+	 * baris penyusutan yang ditemukan ke {@code penghapusanAssetDetailDetail}.
+	 */
 	public static void masukkanPenyusutan(Calendar calendar1, PenghapusanMasterAsset penghapusanMasterAsset,
 			PenghapusanMasterAssetDetail penghapusanAssetDetailDetail, AssetDetail assetDetail, Session session) {
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
@@ -102,6 +125,15 @@ public class PenghapusanMasterAssetHelper {
 		penghapusanAssetDetailDetail.setPenyusutanAsset(penyusutanAsset);
 	}
 
+	/**
+	 * Membangun kerangka grid rincian penghapusan: toolbar "Ambil Data Alat/Fasilitas" (hanya
+	 * ditampilkan di mode {@code !disetujui} dan belum disetujui) yang membuka picker banyak-pilih
+	 * {@link AssetDetail} (mengecualikan item yang sudah ada di grid), membangun
+	 * {@link PenghapusanMasterAssetDetail} baru untuk setiap item terpilih (langsung tersimpan bila
+	 * induk sudah punya id), dan kolom grid (Barcode/Nama/Nilai Buku/Harga Jual/Keterangan) beserta
+	 * footer total. Mengembalikan groupbox kosong tanpa memuat grid bila {@code penghapusanMasterAsset}
+	 * {@code null}.
+	 */
 	public MyGroupboxStyled initDetail(final PenghapusanMasterAsset penghapusanMasterAsset) throws Exception {
 		MyGroupboxStyled myGroupboxStyled = new MyGroupboxStyled();
 		myGroupboxStyled.appendChild(
@@ -269,6 +301,7 @@ public class PenghapusanMasterAssetHelper {
 		return myGroupboxStyled;
 	}
 
+	/** Menjumlahkan ulang {@link #totalSemua} (harga beli) dari seluruh baris grid yang sedang terlihat dan memperbarui label footer {@link #footerTotalSemua}. Dipicu setiap kali baris ditambah/dihapus/harga berubah. */
 	public EventListener eventListenerHitungUlang = new EventListener() {
 
 		@SuppressWarnings("unchecked")
@@ -293,6 +326,7 @@ public class PenghapusanMasterAssetHelper {
 	};
 
 	@SuppressWarnings("unchecked")
+	/** Memuat ulang seluruh baris {@link PenghapusanMasterAssetDetail} milik {@code penghapusanMasterAsset} (kosong bila belum tersimpan) ke grid, lalu menghitung ulang total. */
 	private void loadDataDetail(final PenghapusanMasterAsset penghapusanMasterAsset) throws Exception {
 
 		List<PenghapusanMasterAssetDetail> penghapusanMasterAssetDetails = penghapusanMasterAsset == null
@@ -314,6 +348,14 @@ public class PenghapusanMasterAssetHelper {
 		eventListenerHitungUlang.onEvent(null);
 	}
 
+	/**
+	 * Merender satu baris grid untuk {@code penghapusanMasterAssetDetail}: barcode+nama item (dengan
+	 * uploader gambar lampiran), nilai buku dari {@link PenyusutanAsset} terkait, harga jual editable
+	 * (yang saat berubah juga menyinkronkan {@code hargaBeliDefault} pada {@link MasterAsset}
+	 * induknya), keterangan editable, dan tombol hapus (menghapus baris database bila sudah tersimpan,
+	 * lalu menyembunyikan baris dari grid). Semua kontrol dikunci bila entitas induk sudah disetujui
+	 * atau {@link #edit} bernilai false.
+	 */
 	public void initRow(final Row row, final PenghapusanMasterAssetDetail penghapusanMasterAssetDetail)
 			throws Exception {
 

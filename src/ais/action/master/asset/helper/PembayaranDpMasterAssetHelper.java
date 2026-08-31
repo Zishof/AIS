@@ -36,6 +36,19 @@ import ais.ui.util.MyLabelKecil;
 import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper ZK untuk mengelola pembayaran uang muka (DP) barang/jasa ({@link PembayaranDpMasterAsset})
+ * kepada satu {@link PenyediaAsset}, dengan baris-baris tagihan ({@link
+ * PembayaranDpMasterAssetDetail}) yang masing-masing menautkan ke satu
+ * {@link PemesananPengadaanMasterAsset}. Untuk pembayaran BARU (belum tersimpan), baris tagihan
+ * dibangun otomatis dari seluruh pesanan penyedia yang memiliki DP > 0 (bukan dari data tersimpan)
+ * — sekaligus menyinkronkan ulang nilai {@code dibayar} pada pesanan bila berbeda dari hasil hitung
+ * ({@link PemesananPengadaanMasterAsset#hitungDibayar}); untuk pembayaran yang SUDAH tersimpan,
+ * baris dimuat langsung dari database. Baris terkunci (checkbox pilih dan input nominal
+ * dinonaktifkan) begitu pembayaran sudah disetujui ({@code getDisetujuiOleh() != null}) atau
+ * pengguna tidak berwenang mengedit. Total kolom "Dibayar" pada footer grid dihitung ulang otomatis
+ * lewat timer setiap kali baris berubah, mengikuti hanya baris yang tercentang.
+ */
 public class PembayaranDpMasterAssetHelper {
 
 	private MyGrid gridPenerimaanDpMasterAsset;
@@ -45,11 +58,25 @@ public class PembayaranDpMasterAssetHelper {
 	private Footer footerTotalDibayar;
 	private PembayaranDpMasterAsset pembayaranDpMasterAsset;
 
+	/**
+	 * Membuat helper terikat pada satu komponen grid target.
+	 *
+	 * @param gridPenerimaanDpMasterAsset komponen grid ZK tempat baris tagihan DP dirender
+	 */
 	public PembayaranDpMasterAssetHelper(MyGrid gridPenerimaanDpMasterAsset) {
 		this.gridPenerimaanDpMasterAsset = gridPenerimaanDpMasterAsset;
 
 	}
 
+	/**
+	 * Membangun kerangka groupbox (toolbar refresh + kolom grid berpaging + footer total dibayar)
+	 * dan langsung memuat data tagihan DP untuk pembayaran yang diberikan. Mode edit ditentukan dari
+	 * status persetujuan pembayaran ({@code true} bila belum disetujui).
+	 *
+	 * @param pembayaranDpMasterAsset pembayaran DP yang detailnya ditampilkan/dikelola
+	 * @return komponen {@link Groupbox} berisi toolbar, grid, dan footer total yang siap dipasang ke layar pemanggil
+	 * @throws Exception diteruskan apa adanya dari kegagalan pemuatan data
+	 */
 	public Groupbox initDetail(final PembayaranDpMasterAsset pembayaranDpMasterAsset) throws Exception {
 		this.pembayaranDpMasterAsset = pembayaranDpMasterAsset;
 		MyGroupboxStyled myGroupboxStyled = new MyGroupboxStyled();
@@ -247,6 +274,18 @@ public class PembayaranDpMasterAssetHelper {
 		}
 	};
 
+	/**
+	 * Mengisi satu baris grid dengan tautan detail penerimaan pengadaan (bila ada), checkbox pilih
+	 * (disembunyikan menjadi label statis bila baris sudah tersimpan atau sisa DP nol), kolom
+	 * nominal (DP total, telah dibayar, sisa), input nominal dibayar (dinonaktifkan bila belum
+	 * dipilih/pembayaran sudah disetujui/tidak berwenang edit), dan kolom keterangan (editable atau
+	 * label tergantung status persetujuan) — setiap perubahan nominal/pilihan/keterangan langsung
+	 * disimpan (bila baris sudah punya id) dan memicu penghitungan ulang total footer.
+	 *
+	 * @param row                          baris grid yang diisi
+	 * @param pembayaranDpMasterAssetDetail baris tagihan DP yang direpresentasikan baris ini
+	 * @throws Exception diteruskan apa adanya dari kegagalan pembangunan komponen
+	 */
 	public void initRow(final Row row, final PembayaranDpMasterAssetDetail pembayaranDpMasterAssetDetail)
 			throws Exception {
 
@@ -387,10 +426,12 @@ public class PembayaranDpMasterAssetHelper {
 
 	}
 
+	/** @return penyedia asset yang sedang aktif pada helper ini */
 	public PenyediaAsset getPenyediaAsset() {
 		return penyediaAsset;
 	}
 
+	/** Mengganti penyedia asset aktif dan langsung memuat ulang daftar tagihan DP untuk penyedia tersebut. */
 	public void setPenyediaAsset(PenyediaAsset penyediaAsset) {
 		this.penyediaAsset = penyediaAsset;
 		try {

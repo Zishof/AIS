@@ -21,8 +21,17 @@ import ais.database.model.payroll.LiburNasional;
 import ais.database.model.payroll.LiburRutin;
 import ais.database.model.sekolah.Siswa;
 
+/** Utilitas modul payroll/presensi untuk resolusi status kehadiran harian dan pencocokan shift kerja pegawai berdasarkan jam masuk aktual. */
 public class CommonPayroll {
 
+	/**
+	 * Mengambil (atau membuat bila belum ada) baris {@link StatuskehadiranKaryawanHarian} untuk
+	 * satu tanggal dan satu subjek (pegawai/mahasiswa/siswa — tepat satu yang diisi, diprioritaskan
+	 * mahasiswa lalu siswa lalu pegawai). Baris baru diinisialisasi berstatus
+	 * {@link ConstantValues#BELUM_ABSEN} tanpa jam masuk/pulang; baris yang sudah ada maupun baru
+	 * selalu diperbarui dengan info libur nasional ({@link LiburNasional#ambilLiburNasional}) dan
+	 * libur rutin (berdasarkan hari dalam seminggu) terkini.
+	 */
 	public static StatuskehadiranKaryawanHarian getDefaultStatuskehadiranKaryawanHarian(Date tanggal, Pegawai pegawai,
 			Mahasiswa mahasiswa, Siswa siswa) {
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
@@ -73,6 +82,19 @@ public class CommonPayroll {
 		return statuskehadiranKaryawanHarian;
 	}
 
+	/**
+	 * Mencocokkan jam masuk aktual ({@code mulai}) pegawai ke {@link DetailJenisShiftPegawai}
+	 * (detail slot shift) yang paling mendekati, di antara jenis shift yang berlaku untuk pegawai
+	 * tersebut pada {@code tanggal} (dicari dari {@link JenisShiftPunyaPegawai} yang masih berlaku
+	 * berdasarkan rentang {@code berlakuMulai}/{@code berlakuSampai}). Pencarian dilakukan dua
+	 * arah: kandidat shift dengan jam mulai sebelum ({@code next}) dan sesudah/sama ({@code back})
+	 * jam masuk aktual, masing-masing diprioritaskan cocok dengan {@code hari} spesifik lalu jatuh
+	 * kembali ke shift tanpa hari spesifik (berlaku semua hari) bila tidak ada. Di antara kedua
+	 * kandidat, yang dipilih adalah yang selisih jaraknya (dalam representasi jam.menit) ke jam
+	 * masuk aktual paling kecil.
+	 *
+	 * @return detail shift yang paling cocok dengan jam masuk aktual, atau {@code null} bila {@code mulai} kosong atau tidak ada kandidat yang cocok
+	 */
 	public static DetailJenisShiftPegawai getDetailJenisShiftPegawai(Pegawai pegawai, Date mulai, Date tanggal,
 			String hari) {
 

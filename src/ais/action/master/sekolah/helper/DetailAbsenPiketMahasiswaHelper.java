@@ -46,6 +46,25 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper UI untuk layar detail absensi piket mahasiswa ({@link AbsenPiketMahasiswa}). Sama pola
+ * dengan {@link DetailAbsenGuruPiketHelper} (guru): menampilkan daftar peserta
+ * ({@link AbsenPiketPeserta}) berpaginasi (100 baris/halaman) dengan pilihan status kehadiran dan
+ * keterangan yang langsung tersimpan ke {@link AbsenPiketDetail} (struktur data absensi
+ * terserialisasi per mahasiswa, diakses lewat {@code AbsenPiketDetail.ambil}/
+ * {@code populate}). Tambahan dibanding versi guru: tombol "Ambil Mahasiswa" untuk menambah
+ * peserta baru lewat picker banyak-pilih ({@code AmbilDataMahasiswaBanyak}). Juga menyediakan aksi
+ * massal "Semua hadir"/"Reset", pencarian nama/NIM/angkatan, dan unduhan data kehadiran ke Excel.
+ *
+ * <p>
+ * <b>Catatan:</b> pada handler "Ambil Mahasiswa", kondisi pembuatan peserta baru tertulis
+ * {@code if (absenPiketPeserta != null)} (mahasiswa SUDAH terdaftar) alih-alih {@code == null}
+ * (belum terdaftar), dan objek yang disimpan ke sesi adalah {@code absenPiketMahasiswa} (entitas
+ * induk) bukan {@code absenPiketPeserta} (entitas peserta baru) — kombinasi ini membuat peserta
+ * baru kemungkinan tidak pernah benar-benar tersimpan sebagai baris {@link AbsenPiketPeserta}.
+ * Dilaporkan sesuai instruksi tugas, tidak diperbaiki.
+ * </p>
+ */
 public class DetailAbsenPiketMahasiswaHelper implements DataLoader, DataCriteria {
 
 	private MyGrid grid;
@@ -59,6 +78,7 @@ public class DetailAbsenPiketMahasiswaHelper implements DataLoader, DataCriteria
 
 	private List<AbsenPiketPeserta> siswa = null;
 
+	/** Membuat helper dan menginisialisasi komponen paging (100 baris/halaman) yang memicu {@link #loadData} saat halaman berganti. */
 	public DetailAbsenPiketMahasiswaHelper() {
 
 		paging = new Paging();
@@ -71,6 +91,7 @@ public class DetailAbsenPiketMahasiswaHelper implements DataLoader, DataCriteria
 		});
 	}
 
+	/** Renderer baris grid: foto, label revisi+NIM, nama mahasiswa, dan radio group status kehadiran + textbox keterangan — keduanya langsung memperbarui {@link AbsenPiketDetail} saat diubah. Peserta yang belum memiliki status absen diberi default otomatis. */
 	class DetailPARenderer extends ais.ui.util.MyRowRenderer {
 
 		public DetailPARenderer() {
@@ -148,6 +169,7 @@ public class DetailAbsenPiketMahasiswaHelper implements DataLoader, DataCriteria
 
 	}
 
+	/** Membangun kriteria pencarian {@link AbsenPiketPeserta} milik {@code absenPiketMahasiswa}, opsional difilter nama/NIM mahasiswa (ILIKE sebagian) dan tahun angkatan, diurutkan menurut angkatan lalu NIM bila {@code order} true. */
 	public Criteria initCriteria(boolean order) {
 
 		Session session = HibernateUtil.currentSession();
@@ -171,6 +193,7 @@ public class DetailAbsenPiketMahasiswaHelper implements DataLoader, DataCriteria
 		return criteria;
 	}
 
+	/** Memuat satu halaman peserta sesuai kriteria/paging saat ini dan menyegarkan grid dengan {@link DetailPARenderer}. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Common.initPaging100(initCriteria(false), paging);
@@ -188,6 +211,17 @@ public class DetailAbsenPiketMahasiswaHelper implements DataLoader, DataCriteria
 	private String[] contentsMhs = new String[] { "mahasiswa.nim", "mahasiswa.nama", "mahasiswa.tahunangkatan",
 			"mahasiswa.jurusan.nama", "siswa.jurusan.fakultas.nama" };
 
+	/**
+	 * Membangun tampilan lengkap detail absensi piket mahasiswa ke dalam {@code component}:
+	 * toolbar pencarian nama/NIM + angkatan, tombol "Ambil Mahasiswa" (lihat catatan bug di
+	 * javadoc kelas), tombol aksi massal "Semua hadir"/"Reset" (dijalankan lewat timer default),
+	 * tombol unduh data kehadiran ke Excel, dan grid berpaginasi (50 baris/halaman) daftar peserta
+	 * dengan status kehadirannya.
+	 *
+	 * @param absenPiketMahasiswa record absensi piket yang sedang diedit
+	 * @param component           komponen ZK tempat tata letak dibangun (dibersihkan lebih dulu)
+	 * @param window              jendela induk (tidak dipakai langsung, diteruskan untuk konteks pemanggil)
+	 */
 	public void displayDetailPA(final AbsenPiketMahasiswa absenPiketMahasiswa, final Component component,
 			final MyWindow window) {
 		this.absenPiketMahasiswa = absenPiketMahasiswa;

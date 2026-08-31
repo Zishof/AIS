@@ -38,14 +38,35 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper UI untuk menampilkan tab "Aktifitas" satu {@link JadwalUjianPSB} (jadwal ujian
+ * penerimaan siswa baru), meniru pola aktivitas perkuliahan biasa
+ * ({@link AktifitasPerkuliahanHelper}) tapi untuk konteks ujian PSB: toolbar aksi (agenda
+ * penjadwalan, cetak absensi, kalender, kelas daring, refresh) dan grid daftar
+ * {@link Pertemuan} (baris diwarnai hijau untuk minggu berjalan, abu-abu untuk yang sudah lewat)
+ * lengkap dengan tombol absen per pertemuan. Bila belum ada pertemuan sama sekali untuk jadwal
+ * ujian ini dan user yang login bukan mahasiswa/siswa/calon siswa (mis. admin/panitia),
+ * satu {@link Pertemuan} awal ujian daring dibuat otomatis.
+ */
 public class AktifitasJadwalUjianPSBHelper {
 
 	protected PenjadwalanUjianPSBHelper penjadwalanHelper = new PenjadwalanUjianPSBHelper();
 
+	/** Membuat helper tanpa state awal. */
 	public AktifitasJadwalUjianPSBHelper() {
 
 	}
 
+	/**
+	 * Menyusun toolbar aksi untuk {@code jadwalUjianPSB}: tombol Agenda Jadwal Ujian PSB (dialog
+	 * penjadwalan, hanya tampil bila user bukan mahasiswa), Absensi (cetak laporan absensi),
+	 * kalender bulanan, tombol kelas daring, dan Refresh (menandai jadwal "belum" lalu memuat
+	 * ulang data lewat {@code dataLoader}).
+	 *
+	 * @param jadwalUjianPSB jadwal ujian PSB yang toolbarnya disusun
+	 * @param dataLoader     callback pemuatan ulang data setelah aksi tertentu (mis. refresh)
+	 * @return komponen toolbar siap ditempelkan
+	 */
 	public Toolbar initAgendaJadwalUjianPSB(final JadwalUjianPSB jadwalUjianPSB, final DataLoader dataLoader) {
 
 		Mahasiswa mahasiswa = Common.getCurrentUser() == null ? null : Common.getCurrentUser().getMahasiswa();
@@ -94,10 +115,22 @@ public class AktifitasJadwalUjianPSBHelper {
 		return hbox;
 	}
 
+	/** Seperti {@link #initDetail(JadwalUjianPSB, DataLoader, Div)} dengan {@code DataLoader} bawaan (memuat ulang tab ini sendiri). */
 	public void initDetail(final JadwalUjianPSB jadwalUjianPSB, final Div groupbox) throws Exception {
 		initDetail(jadwalUjianPSB, null, groupbox);
 	}
 
+	/**
+	 * Menyusun tab-box "Agenda &lt;nama jadwal&gt;" berisi toolbar aksi
+	 * ({@link #initAgendaJadwalUjianPSB}) dan grid daftar pertemuan ujian. Bila belum ada
+	 * pertemuan sama sekali dan user yang login bukan mahasiswa/siswa/calon siswa, satu
+	 * {@link Pertemuan} awal (status ujian daring) dibuat otomatis dan tampilan dimuat ulang
+	 * setelah jeda singkat.
+	 *
+	 * @param jadwalUjianPSB jadwal ujian PSB yang detailnya ditampilkan
+	 * @param mydataLoader   callback pemuatan ulang kustom, atau {@code null} untuk memuat ulang tab ini sendiri
+	 * @param groupbox       komponen wadah yang akan diisi ulang (dikosongkan lebih dulu)
+	 */
 	public void initDetail(final JadwalUjianPSB jadwalUjianPSB, final DataLoader mydataLoader, final Div groupbox)
 			throws Exception {
 

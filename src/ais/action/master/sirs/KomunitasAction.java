@@ -27,6 +27,21 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD master data Komunitas pada modul SIRS (Sistem Informasi Rumah Sakit), dibangun di
+ * atas {@link GenericCrudAction}. Komunitas merepresentasikan kelompok/program layanan (mis.
+ * program kesehatan komunitas atau penjaminan tertentu) dengan periode berlaku (tanggal mulai/
+ * sampai) dan status aktif, serta menaungi daftar pasien anggotanya lewat
+ * {@link KomunitasPunyaPasienAction}.
+ *
+ * <p>
+ * Pencarian daftar difilter berdasarkan kecocokan sebagian nama ({@code ilike ANYWHERE}). Form
+ * simpan memvalidasi nama dan tanggal mulai wajib diisi serta nama tidak duplikat (dicek lewat
+ * {@link #checkNamaKomunitas()}) sebelum menyimpan; baris tabel dirender lewat
+ * {@link KomunitasRenderer} yang menampilkan tautan daftar pasien anggota, riwayat revisi, dan
+ * periode berlaku.
+ * </p>
+ */
 public class KomunitasAction extends GenericCrudAction<Komunitas> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -49,6 +64,7 @@ public class KomunitasAction extends GenericCrudAction<Komunitas> {
     @Override
     protected String getWindowTitle() { return "Pendataan Komunitas"; }
 
+    /** Membangun kriteria pencarian daftar komunitas, difilter berdasarkan kecocokan sebagian nama bila {@code searchnama} diisi. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -67,6 +83,7 @@ public class KomunitasAction extends GenericCrudAction<Komunitas> {
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/ubah (nama, periode berlaku, status aktif, keterangan) beserta toolbar Batal/Simpan pada {@code window}. */
     @Override
     protected void buildFormContent(MyWindow window, final Komunitas komunitas) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -152,6 +169,13 @@ public class KomunitasAction extends GenericCrudAction<Komunitas> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi (nama dan tanggal mulai wajib isi, nama tidak duplikat) dan menyimpan
+     * (create-or-update) entitas komunitas dari isian form.
+     *
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal (pesan
+     *         peringatan sudah ditampilkan ke pengguna)
+     */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Nama Komunitas wajib diisi terlebih dahulu. Langkah yang dapat dilakukan: (1) isikan Nama Komunitas pada kolom yang tersedia; (2) pastikan kolom tidak dikosongkan; (3) simpan kembali data setelah kolom terisi.", "Peringatan",
@@ -183,6 +207,7 @@ public class KomunitasAction extends GenericCrudAction<Komunitas> {
         return true;
     }
 
+    /** Mengecek apakah nama pada form sudah dipakai komunitas lain (di luar entitas yang sedang diedit). */
     public Boolean checkNamaKomunitas() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(Komunitas.class)
@@ -197,6 +222,7 @@ public class KomunitasAction extends GenericCrudAction<Komunitas> {
 
     // ======================== Renderer ========================
 
+    /** Perenderan satu baris tabel komunitas: tautan daftar pasien anggota, tautan riwayat revisi, periode berlaku, status aktif, keterangan, dan tombol edit/hapus. */
     class KomunitasRenderer extends MyRowRenderer {
 
         @Override

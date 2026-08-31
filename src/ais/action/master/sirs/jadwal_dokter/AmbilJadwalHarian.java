@@ -35,6 +35,16 @@ import ais.database.model.sirs.Pendaftaran;
 import ais.database.model.sirs.Poly;
 import ais.ui.util.CustomSimpleDateFormatter;
 
+/**
+ * Jendela modal SIRS untuk melihat dan mengambil slot jadwal dokter harian dalam tampilan
+ * kalender ({@link Calendars}, mold satu-hari dengan 6 slot waktu). Pengguna dapat menyaring
+ * tampilan berdasarkan tenaga medis, poli, dan lokasi lewat picker di bagian atas; memilih satu
+ * event jadwal pada kalender (event {@code onEventEdit}) memicu {@code eventListener} yang
+ * diberikan pemanggil dengan data {@code [JadwalDokter, tanggalDilayani, false, Pendaftaran]},
+ * lalu jendela otomatis tertutup — dipakai dari alur pendaftaran pasien untuk memilih jadwal
+ * dokter yang akan melayani. Rentang jam tampil, zona waktu kalender, dan format tanggal diatur
+ * dari konfigurasi sistem ({@code penjadwalan_jam_mulai}/{@code _selesai}/{@code _timezone}).
+ */
 public class AmbilJadwalHarian extends Window {
 
 	private static final long serialVersionUID = 201011240904L;
@@ -48,11 +58,13 @@ public class AmbilJadwalHarian extends Window {
 	private String jenis;
 	private Pendaftaran pendaftaran;
 
+	/** Membangun ulang model kalender sesuai filter saat ini (dokter/poli/lokasi) dan me-render ulang tampilan kalender. */
 	public void onRefresh(Event event) {
 		initCalendarModel();
 		calendars.invalidate();
 	}
 
+	/** Memundurkan tanggal kalender 3 hari dan menyegarkan model+tampilan. Saat ini tidak terpasang ke tombol manapun (tombol Back/Next dikomentari di {@link #init()}). */
 	public void onBack(Event event) {
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 		calendar.setTime(calendars.getCurrentDate());
@@ -62,6 +74,7 @@ public class AmbilJadwalHarian extends Window {
 		calendars.invalidate();
 	}
 
+	/** Memajukan tanggal kalender 3 hari dan menyegarkan model+tampilan. Saat ini tidak terpasang ke tombol manapun (tombol Back/Next dikomentari di {@link #init()}). */
 	public void onNext(Event event) {
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 		calendar.setTime(calendars.getCurrentDate());
@@ -71,6 +84,16 @@ public class AmbilJadwalHarian extends Window {
 		calendars.invalidate();
 	}
 
+	/**
+	 * Membuat jendela modal "Lihat dan Ambil Jadwal" untuk tanggal awal, jenis layanan, dan
+	 * pendaftaran tertentu.
+	 *
+	 * @param tanggal      tanggal awal yang ditampilkan kalender
+	 * @param jenis        jenis layanan/poli yang membatasi pilihan Poli (mis. Rawat Jalan), boleh {@code null} untuk semua
+	 * @param pendaftaran  pendaftaran pasien terkait, diteruskan apa adanya ke {@code eventListener} saat jadwal dipilih
+	 * @param eventListener callback yang dipanggil dengan {@code [JadwalDokter, tanggal, false, pendaftaran]} saat pengguna memilih satu slot jadwal
+	 * @throws Exception diteruskan dari kegagalan pembangunan komponen
+	 */
 	public AmbilJadwalHarian(Date tanggal, String jenis, Pendaftaran pendaftaran, EventListener eventListener)
 			throws Exception {
 
@@ -87,6 +110,7 @@ public class AmbilJadwalHarian extends Window {
 
 	}
 
+	/** Membangun seluruh tata letak jendela: baris filter (dokter/poli/lokasi + tombol refresh, masing-masing memicu {@link #onRefresh}), komponen kalender dengan handler pemilihan slot, dan toolbar Batal. Rentang jam/zona waktu kalender dibaca dari konfigurasi sistem. */
 	private void init() {
 
 		Borderlayout borderlayout = new Borderlayout();
@@ -254,6 +278,7 @@ public class AmbilJadwalHarian extends Window {
 		// });
 	}
 
+	/** Mengambil filter terpilih saat ini (lokasi/dokter/poli) dan mendelegasikan pembentukan model event kalender ke {@link CommonSirs#initCalendarModel}. */
 	private void initCalendarModel() {
 
 		Lokasi myLokasi = (Lokasi) lokasi.getAttribute("lokasi");
@@ -263,6 +288,7 @@ public class AmbilJadwalHarian extends Window {
 		CommonSirs.initCalendarModel(myLokasi, myDokter, myPoly, calendars, true, jenis);
 	}
 
+	/** Alias untuk {@link #onRefresh(Event)}, dipanggil dari pemanggil eksternal yang mengharapkan konvensi nama {@code onSearchDefault}. */
 	public void onSearchDefault(Event event) {
 		onRefresh(event);
 	}

@@ -43,6 +43,21 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK CRUD untuk riwayat "Sangsi" (sanksi/hukuman disiplin) satu {@link Pegawai}, TANPA tabel
+ * database khusus — seluruh daftar sanksi disimpan sebagai satu {@link JSONArray} mentah pada
+ * kolom {@code sangsi} milik {@link Pegawai} sendiri (pola penyimpanan semi-terstruktur, mirip
+ * beberapa helper lain di modul employ). Setiap entri diberi {@code id} berupa
+ * {@link UUID#randomUUID()} sebagai kunci stabil untuk operasi ubah/hapus di dalam array.
+ *
+ * <p>
+ * Lampiran dokumen sanksi (opsional, boleh satu file zip berisi banyak lampiran) disimpan lewat
+ * {@link LampiranLain} dengan kunci gabungan {@code "Sangsi_" + id}, mengikat lampiran ke
+ * {@code pegawai.getId()} sebagai referensi setelah entri berhasil disimpan. Setiap
+ * simpan/hapus menulis ulang SELURUH array ke kolom {@code sangsi} lewat sesi Hibernate baru yang
+ * dibuka/ditutup manual ({@link #saveToDatabase}) — bukan operasi granular per baris.
+ * </p>
+ */
 public class SangsiPegawaiHelper {
 
     private MyGrid grid = new MyGrid();
@@ -53,10 +68,12 @@ public class SangsiPegawaiHelper {
     
     protected LampiranLain lampiranSangsi;
 
+    /** Membuat helper terikat satu {@code pegawai} yang riwayat sanksinya akan dikelola. */
     public SangsiPegawaiHelper(Pegawai pegawai) {
         this.pegawai = pegawai;
     }
 
+    /** Mem-parse kolom {@code sangsi} milik {@link #pegawai} menjadi {@link JSONArray}; mengembalikan array kosong bila kolom kosong/null atau gagal di-parse. */
     private JSONArray getSangsiArray() {
         if (pegawai != null && pegawai.getSangsi() != null && !pegawai.getSangsi().trim().isEmpty()) {
             try {
@@ -68,6 +85,7 @@ public class SangsiPegawaiHelper {
         return new JSONArray();
     }
 
+    /** Renderer baris grid: satu entri sanksi (tanggal mulai/sampai, nomor surat, nama, keterangan) plus tombol unduh lampiran (bila ada file terunggah), ubah, dan hapus. */
     class SangsiRenderer extends ais.ui.util.MyRowRenderer {
         @Override
         public void render(final Row row, Object data) throws Exception {
@@ -136,6 +154,7 @@ public class SangsiPegawaiHelper {
         }
     }
 
+    /** Membangun layar utama: toolbar "Tambah Data" dan grid daftar sanksi (kolom tanggal mulai/sampai, nomor surat, nama, keterangan, aksi), lalu memuat isinya lewat {@link #onSearchDefault()}. */
     public Borderlayout display() throws Exception {
         North north = new North();
         Center center = new Center();
@@ -192,6 +211,7 @@ public class SangsiPegawaiHelper {
     }
 
     @SuppressWarnings({})
+    /** Memuat ulang isi {@link #grid} dari seluruh entri {@link #getSangsiArray()} milik {@link #pegawai} saat ini. */
     public void onSearchDefault() {
         JSONArray arr = getSangsiArray();
         List<JSONObject> listSangsi = new ArrayList<JSONObject>();
@@ -209,6 +229,15 @@ public class SangsiPegawaiHelper {
         grid.setModel(strset);
     }
 
+    /**
+     * Membuka jendela modal tambah/ubah satu entri sanksi. Bila {@code dataEdit} {@code null}, id
+     * baru dibuat via {@link UUID#randomUUID()}; bila tidak, form diisi dari entri tersebut. Setelah
+     * validasi (tanggal mulai dan nomor surat wajib) dan penyimpanan entri lewat
+     * {@link #saveData(JSONObject, boolean)}, lampiran (bila diunggah) diikat ke {@code pegawai}
+     * lewat {@link LampiranLain#setRef} pada sesi {@link StreamingHibernateUtil} terpisah.
+     *
+     * @param dataEdit entri sanksi yang diedit, atau {@code null} untuk entri baru
+     */
     public void init(final JSONObject dataEdit) throws Exception {
         final boolean isEdit = (dataEdit != null);
         final String currentId = isEdit ? dataEdit.optString("id") : UUID.randomUUID().toString();
@@ -400,6 +429,7 @@ public class SangsiPegawaiHelper {
         window.doModal();
     }
 
+    /** Menyisipkan atau mengganti (dicocokkan via {@code id}) {@code objToSave} di dalam array sanksi, lalu menulis ulang seluruh array ke database lewat {@link #saveToDatabase}. @return {@code true} bila berhasil. */
     private boolean saveData(JSONObject objToSave, boolean isEdit) {
         try {
             JSONArray arr = getSangsiArray();
@@ -428,6 +458,7 @@ public class SangsiPegawaiHelper {
         }
     }
 
+    /** Menghapus entri ber-{@code idToDelete} dari array sanksi (menulis ulang seluruh array tanpa entri tersebut) dan memuat ulang grid. */
     private void deleteData(String idToDelete) {
         try {
             JSONArray arr = getSangsiArray();
@@ -447,6 +478,7 @@ public class SangsiPegawaiHelper {
         }
     }
 
+    /** Menulis {@code arrayToSave} sebagai string ke kolom {@code sangsi} milik {@link #pegawai} dan meng-update-nya dalam sesi Hibernate baru yang dibuka/ditutup manual (bukan sesi thread-local ZK), dengan rollback eksplisit bila gagal. */
     private void saveToDatabase(JSONArray arrayToSave) throws Exception {
         pegawai.setSangsi(arrayToSave.toString());
         

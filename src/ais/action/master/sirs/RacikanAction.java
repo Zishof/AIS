@@ -28,6 +28,15 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD (berbasis {@link GenericCrudAction}) untuk data master <b>Racikan</b> obat modul
+ * SIRS. Kode racikan dibangkitkan otomatis ({@link Common#generateCode(Class, int)}, 8 karakter,
+ * field readonly di form) dan tidak dapat diedit manual. Pencarian hanya menampilkan racikan
+ * "induk" ({@code variasiDari} kosong) — racikan yang merupakan variasi dari racikan lain
+ * disembunyikan dari daftar utama. Setiap baris grid menampilkan komponen
+ * {@link RacikanDetailAction} untuk mengelola rincian bahan racikan. Penghapusan menghapus dulu
+ * baris {@code sirs.racikan_detail} terkait sebelum menghapus racikan itu sendiri.
+ */
 public class RacikanAction extends GenericCrudAction<Racikan> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -40,15 +49,19 @@ public class RacikanAction extends GenericCrudAction<Racikan> {
 
     // ======================== Abstract implementations ========================
 
+    /** Mengembalikan kelas entitas yang dikelola layar ini: {@link Racikan}. */
     @Override
     protected Class<Racikan> getEntityClass() { return Racikan.class; }
 
+    /** Membuat instance {@link Racikan} kosong untuk form tambah data baru. */
     @Override
     protected Racikan createNewEntity() { return new Racikan(); }
 
+    /** Mengembalikan judul jendela form: {@code "Pendataan Racikan"}. */
     @Override
     protected String getWindowTitle() { return "Pendataan Racikan"; }
 
+    /** Membangun kriteria pencarian racikan induk (bukan variasi), diurutkan berdasarkan id terbaru, disaring berdasarkan kecocokan sebagian nama pada kotak pencarian bila diisi. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -61,6 +74,7 @@ public class RacikanAction extends GenericCrudAction<Racikan> {
         return criteria;
     }
 
+    /** Membuat perender baris grid pencarian racikan: {@link RacikanRenderer}. */
     @Override
     protected MyRowRenderer createRenderer() {
         return new RacikanRenderer();
@@ -68,6 +82,7 @@ public class RacikanAction extends GenericCrudAction<Racikan> {
 
     // ======================== Form content ========================
 
+    /** Membangun tata letak form tambah/edit racikan (kode otomatis readonly, nama, jenis racikan, keterangan) dengan toolbar simpan/batal di dalam {@code window}. */
     @Override
     protected void buildFormContent(MyWindow window, final Racikan racikan) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -152,6 +167,14 @@ public class RacikanAction extends GenericCrudAction<Racikan> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi (nama wajib, nama belum dipakai racikan lain) dan menyimpan/memperbarui data
+     * racikan dari isian form saat ini; data baru diberi kode otomatis lewat
+     * {@link Common#generateCode(Class, int)}.
+     *
+     * @param event event pemicu tombol simpan
+     * @return {@code true} bila validasi lolos dan data tersimpan; {@code false} bila validasi gagal
+     */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show(
@@ -184,6 +207,7 @@ public class RacikanAction extends GenericCrudAction<Racikan> {
         return true;
     }
 
+    /** Memeriksa apakah nama pada form sudah dipakai racikan lain (mengecualikan record yang sedang diedit sendiri). */
     public Boolean checkNamaRacikan() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(Racikan.class)
@@ -198,6 +222,13 @@ public class RacikanAction extends GenericCrudAction<Racikan> {
 
     // ======================== Renderer ========================
 
+    /**
+     * Perender baris grid pencarian racikan: menampilkan komponen rincian bahan
+     * ({@link RacikanDetailAction}), kode, nama (dengan tautan riwayat revisi), jenis racikan,
+     * keterangan, dan tombol ubah/hapus kustom — sebelum menghapus baris racikan, terlebih dahulu
+     * menghapus seluruh baris {@code sirs.racikan_detail} yang tertaut lewat SQL native. Kegagalan
+     * hapus (mis. masih dipakai transaksi lain) ditangkap dan ditampilkan sebagai pesan error.
+     */
     class RacikanRenderer extends MyRowRenderer {
 
         @Override

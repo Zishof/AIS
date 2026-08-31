@@ -36,6 +36,48 @@ import ais.database.model.rab.WorkspacePunyaSasaran;
 import ais.ui.util.MyMessageboxConfig;
 import org.hibernate.EntityMode;
 
+/**
+ * Kumpulan utilitas statis lintas layar untuk modul RAB (Rencana Anggaran dan Belanja/perencanaan
+ * anggaran & kegiatan): manajemen status revisi {@link Workspace} (unit RAB), penyalinan data
+ * antar-revisi/antar-tahun-anggaran (deep copy pohon {@link Workspace} dan {@link Tugas}/
+ * {@link Proyek} beserta seluruh relasi anaknya), pembentukan ringkasan detail relasi generik, dan
+ * beberapa helper kecil (pemilihan pegawai default, pengaitan {@link Transaksi} ke {@link Acara}).
+ *
+ * <h2>Konstanta dan singleton referensi</h2>
+ * <p>
+ * {@link #DEFAULT_REVISI} ({@code -1}, menandai revisi "draft" sebelum dinomori ulang menjadi 1
+ * oleh {@link #ubahSemuaStatus}) dan {@link #DEFAULT_SATUAN_KERJA} adalah nilai baku dipakai
+ * lintas layar RAB. Blok statis kelas ini memuat/membuat tiga baris referensi
+ * {@link JenisInformasiRab} tetap ({@link #INFORMASI}, {@link #PENGUMUMAN}, {@link #PERINGATAN}) —
+ * pola cari-atau-buat (find-or-create) dijalankan sekali saat kelas dimuat.
+ * </p>
+ *
+ * <h2>Manajemen status revisi</h2>
+ * <p>
+ * {@link #ubahSemuaStatus} menormalkan flag {@code aktif} pada baris {@link Workspace} suatu
+ * kombinasi tahun+satuan kerja+sumber dana: hanya revisi dengan nomor tertinggi (atau baris
+ * {@code carryOver=true}) yang tetap aktif, revisi lain dinonaktifkan, dan baris berrevisi
+ * {@link #DEFAULT_REVISI} (draft) diaktifkan lalu dinomori ulang menjadi revisi 1. Dijalankan
+ * lewat kueri SQL native dalam transaksi eksplisit.
+ * </p>
+ *
+ * <h2>Penyalinan revisi/tahun</h2>
+ * <p>
+ * Dua jalur paralel — satu untuk pohon {@link Workspace} ({@link #createNewRevisi(Integer, Integer,
+ * Integer, Integer, SatuanKerja, SumberDana, SatuanKerja, SumberDana, EventListener)} +
+ * {@link #executeCopy(Integer, Integer, Integer, Integer, SatuanKerja, SumberDana, SatuanKerja,
+ * SumberDana)} + {@link #checkForChildsCopy(Workspace, WorkspaceTreeModel, Integer, Integer,
+ * SatuanKerja, SumberDana, SatuanKerja, SumberDana)}), satu lagi untuk pohon {@link Proyek}/
+ * {@link Tugas} ({@link #createNewRevisi(Integer, Integer, Proyek, EventListener)} +
+ * {@link #executeCopy(Integer, Integer, Proyek)} + {@link #checkForChildsCopy(Tugas, TugasTreeModel,
+ * Integer, Proyek)}) — mengimplementasikan alur "buat revisi baru dari revisi lama": bila target
+ * revisi sudah memiliki data, pengguna diminta konfirmasi (akan ditimpa) sebelum penyalinan
+ * dilakukan; penyalinan sendiri men-{@code clone()} setiap baris berikut seluruh relasi anak
+ * langsungnya (pegawai, sasaran, indikator, jenis parameter untuk workspace) secara rekursif
+ * menuruni pohon, menandai baris hasil salinan lewat {@code merupakanHasilCopy}/{@code copyForm}
+ * agar dapat dilacak balik ke sumbernya.
+ * </p>
+ */
 public class RabUtil {
 
 	public static final Integer DEFAULT_REVISI = -1;
@@ -98,6 +140,18 @@ public class RabUtil {
 
 	}
 
+	/**
+	 * Menormalkan flag {@code aktif} pada {@link Workspace} untuk kombinasi tahun+satuan
+	 * kerja+sumber dana: revisi bernomor tertinggi (atau {@code carryOver=true}) tetap/menjadi
+	 * aktif, revisi lain dinonaktifkan, dan baris berrevisi {@link #DEFAULT_REVISI} diaktifkan lalu
+	 * dinomori ulang menjadi revisi 1. Tidak melakukan apa pun bila {@code satuanKerja} atau
+	 * {@code sumberDana} {@code null}.
+	 *
+	 * @param tahunWorkspace tahun anggaran target
+	 * @param revisi         nomor revisi yang statusnya sedang dievaluasi
+	 * @param satuanKerja    satuan kerja target
+	 * @param sumberDana     sumber dana target
+	 */
 	public static void ubahSemuaStatus(Integer tahunWorkspace, Integer revisi, SatuanKerja satuanKerja,
 			SumberDana sumberDana) {
 		if (satuanKerja == null || sumberDana == null) {
@@ -166,6 +220,17 @@ public class RabUtil {
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
+	/**
+	 * Membangun ringkasan teks generik dari baris-baris {@code clazz} yang terkait ke
+	 * {@code workspace}: mengambil {@code properti} yang diminta lewat proyeksi Hibernate dan
+	 * menggabungkannya menjadi string berformat {@code "[nilai1][nilai2], [nilai1][nilai2], ..."}.
+	 *
+	 * @param clazz     kelas entitas anak yang direlasikan ke {@code workspace}
+	 * @param alias     alias join (saat ini tidak dipakai langsung pada kueri properti tunggal/ganda)
+	 * @param properti  nama-nama properti yang diproyeksikan per baris
+	 * @param workspace workspace induk yang menjadi filter relasi
+	 * @return array dua elemen: {@code [0]} jumlah baris (Integer), {@code [1]} ringkasan teks (String)
+	 */
 	public static Serializable[] getDetailWorkspace(Class clazz, String alias, String[] properti, Workspace workspace) {
 		Session session = HibernateUtil.currentSession();
 
@@ -205,6 +270,7 @@ public class RabUtil {
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
+	/** Seperti {@link #getDetailWorkspace(Class, String, String[], Workspace)}, difilter terhadap {@link Tugas} sebagai induk. */
 	public static Serializable[] getDetailTugas(Class clazz, String alias, String[] properti, Tugas tugas) {
 		Session session = HibernateUtil.currentSession();
 
@@ -242,6 +308,7 @@ public class RabUtil {
 		return serializable;
 	}
 
+	/** Mengisi {@code bandbox} dengan pegawai milik user yang sedang login, bila ada. */
 	public static void setDefaultPegawai(AmbilDataPegawaiBanbox bandbox) {
 		Tbmuser tbmuser = Common.getCurrentUser();
 		if (tbmuser != null && tbmuser.ambilPegawai() != null) {
@@ -386,6 +453,7 @@ public class RabUtil {
 	// }
 	// }
 
+	/** Menelusuri rantai {@code parentId} milik {@code workspace} ke atas secara rekursif, menambahkan setiap workspace induk (aktif/carry-over) yang ditemukan ke {@code workspaces}. */
 	public static void getParentSet(Workspace workspace, List<Workspace> workspaces) {
 		Session session = HibernateUtil.currentSession();
 		if (workspace.getParentId() != null) {
@@ -401,6 +469,13 @@ public class RabUtil {
 
 	}
 
+	/**
+	 * Memastikan relasi {@link AcaraHasTransaksi} antara {@code transaksi} dan {@code acara} ada,
+	 * membuatnya bila belum ada. Tidak melakukan apa pun (mengembalikan {@code null}) bila
+	 * {@code acara} belum tersimpan.
+	 *
+	 * @return relasi yang sudah ada atau baru dibuat, atau {@code null} bila {@code acara} tidak valid
+	 */
 	public static AcaraHasTransaksi checkSimpanAcara(Transaksi transaksi, Acara acara) {
 		if (acara == null || acara.getId() == null) {
 			return null;
@@ -461,6 +536,11 @@ public class RabUtil {
 //	}
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Memindahkan pengaitan {@link Acara}-{@link Transaksi} dari {@link Workspace} revisi lama ke
+	 * workspace hasil salinannya pada revisi baru (workspace baru dicari lewat {@code copyForm}
+	 * yang mengarah ke workspace lama), untuk kombinasi tahun+satuan kerja+sumber dana tertentu.
+	 */
 	public static void pindahkanAcaraKeRevisiBaru(Integer tahun, final Integer oldRevisi, final Integer newRevisi,
 			SatuanKerja satuanKerja, SumberDana sumberDana) {
 		Session session = HibernateUtil.currentSession();
@@ -497,6 +577,14 @@ public class RabUtil {
 	}
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Menyalin secara rekursif seluruh anak {@link Workspace} (beserta relasi
+	 * {@link WorkspacePunyaPegawai}, {@link WorkspacePunyaSasaran}, {@link WorkspacePunyaIndikator},
+	 * {@link WorkspacePunyaJenisParameter}) dari workspace sumber ({@code copyForm}) ke bawah
+	 * {@code workspace} hasil salinan, hanya dijalankan bila {@code workspace} ditandai
+	 * {@code merupakanHasilCopy=true}; flag tersebut dimatikan di akhir setelah penyalinan anak
+	 * selesai agar tidak diproses ulang.
+	 */
 	public static void checkForChildsCopy(Workspace workspace, WorkspaceTreeModel workspaceTreeModel,
 			Integer tahunTujuan, final Integer newRevisi, SatuanKerja satuanKerja, SumberDana sumberDana,
 			SatuanKerja satuanKerjaTujuan, SumberDana sumberDanaTujuan) {
@@ -580,6 +668,15 @@ public class RabUtil {
 		}
 	}
 
+	/**
+	 * Titik masuk alur "buat revisi RAB baru dari revisi lama" untuk pohon {@link Workspace}. Bila
+	 * revisi/tahun/satuan-kerja/sumber-dana tujuan sudah memiliki data, pengguna diminta konfirmasi
+	 * (data lama akan ditimpa) lewat {@link MyMessageboxConfig} sebelum {@link #executeCopy(Integer,
+	 * Integer, Integer, Integer, SatuanKerja, SumberDana, SatuanKerja, SumberDana)} dijalankan;
+	 * bila belum ada data, penyalinan langsung dijalankan. Setelah proses, status revisi lama
+	 * dinormalkan lewat {@link #ubahSemuaStatus}, dan {@code eventListener} dipanggil sebagai
+	 * callback selesai.
+	 */
 	public static void createNewRevisi(final Integer tahun, final Integer oldRevisi, final Integer newRevisi,
 			final Integer tahunLama, final SatuanKerja satuanKerja, final SumberDana sumberDana,
 			final SatuanKerja satuanKerjaTujuan, final SumberDana sumberDanaTujuan, final EventListener eventListener) {
@@ -636,6 +733,14 @@ public class RabUtil {
 	}
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Menjalankan penyalinan aktual pohon {@link Workspace} akar (tanpa parent) dari
+	 * tahun/satuan-kerja/sumber-dana/revisi sumber ke tahun/satuan-kerja/sumber-dana/revisi tujuan:
+	 * menghapus data tujuan yang sudah ada, meng-clone setiap workspace akar sumber, lalu
+	 * melanjutkan penyalinan anak-anaknya secara rekursif lewat
+	 * {@link #checkForChildsCopy(Workspace, WorkspaceTreeModel, Integer, Integer, SatuanKerja,
+	 * SumberDana, SatuanKerja, SumberDana)}.
+	 */
 	public static void executeCopy(Integer tahun, final Integer oldRevisi, final Integer newRevisi,
 			Integer workspace_copy, SatuanKerja satuanKerja, SumberDana sumberDana, SatuanKerja satuanKerjaTujuan,
 			SumberDana sumberDanaTujuan) {
@@ -725,6 +830,7 @@ public class RabUtil {
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Analog {@link Tugas} dari {@link #checkForChildsCopy(Workspace, WorkspaceTreeModel, Integer, Integer, SatuanKerja, SumberDana, SatuanKerja, SumberDana)}: menyalin rekursif seluruh anak tugas dari tugas sumber ke tugas hasil salinan. */
 	public static void checkForChildsCopy(Tugas tugas, TugasTreeModel tugasTreeModel, final Integer newRevisi,
 			Proyek proyek, Proyek proyekTujuan) {
 
@@ -778,6 +884,12 @@ public class RabUtil {
 		}
 	}
 
+	/**
+	 * Analog {@link Proyek}/{@link Tugas} dari {@link #createNewRevisi(Integer, Integer, Integer,
+	 * Integer, SatuanKerja, SumberDana, SatuanKerja, SumberDana, EventListener)}: bila revisi
+	 * tujuan pada {@code proyekTujuan} sudah memiliki data tugas, pengguna diminta konfirmasi
+	 * sebelum {@link #executeCopy(Integer, Integer, Proyek, Proyek)} dijalankan.
+	 */
 	public static void createNewRevisi(final Integer oldRevisi, final Integer newRevisi, final Proyek proyek,
 			final Proyek proyekTujuan, final EventListener eventListener) {
 		try {
@@ -823,6 +935,12 @@ public class RabUtil {
 	}
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Menjalankan penyalinan aktual pohon {@link Tugas} akar (tanpa parent) milik {@code proyek}
+	 * pada {@code oldRevisi} ke {@code proyekTujuan} pada {@code newRevisi}: menghapus data tujuan
+	 * yang sudah ada, meng-clone setiap tugas akar sumber, lalu melanjutkan penyalinan anak-anaknya
+	 * secara rekursif lewat {@link #checkForChildsCopy(Tugas, TugasTreeModel, Integer, Proyek)}.
+	 */
 	public static void executeCopy(final Integer oldRevisi, final Integer newRevisi, Proyek proyek,
 			Proyek proyekTujuan) {
 		Session session = HibernateUtil.currentSession();

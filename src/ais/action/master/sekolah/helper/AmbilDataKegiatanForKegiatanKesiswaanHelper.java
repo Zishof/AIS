@@ -42,6 +42,15 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK berupa dialog modal "ambil banyak" yang memungkinkan pengguna memilih beberapa
+ * {@link KegiatanKesiswaan} (kegiatan kesiswaan yang disetujui, boleh dipilih, dan kelompoknya aktif
+ * serta boleh dipilih siswa) sekaligus untuk didaftarkan sebagai partisipasi satu {@link Siswa}
+ * (dibuat sebagai baris {@link KegiatanKesiswaanPunyaSiswa}). Menampilkan grid berpaging dengan
+ * kolom checkbox (termasuk checkbox "pilih semua" di header) — kegiatan yang siswa sudah terdaftar
+ * di dalamnya ditampilkan tercentang namun dinonaktifkan (tidak bisa dipilih ulang/dibatalkan lewat
+ * dialog ini). Pencarian dapat difilter berdasarkan nama kegiatan.
+ */
 public class AmbilDataKegiatanForKegiatanKesiswaanHelper {
 
 	private Siswa siswa;
@@ -53,6 +62,12 @@ public class AmbilDataKegiatanForKegiatanKesiswaanHelper {
 
 	private Paging paging;
 
+	/**
+	 * Membuat helper terikat pada satu siswa target, sekaligus menyiapkan komponen paging (50 baris
+	 * per halaman) yang memuat ulang pencarian setiap kali halaman berganti.
+	 *
+	 * @param siswa siswa yang akan didaftarkan ke kegiatan-kegiatan terpilih
+	 */
 	public AmbilDataKegiatanForKegiatanKesiswaanHelper(Siswa siswa) {
 		this.siswa = siswa;
 
@@ -67,6 +82,7 @@ public class AmbilDataKegiatanForKegiatanKesiswaanHelper {
 
 	}
 
+	/** Renderer baris grid daftar kegiatan kesiswaan: checkbox pilih (tercentang+nonaktif bila siswa sudah terdaftar), nama, yayasan/sekolah (atau "Semua"), kelompok, detail kelompok, dan keterangan. */
 	class SiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -98,6 +114,14 @@ public class AmbilDataKegiatanForKegiatanKesiswaanHelper {
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
+	/**
+	 * Menyimpan partisipasi siswa untuk setiap kegiatan yang dicentang dan masih dapat dipilih
+	 * (tidak dinonaktifkan) pada grid: membuat baris {@link KegiatanKesiswaanPunyaSiswa} baru bila
+	 * belum ada (dicek ulang ke database untuk mencegah duplikasi), mencatat pengguna yang
+	 * memasukkan data dan sumber perubahan ({@link SiswaAction}).
+	 *
+	 * @throws InterruptedException tidak pernah dilempar dalam implementasi saat ini, dipertahankan untuk kompatibilitas signature
+	 */
 	public void save() throws InterruptedException {
 		Session session = HibernateUtil.currentSession();
 		final Tbmuser tbmuser = Common.getCurrentUser();
@@ -133,6 +157,15 @@ public class AmbilDataKegiatanForKegiatanKesiswaanHelper {
 
 	}
 
+	/**
+	 * Membangun dan menampilkan dialog modal "Ambil Data Kegiatan Kesiswaan" pada window yang
+	 * diberikan: panel pencarian (nama kegiatan) di utara, grid hasil berpaging di tengah, dan
+	 * toolbar simpan/batal di selatan. Tombol simpan memanggil {@link #save()} lalu memuat ulang
+	 * data pemanggil lewat {@code dataLoader} dan menutup dialog.
+	 *
+	 * @param dataLoader callback pemuatan ulang data pemanggil setelah penyimpanan
+	 * @param window     komponen jendela modal target, dibersihkan dan diisi ulang oleh method ini
+	 */
 	public void display(final DataLoader dataLoader, final MyWindow window) {
 
 		Common.clear(window);
@@ -314,6 +347,15 @@ public class AmbilDataKegiatanForKegiatanKesiswaanHelper {
 		}
 	}
 
+	/**
+	 * Menyusun kriteria pencarian {@link KegiatanKesiswaan} yang layak dipilih siswa: hanya kegiatan
+	 * {@code bolehDipilih}, dengan kelompok kegiatan {@code bisaDipilihSiswa} dan {@code aktif}, dan
+	 * berstatus {@link KegiatanKesiswaan#DISETUJUI}, difilter nama, diurutkan tanggal mulai terbaru
+	 * lebih dulu bila diminta.
+	 *
+	 * @param order {@code true} untuk menyertakan pengurutan
+	 * @return kriteria Hibernate siap dieksekusi
+	 */
 	public Criteria initCriteria(boolean order) {
 
 		Session session = HibernateUtil.currentSession();
@@ -336,6 +378,7 @@ public class AmbilDataKegiatanForKegiatanKesiswaanHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Menjalankan pencarian kegiatan kesiswaan sesuai halaman paging aktif dan merender hasilnya ke grid. */
 	public void onSearchDefault(Event event) {
 
 		Common.initPaging50(initCriteria(false), paging);

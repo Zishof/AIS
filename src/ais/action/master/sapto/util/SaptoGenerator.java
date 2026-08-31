@@ -22,8 +22,23 @@ import ais.database.model.Jurusan;
 import ais.database.model.Mahasiswa;
 import ais.database.model.epsbed.KapasitasMahasiswaBaru;
 
+/**
+ * Kumpulan generator baris data statistik mahasiswa/lulusan untuk berbagai butir laporan borang
+ * akreditasi BAN-PT "sapto" (profil student body, masa studi, IPK lulusan, kapasitas penerimaan).
+ * Setiap method menjalankan satu atau lebih query (SQL native beragregasi atau Hibernate Criteria
+ * dengan proyeksi hitung/jumlah) untuk satu baris tahun/angkatan tertentu, mengembalikan
+ * {@link List} generik berisi kolom-kolom siap ditampilkan pada worksheet Excel laporan (dua
+ * kolom pertama biasanya string kosong, disediakan untuk nomor baris/label yang diisi pemanggil).
+ * Dipanggil dari kelas {@code Laporan*_A_X_Y} terkait (mis.
+ * {@link ais.action.master.sapto.LaporanProfileMahasiswaDanLulusan_A_3_1_4}) di thread terpisah
+ * saat worksheet dibangun; parameter {@code label} dipakai untuk menampilkan progres "Loading data
+ * &lt;tahun akademik&gt;" ke pengguna selama query berjalan. Kegagalan query per method ditangkap
+ * dan ditampilkan hanya untuk admin ({@code Common.tampilErrorJikaAdmin}), tidak menghentikan alur
+ * laporan — baris yang gagal cukup berisi kolom yang sudah terisi sejauh itu.
+ */
 public class SaptoGenerator {
 
+	/** Menghasilkan (via {@code datas}, bukan return value) baris rekap jumlah lulusan per tahun (5 tahun terakhir dari {@code tahun}) beserta jumlah alumni yang mengisi checklist penilaian umum, untuk butir A-3.2.4. */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public static void generateProfileMahasiswaDanLulusan_A_3_2_4(Session session, Label label, int tahun,
 			List<List> datas) {
@@ -74,6 +89,7 @@ public class SaptoGenerator {
 
 	}
 
+	/** Menghitung rata-rata masa studi (tahun lulus - tahun angkatan) dan rata-rata IPK lulusan untuk 3 tahun terakhir dari {@code tahun}, dibatasi jenjang tertentu (klausa SQL {@code IN}), untuk butir A-3.2.2. */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public static List generateProfileMahasiswaDanLulusan_A_3_2_2(Session session, Label label, String jenjang,
 			int tahun, String semester) {
@@ -116,6 +132,7 @@ public class SaptoGenerator {
 		return sub;
 	}
 
+	/** Menghitung jumlah mahasiswa aktif angkatan tertentu untuk {@code jumlahTahun+1} tahun akademik berurutan (dari histori status mahasiswa, hanya non-pindahan) plus jumlah yang lulus pada tahun akhir, dibatasi jenjang dan opsional program, untuk butir A-3.2.1. */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public static List generateProfileMahasiswaDanLulusan_A_3_2_1(Session session, Label label, int tahunAngkatan,
 			String jenjang, int jumlahTahun, int tahun, String program) {
@@ -163,6 +180,7 @@ public class SaptoGenerator {
 		return sub;
 	}
 
+	/** Sama seperti {@link #generateProfileMahasiswaDanLulusan_A_3_2_1}, tetapi dibatasi ke satu {@link Jurusan} dan program spesifik (bukan sekumpulan jenjang), dipakai butir A-3.1.4 — lihat {@link ais.action.master.sapto.LaporanProfileMahasiswaDanLulusan_A_3_1_4}. */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public static List generateProfileMahasiswaDanLulusanA_3_1_4(Session session, Label label, int tahunAngkatan,
 			int jumlahTahun, int tahun, Jurusan jurusan, String program) {
@@ -214,6 +232,22 @@ public class SaptoGenerator {
 		return sub;
 	}
 
+	/**
+	 * Menghasilkan satu baris profil mahasiswa &amp; lulusan lengkap untuk satu {@link Jurusan}
+	 * pada tahun akademik {@code rowIndex}: kapasitas target mahasiswa baru, jumlah pendaftar
+	 * (dicocokkan ke salah satu dari 5 slot pilihan prodi) dan yang diterima (prodiLulus),
+	 * jumlah mahasiswa reguler/transfer baru dan total (kumulatif s.d. {@code rowIndex}), dan bila
+	 * {@code danLulusan} aktif, tambahan jumlah lulusan reguler/transfer beserta statistik IPK
+	 * (min/rata-rata/max dan distribusi persentase di bawah 2.75, 2.75-3.5, di atas 3.5).
+	 *
+	 * @param session    sesi Hibernate aktif
+	 * @param label      komponen label untuk menampilkan progres pemuatan
+	 * @param rowIndex   tahun angkatan/tahun akademik yang direkap
+	 * @param jurusan    program studi target
+	 * @param danLulusan sertakan statistik lulusan &amp; IPK bila {@code true}
+	 * @param program    filter program (mis. "Reguler"); nilai "Non Reguler" dicocokkan sebagai bukan "Reguler"
+	 * @return baris data (List generik) siap ditampilkan pada worksheet
+	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public static List generateProfileMahasiswaDanLulusan(Session session, Label label, int rowIndex, Jurusan jurusan,
 			boolean danLulusan, String program) {
@@ -353,6 +387,19 @@ public class SaptoGenerator {
 		return sub;
 	}
 
+	/**
+	 * Varian {@link #generateProfileMahasiswaDanLulusan} pada level institusi: dibatasi satu atau
+	 * lebih nama {@code jenjang} (bukan satu jurusan spesifik), menjumlahkan kapasitas, pendaftar
+	 * (dicocokkan ke jenjang salah satu dari 5 slot pilihan prodi), mahasiswa reguler/transfer
+	 * baru, dan total kumulatif di seluruh jurusan yang jenjangnya cocok. Tidak menyertakan
+	 * statistik lulusan/IPK.
+	 *
+	 * @param session sesi Hibernate aktif
+	 * @param label   komponen label untuk menampilkan progres pemuatan
+	 * @param rowIndex tahun angkatan/tahun akademik yang direkap
+	 * @param jenjang satu atau lebih nama jenjang (mis. "S1") yang direkap bersama
+	 * @return baris data (List generik) siap ditampilkan pada worksheet
+	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public static List generateProfileMahasiswa(Session session, Label label, int rowIndex, String... jenjang) {
 

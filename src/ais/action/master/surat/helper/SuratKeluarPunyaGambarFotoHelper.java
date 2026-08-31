@@ -44,6 +44,29 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper UI ZK modul persuratan untuk mengelola lampiran gambar/scan
+ * ({@link FotoGambarSuratKeluar}) pada satu {@link SuratKeluar}, dengan dua jalur penyimpanan:
+ * unggah langsung ke database (blob) via {@link StreamingHibernateUtil}, atau unggah ke Google
+ * Drive pengguna via {@link GDriveUtilPerPengguna}. Dipasang pada panel detail satu surat
+ * keluar, menampilkan daftar lampiran sebagai grid dengan pratinjau, tombol unduh, dan hapus.
+ *
+ * <p>
+ * Tombol "Tambah Lampiran" menyimpan berkas ke direktori media lokal lalu langsung menyimpan
+ * baris {@link FotoGambarSuratKeluar} berisi blob isi berkas ({@code SerialBlob}); tombol
+ * "Upload Scan ... ke Drive" (dibatasi ukuran lewat konfigurasi
+ * {@code max_upload_via_drive_baru}, default 300 MB) mengunggah ke Google Drive secara
+ * asinkron dan menggunakan {@link org.zkoss.zul.Timer} untuk menunggu proses backup selesai
+ * sebelum baris {@link FotoGambarSuratKeluar} (berisi id Google Drive, bukan blob) disimpan.
+ * Bila {@code suratKeluar} belum memiliki id (surat baru, belum tersimpan), lampiran sementara
+ * dikaitkan ke id acak negatif ({@code new Random(Long.MIN_VALUE).nextLong()}) — pola umum di
+ * kode ini untuk menghindari nilai {@code null} pada kolom id relasi sebelum induk tersimpan.
+ * Mengunduh lampiran mengarahkan ke URL Google Drive bila tersimpan di Drive, atau menyajikan
+ * unduhan langsung dari blob bila tersimpan lokal. Kegagalan di tengah proses unggah memicu
+ * rollback transaksi {@link StreamingHibernateUtil}. Tombol hapus per baris meminta konfirmasi;
+ * visibilitasnya mengikuti privilese hapus pengguna saat ini.
+ * </p>
+ */
 public class SuratKeluarPunyaGambarFotoHelper {
 
 	private MyGrid gridPengarang;
@@ -51,11 +74,20 @@ public class SuratKeluarPunyaGambarFotoHelper {
 
 	private com.google.api.services.drive.model.File fileUpload = null;
 
+	/** Membangun helper terikat pada {@code gridPengarang} dan menghitung hak hapus pengguna saat ini. */
 	public SuratKeluarPunyaGambarFotoHelper(MyGrid gridPengarang) {
 		this.gridPengarang = gridPengarang;
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun panel (border layout) berisi toolbar unggah (lokal dan Google Drive) dan grid
+	 * daftar lampiran untuk {@code suratKeluar}, lalu memuat data lampiran yang sudah tersimpan.
+	 *
+	 * @param suratKeluar surat keluar yang detail lampirannya ditampilkan/dikelola
+	 * @param tampilEdit  bila {@code true}, toolbar unggah ditampilkan; bila {@code false}, hanya grid (mode lihat saja)
+	 * @return border layout siap disisipkan sebagai konten panel detail
+	 */
 	public Borderlayout initDetail(final SuratKeluar suratKeluar, boolean tampilEdit) throws Exception {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -263,6 +295,7 @@ public class SuratKeluarPunyaGambarFotoHelper {
 		return borderlayout;
 	}
 
+	/** Memuat baris-baris lampiran tersimpan untuk {@code suratKeluar} dari database (terurut terbaru dulu) dan merendernya ke grid. */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(SuratKeluar suratKeluar) throws Exception {
 
@@ -284,6 +317,12 @@ public class SuratKeluarPunyaGambarFotoHelper {
 		StreamingHibernateUtil.getInstance().closeSession();
 	}
 
+	/**
+	 * Mengisi {@code row} dengan tautan nama berkas + pratinjau ({@code CommonMedia#preview}),
+	 * tombol unduh (mengarahkan ke URL Google Drive atau menyajikan unduhan blob lokal
+	 * tergantung tempat penyimpanan), dan tombol hapus (bila pengguna berhak); tombol hapus
+	 * meminta konfirmasi, lalu menghapus baris lampiran dari database dalam transaksi tersendiri.
+	 */
 	public void initRow(final Row row, final FotoGambarSuratKeluar fotoGambarSuratKeluar) throws Exception {
 		row.setValign("top");
 		row.setValign("top");

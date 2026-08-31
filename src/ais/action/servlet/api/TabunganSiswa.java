@@ -19,8 +19,38 @@ import ais.database.model.inventory.Toko;
 import ais.database.model.sekolah.Siswa;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Kumpulan handler API (dipanggil oleh dispatcher servlet API dengan konvensi
+ * {@code (HttpServletRequest, JSONObject) -> JSONObject}) untuk modul "Tabungan Siswa" — sistem
+ * deposit/tabungan siswa yang dipakai sebagai alat pembayaran non-tunai di kantin/koperasi
+ * sekolah (modul inventory: {@link Produk}, {@link Toko}, {@link Pembelian}).
+ *
+ * <p>
+ * Setiap method memvalidasi token akses lewat {@code ApiUtil#currentUser} terlebih dahulu
+ * (mengembalikan {@code status "97"} bila token tidak valid), lalu memvalidasi keberadaan entitas
+ * yang dirujuk (siswa/mahasiswa) sebelum memproses. Kode status pada respons JSON mengikuti
+ * konvensi: {@code "97"} = data/parameter tidak ditemukan atau token tidak sesuai, {@code "90"} =
+ * galat internal (pesan diambil dari {@code Common#tampilErrorJikaAdmin}), tidak ada field
+ * {@code status} eksplisit berarti sukses.
+ * </p>
+ */
 public class TabunganSiswa {
 
+	/**
+	 * Mencatat transaksi pembelian siswa di kantin/koperasi sekolah: untuk setiap produk pada
+	 * {@code request}, membuat atau memperbarui data {@link Produk} (berdasarkan kode + toko),
+	 * lalu menyimpan/menimpa baris {@link Pembelian} dengan kode transaksi idempoten
+	 * {@code kode+"_"+kodeProduk+"_"+kodeToko+"_"+idSiswa} (sehingga pengiriman ulang permintaan
+	 * yang sama tidak menghasilkan pembelian dobel). Mengembalikan daftar nama item yang
+	 * terbeli beserta profil ringkas siswa dan sisa saldo tabungan terkini.
+	 *
+	 * @param req     request HTTP asli, sumber header autentikasi
+	 * @param request payload JSON berisi {@code siswa} (id), {@code toko} (kode),
+	 *                {@code kode} (kode transaksi), dan {@code produks} (array item: kode, nama,
+	 *                harga, qty)
+	 * @return JSON hasil pencatatan pembelian beserta profil dan saldo tabungan siswa, atau JSON
+	 *         berisi {@code status} galat bila token/parameter tidak valid
+	 */
 	@SuppressWarnings({})
 	public static JSONObject pembelian_siswa(HttpServletRequest req, JSONObject request) {
 
@@ -139,6 +169,14 @@ public class TabunganSiswa {
 		return jsonObject;
 	}
 
+	/**
+	 * Mengembalikan profil ringkas siswa (NIS, NISN, nama, sekolah, foto) beserta sisa saldo
+	 * tabungan pada tanggal berjalan.
+	 *
+	 * @param request payload JSON berisi {@code siswa} (id)
+	 * @return JSON profil dan saldo tabungan siswa, atau JSON berisi {@code status} galat bila
+	 *         token tidak valid atau siswa tidak ditemukan
+	 */
 	@SuppressWarnings({})
 	public static JSONObject tabungan_siswa(HttpServletRequest req, JSONObject request) {
 		JSONObject jsonObject = new JSONObject();
@@ -177,6 +215,14 @@ public class TabunganSiswa {
 		return jsonObject;
 	}
 
+	/**
+	 * Mengembalikan profil ringkas siswa beserta rincian daftar komponen saldo tabungan (bukan
+	 * hanya total) pada tanggal berjalan, lewat {@code Siswa#daftarSisaDeposit}.
+	 *
+	 * @param request payload JSON berisi {@code siswa} (id)
+	 * @return JSON profil siswa beserta rincian daftar tabungan, atau JSON berisi {@code status}
+	 *         galat bila token tidak valid atau siswa tidak ditemukan
+	 */
 	@SuppressWarnings({})
 	public static JSONObject daftar_tabungan_siswa(HttpServletRequest req, JSONObject request) {
 		JSONObject jsonObject = new JSONObject();
@@ -214,6 +260,15 @@ public class TabunganSiswa {
 		return jsonObject;
 	}
 
+	/**
+	 * Mengembalikan profil ringkas mahasiswa (NIM, prodi, nama, foto) beserta saldo tabungan,
+	 * dihitung lewat {@code DepositHelper#hitungDeposit} (jalur perhitungan berbeda dari deposit
+	 * siswa sekolah, karena entitas dan skema deposit mahasiswa terpisah dari siswa).
+	 *
+	 * @param request payload JSON berisi {@code mahasiswa} (id)
+	 * @return JSON profil dan saldo tabungan mahasiswa, atau JSON berisi {@code status} galat
+	 *         bila token tidak valid atau mahasiswa tidak ditemukan
+	 */
 	@SuppressWarnings({})
 	public static JSONObject tabungan_mahasiswa(HttpServletRequest req, JSONObject request) {
 		JSONObject jsonObject = new JSONObject();

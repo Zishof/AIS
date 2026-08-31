@@ -44,6 +44,16 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper UI jendela modal untuk mengelola jadwal sesi/pertemuan ujian ({@link Pertemuan}) di bawah
+ * satu {@link JadwalUjianPSB} (jadwal ujian penerimaan siswa baru). Menampilkan grid baris
+ * pertemuan yang dapat diedit langsung (topik, jam mulai/selesai, status pertemuan — tiap
+ * perubahan langsung tersimpan ke database via {@code onChange}), tombol tambah pertemuan baru
+ * (tanggal default mengikuti pertemuan terakhir + 7 hari, meniru pola mingguan), dan
+ * {@link #save()} yang menyusun ulang nomor urut pertemuan ({@code pertemuanKe}) berdasarkan
+ * urutan tanggal, menyinkronkan baris grid ke database (update/insert), dan menghapus pertemuan
+ * tersimpan yang barisnya sudah tidak ada di grid.
+ */
 public class PenjadwalanUjianPSBHelper {
 
 	private JadwalUjianPSB jadwalUjianPSB;
@@ -52,6 +62,7 @@ public class PenjadwalanUjianPSBHelper {
 
 	private Date currDate;
 
+	/** Renderer baris grid pertemuan: field topik, jam mulai/selesai (masing-masing langsung tersimpan saat diubah), dropdown status pertemuan, dan tombol hapus (dengan pengecekan {@link PenjadwalanHelper#checkBolehHapus} serta dialog konfirmasi). */
 	class PertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
 		public PertemuanRenderer() {
@@ -179,6 +190,17 @@ public class PenjadwalanUjianPSBHelper {
 
 	}
 
+	/**
+	 * Menyinkronkan seluruh baris grid ke database: menyusun ulang nomor urut ({@code pertemuanKe})
+	 * pertemuan aktif berdasarkan urutan tanggal, lalu untuk setiap baris grid memperbarui (bila
+	 * sudah punya id) atau menyimpan baru (bila belum) entitas {@link Pertemuan} sesuai nilai
+	 * kolom topik/mulai/selesai pada baris; pertemuan tersimpan yang tidak lagi memiliki baris di
+	 * grid dihapus. Memicu {@code dataLoader.loadData(null)} setelah selesai untuk menyegarkan
+	 * tampilan pemanggil.
+	 *
+	 * @return selalu {@code true}
+	 * @throws InterruptedException tidak pernah dilempar secara eksplisit pada implementasi saat ini
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public boolean save() throws InterruptedException {
 
@@ -246,6 +268,16 @@ public class PenjadwalanUjianPSBHelper {
 		return true;
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela modal penjadwalan ujian untuk {@code jadwalUjianPSB}:
+	 * judul jendela merangkum materi ujian, gelombang pendaftaran, dan rentang waktu; toolbar atas
+	 * berisi tombol "Tambah Pertemuan"; grid tengah menampilkan pertemuan tersimpan
+	 * ({@link #onSearchDefault}); toolbar bawah berisi tombol Batal dan Simpan (memicu
+	 * {@link #save()}).
+	 *
+	 * @param jadwalUjianPSB jadwal ujian yang pertemuannya dikelola
+	 * @param dataLoader     callback penyegaran data pada layar pemanggil setelah perubahan
+	 */
 	public void display(final JadwalUjianPSB jadwalUjianPSB, final DataLoader dataLoader) {
 		this.jadwalUjianPSB = jadwalUjianPSB;
 		this.dataLoader = dataLoader;
@@ -408,6 +440,7 @@ public class PenjadwalanUjianPSBHelper {
 		}
 	}
 
+	/** Memuat seluruh {@link Pertemuan} aktif milik {@code jadwalUjianPSB} (diurutkan menurut jam mulai) dan menampilkannya di grid. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

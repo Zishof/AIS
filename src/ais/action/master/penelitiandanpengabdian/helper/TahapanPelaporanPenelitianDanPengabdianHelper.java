@@ -49,6 +49,27 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper UI ZK modul Penelitian dan Pengabdian untuk mengelola tahapan pelaporan
+ * ({@link TahapanPelaporanPenelitianDanPengabdian}, mis. proposal, pengumpulan data, analisis
+ * data, laporan akhir) dari satu {@link PenelitianDanPengabdian}, beserta pengajuan tahap oleh
+ * korespoden yang berhak (didelegasikan ke
+ * {@link PengajuanTahapanPelaporanPenelitianDanPengabdianHelper} lewat baris detail yang dapat
+ * diperluas/dilipat).
+ *
+ * <p>
+ * {@link #displayTahapanPelaporan} menampilkan grid tahapan berpaginasi, dengan filter combobox
+ * penelitian/pengabdian (dikunci bila konteksnya sudah ditentukan dari luar) dan filter jenis
+ * ({@link ais.database.model.penelitiandanpengabdian.TipePenelitianDanPengabdian}). Baris
+ * tahapan yang bisa diperluas menampilkan kolom "Tahap" — combobox pemilihan tahap pengajuan
+ * (proposal/pengumpulan data/analisis data/laporan akhir) hanya diaktifkan bagi pengguna yang
+ * terdaftar sebagai korespoden (perorangan lewat {@code korespondensi}, atau lewat grup peran
+ * {@code korespondensiGrupPengguna}) pada penelitian/pengabdian terkait; pengguna lain hanya
+ * melihat labelnya sebagai teks. {@link #displayWindowTahapanPelaporan} membuka dialog modal
+ * terpisah untuk menambah/mengubah satu tahapan, dengan validasi nama, keterangan, dan
+ * penelitian/pengabdian wajib diisi sebelum disimpan.
+ * </p>
+ */
 public class TahapanPelaporanPenelitianDanPengabdianHelper implements DataCriteria {
 
 	private MyGrid gridTahapanPelaporan;
@@ -57,6 +78,15 @@ public class TahapanPelaporanPenelitianDanPengabdianHelper implements DataCriter
 	private Paging paging;
 	private PengajuanPenelitianDanPengabdian pengajuanPenelitianDanPengabdian;
 
+	/**
+	 * Membuka dialog modal untuk menambah (bila {@code tahapanPelaporanPenelitianDanPengabdianData}
+	 * belum memiliki id) atau mengubah satu tahapan pelaporan, memvalidasi nama, keterangan, dan
+	 * penelitian/pengabdian terkait wajib diisi sebelum menyimpan; setelah simpan, grid
+	 * dimuat ulang dan dialog ditutup.
+	 *
+	 * @param penelitianDanPengabdianData                    penelitian/pengabdian yang menjadi konteks tahapan; bila diisi, combobox pilihan dikunci
+	 * @param tahapanPelaporanPenelitianDanPengabdianData     data tahapan yang diedit (baru atau sudah ada)
+	 */
 	public void displayWindowTahapanPelaporan(final PenelitianDanPengabdian penelitianDanPengabdianData,
 			final TahapanPelaporanPenelitianDanPengabdian tahapanPelaporanPenelitianDanPengabdianData)
 			throws Exception {
@@ -197,6 +227,18 @@ public class TahapanPelaporanPenelitianDanPengabdianHelper implements DataCriter
 		window.onModal();
 	}
 
+	/**
+	 * Membangun dan menampilkan panel daftar tahapan pelaporan pada {@code component}: toolbar
+	 * tambah (disembunyikan bagi dosen/mahasiswa dan bila {@code ases} bernilai {@code true}),
+	 * tombol unduh, filter combobox penelitian/pengabdian (bila belum ditentukan dari luar), dan
+	 * grid berpaginasi.
+	 *
+	 * @param ases                            bila {@code true}, tampilan mode asesmen (tombol tambah dan kolom aksi disembunyikan)
+	 * @param jenis                            jenis penelitian/pengabdian yang membatasi pilihan combobox, boleh {@code null} untuk semua jenis
+	 * @param penelitianDanPengabdianData      penelitian/pengabdian tunggal yang menjadi konteks; bila diisi, filter dikunci ke nilai ini
+	 * @param pengajuanPenelitianDanPengabdian konteks pengajuan terkait, diteruskan ke helper detail pengajuan tahap
+	 * @param component                        komponen ZK induk tempat panel disisipkan
+	 */
 	public void displayTahapanPelaporan(final Boolean ases, final TipePenelitianDanPengabdian jenis,
 			final PenelitianDanPengabdian penelitianDanPengabdianData,
 			final PengajuanPenelitianDanPengabdian pengajuanPenelitianDanPengabdian, Component component)
@@ -342,6 +384,7 @@ public class TahapanPelaporanPenelitianDanPengabdianHelper implements DataCriter
 
 	}
 
+	/** Membangun kriteria pencarian daftar tahapan pelaporan, difilter berdasarkan penelitian/pengabdian terpilih pada combobox pencarian bila ada, terurut tanggal mulai. */
 	public Criteria initCriteria(boolean order) {
 
 		Session session = HibernateUtil.currentSession();
@@ -357,6 +400,7 @@ public class TahapanPelaporanPenelitianDanPengabdianHelper implements DataCriter
 		return criteria;
 	}
 
+	/** Memuat ulang halaman daftar tahapan pelaporan sesuai kriteria dan paging saat ini, merender ke grid. */
 	@SuppressWarnings("unchecked")
 	public void loadDataTahapanPelaporan() {
 		Common.initPaging(initCriteria(false), paging);
@@ -372,6 +416,13 @@ public class TahapanPelaporanPenelitianDanPengabdianHelper implements DataCriter
 
 	}
 
+	/**
+	 * Perenderan satu baris tabel tahapan pelaporan: detail yang dapat diperluas (memuat panel
+	 * pengajuan tahap lewat {@link PengajuanTahapanPelaporanPenelitianDanPengabdianHelper} saat
+	 * dibuka), nama penelitian/pengabdian, nama tahapan, tanggal mulai/sampai, kolom "Tahap"
+	 * (combobox aktif hanya bagi korespoden yang berhak, selain itu label teks biasa),
+	 * keterangan (HTML), dan tombol ubah/hapus.
+	 */
 	class DetailTahapanPelaporanPenelitianDanPengabdianRenderer extends ais.ui.util.MyRowRenderer {
 
 		private PengajuanTahapanPelaporanPenelitianDanPengabdianHelper pengajuanTahapanPelaporanPenelitianDanPengabdianHelper = new PengajuanTahapanPelaporanPenelitianDanPengabdianHelper();

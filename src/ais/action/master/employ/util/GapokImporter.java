@@ -15,8 +15,24 @@ import ais.database.model.employ.GajiPokok;
 import ais.database.model.employ.Golongan;
 import ais.database.model.employ.Peraturan;
 
+/**
+ * Importir data tabel gaji pokok PNS (Golongan I/a s.d. IV/e x masa kerja) dari berkas Excel
+ * ({@code .xlsx}) berformat baku ke {@link GajiPokok}. Baris pertama-ketiga berkas berisi metadata
+ * satu {@link Peraturan} (nama, tentang, tanggal berlaku) yang menaungi seluruh baris gaji
+ * berikutnya; baris keempat dan seterusnya berisi kolom masa kerja + nilai gaji per golongan,
+ * dikelompokkan berpasangan kolom per rumpun golongan (I: kolom 0-4, II: 5-9, III: 10-14, IV: 15-20).
+ *
+ * <p>
+ * Setiap sel nilai gaji dibersihkan dari pemisah ribuan ({@code ","}/{@code "."}) sebelum di-parse
+ * sebagai {@link Double}; kegagalan parse per sel tidak menghentikan proses (nilai tetap
+ * {@code null}/nilai lama). Setiap kombinasi (peraturan, masa kerja, golongan) di-upsert satu-per-satu
+ * dalam transaksi terpisah (bukan batch), sehingga kegagalan satu baris tidak menghentikan baris lain
+ * — namun juga membuat proses relatif lambat untuk berkas besar (banyak commit kecil).
+ * </p>
+ */
 public class GapokImporter {
 
+	/** Mencari {@link Golongan} berdasarkan {@code nama} (ILIKE, cocok substring); membuat baru bila belum ada. Dipakai untuk memastikan kedelapan-belas golongan standar (I/a s.d. IV/e) tersedia sebelum import dimulai. */
 	public static Golongan checkGolongan(String nama) {
 		Session session = HibernateUtil.currentNativeSession();
 		Golongan golongan = (Golongan) session.createCriteria(Golongan.class)
@@ -34,6 +50,16 @@ public class GapokImporter {
 		return golongan;
 	}
 
+	/**
+	 * Menjalankan seluruh proses import: membaca sheet pertama {@code file} lewat
+	 * {@link Common#getSheetContent}, mengekstrak metadata {@link Peraturan} dari tiga baris
+	 * pertama, lalu meng-upsert {@link GajiPokok} untuk tiap golongan/masa kerja pada baris
+	 * berikutnya (lihat dokumentasi kelas untuk pemetaan kolom). Melempar {@link Exception} bila
+	 * nama peraturan kosong atau tanggal peraturan gagal di-parse ({@link Common#databaseDateFormat}).
+	 *
+	 * @param file berkas Excel {@code .xlsx} sesuai format template Daftar Gapok PNS
+	 * @throws Exception diteruskan dari kegagalan membaca berkas atau validasi data peraturan
+	 */
 	public static void doImport(File file) throws Exception {
 
 		XSSFWorkbook workbook = new XSSFWorkbook(file.getAbsolutePath());
@@ -661,6 +687,7 @@ public class GapokImporter {
 
 	}
 
+	/** Harness manual untuk menjalankan {@link #doImport} terhadap berkas contoh tetap di disk lokal pengembang; bukan bagian dari alur aplikasi web. */
 	public static void main(String[] argv) throws Exception {
 		File file = new File(
 				"D:/Documents/My Project/Academic Information System/AIS/ais/web/tmp/Contoh_Daftar_Gapok_PNS.xlsx");

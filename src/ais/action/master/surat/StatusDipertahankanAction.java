@@ -27,6 +27,15 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD master data Status Dipertahankan Surat (klasifikasi retensi/status arsip surat pada
+ * modul persuratan, mis. status penyimpanan dokumen di kearsipan). Memperluas
+ * {@link GenericCrudAction} untuk mewarisi kerangka baku cari/tambah/ubah/hapus, ditambah aksi
+ * cetak dan unggah massal (lewat {@link #getDownloadUploadContents()}/{@link #onAfterInit}).
+ * Kelas ini mengisi bagian spesifik entitas: kriteria pencarian (status aktif + nama), form input
+ * (kode + nama + keterangan), validasi nama wajib dan tidak boleh duplikat, toggle aktif langsung
+ * dari grid, serta renderer baris.
+ */
 public class StatusDipertahankanAction extends GenericCrudAction<StatusDipertahankan> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -47,11 +56,13 @@ public class StatusDipertahankanAction extends GenericCrudAction<StatusDipertaha
     @Override
     protected String getWindowTitle() { return "Pendataan Status Dipertahankan Surat"; }
 
+    /** Kolom yang disertakan pada template unduh/unggah massal data status dipertahankan. */
     @Override
     protected String[] getDownloadUploadContents() {
         return new String[] { "id", "kode", "nama", "keterangan", "aktif" };
     }
 
+    /** Menambahkan tombol cetak dan unggah massal di sebelah tombol tambah, mengikuti hak akses tambah/ubah/hapus pengguna. */
     @Override
     protected void onAfterInit(Component comp) throws Exception {
         String[] contents = getDownloadUploadContents();
@@ -67,6 +78,7 @@ public class StatusDipertahankanAction extends GenericCrudAction<StatusDipertaha
         }
     }
 
+    /** Menyusun kriteria pencarian {@link StatusDipertahankan}, difilter status aktif (bila dicentang) dan nama, diurutkan berdasarkan nama bila diminta. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -81,6 +93,7 @@ public class StatusDipertahankanAction extends GenericCrudAction<StatusDipertaha
         return criteria;
     }
 
+    /** Menyediakan renderer baris grid {@link StatusDipertahankanRenderer} untuk daftar hasil pencarian. */
     @Override
     protected MyRowRenderer createRenderer() {
         return new StatusDipertahankanRenderer();
@@ -88,6 +101,7 @@ public class StatusDipertahankanAction extends GenericCrudAction<StatusDipertaha
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/ubah status dipertahankan (field kode + nama + keterangan) beserta tombol batal/simpan pada jendela dialog. */
     @Override
     protected void buildFormContent(MyWindow window, final StatusDipertahankan statusDipertahankan) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -161,6 +175,15 @@ public class StatusDipertahankanAction extends GenericCrudAction<StatusDipertaha
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi lalu menyimpan data status dipertahankan dari form: menolak bila nama kosong atau
+     * sudah terdaftar pada baris lain; jika lolos menyimpan/memperbarui entitas dan mengembalikan
+     * {@code true}.
+     *
+     * @param event event ZK pemicu penyimpanan (tombol simpan)
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal
+     * @throws Exception diteruskan apa adanya dari kegagalan Hibernate saat menyimpan
+     */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Nama Status Dipertahankan Surat belum diisi. Langkah yang dapat dilakukan: (1) klik kolom Nama Status; (2) isikan nama status secara lengkap; (3) ulangi proses simpan. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.", "Peringatan",
@@ -185,6 +208,12 @@ public class StatusDipertahankanAction extends GenericCrudAction<StatusDipertaha
         return true;
     }
 
+    /**
+     * Memeriksa apakah nama status dipertahankan yang diisi di form sudah dipakai baris lain
+     * (mengecualikan baris yang sedang diedit sendiri).
+     *
+     * @return {@code true} bila nama sudah terpakai baris lain, {@code false} bila belum
+     */
     public Boolean checkNamaStatusDipertahankan() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(StatusDipertahankan.class)
@@ -199,6 +228,7 @@ public class StatusDipertahankanAction extends GenericCrudAction<StatusDipertaha
 
     // ======================== Renderer ========================
 
+    /** Renderer baris grid daftar status dipertahankan: kolom kode, nama (dengan link riwayat revisi), keterangan, checkbox aktif (toggle langsung tersimpan), dan tombol edit/hapus. */
     class StatusDipertahankanRenderer extends MyRowRenderer {
 
         @Override

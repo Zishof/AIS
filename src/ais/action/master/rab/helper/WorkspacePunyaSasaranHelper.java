@@ -29,6 +29,13 @@ import ais.database.model.rab.Sasaran;
 import ais.database.model.rab.Workspace;
 import ais.database.model.rab.WorkspacePunyaSasaran;
 
+/**
+ * Helper UI ZK untuk mengelola relasi banyak-ke-banyak antara satu {@link Workspace} RAB dan
+ * sasaran-sasarannya ({@link WorkspacePunyaSasaran}/{@link Sasaran}): menampilkan grid sasaran
+ * terkait, menambah sasaran lewat dialog pemilihan banyak ({@code AmbilDataSasaranBanyak}, yang
+ * mengecualikan sasaran yang sudah terhubung), dan menghapus relasi per baris. Aksi tambah/hapus
+ * tampil sesuai privilese {@link CommonPrivilages#CREATE}/{@link CommonPrivilages#DELETE} user.
+ */
 public class WorkspacePunyaSasaranHelper {
 
 	private MyGrid gridSasaran;
@@ -36,6 +43,7 @@ public class WorkspacePunyaSasaranHelper {
 	// private boolean edit = false;
 	private boolean delete = false;
 
+	/** Menyiapkan helper untuk {@code gridSasaran} yang diberikan; hak tambah/hapus ditentukan dari privilese user yang sedang login. */
 	public WorkspacePunyaSasaranHelper(MyGrid gridSasaran) {
 		this.gridSasaran = gridSasaran;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -43,6 +51,7 @@ public class WorkspacePunyaSasaranHelper {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/** Membangun kerangka layar detail sasaran workspace: toolbar tombol Tambah Sasaran (membuka dialog pemilihan banyak) dan grid dengan kolom Kode/Isi Sasaran/Hapus, lalu langsung memuat datanya. */
 	public Borderlayout initDetail(final Workspace workspace) {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -128,6 +137,7 @@ public class WorkspacePunyaSasaranHelper {
 		return borderlayout;
 	}
 
+	/** Memuat seluruh {@link WorkspacePunyaSasaran} milik {@code workspace} dan merender satu baris grid per sasaran. */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final Workspace workspace) {
 
@@ -148,6 +158,7 @@ public class WorkspacePunyaSasaranHelper {
 		}
 	}
 
+	/** Merender satu baris grid untuk {@code workspacePunyaSasaran} (kode dan nama sasaran, tombol hapus dengan konfirmasi) ke {@code row}. */
 	public void initRow(final Row row,
 			final WorkspacePunyaSasaran workspacePunyaSasaran) {
 		row.setValign("top");row.setAttribute("workspacePunyaSasaran", workspacePunyaSasaran);

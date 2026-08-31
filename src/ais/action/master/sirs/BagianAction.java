@@ -29,6 +29,19 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD master data Bagian (unit kerja) pada modul SIRS (Sistem Informasi Rumah Sakit),
+ * dibangun di atas {@link GenericCrudAction}. Setiap bagian memiliki kode, nama, divisi
+ * ({@link Devisi}) induk, dan akun akunting ({@link Akun}) terkait — menjadikan modul ini titik
+ * hubung antara struktur organisasi rumah sakit dan struktur akun keuangan.
+ *
+ * <p>
+ * Pencarian daftar difilter berdasarkan kecocokan sebagian nama ({@code ilike ANYWHERE}). Form
+ * simpan memvalidasi kode, nama, divisi, dan akun wajib diisi, serta kode tidak duplikat (dicek
+ * lewat {@link #checkKodeBagian()}) sebelum menyimpan; baris tabel dirender lewat
+ * {@link BagianRenderer} yang menampilkan kode, riwayat revisi, nama divisi, dan nama akun.
+ * </p>
+ */
 public class BagianAction extends GenericCrudAction<Bagian> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -51,6 +64,7 @@ public class BagianAction extends GenericCrudAction<Bagian> {
     @Override
     protected String getWindowTitle() { return "Pendataan Bagian"; }
 
+    /** Membangun kriteria pencarian daftar bagian, difilter berdasarkan kecocokan sebagian nama bila {@code searchnama} diisi. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -69,6 +83,7 @@ public class BagianAction extends GenericCrudAction<Bagian> {
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/ubah (kode, nama, divisi, akun, keterangan) beserta toolbar Batal/Simpan pada {@code window}. */
     @Override
     protected void buildFormContent(MyWindow window, final Bagian bagian) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -158,6 +173,13 @@ public class BagianAction extends GenericCrudAction<Bagian> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi (kode, nama, divisi, dan akun wajib isi; kode tidak duplikat) dan menyimpan
+     * (create-or-update) entitas bagian dari isian form.
+     *
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal (pesan
+     *         peringatan sudah ditampilkan ke pengguna)
+     */
     public boolean onSave(Event event) throws Exception {
         if (kode.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Kode Bagian wajib diisi terlebih dahulu. Langkah yang dapat dilakukan: (1) isikan Kode Bagian pada kolom yang tersedia; (2) pastikan kolom tidak dikosongkan; (3) simpan kembali data setelah kolom terisi.", "Peringatan",
@@ -199,6 +221,7 @@ public class BagianAction extends GenericCrudAction<Bagian> {
         return true;
     }
 
+    /** Mengecek apakah kode pada form sudah dipakai bagian lain (di luar entitas yang sedang diedit). */
     public Boolean checkKodeBagian() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(Bagian.class)
@@ -213,6 +236,7 @@ public class BagianAction extends GenericCrudAction<Bagian> {
 
     // ======================== Renderer ========================
 
+    /** Perenderan satu baris tabel bagian: kode, nama (dengan tautan riwayat revisi), nama divisi, nama akun, keterangan, dan tombol edit/hapus. */
     class BagianRenderer extends MyRowRenderer {
 
         @Override

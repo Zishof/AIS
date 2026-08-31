@@ -53,6 +53,37 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyDatebox;
 import ais.ui.util.MyTextbox;
 
+/**
+ * Composer ZK (modul SIRS/rumah sakit) untuk menampilkan dan mengelola jadwal dokter
+ * ({@link JadwalDokter}) dalam bentuk kalender mingguan interaktif memakai komponen ZK
+ * {@link Calendars} — mengikuti pola pengikatan event otomatis {@code GenericForwardComposer}
+ * (method {@code onXxx$namaKomponen} secara otomatis terpasang sebagai listener komponen ZUL
+ * bernama sama). Kalender selalu terikat pada satu {@code Lokasi} (ruangan/poli) yang dipilih;
+ * memilih lokasi baru atau menekan tombol refresh ({@link #onRefresh(Event)}) memuat ulang model
+ * kalender lewat {@code CommonSirs.initCalendarModel}.
+ *
+ * <h2>Interaksi kalender</h2>
+ * <ul>
+ * <li>Menggambar rentang waktu kosong pada kalender ({@link #onEventCreate$calendars(ForwardEvent)})
+ * membuka jendela tambah jadwal, otomatis mengisi shift yang cocok dengan lokasi dan hari yang
+ * dipilih.</li>
+ * <li>Mengklik event jadwal yang sudah ada ({@link #onEventEdit$calendars(ForwardEvent)}) membuka
+ * jendela ubah/hapus jadwal tersebut.</li>
+ * <li>Menggeser (drag) event pada kalender ({@link #onEventUpdate$calendars(ForwardEvent)})
+ * memperbarui waktu jadwal secara langsung.</li>
+ * <li>Navigasi kalender: {@link #onBack(Event)}/{@link #onNext(Event)} (geser satu minggu),
+ * {@link #onToday(ForwardEvent)}, {@link #onMoveDate(ForwardEvent)}, {@link #onSwitchTimeZone(ForwardEvent)},
+ * {@link #onUpdateFirstDayOfWeek(ForwardEvent)}, {@link #onUpdateView(ForwardEvent)}.</li>
+ * </ul>
+ * <p>
+ * {@link #doAfterCompose(Component)} memvalidasi sesi login (mengarahkan ke {@code /logoff} bila
+ * tidak valid atau tidak punya hak baca), mengonfigurasi tampilan kalender (format tanggal, jumlah
+ * slot waktu, jam mulai/selesai, dan zona waktu — semuanya dapat diatur lewat konfigurasi
+ * {@code penjadwalan_jam_mulai}/{@code penjadwalan_jam_selesai}/{@code penjadwalan_timezone}), dan
+ * menyiapkan combobox hari. {@link #onSave()} memvalidasi field wajib form tambah/ubah jadwal
+ * (shift, dokter, waktu mulai/selesai, hari, lokasi, poli) sebelum menyimpan.
+ * </p>
+ */
 public class CalendarJadwalLokasiComposer extends GenericForwardComposer {
 
 	private static final long serialVersionUID = 201011240904L;
@@ -81,6 +112,7 @@ public class CalendarJadwalLokasiComposer extends GenericForwardComposer {
 
 	private JadwalDokter jadwalDokter;
 
+	/** Menggeser tampilan kalender mundur satu minggu dan memuat ulang modelnya. */
 	public void onBack(Event event) {
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 		calendar.setTime(calendars.getCurrentDate());
@@ -91,6 +123,7 @@ public class CalendarJadwalLokasiComposer extends GenericForwardComposer {
 		calendars.invalidate();
 	}
 
+	/** Menggeser tampilan kalender maju satu minggu dan memuat ulang modelnya. */
 	public void onNext(Event event) {
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 		calendar.setTime(calendars.getCurrentDate());
@@ -359,11 +392,18 @@ public class CalendarJadwalLokasiComposer extends GenericForwardComposer {
 		cancel.setParent(toolbar);
 	}
 
+	/** Memuat ulang model kalender untuk lokasi yang sedang dipilih. */
 	public void onRefresh(Event event) {
 		initCalendarModel();
 		calendars.invalidate();
 	}
 
+	/**
+	 * Inisialisasi composer setelah komponen ZK ter-wiring: memvalidasi sesi login (redirect ke
+	 * {@code /logoff} bila tidak valid/tidak berhak baca), memasang listener refresh pada pemilihan
+	 * lokasi, dan mengonfigurasi tampilan kalender (format tanggal, slot waktu, jam mulai/selesai,
+	 * zona waktu sesuai konfigurasi aplikasi) serta combobox hari.
+	 */
 	@Override
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
@@ -445,6 +485,11 @@ public class CalendarJadwalLokasiComposer extends GenericForwardComposer {
 		CommonSirs.initCalendarModel(myLokasi, null, null, calendars);
 	}
 
+	/**
+	 * Handler saat pengguna menggambar rentang waktu kosong baru pada kalender (buat event): mensyaratkan
+	 * lokasi sudah dipilih, mencari {@link Shift} yang cocok dengan lokasi dan hari terpilih, lalu
+	 * membuka jendela tambah jadwal dengan field terisi awal sesuai rentang yang digambar.
+	 */
 	public void onEventCreate$calendars(ForwardEvent event) throws Exception {
 
 		Lokasi myLokasi = (Lokasi) lokasi.getAttribute("lokasi");
@@ -492,12 +537,14 @@ public class CalendarJadwalLokasiComposer extends GenericForwardComposer {
 		evt.stopClearGhost();
 	}
 
+	/** Menutup jendela tambah jadwal dan membersihkan "ghost" event sementara pada kalender. */
 	public void onClose$addWindow(ForwardEvent event) {
 		event.getOrigin().stopPropagation();
 		((CalendarsEvent) addWindow.getAttribute("calevent")).clearGhost();
 		addWindow.setVisible(false);
 	}
 
+	/** Tombol OK jendela tambah jadwal: memanggil {@link #onSave()}; bila berhasil, menutup jendela dan menyegarkan kalender setelah jeda singkat lewat {@link Timer}. */
 	public void onClick$okBtn$addWindow(ForwardEvent event) throws Exception {
 
 		if (onSave()) {
@@ -517,6 +564,7 @@ public class CalendarJadwalLokasiComposer extends GenericForwardComposer {
 
 	}
 
+	/** Tombol Batal (dipakai bersama oleh jendela tambah dan ubah): menutup kedua jendela dan membersihkan "ghost" event kalender terkait. */
 	public void onClick$cancelBtn$addWindow(ForwardEvent event) {
 		addWindow.setVisible(false);
 		try {
@@ -530,6 +578,12 @@ public class CalendarJadwalLokasiComposer extends GenericForwardComposer {
 		}
 	}
 
+	/**
+	 * Handler saat pengguna mengklik event jadwal yang sudah ada pada kalender: memuat
+	 * {@link JadwalDokter} berdasarkan id yang tersimpan di judul event kalender, mengisi jendela
+	 * ubah dengan data tersebut (waktu, warna indikator sesuai kombinasi header/content color
+	 * bawaan kalender), dan menampilkannya.
+	 */
 	public void onEventEdit$calendars(ForwardEvent event) throws Exception {
 
 		Lokasi myLokasi = (Lokasi) lokasi.getAttribute("lokasi");
@@ -603,11 +657,13 @@ public class CalendarJadwalLokasiComposer extends GenericForwardComposer {
 		editWindow.setAttribute("ce", ce);
 	}
 
+	/** Menutup jendela ubah jadwal. */
 	public void onClose$editWindow(ForwardEvent event) {
 		event.getOrigin().stopPropagation();
 		editWindow.setVisible(false);
 	}
 
+	/** Tombol OK jendela ubah jadwal: memanggil {@link #onSave()}; bila berhasil, menutup jendela dan menyegarkan kalender setelah jeda singkat. */
 	public void onClick$okBtn$editWindow(ForwardEvent event) throws Exception {
 		if (onSave()) {
 
@@ -627,6 +683,7 @@ public class CalendarJadwalLokasiComposer extends GenericForwardComposer {
 
 	}
 
+	/** Tombol Hapus jendela ubah jadwal: meminta konfirmasi, lalu menghapus {@link JadwalDokter} terkait, menutup jendela, dan menyegarkan kalender setelah jeda singkat. */
 	public void onClick$deleteBtn$editWindow(ForwardEvent event) {
 		try {
 			MyMessageboxConfig.show("Apakah Bapak/Ibu yakin ingin menghapus jadwal ini? Data jadwal yang telah dihapus tidak dapat dikembalikan.",
@@ -666,6 +723,7 @@ public class CalendarJadwalLokasiComposer extends GenericForwardComposer {
 		}
 	}
 
+	/** Handler saat pengguna menggeser (drag) event jadwal pada kalender: memperbarui waktu event pada model kalender agar tampilan tetap konsisten sebelum perubahan dipersistenkan. */
 	public void onEventUpdate$calendars(ForwardEvent event) {
 		CalendarsEvent evt = (CalendarsEvent) event.getOrigin();
 		org.zkoss.calendar.Calendars cal = (org.zkoss.calendar.Calendars) evt
@@ -677,6 +735,7 @@ public class CalendarJadwalLokasiComposer extends GenericForwardComposer {
 		m.update(sce);
 	}
 
+	/** Navigasi halaman kalender maju/mundur sesuai tombol panah yang diklik pada toolbar bawaan komponen kalender. */
 	public void onMoveDate(ForwardEvent event) {
 		if ("arrow-left".equals(event.getData()))
 			calendars.previousPage();
@@ -685,12 +744,14 @@ public class CalendarJadwalLokasiComposer extends GenericForwardComposer {
 
 	}
 
+	/** Mengatur tanggal aktif kalender ke hari ini. */
 	public void onToday(ForwardEvent event) {
 		calendars.setCurrentDate(Calendar.getInstance(TimeZone.getDefault())
 				.getTime());
 
 	}
 
+	/** Menggeser zona waktu aktif kalender ke zona waktu berikutnya pada daftar zona waktu terdaftar. */
 	@SuppressWarnings("rawtypes")
 	public void onSwitchTimeZone(ForwardEvent event) {
 		Map<?, ?> zone = calendars.getTimeZones();
@@ -703,12 +764,14 @@ public class CalendarJadwalLokasiComposer extends GenericForwardComposer {
 
 	}
 
+	/** Mengatur hari pertama minggu kalender sesuai pilihan pada listbox pengaturan tampilan. */
 	public void onUpdateFirstDayOfWeek(ForwardEvent event) {
 		Listbox listbox = (Listbox) event.getOrigin().getTarget();
 		calendars.setFirstDayOfWeek(listbox.getSelectedItem().getLabel());
 
 	}
 
+	/** Mengubah mode tampilan kalender (Day/5 Days/Week menjadi mold "default" dengan jumlah hari sesuai, atau mold "month" untuk tampilan bulanan). */
 	public void onUpdateView(ForwardEvent event) {
 		String text = String.valueOf(event.getData());
 		int days = "Day".equals(text) ? 1 : "5 Days".equals(text) ? 5 : "Week"
@@ -721,6 +784,14 @@ public class CalendarJadwalLokasiComposer extends GenericForwardComposer {
 			calendars.setMold("month");
 	}
 
+	/**
+	 * Memvalidasi dan menyimpan form tambah/ubah jadwal dokter (dipakai bersama oleh jendela tambah
+	 * dan ubah). Field wajib: shift, dokter (tenaga medis), waktu mulai, waktu selesai, hari,
+	 * lokasi, dan poli. Setiap pelanggaran validasi menampilkan pesan peringatan dan mengembalikan
+	 * {@code false} tanpa menyimpan.
+	 *
+	 * @return {@code true} bila jadwal berhasil disimpan
+	 */
 	public boolean onSave() throws Exception {
 
 		if (shift.getSelectedItem() == null) {
@@ -793,6 +864,7 @@ public class CalendarJadwalLokasiComposer extends GenericForwardComposer {
 		return true;
 	}
 
+	/** Alias untuk {@link #onRefresh(Event)} — memuat ulang model kalender. */
 	public void onSearchDefault(Event event) {
 		onRefresh(event);
 	}

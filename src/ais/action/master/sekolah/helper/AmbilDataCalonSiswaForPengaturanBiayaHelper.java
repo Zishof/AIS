@@ -48,6 +48,17 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper dialog pemilihan massal calon siswa ({@link CalonSiswa}) untuk ditautkan ke satu
+ * {@link PengaturanBiaya} (via {@link PengaturanBiayaPunyaSiswa}) modul sekolah. Menampilkan
+ * dialog pencarian dengan filter NIS/nama/yayasan/sekolah/tahun angkatan dan paginasi 50
+ * baris; combobox sekolah otomatis disaring ulang sesuai yayasan terpilih. Calon siswa yang
+ * sudah tertaut ke {@code pengaturanBiaya} ditampilkan tercentang dan checkbox-nya dikunci
+ * (tidak dapat dibatalkan lewat dialog ini). Baris terkunci yayasan/sekolah (bila
+ * {@code pengaturanBiaya} sudah memiliki nilai tetap untuk keduanya) tidak dapat diubah pengguna.
+ * Simpan hanya memproses baris yang tercentang DAN checkbox-nya tidak terkunci (mencegah
+ * duplikasi entri yang sudah ada).
+ */
 public class AmbilDataCalonSiswaForPengaturanBiayaHelper {
 
 	private PengaturanBiaya pengaturanBiaya;
@@ -62,6 +73,14 @@ public class AmbilDataCalonSiswaForPengaturanBiayaHelper {
 
 	private Paging paging;
 
+	/**
+	 * Membuat helper terikat ke {@code pengaturanBiaya}: menyiapkan combobox yayasan/sekolah (bila
+	 * pengaturan biaya sudah memiliki nilai tetap untuk salah satunya, combobox terkait dikunci dan
+	 * diprapilih; bila tidak, combobox sekolah otomatis diisi ulang mengikuti pilihan yayasan) serta
+	 * komponen paginasi 50 baris.
+	 *
+	 * @param pengaturanBiaya pengaturan biaya tujuan penautan calon siswa
+	 */
 	public AmbilDataCalonSiswaForPengaturanBiayaHelper(PengaturanBiaya pengaturanBiaya) {
 		this.pengaturanBiaya = pengaturanBiaya;
 		Yayasan yayasan = pengaturanBiaya.getYayasan();
@@ -116,6 +135,7 @@ public class AmbilDataCalonSiswaForPengaturanBiayaHelper {
 
 	}
 
+	/** Perender baris grid hasil pencarian: checkbox pilih (tercentang+terkunci bila sudah tertaut ke {@link #pengaturanBiaya}), NIS, nama, dan tahun masuk. */
 	class CalonSiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -142,6 +162,12 @@ public class AmbilDataCalonSiswaForPengaturanBiayaHelper {
 		}
 	}
 
+	/**
+	 * Menyimpan penautan {@link PengaturanBiayaPunyaSiswa} untuk setiap calon siswa pada baris grid
+	 * yang tercentang DAN checkbox-nya tidak terkunci (baris terkunci berarti sudah tertaut
+	 * sebelumnya, dilewati untuk mencegah duplikasi). Entri baru dicatat dengan {@code oleh} = user
+	 * id pengguna yang sedang login.
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() throws InterruptedException {
 		Session session = HibernateUtil.currentSession();
@@ -174,6 +200,14 @@ public class AmbilDataCalonSiswaForPengaturanBiayaHelper {
 
 	}
 
+	/**
+	 * Membangun dan menampilkan dialog modal pemilihan calon siswa: panel filter pencarian (bagian
+	 * utara, dapat diciutkan lewat {@link ais.ui.util.BanboxFilterToggle}) dan grid hasil dengan
+	 * checkbox pilih-semua di header. Tombol simpan memanggil {@link #save()} lalu memuat ulang
+	 * data pemanggil lewat {@code dataLoader} sebelum menutup dialog.
+	 *
+	 * @param dataLoader callback yang dipanggil untuk memuat ulang data layar pemanggil setelah simpan
+	 */
 	public void display(final DataLoader dataLoader) {
 
 		final MyWindow window = new MyWindow();
@@ -380,6 +414,12 @@ public class AmbilDataCalonSiswaForPengaturanBiayaHelper {
 		}
 	}
 
+	/**
+	 * Membangun kriteria pencarian calon siswa (wajib memiliki gelombang pendaftaran PSB terisi),
+	 * disaring berdasarkan hak akses orang tua (bila user login adalah orang tua, hanya anaknya
+	 * sendiri yang muncul), NIS/nama, tahun masuk, sekolah, dan yayasan sesuai filter aktif;
+	 * diurutkan berdasarkan tahun masuk terbaru lalu NIM bila {@code order}.
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(CalonSiswa.class).add(Restrictions.isNotNull("gelombangPendaftaranPsb"));
@@ -428,6 +468,7 @@ public class AmbilDataCalonSiswaForPengaturanBiayaHelper {
 		return criteria;
 	}
 
+	/** Menjalankan pencarian calon siswa sesuai filter aktif, memuat ulang paginasi, dan merender hasil ke grid lewat {@link CalonSiswaRenderer}. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

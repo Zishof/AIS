@@ -25,6 +25,13 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD (berbasis {@link GenericCrudAction}) untuk data master <b>Gudang</b> modul SIRS,
+ * mendukung struktur hierarkis lewat relasi {@code gudangInduk} (gudang induk, opsional). Validasi
+ * menolak kode/nama kosong atau kode yang sudah dipakai gudang lain
+ * ({@link #checkKodeGudang()}). Perubahan nama dicatat lewat mekanisme revisi standar pada
+ * tampilan grid.
+ */
 public class GudangAction extends GenericCrudAction<Gudang> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -38,15 +45,19 @@ public class GudangAction extends GenericCrudAction<Gudang> {
 
     // ======================== Abstract implementations ========================
 
+    /** Mengembalikan kelas entitas yang dikelola layar ini: {@link Gudang}. */
     @Override
     protected Class<Gudang> getEntityClass() { return Gudang.class; }
 
+    /** Membuat instance {@link Gudang} kosong untuk form tambah data baru. */
     @Override
     protected Gudang createNewEntity() { return new Gudang(); }
 
+    /** Mengembalikan judul jendela form: {@code "Pendataan Gudang"}. */
     @Override
     protected String getWindowTitle() { return "Pendataan Gudang"; }
 
+    /** Membangun kriteria pencarian gudang, diurutkan berdasarkan nama, disaring berdasarkan kecocokan sebagian nama pada kotak pencarian bila diisi. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -58,6 +69,7 @@ public class GudangAction extends GenericCrudAction<Gudang> {
         return criteria;
     }
 
+    /** Membuat perender baris grid pencarian gudang: {@link GudangRenderer}. */
     @Override
     protected MyRowRenderer createRenderer() {
         return new GudangRenderer();
@@ -65,6 +77,7 @@ public class GudangAction extends GenericCrudAction<Gudang> {
 
     // ======================== Form content ========================
 
+    /** Membangun tata letak form tambah/edit gudang (kode, nama, pilihan gudang induk, alamat, keterangan) dengan toolbar simpan/batal di dalam {@code window}. */
     @Override
     protected void buildFormContent(MyWindow window, final Gudang gudang) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -153,6 +166,13 @@ public class GudangAction extends GenericCrudAction<Gudang> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi (kode wajib, nama wajib, kode belum dipakai gudang lain) dan
+     * menyimpan/memperbarui data gudang, termasuk relasi gudang induk, dari isian form saat ini.
+     *
+     * @param event event pemicu tombol simpan
+     * @return {@code true} bila validasi lolos dan data tersimpan; {@code false} bila validasi gagal
+     */
     public boolean onSave(Event event) throws Exception {
         if (kode.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Kode Gudang wajib diisi terlebih dahulu. Langkah yang dapat dilakukan: (1) isikan Kode Gudang pada kolom yang tersedia; (2) pastikan kolom tidak dikosongkan; (3) simpan kembali data setelah kode terisi.", "Peringatan",
@@ -184,6 +204,7 @@ public class GudangAction extends GenericCrudAction<Gudang> {
         return true;
     }
 
+    /** Memeriksa apakah kode pada form sudah dipakai gudang lain (mengecualikan record yang sedang diedit sendiri). */
     public Boolean checkKodeGudang() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(Gudang.class)
@@ -198,6 +219,7 @@ public class GudangAction extends GenericCrudAction<Gudang> {
 
     // ======================== Renderer ========================
 
+    /** Perender baris grid pencarian gudang: menampilkan kode, nama (dengan tautan riwayat revisi), gudang induk, alamat, keterangan, dan tombol ubah/hapus. */
     class GudangRenderer extends MyRowRenderer {
 
         @Override

@@ -25,6 +25,13 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD master data Kelas Item (kelas/kategori kamar-item pada modul SIRS, mis. kelas rawat
+ * inap). Memperluas {@link GenericCrudAction} untuk mewarisi kerangka baku cari/tambah/ubah/hapus;
+ * kelas ini hanya mengisi bagian spesifik entitas: kriteria pencarian berdasarkan nama, form input
+ * (nama + keterangan), validasi nama tidak boleh kosong dan tidak boleh duplikat
+ * ({@link #checkNamaKelasItem()}), serta renderer baris grid.
+ */
 public class KelasItemAction extends GenericCrudAction<KelasItem> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -44,6 +51,7 @@ public class KelasItemAction extends GenericCrudAction<KelasItem> {
     @Override
     protected String getWindowTitle() { return "Pendataan Kelas"; }
 
+    /** Menyusun kriteria pencarian {@link KelasItem} berdasarkan nama (filter {@code searchnama}), diurutkan berdasarkan nama bila diminta. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -55,6 +63,7 @@ public class KelasItemAction extends GenericCrudAction<KelasItem> {
         return criteria;
     }
 
+    /** Menyediakan renderer baris grid {@link KelasItemRenderer} untuk daftar hasil pencarian. */
     @Override
     protected MyRowRenderer createRenderer() {
         return new KelasItemRenderer();
@@ -62,6 +71,7 @@ public class KelasItemAction extends GenericCrudAction<KelasItem> {
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/ubah kelas item (field nama + keterangan) beserta tombol batal/simpan pada jendela dialog. */
     @Override
     protected void buildFormContent(MyWindow window, final KelasItem kelasItem) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -133,6 +143,15 @@ public class KelasItemAction extends GenericCrudAction<KelasItem> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi lalu menyimpan data kelas item dari form: menolak bila nama kosong atau sudah
+     * terdaftar pada baris lain, jika lolos menyimpan/memperbarui entitas dan mengembalikan
+     * {@code true}.
+     *
+     * @param event event ZK pemicu penyimpanan (tombol simpan)
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal
+     * @throws Exception diteruskan apa adanya dari kegagalan Hibernate saat menyimpan
+     */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Nama Kelas Item wajib diisi terlebih dahulu. Langkah yang dapat dilakukan: (1) isikan Nama Kelas Item pada kolom yang tersedia; (2) pastikan kolom tidak dikosongkan; (3) simpan kembali data setelah kolom terisi.", "Peringatan",
@@ -156,6 +175,12 @@ public class KelasItemAction extends GenericCrudAction<KelasItem> {
         return true;
     }
 
+    /**
+     * Memeriksa apakah nama kelas item yang diisi di form sudah dipakai baris lain (mengecualikan
+     * baris yang sedang diedit sendiri).
+     *
+     * @return {@code true} bila nama sudah terpakai baris lain, {@code false} bila belum
+     */
     public Boolean checkNamaKelasItem() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(KelasItem.class)
@@ -170,6 +195,7 @@ public class KelasItemAction extends GenericCrudAction<KelasItem> {
 
     // ======================== Renderer ========================
 
+    /** Renderer baris grid daftar kelas item: kolom nama (dengan link riwayat revisi), keterangan, dan tombol edit/hapus. */
     class KelasItemRenderer extends MyRowRenderer {
 
         @Override

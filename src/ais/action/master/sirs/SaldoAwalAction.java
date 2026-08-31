@@ -46,6 +46,23 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.UIUtil;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD modul SIRS (rumah sakit) untuk {@link SaldoAwalMedis} (saldo awal stok obat/alat medis
+ * per {@link Lokasi}), dibangun di atas kerangka generik {@link GenericCrudAction}. Kode saldo awal
+ * dibuat otomatis lewat {@link Common#generateCode} berbasis lokasi terpilih; rincian item saldo
+ * awal dikelola terpisah lewat {@link SaldoAwalDetailAction} (ditampilkan lazy per baris grid).
+ *
+ * <p>
+ * Alur persetujuan dua arah: {@code btnApprove} memvalidasi kelengkapan rincian (harga, tanggal
+ * kadaluarsa, satuan, dan jumlah item wajib terisi wajar) sebelum mengizinkan persetujuan, lalu
+ * "meledakkan" (materialize) setiap {@link SaldoAwalMedisDetail} menjadi satu baris {@link Kadaluarsa}
+ * (stok kadaluarsa awal) dan satu baris {@link DetailTransaksiPasien} (transaksi saldo awal) —
+ * baris lama pada kedua tabel tersebut dihapus lebih dulu via SQL native untuk mencegah duplikasi
+ * bila disetujui ulang. {@code btnReject} membatalkan persetujuan dan menghapus balik seluruh baris
+ * {@link Kadaluarsa}/{@link DetailTransaksiPasien} turunan tersebut. Data yang sudah disetujui tidak
+ * bisa diubah/dihapus lagi lewat tombol ubah/hapus biasa.
+ * </p>
+ */
 public class SaldoAwalAction extends GenericCrudAction<SaldoAwalMedis> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -69,15 +86,19 @@ public class SaldoAwalAction extends GenericCrudAction<SaldoAwalMedis> {
 
     // ======================== Abstract implementations ========================
 
+    /** @return kelas entitas yang dikelola layar ini, {@link SaldoAwalMedis}. */
     @Override
     protected Class<SaldoAwalMedis> getEntityClass() { return SaldoAwalMedis.class; }
 
+    /** @return instance {@link SaldoAwalMedis} kosong untuk form tambah baru. */
     @Override
     protected SaldoAwalMedis createNewEntity() { return new SaldoAwalMedis(); }
 
+    /** @return judul jendela form tambah/ubah. */
     @Override
     protected String getWindowTitle() { return "Pendataan Saldo Awal"; }
 
+    /** Inisialisasi layar: memuat combo lokasi pencarian (dikunci ke lokasi user saat ini bila ada), dan menentukan privilese APPROVE/REJECT tambahan di luar privilese dasar dari {@link GenericCrudAction}. */
     @Override
     public void doAfterCompose(Component comp) throws Exception {
         super.doAfterCompose(comp);
@@ -90,6 +111,7 @@ public class SaldoAwalAction extends GenericCrudAction<SaldoAwalMedis> {
         reject = CommonPrivilages.checkPrevilages(CommonPrivilages.REJECT);
     }
 
+    /** Membentuk criteria pencarian {@link SaldoAwalMedis} berdasarkan filter lokasi dan kode (ILIKE), diurut id menurun bila {@code order} true. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -104,6 +126,7 @@ public class SaldoAwalAction extends GenericCrudAction<SaldoAwalMedis> {
         return criteria;
     }
 
+    /** @return renderer baris grid untuk {@link SaldoAwalMedis} ({@link SaldoAwalRenderer}). */
     @Override
     protected MyRowRenderer createRenderer() {
         return new SaldoAwalRenderer();
@@ -111,6 +134,7 @@ public class SaldoAwalAction extends GenericCrudAction<SaldoAwalMedis> {
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/ubah {@link SaldoAwalMedis}: kode (readonly, auto-generate saat lokasi dipilih), tanggal pembuatan, lokasi, dan keterangan, plus toolbar Batal/Simpan. */
     @Override
     protected void buildFormContent(MyWindow window, final SaldoAwalMedis saldoAwal) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -212,6 +236,14 @@ public class SaldoAwalAction extends GenericCrudAction<SaldoAwalMedis> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi (kode dan lokasi wajib terisi) dan menyimpan {@link SaldoAwalMedis}. Untuk entitas
+     * baru, indeks urut per lokasi ({@link Common#generateMaxByLokasi}) dan kode final di-generate
+     * ulang tepat sebelum simpan (memastikan keunikan meski kode sudah tampil di form sejak lokasi
+     * dipilih).
+     *
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal
+     */
     public boolean onSave(Event event) throws Exception {
         if (kode.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show(
@@ -251,6 +283,12 @@ public class SaldoAwalAction extends GenericCrudAction<SaldoAwalMedis> {
 
     // ======================== Renderer ========================
 
+    /**
+     * Renderer baris grid {@link SaldoAwalMedis}: kode (dengan detail rincian item ter-embed via
+     * {@link SaldoAwalDetailAction}), lokasi, pembuat, tanggal pembuatan, status persetujuan
+     * (penyetuju + tanggal), keterangan, dan tombol aksi (cetak PDF, setujui, batalkan persetujuan,
+     * ubah, hapus) yang visibilitasnya bergantung pada privilese dan status persetujuan saat ini.
+     */
     class SaldoAwalRenderer extends MyRowRenderer {
 
         @Override

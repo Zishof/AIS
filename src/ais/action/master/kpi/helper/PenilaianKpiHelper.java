@@ -55,6 +55,25 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper UI ZK modul KPI (Key Performance Indicator) kepegawaian yang menampilkan dan mengelola
+ * daftar {@link PenilaianKpi} pegawai dalam satu {@link PengajuanKpi} (pengajuan KPI, mis. per
+ * tahun akademik). Dipakai baik dalam mode pengisian/pengajuan maupun mode persetujuan
+ * (parameter {@code persetujuan} mengendalikan tampilan read-only vs editable serta
+ * visibilitas tombol hapus).
+ *
+ * <p>
+ * Tombol "Ambil Data Pegawai" (hanya untuk pengguna non-pegawai, mis. admin/HR) membuka dialog
+ * pemilih pegawai dari satuan kerja terpilih; setiap pegawai divalidasi harus sudah memiliki
+ * {@code FormatKpiDetail} sebelum diproses, lalu baris {@link PenilaianKpi} dibuat/diambil per
+ * pegawai dan id-nya digabung ke kolom CSV {@code pengajuanKpi.getPenilaianKpis()} — pemrosesan
+ * massal ini dijalankan di thread terpisah dengan progress bar. Bagi pengguna yang login sebagai
+ * pegawai sendiri (bukan admin), baris penilaian dirinya dibuat/diambil otomatis tanpa dialog
+ * pemilih. Menghapus baris tidak menghapus entitas {@link PenilaianKpi} itu sendiri, melainkan
+ * hanya melepas tautannya dari {@code pengajuanKpi} (soft-detach). Pencarian mendukung filter
+ * kode dan nama pegawai.
+ * </p>
+ */
 public class PenilaianKpiHelper {
 
 	private PengajuanKpi pengajuanKpi;
@@ -62,6 +81,7 @@ public class PenilaianKpiHelper {
 	private MyGrid grid;
 	private boolean persetujuan = false;
 
+	/** Membangun helper terikat pada {@code grid}, dengan {@code persetujuan} menentukan mode tampilan (read-only vs editable). */
 	public PenilaianKpiHelper(MyGrid grid, boolean persetujuan) {
 		super();
 		this.grid = grid;
@@ -71,6 +91,14 @@ public class PenilaianKpiHelper {
 	private Date sekarang = WaktuUtil.getDate();
 	@SuppressWarnings("rawtypes")
 	Collection pangkats = ConstantValues.ambilBerdasarClass(KenaikanPangkat.class).values();
+	/**
+	 * Mengisi {@code row} dengan foto, nama pegawai (tautan riwayat revisi) beserta kode,
+	 * jabatan fungsional/struktural/umum saat ini, ringkasan masa kerja (pengalaman kerja,
+	 * honorer, semi tetap, tetap — hanya bagian yang relevan ditampilkan), nilai dan persentase
+	 * KPI, kolom keterangan (editable saat bukan mode persetujuan, disimpan langsung ke database
+	 * saat berubah), serta tombol Lihat (membuka form nilai KPI detail) dan Hapus (melepas
+	 * tautan dari pengajuan, bukan menghapus data penilaian).
+	 */
 	public void initRow(final Row row, final PenilaianKpi penilaianKpi) throws Exception {
 		final Pegawai pegawai = penilaianKpi.getPegawai();
 		row.setValign("top");
@@ -228,6 +256,7 @@ public class PenilaianKpiHelper {
 	private MyTextbox kode;
 	private MyTextbox nama;
 
+	/** Membangun kriteria pencarian daftar penilaian KPI milik {@link #pengajuanKpi} saat ini, difilter berdasarkan kode dan/atau nama pegawai bila diisi. */
 	private Criteria initCriteria(boolean order) {
 
 		Criterion critKode = Restrictions.sqlRestriction("false");
@@ -262,6 +291,7 @@ public class PenilaianKpiHelper {
 
 	private List<PenilaianKpi> penilaianKpisData = new ArrayList<PenilaianKpi>();
 
+	/** Memuat ulang daftar penilaian KPI (dari database bila pengajuan sudah tersimpan, atau dari data di memori bila belum) sesuai kriteria dan paging saat ini, merender ke grid. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Event event) {
 		Common.initPaging(initCriteria(false), paging);
@@ -287,6 +317,17 @@ public class PenilaianKpiHelper {
 
 	}
 
+	/**
+	 * Membangun dan menampilkan panel "Daftar Pegawai" untuk {@code pengajuanKpi}: toolbar
+	 * pengambilan data pegawai (bila belum disetujui dan pengguna bukan pegawai sendiri),
+	 * pencarian kode/nama, dan grid berpaginasi. Bagi pengguna pegawai sendiri (dan pengajuan
+	 * belum tersimpan), baris penilaian dirinya sendiri dibuat/diambil otomatis.
+	 *
+	 * @param pengajuanKpi              pengajuan KPI yang menjadi konteks daftar penilaian
+	 * @param ta                        combobox tahun akademik, sumber filter saat mengambil data pegawai baru
+	 * @param ambilDataSatuanKerjaBanbox komponen pemilih satuan kerja, sumber filter saat mengambil data pegawai baru
+	 * @return groupbox siap disisipkan sebagai konten form pengajuan KPI
+	 */
 	public Groupbox display(final PengajuanKpi pengajuanKpi, final Combobox ta,
 			final AmbilDataSatuanKerjaBanbox ambilDataSatuanKerjaBanbox) {
 		this.pengajuanKpi = pengajuanKpi;

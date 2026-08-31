@@ -21,30 +21,49 @@ import ais.database.model.sirs.Pasien;
 import ais.database.model.sirs.TarifKhususPunyaItem;
 import ais.database.model.sirs.ItemMedis;
 
+/**
+ * Utilitas resolusi harga jual dan komponen biaya untuk item medis SIRS (rumah sakit), termasuk
+ * dukungan tarif khusus (kontrak dokter/asuransi/komunitas/pasien tertentu, lihat
+ * {@link CommonTarif#getTarif}). Bila belum ada {@link HargaJualItem} untuk kombinasi item/kelas
+ * perawatan/tarif khusus yang diminta, method-method di sini akan membuatnya secara otomatis
+ * (lazy-create) — untuk tarif khusus, harga awal disalin dari harga jual reguler item tersebut.
+ */
 public class CommonTarifItem {
 
+	/** Seperti {@link #getHargaJualItem(ItemMedis, KelasPerawatan, TarifKhususPunyaItem)}, tanpa tarif khusus (harga jual reguler). */
 	public static HargaJualItem getHargaJualItem(ItemMedis item, KelasPerawatan kelasPerawatan) {
 		TarifKhususPunyaItem tarifKhususPunyaItem = null;
 		return getHargaJualItem(item, kelasPerawatan, tarifKhususPunyaItem);
 	}
 
+	/** Menentukan {@link TarifKhususPunyaItem} yang berlaku (via {@link #getTarifKhususPunyaItem}) untuk kombinasi dokter/asuransi/komunitas/pasien, lalu mengambil {@link HargaJualItem} sesuai tarif tersebut. */
 	public static HargaJualItem getHargaJualItem(ItemMedis item, KelasPerawatan kelasPerawatan, Dokter dokter,
 			Asuransi asuransi, Set<Komunitas> komunitas, Pasien pasien) {
 		TarifKhususPunyaItem tarifKhususPunyaItem = getTarifKhususPunyaItem(item, dokter, asuransi, komunitas, pasien);
 		return getHargaJualItem(item, kelasPerawatan, tarifKhususPunyaItem);
 	}
 
+	/** Seperti {@link #getHargaJualItem(ItemMedis, KelasPerawatan, TarifKhususPunyaItem)}, mengambil item dari {@code tarifKhususPunyaItem} itu sendiri. */
 	public static HargaJualItem getHargaJualItem(TarifKhususPunyaItem tarifKhususPunyaItem,
 			KelasPerawatan kelasPerawatan) {
 		return getHargaJualItem(tarifKhususPunyaItem.getItem(), kelasPerawatan, tarifKhususPunyaItem);
 	}
 
+	/** Mencari {@link TarifKhususPunyaItem} yang berlaku untuk {@code item} pada kombinasi dokter/asuransi/komunitas/pasien tertentu, lewat resolusi tarif umum {@link CommonTarif#getTarif}. */
 	public static TarifKhususPunyaItem getTarifKhususPunyaItem(ItemMedis item, Dokter dokter, Asuransi asuransi,
 			Set<Komunitas> komunitas, Pasien pasien) {
 		return (TarifKhususPunyaItem) CommonTarif.getTarif(TarifKhususPunyaItem.class, Restrictions.eq("item", item),
 				dokter, asuransi, komunitas, pasien);
 	}
 
+	/**
+	 * Mengambil {@link HargaJualItem} untuk kombinasi {@code item}/{@code kelasPerawatan}/
+	 * {@code tarifKhususPunyaItem}. Bila {@code tarifKhususPunyaItem} diisi dan belum ada baris
+	 * harga untuknya, satu baris baru dibuat dengan harga awal disalin dari harga jual reguler
+	 * item tersebut pada kelas perawatan yang sama (atau 0 bila belum ada harga reguler). Bila
+	 * {@code tarifKhususPunyaItem} {@code null} dan belum ada baris harga reguler, satu baris baru
+	 * dibuat dengan harga awal 0. Baris baru langsung dipersist ke sesi Hibernate saat ini.
+	 */
 	public static HargaJualItem getHargaJualItem(ItemMedis item, KelasPerawatan kelasPerawatan,
 			TarifKhususPunyaItem tarifKhususPunyaItem) {
 
@@ -88,6 +107,7 @@ public class CommonTarifItem {
 		return b;
 	}
 
+	/** Seperti {@link #getHargaJualItem(ItemMedis, KelasPerawatan, TarifKhususPunyaItem)}, memakai {@code session} yang diberikan pemanggil dan membungkus penyimpanan baris baru dalam transaksi eksplisit sendiri. */
 	public static HargaJualItem getHargaJualItem(ItemMedis item, KelasPerawatan kelasPerawatan,
 			TarifKhususPunyaItem tarifKhususPunyaItem, Session session) {
 		HargaJualItem b;
@@ -129,6 +149,13 @@ public class CommonTarifItem {
 		return b;
 	}
 
+	/**
+	 * Mengambil daftar {@link JenisBiaya} (bertipe {@link JenisBiaya#TIPE_ITEM}) yang benar-benar
+	 * dipakai pada baris {@link Biaya} master (belum terpakai di transaksi layanan/detail
+	 * transaksi apa pun) untuk kombinasi item/tarif khusus yang diberikan. Bila tidak ditemukan
+	 * jenis biaya spesifik (item belum punya baris biaya sama sekali), method jatuh kembali ke
+	 * seluruh jenis biaya default aktif bertipe item, terurut nama.
+	 */
 	@SuppressWarnings("unchecked")
 	public static List<JenisBiaya> getJenisBiayas(ItemMedis item, TarifKhususPunyaItem tarifKhususPunyaItem) {
 		Session session = HibernateUtil.currentSession();
@@ -159,6 +186,7 @@ public class CommonTarifItem {
 		return tempJenisBiayas;
 	}
 
+	/** Mengambil baris {@link Biaya} master (belum terpakai transaksi) untuk kombinasi item/tarif khusus dan satu {@code jenisBiaya} tertentu — dipakai setelah {@link #getJenisBiayas} untuk merinci komponen biaya per jenis. */
 	@SuppressWarnings("unchecked")
 	public static List<Biaya> getBiayaPerJenis(ItemMedis item, TarifKhususPunyaItem tarifKhususPunyaItem,
 			JenisBiaya jenisBiaya) {

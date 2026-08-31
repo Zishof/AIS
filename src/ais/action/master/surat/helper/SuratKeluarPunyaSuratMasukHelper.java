@@ -39,17 +39,47 @@ import ais.ui.util.MyLabelBoldAja;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper UI ZK modul persuratan untuk mengaitkan {@link SuratMasuk} rujukan (lampiran) ke satu
+ * {@link SuratKeluar}. Berbeda dari kebanyakan helper "punya" lainnya yang memakai tabel relasi
+ * terpisah, relasi ini disimpan sebagai daftar id surat masuk berformat CSV pada kolom tunggal
+ * {@code suratKeluar.getSuratMasuks()}. Dipasang pada panel detail satu surat keluar, menampilkan
+ * daftar surat masuk terkait sebagai grid dengan ringkasan status alur persetujuan, opsi, dan
+ * lampiran gambar tiap surat masuk.
+ *
+ * <p>
+ * Tombol "Tambah Lampiran" membuka dialog {@code AmbilDataSuratMasukBanyak} (pemilih surat masuk
+ * multi-pilih, disaring per {@code tipe}) dan menambahkan id surat masuk yang dipilih ke string
+ * CSV {@code suratMasuks}. Setiap baris menampilkan riwayat status alur persetujuan surat masuk
+ * (disusun sebagai daftar HTML {@code <li>}, membedakan alur berbasis jenis jabatan vs jabatan
+ * spesifik, serta status "sudah ditindaklanjuti"/"ditolak"/"belum ditindaklanjuti" dengan warna
+ * berbeda), daftar opsi surat masuk terpilih, dan tombol unduh untuk tiap lampiran gambar surat
+ * masuk (mengarahkan ke Google Drive atau menyajikan unduhan langsung sesuai tempat penyimpanan).
+ * Tombol hapus per baris meminta konfirmasi lalu menghapus id surat masuk tersebut dari string
+ * CSV {@code suratMasuks} (bukan menghapus data {@link SuratMasuk} itu sendiri).
+ * </p>
+ */
 public class SuratKeluarPunyaSuratMasukHelper {
 
 	private MyGrid gridPengarang;
 	private boolean delete = false;
 	private SuratKeluar suratKeluar;
 
+	/** Membangun helper terikat pada {@code gridPengarang} dan menghitung hak hapus pengguna saat ini. */
 	public SuratKeluarPunyaSuratMasukHelper(MyGrid gridPengarang) {
 		this.gridPengarang = gridPengarang;
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun panel (border layout) berisi toolbar "Tambah Lampiran" dan grid daftar surat
+	 * masuk terkait untuk {@code suratKeluar}, lalu memuat data surat masuk yang sudah terkait.
+	 *
+	 * @param suratKeluar surat keluar yang detail rujukan surat masuknya ditampilkan/dikelola
+	 * @param tampilEdit  bila {@code true}, toolbar tambah ditampilkan; bila {@code false}, hanya grid (mode lihat saja)
+	 * @param tipe        tipe surat masuk yang menjadi filter pada dialog pemilih surat masuk
+	 * @return border layout siap disisipkan sebagai konten panel detail
+	 */
 	public Borderlayout initDetail(final SuratKeluar suratKeluar, boolean tampilEdit, final String tipe)
 			throws Exception {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -140,6 +170,7 @@ public class SuratKeluarPunyaSuratMasukHelper {
 		return borderlayout;
 	}
 
+	/** Memuat baris-baris {@link SuratMasuk} yang id-nya tercantum pada CSV {@code suratKeluar.getSuratMasuks()} dan merendernya ke grid. */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(SuratKeluar suratKeluar) throws Exception {
 
@@ -172,6 +203,13 @@ public class SuratKeluarPunyaSuratMasukHelper {
 		StreamingHibernateUtil.getInstance().closeSession();
 	}
 
+	/**
+	 * Mengisi {@code rowUtamaLagi} dengan ringkasan {@code suratMasuk} (nama, tanggal,
+	 * klasifikasi, kode, perihal, catatan revisi/penolakan bila ada), daftar riwayat status alur
+	 * persetujuan dan opsi terpilih, tombol unduh untuk tiap lampiran gambar surat masuk, dan
+	 * tombol hapus (bila pengguna berhak) yang meminta konfirmasi sebelum melepas id surat masuk
+	 * ini dari CSV {@code suratKeluar.getSuratMasuks()}.
+	 */
 	@SuppressWarnings("unchecked")
 	public void initRow(final Row rowUtamaLagi, final SuratMasuk suratMasuk) throws Exception {
 		rowUtamaLagi.setValign("top");

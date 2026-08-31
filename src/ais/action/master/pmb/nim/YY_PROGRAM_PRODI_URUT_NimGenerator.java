@@ -10,14 +10,35 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.Program;
 
+/**
+ * Algoritma penomoran NIM dengan pola {@code YY-PROGRAM-PRODI-URUT}: NIM disusun dari
+ * {@code 2 digit tahun masuk + kode numerik program (jenjang/kelas kuliah) + kode program studi +
+ * nomor urut} yang panjangnya dapat dikonfigurasi lewat {@code jumlah_digit_gen_nim_mahasiswa}
+ * (default 4 digit). Pembangkitan nomor urut dan pengecekan pemakaian didelegasikan ke
+ * {@link NimGeneratorSupport}, sehingga logika ini dapat dipakai ulang oleh generator lain yang
+ * formatnya serupa.
+ */
 public class YY_PROGRAM_PRODI_URUT_NimGenerator implements NimGenerator {
 
+	/** Seperti {@link #generateNim(BiodataCalonMahasiswa, List)}, tanpa daftar pengecualian awal. */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa) {
 		return generateNim(calonMahasiswa, new ArrayList<String>());
 	}
 
-	// generate NIM
+	/**
+	 * Membangkitkan NIM: menyusun prefix dari 2 digit tahun masuk, kode numerik
+	 * {@link Program program kuliah} calon mahasiswa (dicari dari {@link Common#programs}, diisi
+	 * {@code "_"} bila tidak ditemukan), dan kode program studi lulus, lalu menyisipkan nomor urut
+	 * berikutnya (dihitung via {@link NimGeneratorSupport#nomorUrutBerikutnya}, memperhitungkan
+	 * kandidat yang sudah bentrok di {@code jumlahPengecualian}). Bila NIM hasil ternyata sudah
+	 * dipakai (dicek via {@link NimGeneratorSupport#nimSudahDipakai}), nomor tersebut ditambahkan
+	 * ke {@code jumlahPengecualian} dan method memanggil dirinya sendiri secara rekursif.
+	 * Mengembalikan {@code "-"} bila calon mahasiswa belum punya program studi lulus.
+	 *
+	 * @param jumlahPengecualian NIM kandidat yang sudah terbukti bentrok pada percobaan sebelumnya
+	 * @return NIM yang belum dipakai mahasiswa manapun, atau {@code "-"} bila prodi lulus belum ditentukan
+	 */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa, List<String> jumlahPengecualian) {
 

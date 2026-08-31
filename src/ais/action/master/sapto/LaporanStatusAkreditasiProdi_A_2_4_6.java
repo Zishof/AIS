@@ -19,25 +19,45 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Jurusan;
 import ais.ui.util.DataCriteria;
 
+/**
+ * Jendela laporan borang akreditasi BAN-PT SAPTO butir <b>A-2.4.6</b>: tabel silang jumlah
+ * program studi (baris = status akreditasi: A, B, C, kedaluwarsa, belum terakreditasi; kolom =
+ * jenjang pendidikan S3 s.d. D1) — dibangun via satu query {@code UNION ALL} atas tabel
+ * {@code jurusan}/{@code jenjang} yang mengagregasi lima kondisi status akreditasi sekaligus. Sel
+ * tabel dapat diklik untuk menampilkan/mengunduh rincian daftar program studi yang membentuk
+ * angka tersebut (difilter sesuai jenjang/status akreditasi baris-kolom yang diklik) lewat
+ * {@link Common#cetakData}. Jendela ini tidak memiliki filter tambahan (tanpa filter fakultas/
+ * jurusan/tahun akademik).
+ */
 public class LaporanStatusAkreditasiProdi_A_2_4_6 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-2.4.6";
     private static final long serialVersionUID = 3331244819198611604L;
 
+    /** Konstruktor default: langsung membangun kerangka jendela laporan tanpa filter. */
     public LaporanStatusAkreditasiProdi_A_2_4_6() {
         super();
         try { buildBase(true, false); } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Seperti konstruktor default, dengan judul/border/closable jendela yang dapat disesuaikan. */
     public LaporanStatusAkreditasiProdi_A_2_4_6(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         buildBase(true, false);
     }
 
+    /** Kode butir borang yang dipetakan ke jendela ini: {@value #sheetCode}. */
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Tidak ada kontrol filter tambahan untuk laporan ini. */
     @Override protected void buildFilters(Row row) { /* no filters */ }
 
+    /**
+     * Menyusun tabel silang laporan A-2.4.6 lewat satu query SQL {@code UNION ALL} yang
+     * mengagregasi jumlah program studi per jenjang untuk lima kategori status akreditasi
+     * sekaligus, dijalankan di thread terpisah agar UI tidak terblokir. Menyiapkan juga listener
+     * klik sel yang membuka rincian daftar program studi sesuai baris/kolom yang diklik.
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

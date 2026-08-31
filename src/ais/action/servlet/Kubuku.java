@@ -21,13 +21,47 @@ import ais.database.model.sisdes.Penduduk;
 import ais.database.model.Konfigurasi;
 import ais.database.model.Mahasiswa;
 
+/**
+ * Servlet endpoint SSO (Single Sign-On) untuk integrasi pihak ketiga "Kubuku" (layanan
+ * perpustakaan digital): memvalidasi kredensial {@code app_id}/{@code app_key} milik Kubuku,
+ * lalu mengautentikasi pengguna akhir ({@code user id}/{@code password}) terhadap database lokal
+ * dan mengembalikan profil ringkas dalam JSON agar Kubuku dapat login-kan pengguna tanpa
+ * password terpisah.
+ *
+ * <p>
+ * Hanya method {@link #doPost} yang diterima; {@link #doGet} selalu menolak dengan HTTP 405.
+ * Pencarian pengguna berjenjang dan berhenti pada kecocokan pertama: {@link Mahasiswa} →
+ * {@link Siswa} → {@link Tbmuser} (dosen/pegawai/admin, diperkaya dari relasi Dosen/Pegawai bila
+ * ada) → {@link Penduduk}, masing-masing dicocokkan berdasarkan identitas (NIM/nomor induk/user
+ * id/kode) dan password yang sudah dienkripsi dengan skema enkripsi sistem
+ * ({@code Common#desEncrypter}) — bukan hash satu-arah, karena nilai terenkripsi dibandingkan
+ * langsung terhadap kolom password tersimpan.
+ * </p>
+ *
+ * <p>
+ * <b>Catatan keamanan (dilaporkan, tidak diperbaiki sesuai instruksi tugas):</b> kredensial
+ * integrasi ({@code app_id}/{@code app_key}) memiliki nilai default fallback tertanam di kode —
+ * {@code "app_sso_kubuku"} dan {@code "iniKunciSSOkubuku"} — pada pemanggilan
+ * {@code Common.getKonfigurasi(key, default)}. Bila konfigurasi database belum diisi ulang,
+ * nilai default ini berlaku sebagai kredensial otorisasi endpoint SSO dan sudah ter-commit ke
+ * source control; perlu ditinjau/dirotasi oleh pemilik integrasi.
+ * </p>
+ */
 public class Kubuku extends HttpServlet {
     private static final long serialVersionUID = 1L;
 
+    /** Konstruktor baku servlet, tanpa inisialisasi tambahan. */
     public Kubuku() {
         super();
     }
 
+    /**
+     * Menangani permintaan SSO dari Kubuku: memvalidasi {@code app_id}/{@code app_key}, lalu
+     * mengautentikasi pengguna berjenjang (Mahasiswa/Siswa/Tbmuser/Penduduk) berdasarkan
+     * identitas dan password terenkripsi, dan menulis hasil sebagai JSON (status 200 beserta
+     * profil ringkas bila berhasil; 500 bila app_id/app_key tidak valid atau terjadi galat
+     * internal; 404 bila pengguna tidak ditemukan/tidak aktif).
+     */
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -193,6 +227,7 @@ public class Kubuku extends HttpServlet {
         out.flush();
     }
 
+    /** Selalu menolak permintaan GET dengan HTTP 405 — endpoint SSO ini hanya menerima POST. */
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {

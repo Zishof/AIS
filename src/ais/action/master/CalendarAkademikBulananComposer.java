@@ -45,6 +45,21 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Composer ZK ({@link GenericForwardComposer}) untuk layar Kalender Akademik: menampilkan seluruh
+ * kegiatan {@link KalenderAkademik} (hari libur, jadwal ujian, kegiatan akademik lain) dalam
+ * tampilan kalender {@link Calendars}, difilter fakultas, jurusan, tahun ajaran, dan semester
+ * ganjil/genap. Filter fakultas/jurusan otomatis dikunci ({@code setDisabled(true)}) bila
+ * pengguna yang login terikat pada fakultas/jurusan tertentu ({@code tbmuser.ambilFakultas()}/
+ * {@code ambilJurusan()}), membatasi tampilan sesuai lingkup akses pengguna. Model kalender
+ * dibangun ulang per hari dalam rentang tampil ({@link #initCalendarModel}) dengan mencocokkan
+ * hari-dalam-minggu setiap tanggal terhadap kolom {@code hari} pada {@link KalenderAkademik} —
+ * pola ini berarti satu baris {@code KalenderAkademik} dapat muncul berulang di banyak tanggal
+ * bila kegiatan berulang setiap minggu pada hari yang sama. Rentang jam tampil dan zona waktu
+ * kalender dibaca dari konfigurasi sistem yang sama dengan {@link AmbilJadwalHarian}. Mengklik
+ * satu event kalender ({@link #onEventEdit$calendars}) membuka jendela detail read-only berisi
+ * seluruh atribut kegiatan.
+ */
 public class CalendarAkademikBulananComposer extends GenericForwardComposer {
 
 	private static final long serialVersionUID = 201011240904L;
@@ -56,11 +71,13 @@ public class CalendarAkademikBulananComposer extends GenericForwardComposer {
 	private Combobox searchTahunAjaran;
 	private Combobox searchGanjilGenap;
 
+	/** Membangun ulang model kalender sesuai filter saat ini tanpa memaksa re-render penuh (invalidate dikomentari — dianggap tidak diperlukan pada pemanggilan ini). */
 	public void onRefresh(Event event) {
 		initCalendarModel();
 //		calendars.invalidate();
 	}
 
+	/** Memundurkan tampilan kalender 6 bulan dan menyegarkan model+tampilan. */
 	public void onBack(Event event) {
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 		calendar.setTime(calendars.getCurrentDate());
@@ -70,6 +87,7 @@ public class CalendarAkademikBulananComposer extends GenericForwardComposer {
 		calendars.invalidate();
 	}
 
+	/** Memajukan tampilan kalender 1 bulan dan menyegarkan model+tampilan. */
 	public void onNext(Event event) {
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 		calendar.setTime(calendars.getCurrentDate());
@@ -79,6 +97,7 @@ public class CalendarAkademikBulananComposer extends GenericForwardComposer {
 		calendars.invalidate();
 	}
 
+	/** Menjalankan pemeriksaan keamanan sebelum komponen ZK dibangun (hook siklus hidup ZK). */
 	@Override
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page,
 			org.zkoss.zk.ui.Component parent, org.zkoss.zk.ui.metainfo.ComponentInfo compInfo) {
@@ -86,6 +105,7 @@ public class CalendarAkademikBulananComposer extends GenericForwardComposer {
 		return super.doBeforeCompose(page, parent, compInfo);
 	}
 
+	/** Menginisialisasi seluruh dropdown filter (tahun ajaran, fakultas dengan cascade jurusan, ganjil/genap), mengunci filter sesuai lingkup akses pengguna, mengatur rentang jam/zona waktu kalender dari konfigurasi, dan memuat tampilan awal. */
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
 
@@ -186,6 +206,13 @@ public class CalendarAkademikBulananComposer extends GenericForwardComposer {
 
 	}
 
+	/**
+	 * Membangun ulang model kalender: untuk setiap tanggal dalam rentang tampil saat ini
+	 * (dari {@code calendars.getBeginDate()} hingga {@code getEndDate()}), mencari
+	 * {@link KalenderAkademik} aktif yang kolom {@code hari}-nya cocok dengan hari-dalam-minggu
+	 * tanggal tersebut (dan sesuai filter tahun ajaran/ganjil-genap/fakultas/jurusan), lalu
+	 * menambahkan satu event kalender untuk setiap kecocokan pada tanggal itu.
+	 */
 	@SuppressWarnings("unchecked")
 	private void initCalendarModel() {
 
@@ -224,6 +251,7 @@ public class CalendarAkademikBulananComposer extends GenericForwardComposer {
 		calendars.setModel(cm);
 	}
 
+	/** Handler ZK forward event: memperbarui waktu mulai/selesai satu event kalender pada model saat pengguna menggeser/mengubah durasinya di tampilan. */
 	public void onEventUpdate$calendars(ForwardEvent event) {
 		CalendarsEvent evt = (CalendarsEvent) event.getOrigin();
 		org.zkoss.calendar.Calendars cal = (org.zkoss.calendar.Calendars) evt.getTarget();
@@ -234,6 +262,7 @@ public class CalendarAkademikBulananComposer extends GenericForwardComposer {
 		m.update(sce);
 	}
 
+	/** Menavigasi kalender ke halaman sebelumnya/berikutnya berdasarkan arah panah yang diklik ({@code "arrow-left"} vs lainnya). */
 	public void onMoveDate(ForwardEvent event) {
 		if ("arrow-left".equals(event.getData()))
 			calendars.previousPage();
@@ -242,11 +271,13 @@ public class CalendarAkademikBulananComposer extends GenericForwardComposer {
 
 	}
 
+	/** Mengatur tanggal kalender ke hari ini (waktu sistem lokal). */
 	public void onToday(ForwardEvent event) {
 		calendars.setCurrentDate(Calendar.getInstance(TimeZone.getDefault()).getTime());
 
 	}
 
+	/** Menukar zona waktu kalender yang terdaftar pertama (hapus lalu daftarkan ulang) — utilitas bawaan komponen {@link Calendars}, tidak dipakai aktif oleh alur kalender akademik ini. */
 	@SuppressWarnings("rawtypes")
 	public void onSwitchTimeZone(ForwardEvent event) {
 		Map<?, ?> zone = calendars.getTimeZones();
@@ -258,12 +289,14 @@ public class CalendarAkademikBulananComposer extends GenericForwardComposer {
 
 	}
 
+	/** Mengatur hari pertama minggu kalender sesuai pilihan pada {@code listbox} sumber event. */
 	public void onUpdateFirstDayOfWeek(ForwardEvent event) {
 		Listbox listbox = (Listbox) event.getOrigin().getTarget();
 		calendars.setFirstDayOfWeek(listbox.getSelectedItem().getLabel());
 
 	}
 
+	/** Mengubah mold tampilan kalender berdasarkan pilihan tampilan ("Day"/"5 Days"/"Week" → mold harian dengan jumlah hari sesuai, selain itu → mold bulanan). */
 	public void onUpdateView(ForwardEvent event) {
 		String text = String.valueOf(event.getData());
 		int days = "Day".equals(text) ? 1 : "5 Days".equals(text) ? 5 : "Week".equals(text) ? 7 : 0;
@@ -275,10 +308,12 @@ public class CalendarAkademikBulananComposer extends GenericForwardComposer {
 			calendars.setMold("month");
 	}
 
+	/** Alias untuk {@link #onRefresh(Event)}, dipanggil dari pemanggil eksternal yang mengharapkan konvensi nama {@code onSearchDefault}. */
 	public void onSearchDefault(Event event) {
 		onRefresh(event);
 	}
 
+	/** Menangani klik pada satu event kalender: mengambil {@link KalenderAkademik} terkait dari id yang disimpan sebagai judul event, lalu menampilkan seluruh atributnya (nama kegiatan, jenis, rentang tanggal, fakultas/prodi/jenjang/semester/program, penetap) dalam jendela modal read-only. */
 	public void onEventEdit$calendars(ForwardEvent event) throws Exception {
 
 		CalendarsEvent evt = (CalendarsEvent) event.getOrigin();

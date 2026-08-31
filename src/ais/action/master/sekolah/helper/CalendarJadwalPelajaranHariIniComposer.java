@@ -41,6 +41,22 @@ import ais.database.model.sekolah.Sekolah;
 import ais.database.model.sekolah.Siswa;
 import ais.database.model.sekolah.Yayasan;
 
+/**
+ * Composer ZK yang menampilkan jadwal pelajaran (modul sekolah) dalam tampilan kalender harian
+ * (varian "Hari Ini" dari {@link CalendarJadwalPelajaranBulanIniComposer}), dengan filter dan
+ * mekanisme yang sama (tahun ajaran/semester/kelas/yayasan/sekolah/ruang/guru/siswa). Beda utamanya
+ * hanya pada jendela data: {@link #initCalendarModel()} memuat {@link Pertemuan} dalam rentang 1
+ * hari sebelum s.d. 1 hari sesudah {@link #calendar} internal (bukan 7 bulan), dan navigasi
+ * {@link #onBack}/{@link #onNext} menggeser jendela per hari.
+ *
+ * <p>
+ * Event kalender dibangun lewat method statis bersama
+ * {@link CalendarJadwalPelajaranBulanIniComposer#createEvent(Pertemuan)} agar konversi
+ * {@link Pertemuan} -&gt; {@link SimpleCalendarEvent} tetap konsisten antar composer harian,
+ * mingguan, dan bulanan; klik event membuka editor lewat
+ * {@code CalendarJadwalPelajaranMingguIniComposer.init}.
+ * </p>
+ */
 public class CalendarJadwalPelajaranHariIniComposer extends GenericForwardComposer {
 
 	protected static final long serialVersionUID = 201011240904L;
@@ -62,18 +78,21 @@ public class CalendarJadwalPelajaranHariIniComposer extends GenericForwardCompos
 
 	private Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 
+	/** Menggeser jendela data mundur 1 hari dan me-refresh model kalender, lalu memindahkan tampilan ke halaman sebelumnya. */
 	public void onBack(Event event) {
 		calendar.set(Calendar.DATE, calendar.get(Calendar.DATE) - 1);
 		initCalendarModel();
 		calendars.previousPage();
 	}
 
+	/** Menggeser jendela data maju 1 hari dan me-refresh model kalender, lalu memindahkan tampilan ke halaman berikutnya. */
 	public void onNext(Event event) {
 		calendar.set(Calendar.DATE, calendar.get(Calendar.DATE) + 1);
 		initCalendarModel();
 		calendars.nextPage();
 	}
 
+	/** Memuat ulang model kalender ({@link #initCalendarModel}) dan memaksa render ulang komponen {@link #calendars}. */
 	public void onRefresh(Event event) {
 
 		Common.createDefaultTimer(new EventListener() {
@@ -87,6 +106,7 @@ public class CalendarJadwalPelajaranHariIniComposer extends GenericForwardCompos
 
 	}
 
+	/** Menjalankan pemeriksaan keamanan standar sebelum komponen ZK di-compose. */
 	@Override
 	public ComponentInfo doBeforeCompose(Page page, Component parent, ComponentInfo compInfo) {
 		Common.doCheckSecurity();
@@ -97,6 +117,11 @@ public class CalendarJadwalPelajaranHariIniComposer extends GenericForwardCompos
 	private Row row2;
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
+	/**
+	 * Menghasilkan laporan PDF "SKS Guru per Periode" dari data {@link #pertemuan} yang sedang
+	 * dimuat, dikelompokkan per (guru, tanggal, jam) lewat {@link TreeMap} berkunci gabungan. Lihat
+	 * dokumentasi method sejenis pada {@link CalendarJadwalPelajaranBulanIniComposer#onAgendaGuru}.
+	 */
 	public void onAgendaGuru(Event event) throws Exception {
 		if (pertemuan != null) {
 			Map parameters = ais.common.HashMapGenerator.getRand();
@@ -146,6 +171,7 @@ public class CalendarJadwalPelajaranHariIniComposer extends GenericForwardCompos
 		}
 	}
 
+	/** Inisialisasi layar: memasang listener refresh pada filter kelas/guru/siswa/ruang, mengisi combo semester/tahun ajaran/sekolah-yayasan, mengonfigurasi jam &amp; timezone kalender dari konfigurasi, membatasi akses sesuai wewenang user, dan memuat data awal. */
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
 
@@ -298,6 +324,7 @@ public class CalendarJadwalPelajaranHariIniComposer extends GenericForwardCompos
 
 	private List<Pertemuan> pertemuan = null;
 
+	/** Membangun {@link #cm} dari {@link Pertemuan} yang cocok filter form dalam jendela 1 hari sebelum s.d. 1 hari sesudah {@link #calendar}, mengonversi tiap pertemuan lewat {@link CalendarJadwalPelajaranBulanIniComposer#createEvent}, lalu menerapkan model ke {@link #calendars}. */
 	protected void initCalendarModel() {
 
 		String tahunAkademik = tahunAjaran.getSelectedItem() == null || tahunAjaran.getSelectedItem().getValue() == null
@@ -334,6 +361,7 @@ public class CalendarJadwalPelajaranHariIniComposer extends GenericForwardCompos
 		calendars.setModel(cm);
 	}
 
+	/** Handler ZK saat pengguna mencoba membuat event baru langsung di kalender (drag-select); mencegah "ghost" event sementara dibersihkan otomatis oleh komponen. */
 	public void onEventCreate$calendars(ForwardEvent event) throws Exception {
 
 		CalendarsEvent evt = (CalendarsEvent) event.getOrigin();
@@ -341,6 +369,7 @@ public class CalendarJadwalPelajaranHariIniComposer extends GenericForwardCompos
 		evt.stopClearGhost();
 	}
 
+	/** Handler ZK saat event kalender diklik untuk diedit: mengekstrak id {@link Pertemuan} dari judul event dan membuka editor pertemuan lewat {@code CalendarJadwalPelajaranMingguIniComposer.init}. */
 	public void onEventEdit$calendars(ForwardEvent event) throws Exception {
 
 		CalendarsEvent evt = (CalendarsEvent) event.getOrigin();
@@ -384,6 +413,7 @@ public class CalendarJadwalPelajaranHariIniComposer extends GenericForwardCompos
 
 	}
 
+	/** Handler ZK saat event kalender digeser/diresize di UI: menyinkronkan tanggal mulai/selesai baru ke model tampilan (tidak menyimpan ke database). */
 	public void onEventUpdate$calendars(ForwardEvent event) {
 		CalendarsEvent evt = (CalendarsEvent) event.getOrigin();
 		org.zkoss.calendar.Calendars cal = (org.zkoss.calendar.Calendars) evt.getTarget();

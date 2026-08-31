@@ -83,6 +83,34 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Composer ZK untuk pengelolaan Catatan Siswa ({@link CatatanSiswa}) — catatan harian/akademik
+ * yang dibuat guru untuk seorang siswa, dikategorikan lewat {@link JenisCatatanSiswa} dan dapat
+ * dilengkapi parameter tambahan dinamis per jenis catatan ({@link ParameterTambahanCatatanSiswaListener}).
+ * Jendela ini memiliki beberapa tab: daftar/pencarian catatan (tab utama), Dasbor rekap
+ * ({@link #onDasbor(Event)}, memuat {@code DasbordCatatan} lewat {@code BaseDasbordPortal}),
+ * Laporan ({@link #onLaporan(Event)}), serta — khusus untuk pengguna non-guru/non-siswa (admin) —
+ * tab Jenis Catatan Siswa dan Manajemen Parameter untuk mengelola master data terkait
+ * ({@link #onJenisCatatanSiswa(Event)}, {@link #onManajemenParameter(Event)}). Tab-tab ini disembunyikan
+ * otomatis dari user yang login sebagai guru atau siswa lewat {@link #doAfterCompose(Component)}.
+ *
+ * <h2>Alur kerja</h2>
+ * <p>
+ * {@link #doAfterCompose(Component)} menyiapkan filter pencarian (sekolah/yayasan, jenis catatan
+ * yang terikat sekolah terpilih, tahun ajaran, semester), memasang keamanan lewat
+ * {@link #doBeforeCompose} ({@code Common.doCheckSecurity()}), hak edit/hapus dari
+ * {@link CommonPrivilages}, tombol cetak data, paging, dan timer refresh berkala. Tombol tambah
+ * ({@link #onAdd(Event)}) dan {@link #init(GeneralValueObject)} membuka jendela modal berisi form
+ * catatan (siswa, guru pembina, jenis catatan, sekolah/yayasan, keterangan, parameter tambahan,
+ * lampiran); tombol simpan memicu {@link #onSave(Event)} yang memvalidasi field wajib (siswa,
+ * jenis catatan, sekolah, yayasan, guru, parameter tambahan) sebelum menyimpan.
+ * </p>
+ * <p>
+ * Pencarian daftar memakai {@link #initCriteria(boolean)} (filter sekolah/yayasan/jenis/tahun
+ * ajaran/semester/guru pembina) yang dieksekusi oleh {@link #onSearchDefault(Event)} untuk
+ * merender hasil ke grid dengan paging.
+ * </p>
+ */
 public class CatatanSiswaAction extends GenericAutowireComposer
 		implements DataCriteria, DataSearchDefault, DataInitDefault {
 
@@ -126,6 +154,7 @@ public class CatatanSiswaAction extends GenericAutowireComposer
 	private Combobox tahunAjaran;
 	private Combobox semester;
 
+	/** Memuat tab "Laporan" ({@link LaporanCatatanSiswa}) secara lazy saat pertama kali dibuka. */
 	public void onLaporan(Event event) {
 		if (tabLaporan.getChildren().isEmpty()) {
 			LaporanCatatanSiswa window = new LaporanCatatanSiswa();
@@ -135,6 +164,7 @@ public class CatatanSiswaAction extends GenericAutowireComposer
 		}
 	}
 
+	/** Memuat tab "Jenis Catatan Siswa" (include halaman master jenis catatan) secara lazy saat pertama kali dibuka; hanya terlihat bagi admin (bukan guru/siswa). */
 	public void onJenisCatatanSiswa(Event event) {
 		if (tabJenisCatatanSiswa.getChildren().isEmpty()) {
 			MyWindow window = new MyWindow("", "none", false);
@@ -146,6 +176,7 @@ public class CatatanSiswaAction extends GenericAutowireComposer
 		}
 	}
 
+	/** Memuat tab "Manajemen Parameter" (include halaman master parameter tambahan catatan siswa) secara lazy; hanya terlihat bagi admin. */
 	public void onManajemenParameter(Event event) {
 		if (tabManajemenParameter.getChildren().isEmpty()) {
 			MyWindow window = new MyWindow("", "none", false);
@@ -158,12 +189,19 @@ public class CatatanSiswaAction extends GenericAutowireComposer
 	}
 
 	@Override
+	/** Menjalankan pemeriksaan keamanan halaman ({@code Common.doCheckSecurity()}) sebelum komponen ZK di-compose. */
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page,
 			org.zkoss.zk.ui.Component parent, org.zkoss.zk.ui.metainfo.ComponentInfo compInfo) {
 		Common.doCheckSecurity();
 		return super.doBeforeCompose(page, parent, compInfo);
 	}
 
+	/**
+	 * Inisialisasi composer setelah komponen ZK ter-wiring: menyembunyikan tab admin-only bagi user
+	 * guru/siswa, menyiapkan filter sekolah/yayasan/jenis catatan (terikat sekolah terpilih)/tahun
+	 * ajaran/semester, hak edit/hapus dari {@link CommonPrivilages}, tombol cetak data, paging,
+	 * memuat tab Dasbor secara default, dan timer refresh berkala.
+	 */
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
 		Common.initLaguage();
@@ -247,6 +285,7 @@ public class CatatanSiswaAction extends GenericAutowireComposer
 		});
 	}
 
+	/** Memuat tab "Dasbor" ({@code DasbordCatatan} lingkup {@code SISWA}) secara lazy, dibungkus lewat {@code BaseDasbordPortal}. */
 	public void onDasbor(Event event) {
 		if (tabDasbor.getChildren().size() == 0) {
 			DasbordCatatan dasbord = new DasbordCatatan(DasbordCatatan.Lingkup.SISWA);
@@ -402,12 +441,18 @@ public class CatatanSiswaAction extends GenericAutowireComposer
 		}
 	}
 
+	/** Handler tombol tambah: membuka form dengan entitas {@link CatatanSiswa} baru (kosong). */
 	public void onAdd(Event event) throws Exception {
 		init(new CatatanSiswa());
 		addWindow.setVisible(true);
 		addWindow.onModal();
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela modal berisi form tambah/ubah catatan siswa.
+	 *
+	 * @param obj entitas {@link CatatanSiswa} yang akan diedit, atau baru (id {@code null}) untuk catatan baru
+	 */
 	@Override
 	public void init(GeneralValueObject obj) throws Exception {
 		catatanSiswa = (CatatanSiswa) obj;
@@ -674,6 +719,14 @@ public class CatatanSiswaAction extends GenericAutowireComposer
 		borderlayout.setParent(addWindow);
 	}
 
+	/**
+	 * Memvalidasi dan menyimpan catatan siswa. Field wajib: siswa, jenis catatan, sekolah, yayasan,
+	 * guru pembina, dan parameter tambahan (bila diperlukan oleh jenis catatan terpilih). Setiap
+	 * pelanggaran validasi menampilkan pesan peringatan dan mengembalikan {@code false}.
+	 *
+	 * @param event event ZK asal aksi simpan
+	 * @return {@code true} bila catatan berhasil disimpan
+	 */
 	public boolean onSave(Event event) throws Exception {
 		if (siswa.getAttribute("siswa") == null) {
 			MyMessageboxConfig.show("Siswa harus diisi", "Peringatan", MyMessageboxConfig.OK,
@@ -791,6 +844,15 @@ public class CatatanSiswaAction extends GenericAutowireComposer
 		return true;
 	}
 
+	/**
+	 * Membangun kueri Hibernate untuk daftar catatan siswa, dengan filter: guru pembina (cocok
+	 * pada catatan langsung atau lewat kelas siswa terkait), jenis catatan, semester, dan filter
+	 * lain (sekolah/yayasan/tahun ajaran, lihat lanjutan method) sesuai pilihan pada toolbar
+	 * pencarian.
+	 *
+	 * @param order {@code true} untuk menyertakan pengurutan hasil
+	 * @return kriteria Hibernate siap dieksekusi/dipaginasi
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(CatatanSiswa.class);
@@ -838,6 +900,12 @@ public class CatatanSiswaAction extends GenericAutowireComposer
 		return criteria;
 	}
 
+	/**
+	 * Mengeksekusi ulang pencarian ({@link #initCriteria(boolean)}) untuk halaman aktif dan
+	 * merender hasilnya ke grid daftar catatan siswa, sekaligus memperbarui total halaman.
+	 *
+	 * @param event tidak dipakai langsung, hanya untuk kesesuaian kontrak {@link DataSearchDefault}
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 		Common.initPaging(initCriteria(false), paging);

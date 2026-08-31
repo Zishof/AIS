@@ -21,10 +21,28 @@ import ais.database.model.rab.SumberDana;
 import ais.database.model.rab.Workspace;
 import ais.database.model.rab.WorkspacePunyaPegawai;
 
+/**
+ * Helper laporan modul RAB (Rencana Anggaran Biaya): meratakan (flatten) struktur pohon
+ * {@link Workspace} (item RAB berjenjang, induk-anak via {@code parentId}) menjadi daftar
+ * {@code List<Map<String,Object>>} datar yang siap dikonsumsi mesin cetak laporan (JasperReports),
+ * dengan indentasi nama sesuai kedalaman node ({@link #getStrings}). Menyediakan beberapa varian
+ * "generate*" untuk kebutuhan laporan berbeda: rencana anggaran total, rencana per bulan/triwulan,
+ * realisasi per bulan/triwulan, rencana-vs-realisasi triwulan, jadwal kerja per item/unit organisasi
+ * (termasuk daftar pegawai pelaksana lewat {@link WorkspacePunyaPegawai}).
+ *
+ * <p>
+ * Seluruh method {@code generate*} dipanggil rekursif menyusuri {@code workspaces} yang sudah dimuat
+ * penuh di memori (bukan query berulang per level), memakai {@link WorkspaceTreeModel} untuk operasi
+ * struktural (cek leaf, hitung kedalaman via {@code getParentCount}, kumpulkan id anak). Baris induk
+ * (bukan leaf) pada beberapa varian ditampilkan tanpa nilai qty/satuan/harga satuan (hanya agregat),
+ * sedangkan baris leaf menampilkan rincian lengkap.
+ * </p>
+ */
 public class RabReportHelper {
 
 	private Integer maxrevisi;
 
+	/** Menghitung revisi tertinggi ({@code maxrevisi}, default 1) dari {@link Workspace} aktif/carry-over untuk kombinasi tahun/satuan kerja/sumber dana yang diberikan; dipakai laporan untuk menentukan revisi RAB mana yang ditampilkan. */
 	public RabReportHelper(Integer selectedTahun, SatuanKerja satuanKerja, SumberDana sumberDana) {
 		maxrevisi = (Integer) HibernateUtil.currentSession().createCriteria(Workspace.class)
 				.add(Restrictions.or(Restrictions.eq("carryOver", true),
@@ -37,6 +55,7 @@ public class RabReportHelper {
 		maxrevisi = maxrevisi == null ? 1 : maxrevisi;
 	}
 
+	/** Menghasilkan {@code deep} kelompok spasi (indentasi visual nama item RAB sesuai kedalaman pada pohon). */
 	private String getStrings(Integer deep) {
 		String d = "";
 		for (int i = 0; i < deep; i++) {
@@ -45,6 +64,14 @@ public class RabReportHelper {
 		return d;
 	}
 
+	/**
+	 * Meratakan (rekursif, pre-order) seluruh keturunan {@code root} dalam {@code workspaces} ke
+	 * {@code maps}: baris non-leaf hanya berisi total harga/realisasi/persentase (tanpa
+	 * qty/satuan/harga satuan), baris leaf berisi rincian penuh (qty1 x qty2 x volume x harga satuan
+	 * = harga total). Dipakai laporan RAB ringkas "total keseluruhan periode" (bandingkan dengan
+	 * overload {@link #generateRencanaAnggaran(Long, WorkspaceTreeModel, Long, List, List, Date,
+	 * Date) di bawah} yang memecah realisasi per rentang tanggal).
+	 */
 	public void generateRencanaAnggaran(final Long parentId, final WorkspaceTreeModel workspaceTreeModel,
 			final Long root, List<Workspace> workspaces, List<Map<String, Object>> maps) {
 
@@ -146,6 +173,7 @@ public class RabReportHelper {
 
 	}
 
+	/** Meratakan pohon {@code root} ke {@code maps}, tiap baris berisi total rencana anggaran per bulan (kolom {@code harga_total_1..12}, dihitung via {@link WorkspaceTreeModel#getHargaTotalPerencanaanTiapBulan}) untuk {@code tahun} yang diberikan, digabung dari seluruh anak node. */
 	public void generateRencanaTiapBulanAnggaran(final Long parentId, final WorkspaceTreeModel workspaceTreeModel,
 			final Long root, List<Workspace> workspaces, Integer tahun, List<Map<String, Object>> maps) {
 
@@ -202,6 +230,7 @@ public class RabReportHelper {
 
 	}
 
+	/** Seperti {@link #generateRencanaTiapBulanAnggaran}, tapi diagregasi per triwulan (kolom {@code harga_total_1..4}) lewat {@link WorkspaceTreeModel#getHargaTotalPerencanaanTriWulan}. */
 	public void generateRencanaTriWulanAnggaran(final Long parentId, final WorkspaceTreeModel workspaceTreeModel,
 			final Long root, List<Workspace> workspaces, Integer tahun, List<Map<String, Object>> maps) {
 
@@ -250,6 +279,7 @@ public class RabReportHelper {
 
 	}
 
+	/** Seperti {@link #generateRencanaTriWulanAnggaran}, tapi menggabungkan dua sumber per baris: kolom {@code *_realisasi} dari {@link WorkspaceTreeModel#getHargaTotalRealisasiTriWulan} dan kolom {@code *_rencana} dari {@link WorkspaceTreeModel#getHargaTotalPerencanaanTriWulan}, untuk laporan perbandingan rencana vs realisasi per triwulan. */
 	public void generateRencanaDanRealisasiTriWulanAnggaran(final Long parentId,
 			final WorkspaceTreeModel workspaceTreeModel, final Long root, List<Workspace> workspaces, Integer tahun,
 			List<Map<String, Object>> maps) {
@@ -312,6 +342,7 @@ public class RabReportHelper {
 
 	}
 
+	/** Seperti {@link #generateRencanaTriWulanAnggaran}, untuk data realisasi (bukan rencana) per triwulan lewat {@link WorkspaceTreeModel#getHargaTotalRealisasiTriWulan}. */
 	public void generateRealisasiTriWulanAnggaran(final Long parentId, final WorkspaceTreeModel workspaceTreeModel,
 			final Long root, List<Workspace> workspaces, Integer tahun, List<Map<String, Object>> maps) {
 
@@ -360,6 +391,7 @@ public class RabReportHelper {
 
 	}
 
+	/** Seperti {@link #generateRencanaTiapBulanAnggaran}, untuk data realisasi per bulan lewat {@link WorkspaceTreeModel#getHargaTotalRealisasiTiapBulan}. */
 	public void generateRealisasiTiapBulanAnggaran(final Long parentId, final WorkspaceTreeModel workspaceTreeModel,
 			final Long root, List<Workspace> workspaces, Integer tahun, List<Map<String, Object>> maps) {
 
@@ -416,6 +448,14 @@ public class RabReportHelper {
 
 	}
 
+	/**
+	 * Varian {@link #generateRencanaAnggaran(Long, WorkspaceTreeModel, Long, List, List)} yang
+	 * memecah realisasi menjadi tiga rentang waktu relatif terhadap {@code mulai}/{@code sampai}:
+	 * realisasi sebelum {@code mulai} ({@code realisasi_total_bulan_lalu}), realisasi di antara
+	 * {@code mulai}-{@code sampai} ({@code realisasi_total_bulan_ini}), dan realisasi kumulatif
+	 * sampai {@code sampai} ({@code realisasi_total}), masing-masing beserta persentase terhadap
+	 * harga total — dipakai laporan RAB per periode (mis. bulanan berjalan).
+	 */
 	public void generateRencanaAnggaran(final Long parentId, final WorkspaceTreeModel workspaceTreeModel,
 			final Long root, List<Workspace> workspaces, List<Map<String, Object>> maps, Date mulai, Date sampai) {
 
@@ -532,6 +572,16 @@ public class RabReportHelper {
 
 	}
 
+	/**
+	 * Dimaksudkan untuk menjumlahkan {@code hargaTotal} seluruh keturunan leaf {@code parent} (via
+	 * {@link #collectChilds}).
+	 *
+	 * <p>
+	 * <b>Catatan:</b> implementasi saat ini menghitung {@code total} tapi selalu
+	 * {@code return 0.0} (nilai akumulasi tidak pernah dikembalikan) — perilaku dipertahankan apa
+	 * adanya sesuai cakupan dokumentasi ini, bukan bug yang diperbaiki di sini.
+	 * </p>
+	 */
 	public Double getHargaTotal(final WorkspaceTreeModel workspaceTreeModel, Workspace parent,
 			Collection<Workspace> workspaces) {
 		Set<Workspace> set = new HashSet<Workspace>();
@@ -543,6 +593,7 @@ public class RabReportHelper {
 		return 0.0;
 	}
 
+	/** Mengumpulkan (rekursif) seluruh node leaf keturunan {@code parent} dalam {@code workspaces} ke dalam {@code set}. */
 	public void collectChilds(final WorkspaceTreeModel workspaceTreeModel, Workspace parent,
 			Collection<Workspace> workspaces, Set<Workspace> set) {
 		for (Workspace workspace : workspaces) {
@@ -556,6 +607,13 @@ public class RabReportHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Meratakan pohon {@code root} ke {@code maps} untuk laporan jadwal kerja: unit organisasi,
+	 * kode/nama (berindentasi), durasi, tanggal mulai/selesai, harga total, dan ringkasan pegawai
+	 * pelaksana (maksimum 3 nama pertama dari {@link WorkspacePunyaPegawai}, diikuti jumlah total).
+	 * Bila {@code hanyaChild} true, hanya node tanpa anak (leaf berdasarkan {@code getChildCount})
+	 * yang dimasukkan ke {@code maps}; bila false, seluruh node disertakan.
+	 */
 	public void generateJadwalAnggaran(final Long parentId, final WorkspaceTreeModel workspaceTreeModel,
 			final Long root, final Boolean hanyaChild, Collection<Workspace> workspaces,
 			List<Map<String, Object>> maps) {
@@ -631,6 +689,18 @@ public class RabReportHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Variasi {@link #generateJadwalAnggaran} yang menambahkan {@code harga_total} teragregasi via
+	 * {@link #getHargaTotal} (per catatan javadocnya, method itu saat ini selalu mengembalikan
+	 * {@code 0.0}) dan menyertakan setiap node yang cocok tanpa filter {@code hanyaChild}.
+	 *
+	 * <p>
+	 * <b>Catatan:</b> panggilan rekursif di akhir method memanggil ulang dirinya dengan {@code root}
+	 * yang SAMA (bukan {@code workspace.getId()} seperti pola rekursi pada method
+	 * {@code generate*} lain di kelas ini) — perilaku (termasuk potensi rekursi tak berhenti bila ada
+	 * node yang cocok) dipertahankan apa adanya sesuai cakupan dokumentasi ini.
+	 * </p>
+	 */
 	public void generateJadwalAnggaranPerUnit(final Long parentId, final WorkspaceTreeModel workspaceTreeModel,
 			final Long root, Collection<Workspace> workspaces, List<Map<String, Object>> maps) {
 
@@ -700,6 +770,7 @@ public class RabReportHelper {
 
 	}
 
+	/** @return nomor revisi RAB tertinggi yang dihitung konstruktor untuk kombinasi tahun/satuan kerja/sumber dana yang diberikan. */
 	public Integer getMaxrevisi() {
 		return maxrevisi;
 	}

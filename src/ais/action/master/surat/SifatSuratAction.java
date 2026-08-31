@@ -27,6 +27,14 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD (berbasis {@link GenericCrudAction}) untuk data master <b>Sifat Surat</b> (mis.
+ * Biasa, Penting, Rahasia) modul persuratan. Mendukung cetak dan unggah data massal lewat
+ * {@link Common#cetakData}/{@link Common#uploadData} pada kolom {@link #getDownloadUploadContents()}.
+ * Validasi menolak nama kosong atau nama yang sudah dipakai sifat surat lain
+ * ({@link #checkNamaSifatSurat()}). Grid pencarian mendukung filter status aktif dan toggle
+ * aktif/nonaktif langsung dari baris.
+ */
 public class SifatSuratAction extends GenericCrudAction<SifatSurat> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -38,20 +46,25 @@ public class SifatSuratAction extends GenericCrudAction<SifatSurat> {
 
     // ======================== Abstract implementations ========================
 
+    /** Mengembalikan kelas entitas yang dikelola layar ini: {@link SifatSurat}. */
     @Override
     protected Class<SifatSurat> getEntityClass() { return SifatSurat.class; }
 
+    /** Membuat instance {@link SifatSurat} kosong untuk form tambah data baru. */
     @Override
     protected SifatSurat createNewEntity() { return new SifatSurat(); }
 
+    /** Mengembalikan judul jendela form: {@code "Pendataan Sifat Surat"}. */
     @Override
     protected String getWindowTitle() { return "Pendataan Sifat Surat"; }
 
+    /** Mengembalikan kolom yang disertakan pada unduh/unggah data massal: {@code id, kode, nama, keterangan, aktif}. */
     @Override
     protected String[] getDownloadUploadContents() {
         return new String[] { "id", "kode", "nama", "keterangan", "aktif" };
     }
 
+    /** Menambahkan tombol cetak dan unggah data massal ke toolbar (di sebelah tombol tambah), sesuai hak akses pengguna. */
     @Override
     protected void onAfterInit(Component comp) throws Exception {
         String[] contents = getDownloadUploadContents();
@@ -67,6 +80,7 @@ public class SifatSuratAction extends GenericCrudAction<SifatSurat> {
         }
     }
 
+    /** Membangun kriteria pencarian sifat surat, diurutkan berdasarkan nama, disaring status aktif dan/atau kecocokan sebagian nama sesuai filter pencarian aktif. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -81,6 +95,7 @@ public class SifatSuratAction extends GenericCrudAction<SifatSurat> {
         return criteria;
     }
 
+    /** Membuat perender baris grid pencarian sifat surat: {@link SifatSuratRenderer}. */
     @Override
     protected MyRowRenderer createRenderer() {
         return new SifatSuratRenderer();
@@ -88,6 +103,7 @@ public class SifatSuratAction extends GenericCrudAction<SifatSurat> {
 
     // ======================== Form content ========================
 
+    /** Membangun tata letak form tambah/edit sifat surat (kode, nama, keterangan) dengan toolbar simpan/batal di dalam {@code window}. */
     @Override
     protected void buildFormContent(MyWindow window, final SifatSurat sifatSurat) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -161,6 +177,13 @@ public class SifatSuratAction extends GenericCrudAction<SifatSurat> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi (nama wajib, nama belum dipakai sifat surat lain) dan menyimpan/memperbarui data
+     * sifat surat dari isian form saat ini.
+     *
+     * @param event event pemicu tombol simpan
+     * @return {@code true} bila validasi lolos dan data tersimpan; {@code false} bila validasi gagal
+     */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Nama Sifat Surat belum diisi. Langkah yang dapat dilakukan: (1) klik kolom Nama Sifat Surat; (2) isikan nama sifat surat secara lengkap; (3) ulangi proses simpan. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.", "Peringatan",
@@ -185,6 +208,7 @@ public class SifatSuratAction extends GenericCrudAction<SifatSurat> {
         return true;
     }
 
+    /** Memeriksa apakah nama pada form sudah dipakai sifat surat lain (mengecualikan record yang sedang diedit sendiri). */
     public Boolean checkNamaSifatSurat() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(SifatSurat.class)
@@ -199,6 +223,7 @@ public class SifatSuratAction extends GenericCrudAction<SifatSurat> {
 
     // ======================== Renderer ========================
 
+    /** Perender baris grid pencarian sifat surat: menampilkan kode, nama (dengan tautan riwayat revisi), keterangan, toggle aktif langsung tersimpan saat diklik, dan tombol ubah/hapus. */
     class SifatSuratRenderer extends MyRowRenderer {
 
         @Override

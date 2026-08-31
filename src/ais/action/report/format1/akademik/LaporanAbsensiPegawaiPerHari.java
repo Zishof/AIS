@@ -56,7 +56,26 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
-public class LaporanAbsensiPegawaiPerHari extends MyWindow { 
+/**
+ * Jendela laporan PDF "Absensi Pegawai Per Hari": menampilkan rekap kehadiran harian (jam
+ * masuk/pulang, lembur, keterlambatan, foto/lokasi absen, status Tidak Hadir) untuk satu atau semua
+ * pegawai dalam rentang tanggal, difilter berdasarkan satuan kerja, jenis pegawai
+ * (dosen/guru/pegawai non-akademik), ikatan kerja dosen, dan hari aktif yang dipilih (checkbox per
+ * hari, default Minggu/Sabtu tidak aktif via konfigurasi {@code hari_default_tidak_aktif}).
+ *
+ * <p>
+ * Data per pegawai-per-tanggal dihitung paralel lewat {@link ParallelTaskExecutor} (maksimum thread
+ * ditentukan {@code getDefaultReportMaxThreads()}), dengan hasil tiap pegawai ditulis ke slot array
+ * berindeks tetap ({@code orderedDailyMaps}) agar urutan laporan akhir tetap deterministik walau
+ * dieksekusi paralel. Status kehadiran default (termasuk cuti/izin yang sudah disetujui dan hari
+ * libur nasional) diambil sekali di muka lewat
+ * {@code CommonPayroll.getDefaultStatuskehadiranKaryawanHarian}, lalu dilihat per hari dari peta
+ * ({@code Map}) di memori — bukan query berulang per pegawai per hari. Progres pemrosesan
+ * ditampilkan lewat ServerPush (di-throttle tiap 100 tugas agar tidak membanjiri antrean event ZK)
+ * selama proses berjalan di thread latar terkelola {@link ais.common.AsyncTaskManager}.
+ * </p>
+ */
+public class LaporanAbsensiPegawaiPerHari extends MyWindow {
  
 	private static final long serialVersionUID = -397946194166101691L;
 
@@ -89,6 +108,7 @@ public class LaporanAbsensiPegawaiPerHari extends MyWindow {
 
 	private Desktop desktop;
 
+	/** Konstruktor umum: form filter menampilkan pilihan satuan kerja/pegawai/hari secara lengkap. */
 	public LaporanAbsensiPegawaiPerHari() {
 		super();
 		try {
@@ -104,6 +124,7 @@ public class LaporanAbsensiPegawaiPerHari extends MyWindow {
 		}
 	}
 
+	/** Konstruktor terikat satu {@code pegawai}: menyembunyikan pilihan satuan kerja/pegawai/jenis pegawai karena target sudah pasti. */
 	public LaporanAbsensiPegawaiPerHari(Pegawai pegawai) {
 		super();
 		try {
@@ -120,6 +141,7 @@ public class LaporanAbsensiPegawaiPerHari extends MyWindow {
 		}
 	}
 
+	/** Konstruktor terikat satu {@code date}: rentang mulai/sampai default keduanya diisi {@code date} yang sama (readonly), untuk laporan absensi satu hari tertentu. */
 	public LaporanAbsensiPegawaiPerHari(Date date) {
 		super();
 		this.date = date;
@@ -136,11 +158,13 @@ public class LaporanAbsensiPegawaiPerHari extends MyWindow {
 		}
 	}
 
+	/** Konstruktor dengan judul/border/closable eksplisit; kegagalan inisialisasi dilempar ke pemanggil. */
 	public LaporanAbsensiPegawaiPerHari(String title, String border, boolean closable) throws Exception {
 		super(title, border, closable);
 		init();
 	}
 
+	/** Membangun panel filter (satuan kerja, pegawai, jenis pegawai, ikatan kerja, rentang tanggal default sebulan mundur dari {@code tanggal_mulai_absensi}, checkbox hari aktif) dan toolbar export laporan. */
 	private void init() throws Exception {
 
 		satuanKerjaTreeModel = new SatuanKerjaTreeModel(false);
@@ -332,6 +356,7 @@ public class LaporanAbsensiPegawaiPerHari extends MyWindow {
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
+	/** Menyusun parameter dasar laporan (rentang tanggal mulai/sampai terformat, ditambah {@code maps} bila sudah dihitung) untuk mesin cetak JasperReports. */
 	private Map generateParameter() throws Exception {
 
 		Map parameters = ais.common.HashMapGenerator.getRand();
@@ -345,6 +370,20 @@ public class LaporanAbsensiPegawaiPerHari extends MyWindow {
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
+	/**
+	 * Menghitung {@link #maps} — daftar baris laporan (satu baris per pegawai per tanggal) — untuk
+	 * filter form saat ini. Memuat daftar {@link Pegawai} sesuai filter (satuan kerja beserta
+	 * turunannya, jenis pegawai, ikatan kerja dosen, status aktif), memuat {@link CutiDanIzin} yang
+	 * disetujui dan status kehadiran harian default yang relevan pada satu kali query, lalu
+	 * memproses setiap kombinasi pegawai-tanggal secara paralel ({@link ParallelTaskExecutor}):
+	 * menentukan status hadir/tidak hadir (dengan/tanpa memperhitungkan hari libur), jam
+	 * masuk/pulang/lembur, dan foto/lokasi absen. Hari yang tidak dicentang aktif dilewati kecuali
+	 * dikecualikan lewat {@code KehadiranPresensiUtil.harusLewatiTanggalKarenaHariTidakDipilih}.
+	 * Bila {@code label} dan desktop ZK tersedia, progres diperbarui via ServerPush setiap
+	 * kelipatan 100 tugas untuk menghindari membanjiri antrean event.
+	 *
+	 * @param label label indikator progres (boleh {@code null} bila dipanggil tanpa UI, mis. dari export batch)
+	 */
 	public void generateDataDanImageAlbum(final Label label) throws Exception {
 
 		SatuanKerja parent = (SatuanKerja) searchSatker.getAttribute("satuanKerja");
@@ -595,6 +634,13 @@ public class LaporanAbsensiPegawaiPerHari extends MyWindow {
 	}
 
 	@SuppressWarnings({})
+	/**
+	 * Handler tombol "Tampilkan"/export: menampilkan indikator loading, menyalakan ServerPush
+	 * ber-reference-count lewat {@link ais.common.AsyncTaskManager#jalankanDenganPush} yang
+	 * menjalankan {@link #generateDataDanImageAlbum} pada pool thread daemon terkelola (bukan thread
+	 * mentah tanpa batas) sehingga push otomatis dilepas begitu tugas selesai, lalu menghasilkan
+	 * berkas PDF laporan dan menampilkannya di {@link #center}.
+	 */
 	public void onKHS(Event event) throws Exception {
 
 		final Label label = Common.displayLoadBar(new EventListener() {

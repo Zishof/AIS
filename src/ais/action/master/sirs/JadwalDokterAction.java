@@ -41,6 +41,19 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.UIUtil;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD modul SIRS untuk {@link JadwalDokter} (jadwal praktik dokter/tenaga medis per lokasi,
+ * shift, hari, dan poli), dibangun di atas kerangka generik {@link GenericCrudAction}. Combo shift
+ * pada form maupun filter pencarian bersifat cascading terhadap lokasi terpilih (hanya menampilkan
+ * {@link Shift} milik lokasi tersebut), dan memilih shift otomatis menampilkan label jam
+ * mulai/selesainya.
+ *
+ * <p>
+ * Selain ubah/hapus standar, grid menyediakan tombol "Copy Jadwal" yang mengkloning
+ * {@link JadwalDokter} ({@code clone()}, id direset ke {@code null}) dan membuka form sebagai entri
+ * baru — mempercepat pembuatan jadwal serupa untuk dokter/hari lain.
+ * </p>
+ */
 public class JadwalDokterAction extends GenericCrudAction<JadwalDokter> {
 
     private static final long serialVersionUID = 3786091220301468178L;
@@ -66,15 +79,19 @@ public class JadwalDokterAction extends GenericCrudAction<JadwalDokter> {
 
     // ======================== Abstract implementations ========================
 
+    /** @return kelas entitas yang dikelola layar ini, {@link JadwalDokter}. */
     @Override
     protected Class<JadwalDokter> getEntityClass() { return JadwalDokter.class; }
 
+    /** @return instance {@link JadwalDokter} kosong untuk form tambah baru. */
     @Override
     protected JadwalDokter createNewEntity() { return new JadwalDokter(); }
 
+    /** @return judul jendela form tambah/ubah. */
     @Override
     protected String getWindowTitle() { return "Jadwal Dokter"; }
 
+    /** Inisialisasi layar: mengisi combo hari pencarian, memasang listener refresh pada filter dokter/lokasi (lokasi juga memuat ulang shift cascading), dan combo poli. */
     @Override
     public void doAfterCompose(Component comp) throws Exception {
         super.doAfterCompose(comp);
@@ -109,6 +126,7 @@ public class JadwalDokterAction extends GenericCrudAction<JadwalDokter> {
         Common.insertCombo(searchpoly, "nama", "jenis", Poly.class);
     }
 
+    /** Membentuk criteria pencarian {@link JadwalDokter} berdasarkan filter lokasi, dokter, shift, hari, dan poli, diurut id menurun bila {@code order} true. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -132,6 +150,7 @@ public class JadwalDokterAction extends GenericCrudAction<JadwalDokter> {
         return criteria;
     }
 
+    /** @return renderer baris grid untuk {@link JadwalDokter} ({@link JadwalDokterRenderer}). */
     @Override
     protected MyRowRenderer createRenderer() {
         return new JadwalDokterRenderer();
@@ -139,6 +158,11 @@ public class JadwalDokterAction extends GenericCrudAction<JadwalDokter> {
 
     // ======================== Form content ========================
 
+    /**
+     * Membangun form tambah/ubah {@link JadwalDokter}: lokasi (memicu pemuatan ulang combo shift
+     * cascading), shift (mengisi label waktu mulai/selesai otomatis), tenaga medis, poli, hari,
+     * rentang tanggal berlaku, dan keterangan, plus toolbar Batal/Simpan.
+     */
     @Override
     protected void buildFormContent(MyWindow window, final JadwalDokter jadwalDokter) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -288,6 +312,7 @@ public class JadwalDokterAction extends GenericCrudAction<JadwalDokter> {
 
     // ======================== Save logic ========================
 
+    /** Memvalidasi (shift, tenaga medis, hari, poli, lokasi wajib terisi) dan menyimpan {@link JadwalDokter} dari nilai form saat ini. @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal. */
     public boolean onSave(Event event) throws Exception {
         if (shift.getSelectedItem() == null) {
             MyMessageboxConfig.show("Mohon maaf, Shift wajib dipilih terlebih dahulu. Langkah yang dapat dilakukan: (1) pilih terlebih dahulu Lokasi agar daftar Shift tersedia; (2) pilih Shift pada daftar yang tersedia; (3) simpan kembali data setelah Shift ditentukan.", "Peringatan",
@@ -334,6 +359,7 @@ public class JadwalDokterAction extends GenericCrudAction<JadwalDokter> {
 
     // ======================== Renderer ========================
 
+    /** Renderer baris grid {@link JadwalDokter}: hari + rentang tanggal berlaku, lokasi, shift (dengan detail revisi), tenaga medis, poli, keterangan, dan tombol aksi ubah/copy/hapus. */
     class JadwalDokterRenderer extends MyRowRenderer {
 
         @Override

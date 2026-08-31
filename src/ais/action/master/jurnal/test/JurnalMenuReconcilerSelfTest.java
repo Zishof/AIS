@@ -6,8 +6,20 @@ import java.util.List;
 import ais.action.master.jurnal.JurnalMenuReconciler;
 import ais.database.model.Menu;
 
+/**
+ * Harness uji manual (dijalankan lewat {@code main}) untuk memverifikasi
+ * {@link JurnalMenuReconciler}, yang menyelaraskan baris {@link Menu} modul jurnal terhadap
+ * susunan menu yang diharapkan (1 parent + 28 child, total 29 baris) secara idempoten dan
+ * fail-closed. Skenario yang diperiksa: (1) plan kosong menghasilkan 29 insert; (2) menjalankan
+ * ulang terhadap baris yang sudah sesuai tidak menghasilkan perubahan (idempoten); (3) baris lama
+ * dengan label/URL berbeda pada ID yang direservasi tetap dapat direkonsiliasi secara atomik;
+ * (4) tabrakan URL dengan menu lain di luar cakupan jurnal membuat rencana ditolak
+ * ({@code safe()==false}, ada {@code conflicts}); (5) ID yang direservasi untuk jurnal tapi
+ * dipakai hierarchy menu lain juga ditolak.
+ */
 public final class JurnalMenuReconcilerSelfTest {
     private JurnalMenuReconcilerSelfTest(){}
+    /** Menjalankan seluruh skenario rekonsiliasi menu jurnal (plan kosong, idempotensi, migrasi legacy, deteksi tabrakan); melempar {@link IllegalStateException} bila salah satu gagal. */
     public static void main(String[]args){
         JurnalMenuReconciler service=new JurnalMenuReconciler();
         check(service.desired().size()==29,"parent + 28 child wajib tersedia");
@@ -28,6 +40,8 @@ public final class JurnalMenuReconcilerSelfTest {
         check(!service.inspectRows(stolen).safe(),"reserved ID dengan hierarchy lain harus ditolak");
         System.out.println("JurnalMenuReconcilerSelfTest OK 29-row-plan idempotent collision-fail-closed");
     }
+    /** Membangun objek {@link Menu} sementara (tidak dipersist) dari nilai mentah, ditandai aktif, untuk keperluan uji. */
     private static Menu row(long id,long root,long child,String label,String url,int order){Menu m=new Menu();m.setId(Long.valueOf(id));m.setRoot(Long.valueOf(root));m.setChild(Long.valueOf(child));m.setLabel(label);m.setUrl(url);m.setNomorUrut(Integer.valueOf(order));m.setAktif(Boolean.TRUE);return m;}
+    /** Melempar {@link IllegalStateException} berisi {@code message} bila {@code value} bernilai false. */
     private static void check(boolean value,String message){if(!value)throw new IllegalStateException(message);}
 }

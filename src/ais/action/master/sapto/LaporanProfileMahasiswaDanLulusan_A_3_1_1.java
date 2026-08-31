@@ -28,6 +28,18 @@ import ais.database.model.Mahasiswa;
 import ais.database.model.epsbed.KapasitasMahasiswaBaru;
 import ais.ui.util.DataCriteriaWithColumn;
 
+/**
+ * Jendela laporan borang akreditasi BAN-PT SAPTO butir <b>A-3.1.1</b>: profil mahasiswa dan
+ * lulusan program studi terpilih untuk jalur <b>Reguler</b>, per tahun angkatan (5 tahun terakhir,
+ * TS-4 s.d. TS) — kolom lebih lengkap dari {@link LaporanProfileMahasiswaDanLulusan_A_3_1_2}
+ * (versi Non Reguler), mencakup juga sebaran IPK lulusan (di bawah 2,75; 2,75-3,5; di atas 3,5)
+ * dan jumlah lulusan tepat waktu. Baris data per tahun dihitung lewat
+ * {@link SaptoGenerator#generateProfileMahasiswaDanLulusan}. Sel tabel dapat diklik untuk membuka
+ * rincian data mentah (daya tampung/pendaftar/mahasiswa baru/pindahan/aktif kumulatif/lulusan/
+ * IPK) sesuai kolom yang diklik, lewat {@link Common#cetakDataCustomButton}. Laporan hanya aktif
+ * bila satu jurusan/program studi dipilih pada filter (lihat {@link #buildFilters}) — tanpa
+ * pemilihan jurusan, konten dikosongkan.
+ */
 public class LaporanProfileMahasiswaDanLulusan_A_3_1_1 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-3.1.1";
@@ -37,6 +49,7 @@ public class LaporanProfileMahasiswaDanLulusan_A_3_1_1 extends SaptoBaseWindow {
     private static final String[] EMPTY_COLS = new String[180];
     static { Arrays.fill(EMPTY_COLS, ""); }
 
+    /** Konstruktor default: menyiapkan filter fakultas/jurusan dan tahun akademik (default tahun akademik berjalan), lalu membangun kerangka jendela laporan. */
     public LaporanProfileMahasiswaDanLulusan_A_3_1_1() {
         super();
         try {
@@ -46,6 +59,7 @@ public class LaporanProfileMahasiswaDanLulusan_A_3_1_1 extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Seperti konstruktor default, dengan judul/border/closable jendela yang dapat disesuaikan. */
     public LaporanProfileMahasiswaDanLulusan_A_3_1_1(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         initFakultasJurusan();
@@ -53,8 +67,10 @@ public class LaporanProfileMahasiswaDanLulusan_A_3_1_1 extends SaptoBaseWindow {
         buildBase(false);
     }
 
+    /** Kode butir borang yang dipetakan ke jendela ini: {@value #sheetCode}. */
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Menyusun kontrol filter pada baris toolbar: filter fakultas/jurusan bawaan {@link SaptoBaseWindow} (wajib dipilih agar laporan tampil), ditambah pemilih tahun akademik yang memicu {@link #onCetak} saat diubah. */
     @Override
     protected void buildFilters(Row row) {
         addFakultasJurusanFilter(row);
@@ -68,6 +84,15 @@ public class LaporanProfileMahasiswaDanLulusan_A_3_1_1 extends SaptoBaseWindow {
         });
     }
 
+    /**
+     * Menyusun data laporan A-3.1.1: bila jurusan dipilih, menghitung baris profil mahasiswa/
+     * lulusan jalur Reguler untuk 5 tahun angkatan terakhir lewat
+     * {@link SaptoGenerator#generateProfileMahasiswaDanLulusan}, dijalankan di thread terpisah
+     * agar UI tidak terblokir; bila tidak ada jurusan terpilih, konten dikosongkan. Menyiapkan
+     * juga listener klik sel yang membuka rincian data mentah sesuai kolom (15 kategori kolom:
+     * daya tampung, pendaftar, mahasiswa baru/pindahan, aktif kumulatif, lulusan tepat waktu,
+     * hingga sebaran IPK) dan baris tahun yang diklik.
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

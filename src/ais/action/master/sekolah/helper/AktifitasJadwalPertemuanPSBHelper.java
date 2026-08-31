@@ -38,6 +38,16 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper ZK yang membangun tampilan "aktifitas" (agenda pertemuan + daftar sesi/materi) untuk satu
+ * {@link JadwalPertemuanPSB} (jadwal wawancara/tes PSB — Penerimaan Siswa Baru). Menyediakan toolbar
+ * agenda (link agenda pertemuan lewat {@link PenjadwalanPertemuanPSBHelper}, cetak absensi, kalender,
+ * tombol ruang kelas virtual, refresh) dan grid daftar {@link Pertemuan} terkait dengan penyorotan
+ * warna baris berdasarkan rentang tanggal (hijau untuk pertemuan dalam 7 hari ke depan, abu-abu untuk
+ * yang sudah lewat). Bila calon siswa yang login belum punya satu pun pertemuan untuk jadwal ini,
+ * satu {@link Pertemuan} baru otomatis dibuat (status {@code UJIAN_ONLINE}) agar sesi selalu tersedia
+ * tanpa perlu campur tangan admin.
+ */
 public class AktifitasJadwalPertemuanPSBHelper {
 
 	protected PenjadwalanPertemuanPSBHelper penjadwalanHelper = new PenjadwalanPertemuanPSBHelper();
@@ -46,6 +56,16 @@ public class AktifitasJadwalPertemuanPSBHelper {
 
 	}
 
+	/**
+	 * Membangun toolbar agenda untuk satu jadwal pertemuan PSB: tombol lihat/atur agenda jadwal,
+	 * cetak absensi, kalender, buka ruang kelas virtual, dan refresh (menandai jadwal "belum" lalu
+	 * memuat ulang data lewat {@code dataLoader}). Toolbar disembunyikan bila pengguna yang login
+	 * adalah calon siswa (hanya admin/panitia yang melihat toolbar pengaturan ini).
+	 *
+	 * @param jadwalPertemuanPSB jadwal pertemuan PSB yang toolbarnya dibangun
+	 * @param dataLoader         callback pemuatan ulang data, dipanggil setelah aksi refresh
+	 * @return komponen {@link Toolbar} siap dipasang ke layar pemanggil
+	 */
 	public Toolbar initAgendaJadwalPertemuanPSB(final JadwalPertemuanPSB jadwalPertemuanPSB, final DataLoader dataLoader) {
 
 		CalonSiswa CalonSIswa = Common.getCurrentUser() == null ? null : Common.getCurrentUser().getCalonSiswa();
@@ -94,10 +114,23 @@ public class AktifitasJadwalPertemuanPSBHelper {
 		return hbox;
 	}
 
+	/** Membangun tampilan detail aktifitas jadwal pertemuan PSB dengan pemuat data default (memuat ulang dirinya sendiri). */
 	public void initDetail(final JadwalPertemuanPSB jadwalPertemuanPSB, final Div groupbox) throws Exception {
 		initDetail(jadwalPertemuanPSB, null, groupbox);
 	}
 
+	/**
+	 * Membangun tampilan detail aktifitas jadwal pertemuan PSB di dalam komponen kontainer yang
+	 * diberikan: tab "Agenda" berisi toolbar dari {@link #initAgendaJadwalPertemuanPSB} diikuti grid
+	 * daftar pertemuan. Bila calon siswa yang login belum memiliki pertemuan sama sekali untuk jadwal
+	 * ini, satu {@link Pertemuan} baru dibuat otomatis dan sebuah timer default dipasang untuk
+	 * memuat ulang tampilan setelahnya (memberi waktu server menyelesaikan pembuatan sesi).
+	 *
+	 * @param jadwalPertemuanPSB jadwal pertemuan PSB yang detailnya ditampilkan
+	 * @param mydataLoader       pemuat data ulang eksternal; bila {@code null}, dipakai pemuat default yang memanggil ulang method ini
+	 * @param groupbox           kontainer target tempat tab dan grid dipasang (dibersihkan lebih dulu)
+	 * @throws Exception diteruskan apa adanya dari kegagalan pemuatan/pembangunan komponen
+	 */
 	public void initDetail(final JadwalPertemuanPSB jadwalPertemuanPSB, final DataLoader mydataLoader, final Div groupbox)
 			throws Exception {
 

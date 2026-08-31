@@ -22,6 +22,14 @@ import ais.database.model.Konfigurasi;
 import ais.database.model.asset.AssetDetail;
 import ais.ui.util.MyButtonConfig;
 
+/**
+ * Helper UI ZK untuk menampilkan dan mengubah posisi geografis (latitude/longitude) satu
+ * {@link AssetDetail} pada peta Google Maps ({@code org.zkoss.gmaps}). Posisi awal memakai
+ * koordinat aset yang tersimpan (bila sudah ada) atau koordinat default dari konfigurasi
+ * ({@code default_lat}/{@code default_lng}). Penanda peta dapat digeser untuk mengubah posisi
+ * hanya bila mode edit diaktifkan (tombol "Ubah", tampil sesuai privilese
+ * {@link CommonPrivilages#UPDATE}) dan tombol "Ubah" ditekan (berganti label jadi "Kunci").
+ */
 public class AssetDetailPosisiHelper {
 
 	private AssetDetail assetDetail;
@@ -34,6 +42,7 @@ public class AssetDetailPosisiHelper {
 
 	protected HashMap<Gmarker, HashSet<Gpolyline>> indexMap;
 
+	/** Menyiapkan helper untuk {@code assetDetail}; {@code eventListener} dipanggil setiap kali peta selesai dimuat atau posisi penanda berubah. Hak edit posisi ditentukan dari privilese {@link CommonPrivilages#UPDATE} user yang sedang login. */
 	public AssetDetailPosisiHelper(AssetDetail assetDetail,
 			EventListener eventListener) {
 		indexMap = new HashMap<Gmarker, HashSet<Gpolyline>>();
@@ -42,6 +51,7 @@ public class AssetDetailPosisiHelper {
 		edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
 	}
 
+	/** Membangun kerangka layar posisi aset: toolbar tombol Ubah/Kunci (bila punya hak edit) dan area peta, dimuat setelah jeda singkat (timer 2 detik) via {@link #initMap} agar komponen ZK selesai ter-render lebih dulu. */
 	public Borderlayout display() {
 
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -96,6 +106,14 @@ public class AssetDetailPosisiHelper {
 		return borderlayout;
 	}
 
+	/**
+	 * Membangun peta Google Maps dan penanda posisi ke {@code center}: memakai koordinat
+	 * {@code assetDetail} yang sudah tersimpan bila ada, atau koordinat default dari konfigurasi
+	 * (dan menyimpannya ke {@code assetDetail} untuk aset baru). Mendaftarkan handler
+	 * {@code onMapDrop} yang memperbarui koordinat {@code assetDetail} saat penanda digeser (hanya
+	 * bila {@link #editable}) dan memanggil {@link #eventListener}. Selalu memanggil
+	 * {@link #eventListener} sekali di akhir untuk memberi tahu pemanggil bahwa peta sudah siap.
+	 */
 	public void initMap(Component center) throws Exception {
 		String strLat = Common.getKonfigurasi("default_lat", Konfigurasi.AKTIF,
 				"" + -6.195168, "", "").getInfo1();

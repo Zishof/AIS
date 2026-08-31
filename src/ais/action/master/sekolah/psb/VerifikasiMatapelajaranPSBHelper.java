@@ -39,8 +39,30 @@ import ais.ui.util.MyLabelAgakKecil;
 import ais.ui.util.MyLabelBoldAja;
 import ais.ui.util.MyRowStyled;
 
+/**
+ * Kelas utilitas modul PSB (Penerimaan Siswa Baru) yang membangun dan menyimpan panel verifikasi
+ * nilai rapor per mata pelajaran calon siswa ({@link CalonSiswaPunyaVerifikasiMatapelajaran}),
+ * dibandingkan terhadap KKM (Kriteria Ketuntasan Minimal), untuk setiap kelas/semester yang
+ * disyaratkan gelombang pendaftaran ({@code gel.getKelasVerifikasiRapor()}, berformat
+ * {@code "kelas:semester;kelas:semester;..."}).
+ *
+ * <p>
+ * {@link #tampilkanVerifikasi} membangun tabel dinamis: baris per mata pelajaran, kolom per
+ * kelas/semester (nilai + KKM), dengan checkbox "sudah diverifikasi" per sel yang mengunci
+ * kolom nilai saat dicentang. Mengubah satu nilai memicu perhitungan ulang berjenjang: rata-rata
+ * per mata pelajaran, lalu rata-rata total lintas semua mata pelajaran (baris ringkasan
+ * "Rata-Rata" di bawah tabel) — keduanya hanya menghitung nilai yang lebih besar dari 0.1 (nilai
+ * kosong/nol tidak ikut dirata-rata). Panel hanya editable bagi pengguna staf (bukan calon siswa
+ * sendiri, dicek via {@code tbmuser.getCalonSiswa() == null}); calon siswa hanya melihat status
+ * verifikasi sebagai ikon. {@link #simpanVerifikasi} membaca kembali nilai dari komponen form ke
+ * entitas dan menyimpannya — baris ringkasan "Rata-Rata" (yang tidak memiliki attribute
+ * {@code matapelajaranSekolah}) sengaja dilewati karena nilainya sudah tersimpan otomatis lewat
+ * listener perubahan, bukan lewat proses simpan massal ini.
+ * </p>
+ */
 public class VerifikasiMatapelajaranPSBHelper {
 
+	/** Menampilkan panel verifikasi untuk {@code calonSiswa}, menentukan gelombang pendaftaran dari data calon siswa (bila sudah ada) atau dari combobox {@code gelombang}. */
 	public static Rows tampilkanVerifikasi(final CalonSiswa calonSiswa, Rows rows, final Combobox gelombang)
 			throws Exception {
 		GelombangPendaftaranPsb gel = (GelombangPendaftaranPsb) (calonSiswa.getGelombangPendaftaranPsb() != null
@@ -50,6 +72,19 @@ public class VerifikasiMatapelajaranPSBHelper {
 		return tampilkanVerifikasi(calonSiswa, rows, gel, gelombang);
 	}
 
+	/**
+	 * Membangun panel verifikasi nilai rapor untuk {@code calonSiswa} pada gelombang pendaftaran
+	 * {@code gel} tertentu: header kolom per kelas/semester yang disyaratkan gelombang, baris per
+	 * mata pelajaran aktif yang terdaftar pada gelombang tersebut, dan baris ringkasan
+	 * "Rata-Rata" di bagian bawah. Dipasang ulang otomatis lewat listener {@code onChange} pada
+	 * {@code gelombang} (bila diberikan) sehingga berganti gelombang membangun ulang panel.
+	 *
+	 * @param calonSiswa calon siswa yang nilai rapornya diverifikasi
+	 * @param rows       kontainer baris ZK tempat header/judul verifikasi disisipkan
+	 * @param gel        gelombang pendaftaran yang menentukan kelas/semester dan mata pelajaran yang diverifikasi; mengembalikan {@link Rows} kosong bila {@code null}
+	 * @param gelombang  combobox gelombang pendaftaran, sumber pemicu pembangunan ulang panel saat berubah, boleh {@code null}
+	 * @return kontainer {@link Rows} berisi baris-baris data verifikasi (dipakai kembali oleh {@link #simpanVerifikasi})
+	 */
 	@SuppressWarnings("deprecation")
 	public static Rows tampilkanVerifikasi(final CalonSiswa calonSiswa, Rows rows, final GelombangPendaftaranPsb gel,
 			final Combobox gelombang) throws Exception {
@@ -452,6 +487,14 @@ public class VerifikasiMatapelajaranPSBHelper {
 
 	}
 
+	/**
+	 * Menyimpan (create-or-update) seluruh baris verifikasi mata pelajaran dari komponen form
+	 * {@code subRowsMatapelajaranSekolah} (hasil {@link #tampilkanVerifikasi}) ke entitas
+	 * {@link CalonSiswaPunyaVerifikasiMatapelajaran}, membaca kembali nilai/KKM/status
+	 * verifikasi/keterangan dari komponen ZK di setiap baris. Baris ringkasan "Rata-Rata" (tanpa
+	 * attribute {@code matapelajaranSekolah}) dilewati karena sudah tersimpan otomatis lewat
+	 * listener perubahan sendiri (lihat javadoc kelas).
+	 */
 	@SuppressWarnings("unchecked")
 	public static void simpanVerifikasi(CalonSiswa calonSiswa, Rows subRowsMatapelajaranSekolah) {
 		if (subRowsMatapelajaranSekolah != null) {

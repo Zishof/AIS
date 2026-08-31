@@ -50,6 +50,18 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper UI pengelola riwayat "Keterangan Lain" pegawai ({@link RiwayatKeteranganLainPegawai} —
+ * mis. surat keterangan kerja, referensi, atau dokumen serupa yang diterbitkan pejabat), dengan
+ * alur persetujuan dua tahap: baris baru dibuat dalam status belum disetujui, lalu pengguna
+ * berhak {@link CommonPrivilages#APPROVE} dapat mencentang "Status Persetujuan" untuk mengunci
+ * (membekukan) form ({@code Common.freeze}) — setelah disetujui, tombol hapus baris disembunyikan.
+ * Bekerja dalam dua mode: terikat pada satu {@link Pegawai} tertentu (constructor diberi pegawai
+ * non-null, dropdown pegawai dikunci) atau lintas pegawai dengan filter satuan kerja
+ * hierarkis (lewat {@link SatuanKerjaTreeModel}, mencakup seluruh anak satuan kerja terpilih) dan
+ * filter status persetujuan. Setiap entri dapat memiliki satu atau lebih lampiran foto/dokumen
+ * lewat {@code FotoLampiranPegawaiHelper}, wajib diunggah sebelum entri dapat disimpan.
+ */
 public class RiwayatKeteranganLainPegawaiHelper {
 
 	private MyGrid grid = new MyGrid();
@@ -73,11 +85,13 @@ public class RiwayatKeteranganLainPegawaiHelper {
 	private AmbilDataSatuanKerjaBanbox searchparent;
 	private SatuanKerjaTreeModel satuanKerjaTreeModel;
 
+	/** Membuat helper; bila {@code pegawai} tidak {@code null}, tampilan terikat pada satu pegawai tersebut (dropdown pegawai dikunci), selain itu menampilkan lintas pegawai dengan filter satuan kerja. */
 	public RiwayatKeteranganLainPegawaiHelper(final Pegawai pegawai) {
 		this.pegawai = pegawai;
 
 	}
 
+	/** Renderer baris grid: nama pegawai, nama keterangan, pejabat, nomor, tanggal, tempat, ikon status persetujuan, dan tombol edit (membuka {@link #init}) + hapus (disembunyikan bila sudah disetujui, dengan dialog konfirmasi). */
 	class RiwayatKeteranganLainPegawaiRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -151,7 +165,16 @@ public class RiwayatKeteranganLainPegawaiHelper {
 		}
 	}
 
-	public Borderlayout display() throws Exception { 
+	/**
+	 * Membangun tata letak lengkap panel riwayat keterangan lain: baris filter (pegawai terkunci
+	 * atau satuan kerja hierarkis bila lintas pegawai, plus status persetujuan), tombol "Tambah
+	 * Data", dan grid berpaginasi (10 baris/halaman) yang dimuat lewat timer default (memberi
+	 * kesempatan komponen filter selesai dirakit lebih dulu) memanggil {@link #onSearchDefault}.
+	 *
+	 * @return {@link Borderlayout} siap ditempelkan ke jendela detail pegawai
+	 * @throws Exception diteruskan dari kegagalan pembangunan komponen
+	 */
+	public Borderlayout display() throws Exception {
 
 		North north = new North();
 		Center center = new Center();
@@ -316,6 +339,7 @@ public class RiwayatKeteranganLainPegawaiHelper {
 		return borderlayout;
 	}
 
+	/** Menjalankan pencarian riwayat keterangan sesuai filter satuan kerja (termasuk seluruh turunannya)/pegawai/status persetujuan saat ini dan menyegarkan grid dengan {@link RiwayatKeteranganLainPegawaiRenderer}. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 		
@@ -351,6 +375,17 @@ public class RiwayatKeteranganLainPegawaiHelper {
 
 	}
 
+	/**
+	 * Membuka jendela modal tambah/edit satu riwayat keterangan lain: panel timur berisi pengelola
+	 * lampiran foto/dokumen ({@code FotoLampiranPegawaiHelper}), panel tengah berisi form (pegawai,
+	 * nama keterangan, pejabat, nomor, tanggal, tempat, dan checkbox status persetujuan — hanya
+	 * tampil bagi pengguna berhak {@link CommonPrivilages#APPROVE}). Form dibekukan
+	 * ({@code Common.freeze}) bila entri sudah berstatus disetujui, dan otomatis dibekukan/
+	 * dibuka ulang saat checkbox status diubah. Tombol Simpan memicu {@link #save(Event)}.
+	 *
+	 * @param riwayatKeteranganLainPegawai entitas baru atau tersimpan yang akan diedit
+	 * @throws Exception diteruskan dari kegagalan pembangunan komponen
+	 */
 	public void init(final RiwayatKeteranganLainPegawai riwayatKeteranganLainPegawai) throws Exception {
 		this.riwayatKeteranganLainPegawai = riwayatKeteranganLainPegawai;
 
@@ -500,6 +535,17 @@ public class RiwayatKeteranganLainPegawaiHelper {
 		window.onModal();
 	}
 
+	/**
+	 * Memvalidasi (pegawai, nama keterangan, dan tanggal wajib diisi; setiap baris lampiran pada
+	 * grid foto harus sudah memiliki berkas terunggah) lalu menyimpan/memperbarui entitas
+	 * {@link RiwayatKeteranganLainPegawai} beserta seluruh lampiran {@link FotoLampiranPegawai}
+	 * terkait (dikaitkan lewat {@code item}/{@code clazz}) dalam sesi Hibernate streaming
+	 * terpisah.
+	 *
+	 * @param event event pemicu (tidak dipakai langsung)
+	 * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal
+	 * @throws Exception diteruskan dari kegagalan Hibernate di luar penanganan lampiran (yang ditangkap dan ditampilkan hanya untuk admin)
+	 */
 	@SuppressWarnings("unchecked")
 	public boolean save(Event event) throws Exception {
 

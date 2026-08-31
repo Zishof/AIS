@@ -26,6 +26,13 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD master data Satuan Item (konversi satuan stok barang/farmasi pada modul SIRS, mis.
+ * "Box" ke "Pcs" dengan jumlah konversi tertentu). Setiap baris mendefinisikan pasangan satuan awal
+ * ({@code namaAwal}) dan satuan sampai ({@code nama}) beserta {@code jumlah} item per satuan,
+ * dipakai untuk konversi stok lintas satuan (mis. saat penerimaan dalam box tapi pemakaian per pcs).
+ * Memperluas {@link GenericCrudAction} untuk mewarisi kerangka baku cari/tambah/ubah/hapus.
+ */
 public class SatuanItemAction extends GenericCrudAction<SatuanItem> {
 
     private static final long serialVersionUID = 3786091220301468178L;
@@ -46,6 +53,7 @@ public class SatuanItemAction extends GenericCrudAction<SatuanItem> {
     @Override
     protected String getWindowTitle() { return "Pendataan Satuan Item"; }
 
+    /** Menyusun kriteria pencarian {@link SatuanItem} berdasarkan nama satuan sampai (filter {@code searchnama}), diurutkan berdasarkan nama bila diminta. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -57,6 +65,7 @@ public class SatuanItemAction extends GenericCrudAction<SatuanItem> {
         return criteria;
     }
 
+    /** Menyediakan renderer baris grid {@link SatuanItemRenderer} untuk daftar hasil pencarian. */
     @Override
     protected MyRowRenderer createRenderer() {
         return new SatuanItemRenderer();
@@ -64,6 +73,7 @@ public class SatuanItemAction extends GenericCrudAction<SatuanItem> {
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/ubah satuan item (satuan awal, satuan sampai, jumlah konversi) beserta tombol batal/simpan pada jendela dialog. */
     @Override
     protected void buildFormContent(MyWindow window, final SatuanItem satuanItem) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -138,6 +148,15 @@ public class SatuanItemAction extends GenericCrudAction<SatuanItem> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi lalu menyimpan data satuan item dari form: menolak bila nama satuan kosong,
+     * jumlah konversi belum diisi, atau nama satuan sudah terdaftar pada baris lain; jika lolos
+     * menyimpan/memperbarui entitas dan mengembalikan {@code true}.
+     *
+     * @param event event ZK pemicu penyimpanan (tombol simpan)
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal
+     * @throws Exception diteruskan apa adanya dari kegagalan Hibernate saat menyimpan
+     */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Nama Satuan wajib diisi terlebih dahulu. Langkah yang dapat dilakukan: (1) isikan Nama Satuan pada kolom yang tersedia; (2) pastikan kolom tidak dikosongkan; (3) simpan kembali data setelah kolom terisi.", "Peringatan",
@@ -167,6 +186,12 @@ public class SatuanItemAction extends GenericCrudAction<SatuanItem> {
         return true;
     }
 
+    /**
+     * Memeriksa apakah nama satuan (satuan sampai) yang diisi di form sudah dipakai baris lain
+     * secara case-insensitive (mengecualikan baris yang sedang diedit sendiri).
+     *
+     * @return {@code true} bila nama sudah terpakai baris lain, {@code false} bila belum
+     */
     public Boolean checkNamaJenisBarang() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(SatuanItem.class)
@@ -181,6 +206,7 @@ public class SatuanItemAction extends GenericCrudAction<SatuanItem> {
 
     // ======================== Renderer ========================
 
+    /** Renderer baris grid daftar satuan item: kolom satuan awal, satuan sampai (dengan link riwayat revisi), jumlah konversi, dan tombol edit/hapus. */
     class SatuanItemRenderer extends MyRowRenderer {
 
         @Override

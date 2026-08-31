@@ -28,6 +28,14 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD data master "Poli" SIRS (poliklinik/unit layanan rumah sakit), mendukung struktur
+ * hierarkis (satu poli dapat menjadi "bagian dari" poli lain lewat {@code polyDari}) dan jenis
+ * layanan tetap (Rawat Jalan/Rawat Inap/UGD, dari {@link Pendaftaran}). Dibangun di atas
+ * {@link GenericCrudAction}: pencarian dapat difilter nama dan jenis; form tambah/edit memuat
+ * kode, nama, jenis, poli induk, dan keterangan; validasi nama dan jenis wajib diisi serta nama
+ * tidak duplikat; renderer baris menampilkan seluruh atribut dengan tombol revisi dan edit/hapus.
+ */
 public class PolyAction extends GenericCrudAction<Poly> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -53,12 +61,14 @@ public class PolyAction extends GenericCrudAction<Poly> {
     @Override
     protected String getWindowTitle() { return "Pendataan Poli"; }
 
+    /** Mengisi dropdown filter jenis poli setelah komponen ZK dirakit. */
     @Override
     public void doAfterCompose(Component comp) throws Exception {
         super.doAfterCompose(comp);
         initJenis(searchjenis);
     }
 
+    /** Membangun kriteria pencarian {@link Poly} berdasarkan filter nama (ILIKE sebagian) dan jenis, diurutkan menurut nama bila {@code order} true. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -78,6 +88,7 @@ public class PolyAction extends GenericCrudAction<Poly> {
         return new PolyRenderer();
     }
 
+    /** Mengisi {@code combobox} dengan tiga pilihan jenis poli tetap: Rawat Jalan, Rawat Inap, UGD ({@link Pendaftaran}). Tidak melakukan apa-apa bila {@code combobox} {@code null}. */
     private void initJenis(Combobox combobox) {
         if (combobox == null) return;
         Comboitem comboitem = new Comboitem(Pendaftaran.RAWAT_JALAN);
@@ -93,6 +104,7 @@ public class PolyAction extends GenericCrudAction<Poly> {
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/edit Poli (kode, nama, jenis, poli induk "bagian dari", keterangan) beserta toolbar Batal/Simpan di dalam jendela {@code window}. */
     @Override
     protected void buildFormContent(MyWindow window, final Poly poly) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -182,6 +194,7 @@ public class PolyAction extends GenericCrudAction<Poly> {
 
     // ======================== Save logic ========================
 
+    /** Memvalidasi (nama dan jenis wajib diisi, nama tidak boleh duplikat) lalu menyimpan/memperbarui entitas {@link Poly} dari nilai form. @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal. */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Nama Poli wajib diisi terlebih dahulu. Langkah yang dapat dilakukan: (1) isikan Nama Poli pada kolom yang tersedia; (2) pastikan kolom tidak dikosongkan; (3) simpan kembali data setelah kolom terisi.", "Peringatan",
@@ -213,6 +226,7 @@ public class PolyAction extends GenericCrudAction<Poly> {
         return true;
     }
 
+    /** Memeriksa apakah nama pada form sudah dipakai entitas {@link Poly} lain (mengabaikan entitas yang sedang diedit). */
     public Boolean checkNamaPoly() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(Poly.class)
@@ -227,6 +241,7 @@ public class PolyAction extends GenericCrudAction<Poly> {
 
     // ======================== Renderer ========================
 
+    /** Merender satu baris daftar Poli: kode, label revisi+nama, jenis, poli induk, keterangan, dan tombol edit/hapus. */
     class PolyRenderer extends MyRowRenderer {
 
         @Override

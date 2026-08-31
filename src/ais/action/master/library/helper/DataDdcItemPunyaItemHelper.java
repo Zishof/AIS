@@ -33,6 +33,17 @@ import ais.database.model.library.DataDdcItemDetail;
 import ais.database.model.library.Item;
 import ais.ui.util.MyTextbox;
 
+/**
+ * Helper ZK untuk mengelola daftar item ({@link Item}, lewat baris penghubung
+ * {@link DataDdcItemDetail}) yang tergabung dalam satu klasifikasi DDC (Dewey Decimal Classification)
+ * — {@link DataDdcItem} — pada modul perpustakaan (relasi "punya banyak"). Menyediakan toolbar
+ * tambah (membuka dialog pemilihan item {@code AmbilDataItemBanyak}, dengan daftar item yang sudah
+ * ada di grid dikecualikan dari pilihan) dan refresh, keduanya disembunyikan/diaktifkan sesuai hak
+ * akses ({@link CommonPrivilages#CREATE}/{@code UPDATE}/{@code DELETE}). Menambahkan item ke
+ * klasifikasi ini juga menuliskan balik referensi klasifikasi DDC ke entitas {@link Item} itu sendiri
+ * ({@code item.setDdcItem(...)}), dan menghapus baris mengosongkannya kembali — menjaga agar setiap
+ * item hanya tergabung pada satu klasifikasi DDC pada satu waktu.
+ */
 public class DataDdcItemPunyaItemHelper {
 
 	private MyGrid gridItem;
@@ -40,6 +51,12 @@ public class DataDdcItemPunyaItemHelper {
 	private boolean edit = false;
 	private boolean delete = false;
 
+	/**
+	 * Membuat helper terikat pada satu komponen grid target, sekaligus mengevaluasi hak akses
+	 * tambah, ubah, dan hapus pengguna saat ini.
+	 *
+	 * @param gridItem komponen grid ZK tempat baris item dirender
+	 */
 	public DataDdcItemPunyaItemHelper(MyGrid gridItem) {
 		this.gridItem = gridItem;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -47,6 +64,17 @@ public class DataDdcItemPunyaItemHelper {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun kerangka layout detail (toolbar tambah/refresh + kolom grid) dan langsung memuat
+	 * data item untuk klasifikasi DDC yang diberikan. Tombol tambah membuka dialog pemilihan item
+	 * banyak sekaligus, mengecualikan item yang sudah ada di grid; setiap item terpilih disimpan
+	 * sebagai baris {@link DataDdcItemDetail} baru dan referensi klasifikasi DDC-nya dituliskan
+	 * balik ke entitas {@link Item}.
+	 *
+	 * @param dataDdcItem klasifikasi DDC yang daftar itemnya ditampilkan/dikelola
+	 * @return komponen {@link Borderlayout} berisi toolbar dan grid item yang siap dipasang ke layar pemanggil
+	 * @throws Exception diteruskan apa adanya dari kegagalan pemuatan/pembangunan komponen
+	 */
 	public Borderlayout initDetail(final DataDdcItem dataDdcItem) throws Exception {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -176,6 +204,16 @@ public class DataDdcItemPunyaItemHelper {
 		}
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan data item (ISBN/ISSN, nama dengan link riwayat revisi), kolom
+	 * keterangan yang dapat diedit langsung (tersimpan otomatis saat berubah, bila hak ubah dimiliki),
+	 * dan tombol hapus beserta event handler-nya (dialog konfirmasi; menghapus baris penghubung dan
+	 * mengosongkan kembali referensi klasifikasi DDC pada item terkait bila dikonfirmasi).
+	 *
+	 * @param row               baris grid yang diisi
+	 * @param dataDdcItemDetail baris penghubung item-klasifikasi DDC yang direpresentasikan baris ini
+	 * @throws Exception diteruskan apa adanya dari kegagalan pembangunan komponen
+	 */
 	public void initRow(final Row row, final DataDdcItemDetail dataDdcItemDetail) throws Exception {
 		row.setValign("top");row.setAttribute("dataDdcItemDetail", dataDdcItemDetail);
 

@@ -36,18 +36,45 @@ import ais.ui.util.MyFileUploadConfig;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper ZK untuk mengelola galeri gambar/foto kop surat ({@link FotoGambarKopSurat}) milik satu
+ * {@link KopSurat} (relasi "punya banyak"). Menyediakan toolbar unggah (disembunyikan bila pengguna
+ * tidak punya hak {@link CommonPrivilages#CREATE}) yang langsung menyimpan gambar terunggah sebagai
+ * BLOB lewat {@link StreamingHibernateUtil} (sesi Hibernate terpisah khusus data biner besar), grid
+ * pratinjau gambar dengan tautan buka gambar penuh, dan aksi hapus per baris (tombol hapus
+ * disembunyikan bila tidak punya hak {@link CommonPrivilages#DELETE}) dengan dialog konfirmasi.
+ * Catatan: saat kop surat induk belum tersimpan ({@code kopSurat.getId()} masih {@code null}),
+ * unggahan gambar disimpan dengan id kop surat acak (placeholder) alih-alih menunggu id asli — lihat
+ * {@link #initDetail(KopSurat)}.
+ */
 public class KopSuratPunyaGambarFotoHelper {
 
 	private MyGrid gridPengarang;
 	private boolean add = false;
 	private boolean delete = false;
 
+	/**
+	 * Membuat helper terikat pada satu komponen grid target, sekaligus mengevaluasi hak akses
+	 * tambah dan hapus pengguna saat ini.
+	 *
+	 * @param gridPengarang komponen grid ZK tempat baris gambar dirender
+	 */
 	public KopSuratPunyaGambarFotoHelper(MyGrid gridPengarang) {
 		this.gridPengarang = gridPengarang;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun kerangka layout detail (toolbar unggah + kolom grid) dan langsung memuat data gambar
+	 * untuk kop surat yang diberikan. Unggahan baru disimpan sebagai {@link FotoGambarKopSurat} lewat
+	 * sesi {@link StreamingHibernateUtil} tersendiri; bila kop surat belum memiliki id (belum
+	 * tersimpan), dipakai id acak sementara sebagai penanda relasi.
+	 *
+	 * @param kopSurat kop surat yang galeri gambarnya ditampilkan/dikelola
+	 * @return komponen {@link Borderlayout} berisi toolbar dan grid gambar yang siap dipasang ke layar pemanggil
+	 * @throws Exception diteruskan apa adanya dari kegagalan pemuatan data
+	 */
 	public Borderlayout initDetail(final KopSurat kopSurat) throws Exception {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -154,6 +181,15 @@ public class KopSuratPunyaGambarFotoHelper {
 		StreamingHibernateUtil.getInstance().closeSession();
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan pratinjau gambar (memakai URL dari
+	 * {@link CommonMedia#getUrlFotoKopSurat}), tautan buka gambar, dan tombol hapus beserta event
+	 * handler-nya (dialog konfirmasi, hapus dari database dan dari grid bila dikonfirmasi).
+	 *
+	 * @param row                  baris grid yang diisi
+	 * @param fotoGambarKopSurat   data gambar yang direpresentasikan baris ini
+	 * @throws Exception diteruskan apa adanya dari kegagalan pembangunan komponen
+	 */
 	public void initRow(final Row row,
 			final FotoGambarKopSurat fotoGambarKopSurat) throws Exception {
 		row.setValign("top");row.setAttribute("fotoGambarKopSurat", fotoGambarKopSurat);

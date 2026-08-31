@@ -45,6 +45,23 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper UI ZK modul sekolah untuk mencatat kehadiran siswa per kelas pada satu sesi
+ * {@link AbsenPiket} ("absen piket" — pencatatan kehadiran oleh guru piket, terpisah dari absensi
+ * per mata pelajaran). Menampilkan grid siswa satu kelas berpaginasi, masing-masing baris berisi
+ * pilihan status kehadiran (radio group, sumber data {@code ConstantValues#listAbsenMahasiswa})
+ * dan keterangan, yang langsung tersimpan ke {@link AbsenPiketDetail} sekaligus disinkronkan ke
+ * ringkasan kehadiran pada {@link KelasSiswa} induk saat diubah.
+ *
+ * <p>
+ * Menyediakan dua aksi massal: "Semua hadir" (menandai seluruh siswa yang tampil sebagai masuk)
+ * dan "Reset" (mengembalikan seluruh siswa ke status belum absen), keduanya meminta konfirmasi
+ * dan dijalankan lewat timer default agar UI tidak terblokir. Pencarian mendukung filter nama/
+ * NIS/NISN dan angkatan; bagi pengguna orang tua, daftar otomatis dibatasi ke anak-anaknya
+ * sendiri. Menyediakan pula tombol unduh rekap kehadiran ke Excel lewat
+ * {@code Common#cetakDataCustomButton}.
+ * </p>
+ */
 public class DetailAbsenPiketHelper implements DataLoader, DataCriteria {
 
 	private MyGrid grid;
@@ -58,6 +75,7 @@ public class DetailAbsenPiketHelper implements DataLoader, DataCriteria {
 
 	private List<KelasSiswaPunyaSiswa> siswa = null;
 
+	/** Membangun helper dan menyiapkan paging (100 baris per halaman) yang memicu {@link #loadData(Object)} saat halaman berubah. */
 	public DetailAbsenPiketHelper() {
 
 		paging = new Paging();
@@ -70,6 +88,7 @@ public class DetailAbsenPiketHelper implements DataLoader, DataCriteria {
 		});
 	}
 
+	/** Perenderan satu baris tabel kehadiran siswa: foto, tautan riwayat revisi, nama, dan komponen input status kehadiran + keterangan yang menyimpan langsung ke database saat diubah. */
 	class DetailPARenderer extends ais.ui.util.MyRowRenderer {
 
 		public DetailPARenderer() {
@@ -161,6 +180,11 @@ public class DetailAbsenPiketHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/**
+	 * Membangun kriteria pencarian daftar siswa satu kelas ({@code absenPiket.getKelas()}),
+	 * difilter berdasarkan kecocokan nama/NIS/NISN dan angkatan bila diisi; bagi pengguna orang
+	 * tua, dibatasi ke anak-anaknya sendiri.
+	 */
 	public Criteria initCriteria(boolean order) {
 
 		Session session = HibernateUtil.currentSession();
@@ -194,6 +218,7 @@ public class DetailAbsenPiketHelper implements DataLoader, DataCriteria {
 		return criteria;
 	}
 
+	/** Memuat ulang halaman daftar siswa sesuai kriteria pencarian dan paging saat ini, merender ke grid lewat {@link DetailPARenderer}. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Common.initPaging100(initCriteria(false), paging);
@@ -214,6 +239,15 @@ public class DetailAbsenPiketHelper implements DataLoader, DataCriteria {
 	private String[] contentsMhs = new String[] { "mahasiswa.nim", "mahasiswa.nama", "mahasiswa.tahunangkatan",
 			"mahasiswa.jurusan.nama", "siswa.jurusan.fakultas.nama" };
 
+	/**
+	 * Membangun dan menampilkan panel pencatatan kehadiran untuk {@code absenPiket} di dalam
+	 * {@code component}: toolbar pencarian (nama/angkatan), aksi massal Semua Hadir/Reset,
+	 * tombol unduh rekap Excel, dan grid siswa berpaginasi.
+	 *
+	 * @param absenPiket sesi absen piket (kelas + periode) yang kehadirannya dicatat
+	 * @param component  komponen ZK induk tempat panel disisipkan (dibersihkan lebih dulu)
+	 * @param window     jendela pemanggil, diteruskan untuk konteks tetapi tidak dipakai langsung di sini
+	 */
 	public void displayDetailPA(final AbsenPiket absenPiket, final Component component, final MyWindow window) {
 		this.absenPiket = absenPiket;
 		Common.clear(component);

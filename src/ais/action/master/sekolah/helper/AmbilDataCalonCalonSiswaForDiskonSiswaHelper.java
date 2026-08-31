@@ -49,6 +49,23 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Dialog pemilih multi-baris ("ambil data") modul sekolah untuk memilih {@link CalonSiswa} yang
+ * akan diberi satu {@link DiskonSiswa} (potongan biaya) tertentu. Menampilkan grid calon siswa
+ * berpaginasi (server-side, lewat {@code ais.ui.util.AmbilDataPagingHelper}) dengan checkbox
+ * per baris; calon siswa yang sudah terdaftar menerima diskon ini ditandai tercentang sekaligus
+ * dikunci (tidak dapat dibatalkan lewat dialog ini).
+ *
+ * <p>
+ * Pencarian mendukung filter nomor registrasi/NISN, nama, yayasan (dengan combobox sekolah
+ * mengikuti yayasan terpilih secara cascading), sekolah, dan tahun angkatan; bila
+ * {@code diskonSiswa} sudah terikat ke yayasan/sekolah tertentu, combobox terkait dikunci ke
+ * nilai tersebut. Checkbox pada header kolom berfungsi sebagai "pilih semua" (mengabaikan baris
+ * yang sudah terkunci). {@link #save()} menyimpan (create-or-update) baris
+ * {@link DiskonSiswaPunyaSiswa} untuk setiap baris yang dicentang dan belum terkunci, mencatat
+ * pengguna yang melakukan aksi.
+ * </p>
+ */
 public class AmbilDataCalonCalonSiswaForDiskonSiswaHelper {
 
 	private DiskonSiswa diskonSiswa;
@@ -64,6 +81,7 @@ public class AmbilDataCalonCalonSiswaForDiskonSiswaHelper {
 	private Combobox searchyayasan = new Combobox();
 	private Combobox searchsekolah = new Combobox();
 
+	/** Membangun dialog untuk {@code diskonSiswa}, menyiapkan combobox pencarian yayasan/sekolah (dikunci ke nilai diskon bila sudah terikat, cascading yayasan→sekolah bila belum). */
 	public AmbilDataCalonCalonSiswaForDiskonSiswaHelper(DiskonSiswa diskonSiswa) {
 		this.diskonSiswa = diskonSiswa;
 		Yayasan yayasan = diskonSiswa.getYayasan();
@@ -109,6 +127,7 @@ public class AmbilDataCalonCalonSiswaForDiskonSiswaHelper {
 
 	}
 
+	/** Perenderan satu baris tabel calon siswa: checkbox pilih (tercentang dan terkunci bila sudah terdaftar diskon ini), nomor registrasi, nama, dan tahun masuk. */
 	class CalonSiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -134,6 +153,11 @@ public class AmbilDataCalonCalonSiswaForDiskonSiswaHelper {
 		}
 	}
 
+	/**
+	 * Menyimpan (create-or-update) baris {@link DiskonSiswaPunyaSiswa} untuk setiap baris grid
+	 * yang dicentang dan belum terkunci (belum terdaftar sebelumnya), mencatat pengguna yang
+	 * sedang login sebagai pelaku perubahan.
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() throws InterruptedException {
 		Session session = HibernateUtil.currentSession();
@@ -167,6 +191,15 @@ public class AmbilDataCalonCalonSiswaForDiskonSiswaHelper {
 
 	}
 
+	/**
+	 * Membangun dan menampilkan dialog modal pemilih calon siswa pada {@code window}: panel
+	 * filter pencarian di utara, grid hasil berpaginasi di tengah, dan toolbar
+	 * Simpan/Batal di selatan. Tombol Simpan memanggil {@link #save()} lalu memicu
+	 * {@code dataLoader} agar layar pemanggil memuat ulang data.
+	 *
+	 * @param dataLoader callback pemuatan ulang data pada layar pemanggil setelah simpan
+	 * @param window     jendela modal yang dipakai ulang untuk menampilkan dialog ini
+	 */
 	public void display(final DataLoader dataLoader, final MyWindow window) {
 
 		Common.clear(window);
@@ -370,6 +403,12 @@ public class AmbilDataCalonCalonSiswaForDiskonSiswaHelper {
 		}
 	}
 
+	/**
+	 * Membangun kriteria pencarian daftar calon siswa (hanya yang sudah memiliki gelombang
+	 * pendaftaran PSB): dibatasi ke anak dari pengguna orang tua yang sedang login (bila
+	 * relevan), difilter berdasarkan nama, nomor registrasi/NISN, tahun masuk, sekolah, dan
+	 * yayasan sesuai isian pencarian.
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(CalonSiswa.class).add(Restrictions.isNotNull("gelombangPendaftaranPsb"));
@@ -415,6 +454,7 @@ public class AmbilDataCalonCalonSiswaForDiskonSiswaHelper {
 		return criteria;
 	}
 
+	/** Memuat ulang hasil pencarian calon siswa (server-side paging) sesuai kriteria saat ini dan merender ke grid. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

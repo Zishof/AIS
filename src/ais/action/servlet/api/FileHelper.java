@@ -1,8 +1,13 @@
 package ais.action.servlet.api;
 
+/**
+ * Utilitas untuk memetakan MIME type berkas menjadi pasangan ikon Font Awesome dan kelas warna
+ * Bootstrap, dipakai UI untuk menampilkan ikon representatif tanpa perlu membuka/mengunduh
+ * berkasnya (mis. daftar lampiran/dokumen).
+ */
 public class FileHelper {
 
-	// 1. Class sederhana untuk menampung hasil (pengganti object JS)
+	/** Pasangan nama kelas ikon Font Awesome ({@code icon}) dan kelas warna Bootstrap ({@code color}) untuk satu jenis berkas. */
 	public static class IconStyle {
 		public String icon;
 		public String color;
@@ -13,7 +18,12 @@ public class FileHelper {
 		}
 	}
 
-	// 2. Fungsi utama
+	/**
+	 * Menentukan {@link IconStyle} yang sesuai untuk {@code mimeType} (pencocokan tidak peka
+	 * huruf besar/kecil): PDF, Word, Excel, PowerPoint (dicocokkan lewat kata kunci pada string
+	 * MIME type, termasuk varian OOXML), gambar/video/audio (lewat prefix {@code image/}/
+	 * {@code video/}/{@code audio/}), atau ikon generik bila tidak dikenali/{@code null}.
+	 */
 	public static IconStyle getIconAndColor(String mimeType) {
 		// Null check untuk menghindari error
 		if (mimeType == null) {
@@ -57,7 +67,7 @@ public class FileHelper {
 		}
 	}
 
-	// Contoh cara penggunaannya (Main method)
+	/** Contoh penggunaan/uji coba manual {@link #getIconAndColor(String)} lewat baris perintah. */
 	public static void main(String[] args) {
 		// Tes fungsi
 		IconStyle style = getIconAndColor("application/pdf");

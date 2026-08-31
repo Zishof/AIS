@@ -44,6 +44,16 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper ZK berupa dialog modal untuk menyusun agenda pertemuan/sesi ({@link Pertemuan}) milik satu
+ * {@link JadwalPertemuanPSB}. Menampilkan grid yang mengedit topik, tanggal mulai/selesai, dan
+ * status pertemuan langsung di tempat (perubahan langsung tersimpan per baris), dengan tombol tambah
+ * yang menjadwalkan pertemuan baru 7 hari setelah pertemuan sebelumnya (atau hari ini bila belum ada
+ * pertemuan). {@link #save()} menyinkronkan seluruh baris grid dengan database: memperbarui nomor
+ * urut pertemuan ({@code pertemuanKe}) berurutan untuk pertemuan aktif, menyimpan/memperbarui baris
+ * sesuai isi grid, dan MENGHAPUS baris {@link Pertemuan} tersimpan yang sudah tidak ada lagi
+ * representasinya di grid (dihitung lewat selisih peta id).
+ */
 public class PenjadwalanPertemuanPSBHelper {
 
 	private JadwalPertemuanPSB jadwalPertemuanPSB;
@@ -52,6 +62,7 @@ public class PenjadwalanPertemuanPSBHelper {
 
 	private Date currDate;
 
+	/** Renderer baris grid pertemuan: input topik, tanggal mulai/selesai, kombo status pertemuan (masing-masing tersimpan otomatis saat berubah), dan tombol hapus (dengan pengecekan boleh-hapus dan penanganan galat relasi data). */
 	class PertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
 		public PertemuanRenderer() {
@@ -180,6 +191,16 @@ public class PenjadwalanPertemuanPSBHelper {
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
+	/**
+	 * Menyinkronkan seluruh baris pertemuan pada grid dengan database: menomori ulang
+	 * {@code pertemuanKe} secara berurutan untuk pertemuan aktif, menyimpan/memperbarui setiap baris
+	 * sesuai isi grid saat ini, lalu menghapus baris {@link Pertemuan} tersimpan yang sudah tidak
+	 * lagi direpresentasikan di grid. Memuat ulang data pemanggil lewat {@code dataLoader} setelah
+	 * selesai.
+	 *
+	 * @return selalu {@code true} pada implementasi saat ini
+	 * @throws InterruptedException tidak pernah dilempar dalam implementasi saat ini, dipertahankan untuk kompatibilitas signature
+	 */
 	public boolean save() throws InterruptedException {
 
 		Rows rows = grid.getRows();

@@ -38,14 +38,41 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper UI ZK modul rekrutmen pegawai yang menampilkan panel "aktivitas" satu
+ * {@link JadwalUjianPegawai} (jadwal ujian rekrutmen): toolbar aksi (agenda penjadwalan, cetak
+ * absensi, kalender, ruang kelas virtual, refresh) dan daftar pertemuan/sesi ujian dalam bentuk
+ * grid — mengikuti pola tampilan "aktivitas perkuliahan" ({@link AktifitasPerkuliahanHelper})
+ * yang dipakai juga di modul akademik, diadaptasi untuk konteks ujian rekrutmen pegawai.
+ *
+ * <p>
+ * Bila belum ada satu pun {@link Pertemuan} untuk jadwal ujian ini dan pemanggil bukan calon
+ * pegawai (yaitu panitia/admin) serta parameter {@code check} bernilai {@code true},
+ * {@link #initDetail(JadwalUjianPegawai, DataLoader, Div, boolean)} secara otomatis membuat satu
+ * baris {@link Pertemuan} awal (status tatap muka, mengambil waktu dari jadwal ujian) sebelum
+ * menampilkan grid — sehingga panel tidak pernah kosong tanpa data pertemuan untuk diproses lebih
+ * lanjut (absensi, dsb).
+ * </p>
+ */
 public class AktifitasJadwalUjianPegawaiHelper {
 
 	protected PenjadwalanUjianPegawaiHelper penjadwalanHelper = new PenjadwalanUjianPegawaiHelper();
 
+	/** Konstruktor baku, tanpa inisialisasi tambahan selain bidang instance. */
 	public AktifitasJadwalUjianPegawaiHelper() {
 
 	}
 
+	/**
+	 * Membangun toolbar aksi untuk {@code jadwalUjianPegawai}: tombol "Agenda Jadwal Ujian
+	 * Pegawai" (membuka dialog penjadwalan), "Absensi" (cetak laporan absensi), kalender, tombol
+	 * ruang kelas virtual, dan "Refresh". Toolbar disembunyikan bila pengguna saat ini adalah
+	 * calon pegawai (bukan panitia/admin).
+	 *
+	 * @param jadwalUjianPegawai jadwal ujian yang menjadi konteks aksi
+	 * @param dataLoader         callback untuk memuat ulang data setelah suatu aksi selesai
+	 * @return toolbar siap disisipkan ke tampilan
+	 */
 	public Toolbar initAgendaJadwalUjianPegawai(final JadwalUjianPegawai jadwalUjianPegawai,
 			final DataLoader dataLoader) {
 
@@ -95,10 +122,25 @@ public class AktifitasJadwalUjianPegawaiHelper {
 		return hbox;
 	}
 
+	/** Menampilkan panel detail aktivitas {@code jadwalUjianPegawai} pada {@code groupbox}, dengan pemeriksaan pembuatan pertemuan awal otomatis diaktifkan. */
 	public void initDetail(final JadwalUjianPegawai jadwalUjianPegawai, final Div groupbox) throws Exception {
 		initDetail(jadwalUjianPegawai, null, groupbox, true);
 	}
 
+	/**
+	 * Membangun tab "Agenda" berisi toolbar aksi dan grid daftar pertemuan/sesi ujian untuk
+	 * {@code jadwalUjianPegawai} di dalam {@code groupbox}. Baris pertemuan yang berada dalam
+	 * rentang H-1 hingga H+6 dari hari ini ditandai warna hijau muda (akan/sedang berlangsung),
+	 * yang sudah lewat ditandai abu-abu. Bila {@code check} bernilai {@code true} dan belum ada
+	 * pertemuan tersimpan serta pengguna bukan calon pegawai, satu pertemuan awal dibuat otomatis
+	 * (lihat javadoc kelas) dan panel dimuat ulang lewat timer setelahnya.
+	 *
+	 * @param jadwalUjianPegawai jadwal ujian yang detail aktivitasnya ditampilkan
+	 * @param mydataLoader       callback pemuatan ulang data; bila {@code null}, dibuat callback
+	 *                           default yang memanggil ulang method ini
+	 * @param groupbox           kontainer ZK tempat panel disisipkan
+	 * @param check              aktifkan pembuatan pertemuan awal otomatis bila belum ada data
+	 */
 	public void initDetail(final JadwalUjianPegawai jadwalUjianPegawai, final DataLoader mydataLoader,
 			final Div groupbox, boolean check) throws Exception {
 

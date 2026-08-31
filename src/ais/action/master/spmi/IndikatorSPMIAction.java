@@ -28,6 +28,23 @@ import ais.ui.util.MyCheckboxConfig;
 import ais.ui.util.MyIntbox;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Layar CRUD master data Indikator SPMI (Sistem Penjaminan Mutu Internal) pada modul SPMI,
+ * dibangun di atas {@code BaseSPMIAction} (kelas dasar bersama untuk hierarki entitas SPMI).
+ * Indikator berada pada level terbawah hierarki Jenis SPMI &gt; Standar SPMI &gt; Butir Mutu SPMI
+ * &gt; Indikator SPMI, sehingga baik filter pencarian maupun form tambah/ubah menerapkan pola
+ * combobox berjenjang (cascading): memilih Jenis mempersempit pilihan Standar, memilih Standar
+ * mempersempit pilihan Butir Mutu.
+ *
+ * <p>
+ * Pencarian mendukung filter status aktif, kecocokan sebagian nama, serta filter berjenjang
+ * jenis/standar/butir mutu SPMI ({@link #initCriteria(boolean)}). Form simpan memvalidasi nomor
+ * urut, nama, dan seluruh tingkat hierarki (jenis/standar/butir mutu) wajib dipilih sebelum
+ * menyimpan; combobox pada form dikunci read-only setelah nilai default/hasil cascade diisi,
+ * memaksa pengguna memilih ulang lewat perubahan combobox tingkat atasnya untuk mengganti
+ * pilihan.
+ * </p>
+ */
 public class IndikatorSPMIAction extends BaseSPMIAction {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -52,6 +69,12 @@ public class IndikatorSPMIAction extends BaseSPMIAction {
     // ZK lifecycle
     // =====================================================================
 
+    /**
+     * Menyiapkan combobox filter berjenjang jenis/standar/butir mutu SPMI (memilih jenis
+     * mempersempit pilihan standar, memilih standar mempersempit pilihan butir mutu, keduanya
+     * memicu pencarian ulang), memuat data awal, memasang paging, dan menambahkan tombol
+     * cetak/unggah ke toolbar.
+     */
     @Override
     public void doAfterCompose(Component comp) throws Exception {
         super.doAfterCompose(comp);
@@ -99,6 +122,7 @@ public class IndikatorSPMIAction extends BaseSPMIAction {
     // Row renderer
     // =====================================================================
 
+    /** Perenderan satu baris tabel indikator SPMI: nomor urut, nama jenis/standar/butir mutu SPMI, nama indikator (dengan tautan riwayat revisi), keterangan, checkbox status aktif, dan tombol edit/hapus. */
     class IndikatorSPMIRenderer extends ais.ui.util.MyRowRenderer {
         @Override
         public void render(final Row row, Object obj) throws Exception {
@@ -133,10 +157,12 @@ public class IndikatorSPMIAction extends BaseSPMIAction {
     // Add / Edit entry points
     // =====================================================================
 
+    /** Membuka dialog tambah dengan entitas {@link IndikatorSPMI} baru (kosong). */
     public void onAdd(Event event) throws Exception {
         init(new IndikatorSPMI());
     }
 
+    /** Membuka dialog ubah untuk entitas {@code obj} yang diberikan (dipanggil dari tombol edit baris tabel). */
     @Override
     public void init(GeneralValueObject obj) throws Exception {
         indikatorSPMI = (IndikatorSPMI) obj;
@@ -148,6 +174,12 @@ public class IndikatorSPMIAction extends BaseSPMIAction {
     // Form builder
     // =====================================================================
 
+    /**
+     * Membangun form tambah/ubah indikator SPMI: nomor urut, nama indikator, dan tiga combobox
+     * berjenjang (jenis/standar/butir mutu SPMI) dengan cascade otomatis — memilih jenis
+     * memuat ulang pilihan standar, memilih standar memuat ulang pilihan butir mutu, masing-masing
+     * combobox dikunci read-only setelah nilai awal/cascade ditentukan.
+     */
     private void buildForm(final IndikatorSPMI item) throws Exception {
         FormHolder fh = prepareFormWindow("Pendataan Indikator SPMI");
         Rows rows = fh.rows;
@@ -250,6 +282,13 @@ public class IndikatorSPMIAction extends BaseSPMIAction {
     // Save
     // =====================================================================
 
+    /**
+     * Memvalidasi (nomor urut, nama, jenis, standar, dan butir mutu SPMI wajib diisi/dipilih)
+     * dan menyimpan (create-or-update) entitas indikator SPMI dari isian form.
+     *
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal (pesan
+     *         peringatan sudah ditampilkan ke pengguna)
+     */
     public boolean onSave(Event event) throws Exception {
         if (nomorUrut.getValue() == null) {
             MyMessageboxConfig.show("Mohon maaf, nomor urut indikator SPMI belum diisi. "
@@ -312,6 +351,11 @@ public class IndikatorSPMIAction extends BaseSPMIAction {
     // Criteria & search
     // =====================================================================
 
+    /**
+     * Membangun kriteria pencarian daftar indikator SPMI, difilter berdasarkan status aktif,
+     * kecocokan sebagian nama, serta filter berjenjang butir mutu/standar/jenis SPMI (dari alias
+     * relasi) bila dipilih pada panel pencarian.
+     */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -344,6 +388,7 @@ public class IndikatorSPMIAction extends BaseSPMIAction {
         return criteria;
     }
 
+    /** Memuat ulang halaman pertama/berjalan daftar indikator SPMI sesuai kriteria pencarian saat ini, memperbarui paging dan grid. */
     @SuppressWarnings("unchecked")
     @Override
     public void onSearchDefault(Event event) {

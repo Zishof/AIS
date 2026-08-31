@@ -66,6 +66,29 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Jendela dasbor statistik kunjungan/login pengguna aplikasi, dipecah per kategori pengguna
+ * (Mahasiswa, Dosen, Admin, Siswa, Guru) dan difilter opsional per fakultas/jurusan (kampus) atau
+ * yayasan/sekolah (sekolah), serta rentang tanggal. Merupakan hasil refaktor dari dasbor kunjungan
+ * versi lama (lihat catatan {@code DASHBOARD_STATISTIK_KUNJUNGAN_PENGGUNA_HTML_CSS_2026} di awal
+ * berkas): grafik gambar lama dihapus dan diganti tampilan HTML/CSS murni mengikuti pola dasbor SOP
+ * (hero, filter, kartu ringkasan, panel tren, komposisi, radar, dan tabel ringkas), kueri memakai
+ * parameter Hibernate (bukan concat string) untuk keamanan, dan seluruh sesi yang dibuka lewat
+ * {@code openSession()} selalu ditutup di blok {@code finally} (sesi dari {@code currentSession()}
+ * tidak ditutup manual, mengikuti konvensi siklus hidup sesi thread-local). Kelas ini sengaja tetap
+ * kompatibel dengan Java 1.6/1.7 dan ZKoss 5.5 — tanpa lambda, stream, atau try-with-resources.
+ *
+ * <p>
+ * Data harian diambil dari tabel log {@code log_login} lewat kelas pembantu privat
+ * {@code StatistikKunjunganDashboardUtil} (didefinisikan pada berkas yang sama, di luar kelas
+ * publik ini) yang membungkus kriteria filter ({@code Filter}) dan hasil baris harian
+ * ({@code DailyRow}). Method statis {@link #ambilDataKunjungan} dipertahankan sebagai API lama
+ * yang kompatibel ke belakang bagi pemanggil eksternal, membungkus pemanggilan ke
+ * {@code StatistikKunjunganDashboardUtil.loadDailyRows} dan mengubah hasilnya menjadi
+ * {@link TreeMap} bertanda kunci tanggal berformat integer ({@code yyyyMMdd}), nilai berupa array
+ * lima elemen jumlah kunjungan per kategori pengguna (mahasiswa, dosen, siswa, guru, admin).
+ * </p>
+ */
 public class DashboardStatistikKunjunganPengguna extends MyWindow {
 
 	private static final long serialVersionUID = -28636873241676666L;
@@ -86,6 +109,10 @@ public class DashboardStatistikKunjunganPengguna extends MyWindow {
 	private int width = 1200;
 	private int height = 430;
 
+	/**
+	 * Membuka dasbor dengan ukuran bawaan (1200x430) dan grafik dimuat via timer default
+	 * (non-busy) setelah jendela tampil, agar kueri statistik tidak memblokir render awal.
+	 */
 	public DashboardStatistikKunjunganPengguna() throws Exception {
 		super();
 		initFakultas();
@@ -97,12 +124,20 @@ public class DashboardStatistikKunjunganPengguna extends MyWindow {
 		});
 	}
 
+	/** Membuka dasbor dalam mode tampilan rinci ({@link #tampilRinci}{@code =true}) dengan ukuran kustom, grafik dimuat langsung (tanpa timer). */
 	public DashboardStatistikKunjunganPengguna(int width, int height) throws Exception {
 		super();
 		tampilRinci = true;
 		reinit(width, height);
 	}
 
+	/**
+	 * Menginisialisasi ulang dasbor dengan ukuran baru: membangun ulang filter fakultas/jurusan,
+	 * kerangka UI, dan grafik statistik.
+	 *
+	 * @param width  lebar area grafik dalam piksel
+	 * @param height tinggi area grafik dalam piksel
+	 */
 	public void reinit(int width, int height) throws Exception {
 		this.width = width;
 		this.height = height;
@@ -111,6 +146,7 @@ public class DashboardStatistikKunjunganPengguna extends MyWindow {
 		initChart();
 	}
 
+	/** Membuka dasbor dengan judul/border/closable kustom untuk jendela; grafik dimuat langsung. */
 	public DashboardStatistikKunjunganPengguna(String title, String border, boolean closable) throws Exception {
 		super(title, border, closable);
 		initFakultas();
@@ -421,6 +457,26 @@ public class DashboardStatistikKunjunganPengguna extends MyWindow {
 		wrapper.appendChild(new Html(StatistikKunjunganDashboardUtil.tablePanelHtml(rows, filter)));
 	}
 
+	/**
+	 * API statis kompatibel-ke-belakang untuk mengambil data kunjungan harian dari tabel
+	 * {@code log_login}, dipecah per kategori pengguna. Membungkus
+	 * {@code StatistikKunjunganDashboardUtil.loadDailyRows} dan mengubah hasilnya menjadi peta
+	 * terurut berkunci tanggal.
+	 *
+	 * @param fakultas    filter fakultas, boleh {@code null} (semua fakultas)
+	 * @param jurusan     filter jurusan, boleh {@code null} (semua jurusan)
+	 * @param yayasan     filter yayasan (sekolah), boleh {@code null}
+	 * @param sekolah     filter sekolah, boleh {@code null}
+	 * @param dateMulai   tanggal mulai (format sesuai {@code StatistikKunjunganDashboardUtil.parseDate}), boleh {@code null}
+	 * @param dateSelesai tanggal akhir, boleh {@code null}
+	 * @param mhs         sertakan kategori mahasiswa
+	 * @param dsn         sertakan kategori dosen
+	 * @param ssw         sertakan kategori siswa
+	 * @param gr          sertakan kategori guru
+	 * @param adm         sertakan kategori admin
+	 * @return peta terurut kunci tanggal (format integer {@code yyyyMMdd}) ke array 5 elemen
+	 *         {@code double} berurutan [mahasiswa, dosen, siswa, guru, admin]
+	 */
 	public static TreeMap<Integer, Object[]> ambilDataKunjungan(Fakultas fakultas, Jurusan jurusan, Yayasan yayasan,
 			Sekolah sekolah, String dateMulai, String dateSelesai, boolean mhs, boolean dsn, boolean ssw,
 			boolean gr, boolean adm) {

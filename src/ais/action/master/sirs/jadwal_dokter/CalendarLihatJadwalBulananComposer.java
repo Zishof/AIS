@@ -45,6 +45,17 @@ import ais.database.model.sirs.JadwalDokter;
 import ais.database.model.sirs.Poly;
 import ais.ui.util.CustomSimpleDateFormatter;
 
+/**
+ * Composer ZK untuk kalender bulanan/mingguan jadwal dokter ({@link JadwalDokter}) pada modul
+ * SIRS, memakai komponen {@code Calendars} (ZK Calendar). Filter tersedia berdasarkan poly,
+ * dokter, dan lokasi; setiap perubahan filter memicu {@link #onRefresh(Event)} yang membangun
+ * ulang model kalender. Jam mulai/selesai, zona waktu, dan aktif-tidaknya pengaturan tersebut
+ * dikontrol lewat konfigurasi {@code penjadwalan_jam_mulai}/{@code penjadwalan_jam_selesai}/
+ * {@code penjadwalan_timezone}. Mengklik satu event jadwal membuka jendela detail
+ * ({@link #onEventEdit$calendars}) yang menampilkan lokasi, shift, tenaga medis, poly, jam,
+ * hari, dan masa berlaku jadwal tersebut. Akses diverifikasi lewat hak baca
+ * {@link CommonPrivilages#READ} pada {@link #doAfterCompose}.
+ */
 public class CalendarLihatJadwalBulananComposer extends GenericForwardComposer {
 
 	private static final long serialVersionUID = 201011240904L;
@@ -55,11 +66,13 @@ public class CalendarLihatJadwalBulananComposer extends GenericForwardComposer {
 	private AmbilDataDokterBanbox dokter;
 	private AmbilDataLokasiBanbox lokasi;
 
+	/** Membangun ulang model kalender ({@link #initCalendarModel()}) dan menyegarkan tampilan. */
 	public void onRefresh(Event event) {
 		initCalendarModel();
 		calendars.invalidate();
 	}
 
+	/** Menggeser tampilan kalender mundur satu bulan lalu membangun ulang model dan menyegarkan tampilan. */
 	public void onBack(Event event) {
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 		calendar.setTime(calendars.getCurrentDate());
@@ -69,6 +82,7 @@ public class CalendarLihatJadwalBulananComposer extends GenericForwardComposer {
 		calendars.invalidate();
 	}
 
+	/** Menggeser tampilan kalender maju satu bulan lalu membangun ulang model dan menyegarkan tampilan. */
 	public void onNext(Event event) {
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 		calendar.setTime(calendars.getCurrentDate());
@@ -78,6 +92,11 @@ public class CalendarLihatJadwalBulananComposer extends GenericForwardComposer {
 		calendars.invalidate();
 	}
 
+	/**
+	 * Memvalidasi sesi user dan hak baca ({@link CommonPrivilages#READ}) (memaksa redirect ke
+	 * logoff bila gagal), mengisi kombo poly, memasang listener filter dokter/lokasi, menerapkan
+	 * pengaturan jam/zona waktu kalender dari konfigurasi, lalu memuat kalender awal.
+	 */
 	@Override
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
@@ -150,6 +169,12 @@ public class CalendarLihatJadwalBulananComposer extends GenericForwardComposer {
 
 	}
 
+	/**
+	 * Membangun model kalender: untuk setiap hari dalam rentang tampilan kalender saat ini,
+	 * mencari {@link JadwalDokter} yang cocok pada hari itu (memperhitungkan rentang
+	 * {@code jadwalDokterDimulai}/{@code jadwalDokterSampai}) dan filter poly/dokter/lokasi yang
+	 * dipilih, lalu menambahkan setiap jadwal sebagai event kalender.
+	 */
 	@SuppressWarnings("unchecked")
 	private void initCalendarModel() {
 
@@ -187,6 +212,7 @@ public class CalendarLihatJadwalBulananComposer extends GenericForwardComposer {
 		calendars.setModel(cm);
 	}
 
+	/** Menerapkan perubahan waktu mulai/selesai (drag-resize) suatu event kalender ke model. */
 	public void onEventUpdate$calendars(ForwardEvent event) {
 		CalendarsEvent evt = (CalendarsEvent) event.getOrigin();
 		org.zkoss.calendar.Calendars cal = (org.zkoss.calendar.Calendars) evt.getTarget();
@@ -197,6 +223,7 @@ public class CalendarLihatJadwalBulananComposer extends GenericForwardComposer {
 		m.update(sce);
 	}
 
+	/** Menggeser halaman kalender sesuai arah panah yang diklik (kiri = sebelumnya, kanan/lainnya = berikutnya). */
 	public void onMoveDate(ForwardEvent event) {
 		if ("arrow-left".equals(event.getData()))
 			calendars.previousPage();
@@ -205,11 +232,13 @@ public class CalendarLihatJadwalBulananComposer extends GenericForwardComposer {
 
 	}
 
+	/** Mengatur tanggal kalender aktif ke hari ini (zona waktu default JVM). */
 	public void onToday(ForwardEvent event) {
 		calendars.setCurrentDate(Calendar.getInstance(TimeZone.getDefault()).getTime());
 
 	}
 
+	/** Menukar zona waktu pertama pada daftar zona waktu kalender (dilepas lalu ditambahkan ulang) — dipanggil dari kontrol pilih zona waktu bawaan komponen kalender. */
 	@SuppressWarnings("rawtypes")
 	public void onSwitchTimeZone(ForwardEvent event) {
 		Map<?, ?> zone = calendars.getTimeZones();
@@ -221,12 +250,14 @@ public class CalendarLihatJadwalBulananComposer extends GenericForwardComposer {
 
 	}
 
+	/** Mengatur hari pertama minggu kalender sesuai pilihan pada listbox pemicu. */
 	public void onUpdateFirstDayOfWeek(ForwardEvent event) {
 		Listbox listbox = (Listbox) event.getOrigin().getTarget();
 		calendars.setFirstDayOfWeek(listbox.getSelectedItem().getLabel());
 
 	}
 
+	/** Mengganti mode tampilan kalender: "Day"/"5 Days"/"Week" mengatur mold {@code default} dengan jumlah hari sesuai, selain itu mengatur mold {@code month}. */
 	public void onUpdateView(ForwardEvent event) {
 		String text = String.valueOf(event.getData());
 		int days = "Day".equals(text) ? 1 : "5 Days".equals(text) ? 5 : "Week".equals(text) ? 7 : 0;
@@ -238,10 +269,16 @@ public class CalendarLihatJadwalBulananComposer extends GenericForwardComposer {
 			calendars.setMold("month");
 	}
 
+	/** Alias {@link #onRefresh(Event)} — memuat ulang model kalender sesuai filter saat ini. */
 	public void onSearchDefault(Event event) {
 		onRefresh(event);
 	}
 
+	/**
+	 * Menampilkan jendela modal "Lihat Jadwal" berisi rincian {@link JadwalDokter} (lokasi, shift,
+	 * tenaga medis, poly, jam mulai/selesai, hari, masa berlaku, keterangan) untuk event kalender
+	 * yang diklik. Id {@link JadwalDokter} diambil dari judul event kalender.
+	 */
 	public void onEventEdit$calendars(ForwardEvent event) throws Exception {
 
 		CalendarsEvent evt = (CalendarsEvent) event.getOrigin();

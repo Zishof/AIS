@@ -42,8 +42,27 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper UI statis untuk mengelola <b>verifikasi berkas persyaratan</b> calon siswa PSB
+ * ({@link CalonSiswa}), dikonfigurasi per gelombang pendaftaran lewat parameter verifikasi
+ * ({@link GelombangPendaftaranPsbPunyaParameterVerifikasiCalonSiswa}). Setiap kategori parameter
+ * (mis. "Nilai Rapor", "Sertifikat Prestasi") menampilkan sub-grid berisi entri data yang
+ * ditambahkan pengguna ({@link CalonSiswaPunyaVerifikasiParameter}), masing-masing dapat dicentang
+ * "terverifikasi" oleh admin/petugas (hanya bila ada user login — tampilan berbeda untuk mode
+ * publik/tanpa login yang read-only) beserta unggahan berkas bukti lewat
+ * {@link LampiranLain#createDownloadUploadFileLain}. Perubahan centang/keterangan langsung
+ * tersimpan ke database saat itu juga (tidak menunggu form induk disimpan).
+ */
 public class VerifikasiParameterPSBHelper {
 
+	/**
+	 * Membangun ulang seluruh baris entri verifikasi untuk satu kategori parameter
+	 * ({@code gelombangPendaftaranPsbPunyaParameterVerifikasiCalonSiswa}) milik {@code calonSiswa}
+	 * pada gelombang {@code gel}, diurutkan berdasarkan nama. Setiap baris menampilkan checkbox
+	 * verifikasi (bila ada user login) atau label read-only, textbox keterangan (dinonaktifkan saat
+	 * sudah diverifikasi), area unggah berkas bukti, dan tombol hapus (disembunyikan bila sudah
+	 * diverifikasi). Perubahan checkbox/keterangan langsung memicu {@code Common.refreshSaveOrUpdate}.
+	 */
 	@SuppressWarnings("unchecked")
 	private static void reloadData(final Rows subRowsParameterVerifikasi, final GelombangPendaftaranPsb gel,
 			final CalonSiswa calonSiswa,
@@ -176,6 +195,19 @@ public class VerifikasiParameterPSBHelper {
 		}
 	}
 
+	/**
+	 * Membangun seluruh blok verifikasi (satu blok per kategori parameter yang dikonfigurasi pada
+	 * gelombang {@code p}, atau gelombang terpilih pada {@code gelombangPendaftaranPsb} bila
+	 * {@code p} {@code null}) ke dalam {@code rows}: judul kategori, tombol "Tambah" (membuka
+	 * dialog input nama entri + pilihan tingkat/{@link ParameterVerifikasiCalonSiswa}), dan sub-grid
+	 * entri yang dibangun lewat {@link #reloadData}.
+	 *
+	 * @param calonSiswa              calon siswa yang datanya diverifikasi
+	 * @param rows                    komponen {@link Rows} tempat blok verifikasi ditambahkan
+	 * @param gelombangPendaftaranPsb combobox pilihan gelombang, dipakai bila {@code p} {@code null}
+	 * @param p                       gelombang pendaftaran eksplisit, mengabaikan combobox bila diberikan
+	 * @return daftar {@link Rows} sub-grid per kategori (dipakai kembali oleh {@link #simpanVerifikasi})
+	 */
 	@SuppressWarnings({ "deprecation", "unchecked" })
 	public static List<Rows> tampilkanVerifikasi(final CalonSiswa calonSiswa, Rows rows,
 			final Combobox gelombangPendaftaranPsb, final GelombangPendaftaranPsb p) throws Exception {
@@ -377,6 +409,15 @@ public class VerifikasiParameterPSBHelper {
 
 	}
 
+	/**
+	 * Menyimpan ulang status verifikasi (centang + keterangan) dari seluruh baris pada
+	 * {@code rows} (hasil {@link #tampilkanVerifikasi}) yang berada dalam mode dapat-diedit
+	 * (baris dengan komponen {@link Textbox} keterangan, yaitu mode dengan user login) — baris
+	 * mode read-only dilewati karena tidak punya komponen untuk disimpan ulang.
+	 *
+	 * @param calonSiswa tidak dipakai langsung di method ini (data diambil dari atribut tiap baris)
+	 * @param rows       daftar sub-grid hasil {@link #tampilkanVerifikasi}, boleh {@code null}
+	 */
 	@SuppressWarnings("unchecked")
 	public static void simpanVerifikasi(CalonSiswa calonSiswa, List<Rows> rows) {
 		if (rows != null) {

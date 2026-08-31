@@ -34,6 +34,23 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper UI ZK modul akunting untuk mengelola pemetaan akun pendapatan denda
+ * ({@link ItemBiayaPunyaPendapatanDenda}) pada satu {@link ItemBiaya}, dengan pemetaan dapat
+ * dipersempit per fakultas, jurusan, program, dan angkatan. Dipasang pada panel detail satu item
+ * biaya, menampilkan daftar pemetaan sebagai grid yang setiap barisnya dapat diedit inline
+ * (fakultas/jurusan/program/angkatan) dan disertai tombol tambah/hapus.
+ *
+ * <p>
+ * Tombol tambah membuka dialog {@code AmbilDataBanyakAkun} (pemilih akun multi-pilih) dan
+ * menambahkan baris {@link ItemBiayaPunyaPendapatanDenda} baru untuk setiap akun yang dipilih.
+ * Perubahan pada kombo fakultas/jurusan/program atau textbox angkatan pada satu baris langsung
+ * disimpan ke database ({@code Common#refreshSaveOrUpdate}); pilihan jurusan pada kombo
+ * dipersempit mengikuti fakultas yang dipilih pada baris yang sama. Tombol hapus per baris
+ * meminta konfirmasi sebelum menghapus baris pemetaan. Visibilitas tombol tambah/hapus mengikuti
+ * privilese pengguna saat ini ({@link CommonPrivilages}).
+ * </p>
+ */
 public class ItemBiayaPunyaDenda {
 
 	private MyGrid gridPendapatanDenda;
@@ -41,12 +58,21 @@ public class ItemBiayaPunyaDenda {
 	// private boolean edit = false;
 	private boolean delete = false;
 
+	/** Membangun helper terikat pada {@code gridPendapatanDenda} dan menghitung hak tambah/hapus pengguna saat ini. */
 	public ItemBiayaPunyaDenda(MyGrid gridPendapatanDenda) {
 		this.gridPendapatanDenda = gridPendapatanDenda;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun panel (border layout) berisi toolbar "Tambah Akun" dan grid daftar pemetaan
+	 * akun pendapatan denda untuk {@code itemBiaya}, lalu memuat data pemetaan yang sudah
+	 * tersimpan.
+	 *
+	 * @param itemBiaya item biaya yang detail pemetaan denda-nya ditampilkan/dikelola
+	 * @return border layout siap disisipkan sebagai konten panel detail
+	 */
 	public Borderlayout initDetail(final ItemBiaya itemBiaya) {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -143,6 +169,7 @@ public class ItemBiayaPunyaDenda {
 		return borderlayout;
 	}
 
+	/** Memuat baris-baris pemetaan akun pendapatan denda tersimpan untuk {@code itemBiaya} dari database dan merendernya ke grid. */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final ItemBiaya itemBiaya) {
 
@@ -161,6 +188,13 @@ public class ItemBiayaPunyaDenda {
 		}
 	}
 
+	/**
+	 * Mengisi {@code row} dengan kode dan nama akun (tautan riwayat revisi), kombo fakultas dan
+	 * jurusan yang saling terkait (jurusan dipersempit mengikuti fakultas terpilih), kombo
+	 * program, textbox angkatan — seluruhnya menyimpan perubahan ke database secara langsung
+	 * saat berubah — serta tombol hapus (bila pengguna berhak) yang meminta konfirmasi sebelum
+	 * menghapus baris pemetaan dari database.
+	 */
 	public void initRow(final Row row, final ItemBiayaPunyaPendapatanDenda itemBiayaPunyaPendapatanDenda) {
 		row.setValign("top");row.setAttribute("itemBiayaPunyaPendapatanDenda", itemBiayaPunyaPendapatanDenda);
 

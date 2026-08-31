@@ -34,6 +34,14 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper UI (bukan entitas/aksi tersendiri) untuk mengelola daftar akun <b>piutang</b>
+ * ({@link ItemBiayaPunyaPiutang}) terkait sebuah {@link ItemBiaya} pada modul akunting: setiap
+ * baris memetakan akun piutang ke kombinasi opsional fakultas/jurusan/program/angkatan sebagai
+ * cakupan berlakunya. Berpola sama dengan {@link ItemBiayaPunyaDiskonHelper}, hanya berbeda
+ * entitas relasi (piutang, bukan diskon). Visibilitas tombol tambah/hapus mengikuti hak akses
+ * {@link CommonPrivilages#CREATE}/{@link CommonPrivilages#DELETE}.
+ */
 public class ItemBiayaPunyaPiutangHelper {
 
 	private MyGrid gridPiutang;
@@ -41,6 +49,7 @@ public class ItemBiayaPunyaPiutangHelper {
 	// private boolean edit = false;
 	private boolean delete = false;
 
+	/** @param gridPiutang grid yang akan diisi/dikelola helper ini */
 	public ItemBiayaPunyaPiutangHelper(MyGrid gridPiutang) {
 		this.gridPiutang = gridPiutang;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -48,6 +57,14 @@ public class ItemBiayaPunyaPiutangHelper {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Menyusun tata letak (toolbar tambah + grid piutang dengan kolom Kode/Akun/Fakultas/
+	 * Jurusan/Program/Angkatan/Hapus) dan langsung memuat data piutang {@code itemBiaya} yang
+	 * sudah tersimpan.
+	 *
+	 * @param itemBiaya item biaya yang daftar akun piutangnya dikelola
+	 * @return komponen tata letak siap pakai untuk ditempelkan ke jendela detail
+	 */
 	public Borderlayout initDetail(final ItemBiaya itemBiaya) {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -143,6 +160,7 @@ public class ItemBiayaPunyaPiutangHelper {
 		return borderlayout;
 	}
 
+	/** Memuat baris {@link ItemBiayaPunyaPiutang} tersimpan milik {@code itemBiaya} ke dalam grid (kosong bila entitas belum tersimpan). */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final ItemBiaya itemBiaya) {
 
@@ -161,6 +179,15 @@ public class ItemBiayaPunyaPiutangHelper {
 		}
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan kode+nama akun (via {@link RevisiHelper}), kombo
+	 * fakultas/jurusan/program dan textbox angkatan (masing-masing menyimpan perubahan langsung
+	 * lewat {@link Common#refreshSaveOrUpdate}), dan tombol hapus (dengan dialog konfirmasi yang
+	 * menghapus baris database dan melepas baris UI bila dikonfirmasi).
+	 *
+	 * @param row                     baris grid yang diisi
+	 * @param itemBiayaPunyaPiutang   data relasi akun piutang untuk baris ini
+	 */
 	public void initRow(final Row row, final ItemBiayaPunyaPiutang itemBiayaPunyaPiutang) {
 		row.setValign("top");row.setAttribute("itemBiayaPunyaPiutang", itemBiayaPunyaPiutang);
 

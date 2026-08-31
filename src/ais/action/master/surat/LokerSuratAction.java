@@ -36,6 +36,23 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD master data Loker Surat (lokasi fisik penyimpanan arsip surat — boks, rak, lemari,
+ * lantai, ruang) pada modul persuratan, dibangun di atas {@link GenericCrudAction}. Loker
+ * dikaitkan dengan satuan kerja pemiliknya dan dapat difilter berdasarkan hierarki satuan kerja
+ * (termasuk anak-anaknya, lewat {@link SatuanKerjaTreeModel}).
+ *
+ * <p>
+ * Kelas ini dipakai untuk dua konteks berbeda ("surat masuk" dan "surat keluar") lewat parameter
+ * URL {@code tipe} (default {@code "surat"}), dibaca di {@link #onAfterInit(Component)} — baris
+ * data lama yang belum memiliki {@code tipe} otomatis diisi mengikuti konteks saat ini di
+ * {@link LokerSuratRenderer}. Pencarian daftar mendukung filter status aktif, tipe, satuan kerja
+ * (beserta turunannya) dan kecocokan sebagian nama. Form simpan (menggunakan
+ * {@link LokerSuratDao}, bukan sesi Hibernate langsung) memvalidasi nama wajib isi dan tidak
+ * duplikat, serta otomatis mem-prapopulasi satuan kerja dari satuan kerja pengguna yang login
+ * saat menambah data baru. Mendukung cetak/unduh dan unggah data massal lewat toolbar tambahan.
+ * </p>
+ */
 public class LokerSuratAction extends GenericCrudAction<LokerSurat> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -75,6 +92,7 @@ public class LokerSuratAction extends GenericCrudAction<LokerSurat> {
                 "tipe", "keterangan", "aktif", "satuanKerja" };
     }
 
+    /** Memasang listener pemilihan satuan kerja induk pada pencarian, menyiapkan model hierarki satuan kerja, membaca parameter URL {@code tipe}, dan menambahkan tombol cetak/unggah data massal ke toolbar. */
     @Override
     protected void onAfterInit(Component comp) throws Exception {
         searchparent.setEventListener(new EventListener() {
@@ -101,6 +119,12 @@ public class LokerSuratAction extends GenericCrudAction<LokerSurat> {
         }
     }
 
+    /**
+     * Membangun kriteria pencarian daftar loker surat: difilter berdasarkan status aktif (bila
+     * dicentang), tipe ({@code "surat"} atau {@code "surat_keluar"} sesuai konteks), satuan
+     * kerja terpilih beserta seluruh turunannya (atau satuan kerja yang dapat diakses pengguna
+     * bila tidak ada pilihan eksplisit), dan kecocokan sebagian nama.
+     */
     @Override
     public Criteria initCriteria(boolean order) {
         SatuanKerja parent = (SatuanKerja) searchparent.getAttribute("satuanKerja");
@@ -135,6 +159,7 @@ public class LokerSuratAction extends GenericCrudAction<LokerSurat> {
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/ubah (kode, nama, boks/rak/lemari/lantai, ruang, satuan kerja, keterangan) beserta toolbar Batal/Simpan pada {@code window}; satuan kerja diisi otomatis dari pengguna yang login untuk data baru. */
     @Override
     protected void buildFormContent(MyWindow window, final LokerSurat lokerSurat) throws Exception {
         // Pre-populate satuanKerja dari user yang sedang login jika belum diisi
@@ -244,6 +269,14 @@ public class LokerSuratAction extends GenericCrudAction<LokerSurat> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi (nama wajib isi, nama tidak duplikat) dan menyimpan (create-or-update, lewat
+     * {@link LokerSuratDao}) entitas loker surat dari isian form, dengan {@code tipe} yang
+     * berlaku pada layar ini disimpan ke entitas.
+     *
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal (pesan
+     *         peringatan sudah ditampilkan ke pengguna)
+     */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Nama Loker Surat belum diisi. Langkah yang dapat dilakukan: (1) klik kolom Nama Loker; (2) isikan nama loker surat secara lengkap; (3) ulangi proses simpan. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.", "Peringatan",
@@ -279,6 +312,7 @@ public class LokerSuratAction extends GenericCrudAction<LokerSurat> {
         return true;
     }
 
+    /** Mengecek apakah nama pada form sudah dipakai loker surat lain (di luar entitas yang sedang diedit). */
     public Boolean checkNamaLokerSurat() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(LokerSurat.class)
@@ -292,6 +326,7 @@ public class LokerSuratAction extends GenericCrudAction<LokerSurat> {
 
     // ======================== Renderer ========================
 
+    /** Perenderan satu baris tabel loker surat: kode, nama (dengan tautan riwayat revisi), lokasi fisik (boks/rak/lemari/lantai/ruang/gedung), satuan kerja, keterangan, checkbox status aktif, dan tombol edit/hapus. Mengisi otomatis {@code tipe} yang kosong pada data lama sesuai konteks layar saat ini. */
     class LokerSuratRenderer extends MyRowRenderer {
 
         @Override

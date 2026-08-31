@@ -25,6 +25,13 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD master data Asuransi (jenis/penyedia asuransi pasien) pada modul SIRS (Sistem Informasi
+ * Rumah Sakit). Memperluas {@link GenericCrudAction} untuk mewarisi kerangka baku
+ * cari/tambah/ubah/hapus; kelas ini hanya mengisi bagian yang spesifik entitas: kriteria pencarian
+ * berdasarkan nama, form input (nama + keterangan), validasi nama tidak boleh kosong dan tidak boleh
+ * duplikat ({@link #checkNamaAsuransi()}), serta renderer baris grid.
+ */
 public class AsuransiAction extends GenericCrudAction<Asuransi> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -44,6 +51,7 @@ public class AsuransiAction extends GenericCrudAction<Asuransi> {
     @Override
     protected String getWindowTitle() { return "Pendataan Asuransi"; }
 
+    /** Menyusun kriteria pencarian {@link Asuransi} berdasarkan nama (filter {@code searchnama}), diurutkan berdasarkan nama bila diminta. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -55,6 +63,7 @@ public class AsuransiAction extends GenericCrudAction<Asuransi> {
         return criteria;
     }
 
+    /** Menyediakan renderer baris grid {@link AsuransiRenderer} untuk daftar hasil pencarian. */
     @Override
     protected MyRowRenderer createRenderer() {
         return new AsuransiRenderer();
@@ -62,6 +71,7 @@ public class AsuransiAction extends GenericCrudAction<Asuransi> {
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/ubah asuransi (field nama + keterangan) beserta tombol batal/simpan pada jendela dialog. */
     @Override
     protected void buildFormContent(MyWindow window, final Asuransi asuransi) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -133,6 +143,15 @@ public class AsuransiAction extends GenericCrudAction<Asuransi> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi lalu menyimpan data asuransi dari form: menolak bila nama kosong atau sudah
+     * terdaftar pada baris lain, jika lolos menyimpan/memperbarui entitas dan mengembalikan
+     * {@code true}.
+     *
+     * @param event event ZK pemicu penyimpanan (tombol simpan)
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal
+     * @throws Exception diteruskan apa adanya dari kegagalan Hibernate saat menyimpan
+     */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Nama Asuransi wajib diisi terlebih dahulu. Langkah yang dapat dilakukan: (1) isikan Nama Asuransi pada kolom yang tersedia; (2) pastikan kolom tidak dikosongkan; (3) simpan kembali data setelah kolom terisi.", "Peringatan",
@@ -156,6 +175,12 @@ public class AsuransiAction extends GenericCrudAction<Asuransi> {
         return true;
     }
 
+    /**
+     * Memeriksa apakah nama asuransi yang diisi di form sudah dipakai baris lain (mengecualikan
+     * baris yang sedang diedit sendiri).
+     *
+     * @return {@code true} bila nama sudah terpakai baris lain, {@code false} bila belum
+     */
     public Boolean checkNamaAsuransi() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(Asuransi.class)
@@ -170,6 +195,7 @@ public class AsuransiAction extends GenericCrudAction<Asuransi> {
 
     // ======================== Renderer ========================
 
+    /** Renderer baris grid daftar asuransi: kolom nama (dengan link riwayat revisi), keterangan, dan tombol edit/hapus. */
     class AsuransiRenderer extends MyRowRenderer {
 
         @Override

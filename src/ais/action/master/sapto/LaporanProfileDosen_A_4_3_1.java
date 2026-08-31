@@ -21,10 +21,19 @@ import ais.database.model.Dosen;
 import ais.database.model.Jurusan;
 import ais.database.model.RiwayatPendidikanDosen;
 
+/**
+ * Jendela laporan borang akreditasi BAN-PT SAPTO butir <b>A-4.3.1</b>: profil dosen tetap sesuai
+ * bidang keilmuan (yang punya NIDN) beserta riwayat pendidikan S1/S2/S3 (gelar akademik, nama
+ * sekolah, bidang ilmu), status sertifikasi, dan jabatan fungsional. Data dosen dimuat sinkron
+ * (untuk keperluan klik baris), sedangkan riwayat pendidikan tiap dosen dimuat asinkron di
+ * thread terpisah. Mengklik satu baris data ({@link CellMouseEvent}) mencetak Daftar Riwayat
+ * Hidup (DRH) dosen bersangkutan lewat {@link DosenAction#cetakDRHDosen}.
+ */
 public class LaporanProfileDosen_A_4_3_1 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-4.3.1";
     private static final long serialVersionUID = 3331244819198611604L;
+    /** Konstruktor default: menyiapkan filter fakultas/jurusan, lalu membangun kerangka jendela laporan. */
     public LaporanProfileDosen_A_4_3_1() {
         super();
         try {
@@ -33,19 +42,28 @@ public class LaporanProfileDosen_A_4_3_1 extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Seperti konstruktor default, dengan judul/border/closable jendela yang dapat disesuaikan. */
     public LaporanProfileDosen_A_4_3_1(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         initFakultasJurusan();
         buildBase(false);
     }
 
+    /** Kode butir borang yang dipetakan ke jendela ini: {@value #sheetCode}. */
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Menyusun kontrol filter pada baris toolbar: filter fakultas/jurusan bawaan {@link SaptoBaseWindow}. */
     @Override
     protected void buildFilters(Row row) {
         addFakultasJurusanFilter(row);
     }
 
+    /**
+     * Menyusun data laporan A-4.3.1: memuat dosen tetap aktif sesuai bidang keilmuan yang punya
+     * NIDN (opsional difilter per jurusan), lalu untuk tiap dosen mengambil riwayat pendidikan
+     * S1/S2/S3 secara asinkron di thread terpisah agar UI tidak terblokir. Baris hasil dapat
+     * diklik untuk mencetak DRH dosen bersangkutan.
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

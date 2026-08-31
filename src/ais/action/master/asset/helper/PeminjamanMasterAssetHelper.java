@@ -33,6 +33,17 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper UI pengelola daftar aset/fasilitas ({@link PeminjamanMasterAssetDetail}) dalam satu
+ * transaksi peminjaman ({@link PeminjamanMasterAsset}), dengan tiga mode tampilan yang saling
+ * memengaruhi tata letak dan hak edit: (1) mode <b>peminjaman</b> (default) menampilkan tombol
+ * "Ambil Data Alat/Fasilitas" untuk menambah item lewat picker banyak-pilih; (2) mode
+ * <b>pengembalian</b> ({@code pengembalian=true}) menambahkan kolom checkbox "Dikembalikan" dan
+ * tanggal pengembalian yang langsung tersimpan saat diubah; (3) mode <b>persetujuan</b>
+ * ({@code persetujuan=true}, dipakai layar approval) mengubah seluruh input menjadi label
+ * read-only dan menyembunyikan toolbar/tombol hapus. Peminjaman yang sudah disetujui
+ * ({@code disetujuiOleh != null}) otomatis mengunci kemampuan tambah/edit/hapus.
+ */
 public class PeminjamanMasterAssetHelper {
 
 	private MyGrid gridMasterAsset;
@@ -44,11 +55,26 @@ public class PeminjamanMasterAssetHelper {
 
 	private boolean persetujuan = false;
 
+	/** Membuat helper untuk {@code gridMasterAsset}, dengan {@code pengembalian} menentukan apakah tampilan berada dalam mode pengembalian (kolom checkbox + tanggal pengembalian) atau mode peminjaman biasa. */
 	public PeminjamanMasterAssetHelper(MyGrid gridMasterAsset, Boolean pengembalian) {
 		this.gridMasterAsset = gridMasterAsset;
 		this.pengembalian = pengembalian;
 	}
 
+	/**
+	 * Membangun tata letak lengkap panel daftar aset untuk {@code peminjamanMasterAsset}: kotak
+	 * bergrup berjudul "Daftar Peminjaman/Pengembalian Alat/Fasilitas", toolbar (disembunyikan
+	 * pada mode persetujuan) berisi tombol tambah (mode peminjaman saja, hanya bila belum
+	 * disetujui) dan tombol refresh, serta grid berpaginasi (10 baris/halaman) dengan kolom yang
+	 * menyesuaikan mode ({@code Dikembalikan}/{@code Tgl. Pengembalian} hanya muncul pada mode
+	 * pengembalian). Mengembalikan kotak kosong (tanpa isi) bila {@code peminjamanMasterAsset}
+	 * {@code null}.
+	 *
+	 * @param peminjamanMasterAsset transaksi peminjaman yang daftar asetnya dikelola, boleh {@code null}
+	 * @param persetujuan           bila {@code true}, tampilan menjadi read-only (dipakai layar approval)
+	 * @return {@link MyGroupboxStyled} siap ditempelkan ke jendela detail peminjaman
+	 * @throws Exception diteruskan dari kegagalan pembangunan komponen/query data
+	 */
 	public MyGroupboxStyled initDetail(final PeminjamanMasterAsset peminjamanMasterAsset, boolean persetujuan)
 			throws Exception {
 		this.persetujuan = persetujuan;
@@ -184,6 +210,7 @@ public class PeminjamanMasterAssetHelper {
 		return myGroupboxStyled;
 	}
 
+	/** Memuat seluruh {@link PeminjamanMasterAssetDetail} tersimpan milik {@code peminjamanMasterAsset} (kosong bila belum persisten), membersihkan grid, dan merender masing-masing sebagai baris. */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final PeminjamanMasterAsset peminjamanMasterAsset) throws Exception {
 
@@ -205,6 +232,18 @@ public class PeminjamanMasterAssetHelper {
 
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan barcode dan nama+revisi aset, lalu — bergantung mode —
+	 * checkbox "Dikembalikan" plus tanggal pengembalian (mode pengembalian; ditandai otomatis
+	 * tanggal hari ini saat dicentang bila belum ada tanggal, perubahan langsung tersimpan),
+	 * field keterangan (dapat diedit bila belum disetujui dan bukan mode persetujuan), dan tombol
+	 * hapus (mode non-persetujuan saja, dengan dialog konfirmasi). Pada mode persetujuan, seluruh
+	 * input diganti label read-only.
+	 *
+	 * @param row                         baris ZK yang akan diisi
+	 * @param peminjamanMasterAssetDetail entitas detail aset (baru atau tersimpan) yang direpresentasikan baris ini
+	 * @throws Exception diteruskan dari kegagalan pembangunan komponen
+	 */
 	public void initRow(final Row row, final PeminjamanMasterAssetDetail peminjamanMasterAssetDetail) throws Exception {
 
 		row.setValign("top");row.setAttribute("peminjamanMasterAssetDetail", peminjamanMasterAssetDetail);

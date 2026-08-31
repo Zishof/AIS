@@ -28,18 +28,40 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.rab.Tugas;
 import ais.database.model.rab.TugasPunyaPredecessor;
 
+/**
+ * Helper UI ZK untuk mengelola relasi "predecessor" (tugas yang harus selesai lebih dulu) antar
+ * {@link Tugas} pada modul RAB (Rencana Anggaran Biaya) — mendukung penjadwalan proyek gaya
+ * dependensi tugas (mirip Gantt chart). Dipasang pada panel detail satu tugas, menampilkan
+ * daftar predecessor-nya sebagai grid dengan tombol tambah dan hapus per baris.
+ *
+ * <p>
+ * Tombol tambah membuka dialog {@link AmbilDataTugasBanyak} (pemilih tugas multi-pilih dalam
+ * proyek yang sama, dengan tugas yang sudah menjadi predecessor dikecualikan dari pilihan) dan
+ * menambahkan baris {@link TugasPunyaPredecessor} baru untuk setiap tugas yang dipilih. Tombol
+ * hapus per baris meminta konfirmasi sebelum menghapus baris relasi dari database. Visibilitas
+ * tombol tambah/hapus mengikuti privilese pengguna saat ini ({@link CommonPrivilages}).
+ * </p>
+ */
 public class TugasPunyaPredecessorHelper {
 
 	private MyGrid gridTugas;
 	private boolean add = false;
 	private boolean delete = false;
 
+	/** Membangun helper terikat pada {@code gridTugas} dan menghitung hak tambah/hapus pengguna saat ini. */
 	public TugasPunyaPredecessorHelper(MyGrid gridTugas) {
 		this.gridTugas = gridTugas;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun panel (border layout) berisi toolbar "Tambah Predecessor" dan grid daftar
+	 * predecessor untuk {@code tugas}, lalu memuat data predecessor yang sudah tersimpan.
+	 *
+	 * @param tugas tugas yang detail predecessor-nya ditampilkan/dikelola
+	 * @return border layout siap disisipkan sebagai konten panel detail
+	 */
 	public Borderlayout initDetail(final Tugas tugas) {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -125,6 +147,7 @@ public class TugasPunyaPredecessorHelper {
 		return borderlayout;
 	}
 
+	/** Memuat baris-baris predecessor tersimpan untuk {@code tugas} dari database dan merendernya ke grid. */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final Tugas tugas) {
 
@@ -145,6 +168,11 @@ public class TugasPunyaPredecessorHelper {
 		}
 	}
 
+	/**
+	 * Mengisi {@code row} dengan kode dan nama tugas predecessor beserta tombol hapus (bila
+	 * pengguna berhak); tombol hapus meminta konfirmasi, lalu menghapus baris relasi dari
+	 * database (bila sudah tersimpan) dan melepas baris dari tampilan.
+	 */
 	public void initRow(final Row row,
 			final TugasPunyaPredecessor tugasPunyaPredecessor) {
 		row.setValign("top");row.setAttribute("tugasPunyaPredecessor", tugasPunyaPredecessor);

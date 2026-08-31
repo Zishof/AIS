@@ -38,6 +38,25 @@ import ais.ui.util.MyComboitemConfig;
 import ais.ui.util.MyGrid;
 import ais.ui.util.MyWindow;
 
+/**
+ * Layar laporan akademik "Rekapitulasi Mahasiswa yang Mengambil Matakuliah": menampilkan
+ * (sebagai PDF) daftar mahasiswa peserta satu mata kuliah pada tahun akademik/semester tertentu,
+ * dapat dipersempit lewat kombinasi filter fakultas, program studi, program, tahun angkatan, dan
+ * jenis kelamin. Kelas ini adalah window ZK mandiri (bukan turunan {@code GenericCrudAction}),
+ * dibangun langsung di atas {@link MyWindow}, dengan panel filter di sisi barat (west) yang dapat
+ * dilipat dan area pratinjau PDF di tengah.
+ *
+ * <p>
+ * Combobox fakultas dan program studi bersifat cascading (memilih fakultas memuat ulang pilihan
+ * jurusan) dan otomatis dikunci ke fakultas/jurusan pengguna yang login bila pengguna tersebut
+ * memiliki keterbatasan wewenang (bukan admin lintas fakultas). Parameter laporan disusun oleh
+ * {@link #generateParameter()} dan dipakai baik oleh tombol "Lihat Laporan" ({@link
+ * #onLaporanPerkuliahan(Event)}, menampilkan PDF inline) maupun tombol ekspor pada toolbar
+ * ({@link CommonReport#exportReport}). Pembuatan berkas PDF dijalankan lewat
+ * {@link ais.action.report.Report#generateFileReportWithProgress} di dalam timer default agar UI
+ * tidak terblokir.
+ * </p>
+ */
 public class LaporanRekapitulasiMahasiswaYangMengambilMatakuliah extends MyWindow {
 
 	private static final long serialVersionUID = 4766478176972379068L;
@@ -58,6 +77,7 @@ public class LaporanRekapitulasiMahasiswaYangMengambilMatakuliah extends MyWindo
 	private Combobox kelamin;
 	private AmbilDataMatakuliahBanbox matakuliah;
 
+	/** Membangun window laporan dalam konfigurasi baku: menyiapkan combobox fakultas/jurusan (dikunci ke wewenang pengguna bila terbatas), jadwal perkuliahan, dan seluruh isi form filter. */
 	public LaporanRekapitulasiMahasiswaYangMengambilMatakuliah() {
 		super();
 		try {
@@ -129,6 +149,7 @@ public class LaporanRekapitulasiMahasiswaYangMengambilMatakuliah extends MyWindo
 
 	}
 
+	/** Membangun window laporan dengan judul, tipe border, dan status closable yang dapat diatur eksplisit, dengan inisialisasi form filter yang sama seperti konstruktor baku. */
 	public LaporanRekapitulasiMahasiswaYangMengambilMatakuliah(String title, String border, boolean closable)
 			throws Exception {
 		super(title, border, closable);
@@ -195,6 +216,7 @@ public class LaporanRekapitulasiMahasiswaYangMengambilMatakuliah extends MyWindo
 		init();
 	}
 
+	/** Menyiapkan combobox tahun ajaran dan pilihan semester (genap/ganjil) untuk filter jadwal perkuliahan. */
 	private void initJadwalPerkuliahan() throws Exception {
 		tahunAkademikUjianAkhirSemester = new Combobox();
 		tahunAkademikUjianAkhirSemester = Common.generateTahunAjaran(tahunAkademikUjianAkhirSemester);
@@ -211,6 +233,7 @@ public class LaporanRekapitulasiMahasiswaYangMengambilMatakuliah extends MyWindo
 
 	}
 
+	/** Membangun tata letak window: panel filter di barat (tahun akademik, semester, mata kuliah, fakultas/prodi, program, tahun angkatan, jenis kelamin, tombol lihat laporan) dan area pratinjau PDF beserta toolbar ekspor di tengah. */
 	private void init() throws Exception {
 
 		program = Common.initPrograms(null);
@@ -353,6 +376,7 @@ public class LaporanRekapitulasiMahasiswaYangMengambilMatakuliah extends MyWindo
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
+	/** Menyusun peta parameter laporan (tahun akademik, semester, mata kuliah, fakultas, jurusan, tahun angkatan, program, jenis kelamin) dari isian form filter saat ini, dengan nilai {@code -1}/{@code "-1"} untuk filter yang tidak dipilih (berarti "semua"). */
 	protected Map generateParameter() throws Exception {
 
 		// if (kurikulumFakultas.getSelectedItem() == null) {
@@ -405,6 +429,7 @@ public class LaporanRekapitulasiMahasiswaYangMengambilMatakuliah extends MyWindo
 	}
 
 	@SuppressWarnings({ "rawtypes" })
+	/** Membuat berkas PDF laporan sesuai parameter filter saat ini (dijalankan lewat timer default agar UI tidak terblokir) dan menampilkannya inline di panel tengah. */
 	public void onLaporanPerkuliahan(Event event) throws Exception {
 		final Map parameters = generateParameter();
 		if (parameters == null) {

@@ -25,6 +25,19 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD master data Jenis Alat Medis pada modul SIRS (Sistem Informasi Rumah Sakit),
+ * dibangun di atas {@link GenericCrudAction}. Mengelola daftar sederhana nama + keterangan jenis
+ * alat medis (mis. Diagnostik, Bedah, Laboratorium), tanpa relasi ke entitas lain.
+ *
+ * <p>
+ * Pencarian daftar difilter berdasarkan kecocokan sebagian nama ({@code ilike ANYWHERE}). Form
+ * simpan memvalidasi nama tidak kosong dan tidak duplikat (dicek lewat
+ * {@link #checkNamaJenisAlatMedis()}) sebelum menyimpan; baris tabel dirender lewat
+ * {@link JenisAlatMedisRenderer} yang menampilkan riwayat revisi ({@link RevisiHelper}) di
+ * samping nama.
+ * </p>
+ */
 public class JenisAlatMedisAction extends GenericCrudAction<JenisAlatMedis> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -44,6 +57,7 @@ public class JenisAlatMedisAction extends GenericCrudAction<JenisAlatMedis> {
     @Override
     protected String getWindowTitle() { return "Pendataan Jenis Alat Medis"; }
 
+    /** Membangun kriteria pencarian daftar jenis alat medis, difilter berdasarkan kecocokan sebagian nama bila {@code searchnama} diisi. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -62,6 +76,7 @@ public class JenisAlatMedisAction extends GenericCrudAction<JenisAlatMedis> {
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/ubah (nama + keterangan) beserta toolbar Batal/Simpan pada {@code window}. */
     @Override
     protected void buildFormContent(MyWindow window, final JenisAlatMedis jenisAlatMedis) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -133,6 +148,13 @@ public class JenisAlatMedisAction extends GenericCrudAction<JenisAlatMedis> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi (nama wajib isi, nama tidak duplikat) dan menyimpan (create-or-update) entitas
+     * jenis alat medis dari isian form.
+     *
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal (pesan
+     *         peringatan sudah ditampilkan ke pengguna)
+     */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Nama Jenis Alat Medis wajib diisi terlebih dahulu. Langkah yang dapat dilakukan: (1) isikan Nama Jenis Alat Medis pada kolom yang tersedia; (2) pastikan kolom tidak dikosongkan; (3) simpan kembali data setelah kolom terisi.", "Peringatan",
@@ -156,6 +178,7 @@ public class JenisAlatMedisAction extends GenericCrudAction<JenisAlatMedis> {
         return true;
     }
 
+    /** Mengecek apakah nama pada form sudah dipakai jenis alat medis lain (di luar entitas yang sedang diedit). */
     public Boolean checkNamaJenisAlatMedis() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(JenisAlatMedis.class)
@@ -170,6 +193,7 @@ public class JenisAlatMedisAction extends GenericCrudAction<JenisAlatMedis> {
 
     // ======================== Renderer ========================
 
+    /** Perenderan satu baris tabel jenis alat medis: nama (dengan tautan riwayat revisi), keterangan, dan tombol edit/hapus. */
     class JenisAlatMedisRenderer extends MyRowRenderer {
 
         @Override

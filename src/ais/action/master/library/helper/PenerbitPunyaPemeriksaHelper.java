@@ -33,6 +33,16 @@ import ais.database.model.library.DomainPenelitian;
 import ais.database.model.library.Penerbit;
 import ais.database.model.library.PenerbitPunyaPemeriksa;
 
+/**
+ * Helper UI (bukan entitas/aksi tersendiri) untuk mengelola daftar <b>pemeriksa</b> (user yang
+ * ditugaskan memeriksa/mereview) dari sebuah {@link Penerbit} pada modul perpustakaan, masing-
+ * masing dapat dikaitkan dengan satu {@link DomainPenelitian} dan status aktif. Menyediakan
+ * tombol tambah (membuka dialog pemilihan banyak user pemeriksa lewat
+ * {@link AmbilDataPemeriksaBanyak}, mengecualikan pemeriksa yang sudah ada di grid) dan tombol
+ * hapus per baris (dengan konfirmasi). Kolom domain penelitian dan checkbox aktif pada tiap
+ * baris langsung tersimpan saat diubah. Visibilitas tombol tambah/hapus mengikuti hak akses
+ * {@link CommonPrivilages#CREATE}/{@link CommonPrivilages#DELETE} pemanggil.
+ */
 public class PenerbitPunyaPemeriksaHelper {
 
 	private MyGrid gridPemeriksa;
@@ -41,12 +51,22 @@ public class PenerbitPunyaPemeriksaHelper {
 
 	private List<DomainPenelitian> domainPenelitians = new ArrayList<DomainPenelitian>();
 
+	/** @param gridPemeriksa grid yang akan diisi/dikelola helper ini */
 	public PenerbitPunyaPemeriksaHelper(MyGrid gridPemeriksa) {
 		this.gridPemeriksa = gridPemeriksa;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Memuat daftar {@link DomainPenelitian} milik {@code penerbit} (untuk pilihan kombo per
+	 * baris), menyusun tata letak (toolbar tambah + grid pemeriksa dengan kolom
+	 * Pemeriksa/Domain Penelitian/Aktif/Hapus), dan langsung memuat data pemeriksa yang sudah
+	 * tersimpan.
+	 *
+	 * @param penerbit penerbit yang daftar pemeriksanya dikelola
+	 * @return komponen tata letak siap pakai untuk ditempelkan ke jendela detail
+	 */
 	@SuppressWarnings("unchecked")
 	public Borderlayout initDetail(final Penerbit penerbit) {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -152,6 +172,7 @@ public class PenerbitPunyaPemeriksaHelper {
 		return borderlayout;
 	}
 
+	/** Memuat baris {@link PenerbitPunyaPemeriksa} tersimpan milik {@code penerbit} ke dalam grid (kosong bila entitas belum tersimpan). */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final Penerbit penerbit) {
 
@@ -172,6 +193,15 @@ public class PenerbitPunyaPemeriksaHelper {
 		}
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan nama pemeriksa, kombo domain penelitian (menyimpan
+	 * perubahan langsung bila baris sudah tersimpan), checkbox aktif (idem), dan tombol hapus
+	 * (dengan dialog konfirmasi yang menghapus baris database dan melepas baris UI bila
+	 * dikonfirmasi).
+	 *
+	 * @param row                    baris grid yang diisi
+	 * @param penerbitPunyaPemeriksa data relasi pemeriksa untuk baris ini
+	 */
 	public void initRow(final Row row,
 			final PenerbitPunyaPemeriksa penerbitPunyaPemeriksa) {
 		row.setValign("top");row.setAttribute("penerbitPunyaPemeriksa", penerbitPunyaPemeriksa);

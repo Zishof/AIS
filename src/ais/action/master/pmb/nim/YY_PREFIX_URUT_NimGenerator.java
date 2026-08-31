@@ -12,14 +12,32 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.Mahasiswa;
 
+/**
+ * Algoritma penomoran NIM dengan pola {@code YY-PREFIX-URUT}: NIM disusun dari
+ * {@code 2 digit tahun masuk + prefix konfigurasi ({@code prefix_center_pmb}) + nomor urut
+ * mahasiswa pada angkatan yang sama}, panjang nomor urut dapat dikonfigurasi lewat
+ * {@code jumlah_digit_gen_nim_mahasiswa} (default 4 digit). Prefix bersifat institusi-lebar
+ * (tidak membedakan program studi), cocok untuk institusi dengan satu skema penomoran global.
+ */
 public class YY_PREFIX_URUT_NimGenerator implements NimGenerator {
 
+	/** Seperti {@link #generateNim(BiodataCalonMahasiswa, List)}, tanpa daftar pengecualian awal. */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa) {
 		return generateNim(calonMahasiswa, new ArrayList<String>());
 	}
 
-	// generate NIM
+	/**
+	 * Membangkitkan NIM: menghitung jumlah {@link Mahasiswa} aktif pada angkatan (tahun) yang sama
+	 * (ditambah jumlah kandidat yang sudah ditolak di {@code jumlahPengecualian}), lalu menyusun
+	 * NIM dari 2 digit tahun, prefix konfigurasi, dan nomor urut yang di-pad nol. Bila NIM hasil
+	 * ternyata sudah dipakai mahasiswa lain, nomor tersebut ditambahkan ke
+	 * {@code jumlahPengecualian} dan method memanggil dirinya sendiri secara rekursif.
+	 * Mengembalikan {@code "-"} bila calon mahasiswa belum punya program studi lulus.
+	 *
+	 * @param jumlahPengecualian NIM kandidat yang sudah terbukti bentrok pada percobaan sebelumnya
+	 * @return NIM yang belum dipakai mahasiswa manapun, atau {@code "-"} bila prodi lulus belum ditentukan
+	 */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa, List<String> jumlahPengecualian) {
 

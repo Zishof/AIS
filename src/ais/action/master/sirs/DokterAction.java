@@ -38,6 +38,17 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.UIUtil;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD master data Dokter/Tenaga Medis pada modul SIRS. Memperluas {@link GenericCrudAction}
+ * untuk mewarisi kerangka baku cari/tambah/ubah/hapus; kelas ini mengisi bagian spesifik entitas:
+ * filter pencarian tambahan berdasarkan kategori tenaga medis dan kode, kode tenaga medis yang
+ * dibangkitkan otomatis (format {@code "DR"+(id_maksimum+1)}) saat menambah data baru dan tidak
+ * dapat diedit manual, serta bagian form "JENIS BIAYA" yang menampilkan checkbox untuk setiap
+ * {@link JenisBiaya} — status tercentang diambil lewat query SQL langsung ke tabel relasi
+ * {@code sirs.dokter_has_jenis_biaya} (bukan lewat koleksi lazy {@code dokter.getJenisBiayas()})
+ * karena entitas {@code dokter} pada form berasal dari objek detached hasil query daftar, sehingga
+ * koleksi lazy-nya tidak dapat diinisialisasi ulang tanpa sesi Hibernate yang masih terbuka.
+ */
 public class DokterAction extends GenericCrudAction<Dokter> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -65,6 +76,7 @@ public class DokterAction extends GenericCrudAction<Dokter> {
     @Override
     protected String getWindowTitle() { return "Pendataan Tenaga Medis"; }
 
+    /** Menginisialisasi komponen dasar layar lalu mengisi pilihan kategori pada combobox filter pencarian dari {@link Dokter#KATEGOSRIES}. */
     @Override
     public void doAfterCompose(Component comp) throws Exception {
         super.doAfterCompose(comp);
@@ -75,6 +87,7 @@ public class DokterAction extends GenericCrudAction<Dokter> {
         }
     }
 
+    /** Menyusun kriteria pencarian {@link Dokter}, difilter kategori, kode, dan nama, diurutkan berdasarkan nama bila diminta. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -92,6 +105,7 @@ public class DokterAction extends GenericCrudAction<Dokter> {
         return criteria;
     }
 
+    /** Menyediakan renderer baris grid {@link DokterRenderer} untuk daftar hasil pencarian. */
     @Override
     protected MyRowRenderer createRenderer() {
         return new DokterRenderer();
@@ -99,6 +113,7 @@ public class DokterAction extends GenericCrudAction<Dokter> {
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/ubah tenaga medis (kode auto-generate, nama, kategori, alamat, aktif, keterangan, checkbox jenis biaya) beserta tombol batal/simpan pada jendela dialog. */
     @SuppressWarnings("unchecked")
     @Override
     protected void buildFormContent(MyWindow window, final Dokter dokter) throws Exception {
@@ -241,6 +256,15 @@ public class DokterAction extends GenericCrudAction<Dokter> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi lalu menyimpan data dokter/tenaga medis dari form: menolak bila nama atau
+     * kategori belum diisi; jika lolos menyimpan/memperbarui entitas dan mengembalikan
+     * {@code true}.
+     *
+     * @param event event ZK pemicu penyimpanan (tombol simpan)
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal
+     * @throws Exception diteruskan apa adanya dari kegagalan Hibernate saat menyimpan
+     */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Nama Dokter wajib diisi terlebih dahulu. Langkah yang dapat dilakukan: (1) isikan Nama Dokter pada kolom yang tersedia; (2) pastikan kolom tidak dikosongkan; (3) simpan kembali data setelah kolom terisi.", "Peringatan",
@@ -270,6 +294,7 @@ public class DokterAction extends GenericCrudAction<Dokter> {
 
     // ======================== Renderer ========================
 
+    /** Renderer baris grid daftar dokter/tenaga medis: kolom kode, nama (dengan link riwayat revisi), kategori, alamat, status aktif, keterangan, dan tombol edit/hapus. */
     class DokterRenderer extends MyRowRenderer {
 
         @Override

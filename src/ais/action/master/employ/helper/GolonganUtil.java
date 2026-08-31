@@ -21,8 +21,40 @@ import ais.ui.util.WaktuUtil;
 import net.objecthunter.exp4j.Expression;
 import net.objecthunter.exp4j.ExpressionBuilder;
 
+/**
+ * Mesin evaluasi formula kenaikan {@link Golongan} pegawai (kepegawaian): menghitung "poin"
+ * seorang pegawai pada tanggal tertentu dari sebuah {@code formula} tersimpan berformat JSON
+ * (array objek {@code {"tgl":..., "target":"...", <kodeSkorGolongan>:nilai, ...}}) memakai
+ * pustaka evaluasi ekspresi matematika exp4j.
+ *
+ * <h2>Struktur formula</h2>
+ * Setiap {@code formula} adalah riwayat aturan yang berlaku EFEKTIF sejak tanggal
+ * ({@code tgl}) tertentu — mendukung perubahan kebijakan kenaikan golongan dari waktu ke waktu
+ * tanpa kehilangan riwayat lama. Untuk menghitung poin pada {@code sekarang}, aturan yang dipakai
+ * adalah entri dengan {@code tgl} EFEKTIF TERBARU yang tidak melewati {@code sekarang (diurutkan
+ * menurun lewat {@link TreeMap} dengan {@link Collections#reverseOrder()}). Field {@code target}
+ * berisi ekspresi matematis (mis. {@code "SK1 + SK2 * 2"}) yang variabelnya adalah kode
+ * {@link SkorGolongan} aktif dan dapat juga merujuk kode {@link Konstanta} (disubstitusi jadi
+ * nilai konstanta) atau kode {@link Golongan} lain (disubstitusi jadi HASIL EVALUASI REKURSIF
+ * formula golongan tersebut — memungkinkan satu golongan mensyaratkan poin golongan sebelumnya).
+ *
+ * <h2>Pengaman rekursi</h2>
+ * Karena formula golongan dapat merujuk golongan lain yang mungkin (secara keliru) merujuk balik,
+ * {@link #ambilPoint(String, Date, int)} membawa parameter {@code coba} yang dinaikkan setiap
+ * evaluasi bersarang dan dipotong paksa (mengembalikan 0.0) setelah 25 tingkat rekursi, mencegah
+ * {@link StackOverflowError} akibat referensi melingkar antar golongan.
+ */
 public class GolonganUtil {
 
+	/**
+	 * Memilih entri {@code target} (teks ekspresi) yang berlaku efektif pada {@code sekarang} dari
+	 * riwayat {@code formula} JSON, yaitu entri dengan {@code tgl} terbaru yang tidak melewati
+	 * {@code sekarang}. Kegagalan parsing formula ditelan dan mengembalikan string kosong.
+	 *
+	 * @param formula  riwayat formula (JSON array {@code {"tgl", "target"}})
+	 * @param sekarang tanggal acuan
+	 * @return ekspresi target yang berlaku, atau string kosong bila tidak ada entri yang cocok/formula tidak valid
+	 */
 	public static String ambilTarget(String formula, Date sekarang) throws Exception {
 		String hasil = "";
 		try {
@@ -53,6 +85,15 @@ public class GolonganUtil {
 		return hasil;
 	}
 
+	/**
+	 * Menghitung poin langsung dari SATU objek data skor (bukan riwayat formula tersimpan): nilai
+	 * setiap {@link SkorGolongan} aktif diambil dari {@code jsonObject} (0.0 bila tidak ada), lalu
+	 * ekspresi {@code target} pada {@code jsonObject} yang sama dievaluasi setelah substitusi kode
+	 * {@link Konstanta} dan kode {@link Golongan} lain (rekursif, lihat javadoc kelas).
+	 *
+	 * @param jsonObject objek berisi nilai skor per kode {@link SkorGolongan} plus field {@code target}
+	 * @return hasil evaluasi ekspresi, atau 0.0 bila {@code target} kosong/evaluasi gagal
+	 */
 	public static Double ambilPoint(JSONObject jsonObject) throws Exception {
 		Double hasil = 0.0;
 		try {
@@ -144,10 +185,22 @@ public class GolonganUtil {
 
 	}
 
+	/** Menghitung poin dari riwayat {@code formula} pada {@code sekarang}, mulai dari kedalaman rekursi 0. */
 	public static Double ambilPoint(String formula, Date sekarang) throws Exception {
 		return ambilPoint(formula, sekarang, 0);
 	}
 
+	/**
+	 * Implementasi kanonik penghitungan poin dari riwayat {@code formula} JSON: memilih set data
+	 * skor yang efektif pada {@code sekarang} (entri {@code tgl} terbaru yang tidak melewati
+	 * {@code sekarang}), menentukan ekspresi target yang berlaku lewat {@link #ambilTarget}, lalu
+	 * mendelegasikan evaluasi ke {@link #hitung}.
+	 *
+	 * @param formula  riwayat formula (JSON array berisi {@code tgl} dan nilai per kode {@link SkorGolongan})
+	 * @param sekarang tanggal acuan
+	 * @param coba     kedalaman rekursi saat ini (lihat javadoc kelas soal pengaman rekursi); hentikan dan kembalikan 0.0 bila melebihi 25
+	 * @return hasil evaluasi ekspresi, atau 0.0 bila tidak ada data efektif atau rekursi terlalu dalam
+	 */
 	@SuppressWarnings({})
 	public static Double ambilPoint(String formula, Date sekarang, int coba) throws Exception {
 		if (coba > 25) {
@@ -205,6 +258,20 @@ public class GolonganUtil {
 		return hasil;
 	}
 
+	/**
+	 * Mengevaluasi ekspresi matematis {@code target} terhadap {@code data} (nilai skor per kode)
+	 * memakai exp4j: menormalkan spasi di sekitar operator, mensubstitusi kode {@link Konstanta}
+	 * aktif menjadi nilainya, mensubstitusi kode {@link Golongan} aktif menjadi hasil evaluasi
+	 * REKURSIF formula golongan tersebut (kedalaman {@code coba} dinaikkan satu setiap rekursi —
+	 * lihat javadoc kelas soal batas 25 tingkat), lalu membangun dan mengevaluasi
+	 * {@link Expression} dengan variabel dari {@code data.keySet()}.
+	 *
+	 * @param data     nilai skor per kode {@link SkorGolongan}, dipakai sebagai variabel ekspresi
+	 * @param target   ekspresi matematis yang akan dievaluasi
+	 * @param sekarang tanggal acuan, diteruskan ke evaluasi rekursif formula golongan lain
+	 * @param coba     kedalaman rekursi saat ini
+	 * @return hasil evaluasi, atau 0.0 bila {@code target} kosong atau evaluasi gagal
+	 */
 	public static Double hitung(Map<String, Double> data, String target, Date sekarang, int coba) throws Exception {
 		Double hasil = 0.0;
 		if (target != null && !target.trim().isEmpty()) {
@@ -271,6 +338,15 @@ public class GolonganUtil {
 		return hasil;
 	}
 
+	/**
+	 * Membangun ringkasan HTML (daftar bernomor) yang menampilkan setiap entri riwayat
+	 * {@code formula}: tanggal efektif, nilai tiap {@link SkorGolongan} aktif yang diisi, dan
+	 * ekspresi {@code target}-nya. Dipakai untuk menampilkan riwayat formula secara manusiawi di
+	 * UI (bukan untuk perhitungan).
+	 *
+	 * @param formula riwayat formula (JSON array)
+	 * @return markup HTML {@code <ol>...</ol>} berisi ringkasan tiap entri
+	 */
 	public static String ambilDeskripsi(String formula) throws Exception {
 		JSONArray jsonArray = new JSONArray(formula);
 		String t = "<ol>";

@@ -9,14 +9,38 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.Perkuliahan;
 
+/**
+ * Algoritma penomoran NIM khusus institusi Pelita Bangsa, dengan dua pola berbeda tergantung
+ * program studi:
+ * <ul>
+ * <li>Program studi berkode {@code "006"} (kemungkinan program tahun ajaran/matrikulasi khusus):
+ * NIM disusun dari {@code 2 digit tahun masuk + 2 digit tahun berikutnya + "01" + 3 digit nomor
+ * urut}, mencerminkan penomoran berbasis tahun ajaran (mis. 2024/2025).</li>
+ * <li>Program studi lainnya: NIM disusun dari {@code kode prodi + 2 digit tahun masuk +
+ * 1 digit penanda semester ganjil ("1") atau genap ("2") + 4 digit nomor urut}.</li>
+ * </ul>
+ * Pada kedua pola, pembangkitan nomor urut dan pengecekan pemakaian didelegasikan ke
+ * {@link NimGeneratorSupport}.
+ */
 public class PelitaBangsaNimGenerator implements NimGenerator {
 
+	/** Seperti {@link #generateNim(BiodataCalonMahasiswa, List)}, tanpa daftar pengecualian awal. */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa) {
 		return generateNim(calonMahasiswa, new ArrayList<String>());
 	}
 
-	// generate NIM
+	/**
+	 * Membangkitkan NIM sesuai pola yang berlaku untuk program studi lulus calon mahasiswa — lihat
+	 * penjelasan dua pola pada dokumentasi kelas. Nomor urut dihitung via
+	 * {@link NimGeneratorSupport#nomorUrutBerikutnya} (memperhitungkan kandidat yang sudah bentrok
+	 * di {@code jumlahPengecualian}); bila NIM hasil ternyata sudah dipakai (dicek via
+	 * {@link NimGeneratorSupport#nimSudahDipakai}), nomor tersebut ditambahkan ke
+	 * {@code jumlahPengecualian} dan method memanggil dirinya sendiri secara rekursif.
+	 *
+	 * @param jumlahPengecualian NIM kandidat yang sudah terbukti bentrok pada percobaan sebelumnya
+	 * @return NIM yang belum dipakai mahasiswa manapun, atau {@code "-"} bila prodi lulus belum ditentukan
+	 */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa, List<String> jumlahPengecualian) {
 

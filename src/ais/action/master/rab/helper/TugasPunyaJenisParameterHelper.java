@@ -36,6 +36,17 @@ import ais.ui.util.MyIntbox;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper UI pengelola parameter tambahan bertipe bebas ({@link TugasPunyaJenisParameter}) pada
+ * satu {@link Tugas} modul RAB (Rencana Anggaran Biaya). Setiap parameter mengacu ke satu
+ * {@link JenisParameter} yang menentukan tipe data nilainya (String/Integer/Double/Date/Time);
+ * baris grid menampilkan lima input nilai berbeda (satu per tipe) dan hanya menampilkan yang
+ * sesuai tipe data parameter terpilih ({@code typedata}), menyembunyikan sisanya. Berbeda dari
+ * {@link AcaraPunyaJenisParameterHelper} (yang merealisasikan parameter workspace yang sudah
+ * ditentukan), kelas ini mengizinkan pengguna menambah baris parameter baru bebas
+ * (dropdown jenis parameter dapat dipilih sendiri) dan menghapusnya langsung dari database.
+ * Visibilitas tombol tambah/hapus dan status enable input mengikuti hak akses pengguna saat ini.
+ */
 public class TugasPunyaJenisParameterHelper {
 
 	private MyGrid gridParameter;
@@ -43,6 +54,7 @@ public class TugasPunyaJenisParameterHelper {
 	private boolean edit = false;
 	private boolean delete = false;
 
+	/** Membuat helper untuk {@code gridParameter} dan menentukan visibilitas/status enable tombol tambah/edit/hapus dari hak akses pengguna saat ini. */
 	public TugasPunyaJenisParameterHelper(MyGrid gridParameter) {
 		this.gridParameter = gridParameter;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -50,6 +62,15 @@ public class TugasPunyaJenisParameterHelper {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun tata letak lengkap panel parameter untuk {@code tugas}: toolbar dengan tombol
+	 * "Tambah Parameter" (menambah baris kosong baru, belum tersimpan sampai form induk disimpan)
+	 * dan grid kolom Parameter/Nilai/Hapus yang langsung dimuat dengan parameter tersimpan
+	 * ({@link #loadDataDetail}).
+	 *
+	 * @param tugas tugas RAB yang parameternya dikelola
+	 * @return {@link Borderlayout} siap ditempelkan ke jendela detail tugas
+	 */
 	public Borderlayout initDetail(final Tugas tugas) {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -107,6 +128,7 @@ public class TugasPunyaJenisParameterHelper {
 		return borderlayout;
 	}
 
+	/** Memuat seluruh {@link TugasPunyaJenisParameter} tersimpan milik {@code tugas} (kosong bila tugas belum persisten) dan merender masing-masing sebagai baris grid. */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final Tugas tugas) {
 
@@ -125,6 +147,16 @@ public class TugasPunyaJenisParameterHelper {
 		}
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan dropdown pemilih {@link JenisParameter} dan lima input nilai
+	 * (teks/integer/double/tanggal/waktu) yang saling eksklusif — hanya input sesuai
+	 * {@code typedata} jenis parameter terpilih yang ditampilkan, ditentukan ulang setiap dropdown
+	 * jenis parameter berganti. Juga menambahkan tombol hapus (dengan dialog konfirmasi) yang
+	 * menghapus baris dari grid serta record dari database bila sudah tersimpan.
+	 *
+	 * @param row                      baris ZK yang akan diisi
+	 * @param tugasPunyaJenisParameter entitas parameter (baru atau tersimpan) yang direpresentasikan baris ini
+	 */
 	public void initRow(final Row row, final TugasPunyaJenisParameter tugasPunyaJenisParameter) {
 		row.setValign("top");row.setAttribute("tugasPunyaJenisParameter", tugasPunyaJenisParameter);
 

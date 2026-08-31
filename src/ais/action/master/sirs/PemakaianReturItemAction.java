@@ -47,6 +47,24 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.UIUtil;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD (berbasis {@link GenericCrudAction}) untuk transaksi <b>Pemakaian/Retur Barang</b>
+ * modul SIRS: mencatat item medis yang dipakai (atau diretur) oleh seorang pegawai di suatu
+ * lokasi. Kode dokumen dibangkitkan otomatis dari lokasi ({@code Common#generateCode} dengan
+ * prefix {@code "PR"}), dan lokasi terkunci ke lokasi kerja pengguna saat ini bila tersedia
+ * ({@link Common#getCurrentLokasi()}).
+ *
+ * <p>
+ * Alur persetujuan mengubah dampak transaksi terhadap stok: saat disetujui
+ * ({@link PemakaianReturItemRenderer}, tombol approve), seluruh baris
+ * {@link PemakaianReturItemDetail} milik dokumen diubah menjadi baris
+ * {@link DetailTransaksiPasien} bertipe {@code returPemakaianBarang} (qty/harga bernilai absolut),
+ * setelah lebih dulu menghapus transaksi stok lama yang mungkin tertaut lewat SQL native (mencegah
+ * duplikasi bila di-approve berulang). Membatalkan persetujuan (tombol reject) mengembalikan status
+ * ke belum disetujui dan menghapus seluruh transaksi stok yang tercatat saat approve, sehingga data
+ * dapat diubah kembali. Dokumen yang sudah disetujui tidak dapat diedit/dihapus.
+ * </p>
+ */
 public class PemakaianReturItemAction extends GenericCrudAction<PemakaianReturItem> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -71,15 +89,19 @@ public class PemakaianReturItemAction extends GenericCrudAction<PemakaianReturIt
 
     // ======================== Abstract implementations ========================
 
+    /** Mengembalikan kelas entitas yang dikelola layar ini: {@link PemakaianReturItem}. */
     @Override
     protected Class<PemakaianReturItem> getEntityClass() { return PemakaianReturItem.class; }
 
+    /** Membuat instance {@link PemakaianReturItem} kosong untuk form tambah data baru. */
     @Override
     protected PemakaianReturItem createNewEntity() { return new PemakaianReturItem(); }
 
+    /** Mengembalikan judul jendela form: {@code "Pendataan Pemakaian Barang"}. */
     @Override
     protected String getWindowTitle() { return "Pendataan Pemakaian Barang"; }
 
+    /** Inisialisasi standar layar ZK, ditambah pengisian combobox filter lokasi (terkunci ke lokasi kerja pengguna bila tersedia) dan penentuan hak akses approve/reject. */
     @Override
     public void doAfterCompose(Component comp) throws Exception {
         super.doAfterCompose(comp);
@@ -92,6 +114,7 @@ public class PemakaianReturItemAction extends GenericCrudAction<PemakaianReturIt
         reject = CommonPrivilages.checkPrevilages(CommonPrivilages.REJECT);
     }
 
+    /** Membangun kriteria pencarian dokumen pemakaian/retur, diurutkan berdasarkan id terbaru, disaring berdasarkan lokasi dan/atau kecocokan sebagian kode sesuai filter aktif. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -106,6 +129,7 @@ public class PemakaianReturItemAction extends GenericCrudAction<PemakaianReturIt
         return criteria;
     }
 
+    /** Membuat perender baris grid pencarian dokumen pemakaian/retur: {@link PemakaianReturItemRenderer}. */
     @Override
     protected MyRowRenderer createRenderer() {
         return new PemakaianReturItemRenderer();
@@ -113,6 +137,7 @@ public class PemakaianReturItemAction extends GenericCrudAction<PemakaianReturIt
 
     // ======================== Cetak report ========================
 
+    /** Membuka jendela modal laporan rekap retur pemakaian per periode ({@link LaporanPemakaianReturItemWindow}). */
     public void onCetak(Event event) throws Exception {
         LaporanPemakaianReturItemWindow laporanPemakaianReturItemWindow = new LaporanPemakaianReturItemWindow();
         laporanPemakaianReturItemWindow.setTitle("Laporan Retur Pemakaian Per Periode");
@@ -125,6 +150,7 @@ public class PemakaianReturItemAction extends GenericCrudAction<PemakaianReturIt
 
     // ======================== Form content ========================
 
+    /** Membangun tata letak form tambah/edit dokumen pemakaian/retur (kode otomatis readonly, tanggal, lokasi, pegawai pemakai, keterangan) dengan toolbar simpan/batal; mengubah lokasi membangkitkan ulang kode dokumen. */
     @Override
     protected void buildFormContent(MyWindow window, final PemakaianReturItem pemakaianReturItem) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -233,6 +259,15 @@ public class PemakaianReturItemAction extends GenericCrudAction<PemakaianReturIt
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi (kode wajib terisi, lokasi wajib dipilih, pegawai pemakai wajib dipilih) dan
+     * menyimpan/memperbarui dokumen pemakaian/retur dari isian form saat ini; data baru diberi
+     * kode otomatis dan indeks urut per lokasi lewat {@link Common#generateCode}/
+     * {@link Common#generateMaxByLokasi}.
+     *
+     * @param event event pemicu tombol simpan
+     * @return {@code true} bila validasi lolos dan data tersimpan; {@code false} bila validasi gagal
+     */
     public boolean onSave(Event event) throws Exception {
         if (kode.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show(
@@ -279,6 +314,15 @@ public class PemakaianReturItemAction extends GenericCrudAction<PemakaianReturIt
 
     // ======================== Renderer ========================
 
+    /**
+     * Perender baris grid pencarian dokumen pemakaian/retur: menampilkan komponen rincian item
+     * ({@link PemakaianReturItemDetailAction}), kode (dengan tautan riwayat revisi), lokasi,
+     * pegawai pemakai, pembuat, tanggal pembuatan, status+tanggal persetujuan, keterangan, dan
+     * baris tombol aksi (cetak PDF, setujui, batalkan persetujuan, ubah, hapus — masing-masing
+     * tampak sesuai hak akses dan status persetujuan dokumen). Tombol setujui/batalkan
+     * mengubah/menghapus baris {@link DetailTransaksiPasien} terkait — lihat javadoc kelas untuk
+     * detail dampak terhadap stok.
+     */
     class PemakaianReturItemRenderer extends MyRowRenderer {
 
         @Override

@@ -26,6 +26,12 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Aksi CRUD (via kerangka {@link GenericCrudAction}) untuk kelola master data
+ * {@link KodeTransaksiMedis} (kode transaksi medis) pada modul SIRS: daftar dengan pencarian
+ * kode dan nama, formulir tambah/ubah (kode, nama, jenis Penambahan/Pengurangan, keterangan),
+ * dengan validasi kode dan nama masing-masing tidak boleh duplikat.
+ */
 public class KodeTransaksiAction extends GenericCrudAction<KodeTransaksiMedis> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -41,15 +47,19 @@ public class KodeTransaksiAction extends GenericCrudAction<KodeTransaksiMedis> {
 
     // ======================== Abstract implementations ========================
 
+    /** @return {@link KodeTransaksiMedis}, kelas entitas yang dikelola aksi ini. */
     @Override
     protected Class<KodeTransaksiMedis> getEntityClass() { return KodeTransaksiMedis.class; }
 
+    /** @return instans {@link KodeTransaksiMedis} kosong untuk formulir tambah data baru. */
     @Override
     protected KodeTransaksiMedis createNewEntity() { return new KodeTransaksiMedis(); }
 
+    /** @return judul jendela daftar/aksi ini. */
     @Override
     protected String getWindowTitle() { return "Pendataan Kode Transaksi"; }
 
+    /** @return kriteria pencarian {@link KodeTransaksiMedis} berdasarkan kode dan nama (ILIKE), diurutkan menurut nama bila {@code order} true. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -64,6 +74,7 @@ public class KodeTransaksiAction extends GenericCrudAction<KodeTransaksiMedis> {
         return criteria;
     }
 
+    /** @return renderer baris tabel {@link KodeTransaksiRenderer} untuk daftar kode transaksi. */
     @Override
     protected MyRowRenderer createRenderer() {
         return new KodeTransaksiRenderer();
@@ -71,6 +82,7 @@ public class KodeTransaksiAction extends GenericCrudAction<KodeTransaksiMedis> {
 
     // ======================== Form content ========================
 
+    /** Menyusun formulir tambah/ubah (kode, nama, jenis Penambahan/Pengurangan, keterangan) beserta tombol Batal/Simpan pada jendela modal. */
     @Override
     protected void buildFormContent(MyWindow window, final KodeTransaksiMedis kodeTransaksi) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -159,6 +171,14 @@ public class KodeTransaksiAction extends GenericCrudAction<KodeTransaksiMedis> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi kode, nama, dan jenis wajib diisi/dipilih, serta kode dan nama masing-masing
+     * belum terdaftar (lewat {@link #checkKodeTransaksi()}/{@link #checkNamaKodeTransaksi()}),
+     * lalu menyimpan (buat baru atau perbarui) entitas {@link KodeTransaksiMedis}.
+     *
+     * @param event event pemicu (tidak dipakai)
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal (jendela tetap terbuka)
+     */
     public boolean onSave(Event event) throws Exception {
         if (kode.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Kode Transaksi wajib diisi terlebih dahulu. Langkah yang dapat dilakukan: (1) isikan Kode Transaksi pada kolom yang tersedia; (2) pastikan kolom tidak dikosongkan; (3) simpan kembali data setelah kode terisi.", "Peringatan",
@@ -199,6 +219,7 @@ public class KodeTransaksiAction extends GenericCrudAction<KodeTransaksiMedis> {
         return true;
     }
 
+    /** @return {@code true} bila kode pada formulir sudah dipakai kode transaksi lain (mengecualikan record yang sedang diedit). */
     public Boolean checkKodeTransaksi() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(KodeTransaksiMedis.class)
@@ -211,6 +232,7 @@ public class KodeTransaksiAction extends GenericCrudAction<KodeTransaksiMedis> {
         return count != 0;
     }
 
+    /** @return {@code true} bila nama pada formulir sudah dipakai kode transaksi lain (mengecualikan record yang sedang diedit). */
     public Boolean checkNamaKodeTransaksi() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(KodeTransaksiMedis.class)
@@ -225,6 +247,7 @@ public class KodeTransaksiAction extends GenericCrudAction<KodeTransaksiMedis> {
 
     // ======================== Renderer ========================
 
+    /** Renderer baris tabel: kode, nama (via {@link RevisiHelper}), label jenis (Penambahan/Pengurangan), keterangan, dan tombol ubah/hapus. */
     class KodeTransaksiRenderer extends MyRowRenderer {
 
         @Override

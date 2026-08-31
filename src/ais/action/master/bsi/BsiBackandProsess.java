@@ -26,8 +26,44 @@ import ais.database.model.sekolah.CalonSiswa;
 import ais.database.model.sekolah.Sekolah;
 import ais.database.model.sekolah.Siswa;
 
+/**
+ * Tugas terjadwal ({@link TimerTask}) yang mengecek ulang secara otomatis status pembayaran via
+ * gateway BSI (Bank Syariah Indonesia) e-Collection untuk permintaan ({@link BsiRequest}) yang
+ * belum mendapat respons definitif. Melengkapi jalur callback synchronous di
+ * {@code ais.common.BsiKeranjangPembayaran}/{@code BSIMajaUtil} (sudah didokumentasikan sebelumnya)
+ * dengan mekanisme polling: request yang berumur maksimal 7 hari, belum punya {@link BsiResponse},
+ * dan berstatus kode "0"/"1"/kosong dicek ulang ke endpoint inquiry BSI (per sekolah, memakai
+ * {@code client_id}/{@code key} yang diresolusi lewat {@link Sekolah#checkCidDanPasswordBsi}) lalu
+ * hasilnya disimpan dan diproses via {@link Bsiresponse#prosesResponse}.
+ *
+ * <p>
+ * <b>Catatan keamanan:</b> {@link #check(String, BsiRequest, Session)} mencetak ke konsol
+ * ({@code System.out.println}) sejumlah payload transaksi BSI mentah — termasuk {@code data} yang
+ * memuat {@code client_id} sebelum di-hash, string hasil hashing ({@code parsedData}), hasil
+ * dekripsi respons ({@code decodeData}), body permintaan ({@code postData}), dan seluruh body
+ * respons gateway ({@code hasil}/{@code bsiJson}/{@code responseData}). Log ini berpotensi
+ * membocorkan {@code client_id} merchant dan detail transaksi pembayaran ke log server. Tidak ada
+ * kredensial (password/key BSI) yang tertanam langsung sebagai literal string di kelas ini — {@code
+ * cid}/{@code key} diresolusi dari {@link Sekolah#checkCidDanPasswordBsi}, bukan hardcode di sini.
+ * </p>
+ */
 public class BsiBackandProsess extends TimerTask {
 
+	/**
+	 * Mengecek status pembayaran BSI untuk satu {@link BsiRequest}: bila sudah ada
+	 * {@link BsiResponse} tersimpan dengan kode status sukses ("000"), langsung memakainya tanpa
+	 * memanggil gateway ulang; jika belum, memanggil endpoint inquiry BSI di {@code strURL} (data
+	 * permintaan di-hash lewat {@code BNIHash}), menyimpan/memperbarui {@link BsiResponse}
+	 * berdasarkan hasilnya (status "000" bila {@code payment_amount} sama dengan {@code trx_amount}),
+	 * memperbarui {@code bsiRequest} terkait, dan memicu {@link Bsiresponse#prosesResponse} bila
+	 * pembayaran sukses.
+	 *
+	 * @param strURL     URL endpoint gateway BSI yang dipanggil
+	 * @param bsiRequest permintaan pembayaran yang dicek statusnya
+	 * @param session    sesi Hibernate aktif untuk baca/tulis {@link BsiResponse}/{@link BsiRequest}
+	 * @return objek JSON hasil inquiry (dari respons tersimpan atau panggilan gateway baru), atau
+	 *         {@code null} bila tidak ada respons yang berhasil diperoleh/diparse
+	 */
 	@SuppressWarnings("deprecation")
 	public static JSONObject check(String strURL, BsiRequest bsiRequest, Session session) {
 		JSONObject bsi = null;
@@ -162,6 +198,14 @@ public class BsiBackandProsess extends TimerTask {
 		return bsi;
 	}
 
+	/**
+	 * Titik masuk terjadwal: bila konfigurasi {@code aktifkan_check_ulang_otomatis_pembayaran_via_bsi}
+	 * aktif, mengambil seluruh {@link BsiRequest} 7 hari terakhir yang belum punya respons dan
+	 * berstatus belum final, lalu memanggil {@link #check} untuk masing-masing — URL gateway
+	 * diresolusi berjenjang: IP client khusus ({@code bsi_ip_client}) jika diset, jika tidak URL
+	 * gateway spesifik sekolah siswa, jika tidak juga URL gateway global default
+	 * ({@code bsi_gateway_url}).
+	 */
 	@Override
 	public void run() {
 		try {

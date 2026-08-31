@@ -40,6 +40,18 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper UI untuk layar detail absensi guru piket ({@link AbsenGuruPiket}): menampilkan daftar
+ * guru berpaginasi (100 baris/halaman) milik sekolah terkait, masing-masing dengan pilihan status
+ * kehadiran (radio group, dari {@link ConstantValues#listAbsenMahasiswa}) dan keterangan bebas,
+ * yang langsung tersimpan ke {@code absenGuruPiket} (struktur data absensi tunggal per guru
+ * disimpan dalam format terserialisasi, diakses lewat {@code retreiveAbsensiId}/
+ * {@code retreiveAbsensiKeterangan}/{@code populate}) setiap kali diubah. Status default untuk
+ * guru yang belum diabsen ditentukan oleh konfigurasi {@code absen_piket_otomatis_belum} (Belum
+ * Absen bila aktif, atau Masuk bila tidak). Menyediakan aksi massal "Semua hadir" dan "Reset"
+ * (keduanya dengan dialog konfirmasi), pencarian nama/kode guru, serta unduhan data kehadiran ke
+ * Excel dengan kolom status dan keterangan ditambahkan secara dinamis per baris.
+ */
 public class DetailAbsenGuruPiketHelper implements DataLoader, DataCriteria {
 
 	private MyGrid grid;
@@ -51,6 +63,7 @@ public class DetailAbsenGuruPiketHelper implements DataLoader, DataCriteria {
 
 	private List<Guru> guru = null;
 
+	/** Membuat helper dan menginisialisasi komponen paging (100 baris/halaman) yang memicu {@link #loadData} saat halaman berganti. */
 	public DetailAbsenGuruPiketHelper() {
 
 		paging = new Paging();
@@ -63,6 +76,7 @@ public class DetailAbsenGuruPiketHelper implements DataLoader, DataCriteria {
 		});
 	}
 
+	/** Renderer baris grid: foto guru, label revisi+nama+kode+NIP, dan radio group status kehadiran + textbox keterangan — keduanya langsung memperbarui {@code absenGuruPiket} saat diubah. Guru yang belum memiliki status absen diberi default otomatis (dicek/diisi saat baris dirender). */
 	class DetailPARenderer extends ais.ui.util.MyRowRenderer {
 
 		public DetailPARenderer() {
@@ -136,6 +150,7 @@ public class DetailAbsenGuruPiketHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/** Membangun kriteria pencarian {@link Guru} aktif milik sekolah dari {@code absenGuruPiket}, opsional difilter nama/kode guru (ILIKE sebagian), diurutkan menurut nama lalu id menurun bila {@code order} true. */
 	public Criteria initCriteria(boolean order) {
 
 		Session session = HibernateUtil.currentSession();
@@ -153,6 +168,7 @@ public class DetailAbsenGuruPiketHelper implements DataLoader, DataCriteria {
 		return criteria;
 	}
 
+	/** Memuat satu halaman guru sesuai kriteria/paging saat ini dan menyegarkan grid dengan {@link DetailPARenderer}. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Common.initPaging100(initCriteria(false), paging);
@@ -167,6 +183,17 @@ public class DetailAbsenGuruPiketHelper implements DataLoader, DataCriteria {
 
 	private String[] contents = new String[] { "kode", "nik", "namaGuru", "sekolah.nama", "yayasan.nama" };
 
+	/**
+	 * Membangun tampilan lengkap detail absensi guru piket ke dalam {@code component}: toolbar
+	 * pencarian nama/kode, tombol aksi massal "Semua hadir" dan "Reset" (masing-masing dengan
+	 * dialog konfirmasi dan dijalankan lewat timer default agar UI tidak terblokir), tombol unduh
+	 * data kehadiran ke Excel (kolom tambahan Status + Keterangan diisi dinamis per baris), dan
+	 * grid berpaginasi (50 baris/halaman) daftar guru dengan status kehadirannya.
+	 *
+	 * @param absenGuruPiket record absensi piket yang sedang diedit
+	 * @param component      komponen ZK tempat tata letak dibangun (dibersihkan lebih dulu)
+	 * @param window         jendela induk (tidak dipakai langsung, diteruskan untuk konteks pemanggil)
+	 */
 	public void displayDetailPA(final AbsenGuruPiket absenGuruPiket, final Component component, final MyWindow window) {
 		this.absenGuruPiket = absenGuruPiket;
 		Common.clear(component);

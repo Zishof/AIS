@@ -19,6 +19,13 @@ import ais.database.model.RuangPMB;
 import ais.database.model.RuangPaketPMB;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Algoritma penomoran nomor ujian (No Ujian) khusus institusi Bukittinggi, dengan alur penempatan
+ * ruang ujian yang sama dengan {@link DefaultNoUjianGenerator} (cek pembayaran registrasi, cari
+ * ruang belum penuh, cek kapasitas), namun format nomor berbeda: {@code 4 digit tahun berjalan +
+ * kode paket ujian + 5 digit nomor urut} yang dihitung dari jumlah calon mahasiswa aktif dengan
+ * nomor ujian berawalan (prefix) tahun+paket yang sama.
+ */
 public class BukittinggiNoUjianGenerator implements NoUjianGenerator {
 
 	static final ThreadLocal<SimpleDateFormat> format = new ThreadLocal<SimpleDateFormat>() {
@@ -29,12 +36,23 @@ public class BukittinggiNoUjianGenerator implements NoUjianGenerator {
 	};
 	public static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
+	/** Seperti {@link #generateNoUjian(BiodataCalonMahasiswa, List)}, tanpa daftar pengecualian awal. */
 	@Override
 	public String generateNoUjian(BiodataCalonMahasiswa biodataCalonMahasiswa) throws Exception {
 		return generateNoUjian(biodataCalonMahasiswa, new ArrayList<String>());
 	}
 
-	// generate NIM
+	/**
+	 * Membangkitkan nomor ujian dan menempatkan calon mahasiswa ke ruang ujian yang tersedia —
+	 * lihat penjelasan format dan alur pada dokumentasi kelas (identik dengan
+	 * {@link DefaultNoUjianGenerator} kecuali format nomor). Bila nomor ujian sudah ada pada
+	 * entitas, nilai yang ada langsung dikembalikan. Bila nomor hasil ternyata sudah dipakai calon
+	 * mahasiswa lain, nomor tersebut ditambahkan ke {@code jumlahPengecualian} dan method
+	 * memanggil dirinya sendiri secara rekursif.
+	 *
+	 * @param jumlahPengecualian nomor ujian kandidat yang sudah terbukti bentrok pada percobaan sebelumnya
+	 * @return nomor ujian yang dibangkitkan, atau string kosong bila pembayaran belum lunas atau ruang ujian penuh/tidak ditemukan
+	 */
 	@Override
 	public String generateNoUjian(BiodataCalonMahasiswa biodataCalonMahasiswa, List<String> jumlahPengecualian)
 			throws Exception {

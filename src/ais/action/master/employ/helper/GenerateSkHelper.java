@@ -38,6 +38,20 @@ import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.employ.KonfigurasiSK;
 
+/**
+ * Helper UI ZK modul kepegawaian untuk menampilkan daftar konfigurasi field SK (Surat
+ * Keputusan, mis. SK kenaikan pangkat) dan memicu pembuatan (generate) laporan PDF SK
+ * berdasarkan konfigurasi tersebut. Digunakan sebagai panel dalam dialog/window pemicu generate
+ * SK, dengan grid daftar {@link KonfigurasiSK} (jenis field, isi, jenis kegiatan employ) dan
+ * tombol "Generate".
+ *
+ * <p>
+ * Beberapa bagian kode (checkbox seleksi baris, filter kombo jenis field) tampak belum
+ * diselesaikan/dinonaktifkan (dikomentari) dan {@link #onGenerate(Long)} hanya menggunakan
+ * parameter {@code id} (id kenaikan pangkat) tanpa memanfaatkan seleksi baris grid — perilaku
+ * saat ini dipertahankan apa adanya sesuai batasan tugas dokumentasi (tidak mengubah kode).
+ * </p>
+ */
 public class GenerateSkHelper {
 
 	List myList = new ArrayList();
@@ -55,6 +69,7 @@ public class GenerateSkHelper {
 
 	private String idpeg;
 
+	/** Membangun helper dan menyiapkan combobox jenis field (diisi dari {@link KonfigurasiSK}), meski combobox ini belum dipasang ke toolbar (lihat catatan kelas). */
 	public GenerateSkHelper() {
 
 		Common.insertCombo(jenisField = new Combobox(), "jenisField",
@@ -62,6 +77,7 @@ public class GenerateSkHelper {
 
 	}
 
+	/** Perenderan satu baris tabel konfigurasi SK: jenis field, isi, nama jenis kegiatan employ, dan checkbox seleksi baris. */
 	class RiwayatPendidikanPegawaiRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -98,6 +114,14 @@ public class GenerateSkHelper {
 		}
 	}
 
+	/**
+	 * Membangun panel (border layout) berisi grid daftar konfigurasi SK dan toolbar
+	 * Batal/Generate, lalu memuat data konfigurasi awal.
+	 *
+	 * @param window jendela ZK induk yang ditutup oleh tombol Batal
+	 * @param id     id kenaikan pangkat yang diteruskan ke {@link #onGenerate(Long)} saat tombol Generate ditekan
+	 * @return border layout siap disisipkan sebagai konten {@code window}
+	 */
 	public Borderlayout display(final MyWindow window, final Long id ) {
 		// this.konfigurasiSk = konfigurasiSk;
 
@@ -202,6 +226,7 @@ public class GenerateSkHelper {
 		return borderlayout;
 	}
 
+	/** Membuat laporan PDF SK kenaikan pangkat ({@code report_kenaikan_pangkat}) untuk {@code id} kenaikan pangkat yang diberikan (0 bila {@code null}). */
 	@SuppressWarnings( { "unchecked" })
 	public void onGenerate(Long id) throws Exception {
 //		Session session = HibernateUtil.currentSession();
@@ -223,6 +248,7 @@ public class GenerateSkHelper {
 
 	}
 
+	/** Memuat seluruh {@link KonfigurasiSK} (terurut jenis field) ke grid tanpa filter pencarian. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault() {
 		Session session = HibernateUtil.currentSession();

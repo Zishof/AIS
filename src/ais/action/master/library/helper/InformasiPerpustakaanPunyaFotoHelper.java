@@ -35,18 +35,36 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper UI untuk mengelola lampiran berkas (bukan khusus gambar, meski nama kelasnya menyiratkan
+ * demikian — berkas apa pun bisa diunggah, lihat {@code Filedownload.save} yang mengunduh apa
+ * adanya) pada satu {@link InformasiPerpustakaan}, ditampilkan sebagai grid unggah/hapus di dalam
+ * layar detail informasi perpustakaan. Setiap lampiran memiliki flag "Tampil" yang menentukan
+ * apakah berkas tersebut ditampilkan di halaman publik informasi perpustakaan, dapat diubah
+ * langsung dari grid dan tersimpan seketika. Data BLOB disimpan/dibaca lewat sesi
+ * {@link StreamingHibernateUtil} terpisah.
+ */
 public class InformasiPerpustakaanPunyaFotoHelper {
 
 	private MyGrid gridFotoGambar;
 	private boolean add = false;
 	private boolean delete = false;
 
+	/** Membuat helper terikat ke {@code gridFotoGambar}, menentukan visibilitas tombol tambah/hapus dari hak akses pengguna saat ini. */
 	public InformasiPerpustakaanPunyaFotoHelper(MyGrid gridFotoGambar) {
 		this.gridFotoGambar = gridFotoGambar;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun tata letak grid lampiran lengkap dengan toolbar unggah, kolom nama/jenis/tampil/aksi,
+	 * dan langsung memuat lampiran {@code informasiPerpustakaan} yang sudah ada. Unggahan baru
+	 * disimpan sebagai BLOB pada baris {@link FotoInformasiPerpustakaan}.
+	 *
+	 * @param informasiPerpustakaan induk informasi perpustakaan yang lampirannya akan ditampilkan/dikelola
+	 * @return tata letak {@link Borderlayout} siap ditempel ke komponen induk
+	 */
 	public Borderlayout initDetail(final InformasiPerpustakaan informasiPerpustakaan) throws Exception {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -134,6 +152,7 @@ public class InformasiPerpustakaanPunyaFotoHelper {
 		return borderlayout;
 	}
 
+	/** Memuat seluruh lampiran tersimpan milik {@code informasiPerpustakaan} (diurutkan id terbaru dulu) ke grid, atau tidak menambah baris apa pun bila induk belum tersimpan. */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final InformasiPerpustakaan informasiPerpustakaan) throws Exception {
 
@@ -156,6 +175,12 @@ public class InformasiPerpustakaanPunyaFotoHelper {
 		StreamingHibernateUtil.getInstance().closeSession();
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan nama dan jenis berkas (keduanya berupa tautan yang memicu
+	 * unduhan lewat {@link Filedownload#save}), checkbox "Tampil" (langsung tersimpan ke database
+	 * saat diubah, menentukan tampil-tidaknya di halaman publik), tombol unduh, dan tombol hapus
+	 * (dengan konfirmasi).
+	 */
 	public void initRow(final Row row, final FotoInformasiPerpustakaan fotoInformasiPerpustakaan) throws Exception {
 		row.setValign("top");row.setAttribute("fotoInformasiPerpustakaan", fotoInformasiPerpustakaan);
 		EventListener eventListener = new EventListener() {

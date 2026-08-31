@@ -33,10 +33,45 @@ import ais.database.model.Perkuliahan;
 import ais.database.model.TunggakanMahasiswa;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Logika inti operasi "Inquiry" (pengecekan tagihan) pada integrasi Host-to-Host (H2H) dengan
+ * bank/mitra pembayaran ({@link BankHost}) — dipanggil ketika nasabah memasukkan nomor
+ * registrasi/NIM di kanal bank (teller, ATM, mobile/internet banking, VA) untuk mengecek tagihan
+ * sebelum membayar. Menyediakan tiga varian logika sesuai jenis pembayar: calon mahasiswa
+ * (pendaftaran awal), mahasiswa baru (daftar ulang), dan mahasiswa lama (her-registrasi/her-regis
+ * berkala). Setiap method mengembalikan array baris-kolom string yang sudah diformat sesuai
+ * kontrak protokol H2H (lihat implementasi {@link DisplayUtil} untuk format detail), bukan objek
+ * domain — hasil ini langsung dituliskan sebagai respons ke bank.
+ *
+ * <p>
+ * Alur umum setiap method: (1) menentukan {@link JenisKegiatan} pembayaran yang relevan lewat
+ * {@link PembayaranUtil}; (2) mencari {@link Kegiatan} (tagihan) yang sudah dibuat untuk pembayar
+ * tersebut, atau menentukan {@link JadwalPembayaran} yang berlaku berdasarkan tahun akademik/jenis
+ * seleksi/gelombang bila tagihan belum dibuat; (3) bila jadwal pembayaran tidak ditemukan (di luar
+ * periode/terlambat), mengembalikan respons "pembayaran terlambat" lewat {@link DisplayUtil}; (4)
+ * bila ditemukan, menghitung rincian biaya per {@link ItemBiaya} lewat {@link PembayaranUtil} dan
+ * menyusunnya menjadi baris-baris respons inquiry. Setiap kegagalan tak terduga ditangkap dan
+ * dilaporkan lewat {@code Common.tampilErrorJikaAdmin}, bukan dilempar ke pemanggil, agar protokol
+ * H2H tetap menerima respons (meski berupa data kosong) alih-alih exception mentah.
+ * </p>
+ */
 public class InqueryLogic {
 	public PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 	public DisplayUtil displayUtil = new DisplayUtil();
 
+	/**
+	 * Inquiry tagihan pendaftaran untuk calon mahasiswa (jenis kegiatan
+	 * {@code PENDAFTARAN_CALON_MAHASISWA}). Menentukan tagihan/jadwal pembayaran yang berlaku
+	 * berdasarkan prodi pilihan pertama (atau kedua bila pertama kosong), tahun akademik, jenis
+	 * seleksi, dan gelombang pendaftaran calon mahasiswa; mengembalikan respons "pembayaran
+	 * terlambat" bila tidak ada jadwal yang cocok.
+	 *
+	 * @param biodataCalonMahasiswa data calon mahasiswa yang diinquiry
+	 * @param bankHost              konfigurasi bank/kanal H2H pemanggil
+	 * @param nama                  nama proses/servis (dipakai untuk logging respons)
+	 * @param logHostToHost         baris log transaksi H2H yang sedang diproses
+	 * @return baris-kolom respons inquiry siap dikirim ke bank
+	 */
 	public String[][] inqueryCalonMahasiswa(BiodataCalonMahasiswa biodataCalonMahasiswa, BankHost bankHost, String nama,
 			LogHostToHost logHostToHost) {
 
@@ -253,6 +288,19 @@ public class InqueryLogic {
 		return data.toArray(new String[][] { null });
 	}
 
+	/**
+	 * Inquiry tagihan daftar ulang untuk mahasiswa baru (jenis kegiatan
+	 * {@code PENDAFTARAN_ULANG_MAHASISWA_BARU}). Berbeda dari {@link #inqueryCalonMahasiswa}, di
+	 * sini turut ditentukan nomor semester tagihan — diprioritaskan dari tagihan yang sudah
+	 * benar-benar dibuat lewat layar pembayaran (bisa semester 0), karena protokol H2H sendiri
+	 * tidak membawa parameter semester.
+	 *
+	 * @param biodataCalonMahasiswa data calon mahasiswa (sudah dinyatakan diterima) yang diinquiry
+	 * @param bankHost              konfigurasi bank/kanal H2H pemanggil
+	 * @param nama                  nama proses/servis (dipakai untuk logging respons)
+	 * @param logHostToHost         baris log transaksi H2H yang sedang diproses
+	 * @return baris-kolom respons inquiry siap dikirim ke bank
+	 */
 	public String[][] inqueryMahasiswaBaru(BiodataCalonMahasiswa biodataCalonMahasiswa, BankHost bankHost, String nama,
 			LogHostToHost logHostToHost) {
 
@@ -528,11 +576,29 @@ public class InqueryLogic {
 		return data.toArray(new String[][] { null });
 	}
 
+	/** Seperti {@link #inqueryMahasiswaLama(Mahasiswa, BankHost, String, LogHostToHost, String, String)}, tanpa filter kode item biaya/bulan spesifik. */
 	public String[][] inqueryMahasiswaLama(Mahasiswa mahasiswa, BankHost bankHost, String nama,
 			LogHostToHost logHostToHost) {
 		return inqueryMahasiswaLama(mahasiswa, bankHost, nama, logHostToHost, null, null);
 	}
 
+	/**
+	 * Inquiry tagihan untuk mahasiswa lama (her-registrasi/pembayaran berkala, jenis kegiatan
+	 * {@code PENDAFTARAN_MAHASISWA_LAMA} bila {@code kode} tidak diberikan). Mula-mula memeriksa
+	 * apakah mahasiswa merupakan hasil alih program studi ({@code alihProdiMahasiswa}) — bila ya,
+	 * mengembalikan respons khusus "alih prodi" ({@link DisplayUtil#displayAlihProdi}) karena
+	 * tagihan mahasiswa pindahan memerlukan penanganan berbeda. {@code bulan} dinormalisasi
+	 * menjadi {@code null} bila bukan angka valid (mis. dipakai untuk tagihan bulanan yang
+	 * difilter per bulan tertentu lewat {@link PengaturanPembayaranBulanan}).
+	 *
+	 * @param mahasiswa     mahasiswa yang diinquiry
+	 * @param bankHost      konfigurasi bank/kanal H2H pemanggil
+	 * @param nama          nama proses/servis (dipakai untuk logging respons)
+	 * @param logHostToHost baris log transaksi H2H yang sedang diproses
+	 * @param kode          kode {@link ItemBiaya}/jenis tagihan spesifik yang diinquiry, boleh {@code null} untuk semua
+	 * @param bulan         bulan tagihan (untuk tagihan bulanan), boleh {@code null}/bukan angka untuk diabaikan
+	 * @return baris-kolom respons inquiry siap dikirim ke bank
+	 */
 	@SuppressWarnings({ "rawtypes" })
 	public String[][] inqueryMahasiswaLama(Mahasiswa mahasiswa, BankHost bankHost, String nama,
 			LogHostToHost logHostToHost, String kode, String bulan) {

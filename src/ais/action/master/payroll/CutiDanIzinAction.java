@@ -97,6 +97,51 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Composer ZK untuk pengelolaan pengajuan Cuti dan Izin pegawai ({@link CutiDanIzin}), termasuk
+ * pembuatan pengajuan baru oleh pegawai, tampilan daftar dengan pencarian/filter (satuan kerja,
+ * status aktif, rentang tanggal), serta alur persetujuan atasan lewat SOP ({@link FormSop}).
+ * Kelas yang sama dipakai untuk dua peran berbeda yang dibedakan lewat field {@link #persetujuan}
+ * (di-set lewat konstruktor {@link #CutiDanIzinAction(boolean, String)} atau
+ * {@link #setPersetujuan(boolean)}): mode pengajuan (pegawai mengisi form sendiri) dan mode
+ * persetujuan (atasan meninjau dan menyetujui/menolak pengajuan bawahan) — perbedaan ini menentukan
+ * gerbang aturan mana yang aktif di {@link #onSave(Event)}.
+ *
+ * <h2>Alur kerja</h2>
+ * <p>
+ * {@link #doAfterCompose(Component)} menyiapkan filter tanggal, hak-akses (apakah admin boleh
+ * melihat semua cuti/pegawai lewat konfigurasi {@code Common.getApakahAdminBolehLihatSemuaCuti}/
+ * {@code getApakahAdminBolehLihatSemuaPegawai}), daftar bawahan (untuk atasan non-admin, lewat
+ * {@code siapkanDataBawahan}), paging, timer refresh berkala, dan toolbar. Tombol tambah memanggil
+ * {@link #onAdd(Event)} → {@link #init(GeneralValueObject)} yang membuka jendela modal berisi
+ * {@link #form(GeneralValueObject, DisposisiSop, MyToolbarbuttonConfig, EventListener)} — pembangun
+ * form utama (field pegawai, jenis cuti/izin, status absensi, rentang tanggal, keterangan,
+ * parameter tambahan dinamis per jenis cuti lewat {@link ParameterTambahanCutiDanIzinListener}, dan
+ * lampiran). Tombol simpan pada form memicu {@link #onSave(Event)}.
+ * </p>
+ * <p>
+ * {@link #onSave(Event)} memvalidasi field wajib (pegawai, status absensi, tanggal mulai/sampai,
+ * keterangan, parameter tambahan) dan status aktif pegawai, lalu menjalankan gerbang aturan bisnis
+ * cuti (semua default nonaktif, dikonfigurasi lewat {@code AturanCutiHelper}) — validasi batas
+ * waktu pengajuan (H-x sebelum tanggal mulai) hanya diterapkan pada momen pengajuan
+ * ({@code !persetujuan}), sedangkan aturan lain diterapkan pada momen persetujuan; pembedaan ini
+ * penting karena method {@code onSave} yang sama dipanggil pada kedua momen tersebut.
+ * </p>
+ * <p>
+ * Pencarian daftar memakai {@link #initCriteria(boolean)}, yang membangun kueri Hibernate
+ * terhadap {@link CutiDanIzin} dengan filter: jenis cuti/izin yang boleh diajukan sesuai
+ * role/username pengguna ({@link JenisCutiDanIzin#getJenisPengguna()}/{@code getUsernamePengguna()}),
+ * cakupan satuan kerja (termasuk turunannya lewat {@link SatuanKerjaTreeModel}), status
+ * disetujui/belum, dan rentang tanggal. {@link #onSearchDefault(Event)} menjalankan kueri ini dan
+ * merender hasilnya ke {@link MyGrid} lewat {@code CutiDanIzinRenderer}.
+ * </p>
+ * <p>
+ * Sebagai implementasi {@link FormSop}, kelas ini juga menyediakan metadata alur SOP:
+ * {@link #istilah()} ("Pengajuan Cuti Dan Izin Pegawai"), {@link #ambil()} (dokumen SOP aktif),
+ * {@link #ambilClass()} ({@link CutiDanIzin}{@code .class}), sementara {@link #cetakData(GeneralValueObject)}
+ * saat ini selalu mengembalikan {@code null} (belum ada implementasi cetak dokumen untuk alur ini).
+ * </p>
+ */
 public class CutiDanIzinAction extends GenericAutowireComposer
 		implements DataInitDefault, DataSearchDefault, DataCriteria, FormSop {
 
@@ -156,15 +201,23 @@ public class CutiDanIzinAction extends GenericAutowireComposer
 
 	private Vbox containerPengecualian;
 
+	/** Membuat composer dalam mode pengajuan biasa ({@link #persetujuan}{@code =false}). */
 	public CutiDanIzinAction() {
 		this.persetujuan = false;
 	}
 
+	/**
+	 * Membuat composer dengan mode dan jenis cuti/izin eksplisit.
+	 *
+	 * @param persetujuan {@code true} untuk mode persetujuan atasan, {@code false} untuk mode pengajuan pegawai
+	 * @param jenis       kode jenis cuti/izin awal (dipakai untuk filter/penyaringan tampilan)
+	 */
 	public CutiDanIzinAction(boolean persetujuan, String jenis) {
 		this.persetujuan = persetujuan;
 		this.jenis = jenis;
 	}
 
+	/** Memuat tab "Cuti Bersama" (include halaman {@code cuti_bersama.zul}) secara lazy saat pertama kali dibuka. */
 	public void onCutiBersama(Event event) {
 		if (cutiTab.getChildren().size() == 0) {
 			MyInclude include = new MyInclude("/pages/master/payroll/cuti_bersama.zul");
@@ -174,6 +227,7 @@ public class CutiDanIzinAction extends GenericAutowireComposer
 		}
 	}
 
+	/** Memuat tab "Jenis Kehadiran" (include halaman master status absensi) secara lazy saat pertama kali dibuka. */
 	public void onJenisCuti(Event event) {
 		if (jenisKehadiran.getChildren().size() == 0) {
 			MyInclude include = new MyInclude("/pages/master/status_absensi.zul");
@@ -183,6 +237,7 @@ public class CutiDanIzinAction extends GenericAutowireComposer
 		}
 	}
 
+	/** Memuat tab "Laporan Cuti" ({@link LaporanCutiPegawai}) secara lazy saat pertama kali dibuka. */
 	public void onLaporanCuti(Event event) {
 		if (laporanCutiTab.getChildren().size() == 0) {
 			LaporanCutiPegawai include = new LaporanCutiPegawai();
@@ -192,6 +247,13 @@ public class CutiDanIzinAction extends GenericAutowireComposer
 		}
 	}
 
+	/**
+	 * Inisialisasi composer setelah komponen ZK ter-wiring: menentukan mode admin/hak lihat semua
+	 * cuti-pegawai dari konfigurasi, menyiapkan filter tanggal ({@link #initDatesFilter()}),
+	 * visibilitas berbasis privilese ({@link #setupPrivilegesAndVisibility()}), daftar bawahan bagi
+	 * atasan non-admin ({@link #siapkanDataBawahan()}), paging, timer refresh berkala, dan toolbar
+	 * ({@link #setupToolbars()}).
+	 */
 	@Override
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
@@ -621,10 +683,18 @@ public class CutiDanIzinAction extends GenericAutowireComposer
 		}
 	}
 
+	/** Handler tombol tambah: membuka form dengan entitas {@link CutiDanIzin} baru (kosong). */
 	public void onAdd(Event event) throws Exception {
 		init(new CutiDanIzin());
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela modal berisi form tambah/ubah pengajuan cuti-izin.
+	 * Memasang toolbar Batal/Simpan; tombol Simpan memanggil {@link #onSave(Event)} dan, bila
+	 * berhasil, menyegarkan daftar lewat {@link #onSearchDefault(Event)} lalu menutup jendela.
+	 *
+	 * @param obj entitas {@link CutiDanIzin} yang akan diedit, atau baru (id {@code null}) untuk pengajuan baru
+	 */
 	@Override
 	public void init(GeneralValueObject obj) throws Exception {
 		CutiDanIzin cdi = (CutiDanIzin) obj;
@@ -688,6 +758,19 @@ public class CutiDanIzinAction extends GenericAutowireComposer
 		addWindow.onModal();
 	}
 
+	/**
+	 * Membangun {@link MyGrid} berisi seluruh field form pengajuan cuti-izin: pemilihan pegawai,
+	 * jenis cuti/izin, status absensi, rentang tanggal mulai-sampai, keterangan, parameter tambahan
+	 * dinamis per jenis cuti (lewat {@link ParameterTambahanCutiDanIzinListener}), dan lampiran.
+	 * Dipakai baik untuk form pengajuan mandiri ({@link #init(GeneralValueObject)}) maupun sebagai
+	 * bagian dari alur SOP persetujuan (parameter {@code dSop}/{@code setujui}).
+	 *
+	 * @param generalValueObject entitas {@link CutiDanIzin} sumber data awal form
+	 * @param dSop                disposisi SOP terkait (konteks alur persetujuan), boleh {@code null}
+	 * @param saveBtn             tombol simpan yang visibilitas/labelnya dapat disesuaikan oleh form
+	 * @param setujui             listener aksi setuju pada alur SOP, boleh {@code null}
+	 * @return grid form siap ditambahkan ke jendela
+	 */
 	@SuppressWarnings({ "unchecked" })
 	@Override
 	public MyGrid form(GeneralValueObject generalValueObject, DisposisiSop dSop, final MyToolbarbuttonConfig saveBtn,
@@ -1013,6 +1096,20 @@ public class CutiDanIzinAction extends GenericAutowireComposer
 		}
 	}
 
+	/**
+	 * Memvalidasi dan menyimpan pengajuan cuti-izin. Validasi field wajib mencakup pegawai, status
+	 * absensi, tanggal mulai/sampai, keterangan, parameter tambahan (bila ada), serta status aktif
+	 * pegawai terpilih. Setelah lolos validasi field, gerbang aturan bisnis cuti dari
+	 * {@code AturanCutiHelper} dijalankan (semua default nonaktif, dapat diaktifkan lewat
+	 * konfigurasi) — aturan batas waktu pengajuan (H-x sebelum tanggal mulai) hanya berlaku pada
+	 * momen pengajuan ({@link #persetujuan}{@code =false}), sedangkan aturan lain berlaku pada
+	 * momen persetujuan, karena method ini dipanggil pada kedua momen tersebut dengan flag
+	 * {@link #persetujuan} yang membedakannya. Setiap kegagalan validasi menampilkan pesan
+	 * peringatan dan mengembalikan {@code false} tanpa menyimpan.
+	 *
+	 * @param event event ZK asal aksi simpan
+	 * @return {@code true} bila pengajuan berhasil disimpan
+	 */
 	public boolean onSave(Event event) throws Exception {
 		if (pegawai.getAttribute("pegawai") == null) {
 			MyMessageboxConfig.show(
@@ -1289,6 +1386,18 @@ public class CutiDanIzinAction extends GenericAutowireComposer
 		}
 	}
 
+	/**
+	 * Membangun kueri Hibernate untuk daftar pengajuan cuti-izin, dengan filter: jenis cuti/izin
+	 * yang boleh dilihat sesuai role/username pengguna saat ini (dicocokkan terhadap
+	 * {@link JenisCutiDanIzin#getJenisPengguna()}/{@code getUsernamePengguna()}), cakupan satuan
+	 * kerja (termasuk seluruh turunannya lewat {@link SatuanKerjaTreeModel} bila satuan kerja
+	 * tertentu dipilih pada filter), status disetujui/belum disetujui, dan rentang tanggal filter
+	 * bila diisi.
+	 *
+	 * @param order {@code true} untuk menyertakan pengurutan hasil (dipakai saat mengambil data
+	 *              halaman aktif); {@code false} saat hanya menghitung total baris untuk paging
+	 * @return kriteria Hibernate siap dieksekusi/dipaginasi
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Tbmrole tbmrole = tbmuser == null ? null : tbmuser.hakAkses();
@@ -1437,6 +1546,13 @@ public class CutiDanIzinAction extends GenericAutowireComposer
 	}
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Mengeksekusi ulang pencarian ({@link #initCriteria(boolean)}) untuk halaman aktif dan
+	 * merender hasilnya ke {@link MyGrid} lewat {@code CutiDanIzinRenderer}, sekaligus
+	 * memperbarui total halaman pada komponen {@link #paging}.
+	 *
+	 * @param event tidak dipakai langsung, hanya untuk kesesuaian kontrak {@link DataSearchDefault}
+	 */
 	public void onSearchDefault(Event event) {
 		Common.initPaging(initCriteria(false), paging);
 		List<CutiDanIzin> cdiList = initCriteria(true).setMaxResults(Common.ROWS_COUNT_ON_PAGE)
@@ -1447,27 +1563,32 @@ public class CutiDanIzinAction extends GenericAutowireComposer
 		grid.renderAll();
 	}
 
+	/** @return label istilah alur SOP: {@code "Pengajuan Cuti Dan Izin Pegawai"}. */
 	@Override
 	public String istilah() throws Exception {
 		return "Pengajuan Cuti Dan Izin Pegawai";
 	}
 
+	/** @return dokumen SOP ({@link DisposisiSop}) yang sedang aktif diproses pada composer ini. */
 	@Override
 	public DataSop ambil() throws Exception {
 		return cutiDanIzin;
 	}
 
+	/** @return {@link CutiDanIzin}{@code .class}, kelas entitas yang dikelola alur SOP ini. */
 	@SuppressWarnings("rawtypes")
 	@Override
 	public Class ambilClass() throws Exception {
 		return CutiDanIzin.class;
 	}
 
+	/** Mengatur mode composer: {@code true} untuk mode persetujuan atasan, {@code false} untuk mode pengajuan. */
 	@Override
 	public void setPersetujuan(boolean persetujuan) {
 		this.persetujuan = persetujuan;
 	}
 
+	/** Belum diimplementasikan — selalu mengembalikan {@code null} (tidak ada cetak dokumen untuk alur ini). */
 	@Override
 	public File cetakData(GeneralValueObject generalValueObject) throws Exception {
 		return null;

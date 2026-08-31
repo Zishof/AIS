@@ -25,6 +25,11 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper UI ZK untuk menampilkan dan mengelola daftar komentar pelanggan ({@link ProdukKomentar})
+ * pada satu {@link Produk} inventori: memuat grid komentar (nama, kontak, email) dan menyediakan
+ * aksi hapus per baris (hanya tampil bila user punya hak {@link CommonPrivilages#DELETE}).
+ */
 public class ProdukKomentarHelper {
 
 	private MyGrid gridKomentar;
@@ -32,6 +37,7 @@ public class ProdukKomentarHelper {
 	// private boolean edit = false;
 	private boolean delete = false;
 
+	/** Menyiapkan helper untuk {@code gridKomentar} yang diberikan; hak hapus baris ditentukan dari privilese {@link CommonPrivilages#DELETE} user yang sedang login. */
 	public ProdukKomentarHelper(MyGrid gridKomentar) {
 		this.gridKomentar = gridKomentar;
 		// add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -39,6 +45,7 @@ public class ProdukKomentarHelper {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/** Membangun kerangka layar detail komentar (info banner + grid dengan kolom Komentar/Oleh/Email/Hapus) untuk {@code produk}, lalu langsung memuat datanya. */
 	public Borderlayout initDetail(final Produk produk) {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -76,6 +83,7 @@ public class ProdukKomentarHelper {
 		return borderlayout;
 	}
 
+	/** Memuat seluruh {@link ProdukKomentar} milik {@code produk} dan merender satu baris grid per komentar. */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final Produk produk) {
 
@@ -94,6 +102,7 @@ public class ProdukKomentarHelper {
 		}
 	}
 
+	/** Merender satu baris grid untuk {@code produkKomentar} (nama, kontak, email, tombol hapus dengan konfirmasi) ke {@code row}. */
 	public void initRow(final Row row, final ProdukKomentar produkKomentar) {
 		row.setValign("top");row.setAttribute("produkKomentar", produkKomentar);
 
@@ -137,6 +146,7 @@ public class ProdukKomentarHelper {
 	}
 
 
+	/** Membangun banner info bergaya kartu (judul + deskripsi) yang ditampilkan di atas grid komentar. */
 	private org.zkoss.zul.Html buildInfoHtmlInventoryV1(String judul, String deskripsi) {
 		return new org.zkoss.zul.Html("<div style=\"padding:10px 12px;margin:4px 0;border-radius:12px;"
 				+ "background:#f8fafc;border:1px solid #e2e8f0;color:#475569;font-size:11.5px;line-height:1.55;\">"
@@ -144,6 +154,7 @@ public class ProdukKomentarHelper {
 				+ escapeHtmlInventoryV1(deskripsi) + "</div>");
 	}
 
+	/** Meng-escape karakter HTML khusus ({@code & < > " '}) pada {@code value} agar aman disisipkan ke markup, mengembalikan string kosong bila {@code null}. */
 	private String escapeHtmlInventoryV1(String value) {
 		if (value == null) {
 			return "";

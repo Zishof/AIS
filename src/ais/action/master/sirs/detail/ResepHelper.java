@@ -52,6 +52,21 @@ import ais.database.model.sirs.Tindakan;
 import ais.ui.util.MyDoublebox;
 import ais.ui.util.MyTextbox;
 
+/**
+ * Helper ZK modul SIRS (rumah sakit) untuk mengelola {@link Resep} (resep obat) satu
+ * {@link DiagnosaPenyakit}: menambah item obat individual, racikan yang sudah ada, atau membuat
+ * racikan baru langsung dari layar ini, ditambah grid {@link ResepDetail} dengan kolom jumlah dan
+ * keterangan yang editable inline dan tersimpan otomatis saat berubah.
+ *
+ * <p>
+ * {@link Resep} dibuat lazy — baru disimpan ke database saat item/racikan pertama ditambahkan
+ * (bukan saat layar dibuka), dan bila {@code diagnosaPenyakit} belum tersimpan, callback
+ * {@link OnSave#onSave} dipicu lebih dulu untuk memastikan induknya ada. Method {@link #setPaket}
+ * menyediakan jalur khusus mengisi resep otomatis dari daftar item {@link PaketPerawatanDetail}
+ * milik satu atau lebih {@link Tindakan} paket perawatan, lalu mengunci ({@link Common#freeze}) area
+ * pencarian obat manual selama mode paket aktif.
+ * </p>
+ */
 public class ResepHelper {
 
 	private Grid grid;
@@ -66,6 +81,7 @@ public class ResepHelper {
 	private Toolbarbutton save;
 	private North north;
 
+	/** Membuat helper dengan {@code onSave} (callback validasi/simpan {@link DiagnosaPenyakit} induk sebelum resep pertama dibuat) dan {@code save} (tombol simpan layar induk, diaktifkan/dinonaktifkan mengikuti isi resep). */
 	public ResepHelper(OnSave onSave, Toolbarbutton save) {
 		this.save = save;
 		this.onSave = onSave;
@@ -80,6 +96,16 @@ public class ResepHelper {
 		});
 	}
 
+	/**
+	 * Membangun layar resep untuk {@code diagnosaPenyakit}: memuat {@link Resep} yang sudah ada
+	 * (bila diagnosa sudah tersimpan), kode resep readonly (dihasilkan otomatis lewat
+	 * {@link Common#generateCode} bila belum ada), toolbar "Ambil Obat"/"Ambil Racikan"/"Racikan
+	 * Baru", dan grid detail resep. Setiap tombol toolbar terlebih dulu memicu {@code onSave} bila
+	 * diagnosa belum tersimpan, lalu membuat {@link Resep} baru bila belum ada sebelum menyimpan
+	 * {@link ResepDetail} hasil pilihan.
+	 *
+	 * @return borderlayout siap ditempelkan ke komponen host
+	 */
 	public Borderlayout display(final DiagnosaPenyakit diagnosaPenyakit) {
 		this.diagnosaPenyakit = diagnosaPenyakit;
 		if (diagnosaPenyakit != null && diagnosaPenyakit.getId() != null) {
@@ -354,6 +380,7 @@ public class ResepHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Memuat ulang isi {@link #grid} dari {@link ResepDetail} milik {@link #resep} saat ini (terurut id menurun), atau kosong bila resep belum tersimpan. */
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
 		List<ResepDetail> resepDetails = resep == null || resep.getId() == null ? new ArrayList<ResepDetail>()
@@ -368,6 +395,17 @@ public class ResepHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Mengisi resep otomatis dari seluruh {@link PaketPerawatanDetail} milik {@code pakets}
+	 * (tindakan berjenis paket perawatan): setiap item yang belum ada di resep ditambahkan sebagai
+	 * {@link ResepDetail} baru (jumlah/keterangan disalin dari detail paket), item yang sudah ada
+	 * tidak diduplikasi. Setelah selesai, area pencarian obat manual ({@link #north}) disembunyikan
+	 * dan grid dikunci — resep dari paket dianggap final, tidak diedit manual lewat toolbar biasa.
+	 * Tidak melakukan apa pun (mengembalikan {@code true} langsung) bila {@code pakets} kosong atau
+	 * tidak mengandung item.
+	 *
+	 * @return {@code true} bila berhasil (termasuk kasus tidak ada yang perlu diproses), {@code false} bila {@code onSave} menolak menyimpan diagnosa induk
+	 */
 	public boolean setPaket(Set<Tindakan> pakets,
 			DiagnosaPenyakit diagnosaPenyakit) throws Exception {
 		this.diagnosaPenyakit = diagnosaPenyakit;
@@ -449,6 +487,7 @@ public class ResepHelper {
 		return true;
 	}
 
+	/** Renderer baris grid detail resep: item obat langsung (kode+nama) atau racikan (dengan editor komposisi via {@link ResepRacikanDetailAction}), kolom jumlah/keterangan editable (autosave saat berubah), dan tombol hapus (tampil sesuai privilese DELETE). */
 	class ResepDetailRenderer extends ais.ui.util.MyRowRenderer {
 
 		public ResepDetailRenderer() {

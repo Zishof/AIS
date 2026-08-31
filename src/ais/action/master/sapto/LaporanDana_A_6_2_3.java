@@ -20,12 +20,22 @@ import ais.database.model.Jurusan;
 import ais.database.model.penelitiandanpengabdian.PengajuanPenelitianDanPengabdian;
 import ais.database.model.penelitiandanpengabdian.SumberDanaPenelitianDanPengabdian;
 
+/**
+ * Jendela laporan borang akreditasi BAN-PT SAPTO butir <b>A-6.2.3</b>: daftar kegiatan
+ * pengabdian kepada masyarakat dosen tetap yang disetujui dalam 3 tahun terakhir sebelum tahun
+ * akademik terpilih, beserta sumber dana (bisa lebih dari satu, digabung koma) dan jumlah dana
+ * (ditampilkan dalam juta rupiah). Data diambil dari
+ * {@link PengajuanPenelitianDanPengabdian} berstatus {@code DISETUJUI} dengan tipe
+ * {@link ConstantValues#PENGABDIAN}, difilter opsional per jurusan dosen pengaju, dijalankan
+ * asinkron di thread terpisah, lalu ditampilkan lewat {@link SaptoUtil#displayWorksheet}.
+ */
 public class LaporanDana_A_6_2_3 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-6.2.3";
     private static final long serialVersionUID = 3331244819198611604L;
     private Combobox tahunAjaran;
 
+    /** Konstruktor default: menyiapkan filter fakultas/jurusan dan tahun akademik (default tahun akademik berjalan), lalu membangun kerangka jendela laporan. */
     public LaporanDana_A_6_2_3() {
         super();
         try {
@@ -35,6 +45,7 @@ public class LaporanDana_A_6_2_3 extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Seperti konstruktor default, dengan judul/border/closable jendela yang dapat disesuaikan. */
     public LaporanDana_A_6_2_3(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         initFakultasJurusan();
@@ -42,8 +53,10 @@ public class LaporanDana_A_6_2_3 extends SaptoBaseWindow {
         buildBase(false);
     }
 
+    /** Kode butir borang yang dipetakan ke jendela ini: {@value #sheetCode}. */
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Menyusun kontrol filter pada baris toolbar: filter fakultas/jurusan bawaan {@link SaptoBaseWindow}, ditambah pemilih tahun akademik yang memicu {@link #onCetak} saat diubah. */
     @Override
     protected void buildFilters(Row row) {
         addFakultasJurusanFilter(row);
@@ -57,6 +70,12 @@ public class LaporanDana_A_6_2_3 extends SaptoBaseWindow {
         });
     }
 
+    /**
+     * Menyusun data laporan A-6.2.3: mengambil pengajuan pengabdian yang disetujui milik dosen
+     * tetap dalam 3 tahun terakhir (opsional difilter per jurusan), merangkum judul, gabungan
+     * sumber dana, dan jumlah dana (dalam juta rupiah) per kegiatan, dijalankan di thread terpisah
+     * agar UI tidak terblokir, lalu hasilnya ditampilkan lewat {@link SaptoUtil#displayWorksheet}.
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

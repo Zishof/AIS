@@ -8,8 +8,32 @@ import org.jpos.iso.ISOUtil;
 
 import ais.common.Common;
 
+/**
+ * Listener sisi server protokol ISO 8583 (protokol pertukaran pesan transaksi finansial
+ * antar-bank, dipakai di sini untuk integrasi dengan Bank NTT via jPOS) yang menjawab pesan
+ * masuk dari switching bank. Menangani dua jenis pesan: Network Management Request
+ * ({@code NetManReq}, dijawab {@code NetManRes} sukses — semacam heartbeat/keepalive koneksi)
+ * dan Inquiry Request ({@code InqReq}, dijawab {@code InqRes} sukses dengan nominal tagihan).
+ * <p>
+ * <b>Catatan implementasi</b>: pada cabang Inquiry, nominal ({@code field 4}) dan variabel
+ * data privat tambahan ({@code LengthofAdditionalPrivateData}, {@code SwitcherReferenceNumber},
+ * {@code LengthofBillName}, {@code BillName}) tampak berisi nilai contoh/placeholder tetap
+ * (mis. {@code amount = "3600" + 12 digit nol}) dan variabel data privat yang dihitung tidak
+ * pernah disisipkan ke pesan balasan {@code m} — mengindikasikan implementasi ini belum lengkap/
+ * masih berupa kerangka pengembangan, bukan logika inquiry saldo/tagihan yang sesungguhnya.
+ * Tidak ditemukan kredensial atau kunci rahasia tertanam pada kelas ini.
+ * </p>
+ */
 public class BankNttServerService implements ISORequestListener {
 
+	/**
+	 * Menangani satu pesan ISO 8583 masuk: mengenali MTI (Message Type Indicator), menyusun pesan
+	 * balasan yang sesuai (Network Management atau Inquiry), lalu mengirimkannya kembali lewat
+	 * {@code source}. Semua kegagalan ditangkap dan dilaporkan lewat
+	 * {@link Common#tampilErrorJikaAdmin(Exception)}, bukan dilempar ulang.
+	 *
+	 * @return {@code true} bila pesan berhasil diproses dan dikirim balik, {@code false} bila terjadi kegagalan
+	 */
 	@SuppressWarnings("unused")
 	@Override
 	public boolean process(ISOSource source, ISOMsg m) {

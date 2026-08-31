@@ -26,6 +26,14 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD data master "Prioritas Pasien" SIRS (mis. Gawat Darurat, Prioritas Tinggi/Rendah —
+ * dipakai untuk triase antrean pasien), dengan tingkat prioritas numerik 1-10. Dibangun di atas
+ * kerangka kerja {@link GenericCrudAction}: menyediakan kriteria pencarian (filter nama), form
+ * tambah/edit (nama, nilai prioritas 1-10, keterangan), validasi nama dan nilai prioritas wajib
+ * diisi serta nama tidak duplikat, dan renderer baris daftar dengan tombol revisi dan aksi
+ * edit/hapus.
+ */
 public class PrioritasPasienAction extends GenericCrudAction<PrioritasPasien> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -46,6 +54,7 @@ public class PrioritasPasienAction extends GenericCrudAction<PrioritasPasien> {
     @Override
     protected String getWindowTitle() { return "Pendataan Prioritas Pasien"; }
 
+    /** Membangun kriteria pencarian {@link PrioritasPasien} berdasarkan filter nama (ILIKE sebagian), diurutkan menurut nama bila {@code order} true. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -64,6 +73,7 @@ public class PrioritasPasienAction extends GenericCrudAction<PrioritasPasien> {
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/edit Prioritas Pasien (field nama, dropdown nilai prioritas 1-10, keterangan) beserta toolbar Batal/Simpan di dalam jendela {@code window}. */
     @Override
     protected void buildFormContent(MyWindow window, final PrioritasPasien prioritasPasien) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -147,6 +157,7 @@ public class PrioritasPasienAction extends GenericCrudAction<PrioritasPasien> {
 
     // ======================== Save logic ========================
 
+    /** Memvalidasi (nama dan nilai prioritas wajib diisi, nama tidak boleh duplikat) lalu menyimpan/memperbarui entitas {@link PrioritasPasien} dari nilai form. @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal (pesan ditampilkan ke pengguna). */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Nama Prioritas Pasien wajib diisi terlebih dahulu. Langkah yang dapat dilakukan: (1) isikan Nama Prioritas Pasien pada kolom yang tersedia; (2) pastikan kolom tidak dikosongkan; (3) simpan kembali data setelah kolom terisi.", "Peringatan",
@@ -176,6 +187,7 @@ public class PrioritasPasienAction extends GenericCrudAction<PrioritasPasien> {
         return true;
     }
 
+    /** Memeriksa apakah nama pada form sudah dipakai entitas {@link PrioritasPasien} lain (mengabaikan entitas yang sedang diedit). */
     public Boolean checkNamaPrioritasPasien() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(PrioritasPasien.class)
@@ -190,6 +202,7 @@ public class PrioritasPasienAction extends GenericCrudAction<PrioritasPasien> {
 
     // ======================== Renderer ========================
 
+    /** Merender satu baris daftar Prioritas Pasien: label revisi+nama, nilai prioritas, keterangan, dan tombol edit/hapus. */
     class PrioritasPasienRenderer extends MyRowRenderer {
 
         @Override

@@ -26,8 +26,30 @@ import ais.database.model.PenilaianAsesor;
 import ais.database.model.PenunjangKinerjaDosen;
 import ais.database.model.Perkuliahan;
 
+/**
+ * Helper modul BKD untuk mempopulasi ulang penilaian asesmen kegiatan <b>pengajaran</b> dosen.
+ * Mendukung dua mode penghitungan, dipilih lewat konfigurasi
+ * {@code penghitungan_bkd_pengajaran_menggunakan_per_perkuliahan}: mode <i>per perkuliahan</i>
+ * (SKS dihitung langsung per baris {@link Perkuliahan} yang diampu, dibagi antar dosen pengampu
+ * bila lebih dari satu) dan mode <i>lama</i> berbasis {@link Detailperkuliahan} yang disetujui,
+ * dikelompokkan per mata kuliah, dengan SKS disesuaikan tabel skala {@code jumlah_sks_pengajaran_*}
+ * berdasarkan jumlah mahasiswa yang diajar serta faktor beban berdasar jabatan
+ * fungsional/status sertifikasi dosen. Dosen dicari sebagai pengampu di salah satu dari 10 slot
+ * ({@code dosen1}..{@code dosen10}) pada {@link Perkuliahan}, per jenjang pendidikan (S1/S2/S3/D3/D4).
+ */
 public class BkdPengajaranHelper {
 
+	/**
+	 * Mempopulasi ulang penilaian pengajaran untuk seluruh slot dosen pengampu ({@code dosen1}..
+	 * {@code dosen10}) — bila mode per-perkuliahan aktif, dijalankan langsung tanpa filter jenjang;
+	 * bila tidak, dijalankan per kombinasi jenjang (S1/S2/S3/D3/D4) x slot dosen.
+	 *
+	 * @param session       sesi Hibernate aktif
+	 * @param pegawai       dosen yang diproses, atau {@code null} untuk semua dosen pengajar
+	 * @param tahunAkademik tahun akademik penilaian
+	 * @param semester      semester penilaian
+	 * @param label         komponen label UI tempat progres ditampilkan
+	 */
 	public static void populate(Session session, final Pegawai pegawai, String tahunAkademik, String semester,
 			Label label) {
 		Jenjang[] jenjangs = new Jenjang[] { ConstantValues.s1, ConstantValues.s2, ConstantValues.s3, ConstantValues.d3,
@@ -48,6 +70,21 @@ public class BkdPengajaranHelper {
 		}
 	}
 
+	/**
+	 * Mempopulasi ulang penilaian pengajaran untuk slot pengampu {@code colDosen} dan
+	 * {@code jenjang} tertentu: bila {@code pegawai} adalah dosen, langsung diproses; bila
+	 * {@code null}, seluruh dosen yang mengampu perkuliahan aktif pada slot dan jenjang tersebut
+	 * dicari lebih dulu lalu diproses satu per satu, dengan progres persentase ditampilkan ke
+	 * {@code label}.
+	 *
+	 * @param session       sesi Hibernate aktif
+	 * @param pegawai       dosen yang diproses, atau {@code null} untuk semua dosen pada slot+jenjang ini
+	 * @param colDosen      nama kolom slot pengampu ({@code "dosen1"}..{@code "dosen10"})
+	 * @param jenjang       jenjang pendidikan (diabaikan bila mode per-perkuliahan aktif)
+	 * @param tahunAkademik tahun akademik penilaian
+	 * @param semester      semester penilaian
+	 * @param label         komponen label UI tempat progres ditampilkan, boleh {@code null}
+	 */
 	@SuppressWarnings("unchecked")
 	public static void populate(Session session, final Pegawai pegawai, String colDosen, Jenjang jenjang,
 			String tahunAkademik, String semester, Label label) {
@@ -78,6 +115,26 @@ public class BkdPengajaranHelper {
 		}
 	}
 
+	/**
+	 * Menghitung dan menyimpan/memutakhirkan baris {@link AsesemenPenilaian} pengajaran untuk
+	 * {@code dosen} pada slot {@code colDosen} dan {@code jenjang}. Mencari asesor aktif dosen ini
+	 * terlebih dahulu (tanpa asesor, method tidak melakukan apa pun). Bila konfigurasi
+	 * {@code penghitungan_bkd_pengajaran_menggunakan_per_perkuliahan} aktif, satu baris asesmen
+	 * dibuat per {@link Perkuliahan} yang diampu (SKS mata kuliah dibagi antar dosen pengampu bila
+	 * lebih dari satu, sesuai {@code pengaturan_juml_sks_beban}: 50% atau dibagi rata). Bila tidak,
+	 * satu baris dibuat per mata kuliah (dikelompokkan dari {@link Detailperkuliahan} yang
+	 * disetujui), dengan SKS disesuaikan tabel skala {@code jumlah_sks_pengajaran_*} (bergantung
+	 * jabatan fungsional dan jenjang) berdasarkan jumlah mahasiswa yang diajar.
+	 *
+	 * @param session       sesi Hibernate aktif
+	 * @param dosen         dosen pengajar; method langsung kembali tanpa efek bila {@code null} atau
+	 *                      belum tertaut data pegawai
+	 * @param colDosen      nama kolom slot pengampu ({@code "dosen1"}..{@code "dosen10"})
+	 * @param jenjang       jenjang pendidikan mata kuliah
+	 * @param tahunAkademik tahun akademik penilaian
+	 * @param semester      semester penilaian
+	 * @param label         tidak dipakai langsung di method ini (parameter diteruskan dari pemanggil)
+	 */
 	@SuppressWarnings("unchecked")
 	public static void populate(Session session, Dosen dosen, String colDosen, Jenjang jenjang, String tahunAkademik,
 			String semester, Label label) {

@@ -27,6 +27,14 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD master data Kategori Program Donatur (pengelompokan program donasi pada modul sosial,
+ * mis. kategori bencana, pendidikan, kesehatan). Memperluas {@link GenericCrudAction} untuk
+ * mewarisi kerangka baku cari/tambah/ubah/hapus, ditambah aksi cetak dan unggah massal (lewat
+ * {@link #getDownloadUploadContents()}/{@link #onAfterInit}). Kelas ini mengisi bagian spesifik
+ * entitas: kriteria pencarian (status aktif + nama + kode), form input (kode + nama + keterangan),
+ * validasi nama wajib dan tidak boleh duplikat, toggle aktif langsung dari grid, serta renderer baris.
+ */
 public class KategoriProgramDonaturAction extends GenericCrudAction<KategoriProgramDonatur> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -47,11 +55,13 @@ public class KategoriProgramDonaturAction extends GenericCrudAction<KategoriProg
     @Override
     protected String getWindowTitle() { return "Pendataan Kategori Program"; }
 
+    /** Kolom yang disertakan pada template unduh/unggah massal data kategori program donatur. */
     @Override
     protected String[] getDownloadUploadContents() {
         return new String[] { "id", "kode", "nama", "keterangan", "aktif" };
     }
 
+    /** Menambahkan tombol cetak dan unggah massal di sebelah tombol tambah, mengikuti hak akses tambah/ubah/hapus pengguna. */
     @Override
     protected void onAfterInit(Component comp) throws Exception {
         String[] contents = getDownloadUploadContents();
@@ -67,6 +77,7 @@ public class KategoriProgramDonaturAction extends GenericCrudAction<KategoriProg
         }
     }
 
+    /** Menyusun kriteria pencarian {@link KategoriProgramDonatur}, difilter status aktif (bila dicentang), nama, dan kode, diurutkan berdasarkan nama bila diminta. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -84,6 +95,7 @@ public class KategoriProgramDonaturAction extends GenericCrudAction<KategoriProg
         return criteria;
     }
 
+    /** Menyediakan renderer baris grid {@link KategoriProgramDonaturRenderer} untuk daftar hasil pencarian. */
     @Override
     protected MyRowRenderer createRenderer() {
         return new KategoriProgramDonaturRenderer();
@@ -91,6 +103,7 @@ public class KategoriProgramDonaturAction extends GenericCrudAction<KategoriProg
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/ubah kategori program donatur (field kode + nama + keterangan) beserta tombol batal/simpan pada jendela dialog. */
     @Override
     protected void buildFormContent(MyWindow window, final KategoriProgramDonatur kategoriProgramDonatur) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -164,6 +177,15 @@ public class KategoriProgramDonaturAction extends GenericCrudAction<KategoriProg
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi lalu menyimpan data kategori program donatur dari form: menolak bila nama kosong
+     * atau sudah terdaftar pada baris lain; jika lolos menyimpan/memperbarui entitas dan
+     * mengembalikan {@code true}.
+     *
+     * @param event event ZK pemicu penyimpanan (tombol simpan)
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal
+     * @throws Exception diteruskan apa adanya dari kegagalan Hibernate saat menyimpan
+     */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Nama Kategori Program harus diisi", "Peringatan",
@@ -188,6 +210,12 @@ public class KategoriProgramDonaturAction extends GenericCrudAction<KategoriProg
         return true;
     }
 
+    /**
+     * Memeriksa apakah nama kategori program donatur yang diisi di form sudah dipakai baris lain
+     * (mengecualikan baris yang sedang diedit sendiri).
+     *
+     * @return {@code true} bila nama sudah terpakai baris lain, {@code false} bila belum
+     */
     public Boolean checkNamaKategoriProgramDonatur() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(KategoriProgramDonatur.class)
@@ -202,6 +230,7 @@ public class KategoriProgramDonaturAction extends GenericCrudAction<KategoriProg
 
     // ======================== Renderer ========================
 
+    /** Renderer baris grid daftar kategori program donatur: kolom kode, nama (dengan link riwayat revisi), keterangan, checkbox aktif (toggle langsung tersimpan), dan tombol edit/hapus. */
     class KategoriProgramDonaturRenderer extends MyRowRenderer {
 
         @Override

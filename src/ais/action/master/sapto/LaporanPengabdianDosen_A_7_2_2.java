@@ -21,12 +21,21 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.penelitiandanpengabdian.PengajuanPenelitianDanPengabdian;
 import ais.ui.util.DataCriteriaWithColumn;
 
+/**
+ * Jendela laporan borang akreditasi BAN-PT SAPTO butir <b>A-7.2.2_PT</b>: tabel silang jumlah
+ * kegiatan pengabdian masyarakat dosen tetap yang disetujui, dipecah baris per sumber dana
+ * ({@link #SUMBER_LIST}: swadana peneliti, PT/yayasan, Kemdiknas/kementerian lain, institusi
+ * dalam negeri lain, institusi luar negeri) dan kolom per tahun (TS-2, TS-1, TS). Sel tabel dapat
+ * diklik untuk menampilkan/mengunduh rincian data pengajuan yang membentuk angka tersebut
+ * (difilter sesuai baris/kolom yang diklik) lewat {@link Common#cetakDataCustomButton}.
+ */
 public class LaporanPengabdianDosen_A_7_2_2 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-7.2.2_PT";
     private static final long serialVersionUID = 3331244819198611604L;
     private Combobox tahunAjaran;
 
+    /** Daftar kategori sumber dana pengabdian yang menjadi baris tabel; elemen terakhir kosong dipakai sebagai baris total/semua sumber. */
     private static final String[] SUMBER_LIST = {
         "Pembiayaan sendiri oleh peneliti",
         "PT/yayasan yang bersangkutan",
@@ -35,6 +44,7 @@ public class LaporanPengabdianDosen_A_7_2_2 extends SaptoBaseWindow {
         "Institusi luar negeri", ""
     };
 
+    /** Konstruktor default: menyiapkan pemilih tahun akademik (default tahun akademik berjalan), lalu membangun kerangka jendela laporan. */
     public LaporanPengabdianDosen_A_7_2_2() {
         super();
         try {
@@ -43,14 +53,17 @@ public class LaporanPengabdianDosen_A_7_2_2 extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Seperti konstruktor default, dengan judul/border/closable jendela yang dapat disesuaikan. */
     public LaporanPengabdianDosen_A_7_2_2(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         Common.selectComboItem(tahunAjaran = Common.generateTahunAjaran(tahunAjaran), Common.getCurrentTahunAkademik());
         buildBase(true);
     }
 
+    /** Kode butir borang yang dipetakan ke jendela ini: {@value #sheetCode}. */
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Menyusun kontrol filter pada baris toolbar: pemilih tahun akademik yang memicu {@link #onCetak} saat diubah. */
     @Override
     protected void buildFilters(Row row) {
         row.appendChild(new ais.ui.util.MyLabelConfig("Tahun Akademik *"));
@@ -62,6 +75,12 @@ public class LaporanPengabdianDosen_A_7_2_2 extends SaptoBaseWindow {
         });
     }
 
+    /**
+     * Menyusun tabel silang laporan A-7.2.2_PT: untuk tiap sumber dana ({@link #SUMBER_LIST}),
+     * menghitung jumlah pengajuan pengabdian dosen tetap yang disetujui per tahun (TS-2..TS),
+     * dijalankan di thread terpisah agar UI tidak terblokir. Menyiapkan juga listener klik sel
+     * yang membuka rincian data pengajuan sesuai baris/kolom yang diklik.
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

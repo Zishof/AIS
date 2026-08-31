@@ -44,6 +44,18 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper UI (bukan entitas/aksi tersendiri) untuk mengelola lampiran PDF ({@link FotoItem}) dari
+ * sebuah {@link Item} pustaka: unggah file PDF (validasi ekstensi, disimpan ke folder konfigurasi
+ * {@code lokasi_penyimpanan_lampiran_perpustakaan} DAN sebagai BLOB di basis data lewat sesi
+ * streaming terpisah {@link StreamingHibernateUtil}), unduh file, toggle "ditampilkan" per baris,
+ * dan hapus (menghapus baris relasi {@code library.lampiran_item} lewat SQL langsung lebih dulu,
+ * baru baris {@link FotoItem} itu sendiri). Setelah unggah, teks lampiran diekstrak untuk
+ * pencarian lewat {@link LibraryUtil#convertLampiranToText}, dan bila item belum punya gambar
+ * sampul, path file PDF yang baru diunggah dijadikan {@code imagePath} item. Toolbar unggah dan
+ * kolom aksi hanya tampil untuk user non-mahasiswa/non-dosen. Visibilitas
+ * tambah/hapus mengikuti hak akses {@link CommonPrivilages#CREATE}/{@link CommonPrivilages#DELETE}.
+ */
 public class ItemPunyaFotoHelper {
 
 	private MyGrid gridFotoGambar;
@@ -51,12 +63,21 @@ public class ItemPunyaFotoHelper {
 	private boolean delete = false;
 	private Tbmuser tbmuser;
 
+	/** @param gridFotoGambar grid yang akan diisi/dikelola helper ini */
 	public ItemPunyaFotoHelper(MyGrid gridFotoGambar) {
 		this.gridFotoGambar = gridFotoGambar;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Menyusun tata letak (toolbar unggah PDF, hanya tampil untuk user non-mahasiswa/non-dosen +
+	 * grid lampiran dengan kolom Nama/Jenis/Tampil/aksi) dan langsung memuat lampiran
+	 * {@code item} yang sudah tersimpan. Lihat javadoc kelas untuk detail alur penyimpanan file.
+	 *
+	 * @param item item pustaka yang lampirannya dikelola
+	 * @return komponen tata letak siap pakai untuk ditempelkan ke jendela detail
+	 */
 	public Borderlayout initDetail(final Item item) throws Exception {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -198,6 +219,7 @@ public class ItemPunyaFotoHelper {
 		return borderlayout;
 	}
 
+	/** Memuat baris {@link FotoItem} tersimpan milik {@code item} (terbaru dahulu) ke dalam grid (kosong bila item belum tersimpan). */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final Item item) throws Exception {
 
@@ -217,6 +239,15 @@ public class ItemPunyaFotoHelper {
 		StreamingHibernateUtil.getInstance().closeSession();
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan nama+jenis file, checkbox "ditampilkan" (menyimpan
+	 * perubahan langsung bila baris sudah tersimpan), serta tombol unduh dan hapus (hapus meminta
+	 * konfirmasi, menghapus relasi {@code library.lampiran_item} lewat SQL langsung lebih dulu
+	 * sebelum menghapus baris {@link FotoItem} dan melepas baris UI).
+	 *
+	 * @param row      baris grid yang diisi
+	 * @param fotoItem data lampiran untuk baris ini
+	 */
 	public void initRow(final Row row, final FotoItem fotoItem) throws Exception {
 		row.setValign("top");row.setAttribute("fotoItem", fotoItem);
 		EventListener eventListener = new EventListener() {

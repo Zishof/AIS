@@ -34,6 +34,21 @@ import ais.ui.util.MyLabelStyled;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyRowStyled;
 
+/**
+ * Event listener ZK yang membangun form dinamis "parameter tambahan" pada formulir PMB (pendaftaran
+ * calon mahasiswa/siswa baru), padanan {@code ParameterTambahanGajiPegawaiListener} untuk konteks
+ * PMB. Kelompok parameter yang ditampilkan diresolusi berlapis: bila {@link GelombangPendaftaran}
+ * yang dipilih punya daftar kelompok spesifik yang ditetapkan admin, HANYA daftar itu yang dipakai
+ * (mengabaikan flag tampil per form); jika tidak, kelompok/parameter diresolusi dari
+ * {@link ParameterTambahanPaket} yang cocok dengan paket dan gelombang terpilih (atau berlaku untuk
+ * semua gelombang), difilter lagi oleh flag {@code tampilDiFormPendaftaran}/
+ * {@code tampilDiFormSetelahLogin} sesuai konteks form ({@link #formPendaftaran}). Form tidak
+ * ditampilkan sama sekali bila gelombang terpilih mengatur form tambahan dinonaktifkan untuk
+ * konteks yang relevan. Sama seperti listener gaji pegawai, nilai di-prefill dari string
+ * terserialisasi {@code parameterTambahanInds} milik {@link BiodataCalonMahasiswa}, komponen input
+ * dibangun lewat {@link ParameterTambahan#initComponent}, dan {@link #validate()} memastikan
+ * parameter wajib serta lampiran wajib terisi sebelum data disimpan.
+ */
 public class ParameterTambahanListener implements EventListener {
 
 	private List<Row> parameterRows;
@@ -44,6 +59,17 @@ public class ParameterTambahanListener implements EventListener {
 	private Map<String, LampiranLain> lampiranLains;
 	private Boolean formPendaftaran = true;
 
+	/**
+	 * Membuat listener terikat pada satu calon mahasiswa dan komponen ZK target.
+	 *
+	 * @param biodataCalonMahasiswa calon mahasiswa yang parameter tambahannya ditampilkan/diedit
+	 * @param parameterRows          daftar baris komponen dinamis yang dibangun, diisi/dibersihkan oleh listener
+	 * @param lampiranLains          peta lampiran yang sudah diunggah, berkunci {@code "kelompokId->parameterId"}
+	 * @param paket                  combobox paket pendaftaran terpilih, menentukan parameter mana yang relevan
+	 * @param gelombangPendaftaran   combobox gelombang pendaftaran terpilih (dipakai bila calon mahasiswa belum punya gelombang tersimpan)
+	 * @param formPendaftaran        {@code true} bila dipakai pada form pendaftaran awal, {@code false} bila pada form setelah login
+	 * @param rows                   komponen {@link Rows} ZK tempat baris form dipasang
+	 */
 	public ParameterTambahanListener(BiodataCalonMahasiswa biodataCalonMahasiswa, List<Row> parameterRows,
 			Map<String, LampiranLain> lampiranLains, Combobox paket, Combobox gelombangPendaftaran,
 			Boolean formPendaftaran, Rows rows) {
@@ -56,6 +82,14 @@ public class ParameterTambahanListener implements EventListener {
 		this.lampiranLains = lampiranLains;
 	}
 
+	/**
+	 * Memvalidasi seluruh baris parameter tambahan yang sedang dirender: menolak (menampilkan pesan
+	 * dan mengembalikan {@code false}) bila ada parameter wajib diisi yang masih kosong, atau
+	 * parameter yang mewajibkan lampiran namun lampirannya belum diunggah.
+	 *
+	 * @return {@code true} bila seluruh parameter memenuhi aturan wajib isi/lampiran, {@code false} sebaliknya
+	 * @throws Exception diteruskan apa adanya dari kegagalan pembacaan nilai komponen
+	 */
 	public boolean validate() throws Exception {
 		if (parameterRows == null || parameterRows.isEmpty()) {
 			return true;
@@ -89,6 +123,14 @@ public class ParameterTambahanListener implements EventListener {
 		return true;
 	}
 
+	/**
+	 * Menuliskan kembali nilai-nilai form parameter tambahan yang sedang ditampilkan ke entitas
+	 * calon mahasiswa, lalu memvalidasi ulang status awal mahasiswa terhadap kelompok calon
+	 * mahasiswa pada gelombang pendaftarannya (skor/kriteria kelompok dapat berubah tergantung
+	 * jawaban parameter tambahan) lewat {@link KelompokCalonMahasiswaAction#validasiStatusAwalMahasiswa}.
+	 *
+	 * @param biodataCalonMahasiswa calon mahasiswa target penulisan nilai parameter tambahan
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSave(BiodataCalonMahasiswa biodataCalonMahasiswa) {
 
@@ -101,6 +143,18 @@ public class ParameterTambahanListener implements EventListener {
 		KelompokCalonMahasiswaAction.validasiStatusAwalMahasiswa(biodataCalonMahasiswa, kelompokCalonMahasiswas);
 	}
 
+	/**
+	 * Membangun ulang seluruh baris form parameter tambahan sesuai paket dan gelombang pendaftaran
+	 * yang sedang terpilih: membersihkan baris lama, meresolusi daftar kelompok parameter yang
+	 * relevan (daftar spesifik gelombang bila ada, jika tidak lewat query {@link ParameterTambahanPaket}
+	 * yang difilter paket + gelombang + konteks form), lalu untuk setiap kelompok merender baris judul
+	 * dan baris input per parameter aktif dalam kelompok, mem-prefill nilai dari data tersimpan pada
+	 * {@code biodataCalonMahasiswa}. Berhenti lebih awal tanpa merender apa pun bila gelombang
+	 * terpilih menonaktifkan tampilan form tambahan untuk konteks ini.
+	 *
+	 * @param event event ZK pemicu pembangunan ulang (mis. perubahan paket/gelombang pendaftaran)
+	 * @throws Exception diteruskan apa adanya dari kegagalan query atau pembangunan komponen
+	 */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	@Override
 	public void onEvent(Event event) throws Exception {

@@ -33,19 +33,43 @@ import ais.database.model.rab.SatuanKerja;
 import ais.database.model.surat.KlasifikasiSuratKeluar;
 import ais.database.model.surat.KlasifikasiSuratKeluarPunyaTembusan;
 
+/**
+ * Helper UI (bukan entitas/aksi tersendiri) untuk mengelola daftar <b>tembusan</b> (jenis jabatan
+ * penerima tembusan, plus satuan kerja terkait) dari sebuah {@link KlasifikasiSuratKeluar} pada
+ * modul persuratan: menampilkan grid tembusan, menyediakan tombol tambah yang lebih dulu
+ * memvalidasi/menyimpan formulir induk lewat {@code onSaveListener.onSave} (agar
+ * {@code klasifikasiSuratKeluar} pasti punya id sebelum baris tembusan disimpan langsung ke
+ * basis data), lalu membuka dialog pemilihan banyak jenis jabatan lewat
+ * {@link AmbilDataJenisJabatanBanyak}. Setiap baris juga memiliki kombo satuan kerja yang
+ * langsung menyimpan perubahan, serta tombol hapus per baris (dengan konfirmasi). Visibilitas
+ * tombol tambah/hapus mengikuti hak akses {@link CommonPrivilages#CREATE}/{@link CommonPrivilages#DELETE}.
+ */
 public class KlasifikasiSuratKeluarPunyaTembusanHelper {
 
 	private MyGrid gridJenisJabatan;
 	private boolean add = false;
 	private boolean delete = false;
-	public KlasifikasiSuratKeluar klasifikasiSuratKeluar; 
+	/** Klasifikasi surat keluar induk yang tembusannya sedang dikelola; diperbarui setiap {@link #initDetail} dipanggil. */
+	public KlasifikasiSuratKeluar klasifikasiSuratKeluar;
 
+	/** @param gridJenisJabatan grid yang akan diisi/dikelola helper ini */
 	public KlasifikasiSuratKeluarPunyaTembusanHelper(MyGrid gridJenisJabatan) {
 		this.gridJenisJabatan = gridJenisJabatan;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Menyusun tata letak (toolbar tambah + grid tembusan dengan kolom Jenis Jabatan/Satuan
+	 * Kerja/Hapus) dan langsung memuat data tembusan {@code klasifikasiSuratKeluar} yang sudah
+	 * tersimpan. Tombol tambah memanggil {@code onSaveListener.onSave} lebih dulu untuk memastikan
+	 * formulir induk sudah tersimpan (punya id) sebelum baris tembusan baru langsung disimpan ke
+	 * basis data.
+	 *
+	 * @param klasifikasiSuratKeluar klasifikasi surat keluar induk yang tembusannya dikelola
+	 * @param onSaveListener         callback penyimpanan formulir induk, dipanggil sebelum dialog tambah tembusan dibuka
+	 * @return komponen tata letak siap pakai untuk ditempelkan ke jendela detail
+	 */
 	public Borderlayout initDetail(final KlasifikasiSuratKeluar klasifikasiSuratKeluar,
 			final OnSaveListener onSaveListener) {
 		this.klasifikasiSuratKeluar = klasifikasiSuratKeluar;
@@ -136,6 +160,7 @@ public class KlasifikasiSuratKeluarPunyaTembusanHelper {
 		return borderlayout;
 	}
 
+	/** Memuat baris {@link KlasifikasiSuratKeluarPunyaTembusan} tersimpan milik {@code klasifikasiSuratKeluar} ke dalam grid (kosong bila entitas belum tersimpan). */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final KlasifikasiSuratKeluar klasifikasiSuratKeluar) {
 
@@ -158,6 +183,14 @@ public class KlasifikasiSuratKeluarPunyaTembusanHelper {
 		}
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan nama jenis jabatan tembusan, kombo pemilih satuan kerja
+	 * (menyimpan perubahan langsung bila baris sudah tersimpan), dan tombol hapus (dengan dialog
+	 * konfirmasi yang menghapus baris database dan melepas baris UI bila dikonfirmasi).
+	 *
+	 * @param row                                    baris grid yang diisi
+	 * @param klasifikasiSuratKeluarPunyaTembusan     data relasi tembusan untuk baris ini
+	 */
 	public void initRow(final Row row, final KlasifikasiSuratKeluarPunyaTembusan klasifikasiSuratKeluarPunyaTembusan)
 			throws Exception {
 		row.setValign("top");row.setAttribute("klasifikasiSuratKeluarPunyaTembusan", klasifikasiSuratKeluarPunyaTembusan);

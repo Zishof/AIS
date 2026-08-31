@@ -29,18 +29,39 @@ import ais.database.model.rab.RenstraProgramPunyaIndikator;
 import ais.ui.util.MyDoublebox;
 import ais.ui.util.MyTextbox;
 
+/**
+ * Helper UI untuk mengelola daftar indikator (dengan target dan anggaran per tahun, 5 tahun
+ * rencana strategis) satu {@link RenstraProgram} modul RAB, ditampilkan sebagai grid tambah/hapus
+ * di dalam layar detail program renstra. Setiap baris menyunting langsung di grid (bukan dialog
+ * terpisah): perubahan pada kolom target/anggaran/indikator/lokasi/keterangan langsung ditulis ke
+ * objek {@link RenstraProgramPunyaIndikator} pada event {@code onChange} dan kolom total anggaran
+ * (jumlah anggaran1..5) dihitung ulang otomatis. <b>Catatan</b>: penulisan ke objek in-memory ini
+ * TIDAK langsung menyimpan ke database (baris kode {@code session.update(...)} dikomentari) —
+ * persistensi baru terjadi saat pemanggil layar induk menyimpan formulir secara keseluruhan. Hapus
+ * baris langsung menghapus dari database (bila sudah tersimpan) setelah konfirmasi. Visibilitas
+ * tombol tambah/hapus mengikuti hak akses pengguna.
+ */
 public class RenstraProgramPunyaIndikatorHelper {
 
 	private MyGrid gridParameter;
 	private boolean add = false;
 	private boolean delete = false;
 
+	/** Membuat helper terikat ke {@code gridParameter}, menentukan visibilitas tombol tambah/hapus dari hak akses pengguna saat ini. */
 	public RenstraProgramPunyaIndikatorHelper(MyGrid gridParameter) {
 		this.gridParameter = gridParameter;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun tata letak grid indikator lengkap dengan toolbar tambah dan kolom-kolom indikator,
+	 * lokasi, target tahun 1-5, anggaran tahun 1-5, total, keterangan, dan hapus; langsung memuat
+	 * data indikator {@code renstraProgram} yang sudah ada.
+	 *
+	 * @param renstraProgram program renstra yang indikatornya akan ditampilkan/dikelola
+	 * @return tata letak {@link Borderlayout} siap ditempel ke komponen induk
+	 */
 	public Borderlayout initDetail(final RenstraProgram renstraProgram) {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -149,6 +170,7 @@ public class RenstraProgramPunyaIndikatorHelper {
 		return borderlayout;
 	}
 
+	/** Memuat seluruh baris indikator tersimpan milik {@code renstraProgram} ke grid, atau tidak menambah baris apa pun bila program belum tersimpan. */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final RenstraProgram renstraProgram) {
 
@@ -170,6 +192,15 @@ public class RenstraProgramPunyaIndikatorHelper {
 		}
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan field-field indikator (indikator, lokasi, target tahun 1-5,
+	 * anggaran tahun 1-5, total dihitung otomatis, keterangan) dan tombol hapus. Setiap field
+	 * memasang listener {@code onChange} yang menulis nilai barunya ke objek
+	 * {@code renstraProgramPunyaIndikator} in-memory (belum tentu langsung tersimpan ke database —
+	 * lihat catatan javadoc kelas) dan memperbarui tampilan total anggaran. Tombol hapus meminta
+	 * konfirmasi lalu, bila disetujui, menghapus baris dari database (bila sudah tersimpan) dan
+	 * melepas baris dari grid.
+	 */
 	public void initRow(final Row row,
 			final RenstraProgramPunyaIndikator renstraProgramPunyaIndikator) {
 		row.setValign("top");row.setAttribute("renstraProgramPunyaIndikator",

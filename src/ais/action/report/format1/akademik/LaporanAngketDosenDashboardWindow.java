@@ -52,6 +52,41 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Jendela dasbor "Angket Dosen": merangkum hasil kuesioner penilaian dosen oleh mahasiswa
+ * ({@link ChecklistBaruPenilaianDosenOlehMahasiswa}) menjadi satu tampilan visual, difilter
+ * opsional per tahun akademik, semester (termasuk semester pendek), fakultas/jurusan, dosen
+ * tertentu, dan masa perkuliahan. Ekspor grid didukung lewat {@link DashboardGridExportHelper}.
+ *
+ * <h2>Struktur dasbor</h2>
+ * <p>
+ * {@link #renderDashboard(Filter)} menyusun dasbor dalam urutan: kartu ringkasan
+ * ({@link #renderCards}), visualisasi berbasis CSS murni tanpa library chart eksternal — distribusi
+ * nilai, tren, dan spider/radar per aspek penilaian ({@link #renderCssVisualizations} dan turunannya
+ * {@link #renderCssDistributionVisual}, {@link #renderCssTrendVisual}, {@link #renderCssSpiderVisual}),
+ * distribusi detail ({@link #renderDistribution}), ringkasan per kelompok pertanyaan
+ * ({@link #renderGroupSummary}), daftar dosen dengan nilai tertinggi dan terendah
+ * ({@link #renderDosenSummary}), ringkasan per mata kuliah/kelas ({@link #renderPerkuliahanSummary})
+ * dan per program studi ({@link #renderProdiSummary}), pertanyaan dengan skor terendah
+ * ({@link #renderQuestionLowSummary}), serta masukan/komentar terbaru dari mahasiswa
+ * ({@link #renderMasukanTerbaru}). Setiap kartu/label ringkasan dapat diklik untuk membuka
+ * {@link #showDataPopup popup rincian} baris data penyusunnya.
+ * </p>
+ * <p>
+ * Pengambilan data ({@link #loadDashboardData}) membaca seluruh jawaban kuesioner yang cocok
+ * filter ({@link #listJawaban}) beserta peta pertanyaan aktif ({@link #loadQuestionMap}), lalu
+ * mengagregasinya di sisi Java (bukan SQL agregat murni) memakai struktur batin
+ * {@link Accumulator}/{@link MahasiswaKey}/{@link QuestionInfo} untuk menghitung rata-rata,
+ * distribusi, dan peringkat per dosen/kelas/prodi/pertanyaan. Perubahan filter pada toolbar memicu
+ * {@link #reloadDashboard()} yang membaca ulang filter ({@link #readFilter()}) dan memanggil ulang
+ * {@link #renderDashboard(Filter)}. Setiap sesi Hibernate native yang dibuka ditutup lewat
+ * {@link #closeSession(Session)} pada blok {@code finally} untuk mencegah kebocoran koneksi.
+ * </p>
+ * <p>
+ * Seluruh method render/hitung bersifat privat (murni detail implementasi tampilan); satu-satunya
+ * API publik kelas ini adalah tiga konstruktornya.
+ * </p>
+ */
 public class LaporanAngketDosenDashboardWindow extends MyWindow {
 
 	private static final long serialVersionUID = 6409442098743220321L;
@@ -69,6 +104,7 @@ public class LaporanAngketDosenDashboardWindow extends MyWindow {
 	private Div dashboardContent;
 	private Dosen dsn;
 
+	/** Membuka dasbor tanpa filter dosen awal (menampilkan data seluruh dosen sesuai filter default). */
 	public LaporanAngketDosenDashboardWindow() {
 		super();
 		try {
@@ -84,6 +120,7 @@ public class LaporanAngketDosenDashboardWindow extends MyWindow {
 		}
 	}
 
+	/** Membuka dasbor dengan filter dosen awal terpasang ke {@code dsn} (mis. dosen membuka dasbor hasil penilaian dirinya sendiri). */
 	public LaporanAngketDosenDashboardWindow(Dosen dsn) {
 		super();
 		this.dsn = dsn;
@@ -100,6 +137,7 @@ public class LaporanAngketDosenDashboardWindow extends MyWindow {
 		}
 	}
 
+	/** Membuka dasbor dengan judul/border/closable kustom untuk jendela. */
 	public LaporanAngketDosenDashboardWindow(String title, String border, boolean closable) throws Exception {
 		super(title, border, closable);
 		init();

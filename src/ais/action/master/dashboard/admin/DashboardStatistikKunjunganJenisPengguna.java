@@ -38,6 +38,19 @@ import ais.ui.util.MyDatebox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Panel dasbor admin "Statistik Kunjungan per Jenis Pengguna": menampilkan ringkasan jumlah
+ * kunjungan (login) sistem dikelompokkan berdasarkan jenis pengguna (mahasiswa, dosen, siswa,
+ * guru — masing-masing dapat dimatikan lewat checkbox), difilter fakultas/prodi, yayasan/sekolah,
+ * dan rentang tanggal (default sebulan terakhir). Berbeda dari dasbor grafik versi lama, panel
+ * ini dirender murni sebagai HTML/CSS modern (bukan komponen grafik ZK) lewat
+ * {@link StatistikKunjunganDashboardUtil} — menghasilkan panel ranking, radar distribusi, dan
+ * tabel detail per tanggal/jenis pengguna, dibangun dari sumber data {@code log_login}
+ * dikelompokkan kolom {@code jenis}. Perubahan filter apa pun langsung memicu pemuatan ulang data
+ * ({@link #initChart}). Mendukung tiga mode konstruksi: mandiri (dasbor penuh dengan timer refresh
+ * otomatis), ukuran kustom (dipakai saat disematkan di layar lain), dan dengan judul/border/
+ * closable kustom.
+ */
 public class DashboardStatistikKunjunganJenisPengguna extends MyWindow {
 
 	private static final long serialVersionUID = -28636873241676666L;
@@ -56,6 +69,7 @@ public class DashboardStatistikKunjunganJenisPengguna extends MyWindow {
 	private int width = 1200;
 	private int height = 500;
 
+	/** Membuat dasbor mandiri dengan ukuran default (1200x500), memasang timer refresh otomatis (non-busy) yang memuat ulang statistik secara berkala. */
 	public DashboardStatistikKunjunganJenisPengguna() throws Exception {
 		super();
 		initFakultas();
@@ -67,11 +81,13 @@ public class DashboardStatistikKunjunganJenisPengguna extends MyWindow {
 		});
 	}
 
+	/** Membuat dasbor dengan ukuran kustom {@code width}x{@code height} (dipakai saat disematkan di layar lain), tanpa timer refresh otomatis. */
 	public DashboardStatistikKunjunganJenisPengguna(int width, int height) throws Exception {
 		super();
 		reinit(width, height);
 	}
 
+	/** Membangun ulang tata letak dan data dasbor dengan ukuran {@code width}x{@code height} yang baru. */
 	public void reinit(int width, int height) throws Exception {
 		this.width = width;
 		this.height = height;
@@ -80,6 +96,7 @@ public class DashboardStatistikKunjunganJenisPengguna extends MyWindow {
 		initChart();
 	}
 
+	/** Membuat dasbor dengan judul/border/closable kustom, langsung memuat data awal tanpa timer refresh otomatis. */
 	public DashboardStatistikKunjunganJenisPengguna(String title, String border, boolean closable) throws Exception {
 		super(title, border, closable);
 		initFakultas();
@@ -87,11 +104,13 @@ public class DashboardStatistikKunjunganJenisPengguna extends MyWindow {
 		initChart();
 	}
 
+	/** Mengisi dropdown filter fakultas/jurusan dan yayasan/sekolah beserta opsi "Semua". */
 	private void initFakultas() {
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 		Common.initYayasanDanSekolahDanSemua(null, null, searchyayasan, searchsekolah);
 	}
 
+	/** Membangun tata letak panel: portal responsif (saringan + area konten), grid filter (fakultas/jurusan/yayasan/sekolah/rentang tanggal), dan checkbox jenis pengguna — seluruhnya memicu {@link #initChart} saat berubah. */
 	private void init() {
 		DashboardGridExportHelper.pasang(this, "Statistik Kunjungan Jenis Pengguna");
 		setHeight("100%");
@@ -199,6 +218,7 @@ public class DashboardStatistikKunjunganJenisPengguna extends MyWindow {
 
 	}
 
+	/** Menambahkan {@code combo} ke {@code row} dengan tooltip dan pemicu refresh otomatis saat pilihan berubah. */
 	private void setupCombo(Row row, Combobox combo, String tooltip) {
 		row.appendChild(combo);
 		combo.setWidth("95%");
@@ -212,6 +232,7 @@ public class DashboardStatistikKunjunganJenisPengguna extends MyWindow {
 		});
 	}
 
+	/** Memasang handler yang memicu {@link #initChart} setiap kali {@code checkbox} diklik. */
 	private void addReload(MyCheckboxConfig checkbox) {
 		checkbox.addEventListener("onClick", new EventListener() {
 			@Override
@@ -221,6 +242,7 @@ public class DashboardStatistikKunjunganJenisPengguna extends MyWindow {
 		});
 	}
 
+	/** Memuat ulang statistik kunjungan berdasarkan filter saat ini dan merender ulang panel dasbor; menampilkan pesan galat pada panel bila pemuatan gagal. */
 	private void initChart() {
 		if (center == null) {
 			return;
@@ -241,6 +263,7 @@ public class DashboardStatistikKunjunganJenisPengguna extends MyWindow {
 		}
 	}
 
+	/** Membaca nilai filter saat ini (fakultas/jurusan/yayasan/sekolah, rentang tanggal, jenis pengguna yang ditampilkan) menjadi objek {@link StatistikKunjunganDashboardUtil.Filter}. */
 	private StatistikKunjunganDashboardUtil.Filter readFilter() {
 		StatistikKunjunganDashboardUtil.Filter filter = new StatistikKunjunganDashboardUtil.Filter();
 		filter.fakultas = StatistikKunjunganDashboardUtil.selectedFakultas(searchfakultas);
@@ -257,6 +280,7 @@ public class DashboardStatistikKunjunganJenisPengguna extends MyWindow {
 		return filter;
 	}
 
+	/** Merender panel dasbor HTML lengkap (hero, info filter, ranking, radar distribusi, tabel detail) dari baris data {@code rows} ke area konten. */
 	private void renderDashboard(List<StatistikKunjunganDashboardUtil.LabelRow> rows, StatistikKunjunganDashboardUtil.Filter filter) {
 		Div wrapper = new Div();
 		wrapper.setStyle("width:100%;min-height:" + Math.max(480, height) + "px;box-sizing:border-box;padding:12px;background:#f6f8fb;overflow:auto;");

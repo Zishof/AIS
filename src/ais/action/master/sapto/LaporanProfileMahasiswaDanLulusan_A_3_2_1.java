@@ -24,6 +24,19 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.HistoryStatusMahasiswa;
 import ais.ui.util.DataCriteriaWithColumn;
 
+/**
+ * Laporan SAPTO/borang akreditasi BAN-PT butir A.3.2.1 (kode sheet {@code A-3.2.1}): matriks
+ * kohort mahasiswa aktif dan lulusan (student body tracer) untuk tahun akademik yang dipilih,
+ * disusun terpisah per jenjang pendidikan — S1 (jendela 6 tahun angkatan), S2 (4 tahun), S3 (5
+ * tahun), D4 (6 tahun), D3 (4 tahun), D2 (2 tahun), D1 (1 tahun) — sesuai lama studi maksimum yang
+ * lazim per jenjang. Untuk setiap kombinasi tahun angkatan x tahun akademik, jumlah mahasiswa
+ * dihitung lewat {@link SaptoGenerator#generateProfileMahasiswaDanLulusan_A_3_2_1} (dipanggil
+ * berulang per baris angkatan per blok jenjang). Data dimuat asinkron di thread terpisah lalu
+ * dirender lewat {@link SaptoUtil#displayWorksheet}; setiap sel matriks dapat diklik untuk
+ * mengunduh rincian mahasiswa penyusun angka tersebut (difilter status aktif/lulus, tahun angkatan,
+ * tahun akademik, dan jenjang sesuai posisi baris/kolom pada worksheet) lewat
+ * {@link Common#cetakDataCustomButton}.
+ */
 public class LaporanProfileMahasiswaDanLulusan_A_3_2_1 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-3.2.1";
@@ -33,6 +46,7 @@ public class LaporanProfileMahasiswaDanLulusan_A_3_2_1 extends SaptoBaseWindow {
     private static final String[] EMPTY_COLS = new String[180];
     static { Arrays.fill(EMPTY_COLS, ""); }
 
+    /** Membangun jendela laporan dengan tahun ajaran berjalan terpilih otomatis. */
     public LaporanProfileMahasiswaDanLulusan_A_3_2_1() {
         super();
         try {
@@ -41,14 +55,17 @@ public class LaporanProfileMahasiswaDanLulusan_A_3_2_1 extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Membangun jendela laporan dengan judul/border/closable kustom; tahun ajaran berjalan terpilih otomatis. */
     public LaporanProfileMahasiswaDanLulusan_A_3_2_1(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         Common.selectComboItem(tahunAjaran = Common.generateTahunAjaran(tahunAjaran), Common.getCurrentTahunAkademik());
         buildBase(true);
     }
 
+    /** @return kode sheet borang {@code "A-3.2.1"}. */
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Membangun baris filter berisi combobox pilihan tahun ajaran; perubahan pilihan memicu cetak ulang otomatis. */
     @Override
     protected void buildFilters(Row row) {
         row.appendChild(new ais.ui.util.MyLabelConfig("Tahun Akademik *"));
@@ -60,6 +77,14 @@ public class LaporanProfileMahasiswaDanLulusan_A_3_2_1 extends SaptoBaseWindow {
         });
     }
 
+    /**
+     * Menghitung dan menampilkan matriks kohort mahasiswa aktif/lulusan per jenjang untuk tahun
+     * akademik yang dipilih. Data dimuat asinkron di thread terpisah dan dirender lewat
+     * {@link SaptoUtil#displayWorksheet}; sel matriks dapat diklik untuk mengunduh rincian
+     * mahasiswa penyusun angka.
+     *
+     * @param event event pemicu (perubahan combobox tahun ajaran), boleh {@code null}
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

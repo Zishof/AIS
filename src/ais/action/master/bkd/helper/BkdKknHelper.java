@@ -25,8 +25,31 @@ import ais.database.model.Pegawai;
 import ais.database.model.PenilaianAsesor;
 import ais.database.model.PenunjangKinerjaDosen;
 
+/**
+ * Helper penghitung dan penyimpan penilaian beban kinerja dosen (BKD) untuk peran
+ * <b>pembimbing KKN</b>: mengonversi jumlah mahasiswa bimbingan KKN seorang dosen (per jenjang,
+ * tahun akademik, semester) menjadi angka SKS penunjang kinerja lewat tabel konfigurasi
+ * ({@code jumlah_sks_pembimbing_kkn[_jenjangId]}), lalu menyimpannya sebagai
+ * {@link AsesemenPenilaian} dan memicu pemeriksaan status penilaian asesor terkait lewat
+ * {@link PenilaianAsesorAction#checkPenilaian}. Tiga overload {@code populate} membentuk
+ * hierarki cakupan: seluruh jenjang -> satu jenjang (untuk satu pegawai atau seluruh dosen
+ * pembimbing KKN pada jenjang itu) -> satu dosen tertentu.
+ */
 public class BkdKknHelper {
 
+	/**
+	 * Memproses seluruh {@link Jenjang} aktif untuk {@code pegawai} (atau, bila {@code pegawai}
+	 * bukan dosen, untuk seluruh dosen pembimbing KKN) pada {@code tahunAkademik}/{@code semester}
+	 * yang diberikan, mendelegasikan ke {@link #populate(Session, Pegawai, Jenjang, String, String, Label)}
+	 * per jenjang.
+	 *
+	 * @param session       sesi Hibernate aktif
+	 * @param pegawai       pegawai yang diproses; bila bukan dosen, method memproses seluruh dosen
+	 *                      pembimbing KKN yang ditemukan
+	 * @param tahunAkademik tahun akademik yang dinilai
+	 * @param semester      semester yang dinilai
+	 * @param label         komponen label UI untuk menampilkan progres (boleh {@code null})
+	 */
 	@SuppressWarnings("unchecked")
 	public static void populate(Session session, final Pegawai pegawai, String tahunAkademik, String semester,
 			Label label) {
@@ -37,6 +60,21 @@ public class BkdKknHelper {
 		}
 	}
 
+	/**
+	 * Memproses satu {@code jenjang} untuk {@code pegawai}: bila {@code pegawai} memiliki data
+	 * dosen, mendelegasikan langsung ke {@link #populate(Session, Dosen, Jenjang, String, String, Label)};
+	 * bila tidak (mis. dipanggil dengan {@code pegawai=null} untuk memproses semua), method
+	 * mencari seluruh dosen yang tercatat sebagai salah satu dari lima pembimbing kelompok KKN
+	 * pada jenjang/tahun akademik/semester tersebut lalu memproses masing-masing satu per satu,
+	 * memperbarui {@code label} dengan persentase progres di setiap iterasi.
+	 *
+	 * @param session       sesi Hibernate aktif
+	 * @param pegawai       pegawai yang diproses, atau {@code null}/non-dosen untuk memproses seluruh dosen pembimbing KKN
+	 * @param jenjang       jenjang pendidikan yang diproses
+	 * @param tahunAkademik tahun akademik yang dinilai
+	 * @param semester      semester yang dinilai
+	 * @param label         komponen label UI untuk menampilkan progres (boleh {@code null})
+	 */
 	@SuppressWarnings("unchecked")
 	public static void populate(Session session, final Pegawai pegawai, Jenjang jenjang, String tahunAkademik,
 			String semester, Label label) {
@@ -75,6 +113,24 @@ public class BkdKknHelper {
 		}
 	}
 
+	/**
+	 * Menghitung dan menyimpan penilaian pembimbing KKN untuk satu {@code dosen} tertentu. Tidak
+	 * melakukan apa pun bila {@code dosen} tidak memiliki asesor aktif atau tidak membimbing
+	 * mahasiswa KKN pada jenjang/tahun akademik/semester tersebut. Bila memenuhi syarat: jumlah
+	 * mahasiswa bimbingan (di posisi pembimbing 1-5 kelompok KKN) dipetakan ke nilai SKS lewat
+	 * rentang konfigurasi {@code jumlah_sks_pembimbing_kkn[_jenjangId]}
+	 * ({@link KonfigurasiBkdAction#terjemahkanNilai}), lalu disimpan/diperbarui sebagai baris
+	 * {@link AsesemenPenilaian} (spesifikasi {@link PenilaianAsesor#PEMBIMBING_KKN}, bidang
+	 * {@link PenunjangKinerjaDosen#PENDIDIKAN}) dalam transaksi Hibernate sendiri, dan status
+	 * penilaian asesor terkait diperbarui lewat {@link PenilaianAsesorAction#checkPenilaian}.
+	 *
+	 * @param session       sesi Hibernate aktif
+	 * @param dosen         dosen yang dinilai
+	 * @param jenjang       jenjang pendidikan yang diproses
+	 * @param tahunAkademik tahun akademik yang dinilai
+	 * @param semester      semester yang dinilai
+	 * @param label         komponen label UI untuk progres (tidak dipakai pada overload ini)
+	 */
 	@SuppressWarnings("unchecked")
 	public static void populate(Session session, Dosen dosen, Jenjang jenjang, String tahunAkademik, String semester,
 			Label label) {

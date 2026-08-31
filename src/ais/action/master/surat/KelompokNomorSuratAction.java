@@ -30,6 +30,16 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD data master "Kelompok Nomor Surat": mendefinisikan kelompok penomoran surat keluar
+ * beserta siapa yang boleh memakainya (daftar username dan/atau id role, dipisah titik koma) dan
+ * nomor urut awal ({@code mulaiUrutanKe}) untuk kelompok tersebut. Dibangun di atas
+ * {@link GenericCrudAction}: pencarian difilter nama; form tambah/edit memuat nama, urutan awal,
+ * pengguna, grup pengguna, dan keterangan, dengan validasi nama wajib diisi dan tidak duplikat.
+ * Menyediakan {@link #checkKelompok} statis yang dipanggil dari layar surat lain untuk otomatis
+ * memilih dan mengunci dropdown kelompok nomor surat bila pengguna saat ini (berdasarkan userId
+ * atau id role) hanya diizinkan memakai satu kelompok tertentu.
+ */
 public class KelompokNomorSuratAction extends GenericCrudAction<KelompokNomorSurat> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -52,11 +62,13 @@ public class KelompokNomorSuratAction extends GenericCrudAction<KelompokNomorSur
     @Override
     protected String getWindowTitle() { return "Pendataan Kelompok Nomor Surat"; }
 
+    /** Kolom yang disertakan pada operasi unduh/unggah massal data Kelompok Nomor Surat. */
     @Override
     protected String[] getDownloadUploadContents() {
         return new String[] { "id", "nama", "userid", "grupUserid", "mulaiUrutanKe", "keterangan" };
     }
 
+    /** Menambahkan tombol cetak dan unggah data ke toolbar setelah inisialisasi layar. */
     @Override
     protected void onAfterInit(Component comp) throws Exception {
         String[] contents = getDownloadUploadContents();
@@ -72,6 +84,7 @@ public class KelompokNomorSuratAction extends GenericCrudAction<KelompokNomorSur
         }
     }
 
+    /** Membangun kriteria pencarian {@link KelompokNomorSurat} berdasarkan filter nama (ILIKE sebagian), diurutkan menurut nama bila {@code order} true. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -90,6 +103,16 @@ public class KelompokNomorSuratAction extends GenericCrudAction<KelompokNomorSur
 
     // ======================== Static utility ========================
 
+    /**
+     * Memeriksa apakah pengguna saat ini termasuk dalam daftar {@code grupUserid} (berdasarkan id
+     * role) atau {@code userid} (berdasarkan username) milik salah satu item pada
+     * {@code kelompokNomorSurat}; bila cocok, kelompok tersebut otomatis dipilih dan dropdown
+     * dikunci ({@code setDisabled(true)}) agar pengguna tidak dapat memilih kelompok lain.
+     * Dipanggil dari layar pembuatan surat lain untuk membatasi pilihan kelompok penomoran sesuai
+     * hak pengguna.
+     *
+     * @param kelompokNomorSurat dropdown berisi daftar {@link KelompokNomorSurat} yang akan diperiksa/dikunci
+     */
     public static void checkKelompok(Combobox kelompokNomorSurat) {
         Tbmuser tbmuser = Common.getCurrentUser();
         if (tbmuser != null && tbmuser.getUserId() != null) {
@@ -120,6 +143,7 @@ public class KelompokNomorSuratAction extends GenericCrudAction<KelompokNomorSur
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/edit Kelompok Nomor Surat (nama, urutan awal, pengguna, grup pengguna, keterangan) beserta toolbar Batal/Simpan di dalam jendela {@code window}. */
     @Override
     protected void buildFormContent(MyWindow window, final KelompokNomorSurat kelompokNomorSurat) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -205,6 +229,7 @@ public class KelompokNomorSuratAction extends GenericCrudAction<KelompokNomorSur
 
     // ======================== Save logic ========================
 
+    /** Memvalidasi (nama wajib diisi, tidak boleh duplikat) lalu menyimpan/memperbarui entitas {@link KelompokNomorSurat} dari nilai form. @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal. */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Nama Kelompok Nomor Surat belum diisi. Langkah yang dapat dilakukan: (1) klik kolom Nama Kelompok; (2) isikan nama kelompok nomor surat secara lengkap; (3) ulangi proses simpan. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.", "Peringatan",
@@ -231,6 +256,7 @@ public class KelompokNomorSuratAction extends GenericCrudAction<KelompokNomorSur
         return true;
     }
 
+    /** Memeriksa apakah nama pada form sudah dipakai entitas {@link KelompokNomorSurat} lain (mengabaikan entitas yang sedang diedit). */
     public Boolean checkNamaKelompokNomorSurat() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(KelompokNomorSurat.class)
@@ -245,6 +271,7 @@ public class KelompokNomorSuratAction extends GenericCrudAction<KelompokNomorSur
 
     // ======================== Renderer ========================
 
+    /** Merender satu baris daftar Kelompok Nomor Surat: label revisi+nama, pengguna, grup pengguna, urutan awal, keterangan, dan tombol edit/hapus. */
     class KelompokNomorSuratRenderer extends MyRowRenderer {
 
         @Override

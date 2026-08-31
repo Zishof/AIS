@@ -34,16 +34,48 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper UI ZK modul aset untuk mengelola daftar barang ({@link MasterAsset}) yang dipakai pada
+ * satu transaksi {@link PemakaianMasterAsset} (permintaan pemakaian/peminjaman aset oleh satuan
+ * kerja), lewat baris-baris {@link PemakaianMasterAssetDetail} (barang, jumlah, keterangan).
+ * Dipasang sebagai kotak "Daftar Pemakaian Barang" pada form pemakaian aset.
+ *
+ * <p>
+ * Seluruh field diedit HANYA sebelum transaksi disetujui: begitu
+ * {@code pemakaianMasterAsset.getDisetujuiOleh()} terisi, tombol tambah/hapus dan kolom
+ * jumlah/keterangan dikunci (disabled), menjadikan transaksi yang sudah disetujui tidak dapat
+ * diubah lagi lewat panel ini. Tombol tambah mensyaratkan satuan kerja sudah dipilih pada
+ * {@code dataSasaranBanbox} lebih dulu, lalu membuka dialog
+ * {@link AmbilDataAssetBanyakBerdasarkanStok} (pemilih aset berdasarkan stok yang tersedia di
+ * satuan kerja tersebut, aset yang sudah ada di daftar dikecualikan) dan menambahkan baris
+ * {@link PemakaianMasterAssetDetail} baru (jumlah default 1) untuk setiap aset yang dipilih.
+ * Perubahan jumlah/keterangan langsung disimpan ke database; nilai jumlah dipaksa non-negatif
+ * ({@code Math.abs}). Tombol hapus per baris meminta konfirmasi.
+ * </p>
+ */
 public class PemakaianPunyaMasterAssetHelper {
 
 	private boolean add = false;
 	private boolean edit = false;
 	private boolean delete = false;
 
+	/** Konstruktor baku, hak akses dihitung ulang setiap kali {@link #initDetail} dipanggil berdasarkan status persetujuan transaksi. */
 	public PemakaianPunyaMasterAssetHelper() {
 
 	}
 
+	/**
+	 * Membangun kotak (groupbox) "Daftar Pemakaian Barang" berisi toolbar (Tambah
+	 * Produk/Refresh) dan grid daftar barang untuk {@code pemakaianMasterAsset}, lalu memuat
+	 * data yang sudah tersimpan. Hak edit/tambah/hapus dihitung dari status persetujuan
+	 * transaksi ({@code disetujuiOleh == null} berarti masih dapat diedit).
+	 *
+	 * @param gridMasterAsset     grid yang akan diisi baris-baris pemakaian
+	 * @param pemakaianMasterAsset transaksi pemakaian aset yang menjadi konteks detail
+	 * @param dataSasaranBanbox   komponen pemilih satuan kerja, sumber filter stok saat menambah barang
+	 * @param persetujuan         bila {@code true}, toolbar disembunyikan (tampilan mode persetujuan, bukan edit)
+	 * @return groupbox siap disisipkan sebagai konten form pemakaian aset
+	 */
 	public MyGroupboxStyled initDetail(final MyGrid gridMasterAsset, final PemakaianMasterAsset pemakaianMasterAsset,
 			final AmbilDataSatuanKerjaBanbox dataSasaranBanbox, boolean persetujuan) throws Exception {
 
@@ -169,6 +201,7 @@ public class PemakaianPunyaMasterAssetHelper {
 		return myGroupboxStyled;
 	}
 
+	/** Memuat baris-baris barang tersimpan untuk {@code pemakaianMasterAsset} dari database dan merendernya ke {@code gridMasterAsset}. */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(MyGrid gridMasterAsset, final PemakaianMasterAsset pemakaianMasterAsset)
 			throws Exception {
@@ -191,6 +224,13 @@ public class PemakaianPunyaMasterAssetHelper {
 		}
 	}
 
+	/**
+	 * Mengisi {@code row} dengan nama aset (tautan riwayat revisi), merk, kolom jumlah (dipaksa
+	 * non-negatif, disimpan langsung ke database saat berubah), kolom keterangan (disimpan
+	 * langsung ke database saat berubah), dan tombol hapus. Kolom jumlah/keterangan dan tombol
+	 * hapus dikunci bila transaksi sudah disetujui atau pengguna tidak berhak edit/hapus. Tombol
+	 * hapus meminta konfirmasi sebelum menghapus baris dari database.
+	 */
 	public void initRow(final Row row, final PemakaianMasterAssetDetail pemakaianMasterAssetDetail) throws Exception {
 		MasterAsset masterAsset = pemakaianMasterAssetDetail.getMasterAsset();
 		row.setValign("top");

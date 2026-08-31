@@ -33,6 +33,14 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.UIUtil;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD data master "Pekerjaan" (referensi jenis pekerjaan, mis. untuk data orang tua siswa/
+ * mahasiswa), dengan kolom {@code feeder} untuk pemetaan ke kode PDDIKTI/Dapodik Feeder. Dibangun
+ * di atas {@link GenericCrudAction}: pencarian dapat difilter status aktif dan nama; menyediakan
+ * tombol cetak dan unggah data (kolom id/nama/keterangan/aktif/feeder); form tambah/edit memuat
+ * nama, keterangan, dan kode feeder; validasi nama wajib diisi dan tidak duplikat; renderer baris
+ * menampilkan checkbox aktif yang langsung tersimpan saat diubah.
+ */
 public class PekerjaanAction extends GenericCrudAction<Pekerjaan> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -53,11 +61,13 @@ public class PekerjaanAction extends GenericCrudAction<Pekerjaan> {
     @Override
     protected String getWindowTitle() { return "Pendataan Pekerjaan"; }
 
+    /** Kolom yang disertakan pada operasi unduh/unggah massal data Pekerjaan. */
     @Override
     protected String[] getDownloadUploadContents() {
         return new String[] { "id", "nama", "keterangan", "aktif", "feeder" };
     }
 
+    /** Menambahkan tombol cetak dan unggah data ke toolbar setelah inisialisasi layar. */
     @Override
     protected void onAfterInit(Component comp) throws Exception {
         String[] contents = getDownloadUploadContents();
@@ -73,6 +83,7 @@ public class PekerjaanAction extends GenericCrudAction<Pekerjaan> {
         }
     }
 
+    /** Membangun kriteria pencarian {@link Pekerjaan} berdasarkan filter status aktif dan nama (ILIKE sebagian), diurutkan menurut nama bila {@code order} true. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -94,6 +105,7 @@ public class PekerjaanAction extends GenericCrudAction<Pekerjaan> {
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/edit Pekerjaan (nama, keterangan, kode feeder) beserta toolbar Batal/Simpan di dalam jendela {@code window}. */
     @Override
     protected void buildFormContent(MyWindow window, final Pekerjaan pekerjaan) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -167,6 +179,7 @@ public class PekerjaanAction extends GenericCrudAction<Pekerjaan> {
 
     // ======================== Save logic ========================
 
+    /** Memvalidasi (nama wajib diisi, tidak boleh duplikat) lalu menyimpan/memperbarui entitas {@link Pekerjaan} dari nilai form. @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal. */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             PesanFormalHelper.tampilkanGagal("penyimpanan data pekerjaan",
@@ -199,6 +212,7 @@ public class PekerjaanAction extends GenericCrudAction<Pekerjaan> {
         return true;
     }
 
+    /** Memeriksa apakah nama pada form sudah dipakai entitas {@link Pekerjaan} lain (mengabaikan entitas yang sedang diedit). */
     public Boolean checkNamaPekerjaan() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(Pekerjaan.class)
@@ -213,6 +227,7 @@ public class PekerjaanAction extends GenericCrudAction<Pekerjaan> {
 
     // ======================== Renderer ========================
 
+    /** Merender satu baris daftar Pekerjaan: label revisi+nama, keterangan, checkbox aktif (langsung tersimpan saat diubah), dan tombol edit/hapus. */
     class PekerjaanRenderer extends MyRowRenderer {
 
         @Override

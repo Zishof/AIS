@@ -27,6 +27,15 @@ import ais.ui.util.MyCheckboxConfig;
 import ais.ui.util.MyIntbox;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Layar CRUD data master "Pernyataan Ayat Standar/Butir Mutu SPMI": butir mutu turunan dari satu
+ * {@link StandarSPMI}, yang pada gilirannya termasuk satu {@link JenisSPMI}. Dibangun di atas
+ * {@link BaseSPMIAction}; menambahkan dua tingkat filter pencarian berjenjang (jenis SPMI &gt;
+ * standar SPMI, memuat ulang daftar standar saat jenis berganti) dan form dengan dropdown
+ * jenis+standar SPMI yang juga berjenjang (memilih jenis memuat ulang pilihan standar sesuai
+ * jenis tersebut). Validasi mewajibkan nomor urut, nama, jenis SPMI, dan standar SPMI terisi.
+ * Renderer baris menampilkan checkbox aktif yang langsung tersimpan saat diubah.
+ */
 public class ButirMutuSPMIAction extends BaseSPMIAction {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -49,6 +58,7 @@ public class ButirMutuSPMIAction extends BaseSPMIAction {
     // ZK lifecycle
     // =====================================================================
 
+    /** Menginisialisasi bahasa, hak akses, dropdown filter jenis+standar SPMI (berjenjang: memuat ulang pilihan standar saat jenis berganti), pemuatan data awal, paging, dan tombol cetak/unggah. */
     @Override
     public void doAfterCompose(Component comp) throws Exception {
         super.doAfterCompose(comp);
@@ -82,6 +92,7 @@ public class ButirMutuSPMIAction extends BaseSPMIAction {
     // Row renderer
     // =====================================================================
 
+    /** Merender satu baris daftar Butir Mutu SPMI: nomor urut, jenis SPMI, nama standar SPMI, label revisi+nama butir, keterangan, checkbox aktif (langsung tersimpan saat diubah), dan tombol edit/hapus. */
     class ButirMutuSPMIRenderer extends ais.ui.util.MyRowRenderer {
         @Override
         public void render(final Row row, Object obj) throws Exception {
@@ -115,10 +126,12 @@ public class ButirMutuSPMIAction extends BaseSPMIAction {
     // Add / Edit entry points
     // =====================================================================
 
+    /** Membuka form tambah dengan entitas {@link ButirMutuSPMI} baru (kosong). */
     public void onAdd(Event event) throws Exception {
         init(new ButirMutuSPMI());
     }
 
+    /** Menyiapkan form tambah/edit untuk entitas {@code obj} dan membuka jendela form. */
     @Override
     public void init(GeneralValueObject obj) throws Exception {
         butirMutuSPMI = (ButirMutuSPMI) obj;
@@ -130,6 +143,7 @@ public class ButirMutuSPMIAction extends BaseSPMIAction {
     // Form builder
     // =====================================================================
 
+    /** Membangun baris-baris form tambah/edit Butir Mutu SPMI (nomor urut, nama, jenis SPMI, standar SPMI berjenjang mengikuti jenis, keterangan) dan mendaftarkan handler simpan. */
     private void buildForm(final ButirMutuSPMI item) throws Exception {
         FormHolder fh = prepareFormWindow("Pendataan Pernyataan Ayat Standar/Butir Mutu SPMI");
         Rows rows = fh.rows;
@@ -202,6 +216,7 @@ public class ButirMutuSPMIAction extends BaseSPMIAction {
     // Save
     // =====================================================================
 
+    /** Memvalidasi (nomor urut, nama, jenis SPMI, dan standar SPMI wajib diisi) lalu menyimpan/memperbarui entitas {@link ButirMutuSPMI} dari nilai form. @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal. */
     public boolean onSave(Event event) throws Exception {
         if (nomorUrut.getValue() == null) {
             MyMessageboxConfig.show("Mohon maaf, nomor urut Butir Mutu SPMI belum diisi. "
@@ -255,6 +270,7 @@ public class ButirMutuSPMIAction extends BaseSPMIAction {
     // Criteria & search
     // =====================================================================
 
+    /** Membangun kriteria pencarian {@link ButirMutuSPMI} berdasarkan filter status aktif, nama (ILIKE sebagian), standar SPMI, dan jenis SPMI (lewat alias ke standarSPMI), diurutkan menurut nomor urut bila {@code order} true. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -278,6 +294,7 @@ public class ButirMutuSPMIAction extends BaseSPMIAction {
         return criteria;
     }
 
+    /** Menjalankan pencarian dengan kriteria saat ini, memuat satu halaman hasil sesuai paging aktif, dan menyegarkan grid daftar. */
     @SuppressWarnings("unchecked")
     @Override
     public void onSearchDefault(Event event) {

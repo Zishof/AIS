@@ -28,6 +28,13 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD (berbasis {@link GenericCrudAction}) untuk data master <b>Jenis Biaya</b> modul SIRS
+ * (mis. biaya item, tindakan, alat medis, paket — lihat konstanta {@code JenisBiaya.TIPE_*}).
+ * Setiap jenis biaya wajib ditautkan ke satu {@link Akun} akunting tujuan (dipilih lewat
+ * {@link AmbilDataAkunKreditBanbox}) tempat nilai biaya ini diposting, serta memiliki flag
+ * {@code aktif} dan {@code defaultAktif} (dipakai default saat menu terkait dibuka pertama kali).
+ */
 public class JenisBiayaAction extends GenericCrudAction<JenisBiaya> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -43,15 +50,19 @@ public class JenisBiayaAction extends GenericCrudAction<JenisBiaya> {
 
     // ======================== Abstract implementations ========================
 
+    /** Mengembalikan kelas entitas yang dikelola layar ini: {@link JenisBiaya}. */
     @Override
     protected Class<JenisBiaya> getEntityClass() { return JenisBiaya.class; }
 
+    /** Membuat instance {@link JenisBiaya} kosong untuk form tambah data baru. */
     @Override
     protected JenisBiaya createNewEntity() { return new JenisBiaya(); }
 
+    /** Mengembalikan judul jendela form: {@code "Pendataan Jenis Biaya"}. */
     @Override
     protected String getWindowTitle() { return "Pendataan Jenis Biaya"; }
 
+    /** Membangun kriteria pencarian jenis biaya, diurutkan berdasarkan id terbaru, disaring berdasarkan kecocokan sebagian nama pada kotak pencarian bila diisi. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -63,6 +74,7 @@ public class JenisBiayaAction extends GenericCrudAction<JenisBiaya> {
         return criteria;
     }
 
+    /** Membuat perender baris grid pencarian jenis biaya: {@link JenisBiayaRenderer}. */
     @Override
     protected MyRowRenderer createRenderer() {
         return new JenisBiayaRenderer();
@@ -70,6 +82,7 @@ public class JenisBiayaAction extends GenericCrudAction<JenisBiaya> {
 
     // ======================== Form content ========================
 
+    /** Membangun tata letak form tambah/edit jenis biaya (nama, tipe, variabel, akun tujuan, flag aktif/default, keterangan) dengan toolbar simpan/batal di dalam {@code window}. */
     @Override
     protected void buildFormContent(MyWindow window, final JenisBiaya jenisBiaya) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -178,6 +191,13 @@ public class JenisBiayaAction extends GenericCrudAction<JenisBiaya> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi (nama wajib, tipe wajib dipilih, akun tujuan wajib dipilih) dan
+     * menyimpan/memperbarui data jenis biaya dari isian form saat ini.
+     *
+     * @param event event pemicu tombol simpan
+     * @return {@code true} bila validasi lolos dan data tersimpan; {@code false} bila validasi gagal
+     */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Nama Jenis Biaya wajib diisi terlebih dahulu. Langkah yang dapat dilakukan: (1) isikan Nama Jenis Biaya pada kolom yang tersedia; (2) pastikan kolom tidak dikosongkan; (3) simpan kembali data setelah kolom terisi.", "Peringatan",
@@ -213,6 +233,7 @@ public class JenisBiayaAction extends GenericCrudAction<JenisBiaya> {
 
     // ======================== Renderer ========================
 
+    /** Perender baris grid pencarian jenis biaya: menampilkan nama (dengan tautan riwayat revisi), tipe, variabel, akun tujuan, status aktif/default, keterangan, dan tombol ubah/hapus. */
     class JenisBiayaRenderer extends MyRowRenderer {
 
         @Override

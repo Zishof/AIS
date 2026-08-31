@@ -39,6 +39,23 @@ import ais.ui.util.MyWindow;
 import ais.action.report.format1.library.LaporanRekapKembaliWindow;
 
 import ais.ui.util.DashboardModernHtmlUtil;
+/**
+ * Panel dasbor perpustakaan "Statistik Pengembalian Anggota": menampilkan ringkasan jumlah
+ * pengembalian buku ({@code library.kembali_pengadaan_item}) per tanggal dan per unit
+ * perpustakaan, difilter fakultas/prodi dan rentang tanggal (default sebulan terakhir). Dirender
+ * murni sebagai HTML/CSS (kartu ringkasan, tren harian berbentuk bar horizontal, komposisi per
+ * perpustakaan, dan radar gauge aktivitas/sebaran/hari aktif) tanpa komponen grafik ZK. Mode
+ * {@code tampilRinci} (konstruktor ukuran kustom) menambahkan tombol "Lihat Rinci" yang membuka
+ * {@link LaporanRekapKembaliWindow} sebagai modal.
+ *
+ * <p>
+ * <b>Catatan:</b> {@link #buildSql} menyusun filter jurusan/fakultas memakai alias tabel
+ * {@code c}/{@code e} ({@code c.jurusan}, {@code e.fakultas}) yang tidak pernah dideklarasikan
+ * pada klausa {@code FROM}/{@code JOIN} query — bila filter fakultas atau jurusan dipilih,
+ * query kemungkinan gagal dieksekusi (alias tak dikenal); dilaporkan sesuai instruksi tugas,
+ * tidak diperbaiki.
+ * </p>
+ */
 public class DashboardStatistikPengembalianAnggota extends MyWindow {
 
 	private static final long serialVersionUID = -28636873241676666L;
@@ -53,6 +70,7 @@ public class DashboardStatistikPengembalianAnggota extends MyWindow {
 	private MyDatebox sampai = new MyDatebox();
 	private boolean tampilRinci = false;
 
+	/** Membuat dasbor mandiri (mode ringkas, tanpa tombol "Lihat Rinci") dan langsung memuat data awal. */
 	public DashboardStatistikPengembalianAnggota() throws Exception {
 		super();
 		initFakultas();
@@ -60,12 +78,14 @@ public class DashboardStatistikPengembalianAnggota extends MyWindow {
 		initChart();
 	}
 
+	/** Membuat dasbor dengan ukuran kustom dan mode rinci aktif (menampilkan tombol "Lihat Rinci" untuk membuka rekap pengembalian lengkap). */
 	public DashboardStatistikPengembalianAnggota(int width, int height) throws Exception {
 		super();
 		tampilRinci = true;
 		reinit(width, height);
 	}
 
+	/** Membangun ulang tata letak dan data dasbor dengan ukuran {@code width}x{@code height} yang baru. */
 	public void reinit(int width, int height) throws Exception {
 		this.width = width;
 		this.height = height;
@@ -74,6 +94,7 @@ public class DashboardStatistikPengembalianAnggota extends MyWindow {
 		initChart();
 	}
 
+	/** Membuat dasbor dengan judul/border/closable kustom (mode ringkas), langsung memuat data awal. */
 	public DashboardStatistikPengembalianAnggota(String title, String border, boolean closable) throws Exception {
 		super(title, border, closable);
 		initFakultas();
@@ -81,9 +102,11 @@ public class DashboardStatistikPengembalianAnggota extends MyWindow {
 		initChart();
 	}
 
+	/** Placeholder inisialisasi filter fakultas/jurusan (saat ini tidak melakukan apa pun — dropdown fakultas/jurusan diisi dari tempat lain atau belum diimplementasikan). */
 	private void initFakultas() {
 	}
 
+	/** Membangun tata letak panel: portal responsif (saringan + area konten), field rentang tanggal (memicu {@link #initChart} saat berubah), dan tombol "Lihat Rinci" bila {@code tampilRinci} aktif. */
 	@SuppressWarnings("deprecation")
 	private void init() {
 		DashboardGridExportHelper.pasang(this, "Statistik Pengembalian Anggota");
@@ -159,6 +182,7 @@ public class DashboardStatistikPengembalianAnggota extends MyWindow {
 
 	}
 
+	/** Menjalankan query SQL native rekap pengembalian ({@link #buildSql}) sesuai filter tanggal/fakultas/jurusan saat ini dan menyusun hasilnya menjadi {@link VisualData} (per tanggal, per perpustakaan, dan total). */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	private VisualData loadData() {
 		VisualData data = new VisualData();
@@ -207,6 +231,7 @@ public class DashboardStatistikPengembalianAnggota extends MyWindow {
 		return data;
 	}
 
+	/** Menyusun SQL native rekap jumlah pengembalian per tanggal dan per perpustakaan dalam rentang {@code dateMulai}-{@code dateSelesai}, dengan filter opsional fakultas/jurusan (lihat catatan bug alias tak dikenal di javadoc kelas). */
 	private String buildSql(String dateMulai, String dateSelesai, Fakultas fakultas, Jurusan jurusan) {
 		StringBuilder sql = new StringBuilder();
 		sql.append("select date(a.tanggal_pembuatan) as tanggal, coalesce(d.nama,'Tanpa Perpustakaan') as perpustakaan, count(*) as qty ");
@@ -224,12 +249,14 @@ public class DashboardStatistikPengembalianAnggota extends MyWindow {
 		return sql.toString();
 	}
 
+	/** Memuat ulang data ({@link #loadData}) dan merender ulang seluruh panel HTML dasbor. */
 	private void initChart() throws Exception {
 		Common.clear(center);
 		VisualData data = loadData();
 		center.appendChild(new Html(buildHtml(data)));
 	}
 
+	/** Merangkai seluruh markup HTML dasbor: kartu ringkasan (total, jumlah tanggal, jumlah perpustakaan, tertinggi) diikuti panel tren, komposisi, dan radar. */
 	private String buildHtml(VisualData data) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("<div style='font-family:Arial,sans-serif;padding:12px;'>");
@@ -250,6 +277,7 @@ public class DashboardStatistikPengembalianAnggota extends MyWindow {
 		return sb.toString();
 	}
 
+	/** Membangun panel "Tren Harian": untuk setiap tanggal, satu baris bar horizontal per perpustakaan menunjukkan proporsi aktivitas relatif terhadap nilai maksimum. */
 	private String buildTrend(VisualData data) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("<div style='background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;margin-bottom:12px;'>");
@@ -280,6 +308,7 @@ public class DashboardStatistikPengembalianAnggota extends MyWindow {
 		return sb.toString();
 	}
 
+	/** Membangun panel "Komposisi Perpustakaan": bar horizontal per unit perpustakaan menunjukkan proporsi terhadap total aktivitas keseluruhan. */
 	private String buildComposition(VisualData data) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("<div style='background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;margin-bottom:12px;'>");
@@ -303,6 +332,7 @@ public class DashboardStatistikPengembalianAnggota extends MyWindow {
 		return sb.toString();
 	}
 
+	/** Membangun panel "Radar Aktivitas": tiga gauge persentase (aktivitas total, sebaran jumlah perpustakaan, jumlah hari aktif relatif terhadap 30 hari). */
 	private String buildRadar(VisualData data) {
 		int aktivitas = percent(data.total, Math.max(data.total, 1.0));
 		int persebaran = percent(data.totalPerpustakaan.size(), Math.max(data.totalPerpustakaan.size(), 1));
@@ -318,11 +348,13 @@ public class DashboardStatistikPengembalianAnggota extends MyWindow {
 		return sb.toString();
 	}
 
+	/** Merender satu baris gauge (label + persentase + bar gradien) untuk panel radar. */
 	private String gauge(String label, int percent) {
 		return "<div style='margin:8px 0;'><div style='display:flex;justify-content:space-between;font-size:11px;color:#334155;font-weight:700;'><span>" + html(label) + "</span><span>" + percent + "%</span></div>"
 				+ "<div style='height:12px;background:#e2e8f0;border-radius:999px;overflow:hidden;margin-top:4px;'><div style='height:12px;width:" + percent + "%;background:linear-gradient(90deg,#2563eb,#22c55e);border-radius:999px;'></div></div></div>";
 	}
 
+	/** Merender satu kartu ringkasan (judul, nilai besar, catatan) untuk baris kartu statistik teratas. */
 	private String card(String title, String value, String note) {
 		title = ais.common.Common.getBahasaConfig(title);
 		note = ais.common.Common.getBahasaConfig(note);
@@ -332,6 +364,7 @@ public class DashboardStatistikPengembalianAnggota extends MyWindow {
 				+ "<div style='font-size:11px;color:#64748b;margin-top:4px;'>" + html(note) + "</div></div>";
 	}
 
+	/** Mengembalikan nama perpustakaan dengan total aktivitas tertinggi, atau {@code "-"} bila tidak ada data. */
 	private String getTopLabel(VisualData data) {
 		String key = "-";
 		double max = 0.0;
@@ -345,11 +378,13 @@ public class DashboardStatistikPengembalianAnggota extends MyWindow {
 		return key;
 	}
 
+	/** Mengembalikan warna siklik dari palet tetap berdasarkan {@code index} (untuk membedakan seri/baris pada grafik). */
 	private String color(int index) {
 		String[] colors = new String[] { "var(--ais-theme-primary,#2563eb)", "#16a34a", "#f97316", "#9333ea", "#dc2626", "#0891b2", "#ca8a04", "#0f766e" };
 		return colors[index % colors.length];
 	}
 
+	/** Menghitung persentase {@code value} terhadap {@code max}, dibatasi ke rentang 0-100 (0 bila {@code max <= 0}). */
 	private int percent(double value, double max) {
 		if (max <= 0.0) return 0;
 		int p = (int) Math.round(value * 100.0 / max);
@@ -358,11 +393,13 @@ public class DashboardStatistikPengembalianAnggota extends MyWindow {
 		return p;
 	}
 
+	/** Meng-escape karakter HTML khusus pada {@code value} agar aman disisipkan ke markup (mencegah XSS/kerusakan tata letak). */
 	private String html(String value) {
 		if (value == null) return "";
 		return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;");
 	}
 
+	/** Wadah data hasil agregasi untuk dirender ke panel HTML: baris per tanggal (peta nama perpustakaan → nilai), total per perpustakaan, daftar nama perpustakaan aktif, total keseluruhan, dan nilai maksimum (untuk skala bar). */
 	private static class VisualData {
 		private TreeMap<String, Map<String, Double>> rows = new TreeMap<String, Map<String, Double>>();
 		private LinkedHashMap<String, Double> totalPerpustakaan = new LinkedHashMap<String, Double>();

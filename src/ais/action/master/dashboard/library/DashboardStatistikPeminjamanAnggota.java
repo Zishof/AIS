@@ -39,11 +39,24 @@ import ais.ui.util.MyWindow;
 import ais.action.report.format1.library.LaporanRekapPeminjamanWindow;
 
 import ais.ui.util.DashboardModernHtmlUtil;
+/**
+ * Widget dashboard perpustakaan yang menampilkan statistik peminjaman anggota (jumlah aktivitas
+ * peminjaman per perpustakaan/tanggal) dalam rentang tanggal yang dapat difilter, dirender sebagai
+ * grafik HTML/CSS murni (bar tren harian, komposisi per perpustakaan, dan "radar" gauge — bukan
+ * library chart JS) demi tampilan yang ringan. Data diambil lewat satu kueri SQL native
+ * ({@link #buildSql}) terhadap {@code library.peminjaman_pengadaan_item}, dikelompokkan per
+ * tanggal dan perpustakaan. <b>Catatan</b>: filter fakultas/jurusan pada {@link #buildSql}
+ * mereferensikan alias tabel {@code c}/{@code e} yang tidak pernah di-join pada kueri (hanya alias
+ * {@code a}, {@code b}, {@code d} yang ada) — filter tersebut kemungkinan tidak berfungsi
+ * sebagaimana mestinya bila fakultas/jurusan dipilih; tidak diperbaiki di sini sesuai batasan tugas
+ * dokumentasi. Dapat dipakai sebagai jendela penuh atau komponen mini tersemat (constructor
+ * {@code (width, height)}, menampilkan tombol "Lihat Rinci" menuju {@link LaporanRekapPeminjamanWindow}).
+ */
 public class DashboardStatistikPeminjamanAnggota extends MyWindow {
 
 	private static final long serialVersionUID = -28636873241676666L;
 
-	
+
 	private int width;
 	private int height;
 	private Div center;
@@ -53,6 +66,7 @@ public class DashboardStatistikPeminjamanAnggota extends MyWindow {
 	private MyDatebox sampai = new MyDatebox();
 	private boolean tampilRinci = false;
 
+	/** Membangun dashboard sebagai jendela penuh dengan filter tanggal default (1 bulan terakhir s.d. hari ini) dan langsung memuat grafik. */
 	public DashboardStatistikPeminjamanAnggota() throws Exception {
 		super();
 		initFakultas();
@@ -60,12 +74,14 @@ public class DashboardStatistikPeminjamanAnggota extends MyWindow {
 		initChart();
 	}
 
+	/** Membangun dashboard sebagai komponen mini berukuran tetap (dipakai saat tersemat di layar lain), menampilkan tombol "Lihat Rinci". */
 	public DashboardStatistikPeminjamanAnggota(int width, int height) throws Exception {
 		super();
 		tampilRinci = true;
 		reinit(width, height);
 	}
 
+	/** Membangun ulang isi dashboard dengan ukuran {@code width}x{@code height} baru; dipanggil dari konstruktor mini dan dapat dipanggil ulang untuk resize. */
 	public void reinit(int width, int height) throws Exception {
 		this.width = width;
 		this.height = height;
@@ -74,6 +90,7 @@ public class DashboardStatistikPeminjamanAnggota extends MyWindow {
 		initChart();
 	}
 
+	/** Konstruktor varian dengan judul/border/closable eksplisit, dipakai saat jendela dibuat sebagai komponen tersemat penuh. */
 	public DashboardStatistikPeminjamanAnggota(String title, String border, boolean closable) throws Exception {
 		super(title, border, closable);
 		initFakultas();
@@ -81,9 +98,11 @@ public class DashboardStatistikPeminjamanAnggota extends MyWindow {
 		initChart();
 	}
 
+	/** Placeholder inisialisasi filter fakultas — saat ini tidak melakukan apa pun (combobox fakultas/jurusan tidak diisi opsi). */
 	private void initFakultas() {
 	}
 
+	/** Membangun kerangka portal responsif dashboard: panel saringan (rentang tanggal) dan area konten grafik ({@link #center}), lengkap dengan tombol ekspor grid. */
 	@SuppressWarnings("deprecation")
 	private void init() {
 		DashboardGridExportHelper.pasang(this, "Statistik Peminjaman Anggota");
@@ -159,6 +178,14 @@ public class DashboardStatistikPeminjamanAnggota extends MyWindow {
 
 	}
 
+	/**
+	 * Mengambil dan mengagregasi data peminjaman dalam rentang tanggal filter (default: hari ini
+	 * bila kosong) lewat {@link #buildSql}, dikelompokkan per tanggal dan nama perpustakaan.
+	 * Sekaligus mengambil daftar seluruh {@link Perpustakaan} aktif (dipakai sebagai referensi
+	 * label, tidak untuk agregasi).
+	 *
+	 * @return {@link VisualData} berisi baris per tanggal/perpustakaan, total per perpustakaan, dan nilai maksimum untuk skala grafik
+	 */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	private VisualData loadData() {
 		VisualData data = new VisualData();
@@ -207,6 +234,13 @@ public class DashboardStatistikPeminjamanAnggota extends MyWindow {
 		return data;
 	}
 
+	/**
+	 * Menyusun kueri SQL native untuk menghitung jumlah baris {@code library.peminjaman_pengadaan_item}
+	 * per tanggal dan perpustakaan dalam rentang {@code dateMulai}..{@code dateSelesai}
+	 * (join ke {@code library.anggota} dan {@code library.perpustakaan}). Lihat catatan pada
+	 * javadoc kelas: klausa filter fakultas/jurusan mereferensikan alias {@code c}/{@code e} yang
+	 * tidak pernah dijoin pada kueri ini.
+	 */
 	private String buildSql(String dateMulai, String dateSelesai, Fakultas fakultas, Jurusan jurusan) {
 		StringBuilder sql = new StringBuilder();
 		sql.append("select date(a.tanggal_pembuatan) as tanggal, coalesce(d.nama,'Tanpa Perpustakaan') as perpustakaan, count(*) as qty ");
@@ -224,12 +258,14 @@ public class DashboardStatistikPeminjamanAnggota extends MyWindow {
 		return sql.toString();
 	}
 
+	/** Memuat ulang data ({@link #loadData()}) dan me-render ulang seluruh grafik HTML ke {@link #center}. */
 	private void initChart() throws Exception {
 		Common.clear(center);
 		VisualData data = loadData();
 		center.appendChild(new Html(buildHtml(data)));
 	}
 
+	/** Menyusun markup HTML lengkap dashboard: kartu ringkasan (total, jumlah tanggal, jumlah perpustakaan, tertinggi) diikuti bagian tren harian, komposisi, dan radar aktivitas. */
 	private String buildHtml(VisualData data) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("<div style='font-family:Arial,sans-serif;padding:12px;'>");
@@ -250,6 +286,7 @@ public class DashboardStatistikPeminjamanAnggota extends MyWindow {
 		return sb.toString();
 	}
 
+	/** Menyusun bagian "Tren Harian": satu blok per tanggal, berisi bar horizontal proporsional untuk tiap perpustakaan pada tanggal tersebut. */
 	private String buildTrend(VisualData data) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("<div style='background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;margin-bottom:12px;'>");
@@ -280,6 +317,7 @@ public class DashboardStatistikPeminjamanAnggota extends MyWindow {
 		return sb.toString();
 	}
 
+	/** Menyusun bagian "Komposisi Perpustakaan": satu bar proporsional per perpustakaan berdasarkan total aktivitas sepanjang rentang filter. */
 	private String buildComposition(VisualData data) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("<div style='background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;margin-bottom:12px;'>");
@@ -303,6 +341,7 @@ public class DashboardStatistikPeminjamanAnggota extends MyWindow {
 		return sb.toString();
 	}
 
+	/** Menyusun bagian "Radar Aktivitas": tiga gauge (aktivitas total, sebaran jumlah perpustakaan, jumlah hari aktif dari skala 30 hari) sebagai ringkasan cepat kesehatan aktivitas. */
 	private String buildRadar(VisualData data) {
 		int aktivitas = percent(data.total, Math.max(data.total, 1.0));
 		int persebaran = percent(data.totalPerpustakaan.size(), Math.max(data.totalPerpustakaan.size(), 1));
@@ -318,11 +357,13 @@ public class DashboardStatistikPeminjamanAnggota extends MyWindow {
 		return sb.toString();
 	}
 
+	/** Menyusun markup satu baris gauge (label + persentase + bar gradien) untuk bagian radar. */
 	private String gauge(String label, int percent) {
 		return "<div style='margin:8px 0;'><div style='display:flex;justify-content:space-between;font-size:11px;color:#334155;font-weight:700;'><span>" + html(label) + "</span><span>" + percent + "%</span></div>"
 				+ "<div style='height:12px;background:#e2e8f0;border-radius:999px;overflow:hidden;margin-top:4px;'><div style='height:12px;width:" + percent + "%;background:linear-gradient(90deg,#2563eb,#22c55e);border-radius:999px;'></div></div></div>";
 	}
 
+	/** Menyusun markup satu kartu ringkasan (judul, nilai besar, catatan kecil), dengan judul dan catatan diterjemahkan lewat {@link Common#getBahasaConfig(String)}. */
 	private String card(String title, String value, String note) {
 		title = ais.common.Common.getBahasaConfig(title);
 		note = ais.common.Common.getBahasaConfig(note);
@@ -332,6 +373,7 @@ public class DashboardStatistikPeminjamanAnggota extends MyWindow {
 				+ "<div style='font-size:11px;color:#64748b;margin-top:4px;'>" + html(note) + "</div></div>";
 	}
 
+	/** Mencari nama perpustakaan dengan total aktivitas tertinggi pada {@code data}; mengembalikan {@code "-"} bila tidak ada data. */
 	private String getTopLabel(VisualData data) {
 		String key = "-";
 		double max = 0.0;
@@ -345,11 +387,13 @@ public class DashboardStatistikPeminjamanAnggota extends MyWindow {
 		return key;
 	}
 
+	/** Mengembalikan warna dari palet tetap berdasarkan {@code index} (berputar/mod bila melebihi jumlah warna), dipakai untuk membedakan seri pada grafik. */
 	private String color(int index) {
 		String[] colors = new String[] { "var(--ais-theme-primary,#2563eb)", "#16a34a", "#f97316", "#9333ea", "#dc2626", "#0891b2", "#ca8a04", "#0f766e" };
 		return colors[index % colors.length];
 	}
 
+	/** Menghitung persentase {@code value} terhadap {@code max}, dibulatkan dan dipotong ke rentang [0,100]; mengembalikan 0 bila {@code max <= 0}. */
 	private int percent(double value, double max) {
 		if (max <= 0.0) return 0;
 		int p = (int) Math.round(value * 100.0 / max);
@@ -358,11 +402,13 @@ public class DashboardStatistikPeminjamanAnggota extends MyWindow {
 		return p;
 	}
 
+	/** Melakukan escape karakter HTML dasar ({@code & < > " '}) pada {@code value} agar aman disisipkan ke markup {@link Html}; mengembalikan string kosong bila {@code value} {@code null}. */
 	private String html(String value) {
 		if (value == null) return "";
 		return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;");
 	}
 
+	/** Struktur data internal hasil agregasi {@link #loadData()}: baris per tanggal→(perpustakaan→jumlah), total per perpustakaan, daftar nama perpustakaan, total keseluruhan, dan nilai maksimum untuk skala bar. */
 	private static class VisualData {
 		private TreeMap<String, Map<String, Double>> rows = new TreeMap<String, Map<String, Double>>();
 		private LinkedHashMap<String, Double> totalPerpustakaan = new LinkedHashMap<String, Double>();

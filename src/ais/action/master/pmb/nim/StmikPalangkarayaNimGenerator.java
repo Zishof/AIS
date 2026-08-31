@@ -11,14 +11,30 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.Mahasiswa;
 
+/**
+ * Algoritma penomoran NIM khusus institusi STMIK Palangkaraya: NIM disusun dari
+ * {@code kode jenjang EPSBED + 2 digit tahun masuk + kode program studi EPSBED + 3 digit nomor
+ * urut mahasiswa pada angkatan dan program studi yang sama}.
+ */
 public class StmikPalangkarayaNimGenerator implements NimGenerator {
 
+	/** Seperti {@link #generateNim(BiodataCalonMahasiswa, List)}, tanpa daftar pengecualian awal. */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa) {
 		return generateNim(calonMahasiswa, new ArrayList<String>());
 	}
 
-	// generate NIM
+	/**
+	 * Membangkitkan NIM: menghitung jumlah {@link Mahasiswa} aktif pada angkatan (tahun) dan
+	 * program studi lulus yang sama (ditambah jumlah kandidat yang sudah ditolak di
+	 * {@code jumlahPengecualian}), lalu menyusun NIM dari kode jenjang, 2 digit tahun, kode prodi,
+	 * dan 3 digit nomor urut. Bila NIM hasil ternyata sudah dipakai mahasiswa lain, nomor tersebut
+	 * ditambahkan ke {@code jumlahPengecualian} dan method memanggil dirinya sendiri secara
+	 * rekursif. Mengembalikan {@code "-"} bila calon mahasiswa belum punya program studi lulus.
+	 *
+	 * @param jumlahPengecualian NIM kandidat yang sudah terbukti bentrok pada percobaan sebelumnya
+	 * @return NIM yang belum dipakai mahasiswa manapun, atau {@code "-"} bila prodi lulus belum ditentukan
+	 */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa, List<String> jumlahPengecualian) {
 

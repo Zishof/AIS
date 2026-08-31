@@ -36,16 +36,38 @@ import ais.database.model.sirs.DiagnosaPenyakit;
 import ais.database.model.sirs.DiagnosaPenyakitPunyaPemeriksaan;
 import ais.database.model.sirs.Pemeriksaan;
 
+/**
+ * Helper UI ZK modul SIRS (Sistem Informasi Rumah Sakit) yang membangun formulir pemeriksaan
+ * dinamis (form builder) berdasarkan definisi {@link Pemeriksaan} yang dikonfigurasi admin, lalu
+ * menyimpan hasilnya sebagai {@link DiagnosaPenyakitPunyaPemeriksaan} terkait satu
+ * {@link DiagnosaPenyakit}. Item pemeriksaan berjenjang (memiliki {@code parent}/anak) dirender
+ * sebagai grup tab per kategori tingkat pertama ({@link ais.ui.util.MyButtonTabbox}), dengan
+ * item bertingkat lebih dalam ditampilkan sebagai baris indentasi bersarang (rekursif lewat
+ * {@link #createRowPemeriksaan}) di bawah judul kategorinya.
+ *
+ * <p>
+ * Tipe input per item pemeriksaan ditentukan dari format field {@code nilaiYangMungkin} pada
+ * {@link Pemeriksaan}: dipisah {@code ";"} untuk combobox pilihan tunggal, dipisah {@code "|"}
+ * untuk sekelompok checkbox pilihan ganda, atau textbox polos bila tidak mengandung pemisah
+ * tersebut. Setiap kategori memiliki checkbox "Aktifkan formulir ini" yang mengunci/membuka
+ * kunci ({@code Common#freeze}) seluruh baris di bawahnya. Data tersimpan sebelumnya (bila ada)
+ * dimuat ulang ke komponen form lewat {@link DiagnosaPenyakitPunyaPemeriksaan}; {@link
+ * #simpan(DiagnosaPenyakit)} menuliskan kembali nilai form ke database, dan {@link #check()}
+ * memvalidasi field yang ditandai wajib isi ({@code harusDiisi}) sebelum data boleh disimpan.
+ * </p>
+ */
 public class PemeriksaanHelper {
 
 	private String jenis;
 
+	/** Membangun helper yang membatasi item pemeriksaan yang dimuat hanya untuk {@code jenis} (kategori pemeriksaan) tertentu. */
 	public PemeriksaanHelper(String jenis) {
 		this.jenis = jenis;
 	}
 
 	private List<Rows> rowsPemeriksaans;
 
+	/** Membangun panel formulir pemeriksaan untuk {@code diagnosaPenyakit}, menginisialisasi daftar {@link Rows} internal untuk keperluan {@link #simpan} dan {@link #check} nanti. */
 	@SuppressWarnings({})
 	public Borderlayout createPemeriksaan(DiagnosaPenyakit diagnosaPenyakit) throws Exception {
 		rowsPemeriksaans = new ArrayList<Rows>();
@@ -53,6 +75,7 @@ public class PemeriksaanHelper {
 	}
 
 	@SuppressWarnings({ "unchecked" })
+	/** Membangun grup tab (satu tab per kategori pemeriksaan tingkat pertama dari {@link #jenis}), memuat baris formulir untuk setiap tab, dan memilih tab pertama sebagai default. */
 	private Borderlayout createPanelPemeriksaan(DiagnosaPenyakit diagnosaPenyakit) {
 
 		Borderlayout borderlayout = new Borderlayout();
@@ -82,6 +105,7 @@ public class PemeriksaanHelper {
 		return borderlayout;
 	}
 
+	/** Membangun grid baris formulir untuk satu kategori (tab) pemeriksaan {@code parent} di dalam {@code tabpanel}, beserta checkbox "Aktifkan formulir ini" yang mengunci/membuka kunci seluruh baris. */
 	private void mulaiRowPemeriksaan(DiagnosaPenyakit diagnosaPenyakit, Pemeriksaan parent, Component tabpanel) {
 
 		Borderlayout borderlayout = new Borderlayout();
@@ -131,6 +155,14 @@ public class PemeriksaanHelper {
 		north.appendChild(aktifkan);
 	}
 
+	/**
+	 * Merender secara rekursif baris-baris item pemeriksaan anak dari {@code parent} ke
+	 * {@code rowsPemeriksaan}: item yang masih punya anak dirender sebagai judul kategori
+	 * beranak (indentasi bertambah, dipanggil ulang untuk anaknya), item daun dirender sebagai
+	 * baris input (combobox/checkbox-ganda/textbox sesuai format {@code nilaiYangMungkin}) yang
+	 * diisi dengan data tersimpan bila {@code diagnosaPenyakit} sudah memiliki
+	 * {@link DiagnosaPenyakitPunyaPemeriksaan} terkait, atau nilai default bila belum.
+	 */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	private void createRowPemeriksaan(DiagnosaPenyakit diagnosaPenyakit, Pemeriksaan parent, Rows rowsPemeriksaan,
 			final Checkbox aktifkan) {
@@ -291,6 +323,13 @@ public class PemeriksaanHelper {
 		}
 	}
 
+	/**
+	 * Menyimpan (create-or-update) hasil seluruh baris formulir pemeriksaan yang dibangun
+	 * sebelumnya sebagai baris {@link DiagnosaPenyakitPunyaPemeriksaan}, mengaitkannya ke
+	 * {@code diagnosaPenyakit}. Status aktif diambil dari kondisi terkunci/tidaknya kolom
+	 * keterangan (kategori dinonaktifkan bila baris dikunci); tidak melakukan apa pun bila
+	 * belum ada formulir yang dibangun.
+	 */
 	public void simpan(DiagnosaPenyakit diagnosaPenyakit) {
 		if (rowsPemeriksaans == null || rowsPemeriksaans.isEmpty()) {
 			return;
@@ -340,6 +379,14 @@ public class PemeriksaanHelper {
 		}
 	}
 
+	/**
+	 * Memvalidasi seluruh baris formulir pemeriksaan yang aktif (tidak dikunci): item yang
+	 * ditandai {@code harusDiisi} pada {@link Pemeriksaan} harus memiliki nilai (combobox
+	 * terpilih, keterangan terisi, atau minimal satu checkbox tercentang). Menampilkan pesan
+	 * peringatan dan memfokuskan kolom yang bermasalah pada pelanggaran pertama yang ditemukan.
+	 *
+	 * @return {@code true} bila seluruh item wajib terisi (atau tidak ada formulir dibangun), {@code false} bila ada pelanggaran
+	 */
 	public boolean check() throws Exception {
 		if (rowsPemeriksaans == null || rowsPemeriksaans.isEmpty()) {
 			return true;

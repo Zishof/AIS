@@ -53,6 +53,24 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper pengelola panel "Riwayat Pendidikan Pegawai" ({@link RiwayatPendidikanPegawai}) — daftar
+ * jenjang pendidikan yang pernah/sedang ditempuh seorang {@link Pegawai} (dari SD hingga S3),
+ * lengkap dengan detail sekolah/kampus, tahun masuk-lulus, nomor ijazah, dan lampiran foto ijazah.
+ * Dapat dipakai dalam dua mode: terikat ke satu {@link Pegawai} tertentu (constructor dengan
+ * {@code pegawai} tidak null, dipakai sebagai tab dalam form biodata pegawai) atau mode pencarian
+ * bebas lintas pegawai/satuan kerja (dipakai sebagai layar master tersendiri).
+ *
+ * <p>
+ * {@link #display()} membangun panel pencarian (filter pegawai, satuan kerja beserta turunannya
+ * lewat {@link SatuanKerjaTreeModel}, status) dan grid hasil; {@link #onSearchDefault(Event)}
+ * mengeksekusi kueri sesuai filter tersebut. {@link #init(RiwayatPendidikanPegawai)} membangun
+ * form tambah/ubah satu baris riwayat pendidikan (jenjang, tahun masuk/lulus, nama & alamat
+ * sekolah, jurusan, nomor ijazah, nama kepala sekolah, status, lampiran foto ijazah) dengan toolbar
+ * Simpan/Kembali; tombol Simpan memicu {@link #save(Event)} yang memvalidasi field wajib (pegawai,
+ * tingkat pendidikan, tahun masuk, tahun lulus, nama sekolah) sebelum menyimpan.
+ * </p>
+ */
 public class RiwayatPendidikanPegawaiHelper {
 
 	private MyGrid grid = new MyGrid();
@@ -78,6 +96,13 @@ public class RiwayatPendidikanPegawaiHelper {
 	private AmbilDataSatuanKerjaBanbox searchparent;
 	private SatuanKerjaTreeModel satuanKerjaTreeModel;
 
+	/**
+	 * Membuat helper untuk {@code pegawai} tertentu (bila {@code null}, panel bekerja dalam mode
+	 * pencarian bebas lintas pegawai).
+	 *
+	 * @param pegawai  pegawai target, atau {@code null} untuk mode pencarian bebas
+	 * @param editable {@code true} bila panel boleh menambah/mengubah data (dipakai untuk kendali visibilitas tombol edit)
+	 */
 	public RiwayatPendidikanPegawaiHelper(Pegawai pegawai, Boolean editable) {
 		this.pegawai = pegawai;
 		this.editable = editable;
@@ -167,6 +192,13 @@ public class RiwayatPendidikanPegawaiHelper {
 		}
 	}
 
+	/**
+	 * Membangun panel lengkap (borderlayout): bagian utara berisi form pencarian (pegawai, satuan
+	 * kerja, status) dan bagian tengah berisi grid hasil riwayat pendidikan. Bila {@link #pegawai}
+	 * sudah ditentukan lewat konstruktor, kolom pencarian pegawai dikunci ke pegawai tersebut.
+	 *
+	 * @return borderlayout siap ditambahkan sebagai panel tab/jendela
+	 */
 	public Borderlayout display() throws Exception {
 
 		North north = new North();
@@ -349,6 +381,12 @@ public class RiwayatPendidikanPegawaiHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Mengeksekusi kueri riwayat pendidikan sesuai filter panel pencarian (satuan kerja beserta
+	 * turunannya, pegawai, status) dan merender hasilnya ke {@link #grid}.
+	 *
+	 * @param event tidak dipakai langsung, hanya dipicu oleh perubahan filter
+	 */
 	public void onSearchDefault(Event event) {
 
 		SatuanKerja parent = (SatuanKerja) searchparent.getAttribute("satuanKerja");
@@ -382,6 +420,13 @@ public class RiwayatPendidikanPegawaiHelper {
 
 	}
 
+	/**
+	 * Membangun form tambah/ubah satu baris riwayat pendidikan (pegawai, tingkat pendidikan, tahun
+	 * masuk/lulus, nama & alamat sekolah, jurusan, nomor ijazah, nama kepala sekolah, status, dan
+	 * lampiran foto ijazah) beserta toolbar Simpan/Kembali.
+	 *
+	 * @param riwayatPendidikanPegawai baris yang akan diedit, atau baru (id {@code null}) untuk data baru
+	 */
 	public void init(final RiwayatPendidikanPegawai riwayatPendidikanPegawai) throws Exception {
 		this.riwayatPendidikanPegawai = riwayatPendidikanPegawai;
 
@@ -580,6 +625,14 @@ public class RiwayatPendidikanPegawaiHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Memvalidasi dan menyimpan satu baris riwayat pendidikan. Field wajib: pegawai, tingkat
+	 * pendidikan, tahun masuk, tahun lulus, dan nama sekolah. Setiap pelanggaran validasi
+	 * menampilkan pesan peringatan dan mengembalikan {@code false} tanpa menyimpan.
+	 *
+	 * @param event event ZK asal aksi simpan
+	 * @return {@code true} bila data berhasil disimpan
+	 */
 	public boolean save(Event event) throws Exception {
 
 		if (ambilDataPegawaiBanbox.getAttribute("pegawai") == null) {

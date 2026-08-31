@@ -48,18 +48,38 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper UI untuk mengelola galeri gambar/cover satu {@link Item} perpustakaan, ditampilkan
+ * sebagai grid unggah/hapus di dalam layar detail item. Dibanding helper galeri sejenis (mis.
+ * {@link ais.action.master.inventory.helper.ProdukPunyaGambarFotoHelper}), kelas ini punya
+ * penanganan unggah yang lebih ketat: gambar dibaca aman lewat
+ * {@code CommonFileMediaHelper#bacaGambarAman} (menolak format tak dikenal seperti WEBP dengan
+ * pesan ramah, bukan error sistem — lihat {@link #handleUpload}), dikonversi ke RGB murni sebelum
+ * ditulis sebagai JPEG (menghindari masalah channel alpha), dan pembaruan cover item
+ * ({@link #updateCoverItem}) memeriksa ulang keberadaan baris {@link Item} di database lebih dulu
+ * untuk menghindari {@code UnresolvableObjectException} akibat race kondisi hapus-vs-upload oleh
+ * pengguna lain. Data BLOB disimpan lewat sesi {@link StreamingHibernateUtil} terpisah.
+ */
 public class ItemPunyaGambarFotoHelper {
 
 	private MyGrid gridPengarang;
 	private boolean add = false;
 	private boolean delete = false;
 
+	/** Membuat helper terikat ke {@code gridPengarang}, menentukan visibilitas tombol tambah/hapus dari hak akses pengguna saat ini. */
 	public ItemPunyaGambarFotoHelper(MyGrid gridPengarang) {
 		this.gridPengarang = gridPengarang;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun tata letak grid galeri gambar lengkap dengan toolbar unggah, tiga kolom (gambar,
+	 * nama, hapus), dan langsung memuat gambar {@code item} yang sudah ada.
+	 *
+	 * @param item item perpustakaan yang galerinya akan ditampilkan/dikelola
+	 * @return tata letak {@link Borderlayout} siap ditempel ke komponen induk
+	 */
 	public Borderlayout initDetail(final Item item) throws Exception {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -112,6 +132,15 @@ public class ItemPunyaGambarFotoHelper {
 		return borderlayout;
 	}
 
+	/**
+	 * Menangani event unggah gambar: memvalidasi event dan berkas media, menulis berkas fisik JPEG
+	 * lewat {@link #createImageFile}, menyimpan baris {@link FotoGambarItem} (BLOB) via
+	 * {@link StreamingHibernateUtil}, memperbarui cover item bila item sudah tersimpan
+	 * ({@link #updateCoverItem}), lalu menambahkan baris baru ke grid. Kesalahan format gambar tak
+	 * didukung ({@link IllegalArgumentException}, mis. WEBP) ditangani sebagai kesalahan input
+	 * pengguna biasa (pesan ramah, TIDAK dicatat ke audit error admin agar log tidak dipenuhi
+	 * kejadian normal); kegagalan lain ditangani sebagai error sistem dengan pesan generik.
+	 */
 	private void handleUpload(Event event, Item item) {
 		UploadEvent uploadEvent = null;
 		Media media = null;
@@ -195,6 +224,13 @@ public class ItemPunyaGambarFotoHelper {
 		}
 	}
 
+	/**
+	 * Menulis berkas gambar unggahan sebagai JPEG RGB murni ke folder konfigurasi
+	 * {@code lokasi_penyimpanan_lampiran_perpustakaan} (nama berkas dari timestamp + nama asli yang
+	 * disanitasi, di-encode URL). Melempar {@link IllegalArgumentException} bila berkas bukan
+	 * gambar yang dapat dibaca ({@link #readImage}), atau {@link IllegalStateException} bila folder
+	 * tujuan tidak dapat ditulis atau penulisan JPEG gagal.
+	 */
 	private File createImageFile(Media media) throws Exception {
 		File folder = getUploadFolder();
 		if (!folder.exists()) {
@@ -227,6 +263,7 @@ public class ItemPunyaGambarFotoHelper {
 		return file;
 	}
 
+	/** Membaca {@code media} sebagai {@link BufferedImage} secara aman lewat {@code CommonFileMediaHelper#bacaGambarAman}, mencoba lewat stream lebih dulu lalu jatuh ke byte array bila stream gagal; mengembalikan {@code null} bila kedua cara gagal (bukan gambar valid/format tak didukung). */
 	private BufferedImage readImage(Media media) throws Exception {
 		InputStream inputStream = null;
 		try {
@@ -254,6 +291,7 @@ public class ItemPunyaGambarFotoHelper {
 		return null;
 	}
 
+	/** Mengembalikan folder penyimpanan gambar dari konfigurasi {@code lokasi_penyimpanan_lampiran_perpustakaan}, default {@code /opt/gambar_perpus} bila kosong/gagal dibaca. */
 	private File getUploadFolder() {
 		String base = "/opt/gambar_perpus";
 		try {
@@ -266,6 +304,7 @@ public class ItemPunyaGambarFotoHelper {
 		return new File(base.trim());
 	}
 
+	/** Menetralkan karakter yang tidak aman untuk nama berkas (path separator dan karakter terlarang Windows/Unix) dan memotong panjang nama ke maksimum 120 karakter. */
 	private String sanitizeFileName(String value) {
 		String name = defaultString(value, "cover_item");
 		name = name.replace('\\', '_').replace('/', '_').replace(':', '_').replace('*', '_').replace('?', '_')
@@ -273,10 +312,18 @@ public class ItemPunyaGambarFotoHelper {
 		return name.length() > 120 ? name.substring(0, 120) : name;
 	}
 
+	/** Mengembalikan {@code value} yang sudah di-trim, atau {@code fallback} bila {@code value} {@code null}/kosong setelah di-trim. */
 	private String defaultString(String value, String fallback) {
 		return value == null || value.trim().length() == 0 ? fallback : value.trim();
 	}
 
+	/**
+	 * Menjadikan {@code fotoGambarItem} sebagai cover ({@code imagePath}) item, bila item sudah
+	 * tersimpan dan berkas gambarnya ada. Memeriksa ulang keberadaan baris {@link Item} lewat
+	 * {@code session.get} sebelum {@code refresh} — mencegah {@code UnresolvableObjectException}
+	 * bila item sudah dihapus pengguna lain sejak halaman ini dimuat (kasus tersebut dilewati
+	 * secara halus, tanpa error, lihat komentar kode).
+	 */
 	private void updateCoverItem(Item item, FotoGambarItem fotoGambarItem) {
 		if (item == null || item.getId() == null || fotoGambarItem == null || fotoGambarItem.getPath() == null
 				|| fotoGambarItem.getPath().trim().length() == 0 || !new File(fotoGambarItem.getPath()).exists()) {
@@ -307,6 +354,7 @@ public class ItemPunyaGambarFotoHelper {
 		}
 	}
 
+	/** Menambahkan satu baris grid baru untuk {@code fotoGambarItem} yang baru diunggah; tidak melakukan apa pun bila grid atau data belum siap. */
 	private void appendRow(FotoGambarItem fotoGambarItem) throws Exception {
 		if (gridPengarang == null || fotoGambarItem == null) {
 			return;
@@ -319,6 +367,7 @@ public class ItemPunyaGambarFotoHelper {
 		initRow(row, fotoGambarItem);
 	}
 
+	/** Menampilkan {@code message} sebagai kotak peringatan sederhana ke pengguna. */
 	private void showWarning(String message) {
 		try {
 			MyMessageboxConfig.show(message, "Peringatan Upload Gambar", MyMessageboxConfig.OK,
@@ -327,6 +376,7 @@ public class ItemPunyaGambarFotoHelper {
 		}
 	}
 
+	/** Memuat seluruh gambar tersimpan milik {@code item} (diurutkan id terbaru dulu) ke grid, atau tidak menambah baris apa pun bila item belum tersimpan. */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final Item item) throws Exception {
 		Session session = null;
@@ -353,6 +403,7 @@ public class ItemPunyaGambarFotoHelper {
 		}
 	}
 
+	/** Mengisi satu baris grid dengan thumbnail (919x575, lewat {@link CommonMedia#getUrlFotoItem}), nama berkas, dan tombol hapus (dengan konfirmasi, mendelegasikan ke {@link #deleteFoto}). */
 	public void initRow(final Row row, final FotoGambarItem fotoGambarItem) throws Exception {
 		row.setValign("top");
 		row.setAttribute("fotoGambarItem", fotoGambarItem);
@@ -388,6 +439,7 @@ public class ItemPunyaGambarFotoHelper {
 		});
 	}
 
+	/** Menghapus baris {@code fotoGambarItem} dari database (bila sudah tersimpan) dalam transaksi eksplisit, lalu melepas {@code row} dari grid. Kegagalan hapus (mis. masih dipakai relasi lain) di-rollback dan ditampilkan sebagai peringatan. */
 	private void deleteFoto(Row row, FotoGambarItem fotoGambarItem) {
 		Session session = null;
 		Transaction tx = null;

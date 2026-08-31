@@ -23,8 +23,26 @@ import ais.database.model.sekolah.JadwalPelajaran;
 import ais.database.model.sekolah.Sekolah;
 import ais.database.model.sekolah.Yayasan;
 
+/**
+ * Servis API mobile/e-learning untuk mengambil daftar jadwal pelajaran milik guru yang sedang
+ * login. Mengikuti konvensi respons API AIS: JSON dengan {@code status} ({@code "00"} sukses,
+ * {@code "90"} galat, {@code "97"} token tidak valid) dan {@code description}, dengan autentikasi
+ * berbasis token yang divalidasi lewat {@link ApiUtil#currentUser}.
+ */
 public class ApiBaruElearning {
 
+	/**
+	 * Mengambil daftar {@link JadwalPelajaran} milik guru pemilik token (dicocokkan ke salah satu
+	 * dari 12 slot guru pengampu, {@code guru}..{@code guru12}, pada satu baris jadwal — mendukung
+	 * kelas team-teaching hingga 12 pengajar), difilter opsional berdasarkan tahun ajaran, paritas
+	 * semester (ganjil/genap via {@code semester % 2}), dan kata kunci nama/kode mata pelajaran,
+	 * dibatasi ke yayasan/sekolah milik guru tersebut, dan dipaginasi.
+	 *
+	 * @param req     permintaan HTTP mentah, dipakai untuk resolusi token via {@link ApiUtil#currentUser}
+	 * @param request payload JSON: {@code keyword}, {@code ta} (tahun ajaran), {@code smt} (0/1 untuk paritas semester),
+	 *                {@code tampil_per_halaman} (default 10), {@code halaman} (default 0), semua opsional
+	 * @return JSON berisi {@code status}/{@code description}, serta bila sukses {@code data} (larik jadwal pelajaran, tanpa relasi sekolah/yayasan) dan {@code jumlah} (total baris sebelum paginasi)
+	 */
 	@SuppressWarnings({ "unchecked" })
 	public static JSONObject daftarJadwalPelajaran(HttpServletRequest req, JSONObject request) {
 		JSONObject jsonObject = new JSONObject();
@@ -44,8 +62,10 @@ public class ApiBaruElearning {
 				Session session = HibernateUtil.openSession();
 				try {
 
+				/** Pembangun {@link Criteria} bersama untuk hitung total (tanpa urutan) dan ambil data (dengan urutan), agar filter tetap konsisten di kedua query. */
 				class CriteriaData {
 
+					/** Menyusun kriteria pencarian jadwal pelajaran milik {@code tbmuser} sesuai filter yang diterima; {@code order} menentukan apakah hasil diurutkan (dipakai saat mengambil data, tidak saat menghitung total). */
 					public Criteria buat(Session session, boolean order, Tbmuser tbmuser) {
 						Yayasan yayasan = tbmuser.ambilYayasan();
 						Sekolah sekolah = tbmuser.ambilSekolah();

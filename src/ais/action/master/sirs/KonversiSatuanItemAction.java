@@ -34,6 +34,13 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.UIUtil;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD (berbasis {@link GenericCrudAction}) untuk data master <b>Konversi Satuan Item</b>
+ * modul SIRS: menyimpan faktor konversi ({@code nilaiPersamaan}) antara dua satuan
+ * ({@code satuanDari} → {@code satuanMenjadi}) untuk satu {@link ItemMedis} tertentu, mis. 1 Box =
+ * 10 Strip. Pencarian mendukung filter tambahan berdasarkan satuan asal dan satuan tujuan selain
+ * pencarian nama item standar.
+ */
 public class KonversiSatuanItemAction extends GenericCrudAction<KonversiSatuanItem> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -51,15 +58,19 @@ public class KonversiSatuanItemAction extends GenericCrudAction<KonversiSatuanIt
 
     // ======================== Abstract implementations ========================
 
+    /** Mengembalikan kelas entitas yang dikelola layar ini: {@link KonversiSatuanItem}. */
     @Override
     protected Class<KonversiSatuanItem> getEntityClass() { return KonversiSatuanItem.class; }
 
+    /** Membuat instance {@link KonversiSatuanItem} kosong untuk form tambah data baru. */
     @Override
     protected KonversiSatuanItem createNewEntity() { return new KonversiSatuanItem(); }
 
+    /** Mengembalikan judul jendela form: {@code "Pendataan Konversi Satuan Item"}. */
     @Override
     protected String getWindowTitle() { return "Pendataan Konversi Satuan Item"; }
 
+    /** Inisialisasi standar layar ZK, ditambah pengisian combobox filter pencarian satuan dari dan satuan menjadi. */
     @Override
     public void doAfterCompose(Component comp) throws Exception {
         super.doAfterCompose(comp);
@@ -67,6 +78,7 @@ public class KonversiSatuanItemAction extends GenericCrudAction<KonversiSatuanIt
         Common.insertCombo(searchsatuanMenjadi, "nama", SatuanItem.class);
     }
 
+    /** Membangun kriteria pencarian konversi satuan, diurutkan berdasarkan nama item, disaring berdasarkan kecocokan nama item dan/atau satuan dari/menjadi sesuai filter aktif. */
     @Override
     public Criteria initCriteria(boolean order) {
         SatuanItem dari = searchsatuanDari == null || searchsatuanDari.getSelectedItem() == null
@@ -86,6 +98,7 @@ public class KonversiSatuanItemAction extends GenericCrudAction<KonversiSatuanIt
         return criteria;
     }
 
+    /** Membuat perender baris grid pencarian konversi satuan: {@link KonversiSatuanItemRenderer}. */
     @Override
     protected MyRowRenderer createRenderer() {
         return new KonversiSatuanItemRenderer();
@@ -93,6 +106,7 @@ public class KonversiSatuanItemAction extends GenericCrudAction<KonversiSatuanIt
 
     // ======================== Form content ========================
 
+    /** Membangun tata letak form tambah/edit konversi satuan (item, satuan dari, satuan menjadi, nilai persamaan, keterangan) dengan toolbar simpan/batal di dalam {@code window}. */
     @Override
     protected void buildFormContent(MyWindow window, final KonversiSatuanItem konversiSatuanItem) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -186,6 +200,13 @@ public class KonversiSatuanItemAction extends GenericCrudAction<KonversiSatuanIt
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi (item, satuan dari, satuan menjadi, dan nilai persamaan wajib diisi) dan
+     * menyimpan/memperbarui data konversi satuan dari isian form saat ini.
+     *
+     * @param event event pemicu tombol simpan
+     * @return {@code true} bila validasi lolos dan data tersimpan; {@code false} bila validasi gagal
+     */
     public boolean onSave(Event event) throws Exception {
         if (item.getAttribute("item") == null) {
             MyMessageboxConfig.show("Mohon maaf, Item Medis wajib dipilih terlebih dahulu. Langkah yang dapat dilakukan: (1) gunakan kolom pencarian untuk memilih Item Medis; (2) pastikan pilihan tidak dikosongkan; (3) simpan kembali data setelah Item Medis ditentukan.", "Peringatan",
@@ -224,6 +245,7 @@ public class KonversiSatuanItemAction extends GenericCrudAction<KonversiSatuanIt
 
     // ======================== Renderer ========================
 
+    /** Perender baris grid pencarian konversi satuan: menampilkan nama item (dengan tautan riwayat revisi), satuan dari/menjadi, nilai persamaan, keterangan, dan tombol ubah/hapus. */
     class KonversiSatuanItemRenderer extends MyRowRenderer {
 
         @Override

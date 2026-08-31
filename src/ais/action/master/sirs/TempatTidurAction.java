@@ -44,6 +44,16 @@ import ais.ui.util.UIUtil;
 import ais.ui.util.ZkCompat;
 import ais.action.master.helper.FilterLanjutHelper;
 
+/**
+ * Aksi CRUD (via kerangka {@link GenericCrudAction}) untuk kelola master data
+ * {@link TempatTidur} (tempat tidur rawat inap) pada modul SIRS: daftar dengan filter berlapis
+ * (kelas perawatan, ruang, kamar bertingkat mengikuti ruang+kelas yang dipilih, status tempat
+ * tidur, status terisi/kosong) plus pencarian nama; formulir tambah/ubah dengan kombo kamar yang
+ * ikut menyaring sesuai ruang+kelas perawatan terpilih. Setiap baris tabel menampilkan status
+ * terkini tempat tidur ({@link TempatTidur#updateTerisi()} dipanggil saat render) dan, bila
+ * sedang terisi, ringkasan pasien serta nomor/waktu registrasi dari {@link Pendaftaran} terbaru
+ * yang menempatinya.
+ */
 public class TempatTidurAction extends GenericCrudAction<TempatTidur> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -66,15 +76,19 @@ public class TempatTidurAction extends GenericCrudAction<TempatTidur> {
 
     // ======================== Abstract implementations ========================
 
+    /** @return {@link TempatTidur}, kelas entitas yang dikelola aksi ini. */
     @Override
     protected Class<TempatTidur> getEntityClass() { return TempatTidur.class; }
 
+    /** @return instans {@link TempatTidur} kosong untuk formulir tambah data baru. */
     @Override
     protected TempatTidur createNewEntity() { return new TempatTidur(); }
 
+    /** @return judul jendela daftar/aksi ini. */
     @Override
     protected String getWindowTitle() { return "Pendataan Tempat Tidur"; }
 
+    /** Mengisi kombo filter pencarian (kelas, ruang, status tempat tidur, terisi/kosong) dan menyiapkan filter kamar bertingkat yang menyaring ulang sesuai ruang+kelas terpilih. */
     @Override
     public void doAfterCompose(Component comp) throws Exception {
         super.doAfterCompose(comp);
@@ -110,6 +124,7 @@ public class TempatTidurAction extends GenericCrudAction<TempatTidur> {
             FilterLanjutHelper.setup(comp);
 }
 
+    /** @return kriteria pencarian {@link TempatTidur} berdasarkan status tempat tidur, ruang, kelas perawatan, kamar, status terisi, dan nama (ILIKE), diurutkan menurut nama bila {@code order} true. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -136,6 +151,7 @@ public class TempatTidurAction extends GenericCrudAction<TempatTidur> {
         return criteria;
     }
 
+    /** @return renderer baris tabel {@link TempatTidurRenderer} untuk daftar tempat tidur. */
     @Override
     protected MyRowRenderer createRenderer() {
         return new TempatTidurRenderer();
@@ -143,6 +159,7 @@ public class TempatTidurAction extends GenericCrudAction<TempatTidur> {
 
     // ======================== Form content ========================
 
+    /** Menyusun formulir tambah/ubah (nama, kelas, ruang, kombo kamar yang menyaring ulang sesuai ruang+kelas, status, checkbox terisi, keterangan) beserta tombol Batal/Simpan pada jendela modal. */
     @Override
     protected void buildFormContent(MyWindow window, final TempatTidur tempatTidur) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -258,6 +275,13 @@ public class TempatTidurAction extends GenericCrudAction<TempatTidur> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi nama dan status wajib diisi/dipilih, lalu menyimpan (buat baru atau perbarui)
+     * entitas {@link TempatTidur}.
+     *
+     * @param event event pemicu (tidak dipakai)
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal (jendela tetap terbuka)
+     */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Nama Tempat Tidur wajib diisi terlebih dahulu. Langkah yang dapat dilakukan: (1) isikan Nama Tempat Tidur pada kolom yang tersedia; (2) pastikan kolom tidak dikosongkan; (3) simpan kembali data setelah kolom terisi.", "Peringatan",
@@ -289,6 +313,7 @@ public class TempatTidurAction extends GenericCrudAction<TempatTidur> {
 
     // ======================== Renderer ========================
 
+    /** Renderer baris tabel: nama (via {@link RevisiHelper}), kelas/ruang/kamar, status terisi (menyegarkan status via {@link TempatTidur#updateTerisi()}), ringkasan pasien/registrasi bila terisi, status, keterangan, dan tombol ubah/hapus. */
     @SuppressWarnings("unchecked")
     class TempatTidurRenderer extends MyRowRenderer {
 

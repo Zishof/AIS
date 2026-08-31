@@ -25,6 +25,14 @@ import ais.database.model.lkp.RealisasiKerjaPegawai;
 import ais.ui.util.MyLabelBold;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Listener ZK yang membangun, memvalidasi, dan menyimpan form parameter tambahan dinamis pada
+ * form {@link RealisasiKerjaPegawai} (realisasi kerja pegawai LKP). Parameter tambahan dan
+ * kelompoknya ditentukan oleh konfigurasi {@link KegiatanTugasJabatan} terkait — form ini
+ * membangun baris input secara dinamis sesuai {@link KelompokParameterTambahanKegiatan} dan
+ * {@link ParameterTambahan} yang aktif untuk kegiatan tersebut, termasuk validasi wajib isi dan
+ * wajib lampiran per parameter.
+ */
 public class ParameterTambahanKegiatanListener implements EventListener {
 
 	private List<Row> parameterRows;
@@ -32,6 +40,7 @@ public class ParameterTambahanKegiatanListener implements EventListener {
 	private RealisasiKerjaPegawai realisasiKerjaPegawai;
 	private Map<String, LampiranLain> lampiranLains;
 
+	/** Menyiapkan listener untuk satu {@code realisasiKerjaPegawai}, memakai {@code parameterRows} sebagai daftar baris dinamis yang dikelola dan {@code lampiranLains} sebagai cache lampiran yang sudah diunggah. */
 	public ParameterTambahanKegiatanListener(RealisasiKerjaPegawai realisasiKerjaPegawai, List<Row> parameterRows,
 			Map<String, LampiranLain> lampiranLains, Rows rows) {
 		this.parameterRows = parameterRows;
@@ -40,6 +49,15 @@ public class ParameterTambahanKegiatanListener implements EventListener {
 		this.lampiranLains = lampiranLains;
 	}
 
+	/**
+	 * Memvalidasi nilai parameter tambahan yang sudah diisi pada form untuk tiap baris di
+	 * {@link #parameterRows}: menolak (menampilkan pesan dan mengembalikan {@code false}) bila ada
+	 * parameter wajib isi yang masih kosong, atau parameter yang mewajibkan lampiran tapi belum
+	 * ada lampiran diunggah (dicek dari {@link #lampiranLains} untuk realisasi baru, atau dari
+	 * {@link LampiranLain#ambil} untuk realisasi yang sudah tersimpan).
+	 *
+	 * @return {@code true} bila seluruh parameter wajib sudah terpenuhi
+	 */
 	public boolean validate(RealisasiKerjaPegawai realisasiKerjaPegawai) throws Exception {
 
 		for (Row row : parameterRows) {
@@ -111,10 +129,12 @@ public class ParameterTambahanKegiatanListener implements EventListener {
 		return true;
 	}
 
+	/** Menyalin nilai parameter tambahan yang sudah diisi pada {@link #parameterRows} ke {@code realisasiKerjaPegawai}, dipanggil saat form disimpan. */
 	public void onSave(RealisasiKerjaPegawai realisasiKerjaPegawai) {
 		realisasiKerjaPegawai.populateParameterTambahan(parameterRows);
 	}
 
+	/** Memeriksa apakah kegiatan tugas jabatan terkait {@link #realisasiKerjaPegawai} punya minimal satu kelompok parameter tambahan aktif dengan minimal satu parameter aktif — dipakai untuk menentukan apakah blok form parameter tambahan perlu ditampilkan. */
 	public boolean check() {
 		if (realisasiKerjaPegawai == null) {
 			return false;
@@ -140,6 +160,14 @@ public class ParameterTambahanKegiatanListener implements EventListener {
 		return c != 0;
 	}
 
+	/**
+	 * Membangun ulang seluruh baris form parameter tambahan: menghapus baris lama, lalu untuk
+	 * tiap {@link KelompokParameterTambahanKegiatan} aktif pada kegiatan tugas jabatan terkait,
+	 * menambahkan label kelompok dan satu baris input per {@link ParameterTambahan} aktif
+	 * (dibangun lewat {@link ParameterTambahan#initComponent}), mengisi nilai yang sudah tersimpan
+	 * sebelumnya (bila ada) dari {@code parameterTambahanInds}. Dipanggil ulang setiap kali
+	 * kegiatan/target kerja yang dipilih berubah (sebagai {@link EventListener}).
+	 */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	@Override
 	public void onEvent(Event event) throws Exception {

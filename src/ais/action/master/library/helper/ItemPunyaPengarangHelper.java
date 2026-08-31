@@ -29,6 +29,16 @@ import ais.database.model.library.Item;
 import ais.database.model.library.ItemPunyaPengarang;
 import ais.database.model.library.Pengarang;
 
+/**
+ * Helper UI pengelola relasi item perpustakaan dengan pengarangnya ({@link ItemPunyaPengarang}),
+ * ditampilkan sebagai grid di dalam layar detail {@link Item}. Menyediakan dua cara menambah
+ * pengarang: memilih dari pengarang yang sudah ada lewat picker banyak-pilih
+ * ({@code AmbilDataPengarangBanyak}), atau membuat pengarang baru langsung lewat
+ * {@link PengarangAction#onAddExternal}. Setiap penambahan/penghapusan baris langsung disimpan ke
+ * database bila {@code item} sudah persisten (punya id); bila belum (item baru belum disimpan),
+ * baris hanya ditambahkan ke grid tanpa menyentuh database sampai item induk disimpan. Visibilitas
+ * tombol tambah/hapus mengikuti hak akses pengguna saat ini ({@link CommonPrivilages}).
+ */
 public class ItemPunyaPengarangHelper {
 
 	private MyGrid gridPengarang;
@@ -36,6 +46,7 @@ public class ItemPunyaPengarangHelper {
 	// private boolean edit = false;
 	private boolean delete = false;
 
+	/** Membuat helper untuk {@code gridPengarang} dan menentukan visibilitas tombol tambah/hapus dari hak akses pengguna saat ini. */
 	public ItemPunyaPengarangHelper(MyGrid gridPengarang) {
 		this.gridPengarang = gridPengarang;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -43,6 +54,16 @@ public class ItemPunyaPengarangHelper {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun tata letak lengkap panel pengarang untuk {@code item}: toolbar berisi tombol
+	 * "Ambil Nama Pengarang" (pilih dari pengarang yang sudah ada, mengecualikan yang sudah
+	 * terdaftar pada grid) dan "Tambah Nama Pengarang Baru" (buat pengarang baru), diikuti grid
+	 * kolom Pengarang/Status/Hapus yang langsung dimuat dengan data relasi tersimpan
+	 * ({@link #loadDataDetail}).
+	 *
+	 * @param item item perpustakaan yang relasi pengarangnya dikelola
+	 * @return {@link Borderlayout} siap ditempelkan ke jendela detail item
+	 */
 	public Borderlayout initDetail(final Item item) {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -160,6 +181,7 @@ public class ItemPunyaPengarangHelper {
 		return borderlayout;
 	}
 
+	/** Memuat seluruh {@link ItemPunyaPengarang} tersimpan milik {@code item} (kosong bila item belum persisten) dan merender masing-masing sebagai baris grid. */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final Item item) {
 
@@ -178,6 +200,7 @@ public class ItemPunyaPengarangHelper {
 		}
 	}
 
+	/** Mengisi satu baris grid dengan nama pengarang, status aktif/tidak aktif, dan tombol hapus (dengan dialog konfirmasi) yang menghapus baris dari grid serta record relasi dari database bila sudah tersimpan. */
 	public void initRow(final Row row, final ItemPunyaPengarang itemPunyaPengarang) {
 		row.setValign("top");row.setAttribute("itemPunyaPengarang", itemPunyaPengarang);
 

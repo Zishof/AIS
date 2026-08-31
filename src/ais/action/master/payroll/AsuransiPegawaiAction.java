@@ -47,6 +47,26 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Layar CRUD master data Asuransi Pegawai pada modul payroll, diimplementasikan langsung di atas
+ * {@link GenericAutowireComposer} (pola ZK "manual" yang lebih tua, berbeda dari kebanyakan
+ * layar master sejenis yang memakai {@link ais.action.master.generic.GenericCrudAction}) sambil
+ * mengimplementasikan kontrak {@link DataCriteria}, {@link DataSearchDefault}, dan
+ * {@link DataInitDefault} agar tetap kompatibel dengan komponen umum aplikasi (mis. cetak/unggah
+ * data, paging). Setiap asuransi memiliki kode, nama, jenis cakupan ({@code
+ * JENIS_KHUSUS_UNTUK_PEGAWAI}/{@code JENIS_KHUSUS_UNTUK_KELUARGA}/{@code
+ * JENIS_UNTUK_KEDUANYA}), dan tarif.
+ *
+ * <p>
+ * Alur inisialisasi: {@link #doBeforeCompose} memaksa pemeriksaan keamanan halaman; {@link
+ * #doAfterCompose(Component)} menghitung hak akses, memuat data awal, memasang paging, dan
+ * menambahkan tombol cetak/unggah ke toolbar. Pencarian mendukung filter status aktif dan
+ * kecocokan sebagian nama ({@link #initCriteria(boolean)}); form tambah/ubah dibangun manual
+ * lewat {@link #init(AsuransiPegawai)} (dipicu {@link #onAdd(Event)} atau
+ * {@link #init(GeneralValueObject)}) dan disimpan lewat {@link #onSave(Event)} setelah validasi
+ * nama wajib isi dan tidak duplikat ({@link #checkNamaAsuransiPegawai()}).
+ * </p>
+ */
 public class AsuransiPegawaiAction extends GenericAutowireComposer
 		implements DataCriteria, DataSearchDefault, DataInitDefault {
 
@@ -70,6 +90,7 @@ public class AsuransiPegawaiAction extends GenericAutowireComposer
 	private Textbox kode;
 	private MyDoublebox tarif;
 
+	/** Memaksa pemeriksaan keamanan halaman ({@code Common#doCheckSecurity}) sebelum komponen ZUL dikomposisi. */
 	@Override
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page,
 			org.zkoss.zk.ui.Component parent, org.zkoss.zk.ui.metainfo.ComponentInfo compInfo) {
@@ -77,6 +98,7 @@ public class AsuransiPegawaiAction extends GenericAutowireComposer
 		return super.doBeforeCompose(page, parent, compInfo);
 	}
 
+	/** Menghitung hak edit/hapus/tambah pengguna, memuat data awal, memasang paging, dan menambahkan tombol cetak/unggah data massal ke toolbar. */
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
 		Common.initLaguage();
@@ -106,6 +128,7 @@ public class AsuransiPegawaiAction extends GenericAutowireComposer
 		Common.appendKeToolbar(upload, add, comp);
 	}
 
+	/** Perenderan satu baris tabel asuransi pegawai: kode, nama (dengan tautan riwayat revisi), label jenis cakupan yang mudah dibaca, tarif, keterangan, checkbox status aktif, dan tombol edit/hapus. */
 	class AsuransiPegawaiRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -148,12 +171,14 @@ public class AsuransiPegawaiAction extends GenericAutowireComposer
 
 	}
 
+	/** Membuka dialog tambah dengan entitas {@link AsuransiPegawai} baru (kosong). */
 	public void onAdd(Event event) throws Exception {
 		init(new AsuransiPegawai());
 		addWindow.setVisible(true);
 		addWindow.onModal();
 	}
 
+	/** Membuka dialog ubah untuk entitas {@code obj} yang diberikan (dipanggil dari tombol edit baris tabel). */
 	@Override
 	public void init(GeneralValueObject obj) throws Exception {
 		asuransiPegawai = (AsuransiPegawai) obj;
@@ -162,6 +187,7 @@ public class AsuransiPegawaiAction extends GenericAutowireComposer
 		addWindow.onModal();
 	}
 
+	/** Membangun form tambah/ubah (kode, nama, jenis cakupan, keterangan, tarif) beserta toolbar Batal/Simpan pada {@link #addWindow}, dengan judul dialog mengikuti mode tambah/ubah. */
 	private void init(AsuransiPegawai asuransiPegawai) {
 		this.asuransiPegawai = asuransiPegawai;
 		addWindow.setTitle(asuransiPegawai.getId() == null ? "Tambah Asuransi Pegawai" : "Ubah Asuransi Pegawai");
@@ -275,6 +301,14 @@ public class AsuransiPegawaiAction extends GenericAutowireComposer
 
 	}
 
+	/**
+	 * Memvalidasi (nama wajib isi, nama tidak duplikat) dan menyimpan (create-or-update) entitas
+	 * asuransi pegawai dari isian form, termasuk jenis cakupan (fallback ke
+	 * {@code JENIS_UNTUK_KEDUANYA} bila combobox jenis belum dipilih).
+	 *
+	 * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal (pesan
+	 *         peringatan sudah ditampilkan ke pengguna)
+	 */
 	public boolean onSave(Event event) throws Exception {
 		if (nama.getValue().trim().equals("")) {
 			MyMessageboxConfig.show("Mohon maaf, kolom Nama Asuransi Pegawai belum diisi. Langkah yang dapat dilakukan: (1) isikan Nama Asuransi Pegawai pada kolom yang tersedia; (2) pastikan kolom tidak dikosongkan; (3) simpan kembali data ini. Jika masih mengalami kendala, hubungi Administrator.", "Peringatan", MyMessageboxConfig.OK,
@@ -312,6 +346,7 @@ public class AsuransiPegawaiAction extends GenericAutowireComposer
 		return true;
 	}
 
+	/** Membangun kriteria pencarian daftar asuransi pegawai, difilter berdasarkan status aktif dan kecocokan sebagian nama. */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(AsuransiPegawai.class)
@@ -326,6 +361,7 @@ public class AsuransiPegawaiAction extends GenericAutowireComposer
 		return criteria;
 	}
 
+	/** Memuat ulang halaman pertama/berjalan daftar asuransi pegawai sesuai kriteria pencarian saat ini, memperbarui paging dan grid. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 		Common.initPaging(initCriteria(false), paging);
@@ -338,6 +374,7 @@ public class AsuransiPegawaiAction extends GenericAutowireComposer
 
 	}
 
+	/** Mengecek apakah nama pada form sudah dipakai asuransi pegawai lain (di luar entitas yang sedang diedit). */
 	public Boolean checkNamaAsuransiPegawai() {
 		Integer kotaCount = null;
 		Session session = HibernateUtil.currentSession();

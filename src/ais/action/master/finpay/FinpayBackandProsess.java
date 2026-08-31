@@ -26,8 +26,38 @@ import ais.database.model.Mahasiswa;
 import ais.database.model.finpay.FinpayRequest;
 import ais.database.model.finpay.FinpayResponse;
 
+/**
+ * Job berjadwal ({@link TimerTask}) dan pemroses permintaan pembayaran gateway Finpay: menyusun
+ * dan mengirim permintaan pembayaran (invoice registrasi PMB atau tagihan mahasiswa) ke endpoint
+ * API Finpay, menyimpan respons sebagai {@link FinpayResponse}, dan meneruskannya ke
+ * {@link FinPayResponse#prosesResponse} bila pembayaran sukses (kode hasil {@code "00"}). Payload
+ * permintaan (tanda tangan/signature, kredensial merchant) disusun oleh
+ * {@link FinpayCommon#generateFinpayPostdata} — lihat kelas tersebut untuk detail kredensial yang
+ * dipakai; kelas ini sendiri tidak menyimpan kredensial tertanam, hanya membaca URL endpoint
+ * gateway dari konfigurasi {@code new_finpay_gateway_url} (default menunjuk ke lingkungan sandbox
+ * Finpay) dan menyusun data pelanggan (nama/email/no. HP, dengan nilai dummy seperti
+ * {@code "081300000"} sebagai fallback bila data pelanggan kosong — bukan kredensial, murni data
+ * placeholder pengisi field wajib API).
+ * <p>
+ * <b>Catatan keamanan</b>: permintaan HTTP dikirim lewat {@link HttpURLConnection} biasa tanpa
+ * konfigurasi TLS eksplisit terlihat di kelas ini (bergantung pada default JVM); pemeriksaan lebih
+ * lanjut terhadap {@link FinpayCommon} disarankan bila diperlukan audit kredensial merchant.
+ * </p>
+ */
 public class FinpayBackandProsess extends TimerTask {
 
+	/**
+	 * Memeriksa/memproses satu {@link FinpayRequest}: bila sudah ada {@link FinpayResponse}
+	 * tersimpan dengan hasil sukses, langsung memakainya (idempoten, tidak mengirim ulang ke
+	 * gateway); bila belum, menyusun data pelanggan dan invoice dari
+	 * {@link Mahasiswa}/{@link BiodataCalonMahasiswa} terkait, mengirim permintaan pembayaran ke
+	 * endpoint Finpay via HTTP POST, lalu menyimpan respons dan memperbarui status
+	 * {@code finpayRequest}. Bila kode hasil {@code "00"} (sukses), meneruskan ke
+	 * {@link FinPayResponse#prosesResponse} untuk memproses efek bisnisnya (mis. pelunasan
+	 * tagihan).
+	 *
+	 * @return JSON respons Finpay yang sudah tersimpan sebelumnya (jalur idempoten), atau {@code null} pada jalur pengiriman baru (respons baru disimpan langsung ke entitas, tidak dikembalikan)
+	 */
 	public static JSONObject check(FinpayRequest finpayRequest, Session session) {
 		JSONObject finpay = null;
 		FinpayResponse finpayResponse = (FinpayResponse) session.createCriteria(FinpayResponse.class)
@@ -201,6 +231,13 @@ public class FinpayBackandProsess extends TimerTask {
 		return finpay;
 	}
 
+	/**
+	 * Titik masuk job berjadwal: bila konfigurasi {@code aktifkan_pembayaran_via_finpay} aktif,
+	 * mencari {@link FinpayRequest} 7 hari terakhir yang belum punya respons dan berstatus kode
+	 * {@code 0}/{@code 1} (belum final), lalu memprosesnya satu per satu lewat {@link #check}.
+	 * Berfungsi sebagai mekanisme polling/reconciliation untuk permintaan pembayaran yang belum
+	 * mendapat respons final dari gateway.
+	 */
 	@Override
 	public void run() {
 		try {

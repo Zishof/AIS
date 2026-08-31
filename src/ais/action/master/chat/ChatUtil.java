@@ -17,8 +17,29 @@ import ais.database.model.Mahasiswa;
 import ais.database.model.Pesan;
 import ais.database.model.Tbmuser;
 
+/**
+ * Utilitas UI ZK untuk merender satu gelembung pesan (chat bubble) pada papan percakapan
+ * ({@code msgBoard}) modul chat: menampilkan avatar pengirim, isi pesan, serta nama dan waktu
+ * kirim.
+ */
 public class ChatUtil {
 
+	/**
+	 * Menambahkan satu {@link Pesan} sebagai baris baru pada {@code msgBoard} (komponen ZK), lalu
+	 * menggulirkan tampilan agar baris baru tersebut terlihat. Deduplikasi dilakukan lewat
+	 * atribut komponen {@code "pesanIds"} (set id pesan yang sudah pernah dirender pada komponen
+	 * ini) sehingga pesan yang sama tidak dirender dua kali walau method dipanggil berulang (mis.
+	 * dari polling/event berkala). Avatar diambil berjenjang: dari {@code mahasiswa} bila diisi,
+	 * lalu dari relasi dosen/pegawai/calon mahasiswa pada {@code pengirim}, atau dari
+	 * {@code pengirim} itu sendiri sebagai fallback terakhir.
+	 *
+	 * @param pesan     pesan yang akan ditampilkan
+	 * @param msgBoard  komponen ZK tempat gelembung pesan ditambahkan sebagai anak
+	 * @param pengirim  user pengirim; bila {@code mahasiswa} diisi, relasi mahasiswanya disetel ke objek ini
+	 * @param mahasiswa data mahasiswa pengirim bila pengirim adalah mahasiswa, boleh {@code null}
+	 * @param waktu     waktu pengiriman pesan, ditampilkan dalam format jam:menit AM/PM
+	 * @param kirim     tidak dipakai pada implementasi saat ini
+	 */
 	public static void createPesanBox(Pesan pesan, Component msgBoard, Tbmuser pengirim, Mahasiswa mahasiswa,
 			Date waktu, boolean kirim) throws Exception {
 

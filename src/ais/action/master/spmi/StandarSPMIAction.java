@@ -26,6 +26,14 @@ import ais.ui.util.MyCheckboxConfig;
 import ais.ui.util.MyIntbox;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Layar CRUD data master "Standar SPMI/Referensi Eksternal" (Sistem Penjaminan Mutu Internal):
+ * mendata standar mutu beserta jenisnya ({@link JenisSPMI}) dan nomor urut tampilnya. Dibangun di
+ * atas {@link BaseSPMIAction} (menyediakan pola form/pencarian dasar SPMI bersama); kelas ini
+ * menambahkan field spesifik (nomor urut, nama, jenis SPMI, keterangan), filter pencarian jenis
+ * SPMI, validasi field wajib, serta baris daftar dengan checkbox aktif/tidak aktif yang langsung
+ * tersimpan saat diubah (di luar alur simpan form) dan tombol edit/hapus.
+ */
 public class StandarSPMIAction extends BaseSPMIAction {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -46,6 +54,7 @@ public class StandarSPMIAction extends BaseSPMIAction {
     // ZK lifecycle
     // =====================================================================
 
+    /** Menginisialisasi bahasa, hak akses, dropdown filter jenis SPMI, pemuatan data awal, paging, dan tombol cetak/unggah setelah komponen ZK dirakit. */
     @Override
     public void doAfterCompose(Component comp) throws Exception {
         super.doAfterCompose(comp);
@@ -65,6 +74,7 @@ public class StandarSPMIAction extends BaseSPMIAction {
     // Row renderer
     // =====================================================================
 
+    /** Merender satu baris daftar Standar SPMI: nomor urut, jenis SPMI, label revisi+nama, keterangan, checkbox aktif (langsung tersimpan saat diubah), dan tombol edit/hapus. */
     class StandarSPMIRenderer extends ais.ui.util.MyRowRenderer {
         @Override
         public void render(final Row row, Object obj) throws Exception {
@@ -97,10 +107,12 @@ public class StandarSPMIAction extends BaseSPMIAction {
     // Add / Edit entry points
     // =====================================================================
 
+    /** Membuka form tambah dengan entitas {@link StandarSPMI} baru (kosong). */
     public void onAdd(Event event) throws Exception {
         init(new StandarSPMI());
     }
 
+    /** Menyiapkan form tambah/edit untuk entitas {@code obj} dan membuka jendela form. */
     @Override
     public void init(GeneralValueObject obj) throws Exception {
         standarSPMI = (StandarSPMI) obj;
@@ -112,6 +124,7 @@ public class StandarSPMIAction extends BaseSPMIAction {
     // Form builder
     // =====================================================================
 
+    /** Membangun baris-baris form tambah/edit Standar SPMI (nomor urut, nama, jenis SPMI, keterangan) dan mendaftarkan handler simpan. */
     private void buildForm(final StandarSPMI item) {
         FormHolder fh = prepareFormWindow("Pendataan Standar SPMI/Referensi Eksternal");
         Rows rows = fh.rows;
@@ -154,6 +167,7 @@ public class StandarSPMIAction extends BaseSPMIAction {
     // Save
     // =====================================================================
 
+    /** Memvalidasi (nomor urut, nama, dan jenis SPMI wajib diisi) lalu menyimpan/memperbarui entitas {@link StandarSPMI} dari nilai form. @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal. */
     public boolean onSave(Event event) throws Exception {
         if (nomorUrut.getValue() == null) {
             MyMessageboxConfig.show("Mohon maaf, nomor urut Standar SPMI belum diisi. "
@@ -198,6 +212,7 @@ public class StandarSPMIAction extends BaseSPMIAction {
     // Criteria & search
     // =====================================================================
 
+    /** Membangun kriteria pencarian {@link StandarSPMI} berdasarkan filter status aktif, nama (ILIKE sebagian), dan jenis SPMI, diurutkan menurut nomor urut bila {@code order} true. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -215,6 +230,7 @@ public class StandarSPMIAction extends BaseSPMIAction {
         return criteria;
     }
 
+    /** Menjalankan pencarian dengan kriteria saat ini, memuat satu halaman hasil sesuai paging aktif, dan menyegarkan grid daftar. */
     @SuppressWarnings("unchecked")
     @Override
     public void onSearchDefault(Event event) {

@@ -38,6 +38,21 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyWindow;
 
 import ais.ui.util.DashboardModernHtmlUtil;
+/**
+ * Jendela dasbor "Statistik Kunjungan Mahasiswa" (perpustakaan): merangkum jumlah kunjungan
+ * mahasiswa ke {@link Perpustakaan} per tanggal, difilter fakultas/prodi dan rentang tanggal
+ * (default sebulan terakhir). Seluruh visualisasi (kartu ringkas, tren harian, komposisi per
+ * perpustakaan, radar gauge) dirender sebagai HTML/CSS murni tanpa library chart eksternal, lewat
+ * {@link #buildHtml(VisualData)} dan turunannya.
+ *
+ * <p>
+ * Data diambil lewat satu query SQL native ({@link #buildSql}) yang menghitung jumlah baris
+ * {@code library.kunjungan_anggota} per tanggal per perpustakaan, dijoin ke mahasiswa/jurusan/fakultas
+ * untuk penerapan filter. Bisa dipakai sebagai jendela standalone atau ditanam sebagai widget dasbor
+ * dengan ukuran tetap ({@link #DashboardStatistikKunjunganMahasiswa(int, int)}, menandai
+ * {@code tampilRinci}).
+ * </p>
+ */
 public class DashboardStatistikKunjunganMahasiswa extends MyWindow {
 
 	private static final long serialVersionUID = -28636873241676666L;
@@ -52,6 +67,7 @@ public class DashboardStatistikKunjunganMahasiswa extends MyWindow {
 	private MyDatebox sampai = new MyDatebox();
 	private boolean tampilRinci = false;
 
+	/** Konstruktor jendela standalone: memuat filter fakultas/jurusan lalu membangun layar dan grafik awal. */
 	public DashboardStatistikKunjunganMahasiswa() throws Exception {
 		super();
 		initFakultas();
@@ -59,12 +75,14 @@ public class DashboardStatistikKunjunganMahasiswa extends MyWindow {
 		initChart();
 	}
 
+	/** Konstruktor mode widget dasbor berukuran tetap (menandai {@link #tampilRinci}). */
 	public DashboardStatistikKunjunganMahasiswa(int width, int height) throws Exception {
 		super();
 		tampilRinci = true;
 		reinit(width, height);
 	}
 
+	/** Menyimpan ukuran widget lalu membangun ulang seluruh layar dan grafik dari awal. */
 	public void reinit(int width, int height) throws Exception {
 		this.width = width;
 		this.height = height;
@@ -73,6 +91,7 @@ public class DashboardStatistikKunjunganMahasiswa extends MyWindow {
 		initChart();
 	}
 
+	/** Konstruktor dengan judul/border/closable eksplisit. */
 	public DashboardStatistikKunjunganMahasiswa(String title, String border, boolean closable) throws Exception {
 		super(title, border, closable);
 		initFakultas();
@@ -80,11 +99,13 @@ public class DashboardStatistikKunjunganMahasiswa extends MyWindow {
 		initChart();
 	}
 
+	/** Mengisi combo filter fakultas dan prodi (cascading, plus opsi "Semua"). */
 	private void initFakultas() {
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 	}
 
 	@SuppressWarnings("deprecation")
+	/** Membangun kerangka dasbor responsif (panel saringan berisi filter fakultas/prodi/rentang tanggal + host konten grafik) lewat {@link ais.ui.util.DasborResponsifHelper}; setiap perubahan filter memicu {@link #initChart()}. */
 	private void init() {
 		DashboardGridExportHelper.pasang(this, "Statistik Kunjungan Mahasiswa");
 		setHeight("100%");
@@ -159,6 +180,7 @@ public class DashboardStatistikKunjunganMahasiswa extends MyWindow {
 	}
 
 	@SuppressWarnings({ "unchecked", "deprecation" })
+	/** Menjalankan query {@link #buildSql} untuk rentang tanggal dan filter fakultas/jurusan saat ini, lalu merangkum hasilnya ke {@link VisualData} (per tanggal x perpustakaan, total per perpustakaan, total keseluruhan, dan nilai maksimum untuk skala grafik). */
 	private VisualData loadData() {
 		VisualData data = new VisualData();
 		String dateMulai = mulai.getValue() == null ? Common.databaseDateFormat.get().format(ais.ui.util.WaktuUtil.getDate())
@@ -206,6 +228,7 @@ public class DashboardStatistikKunjunganMahasiswa extends MyWindow {
 		return data;
 	}
 
+	/** Menyusun SQL native agregat jumlah kunjungan per tanggal/perpustakaan dari {@code library.kunjungan_anggota} (dijoin ke anggota-mahasiswa-jurusan-fakultas), dibatasi rentang tanggal dan opsional id fakultas/jurusan (id numerik hasil pilihan combo, bukan input bebas pengguna). */
 	private String buildSql(String dateMulai, String dateSelesai, Fakultas fakultas, Jurusan jurusan) {
 		StringBuilder sql = new StringBuilder();
 		sql.append("select date(a.tanggal_dirubah) as tanggal, coalesce(d.nama,'Tanpa Perpustakaan') as perpustakaan, count(*) as qty ");
@@ -223,12 +246,14 @@ public class DashboardStatistikKunjunganMahasiswa extends MyWindow {
 		return sql.toString();
 	}
 
+	/** Memuat ulang data ({@link #loadData()}) dan merender seluruh HTML dasbor ke {@link #center}. */
 	private void initChart() throws Exception {
 		Common.clear(center);
 		VisualData data = loadData();
 		center.appendChild(new Html(buildHtml(data)));
 	}
 
+	/** Menyusun seluruh markup dasbor: baris kartu ringkas (total aktivitas, jumlah tanggal, jumlah perpustakaan, tertinggi) diikuti bagian tren, komposisi, dan radar. */
 	private String buildHtml(VisualData data) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("<div style='font-family:Arial,sans-serif;padding:12px;'>");
@@ -249,6 +274,7 @@ public class DashboardStatistikKunjunganMahasiswa extends MyWindow {
 		return sb.toString();
 	}
 
+	/** Merender bagian "Tren Harian": satu blok per tanggal berisi bar horizontal per perpustakaan, panjang dinormalisasi terhadap {@code data.max}. */
 	private String buildTrend(VisualData data) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("<div style='background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;margin-bottom:12px;'>");
@@ -279,6 +305,7 @@ public class DashboardStatistikKunjunganMahasiswa extends MyWindow {
 		return sb.toString();
 	}
 
+	/** Merender bagian "Komposisi Perpustakaan": bar horizontal per perpustakaan berdasarkan proporsi terhadap total keseluruhan aktivitas. */
 	private String buildComposition(VisualData data) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("<div style='background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;margin-bottom:12px;'>");
@@ -302,6 +329,7 @@ public class DashboardStatistikKunjunganMahasiswa extends MyWindow {
 		return sb.toString();
 	}
 
+	/** Merender bagian "Radar Aktivitas": tiga gauge (persentase aktivitas relatif, sebaran jumlah perpustakaan yang muncul, dan hari aktif dinormalisasi terhadap skala 30 hari). */
 	private String buildRadar(VisualData data) {
 		int aktivitas = percent(data.total, Math.max(data.total, 1.0));
 		int persebaran = percent(data.totalPerpustakaan.size(), Math.max(data.totalPerpustakaan.size(), 1));
@@ -362,6 +390,7 @@ public class DashboardStatistikKunjunganMahasiswa extends MyWindow {
 		return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;");
 	}
 
+	/** Wadah hasil agregasi {@link #loadData()}: data per tanggal x perpustakaan, total per perpustakaan, daftar nama perpustakaan, total keseluruhan, dan nilai maksimum (untuk skala bar). */
 	private static class VisualData {
 		private TreeMap<String, Map<String, Double>> rows = new TreeMap<String, Map<String, Double>>();
 		private LinkedHashMap<String, Double> totalPerpustakaan = new LinkedHashMap<String, Double>();

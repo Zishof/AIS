@@ -6,8 +6,18 @@ import ais.action.master.sosial.helper.ZakatCalculationResult;
 import ais.action.master.sosial.helper.ZakatCalculatorService;
 import ais.database.model.sosial.KebijakanPerhitunganZakat;
 
+/**
+ * Harness uji manual berbasis kasus "golden" (dijalankan lewat {@code main}) untuk
+ * {@link ZakatCalculatorService}: memverifikasi hasil perhitungan zakat emas (di atas dan di
+ * bawah nisab), zakat penghasilan tahunan dan bulanan (dengan basis nisab tahunan), zakat fitrah
+ * berbasis jumlah jiwa, serta memastikan tarif nol ({@code rate=0}) ditolak dengan
+ * {@link IllegalStateException}. Setiap kasus yang gagal dicatat ke {@link #failures} dan dicetak,
+ * tidak langsung menghentikan eksekusi, sehingga seluruh kasus tetap dijalankan sebelum harness
+ * melaporkan kegagalan di akhir.
+ */
 public final class ZakatCalculatorGoldenSelfTest {
     private static int failures;
+    /** Menjalankan seluruh kasus uji golden perhitungan zakat; melempar {@link IllegalStateException} di akhir bila ada satu atau lebih kasus yang gagal. */
     public static void main(String[] args)throws Exception{
         ZakatCalculatorService service=new ZakatCalculatorService();
         KebijakanPerhitunganZakat gold=policy("GOLD","0.025","85","1000000","HALF_UP",2);ZakatCalculationResult at=service.calculate(gold,new JSONObject().put("grams","85"));ok(at.isReached(),"gold at nisab");eq(at.getAmount(),"2125000.00","gold amount");ok(!service.calculate(gold,new JSONObject().put("grams","84.999")).isReached(),"gold below nisab");
@@ -16,7 +26,12 @@ public final class ZakatCalculatorGoldenSelfTest {
         KebijakanPerhitunganZakat fitrah=policy("FITRAH","1","1",null,"HALF_UP",2);fitrah.setFitrahCash(new BigDecimal("45000"));eq(service.calculate(fitrah,new JSONObject().put("people",4)).getAmount(),"180000.00","fitrah");deniedZeroRate(service,gold);
         if(failures>0)throw new IllegalStateException(failures+" zakat golden failures.");System.out.println("ZakatCalculatorGoldenSelfTest OK");
     }
+    /** Membangun objek {@link KebijakanPerhitunganZakat} sementara (tidak dipersist) dari nilai mentah, untuk keperluan uji. */
     private static KebijakanPerhitunganZakat policy(String key,String rate,String quantity,String price,String rounding,int scale){KebijakanPerhitunganZakat p=new KebijakanPerhitunganZakat();p.setFormulaKey(key);p.setRate(new BigDecimal(rate));p.setNisabQuantity(new BigDecimal(quantity));if(price!=null)p.setReferencePrice(new BigDecimal(price));p.setRoundingMode(rounding);p.setResultScale(Integer.valueOf(scale));return p;}
+    /** Memverifikasi bahwa perhitungan zakat dengan tarif nol ditolak (melempar {@link IllegalStateException}) oleh {@link ZakatCalculatorService}. */
     private static void deniedZeroRate(ZakatCalculatorService s,KebijakanPerhitunganZakat p)throws Exception{p.setRate(BigDecimal.ZERO);try{s.calculate(p,new JSONObject().put("grams","85"));ok(false,"zero rate rejected");}catch(IllegalStateException expected){}}
-    private static void eq(BigDecimal a,String b,String label){ok(a.compareTo(new BigDecimal(b))==0,label+": "+a);}private static void ok(boolean yes,String label){if(!yes){System.out.println("GAGAL: "+label);failures++;}}
+    /** Menguji kesetaraan nilai {@link BigDecimal} terhadap literal {@code b} (dibandingkan secara nilai, bukan skala) dan mencatat hasilnya lewat {@link #ok}. */
+    private static void eq(BigDecimal a,String b,String label){ok(a.compareTo(new BigDecimal(b))==0,label+": "+a);}
+    /** Mencatat satu hasil kasus uji: bila {@code yes} bernilai false, mencetak label kegagalan dan menaikkan {@link #failures}. */
+    private static void ok(boolean yes,String label){if(!yes){System.out.println("GAGAL: "+label);failures++;}}
 }

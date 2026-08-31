@@ -35,17 +35,40 @@ import ais.ui.util.MyDoublebox;
 import ais.ui.util.MyIntbox;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Helper UI untuk merealisasikan nilai parameter tambahan bertipe bebas pada satu {@link Acara}
+ * modul RAB, berdasarkan template parameter yang sudah ditentukan di level {@link Workspace}
+ * ({@link WorkspacePunyaJenisParameter}). Berbeda dari {@link TugasPunyaJenisParameterHelper}
+ * (yang mengizinkan menambah parameter bebas langsung pada tugas), kelas ini hanya menampilkan
+ * satu baris per parameter yang SUDAH terdaftar pada workspace terkait — pengguna hanya mengisi
+ * nilai realisasi ({@link AcaraPunyaJenisParameter}), bukan menambah/menghapus definisi parameter.
+ * Workspace ditentukan lewat {@link WorkspaceSelecter} (item perencanaan terpilih) atau dari
+ * {@code acara.getWorkspace()} bila sudah ditetapkan sebelumnya. Sama seperti helper serupa,
+ * setiap baris menampilkan lima input nilai berbeda (satu per tipe {@link JenisParameter}) dan
+ * hanya menampilkan yang sesuai tipe data parameter tersebut.
+ */
 public class AcaraPunyaJenisParameterHelper {
 
 	private MyGrid gridParameter;
 	private boolean edit = false;
 	private WorkspaceSelecter selecter;
 
+	/** Membuat helper untuk {@code gridParameter} dan menentukan status enable input dari hak akses pengguna saat ini. */
 	public AcaraPunyaJenisParameterHelper(MyGrid gridParameter) {
 		this.gridParameter = gridParameter;
 		edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
 	}
 
+	/**
+	 * Membangun tata letak panel parameter untuk {@code acara}: grid kolom Parameter/Nilai/
+	 * Keterangan yang langsung dimuat dengan seluruh parameter template dari workspace terkait
+	 * ({@link #loadDataDetail}), diselesaikan lewat {@code selecter}.
+	 *
+	 * @param acara    acara RAB yang realisasi parameternya dikelola
+	 * @param selecter penyedia item perencanaan (workspace) terpilih saat ini
+	 * @return {@link Borderlayout} siap ditempelkan ke jendela detail acara
+	 * @throws Exception diteruskan dari kegagalan resolusi workspace/query data
+	 */
 	public Borderlayout initDetail(final Acara acara, final WorkspaceSelecter selecter) throws Exception {
 
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -78,6 +101,13 @@ public class AcaraPunyaJenisParameterHelper {
 		return borderlayout;
 	}
 
+	/**
+	 * Menentukan workspace yang berlaku (dari {@code selecter} atau {@code acara.getWorkspace()}),
+	 * lalu untuk setiap {@link WorkspacePunyaJenisParameter} template milik workspace tersebut,
+	 * mencari (atau membuat baru bila belum ada) baris realisasi {@link AcaraPunyaJenisParameter}
+	 * milik {@code acara} dan merendernya sebagai baris grid. Menampilkan peringatan dan berhenti
+	 * bila belum ada item perencanaan (workspace) yang dipilih.
+	 */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final Acara acara) throws Exception {
 		Workspace myWorkspace = (Workspace) (selecter.select() == null ? acara.getWorkspace()
@@ -120,6 +150,15 @@ public class AcaraPunyaJenisParameterHelper {
 		}
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan label nama parameter (dari template, tidak dapat diubah), lima
+	 * input nilai realisasi (teks/integer/double/tanggal/waktu — hanya yang sesuai
+	 * {@code typedata} parameter yang ditampilkan), dan field keterangan. Nilai awal input diambil
+	 * dari realisasi tersimpan bila ada, atau fallback ke nilai default template workspace.
+	 *
+	 * @param row                                     baris ZK yang akan diisi
+	 * @param realisasiWorkspacePunyaJenisParameter    entitas realisasi (baru atau tersimpan) yang direpresentasikan baris ini
+	 */
 	public void initRow(final Row row, final AcaraPunyaJenisParameter realisasiWorkspacePunyaJenisParameter) {
 		final WorkspacePunyaJenisParameter workspacePunyaJenisParameter = realisasiWorkspacePunyaJenisParameter
 				.getWorkspacePunyaJenisParameter();

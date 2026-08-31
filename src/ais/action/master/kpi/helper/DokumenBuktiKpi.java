@@ -33,17 +33,33 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Jendela modal untuk mengelola dokumen bukti pendukung satu penilaian KPI ({@link NilaiKpi}) —
+ * mis. bukti kehadiran, bukti prestasi, dan jenis dokumen lain yang dikonfigurasi lewat
+ * {@code lampiran_kpi}. Setiap dokumen disimpan sebagai {@link LampiranLain} dengan
+ * {@code ref=nilaiKpi.getId()} dan {@code jenis} berprefix {@code "Dokumen_NilaiKpi_"} diikuti
+ * nama dokumen (dipilih dari daftar konfigurasi atau diketik bebas). Jendela membangun ulang
+ * seluruh tampilannya ({@link #reload()}) setiap kali dokumen ditambah atau dihapus, memakai sesi
+ * {@link StreamingHibernateUtil} terpisah khusus operasi berorientasi lampiran/BLOB.
+ */
 public class DokumenBuktiKpi extends MyWindow {
 
 	private static final long serialVersionUID = 6452461056684904810L;
 	private NilaiKpi nilaiKpi;
 
+	/** Membuat jendela dokumen bukti untuk {@code nilaiKpi} dan langsung memuat daftar dokumen yang sudah ada. */
 	public DokumenBuktiKpi(NilaiKpi nilaiKpi) {
 		super();
 		this.nilaiKpi = nilaiKpi;
 		reload();
 	}
 
+	/**
+	 * Membangun ulang seluruh isi jendela: toolbar tambah dokumen (membuka dialog pemilihan jenis
+	 * dokumen + unggah berkas) dan daftar dokumen yang sudah tersimpan, masing-masing dengan tombol
+	 * lihat ({@link Common#display}) dan hapus (dengan konfirmasi, menghapus baris
+	 * {@link LampiranLain} lalu memanggil {@link #reload()} ulang).
+	 */
 	@SuppressWarnings({ "deprecation", "unchecked" })
 	private void reload() {
 		Common.clear(this);

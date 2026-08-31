@@ -44,6 +44,23 @@ import ais.database.model.sekolah.Sekolah;
 import ais.database.model.sekolah.Siswa;
 import ais.database.model.sekolah.Yayasan;
 
+/**
+ * Composer ZK yang menampilkan jadwal pelajaran (modul sekolah) dalam bentuk kalender bulanan
+ * (komponen {@code ZK Calendar}, {@link Calendars}/{@link SimpleCalendarModel}), difilter tahun
+ * ajaran/semester/kelas/yayasan/sekolah/ruang/guru/siswa. Setiap {@link Pertemuan} yang cocok
+ * filter dikonversi menjadi satu {@link SimpleCalendarEvent} lewat {@link #createEvent(Pertemuan)}
+ * (warna header/konten diambil dari {@code Pertemuan#warna()}, isi popup berupa info jadwal +
+ * topik + catatan pertemuan).
+ *
+ * <p>
+ * Data dimuat untuk jendela geser 7 bulan (6 bulan ke belakang sampai 1 bulan ke depan dari
+ * {@link #calendar} internal) lewat {@code CalendarJadwalPelajaranMingguIniComposer.ambilData},
+ * sehingga navigasi maju/mundur kalender ({@link #onNext}/{@link #onBack}) menggeser jendela data
+ * ini sekaligus memuat ulang model. Klik pada event kalender ({@link #onEventEdit$calendars})
+ * membuka editor pertemuan lewat {@code CalendarJadwalPelajaranMingguIniComposer.init}, dengan
+ * pengenal id pertemuan negatif sebagai penanda kasus khusus pada judul event.
+ * </p>
+ */
 public class CalendarJadwalPelajaranBulanIniComposer extends GenericForwardComposer {
 
 	protected static final long serialVersionUID = 201011240904L;
@@ -66,12 +83,14 @@ public class CalendarJadwalPelajaranBulanIniComposer extends GenericForwardCompo
 
 	private Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 
+	/** Menggeser jendela data 6 bulan ke belakang dan me-refresh model kalender, lalu memindahkan tampilan kalender ke halaman sebelumnya. */
 	public void onBack(Event event) {
 		calendar.set(Calendar.MONTH, calendar.get(Calendar.MONTH) - 6);
 		initCalendarModel();
 		calendars.previousPage();
 	}
 
+	/** Menggeser jendela data 1 bulan ke depan dan me-refresh model kalender, lalu memindahkan tampilan kalender ke halaman berikutnya. */
 	public void onNext(Event event) {
 		calendar.set(Calendar.MONTH, calendar.get(Calendar.MONTH) + 1);
 		initCalendarModel();
@@ -79,6 +98,13 @@ public class CalendarJadwalPelajaranBulanIniComposer extends GenericForwardCompo
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
+	/**
+	 * Menghasilkan laporan PDF "SKS Guru per Periode" dari data {@link #pertemuan} yang sedang
+	 * dimuat: mengelompokkan tiap pertemuan berdasarkan (guru, tanggal, jam) memakai
+	 * {@link TreeMap} berkunci gabungan (agar terurut &amp; unik), lalu menyusun satu baris laporan
+	 * per kombinasi berisi nama guru, waktu, mata pelajaran, kelas/semester, dan jumlah mahasiswa.
+	 * Rentang periode laporan ditentukan dari tanggal pertemuan pertama/terakhir yang ditemukan.
+	 */
 	public void onAgendaGuru(Event event) throws Exception {
 
 		Common.createDefaultTimer(new EventListener() {
@@ -137,6 +163,7 @@ public class CalendarJadwalPelajaranBulanIniComposer extends GenericForwardCompo
 
 	}
 
+	/** Memuat ulang model kalender ({@link #initCalendarModel}) dan memaksa render ulang komponen {@link #calendars}. */
 	public void onRefresh(Event event) {
 		Common.createDefaultTimer(new EventListener() {
 
@@ -148,6 +175,7 @@ public class CalendarJadwalPelajaranBulanIniComposer extends GenericForwardCompo
 		});
 	}
 
+	/** Menjalankan pemeriksaan keamanan standar sebelum komponen ZK di-compose. */
 	@Override
 	public ComponentInfo doBeforeCompose(Page page, Component parent, ComponentInfo compInfo) {
 		Common.doCheckSecurity();
@@ -157,6 +185,7 @@ public class CalendarJadwalPelajaranBulanIniComposer extends GenericForwardCompo
 	private Row row1;
 	private Row row2;
 
+	/** Inisialisasi layar: memasang listener refresh pada filter kelas/guru/siswa/ruang, mengisi combo semester/tahun ajaran/sekolah-yayasan-program, mengonfigurasi jam & timezone kalender dari konfigurasi, membatasi akses sesuai wewenang user, dan memuat data awal. */
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
 
@@ -308,6 +337,7 @@ public class CalendarJadwalPelajaranBulanIniComposer extends GenericForwardCompo
 
 	}
 
+	/** Membangun {@link #cm} dari {@link Pertemuan} yang cocok filter form (tahun ajaran/semester/kelas/yayasan/sekolah/ruang/guru/siswa) dalam jendela 7 bulan (6 bulan sebelum s.d. 1 bulan sesudah {@link #calendar}), mengonversi tiap pertemuan menjadi event via {@link #createEvent}, lalu menerapkan model ke {@link #calendars}. */
 	protected void initCalendarModel() {
 
 		String tahunAkademik = tahunAjaran.getSelectedItem() == null || tahunAjaran.getSelectedItem().getValue() == null
@@ -346,6 +376,14 @@ public class CalendarJadwalPelajaranBulanIniComposer extends GenericForwardCompo
 		calendars.setModel(cm);
 	}
 
+	/**
+	 * Mengonversi satu {@link Pertemuan} menjadi {@link SimpleCalendarEvent} untuk komponen
+	 * kalender: waktu mulai/selesai disusun dari tanggal pertemuan + jam mulai/selesai (di-parse
+	 * lewat {@link Common#timeFormat2}), dipastikan selesai tidak sebelum/sama dengan mulai (maju
+	 * per jam bila perlu, minimal 1 jam bila keduanya identik). Warna header/konten diambil dari
+	 * {@code Pertemuan#warna()}; judul dan isi popup (info jadwal + topik + catatan) hanya diisi
+	 * bila pertemuan terikat ke {@code JadwalPelajaran} (via {@code getJadwalPelajaran()}).
+	 */
 	public static SimpleCalendarEvent createEvent(Pertemuan myPertemuan) {
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 		Calendar calendar1 = ais.ui.util.WaktuUtil.getCalendar();
@@ -411,6 +449,7 @@ public class CalendarJadwalPelajaranBulanIniComposer extends GenericForwardCompo
 		return sce;
 	}
 
+	/** Handler ZK saat pengguna mencoba membuat event baru langsung di kalender (drag-select); mencegah "ghost" event sementara dibersihkan otomatis oleh komponen (pembuatan pertemuan baru ditangani lewat alur form terpisah, bukan drag di kalender). */
 	public void onEventCreate$calendars(ForwardEvent event) throws Exception {
 
 		CalendarsEvent evt = (CalendarsEvent) event.getOrigin();
@@ -418,6 +457,12 @@ public class CalendarJadwalPelajaranBulanIniComposer extends GenericForwardCompo
 		evt.stopClearGhost();
 	}
 
+	/**
+	 * Handler ZK saat event kalender diklik untuk diedit: mengekstrak id {@link Pertemuan} dari
+	 * judul event ({@code "<id>-<namaMatapelajaran>"}), memuatnya, dan membuka editor pertemuan
+	 * lewat {@code CalendarJadwalPelajaranMingguIniComposer.init}. Judul yang bagian pertamanya
+	 * kosong ditangani sebagai kasus id negatif (variasi encoding id khusus).
+	 */
 	public void onEventEdit$calendars(ForwardEvent event) throws Exception {
 
 		CalendarsEvent evt = (CalendarsEvent) event.getOrigin();
@@ -462,6 +507,7 @@ public class CalendarJadwalPelajaranBulanIniComposer extends GenericForwardCompo
 
 	}
 
+	/** Handler ZK saat event kalender digeser/diresize (drag) di UI: menyinkronkan tanggal mulai/selesai baru ke model tampilan {@link SimpleCalendarModel} (tidak menyimpan ke database — hanya representasi visual sementara). */
 	public void onEventUpdate$calendars(ForwardEvent event) {
 		CalendarsEvent evt = (CalendarsEvent) event.getOrigin();
 		org.zkoss.calendar.Calendars cal = (org.zkoss.calendar.Calendars) evt.getTarget();
@@ -472,6 +518,7 @@ public class CalendarJadwalPelajaranBulanIniComposer extends GenericForwardCompo
 		m.update(sce);
 	}
 
+	/** Handler navigasi panah kiri/kanan pada toolbar kalender: memindahkan tampilan ke halaman sebelumnya/berikutnya sesuai {@code event.getData()}. */
 	public void onMoveDate(ForwardEvent event) {
 		if ("arrow-left".equals(event.getData()))
 			calendars.previousPage();
@@ -480,12 +527,14 @@ public class CalendarJadwalPelajaranBulanIniComposer extends GenericForwardCompo
 
 	}
 
+	/** Handler tombol "Hari Ini": mengatur tanggal kalender saat ini ke tanggal sistem sekarang (zona waktu default JVM). */
 	public void onToday(ForwardEvent event) {
 		calendars.setCurrentDate(Calendar.getInstance(TimeZone.getDefault()).getTime());
 
 	}
 
 	@SuppressWarnings("rawtypes")
+	/** Handler ganti zona waktu tampilan kalender: mengambil entri zona waktu terdaftar pertama, menghapusnya, lalu mendaftarkannya kembali (efek toggle sederhana pada komponen kalender ZK). */
 	public void onSwitchTimeZone(ForwardEvent event) {
 		Map<?, ?> zone = calendars.getTimeZones();
 		if (!zone.isEmpty()) {
@@ -496,12 +545,14 @@ public class CalendarJadwalPelajaranBulanIniComposer extends GenericForwardCompo
 
 	}
 
+	/** Handler pemilihan hari pertama minggu (mis. Minggu/Senin) dari listbox, diterapkan ke tampilan kalender. */
 	public void onUpdateFirstDayOfWeek(ForwardEvent event) {
 		Listbox listbox = (Listbox) event.getOrigin().getTarget();
 		calendars.setFirstDayOfWeek(listbox.getSelectedItem().getLabel());
 
 	}
 
+	/** Handler ganti mode tampilan kalender ("Day"/"5 Days"/"Week" -> mold {@code default} dengan jumlah hari sesuai, atau lainnya -> mold {@code month}). */
 	public void onUpdateView(ForwardEvent event) {
 		String text = String.valueOf(event.getData());
 		int days = "Day".equals(text) ? 1 : "5 Days".equals(text) ? 5 : "Week".equals(text) ? 7 : 0;

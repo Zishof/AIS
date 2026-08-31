@@ -43,20 +43,34 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper UI pengelola riwayat "Kedinasan di YTB" (Yayasan Tempat Bekerja) milik satu
+ * {@link Pegawai}. Berbeda dari helper relasi lain di paket ini yang menyimpan detail sebagai
+ * baris tabel terpisah, kelas ini menyimpan seluruh riwayat sebagai satu array JSON tunggal pada
+ * kolom {@code kedinasan} milik entitas {@link Pegawai} — setiap entri punya id UUID sendiri
+ * (dibuat di klien saat "Tambah Data" ditekan) dan field tanggal SK, nomor SK, posisi/jabatan,
+ * dan keterangan. Setiap entri juga dapat memiliki satu lampiran berkas ({@link LampiranLain},
+ * dikaitkan lewat kunci referensi {@code "Kedinasan_"+id}) yang dapat diunduh langsung dari grid.
+ * Operasi tambah/edit/hapus seluruhnya bekerja dengan pola baca-ubah-tulis: ambil array JSON
+ * saat ini, ubah, lalu tulis ulang seluruh array ke kolom {@code kedinasan} dalam satu transaksi
+ * ({@link #saveToDatabase}) — bukan operasi baris database individual.
+ */
 public class KedinasanPegawaiHelper {
 
     private MyGrid grid = new MyGrid();
     private Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
-    
+
     private Pegawai pegawai;
     private final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-    
+
     protected LampiranLain lampiranKedinasan;
 
+    /** Membuat helper untuk mengelola riwayat kedinasan milik {@code pegawai}. */
     public KedinasanPegawaiHelper(Pegawai pegawai) {
         this.pegawai = pegawai;
     }
 
+    /** Mem-parsing kolom {@code kedinasan} milik pegawai menjadi {@link JSONArray}; mengembalikan array kosong bila kolom kosong/null atau gagal di-parse. */
     private JSONArray getKedinasanArray() {
         if (pegawai != null && pegawai.getKedinasan() != null && !pegawai.getKedinasan().trim().isEmpty()) {
             try {
@@ -68,6 +82,7 @@ public class KedinasanPegawaiHelper {
         return new JSONArray();
     }
 
+    /** Renderer baris grid: tanggal SK, nomor SK, posisi, keterangan, serta tombol unduh lampiran (bila ada), edit (membuka {@link #init}), dan hapus (dengan dialog konfirmasi, memanggil {@link #deleteData}). */
     class KedinasanRenderer extends ais.ui.util.MyRowRenderer {
         @Override
         public void render(final Row row, Object data) throws Exception {
@@ -136,6 +151,14 @@ public class KedinasanPegawaiHelper {
         }
     }
 
+    /**
+     * Membangun tata letak lengkap panel riwayat kedinasan: toolbar dengan tombol "Tambah Data"
+     * (membuka {@link #init(JSONObject)} dengan {@code null}) dan grid berpaginasi (10 baris/
+     * halaman) yang langsung dimuat dengan data tersimpan ({@link #onSearchDefault}).
+     *
+     * @return {@link Borderlayout} siap ditempelkan ke jendela detail pegawai
+     * @throws Exception diteruskan dari kegagalan pembangunan komponen
+     */
     public Borderlayout display() throws Exception {
         North north = new North();
         Center center = new Center();
@@ -183,6 +206,7 @@ public class KedinasanPegawaiHelper {
         return borderlayout;
     }
 
+    /** Menambahkan satu kolom grid dengan {@code label} dan {@code width} opsional (dilewati bila null/kosong). */
     private void createColumn(Columns columns, String label, String width) {
         MyColumnConfig column = new MyColumnConfig();
         column.setParent(columns);
@@ -190,6 +214,7 @@ public class KedinasanPegawaiHelper {
         if (width != null && !width.isEmpty()) column.setWidth(width);
     }
 
+    /** Mem-parsing seluruh entri riwayat kedinasan dari kolom JSON pegawai dan menampilkannya di grid lewat {@link KedinasanRenderer}. */
     @SuppressWarnings({})
     public void onSearchDefault() {
         JSONArray arr = getKedinasanArray();
@@ -208,6 +233,19 @@ public class KedinasanPegawaiHelper {
         grid.setModel(strset);
     }
 
+    /**
+     * Membuka jendela modal tambah/edit satu entri riwayat kedinasan. Bila {@code dataEdit}
+     * {@code null}, entri baru dibuat dengan id UUID baru; bila diberikan, form diprapopulasi dari
+     * nilai entri tersebut (id dipertahankan). Form memuat tanggal SK, nomor SK, posisi/jabatan,
+     * keterangan, dan area unggah/unduh satu lampiran berkas ({@link LampiranLain}, dikaitkan ke
+     * kunci {@code "Kedinasan_"+id}). Tombol Simpan memvalidasi tanggal SK dan nomor SK wajib
+     * diisi, menulis entri ke array JSON pegawai ({@link #saveData}), mengaitkan lampiran yang
+     * baru diunggah (bila ada) ke pegawai lewat sesi Hibernate streaming terpisah, lalu menyegarkan
+     * grid dan menutup jendela.
+     *
+     * @param dataEdit entri JSON yang akan diedit, atau {@code null} untuk membuat entri baru
+     * @throws Exception diteruskan dari kegagalan pembangunan komponen
+     */
     public void init(final JSONObject dataEdit) throws Exception {
         final boolean isEdit = (dataEdit != null);
         final String currentId = isEdit ? dataEdit.optString("id") : UUID.randomUUID().toString();
@@ -379,6 +417,7 @@ public class KedinasanPegawaiHelper {
         window.doModal();
     }
 
+    /** Menyisipkan atau memperbarui (berdasarkan kecocokan id) satu entri {@code objToSave} ke dalam array riwayat kedinasan, lalu menulis ulang seluruh array ke database. @return {@code true} bila berhasil, {@code false} bila terjadi kegagalan. */
     private boolean saveData(JSONObject objToSave, boolean isEdit) {
         try {
             JSONArray arr = getKedinasanArray();
@@ -407,6 +446,7 @@ public class KedinasanPegawaiHelper {
         }
     }
 
+    /** Menghapus entri berid {@code idToDelete} dari array riwayat kedinasan, menulis ulang array ke database, dan menyegarkan grid. */
     private void deleteData(String idToDelete) {
         try {
             JSONArray arr = getKedinasanArray();
@@ -426,6 +466,7 @@ public class KedinasanPegawaiHelper {
         }
     }
 
+    /** Menulis seluruh {@code arrayToSave} sebagai string JSON ke kolom {@code kedinasan} milik pegawai, dalam transaksi Hibernate sendiri (rollback eksplisit bila gagal, sesi selalu ditutup). */
     private void saveToDatabase(JSONArray arrayToSave) throws Exception {
         pegawai.setKedinasan(arrayToSave.toString());
         

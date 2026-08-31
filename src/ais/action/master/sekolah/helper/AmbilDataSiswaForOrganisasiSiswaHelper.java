@@ -50,6 +50,18 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK jendela "Ambil Data Siswa" untuk menambahkan anggota ke satu {@link OrganisasiSiswa}
+ * (organisasi/ekstrakurikuler siswa): grid pencarian siswa dengan filter lengkap (NIM/rentang NIM,
+ * nama, dosen PA, yayasan/sekolah, tahun angkatan), checkbox per baris (dikunci bila siswa sudah
+ * jadi anggota) plus checkbox "pilih semua" di header, dan tombol simpan yang membuat baris
+ * {@link OrganisasiSiswaPunyaSiswa} untuk setiap siswa yang dicentang.
+ *
+ * <p>
+ * Dipakai sebagai popup modal dipanggil dari layar detail organisasi siswa; hasil penyimpanan
+ * memicu {@link DataLoader#loadData} pemanggil untuk menyegarkan grid anggota di layar induk.
+ * </p>
+ */
 public class AmbilDataSiswaForOrganisasiSiswaHelper {
 
 	private OrganisasiSiswa organisasiSiswa;
@@ -67,6 +79,7 @@ public class AmbilDataSiswaForOrganisasiSiswaHelper {
 	private Paging paging;
 	private AmbilDataDosenBanbox searchdosen;
 
+	/** Membuat helper terikat {@code organisasiSiswa} target dan menyiapkan combo yayasan/sekolah serta paging (50 baris/halaman) awal. */
 	public AmbilDataSiswaForOrganisasiSiswaHelper(OrganisasiSiswa organisasiSiswa) {
 		this.organisasiSiswa = organisasiSiswa;
 		Common.initYayasanDanSekolahDanSemua(null, null, searchyayasan, searchsekolah);
@@ -82,6 +95,7 @@ public class AmbilDataSiswaForOrganisasiSiswaHelper {
 
 	}
 
+	/** Renderer baris grid pencarian: checkbox pilih (dicentang &amp; dikunci bila siswa sudah anggota organisasi), NIM, nama, tahun masuk. */
 	class SiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -108,6 +122,7 @@ public class AmbilDataSiswaForOrganisasiSiswaHelper {
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
+	/** Menyimpan {@link OrganisasiSiswaPunyaSiswa} untuk setiap baris grid yang checkbox-nya dicentang dan tidak dikunci (siswa baru, belum jadi anggota), mencatat {@code oleh}/{@code tbmuser} dari user yang login dan {@code diubahDari} = {@link SiswaAction}. */
 	public void save() throws InterruptedException {
 		Session session = HibernateUtil.currentSession();
 		final Tbmuser tbmuser = Common.getCurrentUser();
@@ -148,6 +163,12 @@ public class AmbilDataSiswaForOrganisasiSiswaHelper {
 
 	}
 
+	/**
+	 * Membangun dan membuka {@code window} sebagai modal "Ambil Data Siswa": panel filter (bisa
+	 * disembunyikan/ditampilkan via {@link ais.ui.util.BanboxFilterToggle}), grid hasil dengan
+	 * checkbox pilih-semua di header, dan toolbar Simpan/Batal. Tombol Simpan memanggil
+	 * {@link #save()} lalu memicu {@code dataLoader.loadData} pemanggil dan menutup jendela.
+	 */
 	public void display(final DataLoader dataLoader, final MyWindow window) {
 
 		Common.clear(window);
@@ -385,6 +406,7 @@ public class AmbilDataSiswaForOrganisasiSiswaHelper {
 		}
 	}
 
+	/** Membentuk criteria pencarian {@link Siswa} aktif berdasarkan filter dosen PA, nama, nomor induk (persis/rentang), tahun masuk, sekolah, dan yayasan; dibatasi ke anak kandung bila user login adalah orang tua. Diurut tahun masuk menurun lalu nomor induk bila {@code order} true. */
 	public Criteria initCriteria(boolean order) {
 		Dosen dosen = (Dosen) searchdosen.getAttribute("myValue");
 
@@ -438,6 +460,7 @@ public class AmbilDataSiswaForOrganisasiSiswaHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Menjalankan ulang pencarian dan memuat ulang {@link #grid} serta {@link #paging} (50 baris/halaman). */
 	public void onSearchDefault(Event event) {
 
 		Common.initPaging50(initCriteria(false), paging);

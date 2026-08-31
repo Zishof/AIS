@@ -25,6 +25,12 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Aksi CRUD (via kerangka {@link GenericCrudAction}) untuk kelola master data
+ * {@link JenisTindakan} (jenis tindakan medis) pada modul SIRS: daftar dengan pencarian nama,
+ * formulir tambah/ubah kustom (nama + keterangan), validasi nama tidak boleh duplikat, dan
+ * pencatatan riwayat revisi lewat {@link RevisiHelper} pada setiap baris tabel.
+ */
 public class JenisTindakanAction extends GenericCrudAction<JenisTindakan> {
 
     private static final long serialVersionUID = -5779730267402400330L;
@@ -35,15 +41,19 @@ public class JenisTindakanAction extends GenericCrudAction<JenisTindakan> {
 
     // ======================== Abstract implementations ========================
 
+    /** @return {@link JenisTindakan}, kelas entitas yang dikelola aksi ini. */
     @Override
     protected Class<JenisTindakan> getEntityClass() { return JenisTindakan.class; }
 
+    /** @return instans {@link JenisTindakan} kosong untuk formulir tambah data baru. */
     @Override
     protected JenisTindakan createNewEntity() { return new JenisTindakan(); }
 
+    /** @return judul jendela daftar/aksi ini. */
     @Override
     protected String getWindowTitle() { return "Pendataan Jenis Tindakan"; }
 
+    /** @return kriteria pencarian {@link JenisTindakan} berdasarkan nama (ILIKE), diurutkan menurut nama bila {@code order} true. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -55,6 +65,7 @@ public class JenisTindakanAction extends GenericCrudAction<JenisTindakan> {
         return criteria;
     }
 
+    /** @return renderer baris tabel {@link JenisTindakanRenderer} untuk daftar jenis tindakan. */
     @Override
     protected MyRowRenderer createRenderer() {
         return new JenisTindakanRenderer();
@@ -62,6 +73,7 @@ public class JenisTindakanAction extends GenericCrudAction<JenisTindakan> {
 
     // ======================== Form content ========================
 
+    /** Menyusun formulir tambah/ubah (field nama dan keterangan) beserta tombol Batal/Simpan pada jendela modal. */
     @Override
     protected void buildFormContent(MyWindow window, final JenisTindakan jenisTindakan) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -133,6 +145,13 @@ public class JenisTindakanAction extends GenericCrudAction<JenisTindakan> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi nama wajib diisi dan belum terdaftar (lewat {@link #checkNamaJenisTindakan()}),
+     * lalu menyimpan (buat baru atau perbarui) entitas {@link JenisTindakan}.
+     *
+     * @param event event pemicu (tidak dipakai)
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal (jendela tetap terbuka)
+     */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Nama Jenis Tindakan wajib diisi terlebih dahulu. Langkah yang dapat dilakukan: (1) isikan Nama Jenis Tindakan pada kolom yang tersedia; (2) pastikan kolom tidak dikosongkan; (3) simpan kembali data setelah kolom terisi.", "Peringatan",
@@ -156,6 +175,7 @@ public class JenisTindakanAction extends GenericCrudAction<JenisTindakan> {
         return true;
     }
 
+    /** @return {@code true} bila nama pada formulir sudah dipakai jenis tindakan lain (mengecualikan record yang sedang diedit). */
     public Boolean checkNamaJenisTindakan() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(JenisTindakan.class)
@@ -170,6 +190,7 @@ public class JenisTindakanAction extends GenericCrudAction<JenisTindakan> {
 
     // ======================== Renderer ========================
 
+    /** Renderer baris tabel: kode+nama (via {@link RevisiHelper}), keterangan, dan tombol ubah/hapus. */
     class JenisTindakanRenderer extends MyRowRenderer {
 
         @Override

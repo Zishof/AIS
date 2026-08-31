@@ -45,6 +45,16 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Komponen "banbox" (bandbox pencarian popup) untuk memilih satu {@link CalonSiswa} (calon
+ * siswa PSB yang sudah memiliki gelombang pendaftaran) dari daftar bergaya modal, dengan filter
+ * kode/nama/yayasan/sekolah dan paginasi 5 baris per halaman (dipilih kecil demi efisiensi
+ * RAM/jaringan — lihat {@link #PAGE_SIZE_LIMA}). Bila user yang login adalah calon siswa itu
+ * sendiri, komponen langsung terisi dan dinonaktifkan (tidak bisa memilih calon siswa lain). Bila
+ * user adalah orang tua dengan anak siswa terdaftar, daftar dibatasi ke anak-anaknya saja. Setiap
+ * pemanggilan {@link #onSearchDefault(Event)} membuka dan menutup sesi Hibernate sendiri secara
+ * mandiri (independen dari sesi thread-local biasa).
+ */
 public class AmbilDataCalonSiswaBanbox extends Bandbox implements GetEventListener {
 
 	private static final long serialVersionUID = 6452451056684904810L;
@@ -52,7 +62,7 @@ public class AmbilDataCalonSiswaBanbox extends Bandbox implements GetEventListen
 	private Paging paging;
 
 	private EventListener eventListener;
-	
+
 	// Pembatasan data 5 per halaman untuk efisiensi RAM/Jaringan
 	private static final int PAGE_SIZE_LIMA = 5;
 
@@ -62,10 +72,15 @@ public class AmbilDataCalonSiswaBanbox extends Bandbox implements GetEventListen
 	private Combobox searchyayasan = new Combobox();
 	private Combobox searchsekolah = new Combobox();
 
-	public AmbilDataCalonSiswaBanbox() { 
+	/** Membuat komponen dengan pengisian otomatis aktif bila user yang login adalah calon siswa (lihat {@link #AmbilDataCalonSiswaBanbox(Boolean)}). */
+	public AmbilDataCalonSiswaBanbox() {
 		this(true);
 	}
 
+	/**
+	 * @param notDeafault bila {@code true} DAN user yang login memiliki data calon siswa,
+	 *                     komponen langsung terisi dengan calon siswa tersebut dan dinonaktifkan
+	 */
 	public AmbilDataCalonSiswaBanbox(Boolean notDeafault) {
 		super();
 		setReadonly(true);
@@ -97,6 +112,7 @@ public class AmbilDataCalonSiswaBanbox extends Bandbox implements GetEventListen
 
 	}
 
+	/** Renderer baris hasil pencarian: radio pilih (memilih calon siswa, menutup popup, dan memicu {@code eventListener}), foto kecil, nomor induk, nama, tempat/tanggal lahir, dan gelombang+jurusan pendaftaran. */
 	class CalonSiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -134,6 +150,12 @@ public class AmbilDataCalonSiswaBanbox extends Bandbox implements GetEventListen
 		}
 	}
 
+	/**
+	 * Menyusun konten popup bandbox (dipanggil sekali saat pertama dibuka): panel pencarian
+	 * (kode, nama, yayasan, sekolah) dengan tombol cari/bersihkan dan toggle filter, grid hasil
+	 * dengan kolom pilih/foto/no. reg/nama/tempat-tanggal lahir/gelombang, serta kontrol paginasi,
+	 * lalu memuat data awal lewat {@link #onSearchDefault(Event)}.
+	 */
 	public void display() {
 
 		Common.initYayasanDanSekolahDanSemua(null, null, searchyayasan, searchsekolah);
@@ -287,6 +309,13 @@ public class AmbilDataCalonSiswaBanbox extends Bandbox implements GetEventListen
 		onSearchDefault(null);
 	}
 
+	/**
+	 * @param session sesi Hibernate aktif
+	 * @param isOrder tambahkan pengurutan (tahun masuk menurun, nomor induk menaik) bila {@code true}
+	 * @return kriteria pencarian {@link CalonSiswa} (harus memiliki gelombang pendaftaran, nama
+	 *         terisi, aktif), dibatasi ke anak-anak user bila user login adalah orang tua, dan
+	 *         difilter sesuai isian kode/nama/yayasan/sekolah pada formulir
+	 */
 	public Criteria initCriteria(Session session, boolean isOrder) {
 		Criteria criteria = session.createCriteria(CalonSiswa.class)
 				.add(Restrictions.isNotNull("gelombangPendaftaranPsb"))
@@ -311,6 +340,14 @@ public class AmbilDataCalonSiswaBanbox extends Bandbox implements GetEventListen
 		return criteria;
 	}
 
+	/**
+	 * Memuat ulang grid hasil pencarian sesuai halaman aktif dan filter formulir saat ini,
+	 * membuka sesi Hibernate baru secara mandiri (bukan sesi thread-local) dan selalu menutupnya
+	 * di {@code finally}. Menghitung total baris lebih dulu untuk mengatur kontrol paginasi,
+	 * lalu mengambil hanya {@link #PAGE_SIZE_LIMA} baris untuk halaman aktif.
+	 *
+	 * @param event event pemicu (boleh {@code null}, tidak dipakai)
+	 */
 	@SuppressWarnings({ })
 	public void onSearchDefault(Event event) {
 
@@ -350,10 +387,12 @@ public class AmbilDataCalonSiswaBanbox extends Bandbox implements GetEventListen
 		}
 	}
 
+	/** @param eventListener dipanggil setiap kali user memilih satu calon siswa dari daftar */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** @return listener pemilihan calon siswa yang sedang terpasang, boleh {@code null} */
 	public EventListener getEventListener() {
 		return eventListener;
 	}

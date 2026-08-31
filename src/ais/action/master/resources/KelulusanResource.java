@@ -29,11 +29,37 @@ import ais.database.model.Skripsi;
 import ais.database.model.file.FileFotoLain;
 import ais.database.model.file.LampiranLain;
 
+/**
+ * Resource JAX-RS ({@code /kelulusan}) untuk mengekspos data skripsi/tugas akhir mahasiswa
+ * sebagai JSON ke konsumen eksternal, diautentikasi dengan username/password per-permintaan
+ * (lihat {@link #pembayaranMahasiswa}).
+ * <p>
+ * <b>Catatan keamanan</b>: kredensial ({@code username}/{@code password}) dikirim sebagai segmen
+ * URL path, bukan header/parameter POST — pola ini berisiko kredensial tercatat di log server,
+ * riwayat browser, atau proxy perantara. Pola serupa juga dipakai resource JAX-RS lain di modul
+ * ini (mis. {@link DataResource}); perbaikan arsitektural (mis. header Authorization) disarankan
+ * namun di luar cakupan dokumentasi ini.
+ * </p>
+ */
 @Path("/kelulusan")
 @Singleton
 
 public class KelulusanResource {
 
+	/**
+	 * Mencari daftar {@link Skripsi} (nama method tidak sesuai isinya — sebenarnya bukan data
+	 * pembayaran, melainkan data skripsi/tugas akhir), difilter berdasarkan program studi, NIM
+	 * atau nama mahasiswa (ilike), tahun akademik dan paritas semester (dari parameter {@code ta}
+	 * 5 digit: 4 digit tahun mulai + 1 digit kode semester), diurutkan terbaru dan dipaginasi.
+	 * Setiap hasil dirangkum sebagai JSON lengkap: identitas mahasiswa, judul, abstrak, nilai,
+	 * hingga enam dosen pembimbing/penguji beserta NIDN, dan tautan lampiran file skripsi/cover.
+	 *
+	 * @param username kredensial login (lihat catatan keamanan pada dokumentasi kelas)
+	 * @param password kredensial login (lihat catatan keamanan pada dokumentasi kelas)
+	 * @param ta       kode tahun akademik+semester 5 digit ({@code YYYYs}), atau kosong untuk tahun akademik &amp; semester berjalan
+	 * @return JSON array berisi data skripsi yang cocok dengan filter
+	 * @throws com.sun.jersey.api.NotFoundException bila autentikasi username/password gagal
+	 */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("skripsi/{username}/{password}/{program}/{ta}/{nim}/{start}/{max}")

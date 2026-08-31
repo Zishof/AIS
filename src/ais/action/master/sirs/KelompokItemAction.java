@@ -26,6 +26,20 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD master data Kelompok Item pada modul SIRS (Sistem Informasi Rumah Sakit), dibangun
+ * di atas {@link GenericCrudAction}. Kelompok item adalah pengelompok bagi item-item detail
+ * (mis. kategori obat/alat/bahan) yang diakses lewat {@link ItemDetailAction} pada baris tabel
+ * masing-masing kelompok.
+ *
+ * <p>
+ * Pencarian daftar difilter berdasarkan kecocokan sebagian nama ({@code ilike ANYWHERE}). Form
+ * simpan memvalidasi nama tidak kosong dan tidak duplikat (dicek lewat
+ * {@link #checkNamaKelompokItem()}) sebelum menyimpan; baris tabel dirender lewat
+ * {@link KelompokItemRenderer} yang menampilkan tautan ke item detail kelompok, riwayat revisi
+ * ({@link RevisiHelper}), dan keterangan.
+ * </p>
+ */
 public class KelompokItemAction extends GenericCrudAction<KelompokItem> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -45,6 +59,7 @@ public class KelompokItemAction extends GenericCrudAction<KelompokItem> {
     @Override
     protected String getWindowTitle() { return "Pendataan Kelompok Item"; }
 
+    /** Membangun kriteria pencarian daftar kelompok item, difilter berdasarkan kecocokan sebagian nama bila {@code searchnama} diisi. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -63,6 +78,7 @@ public class KelompokItemAction extends GenericCrudAction<KelompokItem> {
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/ubah (nama + keterangan) beserta toolbar Batal/Simpan pada {@code window}. */
     @Override
     protected void buildFormContent(MyWindow window, final KelompokItem kelompokItem) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -134,6 +150,13 @@ public class KelompokItemAction extends GenericCrudAction<KelompokItem> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi (nama wajib isi, nama tidak duplikat) dan menyimpan (create-or-update) entitas
+     * kelompok item dari isian form.
+     *
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal (pesan
+     *         peringatan sudah ditampilkan ke pengguna)
+     */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Nama Kelompok Item wajib diisi terlebih dahulu. Langkah yang dapat dilakukan: (1) isikan Nama Kelompok Item pada kolom yang tersedia; (2) pastikan kolom tidak dikosongkan; (3) simpan kembali data setelah kolom terisi.", "Peringatan",
@@ -157,6 +180,7 @@ public class KelompokItemAction extends GenericCrudAction<KelompokItem> {
         return true;
     }
 
+    /** Mengecek apakah nama pada form sudah dipakai kelompok item lain (di luar entitas yang sedang diedit). */
     public Boolean checkNamaKelompokItem() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(KelompokItem.class)
@@ -171,6 +195,7 @@ public class KelompokItemAction extends GenericCrudAction<KelompokItem> {
 
     // ======================== Renderer ========================
 
+    /** Perenderan satu baris tabel kelompok item: tautan item detail, nama (dengan tautan riwayat revisi), keterangan, dan tombol edit/hapus. */
     class KelompokItemRenderer extends MyRowRenderer {
 
         @Override

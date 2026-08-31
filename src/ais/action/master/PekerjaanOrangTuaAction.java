@@ -40,6 +40,22 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.UIUtil;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD master data Pekerjaan Orang Tua (referensi jenis pekerjaan orang tua/wali siswa),
+ * dibangun di atas {@link GenericCrudAction}, dengan dukungan impor massal lewat unggah berkas
+ * Excel (.xlsx) selain form tambah/ubah manual biasa.
+ *
+ * <p>
+ * Pencarian daftar difilter berdasarkan kecocokan sebagian nama dan kode ({@code ilike
+ * ANYWHERE}). Form simpan memvalidasi nama wajib isi dan tidak duplikat (dicek lewat
+ * {@link #checkNamaPekerjaanOrangTua()}), menggunakan {@link PekerjaanOrangTuaDao} (bukan sesi
+ * Hibernate langsung) untuk create/update. Unggahan Excel ({@link #prosesUpload(UploadEvent)})
+ * dibaca baris demi baris (kolom id/nama/kode) dan disimpan sebagai create-or-update per baris,
+ * berhenti membaca saat menemukan baris kosong pertama pada kolom nama. Baris tabel dirender
+ * lewat {@link PekerjaanOrangTuaRenderer}, dengan checkbox status aktif yang langsung menyimpan
+ * perubahan ke database saat diubah.
+ * </p>
+ */
 public class PekerjaanOrangTuaAction extends GenericCrudAction<PekerjaanOrangTua> {
 
     private static final long serialVersionUID = 6641352157630711934L;
@@ -65,6 +81,7 @@ public class PekerjaanOrangTuaAction extends GenericCrudAction<PekerjaanOrangTua
         return new String[] { "id", "nama", "kode" };
     }
 
+    /** Menambahkan tombol cetak data dan tombol unggah Excel ke toolbar setelah komponen ZUL selesai diinisialisasi, mengikuti hak akses pengguna saat ini. */
     @Override
     protected void onAfterInit(Component comp) throws Exception {
         MyToolbarbuttonConfig cetakToolbarbutton = Common.cetakData(this, "id", "nama", "kode");
@@ -87,6 +104,7 @@ public class PekerjaanOrangTuaAction extends GenericCrudAction<PekerjaanOrangTua
         }
     }
 
+    /** Membangun kriteria pencarian daftar pekerjaan orang tua, difilter berdasarkan kecocokan sebagian nama dan/atau kode bila diisi. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -108,6 +126,7 @@ public class PekerjaanOrangTuaAction extends GenericCrudAction<PekerjaanOrangTua
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/ubah (kode, nama, keterangan) beserta toolbar Batal/Simpan pada {@code window}. */
     @Override
     protected void buildFormContent(MyWindow window, final PekerjaanOrangTua pekerjaanOrangTua) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -181,6 +200,13 @@ public class PekerjaanOrangTuaAction extends GenericCrudAction<PekerjaanOrangTua
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi (nama wajib isi, nama tidak duplikat) dan menyimpan (create-or-update, lewat
+     * {@link PekerjaanOrangTuaDao}) entitas pekerjaan orang tua dari isian form.
+     *
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal (pesan
+     *         galat sudah ditampilkan ke pengguna)
+     */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             PesanFormalHelper.tampilkanGagal("penyimpanan data Pekerjaan Orang Tua",
@@ -217,6 +243,7 @@ public class PekerjaanOrangTuaAction extends GenericCrudAction<PekerjaanOrangTua
         return true;
     }
 
+    /** Mengecek apakah nama pada form sudah dipakai pekerjaan orang tua lain (di luar entitas yang sedang diedit). */
     public Boolean checkNamaPekerjaanOrangTua() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(PekerjaanOrangTua.class)
@@ -231,6 +258,16 @@ public class PekerjaanOrangTuaAction extends GenericCrudAction<PekerjaanOrangTua
 
     // ======================== Upload logic ========================
 
+    /**
+     * Mengimpor massal data Pekerjaan Orang Tua dari berkas Excel (.xlsx) yang diunggah:
+     * menyimpannya sementara ke direktori {@code temp}, lalu membaca baris demi baris mulai
+     * baris kedua (kolom 0=id, 1=nama, 2=kode); untuk setiap baris dengan nama terisi, entitas
+     * di-create-or-update berdasarkan id (bila ada dan valid) dalam transaksi tersendiri per
+     * baris. Berhenti membaca saat kolom nama pada suatu baris kosong. Menolak berkas yang bukan
+     * berekstensi {@code .xlsx}.
+     *
+     * @param uploadEvent event unggah ZK berisi media berkas Excel
+     */
     private void prosesUpload(UploadEvent uploadEvent) throws Exception {
         Media media = uploadEvent.getMedia();
         if (!ais.action.master.helper.generic.AmbilDataTugasFileContent.checkFile(media)) return;
@@ -286,6 +323,7 @@ public class PekerjaanOrangTuaAction extends GenericCrudAction<PekerjaanOrangTua
 
     // ======================== Renderer ========================
 
+    /** Perenderan satu baris tabel pekerjaan orang tua: nama, kode, keterangan, checkbox status aktif (menyimpan langsung ke database saat diubah), dan tombol edit/hapus. */
     class PekerjaanOrangTuaRenderer extends MyRowRenderer {
 
         @Override

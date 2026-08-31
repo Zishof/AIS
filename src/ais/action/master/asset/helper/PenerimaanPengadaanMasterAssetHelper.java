@@ -43,6 +43,23 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper pengelola grid rincian barang/jasa pada form "Penerimaan Pengadaan Aset"
+ * ({@link PenerimaanPengadaanMasterAsset}) — tahap penerimaan fisik barang/jasa hasil pengadaan,
+ * baik yang berasal dari pemesanan formal ({@link PemesananPengadaanMasterAsset}) maupun pembelian
+ * langsung ({@code pembelianLangsung}, ditandai lewat {@link #beliLangsung}). Dipakai oleh action
+ * form penerimaan pengadaan untuk membangun kolom grid, memuat/menambah baris detail penerimaan,
+ * menghitung ulang total harga, dan menerapkan data termin pembayaran ke seluruh baris.
+ *
+ * <p>
+ * Mode tampilan grid berbeda tergantung status: kolom Harga/Diskon/Pajak disembunyikan pada mode
+ * pembelian langsung ({@link #beliLangsung}), dan seluruh kontrol edit dinonaktifkan begitu
+ * penerimaan sudah disetujui ({@code getDisetujuiOleh() != null}) atau berada dalam mode
+ * persetujuan ({@link #persetujuan}). Setiap perubahan qty/harga pada baris memicu
+ * {@link #eventListenerHitungUlang} untuk menjumlahkan ulang {@link #totalSemua} dan memperbarui
+ * footer total.
+ * </p>
+ */
 public class PenerimaanPengadaanMasterAssetHelper {
 
 	private MyGrid gridMasterAsset;
@@ -54,11 +71,24 @@ public class PenerimaanPengadaanMasterAssetHelper {
 	private boolean persetujuan = false;
 	private boolean beliLangsung = false;
 
+	/** Membuat helper yang akan mengelola isi {@code gridMasterAsset} sebagai grid rincian penerimaan barang/jasa. */
 	public PenerimaanPengadaanMasterAssetHelper(MyGrid gridMasterAsset) {
 		this.gridMasterAsset = gridMasterAsset;
 
 	}
 
+	/**
+	 * Membangun panel "Daftar Penerimaan Barang/Jasa": menentukan mode pembelian langsung dari
+	 * pemesanan terkait, mengatur hak edit/tambah/hapus berdasarkan status persetujuan penerimaan,
+	 * memasang toolbar "Ambil Data Barang/Jasa" (memilih {@link MasterAsset} dari daftar, dikecualikan
+	 * asset yang sudah ada di grid) bila belum ada pemesanan formal, kolom grid
+	 * ({@link #columnsData}), dan memuat baris detail penerimaan yang sudah tersimpan.
+	 *
+	 * @param penerimaanPengadaanMasterAsset entitas penerimaan yang sedang diedit
+	 * @param persetujuan                    {@code true} bila form dibuka dalam mode tinjau/persetujuan (read-only)
+	 * @param tampaPemesanan                 checkbox penanda "tanpa pemesanan" yang mengendalikan visibilitas tombol ambil data
+	 * @return groupbox berisi toolbar dan grid rincian, siap ditambahkan ke form
+	 */
 	public MyGroupboxStyled initDetail(final PenerimaanPengadaanMasterAsset penerimaanPengadaanMasterAsset,
 			boolean persetujuan, final MyCheckboxConfig tampaPemesanan) throws Exception {
 		this.beliLangsung = (penerimaanPengadaanMasterAsset.getPemesananPengadaanMasterAsset() != null
@@ -219,6 +249,15 @@ public class PenerimaanPengadaanMasterAssetHelper {
 		return myGroupboxStyled;
 	}
 
+	/**
+	 * Membangun ulang kolom {@link #gridMasterAsset}: Kode/Nama/Gambar, Qty, Diterima, Selisih
+	 * selalu ditampilkan; kolom Harga/Diskon/Pajak/Total hanya ditampilkan bila BUKAN pembelian
+	 * langsung ({@code pemesananPengadaanMasterAsset.getPembelianLangsung()} bernilai {@code false}
+	 * atau {@code null}).
+	 *
+	 * @param pemesananPengadaanMasterAsset pemesanan sumber (menentukan mode beli langsung), boleh {@code null}
+	 * @param persetujuan                   {@code true} bila grid dalam mode tinjau/persetujuan
+	 */
 	public void columnsData(PemesananPengadaanMasterAsset pemesananPengadaanMasterAsset, boolean persetujuan)
 			throws Exception {
 
@@ -348,6 +387,15 @@ public class PenerimaanPengadaanMasterAssetHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Menerapkan nilai penagihan dari data termin pembayaran ({@code termin.penagihan}) sebagai
+	 * harga beli pada setiap baris detail penerimaan yang terlihat, memutakhirkan total per baris,
+	 * menyimpan perubahan ke database untuk baris yang sudah tersimpan (punya id), dan memicu
+	 * {@link #eventListenerHitungUlang} untuk memperbarui total keseluruhan.
+	 *
+	 * @param termin                          data termin pembayaran, dibaca dari {@code penerimaanPengadaanMasterAsset.getJsonTermin()}
+	 * @param penerimaanPengadaanMasterAsset  entitas penerimaan yang dikaitkan ke setiap baris detail
+	 */
 	public void setTermin(JSONObject termin, PenerimaanPengadaanMasterAsset penerimaanPengadaanMasterAsset) {
 		List<Row> rows = gridMasterAsset.getRows().getChildren();
 		for (final Row row : rows) {
@@ -388,6 +436,7 @@ public class PenerimaanPengadaanMasterAssetHelper {
 		}
 	}
 
+	/** Menjumlahkan ulang {@link #totalSemua} dari harga total tiap baris yang terlihat pada grid dan memperbarui label {@link #footerTotalSemua}. Dipasang sebagai listener perubahan qty/harga pada tiap baris. */
 	public EventListener eventListenerHitungUlang = new EventListener() {
 
 		@SuppressWarnings("unchecked")
@@ -434,6 +483,14 @@ public class PenerimaanPengadaanMasterAssetHelper {
 		Common.createDefaultTimer(eventListenerHitungUlang);
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan field-field detail penerimaan (kode/nama/gambar asset, qty
+	 * dipesan, qty diterima, selisih, dan bila bukan pembelian langsung: harga, diskon, pajak,
+	 * total), lengkap dengan listener perubahan nilai yang memicu {@link #eventListenerHitungUlang}.
+	 *
+	 * @param row                                     baris grid target
+	 * @param penerimaanPengadaanMasterAssetDetail     data detail penerimaan untuk baris ini
+	 */
 	public void initRow(final Row row, final PenerimaanPengadaanMasterAssetDetail penerimaanPengadaanMasterAssetDetail)
 			throws Exception {
 		row.setValign("top");

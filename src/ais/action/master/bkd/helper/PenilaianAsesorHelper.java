@@ -29,8 +29,19 @@ import ais.ui.util.MyDiv;
 import ais.ui.util.MyDoublebox;
 import ais.ui.util.MyGrid;
 
+/**
+ * Helper UI untuk menyusun grid penilaian asesor beban kinerja dosen (BKD) pada satu
+ * {@link AsesemenPenilaian} (kelompok penilaian per spesifikasi/jenjang/tahun akademik/semester
+ * milik seorang dosen). Menampilkan setiap baris {@link PenilaianAsesor} yang terkait: bila user
+ * yang login sendiri berperan sebagai salah satu {@link Asesor} penilai dosen tersebut, baris
+ * bersangkutan dapat diedit langsung (checkbox pilih, masa tugas, SKS, bukti, catatan — setiap
+ * perubahan langsung tersimpan); bila tidak, grid ditampilkan hanya-baca. Perubahan pada baris
+ * yang dapat diedit memicu {@code keteranganEventListener} (dengan jeda kecil lewat
+ * {@link Common#createDefaultTimerNoBusy}) agar tampilan ringkasan di luar grid ini ikut disegarkan.
+ */
 public class PenilaianAsesorHelper {
 
+	/** Seperti {@link #formNilai(Pegawai, String, GeneralValueObject, Jenjang, String, String, String, String, EventListener)} tanpa filter kolom tambahan ({@code namaKolom}/{@code data} keduanya {@code null}). */
 	public static MyDiv formNilai(Pegawai pegawai, final Jenjang jenjang, final String tahunAkademik,
 			final String semester, final String buktiDokumen, final String spesifikasi,
 			final EventListener keteranganEventListener) throws Exception {
@@ -38,6 +49,25 @@ public class PenilaianAsesorHelper {
 				keteranganEventListener);
 	}
 
+	/**
+	 * Menyusun grid penilaian asesor (kolom Pilih/Kode/Nama/Masa Tugas/SKS Beban/SKS Kinerja/
+	 * Bukti/Catatan, dipaginasi 10 baris) untuk seluruh {@link AsesemenPenilaian} milik
+	 * {@code pegawai} pada {@code spesifikasi}/{@code jenjang}/{@code tahunAkademik}/{@code semester}
+	 * yang diberikan (opsional difilter lebih lanjut lewat {@code namaKolom}=nilai {@code data}).
+	 * Editabilitas baris bergantung pada apakah user yang login termasuk asesor aktif yang
+	 * berwenang menilai dosen tersebut.
+	 *
+	 * @param pegawai                  dosen/pegawai yang dinilai
+	 * @param namaKolom                nama properti tambahan untuk memfilter {@link AsesemenPenilaian}, boleh {@code null}
+	 * @param data                     nilai pembanding untuk {@code namaKolom}, boleh {@code null}
+	 * @param jenjang                  jenjang pendidikan, atau {@code null} untuk penilaian tanpa jenjang spesifik
+	 * @param tahunAkademik            tahun akademik penilaian
+	 * @param semester                 semester penilaian
+	 * @param buktiDokumen             teks bukti default yang diisikan otomatis saat baris dicentang
+	 * @param spesifikasi              jenis penilaian (lihat konstanta {@link PenilaianAsesor})
+	 * @param keteranganEventListener  dipanggil setelah perubahan tersimpan, untuk menyegarkan tampilan luar
+	 * @return komponen {@link MyDiv} berisi grid penilaian siap ditempelkan ke jendela
+	 */
 	@SuppressWarnings("unchecked")
 	public static MyDiv formNilai(Pegawai pegawai, final String namaKolom, final GeneralValueObject data,
 			final Jenjang jenjang, final String tahunAkademik, final String semester, final String buktiDokumen,

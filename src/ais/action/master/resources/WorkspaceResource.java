@@ -32,21 +32,39 @@ import ais.ui.util.WaktuUtil;
 
 import com.sun.jersey.spi.resource.Singleton;
 
+/**
+ * Endpoint REST (JAX-RS/Jersey) untuk entitas {@link Workspace} (ruang kerja RAB) dan data terkait
+ * (informasi RAB beserta lampiran/komentarnya). Method dasar (load/search) diwarisi dari
+ * {@link DataResource} — lihat catatan keamanan kredensial-di-URL pada javadoc kelas itu, yang
+ * berlaku sama di sini. Method tambahan di kelas ini melayani kebutuhan spesifik workspace: pohon
+ * workspace default per satuan kerja, serta feed informasi RAB (papan pengumuman/berita internal
+ * satuan kerja) beserta komentarnya — DUA method terakhir ini TIDAK memvalidasi
+ * username/password sama sekali (berbeda dari method load/search), sehingga dapat diakses tanpa
+ * autentikasi.
+ */
 @Path("/user_workspace")
 @Singleton
 
 public class WorkspaceResource extends DataResource<Workspace> {
 
+	/** Membuat resource untuk entitas {@link Workspace}. */
 	public WorkspaceResource() {
 		super(Workspace.class);
 	}
 
+	/** @return resource ini sendiri (dipakai sebagai respons JSON kosong/placeholder pada path root). */
 	@GET
 	@Produces({ MediaType.APPLICATION_JSON })
 	public WorkspaceResource getXml() {
 		return this;
 	}
 
+	/**
+	 * @param username kredensial user (lihat catatan keamanan di javadoc {@link DataResource})
+	 * @param password kredensial user (lihat catatan keamanan di javadoc {@link DataResource})
+	 * @param id       id workspace yang dicari
+	 * @return workspace yang ditemukan
+	 */
 	@GET
 	@Path("load/{username}/{password}/{id}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -55,6 +73,11 @@ public class WorkspaceResource extends DataResource<Workspace> {
 		return super.getData(username, password, id);
 	}
 
+	/**
+	 * @param username kredensial user (lihat catatan keamanan di javadoc {@link DataResource})
+	 * @param password kredensial user (lihat catatan keamanan di javadoc {@link DataResource})
+	 * @return seluruh workspace yang dapat diakses user
+	 */
 	@GET
 	@Path("search/{username}/{password}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -62,6 +85,12 @@ public class WorkspaceResource extends DataResource<Workspace> {
 		return super.getAllData(username, password);
 	}
 
+	/**
+	 * @param username kredensial user (lihat catatan keamanan di javadoc {@link DataResource})
+	 * @param password kredensial user (lihat catatan keamanan di javadoc {@link DataResource})
+	 * @param search   kata kunci pencarian
+	 * @return workspace yang cocok dengan {@code search}
+	 */
 	@GET
 	@Path("search/{username}/{password}/{search}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -70,6 +99,13 @@ public class WorkspaceResource extends DataResource<Workspace> {
 		return super.getAllData(username, password, search);
 	}
 
+	/**
+	 * @param username kredensial user (lihat catatan keamanan di javadoc {@link DataResource})
+	 * @param password kredensial user (lihat catatan keamanan di javadoc {@link DataResource})
+	 * @param search   kata kunci pencarian pertama
+	 * @param search1  kata kunci pencarian kedua
+	 * @return workspace yang cocok dengan kombinasi {@code search} dan {@code search1}
+	 */
 	@GET
 	@Path("search/{username}/{password}/{search}/{search1}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -78,6 +114,14 @@ public class WorkspaceResource extends DataResource<Workspace> {
 		return super.getAllData(username, password, search, search1);
 	}
 
+	/**
+	 * Mengambil daftar workspace default (bawaan/carry-over) yang menjadi anak langsung dari
+	 * {@code parent}, beserta ringkasan sasaran RAB tiap workspace lewat
+	 * {@link RabUtil#getDetailWorkspace}. Tidak memvalidasi kredensial.
+	 *
+	 * @param parent id workspace induk, atau {@code "_"}/{@code "-1"} untuk workspace tingkat akar
+	 * @return daftar workspace anak beserta ringkasan sasaran (di {@code info2}/{@code info3})
+	 */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("daftar_workspace/{parent}/")
@@ -109,6 +153,7 @@ public class WorkspaceResource extends DataResource<Workspace> {
 		return commonIDs;
 	}
 
+	/** Seperti {@link #daftarInformasiRab(String, String, String, String)} dengan halaman pertama (10 baris pertama). */
 	@GET
 	@Path("daftar_informasi_rab/{satuanKerja}/{cari}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -117,6 +162,19 @@ public class WorkspaceResource extends DataResource<Workspace> {
 		return daftarInformasiRab(satuanKerja, cari, "0", "10");
 	}
 
+	/**
+	 * Mengambil daftar {@link InformasiRab} (informasi/pengumuman RAB) yang sedang berlaku pada
+	 * tanggal berjalan (antara {@code mulai} dan {@code sampai}, atau {@code sampai} kosong),
+	 * dengan pencarian teks opsional pada {@code content} dan filter satuan kerja opsional,
+	 * dipaginasi. Setiap item disertai daftar lampiran foto (link unduh) dan jumlah komentar.
+	 * Tidak memvalidasi kredensial.
+	 *
+	 * @param satuanKerja id satuan kerja pemilik, atau {@code ""}/{@code "_"}/{@code "-1"} untuk semua
+	 * @param cari        kata kunci pencarian pada isi informasi (URL-encoded), atau penanda kosong untuk tanpa filter
+	 * @param start       offset baris awal (paginasi)
+	 * @param banyak      jumlah baris maksimal yang diambil
+	 * @return daftar informasi RAB beserta metadata (lampiran, satuan kerja, tanggal berlaku, jumlah komentar, jenis)
+	 */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("daftar_informasi_rab/{satuanKerja}/{cari}/{start}/{banyak}/")
@@ -184,6 +242,13 @@ public class WorkspaceResource extends DataResource<Workspace> {
 		return commonIDs;
 	}
 
+	/**
+	 * Mengambil komentar-komentar (hingga {@link Common#MAX_RESULT_20}, terbaru dahulu) pada satu
+	 * {@link InformasiRab}. Tidak memvalidasi kredensial.
+	 *
+	 * @param item id informasi RAB yang komentarnya diambil
+	 * @return daftar komentar beserta nama, kontak, email, dan tanggal ubah
+	 */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("daftar_informasi_rab_komentar/{item}/")
@@ -212,6 +277,13 @@ public class WorkspaceResource extends DataResource<Workspace> {
 		return commonIDs;
 	}
 
+	/**
+	 * Mengambil jumlah komentar pada satu {@link InformasiRab} tanpa mengunduh isi komentarnya.
+	 * Tidak memvalidasi kredensial.
+	 *
+	 * @param item id informasi RAB yang dihitung jumlah komentarnya
+	 * @return objek dengan id = {@code item} dan {@code info1} = jumlah komentar
+	 */
 	@GET
 	@Path("daftar_informasi_rab_jumlah_komentar/{item}/")
 	@Produces({ MediaType.APPLICATION_JSON })

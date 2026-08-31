@@ -38,6 +38,19 @@ import ais.ui.util.MyComboitemConfig;
 import ais.ui.util.MyGrid;
 import ais.ui.util.MyWindow;
 
+/**
+ * Jendela laporan PDF yang merekap mahasiswa yang TIDAK mengambil {@link Matakuliah} tertentu pada
+ * satu tahun akademik/semester, difilter fakultas/prodi (cascading, dibatasi otomatis sesuai
+ * wewenang user login), program, tahun angkatan, dan jenis kelamin. Mata kuliah target wajib
+ * dipilih ({@link #generateParameter()} mengembalikan {@code null} bila kosong, membatalkan
+ * pembuatan laporan secara diam-diam).
+ *
+ * <p>
+ * Seluruh logika penentuan "siapa yang tidak mengambil" dilakukan di sisi template laporan
+ * (JasperReports) berdasarkan parameter yang dikirim — kelas ini hanya menyiapkan filter dan
+ * memanggil {@link Report#generateFileReportWithProgress}.
+ * </p>
+ */
 public class LaporanRekapitulasiMahasiswaYangTidakMengambilMatakuliah extends MyWindow {
 
 	private static final long serialVersionUID = 4766478176972379068L;
@@ -58,6 +71,7 @@ public class LaporanRekapitulasiMahasiswaYangTidakMengambilMatakuliah extends My
 	private Combobox kelamin;
 	private AmbilDataMatakuliahBanbox matakuliah;
 
+	/** Konstruktor default: membangun combo fakultas/jurusan (dibatasi wewenang user) lalu memanggil {@link #initJadwalPerkuliahan()} dan {@link #init()}. */
 	public LaporanRekapitulasiMahasiswaYangTidakMengambilMatakuliah() {
 		super();
 		try {
@@ -128,6 +142,7 @@ public class LaporanRekapitulasiMahasiswaYangTidakMengambilMatakuliah extends My
 
 	}
 
+	/** Konstruktor dengan judul/border/closable eksplisit; kegagalan inisialisasi dilempar ke pemanggil (berbeda dari konstruktor default yang menangkapnya sendiri). */
 	public LaporanRekapitulasiMahasiswaYangTidakMengambilMatakuliah(String title, String border, boolean closable)
 			throws Exception {
 		super(title, border, closable);
@@ -193,6 +208,7 @@ public class LaporanRekapitulasiMahasiswaYangTidakMengambilMatakuliah extends My
 		init();
 	}
 
+	/** Menyiapkan combo tahun akademik dan semester Genap/Ganjil untuk filter jadwal perkuliahan (belum diikat ke UI di sini — dipasang di {@link #init()}). */
 	private void initJadwalPerkuliahan() throws Exception {
 		tahunAkademikUjianAkhirSemester = new Combobox();
 		tahunAkademikUjianAkhirSemester = Common.generateTahunAjaran(tahunAkademikUjianAkhirSemester);
@@ -209,6 +225,7 @@ public class LaporanRekapitulasiMahasiswaYangTidakMengambilMatakuliah extends My
 
 	}
 
+	/** Membangun panel filter (tahun akademik, semester, mata kuliah target — wajib, fakultas, prodi, program, tahun angkatan, jenis kelamin, tombol "Lihat Laporan") dan toolbar export laporan. */
 	private void init() throws Exception {
 
 		program = Common.initPrograms(null);
@@ -349,6 +366,12 @@ public class LaporanRekapitulasiMahasiswaYangTidakMengambilMatakuliah extends My
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
+	/**
+	 * Menyusun parameter laporan dari filter form saat ini (tahun akademik, jenis semester, kode/id
+	 * mata kuliah, fakultas/jurusan/program/tahun angkatan/jenis kelamin, dengan {@code -1}/{@code "-1"}
+	 * sebagai penanda "tidak difilter"). Mengembalikan {@code null} bila mata kuliah target belum
+	 * dipilih, sebagai sinyal bagi pemanggil untuk membatalkan pembuatan laporan.
+	 */
 	protected Map generateParameter() throws Exception {
 
 		// if (kurikulumFakultas.getSelectedItem() == null) {
@@ -405,6 +428,7 @@ public class LaporanRekapitulasiMahasiswaYangTidakMengambilMatakuliah extends My
 	}
 
 	@SuppressWarnings({ "rawtypes" })
+	/** Handler tombol "Lihat Laporan"/export: menghasilkan parameter ({@link #generateParameter()}, berhenti diam-diam bila {@code null}), lalu membuat berkas PDF laporan dan menampilkannya di {@link #center}. */
 	public void onLaporanPerkuliahan(Event event) throws Exception {
 		final Map parameters = generateParameter();
 		if (parameters == null) {

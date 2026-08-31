@@ -43,6 +43,26 @@ import ais.ui.util.MyLabelKecil;
 import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper ZK modul asset yang membangun grid pembayaran termin tagihan barang/jasa
+ * ({@link PembayaranTerminMasterAsset}/{@link PembayaranTerminMasterAssetDetail}) untuk satu
+ * {@link PenyediaAsset} (vendor): menampilkan setiap {@link PemesananPengadaanMasterAsset}
+ * bertermin ({@code byTermin=true}) yang sudah disetujui, memilih termin tagihan yang belum dibayar
+ * (dicocokkan via kunci {@code key} pada JSON formula pesanan terhadap daftar
+ * {@code keysTagihan} yang sudah tertagih sebelumnya), menghitung nilai dibayar/pinalti/PPh, dan
+ * menyimpan perubahan secara langsung (autosave per-sel) ke database.
+ *
+ * <p>
+ * Alur data ganda: bila {@code pembayaranTerminMasterAsset} sudah tersimpan (punya id), baris
+ * diambil dari {@link PembayaranTerminMasterAssetDetail} yang sudah ada (dan
+ * {@code totalTelahDibayar}/{@code dibayar} pada pesanan induk disegarkan ulang); bila belum
+ * tersimpan (form baru), baris dibangun on-the-fly dari seluruh pesanan bertermin milik vendor yang
+ * belum lunas. Sel "Pilih Termin" memakai combobox berisi opsi termin yang sudah "setuju" tapi
+ * belum tertagih; memilih satu opsi otomatis mengisi nilai dibayar dan pinalti dari data JSON
+ * termin tersebut. Setelah form disetujui ({@code disetujuiOleh != null}), seluruh sel berubah
+ * menjadi label read-only.
+ * </p>
+ */
 public class PembayaranTerminMasterAssetHelper {
 
 	private MyGrid gridPenerimaanTerminMasterAsset;
@@ -53,11 +73,24 @@ public class PembayaranTerminMasterAssetHelper {
 	private PembayaranTerminMasterAsset pembayaranTerminMasterAsset;
 	private boolean setujui = false;
 
+	/** Membungkus {@code gridPenerimaanTerminMasterAsset} sebagai grid target yang akan diisi oleh {@link #initDetail}. */
 	public PembayaranTerminMasterAssetHelper(MyGrid gridPenerimaanTerminMasterAsset) {
 		this.gridPenerimaanTerminMasterAsset = gridPenerimaanTerminMasterAsset;
 
 	}
 
+	/**
+	 * Membangun kerangka grid termin (kolom Termin/Pajak/Tagihan/Tertagih/Sisa/Pinalti/Nilai
+	 * Dibayar/Nominal PPh/Keterangan, dengan footer total nilai dibayar) di dalam {@link Groupbox}
+	 * baru, lalu memuat isinya lewat {@link #loadDataDetail}. Kolom "Nilai Dibayar" disembunyikan
+	 * (lebar 0) bila mode {@code setujui} atau data sudah disetujui — nilai lalu hanya ditampilkan
+	 * sebagai label pada {@link #initRow}. Field {@link #edit} ditentukan dari status persetujuan
+	 * ({@code true} hanya bila belum disetujui).
+	 *
+	 * @param pembayaranTerminMasterAsset entitas induk pembayaran termin
+	 * @param setujui                     {@code true} bila grid dibuka dalam mode persetujuan (read-only nilai dibayar)
+	 * @return groupbox berisi grid yang sudah terisi
+	 */
 	public Groupbox initDetail(final PembayaranTerminMasterAsset pembayaranTerminMasterAsset, boolean setujui)
 			throws Exception {
 		this.pembayaranTerminMasterAsset = pembayaranTerminMasterAsset;
@@ -185,6 +218,17 @@ public class PembayaranTerminMasterAssetHelper {
 		return myGroupboxStyled;
 	}
 
+	/**
+	 * Mengisi ulang baris grid untuk {@link #penyediaAsset} saat ini: (1) mengumpulkan
+	 * {@link #keysTagihan} — kunci termin vendor yang sudah pernah ditagih di baris
+	 * {@link PembayaranTerminMasterAssetDetail} manapun; (2) bila {@code pembayaranTerminMasterAsset}
+	 * sudah tersimpan, memuat detail yang ada dan menyegarkan
+	 * {@code totalTelahDibayar}/{@code dibayar} pesanan induknya dari jumlah aktual yang tertagih;
+	 * (3) bila belum tersimpan, membangun daftar detail baru dari seluruh
+	 * {@link PemesananPengadaanMasterAsset} bertermin yang sudah disetujui dan masih bersaldo untuk
+	 * vendor tersebut. Setiap perubahan dijalankan dalam transaksi Hibernate eksplisit dengan
+	 * rollback saat gagal. Tidak melakukan apa pun bila {@link #penyediaAsset} belum diset.
+	 */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final PembayaranTerminMasterAsset pembayaranTerminMasterAsset) throws Exception {
 
@@ -345,6 +389,7 @@ public class PembayaranTerminMasterAssetHelper {
 
 	private List<String> keysTagihan;
 
+	/** Menghitung ulang {@link #totalDibayar} dari seluruh baris grid yang sedang terlihat (dijumlahkan dari atribut {@code pembayaranTerminMasterAssetDetail} tiap baris) dan memperbarui label footer {@link #footerTotalDibayar}. Dipicu setiap kali sel nilai dibayar/pilihan termin berubah. */
 	private EventListener eventListenerHitungUlang = new EventListener() {
 
 		@SuppressWarnings("unchecked")
@@ -367,6 +412,16 @@ public class PembayaranTerminMasterAssetHelper {
 		}
 	};
 
+	/**
+	 * Merender satu baris grid untuk {@code pembayaranTerminMasterAssetDetail}: identitas
+	 * pesanan/termin (combobox pilihan termin yang belum tertagih untuk baris baru, atau label
+	 * termin tersimpan untuk baris lama), kolom pajak (combobox {@link JenisPajakBarang} yang
+	 * menghitung ulang Nominal PPh saat berubah), kolom tagihan/tertagih/sisa/pinalti (dari
+	 * {@code getNilai()}/{@code getDibayar()}/{@code getDptotal()} pesanan induk), sel nilai dibayar
+	 * (editable {@link MyDoublebox} atau label read-only tergantung status persetujuan), dan
+	 * keterangan. Setiap perubahan sel langsung disimpan (jika detail sudah punya id) lewat
+	 * {@code Common.refreshUpdate} dan memicu {@link #eventListenerHitungUlang}.
+	 */
 	public void initRow(final Row rowData, final PembayaranTerminMasterAssetDetail pembayaranTerminMasterAssetDetail)
 			throws Exception {
 		boolean persetujuan = pembayaranTerminMasterAssetDetail.getPembayaranTerminMasterAsset()
@@ -746,10 +801,12 @@ public class PembayaranTerminMasterAssetHelper {
 
 	}
 
+	/** @return vendor ({@link PenyediaAsset}) yang termin tagihannya sedang ditampilkan grid ini. */
 	public PenyediaAsset getPenyediaAsset() {
 		return penyediaAsset;
 	}
 
+	/** Mengganti vendor aktif dan langsung memuat ulang isi grid ({@link #loadDataDetail}) untuk vendor baru tersebut. */
 	public void setPenyediaAsset(PenyediaAsset penyediaAsset) {
 		this.penyediaAsset = penyediaAsset;
 		try {

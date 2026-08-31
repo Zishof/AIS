@@ -50,6 +50,17 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper UI (implementasi {@link DataLoader}) untuk menampilkan/mengelola daftar referensi
+ * pustaka ({@link JadwalPelajaranPunyaItem}) terkait satu {@link JadwalPelajaran}: grid item
+ * (sampul, ISBN/ISSN, judul, pengarang, penerbit, guru+jadwal terkait, catatan), tombol untuk
+ * mengambil referensi dari katalog perpustakaan lokal ({@code AmbilDataItemBanyak}) atau dari
+ * Google Books ({@code AmbilDataDariGoogleBookBanyak}), serta aksi per baris (lihat kutipan
+ * sitasi, buka pratinjau Google Books, baca hasil pindai per halaman bila tersedia, hapus). Bila
+ * dipasang di dalam {@link Tabpanel}, jumlah item ditampilkan pada label tab terkait. Dapat pula
+ * dipakai di luar konteks jadwal pelajaran tertentu lewat {@link #display(String, Component)}
+ * dengan kondisi SQL kustom (mis. untuk menampilkan seluruh referensi tanpa filter jadwal).
+ */
 public class JadwalPelajaranPunyaItemHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -59,10 +70,12 @@ public class JadwalPelajaranPunyaItemHelper implements DataLoader {
 	private Tbmuser tbmuser;
 	private String sqltambahan = "false";
 
+	/** Membuat helper untuk user yang sedang login. */
 	public JadwalPelajaranPunyaItemHelper() {
 		tbmuser = Common.getCurrentUser();
 	}
 
+	/** Renderer baris grid: sampul, ISBN/ISSN, judul (via {@link RevisiHelper}), pengarang, penerbit, info guru+jadwal, catatan (dapat diedit oleh non-mahasiswa/non-siswa), dan tombol aksi (kutipan, Google Books, baca hasil pindai, hapus). */
 	class DetailJadwalPelajaranRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -224,6 +237,13 @@ public class JadwalPelajaranPunyaItemHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Memuat ulang grid: bila {@link #jadwalPelajaran} diisi, hanya item terkait jadwal itu; bila
+	 * tidak, kondisi SQL tambahan ({@link #sqltambahan}, default {@code "false"} = kosong) yang
+	 * dipakai. Memperbarui label tab (jumlah item) bila komponen wadah adalah {@link Tabpanel}.
+	 *
+	 * @param value tidak dipakai (parameter kontrak {@link DataLoader})
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();

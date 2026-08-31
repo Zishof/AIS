@@ -34,6 +34,12 @@ import ais.ui.util.DataCriteriaWithColumn;
 import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Kartu dasbor admin yang menampilkan statistik jumlah dosen aktif per program studi (jurusan),
+ * dibatasi otomatis sesuai cakupan user yang login (jurusan/fakultas/perguruan tinggi bila
+ * berlaku), lengkap dengan grafik batang vertikal. Setiap angka jumlah dosen dapat diklik untuk
+ * mengunduh daftar dosen yang mendasarinya lewat {@link Common#cetakDataCustomButton}.
+ */
 public class DashboardStatistikDosenJurusan extends MyWindow {
 
 	private static final long serialVersionUID = -28636873241676666L;
@@ -42,24 +48,37 @@ public class DashboardStatistikDosenJurusan extends MyWindow {
 	private int width = 750;
 	private int height = 100;
 
+	/** Membuat instans kartu tanpa ukuran kustom; panggil {@link #init()} untuk menyusun isinya. */
 	public DashboardStatistikDosenJurusan() {
 		super();
 	}
 
+	/**
+	 * Membuat instans kartu dengan ukuran awal kustom.
+	 *
+	 * @param width  lebar area chart yang diinginkan (piksel)
+	 * @param height tinggi dasar area chart (piksel), disesuaikan lagi berdasarkan jumlah baris
+	 */
 	public DashboardStatistikDosenJurusan(int width, int height) throws Exception {
 		super();
 		reinit(width, height);
 	}
 
+	/** Memperbarui ukuran yang dipakai kartu ini; tidak menyusun ulang isi yang sudah dirender. */
 	public void reinit(int width, int height) throws Exception {
 		this.width = width;
 		this.height = height;
 	}
 
+	/**
+	 * Membuat instans kartu dengan judul, gaya border, dan status dapat-ditutup kustom (warisan
+	 * konstruktor {@link MyWindow}).
+	 */
 	public DashboardStatistikDosenJurusan(String title, String border, boolean closable) {
 		super(title, border, closable);
 	}
 
+	/** Menyusun kartu portal responsif (judul + deskripsi) dan langsung mengisi tabel+grafik lewat {@link #initChart(Component, boolean)}. */
 	public void init() {
 		setHeight("100%");
 		setWidth("100%");
@@ -72,10 +91,12 @@ public class DashboardStatistikDosenJurusan extends MyWindow {
 		initChart(center, true);
 	}
 
+	/** Listener klik pada satu angka jumlah dosen: membuka unduhan daftar dosen jurusan terkait (atau seluruh dosen bila {@code jurusanId} adalah penanda total, {@code -1}). */
 	public class MyEventListener implements EventListener {
 
 		private Long jurusanId;
 
+		/** @param jurusanId id jurusan yang datanya diunduh saat diklik, atau {@code -1} untuk baris total (seluruh jurusan) */
 		public MyEventListener(Long jurusanId) {
 			this.jurusanId = jurusanId;
 		}
@@ -122,6 +143,15 @@ public class DashboardStatistikDosenJurusan extends MyWindow {
 		}
 	}
 
+	/**
+	 * Menjalankan agregasi SQL jumlah dosen aktif per jurusan (dibatasi otomatis ke
+	 * jurusan/fakultas/perguruan tinggi user yang login bila berlaku), menampilkannya sebagai
+	 * tabel dua kolom (nama jurusan, jumlah dosen -- tiap angka dapat diklik) dengan baris total
+	 * di akhir, dan opsional menambahkan grafik batang vertikal di bawah tabel.
+	 *
+	 * @param center         komponen wadah yang akan diisi ulang (dikosongkan lebih dulu)
+	 * @param tampilkanChart {@code true} untuk menampilkan grafik batang di bawah tabel
+	 */
 	@SuppressWarnings({ "deprecation" })
 	public void initChart(Component center, boolean tampilkanChart) {
 		Common.clear(center);

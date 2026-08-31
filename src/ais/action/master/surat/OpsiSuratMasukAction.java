@@ -39,6 +39,18 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.UIUtil;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD data master "Opsi Surat Masuk": mendefinisikan opsi tindak lanjut/disposisi surat
+ * masuk (mis. "Balas", "Teruskan"), dengan pembatasan siapa yang boleh memilih opsi tersebut —
+ * baik berdasarkan jenis pengguna (daftar id role, dipisah koma) atau berdasarkan username
+ * spesifik (dipisah koma, dapat diambil lewat picker {@link AmbilDataTbmuserBanyak}); kedua mode
+ * ini saling eksklusif, dipilih lewat checkbox {@code hanyaBoleh} yang menampilkan/menyembunyikan
+ * field terkait. Dibangun di atas {@link GenericCrudAction}, disimpan lewat
+ * {@link OpsiSuratMasukDao}. Menahan referensi statis {@link SuratUtil#balas} sebagai penanda
+ * ketergantungan konfigurasi opsi "Balas" bawaan sistem. Renderer baris kustom (tanpa memakai
+ * {@code Common.copyEditDeleteButtons} bawaan) menampilkan checkbox aktif dan tombol edit/hapus
+ * manual dengan penanganan galat penghapusan (mis. data masih berelasi).
+ */
 public class OpsiSuratMasukAction extends GenericCrudAction<OpsiSuratMasuk> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -61,12 +73,14 @@ public class OpsiSuratMasukAction extends GenericCrudAction<OpsiSuratMasuk> {
     @Override
     protected String getWindowTitle() { return "Pendataan Opsi Surat Masuk"; }
 
+    /** Memicu inisialisasi/pemuatan lazy referensi opsi "Balas" bawaan sistem ({@link SuratUtil#balas}) saat layar dibuka. */
     @Override
     protected void onAfterInit(Component comp) throws Exception {
         @SuppressWarnings("unused")
         OpsiSuratMasuk balas = SuratUtil.balas;
     }
 
+    /** Membangun kriteria pencarian {@link OpsiSuratMasuk} berdasarkan filter nama (ILIKE sebagian), diurutkan menurut nama bila {@code order} true. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -85,6 +99,7 @@ public class OpsiSuratMasukAction extends GenericCrudAction<OpsiSuratMasuk> {
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/edit Opsi Surat Masuk: nama, keterangan, dan toggle mode pembatasan pengguna (jenis pengguna/id role vs username spesifik, dengan picker {@link AmbilDataTbmuserBanyak} untuk memilih username). */
     @Override
     protected void buildFormContent(MyWindow window, final OpsiSuratMasuk opsiSuratMasuk) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -220,6 +235,7 @@ public class OpsiSuratMasukAction extends GenericCrudAction<OpsiSuratMasuk> {
 
     // ======================== Save logic ========================
 
+    /** Memvalidasi (nama wajib diisi, tidak boleh duplikat) lalu menyimpan/memperbarui entitas {@link OpsiSuratMasuk} lewat {@link OpsiSuratMasukDao}, menulis salah satu dari {@code jenisPengguna}/{@code usernamePengguna} (null pada yang tidak dipakai sesuai toggle {@code hanyaBoleh}). @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal. */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Nama Opsi Surat Masuk belum diisi. Langkah yang dapat dilakukan: (1) klik kolom Nama Opsi; (2) isikan nama opsi surat masuk secara lengkap; (3) ulangi proses simpan. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.", "Peringatan",
@@ -249,6 +265,7 @@ public class OpsiSuratMasukAction extends GenericCrudAction<OpsiSuratMasuk> {
         return true;
     }
 
+    /** Memeriksa apakah nama pada form sudah dipakai entitas {@link OpsiSuratMasuk} lain (mengabaikan entitas yang sedang diedit). */
     public Boolean checkNamaOpsiSuratMasuk() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(OpsiSuratMasuk.class)
@@ -263,6 +280,7 @@ public class OpsiSuratMasukAction extends GenericCrudAction<OpsiSuratMasuk> {
 
     // ======================== Renderer ========================
 
+    /** Merender satu baris daftar Opsi Surat Masuk: label revisi+nama, jenis pengguna ("Semua" bila tidak dibatasi), username pengguna ("Semua" bila tidak dibatasi), keterangan, checkbox aktif, dan tombol edit/hapus manual (dengan penanganan galat bila data masih berelasi saat dihapus). */
     class OpsiSuratMasukRenderer extends MyRowRenderer {
 
         @Override

@@ -22,6 +22,17 @@ import ais.database.model.Perkuliahan;
 import ais.ui.util.DataCriteriaWithColumn;
 import ais.ui.util.MyComboitemConfig;
 
+/**
+ * Laporan SAPTO/borang akreditasi BAN-PT butir A.3.2.2 (kode sheet {@code A-3.2.2}): rekap profil
+ * kelulusan mahasiswa (jumlah lulusan, rata-rata masa studi/IPK — dihitung oleh
+ * {@link SaptoGenerator#generateProfileMahasiswaDanLulusan_A_3_2_2}) selama 3 tahun terakhir
+ * (tahun akademik terpilih dan dua tahun sebelumnya), disusun terpisah per jenjang pendidikan
+ * (S3, S2, S1, D4, D3, D2, D1) dan difilter jenis semester (Ganjil/Genap, default sesuai semester
+ * berjalan). Data dimuat asinkron di thread terpisah lalu dirender lewat
+ * {@link SaptoUtil#displayWorksheet}; setiap sel dapat diklik untuk mengunduh rincian mahasiswa
+ * lulus (NIM, nama, tahun angkatan, tahun lulus, jurusan, IPK) yang menyusun angka tersebut lewat
+ * {@link Common#cetakDataCustomButton}.
+ */
 public class LaporanProfileMahasiswaDanLulusan_A_3_2_2 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-3.2.2";
@@ -29,6 +40,7 @@ public class LaporanProfileMahasiswaDanLulusan_A_3_2_2 extends SaptoBaseWindow {
     private Combobox tahunAjaran;
     private Combobox searchJenisSemester;
 
+    /** Membangun jendela laporan dengan tahun ajaran berjalan dan semester berjalan terpilih otomatis. */
     public LaporanProfileMahasiswaDanLulusan_A_3_2_2() {
         super();
         try {
@@ -38,6 +50,7 @@ public class LaporanProfileMahasiswaDanLulusan_A_3_2_2 extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Membangun jendela laporan dengan judul/border/closable kustom; tahun ajaran dan semester berjalan terpilih otomatis. */
     public LaporanProfileMahasiswaDanLulusan_A_3_2_2(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         Common.selectComboItem(tahunAjaran = Common.generateTahunAjaran(tahunAjaran), Common.getCurrentTahunAkademik());
@@ -45,6 +58,7 @@ public class LaporanProfileMahasiswaDanLulusan_A_3_2_2 extends SaptoBaseWindow {
         buildBase(true);
     }
 
+    /** Menyiapkan combobox pilihan jenis semester (Ganjil/Genap), default sesuai semester yang sedang berjalan. */
     private void buildSemesterCombobox() {
         searchJenisSemester = new Combobox();
         org.zkoss.zul.Comboitem item = new org.zkoss.zul.Comboitem();
@@ -57,8 +71,10 @@ public class LaporanProfileMahasiswaDanLulusan_A_3_2_2 extends SaptoBaseWindow {
         Common.selectComboItem(searchJenisSemester, Common.isNowSemensterGanjil() ? Perkuliahan.GANJIL : Perkuliahan.GENAP);
     }
 
+    /** @return kode sheet borang {@code "A-3.2.2"}. */
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Membangun baris filter tahun akademik dan semester; perubahan tiap filter memicu cetak ulang otomatis. */
     @Override
     protected void buildFilters(Row row) {
         row.appendChild(new ais.ui.util.MyLabelConfig("Tahun Akademik *"));
@@ -77,6 +93,14 @@ public class LaporanProfileMahasiswaDanLulusan_A_3_2_2 extends SaptoBaseWindow {
         });
     }
 
+    /**
+     * Menghitung dan menampilkan rekap profil kelulusan 3 tahun terakhir per jenjang untuk tahun
+     * akademik dan semester yang dipilih. Data dimuat asinkron di thread terpisah dan dirender
+     * lewat {@link SaptoUtil#displayWorksheet}; sel dapat diklik untuk mengunduh rincian mahasiswa
+     * lulus penyusun angka.
+     *
+     * @param event event pemicu (perubahan filter), boleh {@code null}
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

@@ -31,18 +31,41 @@ import ais.database.model.Tbmuser;
 import ais.database.model.library.DomainPenelitian;
 import ais.database.model.library.PenerbitPunyaPemeriksa;
 
+/**
+ * Helper UI ZK untuk mengelola relasi "pemeriksa" ({@link PenerbitPunyaPemeriksa}, pengguna yang
+ * ditugaskan memeriksa/mereview karya) pada satu {@link DomainPenelitian} milik penerbit di
+ * modul perpustakaan. Dipasang pada panel detail satu domain penelitian, menampilkan daftar
+ * pemeriksa sebagai grid dengan checkbox status aktif per baris dan tombol tambah/hapus.
+ *
+ * <p>
+ * Tombol tambah membuka dialog {@link AmbilDataPemeriksaBanyak} (pemilih pengguna multi-pilih,
+ * dengan pemeriksa yang sudah terdaftar dikecualikan dari pilihan) dan langsung menyimpan baris
+ * {@link PenerbitPunyaPemeriksa} baru (berstatus aktif) untuk setiap pengguna yang dipilih, bila
+ * domain penelitian sudah tersimpan. Checkbox aktif per baris memperbarui status langsung ke
+ * database saat diubah. Tombol hapus per baris meminta konfirmasi sebelum menghapus baris relasi.
+ * Visibilitas tombol tambah/hapus mengikuti privilese pengguna saat ini ({@link CommonPrivilages}).
+ * </p>
+ */
 public class DomainPenelitianPunyaPemeriksaHelper {
 
 	private MyGrid gridPemeriksa;
 	private boolean add = false;
 	private boolean delete = false;
 
+	/** Membangun helper terikat pada {@code gridPemeriksa} dan menghitung hak tambah/hapus pengguna saat ini. */
 	public DomainPenelitianPunyaPemeriksaHelper(MyGrid gridPemeriksa) {
 		this.gridPemeriksa = gridPemeriksa;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun panel (border layout) berisi toolbar "Tambah Pemeriksa" dan grid daftar
+	 * pemeriksa untuk {@code domainPenelitian}, lalu memuat data pemeriksa yang sudah tersimpan.
+	 *
+	 * @param domainPenelitian domain penelitian yang detail pemeriksanya ditampilkan/dikelola
+	 * @return border layout siap disisipkan sebagai konten panel detail
+	 */
 	@SuppressWarnings("unchecked")
 	public Borderlayout initDetail(final DomainPenelitian domainPenelitian) {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -141,6 +164,7 @@ public class DomainPenelitianPunyaPemeriksaHelper {
 		return borderlayout;
 	}
 
+	/** Memuat baris-baris pemeriksa tersimpan untuk {@code domainPenelitian} dari database dan merendernya ke grid. */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final DomainPenelitian domainPenelitian) {
 
@@ -163,6 +187,12 @@ public class DomainPenelitianPunyaPemeriksaHelper {
 		}
 	}
 
+	/**
+	 * Mengisi {@code row} dengan nama pemeriksa, checkbox status aktif (memperbarui database
+	 * langsung saat diubah), dan tombol hapus (bila pengguna berhak); tombol hapus meminta
+	 * konfirmasi, lalu menghapus baris relasi dari database (bila sudah tersimpan) dan melepas
+	 * baris dari tampilan.
+	 */
 	public void initRow(final Row row,
 			final PenerbitPunyaPemeriksa penerbitPunyaPemeriksa) {
 		row.setValign("top");row.setAttribute("penerbitPunyaPemeriksa", penerbitPunyaPemeriksa);

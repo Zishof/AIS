@@ -26,6 +26,15 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD master data Devisi (divisi akunting, mis. untuk pembagian tanggung jawab keuangan
+ * pada modul SIRS/akunting). Memperluas {@link GenericCrudAction} untuk mewarisi kerangka baku
+ * cari/tambah/ubah/hapus; kelas ini mengisi bagian spesifik entitas: kriteria pencarian berdasarkan
+ * nama, form input (kode + nama + keterangan), validasi kode/nama wajib dan kode tidak boleh
+ * duplikat ({@link #checkKodeDevisi()}), serta renderer baris grid. Berbeda dari sebagian besar
+ * layar CRUD sejenis di paket ini, penyimpanan didelegasikan ke {@link DevisiDao} (via
+ * {@link DaoFactory}) alih-alih memanggil Hibernate langsung.
+ */
 public class DevisiAction extends GenericCrudAction<Devisi> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -46,6 +55,7 @@ public class DevisiAction extends GenericCrudAction<Devisi> {
     @Override
     protected String getWindowTitle() { return "Pendataan Devisi"; }
 
+    /** Menyusun kriteria pencarian {@link Devisi} berdasarkan nama (filter {@code searchnama}), diurutkan berdasarkan nama bila diminta. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -57,6 +67,7 @@ public class DevisiAction extends GenericCrudAction<Devisi> {
         return criteria;
     }
 
+    /** Menyediakan renderer baris grid {@link DevisiRenderer} untuk daftar hasil pencarian. */
     @Override
     protected MyRowRenderer createRenderer() {
         return new DevisiRenderer();
@@ -64,6 +75,7 @@ public class DevisiAction extends GenericCrudAction<Devisi> {
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/ubah devisi (field kode + nama + keterangan) beserta tombol batal/simpan pada jendela dialog. */
     @Override
     protected void buildFormContent(MyWindow window, final Devisi devisi) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -141,6 +153,15 @@ public class DevisiAction extends GenericCrudAction<Devisi> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi lalu menyimpan data devisi dari form: menolak bila kode atau nama kosong, atau
+     * kode sudah terdaftar pada baris lain; jika lolos menyimpan/memperbarui entitas lewat
+     * {@link DevisiDao} dan mengembalikan {@code true}.
+     *
+     * @param event event ZK pemicu penyimpanan (tombol simpan)
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal
+     * @throws Exception diteruskan apa adanya dari kegagalan DAO saat menyimpan
+     */
     public boolean onSave(Event event) throws Exception {
         if (kode.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Kode Divisi wajib diisi terlebih dahulu. Langkah yang dapat dilakukan: (1) isikan Kode Divisi pada kolom yang tersedia; (2) pastikan kolom tidak dikosongkan; (3) simpan kembali data setelah kode terisi.", "Peringatan",
@@ -174,6 +195,12 @@ public class DevisiAction extends GenericCrudAction<Devisi> {
         return true;
     }
 
+    /**
+     * Memeriksa apakah kode devisi yang diisi di form sudah dipakai baris lain (mengecualikan
+     * baris yang sedang diedit sendiri).
+     *
+     * @return {@code true} bila kode sudah terpakai baris lain, {@code false} bila belum
+     */
     public Boolean checkKodeDevisi() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(Devisi.class)
@@ -188,6 +215,7 @@ public class DevisiAction extends GenericCrudAction<Devisi> {
 
     // ======================== Renderer ========================
 
+    /** Renderer baris grid daftar devisi: kolom kode, nama (dengan link riwayat revisi), keterangan, dan tombol edit/hapus. */
     class DevisiRenderer extends MyRowRenderer {
 
         @Override

@@ -40,6 +40,18 @@ import ais.database.model.library.PermintaanPengadaanItemDetail;
 import ais.ui.util.MyDoublebox;
 import ais.ui.util.MyTextbox;
 
+/**
+ * Helper UI pengelola daftar item pada satu permintaan pengadaan perpustakaan
+ * ({@link PermintaanPengadaanItem}/{@link PermintaanPengadaanItemDetail}). Menyediakan tiga cara
+ * menambah item: picker banyak-pilih dari seluruh koleksi ({@code AmbilDataItemBanyak}), picker
+ * terbatas pada item yang punya stok di perpustakaan terkait ({@code AmbilDataItemBanyakBerdasarkanStok}),
+ * atau pemindaian/pengetikan barcode/ISBN/ISSN langsung ({@link #loadBarcode}, mencari lebih dulu
+ * di {@link ItemPunyaBarcode} lalu fallback ke ISBN-10/ISBN/ISSN pada {@link Item}). Setiap baris
+ * grid mengizinkan pengeditan jumlah, penyedia (juga memperbarui {@code defaultPenyedia} pada
+ * item terkait), dan keterangan — seluruhnya langsung tersimpan saat diubah. Permintaan yang sudah
+ * disetujui ({@code disetujuiOleh != null}) mengunci seluruh input menjadi disabled. Visibilitas
+ * tombol tambah/hapus mengikuti hak akses pengguna saat ini.
+ */
 public class PermintaanPengadaanItemPunyaItemHelper {
 
 	private MyGrid gridItem;
@@ -48,6 +60,7 @@ public class PermintaanPengadaanItemPunyaItemHelper {
 	private boolean delete = false;
 	private Textbox barcode;
 
+	/** Membuat helper untuk {@code gridItem} dan menentukan visibilitas/status enable tombol tambah/edit/hapus dari hak akses pengguna saat ini. */
 	public PermintaanPengadaanItemPunyaItemHelper(MyGrid gridItem) {
 		this.gridItem = gridItem;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -55,6 +68,18 @@ public class PermintaanPengadaanItemPunyaItemHelper {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun tata letak lengkap panel item untuk {@code permintaanPengadaanItem}: toolbar berisi
+	 * tombol "Tambah Item" (picker seluruh koleksi), "Tambah Item berdasar stok" (picker terbatas
+	 * stok perpustakaan), dan kolom pencarian barcode/ISBN/ISSN dengan tombol cari (memicu
+	 * {@link #loadBarcode}) — seluruh kontrol tambah dinonaktifkan bila permintaan sudah disetujui;
+	 * diikuti grid kolom gambar/kode/nama/jumlah/penyedia/keterangan/hapus yang langsung dimuat
+	 * dengan data tersimpan ({@link #loadDataDetail}).
+	 *
+	 * @param permintaanPengadaanItem permintaan pengadaan yang daftar itemnya dikelola
+	 * @return {@link Borderlayout} siap ditempelkan ke jendela detail permintaan
+	 * @throws Exception diteruskan dari kegagalan pembangunan komponen/query data
+	 */
 	public Borderlayout initDetail(final PermintaanPengadaanItem permintaanPengadaanItem) throws Exception {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -244,6 +269,7 @@ public class PermintaanPengadaanItemPunyaItemHelper {
 		return borderlayout;
 	}
 
+	/** Memuat seluruh {@link PermintaanPengadaanItemDetail} tersimpan milik {@code permintaanPengadaanItem} (kosong bila belum persisten) dan merender masing-masing sebagai baris grid. */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final PermintaanPengadaanItem permintaanPengadaanItem) throws Exception {
 
@@ -262,6 +288,17 @@ public class PermintaanPengadaanItemPunyaItemHelper {
 		}
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan gambar item, kode ISBN/ISSN, label revisi+nama item, input
+	 * jumlah, picker penyedia ({@code AmbilDataPenyediaBanbox} — mengubah penyedia juga
+	 * memperbarui {@code defaultPenyedia} pada item terkait), field keterangan, dan tombol hapus
+	 * (dengan dialog konfirmasi). Seluruh input dinonaktifkan bila permintaan induk sudah
+	 * disetujui atau pengguna tidak punya hak edit.
+	 *
+	 * @param row                          baris ZK yang akan diisi
+	 * @param permintaanPengadaanItemDetail entitas detail item (baru atau tersimpan) yang direpresentasikan baris ini
+	 * @throws Exception diteruskan dari kegagalan pembangunan komponen
+	 */
 	public void initRow(final Row row, final PermintaanPengadaanItemDetail permintaanPengadaanItemDetail)
 			throws Exception {
 
@@ -381,6 +418,17 @@ public class PermintaanPengadaanItemPunyaItemHelper {
 		});
 	}
 
+	/**
+	 * Mencari item berdasarkan teks pada kolom {@code barcode} (persis/exact match): pertama pada
+	 * {@link ItemPunyaBarcode}, lalu fallback ke ISBN-10/ISBN/ISSN pada {@link Item}. Bila
+	 * ditemukan, menambahkan baris detail baru (jumlah default 1) ke grid dan menyimpan langsung
+	 * ke database bila permintaan sudah persisten; menampilkan peringatan bila kolom kosong atau
+	 * item tidak ditemukan. Fokus dikembalikan ke kolom barcode setelah selesai agar pemindaian
+	 * berikutnya dapat langsung dilakukan.
+	 *
+	 * @param permintaanPengadaanItem permintaan pengadaan tempat detail baru ditambahkan
+	 * @throws Exception diteruskan dari kegagalan pembangunan komponen/query data
+	 */
 	public void loadBarcode(PermintaanPengadaanItem permintaanPengadaanItem) throws Exception {
 		String barcode = this.barcode.getText().trim();
 		if (barcode.trim().equals("")) {

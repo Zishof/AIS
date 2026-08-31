@@ -32,8 +32,27 @@ import ais.ui.util.MyGroupboxStyled;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Utilitas statis modul Kursus: (1) menyediakan konstanta referensi baku ({@link TipePeserta},
+ * {@link JenisIdentitasPeserta}, {@link JenisPeserta}) yang dijamin ada di database — dimuat/dibuat
+ * sekali lewat blok inisialisasi statis kelas (pola "get-or-create" saat kelas pertama diakses); dan
+ * (2) membangun editor formula harga produk kursus berjenjang dua tingkat (komponen produk ->
+ * komponen data produk) berbasis JSON dinamis pada {@link Row} ZK.
+ *
+ * <p>
+ * Formula harga disimpan sebagai {@link JSONArray} bersarang: level luar berisi objek
+ * {@code {key, komponenProdukKursus, harga, arrayDetail}} per {@link KomponenProdukKursus}, dan
+ * {@code arrayDetail} berisi objek {@code {key, komponenDataProdukKursus, harga}} per
+ * {@link KomponenDataProdukKursus} di bawahnya. Entri "dihapus" dengan mengganti elemen array pada
+ * indeksnya menjadi {@link JSONObject} kosong (tanpa {@code key}) — bukan dipangkas dari array —
+ * sehingga indeks elemen lain tetap stabil; method render melewati entri tanpa {@code key} tersebut.
+ * Setiap perubahan memicu {@link EventListener} berantai yang menghitung ulang total harga dari
+ * level detail ke level komponen lalu ke total keseluruhan.
+ * </p>
+ */
 public class KursusUtil {
 
+	/** Jenis peserta baku "Peserta Reguler" (dibuat otomatis bila belum ada). */
 	public static JenisPeserta ANGGOTA_REGULER;
 	public static JenisIdentitasPeserta EMAIL;
 	public static JenisIdentitasPeserta NIM;
@@ -46,6 +65,7 @@ public class KursusUtil {
 	public static TipePeserta PEGAWAI;
 	public static TipePeserta SISWA;
 
+	/** Memuat (atau membuat bila belum ada) seluruh konstanta {@link TipePeserta}/{@link JenisIdentitasPeserta}/{@link JenisPeserta} baku saat kelas ini pertama kali diakses. */
 	static {
 		Session session = HibernateUtil.currentNativeSession();
 
@@ -171,6 +191,11 @@ public class KursusUtil {
 		}
 	}
 
+	/**
+	 * Titik masuk utama: menambahkan tombol "Tambah Komponen" ke {@code rowFormula} (yang menyisipkan
+	 * entri baru ber-{@code key} acak ke {@code array}) dan merender level komponen produk lewat
+	 * {@link #reloadDataFormula} ke baris baru yang ditempel setelah {@code rowFormula}.
+	 */
 	public static void reloadFormula(final Row rowFormula, final JSONArray array) throws Exception {
 		final MyFormRow rowU = new MyFormRow();
 
@@ -196,6 +221,16 @@ public class KursusUtil {
 
 	}
 
+	/**
+	 * Merender level detail ({@code arrayDetail}, komponen data produk) di dalam {@code detail}:
+	 * satu baris per entri ber-{@code key}, berisi banbox pilihan {@link KomponenDataProdukKursus}
+	 * dan kotak harga (default diambil dari {@code getHargaIkutDefault()} — mengikuti harga komponen
+	 * induk bila true, atau harga sendiri bila false) beserta tombol hapus. Setiap perubahan memicu
+	 * {@code eventListener} pemanggil untuk menghitung ulang total level komponen. Tidak merender
+	 * apa pun (kembali {@code 0}) bila tidak ada entri ber-{@code key} yang valid.
+	 *
+	 * @return jumlah entri detail yang valid/dirender
+	 */
 	public static int reloadDetail(final EventListener eventListener, final MyDetail detail, final JSONArray arrayDetail,
 			final String komponenProdukKursus, final KomponenProdukKursus komponenProdukKursusBiaya) throws Exception {
 		Common.clear(detail);
@@ -341,6 +376,16 @@ public class KursusUtil {
 		return size;
 	}
 
+	/**
+	 * Merender level komponen produk ({@code array}) ke dalam {@code rowU}: grid dengan footer total
+	 * (dihitung dari jumlah {@code harga} seluruh entri valid), satu baris {@link MyDetail} per
+	 * {@link KomponenProdukKursus} berisi banbox pilihan komponen (dikunci bila komponen tersebut
+	 * sudah punya rincian detail — {@link #reloadDetail} mengembalikan {@code size > 0}) dan label
+	 * harga totalnya, plus tombol tambah-detail dan hapus. Harga per komponen dihitung dari total
+	 * {@code arrayDetail}-nya bila ada detail, atau dari {@code KomponenProdukKursus.getHarga()}
+	 * bila belum. Dipanggil ulang secara rekursif setiap kali struktur berubah (tambah/hapus baris)
+	 * agar grid selalu konsisten dengan {@code array} terbaru.
+	 */
 	public static void reloadDataFormula(final Row rowU, final JSONArray array) throws Exception {
 		Common.clear(rowU);
 

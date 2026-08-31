@@ -39,6 +39,24 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper UI ZK modul inventory (kasir/koperasi) untuk mengelola item barang ({@link Produk}) yang
+ * dibeli dalam satu transaksi {@link Pembelian}, dengan dua cara input: memilih produk lewat
+ * dialog multi-pilih, atau memindai (scan) barcode langsung ke textbox khusus. Menampilkan grid
+ * item beserta subtotal per baris dan total belanja keseluruhan yang diperbarui otomatis.
+ *
+ * <p>
+ * Memindai barcode yang sama berulang kali (lewat {@link #loadBarcode(Pembelian, String)})
+ * menambah kuantitas baris yang sudah ada, bukan membuat baris baru — mendeteksi produk yang
+ * sama lewat id produk pada daftar {@link #pembelians} di memori. Setiap baris {@link Pembelian}
+ * baru mewarisi kios/kode/keterangan/siswa dari transaksi induk yang diberikan saat inisialisasi.
+ * {@link #simpan(Pembelian)} menyimpan seluruh baris di memori ke database, dengan validasi
+ * bahwa satu kode invoice ({@code kode}) tidak boleh dipakai siswa/mahasiswa lain. Tombol hapus
+ * baris memanggil {@code PembelianReferenceCleanupUtil#lepasDraftPembelianLunas} lebih dulu untuk
+ * melepas referensi draft pembelian lunas sebelum baris dihapus, mencegah pelanggaran integritas
+ * referensial.
+ * </p>
+ */
 public class PembelianPunyaBarangHelper {
 
 	private MyGrid gridItem;
@@ -51,6 +69,7 @@ public class PembelianPunyaBarangHelper {
 	List<Pembelian> pembelians;
 	private Combobox toko;
 
+	/** Membangun helper terikat pada {@code gridItem} dan combobox {@code toko} (sumber toko aktif transaksi), menghitung hak tambah/hapus pengguna saat ini. */
 	public PembelianPunyaBarangHelper(MyGrid gridItem, Combobox toko) {
 		this.gridItem = gridItem;
 		this.toko = toko;
@@ -59,6 +78,14 @@ public class PembelianPunyaBarangHelper {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun panel (border layout) berisi toolbar (Tambah Barang, input scan barcode, total
+	 * belanja) dan grid daftar item untuk transaksi {@code pembelian}; bila {@code pembelian}
+	 * sudah tersimpan, satu baris awal dimuat dan total dihitung ulang.
+	 *
+	 * @param pembelian transaksi pembelian induk (sumber kios/kode/keterangan/siswa yang diwarisi baris baru)
+	 * @return border layout siap disisipkan sebagai konten form pembelian
+	 */
 	@SuppressWarnings("unchecked")
 	public Borderlayout initDetail(final Pembelian pembelian) throws Exception {
 		pembelians = new ArrayList<Pembelian>();
@@ -223,6 +250,12 @@ public class PembelianPunyaBarangHelper {
 		return borderlayout;
 	}
 
+	/**
+	 * Mengisi {@code row} dengan kode, nama, dan harga produk, kolom kuantitas yang dapat diedit
+	 * (memperbarui subtotal baris dan total keseluruhan saat berubah), kolom keterangan, serta
+	 * tombol hapus (bila pengguna berhak); tombol hapus meminta konfirmasi, melepas referensi
+	 * draft pembelian lunas terkait, lalu menghapus baris dari database (bila sudah tersimpan).
+	 */
 	public void initRow(final Row row, final Pembelian pembelian) throws Exception {
 
 		row.setValign("top");
@@ -319,6 +352,18 @@ public class PembelianPunyaBarangHelper {
 		});
 	}
 
+	/**
+	 * Menambahkan (atau menambah kuantitas) item ke daftar pembelian berdasarkan {@code barcode}
+	 * (dicocokkan ke kode produk pada toko terpilih, atau produk lintas-toko bila kolom toko
+	 * kosong): bila produk yang sama sudah ada di daftar, kuantitas baris tersebut ditambah 1;
+	 * bila belum, baris baru dibuat dari {@code pembelian}. Menampilkan pesan peringatan bila
+	 * toko belum dipilih, barcode kosong, atau barcode tidak ditemukan.
+	 *
+	 * @param pembelian entitas pembelian dasar yang diisi produk (dipakai langsung sebagai baris
+	 *                  baru bila produk belum ada di daftar)
+	 * @param barcode   kode barcode yang dipindai; bila {@code null}, dibaca dari isian textbox
+	 *                  barcode saat ini
+	 */
 	public void loadBarcode(Pembelian pembelian, String barcode) throws Exception {
 
 		if (toko.getSelectedItem() == null || toko.getSelectedItem().getValue() == null) {
@@ -411,6 +456,7 @@ public class PembelianPunyaBarangHelper {
 		this.barcode.select();
 	}
 
+	/** Menghitung ulang total belanja dari seluruh baris yang tampil di grid dan memperbarui label total. */
 	@SuppressWarnings("unchecked")
 	private void hitungUlangTotal() {
 		total = 0.0;
@@ -423,6 +469,7 @@ public class PembelianPunyaBarangHelper {
 		totalBelanja.setValue("TOTAL : Rp. " + Common.numberFormat.get().format(total));
 	}
 
+	/** Mengembalikan daftar baris pembelian di memori yang belum tersimpan (belum punya id) dan sudah memiliki produk terisi. */
 	public List<Pembelian> tambahan() {
 		List<Pembelian> tambah = new ArrayList<Pembelian>();
 		for (Pembelian pembelian : pembelians) {
@@ -433,6 +480,14 @@ public class PembelianPunyaBarangHelper {
 		return tambah;
 	}
 
+	/**
+	 * Menyimpan seluruh baris pembelian di memori ke database, mewarisi toko dan waktu transaksi
+	 * dari {@code pembelianZ}. Setiap baris divalidasi lebih dulu: kode invoice ({@code kode})
+	 * tidak boleh dipakai siswa atau mahasiswa lain; batal menyimpan (baris tersisa tidak
+	 * diproses) dan menampilkan peringatan bila pelanggaran ditemukan.
+	 *
+	 * @param pembelianZ transaksi induk, sumber toko dan penanda waktu bagi seluruh baris
+	 */
 	public void simpan(Pembelian pembelianZ) throws Exception {
 		for (int i = 0; i < pembelians.size(); i++) {
 
@@ -475,6 +530,7 @@ public class PembelianPunyaBarangHelper {
 	}
 
 
+	/** Membangun kotak info HTML bergaya kartu (judul + deskripsi) untuk keterangan bantuan pada toolbar. */
 	private org.zkoss.zul.Html buildInfoHtmlInventoryV1(String judul, String deskripsi) {
 		return new org.zkoss.zul.Html("<div style=\"padding:10px 12px;margin:4px 0;border-radius:12px;"
 				+ "background:#f8fafc;border:1px solid #e2e8f0;color:#475569;font-size:11.5px;line-height:1.55;\">"
@@ -482,6 +538,7 @@ public class PembelianPunyaBarangHelper {
 				+ escapeHtmlInventoryV1(deskripsi) + "</div>");
 	}
 
+	/** Meng-escape karakter khusus HTML ({@code & < > " '}) pada {@code value} agar aman disisipkan ke markup, mengembalikan string kosong bila {@code value} {@code null}. */
 	private String escapeHtmlInventoryV1(String value) {
 		if (value == null) {
 			return "";

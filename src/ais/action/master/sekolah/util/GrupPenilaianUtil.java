@@ -24,8 +24,32 @@ import ais.ui.util.WaktuUtil;
 import net.objecthunter.exp4j.Expression;
 import net.objecthunter.exp4j.ExpressionBuilder;
 
+/**
+ * Mesin evaluasi formula "Grup Penilaian" modul Sekolah: menghitung nilai akhir siswa dari formula
+ * matematis bebas yang dikonfigurasi admin (mis. {@code (uh1+uh2)/2*0.4+uts*0.3+uas*0.3}), memakai
+ * pustaka ekspresi {@code exp4j} ({@link Expression}/{@link ExpressionBuilder}). Formula disimpan
+ * sebagai {@link JSONArray} berisi beberapa versi ber-tanggal ("riwayat formula") — {@code target}
+ * (untuk nilai)/{@code target_min}/{@code target_max} (untuk validasi rentang nilai) — sehingga
+ * perubahan formula di masa depan tidak mengubah perhitungan nilai historis; versi yang dipakai
+ * dipilih berdasarkan tanggal efektif terbaru yang tidak melebihi tanggal evaluasi ({@code sekarang}).
+ *
+ * <p>
+ * Sebelum dievaluasi, string formula diberi spasi di sekitar operator/tanda kurung agar exp4j
+ * dapat mem-parsing token dengan benar, lalu placeholder {@code kkm}/{@code KKM} diganti nilai KKM
+ * mata pelajaran, kode {@link Konstanta} aktif diganti nilai keterangannya, dan kode
+ * {@link JenisItemPenilaianSiswa} (mis. {@code uh1}, {@code uts}) diganti nilai input siswa
+ * (default {@code "1"} bila belum diisi) — untuk kode yang termasuk kategori penilaian yang
+ * dipilih ({@code selectedJenisItemPenilaianSiswa}) atau seluruh kategori grup penilaian
+ * ({@code grupPenilaianData}), substitusi dilakukan rekursif lewat {@link #hitung} agar formula
+ * bertingkat (formula yang merujuk komponen bernilai formula lain) dapat dihitung. Grup penilaian
+ * lain yang dirujuk lewat kodenya (dalam {@link #ambilPoint(String, Date, Map, int)}) juga
+ * dievaluasi rekursif, dibatasi 25 level ({@code coba > 25}) untuk mencegah rekursi tak terbatas
+ * pada formula yang saling merujuk.
+ * </p>
+ */
 public class GrupPenilaianUtil {
 
+	/** Mengambil nilai {@code target} (formula nilai) yang berlaku pada tanggal {@code sekarang} dari riwayat formula ber-tanggal ({@code formula} JSON), memilih versi bertanggal efektif terbaru yang tidak melebihi {@code sekarang}. */
 	public static String ambilTarget(String formula, Date sekarang) throws Exception {
 		String hasil = "";
 		try {
@@ -56,6 +80,7 @@ public class GrupPenilaianUtil {
 		return hasil;
 	}
 	
+	/** Sama seperti {@link #ambilTarget}, tetapi mengambil field {@code target_min} (batas bawah nilai valid) yang berlaku pada {@code sekarang}. */
 	public static String ambilTargetMin(String formula, Date sekarang) throws Exception {
 		String hasil = "";
 		try {
@@ -87,6 +112,7 @@ public class GrupPenilaianUtil {
 	}
 	
 	
+	/** Sama seperti {@link #ambilTarget}, tetapi mengambil field {@code target_max} (batas atas nilai valid) yang berlaku pada {@code sekarang}. */
 	public static String ambilTargetMax(String formula, Date sekarang) throws Exception {
 		String hasil = "";
 		try {
@@ -117,11 +143,24 @@ public class GrupPenilaianUtil {
 		return hasil;
 	}
 
+	/** Menghitung nilai dari satu baris input {@code jsonObject} (kode item penilaian → nilai mentah, plus {@code target}) tanpa data grup penilaian tambahan; lihat overload lengkap. */
 	public static Double ambilPoint(JSONObject jsonObject, Matapelajaran matapelajaran, GrupPenilaian grupPenilaian,
 			HashMap<Long, DetailGrupPenilaian> selectedJenisItemPenilaianSiswa) throws Exception {
 		return ambilPoint(jsonObject, matapelajaran, grupPenilaian, selectedJenisItemPenilaianSiswa, null);
 	}
 
+	/**
+	 * Menghitung nilai akhir dari satu baris input {@code jsonObject} (nilai mentah tiap
+	 * {@link JenisItemPenilaianSiswa} aktif) memakai formula {@code target} pada objek yang sama,
+	 * lewat {@link #hitung}.
+	 *
+	 * @param jsonObject                       objek berisi nilai mentah per kode item penilaian dan field {@code target}
+	 * @param matapelajaran                    mata pelajaran (sumber nilai KKM), boleh {@code null} (default KKM 70)
+	 * @param grupPenilaianData                grup penilaian konteks (dipakai bila {@code selectedJenisItemPenilaianSiswa} kosong)
+	 * @param selectedJenisItemPenilaianSiswa  peta kategori item penilaian yang dipilih untuk substitusi rekursif
+	 * @param dataItemGrupPenilaian            data tambahan diteruskan apa adanya ke pemanggilan rekursif
+	 * @return nilai hasil evaluasi formula, atau {@code 0.0} bila {@code target} tidak ada
+	 */
 	@SuppressWarnings("rawtypes")
 	public static Double ambilPoint(JSONObject jsonObject, Matapelajaran matapelajaran, GrupPenilaian grupPenilaianData,
 			HashMap<Long, DetailGrupPenilaian> selectedJenisItemPenilaianSiswa, Map dataItemGrupPenilaian)
@@ -153,6 +192,26 @@ public class GrupPenilaianUtil {
 
 	}
 
+	/**
+	 * Inti mesin evaluasi formula: menormalkan spasi di sekitar operator/tanda kurung, mengganti
+	 * placeholder {@code kkm}/{@code KKM} dengan KKM mata pelajaran, mengganti kode
+	 * {@link Konstanta} aktif dengan nilainya, lalu — bila {@code target} sudah berupa angka murni,
+	 * mengembalikannya langsung. Selain itu, untuk setiap kode {@link JenisItemPenilaianSiswa} yang
+	 * termasuk kategori penilaian yang relevan (dari {@code selectedJenisItemPenilaianSiswa} atau
+   	 * {@code grupPenilaianData}), nilainya dihitung rekursif (memanggil {@code hitung} lagi dengan
+	 * formula = nilai input kode tersebut, default {@code "1"} bila kosong) dan disubstitusikan ke
+	 * {@code target} sebelum akhirnya dievaluasi lewat {@link ExpressionBuilder}. Kegagalan
+	 * evaluasi (formula tidak valid) dicatat ke log/audit dan mengembalikan {@code 0.0}.
+	 *
+	 * @param data                             peta kode item penilaian → nilai mentah (string)
+	 * @param matapelajaran                    sumber nilai KKM, boleh {@code null}
+	 * @param target                           string formula yang akan dievaluasi
+	 * @param grupPenilaianData                grup penilaian konteks untuk resolusi kategori item
+	 * @param dataItemGrupPenilaian            diteruskan apa adanya ke pemanggilan rekursif
+	 * @param sekarang                         tanggal evaluasi, dipakai pemanggilan rekursif
+	 * @param selectedJenisItemPenilaianSiswa  peta kategori item penilaian terpilih
+	 * @return nilai hasil evaluasi, atau {@code 0.0} bila {@code target} kosong atau evaluasi gagal
+	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public static Double hitung(Map<String, String> data, Matapelajaran matapelajaran, String target,
 			GrupPenilaian grupPenilaianData, Map dataItemGrupPenilaian, Date sekarang,
@@ -344,10 +403,27 @@ public class GrupPenilaianUtil {
 		return hasil;
 	}
 
+	/** Menghitung nilai dari riwayat formula {@link GrupPenilaian} ber-tanggal (versi yang berlaku pada {@code sekarang}), tanpa data tambahan dan level rekursi 0; lihat overload lengkap. */
 	public static Double ambilPoint(String formula, Date sekarang) throws Exception {
 		return ambilPoint(formula, sekarang, null, 0);
 	}
 
+	/**
+	 * Menghitung nilai dari riwayat formula {@link GrupPenilaian} ber-tanggal ({@code formula}
+	 * JSON, format sama dengan {@link #ambilTarget}): memilih versi bertanggal efektif terbaru,
+	 * mengambil {@code target}-nya lewat {@link #ambilTarget}, mengganti placeholder kode
+	 * {@link Konstanta} dan kode {@link GrupPenilaian} lain (memicu evaluasi rekursif grup
+	 * tersebut lewat pemanggilan diri sendiri, {@code coba} bertambah tiap level, dibatasi 25 level
+	 * untuk mencegah rekursi tak terbatas antar-grup yang saling merujuk), lalu mengevaluasi hasil
+	 * akhir lewat {@link ExpressionBuilder} dengan variabel dari nilai item penilaian pada versi
+	 * formula terpilih.
+	 *
+	 * @param formula                riwayat formula {@link GrupPenilaian} dalam bentuk JSON
+	 * @param sekarang               tanggal evaluasi
+	 * @param dataItemGrupPenilaian  data tambahan diteruskan apa adanya ke pemanggilan rekursif
+	 * @param coba                   penghitung kedalaman rekursi antar-grup; berhenti dan mengembalikan {@code 0.0} bila melebihi 25
+	 * @return nilai hasil evaluasi, atau {@code 0.0} bila tidak ada versi formula yang berlaku atau evaluasi gagal
+	 */
 	@SuppressWarnings({ "rawtypes" })
 	public static Double ambilPoint(String formula, Date sekarang, Map dataItemGrupPenilaian, int coba)
 			throws Exception {
@@ -464,6 +540,7 @@ public class GrupPenilaianUtil {
 		return hasil;
 	}
 
+	/** Menghasilkan deskripsi HTML (daftar bernomor) dari seluruh versi riwayat formula: tiap versi ditampilkan sebagai tanggal berlaku, nilai tiap item penilaian aktif, dan formula ({@code target})-nya — dipakai sebagai tooltip/penjelasan formula ke pengguna. */
 	public static String ambilDeskripsi(String formula) throws Exception {
 		JSONArray jsonArray = new JSONArray(formula);
 		String t = "<ol style='font-size:x-small;text-align: left;'>";
