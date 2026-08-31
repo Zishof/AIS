@@ -117,6 +117,10 @@ public final class KantinMemberApi {
         return ApiHelperSupport.status("99", "Anda belum terdaftar sebagai anggota koperasi");
     }
 
+    private static Long jsonLong(long value) {
+        return Long.valueOf(value);
+    }
+
     private static boolean isKonfigAktif(String key) {
         try {
             return Common.bolehKonfigurasi(key);
@@ -459,7 +463,7 @@ public final class KantinMemberApi {
             }
             JSONObject hasil = new JSONObject();
             hasil.put("list",   arr);
-            hasil.put("total",  total);
+            hasil.put("total",  jsonLong(total));
             hasil.put("page",   page);
             hasil.put("limit",  limit);
             hasil.put("status", "00");
@@ -662,7 +666,7 @@ public final class KantinMemberApi {
             }
             JSONObject hasil = new JSONObject();
             hasil.put("list",   arr);
-            hasil.put("total",  total);
+            hasil.put("total",  jsonLong(total));
             hasil.put("page",   page);
             hasil.put("status", "00");
             return hasil;
@@ -811,7 +815,7 @@ public final class KantinMemberApi {
             }
             JSONObject hasil = new JSONObject();
             hasil.put("list",   arr);
-            hasil.put("total",  total);
+            hasil.put("total",  jsonLong(total));
             hasil.put("page",   page);
             hasil.put("status", "00");
             return hasil;
@@ -918,7 +922,7 @@ public final class KantinMemberApi {
             }
             JSONObject hasil = new JSONObject();
             hasil.put("list",   arr);
-            hasil.put("total",  total);
+            hasil.put("total",  jsonLong(total));
             hasil.put("page",   page);
             hasil.put("status", "00");
             return hasil;
@@ -985,7 +989,7 @@ public final class KantinMemberApi {
             }
             JSONObject hasil = new JSONObject();
             hasil.put("list",   arr);
-            hasil.put("total",  total);
+            hasil.put("total",  jsonLong(total));
             hasil.put("page",   page);
             hasil.put("status", "00");
             return hasil;
@@ -1091,18 +1095,18 @@ public final class KantinMemberApi {
 
             JSONObject data = new JSONObject();
             if (summary != null) {
-                data.put("jml_trx",           summary[0] != null ? ((Number)summary[0]).longValue() : 0);
-                data.put("total_pengeluaran",  summary[1] != null ? ((Number)summary[1]).longValue() : 0);
-                data.put("total_hemat",        summary[2] != null ? ((Number)summary[2]).longValue() : 0);
+                data.put("jml_trx",           jsonLong(summary[0] != null ? ((Number)summary[0]).longValue() : 0L));
+                data.put("total_pengeluaran", jsonLong(summary[1] != null ? ((Number)summary[1]).longValue() : 0L));
+                data.put("total_hemat",       jsonLong(summary[2] != null ? ((Number)summary[2]).longValue() : 0L));
             }
-            data.put("total_topup", topupRow != null ? ((Number)topupRow).longValue() : 0);
+            data.put("total_topup", jsonLong(topupRow != null ? ((Number)topupRow).longValue() : 0L));
 
             JSONArray trendArr = new JSONArray();
             for (Object[] r : trend) {
                 JSONObject o = new JSONObject();
                 o.put("bulan_label",   r[0]);
                 o.put("bulan_urut",    r[1]);
-                o.put("total_nominal", r[2] != null ? ((Number)r[2]).longValue() : 0);
+                o.put("total_nominal", jsonLong(r[2] != null ? ((Number)r[2]).longValue() : 0L));
                 trendArr.put(o);
             }
             data.put("trend", trendArr);
@@ -1111,7 +1115,7 @@ public final class KantinMemberApi {
             for (Object[] r : tokoFav) {
                 JSONObject o = new JSONObject();
                 o.put("nama_toko",     r[0]);
-                o.put("total_nominal", r[1] != null ? ((Number)r[1]).longValue() : 0);
+                o.put("total_nominal", jsonLong(r[1] != null ? ((Number)r[1]).longValue() : 0L));
                 tokoArr.put(o);
             }
             data.put("toko_favorit", tokoArr);
@@ -1223,10 +1227,10 @@ public final class KantinMemberApi {
                 for (Object[] ir : items) {
                     JSONObject io = new JSONObject();
                     io.put("nama",   ir[0]);
-                    io.put("harga",  ir[1] != null ? ((Number) ir[1]).longValue() : 0);
+                    io.put("harga",  jsonLong(ir[1] != null ? ((Number) ir[1]).longValue() : 0L));
                     io.put("jumlah", ir[2] != null ? ((Number) ir[2]).intValue()  : 0);
-                    io.put("diskon", ir[3] != null ? ((Number) ir[3]).longValue() : 0);
-                    io.put("total",  ir[4] != null ? ((Number) ir[4]).longValue() : 0);
+                    io.put("diskon", jsonLong(ir[3] != null ? ((Number) ir[3]).longValue() : 0L));
+                    io.put("total",  jsonLong(ir[4] != null ? ((Number) ir[4]).longValue() : 0L));
                     itemArr.put(io);
                 }
 
@@ -1236,8 +1240,8 @@ public final class KantinMemberApi {
                 o.put("nama_member",  r[2]);
                 o.put("keterangan",   r[3]);
                 o.put("cara_bayar",   r[4]);
-                o.put("total_biaya",  r[5] != null ? ((Number) r[5]).longValue() : 0);
-                o.put("total_diskon", r[6] != null ? ((Number) r[6]).longValue() : 0);
+                o.put("total_biaya",  jsonLong(r[5] != null ? ((Number) r[5]).longValue() : 0L));
+                o.put("total_diskon", jsonLong(r[6] != null ? ((Number) r[6]).longValue() : 0L));
                 o.put("dari_pembeli", r[7] != null && ((Boolean) r[7]));
                 o.put("items",        itemArr);
                 list.put(o);
@@ -1304,10 +1308,10 @@ public final class KantinMemberApi {
                 t.put("id",       r[0]);
                 t.put("kode",     r[1]);
                 t.put("nama",     r[2]);
-                t.put("harga",    r[3] != null ? ((Number) r[3]).longValue() : 0);
+                t.put("harga",    jsonLong(r[3] != null ? ((Number) r[3]).longValue() : 0L));
                 t.put("jumlah",   r[4] != null ? ((Number) r[4]).doubleValue() : 1.0);
-                t.put("diskon",   r[5] != null ? ((Number) r[5]).longValue() : 0);
-                t.put("cashback", r[6] != null ? ((Number) r[6]).longValue() : 0);
+                t.put("diskon",   jsonLong(r[5] != null ? ((Number) r[5]).longValue() : 0L));
+                t.put("cashback", jsonLong(r[6] != null ? ((Number) r[6]).longValue() : 0L));
                 transaksi.put(t);
             }
 
@@ -1481,14 +1485,14 @@ public final class KantinMemberApi {
                 o.put("tanggal",      r[2] != null ? r[2] : "");
                 o.put("nama_pembeli", r[3]);
                 o.put("cara_bayar",   r[4]);
-                o.put("total_biaya",  r[5] != null ? ((Number) r[5]).longValue() : 0);
+                o.put("total_biaya",  jsonLong(r[5] != null ? ((Number) r[5]).longValue() : 0L));
                 arr.put(o);
             }
 
             JSONObject hasil = new JSONObject();
             hasil.put("status",       "00");
             hasil.put("list",         arr);
-            hasil.put("total_hari_ini", totalRow != null ? ((Number) totalRow).longValue() : 0);
+            hasil.put("total_hari_ini", jsonLong(totalRow != null ? ((Number) totalRow).longValue() : 0L));
             return hasil;
         } finally { closeSession(s); }
     }
@@ -1526,8 +1530,8 @@ public final class KantinMemberApi {
             JSONObject data = new JSONObject();
             if (summary != null) {
                 data.put("total_transaksi",     summary[0] != null ? ((Number) summary[0]).intValue()  : 0);
-                data.put("omzet_hari_ini",      summary[1] != null ? ((Number) summary[1]).longValue() : 0);
-                data.put("rata_rata_transaksi", summary[2] != null ? ((Number) summary[2]).longValue() : 0);
+                data.put("omzet_hari_ini",      jsonLong(summary[1] != null ? ((Number) summary[1]).longValue() : 0L));
+                data.put("rata_rata_transaksi", jsonLong(summary[2] != null ? ((Number) summary[2]).longValue() : 0L));
             } else {
                 data.put("total_transaksi", 0);
                 data.put("omzet_hari_ini",  0);

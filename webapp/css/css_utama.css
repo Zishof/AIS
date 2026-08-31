@@ -8846,6 +8846,14 @@ html body .ais-btn-group.ais-button-tabbox .ais-button-tabbox-button.z-toolbarbu
 html body .ais-btn-group.ais-button-tabbox .ais-button-tabbox-button.z-toolbarbutton-over .z-toolbarbutton-cnt {
     color: #0f3f8f !important;
 }
+html body .ais-btn-group.ais-button-tabbox .ais-button-tabbox-button:not(.ais-button-tabbox-active):hover,
+html body .ais-btn-group.ais-button-tabbox .ais-button-tabbox-button:not(.ais-button-tabbox-active).z-toolbarbutton-over,
+html body .ais-btn-group.ais-button-tabbox .ais-button-tabbox-button:not(.ais-button-tabbox-active).z-toolbarbutton-over .z-toolbarbutton-body,
+html body .ais-btn-group.ais-button-tabbox .ais-button-tabbox-button:not(.ais-button-tabbox-active).z-toolbarbutton-over .z-toolbarbutton-cnt {
+    background: #dbeafe !important;
+    color: #0f2f5f !important;
+    -webkit-text-fill-color: #0f2f5f !important;
+}
 .ais-btn-group.ais-button-tabbox .ais-button-tabbox-active {
     background: #1d4ed8 !important;
     border-color: #1d4ed8 !important;
@@ -8869,7 +8877,9 @@ html body .ais-btn-group.ais-button-tabbox .ais-button-tabbox-button.z-toolbarbu
 html body .ais-btn-group.ais-button-tabbox .ais-button-tabbox-active.z-toolbarbutton-over,
 html body .ais-btn-group.ais-button-tabbox .ais-button-tabbox-active.z-toolbarbutton-over .z-toolbarbutton-body,
 html body .ais-btn-group.ais-button-tabbox .ais-button-tabbox-active.z-toolbarbutton-over .z-toolbarbutton-cnt {
+    background: #1e3a8a !important;
     color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
 }
 @media (max-width: 640px) {
     .ais-btn-group.ais-button-tabbox {
