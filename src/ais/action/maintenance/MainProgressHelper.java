@@ -265,6 +265,18 @@ public final class MainProgressHelper {
 		}
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link MainProgressHelper} untuk progress state. Tipe ini mengelompokkan
+	 * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link MainProgressHelper}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String key}, {@code String title},
+	 * {@code String description}, {@code int percent}, {@code boolean done}, {@code Date updatedAt}. Aturan bisnis
+	 * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see MainProgressHelper
+	 */
 	public static class ProgressState implements Serializable {
 		private static final long serialVersionUID = 1L;
 		public String key;

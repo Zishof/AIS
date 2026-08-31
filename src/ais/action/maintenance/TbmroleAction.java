@@ -282,8 +282,40 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 		});
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link TbmroleAction}. Kelas ini menerjemahkan satu item data menjadi
+	 * baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link TbmroleAction} dan dapat mengakses state kelas
+	 * induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code MenuSelecter menuSelecter}, {@code
+	 * TbmroleActionHelper tbmroleActionHelper}, {@code boolean mulaiUploadMenu}; operasi lokal: {@code
+	 * createTree()}, {@code render}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see TbmroleAction
+	 */
 	class TbmroleRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Tipe implementasi bersarang {@link MenuSelecter} milik {@link TbmroleRenderer}. Kelas ini memberi nama pada
+		 * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+		 *
+		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link TbmroleRenderer} dan dapat mengakses state
+		 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+		 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Map checkboxs}, {@code MyWindow
+		 * window}, {@code Tbmrole job}, {@code MyDiv groupbox}; operasi lokal: {@code createInstance()}, {@code
+		 * hasChild()}, {@code createTreerow()}, {@code createRootSubMenu()}, {@code createTreeMenu()}, {@code save()},
+		 * {@code init}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+		 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+		 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+		 * tambahkan perilaku lintas domain pada service bersama.</p>
+		 *
+		 * @see TbmroleRenderer
+		 */
 		class MenuSelecter {
 
 			private Map<Long, Object[]> checkboxs = new HashMap<Long, Object[]>();
@@ -497,6 +529,21 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 
 		}
 
+		/**
+		 * Helper implementasi bersarang milik {@link TbmroleRenderer} untuk tbmrole action helper. Kelas ini mengemas
+		 * langkah lokal yang dipakai kelas induk dan bukan service domain alternatif.
+		 *
+		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link TbmroleRenderer} dan dapat mengakses state
+		 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code hasChild()}, {@code
+		 * createTreerow()}, {@code createTreerowParent()}, {@code createRootSubMenu()}, {@code createTreeMenu}().
+		 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+		 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+		 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+		 * tambahkan perilaku lintas domain pada service bersama.</p>
+		 *
+		 * @see TbmroleRenderer
+		 */
 		class TbmroleActionHelper {
 
 			private Boolean hasChild(Long root, Collection<Menu> menus) {

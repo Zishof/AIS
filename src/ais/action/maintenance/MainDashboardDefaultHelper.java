@@ -292,6 +292,22 @@ final class MainDashboardDefaultHelper {
 				.replace("Dashboard", "Dashboard").trim();
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link MainDashboardDefaultHelper} untuk option. Tipe ini mengelompokkan
+	 * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * MainDashboardDefaultHelper}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+	 * dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String value}, {@code String label};
+	 * operasi lokal: {@code toComboitem}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see MainDashboardDefaultHelper
+	 */
 	static final class Option {
 		final String value;
 		final String label;

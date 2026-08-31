@@ -240,6 +240,23 @@ public class BiodataPegawaiSimpleAction extends MyWindow {
 		return commonOnSearchdefault;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link ManagingPegawai} milik {@link BiodataPegawaiSimpleAction}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link BiodataPegawaiSimpleAction} dan dapat
+	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Textbox code}, {@code Textbox
+	 * mycode}, {@code Textbox nama}, {@code Textbox ktp}, {@code Textbox alamat}, {@code Textbox email}, {@code
+	 * Intbox usiaPensiun}, {@code Textbox telp}; operasi lokal: {@code init()}, {@code onSave}(). Aturan bisnis
+	 * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see BiodataPegawaiSimpleAction
+	 */
 	private class ManagingPegawai {
 		private Textbox code;
 		private Textbox mycode;
@@ -1073,6 +1090,24 @@ public class BiodataPegawaiSimpleAction extends MyWindow {
 
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link ManagingBiodataPegawai} milik {@link BiodataPegawaiSimpleAction}. Kelas
+	 * ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link BiodataPegawaiSimpleAction} dan dapat
+	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Textbox alamat}, {@code Textbox
+	 * namaAyah}, {@code Textbox pekerjaanAyah}, {@code Textbox namaIbu}, {@code Textbox pekerjaanIbu}, {@code
+	 * Combobox pernahMenetapDiLuarNegeri}, {@code Textbox tinggiBadan}, {@code Textbox beratBadan}; operasi lokal:
+	 * {@code preInit()}, {@code loadDataPegawai()}, {@code initBiodataPegawai()}, {@code onSave}(). Aturan bisnis
+	 * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see BiodataPegawaiSimpleAction
+	 */
 	@SuppressWarnings("unused")
 	private class ManagingBiodataPegawai {
 		private Textbox alamat;

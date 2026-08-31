@@ -1108,6 +1108,21 @@ public class BiodataDosenAction extends MyWindow {
 		return commonOnSearchdefault;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link ManagingProdiYangDiajar} milik {@link BiodataDosenAction}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link BiodataDosenAction}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code init()}, {@code
+	 * penugasanMengajar()}, {@code penugasanMembimbing()}, {@code penugasanPenguji()}, {@code penugasanKkn}().
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see BiodataDosenAction
+	 */
 	public static class ManagingProdiYangDiajar {
 
 		public ManagingProdiYangDiajar() {
@@ -1364,6 +1379,22 @@ public class BiodataDosenAction extends MyWindow {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link ManagingDosen} milik {@link BiodataDosenAction}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link BiodataDosenAction}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Textbox code}, {@code Textbox
+	 * mycode}, {@code Textbox nidn}, {@code Textbox niyNigk}, {@code Textbox nuptk}, {@code Textbox skCpns},
+	 * {@code MyDatebox tglSkCpns}, {@code Textbox skAngkat}; operasi lokal: {@code init()}, {@code onSave}().
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see BiodataDosenAction
+	 */
 	public static class ManagingDosen {
 
 		private Textbox code;
@@ -3060,6 +3091,25 @@ public class BiodataDosenAction extends MyWindow {
 
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link ManagingBiodataDosen} milik {@link BiodataDosenAction}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link BiodataDosenAction}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Textbox alamat}, {@code Textbox
+	 * namaAyah}, {@code Combobox pekerjaanAyah}, {@code Textbox namaIbu}, {@code Combobox pekerjaanIbu}, {@code
+	 * Combobox pernahMenetapDiLuarNegeri}, {@code Intbox tinggiBadan}, {@code Intbox beratBadan}; operasi lokal:
+	 * {@code preInit()}, {@code loadDataDosen()}, {@code initData()}, {@code initKeluarga()}, {@code
+	 * initAlamat()}, {@code initBiodataDosen()}, {@code onSave}(). Aturan bisnis bersama tetap berada pada kelas
+	 * induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see BiodataDosenAction
+	 */
 	private static class ManagingBiodataDosen {
 		private Textbox alamat;
 		private Textbox namaAyah;
