@@ -38,11 +38,28 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper composer untuk mengelola gambar identitas satu {@link Fakultas}: gambar header dan
+ * gambar utama, keduanya disimpan sebagai baris {@link GambarFakultas} dengan kolom {@code Blob}
+ * terpisah ({@code gambarHeader}/{@code foto}). Menyediakan dua tombol unggah independen (masing-
+ * masing memvalidasi bahwa media yang diunggah adalah gambar lewat
+ * {@code AmbilDataTugasFileContent.checkFile}) dan grid untuk menampilkan/menghapus gambar yang
+ * sudah tersimpan.
+ *
+ * <p>
+ * Catatan: sebelum menyimpan gambar baru, kolom terkait pada SEMUA baris {@link GambarFakultas}
+ * milik fakultas tersebut dikosongkan terlebih dahulu lewat SQL langsung
+ * ({@code update gambar_fakultas set gambar_header=null / gambar_utama=null where fakultas=...}) —
+ * sehingga secara efektif hanya satu gambar header dan satu gambar utama aktif per fakultas pada
+ * satu waktu.
+ * </p>
+ */
 public class GambarFakultasHelper implements DataLoader {
 
 	private MyGrid grid;
 	private Fakultas fakultas;
 
+	/** Perender baris grid: menampilkan gambar (dari {@link GambarFakultas#ambilFile()}) beserta tombol hapus (dengan konfirmasi) yang menghapus baris {@link GambarFakultas} lewat {@link GambarFakultasDao}. */
 	class GambarFakultasRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -120,6 +137,7 @@ public class GambarFakultasHelper implements DataLoader {
 
 	}
 
+	/** Memuat ulang grid dengan seluruh {@link GambarFakultas} milik {@link #fakultas} yang sedang ditampilkan. Kontrak {@link DataLoader#loadData(Object)}; {@code value} tidak dipakai. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = Common.getManualSession();
@@ -133,6 +151,12 @@ public class GambarFakultasHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun panel "Gambar Fakultas" (dua tombol unggah: header dan utama, plus grid gambar
+	 * tersimpan) ke dalam {@code component}, untuk {@code fakultas} yang diberikan. Parameter
+	 * {@code window} diterima untuk keseragaman kontrak antar-helper serupa, namun tidak dipakai
+	 * langsung di badan method ini.
+	 */
 	public void displayGambarFakultas(final Fakultas fakultas, final Component component, final MyWindow window) {
 		this.fakultas = fakultas;
 		Common.clear(component);
@@ -265,6 +289,7 @@ public class GambarFakultasHelper implements DataLoader {
 
 	}
 
+	/** Sama seperti {@link #loadData(Object)}, tetapi membatasi hasil hingga {@link Common#MAX_RESULT} baris; dipanggil setelah unggah gambar baru berhasil untuk menyegarkan grid. */
 	@SuppressWarnings("unchecked")
 	private void loadGambarFakultas() {
 		Session session = Common.getManualSession();

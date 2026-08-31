@@ -14,17 +14,42 @@ import ais.database.model.JadwalPembayaran;
 import ais.database.model.JenisKegiatan;
 import ais.database.model.Konfigurasi;
 
+/**
+ * Tugas terjadwal ({@link TimerTask}) yang seharusnya menonaktifkan status mahasiswa
+ * jenjang S3 secara otomatis apabila jadwal pembayaran (termasuk denda) untuk tahun
+ * akademik/semester berjalan sudah lewat dan mahasiswa belum melakukan pembayaran.
+ * Pengaktifan proses ini digantungkan pada konfigurasi
+ * {@code mahasiswa_s3_lambat_bayar_langsung_tidak_aktif}.
+ *
+ * <p>
+ * <b>Catatan penting:</b> query {@code UPDATE} yang benar-benar mengubah status mahasiswa
+ * menjadi tidak aktif saat ini DIKOMENTARI (nonaktif) di {@link #doProcess()}. Selama
+ * baris SQL tersebut tidak diaktifkan kembali, method ini hanya mencatat log dan membuka
+ * lalu langsung meng-commit transaksi kosong — tidak ada perubahan data yang benar-benar
+ * terjadi walau kondisi terpenuhi.
+ * </p>
+ */
 public class AutoNotActivatingMahasiswaS3Processor extends TimerTask {
 
+	/** Konstruktor tanpa argumen; tidak ada inisialisasi state khusus. */
 	public AutoNotActivatingMahasiswaS3Processor() {
 
 	}
 
+	/** Dipanggil oleh {@link java.util.Timer} sesuai jadwal; mendelegasikan ke {@link #doProcess()}. */
 	@Override
 	public void run() {
 		doProcess();
 	}
 
+	/**
+	 * Memeriksa apakah masih ada jadwal pembayaran (termasuk denda) yang berlaku untuk
+	 * jenjang S3 pada tahun akademik/semester berjalan. Bila konfigurasi
+	 * {@code mahasiswa_s3_lambat_bayar_langsung_tidak_aktif} aktif dan tidak ada lagi
+	 * jadwal pembayaran yang berlaku, method ini seharusnya menandai mahasiswa S3 yang
+	 * belum membayar pada periode tersebut menjadi tidak aktif — namun query
+	 * penonaktifan sesungguhnya saat ini dikomentari, sehingga efeknya hanya logging.
+	 */
 	private void doProcess() {
 
 		PembayaranUtil pembayaranUtil;

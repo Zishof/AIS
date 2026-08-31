@@ -47,8 +47,58 @@ import ais.ui.util.MyDoublebox;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper untuk membuat/memperbarui tagihan {@link VirtualAccountBank} bagi <b>calon mahasiswa</b>
+ * (PMB, via {@link #sendRequest}) dan bagi <b>mahasiswa aktif</b> (KRS/pembayaran semester, via
+ * {@link #downloadData}). Kedua method utamanya menghitung total tagihan dari kumpulan item biaya
+ * yang dipilih, menentukan waktu kedaluwarsa tagihan (berdasarkan konfigurasi
+ * {@code tagihan_expired_akhir_hari}/{@code tagihan_expired_jam}/{@code tagihan_expired_day}, atau
+ * override eksplisit lewat parameter {@code waktuSampai}), lalu memanggil salah satu gateway
+ * pembayaran eksternal sesuai kanal yang aktif — QRIS (Jaring), Finpay, Flip, Otto, BRIVA,
+ * BankAltimtara, Maja (BSI), Jaring VA, Esmartlink, BJB langsung, atau VA generik bank host biasa —
+ * dan menyimpan hasilnya (nomor VA/link pembayaran/payload request-response mentah) ke satu baris
+ * {@link VirtualAccountBank} yang dikembalikan ke pemanggil.
+ *
+ * <p>
+ * <b>Pola umum tiap cabang kanal</b>: susun payload JSON/form sesuai kontrak API gateway
+ * bersangkutan, panggil {@code Common.executeHttp}/util spesifik kanal (mis. {@link BJBUtil},
+ * {@link BRIDataUtil}, {@link BSIMajaUtil}, {@link OttoUtil}), lalu petakan respons ke
+ * {@code kode}/{@code link}/{@code bank} pada entitas. Kegagalan HTTP/parsing pada satu kanal
+ * ditangkap lokal, dilaporkan lewat {@code Common.tampilErrorJikaAdmin}, dan method mengembalikan
+ * {@code null} (kanal Esmartlink secara khusus juga menambahkan pesan ke daftar {@code warnings}
+ * bila diberikan). Baris {@link VirtualAccountBank} baru/yang diperbarui disimpan dalam transaksi
+ * Hibernate tersendiri via {@link MahasiswaVirtualAccountHelper#openSession()}, dan session selalu
+ * ditutup lewat {@link #closeSessionQuietly(Session)} di blok {@code finally} — penting karena
+ * method ini dipanggil dari Timer ZK sehingga tidak boleh bergantung pada session bersama yang
+ * mungkin sudah ditutup oleh helper lain.
+ * </p>
+ *
+ * <p>
+ * <b>Sebelum membuat VA baru</b>, kedua method mencari dahulu VA aktif (belum kedaluwarsa, belum
+ * bermasalah) dengan kombinasi cicilan/keterangan/mahasiswa yang identik agar tidak menerbitkan VA
+ * ganda untuk tagihan yang sama; VA lama dipakai ulang kecuali {@code update=true} diminta eksplisit
+ * atau kanal e-smartlink berubah.
+ * </p>
+ *
+ * <p>
+ * <b>PERINGATAN KEAMANAN</b> — beberapa kanal memakai kredensial/kunci rahasia yang tertanam
+ * langsung sebagai nilai default {@code Common.getKonfigurasi(key, defaultValue)} di kode ini
+ * (dipakai bila admin belum mengisi konfigurasi terkait di database): kredensial Esmartlink
+ * ({@code username_va_e_smartlink}/{@code password_va_e_smartlink}, mis. default
+ * {@code "api-smartlink-sbx@budi-mulia.com"} / {@code "sQ3f2PMbGWvNxvi"}), signature key + app id
+ * BankAltimtara ({@code key_bankaltimtara_baru}/{@code app_id_bankaltimtara_baru}), serta secret
+ * key Basic-Auth gateway Jaring ({@code va_jaring_screet_key}, base64). Nilai-nilai ini terlihat
+ * jelas di source (bukan hanya nama variabel), termasuk saat kode ini dibaca lewat kontrol versi.
+ * Temuan ini dilaporkan apa adanya sesuai instruksi tugas dan TIDAK diperbaiki di sini.
+ * </p>
+ */
 public class DownloadTagihanMahasiswaBankOnline {
 
+	/**
+	 * Varian ringkas {@link #sendRequest(Mahasiswa, BiodataCalonMahasiswa, Set, Double,
+	 * PerguruanTinggi, BankHost, Map, String)} tanpa parameter {@code param}/{@code waktuSampai}
+	 * (memakai {@code param} kosong dan waktu kedaluwarsa default sesuai konfigurasi).
+	 */
 	@SuppressWarnings("rawtypes")
 	public static VirtualAccountBank sendRequest(Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa,
 			final Set<KegiatanTemporary> selectedKegiatanTemporary, Double biayaAdministrasi,
@@ -59,6 +109,38 @@ public class DownloadTagihanMahasiswaBankOnline {
 				perguruanTinggi, bankHost, param, waktuSampai);
 	}
 
+	/**
+	 * Membuat/mengambil-ulang tagihan {@link VirtualAccountBank} untuk pembayaran biaya PMB
+	 * (Penerimaan Mahasiswa Baru) satu {@link BiodataCalonMahasiswa} (atau {@link Mahasiswa} bila
+	 * sudah menjadi mahasiswa aktif) berdasarkan kumpulan {@link KegiatanTemporary} (item keranjang
+	 * biaya) yang dipilih. Menghitung total dari seluruh item, menyusun deskripsi tagihan, menentukan
+	 * waktu kedaluwarsa (konfigurasi atau {@code waktuSampai} eksplisit), lalu — bila kanal
+	 * e-smartlink aktif — menyusun payload dan memanggil gateway Esmartlink; bila tidak, menerbitkan
+	 * kode VA generik dengan prefiks {@code prefix_va_bank_online}. Baris VA lama yang masih berlaku
+	 * dan cocok kriterianya dipakai ulang, bukan diduplikasi.
+	 *
+	 * @param mahasiswa                  mahasiswa terkait (bisa {@code null} bila tagihan untuk calon
+	 *                                    mahasiswa murni)
+	 * @param biodataCalonMahasiswa      calon mahasiswa terkait (bisa {@code null} bila mahasiswa
+	 *                                    sudah aktif)
+	 * @param selectedKegiatanTemporary  kumpulan item biaya (keranjang) yang akan ditagihkan; kosong
+	 *                                    atau {@code null} membuat method mengembalikan {@code null}
+	 * @param biayaAdmin                 biaya admin tambahan yang ditambahkan ke total tagihan
+	 * @param perguruanTinggi            perguruan tinggi pemilik data VA baru (dipakai saat membuat
+	 *                                    entitas {@link VirtualAccountBank} baru)
+	 * @param bankHost                   host bank tujuan VA, boleh {@code null} untuk VA tanpa host
+	 *                                    spesifik
+	 * @param param                      opsi tambahan: {@code esmartlinkBayarVia}, {@code update}
+	 *                                    (paksa terbitkan ulang), {@code warnings} (List untuk
+	 *                                    menampung pesan galat kanal), {@code smartlink},
+	 *                                    {@code smartlink_direct}, {@code payment_url}
+	 * @param waktuSampai                override waktu kedaluwarsa relatif (lihat konstanta
+	 *                                    {@code SmartlinkChannelWindow.WAKTU_*}), {@code null} untuk
+	 *                                    memakai aturan konfigurasi default
+	 * @return baris {@link VirtualAccountBank} yang tersimpan, atau {@code null} bila tidak ada item
+	 *         yang dipilih, gateway gagal, atau proses dialihkan ke dialog pemilihan channel
+	 * @throws Exception diteruskan dari kegagalan Hibernate/HTTP yang tidak tertangani secara lokal
+	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public static VirtualAccountBank sendRequest(Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa,
 			final Set<KegiatanTemporary> selectedKegiatanTemporary, Double biayaAdmin, PerguruanTinggi perguruanTinggi,
@@ -519,6 +601,11 @@ public class DownloadTagihanMahasiswaBankOnline {
 		return virtualAccountBankOnline;
 	}
 
+	/**
+	 * Varian ringkas {@link #downloadData(Mahasiswa, Integer, JadwalPembayaran, Collection, Grid,
+	 * Map, Double, Double, Double, BankHost, String)} tanpa {@code waktuSampai} (memakai waktu
+	 * kedaluwarsa default sesuai konfigurasi/jadwal pembayaran).
+	 */
 	@SuppressWarnings({ "rawtypes" })
 	public static VirtualAccountBank downloadData(Mahasiswa mahasiswa, Integer smt, JadwalPembayaran myjadwalPembayaran,
 			Collection detailBiayas, Grid gridCicilan, Map param, Double biayaAdmin, Double tabungan, Double topup,
@@ -528,6 +615,51 @@ public class DownloadTagihanMahasiswaBankOnline {
 				topup, bankHost, waktuSampai);
 	}
 
+	/**
+	 * Method utama pembuatan tagihan {@link VirtualAccountBank} untuk pembayaran semester/KRS
+	 * mahasiswa aktif. Menggabungkan biaya dari {@code detailBiayas} (item biaya reguler) dan baris
+	 * cicilan yang dicentang di {@code gridCicilan} (pembayaran bulanan/per-item), lalu memilih salah
+	 * satu kanal pembayaran berdasarkan flag boolean di {@code param} ({@code qris}, {@code finpay},
+	 * {@code otto}, {@code briva}, {@code flip}, {@code maja}, {@code smartlink}) atau konfigurasi
+	 * global kanal aktif ({@code aktifkan_va_bankaltimtara_baru}, {@code aktifkan_va_maja},
+	 * {@code aktifkan_va_jaring}, {@code aktifkan_va_e_smartlink}, {@code aktifkan_va_bjb_langsung}),
+	 * dengan VA bank host generik sebagai fallback bila tidak ada kanal khusus yang aktif.
+	 *
+	 * <p>
+	 * Sebelum membuat entitas baru, method memvalidasi lewat
+	 * {@link MahasiswaVirtualAccountHelper#pastikanTagihanBelumDibayar} bahwa tagihan dengan
+	 * kombinasi kunci yang sama belum lunas (melempar
+	 * {@link MahasiswaVirtualAccountHelper.TagihanSudahDibayarException} bila sudah), dan mencari VA
+	 * aktif yang cocok untuk dipakai ulang (memperhitungkan {@code topup} bila diisi).
+	 * </p>
+	 *
+	 * @param mahasiswa           mahasiswa yang ditagih
+	 * @param smt                 nomor semester tagihan
+	 * @param myjadwalPembayaran  jadwal pembayaran terkait (menentukan jenis kegiatan, batas waktu,
+	 *                            khusus-NIM), boleh {@code null}
+	 * @param detailBiayas        koleksi {@link DetailBiaya} yang membentuk total tagihan
+	 * @param gridCicilan         grid ZK berisi baris cicilan/pembayaran bulanan yang dicentang user;
+	 *                            boleh {@code null} bila tidak ada opsi cicilan
+	 * @param param               flag kanal ({@code qris}/{@code finpay}/{@code otto}/{@code briva}/
+	 *                            {@code flip}/{@code maja}/{@code smartlink}/{@code update}) serta opsi
+	 *                            lain ({@code warnings}, {@code esmartlinkBayarVia}, {@code items},
+	 *                            {@code tahunAkademik}, {@code ket}, {@code pemb}, {@code cicilan},
+	 *                            {@code total})
+	 * @param biayaAdmin          biaya admin tambahan; disisipkan sebagai item "Biaya Admin" terpisah
+	 *                            ke {@code items} bila lebih dari nol
+	 * @param tabungan            nilai tabungan yang dipakai untuk mengurangi tagihan, disimpan pada
+	 *                            entitas VA
+	 * @param topup               nominal top-up (mis. untuk kanal yang mendukung saldo), turut
+	 *                            menentukan pencarian VA lama yang cocok
+	 * @param bankHost            host bank tujuan VA
+	 * @param waktuSampai         override waktu kedaluwarsa relatif, {@code null} untuk memakai aturan
+	 *                            default (akhir hari/jam/hari sesuai konfigurasi, atau tanggal akhir
+	 *                            {@code myjadwalPembayaran})
+	 * @return baris {@link VirtualAccountBank} yang tersimpan, atau {@code null} bila gateway gagal
+	 *         atau proses dialihkan ke dialog pemilihan channel e-smartlink
+	 * @throws Exception termasuk {@link MahasiswaVirtualAccountHelper.TagihanSudahDibayarException}
+	 *                    bila tagihan dengan kunci yang sama sudah lunas
+	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public static VirtualAccountBank downloadData(Mahasiswa mahasiswa, Integer smt, JadwalPembayaran myjadwalPembayaran,
 			Collection detailBiayas, Grid gridCicilan, Map param, Double biayaAdmin, Double tabungan, Double topup,
@@ -1557,6 +1689,7 @@ public class DownloadTagihanMahasiswaBankOnline {
 		}
 	}
 
+	/** Rollback transaksi Hibernate secara aman; galat rollback dicatat ke audit dan tidak dilempar ulang. */
 	private static void rollbackQuietly(Transaction transaction) {
 		try {
 			if (transaction != null && transaction.isActive()) {
@@ -1566,6 +1699,7 @@ public class DownloadTagihanMahasiswaBankOnline {
 		}
 	}
 
+	/** Menutup session Hibernate secara aman (clear + disconnect + close), menelan seluruh galat agar aman dipanggil di blok {@code finally}. */
 	private static void closeSessionQuietly(Session session) {
 		if (session == null) {
 			return;

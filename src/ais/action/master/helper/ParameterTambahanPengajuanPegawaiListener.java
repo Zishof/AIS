@@ -26,6 +26,22 @@ import ais.database.model.ParameterTambahanPengajuanPegawai;
 import ais.ui.util.MyLabelStyled;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Listener ZK yang membangun, memvalidasi, dan menyimpan baris-baris form "parameter
+ * tambahan" dinamis pada layar pengajuan pegawai ({@link PengajuanPegawai}). Parameter
+ * tambahan dikelompokkan lewat {@link KelompokParameterTambahanPengajuanPegawai} (mis.
+ * kelompok dokumen persyaratan tertentu); untuk setiap kelompok yang aktif dan punya
+ * definisi {@link ParameterTambahan} aktif, satu baris judul kelompok dan satu baris input
+ * per parameter dirender ke {@link Rows} form.
+ *
+ * <p>
+ * Nilai tersimpan sebelumnya (bila ada) diambil dari kolom teks terserialisasi
+ * {@code pengajuanPegawai.getParameterTambahanInds()} — format satu baris per entri,
+ * dipisah {@code "\n"}, dengan kunci {@code "<idKelompok>-><idParameter>"} dan nilai
+ * dipisah token {@code "<=>"}. Komponen input aktual (textbox/combobox/upload lampiran,
+ * dsb.) dibangun oleh {@link ParameterTambahan#initComponent}.
+ * </p>
+ */
 public class ParameterTambahanPengajuanPegawaiListener implements EventListener {
 
 	private List<Row> parameterRows;
@@ -34,6 +50,15 @@ public class ParameterTambahanPengajuanPegawaiListener implements EventListener 
 	private Map<String, LampiranLain> lampiranLains;
 	private Set<KelompokParameterTambahanPengajuanPegawai> kelompokParameterTambahanPengajuanPegawais;
 
+	/**
+	 * Membuat listener untuk satu form pengajuan pegawai.
+	 *
+	 * @param pengajuanPegawai                              entitas pengajuan yang sedang diedit
+	 * @param kelompokParameterTambahanPengajuanPegawais     kelompok parameter tambahan yang akan dirender
+	 * @param parameterRows                                  daftar baris ZK hasil render, diisi/dibersihkan ulang oleh listener ini
+	 * @param lampiranLains                                  peta lampiran yang sudah diunggah, berkunci {@code "idKelompok->idParameter"}
+	 * @param rows                                            kontainer {@link Rows} tempat baris form disisipkan
+	 */
 	public ParameterTambahanPengajuanPegawaiListener(PengajuanPegawai pengajuanPegawai,
 			Set<KelompokParameterTambahanPengajuanPegawai> kelompokParameterTambahanPengajuanPegawais, List<Row> parameterRows,
 			Map<String, LampiranLain> lampiranLains, Rows rows) {
@@ -44,6 +69,16 @@ public class ParameterTambahanPengajuanPegawaiListener implements EventListener 
 		this.lampiranLains = lampiranLains;
 	}
 
+	/**
+	 * Memvalidasi seluruh baris parameter tambahan yang sedang dirender: parameter
+	 * wajib diisi ({@code getWajibDiisi()}) harus punya nilai (bukan kosong/{@code null}
+	 * literal), dan parameter yang mewajibkan lampiran ({@code getHarusMenyertakanLampiran()})
+	 * harus sudah punya entri di {@link #lampiranLains}. Menampilkan messagebox
+	 * peringatan pada pelanggaran pertama yang ditemukan dan langsung berhenti.
+	 *
+	 * @return {@code true} bila semua parameter valid (atau tidak ada baris sama sekali); {@code false} pada pelanggaran pertama
+	 * @throws Exception diteruskan dari {@link ParameterTambahan#ambilVal(Row, ParameterTambahan)}
+	 */
 	public boolean validate() throws Exception {
 		if (parameterRows == null || parameterRows.isEmpty()) {
 			return true;
@@ -77,12 +112,34 @@ public class ParameterTambahanPengajuanPegawaiListener implements EventListener 
 		return true;
 	}
 
+	/**
+	 * Menyerap nilai-nilai yang saat ini terisi pada {@link #parameterRows} kembali ke
+	 * {@code pengajuanPegawai} (menulis ulang kolom {@code parameterTambahanInds}).
+	 * Dipanggil sebelum entitas pengajuan disimpan.
+	 *
+	 * @param pengajuanPegawai entitas pengajuan yang akan diisi ulang parameter tambahannya
+	 */
 	public void onSave(PengajuanPegawai pengajuanPegawai) {
 
 		pengajuanPegawai.populateParameterTambahan(parameterRows);
 
 	}
 
+	/**
+	 * Merender ulang seluruh baris parameter tambahan dari awal: baris-baris lama
+	 * disembunyikan lalu dibuang dari {@link #parameterRows}, kemudian untuk tiap
+	 * kelompok pada {@link #kelompokParameterTambahanPengajuanPegawais} query ulang
+	 * daftar {@link ParameterTambahan} aktif miliknya, urutkan, dan bangun baris judul
+	 * kelompok + baris input per parameter (nilai tersimpan sebelumnya diambil dari
+	 * {@code pengajuanPegawai.getParameterTambahanInds()}). Baris judul kelompok hanya
+	 * ditampilkan bila kelompok tersebut punya minimal satu parameter yang komponennya
+	 * jadi terlihat ({@link ParameterTambahan#initComponent} mengembalikan {@code true}).
+	 * Biasa dipicu oleh perubahan input yang memengaruhi parameter tambahan mana yang
+	 * relevan (mis. ganti jenis pengajuan).
+	 *
+	 * @param event event ZK yang memicu render ulang (isinya tidak dipakai langsung)
+	 * @throws Exception diteruskan dari pembangunan komponen input/akses Hibernate
+	 */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	@Override
 	public void onEvent(Event event) throws Exception {

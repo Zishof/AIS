@@ -62,6 +62,34 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Composer ZK untuk dialog "Ambil Data Perkuliahan" — layar pengambilan mata kuliah non-paket pada
+ * pengisian KRS mahasiswa. Menampilkan grid perkuliahan yang tersedia (dengan filter fakultas/
+ * jurusan/program/kelas/semester/tahapan/nama matakuliah), memberi tanda cek pada mata kuliah yang
+ * dipilih pemakai, memvalidasi kapasitas kelas, prasyarat mata kuliah, dan batas SKS maksimum
+ * berdasarkan IPK sebelum mengizinkan penyimpanan ke {@link ais.database.model.Detailperkuliahan}.
+ *
+ * <p>
+ * Alur pakai: {@link #display} membangun seluruh UI (filter, grid, tombol Simpan/Batal) dan memuat
+ * data lewat {@link #onSearchDefault}; setiap baris dirender oleh inner class
+ * {@link MatakuliahRenderer} yang menampilkan checkbox pilih, info dosen/jadwal/ruangan, status
+ * ketersediaan kursi, dan riwayat pengambilan sebelumnya (untuk kasus mengulang/menabung nilai).
+ * Perubahan centang memicu {@link #updateStatus(org.zkoss.zul.Checkbox)} yang menghitung ulang total
+ * SKS terpilih lewat {@link #hitungSksYangTelahDiambil()} dan menonaktifkan tombol Simpan bila
+ * {@link #apakahMelebihiKetentuan()} bernilai {@code true} (SKS melebihi batas IPK mahasiswa).
+ * Penyimpanan akhir dilakukan oleh {@link #save()}, yang membuat baris
+ * {@link ais.database.model.Detailperkuliahan} baru per mata kuliah terpilih (mengecek prasyarat,
+ * jam bentrok, dan kapasitas kelas sekali lagi sebelum commit) dan secara opsional langsung
+ * menyetujuinya bila konfigurasi {@code saat_ambil_krs_langsung_disetujui} aktif.
+ * </p>
+ *
+ * <p>
+ * Paging data grid memakai {@code AmbilDataPagingHelper} (paging server-side), menggantikan mold
+ * "paging" client-side lama yang dibatasi jumlah baris maksimum. Kelas ini menyimpan cache
+ * proses-lokal ({@code matakuliahTelahDiambil}, {@code perkuliahanTelahDiambil}, peta riwayat) untuk
+ * menghindari query berulang saat merender banyak baris grid dalam satu tampilan.
+ * </p>
+ */
 public class AmbilDataPerkuliahanHelper {
 
 	private String tahunAjaran;
@@ -95,12 +123,25 @@ public class AmbilDataPerkuliahanHelper {
 	private boolean remedial;
 	private Checkbox semuaSemester;
 
+	/**
+	 * @param semesterPendek status semester pendek (SP) yang dibatasi helper ini, atau {@code null}
+	 *                        untuk pengambilan KRS reguler
+	 * @param remedial        bila {@code true}, hanya menampilkan perkuliahan yang ditandai remedial
+	 */
 	public AmbilDataPerkuliahanHelper(Integer semesterPendek, boolean remedial) {
 		this.semesterPendek = semesterPendek;
 		this.remedial = remedial;
 
 	}
 
+	/**
+	 * Row renderer grid hasil pencarian: menampilkan checkbox pilih (disembunyikan bila mata kuliah
+	 * sudah pernah diambil dan kurikulumnya boleh diambil), SKS, dosen, jadwal/ruangan, prasyarat,
+	 * kapasitas vs jumlah terisi, dan status ketersediaan/riwayat. Setiap tahap render dibungkus
+	 * try/catch individual dengan log {@code System.out} berlabel langkah — pola defensif agar
+	 * kegagalan satu baris (mis. relasi Hibernate lazy yang gagal dimuat) tidak menggagalkan seluruh
+	 * grid, melainkan menampilkan baris darurat berisi pesan kegagalan.
+	 */
 	class MatakuliahRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -533,6 +574,20 @@ public class AmbilDataPerkuliahanHelper {
 				hitungSksYangTelahDiambil(), semesterPendek);
 	}
 
+	/**
+	 * Menyimpan seluruh mata kuliah yang tercentang ({@code hashMap}) sebagai baris
+	 * {@link ais.database.model.Detailperkuliahan} baru untuk mahasiswa yang sedang mengisi KRS.
+	 * Membatalkan penyimpanan (mengembalikan {@code false}) bila total SKS melebihi ketentuan
+	 * ({@link #apakahMelebihiKetentuan()}) atau bila konfigurasi
+	 * {@code saat_pengambilan_krs_tidak_diperbolehkan_ada_jam_bentrok} aktif dan ditemukan jadwal
+	 * bentrok. Setiap mata kuliah diproses dalam transaksi tersendiri; bila kapasitas kelas sudah
+	 * penuh saat commit, mata kuliah tersebut dilewati dan pesan peringatan dikumpulkan untuk
+	 * ditampilkan di akhir alih-alih menggagalkan seluruh proses simpan.
+	 *
+	 * @return {@code true} bila proses simpan (untuk mata kuliah yang berhasil) selesai dijalankan;
+	 *         {@code false} bila dibatalkan sejak awal karena SKS berlebih atau jam bentrok
+	 * @throws Exception diteruskan dari kegagalan pengecekan ketentuan SKS
+	 */
 	@SuppressWarnings({})
 	public boolean save() throws Exception {
 
@@ -637,6 +692,24 @@ public class AmbilDataPerkuliahanHelper {
 		return true;
 	}
 
+	/**
+	 * Membangun dan menampilkan window modal "Ambil Data Perkuliahan": filter pencarian (fakultas,
+	 * jurusan, nama matakuliah, program/kelas, semester/tahun ajaran, tahapan), label total SKS
+	 * maksimum yang boleh diambil ({@code Common.getMinDanMaxIPK}), serta grid hasil pencarian.
+	 * Sebelum grid dimuat, method ini menginisialisasi ulang seluruh state terpilih ({@code hashMap})
+	 * dari daftar {@code detailperkuliahans} yang diberikan dan membangun peta riwayat pengambilan
+	 * mata kuliah sebelumnya ({@code riwayatMatakuliah}/{@code riwayatPerkuliahan}) dari seluruh
+	 * riwayat KRS mahasiswa.
+	 *
+	 * @param mahasiswa            mahasiswa yang sedang mengisi KRS
+	 * @param tahunAjaran          tahun ajaran KRS yang sedang diisi
+	 * @param semester             nomor semester KRS yang sedang diisi
+	 * @param tahapan              tahapan KRS (bila fitur tahapan aktif), boleh {@code null}/0
+	 * @param dataLoader           callback yang dipanggil ulang setelah simpan berhasil untuk memuat
+	 *                             ulang layar pemanggil
+	 * @param detailperkuliahans   id {@link ais.database.model.Detailperkuliahan} yang sudah terpilih
+	 *                             sebelumnya (mis. draft KRS non-paket yang belum disetujui)
+	 */
 	public void display(final Mahasiswa mahasiswa, final String tahunAjaran, final Integer semester,
 			final Integer tahapan, final DataLoader dataLoader, final List<Long> detailperkuliahans) {
 		this.mahasiswa = mahasiswa;
@@ -1299,6 +1372,16 @@ public class AmbilDataPerkuliahanHelper {
 		});
 	}
 
+	/**
+	 * Membangun kriteria Hibernate pencarian {@link Perkuliahan} sesuai seluruh filter aktif di layar
+	 * (kelas, semester pendek, fakultas/jurusan, program, semester/ganjil-genap, tahun ajaran, tahapan,
+	 * nama/kode matakuliah), membatasi hanya perkuliahan aktif, tampil-saat-KRS, dan bukan kelas
+	 * paralel.
+	 *
+	 * @param order bila {@code true}, menambahkan pengurutan berdasarkan urutan hari dalam seminggu
+	 *              lalu waktu mulai
+	 * @return kriteria siap dieksekusi untuk memuat daftar perkuliahan yang cocok
+	 */
 	public Criteria initCriteria(boolean order) {
 
 		Program program = (Program) (programCombobox.getSelectedItem() == null ? null
@@ -1372,6 +1455,7 @@ public class AmbilDataPerkuliahanHelper {
 		return criteria;
 	}
 
+	/** Menjalankan ulang pencarian ({@link #initCriteria(boolean)}) lewat paging server-side dan me-render ulang grid perkuliahan dengan {@link MatakuliahRenderer}. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

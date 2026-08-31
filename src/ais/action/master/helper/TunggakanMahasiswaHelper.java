@@ -13,8 +13,29 @@ import ais.common.Common;
 import ais.database.model.TunggakanMahasiswa;
 import ais.ui.util.MyColumnConfig;
 
+/**
+ * Helper tampilan (UI builder) untuk menyajikan ringkasan tunggakan mahasiswa berupa grid
+ * "Tahun Akademik / Semester / Jumlah" ke dalam sebuah {@link Component} ZK yang sudah disediakan
+ * pemanggil. Tidak melakukan query database sendiri — daftar {@link TunggakanMahasiswa} yang
+ * ditampilkan sudah harus disiapkan oleh pemanggil.
+ *
+ * <p>
+ * Terdapat blok kode rinci per-item tunggakan (drill-down ke {@code TunggakanMahasiswaDetail} lewat
+ * komponen {@code Detail}) yang dikomentari (nonaktif) — kemungkinan fitur yang pernah ada namun
+ * sengaja dimatikan; dibiarkan apa adanya sesuai instruksi untuk tidak mengubah kode fungsional.
+ * </p>
+ */
 public class TunggakanMahasiswaHelper {
 
+	/**
+	 * Membersihkan {@code rowInfoTunggakan}, lalu membangun ulang di dalamnya satu grid berisi
+	 * baris per {@link TunggakanMahasiswa} (kolom Tahun Akademik, Semester, Jumlah — diformat
+	 * dengan {@link Common#numberFormat}). Komponen induk dibuat tampak ({@code setVisible(true)})
+	 * sebagai bagian dari pembangunan ulang.
+	 *
+	 * @param rowInfoTunggakan   komponen kontainer ZK yang akan diisi ulang dengan grid tunggakan
+	 * @param tunggakanMahasiswas daftar tunggakan yang akan ditampilkan, satu baris grid per elemen
+	 */
 	public void display(Component rowInfoTunggakan,
 			List<TunggakanMahasiswa> tunggakanMahasiswas) {
 		Common.clear(rowInfoTunggakan);

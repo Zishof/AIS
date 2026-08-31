@@ -48,12 +48,55 @@ import ais.ui.util.MyLabelConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper composer ZK yang menampilkan rekapitulasi/timeline {@link Pertemuan} (pertemuan
+ * perkuliahan, jadwal pelajaran sekolah, KKN, PKL, bimbingan, dsb.) milik satu user
+ * ({@link Tbmuser}), baik untuk mahasiswa, dosen, guru, siswa, maupun admin. Dipakai antara lain
+ * sebagai widget rekap pertemuan pada dashboard/portal user.
+ *
+ * <p>
+ * Sumber data pertemuan bergantung konteks pemanggilan:
+ * </p>
+ * <ul>
+ * <li>Bila {@code perkuliahan} (berupa {@link VOPembelajaran}: {@link Perkuliahan} atau
+ * {@link JadwalPelajaran}) diberikan, hanya pertemuan aktif milik objek tersebut yang diambil.</li>
+ * <li>Bila user adalah mahasiswa, dipakai {@link Mahasiswa#ambilPertemuan(Session)} (dengan
+ * {@link Mahasiswa#reInitPertemuan} dipanggil lebih dulu saat refresh, memakai rentang 6 bulan
+ * sebelum/sesudah tanggal filter).</li>
+ * <li>Bila user adalah dosen, dipakai {@link Dosen#ambilPertemuan(Session)} dengan pola serupa.</li>
+ * <li>Selain itu (guru/siswa/admin sekolah), kriteria dibangun lewat
+ * {@link DashboardTimelinePertemuan#initStaticCriteria} dengan seluruh filter jenis jadwal
+ * diaktifkan sesuai apakah user terkait sekolah ({@link SekolahUtil#getSekolah()}) atau
+ * perkuliahan.</li>
+ * </ul>
+ *
+ * <p>
+ * UI berupa grid berpaging dengan satu kolom "Pertemuan" yang dirender lewat
+ * {@link DetailPertemuanRenderer} (mendelegasikan tampilan baris ke
+ * {@link DashboardTimelinePertemuan#displayRow}), serta filter rentang tanggal (disembunyikan bila
+ * {@code perkuliahan} diberikan) dan timer refresh otomatis lewat
+ * {@link Common#createDefaultTimer(EventListener)}.
+ * </p>
+ */
 public class RekapitulasiPertemuanHelper {
 
+	/** Seperti {@link #display(Component, Tbmuser, VOPembelajaran)} dengan {@code perkuliahan=null} (memakai sumber pertemuan berbasis user). */
 	public static void display(Component parent, final Tbmuser tbmuser) {
 		display(parent, tbmuser, null);
 	}
 
+	/**
+	 * Membangun UI rekap pertemuan (filter tanggal + tombol refresh + grid berpaging) di dalam
+	 * {@code parent}, lalu memuat data awal lewat {@link #reload}. Rentang tanggal default diambil
+	 * dari {@link RencanaTahunAkademik} yang sedang berlaku (±7 hari), dan grid disegarkan otomatis
+	 * lewat timer berkala.
+	 *
+	 * @param parent      komponen induk ZK tempat UI dibangun
+	 * @param tbmuser     user yang rekap pertemuannya ditampilkan
+	 * @param perkuliahan bila diberikan, rekap dibatasi hanya pada pertemuan milik objek
+	 *                    pembelajaran ini ({@link Perkuliahan} atau {@link JadwalPelajaran}); bila
+	 *                    {@code null}, sumber pertemuan ditentukan dari peran {@code tbmuser}
+	 */
 	public static void display(Component parent, final Tbmuser tbmuser, final VOPembelajaran perkuliahan) {
 
 		Borderlayout subBorderlayoutUtama = new Borderlayout();
@@ -119,6 +162,22 @@ public class RekapitulasiPertemuanHelper {
 		sampai.addEventListener("onChange", eventListener);
 	}
 
+	/**
+	 * Menentukan daftar id {@link Pertemuan} yang relevan (sesuai {@code perkuliahan}/peran
+	 * {@code tbmuser}, lihat javadoc kelas) dan membangun ulang grid rekap di dalam
+	 * {@code center}. Bila {@code refresh=true}, memicu {@code reInitPertemuan} pada mahasiswa
+	 * atau dosen terlebih dahulu (menyinkronkan ulang cache pertemuan mereka) sebelum mengambil
+	 * datanya.
+	 *
+	 * @param tbmuser     user pemilik rekap
+	 * @param center      panel tempat grid dibangun ulang; isinya dibersihkan lebih dulu
+	 * @param mulai       batas awal filter tanggal
+	 * @param sampai      batas akhir filter tanggal
+	 * @param refreh      bila {@code true}, sinkronkan ulang cache pertemuan mahasiswa/dosen lewat
+	 *                    {@code reInitPertemuan} sebelum memuat data
+	 * @param awal        tidak dipakai dalam implementasi saat ini
+	 * @param perkuliahan bila diberikan, batasi pertemuan hanya milik objek ini
+	 */
 	@SuppressWarnings("unchecked")
 	private static void reload(final Tbmuser tbmuser, final Center center, final Date mulai, final Date sampai,
 			boolean refreh, boolean awal, final VOPembelajaran perkuliahan) {

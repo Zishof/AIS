@@ -61,29 +61,6 @@ public class MyButtonTabbox {
 		return buat(parent, tinggiCss, tabAktifHolder, true);
 	}
 
-	/**
-	 * Membuat area tab mengikuti panjang konten, tanpa scrollbar/tinggi internal.
-	 * Cocok untuk halaman yang memakai scrollbar parent sebagai satu-satunya scrollbar.
-	 */
-	public void aturKontenTanpaBatas(String tinggiMinimumCss) {
-		String minimum = tinggiMinimumCss == null || tinggiMinimumCss.trim().isEmpty()
-				? "100%" : tinggiMinimumCss.trim();
-		Component outer = panelHost.getParent();
-		if (outer instanceof org.zkoss.zul.impl.XulElement) {
-			org.zkoss.zul.impl.XulElement xulOuter = (org.zkoss.zul.impl.XulElement) outer;
-			xulOuter.setHeight("auto");
-			xulOuter.setStyle("display:flex;flex-direction:column;min-height:" + minimum
-					+ ";height:auto;overflow:visible;box-sizing:border-box;");
-		}
-		panelHost.setHeight("auto");
-		panelHost.setStyle("flex:1 0 auto;min-height:" + minimum
-				+ ";height:auto;overflow:visible;box-sizing:border-box;");
-		for (Div panel : panelMap.values()) {
-			panel.setHeight("auto");
-			panel.setStyle("min-height:" + minimum + ";height:auto;overflow:visible;box-sizing:border-box;");
-		}
-	}
-
 	private static MyButtonTabbox buat(Component parent, String tinggiCss, int[] tabAktifHolder,
 			boolean vertikal) {
 		Div outer = new Div();

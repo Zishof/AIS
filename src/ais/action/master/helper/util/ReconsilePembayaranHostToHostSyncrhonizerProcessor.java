@@ -20,13 +20,50 @@ import ais.database.model.JenisRekonsiliasiHostToHost;
 import ais.database.model.Konfigurasi;
 import ais.database.model.file.LampiranLain;
 
+/**
+ * Tugas terjadwal ({@link TimerTask}) untuk rekonsiliasi pembayaran <b>Host-to-Host (H2H)</b> —
+ * jalur integrasi langsung dengan sistem bank yang menaruh file hasil transaksi (CSV/format lain)
+ * secara berkala ke satu folder di server, tanpa melalui payment gateway pihak ketiga.
+ *
+ * <p>
+ * Setiap kali dijalankan (lihat {@link #run()}), proses ini: (1) memeriksa saklar konfigurasi
+ * {@code aktifkan_auto_reconsile_biaya_host_to_host} — bila tidak aktif, tidak melakukan apa pun;
+ * (2) memindai folder sumber ({@code direktori_folder_tempat_file_auto_reconsile}, default
+ * {@code /opt}) untuk file berekstensi sesuai konfigurasi {@code jenis_file_auto_reconsile}
+ * (default {@code csv}); (3) untuk setiap file yang cocok, menyalinnya ke folder arsip
+ * ({@code lokasi_penyimpanan_file}{@code /hasil_reconsile/}) dan menyimpannya sebagai
+ * {@link LampiranLain} (jenis {@link LampiranLain#REKONSILIASI_HOST_TO_HOST}) lengkap dengan isi
+ * biner file (kolom foto/blob); (4) menentukan implementasi parser lewat konfigurasi
+ * {@code default_class_yang_digunakan_untuk_memproses_reconsile_pembayaran_host_to_host} (nama
+ * kelas lengkap {@link JenisParsingReconsile}, default {@link DefaultJenisParsingReconsile}),
+ * diinstansiasi via refleksi ({@code Class.forName(...).newInstance()}); (5) mencatat/mengambil
+ * baris {@link JenisRekonsiliasiHostToHost} yang sesuai nama kelas parser tersebut; (6) memanggil
+ * {@link JenisParsingReconsile#parsing(LampiranLain, JenisRekonsiliasiHostToHost)} untuk memproses
+ * isi file (mencocokkan transaksi bank dengan tagihan/pembayaran di AIS); (7) menghapus file asal
+ * dari folder sumber setelah berhasil diarsipkan dan diproses.
+ * </p>
+ *
+ * <p>
+ * <b>Catatan keamanan</b>: tidak ditemukan kredensial (user/password/API key) tertanam langsung di
+ * kelas ini — lokasi folder dan nama kelas parser seluruhnya diambil dari {@link Konfigurasi}
+ * (database), bukan konstanta kode. Kredensial autentikasi ke bank (bila ada) kemungkinan berada
+ * di implementasi {@link JenisParsingReconsile} yang dikonfigurasi, bukan di kelas penjadwal ini.
+ * </p>
+ */
 public class ReconsilePembayaranHostToHostSyncrhonizerProcessor extends TimerTask {
 
+	/** Dipanggil oleh timer/scheduler; langsung mendelegasikan ke {@link #doProcess()}. */
 	@Override
 	public void run() {
 		doProcess();
 	}
 
+	/**
+	 * Implementasi inti satu siklus rekonsiliasi H2H: baca folder, arsipkan file, dan dispatch ke
+	 * parser terkonfigurasi. Lihat javadoc kelas untuk uraian langkah lengkap. Seluruh galat per
+	 * file/per siklus ditangkap dan dilaporkan lewat {@code Common.tampilErrorJikaAdmin} — satu
+	 * file gagal tidak menghentikan pemrosesan file lain dalam folder yang sama.
+	 */
 	@SuppressWarnings("deprecation")
 	private void doProcess() {
 

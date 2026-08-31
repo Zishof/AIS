@@ -27,6 +27,23 @@ import ais.database.model.ParameterTambahanPengajuan;
 import ais.ui.util.MyLabelStyled;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Pengelola baris-baris parameter tambahan dinamis pada form pengajuan pendaftaran, mendukung
+ * dua konteks entitas yang saling eksklusif: {@link PengajuanMahasiswa} (pengajuan di jenjang
+ * perguruan tinggi) dan {@link PengajuanSiswa} (pengajuan di jenjang sekolah). Perilakunya
+ * sepenuhnya paralel dengan {@link ParameterTambahanPerbaikanAssetListener}, hanya beda entitas
+ * target: parameter dikelompokkan lewat {@link KelompokParameterTambahanPengajuan}, tiap
+ * kelompok memiliki beberapa {@link ParameterTambahan} yang dikonfigurasi dari master data, dan
+ * kelas ini men-generate baris form ({@link Row}) secara runtime, memvalidasi isian wajib/
+ * lampiran wajib, serta menuliskan hasil isian kembali ke entitas pengajuan yang bersangkutan.
+ *
+ * <p>
+ * Hanya satu dari dua konstruktor yang dipakai per instance — instance yang dibuat dengan
+ * konstruktor {@link PengajuanMahasiswa} memiliki {@code pengajuanSiswa == null} (dan
+ * sebaliknya), dan {@link #onEvent(Event)} memilih cabang logika berdasarkan field mana yang
+ * tidak null.
+ * </p>
+ */
 public class ParameterTambahanPengajuanListener implements EventListener {
 
 	private List<Row> parameterRows;
@@ -36,6 +53,7 @@ public class ParameterTambahanPengajuanListener implements EventListener {
 	private Map<String, LampiranLain> lampiranLains;
 	private Set<KelompokParameterTambahanPengajuan> kelompokParameterTambahanPengajuans;
 
+	/** Konstruktor untuk konteks pengajuan mahasiswa (perguruan tinggi); lihat parameter pada konstruktor {@link PengajuanSiswa} untuk penjelasan lengkap tiap argumen. */
 	public ParameterTambahanPengajuanListener(PengajuanMahasiswa pengajuan,
 			Set<KelompokParameterTambahanPengajuan> kelompokParameterTambahanPengajuans, List<Row> parameterRows,
 			Map<String, LampiranLain> lampiranLains, Rows rows) {
@@ -46,6 +64,16 @@ public class ParameterTambahanPengajuanListener implements EventListener {
 		this.lampiranLains = lampiranLains;
 	}
 
+	/**
+	 * Konstruktor untuk konteks pengajuan siswa (sekolah).
+	 *
+	 * @param pengajuan                            entitas pengajuan siswa yang sedang diedit
+	 * @param kelompokParameterTambahanPengajuans  kelompok parameter tambahan yang berlaku
+	 * @param parameterRows                        daftar baris form yang dikelola bersama
+	 * @param lampiranLains                         lampiran yang sudah diunggah, dikunci per
+	 *                                              {@code "kelompokId->parameterId"}
+	 * @param rows                                  kontainer ZK tempat baris parameter ditambahkan
+	 */
 	public ParameterTambahanPengajuanListener(PengajuanSiswa pengajuan,
 			Set<KelompokParameterTambahanPengajuan> kelompokParameterTambahanPengajuans, List<Row> parameterRows,
 			Map<String, LampiranLain> lampiranLains, Rows rows) {
@@ -56,6 +84,14 @@ public class ParameterTambahanPengajuanListener implements EventListener {
 		this.lampiranLains = lampiranLains;
 	}
 
+	/**
+	 * Memvalidasi seluruh baris parameter tambahan yang sedang ditampilkan: parameter wajib
+	 * ({@link ParameterTambahan#getWajibDiisi()}) harus terisi, dan parameter yang mensyaratkan
+	 * lampiran harus punya entri di {@code lampiranLains}. Berhenti dan menampilkan
+	 * {@link MyMessageboxConfig} begitu menemukan pelanggaran pertama.
+	 *
+	 * @return {@code true} bila semua baris valid; {@code false} begitu ditemukan pelanggaran
+	 */
 	public boolean validate() throws Exception {
 		if (parameterRows == null || parameterRows.isEmpty()) {
 			return true;
@@ -89,19 +125,32 @@ public class ParameterTambahanPengajuanListener implements EventListener {
 		return true;
 	}
 
+	/** Menulis nilai isian dari {@code parameterRows} saat ini ke entitas {@code pengajuan} mahasiswa yang diberikan. */
 	public void onSave(PengajuanMahasiswa pengajuan) {
 
 		pengajuan.populateParameterTambahan(parameterRows);
 
 	}
-	
-	
+
+
+	/** Menulis nilai isian dari {@code parameterRows} saat ini ke entitas {@code pengajuan} siswa yang diberikan. */
 	public void onSave(PengajuanSiswa pengajuan) {
 
 		pengajuan.populateParameterTambahan(parameterRows);
 
 	}
 
+	/**
+	 * Membangun ulang seluruh baris parameter tambahan pada form: mengosongkan baris lama,
+	 * lalu memilih konteks ({@code pengajuanSiswa} atau {@code pengajuanMahasiswa}, mana yang
+	 * tidak null) dan untuk tiap kelompok parameter yang berlaku pada konteks tersebut,
+	 * mengambil {@link ParameterTambahan} aktif terkait, membuat baris judul kelompok + baris
+	 * per parameter (lewat {@link ParameterTambahan#initComponent}), memulihkan nilai
+	 * tersimpan sebelumnya dari {@code getParameterTambahanInds()} entitas pengajuan
+	 * bersangkutan, dan menyembunyikan baris judul kelompok bila tidak ada parameter yang
+	 * tampil. Kedua cabang (siswa/mahasiswa) menjalankan logika yang identik, hanya berbeda
+	 * entitas dan kelas sumber datanya.
+	 */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	@Override
 	public void onEvent(Event event) throws Exception {

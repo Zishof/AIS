@@ -18,10 +18,44 @@ import ais.database.model.LogHostToHost;
 import ais.database.model.RekonsiliasiHostToHost;
 import ais.database.model.file.LampiranLain;
 
+/**
+ * Implementasi <b>default/baku</b> {@link JenisParsingReconsile} yang dipakai bila konfigurasi
+ * {@code default_class_yang_digunakan_untuk_memproses_reconsile_pembayaran_host_to_host} tidak
+ * diarahkan ke kelas lain (lihat
+ * {@link ais.action.master.helper.util.ReconsilePembayaranHostToHostSyncrhonizerProcessor}).
+ *
+ * <p>
+ * <b>Catatan</b>: isi/logika kelas ini identik baris-demi-baris dengan
+ * {@link EdupayJenisParsingReconsile} — sama-sama memparsing file rekonsiliasi Host-to-Host
+ * berformat teks dipisah titik-koma dengan posisi kolom tetap (indeks 1 = waktu
+ * {@code yyyyMMddHHmmss}, 6 = kode transaksi, 9 = nilai, 10 = nama, 11 = status), lalu
+ * menyinkronkan status {@link CicilanPembayaran}/{@link CicilanPembayaranGagal} terhadap
+ * {@link LogHostToHost} yang cocok. Lihat javadoc {@link EdupayJenisParsingReconsile#parsing}
+ * untuk uraian lengkap alur per baris — tidak diulang di sini karena isinya sama persis
+ * (kemungkinan duplikasi kode historis; tidak diubah sesuai instruksi menjaga kode fungsional).
+ * </p>
+ *
+ * <p>
+ * <b>Catatan keamanan</b>: tidak ditemukan kredensial tertanam di kelas ini.
+ * </p>
+ */
 public class DefaultJenisParsingReconsile implements JenisParsingReconsile {
 
+	/** Format tanggal/waktu baku pada kolom waktu file rekonsiliasi ({@code yyyyMMddHHmmss}). */
 	private SimpleDateFormat format = new SimpleDateFormat("yyyyMMddHHmmss");
 
+	/**
+	 * Memparsing seluruh baris file lampiran {@code lampiranLain} sebagai data rekonsiliasi
+	 * Host-to-Host dan menyinkronkan status pembayaran cicilan mahasiswa terkait. Identik dengan
+	 * {@link EdupayJenisParsingReconsile#parsing(LampiranLain, JenisRekonsiliasiHostToHost)} —
+	 * lihat javadoc method tersebut untuk uraian lengkap.
+	 *
+	 * @param lampiranLain               file mentah hasil rekonsiliasi yang akan diparsing
+	 * @param jenisRekonsiliasiHostToHost jenis/kategori rekonsiliasi yang ditautkan ke setiap baris
+	 *                                    {@link RekonsiliasiHostToHost} yang dibuat
+	 * @throws Exception diteruskan dari kegagalan I/O saat membaca file atau kegagalan transaksi
+	 *                    Hibernate
+	 */
 	@Override
 	public void parsing(LampiranLain lampiranLain,
 			JenisRekonsiliasiHostToHost jenisRekonsiliasiHostToHost)

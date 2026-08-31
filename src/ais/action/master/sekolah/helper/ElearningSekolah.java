@@ -47,32 +47,32 @@ public class ElearningSekolah extends MyWindow {
 	}
 
 	private void init() throws Exception {
-		setHeight("auto");
+		setHeight("100%");
 		setWidth("100%");
 		setBorder("none");
 		setClosable(false);
 		setSizable(false);
 		setVisible(true);
-		setStyle("background:#f8fafc;border:0;min-height:20000px;height:auto;overflow:visible;box-sizing:border-box;");
+		setStyle("background:#f8fafc;border:0;min-height:720px;height:100%;overflow:hidden;box-sizing:border-box;");
 
 		final Sekolah sekolah = SekolahUtil.getSekolah();
 
 		Borderlayout borderlayout = new Borderlayout();
 		borderlayout.setWidth("100%");
-		borderlayout.setHeight("20000px");
-		borderlayout.setStyle("border:0;background:#f8fafc;min-height:20000px;overflow:visible;");
+		borderlayout.setHeight("100%");
+		borderlayout.setStyle("border:0;background:#f8fafc;min-height:720px;overflow:hidden;");
 		borderlayout.setParent(this);
 
 		Center center = new Center();
 		center.setBorder("none");
 		ais.ui.util.ZkCompat.setFlex(center, true);
-		center.setStyle("border:0;background:#f8fafc;overflow:visible;padding:0;");
+		center.setStyle("border:0;background:#f8fafc;overflow:auto;padding:0;");
 		center.setParent(borderlayout);
 
 		Div wrapper = new Div();
 		wrapper.setWidth("100%");
-		wrapper.setHeight("auto");
-		wrapper.setStyle("background:#f8fafc;min-height:20000px;height:auto;overflow:visible;"
+		wrapper.setHeight("100%");
+		wrapper.setStyle("background:#f8fafc;min-height:700px;height:100%;overflow:auto;"
 				+ "box-sizing:border-box;padding:0;margin:0;");
 		wrapper.setParent(center);
 
@@ -80,9 +80,9 @@ public class ElearningSekolah extends MyWindow {
 
 		Div tabHost = new Div();
 		tabHost.setWidth("100%");
-		tabHost.setHeight("auto");
-		tabHost.setStyle("min-height:20000px;height:auto;background:#ffffff;border:1px solid #dbeafe;border-radius:14px;"
-				+ "box-shadow:0 8px 22px rgba(15,23,42,0.08);overflow:visible;box-sizing:border-box;");
+		tabHost.setHeight("calc(100vh - 205px)");
+		tabHost.setStyle("min-height:620px;background:#ffffff;border:1px solid #dbeafe;border-radius:14px;"
+				+ "box-shadow:0 8px 22px rgba(15,23,42,0.08);overflow:hidden;box-sizing:border-box;");
 		tabHost.setParent(wrapper);
 
 		final MyButtonTabbox buttonTabbox = MyButtonTabbox.buat(tabHost, "100%", new int[] { 1 });
@@ -135,7 +135,6 @@ public class ElearningSekolah extends MyWindow {
 			}
 		});
 		aturPanelUtama(panelMateri);
-		buttonTabbox.aturKontenTanpaBatas("20000px");
 
 		// Tab pertama wajib terisi pada render awal; tidak bergantung pada event
 		// onSelect/onClick Tabbox native yang tidak konsisten pada ZK 5.
@@ -145,9 +144,9 @@ public class ElearningSekolah extends MyWindow {
 
 	private void aturPanelUtama(Div panel) {
 		if (panel != null) {
-			panel.setHeight("auto");
-			panel.setStyle("background:#ffffff;overflow:visible;padding:10px;box-sizing:border-box;"
-					+ "min-height:20000px;height:auto;");
+			panel.setHeight("100%");
+			panel.setStyle("background:#ffffff;overflow:auto;padding:10px;box-sizing:border-box;"
+					+ "min-height:560px;");
 		}
 	}
 

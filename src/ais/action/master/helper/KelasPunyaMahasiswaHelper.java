@@ -64,6 +64,32 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK untuk layar "Mahasiswa pada Kelas" — menampilkan dan mengelola daftar
+ * {@link Mahasiswa} yang tergabung dalam satu {@link Kelas} (kelas paralel akademik, bukan kelas
+ * sekolah). Kelas ini mengimplementasikan {@link DataLoader} (pemuatan ulang grid) dan
+ * {@link DataCriteria} (kriteria pencarian dipakai ulang untuk cetak laporan lewat
+ * {@code Common#cetakData}).
+ *
+ * <p>
+ * Fitur utama yang disediakan lewat toolbar pada {@link #display(Kelas, Component, MyWindow)}:
+ * </p>
+ * <ul>
+ * <li>Pencarian mahasiswa anggota kelas berdasarkan NIM/nama, angkatan, Fakultas, dan Jurusan.</li>
+ * <li>"Ambil Mahasiswa" — membuka {@link AmbilDataMahasiswaForKelasHelper} untuk menambah anggota
+ * kelas dari daftar mahasiswa yang memenuhi filter Fakultas/Jurusan/angkatan kelas.</li>
+ * <li>"Bersihkan" — menghapus keanggotaan seluruh mahasiswa dari kelas ini sekaligus (update massal
+ * kolom {@code kelas} pada tabel {@code mahasiswa} lewat SQL native).</li>
+ * <li>"Singkronkan" — untuk rentang semester yang dipilih, menyamakan kolom {@code kelas} pada
+ * {@link KrsMahasiswa} (KRS reguler maupun Semester Pendek) tiap anggota dengan nama kelas ini,
+ * dijalankan pada thread terpisah dengan progres ditampilkan lewat {@code Common#displayLoadBar}.</li>
+ * <li>Hapus satu anggota (tombol per baris di {@link DetailKelasRenderer}), yang turut membersihkan
+ * kolom {@code kelas} pada {@link KrsMahasiswa} terkait.</li>
+ * <li>Upload massal keanggotaan kelas dari berkas Excel (.xlsx) lewat
+ * {@link #uploadDataMahasiswa(File, EventListener)}.</li>
+ * <li>Cetak laporan anggota kelas lewat {@code Common#cetakData}.</li>
+ * </ul>
+ */
 public class KelasPunyaMahasiswaHelper implements DataLoader, DataCriteria {
 
 	private MyGrid grid;
@@ -185,6 +211,15 @@ public class KelasPunyaMahasiswaHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/**
+	 * Implementasi {@link DataCriteria}: membangun kriteria Hibernate untuk mahasiswa anggota
+	 * {@link #kelas} (kolom {@code kelas} pada {@link Mahasiswa} disamakan persis dengan nama kelas),
+	 * disaring lebih lanjut oleh filter toolbar (nama/NIM, angkatan, Fakultas, Jurusan). Dipakai
+	 * ulang oleh {@link #loadData(Object)} untuk grid dan oleh {@code Common#cetakData} untuk cetak.
+	 *
+	 * @param order {@code true} untuk mengurutkan hasil berdasarkan NIM ascending
+	 * @return kriteria Hibernate siap eksekusi/paginasi
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(Mahasiswa.class)
@@ -216,6 +251,13 @@ public class KelasPunyaMahasiswaHelper implements DataLoader, DataCriteria {
 		return criteria;
 	}
 
+	/**
+	 * Implementasi {@link DataLoader}: memuat ulang halaman aktif daftar mahasiswa anggota kelas ke
+	 * {@link #grid} sesuai kriteria pencarian saat ini, dijalankan lewat
+	 * {@code Common#createDefaultTimer} agar UI tidak diblokir. Parameter {@code value} tidak dipakai.
+	 *
+	 * @param value tidak digunakan
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -245,6 +287,18 @@ public class KelasPunyaMahasiswaHelper implements DataLoader, DataCriteria {
 		return this;
 	}
 
+	/**
+	 * Membangun seluruh tampilan layar "Mahasiswa pada Kelas": toolbar filter/aksi (lihat dokumentasi
+	 * kelas untuk daftar lengkap fitur toolbar) dan grid berpaginasi daftar anggota. Bila {@code kelas}
+	 * sudah terikat ke Jurusan/Fakultas atau angkatan tertentu, kombo filter terkait langsung
+	 * dipra-isi dan dikunci ({@code setDisabled(true)}) supaya pencarian tidak keluar dari lingkup
+	 * kelas tersebut.
+	 *
+	 * @param kelas     kelas yang anggotanya akan ditampilkan/dikelola
+	 * @param component komponen ZK induk tempat layar dirender (dibersihkan lebih dulu)
+	 * @param window    jendela induk, diteruskan ke {@link AmbilDataMahasiswaForKelasHelper} saat
+	 *                  fitur "Ambil Mahasiswa" dipakai
+	 */
 	public void display(final Kelas kelas, final Component component, final MyWindow window) {
 		this.kelas = kelas;
 		Common.clear(component);
@@ -682,6 +736,23 @@ public class KelasPunyaMahasiswaHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/**
+	 * Memproses berkas Excel (.xlsx) yang diunggah untuk menetapkan keanggotaan {@link #kelas} secara
+	 * massal. Setiap baris data (mulai baris ke-2, kolom pertama berisi identitas mahasiswa) dicoba
+	 * dicocokkan sebagai objek {@link Mahasiswa} lewat {@code Common#getSheetContentAsObject}; bila
+	 * gagal, dicoba fallback pencarian berdasarkan NIM mentah lewat
+	 * {@code ConstantValues#ambilByNim}. Baris yang cocok diberi {@code kelas.getNama()} lalu
+	 * disimpan dalam transaksi Hibernate per baris (rollback eksplisit bila satu baris gagal, agar
+	 * baris berikutnya tidak ikut gagal karena transaksi yang masih aktif). Dijalankan pada thread
+	 * terpisah; progres ditampilkan lewat {@link Label} yang dipantau {@link Timer} 200ms, dan hasil
+	 * akhirnya dirangkum ke {@link ais.common.LaporanUpload} (baris berhasil/dilewati/gagal) yang
+	 * diselesaikan lewat {@code eventListener} setelah proses tuntas.
+	 *
+	 * @param file          berkas .xlsx yang sudah diunggah dan disimpan sementara di server
+	 * @param eventListener dipanggil (via {@link ais.common.LaporanUpload#selesaikan}) setelah proses
+	 *                      upload dan pelaporan selesai, biasanya untuk menyegarkan grid
+	 * @throws Exception diteruskan dari kegagalan pembacaan berkas Excel
+	 */
 	public void uploadDataMahasiswa(final File file, final EventListener eventListener) throws Exception {
 
 		// Laporan hasil per baris. Menggantikan Label "peringatan" yang disiapkan untuk

@@ -38,6 +38,20 @@ import ais.database.model.Beasiswa;
 import ais.database.model.Mahasiswa;
 import ais.database.model.MahasiswaDapatBeasiswa;
 
+/**
+ * Helper tampilan daftar mahasiswa penerima satu {@link Beasiswa} tertentu, lengkap dengan
+ * pencarian (NIM/nama), penambahan penerima baru, dan penghapusan penerima. Dipasang lewat
+ * {@link #displayPrasyaratBeasiswa(Beasiswa, Component, MyWindow)} yang membangun sendiri
+ * panel + grid pagingnya ke dalam komponen ZK yang diberikan (isi komponen sebelumnya
+ * dibersihkan lewat {@link Common#clear(Component)}).
+ *
+ * <p>
+ * Mengimplementasikan {@link DataLoader} agar dapat diberikan sebagai callback ke
+ * {@link AmbilDataMahasiswaBeasiswaHelper} — setelah mahasiswa baru ditambahkan sebagai
+ * penerima beasiswa dari layar pencarian tersebut, grid ini menyegarkan diri lewat
+ * {@link #loadData(Object)}.
+ * </p>
+ */
 public class BeasiswaHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -45,6 +59,7 @@ public class BeasiswaHelper implements DataLoader {
 	private Textbox nim;
 	private Textbox nama;
 
+	/** Merender satu baris grid: identitas mahasiswa (NIM, nama, jurusan, fakultas) dan tombol hapus penerima beasiswa. */
 	class DetailBeasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -103,6 +118,13 @@ public class BeasiswaHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Memuat ulang daftar {@link MahasiswaDapatBeasiswa} untuk {@code beasiswa} yang sedang
+	 * ditampilkan, disaring berdasarkan isian filter NIM/nama pada toolbar ({@code ilike},
+	 * cocok di mana saja), diurutkan berdasarkan NIM, lalu memasang model & renderer baru pada
+	 * {@link #grid}. Parameter {@code value} tidak dipakai — signature mengikuti kontrak
+	 * {@link DataLoader}.
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
@@ -119,10 +141,22 @@ public class BeasiswaHelper implements DataLoader {
 
 	}
 
+	/** @return {@code this} sebagai {@link DataLoader}, diteruskan ke helper pencarian mahasiswa agar dapat memicu {@link #loadData(Object)} setelah data ditambahkan. */
 	private DataLoader getDataloader() {
 		return this;
 	}
 
+	/**
+	 * Membangun panel daftar penerima {@code beasiswa} (toolbar pencarian NIM/nama, tombol
+	 * "Cari" dan "Tambah Data", serta grid paging 5 kolom) ke dalam {@code component} yang
+	 * diberikan, lalu langsung memuat data awal lewat {@link #loadData(Object)}. Tombol
+	 * "Tambah Data" membuka {@link AmbilDataMahasiswaBeasiswaHelper} untuk mencari & menambah
+	 * mahasiswa baru sebagai penerima beasiswa ini.
+	 *
+	 * @param beasiswa  beasiswa yang daftar penerimanya akan ditampilkan
+	 * @param component kontainer ZK yang akan diisi (isi sebelumnya dibersihkan)
+	 * @param window    jendela induk, diteruskan ke helper pencarian mahasiswa
+	 */
 	public void displayPrasyaratBeasiswa(final Beasiswa beasiswa, final Component component, final MyWindow window) {
 		this.beasiswa = beasiswa;
 		Common.clear(component);

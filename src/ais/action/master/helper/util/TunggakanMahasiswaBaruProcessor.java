@@ -26,9 +26,46 @@ import ais.database.model.Perkuliahan;
 import ais.database.model.TunggakanMahasiswa;
 import ais.database.model.TunggakanMahasiswaDetail;
 
+/**
+ * Tugas terjadwal ({@link TimerTask}) yang menghitung/menyegarkan tunggakan pembayaran
+ * pendaftaran ulang untuk mahasiswa baru (kegiatan
+ * {@link ais.action.ws.util.ConstantUtil#PENDAFTARAN_ULANG_MAHASISWA_BARU}), disimpan sebagai
+ * baris {@link TunggakanMahasiswa} beserta rinciannya ({@link TunggakanMahasiswaDetail}).
+ *
+ * <p>
+ * State progres ({@link #mahasiswas}, {@link #mahasiswasSudah}) adalah <b>static</b>
+ * (dibagi lintas seluruh instance/eksekusi timer): {@link #run()} akan melewati (skip)
+ * eksekusi baru selama batch sebelumnya belum selesai diproses seluruhnya (menghindari dua
+ * batch berjalan tumpang tindih), lalu mereset kedua daftar sebelum memulai batch baru. Daftar
+ * mahasiswa diacak urutannya ({@link Random}) sebelum diproses satu per satu agar beban tidak
+ * selalu dimulai dari mahasiswa dengan id terkecil.
+ * </p>
+ *
+ * <p>
+ * Proses hanya berjalan bila {@code executeSekarang} bernilai {@code true} (dipaksa jalan,
+ * dipakai untuk pemicu manual/administratif) ATAU konfigurasi
+ * {@code auto_proses_tunggakan_mhs_b} aktif DAN hostname mesin ini cocok salah satu dari tiga
+ * alamat IP yang terdaftar pada konfigurasi tersebut (pola gerbang IP yang sama seperti pada
+ * {@link RadiusProcessor} dan {@link AutoNotActivatingMahasiswaS2Processor} — nilai default IP
+ * pada {@code Common.getKonfigurasi} kelas ini kosong, jadi gerbang IP hanya berlaku bila
+ * konfigurasi sudah diisi manual di basis data, bukan tertanam di kode ini).
+ * </p>
+ *
+ * <p>
+ * Bila {@code bersihkanDulu} true, tabel {@code tunggakan_mahasiswa} (dan cascade-nya) dibersihkan
+ * lebih dulu lewat SQL native langsung — baik <b>truncate seluruh tabel</b> (bila
+ * {@code tahunAkademik} kosong) maupun {@code delete} tersaring per jenis kegiatan + tahun
+ * akademik + semester 1. Untuk setiap mahasiswa baru (difilter berdasar tahun angkatan yang
+ * dihitung dari {@code tahunAkademik}), method menghitung total tagihan lewat
+ * {@link PembayaranUtil#getDetailBiayaCalonMahasiswa} dan membandingkannya dengan jumlah yang
+ * sudah dibayar ({@code kegiatan.getAmount()}) untuk menentukan status lunas.
+ * </p>
+ */
 public class TunggakanMahasiswaBaruProcessor extends TimerTask {
 
+	/** Daftar id mahasiswa pada batch berjalan saat ini (state bersama lintas eksekusi timer). */
 	public static List<Long> mahasiswas = new ArrayList<Long>();
+	/** Subset {@link #mahasiswas} yang sudah selesai diproses pada batch berjalan; dipakai {@link #run()} untuk mendeteksi batch yang belum tuntas. */
 	public static List<Long> mahasiswasSudah = new ArrayList<Long>();
 
 	private Boolean bersihkanDulu = false;
@@ -39,6 +76,7 @@ public class TunggakanMahasiswaBaruProcessor extends TimerTask {
 
 	private Boolean executeSekarang = false;
 
+	/** Konstruktor default: tidak membersihkan data lebih dulu, tidak dipaksa jalan (bergantung gerbang IP+konfigurasi), tanpa filter tahun akademik. */
 	public TunggakanMahasiswaBaruProcessor() {
 		InetAddress thisIp;
 		try {
@@ -51,6 +89,12 @@ public class TunggakanMahasiswaBaruProcessor extends TimerTask {
 		}
 	}
 
+	/**
+	 * @param bersihkanDulu        bila {@code true}, data tunggakan lama dihapus/di-truncate lebih dulu
+	 * @param bersihkanDuluDetail  bila {@code true}, rincian tunggakan mahasiswa yang sudah ada dihapus & ditulis ulang saat diperbarui
+	 * @param executeSekarang      bila {@code true}, proses dipaksa jalan tanpa mengecek gerbang IP/konfigurasi
+	 * @param tahunAkademik        tahun akademik yang menjadi filter/dasar perhitungan tahun angkatan; kosong berarti tanpa filter
+	 */
 	public TunggakanMahasiswaBaruProcessor(Boolean bersihkanDulu, Boolean bersihkanDuluDetail, Boolean executeSekarang,
 			String tahunAkademik) {
 		InetAddress thisIp;
@@ -68,6 +112,12 @@ public class TunggakanMahasiswaBaruProcessor extends TimerTask {
 		this.tahunAkademik = tahunAkademik;
 	}
 
+	/**
+	 * Dipanggil oleh {@link java.util.Timer} sesuai jadwal. Melewati (skip) eksekusi ini bila
+	 * batch sebelumnya masih berjalan (jumlah {@link #mahasiswas} belum sama dengan jumlah
+	 * {@link #mahasiswasSudah}), lalu mereset kedua daftar statis dan mendelegasikan ke
+	 * {@link #doProcess()}.
+	 */
 	@Override
 	public void run() {
 
@@ -80,6 +130,7 @@ public class TunggakanMahasiswaBaruProcessor extends TimerTask {
 		doProcess();
 	}
 
+	/** Logika inti penghitungan/penyegaran tunggakan mahasiswa baru; lihat javadoc kelas untuk alur lengkapnya. */
 	@SuppressWarnings("unchecked")
 	private void doProcess() {
 
@@ -281,6 +332,16 @@ public class TunggakanMahasiswaBaruProcessor extends TimerTask {
 		}
 	}
 
+	/**
+	 * Mengganti seluruh rincian tunggakan ({@link TunggakanMahasiswaDetail}) milik
+	 * {@code tunggakanMahasiswa}: menghapus rincian lama lewat SQL native, lalu menyimpan satu
+	 * baris detail baru untuk tiap {@link DetailBiaya} pada {@code detailBiayas}, menyalin
+	 * atribut biaya (angkatan, fakultas, item biaya, jenjang, jurusan, nilai, dsb.) apa adanya.
+	 *
+	 * @param session          sesi Hibernate aktif tempat operasi dijalankan (dalam transaksi pemanggil)
+	 * @param tunggakanMahasiswa induk tunggakan yang rinciannya akan diganti
+	 * @param detailBiayas     komponen biaya sumber yang akan disalin menjadi rincian tunggakan
+	 */
 	public void insertTunggakanMahasiswaDetail(Session session, TunggakanMahasiswa tunggakanMahasiswa,
 			Collection<DetailBiaya> detailBiayas) {
 		session.createSQLQuery(

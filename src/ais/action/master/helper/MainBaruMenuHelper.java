@@ -18,8 +18,39 @@ import ais.database.model.Menu;
 import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
 
+/**
+ * Helper pembangun HTML menu navigasi (sidebar) untuk tampilan "baru" (tema Bootstrap) AIS,
+ * berdasarkan hak akses {@link Tbmrole} milik {@link Tbmuser} yang sedang login. Bertugas ganda:
+ * (1) mencatat detail sesi login ({@link DetailLogLogin}) sekali per sesi HTTP, dan (2) merender
+ * struktur {@link Menu} berjenjang (maksimal beberapa level, memakai relasi {@code root}/{@code child})
+ * menjadi markup {@code <ul>/<li>} Bootstrap dengan status expand/collapse dan {@code active}
+ * disesuaikan terhadap menu yang sedang dibuka.
+ *
+ * <p>
+ * Daftar menu per role di-cache pada atribut sesi ZK {@code current_menus} agar tidak query ulang
+ * setiap permintaan; menu aktif saat ini dibaca dari atribut sesi {@code current_menu}.
+ * </p>
+ */
 public class MainBaruMenuHelper {
 
+	/**
+	 * Titik masuk utama: memastikan detail log login tercatat (sekali per login, dilacak lewat
+	 * {@link MainHelper#logins}), memuat (dan meng-cache pada sesi) daftar {@link Menu} sesuai hak
+	 * akses {@code tbmuser}, lalu merender seluruh pohon menu level akar via
+	 * {@link #createTreeMenu(Tbmrole, List, Tbmuser, LogLogin, HttpServletRequest)}.
+	 *
+	 * <p>
+	 * Pencatatan {@link DetailLogLogin} bersifat best-effort: kegagalan (mis. sequence database
+	 * belum tersedia) di-rollback dan sesi native ditutup di blok {@code finally} agar transaksi
+	 * gagal tidak meracuni pemanggilan {@code session.refresh(tbmrole)} berikutnya dalam method yang
+	 * sama.
+	 * </p>
+	 *
+	 * @param tbmuser user yang sedang login; bila {@code null} atau tidak punya hak akses/menu,
+	 *                mengembalikan string kosong
+	 * @param request request HTTP saat ini, dipakai untuk membaca/menulis atribut sesi
+	 * @return markup HTML pohon menu navigasi lengkap, atau string kosong bila tidak ada menu
+	 */
 	public static String loadTree(Tbmuser tbmuser, HttpServletRequest request) throws Exception {
 		String out = "";
 		if (tbmuser == null || tbmuser.hakAkses() == null || tbmuser.hakAkses().getMenus() == null)
@@ -116,6 +147,21 @@ public class MainBaruMenuHelper {
 		return out;
 	}
 
+	/**
+	 * Merender markup HTML untuk menu-menu level akar (root = 0) dari daftar {@code menus}. Menu
+	 * yang tidak aktif ({@code aktif == false}) dilewati. Menu dengan anak (dicek via
+	 * {@link MainHelper#hasChild}) dirender sebagai grup dropdown Bootstrap (dengan status expand
+	 * ditentukan apakah menu saat ini adalah leluhur dari {@code current_menu} sesi), sedangkan menu
+	 * tanpa anak dirender sebagai tautan langsung ke {@code /baru?p=...&menu=...}.
+	 *
+	 * @param job     role/hak akses (tidak dipakai langsung dalam pembangunan markup, diteruskan
+	 *                untuk kompatibilitas signature)
+	 * @param menus   daftar seluruh menu yang boleh diakses user
+	 * @param tbmuser user yang sedang login (diteruskan ke rekursi submenu)
+	 * @param login   record login saat ini (diteruskan ke rekursi submenu)
+	 * @param request request HTTP, dipakai untuk membaca/menulis atribut sesi dan membangun URL
+	 * @return markup HTML {@code <a>/<ul>} untuk seluruh menu level akar
+	 */
 	public static String createTreeMenu(Tbmrole job, List<Menu> menus, Tbmuser tbmuser, LogLogin login, HttpServletRequest request)
 			throws Exception {
 		String out = "";
@@ -185,6 +231,20 @@ public class MainBaruMenuHelper {
 		return out;
 	}
 
+	/**
+	 * Merender secara rekursif markup HTML submenu dengan induk {@code root} tertentu. Sama seperti
+	 * {@link #createTreeMenu}, menu tidak aktif dilewati, menu beranak dirender sebagai grup
+	 * collapse bertingkat (id {@code level-two-<id>}) yang memanggil dirinya sendiri untuk anaknya,
+	 * dan menu tanpa anak dirender sebagai tautan langsung.
+	 *
+	 * @param root    id menu induk; hanya menu dengan {@code getRoot() == root} yang dirender pada
+	 *                pemanggilan ini
+	 * @param menus   daftar seluruh menu yang boleh diakses user
+	 * @param tbmuser user yang sedang login (diteruskan ke rekursi lebih dalam)
+	 * @param login   record login saat ini (diteruskan ke rekursi lebih dalam)
+	 * @param request request HTTP, dipakai untuk membaca atribut sesi dan membangun URL
+	 * @return markup HTML {@code <li>/<ul>} untuk submenu dengan induk {@code root}
+	 */
 	private static String createRootSubMenu(Long root, List<Menu> menus, Tbmuser tbmuser, LogLogin login,
 			HttpServletRequest request) throws Exception {
 		String out = "";

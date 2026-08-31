@@ -34,12 +34,32 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.JurusanSekolahMahasiswaBaru;
 import ais.database.model.PilihanPaketPerJurusanMhsBaru;
 
+/**
+ * Helper composer ZK yang menampilkan dan mengelola daftar "Paket" (pilihan paket jurusan) yang
+ * terkait dengan satu {@link JurusanSekolahMahasiswaBaru} (pemetaan jurusan asal sekolah calon
+ * mahasiswa baru). Dipakai untuk menampilkan panel kecil berisi grid {@link
+ * PilihanPaketPerJurusanMhsBaru} dengan tombol tambah dan hapus per baris.
+ *
+ * <p>
+ * Alur pemakaian: pemanggil memanggil {@link #displayDetailPaketJurusan} untuk membangun UI
+ * (panel + toolbar + grid) di dalam {@link Component} induk yang diberikan, lalu grid dimuat lewat
+ * {@link #loadData(Object)}. Penambahan data dilakukan lewat {@link AmbilPaketHelper} (dipanggil dari
+ * tombol "Tambah Data"), sedangkan penghapusan dilakukan langsung dari baris grid lewat
+ * {@link DetailPaketRenderer}. Kelas ini mengimplementasikan {@link DataLoader} agar dapat diberikan
+ * sebagai callback refresh ke helper lain (mis. {@link AmbilPaketHelper}) setelah data berubah.
+ * </p>
+ */
 public class DetailPaketJurusanHelper implements DataLoader {
 
 	private MyGrid grid;
 	// private DosenPembimbingAkademik dosenPembimbingAkademik;
 	private JurusanSekolahMahasiswaBaru jurusanSekolahMahasiswaBaru;
 
+	/**
+	 * Perender baris grid untuk satu {@link PilihanPaketPerJurusanMhsBaru}: menampilkan nama
+	 * paket dan tombol hapus yang, setelah konfirmasi, menghapus baris lewat
+	 * {@link PilihanPaketPerJurusanDao} dan memuat ulang grid via {@link #loadData(Object)}.
+	 */
 	class DetailPaketRenderer extends ais.ui.util.MyRowRenderer {
 
 		public DetailPaketRenderer() {
@@ -97,6 +117,12 @@ public class DetailPaketJurusanHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Memuat ulang isi grid dengan seluruh {@link PilihanPaketPerJurusanMhsBaru} (yang sudah
+	 * punya {@code paket}) milik {@link #jurusanSekolahMahasiswaBaru} yang sedang aktif.
+	 *
+	 * @param value tidak dipakai; parameter standar {@link DataLoader}
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
@@ -114,6 +140,17 @@ public class DetailPaketJurusanHelper implements DataLoader {
 		return this;
 	}
 
+	/**
+	 * Membangun UI panel "Daftar Paket" (toolbar tambah + grid berpaging berisi paket yang sudah
+	 * dipilih) di dalam {@code component} induk, lalu memuat datanya. Tombol "Tambah Data"
+	 * disembunyikan bila user yang login adalah dosen (hanya admin/staf yang boleh menambah).
+	 *
+	 * @param jurusanSekolahMahasiswaBaru pemetaan jurusan sekolah asal yang datanya ditampilkan
+	 * @param component                   komponen induk ZK; isinya dibersihkan lebih dulu lewat
+	 *                                     {@link Common#clear(Component)}
+	 * @param window                      window pemanggil, diteruskan ke {@link AmbilPaketHelper}
+	 *                                     saat menambah data
+	 */
 	public void displayDetailPaketJurusan(final JurusanSekolahMahasiswaBaru jurusanSekolahMahasiswaBaru,
 			final Component component, final MyWindow window) {
 		this.jurusanSekolahMahasiswaBaru = jurusanSekolahMahasiswaBaru;

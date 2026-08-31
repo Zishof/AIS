@@ -30,6 +30,20 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper composer ZK yang menampilkan jendela modal "Manajemen Konsultasi" untuk satu
+ * {@link GrupPertemuan}. Jendela berisi lima tab: Presensi kehadiran (didelegasikan ke
+ * {@link AbsensiGrupPertemuanHelper}), Catatan Konsultasi (textbox bebas + unggah/unduh lampiran
+ * lain), File (didelegasikan ke {@link FilePerkuliahanHelper}), Audio (didelegasikan ke
+ * {@link AudioGrupPertemuanHelper}), dan Video (didelegasikan ke {@link VideoGrupPertemuanHelper}).
+ *
+ * <p>
+ * Konstruktor menerima {@link Mahasiswa} opsional: bila {@code null}, helper berjalan dalam mode
+ * dosen/admin (tombol Simpan tampil, sub-helper video/audio diinisialisasi dalam mode
+ * non-mahasiswa); bila diisi, helper berjalan dalam mode lihat-saja untuk mahasiswa yang
+ * bersangkutan.
+ * </p>
+ */
 public class GrupPertemuanHelper {
 
 	private DataLoader dataLoader;
@@ -48,6 +62,14 @@ public class GrupPertemuanHelper {
 	private Textbox catatan;
 	private int index = 0;
 
+	/**
+	 * Membuat helper untuk satu konteks tampilan. Sub-helper video/audio/file/absensi langsung
+	 * dibuat di sini (belum terikat ke {@link GrupPertemuan} tertentu — pengikatan terjadi di
+	 * {@link #init()}).
+	 *
+	 * @param mahasiswa mahasiswa pemilik konteks bila dibuka dari sisi mahasiswa (mode lihat-saja),
+	 *                  atau {@code null} bila dibuka dari sisi dosen/admin (mode kelola penuh)
+	 */
 	public GrupPertemuanHelper(Mahasiswa mahasiswa) {
 		this.mahasiswa = mahasiswa;
 		filePerkuliahanHelper = new FilePerkuliahanHelper(mahasiswa, null);
@@ -56,6 +78,13 @@ public class GrupPertemuanHelper {
 		absensiHelper = new AbsensiGrupPertemuanHelper(mahasiswa, null);
 	}
 
+	/**
+	 * Membangun seluruh struktur UI jendela (tabbox lima tab + toolbar Tutup/Simpan) ke dalam
+	 * {@link #window}. Dipanggil oleh {@link #display(GrupPertemuan, DataLoader, int)} setelah
+	 * {@link #grupPertemuan} dan {@link #window} diset. Tombol Simpan hanya tampil pada mode
+	 * dosen/admin ({@code mahasiswa == null}) dan mendelegasikan penyimpanan ke
+	 * {@link AbsensiGrupPertemuanHelper#save()}.
+	 */
 	@SuppressWarnings("deprecation")
 	public void init() throws Exception {
 
@@ -205,6 +234,15 @@ public class GrupPertemuanHelper {
 
 	}
 
+	/**
+	 * Titik masuk utama: membuat jendela modal baru, mengikatnya ke {@code grupPertemuan}, memanggil
+	 * {@link #init()} untuk membangun isinya, lalu menampilkannya sebagai modal.
+	 *
+	 * @param grupPertemuan grup pertemuan yang dikelola
+	 * @param dataLoader    callback untuk menyegarkan tampilan pemanggil setelah jendela ditutup/disimpan
+	 * @param index         indeks tab yang dipilih pertama kali dibuka (0=Presensi, 1=Catatan, 2=File,
+	 *                      3=Audio, 4=Video)
+	 */
 	public void display(final GrupPertemuan grupPertemuan, final DataLoader dataLoader, int index) throws Exception {
 
 		this.index = index;

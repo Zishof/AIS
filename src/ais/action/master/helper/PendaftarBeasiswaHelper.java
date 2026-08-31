@@ -84,6 +84,33 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK untuk fitur "Pendaftar Beasiswa": menampilkan, memfilter, menilai (terima/tolak),
+ * dan mengelola daftar mahasiswa yang mendaftar pada satu {@link Beasiswa} tertentu. Tampilan
+ * utama berupa grid berpaging yang menunjukkan data akademik ringkas tiap pendaftar (SKS/SKSK,
+ * IP/IPK hasil sinkronisasi {@link Common#singkronkanKrsMahasiswa}), skor total, serta checkbox
+ * "Terima"/"Ditolak" yang langsung menyimpan perubahan status ke {@link MahasiswaDaftarBeasiswa}
+ * saat diklik (hanya aktif bila mode {@code approve} diaktifkan lewat
+ * {@link #displayPrasyaratBeasiswa}).
+ *
+ * <p>
+ * Selain grid, kelas ini menyediakan sejumlah aksi laporan/berkas: cetak PDF daftar pendaftar,
+ * daftar penerima, dan rekap penerima ({@link ais.action.report.Report}); ekspor seluruh data
+ * pendaftar (termasuk jawaban tiap {@link PersyaratanBeasiswa} beasiswa tersebut, dengan
+ * hyperlink ke lampiran bila persyaratan mewajibkan unggahan) ke berkas Excel lewat
+ * {@link #cetakDataCustomButton}; serta impor massal dari Excel (menerima/menolak berdasarkan
+ * kolom "Diterima" dan menghitung ulang {@code memenuhiSyarat}) via tombol Upload — proses
+ * ekspor/impor keduanya berjalan asinkron di thread terpisah dengan indikator progres memakai
+ * {@link org.zkoss.zul.Timer} dan {@link org.zkoss.zul.Label} yang di-poll.
+ * </p>
+ *
+ * <p>
+ * Tombol "Hitung Skor" menjumlahkan nilai numerik yang tersimpan pada jawaban bertipe
+ * {@link PersyaratanBeasiswa#PILIHAN_CUSTOM} (format {@code "label:angka"}) untuk seluruh
+ * pendaftar yang cocok filter aktif, lalu menuliskannya ke {@code totalSkor}. Tombol "Baru"
+ * membuka dialog {@link AmbilDataMahasiswaSeleksiBeasiswaHelper} untuk menambah pendaftar baru.
+ * </p>
+ */
 public class PendaftarBeasiswaHelper implements DataLoader, DataCriteria {
 
 	private MyGrid grid;
@@ -98,6 +125,12 @@ public class PendaftarBeasiswaHelper implements DataLoader, DataCriteria {
 	private MyCheckboxConfig hanyaYgBelumDiterima;
 	private boolean approve;
 
+	/**
+	 * Renderer baris grid: menampilkan NIM, nama, jurusan, SKS/SKSK dan IP/IPK terkini (via
+	 * {@link Common#singkronkanKrsMahasiswa}), skor total, serta checkbox terima/tolak dan
+	 * tombol edit/hapus. Checkbox "Ditolak" dan "Terima" saling eksklusif (memilih salah satu
+	 * menonaktifkan yang lain) dan langsung menulis perubahan lewat {@link Common#refreshUpdate}.
+	 */
 	class PendaftarBeasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -225,6 +258,14 @@ public class PendaftarBeasiswaHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/**
+	 * Membangun {@link Criteria} pendaftar {@link #beasiswa} yang aktif, difilter berdasarkan
+	 * status "belum diterima" (checkbox {@code hanyaYgBelumDiterima}), angkatan, kata kunci
+	 * NIM/nama, jurusan, jenjang, dan fakultas — implementasi kontrak {@link DataCriteria}.
+	 *
+	 * @param order bila {@code true}, tambahkan pengurutan (angkatan desc, NIM asc)
+	 * @return criteria siap dieksekusi/dihitung jumlah barisnya
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(MahasiswaDaftarBeasiswa.class)
@@ -262,6 +303,7 @@ public class PendaftarBeasiswaHelper implements DataLoader, DataCriteria {
 		return criteria;
 	}
 
+	/** Implementasi {@link DataLoader#loadData}: memuat ulang paging dan satu halaman data pendaftar (50 baris) lalu merender ulang grid dengan {@link PendaftarBeasiswaRenderer}. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -281,6 +323,22 @@ public class PendaftarBeasiswaHelper implements DataLoader, DataCriteria {
 		return this;
 	}
 
+	/**
+	 * Membuat tombol toolbar yang, saat diklik, mengekspor seluruh data pendaftar (mengikuti
+	 * filter aktif dari {@code dataCriteria}, tanpa batas paging) ke berkas Excel (.xlsx) di
+	 * direktori sementara aplikasi. Kolom baku (ID, NIM, Nama, Jurusan, Fakultas, Diterima, Skor,
+	 * IPK) diikuti satu kolom per {@link PersyaratanBeasiswa} beasiswa ini; sel persyaratan yang
+	 * mewajibkan lampiran diberi hyperlink ke berkas lampiran (bila ada). Selama proses berjalan
+	 * di thread terpisah, sebuah {@link org.zkoss.zul.Timer} mem-poll label progres dan pada
+	 * akhirnya membuka jendela pratinjau {@link org.zkoss.zss.ui.Spreadsheet} dengan tombol
+	 * unduh. Baris yang gagal diproses dilewati (dicatat lewat {@link Common#tampilErrorJikaAdmin})
+	 * tanpa menghentikan keseluruhan ekspor.
+	 *
+	 * @param dataCriteria penyedia criteria sumber data (biasanya {@code this}); boleh berbeda dari filter grid utama
+	 * @param buttonLabel  label tombol
+	 * @param buttonImage  path ikon tombol
+	 * @return tombol toolbar siap ditempel ke toolbar pemanggil
+	 */
 	@SuppressWarnings("unchecked")
 	public MyToolbarbuttonConfig cetakDataCustomButton(final DataCriteria dataCriteria, String buttonLabel,
 			String buttonImage) {
@@ -676,6 +734,17 @@ public class PendaftarBeasiswaHelper implements DataLoader, DataCriteria {
 		return toolbarbutton;
 	}
 
+	/**
+	 * Titik masuk utama: membangun seluruh UI daftar pendaftar untuk {@code beasiswa} di dalam
+	 * {@code component} — toolbar filter (NIM/nama, jenjang, fakultas, jurusan, angkatan, status
+	 * belum diterima), tombol aksi (cari, cetak Pendaftar/Penerima/Rekap, Hitung Skor, Baru,
+	 * Download/Upload Excel), dan grid berpaging hasil {@link #loadData(Object)}.
+	 *
+	 * @param beasiswa  beasiswa yang daftar pendaftarnya ditampilkan
+	 * @param component komponen induk tempat UI ditempel (dibersihkan lebih dulu)
+	 * @param window    window pembungkus (diteruskan ke dialog "Baru" agar dapat menutup diri sendiri)
+	 * @param approve   {@code true} untuk mengaktifkan checkbox terima/tolak pada tiap baris (mode approval)
+	 */
 	public void displayPrasyaratBeasiswa(final Beasiswa beasiswa, final Component component, final MyWindow window,
 			final boolean approve) {
 		this.beasiswa = beasiswa;
@@ -1163,6 +1232,14 @@ public class PendaftarBeasiswaHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/**
+	 * Mencari record {@link MahasiswaDaftarBeasiswa} yang sudah ada untuk upload Excel: dicoba
+	 * lebih dulu berdasarkan {@code id} baris (bila kolom ID di Excel terisi dan cocok dengan
+	 * {@code beasiswa}), lalu jatuh ke pencarian berdasarkan pasangan (mahasiswa, beasiswa) bila
+	 * id tidak ditemukan/tidak diisi.
+	 *
+	 * @return record yang ditemukan, atau {@code null} bila belum ada pendaftaran sebelumnya
+	 */
 	private MahasiswaDaftarBeasiswa cariPendaftarBeasiswa(Session session, Long id, Mahasiswa mahasiswa,
 			Beasiswa beasiswa) {
 		MahasiswaDaftarBeasiswa hasil = null;
@@ -1184,6 +1261,7 @@ public class PendaftarBeasiswaHelper implements DataLoader, DataCriteria {
 		return hasil;
 	}
 
+	/** Mencari {@link Mahasiswa} berdasarkan NIM persis (trim), dipakai sebagai fallback upload Excel saat kolom mahasiswa tidak dapat diresolusi langsung dari sel. */
 	private Mahasiswa cariMahasiswaDariNim(Session session, String nimExcel) {
 		if (session == null || nimExcel == null || nimExcel.trim().isEmpty()) {
 			return null;
@@ -1192,6 +1270,16 @@ public class PendaftarBeasiswaHelper implements DataLoader, DataCriteria {
 				.add(Restrictions.eq("nim", nimExcel.trim())).uniqueResult();
 	}
 
+	/**
+	 * Menetapkan status terima/tolak pendaftaran mahasiswa terbaru pada {@code beasiswa} tertentu
+	 * (baris terbaru dipilih via {@code Order.desc("id")}), lalu menampilkan pesan konfirmasi ke
+	 * pengguna. Dipakai sebagai aksi cepat di luar grid utama (mis. dari layar lain yang hanya
+	 * perlu mengubah satu status tanpa membuka daftar penuh).
+	 *
+	 * @param mahasiswa mahasiswa yang statusnya diubah
+	 * @param beasiswa  beasiswa terkait
+	 * @param checked   {@code true} untuk menerima, {@code false} untuk menolak
+	 */
 	public void terimaBeasiswa(Mahasiswa mahasiswa, Beasiswa beasiswa, boolean checked) throws Exception {
 		Session session = HibernateUtil.currentSession();
 		MahasiswaDaftarBeasiswa mahasiswaDiterimaBeasiswaIni = (MahasiswaDaftarBeasiswa) session

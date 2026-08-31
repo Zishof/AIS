@@ -26,6 +26,22 @@ import ais.database.model.file.LampiranLain;
 import ais.ui.util.MyLabelStyled;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Listener ZK yang membangun dan mengelola baris-baris parameter tambahan dinamis pada formulir
+ * {@link CatatanMahasiswa} (catatan/pelanggaran/prestasi mahasiswa). Parameter tambahan
+ * dikelompokkan lewat {@link KelompokParameterTambahanCatatanMahasiswa}; untuk setiap kelompok
+ * yang relevan, kelas ini merender baris judul kelompok diikuti baris input untuk setiap
+ * {@link ParameterTambahan} aktif di kelompok tersebut (via
+ * {@link ParameterTambahan#initComponent}), termasuk pemulihan nilai/keterangan tersimpan dari
+ * {@code catatanMahasiswa.getParameterTambahanInds()} (format baris {@code "kelompok->parameter<=>nilai<=>keterangan"}).
+ *
+ * <p>
+ * Selain merender ({@link #onEvent(Event)}, dipanggil ulang saat kelompok/jenis catatan berubah),
+ * kelas ini juga menyediakan {@link #validate()} untuk memvalidasi input wajib diisi/lampiran
+ * wajib sebelum simpan, dan {@link #onSave(CatatanMahasiswa)} untuk menuliskan kembali nilai
+ * terisi ke entitas {@link CatatanMahasiswa} via {@code populateParameterTambahan}.
+ * </p>
+ */
 public class ParameterTambahanCatatanMahasiswaListener implements EventListener {
 
 	private List<Row> parameterRows;
@@ -34,6 +50,20 @@ public class ParameterTambahanCatatanMahasiswaListener implements EventListener 
 	private Map<String, LampiranLain> lampiranLains;
 	private Set<KelompokParameterTambahanCatatanMahasiswa> kelompokParameterTambahanCatatanMahasiswas;
 
+	/**
+	 * Membuat listener untuk satu formulir {@link CatatanMahasiswa}.
+	 *
+	 * @param catatanMahasiswa                              entitas catatan mahasiswa yang sedang diedit
+	 * @param kelompokParameterTambahanCatatanMahasiswas     kelompok-kelompok parameter tambahan yang
+	 *                                                        relevan (biasanya ditentukan oleh jenis catatan
+	 *                                                        yang dipilih)
+	 * @param parameterRows                                  daftar baris komponen yang sudah/akan dirender,
+	 *                                                        dipakai bersama oleh validasi dan simpan
+	 * @param lampiranLains                                  peta lampiran yang sudah diunggah, dikunci per
+	 *                                                        "kelompokId->parameterId"
+	 * @param rows                                            komponen {@link Rows} induk tempat baris-baris
+	 *                                                        parameter ditambahkan
+	 */
 	public ParameterTambahanCatatanMahasiswaListener(CatatanMahasiswa catatanMahasiswa,
 			Set<KelompokParameterTambahanCatatanMahasiswa> kelompokParameterTambahanCatatanMahasiswas, List<Row> parameterRows,
 			Map<String, LampiranLain> lampiranLains, Rows rows) {
@@ -44,6 +74,15 @@ public class ParameterTambahanCatatanMahasiswaListener implements EventListener 
 		this.lampiranLains = lampiranLains;
 	}
 
+	/**
+	 * Memvalidasi seluruh baris parameter yang sedang dirender: parameter wajib diisi tidak boleh
+	 * kosong, dan parameter yang mensyaratkan lampiran wajib harus sudah punya entri di
+	 * {@link #lampiranLains}. Menampilkan pesan peringatan via {@link MyMessageboxConfig} dan
+	 * berhenti pada pelanggaran pertama yang ditemukan.
+	 *
+	 * @return {@code true} bila semua parameter valid (atau tidak ada baris untuk divalidasi),
+	 *         {@code false} bila ada pelanggaran
+	 */
 	public boolean validate() throws Exception {
 		if (parameterRows == null || parameterRows.isEmpty()) {
 			return true;
@@ -77,12 +116,31 @@ public class ParameterTambahanCatatanMahasiswaListener implements EventListener 
 		return true;
 	}
 
+	/**
+	 * Menuliskan kembali nilai-nilai parameter tambahan yang terisi pada {@link #parameterRows} ke
+	 * entitas {@code catatanMahasiswa} yang diberikan, via {@code populateParameterTambahan}.
+	 * Dipanggil saat formulir disimpan.
+	 *
+	 * @param catatanMahasiswa entitas tujuan penulisan nilai parameter
+	 */
 	public void onSave(CatatanMahasiswa catatanMahasiswa) {
 
 		catatanMahasiswa.populateParameterTambahan(parameterRows);
 
 	}
 
+	/**
+	 * Membangun ulang seluruh baris parameter tambahan: menyembunyikan/menghapus baris lama, lalu
+	 * untuk setiap {@link KelompokParameterTambahanCatatanMahasiswa} pada {@link #kelompokParameterTambahanCatatanMahasiswas}
+	 * mengambil daftar {@link ParameterTambahan} aktif miliknya (diurutkan secara alami), merender
+	 * baris judul kelompok (disembunyikan bila tidak ada parameter aktif), lalu merender satu baris
+	 * input per parameter — termasuk memulihkan nilai/keterangan tersimpan dari
+	 * {@code catatanMahasiswa.getParameterTambahanInds()} bila ada. Baris judul kelompok baru
+	 * ditampilkan bila minimal satu komponen parameter di dalamnya berhasil dirender
+	 * ({@code ParameterTambahan.initComponent} mengembalikan {@code true}).
+	 *
+	 * @param event event pemicu (mis. perubahan jenis catatan), isinya tidak dipakai langsung
+	 */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	@Override
 	public void onEvent(Event event) throws Exception {

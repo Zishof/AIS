@@ -107,6 +107,46 @@ import ais.ui.util.MyTimebox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Mesin utama pembangun formulir "Tambah/Ubah Jadwal Perkuliahan" berbasis ZK yang dipakai di
+ * banyak layar penjadwalan pada paket {@code ais.action.master} (mis. RencanaTahunAkademikAction
+ * dan sejenisnya). Kelas ini BUKAN composer ZUL biasa — ia dipakai sebagai objek pembantu yang
+ * membangun sendiri {@link org.zkoss.zul.Window} popup lengkap dengan tab "Data Jadwal" dan tab
+ * "Rencana Pembelajaran/Silabus", lalu mengelola seluruh siklus hidup form: pengisian kombo
+ * (Fakultas, Jurusan, Program, Kurikulum, Mata Kuliah, Kelas, Dosen 1-10, Ruang, Jam/Masa
+ * Perkuliahan, Hari, Waktu), validasi, dan penyimpanan entitas {@link Perkuliahan}.
+ *
+ * <h2>Alur pemakaian</h2>
+ * <ol>
+ * <li>Pemanggil membuat instance dengan {@link #PenjadwalanUtil(OnSearchDefaultListener)}.</li>
+ * <li>Salah satu dari {@link #init(Perkuliahan, Integer, Integer, Boolean)},
+ * {@link #init(Perkuliahan, Integer, Integer, Boolean, Boolean, Boolean)}, atau
+ * {@link #initJadwalKurikulum(Perkuliahan, Integer, Integer, Boolean)} dipanggil untuk membangun
+ * jendela form sesuai konteks (jadwal reguler, pra-perkuliahan, perkuliahan umum, atau jadwal yang
+ * mengikuti kurikulum).</li>
+ * <li>Pengguna mengisi form; tombol simpan pada layar pemanggil memicu {@link #onSave(Event)} yang
+ * melakukan validasi lengkap (kelengkapan field wajib, status aktif penjadwalan pada periode
+ * terkait via {@code CommonPenjadwalan#apakahPenjadwalanTidakAktif}, bentrok dosen via
+ * {@code Perkuliahan#checkDosen}) sebelum entitas {@link Perkuliahan} disimpan.</li>
+ * </ol>
+ *
+ * <p>
+ * Kelas juga menyediakan utilitas statis independen dari siklus form di atas untuk mendeteksi
+ * jadwal yang saling tumpang tindih (bentrok): {@link #lihatJadwalBentrok()} (menampilkan jendela
+ * pemilihan Tahun Akademik/Semester lalu menyajikan hasil), serta tiga varian pemeriksa murni
+ * {@link #checkBentrokBerdasarRuangan(List)}, {@link #checkBentrokBerdasarKelas(List)}, dan
+ * {@link #checkBentrokBerdasarDosen(List)} yang membandingkan setiap pasangan {@link Perkuliahan}
+ * dalam daftar berdasarkan kesamaan hari dan tumpang-tindih rentang waktu.
+ * </p>
+ *
+ * <p>
+ * Banyak bidang publik (mis. {@code dosen1}..{@code dosen10}, {@code minggu1}..{@code minggu5},
+ * berbagai {@link ais.ui.util.MyCheckboxConfig}) merupakan komponen ZK yang dibangun di dalam
+ * {@code init}/{@code initJadwalKurikulum} dan dibaca langsung oleh pemanggil atau oleh
+ * {@link #onSave(Event)}; kelas ini tidak thread-safe dan dimaksudkan sebagai objek sekali pakai
+ * per sesi ZK (satu instance per popup form yang sedang dibuka).
+ * </p>
+ */
 public class PenjadwalanUtil {
 
 	public MyTimebox waktuMulai;
@@ -180,6 +220,16 @@ public class PenjadwalanUtil {
 	public PenjadwalanHelper penjadwalanHelper = new PenjadwalanHelper();
 	private OnSearchDefaultListener onSearchDefaultListener;
 
+	/**
+	 * Membangun instance helper dan menyiapkan kombo-kombo yang tidak bergantung pada data
+	 * {@link Perkuliahan} tertentu (Fakultas/Jurusan, daftar pilihan Semester sampai
+	 * {@code max_semester_pilihan}, Jumlah Dosen 1-10, kombo Kelas, Hari, dan Waktu PAGI/SIANG/
+	 * SORE/MALAM). Kombo yang bergantung pada data jadwal yang sedang diedit baru dibangun di
+	 * {@link #init} / {@link #initJadwalKurikulum}.
+	 *
+	 * @param onSearchDefaultListener listener pencarian default yang diteruskan ke komponen banbox
+	 *                                terkait (dosen, ruang, kelas, dsb.)
+	 */
 	public PenjadwalanUtil(OnSearchDefaultListener onSearchDefaultListener) {
 		this.onSearchDefaultListener = onSearchDefaultListener;
 		fakultas = new Combobox();
@@ -359,11 +409,45 @@ public class PenjadwalanUtil {
 	private MyCheckboxConfig aktif;
 	private MyCheckboxConfig mahasiswaHanyaBolehAbsenSetelahAdaDosenYangAbsen;
 
+	/**
+	 * Varian ringkas {@link #init(Perkuliahan, Integer, Integer, Boolean, Boolean, Boolean)} untuk
+	 * jadwal perkuliahan reguler (bukan pra-perkuliahan, bukan perkuliahan umum).
+	 *
+	 * @param perkuliahan      entitas jadwal yang akan dibuat/diubah (baru bila {@code getId()==null})
+	 * @param semesterPendek   penanda konteks Semester Pendek, boleh {@code null}
+	 * @param ekstrakurikuler  penanda konteks ekstrakurikuler ({@link Perkuliahan#EKSTRA}), boleh {@code null}
+	 * @param merupakanRemedial penanda apakah jadwal ini remedial
+	 * @throws Exception diteruskan dari kegagalan pembangunan komponen ZK atau akses database
+	 */
 	public void init(final Perkuliahan perkuliahan, final Integer semesterPendek, final Integer ekstrakurikuler,
 			final Boolean merupakanRemedial) throws Exception {
 		init(perkuliahan, semesterPendek, ekstrakurikuler, false, false, merupakanRemedial);
 	}
 
+	/**
+	 * Implementasi utama pembangun jendela "Tambah/Ubah Jadwal Perkuliahan". Melakukan validasi
+	 * kewenangan (Fakultas/Program Studi user harus cocok dengan {@code perkuliahan.getJurusan()}
+	 * bila jadwal sudah ada) dan status aktif periode penjadwalan sebelum membangun UI; bila salah
+	 * satu gagal, method berhenti lebih awal setelah menampilkan {@link MyMessageboxConfig} tanpa
+	 * membangun jendela. Selanjutnya membangun tab "Data Jadwal" (kombo Tahun Akademik, Semester
+	 * Periode/Ganjil-Genap-SP, Program, Fakultas, Jurusan, Kelas, Mata Kuliah yang terikat pada
+	 * kurikulum aktif, opsional Tahapan Kurikulum, Jumlah Dosen dan Dosen 1-10) dan tab "Rencana
+	 * Pembelajaran/Silabus" yang baru dimuat lazily saat diklik (via
+	 * {@link #pilihTabRencanaPembelajaran}) memakai {@link PenjadwalanHelper} atau
+	 * {@link MatakuliahKurikulumDetailHelper} tergantung apakah jadwal sudah memiliki pertemuan.
+	 * Field-field kombo dikunci ({@code setDisabled(true)}) apabila konfigurasi
+	 * {@code jadwal_perkuliahan_tidak_bisa_diubah_ketika_diedit} aktif dan jadwal sudah diambil KRS
+	 * oleh mahasiswa, demi menjaga integritas data.
+	 *
+	 * @param perkuliahan               entitas jadwal yang akan dibuat/diubah
+	 * @param semesterPendek            penanda konteks Semester Pendek, boleh {@code null}
+	 * @param ekstrakurikuler           penanda konteks ekstrakurikuler, boleh {@code null}
+	 * @param merupakanPraPerkuliahan   {@code true} bila form untuk jadwal pra-perkuliahan (field
+	 *                                  Fakultas/Jurusan/Semester disembunyikan/opsional)
+	 * @param merupakanPerkuliahanUmum  {@code true} bila form untuk perkuliahan umum
+	 * @param merupakanRemedial         penanda apakah jadwal ini remedial
+	 * @throws Exception diteruskan dari kegagalan pembangunan komponen ZK atau akses database
+	 */
 	public void init(final Perkuliahan perkuliahan, final Integer semesterPendek, final Integer ekstrakurikuler,
 			final Boolean merupakanPraPerkuliahan, final Boolean merupakanPerkuliahanUmum,
 			final Boolean merupakanRemedial) throws Exception {
@@ -2011,6 +2095,19 @@ public class PenjadwalanUtil {
 	}
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Mengisi ulang kombo {@link #perkuliahan_paralel} dengan daftar jadwal {@link Perkuliahan}
+	 * lain yang sekelas paralel (kandidat perkuliahan induk untuk fitur "merupakan paralel") —
+	 * dicari berdasarkan kecocokan Tahun Akademik, Program, Jurusan/Fakultas, Semester, Mata
+	 * Kuliah, dan nama Kelas, sambil mengecualikan jadwal itu sendiri (kecuali saat menyalin/
+	 * {@code isCopy}) dan jadwal yang sudah ditandai paralel. Menampilkan peringatan dan berhenti
+	 * lebih awal apabila field prasyarat (Tahun Akademik, Program, Jurusan, Semester, Mata Kuliah)
+	 * belum terisi.
+	 *
+	 * @param isCopy {@code true} bila dipanggil dalam konteks menyalin jadwal (jadwal saat ini
+	 *               tidak dikecualikan dari daftar kandidat)
+	 * @throws Exception diteruskan dari kegagalan akses database
+	 */
 	protected void generatePerkulihaanParalel(Boolean isCopy) throws Exception {
 		Common.clear(perkuliahan_paralel);
 
@@ -2080,6 +2177,21 @@ public class PenjadwalanUtil {
 		perkuliahan_paralel.setReadonly(true);
 	}
 
+	/**
+	 * Memvalidasi seluruh isian form lalu menyimpan entitas {@link #perkuliahan}. Validasi mencakup
+	 * kelengkapan field wajib (Tahun Akademik, Program, Jurusan, Semester, Kelas, Mata Kuliah,
+	 * opsional Masa Perkuliahan bila konfigurasi mewajibkannya), status aktif penjadwalan untuk
+	 * kombinasi Tahun Akademik/Semester/Semester-Pendek terkait (via
+	 * {@code CommonPenjadwalan#apakahPenjadwalanTidakAktif}), kelengkapan Dosen Utama, bentrok
+	 * jadwal dosen (via {@link Perkuliahan#checkDosen}), serta Waktu Mulai bila jadwal tidak
+	 * ditandai "tanpa jadwal perkuliahan". Setiap kegagalan validasi menampilkan
+	 * {@link MyMessageboxConfig} dan mengembalikan {@code false} tanpa menyimpan apa pun.
+	 *
+	 * @param event event ZK yang memicu penyimpanan (mis. klik tombol Simpan)
+	 * @return {@code true} bila validasi lolos dan data berhasil disimpan; {@code false} bila
+	 *         validasi gagal pada langkah mana pun
+	 * @throws Exception diteruskan dari kegagalan akses database saat proses simpan
+	 */
 	public boolean onSave(Event event) throws Exception {
 
 		if (tahunAjaran.getSelectedItem() == null) {
@@ -2460,6 +2572,18 @@ public class PenjadwalanUtil {
 	}
 
 	@SuppressWarnings("deprecation")
+	/**
+	 * Varian pembangun jendela jadwal yang lebih ringkas, dipakai ketika jadwal dibuat langsung
+	 * mengikuti struktur Kurikulum (mis. dari layar generate jadwal massal berbasis kurikulum).
+	 * Berbeda dari {@link #init}, jendela ini tidak memiliki tab "Rencana Pembelajaran/Silabus" dan
+	 * tata letak grid-nya disesuaikan untuk pengisian cepat kolom-kolom jadwal.
+	 *
+	 * @param perkuliahan     entitas jadwal yang akan dibuat/diubah
+	 * @param semesterPendek  penanda konteks Semester Pendek, boleh {@code null}
+	 * @param ekstrakurikuler penanda konteks ekstrakurikuler, boleh {@code null}
+	 * @param merupakanRemedial penanda apakah jadwal ini remedial
+	 * @throws Exception diteruskan dari kegagalan pembangunan komponen ZK atau akses database
+	 */
 	public void initJadwalKurikulum(final Perkuliahan perkuliahan, final Integer semesterPendek,
 			final Integer ekstrakurikuler, final Boolean merupakanRemedial) throws Exception {
 		final MyWindow window = new MyWindow("Jadwal Perkuliahan", "none", true);
@@ -3746,6 +3870,15 @@ public class PenjadwalanUtil {
 				fakultasTujuan, jurusanTujuan, programTujuan);
 	}
 
+	/**
+	 * Menampilkan jendela pemilihan Tahun Akademik dan Semester (Ganjil/Genap), lalu setelah dipilih
+	 * menyajikan hasil pengecekan jadwal yang saling bentrok pada periode tersebut. Titik masuk UI
+	 * mandiri untuk fitur "Lihat Jadwal Bentrok"; menggunakan {@link #checkBentrokBerdasarRuangan},
+	 * {@link #checkBentrokBerdasarKelas}, dan {@link #checkBentrokBerdasarDosen} sebagai mesin
+	 * pemeriksa di baliknya.
+	 *
+	 * @throws Exception diteruskan dari kegagalan pembangunan komponen ZK atau akses database
+	 */
 	public static void lihatJadwalBentrok() throws Exception {
 		final MyWindow window = new MyWindow("Pilih Tahun Akademik dan Semester", "none", true);
 		window.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
@@ -4047,6 +4180,16 @@ public class PenjadwalanUtil {
 		window.onModal();
 	}
 
+	/**
+	 * Memeriksa daftar {@link Perkuliahan} secara pasangan (O(n^2)) untuk menemukan jadwal yang
+	 * berbagi ruangan yang sama pada hari yang sama dengan rentang waktu yang tumpang tindih.
+	 * Jadwal bertanda "tanpa jadwal perkuliahan" atau tanpa ruang diabaikan. Setiap pasangan yang
+	 * bentrok hanya dicatat sekali (dedup lewat kunci {@code id1_id2}/{@code id2_id1}).
+	 *
+	 * @param perkuliahans daftar jadwal yang akan diperiksa saling silang
+	 * @return peta id ruang -> daftar pasangan {@link Perkuliahan} (array 2 elemen) yang bentrok
+	 *         pada ruang tersebut
+	 */
 	public static Map<Long, List<Perkuliahan[]>> checkBentrokBerdasarRuangan(List<Perkuliahan> perkuliahans) {
 
 		Map<Long, List<Perkuliahan[]>> bentrokRuangans = new HashMap<Long, List<Perkuliahan[]>>();
@@ -4138,6 +4281,13 @@ public class PenjadwalanUtil {
 
 	}
 
+	/**
+	 * Sama seperti {@link #checkBentrokBerdasarRuangan(List)}, tetapi mengelompokkan bentrok
+	 * berdasarkan kesamaan nama Kelas (bukan Ruang) pada hari dan rentang waktu yang tumpang tindih.
+	 *
+	 * @param perkuliahans daftar jadwal yang akan diperiksa saling silang
+	 * @return peta nama kelas -> daftar pasangan {@link Perkuliahan} yang bentrok pada kelas tersebut
+	 */
 	public static Map<String, List<Perkuliahan[]>> checkBentrokBerdasarKelas(List<Perkuliahan> perkuliahans) {
 
 		Map<String, List<Perkuliahan[]>> bentrokRuangans = new HashMap<String, List<Perkuliahan[]>>();
@@ -4233,6 +4383,15 @@ public class PenjadwalanUtil {
 
 	}
 
+	/**
+	 * Sama seperti {@link #checkBentrokBerdasarRuangan(List)}, tetapi mengelompokkan bentrok
+	 * berdasarkan kesamaan Dosen (dicek terhadap seluruh slot dosen1..dosen10 pada tiap jadwal) pada
+	 * hari dan rentang waktu yang tumpang tindih — mendeteksi dosen yang terjadwal mengajar dua kelas
+	 * berbeda pada waktu yang sama.
+	 *
+	 * @param perkuliahans daftar jadwal yang akan diperiksa saling silang
+	 * @return peta {@link Dosen} -> daftar pasangan {@link Perkuliahan} yang bentrok untuk dosen tersebut
+	 */
 	public static Map<Dosen, List<Perkuliahan[]>> checkBentrokBerdasarDosen(List<Perkuliahan> perkuliahans) {
 
 		Map<Dosen, List<Perkuliahan[]>> bentrokRuangans = new HashMap<Dosen, List<Perkuliahan[]>>();

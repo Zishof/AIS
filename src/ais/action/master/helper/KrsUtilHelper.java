@@ -20,8 +20,50 @@ import ais.database.model.Matakuliah;
 import ais.database.model.PembagianKuotaPerkuliahanBerdasarkantahunAngkatan;
 import ais.database.model.Perkuliahan;
 
+/**
+ * Kumpulan utilitas statis seputar KRS (Kartu Rencana Studi) mahasiswa: penyimpanan
+ * detail KRS anti-duplikat, pencarian pembagian kuota perkuliahan berdasarkan tahun
+ * angkatan, penghitungan total SKS yang telah diambil mahasiswa, penghitungan jumlah
+ * peserta perkuliahan, dan ringkasan status penilaian satu perkuliahan. Kelas ini tidak
+ * memiliki state (murni method statis) dan dipakai dari berbagai action/helper terkait
+ * perkuliahan.
+ */
 public class KrsUtilHelper {
 
+	/**
+	 * Menyimpan satu baris {@link Detailperkuliahan} (entri KRS) hanya jika mahasiswa
+	 * belum mengambil mata kuliah yang sama pada kombinasi
+	 * semester+tahun akademik+status semester pendek yang sama — mencegah KRS ganda
+	 * saat beberapa permintaan simpan datang hampir bersamaan (mis. klik ganda / race
+	 * condition antar-request).
+	 *
+	 * <p>
+	 * Mekanisme anti-duplikat: (1) WAJIB dipanggil di dalam transaksi Hibernate yang
+	 * sedang aktif (dicek via {@code session.getTransaction().isActive()}, dilempar
+	 * {@link IllegalStateException} bila tidak); (2) mengambil
+	 * <b>PostgreSQL advisory transaction lock</b> ({@code pg_advisory_xact_lock}) dengan
+	 * kunci numerik hasil hash dari kombinasi mahasiswa+semester+tahun
+	 * akademik+status semester pendek+kode/id mata kuliah, sehingga permintaan simpan KRS
+	 * untuk kombinasi identik yang datang bersamaan diserialisasi oleh database (lock
+	 * otomatis dilepas saat transaksi commit/rollback); (3) setelah lock didapat, mengecek
+	 * ulang (di dalam SQL native, menggabungkan {@code matakuliah_konversi} bila ada)
+	 * apakah entri serupa sudah ada — bila ya, mengembalikan {@code false} tanpa menyimpan;
+	 * (4) baris {@link Perkuliahan} yang direferensikan dimuat ulang dalam sesi yang sama
+	 * sebelum dipakai, untuk menghindari referensi basi bila baris perkuliahan sudah
+	 * dihapus operator lain di antrean sebelumnya (mengembalikan {@code false} bila
+	 * ternyata sudah tidak ada, alih-alih menyebabkan pelanggaran foreign key).
+	 * </p>
+	 *
+	 * @param session          sesi Hibernate dengan transaksi AKTIF (wajib)
+	 * @param detailperkuliahan entri KRS yang akan disimpan; harus sudah punya mahasiswa
+	 *                           dan (perkuliahan ATAU mata kuliah konversi) yang valid
+	 * @return {@code true} bila baris berhasil disimpan (belum ada duplikat); {@code false}
+	 *         bila entri serupa sudah ada, atau perkuliahan yang direferensikan sudah
+	 *         terhapus
+	 * @throws IllegalArgumentException bila parameter wajib kosong/tidak valid
+	 * @throws IllegalStateException    bila dipanggil di luar transaksi aktif
+	 * @throws org.hibernate.HibernateException bila advisory lock gagal diambil
+	 */
 	public static boolean simpanKrsJikaBelumAda(Session session, Detailperkuliahan detailperkuliahan) {
 		if (session == null || detailperkuliahan == null || detailperkuliahan.getMahasiswa() == null
 				|| detailperkuliahan.getMahasiswa().getId() == null) {
@@ -126,6 +168,22 @@ public class KrsUtilHelper {
 		return true;
 	}
 
+	/**
+	 * Mencari konfigurasi {@link PembagianKuotaPerkuliahanBerdasarkantahunAngkatan}
+	 * (kuota kelas perkuliahan yang dipecah berdasarkan rentang tahun angkatan mahasiswa)
+	 * yang berlaku untuk {@code perkuliahan} dan {@code tahunangkatan} tertentu — yaitu
+	 * baris dengan {@code tahunMulai <= tahunangkatan <= tahunSampai} dan kuota terbesar
+	 * bila ada beberapa yang cocok. Hasil di-cache sementara (lewat
+	 * {@link CommonUtil#simpanTemporary}/{@link CommonUtil#ambilTemporary}) berkunci
+	 * {@code perkuliahan.id + tahunangkatan} untuk menghindari query berulang pada
+	 * permintaan yang sama, kecuali {@code reload=true}.
+	 *
+	 * @param session       sesi Hibernate; boleh {@code null} (sesi baru dibuka via {@link HibernateUtil#ensureOpenSession})
+	 * @param perkuliahan   perkuliahan yang dicari pembagian kuotanya
+	 * @param tahunangkatan tahun angkatan mahasiswa yang dicek terhadap rentang kuota
+	 * @param reload        paksa lewati cache dan query ulang ke database
+	 * @return baris pembagian kuota yang cocok (kuota terbesar bila beberapa cocok), atau {@code null} bila tidak ada/parameter kosong
+	 */
 	public static PembagianKuotaPerkuliahanBerdasarkantahunAngkatan ambilPembagianKuotaPerkuliahanBerdasarkantahunAngkatan(
 			Session session, Perkuliahan perkuliahan, Integer tahunangkatan, Boolean reload) {
 
@@ -169,6 +227,24 @@ public class KrsUtilHelper {
 		return pembagianKuotaPerkuliahanBerdasarkantahunAngkatan;
 	}
 
+	/**
+	 * Menghitung total SKS unik yang telah diambil mahasiswa untuk kombinasi
+	 * tahapan/semester/semester-pendek tertentu: menggabungkan mata kuliah dari
+	 * {@code hashMap} (perkuliahan yang sedang dipilih di layar, belum tentu tersimpan)
+	 * dengan mata kuliah dari entri KRS yang sudah tersimpan di database
+	 * ({@link Mahasiswa#ambilDetailperkuliahan}), lalu mendedupkan berdasarkan id mata
+	 * kuliah sebelum menjumlahkan SKS-nya (satu mata kuliah tidak dihitung dobel walau
+	 * diambil di beberapa kelas paralel). Entri hasil konversi mata kuliah diikutsertakan
+	 * hanya bila konfigurasi
+	 * {@code konversi_masuk_akumulasi_jumlah_sks_pengambilan_krs} aktif.
+	 *
+	 * @param hashMap        peta perkuliahan yang sedang dipilih (belum tentu tersimpan), boleh {@code null}
+	 * @param mahasiswa      mahasiswa yang dihitung SKS-nya
+	 * @param tahapan        tahapan KRS
+	 * @param semester       semester akademik
+	 * @param semesterPendek status semester pendek
+	 * @return total SKS unik yang telah/akan diambil
+	 */
 	public static Integer hitungSksYangTelahDiambil(Map<Long, Perkuliahan> hashMap, Mahasiswa mahasiswa,
 			Integer tahapan, Integer semester, Integer semesterPendek) {
 		Map<Long, Matakuliah> map = new java.util.HashMap<Long, Matakuliah>();
@@ -211,6 +287,16 @@ public class KrsUtilHelper {
 		return jumlah;
 	}
 
+	/**
+	 * Menghitung jumlah total peserta (baris {@link Detailperkuliahan}) pada satu
+	 * {@code perkuliahan}, memuat ulang daftar detail perkuliahan lebih dulu bila belum
+	 * pernah dimuat atau {@code reload=true}.
+	 *
+	 * @param session     sesi Hibernate; boleh {@code null} (sesi baru dibuka via {@link HibernateUtil#ensureOpenSession})
+	 * @param perkuliahan perkuliahan yang dihitung pesertanya
+	 * @param reload      paksa muat ulang daftar detail perkuliahan dari database
+	 * @return jumlah peserta, atau {@code 0} bila {@code perkuliahan} {@code null}
+	 */
 	public static Integer ambilJumlahDetailperkuliahan(Session session, Perkuliahan perkuliahan, Boolean reload) {
 
 		if (perkuliahan == null) {
@@ -223,6 +309,16 @@ public class KrsUtilHelper {
 		return perkuliahan.ambilJumlahDetailperkuliahan();
 	}
 
+	/**
+	 * Memeriksa apakah {@code mahasiswa} tertentu terdaftar sebagai peserta
+	 * {@code perkuliahan}.
+	 *
+	 * @param session     tidak digunakan langsung (parameter dipertahankan untuk kompatibilitas overload)
+	 * @param perkuliahan perkuliahan yang dicek
+	 * @param mahasiswa   mahasiswa yang dicek keikutsertaannya
+	 * @param reload      tidak digunakan langsung (parameter dipertahankan untuk kompatibilitas overload)
+	 * @return {@code 1} bila mahasiswa terdaftar, {@code 0} bila tidak
+	 */
 	public static Integer ambilJumlahDetailperkuliahan(Session session, Perkuliahan perkuliahan, Mahasiswa mahasiswa,
 			Boolean reload) {
 
@@ -230,6 +326,18 @@ public class KrsUtilHelper {
 		return detailperkuliahan == null ? 0 : 1;
 	}
 
+	/**
+	 * Menyusun ringkasan status penilaian satu {@code perkuliahan} dalam bentuk pasangan
+	 * teks deskriptif dan kode status ({@link Perkuliahan#BELUM_ADA_MAHASISWA}/
+	 * {@link Perkuliahan#BELUM_DINILAI}/{@link Perkuliahan#SUDAH_DINILAI}/
+	 * {@link Perkuliahan#SEBAGIAN_BESAR_BELUM_DINILAI}/
+	 * {@link Perkuliahan#SEBAGIAN_BESAR_SUDAH_DINILAI}), berdasarkan jumlah mahasiswa
+	 * yang sudah vs belum dinilai ({@link Perkuliahan#ambilStatusPenilaian()}).
+	 *
+	 * @param perkuliahan perkuliahan yang dicek status penilaiannya
+	 * @param reload      diteruskan tidak langsung; status dihitung ulang setiap panggilan
+	 * @return array dua elemen: {@code [0]} teks status deskriptif, {@code [1]} kode status
+	 */
 	public static String[] rubahStatusPenilaian(Perkuliahan perkuliahan, Boolean reload) {
 
 		String status = "";

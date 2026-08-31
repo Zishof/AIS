@@ -34,17 +34,48 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Paket;
 import ais.database.model.PaketJurusanPmb;
 
+/**
+ * Helper composer ZK untuk mengelola konfigurasi per-jurusan pada satu {@link Paket} PMB
+ * (Penerimaan Mahasiswa Baru) — entitas {@link PaketJurusanPmb}. Menampilkan grid ber-paging berisi
+ * satu baris per jurusan yang tergabung dalam paket, dengan kolom checkbox "Pilihan 1"..."Pilihan 5"
+ * (jumlah kolom pilihan yang tampak disesuaikan dengan {@code paket.getJumlahProdiYgBolehDiambil()}),
+ * combobox jenis kelamin yang diperbolehkan, kuota maksimal pendaftar, dan opsi kuota berlaku per
+ * gelombang atau untuk seluruh gelombang pada tahun akademik yang sama.
+ *
+ * <p>
+ * Setiap perubahan pada kontrol baris (checkbox pilihan, kelamin, kuota, kuota per gelombang)
+ * langsung disimpan otomatis ke database (auto-save on change, tanpa tombol simpan eksplisit per
+ * baris) via {@link Common#refreshSaveOrUpdate}. Tombol hapus baris menampilkan konfirmasi dan
+ * menangani galat integritas referensial via {@link PesanFormalHelper}. Tombol "Tambah Data" hanya
+ * tampil untuk user non-dosen (mis. admin PMB).
+ * </p>
+ *
+ * <p>Mengimplementasikan {@link DataLoader} agar dapat menjadi callback penyegar bagi helper
+ * penambah jurusan ({@code AmbilPaketJurusanPmbHelper}).</p>
+ */
 public class DetailPaketJurusanPmbHelper implements DataLoader {
 
 	private MyGrid grid;
 	private Paket paket;
 
+	/**
+	 * Perender baris grid: menampilkan fakultas, jurusan, checkbox pilihan 1-5, combobox kelamin,
+	 * kuota, checkbox kuota per gelombang, dan tombol hapus — sekaligus mendaftarkan listener
+	 * auto-save untuk seluruh kontrol input baris tersebut.
+	 */
 	class DetailPaketRenderer extends ais.ui.util.MyRowRenderer {
 
 		public DetailPaketRenderer() {
 
 		}
 
+		/**
+		 * Merender satu baris {@link PaketJurusanPmb}: label fakultas/jurusan, lima checkbox pilihan
+		 * prodi, combobox kelamin (Semua/Laki-laki/Perempuan), input kuota, checkbox "kuota per
+		 * gelombang", dan tombol hapus. Semua kontrol input didaftari satu {@link EventListener}
+		 * bersama yang me-refresh entitas dari sesi lalu menulis ulang seluruh field dan menyimpannya
+		 * segera setelah kontrol apa pun berubah.
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {row.setValign("top");
 			final PaketJurusanPmb paketJurusanPmb = (PaketJurusanPmb) data;
@@ -170,6 +201,11 @@ public class DetailPaketJurusanPmbHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Memuat ulang isi grid dengan seluruh {@link PaketJurusanPmb} milik {@link #paket} saat ini.
+	 *
+	 * @param value tidak digunakan; ada untuk memenuhi kontrak {@link DataLoader}
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
@@ -180,14 +216,25 @@ public class DetailPaketJurusanPmbHelper implements DataLoader {
 		grid.setRowRenderer(new DetailPaketRenderer());
 		grid.setModelCheckMobile(strset);
 
-		
+
 
 	}
 
+	/** @return referensi ke helper ini sendiri, dipakai sebagai {@link DataLoader} oleh helper penambah data. */
 	private DataLoader getDataloader() {
 		return this;
 	}
 
+	/**
+	 * Membangun dan menampilkan UI konfigurasi jurusan untuk satu {@link Paket} PMB ke dalam
+	 * {@code component}: judul "Daftar Jurusan" (atau label bahasa yang dikonfigurasi), toolbar
+	 * tambah data (disembunyikan untuk user dosen), dan grid ber-paging dengan jumlah kolom pilihan
+	 * yang tampak disesuaikan {@code paket.getJumlahProdiYgBolehDiambil()}.
+	 *
+	 * @param paket     paket PMB yang jurusan-jurusannya dikonfigurasi
+	 * @param component komponen ZK tujuan tampilan (dibersihkan lebih dulu)
+	 * @param window    window pemanggil, diteruskan ke helper tambah jurusan
+	 */
 	public void displayDetailPaketJurusan(final Paket paket, final Component component, final MyWindow window) {
 		this.paket = paket;
 		Common.clear(component);

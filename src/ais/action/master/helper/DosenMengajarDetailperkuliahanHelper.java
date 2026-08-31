@@ -34,6 +34,23 @@ import ais.ui.util.DataCriteria;
 import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper composer ZK sisi dosen untuk menampilkan (read-only) daftar mahasiswa yang mengikuti satu
+ * {@link Perkuliahan} yang diampu dosen tersebut, lengkap dengan foto, angkatan, total nilai/nilai
+ * huruf, dan semester. Hanya menampilkan {@link Detailperkuliahan} yang statusnya
+ * {@link Detailperkuliahan#DISETUJUI} dan belum resmi "mengikuti perkuliahan"
+ * ({@code ikutiPerkuliahan} null). Tidak menyediakan tambah/hapus data (berbeda dari helper
+ * "Detail*" lain di paket ini) — berfokus pada pencarian (filter NIM/nama) dan aksi cetak
+ * (laporan absensi lewat {@link CommonReportHelper#onLaporanAbsensi}, laporan nilai lewat
+ * {@link DetailperkuliahanForPenilaianHelper#onLaporan}, serta ekspor data grid lewat
+ * {@link Common#cetakData}).
+ *
+ * <p>
+ * Mengimplementasikan {@link DataCriteria} sehingga kriteria pencarian ({@link #initCriteria})
+ * dapat dipakai ulang oleh mekanisme paging/ekspor umum ({@link Common#initPaging},
+ * {@link Common#cetakData}), dan {@link DataLoader} sebagai callback muat-ulang grid.
+ * </p>
+ */
 public class DosenMengajarDetailperkuliahanHelper implements DataLoader, DataCriteria {
 
 	private MyGrid grid;
@@ -43,10 +60,15 @@ public class DosenMengajarDetailperkuliahanHelper implements DataLoader, DataCri
 	private boolean ispaging = false;
 	private Paging paging;
 
+	/** Membuat helper tanpa paging server-side (grid memakai paging bawaan ZK di sisi klien). */
 	public DosenMengajarDetailperkuliahanHelper() {
 
 	}
 
+	/**
+	 * @param ispaging bila {@code true}, data dimuat per halaman lewat {@link Paging} server-side
+	 *                 ({@link Common#initPaging}) alih-alih memuat seluruh hasil sekaligus
+	 */
 	public DosenMengajarDetailperkuliahanHelper(boolean ispaging) {
 		this.ispaging = ispaging;
 		if (ispaging) {
@@ -61,6 +83,11 @@ public class DosenMengajarDetailperkuliahanHelper implements DataLoader, DataCri
 		}
 	}
 
+	/**
+	 * Perender baris grid untuk satu {@link Detailperkuliahan}: foto mahasiswa, riwayat revisi
+	 * ({@link RevisiHelper}), nama, angkatan/semester mulai, total nilai + nilai huruf (atau
+	 * "Belum dinilai" bila kosong), dan semester berjalan.
+	 */
 	class DetailPerkuliahanRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -91,6 +118,15 @@ public class DosenMengajarDetailperkuliahanHelper implements DataLoader, DataCri
 
 	}
 
+	/**
+	 * Membangun kriteria Hibernate untuk {@link Detailperkuliahan} yang disetujui dan belum resmi
+	 * mengikuti perkuliahan, milik {@link #perkuliahan} yang sedang aktif, difilter opsional
+	 * berdasarkan isi textbox {@link #nim}/{@link #nama} (pencarian ILIKE anywhere).
+	 *
+	 * @param order bila {@code true}, hasil diurutkan berdasarkan {@code mahasiswa.nim} ascending
+	 * @return criteria siap dieksekusi (belum di-list), dipakai baik untuk memuat data maupun
+	 *         untuk paging/ekspor
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(Detailperkuliahan.class)
@@ -109,6 +145,14 @@ public class DosenMengajarDetailperkuliahanHelper implements DataLoader, DataCri
 		return criteria;
 	}
 
+	/**
+	 * Memuat ulang isi grid berdasarkan {@link #initCriteria(boolean)}. Bila {@link #ispaging}
+	 * aktif, hanya satu halaman ({@link Common#ROWS_COUNT_ON_PAGE} baris) yang diambil sesuai
+	 * halaman aktif pada {@link #paging}; bila tidak, seluruh hasil dimuat sekaligus (paging
+	 * bawaan grid sisi klien).
+	 *
+	 * @param value tidak dipakai; parameter standar {@link DataLoader}
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -129,10 +173,20 @@ public class DosenMengajarDetailperkuliahanHelper implements DataLoader, DataCri
 
 	}
 
+	/** Mengganti {@link Perkuliahan} target tanpa membangun ulang seluruh UI. */
 	public void setPerkuliahan(Perkuliahan perkuliahan) {
 		this.perkuliahan = perkuliahan;
 	}
 
+	/**
+	 * Membangun UI lengkap: judul, toolbar pencarian (NIM/nama + tombol cari), tombol cetak
+	 * laporan absensi dan nilai, tombol ekspor data grid, serta grid daftar mahasiswa. Lalu
+	 * memuat datanya.
+	 *
+	 * @param perkuliahan kelas matakuliah yang pesertanya ditampilkan
+	 * @param component   komponen induk ZK; isinya dibersihkan lebih dulu lewat
+	 *                    {@link Common#clear(Component)}
+	 */
 	public void display(final Perkuliahan perkuliahan, final Component component) {
 		this.perkuliahan = perkuliahan;
 		Common.clear(component);

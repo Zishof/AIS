@@ -17,10 +17,29 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Konfigurasi;
 import ais.database.model.library.Pengarang;
 
+/**
+ * Tugas terjadwal ({@link TimerTask}) untuk mengimpor/menyinkronkan data pengarang
+ * ({@link Pengarang}) perpustakaan dari berkas dump Open Library (format satu baris JSON
+ * per pengarang, tab-separated, mis. {@code ol_dump_authors_2012-03-31.txt}) yang lokasinya
+ * diatur lewat konfigurasi {@code author_importer_processor}. Untuk setiap baris, kode
+ * ({@code key}) dan revisi dibaca dari JSON; bila kombinasi kode+revisi belum ada di
+ * database, pengarang terkait dibuat/diperbarui (nama diambil dari {@code name}, atau
+ * {@code personal_name} sebagai fallback) dan disimpan berkelompok setiap 1000 baris untuk
+ * efisiensi.
+ *
+ * <p>
+ * <b>Catatan:</b> {@link #doProcess()} diawali dengan {@code if (true) { return; }} sehingga
+ * seluruh proses impor DINONAKTIFKAN secara permanen di kode saat ini — pemanggilan
+ * {@link #run()} tidak akan pernah benar-benar mengimpor data selama guard ini tidak
+ * dihapus.
+ * </p>
+ */
 public class AuthorImporterProcessor extends TimerTask {
 
+	/** Hostname mesin lokal, diresolusi sekali di konstruktor untuk keperluan log/diagnosis. */
 	private String localIp = "";
 
+	/** Membuat task dan meresolusi hostname lokal ke {@link #localIp} (untuk logging), mengabaikan kegagalan resolusi. */
 	public AuthorImporterProcessor() {
 		InetAddress thisIp;
 		try {
@@ -34,6 +53,7 @@ public class AuthorImporterProcessor extends TimerTask {
 
 	}
 
+	/** Dipanggil oleh {@link java.util.Timer} sesuai jadwal; mendelegasikan ke {@link #doProcess()} dan menampilkan galat ke admin bila terjadi kegagalan. */
 	@Override
 	public void run() {
 		try {
@@ -43,6 +63,21 @@ public class AuthorImporterProcessor extends TimerTask {
 		}
 	}
 
+	/**
+	 * Membaca berkas dump pengarang (lokasi dari konfigurasi
+	 * {@code author_importer_processor}, {@code info1}) baris demi baris, mem-parsing
+	 * kolom JSON terakhir tiap baris, dan menyimpan/memperbarui {@link Pengarang} yang
+	 * kode+revisinya belum ada di database. Penyimpanan dilakukan berkelompok (setiap
+	 * 1000 baris terkumpul, plus sisa di akhir) dalam transaksi Hibernate terpisah.
+	 *
+	 * <p>
+	 * Saat ini method langsung {@code return} di baris pertama ({@code if (true)}) —
+	 * seluruh logika impor di bawahnya tidak pernah dieksekusi selama guard tersebut
+	 * tidak dihapus dari kode.
+	 * </p>
+	 *
+	 * @throws Exception diteruskan dari kegagalan baca berkas/parsing JSON/akses Hibernate
+	 */
 	@SuppressWarnings("unused")
 	private void doProcess() throws Exception {
 
@@ -155,6 +190,7 @@ public class AuthorImporterProcessor extends TimerTask {
 		}
 	}
 
+	/** Utilitas uji coba manual: menampilkan hasil pembersihan prefiks {@code /authors/} dari satu contoh key. Tidak dipakai pada alur aplikasi. */
 	public static void main(String[] argv) {
 		String key = "/authors/OL1667738A".replaceAll("/authors/", "").trim();
 		System.out.println(key);

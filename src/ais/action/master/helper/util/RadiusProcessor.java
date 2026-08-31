@@ -17,10 +17,37 @@ import ais.database.model.Mahasiswa;
 import ais.database.model.Tbmuser;
 import ais.database.model.radius.Radcheck;
 
+/**
+ * Tugas terjadwal ({@link TimerTask}) yang mensinkronkan kredensial login AIS ({@link Tbmuser},
+ * {@link Mahasiswa}, termasuk akun orang tua mahasiswa) ke tabel {@code radcheck} pada basis
+ * data server RADIUS ({@link RadiusHibernateUtil}), agar akun yang sama dapat dipakai untuk
+ * autentikasi jaringan (mis. Wi-Fi kampus) via protokol RADIUS.
+ *
+ * <p>
+ * <b>Keamanan — WASPADAI</b>:
+ * </p>
+ * <ul>
+ * <li>Method {@link #doProcess()} men-<b>dekripsi</b> password pengguna yang tersimpan
+ * terenkripsi di basis data AIS ({@code Common.desEncrypter.get().decrypt(...)}) menjadi
+ * teks polos, lalu menuliskannya <b>sebagai teks polos</b> ke kolom {@code value} pada tabel
+ * {@code radcheck} (atribut {@code "Password"}, operator {@code "=="}) — ini konvensi umum
+ * RADIUS/FreeRADIUS untuk PAP, namun berarti password plaintext pengguna (termasuk password
+ * akun orang tua siswa, {@code userOrtu}/{@code passOrtu}) disalin dan disimpan permanen di
+ * basis data RADIUS terpisah, memperluas permukaan risiko bila basis data RADIUS itu bocor.</li>
+ * <li>Proses ini digerbangi oleh konfigurasi {@code radius_syncrhonizer} yang nilai defaultnya
+ * memuat daftar <b>alamat IP tertanam langsung di kode</b> ({@code 116.66.206.181},
+ * {@code 171.27.27.10}, {@code 172.27.18.181}) — sinkronisasi hanya berjalan bila hostname
+ * mesin saat ini cocok dengan salah satu IP tersebut (dibandingkan sebagai string, bukan
+ * validasi IP sesungguhnya). Alamat IP produksi tertanam di source code sebaiknya dipindah ke
+ * konfigurasi eksternal murni.</li>
+ * </ul>
+ */
 public class RadiusProcessor extends TimerTask {
 
+	/** Hostname mesin lokal, dipakai untuk mencocokkan gerbang IP pada {@link #doProcess()}. */
 	private String localIp = "";
 
+	/** Menentukan hostname mesin lokal (untuk gerbang IP); kegagalan resolusi host ditampilkan lewat {@link Common#tampilErrorJikaAdmin(Exception)}. */
 	public RadiusProcessor() {
 		InetAddress thisIp;
 		try {
@@ -34,11 +61,23 @@ public class RadiusProcessor extends TimerTask {
 
 	}
 
+	/** Dipanggil oleh {@link java.util.Timer} sesuai jadwal; mendelegasikan ke {@link #doProcess()}. */
 	@Override
 	public void run() {
 		doProcess();
 	}
 
+	/**
+	 * Bila konfigurasi {@code radius_syncrhonizer} aktif DAN hostname mesin ini cocok dengan
+	 * salah satu IP yang terdaftar di konfigurasi tersebut (lihat catatan keamanan pada kelas):
+	 * mengambil seluruh {@link Tbmuser} dan {@link Mahasiswa} aktif, mendekripsi passwordnya,
+	 * lalu untuk tiap akun membuat atau memperbarui baris {@link Radcheck} yang bersangkutan di
+	 * basis data RADIUS hanya bila nilainya belum ada atau berubah (menghindari update
+	 * berlebihan). Akun orang tua mahasiswa ({@code userOrtu}/{@code passOrtu}) diproses secara
+	 * terpisah dengan {@code kodeUniq} berawalan {@code "_ortu_"}. Setiap baris diproses dalam
+	 * transaksi Hibernate sendiri terhadap {@link RadiusHibernateUtil}; kedua sesi (AIS dan
+	 * RADIUS) ditutup di akhir proses.
+	 */
 	@SuppressWarnings("unchecked")
 	private void doProcess() {
 

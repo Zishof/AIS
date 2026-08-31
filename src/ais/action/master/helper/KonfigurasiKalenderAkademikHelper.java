@@ -59,6 +59,38 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK untuk mengelola relasi antara satu {@link KalenderAkademik} (kalender akademik suatu
+ * Tahun Akademik/Semester) dengan sejumlah {@link Konfigurasi} yang otomatis berubah nilainya
+ * ketika periode kalender tersebut mulai atau selesai. Setiap baris {@link KonfigurasiKalenderAkademik}
+ * yang dikelola di sini menyimpan nilai target ({@code padaSaatMulaiBerubahMenjadi}/
+ * {@code padaSaatSelesaiBerubahMenjadi}, umumnya {@link Konfigurasi#AKTIF}/{@link Konfigurasi#TIDAK_AKTIF})
+ * yang akan diterapkan ke {@link Konfigurasi} terkait oleh
+ * {@link ais.action.master.helper.util.KonfigurasiKalenderAkademikProcessor} saat kalender berpindah
+ * fase — mekanisme ini dipakai, misalnya, untuk otomatis mengaktifkan "krs"/"penjadwalan"/"penilaian"
+ * pada awal semester dan menonaktifkannya kembali saat semester berakhir.
+ *
+ * <p>
+ * Kelas ini menyediakan dua model tampilan berbeda:
+ * </p>
+ * <ul>
+ * <li><b>Tampilan grid penuh</b> ({@link #display(KalenderAkademik, Component)}) — daftar seluruh
+ * relasi konfigurasi milik satu kalender akademik dalam tabel dengan tombol tambah/ubah/hapus per
+ * baris, dipakai pada layar detail Kalender Akademik.</li>
+ * <li><b>Tampilan checklist ringkas</b> ({@link #displayPilihanInline(KalenderAkademik, Component)}) —
+ * dua tab: daftar konfigurasi umum yang sering dipakai (KRS, penjadwalan, penilaian, dsb., disaring
+ * sesuai institusi Perguruan Tinggi/Sekolah via {@code Common#chekPtAtauSekolah}) sebagai checklist
+ * cepat, dan form manual untuk konfigurasi lain di luar daftar tersebut. Dipakai pada wizard
+ * pembuatan/penyalinan kalender akademik agar admin tidak perlu menambah relasi satu per satu.</li>
+ * </ul>
+ *
+ * <p>
+ * Perhatian: daftar konfigurasi "sering dipakai" (nama dan deskripsinya) muncul terduplikasi persis
+ * di tiga tempat pada kelas ini ({@link #ambilDataKonfigurasiSering()}, dalam
+ * {@link #displayPilihanInline}, dan dalam {@link #init(KonfigurasiKalenderAkademik)}) — perubahan
+ * pada satu daftar harus disinkronkan manual ke daftar lainnya.
+ * </p>
+ */
 public class KonfigurasiKalenderAkademikHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -72,6 +104,11 @@ public class KonfigurasiKalenderAkademikHelper implements DataLoader {
 	private AmbilDataKonfigurasiBanbox konfigurasi;
 	private EventListener eventListener;
 
+	/**
+	 * @param eventListener listener yang dipicu ulang (via {@code Common#createDefaultTimer}) setiap
+	 *                      kali data relasi konfigurasi berubah (simpan/hapus), biasanya dipakai
+	 *                      pemanggil untuk menyegarkan tampilan induk (mis. detail Kalender Akademik).
+	 */
 	public KonfigurasiKalenderAkademikHelper(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
@@ -170,6 +207,13 @@ public class KonfigurasiKalenderAkademikHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Implementasi {@link DataLoader}: memuat ulang seluruh {@link KonfigurasiKalenderAkademik}
+	 * milik {@link #kalenderAkademik} saat ini ke {@link #grid}. Parameter {@code value} tidak
+	 * dipakai (dipertahankan untuk kecocokan kontrak antarmuka {@link DataLoader}).
+	 *
+	 * @param value tidak digunakan
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
@@ -185,6 +229,15 @@ public class KonfigurasiKalenderAkademikHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Menampilkan tampilan grid penuh: tabel semua relasi {@link KonfigurasiKalenderAkademik} milik
+	 * {@code kalenderAkademik}, lengkap dengan tombol "Tambah Konfigurasi" dan "Refresh" (yang
+	 * menjalankan ulang {@code KonfigurasiKalenderAkademikProcessor.doProcess()} sebelum memuat
+	 * ulang data).
+	 *
+	 * @param kalenderAkademik kalender akademik yang relasi konfigurasinya akan ditampilkan
+	 * @param component        komponen ZK induk tempat grid dirender (dibersihkan lebih dulu)
+	 */
 	public void display(final KalenderAkademik kalenderAkademik, final Component component) {
 		this.kalenderAkademik = kalenderAkademik;
 		Common.clear(component);
@@ -275,6 +328,17 @@ public class KonfigurasiKalenderAkademikHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Menampilkan tampilan checklist ringkas dua tab ("Konfigurasi yang sering dipakai" dan
+	 * "Konfigurasi Lain") untuk memilih konfigurasi mana yang akan direlasikan ke
+	 * {@code kalenderAkademik}. Status checklist diinisialisasi dari relasi yang sudah tersimpan di
+	 * database (via {@link #ambilKonfigurasiTerpilihDariDatabase()}); perubahan dari tab "sering
+	 * dipakai" hanya tersimpan ke database saat {@link #simpanInline(Event)} dipanggil oleh
+	 * pemanggil (bukan otomatis saat klik checkbox).
+	 *
+	 * @param kalenderAkademik kalender akademik yang akan direlasikan dengan konfigurasi terpilih
+	 * @param component        komponen ZK induk tempat tabbox dirender (dibersihkan lebih dulu)
+	 */
 	public void displayPilihanInline(final KalenderAkademik kalenderAkademik, final Component component) {
 		this.kalenderAkademik = kalenderAkademik;
 		this.konfigurasiKalenderAkademik = new KonfigurasiKalenderAkademik();
@@ -484,6 +548,16 @@ public class KonfigurasiKalenderAkademikHelper implements DataLoader {
 		keterangan.setRows(3);
 	}
 
+	/**
+	 * Menyimpan hasil checklist pada tampilan {@link #displayPilihanInline} (memanggil
+	 * {@link #simpanKonfigurasiTerpilih()}), lalu — bila form "Konfigurasi Lain" juga diisi (kombo
+	 * {@link #konfigurasi} punya nilai) — turut menyimpannya lewat {@link #onSave(Event)}.
+	 *
+	 * @param event event ZK pemicu (mis. klik tombol Simpan pada wizard pemanggil)
+	 * @return {@code true} bila tidak ada form "Konfigurasi Lain" yang perlu divalidasi, atau hasil
+	 *         validasi {@link #onSave(Event)} bila ada
+	 * @throws Exception diteruskan dari kegagalan akses database
+	 */
 	public boolean simpanInline(Event event) throws Exception {
 		simpanKonfigurasiTerpilih();
 		if (konfigurasi != null && konfigurasi.getAttribute("konfigurasi") != null) {
@@ -492,6 +566,7 @@ public class KonfigurasiKalenderAkademikHelper implements DataLoader {
 		return true;
 	}
 
+	/** Memuat ulang tampilan checklist inline untuk {@code kalenderAkademik}; alias tipis di atas {@link #displayPilihanInline}. */
 	public void refreshInline(final KalenderAkademik kalenderAkademik, final Component component) {
 		displayPilihanInline(kalenderAkademik, component);
 	}
@@ -847,6 +922,19 @@ public class KonfigurasiKalenderAkademikHelper implements DataLoader {
 		addWindow.onModal();
 	}
 
+	/**
+	 * Memvalidasi dan menyimpan satu relasi {@link KonfigurasiKalenderAkademik} dari form manual
+	 * (dibangun oleh {@link #init(KonfigurasiKalenderAkademik)} atau
+	 * {@link #tampilkanFormKonfigurasiLain}). Mensyaratkan {@code padaSaatMulaiBerubahMenjadi},
+	 * {@code padaSaatSelesaiBerubahMenjadi}, dan {@link Konfigurasi} target terisi; setelah tersimpan
+	 * menjalankan ulang {@code KonfigurasiKalenderAkademikProcessor.doProcess()} agar efeknya
+	 * langsung diterapkan, lalu memicu {@link #eventListener}.
+	 *
+	 * @param event event ZK pemicu (mis. klik tombol Simpan)
+	 * @return {@code true} bila validasi lolos dan data tersimpan; {@code false} bila ada field wajib
+	 *         yang belum terisi
+	 * @throws Exception diteruskan dari kegagalan akses database
+	 */
 	public boolean onSave(Event event) throws Exception {
 		if (padaSaatMulaiBerubahMenjadi.getSelectedItem() == null) {
 			MyMessageboxConfig.show("Mohon maaf, opsi 'Pada Saat Mulai Berubah Menjadi' belum dipilih. Langkah yang dapat dilakukan: (1) pilih opsi dari daftar yang tersedia; (2) pastikan konfigurasi awal sudah diisi; (3) ulangi proses ini. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.", "Peringatan", MyMessageboxConfig.OK,

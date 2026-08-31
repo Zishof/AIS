@@ -40,6 +40,19 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper composer untuk fitur "Ruang" (ruangan) master: menampilkan dan mengelola daftar
+ * {@link Dosen} yang ditugaskan memakai satu {@link Ruang} tertentu (mis. ruang dosen bersama).
+ * Menyediakan grid berpaging dengan filter pencarian (nama, fakultas, prodi), tombol untuk
+ * menambah dosen ke ruang lewat {@link AmbilDataDosenUntukRuangHelper}, dan tombol hapus per baris
+ * yang melepas relasi dosen-ruang (bukan menghapus data dosen).
+ *
+ * <p>
+ * Mengimplementasikan {@link DataLoader} agar dapat dipanggil balik ({@code loadData}) oleh helper
+ * lain (mis. {@link AmbilDataDosenUntukRuangHelper}) setelah operasi tambah data selesai, sehingga
+ * grid otomatis menyegarkan diri.
+ * </p>
+ */
 public class DetailRuangDosenHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -49,10 +62,12 @@ public class DetailRuangDosenHelper implements DataLoader {
 
 	private Textbox nama;
 
+	/** Menyiapkan combobox filter fakultas/jurusan (termasuk opsi "Semua") lewat {@link Common#initFakultasDanJurusanDanSemua}. */
 	public DetailRuangDosenHelper() {
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 	}
 
+	/** Perender baris grid: menampilkan foto, kode/NIDN, nama, jurusan, fakultas dosen, serta tombol hapus (dengan konfirmasi) yang melepas relasi {@code dosen.ruang}. */
 	class DetailDosenRenderer extends ais.ui.util.MyRowRenderer {
 
 		public DetailDosenRenderer() {
@@ -112,6 +127,12 @@ public class DetailRuangDosenHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Memuat ulang grid dosen untuk {@link #ruang} yang sedang ditampilkan, disaring berdasarkan
+	 * nama (ilike, cocok di mana saja) dan opsional fakultas/jurusan yang dipilih pada combobox
+	 * pencarian. Diimplementasikan sebagai kontrak {@link DataLoader#loadData(Object)};
+	 * {@code value} tidak dipakai.
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = Common.getManualSession();
@@ -132,6 +153,14 @@ public class DetailRuangDosenHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun seluruh tampilan (form filter, toolbar, grid berpaging) ke dalam
+	 * {@code component} yang diberikan, untuk menampilkan daftar dosen milik {@code ruang}.
+	 * Memanggil {@link #loadData(Object)} di akhir untuk mengisi grid pertama kali.
+	 *
+	 * @param ruang     ruangan yang daftar dosennya akan ditampilkan/dikelola
+	 * @param component kontainer ZK tujuan; isi sebelumnya dibersihkan lewat {@link Common#clear}
+	 */
 	public void displayDetailDosen(final Ruang ruang, final Component component) {
 		this.ruang = ruang;
 		Common.clear(component);

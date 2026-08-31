@@ -51,6 +51,33 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK untuk layar KRS (Kartu Rencana Studi) versi "kurikulum" — menampilkan daftar mata
+ * kuliah yang telah diambil seorang {@link Mahasiswa} pada satu semester/tahapan (baris
+ * {@link Detailperkuliahan}), beserta status persetujuan, informasi jam bentrok, dan komentar
+ * dosen PA/mahasiswa. Berbeda dari varian KRS lain di paket ini, kelas ini bekerja dengan konsep
+ * Kurikulum (bukan filter Fakultas/Jurusan manual) dan mendukung Semester Pendek lewat
+ * {@code semesterPendek} yang diberikan di konstruktor.
+ *
+ * <h2>Tanggung jawab utama</h2>
+ * <ul>
+ * <li>Menampilkan ringkasan status (jumlah SKS diambil, batas maksimum SKS berdasarkan IPK lewat
+ * {@link PembatasanNilaiIPKUntukPengambilanKRS}, status persetujuan keseluruhan, dosen PA) serta
+ * daftar mata kuliah yang diambil dalam grid berpaginasi.</li>
+ * <li>Tombol "Ambil Perkuliahan Konversi" membuka {@link AmbilDataKurikulumPerkuliahanHelper}
+ * setelah lolos serangkaian gate bisnis: syarat ujian ({@link SyaratUjianAction}), keharusan sudah
+ * memiliki Dosen PA, keharusan sudah memiliki kelas, status pembayaran semester berjalan dan
+ * semester sebelumnya, serta status kemahasiswaan harus Aktif — masing-masing dapat diaktif/
+ * nonaktifkan lewat konfigurasi terkait.</li>
+ * <li>Menghitung dan menampilkan informasi jam bentrok (langsung, dengan jadwal paralel, dan antar
+ * jadwal paralel) lewat {@code Common#generateInformasiJamBentrok*}, serta secara opsional menolak
+ * penyimpanan bila ditemukan bentrok (konfigurasi
+ * {@code saat_pengambilan_krs_tidak_diperbolehkan_ada_jam_bentrok}).</li>
+ * <li>Mendukung hapus baris KRS (hanya bila {@code totalNilai} masih nol, dan opsional hanya bila
+ * belum disetujui — via konfigurasi {@code batalkan_persetujuan_harus_memiliki_nilai_nol}), cetak
+ * KRS/Kartu UTS/Kartu UAS, serta kelola komentar lewat {@link KomentarHelper}.</li>
+ * </ul>
+ */
 public class KrsKurikulumHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -76,6 +103,7 @@ public class KrsKurikulumHelper implements DataLoader {
 
 	private Integer tahapan;
 
+	/** @param semesterPendek penanda konteks Semester Pendek/Antara; {@code null} untuk KRS reguler. */
 	public KrsKurikulumHelper(Integer semesterPendek) {
 		this.semesterPendek = semesterPendek;
 	}
@@ -211,6 +239,19 @@ public class KrsKurikulumHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Implementasi {@link DataLoader}: memuat ulang daftar {@link Detailperkuliahan} (baris KRS)
+	 * milik {@link #mahasiswa} pada semester/semester-pendek saat ini ke {@link #grid}, memperbarui
+	 * ringkasan status ({@link #loadStatus()}), dan menghitung ulang informasi jam bentrok
+	 * ({@link #jamBentrok}). Bila konfigurasi {@code saat_pengambilan_krs_tidak_diperbolehkan_ada_jam_bentrok}
+	 * aktif dan {@code tahapan} bukan {@code -1}, jam bentrok yang ditemukan diperiksa lewat
+	 * {@code Common#checkJamBentrok} (dapat melempar/menampilkan galat bila ditemukan bentrok).
+	 *
+	 * @param value bila berupa {@link Boolean} {@code true}, memaksa refresh cache ekivalensi mata
+	 *              kuliah ({@code Common#getDetailperkuliahans} dan
+	 *              {@code Common#getMatakuliahApakahEkivalen}); nilai lain diperlakukan sebagai
+	 *              {@code false}
+	 */
 	public void loadData(Object value) {
 		boolean refresh = (value != null && value instanceof Boolean) ? (Boolean) value : false;
 		detailperkuliahans = Common.getDetailperkuliahans(mahasiswa, semester, null, semesterPendek, false, false,
@@ -254,6 +295,28 @@ public class KrsKurikulumHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Membangun seluruh tampilan layar KRS untuk satu mahasiswa pada satu semester/tahapan: panel
+	 * ringkasan status, toolbar aksi (Ambil Perkuliahan Konversi, Komentar, Cetak KRS/UTS/UAS,
+	 * Refresh), grid daftar mata kuliah yang diambil, panel informasi jam bentrok, dan grid komentar.
+	 * Konfigurasi jendela persetujuan KRS ({@link #konfigurasi}, menentukan apakah pengambilan KRS
+	 * sedang dibuka) diresolusi dari kalender akademik (bila
+	 * {@code input_krs_harus_berdasarkan_kalender_akademik} aktif) atau langsung dari
+	 * {@link Konfigurasi} Tahun Akademik/Semester.
+	 *
+	 * @param editable      tidak dipakai langsung oleh method ini (disimpan untuk kompatibilitas
+	 *                      pemanggil)
+	 * @param mahasiswa     mahasiswa pemilik KRS yang ditampilkan
+	 * @param tahunAjaran   tahun akademik KRS
+	 * @param semester      nomor semester KRS; {@code 0} atau negatif menyembunyikan sebagian panel
+	 *                      (toolbar, jam bentrok, komentar) karena dianggap belum relevan
+	 * @param tahapan       nomor tahapan (bila fitur tahapan kurikulum aktif), boleh {@code null}
+	 * @param component     komponen ZK induk tempat layar dirender (dibersihkan lebih dulu)
+	 * @param window        jendela induk (diteruskan untuk konteks, tidak langsung dipakai di sini)
+	 * @param ket            komponen {@link Html} tempat keterangan status pengambilan KRS ditulis
+	 *                      (diisi oleh {@link #loadStatus()})
+	 * @param komentarshtml tidak dipakai langsung oleh method ini
+	 */
 	public void display(final Boolean editable, final Mahasiswa mahasiswa, final String tahunAjaran,
 			final Integer semester, final Integer tahapan, final Component component, final MyWindow window,
 			final Html ket, final Html komentarshtml) {
@@ -691,6 +754,7 @@ public class KrsKurikulumHelper implements DataLoader {
 				krsMahasiswa.getTahapan(), krsMahasiswa.getSemesterPendek(), krsMahasiswa, false));
 	}
 
+	/** Memuat ulang grid komentar (dosen PA/mahasiswa) untuk KRS yang sedang ditampilkan. */
 	public void loadDataKomentar() {
 		List<Komentar> komentars = Common.loadKomentarData(mahasiswa, semester, tahapan, tahunAjaran, semesterPendek);
 		ListModel strset = new SimpleListModel(komentars);

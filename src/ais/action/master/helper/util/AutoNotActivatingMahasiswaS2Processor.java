@@ -14,17 +14,42 @@ import ais.database.model.JadwalPembayaran;
 import ais.database.model.JenisKegiatan;
 import ais.database.model.Konfigurasi;
 
+/**
+ * Tugas terjadwal ({@link TimerTask}) yang secara berkala mengecek apakah mahasiswa jenjang S2
+ * perlu dinonaktifkan otomatis karena belum melakukan pembayaran pada tahun akademik/semester
+ * berjalan. Hanya berjalan bila konfigurasi
+ * {@code mahasiswa_s2_lambat_bayar_langsung_tidak_aktif} bernilai {@link Konfigurasi#AKTIF}.
+ *
+ * <p>
+ * <b>Catatan implementasi</b> — logika inti {@link #doProcess()} mengecek keberadaan jadwal
+ * pembayaran (denda inklusif, {@code ignoreStart}) untuk kegiatan pendaftaran mahasiswa lama
+ * jenjang S2; bila jadwal tersebut masih ada, proses berhenti tanpa mengubah apa pun. Bila
+ * jadwal sudah tidak ada, blok transaksi dibuka dan ditutup, namun pernyataan SQL
+ * {@code UPDATE mahasiswa SET status = ...} yang menonaktifkan mahasiswa masih
+ * <b>dikomentari (nonaktif)</b> di kode sumber — sehingga saat ini method tidak benar-benar
+ * mengubah status mahasiswa mana pun walaupun kondisinya terpenuhi. Kemungkinan sengaja
+ * dimatikan sementara untuk keperluan pengujian/keamanan, atau fitur belum selesai diaktifkan.
+ * </p>
+ */
 public class AutoNotActivatingMahasiswaS2Processor extends TimerTask {
 
+	/** Konstruktor kosong; tidak ada state yang perlu diinisialisasi. */
 	public AutoNotActivatingMahasiswaS2Processor() {
 
 	}
 
+	/** Dipanggil oleh {@link java.util.Timer} sesuai jadwal; mendelegasikan ke {@link #doProcess()}. */
 	@Override
 	public void run() {
 		doProcess();
 	}
 
+	/**
+	 * Mengecek jadwal pembayaran mahasiswa S2 untuk tahun akademik/semester berjalan dan,
+	 * bila konfigurasi terkait aktif serta tidak ada jadwal pembayaran tersisa, seharusnya
+	 * menonaktifkan mahasiswa yang belum membayar — lihat catatan kelas di atas mengenai
+	 * pernyataan SQL update yang saat ini masih dikomentari (tidak aktif).
+	 */
 	private void doProcess() {
 
 		PembayaranUtil pembayaranUtil;

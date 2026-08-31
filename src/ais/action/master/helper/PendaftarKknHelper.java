@@ -86,6 +86,27 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Composer ZK untuk layar "Daftar Mahasiswa Pendaftar KKN": menampilkan grid pendaftar satu
+ * {@link Kkn} beserta SKS/IPS/IPK, total skor seleksi, status memenuhi syarat, dan checkbox
+ * penerimaan (dapat diedit hanya bila {@code approve=true}). Menyediakan pencarian/filter
+ * (NIM/nama, fakultas, jurusan, angkatan, hanya-yang-belum-diterima), tombol cetak kartu pendaftar
+ * per mahasiswa, unggah/unduh data massal via Excel (xlsx), penghitungan ulang skor seleksi
+ * berdasarkan komponen bertipe {@code PILIHAN_CUSTOM}, serta tiga laporan cetak (daftar pendaftar,
+ * daftar penerima, rekap penerima).
+ *
+ * <p>
+ * Implementasi {@link DataLoader} ({@link #loadData(Object)}) dan {@link DataCriteria}
+ * ({@link #initCriteria(boolean)}) memungkinkan kelas ini dipakai ulang sebagai sumber data oleh
+ * komponen lain (mis. tombol "Baru" pada {@code AmbilDataMahasiswaSeleksiKknHelper}). Ekspor Excel
+ * pada {@link #cetakDataCustomButton} berjalan di thread terpisah dengan progress bar berbasis
+ * polling {@link org.zkoss.zul.Timer}, menuliskan kolom dinamis sesuai daftar
+ * {@link ais.database.model.kkn.PersyaratanKkn} milik KKN terkait (termasuk link unduhan lampiran
+ * bila persyaratan mewajibkan lampiran). Unggah Excel ({@link #displayPrasyaratKkn}) mem-parsing
+ * ulang baris berdasarkan NIM dan kolom "Diterima", membuat baris
+ * {@link ais.database.model.kkn.MahasiswaDaftarKkn} baru bila belum ada.
+ * </p>
+ */
 public class PendaftarKknHelper implements DataLoader, DataCriteria {
 
 	private MyGrid grid;
@@ -99,6 +120,7 @@ public class PendaftarKknHelper implements DataLoader, DataCriteria {
 	private Intbox angkatan;
 	private MyCheckboxConfig hanyaYgBelumDiterima;
 
+	/** Row renderer grid pendaftar KKN: NIM/nama/jurusan, SKS/SKSK, IPS/IPK, total skor, status memenuhi syarat, checkbox penerimaan, serta tombol cetak kartu/ubah/hapus per baris. */
 	class PendaftarKknRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -222,6 +244,14 @@ public class PendaftarKknHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/**
+	 * Membangun kriteria Hibernate {@link ais.database.model.kkn.MahasiswaDaftarKkn} untuk KKN yang
+	 * sedang ditampilkan, memfilter sesuai status penerimaan, angkatan, NIM/nama, dan jurusan/fakultas
+	 * yang dipilih pada toolbar.
+	 *
+	 * @param order bila {@code true}, menambahkan pengurutan tahun angkatan menurun lalu NIM menaik
+	 * @return kriteria siap dieksekusi
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(MahasiswaDaftarKkn.class).add(Restrictions.eq("kkn", kkn))
@@ -253,6 +283,7 @@ public class PendaftarKknHelper implements DataLoader, DataCriteria {
 		return criteria;
 	}
 
+	/** Memuat ulang halaman ke-{@code paging.getActivePage()} (50 baris/halaman) dan me-render ulang grid pendaftar. Parameter {@code value} tidak dipakai. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -271,6 +302,19 @@ public class PendaftarKknHelper implements DataLoader, DataCriteria {
 		return this;
 	}
 
+	/**
+	 * Membuat tombol toolbar yang mengekspor hasil {@code dataCriteria} ke file Excel (xlsx) dengan
+	 * kolom dinamis mengikuti daftar {@link ais.database.model.kkn.PersyaratanKkn} milik KKN ini
+	 * (termasuk hyperlink lampiran bila persyaratan mewajibkannya), lalu membuka pratinjau hasilnya
+	 * dalam {@link org.zkoss.zss.ui.Spreadsheet} di window modal dengan opsi unduh. Proses generate
+	 * berjalan di thread terpisah dan progresnya dipantau lewat {@link org.zkoss.zul.Timer} yang
+	 * membaca perubahan teks status.
+	 *
+	 * @param dataCriteria sumber data yang diekspor (kriteria diminta tanpa pengurutan tambahan)
+	 * @param buttonLabel  label tombol
+	 * @param buttonImage  path ikon tombol
+	 * @return tombol toolbar siap ditambahkan ke {@link org.zkoss.zul.Toolbar}
+	 */
 	@SuppressWarnings("unchecked")
 	public MyToolbarbuttonConfig cetakDataCustomButton(final DataCriteria dataCriteria, String buttonLabel,
 			String buttonImage) {

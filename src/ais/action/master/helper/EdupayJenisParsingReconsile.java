@@ -18,10 +18,52 @@ import ais.database.model.LogHostToHost;
 import ais.database.model.RekonsiliasiHostToHost;
 import ais.database.model.file.LampiranLain;
 
+/**
+ * Implementasi {@link JenisParsingReconsile} untuk memparsing file rekonsiliasi pembayaran
+ * Host-to-Host bergaya <b>Edupay</b> (payment gateway pihak ketiga): baris teks dipisah titik-koma
+ * ({@code ;}), tanpa header, dengan posisi kolom TETAP (indeks 1 = waktu {@code yyyyMMddHHmmss},
+ * 6 = kode transaksi, 9 = nilai nominal, 10 = nama, 11 = status 1/lainnya). Untuk setiap baris,
+ * kelas ini: (1) menyimpan/memperbarui satu baris {@link RekonsiliasiHostToHost} (idempoten,
+ * dicari lebih dulu berdasarkan kecocokan {@code keterangan} = baris mentah); (2) mencari
+ * {@link LogHostToHost} yang cocok (kode + tanggal + {@code responseCode="00"} +
+ * {@code transactionType=PAY}) sebagai log transaksi asal di sisi AIS; (3) bila status baris SUKSES,
+ * menandai {@link CicilanPembayaran} terkait sebagai sudah terekonsiliasi, atau — bila cicilan
+ * sukses tidak ditemukan — memindahkan baris dari {@link CicilanPembayaranGagal} ke sukses
+ * ({@code copyCicilanPembayaranKeSukses}, lalu menghapus baris gagal); (4) bila status GAGAL,
+ * kebalikannya: memindahkan {@link CicilanPembayaran} sukses menjadi
+ * {@link CicilanPembayaranGagal} lalu menghapus baris sukses tersebut.
+ *
+ * <p>
+ * Kegagalan parsing satu kolom (mis. format tanggal tidak sesuai, indeks kolom hilang) ditangkap
+ * per-kolom dan hanya dilaporkan lewat {@code Common.tampilErrorJikaAdmin} — tidak menghentikan
+ * pemrosesan baris tersebut maupun baris berikutnya, sehingga field yang gagal diparsing bisa
+ * tertinggal {@code null} pada objek {@link RekonsiliasiHostToHost} yang tersimpan.
+ * </p>
+ *
+ * <p>
+ * <b>Catatan keamanan</b>: tidak ditemukan kredensial (API key, secret, user/password) tertanam
+ * langsung di kelas ini. Kelas ini murni memparsing file lokal yang sudah diunduh/ditaruh
+ * sebelumnya (lihat {@link ais.action.master.helper.util.ReconsilePembayaranHostToHostSyncrhonizerProcessor})
+ * — tidak melakukan pemanggilan jaringan ke Edupay sendiri.
+ * </p>
+ */
 public class EdupayJenisParsingReconsile implements JenisParsingReconsile {
 
+	/** Format tanggal/waktu baku pada kolom waktu file rekonsiliasi Edupay ({@code yyyyMMddHHmmss}). */
 	private SimpleDateFormat format = new SimpleDateFormat("yyyyMMddHHmmss");
 
+	/**
+	 * Memparsing seluruh baris file lampiran {@code lampiranLain} (dibaca baris-demi-baris via
+	 * {@link BigFile} agar aman untuk file besar) sebagai data rekonsiliasi Edupay, dan
+	 * menyinkronkan status pembayaran cicilan mahasiswa terkait. Lihat javadoc kelas untuk uraian
+	 * lengkap alur per baris.
+	 *
+	 * @param lampiranLain               file mentah hasil rekonsiliasi yang akan diparsing
+	 * @param jenisRekonsiliasiHostToHost jenis/kategori rekonsiliasi yang ditautkan ke setiap baris
+	 *                                    {@link RekonsiliasiHostToHost} yang dibuat
+	 * @throws Exception diteruskan dari kegagalan I/O saat membaca file atau kegagalan transaksi
+	 *                    Hibernate
+	 */
 	@Override
 	public void parsing(LampiranLain lampiranLain,
 			JenisRekonsiliasiHostToHost jenisRekonsiliasiHostToHost)

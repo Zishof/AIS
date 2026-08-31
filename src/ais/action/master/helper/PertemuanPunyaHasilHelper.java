@@ -29,6 +29,16 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper tampilan panel "Evaluasi Pertemuan" pada layar detail {@link Pertemuan}.
+ * Menampilkan dua bagian: (1) form checklist penilaian umum ({@link
+ * ChecklistPenilaianUmumOlehPesertaAction}) yang diisi peserta (mahasiswa) untuk
+ * mengevaluasi pertemuan, dengan konteks "diperuntukkan" (akademik/sidang/bimbingan/
+ * KKN/PKL/kegiatan/wisuda) diturunkan dari jenis relasi pertemuan yang terisi; dan
+ * (2) parameter tambahan pertemuan (lewat {@link ParameterTambahanPertemuanListener})
+ * yang hanya dapat diunduh rekapnya oleh non-peserta (admin/dosen) via tombol Download
+ * (membuka {@link RekapHasilMahasiswa}).
+ */
 public class PertemuanPunyaHasilHelper implements DataLoader {
 
 	private Pertemuan pertemuan;
@@ -37,6 +47,7 @@ public class PertemuanPunyaHasilHelper implements DataLoader {
 
 	private ParameterTambahanPertemuanListener parameterTambahanPertemuanListener;
 
+	/** Konstruktor tanpa argumen; state diinisialisasi lewat {@link #display(Pertemuan, Component)}. */
 	public PertemuanPunyaHasilHelper() {
 
 	}
@@ -45,6 +56,17 @@ public class PertemuanPunyaHasilHelper implements DataLoader {
 
 	private Row groupboxRow;
 
+	/**
+	 * Membangun ulang isi panel evaluasi: merender parameter tambahan pertemuan lewat
+	 * {@link ParameterTambahanPertemuanListener}, menampilkan/menyembunyikan tombol
+	 * Download (hanya untuk non-peserta dan bila ada parameter tambahan), menentukan
+	 * konteks "diperuntukkan" checklist dari relasi pertemuan yang terisi (perkuliahan,
+	 * skripsi/sidang, bimbingan tugas akhir, KKN, PKL, kegiatan, KRS/akademik, wisuda),
+	 * lalu — bila pengguna saat ini adalah mahasiswa — menampilkan form checklist
+	 * penilaian umum via {@link ChecklistPenilaianUmumOlehPesertaAction}.
+	 *
+	 * @param value tidak digunakan (parameter kontrak {@link DataLoader})
+	 */
 	public void loadData(Object value) {
 		if (pertemuan == null) {
 			return;
@@ -133,6 +155,16 @@ public class PertemuanPunyaHasilHelper implements DataLoader {
 
 	private MyToolbarbuttonConfig buttonDownload;
 
+	/**
+	 * Membangun panel "Evaluasi Pertemuan" ke dalam {@code component}: groupbox dengan
+	 * toolbar (Download untuk non-peserta, Refresh untuk memuat ulang), area scroll
+	 * untuk checklist penilaian, dan baris terpisah untuk parameter tambahan pertemuan.
+	 * Menentukan identitas pengguna saat ini (mahasiswa/siswa) untuk mengatur visibilitas
+	 * tombol Download, lalu memanggil {@link #loadData(Object)}.
+	 *
+	 * @param pertemuan pertemuan yang evaluasinya ditampilkan
+	 * @param component komponen ZK induk yang akan diisi ulang (dibersihkan lebih dulu)
+	 */
 	public void display(final Pertemuan pertemuan, final Component component) {
 		this.pertemuan = pertemuan;
 		Common.clear(component);

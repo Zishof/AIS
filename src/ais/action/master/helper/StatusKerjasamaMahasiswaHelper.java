@@ -32,11 +32,25 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper composer ZK untuk menampilkan dan mengelola daftar mahasiswa yang mendapatkan satu
+ * {@link StatusKerjasamaMahasiswa} tertentu (relasi {@link MahasiswaDapatStatusKerjasamaMahasiswa}).
+ * Membangun panel berisi toolbar tambah data (membuka
+ * {@code AmbilDataMahasiswaStatusKerjasamaMahasiswaHelper}) dan grid ber-paging yang menampilkan
+ * NIM, nama, jurusan, dan fakultas mahasiswa, dengan tombol hapus per baris (konfirmasi +
+ * penanganan galat integritas referensial via {@link PesanFormalHelper}).
+ *
+ * <p>
+ * Mengimplementasikan {@link DataLoader} agar dapat dipakai sebagai callback penyegar data oleh
+ * helper penambah data setelah relasi baru disimpan.
+ * </p>
+ */
 public class StatusKerjasamaMahasiswaHelper implements DataLoader {
 
 	private MyGrid grid;
 	private StatusKerjasamaMahasiswa statusKerjasamaMahasiswa;
 
+	/** Perender baris grid: menampilkan NIM, nama, jurusan, fakultas mahasiswa, dan tombol hapus. */
 	class DetailStatusKerjasamaMahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -97,6 +111,12 @@ public class StatusKerjasamaMahasiswaHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Memuat ulang isi grid dengan seluruh {@link MahasiswaDapatStatusKerjasamaMahasiswa} milik
+	 * {@link #statusKerjasamaMahasiswa} saat ini, diurutkan menaik berdasarkan id.
+	 *
+	 * @param value tidak digunakan; ada untuk memenuhi kontrak {@link DataLoader}
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
@@ -110,10 +130,20 @@ public class StatusKerjasamaMahasiswaHelper implements DataLoader {
 
 	}
 
+	/** @return referensi ke helper ini sendiri, dipakai sebagai {@link DataLoader} oleh helper penambah data. */
 	private DataLoader getDataloader() {
 		return this;
 	}
 
+	/**
+	 * Membangun dan menampilkan panel daftar mahasiswa penerima status kerjasama tertentu ke dalam
+	 * {@code component}. {@code component} dibersihkan lebih dulu, lalu diisi panel berisi toolbar
+	 * tambah data dan grid kolom Kode/Nama/Jurusan/Fakultas ber-paging.
+	 *
+	 * @param statusKerjasamaMahasiswa status kerjasama yang daftar mahasiswanya ditampilkan
+	 * @param component                komponen ZK tujuan tampilan
+	 * @param window                   window pemanggil, diteruskan ke helper tambah data
+	 */
 	public void displayPrasyaratStatusKerjasamaMahasiswa(final StatusKerjasamaMahasiswa statusKerjasamaMahasiswa,
 			final Component component, final MyWindow window) {
 		this.statusKerjasamaMahasiswa = statusKerjasamaMahasiswa;

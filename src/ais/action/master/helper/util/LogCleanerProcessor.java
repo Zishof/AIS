@@ -8,15 +8,35 @@ import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Konfigurasi;
 
+/**
+ * Tugas terjadwal ({@link TimerTask}) untuk membersihkan tabel log lawas secara berkala:
+ * {@code online_users}, {@code log_user_actifity}, dan {@code log_login}. Baris yang lebih tua
+ * dari {@link #months} bulan dihapus lewat SQL native langsung (bukan Hibernate criteria), dalam
+ * satu transaksi tunggal.
+ *
+ * <p>
+ * Eksekusi hanya berjalan bila konfigurasi {@code log_cleaner_processor} bernilai
+ * {@link Konfigurasi#AKTIF} (nilai baku bila konfigurasi belum ada juga AKTIF). Pembersihan
+ * {@code detail_log_login} sengaja dinonaktifkan (kode dikomentari) — kemungkinan karena tabel ini
+ * masih dipakai/direferensikan tabel lain sehingga penghapusan langsung berisiko.
+ * </p>
+ */
 public class LogCleanerProcessor extends TimerTask {
 
+	/** Ambang usia data (dalam bulan) — baris log yang lebih tua dari ini akan dihapus. */
 	private static int months = 3;
 
+	/** Dipanggil oleh scheduler {@link java.util.Timer}; mendelegasikan ke {@link #doProcess()}. */
 	@Override
 	public void run() {
 		doProcess();
 	}
 
+	/**
+	 * Menghapus baris log lawas pada {@code online_users}, {@code log_user_actifity}, dan
+	 * {@code log_login} yang lebih tua dari {@link #months} bulan, dalam satu transaksi Hibernate
+	 * native. Tidak melakukan apa pun bila konfigurasi {@code log_cleaner_processor} tidak aktif.
+	 */
 	private void doProcess() {
 		
 		

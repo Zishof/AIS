@@ -32,13 +32,36 @@ import ais.ui.util.MyPanel;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper tampilan "Daftar Matakuliah Prasyarat" pada layar detail {@link Matakuliah}:
+ * menampilkan grid berpaging berisi mata kuliah prasyarat ({@link MatakuliahPrasyarat})
+ * milik satu mata kuliah, memungkinkan pengambilan prasyarat baru (lewat
+ * {@link AmbilDataMatakuliahPrasyaratHelper}), pengeditan nilai minimal lulus inline, dan
+ * penghapusan baris.
+ *
+ * <p>
+ * Sejak baris kode prasyarat dapat berisi entri "tanpa prasyarat" — {@code matakuliah}
+ * pada {@link MatakuliahPrasyarat} boleh {@code null} dan hanya menyimpan syarat nilai/SKS
+ * minimal — render baris menangani kasus tersebut dengan menampilkan placeholder
+ * {@code "-"}/{@code "(tanpa prasyarat)"}.
+ * </p>
+ */
 public class MatakuliahPrasyaratHelper implements DataLoader {
 
 	private MyGrid grid;
 	private Matakuliah matakuliah;
 
+	/** Perender baris grid: menampilkan detail mata kuliah prasyarat, kolom nilai minimal lulus yang dapat diedit langsung, dan tombol hapus baris. */
 	class DetailMatakuliahRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Merender satu baris {@link MatakuliahPrasyarat}: kode/nama/SKS/jurusan/jenis
+		 * mata kuliah prasyarat (atau placeholder bila prasyarat {@code null}), kotak
+		 * angka nilai minimal lulus yang langsung menyimpan perubahan on-change lewat
+		 * {@link Common#refreshUpdate}, dan tombol hapus yang mengonfirmasi lalu
+		 * menghapus baris via {@link Common#refreshDelete} (dengan pesan galat ramah
+		 * bila penghapusan gagal karena relasi data).
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {row.setValign("top");
 			final MatakuliahPrasyarat matakuliahPrasyarat = (MatakuliahPrasyarat) data;
@@ -104,6 +127,14 @@ public class MatakuliahPrasyaratHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Memuat ulang daftar {@link MatakuliahPrasyarat} aktif milik {@link #matakuliah}
+	 * (diurutkan berdasarkan id) dan mengikatnya ke {@link #grid} lewat
+	 * {@link DetailMatakuliahRenderer}. Dipanggil saat tampilan pertama kali dibangun
+	 * dan setelah operasi tambah/hapus prasyarat.
+	 *
+	 * @param value tidak digunakan (parameter kontrak {@link DataLoader})
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
@@ -117,10 +148,21 @@ public class MatakuliahPrasyaratHelper implements DataLoader {
 
 	}
 
+	/** Mengembalikan diri sendiri sebagai {@link DataLoader}, dipakai sebagai callback refresh untuk {@link AmbilDataMatakuliahPrasyaratHelper}. */
 	private DataLoader getDataloader() {
 		return this;
 	}
 
+	/**
+	 * Membangun tampilan panel "Daftar Matakuliah Prasyarat" ke dalam {@code component}:
+	 * toolbar tombol "Ambil Matakuliah Prasyarat" (membuka {@link AmbilDataMatakuliahPrasyaratHelper}),
+	 * grid berpaging dengan kolom Kode/Nama/SKS/Jurusan/Keberadaan/Nilai Lulus, lalu
+	 * memuat data awal lewat {@link #loadData(Object)}.
+	 *
+	 * @param matakuliah mata kuliah yang prasyaratnya ditampilkan
+	 * @param component  komponen ZK induk yang akan diisi ulang (dibersihkan lebih dulu)
+	 * @param window     jendela induk, diteruskan ke {@link AmbilDataMatakuliahPrasyaratHelper}
+	 */
 	public void display(final Matakuliah matakuliah, final Component component, final MyWindow window) {
 		this.matakuliah = matakuliah;
 		Common.clear(component);

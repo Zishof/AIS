@@ -44,6 +44,23 @@ import ais.database.model.Beasiswa;
 import ais.database.model.BeasiswaPunyaItemBiayaTambahan;
 import ais.database.model.ItemBiaya;
 
+/**
+ * Helper "pilih dari daftar" untuk menautkan {@link ItemBiaya} tambahan ke satu {@link Beasiswa},
+ * lewat relasi {@link BeasiswaPunyaItemBiayaTambahan}. Menampilkan jendela modal pencarian
+ * ({@code nama}/{@code deskripsi}, memakai pola paging server-side
+ * {@link ais.ui.util.AmbilDataPagingHelper}) dengan satu checkbox per baris item biaya — dicentang
+ * bila item tersebut sudah tertaut ke {@link Beasiswa} yang bersangkutan. Checkbox pada header
+ * kolom berfungsi centang/lepas-centang semua baris sekaligus.
+ *
+ * <p>
+ * Perubahan status checkbox tidak langsung disimpan; baru ditulis ke database saat tombol
+ * "Simpan" ditekan, lewat {@link #save()} yang menyinkronkan seluruh baris yang saat ini
+ * ditampilkan grid (checked → buat/pertahankan relasi, unchecked → hapus relasi) dan tambahan
+ * relasi pada {@link #deletedItemBiayas} — meskipun secara semantik penamaan set ini agak
+ * menyesatkan: berisi item yang di-uncheck lewat listener {@code onCheck} pada baris yang di luar
+ * halaman grid saat ini, sehingga tetap dihapus eksplisit di {@link #save()}.
+ * </p>
+ */
 public class AmbilDataItemBiayaHelper {
 	private MyGrid grid;
 
@@ -56,11 +73,17 @@ public class AmbilDataItemBiayaHelper {
 	public AmbilDataItemBiayaHelper() {
 	}
 
+	/** Perender baris grid: label kode/nama/deskripsi item biaya, plus checkbox status tertaut yang menyimpan/menghapus relasi ke {@link #deletedItemBiayas} saat diklik. */
 	class ItemBiayaRenderer extends ais.ui.util.MyRowRenderer {
 		private BeasiswaPunyaItemBiayaTambahanDao beasiswaPunyaItemBiayaTambahanDao = DaoFactory.getInstance()
 				.getBeasiswaPunyaItemBiayaTambahanDao();
 		private Session session = beasiswaPunyaItemBiayaTambahanDao.getCurrentSession();
 
+		/**
+		 * Merender satu baris {@link ItemBiaya}: checkbox status tertaut (dicentang bila sudah ada
+		 * {@link BeasiswaPunyaItemBiayaTambahan} untuk kombinasi beasiswa+item ini), lalu label
+		 * kode, nama, dan deskripsi item biaya.
+		 */
 		@Override
 		public void render(Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");
@@ -101,6 +124,13 @@ public class AmbilDataItemBiayaHelper {
 		}
 	}
 
+	/**
+	 * Menyinkronkan status checkbox seluruh baris grid yang saat ini ditampilkan ke tabel relasi
+	 * {@link BeasiswaPunyaItemBiayaTambahan}: baris tercentang membuat/mempertahankan relasi,
+	 * baris tak tercentang menghapus relasi (bila ada). Setelah itu, seluruh entri pada
+	 * {@link #deletedItemBiayas} juga dihapus. Kegagalan per baris ditelan (tidak menghentikan
+	 * proses baris lain).
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() {
 		BeasiswaPunyaItemBiayaTambahanDao beasiswaPunyaItemBiayaTambahanDao = DaoFactory.getInstance()
@@ -155,6 +185,15 @@ public class AmbilDataItemBiayaHelper {
 
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela modal pemilihan item biaya untuk {@code beasiswa} yang
+	 * diberikan: kotak pencarian nama, grid ber-paging dengan checkbox per baris, dan tombol
+	 * Simpan (memanggil {@link #save()}, menyegarkan {@code dataLoader}, lalu menutup jendela) /
+	 * Batal (menutup tanpa menyimpan).
+	 *
+	 * @param beasiswa   beasiswa yang item biaya tambahannya akan diatur
+	 * @param dataLoader callback penyegar tampilan pemanggil setelah simpan
+	 */
 	public void display(Beasiswa beasiswa, final DataLoader dataLoader) {
 		final MyWindow window = new MyWindow();
 		ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(window);

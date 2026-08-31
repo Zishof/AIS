@@ -37,6 +37,28 @@ import ais.database.model.Matakuliah;
 import ais.database.model.MatakuliahEkivalen;
 import ais.ui.util.MyPanel;
 
+/**
+ * Helper composer untuk mengelola daftar {@link MatakuliahEkivalen} (matakuliah yang diakui
+ * setara/ekivalen) milik satu {@link Matakuliah} induk — dipakai baik pada konteks master data
+ * matakuliah (tanpa mahasiswa) maupun pada konteks pemilihan mata kuliah ekivalen untuk seorang
+ * mahasiswa tertentu di suatu semester (mis. saat KRS/konversi nilai transfer).
+ *
+ * <p>
+ * Ketika dikonstruksi dengan {@code mahasiswa}, {@code semester}, dan {@code eventListener} tidak
+ * {@code null}, setiap baris grid menampilkan radio button yang menandakan matakuliah mana (asli
+ * atau salah satu ekivalennya) yang sedang "diambil" oleh mahasiswa tersebut pada semester itu
+ * (dicek lewat {@link Detailperkuliahan#getMatakuliahAsliSebelumKonversi()}); memilih radio
+ * memicu {@code eventListener} yang diberikan pemanggil untuk menindaklanjuti pemilihan. Bila
+ * salah satu dari ketiganya {@code null}, kolom radio dikosongkan (mode tampilan murni, tanpa
+ * interaksi pemilihan) — dipakai pada layar master matakuliah.
+ * </p>
+ *
+ * <p>
+ * Toolbar "tambah" (untuk menambah matakuliah ekivalen baru lewat
+ * {@link AmbilDataMatakuliahEkivalenHelper}) hanya ditampilkan bila {@link #editable} bernilai
+ * {@code true} (default).
+ * </p>
+ */
 public class MatakuliahEkivalenHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -46,6 +68,7 @@ public class MatakuliahEkivalenHelper implements DataLoader {
 	private Integer semester;
 	private EventListener eventListener;
 
+	/** Konstruktor mode konteks-mahasiswa (radio pemilihan aktif), dengan {@link #editable} default {@code true}. */
 	public MatakuliahEkivalenHelper(Mahasiswa mahasiswa, Integer semester, EventListener eventListener) {
 
 		this.mahasiswa = mahasiswa;
@@ -53,6 +76,7 @@ public class MatakuliahEkivalenHelper implements DataLoader {
 		this.eventListener = eventListener;
 	}
 
+	/** Seperti {@link #MatakuliahEkivalenHelper(Mahasiswa, Integer, EventListener)}, dengan kendali eksplisit atas tampil/tidaknya toolbar tambah data ({@code editable}). */
 	public MatakuliahEkivalenHelper(boolean editable, Mahasiswa mahasiswa, Integer semester,
 			EventListener eventListener) {
 		this.editable = editable;
@@ -62,6 +86,7 @@ public class MatakuliahEkivalenHelper implements DataLoader {
 
 	}
 
+	/** Perender baris grid: kolom radio pemilihan (kondisional, lihat javadoc kelas), kode/nama/SKS/jurusan/jenis matakuliah ekivalen, dan tombol hapus (dengan konfirmasi) yang menghapus baris {@link MatakuliahEkivalen} lewat {@link MatakuliahEkivalenDao}. */
 	class DetailMatakuliahRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -144,6 +169,7 @@ public class MatakuliahEkivalenHelper implements DataLoader {
 
 	}
 
+	/** Memuat ulang grid dengan seluruh {@link MatakuliahEkivalen} milik {@link #matakuliah} yang sedang ditampilkan, terurut berdasarkan id. Kontrak {@link DataLoader#loadData(Object)}; {@code value} tidak dipakai. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
@@ -157,6 +183,11 @@ public class MatakuliahEkivalenHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun panel "Daftar matakuliah Ekivalen" (toolbar tambah data + grid berpaging) ke dalam
+	 * {@code component}, untuk {@code matakuliah} yang diberikan. Memanggil {@link #loadData}
+	 * di akhir untuk mengisi grid.
+	 */
 	public void display(final Matakuliah matakuliah, final Component component) {
 		this.matakuliah = matakuliah;
 		Common.clear(component);

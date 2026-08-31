@@ -113,6 +113,41 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper composer ZK untuk fitur pengajuan/persetujuan Artikel (publikasi ilmiah dosen dan
+ * mahasiswa) di modul Penelitian dan Pengabdian. Kelas ini merangkap tiga peran sekaligus:
+ * (1) sebagai {@link FormSop}, ia menjadi form pengisian data Artikel yang dipasang ke dalam
+ * alur disposisi/SOP ({@link DisposisiSop}) sehingga dapat dipakai baik saat pengajuan awal
+ * maupun saat proses persetujuan (mode {@code persetujuan=true} menampilkan field sebagai
+ * {@link org.zkoss.zul.Label} baca-saja, bukan input); (2) sebagai {@link DataLoader}/
+ * {@link DataCriteria}, ia menyediakan grid pencarian daftar pengajuan Artikel dengan filter;
+ * dan (3) menyimpan sekumpulan method statis untuk integrasi dengan repositori DSpace, meng-
+ * unggah Artikel yang sudah disetujui sebagai item DSpace lengkap dengan hierarki komunitas/
+ * koleksi (Jurusan &rarr; Jurnal &rarr; Tahun) dan metadata Dublin Core (penulis, editor, dsb).
+ *
+ * <p>
+ * Field yang dikelola formulir meliputi identitas publikasi (judul, tahun, abstrak, kata kunci,
+ * daftar pustaka, sitasi), klasifikasi (tingkat publikasi, indeks sitasi terdaftar, tahapan
+ * penyusunan), metadata jurnal (ISSN/e-ISSN, volume, nomor, bahasa, URL/link publikasi),
+ * lampiran wajib/opsional (plagiat checker, peer review, surat tugas, surat keterangan — dua
+ * yang terakhir dapat diwajibkan lewat konfigurasi
+ * {@code surat_tugas_wajib_diupload_saat_mengajukan_artikel}/
+ * {@code surat_keterangan_wajib_diupload_saat_mengajukan_artikel}), serta daftar penulis
+ * (internal via username, dapat diambil lewat dialog {@link
+ * ais.action.master.helper.generic.AmbilDataTbmuserBanyak}/{@link
+ * ais.action.master.helper.generic.AmbilDataMahasiswaBanyak}; eksternal via nama bebas
+ * dipisah koma). Tahun akademik dan semester otomatis disinkronkan dari tanggal publikasi.
+ * </p>
+ *
+ * <p>
+ * Method {@link #initdataAwal()} bertindak sebagai seeder data referensi (tingkat publikasi,
+ * indeks sitasi, jenis penelitian/pengabdian, jurnal default "Semua Publikasi", sumber dana,
+ * jenis jabatan) — dipanggil otomatis setiap kali form dibangun sehingga tabel referensi selalu
+ * terisi minimal walau instalasi baru. Bandingkan integrasi DSpace di kelas ini dengan
+ * {@link ais.ui.dspace.DspaceCommon} yang menangani alur DSpace generik lintas modul; kelas ini
+ * hanya berisi turunan khusus Artikel (hierarki Jurusan/Jurnal/Tahun + metadata penulis-editor).
+ * </p>
+ */
 public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 
 	private MyGrid gridPengajuan;
@@ -126,6 +161,7 @@ public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 	private Tbmuser tbmuser = null;
 	private Dosen dosen = null;
 
+	/** Konstruktor default: mengambil user login saat ini dan dosen terkait (bila ada) sebagai konteks pengaju. */
 	public DetailArtikelHelper() {
 		tbmuser = Common.getCurrentUser();
 		if (dosen == null) {
@@ -133,6 +169,7 @@ public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 		}
 	}
 
+	/** Seperti {@link #DetailArtikelHelper(Dosen)}, dengan tambahan flag {@code persetujuan} untuk langsung mengaktifkan mode form baca-saja (dipakai layar approval). */
 	public DetailArtikelHelper(Dosen dosen, boolean persetujuan) {
 		this.persetujuan = persetujuan;
 		tbmuser = Common.getCurrentUser();
@@ -142,6 +179,7 @@ public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 		this.dosen = dosen;
 	}
 
+	/** Konstruktor dengan dosen eksplisit; bila {@code dosen} null, tetap dicoba diambil dari user login saat ini. */
 	public DetailArtikelHelper(Dosen dosen) {
 		tbmuser = Common.getCurrentUser();
 		if (dosen == null) {
@@ -192,6 +230,21 @@ public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 	private Combobox semester;
 	private Textbox sitasi;
 
+	/**
+	 * Implementasi {@link FormSop#form}: membangun grid formulir Artikel dan (bila
+	 * {@code disposisiSop == null}, artinya dipanggil di luar alur disposisi SOP) membungkusnya
+	 * sendiri ke dalam {@link MyWindow} modal lengkap dengan tombol Simpan/Tutup — sebaliknya bila
+	 * dipanggil dari dalam alur disposisi, grid diserahkan apa adanya ke pemanggil yang sudah
+	 * menyediakan wadah window dan tombol {@code save}nya sendiri. Otomatis mengisi pengaju
+	 * (dosen/mahasiswa) dari user login bila {@code generalValueObject} belum punya pengaju.
+	 * Form dibekukan (read-only) bila status pengajuan sudah {@code DISETUJUI}.
+	 *
+	 * @param generalValueObject data {@link Artikel} yang diedit/diajukan (boleh baru)
+	 * @param disposisiSop        konteks disposisi SOP; {@code null} bila dipanggil mandiri
+	 * @param save                tombol simpan yang event listener-nya dipasangi di sini
+	 * @param setujui              listener persetujuan (diteruskan dari kontrak {@link FormSop}, tidak dipakai langsung)
+	 * @return grid formulir Artikel siap tampil
+	 */
 	@Override
 	public MyGrid form(GeneralValueObject generalValueObject, DisposisiSop disposisiSop, MyToolbarbuttonConfig save,
 			EventListener setujui) throws Exception {
@@ -276,18 +329,21 @@ public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 		return grid;
 	}
 
+	/** Label jenis SOP yang ditampilkan di layar disposisi: {@code "Pengajuan Artikel"}. */
 	@Override
 	public String istilah() throws Exception {
 		// TODO Auto-generated method stub
 		return "Pengajuan Artikel";
 	}
 
+	/** Mengembalikan data {@link Artikel} yang sedang diproses oleh form ini, sesuai kontrak {@link FormSop#ambil()}. */
 	@Override
 	public DataSop ambil() throws Exception {
 		// TODO Auto-generated method stub
 		return artikelData;
 	}
 
+	/** Mengembalikan {@link Artikel Artikel.class} sebagai kelas entitas yang ditangani helper SOP ini. */
 	@SuppressWarnings("rawtypes")
 	@Override
 	public Class ambilClass() throws Exception {
@@ -295,18 +351,31 @@ public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 		return Artikel.class;
 	}
 
+	/** Mengaktifkan/menonaktifkan mode persetujuan (form baca-saja), dipanggil framework SOP saat form ditampilkan untuk approval. */
 	@Override
 	public void setPersetujuan(boolean persetujuan) {
 		this.persetujuan = persetujuan;
 
 	}
 
+	/** Belum diimplementasikan — selalu mengembalikan {@code null} (tidak ada cetak PDF khusus untuk Artikel dari alur SOP). */
 	@Override
 	public File cetakData(GeneralValueObject generalValueObject) throws Exception {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
+	/**
+	 * Seeder data referensi Artikel: mengisi tabel {@link TingkatArtikel}, {@link
+	 * ArtikelTerindeks}, {@link JenisPenelitianDanPengabdian}, {@link JurnalPenelitian} (entri
+	 * default "Semua Publikasi"), {@link SumberDanaPenelitianDanPengabdian}, dan {@link
+	 * JenisJabatanPenelitianDanPengabdian} dengan nilai baku bila tabel-tabel tersebut masih
+	 * kosong. Idempoten (memeriksa {@code rowCount} lebih dulu) dan aman dipanggil berulang kali —
+	 * dipanggil otomatis setiap kali form Artikel dibangun lewat {@link
+	 * #displayWindowPengajuan(Component, JurnalPenelitian, Artikel)} agar instalasi baru tetap
+	 * punya opsi pilihan minimal tanpa perlu setup manual. Juga memicu {@link
+	 * TahapanPenyusunanArtikelAction#isiDataDefault()}.
+	 */
 	public static void initdataAwal() {
 
 		TahapanPenyusunanArtikelAction.isiDataDefault();
@@ -445,6 +514,21 @@ public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 //				jurnalPenelitianData, artikelData);
 //	}
 
+	/**
+	 * Membangun seluruh grid formulir pengisian data Artikel (judul, tahun, abstrak, kata kunci,
+	 * referensi, sitasi, tingkat publikasi, indeks sitasi, tahapan penyusunan, metadata jurnal,
+	 * lampiran plagiat checker/peer review/surat tugas/surat keterangan, daftar penulis internal
+	 * dan eksternal, tahun akademik/semester). Memanggil {@link #initdataAwal()} lebih dulu agar
+	 * combobox referensi selalu terisi. Setiap baris field dirender ganda: sebagai input aktif
+	 * bila {@code persetujuan == false}, atau sebagai {@link Label} baca-saja bila sedang dalam
+	 * mode persetujuan — pola ini berulang di seluruh method karena form yang sama dipakai baik
+	 * untuk pengajuan maupun tampilan review/approval.
+	 *
+	 * @param parent            komponen induk (dipakai bila dipanggil di luar konteks {@link #form})
+	 * @param jurnalPenelitianData jurnal/publikasi tujuan yang sudah dipilih sebelumnya
+	 * @param artikelData       data Artikel yang diedit; field-fieldnya dipakai sebagai nilai awal form
+	 * @return grid formulir siap ditempel ke window/tabpanel pemanggil
+	 */
 	@SuppressWarnings("unchecked")
 	private MyGrid displayWindowPengajuan(Component parent, final JurnalPenelitian jurnalPenelitianData,
 			final Artikel artikelData) throws Exception {
@@ -1210,6 +1294,18 @@ public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 //		}
 	}
 
+	/**
+	 * Memvalidasi lalu menyimpan formulir Artikel: memeriksa pengaju (dosen/mahasiswa), tahapan
+	 * penyusunan, jurnal, tanggal publikasi, lama pengerjaan, dan preview jurnal harus terisi —
+	 * menampilkan {@link MyMessageboxConfig} peringatan dan menghentikan proses (return
+	 * {@code false}) pada kegagalan validasi pertama yang ditemukan. Bila valid, field radio
+	 * tingkat publikasi dan checkbox indeks sitasi terpilih dikumpulkan ke {@link
+	 * java.util.HashSet}, lalu seluruh data Artikel (termasuk lampiran yang sempat diunggah)
+	 * disimpan dalam satu transaksi Hibernate.
+	 *
+	 * @param event event asal klik tombol simpan
+	 * @return {@code true} bila data berhasil disimpan; {@code false} bila validasi gagal (pesan sudah ditampilkan ke pengguna)
+	 */
 	@SuppressWarnings("unchecked")
 	@Override
 	public boolean onSave(Event event) throws Exception {
@@ -2113,6 +2209,15 @@ public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 
 	}
 
+	/**
+	 * Membangun {@link Criteria} pencarian daftar pengajuan Artikel (implementasi {@link
+	 * DataCriteria}), difilter berdasarkan judul, status pengajuan, jurnal/publikasi tujuan, dan
+	 * pengaju (username eksplisit {@link #usernamePengajuan} atau kata kunci bebas
+	 * {@code cariPengaju} yang dicocokkan ke user id/nama dosen maupun NIM/nama mahasiswa).
+	 *
+	 * @param order bila {@code true}, tambahkan pengurutan (tahun desc, id asc) — dipakai saat mengambil data halaman aktif, bukan saat menghitung total baris
+	 * @return criteria siap dieksekusi
+	 */
 	public Criteria initCriteria(boolean order) {
 
 		Session session = HibernateUtil.currentSession();
@@ -2159,6 +2264,7 @@ public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 		return criteria;
 	}
 
+	/** Memuat ulang grid daftar pengajuan Artikel: menghitung total halaman lalu mengambil satu halaman data sesuai {@link #initCriteria(boolean)} dan merender ulang {@code gridPengajuan}. */
 	@SuppressWarnings("unchecked")
 	public void loadDataPengajuan() {
 		Common.initPaging(initCriteria(false), paging);
@@ -2173,6 +2279,17 @@ public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 
 	}
 
+	/**
+	 * Merender satu baris ringkasan Artikel (dipakai pada grid daftar/rekap Artikel di luar form
+	 * pengajuan, mis. dashboard penilaian asesor BKD) — menampilkan keterangan, status, serta
+	 * aksi terkait file Artikel untuk baris tersebut.
+	 *
+	 * @param arg0    baris grid tujuan render
+	 * @param artikel data Artikel yang direpresentasikan baris ini
+	 * @param pegawai konteks pegawai/penilai (dipakai untuk kontrol visibilitas aksi tertentu), boleh {@code null}
+	 * @param ases    flag penilaian asesor (BKD), boleh {@code null}
+	 * @return record {@link FileArtikel} terkait yang dirender/ditemukan pada baris ini
+	 */
 	public static FileArtikel displayRow(Row arg0, final Artikel artikel, final Pegawai pegawai, final Boolean ases)
 			throws Exception {
 
@@ -2646,11 +2763,23 @@ public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 		return readonly;
 	}
 
+	/** Implementasi {@link DataLoader#loadData}: delegasi langsung ke {@link #loadDataPengajuan()}. */
 	@Override
 	public void loadData(Object value) {
 		loadDataPengajuan();
 	}
 
+	/**
+	 * Memastikan/menciptakan community DSpace level Jurusan ("Artikel &lt;Jurusan&gt;") sebagai
+	 * simpul teratas hierarki repositori Artikel — turunan dari community Jurusan yang dikelola
+	 * {@link JurusanAction#getDspace}. UUID hasil (baru atau yang sudah ada) di-cache pada
+	 * {@link Konfigurasi} bernama {@code dspace_label_collection_artikel_<idJurusan>} agar
+	 * panggilan berikutnya tidak membuat community duplikat.
+	 *
+	 * @param cookie  sesi autentikasi ke server DSpace
+	 * @param artikel Artikel sumber (dipakai untuk menentukan Jurusan lewat mahasiswa/dosen)
+	 * @return informasi community DSpace level Jurusan
+	 */
 	public static DspaceInformation getDspaceArtikel(String cookie, Artikel artikel) throws Exception {
 		Jurusan jurusan = null;
 
@@ -2678,6 +2807,16 @@ public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 
 	}
 
+	/**
+	 * Memastikan/menciptakan collection DSpace level Tahun (mis. "Tahun 2026") sebagai anak dari
+	 * collection Jurnal ({@link #getDspaceTipeArtikel}) — simpul terbawah hierarki tempat item
+	 * Artikel akhirnya diunggah. UUID di-cache pada {@link Konfigurasi} bernama
+	 * {@code dspace_label_collection_jurnalPenelitian_tahun_<idJurusan>_<idJurnal>_<tahun>}.
+	 *
+	 * @param cookie  sesi autentikasi ke server DSpace
+	 * @param artikel Artikel sumber (menentukan Jurusan, Jurnal, dan Tahun tujuan)
+	 * @return informasi collection DSpace level Tahun
+	 */
 	public static DspaceInformation getDspaceTahunArtikel(String cookie, Artikel artikel) throws Exception {
 		Jurusan jurusan = null;
 
@@ -2706,6 +2845,16 @@ public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 				"communities/" + getDspaceTipeArtikel(cookie, artikel) + "/collections");
 	}
 
+	/**
+	 * Memastikan/menciptakan collection DSpace level Jurnal (nama diambil dari judul {@link
+	 * JurnalPenelitian}) sebagai anak dari community Jurusan ({@link #getDspaceArtikel}). UUID
+	 * di-cache pada {@link Konfigurasi} bernama
+	 * {@code dspace_label_collection_jurnalPenelitian_<idJurusan>_<idJurnal>}.
+	 *
+	 * @param cookie  sesi autentikasi ke server DSpace
+	 * @param artikel Artikel sumber (menentukan Jurusan dan Jurnal tujuan)
+	 * @return informasi collection DSpace level Jurnal
+	 */
 	public static DspaceInformation getDspaceTipeArtikel(String cookie, Artikel artikel) throws Exception {
 		Jurusan jurusan = null;
 
@@ -2735,6 +2884,17 @@ public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 
 	}
 
+	/**
+	 * Titik masuk utama unggah Artikel ke DSpace: memastikan seluruh hierarki community/collection
+	 * (Jurusan &rarr; Jurnal &rarr; Tahun, lewat {@link #getDspaceTahunArtikel}) sudah ada, lalu
+	 * membangun metadata Dublin Core (penulis dan editor diambil dari nama mahasiswa/dosen
+	 * pengaju) dan membuat atau memperbarui item DSpace untuk Artikel ini.
+	 *
+	 * @param cookie  sesi autentikasi ke server DSpace
+	 * @param artikel Artikel yang diunggah/diperbarui sebagai item DSpace
+	 * @param update  {@code true} untuk memperbarui item DSpace yang sudah ada, {@code false} untuk membuat baru
+	 * @return informasi item DSpace hasil unggah/pembaruan
+	 */
 	@SuppressWarnings("unchecked")
 	public static DspaceInformation getDspace(String cookie, Artikel artikel, boolean update) throws Exception {
 

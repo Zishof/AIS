@@ -34,6 +34,23 @@ import ais.database.model.Detailperkuliahan;
 import ais.database.model.FormatNilai;
 import ais.database.model.Perkuliahan;
 
+/**
+ * Helper composer ZK yang menampilkan daftar mahasiswa peserta satu {@link Perkuliahan} (kelas
+ * matakuliah) beserta rekap nilai per komponen. Meski nama kelas menyebut "Absensi", isi grid yang
+ * ditampilkan sebenarnya adalah baris {@link Detailperkuliahan} per mahasiswa dengan satu kolom per
+ * {@link FormatNilai} (komponen penilaian) matakuliah tersebut, ditambah kolom total nilai dan
+ * nilai huruf — bukan rekap kehadiran per pertemuan.
+ *
+ * <p>
+ * Hanya menampilkan mahasiswa yang belum "mengikuti perkuliahan" secara resmi
+ * ({@code ikutiPerkuliahan} null) — yaitu peserta yang baru terdaftar di {@code Detailperkuliahan}
+ * tapi belum diproses lebih lanjut. Alur pemakaian: pemanggil memanggil
+ * {@link #displayDetailPerkuliahan} untuk membangun UI, lalu data dimuat lewat
+ * {@link #loadData(Object)}. Penambahan peserta dilakukan lewat {@link AmbilDataMahasiswaHelper};
+ * setiap baris punya tombol hapus (lewat {@link DetailperkuliahanDao}) dan tombol ubah nilai (buka
+ * {@link PenilaianHelper}).
+ * </p>
+ */
 public class DetailAbsensiHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -42,10 +59,21 @@ public class DetailAbsensiHelper implements DataLoader {
 	private MyWindow window;
 	private Integer semesterPendek;
 
+	/**
+	 * @param semesterPendek penanda semester pendek, diteruskan ke {@link AmbilDataMahasiswaHelper}
+	 *                       saat menambah peserta agar daftar mahasiswa yang ditawarkan sesuai
+	 *                       jenis semester
+	 */
 	public DetailAbsensiHelper(Integer semesterPendek) {
 		this.semesterPendek = semesterPendek;
 	}
 
+	/**
+	 * Perender baris grid untuk satu {@link Detailperkuliahan}: menampilkan NIM, nama mahasiswa,
+	 * nilai per {@link FormatNilai} (lewat {@link Detailperkuliahan#retreiveDetailNilai}), total
+	 * nilai + nilai huruf, serta tombol hapus dan tombol ubah nilai (membuka
+	 * {@link PenilaianHelper}).
+	 */
 	class DetailPerkuliahanRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -124,6 +152,13 @@ public class DetailAbsensiHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Memuat ulang isi grid dengan seluruh {@link Detailperkuliahan} milik {@link #perkuliahan}
+	 * yang belum resmi mengikuti perkuliahan ({@code ikutiPerkuliahan} null), diurutkan
+	 * berdasarkan id.
+	 *
+	 * @param value tidak dipakai; parameter standar {@link DataLoader}
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
@@ -141,6 +176,18 @@ public class DetailAbsensiHelper implements DataLoader {
 		return this;
 	}
 
+	/**
+	 * Membangun UI panel "Daftar mahasiswa yang mengikuti perkuliahan ..." di dalam
+	 * {@code component} induk: kolom NIM, nama, satu kolom per {@link FormatNilai} matakuliah
+	 * (lebar kolom nama menyusut otomatis sesuai jumlah komponen nilai), kolom total, dan kolom
+	 * aksi. Lalu memuat datanya.
+	 *
+	 * @param perkuliahan kelas matakuliah yang peserta dan nilainya ditampilkan/dikelola
+	 * @param component   komponen induk ZK; isinya dibersihkan lebih dulu lewat
+	 *                    {@link Common#clear(Component)}
+	 * @param window      window pemanggil, diteruskan ke {@link AmbilDataMahasiswaHelper} dan
+	 *                    {@link PenilaianHelper}
+	 */
 	public void displayDetailPerkuliahan(final Perkuliahan perkuliahan, final Component component,
 			final MyWindow window) {
 		this.perkuliahan = perkuliahan;

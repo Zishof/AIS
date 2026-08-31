@@ -34,11 +34,30 @@ import ais.database.model.Pkl;
 import ais.database.model.Mahasiswa;
 import ais.database.model.MahasiswaDapatPkl;
 
+/**
+ * Helper composer ZK yang menampilkan dan mengelola daftar mahasiswa peserta satu kegiatan
+ * {@link Pkl} (Praktik Kerja Lapangan). Menampilkan panel berisi grid {@link MahasiswaDapatPkl}
+ * (NIM, nama, jurusan, fakultas mahasiswa) beserta tombol tambah dan hapus per baris.
+ *
+ * <p>
+ * Alur pemakaian: pemanggil memanggil {@link #display(Pkl, Component, MyWindow)} untuk membangun
+ * UI di dalam {@link Component} induk, lalu grid dimuat lewat {@link #loadData(Object)}.
+ * Penambahan peserta dilakukan lewat {@link AmbilDataMahasiswaPklHelper} (dipicu tombol
+ * "Tambah Data"); penghapusan dilakukan langsung dari baris grid via
+ * {@link DetailPklRenderer}. Kelas ini mengimplementasikan {@link DataLoader} agar bisa diberikan
+ * sebagai callback refresh ke helper pemilih mahasiswa.
+ * </p>
+ */
 public class PklHelper implements DataLoader {
 
 	private MyGrid grid;
 	private Pkl pkl;
 
+	/**
+	 * Perender baris grid untuk satu {@link MahasiswaDapatPkl}: menampilkan identitas mahasiswa
+	 * (NIM, nama, jurusan, fakultas) dan tombol hapus yang, setelah konfirmasi, menghapus baris
+	 * lewat {@link MahasiswaDapatPklDao} dan memuat ulang grid via {@link #loadData(Object)}.
+	 */
 	class DetailPklRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -103,6 +122,12 @@ public class PklHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Memuat ulang isi grid dengan seluruh {@link MahasiswaDapatPkl} milik {@link #pkl} yang
+	 * sedang aktif, diurutkan berdasarkan id.
+	 *
+	 * @param value tidak dipakai; parameter standar {@link DataLoader}
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
@@ -119,6 +144,16 @@ public class PklHelper implements DataLoader {
 		return this;
 	}
 
+	/**
+	 * Membangun UI panel "Daftar mahasiswa yang mengikuti PKL" (toolbar tambah + grid berpaging)
+	 * di dalam {@code component} induk, lalu memuat datanya.
+	 *
+	 * @param pkl       kegiatan PKL yang peserta-nya ditampilkan/dikelola
+	 * @param component komponen induk ZK; isinya dibersihkan lebih dulu lewat
+	 *                  {@link Common#clear(Component)}
+	 * @param window    window pemanggil, diteruskan ke {@link AmbilDataMahasiswaPklHelper} saat
+	 *                  menambah peserta
+	 */
 	public void display(final Pkl pkl, final Component component, final MyWindow window) {
 		this.pkl = pkl;
 		Common.clear(component);

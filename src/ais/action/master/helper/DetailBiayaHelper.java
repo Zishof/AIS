@@ -25,18 +25,38 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper composer ZK untuk menampilkan dan mengelola daftar {@link DetailBiaya} (rincian
+ * item/nilai biaya) milik satu {@link JenisKegiatanDetail}. Membangun grid ber-paging berisi
+ * kolom item biaya, jenis biaya, dan nilai, lengkap dengan tombol tambah data (membuka
+ * {@code AmbilDetailBiayaHelper}) dan tombol hapus per baris (dengan konfirmasi dan penanganan
+ * galat integritas referensial via {@link PesanFormalHelper}).
+ *
+ * <p>
+ * Mengimplementasikan {@link DataLoader} sehingga dapat memuat ulang datanya sendiri
+ * ({@link #loadData(Object)}) setelah operasi tambah/hapus, dan meneruskan dirinya sendiri
+ * sebagai {@code DataLoader} ke helper penambah data agar grid otomatis menyegarkan tampilan
+ * setelah data baru disimpan.
+ * </p>
+ */
 public class DetailBiayaHelper implements DataLoader {
 
 	private MyGrid grid;
 	private JenisKegiatanDetail jenisKegiatanDetail;
 	private DetailBiaya[] detailBiayas;
 
+	/** Perender baris grid: menampilkan kolom item biaya, jenis biaya, nilai, dan tombol hapus. */
 	class DetailBiayaRenderer extends ais.ui.util.MyRowRenderer {
 
 		public DetailBiayaRenderer() {
 
 		}
 
+		/**
+		 * Merender satu baris {@link DetailBiaya}: label nama item biaya, nama jenis kegiatan, nilai
+		 * biaya (default {@code 0.0} bila {@code null}), dan tombol hapus yang meminta konfirmasi
+		 * sebelum menghapus data via {@link DetailBiayaDao} lalu memuat ulang grid.
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {row.setValign("top");
 			final DetailBiaya detailBiaya = (DetailBiaya) data;
@@ -86,6 +106,13 @@ public class DetailBiayaHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Memuat ulang isi grid dari {@link #detailBiayas} (array yang sudah diambil sebelumnya di
+	 * {@link #displayDetailBiaya}). Parameter {@code value} tidak dipakai; ada semata untuk
+	 * memenuhi kontrak antarmuka {@link DataLoader}.
+	 *
+	 * @param value tidak digunakan
+	 */
 	public void loadData(Object value) {
 
 		ListModel strset = new SimpleListModel(detailBiayas);
@@ -94,10 +121,22 @@ public class DetailBiayaHelper implements DataLoader {
 
 	}
 
+	/** @return referensi ke helper ini sendiri, dipakai sebagai {@link DataLoader} oleh helper penambah data. */
 	private DataLoader getDataloader() {
 		return this;
 	}
 
+	/**
+	 * Membangun dan menampilkan seluruh UI rincian biaya (toolbar tombol tambah + grid ber-paging)
+	 * untuk satu {@link JenisKegiatanDetail} ke dalam {@code component} yang diberikan.
+	 * {@code jenisKegiatanDetail} dimuat ulang dari sesi Hibernate saat ini agar koleksi
+	 * {@code detailBiayas}-nya lazim-load dengan aman, lalu {@code component} dibersihkan
+	 * ({@link Common#clear(Component)}) sebelum diisi ulang.
+	 *
+	 * @param jenisKegiatanDetail entitas induk yang rincian biayanya akan ditampilkan
+	 * @param component           komponen ZK tujuan (akan dibersihkan lalu diisi ulang)
+	 * @param window              window pemanggil, diteruskan ke helper tambah data untuk konteks tampilan
+	 */
 	public void displayDetailBiaya(final JenisKegiatanDetail jenisKegiatanDetail, final Component component,
 			final MyWindow window) {
 		this.jenisKegiatanDetail = (JenisKegiatanDetail) HibernateUtil.currentSession().load(JenisKegiatanDetail.class,

@@ -33,6 +33,22 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper composer ZK berbentuk window modal untuk memilih {@link FormatNilaiSkripsi} (skema bobot
+ * persentase komponen nilai skripsi: ketua sidang, pembimbing, penguji 1-5) yang akan dipakai
+ * menghitung nilai akhir satu {@link Skripsi}, lalu menyimpan hasil perhitungan.
+ *
+ * <p>
+ * Alur pemakaian: {@link #display} membuka window berisi grid pilihan format nilai (radio button
+ * per baris) yang diisi lewat {@link #onSearchDefault}; user memilih satu format lalu menekan
+ * "Simpan" yang memanggil {@link #save(Session)}. Perhitungan nilai akhir mengalikan tiap komponen
+ * nilai pada {@code skripsi} (mis. {@code getNilaiPembimbing()}) dengan persentase bobot pada
+ * format terpilih, menjumlahkannya menjadi total nilai, lalu menentukan nilai huruf lewat
+ * {@link Common#getNilaiHuruf} berdasarkan tahun akademik/semester dari
+ * {@link Skripsi#getDetailperkuliahan()} bila ada (fallback ke tahun akademik/semester berjalan
+ * bila skripsi belum tertaut ke {@link Detailperkuliahan}).
+ * </p>
+ */
 public class FormatPenilaianSkripsiHelper {
 
 	// private Perkuliahan perkuliahan;
@@ -44,6 +60,11 @@ public class FormatPenilaianSkripsiHelper {
 
 	private Skripsi skripsi;
 
+	/**
+	 * Perender baris grid untuk satu {@link FormatNilaiSkripsi}: radio button pemilih (dicentang
+	 * otomatis bila sama dengan format yang sedang dipakai {@link #skripsi}) dan label persentase
+	 * bobot tiap komponen penilai (ketua sidang, pembimbing, penguji 1-5).
+	 */
 	class FormatNilaiSkripsiRenderer extends ais.ui.util.MyRowRenderer {
 
 		public FormatNilaiSkripsiRenderer() {
@@ -82,6 +103,19 @@ public class FormatPenilaianSkripsiHelper {
 
 	}
 
+	/**
+	 * Menghitung nilai akhir {@link #skripsi} berdasarkan {@link #selectedFormatNilaiSkripsi}
+	 * (jumlah tertimbang dari nilai ketua sidang, pembimbing, dan penguji 1-5), menentukan nilai
+	 * huruf serta status lulus lewat {@link Common#getNilaiHuruf}, menyimpan perubahan, lalu
+	 * memicu {@link LoadSkripsiInterface#refresh()} agar tampilan pemanggil ikut diperbarui.
+	 * Kegagalan hanya ditampilkan lewat {@link Common#tampilErrorJikaAdmin} tanpa membatalkan
+	 * proses (method selalu mengembalikan {@code true}).
+	 *
+	 * @param session sesi Hibernate aktif tempat perubahan {@code skripsi} disimpan
+	 * @return selalu {@code true}
+	 * @throws InterruptedException tidak pernah dilempar secara eksplisit di implementasi ini
+	 *                               (dideklarasikan pada signature method)
+	 */
 	public boolean save(Session session) throws InterruptedException {
 
 		try {
@@ -142,6 +176,15 @@ public class FormatPenilaianSkripsiHelper {
 		return true;
 	}
 
+	/**
+	 * Membuka window modal berisi grid pilihan {@link FormatNilaiSkripsi} untuk {@code skripsi}
+	 * yang diberikan, dengan format yang sedang dipakai skripsi tersebut pra-terpilih. Tombol
+	 * "Simpan" memanggil {@link #save(Session)}; tombol "Batal" menutup window tanpa perubahan.
+	 *
+	 * @param skripsi               data skripsi yang formatnya akan diubah
+	 * @param window                window modal yang dipakai untuk menampilkan UI
+	 * @param loadSkripsiInterface  callback refresh yang dipanggil setelah penyimpanan berhasil
+	 */
 	public void display(final Skripsi skripsi, final MyWindow window, final LoadSkripsiInterface loadSkripsiInterface) {
 		this.loadSkripsiInterface = loadSkripsiInterface;
 		this.skripsi = skripsi;
@@ -258,6 +301,11 @@ public class FormatPenilaianSkripsiHelper {
 		}
 	}
 
+	/**
+	 * Memuat seluruh {@link FormatNilaiSkripsi} (diurutkan berdasarkan id) ke dalam grid pemilihan.
+	 *
+	 * @param event tidak dipakai
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

@@ -14,17 +14,46 @@ import ais.database.model.JadwalPembayaran;
 import ais.database.model.JenisKegiatan;
 import ais.database.model.Konfigurasi;
 
+/**
+ * Tugas terjadwal ({@link TimerTask}) yang secara otomatis menonaktifkan mahasiswa jenjang S1
+ * (angkatan lama/{@code ConstantUtil#PENDAFTARAN_MAHASISWA_LAMA}) yang belum melakukan pembayaran
+ * pada tahun akademik dan semester berjalan.
+ *
+ * <p>
+ * Eksekusi hanya benar-benar berdampak bila konfigurasi
+ * {@code mahasiswa_s1_lambat_bayar_langsung_tidak_aktif} bernilai {@link Konfigurasi#AKTIF}; bila
+ * tidak, {@link #doProcess()} hanya mencetak status pengecekan ke log tanpa melakukan perubahan
+ * apa pun. Selama fitur aktif, method mengecek dulu apakah masih ada
+ * {@link JadwalPembayaran} yang berlaku (via
+ * {@link PembayaranUtil#getJadwalPembayaranDanDendaIgnoreStart}) — bila jadwal pembayaran masih
+ * ada, proses berhenti (mahasiswa masih dalam masa toleransi bayar).
+ * </p>
+ *
+ * <p>
+ * <b>Catatan</b>: blok SQL {@code UPDATE mahasiswa SET status = TIDAK_AKTIF ...} yang menjadi inti
+ * tujuan kelas ini saat ini dalam keadaan <b>dikomentari (nonaktif)</b> di {@link #doProcess()} —
+ * transaksi tetap dibuka dan di-commit, tetapi tidak ada perubahan data yang benar-benar
+ * dieksekusi. Efektifnya kelas ini saat ini hanya mencatat log pengecekan, bukan menonaktifkan
+ * mahasiswa secara nyata.
+ * </p>
+ */
 public class AutoNotActivatingMahasiswaS1Processor extends TimerTask {
 
+	/** Konstruktor tanpa argumen, dipakai penjadwal ({@code Timer}) untuk membuat instance tugas. */
 	public AutoNotActivatingMahasiswaS1Processor() {
 
 	}
 
+	/** Titik masuk {@link TimerTask}; langsung mendelegasikan ke {@link #doProcess()}. */
 	@Override
 	public void run() {
 		doProcess();
 	}
 
+	/**
+	 * Logika inti pengecekan/penonaktifan mahasiswa S1 yang belum bayar. Lihat javadoc kelas untuk
+	 * penjelasan alur lengkap dan catatan bahwa eksekusi SQL update-nya saat ini dikomentari.
+	 */
 	private void doProcess() {
 
 		// new Thread(new Runnable() {

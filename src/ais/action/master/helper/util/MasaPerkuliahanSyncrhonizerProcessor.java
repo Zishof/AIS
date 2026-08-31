@@ -15,13 +15,39 @@ import ais.database.model.Jurusan;
 import ais.database.model.Konfigurasi;
 import ais.database.model.MasaPerkuliahan;
 
+/**
+ * Tugas terjadwal ({@link TimerTask}) yang menyinkronkan dua hal terkait masa perkuliahan:
+ * <ol>
+ * <li>Bila konfigurasi {@code masa_perkuliahan_di_dibuat_berdasar_jadwal_perkuliahan} TIDAK AKTIF,
+ * memicu ulang (refresh-save) setiap {@link CicilanPembayaran} yang punya
+ * {@code pengaturanPembayaranBulanan} tapi belum punya {@code tahap} — biasanya agar listener/logika
+ * turunan tahap cicilan dijalankan ulang.</li>
+ * <li>Bila konfigurasi {@code masa_perkuliahan_synchronizer} AKTIF, membangun/menyamakan data
+ * {@link MasaPerkuliahan} untuk setiap {@link Jurusan} berdasarkan kombinasi unik
+ * (tanggal mulai, tanggal selesai, tahun ajaran) yang ada pada tabel {@code perkuliahan}, lalu
+ * menautkan kembali kolom {@code masa_perkuliahan} pada {@code perkuliahan} ke baris
+ * {@code masa_perkuliahan} yang cocok.</li>
+ * </ol>
+ *
+ * <p>
+ * Kedua konfigurasi bersifat independen dan dicek terpisah; masing-masing dijalankan dalam
+ * transaksi native sendiri dengan rollback eksplisit bila gagal. Seluruh proses dibungkus
+ * {@code try/catch} luar agar kegagalan (termasuk NPE saat DB overload) tidak menghentikan
+ * {@link java.util.Timer} secara permanen.
+ * </p>
+ */
 public class MasaPerkuliahanSyncrhonizerProcessor extends TimerTask {
 
+	/** Dipanggil oleh scheduler {@link java.util.Timer}; mendelegasikan ke {@link #doProcess()}. */
 	@Override
 	public void run() {
 		doProcess();
 	}
 
+	/**
+	 * Menjalankan sinkronisasi cicilan-tanpa-tahap dan sinkronisasi {@link MasaPerkuliahan} per
+	 * jurusan, sesuai gating konfigurasi masing-masing. Lihat javadoc kelas untuk detail alur.
+	 */
 	@SuppressWarnings("unchecked")
 	private void doProcess() {
 		try {

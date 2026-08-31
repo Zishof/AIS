@@ -13,8 +13,35 @@ import ais.database.model.Konfigurasi;
 import ais.database.model.library.DdcItem;
 import ais.database.model.library.Item;
 
+/**
+ * Sinkronisasi metadata satu {@link Item} pustaka (buku) dengan API publik Open Library
+ * ({@code https://openlibrary.org/api/volumes/brief/isbn/{isbn}.json}), berdasarkan ISBN item
+ * tersebut. Dipakai untuk melengkapi field bibliografi (nomor panggil OCLC/LCCN/ISSN, paginasi,
+ * klasifikasi, kelas Dewey Decimal, subjek, tautan e-book) tanpa entri manual oleh pustakawan.
+ *
+ * <p>
+ * Hanya berjalan bila konfigurasi {@code terintegrasi_dengan_google_book_baru} AKTIF (nama
+ * konfigurasi menyebut "google book" walau sumber datanya di sini adalah Open Library — kemungkinan
+ * saklar fitur dipakai bersama untuk beberapa integrasi buku eksternal) dan item memiliki ISBN yang
+ * valid secara numerik. Field pada {@link Item} hanya ditimpa bila API mengembalikan nilai baru;
+ * bila tidak ada, nilai lama pada {@code item} dipertahankan. Kelas Dewey Decimal hasil sinkronisasi
+ * juga dipakai untuk mencari {@link DdcItem} yang cocok (pencarian kode persis) dan menautkannya ke
+ * item. Kegagalan panggilan HTTP/parsing JSON ditelan diam-diam (item tidak diperbarui, tidak ada
+ * exception yang menyebar ke pemanggil).
+ * </p>
+ */
 public class OpenLibrarySyncronizer {
 
+	/**
+	 * Mengambil data bibliografi {@code item} dari Open Library berdasarkan ISBN-nya dan
+	 * menyimpan hasilnya (menimpa field yang relevan pada {@code item}, menandai
+	 * {@code openLibraryBookChecked=true}, menyimpan payload mentah ke {@code infoOpenLibrary}).
+	 * Tidak melakukan apa pun bila fitur dimatikan lewat konfigurasi atau item tidak punya ISBN
+	 * numerik yang valid. Semua kegagalan (jaringan, parsing) ditangkap dan diabaikan.
+	 *
+	 * @param item item pustaka yang akan diperkaya metadatanya; diperbarui langsung (in-place)
+	 *             dan disimpan ke database bila sinkronisasi berhasil
+	 */
 	public static void process(Item item) {
 
 		if (Common.bolehKonfigurasi("terintegrasi_dengan_google_book_baru", Konfigurasi.TIDAK_AKTIF)) {

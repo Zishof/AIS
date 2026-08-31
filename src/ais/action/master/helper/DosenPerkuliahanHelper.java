@@ -22,15 +22,51 @@ import ais.database.model.Perkuliahan;
 import ais.database.model.Tbmuser;
 import ais.ui.util.MyTabConfig;
 
+/**
+ * Helper pembangun panel tab detail pengajaran seorang dosen untuk satu kelas perkuliahan
+ * ({@link Perkuliahan}), dipakai pada layar yang menampilkan rincian mengajar dosen (mis.
+ * evaluasi BKD/beban kerja dosen). {@link #createDetail} merakit sebuah {@link Tabbox} dengan
+ * empat tab yang masing-masing dimuat secara <b>lazy</b> (baru diisi saat pertama kali diklik,
+ * lewat listener {@code onClick} pada tab bersangkutan) untuk menghindari biaya query/render
+ * yang tidak perlu bila tab tidak pernah dibuka:
+ * <ul>
+ * <li><b>Penilaian Asesor</b> — dimuat langsung (tidak lazy) lewat
+ * {@link PenilaianAsesorHelper#formNilai}, menilai kinerja mengajar dosen untuk perkuliahan ini.</li>
+ * <li><b>Rincian Pengajaran</b> — detail pertemuan perkuliahan lewat
+ * {@code DosenMengajarDetailperkuliahanHelper} (instance statis bersama di kelas ini).</li>
+ * <li><b>E-Learning Pengajaran</b> — aktivitas e-learning dosen lewat
+ * {@code AktifitasPerkuliahanHelper}, jumlah agenda yang ditampilkan diatur konfigurasi
+ * {@code tampilan_jumlah_agenda_perkuliahan}.</li>
+ * <li><b>SK Pengajaran</b> — data biodata/SK dosen lewat
+ * {@code BiodataDosenAction#reloadDosen}.</li>
+ * </ul>
+ */
 public class DosenPerkuliahanHelper {
 
+	/** Konstruktor kosong; kelas ini dipakai lewat method statis {@link #createDetail}. */
 	public DosenPerkuliahanHelper() {
 
 	}
 
+	/** Instance bersama (statis) untuk menampilkan tab "Rincian Pengajaran"; dipakai ulang lintas panggilan {@link #createDetail}. */
 	private static DosenMengajarDetailperkuliahanHelper detailperkuliahanHelper = new DosenMengajarDetailperkuliahanHelper(
 			true);
 
+	/**
+	 * Merakit {@link Tabbox} berisi empat tab detail pengajaran dosen (Penilaian Asesor,
+	 * Rincian Pengajaran, E-Learning Pengajaran, SK Pengajaran) untuk kombinasi dosen +
+	 * perkuliahan yang diberikan. Tiga tab terakhir dimuat lazy saat pertama kali diklik.
+	 *
+	 * @param dosen                    dosen yang bersangkutan
+	 * @param perkuliahan              kelas perkuliahan yang diajar dosen ini
+	 * @param jenjang                  jenjang pendidikan (untuk konteks penilaian asesor)
+	 * @param tahunAkademik            tahun akademik konteks penilaian
+	 * @param semester                 semester konteks penilaian
+	 * @param keteranganEventListener  listener yang diteruskan ke form penilaian asesor untuk
+	 *                                 menangani perubahan pada field keterangan
+	 * @return {@link Tabbox} siap ditempelkan ke parent ZK
+	 * @throws Exception diteruskan dari kegagalan pembangunan komponen tab (mis. Hibernate/ZK)
+	 */
 	public static Tabbox createDetail(final Dosen dosen, final Perkuliahan perkuliahan, final Jenjang jenjang,
 			final String tahunAkademik, final String semester, final EventListener keteranganEventListener)
 			throws Exception {
