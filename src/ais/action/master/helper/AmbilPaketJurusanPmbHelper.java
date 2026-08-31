@@ -45,14 +45,24 @@ import ais.database.model.Jurusan;
 import ais.database.model.Paket;
 import ais.database.model.PaketJurusanPmb;
 
+/**
+ * Helper jendela modal untuk memilih (multi-select) daftar {@link Jurusan} yang
+ * diasosiasikan dengan satu {@link Paket} PMB (Penerimaan Mahasiswa Baru), disimpan
+ * sebagai baris {@link PaketJurusanPmb}. Jendela menampilkan grid jurusan aktif dengan
+ * checkbox per baris, filter pencarian Fakultas/Jenjang, checkbox "pilih semua" pada
+ * header kolom, dan tombol Simpan yang menyelaraskan (diff: tambah/hapus) tabel
+ * {@code PaketJurusanPmb} agar sesuai dengan pilihan checkbox saat ini.
+ */
 public class AmbilPaketJurusanPmbHelper {
 
 	private Paket paket;
 	private MyGrid grid;
 	private Combobox searchfakultas = new Combobox();
 	private Combobox searchjenjang = new Combobox();
+	/** Kumpulan id {@link Jurusan} yang sedang tercentang, dipertahankan lintas re-render grid saat filter/paging berganti. */
 	private Set<Long> selectedJurusanIds = new HashSet<Long>();
 
+	/** Menyiapkan combobox filter Fakultas (aktif saja) dan Jenjang (aktif + opsi "Semua"). */
 	public AmbilPaketJurusanPmbHelper() {
 		Common.insertCombo(searchfakultas, new String[] { "nama", "kode" }, Fakultas.class,
 				Restrictions.eq("aktif", true));
@@ -61,8 +71,15 @@ public class AmbilPaketJurusanPmbHelper {
 
 	}
 
+	/** Perender baris grid jurusan: checkbox terikat ke {@link #selectedJurusanIds}, lalu label Fakultas dan Nama Jurusan. */
 	class JurusanRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Merender satu baris {@link Jurusan}: checkbox yang menambah/menghapus id
+		 * jurusan dari {@link #selectedJurusanIds} saat dicentang/dilepas (status awal
+		 * checkbox mengikuti keanggotaan di {@link #selectedJurusanIds}), lalu label
+		 * nama fakultas dan nama jurusan.
+		 */
 		@Override
 		public void render(Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");
@@ -94,6 +111,14 @@ public class AmbilPaketJurusanPmbHelper {
 
 	}
 
+	/**
+	 * Menyelaraskan tabel {@link PaketJurusanPmb} untuk {@link #paket} agar sesuai dengan
+	 * {@link #selectedJurusanIds} saat ini: baris lama yang jurusannya tidak lagi
+	 * tercentang dihapus; untuk setiap jurusan tercentang, baris yang sudah ada
+	 * diperbarui atau baris baru dibuat (saveOrUpdate). Kegagalan pada satu jurusan
+	 * (mis. jurusan sudah terhapus) diabaikan agar tidak menggagalkan penyimpanan
+	 * jurusan lain.
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() {
 
@@ -137,6 +162,17 @@ public class AmbilPaketJurusanPmbHelper {
 
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela modal pemilihan jurusan PMB untuk {@code paket}:
+	 * memuat pilihan jurusan yang sudah tersimpan ke {@link #selectedJurusanIds},
+	 * membangun panel filter (Fakultas/Jenjang) dan toolbar (Simpan/Cari/Batal), grid
+	 * berpaging dengan checkbox "pilih semua" pada header, lalu memuat data awal via
+	 * {@link #onSearchDefault(Event)} dan menampilkan jendela sebagai modal.
+	 *
+	 * @param paket      paket PMB yang jurusannya akan diatur
+	 * @param dataLoader callback pemuatan ulang data pemanggil setelah Simpan
+	 * @param window     jendela ZK yang akan diisi dan ditampilkan sebagai modal
+	 */
 	public void display(final Paket paket, final DataLoader dataLoader, final MyWindow window) {
 
 		this.paket = paket;
@@ -296,6 +332,12 @@ public class AmbilPaketJurusanPmbHelper {
 		}
 	}
 
+	/**
+	 * Memuat ulang grid jurusan berdasarkan filter Fakultas/Jenjang yang sedang dipilih
+	 * (jurusan aktif saja; filter diabaikan bila combobox belum memilih apa pun).
+	 *
+	 * @param event tidak digunakan; parameter kontrak listener/pemanggilan langsung
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

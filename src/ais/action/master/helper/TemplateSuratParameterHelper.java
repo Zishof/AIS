@@ -43,6 +43,14 @@ import ais.database.model.TemplateSurat;
 import ais.database.model.TemplateSuratParameter;
 import ais.ui.util.MyPanel;
 
+/**
+ * Helper ZK CRUD sederhana untuk mengelola daftar {@link TemplateSuratParameter} (parameter/variabel
+ * yang dapat disisipkan ke dalam isi satu {@link TemplateSurat}, mis. placeholder bertipe
+ * {@link String}/{@link Integer}/{@link Long} yang nantinya diganti dengan nilai sesungguhnya saat
+ * surat dicetak). Menampilkan grid berpaginasi dengan tombol tambah/ubah/hapus per baris, hak akses
+ * masing-masing dicek terhadap {@link CommonPrivilages} (CREATE/UPDATE/DELETE) dan disembunyikan
+ * total dari pengguna mahasiswa.
+ */
 public class TemplateSuratParameterHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -56,6 +64,7 @@ public class TemplateSuratParameterHelper implements DataLoader {
 	private Combobox tipe;
 	private boolean edit = false;
 
+	/** Menyiapkan hak akses (CREATE/UPDATE/DELETE) pengguna saat ini dan kombo pilihan tipe parameter (String/Integer/Long). */
 	public TemplateSuratParameterHelper() {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 		edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
@@ -149,6 +158,12 @@ public class TemplateSuratParameterHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Implementasi {@link DataLoader}: memuat ulang seluruh {@link TemplateSuratParameter} milik
+	 * {@link #templateSurat} ke {@link #grid}.
+	 *
+	 * @param value tidak digunakan
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
@@ -161,6 +176,13 @@ public class TemplateSuratParameterHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Menampilkan panel daftar parameter milik {@code templateSurat} dengan tombol "Tambah Parameter"
+	 * (tampil hanya bagi non-mahasiswa yang punya hak CREATE).
+	 *
+	 * @param templateSurat template surat yang parameternya akan dikelola
+	 * @param component     komponen ZK induk tempat panel dirender (dibersihkan lebih dulu)
+	 */
 	public void display(final TemplateSurat templateSurat, final Component component) {
 		this.templateSurat = templateSurat;
 		Common.clear(component);
@@ -229,6 +251,7 @@ public class TemplateSuratParameterHelper implements DataLoader {
 
 	}
 
+	/** Membuka jendela form untuk menambah {@link TemplateSuratParameter} baru. */
 	public void onAdd(Event event) throws Exception {
 		init(new TemplateSuratParameter());
 		addWindow.setVisible(true);
@@ -321,6 +344,15 @@ public class TemplateSuratParameterHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Memvalidasi (Nama dan Tipe wajib diisi) dan menyimpan {@link #templateSuratParameter} yang
+	 * sedang diedit, terikat ke {@link #templateSurat}.
+	 *
+	 * @param event event ZK pemicu (mis. klik tombol Simpan)
+	 * @return {@code true} bila validasi lolos dan data tersimpan; {@code false} bila ada field wajib
+	 *         yang belum terisi
+	 * @throws Exception diteruskan dari kegagalan akses database
+	 */
 	public boolean onSave(Event event) throws Exception {
 		if (nama.getValue().trim().equals("")) {
 			MyMessageboxConfig.show("Nama Parameter harus diisi", "Peringatan", MyMessageboxConfig.OK,

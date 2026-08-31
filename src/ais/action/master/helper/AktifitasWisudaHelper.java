@@ -35,13 +35,43 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper timeline "Aktifitas" untuk {@link Wisuda} (acara wisuda), setara pola
+ * {@code AktifitasPerkuliahanHelper} tetapi khusus konteks wisuda. Menyediakan toolbar
+ * aksi (agenda, absensi, ambil pertemuan, kalender, kelas virtual, recovery pertemuan,
+ * refresh) lewat {@link #initAgendaWisuda} dan daftar pertemuan berpaging (satu per
+ * halaman) lewat {@link #initDetail}, lengkap dengan diskusi/komentar, absensi, dan
+ * video conference per pertemuan.
+ *
+ * <p>
+ * Bila belum ada satu pun {@link Pertemuan} yang terkait wisuda tersebut, {@link #initDetail}
+ * otomatis membuat satu pertemuan default (topik "Agenda wisuda ..." pada tanggal wisuda)
+ * agar timeline tidak kosong, lalu me-refresh tampilan.
+ * </p>
+ */
 public class AktifitasWisudaHelper {
 
+	/** Helper penjadwalan wisuda, dipakai tombol "Agenda Kegiatan" pada toolbar. */
 	protected PenjadwalanWisudaHelper penjadwalanHelper = new PenjadwalanWisudaHelper();
 
+	/** Konstruktor tanpa argumen; tidak ada inisialisasi state khusus selain {@link #penjadwalanHelper}. */
 	public AktifitasWisudaHelper() {
 	}
 
+	/**
+	 * Membangun toolbar aksi untuk satu {@code wisuda}: "Agenda Kegiatan" (buka
+	 * {@link PenjadwalanWisudaHelper}), "Absensi" (cetak laporan absensi via
+	 * {@link CommonReportHelper#onLaporanAbsensi}), tombol ambil pertemuan
+	 * ({@link PenjadwalanHelper#tampilTombolAmbil}), kalender
+	 * ({@link AktifitasPerkuliahanHelper#tampilCalender}), kelas virtual
+	 * ({@link ClassRoomUtil#createButton}), recovery pertemuan
+	 * ({@link RecoveryPertemuanHelper#button}), dan "Refresh". Toolbar hanya terlihat
+	 * untuk pengguna staf (bukan mahasiswa/siswa).
+	 *
+	 * @param wisuda     acara wisuda terkait
+	 * @param dataLoader callback pemuatan ulang data setelah aksi toolbar dijalankan
+	 * @return toolbar berisi tombol-tombol aksi
+	 */
 	public Toolbar initAgendaWisuda(final Wisuda wisuda, final DataLoader dataLoader) {
 
 		Tbmuser tbmuser = Common.getCurrentUser();
@@ -97,10 +127,31 @@ public class AktifitasWisudaHelper {
 		return hbox;
 	}
 
+	/** Seperti {@link #initDetail(Wisuda, DataLoader, MyDiv)} dengan {@code dataLoader} default yang memuat ulang dirinya sendiri. */
 	public void initDetail(final Wisuda wisuda, final MyDiv groupbox) throws Exception {
 		initDetail(wisuda, null, groupbox);
 	}
 
+	/**
+	 * Membangun timeline lengkap satu {@code wisuda} ke dalam {@code groupbox}: toolbar
+	 * ({@link #initAgendaWisuda}) lalu grid berpaging (satu pertemuan per halaman) berisi
+	 * seluruh {@link Pertemuan} milik wisuda tersebut, masing-masing dengan riwayat revisi,
+	 * topik, diskusi/catatan, tombol video conference, tombol absensi, dan (bila
+	 * dikonfigurasi) daftar komentar. Halaman aktif otomatis diarahkan ke pertemuan
+	 * pertama yang tanggalnya sudah lewat.
+	 *
+	 * <p>
+	 * Bila wisuda belum punya pertemuan sama sekali dan pengguna saat ini adalah staf
+	 * (bukan mahasiswa/siswa/calon siswa/calon mahasiswa), satu {@link Pertemuan} default
+	 * otomatis dibuat dan disimpan, lalu tampilan dijadwalkan untuk memuat ulang dirinya
+	 * sendiri via timer.
+	 * </p>
+	 *
+	 * @param wisuda      acara wisuda yang ditampilkan
+	 * @param mydataLoader callback pemuatan ulang; bila {@code null}, dibuat default yang memanggil ulang {@link #initDetail(Wisuda, MyDiv)}
+	 * @param groupbox    kontainer ZK yang akan diisi ulang (dibersihkan lebih dulu)
+	 * @throws Exception diteruskan dari operasi tampilan/akses Hibernate
+	 */
 	public void initDetail(final Wisuda wisuda, final DataLoader mydataLoader, final MyDiv groupbox) throws Exception {
 
 		final DataLoader dataLoader = mydataLoader == null ? new DataLoader() {

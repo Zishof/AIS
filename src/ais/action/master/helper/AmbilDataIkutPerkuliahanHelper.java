@@ -58,6 +58,30 @@ import ais.ui.util.MyPanel;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK untuk fitur "Ikut Perkuliahan" — memungkinkan seorang {@link Mahasiswa} mendaftarkan
+ * diri mengikuti jadwal {@link Perkuliahan} lain di luar jadwal yang sudah tercatat pada KRS-nya
+ * sendiri (dicatat sebagai {@link Detailperkuliahan} dengan field {@code ikutiPerkuliahan} terisi,
+ * bukan {@code perkuliahan}). Dipakai misalnya untuk mahasiswa yang ingin numpang hadir/menabung
+ * nilai pada kelas paralel lain.
+ *
+ * <p>
+ * Jendela pencarian menampilkan daftar jadwal perkuliahan (bukan jadwal paralel) yang dapat
+ * disaring berdasarkan Fakultas, Program Studi, Program, kode/nama Mata Kuliah, dan Semester;
+ * setiap baris dapat dibuka ({@link MyDetail}) untuk melihat aktivitas/agenda perkuliahan lewat
+ * {@link AktifitasPerkuliahanHelper}, dan diberi kotak centang untuk dipilih. Baris yang mahasiswa
+ * sudah ikuti/ambil ditandai "Terpilih" dan kotak centangnya disembunyikan (tidak bisa dipilih ulang).
+ * </p>
+ *
+ * <p>
+ * {@link #save()} memvalidasi kapasitas kelas ({@link Perkuliahan#getKapasitasKelas()}, default
+ * {@link Ruang#getDefaultKapasitas()}) sebelum menyimpan setiap baris terpilih sebagai
+ * {@link Detailperkuliahan} baru berstatus {@link Detailperkuliahan#BELUM_DISETUJUI}; mata kuliah
+ * yang sama hanya diproses sekali walau muncul di beberapa baris (dedup per
+ * {@code matakuliah.getId()}), dan jadwal yang penuh dilewati dengan peringatan terkumpul yang
+ * ditampilkan di akhir.
+ * </p>
+ */
 public class AmbilDataIkutPerkuliahanHelper {
 
 	private String tahunAjaran;
@@ -77,6 +101,7 @@ public class AmbilDataIkutPerkuliahanHelper {
 
 	protected AktifitasPerkuliahanHelper aktifitasPerkuliahanHelper;
 
+	/** @param semesterPendek penanda konteks Semester Pendek/Antara; {@code null} untuk reguler. */
 	public AmbilDataIkutPerkuliahanHelper(Integer semesterPendek) {
 		this.semesterPendek = semesterPendek;
 		aktifitasPerkuliahanHelper = new AktifitasPerkuliahanHelper(Common.getCurrentUser().getMahasiswa(), null, true);
@@ -192,6 +217,16 @@ public class AmbilDataIkutPerkuliahanHelper {
 
 	}
 
+	/**
+	 * Menyimpan seluruh baris grid yang dicentang pengguna sebagai {@link Detailperkuliahan} baru
+	 * (atau memperbarui yang sudah ada) dengan {@code ikutiPerkuliahan} terisi. Setiap mata kuliah
+	 * hanya diproses sekali (baris duplikat mata kuliah yang sama dilewati); jadwal yang kapasitas
+	 * kelasnya sudah penuh dilewati dan pesannya dikumpulkan lalu ditampilkan sekaligus di akhir.
+	 *
+	 * @return selalu {@code true} (nilai kembalian dipertahankan untuk kompatibilitas pemanggil;
+	 *         kegagalan per baris ditangani sebagai lewat/skip, bukan sebagai kegagalan keseluruhan)
+	 * @throws Exception diteruskan dari kegagalan akses database
+	 */
 	@SuppressWarnings({ "unchecked" })
 	public boolean save() throws Exception {
 
@@ -266,6 +301,18 @@ public class AmbilDataIkutPerkuliahanHelper {
 		return true;
 	}
 
+	/**
+	 * Membangun jendela pencarian dan pemilihan jadwal perkuliahan yang akan diikuti. Filter awal
+	 * (Fakultas, Prodi, Program) dipra-isi dari data {@code mahasiswa} sendiri; hasil pencarian
+	 * tampil di grid berpaginasi. Tombol Simpan memanggil {@link #save()} lalu menyegarkan tampilan
+	 * pemanggil lewat {@code dataLoader}.
+	 *
+	 * @param mahasiswa   mahasiswa yang akan mengikuti perkuliahan
+	 * @param tahunAjaran tahun akademik jadwal yang dicari
+	 * @param semester    nomor semester default untuk filter pencarian
+	 * @param dataLoader  dipanggil (dengan {@code value=true}) setelah simpan untuk menyegarkan
+	 *                    tampilan KRS pemanggil
+	 */
 	public void display(final Mahasiswa mahasiswa, final String tahunAjaran, final Integer semester,
 			final DataLoader dataLoader) {
 		this.mahasiswa = mahasiswa;
@@ -582,6 +629,13 @@ public class AmbilDataIkutPerkuliahanHelper {
 		}
 	}
 
+	/**
+	 * Mengisi ulang grid hasil pencarian jadwal {@link Perkuliahan} (non-paralel) sesuai filter
+	 * toolbar saat ini (Fakultas, Prodi, Program, kode/nama Mata Kuliah, Semester, Tahun Akademik,
+	 * dan konteks Semester Pendek). Hasil dibatasi {@code Common#MAX_RESULT} baris.
+	 *
+	 * @param event event ZK pemicu (tidak dipakai isinya, hanya penanda pemicu pencarian)
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 		Program program = (Program) (programCombobox.getSelectedItem() == null ? null

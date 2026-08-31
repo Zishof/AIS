@@ -36,6 +36,15 @@ import ais.ui.util.MyDiv;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Composer ZK untuk layar "Ikut Perkuliahan" — pendaftaran mahasiswa mengikuti perkuliahan sebagai
+ * peserta tambahan (di luar KRS resmi) melalui field {@link Detailperkuliahan#getIkutiPerkuliahan()}.
+ * Berbeda dari {@link KrsNonPaketHelper}, kehadiran/keikutsertaan lewat jalur ini TIDAK memengaruhi
+ * nilai — hanya memberi akses aktivitas dan kegiatan perkuliahan (lihat catatan pada tampilan).
+ * Menampilkan grid matakuliah yang diikuti (kode/nama/SKS dengan info konversi ekivalensi bila
+ * berbeda, dosen, hari, kelas, waktu, ruang) beserta panel informasi jam bentrok, tombol "Ikuti
+ * Perkuliahan" untuk menambah, dan tombol hapus per baris.
+ */
 public class IkutPerkuliahanHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -54,11 +63,13 @@ public class IkutPerkuliahanHelper implements DataLoader {
 
 	private Integer tahapan;
 
+	/** @param semesterPendek status semester pendek (SP) yang dilayani helper ini, atau {@code null} untuk semester reguler */
 	public IkutPerkuliahanHelper(Integer semesterPendek) {
 		this.semesterPendek = semesterPendek;
 		aktifitasPerkuliahanHelper = new AktifitasPerkuliahanHelper(Common.getCurrentUser().getMahasiswa(), null, true);
 	}
 
+	/** Row renderer grid perkuliahan yang diikuti: kode/nama/SKS (dengan info konversi ekivalensi bila berbeda), dosen, hari, semester, kelas, waktu, ruang, dan tombol hapus. */
 	class DetailMahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -183,6 +194,13 @@ public class IkutPerkuliahanHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Memuat ulang daftar perkuliahan yang diikuti mahasiswa, memperbarui panel informasi jam bentrok
+	 * (turut mempertimbangkan KRS resmi mahasiswa, bukan hanya perkuliahan yang diikuti), lalu
+	 * memanggil {@code eventListener} yang diberikan ke {@link #display} untuk memberi tahu pemanggil.
+	 *
+	 * @param value bila berupa {@link Boolean} {@code true}, memaksa refresh cache saat mengambil KRS resmi
+	 */
 	public void loadData(Object value) {
 		detailperkuliahans = Common.getIkutDetailperkuliahans(mahasiswa, semester, tahapan, null, semesterPendek,
 				false);
@@ -224,6 +242,18 @@ public class IkutPerkuliahanHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun UI layar "Ikut Perkuliahan" (toolbar Ikuti Perkuliahan/Refresh, grid, panel jam
+	 * bentrok, catatan) di dalam {@code component} untuk kombinasi mahasiswa/semester/tahapan yang
+	 * diberikan, lalu memuat data awal.
+	 *
+	 * @param mahasiswa      mahasiswa yang datanya ditampilkan
+	 * @param tahunAjaran    diteruskan ke dialog "Ikuti Perkuliahan"
+	 * @param semester       nomor semester yang ditampilkan
+	 * @param tahapan        tahapan KRS terkait, boleh {@code null}/0
+	 * @param component      container ZK yang akan diisi
+	 * @param eventListener  callback yang dipanggil setiap kali {@link #loadData} selesai
+	 */
 	public void display(final Mahasiswa mahasiswa, final String tahunAjaran, final Integer semester,
 			final Integer tahapan, final Component component, final EventListener eventListener) {
 		this.mahasiswa = mahasiswa;

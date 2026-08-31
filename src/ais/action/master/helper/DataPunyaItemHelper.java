@@ -57,6 +57,27 @@ import ais.ui.util.MyLabelConfig;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper ZK untuk mengelola daftar buku/pustaka referensi ({@link DataPunyaItem}, penghubung ke
+ * katalog perpustakaan {@link Item}) yang dilampirkan pada berbagai jenis kegiatan tugas akhir:
+ * {@link Skripsi}, {@link MahasiswaRequestTugasAkhir}, {@link JadwalUjianPMB}, {@link
+ * KelompokKkn}, atau {@link KelompokPkl} — hanya satu yang biasanya tidak {@code null} per
+ * pemanggilan {@link #display}. Grid berpaging menampilkan sampul, ISBN/ISSN, judul (dengan
+ * riwayat revisi via {@link RevisiHelper}), subjek, pengarang, penerbit, dan catatan yang dapat
+ * diedit langsung di baris.
+ *
+ * <p>
+ * Dua tombol memungkinkan menambah referensi: "Ambil Buku Referensi" membuka dialog {@link
+ * ais.action.master.library.helper.AmbilDataItemBanyak} untuk memilih dari katalog {@link Item}
+ * yang sudah ada di perpustakaan; "Ambil Google Book" membuka {@link
+ * ais.action.master.library.helper.AmbilDataDariGoogleBookBanyak} untuk mencari dan mengimpor
+ * data buku dari Google Books API (item baru dibuat otomatis dari hasil pencarian atau dari
+ * {@code ItemTemporary} lewat {@link ais.action.servlet.CheckISBN}). Aksi baris menyediakan
+ * kutipan sitasi, baca via pratinjau Google Books (bila tersedia), baca hasil pindai per halaman
+ * ({@link ais.action.master.library.helper.TampilanHasilScanPerHalamanWindow}, bila item punya
+ * halaman ter-scan), dan hapus (hanya untuk user login).
+ * </p>
+ */
 public class DataPunyaItemHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -70,11 +91,17 @@ public class DataPunyaItemHelper implements DataLoader {
 	private KelompokKkn kelompokKkn;
 	private KelompokPkl kelompokPkl;
 
+	/** Mengambil user login saat ini; menentukan visibilitas tombol tambah/hapus (hanya tampil bila ada user login). */
 	public DataPunyaItemHelper() {
 
 		tbmuser = Common.getCurrentUser();
 	}
 
+	/**
+	 * Renderer baris referensi: sampul, ISBN/ISSN, judul (dengan riwayat revisi) beserta subjek,
+	 * pengarang, penerbit, catatan editable, dan tombol aksi (kutipan, baca via Google Books bila
+	 * tersedia, baca hasil pindai per halaman bila ada, hapus untuk user login).
+	 */
 	class DetailSkripsiRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -217,6 +244,14 @@ public class DataPunyaItemHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun {@link Criteria} referensi milik kegiatan aktif (salah satu dari {@link #skripsi}/
+	 * {@link #mahasiswaRequestTugasAkhir}/{@link #jadwalUjianPMB}/{@link #kelompokKkn}/{@link
+	 * #kelompokPkl}), difilter kata kunci {@link #cari} yang dicocokkan ke pengarang/nama/ISBN.
+	 *
+	 * @param order bila {@code true}, tambahkan pengurutan (id asc)
+	 * @return criteria siap dieksekusi
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria crit = session.createCriteria(DataPunyaItem.class)
@@ -244,6 +279,7 @@ public class DataPunyaItemHelper implements DataLoader {
 		return crit;
 	}
 
+	/** Implementasi {@link DataLoader#loadData}: memuat ulang paging dan satu halaman (10 baris) daftar referensi sesuai filter aktif. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Common.initPagingCustom(initCriteria(false), paging, 10);
@@ -256,6 +292,17 @@ public class DataPunyaItemHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Titik masuk utama: membangun toolbar (Ambil Buku Referensi, Ambil Google Book, pencarian)
+	 * dan grid berpaging daftar referensi untuk kombinasi kegiatan yang diberikan.
+	 *
+	 * @param skripsi                   skripsi terkait, atau {@code null}
+	 * @param mahasiswaRequestTugasAkhir request tugas akhir terkait, atau {@code null}
+	 * @param jadwalUjianPMB             jadwal ujian PMB terkait, atau {@code null}
+	 * @param kelompokKkn                kelompok KKN terkait, atau {@code null}
+	 * @param kelompokPkl                kelompok PKL terkait, atau {@code null}
+	 * @param component                  komponen induk (dibersihkan lebih dulu)
+	 */
 	public void display(final Skripsi skripsi, final MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir,
 			final JadwalUjianPMB jadwalUjianPMB, final KelompokKkn kelompokKkn, final KelompokPkl kelompokPkl,
 			final Component component) {

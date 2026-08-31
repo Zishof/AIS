@@ -43,14 +43,36 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper composer ZK berbentuk window untuk menyusun jadwal rangkaian acara/kegiatan
+ * {@link Pertemuan} satu {@link Wisuda} (mis. gladi bersih, upacara, sesi per fakultas), mengikuti
+ * pola penjadwalan yang sama dengan {@link PenjadwalanHelper} untuk objek pembelajaran lain.
+ *
+ * <p>
+ * Setiap baris grid adalah satu {@link Pertemuan} yang bisa diedit langsung di tempat (inline
+ * editing): topik, tanggal, jam mulai/selesai, dan status pertemuan — setiap perubahan langsung
+ * disimpan (auto-save per field lewat event {@code onChange}, bukan menunggu tombol Simpan).
+ * Tombol "Tambah Kegiatan" membuat {@link Pertemuan} baru dengan tanggal default 7 hari setelah
+ * pertemuan terakhir yang ditambahkan ({@link #currDate}). Tombol download/hapus massal serta
+ * "atur ulang waktu" didelegasikan ke helper penjadwalan umum {@link PenjadwalanHelper}. Tombol
+ * "Simpan" utama hanya memicu {@link Wisuda#reInitPertemuan(Session)} (menyinkronkan ulang cache
+ * pertemuan wisuda) dan memberi tahu {@link DataLoader} pemanggil.
+ * </p>
+ */
 public class PenjadwalanWisudaHelper {
 
 	private Wisuda wisuda;
 	private MyGrid grid;
 	private DataLoader dataLoader;
 
+	/** Tanggal pertemuan terakhir yang ditambahkan lewat tombol "Tambah Kegiatan"; dipakai untuk menghitung tanggal default pertemuan berikutnya (+7 hari). */
 	private Date currDate;
 
+	/**
+	 * Perender baris grid untuk satu {@link Pertemuan}: textbox topik, tanggal (readonly, diubah
+	 * lewat komponen lain), jam mulai/selesai, combobox {@link StatusPertemuan}, dan tombol hapus
+	 * — seluruh field langsung menyimpan perubahannya ke database saat berubah.
+	 */
 	class PertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
 		public PertemuanRenderer() {
@@ -220,6 +242,15 @@ public class PenjadwalanWisudaHelper {
 
 	}
 
+	/**
+	 * Menyinkronkan ulang cache pertemuan {@link #wisuda} lewat
+	 * {@link Wisuda#reInitPertemuan(Session)} dan memberi tahu {@link #dataLoader} pemanggil agar
+	 * memuat ulang tampilannya. Perubahan per baris sendiri sudah disimpan langsung oleh
+	 * {@link PertemuanRenderer} saat field diedit.
+	 *
+	 * @return selalu {@code true}
+	 * @throws InterruptedException tidak pernah dilempar secara eksplisit di implementasi ini
+	 */
 	@SuppressWarnings({})
 	public boolean save() throws InterruptedException {
 
@@ -231,6 +262,15 @@ public class PenjadwalanWisudaHelper {
 		return true;
 	}
 
+	/**
+	 * Membangun window penjadwalan rangkaian kegiatan {@code wisuda}: toolbar (tambah kegiatan,
+	 * refresh, ambil jadwal dari sumber lain, atur ulang waktu, download, hapus massal — via
+	 * {@link PenjadwalanHelper}) dan grid pertemuan yang bisa diedit langsung. Window dipasang
+	 * langsung ke root halaman (bukan lewat window pemanggil).
+	 *
+	 * @param wisuda     kegiatan wisuda yang jadwalnya disusun
+	 * @param dataLoader callback muat-ulang data pemanggil, dipicu setelah tombol "Simpan"
+	 */
 	public void display(final Wisuda wisuda, final DataLoader dataLoader) {
 		this.wisuda = wisuda;
 		this.dataLoader = dataLoader;
@@ -424,6 +464,14 @@ public class PenjadwalanWisudaHelper {
 		}
 	}
 
+	/**
+	 * Memuat ulang grid dengan daftar {@link Pertemuan} milik {@link #wisuda} lewat
+	 * {@link Wisuda#ambilPertemuanList(boolean)}.
+	 *
+	 * @param event bila data-nya berupa {@link Boolean}, diteruskan sebagai parameter
+	 *              {@code ambilPertemuanList} (mis. paksa muat ulang dari database); selain itu
+	 *              dianggap {@code false}
+	 */
 	public void onSearchDefault(Event event) {
 
 		List<Pertemuan> pertemuans = wisuda.ambilPertemuanList(

@@ -44,6 +44,18 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper jendela modal "Ambil Data Perkuliahan Konversi": mengisi KRS satu
+ * {@link Mahasiswa} untuk satu semester berdasarkan daftar mata kuliah pada
+ * {@link ais.database.model.Kurikulum kurikulum} yang berlaku (dicari lewat
+ * {@link PaketPerkuliahan} yang cocok dengan fakultas/prodi/program/tahun angkatan/
+ * tahun akademik/semester), BUKAN dengan mendaftarkan mahasiswa ke kelas
+ * {@link ais.database.model.Perkuliahan} sesungguhnya — setiap mata kuliah kurikulum
+ * dibuatkan baris {@link Detailperkuliahan} dengan {@code matakuliahKonversi} terisi dan
+ * {@code perkuliahan} kosong ("konversi"), melalui {@link KrsUtilHelper#simpanKrsJikaBelumAda}
+ * untuk mencegah duplikasi. Dipakai untuk kasus semacam mahasiswa lintas jalur/pindahan
+ * yang SKS-nya diakui langsung dari kurikulum tanpa mengikuti kelas reguler.
+ */
 public class AmbilDataKurikulumPerkuliahanHelper {
 
 	private String tahunAjaran;
@@ -61,10 +73,12 @@ public class AmbilDataKurikulumPerkuliahanHelper {
 	private MyToolbarbuttonConfig ambil;
 	private String kelas;
 
+	/** Membuat helper; {@code semesterPendek} menentukan apakah pencarian {@link PaketPerkuliahan} membatasi pada status semester pendek tertentu atau reguler ({@code null}). */
 	public AmbilDataKurikulumPerkuliahanHelper(Integer semesterPendek) {
 		this.semesterPendek = semesterPendek;
 	}
 
+	/** Perender baris grid: menampilkan kode, nama, dan SKS mata kuliah kurikulum ({@link KurikulumPunyaMatakuliah}) yang akan diambil. */
 	class MatakuliahRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -81,6 +95,24 @@ public class AmbilDataKurikulumPerkuliahanHelper {
 
 	}
 
+	/**
+	 * Menyimpan hasil "ambil perkuliahan konversi": lebih dulu menghapus (SQL native)
+	 * seluruh baris {@link Detailperkuliahan} milik {@link #mahasiswa} pada semester
+	 * terpilih yang masih berstatus {@code persetujuan=0} (belum disetujui) — sehingga
+	 * pengambilan berikutnya menggantikan pilihan sebelumnya yang belum final — lalu
+	 * untuk setiap {@link KurikulumPunyaMatakuliah} yang ditampilkan (dedup per mata
+	 * kuliah), bila mata kuliah lolos cek prasyarat
+	 * ({@link Common#checkMatakuliahPrasyarat}) dan belum ada entri konversi untuk
+	 * kombinasi mahasiswa+mata kuliah+semester tersebut, satu baris
+	 * {@link Detailperkuliahan} baru dibuat (nilai kosong, {@code matakuliahKonversi}
+	 * terisi, {@code perkuliahan} kosong) dan disimpan lewat
+	 * {@link KrsUtilHelper#simpanKrsJikaBelumAda} di dalam transaksi tersendiri.
+	 * Kegagalan pada satu mata kuliah tidak menghentikan proses untuk mata kuliah
+	 * lainnya.
+	 *
+	 * @return selalu {@code true}
+	 * @throws Exception diteruskan dari akses Hibernate
+	 */
 	@SuppressWarnings({})
 	public boolean save() throws Exception {
 
@@ -140,6 +172,19 @@ public class AmbilDataKurikulumPerkuliahanHelper {
 		return true;
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela modal "Ambil Data Perkuliahan Konversi" untuk
+	 * {@code mahasiswa}: field Fakultas/Prodi/Program/Tahun Akademik (dikunci sesuai
+	 * data mahasiswa saat ini, tidak dapat diubah pengguna) dan combobox Semester
+	 * (dapat diubah, memicu pencarian ulang), grid daftar mata kuliah kurikulum hasil
+	 * pencarian, serta tombol Ambil ({@link #save()}) dan Batal.
+	 *
+	 * @param mahasiswa  mahasiswa yang akan diisi KRS konversinya
+	 * @param tahunAjaran tahun akademik yang dicari paket perkuliahannya
+	 * @param semester   semester akademik awal yang dipilih pada combobox
+	 * @param dataLoader callback pemuatan ulang data pemanggil setelah Ambil (dipanggil dengan {@code true})
+	 * @throws Exception diteruskan dari akses Hibernate/tampilan
+	 */
 	public void display(final Mahasiswa mahasiswa, final String tahunAjaran, final Integer semester,
 			final DataLoader dataLoader) throws Exception {
 		this.mahasiswa = mahasiswa;
@@ -355,6 +400,18 @@ public class AmbilDataKurikulumPerkuliahanHelper {
 		onSearchDefault(null);
 	}
 
+	/**
+	 * Mencari {@link PaketPerkuliahan} yang cocok dengan filter Fakultas/Prodi/Program/
+	 * semester/status semester pendek/tahun angkatan mahasiswa/tahun akademik terpilih
+	 * (paket dengan {@code angkatanMulai}/{@code angkatanSampai}/id terbesar dipilih bila
+	 * beberapa cocok), lalu memuat daftar {@link KurikulumPunyaMatakuliah} pada kurikulum
+	 * paket tersebut untuk semester terpilih ke grid. Menampilkan peringatan dan
+	 * menonaktifkan tombol Ambil bila paket perkuliahan atau daftar mata kuliahnya tidak
+	 * ditemukan.
+	 *
+	 * @param event tidak digunakan; parameter kontrak listener/pemanggilan langsung
+	 * @throws Exception diteruskan dari akses Hibernate
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) throws Exception {
 

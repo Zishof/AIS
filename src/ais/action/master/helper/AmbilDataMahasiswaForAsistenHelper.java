@@ -47,6 +47,20 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper composer ZK berbentuk window modal untuk memilih mahasiswa (aktif) yang akan dijadikan
+ * asisten pada satu {@link Perkuliahan}, dicatat lewat baris {@link MahasiswaJadiAsisten}.
+ *
+ * <p>
+ * Menyediakan filter pencarian lengkap: NIM (tunggal atau rentang dari-sampai), nama, tahun
+ * angkatan, fakultas, prodi, status mahasiswa pada semester berjalan (lewat subquery
+ * {@code history_status_mahasiswa}), dan kelas (via {@link AmbilDataKelasBanbox}, dicocokkan
+ * persis terhadap kolom {@code kelas} mahasiswa). Grid menampilkan kelas mahasiswa hasil sinkronisasi
+ * {@link Common#singkronkanKrsMahasiswa(Mahasiswa)} dan mencentang baris yang mahasiswanya sudah
+ * menjadi asisten perkuliahan tersebut ({@link Perkuliahan#merupakanAsisten(Mahasiswa)}). Paging
+ * server-side dipakai lewat {@link Common#initPaging}.
+ * </p>
+ */
 public class AmbilDataMahasiswaForAsistenHelper {
 
 	private Perkuliahan perkuliahan;
@@ -66,6 +80,7 @@ public class AmbilDataMahasiswaForAsistenHelper {
 	private Paging paging;
 	private AmbilDataKelasBanbox searchkelas;
 
+	/** @param perkuliahan kelas matakuliah tujuan penempatan asisten */
 	public AmbilDataMahasiswaForAsistenHelper(Perkuliahan perkuliahan) {
 		this.perkuliahan = perkuliahan;
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
@@ -81,6 +96,11 @@ public class AmbilDataMahasiswaForAsistenHelper {
 
 	}
 
+	/**
+	 * Perender baris grid untuk satu {@link Mahasiswa}: checkbox pilih (tercentang bila sudah
+	 * menjadi asisten {@link #perkuliahan}), NIM, nama, tahun angkatan, dan kelas hasil sinkronisasi
+	 * {@link Common#singkronkanKrsMahasiswa(Mahasiswa)}.
+	 */
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -106,6 +126,15 @@ public class AmbilDataMahasiswaForAsistenHelper {
 		}
 	}
 
+	/**
+	 * Mencatat {@code mahasiswa} sebagai asisten {@link #perkuliahan} lewat baris baru
+	 * {@link MahasiswaJadiAsisten}, dalam transaksi native tersendiri. Tidak melakukan apa pun bila
+	 * mahasiswa sudah menjadi asisten (dicek via {@link Perkuliahan#merupakanAsisten(Mahasiswa)}).
+	 *
+	 * @param mahasiswa mahasiswa yang akan dijadikan asisten
+	 * @return selalu {@code true}
+	 * @throws Exception diteruskan dari kegagalan Hibernate
+	 */
 	private boolean prosesSave(Mahasiswa mahasiswa) throws Exception {
 
 		if (!perkuliahan.merupakanAsisten(mahasiswa)) {
@@ -121,6 +150,13 @@ public class AmbilDataMahasiswaForAsistenHelper {
 		return true;
 	}
 
+	/**
+	 * Memproses {@link #prosesSave(Mahasiswa)} untuk setiap mahasiswa pada baris grid yang
+	 * checkbox-nya tercentang.
+	 *
+	 * @return selalu {@code true}
+	 * @throws Exception tidak pernah dilempar keluar (kegagalan per baris ditangkap dan diaudit)
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public boolean save() throws Exception {
 
@@ -143,6 +179,13 @@ public class AmbilDataMahasiswaForAsistenHelper {
 		return true;
 	}
 
+	/**
+	 * Membangun dan menampilkan window modal "Ambil Data Mahasiswa" berisi form filter lengkap
+	 * dan grid mahasiswa berpaging. Window dibuat baru dan dipasang ke root halaman. Tombol
+	 * "Simpan" memanggil {@link #save()}, memuat ulang data pemanggil, lalu menutup window.
+	 *
+	 * @param dataLoader callback muat-ulang data pemanggil setelah simpan
+	 */
 	public void display(final DataLoader dataLoader) {
 
 		final MyWindow window = new MyWindow();
@@ -331,6 +374,15 @@ public class AmbilDataMahasiswaForAsistenHelper {
 		}
 	}
 
+	/**
+	 * Membangun kriteria Hibernate untuk {@link Mahasiswa} aktif sesuai seluruh filter form (lihat
+	 * javadoc kelas). Filter status mahasiswa dievaluasi lewat subquery SQL native terhadap
+	 * {@code history_status_mahasiswa} pada tahun akademik dan semester (ganjil/genap) berjalan.
+	 *
+	 * @param order bila {@code true}, hasil diurutkan berdasarkan tahun angkatan menurun lalu NIM
+	 *              menaik
+	 * @return criteria siap dieksekusi, dipakai untuk memuat data maupun untuk paging
+	 */
 	public Criteria initCriteria(boolean order) {
 		StatusMahasiswa statusMahasiswa = (StatusMahasiswa) (searchstatusmahasiswa.getSelectedItem() == null ? null
 				: searchstatusmahasiswa.getSelectedItem().getValue());
@@ -375,6 +427,12 @@ public class AmbilDataMahasiswaForAsistenHelper {
 		return criteria;
 	}
 
+	/**
+	 * Memuat satu halaman hasil {@link #initCriteria(boolean)} ke grid sesuai halaman aktif pada
+	 * {@link #paging}.
+	 *
+	 * @param event tidak dipakai
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

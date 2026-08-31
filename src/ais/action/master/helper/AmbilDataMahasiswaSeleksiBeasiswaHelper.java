@@ -48,6 +48,15 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Composer ZK untuk dialog "Ambil Data Mahasiswa" pada seleksi penerima {@link Beasiswa}: menampilkan
+ * grid pencarian mahasiswa (NIM/rentang NIM/nama/fakultas/jurusan/tahun angkatan) dengan checkbox
+ * pilih yang tercentang otomatis bagi mahasiswa yang sudah diterima ({@code terima=1}) pada beasiswa
+ * tersebut. {@link #save()} mendaftarkan setiap mahasiswa yang dicentang sebagai baris
+ * {@link MahasiswaDaftarBeasiswa} baru (hanya bila belum terdaftar), memvalidasi kelayakan lewat
+ * {@code Common.checkApakahMemenuhiSyaratBeasiswa} — mahasiswa yang tidak memenuhi syarat tidak
+ * disimpan dan namanya dikumpulkan ke satu pesan peringatan yang ditampilkan di akhir proses.
+ */
 public class AmbilDataMahasiswaSeleksiBeasiswaHelper {
 
 	private Beasiswa beasiswa;
@@ -71,6 +80,7 @@ public class AmbilDataMahasiswaSeleksiBeasiswaHelper {
 
 	}
 
+	/** Row renderer grid pencarian: checkbox pilih (tercentang bila mahasiswa sudah diterima pada beasiswa ini), NIM, nama, dan tahun angkatan. */
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		private MahasiswaDapatBeasiswaDao mahasiswaDapatBeasiswaDao = DaoFactory.getInstance()
@@ -103,6 +113,14 @@ public class AmbilDataMahasiswaSeleksiBeasiswaHelper {
 
 	}
 
+	/**
+	 * Mendaftarkan setiap mahasiswa yang dicentang di grid dan belum memiliki baris
+	 * {@link MahasiswaDaftarBeasiswa} sebagai pendaftar baru beasiswa ini, memvalidasi kelayakan lewat
+	 * {@code Common.checkApakahMemenuhiSyaratBeasiswa} sebelum disimpan. Mahasiswa yang tidak memenuhi
+	 * syarat dilewati dan namanya dikumpulkan untuk satu dialog peringatan di akhir.
+	 *
+	 * @throws Exception diteruskan dari kegagalan Hibernate saat menyimpan
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() throws Exception {
 		MahasiswaDaftarBeasiswaDao mahasiswaDaftarBeasiswaDao = DaoFactory.getInstance()
@@ -151,6 +169,14 @@ public class AmbilDataMahasiswaSeleksiBeasiswaHelper {
 
 	}
 
+	/**
+	 * Membangun window modal pencarian+pilih mahasiswa (filter, grid checkbox, tombol Simpan/Cari/
+	 * Batal) untuk beasiswa yang diberikan dan memuat data awal.
+	 *
+	 * @param beasiswa   beasiswa yang penerimanya dipilih
+	 * @param dataLoader callback yang dipanggil ulang setelah "Simpan" berhasil
+	 * @param window     window yang dipakai sebagai kanvas dialog (dibersihkan lebih dulu)
+	 */
 	public void display(final Beasiswa beasiswa, final DataLoader dataLoader, final MyWindow window) {
 		this.beasiswa = beasiswa;
 		Common.clear(window);
@@ -338,6 +364,7 @@ public class AmbilDataMahasiswaSeleksiBeasiswaHelper {
 		}
 	}
 
+	/** Mencari mahasiswa aktif sesuai filter (dibatasi {@link Common#MAX_RESULT} baris) dan me-render ulang grid. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

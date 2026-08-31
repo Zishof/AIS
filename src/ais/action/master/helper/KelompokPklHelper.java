@@ -56,6 +56,27 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper ZK untuk mengelola daftar mahasiswa anggota satu {@link KelompokPkl} (kelompok Praktik
+ * Kerja Lapangan). Grid berpaging menampilkan tiap anggota ({@link MahasiswaDapatKelompokPkl})
+ * dengan foto, nama (dapat dibuka riwayat revisi via {@link RevisiHelper}), jurusan/fakultas,
+ * kolom "Hasil"/"Keterangan" yang dapat diedit langsung di baris, checkbox "Diterima", dan tombol
+ * cetak sertifikat (muncul otomatis begitu status diterima dan {@link KelompokPkl} memiliki
+ * template sertifikat).
+ *
+ * <p>
+ * Hak edit baris ditentukan per pengguna: hanya user yang bukan mahasiswa/siswa (dosen/admin)
+ * yang dapat mengubah hasil/keterangan/status penerimaan; mahasiswa yang bersangkutan hanya
+ * dapat melihat data dirinya sendiri sebagai label baca-saja, mahasiswa lain tidak melihat
+ * detail maupun tombol aksi apa pun. Tombol "Tambah Data" membuka dialog {@link
+ * AmbilDataMahasiswaKelompokPklHelper}; toolbar filter menyediakan pencarian NIM/nama serta
+ * checkbox status diterima/belum diterima yang memfilter {@link #initCriteria(boolean)}. Selain
+ * cetak PDF ringkasan, tersedia impor massal hasil PKL dari berkas Excel lewat {@link
+ * #uploadDataMahasiswa} yang mencocokkan baris ke mahasiswa (lewat objek sel atau fallback NIM)
+ * dan mencatat hasil per baris ke {@link ais.common.LaporanUpload} agar baris yang gagal/dilewati
+ * tetap terlihat, bukan tertelan sebagai pesan sukses generik.
+ * </p>
+ */
 public class KelompokPklHelper implements DataLoader, DataCriteria {
 
 	private MyGrid grid;
@@ -67,6 +88,12 @@ public class KelompokPklHelper implements DataLoader, DataCriteria {
 	private MyCheckboxConfig belumDiterima;
 	private Textbox nim;
 
+	/**
+	 * Renderer baris anggota kelompok PKL: menampilkan foto/NIM/nama (dengan riwayat revisi),
+	 * jurusan/fakultas, hasil/keterangan (editable atau baca-saja tergantung siapa yang login),
+	 * checkbox status diterima yang langsung tersimpan saat diklik, serta tombol cetak sertifikat
+	 * dan hapus yang visibilitasnya menyesuaikan status dan peran pengguna.
+	 */
 	class DetailKelompokPklRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -213,6 +240,14 @@ public class KelompokPklHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/**
+	 * Membangun {@link Criteria} anggota {@link #kelompokPkl}, difilter berdasarkan status
+	 * diterima/belum diterima (checkbox {@link #diterima}/{@link #belumDiterima}) dan kata kunci
+	 * NIM/nama mahasiswa — implementasi kontrak {@link DataCriteria}.
+	 *
+	 * @param order bila {@code true}, tambahkan pengurutan (id asc)
+	 * @return criteria siap dieksekusi
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria crit = session.createCriteria(MahasiswaDapatKelompokPkl.class)
@@ -235,6 +270,7 @@ public class KelompokPklHelper implements DataLoader, DataCriteria {
 		return crit;
 	}
 
+	/** Implementasi {@link DataLoader#loadData}: memuat ulang paging dan satu halaman data anggota kelompok PKL sesuai filter aktif. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Common.initPaging(initCriteria(false), paging);
@@ -253,6 +289,13 @@ public class KelompokPklHelper implements DataLoader, DataCriteria {
 		return this;
 	}
 
+	/**
+	 * Titik masuk utama: membangun seluruh UI daftar anggota kelompok PKL — toolbar (Tambah Data,
+	 * cetak PDF, filter diterima/belum diterima, pencarian, unduh/unggah Excel) dan grid berpaging.
+	 *
+	 * @param kelompokPkl kelompok PKL yang anggotanya ditampilkan
+	 * @param component   komponen induk (dibersihkan lebih dulu)
+	 */
 	public void display(final KelompokPkl kelompokPkl, final Component component) {
 		this.kelompokPkl = kelompokPkl;
 		Common.clear(component);
@@ -463,6 +506,18 @@ public class KelompokPklHelper implements DataLoader, DataCriteria {
 		paging.setParent(groupbox);
 	}
 
+	/**
+	 * Mengimpor hasil PKL massal dari berkas Excel: setiap baris dicocokkan ke {@link Mahasiswa}
+	 * (lewat objek sel Excel, dengan fallback pencarian by-NIM bila sel tidak terbaca sebagai
+	 * objek), lalu status diterima, total nilai, keterangan, dan hasil ditulis/diperbarui pada
+	 * {@link MahasiswaDapatKelompokPkl} terkait dalam transaksi Hibernate per baris (rollback
+	 * eksplisit pada baris gagal agar transaksi berikutnya tidak ikut gagal). Proses berjalan di
+	 * thread terpisah; hasil per baris (berhasil/dilewati/gagal) dicatat ke {@link
+	 * ais.common.LaporanUpload} sehingga baris bermasalah tetap terlihat, tidak tertelan diam-diam.
+	 *
+	 * @param file          berkas Excel (.xlsx) hasil unggahan, kolom: NIM, Diterima, Total Nilai, Keterangan, Hasil
+	 * @param eventListener dipanggil setelah laporan hasil impor selesai disusun
+	 */
 	public void uploadDataMahasiswa(final File file, final EventListener eventListener) throws Exception {
 
 		// Laporan hasil per baris. Menggantikan Label "peringatan" yang disiapkan untuk

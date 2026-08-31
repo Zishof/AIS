@@ -103,6 +103,56 @@ public class MenuHelper {
         }
     }
 
+    /** Menu "Dasbor eMedic" — menunjuk ZUL yang tidak ada di repositori. */
+    private static final long MENU_DASBOR_EMEDIC_ID = 1710004L;
+
+    /**
+     * Nonaktifkan menu MATI <b>"Dasbor eMedic"</b> (id {@value #MENU_DASBOR_EMEDIC_ID}).
+     *
+     * <p>Menu ini menunjuk {@code /pages/master/sirs/dashboard_emedic.zul} yang <b>tidak ada</b> di
+     * repositori — berbeda dari saudara-saudaranya di direktori yang sama (dashboard_pendaftaran_overview,
+     * dashboard_okupansi_tempat_tidur, dashboard_pendapatan, dan lainnya yang semuanya ada). Akibatnya
+     * menu ini selalu gagal dibuka: UI lama ZK tidak menemukan halaman, dan New UI menjawab
+     * {@code NATIVE_ADAPTER_NOT_CONFIGURED}.</p>
+     *
+     * <p>Audit cakupan 31-08-2026 mencatat menu ini sebagai SATU-SATUNYA sisa dari 816 route milik role
+     * admin yang tidak dapat dipetakan; 815 lainnya sudah punya halaman native. Tidak ada adaptor yang
+     * dapat dibuat tanpa mengarang layar yang belum pernah ada.</p>
+     *
+     * <p>Baris <b>tidak dihapus</b>, hanya {@code aktif=false}, sehingga jejaknya tetap ada dan mudah
+     * dikembalikan bila layar eMedic menyusul dibuat. Syarat URL disertakan pada UPDATE agar salah id
+     * pada tenant tertentu tidak menonaktifkan menu lain. Idempoten dan dijalankan tiap startup agar
+     * konsisten di semua sistem; padanan manualnya ada di
+     * {@code docs/sql/2026-08-31-nonaktifkan-menu-dashboard-emedic.sql}.</p>
+     */
+    public static void nonaktifkanMenuDasborEmedic() {
+        Session session = null;
+        Transaction tx = null;
+        try {
+            session = HibernateUtil.currentNativeSession();
+            tx = session.beginTransaction();
+            int diubah = session.createSQLQuery(
+                    "UPDATE public.menu SET aktif=false WHERE id = " + MENU_DASBOR_EMEDIC_ID
+                            + " AND url LIKE '%dashboard_emedic%' AND coalesce(aktif, true) = true")
+                    .executeUpdate();
+            tx.commit();
+            if (diubah > 0) {
+                System.out.println("Menu mati 'Dasbor eMedic' (id " + MENU_DASBOR_EMEDIC_ID
+                        + ") dinonaktifkan: ZUL-nya tidak ada di repositori.");
+            }
+        } catch (Exception e) {
+            if (tx != null) try { tx.rollback(); } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) MenuHelper.nonaktifkanMenuDasborEmedic.rollback"); }
+            System.err.println("Gagal menonaktifkan menu Dasbor eMedic: " + e.getMessage());
+            ais.common.ErrorAuditUtil.record(e, "auto-audit MenuHelper.nonaktifkanMenuDasborEmedic");
+        } finally {
+            if (session != null) {
+                try { session.disconnect(); } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) MenuHelper.nonaktifkanMenuDasborEmedic.disconnect"); }
+                try { session.close(); } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) MenuHelper.nonaktifkanMenuDasborEmedic.close"); }
+            }
+            HibernateUtil.closeSession();
+        }
+    }
+
     /**
      * SEMENTARA (permintaan user 17-07-2026): sembunyikan seluruh modul <b>"Sistem Informasi Rumah
      * Sakit" (SIRS)</b> dari mega-menu secara DEFAULT pada SETIAP startup, dengan men-set

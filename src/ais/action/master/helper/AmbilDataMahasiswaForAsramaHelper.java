@@ -48,6 +48,15 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Composer ZK untuk dialog "Ambil Data Mahasiswa" pada pengelolaan {@link Asrama} (asrama/dormitory):
+ * menampilkan grid mahasiswa hasil pencarian (NIM/nama/rentang NIM/fakultas/jurusan/tahun angkatan/
+ * status mahasiswa) dengan checkbox pilih per baris — baris yang mahasiswanya sudah terdaftar di
+ * asrama ini otomatis tercentang dan dikunci (tidak dapat di-uncheck). Checkbox pada header kolom
+ * mencentang/mengosongkan seluruh baris yang belum terkunci sekaligus. {@link #save()} membuat atau
+ * memperbarui baris {@link AsramaPunyaMahasiswa} untuk setiap mahasiswa yang dicentang dan belum
+ * terkunci.
+ */
 public class AmbilDataMahasiswaForAsramaHelper {
 
 	private Asrama asrama;
@@ -66,6 +75,7 @@ public class AmbilDataMahasiswaForAsramaHelper {
 
 	private Paging paging;
 
+	/** @param asrama asrama tujuan pengambilan data mahasiswa */
 	public AmbilDataMahasiswaForAsramaHelper(Asrama asrama) {
 		this.asrama = asrama;
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
@@ -81,6 +91,7 @@ public class AmbilDataMahasiswaForAsramaHelper {
 
 	}
 
+	/** Row renderer grid pencarian: checkbox pilih (tercentang+terkunci bila mahasiswa sudah terdaftar di asrama ini), NIM, nama, dan tahun angkatan. */
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -106,6 +117,7 @@ public class AmbilDataMahasiswaForAsramaHelper {
 		}
 	}
 
+	/** Menyimpan/memperbarui baris {@link AsramaPunyaMahasiswa} untuk setiap mahasiswa yang dicentang dan belum terkunci pada grid, mencatat pengguna yang melakukan aksi dan sumber perubahan ({@link ais.action.master.MahasiswaAction}). */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() throws InterruptedException {
 		Session session = HibernateUtil.currentSession();
@@ -139,6 +151,13 @@ public class AmbilDataMahasiswaForAsramaHelper {
 
 	}
 
+	/**
+	 * Membangun window modal pencarian+pilih mahasiswa (filter, grid dengan checkbox, tombol Simpan/
+	 * Batal) dan memuat data awal.
+	 *
+	 * @param dataLoader callback yang dipanggil ulang setelah "Simpan" berhasil
+	 * @param window     window yang dipakai sebagai kanvas dialog (dibersihkan lebih dulu)
+	 */
 	public void display(final DataLoader dataLoader, final MyWindow window) {
 
 		Common.clear(window);
@@ -366,6 +385,13 @@ public class AmbilDataMahasiswaForAsramaHelper {
 		}
 	}
 
+	/**
+	 * Membangun kriteria Hibernate pencarian {@link Mahasiswa} sesuai filter aktif (NIM/rentang NIM/
+	 * nama/fakultas/jurusan/tahun angkatan/status mahasiswa pada semester+tahun akademik berjalan).
+	 *
+	 * @param order bila {@code true}, menambahkan pengurutan tahun angkatan menurun lalu NIM menaik
+	 * @return kriteria siap dieksekusi
+	 */
 	public Criteria initCriteria(boolean order) {
 
 		StatusMahasiswa statusMahasiswa = (StatusMahasiswa) (searchstatusmahasiswa.getSelectedItem() == null ? null
@@ -403,6 +429,7 @@ public class AmbilDataMahasiswaForAsramaHelper {
 		return criteria;
 	}
 
+	/** Menjalankan ulang pencarian ({@link #initCriteria(boolean)}) dan me-render ulang grid mahasiswa (paging 50 baris/halaman). */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

@@ -52,6 +52,17 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper jendela modal untuk mendaftarkan banyak {@link Mahasiswa} sekaligus sebagai
+ * peserta ({@link FormulirKegiatanPeserta}) pada satu {@link FormulirKegiatan}. Filter
+ * Fakultas/Prodi dikunci otomatis ke fakultas/jurusan kegiatan bila kegiatan sudah
+ * membatasi keduanya. Mahasiswa yang sudah terdaftar ditampilkan dengan checkbox
+ * tercentang dan dinonaktifkan (tidak dapat dibatalkan dari sini). Bila kegiatan
+ * tergabung dalam {@code grupFormulirKegiatan}, penyimpanan mencegah pendaftaran ganda
+ * lintas kegiatan dalam grup yang sama — mahasiswa yang sudah terdaftar di kegiatan lain
+ * pada grup tersebut ditolak dengan pesan yang menyebutkan nama kegiatan terkait.
+ * Setiap peserta baru diberi {@code kode} berurutan 5 digit unik per kegiatan.
+ */
 public class AmbilDataMahasiswaForFormulirKegiatanHelper {
 
 	private FormulirKegiatan formulirKegiatan;
@@ -70,6 +81,14 @@ public class AmbilDataMahasiswaForFormulirKegiatanHelper {
 
 	private Paging paging;
 
+	/**
+	 * Menyiapkan combobox filter Fakultas/Prodi/Status Mahasiswa dan paging (50
+	 * baris/halaman). Bila {@code formulirKegiatan} sudah menetapkan fakultas/jurusan
+	 * tertentu, combobox terkait langsung dipilih dan dikunci ({@code setDisabled(true)})
+	 * agar pencarian tidak dapat keluar dari lingkup kegiatan.
+	 *
+	 * @param formulirKegiatan kegiatan yang pesertanya akan ditambahkan
+	 */
 	public AmbilDataMahasiswaForFormulirKegiatanHelper(FormulirKegiatan formulirKegiatan) {
 		this.formulirKegiatan = formulirKegiatan;
 		Fakultas fakultas = formulirKegiatan.getFakultas();
@@ -127,8 +146,15 @@ public class AmbilDataMahasiswaForFormulirKegiatanHelper {
 
 	}
 
+	/** Perender baris grid mahasiswa: checkbox (dikunci tercentang bila sudah terdaftar sebagai peserta) dan label identitas. */
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Merender satu baris {@link Mahasiswa}: checkbox yang tercentang DAN
+		 * dinonaktifkan bila mahasiswa sudah terdaftar sebagai
+		 * {@link FormulirKegiatanPeserta} pada {@link #formulirKegiatan}, lalu label
+		 * NIM/Nama/Tahun Angkatan.
+		 */
 		@Override
 		public void render(Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");
@@ -153,6 +179,18 @@ public class AmbilDataMahasiswaForFormulirKegiatanHelper {
 		}
 	}
 
+	/**
+	 * Mendaftarkan setiap mahasiswa yang checkbox-nya tercentang dan tidak dinonaktifkan
+	 * sebagai peserta {@link #formulirKegiatan}. Bila kegiatan tergabung dalam
+	 * {@code grupFormulirKegiatan}, terlebih dahulu dicek apakah mahasiswa sudah
+	 * terdaftar pada kegiatan lain (siswa/guru/mahasiswa/dosen) dalam grup yang sama —
+	 * bila ya, PROSES SELURUH PENYIMPANAN DIHENTIKAN (return) dengan pesan peringatan
+	 * yang menyebutkan nama kegiatan konflik, sehingga baris-baris lain yang belum
+	 * sempat diproses pada iterasi tersebut tidak ikut tersimpan. Peserta baru diberi
+	 * {@code kode} 5 digit berurutan berdasarkan jumlah peserta yang sudah ada.
+	 *
+	 * @throws InterruptedException tidak pernah dilempar secara nyata pada implementasi saat ini
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() throws InterruptedException {
 		Session session = HibernateUtil.currentSession();
@@ -226,6 +264,14 @@ public class AmbilDataMahasiswaForFormulirKegiatanHelper {
 
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela modal "Ambil Data Mahasiswa": form filter
+	 * (NIM/rentang NIM/Nama/Fakultas/Tahun Angkatan/Prodi/Status Mahasiswa), grid
+	 * berpaging dengan checkbox "pilih semua" pada header, dan tombol Simpan/Batal.
+	 *
+	 * @param dataLoader callback pemuatan ulang data pemanggil setelah Simpan
+	 * @param window     jendela ZK yang akan diisi dan ditampilkan sebagai modal
+	 */
 	public void display(final DataLoader dataLoader, final MyWindow window) {
 
 		Common.clear(window);
@@ -454,6 +500,15 @@ public class AmbilDataMahasiswaForFormulirKegiatanHelper {
 		}
 	}
 
+	/**
+	 * Membangun kriteria pencarian mahasiswa aktif sesuai seluruh filter form. Filter
+	 * status mahasiswa dievaluasi lewat sub-query SQL native ke
+	 * {@code history_status_mahasiswa} untuk tahun akademik dan paritas semester
+	 * (ganjil/genap) yang sedang berjalan saat ini.
+	 *
+	 * @param order tambahkan pengurutan (tahun angkatan menurun, lalu NIM menaik) bila {@code true}
+	 * @return kriteria Hibernate atas {@link Mahasiswa}
+	 */
 	public Criteria initCriteria(boolean order) {
 
 		StatusMahasiswa statusMahasiswa = (StatusMahasiswa) (searchstatusmahasiswa.getSelectedItem() == null ? null
@@ -495,6 +550,12 @@ public class AmbilDataMahasiswaForFormulirKegiatanHelper {
 		return criteria;
 	}
 
+	/**
+	 * Memuat ulang grid mahasiswa sesuai {@link #initCriteria(boolean)}, menggunakan
+	 * paging 50 baris/halaman ({@link Common#initPaging50}).
+	 *
+	 * @param event tidak digunakan; parameter kontrak listener/pemanggilan langsung
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

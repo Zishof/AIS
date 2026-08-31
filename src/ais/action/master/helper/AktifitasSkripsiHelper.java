@@ -55,12 +55,36 @@ import ais.ui.util.MyInclude;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper tampilan detail lengkap aktivitas bimbingan skripsi/tugas akhir untuk satu
+ * {@link Skripsi}, menyerupai timeline e-learning perkuliahan tetapi untuk konteks bimbingan
+ * skripsi. {@link #initDetail} merakit tab-tab (via {@link MyButtonTabbox}): "Agenda Revisi
+ * Skripsi atau Tugas Akhir" (timeline pertemuan bimbingan dengan diskusi, absensi, video
+ * conference, status kehadiran dosen), "Referensi" (referensi diajukan, buku, bahan ajar,
+ * artikel — dimuat lazy), "Penilaian" (hanya setelah sidang disetujui), "Laporan" (cetak lembar
+ * konsultasi revisi PDF), dan "Pengajuan Wisuda" (hanya setelah sidang disetujui).
+ *
+ * <p>
+ * Toolbar aksi utama ({@link #initAgendaSkripsi}) hanya menampilkan tombol Agenda
+ * Sidang/Revisi, ambil jadwal, ekspor DSpace, kalender, dan integrasi ruang kelas virtual
+ * ketika {@link Skripsi#getSetujuiSidang()} bernilai {@code true} — sebelum sidang disetujui,
+ * hanya tombol Absensi, Recovery Pertemuan, dan Refresh yang tampil.
+ * </p>
+ *
+ * <p>
+ * Bila skripsi sudah punya tanggal sidang tetapi belum punya satu pun {@link Pertemuan}
+ * terkait, {@link #initDetail} otomatis membuat satu pertemuan "Sidang atau persiapan sidang"
+ * pada tanggal sidang tersebut sebelum menampilkan timeline (self-healing data agar tanggal
+ * sidang selalu punya representasi agenda).
+ * </p>
+ */
 public class AktifitasSkripsiHelper {
 
 	protected PenjadwalanSkripsiHelper penjadwalanHelper = new PenjadwalanSkripsiHelper();
 
 	private Mahasiswa userMahasiswa = null;
 
+	/** Menyimpan referensi {@link Mahasiswa} pengguna saat ini (bila pengguna login adalah mahasiswa), dipakai untuk personalisasi tampilan timeline. */
 	public AktifitasSkripsiHelper() {
 		try {
 			Tbmuser tbmuser = Common.getCurrentUser();
@@ -70,6 +94,16 @@ public class AktifitasSkripsiHelper {
 		}
 	}
 
+	/**
+	 * Membangun toolbar aksi agenda skripsi: Agenda Sidang dan Revisi (tampil hanya bila
+	 * {@code skripsi.getSetujuiSidang()}), Absensi, dan — hanya setelah sidang disetujui —
+	 * tombol ambil jadwal, ekspor DSpace, kalender, serta tombol integrasi ruang kelas virtual
+	 * ({@link ClassRoomUtil}). Tombol Recovery Pertemuan dan Refresh selalu tampil.
+	 *
+	 * @param skripsi    skripsi yang agendanya dikelola
+	 * @param dataLoader callback disegarkan setelah aksi pada toolbar mengubah data
+	 * @return toolbar siap ditempelkan ke parent ZK
+	 */
 	public Toolbar initAgendaSkripsi(final Skripsi skripsi, final DataLoader dataLoader) {
 
 		Toolbar hbox = new Toolbar();
@@ -139,10 +173,25 @@ public class AktifitasSkripsiHelper {
 		return hbox;
 	}
 
+	/** Varian {@link #initDetail(Skripsi, DataLoader, MyDiv)} tanpa {@link DataLoader} eksplisit — memakai callback default yang cukup memanggil ulang {@code initDetail} untuk menyegarkan tampilan. */
 	public void initDetail(final Skripsi skripsi, final MyDiv groupbox) throws Exception {
 		initDetail(skripsi, null, groupbox);
 	}
 
+	/**
+	 * Merakit seluruh tampilan detail aktivitas skripsi ke dalam {@code groupbox}: tab Agenda
+	 * (timeline pertemuan bimbingan berpaging satu-per-halaman, otomatis membuka halaman
+	 * pertemuan terkini/lampau pertama), Referensi, Penilaian, Laporan, dan Pengajuan Wisuda.
+	 * Bila belum ada pertemuan tetapi tanggal sidang sudah ditentukan, membuat satu pertemuan
+	 * "sidang/persiapan sidang" otomatis lalu memuat ulang tampilan (lihat javadoc kelas).
+	 * Urutan tampil pertemuan mengikuti preferensi pengguna
+	 * {@code urutkan_diskusi_berdasarkan_terlama}.
+	 *
+	 * @param skripsi     skripsi yang detailnya ditampilkan
+	 * @param mydataLoader callback penyegaran custom; bila {@code null}, dibuatkan callback
+	 *                     default yang memanggil ulang method ini
+	 * @param groupbox    kontainer yang akan diisi (isi sebelumnya dibersihkan)
+	 */
 	public void initDetail(final Skripsi skripsi, final DataLoader mydataLoader, final MyDiv groupbox)
 			throws Exception {
 
@@ -450,6 +499,13 @@ public class AktifitasSkripsiHelper {
 
 	private Toolbar toolbar;
 
+	/**
+	 * Menambahkan tab "Laporan" (dimuat lazy) yang menampilkan pratinjau PDF laporan "lembar
+	 * konsultasi revisi" untuk {@code skripsi}, lengkap dengan toolbar ekspor
+	 * ({@link CommonReport#exportReport}). Parameter laporan disusun dari id skripsi, rentang
+	 * tanggal bimbingan (awal/akhir), dan seluruh properti entitas {@link Skripsi} (lewat
+	 * {@link Common#insertProperty}).
+	 */
 	public void initCetak(MyButtonTabbox tabbox, final Skripsi skripsi) {
 		final Div tabpanelMonitor = tabbox.tambahTabLazy(4, "Laporan", new MyButtonTabbox.PemuatTab() {
 			@SuppressWarnings({ "unchecked", "rawtypes" })
@@ -503,6 +559,7 @@ public class AktifitasSkripsiHelper {
 		setPanelDetailTinggi(tabpanelMonitor);
 	}
 
+	/** Mengatur tinggi minimum 3000px + scroll vertikal pada panel tab (bila komponen HTML), agar konten timeline yang panjang tetap dapat digulir dengan wajar dalam tabbox. */
 	private void setPanelDetailTinggi(Component tabpanel) {
 		if (tabpanel == null) {
 			return;

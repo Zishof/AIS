@@ -48,6 +48,20 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper "pilih dari daftar" untuk menugaskan dosen pengajar ke satu {@link PertemuanKedokteran}
+ * (pertemuan pada modul kedokteran), lewat relasi {@link PertemuanHasDosen}. Struktur dan alur
+ * kerjanya identik dengan {@link AmbilDataDosenHelper} (yang mengelola {@code TimDosen} untuk
+ * perkuliahan biasa) — modal pencarian dosen aktif (nama/fakultas/prodi) dengan checkbox status
+ * tertaut per baris, di mana perubahan baru benar-benar disimpan/dihapus saat {@link #save()}
+ * dipanggil (tombol Simpan), bukan saat checkbox diklik.
+ *
+ * <p>
+ * {@link #deletedDosens} menampung relasi yang di-uncheck lewat listener {@code onCheck} pada
+ * baris grid (termasuk baris yang mungkin sudah tidak lagi ditampilkan setelah pencarian ulang),
+ * dan dihapus eksplisit di akhir {@link #save()} agar tidak tertinggal.
+ * </p>
+ */
 public class AmbilDataDosenKedokteranHelper {
 	private MyGrid grid;
 
@@ -60,10 +74,12 @@ public class AmbilDataDosenKedokteranHelper {
 
 	private PertemuanKedokteran pertemuanKedokteran;
 
+	/** Membuat helper dan menginisialisasi combobox pencarian fakultas/jurusan (termasuk opsi "Semua"). */
 	public AmbilDataDosenKedokteranHelper() {
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 	}
 
+	/** Perender baris grid: checkbox status penugasan dosen ke pertemuan (dengan listener yang menandai/melepas entri {@link #deletedDosens}), plus label NIP, nama, jurusan, dan fakultas dosen. */
 	class DosenRenderer extends ais.ui.util.MyRowRenderer {
 		private PertemuanHasDosenDao pertemuanHasDosenDao = DaoFactory.getInstance().getPertemuanHasDosenDao();
 		private Session session = pertemuanHasDosenDao.getCurrentSession();
@@ -109,6 +125,12 @@ public class AmbilDataDosenKedokteranHelper {
 		}
 	}
 
+	/**
+	 * Menyinkronkan status checkbox seluruh baris grid yang saat ini ditampilkan ke tabel relasi
+	 * {@link PertemuanHasDosen}: baris tercentang membuat/mempertahankan penugasan, baris tak
+	 * tercentang menghapusnya (bila ada). Setelah itu, seluruh entri pada {@link #deletedDosens}
+	 * juga dihapus. Kegagalan per baris ditelan.
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() {
 		PertemuanHasDosenDao pertemuanHasDosenDao = DaoFactory.getInstance().getPertemuanHasDosenDao();
@@ -168,6 +190,17 @@ public class AmbilDataDosenKedokteranHelper {
 
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela modal pengaturan dosen pengajar untuk
+	 * {@code pertemuanKedokteran} yang diberikan: form pencarian nama/fakultas/prodi, grid
+	 * ber-paging server-side dengan checkbox per baris, dan tombol Cari/Simpan/Batal.
+	 *
+	 * @param pertemuanHasDosen    parameter diterima untuk kompatibilitas signature, tidak dipakai
+	 *                              langsung di badan method (konteks penugasan diambil dari
+	 *                              {@code pertemuanKedokteran})
+	 * @param pertemuanKedokteran  pertemuan kedokteran yang dosen pengajarnya akan diatur
+	 * @param dataLoader           callback penyegar tampilan pemanggil setelah simpan
+	 */
 	public void display(PertemuanHasDosen pertemuanHasDosen, PertemuanKedokteran pertemuanKedokteran,
 			final DataLoader dataLoader) {
 		this.pertemuanKedokteran = pertemuanKedokteran;
@@ -352,6 +385,13 @@ public class AmbilDataDosenKedokteranHelper {
 		});
 	}
 
+	/**
+	 * Menjalankan pencarian dosen aktif berdasarkan nama (ilike) dan filter jurusan/fakultas —
+	 * dosen dengan {@code milikUniversitas = true} selalu lolos filter jurusan/fakultas. Memuat
+	 * ulang grid dengan hasilnya.
+	 *
+	 * @param event event pemicu (tombol Cari/paging), tidak dipakai langsung
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

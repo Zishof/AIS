@@ -4,12 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.hibernate.Session;
-import org.hibernate.criterion.Projections;
-import org.hibernate.criterion.Restrictions;
 
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
-import ais.database.model.Mahasiswa;
 import ais.database.model.Perkuliahan;
 
 public class IsmNimGenerator implements NimGenerator {
@@ -26,7 +23,7 @@ public class IsmNimGenerator implements NimGenerator {
 		String nim = "-";
 
 		if (calonMahasiswa.getProdiLulus() != null) {
-			Session session = HibernateUtil.currentNativeSession();
+			Session session = HibernateUtil.openSession();
 
 			Integer tahun = calonMahasiswa.getTahun();
 
@@ -51,15 +48,10 @@ public class IsmNimGenerator implements NimGenerator {
 
 			String digitKeEnam = calonMahasiswa.getJenisSemester().equals(Perkuliahan.GANJIL) ? "1" : "2";
 
-			Long jumlah = ((Number) session.createCriteria(Mahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))).setProjection(Projections.rowCount())
-					.add(Restrictions.eq("tahunangkatan", tahun))
-					.add(Restrictions.eq("program", calonMahasiswa.getProgram()))
-					.add(Restrictions.eq("jurusan", calonMahasiswa.getProdiLulus())).setMaxResults(1).uniqueResult())
-							.longValue();
-
-			jumlah += jumlahPengecualian.size();
-			String digitTujuh = "000000000000" + (jumlah + 1);
-			digitTujuh = digitTujuh.substring(digitTujuh.length() - 3);
+			String prefix = "4" + digitPertama + digitKedua + digitKetiga + digitKeempat + digitKelima + digitKeEnam;
+			long nomorUrut = NimGeneratorSupport.nomorUrutBerikutnya(session, prefix, 3, calonMahasiswa,
+					jumlahPengecualian);
+			String digitTujuh = NimGeneratorSupport.leftPadNomor(nomorUrut, 3);
 
 			System.out.println("digit pertama (kode tahun masuk) = " + digitPertama);
 			System.out.println("digit kedua (pindahan atau bukan) = " + digitKedua);
@@ -71,12 +63,10 @@ public class IsmNimGenerator implements NimGenerator {
 
 			nim = "4" + digitPertama + digitKedua + digitKetiga + digitKeempat + digitKelima + digitKeEnam + digitTujuh;
 
-			Integer count = ((Number) session.createCriteria(Mahasiswa.class).add(Restrictions.eq("nim", nim))
-					.setProjection(Projections.count("nim")).uniqueResult()).intValue();
+			boolean nimSudahDipakai = NimGeneratorSupport.nimSudahDipakai(session, nim, calonMahasiswa);
+			HibernateUtil.closeSessionQuietly(session);
 
-			HibernateUtil.closeSession();
-
-			if (!count.equals(0)) {
+			if (nimSudahDipakai) {
 				jumlahPengecualian.add(nim);
 				return generateNim(calonMahasiswa, jumlahPengecualian);
 			}

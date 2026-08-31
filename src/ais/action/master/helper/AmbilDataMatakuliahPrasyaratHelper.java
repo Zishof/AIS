@@ -47,6 +47,21 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK berbentuk dialog pencarian-dan-pilih untuk menetapkan mata kuliah prasyarat
+ * ({@link MatakuliahPrasyarat}) bagi satu {@link Matakuliah} target. Dialog menampilkan grid
+ * berpaging server-side (mold "paging") seluruh mata kuliah aktif dengan filter kode/nama,
+ * fakultas, prodi, dan jenjang; checkbox tiap baris tercentang otomatis bila relasi prasyarat
+ * ke {@link #matakuliah} target sudah ada, dan kolom "Prasyarat" menampilkan daftar prasyarat
+ * yang sudah ditetapkan sebelumnya (via {@link
+ * ais.action.master.MatakuliahPrasyaratAction#tampilPrasyarat}).
+ *
+ * <p>
+ * {@link #save()} hanya MENAMBAH/memperbarui relasi untuk baris yang tercentang saat disimpan —
+ * tidak menghapus relasi yang tidak lagi tercentang (baris yang checkbox-nya dilepas tetap
+ * dibiarkan apa adanya, hanya baris tercentang yang diproses {@code saveOrUpdate}).
+ * </p>
+ */
 public class AmbilDataMatakuliahPrasyaratHelper {
 
 	private Matakuliah matakuliah;
@@ -61,6 +76,7 @@ public class AmbilDataMatakuliahPrasyaratHelper {
 	private Combobox searchjurusan = new Combobox();
 	private Combobox searchjenjang = new Combobox();
 
+	/** Menyiapkan combobox filter jenjang, fakultas, dan jurusan (masing-masing dengan opsi "Semua"). */
 	public AmbilDataMatakuliahPrasyaratHelper() {
 
 		Common.insertComboDanSemua(searchjenjang, "nama", Jenjang.class,
@@ -69,6 +85,7 @@ public class AmbilDataMatakuliahPrasyaratHelper {
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 	}
 
+	/** Renderer baris kandidat prasyarat: checkbox (tercentang bila relasi prasyarat ke {@link #matakuliah} sudah ada), nama, daftar prasyarat yang sudah ditetapkan, SKS, status, jenis, fakultas/jurusan/jenjang. */
 	class MatakuliahRenderer extends ais.ui.util.MyRowRenderer {
 
 		private MatakuliahDao matakuliahPrasyaratDao = DaoFactory.getInstance().getMatakuliahDao();
@@ -109,6 +126,11 @@ public class AmbilDataMatakuliahPrasyaratHelper {
 
 	}
 
+	/**
+	 * Menyimpan relasi {@link MatakuliahPrasyarat} untuk setiap baris grid yang checkbox-nya
+	 * tercentang (mencari relasi existing lebih dulu agar tidak duplikat). Baris yang tidak
+	 * tercentang TIDAK memicu penghapusan relasi apa pun — method ini hanya bersifat aditif.
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() {
 		MatakuliahPrasyaratDao matakuliahPrasyaratDao = DaoFactory.getInstance().getMatakuliahPrasyaratDao();
@@ -142,6 +164,15 @@ public class AmbilDataMatakuliahPrasyaratHelper {
 
 	}
 
+	/**
+	 * Titik masuk utama: membangun dialog pencarian (filter fakultas/kode/prodi/jenjang/nama) dan
+	 * grid berpaging kandidat prasyarat untuk {@code matakuliah} target, dengan tombol Simpan
+	 * (memanggil {@link #save()}) / Batal.
+	 *
+	 * @param matakuliah mata kuliah target yang prasyaratnya ditetapkan
+	 * @param dataLoader dipanggil untuk memuat ulang tampilan pemanggil setelah simpan
+	 * @param window     window pembungkus dialog (dibersihkan dan diisi ulang)
+	 */
 	public void display(final Matakuliah matakuliah, final DataLoader dataLoader, final MyWindow window) {
 
 		this.matakuliah = matakuliah;
@@ -368,6 +399,7 @@ public class AmbilDataMatakuliahPrasyaratHelper {
 		}
 	}
 
+	/** Memuat ulang grid kandidat mata kuliah (maks {@link Common#MAX_RESULT} baris) sesuai filter aktif. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

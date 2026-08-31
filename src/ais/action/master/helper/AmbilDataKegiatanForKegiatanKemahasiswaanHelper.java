@@ -42,6 +42,20 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper composer ZK berbentuk window modal untuk memilih {@link KegiatanKemahasiswaan} (kegiatan
+ * kemahasiswaan, mis. seminar/organisasi/lomba yang menjadi poin SKKM) yang akan diikutsertakan
+ * oleh satu {@link Mahasiswa}, lalu mendaftarkan keikutsertaannya lewat baris
+ * {@link KegiatanKemahasiswaanPunyaMahasiswa}.
+ *
+ * <p>
+ * Kandidat kegiatan dibatasi pada yang {@code bolehDipilih}, kelompoknya
+ * {@code bisaDipilihMahasiswa} dan {@code aktif}, serta berstatus
+ * {@link KegiatanKemahasiswaan#DISETUJUI}, difilter opsional berdasarkan nama. Kegiatan yang
+ * mahasiswa sudah ikuti ditampilkan tercentang sekaligus disabled (tidak bisa di-uncheck dari sini).
+ * Paging server-side (50 baris/halaman) dipakai lewat {@link Common#initPaging50}.
+ * </p>
+ */
 public class AmbilDataKegiatanForKegiatanKemahasiswaanHelper {
 
 	private Mahasiswa mahasiswa;
@@ -53,6 +67,7 @@ public class AmbilDataKegiatanForKegiatanKemahasiswaanHelper {
 
 	private Paging paging;
 
+	/** @param mahasiswa mahasiswa yang akan didaftarkan ke kegiatan kemahasiswaan terpilih */
 	public AmbilDataKegiatanForKegiatanKemahasiswaanHelper(Mahasiswa mahasiswa) {
 		this.mahasiswa = mahasiswa;
 
@@ -67,6 +82,12 @@ public class AmbilDataKegiatanForKegiatanKemahasiswaanHelper {
 
 	}
 
+	/**
+	 * Perender baris grid untuk satu {@link KegiatanKemahasiswaan}: checkbox pilih (tercentang
+	 * dan disabled bila {@link #mahasiswa} sudah tercatat mengikuti kegiatan tersebut) serta label
+	 * nama, fakultas/jurusan sasaran ("Semua" bila tidak dibatasi), kelompok dan detail kelompok
+	 * kegiatan, dan keterangan.
+	 */
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -99,6 +120,15 @@ public class AmbilDataKegiatanForKegiatanKemahasiswaanHelper {
 		}
 	}
 
+	/**
+	 * Mendaftarkan {@link #mahasiswa} ke setiap {@link KegiatanKemahasiswaan} yang checkbox-nya
+	 * tercentang dan tidak disabled, dengan membuat baris {@link KegiatanKemahasiswaanPunyaMahasiswa}
+	 * baru (mencatat user pelaku lewat {@link Common#getCurrentUser()} dan asal perubahan
+	 * {@code MahasiswaAction}) bila belum ada baris serupa. Baris grid yang child pertamanya bukan
+	 * checkbox (mis. baris non-data) dilewati.
+	 *
+	 * @throws InterruptedException tidak pernah dilempar secara eksplisit di implementasi ini
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() throws InterruptedException {
 		Session session = HibernateUtil.currentSession();
@@ -143,6 +173,14 @@ public class AmbilDataKegiatanForKegiatanKemahasiswaanHelper {
 
 	}
 
+	/**
+	 * Membangun window modal "Ambil Data Kegiatan Kemahasiswaan" berisi filter nama kegiatan dan
+	 * grid berpaging kegiatan yang bisa dipilih. Tombol "Simpan" memanggil {@link #save()}, memuat
+	 * ulang data pemanggil, lalu menyembunyikan window.
+	 *
+	 * @param dataLoader callback muat-ulang data pemanggil setelah simpan
+	 * @param window     window modal tempat UI dibangun
+	 */
 	public void display(final DataLoader dataLoader, final MyWindow window) {
 
 		Common.clear(window);
@@ -327,6 +365,15 @@ public class AmbilDataKegiatanForKegiatanKemahasiswaanHelper {
 		}
 	}
 
+	/**
+	 * Membangun kriteria Hibernate untuk {@link KegiatanKemahasiswaan} yang bisa dipilih mahasiswa
+	 * (lihat javadoc kelas untuk syarat lengkap), difilter opsional berdasarkan nama (ILIKE
+	 * anywhere dari isi {@link #nama}).
+	 *
+	 * @param order bila {@code true}, hasil diurutkan berdasarkan tanggal mulai menurun lalu id
+	 *              menurun
+	 * @return criteria siap dieksekusi, dipakai untuk memuat data maupun untuk paging
+	 */
 	public Criteria initCriteria(boolean order) {
 
 		Session session = HibernateUtil.currentSession();
@@ -348,6 +395,12 @@ public class AmbilDataKegiatanForKegiatanKemahasiswaanHelper {
 		return criteria;
 	}
 
+	/**
+	 * Memuat satu halaman (50 baris) hasil {@link #initCriteria(boolean)} ke grid, sesuai halaman
+	 * aktif pada {@link #paging}.
+	 *
+	 * @param event tidak dipakai
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

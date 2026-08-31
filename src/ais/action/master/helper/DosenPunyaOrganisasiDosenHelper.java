@@ -61,6 +61,23 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Composer ZK untuk grid keanggotaan dosen pada organisasi dosen ({@link OrganisasiDosenPunyaDosen}).
+ * Dapat dipakai dalam dua konteks: (1) menampilkan seluruh organisasi milik satu {@link Dosen}
+ * (konstruktor {@link #DosenPunyaOrganisasiDosenHelper()}, dipanggil lewat {@link #display}), atau
+ * (2) menampilkan seluruh dosen anggota satu organisasi/jabatan/tahun tertentu (konstruktor
+ * {@link #DosenPunyaOrganisasiDosenHelper(OrganisasiDosen, JabatanOrganisasiDosen, Integer)}).
+ * Setiap baris memuat foto+identitas dosen, nama organisasi, rentang mulai-sampai, jabatan, keterangan,
+ * unggahan lampiran SK/surat keterangan, serta status persetujuan.
+ *
+ * <p>
+ * Hak edit satu baris ditentukan oleh dua kondisi independen: dosen yang login adalah pemilik baris
+ * dan datanya belum disetujui ({@code bolehEdit}), atau dosen yang login adalah atasan langsung dosen
+ * pemilik baris ({@code merupakanAtasanLangsung}) — kombinasi ini memungkinkan alur persetujuan
+ * berjenjang, di mana atasan langsung dapat mencentang "Setujui" untuk mengunci data bawahannya dari
+ * perubahan lebih lanjut.
+ * </p>
+ */
 public class DosenPunyaOrganisasiDosenHelper implements DataLoader, DataCriteria {
 
 	private MyGrid grid;
@@ -74,6 +91,7 @@ public class DosenPunyaOrganisasiDosenHelper implements DataLoader, DataCriteria
 	private Integer tahun = null;
 	private OrganisasiDosenPunyaDosen organisasiDosenPunyaDosen;
 
+	/** Membuat helper dalam mode "organisasi milik satu dosen" (filter organisasi/jabatan/tahun kosong). */
 	public DosenPunyaOrganisasiDosenHelper() {
 
 		tbmuser = Common.getCurrentUser();
@@ -88,6 +106,14 @@ public class DosenPunyaOrganisasiDosenHelper implements DataLoader, DataCriteria
 		});
 	}
 
+	/**
+	 * Membuat helper dalam mode "anggota satu organisasi", menetapkan filter tetap organisasi/
+	 * jabatan/tahun yang akan selalu diterapkan pada {@link #initCriteria(boolean)}.
+	 *
+	 * @param organisasiDosen        organisasi yang anggotanya ditampilkan, boleh {@code null}
+	 * @param jabatanOrganisasiDosen filter jabatan, boleh {@code null}
+	 * @param tahun                  filter tahun keanggotaan, boleh {@code null}
+	 */
 	public DosenPunyaOrganisasiDosenHelper(OrganisasiDosen organisasiDosen,
 			JabatanOrganisasiDosen jabatanOrganisasiDosen, Integer tahun) {
 		tbmuser = Common.getCurrentUser();
@@ -104,6 +130,7 @@ public class DosenPunyaOrganisasiDosenHelper implements DataLoader, DataCriteria
 		});
 	}
 
+	/** Row renderer grid: identitas dosen, nama organisasi, rentang tanggal/jabatan/keterangan (editable bagi pemilik data atau atasan langsungnya bila belum disetujui), unggahan SK, checkbox/label persetujuan, dan tombol hapus. */
 	class DetailDosenRenderer extends ais.ui.util.MyRowRenderer {
 
 		public DetailDosenRenderer() {
@@ -312,6 +339,14 @@ public class DosenPunyaOrganisasiDosenHelper implements DataLoader, DataCriteria
 
 	}
 
+	/**
+	 * Membangun kriteria Hibernate {@link OrganisasiDosenPunyaDosen} sesuai filter tetap (organisasi/
+	 * jabatan/tahun bila diberikan di konstruktor) ditambah filter dinamis (dosen, pencarian nama).
+	 * Bila pengguna login adalah dosen, pencarian per-dosen juga mencakup baris bawahan langsungnya.
+	 *
+	 * @param order bila {@code true}, menambahkan pengurutan id menurun (terbaru dulu)
+	 * @return kriteria siap dieksekusi
+	 */
 	public Criteria initCriteria(boolean order) {
 		Long loginAtasan = tbmuser != null && tbmuser.ambilDosen() != null && tbmuser.hakAkses().getRoleId().equalsIgnoreCase("dosen") ? tbmuser.getDosen().getId() : null;
 
@@ -345,6 +380,12 @@ public class DosenPunyaOrganisasiDosenHelper implements DataLoader, DataCriteria
 		return criteria;
 	}
 
+	/**
+	 * Memuat ulang halaman keanggotaan organisasi dosen saat ini. Bila field {@code organisasiDosenPunyaDosen}
+	 * (baris yang sedang disorot, mis. hasil "Ambil Organisasi") sudah diisi, baris tersebut dipaksa
+	 * tampil di posisi pertama daftar terlepas dari urutan pagingnya. Parameter {@code value} tidak
+	 * dipakai.
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -383,10 +424,22 @@ public class DosenPunyaOrganisasiDosenHelper implements DataLoader, DataCriteria
 		return this;
 	}
 
+	/** Seperti {@link #display(Dosen, Component, OrganisasiDosenPunyaDosen)} tanpa baris yang disorot khusus. */
 	public void display(Dosen dosen, Component component) {
 		display(dosen, component, null);
 	}
 
+	/**
+	 * Membangun UI grid organisasi dosen (toolbar cari/ambil-organisasi/cetak/unduh) di dalam
+	 * {@code component} dan memuat data awal.
+	 *
+	 * @param dosen                     dosen yang organisasinya ditampilkan (mode "organisasi milik
+	 *                                  dosen"), boleh {@code null} bila helper dipakai mode "anggota
+	 *                                  organisasi" (filter tetap dari konstruktor)
+	 * @param component                 container ZK yang akan diisi
+	 * @param organisasiDosenPunyaDosen baris yang perlu disorot/ditampilkan di posisi pertama, boleh
+	 *                                  {@code null}
+	 */
 	public void display(final Dosen dosen, final Component component,
 			OrganisasiDosenPunyaDosen organisasiDosenPunyaDosen) {
 		this.dosen = dosen;

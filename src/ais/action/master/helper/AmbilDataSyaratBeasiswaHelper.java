@@ -38,6 +38,14 @@ import ais.ui.util.MyPanel;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Jendela pemilihan {@link PersyaratanBeasiswa} (master syarat/form input beasiswa) yang akan
+ * diterapkan pada satu {@link Beasiswa}. Menampilkan grid ber-checkbox dari seluruh syarat
+ * beasiswa aktif (paging server-side lewat {@code AmbilDataPagingHelper}); centang mencerminkan
+ * relasi {@link BeasiswaPunyaPersyaratan} yang sudah ada untuk beasiswa tersebut. Saat disimpan
+ * ({@link #save()}), seluruh relasi lama untuk beasiswa ini dihapus lalu dibuat ulang dari
+ * baris yang tercentang pada grid (replace-all, bukan diff incremental).
+ */
 public class AmbilDataSyaratBeasiswaHelper {
 
 	private Beasiswa beasiswa;
@@ -59,11 +67,13 @@ public class AmbilDataSyaratBeasiswaHelper {
 
 	List<BeasiswaPunyaPersyaratan> delete = new ArrayList<BeasiswaPunyaPersyaratan>();
 
+	/** @param beasiswa beasiswa yang syarat-syaratnya akan dipilih/diedit lewat {@link #display} */
 	public AmbilDataSyaratBeasiswaHelper(Beasiswa beasiswa) {
 		this.beasiswa = beasiswa;
 
 	}
 
+	/** Merender satu baris grid: checkbox status terpilih (dicentang bila relasi {@link BeasiswaPunyaPersyaratan} sudah ada) dan atribut syarat beasiswa (nama, label input, tipe data, nilai, wajib lampiran). */
 	class PersyaratanBeasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -106,6 +116,12 @@ public class AmbilDataSyaratBeasiswaHelper {
 		}
 	}
 
+	/**
+	 * Menyimpan pilihan syarat beasiswa: menghapus seluruh baris {@link BeasiswaPunyaPersyaratan}
+	 * milik {@link #beasiswa} lewat SQL native, lalu membuat baris baru untuk setiap baris grid
+	 * yang checkbox-nya tercentang. Kegagalan membaca satu baris (mis. cast gagal) diabaikan
+	 * secara diam-diam agar tidak menggagalkan penyimpanan baris lain.
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() throws InterruptedException {
 
@@ -156,6 +172,17 @@ public class AmbilDataSyaratBeasiswaHelper {
 	//
 	// }
 
+	/**
+	 * Membangun jendela modal berisi grid syarat beasiswa (dengan checkbox "pilih semua" pada
+	 * header kolom) dan toolbar Simpan/Batal, lalu menampilkannya sebagai modal
+	 * ({@link MyWindow#onModal()}). Tombol Simpan memanggil {@link #save()} sebelum menyembunyikan
+	 * jendela; kedua tombol memanggil {@code eventListener} (bila diberikan) setelah selesai agar
+	 * pemanggil dapat menyegarkan tampilannya.
+	 *
+	 * @param window        jendela yang akan diisi dan ditampilkan sebagai modal
+	 * @param eventListener callback opsional dipanggil setelah jendela ditutup (baik simpan
+	 *                      maupun batal)
+	 */
 	public void display(final MyWindow window, final EventListener eventListener) {
 
 		Common.clear(window);
@@ -306,6 +333,7 @@ public class AmbilDataSyaratBeasiswaHelper {
 		}
 	}
 
+	/** Memuat/menyegarkan grid dengan seluruh {@link PersyaratanBeasiswa} aktif, diurutkan berdasarkan id, memakai paging server-side {@code AmbilDataPagingHelper}. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

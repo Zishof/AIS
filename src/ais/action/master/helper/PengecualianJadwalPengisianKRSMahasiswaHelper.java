@@ -52,6 +52,23 @@ import ais.ui.util.MyPanel;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper composer ZK berbentuk window untuk mengelola daftar
+ * {@link PengecualianJadwalPengisianKRSMahasiswa} — pengecualian per mahasiswa terhadap jadwal
+ * pengisian KRS (Kartu Rencana Studi) baku, mis. memberi rentang tanggal tambahan bagi mahasiswa
+ * tertentu di luar periode KRS reguler.
+ *
+ * <p>
+ * Setiap baris grid dapat diedit langsung di tempat (tahun akademik, jenis semester, tanggal
+ * mulai/sampai — masing-masing auto-save saat berubah) serta dihapus per baris. Data baru
+ * ditambahkan secara massal lewat {@link AmbilDataMahasiswaBanyak} (tombol "Ambil Data
+ * Mahasiswa"): setiap mahasiswa terpilih diberi satu baris pengecualian baru dengan tahun akademik
+ * dan jenis semester berjalan, serta tanggal mulai/sampai default hari ini. Menyediakan juga
+ * cetak/unggah data massal lewat {@link Common#cetakData} dan {@link Common#uploadData}.
+ * Mengimplementasikan {@link DataCriteria}/{@link DataSearchDefault} agar kriteria pencarian dapat
+ * dipakai ulang mekanisme cetak/unggah umum.
+ * </p>
+ */
 public class PengecualianJadwalPengisianKRSMahasiswaHelper implements DataLoader, DataCriteria, DataSearchDefault {
 
 	private MyGrid grid;
@@ -60,10 +77,17 @@ public class PengecualianJadwalPengisianKRSMahasiswaHelper implements DataLoader
 
 	private Textbox nama;
 
+	/** Menyiapkan combobox filter fakultas/jurusan (diisi opsi "Semua" + seluruh data aktif). */
 	public PengecualianJadwalPengisianKRSMahasiswaHelper() {
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 	}
 
+	/**
+	 * Perender baris grid untuk satu {@link PengecualianJadwalPengisianKRSMahasiswa}: identitas
+	 * mahasiswa (NIM, nama, jurusan, fakultas — tampilan saja) serta field yang bisa diedit
+	 * langsung (tahun akademik, jenis semester, tanggal mulai, tanggal sampai — masing-masing
+	 * menyimpan perubahannya begitu berubah) dan tombol hapus baris.
+	 */
 	class PengecualianJadwalPengisianKRSMahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		public PengecualianJadwalPengisianKRSMahasiswaRenderer() {
@@ -229,6 +253,12 @@ public class PengecualianJadwalPengisianKRSMahasiswaHelper implements DataLoader
 		}
 	}
 
+	/**
+	 * Memuat ulang grid dengan hasil {@link #initCriteria(boolean)}, dibatasi
+	 * {@link Common#MAX_RESULT_50} baris.
+	 *
+	 * @param value tidak dipakai; parameter standar {@link DataLoader}
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -241,6 +271,13 @@ public class PengecualianJadwalPengisianKRSMahasiswaHelper implements DataLoader
 
 	}
 
+	/**
+	 * Membangun dan menampilkan window "Daftar pengecualian jadwal KRS mahasiswa": form filter
+	 * (mahasiswa, fakultas, prodi), toolbar (ambil data mahasiswa massal, cetak, unggah, cari), dan
+	 * grid berpaging yang bisa diedit langsung per baris.
+	 *
+	 * @throws InterruptedException tidak pernah dilempar secara eksplisit di implementasi ini
+	 */
 	public void display() throws InterruptedException {
 
 		final MyWindow window = new MyWindow("Daftar pengecualian jadwal KRS mahasiswa", "none", true);
@@ -448,6 +485,14 @@ public class PengecualianJadwalPengisianKRSMahasiswaHelper implements DataLoader
 		window.onModal();
 	}
 
+	/**
+	 * Membangun kriteria Hibernate untuk {@link PengecualianJadwalPengisianKRSMahasiswa} difilter
+	 * berdasarkan NIM/nama mahasiswa (ILIKE anywhere pada kolom {@code nama} textbox), jurusan, dan
+	 * fakultas.
+	 *
+	 * @param order bila {@code true}, hasil diurutkan berdasarkan id menurun (data terbaru dulu)
+	 * @return criteria siap dieksekusi
+	 */
 	@Override
 	public Criteria initCriteria(boolean order) {
 		// TODO Auto-generated method stub
@@ -466,6 +511,7 @@ public class PengecualianJadwalPengisianKRSMahasiswaHelper implements DataLoader
 								: CommonSearchFilterHelper.eqSelectedWithId("fakultas", searchfakultas, false));
 	}
 
+	/** Delegasi ke {@link #loadData(Object)}; implementasi {@link DataSearchDefault}. */
 	@Override
 	public void onSearchDefault(Event event) {
 		loadData(event);

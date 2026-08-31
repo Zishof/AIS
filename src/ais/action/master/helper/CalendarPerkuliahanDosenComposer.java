@@ -48,6 +48,42 @@ import ais.ui.util.MyDatebox;
 import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Composer ZK ({@link GenericForwardComposer}) untuk halaman kalender jadwal mengajar per dosen —
+ * menampilkan seluruh {@link Perkuliahan} aktif di mana {@link Dosen} yang dipilih ({@link #dosen1})
+ * tercatat sebagai salah satu dari sepuluh slot pengampu ({@code dosen1}..{@code dosen10}), pada
+ * kombinasi tahun ajaran dan jenis semester (Ganjil/Genap/Semester Pendek) yang dipilih.
+ *
+ * <p>
+ * Alur utama: user memilih dosen (lewat {@link #dosen1}, sebuah {@code AmbilDataDosenBanbox}),
+ * tahun ajaran, dan jenis semester; setiap perubahan memicu {@link #onRefresh(Event)} yang
+ * membangun ulang {@link SimpleCalendarModel} via {@link #initCalendarModel()} — query
+ * {@link Perkuliahan} dengan kondisi OR di seluruh sepuluh kolom {@code dosenN} (agar dosen yang
+ * dipilih ditemukan pada slot pengampu mana pun) dan didelegasikan ke
+ * {@link CalendarPerkuliahanMahasiswa#initModel} untuk konversi menjadi event kalender ZK.
+ * </p>
+ *
+ * <p>
+ * Interaksi pada komponen {@link #calendars} (drag untuk buat slot baru, klik untuk edit, geser
+ * untuk pindah waktu) ditangani lewat method {@code onEvent*$calendars} standar ZK Calendar:
+ * {@link #onEventCreate$calendars} membuat {@link Perkuliahan} baru dari slot yang digambar lalu
+ * membuka form penjadwalan penuh via {@link #init(Perkuliahan)} (yang mendelegasikan ke
+ * {@link ais.action.master.helper.util.PenjadwalanUtil}, dengan beberapa field seperti dosen
+ * utama/tahun ajaran DINONAKTIFKAN karena sudah ditentukan dari filter kalender);
+ * {@link #onEventEdit$calendars} membuka kembali form yang sama untuk {@link Perkuliahan} yang
+ * diklik, dengan pemeriksaan otorisasi tambahan (dosen hanya boleh mengedit jadwal fakultas/prodi
+ * miliknya sendiri) dan pemeriksaan status buka-tutup penjadwalan via
+ * {@link CommonPenjadwalan#apakahPenjadwalanTidakAktif}. Konfigurasi jam kerja kalender, timezone,
+ * dan interval slot dibaca dari beberapa {@link Konfigurasi} (mis. {@code penjadwalan_jam_mulai},
+ * {@code penjadwalan_jam_selesai}, {@code penjadwalan_timezone}) di {@link #doAfterCompose(Component)}.
+ * </p>
+ *
+ * <p>
+ * Mengimplementasikan {@link OnSearchDefaultListener} sehingga dapat dipakai seragam dengan
+ * komponen pencarian standar AIS lainnya — {@link #onSearchDefault(Event)} hanya mendelegasikan ke
+ * {@link #onRefresh(Event)}.
+ * </p>
+ */
 public class CalendarPerkuliahanDosenComposer extends GenericForwardComposer implements OnSearchDefaultListener {
 
 	protected static final long serialVersionUID = 201011240904L;
@@ -100,6 +136,16 @@ public class CalendarPerkuliahanDosenComposer extends GenericForwardComposer imp
 
 	protected MyCheckboxConfig abaikanWaktuBentrokDenganJadwalLain;
 
+	/**
+	 * Membuka form penjadwalan penuh untuk {@code perkuliahan} (baru atau hasil klik-edit pada
+	 * kalender) lewat {@link ais.action.master.helper.util.PenjadwalanUtil}. Beberapa komponen form
+	 * dinonaktifkan/disembunyikan karena konteksnya sudah ditentukan dari filter kalender (dosen
+	 * utama dan tahun ajaran dikunci, opsi "tanpa dosen"/"tanpa jadwal perkuliahan" disembunyikan) —
+	 * komponen-komponen ini dicek {@code null} dulu karena {@code PenjadwalanUtil} dapat membentuk
+	 * subset komponen berbeda tergantung konfigurasi kampus.
+	 *
+	 * @param perkuliahan entitas perkuliahan yang akan dijadwalkan/diedit
+	 */
 	@SuppressWarnings({})
 	protected void init(final Perkuliahan perkuliahan) throws Exception {
 
@@ -119,11 +165,13 @@ public class CalendarPerkuliahanDosenComposer extends GenericForwardComposer imp
 		if (penjadwalanUtil.merupakan_tanpa_jadwal_perkuliahan != null) penjadwalanUtil.merupakan_tanpa_jadwal_perkuliahan.setVisible(false);
 	}
 
+	/** Membangun ulang model kalender ({@link #initCalendarModel()}) dan memaksa render ulang komponen {@link #calendars}. Dipanggil setiap filter (dosen/tahun ajaran/semester) berubah. */
 	public void onRefresh(Event event) {
 		initCalendarModel();
 		calendars.invalidate();
 	}
 
+	/** Menjalankan pemeriksaan keamanan standar ({@link Common#doCheckSecurity()}) kecuali pada path yang mengandung "common", lalu menyiapkan dropdown waktu 5-menitan via {@link #initTimeDropdown(Page)} sebelum komposisi ZK dimulai. */
 	@Override
 	public ComponentInfo doBeforeCompose(Page page, Component parent, ComponentInfo compInfo) {
 		String path = page.getRequestPath();
@@ -137,6 +185,15 @@ public class CalendarPerkuliahanDosenComposer extends GenericForwardComposer imp
 
 	protected Konfigurasi tampilkanMingguPerkuliahan;
 
+	/**
+	 * Inisialisasi setelah komposisi ZK: mengunci combobox jenis semester (readonly), mengisi
+	 * pilihan tahun ajaran dan jenis semester (Ganjil/Genap/Semester Pendek, dengan default sesuai
+	 * semester berjalan), memasang listener refresh kalender pada {@link #dosen1}, dan
+	 * mengonfigurasi komponen {@link #calendars} (formatter tanggal, jumlah timeslot, jam
+	 * mulai/selesai, dan timezone) dari beberapa {@link Konfigurasi} terkait penjadwalan. Diakhiri
+	 * dengan pemasangan timer default yang memicu {@link #onRefresh(Event)} sekali setelah
+	 * halaman selesai dimuat.
+	 */
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
 
@@ -218,6 +275,7 @@ public class CalendarPerkuliahanDosenComposer extends GenericForwardComposer imp
 		});
 	}
 
+	/** Mengisi {@link #dateTime} dengan 288 label waktu berinterval 5 menit ({@code "00:00"}..{@code "23:55"}), dipakai sebagai sumber dropdown pemilih jam. */
 	protected void initTimeDropdown(Page page) {
 
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
@@ -232,6 +290,16 @@ public class CalendarPerkuliahanDosenComposer extends GenericForwardComposer imp
 		}
 	}
 
+	/**
+	 * Membangun {@link SimpleCalendarModel} berisi seluruh {@link Perkuliahan} aktif di mana dosen
+	 * yang dipilih ({@link #dosen1}) tercatat pada salah satu dari sepuluh kolom pengampu
+	 * ({@code dosen1}..{@code dosen10}), untuk kombinasi tahun ajaran dan jenis semester yang
+	 * dipilih (termasuk penanganan status semester pendek). Bila dosen, tahun ajaran, atau jenis
+	 * semester belum lengkap dipilih, method berhenti tanpa mengubah model. Konversi daftar id
+	 * perkuliahan menjadi event kalender didelegasikan ke
+	 * {@link CalendarPerkuliahanMahasiswa#initModel}, lalu model baru dipasang ke
+	 * {@link #calendars} dan render ulang dipaksa via {@code onInitRender()}.
+	 */
 	@SuppressWarnings("unchecked")
 	protected void initCalendarModel() {
 
@@ -274,6 +342,17 @@ public class CalendarPerkuliahanDosenComposer extends GenericForwardComposer imp
 
 	}
 
+	/**
+	 * Ditangani saat user menggambar slot baru pada kalender: memvalidasi bahwa dosen/tahun
+	 * ajaran/jenis semester sudah dipilih dan penjadwalan periode tersebut masih aktif (via
+	 * {@link CommonPenjadwalan#apakahPenjadwalanTidakAktif}), lalu membuat entitas
+	 * {@link Perkuliahan} baru dengan waktu/hari sesuai slot yang digambar dan dosen1 sudah terisi,
+	 * dan membuka form penjadwalan penuh via {@link #init(Perkuliahan)}.
+	 * {@code evt.stopClearGhost()} mencegah ZK Calendar menghapus tampilan slot "ghost" sebelum
+	 * form penjadwalan selesai diproses.
+	 *
+	 * @param event event forward dari komponen {@link #calendars} berisi {@link CalendarsEvent} asal
+	 */
 	public void onEventCreate$calendars(ForwardEvent event) throws Exception {
 
 		Dosen myDosen = (Dosen) dosen1.getAttribute("dosen");
@@ -312,6 +391,16 @@ public class CalendarPerkuliahanDosenComposer extends GenericForwardComposer imp
 		evt.stopClearGhost();
 	}
 
+	/**
+	 * Ditangani saat user mengklik event {@link Perkuliahan} yang sudah ada pada kalender:
+	 * memvalidasi filter dosen/tahun ajaran/semester terisi, memuat entitas {@link Perkuliahan}
+	 * dari id yang tersimpan di judul event kalender, lalu memeriksa otorisasi — dosen dengan
+	 * fakultas/jurusan spesifik hanya boleh mengedit jadwal milik fakultas/jurusannya sendiri —
+	 * dan memeriksa status buka-tutup penjadwalan periode tersebut sebelum membuka form
+	 * penjadwalan penuh via {@link #init(Perkuliahan)}.
+	 *
+	 * @param event event forward dari komponen {@link #calendars} berisi {@link CalendarsEvent} asal
+	 */
 	public void onEventEdit$calendars(ForwardEvent event) throws Exception {
 
 		Dosen myDosen = (Dosen) dosen1.getAttribute("dosen");
@@ -361,6 +450,7 @@ public class CalendarPerkuliahanDosenComposer extends GenericForwardComposer imp
 
 	}
 
+	/** Menyinkronkan perubahan geser/ubah-ukuran slot pada UI kalender (drag) ke {@link SimpleCalendarEvent} dan model tampilan, tanpa menyimpan ke database. */
 	public void onEventUpdate$calendars(ForwardEvent event) {
 		CalendarsEvent evt = (CalendarsEvent) event.getOrigin();
 		org.zkoss.calendar.Calendars cal = (org.zkoss.calendar.Calendars) evt.getTarget();
@@ -371,6 +461,7 @@ public class CalendarPerkuliahanDosenComposer extends GenericForwardComposer imp
 		m.update(sce);
 	}
 
+	/** Menggeser tampilan kalender ke halaman sebelumnya/berikutnya sesuai tombol panah yang diklik ({@code event.getData()} berisi {@code "arrow-left"} untuk mundur, selain itu maju). */
 	public void onMoveDate(ForwardEvent event) {
 		if ("arrow-left".equals(event.getData()))
 			calendars.previousPage();
@@ -379,11 +470,13 @@ public class CalendarPerkuliahanDosenComposer extends GenericForwardComposer imp
 
 	}
 
+	/** Mengatur tanggal aktif kalender ke tanggal hari ini pada zona waktu default JVM. */
 	public void onToday(ForwardEvent event) {
 		calendars.setCurrentDate(Calendar.getInstance(TimeZone.getDefault()).getTime());
 
 	}
 
+	/** Menukar timezone aktif pertama yang terdaftar pada {@link #calendars} (workaround UI ZK Calendar untuk memicu refresh label timezone). */
 	@SuppressWarnings("rawtypes")
 	public void onSwitchTimeZone(ForwardEvent event) {
 		Map<?, ?> zone = calendars.getTimeZones();
@@ -395,12 +488,14 @@ public class CalendarPerkuliahanDosenComposer extends GenericForwardComposer imp
 
 	}
 
+	/** Mengubah hari pertama minggu kalender sesuai label item yang dipilih pada listbox pemicu. */
 	public void onUpdateFirstDayOfWeek(ForwardEvent event) {
 		Listbox listbox = (Listbox) event.getOrigin().getTarget();
 		calendars.setFirstDayOfWeek(listbox.getSelectedItem().getLabel());
 
 	}
 
+	/** Mengubah mode tampilan kalender: "Day"=1 hari, "5 Days"=5 hari, "Week"=7 hari (mold default), atau mold "month" untuk nilai lainnya. */
 	public void onUpdateView(ForwardEvent event) {
 		String text = String.valueOf(event.getData());
 		int days = "Day".equals(text) ? 1 : "5 Days".equals(text) ? 5 : "Week".equals(text) ? 7 : 0;
@@ -412,6 +507,7 @@ public class CalendarPerkuliahanDosenComposer extends GenericForwardComposer imp
 			calendars.setMold("month");
 	}
 
+	/** Implementasi {@link OnSearchDefaultListener}; mendelegasikan langsung ke {@link #onRefresh(Event)}. */
 	@Override
 	public void onSearchDefault(Event event) {
 		onRefresh(event);

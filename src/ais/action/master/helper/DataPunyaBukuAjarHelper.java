@@ -44,6 +44,23 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper ZK generik untuk menampilkan dan mengelola daftar buku referensi ({@link BukuBahanAjar}
+ * lewat baris relasi {@link DataPunyaBukuBahanAjar}) yang terkait pada salah satu dari lima jenis
+ * entitas induk: {@link Skripsi}, {@link MahasiswaRequestTugasAkhir}, {@link JadwalUjianPMB},
+ * {@link KelompokKkn}, atau {@link KelompokPkl} — pemanggil hanya mengisi salah satu parameter
+ * entitas induk pada {@link #display}, sisanya {@code null}, dan seluruh query/penyimpanan kelas
+ * ini otomatis menyaring/menyertakan berdasarkan kombinasi tersebut.
+ *
+ * <p>
+ * Tombol "Ambil Buku Bahan Ajar" membuka {@link AmbilDataBukuBahanAjarBanyak} (pemilih multi-buku,
+ * dengan buku yang sudah terkait dikecualikan dari daftar pilihan) dan menyimpan setiap buku
+ * terpilih sebagai baris {@link DataPunyaBukuBahanAjar} baru yang terikat ke entitas induk yang
+ * relevan. Setiap baris dapat dibuka ({@link MyDetail}) untuk mengunggah/mengunduh berkas lampiran
+ * buku dan cover lewat {@link ais.database.model.file.LampiranLain}, menampilkan kutipan
+ * ({@code BukuBahanAjarAction#tampilkanKutipan}), atau dihapus.
+ * </p>
+ */
 public class DataPunyaBukuAjarHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -183,6 +200,18 @@ public class DataPunyaBukuAjarHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun kriteria Hibernate untuk {@link DataPunyaBukuBahanAjar}: kondisi OR atas kesamaan
+	 * kelima kolom entitas induk ({@code kelompokPkl}, {@code kelompokKkn},
+	 * {@code mahasiswaRequestTugasAkhir}, {@code skripsi}, {@code jadwalUjianPMB}) terhadap field
+	 * instance kelas ini yang sesuai. Catatan: {@code Restrictions.eq} terhadap parameter bernilai
+	 * {@code null} diterjemahkan Hibernate menjadi kondisi "kolom IS NULL", bukan "diabaikan" — jadi
+	 * kebenaran hasil bergantung pada kontrak pemanggil {@link #display} yang hanya mengisi tepat
+	 * satu dari kelima parameter entitas induk pada satu waktu.
+	 *
+	 * @param order {@code true} untuk mengurutkan hasil berdasarkan id ascending
+	 * @return kriteria Hibernate siap eksekusi/paginasi
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria crit = session.createCriteria(DataPunyaBukuBahanAjar.class)
@@ -201,6 +230,13 @@ public class DataPunyaBukuAjarHelper implements DataLoader {
 		return crit;
 	}
 
+	/**
+	 * Implementasi {@link DataLoader}: memuat ulang halaman aktif daftar buku referensi ke
+	 * {@link #grid}, dan bila komponen induk adalah {@link Tabpanel}, memperbarui label tab terkait
+	 * dengan jumlah buku yang ditemukan.
+	 *
+	 * @param value tidak digunakan
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Common.initPaging(initCriteria(false), paging);
@@ -220,6 +256,18 @@ public class DataPunyaBukuAjarHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun tampilan daftar buku referensi. Pemanggil mengisi tepat satu dari kelima parameter
+	 * entitas induk (sisanya {@code null}) sesuai konteks pemakaian — lihat dokumentasi kelas dan
+	 * catatan pada {@link #initCriteria(boolean)}.
+	 *
+	 * @param skripsi                     entitas induk Skripsi/TA, atau {@code null}
+	 * @param mahasiswaRequestTugasAkhir  entitas induk bimbingan tugas akhir, atau {@code null}
+	 * @param jadwalUjianPMB              entitas induk jadwal ujian PMB, atau {@code null}
+	 * @param kelompokKkn                 entitas induk kelompok KKN, atau {@code null}
+	 * @param kelompokPkl                 entitas induk kelompok PKL, atau {@code null}
+	 * @param component                   komponen ZK induk tempat layar dirender (dibersihkan lebih dulu)
+	 */
 	public void display(final Skripsi skripsi, final MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir,
 			final JadwalUjianPMB jadwalUjianPMB, final KelompokKkn kelompokKkn, final KelompokPkl kelompokPkl,
 			final org.zkoss.zk.ui.Component component) {

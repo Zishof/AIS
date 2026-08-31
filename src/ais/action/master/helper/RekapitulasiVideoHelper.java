@@ -64,12 +64,39 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.SmartDateTimeUtil;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper statis yang menampilkan rekapitulasi seluruh {@link VideoPertemuan} (video rekaman/
+ * link) yang pernah diunggah pada pertemuan-pertemuan milik satu user (mahasiswa/dosen/guru/
+ * siswa), atau dibatasi ke satu {@link VOPembelajaran} bila diberikan. Struktur dan alurnya
+ * sama persis dengan {@link RekapitulasiMateriHelper} (rekap materi), hanya sumber datanya
+ * yang berbeda ({@code video_pertemuan} alih-alih {@code pertemuan_file_content}) — keduanya
+ * dipasang sebagai tab-tab bersaudara pada dasbor e-learning.
+ *
+ * <p>
+ * Rentang pertemuan yang dipertimbangkan mengikuti peran user login (mahasiswa/dosen memakai
+ * peta pertemuan miliknya, guru/siswa sekolah memakai {@link
+ * DashboardTimelinePertemuan#initStaticCriteria}, admin melihat semua). Grid berpaging dengan
+ * halaman awal otomatis diposisikan ke sekitar pertemuan pertama sebelum hari ini; klik baris
+ * membuka detail pertemuan terkait lewat {@link PertemuanHelper}.
+ * </p>
+ */
 public class RekapitulasiVideoHelper {
 
+	/** Seperti {@link #display(Component, Tbmuser, VOPembelajaran)} tanpa pembatasan ke satu {@link VOPembelajaran} tertentu (menampilkan seluruh video milik user). */
 	public static void display(Component parent, final Tbmuser tbmuser) {
 		display(parent, tbmuser, null);
 	}
 
+	/**
+	 * Titik masuk utama: membangun toolbar (pencarian, rentang tanggal — disembunyikan bila
+	 * {@code perkuliahan} diberikan, tombol tambah video baru via {@link
+	 * RekapitulasiUjianHelper#buatbaru}, dan Refresh) diikuti grid berpaging hasil rekapitulasi
+	 * video.
+	 *
+	 * @param parent      komponen induk tempat UI ditempel
+	 * @param tbmuser     user yang rekapnya ditampilkan
+	 * @param perkuliahan bila diisi, batasi rekap hanya ke pertemuan milik mata kuliah/jadwal ini; {@code null} untuk seluruh video milik user
+	 */
 	public static void display(Component parent, final Tbmuser tbmuser, final VOPembelajaran perkuliahan) {
 
 		Borderlayout subBorderlayoutUtama = new Borderlayout();
@@ -156,6 +183,12 @@ public class RekapitulasiVideoHelper {
 		sampai.addEventListener("onChange", eventListener);
 	}
 
+	/**
+	 * Menentukan daftar id {@link Pertemuan} yang relevan bagi {@code tbmuser} (atau bagi
+	 * {@code perkuliahan} tunggal bila diisi) lalu membangun ulang grid+paging berdasarkan daftar
+	 * tersebut. Bila {@code refreh} true, peta pertemuan mahasiswa/dosen disegarkan lebih dulu
+	 * (rentang &plusmn;6 bulan dari filter tanggal) sebelum diambil.
+	 */
 	@SuppressWarnings("unchecked")
 	private static void reload(final Tbmuser tbmuser, final Center center, final Date mulai, final Date sampai,
 			final String cari, boolean refreh, boolean awal, final VOPembelajaran perkuliahan) {
@@ -333,6 +366,12 @@ public class RekapitulasiVideoHelper {
 
 	}
 
+	/**
+	 * Mengambil satu halaman {@link VideoPertemuan} yang termasuk dalam {@code pertemuans} dan
+	 * cocok kata kunci {@code cari}, lalu merender grid. Bila {@code awal} true, halaman aktif
+	 * dihitung ulang agar berada tepat sebelum pertemuan pertama yang tanggalnya sudah lewat hari
+	 * ini (heuristik "lompat ke konten terbaru").
+	 */
 	@SuppressWarnings("unchecked")
 	private static void reload(final List<Long> pertemuans, final Paging paging, final MyGrid grid,
 			final Mahasiswa mahasiswa, boolean awal, final Date mulai, final Date sampai, final String cari,
@@ -409,11 +448,19 @@ public class RekapitulasiVideoHelper {
 		StreamingHibernateUtil.getInstance().closeSession();
 	}
 
+	/**
+	 * Renderer satu baris rekap: menampilkan tombol berlabel nama/link video, pencatat akses
+	 * ({@link TampilanELearningAction#dilihat}), dan tautan info pertemuan yang saat diklik
+	 * membuka detail pertemuan lewat {@link PertemuanHelper}. Klik tombol utama memverifikasi
+	 * syarat akses ({@link ProfileUtil#chekSyarat}) lebih dulu, lalu membuka video (Google Drive
+	 * atau tautan/streaming biasa).
+	 */
 	public static class DetailPertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
 		private Mahasiswa mahasiswa;
 		private BiodataCalonMahasiswa biodataCalonMahasiswa;
 
+		/** @param mahasiswa mahasiswa konteks tampilan (dipakai bila detail pertemuan dibuka); boleh {@code null} */
 		public DetailPertemuanRenderer(Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa) {
 			this.mahasiswa = mahasiswa;
 			this.biodataCalonMahasiswa = biodataCalonMahasiswa;

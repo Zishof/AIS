@@ -62,6 +62,22 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper composer untuk mengelola keanggotaan mahasiswa pada satu {@link OrganisasiIntraKampus}
+ * (organisasi kemahasiswaan intra-kampus, mis. BEM/UKM/himpunan mahasiswa): daftar berpaging
+ * {@link OrganisasiIntraKampusPunyaMahasiswa} dengan filter (nama/NIM, angkatan, fakultas, prodi,
+ * dosen PA), unggah SK/surat keterangan per anggota, persetujuan keanggotaan, unduh/unggah data
+ * massal, serta pembersihan massal anggota yang belum disetujui.
+ *
+ * <p>
+ * Mengimplementasikan {@link DataLoader}/{@link DataCriteria}/{@link DataSearchDefault} agar dapat
+ * dipakai bersama komponen umum seperti {@link Common#cetakDataCustomButton} (download Excel) dan
+ * {@link Common#uploadData} (unggah data massal), yang bekerja generik lewat kontrak-kontrak ini.
+ * Setiap baris grid inline-editable (jabatan, tanggal mulai/sampai, keterangan) dan terkunci
+ * otomatis begitu {@code persetujuan} bernilai {@code true}. Kolom "Setujui" hanya tampil untuk
+ * pengguna BUKAN mahasiswa; mahasiswa hanya melihat label status persetujuan.
+ * </p>
+ */
 public class OrganisasiIntraKampusPunyaMahasiswaHelper implements DataLoader, DataCriteria, DataSearchDefault {
 
 	private MyGrid grid;
@@ -91,6 +107,7 @@ public class OrganisasiIntraKampusPunyaMahasiswaHelper implements DataLoader, Da
 		});
 	}
 
+	/** Perender baris grid: riwayat revisi, unggah/unduh SK-surat keterangan, data mahasiswa, dan field keanggotaan inline-editable (jabatan/mulai/sampai/keterangan, terkunci setelah disetujui) dengan tombol setujui (non-mahasiswa) dan hapus (bila privilese DELETE dimiliki). */
 	class DetailOrganisasiIntraKampusRenderer extends ais.ui.util.MyRowRenderer {
 
 		private boolean delete = false;
@@ -258,6 +275,7 @@ public class OrganisasiIntraKampusPunyaMahasiswaHelper implements DataLoader, Da
 
 	}
 
+	/** Membangun {@link Criteria} keanggotaan {@link #organisasiIntraKampus}, disaring dosen PA (bila dipilih lewat {@link #searchdosen}), jurusan, fakultas, angkatan, dan NIM/nama. */
 	public Criteria initCriteria(boolean order) {
 
 		Dosen dosen = (Dosen) searchdosen.getAttribute("dosen");
@@ -293,6 +311,7 @@ public class OrganisasiIntraKampusPunyaMahasiswaHelper implements DataLoader, Da
 		return criteria;
 	}
 
+	/** Memuat ulang paging dan grid berdasarkan {@link #initCriteria} dengan filter aktif saat ini, dijalankan lewat timer default. Kontrak {@link DataLoader#loadData(Object)}; {@code value} tidak dipakai. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 

@@ -46,6 +46,22 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper jendela "Ambil Data" (picker) untuk memasukkan mahasiswa ke dalam satu
+ * {@link KelompokPkl} (kelompok PKL). Kandidat yang ditampilkan dibatasi hanya mahasiswa yang
+ * sudah terdaftar dan DITERIMA pada {@link KelompokPkl#getPkl()} terkait (lewat
+ * {@link MahasiswaDaftarPkl}), disaring lebih lanjut dengan NIM/nama/tahun angkatan/fakultas/
+ * prodi. Ada blok kondisi pengecualian mahasiswa yang sudah tergabung di kelompok PKL lain (SQL
+ * mentah) yang dikomentari (nonaktif) — dibiarkan apa adanya sesuai instruksi.
+ *
+ * <p>
+ * Setiap baris menampilkan checkbox yang otomatis tercentang bila mahasiswa tersebut SUDAH
+ * diterima ({@code diterima=true}) di {@code kelompokPkl} yang sedang diisi (lihat
+ * {@link MahasiswaDapatKelompokPkl}). {@link #save()} menegakkan batas kuota kelompok
+ * ({@link KelompokPkl#getKuota()}) — bila jumlah total (yang sudah ada + yang baru dicentang)
+ * melebihi kuota, penyimpanan ditolak dengan pesan peringatan dan tidak ada baris yang disimpan.
+ * </p>
+ */
 public class AmbilDataMahasiswaKelompokPklHelper {
 
 	private KelompokPkl kelompokPkl;
@@ -63,6 +79,7 @@ public class AmbilDataMahasiswaKelompokPklHelper {
 
 	}
 
+	/** Perender baris grid: checkbox (label NIM, tercentang bila mahasiswa sudah diterima di {@link #kelompokPkl}), nama, tahun angkatan, dan jurusan mahasiswa. */
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -90,6 +107,13 @@ public class AmbilDataMahasiswaKelompokPklHelper {
 
 	}
 
+	/**
+	 * Menghitung total anggota kelompok (yang sudah ada + baris tercentang pada grid) dan menolak
+	 * penyimpanan (menampilkan peringatan, tanpa menyimpan apa pun) bila melebihi
+	 * {@link KelompokPkl#getKuota()}. Bila dalam batas kuota, menyimpan baris
+	 * {@link MahasiswaDapatKelompokPkl} baru (diterima=true) untuk setiap mahasiswa tercentang yang
+	 * belum terdaftar sebelumnya di {@code kelompokPkl} — idempoten terhadap baris yang sudah ada.
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() throws Exception {
 
@@ -153,6 +177,15 @@ public class AmbilDataMahasiswaKelompokPklHelper {
 
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela modal "Ambil Data Mahasiswa" (form filter, grid berpaging
+	 * dengan checkbox pemilihan) untuk memasukkan mahasiswa ke {@code kelompokPkl}. Tombol Simpan
+	 * memanggil {@link #save()} lalu {@code dataLoader.loadData(null)} untuk menyegarkan tampilan
+	 * pemanggil.
+	 *
+	 * @param kelompokPkl kelompok PKL tujuan pemasukan mahasiswa
+	 * @param dataLoader  komponen pemanggil yang disegarkan setelah data berhasil disimpan
+	 */
 	public void display(final KelompokPkl kelompokPkl, final DataLoader dataLoader) {
 		this.kelompokPkl = kelompokPkl;
 
@@ -323,6 +356,7 @@ public class AmbilDataMahasiswaKelompokPklHelper {
 		}
 	}
 
+	/** Memuat ulang grid kandidat mahasiswa (terdaftar & diterima pada PKL terkait, sesuai filter aktif), dibatasi {@link Common#MAX_RESULT_1000} baris. {@code event} tidak dipakai. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

@@ -32,7 +32,7 @@ public class JENJANG_PROFESI_PRODI_URUT_YYYY_NimGenerator implements NimGenerato
 			jumlahPengecualian = new ArrayList<String>();
 		}
 
-		Session session = HibernateUtil.currentNativeSession();
+		Session session = HibernateUtil.openSession();
 		try {
 			Integer tahun = calonMahasiswa.getTahun();
 			boolean profesi = isJenjangProfesi(calonMahasiswa);
@@ -43,7 +43,7 @@ public class JENJANG_PROFESI_PRODI_URUT_YYYY_NimGenerator implements NimGenerato
 
 			return generateNimNonProfesi(session, calonMahasiswa, tahun, jumlahPengecualian);
 		} finally {
-			HibernateUtil.closeSession();
+			HibernateUtil.closeSessionQuietly(session);
 		}
 	}
 

@@ -47,6 +47,24 @@ import ais.ui.util.MyLabelConfig;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper composer ZK yang menampilkan dan mengelola daftar buku diktat/bahan ajar
+ * ({@link BukuBahanAjar}) yang tertaut ke satu {@link Matakuliah}, lewat baris penghubung
+ * {@link MatakuliahPunyaBukuBahanAjar}. Dapat dipasang baik sebagai tab ({@link Tabpanel}) maupun
+ * langsung di komponen lain (mis. {@link Center}), dengan tata letak toolbar yang menyesuaikan.
+ *
+ * <p>
+ * Buku ajar dapat ditambahkan dengan dua cara: "Ambil Buku Ajar" (memilih dari buku yang sudah ada
+ * di sistem lewat {@link AmbilDataBukuBahanAjarBanyak}) atau "Tambah Buku Ajar" (membuat entri buku
+ * baru lewat {@link BukuBahanAjarAction#onAddExternal}). Kedua tombol hanya tampil untuk user
+ * non-mahasiswa yang konteksnya punya {@code matakuliah} atau {@code perkuliahan}. Bila
+ * {@code perkuliahan} diberikan, penambahan buku memicu notifikasi email lewat
+ * {@link CommonEmail#infoAdaBukuAjar}. Setiap baris grid menampilkan detail buku yang bisa dibuka
+ * (lampiran file lewat {@link FileBukuAjarHelper}), info pengarang (otomatis dari data dosen bila
+ * {@link BukuBahanAjar#getPengarangAdalahDosen()}), dan tombol kutipan/hapus. Pencarian
+ * ({@code cari}) mencocokkan nama, penerbit, atau abstrak buku (ILIKE anywhere).
+ * </p>
+ */
 public class BukuBahanAjarHelper implements DataLoader {
 
 	private Grid grid;
@@ -59,6 +77,12 @@ public class BukuBahanAjarHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Perender baris grid untuk satu {@link MatakuliahPunyaBukuBahanAjar}: panel detail yang bisa
+	 * dibuka (memuat {@link FileBukuAjarHelper} untuk unggah/unduh file buku dan cover), riwayat
+	 * revisi, info pengarang, ISBN, penerbit, link, keterangan, tahun, serta tombol kutipan dan
+	 * hapus (tombol hapus tersembunyi untuk user mahasiswa).
+	 */
 	class DetailMatakuliahRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -179,6 +203,15 @@ public class BukuBahanAjarHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Memuat ulang grid dengan {@link MatakuliahPunyaBukuBahanAjar} milik {@link #matakuliah}
+	 * (atau, bila {@code matakuliah} {@code null}, sesuai kondisi SQL tambahan {@link #sqltambahan}
+	 * yang di-set lewat {@link #display(String, Component)}), difilter opsional oleh isi
+	 * {@link #cari}. Bila komponen induk berupa {@link Tabpanel}, label tab ikut diperbarui dengan
+	 * jumlah hasil.
+	 *
+	 * @param value tidak dipakai; parameter standar {@link DataLoader}
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
@@ -211,11 +244,32 @@ public class BukuBahanAjarHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Varian {@link #display(Matakuliah, Component, Perkuliahan)} tanpa {@link Matakuliah}
+	 * spesifik, memakai kondisi SQL bebas ({@code sqltambahan}) untuk memfilter baris
+	 * {@link MatakuliahPunyaBukuBahanAjar} yang ditampilkan (mis. daftar buku ajar lintas
+	 * matakuliah).
+	 *
+	 * @param sqltambahan kondisi SQL native tambahan yang disisipkan ke kriteria pencarian
+	 * @param component   komponen induk ZK tempat UI dibangun
+	 */
 	public void display(final String sqltambahan, final Component component) {
 		this.sqltambahan = sqltambahan;
 		display(matakuliah, component, null);
 	}
 
+	/**
+	 * Membangun UI daftar buku ajar (toolbar ambil/tambah buku + pencarian + grid) di dalam
+	 * {@code component}, dengan tata letak berbeda tergantung apakah {@code component} adalah
+	 * {@link Tabpanel} (toolbar di dalam groupbox) atau komponen lain seperti {@link Center}
+	 * (toolbar diletakkan pada {@link North} milik parent). Lalu memuat datanya.
+	 *
+	 * @param matakuliah  matakuliah yang buku ajarnya ditampilkan/dikelola; boleh {@code null} bila
+	 *                    dipakai lewat {@link #display(String, Component)}
+	 * @param component   komponen induk ZK tempat UI dibangun
+	 * @param perkuliahan bila diberikan, penambahan buku ajar baru memicu email notifikasi lewat
+	 *                    {@link CommonEmail#infoAdaBukuAjar}; boleh {@code null}
+	 */
 	public void display(final Matakuliah matakuliah, final Component component, final Perkuliahan perkuliahan) {
 		this.matakuliah = matakuliah;
 		if (component != null) {

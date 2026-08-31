@@ -47,6 +47,19 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper composer ZK berbentuk window modal untuk memilih {@link Dosen} (secara massal via
+ * checkbox) yang akan ditautkan ke satu {@link KegiatanKedosenan} (kegiatan tridarma dosen),
+ * dicatat lewat baris {@link KegiatanKedosenanPunyaDosen}.
+ *
+ * <p>
+ * Filter fakultas/prodi pra-terisi dan dikunci (disabled) bila {@code kegiatanKedosenan} sudah
+ * dibatasi pada fakultas/jurusan tertentu ({@link KegiatanKedosenan#getFakultas()}/
+ * {@link KegiatanKedosenan#getJurusan()}); bila tidak dibatasi, filter tetap bisa diubah bebas oleh
+ * user. Dosen yang sudah tertaut ke kegiatan ditampilkan tercentang dan disabled. Grid memakai
+ * paging server-side 50 baris/halaman lewat {@link Common#initPaging50}.
+ * </p>
+ */
 public class AmbilDataDosenForKegiatanKedosenanHelper {
 
 	private KegiatanKedosenan kegiatanKedosenan;
@@ -60,6 +73,12 @@ public class AmbilDataDosenForKegiatanKedosenanHelper {
 
 	private Paging paging;
 
+	/**
+	 * Menyiapkan combobox filter fakultas/prodi; bila {@code kegiatanKedosenan} sudah membatasi
+	 * fakultas dan/atau jurusan sasarannya, combobox terkait dipra-isi dan dikunci (disabled).
+	 *
+	 * @param kegiatanKedosenan kegiatan kedosenan tujuan penautan dosen
+	 */
 	public AmbilDataDosenForKegiatanKedosenanHelper(KegiatanKedosenan kegiatanKedosenan) {
 		this.kegiatanKedosenan = kegiatanKedosenan;
 		Fakultas fakultas = kegiatanKedosenan.getFakultas();
@@ -115,6 +134,10 @@ public class AmbilDataDosenForKegiatanKedosenanHelper {
 
 	}
 
+	/**
+	 * Perender baris grid untuk satu {@link Dosen}: checkbox pilih (tercentang dan disabled bila
+	 * dosen sudah tertaut ke {@link #kegiatanKedosenan}), kode/NIDN, nama, dan ikatan kerja dosen.
+	 */
 	class DosenRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -140,6 +163,13 @@ public class AmbilDataDosenForKegiatanKedosenanHelper {
 		}
 	}
 
+	/**
+	 * Menautkan setiap {@link Dosen} yang checkbox-nya tercentang dan tidak disabled ke
+	 * {@link #kegiatanKedosenan}, membuat atau memperbarui baris {@link KegiatanKedosenanPunyaDosen}
+	 * (mencatat user pelaku dan asal perubahan {@code DosenAction}).
+	 *
+	 * @throws InterruptedException tidak pernah dilempar secara eksplisit di implementasi ini
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() throws InterruptedException {
 		Session session = HibernateUtil.currentSession();
@@ -203,6 +233,14 @@ public class AmbilDataDosenForKegiatanKedosenanHelper {
 	//
 	// }
 
+	/**
+	 * Membangun window modal "Ambil Data Dosen" berisi form filter (NIDN, nama, fakultas, prodi)
+	 * dan grid dosen berpaging. Tombol "Simpan" memanggil {@link #save()}, memuat ulang data
+	 * pemanggil, lalu menyembunyikan window.
+	 *
+	 * @param dataLoader callback muat-ulang data pemanggil setelah simpan
+	 * @param window     window modal tempat UI dibangun
+	 */
 	public void display(final DataLoader dataLoader, final MyWindow window) {
 
 		Common.clear(window);
@@ -420,6 +458,14 @@ public class AmbilDataDosenForKegiatanKedosenanHelper {
 		});
 	}
 
+	/**
+	 * Membangun kriteria Hibernate untuk {@link Dosen} sesuai filter NIDN/nama (ILIKE anywhere)
+	 * dan jurusan/fakultas. Dosen berstatus {@code milikUniversitas} lolos filter jurusan/fakultas
+	 * apa pun (selalu tampil).
+	 *
+	 * @param order bila {@code true}, hasil diurutkan berdasarkan nama menaik
+	 * @return criteria siap dieksekusi, dipakai untuk memuat data maupun untuk paging
+	 */
 	public Criteria initCriteria(boolean order) {
 
 		Session session = HibernateUtil.currentSession();
@@ -449,6 +495,12 @@ public class AmbilDataDosenForKegiatanKedosenanHelper {
 		return criteria;
 	}
 
+	/**
+	 * Memuat satu halaman (50 baris) hasil {@link #initCriteria(boolean)} ke grid sesuai halaman
+	 * aktif pada {@link #paging}.
+	 *
+	 * @param event tidak dipakai
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

@@ -30,7 +30,7 @@ public class YY_PROGRAM_PRODI_URUT_NimGenerator implements NimGenerator {
 
 			Program prog = Common.programs.get(calonMahasiswa.getProgram());
 
-			Session session = HibernateUtil.currentNativeSession();
+			Session session = HibernateUtil.openSession();
 
 			Integer tahun = calonMahasiswa.getTahun();
 
@@ -66,7 +66,7 @@ public class YY_PROGRAM_PRODI_URUT_NimGenerator implements NimGenerator {
 					.add(Restrictions.eq("nim", nim)).setProjection(Projections.count("nim")).uniqueResult())
 					.intValue();
 
-			HibernateUtil.closeSession();
+			HibernateUtil.closeSessionQuietly(session);
 
 			if (!count.equals(0)) {
 				jumlahPengecualian.add(nim);

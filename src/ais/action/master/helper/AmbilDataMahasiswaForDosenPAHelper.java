@@ -44,6 +44,18 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper jendela modal untuk menetapkan (atau MEMINDAHKAN) satu {@link Dosen} sebagai
+ * Dosen PA (Pembimbing Akademik) bagi banyak {@link Mahasiswa} sekaligus. Pencarian
+ * SENGAJA tidak difilter berdasarkan Dosen PA yang sudah dimiliki mahasiswa — mahasiswa
+ * yang masih menunjuk PA lama tetap dapat ditemukan (kolom "Dosen PA" menampilkan PA
+ * saat ini) agar dapat dialihkan ke dosen tujuan lewat menu yang sama. Bila
+ * {@code dosen} yang dipilih memiliki jurusan/fakultas, pencarian mahasiswa dibatasi ke
+ * lingkup organisasi dosen tersebut sebagai penjaga backend (relevan ketika tombol ini
+ * diberikan ke operator fakultas/prodi yang hanya memiliki privilege baca pada menu).
+ * Menyimpan mengubah baik {@code mahasiswa.dosen} (referensi langsung) maupun
+ * {@link KrsMahasiswa#getDosenPa()} (via {@link Common#singkronkanKrsMahasiswa}).
+ */
 public class AmbilDataMahasiswaForDosenPAHelper {
 
 	private Dosen dosen;
@@ -62,13 +74,22 @@ public class AmbilDataMahasiswaForDosenPAHelper {
 	private Combobox searchjurusan = new Combobox();
 	private AmbilDataKelasBanbox searchkelas;
 
+	/** Menyiapkan combobox filter Fakultas dan Prodi (dengan opsi "Semua") lewat {@link Common#initFakultasDanJurusanDanSemua}. */
 	public AmbilDataMahasiswaForDosenPAHelper() {
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 
 	}
 
+	/** Perender baris grid mahasiswa: checkbox pemilihan, lalu label NIM/Nama/Tahun Angkatan/Dosen PA saat ini/Kelas. */
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Merender satu baris {@link Mahasiswa}: checkbox pemilihan (tidak
+		 * pra-dicentang), lalu label NIM/Nama/Tahun Angkatan, serta nama Dosen PA saat
+		 * ini dan Kelas yang diambil dari {@link KrsMahasiswa} terkait (via
+		 * {@link Common#ambilKrsMahasiswaTanpaSinkronisasi}) — sehingga operator dapat
+		 * melihat apakah mahasiswa sudah punya PA sebelum memindahkannya.
+		 */
 		@Override
 		public void render(Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");
@@ -91,6 +112,14 @@ public class AmbilDataMahasiswaForDosenPAHelper {
 
 	}
 
+	/**
+	 * Untuk setiap mahasiswa tercentang di grid: mengeset {@code mahasiswa.dosen} ke id
+	 * {@link #dosen} terpilih dan menyimpannya, lalu menyinkronkan
+	 * {@link KrsMahasiswa} (via {@link Common#singkronkanKrsMahasiswa}) dan memperbarui
+	 * {@code dosenPa}-nya bila belum sesuai. Efeknya berlaku sebagai
+	 * penetapan/pemindahan PA — mahasiswa yang sebelumnya punya PA lain akan
+	 * dialihkan ke {@link #dosen} ini.
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() {
 
@@ -122,6 +151,17 @@ public class AmbilDataMahasiswaForDosenPAHelper {
 
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela modal "Ambil Data Mahasiswa" untuk penetapan
+	 * Dosen PA: form filter (NIM/rentang NIM/Nama/Fakultas/Tahun Angkatan/Prodi/Kelas),
+	 * grid berpaging server-side dengan checkbox "pilih semua", peringatan bahwa
+	 * mahasiswa dengan PA lama tetap dapat dipilih untuk dipindahkan, dan tombol
+	 * Simpan/Batal.
+	 *
+	 * @param dosen      dosen yang akan ditetapkan sebagai PA bagi mahasiswa terpilih
+	 * @param dataLoader callback pemuatan ulang data pemanggil setelah Simpan (dipanggil dengan {@code dosen})
+	 * @param window     jendela ZK yang akan diisi dan ditampilkan sebagai modal
+	 */
 	public void display(final Dosen dosen, final DataLoader dataLoader, final MyWindow window) {
 		this.dosen = dosen;
 		Common.clear(window);
@@ -385,6 +425,16 @@ public class AmbilDataMahasiswaForDosenPAHelper {
 	//
 	// }
 
+	/**
+	 * Membangun kriteria pencarian mahasiswa aktif sesuai seluruh filter form
+	 * (kelas/nama/NIM/rentang NIM/tahun angkatan/prodi/fakultas). Bila {@link #dosen}
+	 * yang dipilih memiliki jurusan atau fakultas, pencarian dibatasi tambahan ke
+	 * lingkup organisasi dosen tersebut (penjaga backend untuk operator dengan akses
+	 * terbatas).
+	 *
+	 * @param order tambahkan pengurutan (tahun angkatan menurun, lalu NIM menaik) bila {@code true}
+	 * @return kriteria Hibernate atas {@link Mahasiswa}
+	 */
 	public Criteria initCriteria(boolean order) {
 		Kelas kelas = (Kelas) (searchkelas.getAttribute("kelas"));
 
@@ -437,6 +487,12 @@ public class AmbilDataMahasiswaForDosenPAHelper {
 		return criteria;
 	}
 
+	/**
+	 * Memuat ulang grid mahasiswa sesuai {@link #initCriteria(boolean)} memakai paging
+	 * server-side.
+	 *
+	 * @param event tidak digunakan; parameter kontrak listener/pemanggilan langsung
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

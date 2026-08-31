@@ -47,6 +47,22 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK berbentuk dialog pencarian-dan-pilih untuk menetapkan mahasiswa ke satu {@link
+ * Kelas} akademik (bukan kelas perkuliahan per-mata-kuliah). Menyediakan filter NIM/nama,
+ * rentang NIM, tahun angkatan, fakultas/prodi (yang dapat dikunci ke konteks kelas via
+ * {@link #selectedFakultas}/{@link #selectedJurusan} sehingga pengguna tidak salah pilih), dan
+ * status mahasiswa aktif pada tahun akademik/semester berjalan. Mahasiswa yang sudah menjadi
+ * anggota {@code kelas} ini ditampilkan tercentang dan dikunci (tidak bisa dilepas dari dialog
+ * ini), sedangkan mahasiswa lain dapat dicentang untuk ditambahkan.
+ *
+ * <p>
+ * {@link #save()} menuliskan nama kelas ke field {@code kelas} tiap {@link Mahasiswa} yang
+ * dicentang dan belum terkunci, lalu menyinkronkan {@link KrsMahasiswa} terkait bila nilai kelas
+ * berubah — memakai atribut komponen ({@code row.getAttribute("checkbox")}) untuk menemukan
+ * checkbox tiap baris alih-alih berasumsi urutan child tetap.
+ * </p>
+ */
 public class AmbilDataMahasiswaForKelasHelper {
 
 	private Kelas kelas;
@@ -67,6 +83,11 @@ public class AmbilDataMahasiswaForKelasHelper {
 	private Fakultas selectedFakultas = null;
 	private Jurusan selectedJurusan = null;
 
+	/**
+	 * @param kelas           kelas akademik tujuan; mahasiswa yang sudah menjadi anggota tampil tercentang dan terkunci
+	 * @param selectedFakultas fakultas yang mengunci filter (bila {@code null}, diturunkan dari {@code selectedJurusan} atau {@code kelas})
+	 * @param selectedJurusan  jurusan yang mengunci filter (bila {@code null}, diturunkan dari {@code kelas})
+	 */
 	public AmbilDataMahasiswaForKelasHelper(Kelas kelas, Fakultas selectedFakultas, Jurusan selectedJurusan) {
 		this.kelas = kelas;
 		this.selectedFakultas = selectedFakultas;
@@ -94,6 +115,7 @@ public class AmbilDataMahasiswaForKelasHelper {
 
 	}
 
+	/** Mengunci combobox pencarian fakultas/prodi ke {@link #selectedFakultas}/{@link #selectedJurusan} yang diturunkan dari {@link #kelas} bila ada. */
 	private void pilihFilterKonteksKelas() {
 		if (selectedFakultas != null) {
 			Common.selectComboItem(true, searchfakultas, selectedFakultas);
@@ -108,6 +130,7 @@ public class AmbilDataMahasiswaForKelasHelper {
 		}
 	}
 
+	/** Renderer baris hasil pencarian mahasiswa: checkbox seleksi (tercentang dan terkunci bila mahasiswa sudah menjadi anggota {@link #kelas}), NIM, nama, tahun angkatan. */
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -132,6 +155,12 @@ public class AmbilDataMahasiswaForKelasHelper {
 		}
 	}
 
+	/**
+	 * Menuliskan nama {@link #kelas} (atau string kosong bila {@code kelas} null) ke field
+	 * {@code kelas} tiap mahasiswa tercentang yang belum terkunci, lalu menyinkronkan {@link
+	 * KrsMahasiswa} bila nilai kelasnya berubah. Setiap baris menemukan checkbox miliknya lewat
+	 * atribut {@code "checkbox"} yang dipasang renderer, bukan asumsi posisi anak pertama Row.
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() throws InterruptedException {
 
@@ -172,6 +201,13 @@ public class AmbilDataMahasiswaForKelasHelper {
 
 	}
 
+	/**
+	 * Titik masuk utama: membangun dialog pencarian (filter di utara, grid hasil di tengah) dan
+	 * tombol Simpan (memanggil {@link #save()}) / Batal di dalam {@code window}.
+	 *
+	 * @param dataLoader dipanggil untuk memuat ulang tampilan pemanggil setelah simpan
+	 * @param window     window pembungkus dialog (dibersihkan dan diisi ulang)
+	 */
 	public void display(final DataLoader dataLoader, final MyWindow window) {
 
 		Common.clear(window);
@@ -405,6 +441,14 @@ public class AmbilDataMahasiswaForKelasHelper {
 		}
 	}
 
+	/**
+	 * Membangun {@link Criteria} pencarian mahasiswa aktif berdasarkan status mahasiswa
+	 * (dicocokkan lewat subquery ke {@code history_status_mahasiswa} tahun akademik/semester
+	 * berjalan), nama, NIM, rentang NIM, tahun angkatan, prodi, dan fakultas.
+	 *
+	 * @param order bila {@code true}, tambahkan pengurutan (angkatan desc, NIM asc)
+	 * @return criteria siap dieksekusi
+	 */
 	public Criteria initCriteria(boolean order) {
 
 		StatusMahasiswa statusMahasiswa = (StatusMahasiswa) (searchstatusmahasiswa.getSelectedItem() == null ? null
@@ -447,6 +491,7 @@ public class AmbilDataMahasiswaForKelasHelper {
 		return criteria;
 	}
 
+	/** Memuat ulang paging dan grid hasil pencarian mahasiswa (100 baris per halaman) sesuai filter aktif. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

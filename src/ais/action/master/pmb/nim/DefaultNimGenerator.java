@@ -66,7 +66,7 @@ public class DefaultNimGenerator implements NimGenerator {
 		digitKetujuhKedelapan = digitKetujuhKedelapan
 				.substring(digitKetujuhKedelapan.length() - 2);
 
-		Session session = HibernateUtil.currentNativeSession();
+		Session session = HibernateUtil.openSession();
 		Long jumlah = ((Number) session
 				.createCriteria(Mahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 				
@@ -112,7 +112,7 @@ public class DefaultNimGenerator implements NimGenerator {
 		}
 		Integer countCalon = ((Number) calonCriteria.uniqueResult()).intValue();
 
-		HibernateUtil.closeSession();
+		HibernateUtil.closeSessionQuietly(session);
 
 		if (!count.equals(0) || !countCalon.equals(0)) {
 			jumlahPengecualian.add(nim);

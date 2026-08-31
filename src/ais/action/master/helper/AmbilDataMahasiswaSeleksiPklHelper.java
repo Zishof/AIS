@@ -45,6 +45,22 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK berbentuk dialog pencarian-dan-pilih untuk mendaftarkan mahasiswa langsung sebagai
+ * peserta diterima pada satu {@link Pkl} (Praktik Kerja Lapangan) — berbeda dari alur pendaftaran
+ * mandiri mahasiswa, dialog ini dipakai pihak pengelola untuk menambahkan peserta secara manual.
+ * Menyediakan filter NIM/nama/rentang NIM/tahun angkatan/fakultas/prodi; checkbox tiap baris
+ * tercentang otomatis bila mahasiswa tersebut sudah terdaftar dan diterima ({@code terima=1})
+ * pada PKL ini.
+ *
+ * <p>
+ * {@link #save()} memproses hanya baris yang tercentang: memvalidasi syarat kepesertaan lewat
+ * {@link Common#checkSyaratPkl}, lalu membuat baru {@link MahasiswaDaftarPkl} (dengan keterangan/
+ * nama kosong) bila belum ada — tidak menimpa atau menghapus data pendaftaran yang sudah ada.
+ * Struktur dan alurnya identik dengan {@link AmbilDataMahasiswaSeleksiKknHelper} untuk KKN,
+ * hanya entitas targetnya yang berbeda.
+ * </p>
+ */
 public class AmbilDataMahasiswaSeleksiPklHelper {
 
 	private Pkl pkl;
@@ -63,11 +79,13 @@ public class AmbilDataMahasiswaSeleksiPklHelper {
 	private Textbox dariNim;
 	private Textbox sampaiNim;
 
+	/** Menyiapkan combobox filter fakultas dan jurusan (dengan opsi "Semua"). */
 	public AmbilDataMahasiswaSeleksiPklHelper() {
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 
 	}
 
+	/** Renderer baris kandidat mahasiswa: checkbox (tercentang bila sudah terdaftar diterima pada {@link #pkl} ini), NIM, nama, tahun angkatan. */
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		private MahasiswaDapatPklDao mahasiswaDapatPklDao = DaoFactory.getInstance().getMahasiswaDapatPklDao();
@@ -98,6 +116,11 @@ public class AmbilDataMahasiswaSeleksiPklHelper {
 
 	}
 
+	/**
+	 * Mendaftarkan setiap mahasiswa tercentang sebagai peserta {@link #pkl} bila memenuhi syarat
+	 * ({@link Common#checkSyaratPkl}) dan belum terdaftar sebelumnya. Baris yang tidak tercentang
+	 * atau tidak memenuhi syarat dilewati tanpa mengubah data.
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() throws Exception {
 
@@ -136,6 +159,14 @@ public class AmbilDataMahasiswaSeleksiPklHelper {
 
 	}
 
+	/**
+	 * Titik masuk utama: membangun dialog pencarian mahasiswa dan grid berpaging server-side,
+	 * dengan tombol Simpan (memanggil {@link #save()}) / Cari / Batal.
+	 *
+	 * @param pkl        PKL tujuan pendaftaran
+	 * @param dataLoader dipanggil untuk memuat ulang tampilan pemanggil setelah simpan
+	 * @param window     window pembungkus dialog (dibersihkan dan diisi ulang)
+	 */
 	public void display(final Pkl pkl, final DataLoader dataLoader, final MyWindow window) {
 		this.pkl = pkl;
 		Common.clear(window);

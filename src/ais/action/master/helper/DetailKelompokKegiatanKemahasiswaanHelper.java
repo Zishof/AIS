@@ -47,11 +47,39 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper pengelola "Rincian Aspek" dalam satu {@link KelompokKegiatanKemahasiswaan} (kelompok
+ * kegiatan kemahasiswaan, mis. organisasi/kepanitiaan/lomba), yaitu baris
+ * {@link DetailKelompokKegiatanKemahasiswaan} yang masing-masing menautkan sekumpulan
+ * {@link JabatanKegiatanKemahasiswaan} (jabatan/status/tugas) dan
+ * {@link SkalaKegiatanKemahasiswaan} (skala kegiatan, mis. lokal/nasional/internasional) yang
+ * relevan untuk aspek tersebut, dipakai sebagai acuan penilaian poin kegiatan kemahasiswaan
+ * mahasiswa.
+ *
+ * <p>
+ * Menampilkan grid rincian aspek (dengan checkbox aktif/bisa-dipilih-mahasiswa dan nomor urut
+ * yang dapat diedit langsung di grid — auto-save saat berubah), serta form modal terpisah
+ * ({@link #init}) untuk menambah/mengedit satu rincian aspek beserta pilihan jabatan dan skala
+ * terkaitnya (checkbox ganda).
+ * </p>
+ *
+ * <p>
+ * <b>Catatan implementasi penting</b> — pilihan jabatan/skala pada form dikelola memakai
+ * {@link java.util.LinkedHashMap} berkunci id (bukan {@link java.util.TreeSet} bawaan koleksi
+ * entitas): comparator {@code GeneralValueObject} mengurutkan berdasarkan {@code nomorUrut} dan
+ * mengembalikan 0 untuk item ber-{@code nomorUrut} sama, sehingga bila dipakai langsung sebagai
+ * {@code TreeSet}, dua item dengan {@code nomorUrut} identik akan saling menimpa/tertolak
+ * (tampilan tidak sesuai dengan yang dicentang). Pola yang sama berlaku pada urutan tampil
+ * jabatan/skala di grid utama ({@code jabatanUrutTampil}/{@code skalaUrutTampil}) yang memakai
+ * {@link List} terurut, bukan {@code TreeSet}.
+ * </p>
+ */
 public class DetailKelompokKegiatanKemahasiswaanHelper implements DataLoader {
 
 	private MyGrid grid;
 	private KelompokKegiatanKemahasiswaan kelompokKegiatanKemahasiswaan;
 
+	/** Merender satu baris grid rincian aspek: nama, daftar jabatan & skala terkait (terurut), nomor urut (auto-save saat diubah), checkbox aktif/bisa-dipilih-mahasiswa (auto-save), serta tombol edit dan hapus. */
 	class DetailKelompokKegiatanKemahasiswaanRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -176,6 +204,7 @@ public class DetailKelompokKegiatanKemahasiswaanHelper implements DataLoader {
 
 	}
 
+	/** Memuat/menyegarkan grid dengan seluruh {@link DetailKelompokKegiatanKemahasiswaan} milik {@link #kelompokKegiatanKemahasiswaan}, diurutkan berdasarkan {@code nomorUrut}. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
@@ -189,6 +218,14 @@ public class DetailKelompokKegiatanKemahasiswaanHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun panel daftar rincian aspek pada {@code kelompokKegiatanKemahasiswaan} ke dalam
+	 * {@code component} (toolbar "Tambah Rincian Aspek" + grid paging 6 kolom), lalu memuat
+	 * data awal. Tombol tambah membuka form modal lewat {@link #init} dengan entitas baru.
+	 *
+	 * @param kelompokKegiatanKemahasiswaan kelompok kegiatan yang rincian aspeknya dikelola
+	 * @param component                      kontainer ZK yang akan diisi (isi sebelumnya dibersihkan)
+	 */
 	public void displayDetailKelompokKegiatanKemahasiswaan(
 			final KelompokKegiatanKemahasiswaan kelompokKegiatanKemahasiswaan, final Component component) {
 		this.kelompokKegiatanKemahasiswaan = kelompokKegiatanKemahasiswaan;
@@ -262,6 +299,21 @@ public class DetailKelompokKegiatanKemahasiswaanHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membuka form modal tambah/edit satu {@link DetailKelompokKegiatanKemahasiswaan}: nama
+	 * rincian aspek, nomor urut (default nomor urut maksimum+1 pada kelompok yang sama untuk
+	 * entitas baru), serta dua kelompok checkbox untuk memilih
+	 * {@link JabatanKegiatanKemahasiswaan} dan {@link SkalaKegiatanKemahasiswaan} yang berlaku
+	 * (hanya menampilkan opsi yang aktif). Pilihan checkbox dilacak di
+	 * {@link java.util.LinkedHashMap} berkunci id (lihat catatan penting pada javadoc kelas)
+	 * untuk menghindari kehilangan item akibat perilaku {@code TreeSet} pada entitas
+	 * ber-{@code nomorUrut} sama. Validasi: nama tidak boleh kosong. Simpan menulis pilihan
+	 * sebagai {@link java.util.LinkedHashSet} (mempertahankan seluruh item tercentang, bukan
+	 * himpunan terurut yang bisa menciutkan item), menyimpan entitas, menutup jendela, dan
+	 * menyegarkan grid.
+	 *
+	 * @param detailKelompokKegiatanKemahasiswaan entitas baru (belum tersimpan) atau existing yang akan diedit
+	 */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	public void init(final DetailKelompokKegiatanKemahasiswaan detailKelompokKegiatanKemahasiswaan) throws Exception {
 		final MyWindow window = new MyWindow("Pendataan Rincian Aspek", "normal", false);

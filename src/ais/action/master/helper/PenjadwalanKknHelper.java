@@ -43,6 +43,20 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper jendela modal untuk mengelola jadwal pertemuan ({@link Pertemuan}) satu
+ * {@link KelompokKkn} (kelompok KKN/Kuliah Kerja Nyata) — grid yang setiap barisnya
+ * inline-editable (topik, tanggal, jam mulai/selesai, status/jenis pertemuan), dengan tombol
+ * tambah, hapus per baris, download, dan pengaturan ulang waktu massal (didelegasikan ke
+ * {@link PenjadwalanHelper}).
+ *
+ * <p>
+ * Tombol "Tambah Kegiatan KKN" membuat satu {@link Pertemuan} baru berjarak 7 hari dari pertemuan
+ * terakhir yang ditambahkan pada sesi tampilan ini ({@link #currDate}, dilacak juga oleh renderer
+ * baris saat merender data yang sudah ada), sehingga jadwal mingguan berturutan dapat ditambahkan
+ * cepat tanpa mengisi tanggal manual setiap kali.
+ * </p>
+ */
 public class PenjadwalanKknHelper {
 
 	private KelompokKkn kelompokKkn;
@@ -51,6 +65,7 @@ public class PenjadwalanKknHelper {
 
 	private Date currDate;
 
+	/** Perender baris grid: textbox topik, tanggal (readonly datepicker), jam mulai/selesai, combobox status/jenis pertemuan (semuanya tersimpan otomatis on-change), dan tombol hapus (dengan pengecekan {@link PenjadwalanHelper#checkBolehHapus} + konfirmasi). */
 	class PertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
 		public PertemuanRenderer() {
@@ -220,6 +235,14 @@ public class PenjadwalanKknHelper {
 
 	}
 
+	/**
+	 * Menyinkronkan ulang cache/indeks pertemuan {@code kelompokKkn} lewat
+	 * {@link KelompokKkn#reInitPertemuan(Session)} dan menyegarkan {@link #dataLoader} pemanggil.
+	 * Baris grid sendiri sudah tersimpan langsung per-perubahan (lihat {@link PertemuanRenderer}),
+	 * jadi method ini murni langkah finalisasi/refresh, bukan penyimpanan data.
+	 *
+	 * @return selalu {@code true}
+	 */
 	@SuppressWarnings({})
 	public boolean save() throws InterruptedException {
 
@@ -231,6 +254,12 @@ public class PenjadwalanKknHelper {
 		return true;
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela modal penjadwalan KKN (toolbar tambah/refresh/ambil/atur
+	 * ulang waktu/download/hapus, grid pertemuan inline-editable, tombol Simpan/Batal) untuk
+	 * {@code kelompokKkn}. Memanggil {@link #onSearchDefault} untuk mengisi grid pertama kali
+	 * sebelum jendela ditampilkan sebagai modal.
+	 */
 	public void display(final KelompokKkn kelompokKkn, final DataLoader dataLoader) {
 		this.kelompokKkn = kelompokKkn;
 		this.dataLoader = dataLoader;
@@ -426,6 +455,12 @@ public class PenjadwalanKknHelper {
 		}
 	}
 
+	/**
+	 * Memuat ulang grid dengan seluruh {@link Pertemuan} milik {@link #kelompokKkn}. Bila
+	 * {@code event} membawa data bertipe {@link Boolean}, nilainya diteruskan ke
+	 * {@link KelompokKkn#ambilPertemuanList(boolean)} (mengendalikan mis. paksa muat ulang dari
+	 * database); bila tidak, defaultnya {@code false}.
+	 */
 	public void onSearchDefault(Event event) {
 
 		List<Pertemuan> pertemuan = kelompokKkn.ambilPertemuanList(

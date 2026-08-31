@@ -44,6 +44,30 @@ import ais.database.model.Tbmuser;
 import ais.ui.util.CustomSimpleDateFormatter;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Composer ZK ({@link GenericForwardComposer}) untuk halaman kalender jadwal perkuliahan per kelas
+ * — menampilkan seluruh {@link Perkuliahan} aktif yang cocok dengan kombinasi filter fakultas,
+ * jurusan, program, tahun ajaran, semester, dan kelas yang dipilih (berbeda dari
+ * {@link CalendarPerkuliahanDosenComposer} yang memfilter berdasarkan dosen pengampu).
+ *
+ * <p>
+ * Sama seperti composer kalender dosen, alur intinya: filter berubah → {@link #onRefresh(Event)} →
+ * {@link #initCalendarModel()} membangun query {@link Perkuliahan} dan mendelegasikan konversi ke
+ * event kalender via {@link CalendarPerkuliahanMahasiswa#initModel}; interaksi drag/klik pada
+ * {@link #calendars} ditangani lewat {@link #onEventCreate$calendars} (buat jadwal baru dari slot
+ * yang digambar, dengan validasi filter lengkap dan status buka-tutup penjadwalan) dan
+ * {@link #onEventEdit$calendars} (buka form edit jadwal yang diklik, dengan pemeriksaan otorisasi
+ * fakultas/jurusan pengguna). Filter mendukung mode "Semester Pendek" (checkbox
+ * {@link #cariSemesterPendek}) yang melonggarkan filter semester ganjil/genap numerik.
+ * </p>
+ *
+ * <p>
+ * Fakultas/jurusan otomatis dikunci (disabled) dan dipilihkan sesuai fakultas/jurusan milik user
+ * yang sedang login bila ada, di {@link #doAfterCompose(Component)}. Akses halaman disyaratkan
+ * login (atribut sesi {@code usersTemp}) dan hak baca ({@link CommonPrivilages#READ}); bila tidak
+ * terpenuhi, user langsung dialihkan logout.
+ * </p>
+ */
 public class CalendarPerkuliahanSemesterComposer extends GenericForwardComposer implements OnSearchDefaultListener {
 
 	protected static final long serialVersionUID = 201011240904L;
@@ -70,11 +94,22 @@ public class CalendarPerkuliahanSemesterComposer extends GenericForwardComposer 
 
 	protected Integer semesterPendek = null;
 
+	/** Seperti {@link #init(Perkuliahan, Integer)}, memakai {@link #semesterPendek} milik composer sebagai status semester pendek. */
 	@SuppressWarnings({})
 	protected void init(final Perkuliahan perkuliahan) throws Exception {
 		init(perkuliahan, semesterPendek);
 	}
 
+	/**
+	 * Membuka form penjadwalan penuh untuk {@code perkuliahan} (baru atau hasil klik-edit) lewat
+	 * {@link ais.action.master.helper.util.PenjadwalanUtil}. Karena kelas, program, semester, tahun
+	 * ajaran, fakultas, dan jurusan sudah ditentukan dari filter kalender, komponen-komponen
+	 * tersebut pada form dikunci ({@code disabled}) dan opsi "tanpa jadwal perkuliahan"
+	 * disembunyikan.
+	 *
+	 * @param perkuliahan         entitas perkuliahan yang akan dijadwalkan/diedit
+	 * @param semesterPendekParam status semester pendek yang berlaku untuk penjadwalan ini
+	 */
 	@SuppressWarnings({})
 	protected void init(final Perkuliahan perkuliahan, final Integer semesterPendekParam) throws Exception {
 
@@ -96,11 +131,13 @@ public class CalendarPerkuliahanSemesterComposer extends GenericForwardComposer 
 
 	}
 
+	/** Membangun ulang model kalender ({@link #initCalendarModel()}) dan memaksa render ulang komponen {@link #calendars}. Dipanggil setiap filter berubah. */
 	public void onRefresh(Event event) {
 		initCalendarModel();
 		calendars.invalidate();
 	}
 
+	/** Menjalankan pemeriksaan keamanan standar ({@link Common#doCheckSecurity()}) dan menyiapkan dropdown waktu 5-menitan via {@link #initTimeDropdown(Page)} sebelum komposisi ZK dimulai. */
 	@Override
 	public ComponentInfo doBeforeCompose(Page page, Component parent, ComponentInfo compInfo) {
 		Common.doCheckSecurity();
@@ -110,6 +147,14 @@ public class CalendarPerkuliahanSemesterComposer extends GenericForwardComposer 
 
 	protected Konfigurasi tampilkanMingguPerkuliahan;
 
+	/**
+	 * Inisialisasi setelah komposisi ZK: memastikan user masih login dengan hak baca (logout paksa
+	 * bila tidak), mengisi pilihan semester (1-23), tahun ajaran, fakultas, jurusan (dependen pada
+	 * fakultas terpilih via {@code FakultasEventListener}), dan program; mengunci fakultas/jurusan
+	 * bila user sudah terikat ke fakultas/jurusan tertentu; serta mengonfigurasi komponen
+	 * {@link #calendars} (formatter tanggal, timeslot, jam mulai/selesai, timezone) dari
+	 * {@link Konfigurasi} terkait penjadwalan.
+	 */
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
 
@@ -248,6 +293,7 @@ public class CalendarPerkuliahanSemesterComposer extends GenericForwardComposer 
 
 	}
 
+	/** Mengisi {@link #dateTime} dengan 288 label waktu berinterval 5 menit ({@code "00:00"}..{@code "23:55"}), dipakai sebagai sumber dropdown pemilih jam. */
 	protected void initTimeDropdown(Page page) {
 
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
@@ -262,6 +308,15 @@ public class CalendarPerkuliahanSemesterComposer extends GenericForwardComposer 
 		}
 	}
 
+	/**
+	 * Membangun {@link SimpleCalendarModel} berisi seluruh {@link Perkuliahan} aktif yang cocok
+	 * dengan kombinasi filter tahun ajaran, semester (atau status semester pendek bila
+	 * {@link #cariSemesterPendek} dicentang — filter semester ganjil/genap numerik dilonggarkan
+	 * pada mode ini), fakultas, jurusan, program, dan kelas. Bila salah satu filter wajib belum
+	 * lengkap, method berhenti tanpa mengubah model. Konversi daftar id perkuliahan menjadi event
+	 * kalender didelegasikan ke {@link CalendarPerkuliahanMahasiswa#initModel}, lalu model baru
+	 * dipasang ke {@link #calendars} dan render ulang dipaksa.
+	 */
 	@SuppressWarnings("unchecked")
 	protected void initCalendarModel() {
 
@@ -311,6 +366,15 @@ public class CalendarPerkuliahanSemesterComposer extends GenericForwardComposer 
 		calendars.onInitRender();
 	}
 
+	/**
+	 * Ditangani saat user menggambar slot baru pada kalender: memvalidasi seluruh filter
+	 * (fakultas/jurusan/program/tahun ajaran/semester/kelas) terisi dan penjadwalan periode
+	 * tersebut masih aktif, lalu membuat entitas {@link Perkuliahan} baru dengan waktu/hari sesuai
+	 * slot yang digambar dan seluruh field filter sudah terisi, dan membuka form penjadwalan penuh
+	 * via {@link #init(Perkuliahan, Integer)}.
+	 *
+	 * @param event event forward dari komponen {@link #calendars} berisi {@link CalendarsEvent} asal
+	 */
 	public void onEventCreate$calendars(ForwardEvent event) throws Exception {
 
 		String tahunAkademik = tahunAjaran.getSelectedItem() == null ? null
@@ -367,6 +431,15 @@ public class CalendarPerkuliahanSemesterComposer extends GenericForwardComposer 
 		evt.stopClearGhost();
 	}
 
+	/**
+	 * Ditangani saat user mengklik event {@link Perkuliahan} yang sudah ada pada kalender:
+	 * memvalidasi filter terisi, memuat entitas {@link Perkuliahan} dari id di judul event
+	 * (dengan pemeriksaan bahwa data/prodinya masih tersedia — data mungkin sudah dihapus/berubah
+	 * sejak kalender terakhir dimuat), memeriksa otorisasi fakultas/jurusan user, memeriksa status
+	 * buka-tutup penjadwalan, lalu membuka form penjadwalan penuh via {@link #init(Perkuliahan)}.
+	 *
+	 * @param event event forward dari komponen {@link #calendars} berisi {@link CalendarsEvent} asal
+	 */
 	public void onEventEdit$calendars(ForwardEvent event) throws Exception {
 
 		String tahunAkademik = tahunAjaran.getSelectedItem() == null ? null
@@ -437,6 +510,7 @@ public class CalendarPerkuliahanSemesterComposer extends GenericForwardComposer 
 
 	}
 
+	/** Menyinkronkan perubahan geser/ubah-ukuran slot pada UI kalender (drag) ke {@link SimpleCalendarEvent} dan model tampilan, tanpa menyimpan ke database. */
 	public void onEventUpdate$calendars(ForwardEvent event) {
 		CalendarsEvent evt = (CalendarsEvent) event.getOrigin();
 		// SimpleDateFormat sdf1 = new SimpleDateFormat("yyyy/MM/d");
@@ -462,6 +536,7 @@ public class CalendarPerkuliahanSemesterComposer extends GenericForwardComposer 
 		m.update(sce);
 	}
 
+	/** Menggeser tampilan kalender ke halaman sebelumnya/berikutnya sesuai tombol panah yang diklik. */
 	public void onMoveDate(ForwardEvent event) {
 		if ("arrow-left".equals(event.getData()))
 			calendars.previousPage();
@@ -470,11 +545,13 @@ public class CalendarPerkuliahanSemesterComposer extends GenericForwardComposer 
 
 	}
 
+	/** Mengatur tanggal aktif kalender ke tanggal hari ini pada zona waktu default JVM. */
 	public void onToday(ForwardEvent event) {
 		calendars.setCurrentDate(Calendar.getInstance(TimeZone.getDefault()).getTime());
 
 	}
 
+	/** Menukar timezone aktif pertama yang terdaftar pada {@link #calendars} (workaround UI ZK Calendar untuk memicu refresh label timezone). */
 	@SuppressWarnings("rawtypes")
 	public void onSwitchTimeZone(ForwardEvent event) {
 		Map<?, ?> zone = calendars.getTimeZones();
@@ -486,12 +563,14 @@ public class CalendarPerkuliahanSemesterComposer extends GenericForwardComposer 
 
 	}
 
+	/** Mengubah hari pertama minggu kalender sesuai label item yang dipilih pada listbox pemicu. */
 	public void onUpdateFirstDayOfWeek(ForwardEvent event) {
 		Listbox listbox = (Listbox) event.getOrigin().getTarget();
 		calendars.setFirstDayOfWeek(listbox.getSelectedItem().getLabel());
 
 	}
 
+	/** Mengubah mode tampilan kalender: "Day"=1 hari, "5 Days"=5 hari, "Week"=7 hari (mold default), atau mold "month" untuk nilai lainnya. */
 	public void onUpdateView(ForwardEvent event) {
 		String text = String.valueOf(event.getData());
 		int days = "Day".equals(text) ? 1 : "5 Days".equals(text) ? 5 : "Week".equals(text) ? 7 : 0;
@@ -506,6 +585,7 @@ public class CalendarPerkuliahanSemesterComposer extends GenericForwardComposer 
 		// || calendars.getDays() == 7);
 	}
 
+	/** Implementasi {@link OnSearchDefaultListener}; mendelegasikan langsung ke {@link #onRefresh(Event)}. */
 	@Override
 	public void onSearchDefault(Event event) {
 		onRefresh(event);

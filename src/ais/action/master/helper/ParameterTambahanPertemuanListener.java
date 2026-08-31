@@ -38,6 +38,38 @@ import ais.ui.util.MyLabelAgakKecil;
 import ais.ui.util.MyLabelAgakKecilBold;
 import ais.ui.util.MyLabelBold;
 
+/**
+ * Pengelola baris-baris parameter tambahan dinamis pada form {@link Pertemuan} (satu agenda
+ * pertemuan/kegiatan — dapat berupa perkuliahan, ujian PMB/PSB, bimbingan tugas akhir, KKN, PKL,
+ * skripsi, KRS, jadwal pelajaran sekolah, grup pertemuan, atau formulir kegiatan). Ini adalah
+ * varian parameter tambahan yang paling kompleks di antara keluarga
+ * {@code ParameterTambahan*Listener} lainnya, karena {@link Pertemuan} bisa menjadi konteks
+ * beberapa jenis kegiatan sekaligus dan parameter dapat diisi dengan beberapa tata letak
+ * berbeda tergantung konfigurasi kelompoknya:
+ * <ul>
+ * <li><b>Jenis konteks pertemuan</b> — jenis {@code criterion} pencarian parameter ditentukan
+ * dari field {@link Pertemuan} mana yang terisi (perkuliahan, jadwalUjianPMB,
+ * mahasiswaRequestTugasAkhir, kelompokKkn, kelompokPkl, skripsi, krsMahasiswa, jadwalUjianPSB,
+ * jadwalPelajaran, pertemuanPunyaGrupPertemuan, formulirKegiatan) — hanya satu yang berlaku per
+ * pertemuan, dicek berurutan (yang pertama cocok dipakai).</li>
+ * <li><b>{@code getUntukDosenDanAdmin()}</b> — bila kelompok parameter khusus dosen/admin,
+ * ditampilkan sebagai grid dengan hingga 2 kolom parameter ({@code kolomKe} 1 dan 2) per baris,
+ * bukan satu kolom per baris seperti listener lain.</li>
+ * <li><b>{@code getDiisiPerPeserta()}</b> — bila parameter diisi terpisah untuk tiap peserta
+ * (mahasiswa) pertemuan: untuk staf (bukan mahasiswa/siswa login), ditampilkan sebagai grid satu
+ * baris per mahasiswa peserta ({@link Pertemuan#ambilMahasiswa()}) dengan kolom per parameter,
+ * nilainya disimpan sebagai objek JSON berkunci id mahasiswa; untuk mahasiswa/siswa yang login
+ * sendiri, hanya nilai miliknya yang ditampilkan (read-only, diambil dari JSON berkunci id-nya).</li>
+ * <li><b>Kasus umum</b> — satu baris per parameter seperti listener lain, dengan nilai tersimpan
+ * langsung (bukan per-peserta) kecuali bila {@code getDiisiPerPeserta()} aktif untuk mahasiswa/
+ * siswa yang login (nilai diekstrak dari JSON berkunci id pengguna).</li>
+ * </ul>
+ * Format penyimpanan nilai per baris tetap mengikuti konvensi
+ * {@code "kelompokId->parameterId[->parameterId2]<=>nilai<=>keterangan"} dipisah newline pada
+ * {@link Pertemuan#getParameterTambahanInds()}, dengan nilai/keterangan itu sendiri bisa berupa
+ * string JSON bersarang (berkunci id pertemuan atau id peserta) untuk mode per-dosen-admin atau
+ * per-peserta.
+ */
 public class ParameterTambahanPertemuanListener implements EventListener {
 
 	private List<Row> parameterRows;
@@ -45,6 +77,12 @@ public class ParameterTambahanPertemuanListener implements EventListener {
 	private Pertemuan pertemuan;
 	private Map<String, LampiranLain> lampiranLains;
 
+	/**
+	 * @param pertemuan     pertemuan yang parameter tambahannya dikelola
+	 * @param parameterRows daftar baris form yang dikelola bersama
+	 * @param lampiranLains lampiran yang sudah diunggah, dikunci per jenis parameter
+	 * @param rows          kontainer ZK tempat baris parameter ditambahkan
+	 */
 	public ParameterTambahanPertemuanListener(Pertemuan pertemuan, List<Row> parameterRows,
 			Map<String, LampiranLain> lampiranLains, Rows rows) {
 		this.parameterRows = parameterRows;
@@ -53,10 +91,23 @@ public class ParameterTambahanPertemuanListener implements EventListener {
 		this.lampiranLains = lampiranLains;
 	}
 
+	/** Menulis nilai isian dari {@code parameterRows} saat ini ke entitas {@code pertemuan} yang diberikan. */
 	public void onSave(Pertemuan pertemuan) {
 		pertemuan.populateParameterTambahan(parameterRows);
 	}
 
+	/**
+	 * Membangun ulang seluruh baris parameter tambahan untuk {@link #pertemuan}: menentukan
+	 * jenis konteks pertemuan (lihat javadoc kelas) untuk menyaring
+	 * {@link KelompokParameterTambahanPertemuan} yang relevan, lalu untuk tiap kelompok aktif
+	 * memilih salah satu dari tiga tata letak (grid dosen/admin 2 kolom, grid per-peserta, atau
+	 * satu baris per parameter) sesuai flag {@code getUntukDosenDanAdmin()}/
+	 * {@code getDiisiPerPeserta()} kelompok tersebut, lalu mengurai nilai tersimpan sebelumnya
+	 * dari {@link Pertemuan#getParameterTambahanInds()} (termasuk membongkar lapisan JSON
+	 * bersarang untuk mode per-dosen-admin/per-peserta) untuk memulihkan isian form. Bila tidak
+	 * ada kelompok parameter yang berlaku sama sekali, menampilkan satu baris pesan "Tidak ada
+	 * parameter hasil yang bisa di isi".
+	 */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	@Override
 	public void onEvent(Event event) throws Exception {

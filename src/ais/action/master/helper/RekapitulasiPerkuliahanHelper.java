@@ -47,8 +47,35 @@ import ais.ui.util.MyLabelConfig;
 import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper statis untuk layar "Rekapitulasi Pembelajaran" (dashboard e-Learning): menampilkan tab
+ * berorientasi vertikal (Perkuliahan, Sidang, Bimbingan, KKN, PKL, Pembimbing Akademik) yang masing-
+ * masing memuat daftar kegiatan pembelajaran pengguna yang login, difilter berdasarkan tahun akademik,
+ * semester, dan kata kunci pencarian. Tab selain tab pertama dimuat malas (lazy) — kontennya baru
+ * dibangun saat tab diklik pertama kali, untuk menghindari query yang tidak perlu.
+ *
+ * <p>
+ * {@link #ambilPembelajaran} adalah sumber data tunggal yang dipakai baik oleh tampilan tab di sini
+ * maupun (berdasarkan nama parameter/pola) komponen dashboard lain: perilakunya bercabang tiga arah
+ * tergantung peran {@code tbmuser} — mahasiswa (query lewat {@code Mahasiswa#ambilPerkuliahanDanParalel}),
+ * dosen (query lewat {@code Dosen#ambilPerkuliahanDanParalel}), atau peran lain/admin (query statis
+ * {@code TampilanELearningAction#initStaticCriteria} dengan paging manual dan konversi entitas sesuai
+ * {@code ditampilkanHanya}). Parameter {@code refreh} memicu pembersihan cache koleksi lazy pada
+ * entitas mahasiswa/dosen ({@code reInitPerkuliahan}/{@code reInitSkripsi}/dst.) sebelum query ulang.
+ * </p>
+ */
 public class RekapitulasiPerkuliahanHelper {
 
+	/**
+	 * Membangun tabbox vertikal enam tab (Perkuliahan/Sidang/Bimbingan/KKN/PKL/Pembimbing Akademik) di
+	 * dalam {@code parent}. Tab Perkuliahan dimuat langsung; tab lain dimuat malas saat pertama kali
+	 * diklik.
+	 *
+	 * @param parent          container ZK tujuan tabbox
+	 * @param tbmuser         pengguna yang datanya ditampilkan
+	 * @param tampilStatistik bila {@code true}, menampilkan mode ringkas statistik alih-alih daftar
+	 *                        rinci
+	 */
 	public static void display(Component parent, final Tbmuser tbmuser, final boolean tampilStatistik) {
 
 		Tabbox tabbox = new Tabbox();
@@ -240,6 +267,7 @@ public class RekapitulasiPerkuliahanHelper {
 		semester.addEventListener("onChange", eventListener);
 	}
 
+	/** Varian {@link #ambilPembelajaran(Tbmuser, String, String, String, boolean, int, boolean, Integer, Paging, EventListener, Integer)} tanpa {@code jumlahDown} (offset paging dihitung otomatis dari {@code page}). */
 	@SuppressWarnings({})
 	public static List<VOPembelajaran> ambilPembelajaran(Tbmuser tbmuser, String ta, String smt, String cari,
 			boolean refreh, int page, boolean tampilStatistik, Integer ditampilkanHanya, Paging paging,
@@ -249,6 +277,34 @@ public class RekapitulasiPerkuliahanHelper {
 				eventListener, jumlahDown);
 	}
 
+	/**
+	 * Mengambil daftar kegiatan pembelajaran ({@link VOPembelajaran} — antarmuka umum untuk
+	 * {@link Perkuliahan}, {@link Skripsi}, {@link MahasiswaRequestTugasAkhir},
+	 * {@link KelompokKkn}, {@link KelompokPkl}, {@link FormulirKegiatan}/{@link KrsMahasiswa}) sesuai
+	 * jenis {@code ditampilkanHanya} untuk pengguna yang diberikan. Sumber data dan cara paging
+	 * bercabang menurut peran: mahasiswa dan dosen memakai method relasi khusus milik entitas masing-
+	 * masing (mengambil hingga 1000 baris tanpa paging server), sedangkan peran lain memakai kriteria
+	 * statis {@code TampilanELearningAction#initStaticCriteria} dengan paging server penuh (termasuk
+	 * penyesuaian nilai {@code paging.getActivePage()} agar tidak melebihi total halaman yang tersedia
+	 * setelah filter berubah).
+	 *
+	 * @param tbmuser          pengguna yang datanya diambil
+	 * @param ta               tahun akademik filter
+	 * @param smt              semester (GANJIL/GENAP/SP) filter
+	 * @param cari             kata kunci pencarian bebas
+	 * @param refreh           bila {@code true}, membersihkan cache koleksi lazy pada entitas
+	 *                         mahasiswa/dosen sebelum query ulang
+	 * @param page             nomor halaman diminta; {@code -1} berarti pakai halaman aktif
+	 *                         {@code paging} saat ini (khusus jalur non-mahasiswa/dosen)
+	 * @param tampilStatistik  diteruskan apa adanya, dipakai pemanggil untuk memilih tampilan
+	 * @param ditampilkanHanya jenis kegiatan yang diambil (konstanta {@code TampilanELearningAction})
+	 * @param paging           komponen {@link Paging} yang akan diisi total/ukuran halaman (hanya
+	 *                         dipakai pada jalur non-mahasiswa/dosen)
+	 * @param eventListener    listener event "onPaging" yang dipasang ke {@code paging}
+	 * @param jumlahDown       offset baris eksplisit (menimpa perhitungan dari {@code page}), boleh
+	 *                         {@code null}
+	 * @return daftar kegiatan pembelajaran sesuai filter dan halaman yang diminta
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static List<VOPembelajaran> ambilPembelajaran(final Tbmuser tbmuser, final String ta, final String smt,
 			final String cari, boolean refreh, final int page, final boolean tampilStatistik,

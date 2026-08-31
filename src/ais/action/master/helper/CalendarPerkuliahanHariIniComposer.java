@@ -41,6 +41,32 @@ import ais.database.model.Ruang;
 import ais.database.model.Tbmuser;
 import ais.ui.util.MyCheckboxConfig;
 
+/**
+ * Composer ZK (dipasang lewat berkas ZUL terkait, event handler diikat via konvensi
+ * {@code on*$componentId}) untuk tampilan kalender harian ("Hari Ini") berbagai jenis agenda
+ * akademik: jadwal perkuliahan, KKN, PKL, bimbingan, revisi, konsultasi, dan konsultasi lain —
+ * masing-masing direpresentasikan sebagai baris {@link Pertemuan} dan diwarnai sesuai
+ * {@link Pertemuan#warnas}, dapat ditampilkan/disembunyikan lewat kotak centang per jenis
+ * ({@link #jadwalPerkuliahan}, {@link #jadwalKkn}, dst.).
+ *
+ * <p>
+ * Filter yang tersedia (semuanya opsional, komponen ZK dapat {@code null} bergantung ZUL yang
+ * memakai composer ini): Tahun Akademik, Semester, Kelas, Fakultas/Jurusan/Program, Ruang, Dosen,
+ * Mahasiswa, dan Kurikulum. Fakultas/Jurusan otomatis dikunci ke fakultas/jurusan milik pengguna
+ * yang login bila pengguna terikat pada salah satunya. Navigasi tanggal dilakukan lewat
+ * {@link #onBack(Event)}/{@link #onNext(Event)} yang menggeser {@link #calendar} satu hari dan
+ * memuat ulang model kalender.
+ * </p>
+ *
+ * <p>
+ * Data pertemuan diambil lewat delegasi ke
+ * {@link CalendarPerkuliahanMingguIniComposer#ambilData} (rentang H-1 s.d. H+1 dari tanggal aktif,
+ * agar acara yang melewati tengah malam tetap tampil utuh) dan dikonversi ke
+ * {@link CalendarEvent} lewat {@link CalendarPerkuliahanBulanIniComposer#createEvent(Pertemuan)}.
+ * Jam mulai/selesai tampilan kalender serta zona waktu dapat diatur lewat konfigurasi
+ * {@code penjadwalan_jam_mulai}/{@code penjadwalan_jam_selesai}/{@code penjadwalan_timezone}.
+ * </p>
+ */
 public class CalendarPerkuliahanHariIniComposer extends GenericForwardComposer {
 
 	protected static final long serialVersionUID = 201011240904L;
@@ -74,18 +100,21 @@ public class CalendarPerkuliahanHariIniComposer extends GenericForwardComposer {
 
 	private Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 
+	/** Menggeser tanggal aktif mundur satu hari, memuat ulang model kalender, dan berpindah ke halaman sebelumnya pada komponen {@link #calendars}. */
 	public void onBack(Event event) {
 		calendar.set(Calendar.DATE, calendar.get(Calendar.DATE) - 1);
 		initCalendarModel();
 		calendars.previousPage();
 	}
 
+	/** Menggeser tanggal aktif maju satu hari, memuat ulang model kalender, dan berpindah ke halaman berikutnya pada komponen {@link #calendars}. */
 	public void onNext(Event event) {
 		calendar.set(Calendar.DATE, calendar.get(Calendar.DATE) + 1);
 		initCalendarModel();
 		calendars.nextPage();
 	}
 
+	/** Memuat ulang model kalender sesuai filter saat ini (dijalankan lewat {@code Common#createDefaultTimer} agar UI tidak diblokir), lalu memvalidasi ulang komponen {@link #calendars}. */
 	public void onRefresh(Event event) {
 
 		Common.createDefaultTimer(new EventListener() {
@@ -110,6 +139,17 @@ public class CalendarPerkuliahanHariIniComposer extends GenericForwardComposer {
 	private Row row1;
 	private Row row2;
 	
+	/**
+	 * Menghasilkan laporan PDF ("sks_dosen_periode") berisi rekap agenda dosen dari daftar
+	 * {@link Pertemuan} yang sedang ditampilkan di kalender ({@link #pertemuan}) — mengelompokkan
+	 * setiap kombinasi dosen+tanggal+waktu (dedup lewat {@link TreeMap} agar terurut dan tidak
+	 * dobel), lalu untuk tiap baris menentukan jenis kegiatan (perkuliahan, pembimbing KKN/PKL,
+	 * sidang/pembimbing skripsi, pembimbing akademik, atau pertemuan grup) beserta ringkasan jumlah
+	 * mahasiswa yang terlibat.
+	 *
+	 * @param event event ZK pemicu (tidak dipakai isinya)
+	 * @throws Exception diteruskan dari kegagalan pembuatan laporan PDF
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void onAgendaDosen(Event event) throws Exception {
 		if (pertemuan != null) {
@@ -256,6 +296,17 @@ public class CalendarPerkuliahanHariIniComposer extends GenericForwardComposer {
 		return "";
 	}
 
+	/**
+	 * Hook siklus hidup ZK yang dijalankan setelah seluruh komponen ZUL selesai dirender: menyiapkan
+	 * warna dan status centang default tiap kotak jenis jadwal, mengikat listener refresh pada
+	 * banbox filter (Kelas/Ruang/Dosen/Mahasiswa/Kurikulum), mengisi kombo Semester dan Tahun
+	 * Akademik, mengonfigurasi jam/timezone tampilan {@link #calendars} dari konfigurasi terkait,
+	 * mengisi kombo Fakultas/Jurusan/Program (dan menguncinya bila pengguna terikat pada
+	 * fakultas/jurusan tertentu), lalu memicu pemuatan data awal lewat {@link #onRefresh(Event)}.
+	 *
+	 * @param comp komponen akar hasil komposisi ZUL
+	 * @throws Exception diteruskan dari kegagalan inisialisasi komponen
+	 */
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
 
@@ -453,6 +504,13 @@ public class CalendarPerkuliahanHariIniComposer extends GenericForwardComposer {
 	
 	private List<Pertemuan> pertemuan = null;
 
+	/**
+	 * Membangun ulang {@link #cm} (model kalender ZK) dari data {@link Pertemuan} yang cocok dengan
+	 * filter toolbar saat ini, untuk rentang H-1 sampai H+1 dari {@link #calendar} (tanggal aktif) —
+	 * rentang dilebihkan satu hari di kedua sisi agar acara yang melintasi tengah malam tidak
+	 * terpotong pada tampilan harian. Hasil query disimpan ke {@link #pertemuan} (dipakai ulang oleh
+	 * {@link #onAgendaDosen(Event)}) dan tiap barisnya dikonversi menjadi {@link CalendarEvent}.
+	 */
 	protected void initCalendarModel() {
 
 		String tahunAkademik = tahunAjaran == null || tahunAjaran.getSelectedItem() == null || tahunAjaran.getSelectedItem().getValue() == null
@@ -496,6 +554,7 @@ public class CalendarPerkuliahanHariIniComposer extends GenericForwardComposer {
 		}
 	}
 
+	/** Event handler ZK untuk percobaan membuat event baru langsung dari komponen kalender; dibatalkan (mencegah "ghost event" dibersihkan) karena pembuatan agenda dilakukan lewat layar terpisah, bukan drag-select pada kalender ini. */
 	public void onEventCreate$calendars(ForwardEvent event) throws Exception {
 
 		CalendarsEvent evt = (CalendarsEvent) event.getOrigin();
@@ -503,6 +562,15 @@ public class CalendarPerkuliahanHariIniComposer extends GenericForwardComposer {
 		evt.stopClearGhost();
 	}
 
+	/**
+	 * Event handler ZK saat pengguna mengklik/mengedit satu event pada kalender: mem-parsing id
+	 * {@link Pertemuan} dari judul event ({@code title} berformat {@code "id-..."}, dengan id negatif
+	 * menandakan urutan token id/label terbalik pada judul), lalu membuka jendela detail/ubah jadwal
+	 * lewat {@link CalendarPerkuliahanMingguIniComposer#init(Pertemuan, EventListener)}.
+	 *
+	 * @param event event ZK forward dari komponen {@link #calendars}
+	 * @throws Exception tidak dilempar keluar; kegagalan parsing/pencarian ditelan dan dicatat lewat audit
+	 */
 	public void onEventEdit$calendars(ForwardEvent event) throws Exception {
 
 		CalendarsEvent evt = (CalendarsEvent) event.getOrigin();
@@ -544,6 +612,7 @@ public class CalendarPerkuliahanHariIniComposer extends GenericForwardComposer {
 
 	}
 
+	/** Event handler ZK saat event pada kalender digeser/diubah durasinya lewat drag pada UI; menyalin waktu mulai/selesai baru dari event ZK ke model kalender lokal ({@link #cm}) tanpa menyimpan ke database. */
 	public void onEventUpdate$calendars(ForwardEvent event) {
 		CalendarsEvent evt = (CalendarsEvent) event.getOrigin();
 		org.zkoss.calendar.Calendars cal = (org.zkoss.calendar.Calendars) evt.getTarget();

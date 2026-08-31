@@ -45,6 +45,15 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Jendela pencarian & pemilihan {@link Mahasiswa} untuk didaftarkan sebagai penerima satu
+ * {@link Beasiswa} (menghasilkan baris {@link MahasiswaDapatBeasiswa}). Menyediakan form
+ * pencarian (NIM/rentang NIM, nama, fakultas, jurusan, tahun angkatan) di atas grid ber-checkbox
+ * dengan "pilih semua" pada header; centang mencerminkan status sudah/belum terdaftar sebagai
+ * penerima beasiswa ini. Dipakai sebagai jendela modal yang dipanggil dari
+ * {@link BeasiswaHelper#displayPrasyaratBeasiswa}, dengan callback {@link DataLoader} untuk
+ * menyegarkan grid pemanggil setelah data disimpan.
+ */
 public class AmbilDataMahasiswaBeasiswaHelper {
 
 	private Beasiswa beasiswa;
@@ -63,11 +72,13 @@ public class AmbilDataMahasiswaBeasiswaHelper {
 	private Textbox dariNim;
 	private Textbox sampaiNim;
 
+	/** Menyiapkan combobox filter fakultas/jurusan (terisi seluruh opsi + "Semua"). */
 	public AmbilDataMahasiswaBeasiswaHelper() {
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 
 	}
 
+	/** Merender satu baris grid: checkbox status (dicentang bila mahasiswa sudah tercatat sebagai penerima {@link #beasiswa}), NIM, nama, dan tahun angkatan. */
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		private MahasiswaDapatBeasiswaDao mahasiswaDapatBeasiswaDao = DaoFactory.getInstance()
@@ -99,6 +110,13 @@ public class AmbilDataMahasiswaBeasiswaHelper {
 
 	}
 
+	/**
+	 * Menyimpan mahasiswa yang tercentang pada grid sebagai penerima {@link #beasiswa}: untuk
+	 * tiap baris tercentang, membuat baris {@link MahasiswaDapatBeasiswa} baru hanya bila belum
+	 * ada relasi tersebut sebelumnya (dicek per baris, bukan replace-all seperti pada
+	 * {@link AmbilDataSyaratBeasiswaHelper#save()}) — sehingga mahasiswa yang sudah terdaftar
+	 * tidak dibuat dobel. Kegagalan membaca satu baris diabaikan secara diam-diam.
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() {
 		MahasiswaDapatBeasiswaDao mahasiswaDapatBeasiswaDao = DaoFactory.getInstance().getMahasiswaDapatBeasiswaDao();
@@ -132,6 +150,17 @@ public class AmbilDataMahasiswaBeasiswaHelper {
 
 	}
 
+	/**
+	 * Membangun jendela modal pencarian mahasiswa (form filter + grid paging 50 baris/halaman)
+	 * untuk {@code beasiswa}, lalu menampilkannya sebagai modal. Tombol "Cari" memuat ulang
+	 * grid via {@link #onSearchDefault(Event)}; tombol "Simpan" memanggil {@link #save()} lalu
+	 * {@code dataLoader.loadData(null)} agar layar pemanggil menyegarkan tampilannya sebelum
+	 * jendela ditutup.
+	 *
+	 * @param beasiswa   beasiswa yang penerimanya sedang dicari/ditambahkan
+	 * @param dataLoader callback yang disegarkan setelah data berhasil disimpan
+	 * @param window     jendela yang akan diisi dan ditampilkan sebagai modal
+	 */
 	public void display(final Beasiswa beasiswa, final DataLoader dataLoader, final MyWindow window) {
 		this.beasiswa = beasiswa;
 		Common.clear(window);
@@ -319,6 +348,11 @@ public class AmbilDataMahasiswaBeasiswaHelper {
 		}
 	}
 
+	/**
+	 * Memuat/menyegarkan grid dengan mahasiswa aktif yang cocok filter pada form pencarian
+	 * (nama/NIM contains, rentang NIM, fakultas, jurusan, tahun angkatan tepat), diurutkan
+	 * berdasarkan tahun angkatan menurun lalu NIM menaik, dibatasi {@link Common#MAX_RESULT}.
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

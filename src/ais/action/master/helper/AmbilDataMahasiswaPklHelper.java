@@ -45,6 +45,19 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper "pilih dari daftar" untuk menugaskan mahasiswa ke satu kegiatan {@link Pkl} (Praktik
+ * Kerja Lapangan), lewat relasi {@link MahasiswaDapatPkl}. Menampilkan jendela modal pencarian
+ * mahasiswa (NIM, nama, tahun angkatan, fakultas, prodi) dengan checkbox per baris yang menandakan
+ * apakah mahasiswa tersebut sudah tertaut ke {@link Pkl} yang bersangkutan; checkbox pada header
+ * kolom mencentang/melepas-centang seluruh baris sekaligus.
+ *
+ * <p>
+ * Berbeda dari pola sejenis di helper lain pada paket ini, {@link #save()} di sini hanya
+ * menambahkan relasi baru untuk baris yang tercentang (dan belum tertaut) — melepas centang tidak
+ * menghapus relasi yang sudah ada; hanya penambahan yang ditangani.
+ * </p>
+ */
 public class AmbilDataMahasiswaPklHelper {
 
 	private Pkl pkl;
@@ -60,11 +73,13 @@ public class AmbilDataMahasiswaPklHelper {
 	private Combobox searchfakultas = new Combobox();
 	private Combobox searchjurusan = new Combobox();
 
+	/** Membuat helper dan menginisialisasi combobox pencarian fakultas/jurusan (termasuk opsi "Semua"). */
 	public AmbilDataMahasiswaPklHelper() {
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 
 	}
 
+	/** Perender baris grid: checkbox status tertaut (dicentang bila relasi {@link MahasiswaDapatPkl} sudah ada) plus label NIM, nama, dan tahun angkatan mahasiswa. */
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		private MahasiswaDapatPklDao mahasiswaDapatPklDao = DaoFactory.getInstance().getMahasiswaDapatPklDao();
@@ -95,6 +110,11 @@ public class AmbilDataMahasiswaPklHelper {
 
 	}
 
+	/**
+	 * Menambahkan relasi {@link MahasiswaDapatPkl} baru (dengan {@code keterangan} kosong) untuk
+	 * setiap baris grid yang saat ini tercentang dan belum memiliki relasi ke {@link #pkl}.
+	 * Melepas centang tidak menghapus relasi yang sudah tersimpan. Kegagalan per baris ditelan.
+	 */
 	@SuppressWarnings("unchecked")
 	public void save() {
 		MahasiswaDapatPklDao mahasiswaDapatPklDao = DaoFactory.getInstance().getMahasiswaDapatPklDao();
@@ -129,6 +149,15 @@ public class AmbilDataMahasiswaPklHelper {
 
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela modal pemilihan mahasiswa untuk {@code pkl} yang diberikan:
+	 * form pencarian (NIM/nama/tahun angkatan/fakultas/prodi), grid ber-paging dengan checkbox per
+	 * baris, dan tombol Simpan/Cari/Batal.
+	 *
+	 * @param pkl        kegiatan PKL tujuan penugasan mahasiswa
+	 * @param dataLoader callback penyegar tampilan pemanggil setelah simpan
+	 * @param window     jendela modal yang akan dibangun isinya (dibersihkan lebih dulu)
+	 */
 	public void display(final Pkl pkl, final DataLoader dataLoader, final MyWindow window) {
 		this.pkl = pkl;
 		Common.clear(window);
@@ -298,6 +327,14 @@ public class AmbilDataMahasiswaPklHelper {
 		}
 	}
 
+	/**
+	 * Menjalankan pencarian mahasiswa aktif berdasarkan kombinasi filter NIM/nama (ilike), tahun
+	 * angkatan (persis, opsional), jurusan, dan fakultas; hasil diurutkan menurun berdasarkan tahun
+	 * angkatan lalu menaik berdasarkan NIM, dibatasi {@link Common#MAX_RESULT}. Memuat ulang grid
+	 * dengan hasilnya.
+	 *
+	 * @param event event pemicu (tombol Cari), tidak dipakai langsung
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

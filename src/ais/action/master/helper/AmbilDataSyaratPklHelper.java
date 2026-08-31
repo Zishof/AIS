@@ -39,6 +39,21 @@ import ais.database.model.pkl.PklPunyaPersyaratan;
 import ais.database.model.pkl.PersyaratanPkl;
 import ais.ui.util.MyPanel;
 
+/**
+ * Helper "pilih dari daftar" untuk menautkan {@link PersyaratanPkl} (definisi form input/syarat
+ * PKL yang bersifat global) ke satu {@link Pkl} tertentu, lewat relasi
+ * {@link PklPunyaPersyaratan}. Menampilkan jendela modal berisi grid ber-paging seluruh
+ * {@link PersyaratanPkl} dengan checkbox status tertaut per baris (kolom nama syarat, label
+ * input, tipe data, nilai data, wajib lampiran, dan jenis kelamin berlaku).
+ *
+ * <p>
+ * Melepas centang pada baris yang sebelumnya tertaut menambahkan relasinya ke {@link #delete}; saat
+ * disimpan ({@link #save()}), seluruh entri {@link #delete} dihapus lebih dulu (lewat
+ * {@link #delete(List)}) — hanya bila penghapusan seluruhnya berhasil barulah baris yang tercentang
+ * diproses untuk dibuat relasi barunya (mencegah state ganda saat penghapusan gagal karena relasi
+ * data lain).
+ * </p>
+ */
 public class AmbilDataSyaratPklHelper {
 
 	private Pkl pkl;
@@ -58,13 +73,25 @@ public class AmbilDataSyaratPklHelper {
 	// private Combobox searchfakultas = new Combobox();
 	// private Combobox searchjurusan = new Combobox();
 
+	/** Kumpulan relasi {@link PklPunyaPersyaratan} yang di-uncheck user dan akan dihapus saat {@link #save()}. */
 	List<PklPunyaPersyaratan> delete = new ArrayList<PklPunyaPersyaratan>();
 
+	/**
+	 * Membuat helper untuk satu {@link Pkl} tertentu.
+	 *
+	 * @param pkl kegiatan PKL yang persyaratannya akan dikonfigurasi
+	 */
 	public AmbilDataSyaratPklHelper(Pkl pkl) {
 		this.pkl = pkl;
 
 	}
 
+	/**
+	 * Perender baris grid: checkbox status tertaut (dicentang bila {@link PklPunyaPersyaratan}
+	 * sudah ada untuk kombinasi PKL+syarat ini; melepas centang menambahkan relasi ke
+	 * {@link #delete}) plus label nama syarat, label input, tipe data, nilai data, kewajiban
+	 * lampiran, dan jenis kelamin berlaku.
+	 */
 	class PersyaratanPklRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -107,6 +134,14 @@ public class AmbilDataSyaratPklHelper {
 		}
 	}
 
+	/**
+	 * Menghapus lebih dulu seluruh relasi pada {@link #delete} (via {@link #delete(List)}); hanya
+	 * bila seluruh penghapusan berhasil, lanjut menambahkan relasi {@link PklPunyaPersyaratan} baru
+	 * untuk setiap baris grid yang tercentang dan belum tertaut ke {@link #pkl}.
+	 *
+	 * @throws InterruptedException tidak pernah benar-benar dilempar oleh implementasi saat ini;
+	 *                               bagian dari signature method
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() throws InterruptedException {
 		if (delete(delete)) {
@@ -144,6 +179,16 @@ public class AmbilDataSyaratPklHelper {
 
 	}
 
+	/**
+	 * Menghapus setiap relasi pada {@code pklPunyaPersyaratans} via {@link Common#refreshDelete}.
+	 * Kegagalan penghapusan per item ditampilkan lewat {@link Common#tampilErrorJikaAdmin} tetapi
+	 * tidak menghentikan proses item lain.
+	 *
+	 * @param pklPunyaPersyaratans relasi yang akan dihapus
+	 * @return {@code true} bila daftar input kosong (tidak ada yang perlu dihapus, dianggap
+	 *         "berhasil"); {@code false} bila ada item yang diproses (tanpa memeriksa apakah
+	 *         penghapusannya benar-benar sukses satu per satu)
+	 */
 	public boolean delete(List<PklPunyaPersyaratan> pklPunyaPersyaratans) {
 		for (PklPunyaPersyaratan b : pklPunyaPersyaratans) {
 			try {
@@ -161,6 +206,15 @@ public class AmbilDataSyaratPklHelper {
 
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela modal "Daftar Form Input dan Persyaratan Pkl" berisi grid
+	 * ber-paging seluruh {@link PersyaratanPkl} dengan checkbox status tertaut, dan tombol
+	 * Simpan/Batal — keduanya memanggil {@code eventListener} (bila diberikan) setelah selesai
+	 * agar pemanggil dapat menyegarkan tampilannya sendiri.
+	 *
+	 * @param window        jendela modal yang akan dibangun isinya (dibersihkan lebih dulu)
+	 * @param eventListener callback opsional yang dipanggil setelah Simpan atau Batal
+	 */
 	public void display(final MyWindow window, final EventListener eventListener) {
 
 		Common.clear(window);
@@ -315,6 +369,12 @@ public class AmbilDataSyaratPklHelper {
 		}
 	}
 
+	/**
+	 * Memuat seluruh {@link PersyaratanPkl} (diurutkan menaik berdasarkan id, dibatasi
+	 * {@link Common#MAX_RESULT}) lewat {@link #pagingHelper} dan memuat ulang grid dengan hasilnya.
+	 *
+	 * @param event event pemicu (paging), tidak dipakai langsung
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

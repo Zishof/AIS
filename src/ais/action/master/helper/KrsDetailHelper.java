@@ -18,11 +18,37 @@ import ais.database.model.PendaftaranCutiMahasiswa;
 import ais.database.model.Perkuliahan;
 import ais.database.model.StatusMahasiswa;
 
+/**
+ * Kumpulan method statis murni (tanpa komponen ZK) untuk menyaring daftar {@link Detailperkuliahan}
+ * (baris KRS mahasiswa per matakuliah) milik seorang {@link Mahasiswa} berdasarkan kombinasi
+ * kriteria semester/tahapan/semester-pendek/remedial/status persetujuan/status penilaian, serta
+ * untuk menyusun teks keterangan status pengisian KRS yang ditampilkan di berbagai layar (mis.
+ * {@link UjianMahasiswaHelper}, KRS mahasiswa).
+ *
+ * <p>
+ * Seluruh method bekerja di atas cache {@link Mahasiswa#ambilDetailperkuliahan()} (daftar id
+ * {@link Detailperkuliahan} milik mahasiswa) dan me-resolve tiap id lewat
+ * {@link GeneralValueObject#ambilData(Class, String)} (cache entitas), sehingga TIDAK melakukan
+ * query database langsung per pemanggilan — cocok dipakai berulang kali dalam satu request tanpa
+ * biaya query tambahan.
+ * </p>
+ *
+ * <p>
+ * Istilah "matakuliah konversi" (semester {@code 0}) merujuk pada baris
+ * {@link Detailperkuliahan#getMatakuliahKonversi()} terisi — nilai matakuliah yang dikonversi dari
+ * institusi/perkuliahan lain (transfer kredit), diperlakukan sebagai kelompok tersendiri di luar
+ * penomoran semester biasa pada sebagian besar method di kelas ini.
+ * </p>
+ */
 public class KrsDetailHelper {
 
-	// ============================================================================================
-	// 1. AMBIL DETAIL PERKULIAHAN UTAMA
-	// ============================================================================================
+	/**
+	 * Seperti {@link #ambilDetailperkuliahan(Mahasiswa, Integer, Integer, Integer, boolean,
+	 * Boolean, Integer, boolean, boolean, boolean)}, dengan flag {@code debug} diambil otomatis
+	 * dari konfigurasi {@code debug_ambil_ambilDetailperkuliahan} (bila aktif, mencetak jejak
+	 * evaluasi setiap baris ke konsol — berguna untuk menelusuri mengapa suatu baris KRS
+	 * diterima/ditolak filter).
+	 */
 	public static List<Long> ambilDetailperkuliahan(Mahasiswa mahasiswa, Integer semester, Integer tahapan,
 			Integer semesterPendek, boolean remedial, Boolean semua, Integer persetujuan, boolean sudahDinilaiSaja,
 			boolean belumDinilaiSaja) {
@@ -32,6 +58,34 @@ public class KrsDetailHelper {
 				sudahDinilaiSaja, belumDinilaiSaja, debug);
 	}
 
+	/**
+	 * Implementasi inti penyaringan baris KRS mahasiswa. Baris dievaluasi berurutan: (1) filter
+	 * status penilaian ({@code belumDinilaiSaja}/{@code sudahDinilaiSaja}, berbasis
+	 * {@code totalNilai}); (2) baris tanpa matakuliah teridentifikasi (baik lewat konversi maupun
+	 * perkuliahan) selalu ditolak; (3) filter {@code persetujuan} bila diberikan; (4) khusus
+	 * {@code semester == 0}: hanya baris matakuliah KONVERSI yang diterima, lolos tidaknya tak
+	 * dipengaruhi kriteria lain di bawah; (5) kecocokan tahapan (bila {@code tahapan > 0}) atau
+	 * semester (jika tidak); (6) kategori akhir — remedial, "semua" (non-remedial), reguler
+	 * (bukan SP & bukan remedial), atau semester pendek (SP & bukan remedial) — hanya SATU kategori
+	 * yang berlaku sesuai kombinasi parameter {@code remedial}/{@code semua}/{@code semesterPendek}.
+	 *
+	 * @param mahasiswa        mahasiswa pemilik KRS; {@code null} menghasilkan daftar kosong
+	 * @param semester         semester yang dicocokkan (diabaikan bila {@code tahapan > 0});
+	 *                         bernilai {@code 0} berarti khusus matakuliah konversi
+	 * @param tahapan          bila {@code > 0}, dipakai sebagai kriteria kecocokan utama
+	 *                         (menggantikan semester)
+	 * @param semesterPendek   penanda semester pendek; bila sama dengan
+	 *                         {@link Perkuliahan#SEMESTER_PENDEK}, parameter {@code semua} dipaksa
+	 *                         {@code false}
+	 * @param remedial         hanya sertakan baris kelas remedial
+	 * @param semua            sertakan seluruh baris non-remedial (SP maupun reguler tercampur)
+	 * @param persetujuan      filter status persetujuan baris (mis. {@link Detailperkuliahan#DISETUJUI}),
+	 *                         boleh {@code null} untuk tidak menyaring
+	 * @param sudahDinilaiSaja hanya sertakan baris yang sudah memiliki nilai
+	 * @param belumDinilaiSaja hanya sertakan baris yang belum memiliki nilai
+	 * @param debug            cetak jejak evaluasi tiap baris ke konsol
+	 * @return daftar id {@link Detailperkuliahan} yang lolos seluruh kriteria
+	 */
 	public static List<Long> ambilDetailperkuliahan(Mahasiswa mahasiswa, Integer semester, Integer tahapan,
 			Integer semesterPendek, boolean remedial, Boolean semua, Integer persetujuan, boolean sudahDinilaiSaja,
 			boolean belumDinilaiSaja, boolean debug) {
@@ -200,9 +254,11 @@ public class KrsDetailHelper {
 		return detailperkuliahans;
 	}
 
-	// ============================================================================================
-	// 2. AMBIL DETAIL PERKULIAHAN MK TERTENTU
-	// ============================================================================================
+	/**
+	 * Menyaring baris KRS mahasiswa PADA satu semester tertentu (bila {@code semester} diberikan)
+	 * yang matakuliahnya (kode ATAU nama, dibandingkan case-insensitive) cocok dengan salah satu
+	 * dari {@code kodeAtauNamas}.
+	 */
 	public static List<Long> ambilDetailperkuliahanMkTertentu(Mahasiswa mahasiswa, Integer semester,
 			String... kodeAtauNamas) {
 		List<Long> detailperkuliahans = new ArrayList<Long>();
@@ -247,9 +303,12 @@ public class KrsDetailHelper {
 		return detailperkuliahans;
 	}
 
-	// ============================================================================================
-	// 3. AMBIL DETAIL PERKULIAHAN MK SAMPAI SMT TERTENTU
-	// ============================================================================================
+	/**
+	 * Seperti {@link #ambilDetailperkuliahanMkTertentu}, tetapi {@code semester} berperan sebagai
+	 * batas atas: hanya menyertakan baris KRS dengan {@code semester <= parameter semester}
+	 * (bukan hanya sama persis), sehingga menjangkau riwayat pengambilan matakuliah tersebut
+	 * SAMPAI DENGAN semester yang diberikan.
+	 */
 	public static List<Long> ambilDetailperkuliahanMkSdSmtTertentu(Mahasiswa mahasiswa, Integer semester,
 			String... kodeAtauNamas) {
 		List<Long> detailperkuliahans = new ArrayList<Long>();
@@ -294,9 +353,7 @@ public class KrsDetailHelper {
 		return detailperkuliahans;
 	}
 
-	// ============================================================================================
-	// 4. AMBIL DETAIL PERKULIAHAN KONVERSI
-	// ============================================================================================
+	/** Menyaring baris KRS mahasiswa yang merupakan matakuliah KONVERSI ({@code matakuliahKonversi} terisi), opsional dibatasi pada satu {@code semester} tertentu. */
 	public static List<Long> ambilDetailperkuliahanKonversi(Mahasiswa mahasiswa, Integer semester) {
 		List<Long> detailperkuliahans = new ArrayList<Long>();
 		if (mahasiswa == null)
@@ -321,9 +378,19 @@ public class KrsDetailHelper {
 		return detailperkuliahans;
 	}
 
-	// ============================================================================================
-	// 5. AMBIL DETAIL PERKULIAHAN SAMPAI SEMESTER TERTENTU
-	// ============================================================================================
+	/**
+	 * Menyaring baris KRS mahasiswa dengan semantik KUMULATIF "sampai dengan" — bukan hanya sama
+	 * persis dengan {@code semester}/{@code tahapan}, melainkan seluruh baris hingga dan termasuk
+	 * semester/tahapan tersebut (dipakai mis. untuk menghitung transkrip/IPK kumulatif). Bila
+	 * {@code semester} bernilai {@code null} atau {@code 0}, hanya matakuliah konversi yang
+	 * disertakan. Kategori SP/reguler diatur oleh {@code semua}/{@code semesterPendek} seperti pada
+	 * {@link #ambilDetailperkuliahan}, TANPA opsi remedial (baris remedial tidak pernah termasuk
+	 * kecuali {@code semua=true}, yang tetap menyertakan seluruh baris SP+reguler tanpa filter SP).
+	 *
+	 * @param saring bila {@code true}, hasil akhir disaring lagi lewat
+	 *               {@link Mahasiswa#saringBerdasarNilai(Collection)} (mis. mengambil hanya nilai
+	 *               terbaik per matakuliah yang diulang)
+	 */
 	public static Collection<Long> ambilDetailperkuliahanSampai(Mahasiswa mahasiswa, Integer semester, Integer tahapan,
 			Integer semesterPendek, boolean semua, boolean saring) {
 		List<Long> detailperkuliahans = new ArrayList<Long>();
@@ -384,9 +451,7 @@ public class KrsDetailHelper {
 		return detailperkuliahans;
 	}
 
-	// ============================================================================================
-	// 6. KETERANGAN KRS & STATUS KRS
-	// ============================================================================================
+	/** Seperti {@link #rubahKeteranganPengambilanKRS(Mahasiswa, Integer, Integer, Integer, KrsMahasiswa, boolean)}, dengan seluruh tag {@code <font>}/{@code </font>} dan spasi ganda dibersihkan dari hasilnya — versi teks polos untuk konteks yang tidak merender HTML. */
 	public static String rubahKeteranganPengambilanKRSBersih(Mahasiswa mahasiswa, Integer semester, Integer tahapan,
 			Integer semesterPendek, KrsMahasiswa krsMahasiswa, boolean remedial) {
 		String krs = rubahKeteranganPengambilanKRS(mahasiswa, semester, tahapan, semesterPendek, krsMahasiswa,
@@ -403,11 +468,24 @@ public class KrsDetailHelper {
 				.replace("<font>", "").replace("  ", " ").replace("  ", " ");
 	}
 
+	/** Seperti {@link #rubahKeteranganPengambilanKRS(Mahasiswa, Integer, Integer, Integer, KrsMahasiswa, boolean)}, mengambil mahasiswa/semester/tahapan/semester-pendek langsung dari {@code krsMahasiswa}. */
 	public static String rubahKeteranganPengambilanKRS(KrsMahasiswa krsMahasiswa, boolean remedial) {
 		return rubahKeteranganPengambilanKRS(krsMahasiswa.getMahasiswa(), krsMahasiswa.getSemester(),
 				krsMahasiswa.getTahapan(), krsMahasiswa.getSemesterPendek(), krsMahasiswa, remedial);
 	}
 
+	/**
+	 * Menyusun teks keterangan (HTML sederhana, tag {@code <font>}/{@code <br>}) status pengisian
+	 * KRS mahasiswa pada suatu semester/tahapan: jumlah perkuliahan yang belum/sudah disetujui,
+	 * jumlah yang sudah/belum dinilai (dihitung lewat {@link #getStatusKrsArray}), diawali baris
+	 * status cuti (bila mahasiswa memiliki {@link PendaftaranCutiMahasiswa} yang disetujui pada
+	 * periode tersebut) dan status kemahasiswaan non-aktif bila berlaku (status CUTI diperlakukan
+	 * setara AKTIF untuk keperluan baris keterangan ini). Format kalimat berbeda untuk tiga
+	 * kategori: {@code tahapan == -1} ("tanpa tahap"), {@code semester == 0} (matakuliah konversi),
+	 * dan kasus umum (semester/tahap biasa, opsional berlabel "(remedial)"/"semester pendek (SP)").
+	 * Mengembalikan string kosong bila {@code mahasiswa}/{@code semester} tidak valid atau terjadi
+	 * galat saat penyusunan (galat ditelan diam-diam, mengembalikan {@code ""}).
+	 */
 	public static String rubahKeteranganPengambilanKRS(Mahasiswa mahasiswa, Integer semester, Integer tahapan,
 			Integer semesterPendek, KrsMahasiswa krsMahasiswa, boolean remedial) {
 		if (mahasiswa == null || semester == null || semester < 0)
@@ -524,12 +602,20 @@ public class KrsDetailHelper {
 		}
 	}
 
+	/**
+	 * Menghitung ringkasan status KRS mahasiswa pada suatu semester/tahapan: jumlah baris belum
+	 * disetujui, sudah disetujui, sudah dinilai, dan belum dinilai (dalam urutan itu), dihitung
+	 * atas hasil {@link #ambilDetailperkuliahan}.
+	 *
+	 * @return array {@code {countBelumDisetujui, countSudahDisetujui, countDinilai, countBelumDinilai}}
+	 */
 	public static Integer[] getStatusKrs(Mahasiswa mahasiswa, Integer semester, Integer tahapan, Integer semesterPendek,
 			boolean remedial) {
 		int[] counts = getStatusKrsArray(mahasiswa, semester, tahapan, semesterPendek, remedial);
 		return new Integer[] { counts[0], counts[1], counts[2], counts[3] };
 	}
 
+	/** Implementasi primitif (int[]) di balik {@link #getStatusKrs} dan {@link #rubahKeteranganPengambilanKRS}; baris dianggap "dinilai" hanya bila SUDAH disetujui DAN {@code totalNilai >= 0.1}. */
 	private static int[] getStatusKrsArray(Mahasiswa mahasiswa, Integer semester, Integer tahapan,
 			Integer semesterPendek, boolean remedial) {
 		int countSudahDisetujui = 0;

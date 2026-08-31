@@ -43,20 +43,38 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper jendela penjadwalan pertemuan PKL (Praktik Kerja Lapangan) untuk satu
+ * {@link KelompokPkl} (kelompok mahasiswa PKL). Menampilkan grid pertemuan dengan
+ * field topik/tanggal/waktu/jenis pertemuan yang dapat diedit inline (langsung tersimpan
+ * on-change), tombol tambah pertemuan (tanggal baru otomatis +7 hari dari pertemuan
+ * terakhir), serta tombol bersama {@link PenjadwalanHelper} untuk ambil jadwal massal,
+ * atur ulang waktu, unduh, dan hapus semua pertemuan kelompok.
+ */
 public class PenjadwalanPklHelper {
 
 	private KelompokPkl kelompokPkl;
 	private MyGrid grid;
 	private DataLoader dataLoader;
 
+	/** Tanggal pertemuan terakhir yang dirender/ditambahkan, dipakai untuk menghitung tanggal +7 hari saat menambah pertemuan baru. */
 	private Date currDate;
 
+	/** Perender baris grid pertemuan PKL: field edit inline topik/tanggal/waktu/jenis pertemuan, plus tombol hapus. */
 	class PertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
 		public PertemuanRenderer() {
 
 		}
 
+		/**
+		 * Merender satu baris {@link Pertemuan}: textbox topik, datebox tanggal
+		 * (readonly), sepasang timebox waktu mulai/selesai, dan combobox
+		 * {@link StatusPertemuan} — seluruhnya langsung menyimpan perubahan via
+		 * {@link Common#refreshUpdate} saat berubah — serta tombol hapus yang mengecek
+		 * {@link PenjadwalanHelper#checkBolehHapus(Pertemuan)}, mengonfirmasi, lalu
+		 * menghapus pertemuan (dengan pesan galat ramah bila gagal karena relasi data).
+		 */
 		@Override
 		public void render(Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");
@@ -225,6 +243,15 @@ public class PenjadwalanPklHelper {
 
 	}
 
+	/**
+	 * Memuat ulang cache pertemuan pada {@link #kelompokPkl} dan memberi tahu pemanggil
+	 * lewat {@link #dataLoader} bahwa data telah berubah. Perubahan baris itu sendiri
+	 * sudah tersimpan langsung on-change lewat {@link PertemuanRenderer}, sehingga
+	 * method ini hanya menyegarkan cache dan menutup jendela lewat pemanggil.
+	 *
+	 * @return selalu {@code true}
+	 * @throws InterruptedException tidak pernah dilempar secara nyata pada implementasi saat ini
+	 */
 	@SuppressWarnings({})
 	public boolean save() throws InterruptedException {
 
@@ -236,6 +263,16 @@ public class PenjadwalanPklHelper {
 		return true;
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela modal penjadwalan PKL untuk {@code kelompokPkl}:
+	 * toolbar "Tambah Kegiatan PKL" (menambah baris {@link Pertemuan} baru langsung ke
+	 * grid dengan tanggal +7 hari dari pertemuan terakhir), Refresh, serta tombol
+	 * bersama {@link PenjadwalanHelper} (ambil jadwal, atur ulang waktu, unduh, hapus
+	 * semua), grid pertemuan, dan tombol Simpan/Batal.
+	 *
+	 * @param kelompokPkl kelompok PKL yang dijadwalkan
+	 * @param dataLoader  callback pemuatan ulang data pemanggil setelah Simpan
+	 */
 	public void display(final KelompokPkl kelompokPkl, final DataLoader dataLoader) {
 		this.kelompokPkl = kelompokPkl;
 		this.dataLoader = dataLoader;
@@ -424,6 +461,11 @@ public class PenjadwalanPklHelper {
 		}
 	}
 
+	/**
+	 * Memuat ulang grid pertemuan {@link #kelompokPkl}.
+	 *
+	 * @param event bila data-nya bertipe {@link Boolean}, diteruskan ke {@link KelompokPkl#ambilPertemuanList(boolean)} (mis. untuk memaksa reload); selain itu diperlakukan sebagai {@code false}
+	 */
 	public void onSearchDefault(Event event) {
 
 		List<Pertemuan> pertemuan = kelompokPkl.ambilPertemuanList(

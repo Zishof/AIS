@@ -46,6 +46,29 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper composer untuk panel "aktifitas" satu {@link JadwalUjianPMB} (jadwal ujian PMB/Penerimaan
+ * Mahasiswa Baru) — tampilan tab yang serupa dengan aktifitas perkuliahan biasa
+ * ({@link AktifitasPerkuliahanHelper}), namun untuk konteks ujian seleksi calon mahasiswa: tab
+ * "Agenda" (daftar {@link Pertemuan} ujian, dengan tombol conference, absen, dan keterangan per
+ * pertemuan) serta tab lazy-load "Buku Referensi", "Buku Bahan Ajar", dan "Artikel" (masing-masing
+ * hanya dimuat saat tab diklik pertama kali, dan labelnya menampilkan jumlah item bila lebih dari
+ * nol).
+ *
+ * <p>
+ * Toolbar agenda ({@link #initAgendaJadwalUjianPMB}) hanya ditampilkan untuk pengguna yang BUKAN
+ * mahasiswa (mis. panitia/admin) — mahasiswa/peserta melihat agenda tanpa toolbar kontrol.
+ * </p>
+ *
+ * <p>
+ * <b>Auto-provisioning pertemuan</b>: bila {@code jadwalUjianPMB} belum memiliki satu pun
+ * {@link Pertemuan} DAN pengguna saat ini bukan mahasiswa/siswa/calon siswa/calon mahasiswa (mis.
+ * proses batch/sistem), {@link #initDetail} otomatis membuat satu {@link Pertemuan} baru berstatus
+ * {@link ConstantValues#UJIAN_ONLINE} dengan rentang waktu mengikuti
+ * {@code jadwalUjianPMB.getWaktuMulai()}/{@code getWaktuSampai()}, lalu memuat ulang panel lewat
+ * timer default agar pertemuan yang baru dibuat langsung tampil.
+ * </p>
+ */
 public class AktifitasJadwalUjianPMBHelper {
 
 	protected PenjadwalanUjianPMBHelper penjadwalanHelper = new PenjadwalanUjianPMBHelper();
@@ -54,6 +77,12 @@ public class AktifitasJadwalUjianPMBHelper {
 
 	}
 
+	/**
+	 * Membangun toolbar agenda: tombol "Agenda Ujian PMB" (buka {@link PenjadwalanUjianPMBHelper}),
+	 * "Absensi" (cetak laporan absensi lewat {@link CommonReportHelper#onLaporanAbsensi}), tombol
+	 * kalender/kelas online/pemulihan pertemuan (dari helper terkait), dan "Refresh". Toolbar
+	 * seluruhnya disembunyikan bila pengguna saat ini adalah mahasiswa.
+	 */
 	public Toolbar initAgendaJadwalUjianPMB(final JadwalUjianPMB jadwalUjianPMB, final DataLoader dataLoader) {
 
 		Mahasiswa mahasiswa = Common.getCurrentUser() == null ? null : Common.getCurrentUser().getMahasiswa();
@@ -109,10 +138,22 @@ public class AktifitasJadwalUjianPMBHelper {
 		return hbox;
 	}
 
+	/** Seperti {@link #initDetail(JadwalUjianPMB, DataLoader, Div)} dengan {@code dataLoader} default (memuat ulang panel ini sendiri). */
 	public void initDetail(final JadwalUjianPMB jadwalUjianPMB, final Div groupbox) throws Exception {
 		initDetail(jadwalUjianPMB, null, groupbox);
 	}
 
+	/**
+	 * Membangun seluruh panel tab (Agenda/Buku Referensi/Buku Bahan Ajar/Artikel) untuk
+	 * {@code jadwalUjianPMB} ke dalam {@code groupbox}. Lihat javadoc kelas untuk perilaku
+	 * auto-provisioning pertemuan saat jadwal belum memiliki pertemuan apa pun.
+	 *
+	 * @param jadwalUjianPMB jadwal ujian PMB yang detailnya ditampilkan
+	 * @param mydataLoader   loader kustom untuk menyegarkan tampilan setelah aksi tertentu (mis.
+	 *                       absen, ubah keterangan); bila {@code null}, dipakai loader default
+	 *                       yang memanggil ulang method ini
+	 * @param groupbox       kontainer ZK tujuan; isi sebelumnya dibersihkan lewat {@link Common#clear}
+	 */
 	public void initDetail(final JadwalUjianPMB jadwalUjianPMB, final DataLoader mydataLoader, final Div groupbox)
 			throws Exception {
 

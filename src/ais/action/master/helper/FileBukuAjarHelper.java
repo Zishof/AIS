@@ -47,6 +47,22 @@ import ais.ui.util.MyPDFTextStripper;
 import ais.ui.util.MyPanel;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper ZK untuk mengelola koleksi berkas ({@link FileBukuBahanAjar}, disimpan BLOB) milik satu
+ * {@link BukuBahanAjar} (buku/bahan ajar referensi mata kuliah). Grid menampilkan pratinjau,
+ * nama, format, tipe, tanggal unggah, dan keterangan tambahan yang dapat diedit langsung di
+ * baris (bila {@link #delete} aktif). Konstruktor menerima flag {@link #delete} yang mengatur
+ * visibilitas seluruh aksi ubah data (unggah, edit keterangan, hapus) — membedakan tampilan
+ * pengelola dari tampilan baca-saja.
+ *
+ * <p>
+ * Kelas dalam {@link BukuAjarRunnable} (saat ini tidak dipakai/dipicu di method publik manapun
+ * pada file ini — ditandai {@code @SuppressWarnings("unused")}) menyiapkan ekstraksi teks per
+ * halaman dari berkas PDF ({@link org.apache.pdfbox.pdmodel.PDDocument} + {@link
+ * ais.ui.util.MyPDFTextStripper}) ke {@link FileBukuBahanAjarText}, kemungkinan untuk mendukung
+ * pencarian isi buku di fitur lain.
+ * </p>
+ */
 public class FileBukuAjarHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -55,10 +71,12 @@ public class FileBukuAjarHelper implements DataLoader {
 	private String tabTitle;
 	private Tab tab;
 
+	/** @param delete bila {@code true}, aksi unggah/edit/hapus ditampilkan; bila {@code false}, tampilan menjadi baca-saja. */
 	public FileBukuAjarHelper(Boolean delete) {
 		this.delete = delete;
 	}
 
+	/** Renderer baris berkas: pratinjau + nama, keterangan, tipe, tanggal ubah, keterangan tambahan (editable bila {@link #delete}), serta tombol download dan hapus. */
 	class DetailBukuBahanAjarRenderer extends ais.ui.util.MyRowRenderer {
 
 		HttpServletRequest request = (HttpServletRequest) ExecutionsCtrl.getCurrent().getNativeRequest();
@@ -199,6 +217,7 @@ public class FileBukuAjarHelper implements DataLoader {
 		}
 	}
 
+	/** Implementasi {@link DataLoader#loadData}: memuat ulang seluruh berkas milik {@link #bukuBahanAjar} dan memperbarui label jumlah pada tab (bila tampilan dibungkus {@link Tabpanel}). */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -224,6 +243,12 @@ public class FileBukuAjarHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Tugas latar belakang (belum dipakai di file ini — tidak ada pemanggil {@code new
+	 * BukuAjarRunnable(...)}) untuk mengekstrak teks tiap halaman PDF ke baris {@link
+	 * FileBukuBahanAjarText} lewat {@link ais.ui.util.MyPDFTextStripper}, kemungkinan disiapkan
+	 * untuk mendukung pencarian isi buku di fitur lain.
+	 */
 	@SuppressWarnings("unused")
 	private class BukuAjarRunnable implements Runnable {
 
@@ -286,6 +311,14 @@ public class FileBukuAjarHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Titik masuk utama: membangun panel daftar berkas bahan ajar untuk {@code bukuBahanAjar} —
+	 * toolbar "Tambah File Buku" (unggah, hanya tampil bila {@link #delete} true) diikuti grid
+	 * berpaging.
+	 *
+	 * @param bukuBahanAjar buku/bahan ajar yang berkasnya dikelola
+	 * @param component     komponen induk (dibersihkan lebih dulu); bila berupa {@link Tabpanel}, tab terkait dipakai untuk menampilkan jumlah berkas
+	 */
 	public void display(final BukuBahanAjar bukuBahanAjar, final Component component) {
 		this.bukuBahanAjar = bukuBahanAjar;
 		if (component instanceof Tabpanel) {

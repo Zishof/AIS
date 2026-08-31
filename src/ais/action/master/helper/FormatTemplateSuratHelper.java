@@ -47,6 +47,20 @@ import ais.database.model.TemplateSurat;
 import ais.ui.util.MyDoublebox;
 import ais.ui.util.MyPanel;
 
+/**
+ * Helper ZK untuk mengelola daftar {@link FormatTemplateSurat} (variasi format/gaya cetak) milik
+ * satu {@link TemplateSurat} (template dokumen/surat administrasi, mis. surat keterangan/
+ * transkrip). Tiap format menentukan kombinasi jenis kegiatan pembayaran, item biaya, bahasa
+ * (Indonesia/Inggris, dari {@link Common#locale}/{@link Common#localeEn}), dan biaya cetak.
+ * Setiap baris grid dapat diperluas ({@link ais.ui.util.MyDetail}) untuk mengelola berkas JRXML
+ * (template Jasper Report sesungguhnya) lewat {@link SuratJrxmlFileHelper}.
+ *
+ * <p>
+ * Hak tambah/ubah/hapus mengikuti privilese {@link CommonPrivilages#CREATE}/{@code UPDATE}/
+ * {@code DELETE} milik user login, dan seluruh aksi perubahan disembunyikan untuk user mahasiswa.
+ * Penyimpanan dilakukan lewat {@link FormatTemplateSuratDao} (bukan langsung Hibernate Session).
+ * </p>
+ */
 public class FormatTemplateSuratHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -63,6 +77,7 @@ public class FormatTemplateSuratHelper implements DataLoader {
 	private boolean edit = false;
 	private MyDoublebox biaya;
 
+	/** Menentukan hak akses (hapus/ubah/tambah) dari privilese user login, dan menyiapkan combobox referensi (jenis biaya, item biaya, bahasa) yang dipakai ulang oleh dialog tambah/ubah. */
 	public FormatTemplateSuratHelper() {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 		edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
@@ -84,6 +99,7 @@ public class FormatTemplateSuratHelper implements DataLoader {
 
 	}
 
+	/** Renderer baris format: bagian dapat-dibuka berisi pengelola berkas JRXML ({@link SuratJrxmlFileHelper}), diikuti nama (dengan riwayat revisi), jenis kegiatan, item biaya, bahasa, biaya cetak, keterangan, dan tombol edit/hapus (tersembunyi untuk mahasiswa/tanpa privilese). */
 	class DetailTemplateSuratRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -178,6 +194,7 @@ public class FormatTemplateSuratHelper implements DataLoader {
 
 	}
 
+	/** Implementasi {@link DataLoader#loadData}: memuat ulang seluruh {@link FormatTemplateSurat} milik {@link #templateSurat} yang sedang ditampilkan. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
@@ -190,6 +207,14 @@ public class FormatTemplateSuratHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Titik masuk utama: membangun panel daftar format template surat untuk {@code templateSurat}
+	 * — toolbar "Tambah File JRXML" (hanya tampil bila punya hak tambah dan bukan mahasiswa)
+	 * diikuti grid berpaging.
+	 *
+	 * @param templateSurat template surat induk
+	 * @param component     komponen induk (dibersihkan lebih dulu)
+	 */
 	public void display(final TemplateSurat templateSurat, final Component component) {
 		this.templateSurat = templateSurat;
 		Common.clear(component);
@@ -279,12 +304,14 @@ public class FormatTemplateSuratHelper implements DataLoader {
 
 	}
 
+	/** Membuka dialog tambah {@link FormatTemplateSurat} baru. */
 	public void onAdd(Event event) throws Exception {
 		init(new FormatTemplateSurat());
 		addWindow.setVisible(true);
 		addWindow.onModal();
 	}
 
+	/** Membangun dialog modal tambah/ubah satu {@link FormatTemplateSurat} (nama, jenis biaya, item biaya, bahasa, biaya cetak, keterangan). */
 	private void init(FormatTemplateSurat formatTemplateSurat) {
 		addWindow = new MyWindow();
 		ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(addWindow);
@@ -390,6 +417,12 @@ public class FormatTemplateSuratHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Memvalidasi (nama, jenis biaya, item biaya wajib diisi) dan menyimpan {@link
+	 * FormatTemplateSurat} lewat {@link FormatTemplateSuratDao}.
+	 *
+	 * @return {@code true} bila berhasil disimpan; {@code false} bila validasi gagal (pesan sudah ditampilkan)
+	 */
 	public boolean onSave(Event event) throws Exception {
 		if (nama.getValue().trim().equals("")) {
 			MyMessageboxConfig.show("Mohon maaf, nama format template surat belum diisi. Langkah yang dapat dilakukan: (1) isi nama format template surat pada kolom yang tersedia; (2) pastikan nama tidak kosong; (3) ulangi proses ini. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.", "Peringatan", MyMessageboxConfig.OK,

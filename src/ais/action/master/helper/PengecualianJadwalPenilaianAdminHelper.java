@@ -53,6 +53,30 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper jendela admin "Daftar Pengecualian Jadwal Penilaian" — mengelola pengajuan
+ * perpanjangan/pengecualian batas waktu penilaian ({@link PengecualianJadwalPenilaianDosen})
+ * untuk dosen (atau pengguna staf lain). Menyediakan pencarian (Nama/Fakultas/Prodi),
+ * pembuatan pengajuan baru untuk banyak pengguna sekaligus (lewat
+ * {@link AmbilDataTbmuserBanyak}, status awal selalu
+ * {@link PengecualianJadwalPenilaianDosen#PENGAJUAN}), pengeditan field pengajuan
+ * (tahun akademik/semester/tanggal mulai-selesai) langsung di grid, cetak, dan hapus.
+ *
+ * <p>
+ * <b>Alur persetujuan</b> — kolom Status hanya dapat DIUBAH (dari {@code PENGAJUAN} ke
+ * {@code DISETUJU}/{@code DITOLAK}) oleh admin yang: (1) berstatus admin
+ * ({@link Common#getApakahAdmin()}); (2) BUKAN pengaju data tersebut sendiri
+ * ({@link #diajukanOlehPenggunaAktif} — mencegah self-approval); dan (3) memiliki hak
+ * {@link CommonPrivilages#APPROVE} DAN {@link CommonPrivilages#REJECT} sekaligus. Bila
+ * tidak memenuhi syarat, kolom Status tampil sebagai label teks biasa (tidak dapat
+ * diklik) bagi pengguna lain, sementara upaya mengubahnya lewat combobox (mis. race
+ * kondisi UI) ditolak dengan pesan "Akses Ditolak" dan dikembalikan ke nilai semula.
+ * Field lain (tahun akademik/semester/tanggal) otomatis terkunci begitu status bukan
+ * lagi {@code PENGAJUAN}. Bila {@code disposisiSop} sudah terisi, kolom Status dikunci
+ * sepenuhnya (tidak dapat diklik oleh siapa pun) karena keputusan sudah final lewat
+ * jalur disposisi SOP terpisah.
+ * </p>
+ */
 public class PengecualianJadwalPenilaianAdminHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -61,10 +85,12 @@ public class PengecualianJadwalPenilaianAdminHelper implements DataLoader {
 
 	private Textbox nama;
 
+	/** Menyiapkan combobox filter Fakultas dan Prodi (dengan opsi "Semua") lewat {@link Common#initFakultasDanJurusanDanSemua}. */
 	public PengecualianJadwalPenilaianAdminHelper() {
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 	}
 
+	/** Mengecek apakah {@code data} diajukan oleh pengguna yang sedang login saat ini (dibandingkan lewat userId). */
 	private boolean diajukanOlehPenggunaAktif(PengecualianJadwalPenilaianDosen data) {
 		Tbmuser pengguna = Common.getCurrentUser();
 		return pengguna != null && pengguna.getUserId() != null && data != null && data.getDibuatOleh() != null
@@ -72,24 +98,44 @@ public class PengecualianJadwalPenilaianAdminHelper implements DataLoader {
 				&& pengguna.getUserId().equalsIgnoreCase(data.getDibuatOleh().getUserId());
 	}
 
+	/**
+	 * Mengecek apakah pengguna saat ini berhak mengubah status (setuju/tolak) untuk
+	 * {@code data}: harus admin, bukan pengaju data itu sendiri (anti self-approval),
+	 * dan memiliki hak {@link CommonPrivilages#APPROVE} sekaligus
+	 * {@link CommonPrivilages#REJECT}.
+	 */
 	private boolean bolehProsesStatus(PengecualianJadwalPenilaianDosen data) {
 		return Common.getApakahAdmin() && !diajukanOlehPenggunaAktif(data)
 				&& CommonPrivilages.checkPrevilages(CommonPrivilages.APPROVE)
 				&& CommonPrivilages.checkPrevilages(CommonPrivilages.REJECT);
 	}
 
+	/** Menampilkan messagebox "Akses Ditolak" saat pengguna mencoba mengubah status tanpa hak yang memadai. */
 	private void aksesDitolak() throws InterruptedException {
 		MyMessageboxConfig.show(
 				"Status hanya dapat diproses oleh Admin default (roleId am) dan tidak boleh disetujui oleh pengajunya sendiri.",
 				"Akses Ditolak", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
 	}
 
+	/** Perender baris grid: identitas pengguna/dosen, field pengajuan yang dapat diedit inline, kontrol status, tombol cetak dan hapus. */
 	class PengecualianJadwalPenilaianDosenRenderer extends ais.ui.util.MyRowRenderer {
 
 		public PengecualianJadwalPenilaianDosenRenderer() {
 
 		}
 
+		/**
+		 * Merender satu baris {@link PengecualianJadwalPenilaianDosen}: identitas
+		 * pengguna ({@link Tbmuser} atau {@link Dosen}, mana pun yang terisi) dengan
+		 * riwayat revisi, combobox tahun akademik/semester dan datebox tanggal
+		 * mulai-selesai (langsung tersimpan on-change, dan otomatis dikunci begitu
+		 * status bukan {@code PENGAJUAN}), kontrol Status (combobox bila pengguna
+		 * berhak lewat {@link #bolehProsesStatus}, mengeset {@code disetujuiOleh}/
+		 * {@code tanggalPersetujuanManual} saat diset ke {@code DISETUJU}; label teks
+		 * bila tidak berhak), serta tombol cetak
+		 * ({@link CommonReportHelper#onCetakPengecualianJadwalPenilaianDosen}) dan
+		 * hapus (dengan konfirmasi dan pesan galat ramah bila gagal karena relasi data).
+		 */
 		@Override
 		public void render(final Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");
@@ -320,6 +366,13 @@ public class PengecualianJadwalPenilaianAdminHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Memuat ulang daftar {@link PengecualianJadwalPenilaianDosen} (diurutkan id
+	 * menurun) sesuai filter Nama/Fakultas/Prodi pengguna terkait, dibatasi
+	 * {@link Common#MAX_RESULT_50} baris.
+	 *
+	 * @param value tidak digunakan (parameter kontrak {@link DataLoader})
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = Common.getManualSession();
@@ -340,6 +393,16 @@ public class PengecualianJadwalPenilaianAdminHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela modal "Daftar pengecualian jadwal penilaian
+	 * admin": form filter (Nama/Fakultas/Prodi), toolbar "Ambil Data Admin" (membuka
+	 * {@link AmbilDataTbmuserBanyak} untuk memilih banyak dosen sekaligus, lalu
+	 * langsung membuat satu baris {@link PengecualianJadwalPenilaianDosen} berstatus
+	 * {@code PENGAJUAN} per dosen terpilih, tahun akademik/semester berjalan, tanggal
+	 * mulai=selesai=hari ini) dan "Cari", grid hasil, serta tombol Tutup.
+	 *
+	 * @throws InterruptedException diteruskan dari dialog messagebox
+	 */
 	public void display() throws InterruptedException {
 
 		final MyWindow window = new MyWindow("Daftar pengecualian jadwal penilaian admin", "none", true);

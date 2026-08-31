@@ -41,6 +41,20 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper composer ZK berbentuk window modal untuk memilih (secara massal, via checkbox) beberapa
+ * {@link Dosen} yang akan diberi satu {@link Jabatan} (jabatan fungsional/struktural) tertentu.
+ * Menampilkan grid dosen aktif dengan filter pencarian nama, fakultas, dan program studi
+ * (prodi/jurusan), memakai paging bawaan grid ZK dibatasi {@link Common#MAX_RESULT} hasil.
+ *
+ * <p>
+ * Field jabatan yang diisi bergantung pada {@link Jabatan#getPtSendiri()}: bila jabatan berasal
+ * dari perguruan tinggi sendiri, disimpan ke {@link Dosen#setSpesifikasiJabatan(Jabatan)}; bila
+ * berasal dari PT lain (dosen dengan afiliasi ganda), disimpan ke
+ * {@link Dosen#setSpesifikasiJabatanPtLain(Jabatan)}. Penyimpanan hanya untuk baris yang
+ * checkbox-nya dicentang dan tidak dalam keadaan disabled.
+ * </p>
+ */
 public class AmbilDataDosenUntukJabatanHelper {
 	private MyGrid grid;
 
@@ -51,10 +65,12 @@ public class AmbilDataDosenUntukJabatanHelper {
 	private Combobox searchfakultas = new Combobox();
 	private Combobox searchjurusan = new Combobox();
 
+	/** Menyiapkan combobox filter fakultas/jurusan (diisi opsi "Semua" + seluruh data aktif). */
 	public AmbilDataDosenUntukJabatanHelper() {
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 	}
 
+	/** Perender baris grid: checkbox pilih, kode/NIP, nama, jabatan saat ini, jurusan, fakultas dosen. */
 	class DosenRenderer extends ais.ui.util.MyRowRenderer {
 		@Override
 		public void render(Row arg0, Object arg1) throws Exception {
@@ -77,6 +93,12 @@ public class AmbilDataDosenUntukJabatanHelper {
 		}
 	}
 
+	/**
+	 * Menerapkan {@link #jabatan} ke setiap {@link Dosen} pada baris grid yang checkbox-nya
+	 * tercentang (dan tidak disabled): field tujuan ditentukan oleh
+	 * {@link Jabatan#getPtSendiri()} (lihat javadoc kelas). Kegagalan per baris ditangkap dan
+	 * dicatat ke audit tanpa menghentikan proses baris lain.
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() {
 		TimDosenDao timDosenDao = DaoFactory.getInstance().gettTimDosenDao();
@@ -106,6 +128,15 @@ public class AmbilDataDosenUntukJabatanHelper {
 
 	}
 
+	/**
+	 * Membuka window modal berisi form filter (nama/fakultas/prodi) dan grid dosen bercentang
+	 * untuk memilih penerima {@code jabatan}. Tombol "Simpan" memanggil {@link #save()}, memuat
+	 * ulang data pemanggil lewat {@code dataLoader}, lalu menutup window.
+	 *
+	 * @param jabatan    jabatan yang akan diberikan ke dosen terpilih
+	 * @param dataLoader callback muat-ulang data pemanggil setelah simpan
+	 * @param window     window modal tempat UI dibangun
+	 */
 	public void display(Jabatan jabatan, final DataLoader dataLoader, final MyWindow window) {
 		this.jabatan = jabatan;
 		Common.clear(window);
@@ -295,6 +326,14 @@ public class AmbilDataDosenUntukJabatanHelper {
 		});
 	}
 
+	/**
+	 * Memuat grid dosen aktif sesuai filter nama (ILIKE anywhere) dan, bila dipilih,
+	 * jurusan/fakultas — dosen yang berstatus {@code milikUniversitas} lolos filter
+	 * jurusan/fakultas apa pun (selalu tampil). Hasil dibatasi {@link Common#MAX_RESULT} baris,
+	 * diurutkan berdasarkan id.
+	 *
+	 * @param event tidak dipakai
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

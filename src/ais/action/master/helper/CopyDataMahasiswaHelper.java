@@ -44,6 +44,26 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK untuk menyalin ("copy") peserta {@link Detailperkuliahan} dari satu {@link
+ * Perkuliahan} sumber ke satu atau beberapa jadwal perkuliahan paralel tujuan (kelas lain,
+ * ruang/dosen berbeda, tetapi matakuliah/tahun ajaran/semester/jurusan sama, bukan kelas
+ * paralel). Dialog terbagi dua panel: panel barat berisi daftar jadwal tujuan (checkbox per
+ * jadwal), panel utama berisi daftar mahasiswa sumber (dengan filter NIM/nama/program) yang
+ * belum mengikuti perkuliahan lain ({@code ikutiPerkuliahan} null) — setiap baris menampilkan
+ * status persetujuan, total nilai, dan status mahasiswa saat ini (checkbox otomatis
+ * dinonaktifkan bila mahasiswa tidak berstatus aktif).
+ *
+ * <p>
+ * {@link #save()} melakukan penyalinan sesungguhnya: untuk tiap kombinasi (mahasiswa tercentang
+ * &times; jadwal tujuan tercentang), bila mahasiswa tersebut belum terdaftar di jadwal tujuan,
+ * baris {@link Detailperkuliahan} sumber di-clone (id dan feeder dikosongkan) lalu disimpan
+ * sebagai baris baru pada jadwal tujuan — bila sudah terdaftar, penyalinan untuk kombinasi itu
+ * dilewati dan dicatat sebagai peringatan yang ditampilkan setelah proses selesai. Tombol "Copy
+ * data mahasiswa" pada UI memanggil {@link #save()} lalu menyinkronkan ulang (
+ * {@code singkronkan}) baik jadwal tujuan maupun jadwal sumber.
+ * </p>
+ */
 public class CopyDataMahasiswaHelper {
 
 	private Perkuliahan perkuliahan;
@@ -55,16 +75,27 @@ public class CopyDataMahasiswaHelper {
 	private Combobox program;
 	private MyGrid searchgridJadwal;
 
+	/** Seperti {@link #CopyDataMahasiswaHelper(Perkuliahan, Mahasiswa)} tanpa membatasi ke satu mahasiswa tertentu (menampilkan seluruh mahasiswa sumber yang bisa disalin). */
 	public CopyDataMahasiswaHelper(Perkuliahan perkuliahan) {
 		this(perkuliahan, null);
 	}
 
+	/**
+	 * @param perkuliahan       jadwal perkuliahan sumber tempat mahasiswa disalin dari
+	 * @param selectedMahasiswa bila diisi, dialog dibatasi hanya untuk menyalin satu mahasiswa ini (field pencarian dinonaktifkan, checkbox mahasiswa ini sendiri juga dinonaktifkan karena sudah pasti terpilih)
+	 */
 	public CopyDataMahasiswaHelper(Perkuliahan perkuliahan, Mahasiswa selectedMahasiswa) {
 		this.perkuliahan = perkuliahan;
 		this.selectedMahasiswa = selectedMahasiswa;
 
 	}
 
+	/**
+	 * Renderer baris mahasiswa sumber: checkbox seleksi (tercentang default, dinonaktifkan bila
+	 * mahasiswa tidak berstatus aktif atau merupakan {@link #selectedMahasiswa} yang sudah pasti
+	 * disalin), NIM/nama/angkatan/program, total nilai di jadwal sumber, status persetujuan, dan
+	 * label kelas hasil sinkronisasi KRS (diisi tertunda via {@link Common#createDefaultTimer}).
+	 */
 	class DetailperkuliahanRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -128,6 +159,14 @@ public class CopyDataMahasiswaHelper {
 
 	}
 
+	/**
+	 * Menyalin setiap mahasiswa yang tercentang di grid utama ke setiap jadwal perkuliahan yang
+	 * tercentang di panel jadwal tujuan. Melewati (dan mencatat sebagai peringatan yang
+	 * ditampilkan di akhir) kombinasi yang mahasiswanya sudah terdaftar di jadwal tujuan. Setiap
+	 * penyalinan dijalankan dalam transaksi Hibernate tersendiri per baris.
+	 *
+	 * @throws Exception bila tidak ada jadwal tujuan yang dipilih (ditangani dengan pesan peringatan, bukan exception dilempar keluar)
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() throws Exception {
 		Rows rows = searchgridJadwal.getRows();
@@ -211,6 +250,15 @@ public class CopyDataMahasiswaHelper {
 		}
 	}
 
+	/**
+	 * Titik masuk utama: membangun dialog dua panel (jadwal tujuan di barat, pencarian+grid
+	 * mahasiswa sumber di tengah) di dalam {@code window}, lengkap dengan tombol Batal dan
+	 * "Copy data mahasiswa" yang memanggil {@link #save()} lalu menyinkronkan ulang jadwal
+	 * sumber/tujuan sebelum memuat ulang data pemanggil lewat {@code dataLoader}.
+	 *
+	 * @param dataLoader dipanggil untuk memuat ulang tampilan pemanggil setelah penyalinan selesai
+	 * @param window     window pembungkus dialog (dibersihkan dan diisi ulang)
+	 */
 	@SuppressWarnings({ "unchecked" })
 	public void display(final DataLoader dataLoader, final MyWindow window) {
 		Common.clear(window);
@@ -491,6 +539,7 @@ public class CopyDataMahasiswaHelper {
 		}
 	}
 
+	/** Memuat ulang grid mahasiswa sumber sesuai filter NIM/nama/program aktif, dibatasi ke mahasiswa yang belum mengikuti perkuliahan lain ({@code ikutiPerkuliahan} null) pada jadwal sumber ini. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

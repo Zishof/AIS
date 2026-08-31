@@ -27,9 +27,46 @@ import ais.database.model.Perkuliahan;
 import ais.database.model.TunggakanMahasiswa;
 import ais.database.model.TunggakanMahasiswaDetail;
 
+/**
+ * Tugas terjadwal ({@link TimerTask}) yang menghitung ulang <b>tunggakan daftar ulang</b>
+ * (jenis kegiatan {@link ConstantUtil#PENDAFTARAN_MAHASISWA_LAMA}) untuk seluruh mahasiswa aktif,
+ * per semester sejak semester 2 hingga semester berjalan mahasiswa tersebut, dan menyimpan/
+ * memperbarui hasilnya sebagai baris {@link TunggakanMahasiswa} (+ rincian
+ * {@link TunggakanMahasiswaDetail} per item biaya).
+ *
+ * <p>
+ * <b>Kendali eksekusi ganda (multi-instance/cluster)</b>: konfigurasi {@code auto_proses_tunggakan}
+ * menyimpan hingga tiga hostname (kolom {@code info1}/{@code info2}/{@code info3}) yang diizinkan
+ * menjalankan proses ini; {@link #localIp} (sebenarnya hostname lokal, diambil dari
+ * {@link InetAddress#getLocalHost()} saat konstruksi) dicocokkan terhadap ketiganya sebelum
+ * {@link #doProcess()} benar-benar berjalan — mencegah beberapa node aplikasi memproses tunggakan
+ * secara bersamaan. Kolom {@code info1} juga dipakai ganda sebagai tahun akademik mulai
+ * (default 2010) pemrosesan.
+ * </p>
+ *
+ * <p>
+ * <b>Kendali tumpang tindih antar-pemanggilan timer</b>: field statis {@link #mahasiswas} (daftar
+ * id mahasiswa yang harus diproses siklus berjalan) dan {@link #mahasiswasSudah} (id yang sudah
+ * selesai diproses) dibagi lintas instance; {@link #run()} membatalkan diri (tidak memproses apa
+ * pun) bila siklus sebelumnya belum selesai (jumlah keduanya belum sama), mencegah dua siklus
+ * berjalan bertumpuk. Urutan pemrosesan mahasiswa diacak ({@link Random}) setiap siklus agar beban
+ * tidak selalu jatuh pada mahasiswa yang sama lebih dulu bila proses terhenti di tengah jalan.
+ * </p>
+ *
+ * <p>
+ * Bila {@link #bersihkanDulu} aktif, data tunggakan lama (untuk kombinasi tahun akademik/jenis
+ * semester yang diberikan, atau SELURUH tabel via {@code TRUNCATE ... CASCADE} bila keduanya
+ * kosong) dihapus lebih dulu lewat SQL native sebelum dihitung ulang. Nilai tunggakan per semester
+ * dihitung dari {@link PembayaranUtilHelper#getDetailBiayaMahasiswa} dikurangi jumlah yang sudah
+ * dibayarkan pada {@link Kegiatan} terkait ({@code kegiatan.getAmount()}); mahasiswa dianggap lunas
+ * bila jumlah dibayar sudah mencakup seluruh total biaya.
+ * </p>
+ */
 public class TunggakanMahasiswaDaftarUlangProcessor extends TimerTask {
 
+	/** Daftar id mahasiswa yang harus diproses pada siklus berjalan; dibagi statis untuk mendeteksi tumpang tindih antar-pemanggilan (lihat javadoc kelas). */
 	public static List<Long> mahasiswas = new ArrayList<Long>();
+	/** Daftar id mahasiswa yang sudah selesai diproses pada siklus berjalan; dibandingkan ukurannya dengan {@link #mahasiswas} di {@link #run()}. */
 	public static List<Long> mahasiswasSudah = new ArrayList<Long>();
 
 	private Boolean bersihkanDulu = false;
@@ -41,6 +78,7 @@ public class TunggakanMahasiswaDaftarUlangProcessor extends TimerTask {
 
 	private Boolean executeSekarang = false;
 
+	/** Konstruktor mode terjadwal biasa: memproses sesuai gating IP/konfigurasi {@code auto_proses_tunggakan}, tanpa membersihkan data lama lebih dulu, tanpa filter tahun akademik/jenis semester. */
 	public TunggakanMahasiswaDaftarUlangProcessor() {
 		InetAddress thisIp;
 		try {
@@ -53,6 +91,20 @@ public class TunggakanMahasiswaDaftarUlangProcessor extends TimerTask {
 		}
 	}
 
+	/**
+	 * Konstruktor mode terkontrol penuh, dipakai mis. untuk pemicuan manual dari layar admin.
+	 *
+	 * @param bersihkanDulu       hapus data {@link TunggakanMahasiswa} lama (untuk filter
+	 *                            {@code tahunAkademik}/{@code jenisSemester}, atau seluruhnya bila
+	 *                            keduanya kosong) sebelum dihitung ulang
+	 * @param bersihkanDuluDetail hapus & tulis ulang {@link TunggakanMahasiswaDetail} setiap kali
+	 *                            baris {@link TunggakanMahasiswa} yang sudah ada diperbarui
+	 * @param executeSekarang     lewati gating IP/konfigurasi {@code auto_proses_tunggakan} dan
+	 *                            jalankan proses sekarang juga
+	 * @param tahunAkademik       filter tahun akademik untuk pembersihan data lama, boleh kosong
+	 * @param jenisSemester       filter jenis semester ({@link Perkuliahan#GENAP} atau ganjil)
+	 *                            untuk pembersihan data lama, boleh kosong
+	 */
 	public TunggakanMahasiswaDaftarUlangProcessor(Boolean bersihkanDulu, Boolean bersihkanDuluDetail,
 			Boolean executeSekarang, String tahunAkademik, String jenisSemester) {
 		InetAddress thisIp;
@@ -71,6 +123,11 @@ public class TunggakanMahasiswaDaftarUlangProcessor extends TimerTask {
 		this.jenisSemester = jenisSemester;
 	}
 
+/**
+	 * Dipanggil oleh timer/scheduler. Membatalkan diri tanpa melakukan apa pun bila siklus
+	 * sebelumnya (dilacak lewat {@link #mahasiswas}/{@link #mahasiswasSudah}) belum selesai;
+	 * jika tidak, mengosongkan kedua daftar statis lalu mendelegasikan ke {@link #doProcess()}.
+	 */
 	@Override
 	public void run() {
 
@@ -83,6 +140,13 @@ public class TunggakanMahasiswaDaftarUlangProcessor extends TimerTask {
 		doProcess();
 	}
 
+	/**
+	 * Implementasi inti satu siklus perhitungan ulang tunggakan daftar ulang. Lihat javadoc kelas
+	 * untuk uraian lengkap gating eksekusi, pembersihan data lama, dan logika perhitungan nilai
+	 * tunggakan per semester. Galat per mahasiswa ditangkap dan dilaporkan lewat
+	 * {@code Common.tampilErrorJikaAdmin} — satu mahasiswa gagal tidak menghentikan pemrosesan
+	 * mahasiswa lain.
+	 */
 	@SuppressWarnings("unchecked")
 	private void doProcess() {
 
@@ -291,6 +355,12 @@ public class TunggakanMahasiswaDaftarUlangProcessor extends TimerTask {
 		}
 	}
 
+	/**
+	 * Menulis ulang rincian {@link TunggakanMahasiswaDetail} milik satu {@code tunggakanMahasiswa}:
+	 * menghapus seluruh baris detail lama miliknya (SQL native), lalu menyisipkan satu baris detail
+	 * baru per {@link DetailBiaya}, menyalin atribut kategori (jenjang, jurusan, fakultas, angkatan,
+	 * dst.) dan nilai biaya apa adanya dari sumbernya.
+	 */
 	public void insertTunggakanMahasiswaDetail(Session session, TunggakanMahasiswa tunggakanMahasiswa,
 			Collection<DetailBiaya> detailBiayas) {
 		session.createSQLQuery(

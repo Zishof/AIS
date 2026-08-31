@@ -43,6 +43,22 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper ZK untuk mengelola jadwal pertemuan dalam satu {@link FormulirKegiatan} (kegiatan
+ * kemahasiswaan/administratif generik yang direkam sebagai rangkaian {@link Pertemuan}), mengikuti
+ * pola yang sama dengan {@link PenjadwalanUjianPMBHelper}/{@link PenjadwalanSkripsiHelper}. Setiap
+ * sesi kegiatan direpresentasikan sebagai baris grid yang dapat diedit inline (topik, tanggal, jam
+ * mulai/selesai, status/jenis pertemuan), dengan perubahan langsung disimpan saat diedit.
+ *
+ * <p>
+ * Toolbar jendela menyediakan "Tambah Kegiatan" (baris baru langsung tersimpan, tanggal default
+ * digeser tujuh hari dari kegiatan terakhir), Refresh, serta tombol bersama dari
+ * {@link PenjadwalanHelper} untuk ambil-alih jadwal, atur ulang waktu massal, unduh data pertemuan
+ * ke Excel, dan hapus massal. {@link #save()} hanya menyegarkan cache pertemuan
+ * ({@code formulirKegiatan.reInitPertemuan}) karena penyimpanan per baris sudah terjadi langsung
+ * saat pengguna mengedit baris tersebut.
+ * </p>
+ */
 public class PenjadwalanFormulirKegiatanHelper {
 
 	private FormulirKegiatan formulirKegiatan;
@@ -220,6 +236,15 @@ public class PenjadwalanFormulirKegiatanHelper {
 
 	}
 
+	/**
+	 * Menyegarkan cache daftar {@link Pertemuan} milik {@link #formulirKegiatan} lalu memicu
+	 * {@link #dataLoader} pemanggil. Penyimpanan tiap baris sudah terjadi langsung di
+	 * {@link PertemuanRenderer} saat pengguna mengedit; method ini tidak menulis data massal.
+	 *
+	 * @return selalu {@code true}
+	 * @throws InterruptedException tidak pernah dilempar dalam praktiknya; dipertahankan pada
+	 *                              signature untuk kompatibilitas pemanggil
+	 */
 	@SuppressWarnings({})
 	public boolean save() throws InterruptedException {
 
@@ -231,6 +256,14 @@ public class PenjadwalanFormulirKegiatanHelper {
 		return true;
 	}
 
+	/**
+	 * Membangun jendela penjadwalan kegiatan untuk satu {@link FormulirKegiatan}: toolbar aksi
+	 * (lihat dokumentasi kelas) dan grid baris pertemuan. Tombol Simpan memanggil {@link #save()}
+	 * dan menutup jendela bila berhasil.
+	 *
+	 * @param formulirKegiatan kegiatan yang jadwal pertemuannya akan dikelola
+	 * @param dataLoader       dipanggil setelah simpan untuk menyegarkan tampilan pemanggil
+	 */
 	public void display(final FormulirKegiatan formulirKegiatan, final DataLoader dataLoader) {
 		this.formulirKegiatan = formulirKegiatan;
 		this.dataLoader = dataLoader;
@@ -425,6 +458,12 @@ public class PenjadwalanFormulirKegiatanHelper {
 		}
 	}
 
+	/**
+	 * Mengisi ulang grid dengan daftar {@link Pertemuan} milik {@link #formulirKegiatan}.
+	 *
+	 * @param event bila datanya berupa {@link Boolean} {@code true}, memaksa refresh cache daftar
+	 *              pertemuan; nilai lain (termasuk {@code null}) diperlakukan sebagai {@code false}
+	 */
 	public void onSearchDefault(Event event) {
 
 		List<Pertemuan> pertemuans = formulirKegiatan.ambilPertemuanList(event != null && event.getData() instanceof Boolean ? (Boolean) event.getData() : false);

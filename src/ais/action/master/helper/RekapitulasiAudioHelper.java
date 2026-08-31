@@ -64,12 +64,49 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.SmartDateTimeUtil;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper untuk menampilkan rekapitulasi daftar {@link AudioPertemuan} (rekaman audio pertemuan)
+ * milik satu user, dengan pencarian nama berkas dan rentang tanggal, ditampilkan sebagai grid
+ * ber-paging server-side dengan halaman awal otomatis diposisikan di sekitar pertemuan hari ini.
+ *
+ * <p>
+ * Cakupan pertemuan yang direkap bergantung konteks: bila {@code perkuliahan} (VO pembelajaran)
+ * diberikan secara eksplisit, hanya audio pertemuan dari perkuliahan/jadwal pelajaran tersebut yang
+ * ditampilkan; bila tidak, cakupan ditentukan dari identitas {@link Tbmuser} yang login — mahasiswa
+ * dan dosen menggunakan {@code ambilPertemuan} milik entitas masing-masing (dengan
+ * {@code reInitPertemuan} dijalankan ulang untuk rentang ±6 bulan dari filter tanggal saat
+ * {@code refresh} diminta), sedangkan user sekolah (guru/siswa) atau non-admin lain memakai
+ * kriteria gabungan dari {@link DashboardTimelinePertemuan#initStaticCriteria}. User admin tanpa
+ * konteks {@code perkuliahan} melihat seluruh audio pertemuan tanpa filter pertemuan.
+ * </p>
+ *
+ * <p>
+ * Query penghitungan ukuran halaman dan pengambilan baris memakai SQL native langsung terhadap
+ * tabel {@code audio_pertemuan} (via {@link StreamingHibernateUtil}, sesi terpisah dari sesi
+ * Hibernate utama) demi performa pada volume data besar, dengan klausa {@code where} dirakit
+ * sebagai string (termasuk penyisipan nilai pencarian {@code cari} langsung ke klausa
+ * {@code ilike} — lihat catatan validasi input pada method {@link #reload(List, Paging, MyGrid,
+ * Mahasiswa, boolean, Date, Date, String, VOPembelajaran)}).
+ * </p>
+ */
 public class RekapitulasiAudioHelper {
 
+	/** Seperti {@link #display(Component, Tbmuser, VOPembelajaran)} dengan {@code perkuliahan = null} (cakupan pertemuan ditentukan dari identitas user). */
 	public static void display(Component parent, final Tbmuser tbmuser) {
 		display(parent, tbmuser, null);
 	}
 
+	/**
+	 * Membangun dan menampilkan UI rekapitulasi audio pertemuan ke dalam {@code parent}: toolbar
+	 * pencarian nama berkas (dan filter tanggal mulai/sampai bila {@code perkuliahan == null|),
+	 * tombol pintasan "buat baru" (via {@code RekapitulasiUjianHelper.buatbaru}), tombol Refresh,
+	 * dan grid hasil yang otomatis dimuat lewat timer default setelah komponen tampil.
+	 *
+	 * @param parent      komponen ZK tujuan tampilan
+	 * @param tbmuser     user yang sedang login, menentukan cakupan pertemuan bila {@code perkuliahan == null}
+	 * @param perkuliahan konteks perkuliahan/jadwal pelajaran spesifik untuk membatasi cakupan
+	 *                    audio yang direkap, boleh {@code null} untuk cakupan berbasis user
+	 */
 	public static void display(Component parent, final Tbmuser tbmuser, final VOPembelajaran perkuliahan) {
 
 		Borderlayout subBorderlayoutUtama = new Borderlayout();
@@ -156,6 +193,24 @@ public class RekapitulasiAudioHelper {
 		sampai.addEventListener("onChange", eventListener);
 	}
 
+	/**
+	 * Membangun ulang seluruh isi {@code center} (grid + paging): menentukan daftar id
+	 * {@link Pertemuan} yang relevan sesuai konteks (lihat javadoc kelas), lalu mendelegasikan
+	 * pengambilan baris audio ke {@link #reload(List, Paging, MyGrid, Mahasiswa, boolean, Date,
+	 * Date, String, VOPembelajaran)}.
+	 *
+	 * @param tbmuser     user yang sedang login
+	 * @param center      komponen ZK tujuan (dibersihkan lebih dulu bila tidak {@code null})
+	 * @param mulai       batas awal rentang tanggal pencarian (dipakai untuk hitung ulang cakupan
+	 *                    ±6 bulan saat {@code refreh})
+	 * @param sampai      batas akhir rentang tanggal pencarian
+	 * @param cari        teks pencarian nama berkas audio
+	 * @param refreh      bila {@code true}, jalankan ulang {@code reInitPertemuan} mahasiswa/dosen
+	 *                    untuk menyegarkan cakupan pertemuan sebelum memuat data
+	 * @param awal        diteruskan ke {@link #reload(List, Paging, MyGrid, Mahasiswa, boolean,
+	 *                    Date, Date, String, VOPembelajaran)} untuk memposisikan halaman awal
+	 * @param perkuliahan konteks perkuliahan/jadwal pelajaran spesifik, boleh {@code null}
+	 */
 	@SuppressWarnings("unchecked")
 	private static void reload(final Tbmuser tbmuser, final Center center, final Date mulai, final Date sampai,
 			final String cari, boolean refreh, boolean awal, final VOPembelajaran perkuliahan) {
@@ -333,6 +388,35 @@ public class RekapitulasiAudioHelper {
 
 	}
 
+	/**
+	 * Mengambil satu halaman {@link AudioPertemuan} yang cocok dengan {@code pertemuans} dan
+	 * {@code cari}, memakai SQL native terhadap tabel {@code audio_pertemuan} lewat
+	 * {@link StreamingHibernateUtil} (sesi terpisah, ditutup di akhir method). Bila {@code awal}
+	 * bernilai {@code true}, halaman aktif paging otomatis dihitung agar berada di sekitar
+	 * pertemuan terakhir yang tanggalnya sudah lewat hari ini (pengalaman "scroll ke hari ini").
+	 *
+	 * <p>
+	 * <b>Catatan keamanan</b>: klausa {@code where} dirakit sebagai string, dan nilai
+	 * {@code cari} disisipkan langsung ke klausa {@code ilike} SQL tanpa parameter terikat/escaping
+	 * ({@code "and real_file ilike '%" + cari + "%'"}) — berpotensi SQL injection bila {@code cari}
+	 * mengandung karakter kutip tunggal atau metakarakter SQL lain. Dilaporkan sesuai instruksi
+	 * tugas, tidak diperbaiki di sini.
+	 * </p>
+	 *
+	 * @param pertemuans  daftar id {@link Pertemuan} yang membatasi cakupan audio; kosong berarti
+	 *                    tidak ada hasil (kecuali admin tanpa konteks perkuliahan)
+	 * @param paging      komponen paging yang total ukurannya diperbarui dan (bila {@code awal})
+	 *                    halaman aktifnya diposisikan ulang
+	 * @param grid        grid tujuan hasil, model dan row renderer-nya diperbarui
+	 * @param mahasiswa   mahasiswa konteks (diteruskan ke {@link DetailPertemuanRenderer})
+	 * @param awal        bila {@code true}, posisikan halaman aktif ke sekitar pertemuan terkini
+	 * @param mulai       tidak dipakai langsung dalam query (cakupan tanggal sudah tercermin lewat
+	 *                    {@code pertemuans})
+	 * @param sampai      tidak dipakai langsung dalam query
+	 * @param cari        teks pencarian nama berkas
+	 * @param perkuliahan konteks perkuliahan/jadwal pelajaran; bila {@code null} dan user admin,
+	 *                    seluruh audio pertemuan (tanpa filter {@code pertemuans}) ditampilkan
+	 */
 	@SuppressWarnings("unchecked")
 	private static void reload(final List<Long> pertemuans, final Paging paging, final MyGrid grid,
 			final Mahasiswa mahasiswa, boolean awal, final Date mulai, final Date sampai, final String cari,
@@ -409,11 +493,25 @@ public class RekapitulasiAudioHelper {
 		StreamingHibernateUtil.getInstance().closeSession();
 	}
 
+	/**
+	 * Perender baris grid untuk satu {@link AudioPertemuan}: baris disembunyikan bila
+	 * {@link Pertemuan} induknya sudah tidak ada. Menampilkan tombol unduh/putar (memeriksa syarat
+	 * akses via {@link ProfileUtil#chekSyarat}, mencatat akses via
+	 * {@link Pertemuan#masukkanData(String)}, lalu membuka via Google Drive bila tersedia atau
+	 * membuka tautan langsung di tab baru/popup — mobile memakai redirect, desktop memakai popup
+	 * JavaScript), tautan info pertemuan yang membuka detail pertemuan lewat
+	 * {@code PertemuanHelper}, dan penanda "dilihat" via
+	 * {@link TampilanELearningAction#dilihat(Pertemuan, String, String, boolean)}.
+	 */
 	public static class DetailPertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
 		private Mahasiswa mahasiswa;
 		private BiodataCalonMahasiswa biodataCalonMahasiswa;
 
+		/**
+		 * @param mahasiswa             mahasiswa konteks, dipakai saat membuka detail pertemuan
+		 * @param biodataCalonMahasiswa calon mahasiswa konteks, dipakai saat membuka detail pertemuan
+		 */
 		public DetailPertemuanRenderer(Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa) {
 			this.mahasiswa = mahasiswa;
 			this.biodataCalonMahasiswa = biodataCalonMahasiswa;

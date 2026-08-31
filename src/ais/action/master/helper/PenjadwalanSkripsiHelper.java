@@ -44,6 +44,25 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper ZK untuk mengelola jadwal bimbingan/revisi satu {@link Skripsi} (Skripsi/Tugas
+ * Akhir/Thesis) — setiap sesi bimbingan direpresentasikan sebagai baris {@link Pertemuan} yang
+ * dapat diedit inline (topik, tanggal, jam mulai/selesai, status/jenis pertemuan). Berbeda dari
+ * {@link PenjadwalanUjianPMBHelper}, kelas ini membedakan hak edit: mahasiswa hanya boleh mengubah
+ * agenda/jadwal bimbingannya sendiri bila diizinkan oleh konfigurasi
+ * {@code FormatNilaiSkripsi#getMahasiswaBolehMengubahAgendaAtauJadwalBimbingan()}
+ * ({@link PertemuanRenderer}); bila tidak, baris hanya tampil sebagai label baca-saja.
+ *
+ * <p>
+ * Toolbar jendela menyediakan "Tambah Jadwal Revisi" (baris baru langsung tersimpan, tanggal
+ * default digeser tujuh hari dari revisi terakhir), Refresh, serta tombol bersama dari
+ * {@link PenjadwalanHelper} untuk ambil-alih jadwal ({@code tampilTombolAmbil}), atur ulang waktu
+ * massal ({@code tampilTombolAturUlangWaktu}), unduh data pertemuan ke Excel
+ * ({@code tampilTombolDownload}), dan hapus massal ({@code tampilTombolHapus}). {@link #save()}
+ * sendiri hanya memicu {@code skripsi.reInitPertemuan(session)} (menyegarkan cache pertemuan) karena
+ * setiap perubahan baris sudah langsung disimpan saat diedit ({@link PertemuanRenderer}).
+ * </p>
+ */
 public class PenjadwalanSkripsiHelper {
 
 	private Skripsi skripsi;
@@ -237,6 +256,15 @@ public class PenjadwalanSkripsiHelper {
 
 	}
 
+	/**
+	 * Menyegarkan cache daftar {@link Pertemuan} milik {@link #skripsi} (perubahan per baris sudah
+	 * disimpan langsung saat diedit lewat {@link PertemuanRenderer}, sehingga tidak ada penulisan
+	 * data massal di sini) lalu memicu {@link #dataLoader} pemanggil.
+	 *
+	 * @return selalu {@code true}
+	 * @throws InterruptedException tidak pernah dilempar dalam praktiknya; dipertahankan pada
+	 *                              signature untuk kompatibilitas pemanggil
+	 */
 	@SuppressWarnings({})
 	public boolean save() throws InterruptedException {
 
@@ -248,6 +276,14 @@ public class PenjadwalanSkripsiHelper {
 		return true;
 	}
 
+	/**
+	 * Membangun jendela penjadwalan bimbingan/revisi untuk satu {@link Skripsi}: toolbar aksi (lihat
+	 * dokumentasi kelas) dan grid baris pertemuan. Tombol Simpan memanggil {@link #save()} dan
+	 * menutup jendela bila berhasil.
+	 *
+	 * @param skripsi    skripsi/tugas akhir yang jadwal bimbingannya akan dikelola
+	 * @param dataLoader dipanggil setelah simpan untuk menyegarkan tampilan pemanggil
+	 */
 	public void display(final Skripsi skripsi, final DataLoader dataLoader) {
 		this.skripsi = skripsi;
 		this.dataLoader = dataLoader;
@@ -436,6 +472,12 @@ public class PenjadwalanSkripsiHelper {
 		}
 	}
 
+	/**
+	 * Mengisi ulang grid dengan daftar {@link Pertemuan} milik {@link #skripsi}.
+	 *
+	 * @param event bila datanya berupa {@link Boolean} {@code true}, memaksa refresh cache daftar
+	 *              pertemuan; nilai lain (termasuk {@code null}) diperlakukan sebagai {@code false}
+	 */
 	public void onSearchDefault(Event event) {
 
 		List<Pertemuan> pertemuan = skripsi.ambilPertemuanList(

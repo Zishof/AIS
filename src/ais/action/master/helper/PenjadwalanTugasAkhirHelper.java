@@ -48,6 +48,25 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Jendela penjadwalan bimbingan tugas akhir/skripsi: mengelola daftar {@link Pertemuan}
+ * (agenda bimbingan) untuk satu {@link MahasiswaRequestTugasAkhir} (permintaan tugas akhir
+ * mahasiswa yang sudah disetujui dosen pembimbing). Menampilkan grid agenda bimbingan yang
+ * dapat diedit inline (topik, tanggal, jam mulai/selesai, status pertemuan) dengan auto-save
+ * per perubahan, serta toolbar untuk menambah jadwal baru (otomatis menggeser 7 hari dari
+ * jadwal terakhir), mengambil/menyalin jadwal dari sumber lain, mengatur ulang waktu massal,
+ * mengunduh, dan menghapus (lewat method utilitas bersama di {@link PenjadwalanHelper}).
+ *
+ * <p>
+ * Kemampuan edit per baris ({@code bolehUbah}) ditentukan oleh
+ * {@link TemplateFormatBimbingan} yang terkait dengan detail kurikulum pertemuan (bila ada):
+ * dosen hanya dapat mengubah bila {@code getBolehDiubahOlehDosen()}, mahasiswa hanya bila
+ * {@code getBolehDiubahOlehMahasiswa()}; bila tidak ada template terkait atau pengguna bukan
+ * dosen/mahasiswa (staf admin), edit selalu diizinkan. Untuk mahasiswa secara umum, ada gerbang
+ * tambahan {@code edit} berbasis
+ * {@link MahasiswaRequestTugasAkhir#getFormatNilaiProposalSkripsi()}{@code .getMahasiswaBolehMengubahAgendaAtauJadwalBimbingan()}.
+ * </p>
+ */
 public class PenjadwalanTugasAkhirHelper {
 
 	private MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir;
@@ -56,6 +75,7 @@ public class PenjadwalanTugasAkhirHelper {
 
 	private Date currDate;
 
+	/** Merender satu baris agenda bimbingan: read-only (label) bila pengguna tidak berhak mengubah baris ini, atau editable (textbox/datebox/timebox/combobox dengan auto-save) bila berhak — lihat javadoc kelas untuk aturan hak edit. */
 	class PertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
 		private Dosen currentDosen = null;
@@ -63,6 +83,7 @@ public class PenjadwalanTugasAkhirHelper {
 
 		private boolean edit = true;
 
+		/** Menentukan dosen/mahasiswa pengguna saat ini dan gerbang izin ubah agenda mahasiswa dari template penilaian terkait. */
 		public PertemuanRenderer() {
 			Tbmuser tbmuser = Common.getCurrentUser();
 			currentDosen = tbmuser == null ? null : tbmuser.ambilDosen();
@@ -266,6 +287,7 @@ public class PenjadwalanTugasAkhirHelper {
 
 	}
 
+	/** Memicu {@link MahasiswaRequestTugasAkhir#reInitPertemuan} (menyusun ulang urutan/state pertemuan) lalu menyegarkan pemanggil lewat {@link #dataLoader}. Selalu mengembalikan {@code true}. */
 	@SuppressWarnings({})
 	public boolean save() throws InterruptedException {
 
@@ -277,6 +299,17 @@ public class PenjadwalanTugasAkhirHelper {
 		return true;
 	}
 
+	/**
+	 * Membangun jendela penjadwalan bimbingan untuk {@code mahasiswaRequestTugasAkhir}: toolbar
+	 * (Tambah Jadwal Bimbingan, Refresh, tombol-tombol bersama dari {@link PenjadwalanHelper}
+	 * untuk ambil/atur-ulang-waktu/unduh/hapus) di atas grid agenda, dan toolbar Batal/Simpan di
+	 * bawah. "Tambah Jadwal Bimbingan" membuat {@link Pertemuan} baru dengan tanggal otomatis
+	 * 7 hari setelah agenda terakhir yang ditambahkan (atau hari ini bila belum ada), status
+	 * default {@link ConstantValues#TATAP_MUKA}, dan langsung disimpan ke database.
+	 *
+	 * @param mahasiswaRequestTugasAkhir permintaan tugas akhir yang agenda bimbingannya dikelola
+	 * @param dataLoader                 callback disegarkan setelah {@link #save()} dipanggil
+	 */
 	public void display(final MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir, final DataLoader dataLoader) {
 		this.mahasiswaRequestTugasAkhir = mahasiswaRequestTugasAkhir;
 		this.dataLoader = dataLoader;
@@ -474,6 +507,7 @@ public class PenjadwalanTugasAkhirHelper {
 		}
 	}
 
+	/** Memuat/menyegarkan grid dengan daftar {@link Pertemuan} milik {@link #mahasiswaRequestTugasAkhir}; {@code event.getData()} bertipe {@link Boolean} (bila ada) diteruskan ke {@code ambilPertemuanList} untuk menentukan mode muat (mis. paksa muat ulang penuh). */
 	public void onSearchDefault(Event event) {
 
 		List<Pertemuan> pertemuan = mahasiswaRequestTugasAkhir.ambilPertemuanList(

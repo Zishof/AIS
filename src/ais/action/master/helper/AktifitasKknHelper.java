@@ -63,6 +63,36 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper ZK yang membangun tampilan "Aktifitas KKN" — dasbor tab berisi seluruh aktivitas satu
+ * {@link KelompokKkn} (kelompok Kuliah Kerja Nyata): agenda/timeline pertemuan, anggota, materi/
+ * tugas/ujian, tugas kelompok, referensi (buku/bahan ajar/artikel), penilaian, dan laporan KBM.
+ * Pola dan strukturnya mengikuti helper aktivitas serupa untuk perkuliahan biasa (lihat referensi
+ * silang ke {@code AktifitasPerkuliahanHelper}), diadaptasikan untuk entitas KKN.
+ *
+ * <p>
+ * {@link #initAgendaKelompokKkn} membangun toolbar aksi agenda: penjadwalan pertemuan baru
+ * ({@link PenjadwalanKknHelper} lewat {@link PenjadwalanHelper#tampilTombolAmbil}), cetak laporan
+ * absensi, ekspor ke DSpace ({@link DspaceHelper#tampilkanButtonExportDiPertemuan}), integrasi
+ * kalender dan Google Classroom, tombol Refresh, pemulihan pertemuan terhapus
+ * ({@code RecoveryPertemuanHelper}), dan riwayat/urut-ulang pertemuan ({@code
+ * RevisiPertemuanKknHelper}) — sebagian besar tombol hanya tampil bila {@link #edit} bernilai
+ * {@code true} (dosen/admin, atau mahasiswa/dosen yang diizinkan konfigurasi KKN terkait untuk
+ * mengubah agenda).
+ * </p>
+ *
+ * <p>
+ * {@link #initDetail} adalah titik masuk utama: menyusun {@link org.zkoss.zul.Tabbox} dengan tab
+ * "Agenda KKN" (grid berpaging satu-pertemuan-per-halaman berisi catatan diskusi, absensi, video
+ * conference, dan daftar diskusi terkait — dipompa lewat kelas {@code DashboardTimelinePertemuan}
+ * dan {@code AbsensiHelper}), serta tab-tab lain yang di-lazy-load saat pertama diklik: Anggota
+ * ({@link KelompokKknHelper}), Materi/Tugas/Ujian ({@code TampilanELearningAction}), Tugas
+ * Kelompok ({@code TugasKelompokHelper}), Referensi (sub-tab Buku/Bahan Ajar/Artikel via
+ * {@link DataPunyaItemHelper} dan sejenisnya), Penilaian ({@link PenilaianKknHelper}), dan
+ * Laporan KBM ({@code LaporanMonitorKknKbm}). Bila kelompok belum punya pertemuan sama sekali,
+ * satu pertemuan pembukaan otomatis dibuat sebelum tampilan dibangun ulang.
+ * </p>
+ */
 public class AktifitasKknHelper {
 
 	protected PenjadwalanKknHelper penjadwalanHelper = new PenjadwalanKknHelper();
@@ -71,11 +101,23 @@ public class AktifitasKknHelper {
 	private Tbmuser tbmuser = null;
 	private boolean edit = false;
 
+	/** Mengambil user login saat ini beserta data mahasiswa terkait (bila user adalah mahasiswa) sebagai konteks tampilan. */
 	public AktifitasKknHelper() {
 		tbmuser = Common.getCurrentUser();
 		userMahasiswa = tbmuser == null ? null : tbmuser.getMahasiswa();
 	}
 
+	/**
+	 * Membangun toolbar aksi untuk tab Agenda KKN: Agenda KKN (buka penjadwalan), Absensi (cetak
+	 * laporan), dan — hanya bila {@link #edit} true — tombol tambah pertemuan cepat, ekspor
+	 * DSpace, kalender, Google Classroom, Refresh, pemulihan pertemuan, dan riwayat/History
+	 * (khusus non-mahasiswa/siswa) yang membuka {@code RevisiPertemuanKknHelper} untuk mengurutkan
+	 * ulang pertemuan berdasarkan tanggal dan menyegarkan cache kelompok.
+	 *
+	 * @param kelompokKkn kelompok KKN yang agendanya dikelola
+	 * @param dataLoader  callback untuk memuat ulang tampilan setelah aksi selesai
+	 * @return toolbar siap ditempel
+	 */
 	public Toolbar initAgendaKelompokKkn(final KelompokKkn kelompokKkn, final DataLoader dataLoader) {
 
 		Toolbar hbox = new Toolbar();
@@ -202,10 +244,24 @@ public class AktifitasKknHelper {
 		return hbox;
 	}
 
+	/** Seperti {@link #initDetail(KelompokKkn, DataLoader, MyDiv)} dengan {@code dataLoader} default yang memuat ulang dirinya sendiri. */
 	public void initDetail(final KelompokKkn kelompokKkn, final MyDiv groupbox) throws Exception {
 		initDetail(kelompokKkn, null, groupbox);
 	}
 
+	/**
+	 * Titik masuk utama: membangun seluruh dasbor tab Aktifitas KKN ke dalam {@code groupbox}.
+	 * Menentukan hak edit ({@link #edit}) berdasarkan kombinasi user login, admin, dan pengaturan
+	 * {@code mahasiswaBolehMerubahAgenda}/{@code dosenBolehMerubahAgenda} pada {@link
+	 * ais.database.model.Kkn} induk kelompok. Bila kelompok belum memiliki pertemuan, satu
+	 * pertemuan pembukaan otomatis dibuat lalu tampilan dijadwalkan untuk dibangun ulang lewat
+	 * timer. Tab-tab selain Agenda KKN (Anggota, Materi/Tugas/Ujian, Tugas Kelompok, Referensi,
+	 * Penilaian, Laporan KBM) baru dimuat isinya saat pertama kali diklik (lazy loading).
+	 *
+	 * @param kelompokKkn kelompok KKN yang ditampilkan
+	 * @param mydataLoader loader kustom untuk memuat ulang tampilan; bila {@code null}, dipakai loader default yang memanggil {@link #initDetail(KelompokKkn, MyDiv)}
+	 * @param groupbox    komponen induk (dibersihkan lebih dulu)
+	 */
 	public void initDetail(final KelompokKkn kelompokKkn, final DataLoader mydataLoader, final MyDiv groupbox)
 			throws Exception {
 

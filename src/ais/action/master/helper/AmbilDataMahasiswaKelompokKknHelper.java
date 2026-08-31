@@ -46,6 +46,20 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper composer ZK berbentuk window modal untuk memilih mahasiswa (yang sudah diterima
+ * mendaftar KKN, lewat {@link MahasiswaDaftarKkn}) dan memasukkannya ke satu {@link KelompokKkn}
+ * (kelompok KKN), sambil menegakkan batas kuota kelompok.
+ *
+ * <p>
+ * Kandidat mahasiswa dibatasi pada peserta {@link MahasiswaDaftarKkn} yang statusnya
+ * {@code DITERIMA} untuk {@code Kkn} induk dari {@code kelompokKkn}, dengan filter opsional NIM,
+ * nama, tahun angkatan, fakultas, dan prodi. Saat {@link #save()}, jumlah mahasiswa yang sudah
+ * tercatat {@link MahasiswaDapatKelompokKkn#getDiterima()}{@code =true} ditambah jumlah baris yang
+ * baru dicentang dibandingkan terhadap {@link KelompokKkn#getKuota()}; bila melebihi, penyimpanan
+ * dibatalkan dan pesan peringatan ditampilkan.
+ * </p>
+ */
 public class AmbilDataMahasiswaKelompokKknHelper {
 
 	private KelompokKkn kelompokKkn;
@@ -58,11 +72,17 @@ public class AmbilDataMahasiswaKelompokKknHelper {
 	private Combobox searchfakultas = new Combobox();
 	private Combobox searchjurusan = new Combobox();
 
+	/** Menyiapkan combobox filter fakultas/jurusan (diisi opsi "Semua" + seluruh data aktif). */
 	public AmbilDataMahasiswaKelompokKknHelper() {
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 
 	}
 
+	/**
+	 * Perender baris grid untuk satu {@link Mahasiswa}: checkbox pilih (dicentang bila mahasiswa
+	 * sudah diterima di {@link #kelompokKkn} lewat {@link MahasiswaDapatKelompokKkn}), nama, tahun
+	 * angkatan, dan jurusan.
+	 */
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -90,6 +110,15 @@ public class AmbilDataMahasiswaKelompokKknHelper {
 
 	}
 
+	/**
+	 * Menambahkan mahasiswa yang tercentang di grid ke {@link #kelompokKkn}, dengan penegakan
+	 * kuota: jumlah anggota diterima saat ini ditambah baris tercentang tidak boleh melebihi
+	 * {@link KelompokKkn#getKuota()} — bila melebihi, ditampilkan peringatan dan method berhenti
+	 * tanpa menyimpan apa pun. Mahasiswa yang sudah punya baris {@link MahasiswaDapatKelompokKkn}
+	 * diterima untuk kelompok ini dilewati (tidak dibuat dobel).
+	 *
+	 * @throws Exception diteruskan dari kegagalan Hibernate yang tidak tertangkap di loop internal
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() throws Exception {
 
@@ -145,6 +174,16 @@ public class AmbilDataMahasiswaKelompokKknHelper {
 
 	}
 
+	/**
+	 * Membuat dan menampilkan window modal "Ambil Data Mahasiswa" berisi form filter (NIM, nama,
+	 * tahun angkatan, fakultas, prodi) dan grid mahasiswa peserta KKN yang bisa dipilih. Window
+	 * dibuat baru dan dipasang langsung ke root halaman (bukan memakai window yang diberikan
+	 * pemanggil). Tombol "Simpan" memanggil {@link #save()}, memuat ulang data pemanggil, lalu
+	 * menutup window.
+	 *
+	 * @param kelompokKkn kelompok KKN tujuan penempatan mahasiswa
+	 * @param dataLoader  callback muat-ulang data pemanggil setelah simpan
+	 */
 	public void display(final KelompokKkn kelompokKkn, final DataLoader dataLoader) {
 		this.kelompokKkn = kelompokKkn;
 
@@ -313,6 +352,14 @@ public class AmbilDataMahasiswaKelompokKknHelper {
 		}
 	}
 
+	/**
+	 * Memuat grid dengan mahasiswa peserta {@code Kkn} induk dari {@link #kelompokKkn} yang
+	 * berstatus diterima ({@link MahasiswaDaftarKkn#DITERIMA}), difilter opsional berdasarkan
+	 * NIM/nama (ILIKE anywhere), tahun angkatan, jurusan, dan fakultas. Diurutkan berdasarkan
+	 * tahun angkatan menurun lalu NIM menaik, dibatasi {@link Common#MAX_RESULT_1000} hasil.
+	 *
+	 * @param event tidak dipakai
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

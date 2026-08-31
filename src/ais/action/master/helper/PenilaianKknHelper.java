@@ -62,6 +62,31 @@ import ais.ui.util.MyLabelAgakKecil;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Composer ZK untuk layar "Penilaian KKN": menampilkan grid mahasiswa anggota satu
+ * {@link KelompokKkn} beserta matakuliah KKN yang diambil (dapat dipilih/diubah lewat
+ * {@code AmbilDataDetailPerkuliahanBanbox}), total nilai, dan nilai huruf. Baris yang bukan milik
+ * mahasiswa yang sedang login (saat login sebagai mahasiswa) ditampilkan sebagai "-" untuk menjaga
+ * privasi nilai antar mahasiswa.
+ *
+ * <p>
+ * Tombol "Penilaian" per baris membuka dialog input nilai ({@link #init}) yang menyusun komponen
+ * penilaian KKN secara hierarkis (induk-anak) dari {@link KknPunyaKomponenPenilaianKkn}. Dosen hanya
+ * dapat mengisi kolom komponen yang menjadi tanggung jawabnya — ditentukan lewat properti dinamis
+ * pada {@link ais.database.model.kkn.KomponenPenilaianKkn} yang namanya cocok dengan kunci dosen
+ * pembimbing (dicari lewat {@link KelompokKkn#populateDosen()} dan dibaca via Hibernate
+ * {@code ClassMetadata}, bukan lewat getter statis, karena kolom boleh-menilai per dosen bersifat
+ * dinamis). Setiap perubahan nilai langsung menghitung ulang total nilai dan nilai huruf (final dan
+ * sementara) lalu menyinkronkannya ke {@link Detailperkuliahan} terkait bila mahasiswa sudah memiliki
+ * KRS matakuliah KKN yang disetujui.
+ * </p>
+ *
+ * <p>
+ * Tombol toolbar "Singkronkan Nilai" menjalankan ulang seluruh perhitungan nilai KKN→KRS untuk
+ * semua anggota kelompok yang diterima, berguna setelah perubahan bobot komponen penilaian atau
+ * migrasi data.
+ * </p>
+ */
 public class PenilaianKknHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -70,6 +95,7 @@ public class PenilaianKknHelper implements DataLoader {
 	private Textbox nim;
 	private Tbmuser tbmuser;
 
+	/** Row renderer grid anggota kelompok KKN: foto+NIM mahasiswa, nama, jurusan, fakultas, matakuliah KKN yang diambil (editable untuk operator, read-only untuk mahasiswa/dosen), total nilai, nilai huruf, dan tombol buka dialog Penilaian. Baris disamarkan ("-") bila mahasiswa yang login bukan pemilik baris. */
 	class DetailKelompokKknRenderer extends ais.ui.util.MyRowRenderer {
 
 		Tbmuser tbmuser = Common.getCurrentUser();
@@ -179,6 +205,18 @@ public class PenilaianKknHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membuka dialog input nilai KKN untuk satu {@link MahasiswaDapatKelompokKkn}: menyusun grid
+	 * komponen penilaian secara hierarkis (induk lalu anak-anaknya dengan indentasi), menentukan kolom
+	 * boleh-menilai milik dosen yang login (lewat {@link KelompokKkn#populateDosen()} dicocokkan
+	 * dengan properti dinamis komponen via Hibernate {@code ClassMetadata}), dan mengikat setiap input
+	 * nilai ke listener yang langsung menghitung ulang total nilai, nilai huruf, serta menyinkronkan
+	 * hasilnya ke {@link Detailperkuliahan} KKN mahasiswa (nilai final dan sementara sekaligus) bila
+	 * ada.
+	 *
+	 * @param mahasiswaDapatKelompokKkn baris keanggotaan kelompok KKN yang dinilai
+	 * @throws Exception diteruskan dari kegagalan Hibernate saat memuat komponen penilaian
+	 */
 	@SuppressWarnings({ "unchecked" })
 	private void init(final MahasiswaDapatKelompokKkn mahasiswaDapatKelompokKkn) throws Exception {
 		final MyWindow addWindow = new MyWindow();
@@ -529,6 +567,13 @@ public class PenilaianKknHelper implements DataLoader {
 		addWindow.onModal();
 	}
 
+	/**
+	 * Membangun kriteria Hibernate {@link MahasiswaDapatKelompokKkn} yang diterima pada kelompok KKN
+	 * ini, difilter dengan pencarian NIM/nama bila diisi.
+	 *
+	 * @param order bila {@code true}, menambahkan pengurutan berdasarkan id menaik
+	 * @return kriteria siap dieksekusi
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria crit = session.createCriteria(MahasiswaDapatKelompokKkn.class).add(Restrictions.eq("diterima", true))
@@ -548,6 +593,7 @@ public class PenilaianKknHelper implements DataLoader {
 		return crit;
 	}
 
+	/** Memuat ulang halaman anggota kelompok KKN saat ini dan me-render ulang grid. Parameter {@code value} tidak dipakai. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Common.initPaging(initCriteria(false), paging);
@@ -561,6 +607,13 @@ public class PenilaianKknHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun seluruh UI grid penilaian KKN (toolbar cetak/singkronkan-nilai/cari, grid anggota) di
+	 * dalam {@code component} untuk kelompok KKN yang diberikan, lalu memuat data awal.
+	 *
+	 * @param kelompokKkn  kelompok KKN yang anggotanya ditampilkan
+	 * @param component    container ZK yang akan diisi
+	 */
 	public void display(final KelompokKkn kelompokKkn, final Component component) {
 		this.kelompokKkn = kelompokKkn;
 		Common.clear(component);

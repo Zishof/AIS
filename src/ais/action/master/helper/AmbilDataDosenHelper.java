@@ -47,6 +47,20 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper "pilih dari daftar" untuk mengatur tim dosen pengampu satu {@link Perkuliahan}, lewat
+ * relasi {@link TimDosen}. Menampilkan jendela modal pencarian dosen aktif (nama, fakultas, prodi)
+ * dengan checkbox per baris yang menandakan apakah dosen tersebut sudah menjadi anggota tim
+ * pengampu perkuliahan yang bersangkutan.
+ *
+ * <p>
+ * Sama seperti {@link AmbilDataItemBiayaHelper}, perubahan checkbox tidak langsung disimpan;
+ * {@link #save()} baru dijalankan saat tombol Simpan ditekan, menyinkronkan seluruh baris grid
+ * yang sedang ditampilkan (checked → buat/pertahankan {@link TimDosen}, unchecked → hapus) plus
+ * entri tambahan pada {@link #deletedDosens} (dosen yang di-uncheck lewat listener {@code onCheck}
+ * pada baris yang mungkin sudah di luar halaman grid saat ini).
+ * </p>
+ */
 public class AmbilDataDosenHelper {
 	private MyGrid grid;
 
@@ -58,10 +72,12 @@ public class AmbilDataDosenHelper {
 	private Combobox searchfakultas = new Combobox();
 	private Combobox searchjurusan = new Combobox();
 
+	/** Membuat helper dan menginisialisasi combobox pencarian fakultas/jurusan (termasuk opsi "Semua"). */
 	public AmbilDataDosenHelper() {
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 	}
 
+	/** Perender baris grid: checkbox status keanggotaan tim dosen (dengan listener yang menandai/melepas entri {@link #deletedDosens}), plus label NIP, nama, jurusan, dan fakultas dosen. */
 	class DosenRenderer extends ais.ui.util.MyRowRenderer {
 		private TimDosenDao timDosenDao = DaoFactory.getInstance().gettTimDosenDao();
 		private Session session = timDosenDao.getCurrentSession();
@@ -106,6 +122,12 @@ public class AmbilDataDosenHelper {
 		}
 	}
 
+	/**
+	 * Menyinkronkan status checkbox seluruh baris grid yang saat ini ditampilkan ke tabel relasi
+	 * {@link TimDosen}: baris tercentang membuat/mempertahankan keanggotaan tim, baris tak
+	 * tercentang menghapusnya (bila ada). Setelah itu, seluruh entri pada {@link #deletedDosens}
+	 * juga dihapus. Kegagalan per baris ditelan.
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() {
 		TimDosenDao timDosenDao = DaoFactory.getInstance().gettTimDosenDao();
@@ -157,6 +179,17 @@ public class AmbilDataDosenHelper {
 
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela modal pengaturan tim dosen untuk {@code perkuliahan} yang
+	 * diberikan: form pencarian nama/fakultas/prodi, grid ber-paging server-side dengan checkbox
+	 * per baris, dan tombol Cari/Simpan/Batal. Combobox fakultas/prodi sengaja dinonaktifkan
+	 * sesaat lalu diaktifkan kembali lewat {@link Common#createDefaultTimer} (pola workaround UI
+	 * ZK, bukan kesalahan).
+	 *
+	 * @param perkuliahan perkuliahan yang tim dosennya akan diatur
+	 * @param dataLoader  callback penyegar tampilan pemanggil setelah simpan
+	 * @param window      jendela modal yang akan dibangun isinya (dibersihkan lebih dulu)
+	 */
 	public void display(Perkuliahan perkuliahan, final DataLoader dataLoader, final MyWindow window) {
 		this.perkuliahan = perkuliahan;
 		Common.clear(window);
@@ -338,6 +371,13 @@ public class AmbilDataDosenHelper {
 		});
 	}
 
+	/**
+	 * Menjalankan pencarian dosen aktif berdasarkan nama (ilike) dan filter jurusan/fakultas —
+	 * dosen dengan {@code milikUniversitas = true} selalu lolos filter jurusan/fakultas (dianggap
+	 * "milik semua unit"). Memuat ulang grid dengan hasilnya.
+	 *
+	 * @param event event pemicu (tombol Cari/paging), tidak dipakai langsung
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

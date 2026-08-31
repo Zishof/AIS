@@ -70,6 +70,32 @@ import ais.ui.util.MyLabelAgakKecil;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper ZK yang menampilkan matriks kehadiran (peserta &times; pertemuan) untuk satu
+ * {@link VOPembelajaran} — baik perkuliahan ({@link Perkuliahan}) maupun jadwal pelajaran
+ * sekolah ({@link ais.database.model.sekolah.JadwalPelajaran}). Satu baris grid mewakili satu
+ * peserta (mahasiswa/siswa, atau — khusus perkuliahan tanpa mahasiswa terdaftar — satu dosen
+ * pengampu direpresentasikan sebagai id semu negatif), satu kolom mewakili satu pertemuan;
+ * setiap sel menampilkan kode status absensi ({@code "-"} bila belum ada catatan). Karena
+ * jumlah pertemuan bisa banyak, tampilan dipecah otomatis menjadi beberapa tab "Pertemuan ke X
+ * sd Y" berisi maksimal 16 kolom per tab ({@link #displayDetailPertemuan}) memakai
+ * {@link ais.ui.util.MyButtonTabbox} data-driven.
+ *
+ * <p>
+ * Header tiap kolom pertemuan adalah tombol yang membuka {@link PertemuanHelper} untuk mengedit
+ * pertemuan tersebut, plus indikator jumlah peserta yang pernah "online" pada sesi video
+ * conference ({@link ais.action.master.dashboard.admin.DashboardTimelinePertemuan}). Toolbar
+ * atas menyediakan pencarian peserta, tombol Agenda Pertemuan (penjadwalan lewat
+ * {@link PenjadwalanHelper}/{@link ais.action.master.sekolah.helper.PenjadwalanSiswaHelper}),
+ * laporan absensi/UTS/UAS ({@link ais.action.report.CommonReportHelper}), serta unduh/unggah
+ * data absensi dalam format Excel — unduh menghasilkan template dua baris header (baris 0
+ * berisi id pertemuan tersembunyi, baris 1 label "Ke-N"), unggah membaca kembali baris 0
+ * tersebut untuk memetakan kolom ke id pertemuan sehingga proses kebal terhadap perubahan
+ * urutan/penambahan pertemuan di antara unduh dan unggah. Proses unggah berjalan di thread
+ * terpisah dengan sesi Hibernate miliknya sendiri (bukan sesi native bersama) dan melaporkan
+ * statistik jujur (jumlah sel tersimpan/dilewati/baris gagal) alih-alih pesan sukses generik.
+ * </p>
+ */
 public class DetailpertemuanHelper implements DataLoader {
 
 	private VOPembelajaran voPembelajaran;
@@ -80,6 +106,12 @@ public class DetailpertemuanHelper implements DataLoader {
 
 	private Tbmuser tbmuser = Common.getCurrentUser();
 
+	/**
+	 * Renderer baris untuk matriks absensi perkuliahan. Data baris berupa {@code Long}: bila
+	 * negatif, direpresentasikan sebagai baris dosen pengampu (id sebenarnya {@code Math.abs(id)});
+	 * bila positif, merujuk ke {@link Detailperkuliahan} (satu mahasiswa terdaftar). Kolom sisanya
+	 * (sejumlah pertemuan dalam rentang {@code mulai}..{@code sampai}) diisi kode status absensi.
+	 */
 	class DetailPerkuliahanRenderer extends ais.ui.util.MyRowRenderer {
 
 		private int mulai;
@@ -145,6 +177,12 @@ public class DetailpertemuanHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Renderer baris untuk matriks absensi jadwal pelajaran sekolah, satu baris per
+	 * {@link VoKelasPunyaSiswa} (siswa anggota kelas). Kode absensi tiap kolom pertemuan diisi
+	 * secara tertunda lewat {@link Common#createDefaultTimer} agar rendering baris awal (foto,
+	 * NIS, nama) tidak menunggu kalkulasi kehadiran seluruh pertemuan selesai.
+	 */
 	class KelasSiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		private int mulai;
@@ -196,6 +234,19 @@ public class DetailpertemuanHelper implements DataLoader {
 	private EventListener refrehEven;
 	private MyGrid grid;
 
+	/**
+	 * Membangun satu grid matriks absensi untuk rentang kolom pertemuan {@code mulai}..{@code
+	 * sampai} (dipakai per-tab saat total pertemuan &gt; 16). Menyusun kolom Foto/NIM-NIS/Nama/
+	 * Ket. lalu satu kolom tombol per pertemuan aktif dalam rentang tersebut (tooltip berisi
+	 * ringkasan pertemuan: tanggal, topik, metode, daftar peserta online). Diakhiri dengan
+	 * memanggil {@link #reload()} untuk mengisi baris data sesuai jenis {@link VOPembelajaran}.
+	 *
+	 * @param value       komponen induk (di-cast dari {@link Component}) tempat grid ditempel
+	 * @param pertemuanss peta label&rarr;id pertemuan milik {@link #voPembelajaran}
+	 * @param mulai       nomor pertemuan awal rentang kolom yang ditampilkan
+	 * @param sampai      nomor pertemuan akhir rentang kolom yang ditampilkan
+	 * @param refresh     bila {@code true}, muat ulang entitas {@link Pertemuan} dari database sebelum dirender (bukan dari cache)
+	 */
 	public void loadData(Object value, TreeMap<String, Long> pertemuanss, int mulai, int sampai, boolean refresh) {
 		this.mulai = mulai;
 		this.sampai = sampai;
@@ -350,6 +401,15 @@ public class DetailpertemuanHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Mengisi baris data grid sesuai jenis {@link #voPembelajaran}: untuk {@link Perkuliahan},
+	 * baris berupa gabungan dosen pengampu (id semu negatif) dan mahasiswa peserta — terbatas ke
+	 * anak dari orang tua bila user login adalah orang tua, atau anak sendiri bila mahasiswa,
+	 * atau hasil pencarian nama/NIM bila dosen/admin; untuk {@link
+	 * ais.database.model.sekolah.JadwalPelajaran}, baris berupa anggota kelas siswa atau kelas
+	 * les, difilter sama (nama/NIS, atau anak siswa bila orang tua) dan disaring ulang terhadap
+	 * mata pelajaran jadwal via {@code KelasSiswaPunyaSiswa.filterMk}.
+	 */
 	@SuppressWarnings("unchecked")
 	private void reload() {
 		if (voPembelajaran instanceof Perkuliahan) {
@@ -457,6 +517,16 @@ public class DetailpertemuanHelper implements DataLoader {
 
 	private TreeMap<String, Long> pertemuanss;
 
+	/**
+	 * Titik masuk utama: membangun seluruh UI detail pertemuan untuk {@code voPembelajaran} di
+	 * dalam {@code cc} — toolbar pencarian peserta, tombol unduh/unggah Excel absensi, tombol
+	 * Refresh, Agenda Pertemuan, dan (khusus perkuliahan, hanya untuk dosen/admin non-mahasiswa/
+	 * siswa) laporan Absensi/UTS/UAS — diikuti grid matriks absensi yang dipecah ke beberapa tab
+	 * bila jumlah pertemuan lebih dari 16.
+	 *
+	 * @param voPembelajaran perkuliahan atau jadwal pelajaran yang detail pertemuannya ditampilkan
+	 * @param cc             komponen induk (dibersihkan lebih dulu)
+	 */
 	public void displayDetailPertemuan(final VOPembelajaran voPembelajaran, final Component cc) {
 		this.voPembelajaran = voPembelajaran;
 
@@ -953,6 +1023,7 @@ public class DetailpertemuanHelper implements DataLoader {
 
 	private boolean refreshData = false;
 
+	/** Implementasi {@link DataLoader#loadData}: memuat ulang grid tab aktif dengan rentang kolom dan flag refresh terakhir, lalu mereset flag refresh. */
 	@Override
 	public void loadData(Object value) {
 		loadData(value, pertemuanss, mulai, sampai, refreshData);

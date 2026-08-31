@@ -43,6 +43,20 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper jendela modal untuk mengelola jadwal <b>konsultasi</b> ({@link Pertemuan}) antara
+ * mahasiswa dan dosen Pembimbing Akademik pada satu {@link KrsMahasiswa} — struktur dan perilaku
+ * identik dengan {@link PenjadwalanKknHelper}, hanya berbeda entitas induk ({@link KrsMahasiswa}
+ * alih-alih {@code KelompokKkn}) dan label tampilan ("Konsultasi" alih-alih "Kegiatan KKN").
+ * Grid setiap barisnya inline-editable (catatan konsultasi, tanggal, jam mulai/selesai, status/
+ * jenis pertemuan), dengan tombol tambah, hapus per baris, download, dan pengaturan ulang waktu
+ * massal (didelegasikan ke {@link PenjadwalanHelper}).
+ *
+ * <p>
+ * Tombol "Tambah Jadwal Konsultasi" membuat satu {@link Pertemuan} baru berjarak 7 hari dari
+ * pertemuan terakhir yang ditambahkan pada sesi tampilan ini ({@link #currDate}).
+ * </p>
+ */
 public class PenjadwalanKrsMahasiswaHelper {
 
 	private KrsMahasiswa krsMahasiswa;
@@ -51,6 +65,7 @@ public class PenjadwalanKrsMahasiswaHelper {
 
 	private Date currDate;
 
+	/** Perender baris grid: textbox catatan konsultasi, tanggal (readonly datepicker), jam mulai/selesai, combobox status/jenis pertemuan (semuanya tersimpan otomatis on-change), dan tombol hapus (dengan pengecekan {@link PenjadwalanHelper#checkBolehHapus} + konfirmasi). */
 	class PertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
 		public PertemuanRenderer() {
@@ -225,6 +240,14 @@ public class PenjadwalanKrsMahasiswaHelper {
 
 	}
 
+	/**
+	 * Menyinkronkan ulang cache/indeks pertemuan {@code krsMahasiswa} lewat
+	 * {@link KrsMahasiswa#reInitPertemuan(Session)} dan menyegarkan {@link #dataLoader} pemanggil.
+	 * Baris grid sendiri sudah tersimpan langsung per-perubahan (lihat {@link PertemuanRenderer}),
+	 * jadi method ini murni langkah finalisasi/refresh, bukan penyimpanan data.
+	 *
+	 * @return selalu {@code true}
+	 */
 	@SuppressWarnings({})
 	public boolean save() throws InterruptedException {
 
@@ -236,6 +259,12 @@ public class PenjadwalanKrsMahasiswaHelper {
 		return true;
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela modal penjadwalan konsultasi KRS (toolbar tambah/refresh/
+	 * atur ulang waktu/download/hapus, grid pertemuan inline-editable, tombol Simpan/Batal) untuk
+	 * {@code krsMahasiswa}. Memanggil {@link #onSearchDefault} untuk mengisi grid pertama kali
+	 * sebelum jendela ditampilkan sebagai modal.
+	 */
 	public void display(final KrsMahasiswa krsMahasiswa, final DataLoader dataLoader) {
 		this.krsMahasiswa = krsMahasiswa;
 		this.dataLoader = dataLoader;
@@ -431,6 +460,11 @@ public class PenjadwalanKrsMahasiswaHelper {
 		}
 	}
 
+	/**
+	 * Memuat ulang grid dengan seluruh {@link Pertemuan} milik {@link #krsMahasiswa}. Bila
+	 * {@code event} membawa data bertipe {@link Boolean}, nilainya diteruskan ke
+	 * {@link KrsMahasiswa#ambilPertemuanList(boolean)}; bila tidak, defaultnya {@code false}.
+	 */
 	public void onSearchDefault(Event event) {
 
 		List<Pertemuan> pertemuan = krsMahasiswa.ambilPertemuanList(

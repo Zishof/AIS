@@ -4,13 +4,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.hibernate.Session;
-import org.hibernate.criterion.Projections;
-import org.hibernate.criterion.Restrictions;
 
 import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
-import ais.database.model.Mahasiswa;
 
 public class YY_PRODI_STATUS_PINDAHAN_URUT_NimGenerator implements NimGenerator {
 
@@ -26,7 +23,7 @@ public class YY_PRODI_STATUS_PINDAHAN_URUT_NimGenerator implements NimGenerator 
 		String nim = "-";
 
 		if (calonMahasiswa.getProdiLulus() != null) {
-			Session session = HibernateUtil.currentNativeSession();
+			Session session = HibernateUtil.openSession();
 
 			Integer tahun = calonMahasiswa.getTahun();
 
@@ -37,12 +34,6 @@ public class YY_PRODI_STATUS_PINDAHAN_URUT_NimGenerator implements NimGenerator 
 			String digitKetiga = calonMahasiswa.getStatusAwalMahasiswa() == null ? "0"
 					: calonMahasiswa.getStatusAwalMahasiswa().getKode();
 
-			Long jumlah = ((Number) session.createCriteria(Mahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))).setProjection(Projections.rowCount())
-					.add(Restrictions.eq("tahunangkatan", tahun))
-					.add(Restrictions.eq("merupakanPindahan", calonMahasiswa.getMerupakanPindahan()))
-					.add(Restrictions.eq("jurusan", calonMahasiswa.getProdiLulus())).setMaxResults(1).uniqueResult())
-					.longValue();
-
 			Integer jumlahDigit = 4;
 			try {
 				jumlahDigit = Integer.parseInt(Common.getKonfigurasi("jumlah_digit_gen_nim_mahasiswa", "4").getNilai());
@@ -50,11 +41,13 @@ public class YY_PRODI_STATUS_PINDAHAN_URUT_NimGenerator implements NimGenerator 
 
 			}
 
-			jumlah += jumlahPengecualian.size();
-			String digitEmpat = "000000000000" + (jumlah + 1);
-			digitEmpat = digitEmpat.substring(digitEmpat.length() - jumlahDigit);
+			String prefix = Common.getKonfigurasi("prefix_pmb", "").getNilai() + digitPertama + digitKedua
+					+ digitKetiga;
+			long nomorUrut = NimGeneratorSupport.nomorUrutBerikutnya(session, prefix, jumlahDigit, calonMahasiswa,
+					jumlahPengecualian);
+			String digitEmpat = NimGeneratorSupport.leftPadNomor(nomorUrut, jumlahDigit);
 
-			System.out.println("pindahan = " + calonMahasiswa.getMerupakanPindahan() + " jumlah " + jumlah
+			System.out.println("pindahan = " + calonMahasiswa.getMerupakanPindahan() + " nomorUrut " + nomorUrut
 					+ " jumlahPengecualian " + jumlahPengecualian);
 
 			System.out.println("digit pertama (kode tahun masuk) = " + digitPertama);
@@ -62,15 +55,12 @@ public class YY_PRODI_STATUS_PINDAHAN_URUT_NimGenerator implements NimGenerator 
 			System.out.println("digit ketiga (status pindahan) = " + digitKetiga);
 			System.out.println("digit ketiga (urutan) = " + digitEmpat);
 
-			nim = Common.getKonfigurasi("prefix_pmb", "").getNilai() + digitPertama + digitKedua + digitKetiga
-					+ digitEmpat;
+			nim = prefix + digitEmpat;
 
-			Integer count = ((Number) session.createCriteria(Mahasiswa.class).add(Restrictions.eq("nim", nim))
-					.setProjection(Projections.count("nim")).uniqueResult()).intValue();
+			boolean nimSudahDipakai = NimGeneratorSupport.nimSudahDipakai(session, nim, calonMahasiswa);
+			HibernateUtil.closeSessionQuietly(session);
 
-			HibernateUtil.closeSession();
-
-			if (!count.equals(0)) {
+			if (nimSudahDipakai) {
 				jumlahPengecualian.add(nim);
 				return generateNim(calonMahasiswa, jumlahPengecualian);
 			}

@@ -44,16 +44,38 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper jendela penjadwalan untuk satu {@link GrupPertemuan} (grup pertemuan/konsultasi,
+ * mis. bimbingan dosen PA): menampilkan dan mengelola daftar peserta grup, di mana setiap
+ * peserta ({@link Mahasiswa}) memiliki satu {@link Pertemuan} individual sendiri yang
+ * ditautkan lewat baris {@link PertemuanPunyaGrupPertemuan}. Menyediakan pencarian
+ * peserta by NIM/nama, unduh data, tambah peserta (lewat
+ * {@code AmbilDataMahasiswaForGrupPertemuanDosenPaHelper}), dan pengeditan
+ * catatan/tanggal/waktu pertemuan langsung pada grid, serta penghapusan peserta+pertemuan
+ * terkait.
+ */
 public class PenjadwalanGrupPertemuanHelper {
 
 	private GrupPertemuan grupPertemuan;
 	private MyGrid grid;
 	private Textbox nama;
 
+	/** Membuat helper untuk satu {@code grupPertemuan} yang akan dikelola. */
 	public PenjadwalanGrupPertemuanHelper(GrupPertemuan grupPertemuan) {
 		this.grupPertemuan = grupPertemuan;
 	}
 
+	/**
+	 * Merender komponen edit inline untuk satu {@link PertemuanPunyaGrupPertemuan} ke
+	 * dalam {@code arg0}: foto+nama mahasiswa dengan riwayat revisi, textbox catatan,
+	 * datebox tanggal (readonly — hanya bisa diubah lewat aksi lain), dan sepasang
+	 * timebox waktu mulai/selesai — seluruhnya langsung menyimpan perubahan ke
+	 * {@link Pertemuan} terkait via {@link Common#refreshUpdate} saat berubah.
+	 *
+	 * @param arg0                        komponen ZK induk (biasanya satu baris grid) tempat elemen disisipkan
+	 * @param pertemuanPunyaGrupPertemuan entri keanggotaan grup yang direpresentasikan
+	 * @throws Exception diteruskan dari operasi tampilan
+	 */
 	public static void displayRow(Component arg0, final PertemuanPunyaGrupPertemuan pertemuanPunyaGrupPertemuan)
 			throws Exception {
 		final Pertemuan pertemuan = pertemuanPunyaGrupPertemuan.getPertemuan();
@@ -148,12 +170,20 @@ public class PenjadwalanGrupPertemuanHelper {
 		});
 	}
 
+	/** Perender baris grid peserta grup: field edit inline via {@link #displayRow} plus tombol hapus. */
 	class PertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
 		public PertemuanRenderer() {
 
 		}
 
+		/**
+		 * Merender satu baris {@link PertemuanPunyaGrupPertemuan} lewat
+		 * {@link #displayRow} lalu menambahkan tombol hapus yang mengecek
+		 * {@link PenjadwalanHelper#checkBolehHapus(Pertemuan)}, mengonfirmasi, lalu
+		 * menghapus baris keanggotaan dan {@link Pertemuan} terkait sekaligus (dengan
+		 * pesan galat ramah bila gagal karena relasi data).
+		 */
 		@Override
 		public void render(Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");
@@ -209,6 +239,14 @@ public class PenjadwalanGrupPertemuanHelper {
 
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela modal penjadwalan grup pertemuan: toolbar
+	 * "Tambah Peserta Konsultasi", tombol unduh data, pencarian by NIM/nama, grid
+	 * peserta, dan tombol Tutup yang memanggil {@code eventListener} sebelum menutup
+	 * jendela.
+	 *
+	 * @param eventListener callback yang dipanggil (dengan event {@code null}) saat jendela ditutup
+	 */
 	public void display(final EventListener eventListener) {
 
 		final Window window = new Window();
@@ -350,6 +388,14 @@ public class PenjadwalanGrupPertemuanHelper {
 		}
 	}
 
+	/**
+	 * Membangun kriteria pencarian peserta {@link #grupPertemuan}, disaring opsional
+	 * berdasarkan NIM/nama mahasiswa (cocok sebagian, tidak case-sensitive), diurutkan
+	 * berdasarkan NIM.
+	 *
+	 * @param nama kata kunci NIM/nama; boleh kosong/{@code null} untuk tanpa filter
+	 * @return kriteria Hibernate atas {@link PertemuanPunyaGrupPertemuan}
+	 */
 	public Criteria initCriteria(String nama) {
 		Session session = HibernateUtil.currentSession();
 
@@ -365,6 +411,12 @@ public class PenjadwalanGrupPertemuanHelper {
 		return crit;
 	}
 
+	/**
+	 * Memuat ulang grid peserta grup pertemuan sesuai filter nama yang sedang terisi
+	 * (dibatasi {@link Common#MAX_RESULT_100} baris).
+	 *
+	 * @param event tidak digunakan; parameter kontrak listener/pemanggilan langsung
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

@@ -19,10 +19,35 @@ import com.linuxense.javadbf.DBFField;
 import com.linuxense.javadbf.DBFReader;
 import com.linuxense.javadbf.DBFWriter;
 
+/**
+ * Helper impor data dari sistem RKAKL (Rencana Kerja Anggaran Kementerian/Lembaga — sistem
+ * anggaran instansi pemerintah Indonesia) yang mengekspor datanya dalam berkas DBF (format
+ * dBASE, ekstensi {@code .KEU}). Alur kerja utama ({@link #importData}): (1) hapus lalu buat
+ * ulang skema PostgreSQL {@code rab_import} sebagai area kerja sementara; (2) untuk setiap
+ * berkas {@code .KEU} pada folder sumber, buat tabel baru di skema tersebut dengan struktur
+ * kolom mengikuti field DBF ({@link #doImport}), lalu muat seluruh baris data ke tabel itu satu
+ * per satu (satu transaksi per baris); (3) panggil {@link #execute} sebagai titik ekstensi
+ * pasca-impor (saat ini kosong).
+ *
+ * <p>
+ * <b>Keamanan — WASPADAI</b>: seluruh SQL DDL/DML pembuatan skema, pembuatan tabel, dan
+ * penyisipan baris pada {@link #doImport} dan {@link #importData} dibangun lewat
+ * <b>konkatenasi string mentah</b> (bukan parameterized query/prepared statement), termasuk
+ * nama tabel yang diturunkan langsung dari nama berkas yang diunggah dan nama kolom yang
+ * diambil langsung dari nama field pada berkas DBF sumber, serta nilai data string yang hanya
+ * disaring dengan penghapusan tanda kutip tunggal ({@code replaceAll("'", "")}) — bukan
+ * escaping SQL yang aman. Bila nama berkas/nama field/isi berkas DBF yang diimpor tidak
+ * sepenuhnya tepercaya (mis. berasal dari unggahan pengguna atau sumber eksternal yang bisa
+ * dimanipulasi), ini berpotensi <b>SQL injection</b> pada DDL (nama tabel/kolom) maupun DML.
+ * Tidak diperbaiki di sini sesuai instruksi tugas — hanya dilaporkan.
+ * </p>
+ */
 public class ImportFromRKAKLHelper {
 
+	/** Separator baris platform, dipakai saat menyusun string SQL multi-baris agar mudah dibaca di log. */
 	public static String NL = System.getProperty("line.separator");
 
+	/** Formatter tanggal {@code yyyy-MM-dd} (thread-local) untuk mengonversi nilai field DBF bertipe tanggal menjadi literal SQL. */
 	public static final ThreadLocal<SimpleDateFormat> dateFormat = new ThreadLocal<SimpleDateFormat>() {
 		@Override
 		protected SimpleDateFormat initialValue() {
@@ -30,10 +55,21 @@ public class ImportFromRKAKLHelper {
 		}
 	};
 
+	/** Titik masuk CLI untuk pengujian manual: membaca berkas resource {@code mahasiswa.sql} lewat {@link #read(String)} dan mencetaknya. */
 	public static void main(String[] argv) throws IOException {
 		read("mahasiswa.sql");
 	}
 
+	/**
+	 * Menulis {@code data} (baris pertama dipakai sebagai header/nama kolom, sisanya sebagai
+	 * isi) ke berkas DBF baru di {@code Common.REAL_PATH + "/tmp/" + name + ".KEU"} — seluruh
+	 * kolom dibuat bertipe karakter (255 karakter). Berkas lama dengan nama sama dihapus lebih
+	 * dulu bila ada. Kebalikan dari {@link #doImport} (yang membaca DBF, bukan menulis).
+	 *
+	 * @param data daftar baris, baris ke-0 dipakai sebagai nama kolom
+	 * @param name nama dasar berkas (tanpa ekstensi)
+	 * @return berkas DBF yang ditulis, atau {@code null} bila {@code data} kosong
+	 */
 	@SuppressWarnings("deprecation")
 	public static File writeToDBF(List<Object[]> data, String name)
 			throws Exception {
@@ -65,6 +101,25 @@ public class ImportFromRKAKLHelper {
 		return keuFile;
 	}
 
+	/**
+	 * Mengimpor satu berkas DBF ke tabel baru pada skema {@code rab_import}, dengan nama tabel
+	 * diambil dari nama berkas (tanpa 4 karakter terakhir, mis. ekstensi {@code .KEU}). Tipe
+	 * kolom SQL ditentukan dari tipe field DBF (karakter/numerik/tanggal/float/boolean →
+	 * {@code character varying}/{@code numeric}/{@code date}/{@code double precision}/
+	 * {@code bool}, tipe lain default ke {@code character varying}). Setelah tabel dibuat,
+	 * setiap baris data dibaca dan disisipkan dalam transaksi Hibernate tersendiri per baris
+	 * (bukan satu transaksi besar) — kegagalan pada satu baris ditangkap dan ditampilkan lewat
+	 * {@link Common#tampilErrorJikaAdmin(Exception)} tanpa menghentikan baris berikutnya.
+	 * Progres dilaporkan ke {@code progressmeterChild} per baris dan {@code labelProses} saat
+	 * pembuatan tabel gagal. <b>Lihat catatan keamanan pada javadoc kelas mengenai risiko SQL
+	 * injection</b> — method ini adalah sumber SQL DDL/DML yang dibangun via konkatenasi string.
+	 *
+	 * @param file              berkas DBF sumber (biasanya berekstensi {@code .KEU})
+	 * @param progressmeter     tidak dipakai langsung di method ini (parameter diteruskan
+	 *                          untuk konsistensi signature dengan pemanggil)
+	 * @param progressmeterChild indikator progres baris yang diimpor dari berkas ini
+	 * @param labelProses       label status, diisi pesan galat bila pembuatan tabel gagal
+	 */
 	public static void doImport(File file,
 			Progressmeter progressmeter, Progressmeter progressmeterChild,
 			Label labelProses) {
@@ -269,6 +324,20 @@ public class ImportFromRKAKLHelper {
 
 	}
 
+	/**
+	 * Titik masuk utama proses impor RKAKL: menghapus lalu membuat ulang skema
+	 * {@code rab_import} (data impor sebelumnya, bila ada, akan HILANG total — ini bukan impor
+	 * inkremental), lalu memproses setiap berkas berekstensi {@code .KEU} pada folder
+	 * {@code path} lewat {@link #doImport} (berkas yang namanya mengandung {@code "log"} atau
+	 * {@code "t_cek"} dilewati). Setelah semua berkas diproses, memanggil {@link #execute}
+	 * sebagai titik ekstensi pasca-impor. Kegagalan drop/create skema dicatat ke audit tetapi
+	 * tidak menghentikan proses (percobaan create schema tetap dijalankan).
+	 *
+	 * @param path              folder berisi berkas-berkas {@code .KEU} sumber
+	 * @param progressmeter     indikator progres keseluruhan (per berkas)
+	 * @param progressmeterChild indikator progres per baris dalam satu berkas, diteruskan ke {@link #doImport}
+	 * @param labelProses       label status, diperbarui dengan nama berkas yang sedang diproses
+	 */
 	public static void importData(String path,
 			Progressmeter progressmeter, Progressmeter progressmeterChild,
 			Label labelProses) {
@@ -363,6 +432,15 @@ public class ImportFromRKAKLHelper {
 		}
 	}
 
+	/**
+	 * Membaca seluruh isi berkas resource classpath {@code /ais/action/master/helper/impor/<name>}
+	 * (encoding UTF-8) sebagai satu string, baris demi baris. Dipakai untuk keperluan
+	 * pengujian/diagnostik manual (lihat {@link #main(String[])}), bukan bagian dari alur impor
+	 * produksi ({@link #importData}).
+	 *
+	 * @param name nama berkas resource relatif terhadap paket ini
+	 * @return isi berkas sebagai satu string
+	 */
 	public static String read(String name) throws IOException {
 		StringBuilder text = new StringBuilder();
 		String NL = System.getProperty("line.separator");
@@ -380,6 +458,13 @@ public class ImportFromRKAKLHelper {
 		return text.toString();
 	}
 
+	/**
+	 * Titik ekstensi pasca-impor, dipanggil oleh {@link #importData} setelah seluruh berkas
+	 * DBF selesai dimuat ke skema {@code rab_import}. Saat ini tidak berisi logika apa pun
+	 * (hanya membuka lalu menutup sesi Hibernate) — kemungkinan dimaksudkan sebagai tempat
+	 * menambahkan langkah transformasi/pemindahan data lanjutan dari {@code rab_import} ke
+	 * tabel produksi, yang belum diimplementasikan.
+	 */
 	public static void execute(Label labelProses) throws Exception {
 		Session session = HibernateUtil.currentNativeSession();
 

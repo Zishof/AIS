@@ -62,6 +62,34 @@ import ais.ui.util.MyPanel;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper jendela "Ambil Data" (picker) untuk memasukkan mahasiswa secara massal ke satu
+ * {@link PaketPerkuliahan} pada semester tertentu — fitur "paket KRS" yang secara otomatis
+ * mendaftarkan mahasiswa ke SATU kelas {@link Perkuliahan} untuk SETIAP matakuliah kurikulum
+ * ({@link KurikulumPunyaMatakuliah}) pada semester tersebut, tanpa mahasiswa memilih kelas satu
+ * per satu (mis. untuk mahasiswa baru/semester awal yang jadwalnya seragam).
+ *
+ * <p>
+ * Konstruktor mengunci filter fakultas/prodi pencarian mahasiswa ke fakultas/jurusan kurikulum
+ * paket ini bila keduanya sudah ditetapkan pada {@link PaketPerkuliahan#getKurikulum()}.
+ * Baris grid yang mahasiswanya SUDAH memiliki {@link Detailperkuliahan} pada
+ * {@code paketPerkuliahan} ini disembunyikan ({@code row.setVisible(false)}), dan checkbox terkunci
+ * untuk mahasiswa berstatus bukan {@link ConstantValues#AKTIF}.
+ * </p>
+ *
+ * <p>
+ * <b>Logika pemilihan kelas otomatis</b> ({@link #save(Mahasiswa)}): untuk setiap matakuliah pada
+ * kurikulum semester tersebut, dicari kelas {@link Perkuliahan} non-paralel yang cocok jurusan/
+ * program/semester/tahun ajaran mahasiswa dan sesuai penanda semester pendek; dari kandidat yang
+ * ditemukan, dipilih kelas PERTAMA yang kapasitasnya belum penuh DAN jadwalnya tidak bentrok
+ * ({@link Common#checkJamBentrok}) dengan kelas yang sudah terpilih pada mahasiswa yang sama.
+ * Baris {@link Detailperkuliahan} lama mahasiswa pada semester ini yang masih berstatus
+ * belum-disetujui dihapus lebih dulu sebelum pendaftaran ulang. Validasi: rentang semester paket
+ * ({@link PaketPerkuliahan#getMinSmt()}/{@code getMaxSmt()}), ketersediaan jadwal per matakuliah,
+ * prasyarat matakuliah ({@link Common#checkMatakuliahPrasyarat}), dan kapasitas kelas — matakuliah
+ * yang gagal validasi dilewati (tidak menggagalkan seluruh proses untuk mahasiswa tersebut).
+ * </p>
+ */
 public class AmbilDataMahasiswaForPaketPerkuliahanHelper {
 
 	private PaketPerkuliahan paketPerkuliahan;
@@ -85,6 +113,8 @@ public class AmbilDataMahasiswaForPaketPerkuliahanHelper {
 	private Integer semesterPendek;
 	private Integer semester;
 
+	/** @param paketPerkuliahan paket perkuliahan tujuan pendaftaran massal
+	 *  @param semesterPendek  penanda semester pendek (diteruskan ke pencarian kelas di {@link #save(Mahasiswa)}), boleh {@code null} untuk semester reguler */
 	public AmbilDataMahasiswaForPaketPerkuliahanHelper(PaketPerkuliahan paketPerkuliahan, Integer semesterPendek) {
 		this.paketPerkuliahan = paketPerkuliahan;
 		this.semesterPendek = semesterPendek;
@@ -137,6 +167,7 @@ public class AmbilDataMahasiswaForPaketPerkuliahanHelper {
 
 	}
 
+	/** Perender baris grid: checkbox pemilihan (terkunci untuk status non-aktif; baris disembunyikan bila mahasiswa sudah terdaftar di {@link #paketPerkuliahan}), NIM/nama/tahun angkatan mahasiswa. */
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		private DetailperkuliahanDao detailperkuliahanDao = DaoFactory.getInstance().getDetailperkuliahanDao();
@@ -170,6 +201,12 @@ public class AmbilDataMahasiswaForPaketPerkuliahanHelper {
 		}
 	}
 
+	/**
+	 * Memuat daftar {@link KurikulumPunyaMatakuliah} kurikulum paket untuk semester yang sedang
+	 * ditampilkan, lalu memproses setiap baris grid yang tercentang dan terlihat lewat
+	 * {@link #save(Mahasiswa)}. Berhenti (tidak melanjutkan ke mahasiswa berikutnya) segera setelah
+	 * satu pemanggilan {@link #save(Mahasiswa)} mengembalikan {@code false}.
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() throws Exception {
 
@@ -198,6 +235,16 @@ public class AmbilDataMahasiswaForPaketPerkuliahanHelper {
 
 	}
 
+	/**
+	 * Mendaftarkan satu {@code mahasiswa} ke kelas otomatis untuk setiap matakuliah pada
+	 * {@link #kurikulumPunyaMatakuliahs}. Lihat javadoc kelas untuk uraian lengkap algoritme
+	 * pemilihan kelas dan urutan validasi.
+	 *
+	 * @return {@code true} bila proses selesai dijalankan (termasuk kemungkinan sebagian
+	 *         matakuliah dilewati karena validasi gagal); {@code false} bila dibatalkan total
+	 *         (tidak ada satu pun jadwal ditemukan, atau semester di luar rentang yang diizinkan
+	 *         paket)
+	 */
 	@SuppressWarnings({ "unchecked" })
 	public boolean save(Mahasiswa mahasiswa) throws Exception {
 
@@ -327,6 +374,13 @@ public class AmbilDataMahasiswaForPaketPerkuliahanHelper {
 		return true;
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela modal "Ambil Data Mahasiswa" (form filter lengkap, grid
+	 * berpaging dengan checkbox pemilihan, tombol Simpan/Batal) untuk mendaftarkan mahasiswa ke
+	 * {@link #paketPerkuliahan} pada {@code semester} yang diberikan. Tahun angkatan default pada
+	 * form dihitung otomatis dari {@code semester} lewat {@link Common#getTahunAngkatan}. Tombol
+	 * Simpan memanggil {@link #save()} lalu {@code dataLoader.loadData(null)}.
+	 */
 	public void display(final DataLoader dataLoader, final Integer semester, final MyWindow window) {
 
 		this.semester = semester;
@@ -551,6 +605,7 @@ public class AmbilDataMahasiswaForPaketPerkuliahanHelper {
 		onSearchDefault(null);
 	}
 
+	/** Memuat ulang grid kandidat mahasiswa aktif sesuai filter aktif (NIM/rentang NIM/nama/tahun angkatan/fakultas/prodi/status mahasiswa pada semester berjalan), dibatasi {@link Common#MAX_RESULT} baris. {@code event} tidak dipakai. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

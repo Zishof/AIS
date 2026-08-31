@@ -53,6 +53,25 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Jendela pencarian & pendaftaran {@link Mahasiswa} sebagai peserta satu
+ * {@link KegiatanKemahasiswaan} (kegiatan kemahasiswaan, mis. organisasi/lomba/kepanitiaan),
+ * menghasilkan baris {@link KegiatanKemahasiswaanPunyaMahasiswa}. Form pencarian mendukung
+ * filter NIM/rentang NIM, nama, status mahasiswa (berdasarkan riwayat status pada tahun
+ * akademik/semester berjalan), dosen PA, fakultas, jurusan, dan tahun angkatan; grid hasil
+ * menampilkan dosen PA tiap mahasiswa (disinkronkan otomatis lewat
+ * {@link Common#singkronkanKrsMahasiswa}) dan menyorot merah bila mahasiswa tidak punya dosen
+ * PA.
+ *
+ * <p>
+ * Bila {@link KegiatanKemahasiswaan} sudah terkait dengan fakultas/jurusan tertentu, filter
+ * fakultas/jurusan pada form dikunci mengikuti kegiatan tersebut (tidak dapat diubah manual).
+ * Mahasiswa yang sudah terdaftar sebagai peserta kegiatan ditampilkan dengan checkbox tercentang
+ * dan dinonaktifkan (tidak dapat dibatalkan dari sini). Menyimpan lewat {@link #save()} hanya
+ * memproses baris yang tercentang DAN belum dinonaktifkan (yaitu baru dicentang pengguna),
+ * membuat atau memakai ulang baris {@link KegiatanKemahasiswaanPunyaMahasiswa} yang sudah ada.
+ * </p>
+ */
 public class AmbilDataMahasiswaForKegiatanKemahasiswaanHelper {
 
 	private KegiatanKemahasiswaan kegiatanKemahasiswaan;
@@ -72,6 +91,13 @@ public class AmbilDataMahasiswaForKegiatanKemahasiswaanHelper {
 	private Paging paging;
 	private AmbilDataDosenBanbox searchdosen;
 
+	/**
+	 * Menyiapkan combobox filter fakultas/jurusan (jurusan mengikuti perubahan fakultas) dan
+	 * status mahasiswa, mengunci filter fakultas/jurusan bila {@code kegiatanKemahasiswaan}
+	 * sudah terkait dengan salah satu/keduanya, dan menyiapkan komponen paging 50 baris/halaman.
+	 *
+	 * @param kegiatanKemahasiswaan kegiatan kemahasiswaan yang pesertanya akan dicari/ditambahkan
+	 */
 	public AmbilDataMahasiswaForKegiatanKemahasiswaanHelper(KegiatanKemahasiswaan kegiatanKemahasiswaan) {
 		this.kegiatanKemahasiswaan = kegiatanKemahasiswaan;
 		Fakultas fakultas = kegiatanKemahasiswaan.getFakultas();
@@ -129,6 +155,7 @@ public class AmbilDataMahasiswaForKegiatanKemahasiswaanHelper {
 
 	}
 
+	/** Merender satu baris grid: checkbox status keikutsertaan (tercentang & dinonaktifkan bila mahasiswa sudah terdaftar sebagai peserta {@link #kegiatanKemahasiswaan}), NIM, nama, tahun angkatan, dan dosen PA (disinkronkan via {@link Common#singkronkanKrsMahasiswa}, ditampilkan merah tebal bila tidak ada). */
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -169,6 +196,14 @@ public class AmbilDataMahasiswaForKegiatanKemahasiswaanHelper {
 		}
 	}
 
+	/**
+	 * Mendaftarkan mahasiswa yang tercentang (dan belum terdaftar sebelumnya, karena baris yang
+	 * sudah terdaftar dinonaktifkan pada renderer) sebagai peserta {@link #kegiatanKemahasiswaan}:
+	 * mencari baris {@link KegiatanKemahasiswaanPunyaMahasiswa} existing untuk pasangan
+	 * mahasiswa+kegiatan (bila ada, dipakai ulang), mengisi/menimpa atribut pencatatan
+	 * ({@code oleh}, {@code tbmuser}, {@code diubahDari}), lalu menyimpan. Kegagalan membaca
+	 * satu baris diabaikan secara diam-diam.
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() throws InterruptedException {
 		Session session = HibernateUtil.currentSession();
@@ -233,6 +268,14 @@ public class AmbilDataMahasiswaForKegiatanKemahasiswaanHelper {
 	//
 	// }
 
+	/**
+	 * Membangun jendela modal pencarian mahasiswa (form filter lengkap + grid paging) untuk
+	 * {@link #kegiatanKemahasiswaan}, lalu menampilkannya sebagai modal. Tombol "Simpan"
+	 * memanggil {@link #save()} lalu {@code dataLoader.loadData(null)} sebelum menutup jendela.
+	 *
+	 * @param dataLoader callback yang disegarkan setelah data berhasil disimpan
+	 * @param window     jendela yang akan diisi dan ditampilkan sebagai modal
+	 */
 	public void display(final DataLoader dataLoader, final MyWindow window) {
 
 		Common.clear(window);
@@ -475,6 +518,15 @@ public class AmbilDataMahasiswaForKegiatanKemahasiswaanHelper {
 		}
 	}
 
+	/**
+	 * Membangun {@link Criteria} pencarian mahasiswa aktif berdasarkan seluruh filter form:
+	 * dosen PA, status mahasiswa (lewat subquery SQL ke {@code history_status_mahasiswa} untuk
+	 * tahun akademik & paritas semester berjalan), nama/NIM (contains), rentang NIM, tahun
+	 * angkatan, jurusan, dan fakultas.
+	 *
+	 * @param order bila {@code true}, tambahkan pengurutan tahun angkatan menurun lalu NIM menaik
+	 * @return criteria siap dieksekusi
+	 */
 	public Criteria initCriteria(boolean order) {
 		Dosen dosen = (Dosen) searchdosen.getAttribute("myValue");
 		StatusMahasiswa statusMahasiswa = (StatusMahasiswa) (searchstatusmahasiswa.getSelectedItem() == null ? null
@@ -520,6 +572,7 @@ public class AmbilDataMahasiswaForKegiatanKemahasiswaanHelper {
 		return criteria;
 	}
 
+	/** Memuat/menyegarkan grid dengan halaman mahasiswa sesuai {@link #initCriteria} dan posisi {@link #paging} saat ini (50 baris per halaman). */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

@@ -41,6 +41,17 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper pengelola daftar {@link Jurusan} yang tercakup dalam satu {@link PaketRegistrasiMahasiswa}
+ * (paket biaya registrasi yang berlaku untuk sekumpulan jurusan). Menampilkan grid jurusan yang
+ * sudah ditambahkan pada paket (dengan tombol hapus per baris), serta form modal terpisah untuk
+ * menambah satu jurusan baru ke paket (dipilih via combobox fakultas → jurusan berjenjang).
+ *
+ * <p>
+ * Mengimplementasikan {@link DataLoader} agar {@link #loadData(Object)} dapat dipanggil sebagai
+ * callback setelah operasi tambah/hapus jurusan selesai, untuk menyegarkan grid.
+ * </p>
+ */
 public class DetailPaketRegistrasiMahasiswaHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -53,6 +64,7 @@ public class DetailPaketRegistrasiMahasiswaHelper implements DataLoader {
 
 	private Set<Jurusan> jurusans;
 
+	/** Merender satu baris grid jurusan: nama jurusan dan tombol hapus (melepas jurusan tersebut dari paket registrasi). */
 	class DetailJurusanRenderer extends ais.ui.util.MyRowRenderer {
 
 		public DetailJurusanRenderer() {
@@ -124,6 +136,11 @@ public class DetailPaketRegistrasiMahasiswaHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Memuat ulang {@link #paketRegistrasiMahasiswa} dari database (agar relasi jurusan segar)
+	 * dan memasang ulang model+renderer grid berdasarkan koleksi {@link Jurusan}-nya. Parameter
+	 * {@code value} tidak dipakai — signature mengikuti kontrak {@link DataLoader}.
+	 */
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
 
@@ -138,6 +155,16 @@ public class DetailPaketRegistrasiMahasiswaHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun panel daftar jurusan pada {@code paketRegistrasiMahasiswa} ke dalam
+	 * {@code component} (toolbar "Tambah Data" + grid paging), lalu memuat data awal. Tombol
+	 * "Tambah Data" membuka {@code window} sebagai modal berisi form tambah jurusan lewat
+	 * {@link #init(PaketRegistrasiMahasiswa)}.
+	 *
+	 * @param paketRegistrasiMahasiswa paket registrasi yang daftar jurusannya akan ditampilkan
+	 * @param component                kontainer ZK yang akan diisi (isi sebelumnya dibersihkan)
+	 * @param window                   jendela modal yang dipakai untuk form tambah jurusan
+	 */
 	public void displayDetailJurusan(final PaketRegistrasiMahasiswa paketRegistrasiMahasiswa, final Component component,
 			final MyWindow window) {
 
@@ -203,6 +230,11 @@ public class DetailPaketRegistrasiMahasiswaHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun form modal "Tambah Jurusan" pada {@link #addWindow}: combobox fakultas yang
+	 * memfilter combobox jurusan (jurusan hanya dimuat setelah fakultas dipilih, disaring
+	 * berdasarkan fakultas terpilih), serta tombol Simpan ({@link #onSave(Event)}) dan Batal.
+	 */
 	private void init(PaketRegistrasiMahasiswa paketRegistrasiMahasiswa) {
 		this.paketRegistrasiMahasiswa = paketRegistrasiMahasiswa;
 
@@ -300,6 +332,14 @@ public class DetailPaketRegistrasiMahasiswaHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Menyimpan jurusan terpilih pada combobox ke {@link #paketRegistrasiMahasiswa}: memuat
+	 * ulang entitas dari database (bila sudah punya id) agar tidak menimpa perubahan lain,
+	 * menambahkan jurusan terpilih ke koleksi {@link #jurusans}, lalu menyimpan/memperbarui
+	 * entitas. Menampilkan peringatan dan membatalkan simpan bila jurusan belum dipilih.
+	 *
+	 * @return {@code true} bila berhasil disimpan; {@code false} bila validasi gagal (jurusan kosong)
+	 */
 	public boolean onSave(Event event) throws Exception {
 		if (namajurusan.getSelectedItem() == null) {
 			MyMessageboxConfig.show(Common.getBahasaConfig("Jurusan") + " harus diisi", "Peringatan",

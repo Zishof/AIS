@@ -52,6 +52,32 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper ZK untuk memasukkan mahasiswa perwalian (Dosen PA) ke dalam satu {@link GrupPertemuan}
+ * (kelompok pertemuan dosen PA, dipakai antara lain untuk bimbingan/konsultasi kolektif). Jendela
+ * pencarian menampilkan mahasiswa yang menjadi anak wali dosen pemilik {@code grupPertemuan}
+ * (disaring lebih lanjut oleh NIM/rentang NIM, nama, Fakultas, Jurusan, tahun angkatan, dan status
+ * kemahasiswaan), dengan mahasiswa yang sudah tergabung dalam grup ditandai tercentang dan dikunci.
+ *
+ * <p>
+ * {@link #save()} membuat (atau menemukan kembali) satu baris {@link Pertemuan} yang sesuai untuk
+ * setiap mahasiswa terpilih, dengan sumber pertemuan berbeda tergantung {@code grupPertemuan.getJenis()}:
+ * </p>
+ * <ul>
+ * <li>{@link GrupPertemuan#KRS_MAHASISWA} — pertemuan terikat ke {@link KrsMahasiswa} mahasiswa
+ * pada semester berjalan (disinkronkan lewat {@code Common#singkronkanKrsMahasiswa}).</li>
+ * <li>{@link GrupPertemuan#BIMBINGAN} — pertemuan terikat ke
+ * {@link MahasiswaRequestTugasAkhir} aktif/mengulang/seminar/lulus milik mahasiswa.</li>
+ * <li>{@link GrupPertemuan#SIDANG} — pertemuan terikat ke {@link Skripsi} terbaru milik mahasiswa.</li>
+ * <li>Jenis lainnya — pertemuan generik baru tanpa keterikatan entitas spesifik.</li>
+ * </ul>
+ * <p>
+ * Pertemuan yang sudah dibuat/ditemukan lalu dihubungkan ke {@code grupPertemuan} lewat baris
+ * {@link PertemuanPunyaGrupPertemuan} (hanya dibuat bila relasi mahasiswa+grup belum ada, mencegah
+ * duplikasi). Setiap mahasiswa diproses independen dalam try/catch tersendiri sehingga kegagalan
+ * satu baris tidak menggagalkan seluruh proses simpan.
+ * </p>
+ */
 public class AmbilDataMahasiswaForGrupPertemuanDosenPaHelper {
 
 	private GrupPertemuan grupPertemuan;
@@ -70,6 +96,7 @@ public class AmbilDataMahasiswaForGrupPertemuanDosenPaHelper {
 
 	private Paging paging;
 
+	/** @param grupPertemuan grup pertemuan tujuan; mahasiswa terpilih akan dimasukkan ke grup ini. */
 	public AmbilDataMahasiswaForGrupPertemuanDosenPaHelper(GrupPertemuan grupPertemuan) {
 		this.grupPertemuan = grupPertemuan;
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
@@ -110,6 +137,15 @@ public class AmbilDataMahasiswaForGrupPertemuanDosenPaHelper {
 		}
 	}
 
+	/**
+	 * Memproses seluruh baris grid yang dicentang (dan belum terkunci) untuk menghubungkan
+	 * mahasiswa terkait ke {@link #grupPertemuan}; lihat dokumentasi kelas untuk rincian sumber
+	 * {@link Pertemuan} per jenis grup. Kegagalan pada satu baris ditelan dan dicatat lewat audit
+	 * tanpa menghentikan proses baris lainnya.
+	 *
+	 * @throws InterruptedException tidak pernah dilempar dalam praktiknya; dipertahankan pada
+	 *                              signature untuk kompatibilitas pemanggil
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() throws InterruptedException {
 		Session session = HibernateUtil.currentSession();
@@ -241,6 +277,14 @@ public class AmbilDataMahasiswaForGrupPertemuanDosenPaHelper {
 
 	}
 
+	/**
+	 * Membangun jendela pencarian dan pemilihan mahasiswa perwalian untuk dimasukkan ke
+	 * {@link #grupPertemuan}. Kotak centang pada header kolom memilih/membatalkan pilih semua baris
+	 * yang belum terkunci sekaligus. Tombol Simpan memanggil {@link #save()} lalu menyegarkan
+	 * tampilan pemanggil lewat {@code dataLoader}.
+	 *
+	 * @param dataLoader dipanggil setelah simpan untuk menyegarkan tampilan grup pertemuan pemanggil
+	 */
 	public void display(final DataLoader dataLoader) {
 
 		final Window window = new Window();
@@ -475,6 +519,15 @@ public class AmbilDataMahasiswaForGrupPertemuanDosenPaHelper {
 		}
 	}
 
+	/**
+	 * Membangun kriteria Hibernate untuk mahasiswa anak wali dosen pemilik {@link #grupPertemuan}
+	 * (baris kosong bila grup atau dosennya belum ada), disaring lebih lanjut oleh filter toolbar
+	 * pencarian dan opsional status kemahasiswaan pada semester berjalan (dicek lewat subquery SQL
+	 * native ke tabel {@code history_status_mahasiswa}).
+	 *
+	 * @param order {@code true} untuk mengurutkan hasil berdasarkan tahun angkatan descending lalu NIM ascending
+	 * @return kriteria Hibernate siap eksekusi/paginasi
+	 */
 	public Criteria initCriteria(boolean order) {
 
 		StatusMahasiswa statusMahasiswa = (StatusMahasiswa) (searchstatusmahasiswa.getSelectedItem() == null ? null
@@ -518,6 +571,12 @@ public class AmbilDataMahasiswaForGrupPertemuanDosenPaHelper {
 		return criteria;
 	}
 
+	/**
+	 * Mengisi ulang grid hasil pencarian mahasiswa (paginasi 100 baris per halaman, pola
+	 * {@code Common#ROWS_COUNT_ON_PAGE_100}) sesuai kriteria pencarian saat ini.
+	 *
+	 * @param event tidak dipakai isinya
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

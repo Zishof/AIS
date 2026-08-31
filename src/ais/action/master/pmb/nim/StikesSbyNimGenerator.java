@@ -33,7 +33,7 @@ public class StikesSbyNimGenerator implements NimGenerator {
 		String kodePesertaDidikBaru = calonMahasiswa.getMerupakanPindahan() ? "2"
 				: "1";
 
-		Session session = HibernateUtil.currentNativeSession();
+		Session session = HibernateUtil.openSession();
 		Long jumlah = ((Number) session
 				.createCriteria(Mahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 				
@@ -61,7 +61,7 @@ public class StikesSbyNimGenerator implements NimGenerator {
 				.setProjection(Projections.count("nim")).uniqueResult())
 				.intValue();
 
-		HibernateUtil.closeSession();
+		HibernateUtil.closeSessionQuietly(session);
 
 		if (!count.equals(0)) {
 			jumlahPengecualian.add(nim);

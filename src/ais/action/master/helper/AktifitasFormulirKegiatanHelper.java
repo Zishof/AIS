@@ -36,13 +36,43 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper timeline "Aktifitas" untuk {@link FormulirKegiatan} (kegiatan/acara umum),
+ * mengikuti pola yang sama dengan {@code AktifitasWisudaHelper}/
+ * {@code AktifitasPerkuliahanHelper} tetapi khusus konteks formulir kegiatan.
+ * Menyediakan toolbar aksi (agenda, absensi — dengan pilihan absensi siswa sekolah bila
+ * {@code formulirKegiatan.getSekolah()} terisi, ambil pertemuan, kalender, kelas virtual,
+ * refresh) lewat {@link #initAgendaFormulirKegiatan} dan daftar pertemuan berpaging (satu
+ * per halaman) lewat {@link #initDetail}.
+ *
+ * <p>
+ * Bila belum ada satu pun {@link Pertemuan} yang terkait kegiatan tersebut, {@link #initDetail}
+ * otomatis membuat satu pertemuan default (topik "Agenda kegiatan ..." pada tanggal mulai
+ * kegiatan) agar timeline tidak kosong, lalu me-refresh tampilan.
+ * </p>
+ */
 public class AktifitasFormulirKegiatanHelper {
 
+	/** Helper penjadwalan kegiatan, dipakai tombol "Agenda Kegiatan" pada toolbar. */
 	protected PenjadwalanFormulirKegiatanHelper penjadwalanHelper = new PenjadwalanFormulirKegiatanHelper();
 
+	/** Konstruktor tanpa argumen; tidak ada inisialisasi state khusus selain {@link #penjadwalanHelper}. */
 	public AktifitasFormulirKegiatanHelper() {
 	}
 
+	/**
+	 * Membangun toolbar aksi untuk satu {@code formulirKegiatan}: "Agenda Kegiatan" (buka
+	 * {@link PenjadwalanFormulirKegiatanHelper}), "Absensi" (cetak laporan absensi via
+	 * {@link CommonReportHelper#onLaporanAbsensi}), tombol ambil pertemuan
+	 * ({@link PenjadwalanHelper#tampilTombolAmbil}), kalender
+	 * ({@link AktifitasPerkuliahanHelper#tampilCalender}), kelas virtual
+	 * ({@link ClassRoomUtil#createButton}), dan "Refresh". Toolbar hanya terlihat untuk
+	 * pengguna staf (bukan mahasiswa/siswa).
+	 *
+	 * @param formulirKegiatan kegiatan terkait
+	 * @param dataLoader       callback pemuatan ulang data setelah aksi toolbar dijalankan
+	 * @return toolbar berisi tombol-tombol aksi
+	 */
 	public Toolbar initAgendaFormulirKegiatan(final FormulirKegiatan formulirKegiatan, final DataLoader dataLoader) {
 
 		Tbmuser tbmuser = Common.getCurrentUser();
@@ -91,10 +121,32 @@ public class AktifitasFormulirKegiatanHelper {
 		return hbox;
 	}
 
+	/** Seperti {@link #initDetail(FormulirKegiatan, DataLoader, MyDiv)} dengan {@code dataLoader} default yang memuat ulang dirinya sendiri. */
 	public void initDetail(final FormulirKegiatan formulirKegiatan, final MyDiv groupbox) throws Exception {
 		initDetail(formulirKegiatan, null, groupbox);
 	}
 
+	/**
+	 * Membangun timeline lengkap satu {@code formulirKegiatan} ke dalam {@code groupbox}:
+	 * toolbar ({@link #initAgendaFormulirKegiatan}) lalu grid berpaging (satu pertemuan
+	 * per halaman) berisi seluruh {@link Pertemuan} milik kegiatan tersebut, masing-masing
+	 * dengan riwayat revisi, topik, diskusi/catatan, tombol video conference, tombol
+	 * absensi (siswa sekolah atau umum tergantung {@code formulirKegiatan.getSekolah()}),
+	 * dan (bila dikonfigurasi) daftar komentar. Halaman aktif otomatis diarahkan ke
+	 * pertemuan pertama yang tanggalnya sudah lewat.
+	 *
+	 * <p>
+	 * Bila kegiatan belum punya pertemuan sama sekali dan pengguna saat ini adalah staf
+	 * (bukan mahasiswa/siswa/calon siswa/calon mahasiswa), satu {@link Pertemuan} default
+	 * otomatis dibuat dan disimpan, lalu tampilan dijadwalkan untuk memuat ulang dirinya
+	 * sendiri via timer.
+	 * </p>
+	 *
+	 * @param formulirKegiatan kegiatan yang ditampilkan
+	 * @param mydataLoader     callback pemuatan ulang; bila {@code null}, dibuat default yang memanggil ulang {@link #initDetail(FormulirKegiatan, MyDiv)}
+	 * @param groupbox         kontainer ZK yang akan diisi ulang (dibersihkan lebih dulu)
+	 * @throws Exception diteruskan dari operasi tampilan/akses Hibernate
+	 */
 	public void initDetail(final FormulirKegiatan formulirKegiatan, final DataLoader mydataLoader, final MyDiv groupbox)
 			throws Exception {
 

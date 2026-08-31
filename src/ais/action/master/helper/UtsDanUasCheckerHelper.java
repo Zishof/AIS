@@ -25,8 +25,57 @@ import ais.database.model.Mahasiswa;
 import ais.database.model.PengaturanPembayaranBulanan;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Kumpulan pemeriksa (gatekeeper) statis yang menentukan apakah seorang {@link Mahasiswa}
+ * boleh mencetak kartu UTS/UAS (dan variannya pada semester pendek) berdasarkan status
+ * pembayaran. Dua jenis pemeriksaan independen disediakan, keduanya dapat menampilkan
+ * messagebox peringatan/konfirmasi ke pengguna bila syarat belum terpenuhi:
+ *
+ * <ol>
+ * <li><b>Persentase pelunasan total</b> ({@link #checkPembayaranSebelumUjianSudahMemenuhi})
+ * — total tagihan {@link Kegiatan kegiatan} pembayaran terkait (mis. SPP semester
+ * berjalan) harus lunas sekurang-kurangnya sekian persen, ambang batas diambil dari
+ * konfigurasi {@code batas_terendah_persen_pembayaran_boleh_cetak_kartu_uts}/{@code
+ * ..._uas} (dengan varian {@code _sp} untuk semester pendek dan
+ * {@code _uas_plus_satu} untuk mengecek juga tagihan semester berikutnya sebelum
+ * mengizinkan cetak kartu UAS). Ambang batas dapat dikonfigurasi per kombinasi
+ * semester/tahun angkatan/jurusan/program/status awal mahasiswa.</li>
+ * <li><b>Item biaya wajib</b> ({@link #checkItemBiayaPembayaranSebelumUjianSudahMemenuhi})
+ * — item biaya tertentu (kode-kode pada {@code info1} konfigurasi
+ * {@code mahasiswa_wajib_bayar_item_biaya_uts_sebelum_ikut_ujian_uts}/{@code
+ * ..._uas} dan variannya) harus sudah dicicil melebihi persentase tertentu
+ * ({@code info2}) dari total tagihan item tersebut, dihitung lintas seluruh
+ * {@link JenisKegiatan} yang terdaftar sebagai syarat ujian
+ * ({@code CommonHelperClass#jenisKegiatansUntukSyaratUjian}).</li>
+ * </ol>
+ *
+ * <p>
+ * Kedua jalur pemeriksaan menghormati bypass {@link Common#checkBaypassStatusPembayaranMahasiswa}
+ * (mis. mahasiswa dengan pengecualian pembayaran) dan gagal-aman ke {@code true}
+ * (mengizinkan cetak) bila konfigurasi ambang batas tidak valid/parsing gagal atau
+ * terjadi exception tak terduga saat pengecekan — pemeriksaan pembayaran tidak boleh
+ * memblokir pencetakan kartu ujian hanya karena kegagalan teknis internal. Bila
+ * {@code listener} disediakan, peringatan ditampilkan sebagai dialog konfirmasi
+ * ("tetap lanjutkan?") yang memanggil {@code listener} dengan hasil pilihan pengguna;
+ * bila {@code null}, hanya messagebox informasi satu tombol OK yang ditampilkan.
+ * </p>
+ */
 public class UtsDanUasCheckerHelper {
 
+	/**
+	 * Mengecek syarat persentase pelunasan sebelum mahasiswa boleh mencetak kartu UTS,
+	 * dengan ambang batas dari konfigurasi
+	 * {@code batas_terendah_persen_pembayaran_boleh_cetak_kartu_uts} (reguler, default
+	 * 60%) atau {@code ..._uts_sp} (semester pendek, default 0% — efektif tidak
+	 * mengecek). Bila ambang batas reguler {@code <= 0.1}, pengecekan dilewati
+	 * (dianggap memenuhi).
+	 *
+	 * @param mahasiswa      mahasiswa yang dicek
+	 * @param semester       semester akademik yang dicek tagihannya
+	 * @param semesterPendek status semester pendek; {@code null} berarti reguler
+	 * @param listener       callback konfirmasi bila syarat tidak terpenuhi; boleh {@code null} untuk sekadar menampilkan peringatan
+	 * @return {@code true} bila syarat terpenuhi (atau pemeriksaan dilewati/gagal parsing konfigurasi)
+	 */
 	public static Boolean checkPembayaranSebelumUTSSudahMemenuhi(Mahasiswa mahasiswa, Integer semester,
 			Integer semesterPendek, EventListener listener) {
 		
@@ -64,9 +113,25 @@ public class UtsDanUasCheckerHelper {
 		return true;
 	}
 
+	/**
+	 * Implementasi inti pengecekan persentase pelunasan untuk satu {@link JenisKegiatan}
+	 * tagihan tertentu. Mengembalikan {@code true} langsung bila {@code batas < 0.01}
+	 * atau bypass status pembayaran berlaku. Mengambil persentase lunas dari
+	 * {@link Mahasiswa#ambilKegiatans(Integer, JenisKegiatan)}; khusus semester 1 dan
+	 * {@code jenisKegiatan} = pendaftaran ulang mahasiswa baru, bila belum lunas dicek
+	 * ulang lewat data {@link BiodataCalonMahasiswa} (riwayat sebagai calon mahasiswa)
+	 * sebagai fallback. Menampilkan peringatan/konfirmasi bila tidak memenuhi syarat.
+	 *
+	 * @param mahasiswa    mahasiswa yang dicek
+	 * @param semester     semester akademik yang dicek tagihannya
+	 * @param batas        ambang batas persentase pelunasan minimal (0-100)
+	 * @param jenisKegiatan jenis kegiatan/tagihan yang dicek
+	 * @param listener     callback konfirmasi bila syarat tidak terpenuhi; boleh {@code null}
+	 * @return {@code true} bila persentase lunas mahasiswa {@code >= batas}
+	 */
 	public static Boolean checkPembayaranSebelumUjianSudahMemenuhi(Mahasiswa mahasiswa, Integer semester, Double batas,
 			JenisKegiatan jenisKegiatan, EventListener listener) {
-		
+
 		boolean hasil = true;
 		if (batas < 0.01 || Common.checkBaypassStatusPembayaranMahasiswa(semester, null, mahasiswa, jenisKegiatan)) {
 			return hasil;
@@ -158,6 +223,18 @@ public class UtsDanUasCheckerHelper {
 		return hasil;
 	}
 
+	/**
+	 * Seperti {@link #checkPembayaranSebelumUjianSudahMemenuhi(Mahasiswa, Integer, Double, JenisKegiatan, EventListener)}
+	 * tetapi mengecek SEMUA {@link JenisKegiatan} yang terdaftar sebagai syarat ujian
+	 * ({@code CommonHelperClass#jenisKegiatansUntukSyaratUjian}, dimuat ulang bila
+	 * belum ada), berhenti pada jenis kegiatan pertama yang belum memenuhi ambang batas.
+	 *
+	 * @param mahasiswa mahasiswa yang dicek
+	 * @param semester  semester akademik yang dicek tagihannya
+	 * @param batas     ambang batas persentase pelunasan minimal (0-100)
+	 * @param listener  callback konfirmasi bila syarat tidak terpenuhi; boleh {@code null}
+	 * @return {@code true} bila seluruh jenis kegiatan syarat ujian memenuhi ambang batas
+	 */
 	public static Boolean checkPembayaranSebelumUjianSudahMemenuhi(Mahasiswa mahasiswa, Integer semester, Double batas,
 			EventListener listener) {
 		boolean hasil = true;
@@ -180,6 +257,20 @@ public class UtsDanUasCheckerHelper {
 		return hasil;
 	}
 
+	/**
+	 * Mengecek syarat pelunasan item biaya wajib sebelum mahasiswa boleh mencetak kartu
+	 * UTS, dikendalikan konfigurasi
+	 * {@code mahasiswa_wajib_bayar_item_biaya_uts_sebelum_ikut_ujian_uts} (reguler) atau
+	 * {@code ..._uts_sp} (semester pendek). Bila konfigurasi tidak aktif, method
+	 * langsung mengembalikan {@code true} tanpa mengecek apa pun.
+	 *
+	 * @param mahasiswa      mahasiswa yang dicek
+	 * @param semester       semester akademik
+	 * @param tahap          tahap pembayaran
+	 * @param semesterPendek status semester pendek; {@code null} berarti reguler
+	 * @param listener       callback konfirmasi bila syarat tidak terpenuhi; boleh {@code null}
+	 * @return {@code true} bila syarat terpenuhi atau fitur ini tidak diaktifkan
+	 */
 	public static Boolean checkItemBiayaPembayaranSebelumUTSSudahMemenuhi(Mahasiswa mahasiswa, Integer semester,
 			Integer tahap, Integer semesterPendek, EventListener listener) {
 		
@@ -204,6 +295,7 @@ public class UtsDanUasCheckerHelper {
 		}
 	}
 
+	/** Seperti {@link #checkItemBiayaPembayaranSebelumUTSSudahMemenuhi}, versi UAS (konfigurasi {@code ..._uas_sebelum_ikut_ujian_uas} / {@code ..._uas_sp}). */
 	public static Boolean checkItemBiayaPembayaranSebelumUASSudahMemenuhi(Mahasiswa mahasiswa, Integer semester,
 			Integer tahap, Integer semesterPendek, EventListener listener) {
 		
@@ -228,6 +320,26 @@ public class UtsDanUasCheckerHelper {
 		}
 	}
 
+	/**
+	 * Implementasi inti pengecekan item biaya wajib: (1) mengumpulkan kode item biaya
+	 * dari {@code konfigurasi.getInfo1()} (dipisah koma); (2) menjumlahkan total tagihan
+	 * untuk item-item tersebut lintas seluruh {@link JenisKegiatan} syarat ujian, dari
+	 * {@link DetailBiaya} maupun {@link PengaturanPembayaranBulanan} (bila mahasiswa
+	 * memakai skema cicilan bulanan) yang sedang berlaku bagi mahasiswa; (3)
+	 * membandingkan total yang sudah dicicil ({@link Mahasiswa#hitungTotalCicilanPembayaran})
+	 * terhadap persentase minimal dari {@code konfigurasi.getInfo2()} (default 100%).
+	 * Mengembalikan {@code true} bila tidak ada item biaya relevan, total tagihan nol,
+	 * persentase syarat {@code < 0.01}, bypass status pembayaran berlaku, atau terjadi
+	 * exception (gagal-aman). Menampilkan peringatan berisi nama item biaya yang belum
+	 * lunas bila syarat tidak terpenuhi.
+	 *
+	 * @param mahasiswa   mahasiswa yang dicek
+	 * @param semester    semester akademik
+	 * @param tahap       tahap pembayaran
+	 * @param konfigurasi baris {@link Konfigurasi} yang {@code info1}-nya berisi kode item biaya (dipisah koma) dan {@code info2} berisi persentase syarat cicilan minimal
+	 * @param listener    callback konfirmasi bila syarat tidak terpenuhi; boleh {@code null}
+	 * @return {@code true} bila item biaya wajib sudah dicicil melebihi persentase syarat (atau tidak relevan/gagal-aman)
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static Boolean checkItemBiayaPembayaranSebelumUjianSudahMemenuhi(Mahasiswa mahasiswa, Integer semester,
 			Integer tahap, Konfigurasi konfigurasi, EventListener listener) {
@@ -404,15 +516,44 @@ public class UtsDanUasCheckerHelper {
 		}
 	}
 
+	/** Seperti {@link #checkPembayaranSebelumKRSSudahMemenuhi(Mahasiswa, Integer, Integer, boolean)} dengan {@code persetujuan=false}. Delegasi langsung ke {@link CommonHelperClass}, bukan implementasi lokal kelas ini. */
 	public static Boolean checkPembayaranSebelumKRSSudahMemenuhi(Mahasiswa mahasiswa, Integer semester, Integer tahap) {
 		return checkPembayaranSebelumKRSSudahMemenuhi(mahasiswa, semester, tahap, false);
 	}
-	
+
+	/**
+	 * Mengecek syarat pembayaran sebelum mahasiswa boleh mengisi/mengubah KRS.
+	 * Implementasi didelegasikan sepenuhnya ke
+	 * {@link CommonHelperClass#checkPembayaranSebelumKRSSudahMemenuhi} — method ini
+	 * hanya wrapper agar pemanggil dapat mengaksesnya lewat namespace checker UTS/UAS.
+	 *
+	 * @param mahasiswa   mahasiswa yang dicek
+	 * @param semester    semester akademik
+	 * @param tahap       tahap pembayaran
+	 * @param persetujuan diteruskan apa adanya ke implementasi {@link CommonHelperClass}
+	 * @return hasil dari {@link CommonHelperClass#checkPembayaranSebelumKRSSudahMemenuhi}
+	 */
 	public static Boolean checkPembayaranSebelumKRSSudahMemenuhi(Mahasiswa mahasiswa, Integer semester, Integer tahap,
 			boolean persetujuan) {
 		return CommonHelperClass.checkPembayaranSebelumKRSSudahMemenuhi(mahasiswa, semester, tahap, persetujuan);
 	}
 
+	/**
+	 * Mengecek syarat persentase pelunasan sebelum mahasiswa boleh mencetak kartu UAS,
+	 * dengan ambang batas dari konfigurasi
+	 * {@code batas_terendah_persen_pembayaran_boleh_cetak_kartu_uas} (reguler, default
+	 * 99%) atau {@code ..._uas_sp} (semester pendek, default 0%). Untuk jalur reguler,
+	 * bila syarat semester berjalan terpenuhi, method JUGA mengecek tagihan
+	 * <b>semester berikutnya</b> ({@code semester + 1}) terhadap ambang batas terpisah
+	 * {@code batas_terendah_persen_pembayaran_boleh_cetak_kartu_uas_plus_satu} (default
+	 * 0% — efektif tidak mengecek) sebelum benar-benar mengizinkan cetak kartu UAS.
+	 *
+	 * @param mahasiswa      mahasiswa yang dicek
+	 * @param semester       semester akademik yang dicek tagihannya
+	 * @param semesterPendek status semester pendek; {@code null} berarti reguler
+	 * @param listener       callback konfirmasi bila syarat tidak terpenuhi; boleh {@code null}
+	 * @return {@code true} bila seluruh syarat (semester berjalan, dan bila berlaku semester berikutnya) terpenuhi
+	 */
 	public static Boolean checkPembayaranSebelumUASSudahMemenuhi(Mahasiswa mahasiswa, Integer semester,
 			Integer semesterPendek, EventListener listener) {
 		

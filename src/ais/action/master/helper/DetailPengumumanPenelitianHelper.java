@@ -47,6 +47,15 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Composer ZK untuk dua sub-bagian layar detail {@link PengumumanPenelitian}: (1) diskusi/komentar
+ * ({@link DiskusiPengumumanPenelitian}, lewat {@link #displayDetailPengumuman}) dengan form tambah/
+ * ubah catatan yang otomatis mengirim email notifikasi ({@code PengumumanPenelitianAction.kirimEmail})
+ * setiap kali disimpan, dan (2) lampiran file terkait ({@link LampiranPengumumanPenelitian}, lewat
+ * {@link #displayAttachment}) dengan unggah dan pratinjau file. Kedua bagian dapat dijadikan
+ * baca-saja lewat {@link #setReadonly(Boolean)}, yang menyembunyikan toolbar tambah dan tombol hapus
+ * pada bagian lampiran.
+ */
 public class DetailPengumumanPenelitianHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -56,6 +65,7 @@ public class DetailPengumumanPenelitianHelper implements DataLoader {
 	private Boolean readonly = false;
 	private Textbox catatan;
 
+	/** Row renderer grid diskusi: tanggal, isi catatan (HTML), penulis (mahasiswa atau pengguna sistem), serta tombol ubah/hapus. */
 	class DetailPengumumanRenderer extends ais.ui.util.MyRowRenderer {
 
 		public DetailPengumumanRenderer() {
@@ -130,6 +140,7 @@ public class DetailPengumumanPenelitianHelper implements DataLoader {
 
 	}
 
+	/** Memuat ulang daftar diskusi pengumuman penelitian saat ini dan me-render ulang grid. Parameter {@code value} tidak dipakai. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
@@ -143,6 +154,13 @@ public class DetailPengumumanPenelitianHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun UI grid diskusi (tombol "Tambah Data", grid dengan kolom tanggal/catatan/oleh) di
+	 * dalam {@code component} untuk pengumuman penelitian yang diberikan dan memuat data awal.
+	 *
+	 * @param pengumumanPenelitian pengumuman penelitian yang diskusinya ditampilkan
+	 * @param component            container ZK yang akan diisi
+	 */
 	public void displayDetailPengumuman(final PengumumanPenelitian pengumumanPenelitian, final Component component) {
 
 		this.pengumumanPenelitian = pengumumanPenelitian;
@@ -281,6 +299,15 @@ public class DetailPengumumanPenelitianHelper implements DataLoader {
 		addWindow.onModal();
 	}
 
+	/**
+	 * Memvalidasi dan menyimpan catatan diskusi yang sedang diedit di dialog form, mencatat penulis
+	 * (mahasiswa yang login, atau {@link Tbmuser} bila bukan mahasiswa) dan waktu penyimpanan, lalu
+	 * memicu pengiriman email notifikasi lewat {@code PengumumanPenelitianAction.kirimEmail}.
+	 *
+	 * @param event event pemicu (tidak dipakai isinya)
+	 * @return {@code true} bila berhasil disimpan; {@code false} bila validasi gagal (catatan kosong)
+	 * @throws Exception diteruskan dari kegagalan Hibernate atau pengiriman email
+	 */
 	public boolean onSave(Event event) throws Exception {
 		if (catatan.getValue().trim().equals("")) {
 			MyMessageboxConfig.show("Mohon maaf, judul pengumuman penelitian belum diisi. Langkah yang dapat dilakukan: (1) isi kolom judul pada form yang tersedia; (2) pastikan judul tidak kosong; (3) ulangi proses ini. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.", "Peringatan", MyMessageboxConfig.OK,
@@ -314,6 +341,15 @@ public class DetailPengumumanPenelitianHelper implements DataLoader {
 		return true;
 	}
 
+	/**
+	 * Membangun UI daftar lampiran file (tombol unggah bila tidak {@code readonly}, grid pratinjau)
+	 * di dalam {@code component} untuk pengumuman penelitian yang diberikan dan memuat 5 lampiran
+	 * terbaru.
+	 *
+	 * @param pengumumanPenelitian pengumuman penelitian yang lampirannya ditampilkan
+	 * @param component            container ZK yang akan diisi
+	 * @param window                tidak dipakai langsung di badan method
+	 */
 	public void displayAttachment(final PengumumanPenelitian pengumumanPenelitian, final Component component,
 			final MyWindow window) {
 		this.pengumumanPenelitian = pengumumanPenelitian;
@@ -386,6 +422,7 @@ public class DetailPengumumanPenelitianHelper implements DataLoader {
 
 	}
 
+	/** Memuat ulang 5 lampiran terbaru milik pengumuman penelitian saat ini dan me-render ulang grid lampiran. */
 	@SuppressWarnings("unchecked")
 	public void loadDataAttachment() {
 		Session session = HibernateUtil.currentSession();
@@ -403,6 +440,7 @@ public class DetailPengumumanPenelitianHelper implements DataLoader {
 
 	}
 
+	/** Row renderer grid lampiran: nama+pratinjau file, tanggal unggah, tombol unduh dan (bila tidak readonly) hapus. */
 	class DetailLampiranPengumumanPenelitianRenderer extends ais.ui.util.MyRowRenderer {
 
 		public DetailLampiranPengumumanPenelitianRenderer() {

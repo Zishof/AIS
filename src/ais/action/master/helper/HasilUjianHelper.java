@@ -41,6 +41,23 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper composer ZK yang menampilkan riwayat hasil ujian ({@link HasilUjianMahasiswa}) satu
+ * peserta — bisa {@link Mahasiswa}, {@link BiodataCalonMahasiswa} (calon mahasiswa PMB), atau
+ * (lewat konteks user login) siswa/calon siswa/peserta kursus — untuk seluruh
+ * {@link PertemuanPunyaUjian} yang relevan. Setiap baris grid bisa diperluas ({@code onOpen})
+ * untuk menampilkan detail butir soal/jawaban lewat {@code DetailUjianHelper} (mode lihat-saja
+ * saat peserta belum diberi identitas eksplisit atau saat login sebagai siswa) atau
+ * {@code HasilUjianMahasiswaHelper} (mode dengan kontrol tambahan untuk mahasiswa/calon
+ * mahasiswa).
+ *
+ * <p>
+ * Mengimplementasikan {@link DataLoader} ({@link #loadData(Object)} memuat ulang grid) dan
+ * {@link DataCriteria} ({@link #initCriteria(boolean)} menyediakan kriteria dasar untuk fitur
+ * cetak/ekspor data via {@link Common#cetakData}). Tampilan {@link #display(Component)} juga
+ * menyediakan tombol pintasan ke {@code RekapHasilUjianMahasiswa} dan {@code RekapHasilTugasMahasiswa}.
+ * </p>
+ */
 public class HasilUjianHelper implements DataLoader, DataCriteria {
 
 	private MyGrid grid;
@@ -51,12 +68,36 @@ public class HasilUjianHelper implements DataLoader, DataCriteria {
 
 	private Pertemuan pertemuan;
 
+	/**
+	 * Membuat helper untuk satu konteks peserta. Tepat satu dari {@code mahasiswa}/
+	 * {@code biodataCalonMahasiswa} biasanya diisi (atau keduanya {@code null} bila konteks peserta
+	 * diambil dari user yang sedang login, mis. siswa/calon siswa/peserta kursus).
+	 *
+	 * @param mahasiswa              mahasiswa pemilik riwayat hasil ujian, boleh {@code null}
+	 * @param biodataCalonMahasiswa  calon mahasiswa (PMB) pemilik riwayat hasil ujian, boleh {@code null}
+	 * @param pertemuan              pertemuan konteks (dipakai untuk melengkapi data {@link Ujian}
+	 *                               yang belum lengkap via {@link #reinitUjian}), boleh {@code null}
+	 */
 	public HasilUjianHelper(Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa, Pertemuan pertemuan) {
 		this.mahasiswa = mahasiswa;
 		this.biodataCalonMahasiswa = biodataCalonMahasiswa;
 		this.pertemuan = pertemuan;
 	}
 
+	/**
+	 * Melengkapi field {@link Ujian} yang belum terisi (data lama) dengan menurunkannya dari
+	 * {@code pertemuan} induknya: {@code diperuntukkan} dari {@link Pertemuan#untuk()}, serta
+	 * jurusan/fakultas/matakuliah/dosen (untuk pertemuan perkuliahan biasa) atau
+	 * sekolah/yayasan/matapelajaran/guru (untuk pertemuan jadwal pelajaran sekolah) atau
+	 * sekolah/yayasan (untuk pertemuan PSB/PMB), tergantung jenis {@code pertemuan} yang tersedia.
+	 * Perubahan langsung ditulis ke database (baris {@link Ujian} yang sama dimuat ulang dan
+	 * di-update) sekaligus ke objek {@code ujian} yang diberikan, sehingga tampilan berikutnya
+	 * tidak perlu memuat ulang. Tidak melakukan apa pun bila field terkait sudah terisi atau
+	 * {@code pertemuan}-nya {@code null}.
+	 *
+	 * @param ujian     entitas ujian yang akan dilengkapi (dan diperbarui bila perlu)
+	 * @param pertemuan pertemuan sumber data pelengkap, boleh {@code null}
+	 */
 	public static void reinitUjian(Ujian ujian, Pertemuan pertemuan) {
 		if (ujian != null && ujian.getDiperuntukkan() == null && pertemuan != null) {
 			ujian.setDiperuntukkan(pertemuan.untuk());
@@ -137,6 +178,15 @@ public class HasilUjianHelper implements DataLoader, DataCriteria {
 		}
 	}
 
+	/**
+	 * Perender baris grid: menampilkan nama ujian, jenis/level/nilai lulus, skor jawaban benar,
+	 * nilai (dengan status lulus/tidak untuk jenis selain esai/jawaban singkat), dan — hanya bila
+	 * konteks peserta diketahui (mahasiswa/calon mahasiswa/peserta kursus/siswa) — kolom tambahan
+	 * jumlah soal, batas waktu, jadwal mulai/selesai, dan format nilai tujuan. Baris dapat dibuka
+	 * ({@code onOpen} pada {@link MyDetail}) untuk menampilkan detail butir soal, dan menampilkan
+	 * peringatan "tidak diizinkan ikut ujian" (baris dibekukan) bila ujian tidak aktif atau peserta
+	 * termasuk daftar yang dikecualikan ({@code mhsYgTidakIkut}).
+	 */
 	class DetailPertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
 		private DetailUjianHelper detailUjianHelper = new DetailUjianHelper();
@@ -310,6 +360,14 @@ public class HasilUjianHelper implements DataLoader, DataCriteria {
 		}
 	}
 
+	/**
+	 * Memuat ulang grid dengan seluruh {@link HasilUjianMahasiswa} milik peserta saat ini
+	 * (mahasiswa atau calon mahasiswa), lewat {@code ambilHasilUjianMahasiswa} pada entitas
+	 * masing-masing.
+	 *
+	 * @param value bila berupa {@link Boolean}, diteruskan sebagai flag "paksa segarkan" ke
+	 *              {@code ambilHasilUjianMahasiswa}; selain itu dianggap {@code false}
+	 */
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
 		List<HasilUjianMahasiswa> hasilUjianMahasiswas = mahasiswa != null
@@ -326,6 +384,15 @@ public class HasilUjianHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/**
+	 * Membangun dan menampilkan seluruh UI riwayat hasil ujian ke dalam {@code component}: toolbar
+	 * (cetak data bila konteks peserta diketahui, pintasan "Rekap Hasil Ujian", "Rekap Hasil
+	 * Tugas", dan "Refresh") dan grid ber-paging (page size besar agar seluruh riwayat tampil satu
+	 * halaman, dengan paging di atas dan bawah). Lebar beberapa kolom (Skor/Nilai/Jml Soal)
+	 * disesuaikan tergantung apakah konteks peserta diketahui.
+	 *
+	 * @param component komponen ZK tujuan tampilan (dibersihkan lebih dulu)
+	 */
 	public void display(final Component component) {
 		Common.clear(component);
 
@@ -497,9 +564,17 @@ public class HasilUjianHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/**
+	 * Menyediakan kriteria dasar {@link HasilUjianMahasiswa} milik peserta saat ini (yang sudah
+	 * punya {@code keyhasil}, diurutkan berdasarkan waktu mulai ujian), dipakai oleh fitur
+	 * cetak/ekspor data via {@link Common#cetakData}.
+	 *
+	 * @param order tidak dipakai secara khusus (pengurutan selalu diterapkan); ada untuk memenuhi
+	 *              kontrak {@link DataCriteria}
+	 * @return kriteria Hibernate siap dieksekusi
+	 */
 	@Override
 	public Criteria initCriteria(boolean order) {
-		// TODO Auto-generated method stub
 		Session session = HibernateUtil.currentSession();
 		return session.createCriteria(HasilUjianMahasiswa.class).add(Restrictions.isNotNull("keyhasil"))
 				.createAlias("pertemuanPunyaUjian", "pertemuanPunyaUjian")

@@ -32,7 +32,7 @@ public class PelitaBangsaNimGenerator implements NimGenerator {
 			String digitKedua = tahun.toString().substring(2);
 			String digitKetiga = tahunberikut.toString().substring(2);
 
-			Session session = HibernateUtil.currentNativeSession();
+			Session session = HibernateUtil.openSession();
 			String maxNim = ((String) session.createCriteria(Mahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))).setProjection(Projections.max("nim"))
 					.add(Restrictions.eq("jurusan", calonMahasiswa.getProdiLulus()))
 					.add(Restrictions.eq("tahunangkatan", tahun)).setMaxResults(1).uniqueResult());
@@ -49,7 +49,7 @@ public class PelitaBangsaNimGenerator implements NimGenerator {
 					.setProjection(Projections.count("nim")).uniqueResult()).intValue();
 			// session.disconnect();
 			if (session.isOpen()) {session.disconnect();session.close();}
-			HibernateUtil.closeSession();
+			HibernateUtil.closeSessionQuietly(session);
 
 			if (!count.equals(0)) {
 				jumlahPengecualian.add(nim);
@@ -69,7 +69,7 @@ public class PelitaBangsaNimGenerator implements NimGenerator {
 			String digitKetiga = calonMahasiswa == null ? "-"
 					: calonMahasiswa.getJenisSemester().equals(Perkuliahan.GANJIL) ? "1" : "2";
 
-			Session session = HibernateUtil.currentNativeSession();
+			Session session = HibernateUtil.openSession();
 			Long jumlah = ((Number) session.createCriteria(Mahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 
 					.setProjection(Projections.rowCount()).add(Restrictions.eq("tahunangkatan", tahun))
@@ -92,7 +92,7 @@ public class PelitaBangsaNimGenerator implements NimGenerator {
 					.setProjection(Projections.count("nim")).uniqueResult()).intValue();
 			// session.disconnect();
 			if (session.isOpen()) {session.disconnect();session.close();}
-			HibernateUtil.closeSession();
+			HibernateUtil.closeSessionQuietly(session);
 
 			if (!count.equals(0)) {
 				jumlahPengecualian.add(nim);

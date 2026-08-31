@@ -48,6 +48,21 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper "pilih dari daftar" untuk menandai satu {@link Matakuliah} sebagai ekivalen dengan satu
+ * atau lebih matakuliah lain, lewat entitas berpasangan {@link MatakuliahEkivalen}
+ * ({@code matakuliah} <-> {@code matakuliahEkivalen}). Menampilkan jendela modal pencarian
+ * matakuliah (kode, nama, fakultas, prodi, jenjang) dengan checkbox status ekivalensi per baris.
+ *
+ * <p>
+ * {@link #save()} hanya memproses baris yang tercentang (tidak ada penghapusan otomatis untuk
+ * baris yang di-uncheck). Sebelum menyimpan pasangan ekivalensi baru, dicek lebih dulu apakah
+ * matakuliah kandidat sudah menjadi {@code matakuliahEkivalen} milik matakuliah LAIN (bukan
+ * {@link #matakuliah} ini) — bila ya, penyimpanan untuk baris tersebut dibatalkan dengan pesan
+ * peringatan (mencegah satu matakuliah menjadi ekivalen dari lebih dari satu matakuliah lain
+ * sekaligus).
+ * </p>
+ */
 public class AmbilDataMatakuliahEkivalenHelper {
 
 	private Matakuliah matakuliah;
@@ -62,6 +77,7 @@ public class AmbilDataMatakuliahEkivalenHelper {
 	private Combobox searchjurusan = new Combobox();
 	private Combobox jenjang = new Combobox();
 
+	/** Membuat helper dan menginisialisasi combobox pencarian jenjang serta fakultas/jurusan (termasuk opsi "Semua"). */
 	public AmbilDataMatakuliahEkivalenHelper() {
 
 		Common.insertCombo(jenjang = new Combobox(), "nama", Jenjang.class,
@@ -70,6 +86,7 @@ public class AmbilDataMatakuliahEkivalenHelper {
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 	}
 
+	/** Perender baris grid: checkbox status ekivalensi (tercentang bila {@link MatakuliahEkivalen} aktif sudah ada untuk pasangan ini) plus label kode+id, nama, SKS, status, jenis, fakultas, jurusan, dan jenjang matakuliah. */
 	class MatakuliahRenderer extends ais.ui.util.MyRowRenderer {
 
 		private MatakuliahDao matakuliahEkivalenDao = DaoFactory.getInstance().getMatakuliahDao();
@@ -111,6 +128,13 @@ public class AmbilDataMatakuliahEkivalenHelper {
 
 	}
 
+	/**
+	 * Untuk setiap baris grid yang tercentang, memvalidasi bahwa matakuliah kandidat belum menjadi
+	 * ekivalen milik matakuliah lain (bila sudah, baris dilewati dengan pesan peringatan), lalu
+	 * membuat/memperbarui baris {@link MatakuliahEkivalen} yang memasangkan {@link #matakuliah}
+	 * dengan matakuliah tersebut. Kegagalan per baris ditangkap dan dicatat, tidak menghentikan
+	 * baris lain.
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() throws Exception {
 		MatakuliahEkivalenDao matakuliahEkivalenDao = DaoFactory.getInstance().getMatakuliahEkivalenDao();
@@ -169,6 +193,15 @@ public class AmbilDataMatakuliahEkivalenHelper {
 
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela modal pemilihan matakuliah ekivalen untuk {@code matakuliah}
+	 * yang diberikan: form pencarian (fakultas/kode/prodi/jenjang/nama, masing-masing memicu
+	 * pencarian otomatis saat berubah), grid ber-paging client-side dengan checkbox per baris, dan
+	 * tombol Cari/Simpan/Batal.
+	 *
+	 * @param matakuliah matakuliah yang akan diberi pasangan ekivalensi
+	 * @param dataLoader callback penyegar tampilan pemanggil setelah simpan
+	 */
 	public void display(final Matakuliah matakuliah, final DataLoader dataLoader) {
 
 		this.matakuliah = matakuliah;
@@ -398,6 +431,13 @@ public class AmbilDataMatakuliahEkivalenHelper {
 		}
 	}
 
+	/**
+	 * Menjalankan pencarian matakuliah aktif berdasarkan kode/nama (ilike) dan filter
+	 * jurusan/jenjang/fakultas, diurutkan berdasarkan nama, dibatasi {@link Common#MAX_RESULT}.
+	 * Memuat ulang grid dengan hasilnya.
+	 *
+	 * @param event event pemicu (tombol Cari, atau perubahan salah satu filter), tidak dipakai langsung
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

@@ -52,6 +52,30 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyButtonTabbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper ZK untuk menampilkan dan mengelola agenda konsultasi/bimbingan dalam satu
+ * {@link GrupPertemuan} (kelompok pertemuan dosen PA dengan sejumlah mahasiswa perwaliannya).
+ * Tampilan utama ({@link #initDetail(GrupPertemuan, DataLoader, Div)}) terdiri dari dua tab: daftar
+ * agenda per mahasiswa (kartu berisi foto, nama, timeline catatan/diskusi, tautan video conference,
+ * dan status kehadiran, masing-masing didukung {@link ais.action.master.dashboard.admin.DashboardTimelinePertemuan})
+ * dan tab cetak gabungan "Lembar Konsultasi" seluruh anggota grup dalam satu berkas PDF.
+ *
+ * <h2>Toolbar agenda</h2>
+ * {@link #initAgendaGrupPertemuan(GrupPertemuan, DataLoader)} menyusun toolbar aksi: "Catatan
+ * Konsultasi" (jadwal ulang lewat {@link PenjadwalanGrupPertemuanHelper}), "Absensi" (cetak lewat
+ * {@code CommonReportHelper#onLaporanAbsensi}), tombol Absen ({@link AbsensiGrupPertemuanHelper}),
+ * kalender agenda ({@link AktifitasPerkuliahanHelper#tampilCalender}), tombol kelas virtual
+ * ({@link ais.common.classroom.ClassRoomUtil}), tombol pemulihan pertemuan
+ * ({@link RecoveryPertemuanHelper}), Refresh, dan kotak pencarian nama mahasiswa.
+ *
+ * <h2>Cetak Lembar Konsultasi</h2>
+ * Tab cetak (dibangun lazy saat pertama kali dipilih) menghasilkan satu berkas PDF per mahasiswa
+ * lewat {@code Report#generateFileReport} (template {@code lembar_konsultasi}, parameter mencakup
+ * data mahasiswa/KRS/dosen PA/kaprodi dan seluruh riwayat {@link Pertemuan} anggota), lalu
+ * menggabungkan semuanya dengan {@link PDFMergerUtility}. Proses berjalan pada thread terpisah lewat
+ * {@code AsyncTaskManager#jalankanDenganPush} (ZK server push, ber-reference-count) agar progres
+ * dapat ditampilkan tanpa memblokir UI dan tanpa membiarkan polling menyala permanen.
+ */
 public class AktifitasGrupPertemuanHelper {
 
 	protected PenjadwalanGrupPertemuanHelper penjadwalanHelper;
@@ -62,10 +86,19 @@ public class AktifitasGrupPertemuanHelper {
 
 	private String dataNama = "";
 
+	/** Menginisialisasi helper dan menyimpan {@link Mahasiswa} pengguna yang sedang login (untuk pembedaan tampilan mahasiswa vs dosen/admin). */
 	public AktifitasGrupPertemuanHelper() {
 		userMahasiswa = Common.getCurrentUser().getMahasiswa();
 	}
 
+	/**
+	 * Membangun toolbar aksi untuk agenda satu {@link GrupPertemuan} — lihat dokumentasi kelas untuk
+	 * daftar lengkap tombol yang disediakan.
+	 *
+	 * @param grupPertemuan grup pertemuan yang tombol-tombolnya akan bertindak
+	 * @param dataLoader    dipanggil untuk menyegarkan tampilan setelah suatu aksi selesai
+	 * @return komponen {@link Toolbar} siap ditempel ke parent
+	 */
 	public Toolbar initAgendaGrupPertemuan(final GrupPertemuan grupPertemuan, final DataLoader dataLoader) {
 
 		Toolbar hbox = new Toolbar();
@@ -147,12 +180,26 @@ public class AktifitasGrupPertemuanHelper {
 		return hbox;
 	}
 
+	/** Seperti {@link #initDetail(GrupPertemuan, DataLoader, Div)} dengan {@code dataLoader} default yang memuat ulang tampilan ini sendiri. */
 	public void initDetail(final GrupPertemuan grupPertemuan, final Div groupbox) throws Exception {
 		initDetail(grupPertemuan, null, groupbox);
 	}
 
 	private List<PertemuanPunyaGrupPertemuan> pertemuanPunyaGrupPertemuans = null;
 
+	/**
+	 * Membangun tampilan lengkap agenda {@link GrupPertemuan}: tab "Agenda Konsultasi" (toolbar aksi
+	 * dari {@link #initAgendaGrupPertemuan} plus grid kartu per mahasiswa anggota) dan tab "Cetak
+	 * Agenda Konsultasi" (dibangun lazy, lihat dokumentasi kelas). Baris {@link Pertemuan} anggota
+	 * yang nomor pertemuannya belum sinkron dengan {@code grupPertemuan.getPertemuanKe()} diperbarui
+	 * otomatis sebelum ditampilkan.
+	 *
+	 * @param grupPertemuan grup pertemuan yang akan ditampilkan
+	 * @param mydataLoader  dipanggil untuk menyegarkan tampilan; bila {@code null}, dipakai loader
+	 *                      default yang memanggil ulang method ini
+	 * @param groupbox      komponen ZK induk tempat tampilan dirender (dibersihkan lebih dulu)
+	 * @throws Exception diteruskan dari kegagalan akses database atau pembangunan komponen ZK
+	 */
 	@SuppressWarnings("unchecked")
 	public void initDetail(final GrupPertemuan grupPertemuan, final DataLoader mydataLoader, final Div groupbox)
 			throws Exception {

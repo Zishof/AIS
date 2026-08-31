@@ -42,6 +42,22 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper "pilih dari daftar" untuk menugaskan satu {@link Dosen} ke satu atau lebih
+ * {@link KegiatanKedosenan} (kegiatan tridarma dosen yang sudah berstatus
+ * {@link KegiatanKedosenan#DISETUJUI}), lewat relasi {@link KegiatanKedosenanPunyaDosen}.
+ * Menampilkan jendela modal pencarian berdasarkan nama kegiatan, dengan grid berpaging server-side
+ * (50 baris per halaman via {@link Common#initPaging50}) dan checkbox per baris.
+ *
+ * <p>
+ * Kegiatan yang sudah tertaut ke dosen ditampilkan dengan checkbox tercentang sekaligus
+ * dinonaktifkan ({@code disabled}) — sehingga hanya kegiatan yang belum tertaut yang bisa
+ * dipilih/disimpan; {@link #save()} hanya memproses baris yang tercentang DAN tidak dinonaktifkan.
+ * Hanya kegiatan yang boleh dipilih dosen yang muncul di daftar (filter
+ * {@code bolehDipilih}/{@code kelompokKegiatanKedosenan.bisaDipilihDosen}/{@code aktif} pada
+ * {@link #initCriteria(boolean)}).
+ * </p>
+ */
 public class AmbilDataKegiatanForKegiatanKedosenanHelper {
 
 	private Dosen dosen;
@@ -51,6 +67,12 @@ public class AmbilDataKegiatanForKegiatanKedosenanHelper {
 
 	private Paging paging;
 
+	/**
+	 * Membuat helper untuk satu {@link Dosen} dan menyiapkan komponen paging server-side (50 baris
+	 * per halaman) yang memicu {@link #onSearchDefault(Event)} saat halaman berganti.
+	 *
+	 * @param dosen dosen yang akan ditugaskan ke kegiatan-kegiatan terpilih
+	 */
 	public AmbilDataKegiatanForKegiatanKedosenanHelper(Dosen dosen) {
 		this.dosen = dosen;
 
@@ -65,6 +87,7 @@ public class AmbilDataKegiatanForKegiatanKedosenanHelper {
 
 	}
 
+	/** Perender baris grid: checkbox status tertaut (tercentang+nonaktif bila relasi sudah ada) plus label nama kegiatan, fakultas, jurusan, kelompok aspek, detail aspek, dan keterangan. */
 	class DosenRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -95,6 +118,12 @@ public class AmbilDataKegiatanForKegiatanKedosenanHelper {
 		}
 	}
 
+	/**
+	 * Membuat relasi {@link KegiatanKedosenanPunyaDosen} baru (mencatat {@code oleh}/{@code tbmuser}
+	 * dari user yang sedang login dan {@code diubahDari = DosenAction}) untuk setiap baris grid
+	 * yang tercentang dan tidak dinonaktifkan (belum tertaut sebelumnya). Kegagalan per baris
+	 * ditelan.
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() throws InterruptedException {
 		Session session = HibernateUtil.currentSession();
@@ -131,6 +160,13 @@ public class AmbilDataKegiatanForKegiatanKedosenanHelper {
 
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela modal pemilihan kegiatan kedosenan: form pencarian nama
+	 * kegiatan, grid ber-paging server-side dengan checkbox per baris, dan tombol Simpan/Batal.
+	 *
+	 * @param dataLoader callback penyegar tampilan pemanggil setelah simpan
+	 * @param window     jendela modal yang akan dibangun isinya (dibersihkan lebih dulu)
+	 */
 	public void display(final DataLoader dataLoader, final MyWindow window) {
 
 		Common.clear(window);
@@ -316,6 +352,17 @@ public class AmbilDataKegiatanForKegiatanKedosenanHelper {
 		}
 	}
 
+	/**
+	 * Membangun kriteria pencarian dasar {@link KegiatanKedosenan} yang boleh dipilih dosen: status
+	 * {@link KegiatanKedosenan#DISETUJUI}, {@code bolehDipilih} tidak {@code false}, dan kelompok
+	 * kegiatannya {@code bisaDipilihDosen} serta {@code aktif} tidak {@code false}, disaring pula
+	 * dengan nama kegiatan (ilike) dari kotak pencarian bila diisi.
+	 *
+	 * @param order bila {@code true}, tambahkan pengurutan menurun berdasarkan tanggal mulai lalu id
+	 *              (dipakai saat mengambil data untuk ditampilkan); bila {@code false}, kriteria
+	 *              dipakai untuk menghitung total baris pada {@link Common#initPaging50}
+	 * @return kriteria Hibernate siap dieksekusi/diberi batas hasil
+	 */
 	public Criteria initCriteria(boolean order) {
 
 		Session session = HibernateUtil.currentSession();
@@ -337,6 +384,13 @@ public class AmbilDataKegiatanForKegiatanKedosenanHelper {
 		return criteria;
 	}
 
+	/**
+	 * Menghitung total baris untuk komponen paging ({@link Common#initPaging50}) lalu mengambil satu
+	 * halaman {@link KegiatanKedosenan} (50 baris) sesuai halaman aktif, dan memuat ulang grid
+	 * dengan hasilnya.
+	 *
+	 * @param event event pemicu (pencarian/paging), tidak dipakai langsung
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

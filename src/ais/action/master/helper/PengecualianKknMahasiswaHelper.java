@@ -47,6 +47,14 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Composer ZK untuk mengelola daftar pengecualian KKN mahasiswa ({@link PengecualianKknMahasiswa}) —
+ * mahasiswa yang dikecualikan dari proses seleksi/syarat normal KKN untuk satu {@link Kkn} tertentu.
+ * Menampilkan grid pengecualian (identitas mahasiswa, keterangan yang dapat diedit langsung), tombol
+ * "Ambil Data Mahasiswa" untuk menambah pengecualian baru lewat dialog pemilihan mahasiswa massal
+ * ({@code AmbilDataMahasiswaBanyak}), pencarian berdasarkan nama/fakultas/jurusan, dan tombol hapus
+ * per baris.
+ */
 public class PengecualianKknMahasiswaHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -56,11 +64,13 @@ public class PengecualianKknMahasiswaHelper implements DataLoader {
 	private Textbox nama;
 	private Kkn kkn;
 
+	/** @param kkn KKN yang daftar pengecualiannya dikelola */
 	public PengecualianKknMahasiswaHelper(Kkn kkn) {
 		this.kkn = kkn;
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan); 
 	}
 
+	/** Row renderer grid pengecualian: identitas mahasiswa, keterangan (editable, tersimpan otomatis), dan tombol hapus. */
 	class PengecualianKknMahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		public PengecualianKknMahasiswaRenderer() {
@@ -139,6 +149,7 @@ public class PengecualianKknMahasiswaHelper implements DataLoader {
 		}
 	}
 
+	/** Memuat ulang daftar pengecualian KKN (maks {@link Common#MAX_RESULT_50} baris) sesuai filter nama/fakultas/jurusan dan me-render ulang grid. Parameter {@code value} tidak dipakai. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = Common.getManualSession();
@@ -160,6 +171,7 @@ public class PengecualianKknMahasiswaHelper implements DataLoader {
 
 	}
 
+	/** Membangun window modal "Daftar Pengecualian KKN mahasiswa" (filter, toolbar ambil-data/cari, grid) dan memuat data awal. */
 	public void display() throws InterruptedException {
 
 		final MyWindow window = new MyWindow("Daftar Pengecualian KKN mahasiswa", "none", true);

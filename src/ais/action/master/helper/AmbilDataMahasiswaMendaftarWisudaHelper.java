@@ -50,6 +50,22 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper composer ZK berbentuk window modal untuk mendaftarkan mahasiswa (yang skripsinya sudah
+ * dinilai) ke satu {@link Wisuda}, membuat baris {@link PendaftaranWisuda}, dengan penegakan kuota
+ * per fakultas atau kuota total perguruan tinggi.
+ *
+ * <p>
+ * Checkbox baris hanya ditampilkan untuk mahasiswa yang punya {@link Skripsi} dengan
+ * {@code totalNilai > 0} (skripsi sudah dinilai). Saat {@link #save()}, kuota dicek berdasarkan
+ * {@link Wisuda#getHanyaGunakanKuotaPerguruanTinggi()}: bila {@code true}, kuota diambil dari
+ * {@link Wisuda#getMaksimalQuota()} dan dibandingkan terhadap total pendaftar wisuda; bila
+ * {@code false}, kuota diambil per fakultas dari {@link QuotaWisudaUntukFakultas} (wajib sudah
+ * diisi, bila belum penyimpanan dibatalkan dengan peringatan) dan dibandingkan terhadap jumlah
+ * pendaftar dari fakultas yang sama. Pendaftaran yang melebihi kuota tidak disimpan (baris lain
+ * pada save yang sama tetap diproses).
+ * </p>
+ */
 public class AmbilDataMahasiswaMendaftarWisudaHelper {
 
 	private Wisuda wisuda;
@@ -66,6 +82,10 @@ public class AmbilDataMahasiswaMendaftarWisudaHelper {
 	private Combobox searchjurusan = new Combobox();
 	private Decimalbox tahunlulus;
 
+	/**
+	 * Menyiapkan combobox filter fakultas (aktif) dan memasang listener yang mengisi ulang
+	 * combobox prodi (difilter sesuai fakultas terpilih) setiap kali fakultas berubah.
+	 */
 	public AmbilDataMahasiswaMendaftarWisudaHelper() {
 		Common.insertCombo(searchfakultas, new String[] { "nama", "kode" }, Fakultas.class,
 				Restrictions.eq("aktif", true));
@@ -91,6 +111,11 @@ public class AmbilDataMahasiswaMendaftarWisudaHelper {
 
 	}
 
+	/**
+	 * Perender baris grid untuk satu {@link Mahasiswa}: checkbox pilih (tercentang bila sudah
+	 * terdaftar di {@link #wisuda}, dan hanya tampil bila mahasiswa punya skripsi dengan nilai
+	 * lebih dari 0), foto, NIM, nama, angkatan, fakultas, dan status skripsi ("Sudah"/"Belum").
+	 */
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -133,6 +158,15 @@ public class AmbilDataMahasiswaMendaftarWisudaHelper {
 
 	}
 
+	/**
+	 * Mendaftarkan setiap mahasiswa yang checkbox-nya tercentang ke {@link #wisuda}, menegakkan
+	 * kuota (per fakultas atau total PT — lihat javadoc kelas) sebelum menyimpan tiap baris.
+	 * Mahasiswa yang sudah terdaftar dilewati (tidak dobel). Bila kuota fakultas belum diisi,
+	 * penyimpanan untuk baris tersebut dibatalkan dengan pesan peringatan dan method langsung
+	 * {@code return} (baris lain yang belum diproses pada iterasi ini ikut terlewat).
+	 *
+	 * @throws Exception diteruskan dari kegagalan Hibernate yang tidak tertangkap di loop internal
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() throws Exception {
 		// PendaftaranWisudaDao pendaftaranWisudaDao = DaoFactory.getInstance()
@@ -227,6 +261,15 @@ public class AmbilDataMahasiswaMendaftarWisudaHelper {
 
 	}
 
+	/**
+	 * Membangun window modal "Ambil Data Mahasiswa yang Mendaftar Wisuda" berisi form filter
+	 * (NIM, nama, angkatan, fakultas, prodi, tahun lulus) dan grid mahasiswa berpaging. Tombol
+	 * "Simpan" memanggil {@link #save()}, memuat ulang data pemanggil, lalu menyembunyikan window.
+	 *
+	 * @param wisuda     kegiatan wisuda tujuan pendaftaran
+	 * @param dataLoader callback muat-ulang data pemanggil setelah simpan
+	 * @param window     window modal tempat UI dibangun
+	 */
 	public void display(final Wisuda wisuda, final DataLoader dataLoader, final MyWindow window) {
 		this.wisuda = wisuda;
 		Common.clear(window);
@@ -412,6 +455,13 @@ public class AmbilDataMahasiswaMendaftarWisudaHelper {
 		}
 	}
 
+	/**
+	 * Memuat grid mahasiswa aktif sesuai filter NIM/nama (ILIKE anywhere), tahun angkatan, tahun
+	 * lulus, jurusan, dan fakultas. Diurutkan berdasarkan tahun angkatan lalu NIM (keduanya
+	 * menaik), dibatasi {@link Common#MAX_RESULT_500} hasil.
+	 *
+	 * @param event tidak dipakai
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

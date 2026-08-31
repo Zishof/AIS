@@ -60,6 +60,30 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK untuk mengelola keanggotaan {@link Mahasiswa} pada organisasi intra kampus (mis. BEM,
+ * himpunan mahasiswa) — merepresentasikan baris relasi {@link OrganisasiIntraKampusPunyaMahasiswa}
+ * (organisasi, jabatan, periode mulai/sampai, keterangan, status persetujuan, dan lampiran SK/Surat
+ * Keterangan). Mengimplementasikan {@link DataLoader} dan {@link DataCriteria} untuk dipakai ulang
+ * pada fitur cetak/unduh Excel.
+ *
+ * <p>
+ * Dua konstruktor menentukan konteks pemakaian: tanpa argumen untuk tampilan berpusat pada satu
+ * {@link Mahasiswa} (dipakai dari profil mahasiswa, filter tambahan diatur lewat parameter
+ * {@link #display}), atau dengan {@link OrganisasiIntraKampus}/{@link JabatanOrganisasiIntraKampus}/
+ * tahun untuk tampilan berpusat pada satu organisasi (dipakai dari layar pengelolaan organisasi,
+ * menampilkan seluruh anggotanya).
+ * </p>
+ *
+ * <p>
+ * Baris grid dapat diedit inline (via {@link MyDetail}) hanya oleh mahasiswa pemilik data selama
+ * belum disetujui ({@code persetujuan=false}); field yang dapat diubah adalah jabatan, tanggal
+ * mulai/sampai, keterangan, dan lampiran SK. Admin (bukan user mahasiswa) melihat kotak centang
+ * "Setujui" untuk menyetujui keanggotaan; setelah disetujui, field dikunci dan tombol hapus
+ * disembunyikan. Baris yang sedang disorot ({@link #organisasiIntraKampusPunyaMahasiswa}, mis. dari
+ * notifikasi) selalu ditampilkan di baris pertama dan disorot kuning.
+ * </p>
+ */
 public class MahasiswaPunyaOrganisasiIntraKampusHelper implements DataLoader, DataCriteria {
 
 	private MyGrid grid;
@@ -73,6 +97,7 @@ public class MahasiswaPunyaOrganisasiIntraKampusHelper implements DataLoader, Da
 	private Integer tahun = null;
 	private OrganisasiIntraKampusPunyaMahasiswa organisasiIntraKampusPunyaMahasiswa;
 
+	/** Konstruktor untuk tampilan berpusat pada satu mahasiswa (tanpa filter organisasi/jabatan/tahun tetap). */
 	public MahasiswaPunyaOrganisasiIntraKampusHelper() {
 
 		tbmuser = Common.getCurrentUser();
@@ -87,6 +112,14 @@ public class MahasiswaPunyaOrganisasiIntraKampusHelper implements DataLoader, Da
 		});
 	}
 
+	/**
+	 * Konstruktor untuk tampilan berpusat pada satu organisasi — menampilkan seluruh anggota yang
+	 * cocok dengan filter tetap berikut.
+	 *
+	 * @param organisasiIntraKampus         organisasi yang anggotanya ditampilkan, boleh {@code null}
+	 * @param jabatanOrganisasiIntraKampus  jabatan yang menjadi filter tetap, boleh {@code null}
+	 * @param tahun                         tahun keanggotaan yang menjadi filter tetap, boleh {@code null}
+	 */
 	public MahasiswaPunyaOrganisasiIntraKampusHelper(OrganisasiIntraKampus organisasiIntraKampus,
 			JabatanOrganisasiIntraKampus jabatanOrganisasiIntraKampus, Integer tahun) {
 		tbmuser = Common.getCurrentUser();
@@ -302,6 +335,14 @@ public class MahasiswaPunyaOrganisasiIntraKampusHelper implements DataLoader, Da
 
 	}
 
+	/**
+	 * Implementasi {@link DataCriteria}: membangun kriteria Hibernate untuk baris
+	 * {@link OrganisasiIntraKampusPunyaMahasiswa} sesuai kombinasi filter tetap (organisasi, jabatan,
+	 * tahun, mahasiswa) dan filter pencarian nama organisasi dari toolbar.
+	 *
+	 * @param order {@code true} untuk mengurutkan hasil berdasarkan id descending (data terbaru dulu)
+	 * @return kriteria Hibernate siap eksekusi/paginasi
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(OrganisasiIntraKampusPunyaMahasiswa.class);
@@ -327,6 +368,14 @@ public class MahasiswaPunyaOrganisasiIntraKampusHelper implements DataLoader, Da
 		return criteria;
 	}
 
+	/**
+	 * Implementasi {@link DataLoader}: memuat ulang halaman aktif daftar keanggotaan ke {@link #grid}.
+	 * Bila {@link #organisasiIntraKampusPunyaMahasiswa} diset (baris yang perlu disorot, mis. dibuka
+	 * dari notifikasi), baris tersebut selalu disisipkan sebagai elemen pertama sebelum sisa hasil
+	 * pencarian ditambahkan (dikecualikan dari hasil pencarian normal agar tidak dobel).
+	 *
+	 * @param value tidak digunakan
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -366,10 +415,25 @@ public class MahasiswaPunyaOrganisasiIntraKampusHelper implements DataLoader, Da
 		return this;
 	}
 
+	/** Seperti {@link #display(Mahasiswa, Component, OrganisasiIntraKampusPunyaMahasiswa)}, tanpa baris yang disorot. */
 	public void display(Mahasiswa mahasiswa, Component component) {
 		display(mahasiswa, component, null);
 	}
 
+	/**
+	 * Membangun tampilan grid keanggotaan organisasi: toolbar pencarian nama organisasi, tombol
+	 * "Ambil Organisasi" (membuka {@link AmbilDataOrganisasiForOrganisasiIntraKampusHelper} untuk
+	 * mendaftarkan mahasiswa ke organisasi baru), tombol cetak laporan organisasi mahasiswa, dan
+	 * tombol unduh Excel (dengan kolom tambahan berisi hyperlink ke lampiran SK per baris).
+	 *
+	 * @param mahasiswa                        mahasiswa yang keanggotaannya ditampilkan; boleh
+	 *                                         {@code null} bila kelas dipakai dalam konteks
+	 *                                         berpusat-organisasi (lihat konstruktor kedua)
+	 * @param component                        komponen ZK induk tempat layar dirender (dibersihkan
+	 *                                         lebih dulu)
+	 * @param organisasiIntraKampusPunyaMahasiswa baris yang perlu disorot dan ditampilkan di posisi
+	 *                                         pertama, boleh {@code null}
+	 */
 	public void display(final Mahasiswa mahasiswa, final Component component,
 			OrganisasiIntraKampusPunyaMahasiswa organisasiIntraKampusPunyaMahasiswa) {
 		this.mahasiswa = mahasiswa;

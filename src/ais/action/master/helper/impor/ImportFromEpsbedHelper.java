@@ -18,14 +18,56 @@ import com.linuxense.javadbf.DBFWriter;
 import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 
+/**
+ * Helper untuk mengimpor data dari berkas EPSBED (Evaluasi Program Studi Berbasis Evaluasi Diri —
+ * sistem pelaporan pendidikan tinggi lama, pendahulu PDDikti/Feeder) ke dalam basis data AIS.
+ * Berkas sumber EPSBED berformat DBF (dBASE), satu tabel per berkas (mis. {@code mahasiswa.dbf},
+ * {@code dosen.dbf}).
+ *
+ * <p>
+ * Alur kerja utama dipicu dari {@link #importData}: (1) skema sementara {@code importepsbed}
+ * dibuat di database; (2) setiap berkas {@code .dbf} pada folder sumber (rekursif ke subfolder)
+ * diproses lewat {@link #doImport(File, Progressmeter, Progressmeter, Label)} — tabel staging baru
+ * dibuat otomatis di skema {@code importepsbed} dengan nama sama dengan berkas dan kolom bertipe
+ * sesuai tipe field DBF, lalu setiap baris DBF disisipkan lewat SQL {@code INSERT} yang dibangun
+ * sendiri (satu transaksi native per baris); (3) setelah seluruh berkas selesai, {@link #execute}
+ * dipanggil untuk memindahkan data dari skema staging ke tabel produksi AIS lewat rangkaian skrip
+ * SQL statis (badan hukum, perguruan tinggi, fakultas, prodi, mahasiswa, dosen, matakuliah,
+ * kurikulum, detailperkuliahan, format nilai, nilai — dibaca dari berkas {@code .sql} di paket ini
+ * lewat {@link #read(String)}).
+ * </p>
+ *
+ * <p>
+ * <b>Catatan keamanan</b> — SQL {@code CREATE TABLE}/{@code INSERT} pada
+ * {@link #doImport(File, Progressmeter, Progressmeter, Label)} dibangun lewat konkatenasi string,
+ * bukan prepared statement/parameter binding. Nama tabel disisipkan langsung dari nama berkas DBF
+ * ({@code file.getName()}) tanpa validasi/escaping, dan nilai kolom teks hanya dibersihkan dengan
+ * menghapus karakter kutip tunggal ({@code replaceAll("'", "")}) — bukan escaping yang aman. Bila
+ * nama berkas atau isi berkas DBF yang diimpor berasal dari sumber tidak tepercaya, ini berpotensi
+ * SQL injection/DDL injection ke skema {@code importepsbed}. Progress meter dan label diberikan
+ * opsional untuk menampilkan kemajuan proses ke UI (dipanggil dari komponen admin), namun method
+ * inti tetap dapat dipakai tanpa UI (parameter {@code null}).
+ * </p>
+ */
 public class ImportFromEpsbedHelper {
 
 	public static String NL = System.getProperty("line.separator");
 
+	/** Titik masuk baris perintah untuk pengujian manual: membaca isi {@code mahasiswa.sql} dan mencetaknya. */
 	public static void main(String[] argv) throws IOException {
 		read("mahasiswa.sql");
 	}
 
+	/**
+	 * Menulis {@code data} (baris pertama dipakai sebagai nama kolom, semua kolom dibuat bertipe
+	 * karakter panjang 255) ke berkas DBF baru di {@code Common.REAL_PATH + "/tmp/" + name + ".DBF"},
+	 * menimpa berkas lama bila sudah ada.
+	 *
+	 * @param data daftar baris (baris ke-0 dipakai sebagai header nama kolom)
+	 * @param name nama berkas (tanpa ekstensi)
+	 * @return berkas DBF yang ditulis, atau {@code null} bila {@code data} kosong
+	 * @throws Exception diteruskan dari kegagalan I/O atau penulisan DBF
+	 */
 	@SuppressWarnings("deprecation")
 	public static File writeToDBF(List<Object[]> data, String name) throws Exception {
 		if (data.size() == 0) {
@@ -55,10 +97,23 @@ public class ImportFromEpsbedHelper {
 		return dbfFile;
 	}
 
+	/** Seperti {@link #doImport(File, Progressmeter, Progressmeter, Label)} tanpa indikator progres UI. */
 	public static void doImport(File file) {
 		doImport(file, null, null, null);
 	}
 
+	/**
+	 * Mengimpor satu berkas DBF ke tabel staging baru pada skema {@code importepsbed} (nama tabel
+	 * = nama berkas tanpa ekstensi {@code .dbf}, dibuat ulang dari struktur field DBF), lalu
+	 * menyisipkan seluruh baris satu per satu, masing-masing dalam transaksi native tersendiri
+	 * (kegagalan satu baris di-rollback dan tidak menghentikan baris berikutnya). Lihat javadoc
+	 * kelas untuk catatan keamanan terkait pembangunan SQL lewat konkatenasi string.
+	 *
+	 * @param file                berkas {@code .dbf} sumber
+	 * @param progressmeter       indikator progres keseluruhan (opsional, boleh {@code null})
+	 * @param progressmeterChild  indikator progres per-baris berkas ini (opsional, boleh {@code null})
+	 * @param labelProses         label status teks yang diperbarui selama proses (opsional, boleh {@code null})
+	 */
 	public static void doImport(File file, Progressmeter progressmeter, Progressmeter progressmeterChild,
 			Label labelProses) {
 		try {
@@ -229,6 +284,19 @@ public class ImportFromEpsbedHelper {
 
 	}
 
+	/**
+	 * Titik masuk utama proses impor EPSBED: membuat skema {@code importepsbed}, lalu memproses
+	 * {@code path} secara rekursif — bila berupa folder, setiap subfolder diproses ulang lewat
+	 * pemanggilan rekursif dan setiap berkas {@code .dbf} langsung diimpor lewat
+	 * {@link #doImport(File, Progressmeter, Progressmeter, Label)}; bila {@code path} langsung
+	 * menunjuk satu berkas, berkas itu saja yang diimpor. Setelah seluruh berkas selesai, memanggil
+	 * {@link #execute(Label)} untuk memindahkan data staging ke tabel produksi.
+	 *
+	 * @param path                path berkas {@code .dbf} tunggal atau folder berisi berkas-berkas DBF
+	 * @param progressmeter       indikator progres keseluruhan antar berkas/folder (opsional)
+	 * @param progressmeterChild  diteruskan ke {@link #doImport} untuk progres per baris (opsional)
+	 * @param labelProses         label status teks (opsional)
+	 */
 	public static void importData(String path, Progressmeter progressmeter, Progressmeter progressmeterChild,
 			Label labelProses) {
 
@@ -332,6 +400,15 @@ public class ImportFromEpsbedHelper {
 		}
 	}
 
+	/**
+	 * Membaca isi berkas teks (skrip SQL) {@code name} dari classpath paket ini
+	 * ({@code /ais/action/master/helper/impor/}) sebagai satu string UTF-8, baris demi baris.
+	 *
+	 * @param name nama berkas relatif terhadap paket ini (mis. {@code "mahasiswa.sql"})
+	 * @return isi lengkap berkas
+	 * @throws IOException tidak pernah dilempar secara eksplisit di implementasi ini (dideklarasikan
+	 *                      pada signature); kegagalan stream {@code null} akan menyebabkan NPE
+	 */
 	public static String read(String name) throws IOException {
 		StringBuilder text = new StringBuilder();
 		String NL = System.getProperty("line.separator");
@@ -348,6 +425,17 @@ public class ImportFromEpsbedHelper {
 		return text.toString();
 	}
 
+	/**
+	 * Menjalankan rangkaian skrip SQL statis (dibaca lewat {@link #read(String)} dari berkas
+	 * {@code .sql} di paket ini) yang memindahkan data hasil staging ke tabel produksi AIS, dalam
+	 * urutan tetap: badan hukum, perguruan tinggi, fakultas, prodi, jenjang prodi, mahasiswa,
+	 * dosen, matakuliah, kurikulum, kurikulum-punya-matakuliah, detailperkuliahan, format nilai,
+	 * lalu nilai. {@code labelProses} diperbarui sebelum tiap tahap untuk menunjukkan progres ke UI.
+	 *
+	 * @param labelProses label status teks yang diperbarui di setiap tahap; TIDAK boleh
+	 *                    {@code null} (dipanggil langsung tanpa pengecekan null)
+	 * @throws Exception diteruskan dari kegagalan membaca berkas {@code .sql} atau eksekusi SQL
+	 */
 	public static void execute(Label labelProses) throws Exception {
 		Session session = HibernateUtil.currentNativeSession();
 

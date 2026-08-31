@@ -39,6 +39,26 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyLabelConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper composer untuk menampilkan ringkasan kartu ujian seorang {@link Mahasiswa} pada satu
+ * semester: ringkasan KRS (IPS, IPK, SKS semester/kumulatif, dosen PA) diikuti daftar
+ * {@link Perkuliahan} yang diambil pada semester tersebut (mendukung matakuliah ekivalen —
+ * ditandai dengan kode/nama asli dalam kurung), lengkap dengan jadwal ujian per matakuliah
+ * (diambil dari {@link Pertemuan} yang statusnya ditandai ujian).
+ *
+ * <p>
+ * Setiap baris matakuliah dapat di-expand ({@code MyDetail}) untuk menampilkan detail absensi
+ * mahasiswa pada pertemuan-pertemuan ujian tersebut (tanggal, topik, metode pembelajaran, status
+ * kehadiran, keterangan) lewat {@link #tampilAbsensi}.
+ * </p>
+ *
+ * <p>
+ * <b>Catatan</b>: konstruktor {@link #UjianMahasiswaHelper(Integer)} memiliki badan kosong — nilai
+ * {@code semesterPendek} yang diberikan TIDAK disimpan ke field {@link #semesterPendek} di sana;
+ * field tersebut baru benar-benar diisi lewat parameter terpisah pada {@link #display}. Dibiarkan
+ * apa adanya sesuai instruksi untuk tidak mengubah kode fungsional.
+ * </p>
+ */
 public class UjianMahasiswaHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -48,9 +68,11 @@ public class UjianMahasiswaHelper implements DataLoader {
 
 	private Integer semesterPendek;
 
+	/** Konstruktor ini TIDAK menyimpan {@code semesterPendek} ke field manapun (lihat catatan javadoc kelas) — badan method kosong. */
 	public UjianMahasiswaHelper(Integer semesterPendek) {
 	}
 
+	/** Perender baris grid per {@link Perkuliahan}: kode/nama/SKS matakuliah (dengan penanda ekivalen), dosen pengajar, jadwal hari/jam/ruang, dan daftar jadwal ujian; baris disembunyikan bila perkuliahan/matakuliah tidak ditemukan. Detail dapat di-expand untuk menampilkan absensi lewat {@link #tampilAbsensi}. */
 	class DetailMahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -110,6 +132,14 @@ public class UjianMahasiswaHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Mengisi {@code detail} dengan grid absensi mahasiswa untuk setiap {@link Pertemuan} milik
+	 * {@code perkuliahan} yang statusnya ditandai sebagai ujian: tanggal, materi, metode
+	 * pembelajaran, jenis pertemuan, dan status/keterangan kehadiran mahasiswa
+	 * ({@link Pertemuan#retreiveAbsensiKode}/{@code retreiveAbsensiNama}/{@code retreiveAbsensiKeterangan}).
+	 * Setiap baris juga menampilkan keterangan pertemuan yang dapat diperbarui inline lewat
+	 * {@link AktifitasPerkuliahanHelper#createKeterangan}, yang saat berubah memuat ulang panel ini.
+	 */
 	@SuppressWarnings({})
 	private void tampilAbsensi(final Perkuliahan perkuliahan, final MyDetail detail) {
 
@@ -199,6 +229,13 @@ public class UjianMahasiswaHelper implements DataLoader {
 
 	private int totalSks = 0;
 
+	/**
+	 * Memuat ulang grid dengan seluruh perkuliahan (termasuk kelas paralel) yang diambil
+	 * {@link #mahasiswa} pada {@link #semester}/{@code semesterPendek} yang sedang ditampilkan,
+	 * dan mereset akumulator {@link #totalSks} (dijumlahkan ulang oleh
+	 * {@link DetailMahasiswaRenderer} saat merender tiap baris). Kontrak
+	 * {@link DataLoader#loadData(Object)}; {@code value} tidak dipakai.
+	 */
 	public void loadData(Object value) {
 
 		try {
@@ -223,6 +260,26 @@ public class UjianMahasiswaHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun seluruh tampilan kartu ujian (ringkasan KRS + grid perkuliahan/jadwal ujian) ke
+	 * dalam {@code component}. Memanggil {@link Common#singkronkanKrsMahasiswa} untuk memastikan
+	 * data KRS mahasiswa mutakhir sebelum ditampilkan, lalu {@link #loadData} untuk mengisi grid.
+	 * Total SKS pada footer grid diisi belakangan lewat timer default (
+	 * {@link Common#createDefaultTimer}) agar {@link #totalSks} sudah terakumulasi penuh oleh
+	 * renderer saat footer dirender.
+	 *
+	 * @param mahasiswa      mahasiswa yang kartu ujiannya ditampilkan
+	 * @param tahunAjaran    diterima untuk keseragaman kontrak antar-helper serupa; tidak dipakai
+	 *                       langsung di badan method ini
+	 * @param semester       semester yang ditampilkan
+	 * @param tahapan        tahapan KRS (bernilai {@code -1} berarti grid perkuliahan disembunyikan)
+	 * @param component      kontainer ZK tujuan; isi sebelumnya dibersihkan lewat {@link Common#clear}
+	 * @param semesterPendek penanda/nomor semester pendek, boleh {@code null}
+	 * @param window         diterima untuk keseragaman kontrak antar-helper serupa; tidak dipakai
+	 *                       langsung di badan method ini
+	 * @param keDatabase     diteruskan ke {@link Common#singkronkanKrsMahasiswa} untuk menentukan
+	 *                       apakah sinkronisasi KRS ditulis ke database
+	 */
 	public void display(Mahasiswa mahasiswa, String tahunAjaran, Integer semester, Integer tahapan, Component component,
 			Integer semesterPendek, MyWindow window, boolean keDatabase) {
 

@@ -56,6 +56,26 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper tampilan & pengelolaan anggota satu {@link KelompokKkn} (kelompok Kuliah Kerja Nyata):
+ * daftar mahasiswa peserta ({@link MahasiswaDapatKelompokKkn}) dengan status diterima/belum,
+ * nilai hasil, keterangan, dan pencetakan sertifikat kelulusan KKN. Menyediakan pencarian
+ * (NIM/nama, filter diterima/belum diterima), penambahan anggota lewat pencarian mahasiswa,
+ * cetak laporan PDF, dan impor massal data anggota dari berkas Excel (.xlsx).
+ *
+ * <p>
+ * Hak edit inline pada grid ({@code boleh}) hanya diberikan kepada staf administratif (bukan
+ * mahasiswa/siswa/calon mahasiswa/calon siswa yang login); mahasiswa yang login hanya dapat
+ * melihat data miliknya sendiri (read-only) dan mencetak sertifikat bila sudah diterima dan
+ * kelompoknya punya template sertifikat.
+ * </p>
+ *
+ * <p>
+ * Mengimplementasikan {@link DataLoader} (callback penyegaran) dan {@link DataCriteria}
+ * (kriteria pencarian dipakai bersama oleh paging server-side dan cetak laporan
+ * {@link Common#cetakData}).
+ * </p>
+ */
 public class KelompokKknHelper implements DataLoader, DataCriteria {
 
 	private MyGrid grid;
@@ -67,6 +87,7 @@ public class KelompokKknHelper implements DataLoader, DataCriteria {
 	private MyCheckboxConfig belumDiterima;
 	private Textbox nim;
 
+	/** Merender satu baris grid anggota KKN: foto+NIM, riwayat revisi (nama), jurusan/fakultas, hasil/keterangan (editable untuk staf, read-only untuk mahasiswa lain), checkbox diterima (auto-save), tombol cetak sertifikat, dan tombol hapus (hanya staf, hanya bila belum diterima). */
 	class DetailKelompokKknRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -214,6 +235,14 @@ public class KelompokKknHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/**
+	 * Membangun {@link Criteria} pencarian {@link MahasiswaDapatKelompokKkn} untuk
+	 * {@link #kelompokKkn}, disaring berdasarkan status diterima/belum diterima (checkbox
+	 * toolbar) dan NIM/nama (contains, cocok pada salah satu).
+	 *
+	 * @param order bila {@code true}, tambahkan pengurutan berdasarkan id
+	 * @return criteria siap dieksekusi
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria crit = session.createCriteria(MahasiswaDapatKelompokKkn.class)
@@ -236,6 +265,7 @@ public class KelompokKknHelper implements DataLoader, DataCriteria {
 		return crit;
 	}
 
+	/** Memuat/menyegarkan grid dengan halaman anggota sesuai {@link #initCriteria} dan posisi {@link #paging} saat ini. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Common.initPaging(initCriteria(false), paging);
@@ -249,10 +279,21 @@ public class KelompokKknHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/** @return {@code this} sebagai {@link DataLoader}, diteruskan ke helper pencarian mahasiswa agar dapat memicu {@link #loadData(Object)} setelah data ditambahkan. */
 	private DataLoader getDataloader() {
 		return this;
 	}
 
+	/**
+	 * Membangun panel lengkap daftar anggota {@code kelompokKkn} ke dalam {@code component}:
+	 * toolbar (Tambah Anggota — hanya untuk staf; Cetak PDF; filter diterima/belum diterima;
+	 * pencarian NIM/nama; cetak laporan; upload Excel massal) di atas grid paging 50 baris.
+	 * Lebar kolom "Diterima" dan aksi disesuaikan tergantung apakah pengguna adalah dosen
+	 * pembimbing 1 kelompok ini (kolom lebih lebar) atau bukan.
+	 *
+	 * @param kelompokKkn kelompok KKN yang anggotanya akan ditampilkan/dikelola
+	 * @param component   kontainer ZK yang akan diisi (isi sebelumnya dibersihkan)
+	 */
 	public void display(final KelompokKkn kelompokKkn, final Component component) {
 		this.kelompokKkn = kelompokKkn;
 		Common.clear(component);
@@ -462,6 +503,20 @@ public class KelompokKknHelper implements DataLoader, DataCriteria {
 		paging.setParent(groupbox);
 	}
 
+	/**
+	 * Mengimpor anggota kelompok KKN secara massal dari berkas Excel yang sudah diunggah:
+	 * berjalan di thread terpisah (agar UI tidak terkunci), membaca sheet pertama baris demi
+	 * baris (kolom: NIM/objek mahasiswa, diterima, total nilai, keterangan, hasil), mencocokkan
+	 * mahasiswa lewat {@code Common.getSheetContentAsObject} lalu fallback pencarian by NIM bila
+	 * sel tidak terbaca sebagai objek. Setiap baris disimpan dalam transaksi tersendiri dengan
+	 * rollback eksplisit saat gagal (mencegah "Transaction already active" yang akan
+	 * menggagalkan seluruh baris berikutnya). Progres dilaporkan lewat {@link ais.common.LaporanUpload}
+	 * (baris berhasil/dilewati/gagal dicatat terpisah) dan indikator busy ZK, dipantau oleh
+	 * {@link Timer} yang mem-poll label status hingga proses selesai.
+	 *
+	 * @param file          berkas Excel (.xlsx) sumber data anggota
+	 * @param eventListener callback dipanggil setelah laporan upload selesai disusun
+	 */
 	public void uploadDataMahasiswa(final File file, final EventListener eventListener) throws Exception {
 
 		// Laporan hasil per baris. Menggantikan Label "peringatan" yang disiapkan untuk

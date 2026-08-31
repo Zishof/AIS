@@ -53,6 +53,28 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper tampilan "Daftar Referensi Perpustakaan" untuk satu mata kuliah dalam kurikulum
+ * ({@link KurikulumPunyaMatakuliah}): menampilkan buku/pustaka ({@link Item}) yang dijadikan
+ * referensi wajib/anjuran, lengkap dengan cover, ISBN/ISSN, pengarang, penerbit, catatan
+ * (editable untuk staf non-mahasiswa), dan aksi per baris (lihat kutipan, baca via Google
+ * Books, baca hasil scan per halaman, hapus). Referensi baru dapat ditambahkan lewat dua jalur:
+ * memilih {@link Item} yang sudah ada di katalog pustaka ({@link AmbilDataItemBanyak}), atau
+ * mengambil data langsung dari Google Books ({@link AmbilDataDariGoogleBookBanyak}).
+ *
+ * <p>
+ * Dapat ditampilkan berdiri sendiri di komponen apa pun, atau khusus sebagai isi
+ * {@link Tabpanel} — dalam mode tab, label tab ikut diperbarui dengan jumlah referensi
+ * ({@link #loadData}), dan toolbar tambah data hanya tampil untuk pengguna non-mahasiswa dengan
+ * hak {@link CommonPrivilages#CREATE}. Filter data dapat pula diperluas dengan klausa SQL
+ * tambahan bebas lewat {@link #display(String, Component)} (parameter {@code sqltambahan}).
+ * </p>
+ *
+ * <p>
+ * Mengimplementasikan {@link DataLoader} agar {@link #loadData(Object)} dapat dipakai sebagai
+ * callback penyegaran setelah aksi tambah/hapus selesai.
+ * </p>
+ */
 public class KurikulumPunyaMatakuliahPunyaItemHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -64,12 +86,21 @@ public class KurikulumPunyaMatakuliahPunyaItemHelper implements DataLoader {
 	private Tbmuser tbmuser;
 	private String sqltambahan = "false";
 
+	/** Menentukan hak hapus/tambah pengguna saat ini lewat {@link CommonPrivilages} dan menyimpan referensi user login. */
 	public KurikulumPunyaMatakuliahPunyaItemHelper() {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
 		tbmuser = Common.getCurrentUser();
 	}
 
+	/**
+	 * Merender satu baris grid referensi: cover buku, ISBN/ISSN, riwayat revisi item (via
+	 * {@link RevisiHelper}), pengarang, penerbit, info mata kuliah+prasyarat terkait, catatan
+	 * (textbox editable untuk staf, label read-only untuk mahasiswa/siswa), dan tombol aksi
+	 * (Kutipan, Google — hanya tampil bila item punya {@code googleBookId}, Baca — hanya tampil
+	 * bila ada halaman hasil scan tersimpan, Hapus — hanya untuk staf non-mahasiswa dengan hak
+	 * {@link #delete}).
+	 */
 	class DetailKurikulumPunyaMatakuliahRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -232,6 +263,13 @@ public class KurikulumPunyaMatakuliahPunyaItemHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Memuat/menyegarkan grid dengan seluruh {@link KurikulumPunyaMatakuliahPunyaItem} milik
+	 * {@link #kurikulumPunyaMatakuliah} (atau, bila {@code null}, dengan klausa SQL tambahan
+	 * {@link #sqltambahan} sebagai filter — default {@code "false"} yaitu tidak menampilkan apa
+	 * pun). Bila komponen tuan rumah adalah {@link Tabpanel}, label tabnya ikut diperbarui
+	 * dengan jumlah referensi dalam kurung.
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
@@ -253,11 +291,29 @@ public class KurikulumPunyaMatakuliahPunyaItemHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Varian {@link #display(KurikulumPunyaMatakuliah, Component)} yang menyaring data lewat
+	 * klausa SQL tambahan bebas ({@code sqltambahan}) alih-alih relasi
+	 * {@link KurikulumPunyaMatakuliah} langsung — dipakai saat kurikulum-matakuliah belum
+	 * ditentukan tetapi daftar referensi tetap perlu difilter secara kustom.
+	 */
 	public void display(final String sqltambahan, final Component component) {
 		this.sqltambahan = sqltambahan;
 		display(kurikulumPunyaMatakuliah, component);
 	}
 
+	/**
+	 * Membangun tampilan daftar referensi ke dalam {@code component}: bila {@code component}
+	 * berupa {@link Tabpanel}, dibungkus dalam groupbox berjudul "Daftar Referensi
+	 * Perpustakaan" lengkap dengan toolbar "Ambil Referensi" (dari katalog pustaka) dan "Ambil
+	 * Google Book" (dari Google Books) — keduanya hanya tampil untuk staf non-mahasiswa dengan
+	 * hak {@link #add}; selain itu, hanya grid yang dipasang langsung. Kedua alur tambah data
+	 * membuka jendela modal pemilihan lalu menyimpan hasil terpilih sebagai baris
+	 * {@link KurikulumPunyaMatakuliahPunyaItem} baru dan menyegarkan grid.
+	 *
+	 * @param kurikulumPunyaMatakuliah mata kuliah dalam kurikulum yang referensinya ditampilkan
+	 * @param component                kontainer ZK yang akan diisi (isi sebelumnya dibersihkan)
+	 */
 	public void display(final KurikulumPunyaMatakuliah kurikulumPunyaMatakuliah, final Component component) {
 		this.kurikulumPunyaMatakuliah = kurikulumPunyaMatakuliah;
 		Common.clear(component);

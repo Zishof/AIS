@@ -37,6 +37,13 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Composer ZK untuk mengelola anggota matakuliah satu {@link KelompokMatakuliah}: menampilkan grid
+ * {@link KelompokMatakuliahPunyaMatakuliah} (kode/nama/status matakuliah beserta fakultas/jurusannya)
+ * dengan pencarian kode/nama/fakultas/jurusan, tombol "Ambil data Matakuliah" untuk menambah anggota
+ * baru, hapus per baris, dan hapus massal seluruh anggota kelompok (query SQL langsung, hanya tampil
+ * bagi pengguna dengan hak {@link CommonPrivilages#DELETE}).
+ */
 public class KelompokMatakuliahPunyaMatakuliahHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -51,6 +58,7 @@ public class KelompokMatakuliahPunyaMatakuliahHelper implements DataLoader {
 
 	private boolean delete = false;
 
+	/** Menentukan hak hapus dari privilese pengguna saat ini dan menyiapkan komponen paging dengan filter fakultas/jurusan. */
 	public KelompokMatakuliahPunyaMatakuliahHelper() {
 
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
@@ -67,6 +75,7 @@ public class KelompokMatakuliahPunyaMatakuliahHelper implements DataLoader {
 		});
 	}
 
+	/** Row renderer grid anggota kelompok matakuliah: kode/nama/status matakuliah, fakultas/jurusan pemiliknya, dan tombol hapus (bila punya hak). */
 	class DetailKelompokMatakuliahRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -150,6 +159,13 @@ public class KelompokMatakuliahPunyaMatakuliahHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun kriteria Hibernate {@link KelompokMatakuliahPunyaMatakuliah} milik kelompok
+	 * matakuliah saat ini, difilter fakultas/jurusan/kode/nama matakuliah.
+	 *
+	 * @param order bila {@code true}, menambahkan pengurutan kode matakuliah menaik
+	 * @return kriteria siap dieksekusi
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session
@@ -180,6 +196,7 @@ public class KelompokMatakuliahPunyaMatakuliahHelper implements DataLoader {
 		return criteria;
 	}
 
+	/** Memuat ulang halaman anggota kelompok matakuliah saat ini dan me-render ulang grid. Parameter {@code value} tidak dipakai. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		initCriteria(true).list();
@@ -204,6 +221,14 @@ public class KelompokMatakuliahPunyaMatakuliahHelper implements DataLoader {
 		return this;
 	}
 
+	/**
+	 * Membangun UI grid anggota kelompok matakuliah (toolbar cari/ambil-data/hapus-semua, kolom grid)
+	 * di dalam {@code component} untuk kelompok matakuliah yang diberikan dan memuat data awal.
+	 *
+	 * @param kelompokMatakuliah kelompok matakuliah yang anggotanya ditampilkan
+	 * @param component          container ZK yang akan diisi
+	 * @param window             diteruskan ke dialog "Ambil data Matakuliah"
+	 */
 	public void display(final KelompokMatakuliah kelompokMatakuliah,
 			final Component component, final MyWindow window) {
 		this.kelompokMatakuliah = kelompokMatakuliah;

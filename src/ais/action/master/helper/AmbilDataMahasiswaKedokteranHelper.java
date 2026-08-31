@@ -48,6 +48,17 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper jendela modal (modul Kedokteran) untuk mengatur keanggotaan mahasiswa pada satu
+ * sesi kelompok kecil {@link PertemuanHasDosen} (pertemuan dengan dosen fasilitator
+ * tertentu), disimpan sebagai baris {@link PHDHasMahasiswa}. Menampilkan grid mahasiswa
+ * peserta {@link Perkuliahan} terkait dengan checkbox keanggotaan per baris (kolom
+ * tambahan menampilkan dosen fasilitator yang sudah menaungi mahasiswa tersebut pada
+ * pertemuan kedokteran yang sama, bila ada), filter pencarian Nama/Fakultas/Prodi dengan
+ * paging server-side ({@link ais.ui.util.AmbilDataPagingHelper}), checkbox "pilih semua"
+ * pada header, dan tombol Simpan yang menyelaraskan (tambah/hapus) baris
+ * {@code PHDHasMahasiswa} sesuai status checkbox.
+ */
 public class AmbilDataMahasiswaKedokteranHelper {
 	private MyGrid grid;
 
@@ -63,14 +74,30 @@ public class AmbilDataMahasiswaKedokteranHelper {
 
 	// private PertemuanHasDosen pertemuanHasDosen;
 
+	/** Menyiapkan combobox filter Fakultas dan Prodi (dengan opsi "Semua") lewat {@link Common#initFakultasDanJurusanDanSemua}. */
 	public AmbilDataMahasiswaKedokteranHelper() {
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 	}
 
+	/** Perender baris grid mahasiswa: checkbox keanggotaan pada {@link #pertemuanHasDosen}, kolom identitas mahasiswa, dan nama dosen fasilitator yang sudah menaunginya (bila ada) pada pertemuan kedokteran yang sama. */
 	class DosenRenderer extends ais.ui.util.MyRowRenderer {
 		private PertemuanHasDosenDao pertemuanHasDosenDao = DaoFactory.getInstance().getPertemuanHasDosenDao();
 		private Session session = pertemuanHasDosenDao.getCurrentSession();
 
+		/**
+		 * Merender satu baris {@link Mahasiswa}: checkbox yang status awalnya dicentang
+		 * bila mahasiswa sudah terdaftar pada {@link #pertemuanHasDosen} saat ini,
+		 * label NIM/Nama/Jurusan/Fakultas, serta nama dosen fasilitator lain yang sudah
+		 * menaungi mahasiswa tersebut pada pertemuan kedokteran yang sama (bila ada,
+		 * untuk membantu deteksi duplikasi penugasan).
+		 *
+		 * <p>
+		 * Listener {@code onCheck} pada baris ini menambahkan entri
+		 * {@link PHDHasMahasiswa} yang sudah ada ke {@link #deletedMahasiswas} saat
+		 * checkbox DICENTANG, dan menghapusnya dari set tersebut saat checkbox
+		 * DILEPAS — lihat catatan di {@link #save()} tentang bagaimana set ini dipakai.
+		 * </p>
+		 */
 		@Override
 		public void render(Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");
@@ -122,6 +149,23 @@ public class AmbilDataMahasiswaKedokteranHelper {
 		}
 	}
 
+	/**
+	 * Menyimpan hasil pemilihan mahasiswa untuk {@link #pertemuanHasDosen}: untuk setiap
+	 * baris grid, bila checkbox tercentang maka entri {@link PHDHasMahasiswa} disimpan
+	 * (dibuat baru atau diperbarui), bila tidak tercentang entri terkait dihapus.
+	 * Setelahnya, seluruh entri pada {@link #deletedMahasiswas} juga dihapus.
+	 *
+	 * <p>
+	 * <b>Catatan:</b> {@link #deletedMahasiswas} diisi dari listener {@code onCheck}
+	 * pada {@link DosenRenderer} dengan arah yang berlawanan intuisi namanya — entri
+	 * ditambahkan ke set ini saat checkbox DICENTANG oleh pengguna (bukan saat
+	 * dilepas), dan dihapus dari set saat checkbox dilepas. Karena langkah pertama di
+	 * atas sudah menyimpan baris untuk checkbox yang tercentang, penghapusan tambahan
+	 * berdasarkan {@link #deletedMahasiswas} pada method ini dapat berakhir
+	 * menghapus kembali entri yang baru saja disimpan untuk baris yang secara manual
+	 * dicentang pengguna pada sesi tampilan yang sama.
+	 * </p>
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() {
 		PHDHasMahasiswaDao phdHasMahasiswaDao = DaoFactory.getInstance().getPhdHasMahasiswaDao();
@@ -174,6 +218,17 @@ public class AmbilDataMahasiswaKedokteranHelper {
 
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela modal "Data Mahasiswa" untuk mengatur
+	 * keanggotaan mahasiswa pada {@code pertemuanHasDosen}: form filter
+	 * (Nama/Fakultas/Prodi), grid berpaging server-side dengan checkbox "pilih semua",
+	 * dan tombol Simpan/Batal. Jendela dibuat baru dan ditambahkan ke root halaman saat
+	 * ini (bukan mengisi ulang jendela yang sudah ada).
+	 *
+	 * @param pertemuanHasDosen sesi kelompok kecil (pertemuan + dosen fasilitator) yang diatur keanggotaannya
+	 * @param perkuliahan       perkuliahan induk, dipakai untuk membatasi kandidat mahasiswa pada pesertanya
+	 * @param dataLoader        callback pemuatan ulang data pemanggil setelah Simpan
+	 */
 	public void display(PertemuanHasDosen pertemuanHasDosen, Perkuliahan perkuliahan, final DataLoader dataLoader) {
 		this.perkuliahan = perkuliahan;
 		this.pertemuanHasDosen = pertemuanHasDosen;
@@ -353,6 +408,13 @@ public class AmbilDataMahasiswaKedokteranHelper {
 		}
 	}
 
+	/**
+	 * Memuat ulang grid dengan mahasiswa peserta {@link #perkuliahan} (via
+	 * {@link Detailperkuliahan}), menggunakan paging server-side
+	 * ({@link ais.ui.util.AmbilDataPagingHelper}).
+	 *
+	 * @param event tidak digunakan; parameter kontrak listener/pemanggilan langsung
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

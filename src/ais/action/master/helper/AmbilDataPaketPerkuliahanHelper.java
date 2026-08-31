@@ -44,6 +44,33 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Composer ZK untuk dialog "Ambil Paket Perkuliahan" — pengambilan KRS berbasis paket (sekumpulan
+ * matakuliah wajib per semester/kurikulum/angkatan) yang ditampilkan sebagai kartu-kartu visual,
+ * bukan grid baris seperti {@link AmbilDataPerkuliahanHelper}. Untuk kombinasi mahasiswa/semester
+ * yang diberikan, kelas ini mencari satu {@link PaketPerkuliahan} yang cocok (rentang semester,
+ * angkatan, tahun akademik, semester pendek, dan filter fakultas/jurusan/program opsional), lalu
+ * menampilkan seluruh {@link KurikulumPunyaMatakuliah} anggotanya sebagai kartu berwarna berisi kode,
+ * nama, SKS, dan info dosen/jadwal/ruangan (kosong bila jadwal belum tersedia). Total SKS paket dan
+ * jumlah matakuliah ditampilkan pada ringkasan di atas daftar kartu.
+ *
+ * <p>
+ * Tampilan (CSS kartu, gradient header info mahasiswa, badge SKS) di-inject sekali per sesi klien
+ * lewat {@link #injectCardStyles()} (guard {@code id} agar tidak dobel-inject saat dialog dibuka
+ * berulang). Bila konfigurasi
+ * {@code untuk_pengambilan_krs_paket_jika_jadwal_belum_dibuat_otomatis_membuat_jadwal_dengan_waktu_ruang_dosen_yang_kosong}
+ * aktif, {@link #save()} otomatis membuat baris {@link Perkuliahan} kosong (tanpa dosen/ruangan/
+ * jadwal) untuk matakuliah paket yang belum memiliki jadwal sebelum mendaftarkan KRS-nya — lihat
+ * {@link #getSelectedPerkuliahansCekJikaBelumAda()}.
+ * </p>
+ *
+ * <p>
+ * {@link #save()} membuat baris {@link Detailperkuliahan} langsung berstatus DISETUJUI untuk setiap
+ * matakuliah dalam paket (tidak melalui alur persetujuan manual seperti KRS non-paket), dengan
+ * pengecekan kapasitas kelas dan prasyarat matakuliah tetap dijalankan; matakuliah yang kelasnya
+ * penuh dilewati dan dikumpulkan sebagai peringatan di akhir proses.
+ * </p>
+ */
 public class AmbilDataPaketPerkuliahanHelper {
 
     private String tahunAjaran;
@@ -76,6 +103,7 @@ public class AmbilDataPaketPerkuliahanHelper {
         "#EC4899", "#EF4444", "#0EA5E9", "#14B8A6"
     };
 
+    /** @param semesterPendek status semester pendek (SP) yang dilayani helper ini, atau {@code null} untuk KRS reguler */
     public AmbilDataPaketPerkuliahanHelper(Integer semesterPendek) {
         this.semesterPendek = semesterPendek;
     }
@@ -255,6 +283,14 @@ public class AmbilDataPaketPerkuliahanHelper {
 
     // ── Business logic (unchanged) ───────────────────────────────────────────
 
+    /**
+     * Bila konfigurasi
+     * {@code untuk_pengambilan_krs_paket_jika_jadwal_belum_dibuat_otomatis_membuat_jadwal_dengan_waktu_ruang_dosen_yang_kosong}
+     * aktif, membuat baris {@link Perkuliahan} kosong (tanpa dosen/ruangan/jadwal) untuk setiap
+     * matakuliah anggota paket yang belum memiliki jadwal apa pun ({@code mapPerkuliahan} tidak
+     * memuat id-nya), dalam satu transaksi Hibernate lokal. Tidak melakukan apa-apa bila konfigurasi
+     * nonaktif.
+     */
     public void getSelectedPerkuliahansCekJikaBelumAda() {
         if (Common.bolehKonfigurasi("untuk_pengambilan_krs_paket_jika_jadwal_belum_dibuat_otomatis_membuat_jadwal_dengan_waktu_ruang_dosen_yang_kosong", Konfigurasi.TIDAK_AKTIF)) {
 
@@ -308,6 +344,18 @@ public class AmbilDataPaketPerkuliahanHelper {
         }
     }
 
+    /**
+     * Mendaftarkan seluruh matakuliah paket (peta {@code mapPerkuliahan}, diisi saat kartu dibangun)
+     * sebagai baris {@link Detailperkuliahan} langsung berstatus DISETUJUI, setelah lebih dulu
+     * memastikan jadwal kosong dibuat untuk matakuliah yang belum berjadwal
+     * ({@link #getSelectedPerkuliahansCekJikaBelumAda()}). Matakuliah yang tidak lolos prasyarat
+     * dilewati diam-diam; matakuliah yang kelasnya sudah penuh dilewati dan pesannya dikumpulkan lalu
+     * ditampilkan sebagai satu dialog peringatan di akhir.
+     *
+     * @return selalu {@code true} setelah seluruh matakuliah diproses (kegagalan per-matakuliah tidak
+     *         menggagalkan keseluruhan proses)
+     * @throws Exception diteruskan dari kegagalan yang tidak tertangani secara lokal
+     */
     @SuppressWarnings({})
     public boolean save() throws Exception {
         Tbmuser tbmuser = Common.getCurrentUser();
@@ -391,6 +439,17 @@ public class AmbilDataPaketPerkuliahanHelper {
 
     // ── display() ────────────────────────────────────────────────────────────
 
+    /**
+     * Membangun window modal "Ambil Paket Perkuliahan" (header info mahasiswa, ringkasan paket,
+     * area kartu matakuliah yang dapat di-scroll, footer tombol Batal/Ambil Paket) dan memuat paket
+     * yang cocok untuk semester berjalan.
+     *
+     * @param mahasiswa    mahasiswa yang mengambil KRS
+     * @param tahunAjaran  tahun ajaran KRS
+     * @param semester     nomor semester KRS
+     * @param dataLoader   callback yang dipanggil ulang setelah "Ambil Paket" berhasil disimpan
+     * @throws Exception diteruskan dari kegagalan inisialisasi filter kombo atau pencarian awal
+     */
     public void display(final Mahasiswa mahasiswa, final String tahunAjaran, final Integer semester,
             final DataLoader dataLoader) throws Exception {
         this.mahasiswa = mahasiswa;
@@ -593,6 +652,17 @@ public class AmbilDataPaketPerkuliahanHelper {
 
     // ── onSearchDefault ──────────────────────────────────────────────────────
 
+    /**
+     * Mencari {@link PaketPerkuliahan} yang cocok untuk semester terpilih pada kombo filter (rentang
+     * semester paket, angkatan mahasiswa, tahun akademik, semester pendek, dan filter fakultas/
+     * jurusan/program bila diisi), lalu membangun ulang kartu-kartu matakuliah anggotanya beserta
+     * ringkasan total SKS. Menampilkan state kosong ({@link #buildEmptyState}) bila tidak ada paket
+     * yang cocok atau paket tidak memiliki matakuliah pada semester tersebut, dan menonaktifkan tombol
+     * "Ambil Paket" pada kedua kondisi tersebut.
+     *
+     * @param event event pemicu pencarian (tidak dipakai isinya)
+     * @throws Exception diteruskan dari kegagalan Hibernate saat memuat paket/matakuliah
+     */
     @SuppressWarnings("unchecked")
     public void onSearchDefault(Event event) throws Exception {
         Program program = (Program) (programCombobox.getSelectedItem() == null ? null

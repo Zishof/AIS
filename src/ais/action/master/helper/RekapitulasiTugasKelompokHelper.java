@@ -60,12 +60,42 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.SmartDateTimeUtil;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper composer ZK yang menampilkan rekapitulasi/timeline {@link TugasKelompok} (tugas
+ * kelompok) milik satu user ({@link Tbmuser}), dengan pola sumber-pertemuan yang sama dengan
+ * {@link RekapitulasiPertemuanHelper} (berdasarkan {@code perkuliahan} yang diberikan, atau peran
+ * user sebagai mahasiswa/dosen/guru/siswa/admin sekolah).
+ *
+ * <p>
+ * Berbeda dari {@link RekapitulasiPertemuanHelper}, kelas ini menambahkan: (1) kotak pencarian teks
+ * bebas ({@code cari}, mencocokkan keterangan/judul/nama tugas, ILIKE anywhere) dan (2) paging
+ * server-side manual dengan logika "lompat ke halaman yang berisi tugas dengan tanggal terdekat hari
+ * ini" (dihitung dari query COUNT terpisah lalu dijepit/clamp ke rentang halaman valid — lihat
+ * komentar kode pada method {@code reload} terkait perbaikan {@code WrongValueException}). Setiap
+ * baris ditampilkan sebagai groupbox berjudul (judul tugas) yang saat diklik membuka
+ * {@link PertemuanHelper} untuk pertemuan terkait; tautan tanggal pertemuan juga membuka helper yang
+ * sama. Tombol "buat baru" didelegasikan ke {@link RekapitulasiUjianHelper#buatbaru}.
+ * </p>
+ */
 public class RekapitulasiTugasKelompokHelper {
 
+	/** Seperti {@link #display(Component, Tbmuser, VOPembelajaran)} dengan {@code perkuliahan=null} (memakai sumber pertemuan berbasis user). */
 	public static void display(Component parent, final Tbmuser tbmuser) {
 		display(parent, tbmuser, null);
 	}
 
+	/**
+	 * Membangun UI rekap tugas kelompok (kotak cari + filter tanggal + tombol buat baru/refresh +
+	 * grid berpaging) di dalam {@code parent}, lalu memuat data awal lewat {@link #reload}. Rentang
+	 * tanggal default diambil dari {@link RencanaTahunAkademik} yang sedang berlaku (±1 bulan), dan
+	 * grid disegarkan otomatis lewat timer berkala.
+	 *
+	 * @param parent      komponen induk ZK tempat UI dibangun
+	 * @param tbmuser     user yang rekap tugas kelompoknya ditampilkan
+	 * @param perkuliahan bila diberikan, rekap dibatasi hanya pada tugas milik objek pembelajaran
+	 *                    ini ({@link Perkuliahan} atau {@link JadwalPelajaran}); bila {@code null},
+	 *                    sumber pertemuan ditentukan dari peran {@code tbmuser}
+	 */
 	public static void display(Component parent, final Tbmuser tbmuser, final VOPembelajaran perkuliahan) {
 
 		Borderlayout subBorderlayoutUtama = new Borderlayout();
@@ -152,6 +182,23 @@ public class RekapitulasiTugasKelompokHelper {
 		sampai.addEventListener("onChange", eventListener);
 	}
 
+	/**
+	 * Menentukan daftar id {@link Pertemuan} yang relevan (sama seperti
+	 * {@link RekapitulasiPertemuanHelper}, lihat javadoc kelas), membangun grid + komponen
+	 * {@link Paging} baru di dalam {@code center}, lalu mendelegasikan pemuatan data halaman
+	 * pertama ke {@link #reload(List, Paging, MyGrid, Mahasiswa, boolean, Date, Date, String, VOPembelajaran)}.
+	 *
+	 * @param tbmuser     user pemilik rekap
+	 * @param center      panel tempat grid dibangun ulang; isinya dibersihkan lebih dulu
+	 * @param mulai       batas awal filter tanggal
+	 * @param sampai      batas akhir filter tanggal
+	 * @param cari        kata kunci pencarian bebas (keterangan/judul/nama tugas)
+	 * @param refreh      bila {@code true}, sinkronkan ulang cache pertemuan mahasiswa/dosen lewat
+	 *                    {@code reInitPertemuan} sebelum memuat data
+	 * @param awal        diteruskan sebagai parameter {@code awal} ke overload
+	 *                    {@code reload} berikutnya (memicu lompat-ke-halaman-terdekat-hari-ini)
+	 * @param perkuliahan bila diberikan, batasi tugas hanya milik objek ini
+	 */
 	@SuppressWarnings("unchecked")
 	private static void reload(final Tbmuser tbmuser, final Center center, final Date mulai, final Date sampai,
 			final String cari, boolean refreh, boolean awal, final VOPembelajaran perkuliahan) {
@@ -329,6 +376,33 @@ public class RekapitulasiTugasKelompokHelper {
 
 	}
 
+	/**
+	 * Memuat satu halaman {@link TugasKelompok} ke {@code grid} sesuai kriteria (id pertemuan yang
+	 * relevan, kata kunci {@code cari}, rentang tanggal {@code mulai}/{@code sampai} bila
+	 * {@code perkuliahan} tidak diberikan), dan memperbarui total halaman pada {@code paging}.
+	 *
+	 * <p>
+	 * Bila {@code awal=true}, method ini juga menghitung lewat query {@code COUNT} terpisah berapa
+	 * banyak tugas yang tanggal mulainya sudah lewat ({@code date(mulai) < CURRENT_DATE}), lalu
+	 * menjepit hasil bagi jumlah tersebut dengan {@link Common#ROWS_COUNT_ON_PAGE} ke rentang
+	 * halaman valid ({@code [0, pageCount-1]}) sebagai halaman aktif — efeknya, tampilan otomatis
+	 * "melompat" ke halaman yang memuat tugas-tugas terkini/mendatang alih-alih selalu memulai dari
+	 * halaman pertama.
+	 * </p>
+	 *
+	 * @param pertemuans  daftar id pertemuan yang membatasi tugas yang ditampilkan (diabaikan bila
+	 *                    user admin dan {@code perkuliahan} null)
+	 * @param paging      komponen paging yang total ukurannya diperbarui dan (bila {@code awal})
+	 *                    halaman aktifnya disesuaikan
+	 * @param grid        grid tujuan data dimuat
+	 * @param mahasiswa   diteruskan ke {@link DetailPertemuanRenderer} secara tidak langsung lewat
+	 *                    closure event refresh; tidak dipakai langsung untuk query
+	 * @param awal        bila {@code true}, hitung dan set halaman aktif otomatis (lihat di atas)
+	 * @param mulai       batas awal filter tanggal (diabaikan bila {@code perkuliahan} diberikan)
+	 * @param sampai      batas akhir filter tanggal (diabaikan bila {@code perkuliahan} diberikan)
+	 * @param cari        kata kunci pencarian bebas (keterangan/judul/nama tugas)
+	 * @param perkuliahan bila diberikan, batasi tugas hanya milik objek ini
+	 */
 	@SuppressWarnings("unchecked")
 	private static void reload(final List<Long> pertemuans, final Paging paging, final MyGrid grid,
 			final Mahasiswa mahasiswa, boolean awal, final Date mulai, final Date sampai, final String cari,
@@ -443,11 +517,19 @@ public class RekapitulasiTugasKelompokHelper {
 
 	}
 
+	/**
+	 * Perender baris grid untuk satu {@link TugasKelompok}: tautan berjudul (judul tugas, atau
+	 * disembunyikan sepenuhnya bila tugas tidak punya judul) yang membuka {@link PertemuanHelper}
+	 * untuk pertemuan terkait, indikator "dilihat" ({@link TampilanELearningAction#dilihat}), dan
+	 * tautan info pertemuan (nomor pertemuan, tanggal mulai/selesai, topik) yang juga membuka
+	 * {@link PertemuanHelper}. Baris disembunyikan bila tugas tidak punya pertemuan terkait.
+	 */
 	public static class DetailPertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
 		private EventListener eventListener;
 		private Tbmuser tbmuser = Common.getCurrentUser();
 
+		/** @param eventListener callback yang dipanggil untuk memuat ulang grid setelah window {@link PertemuanHelper} ditutup */
 		public DetailPertemuanRenderer(EventListener eventListener) {
 
 			this.eventListener = eventListener;

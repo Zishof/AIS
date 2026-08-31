@@ -57,16 +57,58 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper tampilan "Detail Bimbingan Akademik" untuk satu {@link KrsMahasiswa} (relasi
+ * mahasiswa-semester-dosen PA), dirender sebagai jendela bertab ({@link Tabbox}) berisi:
+ * <ol>
+ * <li><b>"Agenda Bimbingan Akademik"</b> — timeline {@link Pertemuan} konsultasi dengan
+ * dosen PA (dibangun eager, tab pertama), lengkap dengan toolbar aksi
+ * ({@link #initAgendaKrsMahasiswa}), video conference, absensi, dan diskusi/komentar
+ * per pertemuan;</li>
+ * <li><b>"Rencana Studi"</b> — KRS mahasiswa, dirender lazy saat tab diklik lewat
+ * {@link KrsHelper} (bila pengguna adalah mahasiswa sendiri) atau
+ * {@link StudiMahasiswaHelper} (bila pengguna staf/admin, dengan hak hapus nilai
+ * langsung dikontrol lewat kombinasi konfigurasi dan role admin);</li>
+ * <li><b>"Cetak Agenda Konsultasi"</b> dan <b>"Cetak Transkrip"</b> — laporan PDF,
+ * dirender lazy lewat {@link #initCetak}.</li>
+ * </ol>
+ *
+ * <p>
+ * Karena ZK 5.5 tidak selalu memicu {@code onClick} tab saat berpindah tab (hanya
+ * {@code onSelect} pada {@link Tabbox}), sebuah listener {@code ON_SELECT} di
+ * {@link #initCetak} secara manual meneruskan event {@code onClick} ke tab yang baru
+ * dipilih (kecuali tab pertama yang sudah dibangun eager) agar konten lazy tetap
+ * termuat. Isi tab "Agenda Bimbingan Akademik" dibungkus try/catch tersendiri agar satu
+ * kegagalan (mis. data pertemuan korup) tidak menggagalkan pembangunan tab-tab
+ * lainnya — begitu pula setiap {@link Pertemuan} individual dalam timeline dilindungi
+ * try/catch per-item agar satu pertemuan bermasalah tidak menyembunyikan pertemuan lain.
+ * </p>
+ */
 public class AktifitasKrsMahasiswaHelper {
 
+	/** Helper penjadwalan konsultasi PA, dipakai tombol "Agenda Konsultasi dengan Dosen PA" pada toolbar. */
 	protected PenjadwalanKrsMahasiswaHelper penjadwalanHelper = new PenjadwalanKrsMahasiswaHelper();
 
+	/** Data mahasiswa milik pengguna yang sedang login (bila pengguna adalah mahasiswa), dipakai untuk kontrol tampilan/akses pada beberapa bagian timeline. */
 	private Mahasiswa userMahasiswa = null;
 
+	/** Membuat helper dan mengambil data mahasiswa pengguna yang sedang login (bila ada) ke {@link #userMahasiswa}. */
 	public AktifitasKrsMahasiswaHelper() {
 		userMahasiswa = Common.getCurrentUser().getMahasiswa();
 	}
 
+	/**
+	 * Membangun toolbar aksi untuk satu {@code krsMahasiswa}: "Agenda Konsultasi dengan
+	 * Dosen PA" (buka {@link PenjadwalanKrsMahasiswaHelper}), "Absensi" (cetak laporan
+	 * absensi via {@link CommonReportHelper#onLaporanAbsensi}), kalender
+	 * ({@link AktifitasPerkuliahanHelper#tampilCalender}), kelas virtual
+	 * ({@link ClassRoomUtil#createButton}), recovery pertemuan
+	 * ({@link RecoveryPertemuanHelper#button}), dan "Refresh".
+	 *
+	 * @param krsMahasiswa relasi KRS mahasiswa-semester-dosen PA terkait
+	 * @param dataLoader   callback pemuatan ulang data setelah aksi toolbar dijalankan
+	 * @return toolbar berisi tombol-tombol aksi
+	 */
 	public Toolbar initAgendaKrsMahasiswa(final KrsMahasiswa krsMahasiswa, final DataLoader dataLoader) {
 
 		Toolbar hbox = new Toolbar();
@@ -122,12 +164,28 @@ public class AktifitasKrsMahasiswaHelper {
 		return hbox;
 	}
 
+	/** Ditandai {@code true} oleh tombol Refresh/Recovery pada toolbar agar {@link #initDetail} memaksa muat ulang cache pertemuan sekali pada pembangunan berikutnya. */
 	private boolean refreshData = false;
 
+	/** Seperti {@link #initDetail(KrsMahasiswa, DataLoader, Div)} dengan {@code dataLoader} default yang memuat ulang dirinya sendiri. */
 	public void initDetail(KrsMahasiswa krsMahasiswa, final Div groupbox) throws Exception {
 		initDetail(krsMahasiswa, null, groupbox);
 	}
 
+	/**
+	 * Membangun tampilan bertab lengkap untuk {@code krsMahasiswa} ke dalam
+	 * {@code groupbox}: tab "Agenda Bimbingan Akademik" (timeline pertemuan, dibangun
+	 * eager), "Rencana Studi", "Cetak Agenda Konsultasi", dan "Cetak Transkrip"
+	 * (ketiganya dimuat lazy saat tab dipilih). Setelah seluruh tab terpasang,
+	 * {@link ais.ui.util.MyButtonTabbox#gantiTabboxNative} mengganti {@link Tabbox}
+	 * native dengan varian berbasis tombol (workaround ZK 5) dan langsung memilih tab
+	 * pertama.
+	 *
+	 * @param krsMahasiswa relasi KRS mahasiswa-semester-dosen PA yang ditampilkan
+	 * @param mydataLoader callback pemuatan ulang; bila {@code null}, dibuat default yang memanggil ulang {@link #initDetail(KrsMahasiswa, Div)}
+	 * @param groupbox     kontainer ZK yang akan diisi ulang (dibersihkan lebih dulu)
+	 * @throws Exception diteruskan dari operasi tampilan/akses Hibernate di luar blok try/catch internal tab agenda
+	 */
 	public void initDetail(final KrsMahasiswa krsMahasiswa, final DataLoader mydataLoader, final Div groupbox)
 			throws Exception {
 
@@ -416,8 +474,24 @@ public class AktifitasKrsMahasiswaHelper {
 
 	}
 
+	/** Toolbar ekspor pada tab "Cetak Agenda Konsultasi", dibuat oleh {@link CommonReport#exportReport}. */
 	private Toolbar toolbar;
 
+	/**
+	 * Menambahkan dua tab lazy ke {@code tabbox}: "Cetak Agenda Konsultasi" (laporan PDF
+	 * {@code lembar_konsultasi}, dibangun ulang setiap tab diklik lewat
+	 * {@link Report#generateFileReport}/{@link CommonReport#tampilkanReportPDF}) dan
+	 * "Cetak Transkrip" ({@link LaporanTranskipAkademik}, hanya dibangun sekali —
+	 * idempoten terhadap klik berulang — dan diblokir bila pengguna mahasiswa tidak
+	 * berhak melihat nilai semester tersebut lewat
+	 * {@link PenilaianMahasiswaHelper#checkBolehLihatNilai}). Juga memasang listener
+	 * {@code ON_SELECT} pada {@code tabbox} yang meneruskan event {@code onClick} ke tab
+	 * yang baru dipilih (kecuali tab pertama), sebagai workaround ZK 5.5 agar konten
+	 * lazy tab-tab ini benar-benar termuat saat berpindah tab.
+	 *
+	 * @param tabbox       tabbox induk (biasanya dari {@link #initDetail}) tempat tab baru ditambahkan
+	 * @param krsMahasiswa relasi KRS mahasiswa-semester-dosen PA yang datanya dilaporkan
+	 */
 	public void initCetak(final Tabbox tabbox, final KrsMahasiswa krsMahasiswa) {
 		final MyTabConfig tabMonitor = new MyTabConfig("Cetak Agenda Konsultasi");
 		tabMonitor.setParent(tabbox.getTabs());

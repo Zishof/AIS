@@ -52,6 +52,23 @@ import ais.ui.util.MyLabelAgakKecilBold;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Composer ZK untuk mengelola anggota satu kelompok tugas ({@link NamaTugasKelompok}): menampilkan
+ * grid mahasiswa/siswa anggota beserta keterangan dan nilai (per format nilai OBE bila kurikulum
+ * matakuliah terkait memakai OBE, atau nilai tunggal biasa bila tidak), menyediakan tombol "Ambil
+ * Anggota Kelompok" untuk menambah anggota dari peserta jadwal pelajaran/perkuliahan/kelompok KKN/
+ * kelompok PKL yang belum dikecualikan ({@code mhsYgTidakIkut}), dan tombol hapus per anggota.
+ *
+ * <p>
+ * Perilaku tampilan/edit berbeda tergantung siapa yang login: operator (baik {@code mahasiswa} maupun
+ * {@code biodataCalonMahasiswa} milik pemanggil bernilai {@code null}) dapat mengedit keterangan dan
+ * nilai langsung di grid (disimpan per-perubahan via listener {@code onChange}, dengan indikator
+ * "tersimpan" sekejap); mahasiswa yang login hanya melihat baris miliknya sendiri (baris lain
+ * disamarkan sebagai "-") dalam mode baca saja. Nilai OBE disimpan sebagai JSON per-kunci
+ * ({@code <id>_mhs|siswa_nilai_<idFormatNilai>}) pada kolom {@code keteranganNilai} milik
+ * {@link Tugas}, bukan pada kolom nilai tunggal {@link NamaTugasKelompokPunyaMahasiswa#getNilai()}.
+ * </p>
+ */
 public class NamaTugasKelompokPunyaMahasiswaHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -60,11 +77,18 @@ public class NamaTugasKelompokPunyaMahasiswaHelper implements DataLoader {
 	private BiodataCalonMahasiswa biodataCalonMahasiswa;
 	private JSONObject jsonObjectTugas;
 
+	/**
+	 * @param mahasiswa               bila diisi, membatasi tampilan grid hanya ke baris milik
+	 *                                mahasiswa ini (mode baca saja untuk mahasiswa yang login)
+	 * @param biodataCalonMahasiswa   dipakai bersama {@code mahasiswa} untuk menentukan mode
+	 *                                edit-operator vs baca-saja-mahasiswa
+	 */
 	public NamaTugasKelompokPunyaMahasiswaHelper(Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa) {
 		this.mahasiswa = mahasiswa;
 		this.biodataCalonMahasiswa = biodataCalonMahasiswa;
 	}
 
+	/** Row renderer grid anggota kelompok tugas: foto+identitas anggota, keterangan (editable untuk operator), nilai per format-nilai OBE atau nilai tunggal, dan tombol hapus. */
 	class DetailNamaTugasKelompokRenderer extends ais.ui.util.MyRowRenderer {
 
 		private List<FormatNilai> obeFormatNilais;
@@ -316,6 +340,12 @@ public class NamaTugasKelompokPunyaMahasiswaHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Memuat ulang daftar anggota {@link NamaTugasKelompok} saat ini (mengecualikan mahasiswa yang
+	 * ada di {@code mhsYgTidakIkut}), menyiapkan daftar format nilai OBE bila kurikulum matakuliah
+	 * terkait memakai OBE, dan mem-parsing JSON {@code keteranganNilai} milik {@link Tugas} untuk
+	 * dipakai render nilai per anggota. Parameter {@code value} tidak dipakai.
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = null;
@@ -383,6 +413,17 @@ public class NamaTugasKelompokPunyaMahasiswaHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Membangun UI pengelolaan anggota kelompok tugas (judul, tombol "Ambil Anggota Kelompok", grid
+	 * dengan kolom nilai dinamis mengikuti format nilai OBE bila berlaku) di dalam {@code component}
+	 * dan memuat data awal. Sumber calon anggota untuk tombol "Ambil Anggota Kelompok" tergantung jenis
+	 * tugas: peserta jadwal pelajaran (siswa), peserta perkuliahan, anggota kelompok KKN diterima, atau
+	 * anggota kelompok PKL diterima — sesuai relasi yang dimiliki {@link TugasKelompok} terkait.
+	 *
+	 * @param namaTugasKelompok  kelompok tugas yang anggotanya dikelola
+	 * @param component          container ZK yang akan diisi
+	 * @throws Exception diteruskan dari kegagalan Hibernate saat memuat format nilai OBE
+	 */
 	public void display(final NamaTugasKelompok namaTugasKelompok, final Component component) throws Exception {
 		this.namaTugasKelompok = namaTugasKelompok;
 		Common.clear(component);

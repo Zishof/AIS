@@ -46,6 +46,28 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper tampilan & pengelolaan daftar mahasiswa penghuni satu {@link Asrama} (asrama
+ * mahasiswa). Menyediakan pencarian (NIM, nama, angkatan, fakultas, jurusan) di atas grid
+ * paging server-side ({@link Paging} + {@link DataCriteria}), penambahan penghuni lewat
+ * pencarian mahasiswa ({@code AmbilDataMahasiswaForAsramaHelper}), penghapusan per baris atau
+ * pembersihan massal ("Bersihkan"), riwayat revisi per baris, dan cetak laporan.
+ *
+ * <p>
+ * Fitur khas kelas ini adalah <b>auto-sinkronisasi keanggotaan</b> lewat {@link #syncAsrama}:
+ * bila {@code asrama} dikonfigurasi dengan kriteria otomatis (jurusan dan/atau tahun angkatan
+ * tertentu), setiap kali data dimuat ({@link #loadData}), sistem mengecek apakah anggota asrama
+ * saat ini sudah cocok dengan kriteria tersebut — bila tidak (jumlah baris berbeda), seluruh
+ * relasi lama dihapus dan digantikan dengan mahasiswa yang benar-benar memenuhi kriteria
+ * jurusan/angkatan itu (replace-all otomatis, bukan penambahan/pengurangan selektif).
+ * </p>
+ *
+ * <p>
+ * Mengimplementasikan {@link DataLoader} (untuk callback penyegaran setelah tambah data) dan
+ * {@link DataCriteria} (agar kriteria pencarian dapat dipakai bersama oleh mekanisme paging dan
+ * cetak laporan {@link Common#cetakData}).
+ * </p>
+ */
 public class AsramaPunyaMahasiswaHelper implements DataLoader, DataCriteria {
 
 	private MyGrid grid;
@@ -59,9 +81,10 @@ public class AsramaPunyaMahasiswaHelper implements DataLoader, DataCriteria {
 
 	private Paging paging;
 
+	/** Menyiapkan combobox filter fakultas/jurusan dan komponen paging (memuat ulang grid saat halaman berpindah). */
 	public AsramaPunyaMahasiswaHelper() {
 
-		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan); 
+		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 
 		paging = new Paging();
 		Common.initPaging(paging, new EventListener() {
@@ -73,10 +96,12 @@ public class AsramaPunyaMahasiswaHelper implements DataLoader, DataCriteria {
 		});
 	}
 
+	/** Merender satu baris grid: riwayat revisi, identitas mahasiswa (nama, angkatan, status, fakultas, jurusan, program), pencatat perubahan, dan tombol hapus (hanya bila pengguna punya hak {@link CommonPrivilages#DELETE}). */
 	class DetailAsramaRenderer extends ais.ui.util.MyRowRenderer {
 
 		private boolean delete = false;
 
+		/** Menentukan hak hapus pengguna saat ini. */
 		public DetailAsramaRenderer() {
 			delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 		}
@@ -148,6 +173,15 @@ public class AsramaPunyaMahasiswaHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/**
+	 * Membangun {@link Criteria} pencarian {@link AsramaPunyaMahasiswa} untuk {@link #asrama}
+	 * saat ini, disaring berdasarkan jurusan/fakultas terpilih, angkatan, NIM (contains), dan
+	 * nama (contains). Implementasi {@link DataCriteria}, dipakai bersama oleh
+	 * {@link #loadData}, mekanisme paging server-side, dan cetak laporan.
+	 *
+	 * @param order bila {@code true}, tambahkan pengurutan berdasarkan NIM menaik
+	 * @return criteria siap dieksekusi (belum dipanggil {@code list()})
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(AsramaPunyaMahasiswa.class);
@@ -175,6 +209,25 @@ public class AsramaPunyaMahasiswaHelper implements DataLoader, DataCriteria {
 		return criteria;
 	}
 
+	/**
+	 * Menyinkronkan keanggotaan {@code asrama} dengan kriteria otomatisnya (jurusan dan/atau
+	 * tahun angkatan yang dikonfigurasi pada entitas {@link Asrama} itu sendiri). Tidak
+	 * melakukan apa pun bila {@code asrama} tidak memiliki kriteria jurusan maupun tahun
+	 * angkatan. Bila ada kriteria: membandingkan jumlah anggota yang memenuhi kriteria
+	 * ({@code countA}) dengan jumlah anggota asrama saat ini ({@code countB}); bila berbeda,
+	 * seluruh baris {@link AsramaPunyaMahasiswa} lama untuk asrama ini dihapus lewat SQL native
+	 * dan digantikan dengan baris baru untuk setiap mahasiswa yang memenuhi kriteria (dicatat
+	 * dengan {@code oleh}/{@code tbmuser} pengguna saat ini dan {@code diubahDari} =
+	 * {@code MahasiswaAction}). Ini adalah replace-all otomatis, bukan diff incremental — bila
+	 * dipanggil berulang tanpa perubahan data, tidak ada operasi tambahan (karena
+	 * {@code countA == countB}).
+	 *
+	 * @param asrama  asrama yang keanggotaannya disinkronkan
+	 * @param session sesi Hibernate yang dipakai untuk seluruh query/operasi
+	 * @param commit  bila {@code true}, method membuka & meng-commit transaksinya sendiri;
+	 *                bila {@code false}, pemanggil bertanggung jawab atas transaksi
+	 * @param tbmuser pengguna yang tercatat sebagai pelaku perubahan pada baris baru
+	 */
 	@SuppressWarnings("unchecked")
 	public static void syncAsrama(Asrama asrama, Session session, boolean commit, Tbmuser tbmuser) {
 		if (asrama.getJurusan() != null || asrama.getTahunAngkatan() != null) {
@@ -222,6 +275,12 @@ public class AsramaPunyaMahasiswaHelper implements DataLoader, DataCriteria {
 		}
 	}
 
+	/**
+	 * Menyegarkan grid: dijalankan asinkron lewat {@link Common#createDefaultTimer(EventListener)}
+	 * agar UI tidak terkunci. Menjalankan {@link #syncAsrama} lebih dulu (auto-sinkronisasi bila
+	 * asrama punya kriteria otomatis), lalu memuat halaman data sesuai {@link #initCriteria} dan
+	 * posisi {@link #paging} saat ini.
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -246,10 +305,23 @@ public class AsramaPunyaMahasiswaHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/** @return {@code this} sebagai {@link DataLoader}, diteruskan ke helper pencarian mahasiswa agar dapat memicu {@link #loadData(Object)} setelah data ditambahkan. */
 	private DataLoader getDataloader() {
 		return this;
 	}
 
+	/**
+	 * Membangun panel lengkap daftar penghuni {@code asrama} ke dalam {@code component}: toolbar
+	 * pencarian, tombol Cari/Ambil Mahasiswa/Bersihkan/Cetak, dan grid paging. Bila
+	 * {@code asrama} sudah punya kriteria otomatis (jurusan/tahun angkatan), filter jurusan/
+	 * fakultas/angkatan pada form dikunci sesuai kriteria tersebut (tidak dapat diubah manual).
+	 * Tombol "Bersihkan" menghapus SELURUH baris keanggotaan asrama ini tanpa terkecuali
+	 * (berbeda dari hapus per baris).
+	 *
+	 * @param asrama    asrama yang penghuninya akan ditampilkan/dikelola
+	 * @param component kontainer ZK yang akan diisi (isi sebelumnya dibersihkan)
+	 * @param window    jendela induk, diteruskan ke helper pencarian mahasiswa
+	 */
 	public void display(final Asrama asrama, final Component component, final MyWindow window) {
 		this.asrama = asrama;
 		Common.clear(component);

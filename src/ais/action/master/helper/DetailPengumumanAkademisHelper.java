@@ -39,6 +39,23 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK untuk dua bagian tampilan detail satu {@link PengumumanAkademis} (pengumuman akademik):
+ * panel komentar/diskusi ({@link #displayDetailPengumuman}, didelegasikan ke
+ * {@link DiskusiPengumumanAkademisHelper}) dan panel lampiran/galeri
+ * ({@link #displayAttachment}, mengelola berkas {@link LampiranPengumumanAkademis} yang menyertai
+ * pengumuman). Kedua bagian biasanya dipasang sebagai tab terpisah pada layar detail pengumuman.
+ *
+ * <p>
+ * Panel lampiran mendukung unggah gambar/berkas baru (disimpan sebagai BLOB lewat
+ * {@code Common#getBlobFromMedia}), menampilkan satu lampiran langsung bila hanya ada satu, atau
+ * dalam tab-tab terpisah (mode akordeon di tampilan mobile) bila lebih dari satu — setiap tab
+ * dimuat lazy saat pertama kali dipilih. Setiap lampiran dapat ditandai
+ * "Ditampilkan"/disembunyikan (ditulis langsung lewat SQL native untuk menghindari overhead reload
+ * entitas penuh), diunduh, atau dihapus (kontrol hapus/unggah disembunyikan bila
+ * {@link #readonly} diset {@code true}).
+ * </p>
+ */
 public class DetailPengumumanAkademisHelper {
 
 	private PengumumanAkademis pengumumanAkademis;
@@ -46,6 +63,13 @@ public class DetailPengumumanAkademisHelper {
 	private Boolean readonly = false;
 	private Component center;
 
+	/**
+	 * Menampilkan panel komentar/diskusi pengumuman, dengan tombol Refresh yang menandai cache
+	 * diskusi pengumuman kotor ({@code pengumumanAkademis.belum("diskusi")}) sebelum memuat ulang.
+	 *
+	 * @param pengumumanAkademis pengumuman yang komentarnya akan ditampilkan
+	 * @param component          komponen ZK induk tempat panel dirender (dibersihkan lebih dulu)
+	 */
 	public void displayDetailPengumuman(final PengumumanAkademis pengumumanAkademis, final Component component) {
 
 		Vbox vbox3 = new Vbox();
@@ -80,6 +104,17 @@ public class DetailPengumumanAkademisHelper {
 
 	}
 
+	/**
+	 * Menampilkan panel lampiran/galeri pengumuman: toolbar unggah (disembunyikan bila
+	 * {@link #readonly}) dan daftar lampiran yang dimuat lewat {@link #loadDataAttachment()}.
+	 * Sengaja memakai {@link Vbox} sederhana (bukan {@link Borderlayout}) karena Borderlayout ZK
+	 * tidak ter-render benar bila dibangun secara dinamis setelah halaman tampil dan ditempel ke
+	 * tab panel — region-nya kolaps ke tinggi 0 sehingga tab tampak kosong.
+	 *
+	 * @param pengumumanAkademis pengumuman yang lampirannya akan dikelola
+	 * @param component          komponen ZK induk tempat panel dirender
+	 * @param window             jendela induk (tidak dipakai langsung, dipertahankan untuk konteks pemanggil)
+	 */
 	public void displayAttachment(final PengumumanAkademis pengumumanAkademis, final Component component,
 			final MyWindow window) {
 		this.pengumumanAkademis = pengumumanAkademis;
@@ -132,6 +167,11 @@ public class DetailPengumumanAkademisHelper {
 
 	}
 
+	/**
+	 * Memuat ulang tampilan lampiran {@link #pengumumanAkademis}: pesan petunjuk bila belum ada
+	 * lampiran, langsung ditampilkan bila hanya satu, atau sebagai tab-tab (dimuat lazy per tab)
+	 * bila lebih dari satu.
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadDataAttachment() {
 		Common.clear(center);

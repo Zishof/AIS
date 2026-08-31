@@ -58,12 +58,34 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper composer ZK untuk halaman detail aktivitas bimbingan tugas akhir/skripsi
+ * ({@link MahasiswaRequestTugasAkhir}) — analog {@code AktifitasPerkuliahanHelper} tapi untuk
+ * konteks tugas akhir. Membangun UI bertab ({@code MyButtonTabbox}) berisi: (1) tab "Agenda
+ * Bimbingan" — daftar {@link Pertemuan} bimbingan berpaging (1 pertemuan per halaman, otomatis
+ * diposisikan ke pertemuan terakhir yang tanggalnya sudah lewat) lengkap dengan absensi, video
+ * konferensi, unggah catatan/scan, dan (bila diaktifkan) diskusi komentar per pertemuan; (2) tab
+ * "Referensi" (buku, bahan ajar, artikel) dimuat lazy; (3) untuk status aktif/seminar/mengulang/
+ * lulus: tab "Penilaian", tab "Laporan" (cetak lembar konsultasi bimbingan PDF), dan — bila format
+ * nilai proposal mensyaratkan sidang — tab "Sidang" untuk mengajukan/mengelola {@link Skripsi}.
+ *
+ * <p>
+ * {@link #initDetail} memiliki efek samping penting: bila mahasiswa belum punya satu pun
+ * {@link Pertemuan} bimbingan padahal tanggal awal bimbingan sudah diset, satu pertemuan awal
+ * otomatis dibuat (topik "Seminar skripsi atau tugas akhir dengan judul ..."); dan bila format
+ * nilai proposal punya {@link TemplateFormatBimbingan} yang belum punya pertemuan padanan, setiap
+ * template yang hilang otomatis dibuatkan pertemuan baru (tanggal dihitung dari
+ * {@code setelahHari} template terhadap pertemuan pertama). Setelah pertemuan-pertemuan itu
+ * dibuat, seluruh tampilan dimuat ulang lewat timer default agar data konsisten.
+ * </p>
+ */
 public class AktifitasTugasAkhirHelper {
 
 	protected PenjadwalanTugasAkhirHelper penjadwalanHelper = new PenjadwalanTugasAkhirHelper();
 
 	private Mahasiswa userMahasiswa = null;
 
+	/** Membuat helper dan mengambil {@link Mahasiswa} milik user yang sedang login (bila ada), dipakai untuk kontrol tampilan yang berbeda antara dosen dan mahasiswa. */
 	public AktifitasTugasAkhirHelper() {
 		try {
 			Tbmuser tbmuser = Common.getCurrentUser();
@@ -73,6 +95,16 @@ public class AktifitasTugasAkhirHelper {
 		}
 	}
 
+	/**
+	 * Membangun toolbar aksi untuk satu {@link MahasiswaRequestTugasAkhir}: tombol "Agenda
+	 * Bimbingan" (buka penjadwalan, tampil hanya untuk status aktif/seminar/mengulang/lulus),
+	 * "Absensi" (cetak laporan absensi), tombol ambil jadwal ({@code PenjadwalanHelper}), ekspor
+	 * DSpace, kalender, Google Classroom, pemulihan pertemuan, dan Refresh.
+	 *
+	 * @param mahasiswaRequestTugasAkhir konteks bimbingan tugas akhir
+	 * @param dataLoader                 callback penyegar tampilan setelah aksi tombol
+	 * @return toolbar berisi seluruh tombol aksi
+	 */
 	public Toolbar initAgendaMahasiswaRequestTugasAkhir(final MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir,
 			final DataLoader dataLoader) {
 
@@ -147,11 +179,24 @@ public class AktifitasTugasAkhirHelper {
 		return hbox;
 	}
 
+	/** Seperti {@link #initDetail(MahasiswaRequestTugasAkhir, DataLoader, Div)} dengan {@code dataLoader} default yang memuat ulang dirinya sendiri. */
 	public void initDetail(final MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir, final Div groupbox)
 			throws Exception {
 		initDetail(mahasiswaRequestTugasAkhir, null, groupbox);
 	}
 
+	/**
+	 * Membangun seluruh UI bertab detail bimbingan tugas akhir ke dalam {@code groupbox}. Lihat
+	 * javadoc kelas untuk penjelasan lengkap tab yang dibangun dan efek samping pembuatan
+	 * {@link Pertemuan} otomatis. Untuk status aktif/seminar/mengulang/lulus, method ini juga
+	 * memuat daftar pertemuan bimbingan ke grid berpaging (1 per halaman) dengan halaman aktif
+	 * otomatis diposisikan ke pertemuan terakhir yang sudah lewat.
+	 *
+	 * @param mahasiswaRequestTugasAkhir konteks bimbingan tugas akhir yang detailnya ditampilkan
+	 * @param mydataLoader               callback penyegar tampilan; bila {@code null}, dibuat
+	 *                                    callback default yang memanggil ulang method ini
+	 * @param groupbox                   komponen ZK tujuan tampilan (dibersihkan lebih dulu)
+	 */
 	@SuppressWarnings("unchecked")
 	public void initDetail(final MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir, final DataLoader mydataLoader,
 			final Div groupbox) throws Exception {
@@ -509,6 +554,7 @@ public class AktifitasTugasAkhirHelper {
 		buttonTabbox.pilih(1);
 	}
 
+	/** Mengatur tinggi tetap 1100px (dengan scroll vertikal) pada panel tab, bila komponennya berupa {@link org.zkoss.zk.ui.HtmlBasedComponent}. */
 	private void setPanelDetailTinggi(Component panel) {
 		if (panel instanceof org.zkoss.zk.ui.HtmlBasedComponent) {
 			org.zkoss.zk.ui.HtmlBasedComponent html = (org.zkoss.zk.ui.HtmlBasedComponent) panel;
@@ -517,6 +563,18 @@ public class AktifitasTugasAkhirHelper {
 		}
 	}
 
+	/**
+	 * Mengisi tab Sidang: bila {@link Skripsi} untuk bimbingan ini belum ada, tampilkan tombol
+	 * "Ajukan Sidang" yang membuat entitas {@link Skripsi} baru (judul dan pembimbing 1-3 diisi
+	 * dari data bimbingan) via {@code SkripsiAction.onAddExternal}, lalu memuat ulang tab setelah
+	 * tersimpan; bila {@link Skripsi} sudah ada, tampilkan langsung komponen
+	 * {@code SkripsiAction.initComponenAddExternal}-nya (form sidang) di tab, dan menyimpan
+	 * referensi {@code SkripsiAction} pada atribut {@code groupbox} untuk dipakai pemanggil.
+	 *
+	 * @param mahasiswaRequestTugasAkhir konteks bimbingan tugas akhir
+	 * @param tabpanelSidang             panel tab Sidang yang akan diisi
+	 * @param groupbox                   komponen induk, dipakai untuk menyimpan atribut {@code skripsiAction}
+	 */
 	private void initSidang(final MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir, final Component tabpanelSidang,
 			final Component groupbox) throws Exception {
 		Session session = HibernateUtil.currentSession();
@@ -581,6 +639,17 @@ public class AktifitasTugasAkhirHelper {
 
 	private Toolbar toolbar;
 
+	/**
+	 * Menambahkan tab "Laporan" (dimuat lazy) berisi pratinjau PDF laporan
+	 * {@code lembar_konsultasi_bimbingan} untuk {@code mahasiswaRequestTugasAkhir}, lengkap dengan
+	 * toolbar ekspor ({@code CommonReport.exportReport}). Parameter laporan disusun dari id
+	 * bimbingan, tanggal awal/akhir bimbingan, dan properti entitas {@link MahasiswaRequestTugasAkhir}
+	 * lainnya via {@link Common#insertProperty}.
+	 *
+	 * @param tabbox                      tabbox tujuan penambahan tab
+	 * @param index                       indeks/urutan tab
+	 * @param mahasiswaRequestTugasAkhir  konteks bimbingan tugas akhir yang laporannya dicetak
+	 */
 	public void initCetak(MyButtonTabbox tabbox, int index,
 			final MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir) {
 		tabbox.tambahTabLazy(index, "Laporan", "/img/svg/file-report.svg",

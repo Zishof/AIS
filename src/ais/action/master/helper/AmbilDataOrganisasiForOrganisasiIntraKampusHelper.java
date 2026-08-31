@@ -49,6 +49,24 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK dengan arah kebalikan dari {@link AmbilDataMahasiswaForOrganisasiIntraKampusHelper}:
+ * dipakai dari sisi satu {@link Mahasiswa} untuk memilih dan mendaftar ke satu atau lebih
+ * {@link OrganisasiIntraKampus}. Jendela pencarian menyaring organisasi lewat nama, Fakultas, dan
+ * Jurusan (organisasi tanpa Fakultas/Jurusan spesifik berlaku untuk semua, sehingga selalu lolos
+ * filter), dan menampilkan syarat keanggotaan tiap organisasi (minimal IPK/SKS/Angka Kredit) bila
+ * ada. Organisasi yang sudah diikuti mahasiswa ditandai tercentang dan dikunci.
+ *
+ * <p>
+ * {@link #save()} memvalidasi kelayakan lewat
+ * {@code Common#checkApakahMemenuhiSyaratOrganisasiKemahasiswaan} untuk tiap organisasi yang
+ * dicentang sebelum menyimpan baris {@link OrganisasiIntraKampusPunyaMahasiswa}; organisasi yang
+ * syaratnya belum terpenuhi dilewati dengan pesan peringatan yang dikumpulkan dan ditampilkan
+ * sekaligus di akhir. Pengambilan komponen checkbox per baris sengaja memakai atribut Row (bukan
+ * indeks anak), karena pada tampilan mobile struktur baris dirombak menjadi kartu bersarang
+ * sehingga indeks anak pertama tidak lagi konsisten berupa checkbox.
+ * </p>
+ */
 public class AmbilDataOrganisasiForOrganisasiIntraKampusHelper {
 
 	private Mahasiswa mahasiswa;
@@ -60,6 +78,7 @@ public class AmbilDataOrganisasiForOrganisasiIntraKampusHelper {
 
 	private Paging paging;
 
+	/** @param mahasiswa mahasiswa yang akan didaftarkan ke organisasi terpilih. */
 	public AmbilDataOrganisasiForOrganisasiIntraKampusHelper(Mahasiswa mahasiswa) {
 		this.mahasiswa = mahasiswa;
 
@@ -127,6 +146,14 @@ public class AmbilDataOrganisasiForOrganisasiIntraKampusHelper {
 		}
 	}
 
+	/**
+	 * Memproses seluruh baris grid yang dicentang (dan belum terkunci): organisasi yang syaratnya
+	 * dipenuhi {@link #mahasiswa} disimpan sebagai {@link OrganisasiIntraKampusPunyaMahasiswa} baru;
+	 * yang tidak memenuhi syarat dilewati dan pesannya dikumpulkan lalu ditampilkan sekaligus di akhir.
+	 *
+	 * @throws InterruptedException tidak pernah dilempar dalam praktiknya; dipertahankan pada
+	 *                              signature untuk kompatibilitas pemanggil
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() throws InterruptedException {
 		Session session = HibernateUtil.currentSession();
@@ -178,6 +205,13 @@ public class AmbilDataOrganisasiForOrganisasiIntraKampusHelper {
 		}
 	}
 
+	/**
+	 * Membangun jendela pencarian dan pemilihan organisasi untuk didaftarkan oleh {@link #mahasiswa}.
+	 * Tombol Simpan memanggil {@link #save()} lalu menyegarkan tampilan pemanggil lewat {@code dataLoader}.
+	 *
+	 * @param dataLoader dipanggil setelah simpan untuk menyegarkan tampilan daftar organisasi mahasiswa
+	 * @param window     jendela ({@link MyWindow}) yang dipakai ulang untuk menampilkan layar ini
+	 */
 	public void display(final DataLoader dataLoader, final MyWindow window) {
 
 		Common.clear(window);
@@ -363,6 +397,14 @@ public class AmbilDataOrganisasiForOrganisasiIntraKampusHelper {
 		}
 	}
 
+	/**
+	 * Membangun kriteria Hibernate untuk pencarian {@link OrganisasiIntraKampus}, sesuai filter
+	 * toolbar (nama, Fakultas, Jurusan). Organisasi tanpa Fakultas/Jurusan spesifik selalu lolos
+	 * filter tersebut (berlaku untuk semua unit).
+	 *
+	 * @param order {@code true} untuk mengurutkan hasil berdasarkan nama ascending
+	 * @return kriteria Hibernate siap eksekusi/paginasi
+	 */
 	public Criteria initCriteria(boolean order) {
 
 		Session session = HibernateUtil.currentSession();
@@ -385,6 +427,12 @@ public class AmbilDataOrganisasiForOrganisasiIntraKampusHelper {
 		return criteria;
 	}
 
+	/**
+	 * Mengisi ulang grid hasil pencarian organisasi (paginasi 50 baris per halaman) sesuai kriteria
+	 * pencarian saat ini.
+	 *
+	 * @param event tidak dipakai isinya
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

@@ -24,13 +24,52 @@ import ais.database.model.Pertemuan;
 import ais.database.model.Statusabsensi;
 import ais.database.model.Statuskehadiran_old;
 
+/**
+ * Tugas terjadwal ({@link TimerTask}) yang, meski namanya menyiratkan sinkronisasi jam
+ * perkuliahan, sebenarnya berfungsi sebagai <b>kumpulan proses migrasi/sinkronisasi data batch</b>
+ * dari berbagai tabel "staging"/temporary ke entitas permanen: nilai temporary ke
+ * {@link Detailperkuliahan}, absensi lama ({@link Statuskehadiran_old}) ke {@link Pertemuan},
+ * checklist penilaian dosen lama ke {@link ChecklistBaruPenilaianDosenOlehMahasiswa}, dosen
+ * pembimbing akademik temporary ke {@link Mahasiswa}, kelas temporary ke {@link Mahasiswa}, dan
+ * populasi silang {@link MatakuliahEkivalen}. Setiap proses migrasi bersifat idempoten —
+ * memproses hanya baris yang belum ditandai selesai ({@code udah}/{@code udahMasuk} bernilai
+ * {@code false}/{@code null}) dan menandainya {@code true} setelah berhasil — sehingga aman
+ * dijalankan berulang kali tanpa memproses ulang data yang sama.
+ *
+ * <p>
+ * {@link #run()} (dipanggil timer) hanya menjalankan sebagian kecil proses yang tersedia di kelas
+ * ini ({@link #prosesMigrasiNilaiTanpaTahunAkademik()}, {@link #prosesMigrasiNilai()},
+ * {@link #processMigrasiAbsensi()}, {@link #processChecklistPenilaianDosenOlehMahasiswa(Mahasiswa)})
+ * di dalam satu thread terpisah, agar tidak memblokir thread timer. Method statis lainnya
+ * ({@link #processMigrasiCicilan()}, {@link #procesDosenPa()}, {@link #procesKelas()},
+ * {@link #processMigrasiEkivalen()}) tampaknya dipanggil dari tempat lain (mis. tombol admin)
+ * atau merupakan proses migrasi historis yang sudah tidak lagi dijadwalkan otomatis (lihat juga
+ * blok besar logika penghitungan {@code JamPerkuliahan} otomatis yang dikomentari nonaktif di
+ * {@link #doProcess()} — riwayat migrasi sekali-jalan yang sengaja dimatikan, dibiarkan apa
+ * adanya sesuai instruksi untuk tidak mengubah kode fungsional).
+ * </p>
+ *
+ * <p>
+ * Pola umum setiap method migrasi: ambil daftar id kandidat lewat query proyeksi ringan (sesi
+ * ditutup segera setelahnya), lalu iterasi satu-per-satu dengan sesi Hibernate native BARU per
+ * baris (dibuka dan ditutup di setiap iterasi) — menghindari satu transaksi raksasa yang menahan
+ * koneksi/kunci lama saat volume data besar, dengan progres dicetak ke konsol setiap baris.
+ * </p>
+ */
 public class JamPerkuliahanSyncrhonizerProcessor extends TimerTask {
 
+	/** Dipanggil oleh timer/scheduler; mendelegasikan ke {@link #doProcess()}. */
 	@Override
 	public void run() {
 		doProcess();
 	}
 
+	/**
+	 * Memindahkan nilai dari {@link NilaiTemporary} (baris dengan {@code jumlah > 0.1} dan belum
+	 * {@code udahMasuk}) ke {@link Detailperkuliahan} terkait lewat
+	 * {@link Detailperkuliahan#populateDetailNilai}, hanya dijalankan bila konfigurasi
+	 * {@code aktifkan_proses_migrasi_nilai} aktif.
+	 */
 	@SuppressWarnings("unchecked")
 	public static void prosesMigrasiNilai() {
 		Konfigurasi aktifkan_proses_migrasi_nilai = Common.getKonfigurasi("aktifkan_proses_migrasi_nilai",
@@ -70,6 +109,12 @@ public class JamPerkuliahanSyncrhonizerProcessor extends TimerTask {
 		}
 	}
 
+	/**
+	 * Memperbaiki baris {@link Detailperkuliahan} yang memiliki {@code semester > 0} tetapi
+	 * {@code tahunAkademik} kosong, dengan memicu ulang {@code refreshUpdate} (yang diasumsikan
+	 * menghitung/mengisi tahun akademik dari semester lewat logika pada entitas/listener).
+	 * Kegagalan per-baris di-rollback dan dilewati tanpa menghentikan proses baris lain.
+	 */
 	@SuppressWarnings("unchecked")
 	public static void prosesMigrasiNilaiTanpaTahunAkademik() {
 		List<Long> longs = null;
@@ -111,6 +156,13 @@ public class JamPerkuliahanSyncrhonizerProcessor extends TimerTask {
 		}
 	}
 
+	/**
+	 * Memigrasikan data absensi lama ({@link Statuskehadiran_old}, model kehadiran versi
+	 * sebelumnya) ke {@link Pertemuan#populate} pada model absensi baru, untuk pertemuan yang
+	 * kolom {@code absensi}-nya masih kosong. Baris dengan referensi {@code statusabsensi}/
+	 * {@code pertemuan} tidak lengkap (null) dilewati dengan aman, bukan menyebabkan
+	 * {@link NullPointerException}.
+	 */
 	@SuppressWarnings("unchecked")
 	public static void processMigrasiAbsensi() {
 		System.out.println("=====> processMigrasiAbsensi ======");
@@ -164,6 +216,12 @@ public class JamPerkuliahanSyncrhonizerProcessor extends TimerTask {
 
 	}
 
+	/**
+	 * Menandai {@code udah=true} pada baris {@link BiodataCalonMahasiswa} aktif yang belum
+	 * ditandai selesai (hingga 10.000 baris terurut id menurun per pemanggilan). Blok migrasi
+	 * {@code Perkuliahan} (memicu {@code reInitDetailperkuliahan}/{@code reInitPertemuan}) di atas
+	 * kode aktif method ini dikomentari nonaktif — dibiarkan apa adanya sesuai instruksi.
+	 */
 	@SuppressWarnings("unchecked")
 	public static void processMigrasiCicilan() {
 		System.out.println("=====> processMigrasiCicilan ======");
@@ -232,6 +290,15 @@ public class JamPerkuliahanSyncrhonizerProcessor extends TimerTask {
 
 	}
 
+	/**
+	 * Memigrasikan baris {@link ChecklistPenilaianDosenOlehMahasiswa} lama (yang belum tertaut ke
+	 * {@link ChecklistBaruPenilaianDosenOlehMahasiswa}) ke model checklist baru, dengan
+	 * deduplikasi berdasarkan kunci unik {@code mahasiswa_perkuliahan_dosen}: baris baru yang sudah
+	 * ada untuk kombinasi tersebut diperbarui, bukan diduplikasi.
+	 *
+	 * @param m bila diberikan, migrasi dibatasi hanya untuk mahasiswa tersebut; bila {@code null},
+	 *          seluruh baris yang belum dimigrasikan diproses
+	 */
 	@SuppressWarnings("unchecked")
 	public static void processChecklistPenilaianDosenOlehMahasiswa(Mahasiswa m) {
 		System.out.println("=====> processChecklistPenilaianDosenOlehMahasiswa ======");
@@ -285,6 +352,7 @@ public class JamPerkuliahanSyncrhonizerProcessor extends TimerTask {
 
 	}
 
+	/** Menerapkan penugasan dosen Pembimbing Akademik dari baris {@link DosenPembimbingAkademikTemporary} yang belum diproses (`udah` null) ke field {@code dosen} pada {@link Mahasiswa} terkait, lalu menandai baris temporary tersebut selesai. */
 	@SuppressWarnings("unchecked")
 	public static void procesDosenPa() {
 		System.out.println("=====> procesDosenPa ======");
@@ -327,6 +395,7 @@ public class JamPerkuliahanSyncrhonizerProcessor extends TimerTask {
 
 	}
 
+	/** Menerapkan penugasan kelas dari baris {@link KelasPunyaMahasiswaTemporary} yang belum diproses ke field {@code kelas} pada {@link Mahasiswa} terkait, lalu menandai baris temporary tersebut selesai. */
 	@SuppressWarnings("unchecked")
 	public static void procesKelas() {
 		System.out.println("=====> procesKelas ======");
@@ -368,6 +437,12 @@ public class JamPerkuliahanSyncrhonizerProcessor extends TimerTask {
 
 	}
 
+	/**
+	 * Untuk setiap {@link MatakuliahEkivalen} aktif yang belum diproses (hingga 10.000 baris
+	 * terurut id menurun per pemanggilan), memanggil {@code populateEkivalen} pada KEDUA
+	 * matakuliah yang terlibat (asal dan ekivalennya) agar indeks/cache ekivalensi keduanya
+	 * konsisten, lalu menandai baris tersebut selesai.
+	 */
 	@SuppressWarnings("unchecked")
 	public static void processMigrasiEkivalen() {
 		System.out.println("=====> processMigrasiEkivalen ======");
@@ -405,11 +480,18 @@ public class JamPerkuliahanSyncrhonizerProcessor extends TimerTask {
 
 	}
 
+	/** Belum diimplementasikan — hanya menyusun string query tanpa menjalankannya. Dipanggil dari baris yang dikomentari nonaktif di {@link #doProcess()}. */
 	@SuppressWarnings("unused")
 	private void removeLargeObjectDiskusi() {
 		String query = "select foto from lampiran_lain where date(tanggal_dirubah) < ";
 	}
 
+	/**
+	 * Menjalankan subset proses migrasi (lihat javadoc kelas) di dalam satu thread terpisah agar
+	 * tidak memblokir thread timer. Blok besar logika penghitungan otomatis {@code JamPerkuliahan}
+	 * dari data jadwal perkuliahan lama di bawahnya dikomentari nonaktif — riwayat migrasi
+	 * sekali-jalan yang sengaja dimatikan, dibiarkan apa adanya sesuai instruksi.
+	 */
 	private void doProcess() {
 
 		new Thread(new Runnable() {

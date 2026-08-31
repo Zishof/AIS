@@ -43,6 +43,40 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper jendela modal untuk mentransfer mahasiswa peserta satu {@link Perkuliahan} (kelas) ke
+ * kelas paralel lain dari matakuliah yang sama — mis. memindahkan mahasiswa dari kelas A ke kelas
+ * B karena bentrok jadwal atau penyeimbangan jumlah peserta.
+ *
+ * <p>
+ * Daftar kelas tujuan yang ditawarkan pada combobox {@link #perkuliahanTujuan} dibangun di
+ * konstruktor: seluruh {@link Perkuliahan} AKTIF, BUKAN kelas paralel itu sendiri
+ * ({@code merupakan_paralel=false/null}), dengan kode matakuliah PERSIS SAMA (exact match) dengan
+ * {@code perkuliahan} asal, selain {@code perkuliahan} itu sendiri — diurutkan tahun ajaran/
+ * semester/id menurun (kelas terbaru muncul lebih dulu). Bila {@code perkuliahan.getMatakuliah()}
+ * bernilai {@code null} (data tidak konsisten), daftar tujuan sengaja dikosongkan alih-alih
+ * melempar {@link NullPointerException}.
+ * </p>
+ *
+ * <p>
+ * Grid peserta menampilkan mahasiswa dengan {@code Detailperkuliahan.ikutiPerkuliahan == null}
+ * (peserta aktif kelas asal) pada {@code perkuliahan} tersebut, disaring NIM/nama/program.
+ * Checkbox baris otomatis terkunci (tercentang, tidak bisa diubah) untuk mahasiswa yang statusnya
+ * BUKAN {@link ConstantValues#AKTIF}, mencegah transfer mahasiswa yang statusnya tidak aktif.
+ * Bila konstruktor dipanggil dengan {@code selectedMahasiswa} tertentu, filter NIM/nama dikunci ke
+ * mahasiswa tersebut (field disabled) dan baris mahasiswa itu otomatis tercentang+terkunci —
+ * dipakai saat transfer dipicu dari konteks satu mahasiswa spesifik (bukan transfer massal).
+ * </p>
+ *
+ * <p>
+ * {@link #save()} menegakkan kapasitas ruangan kelas tujuan ({@link Ruang#getKapasitasRuangan()},
+ * atau {@link Ruang#getDefaultKapasitas()} bila tidak diset) sebelum benar-benar memindahkan baris
+ * mana pun — bila jumlah peserta kelas tujuan (yang sudah ada + yang akan ditransfer) melebihi
+ * kapasitas, seluruh transfer dibatalkan dengan pesan peringatan. Mahasiswa yang KEBETULAN sudah
+ * terdaftar di kelas tujuan (duplikat) dilewati per-baris dengan pesan informasi, tanpa
+ * menggagalkan transfer mahasiswa lain dalam batch yang sama.
+ * </p>
+ */
 public class TransferDataMahasiswaHelper {
 
 	private Perkuliahan perkuliahan;
@@ -54,10 +88,16 @@ public class TransferDataMahasiswaHelper {
 	private Mahasiswa selectedMahasiswa;
 	private Combobox program;
 
+	/** Seperti {@link #TransferDataMahasiswaHelper(Perkuliahan, Mahasiswa)} tanpa mahasiswa terpilih (mode transfer massal, seluruh peserta kelas dapat dipilih). */
 	public TransferDataMahasiswaHelper(Perkuliahan perkuliahan) {
 		this(perkuliahan, null);
 	}
 
+	/**
+	 * @param perkuliahan      kelas asal yang pesertanya akan ditransfer
+	 * @param selectedMahasiswa bila tidak {@code null}, membatasi/mengunci tampilan pada satu
+	 *                          mahasiswa spesifik yang otomatis terpilih (lihat javadoc kelas)
+	 */
 	@SuppressWarnings("unchecked")
 	public TransferDataMahasiswaHelper(Perkuliahan perkuliahan, Mahasiswa selectedMahasiswa) {
 		this.perkuliahan = perkuliahan;
@@ -89,6 +129,7 @@ public class TransferDataMahasiswaHelper {
 		}
 	}
 
+	/** Perender baris grid: checkbox pemilihan (terkunci untuk {@link #selectedMahasiswa} atau mahasiswa berstatus non-aktif), NIM/nama/tahun angkatan/program mahasiswa, total nilai & status persetujuan pada {@code perkuliahan} asal, dan kelas KRS mahasiswa (disinkronkan lewat {@link Common#singkronkanKrsMahasiswa}). */
 	class DetailperkuliahanRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -145,6 +186,17 @@ public class TransferDataMahasiswaHelper {
 
 	}
 
+	/**
+	 * Memvalidasi lalu menjalankan transfer mahasiswa yang tercentang pada grid ke kelas yang
+	 * dipilih di {@link #perkuliahanTujuan}. Menggunakan sesi Hibernate native mandiri
+	 * ({@link HibernateUtil#currentNativeSession()}), ditutup tuntas di {@code finally} apa pun
+	 * hasilnya. Lihat javadoc kelas untuk aturan validasi kapasitas ruangan dan penanganan
+	 * duplikat.
+	 *
+	 * @return {@code true} bila proses (termasuk kemungkinan sebagian gagal karena duplikat)
+	 *         selesai dijalankan; {@code false} bila dibatalkan (kelas tujuan belum dipilih,
+	 *         kapasitas penuh, atau terjadi galat tak terduga)
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public boolean save() throws Exception {
 
@@ -256,6 +308,12 @@ public class TransferDataMahasiswaHelper {
 		return true;
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela modal transfer (form filter + pilihan kelas tujuan, grid
+	 * peserta berpaging, tombol Transfer/Batal). Tombol Transfer memanggil {@link #save()}, lalu —
+	 * bila berhasil — menyinkronkan ulang ({@code singkronkan}) baik kelas asal maupun kelas tujuan
+	 * lewat timer bertahap sebelum menyegarkan {@code dataLoader} dan menutup jendela.
+	 */
 	@SuppressWarnings("deprecation")
 	public void display(final DataLoader dataLoader, final MyWindow window) {
 		Common.clear(window);
@@ -489,6 +547,7 @@ public class TransferDataMahasiswaHelper {
 		}
 	}
 
+	/** Memuat ulang grid dengan peserta aktif {@link #perkuliahan} yang cocok dengan filter NIM/nama/program aktif, terurut NIM. {@code event} tidak dipakai. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

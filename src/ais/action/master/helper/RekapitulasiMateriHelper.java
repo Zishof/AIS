@@ -66,12 +66,41 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.SmartDateTimeUtil;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper statis yang menampilkan rekapitulasi seluruh berkas materi ({@link
+ * PertemuanFileContent}) yang pernah diunggah pada pertemuan-pertemuan milik satu user
+ * (mahasiswa/dosen/guru/siswa) atau, bila dibatasi ke satu {@link VOPembelajaran}, hanya materi
+ * pertemuan mata kuliah/jadwal tersebut. Digunakan sebagai salah satu tab ringkasan pada
+ * dasbor e-learning, berdampingan dengan rekap sejenis untuk video ({@link
+ * RekapitulasiVideoHelper}) dan ujian ({@code RekapitulasiUjianHelper}).
+ *
+ * <p>
+ * Rentang pertemuan yang dipertimbangkan ditentukan berdasarkan peran user login: mahasiswa dan
+ * dosen memakai peta pertemuan hasil {@code ambilPertemuan}/{@code reInitPertemuan} miliknya
+ * sendiri, guru/siswa sekolah memakai kriteria dinamis lewat {@link
+ * DashboardTimelinePertemuan#initStaticCriteria}, sedangkan admin melihat seluruh data (tanpa
+ * filter pertemuan). Grid hasil berpaging, dengan halaman awal otomatis diposisikan ke sekitar
+ * pertemuan pertama sebelum tanggal hari ini agar konten terbaru langsung terlihat. Klik satu
+ * baris membuka detail pertemuan terkait lewat {@link PertemuanHelper}.
+ * </p>
+ */
 public class RekapitulasiMateriHelper {
 
+	/** Seperti {@link #display(Component, Tbmuser, VOPembelajaran)} tanpa pembatasan ke satu {@link VOPembelajaran} tertentu (menampilkan seluruh materi milik user). */
 	public static void display(Component parent, final Tbmuser tbmuser) {
 		display(parent, tbmuser, null);
 	}
 
+	/**
+	 * Titik masuk utama: membangun toolbar (pencarian, rentang tanggal — disembunyikan bila
+	 * {@code perkuliahan} diberikan, tombol tambah materi baru via {@link
+	 * RekapitulasiUjianHelper#buatbaru}, dan Refresh) diikuti grid berpaging hasil rekapitulasi
+	 * materi.
+	 *
+	 * @param parent      komponen induk tempat UI ditempel
+	 * @param tbmuser     user yang rekapnya ditampilkan
+	 * @param perkuliahan bila diisi, batasi rekap hanya ke pertemuan milik mata kuliah/jadwal ini; {@code null} untuk seluruh materi milik user
+	 */
 	public static void display(Component parent, final Tbmuser tbmuser, final VOPembelajaran perkuliahan) {
 
 		Borderlayout subBorderlayoutUtama = new Borderlayout();
@@ -158,6 +187,12 @@ public class RekapitulasiMateriHelper {
 		sampai.addEventListener("onChange", eventListener);
 	}
 
+	/**
+	 * Menentukan daftar id {@link Pertemuan} yang relevan bagi {@code tbmuser} (atau bagi
+	 * {@code perkuliahan} tunggal bila diisi) lalu membangun ulang grid+paging berdasarkan daftar
+	 * tersebut. Bila {@code refreh} true, peta pertemuan mahasiswa/dosen disegarkan lebih dulu
+	 * (rentang &plusmn;6 bulan dari filter tanggal) sebelum diambil.
+	 */
 	@SuppressWarnings("unchecked")
 	private static void reload(final Tbmuser tbmuser, final Center center, final Date mulai, final Date sampai,
 			final String cari, boolean refreh, boolean awal, final VOPembelajaran perkuliahan) {
@@ -333,6 +368,12 @@ public class RekapitulasiMateriHelper {
 
 	}
 
+	/**
+	 * Mengambil satu halaman {@link PertemuanFileContent} yang termasuk dalam {@code pertemuans}
+	 * dan cocok kata kunci {@code cari}, lalu merender grid. Bila {@code awal} true, halaman aktif
+	 * dihitung ulang agar berada tepat sebelum pertemuan pertama yang tanggalnya sudah lewat hari
+	 * ini (heuristik "lompat ke konten terbaru").
+	 */
 	@SuppressWarnings("unchecked")
 	private static void reload(final List<Long> pertemuans, final Paging paging, final MyGrid grid,
 			final Mahasiswa mahasiswa, boolean awal, final Date mulai, final Date sampai, final String cari,
@@ -408,11 +449,20 @@ public class RekapitulasiMateriHelper {
 		StreamingHibernateUtil.getInstance().closeSession();
 	}
 
+	/**
+	 * Renderer satu baris rekap: menampilkan tombol berlabel nama berkas/link (ikon disesuaikan
+	 * tipe berkas atau Google Book), pencatat akses ({@link TampilanELearningAction#dilihat}),
+	 * serta tautan info pertemuan yang saat diklik membuka detail pertemuan lewat {@link
+	 * PertemuanHelper}. Klik tombol utama memverifikasi syarat akses ({@link
+	 * ProfileUtil#chekSyarat}) lebih dulu, lalu membuka konten sesuai jenisnya (Google Book,
+	 * Google Drive, atau pratinjau/unduhan berkas biasa).
+	 */
 	public static class DetailPertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
 		private Mahasiswa mahasiswa;
 		private BiodataCalonMahasiswa biodataCalonMahasiswa;
 
+		/** @param mahasiswa mahasiswa konteks tampilan (dipakai bila detail pertemuan dibuka); boleh {@code null} */
 		public DetailPertemuanRenderer(Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa) {
 			this.mahasiswa = mahasiswa;
 			this.biodataCalonMahasiswa = biodataCalonMahasiswa;

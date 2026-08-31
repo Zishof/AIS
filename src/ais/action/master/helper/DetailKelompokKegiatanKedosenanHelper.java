@@ -47,11 +47,31 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper composer untuk mengelola daftar "Rincian Aspek" ({@link DetailKelompokKegiatanKedosenan})
+ * milik satu {@link KelompokKegiatanKedosenan} (kelompok kegiatan penilaian kinerja dosen, mis.
+ * Tridarma). Setiap rincian aspek dapat ditautkan ke banyak {@link JabatanKegiatanKedosenan}
+ * (jabatan/status/tugas yang berlaku) dan banyak {@link SkalaKegiatanKedosenan} (skala penilaian),
+ * memiliki nomor urut tampil, serta dua flag: aktif dan bisa-dipilih-dosen.
+ *
+ * <p>
+ * <b>Catatan teknis penting</b>: koleksi {@code jabatanKegiatanKedosenans}/
+ * {@code skalaKegiatanKedosenans} pada entitas memakai comparator berbasis {@code nomorUrut} (dari
+ * {@code GeneralValueObject}) yang mengembalikan 0 untuk item ber-{@code nomorUrut} sama/null.
+ * Karena itu, kode ini SENGAJA menghindari {@code TreeSet} bawaan koleksi saat menampilkan
+ * ({@link DetailKelompokKegiatanKedosenanRenderer}, memakai {@link List} biasa yang diurutkan
+ * lewat {@code Collections.sort}) maupun saat memilih ({@link #init}, memakai
+ * {@code LinkedHashMap}/{@code LinkedHashSet} per-id) — memakai {@code TreeSet} di titik-titik ini
+ * akan membuat item dengan nomor urut kembar saling menimpa/hilang. Jangan mengubah pola ini
+ * tanpa memahami implikasi comparator tersebut.
+ * </p>
+ */
 public class DetailKelompokKegiatanKedosenanHelper implements DataLoader {
 
 	private MyGrid grid;
 	private KelompokKegiatanKedosenan kelompokKegiatanKedosenan;
 
+	/** Perender baris grid: nama rincian aspek, daftar jabatan & skala tertaut (masing-masing diurutkan dan dinomori tampil), nomor urut (editable), checkbox aktif/bisa-dipilih-dosen (tersimpan otomatis on-check), tombol edit (buka {@link #init}) dan hapus (dengan konfirmasi). */
 	class DetailKelompokKegiatanKedosenanRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -176,6 +196,7 @@ public class DetailKelompokKegiatanKedosenanHelper implements DataLoader {
 
 	}
 
+	/** Memuat ulang grid dengan seluruh {@link DetailKelompokKegiatanKedosenan} milik {@link #kelompokKegiatanKedosenan} yang sedang ditampilkan, terurut nomor urut. Kontrak {@link DataLoader#loadData(Object)}; {@code value} tidak dipakai. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
@@ -189,6 +210,11 @@ public class DetailKelompokKegiatanKedosenanHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun panel daftar rincian aspek (toolbar tambah + grid berpaging) ke dalam
+	 * {@code component}, untuk {@code kelompokKegiatanKedosenan} yang diberikan. Memanggil
+	 * {@link #loadData} di akhir untuk mengisi grid.
+	 */
 	public void displayDetailKelompokKegiatanKedosenan(
 			final KelompokKegiatanKedosenan kelompokKegiatanKedosenan, final Component component) {
 		this.kelompokKegiatanKedosenan = kelompokKegiatanKedosenan;
@@ -262,6 +288,17 @@ public class DetailKelompokKegiatanKedosenanHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela modal "Pendataan Rincian Aspek" untuk menambah
+	 * ({@code detailKelompokKegiatanKedosenan} baru/belum tersimpan) atau mengedit satu rincian
+	 * aspek: nama, nomor urut (default otomatis nomor urut tertinggi + 1 pada kelompok yang sama
+	 * untuk data baru), serta dua daftar checkbox untuk memilih
+	 * {@link JabatanKegiatanKedosenan}/{@link SkalaKegiatanKedosenan} yang berlaku (hanya opsi
+	 * aktif yang ditawarkan). Lihat javadoc kelas untuk alasan pemilihan dikelola lewat
+	 * {@code LinkedHashMap} per-id, bukan koleksi entitas langsung. Validasi: nama tidak boleh
+	 * kosong sebelum disimpan. Menyimpan lewat {@link Common#refreshSaveOrUpdate} lalu memuat
+	 * ulang grid pemanggil ({@link #loadData}).
+	 */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	public void init(final DetailKelompokKegiatanKedosenan detailKelompokKegiatanKedosenan) throws Exception {
 		final MyWindow window = new MyWindow("Pendataan Rincian Aspek", "normal", false);

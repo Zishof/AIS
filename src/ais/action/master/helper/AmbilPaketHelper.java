@@ -39,6 +39,20 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK untuk memilih sekumpulan {@link Paket} (paket ujian/mata pelajaran PMB) yang berlaku
+ * bagi satu {@link JurusanSekolahMahasiswaBaru} (jurusan pada pendaftaran mahasiswa baru), disimpan
+ * sebagai baris relasi {@link PilihanPaketPerJurusanMhsBaru}. Jendela pencarian menampilkan seluruh
+ * {@link Paket} aktif dengan kotak centang; paket yang sudah terpasang pada jurusan ditandai
+ * tercentang sejak awal.
+ *
+ * <p>
+ * {@link #save()} menghapus seluruh relasi lama milik {@link #jurusanSekolahMahasiswaBaru} lalu
+ * menyimpan ulang relasi untuk paket yang tercentang pada grid saat tombol Simpan ditekan
+ * (rekonsiliasi penuh, bukan diff bertahap); bidang {@link #deletedMatakuliahs} melacak baris yang
+ * sempat dicentang lalu dibatalkan selama sesi jendela terbuka agar turut dihapus eksplisit.
+ * </p>
+ */
 public class AmbilPaketHelper {
 
 	private Paket paket;
@@ -102,6 +116,12 @@ public class AmbilPaketHelper {
 
 	}
 
+	/**
+	 * Menghapus seluruh {@link PilihanPaketPerJurusanMhsBaru} lama milik
+	 * {@link #jurusanSekolahMahasiswaBaru}, lalu menyimpan ulang relasi untuk setiap {@link Paket}
+	 * yang tercentang pada grid saat ini, dan menghapus eksplisit baris yang tercatat di
+	 * {@link #deletedMatakuliahs}.
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() {
 
@@ -173,6 +193,14 @@ public class AmbilPaketHelper {
 
 	}
 
+	/**
+	 * Membangun jendela pencarian dan pemilihan {@link Paket} untuk {@code jurusanSekolahMahasiswaBaru}.
+	 * Tombol Simpan memanggil {@link #save()} lalu menyegarkan tampilan pemanggil lewat {@code dataLoader}.
+	 *
+	 * @param jurusanSekolahMahasiswaBaru jurusan PMB yang set paketnya akan dipilih ulang
+	 * @param dataLoader                  dipanggil setelah simpan untuk menyegarkan tampilan pemanggil
+	 * @param window                      jendela ({@link MyWindow}) yang dipakai ulang untuk menampilkan layar ini
+	 */
 	public void display(final JurusanSekolahMahasiswaBaru jurusanSekolahMahasiswaBaru, final DataLoader dataLoader,
 			final MyWindow window) {
 
@@ -303,6 +331,12 @@ public class AmbilPaketHelper {
 		}
 	}
 
+	/**
+	 * Mengisi ulang grid dengan seluruh {@link Paket} aktif (hasil dibatasi {@code Common#MAX_RESULT}
+	 * baris; kelas ini tidak menyediakan filter pencarian tambahan).
+	 *
+	 * @param event tidak dipakai isinya
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

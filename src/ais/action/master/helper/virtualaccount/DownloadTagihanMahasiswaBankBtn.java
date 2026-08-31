@@ -53,6 +53,50 @@ import ais.database.model.sekolah.Tagihan;
 import ais.ui.util.MyDoublebox;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Integrasi payment gateway Virtual Account (VA) Bank BTN untuk pembuatan dan inquiry tagihan,
+ * dipakai baik untuk tagihan mahasiswa Perguruan Tinggi maupun tagihan siswa/calon siswa Sekolah.
+ * Kelas ini murni statis (kumpulan fungsi utilitas), tidak menyimpan state antar pemanggilan.
+ *
+ * <h2>Skema keamanan permintaan</h2>
+ * Setiap permintaan ke gateway BTN ditandatangani dengan HMAC-SHA256 ({@link #encode(String, String)})
+ * atas string {@code companyId:jsonData:key}, memakai kredensial dari konfigurasi
+ * {@code btn_company_id}/{@code btn_key}/{@code btn_secret}, dan dikirim lewat header HTTP
+ * {@code id}/{@code key}/{@code signature} ({@link #post(String, String, String)}). Endpoint dapat
+ * diarahkan lewat proxy internal ({@code btn_forward_url}) bila konfigurasi
+ * {@code btn_forward_url_aktif} aktif.
+ *
+ * <h2>Alur pembuatan VA</h2>
+ * <ol>
+ * <li>{@link #downloadData(Mahasiswa, Integer, JadwalPembayaran, Collection, Grid)} (untuk mahasiswa)
+ * atau {@link #downloadData(Siswa, CalonSiswa, Collection, boolean, Double, BankHost,
+ * AkunPembayaranSiswa, Sekolah)} (untuk siswa/calon siswa sekolah) menyusun rincian item tagihan
+ * dari baris cicilan/tagihan yang dipilih pengguna, menghitung total, dan mencoba menemukan
+ * {@link VirtualAccountBank} yang masih berlaku (belum kedaluwarsa, keterangan identik) sebelum
+ * membuat permintaan baru ke gateway — mencegah pembuatan VA duplikat untuk tagihan yang sama.</li>
+ * <li>Bila tidak ditemukan VA yang masih berlaku, nomor VA dan nomor referensi dibangkitkan lokal,
+ * permintaan {@code createVA} dikirim ke {@code btn_gateway_url}, dan hasil sukses (kode respons
+ * {@code "000"}) disimpan sebagai baris {@link VirtualAccountBank} baru.</li>
+ * <li>{@link #inquiryBillingBTN(String, BankHost, VirtualAccountBank)} dipakai untuk mengecek status
+ * pembayaran VA yang sudah ada (endpoint {@code inqVA}); bila field {@code terbayar} pada respons
+ * bernilai positif, transaksi diproses lewat {@code Va#doProses} agar pembayaran tercatat di sistem.</li>
+ * </ol>
+ *
+ * <p>
+ * Waktu kedaluwarsa VA dihitung dari salah satu konfigurasi (dicek berurutan):
+ * {@code tagihan_expired_akhir_hari} (kedaluwarsa jam 23:59:59 hari yang sama),
+ * {@code tagihan_expired_jam} (offset jam dari sekarang), atau {@code tagihan_expired_day} (offset
+ * hari dari sekarang); bila tidak ada yang diset, memakai {@code JadwalPembayaran#getEndDate()} atau
+ * waktu saat ini.
+ * </p>
+ *
+ * <p>
+ * <b>Perhatian keamanan</b>: {@link #post(String, String, String)} memakai nilai default hardcode
+ * untuk kredensial gateway ({@code btn_company_id="BSTIMPR"}, {@code btn_key} berupa string acak
+ * panjang, dan {@code btn_secret}) sebagai fallback ketika baris {@link Konfigurasi} terkait belum
+ * ada di database — lihat catatan temuan keamanan pada laporan tugas ini untuk detail lokasi baris.
+ * </p>
+ */
 public class DownloadTagihanMahasiswaBankBtn {
 
 	public static final ThreadLocal<SimpleDateFormat> expiredFormat = new ThreadLocal<SimpleDateFormat>() {
@@ -62,6 +106,15 @@ public class DownloadTagihanMahasiswaBankBtn {
 		}
 	};
 
+	/**
+	 * Menghitung tanda tangan HMAC-SHA256 (heksadesimal huruf kecil) atas {@code data} memakai
+	 * {@code key} sebagai kunci rahasia. Dipakai untuk menandatangani permintaan ke gateway BTN.
+	 *
+	 * @param key  kunci rahasia (secret) HMAC
+	 * @param data payload yang akan ditandatangani
+	 * @return tanda tangan dalam bentuk string heksadesimal, atau {@code null} bila terjadi kegagalan
+	 *         algoritma/enkoding (dicatat lewat {@code Common#tampilErrorJikaAdmin})
+	 */
 	public static String encode(String key, String data) {
 		try {
 			Mac sha256_HMAC = Mac.getInstance("HmacSHA256");
@@ -81,6 +134,20 @@ public class DownloadTagihanMahasiswaBankBtn {
 		return null;
 	}
 
+	/**
+	 * Mengirim permintaan HTTP POST bertanda tangan HMAC ke gateway Bank BTN. Timeout koneksi/baca
+	 * dapat diatur lewat konfigurasi {@code btn_connect_timeout_ms}/{@code btn_read_timeout_ms}
+	 * (default 15 dan 30 detik). Bila {@code btn_forward_url_aktif} aktif, permintaan diarahkan lebih
+	 * dulu ke proxy internal {@code btn_forward_url} dengan {@code strURLParam} asli, prefix, postfix,
+	 * dan signature disisipkan sebagai parameter query.
+	 *
+	 * @param postData     body permintaan yang benar-benar dikirim (biasanya sama dengan {@code jsonData})
+	 * @param jsonData     payload JSON yang dipakai untuk menghitung signature (lihat dokumentasi kelas)
+	 * @param strURLParam  URL tujuan gateway (atau tujuan asli bila diteruskan lewat proxy)
+	 * @return body respons mentah dari gateway
+	 * @throws Exception dilempar dengan pesan berbahasa Indonesia yang informatif bila koneksi
+	 *                    ditolak, gagal terhubung, atau timeout menghubungi gateway
+	 */
 	public static String post(String postData, String jsonData, String strURLParam) throws Exception {
 		int connectTimeout = 15000;
 		int readTimeout = 30000;
@@ -151,6 +218,20 @@ public class DownloadTagihanMahasiswaBankBtn {
 		}
 	}
 
+	/**
+	 * Mengecek status tagihan/pembayaran satu VA BTN lewat endpoint {@code inqVA} (diturunkan dari
+	 * {@code btn_gateway_url} dengan mengganti {@code createVA} menjadi {@code inqVA}). Bila field
+	 * {@code terbayar} pada respons bernilai lebih dari 0.1, transaksi diteruskan ke {@code Va#doProses}
+	 * agar pembayaran tercatat pada sistem.
+	 *
+	 * @param va                          nomor Virtual Account yang dicek
+	 * @param bankHost                    konfigurasi host bank terkait, diteruskan ke {@code Va#doProses}
+	 * @param virtualAccountBankReadOnly  baris {@link VirtualAccountBank} tersimpan; field
+	 *                                    {@code request}-nya dipakai untuk mengambil kembali nomor
+	 *                                    referensi ({@code ref}) permintaan awal
+	 * @return objek JSON respons gateway (berisi status pembayaran)
+	 * @throws Exception diteruskan dari kegagalan komunikasi HTTP atau parsing JSON
+	 */
 	public static JSONObject inquiryBillingBTN(String va, BankHost bankHost,
 			VirtualAccountBank virtualAccountBankReadOnly) throws Exception {
 
@@ -191,6 +272,28 @@ public class DownloadTagihanMahasiswaBankBtn {
 		return response;
 	}
 
+	/**
+	 * Membuat (atau menggunakan kembali) VA BTN untuk tagihan seorang {@link Mahasiswa}. Menyusun
+	 * daftar item dari baris {@code gridCicilan} yang diisi pengguna (nilai cicilan per baris via
+	 * atribut komponen {@code jumlahCicilan}, dipetakan ke {@link PengaturanPembayaranBulanan} atau
+	 * {@link ItemBiaya} tergantung baris), menghitung total tagihan, lalu mencari
+	 * {@link VirtualAccountBank} yang masih berlaku dengan keterangan identik sebelum membuat
+	 * permintaan {@code createVA} baru ke gateway. Menolak proses (melempar
+	 * {@link IllegalArgumentException}) bila total tagihan nol/negatif dan konfigurasi
+	 * {@code payment_gateway_tolak_total_nol_atau_minus} aktif. Transaksi database dibuka dan
+	 * ditutup mandiri oleh method ini (commit bila sukses, rollback bila gagal).
+	 *
+	 * @param mahasiswa            mahasiswa pemilik tagihan
+	 * @param smt                  nomor semester tagihan
+	 * @param myjadwalPembayaran   jadwal pembayaran terkait (menentukan jenis kegiatan dan tenggat
+	 *                             kedaluwarsa VA), boleh {@code null}
+	 * @param detailBiayas         koleksi {@link DetailBiaya} yang menjadi rincian tagihan (untuk
+	 *                             kolom {@code detailbiaya} pada {@link VirtualAccountBank})
+	 * @param gridCicilan          grid ZK berisi baris cicilan yang dipilih pengguna beserta nilainya
+	 * @return {@link VirtualAccountBank} yang sudah ada atau baru dibuat, atau {@code null} bila
+	 *         terjadi kegagalan (dicatat lewat {@code Common#tampilErrorJikaAdmin})
+	 * @throws Exception diteruskan dari kegagalan komunikasi gateway atau akses database
+	 */
 	@SuppressWarnings({ "rawtypes" })
 	public static VirtualAccountBank downloadData(Mahasiswa mahasiswa, Integer smt, JadwalPembayaran myjadwalPembayaran,
 			Collection detailBiayas, Grid gridCicilan) throws Exception {
@@ -427,6 +530,29 @@ public class DownloadTagihanMahasiswaBankBtn {
 		return null;
 	}
 
+	/**
+	 * Varian {@link #downloadData(Mahasiswa, Integer, JadwalPembayaran, Collection, Grid)} untuk
+	 * tagihan siswa/calon siswa Sekolah (koleksi {@link Tagihan}, bukan cicilan berbasis grid).
+	 * Menyusun item dari setiap {@link Tagihan} (nominal + denda) beserta opsional biaya admin,
+	 * mencari VA yang masih berlaku dengan keterangan dan flag QRIS identik, dan bila perlu membuat
+	 * permintaan {@code createVA} baru. Setelah VA tersimpan, seluruh {@link Tagihan} terkait
+	 * diperbarui dengan kode VA dan tanggal kedaluwarsa dalam transaksi yang sama.
+	 *
+	 * @param siswa                  siswa pemilik tagihan (mode siswa aktif), boleh {@code null} bila
+	 *                               tagihan atas nama {@code calonSiswa}
+	 * @param calonSiswa             calon siswa pemilik tagihan (mode pendaftaran), boleh {@code null}
+	 * @param tag                    koleksi {@link Tagihan} yang menjadi rincian pembayaran
+	 * @param qris                   {@code true} bila VA ini juga dipakai sebagai kanal QRIS
+	 *                               (disisipkan ke kolom {@code keterangan} sebagai penanda)
+	 * @param biayaAdmin             biaya admin tambahan yang ditambahkan ke total tagihan, boleh
+	 *                               {@code null}/nol
+	 * @param bankHost               host bank yang membedakan VA antar channel/cabang, boleh {@code null}
+	 * @param akunPembayaranSiswa    akun pembayaran siswa terkait, disimpan ke {@link VirtualAccountBank}
+	 * @param sekolah                sekolah terkait (tidak dipakai langsung untuk membangun payload)
+	 * @return {@link VirtualAccountBank} yang sudah ada atau baru dibuat, atau {@code null} bila
+	 *         terjadi kegagalan
+	 * @throws Exception diteruskan dari kegagalan komunikasi gateway atau akses database
+	 */
 	@SuppressWarnings({})
 	public static VirtualAccountBank downloadData(Siswa siswa, CalonSiswa calonSiswa, Collection<Tagihan> tag,
 			boolean qris, Double biayaAdmin, BankHost bankHost, AkunPembayaranSiswa akunPembayaranSiswa,

@@ -43,6 +43,14 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Composer ZK untuk window "Penjadwalan" satu {@link KomponenDataProdukKursus} (komponen kursus,
+ * mis. modul/topik dalam sebuah produk kursus): menampilkan grid pertemuan ({@link Pertemuan}) yang
+ * dapat diedit langsung di baris (topik, tanggal, jam mulai/selesai, status pertemuan) dengan
+ * penyimpanan otomatis per-perubahan, tombol "Tambah Kegiatan" yang membuat pertemuan baru dengan
+ * tanggal berjarak 7 hari dari pertemuan terakhir, dan tombol hapus per baris (tervalidasi lewat
+ * {@code PenjadwalanHelper.checkBolehHapus}).
+ */
 public class PenjadwalanKomponenDataProdukKursusHelper {
 
 	private KomponenDataProdukKursus komponenDataProdukKursus;
@@ -51,6 +59,7 @@ public class PenjadwalanKomponenDataProdukKursusHelper {
 
 	private Date currDate;
 
+	/** Row renderer grid pertemuan: input topik/tanggal/jam-mulai/jam-selesai/status pertemuan (masing-masing tersimpan otomatis saat berubah) dan tombol hapus. */
 	class PertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
 		public PertemuanRenderer() {
@@ -220,6 +229,7 @@ public class PenjadwalanKomponenDataProdukKursusHelper {
 
 	}
 
+	/** Menyegarkan koleksi pertemuan pada {@code komponenDataProdukKursus} dari database dan memicu {@code dataLoader} untuk memuat ulang layar pemanggil. Selalu mengembalikan {@code true}. */
 	@SuppressWarnings({})
 	public boolean save() throws InterruptedException {
 
@@ -231,6 +241,13 @@ public class PenjadwalanKomponenDataProdukKursusHelper {
 		return true;
 	}
 
+	/**
+	 * Membangun window modal penjadwalan (toolbar Tambah Kegiatan/Refresh, grid pertemuan) untuk
+	 * komponen produk kursus yang diberikan dan memuat data awal.
+	 *
+	 * @param komponenDataProdukKursus komponen kursus yang jadwalnya dikelola
+	 * @param dataLoader                callback yang dipanggil ulang setelah "Simpan" ditekan
+	 */
 	public void display(final KomponenDataProdukKursus komponenDataProdukKursus, final DataLoader dataLoader) {
 		this.komponenDataProdukKursus = komponenDataProdukKursus;
 		this.dataLoader = dataLoader;
@@ -425,6 +442,7 @@ public class PenjadwalanKomponenDataProdukKursusHelper {
 		}
 	}
 
+	/** Memuat ulang daftar pertemuan komponen kursus (opsional memaksa refresh cache bila {@code event.getData()} berupa {@link Boolean} {@code true}) dan me-render ulang grid. */
 	public void onSearchDefault(Event event) {
 
 		List<Pertemuan> pertemuans = komponenDataProdukKursus.ambilPertemuanList(

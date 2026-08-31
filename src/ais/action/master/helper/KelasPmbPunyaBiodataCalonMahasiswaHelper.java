@@ -45,6 +45,32 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper composer ZK untuk mengelola keanggotaan calon mahasiswa ({@link BiodataCalonMahasiswa})
+ * pada satu {@link KelasPmb} (kelas PMB, mis. kelas bimbingan/tes tertentu). Menampilkan grid
+ * ber-paging server-side (query dihitung ulang dan diambil lewat sesi Hibernate yang dibuka/tutup
+ * eksplisit per pemanggilan — bukan sesi thread-local biasa — untuk menjaga memori tetap terkendali
+ * pada volume data besar) berisi anggota kelas saat ini, dengan pencarian nama/no registrasi dan
+ * filter fakultas/jurusan yang mencocokkan salah satu dari lima pilihan prodi ({@code prodi1}..
+ * {@code prodi5}) atau prodi kelulusan calon mahasiswa.
+ *
+ * <p>
+ * Tiga aksi utama pada toolbar: "Ambil Calon Mahasiswa" membuka
+ * {@code AmbilDataBiodataCalonMahasiswaBanyak} untuk memilih beberapa calon mahasiswa yang
+ * <b>belum</b> berada di kelas ini (dikecualikan lewat query {@code kelasPmb} milik kelas ini) dan
+ * menautkannya secara batch; tombol hapus per baris melepas satu calon mahasiswa dari kelas
+ * (set {@code kelasPmb = null}); "Bersihkan" melepas SEMUA anggota kelas sekaligus lewat satu
+ * SQL update ber-parameter terikat. Fakultas/jurusan pencarian otomatis dikunci bila
+ * {@code kelasPmb} sudah terikat ke fakultas/jurusan tertentu.
+ * </p>
+ *
+ * <p>
+ * Mengimplementasikan {@link DataLoader} ({@link #loadData(Object)}) dan {@link DataCriteria}
+ * ({@link #initCriteria(boolean)}, mendelegasikan ke {@link #buildCriteria(Session, boolean)}
+ * internal yang menerima sesi eksplisit agar dapat dipakai baik dari sesi thread-local maupun
+ * sesi yang dibuka manual).
+ * </p>
+ */
 public class KelasPmbPunyaBiodataCalonMahasiswaHelper implements DataLoader, DataCriteria {
 
 	private MyGrid grid;
@@ -56,6 +82,7 @@ public class KelasPmbPunyaBiodataCalonMahasiswaHelper implements DataLoader, Dat
 
 	private Paging paging;
 
+	/** Membuat helper: menginisialisasi combobox fakultas/jurusan (opsi "Semua") dan komponen paging server-side yang memanggil {@link #loadData(Object)} saat halaman berganti. */
 	public KelasPmbPunyaBiodataCalonMahasiswaHelper() {
 
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
@@ -69,6 +96,12 @@ public class KelasPmbPunyaBiodataCalonMahasiswaHelper implements DataLoader, Dat
 		});
 	}
 
+	/**
+	 * Perender baris grid: foto kecil, nama (dengan tombol riwayat revisi
+	 * {@link RevisiHelper#createNewRevisi}), asal SMA/kampus, ringkasan info registrasi/login/status
+	 * pindahan, nama paket, ringkasan lima pilihan prodi + prodi kelulusan, dan (bila user punya hak
+	 * hapus) tombol lepas dari kelas.
+	 */
 	class DetailKelasRenderer extends ais.ui.util.MyRowRenderer {
 
 		private boolean delete = false;
@@ -214,15 +247,23 @@ public class KelasPmbPunyaBiodataCalonMahasiswaHelper implements DataLoader, Dat
 		}
 	}
 
-	// Method wajib dari interface DataCriteria. Dialihkan ke helper internal
-	// (buildCriteria).
+	/** Implementasi {@link DataCriteria}; mendelegasikan ke {@link #buildCriteria(Session, boolean)} memakai sesi Hibernate thread-local saat ini. */
 	@Override
 	public Criteria initCriteria(boolean order) {
 		return buildCriteria(HibernateUtil.currentSession(), order);
 	}
 
-	// HELPER INTERNAL: Membuat kriteria dengan injeksi Session dinamis untuk
-	// openSession()
+	/**
+	 * Membangun kriteria {@link BiodataCalonMahasiswa} aktif sesuai filter nama/no registrasi,
+	 * fakultas/jurusan (dicocokkan terhadap {@code prodiLulus} dan lima kolom {@code prodi1}..
+	 * {@code prodi5} beserta fakultas masing-masing lewat alias LEFT JOIN), dan {@link #kelasPmb}
+	 * bila diset. Menerima {@code session} eksplisit agar dapat dipakai baik dari sesi thread-local
+	 * ({@link #initCriteria(boolean)}) maupun sesi yang dibuka manual ({@link #loadData(Object)}).
+	 *
+	 * @param session sesi Hibernate yang dipakai membangun kriteria
+	 * @param order   bila {@code true}, tambahkan pengurutan menaik berdasarkan no registrasi
+	 * @return kriteria Hibernate siap dieksekusi/diberi batas hasil
+	 */
 	private Criteria buildCriteria(Session session, boolean order) {
 		Criteria criteria = session.createCriteria(BiodataCalonMahasiswa.class)
 				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
@@ -285,6 +326,14 @@ public class KelasPmbPunyaBiodataCalonMahasiswaHelper implements DataLoader, Dat
 		return criteria;
 	}
 
+	/**
+	 * Memuat ulang grid secara asinkron (dibungkus {@link Common#createDefaultTimer}): membuka
+	 * sesi Hibernate baru, menghitung total baris untuk paging, mengambil satu halaman
+	 * {@link BiodataCalonMahasiswa} sesuai filter aktif, lalu menutup sesi dengan bersih di
+	 * {@code finally} (clear+disconnect+close) untuk mencegah kebocoran memori/koneksi.
+	 *
+	 * @param value tidak digunakan; ada untuk memenuhi kontrak {@link DataLoader}
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Common.createDefaultTimer(new EventListener() {
@@ -332,6 +381,17 @@ public class KelasPmbPunyaBiodataCalonMahasiswaHelper implements DataLoader, Dat
 		});
 	}
 
+	/**
+	 * Membangun dan menampilkan UI keanggotaan kelas PMB ke dalam {@code component}: toolbar
+	 * pencarian (nama/fakultas/jurusan) dan aksi ("Ambil Calon Mahasiswa", "Bersihkan"), lalu grid
+	 * ber-paging berisi anggota kelas saat ini. Fakultas/jurusan pencarian dikunci bila
+	 * {@code kelasPmb} sudah terikat ke fakultas/jurusan tertentu.
+	 *
+	 * @param kelasPmb  kelas PMB yang keanggotaannya dikelola
+	 * @param component komponen ZK tujuan tampilan (dibersihkan lebih dulu)
+	 * @param window    window pemanggil; parameter diterima untuk kompatibilitas signature, tidak
+	 *                  dipakai langsung di badan method
+	 */
 	public void display(final KelasPmb kelasPmb, final Component component, final MyWindow window) {
 		this.kelasPmb = kelasPmb;
 		Common.clear(component);

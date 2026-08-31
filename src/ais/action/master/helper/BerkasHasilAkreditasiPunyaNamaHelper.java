@@ -56,6 +56,14 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Composer ZK untuk mengelola daftar referensi/dokumen pustaka ({@link BerkasHasilAkreditasiPunyaNama})
+ * yang menjadi bukti pendukung satu {@link BerkasHasilAkreditasi}. Setiap baris memuat metadata
+ * bibliografi (nama, penulis/editor, kata kunci, penerbit, tanggal terbit, abstrak, keterangan) serta
+ * unggahan lampiran file lewat {@link ais.database.model.file.LampiranLain}, dapat dicari berdasarkan
+ * nama, diedit lewat dialog form ({@link #init}), dihapus (hanya untuk pengguna dengan hak
+ * {@link CommonPrivilages#DELETE}), dan diekspor ke Excel dengan kolom hyperlink lampiran.
+ */
 public class BerkasHasilAkreditasiPunyaNamaHelper implements DataLoader, DataCriteria {
 
 	private MyGrid grid;
@@ -65,6 +73,7 @@ public class BerkasHasilAkreditasiPunyaNamaHelper implements DataLoader, DataCri
 
 	private Paging paging;
 
+	/** Menyiapkan komponen paging beserta listener yang memuat ulang grid saat halaman berpindah. */
 	public BerkasHasilAkreditasiPunyaNamaHelper() {
 
 		paging = new Paging();
@@ -77,6 +86,7 @@ public class BerkasHasilAkreditasiPunyaNamaHelper implements DataLoader, DataCri
 		});
 	}
 
+	/** Row renderer grid: nama+lampiran, penulis/editor, kata kunci, penerbit+tanggal, keterangan (editable), dan tombol ubah/hapus. */
 	class DetailBerkasHasilAkreditasiPunyaNamaRenderer extends ais.ui.util.MyRowRenderer {
 
 		private boolean delete = false;
@@ -187,6 +197,13 @@ public class BerkasHasilAkreditasiPunyaNamaHelper implements DataLoader, DataCri
 
 	}
 
+	/**
+	 * Membangun kriteria Hibernate {@link BerkasHasilAkreditasiPunyaNama} milik
+	 * {@code berkasHasilAkreditasi} saat ini, difilter pencarian nama.
+	 *
+	 * @param order bila {@code true}, menambahkan pengurutan nama menaik
+	 * @return kriteria siap dieksekusi
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(BerkasHasilAkreditasiPunyaNama.class)
@@ -201,6 +218,7 @@ public class BerkasHasilAkreditasiPunyaNamaHelper implements DataLoader, DataCri
 		return criteria;
 	}
 
+	/** Memuat ulang halaman referensi saat ini dan me-render ulang grid. Parameter {@code value} tidak dipakai. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -235,6 +253,7 @@ public class BerkasHasilAkreditasiPunyaNamaHelper implements DataLoader, DataCri
 	private Textbox keterangan;
 	private BerkasHasilAkreditasiPunyaNama berkasHasilAkreditasiPunyaNama;
 
+	/** Membuka dialog form untuk menambah referensi baru pada {@code berkasHasilAkreditasi} saat ini. */
 	public void onAdd(Event event) throws Exception {
 
 		init(new BerkasHasilAkreditasiPunyaNama());
@@ -379,6 +398,14 @@ public class BerkasHasilAkreditasiPunyaNamaHelper implements DataLoader, DataCri
 
 	}
 
+	/**
+	 * Membangun UI grid referensi (toolbar cari/tambah/unduh, kolom grid) di dalam {@code component}
+	 * untuk {@code berkasHasilAkreditasi} yang diberikan dan memuat data awal.
+	 *
+	 * @param berkasHasilAkreditasi berkas hasil akreditasi induk
+	 * @param component             container ZK yang akan diisi
+	 * @param window                tidak dipakai langsung di badan method
+	 */
 	public void display(final BerkasHasilAkreditasi berkasHasilAkreditasi, final Component component,
 			final MyWindow window) {
 		this.berkasHasilAkreditasi = berkasHasilAkreditasi;

@@ -47,6 +47,20 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK untuk mendaftarkan dosen ke dalam satu {@link OrganisasiDosen} (organisasi/himpunan
+ * dosen). Pola dan struktur kelas ini identik dengan
+ * {@link AmbilDataDosenForOrganisasiIntraKampusHelper} versi mahasiswa, hanya diterapkan pada
+ * entitas {@link Dosen}: jendela pencarian menyaring dosen lewat NIDN, nama, Fakultas, dan Jurusan
+ * (dosen dengan {@code milikUniversitas=true} lolos filter Fakultas/Jurusan apa pun karena berlaku
+ * lintas unit), dengan dosen yang sudah tergabung ditandai tercentang dan dikunci.
+ *
+ * <p>
+ * {@link #save()} menyimpan baris {@link OrganisasiDosenPunyaDosen} baru (atau memperbarui yang
+ * sudah ada) untuk setiap dosen yang dicentang pada grid, tanpa syarat kelayakan tambahan (berbeda
+ * dari varian mahasiswa yang mengecek syarat organisasi kemahasiswaan).
+ * </p>
+ */
 public class AmbilDataDosenForOrganisasiDosenHelper {
 
 	private OrganisasiDosen organisasiDosen;
@@ -60,6 +74,7 @@ public class AmbilDataDosenForOrganisasiDosenHelper {
 
 	private Paging paging;
 
+	/** @param organisasiDosen organisasi dosen tujuan; dosen terpilih akan didaftarkan ke organisasi ini. */
 	public AmbilDataDosenForOrganisasiDosenHelper(OrganisasiDosen organisasiDosen) {
 		this.organisasiDosen = organisasiDosen;
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
@@ -100,6 +115,13 @@ public class AmbilDataDosenForOrganisasiDosenHelper {
 		}
 	}
 
+	/**
+	 * Menyimpan baris {@link OrganisasiDosenPunyaDosen} baru (atau memperbarui yang sudah ada) untuk
+	 * setiap dosen yang dicentang (dan belum terkunci) pada grid.
+	 *
+	 * @throws InterruptedException tidak pernah dilempar dalam praktiknya; dipertahankan pada
+	 *                              signature untuk kompatibilitas pemanggil
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() throws InterruptedException {
 		Session session = HibernateUtil.currentSession();
@@ -141,6 +163,13 @@ public class AmbilDataDosenForOrganisasiDosenHelper {
 
 	}
 
+	/**
+	 * Membangun jendela pencarian dan pemilihan dosen untuk didaftarkan ke {@link #organisasiDosen}.
+	 * Tombol Simpan memanggil {@link #save()} lalu menyegarkan tampilan pemanggil lewat {@code dataLoader}.
+	 *
+	 * @param dataLoader dipanggil setelah simpan untuk menyegarkan tampilan daftar anggota organisasi
+	 * @param window     jendela ({@link MyWindow}) yang dipakai ulang untuk menampilkan layar ini
+	 */
 	public void display(final DataLoader dataLoader, final MyWindow window) {
 
 		Common.clear(window);
@@ -354,6 +383,14 @@ public class AmbilDataDosenForOrganisasiDosenHelper {
 		});
 	}
 
+	/**
+	 * Membangun kriteria Hibernate untuk pencarian dosen calon anggota, sesuai filter toolbar (NIDN,
+	 * nama, Fakultas, Jurusan). Dosen dengan {@code milikUniversitas=true} selalu lolos filter
+	 * Fakultas/Jurusan apa pun.
+	 *
+	 * @param order {@code true} untuk mengurutkan hasil berdasarkan nama ascending
+	 * @return kriteria Hibernate siap eksekusi/paginasi
+	 */
 	public Criteria initCriteria(boolean order) {
 
 		Session session = HibernateUtil.currentSession();
@@ -386,6 +423,12 @@ public class AmbilDataDosenForOrganisasiDosenHelper {
 		return criteria;
 	}
 
+	/**
+	 * Mengisi ulang grid hasil pencarian dosen (paginasi 50 baris per halaman) sesuai kriteria
+	 * pencarian saat ini.
+	 *
+	 * @param event tidak dipakai isinya
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

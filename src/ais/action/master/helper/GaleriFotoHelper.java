@@ -46,23 +46,55 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper pengelola isi satu {@link GaleriFoto} (album foto): unggah foto baru (disimpan
+ * sebagai {@link GaleriFotoImage} blob lewat {@link StreamingHibernateUtil}, sesi
+ * Hibernate terpisah dari sesi utama karena ukuran data gambar), pengaturan nomor
+ * halaman/urutan dan keterangan tiap foto (langsung setelah unggah lewat dialog "Masukkan
+ * halaman", maupun diedit inline di grid), filter tampilan berdasarkan rentang nomor
+ * halaman, unduh foto asli, penandaan "Ditampilkan"/tidak, dan penghapusan foto. Hak
+ * tambah/hapus dikontrol lewat {@link CommonPrivilages}.
+ */
 public class GaleriFotoHelper {
 
 	private MyGrid gridGaleriFotoImage;
 	private boolean add = false;
 	private boolean delete = false;
 
+	/** Daftar id {@link GaleriFoto} yang datanya ditampilkan grid saat ini (biasanya satu album, tapi wadah tetap berupa list). */
 	private List<Long> idsRand;
 
 	private Intbox halamanMulai = new Intbox(0);
 	private Intbox halamanSampai = new Intbox(1000);
 
+	/**
+	 * Membuat helper yang akan mengisi {@code gridGaleriFotoImage}, sekaligus mengecek
+	 * hak akses tambah ({@link CommonPrivilages#CREATE}) dan hapus
+	 * ({@link CommonPrivilages#DELETE}) pengguna saat ini.
+	 *
+	 * @param gridGaleriFotoImage grid target yang akan diisi daftar foto
+	 */
 	public GaleriFotoHelper(MyGrid gridGaleriFotoImage) {
 		this.gridGaleriFotoImage = gridGaleriFotoImage;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun tampilan pengelolaan album {@code galeriFoto}: toolbar unggah (bila
+	 * berhak {@link #add}), filter rentang nomor halaman foto yang ditampilkan, dan
+	 * grid isi album. Saat unggah selesai ({@code onUpload}), satu
+	 * {@link GaleriFotoImage} baru langsung disimpan (blob via
+	 * {@link Common#getBlobFromMedia}), lalu — setelah jeda singkat lewat
+	 * {@link Timer} agar transaksi commit selesai — jendela modal "Masukkan halaman"
+	 * dibuka untuk mengisi nomor urut dan keterangan foto tersebut (menutup jendela
+	 * tanpa Simpan TIDAK membatalkan foto yang sudah terunggah, hanya tidak menerapkan
+	 * perubahan halaman/keterangan yang baru diketik).
+	 *
+	 * @param galeriFoto album yang akan dikelola; bila belum tersimpan ({@code id} {@code null}), foto baru sementara ditandai dengan id acak negatif
+	 * @return layout ZK siap pakai berisi toolbar dan grid album
+	 * @throws Exception diteruskan dari operasi tampilan/akses Hibernate
+	 */
 	public Borderlayout initDetail(final GaleriFoto galeriFoto) throws Exception {
 		idsRand = new ArrayList<Long>();
 		if (galeriFoto != null && galeriFoto.getId() != null) {
@@ -323,6 +355,14 @@ public class GaleriFotoHelper {
 		return borderlayout;
 	}
 
+	/**
+	 * Memuat ulang isi grid dengan {@link GaleriFotoImage} milik {@link #idsRand} yang
+	 * nomor halamannya berada pada rentang {@link #halamanMulai}/{@link #halamanSampai},
+	 * diurutkan berdasarkan halaman.
+	 *
+	 * @param galeriFoto album yang datanya dimuat ulang (dipakai lewat {@link #initRow})
+	 * @throws Exception diteruskan dari akses Hibernate
+	 */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final GaleriFoto galeriFoto) throws Exception {
 
@@ -350,6 +390,17 @@ public class GaleriFotoHelper {
 
 	}
 
+	/**
+	 * Merender satu baris grid untuk {@code galeriFotoImage}: thumbnail (klik untuk
+	 * unduh), checkbox "Ditampilkan", editor keterangan (CKEditor), kotak angka nomor
+	 * halaman, tombol Download, dan tombol Hapus (bila berhak {@link #delete}) dengan
+	 * konfirmasi. Perubahan pada checkbox/keterangan/halaman langsung disimpan ke
+	 * database on-change.
+	 *
+	 * @param row            baris grid yang akan diisi
+	 * @param galeriFotoImage entitas foto yang direpresentasikan baris ini
+	 * @throws Exception diteruskan dari operasi tampilan
+	 */
 	public void initRow(final Row row, final GaleriFotoImage galeriFotoImage) throws Exception {
 		row.setValign("top");
 		row.setAttribute("galeriFotoImage", galeriFotoImage);

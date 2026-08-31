@@ -37,7 +37,7 @@ public class IainBengkuluNimGenerator implements NimGenerator {
 		String digitKetiga = calonMahasiswa == null || calonMahasiswa.getProdiLulus() == null ? "--"
 				: calonMahasiswa.getProdiLulus().getKode().trim();
 
-		Session session = HibernateUtil.currentNativeSession();
+		Session session = HibernateUtil.openSession();
 		Long jumlah = ((Number) session.createCriteria(Mahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 				.setProjection(Projections.rowCount()).add(Restrictions.eq("tahunangkatan", tahun))
 				.add(Restrictions.eq("jenjang", calonMahasiswa.getJenjang()))
@@ -59,7 +59,7 @@ public class IainBengkuluNimGenerator implements NimGenerator {
 		Integer count = ((Number) session.createCriteria(Mahasiswa.class).add(Restrictions.eq("nim", nim))
 				.setProjection(Projections.count("nim")).uniqueResult()).intValue();
 
-		HibernateUtil.closeSession();
+		HibernateUtil.closeSessionQuietly(session);
 
 		if (!count.equals(0)) {
 			jumlahPengecualian.add(nim);

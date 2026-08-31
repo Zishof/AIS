@@ -39,7 +39,7 @@ public class YY_JENJANG_PRODI_STATUS_URUT_NimGenerator implements NimGenerator {
 			validasiKomponenNim(digitKetiga, "prodi", calonMahasiswa);
 			validasiKomponenNim(digitKetigaLagi, "status", calonMahasiswa);
 
-			Session session = HibernateUtil.currentNativeSession();
+			Session session = HibernateUtil.openSession();
 
 			Long jumlah = ((Number) session.createCriteria(Mahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))).setProjection(Projections.rowCount())
 					.add(Restrictions.eq("tahunangkatan", tahun))
@@ -81,7 +81,7 @@ public class YY_JENJANG_PRODI_STATUS_URUT_NimGenerator implements NimGenerator {
 
 			// session.disconnect();
 			if (session.isOpen()) {session.disconnect();session.close();}
-			HibernateUtil.closeSession();
+			HibernateUtil.closeSessionQuietly(session);
 
 			if (!count.equals(0) || !countCalon.equals(0)) {
 				jumlahPengecualian.add(nim);

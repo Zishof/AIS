@@ -44,6 +44,13 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper CRUD untuk daftar {@link JenisKegiatanDetail} (kombinasi Fakultas+Jurusan) yang
+ * berlaku pada satu {@link JenisKegiatan}. Menampilkan grid berpaging dengan aksi
+ * tambah/ubah/hapus, di mana form tambah/ubah dirender ke jendela modal terpisah
+ * ({@link #init(JenisKegiatanDetail)}) dan setiap baris grid dapat dibuka ({@link MyDetail})
+ * untuk mengelola rincian biaya terkait lewat {@link DetailBiayaHelper}.
+ */
 public class DetailJenisKegiatanHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -54,6 +61,7 @@ public class DetailJenisKegiatanHelper implements DataLoader {
 	private Combobox fakultas;
 	private Combobox jurusan;
 
+	/** Perender baris grid: detail biaya yang dapat dibuka, label Fakultas/Jurusan, dan tombol ubah/hapus. */
 	class JenisKegiatanDetailRenderer extends ais.ui.util.MyRowRenderer {
 
 		// private AmbilDetailBiayaHelper ambilDetailBiayaHelper = new
@@ -63,6 +71,13 @@ public class DetailJenisKegiatanHelper implements DataLoader {
 
 		}
 
+		/**
+		 * Merender satu baris {@link JenisKegiatanDetail}: komponen {@link MyDetail}
+		 * yang saat dibuka menampilkan rincian biaya via {@link DetailBiayaHelper},
+		 * label nama Fakultas dan Jurusan, tombol ubah (membuka form
+		 * {@link #init(JenisKegiatanDetail)}) dan tombol hapus (dengan konfirmasi dan
+		 * pesan galat ramah bila gagal karena relasi data).
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {row.setValign("top");
 			final JenisKegiatanDetail jenisKegiatanDetail = (JenisKegiatanDetail) data;
@@ -141,6 +156,12 @@ public class DetailJenisKegiatanHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Memuat ulang daftar {@link JenisKegiatanDetail} milik {@link #jenisKegiatan}
+	 * (diurutkan berdasarkan id) dan mengikatnya ke {@link #grid}.
+	 *
+	 * @param value tidak digunakan (parameter kontrak {@link DataLoader})
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
@@ -153,6 +174,15 @@ public class DetailJenisKegiatanHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun panel "Detail Jenis Kegiatan" ke dalam {@code component}: toolbar tombol
+	 * "Tambah Data" (membuka form {@link #init(JenisKegiatanDetail)} dengan entitas
+	 * baru) dan grid berpaging dengan kolom Fakultas/Jurusan, lalu memuat data awal.
+	 *
+	 * @param jenisKegiatan jenis kegiatan yang detailnya ditampilkan
+	 * @param component     komponen ZK induk yang akan diisi ulang (dibersihkan lebih dulu)
+	 * @param window        jendela modal yang dipakai bersama untuk form tambah/ubah
+	 */
 	public void displayJenisKegiatanDetail(final JenisKegiatan jenisKegiatan, final Component component,
 			final MyWindow window) {
 
@@ -224,6 +254,14 @@ public class DetailJenisKegiatanHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun form tambah/ubah {@link JenisKegiatanDetail} ke dalam {@link #addWindow}:
+	 * combobox Fakultas (aktif saja) yang saat berubah mengisi ulang combobox Prodi
+	 * (Jurusan) sesuai fakultas terpilih, serta tombol Batal/Simpan
+	 * ({@link #onSave(Event)}).
+	 *
+	 * @param jenisKegiatanDetail entitas yang diedit (baru atau sudah tersimpan), disimpan ke {@link #jenisKegiatanDetail}
+	 */
 	private void init(JenisKegiatanDetail jenisKegiatanDetail) {
 		this.jenisKegiatanDetail = jenisKegiatanDetail;
 		addWindow.setTitle("Form Detail Jenis Kegiatan");
@@ -328,6 +366,16 @@ public class DetailJenisKegiatanHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Menyimpan (insert/update) {@link #jenisKegiatanDetail} dari form: memuat ulang
+	 * entitas dari database bila sudah punya id (menghindari overwrite data basi),
+	 * mengisi Fakultas/Jurusan/{@link #jenisKegiatan} dari combobox terpilih, lalu
+	 * update atau save sesuai ada tidaknya id.
+	 *
+	 * @param event tidak digunakan langsung (parameter kontrak listener tombol Simpan)
+	 * @return selalu {@code true} (tidak ada jalur validasi yang mengembalikan {@code false})
+	 * @throws Exception diteruskan dari akses DAO/Hibernate
+	 */
 	public boolean onSave(Event event) throws Exception {
 
 		JenisKegiatanDetailDao jenisKegiatanDetailDao = DaoFactory.getInstance().getJenisKegiatanDetailDao();

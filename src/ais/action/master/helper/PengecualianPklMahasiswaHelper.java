@@ -47,6 +47,25 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper jendela modal untuk mengelola daftar mahasiswa yang <b>dikecualikan</b> dari satu
+ * kegiatan {@link Pkl} (PKL/Praktik Kerja Lapangan) tertentu — mis. mahasiswa yang tidak wajib
+ * mengikuti PKL karena alasan tertentu, dicatat sebagai baris {@link PengecualianPklMahasiswa}
+ * lengkap dengan keterangan alasan pengecualian yang dapat diedit langsung pada grid.
+ *
+ * <p>
+ * Menyediakan filter pencarian (nama, fakultas, prodi), tombol untuk menambah mahasiswa lewat
+ * dialog pemilihan massal {@link AmbilDataMahasiswaBanyak}, dan tombol hapus per baris. Kolom
+ * "Keterangan" pada grid bersifat inline-editable (perubahan langsung tersimpan lewat event
+ * {@code onChange}).
+ * </p>
+ *
+ * <p>
+ * Catatan: judul jendela pada {@link #display()} tertulis "Daftar Pengecualian KKN mahasiswa"
+ * (menyebut KKN, bukan PKL) — kemungkinan sisa salin-tempel dari helper KKN sejenis; dibiarkan
+ * apa adanya sesuai instruksi untuk tidak mengubah kode fungsional.
+ * </p>
+ */
 public class PengecualianPklMahasiswaHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -56,11 +75,13 @@ public class PengecualianPklMahasiswaHelper implements DataLoader {
 	private Textbox nama;
 	private Pkl pkl;
 
+	/** @param pkl kegiatan PKL yang daftar pengecualiannya akan dikelola */
 	public PengecualianPklMahasiswaHelper(Pkl pkl) {
 		this.pkl = pkl;
-		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan); 
+		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 	}
 
+	/** Perender baris grid: NIM/nama/jurusan/fakultas mahasiswa, textbox keterangan (inline-editable, tersimpan otomatis on-change), dan tombol hapus (dengan konfirmasi) yang menghapus baris {@link PengecualianPklMahasiswa}. */
 	class PengecualianPklMahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		public PengecualianPklMahasiswaRenderer() {
@@ -139,6 +160,7 @@ public class PengecualianPklMahasiswaHelper implements DataLoader {
 		}
 	}
 
+	/** Memuat ulang grid dengan {@link PengecualianPklMahasiswa} milik {@link #pkl} yang sedang ditampilkan, disaring nama/fakultas/jurusan, dibatasi {@link Common#MAX_RESULT_50} baris. Kontrak {@link DataLoader#loadData(Object)}; {@code value} tidak dipakai. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = Common.getManualSession();
@@ -160,6 +182,12 @@ public class PengecualianPklMahasiswaHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela modal berisi form filter, toolbar tambah/cari, dan grid
+	 * berpaging daftar pengecualian PKL untuk {@link #pkl} yang diberikan di konstruktor.
+	 * Memanggil {@link #loadData(Object)} untuk mengisi grid pertama kali sebelum jendela
+	 * ditampilkan sebagai modal.
+	 */
 	public void display() throws InterruptedException {
 
 		final MyWindow window = new MyWindow("Daftar Pengecualian KKN mahasiswa", "none", true);

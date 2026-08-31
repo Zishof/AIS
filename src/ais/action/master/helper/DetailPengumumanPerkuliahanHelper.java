@@ -55,6 +55,27 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper composer ZK dengan dua tanggung jawab terpisah pada satu {@link PengumumanPerkuliahan}
+ * (pengumuman akademik): (1) mengelola komentar/diskusi ({@link DiskusiPengumumanPerkuliahan}) lewat
+ * {@link #displayDetailPengumuman}, dan (2) mengelola lampiran gambar/berkas
+ * ({@link LampiranPengumumanPerkuliahan}) lewat {@link #displayAttachment}. Kedua bagian dipakai
+ * secara independen sesuai kebutuhan tampilan pemanggil.
+ *
+ * <p>
+ * Bagian komentar: grid daftar komentar dengan tombol tambah/ubah/hapus; penambahan/pengubahan
+ * dilakukan lewat window modal ({@link #init}) dan disimpan lewat {@link #onSave(Event)}, yang juga
+ * mencatat identitas pengirim (mahasiswa/dosen/role lain) dan memicu email notifikasi lewat
+ * {@link TampilanPengumumanPerkuliahanAction#kirimEmail}.
+ * </p>
+ * <p>
+ * Bagian lampiran: bila hanya ada satu lampiran, kontennya ditampilkan langsung; bila lebih dari
+ * satu, ditampilkan sebagai tab (accordion di mobile) yang dimuat malas (lazy) saat tab dibuka.
+ * Setiap lampiran punya checkbox "Ditampilkan" (langsung menulis ke database lewat SQL native saat
+ * diubah), tombol unduh, dan tombol hapus. Visibilitas kontrol edit/hapus diatur lewat
+ * {@link #setReadonly(Boolean)}.
+ * </p>
+ */
 public class DetailPengumumanPerkuliahanHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -66,6 +87,10 @@ public class DetailPengumumanPerkuliahanHelper implements DataLoader {
 	private Textbox catatan;
 	private Center center;
 
+	/**
+	 * Perender baris grid untuk satu {@link DiskusiPengumumanPerkuliahan}: tanggal, catatan, nama
+	 * pengirim ("oleh"), serta tombol ubah (membuka {@link #init}) dan hapus.
+	 */
 	class DetailPengumumanRenderer extends ais.ui.util.MyRowRenderer {
 
 		public DetailPengumumanRenderer() {
@@ -138,6 +163,12 @@ public class DetailPengumumanPerkuliahanHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Memuat ulang grid dengan seluruh {@link DiskusiPengumumanPerkuliahan} milik
+	 * {@link #pengumumanPerkuliahan}, diurutkan berdasarkan id.
+	 *
+	 * @param value tidak dipakai; parameter standar {@link DataLoader}
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
@@ -151,6 +182,13 @@ public class DetailPengumumanPerkuliahanHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun panel "Komentar Pengumuman Akademik" (tombol tambah + grid berpaging komentar) di
+	 * dalam {@code component}, lalu memuat datanya.
+	 *
+	 * @param pengumumanPerkuliahan pengumuman yang komentarnya ditampilkan/dikelola
+	 * @param component             komponen induk ZK; isinya dibersihkan lebih dulu
+	 */
 	public void displayDetailPengumuman(final PengumumanPerkuliahan pengumumanPerkuliahan, final Component component) {
 
 		this.pengumumanPerkuliahan = pengumumanPerkuliahan;
@@ -211,6 +249,15 @@ public class DetailPengumumanPerkuliahanHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membuka window modal kecil berisi textbox catatan untuk menambah (bila {@code id} belum ada)
+	 * atau mengubah (bila sudah ada) satu {@link DiskusiPengumumanPerkuliahan}. Tombol "Simpan"
+	 * memanggil {@link #onSave(Event)} lalu memuat ulang grid.
+	 *
+	 * @param diskusiPengumumanPerkuliahan komentar yang akan diedit, atau instance baru untuk
+	 *                                      menambah komentar
+	 * @throws Exception diteruskan dari kegagalan pembangunan UI
+	 */
 	private void init(DiskusiPengumumanPerkuliahan diskusiPengumumanPerkuliahan) throws Exception {
 		this.diskusiPengumumanPerkuliahan = diskusiPengumumanPerkuliahan;
 
@@ -293,6 +340,17 @@ public class DetailPengumumanPerkuliahanHelper implements DataLoader {
 		addWindow.onModal();
 	}
 
+	/**
+	 * Menyimpan {@link #diskusiPengumumanPerkuliahan} (baru atau hasil {@code load} ulang bila
+	 * sudah punya id) dengan tanggal saat ini, catatan dari textbox {@link #catatan}, dan identitas
+	 * pengirim yang ditentukan dari user login saat ini (format berbeda untuk mahasiswa, dosen, atau
+	 * role lain). Setelah tersimpan, memicu email notifikasi lewat
+	 * {@link TampilanPengumumanPerkuliahanAction#kirimEmail}.
+	 *
+	 * @param event tidak dipakai
+	 * @return selalu {@code true}
+	 * @throws Exception diteruskan dari kegagalan Hibernate atau pengiriman email
+	 */
 	public boolean onSave(Event event) throws Exception {
 
 		String myoleh = "";
@@ -331,6 +389,16 @@ public class DetailPengumumanPerkuliahanHelper implements DataLoader {
 		return true;
 	}
 
+	/**
+	 * Membangun panel lampiran gambar/berkas untuk {@code pengumumanPerkuliahan}: toolbar unggah
+	 * (disembunyikan bila {@link #readonly}) dan area konten yang dimuat lewat
+	 * {@link #loadDataAttachment()}.
+	 *
+	 * @param pengumumanPerkuliahan pengumuman yang lampirannya ditampilkan/dikelola
+	 * @param component             komponen induk ZK tempat UI dibangun
+	 * @param window                tidak dipakai langsung di badan method (diteruskan untuk
+	 *                              kompatibilitas signature pemanggil)
+	 */
 	public void displayAttachment(final PengumumanPerkuliahan pengumumanPerkuliahan, final Component component,
 			final MyWindow window) {
 		this.pengumumanPerkuliahan = pengumumanPerkuliahan;
@@ -380,6 +448,12 @@ public class DetailPengumumanPerkuliahanHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Memuat ulang area konten lampiran {@link #pengumumanPerkuliahan}: bila hanya ada satu
+	 * lampiran, ditampilkan langsung; bila lebih dari satu, dibangun sebagai {@link Tabbox}
+	 * (accordion di perangkat mobile) dengan konten tiap tab dimuat malas saat tab dipilih (tab
+	 * pertama dimuat langsung).
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadDataAttachment() {
 		Common.clear(center);
@@ -447,6 +521,17 @@ public class DetailPengumumanPerkuliahanHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Menampilkan satu {@link LampiranPengumumanPerkuliahan} secara lengkap di dalam
+	 * {@code tabpanelUtama}: tanggal unggah, checkbox "Ditampilkan" (langsung menulis kolom
+	 * {@code ditampilkan} lewat SQL {@code UPDATE} native saat diubah), tombol unduh (lewat
+	 * {@link Filedownload#save}), tombol hapus (disembunyikan bila {@link #readonly}), dan pratinjau
+	 * media lewat {@link CommonMedia#preview}.
+	 *
+	 * @param tabpanelUtama                komponen induk tempat konten ditampilkan
+	 * @param lampiranPengumumanPerkuliahan lampiran yang ditampilkan
+	 * @throws Exception diteruskan dari kegagalan pembangunan pratinjau media
+	 */
 	private void tampilkanKonten(Component tabpanelUtama,
 			final LampiranPengumumanPerkuliahan lampiranPengumumanPerkuliahan) throws Exception {
 		Vbox vbox = new Vbox();

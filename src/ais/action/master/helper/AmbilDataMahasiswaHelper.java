@@ -53,6 +53,23 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper composer ZK berbentuk window modal untuk mendaftarkan mahasiswa ke satu {@link Perkuliahan}
+ * (menambah baris {@link Detailperkuliahan}), dengan penegakan aturan akademik: pembatasan SKS
+ * berdasarkan IP ({@link Common#checkPembatasanSKSBerdasarkanIP}), matakuliah prasyarat
+ * ({@link Common#checkMatakuliahPrasyarat}), dan status pembayaran per semester/tahap
+ * ({@link Common#checkStatusPembayaranMahasiswa}).
+ *
+ * <p>
+ * Mendukung dua mode pemilihan: centang per baris, atau checkbox "pilih semua" yang — bila aktif —
+ * memproses SEMUA hasil pencarian saat ini (bukan hanya yang tampil di halaman aktif) lewat
+ * {@link #initCriteria(boolean)}, dengan pengecekan tambahan status mahasiswa harus
+ * {@code AKTIF} sebelum diproses. Pencarian mendukung filter NIM (tunggal/rentang), nama, tahun
+ * angkatan, fakultas, prodi, status mahasiswa semester berjalan, dan kelas. Mahasiswa yang sudah
+ * terdaftar di perkuliahan (via {@link Detailperkuliahan} tanpa {@code ikutiPerkuliahan}) tampil
+ * tercentang.
+ * </p>
+ */
 public class AmbilDataMahasiswaHelper {
 
 	private Perkuliahan perkuliahan;
@@ -75,6 +92,11 @@ public class AmbilDataMahasiswaHelper {
 	private MyCheckboxConfig checkboxAll;
 	private AmbilDataKelasBanbox searchkelas;
 
+	/**
+	 * @param perkuliahan    kelas matakuliah tujuan pendaftaran mahasiswa
+	 * @param semesterPendek penanda semester pendek, memengaruhi perhitungan SKS yang sudah diambil
+	 *                       dan pengecekan pembayaran; boleh {@code null}
+	 */
 	public AmbilDataMahasiswaHelper(Perkuliahan perkuliahan, Integer semesterPendek) {
 		this.perkuliahan = perkuliahan;
 		this.semesterPendek = semesterPendek;
@@ -92,6 +114,14 @@ public class AmbilDataMahasiswaHelper {
 
 	}
 
+	/**
+	 * Listener yang divalidasi saat checkbox baris mahasiswa dicentang: menghitung semester
+	 * mahasiswa saat ini ({@link CommonUtil#getSemester}), lalu bila semester tersebut cocok dengan
+	 * semester {@link #perkuliahan} dan mahasiswa belum bayar (dicek lewat
+	 * {@link Common#checkStatusPembayaranMahasiswa}), checkbox dibatalkan (uncheck) dan pesan
+	 * peringatan ditampilkan. (Blok validasi bentrok jadwal matakuliah lain dinonaktifkan/dikomentari
+	 * di kode.)
+	 */
 	class MahasiswaOnCheck implements EventListener {
 
 		private Mahasiswa mahasiswa;
@@ -187,6 +217,11 @@ public class AmbilDataMahasiswaHelper {
 
 	}
 
+	/**
+	 * Perender baris grid untuk satu {@link Mahasiswa}: checkbox pilih (tercentang bila sudah
+	 * terdaftar di {@link #perkuliahan}, atau bila checkbox "pilih semua" aktif), NIM, nama, tahun
+	 * angkatan, dan kelas hasil sinkronisasi {@link Common#singkronkanKrsMahasiswa(Mahasiswa)}.
+	 */
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -229,6 +264,17 @@ public class AmbilDataMahasiswaHelper {
 		}
 	}
 
+	/**
+	 * Mendaftarkan {@code mahasiswa} ke {@link #perkuliahan} bila belum terdaftar: menghitung
+	 * semester dan SKS yang sudah diambil, menegakkan pembatasan SKS berdasarkan IP dan matakuliah
+	 * prasyarat (menolak pendaftaran bila melanggar), lalu membuat {@link Detailperkuliahan} baru
+	 * lewat {@link KrsUtilHelper#simpanKrsJikaBelumAda}.
+	 *
+	 * @param mahasiswa mahasiswa yang akan didaftarkan
+	 * @return {@code true} bila berhasil (atau sudah terdaftar sebelumnya); {@code false} bila
+	 *         ditolak karena melanggar pembatasan SKS atau prasyarat matakuliah
+	 * @throws Exception diteruskan dari kegagalan Hibernate
+	 */
 	private boolean prosesSave(Mahasiswa mahasiswa) throws Exception {
 
 		Tbmuser tbmuser = Common.getCurrentUser();
@@ -282,6 +328,17 @@ public class AmbilDataMahasiswaHelper {
 		return true;
 	}
 
+	/**
+	 * Mendaftarkan mahasiswa terpilih ke {@link #perkuliahan}. Bila checkbox "pilih semua"
+	 * tercentang, memproses SEMUA hasil {@link #initCriteria(boolean)} (bukan hanya baris yang
+	 * tampil), dengan tambahan pengecekan status mahasiswa harus {@code AKTIF} dan status pembayaran
+	 * sebelum memanggil {@link #prosesSave(Mahasiswa)}; bila tidak, hanya baris grid yang
+	 * checkbox-nya tercentang yang diproses.
+	 *
+	 * @return selalu {@code true}
+	 * @throws Exception tidak pernah dilempar keluar dari cabang per-baris (ditangkap dan diaudit),
+	 *                    namun dideklarasikan pada signature untuk cabang "pilih semua"
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public boolean save() throws Exception {
 
@@ -336,6 +393,14 @@ public class AmbilDataMahasiswaHelper {
 		return true;
 	}
 
+	/**
+	 * Membangun window modal "Ambil Data Mahasiswa" berisi form filter lengkap dan grid mahasiswa
+	 * berpaging dengan checkbox pilih-semua. Tombol "Simpan" memanggil {@link #save()}, memuat ulang
+	 * data pemanggil, lalu menyembunyikan window.
+	 *
+	 * @param dataLoader callback muat-ulang data pemanggil setelah simpan
+	 * @param window     window modal tempat UI dibangun
+	 */
 	public void display(final DataLoader dataLoader, final MyWindow window) {
 
 		Common.clear(window);

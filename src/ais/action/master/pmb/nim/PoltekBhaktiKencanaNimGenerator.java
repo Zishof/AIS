@@ -61,7 +61,7 @@ public class PoltekBhaktiKencanaNimGenerator implements NimGenerator {
             return nim;
         }
 
-        Session session = HibernateUtil.currentNativeSession();
+        Session session = HibernateUtil.openSession();
         try {
 
             // Digit 1-2: 2 angka terakhir kode PT (mis. "045078" → "78")
@@ -174,7 +174,7 @@ public class PoltekBhaktiKencanaNimGenerator implements NimGenerator {
             return nim;
 
         } finally {
-            HibernateUtil.closeSession();
+            HibernateUtil.closeSessionQuietly(session);
         }
     }
 

@@ -48,6 +48,16 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper jendela modal untuk memberikan (assign) satu {@link StatusKerjasamaMahasiswa}
+ * kepada banyak {@link Mahasiswa} sekaligus. Menampilkan grid mahasiswa aktif dengan
+ * checkbox per baris (dicentang otomatis bila mahasiswa sudah memiliki status kerjasama
+ * tersebut, dan dinonaktifkan bila mahasiswa berstatus tidak aktif), filter pencarian
+ * NIM/Nama/Tahun Angkatan/Fakultas/Prodi, checkbox "pilih semua" pada header, dan tombol
+ * Simpan yang membuat baris {@link MahasiswaDapatStatusKerjasamaMahasiswa} baru untuk
+ * setiap mahasiswa tercentang yang belum memilikinya (tidak menghapus baris yang
+ * dicentang-lepas — murni operasi tambah).
+ */
 public class AmbilDataMahasiswaStatusKerjasamaMahasiswaHelper {
 
 	private StatusKerjasamaMahasiswa statusKerjasamaMahasiswa;
@@ -63,11 +73,13 @@ public class AmbilDataMahasiswaStatusKerjasamaMahasiswaHelper {
 	private Combobox searchfakultas = new Combobox();
 	private Combobox searchjurusan = new Combobox();
 
+	/** Menyiapkan combobox filter Fakultas dan Prodi (dengan opsi "Semua") lewat {@link Common#initFakultasDanJurusanDanSemua}. */
 	public AmbilDataMahasiswaStatusKerjasamaMahasiswaHelper() {
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 
 	}
 
+	/** Perender baris grid mahasiswa: checkbox (status awal & enable/disable mengikuti status kerjasama & keaktifan mahasiswa), lalu label NIM/Nama/Tahun Angkatan. */
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		private MahasiswaDapatStatusKerjasamaMahasiswaDao mahasiswaDapatStatusKerjasamaMahasiswaDao = DaoFactory
@@ -75,6 +87,12 @@ public class AmbilDataMahasiswaStatusKerjasamaMahasiswaHelper {
 
 		private Session session = mahasiswaDapatStatusKerjasamaMahasiswaDao.getCurrentSession();
 
+		/**
+		 * Merender satu baris {@link Mahasiswa}: checkbox yang dinonaktifkan bila
+		 * status mahasiswa saat ini bukan {@link ConstantValues#AKTIF} dan dicentang
+		 * otomatis bila mahasiswa sudah memiliki {@link #statusKerjasamaMahasiswa}
+		 * terkait, lalu label NIM/Nama/Tahun Angkatan.
+		 */
 		@Override
 		public void render(Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");
@@ -102,6 +120,13 @@ public class AmbilDataMahasiswaStatusKerjasamaMahasiswaHelper {
 
 	}
 
+	/**
+	 * Membuat baris {@link MahasiswaDapatStatusKerjasamaMahasiswa} baru untuk setiap
+	 * mahasiswa yang checkbox-nya tercentang di grid dan belum memiliki
+	 * {@link #statusKerjasamaMahasiswa} tersebut. Mahasiswa yang sudah memiliki status
+	 * ini tidak diduplikasi; melepas centang pada mahasiswa yang sudah punya status TIDAK
+	 * menghapus baris yang ada (operasi ini murni penambahan).
+	 */
 	@SuppressWarnings("unchecked")
 	public void save() {
 		MahasiswaDapatStatusKerjasamaMahasiswaDao mahasiswaDapatStatusKerjasamaMahasiswaDao = DaoFactory.getInstance()
@@ -137,6 +162,16 @@ public class AmbilDataMahasiswaStatusKerjasamaMahasiswaHelper {
 
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela modal "Ambil Data Mahasiswa": form filter
+	 * (NIM/Nama/Tahun Angkatan/Fakultas/Prodi), toolbar (Simpan/Cari/Batal), dan grid
+	 * berpaging dengan checkbox "pilih semua" pada header, lalu memuat data awal via
+	 * {@link #onSearchDefault(Event)} dan menampilkan jendela sebagai modal.
+	 *
+	 * @param statusKerjasamaMahasiswa status kerjasama yang akan diberikan ke mahasiswa terpilih
+	 * @param dataLoader                callback pemuatan ulang data pemanggil setelah Simpan
+	 * @param window                    jendela ZK yang akan diisi dan ditampilkan sebagai modal
+	 */
 	public void display(final StatusKerjasamaMahasiswa statusKerjasamaMahasiswa, final DataLoader dataLoader,
 			final MyWindow window) {
 		this.statusKerjasamaMahasiswa = statusKerjasamaMahasiswa;
@@ -318,6 +353,13 @@ public class AmbilDataMahasiswaStatusKerjasamaMahasiswaHelper {
 		}
 	}
 
+	/**
+	 * Memuat ulang grid mahasiswa aktif sesuai filter NIM/Nama/Tahun Angkatan/
+	 * Fakultas/Prodi yang sedang terisi (dibatasi {@link Common#MAX_RESULT} baris),
+	 * diurutkan tahun angkatan terbaru lalu NIM menaik.
+	 *
+	 * @param event tidak digunakan; parameter kontrak listener/pemanggilan langsung
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

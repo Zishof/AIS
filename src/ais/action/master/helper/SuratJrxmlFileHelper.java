@@ -43,6 +43,23 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyPanel;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper composer untuk mengelola berkas template surat mentah ({@link SuratJrxmlFile} — biasanya
+ * berkas {@code .jrxml} JasperReports, walau kelas ini menyimpan berkas apa pun sebagai blob) yang
+ * terkait dengan satu {@link FormatTemplateSurat}. Menyediakan unggah berkas baru, daftar
+ * berpaging dengan unduh per baris, dan (opsional, dikendalikan flag {@link #delete}) hapus baris.
+ *
+ * <p>
+ * Bila {@code component} yang diberikan ke {@link #display} adalah sebuah {@link Tabpanel}, label
+ * tab yang menautkannya diperbarui otomatis di {@link #loadData} untuk menampilkan jumlah berkas
+ * (mis. {@code "Format Surat (3 format)"}).
+ * </p>
+ *
+ * <p>
+ * Seluruh akses database memakai sesi streaming ({@link StreamingHibernateUtil}), bukan sesi
+ * Hibernate biasa — cocok untuk operasi baca/tulis blob berkas berukuran besar.
+ * </p>
+ */
 public class SuratJrxmlFileHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -51,10 +68,12 @@ public class SuratJrxmlFileHelper implements DataLoader {
 	private String tabTitle;
 	private Tab tab;
 
+	/** @param delete bila {@code true}, tombol hapus per baris dan tombol tambah berkas ditampilkan; bila {@code false}, tampilan hanya baca (unduh saja). */
 	public SuratJrxmlFileHelper(Boolean delete) {
 		this.delete = delete;
 	}
 
+	/** Perender baris grid: nama/format/tipe/tanggal ubah berkas, tombol unduh (ambil dari cache tmp bila tersedia, jika tidak query ulang lewat sesi streaming), dan tombol hapus (tampil hanya bila {@link #delete} true, dengan konfirmasi). */
 	class DetailFormatTemplateSuratRenderer extends ais.ui.util.MyRowRenderer {
 
 		HttpServletRequest request = (HttpServletRequest) ExecutionsCtrl.getCurrent().getNativeRequest();
@@ -168,6 +187,12 @@ public class SuratJrxmlFileHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Memuat ulang grid dengan seluruh {@link SuratJrxmlFile} milik {@link #formatTemplateSurat}
+	 * yang sedang ditampilkan (terurut id), dan — bila tampilan berada di dalam sebuah
+	 * {@link Tabpanel} — memperbarui label tab dengan jumlah berkas terkini. Kontrak
+	 * {@link DataLoader#loadData(Object)}; {@code value} tidak dipakai.
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -194,6 +219,12 @@ public class SuratJrxmlFileHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun panel pengelolaan berkas format surat (toolbar unggah + grid berpaging) ke dalam
+	 * {@code component}, untuk {@code formatTemplateSurat} yang diberikan. Bila {@code component}
+	 * adalah {@link Tabpanel}, tab yang menautkannya diingat untuk pembaruan label jumlah berkas
+	 * di {@link #loadData}. Memanggil {@link #loadData} di akhir untuk mengisi grid.
+	 */
 	public void display(final FormatTemplateSurat formatTemplateSurat, final Component component) {
 		this.formatTemplateSurat = formatTemplateSurat;
 		if (component instanceof Tabpanel) {

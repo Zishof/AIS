@@ -53,8 +53,41 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper statis generik untuk ekspor massal konten pertemuan (materi, tugas, audio, video) dan
+ * tugas kelompok ke repositori DSpace, dipakai lintas lima jenis kegiatan pembelajaran:
+ * {@link Perkuliahan}, {@link KelompokKkn}, {@link KelompokPkl}, {@link
+ * MahasiswaRequestTugasAkhir}, dan {@link Skripsi}. Setiap method publik menerima kelima
+ * parameter kegiatan tersebut sekaligus (biasanya hanya satu yang tidak {@code null}) untuk
+ * menentukan konteks aktif. Berbeda dari method {@code getDspace*} di {@link
+ * DetailArtikelHelper} yang khusus menangani hierarki Artikel, kelas ini menangani sisi
+ * "ekspor pertemuan" secara umum; keduanya sama-sama bertumpu pada method HTTP dasar
+ * (login, upload, delete) yang disediakan {@link ais.ui.dspace.DspaceCommon} dan {@link
+ * DspaceInformation}.
+ *
+ * <p>
+ * Alur pemakaian khas: {@link #tampilkanButtonExportDiPertemuan} memasang tombol "Ekspor"/
+ * "Batalkan Ekspor" ke toolbar suatu layar (hanya untuk user non-mahasiswa/siswa, dan hanya bila
+ * konfigurasi {@code terhubung_ke_dspace} — serta, khusus tombol ekspor, {@code
+ * pertemuan_elearning_terhubung_ke_dspace} — aktif). Klik "Ekspor" melakukan login DSpace lalu
+ * membuka dialog pilihan ({@link #exportDisplayPilihan}) berisi checkbox jenis konten yang ingin
+ * disertakan (pertemuan, file perkuliahan, tugas mandiri/kelompok beserta hasilnya, audio,
+ * video). Klik Simpan menjalankan {@link #exportDataPertemuan} di thread terpisah dengan
+ * indikator progres, yang mengunggah tiap item terpilih ke koleksi DSpace induk kegiatan
+ * (ditentukan lewat {@code getDspace}/{@code getDspaceArtefakSkripsi} milik masing-masing action
+ * kegiatan). Kegagalan koneksi ke DSpace (mis. endpoint REST mengembalikan 404) ditangkap dan
+ * ditampilkan sebagai pesan ramah, bukan stack trace mentah.
+ * </p>
+ */
 public class DspaceHelper {
 
+	/**
+	 * Mengambil record {@link DspaceInformation} yang tersimpan (bila ada) untuk kegiatan yang
+	 * tidak {@code null} di antara kelima parameter. Mengembalikan {@code null} bila fitur DSpace
+	 * dimatikan ({@code terhubung_ke_dspace}) atau belum pernah diekspor.
+	 *
+	 * @return informasi ekspor DSpace kegiatan terkait, atau {@code null}
+	 */
 	public static DspaceInformation getDspaceInformation(final Perkuliahan perkuliahan, final KelompokKkn kelompokKkn,
 			final KelompokPkl kelompokPkl, final MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir,
 			final Skripsi skripsi) {
@@ -82,6 +115,16 @@ public class DspaceHelper {
 		return dspaceInformation;
 	}
 
+	/**
+	 * Memasang tombol "Ekspor" (buka dialog pilihan konten via {@link #exportDisplayPilihan})
+	 * dan "Batalkan Ekspor" (menghapus record + item DSpace terkait setelah konfirmasi) ke
+	 * {@code hbox}. Kedua tombol hanya tampil untuk user non-mahasiswa/siswa dan bila fitur
+	 * DSpace aktif secara konfigurasi; "Batalkan Ekspor" tambahan hanya muncul bila kegiatan
+	 * sudah pernah diekspor sebelumnya ({@link #getDspaceInformation} tidak null).
+	 *
+	 * @param hbox          komponen tempat tombol ditempel
+	 * @param eventListener dipanggil setelah ekspor selesai (untuk memuat ulang tampilan pemanggil)
+	 */
 	public static void tampilkanButtonExportDiPertemuan(Component hbox, final Perkuliahan perkuliahan,
 			final KelompokKkn kelompokKkn, final KelompokPkl kelompokPkl,
 			final MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir, final Skripsi skripsi,
@@ -171,6 +214,18 @@ public class DspaceHelper {
 
 	}
 
+	/**
+	 * Menampilkan dialog modal berisi checkbox jenis konten yang akan diekspor ke DSpace
+	 * (pertemuan, file perkuliahan, tugas mandiri dan hasilnya, tugas kelompok dan hasilnya,
+	 * audio, video — dua checkbox tugas kelompok hanya tampil untuk konteks perkuliahan/KKN/PKL).
+	 * Tombol Simpan menjalankan {@link #exportDataPertemuan} di thread terpisah dengan indikator
+	 * progres; bila {@code perkuliahans} diisi (bukan {@code null}), ekspor dilakukan berulang
+	 * untuk setiap perkuliahan dalam daftar itu alih-alih hanya {@code perkuliahan} tunggal.
+	 *
+	 * @param cookie        sesi autentikasi DSpace yang sudah login
+	 * @param perkuliahans  daftar perkuliahan untuk ekspor massal (mis. seluruh kelas paralel); {@code null} untuk ekspor satu kegiatan saja
+	 * @param eventListener dipanggil setelah proses ekspor selesai
+	 */
 	public static void exportDisplayPilihan(final String cookie, final List<Perkuliahan> perkuliahans,
 			final Perkuliahan perkuliahan, final KelompokKkn kelompokKkn, final KelompokPkl kelompokPkl,
 			final MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir, final Skripsi skripsi,
@@ -309,6 +364,18 @@ public class DspaceHelper {
 
 	}
 
+	/**
+	 * Implementasi ekspor sesungguhnya: menentukan collection DSpace induk kegiatan (lewat
+	 * {@code getDspace}/{@code getDspaceArtefakSkripsi} milik action kegiatan bersangkutan, atau
+	 * mengambil jurusan dari anggota kelompok bila KKN/PKL tidak terhubung langsung ke jurusan),
+	 * lalu untuk tiap {@link Pertemuan} aktif dalam konteks membuat item DSpace ({@link
+	 * PertemuanAction#getDspace}) dan mengunggah sub-konten yang checkbox-nya dicentang (file
+	 * perkuliahan, tugas mandiri, hasil tugas mandiri, audio, video). Bila checkbox tugas
+	 * kelompok dicentang, tiap {@link TugasKelompok} juga diproses terpisah beserta hasil unggahan
+	 * anggotanya. Label diperbarui berkala dengan persentase kemajuan.
+	 *
+	 * @param label objek label progres yang diperbarui selama proses berjalan
+	 */
 	@SuppressWarnings("unchecked")
 	public static void exportDataPertemuan(final String cookie, final Label label,
 

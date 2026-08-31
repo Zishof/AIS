@@ -49,6 +49,27 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyLabelBold;
 import ais.ui.util.MyTabConfig;
 
+/**
+ * Helper tampilan daftar kelas yang diajar seorang {@link Dosen} pada satu penugasan mengajar
+ * ({@link PenugasanDosenMengajar}: kombinasi tahun akademik, semester, program, jurusan). Setiap
+ * kelas ({@link Perkuliahan}) ditampilkan sebagai baris grid dengan info mata kuliah (termasuk
+ * penanganan mata kuliah ekivalen lewat {@link Common#getMatakuliahApakahEkivalen}), jumlah
+ * mahasiswa disetujui, unggahan RPS/SAP/absen manual/soal UTS-UAS/lampiran lain (gated per
+ * konfigurasi {@code tampilkan_*}), serta detail yang dapat diperluas (accordion): rincian
+ * pengajaran biasa, atau — dalam mode asesmen ({@code ases=true}) — form penilaian asesor
+ * lengkap dengan tab Rincian Pengajaran/E-Learning Pengajaran/SK Pengajaran per kelas paralel
+ * yang diajar dosen tersebut (lewat {@link #createDetail}).
+ *
+ * <p>
+ * Dosen pengajar suatu kelas ditentukan lewat OR atas hingga 10 kolom {@code dosen1}..{@code
+ * dosen10} pada {@link Perkuliahan} (skema pengajaran tim/multi-dosen).
+ * </p>
+ *
+ * <p>
+ * Mengimplementasikan {@link DataLoader} agar {@link #loadData(Object)} dapat dipakai sebagai
+ * callback penyegaran.
+ * </p>
+ */
 public class DosenMengajarHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -59,13 +80,31 @@ public class DosenMengajarHelper implements DataLoader {
 	private Jurusan jurusan;
 	private boolean ases;
 
+	/** Konstruktor kosong; kelas ini dipakai lewat {@link #display}. */
 	public DosenMengajarHelper() {
 
 	}
 
+	/** Instance bersama (statis) untuk menampilkan detail rincian pengajaran per kelas paralel; dipakai ulang lintas panggilan. */
 	private static DosenMengajarDetailperkuliahanHelper detailperkuliahanHelper = new DosenMengajarDetailperkuliahanHelper(
 			true);
 
+	/**
+	 * Merakit {@link Tabbox} penilaian asesor untuk kombinasi dosen + mata kuliah: tab
+	 * "Penilaian Asesor" (dimuat langsung), lalu tiga tab lazy — "Rincian Pengajaran" dan
+	 * "E-Learning Pengajaran" (masing-masing menampilkan satu sub-tab per kelas paralel yang
+	 * disetujui, ditemukan lewat OR atas kolom {@code dosen1}..{@code dosen10} pada
+	 * {@link Perkuliahan} yang mata kuliah/jenjang/tahun akademik/semesternya cocok), dan
+	 * "SK Pengajaran" (data biodata/SK dosen).
+	 *
+	 * @param dosen                    dosen yang bersangkutan
+	 * @param matakuliah               mata kuliah yang diajar
+	 * @param jenjang                  jenjang pendidikan konteks penilaian
+	 * @param tahunAkademik            tahun akademik konteks penilaian
+	 * @param semester                 semester (Ganjil/Genap) konteks penilaian
+	 * @param keteranganEventListener  listener perubahan field keterangan pada form penilaian
+	 * @return {@link Tabbox} siap ditempelkan ke parent ZK
+	 */
 	public static Tabbox createDetail(final Dosen dosen, final Matakuliah matakuliah, final Jenjang jenjang,
 			final String tahunAkademik, final String semester, final EventListener keteranganEventListener)
 			throws Exception {
@@ -256,6 +295,23 @@ public class DosenMengajarHelper implements DataLoader {
 		return tabbox;
 	}
 
+	/**
+	 * Merender isi satu baris daftar kelas yang diajar dosen: kolom detail (accordion — dalam
+	 * mode {@code ases}, terbuka otomatis dan menampilkan {@link #createDetail}; selain itu,
+	 * detail rincian pengajaran biasa dimuat saat dibuka), info mata kuliah + jumlah mahasiswa
+	 * disetujui, unggahan RPS/SAP/absen manual/soal UTS-UAS/lampiran lain kustom (masing-masing
+	 * gated konfigurasi terpisah, hanya dapat diunggah oleh staf — bukan mahasiswa/calon
+	 * mahasiswa/peserta kursus/siswa), info dosen pengajar & hari/jam/ruangan (lewat
+	 * {@link PerkuliahanUIHelper}), serta keterangan penilaian asesor yang sudah diberikan untuk
+	 * mata kuliah ini (dimuat via {@code keteranganEventListener}). Tidak merender apa pun
+	 * (baris disembunyikan) bila mata kuliah ekivalen tidak ditemukan.
+	 *
+	 * @param row         baris ZK yang akan diisi
+	 * @param perkuliahan kelas perkuliahan yang direpresentasikan baris ini
+	 * @param ases        {@code true} untuk mode penilaian asesor (accordion terbuka otomatis
+	 *                    dan berisi {@link #createDetail}); {@code false} untuk rincian pengajaran biasa
+	 * @param dosen       dosen konteks (diteruskan ke {@link #createDetail} pada mode asesmen)
+	 */
 	public static void displayRow(Row row, final Perkuliahan perkuliahan, final Boolean ases, final Dosen dosen)
 			throws Exception {
 		int jumlahMhs = ((Number) HibernateUtil.currentSession().createCriteria(Detailperkuliahan.class)
@@ -471,6 +527,7 @@ public class DosenMengajarHelper implements DataLoader {
 		}
 	}
 
+	/** Merender satu baris grid dengan mendelegasikan langsung ke {@link #displayRow(Row, Perkuliahan, Boolean, Dosen)}. */
 	class DetailMahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -482,6 +539,15 @@ public class DosenMengajarHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Memuat/menyegarkan grid dengan seluruh {@link Perkuliahan} aktif yang diajar
+	 * {@link #dosen} (dicek lewat OR atas kolom {@code dosen1}..{@code dosen10}) pada kombinasi
+	 * {@link #tahunAjaran}/{@link #program}/{@link #jurusan}/{@link #jenisSemester} yang sedang
+	 * ditampilkan, melewati baris yang mata kuliah ekivalennya tidak ditemukan. Baris ringkasan
+	 * "Total SKS" ditambahkan di akhir grid. Grid dibangun manual (bukan lewat
+	 * {@code RowRenderer}+{@code ListModel}) karena setiap baris memerlukan logika render
+	 * kompleks dari {@link #displayRow}.
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -541,6 +607,17 @@ public class DosenMengajarHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun grid daftar kelas untuk {@code penugasanDosenMengajar} ke dalam
+	 * {@code component}. Kolom "Matakuliah" dan "Informasi" melebar/menciut tergantung mode
+	 * {@code ases}: dalam mode asesmen, kolom "Informasi" (keterangan penilaian) lebih dominan;
+	 * selain itu, kolom "Matakuliah" yang lebih dominan.
+	 *
+	 * @param ases                   {@code true} untuk mode penilaian asesor
+	 * @param penugasanDosenMengajar penugasan yang menentukan dosen, tahun akademik, semester,
+	 *                               program, dan jurusan yang ditampilkan
+	 * @param component              kontainer ZK yang akan diisi
+	 */
 	public void display(boolean ases, PenugasanDosenMengajar penugasanDosenMengajar, final Component component) {
 
 		this.ases = ases;

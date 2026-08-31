@@ -53,6 +53,21 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK untuk mendaftarkan mahasiswa ke dalam satu {@link OrganisasiIntraKampus}. Jendela
+ * pencarian menampilkan mahasiswa yang dapat disaring lewat NIM/rentang NIM, nama, Fakultas,
+ * Jurusan, tahun angkatan, status kemahasiswaan, dan Dosen PA; setiap baris juga menampilkan nama
+ * Dosen Pembimbing Akademik mahasiswa tersebut (disorot merah bila belum ada). Mahasiswa yang sudah
+ * tergabung ke organisasi ditandai tercentang dan dikunci.
+ *
+ * <p>
+ * {@link #save()} memvalidasi kelayakan tiap mahasiswa terpilih lewat
+ * {@code Common#checkApakahMemenuhiSyaratOrganisasiKemahasiswaan} (mis. syarat IPK/SKS/Angka
+ * Kredit minimal organisasi) sebelum menyimpan baris {@link OrganisasiIntraKampusPunyaMahasiswa}
+ * baru (atau memperbarui yang sudah ada); mahasiswa yang tidak memenuhi syarat dilewati dengan
+ * pesan peringatan yang dikumpulkan dan ditampilkan sekaligus di akhir proses.
+ * </p>
+ */
 public class AmbilDataMahasiswaForOrganisasiIntraKampusHelper {
 
 	private OrganisasiIntraKampus organisasiIntraKampus;
@@ -72,6 +87,7 @@ public class AmbilDataMahasiswaForOrganisasiIntraKampusHelper {
 	private Paging paging;
 	private AmbilDataDosenBanbox searchdosen;
 
+	/** @param organisasiIntraKampus organisasi tujuan; mahasiswa terpilih akan didaftarkan ke organisasi ini. */
 	public AmbilDataMahasiswaForOrganisasiIntraKampusHelper(OrganisasiIntraKampus organisasiIntraKampus) {
 		this.organisasiIntraKampus = organisasiIntraKampus;
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
@@ -126,6 +142,14 @@ public class AmbilDataMahasiswaForOrganisasiIntraKampusHelper {
 		}
 	}
 
+	/**
+	 * Memproses seluruh baris grid yang dicentang (dan belum terkunci): mahasiswa yang memenuhi
+	 * syarat organisasi disimpan sebagai {@link OrganisasiIntraKampusPunyaMahasiswa} baru/diperbarui;
+	 * yang tidak memenuhi syarat dilewati dan pesannya dikumpulkan lalu ditampilkan sekaligus di akhir.
+	 *
+	 * @throws InterruptedException tidak pernah dilempar dalam praktiknya; dipertahankan pada
+	 *                              signature untuk kompatibilitas pemanggil
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() throws InterruptedException {
 		Session session = HibernateUtil.currentSession();
@@ -174,6 +198,14 @@ public class AmbilDataMahasiswaForOrganisasiIntraKampusHelper {
 
 	}
 
+	/**
+	 * Membangun jendela pencarian dan pemilihan mahasiswa untuk didaftarkan ke
+	 * {@link #organisasiIntraKampus}. Tombol Simpan memanggil {@link #save()} lalu menyegarkan
+	 * tampilan pemanggil lewat {@code dataLoader}.
+	 *
+	 * @param dataLoader dipanggil setelah simpan untuk menyegarkan tampilan daftar anggota organisasi
+	 * @param window     jendela ({@link MyWindow}) yang dipakai ulang untuk menampilkan layar ini
+	 */
 	public void display(final DataLoader dataLoader, final MyWindow window) {
 
 		Common.clear(window);
@@ -416,6 +448,14 @@ public class AmbilDataMahasiswaForOrganisasiIntraKampusHelper {
 		}
 	}
 
+	/**
+	 * Membangun kriteria Hibernate untuk pencarian mahasiswa calon anggota, sesuai filter toolbar
+	 * (NIM/rentang NIM, nama, Fakultas, Jurusan, tahun angkatan, Dosen PA, status kemahasiswaan pada
+	 * semester berjalan lewat subquery ke {@code history_status_mahasiswa}).
+	 *
+	 * @param order {@code true} untuk mengurutkan hasil berdasarkan tahun angkatan descending lalu NIM ascending
+	 * @return kriteria Hibernate siap eksekusi/paginasi
+	 */
 	public Criteria initCriteria(boolean order) {
 		Dosen dosen = (Dosen) searchdosen.getAttribute("myValue");
 		StatusMahasiswa statusMahasiswa = (StatusMahasiswa) (searchstatusmahasiswa.getSelectedItem() == null ? null
@@ -457,6 +497,12 @@ public class AmbilDataMahasiswaForOrganisasiIntraKampusHelper {
 		return criteria;
 	}
 
+	/**
+	 * Mengisi ulang grid hasil pencarian mahasiswa (paginasi 50 baris per halaman) sesuai kriteria
+	 * pencarian saat ini.
+	 *
+	 * @param event tidak dipakai isinya
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

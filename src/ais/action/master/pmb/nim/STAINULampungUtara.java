@@ -33,7 +33,7 @@ public class STAINULampungUtara implements NimGenerator {
 				: calonMahasiswa.getProdiLulus().getKode().trim();//
 		String digitKetiga = calonMahasiswa.getProdiLulus().getFakultas().getPerguruanTinggi().getKodePerguruanTinggi();
 
-		Session session = HibernateUtil.currentNativeSession();
+		Session session = HibernateUtil.openSession();
 		Long jumlah = ((Number) session.createCriteria(Mahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))).setProjection(Projections.rowCount())
 				.add(Restrictions.eq("tahunangkatan", tahun))
 				.add(Restrictions.eq("jenjang", calonMahasiswa.getJenjang()))
@@ -55,7 +55,7 @@ public class STAINULampungUtara implements NimGenerator {
 		Integer count = ((Number) session.createCriteria(Mahasiswa.class).add(Restrictions.eq("nim", nim))
 				.setProjection(Projections.count("nim")).uniqueResult()).intValue();
 
-		HibernateUtil.closeSession();
+		HibernateUtil.closeSessionQuietly(session);
 
 		if (!count.equals(0)) {
 			jumlahPengecualian.add(nim);

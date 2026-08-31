@@ -57,6 +57,27 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK untuk dua sub-fitur pendukung satu {@link PenelitianDanPengabdian} (kegiatan
+ * penelitian/pengabdian masyarakat dosen atau mahasiswa): thread diskusi dan daftar lampiran.
+ *
+ * <p>
+ * {@link #displayDetailPengumuman} menampilkan grid berpaging {@link
+ * DiskusiPenelitianDanPengabdian} (catatan/komentar dengan penulis dosen atau mahasiswa, dapat
+ * membalas komentar lain lewat {@link #init(DiskusiPenelitianDanPengabdian)} yang menandai
+ * relasi balasan {@code tbmuserBalasan}/{@code mahasiswaBalasan}). Setiap diskusi baru otomatis
+ * dikaitkan ke lampiran pengajuan terbaru penulisnya (dicari lewat {@link
+ * FilePengajuanPenelitianDanPengabdian}) dan memicu pengiriman email lewat {@link
+ * PenelitianDanPengabdianAction#kirimEmail}.
+ * </p>
+ *
+ * <p>
+ * {@link #displayAttachment} menampilkan/mengelola daftar berkas lampiran ({@link
+ * LampiranPenelitianDanPengabdian}, disimpan sebagai BLOB) terkait kegiatan atau — bila dipanggil
+ * lewat overload {@link PengajuanPenelitianDanPengabdian} — terkait satu pengajuan spesifik di
+ * dalamnya. Flag {@link #readonly} menyembunyikan tombol tambah/hapus untuk tampilan baca-saja.
+ * </p>
+ */
 public class DetailPenelitianDanPengabdianHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -188,6 +209,7 @@ public class DetailPenelitianDanPengabdianHelper implements DataLoader {
 
 	}
 
+	/** Implementasi {@link DataLoader#loadData}: memuat ulang daftar diskusi (maks 300 baris) sesuai kata kunci {@code cariDiskusi} yang dicocokkan ke user id/nama pengirim maupun penerima balasan. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
@@ -225,6 +247,15 @@ public class DetailPenelitianDanPengabdianHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Titik masuk thread diskusi: membangun toolbar (Tambah Data, cetak, pencarian "Diskusi oleh")
+	 * dan grid berpaging {@link DiskusiPenelitianDanPengabdian} untuk {@code
+	 * penelitianDanPengabdian} tertentu.
+	 *
+	 * @param penelitianDanPengabdian kegiatan yang diskusinya ditampilkan
+	 * @param component               komponen induk (dibersihkan lebih dulu)
+	 * @param window                  window pembungkus (tidak dipakai langsung selain sebagai konteks)
+	 */
 	public void displayDetailPengumuman(final PenelitianDanPengabdian penelitianDanPengabdian,
 			final Component component, final MyWindow window) {
 
@@ -361,6 +392,13 @@ public class DetailPenelitianDanPengabdianHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membuka dialog modal tambah/ubah satu {@link DiskusiPenelitianDanPengabdian}. Bila {@link
+	 * #diskusiPenelitianDanPengabdianBalasDiskusi} sedang terisi (dipicu tombol Reply pada
+	 * renderer), header "Balas ke" ditampilkan menunjukkan penulis komentar yang dibalas.
+	 *
+	 * @param diskusiPenelitianDanPengabdian data baru (kosong) untuk tambah, atau data existing untuk ubah
+	 */
 	private void init(DiskusiPenelitianDanPengabdian diskusiPenelitianDanPengabdian) throws Exception {
 		this.diskusiPenelitianDanPengabdian = diskusiPenelitianDanPengabdian;
 
@@ -457,6 +495,14 @@ public class DetailPenelitianDanPengabdianHelper implements DataLoader {
 		addWindow.onModal();
 	}
 
+	/**
+	 * Memvalidasi (catatan tidak boleh kosong) dan menyimpan satu {@link
+	 * DiskusiPenelitianDanPengabdian}: penulis diisi dari user login (dosen atau mahasiswa),
+	 * lampiran pengajuan terkait dicari otomatis berdasarkan penulis dan kegiatan, lalu email
+	 * notifikasi dikirim lewat {@link PenelitianDanPengabdianAction#kirimEmail}.
+	 *
+	 * @return {@code true} bila berhasil disimpan; {@code false} bila catatan kosong (pesan sudah ditampilkan)
+	 */
 	public boolean onSave(Event event) throws Exception {
 		if (catatan.getValue().trim().equals("")) {
 			MyMessageboxConfig.show("Mohon maaf, judul penelitian/pengabdian belum diisi. Langkah yang dapat dilakukan: (1) isi kolom judul pada form yang tersedia; (2) pastikan judul tidak kosong; (3) ulangi proses ini. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.", "Peringatan", MyMessageboxConfig.OK,
@@ -522,12 +568,22 @@ public class DetailPenelitianDanPengabdianHelper implements DataLoader {
 		return true;
 	}
 
+	/** Seperti {@link #displayAttachment(PenelitianDanPengabdian, Component, MyWindow)}, tetapi lampiran difilter juga ke satu {@code pengajuanPenelitianDanPengabdian} spesifik. */
 	public void displayAttachment(final PengajuanPenelitianDanPengabdian pengajuanPenelitianDanPengabdian,
 			final Component component, final MyWindow window) {
 		this.pengajuanPenelitianDanPengabdian = pengajuanPenelitianDanPengabdian;
 		displayAttachment(pengajuanPenelitianDanPengabdian.getPenelitianDanPengabdian(), component, window);
 	}
 
+	/**
+	 * Titik masuk daftar lampiran: membangun toolbar unggah (bila {@link #readonly} false) dan
+	 * grid maksimal 5 lampiran terbaru ({@link LampiranPenelitianDanPengabdian}) untuk kegiatan
+	 * ini.
+	 *
+	 * @param penelitianDanPengabdian kegiatan yang lampirannya ditampilkan
+	 * @param component               komponen induk
+	 * @param window                  window pembungkus (tidak dipakai langsung selain sebagai konteks)
+	 */
 	public void displayAttachment(final PenelitianDanPengabdian penelitianDanPengabdian, final Component component,
 			final MyWindow window) {
 		this.penelitianDanPengabdian = penelitianDanPengabdian;
@@ -600,6 +656,7 @@ public class DetailPenelitianDanPengabdianHelper implements DataLoader {
 
 	}
 
+	/** Memuat ulang grid lampiran (maksimal 5 baris terbaru, difilter juga ke {@link #pengajuanPenelitianDanPengabdian} bila diset). */
 	@SuppressWarnings("unchecked")
 	public void loadDataAttachment() {
 		Session session = HibernateUtil.currentSession();

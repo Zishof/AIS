@@ -29,8 +29,64 @@ import ais.database.model.VirtualAccountBank;
 import ais.ui.util.MyDoublebox;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Integrasi virtual account / QRIS Bank Bankaltimtara: membangun tagihan (VA atau QRIS) untuk satu
+ * mahasiswa berdasarkan isi grid cicilan yang sedang diedit di UI, memanggil gateway pembayaran
+ * bank via {@code curl} eksternal, lalu menyimpan hasilnya sebagai baris {@link VirtualAccountBank}.
+ *
+ * <p>
+ * Alur {@link #downloadData}: (1) menyusun deskripsi tagihan (kode item biaya + keterangan +
+ * nominal, dipisah {@code ;}) dari baris-baris {@code gridCicilan} yang nilainya diisi — baik yang
+ * berasal dari {@link PengaturanPembayaranBulanan} (cicilan bulanan) maupun item biaya bebas; (2)
+ * menghitung tanggal kedaluwarsa tagihan dari beberapa {@link Konfigurasi} terkait
+ * ({@code tagihan_expired_akhir_hari}/{@code tagihan_expired_jam}/{@code tagihan_expired_day});
+ * (3) mengecek dulu apakah sudah ada {@link VirtualAccountBank} yang identik (kombinasi
+ * mahasiswa+semester+keterangan+jenis kegiatan, belum kendala, belum kedaluwarsa) — bila ada,
+ * dipakai ulang tanpa memanggil gateway lagi; (4) bila belum ada dan {@code pakaiva=true}, login ke
+ * gateway VA Bankaltimtara lalu membuat nomor VA baru dan menyimpan responsnya; bila
+ * {@code pakaiva=false}, membuat entitas VA "manual" (tanpa hit API VA) lalu memanggil
+ * {@link #qris(int, String, VirtualAccountBank)} untuk melengkapi data QRIS-nya.
+ * </p>
+ *
+ * <p>
+ * <b>Peringatan keamanan (dilaporkan, tidak diperbaiki sesuai instruksi tugas)</b>: kredensial
+ * gateway bank memiliki nilai default tertanam langsung di kode sebagai fallback
+ * {@link Common#getKonfigurasi(String, String)} — {@code bankaltimtara_password} default
+ * {@code "12345678"} (lihat {@link #downloadData}) dan {@code bankaltimtara_qris_password} default
+ * {@code "PB@|1Kp@paN19112021"} (lihat {@link #qris}). Objek {@code login} berisi
+ * username+password JSON juga dicetak ke stdout/log server via {@code System.out.println} di
+ * kedua method tersebut, dan kredensial (lewat header {@code Authorization: Bearer <token>} serta
+ * body JSON) dikirim ke proses {@code curl} eksternal lewat argumen baris perintah
+ * ({@code --data-raw}), bukan lewat stdin — pada server bersama, argumen proses dapat terlihat
+ * oleh user lain lewat {@code ps}. Bandingkan dengan pola parsing respons terpusat di
+ * {@code BankaltimtaraResponseUtil} yang dipakai kedua method ini.
+ * </p>
+ */
 public class DownloadTagihanMahasiswaBankBankaltimtara {
 
+	/**
+	 * Membuat atau mengambil ulang {@link VirtualAccountBank} (VA atau QRIS, tergantung
+	 * {@code pakaiva}) untuk tagihan satu mahasiswa, berdasarkan isi baris cicilan pada
+	 * {@code gridCicilan}. Lihat javadoc kelas untuk alur lengkap dan peringatan keamanan terkait
+	 * kredensial tertanam. Kegagalan apa pun (parsing respons gateway, proses {@code curl}, dll.)
+	 * ditangkap di lapisan terluar: dicatat via {@link ais.common.ErrorAuditUtil#record} dan
+	 * ditampilkan ke admin via {@link Common#tampilErrorJikaAdmin}, lalu method mengembalikan
+	 * {@code null} alih-alih melempar — pemanggil harus menangani hasil {@code null} sebagai
+	 * kegagalan pembuatan VA/QRIS.
+	 *
+	 * @param mahasiswa           mahasiswa pemilik tagihan
+	 * @param smt                 nomor semester tagihan
+	 * @param myjadwalPembayaran  jadwal pembayaran/jenis kegiatan yang menaungi tagihan ini
+	 * @param detailBiayas        koleksi {@link DetailBiaya} yang menjadi komponen tagihan (dipakai
+	 *                            untuk kolom {@code detailbiaya})
+	 * @param gridCicilan         grid UI berisi baris-baris cicilan/item biaya yang diisi user,
+	 *                            sumber utama perhitungan nominal dan deskripsi tagihan
+	 * @param biayaAdmin          biaya admin tambahan yang dijumlahkan ke total tagihan
+	 * @param pakaiva             {@code true} untuk membuat/mengambil Virtual Account lewat gateway
+	 *                            VA; {@code false} untuk jalur QRIS
+	 * @return baris {@link VirtualAccountBank} yang tersimpan/ditemukan, atau {@code null} bila
+	 *         terjadi kegagalan
+	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public static VirtualAccountBank downloadData(Mahasiswa mahasiswa, Integer smt, JadwalPembayaran myjadwalPembayaran,
 			Collection detailBiayas, Grid gridCicilan, Double biayaAdmin, boolean pakaiva) throws Exception {
@@ -348,6 +404,18 @@ public class DownloadTagihanMahasiswaBankBankaltimtara {
 		return null;
 	}
 
+	/**
+	 * Melengkapi {@code virtualAccountBankBankaltimtara} dengan data QRIS: login ke gateway QRIS
+	 * Bankaltimtara, memanggil endpoint generate QRIS dengan nominal dan kode VA yang diberikan,
+	 * lalu menuliskan {@code barcode} dan {@code kadaluarsaBarcode} hasil respons ke entitas.
+	 * Bila parsing respons gagal, {@code hasil} mentah dari {@code curl} disimpan ke
+	 * {@code htmlTemporaryData} entitas sebagai jejak diagnosis alih-alih melempar exception ke
+	 * pemanggil.
+	 *
+	 * @param mytotal                       nominal tagihan (VA + biaya admin)
+	 * @param va                             kode VA yang dipakai sebagai {@code kd_tagihan} pada request QRIS
+	 * @param virtualAccountBankBankaltimtara entitas yang akan dilengkapi datanya di tempat
+	 */
 	public static void qris(int mytotal, String va, VirtualAccountBank virtualAccountBankBankaltimtara)
 			throws Exception {
 		JSONObject jsonObject = new JSONObject();

@@ -62,6 +62,23 @@ import ais.ui.util.MyPanel;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK untuk mengelola koleksi video rekaman/link satu {@link GrupPertemuan} (grup
+ * pertemuan e-learning). Setiap baris grid berupa satu {@link VideoPertemuan} yang dapat berasal
+ * dari dua sumber: berkas video yang diunggah dan disimpan sebagai BLOB (dirender sebagai tag
+ * {@code <video>} HTML5, dengan aksi putar via {@link
+ * ais.action.master.helper.generic.FlowPlayerWindow} dan unduh), atau tautan eksternal (YouTube
+ * di-embed otomatis sebagai iframe, tautan lain ditampilkan sebagai link biasa).
+ *
+ * <p>
+ * Konstruktor menerima flag {@link #delete} yang mengendalikan visibilitas seluruh aksi
+ * mengubah data (tambah video/link, hapus, edit keterangan tambahan) — dipakai untuk membedakan
+ * tampilan pengelola (dosen/admin) dari tampilan baca-saja (mahasiswa). Unggah berkas video
+ * (maks 50 MB, format mp4/avi/mov/wmv/flv/3gp) dikonversi lebih dulu ke MP4 lewat {@link
+ * ais.common.VideoConverter} (fallback menyimpan berkas asli apa adanya bila konversi gagal)
+ * di thread terpisah dengan indikator progres.
+ * </p>
+ */
 public class VideoGrupPertemuanHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -69,10 +86,17 @@ public class VideoGrupPertemuanHelper implements DataLoader {
 	private Boolean delete = false;
 	private Tab tab;
 
+	/** @param delete bila {@code true}, aksi tambah/hapus/edit ditampilkan; bila {@code false}, tampilan menjadi baca-saja. */
 	public VideoGrupPertemuanHelper(Boolean delete) {
 		this.delete = delete;
 	}
 
+	/**
+	 * Renderer baris video: memilih cara menampilkan konten (player HTML5 untuk berkas ter-upload,
+	 * iframe YouTube atau link biasa untuk tautan eksternal), kolom keterangan tambahan (editable
+	 * bagi non-mahasiswa saat {@link #delete} aktif, baca-saja bagi mahasiswa), serta tombol aksi
+	 * (putar/download/hapus untuk berkas; hapus saja untuk tautan).
+	 */
 	class DetailGrupPertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
 		HttpServletRequest request = (HttpServletRequest) ExecutionsCtrl.getCurrent().getNativeRequest();
@@ -320,6 +344,7 @@ public class VideoGrupPertemuanHelper implements DataLoader {
 
 	}
 
+	/** Implementasi {@link DataLoader#loadData}: memuat ulang seluruh video milik {@link #grupPertemuan} dan memperbarui label jumlah pada tab (bila tampilan dibungkus {@link Tabpanel}). */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -345,6 +370,14 @@ public class VideoGrupPertemuanHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Titik masuk utama: membangun panel daftar video untuk {@code grupPertemuan} — toolbar
+	 * "Tambah Video" (unggah berkas, dikonversi ke MP4 di thread terpisah) dan "Tambah Link Video"
+	 * (keduanya hanya tampil bila {@link #delete} true), diikuti grid berpaging.
+	 *
+	 * @param grupPertemuan grup pertemuan yang video-nya dikelola
+	 * @param component     komponen induk (dibersihkan lebih dulu); bila berupa {@link Tabpanel}, tab terkait dipakai untuk menampilkan jumlah video
+	 */
 	public void display(final GrupPertemuan grupPertemuan, final Component component) {
 
 		this.grupPertemuan = grupPertemuan;

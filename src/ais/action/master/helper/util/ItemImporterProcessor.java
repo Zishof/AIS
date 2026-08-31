@@ -23,10 +23,41 @@ import ais.database.model.library.KategoriItem;
 import ais.database.model.library.Penerbit;
 import ais.database.model.library.Pengarang;
 
+/**
+ * Tugas terjadwal ({@link TimerTask}) untuk mengimpor data koleksi perpustakaan ({@link Item})
+ * secara massal dari berkas dump data Open Library (format satu baris JSON per record, dipisah
+ * tab, mis. {@code ol_dump_editions_*.txt}) ke tabel {@link Item} beserta relasi
+ * {@link Pengarang} ({@link ItemPunyaPengarang}), {@link KategoriItem}
+ * ({@link ItemPunyaKategoriItem}), dan {@link Penerbit}.
+ *
+ * <p>
+ * Untuk setiap baris berkas: field {@code isbn_13} dan {@code revision} diekstrak dari JSON
+ * (format Open Library membungkus banyak field sebagai array satu elemen, sehingga tanda kurung
+ * siku dan tanda kutip dibersihkan manual); bila kombinasi ISBN+revisi sudah ada di database,
+ * baris dilewati (bertindak sebagai penanda "sudah diimpor"). Bila belum, seluruh field
+ * {@link Item} yang relevan (judul, subjudul, ISBN-10, LCCN, tanggal terbit, klasifikasi Dewey,
+ * jumlah halaman, bahasa, dll.) ditulis satu per satu, masing-masing dibungkus try-catch sendiri
+ * agar field yang tidak ada di JSON tidak menggagalkan keseluruhan baris. Setelah entitas
+ * {@link Item} disimpan, pengarang/subjek/penerbit terkait dicari-atau-dibuat (find-or-create) dan
+ * ditautkan ke item; URL gambar sampul otomatis disusun dari ISBN-10 lewat
+ * {@code covers.openlibrary.org}.
+ * </p>
+ *
+ * <p>
+ * <b>Catatan</b>: {@link #doProcess()} saat ini dinonaktifkan lewat {@code if (true) { return; }}
+ * di baris paling awal — seluruh logika impor di bawahnya menjadi kode mati (tidak pernah
+ * dieksekusi) sampai baris tersebut dihapus/diubah secara manual. Konfigurasi
+ * {@code item_importer_processor} (path berkas sumber, default
+ * {@code /home/library/ol_dump_editions_2012-03-31.txt}) hanya dibaca setelah titik keluar dini
+ * tersebut. Method {@link #main(String[])} adalah cuplikan uji manual pembersihan prefiks
+ * {@code /authors/}, tidak dipakai sebagai entry point produksi.
+ * </p>
+ */
 public class ItemImporterProcessor extends TimerTask {
 
 	private String localIp = "";
 
+	/** Membuat instance tugas; mencatat hostname lokal ke {@link #localIp} (untuk keperluan log/diagnosis) secara best-effort. */
 	public ItemImporterProcessor() {
 		InetAddress thisIp;
 		try {
@@ -40,15 +71,21 @@ public class ItemImporterProcessor extends TimerTask {
 
 	}
 
+	/** Titik masuk {@link TimerTask}; mendelegasikan ke {@link #doProcess()} dan menampilkan galat ke admin bila terjadi. */
 	@Override
 	public void run() {
 		try {
 			doProcess();
 		} catch (Exception e) {
-			Common.tampilErrorJikaAdmin(e); 
+			Common.tampilErrorJikaAdmin(e);
 		}
 	}
 
+	/**
+	 * Logika inti impor massal item perpustakaan dari berkas dump Open Library. Lihat javadoc
+	 * kelas untuk penjelasan alur lengkap. <b>Saat ini tidak pernah berjalan</b> karena
+	 * {@code if (true) { return; }} di baris pertama method.
+	 */
 	@SuppressWarnings("unused")
 	private void doProcess() throws Exception {
 		if (true) {
@@ -452,6 +489,7 @@ public class ItemImporterProcessor extends TimerTask {
 		}
 	}
 
+	/** Cuplikan uji manual: mencetak hasil pembersihan prefiks {@code /authors/} dari satu contoh kunci pengarang Open Library. Bukan entry point produksi. */
 	public static void main(String[] argv) {
 		String key = "/authors/OL1667738A".replaceAll("/authors/", "").trim();
 		System.out.println(key);

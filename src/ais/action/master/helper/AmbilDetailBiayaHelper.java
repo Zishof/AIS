@@ -42,6 +42,20 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK untuk memilih sekumpulan {@link DetailBiaya} (rincian item biaya per Fakultas/Jurusan/
+ * Tahun Akademik) yang akan dilekatkan ke satu {@link JenisKegiatanDetail} (baris detail dalam satu
+ * {@link JenisKegiatan}, mis. paket kegiatan pembayaran). Jendela pencarian menyaring
+ * {@link DetailBiaya} yang bukan merupakan pembayaran itu sendiri ({@code merupakanPembayaran=false})
+ * berdasarkan Jurusan; baris yang sudah terpasang pada {@code jenisKegiatanDetail} sebelum jendela
+ * dibuka tampil tercentang.
+ *
+ * <p>
+ * {@link #save()} mengganti (bukan menambah) seluruh set {@code detailBiayas} milik
+ * {@link #jenisKegiatanDetail} dengan baris-baris yang tercentang pada grid saat tombol Simpan
+ * ditekan — checkbox yang tidak tercentang berarti item tersebut dilepas dari relasi.
+ * </p>
+ */
 public class AmbilDetailBiayaHelper {
 
 	private MyGrid grid;
@@ -54,6 +68,7 @@ public class AmbilDetailBiayaHelper {
 
 	private DetailBiaya[] detailBiayas;
 
+	/** @param jenisKegiatanDetail baris detail kegiatan yang set {@code detailBiayas}-nya akan dipilih ulang. */
 	public AmbilDetailBiayaHelper(JenisKegiatanDetail jenisKegiatanDetail) {
 
 		Session session = HibernateUtil.currentSession();
@@ -112,6 +127,10 @@ public class AmbilDetailBiayaHelper {
 
 	}
 
+	/**
+	 * Mengganti set {@code detailBiayas} milik {@link #jenisKegiatanDetail} dengan seluruh baris
+	 * yang tercentang pada grid saat ini (baris yang tidak tercentang berarti dilepas dari relasi).
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() {
 		Rows rows = grid.getRows();
@@ -138,6 +157,14 @@ public class AmbilDetailBiayaHelper {
 
 	}
 
+	/**
+	 * Membangun jendela pencarian dan pemilihan {@link DetailBiaya} untuk {@link #jenisKegiatanDetail}.
+	 * Tombol Simpan memanggil {@link #save()} lalu menyegarkan tampilan pemanggil lewat {@code dataLoader}.
+	 *
+	 * @param jenisKegiatan tidak dipakai langsung oleh method ini (disimpan untuk konteks pemanggil)
+	 * @param dataLoader    dipanggil setelah simpan untuk menyegarkan tampilan pemanggil
+	 * @param window        jendela ({@link MyWindow}) yang dipakai ulang untuk menampilkan layar ini
+	 */
 	public void display(final JenisKegiatan jenisKegiatan, final DataLoader dataLoader, final MyWindow window) {
 		Common.clear(window);
 		window.setTitle("Ambil Data Detail Biaya");
@@ -323,6 +350,12 @@ public class AmbilDetailBiayaHelper {
 		}
 	}
 
+	/**
+	 * Mengisi ulang grid hasil pencarian {@link DetailBiaya} (bukan pembayaran) sesuai filter Jurusan
+	 * saat ini. Hasil dibatasi {@code Common#MAX_RESULT} baris.
+	 *
+	 * @param event tidak dipakai isinya
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

@@ -45,6 +45,30 @@ import ais.database.model.KelompokMatakuliah;
 import ais.database.model.KelompokMatakuliahPunyaMatakuliah;
 import ais.database.model.Matakuliah;
 
+/**
+ * Helper jendela "Ambil Data" (picker) untuk menautkan {@link Matakuliah} ke satu
+ * {@link KelompokMatakuliah}. Kandidat yang ditampilkan pada {@link #initCriteria} dibatasi hanya
+ * matakuliah aktif yang BELUM tertaut ke kelompok matakuliah MANAPUN (subquery id matakuliah pada
+ * {@link KelompokMatakuliahPunyaMatakuliah} dikecualikan secara global, bukan hanya untuk
+ * {@link #kelompokMatakuliah} yang sedang diisi) — mengindikasikan bahwa satu matakuliah hanya
+ * boleh menjadi anggota satu kelompok matakuliah pada satu waktu di seluruh sistem. Filter
+ * tambahan tersedia untuk kode/nama, fakultas, prodi, jenjang, dan "Milik Universitas" (menonaktifkan
+ * filter fakultas/prodi saat dicentang).
+ *
+ * <p>
+ * Menggunakan paging server-side ({@link ais.ui.util.AmbilDataPagingHelper} pattern, walau field
+ * {@link #pagingHelper} sendiri tidak dipakai langsung di badan kelas — paging aktual memakai
+ * {@link Common#initPaging}/{@link Common#ROWS_COUNT_ON_PAGE}) alih-alih mold "paging" client-side
+ * yang dibatasi {@code MAX_RESULT}, agar dapat menangani daftar matakuliah dalam jumlah besar.
+ * </p>
+ *
+ * <p>
+ * {@link #save()} memproses checkbox baris grid saat ini (tautkan bila tercentang, lepas tautan
+ * bila tidak) DAN sekaligus menghapus seluruh entri pada {@link #deletedMatakuliahs} — peta ini
+ * diisi oleh listener {@code onCheck} per-checkbox saat pengguna mencentang/melepas-centang baris
+ * yang SUDAH tertaut sebelumnya (dilacak terpisah dari state checkbox itu sendiri).
+ * </p>
+ */
 public class AmbilDataMatakuliahKelompokMatakuliahHelper {
 
 	private KelompokMatakuliah kelompokMatakuliah;
@@ -76,6 +100,7 @@ public class AmbilDataMatakuliahKelompokMatakuliahHelper {
 		});
 	}
 
+	/** Perender baris grid: checkbox pemilihan (dengan listener yang melacak lepas-centang baris yang sudah tertaut lewat {@link #deletedMatakuliahs}) dan label kode/nama/SKS/status/jenis/fakultas/jurusan/jenjang matakuliah. */
 	class MatakuliahRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -130,6 +155,13 @@ public class AmbilDataMatakuliahKelompokMatakuliahHelper {
 
 	}
 
+	/**
+	 * Menyinkronkan tautan {@link KelompokMatakuliahPunyaMatakuliah} berdasarkan state checkbox
+	 * setiap baris grid saat ini: mencentang menyimpan (buat baru atau perbarui) tautan matakuliah
+	 * ke {@link #kelompokMatakuliah}, tidak mencentang menghapus tautan yang ada. Setelah itu,
+	 * seluruh entri di {@link #deletedMatakuliahs} juga dihapus (lihat javadoc kelas). Galat per
+	 * baris ditangkap dan dicatat, tidak menghentikan pemrosesan baris lain.
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() {
 
@@ -188,6 +220,12 @@ public class AmbilDataMatakuliahKelompokMatakuliahHelper {
 
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela modal "Ambil Data Matakuliah" (form filter, grid berpaging
+	 * server-side dengan checkbox pemilihan, tombol Simpan/Batal) untuk menautkan matakuliah ke
+	 * {@code kelompokMatakuliah}. Tombol Simpan memanggil {@link #save()} lalu
+	 * {@code dataLoader.loadData(null)}.
+	 */
 	public void display(final KelompokMatakuliah kelompokMatakuliah, final DataLoader dataLoader,
 			final MyWindow window) {
 
@@ -457,6 +495,14 @@ public class AmbilDataMatakuliahKelompokMatakuliahHelper {
 		}
 	}
 
+	/**
+	 * Membangun {@link Criteria} kandidat {@link Matakuliah} yang dapat ditautkan: aktif, BELUM
+	 * tertaut ke kelompok matakuliah manapun (lihat javadoc kelas), dan cocok dengan filter
+	 * kode/nama/fakultas/prodi/jenjang/"Milik Universitas" yang sedang aktif pada form.
+	 *
+	 * @param order diterima untuk keseragaman kontrak antar-helper serupa; tidak dipakai
+	 *              langsung di badan method ini (tidak ada pengurutan eksplisit ditambahkan)
+	 */
 	@SuppressWarnings("unchecked")
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
@@ -485,6 +531,7 @@ public class AmbilDataMatakuliahKelompokMatakuliahHelper {
 
 	}
 
+	/** Memuat ulang paging dan grid berdasarkan {@link #initCriteria} dengan filter aktif saat ini. {@code event} tidak dipakai. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 		Common.initPaging(initCriteria(false), paging);

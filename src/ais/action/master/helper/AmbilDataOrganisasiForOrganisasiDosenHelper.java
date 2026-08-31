@@ -47,6 +47,21 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper jendela "Ambil Data" (picker) untuk menautkan satu {@link Dosen} ke satu atau lebih
+ * {@link OrganisasiDosen} (organisasi intra-kampus tingkat kedosenan, mis. senat/himpunan dosen).
+ * Menampilkan daftar berpaging seluruh {@link OrganisasiDosen} yang cocok dengan filter pencarian
+ * (nama, fakultas, prodi — organisasi lintas-fakultas/jurusan ditampilkan untuk semua filter lewat
+ * kondisi {@code isNull} pada {@link #initCriteria}), dengan checkbox per baris yang otomatis
+ * tercentang-dan-terkunci ({@code disabled}) bila dosen SUDAH tertaut ke organisasi tersebut
+ * (mencegah baris ganda pada {@link OrganisasiDosenPunyaDosen}).
+ *
+ * <p>
+ * Checkbox header ("pilih semua") menyentang seluruh baris yang belum terkunci sekaligus.
+ * {@link #save()} hanya memproses baris yang tercentang DAN belum terkunci (baris yang sudah
+ * tertaut sebelumnya dilewati apa adanya, tidak dibuat duplikat).
+ * </p>
+ */
 public class AmbilDataOrganisasiForOrganisasiDosenHelper {
 
 	private Dosen dosen;
@@ -58,6 +73,7 @@ public class AmbilDataOrganisasiForOrganisasiDosenHelper {
 
 	private Paging paging;
 
+	/** @param dosen dosen yang akan ditautkan ke organisasi-organisasi yang dipilih pada jendela ini */
 	public AmbilDataOrganisasiForOrganisasiDosenHelper(Dosen dosen) {
 		this.dosen = dosen;
 
@@ -72,6 +88,7 @@ public class AmbilDataOrganisasiForOrganisasiDosenHelper {
 
 	}
 
+	/** Perender baris grid organisasi: checkbox pemilihan (dicentang+dikunci bila dosen sudah tertaut ke organisasi tersebut) dan label nama/fakultas/jurusan/keterangan organisasi. */
 	class DosenRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -101,6 +118,14 @@ public class AmbilDataOrganisasiForOrganisasiDosenHelper {
 		}
 	}
 
+	/**
+	 * Menyimpan tautan {@link OrganisasiDosenPunyaDosen} baru untuk setiap baris grid yang
+	 * checkbox-nya tercentang dan tidak terkunci (belum tertaut sebelumnya). Mencari lebih dulu
+	 * apakah tautan sudah ada (idempoten) sebelum membuat baris baru; setiap baris baru dicatat
+	 * pengubahnya ({@code oleh}, {@code tbmuser}) dan asal perubahannya
+	 * ({@code diubahDari = DosenAction}). Galat per baris ditangkap diam-diam agar satu baris
+	 * bermasalah tidak menggagalkan penyimpanan baris lain.
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() throws InterruptedException {
 		Session session = HibernateUtil.currentSession();
@@ -140,6 +165,15 @@ public class AmbilDataOrganisasiForOrganisasiDosenHelper {
 		}
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela modal "Ambil Organisasi Kedosenan" (form filter, grid
+	 * berpaging, tombol Simpan/Batal) ke dalam {@code window} yang diberikan. Tombol Simpan
+	 * memanggil {@link #save()} lalu {@code dataLoader.loadData(null)} untuk menyegarkan tampilan
+	 * pemanggil sebelum menyembunyikan jendela.
+	 *
+	 * @param dataLoader komponen pemanggil yang disegarkan setelah data berhasil disimpan
+	 * @param window     jendela ZK yang akan diisi dan ditampilkan sebagai modal
+	 */
 	public void display(final DataLoader dataLoader, final MyWindow window) {
 
 		Common.clear(window);
@@ -317,6 +351,14 @@ public class AmbilDataOrganisasiForOrganisasiDosenHelper {
 		}
 	}
 
+	/**
+	 * Membangun {@link Criteria} pencarian {@link OrganisasiDosen} berdasarkan filter nama (ilike,
+	 * cocok di mana saja) dan opsional fakultas/jurusan; organisasi yang fakultas/jurusannya
+	 * {@code null} (berlaku untuk semua fakultas/jurusan) selalu ikut tampil meskipun filter
+	 * fakultas/jurusan diisi.
+	 *
+	 * @param order bila {@code true}, tambahkan pengurutan menaik berdasarkan nama
+	 */
 	public Criteria initCriteria(boolean order) {
 
 		Session session = HibernateUtil.currentSession();
@@ -339,6 +381,7 @@ public class AmbilDataOrganisasiForOrganisasiDosenHelper {
 		return criteria;
 	}
 
+	/** Memuat ulang grid dan komponen paging berdasarkan filter pencarian saat ini. {@code event} tidak dipakai. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

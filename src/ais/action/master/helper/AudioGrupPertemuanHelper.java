@@ -52,6 +52,20 @@ import ais.ui.util.MyPanel;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Composer ZK untuk mengelola audio pendukung satu {@link GrupPertemuan} (rekaman/link audio
+ * perkuliahan): menampilkan grid {@link AudioPertemuan} dengan pemutar Flash tersemat (widget
+ * {@code audioplayer/player.swf}), unggah file MP3 (maks 10 MB) atau tambah link audio eksternal,
+ * kolom keterangan tambahan yang dapat diedit (mahasiswa hanya melihat versi baca-saja), unduh file,
+ * dan hapus baris. Bila {@code component} yang diberikan ke {@link #display} adalah sebuah
+ * {@link Tabpanel}, label tab terkait diperbarui otomatis menampilkan jumlah audio.
+ *
+ * <p>
+ * Data disimpan lewat sesi Hibernate terpisah {@link StreamingHibernateUtil} (bukan
+ * {@code HibernateUtil} biasa), konsisten dengan entitas lain di paket {@code streaming} yang memuat
+ * data biner besar.
+ * </p>
+ */
 public class AudioGrupPertemuanHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -59,10 +73,12 @@ public class AudioGrupPertemuanHelper implements DataLoader {
 	private Boolean delete = false;
 	private Tab tab;
 
+	/** @param delete bila {@code true}, mengizinkan tambah/hapus audio dan mengedit keterangan tambahan; bila {@code false}, tampilan hanya baca */
 	public AudioGrupPertemuanHelper(Boolean delete) {
 		this.delete = delete;
 	}
 
+	/** Row renderer grid audio: pemutar Flash tersemat, nama/keterangan/tipe/tanggal (file) atau link eksternal, nama grup pertemuan, keterangan tambahan (editable untuk non-mahasiswa), dan tombol unduh/hapus. */
 	class DetailGrupPertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
 		HttpServletRequest request = (HttpServletRequest) ExecutionsCtrl.getCurrent().getNativeRequest();
@@ -261,6 +277,7 @@ public class AudioGrupPertemuanHelper implements DataLoader {
 		}
 	}
 
+	/** Memuat ulang daftar {@link AudioPertemuan} milik grup pertemuan saat ini, memperbarui label jumlah pada tab (bila tersambung ke {@link Tabpanel}), dan me-render ulang grid. Parameter {@code value} tidak dipakai. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -286,6 +303,14 @@ public class AudioGrupPertemuanHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun UI daftar audio (panel, toolbar unggah file/tambah link, grid) di dalam
+	 * {@code component} untuk grup pertemuan yang diberikan dan memuat data awal. Bila
+	 * {@code component} adalah {@link Tabpanel}, tab terkait diikat untuk pembaruan label jumlah audio.
+	 *
+	 * @param grupPertemuan grup pertemuan yang audionya ditampilkan
+	 * @param component     container ZK yang akan diisi
+	 */
 	public void display(final GrupPertemuan grupPertemuan, final Component component) {
 
 		this.grupPertemuan = grupPertemuan;

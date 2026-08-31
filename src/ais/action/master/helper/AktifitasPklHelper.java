@@ -50,6 +50,24 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper composer ZK utama untuk tampilan "aktivitas" (gaya e-learning) satu {@link KelompokPkl}
+ * (kelompok PKL/Praktik Kerja Lapangan): agenda pertemuan berbentuk timeline mirip
+ * {@link AktifitasPerkuliahanHelper} tapi khusus PKL, ditambah tab anggota, tugas kelompok,
+ * referensi (buku/bahan ajar/artikel), penilaian, dan laporan KBM.
+ *
+ * <p>
+ * Hak edit ({@link #edit}) ditentukan dari peran user login: staf/admin non-mahasiswa-non-dosen,
+ * admin, atau mahasiswa/dosen anggota kelompok yang diberi izin eksplisit lewat
+ * {@code Pkl#getMahasiswaBolehMerubahAgenda()}/{@code getDosenBolehMerubahAgenda()}. Toolbar agenda
+ * ({@link #initAgendaKelompokPkl}) menyediakan aksi jadwal (lewat {@link PenjadwalanPklHelper}),
+ * cetak absensi, ambil jadwal, ekspor ke DSpace, integrasi kalender/Google Classroom, refresh, dan
+ * riwayat perubahan pertemuan ({@link RevisiPertemuanPklHelper}) — hanya yang punya hak edit.
+ * {@link #initDetail} membangun seluruh tabbox: bila kelompok belum punya pertemuan, satu pertemuan
+ * pembuka otomatis dibuat; tab agenda menampilkan grid ber-paging satu-pertemuan-per-halaman dengan
+ * halaman aktif otomatis mengarah ke pertemuan pertama yang sudah lewat.
+ * </p>
+ */
 public class AktifitasPklHelper {
 
 	protected PenjadwalanPklHelper penjadwalanHelper = new PenjadwalanPklHelper();
@@ -57,6 +75,7 @@ public class AktifitasPklHelper {
 	private Mahasiswa userMahasiswa = null;
 	private Tbmuser tbmuser = null;
 
+	/** Menentukan apakah user login boleh mengubah agenda/pertemuan kelompok PKL ini — dihitung ulang di {@link #initDetail}. */
 	private boolean edit = false;
 
 	public AktifitasPklHelper() {
@@ -65,6 +84,16 @@ public class AktifitasPklHelper {
 
 	}
 
+	/**
+	 * Membangun toolbar aksi agenda untuk {@code kelompokPkl}: tombol Agenda PKL (jadwal, hanya
+	 * bila {@link #edit}), Absensi (cetak), Ambil jadwal/ekspor DSpace/kalender/Google Classroom
+	 * (hanya bila {@link #edit}), Refresh, dan History revisi pertemuan (hanya bila {@link #edit}
+	 * dan user bukan mahasiswa/siswa).
+	 *
+	 * @param kelompokPkl kelompok PKL target aksi
+	 * @param dataLoader  callback muat-ulang tampilan pemanggil setelah suatu aksi selesai
+	 * @return toolbar siap dipasang ke parent
+	 */
 	public Toolbar initAgendaKelompokPkl(final KelompokPkl kelompokPkl, final DataLoader dataLoader) {
 
 		Toolbar hbox = new Toolbar();
@@ -190,10 +219,32 @@ public class AktifitasPklHelper {
 		return hbox;
 	}
 
+	/** Seperti {@link #initDetail(KelompokPkl, DataLoader, MyDiv)} dengan {@code mydataLoader=null} (memakai callback muat-ulang default yang membangun ulang seluruh detail). */
 	public void initDetail(final KelompokPkl kelompokPkl, final MyDiv groupbox) throws Exception {
 		initDetail(kelompokPkl, null, groupbox);
 	}
 
+	/**
+	 * Membangun seluruh tabbox detail aktivitas PKL kelompok di dalam {@code groupbox}: tab Agenda
+	 * PKL (timeline pertemuan ber-paging, satu pertemuan per halaman, dengan komentar/absensi/video
+	 * conference per pertemuan), Anggota (dimuat lewat {@link KelompokPklHelper}), Tugas Kelompok
+	 * (lewat {@link TugasKelompokHelper}), Referensi (buku/bahan ajar/artikel, masing-masing dimuat
+	 * malas saat tab dibuka), Penilaian (lewat {@link PenilaianPklHelper}), dan Laporan KBM (lewat
+	 * {@link LaporanMonitorPklKbm}). Menghitung ulang hak edit ({@link #edit}) di awal method.
+	 *
+	 * <p>
+	 * Bila {@code kelompokPkl} belum punya pertemuan sama sekali, satu pertemuan pembuka otomatis
+	 * dibuat (topik "Topik pembukaan PKL untuk kelompok ...") sebelum tab dibangun, lalu method
+	 * memanggil dirinya sendiri lewat timer dan langsung {@code return}.
+	 * </p>
+	 *
+	 * @param kelompokPkl kelompok PKL yang detail aktivitasnya ditampilkan
+	 * @param mydataLoader callback muat-ulang eksternal; bila {@code null}, dipakai callback default
+	 *                     yang memanggil ulang {@code initDetail} untuk kelompok dan groupbox yang
+	 *                     sama
+	 * @param groupbox    komponen induk ZK; isinya dibersihkan lebih dulu
+	 * @throws Exception diteruskan dari kegagalan pembangunan UI atau akses data
+	 */
 	public void initDetail(final KelompokPkl kelompokPkl, final DataLoader mydataLoader, final MyDiv groupbox)
 			throws Exception {
 

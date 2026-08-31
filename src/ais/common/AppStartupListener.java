@@ -181,6 +181,11 @@ public class AppStartupListener implements ServletContextListener {
 			// "Pengumuman Akademis" ber-url sama). Sudah dibuang juga dari MenuSnapshotData.
 			MenuHelper.hapusMenuDuplikatBawaan();
 
+			// Nonaktifkan menu MATI "Dasbor eMedic" (id 1710004): ZUL yang ditunjuknya tidak ada
+			// di repositori, sehingga menu itu selalu gagal dibuka. Baris tidak dihapus agar
+			// jejaknya tetap ada dan mudah dikembalikan bila layarnya menyusul dibuat.
+			MenuHelper.nonaktifkanMenuDasborEmedic();
+
 			// SEMENTARA (permintaan user 18-07-2026): modul "Sistem Informasi Rumah Sakit" (SIRS)
 			// disembunyikan default tiap startup (induk aktif=false) sampai user memerintahkan
 			// mengaktifkan kembali. DIPANGGIL TERAKHIR agar tidak ada seeder di atas yang mengubah

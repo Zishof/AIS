@@ -39,6 +39,20 @@ import ais.database.model.kkn.KknPunyaPersyaratan;
 import ais.database.model.kkn.PersyaratanKkn;
 import ais.ui.util.MyPanel;
 
+/**
+ * Helper composer ZK berbentuk window modal untuk mengelola persyaratan (form input) yang
+ * dibutuhkan pada satu kegiatan {@link Kkn} (Kuliah Kerja Nyata). Menampilkan seluruh
+ * {@link PersyaratanKkn} master (nama syarat, label input, tipe data, nilai default, kewajiban
+ * lampiran, jenis kelamin) dengan checkbox — checkbox tercentang menandakan syarat tersebut
+ * dipakai oleh {@code kkn} lewat baris penghubung {@link KknPunyaPersyaratan}.
+ *
+ * <p>
+ * Penyimpanan bersifat sinkronisasi dua arah: syarat yang di-uncheck akan dihapus dari
+ * {@link KknPunyaPersyaratan} (dikumpulkan di {@link #delete}), sedangkan syarat yang dicentang dan
+ * belum punya baris penghubung akan dibuatkan baris baru. Grid memakai paging server-side lewat
+ * {@link ais.ui.util.AmbilDataPagingHelper}, dibatasi {@link Common#MAX_RESULT} hasil per query.
+ * </p>
+ */
 public class AmbilDataSyaratKknHelper {
 
 	private Kkn kkn;
@@ -60,11 +74,18 @@ public class AmbilDataSyaratKknHelper {
 
 	List<KknPunyaPersyaratan> delete = new ArrayList<KknPunyaPersyaratan>();
 
+	/** @param kkn kegiatan KKN yang daftar persyaratannya akan dikelola */
 	public AmbilDataSyaratKknHelper(Kkn kkn) {
 		this.kkn = kkn;
 
 	}
 
+	/**
+	 * Perender baris grid untuk satu {@link PersyaratanKkn}: checkbox (dicentang bila sudah
+	 * tertaut ke {@link #kkn} lewat {@link KknPunyaPersyaratan}, dan menambahkan baris terkait ke
+	 * {@link #delete} bila di-uncheck) serta label detail syarat (nama, label input, tipe data,
+	 * nilai data, kewajiban lampiran, jenis kelamin).
+	 */
 	class PersyaratanKknRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -107,6 +128,17 @@ public class AmbilDataSyaratKknHelper {
 		}
 	}
 
+	/**
+	 * Menyinkronkan persyaratan {@link #kkn}: pertama menghapus seluruh {@link KknPunyaPersyaratan}
+	 * yang terkumpul di {@link #delete} (syarat yang di-uncheck user) lewat {@link #delete(List)}.
+	 * CATATAN PERILAKU: karena {@link #delete(List)} mengembalikan {@code true} hanya bila daftar
+	 * yang diberikan sudah kosong SEBELUM dipanggil (isi list tidak berkurang oleh loop di
+	 * dalamnya), maka blok penambahan baris {@link KknPunyaPersyaratan} baru (untuk syarat yang
+	 * baru dicentang) hanya dieksekusi ketika TIDAK ADA syarat yang di-uncheck pada sesi ini —
+	 * bila ada penghapusan, penambahan syarat baru pada save yang sama akan terlewat.
+	 *
+	 * @throws InterruptedException tidak pernah dilempar secara eksplisit di implementasi ini
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void save() throws InterruptedException {
 		if (delete(delete)) {
@@ -144,6 +176,15 @@ public class AmbilDataSyaratKknHelper {
 
 	}
 
+	/**
+	 * Menghapus setiap {@link KknPunyaPersyaratan} pada {@code kknPunyaPersyaratans}. Kegagalan
+	 * per baris hanya ditampilkan lewat {@link Common#tampilErrorJikaAdmin} tanpa menghentikan
+	 * proses baris lain.
+	 *
+	 * @param kknPunyaPersyaratans daftar baris penghubung yang akan dihapus
+	 * @return {@code true} bila daftar input kosong (tidak ada yang perlu dihapus); {@code false}
+	 *         bila ada baris yang diproses (terlepas dari sukses/gagalnya penghapusan individual)
+	 */
 	public boolean delete(List<KknPunyaPersyaratan> kknPunyaPersyaratans) {
 		for (KknPunyaPersyaratan b : kknPunyaPersyaratans) {
 			try {
@@ -161,6 +202,16 @@ public class AmbilDataSyaratKknHelper {
 
 	}
 
+	/**
+	 * Membuka window modal "Daftar Form Input dan Persyaratan Kkn" berisi grid seluruh
+	 * {@link PersyaratanKkn} dengan checkbox pilih/pilih-semua. Tombol "Simpan" memanggil
+	 * {@link #save()} lalu menutup window; tombol "Batal" menutup window tanpa perubahan. Kedua
+	 * tombol memicu {@code eventListener} (bila diberikan) setelah window ditutup.
+	 *
+	 * @param window        window modal tempat UI dibangun
+	 * @param eventListener callback yang dipanggil setelah window ditutup (baik via simpan maupun
+	 *                      batal), boleh {@code null}
+	 */
 	public void display(final MyWindow window, final EventListener eventListener) {
 
 		Common.clear(window);
@@ -315,6 +366,13 @@ public class AmbilDataSyaratKknHelper {
 		}
 	}
 
+	/**
+	 * Memuat halaman berjalan seluruh {@link PersyaratanKkn} (master syarat KKN) ke grid, lewat
+	 * paging server-side {@link ais.ui.util.AmbilDataPagingHelper}, diurutkan berdasarkan id dan
+	 * dibatasi {@link Common#MAX_RESULT} per query.
+	 *
+	 * @param event tidak dipakai
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

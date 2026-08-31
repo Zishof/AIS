@@ -45,6 +45,22 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyLabelConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Composer ZK untuk layar "Informasi Kehadiran Mahasiswa": menampilkan ringkasan KRS (dosen
+ * pembimbing akademik, IPS/IPK, SKS semester/kumulatif, tahun akademik/semester) diikuti grid
+ * matakuliah yang diambil mahasiswa pada semester tersebut beserta ringkasan kehadiran per matakuliah
+ * (jumlah status Masuk/Sakit/Izin/Alpa, dari singkatan M/S/I/A). Setiap baris dapat dibuka untuk
+ * melihat rincian kehadiran per pertemuan (tanggal, materi, metode pembelajaran, jenis pertemuan,
+ * status dan keterangan kehadiran mahasiswa) lewat {@link #tampilAbsensi}, dan menampilkan tautan
+ * cetak laporan absensi rinci PDF per matakuliah.
+ *
+ * <p>
+ * Baris footer grid menampilkan total SKS dan total rekap kehadiran (M/S/I/A) seluruh matakuliah,
+ * dihitung dengan mengakumulasi variabel instance saat setiap baris dirender oleh
+ * {@link DetailMahasiswaRenderer} — sehingga bergantung pada seluruh baris sudah dirender sebelum
+ * footer dibangun (dilakukan lewat {@link Common#createDefaultTimer} setelah {@code loadData}).
+ * </p>
+ */
 public class AbsensiMahasiswaHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -54,9 +70,15 @@ public class AbsensiMahasiswaHelper implements DataLoader {
 
 	private Integer semesterPendek;
 
+	/**
+	 * @param semesterPendek tidak dipakai di badan konstruktor (nilai efektif diambil dari parameter
+	 *                        {@code semesterPendek} pada {@link #display}); dipertahankan untuk
+	 *                        kompatibilitas pemanggil
+	 */
 	public AbsensiMahasiswaHelper(Integer semesterPendek) {
 	}
 
+	/** Row renderer grid matakuliah: kode/nama/SKS (dengan info konversi ekivalensi bila berbeda), dosen, jadwal, dan ringkasan status kehadiran per matakuliah dengan tautan cetak laporan absensi rinci PDF. Turut mengakumulasi total SKS/M/S/I/A ke variabel instance untuk footer grid. */
 	class DetailMahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@SuppressWarnings("unchecked")
@@ -164,6 +186,7 @@ public class AbsensiMahasiswaHelper implements DataLoader {
 
 	}
 
+	/** Merender rincian kehadiran per pertemuan (tanggal, materi, metode, jenis pertemuan, status dan keterangan kehadiran mahasiswa) untuk satu {@link Perkuliahan} ke dalam {@code detail} yang dibuka. */
 	@SuppressWarnings({})
 	private void tampilAbsensi(final Perkuliahan perkuliahan, final MyDetail detail) {
 
@@ -258,6 +281,7 @@ public class AbsensiMahasiswaHelper implements DataLoader {
 	private int totalIzin = 0;
 	private int totalAlpa = 0;
 
+	/** Mengambil ulang daftar perkuliahan (dan paralelnya) mahasiswa pada semester/semester-pendek saat ini, mereset akumulator total SKS/M/S/I/A, dan me-render ulang grid. Parameter {@code value} tidak dipakai. */
 	public void loadData(Object value) {
 
 		try {
@@ -280,6 +304,21 @@ public class AbsensiMahasiswaHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun seluruh UI layar informasi kehadiran (ringkasan KRS, grid matakuliah dengan rekap
+	 * kehadiran, footer total) di dalam {@code component} untuk kombinasi mahasiswa/semester/tahapan
+	 * yang diberikan, lalu memuat data awal.
+	 *
+	 * @param mahasiswa       mahasiswa yang kehadirannya ditampilkan
+	 * @param tahunAjaran     tidak dipakai langsung di badan method (tahun akademik diambil dari
+	 *                        sinkronisasi KRS)
+	 * @param semester        nomor semester yang ditampilkan
+	 * @param tahapan         tahapan KRS; bila {@code -1}, grid disembunyikan
+	 * @param component       container ZK yang akan diisi
+	 * @param semesterPendek  status semester pendek terkait, boleh {@code null}
+	 * @param window          tidak dipakai langsung di badan method
+	 * @param keDatabase      diteruskan ke {@code Common.singkronkanKrsMahasiswa}
+	 */
 	public void display(Mahasiswa mahasiswa, String tahunAjaran, Integer semester, Integer tahapan, Component component,
 			Integer semesterPendek, MyWindow window, boolean keDatabase) {
 

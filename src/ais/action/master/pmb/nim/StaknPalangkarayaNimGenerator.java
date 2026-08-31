@@ -25,7 +25,7 @@ public class StaknPalangkarayaNimGenerator implements NimGenerator {
 		String nim = "-";
 
 		if (calonMahasiswa.getProdiLulus() != null) {
-			Session session = HibernateUtil.currentNativeSession();
+			Session session = HibernateUtil.openSession();
 
 			String maxNim = ((String) session.createCriteria(Mahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))).setProjection(Projections.max("nim"))
 					.add(Restrictions.eq("jurusan", calonMahasiswa.getProdiLulus())).setMaxResults(1).uniqueResult());
@@ -54,7 +54,7 @@ public class StaknPalangkarayaNimGenerator implements NimGenerator {
 			Integer count = ((Number) session.createCriteria(Mahasiswa.class).add(Restrictions.eq("nim", nim))
 					.setProjection(Projections.count("nim")).uniqueResult()).intValue();
 
-			HibernateUtil.closeSession();
+			HibernateUtil.closeSessionQuietly(session);
 
 			if (!count.equals(0)) {
 				jumlahPengecualian.add(nim);

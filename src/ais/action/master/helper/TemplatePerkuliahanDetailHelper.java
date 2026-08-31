@@ -43,16 +43,63 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK untuk mengelola detail jadwal per semester milik satu {@link TemplatePerkuliahan}
+ * (template jadwal perkuliahan yang dapat dipakai ulang lintas tahun akademik). Tampilan utama
+ * berupa daftar semester (1..jumlah semester jenjang jurusan template) dengan jumlah entri
+ * {@link TemplatePerkuliahanDetail} tiap semester (dihitung tertunda lewat {@link
+ * org.zkoss.zul.Timer} agar tidak memblokir render awal), dan bagian detail yang dapat dibuka
+ * ({@link ais.ui.util.MyDetail}) untuk menampilkan grid CRUD penuh lewat iframe ke halaman
+ * {@code /pages/master/template_perkuliahan/template_perkuliahan_detail.zul} (state
+ * {@code templatePerkuliahan}/{@code semester} dititipkan lewat {@link
+ * org.zkoss.zk.ui.Sessions}).
+ *
+ * <p>
+ * Tiga aksi utama level-semester disediakan lewat dialog terpisah, masing-masing menjalankan
+ * proses konversi jadwal secara batch dengan log HTML berjalan ({@code <ol>} yang terus
+ * ditambah) sebagai umpan balik:
+ * </p>
+ * <ul>
+ * <li><b>Import Jadwal Perkuliahan</b> — mengambil {@link Perkuliahan} nyata (tahun akademik,
+ * fakultas/prodi pilihan) lalu menyalin strukturnya (dosen, hari, jam, ruang, kapasitas, dsb,
+ * termasuk pasangan kelas paralel secara rekursif) menjadi {@link TemplatePerkuliahanDetail}
+ * baru pada template ini via {@link #processImport}.</li>
+ * <li><b>Eksport Jadwal Perkuliahan</b> — kebalikannya: mengubah entri template menjadi
+ * {@link Perkuliahan} nyata untuk tahun akademik tujuan via {@link #processEksport}, dengan opsi
+ * membersihkan (menghapus) jadwal matakuliah tujuan yang sudah ada lebih dulu.</li>
+ * <li><b>Hapus Semua Jadwal</b> — menghapus seluruh {@link TemplatePerkuliahanDetail} semester
+ * ini lewat SQL langsung, setelah konfirmasi.</li>
+ * </ul>
+ *
+ * <p>
+ * Baik {@link #processImport} maupun {@link #processEksport} sebelum menyimpan baris baru selalu
+ * memeriksa potensi bentrok jadwal (kelas, ruang, dosen, kesamaan matakuliah non-paralel) lewat
+ * serangkaian pemeriksaan {@code Common.check*}; bila ditemukan baris yang sudah identik/bentrok,
+ * baris yang sudah ada dikembalikan alih-alih membuat duplikat. Tombol Import/Eksport/Hapus hanya
+ * tampil sesuai privilese {@link ais.common.CommonPrivilages#CREATE}/{@code DELETE} milik user
+ * yang login.
+ * </p>
+ */
 public class TemplatePerkuliahanDetailHelper {
 
 	private Boolean add = false;
 	private Boolean delete = false;
 
+	/** Menentukan hak akses (buat/hapus) untuk tombol-tombol Import/Eksport/Hapus berdasarkan privilese user yang sedang login. */
 	public TemplatePerkuliahanDetailHelper() {
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Titik masuk utama: membangun grid daftar semester milik {@code templatePerkuliahan}
+	 * beserta bagian detail yang dapat dibuka per semester (berisi tombol Import/Eksport/Hapus
+	 * dan iframe grid CRUD jadwal). Jumlah semester ditentukan dari
+	 * {@code templatePerkuliahan.getJurusan().getJenjang().getJumlahSemester()}.
+	 *
+	 * @param templatePerkuliahan template yang detail jadwalnya ditampilkan
+	 * @param component           komponen induk tempat UI ditempel
+	 */
 	public void display(final TemplatePerkuliahan templatePerkuliahan, Component component) {
 
 		ais.ui.util.MyDiv groupbox = new ais.ui.util.MyDiv();
@@ -526,6 +573,19 @@ public class TemplatePerkuliahanDetailHelper {
 
 	}
 
+	/**
+	 * Mengubah satu {@link TemplatePerkuliahanDetail} menjadi {@link Perkuliahan} nyata untuk
+	 * {@code tahunAkademik} tujuan. Menangani pasangan kelas paralel secara rekursif terlebih
+	 * dahulu, lalu menyalin seluruh atribut jadwal (dosen, hari, jam, ruang, kurikulum,
+	 * matakuliah, kapasitas, dsb). Sebelum menyimpan, memeriksa apakah jadwal serupa/bentrok
+	 * sudah ada lewat {@link #checkKeberadaanPerkuliahan} — bila ya, baris yang sudah ada
+	 * dikembalikan tanpa membuat duplikat.
+	 *
+	 * @param templatePerkuliahanDetail entri template sumber; {@code null}/tanpa kelas dilewati (return {@code null})
+	 * @param tahunAkademik             tahun akademik tujuan ekspor
+	 * @param html                      log proses berjalan yang ditambah tiap langkah
+	 * @return {@link Perkuliahan} yang dibuat/ditemukan, atau {@code null} bila entri tidak punya kelas
+	 */
 	private Perkuliahan processEksport(final TemplatePerkuliahanDetail templatePerkuliahanDetail, String tahunAkademik,
 			final Html html) throws Exception {
 
@@ -639,6 +699,17 @@ public class TemplatePerkuliahanDetailHelper {
 		return perkuliahan;
 	}
 
+	/**
+	 * Memeriksa apakah {@code perkuliahan} yang hendak disimpan (hasil ekspor template) bentrok
+	 * atau sudah identik dengan jadwal lain yang ada: bentrok kelas, bentrok ruang, bentrok
+	 * jadwal dosen, atau kesamaan matakuliah non-paralel. Setiap pemeriksaan gagal (exception)
+	 * dicatat via {@link Common#tampilErrorJikaAdmin} dan tidak menghentikan pemeriksaan
+	 * berikutnya.
+	 *
+	 * @param perkuliahan kandidat jadwal yang akan diperiksa
+	 * @param html        log proses tempat detail bentrok (bila ada) dituliskan oleh method {@code Common.check*}
+	 * @return jadwal {@link Perkuliahan} yang sudah ada bila ditemukan bentrok/duplikat, atau {@code null} bila aman disimpan sebagai baru
+	 */
 	public static Perkuliahan checkKeberadaanPerkuliahan(Perkuliahan perkuliahan, Html html) throws Exception {
 		Perkuliahan myPerkuliahan = null;
 
@@ -709,6 +780,18 @@ public class TemplatePerkuliahanDetailHelper {
 		return null;
 	}
 
+	/**
+	 * Mengubah satu {@link Perkuliahan} nyata menjadi entri {@link TemplatePerkuliahanDetail}
+	 * pada {@code templatePerkuliahan} (kebalikan dari {@link #processEksport}). Menangani kelas
+	 * paralel secara rekursif, lalu memeriksa bentrok/duplikat terhadap entri template yang sudah
+	 * ada (kelas, ruang, dosen, kesamaan matakuliah non-paralel) sebelum menyimpan baris baru.
+	 * Perkuliahan tanpa kelas atau berstatus semester pendek dilewati.
+	 *
+	 * @param perkuliahan         jadwal nyata sumber
+	 * @param templatePerkuliahan template tujuan
+	 * @param html                log proses berjalan
+	 * @return entri template yang dibuat/ditemukan, atau {@code null} bila perkuliahan tidak memenuhi syarat untuk diimpor
+	 */
 	private TemplatePerkuliahanDetail processImport(final Perkuliahan perkuliahan,
 			final TemplatePerkuliahan templatePerkuliahan, final Html html) throws Exception {
 

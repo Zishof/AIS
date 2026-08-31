@@ -45,6 +45,22 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper ZK untuk menjadwalkan sesi ujian PMB (Penerimaan Mahasiswa Baru) dalam satu
+ * {@link JadwalUjianPMB} (materi ujian + paket + rentang waktu default). Setiap sesi ujian
+ * direpresentasikan sebagai satu baris {@link Pertemuan} yang dapat diedit inline langsung pada
+ * grid (topik, tanggal, jam mulai/selesai, dan status/jenis pertemuan dari {@link StatusPertemuan}).
+ *
+ * <p>
+ * Tombol "Tambah Pertemuan" membuat baris {@link Pertemuan} baru langsung tersimpan ke database
+ * dengan tanggal default digeser tujuh hari dari pertemuan terakhir yang ditambahkan (memudahkan
+ * penjadwalan ujian mingguan berurutan) dan jam mulai/selesai mengikuti jadwal default
+ * {@code jadwalUjianPMB}. Setiap baris dapat dihapus individual (setelah dicek boleh dihapus lewat
+ * {@link PenjadwalanHelper#checkBolehHapus(Pertemuan)}) atau, saat {@link #save()} dipanggil,
+ * baris yang sebelumnya ada di database namun sudah tidak muncul di grid akan turut dihapus
+ * (rekonsiliasi penuh antara state grid dan database).
+ * </p>
+ */
 public class PenjadwalanUjianPMBHelper {
 
 	private JadwalUjianPMB jadwalUjianPMB;
@@ -231,6 +247,18 @@ public class PenjadwalanUjianPMBHelper {
 
 	}
 
+	/**
+	 * Menyinkronkan seluruh baris {@link Pertemuan} pada grid ke database: baris yang punya
+	 * {@code myValue} (pertemuan sudah ada) diperbarui, baris baru disimpan dengan jam mulai/selesai
+	 * mengikuti default {@link #jadwalUjianPMB}, dan pertemuan aktif milik {@link #jadwalUjianPMB}
+	 * yang tidak lagi muncul di grid (sudah dihapus pengguna dari tampilan) turut dihapus dari
+	 * database. Kegagalan pada satu baris ditelan dan dicatat lewat audit tanpa menghentikan proses
+	 * baris lainnya.
+	 *
+	 * @return selalu {@code true}
+	 * @throws InterruptedException tidak pernah dilempar dalam praktiknya; dipertahankan pada
+	 *                              signature untuk kompatibilitas pemanggil
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public boolean save() throws InterruptedException {
 
@@ -295,6 +323,14 @@ public class PenjadwalanUjianPMBHelper {
 		return true;
 	}
 
+	/**
+	 * Membangun jendela penjadwalan sesi ujian untuk satu {@link JadwalUjianPMB}: judul menampilkan
+	 * ringkasan materi/paket/waktu, toolbar Tambah Pertemuan/Refresh, dan grid baris pertemuan yang
+	 * dapat diedit inline. Tombol Simpan memanggil {@link #save()} dan menutup jendela bila berhasil.
+	 *
+	 * @param jadwalUjianPMB jadwal ujian PMB yang sesi-sesinya akan dikelola
+	 * @param dataLoader     dipanggil setelah simpan untuk menyegarkan tampilan pemanggil
+	 */
 	public void display(final JadwalUjianPMB jadwalUjianPMB, final DataLoader dataLoader) {
 		this.jadwalUjianPMB = jadwalUjianPMB;
 		this.dataLoader = dataLoader;
@@ -467,6 +503,13 @@ public class PenjadwalanUjianPMBHelper {
 		}
 	}
 
+	/**
+	 * Mengisi ulang grid dengan daftar {@link Pertemuan} milik {@link #jadwalUjianPMB}.
+	 *
+	 * @param event bila datanya berupa {@link Boolean} {@code true}, memaksa refresh cache daftar
+	 *              pertemuan ({@code JadwalUjianPMB#ambilPertemuanList(boolean)}); nilai lain
+	 *              (termasuk {@code null}) diperlakukan sebagai {@code false}
+	 */
 	public void onSearchDefault(Event event) {
 
 		List<Pertemuan> pertemuan = jadwalUjianPMB.ambilPertemuanList(

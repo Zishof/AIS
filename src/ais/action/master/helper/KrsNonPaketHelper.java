@@ -62,6 +62,32 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Composer ZK untuk layar pengisian KRS non-paket mahasiswa: menampilkan grid mata kuliah yang sudah
+ * diambil ({@link Detailperkuliahan}) beserta dosen/jadwal/status persetujuan, ringkasan status
+ * persetujuan dan jumlah SKS, informasi jam bentrok (termasuk terhadap kelas paralel), serta tombol
+ * aksi (Ambil Matakuliah, Komentar, cetak KRS/kartu UTS/kartu UAS/tagihan pembayaran, Refresh).
+ * Setiap baris mata kuliah dapat menampilkan konversi ekivalensi (bila mata kuliah kurikulum lama
+ * digantikan versi baru) dan dapat dihapus selama belum disetujui — dengan pengecualian tambahan
+ * bila konfigurasi {@code batalkan_persetujuan_harus_memiliki_nilai_nol} aktif dan nilai sudah
+ * terisi.
+ *
+ * <p>
+ * Tombol "Ambil Matakuliah" ({@link #display}) melakukan serangkaian validasi berlapis sebelum
+ * mengizinkan pengambilan KRS baru: syarat ujian terkait KRS, status pembayaran semester berjalan
+ * dan semester sebelumnya (persentase minimum lunas), dosen pembimbing akademik wajib ada, kelas
+ * wajib ada, status kemahasiswaan harus aktif, dan blokir mahasiswa (alasan ditampilkan bila ada).
+ * Setiap validasi dikontrol oleh konfigurasi terpisah sehingga dapat dinonaktifkan sesuai kebijakan
+ * institusi. Lolos validasi, kontrol diserahkan ke
+ * {@link AmbilDataPerkuliahanNonPaketHelper#display}.
+ * </p>
+ *
+ * <p>
+ * Instance ini mengimplementasikan {@link DataLoader} agar dapat dipanggil ulang oleh komponen anak
+ * (mis. dialog pengambilan mata kuliah, dialog komentar) untuk memuat ulang grid setelah perubahan
+ * data.
+ * </p>
+ */
 public class KrsNonPaketHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -88,10 +114,12 @@ public class KrsNonPaketHelper implements DataLoader {
 
 	private Integer tahapan;
 
+	/** @param semesterPendek status semester pendek (SP) yang dilayani helper ini, atau {@code null} untuk KRS reguler */
 	public KrsNonPaketHelper(Integer semesterPendek) {
 		this.semesterPendek = semesterPendek;
 	}
 
+	/** Row renderer grid KRS: kode/nama/SKS matakuliah (dengan info konversi ekivalensi bila berbeda), dosen, jadwal, semester (menandai "Mengulang"/"Menabung" bila berbeda dari jadwal aslinya), kelas, status persetujuan, dan tombol hapus (hanya bila belum disetujui). */
 	class DetailMahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		private boolean refresh;
@@ -224,6 +252,13 @@ public class KrsNonPaketHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Memuat ulang daftar {@link Detailperkuliahan} KRS mahasiswa, memperbarui ringkasan status
+	 * ({@link #loadStatus()}) dan panel informasi jam bentrok (termasuk terhadap kelas paralel).
+	 *
+	 * @param value bila berupa {@link Boolean} {@code true}, memaksa refresh cache riwayat/kuota
+	 *              (diteruskan ke {@code Common.getDetailperkuliahans})
+	 */
 	public void loadData(Object value) {
 		boolean refresh = (value != null && value instanceof Boolean) ? (Boolean) value : false;
 		detailperkuliahans = Common.getDetailperkuliahans(mahasiswa, semester, null, semesterPendek, false, false,
@@ -254,6 +289,25 @@ public class KrsNonPaketHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun seluruh UI layar KRS non-paket (info dosen PA, status persetujuan, jumlah SKS, batas
+	 * SKS maksimum, toolbar aksi, grid mata kuliah, grid komentar) untuk kombinasi mahasiswa/semester/
+	 * tahapan yang diberikan, lalu memuat data awal.
+	 *
+	 * @param editable       tidak dipakai langsung di badan method (disediakan untuk kompatibilitas
+	 *                       pemanggil)
+	 * @param mahasiswa      mahasiswa yang KRS-nya ditampilkan
+	 * @param tahunAjaran    tahun ajaran KRS
+	 * @param semester       nomor semester KRS
+	 * @param tahapan        tahapan KRS (bila fitur tahapan aktif), boleh {@code null}/0
+	 * @param component      container ZK yang akan diisi
+	 * @param window         window pemanggil
+	 * @param ket            komponen {@link Html} tujuan render keterangan status pengambilan KRS
+	 * @param komentarshtml  tidak dipakai langsung di badan method (disediakan untuk kompatibilitas
+	 *                       pemanggil)
+	 * @param keDatabase     diteruskan ke {@code Common.singkronkanKrsMahasiswa} untuk menentukan
+	 *                       apakah sinkronisasi KRS mahasiswa disimpan ke database
+	 */
 	public void display(final Boolean editable, final Mahasiswa mahasiswa, final String tahunAjaran,
 			final Integer semester, final Integer tahapan, final Component component, final MyWindow window,
 			final Html ket, final Html komentarshtml, boolean keDatabase) {
@@ -784,6 +838,7 @@ public class KrsNonPaketHelper implements DataLoader {
 				krsMahasiswa.getTahapan(), krsMahasiswa.getSemesterPendek(), krsMahasiswa, false));
 	}
 
+	/** Memuat ulang grid komentar KRS mahasiswa untuk kombinasi semester/tahapan/tahun ajaran saat ini. */
 	public void loadDataKomentar() {
 		List<Komentar> komentars = Common.loadKomentarData(mahasiswa, semester, tahapan, tahunAjaran, semesterPendek);
 		ListModel strset = new SimpleListModel(komentars);

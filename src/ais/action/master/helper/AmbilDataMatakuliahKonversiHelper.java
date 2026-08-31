@@ -48,6 +48,24 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper "pilih dari daftar" untuk mencatat matakuliah konversi (dari kurikulum lain/luar) yang
+ * diakui sebagai pengganti matakuliah reguler bagi satu {@link Mahasiswa} pada satu semester
+ * tertentu, ditulis sebagai baris {@link Detailperkuliahan} baru dengan
+ * {@code matakuliahKonversi} terisi (dan {@code ikutiPerkuliahan} kosong — bukan mengikuti kelas
+ * perkuliahan reguler). Menampilkan jendela modal pencarian matakuliah dari {@link Kurikulum}
+ * tertentu (kurikulum wajib dipilih sebelum pencarian dapat dijalankan) berdasarkan kode/nama,
+ * dengan checkbox per baris.
+ *
+ * <p>
+ * Kecuali konfigurasi {@code boleh_ambil_matakuliah_konversi_lebih_dari_satu_kali} aktif,
+ * matakuliah yang sudah pernah dikonversi oleh mahasiswa yang sama pada semester yang sama
+ * ditampilkan tercentang sekaligus dinonaktifkan (mencegah duplikasi); {@link #save()} akan
+ * memperbarui baris {@link Detailperkuliahan} yang sudah ada (bukan membuat baru) untuk kasus ini.
+ * Fakultas dan prodi pencarian dikunci ke fakultas/prodi milik mahasiswa; dropdown kurikulum
+ * otomatis terisi dan mengambil kurikulum terbaru milik prodi tersebut sebagai default.
+ * </p>
+ */
 public class AmbilDataMatakuliahKonversiHelper {
 
 	private Mahasiswa mahasiswa;
@@ -63,6 +81,7 @@ public class AmbilDataMatakuliahKonversiHelper {
 
 	private Boolean bolehAmbilMatakuliahLebihDariSatuKali = false;
 
+	/** Membuat helper dan membaca konfigurasi {@code boleh_ambil_matakuliah_konversi_lebih_dari_satu_kali}, serta menginisialisasi combobox fakultas/jurusan. */
 	public AmbilDataMatakuliahKonversiHelper() {
 
 		bolehAmbilMatakuliahLebihDariSatuKali = Common.bolehKonfigurasi("boleh_ambil_matakuliah_konversi_lebih_dari_satu_kali", Konfigurasi.TIDAK_AKTIF);
@@ -70,6 +89,7 @@ public class AmbilDataMatakuliahKonversiHelper {
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 	}
 
+	/** Perender baris grid: checkbox pemilihan (tercentang+nonaktif bila mahasiswa sudah punya konversi matakuliah ini pada semester yang sama dan pengambilan ganda tidak diizinkan) plus label kode+id, nama, SKS, semester kurikulum, status, jenis, fakultas, dan jurusan matakuliah. */
 	class MatakuliahRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -121,6 +141,12 @@ public class AmbilDataMatakuliahKonversiHelper {
 
 	}
 
+	/**
+	 * Untuk setiap baris grid yang tercentang, membuat (atau, bila belum boleh ambil ganda dan baris
+	 * sudah ada, memperbarui) satu {@link Detailperkuliahan} dengan {@code matakuliahKonversi} dan
+	 * {@code semester} sesuai matakuliah yang dipilih. Menolak menyimpan (dengan pesan peringatan)
+	 * bila kurikulum belum dipilih. Kegagalan per baris ditangkap dan dicatat.
+	 */
 	@SuppressWarnings({ "unchecked" })
 	public void save() throws Exception {
 
@@ -185,6 +211,21 @@ public class AmbilDataMatakuliahKonversiHelper {
 		}
 	}
 
+	/**
+	 * Membangun dan menampilkan jendela modal pemilihan matakuliah konversi untuk {@code mahasiswa}
+	 * pada {@code semester} yang diberikan: form pencarian (fakultas/prodi dikunci ke milik
+	 * mahasiswa, kode, nama, kurikulum — wajib dipilih, otomatis terisi kurikulum terbaru prodi
+	 * — dan semester), grid ber-paging client-side dengan checkbox per baris, dan tombol
+	 * Cari/Simpan/Batal.
+	 *
+	 * @param mahasiswa   mahasiswa yang akan diberi matakuliah konversi
+	 * @param semester    semester default pencarian dan nilai yang dipakai bila kurikulum tidak
+	 *                    memberi semester spesifik per matakuliah
+	 * @param tahunAjaran tidak dipakai langsung di badan method; ada untuk kompatibilitas signature
+	 *                    pemanggil
+	 * @param dataLoader  callback penyegar tampilan pemanggil setelah simpan
+	 * @param window      jendela modal yang akan dibangun isinya (dibersihkan lebih dulu)
+	 */
 	public void display(final Mahasiswa mahasiswa, final Integer semester, final String tahunAjaran,
 			final DataLoader dataLoader, final MyWindow window) throws Exception {
 
@@ -496,6 +537,14 @@ public class AmbilDataMatakuliahKonversiHelper {
 		}
 	}
 
+	/**
+	 * Membangun kriteria pencarian {@link KurikulumPunyaMatakuliah} sesuai kurikulum, semester
+	 * (bila diisi), kode/nama matakuliah (ilike), dan fakultas/jurusan — matakuliah dengan
+	 * {@code milikUniversitas = true} selalu lolos filter fakultas/jurusan.
+	 *
+	 * @param order bila {@code true}, tambahkan pengurutan menaik berdasarkan semester lalu nama matakuliah
+	 * @return kriteria Hibernate siap dieksekusi
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(KurikulumPunyaMatakuliah.class);
@@ -532,6 +581,14 @@ public class AmbilDataMatakuliahKonversiHelper {
 		return criteria;
 	}
 
+	/**
+	 * Menjalankan pencarian {@link KurikulumPunyaMatakuliah} sesuai filter saat ini (menolak dengan
+	 * pesan peringatan bila kurikulum belum dipilih), lalu memuat ulang grid dengan hasilnya secara
+	 * asinkron (dibungkus {@link Common#createDefaultTimer} dengan indikator busy) agar UI tetap
+	 * responsif selama query berjalan.
+	 *
+	 * @param event event pemicu (tombol Cari, atau perubahan salah satu filter), tidak dipakai langsung
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) throws Exception {
 		try {

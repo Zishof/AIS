@@ -49,6 +49,27 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper diskusi/komentar berulir (threaded) pada satu {@link PengumumanAkademis} (pengumuman
+ * akademik), analog forum diskusi: pengguna (mahasiswa, dosen, siswa, guru, staf, atau tamu
+ * anonim — bila belum login, wajib mengisi nama) dapat menambah komentar
+ * ({@link DiskusiPengumumanAkademis}) berikut lampiran, membalas komentar orang lain (thread
+ * bersarang, indentasi visual bertambah per level via {@code index*35px}), mengubah/menghapus
+ * komentar milik sendiri (atau siapa pun bila pengguna admin), dan melihat lampiran resmi
+ * pengumuman ({@link LampiranPengumumanAkademis}) terpisah dari lampiran komentar.
+ *
+ * <p>
+ * Sebagai {@link EventListener} ({@link #onEvent}), kelas ini juga berfungsi sebagai callback
+ * penyegaran tampilan detail (dipanggil ulang setelah simpan/hapus komentar lewat
+ * {@link Common#createDefaultTimer(EventListener)}) — merender ulang seluruh blok lampiran
+ * pengumuman + daftar komentar ke dalam komponen {@link #detail} yang sama.
+ * </p>
+ *
+ * <p>
+ * Menyimpan komentar baru memicu {@link ais.action.master.helper.BroadcastHelper#kirimEmail}
+ * untuk memberi tahu pihak terkait via email.
+ * </p>
+ */
 public class DiskusiPengumumanAkademisHelper implements EventListener {
 
 	protected LampiranLain lampiranLain;
@@ -69,6 +90,10 @@ public class DiskusiPengumumanAkademisHelper implements EventListener {
 
 	private DiskusiPengumumanAkademis parent = null;
 
+	/**
+	 * @param detail             komponen tempat blok lampiran+diskusi dirender ({@link #onEvent} akan mengisi ulang komponen ini)
+	 * @param pengumumanAkademis pengumuman yang diskusinya dikelola
+	 */
 	public DiskusiPengumumanAkademisHelper(Component detail, PengumumanAkademis pengumumanAkademis) {
 		this.detail = detail;
 		this.pengumumanAkademis = pengumumanAkademis;
@@ -76,6 +101,17 @@ public class DiskusiPengumumanAkademisHelper implements EventListener {
 		this.mahasiswa = this.tbmuser == null ? null : this.tbmuser.getMahasiswa();
 	}
 
+	/**
+	 * Membuka jendela modal "Komentar Pengumuman" untuk menambah komentar baru atau mengubah
+	 * komentar existing. Menampilkan konteks "Balasan untuk" bila {@code parent} diberikan
+	 * (mode balas thread), field nama pengirim hanya untuk tamu yang belum login, dan
+	 * pengunggahan satu lampiran opsional. Menyimpan lewat {@link #onSave(Event)}, lalu memicu
+	 * {@link #onEvent} untuk menyegarkan tampilan diskusi.
+	 *
+	 * @param diskusiPengumumanAkademis entitas baru (belum tersimpan) atau existing yang diedit
+	 * @param parent                    komentar induk bila ini balasan; {@code null} bila komentar level teratas
+	 * @param pengumumanAkademis        pengumuman terkait
+	 */
 	public void init(DiskusiPengumumanAkademis diskusiPengumumanAkademis, DiskusiPengumumanAkademis parent,
 			final PengumumanAkademis pengumumanAkademis) throws Exception {
 		this.diskusiPengumumanAkademis = diskusiPengumumanAkademis;
@@ -193,6 +229,16 @@ public class DiskusiPengumumanAkademisHelper implements EventListener {
 
 	}
 
+	/**
+	 * Memvalidasi (komentar tidak boleh kosong; nama wajib diisi untuk tamu belum login) dan
+	 * menyimpan komentar: menyusun label "oleh" otomatis dari peran pengguna login (mahasiswa/
+	 * dosen/siswa/guru/role lain — mahasiswa memakai NIM+nama, selebihnya nama+jenis peran
+	 * dalam kurung), menautkan lampiran yang sudah diunggah (bila ada) ke id komentar yang baru
+	 * tersimpan lewat sesi Hibernate terpisah ({@link StreamingHibernateUtil}), lalu memicu
+	 * pengiriman email notifikasi via {@code BroadcastHelper.kirimEmail}.
+	 *
+	 * @return {@code true} bila berhasil disimpan; {@code false} bila validasi gagal
+	 */
 	public boolean onSave(Event event) throws Exception {
 
 		if (catatan.getValue().trim().isEmpty()) {
@@ -270,6 +316,19 @@ public class DiskusiPengumumanAkademisHelper implements EventListener {
 		return true;
 	}
 
+	/**
+	 * Merender satu komentar (dan secara rekursif seluruh balasannya, tersarang di dalam
+	 * {@link MyDetail} yang selalu terbuka) ke {@code row}: foto profil penulis (mahasiswa/
+	 * dosen/siswa/guru/calon mahasiswa/calon siswa/user lain — dicek berurutan), label "oleh"
+	 * (dengan beberapa fallback jika field terkait kosong), isi komentar, lampiran, dan tombol
+	 * aksi kontekstual — "Balas" (bila pengumuman mengizinkan komentar) + "Hapus" (hanya admin)
+	 * untuk komentar orang lain; "Ubah"+"Hapus" untuk komentar milik sendiri (dicocokkan
+	 * berdasarkan user id atau id mahasiswa yang login).
+	 *
+	 * @param row                          baris ZK yang akan diisi
+	 * @param diskusiPengumumanAkademisId  id komentar yang direpresentasikan
+	 * @param index                        kedalaman thread (0 = level teratas), menentukan indentasi visual
+	 */
 	public void displayRow(Row row, final Long diskusiPengumumanAkademisId, int index) {
 
 		final DiskusiPengumumanAkademis diskusiPengumumanAkademis = (DiskusiPengumumanAkademis) DiskusiPengumumanAkademis
@@ -507,6 +566,7 @@ public class DiskusiPengumumanAkademisHelper implements EventListener {
 		}
 	}
 
+	/** Merender satu baris grid komentar dengan mendelegasikan ke {@link #displayRow(Row, Long, int)} pada level teratas (index 0). */
 	class DetailPengumumanRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -518,6 +578,7 @@ public class DiskusiPengumumanAkademisHelper implements EventListener {
 
 	}
 
+	/** Merender satu baris grid lampiran resmi pengumuman: pratinjau media, tanggal unggah, dan tombol unduh. */
 	class DetailLampiranPengumumanAkademisRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -555,6 +616,7 @@ public class DiskusiPengumumanAkademisHelper implements EventListener {
 
 	}
 
+	/** Memuat grid {@code grids} dengan seluruh {@link LampiranPengumumanAkademis} yang boleh ditampilkan untuk {@link #pengumumanAkademis}, diurutkan terbaru dulu. */
 	@SuppressWarnings("unchecked")
 	public void loadDataAttachment(Grid grids) {
 		Session session = HibernateUtil.currentSession();
@@ -573,6 +635,7 @@ public class DiskusiPengumumanAkademisHelper implements EventListener {
 
 	}
 
+	/** Memuat grid {@code gridKomentar} dengan seluruh id komentar level teratas (thread root) untuk {@code pengumumanAkademis}; balasan dimuat secara rekursif di dalam {@link #displayRow}. */
 	public void loadData(PengumumanAkademis pengumumanAkademis, Grid gridKomentar) {
 
 		TreeSet<Long> diskusiPengumumanAkademissa = pengumumanAkademis.ambilDiskusiPengumumanAkademisTotal(true, null,
@@ -585,6 +648,13 @@ public class DiskusiPengumumanAkademisHelper implements EventListener {
 		diskusiPengumumanAkademissa = null;
 	}
 
+	/**
+	 * Merender ulang seluruh blok lampiran+diskusi ke {@link #detail}: grid lampiran resmi
+	 * pengumuman (hanya bila ada), tombol "Tambahkan Komentar" (hanya bila
+	 * {@link PengumumanAkademis#getBolehDiberiKomentar()}), dan grid komentar berulir (hanya
+	 * bila komentar diizinkan). Dipanggil awal saat detail dibuka dan berulang setelah setiap
+	 * operasi simpan/hapus komentar sebagai mekanisme penyegaran.
+	 */
 	@Override
 	public void onEvent(Event arg0) throws Exception {
 		Common.clear(detail);

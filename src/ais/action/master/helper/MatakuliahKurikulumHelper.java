@@ -65,6 +65,33 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Composer ZK untuk grid "Matakuliah pada Kurikulum": menampilkan seluruh
+ * {@link KurikulumPunyaMatakuliah} milik satu {@link Kurikulum} pada semester tertentu, termasuk
+ * SKS, tahap (bila fitur tahapan kurikulum aktif), status matakuliah, indikator ekstrakurikuler/
+ * UTS/UAS, jumlah sub-matakuliah, jumlah jadwal aktif, fakultas/jurusan, jumlah pertemuan default vs
+ * realisasi, dan checkbox aktif/nonaktif. Setiap baris dapat dibuka detailnya (rencana pembelajaran
+ * per pertemuan lewat {@link MatakuliahKurikulumDetailHelper}), diedit (dialog ubah semester/jumlah
+ * pertemuan/flag inti-institusional-tugas), atau dihapus (diblokir bila konfigurasi
+ * {@code kurikulum_yang_sudah_dijadwal_tidak_bisa_dihapus} aktif dan sudah ada jadwal
+ * {@link Perkuliahan}).
+ *
+ * <p>
+ * Menyediakan tombol "Generate Rencana Pembelajaran" ({@link #tampilTombolBuatKurikulumPunyaMatakuliahDetail})
+ * yang membuat baris {@link KurikulumPunyaMatakuliahDetail} untuk setiap pertemuan (1..jumlah
+ * pertemuan default), otomatis menandai pertemuan tengah sebagai UTS dan pertemuan terakhir sebagai
+ * UAS bila diminta, serta opsi menghapus lebih dulu detail pertemuan lama. Bila fitur integrasi Neo
+ * Feeder aktif ({@code aktifkan_terhubung_langsung_ke_feeder}), setiap baris juga menampilkan
+ * indikator validitas data Feeder dan tombol kirim data ke Feeder (berjalan asinkron di thread
+ * terpisah, dengan log galat ditampilkan lewat dialog dan opsi unduh file teks).
+ * </p>
+ *
+ * <p>
+ * Hak edit/hapus/tambah ditentukan sekali di konstruktor lewat
+ * {@link ais.common.CommonPrivilages#checkPrevilages}, mengikuti privilese pengguna yang sedang
+ * login.
+ * </p>
+ */
 public class MatakuliahKurikulumHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -80,6 +107,7 @@ public class MatakuliahKurikulumHelper implements DataLoader {
 	private Tbmuser tbmuser = null;
 	private MyCheckboxConfig hanyaTampilYangAktif;
 
+	/** Menentukan hak tambah/ubah/hapus dari privilese pengguna saat ini dan menyimpan pengguna aktif untuk pengecekan peran (mahasiswa/dosen) di seluruh method instance. */
 	public MatakuliahKurikulumHelper() {
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
 		edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
@@ -87,6 +115,7 @@ public class MatakuliahKurikulumHelper implements DataLoader {
 		tbmuser = Common.getCurrentUser();
 	}
 
+	/** Row renderer grid matakuliah kurikulum: nama/SKS/tahap/status/indikator UTS-UAS-ekstrakurikuler, jumlah sub-matakuliah, jumlah jadwal aktif, fakultas/jurusan, jumlah pertemuan default/realisasi, checkbox aktif, serta tombol Feeder/edit/hapus per baris. */
 	class DetailMatakuliahRenderer extends ais.ui.util.MyRowRenderer {
 
 		private Tbmuser user;
@@ -549,6 +578,18 @@ public class MatakuliahKurikulumHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Menambahkan tombol "Generate Rencana Pembelajaran" ke {@code toolbar} (tampil hanya untuk
+	 * pengguna dengan hak tambah dan bukan mahasiswa/siswa/dosen). Saat diklik, membuka dialog opsi
+	 * (tandai pertemuan tengah sebagai UTS, pertemuan akhir sebagai UAS, hapus detail pertemuan lama)
+	 * lalu membuat baris {@link KurikulumPunyaMatakuliahDetail} untuk setiap
+	 * {@link KurikulumPunyaMatakuliah} yang sedang ditampilkan sejumlah
+	 * {@code jumlahPertemuanPerkuliahanDefault}-nya masing-masing.
+	 *
+	 * @param toolbar        toolbar tempat tombol ditambahkan
+	 * @param eventListener  callback yang dijalankan setelah proses generate selesai (biasanya memuat
+	 *                       ulang grid pemanggil)
+	 */
 	public void tampilTombolBuatKurikulumPunyaMatakuliahDetail(Toolbar toolbar, final EventListener eventListener) {
 		Tbmuser tbmuser = Common.getCurrentUser();
 		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Generate Rencana Pembelajaran", "/img/new.gif");
@@ -689,6 +730,7 @@ public class MatakuliahKurikulumHelper implements DataLoader {
 		button.setParent(toolbar);
 	}
 
+	/** Memuat ulang daftar {@link KurikulumPunyaMatakuliah} kurikulum/semester/induk-matakuliah saat ini (memfilter status aktif bila checkbox "Hanya tampil yang aktif" dicentang) dan me-render ulang grid. Parameter {@code value} tidak dipakai. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
@@ -713,11 +755,25 @@ public class MatakuliahKurikulumHelper implements DataLoader {
 		return this;
 	}
 
+	/** Seperti {@link #display(Kurikulum, PaketPerkuliahan, Component, Integer, KurikulumPunyaMatakuliah)} tanpa keterkaitan {@link PaketPerkuliahan} (tombol "Manajemen Paket Perkuliahan Mahasiswa" disembunyikan). */
 	public void display(final Kurikulum kurikulum, final Component component, final Integer semester,
 			final KurikulumPunyaMatakuliah indukMatakuliah) {
 		display(kurikulum, null, component, semester, indukMatakuliah);
 	}
 
+	/**
+	 * Membangun seluruh UI grid matakuliah kurikulum (toolbar aksi, kolom grid, filter aktif) di
+	 * dalam {@code component} untuk kombinasi kurikulum/semester/induk-matakuliah yang diberikan, lalu
+	 * memuat data awal secara asinkron lewat {@link Common#createDefaultTimer}.
+	 *
+	 * @param kurikulum         kurikulum yang matakuliahnya ditampilkan
+	 * @param paketPerkuliahan  paket perkuliahan terkait (mengaktifkan tombol manajemen paket), boleh
+	 *                          {@code null}
+	 * @param component         container ZK yang akan diisi
+	 * @param semester          semester kurikulum yang ditampilkan
+	 * @param indukMatakuliah   induk matakuliah untuk menampilkan sub-matakuliah saja, atau
+	 *                          {@code null} untuk matakuliah level teratas
+	 */
 	public void display(final Kurikulum kurikulum, final PaketPerkuliahan paketPerkuliahan, final Component component,
 			final Integer semester, final KurikulumPunyaMatakuliah indukMatakuliah) {
 		this.kurikulum = kurikulum;
