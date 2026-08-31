@@ -189,6 +189,7 @@ public class PosResource {
 		}
 	}
 
+	/** @return jam*60+menit dari {@code date} (menit sejak tengah malam), atau 0 bila gagal. */
 	private static int minuteOfDay(Date date) {
 		try {
 			Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
@@ -199,6 +200,7 @@ public class PosResource {
 		}
 	}
 
+	/** @return nama hari (dari {@link Common#haris}) untuk {@code tanggal}, atau string kosong bila gagal. */
 	private static String getHariName(Date tanggal) {
 		try {
 			Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
@@ -728,6 +730,18 @@ public class PosResource {
 		}
 	}
 
+	/**
+	 * Mengambil satu siswa aktif berdasarkan nomor induk persis (case-insensitive), termasuk
+	 * sisa deposit dan nama orang tua. Tidak memvalidasi kredensial (lihat catatan keamanan pada
+	 * javadoc kelas). <b>Catatan akurasi</b> — method ini TIDAK diberi anotasi {@code @GET} (hanya
+	 * {@code @Path}/{@code @Produces}), berbeda dari seluruh method REST lain di kelas ini;
+	 * akibatnya JAX-RS/Jersey kemungkinan tidak mengekspornya sebagai endpoint HTTP yang dapat
+	 * dipanggil. Kode fungsional tidak diubah sesuai batasan tugas dokumentasi ini.
+	 *
+	 * @param nomorInduk nomor induk siswa yang dicari (URL-encoded)
+	 * @return respons berisi identitas siswa, sekolah, sisa deposit, dan foto
+	 * @throws NotFoundException bila siswa tidak ditemukan atau terjadi kesalahan internal
+	 */
 	@Path("ambil_siswa/{nomorInduk}")
 	@Produces({ MediaType.APPLICATION_JSON })
 	public CommonID getAmbilSiswa(@PathParam("nomorInduk") String nomorInduk) {

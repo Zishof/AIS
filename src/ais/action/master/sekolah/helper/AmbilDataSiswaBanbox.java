@@ -51,6 +51,17 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Komponen picker ZK ({@link Bandbox}) untuk memilih satu {@link Siswa} lewat popup pencarian
+ * bergrid. Mendukung beberapa mode: pencarian siswa aktif biasa (default, filter status aktif
+ * diterapkan), atau <b>mode alumni</b> (aktif bila {@code sekolahDari}/{@code tingkatDariAlumni}/
+ * {@code kelasDariAlumni}/{@code tahunAkademikAlumni} diisi — lihat {@link #modeAlumni()} — filter
+ * status aktif dilewati karena alumni umumnya sudah tidak aktif, difilter berdasarkan riwayat
+ * kelas/tingkat/tahun ajaran via {@link KelasSiswaPunyaSiswa}), atau dibatasi ke daftar id
+ * tertentu ({@code indsMhsPerkuliahan}). Bila user yang login adalah siswa itu sendiri, komponen
+ * otomatis terisi dan terkunci ke datanya sendiri. Memilih satu baris pada popup (via radio
+ * button) menutup popup, mengisi nilai komponen, dan memicu {@link #eventListener} pemanggil.
+ */
 public class AmbilDataSiswaBanbox extends Bandbox implements GetEventListener {
 
 	private static final long serialVersionUID = 6452451056684904810L;
@@ -76,19 +87,29 @@ public class AmbilDataSiswaBanbox extends Bandbox implements GetEventListener {
 	// Request: Paging per 5 baris
 	private static final int PAGE_SIZE_LIMA = 5;
 
+	/** Seperti {@link #AmbilDataSiswaBanbox(Boolean, Boolean)} dengan {@code notDefault=true}, {@code semuaSekolah=false} (mode pencarian siswa aktif biasa, otomatis terisi bila user login adalah siswa). */
 	public AmbilDataSiswaBanbox() {
 		this(true, false);
 	}
 
+	/** Seperti konstruktor default, dengan flag {@code sibling} (dipakai pemanggil untuk menandai konteks "pilih saudara kandung", tidak memengaruhi logika pencarian internal). */
 	public AmbilDataSiswaBanbox(boolean sibling) {
 		this(true, false);
 		this.sibling = sibling;
 	}
 
+	/** Seperti {@link #AmbilDataSiswaBanbox(Boolean, Boolean, Sekolah, String, String, String)} tanpa filter mode alumni. */
 	public AmbilDataSiswaBanbox(Boolean notDeafault, Boolean semuaSekolah) {
 		this(notDeafault, semuaSekolah, null, null, null, null);
 	}
 
+	/**
+	 * Konstruktor paling lengkap: {@code notDeafault} menentukan apakah user login yang berperan
+	 * siswa otomatis mengisi komponen ini (lihat {@link #initSiswaDefault}); parameter
+	 * alumni ({@code sekolahDari}/{@code tingkatDariAlumni}/{@code kelasDariAlumni}/
+	 * {@code tahunAkademikAlumni}, boleh berisi banyak nilai dipisah koma untuk tingkat/kelas/
+	 * tahun) mengaktifkan mode alumni bila salah satunya diisi — lihat {@link #modeAlumni()}.
+	 */
 	public AmbilDataSiswaBanbox(Boolean notDeafault, Boolean semuaSekolah, Sekolah sekolahDari,
 			String tingkatDariAlumni, String kelasDariAlumni, String tahunAkademikAlumni) {
 		super();
@@ -103,6 +124,7 @@ public class AmbilDataSiswaBanbox extends Bandbox implements GetEventListener {
 		initOnOpenEvent();
 	}
 
+	/** Konstruktor yang membatasi pencarian hanya ke siswa dengan id pada {@code indsMhsPerkuliahan}. */
 	public AmbilDataSiswaBanbox(List<Long> indsMhsPerkuliahan) {
 		super();
 		this.indsMhsPerkuliahan = indsMhsPerkuliahan;
@@ -111,6 +133,7 @@ public class AmbilDataSiswaBanbox extends Bandbox implements GetEventListener {
 		initOnOpenEvent();
 	}
 
+	/** Mengisi otomatis dan mengunci komponen ke data siswa milik user yang sedang login, bila {@code notDeafault} true dan user tersebut memang berperan siswa. */
 	private void initSiswaDefault(Boolean notDeafault) {
 		Tbmuser tbmuser = Common.getCurrentUser();
 		if (tbmuser != null && tbmuser.getSiswa() != null && notDeafault) {
@@ -122,6 +145,7 @@ public class AmbilDataSiswaBanbox extends Bandbox implements GetEventListener {
 		}
 	}
 
+	/** Mendaftarkan pembangunan popup pencarian ({@link #display()}) secara lazy pada pembukaan pertama komponen (bukan saat konstruksi), lalu memaksa popup tetap terbuka lewat timer singkat. */
 	private void initOnOpenEvent() {
 		addEventListener("onOpen", new EventListener() {
 			@Override
@@ -139,6 +163,7 @@ public class AmbilDataSiswaBanbox extends Bandbox implements GetEventListener {
 		});
 	}
 
+	/** Renderer baris popup untuk {@link Siswa}: radio pilih (tampil sebagai nama saja bila {@code sekolahDari} diisi, atau lengkap dengan foto/nomor induk/nama/kelas+penjurusan/guru pembina/sekolah pada mode biasa); memilih radio menutup popup dan mengisi komponen. */
 	class SiswaRenderer extends ais.ui.util.MyRowRenderer {
 		@Override
 		public void render(Row arg0, Object arg1) throws Exception {
@@ -174,6 +199,7 @@ public class AmbilDataSiswaBanbox extends Bandbox implements GetEventListener {
 			}
 		}
 		
+		/** Membuat listener yang menetapkan {@code siswa} sebagai pilihan komponen ini (nilai tampil, atribut {@code myValue}/{@code siswa}), menutup popup, dan memicu {@link #eventListener} pemanggil. */
 		private EventListener createCheckListener(final Siswa siswa) {
 			return new EventListener() {
 				@Override
@@ -190,6 +216,7 @@ public class AmbilDataSiswaBanbox extends Bandbox implements GetEventListener {
 		}
 	}
 
+	/** Membangun kerangka popup pencarian (filter kode/nama/yayasan/sekolah/kelas/wali di utara, grid hasil berpaging di tengah) dan langsung memuat data awal. */
 	public void display() {
 		Common.initYayasanDanSekolahDanSemua(null, null, searchyayasan, searchsekolah);
 		setReadonly(true);
@@ -406,6 +433,7 @@ public class AmbilDataSiswaBanbox extends Bandbox implements GetEventListener {
 		onSearchDefault(null);
 	}
 
+	/** Menentukan apakah komponen ini sedang dalam mode pencarian alumni (salah satu dari {@code sekolahDari}/{@code tingkatDariAlumni}/{@code kelasDariAlumni}/{@code tahunAkademikAlumni} diisi) — memengaruhi apakah filter status aktif diterapkan pada {@link #initCriteria}. */
 	private boolean modeAlumni() {
 		return (sekolahDari != null && sekolahDari.getId() != null)
 				|| (tingkatDariAlumni != null && !tingkatDariAlumni.trim().isEmpty())
@@ -413,6 +441,14 @@ public class AmbilDataSiswaBanbox extends Bandbox implements GetEventListener {
 				|| (tahunAkademikAlumni != null && !tahunAkademikAlumni.trim().isEmpty());
 	}
 
+	/**
+	 * Menyusun kriteria pencarian {@link Siswa}: dibatasi ke {@code sekolahDari} (mode alumni),
+	 * kelas ({@link KelasSiswaPunyaSiswa}) dan guru wali terpilih, atau (khusus mode alumni tanpa
+	 * wali terpilih) kombinasi tingkat/kelas/tahun ajaran alumni; difilter status aktif kecuali
+	 * mode alumni ({@link #modeAlumni()}); difilter ilike nama dan nomor induk/NISN; dibatasi ke
+	 * {@code indsMhsPerkuliahan} bila diisi; dan dibatasi ke anak dari user orang tua yang login
+	 * bila berlaku. Terurut nama bila {@code isOrder} true.
+	 */
 	@SuppressWarnings("unchecked")
 	public Criteria initCriteria(Session session, boolean isOrder) {
 		List<Long> longs = null;
@@ -509,6 +545,7 @@ public class AmbilDataSiswaBanbox extends Bandbox implements GetEventListener {
 		return criteria;
 	}
 
+	/** Memuat ulang daftar siswa sesuai filter aktif ke grid popup, membuka sesi Hibernate baru sendiri dan menutupnya di {@code finally} (terpisah dari sesi request agar aman dipanggil dari konteks event popup). */
 	@SuppressWarnings({ })
 	public void onSearchDefault(Event event) {
 		Session session = null;
@@ -553,6 +590,7 @@ public class AmbilDataSiswaBanbox extends Bandbox implements GetEventListener {
 		}
 	}
 
+	/** Meng-inisialisasi properti lazy-load ({@link Hibernate#initialize}) yang dibutuhkan renderer pada tiap {@link Siswa} hasil pencarian sebelum sesi Hibernate ditutup, mencegah {@code LazyInitializationException} saat grid dirender. */
 	private void initializeSiswaForRender(List<Siswa> siswas) {
 		if (siswas == null || siswas.isEmpty()) {
 			return;

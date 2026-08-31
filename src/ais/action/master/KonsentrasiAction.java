@@ -342,6 +342,7 @@ public class KonsentrasiAction extends GenericAutowireComposer implements DataCr
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Mengeksekusi ulang pencarian ({@link #initCriteria(boolean)}) untuk halaman aktif dan merender hasilnya ke grid daftar konsentrasi. */
 	public void onSearchDefault(Event event) {
 		Common.initPaging(initCriteria(false), paging);
 

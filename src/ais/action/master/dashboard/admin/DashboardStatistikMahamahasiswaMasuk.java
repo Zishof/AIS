@@ -36,6 +36,14 @@ import ais.ui.util.DataCriteriaWithColumn;
 import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Jendela dasbor "Statistik Mahasiswa Masuk": menampilkan jumlah mahasiswa baru
+ * ({@link Mahasiswa} aktif) per program studi ({@link Jurusan}) dan tahun angkatan, disertai
+ * grafik ringkasan yang dirender lewat {@link #initChart(Component, boolean)}. Setiap sel/label
+ * angka pada dasbor dapat diklik (lewat {@link MyEventListener}) untuk mengunduh rincian
+ * mahasiswa penyusun angka tersebut, difilter jurusan dan tahun angkatan (persis atau
+ * kumulatif hingga tahun tertentu via {@code mintahun}) lewat {@link Common#cetakDataCustomButton}.
+ */
 public class DashboardStatistikMahamahasiswaMasuk extends MyWindow {
 
 	private static final long serialVersionUID = -28636873241676666L;
@@ -44,24 +52,34 @@ public class DashboardStatistikMahamahasiswaMasuk extends MyWindow {
 	private int width = 750;
 	private int height = 100;
 
+	/** Membuat instance tanpa inisialisasi tampilan; panggil {@link #init()} secara terpisah. */
 	public DashboardStatistikMahamahasiswaMasuk() {
 		super();
 	}
 
+	/** Membuat dan langsung menginisialisasi ukuran dasbor. */
 	public DashboardStatistikMahamahasiswaMasuk(int width, int height) throws Exception {
 		super();
 		reinit(width, height);
 	}
 
+	/**
+	 * Mengatur ulang ukuran area grafik dasbor.
+	 *
+	 * @param width  lebar area grafik dalam piksel
+	 * @param height tinggi area grafik dalam piksel
+	 */
 	public void reinit(int width, int height) throws Exception {
 		this.width = width;
 		this.height = height;
 	}
 
+	/** Membuat jendela dengan judul/border/closable kustom tanpa inisialisasi tampilan; panggil {@link #init()} secara terpisah. */
 	public DashboardStatistikMahamahasiswaMasuk(String title, String border, boolean closable) {
 		super(title, border, closable);
 	}
 
+	/** Membangun tampilan dasbor lengkap (kartu portal responsif tunggal) beserta grafiknya. */
 	public void init() {
 		setHeight("100%");
 		setWidth("100%");
@@ -74,17 +92,24 @@ public class DashboardStatistikMahamahasiswaMasuk extends MyWindow {
 		initChart(center, true);
 	}
 
+	/**
+	 * Listener klik untuk sel/label statistik pada dasbor: membuka unduhan rincian mahasiswa yang
+	 * cocok filter jurusan dan tahun angkatan (persis, atau kumulatif hingga {@code mintahun} bila
+	 * diberikan) yang diwakili sel tersebut.
+	 */
 	public class MyEventListener implements EventListener {
 
 		private Integer tahunMasuk;
 		private Long jurusanId;
 		private Integer mintahun = null;
 
+		/** Listener untuk sel dengan filter tahun angkatan persis {@code tahunMasuk} dan jurusan {@code jurusanId} (-1 berarti semua jurusan). */
 		public MyEventListener(Integer tahunMasuk, Long jurusanId) {
 			this.tahunMasuk = tahunMasuk;
 			this.jurusanId = jurusanId;
 		}
 
+		/** Listener untuk sel dengan filter tahun angkatan kumulatif hingga {@code mintahun} dan jurusan {@code jurusanId}. */
 		public MyEventListener(Integer tahunMasuk, Integer mintahun, Long jurusanId) {
 			this.tahunMasuk = tahunMasuk;
 			this.jurusanId = jurusanId;
@@ -140,6 +165,13 @@ public class DashboardStatistikMahamahasiswaMasuk extends MyWindow {
 		}
 	}
 
+	/**
+	 * Membangun grid statistik mahasiswa masuk (per jurusan x tahun angkatan) di dalam
+	 * {@code center}, opsional disertai grafik ringkasan.
+	 *
+	 * @param center         komponen ZK induk tempat grid/grafik dibangun (dibersihkan lebih dulu)
+	 * @param tampilkanChart {@code true} untuk turut merender grafik ringkasan, {@code false} hanya grid
+	 */
 	@SuppressWarnings({ "deprecation" })
 	public void initChart(Component center, boolean tampilkanChart) {
 		Common.clear(center);

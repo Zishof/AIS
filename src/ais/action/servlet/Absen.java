@@ -16,13 +16,40 @@ import ais.action.master.resources.model.CommonID;
 import ais.common.Common;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Servlet publik (CORS diizinkan dari mana saja, {@code Access-Control-Allow-Origin: *}) untuk
+ * mencatat kehadiran/absensi lewat request GET/POST tunggal, diautentikasi lewat header {@code p}
+ * berisi password statis (bukan sesi login). Mendukung dua jalur: absensi mesin fingerprint/POS
+ * (parameter {@code id_finger}+{@code waktu}, didelegasikan ke
+ * {@link PosResource#absen(String, String, String)}) dan absensi online berbasis lokasi (parameter
+ * {@code id}/{@code data}/{@code lat}/{@code lng}, didelegasikan ke
+ * {@link ELearningResource#doAbsen}). Respons selalu JSON dengan kode {@code status} ("00" sukses,
+ * "90"-"92" berbagai kegagalan).
+ *
+ * <p>
+ * <b>Perhatian keamanan:</b> {@link #isValidPassword(HttpServletRequest)} membaca konfigurasi
+ * {@code password_absen} lewat {@link Common#getKonfigurasi(String, String)} dengan NILAI DEFAULT
+ * hardcoded {@code "4GUb3KPArA78B9AOmKj3pLivo49IEPfQDFHbeCLFpsAG6fgWQZ"} — bila baris konfigurasi
+ * {@code password_absen} belum pernah diisi/disimpan di database, string ini menjadi password API
+ * yang berlaku secara diam-diam. Nilai ini ditulis langsung di kode sumber (bukan dibaca dari
+ * environment/secret store) sehingga tersebar ke siapa pun yang memiliki akses baca ke source
+ * code; sesuai instruksi tugas, temuan ini dilaporkan di sini TANPA diperbaiki.
+ * </p>
+ */
 public class Absen extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 
+	/** Konstruktor default tanpa inisialisasi khusus. */
 	public Absen() {
 		super();
 	}
 
+	/**
+	 * Titik masuk utama: menambahkan header CORS, memvalidasi password lewat header {@code p}
+	 * ({@link #isValidPassword}), lalu memproses absensi fingerprint/POS (jika
+	 * {@code id_finger}/{@code waktu} terisi) atau absensi online berbasis lokasi (jika tidak).
+	 * Seluruh kegagalan ditangkap dan dikembalikan sebagai JSON {@code status=90} beserta pesan.
+	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 		JSONObject jsonObject = new JSONObject();
@@ -98,6 +125,11 @@ public class Absen extends HttpServlet {
 		writeJson(response, jsonObject);
 	}
 
+	/**
+	 * Memvalidasi header {@code p} terhadap konfigurasi {@code password_absen} (lihat catatan
+	 * keamanan pada javadoc kelas mengenai nilai default hardcoded-nya). Mengembalikan {@code false}
+	 * bila header tidak ada/kosong atau tidak cocok (perbandingan case-insensitive).
+	 */
 	private boolean isValidPassword(HttpServletRequest request) {
 		try {
 			String headerPassword = request == null ? null : request.getHeader("p");
@@ -116,10 +148,12 @@ public class Absen extends HttpServlet {
 		}
 	}
 
+	/** @return {@code value} setelah di-trim, atau string kosong bila {@code null}. */
 	private static String safeTrim(String value) {
 		return value == null ? "" : value.trim();
 	}
 
+	/** Menambahkan header CORS permisif (origin apa pun) ke {@code response} agar endpoint ini bisa dipanggil dari domain/aplikasi klien mana pun. */
 	private void addCorsHeaders(HttpServletResponse response) {
 		if (response == null) {
 			return;
@@ -129,6 +163,7 @@ public class Absen extends HttpServlet {
 		response.addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, p");
 	}
 
+	/** Menulis {@code jsonObject} (atau {@code "{}"} bila {@code null}) sebagai body respons {@code application/json}, lengkap dengan header CORS. */
 	private void writeJson(HttpServletResponse response, JSONObject jsonObject) throws IOException {
 		String body = jsonObject == null ? "{}" : jsonObject.toString();
 		response.setHeader("length", body.length() + "");
@@ -149,11 +184,13 @@ public class Absen extends HttpServlet {
 		}
 	}
 
+	/** Menangani permintaan POST dengan perilaku identik {@link #doGet}. */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 		doGet(request, response);
 	}
 
+	/** Menangani preflight CORS ({@code OPTIONS}) dengan hanya menambahkan header CORS, tanpa memproses absensi. */
 	protected void doOptions(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 		addCorsHeaders(response);

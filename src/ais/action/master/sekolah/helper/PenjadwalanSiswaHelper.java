@@ -1558,6 +1558,18 @@ public class PenjadwalanSiswaHelper {
 
 	}
 
+	/**
+	 * Menyalin seluruh isi pembelajaran satu {@code pertemuan} ke {@code pertemuanBaru}: materi/
+	 * catatan pembelajaran (lewat {@link #copyLampiranPertemuan(Pertemuan, Pertemuan, String)}),
+	 * berkas/video/audio materi ({@link PertemuanFileContent}, {@link VideoPertemuan},
+	 * {@link AudioPertemuan} — masing-masing item disalin dalam transaksi sendiri agar satu
+	 * kegagalan tidak menggagalkan item lain), serta ujian dan tugas terkait pertemuan tersebut.
+	 * Peserta, kehadiran, dan nilai per-siswa TIDAK ikut disalin.
+	 *
+	 * @param pertemuan    pertemuan sumber
+	 * @param pertemuanBaru pertemuan tujuan
+	 * @return ringkasan {@link ais.action.master.helper.PenjadwalanHelper.HasilSalinPertemuan} berisi jumlah item tersalin per kategori dan daftar pesan kendala
+	 */
 	@SuppressWarnings("unchecked")
 	public static ais.action.master.helper.PenjadwalanHelper.HasilSalinPertemuan copyLampiranPertemuan(
 			Pertemuan pertemuan, Pertemuan pertemuanBaru) {
@@ -1778,6 +1790,17 @@ public class PenjadwalanSiswaHelper {
 		return hasil;
 	}
 
+	/**
+	 * Membuat tombol "Tambah Satu Pertemuan" yang membuka dialog pemilihan tanggal+jam untuk
+	 * menambah satu pertemuan ad-hoc (di luar pola jadwal reguler) ke {@code jadwalPelajaran}.
+	 * Tombol disembunyikan bagi siswa/mahasiswa, dan bagi guru bila
+	 * {@code jadwalPelajaran.guruBisaMerubahTanggalJadwalPelajaran} tidak diaktifkan.
+	 *
+	 * @param jadwalPelajaran     jadwal pelajaran tujuan
+	 * @param tbmuser             pengguna saat ini, menentukan visibilitas tombol
+	 * @param eventListenerData   dipanggil setelah pertemuan baru dibuat, untuk memuat ulang data pemanggil
+	 * @return tombol toolbar siap ditempel ke komponen induk
+	 */
 	public static MyToolbarbuttonConfig buatSatuPertemuan(final JadwalPelajaran jadwalPelajaran, final Tbmuser tbmuser,
 			final EventListener eventListenerData) {
 		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Tambah Satu Pertemuan", "/img/new.gif");
@@ -2002,6 +2025,14 @@ public class PenjadwalanSiswaHelper {
 		return button;
 	}
 
+	/**
+	 * Membangun tampilan bertab untuk {@code jadwalPelajaran} di dalam {@code component}: tab
+	 * "Jadwal Pertemuan" (grid daftar pertemuan beserta toolbar aksi), "Deskripsi Pembelajaran",
+	 * dan "Capaian / Kompetensi" — dua tab terakhir tersimpan otomatis saat isian berubah.
+	 *
+	 * @param jadwalPelajaran jadwal pelajaran yang ditampilkan/dikelola
+	 * @param component       komponen induk tempat tampilan dibangun (dibersihkan lebih dulu)
+	 */
 	public void display(final JadwalPelajaran jadwalPelajaran, Component component) {
 		Common.clear(component);
 		this.jadwalPelajaran = jadwalPelajaran;
@@ -2304,6 +2335,15 @@ public class PenjadwalanSiswaHelper {
 		onSearchDefault(null);
 	}
 
+	/**
+	 * Membuka {@link #display(JadwalPelajaran, Component)} sebagai jendela modal penuh (98%
+	 * layar) dengan tombol "Selesai" yang menandai jadwal pelajaran sebagai belum lengkap
+	 * ({@code jadwalPelajaran.belum()}) dan memuat ulang data pemanggil ({@code dataLoader}) saat
+	 * ditutup.
+	 *
+	 * @param jadwalPelajaran jadwal pelajaran yang ditampilkan
+	 * @param dataLoader      callback pemuatan ulang data layar pemanggil setelah jendela ditutup
+	 */
 	public void display(final JadwalPelajaran jadwalPelajaran, final DataLoader dataLoader) {
 		final Window window = new Window();
 		window.setClosable(true);
@@ -2355,6 +2395,7 @@ public class PenjadwalanSiswaHelper {
 		}
 	}
 
+	/** Memuat ulang daftar pertemuan {@link #jadwalPelajaran} ke grid, diurutkan berdasarkan tanggal atau nomor pertemuan (mengikuti {@code urutkanotomatis}), disaring status aktif sesuai checkbox {@link #hanyaYangAktif}. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

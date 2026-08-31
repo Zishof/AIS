@@ -106,6 +106,32 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper inti (dan superclass, lihat {@link PersetujuanPenelitianHelper}) untuk seluruh alur
+ * <b>pengajuan penelitian dan pengabdian kepada masyarakat</b> dosen/mahasiswa: pengisian form
+ * proposal, penyimpanan, listing/pencarian, pengelolaan anggota tim, penilaian oleh asesor
+ * (terintegrasi dengan {@link PenilaianAsesorHelper}), workflow disposisi SOP (implementasi
+ * {@link FormSop}), dan publikasi hasil ke repositori institusi berbasis DSpace.
+ *
+ * <p>
+ * Kelas ini dapat dipakai dalam beberapa mode tergantung konstruktor: mode form pengajuan biasa
+ * (kosong), mode persetujuan/disposisi ({@code persetujuan=true} dengan {@link TipePenelitianDanPengabdian}
+ * tertentu), atau dibatasi ke peruntukan tertentu ({@code diperuntukkanPengajuan}, mis. khusus
+ * dosen atau mahasiswa lewat {@link PengumumanAkademis}).
+ * </p>
+ *
+ * <p>
+ * <b>Integrasi DSpace</b> — method statis {@code getDspace*} membangun/menyinkronkan hierarki
+ * repositori DSpace secara otomatis dari struktur data lokal: community per jenis pengajuan+jurusan
+ * ({@link #getDspacePengajuanPenelitianDanPengabdian}), diikuti collection per tipe penelitian
+ * ({@link #getDspaceTipePengajuanPenelitianDanPengabdian}) dan per tahun
+ * ({@link #getDspaceTipePengajuanPenelitianDanPengabdianTahun}), lalu item DSpace individual untuk
+ * satu pengajuan ({@link #getDspace}) lengkap dengan metadata Dublin Core (penulis, editor, hak
+ * cipta). UUID setiap simpul komunitas/koleksi dicache pada {@link Konfigurasi} bernama
+ * {@code dspace_label_collection_*} agar tidak dibuat berulang. Autentikasi ke DSpace memakai
+ * {@code cookie} sesi yang diteruskan dari pemanggil (tidak ada kredensial tertanam di kelas ini).
+ * </p>
+ */
 public class PengajuanPenelitianDanPengabdianHelper implements DataCriteria, DataSearchDefault, FormSop {
 
 	private MyGrid gridPengajuan;
@@ -118,14 +144,17 @@ public class PengajuanPenelitianDanPengabdianHelper implements DataCriteria, Dat
 	protected String usernamePengajuan;
 	protected String diperuntukkanPengajuan;
 
+	/** Membuat helper mode persetujuan/disposisi untuk satu {@code jenis} (tipe) penelitian/pengabdian tertentu. */
 	public PengajuanPenelitianDanPengabdianHelper(boolean persetujuan, TipePenelitianDanPengabdian jenis) {
 		this.persetujuan = persetujuan;
 		this.jenis = jenis;
 	}
 
+	/** Membuat helper mode form pengajuan biasa (tanpa pembatasan tipe/peruntukan). */
 	public PengajuanPenelitianDanPengabdianHelper() {
 	}
 
+	/** Membuat helper dibatasi ke peruntukan tertentu (mis. {@link PengumumanAkademis#UNTUK_DOSEN}/{@code UNTUK_MAHASISWA}). */
 	public PengajuanPenelitianDanPengabdianHelper(String diperuntukkanPengajuan) {
 		this.diperuntukkanPengajuan = diperuntukkanPengajuan;
 	}
@@ -159,6 +188,19 @@ public class PengajuanPenelitianDanPengabdianHelper implements DataCriteria, Dat
 	protected LampiranLain sRekomendasi;
 	private boolean rekomnedasiWajib = false;
 
+	/**
+	 * Implementasi {@link FormSop#form}: membangun form pengajuan penelitian/pengabdian (pengaju,
+	 * judul, tujuan, jenis penelitian/pengabdian, masa penugasan, sumber dana, jumlah dana,
+	 * anggota tim, editor/kontributor, abstrak, kata kunci, lampiran) di dalam konteks alur
+	 * disposisi SOP. Dipakai baik untuk membuat pengajuan baru maupun menampilkan/menyunting
+	 * pengajuan yang sudah ada (dari {@code generalValueObject}).
+	 *
+	 * @param generalValueObject entitas {@link PengajuanPenelitianDanPengabdian} yang diedit, atau data kosong untuk pengajuan baru
+	 * @param disposisiSop       konteks disposisi SOP yang menaungi form ini
+	 * @param save                tombol simpan yang disediakan alur SOP, ditautkan ke {@link #onSave}
+	 * @param setujui             listener persetujuan dari alur SOP
+	 * @return grid komponen form siap ditempel
+	 */
 	@Override
 	public MyGrid form(GeneralValueObject generalValueObject, DisposisiSop disposisiSop, MyToolbarbuttonConfig save,
 			EventListener setujui) throws Exception {
@@ -269,6 +311,17 @@ public class PengajuanPenelitianDanPengabdianHelper implements DataCriteria, Dat
 
 	@SuppressWarnings("unchecked")
 	@Override
+	/**
+	 * Memvalidasi (pengaju wajib salah satu dosen/user atau mahasiswa; lama pengerjaan, abstrak,
+	 * kata kunci, dan pilihan penelitian/pengabdian induk wajib diisi; surat rekomendasi wajib
+	 * diunggah bila {@link #rekomnedasiWajib} aktif dan belum ada lampiran yang tersimpan) dan
+	 * menyimpan/memperbarui data pengajuan dari isian form saat ini, termasuk sumber dana yang
+	 * dicentang. Memuat ulang entitas terkait dari sesi terkini sebelum menyimpan untuk menghindari
+	 * kondisi data sudah dihapus/berubah pihak lain (menampilkan peringatan bila demikian).
+	 *
+	 * @param event event pemicu tombol simpan
+	 * @return {@code true} bila validasi lolos dan data tersimpan; {@code false} bila validasi gagal
+	 */
 	public boolean onSave(Event event) throws Exception {
 		Session session = Common.getManualSession();
 

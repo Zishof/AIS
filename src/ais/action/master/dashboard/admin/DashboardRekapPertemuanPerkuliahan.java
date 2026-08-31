@@ -77,6 +77,44 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Dashboard admin "Rekap Aktivitas Perkuliahan": untuk setiap mata kuliah/kelas
+ * ({@link Perkuliahan}) dalam cakupan filter (tahun akademik, semester, fakultas/prodi, dosen,
+ * mahasiswa, program), menghitung dan menampilkan rekap jumlah pertemuan, ujian, diskusi, tugas,
+ * unggahan file/audio/video, dokumen kelengkapan (RPS/silabus dan jenis dokumen e-learning
+ * lain), status penilaian, tingkat kehadiran/kesesuaian RPS menurut mahasiswa vs admin, dan
+ * aktivitas online dosen/mahasiswa. Kelas ini adalah window ZK mandiri di atas {@link MyWindow},
+ * dengan hasil ditampilkan sebagai kombinasi kartu ringkasan HTML ("hero"), grafik CSS batang,
+ * kartu kelengkapan dokumen, dan grid data berpaginasi — serta dapat diekspor/diprakirakan
+ * sebagai berkas Excel (via {@link Spreadsheet}).
+ *
+ * <p>
+ * Perhitungan data ({@link #initSpreadsheetdata(boolean)}) mengambil daftar perkuliahan dalam
+ * cakupan filter lewat SQL native berpaginasi ({@link #generateWhere}/{@link #generateWhereCount},
+ * SQL dirakit manual dengan interpolasi nilai filter — bukan parameter berikat), lalu untuk
+ * setiap perkuliahan menghitung rincian lengkapnya (jumlah pertemuan, kehadiran menurut
+ * mahasiswa vs admin, kesesuaian RPS, status online, dsb.) secara paralel memakai kumpulan
+ * thread tetap sendiri (dibatasi {@code DbThreadPool#safe(100)}, terpisah dari
+ * {@link ParallelTaskExecutor} yang dipakai kelas laporan payroll sejenis), dengan progres
+ * dilaporkan lewat server push ZK ({@code AsyncTaskManager#jalankanDenganPush}) agar UI tidak
+ * terblokir. Ambang "online" dapat dikonfigurasi lewat
+ * {@code perhitungan_rekap_online_dihitung_berdasarkan} (mis. berdasarkan kehadiran dosen ATAU
+ * mahasiswa, atau ambang persentase kehadiran mahasiswa tertentu).
+ * </p>
+ *
+ * <p>
+ * Setiap sel angka/kuantitas pada grid maupun kartu ringkasan dapat diklik untuk membuka popup
+ * detail baris di baliknya ({@link #tampilkanPopupDetailRekap}/
+ * {@link #tampilkanPopupDetailRekapCell}), memakai atribut data tersembunyi
+ * ({@link #buildRekapClickAttribute}) dan event kustom {@code onRekapDetail} yang ditangkap oleh
+ * elemen pembungkus hasil ({@link #rekapDetailBridge}) karena markup grafik dibangun sebagai
+ * HTML mentah, bukan komponen ZK interaktif biasa. Data hasil perhitungan terakhir disimpan di
+ * {@link #lastRekapData}/{@link #lastRekapHeaders} agar tombol unduh Excel tidak perlu
+ * menghitung ulang. Ekspor Excel ({@link #renderExcelSpreadsheet}/{@link #writeSpreadsheetContent})
+ * menulis langsung ke model {@link Worksheet} POI dengan gaya sel kustom (header tebal, lebar
+ * kolom disesuaikan per jenis data).
+ * </p>
+ */
 public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 
 	private static final long serialVersionUID = 790038368339375113L;
@@ -105,6 +143,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 	private String lastHeaderText = "";
 	private transient Div rekapDetailBridge;
 
+	/** Membangun window dashboard dalam konfigurasi baku, menyiapkan seluruh filter dan combobox fakultas/prodi. */
 	public DashboardRekapPertemuanPerkuliahan() {
 		super();
 		try {
@@ -115,6 +154,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		}
 	}
 
+	/** Membangun window dashboard dengan judul, tipe border, dan status closable yang dapat diatur eksplisit. */
 	public DashboardRekapPertemuanPerkuliahan(String title, String border, boolean closable) {
 		super(title, border, closable);
 		try {
@@ -125,10 +165,12 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		}
 	}
 
+	/** Menyiapkan combobox filter fakultas dan prodi (dengan opsi "Semua"). */
 	private void initFakultas() {
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 	}
 
+	/** Membangun tata letak window: panel filter di utara (tahun akademik, semester, dosen, mahasiswa, program, jumlah baris per halaman, tombol proses/ekspor) dan area hasil rekap (grid/grafik/spreadsheet) di tengah. */
 	@SuppressWarnings("deprecation")
 	private void init() throws Exception {
 		jumlahDataDalamSatuHalamanElearning = 100;
@@ -327,6 +369,26 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		}, jumlahDataDalamSatuHalamanElearning);
 	}
 
+	/**
+	 * Merakit klausa SQL native (FROM/JOIN/WHERE/GROUP BY/ORDER BY/LIMIT-OFFSET) untuk mengambil
+	 * daftar perkuliahan berpaginasi sesuai filter, dengan join agregat ke jumlah ujian, diskusi,
+	 * tugas kelompok, pengumuman, dan referensi per perkuliahan. Nilai filter disisipkan
+	 * langsung ke string SQL (bukan parameter berikat); dosen dicocokkan terhadap salah satu
+	 * dari 10 kolom pengampu ({@code dosen1}..{@code dosen10}).
+	 *
+	 * @param tahunAkademik tahun akademik (wajib)
+	 * @param semesterKe    nomor semester spesifik, boleh {@code null} untuk semua
+	 * @param semester      {@link Perkuliahan#GENAP}/ganjil, menentukan filter paritas semester
+	 * @param dosen         dosen pengampu pembatas, boleh {@code null}
+	 * @param program       program pembatas, boleh {@code null}
+	 * @param jurusan       jurusan pembatas, boleh {@code null}
+	 * @param fakultas      fakultas pembatas, boleh {@code null}
+	 * @param mahasiswa     mahasiswa pembatas (hanya perkuliahan yang diambil dan disetujui), boleh {@code null}
+	 * @param mulai         offset baris (untuk paginasi)
+	 * @param banyak        jumlah baris per halaman
+	 * @param order         sertakan {@code ORDER BY b.id} bila {@code true}
+	 * @return potongan SQL {@code FROM ... WHERE ... GROUP BY ... [ORDER BY ...] LIMIT ... OFFSET ...} siap disambung ke klausa SELECT
+	 */
 	public static String generateWhere(String tahunAkademik, Integer semesterKe, String semester, Dosen dosen,
 			String program, Jurusan jurusan, Fakultas fakultas, Mahasiswa mahasiswa, int mulai, int banyak,
 			boolean order) {
@@ -379,6 +441,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		return sql.toString();
 	}
 
+	/** Seperti {@link #generateWhere}, tanpa join agregat/paginasi — dipakai untuk menghitung total baris ({@code SELECT COUNT}) sebelum mengambil halaman data sesungguhnya. */
 	public static String generateWhereCount(String tahunAkademik, Integer semesterKe, String semester, Dosen dosen,
 			String program, Jurusan jurusan, Fakultas fakultas, Mahasiswa mahasiswa) {
 
@@ -416,6 +479,20 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		return sql.toString();
 	}
 
+	/**
+	 * Menjalankan alur lengkap pengambilan dan penghitungan data rekap sesuai filter saat ini:
+	 * (opsional) menghitung ulang total baris untuk paging, mengambil satu halaman perkuliahan
+	 * lewat {@link #generateWhere}, lalu untuk setiap perkuliahan menghitung rinciannya
+	 * (kehadiran, kesesuaian RPS menurut mahasiswa/admin, unggahan tugas/file/audio/video,
+	 * status online dosen/mahasiswa sesuai ambang konfigurasi
+	 * {@code perhitungan_rekap_online_dihitung_berdasarkan}, status penilaian KRS) secara
+	 * paralel di atas kumpulan thread tetap sendiri (dibatasi {@code DbThreadPool#safe(100)}).
+	 * Progres dilaporkan lewat label (persentase tiap 5 baris) dan hasil akhir dirender lewat
+	 * {@link #renderRekapGridDanGrafik}, seluruhnya di dalam tugas latar belakang dengan server
+	 * push ZK aktif agar UI tetap responsif selama proses berjalan.
+	 *
+	 * @param hitungUlangPaging bila {@code true}, total baris dan status paging dihitung ulang lebih dulu (mis. saat filter berubah, bukan saat berpindah halaman saja)
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private void initSpreadsheetdata(final boolean hitungUlangPaging) {
 		Common.clear(subCenter);
@@ -791,6 +868,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		});
 	}
 
+	/** Menyusun teks ringkasan filter aktif (fakultas, jurusan, tahun akademik, dst.) sebagai judul deskriptif untuk kartu hero dan header laporan Excel. */
 	private String buildHeaderText(String tahunAkd, Fakultas fak, Jurusan jur, String prog, String smstr, Dosen dsn) {
 		return "REKAPITULASI AKTIFITAS PERKULIAHAN \n " + Common.getBahasaConfig("Fakultas") + " "
 				+ (fak == null ? "SEMUA" : fak.getNama().toUpperCase()) + "\n"
@@ -801,6 +879,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 				+ (dsn == null ? "SEMUA" : dsn.getNama());
 	}
 
+	/** Menyusun daftar header kolom rekap: kolom tetap (kode/nama MK, SKS, dosen, kuantitas aktivitas, dst.), kolom dokumen dinamis dari {@code DashboardTimelinePertemuan}, dan kolom "Pert.N" tambahan sejumlah pertemuan terbanyak pada {@code data}. */
 	private List<String> buildRekapHeaders(List<List> data) {
 		List<String> headers = new ArrayList<String>();
 		String[] baseHeaders = {
@@ -834,6 +913,14 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		return headers;
 	}
 
+	/**
+	 * Merender hasil rekap ke panel tengah: menyimpan data/header/judul terakhir (untuk ekspor
+	 * Excel tanpa hitung ulang), memasang listener event kustom {@code onRekapDetail} pada
+	 * elemen pembungkus (dipicu dari markup HTML mentah kartu hero/grafik), lalu menampilkan
+	 * berturut-turut kartu hero ringkasan, grafik CSS, kartu kelengkapan dokumen, dan grid data
+	 * berpaginasi (setiap sel numerik/kuantitas dapat diklik untuk detail lewat
+	 * {@link #buildGridCell}).
+	 */
 	private void renderRekapGridDanGrafik(List<List> data, String headerText) {
 		Common.clear(subCenter);
 
@@ -922,6 +1009,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		}
 	}
 
+	/** Membangun satu sel grid: tautan berwarna bila nilai berformat {@code "label<->url"} (mis. berkas RPS), tautan dapat-klik ke popup detail bila nilai numerik atau kolomnya berjenis "Qty", selain itu label teks biasa. */
 	private Component buildGridCell(List rowData, int columnIndex) {
 		Object value = rowData != null && columnIndex < rowData.size() ? rowData.get(columnIndex) : "";
 		String text = getCellString(value);
@@ -956,6 +1044,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		return label;
 	}
 
+	/** Menyusun markup kartu "hero" gradien berisi ringkasan filter dan delapan metrik total (perkuliahan, pertemuan, ujian, diskusi, file, audio, video, dokumen), tiap metrik dapat diklik untuk detail. */
 	private String buildRekapHeroHtml(List<List> data, String headerText) {
 		long totalPertemuan = sumColumn(data, 6);
 		long totalUjian = sumColumn(data, 8);
@@ -984,6 +1073,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 				+ "</div></div>";
 	}
 
+	/** Menyusun markup satu kotak metrik pada kartu hero (label, nilai besar bergaris bawah, dapat diklik untuk detail lewat {@code key}). */
 	private String buildHeroMetric(String key, String label, long value) {
 		return "<div " + buildRekapClickAttribute(key) + " style=\"background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.18);"
 				+ "border-radius:16px; padding:10px 12px; cursor:pointer;\">"
@@ -992,6 +1082,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 				+ "</div></div>";
 	}
 
+	/** Menyusun markup grafik batang bergaya CSS murni yang membandingkan skor aktivitas (gabungan pertemuan/ujian/diskusi/tugas/file/audio/video), tingkat online, akses, dan penilaian per mata kuliah; menampilkan pesan "belum ada data" bila kosong. */
 	private String buildRekapGrafikCssHtml(List<List> data) {
 		if (data == null || data.isEmpty()) {
 			return "<div style=\"margin-top:12px; padding:18px; border-radius:18px; background:#ffffff;"
@@ -1081,6 +1172,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		return html.toString();
 	}
 
+	/** Menyusun markup satu baris gauge persentase (label, nilai persen, progress bar), diberi atribut klik-detail lewat {@code key}. */
 	private String buildGaugeRow(String key, String label, int percent) {
 		if (percent < 0) percent = 0;
 		if (percent > 100) percent = 100;
@@ -1093,6 +1185,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 				+ "</div></div>";
 	}
 
+	/** Membuka dialog modal berisi pratinjau spreadsheet dari data rekap terakhir ({@link #lastRekapData}), dengan tombol unduh berkas Excel sesungguhnya. */
 	private void tampilkanPopupExcel() throws Exception {
 		final MyWindow window = new MyWindow("Preview dan Download Excel Rekap Perkuliahan", "normal", true);
 		window.setWidth("98%");
@@ -1144,6 +1237,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		window.onModal();
 	}
 
+	/** Membangun komponen {@link Spreadsheet} pratinjau pada {@code parent}, mendelegasikan penulisan isi ke {@link #writeSpreadsheetContent}. */
 	private void renderExcelSpreadsheet(Component parent, List<List> data, String headerText, List<String> headers) throws Exception {
 		Common.clear(parent);
 		spreadsheet = new ais.ui.util.MySpreadsheet();
@@ -1158,6 +1252,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		writeSpreadsheetContent(sheet, spreadsheet, data, headerText, headers);
 	}
 
+	/** Menulis judul, baris header (gaya tebal), dan seluruh baris data rekap langsung ke model {@link Worksheet} POI, menyesuaikan lebar kolom per jenis data lewat {@link #getExcelColumnWidth}. */
 	private void writeSpreadsheetContent(Worksheet sheet, Spreadsheet targetSpreadsheet, List<List> data, String headerText,
 			List<String> headers) throws Exception {
 		if (headers == null) {
@@ -1248,6 +1343,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		}
 	}
 
+	/** Mengembalikan lebar kolom Excel (satuan unit POI) yang sesuai untuk kolom ke-{@code index}, disesuaikan per jenis data (nama, angka, dsb.). */
 	private int getExcelColumnWidth(int index) {
 		if (index == 1 || index == 3 || index == 5) {
 			return 200;
@@ -1262,6 +1358,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 	}
 
 
+	/** Menyusun markup kartu ringkasan kelengkapan dokumen e-learning (jumlah perkuliahan yang sudah mengunggah tiap jenis dokumen, lewat {@link #countUploadedLampiranPerJenis}). */
 	private String buildDokumenRekapCardHtml(List<List> data) {
 		if (lastRekapHeaders == null || lastRekapHeaders.isEmpty()) {
 			return "";
@@ -1296,6 +1393,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		return sb.toString();
 	}
 
+	/** Menghitung jumlah perkuliahan yang sudah mengunggah tiap jenis dokumen e-learning (kolom dokumen dinamis pada {@code data}), dikelompokkan per label jenis. */
 	private TreeMap<String, Integer> countUploadedLampiranPerJenis(List<List> data) {
 		TreeMap<String, Integer> map = new TreeMap<String, Integer>();
 		if (lastRekapHeaders == null) {
@@ -1326,6 +1424,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		return map;
 	}
 
+	/** Menyusun atribut HTML {@code onclick} yang memicu event kustom {@code onRekapDetail} berisi {@code key} pada elemen pembungkus {@link #rekapDetailBridge} (jembatan interaksi dari HTML mentah ke event listener ZK). */
 	private String buildRekapClickAttribute(String key) {
 		try {
 			if (rekapDetailBridge == null || rekapDetailBridge.getUuid() == null) {
@@ -1338,6 +1437,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		}
 	}
 
+	/** Meng-escape karakter khusus JavaScript ({@code \\ ' "} dan baris baru) pada {@code value} agar aman disisipkan ke atribut {@code onclick} inline. */
 	private String escapeJavaScript(String value) {
 		if (value == null) {
 			return "";
@@ -1345,6 +1445,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		return value.replace("\\", "\\\\").replace("'", "\\'").replace("\"", "\\\"").replace("\r", " ").replace("\n", " ");
 	}
 
+	/** Mengecek apakah {@code text} berupa angka murni (dipakai untuk menentukan apakah sel grid dijadikan tautan detail). */
 	private boolean isNumericText(String text) {
 		if (text == null) {
 			return false;
@@ -1363,6 +1464,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		return true;
 	}
 
+	/** Membuka dialog modal daftar baris rinci di balik metrik ringkasan {@code key} (hero/gauge), didelegasikan ke {@link #tampilkanPopupDetailRekapRows}. */
 	private void tampilkanPopupDetailRekap(List<List> data, String key) {
 		if (data == null) {
 			data = lastRekapData;
@@ -1384,6 +1486,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		tampilkanPopupDetailRekapRows(title, filtered, key);
 	}
 
+	/** Membuka dialog modal detail untuk satu sel grid yang diklik (satu baris/mata kuliah, satu kolom metrik). */
 	private void tampilkanPopupDetailRekapCell(List rowData, int columnIndex) {
 		List<List> rows = new ArrayList<List>();
 		if (rowData != null) {
@@ -1395,6 +1498,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		tampilkanPopupDetailRekapRows(title, rows, "cell:" + columnIndex);
 	}
 
+	/** Menyusun judul dialog popup detail sesuai {@code key} metrik yang diklik. */
 	private String buildRekapPopupTitle(String key) {
 		if (key == null) return "Detail Rekap";
 		if (key.indexOf("perkuliahan") >= 0) return "Detail Perkuliahan";
@@ -1409,6 +1513,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		return "Detail Rekap";
 	}
 
+	/** Membangun dan menampilkan dialog modal berjudul {@code title} berisi grid baris-baris {@code data} yang relevan dengan metrik {@code key}. */
 	private void tampilkanPopupDetailRekapRows(String title, List<List> data, String key) {
 		try {
 			MyWindow window = new MyWindow(title == null ? "Detail Rekap" : title, "normal", true);
@@ -1467,6 +1572,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		}
 	}
 
+	/** Menghitung jumlah kolom dokumen yang terisi (sudah diunggah) pada satu baris {@code row}. */
 	private int countUploadedLampiranForRow(List row) {
 		int total = 0;
 		if (lastRekapHeaders == null || row == null) return total;
@@ -1479,6 +1585,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 		return total;
 	}
 
+	/** Mengembalikan lebar kolom grid ZK (dalam piksel) untuk kolom ke-{@code index}. */
 	private String getGridColumnWidth(int index) {
 		if (index == 1 || index == 3 || index == 5) {
 			return "220px";

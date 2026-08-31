@@ -102,6 +102,14 @@ public class BkdPklHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Implementasi kanonik: menghitung jumlah mahasiswa bimbingan PKL {@code dosen} (sebagai salah
+	 * satu dari pembimbing1-5) pada {@code jenjang}/{@code tahunAkademik}/{@code semester},
+	 * memetakannya ke nilai SKS lewat konfigurasi rentang {@code jumlah_sks_pembimbing_pkl}, lalu
+	 * menyimpan/memperbarui satu baris {@link AsesemenPenilaian}. Tidak melakukan apa pun bila
+	 * {@code dosen} {@code null}/tidak berelasi pegawai, atau bila dosen tidak punya {@link Asesor}
+	 * aktif.
+	 */
 	public static void populate(Session session, Dosen dosen, Jenjang jenjang, String tahunAkademik, String semester,
 			Label label) {
 

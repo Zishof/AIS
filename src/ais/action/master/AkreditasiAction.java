@@ -74,6 +74,23 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.action.master.helper.FilterLanjutHelper;
 
+/**
+ * Layar pengelolaan "ruang arsip" akreditasi/dokumen pendukung ({@link Akreditasi}) — folder induk
+ * yang menampung berkas {@link DokumenAkreditasi} (dibuka via {@link DokumenAkreditasiAction}
+ * tertanam pada baris yang diperluas) untuk keperluan akreditasi program studi/institusi maupun
+ * portofolio dosen. Dapat dibuka dalam dua konteks: umum (folder milik satuan kerja/jurusan) atau
+ * spesifik satu dosen (parameter request {@code dosen}) — pada konteks dosen, enam folder baku
+ * (Thesis, Reviewer publikasi jurnal, SK Jafung/Inpassing, Reviewer Buku/Prosiding, Reviewer HAKI)
+ * otomatis dibuat sekali bila dosen belum punya folder sama sekali ({@link #initDefaultFolderDosen()}).
+ * Cakupan data dibatasi berlapis: satuan kerja (termasuk turunannya via {@link SatuanKerjaTreeModel})
+ * dan role pengguna (kolom {@code kodeGrupPengguna}, kosong berarti terbuka untuk semua role
+ * berwenang). Menyediakan juga integrasi ekspor metadata dokumen ke repositori DSpace
+ * ({@link #getDspace}/{@link #getDspaceDokumenAkreditasi}, dipakai statis oleh kelas lain seperti
+ * {@link DokumenAkreditasiAction}) — token otentikasi DSpace ({@code cookie}) SELALU diteruskan dari
+ * pemanggil, tidak ada kredensial yang tertanam di kelas ini. Mengimplementasikan
+ * {@link DataCriteria}, {@link DataSearchDefault}, dan {@link DataInitDefault} untuk kompatibilitas
+ * dengan komponen baku (paging, cetak/unggah).
+ */
 public class AkreditasiAction extends GenericAutowireComposer implements DataCriteria, DataSearchDefault, DataInitDefault {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -118,6 +135,7 @@ public class AkreditasiAction extends GenericAutowireComposer implements DataCri
         return super.doBeforeCompose(page, parent, compInfo);
     }
 
+    /** Menginisialisasi layar: konteks dosen (bila ada param request {@code dosen}), folder baku dosen, hak akses, toolbar cetak/unggah, listener pencarian, pencarian awal, dan paging. */
     public void doAfterCompose(Component comp) throws Exception {
         super.doAfterCompose(comp);
         Common.initLaguage();
@@ -215,6 +233,7 @@ public class AkreditasiAction extends GenericAutowireComposer implements DataCri
         }
     }
 
+    /** Renderer baris grid daftar folder akreditasi: baris dapat diperluas untuk membuka {@link DokumenAkreditasiAction} (penjelajah dokumen di dalam folder), info folder (nama dengan link riwayat revisi, jenis/lembaga/lingkup/tingkat/periode/jurusan/jumlah dokumen), checkbox aktif, dan tombol edit/hapus. */
     class AkreditasiRenderer extends ais.ui.util.MyRowRenderer {
         @Override
         public void render(final Row row, Object data) throws Exception {
@@ -272,6 +291,22 @@ public class AkreditasiAction extends GenericAutowireComposer implements DataCri
         }
     }
 
+	/**
+	 * Menyinkronkan satu {@link DokumenAkreditasi} (dan seluruh anaknya secara rekursif bila
+	 * dokumen ini adalah folder, ditandai dengan adanya dokumen berinduk dirinya) ke repositori
+	 * DSpace: menyusun metadata Dublin Core (penulis, editor, hak cipta, abstrak, kode, jenis, judul,
+	 * subjek, penerbit, URI lampiran bila ada) dan mengirimkannya via
+	 * {@link DspaceInformation#dspaceProcess} ke koleksi yang diresolusi lewat
+	 * {@link #getDspaceDokumenAkreditasi}, lalu mengunggah file lampiran (bila ada) ke item yang
+	 * terbentuk.
+	 *
+	 * @param tbmuser           pengguna konteks (dipakai sebagai penulis/editor default bila dokumen tidak tertaut dosen)
+	 * @param cookie            token sesi/otentikasi DSpace, diteruskan apa adanya dari pemanggil
+	 * @param dokumenAkreditasi dokumen (atau folder dokumen) yang disinkronkan
+	 * @param update            {@code true} untuk memperbarui item DSpace yang sudah ada, {@code false} untuk membuat baru
+	 * @return informasi item DSpace yang terbentuk/diperbarui, atau {@code null} bila dokumen ini adalah folder (anaknya diproses rekursif, bukan dirinya sendiri)
+	 * @throws Exception diteruskan apa adanya dari kegagalan panggilan DSpace
+	 */
 	public static DspaceInformation getDspace(Tbmuser tbmuser, String cookie, DokumenAkreditasi dokumenAkreditasi,
 			boolean update) throws Exception {
 
@@ -376,6 +411,18 @@ public class AkreditasiAction extends GenericAutowireComposer implements DataCri
 		return dspaceInformation;
 	}
 
+	/**
+	 * Meresolusi (membuat bila belum ada, kunci UUID disimpan di konfigurasi
+	 * {@code dspace_label_collection_dokumenAkreditasi_...}) koleksi DSpace tujuan untuk satu
+	 * {@link Akreditasi}: bila akreditasi tertaut jurusan, koleksi dibuat di dalam komunitas jurusan
+	 * ({@link JurusanAction#getDspace}); jika tidak, di dalam komunitas perguruan tinggi
+	 * ({@link PerguruanTinggiAction#getDspace}).
+	 *
+	 * @param cookie            token sesi/otentikasi DSpace, diteruskan apa adanya dari pemanggil
+	 * @param dokumenAkreditasi dokumen yang akreditasi induknya menentukan koleksi tujuan
+	 * @return informasi koleksi DSpace yang terbentuk/sudah ada
+	 * @throws Exception diteruskan apa adanya dari kegagalan panggilan DSpace
+	 */
 	public static DspaceInformation getDspaceDokumenAkreditasi(String cookie, DokumenAkreditasi dokumenAkreditasi)
 			throws Exception {
 
@@ -418,12 +465,14 @@ public class AkreditasiAction extends GenericAutowireComposer implements DataCri
 		}
 	}
 
+    /** Membuka form tambah folder akreditasi baru. */
     public void onAdd(Event event) throws Exception {
         init(new Akreditasi());
         addWindow.setVisible(true);
         addWindow.onModal();
     }
 
+    /** Membangun form tambah/ubah folder akreditasi (jenis, lembaga, nama, lingkup, tingkat, periode, jurusan, peringkat, keterangan, kode grup pengguna, satuan kerja) pada jendela dialog. */
     @Override
     public void init(GeneralValueObject obj) throws Exception {
         akreditasi = (Akreditasi) obj;
@@ -594,6 +643,15 @@ public class AkreditasiAction extends GenericAutowireComposer implements DataCri
         note.appendChild(new Html("<div style='padding:8px 10px; border-radius:10px; background:#eff6ff; color:#1e3a8a; font-size:11px;'>Kosongkan agar semua pengguna yang berwenang dapat melihat. Untuk banyak role gunakan koma atau titik koma, contoh: am,dosen,pegawai.</div>"));
     }
 
+    /**
+     * Memvalidasi lalu menyimpan data folder akreditasi dari form: menolak bila jenis/lembaga/nama/
+     * lingkup/tingkat belum lengkap; jika lolos menyimpan/memperbarui entitas dengan seluruh field
+     * form serta dosen konteks (bila layar dibuka untuk dosen tertentu).
+     *
+     * @param event event ZK pemicu penyimpanan (tombol simpan)
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal
+     * @throws Exception diteruskan apa adanya dari kegagalan Hibernate saat menyimpan
+     */
     public boolean onSave(Event event) throws Exception {
         if (jenis == null || jenis.getSelectedItem() == null) {
             return showWarning("Jenis ruang arsip harus diisi");
@@ -649,6 +707,17 @@ public class AkreditasiAction extends GenericAutowireComposer implements DataCri
         return false;
     }
 
+    /**
+     * Menyusun kriteria pencarian {@link Akreditasi} dengan cakupan berlapis: satuan kerja (folder
+     * milik admin tanpa satuan kerja SELALU ikut, sisanya dibatasi ke satuan kerja pengguna dan
+     * turunannya, atau ke satu satuan kerja terpilih beserta anaknya via {@code searchparent}), role
+     * pengguna (kolom {@code kodeGrupPengguna} kosong berarti terbuka untuk semua), kata kunci
+     * (nama/lembaga/keterangan), jurusan, dan konteks dosen ({@link #selectedDosen} bila layar
+     * dibuka untuk dosen tertentu, jika tidak hanya folder tanpa dosen).
+     *
+     * @param order {@code true} untuk menyertakan pengurutan (jenis, nama, id)
+     * @return kriteria Hibernate siap dieksekusi
+     */
     public Criteria initCriteria(boolean order) {
         SatuanKerja parent = (SatuanKerja) (searchparent == null ? null : searchparent.getAttribute("satuanKerja"));
         Set<SatuanKerja> satuanKerjas = ais.action.master.sekolah.util.SekolahUtil.ambilSatuanKerjas();
@@ -683,6 +752,7 @@ public class AkreditasiAction extends GenericAutowireComposer implements DataCri
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
+    /** Menjalankan pencarian folder akreditasi sesuai kriteria dan halaman paging aktif, menghitung jumlah dokumen per folder, lalu merender hasilnya ke grid. */
     public void onSearchDefault(Event event) {
         if (grid == null) {
             return;

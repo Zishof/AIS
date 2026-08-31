@@ -30,24 +30,43 @@ import ais.database.model.KurikulumPunyaMatakuliahDetail;
 import ais.database.model.file.LampiranLain;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Laporan borang akreditasi BAN-PT butir A-5.1.2.2 (struktur kurikulum dan mata kuliah): untuk
+ * {@link Kurikulum} yang dipilih (wajib), menampilkan seluruh {@link KurikulumPunyaMatakuliah} aktif
+ * terurut semester/kode, beserta indikator kelengkapan per mata kuliah — mata kuliah inti/institusional,
+ * ada tugas, ada deskripsi pembelajaran, ada dokumen lampiran RPS
+ * ({@link LampiranLain#ambil(Long, String)}), dan jumlah pertemuan terpenuhi (dibandingkan
+ * {@code jumlahPertemuanPerkuliahanDefault} terhadap jumlah baris {@link KurikulumPunyaMatakuliahDetail}).
+ *
+ * <p>
+ * Data dimuat di thread terpisah dan dirender ke worksheet {@link #sheetCode} ("A-5.1.2.2") lewat
+ * {@link SaptoUtil#displayWorksheet}. Klik baris data membuka jendela detail Rencana Pembelajaran
+ * Semester untuk mata kuliah baris tersebut lewat {@link MatakuliahKurikulumDetailHelper} (offset
+ * baris tetap 12, mengikuti tata letak template worksheet).
+ * </p>
+ */
 public class LaporanKurikulumDanMatakuliah_A_5_1_2_2 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-5.1.2.2";
     private static final long serialVersionUID = 3331244819198611604L;
     private AmbilDataKurikulumBanbox kurikulum;
 
+    /** Konstruktor default: membangun kerangka jendela tanpa memuat data (menunggu kurikulum dipilih). */
     public LaporanKurikulumDanMatakuliah_A_5_1_2_2() {
         super();
         try { buildBase(false); } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Konstruktor dengan judul/border/closable eksplisit; kegagalan inisialisasi dilempar ke pemanggil. */
     public LaporanKurikulumDanMatakuliah_A_5_1_2_2(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         buildBase(false);
     }
 
+    /** @return kode sheet template worksheet borang, {@link #sheetCode}. */
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Menambahkan filter kurikulum (wajib dipilih; memicu {@link #onCetak} otomatis saat berubah) ke baris toolbar filter. */
     @Override
     protected void buildFilters(Row row) {
         row.appendChild(new ais.ui.util.MyLabelConfig("Kurikulum (harus dipilih)"));
@@ -59,6 +78,13 @@ public class LaporanKurikulumDanMatakuliah_A_5_1_2_2 extends SaptoBaseWindow {
         row.appendChild(kurikulum);
     }
 
+    /**
+     * Handler cetak: memuat seluruh {@link KurikulumPunyaMatakuliah} aktif dari kurikulum terpilih,
+     * lalu di thread terpisah menyusun baris indikator kelengkapan per mata kuliah (lihat
+     * dokumentasi kelas) dan menampilkannya lewat {@link SaptoUtil#displayWorksheet}. Tidak
+     * melakukan apa pun (label langsung dikosongkan) bila belum ada kurikulum terpilih. Klik sel
+     * data membuka jendela Rencana Pembelajaran Semester untuk mata kuliah baris yang diklik.
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

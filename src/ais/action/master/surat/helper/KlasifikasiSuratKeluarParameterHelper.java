@@ -49,6 +49,21 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper UI (implementasi {@link DataCriteria}/{@link DataSearchDefault}) untuk kelola daftar
+ * parameter mail-merge ({@link KlasifikasiSuratKeluarParemeter}) sebuah
+ * {@link KlasifikasiSuratKeluar} (template surat keluar): setiap parameter punya nama/key, nomor
+ * urut tampil, dan salah satu dari sembilan tipe nilai (String/Integer/Double/Date/COMBO/
+ * GAMBAR/TEXT/DATA/DAFTAR_MAHASISWA/DAFTAR_SISWA/DAFTAR_PENGGUNA) yang menentukan editor nilai
+ * default yang muncul: textbox biasa, unggah gambar, editor kaya (CKEditor) untuk TEXT, atau
+ * editor tabel 100 baris x 15 kolom (nilai disimpan terserialisasi dengan pemisah
+ * {@code "||"} antarbaris dan {@code "<->"} antarkolom) untuk DATA. Bila
+ * {@code klasifikasiSuratKeluar.getCopyDari()} terisi, daftar parameter yang ditampilkan/dibaca
+ * diambil dari template sumber salinan tersebut, bukan template ini sendiri. Sebagian besar
+ * perubahan kolom pada baris (nomor urut, tampil, nilai, pilihan, tipe) langsung tersimpan ke
+ * basis data. Visibilitas tambah/ubah/hapus mengikuti hak akses
+ * {@link CommonPrivilages#CREATE}/{@link CommonPrivilages#UPDATE}/{@link CommonPrivilages#DELETE}.
+ */
 public class KlasifikasiSuratKeluarParameterHelper implements DataCriteria, DataSearchDefault {
 
 	private MyGrid gridParemeter;
@@ -57,6 +72,7 @@ public class KlasifikasiSuratKeluarParameterHelper implements DataCriteria, Data
 	private boolean edit = false;
 	private KlasifikasiSuratKeluar klasifikasiSuratKeluar;
 
+	/** @param gridParemeter grid yang akan diisi/dikelola helper ini */
 	public KlasifikasiSuratKeluarParameterHelper(MyGrid gridParemeter) {
 		this.gridParemeter = gridParemeter;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -64,6 +80,16 @@ public class KlasifikasiSuratKeluarParameterHelper implements DataCriteria, Data
 		edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
 	}
 
+	/**
+	 * Menampilkan jendela modal isi/edit nama dan keterangan satu parameter. Menyimpan
+	 * ({@code key} disamakan dengan {@code nama}) hanya bila
+	 * {@code klasifikasiSuratKeluarParemeter.getKlasifikasiSuratKeluar()} sudah punya id; baris
+	 * grid yang bersangkutan dibangun ulang lewat {@link #initRow} ({@code rowLama} dipakai
+	 * ulang bila mengedit baris yang sudah ada, atau baris baru dibuat untuk parameter baru).
+	 *
+	 * @param klasifikasiSuratKeluarParemeter parameter yang diedit, atau instans baru untuk parameter baru
+	 * @param rowLama                         baris grid yang sedang diedit, atau {@code null} untuk baris baru
+	 */
 	private void onAdd(final KlasifikasiSuratKeluarParemeter klasifikasiSuratKeluarParemeter, final Row rowLama)
 			throws Exception {
 
@@ -174,6 +200,16 @@ public class KlasifikasiSuratKeluarParameterHelper implements DataCriteria, Data
 		window.onModal();
 	}
 
+	/**
+	 * Menyusun tata letak (toolbar tambah/cetak/unggah/refresh + grid parameter dengan kolom
+	 * Parameter/Key/No.Urut/Tampil/Nilai Default/Tipe/Hapus) dan langsung memuat data parameter
+	 * yang sudah tersimpan. Tombol tambah lebih dulu memanggil {@code onSaveListener.onSave}
+	 * untuk memastikan template surat induk sudah tersimpan.
+	 *
+	 * @param klasifikasiSuratKeluar template surat keluar yang parameternya dikelola
+	 * @param onSaveListener         callback penyimpanan template induk, dipanggil sebelum dialog tambah parameter dibuka
+	 * @return komponen tata letak siap pakai untuk ditempelkan ke jendela detail
+	 */
 	public Borderlayout initDetail(final KlasifikasiSuratKeluar klasifikasiSuratKeluar,
 			final OnSaveListener onSaveListener) throws Exception {
 
@@ -275,6 +311,7 @@ public class KlasifikasiSuratKeluarParameterHelper implements DataCriteria, Data
 		return borderlayout;
 	}
 
+	/** Memuat baris {@link KlasifikasiSuratKeluarParemeter} milik {@link #klasifikasiSuratKeluar} (atau {@code copyDari}-nya bila diisi) ke dalam grid, diurutkan lewat {@link #initCriteria(boolean)}. */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail() {
 
@@ -304,6 +341,17 @@ public class KlasifikasiSuratKeluarParameterHelper implements DataCriteria, Data
 		}
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan keterangan+key, nomor urut, checkbox tampil, editor nilai
+	 * (bentuknya mengikuti tipe parameter — textbox nilai default, unggah gambar, tombol buka
+	 * editor kaya untuk TEXT, atau tombol buka editor tabel 100x15 untuk DATA), textbox pilihan
+	 * (untuk tipe COMBO), kombo tipe (mengganti visibilitas editor nilai saat diubah), dan tombol
+	 * ubah/hapus. Sebagian besar perubahan langsung tersimpan ke basis data bila baris sudah
+	 * tersimpan.
+	 *
+	 * @param row                              baris grid yang diisi
+	 * @param klasifikasiSuratKeluarParemeter  data parameter untuk baris ini
+	 */
 	public void initRow(final Row row, final KlasifikasiSuratKeluarParemeter klasifikasiSuratKeluarParemeter)
 			throws Exception {
 		row.setValign("top");
@@ -714,6 +762,7 @@ public class KlasifikasiSuratKeluarParameterHelper implements DataCriteria, Data
 		});
 	}
 
+	/** @return kriteria pencarian {@link KlasifikasiSuratKeluarParemeter} milik {@link #klasifikasiSuratKeluar} (atau {@code copyDari}-nya bila diisi), diurutkan menaik berdasarkan nomor urut lalu menurun berdasarkan id. */
 	@Override
 	public Criteria initCriteria(boolean order) {
 		// TODO Auto-generated method stub
@@ -724,6 +773,7 @@ public class KlasifikasiSuratKeluarParameterHelper implements DataCriteria, Data
 						: Restrictions.eq("klasifikasiSuratKeluar", klasifikasiSuratKeluar.getCopyDari()));
 	}
 
+	/** Alias {@link #loadDataDetail()} untuk memenuhi kontrak {@link DataSearchDefault}. */
 	@Override
 	public void onSearchDefault(Event event) {
 		loadDataDetail();

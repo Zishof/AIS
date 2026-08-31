@@ -38,6 +38,15 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.UIUtil;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Action CRUD (berbasis kerangka {@link GenericCrudAction}) untuk mengelola data master Grup
+ * Jurusan ({@link GrupJurusan}) — pengelompokan beberapa jurusan/program studi di bawah satu
+ * fakultas dengan kode, nama, ketua/koordinator ({@code kajur}, dosen), dan deskripsi (CKEditor).
+ * {@link #onSave(Event)} memvalidasi kode dan nama wajib isi, memastikan keduanya unik lintas
+ * grup jurusan lain (lewat {@link #checkKodeGrupJurusan()}/{@link #checkNamaGrupJurusan()}) sebelum
+ * menyimpan dalam transaksi eksplisit. {@link #initCriteria(boolean)} membangun kueri pencarian
+ * standar.
+ */
 public class GrupJurusanAction extends GenericCrudAction<GrupJurusan> {
 
     private static final long serialVersionUID = 3786091220301468178L;
@@ -75,6 +84,12 @@ public class GrupJurusanAction extends GenericCrudAction<GrupJurusan> {
     }
 
     @Override
+    /**
+     * Membangun kueri pencarian grup jurusan.
+     *
+     * @param order {@code true} untuk menyertakan pengurutan hasil
+     * @return kriteria Hibernate siap dieksekusi/dipaginasi
+     */
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
         Criteria criteria = session.createCriteria(GrupJurusan.class);
@@ -197,6 +212,13 @@ public class GrupJurusanAction extends GenericCrudAction<GrupJurusan> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi (kode dan nama wajib isi serta unik) dan menyimpan data grup jurusan dalam
+     * transaksi eksplisit.
+     *
+     * @param event event ZK asal aksi simpan
+     * @return {@code true} bila data berhasil disimpan
+     */
     public boolean onSave(Event event) throws Exception {
         if (kode.getValue().trim().isEmpty()) {
             PesanFormalHelper.tampilkanGagal("penyimpanan data Kode",
@@ -249,6 +271,7 @@ public class GrupJurusanAction extends GenericCrudAction<GrupJurusan> {
         return true;
     }
 
+    /** @return {@code true} bila nama pada form sudah dipakai grup jurusan lain (pencarian tanpa membedakan besar/kecil huruf, dikecualikan data yang sedang diedit). */
     public Boolean checkNamaGrupJurusan() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(GrupJurusan.class)
@@ -261,6 +284,7 @@ public class GrupJurusanAction extends GenericCrudAction<GrupJurusan> {
         return count != 0;
     }
 
+    /** @return {@code true} bila kode pada form sudah dipakai grup jurusan lain (dikecualikan data yang sedang diedit). */
     public Boolean checkKodeGrupJurusan() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(GrupJurusan.class)

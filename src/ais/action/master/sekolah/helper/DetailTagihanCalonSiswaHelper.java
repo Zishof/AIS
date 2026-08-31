@@ -747,6 +747,26 @@ public class DetailTagihanCalonSiswaHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/**
+	 * Membangun grid interaktif untuk memecah satu nilai pembayaran ({@code nilai}) ke beberapa
+	 * {@link Tagihan} (cicilan/periode) sekaligus: satu baris per tagihan dengan checkbox pilih
+	 * dan input nominal per tagihan; total nominal yang dicentang dijumlahkan dan ditampilkan di
+	 * footer grid (termasuk persentase dan sisa terhadap {@code nominalBiaya.getNominal()} bila
+	 * item biaya mengizinkan angsuran bebas). Bila tagihan pertama sudah memiliki satu-satunya
+	 * pembayaran (dibayarSebayak == 1) dan sudah lunas, input {@code nilai} dan tombol
+	 * {@code reset} dikunci.
+	 *
+	 * @param nilai                     input nominal total yang akan dipecah
+	 * @param reset                     tombol reset terkait, dikunci/disembunyikan sesuai kondisi tagihan
+	 * @param nominalBiaya              nominal biaya acuan (untuk perhitungan persentase/sisa)
+	 * @param tbmuser                   pengguna saat ini
+	 * @param pengaturanBiayaItemBiaya  item biaya konteks
+	 * @param edit                      izinkan pengubahan tanggal tagihan
+	 * @param approve                   izinkan aksi persetujuan
+	 * @param tagihans                  daftar tagihan yang akan direpresentasikan sebagai baris
+	 * @return grid berpaginasi (3 baris/halaman) siap ditempelkan ke form pembayaran
+	 * @throws Exception diteruskan dari kegagalan pembangunan komponen
+	 */
 	public static MyGrid onTagihanRinciBaru(final MyDoublebox nilai, final Toolbarbutton reset,
 			final NominalBiaya nominalBiaya, final Tbmuser tbmuser,
 			final PengaturanBiayaItemBiaya pengaturanBiayaItemBiaya, final boolean edit, final boolean approve,
@@ -1131,11 +1151,13 @@ public class DetailTagihanCalonSiswaHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/** Memeriksa apakah {@code calonSiswa} termasuk target {@code pengaturanBiaya} (lewat {@link #initCriteria(PengaturanBiaya, CalonSiswa, Textbox, PengaturanBiayaItemBiaya, boolean, boolean)}), memakai sesi Hibernate baru. */
 	public static boolean apakahAda(PengaturanBiaya pengaturanBiaya, CalonSiswa calonSiswa) {
 		return ((Number) initCriteria(pengaturanBiaya, calonSiswa, new Textbox(), null, false, false)
 				.setProjection(Projections.rowCount()).uniqueResult()).intValue() > 0;
 	}
 
+	/** Sama seperti {@link #apakahAda(PengaturanBiaya, CalonSiswa)}, tetapi memakai {@code session} yang diberikan bila masih terbuka (fallback ke sesi baru bila tidak). */
 	public static boolean apakahAda(Session session, PengaturanBiaya pengaturanBiaya, CalonSiswa calonSiswa) {
 		if (session == null || !session.isOpen()) {
 			return apakahAda(pengaturanBiaya, calonSiswa);
@@ -1144,6 +1166,7 @@ public class DetailTagihanCalonSiswaHelper implements DataLoader, DataCriteria {
 				.setProjection(Projections.rowCount()).uniqueResult()).intValue() > 0;
 	}
 
+	/** Membangun kriteria pencarian calon siswa target {@link #pengaturanBiaya} saat ini, memakai filter item biaya dan status "sudah bayar" dari komponen UI helper. */
 	public Criteria initCriteria(boolean order) {
 		PengaturanBiayaItemBiaya pengaturanBiayaItemBiaya = (PengaturanBiayaItemBiaya) (biayaItem
 				.getSelectedItem() == null || biayaItem.getSelectedItem().getValue() == null ? null
@@ -1151,12 +1174,22 @@ public class DetailTagihanCalonSiswaHelper implements DataLoader, DataCriteria {
 		return initCriteria(pengaturanBiaya, calonSiswa, nama, pengaturanBiayaItemBiaya, sudahBayar.isChecked(), order);
 	}
 
+	/** Varian statis {@link #initCriteria(Session, PengaturanBiaya, CalonSiswa, Textbox, PengaturanBiayaItemBiaya, boolean, boolean)} yang membuka sesi Hibernate baru. */
 	public static Criteria initCriteria(PengaturanBiaya pengaturanBiaya, CalonSiswa calonSiswa, Textbox nama,
 			PengaturanBiayaItemBiaya pengaturanBiayaItemBiaya, boolean sudahBayar, boolean order) {
 		Session session = HibernateUtil.currentSession();
 		return initCriteria(session, pengaturanBiaya, calonSiswa, nama, pengaturanBiayaItemBiaya, sudahBayar, order);
 	}
 
+	/**
+	 * Membangun kriteria pencarian {@link CalonSiswa} yang termasuk target {@code pengaturanBiaya}
+	 * — lihat javadoc kelas untuk penjelasan lengkap aturan penargetan (gelombang/paket PSB,
+	 * daftar siswa spesifik, kelas/kelas banyak/kelas les, tahun angkatan, sekolah, penjurusan).
+	 * Selain itu difilter opsional oleh {@code calonSiswa} spesifik, nama/NISN (ILIKE sebagian),
+	 * dan status "sudah bayar" (bila {@code sudahBayar} true, dibatasi ke siswa yang punya
+	 * {@link Tagihan} dengan {@code pembayaranSiswaDetail} terisi untuk item biaya terkait).
+	 * Diurutkan menurut nama lalu id bila {@code order} true.
+	 */
 	@SuppressWarnings("unchecked")
 	public static Criteria initCriteria(Session session, PengaturanBiaya pengaturanBiaya, CalonSiswa calonSiswa,
 			Textbox nama, PengaturanBiayaItemBiaya pengaturanBiayaItemBiaya, boolean sudahBayar, boolean order) {
@@ -1274,6 +1307,7 @@ public class DetailTagihanCalonSiswaHelper implements DataLoader, DataCriteria {
 		return criteria;
 	}
 
+	/** Memuat daftar calon siswa target sesuai kriteria/filter bulan saat ini dan menyegarkan grid dengan {@link DetailPARenderer}. Tidak melakukan apa pun bila grid belum diinisialisasi. */
 	public void loadData(Object value) {
 		if (grid == null) {
 			return;
@@ -1307,10 +1341,22 @@ public class DetailTagihanCalonSiswaHelper implements DataLoader, DataCriteria {
 	private Combobox bulans;
 	private MyCheckboxConfig sudahBayar;
 
+	/** Mengembalikan {@code this} sebagai {@link DataLoader}, dipakai untuk meneruskan referensi penyegaran data ke komponen anak. */
 	private DataLoader getDataloader() {
 		return this;
 	}
 
+	/**
+	 * Membangun tampilan lengkap layar rincian tagihan untuk {@code pengaturanBiaya}: memuat
+	 * daftar item biaya terkait dan menjalankan {@link PengaturanBiaya#reloadTagihan} untuk
+	 * memastikan baris tagihan sinkron dengan konfigurasi terbaru, lalu toolbar pencarian nama
+	 * (atau label tetap bila terikat satu calon siswa), tombol "Singkronkan" (menjalankan ulang
+	 * sinkronisasi tagihan dengan indikator progres), filter item biaya/bulan, dan grid matriks
+	 * calon siswa &times; item biaya.
+	 *
+	 * @param pengaturanBiaya konfigurasi paket biaya yang rinciannya ditampilkan
+	 * @param component       komponen ZK tempat tata letak dibangun (dibersihkan lebih dulu)
+	 */
 	public void display(final PengaturanBiaya pengaturanBiaya, final Component component) {
 
 		this.pengaturanBiaya = pengaturanBiaya;
@@ -2179,6 +2225,13 @@ public class DetailTagihanCalonSiswaHelper implements DataLoader, DataCriteria {
 		}
 	}
 
+	/**
+	 * Membangun ulang kolom grid ({@link #columns}/{@link #auxhead}) untuk menampilkan item biaya
+	 * {@code pengaturanBiayaItemBiaya}: kolom pertama "Calon Siswa" tetap, diikuti satu atau lebih
+	 * kolom periode (bulan-bulan dalam rentang {@link #mul}-{@link #sam} bila item biaya berulang
+	 * per bulan, atau satu kolom tunggal bila tidak) sebelum data grid dimuat ulang. Tidak
+	 * melakukan apa pun bila {@code pengaturanBiayaItemBiaya} {@code null} (kolom dikosongkan).
+	 */
 	@SuppressWarnings("deprecation")
 	public void reloadGrid(PengaturanBiayaItemBiaya pengaturanBiayaItemBiaya) {
 		Common.clear(columns);
