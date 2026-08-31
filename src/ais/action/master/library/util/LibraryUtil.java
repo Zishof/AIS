@@ -88,6 +88,30 @@ import ais.ui.util.DataCriteria;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Tipe khusus untuk library util. Kelas ini memberi nama dan batas tanggung jawab yang eksplisit
+ * pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code KodeTransaksi adjustmentPenambahan},
+ * {@code KodeTransaksi adjustmentPengurangan}, {@code KodeTransaksi SALDO_AWAL}, {@code KodeTransaksi
+ * BELI_MASUK}, {@code KodeTransaksi HIBAH_MASUK}, {@code KodeTransaksi MASUK_LAIN}, {@code KodeTransaksi
+ * RETUR_BELI}, {@code KodeTransaksi PINJAM_KELUAR}; pembacaan/pencarian ({@code getKuota()}, {@code
+ * ambilFotoGambarItemPertama()}, {@code tampilkanBacaFrame()}, {@code getJumlahHariBatas()}, {@code
+ * cariAnggotaDariIdentitas()}, {@code tampilanSummaryPeminjaman()}); validasi/perhitungan ({@code
+ * checkDirectory()}, {@code checkRef()}, {@code hitungDendaItem()}, {@code hitungDendaItem()}, {@code
+ * hitungDendaPerItem()}, {@code hitungDenda()}); penghapusan/pembatalan ({@code onBatalPerpanjang()}, {@code
+ * onBatalPerpanjang()}); operasi domain lain ({@code generateMaxByPerpustakaan()}, {@code
+ * generateMaxByPerpustakaan()}, {@code generateCode()}, {@code generateCode()}, {@code generateCode()}, {@code
+ * generateCode()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
+ * atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class LibraryUtil {
 
 	public static KodeTransaksi adjustmentPenambahan;

@@ -25,6 +25,31 @@ import ais.database.model.payroll.RencanaGajiPunyaPegawai;
 import ais.database.model.payroll.RencanaItemGajiPegawai;
 import ais.ui.util.MyJSONObject;
 
+/**
+ * Tipe khusus untuk rencana item gaji pegawai tree model. Kelas ini memberi nama dan batas
+ * tanggung jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang
+ * diimplementasikannya.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * AbstractTreeModel}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Boolean tampilkanSemua}, {@code
+ * RencanaGajiPunyaPegawai rencanaGajiPunyaPegawai}, {@code ItemGajiPegawaiTreeModel itemGajiPegawaiTreeModel},
+ * {@code MyJSONObject jsonObject}; pembacaan/pencarian ({@code getChildren()}, {@code getChildren()}, {@code
+ * getChild()}, {@code getChildCount()}, {@code getParentCount()}, {@code getParentSet()}); validasi/perhitungan
+ * ({@code checkExistingItemGaji()}); mutasi data ({@code reset()}); penghapusan/pembatalan ({@code
+ * deleteChilds()}); operasi domain lain ({@code populateData()}, {@code populateData()}, {@code
+ * generateAllChildren()}, {@code isLeaf()}, {@code copyByFormat()}, {@code copyByItemGajiPegawai()});
+ * konfigurasi constructor: {@code itemGajiPegawaiTreeModel}. Bagian lain dari kontrak tetap mengikuti kelas
+ * induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ *
+ * @see AbstractTreeModel
+ */
 public class RencanaItemGajiPegawaiTreeModel extends AbstractTreeModel {
 
 	/**

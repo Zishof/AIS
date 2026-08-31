@@ -58,6 +58,25 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper terfokus untuk pembayaran gaji punya pegawai. Tipe ini membungkus satu variasi kecil dari
+ * alur yang lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan
+ * implementasi.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code PembayaranGaji pembayaranGaji}, {@code
+ * Paging paging}, {@code MyGrid grid}, {@code boolean persetujuan}, {@code Collection pangkats}, {@code Date
+ * sekarang}, {@code List gajiPunyaPegawais}, {@code MyTextbox nama}; inisialisasi/lifecycle ({@code initRow()},
+ * {@code initCriteria()}); pembacaan/pencarian ({@code loadData()}, {@code reloadData()}); validasi/perhitungan
+ * ({@code hitungUlangSemuaPegawai()}); operasi domain lain ({@code display()}). Bagian lain dari kontrak tetap
+ * mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class PembayaranGajiPunyaPegawaiHelper {
 
 	private PembayaranGaji pembayaranGaji;
