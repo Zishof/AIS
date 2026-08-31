@@ -21,6 +21,26 @@ import ais.database.model.Tbmuser;
 import ais.database.model.sekolah.Guru;
 import ais.database.model.sekolah.Siswa;
 
+/**
+ * Komponen lifecycle audit Hibernate untuk audit timestamp interceptor. Tipe ini mengisi atau
+ * merekam metadata perubahan entity pada event persistence tanpa memindahkan transaksi bisnis ke
+ * listener.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * EmptyInterceptor}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code AuditTimestampInterceptor instance},
+ * {@code String ATTR_PENGGUNA_POS}; pembacaan/pencarian ({@code onLoad()}); mutasi data ({@code onSave()},
+ * {@code ubah()}); operasi domain lain ({@code instantiate()}, {@code onFlushDirty()}, {@code postFlush()},
+ * {@code onFlushDirtyAudit()}, {@code isiMetadataAudit()}, {@code penggunaPosApi()}). Bagian lain dari kontrak
+ * tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> callback berjalan di sekitar lifecycle persistence dan dapat mengantrekan pekerjaan
+ * audit/sinkronisasi asinkron, memakai state ThreadLocal, serta membaca atau menulis data. Jangan memanggil
+ * listener sebagai service biasa atau menggandakan orkestrasi audit di entity.</p>
+ *
+ * @see EmptyInterceptor
+ */
 public class AuditTimestampInterceptor extends EmptyInterceptor {
 
 	public static AuditTimestampInterceptor instance = new AuditTimestampInterceptor();

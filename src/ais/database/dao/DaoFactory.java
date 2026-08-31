@@ -145,6 +145,21 @@ import ais.database.dao.surat.SifatSuratDao;
 import ais.database.dao.surat.SuratKeluarDao;
 import ais.database.dao.surat.SuratMasukDao;
 
+/**
+ * Factory pusat untuk memperoleh implementasi DAO AIS. Kelas ini mengonsolidasikan konstruksi dan
+ * pemilihan DAO agar service tidak membuat atau mengikat implementasi Hibernate secara langsung.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code DaoFactory instance}, {@code String
+ * daoFactoryClassName}; pembacaan/pencarian ({@code getInstance()}, {@code getTbmuserDao()}, {@code
+ * getDosenDao()}, {@code getPegawaiDao()}, {@code getMahasiswaDao()}, {@code getMatakuliahDao()}). Bagian lain
+ * dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> {@code getInstance} dapat memuat dan membuat implementasi factory berdasarkan
+ * konfigurasi, sedangkan getter DAO dapat membuat adapter persistence. Gunakan factory ini sebagai satu titik
+ * konstruksi; transaksi dan penutupan session tetap menjadi tanggung jawab pemanggil/DAO terkait.</p>
+ */
 public abstract class DaoFactory {
 
 	private static DaoFactory instance;

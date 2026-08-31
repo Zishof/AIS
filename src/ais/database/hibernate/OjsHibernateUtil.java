@@ -19,6 +19,24 @@ import org.hibernate.metadata.ClassMetadata;
 
 import ais.common.Common;
 
+/**
+ * Pengelola SessionFactory dan session Hibernate khusus untuk ojs hibernate util. Utilitas ini
+ * memisahkan konfigurasi persistence subsistem tersebut dari Hibernate utama AIS.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code OjsHibernateUtil
+ * hibernateStreamingUtil}, {@code SessionFactory sessionFactory}, {@code ThreadLocal MAP}, {@code ThreadLocal
+ * MAPFactory}; pembacaan/pencarian ({@code getInstance()}, {@code getClassMetadata()}, {@code
+ * getSessionFactory()}); mutasi data ({@code setSessionFactory()}); operasi domain lain ({@code
+ * currentSession()}, {@code closeSession()}, {@code rollbackTransaction()}, {@code closeFactoryQuietly()});
+ * konfigurasi constructor: {@code sessionFactory}. Bagian lain dari kontrak tetap mengikuti kelas induk atau
+ * interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> operasi dapat membuat, mengikat, atau menutup session dan resource Hibernate.
+ * Pemanggil wajib mengikuti pasangan buka/tutup serta batas transaksi yang dijelaskan oleh utilitas ini agar
+ * koneksi tidak bocor atau session tidak dipakai lintas thread.</p>
+ */
 @SuppressWarnings("deprecation")
 public class OjsHibernateUtil {
 

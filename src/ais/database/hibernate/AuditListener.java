@@ -110,6 +110,32 @@ import ais.database.model.sisdes.Penduduk;
 import ais.database.model.streaming.AudioPertemuan;
 import ais.database.model.streaming.VideoPertemuan;
 
+/**
+ * Komponen lifecycle audit Hibernate untuk audit listener. Tipe ini mengisi atau merekam metadata
+ * perubahan entity pada event persistence tanpa memindahkan transaksi bisnis ke listener.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * AuditEventListener}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code
+ * java.util.concurrent.ScheduledExecutorService AUDIT_SCHEDULER}, {@code int AUDIT_POOL_SIZE}, {@code
+ * java.util.concurrent.ExecutorService AUDIT_POOL}, {@code ThreadLocal PROSES_AKTIF}, {@code
+ * java.util.concurrent.ConcurrentHashMap PENDING_SINKRONISASI_STATUS}, {@code Object LOCK_SINKRONISASI_STATUS},
+ * {@code ThreadLocal SINKRONISASI_STATUS_AKTIF}; inisialisasi/lifecycle ({@code buatJsonAuditAman()});
+ * pembacaan/pencarian ({@code safeList()}); mutasi data ({@code masukProses()}, {@code keluarProses()}, {@code
+ * jadwalkanSinkronisasiStatusKegiatanSetelahCommit()}, {@code prosesSinkronisasiStatusKegiatan()}, {@code
+ * prosesUntukElearning()}, {@code prosesUntukElearning()}); penghapusan/pembatalan ({@code onPostDelete()});
+ * operasi domain lain ({@code jalankanAudit()}, {@code antrekanSinkronisasiStatusKegiatan()}, {@code
+ * sedangSinkronisasiStatusKegiatan()}, {@code safeString()}, {@code nilaiJsonAuditAman()}, {@code
+ * postJsonAudit()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
+ * atas.</p>
+ * <p><b>Efek samping:</b> callback berjalan di sekitar lifecycle persistence dan dapat mengantrekan pekerjaan
+ * audit/sinkronisasi asinkron, memakai state ThreadLocal, serta membaca atau menulis data. Jangan memanggil
+ * listener sebagai service biasa atau menggandakan orkestrasi audit di entity.</p>
+ *
+ * @see AuditEventListener
+ */
 public class AuditListener extends AuditEventListener {
 
 	// Scheduler TUNGGAL (daemon) untuk tugas tertunda audit (mis. checkGenNim +5 dtk). DULU dipanggil
