@@ -36,6 +36,21 @@ public final class TenantEntitlementService {
 	private TenantEntitlementService() {
 	}
 
+	/**
+	 * Tentukan apakah suatu modul sudah punya implementasi operasional di codebase ini (dan
+	 * karenanya boleh berstatus {@link TenantModuleEntitlement#STATUS_ACTIVE}) atau masih
+	 * {@link TenantModuleEntitlement#STATUS_PLANNED} (UI jujur -- §6.3: tidak menampilkan tombol
+	 * semu untuk fitur yang belum ada). Daftar modul operasional dibaca dari konfigurasi
+	 * {@code pendaftaran_modul_operasional} (CSV, dipisah koma/titik-koma/spasi) supaya modul
+	 * yang baru selesai diimplementasikan dapat "naik status" ke ACTIVE lewat perubahan
+	 * konfigurasi saja, tanpa compile ulang aplikasi; bila konfigurasi tidak terbaca (mis. belum
+	 * ada baris konfigurasinya), jatuh ke {@link #DEFAULT_OPERASIONAL} yang berisi modul-modul
+	 * yang memang sudah operasional di codebase ini per penulisan komentar tersebut (POS/koperasi
+	 * + paritas 48 layar + eCampus/eSchool).
+	 *
+	 * @param moduleCode kode modul yang dicek, dibandingkan tidak peka huruf besar-kecil.
+	 * @return {@code true} bila {@code moduleCode} ada pada daftar modul operasional.
+	 */
 	static boolean modulOperasional(String moduleCode) {
 		String csv;
 		try {
@@ -57,6 +72,31 @@ public final class TenantEntitlementService {
 	 * (tenant, module, source) existing TIDAK diduplikasi/ditimpa. Berjalan dalam session/
 	 * transaction pemanggil (step provisioning).
 	 *
+	 * <p>
+	 * Dipanggil sebagai salah satu langkah provisioning tenant (lihat {@link
+	 * TenantOnboardingService}): setiap {@link PendaftaranTenant} membawa satu atau lebih pilihan
+	 * {@link ais.database.model.tenant.JenisUsahaTenant} (mis. tenant yang mendaftar sebagai
+	 * "koperasi" DAN "apotek" sekaligus). Method ini menyatukan (union) modul default dari
+	 * SELURUH jenis usaha yang dipilih -- bukan hanya jenis usaha pertama -- sehingga tenant
+	 * multi-jenis-usaha mendapat gabungan modul dari semuanya, tanpa duplikat. Untuk keperluan
+	 * audit trail ({@code selectedJenisUsaha}), setiap modul dicatat berasal dari jenis usaha
+	 * PERTAMA (menurut urutan pilihan) yang membawanya -- bila dua jenis usaha sama-sama memuat
+	 * modul yang sama, jenis usaha kedua tidak menimpa atribusi jenis usaha pertama.
+	 * </p>
+	 * <p>
+	 * Untuk setiap modul hasil union, method mengecek lebih dulu apakah baris entitlement
+	 * (tenant, moduleCode, source=BUSINESS_TYPE) sudah ada -- bila ya, dilewati (idempoten,
+	 * aman dipanggil ulang mis. saat provisioning di-retry). Bila belum ada, baris baru dibuat
+	 * dengan status {@link TenantModuleEntitlement#STATUS_ACTIVE} atau {@link
+	 * TenantModuleEntitlement#STATUS_PLANNED} tergantung hasil {@link #modulOperasional(String)}.
+	 * </p>
+	 *
+	 * @param session    Session/transaksi milik pemanggil (langkah provisioning); tidak dibuka/
+	 *                   ditutup di sini.
+	 * @param tenant     tenant yang menerima entitlement.
+	 * @param permohonan permohonan pendaftaran yang membawa pilihan jenis usaha
+	 *                   ({@link PendaftaranTenantJenisUsaha}) dan {@code selectedPlanVersion}
+	 *                   yang dicatat pada setiap baris entitlement baru.
 	 * @return jumlah baris entitlement baru yang dibuat.
 	 */
 	public static int terapkanDariJenisUsaha(Session session, TenantRegistry tenant, PendaftaranTenant permohonan) {

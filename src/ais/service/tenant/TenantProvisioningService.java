@@ -49,6 +49,15 @@ public final class TenantProvisioningService {
 		String jalankan(Session session, ProvisioningJob job) throws Exception;
 	}
 
+	/**
+	 * Mode provisioning tenant yang berlaku saat ini, dibaca dari konfigurasi
+	 * {@code pendaftaran_tenant_mode}. Nilai yang tidak dikenali (termasuk kosong atau galat
+	 * membaca konfigurasi) selalu jatuh ke {@link TenantRegistry#MODE_LEGACY} -- default paling
+	 * aman, sebab step schema per-tenant memang di-{@code SKIP} pada mode ini.
+	 *
+	 * @return salah satu dari {@link TenantRegistry#MODE_LEGACY}, {@link TenantRegistry#MODE_HYBRID},
+	 *         atau {@link TenantRegistry#MODE_TENANT_ONLY}
+	 */
 	static String modeTenant() {
 		try {
 			String v = Common.getKonfigurasi("pendaftaran_tenant_mode", TenantRegistry.MODE_LEGACY).getNilai();
@@ -64,6 +73,12 @@ public final class TenantProvisioningService {
 		}
 	}
 
+	/**
+	 * Batas maksimal percobaan (attempt) sebuah job sebelum {@link #tandaiGagal} menandainya
+	 * FAILED final alih-alih dijadwalkan retry lagi. Dibaca dari konfigurasi
+	 * {@code pendaftaran_provisioning_max_attempt} (default {@code 3}); nilai yang tidak dapat
+	 * diparse jatuh ke default yang sama.
+	 */
 	private static int maksimalAttempt() {
 		try {
 			return Integer.parseInt(
@@ -98,6 +113,36 @@ public final class TenantProvisioningService {
 	// EKSEKUSI PER-STEP
 	// =====================================================================
 
+	/**
+	 * Jalankan satu step provisioning dalam transaksi tersendiri, dengan pencatatan
+	 * {@link ProvisioningStep} yang membuat seluruh proses idempoten terhadap retry.
+	 *
+	 * <p>
+	 * Urutan kerja: (1) muat {@link ProvisioningJob}; bila sudah tidak ada atau berstatus
+	 * CANCELLED, batalkan dan kembalikan {@code false} tanpa menandai gagal (job memang sengaja
+	 * dihentikan, bukan error); (2) cari baris {@link ProvisioningStep} untuk kombinasi
+	 * job+stepCode -- bila statusnya sudah SUCCESS atau SKIPPED dari attempt sebelumnya, step ini
+	 * dilewati dan {@code true} langsung dikembalikan (invariant #11: schema/owner/seed tidak
+	 * pernah dibuat ganda); (3) bila belum ada atau belum selesai, step ditandai RUNNING,
+	 * attempt-nya dinaikkan, dan {@code job.currentStage} diperbarui; (4) logika sesungguhnya
+	 * step dijalankan lewat {@link #logikaUntuk(String)} -- bila melempar {@link LewatiStep},
+	 * step ditandai SKIPPED (bukan gagal); bila berhasil, ditandai SUCCESS beserta metadata
+	 * singkatnya; (5) transaksi di-commit.
+	 * </p>
+	 *
+	 * <p>
+	 * Bila logika step melempar exception lain (bukan {@link LewatiStep}), transaksi ini
+	 * dibatalkan, galatnya diaudit, dan {@link #tandaiGagal} dipanggil pada transaksi terpisah
+	 * untuk menandai step/job/permohonan gagal serta menjadwalkan retry bila attempt masih
+	 * tersisa.
+	 * </p>
+	 *
+	 * @param jobId    id {@link ProvisioningJob} yang sedang diproses
+	 * @param stepCode salah satu kode di {@link #URUTAN_STEP}
+	 * @return {@code true} bila step ini beres (baru dijalankan, sudah SUCCESS/SKIPPED
+	 *         sebelumnya, atau job sudah tidak berlaku lagi), {@code false} bila step ini gagal
+	 *         dan job sudah ditandai lewat {@link #tandaiGagal}
+	 */
 	private static boolean langkah(Long jobId, String stepCode) {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -160,6 +205,63 @@ public final class TenantProvisioningService {
 		}
 	}
 
+	/**
+	 * Bangun {@link LogikaStep} yang menjalankan logika satu step provisioning tertentu, sesuai
+	 * {@code stepCode}. Ini adalah satu-satunya tempat yang tahu APA yang dilakukan tiap step
+	 * §7.9 -- {@link #langkah} hanya tahu BAGAIMANA membungkusnya (transaksi, status, retry).
+	 *
+	 * <p>
+	 * Setiap cabang {@code if} di badan {@link LogikaStep#jalankan} menangani satu
+	 * {@code stepCode} dari {@link #URUTAN_STEP}, seluruhnya idempoten terhadap pemanggilan ulang
+	 * (baik karena dicoba ulang oleh {@link #langkah} maupun karena job yang sama diklaim ulang
+	 * setelah kegagalan sebagian):
+	 * </p>
+	 * <ul>
+	 * <li>{@code VALIDATE_REGISTRATION} -- pastikan status permohonan masih berada di salah satu
+	 * status antrean/provisioning/gagal yang sah, lalu set ke PROVISIONING.</li>
+	 * <li>{@code RESERVE_USERNAME} -- pastikan {@link SchemaNameReservation} milik permohonan ini
+	 * ada dan berstatus RESERVED/CONSUMED.</li>
+	 * <li>{@code CREATE_TENANT_REGISTRY} -- buat baris {@link TenantRegistry} (bila belum ada),
+	 * kode tenant {@code TEN-<tahun>-<id>}, serta subdomain bawaan {@code <slug>.<base>} pada
+	 * {@link TenantDomain}.</li>
+	 * <li>{@code CREATE_SCHEMA_ERP}/{@code CREATE_SCHEMA_AUDIT} -- pada mode LEGACY, dilewati
+	 * ({@link LewatiStep}); pada HYBRID/TENANT_ONLY, memastikan schema data+audit tenant ada
+	 * lewat {@link TenantSchemaService#buatSchema} dan mencatat nama schema pada registry.</li>
+	 * <li>{@code RUN_MIGRATIONS}/{@code INSTALL_AUDIT} -- menerapkan migrasi kanonik
+	 * ber-riwayat+checksum ({@link TenantSchemaService#terapkanMigrasi}) ke target ERP/AUDIT;
+	 * dilewati pada LEGACY.</li>
+	 * <li>{@code SEED_CONFIGURATION} -- set locale default dan timezone tenant (diambil dari
+	 * profil pendaftar bila ada, jatuh ke {@code Asia/Jakarta}).</li>
+	 * <li>{@code SEED_MODULES} -- terapkan entitlement modul bawaan sesuai jenis usaha lewat
+	 * {@link TenantEntitlementService#terapkanDariJenisUsaha}.</li>
+	 * <li>{@code SEED_ROLES} -- pada LEGACY, dilewati dengan catatan bahwa peran owner cukup
+	 * lewat {@code tenant_membership.role_code}; pada HYBRID/TENANT_ONLY, menyemai delapan peran
+	 * bawaan ke {@code role_tenant} lewat {@link TenantRoleSeeder#seedSchema}.</li>
+	 * <li>{@code CREATE_OWNER_USER} -- selalu dilewati: akun login owner memakai
+	 * {@link Pendaftar} yang sudah ada (PBKDF2), bukan {@code Tbmuser} baru (§10.4).</li>
+	 * <li>{@code CREATE_MEMBERSHIP} -- buat {@link TenantMembership} owner (idempoten, dicek
+	 * lebih dulu lewat count).</li>
+	 * <li>{@code CREATE_SUBSCRIPTION_TRIAL} -- tidak membuat baris apa pun di sini; hanya
+	 * mencatat metadata snapshot plan/trial, sebab tanggal trial sesungguhnya baru dihitung saat
+	 * {@code MARK_READY}.</li>
+	 * <li>{@code VERIFY_SCHEMA} -- verifikasi menyeluruh schema+tabel wajib+riwayat migrasi lewat
+	 * {@link TenantSchemaService#verifikasiLengkap}; dilewati pada LEGACY.</li>
+	 * <li>{@code VERIFY_LOGIN} -- pastikan akun pemilik punya password hash.</li>
+	 * <li>{@code MARK_READY} -- step terakhir: set tenant dan permohonan READY, hitung
+	 * {@code trialStartAt}/{@code trialEndAt} dari READY (bukan dari saat form dibuka --
+	 * invariant #7), tandai reservasi username CONSUMED, aktifkan akun {@link Pendaftar} bila ini
+	 * tenant pertamanya, dan catat {@link PendaftaranAuditEvent#EV_TENANT_READY}.</li>
+	 * </ul>
+	 *
+	 * <p>
+	 * {@code stepCode} yang tidak cocok satu pun cabang di atas melempar
+	 * {@link IllegalStateException} -- fail-closed, bukan diam-diam berhasil.
+	 * </p>
+	 *
+	 * @param stepCode kode step, salah satu dari {@link #URUTAN_STEP}
+	 * @return {@link LogikaStep} yang, saat dijalankan, mengeksekusi step tersebut dan
+	 *         mengembalikan metadata singkat untuk kolom {@code metadata_json}
+	 */
 	private static LogikaStep logikaUntuk(final String stepCode) {
 		return new LogikaStep() {
 			public String jalankan(Session session, ProvisioningJob job) throws Exception {
@@ -385,6 +487,13 @@ public final class TenantProvisioningService {
 		};
 	}
 
+	/**
+	 * Tandai job SUCCESS setelah seluruh step di {@link #URUTAN_STEP} berhasil (atau SKIPPED).
+	 * Dipanggil {@link #jalankanJob} sekali di akhir; idempoten -- job yang sudah SUCCESS tidak
+	 * ditulis ulang. Kegagalan menandai (mis. job sudah terhapus) diaudit dan ditelan: seluruh
+	 * step sudah berhasil dijalankan, jadi kegagalan di sini murni bookkeeping, bukan kegagalan
+	 * provisioning yang sesungguhnya.
+	 */
 	private static void selesaikanJob(Long jobId) {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -465,6 +574,10 @@ public final class TenantProvisioningService {
 	// UTIL
 	// =====================================================================
 
+	/**
+	 * {@link SchemaNameReservation} milik {@code permohonan} yang berstatus RESERVED atau
+	 * CONSUMED, atau {@code null} bila tidak ada.
+	 */
 	private static SchemaNameReservation reservasiMilik(Session session, PendaftaranTenant permohonan) {
 		return (SchemaNameReservation) session.createCriteria(SchemaNameReservation.class)
 				.add(Restrictions.eq("pendaftaranTenant.id", permohonan.getId()))
@@ -473,6 +586,15 @@ public final class TenantProvisioningService {
 				.setMaxResults(1).uniqueResult();
 	}
 
+	/**
+	 * {@link TenantRegistry} milik {@code job}, dicari berturut-turut dari: field
+	 * {@code job.tenant} (sudah tertaut), lalu {@code permohonan.tenantRegistry}, dan terakhir
+	 * kueri berdasarkan slug ({@code normalizedUsername}). Tiga jalur ini diperlukan karena step
+	 * {@code CREATE_TENANT_REGISTRY} boleh baru saja membuat registry pada attempt sebelumnya
+	 * tanpa sempat menautkannya balik ke seluruh entitas terkait.
+	 *
+	 * @return registry tenant, atau {@code null} bila belum pernah dibuat sama sekali
+	 */
 	private static TenantRegistry tenantDariJob(Session session, ProvisioningJob job) {
 		if (job.getTenant() != null) {
 			return job.getTenant();
@@ -486,6 +608,10 @@ public final class TenantProvisioningService {
 				.setMaxResults(1).uniqueResult();
 	}
 
+	/**
+	 * Timezone tenant baru, diambil dari {@code PendaftarTenantProfile} milik pendaftar bila ada;
+	 * jatuh ke {@code "Asia/Jakarta"} bila profil tidak ada atau gagal dibaca.
+	 */
 	private static String zonaWaktu(Session session, PendaftaranTenant permohonan) {
 		try {
 			ais.database.model.tenant.PendaftarTenantProfile profile =
@@ -499,6 +625,7 @@ public final class TenantProvisioningService {
 		}
 	}
 
+	/** Kode tampil tenant: {@code TEN-<tahun berjalan>-<id, padded 6 digit>}. */
 	private static String kodeTenant(Long id) {
 		java.util.Calendar cal = java.util.Calendar.getInstance();
 		String idPadded = String.valueOf(id.longValue());
@@ -514,6 +641,16 @@ public final class TenantProvisioningService {
 		return "Langkah penyiapan gagal (" + kelas + "). Detail teknis tercatat internal.";
 	}
 
+	/**
+	 * Catat satu baris {@link PendaftaranAuditEvent} beraktor SYSTEM untuk jejak provisioning
+	 * (mis. tenant siap, provisioning gagal). Kegagalan mencatat audit diaudit sendiri lewat
+	 * {@link ais.common.ErrorAuditUtil} dan tidak dilempar balik -- kegagalan audit trail tidak
+	 * boleh menggagalkan step provisioning yang sebenarnya sudah berhasil/gagal.
+	 *
+	 * @param eventCode  kode event, mis. {@link PendaftaranAuditEvent#EV_TENANT_READY}
+	 * @param permohonan permohonan tenant terkait
+	 * @param tenantId   id tenant terkait, boleh {@code null} bila belum ada registry
+	 */
 	private static void auditEvent(Session session, String eventCode, PendaftaranTenant permohonan, Long tenantId) {
 		try {
 			PendaftaranAuditEvent ev = new PendaftaranAuditEvent();

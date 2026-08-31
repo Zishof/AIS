@@ -35,20 +35,44 @@ package ais.service.tenant;
  */
 public final class TenantSchemaMigrationsV9 {
 
+	/** Kelas utilitas murni statis — tidak pernah diinstansiasi. */
 	private TenantSchemaMigrationsV9() {
 	}
 
 	// PERINGATAN: masuk ke teks DDL kanonik -- mengubahnya mengubah checksum v9 dan
 	// menggagalkan migrasi di seluruh tenant yang sudah memasangnya. Buat bundel versi BARU.
+	/** Fragmen kolom jejak audit ringan (pembuat/pengubah + waktunya), dipakai seluruh tabel. */
 	private static final String JEJAK =
 			"dibuat_pada timestamp, tanggal_dirubah timestamp, "
 			+ "oleh varchar(255), olehid varchar(255)";
 
+	/**
+	 * Fragmen kolom provenans impor legacy, dipakai tabel yang punya padanan di
+	 * {@code koperasi.*} (mis. {@code cara_pembayaran}, {@code jenis_customer},
+	 * {@code customer_anggota_profile}, {@code retur_penjualan}): nama berkas dan nomor
+	 * baris sumber, hash baris, id run impor, dan penanda {@code legacy_deleted}.
+	 */
 	private static final String LEGACY =
 			"legacy_source_file varchar(128), legacy_source_record_no integer, "
 			+ "legacy_row_hash varchar(64), legacy_import_run_id bigint, "
 			+ "legacy_deleted boolean DEFAULT false";
 
+	/**
+	 * Katalog DDL kanonik migrasi v9: satu {@code ALTER TABLE} (J-2, menambah
+	 * {@code maksimal_harian} pada {@code kategori_produk}) diikuti {@code CREATE TABLE}/
+	 * {@code CREATE INDEX} berurutan untuk sepuluh tabel POS eBisnis yang tidak berasal dari
+	 * arsip FoxPro — metode pembayaran ({@code cara_pembayaran}), keanggotaan
+	 * ({@code jenis_customer}, {@code customer_anggota_profile} — J-3, tanpa kolom kata
+	 * sandi), sesi kas kasir, keranjang draft (+ detail), retur penjualan, pemakaian bahan
+	 * baku, survei kepuasan, ack cadangan transaksi, dan foto produk. Lihat javadoc kelas dan
+	 * {@code docs/tenant-inventory-sales/05-pemetaan-tabel.md} untuk alasan pemetaan tiap
+	 * tabel, serta komentar inline di setiap blok array ini untuk catatan spesifik per tabel.
+	 * Dikonsumsi oleh {@link TenantSchemaMigrations#SEMUA} lewat entri bertarget
+	 * {@code TARGET_ERP}; penanda {@code {S}}/{@code {A}}/{@code {SU}} disubstitusi saat
+	 * migrasi diterapkan oleh {@code TenantSchemaService#terapkanMigrasi}. Isi array ini
+	 * bagian dari checksum kanonik v9 — lihat peringatan di atas sebelum mengubah elemen
+	 * mana pun.
+	 */
 	public static final String[] ERP = {
 			// ---------- J-2: batas harian per kategori ----------
 			"ALTER TABLE {S}.kategori_produk ADD COLUMN maksimal_harian numeric(18,2)",

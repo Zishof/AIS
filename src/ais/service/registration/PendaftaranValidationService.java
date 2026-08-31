@@ -26,13 +26,32 @@ public final class PendaftaranValidationService {
 			"pendaftaran", "www", "mail", "smtp", "ftp", "support", "billing", "static", "assets",
 			"ebisnis", "ecampus", "eschool", "santri", "new_audit", "koperasi" };
 
+	/** Konstruktor privat -- kelas ini murni kumpulan method statis dan tidak boleh diinstansiasi. */
 	private PendaftaranValidationService() {
 	}
 
+	/**
+	 * Menormalisasi alamat email pendaftar sebelum divalidasi/disimpan: trim spasi di ujung lalu
+	 * diubah ke huruf kecil. Tidak melakukan validasi format -- panggil {@link #emailValid(String)}
+	 * terhadap hasilnya untuk itu.
+	 *
+	 * @param email alamat email mentah dari input pengguna, boleh {@code null}
+	 * @return email hasil normalisasi (huruf kecil, ter-trim), atau string kosong bila {@code email}
+	 *         {@code null}
+	 */
 	public static String normalisasiEmail(String email) {
 		return email == null ? "" : email.trim().toLowerCase();
 	}
 
+	/**
+	 * Memvalidasi format alamat email yang SUDAH dinormalisasi lewat {@link #normalisasiEmail(String)}.
+	 * Syarat: tidak {@code null}, panjang maksimal 255 karakter (batas kolom), dan cocok pola
+	 * {@code user@domain.tld} sederhana lewat {@link #POLA_EMAIL} (tanpa spasi, minimal satu titik
+	 * pada bagian domain).
+	 *
+	 * @param emailNormalized email hasil {@link #normalisasiEmail(String)}
+	 * @return {@code true} bila format email valid
+	 */
 	public static boolean emailValid(String emailNormalized) {
 		return emailNormalized != null && emailNormalized.length() <= 255
 				&& POLA_EMAIL.matcher(emailNormalized).matches();
@@ -47,6 +66,17 @@ public final class PendaftaranValidationService {
 		return n;
 	}
 
+	/**
+	 * Memvalidasi format username yang sudah dinormalisasi lewat
+	 * {@link #normalisasiUsername(String)} terhadap {@link #POLA_USERNAME} (§14.2): harus diawali
+	 * huruf kecil, diikuti kombinasi huruf/angka/underscore, dengan total panjang 3-31 karakter.
+	 * Method ini HANYA mengecek bentuk/format -- tidak mengecek apakah username reserved (lihat
+	 * {@link #usernameReserved(String)}) atau sudah dipakai/direservasi (lihat
+	 * {@link UsernameReservationService}).
+	 *
+	 * @param usernameNormalized username hasil {@link #normalisasiUsername(String)}
+	 * @return {@code true} bila format sesuai pola username tenant
+	 */
 	public static boolean usernameValid(String usernameNormalized) {
 		return usernameNormalized != null && POLA_USERNAME.matcher(usernameNormalized).matches();
 	}
@@ -124,6 +154,13 @@ public final class PendaftaranValidationService {
 		}
 	}
 
+	/**
+	 * Seperti {@link #versiTermsAktif()}, tapi untuk versi dokumen kebijakan privasi (§14.5) yang
+	 * terpublikasi saat ini -- dibaca dari konfigurasi {@code pendaftaran_privacy_version}, default
+	 * {@code "2026-01"}. Submit ditolak bila versi yang disetujui klien berbeda dari nilai ini.
+	 *
+	 * @return versi dokumen privasi aktif
+	 */
 	public static String versiPrivacyAktif() {
 		try {
 			return Common.getKonfigurasi("pendaftaran_privacy_version", "2026-01").getNilai();

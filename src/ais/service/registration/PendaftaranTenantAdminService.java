@@ -34,6 +34,7 @@ import ais.database.model.tenant.TenantRegistry;
  */
 public final class PendaftaranTenantAdminService {
 
+	/** Konstruktor privat -- kelas ini murni kumpulan method statis backoffice admin dan tidak boleh diinstansiasi. */
 	private PendaftaranTenantAdminService() {
 	}
 
@@ -156,6 +157,51 @@ public final class PendaftaranTenantAdminService {
 		return prosesKeputusan(admin, kode, reason, false);
 	}
 
+	/**
+	 * Implementasi kanonik keputusan admin atas satu permohonan tenant -- satu-satunya tempat yang
+	 * benar-benar mengubah status {@link PendaftaranTenant} keluar dari tahap review. Dipanggil oleh
+	 * {@link #approve(Tbmuser, String, String)} dan {@link #reject(Tbmuser, String, String)}, yang
+	 * hanya membedakan lewat flag {@code setuju} (§15).
+	 *
+	 * <p>
+	 * Alur kerja:
+	 * </p>
+	 * <ol>
+	 * <li>Reason WAJIB diisi (§15) -- kosong/{@code null} langsung ditolak dengan kode
+	 * {@code REASON_REQUIRED} TANPA membuka transaksi sama sekali.</li>
+	 * <li>Buka transaksi, cari permohonan lewat {@link #cariByKode}; tidak ketemu -> rollback +
+	 * {@code REGISTRATION_NOT_FOUND}.</li>
+	 * <li>Validasi state saat ini: approve hanya sah dari {@code REVIEW_PENDING}; reject sah dari
+	 * {@code REVIEW_PENDING} maupun {@code EMAIL_VERIFICATION_PENDING}. Di luar itu -> rollback +
+	 * {@code STATE_INVALID}.</li>
+	 * <li>Bila {@code setuju=true}: status diubah menjadi {@code PROVISIONING_QUEUED}, tahap menjadi
+	 * {@code "PROVISIONING"}, {@code approvedAt} dicatat, lalu {@link #buatJobBilaBelumAda} membuat
+	 * (atau meng-antre-ulang) {@link ProvisioningJob} milik permohonan ini.</li>
+	 * <li>Bila {@code setuju=false}: status diubah menjadi {@code REJECTED}, tahap menjadi
+	 * {@code "REJECTED"}, {@code rejectedAt} dicatat, {@code failureCode} diisi
+	 * {@code REJECTED_BY_ADMIN}, dan {@code failureMessageSafe} diisi pesan publik generik --
+	 * {@code reason} yang sesungguhnya dari admin HANYA masuk ke audit trail dan TIDAK PERNAH
+	 * ditampilkan ke pendaftar. Reservasi username yang masih aktif dilepas lewat
+	 * {@link #lepasReservasi}.</li>
+	 * <li>Perubahan disimpan ({@code saveOrUpdate}), satu {@link PendaftaranAuditEvent} dicatat
+	 * ({@code REGISTRATION_APPROVED} atau {@code REGISTRATION_REJECTED}) berisi {@code reason}, lalu
+	 * transaksi di-commit.</li>
+	 * <li>Exception apa pun sebelum commit menyebabkan {@link #rollbackDiam} dipanggil lalu exception
+	 * dilempar ulang ke pemanggil; sesi Hibernate selalu ditutup di blok {@code finally}.</li>
+	 * </ol>
+	 *
+	 * @param admin  admin yang mengambil keputusan (sudah lolos gerbang privilege di servlet); di
+	 *               sini hanya dipakai untuk mencatat siapa pelaku pada audit trail
+	 * @param kode   kode registrasi permohonan yang diputuskan
+	 * @param reason alasan keputusan admin, WAJIB diisi (§15); untuk kasus reject nilai ini hanya
+	 *               tersimpan di audit, tidak pernah dikirim/ditampilkan ke pendaftar
+	 * @param setuju {@code true} untuk approve (permohonan diantrekan provisioning), {@code false}
+	 *               untuk reject
+	 * @return JSON hasil: {@code status="00"} dengan {@code code}/{@code description} bila sukses,
+	 *         atau {@code status="91"} dengan kode error ({@code REASON_REQUIRED},
+	 *         {@code REGISTRATION_NOT_FOUND}, atau {@code STATE_INVALID}) bila gagal
+	 * @throws Exception diteruskan apa adanya dari kegagalan Hibernate/DB, setelah rollback dilakukan
+	 */
 	private static JSONObject prosesKeputusan(Tbmuser admin, String kode, String reason, boolean setuju)
 			throws Exception {
 		JSONObject hasil = new JSONObject();
@@ -345,6 +391,20 @@ public final class PendaftaranTenantAdminService {
 	// UTIL
 	// =====================================================================
 
+	/**
+	 * Membuat {@link ProvisioningJob} baru berstatus {@code QUEUED} untuk permohonan {@code pt}, atau
+	 * -- bila sudah ada job sebelumnya dan job tersebut BELUM {@code SUCCESS} -- mengembalikan job
+	 * lama itu ke {@code QUEUED} ({@code retryAt} diperbarui ke {@code sekarang},
+	 * {@code lockedBy} dikosongkan) agar worker provisioning mengambilnya lagi. Job yang statusnya
+	 * sudah {@code SUCCESS} tidak disentuh sama sekali -- ini membuat pemanggilan idempoten dan
+	 * mencegah permohonan yang sudah selesai diprovisioning ter-antre ulang secara tidak sengaja.
+	 * Dipanggil dari {@link #prosesKeputusan} (saat approve) dan {@link #retry(Tbmuser, String, String)}
+	 * (saat tidak ditemukan job sebelumnya).
+	 *
+	 * @param session  sesi Hibernate aktif dalam transaksi milik pemanggil
+	 * @param pt       permohonan tenant yang akan diprovisioning
+	 * @param sekarang timestamp yang dipakai konsisten untuk {@code createdAt}/{@code retryAt}
+	 */
 	private static void buatJobBilaBelumAda(Session session, PendaftaranTenant pt, Date sekarang) {
 		ProvisioningJob ada = (ProvisioningJob) session.createCriteria(ProvisioningJob.class)
 				.add(Restrictions.eq("pendaftaranTenant.id", pt.getId())).setMaxResults(1).uniqueResult();
@@ -368,6 +428,17 @@ public final class PendaftaranTenantAdminService {
 		session.save(job);
 	}
 
+	/**
+	 * Mencari reservasi username berstatus {@code RESERVED} milik permohonan {@code pt} dan
+	 * mengubahnya menjadi {@code RELEASED} (bila ada). Dipanggil dari {@link #prosesKeputusan} saat
+	 * permohonan ditolak, agar username yang tadinya direservasi kembali tersedia bagi pendaftar
+	 * lain. Tidak melakukan apa pun (bukan error) bila tidak ada reservasi aktif untuk permohonan
+	 * ini.
+	 *
+	 * @param session  sesi Hibernate aktif dalam transaksi milik pemanggil
+	 * @param pt       permohonan tenant pemilik reservasi
+	 * @param sekarang timestamp yang dicatat sebagai {@code releasedAt}
+	 */
 	private static void lepasReservasi(Session session, PendaftaranTenant pt, Date sekarang) {
 		SchemaNameReservation r = (SchemaNameReservation) session.createCriteria(SchemaNameReservation.class)
 				.add(Restrictions.eq("pendaftaranTenant.id", pt.getId()))
@@ -391,6 +462,16 @@ public final class PendaftaranTenantAdminService {
 		}
 	}
 
+	/**
+	 * Mencari {@link PendaftaranTenant} berdasarkan kode registrasi persis (exact match, ter-trim).
+	 * Mengembalikan {@code null} (bukan melempar exception) bila {@code kode} kosong/{@code null}/lebih
+	 * dari 40 karakter atau tidak ditemukan di database -- dipakai seluruh method publik kelas ini
+	 * untuk menerjemahkan input kode dari layar admin menjadi entitas.
+	 *
+	 * @param session sesi Hibernate aktif
+	 * @param kode    kode registrasi yang dicari
+	 * @return permohonan yang cocok, atau {@code null} bila tidak ditemukan/kode tidak valid
+	 */
 	private static PendaftaranTenant cariByKode(Session session, String kode) {
 		if (kode == null || kode.trim().isEmpty() || kode.length() > 40) {
 			return null;
@@ -399,6 +480,20 @@ public final class PendaftaranTenantAdminService {
 				.add(Restrictions.eq("registrationCode", kode.trim())).setMaxResults(1).uniqueResult();
 	}
 
+	/**
+	 * Mencatat satu baris {@link PendaftaranAuditEvent} bertipe aktor {@code ADMIN} untuk permohonan
+	 * {@code pt}. {@code reason} dipotong maksimal 500 karakter sebelum disimpan. Kegagalan mencatat
+	 * audit TIDAK menggagalkan transaksi utama pemanggil -- hanya direkam lewat
+	 * {@link ais.common.ErrorAuditUtil#record} -- karena baris audit ini adalah pencatatan pendukung,
+	 * bukan syarat sahnya keputusan admin itu sendiri.
+	 *
+	 * @param session   sesi Hibernate aktif dalam transaksi milik pemanggil
+	 * @param eventCode kode event (mis. {@code REGISTRATION_APPROVED}, {@code RESERVATION_RELEASED})
+	 * @param pt        permohonan tenant terkait
+	 * @param admin     admin pelaku aksi, boleh {@code null} untuk proses yang berjalan tanpa aktor
+	 *                  admin eksplisit
+	 * @param reason    alasan/catatan admin, dipotong ke 500 karakter bila lebih panjang
+	 */
 	private static void audit(Session session, String eventCode, PendaftaranTenant pt, Tbmuser admin,
 			String reason) {
 		try {
@@ -420,6 +515,7 @@ public final class PendaftaranTenantAdminService {
 		}
 	}
 
+	/** Membentuk JSON respons gagal seragam ({@code status="91"} + {@code code} + {@code description}) yang dipakai seluruh method publik kelas ini saat menolak permintaan. */
 	private static JSONObject tolak(JSONObject hasil, String code, String description) throws Exception {
 		hasil.put("status", "91");
 		hasil.put("code", code);
@@ -427,6 +523,7 @@ public final class PendaftaranTenantAdminService {
 		return hasil;
 	}
 
+	/** Rollback transaksi secara diam-diam (exception rollback dicatat ke audit error, tidak dilempar ulang) -- dipakai di blok {@code catch} method publik agar kegagalan rollback tidak menutupi exception asli yang sedang ditangani. */
 	private static void rollbackDiam(Session session, String lokasi) {
 		try {
 			if (session.getTransaction() != null && session.getTransaction().isActive()) {

@@ -29,9 +29,34 @@ import ais.service.tenant.TenantSchemaMigrations;
  */
 public final class TenantSchemaDdlDump {
 
+	/** Kelas utilitas murni statis — tidak pernah diinstansiasi. */
 	private TenantSchemaDdlDump() {
 	}
 
+	/**
+	 * Titik masuk alat cetak DDL. Bukan pengujian ber-assert (tidak ada patokan gagal/lolos
+	 * di sini — bandingkan dengan {@code TenantSchemaMigrasiSelfTest}) melainkan alat cetak:
+	 * menulis {@code CREATE SCHEMA} untuk schema ERP + audit, lalu setiap pernyataan DDL dari
+	 * {@link TenantSchemaMigrations#SEMUA} secara berurutan ke {@code System.out}, dengan
+	 * komentar header per bundel migrasi (versionCode, target, jumlah pernyataan, 12 karakter
+	 * pertama checksum) dan penanda {@code {S}}/{@code {A}}/{@code {SU}} disubstitusi memakai
+	 * cara yang SAMA dengan {@code TenantSchemaService#terapkanMigrasi} (lihat javadoc kelas
+	 * untuk alasan kedua tempat ini wajib tetap identik). Keluaran dimaksudkan untuk disalurkan
+	 * ke berkas lalu dijalankan langsung dengan {@code psql}.
+	 *
+	 * <p>
+	 * Cara pakai (lihat juga javadoc kelas):
+	 * </p>
+	 * <pre>
+	 * javac -sourcepath src/main/java -d out src/main/java/ais/service/tenant/test/TenantSchemaDdlDump.java
+	 * java  -cp out ais.service.tenant.test.TenantSchemaDdlDump uji_tenant uji_tenant__audit &gt; katalog.sql
+	 * psql -v ON_ERROR_STOP=1 -f katalog.sql
+	 * </pre>
+	 *
+	 * @param args {@code args[0]} nama schema ERP (default {@code "uji_tenant"} bila tidak
+	 *             diberikan); {@code args[1]} nama schema audit (default {@code args[0] +
+	 *             "__audit"} bila tidak diberikan)
+	 */
 	public static void main(String[] args) {
 		String erp = args.length > 0 ? args[0] : "uji_tenant";
 		String audit = args.length > 1 ? args[1] : erp + "__audit";

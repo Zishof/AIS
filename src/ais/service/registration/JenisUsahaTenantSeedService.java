@@ -92,6 +92,43 @@ public final class JenisUsahaTenantSeedService {
 		}
 	}
 
+	/**
+	 * Implementasi sesungguhnya dari seed katalog Jenis Usaha + mapping module bundle (§6.3/§7
+	 * dokumen ERD paket prompt) -- dipanggil satu kali oleh {@link #pastikanSeed()} lewat guard
+	 * ganda ({@code sudahSeed} + {@code synchronized}).
+	 *
+	 * <p>
+	 * Membuka {@link Session} Hibernate <b>miliknya sendiri</b> lewat
+	 * {@code HibernateUtil.getSessionFactory().openSession()} (bukan sesi thread-local biasa),
+	 * karena method ini dipanggil dari konteks {@code init()} servlet (load-on-startup) yang belum
+	 * tentu punya sesi request yang sedang berjalan. Seluruh proses seed -- baik katalog
+	 * {@link JenisUsahaTenant} maupun mapping {@link JenisUsahaTenantModule} untuk setiap
+	 * jenis -- dibungkus dalam SATU transaksi tunggal yang di-commit di akhir; sesi ditutup
+	 * lewat {@code finally} dengan {@code closeSessionQuietly} apa pun hasilnya.
+	 * </p>
+	 *
+	 * <p>
+	 * Untuk tiap baris pada {@link #JENIS} (urutan array = urutan tampil, dipakai untuk
+	 * menghitung {@code displayOrder = urut*10}): dicari baris {@link JenisUsahaTenant} existing
+	 * berdasarkan {@code code} lewat {@code Restrictions.eq("code", ...)}. Bila TIDAK ditemukan,
+	 * baris baru dibuat dengan {@code nama}/{@code deskripsi}/{@code icon} dari array,
+	 * {@code aktif=true}, {@code requiresManualReview} diturunkan dari flag {@code "Y"/"T"} pada
+	 * indeks ke-4 (jenis pendidikan SEKOLAH/PERGURUAN_TINGGI/PESANTREN diset {@code true} karena
+	 * pemetaannya ke produk eCampus/eSchool/ePesantren existing menyangkut data institusi nyata --
+	 * lihat §8.3), {@code defaultModuleBundleCode} disamakan dengan {@code code} itu sendiri, dan
+	 * atribut audit ({@code createdAt}/{@code oleh}/{@code olehId="seed"}) diisi. Baris yang SUDAH
+	 * ada TIDAK disentuh sama sekali -- penyuntingan manual Platform Admin (nama, deskripsi,
+	 * urutan tampil, status aktif) tetap dihormati lintas restart aplikasi.
+	 * </p>
+	 *
+	 * <p>
+	 * Setelah baris jenis usaha dipastikan ada (baru dibuat atau existing), {@link
+	 * #seedModul(Session, JenisUsahaTenant)} SELALU dipanggil untuk jenis tersebut -- ini
+	 * memastikan bahwa penambahan module code baru ke {@link #MODUL} pada rilis berikutnya tetap
+	 * ter-backfill ke jenis usaha yang sudah lama ada di database, bukan hanya berlaku untuk baris
+	 * jenis usaha yang baru pertama kali dibuat.
+	 * </p>
+	 */
 	private static void seed() {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -124,6 +161,37 @@ public final class JenisUsahaTenantSeedService {
 		}
 	}
 
+	/**
+	 * Menyamakan mapping module bundle satu jenis usaha ({@code jenis}) terhadap definisi union
+	 * entitlement pada {@link #MODUL} (§6.3/§7), dengan menambahkan HANYA baris
+	 * {@link JenisUsahaTenantModule} yang belum ada -- baris existing (termasuk yang sudah
+	 * diaktif/nonaktifkan manual oleh Platform Admin lewat {@code defaultEnabled}) TIDAK pernah
+	 * diubah atau dihapus di sini.
+	 *
+	 * <p>
+	 * Dipanggil oleh {@link #seed()} untuk setiap jenis usaha, baik yang baru dibuat maupun yang
+	 * sudah ada sebelumnya, sehingga penambahan module code baru pada {@link #MODUL} di rilis
+	 * berikutnya ikut ter-backfill ke katalog lama.
+	 * </p>
+	 *
+	 * <p>
+	 * Alur: (1) cari baris pada {@link #MODUL} yang {@code code}-nya (indeks 0) cocok dengan
+	 * {@code jenis.getCode()}; bila tidak ditemukan bundle module untuk jenis tersebut, method
+	 * berhenti tanpa melakukan apa-apa; (2) ambil seluruh {@link JenisUsahaTenantModule} existing
+	 * milik {@code jenis} lewat {@code jenisUsahaTenant.id}; (3) untuk setiap {@code moduleCode}
+	 * pada baris bundle (mulai indeks 1, karena indeks 0 adalah {@code code} jenis usaha itu
+	 * sendiri) yang belum ada pada daftar existing, buat baris {@link JenisUsahaTenantModule} baru
+	 * dengan {@code defaultEnabled=true}, {@code required} bernilai {@code true} HANYA untuk
+	 * module PERTAMA pada baris (indeks 1 -- dianggap module inti/wajib bundle tersebut),
+	 * {@code displayOrder} mengikuti posisi ({@code i*10}), dan atribut audit
+	 * {@code oleh}/{@code olehId="seed"}.
+	 * </p>
+	 *
+	 * @param session sesi Hibernate aktif milik {@link #seed()} (transaksi sudah berjalan di
+	 *                pemanggil, method ini hanya melakukan query + {@code save} di dalamnya)
+	 * @param jenis   baris {@link JenisUsahaTenant} (baru dibuat atau existing) yang mapping
+	 *                module-nya akan disamakan terhadap {@link #MODUL}
+	 */
 	private static void seedModul(Session session, JenisUsahaTenant jenis) {
 		String[] baris = null;
 		for (String[] m : MODUL) {

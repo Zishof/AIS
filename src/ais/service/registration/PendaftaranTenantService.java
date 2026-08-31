@@ -39,6 +39,7 @@ import ais.database.model.tenant.SchemaNameReservation;
  */
 public final class PendaftaranTenantService {
 
+	/** Konstruktor privat -- kelas ini murni kumpulan method statis (utility), tidak dimaksudkan untuk diinstansiasi. */
 	private PendaftaranTenantService() {
 	}
 
@@ -107,6 +108,7 @@ public final class PendaftaranTenantService {
 		}
 	}
 
+	/** Lama masa trial (hari) dari Konfigurasi {@code pendaftaran_trial_hari}; default/fallback 30 bila tidak diset atau nilainya tidak dapat diparse sebagai integer. */
 	static int trialHari() {
 		try {
 			return Integer.parseInt(Common.getKonfigurasi("pendaftaran_trial_hari", "30").getNilai().trim());
@@ -115,6 +117,16 @@ public final class PendaftaranTenantService {
 		}
 	}
 
+	/**
+	 * Basis subdomain publik tempat tenant baru akan dipublikasikan (mis. {@code ebisnis.id}),
+	 * dibaca dari Konfigurasi {@code pendaftaran_subdomain_base} (fallback {@code "ebisnis.id"}
+	 * bila konfigurasi belum diset atau gagal dibaca). Dipakai untuk menyusun kolom
+	 * {@code preview}/{@code previewDomain} pada {@link #cekUsername(String)} dan
+	 * {@link #status(String)} (format {@code <username>.<subdomainBase>}) -- HANYA pratinjau,
+	 * BUKAN nama domain final yang diprovisioning (itu ditentukan proses provisioning terpisah).
+	 *
+	 * @return basis subdomain aktif, tidak pernah {@code null}
+	 */
 	public static String subdomainBase() {
 		try {
 			return Common.getKonfigurasi("pendaftaran_subdomain_base", "ebisnis.id").getNilai();
@@ -127,6 +139,35 @@ public final class PendaftaranTenantService {
 	// CHECK USERNAME / EMAIL
 	// =====================================================================
 
+	/**
+	 * Endpoint GET real-time untuk pengecekan ketersediaan username/subdomain yang diketik user di
+	 * form pendaftaran (dipanggil berulang saat user mengetik, biasanya dengan debounce di sisi
+	 * klien) -- HANYA pemeriksaan informatif, BUKAN reservasi. Kebenaran final tetap ditentukan
+	 * oleh constraint unik saat {@link #submit(JSONObject, Long, String)} benar-benar mereservasi
+	 * lewat {@link UsernameReservationService#reservasi}, sehingga hasil "tersedia" di sini bisa
+	 * saja berubah menjadi tidak tersedia bila ada submit lain yang menang race di antara waktu cek
+	 * dan waktu submit.
+	 *
+	 * <p>
+	 * Alur: (1) input {@code desired} dinormalisasi lewat
+	 * {@link PendaftaranValidationService#normalisasiUsername(String)} (huruf kecil, dsb.); (2)
+	 * sesi Hibernate baru dibuka HANYA untuk baca (tanpa transaction eksplisit, ditutup di
+	 * {@code finally} lewat {@link HibernateUtil#closeSessionQuietly(Session)}); (3) delegasi
+	 * pemeriksaan benturan ke {@link UsernameReservationService#alasanTidakTersedia(Session,
+	 * String)}, yang memeriksa reserved-list, {@code Pendaftar.domain}, {@code TenantRegistry},
+	 * reservasi aktif, {@code Tbmuser.userId}, tabel {@code koperasi.pedagang}, dan
+	 * {@code pg_namespace} PostgreSQL sekaligus.
+	 * </p>
+	 *
+	 * @param desired username mentah yang diketik user (belum dinormalisasi)
+	 * @return JSON dengan {@code status="00"} (selalu sukses secara HTTP -- kegagalan ketersediaan
+	 *         BUKAN error), {@code username} (versi ternormalisasi), {@code tersedia} (boolean),
+	 *         {@code code} (kode alasan stabil: {@code USERNAME_AVAILABLE} atau salah satu kode
+	 *         {@code USERNAME_*} dari {@link UsernameReservationService#alasanTidakTersedia}),
+	 *         {@code preview} (pratinjau {@code <username>.<subdomainBase>}), dan {@code description}
+	 *         (pesan siap-tampil untuk UI)
+	 * @throws Exception diteruskan dari kegagalan Hibernate saat membuka/mengakses sesi
+	 */
 	public static JSONObject cekUsername(String desired) throws Exception {
 		JSONObject hasil = new JSONObject();
 		String normalized = PendaftaranValidationService.normalisasiUsername(desired);
@@ -174,6 +215,17 @@ public final class PendaftaranTenantService {
 		return hasil;
 	}
 
+	/**
+	 * Cek apakah {@code emailNormalized} sudah memiliki akun self-service, baik lewat jalur baru
+	 * ({@link PendaftarTenantProfile#getNormalizedEmail()}) maupun jalur lama {@code ebisnis.jsp}
+	 * (baris {@link Pendaftar} dengan {@code passwordHash} terisi, tanpa profile). Dipakai oleh
+	 * {@link #cekEmail(String)} dan {@link #submit(JSONObject, Long, String)} untuk mencegah
+	 * duplikasi akun (§3.1 dokumen master).
+	 *
+	 * @param session         sesi Hibernate milik pemanggil, dipakai apa adanya
+	 * @param emailNormalized alamat email yang sudah dinormalisasi
+	 * @return {@code true} bila email tersebut sudah terpakai oleh akun self-service mana pun
+	 */
 	private static boolean adaAkunSelfService(Session session, String emailNormalized) {
 		Object profile = session.createCriteria(PendaftarTenantProfile.class)
 				.add(Restrictions.eq("normalizedEmail", emailNormalized)).setMaxResults(1).uniqueResult();
@@ -429,6 +481,28 @@ public final class PendaftaranTenantService {
 		return hasil;
 	}
 
+	/**
+	 * Bangun (belum di-{@code save}) entitas {@link Pendaftar} baru dari payload form pendaftaran
+	 * publik, dipanggil oleh {@link #submit(JSONObject, Long, String)} hanya saat
+	 * {@code pendaftarLoginId == null} (flow pendaftar benar-benar baru). Password di-hash lewat
+	 * {@link PasswordHashService#hash(String)} (hash+salt terpisah, tidak pernah plaintext yang
+	 * disimpan). Kolom {@code jenisBisnis} diisi HANYA sebagai snapshot CSV kompatibilitas lama
+	 * lewat {@link #kodeJenisCsv(List)} -- sumber kebenaran pilihan jenis usaha tetap tabel join
+	 * {@code pendaftaran_tenant_jenis_usaha}. Akun dibuat dengan {@code aktif=false} secara
+	 * eksplisit (§1 dokumen master: getter default {@code null} berarti {@code true} pada beberapa
+	 * pemakaian lama, sehingga di sini WAJIB diset eksplisit ke {@code false} agar tenant belum
+	 * aktif sebelum melewati verifikasi/provisioning).
+	 *
+	 * @param p                   payload form ternormalisasi
+	 * @param namaUsaha           nama usaha/instansi yang sudah dirapikan
+	 * @param emailLogin          email login yang sudah dinormalisasi
+	 * @param password            password mentah (akan di-hash di sini, tidak disimpan mentah)
+	 * @param normalizedUsername  username ternormalisasi (dipakai juga sebagai {@code kode}/{@code domain})
+	 * @param jenisTerpilih       daftar jenis usaha terpilih (untuk snapshot {@code jenisBisnis} dan
+	 *                            penanda {@code merupakanSekolah})
+	 * @param keteranganLainnya   keterangan bebas bila salah satu jenis usaha adalah {@code LAINNYA}
+	 * @return entitas {@link Pendaftar} baru, siap di-{@code session.save(...)} oleh pemanggil
+	 */
 	private static Pendaftar buatPendaftar(JSONObject p, String namaUsaha, String emailLogin, String password,
 			String normalizedUsername, List<JenisUsahaTenant> jenisTerpilih, String keteranganLainnya) {
 		Pendaftar pendaftar = new Pendaftar();
@@ -465,6 +539,22 @@ public final class PendaftaranTenantService {
 		return pendaftar;
 	}
 
+	/**
+	 * Bangun (belum di-{@code save}) entitas {@link PendaftarTenantProfile} pendamping
+	 * {@link Pendaftar} baru, berisi data profil khusus jalur pendaftaran mandiri (legalitas,
+	 * website, timezone, dan metadata algoritma password) yang tidak tercakup pada entitas
+	 * {@link Pendaftar} lama. Status akun diinisialisasi
+	 * {@link PendaftarTenantProfile#STATUS_PENDING_VERIFICATION} dan baru berubah menjadi
+	 * {@code ACTIVE} setelah email diverifikasi (lihat {@link #verifikasiEmail(String)}/
+	 * {@link #verifikasiTanpaToken(Long)}). Dipanggil hanya sekali oleh
+	 * {@link #submit(JSONObject, Long, String)} bersamaan dengan {@link #buatPendaftar}.
+	 *
+	 * @param p           payload form ternormalisasi
+	 * @param pendaftar   entitas {@link Pendaftar} induk (harus sudah di-{@code save}/punya id
+	 *                    sebelum profile ini disimpan, karena relasi FK)
+	 * @param emailLogin  email login ternormalisasi, disalin ke {@code normalizedEmail}
+	 * @return entitas {@link PendaftarTenantProfile} baru, siap di-{@code session.save(...)}
+	 */
 	private static PendaftarTenantProfile buatProfile(JSONObject p, Pendaftar pendaftar, String emailLogin) {
 		PendaftarTenantProfile profile = new PendaftarTenantProfile();
 		profile.setPendaftar(pendaftar);
@@ -490,6 +580,22 @@ public final class PendaftaranTenantService {
 		return profile;
 	}
 
+	/**
+	 * Simpan satu baris {@link PendaftaranConsent} (persetujuan Terms/Privacy/Marketing) di dalam
+	 * transaction {@link #submit(JSONObject, Long, String)} yang sedang berjalan. Dipanggil hingga
+	 * tiga kali per submit -- satu per {@code tipe} ({@code TYPE_TERMS}, {@code TYPE_PRIVACY}, dan
+	 * {@code TYPE_MARKETING} bila user mencentang persetujuan marketing) -- masing-masing merekam
+	 * versi dokumen yang disetujui, IP, user agent, dan locale untuk keperluan audit/pembuktian
+	 * hukum di kemudian hari.
+	 *
+	 * @param session   sesi Hibernate transaksi berjalan
+	 * @param permohonan permohonan {@link PendaftaranTenant} yang baru dibuat
+	 * @param tipe      salah satu konstanta {@code PendaftaranConsent.TYPE_*}
+	 * @param versi     versi dokumen yang disetujui (sudah divalidasi terpublikasi sebelumnya)
+	 * @param accepted  status persetujuan (selalu {@code true} pada seluruh titik panggil saat ini)
+	 * @param p         payload form (sumber {@code sourceIp}/{@code userAgent}/{@code locale})
+	 * @param sekarang  timestamp {@code acceptedAt}, diselaraskan dengan waktu submit permohonan
+	 */
 	private static void simpanConsent(Session session, PendaftaranTenant permohonan, String tipe, String versi,
 			boolean accepted, JSONObject p, Date sekarang) {
 		PendaftaranConsent c = new PendaftaranConsent();
@@ -511,6 +617,45 @@ public final class PendaftaranTenantService {
 	// VERIFIKASI EMAIL / RESEND / STATUS / CANCEL
 	// =====================================================================
 
+	/**
+	 * Konsumsi tautan verifikasi email yang diklik pendaftar (jalur token publik, dibandingkan lewat
+	 * hash SHA-256 -- kebalikan dari {@link #verifikasiTanpaToken(Long)} yang dipakai backoffice
+	 * admin tanpa token). Ini adalah TITIK MASUK utama yang memindahkan permohonan dari tahap
+	 * {@code VERIFY_EMAIL} ke tahap berikutnya (review manual atau antrean provisioning).
+	 *
+	 * <p>
+	 * Seluruh mutasi berjalan dalam SATU transaction: (1) token dicari lewat
+	 * {@link EmailVerificationService#cariByToken(Session, String)} -- bila tidak ditemukan/sudah
+	 * kedaluwarsa/sudah dipakai, transaction tetap di-{@code commit} (tidak ada yang diubah) dan
+	 * method mengembalikan {@code VERIFICATION_TOKEN_INVALID}; (2) baris
+	 * {@link PendaftaranEmailVerification} yang cocok ditandai
+	 * {@code STATUS_CONSUMED}; (3) HANYA bila status permohonan induk masih
+	 * {@code STATUS_EMAIL_VERIFICATION_PENDING} atau {@code STATUS_SUBMITTED} (mencegah proses
+	 * ganda bila tautan diklik dua kali/status sudah maju), {@code verifiedAt} diisi dan permohonan
+	 * dicabangkan lewat {@link #perluManualReview(Session, PendaftaranTenant)}: jika perlu review,
+	 * status menjadi {@code STATUS_REVIEW_PENDING}/tahap {@code MANUAL_REVIEW}; jika tidak, status
+	 * menjadi {@code STATUS_PROVISIONING_QUEUED}/tahap {@code PROVISIONING} dan job provisioning
+	 * dibuat lewat {@link #buatJobProvisioning(Session, PendaftaranTenant, Date)}; (4)
+	 * {@link PendaftarTenantProfile} terkait (dicari via {@code pendaftar.id}) ditandai
+	 * {@code emailVerifiedAt} dan {@code accountStatus=ACTIVE} bila ditemukan; (5) audit event
+	 * {@code EV_EMAIL_VERIFIED} selalu dicatat, ditambah {@code EV_TENANT_PROVISIONING_QUEUED} bila
+	 * langsung masuk antrean provisioning (tanpa review manual).
+	 * </p>
+	 *
+	 * <p>
+	 * Berbeda dari kebanyakan method lain di kelas ini, exception di sini TIDAK diterjemahkan lewat
+	 * {@link #terjemahkanException} -- setelah rollback, exception dilempar apa adanya ke pemanggil
+	 * (servlet) untuk ditangani di sana.
+	 * </p>
+	 *
+	 * @param token token verifikasi mentah dari parameter URL (belum di-hash)
+	 * @return JSON {@code status="00"}, {@code code="EMAIL_VERIFIED"}, beserta
+	 *         {@code registrationCode} dan {@code redirect} ke halaman status bila sukses; JSON
+	 *         error ({@code status="91"}, {@code code="VERIFICATION_TOKEN_INVALID"}) bila token
+	 *         tidak valid/kedaluwarsa/sudah dipakai
+	 * @throws Exception dilempar ulang (setelah rollback bila transaction masih aktif) dari
+	 *                    kegagalan Hibernate atau parsing JSON di sepanjang proses
+	 */
 	public static JSONObject verifikasiEmail(String token) throws Exception {
 		JSONObject hasil = new JSONObject();
 		Session session = HibernateUtil.getSessionFactory().openSession();
@@ -651,6 +796,19 @@ public final class PendaftaranTenantService {
 		}
 	}
 
+	/**
+	 * Tentukan apakah permohonan harus dialihkan ke tahap review manual admin, bukan langsung masuk
+	 * antrean provisioning otomatis, sesaat setelah email diverifikasi. Dipanggil dari
+	 * {@link #verifikasiEmail(String)} dan {@link #verifikasiTanpaToken(Long)}. Dua sumber
+	 * pemicu: (1) konfigurasi global {@code pendaftaran_wajib_review_manual} aktif (semua
+	 * permohonan wajib direview terlepas jenis usahanya), atau (2) salah satu jenis usaha yang
+	 * dipilih permohonan (tabel {@link PendaftaranTenantJenisUsaha}) memiliki
+	 * {@link JenisUsahaTenant#getRequiresManualReview()} bernilai {@code true}.
+	 *
+	 * @param session    sesi Hibernate transaksi berjalan
+	 * @param permohonan permohonan yang diperiksa
+	 * @return {@code true} bila permohonan wajib direview manual
+	 */
 	private static boolean perluManualReview(Session session, PendaftaranTenant permohonan) {
 		if (Common.bolehKonfigurasi("pendaftaran_wajib_review_manual",
 				ais.database.model.Konfigurasi.TIDAK_AKTIF)) {
@@ -667,6 +825,17 @@ public final class PendaftaranTenantService {
 		return false;
 	}
 
+	/**
+	 * Buat baris {@link ProvisioningJob} berstatus {@code STATUS_QUEUED} untuk permohonan yang baru
+	 * lolos verifikasi email dan tidak memerlukan review manual. Idempoten: bila permohonan sudah
+	 * punya job (dicek lewat {@code pendaftaranTenant.id}), method berhenti tanpa membuat job kedua
+	 * -- penting karena {@link #verifikasiEmail(String)} bisa saja dipanggil ulang dalam kondisi
+	 * tertentu dan tidak boleh mengantrekan provisioning dobel untuk permohonan yang sama.
+	 *
+	 * @param session    sesi Hibernate transaksi berjalan
+	 * @param permohonan permohonan yang sudah terverifikasi
+	 * @param sekarang   timestamp {@code createdAt}/{@code retryAt} awal job
+	 */
 	private static void buatJobProvisioning(Session session, PendaftaranTenant permohonan, Date sekarang) {
 		ProvisioningJob adaJob = (ProvisioningJob) session.createCriteria(ProvisioningJob.class)
 				.add(Restrictions.eq("pendaftaranTenant.id", permohonan.getId())).setMaxResults(1).uniqueResult();
@@ -684,6 +853,34 @@ public final class PendaftaranTenantService {
 		session.save(job);
 	}
 
+	/**
+	 * Kirim ulang email verifikasi untuk permohonan yang masih menunggu verifikasi, dipanggil dari
+	 * halaman status pendaftaran (tombol "kirim ulang"). Hanya diperbolehkan selama status
+	 * permohonan masih persis {@code STATUS_EMAIL_VERIFICATION_PENDING} -- permohonan yang sudah
+	 * terverifikasi, dibatalkan, atau belum pernah disubmit ditolak dengan
+	 * {@code VERIFICATION_NOT_PENDING}.
+	 *
+	 * <p>
+	 * Alur dua fase seperti {@link #submit(JSONObject, Long, String)}: (1) di dalam transaction
+	 * pendek, permohonan dicari lewat {@link #cariByKode}, statusnya divalidasi, lalu tantangan
+	 * verifikasi BARU dibuat lewat {@link EmailVerificationService#buatChallenge(Session,
+	 * PendaftaranTenant, String)} -- yang otomatis men-supersede token PENDING lama sehingga tautan
+	 * email sebelumnya langsung mati begitu email baru diminta; (2) SETELAH transaction commit dan
+	 * sesi ditutup, email dikirim best-effort lewat
+	 * {@link EmailVerificationService#kirimEmail(Long, String, String, String, String, String)} --
+	 * dipisah dari transaction DB dengan alasan yang sama seperti pada {@link #submit}: panggilan
+	 * SMTP tidak boleh menahan/menggagalkan transaksi database.
+	 * </p>
+	 *
+	 * @param registrationCode kode pendaftaran (mis. {@code REG-2026-000123}) milik permohonan
+	 * @param baseUrl           basis URL absolut untuk menyusun tautan verifikasi baru
+	 * @return JSON {@code status="00"}, {@code code="VERIFICATION_RESENT"} bila berhasil; JSON
+	 *         error {@code REGISTRATION_NOT_FOUND} bila kode tidak ditemukan, atau
+	 *         {@code VERIFICATION_NOT_PENDING} bila status permohonan tidak lagi menunggu
+	 *         verifikasi email
+	 * @throws Exception dilempar ulang (setelah rollback bila transaction masih aktif) dari
+	 *                    kegagalan Hibernate saat mencari/memperbarui permohonan
+	 */
 	public static JSONObject resendVerifikasi(String registrationCode, String baseUrl) throws Exception {
 		JSONObject hasil = new JSONObject();
 		Session session = HibernateUtil.getSessionFactory().openSession();
@@ -827,6 +1024,7 @@ public final class PendaftaranTenantService {
 	// UTIL INTERNAL
 	// =====================================================================
 
+	/** Cari permohonan berdasarkan {@code registrationCode}; mengembalikan {@code null} bila kosong, terlalu panjang (&gt;40 karakter), atau tidak ditemukan. Dipakai oleh {@link #resendVerifikasi}, {@link #status}, dan {@link #cancel}. */
 	private static PendaftaranTenant cariByKode(Session session, String registrationCode) {
 		if (registrationCode == null || registrationCode.trim().isEmpty() || registrationCode.length() > 40) {
 			return null;
@@ -836,6 +1034,7 @@ public final class PendaftaranTenantService {
 				.setMaxResults(1).uniqueResult();
 	}
 
+	/** Susun kode pendaftaran stabil format {@code REG-<tahun>-<id 6-digit zero-padded>} dari id permohonan yang baru di-{@code save} (butuh id, sehingga dipanggil setelah {@code session.flush()}) dan tahun submit. */
 	private static String buatRegistrationCode(Long id, Date sekarang) {
 		java.util.Calendar cal = java.util.Calendar.getInstance();
 		cal.setTime(sekarang);
@@ -846,6 +1045,7 @@ public final class PendaftaranTenantService {
 		return "REG-" + cal.get(java.util.Calendar.YEAR) + "-" + idPadded;
 	}
 
+	/** Gabungkan kode {@link JenisUsahaTenant} terpilih jadi satu string CSV (dipotong ke 255 karakter), dipakai sebagai snapshot kompatibilitas kolom {@code Pendaftar.jenisBisnis} dan sebagai detail audit event {@code EV_BUSINESS_TYPES_SELECTED} -- BUKAN sumber kebenaran (lihat catatan pada {@link #buatPendaftar}). */
 	private static String kodeJenisCsv(List<JenisUsahaTenant> jenis) {
 		StringBuilder sb = new StringBuilder();
 		for (int i = 0; i < jenis.size(); i++) {
@@ -858,10 +1058,12 @@ public final class PendaftaranTenantService {
 		return sb.length() > 255 ? sb.substring(0, 255) : sb.toString();
 	}
 
+	/** Hash SHA-256 hex dari {@code ip} (via {@link PasswordHashService#sha256Hex(String)}) untuk disimpan sebagai {@code sourceIpHash}, atau {@code null} bila {@code ip} kosong/null -- IP mentah tidak pernah disimpan langsung demi privasi. */
 	static String hashIp(String ip) {
 		return ip == null || ip.trim().isEmpty() ? null : PasswordHashService.sha256Hex(ip.trim());
 	}
 
+	/** Mask alamat email untuk tampilan publik ter-mask (§5.2) -- mis. {@code "ab***c@domain.com"}; email dengan bagian lokal &le;3 karakter menyisakan hanya huruf pertama, dan {@code "***"} dikembalikan bila tidak ada/format {@code @} tidak jelas. Dipakai oleh {@link #status(String)}. */
 	static String maskEmail(String email) {
 		String e = email == null ? "" : email.trim();
 		int at = e.indexOf('@');
@@ -876,6 +1078,7 @@ public final class PendaftaranTenantService {
 		return depan.substring(0, 2) + "***" + depan.substring(depan.length() - 1) + belakang;
 	}
 
+	/** Petakan {@code status} permohonan ke kode langkah berikutnya yang dipahami UI ({@code VERIFY_EMAIL}, {@code WAIT_PROVISIONING}, {@code WAIT_REVIEW}, {@code LOGIN}, atau default {@code CONTACT_SUPPORT} untuk status tak dikenal/gagal). Dipakai oleh {@link #submit} (jalur idempotency) dan {@link #status(String)}. */
 	private static String nextStepDari(String status) {
 		if (PendaftaranTenant.STATUS_EMAIL_VERIFICATION_PENDING.equals(status)) {
 			return "VERIFY_EMAIL";
@@ -894,6 +1097,7 @@ public final class PendaftaranTenantService {
 		return "CONTACT_SUPPORT";
 	}
 
+	/** Masa berlaku reservasi username/schema (jam) dari Konfigurasi {@code pendaftaran_reservasi_jam}, default/fallback 72. Diteruskan ke {@link UsernameReservationService#reservasi}. */
 	private static int reservasiJam() {
 		try {
 			return Integer.parseInt(Common.getKonfigurasi("pendaftaran_reservasi_jam", "72").getNilai().trim());
@@ -902,6 +1106,21 @@ public final class PendaftaranTenantService {
 		}
 	}
 
+	/**
+	 * Catat satu baris {@link PendaftaranAuditEvent} (aktor {@code ACTOR_PUBLIC}, hasil {@code "OK"})
+	 * di dalam transaction pemanggil yang sedang berjalan. Dipanggil berulang kali dari
+	 * {@link #submit}, {@link #verifikasiEmail}, {@link #verifikasiTanpaToken}, dan {@link #cancel}
+	 * untuk setiap peristiwa penting alur pendaftaran. Kegagalan menulis audit (mis. exception saat
+	 * membangun JSON detail) SENGAJA ditelan dan hanya dicatat ke {@code ErrorAuditUtil} -- audit
+	 * tidak boleh menggagalkan transaksi bisnis utama.
+	 *
+	 * @param session    sesi Hibernate transaksi berjalan
+	 * @param eventCode  salah satu konstanta {@code PendaftaranAuditEvent.EV_*}
+	 * @param permohonan permohonan terkait, boleh {@code null} untuk event yang belum terikat permohonan
+	 * @param pendaftarId id {@link Pendaftar} terkait, boleh {@code null}
+	 * @param detail     teks detail bebas (disimpan sebagai {@code {"detail": ...}} di {@code detailJson}), boleh {@code null}
+	 * @param p          payload form (sumber {@code requestId}/{@code sourceIp}/{@code userAgent}), boleh {@code null}
+	 */
 	private static void audit(Session session, String eventCode, PendaftaranTenant permohonan, Long pendaftarId,
 			String detail, JSONObject p) {
 		try {
@@ -928,6 +1147,7 @@ public final class PendaftaranTenantService {
 		}
 	}
 
+	/** Isi {@code hasil} sebagai respons error generik ({@code status="91"}) dengan {@code code}/{@code description}/{@code retryable}, lalu kembalikan {@code hasil} yang sama (untuk gaya {@code return error(...)} di titik panggil). */
 	private static JSONObject error(JSONObject hasil, String code, String description, boolean retryable)
 			throws Exception {
 		hasil.put("status", "91");
@@ -937,6 +1157,7 @@ public final class PendaftaranTenantService {
 		return hasil;
 	}
 
+	/** Seperti {@link #error(JSONObject, String, String, boolean)} ({@code retryable=false}), dengan tambahan {@code fieldErrors} berisi satu {@code field} -&gt; {@code pesanField} untuk menyorot input form yang bermasalah. */
 	private static JSONObject errorField(JSONObject hasil, String code, String description, String field,
 			String pesanField) throws Exception {
 		error(hasil, code, description, false);

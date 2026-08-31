@@ -162,6 +162,7 @@ public final class TenantSchemaMigrations {
 			"draft_penjualan", "draft_penjualan_detail", "retur_penjualan",
 			"pemakaian_bahan_baku", "survey_kepuasan", "transaksi_backup_ack", "foto_produk",
 	};
+	/** Tabel audit yang WAJIB ada pasca-migrasi (dipakai VERIFY_SCHEMA). */
 	public static final String[] TABEL_WAJIB_AUDIT = {
 			// v1 -- cermin kolom, dipertahankan (TenantDataPlaneService masih menulis ke sana)
 			"revinfo", "brand", "toko", "pedagang",

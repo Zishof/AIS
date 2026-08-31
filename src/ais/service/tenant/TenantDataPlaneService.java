@@ -278,7 +278,27 @@ public final class TenantDataPlaneService {
 	// SINKRON BACKFILL shared -> tenant schema (baris pra-cutover)
 	// =====================================================================
 
-	/** Salin baris shared milik pendaftar yang BELUM ada di schema tenant (+audit revtype ADD). */
+	/**
+	 * Salin baris shared milik pendaftar yang BELUM ada di schema tenant (+audit revtype ADD).
+	 *
+	 * <p>
+	 * Ini adalah mekanisme <b>backfill inkremental</b> untuk baris yang dibuat SEBELUM cutover
+	 * tenant ke mode ber-schema (pra-existing di {@code public.brand}/{@code koperasi.toko}/
+	 * {@code koperasi.pedagang}) dan karenanya belum pernah melalui jalur DUAL-WRITE
+	 * ({@code mirror*}). Untuk masing-masing dari tiga entitas (brand, toko, pedagang, dalam
+	 * urutan itu -- toko bergantung pada brand, pedagang bergantung pada toko, jadi urutannya
+	 * BUKAN kebetulan), method ini mencari baris shared milik {@code pendaftarId} yang
+	 * {@code id}-nya belum ada di schema tenant ({@code NOT EXISTS}) lalu memanggil
+	 * {@code mirror*} yang bersangkutan dengan {@code baru=true} (revtype ADD) untuk setiap baris
+	 * yang hilang. Idempoten: dipanggil berulang kali hanya memproses baris yang benar-benar
+	 * belum tersalin, sehingga aman dipanggil di setiap READ (lihat
+	 * {@link #sinkronDenganTransaksi}) tanpa membuat duplikat maupun baris audit berulang.
+	 * </p>
+	 *
+	 * @param session     Session pemanggil.
+	 * @param schema      nama schema tenant, divalidasi ulang lewat {@link TenantSchemaService#pastikanAman}.
+	 * @param pendaftarId id pendaftar pemilik data shared yang akan dibackfill.
+	 */
 	@SuppressWarnings("rawtypes")
 	public static void sinkronDariShared(Session session, String schema, Long pendaftarId) {
 		String s = TenantSchemaService.pastikanAman(schema);
@@ -320,6 +340,19 @@ public final class TenantDataPlaneService {
 	// READ dari tenant schema
 	// =====================================================================
 
+	/**
+	 * Daftar brand untuk dashboard, dibaca langsung dari schema tenant ({@code <schema>.brand})
+	 * -- BUKAN dari {@code public.brand} shared -- sesuai pola READ data-plane dijelaskan di
+	 * javadoc kelas: dashboard membaca dari schema tenant, sedangkan tabel shared tetap ditulis
+	 * (dual-write) demi kompatibilitas runtime POS lama. Pemanggil bertanggung jawab memastikan
+	 * {@link #sinkronDariShared}/{@link #sinkronDenganTransaksi} sudah dijalankan sebelumnya agar
+	 * daftar ini lengkap termasuk baris pra-cutover.
+	 *
+	 * @param session Session pemanggil.
+	 * @param schema  nama schema tenant, divalidasi ulang lewat {@link TenantSchemaService#pastikanAman}.
+	 * @return array JSON berisi {@code id}, {@code nama}, {@code aktif} per brand, terurut nama.
+	 * @throws Exception diteruskan dari kegagalan membangun {@link JSONObject}/{@link JSONArray}.
+	 */
 	@SuppressWarnings("rawtypes")
 	public static JSONArray listBrand(Session session, String schema) throws Exception {
 		String s = TenantSchemaService.pastikanAman(schema);
@@ -337,6 +370,21 @@ public final class TenantDataPlaneService {
 		return arr;
 	}
 
+	/**
+	 * Daftar toko untuk dashboard, dibaca dari schema tenant ({@code <schema>.toko} di-JOIN
+	 * {@code <schema>.brand}), termasuk jumlah mesin POS (baris {@code pedagang}) per toko lewat
+	 * subquery {@code COUNT(*)}. Lihat catatan inline pada badan method soal label kolom: setiap
+	 * kolom pada SELECT native ini WAJIB berlabel unik ({@code t_id}, {@code t_nama}, dst.)
+	 * karena driver Hibernate membaca hasil query native by-label -- dua kolom berlabel sama
+	 * (mis. dua {@code nama} dari tabel berbeda) akan membuat salah satunya salah terbaca. Bug
+	 * ini pernah tertangkap saat UAT P8, jadi jangan menghapus alias kolom saat mengubah query ini.
+	 *
+	 * @param session Session pemanggil.
+	 * @param schema  nama schema tenant, divalidasi ulang lewat {@link TenantSchemaService#pastikanAman}.
+	 * @return array JSON berisi {@code id}, {@code nama}, {@code brandNama}, {@code kota},
+	 *         {@code aktif}, {@code jumlahMesinPos} per toko, terurut nama.
+	 * @throws Exception diteruskan dari kegagalan membangun {@link JSONObject}/{@link JSONArray}.
+	 */
 	@SuppressWarnings("rawtypes")
 	public static JSONArray listToko(Session session, String schema) throws Exception {
 		String s = TenantSchemaService.pastikanAman(schema);
@@ -362,6 +410,19 @@ public final class TenantDataPlaneService {
 		return arr;
 	}
 
+	/**
+	 * Daftar mesin POS (baris {@code pedagang}) milik satu toko, dibaca dari
+	 * {@code <schema>.pedagang}. Kata sandi ({@code pass}) sengaja TIDAK disertakan pada SELECT
+	 * ini, konsisten dengan larangan kredensial keluar ke response yang dibahas di javadoc
+	 * {@link TenantAccessException} dan {@link TenantAuditWriter}.
+	 *
+	 * @param session Session pemanggil.
+	 * @param schema  nama schema tenant, divalidasi ulang lewat {@link TenantSchemaService#pastikanAman}.
+	 * @param tokoId  id toko yang mesin POS-nya ingin didaftar.
+	 * @return array JSON berisi {@code id}, {@code nama}, {@code userid}, {@code aktif} per mesin
+	 *         POS, terurut nama.
+	 * @throws Exception diteruskan dari kegagalan membangun {@link JSONObject}/{@link JSONArray}.
+	 */
 	@SuppressWarnings("rawtypes")
 	public static JSONArray listMesinPos(Session session, String schema, Long tokoId) throws Exception {
 		String s = TenantSchemaService.pastikanAman(schema);

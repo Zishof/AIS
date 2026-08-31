@@ -54,6 +54,25 @@ public final class TenantSchemaMigrationsV2 {
 			"dibuat_pada timestamp, tanggal_dirubah timestamp, "
 			+ "oleh varchar(255), olehid varchar(255)";
 
+	/**
+	 * DDL kanonik v2 untuk schema ERP tenant, dieksekusi berurutan oleh
+	 * {@link TenantSchemaService#terapkanMigrasi} sebagai bundel {@code v2-inventory-master-erp}.
+	 * Empat kelompok tabel, dalam urutan yang menghormati dependensi FK (organisasi sebelum
+	 * akses, akses sebelum sales, mitra di akhir karena merujuk {@code salesperson}):
+	 * <ol>
+	 * <li><b>Organisasi</b> -- {@code gudang} dan {@code lokasi_stok}, unit fisik penyimpanan
+	 * di bawah {@code toko} (v1).</li>
+	 * <li><b>Akses dalam tenant</b> -- {@code role_tenant} (lihat {@link TenantRoleSeeder}),
+	 * {@code pengguna_tenant}, dan tabel pivot {@code user_role_tenant}.</li>
+	 * <li><b>Sales</b> -- {@code salesperson} dan {@code sales_assignment} (wilayah/toko/gudang
+	 * yang menjadi tanggung jawabnya).</li>
+	 * <li><b>Supplier</b> dan <b>Customer</b> -- masing-masing tabel induk plus
+	 * {@code _profile} dan {@code _bank_account} satu-ke-satu/satu-ke-banyak.</li>
+	 * </ol>
+	 * Setiap tabel legacy-import memakai kolom {@link #LEGACY} dan setiap tabel memakai kolom
+	 * jejak {@link #JEJAK}; lihat javadoc kelas untuk aturan checksum (array ini TIDAK BOLEH
+	 * diubah setelah dirilis -- tambahkan bundel versi baru untuk perubahan lanjutan).
+	 */
 	public static final String[] ERP = {
 			// ---------- Organisasi ----------
 			"CREATE TABLE {S}.gudang ("
@@ -215,6 +234,17 @@ public final class TenantSchemaMigrationsV2 {
 			"CREATE INDEX idx_{SU}_customer_bank_customer ON {S}.customer_bank_account (customer_id)",
 	};
 
+	/**
+	 * DDL kanonik v2 untuk schema audit tenant, dieksekusi oleh
+	 * {@link TenantSchemaService#terapkanMigrasi} sebagai bundel {@code v2-inventory-master-audit}.
+	 * Dua bagian: (1) serangkaian {@code ALTER TABLE {A}.revinfo ADD COLUMN} yang memperluas
+	 * tabel {@code revinfo} v1 dengan konteks aktor/permintaan §11.6 (siapa, peran apa, dari
+	 * perangkat mana, permintaan yang mana, alasannya apa) -- sengaja ALTER, bukan CREATE ulang,
+	 * sebab definisi kolom v1 tidak boleh disentuh; (2) tabel baru {@code {A}.audit_baris},
+	 * catatan baris generik ({@code entity}/{@code entity_id}/{@code sebelum}/{@code sesudah})
+	 * yang menggantikan pola cermin-per-tabel v1 untuk seluruh tabel v2 ke atas -- lihat javadoc
+	 * kelas untuk alasannya.
+	 */
 	public static final String[] AUDIT = {
 			// revinfo v1 hanya (rev, revtstmp). Diperluas dengan konteks §11.6 -- ALTER, bukan
 			// CREATE ulang, sebab definisi v1 tidak boleh disentuh.

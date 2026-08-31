@@ -46,6 +46,29 @@ public final class TenantSchemaMigrationsV3 {
 			"dibuat_pada timestamp, tanggal_dirubah timestamp, "
 			+ "oleh varchar(255), olehid varchar(255)";
 
+	/**
+	 * DDL kanonik v3 untuk schema ERP tenant, dieksekusi oleh
+	 * {@link TenantSchemaService#terapkanMigrasi} sebagai bundel {@code v3-inventory-stock-erp}.
+	 * Empat kelompok tabel, urut sesuai dependensi FK:
+	 * <ol>
+	 * <li><b>Master produk</b> -- {@code satuan}, {@code kategori_produk} (self-referencing
+	 * lewat {@code induk_id}), {@code produk}, dan {@code produk_batch} (untuk produk yang
+	 * memakai nomor batch/tanggal kedaluwarsa).</li>
+	 * <li><b>Stok</b> -- {@code mutasi_stok} (append-only, setiap pergerakan satu baris, koreksi
+	 * lewat baris pembalik via {@code pembalik_dari_id}, tidak pernah UPDATE) dan
+	 * {@code saldo_stok} (ringkasan turunan per produk/gudang/lokasi/batch, boleh dihitung ulang
+	 * dari {@code mutasi_stok}).</li>
+	 * <li><b>Opname</b> -- {@code stok_opname} (dokumen induk) dan {@code stok_opname_detail}
+	 * (selisih sistem vs fisik per produk).</li>
+	 * <li><b>Harga</b> -- {@code harga_beli_supplier} dan {@code harga_jual_customer}
+	 * (berversi lewat {@code berlaku_dari}/{@code berlaku_sampai}, tanpa unique constraint
+	 * karena duplikat legacy ditangani lewat {@code kandidat_duplikat}), serta
+	 * {@code price_list}/{@code price_list_detail}.</li>
+	 * </ol>
+	 * Tabel legacy-import memakai kolom {@link #LEGACY}, semua tabel memakai kolom jejak
+	 * {@link #JEJAK}. Array ini bagian dari DDL kanonik ber-checksum -- lihat peringatan pada
+	 * {@link #LEGACY}/{@link #JEJAK} dan javadoc kelas: TIDAK BOLEH diubah setelah dirilis.
+	 */
 	public static final String[] ERP = {
 			// ---------- Master produk ----------
 			"CREATE TABLE {S}.satuan ("

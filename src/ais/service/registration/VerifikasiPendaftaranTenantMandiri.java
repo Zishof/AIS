@@ -15,6 +15,55 @@ public final class VerifikasiPendaftaranTenantMandiri {
 	private static int gagal = 0;
 	private static int lulus = 0;
 
+	/**
+	 * Titik masuk harness verifikasi mandiri (§21.1 dokumen master): menjalankan serangkaian
+	 * kasus uji berbasis assert sederhana ({@link #cek}) langsung terhadap method-method logika
+	 * MURNI di paket pendaftaran tenant mandiri -- tanpa Hibernate/DB/kontainer, sehingga dapat
+	 * dijalankan cepat dari command line ({@code java -cp <classes>
+	 * ais.service.registration.VerifikasiPendaftaranTenantMandiri}) sebagai jaring pengaman
+	 * sebelum deploy, terpisah dari uji integrasi/konkurensi ber-DB di
+	 * {@code VerifikasiKonkurensiPendaftaran} (yang butuh server ter-deploy, bagian UAT).
+	 *
+	 * <p>
+	 * Kasus uji dikelompokkan mengikuti bagian dokumen master yang relevan, dieksekusi berurutan
+	 * dan TIDAK saling bergantung (tidak ada state bersama antar kelompok selain counter
+	 * {@link #lulus}/{@link #gagal}):
+	 * </p>
+	 * <ul>
+	 * <li><b>Normalisasi email (§14.1)</b> -- trim/lowercase via
+	 * {@link PendaftaranValidationService#normalisasiEmail} dan validasi format via
+	 * {@link PendaftaranValidationService#emailValid} (termasuk penolakan tanpa TLD dan yang
+	 * mengandung spasi).</li>
+	 * <li><b>Normalisasi + validasi username (§14.2)</b> -- lowercase, normalisasi Unicode NFKC
+	 * (mis. digit/huruf fullwidth diubah ke ASCII biasa) via
+	 * {@link PendaftaranValidationService#normalisasiUsername}, serta aturan panjang, karakter
+	 * awal, huruf besar, dan tanda hubung (username harus aman dipakai sebagai nama schema
+	 * PostgreSQL) via {@link PendaftaranValidationService#usernameValid}.</li>
+	 * <li><b>Telepon</b> -- pembuangan karakter non-digit dan tanda plus ganda via
+	 * {@link PendaftaranValidationService#normalisasiTelepon}.</li>
+	 * <li><b>Dedup jenis usaha (§14.4)</b> -- parsing daftar id dipisah koma, pembuangan duplikat
+	 * dan token bukan angka, dengan urutan dipertahankan (id pertama = primary) via
+	 * {@link PendaftaranValidationService#dedupIdJenisUsaha}.</li>
+	 * <li><b>{@code rapikan}</b> -- trim dan pemotongan panjang string, termasuk penanganan input
+	 * {@code null}.</li>
+	 * <li><b>{@link PasswordHashService} (§12.3)</b> -- panjang hash/salt hex, verifikasi
+	 * password benar/salah, penanganan input {@code null}, iterasi default saat parameter
+	 * {@code null}, keunikan salt antar-pemanggilan, determinisme SHA-256 (termasuk satu nilai
+	 * SHA-256("abc") yang sudah dikenal publik sebagai patokan), serta keacakan/panjang token.</li>
+	 * <li><b>Kompatibilitas hash dengan jalur lama</b> -- memastikan parameter algoritma/iterasi
+	 * ({@code PBKDF2WithHmacSHA256}, 120000 iterasi) tetap sama dengan yang dipakai
+	 * {@code PendaftarPublicHelper} versi lama, karena kolom hash dipakai bersama lintas jalur.</li>
+	 * </ul>
+	 *
+	 * <p>
+	 * Di akhir, ringkasan jumlah {@link #lulus}/{@link #gagal} dicetak ke stdout; bila ada
+	 * minimal satu kegagalan, proses keluar dengan {@link System#exit(int)} kode 1 (agar mudah
+	 * dideteksi oleh script/CI pemanggil), selain itu method kembali secara normal (exit 0
+	 * implisit).
+	 * </p>
+	 *
+	 * @param args tidak dipakai
+	 */
 	public static void main(String[] args) {
 		// ---- Normalisasi email (§14.1) ----
 		cek("email trim+lowercase", "budi@toko.id",
@@ -91,6 +140,16 @@ public final class VerifikasiPendaftaranTenantMandiri {
 		}
 	}
 
+	/**
+	 * Helper assert sederhana dipakai tiap baris pengujian di {@link #main(String[])}:
+	 * membandingkan {@code diharapkan} dengan {@code aktual} (via {@code equals}, aman terhadap
+	 * {@code null} di kedua sisi), mencetak baris {@code [LULUS]}/{@code [GAGAL]} ke stdout, dan
+	 * menaikkan counter {@link #lulus} atau {@link #gagal} sesuai hasil.
+	 *
+	 * @param nama       label kasus uji, dicetak apa adanya pada output
+	 * @param diharapkan nilai yang diharapkan
+	 * @param aktual     nilai aktual hasil pemanggilan method yang sedang diuji
+	 */
 	private static void cek(String nama, Object diharapkan, Object aktual) {
 		boolean sama = diharapkan == null ? aktual == null : diharapkan.equals(aktual);
 		if (sama) {

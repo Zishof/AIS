@@ -30,9 +30,75 @@ import java.util.Set;
  */
 public final class PendaftarBackfillTool {
 
+	/** Kelas utilitas eksekusi baris perintah murni; konstruktor privat mencegah instansiasi. */
 	private PendaftarBackfillTool() {
 	}
 
+	/**
+	 * Titik masuk baris perintah tunggal tool backfill: memindai {@code public.pendaftar} existing
+	 * dan membuat baris {@code pendaftar_tenant_profile} untuk akun self-service yang belum
+	 * memilikinya (§16.4 dokumen master, aturan disepakati di
+	 * {@code docs/pendaftaran-tenant/09-migration.md}), sekaligus menghasilkan laporan CSV berisi
+	 * baris yang DILEWATI/butuh penanganan manual.
+	 *
+	 * <p>
+	 * Argumen: {@code args[0]} URL JDBC, {@code args[1]} user DB, {@code args[2]} password DB,
+	 * {@code args[3]} path file CSV keluaran, {@code args[4]} opsional literal {@code "apply"}
+	 * (case-insensitive) untuk keluar dari mode default DRY-RUN. Kurang dari 4 argumen membuat
+	 * tool mencetak pesan pemakaian dan keluar dengan {@code System.exit(2)} tanpa menyentuh
+	 * database sama sekali.
+	 * </p>
+	 *
+	 * <p>
+	 * Alur kerja per baris {@code public.pendaftar} (diurutkan berdasar {@code id}), di dalam SATU
+	 * transaksi ({@code setAutoCommit(false)}) untuk keseluruhan proses:
+	 * </p>
+	 * <ol>
+	 * <li>Bila kolom {@code jenis_bisnis} lama terisi, diklasifikasikan (report saja, TIDAK pernah
+	 * ditulis ke tabel mana pun): dicocokkan case-insensitive terhadap katalog
+	 * {@code public.jenis_usaha_tenant.code} yang sudah dimuat lebih dulu ke memori; token
+	 * pertama sebelum koma juga dicoba bila nilai gabungan tidak cocok. Cocok -&gt; dihitung
+	 * {@code jenis_bisnis_dikenal}; tidak cocok -&gt; dicatat ke CSV sebagai
+	 * {@code JENIS_BISNIS_LAINNYA} dengan keterangan {@code LAINNYA_RAW:<teks asli>} dan dihitung
+	 * {@code jenis_bisnis_lainnya}.</li>
+	 * <li>Baris yang {@code password_hash} kosong/{@code null} dianggap akun buatan staf (BUKAN
+	 * self-service TERBUKTI) -&gt; dilewati sepenuhnya (aturan #1), dihitung
+	 * {@code bukan_self_service}, TIDAK masuk CSV exception.</li>
+	 * <li>Baris yang sudah punya {@code pendaftar_tenant_profile} (dicek lewat subquery
+	 * {@code COUNT(*)} pada query utama) dilewati, dihitung {@code dilewati_sudah_ada} -- inilah
+	 * yang membuat mode {@code apply} idempoten terhadap eksekusi berulang.</li>
+	 * <li>Email kosong atau tidak memuat {@code '@'} pada posisi valid dicatat ke CSV sebagai
+	 * {@code EMAIL_KOSONG_ATAU_INVALID} (aturan #4), dihitung {@code exception}.</li>
+	 * <li>Email yang sudah dipakai oleh profile lain (dicek terhadap set yang dimuat dari
+	 * {@code pendaftar_tenant_profile} DITAMBAH email yang baru saja "dipakai" dalam batch berjalan
+	 * ini, sehingga duplikat ANTAR baris pendaftar dalam satu eksekusi juga tertangkap) dicatat
+	 * sebagai {@code EMAIL_DUPLIKAT}, dihitung {@code exception}. Baris ini TIDAK pernah dipaksa
+	 * dibuatkan profile (aturan #4).</li>
+	 * <li>Baris yang lolos semua pengecualian di atas dihitung {@code profile_dibuat}; bila mode
+	 * {@code apply} aktif, dieksekusi {@code INSERT} ke {@code pendaftar_tenant_profile} dengan
+	 * {@code account_status='ACTIVE'}, {@code registration_source='BACKFILL'}, algoritma password
+	 * PBKDF2WithHmacSHA256/120000 iterasi TANPA MENGUBAH hash password existing sama sekali
+	 * (aturan #5 -- kolom password sendiri tidak disentuh, hanya baris profile pendamping yang
+	 * dibuat) dan {@code must_change_password=false}. Tool ini juga TIDAK PERNAH membuat baris
+	 * tenant registry (aturan #3 -- perlu persetujuan terpisah dari pemilik produk).</li>
+	 * </ol>
+	 *
+	 * <p>
+	 * Di akhir: mode {@code apply} melakukan {@code conn.commit()}; mode DRY-RUN (default) selalu
+	 * {@code conn.rollback()} sehingga TIDAK ADA perubahan data tersimpan walau statement
+	 * {@code INSERT} sempat disiapkan/dieksekusi di working transaksi. File CSV dan koneksi selalu
+	 * ditutup lewat {@code finally}. Ringkasan angka ({@code MODE}, {@code profile_dibuat},
+	 * {@code dilewati_sudah_ada}, {@code bukan_self_service}, {@code exception},
+	 * {@code jenis_bisnis_dikenal}, {@code jenis_bisnis_lainnya}, {@code csv}) dicetak ke
+	 * {@code System.out} sebagai baris {@code key=value} agar mudah di-parse operator/skrip CI.
+	 * </p>
+	 *
+	 * @param args argumen baris perintah: {@code [jdbcUrl, user, pass, csvKeluaran, apply?]}
+	 * @throws Exception diteruskan apa adanya dari kegagalan driver JDBC, koneksi database, atau
+	 *                    I/O penulisan file CSV -- tool ini sengaja tidak menangkap galat tak
+	 *                    terduga secara halus karena dijalankan manual oleh operator yang akan
+	 *                    melihat stack trace langsung di konsol
+	 */
 	public static void main(String[] args) throws Exception {
 		if (args.length < 4) {
 			System.out.println("Pemakaian: PendaftarBackfillTool <jdbcUrl> <user> <pass> <csvKeluaran> [apply]");
