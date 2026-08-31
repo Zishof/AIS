@@ -513,6 +513,50 @@ public class Produk extends GeneralValueObject {
 		this.hargaBeliManual = hargaBeliManual;
 	}
 
+	private Boolean packAktif;
+	private SatuanProduk satuanPack;
+	private Double hargaPack;
+
+	/**
+	 * Pack/Combo (PDF 31-08): {@code true} = produk boleh dijual di POS per PACK -- kasir
+	 * mendapat pilihan satuan dasar vs pack saat menjual. Stok TETAP turun per satuan dasar
+	 * (mesin Fase B); baris penjualan menyimpan snapshot satuan pack utk akunting/struk.
+	 */
+	@Column(name = "pack_aktif", nullable = true)
+	public Boolean getPackAktif() {
+		return packAktif;
+	}
+
+	public void setPackAktif(Boolean packAktif) {
+		this.packAktif = packAktif;
+	}
+
+	/** UOM Pack (mis. Dus isi 6) -- wajib sekategori dengan {@link #getSatuan()}. */
+	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
+	@JoinColumn(name = "satuan_pack", nullable = true)
+	public SatuanProduk getSatuanPack() {
+		satuanPack = check(satuanPack);
+		return satuanPack;
+	}
+
+	public void setSatuanPack(SatuanProduk satuanPack) {
+		this.satuanPack = satuanPack;
+	}
+
+	/**
+	 * Harga jual TETAP per pack (mis. Rp 65.000/Dus -- sengaja BUKAN isi x harga satuan).
+	 * Server menimpanya ke baris saat kasir memilih satuan pack; total per pack selalu
+	 * persis nilai ini.
+	 */
+	@Column(name = "harga_pack", nullable = true)
+	public Double getHargaPack() {
+		return hargaPack;
+	}
+
+	public void setHargaPack(Double hargaPack) {
+		this.hargaPack = hargaPack;
+	}
+
 	/** Kebijakan retur produk; data kosong dimaknai sebagai kebijakan baku tanpa retur. */
 	@org.hibernate.envers.NotAudited
 	@ManyToOne(fetch = FetchType.LAZY)

@@ -3813,6 +3813,17 @@ public class KantinHelper {
 			}
 			baris.put("jumlah", qtyInput * faktor);
 			baris.put("faktor_ke_dasar", faktor);
+			// PDF Pack 31-08: kasir memilih satuan PACK produk ber-Pack -> harga baris DITIMPA
+			// harga_pack/faktor (server berwenang; total per pack = persis harga pack, mis.
+			// Rp 65.000/Dus, BUKAN 6 x 12.000). Aturan grosir tetap dievaluasi SESUDAH ini
+			// (urutan dok. 51/52) -- aturan komersial menang bila cocok.
+			if (Boolean.TRUE.equals(produk.getPackAktif()) && produk.getSatuanPack() != null
+					&& produk.getSatuanPack().getId() != null
+					&& produk.getSatuanPack().getId().longValue() == satuanId
+					&& produk.getHargaPack() != null && produk.getHargaPack().doubleValue() > 0
+					&& faktor > 0) {
+				baris.put("harga", produk.getHargaPack().doubleValue() / faktor);
+			}
 		}
 		return true;
 	}
@@ -4214,6 +4225,40 @@ public class KantinHelper {
 			// PDF "stok & uom" 30-08: kebijakan harga beli per produk (manual vs ikut faktur).
 			if (request.has("harga_beli_manual")) {
 				p.setHargaBeliManual(Boolean.valueOf(request.optBoolean("harga_beli_manual", false)));
+			}
+			// PDF Pack 31-08: settingan Pack/Combo -- centang, UOM pack, harga tetap per pack.
+			if (request.has("pack_aktif")) {
+				boolean packAktif = request.optBoolean("pack_aktif", false);
+				p.setPackAktif(Boolean.valueOf(packAktif));
+				if (packAktif) {
+					Long satuanPackId = ais.common.Common.angkaAtauNull(request, "satuan_pack_id");
+					double hargaPack = request.optDouble("harga_pack", 0);
+					SatuanProduk satuanPack = satuanPackId == null ? null
+							: (SatuanProduk) session.get(SatuanProduk.class, satuanPackId);
+					if (satuanPack == null || !Boolean.TRUE.equals(satuanPack.getAktif())) {
+						hasil.put("status", "91");
+						hasil.put("description",
+								"UOM Pack wajib dipilih dari Master Data > Satuan/UOM saat Pack dicentang.");
+						return;
+					}
+					if (p.getSatuan() == null
+							|| !p.getSatuan().getKategori().equalsIgnoreCase(satuanPack.getKategori())) {
+						hasil.put("status", "91");
+						hasil.put("description",
+								"UOM Pack harus sekategori dengan Satuan Stok/Dasar (mis. Botol dan Dus di kategori UNIT).");
+						return;
+					}
+					if (hargaPack <= 0) {
+						hasil.put("status", "91");
+						hasil.put("description", "Harga per pack wajib lebih dari nol saat Pack dicentang.");
+						return;
+					}
+					p.setSatuanPack(satuanPack);
+					p.setHargaPack(Double.valueOf(hargaPack));
+				} else {
+					p.setSatuanPack(null);
+					p.setHargaPack(null);
+				}
 			}
 			// Gap-closure "Produk Ekstra" -- JSON array id mentah (mis. "[601,602]"), disimpan apa
 			// adanya, TIDAK di-snapshot spt bahan_baku -- lihat JavaDoc Produk.getEkstraPilihan().

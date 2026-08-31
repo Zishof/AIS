@@ -562,20 +562,42 @@ public class BuktiPembayaranAction extends GenericAutowireComposer implements Da
 						}
 					}
 
-					PembayaranUtil.getInstance();
-					PembayaranUtil.getInstance();
+					Integer smt = (Integer) (semester == null || semester.getSelectedItem() == null ? null
+							: semester.getSelectedItem().getValue());
 					Collection detailBiayas = mhs == null
 							? PembayaranUtilHelper.getDetailBiayaCalonMahasiswa(biodataCalonMahasiswa, jk,
-									jurusan,
-									(Integer) (semester == null || semester.getSelectedItem() == null ? null
-											: semester.getSelectedItem().getValue()),
+									jurusan, smt,
 									true)
-							: PembayaranUtilHelper.getDetailBiayaMahasiswa(mhs,
-									(Integer) (semester == null || semester.getSelectedItem() == null ? null
-											: semester.getSelectedItem().getValue()),
-									jk, true);
+							: PembayaranUtilHelper.getDetailBiayaMahasiswa(mhs, smt, jk, true);
 
-					if (detailBiayas.isEmpty()) {
+					Session session = HibernateUtil.currentSession();
+
+					/*
+					 * Jangan berhenti saat pencarian tagihan reguler menghasilkan koleksi kosong.
+					 * Untuk jenis pembayaran bulanan/angsuran, koleksi kosong adalah sinyal agar
+					 * pemanggil melanjutkan ke PengaturanPembayaranBulanan. Sebelumnya return di
+					 * bawah dijalankan terlalu awal, sehingga rincian semester genap tidak tampil
+					 * walaupun billing bulanannya sudah tersedia.
+					 */
+					if (mhs != null) {
+						int countPengaturanBulanan = PembayaranUtilHelper.countBulanan(session, mhs, jk, smt,
+								detailBiayas, true, false);
+						if (countPengaturanBulanan > 0) {
+							// Pertahankan slot yang sudah dibayar sebagian agar bukti pembayaran
+							// masih dapat dicatat untuk sisa tagihannya.
+							detailBiayas = PembayaranUtilHelper.getDetailBiayaMahasiswa(mhs, smt, jk, "-1",
+									Boolean.TRUE, true);
+						}
+					} else if (biodataCalonMahasiswa != null) {
+						int countPengaturanBulanan = PembayaranUtilHelper.countBulanan(session,
+								biodataCalonMahasiswa, jk, smt, detailBiayas, true, false);
+						if (countPengaturanBulanan > 0) {
+							detailBiayas = PembayaranUtil.getInstance().getPengaturanPembayaranSemua(
+									biodataCalonMahasiswa, session, smt, jk, detailBiayas, true, false);
+						}
+					}
+
+					if (detailBiayas == null || detailBiayas.isEmpty()) {
 						// MyMessageboxConfig.show("Tagihan atau item biaya
 						// tidak ditemukan", "Pemberitahuan",
 						// MyMessageboxConfig.OK,
@@ -590,17 +612,6 @@ public class BuktiPembayaranAction extends GenericAutowireComposer implements Da
 						// });
 
 						return;
-					}
-
-					Session session = HibernateUtil.currentSession();
-
-					if (mhs != null) {
-						Integer smt = (Integer) (semester == null || semester.getSelectedItem() == null ? null
-								: semester.getSelectedItem().getValue());
-						int countPengaturanBulanan = PembayaranUtilHelper.countBulanan(session, mhs, jk, smt,
-								detailBiayas, false, false);
-						detailBiayas = PembayaranUtilHelper.getDetailBiayaMahasiswa(mhs, smt, jk,
-								countPengaturanBulanan > 0 ? "-1" : null, true);
 					}
 
 					final Rows rows = new Rows();

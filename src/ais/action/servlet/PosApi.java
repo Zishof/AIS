@@ -1366,6 +1366,23 @@ public class PosApi extends HttpServlet {
 				j.put("perluQc", Boolean.TRUE.equals(p.getPerluQc()));
 				// PDF stok & uom: kebijakan harga beli (manual vs ikut faktur) utk form Produk.
 				j.put("hargaBeliManual", Boolean.TRUE.equals(p.getHargaBeliManual()));
+				// PDF Pack 31-08: settingan Pack/Combo utk form Produk & menu pack kasir.
+				j.put("packAktif", Boolean.TRUE.equals(p.getPackAktif()));
+				j.put("satuanPackId", p.getSatuanPack() == null || p.getSatuanPack().getId() == null
+						? JSONObject.NULL : p.getSatuanPack().getId());
+				j.put("satuanPackNama", p.getSatuanPack() == null ? "" : str(p.getSatuanPack().getNama()));
+				j.put("hargaPack", p.getHargaPack() == null ? JSONObject.NULL : p.getHargaPack());
+				Object faktorPack = JSONObject.NULL;
+				if (Boolean.TRUE.equals(p.getPackAktif()) && p.getSatuanPack() != null) {
+					try {
+						faktorPack = Double.valueOf(
+								ais.action.servlet.api.KantinHelper.faktorUomInputKeDasar(p, p.getSatuanPack()));
+					} catch (Exception eFaktorPack) {
+						// Kategori UOM salah: biarkan null -- menu pack kasir menyembunyikan pilihan
+						// pack dan admin memperbaiki master, bukan katalog gagal total.
+					}
+				}
+				j.put("faktorPackKeDasar", faktorPack);
 				j.put("pemasokNama", p.getPemasok() == null ? "" : str(p.getPemasok().getNama()));
 				j.put("gambarUrl", Boolean.TRUE.equals(p.getAdaFileGambar()) ? buildUrlGambarProduk(request, p.getId()) : JSONObject.NULL);
 				// Diisi ulang (bila ada) SETELAH loop ini lewat batch query -- default kosong dulu di
