@@ -26,22 +26,57 @@ import ais.service.tenant.TenantSqlExecutor;
  */
 public final class TenantKonteksSelfTest {
 
+	/** Kelas utilitas murni statis — tidak pernah diinstansiasi. */
 	private TenantKonteksSelfTest() {
 	}
 
+	/** Penghitung kegagalan lintas ketiga blok uji; bukan JUnit sehingga dikelola manual. */
 	private static int gagal;
 
+	/**
+	 * Catat satu kegagalan: cetak baris {@code GAGAL: <pesan>} ke {@code System.out} dan
+	 * naikkan {@link #gagal}. Dipanggil langsung untuk kegagalan yang tidak berbentuk
+	 * pemeriksaan boolean sederhana, dan secara internal oleh {@link #benar(boolean, String)}.
+	 *
+	 * @param pesan penjelasan kegagalan, ditulis apa adanya ke keluaran konsol
+	 */
 	private static void salah(String pesan) {
 		System.out.println("  GAGAL: " + pesan);
 		gagal++;
 	}
 
+	/**
+	 * Assersi manual: catat kegagalan lewat {@link #salah(String)} bila {@code syarat}
+	 * bernilai {@code false}, tidak melakukan apa pun bila {@code true}. Pengganti
+	 * {@code assertTrue} JUnit pada harness ini — tidak menghentikan eksekusi saat gagal,
+	 * hanya menambah hitungan {@link #gagal}, sehingga satu jalan uji dapat melaporkan
+	 * banyak pelanggaran sekaligus.
+	 *
+	 * @param syarat kondisi yang diharapkan benar
+	 * @param pesan  penjelasan yang dicetak bila {@code syarat} salah
+	 */
 	private static void benar(boolean syarat, String pesan) {
 		if (!syarat) {
 			salah(pesan);
 		}
 	}
 
+	/**
+	 * Titik masuk harness manual (bukan JUnit) untuk penjaga konteks tenant. Jalankan dengan
+	 * {@code java ais.service.tenant.test.TenantKonteksSelfTest} setelah kelas ini dan
+	 * dependensinya berada di classpath. Menjalankan ketiga blok uji berurutan
+	 * ({@link #ujiNamaSchemaAudit()}, {@link #ujiTidakBocorKeKlien()},
+	 * {@link #ujiSubstitusiSql()}), lalu bila {@link #gagal} &gt; 0 melempar
+	 * {@link IllegalStateException} berisi jumlah masalah (exit code bukan-nol lewat JVM);
+	 * bila seluruhnya lolos, mencetak {@code "TenantKonteksSelfTest OK"} dan memanggil
+	 * {@code System.exit(0)} eksplisit. Lihat javadoc kelas untuk catatan mengenai keluaran
+	 * berisik tanpa {@code hibernate.cfg.xml} pada classpath.
+	 *
+	 * @param a tidak dipakai
+	 * @throws Exception diteruskan dari blok uji manapun (mis. kegagalan tak terduga di luar
+	 *                    pola {@code benar}/{@code salah}); {@link IllegalStateException} bila
+	 *                    ada satu atau lebih pemeriksaan yang gagal
+	 */
 	public static void main(String[] a) throws Exception {
 		ujiNamaSchemaAudit();
 		ujiTidakBocorKeKlien();
@@ -81,6 +116,14 @@ public final class TenantKonteksSelfTest {
 		tolak(null);
 	}
 
+	/**
+	 * Pastikan {@code nama} adalah nama schema audit SAH menurut
+	 * {@link TenantSchemaLocator#pastikanAmanAudit}: dipanggil dan diharapkan mengembalikan
+	 * {@code nama} apa adanya (tidak diubah), tanpa melempar. Dipakai oleh
+	 * {@link #ujiNamaSchemaAudit()} untuk kasus yang seharusnya lolos.
+	 *
+	 * @param nama nama schema audit yang diharapkan sah
+	 */
 	private static void terima(String nama) {
 		try {
 			String hasil = TenantSchemaLocator.pastikanAmanAudit(nama);
@@ -90,6 +133,13 @@ public final class TenantKonteksSelfTest {
 		}
 	}
 
+	/**
+	 * Pastikan {@code nama} adalah nama schema audit TIDAK SAH: dipanggil dan diharapkan
+	 * melempar {@link IllegalArgumentException}. Dipakai oleh {@link #ujiNamaSchemaAudit()}
+	 * untuk kasus yang seharusnya ditolak.
+	 *
+	 * @param nama nama schema audit yang diharapkan tidak sah, termasuk {@code null}
+	 */
 	private static void tolak(String nama) {
 		try {
 			TenantSchemaLocator.pastikanAmanAudit(nama);
@@ -137,6 +187,12 @@ public final class TenantKonteksSelfTest {
 		benar(!ctx.punyaModul("apotik"), "punyaModul mengaku punya modul yang tidak ada");
 	}
 
+	/**
+	 * Verifikasi {@link ais.service.tenant.TenantSqlExecutor}: substitusi penanda {@code {t}}/
+	 * {@code {a}} pada tenant TENANT_ONLY, deteksi kebutuhan schema lewat {@code butuhSchema},
+	 * penolakan tegas (bukan fallback senyap) atas kueri ber-penanda pada tenant LEGACY
+	 * (§12.4), dan penegakan batas halaman lewat {@code batasiLimit}.
+	 */
 	private static void ujiSubstitusiSql() {
 		Set<String> modul = new HashSet<String>();
 		TenantContext tenant = TenantContext.builder()

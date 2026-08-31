@@ -29,10 +29,18 @@ import ais.service.tenant.TenantSchemaMigrations;
  */
 public final class TenantSchemaMigrasiSelfTest {
 
+	/** Kelas utilitas murni statis — tidak pernah diinstansiasi. */
 	private TenantSchemaMigrasiSelfTest() {
 	}
 
-	/** versionCode diikuti checksum yang dipatok. Lihat catatan kelas sebelum mengubah. */
+	/**
+	 * Patokan checksum bundel yang sudah dirilis: setiap baris {@code {versionCode, checksum}}
+	 * (12 karakter pertama checksum kanonik, cukup untuk mendeteksi perubahan tanpa membuat
+	 * tabel ini panjang). Diperiksa oleh {@link #periksaPatokan()}. Lihat catatan javadoc
+	 * kelas sebelum mengubah — hanya boleh diubah bila versi tersebut belum terpasang pada
+	 * tenant mana pun; sesudah itu, satu-satunya jalan yang benar adalah menambah baris BARU
+	 * di akhir tabel untuk versi migrasi baru.
+	 */
 	private static final String[][] PATOKAN = {
 			{ "v1-core-pos-erp", "4b8bff529787" },
 			{ "v1-core-pos-audit", "c8809f088a65" },
@@ -47,8 +55,22 @@ public final class TenantSchemaMigrasiSelfTest {
 			{ "v9-pos-ebisnis-erp", "866f7b5e4324" },
 	};
 
+	/** Penghitung kegagalan lintas kedua blok uji; bukan JUnit sehingga dikelola manual. */
 	private static int gagal;
 
+	/**
+	 * Titik masuk harness manual (bukan JUnit) untuk penjaga katalog migrasi tenant. Jalankan
+	 * dengan {@code java ais.service.tenant.test.TenantSchemaMigrasiSelfTest}; tidak
+	 * menyentuh basis data sama sekali — seluruh pemeriksaan murni terhadap definisi Java di
+	 * memori ({@link TenantSchemaMigrations#SEMUA}). Menjalankan {@link #periksaPatokan()}
+	 * lalu {@link #periksaStruktur()}, kemudian bila {@link #gagal} &gt; 0 melempar
+	 * {@link IllegalStateException} berisi jumlah masalah; bila lolos, mencetak ringkasan
+	 * jumlah migrasi dan versi terkini lalu memanggil {@code System.exit(0)} eksplisit.
+	 *
+	 * @param a tidak dipakai
+	 * @throws Exception {@link IllegalStateException} bila ada satu atau lebih pemeriksaan
+	 *                    yang gagal
+	 */
 	public static void main(String[] a) throws Exception {
 		periksaPatokan();
 		periksaStruktur();
@@ -61,11 +83,27 @@ public final class TenantSchemaMigrasiSelfTest {
 		System.exit(0);
 	}
 
+	/**
+	 * Catat satu kegagalan: cetak baris {@code GAGAL: <pesan>} ke {@code System.out} dan
+	 * naikkan {@link #gagal}. Pengganti {@code assertTrue}/{@code fail} JUnit pada harness
+	 * ini — tidak menghentikan eksekusi, hanya menambah hitungan, sehingga satu jalan uji
+	 * dapat melaporkan banyak pelanggaran struktural sekaligus.
+	 *
+	 * @param pesan penjelasan kegagalan, ditulis apa adanya ke keluaran konsol
+	 */
 	private static void salah(String pesan) {
 		System.out.println("  GAGAL: " + pesan);
 		gagal++;
 	}
 
+	/**
+	 * Bandingkan checksum kanonik saat ini terhadap {@link #PATOKAN} untuk setiap versi yang
+	 * sudah dirilis. Dua kegagalan yang dideteksi: versi terpatok hilang dari katalog
+	 * (pelanggaran append-only — versi yang sudah dirilis tidak boleh dihapus), atau
+	 * checksum-nya berubah (DDL versi yang sudah dirilis disunting alih-alih menambah versi
+	 * baru). Lihat catatan javadoc kelas mengenai bahaya menyunting konstanta bersama seperti
+	 * {@code JEJAK} yang mengubah banyak pernyataan sekaligus tanpa terlihat pada diff sempit.
+	 */
 	private static void periksaPatokan() {
 		for (int i = 0; i < PATOKAN.length; i++) {
 			String versi = PATOKAN[i][0];
@@ -85,6 +123,15 @@ public final class TenantSchemaMigrasiSelfTest {
 		}
 	}
 
+	/**
+	 * Cari entri {@link TenantSchemaMigrations#SEMUA} berdasarkan {@code versionCode}.
+	 * Helper privat dipakai {@link #periksaPatokan()} untuk mencocokkan tiap baris
+	 * {@link #PATOKAN} dengan definisi kanonik saat ini.
+	 *
+	 * @param versi {@code versionCode} yang dicari (mis. {@code "v4-inventory-purchase-ap-erp"})
+	 * @return entri {@link TenantSchemaMigrations.Migrasi} yang cocok, atau {@code null} bila
+	 *         versi tersebut tidak ada dalam katalog
+	 */
 	private static TenantSchemaMigrations.Migrasi cari(String versi) {
 		for (int i = 0; i < TenantSchemaMigrations.SEMUA.length; i++) {
 			if (TenantSchemaMigrations.SEMUA[i].versionCode.equals(versi)) {
@@ -94,6 +141,37 @@ public final class TenantSchemaMigrasiSelfTest {
 		return null;
 	}
 
+	/**
+	 * Pemeriksaan struktural yang hanya terlihat bila seluruh katalog dibaca sekaligus, lewat
+	 * pemindaian regex atas teks DDL mentah tiap pernyataan (tanpa parser SQL sungguhan; lihat
+	 * pola {@code pCreate}/{@code pRef}/{@code pIdx}/{@code pAlter}/{@code pSisa} lokal pada
+	 * method ini). Dijalankan berurutan mengikuti definisi katalog agar referensi maju (FK ke
+	 * tabel yang baru dibuat di versi berikutnya) benar-benar terdeteksi sebagai kesalahan:
+	 *
+	 * <ul>
+	 * <li>{@code versionCode} ganda dalam katalog;</li>
+	 * <li>bundel kosong ({@code m.ddl.length == 0}) — checksum-nya sudah tercatat di tenant
+	 *     lama sehingga menambah DDL ke slot ini kelak akan menggagalkan migrasi;</li>
+	 * <li>nama tabel ganda ({@code CREATE TABLE} untuk nama yang sudah dipakai);</li>
+	 * <li>{@code REFERENCES}/{@code ALTER TABLE} yang menunjuk tabel yang belum dibuat pada
+	 *     titik itu dalam urutan katalog;</li>
+	 * <li>nama indeks ganda dalam satu schema;</li>
+	 * <li>kurung buka/tutup tidak seimbang per pernyataan;</li>
+	 * <li>placeholder {@code {...}} yang tersisa setelah substitusi {@code {S}}/{@code {A}}/
+	 *     {@code {SU}} — berarti ada penanda yang salah ketik atau belum didukung;</li>
+	 * <li>sintaks yang tidak didukung PostgreSQL 9.3: {@code jsonb}, {@code ON CONFLICT},
+	 *     {@code CREATE INDEX IF NOT EXISTS} (baru di 9.5), {@code ADD COLUMN IF NOT EXISTS}
+	 *     (baru di 9.6);</li>
+	 * <li>kolom uang/kuantitas bertipe {@code double precision}/{@code float} alih-alih
+	 *     {@code numeric};</li>
+	 * <li>{@code TABEL_WAJIB_ERP}/{@code TABEL_WAJIB_AUDIT} yang menyebut tabel yang tidak
+	 *     pernah benar-benar dibuat oleh katalog (kecuali {@code tenant_schema_migration},
+	 *     yang dibuat {@code terapkanMigrasi}, bukan oleh bundel DDL manapun).</li>
+	 * </ul>
+	 *
+	 * <p>Setiap pelanggaran dilaporkan lewat {@link #salah(String)}; method ini tidak
+	 * melempar sendiri dan tidak berhenti pada pelanggaran pertama.</p>
+	 */
 	private static void periksaStruktur() {
 		String erp = "tenant_uji";
 		String audit = erp + "__audit";
@@ -209,6 +287,13 @@ public final class TenantSchemaMigrasiSelfTest {
 		}
 	}
 
+	/**
+	 * Potong teks SQL panjang agar pesan {@link #salah(String)} tetap terbaca di konsol.
+	 *
+	 * @param s teks SQL mentah (satu pernyataan)
+	 * @return {@code s} apa adanya bila &le; 90 karakter, jika tidak 90 karakter pertama
+	 *         diikuti {@code "..."}
+	 */
 	private static String potong(String s) {
 		return s.length() > 90 ? s.substring(0, 90) + "..." : s;
 	}

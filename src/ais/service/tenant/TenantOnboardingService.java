@@ -33,7 +33,46 @@ public final class TenantOnboardingService {
 	private TenantOnboardingService() {
 	}
 
-	/** @return null = boleh; selain itu pesan penolakan aman utk pengguna. */
+	/**
+	 * Gerbang utama kelas ini -- dipanggil sebelum aksi mutasi dashboard pendaftar
+	 * untuk memutuskan apakah pendaftar tersebut boleh melanjutkan. Urutan pemeriksaannya
+	 * (berhenti pada pemeriksaan pertama yang gagal, fail-closed):
+	 * <ol>
+	 * <li><b>RE-FETCH dari DB</b> -- {@code segera} diambil ulang lewat {@code session.get},
+	 * BUKAN entity yang mungkin sudah detached di sesi HTTP; status akun harus selalu keadaan
+	 * terkini, tidak boleh memakai salinan basi. Akun tidak ditemukan langsung ditolak.</li>
+	 * <li><b>Deteksi akun LEGACY</b> -- bila pendaftar TIDAK PERNAH memiliki baris
+	 * {@code pendaftaran_tenant} (belum pernah lewat program pendaftaran tenant), gerbang ini
+	 * TIDAK berlaku baginya sama sekali -- langsung {@code return null} (boleh), mempertahankan
+	 * perilaku lama sebelum program tenant ada (keputusan G-06, fail-open untuk data existing).
+	 * Pemeriksaan-pemeriksaan berikutnya HANYA berlaku bagi pendaftar program tenant.</li>
+	 * <li><b>Akun aktif</b> -- {@code segar.getAktif()} harus {@code true} (verifikasi email
+	 * selesai).</li>
+	 * <li><b>Minimal satu tenant siap</b> -- pendaftar harus memiliki (sebagai
+	 * {@code ownerPendaftar}) minimal satu {@link TenantRegistry} berstatus READY atau ACTIVE.</li>
+	 * <li><b>Gerbang TENANT_ONLY (P8 §3.3)</b> -- lewat {@link
+	 * TenantDataPlaneService#alasanBlokirTenantOnly}: bila platform berjalan pada mode
+	 * TENANT_ONLY dan tenant pendaftar belum punya schema terprovision, mutasi diblokir dengan
+	 * pesan yang mengarahkan ke dukungan.</li>
+	 * <li><b>Entitlement modul</b> (hanya bila {@code modulDibutuhkan} diberikan) -- minimal SATU
+	 * dari tenant-tenant siap milik pendaftar harus memiliki entitlement modul tersebut berstatus
+	 * ACTIVE (bukan PLANNED); bila tidak satu pun, ditolak dengan pesan yang menyebut nama
+	 * modulnya.</li>
+	 * </ol>
+	 * <p>
+	 * Bila terjadi galat tak terduga di tengah pemeriksaan (mis. kegagalan Hibernate), method
+	 * TIDAK meloloskan pendaftar secara diam-diam -- ia memilih pesan generik aman ("Tidak dapat
+	 * memeriksa status tenant saat ini") sebagai perilaku <b>fail-closed</b>, sebab pada titik
+	 * kegagalan tidak dapat dipastikan lagi apakah pendaftar ini akun legacy (yang seharusnya
+	 * boleh) atau akun program tenant yang belum siap (yang seharusnya ditolak).
+	 * </p>
+	 *
+	 * @param pendaftarId     id Pendaftar yang mutasinya hendak diizinkan/ditolak.
+	 * @param modulDibutuhkan kode modul yang disyaratkan aksi ini, atau {@code null}/kosong bila
+	 *                        aksi tidak spesifik modul (mis. {@code tenant_list}).
+	 * @return {@code null} bila boleh melanjutkan; selain itu pesan penolakan yang aman
+	 *         ditampilkan ke pengguna (tanpa detail internal).
+	 */
 	public static String alasanTidakBolehMutasi(Long pendaftarId, String modulDibutuhkan) {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -89,7 +128,26 @@ public final class TenantOnboardingService {
 		}
 	}
 
-	/** READY → ACTIVE saat owner login pertama (05-workflow #7); best-effort dgn transaksi sendiri. */
+	/**
+	 * READY → ACTIVE saat owner login pertama (05-workflow #7); best-effort dgn transaksi sendiri.
+	 *
+	 * <p>
+	 * Dipanggil pada jalur login (bukan pada aksi dashboard biasa) untuk seluruh
+	 * {@link TenantRegistry} milik {@code pendaftarId} yang masih berstatus READY: menandainya
+	 * ACTIVE beserta {@code activatedAt}, ikut menaikkan status {@link PendaftaranTenant} terkait
+	 * (yang berstatus READY) menjadi ACTIVE, dan mencatat satu baris {@link
+	 * PendaftaranAuditEvent} ({@code EV_TENANT_ACTIVATED}) per tenant yang diaktifkan sebagai
+	 * jejak "kapan tenant ini pertama kali benar-benar dipakai pemiliknya".
+	 * </p>
+	 * <p>
+	 * <b>Best-effort</b>: dijalankan dalam transaksinya sendiri (terpisah dari transaksi
+	 * login), dan bila terjadi galat, di-rollback lalu DITELAN (dicatat ke audit galat, tidak
+	 * dilempar ulang) -- kegagalan menandai ACTIVE TIDAK BOLEH menggagalkan login pengguna itu
+	 * sendiri; efeknya hanya tenant tetap READY dan akan dicoba lagi pada login berikutnya.
+	 * </p>
+	 *
+	 * @param pendaftarId id Pendaftar yang baru login, pemilik tenant yang akan diperiksa.
+	 */
 	public static void tandaiAktifSaatLogin(Long pendaftarId) {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -135,7 +193,29 @@ public final class TenantOnboardingService {
 		}
 	}
 
-	/** Daftar tenant milik/di-member-i pendaftar (tenant switcher) + status + trial + entitlement. */
+	/**
+	 * Daftar tenant milik/di-member-i pendaftar (tenant switcher) + status + trial + entitlement.
+	 *
+	 * <p>
+	 * Sumber datanya adalah baris {@link TenantMembership} aktif milik {@code pendaftarId}
+	 * (bukan {@code ownerPendaftar} pada {@link TenantRegistry} secara langsung) -- selaras
+	 * dengan prinsip di {@link TenantMembershipResolver} bahwa kewenangan atas tenant ditentukan
+	 * oleh baris keanggotaan, bukan sekadar relasi owner. Untuk setiap keanggotaan, method
+	 * menyusun satu baris ringkas berisi identitas tenant, status siklus hidupnya, masa trial,
+	 * dan status {@code isOwner} aktor pada tenant tersebut, ditambah entitlement modulnya yang
+	 * dipecah menjadi dua daftar: {@code modulAktif} (status ACTIVE) dan
+	 * {@code modulBelumTersedia} (status PLANNED) -- pemisahan ini disengaja agar UI klien dapat
+	 * jujur menyembunyikan/menonaktifkan tombol modul yang belum operasional alih-alih
+	 * menampilkannya sebagai aktif secara keliru.
+	 * </p>
+	 *
+	 * @param pendaftarId id Pendaftar yang daftar tenant-nya ingin ditampilkan (mis. untuk
+	 *                    pemilih/pengalih tenant pada dashboard).
+	 * @param hasil       JSON keluaran yang DIISI DI TEMPAT (bukan dikembalikan): {@code status}
+	 *                    ("00") dan {@code data} berisi array baris tenant seperti dijelaskan di
+	 *                    atas.
+	 * @throws Exception diteruskan dari kegagalan membangun {@link JSONObject}/{@link JSONArray}.
+	 */
 	public static void tenantList(Long pendaftarId, JSONObject hasil) throws Exception {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
