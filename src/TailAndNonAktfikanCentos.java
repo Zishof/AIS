@@ -10,6 +10,23 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+/**
+ * Varian pemantau log dan pemblokir IP untuk lingkungan CentOS. Implementasi {@link Runnable} ini membaca
+ * tambahan baris dari satu berkas log menggunakan posisi byte terakhir, mengenali pola request mencurigakan,
+ * lalu menjalankan {@code iptables -A INPUT ... -j DROP} untuk alamat yang belum pernah diblokir. Set statis
+ * {@code strings} menjadi deduplikasi proses-hidup agar IP yang sama tidak terus menghasilkan aturan identik.
+ *
+ * <p><b>Batas penggunaan:</b> kelas ini adalah utilitas operasi sistem, bukan bagian dari autentikasi atau
+ * otorisasi aplikasi. Ia tidak mengetahui tenant, pengguna AIS, proxy tepercaya, atau transaksi database.
+ * Menjalankannya dari dua thread/JVM dapat menghasilkan aturan duplikat. Pola deteksi dan ekstraksi IP juga
+ * bergantung pada format log, sehingga perubahan format log harus diuji sebelum utilitas diaktifkan kembali.</p>
+ *
+ * <p><b>Lifecycle dan efek samping:</b> constructor menentukan berkas serta interval polling; {@link #run()}
+ * berulang sampai {@link #stopRunning()} dipanggil. JVM harus mempunyai izin membaca log dan mengubah firewall.
+ * Kegagalan {@link ProcessBuilder} tidak memiliki rollback. Jangan menggandakan logika ini ke scheduler lain.</p>
+ *
+ * @see TailAndNonAktfikan
+ */
 public class TailAndNonAktfikanCentos implements Runnable {
 	private boolean debug = false;
 	private int crunchifyRunEveryNSeconds = 5;

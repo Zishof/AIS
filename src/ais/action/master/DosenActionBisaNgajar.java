@@ -40,6 +40,31 @@ import ais.database.model.Dosen;
 import ais.ui.util.MyCheckboxConfig;
 import ais.ui.util.MyIframe;
 
+/**
+ * Tipe khusus untuk dosen action bisa ngajar. Kelas ini memberi nama dan batas tanggung jawab yang
+ * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * GenericAutowireComposer}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code Paging paging},
+ * {@code Textbox searchcode}, {@code Textbox searchnama}, {@code Combobox searchfakultas}, {@code Combobox
+ * searchjurusan}, {@code BiodataDosenAction biodataDosenAction}, {@code Tabpanel laporanDosenHarian};
+ * inisialisasi/lifecycle ({@code doBeforeCompose()}, {@code doAfterCompose()}, {@code initCriteria()});
+ * pembacaan/pencarian ({@code onSearchDefault()}); operasi domain lain ({@code onLaporanPerDosen()}, {@code
+ * onLaporanDosenHarian()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
+ * atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
+ * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
+ * serta session Hibernate milik request yang aktif.</p>
+ *
+ * @see GenericAutowireComposer
+ */
 public class DosenActionBisaNgajar extends GenericAutowireComposer implements CommonOnSearchdefault {
 
 	/**

@@ -10,6 +10,25 @@ import java.util.Queue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+/**
+ * Pemantau log akses Apache yang berjalan terus-menerus sebagai {@link Runnable} dan menambahkan aturan
+ * {@code iptables DROP} ketika menemukan pola request yang dianggap mencurigakan. Berkas dipantau seperti
+ * perintah {@code tail -f}: {@link #run()} menyimpan posisi byte terakhir, membaca baris yang ditambahkan,
+ * lalu menyerahkan setiap baris ke pemeriksa privat {@code printLine(String)}. Alamat IP yang telah diproses
+ * disimpan di antrean {@code strings}; alamat pada {@code janganDiblok} merupakan allow-list statis.
+ *
+ * <p><b>Efek samping dan risiko operasional:</b> kelas ini mengeksekusi proses sistem operasi dengan hak yang
+ * dimiliki JVM. Selain menambah/menghapus aturan firewall, {@link #main(String[])} dapat menghapus log Apache,
+ * memulai ulang Apache, dan menjalankan thread pemantau. Karena dampaknya berada di luar transaksi aplikasi,
+ * kelas ini tidak boleh dipanggil dari request web biasa atau diduplikasi ke scheduler lain. Perubahan pola
+ * deteksi harus diuji terhadap false-positive karena pola terlalu luas dapat memblokir pengguna sah.</p>
+ *
+ * <p><b>Lifecycle:</b> satu instance mewakili satu berkas log. {@link #stopRunning()} hanya menurunkan flag
+ * loop; pemilik thread bertanggung jawab menunggu thread berhenti. State mutable dan antrean statis tidak
+ * dirancang untuk beberapa pemantau paralel tanpa sinkronisasi tambahan.</p>
+ *
+ * @see TailAndNonAktfikanCentos
+ */
 public class TailAndNonAktfikan implements Runnable {
 	private boolean debug = false;
 	private int crunchifyRunEveryNSeconds = 1;

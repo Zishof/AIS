@@ -26,6 +26,27 @@ import ais.database.model.sekolah.CalonSiswa;
 import ais.database.model.sekolah.Sekolah;
 import ais.database.model.sekolah.Siswa;
 
+/**
+ * Tugas latar belakang untuk melakukan inquiry status pembayaran virtual-account BNI dan merekonsiliasi
+ * hasilnya ke {@link BniRequest}/{@link BniResponse}. {@link #run()} memilih permintaan yang masih perlu dicek,
+ * sedangkan dua overload {@link #check(String, BniRequest, Session)} menjalankan satu rekonsiliasi: memakai
+ * respons tersimpan bila tersedia atau mengirim HTTP POST terenkripsi dengan {@code BNIHash}, mengurai hasil,
+ * menyimpan status, lalu meneruskan pembayaran sukses ke {@link Bniresponse#prosesResponse}.
+ *
+ * <p><b>Transaksi dan resource:</b> {@code Session} diberikan oleh pemanggil dan tidak ditutup oleh
+ * {@code check}; method hanya membuka/commit transaksi pendek saat memperbarui request/response. Operasi jaringan
+ * tidak berada dalam transaksi database, sehingga retry harus mengandalkan {@code trxId}, respons terakhir, dan
+ * guard pembayaran yang sudah ada—bukan membuat implementasi inquiry kedua.</p>
+ *
+ * <p><b>Mode pemulihan:</b> overload tanpa flag selalu memakai {@code paksaProses=false} untuk timer otomatis.
+ * Flag {@code true} hanya untuk tombol administratif ketika data pembayaran lokal perlu dipulihkan; mode itu
+ * melewati guard “sudah dibayar” dan tidak boleh dipakai scheduler rutin. Payload dan hasil inquiry saat ini
+ * dicetak ke standard output; jangan menambah kredensial atau data pribadi ke log tersebut.</p>
+ *
+ * @see Bniresponse
+ * @see BniRequest
+ * @see BniResponse
+ */
 public class BniBackandProsess extends TimerTask {
 
 	@SuppressWarnings("deprecation")
