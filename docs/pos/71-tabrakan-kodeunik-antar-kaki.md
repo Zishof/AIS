@@ -1,8 +1,8 @@
-# Tabrakan `kodeUnik` Antar-Kaki Jurnal: Mekanisme Terbukti, Satu Keluarga Terpapar
+# Tabrakan `kodeUnik` Antar-Kaki Jurnal: Mekanisme Terbukti, Kaki Siswa Diperbaiki
 
-Tanggal: 31 Agustus 2026, pada HEAD r78682. **Tidak ada perubahan kode pada revisi ini** —
-dokumen ini melaporkan temuan beserta buktinya dan menyerahkan keputusan perbaikan, dengan
-alasan yang dijelaskan di §5. Lanjutan sapuan
+Tanggal: 31 Agustus 2026. Temuan dilaporkan pada HEAD r78682; **perbaikannya masuk
+SVN r78693** (`PostingJurnalHelper` + tiga layar kaki siswa), teruji `TesRefKakiSiswa`
+**LULUS 12, GAGAL 0** (§6). Mirror `java/` selaras. Lanjutan sapuan
 [70-audit-dokumen-berkaki-ganda.md](70-audit-dokumen-berkaki-ganda.md).
 
 ## 1. Mekanismenya
@@ -86,9 +86,48 @@ tidak dapat dijalankan tanpa mengarang rantai master baru di basis data uji. Men
 penulisan jurnal sebuah modul yang tidak bisa saya jalankan sampai tuntas bukan langkah yang
 pantas diambil sepihak.
 
-**Rekomendasi:** ambil jalan (1) — beri `ref` khas pada kaki denda, diskon, dan dibayar
-dimuka (kaki piutang tetap null sebagai kaki utama, persis pola LPJ) — lalu jalankan ulang
-`TesTabrakanKodeUnik` ditambah satu skenario siswa di lingkungan yang datanya lengkap.
-Sampai itu dikerjakan, gejala yang harus dicurigai di lapangan: **satu tagihan yang denda
-atau diskonnya "sudah diposting" tetapi jurnalnya tidak ada di buku besar, dan jurnal
-piutangnya berubah label menjadi jenis denda/diskon.**
+**Rekomendasi saat itu:** ambil jalan (1) — beri `ref` khas pada kaki denda, diskon, dan
+dibayar dimuka (kaki piutang tetap null sebagai kaki utama, persis pola LPJ).
+
+## 6. Perbaikan yang dikerjakan (r78693) dan pengujiannya
+
+Jalan (1) dijalankan atas persetujuan pemilik pekerjaan. Tiga konstanta baru pada
+`PostingJurnalHelper` — `REF_DENDA_SISWA` (`denda_siswa`), `REF_DISKON_SISWA`
+(`diskon_siswa`), `REF_DIMUKA_SISWA` (`dimuka_siswa`) — dipasang pada **keenam** panggilan
+`saveTransaksi` di masing-masing layar kaki (jalur massal ZK, jalur per baris, dan mesin
+API), total 18 panggilan. Kaki piutang sengaja dibiarkan ber-ref null sebagai kaki utama.
+
+Nilai ref sengaja BARU (bukan memakai ulang `REF_DIMUKA` milik cicilan mahasiswa) supaya
+jatuh ke cabang default `restriksiRefClosing` yang mengembalikan `1=1` — dengan begitu
+hitungan closing keempat baris siswa tidak berubah sama sekali.
+
+Harness `TesRefKakiSiswa` (fixture `UATRS-`, jendela 1–10 Juli 2092) memakai entitas
+`Tagihan` SUNGGUHAN dan konstanta yang persis dipakai ketiga layar:
+
+| Skenario | Hasil |
+|---|---|
+| **KONTROL** bentuk lama: dua kaki ber-ref null pada satu tagihan | tetap BERTABRAKAN (1 grup), nilai denda tidak masuk buku besar — harness terbukti sahih |
+| Kaki piutang (ref null) | membentuk grup pertama |
+| Kaki denda / diskon / dibayar dimuka (ref khas) | masing-masing membentuk grup SENDIRI → 4 grup |
+| Total nilai keempat kaki | 580.000 seluruhnya masuk buku besar |
+| Ref per grup | tepat satu ber-ref null, satu `denda_siswa`, satu `diskon_siswa`, satu `dimuka_siswa` |
+| Cap tiap grup | tetap menunjuk riwayat kakinya sendiri, tidak saling menimpa |
+| Label `jenis` kaki piutang | tetap "Piutang Siswa" — tidak lagi berpindah ke jenis denda |
+| Ulangi kaki denda | tetap 4 grup — penjaga duplikat tetap bekerja untuk kaki yang SAMA |
+
+**LULUS 12, GAGAL 0.**
+
+Jebakan fixture baru yang ditemukan harness ini (untuk penulis harness berikutnya):
+`saveTransaksi` memasang dokumen sebagai reference dengan cascade MERGE sehingga Hibernate
+ikut meng-UPDATE dokumennya — fixture `Tagihan` berkolom sebagian langsung melanggar
+constraint, jadi barisnya harus **diklon utuh** dari baris nyata (lewat temp table) dengan
+kolom unik dan cap posting dikosongkan. Dan `Tagihan.getKodeUnik()` adalah getter turunan
+di atas kolom yang UNIK di basis data: mengosongkannya justru membuat nilainya dihitung
+ulang dan bertabrakan dengan baris sumber — isi dengan nilai fixture yang khas, jangan
+di-null-kan. Keluarga jebakan yang sama dengan `getNama()`/`getTanggalTransaksi()` pada
+dok 68.
+
+Gejala lapangan yang harus dicurigai pada data LAMA (jurnal yang terlanjur ditulis sebelum
+r78693): **satu tagihan yang denda atau diskonnya "sudah diposting" tetapi jurnalnya tidak
+ada di buku besar, dan jurnal piutangnya berlabel jenis denda/diskon.** Perbaikan ini
+mencegah kejadian baru; data lama yang sudah telanjur bertabrakan perlu ditinjau terpisah.
