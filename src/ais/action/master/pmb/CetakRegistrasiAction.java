@@ -9,7 +9,9 @@ import java.io.Serializable;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -2361,6 +2363,18 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 
 			// -----------------------------------------------------------------------------------
 
+			MyToolbarbuttonConfig analisisUrutanNim = new MyToolbarbuttonConfig(
+					"Analisis Urutan NIM", "/img/svg/search_menu.svg");
+			analisisUrutanNim.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					tampilkanAnalisisUrutanNim(arg0);
+				}
+			});
+			Common.appendKeToolbar(analisisUrutanNim, find, comp);
+
+			// -----------------------------------------------------------------------------------
+
 			MyToolbarbuttonConfig singkronDiskon = new MyToolbarbuttonConfig("Singkron dg diskon",
 					"/img/svg/check2.svg");
 			singkronDiskon.setVisible(
@@ -3972,6 +3986,431 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 				}
 			});
 		}
+	}
+
+	private static class NimUrutanSuggestion {
+		private Long id;
+		private Long mahasiswaId;
+		private String nama;
+		private String noRegistrasi;
+		private String prodi;
+		private String nimLama;
+		private String nimSaran;
+		private String status;
+		private boolean aman;
+		private Checkbox checkbox;
+	}
+
+	private void tampilkanAnalisisUrutanNim(Event event) throws Exception {
+		List<NimUrutanSuggestion> suggestions = buatSaranUrutanNim();
+
+		final org.zkoss.zul.Window win = new org.zkoss.zul.Window();
+		win.setTitle("Analisis Urutan NIM");
+		win.setClosable(true);
+		win.setBorder("normal");
+		win.setWidth("980px");
+
+		Vbox vbMain = new Vbox();
+		vbMain.setWidth("100%");
+		vbMain.setParent(win);
+
+		int perluDirapikan = 0;
+		for (int i = 0; i < suggestions.size(); i++) {
+			NimUrutanSuggestion s = suggestions.get(i);
+			if (s.aman && s.nimSaran != null && !s.nimSaran.equals(s.nimLama)) {
+				perluDirapikan++;
+			}
+		}
+
+		new org.zkoss.zul.Html(
+				"<div style='margin:10px 14px 6px;padding:10px 14px;"
+				+ "background:#eef7ff;border-left:4px solid #0d6efd;border-radius:0 6px 6px 0;"
+				+ "font-size:12px;line-height:1.5'>"
+				+ "<b>Analisis mengikuti filter calon mahasiswa yang sedang aktif.</b><br>"
+				+ "Sistem membaca prefix NIM lalu merapikan nomor urut terakhir. "
+				+ "Perubahan hanya dilakukan setelah operator menekan tombol replace."
+				+ "<br><b>" + perluDirapikan + "</b> data memiliki saran NIM baru."
+				+ "</div>").setParent(vbMain);
+
+		if (suggestions.isEmpty()) {
+			new org.zkoss.zul.Html(
+					"<div style='padding:24px;text-align:center;color:#198754;"
+					+ "font-size:14px;font-weight:bold'>Data NIM sesuai filter belum ada untuk dianalisis.</div>")
+					.setParent(vbMain);
+		} else {
+			org.zkoss.zul.Div divScroll = new org.zkoss.zul.Div();
+			divScroll.setStyle("max-height:480px;overflow:auto;padding:0 14px 10px;");
+			divScroll.setParent(vbMain);
+
+			org.zkoss.zul.Grid grd = new org.zkoss.zul.Grid();
+			grd.setWidth("100%");
+			grd.setParent(divScroll);
+
+			Columns cols = new Columns();
+			cols.setParent(grd);
+			org.zkoss.zul.Column cPilih = new org.zkoss.zul.Column("");
+			cPilih.setWidth("42px");
+			cPilih.setParent(cols);
+			org.zkoss.zul.Column cNama = new org.zkoss.zul.Column("Nama");
+			cNama.setWidth("210px");
+			cNama.setParent(cols);
+			org.zkoss.zul.Column cReg = new org.zkoss.zul.Column("No. Registrasi");
+			cReg.setWidth("140px");
+			cReg.setParent(cols);
+			org.zkoss.zul.Column cProdi = new org.zkoss.zul.Column("Prodi");
+			cProdi.setWidth("190px");
+			cProdi.setParent(cols);
+			org.zkoss.zul.Column cLama = new org.zkoss.zul.Column("NIM Lama");
+			cLama.setWidth("135px");
+			cLama.setParent(cols);
+			org.zkoss.zul.Column cSaran = new org.zkoss.zul.Column("NIM Saran");
+			cSaran.setWidth("135px");
+			cSaran.setParent(cols);
+			org.zkoss.zul.Column cStatus = new org.zkoss.zul.Column("Status");
+			cStatus.setParent(cols);
+			org.zkoss.zul.Column cAksi = new org.zkoss.zul.Column("");
+			cAksi.setWidth("110px");
+			cAksi.setParent(cols);
+
+			Rows rows = new Rows();
+			rows.setParent(grd);
+
+			final List<NimUrutanSuggestion> finalSuggestions = suggestions;
+			for (int i = 0; i < finalSuggestions.size(); i++) {
+				final NimUrutanSuggestion s = finalSuggestions.get(i);
+				Row row = new Row();
+				if (!s.aman) {
+					row.setStyle("background:#fff5f5;");
+				} else if (s.nimSaran != null && !s.nimSaran.equals(s.nimLama)) {
+					row.setStyle("background:#fffbe6;");
+				}
+				row.setParent(rows);
+
+				Checkbox cb = new Checkbox();
+				cb.setChecked(s.aman && s.nimSaran != null && !s.nimSaran.equals(s.nimLama));
+				cb.setDisabled(!cb.isChecked());
+				cb.setParent(row);
+				s.checkbox = cb;
+
+				new Label(s.nama == null ? "-" : s.nama).setParent(row);
+				new Label(s.noRegistrasi == null ? "-" : s.noRegistrasi).setParent(row);
+				new Label(s.prodi == null ? "-" : s.prodi).setParent(row);
+				new Label(s.nimLama == null ? "-" : s.nimLama).setParent(row);
+				new Label(s.nimSaran == null ? "-" : s.nimSaran).setParent(row);
+				new Label(s.status == null ? "-" : s.status).setParent(row);
+
+				MyToolbarbuttonConfig btnReplace = new MyToolbarbuttonConfig("Replace", "/img/svg/check2.svg");
+				btnReplace.setDisabled(!s.aman || s.nimSaran == null || s.nimSaran.equals(s.nimLama));
+				btnReplace.setParent(row);
+				btnReplace.addEventListener("onClick", new EventListener() {
+					@Override
+					public void onEvent(Event ev) throws Exception {
+						List<NimUrutanSuggestion> pilihan = new ArrayList<NimUrutanSuggestion>();
+						pilihan.add(s);
+						replaceSaranUrutanNimDenganKonfirmasi(pilihan, win);
+					}
+				});
+			}
+		}
+
+		Hbox hbFooter = new Hbox();
+		hbFooter.setSpacing("6px");
+		hbFooter.setStyle("padding:10px 16px;border-top:1px solid #dee2e6;");
+		hbFooter.setParent(vbMain);
+
+		final List<NimUrutanSuggestion> finalSuggestions = suggestions;
+		MyToolbarbuttonConfig btnTerpilih = new MyToolbarbuttonConfig("Replace Terpilih", "/img/svg/check2.svg");
+		btnTerpilih.setParent(hbFooter);
+		btnTerpilih.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event ev) throws Exception {
+				List<NimUrutanSuggestion> pilihan = new ArrayList<NimUrutanSuggestion>();
+				for (int i = 0; i < finalSuggestions.size(); i++) {
+					NimUrutanSuggestion s = finalSuggestions.get(i);
+					if (s.checkbox != null && s.checkbox.isChecked()) {
+						pilihan.add(s);
+					}
+				}
+				replaceSaranUrutanNimDenganKonfirmasi(pilihan, win);
+			}
+		});
+
+		MyToolbarbuttonConfig btnSemua = new MyToolbarbuttonConfig("Replace Semua Aman", "/img/svg/check2.svg");
+		btnSemua.setParent(hbFooter);
+		btnSemua.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event ev) throws Exception {
+				List<NimUrutanSuggestion> pilihan = new ArrayList<NimUrutanSuggestion>();
+				for (int i = 0; i < finalSuggestions.size(); i++) {
+					NimUrutanSuggestion s = finalSuggestions.get(i);
+					if (s.aman && s.nimSaran != null && !s.nimSaran.equals(s.nimLama)) {
+						pilihan.add(s);
+					}
+				}
+				replaceSaranUrutanNimDenganKonfirmasi(pilihan, win);
+			}
+		});
+
+		MyToolbarbuttonConfig btnTutup = new MyToolbarbuttonConfig("Tutup");
+		btnTutup.setParent(hbFooter);
+		btnTutup.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event e) throws Exception {
+				win.detach();
+			}
+		});
+
+		win.setParent(event.getTarget().getPage().getFirstRoot());
+		win.doHighlighted();
+	}
+
+	@SuppressWarnings("unchecked")
+	private List<NimUrutanSuggestion> buatSaranUrutanNim() {
+		List<Long> ids = initCriteria(true).setProjection(Projections.property("id")).list();
+		List<Long> uniqueIds = new ArrayList<Long>(new LinkedHashSet<Long>(ids));
+		List<NimUrutanSuggestion> hasil = new ArrayList<NimUrutanSuggestion>();
+		if (uniqueIds.isEmpty()) {
+			return hasil;
+		}
+
+		int jumlahDigit = getJumlahDigitUrutNim();
+		Map<String, List<NimUrutanSuggestion>> perPrefix = new HashMap<String, List<NimUrutanSuggestion>>();
+		Session session = HibernateUtil.currentSession();
+		for (int i = 0; i < uniqueIds.size(); i++) {
+			BiodataCalonMahasiswa calon = (BiodataCalonMahasiswa) session.get(BiodataCalonMahasiswa.class,
+					uniqueIds.get(i));
+			if (calon == null) {
+				continue;
+			}
+			String nim = bersihkan(calon.getNim());
+			if (nim == null) {
+				continue;
+			}
+
+			NimUrutanSuggestion s = new NimUrutanSuggestion();
+			s.id = calon.getId();
+			s.mahasiswaId = calon.getMahasiswa() == null ? null : calon.getMahasiswa().getId();
+			s.nama = calon.getNama();
+			s.noRegistrasi = calon.getNoRegistrasi();
+			s.prodi = calon.getProdiLulus() == null ? null : calon.getProdiLulus().getNama();
+			s.nimLama = nim;
+
+			String prefix = ambilPrefixNim(nim, jumlahDigit);
+			Long nomor = ambilSuffixNim(nim, jumlahDigit);
+			if (prefix == null || nomor == null) {
+				s.aman = false;
+				s.status = "Format NIM tidak terbaca untuk " + jumlahDigit + " digit urut terakhir.";
+				hasil.add(s);
+				continue;
+			}
+
+			List<NimUrutanSuggestion> list = perPrefix.get(prefix);
+			if (list == null) {
+				list = new ArrayList<NimUrutanSuggestion>();
+				perPrefix.put(prefix, list);
+			}
+			list.add(s);
+			hasil.add(s);
+		}
+
+		for (Map.Entry<String, List<NimUrutanSuggestion>> entry : perPrefix.entrySet()) {
+			final int digit = jumlahDigit;
+			Collections.sort(entry.getValue(), new Comparator<NimUrutanSuggestion>() {
+				@Override
+				public int compare(NimUrutanSuggestion o1, NimUrutanSuggestion o2) {
+					Long n1 = ambilSuffixNim(o1.nimLama, digit);
+					Long n2 = ambilSuffixNim(o2.nimLama, digit);
+					int c = n1.compareTo(n2);
+					if (c != 0) {
+						return c;
+					}
+					return o1.id.compareTo(o2.id);
+				}
+			});
+
+			List<NimUrutanSuggestion> list = entry.getValue();
+			for (int i = 0; i < list.size(); i++) {
+				NimUrutanSuggestion s = list.get(i);
+				s.nimSaran = entry.getKey() + padNomor(i + 1, jumlahDigit);
+				if (s.nimSaran.equals(s.nimLama)) {
+					s.aman = true;
+					s.status = "Sudah sesuai urutan.";
+				} else if (nimSaranBentrokDenganDataLain(session, s.nimSaran, uniqueIds)) {
+					s.aman = false;
+					s.status = "NIM saran sudah dipakai data lain di luar filter.";
+				} else {
+					s.aman = true;
+					s.status = "Perlu dirapikan.";
+				}
+			}
+		}
+
+		Collections.sort(hasil, new Comparator<NimUrutanSuggestion>() {
+			@Override
+			public int compare(NimUrutanSuggestion o1, NimUrutanSuggestion o2) {
+				if (o1.nimLama == null && o2.nimLama == null) {
+					return 0;
+				}
+				if (o1.nimLama == null) {
+					return 1;
+				}
+				if (o2.nimLama == null) {
+					return -1;
+				}
+				return o1.nimLama.compareTo(o2.nimLama);
+			}
+		});
+		return hasil;
+	}
+
+	private void replaceSaranUrutanNimDenganKonfirmasi(final List<NimUrutanSuggestion> pilihan,
+			final org.zkoss.zul.Window win) throws Exception {
+		if (pilihan == null || pilihan.isEmpty()) {
+			MyMessageboxConfig.show("Belum ada NIM yang dipilih untuk direplace.", "Peringatan",
+					MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+			return;
+		}
+
+		StringBuilder ringkas = new StringBuilder();
+		int limit = Math.min(8, pilihan.size());
+		for (int i = 0; i < limit; i++) {
+			NimUrutanSuggestion s = pilihan.get(i);
+			ringkas.append(s.nama == null ? "-" : s.nama).append(": ")
+					.append(s.nimLama).append(" -> ").append(s.nimSaran).append("\n");
+		}
+		if (pilihan.size() > limit) {
+			ringkas.append("... dan ").append(pilihan.size() - limit).append(" data lainnya.\n");
+		}
+
+		MyMessageboxConfig.show("Replace NIM berikut?\n\n" + ringkas.toString(),
+				"Konfirmasi Replace NIM",
+				MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL,
+				MyMessageboxConfig.QUESTION, new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				int jawab = Integer.parseInt(event.getData().toString());
+				if (jawab != MyMessageboxConfig.OK) {
+					return;
+				}
+				replaceSaranUrutanNim(pilihan);
+				win.detach();
+				onSearchDefault(null);
+				MyMessageboxConfig.show("Replace NIM selesai untuk " + pilihan.size() + " data.",
+						"Berhasil", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			}
+		});
+	}
+
+	private void replaceSaranUrutanNim(List<NimUrutanSuggestion> pilihan) throws Exception {
+		Session session = HibernateUtil.openSession();
+		try {
+			session.beginTransaction();
+			for (int i = 0; i < pilihan.size(); i++) {
+				NimUrutanSuggestion s = pilihan.get(i);
+				if (!s.aman || s.nimSaran == null || s.nimSaran.equals(s.nimLama)) {
+					continue;
+				}
+				session.createSQLQuery("UPDATE biodata_calon_mahasiswa SET nim = :nim WHERE id = :id")
+						.setParameter("nim", s.nimSaran)
+						.setParameter("id", s.id)
+						.executeUpdate();
+				if (s.mahasiswaId != null) {
+					session.createSQLQuery("UPDATE mahasiswa SET nim = :nim WHERE id = :id")
+							.setParameter("nim", s.nimSaran)
+							.setParameter("id", s.mahasiswaId)
+							.executeUpdate();
+				}
+				ConstantValues.hapus(BiodataCalonMahasiswa.class.getName(), s.id);
+				if (s.mahasiswaId != null) {
+					ConstantValues.hapus(Mahasiswa.class.getName(), s.mahasiswaId);
+				}
+			}
+			session.getTransaction().commit();
+		} catch (Exception e) {
+			if (session.getTransaction() != null && session.getTransaction().isActive()) {
+				try {
+					session.getTransaction().rollback();
+				} catch (Exception rb) {
+					ais.common.ErrorAuditUtil.record(rb, "CetakRegistrasiAction replaceSaranUrutanNim rollback");
+				}
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	private boolean nimSaranBentrokDenganDataLain(Session session, String nimSaran, List<Long> idsFilter) {
+		@SuppressWarnings("unchecked")
+		List<Number> ids = session.createSQLQuery(
+				"SELECT id FROM biodata_calon_mahasiswa WHERE nim = :nim")
+				.setParameter("nim", nimSaran).list();
+		for (int i = 0; i < ids.size(); i++) {
+			Long id = Long.valueOf(ids.get(i).longValue());
+			if (!idsFilter.contains(id)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private int getJumlahDigitUrutNim() {
+		try {
+			return Integer.parseInt(Common.getKonfigurasi("jumlah_digit_gen_nim_mahasiswa", "4")
+					.getNilai().trim());
+		} catch (Exception e) {
+			return 4;
+		}
+	}
+
+	private String ambilPrefixNim(String nim, int jumlahDigit) {
+		if (nim == null || nim.length() <= jumlahDigit) {
+			return null;
+		}
+		String suffix = nim.substring(nim.length() - jumlahDigit);
+		if (!isAngka(suffix)) {
+			return null;
+		}
+		return nim.substring(0, nim.length() - jumlahDigit);
+	}
+
+	private static Long ambilSuffixNim(String nim, int jumlahDigit) {
+		if (nim == null || nim.length() <= jumlahDigit) {
+			return null;
+		}
+		String suffix = nim.substring(nim.length() - jumlahDigit);
+		if (!isAngka(suffix)) {
+			return null;
+		}
+		return Long.valueOf(suffix);
+	}
+
+	private static boolean isAngka(String nilai) {
+		if (nilai == null || nilai.length() == 0) {
+			return false;
+		}
+		for (int i = 0; i < nilai.length(); i++) {
+			if (!Character.isDigit(nilai.charAt(i))) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private static String padNomor(int nomor, int jumlahDigit) {
+		String nilai = String.valueOf(nomor);
+		while (nilai.length() < jumlahDigit) {
+			nilai = "0" + nilai;
+		}
+		return nilai;
+	}
+
+	private static String bersihkan(String nilai) {
+		if (nilai == null) {
+			return null;
+		}
+		nilai = nilai.trim();
+		return nilai.length() == 0 ? null : nilai;
 	}
 
 	public Criteria initCriteria(boolean order) {
