@@ -105,7 +105,8 @@ public final class DraftJurnalRingkasanUtil {
             "tagihan_vendor", "pekerjaan_vendor", "dp_vendor", "dp_pekerjaan_vendor", "jurnal_balik_dp_pekerjaan",
             "pembayaran_tagihan_vendor", "pembayaran_dp_vendor", "pembayaran_termin_vendor", "perjanjian_kerjasama",
             "gaji", "transaksi_pegawai_payroll", "penggajian_pegawai",
-            "simpan_pinjam_koperasi", "topup_saldo_anggota", "pencairan_diskon", "pembatalan_kantin", "mahasiswa", "siswa", "penyusutan", "penghapusan_aset", "pengajuan_transfer", "transitori", "closing",
+            "simpan_pinjam_koperasi", "topup_saldo_anggota", "pencairan_diskon",
+            "penyesuaian_saldo_anggota", "modal_penyertaan", "pembatalan_kantin", "mahasiswa", "siswa", "penyusutan", "penghapusan_aset", "pengajuan_transfer", "transitori", "closing",
             "posting_hpp", "posting_penjualan_kantin", "posting_kulakan", "posting_bayar_hutang",
             "posting_terima_piutang", "posting_penyesuaian" };
 
@@ -139,7 +140,8 @@ public final class DraftJurnalRingkasanUtil {
         if ("simpan_pinjam_koperasi".equals(kunci)) return "simpan_pinjam";
         // Keluarga dana anggota serumpun dengan simpan-pinjam: sama-sama perputaran dana milik
         // anggota koperasi, bukan penjualan.
-        if ("topup_saldo_anggota".equals(kunci) || "pencairan_diskon".equals(kunci)) {
+        if ("topup_saldo_anggota".equals(kunci) || "pencairan_diskon".equals(kunci)
+                || "penyesuaian_saldo_anggota".equals(kunci) || "modal_penyertaan".equals(kunci)) {
             return "simpan_pinjam";
         }
         if ("pembatalan_kantin".equals(kunci)) return "posting_penjualan";
@@ -373,6 +375,24 @@ public final class DraftJurnalRingkasanUtil {
                     hitungPostingHistory(session, kriteriaPencairanDiskon(session, mulai, sampai),
                             true),
                     hitungClosing(session, "pencairanDiskon", null, null, mulai, sampai)));
+        } else if ("penyesuaian_saldo_anggota".equals(kunci)) {
+            out.add(new Baris(kunci, "Penyesuaian Saldo Anggota",
+                    "Hasil opname saldo e-wallet anggota dipastikan menjadi jurnal koreksi kewajiban"
+                            + " (jurnal memorial, tanpa kas).",
+                    hitungPostingHistory(session, kriteriaPenyesuaianSaldo(session, mulai, sampai),
+                            false),
+                    hitungPostingHistory(session, kriteriaPenyesuaianSaldo(session, mulai, sampai),
+                            true),
+                    hitungClosing(session, "penyesuaianSaldoAnggota", null, null, mulai, sampai)));
+        } else if ("modal_penyertaan".equals(kunci)) {
+            out.add(new Baris(kunci, "Modal Penyertaan Masuk",
+                    "Setoran modal penyertaan dipastikan menjadi jurnal kas masuk dan modal"
+                            + " penyertaan.",
+                    hitungPostingHistory(session, kriteriaModalPenyertaan(session, mulai, sampai),
+                            false),
+                    hitungPostingHistory(session, kriteriaModalPenyertaan(session, mulai, sampai),
+                            true),
+                    hitungClosing(session, "modalPenyertaanKoperasi", null, null, mulai, sampai)));
         } else if ("pembatalan_kantin".equals(kunci)) {
             out.add(new Baris(kunci, "Pembatalan Penjualan Kantin",
                     "Pembatalan atas transaksi yang terlanjur masuk batch Penjualan Kantin"
@@ -643,6 +663,16 @@ public final class DraftJurnalRingkasanUtil {
     private static Criteria kriteriaPencairanDiskon(Session session, Date mulai, Date sampai) {
         return ais.action.master.koperasi.helper.PostingDanaAnggotaUtil.kriteriaPencairanStatic(
                 session, mulai, sampai);
+    }
+
+    private static Criteria kriteriaPenyesuaianSaldo(Session session, Date mulai, Date sampai) {
+        return ais.action.master.koperasi.helper.PostingDanaAnggotaUtil.kriteriaPenyesuaianStatic(
+                session, mulai, sampai);
+    }
+
+    private static Criteria kriteriaModalPenyertaan(Session session, Date mulai, Date sampai) {
+        return ais.action.master.koperasi.helper.PostingDanaAnggotaUtil.kriteriaModalStatic(session,
+                mulai, sampai);
     }
 
     private static Criteria kriteriaPenghapusanAset(Session session, Date mulai, Date sampai) {
@@ -994,6 +1024,12 @@ public final class DraftJurnalRingkasanUtil {
         }
         if ("Pencairan Diskon Anggota".equals(namaBaris)) {
             return kriteriaPencairanDiskon(session, mulai, sampai);
+        }
+        if ("Penyesuaian Saldo Anggota".equals(namaBaris)) {
+            return kriteriaPenyesuaianSaldo(session, mulai, sampai);
+        }
+        if ("Modal Penyertaan Masuk".equals(namaBaris)) {
+            return kriteriaModalPenyertaan(session, mulai, sampai);
         }
         if ("Gaji".equals(namaBaris)) return kriteriaPembayaranGaji(session, mulai, sampai);
         if ("Transaksi Pegawai".equals(namaBaris)) {

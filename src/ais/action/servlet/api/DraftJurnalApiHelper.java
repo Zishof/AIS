@@ -113,6 +113,8 @@ public final class DraftJurnalApiHelper {
         if ("Simpan Pinjam Koperasi".equals(namaBaris)) return "simpan_pinjam_koperasi";
         if ("Topup Saldo Anggota".equals(namaBaris)) return "topup_saldo_anggota";
         if ("Pencairan Diskon Anggota".equals(namaBaris)) return "pencairan_diskon";
+        if ("Penyesuaian Saldo Anggota".equals(namaBaris)) return "penyesuaian_saldo_anggota";
+        if ("Modal Penyertaan Masuk".equals(namaBaris)) return "modal_penyertaan";
         // Jurnal balik pembatalan serumpun izin dengan posting penjualannya.
         if ("Pembatalan Penjualan Kantin".equals(namaBaris)) return "posting_penjualan";
         // Kunci deskriptif fail-closed (pola siswa/mahasiswa/simpan-pinjam).
@@ -458,6 +460,18 @@ public final class DraftJurnalApiHelper {
                         .postingSemuaPencairan(mulai, sampai, tbmuser, new Date())
                     : ais.action.master.koperasi.helper.PostingDanaAnggotaUtil
                         .batalkanPostingSemuaPencairan(mulai, sampai);
+        } else if ("Penyesuaian Saldo Anggota".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.koperasi.helper.PostingDanaAnggotaUtil
+                        .postingSemuaPenyesuaian(mulai, sampai, tbmuser, new Date())
+                    : ais.action.master.koperasi.helper.PostingDanaAnggotaUtil
+                        .batalkanPostingSemuaPenyesuaian(mulai, sampai);
+        } else if ("Modal Penyertaan Masuk".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.koperasi.helper.PostingDanaAnggotaUtil
+                        .postingSemuaModal(mulai, sampai, tbmuser, new Date())
+                    : ais.action.master.koperasi.helper.PostingDanaAnggotaUtil
+                        .batalkanPostingSemuaModal(mulai, sampai);
         } else if ("Pembatalan Penjualan Kantin".equals(nama)) {
             jumlah = posting
                     ? ais.action.master.koperasi.helper.PembatalanTransaksiUtil.postingSemua(

@@ -295,4 +295,21 @@ public class ModalPenyertaanKoperasi extends ais.database.model.GeneralValueObje
 	public String toString() {
 		return "Modal Penyertaan " + (namaPenyerta == null ? "" : namaPenyerta) + " - " + getNominal();
 	}
+
+	private ais.database.model.akunting.PostingHistory postingHistory;
+
+	/**
+	 * Riwayat posting jurnal (dok 61 butir B tahap 2): terisi begitu mesin
+	 * {@code PostingDanaAnggotaUtil} menjurnalkan dokumen ini.
+	 */
+	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
+	@javax.persistence.JoinColumn(name = "posting_history", nullable = true)
+	public ais.database.model.akunting.PostingHistory getPostingHistory() {
+		return postingHistory;
+	}
+
+	public void setPostingHistory(ais.database.model.akunting.PostingHistory postingHistory) {
+		this.postingHistory = postingHistory;
+	}
+
 }

@@ -2717,4 +2717,33 @@ public class GrupTransaksi extends GeneralValueObject {
 		this.pencairanDiskon = pencairanDiskon;
 	}
 
+
+	private ais.database.model.koperasi.PenyesuaianSaldoAnggota penyesuaianSaldoAnggota;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@Fetch(FetchMode.SELECT)
+	@JoinColumn(name = "penyesuaian_saldo_anggota", nullable = true)
+	public ais.database.model.koperasi.PenyesuaianSaldoAnggota getPenyesuaianSaldoAnggota() {
+		return penyesuaianSaldoAnggota;
+	}
+
+	public void setPenyesuaianSaldoAnggota(
+			ais.database.model.koperasi.PenyesuaianSaldoAnggota penyesuaianSaldoAnggota) {
+		this.penyesuaianSaldoAnggota = penyesuaianSaldoAnggota;
+	}
+
+	private ais.database.model.koperasi.ModalPenyertaanKoperasi modalPenyertaanKoperasi;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@Fetch(FetchMode.SELECT)
+	@JoinColumn(name = "modal_penyertaan_koperasi", nullable = true)
+	public ais.database.model.koperasi.ModalPenyertaanKoperasi getModalPenyertaanKoperasi() {
+		return modalPenyertaanKoperasi;
+	}
+
+	public void setModalPenyertaanKoperasi(
+			ais.database.model.koperasi.ModalPenyertaanKoperasi modalPenyertaanKoperasi) {
+		this.modalPenyertaanKoperasi = modalPenyertaanKoperasi;
+	}
+
 }
