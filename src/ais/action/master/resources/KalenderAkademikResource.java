@@ -16,8 +16,6 @@ import ais.database.model.KalenderAkademik;
 
 import com.sun.jersey.spi.resource.Singleton;
 
-@Path("/kalenderAkademik")
-@Singleton
 
 
 
@@ -38,6 +36,8 @@ import com.sun.jersey.spi.resource.Singleton;
  * namun tetap perlu diketahui sebagai keterbatasan desain API ini.
  * </p>
  */
+@Path("/kalenderAkademik")
+@Singleton
 public class KalenderAkademikResource extends DataResource<KalenderAkademik> {
 
 	/** Mendaftarkan {@link KalenderAkademik} sebagai tipe entitas yang dilayani resource ini. */

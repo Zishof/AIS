@@ -54,8 +54,6 @@ import ais.database.model.library.Perpustakaan;
 import ais.database.model.library.PesananAnggota;
 import ais.ui.util.WaktuUtil;
 
-@Path("/user_perpustakaan")
-@Singleton
 
 
 
@@ -92,6 +90,8 @@ import ais.ui.util.WaktuUtil;
  * sebelum return, termasuk pada jalur awal (early return) saat validasi user/data gagal.
  * </p>
  */
+@Path("/user_perpustakaan")
+@Singleton
 public class UserPerpustakaanResource extends PerpustakaanResource {
 
 	/** Konstruktor default, meneruskan inisialisasi ke {@link PerpustakaanResource}. */

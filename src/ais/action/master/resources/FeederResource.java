@@ -50,8 +50,6 @@ import ais.database.model.Perkuliahan;
 import ais.database.model.Pertemuan;
 import ais.database.model.Skripsi;
 
-@Path("/feeder")
-@Singleton
 
 /**
  * Titik akhir REST (Jersey/JAX-RS) untuk integrasi PDDikti Feeder: menyediakan data akademik dalam
@@ -84,6 +82,8 @@ import ais.database.model.Skripsi;
  * dengan pemilik skrip sinkronisasi Feeder.</li>
  * </ul>
  */
+@Path("/feeder")
+@Singleton
 public class FeederResource {
 
 	/** Mengembalikan waktu server saat ini (epoch millis). */

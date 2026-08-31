@@ -22,8 +22,6 @@ import com.sun.jersey.api.NotFoundException;
 
 import com.sun.jersey.spi.resource.Singleton;
 
-@Path("/biodataMahasiswa")
-@Singleton
 
 
 
@@ -44,6 +42,8 @@ import com.sun.jersey.spi.resource.Singleton;
  * yang menerima {@code @PathParam("password")}.
  * </p>
  */
+@Path("/biodataMahasiswa")
+@Singleton
 public class BiodataMahasiswaResource extends DataResource<BiodataMahasiswa> {
 
 	/** Membuat resource yang terikat ke entitas {@link BiodataMahasiswa}. */

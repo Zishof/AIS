@@ -47,8 +47,6 @@ import ais.database.model.StatusMahasiswa;
 import ais.database.model.Tbmuser;
 import ais.database.model.TemplateSurat;
 
-@Path("/mahasiswa")
-@Singleton
 
 
 
@@ -89,6 +87,8 @@ import ais.database.model.TemplateSurat;
  * transaksi finansial atau kebocoran data pribadi).</li>
  * </ul>
  */
+@Path("/mahasiswa")
+@Singleton
 public class MahasiswaResource extends DataResource<Mahasiswa> {
 
 	public PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();

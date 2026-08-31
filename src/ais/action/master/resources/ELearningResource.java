@@ -40,8 +40,6 @@ import ais.database.model.sisdes.Penduduk;
 import ais.ui.util.SmartDateTimeUtil;
 import ais.ui.util.WaktuUtil;
 
-@Path("/elearning")
-@Singleton
 
 /**
  * Titik akhir REST (Jersey/JAX-RS) untuk integrasi e-learning/mobile: kontrol live streaming
@@ -69,6 +67,8 @@ import ais.ui.util.WaktuUtil;
  * diubah pada perbaikan ini.
  * </p>
  */
+@Path("/elearning")
+@Singleton
 public class ELearningResource {
 
 	/** Mengembalikan waktu server saat ini (epoch millis) — dipakai untuk sinkronisasi jam klien mobile. */
