@@ -26,6 +26,29 @@ import ais.database.model.GeneralValueObject;
 
 
 
+/**
+ * Model data untuk konfigurasi sk. Tipe ini membawa state yang dipertukarkan oleh lapisan
+ * persistence, service, dan UI; makna bisnis utamanya ditentukan oleh field serta relasi yang
+ * dideklarasikan.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * GeneralValueObject}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Long id}, {@code String oleh}, {@code
+ * String olehId}, {@code String keterangan}, {@code String nama}, {@code Date tanggal_dirubah}, {@code String
+ * MENIMBANG}, {@code String MENGINGAT}; pemetaan persistence: tabel {@code employ.konfigurasi_sk};
+ * pembacaan/pencarian ({@code getOlehId()}, {@code getId()}, {@code getOleh()}, {@code getTanggal_dirubah()},
+ * {@code getKeterangan()}, {@code getNama()}); mutasi data ({@code setOlehId()}, {@code onUpdate()}, {@code
+ * setId()}, {@code setOleh()}, {@code setTanggal_dirubah()}, {@code setKeterangan()}); operasi domain lain
+ * ({@code toString()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
+ * atas.</p>
+ * <p><b>Efek samping:</b> accessor dan mutator hanya membaca atau mengubah state entity/value object di memori.
+ * Persistence, transaksi, otorisasi, dan pemuatan relasi lazy tetap menjadi tanggung jawab DAO/service dengan
+ * session aktif; jangan menaruh query duplikat pada model.</p>
+ *
+ * @see GeneralValueObject
+ */
 @Entity
 @org.hibernate.annotations.Entity(
     dynamicInsert = true, 

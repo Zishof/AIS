@@ -42,6 +42,41 @@ import ais.database.model.sekolah.Siswa;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Kelas dasar value object/model AIS untuk general value object. Tipe ini menyatukan identitas,
+ * metadata umum, representasi, serta perilaku lintas entity yang benar-benar berlaku bagi
+ * turunannya.
+ *
+ * <p><b>Kontrak identitas dan utilitas bersama:</b> {@link #equals(Object)} membandingkan {@code id} ketika kedua
+ * object memilikinya; {@link #compareTo(GeneralValueObject)} mengurutkan berjenjang menurut nomor urut, NIM,
+ * nama, lalu keterangan. {@link #check(Object)}, {@link #chek(Object)}, dan {@link #resolveLazy(Object)} adalah
+ * alias resolusi proxy lazy yang dapat membuka session khusus untuk memuat ulang object detached. Operasi
+ * {@code read/write/delete} mengelola cache JSON/file sementara milik object—bukan menghapus baris database.
+ * Gunakan kontrak ini sebelum membuat helper identitas, lazy-loading, atau cache paralel pada entity turunan.</p>
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * DataUtil}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
+ * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
+ * tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code GeneralValueObject copyDari}, {@code
+ * Long id}, {@code String kode}, {@code String nama}, {@code String nim}, {@code String keterangan}, {@code
+ * Integer nomorUrut}, {@code String oleh}; inisialisasi/lifecycle ({@code isInitializedSafely()}, {@code
+ * initializeWithAvailableSession()}, {@code reInitChecklistHasilPenilaianUmum()}, {@code
+ * reInitIsiAngketParameterUmum()}); pembacaan/pencarian ({@code getJson()}, {@code getCopyDari()}, {@code
+ * getId()}, {@code getOlehId()}, {@code getOleh()}, {@code getTanggal_dirubah()}); validasi/perhitungan ({@code
+ * filterTidakBolehSederhana()}, {@code filterTidakBoleh()}, {@code closeSessionCreatedByCheckQuietly()}, {@code
+ * check()}); mutasi data ({@code onUpdate()}, {@code setCopyDari()}, {@code setId()}, {@code setOlehId()},
+ * {@code setOleh()}, {@code setTanggal_dirubah()}); penghapusan/pembatalan ({@code delete()}, {@code
+ * removeIsiAngketParameterUmum()}); operasi domain lain ({@code clone()}, {@code toString()}, {@code chek()},
+ * {@code resolveLazy()}, {@code equals()}, {@code compareTo()}). Bagian lain dari kontrak tetap mengikuti kelas
+ * induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> selain accessor state, operasi domain yang disebut di atas dapat membaca/mengubah
+ * persistence, memicu lifecycle, atau membentuk komponen UI. Jangan menganggap model ini selalu murni;
+ * panggil operasi tersebut melalui alur service dengan session, transaksi, dan otorisasi yang sesuai agar
+ * perilakunya tidak disalin ke tempat lain.</p>
+ *
+ * @see DataUtil
+ */
 public abstract class GeneralValueObject extends DataUtil
 		implements Serializable, Cloneable, Comparable<GeneralValueObject> {
 

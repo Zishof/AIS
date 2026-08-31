@@ -21,6 +21,28 @@ import org.hibernate.envers.Audited;
 import ais.database.model.GeneralValueObject;
 import ais.database.model.asset.PenyediaAsset;
 
+/**
+ * Model data untuk pengadaan produk. Tipe ini membawa state yang dipertukarkan oleh lapisan
+ * persistence, service, dan UI; makna bisnis utamanya ditentukan oleh field serta relasi yang
+ * dideklarasikan.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * GeneralValueObject}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Long id}, {@code Produk produk}, {@code
+ * Toko toko}, {@code String nomorFaktur}, {@code String namaSupplier}, {@code PenyediaAsset supplier}, {@code
+ * PengadaanFaktur fakturPengadaan}, {@code Double qty}; pemetaan persistence: tabel {@code
+ * koperasi.pengadaan_produk}; pembacaan/pencarian ({@code getId()}, {@code getProduk()}, {@code getToko()},
+ * {@code getNomorFaktur()}, {@code getNamaSupplier()}, {@code getQty()}); mutasi data ({@code onUpdate()},
+ * {@code setId()}, {@code setProduk()}, {@code setToko()}, {@code setNomorFaktur()}, {@code setNamaSupplier()}).
+ * Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> accessor dan mutator hanya membaca atau mengubah state entity/value object di memori.
+ * Persistence, transaksi, otorisasi, dan pemuatan relasi lazy tetap menjadi tanggung jawab DAO/service dengan
+ * session aktif; jangan menaruh query duplikat pada model.</p>
+ *
+ * @see GeneralValueObject
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited

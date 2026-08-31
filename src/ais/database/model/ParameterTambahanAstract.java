@@ -77,6 +77,31 @@ import ais.ui.util.MyTextboxAngka;
 import ais.ui.util.MyTimebox;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Kelas dasar legacy untuk entity yang mendukung parameter tambahan dinamis. Ejaan {@code Astract}
+ * dipertahankan demi kompatibilitas; tipe ini menjadi satu sumber kontrak penyimpanan dan
+ * pembacaan nilai tambahan.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * GeneralValueObject}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code String TIDAK_ADA}, {@code String TEXT},
+ * {@code String ANGKA}, {@code String TEXT_ANGKA}, {@code String TANGGAL}, {@code String TANGGAL_DAN_WAKTU},
+ * {@code String WAKTU}, {@code String PILIHAN_YA_TIDAK}; inisialisasi/lifecycle ({@code initComponent()}, {@code
+ * initComponent()}, {@code initComponent()}); pembacaan/pencarian ({@code tampil()}, {@code
+ * ambilNilaiComponent()}, {@code ambilComponent()}, {@code ambilComponent()}, {@code ambilComponentCustom()},
+ * {@code ambilVal()}); mutasi data ({@code parseTanggalAman()}); operasi domain lain ({@code nzp()}, {@code
+ * rangkaiAlamatPenyedia()}, {@code rangkaiJenisPekerjaanPenyedia()}, {@code nilaiPenyediaUntukLabel()}, {@code
+ * isiOtomatisParameterTerkaitPenyedia()}, {@code reevaluasiSkipLogic()}). Bagian lain dari kontrak tetap
+ * mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> selain accessor state, operasi domain yang disebut di atas dapat membaca/mengubah
+ * persistence, memicu lifecycle, atau membentuk komponen UI. Jangan menganggap model ini selalu murni;
+ * panggil operasi tersebut melalui alur service dengan session, transaksi, dan otorisasi yang sesuai agar
+ * perilakunya tidak disalin ke tempat lain.</p>
+ *
+ * @see GeneralValueObject
+ */
 public abstract class ParameterTambahanAstract extends GeneralValueObject {
 
 	private static final long serialVersionUID = 1L;

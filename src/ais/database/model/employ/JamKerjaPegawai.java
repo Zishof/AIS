@@ -28,6 +28,28 @@ import ais.database.model.rab.SatuanKerja;
 
 
 
+/**
+ * Model data untuk jam kerja pegawai. Tipe ini membawa state yang dipertukarkan oleh lapisan
+ * persistence, service, dan UI; makna bisnis utamanya ditentukan oleh field serta relasi yang
+ * dideklarasikan.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * GeneralValueObject}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Long id}, {@code String oleh}, {@code
+ * String olehId}, {@code Date mulai}, {@code Date sampai}, {@code Integer hari}, {@code SatuanKerja
+ * satuanKerja}, {@code Date tanggal_dirubah}; pemetaan persistence: tabel {@code employ.jam_kerja_pegawai};
+ * pembacaan/pencarian ({@code getOlehId()}, {@code getTanggal_dirubah()}, {@code getId()}, {@code getOleh()},
+ * {@code getHari()}, {@code getMulai()}); mutasi data ({@code setOlehId()}, {@code onUpdate()}, {@code
+ * setTanggal_dirubah()}, {@code setId()}, {@code setOleh()}, {@code setHari()}). Bagian lain dari kontrak tetap
+ * mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> accessor dan mutator hanya membaca atau mengubah state entity/value object di memori.
+ * Persistence, transaksi, otorisasi, dan pemuatan relasi lazy tetap menjadi tanggung jawab DAO/service dengan
+ * session aktif; jangan menaruh query duplikat pada model.</p>
+ *
+ * @see GeneralValueObject
+ */
 @Entity
 @org.hibernate.annotations.Entity(
     dynamicInsert = true,

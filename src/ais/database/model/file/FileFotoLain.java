@@ -62,6 +62,30 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.SetelahUpload;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Model data untuk file foto lain. Tipe ini membawa state yang dipertukarkan oleh lapisan
+ * persistence, service, dan UI; makna bisnis utamanya ditentukan oleh field serta relasi yang
+ * dideklarasikan.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * FileFoto}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
+ * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
+ * tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Map RELASI_MAP}, {@code long
+ * SOFT_DELETE_ID}; inisialisasi/lifecycle ({@code setupJurusanCombo()}, {@code setupDownloadButtonAction()});
+ * pembacaan/pencarian ({@code ambilRef()}, {@code ambilClazz()}, {@code getJenis()}, {@code getLink()}, {@code
+ * getOlehId()}, {@code getOleh()}); mutasi data ({@code setUrl()}, {@code resetLokasi()}, {@code
+ * hapusAtauUpdate()}); penghapusan/pembatalan ({@code delete()}, {@code performDelete()}); operasi domain lain
+ * ({@code createLinkUri()}, {@code createLinkUri()}, {@code createLinkUri()}, {@code iconNggakAda()}, {@code
+ * iconNggakAda()}, {@code tulisLokasi()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface
+ * yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> selain accessor state, operasi domain yang disebut di atas dapat membaca/mengubah
+ * persistence, memicu lifecycle, atau membentuk komponen UI. Jangan menganggap model ini selalu murni;
+ * panggil operasi tersebut melalui alur service dengan session, transaksi, dan otorisasi yang sesuai agar
+ * perilakunya tidak disalin ke tempat lain.</p>
+ *
+ * @see FileFoto
+ */
 @SuppressWarnings({ "rawtypes", "unchecked", "serial" })
 public abstract class FileFotoLain extends FileFoto {
 

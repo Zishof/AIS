@@ -12,6 +12,29 @@ import ais.common.ConstantValues;
 import ais.database.model.GeneralValueObject;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Model data untuk vo kelas punya siswa. Tipe ini membawa state yang dipertukarkan oleh lapisan
+ * persistence, service, dan UI; makna bisnis utamanya ditentukan oleh field serta relasi yang
+ * dideklarasikan.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * GeneralValueObject}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah pembacaan/pencarian ({@code getSiswa()}, {@code ambilMk()},
+ * {@code getDetailNilai()}, {@code getDetailNilaiTotal()}, {@code getKeterangan1()}, {@code getKeterangan2()});
+ * mutasi data ({@code setDetailNilai()}, {@code setDetailNilaiTotal()}, {@code setKeterangan1()}, {@code
+ * setKeterangan2()}); operasi domain lain ({@code retreiveDetailNilai()}, {@code retreiveDetailVerify()}, {@code
+ * retreiveTotalNilai()}, {@code populateDetailNilai()}, {@code retreiveDetailNilaiTotal()}, {@code
+ * retreiveTotalNilaiTotal()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut
+ * di atas.</p>
+ * <p><b>Efek samping:</b> selain accessor state, operasi domain yang disebut di atas dapat membaca/mengubah
+ * persistence, memicu lifecycle, atau membentuk komponen UI. Jangan menganggap model ini selalu murni;
+ * panggil operasi tersebut melalui alur service dengan session, transaksi, dan otorisasi yang sesuai agar
+ * perilakunya tidak disalin ke tempat lain.</p>
+ *
+ * @see GeneralValueObject
+ */
 public abstract class VoKelasPunyaSiswa extends GeneralValueObject {
 
 	/**

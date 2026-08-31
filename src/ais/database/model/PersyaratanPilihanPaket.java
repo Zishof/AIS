@@ -24,6 +24,30 @@ import org.hibernate.envers.Audited;
 
 import ais.database.hibernate.HibernateUtil;
 
+/**
+ * Model data untuk persyaratan pilihan paket. Tipe ini membawa state yang dipertukarkan oleh
+ * lapisan persistence, service, dan UI; makna bisnis utamanya ditentukan oleh field serta relasi
+ * yang dideklarasikan.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * GeneralValueObject}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Long id}, {@code String oleh}, {@code
+ * String olehId}, {@code Date tanggal_dirubah}, {@code Paket paket}, {@code Paket persyaratan}, {@code String
+ * keterangan}; pemetaan persistence: tabel {@code public.persyaratan_pilihan_paket}; pembacaan/pencarian ({@code
+ * getOlehId()}, {@code getOleh()}, {@code getTanggal_dirubah()}, {@code getId()}, {@code getKeterangan()},
+ * {@code getPersyaratan()}); validasi/perhitungan ({@code checkKombinasiPaket()}); mutasi data ({@code
+ * setOlehId()}, {@code setOleh()}, {@code onUpdate()}, {@code setTanggal_dirubah()}, {@code setId()}, {@code
+ * setKeterangan()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
+ * atas.</p>
+ * <p><b>Efek samping:</b> selain accessor state, operasi domain yang disebut di atas dapat membaca/mengubah
+ * persistence, memicu lifecycle, atau membentuk komponen UI. Jangan menganggap model ini selalu murni;
+ * panggil operasi tersebut melalui alur service dengan session, transaksi, dan otorisasi yang sesuai agar
+ * perilakunya tidak disalin ke tempat lain.</p>
+ *
+ * @see GeneralValueObject
+ */
 @Entity
 @org.hibernate.annotations.Entity(
     dynamicInsert = true, 

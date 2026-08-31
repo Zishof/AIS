@@ -27,6 +27,29 @@ import ais.database.model.sop.DataSop;
 import ais.database.model.sop.DisposisiSop;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Model data untuk kenaikan pangkat. Tipe ini membawa state yang dipertukarkan oleh lapisan
+ * persistence, service, dan UI; makna bisnis utamanya ditentukan oleh field serta relasi yang
+ * dideklarasikan.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * DataSop}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
+ * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
+ * tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Long id}, {@code String oleh}, {@code
+ * String olehId}, {@code String keterangan}, {@code Date tanggal_dirubah}, {@code Pegawai pegawai}, {@code
+ * JenisKenaikanPangkat jenisKenaikanPangkat}, {@code String noSuratUsul}; pemetaan persistence: tabel {@code
+ * employ.kenaikan_pangkat}; pembacaan/pencarian ({@code getOlehId()}, {@code getId()}, {@code getOleh()}, {@code
+ * getTanggal_dirubah()}, {@code getKeterangan()}, {@code getPegawai()}); mutasi data ({@code setOlehId()},
+ * {@code onUpdate()}, {@code setId()}, {@code setOleh()}, {@code setTanggal_dirubah()}, {@code
+ * setKeterangan()}); operasi domain lain ({@code compareTo()}, {@code toString()}). Bagian lain dari kontrak
+ * tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> accessor, mutator, dan pembanding hanya membaca atau mengubah state entity di memori.
+ * Persistence, transaksi, dan pemuatan relasi lazy tetap menjadi tanggung jawab DAO/service dengan session
+ * aktif.</p>
+ *
+ * @see DataSop
+ */
 @Entity
 @org.hibernate.annotations.Entity(
     dynamicInsert = true,

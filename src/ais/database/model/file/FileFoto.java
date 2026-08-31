@@ -25,6 +25,30 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.hibernate.StreamingHibernateUtil;
 import ais.database.model.GeneralValueObject;
 
+/**
+ * Model data untuk file foto. Tipe ini membawa state yang dipertukarkan oleh lapisan persistence,
+ * service, dan UI; makna bisnis utamanya ditentukan oleh field serta relasi yang dideklarasikan.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * GeneralValueObject}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Blob foto}, {@code String
+ * lokasiSimpan}, {@code ThreadLocal BLOB_EXTRACTION_LEVEL}; pembacaan/pencarian ({@code getId()}, {@code
+ * ambilRef()}, {@code getNama()}, {@code getKeterangan()}, {@code ambilLink()}, {@code ambilJenis()}); mutasi
+ * data ({@code setId()}, {@code setNama()}, {@code setFoto()}, {@code setLokasiSimpan()}, {@code setGdrive()},
+ * {@code setGdriveUsername()}); penghapusan/pembatalan ({@code deleteTempIfExists()}, {@code hapusTotal()});
+ * pelaporan/ekspor ({@code thumbnailFromExport()}, {@code exportGDriveUrl()}); operasi domain lain ({@code
+ * merupakanGambar()}, {@code merupakanGambar()}, {@code merupakanVideo()}, {@code merupakanVideo()}, {@code
+ * merupakanDokumen()}, {@code merupakanDokumen()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau
+ * interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> selain accessor state, operasi domain yang disebut di atas dapat membaca/mengubah
+ * persistence, memicu lifecycle, atau membentuk komponen UI. Jangan menganggap model ini selalu murni;
+ * panggil operasi tersebut melalui alur service dengan session, transaksi, dan otorisasi yang sesuai agar
+ * perilakunya tidak disalin ke tempat lain.</p>
+ *
+ * @see GeneralValueObject
+ */
 public abstract class FileFoto extends GeneralValueObject {
 
 	/**

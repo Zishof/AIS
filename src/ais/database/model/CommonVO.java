@@ -2,6 +2,23 @@ package ais.database.model;
 
 import java.io.Serializable;
 
+/**
+ * Kelas dasar value object/model AIS untuk common vo. Tipe ini menyatukan identitas, metadata
+ * umum, representasi, serta perilaku lintas entity yang benar-benar berlaku bagi turunannya.
+ *
+ * <p><b>Batas tanggung jawab:</b> interface serialisasi/perbandingan hanya mendukung binding dan collection.
+ * Tipe ini tetap merupakan pembawa data; validasi, transaksi, dan aturan domain harus berada pada service agar
+ * tidak muncul sumber aturan paralel.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code String id}, {@code String name}, {@code
+ * String name1}, {@code String name2}, {@code String name3}, {@code String name4}, {@code String name5}, {@code
+ * Double mulai}; pembacaan/pencarian ({@code getId()}, {@code getName()}, {@code getName1()}, {@code
+ * getName2()}, {@code getName3()}, {@code getName4()}); mutasi data ({@code setId()}, {@code setName()}, {@code
+ * setName1()}, {@code setName2()}, {@code setName3()}, {@code setName4()}); operasi domain lain ({@code
+ * toString()}, {@code compareTo()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang
+ * disebut di atas.</p>
+ * <p><b>Efek samping:</b> accessor, mutator, dan pembanding hanya membaca atau mengubah state value object di
+ * memori. Tipe ini tidak membuka session, menjalankan transaksi, atau memuat data sendiri.</p>
+ */
 public class CommonVO implements Serializable, Comparable<CommonVO> {
 
 	/**

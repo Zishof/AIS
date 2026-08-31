@@ -27,6 +27,30 @@ import ais.database.model.GeneralValueObject;
 import ais.database.model.Tbmuser;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Model data untuk koreksi item. Tipe ini membawa state yang dipertukarkan oleh lapisan
+ * persistence, service, dan UI; makna bisnis utamanya ditentukan oleh field serta relasi yang
+ * dideklarasikan.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * GeneralValueObject}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Long id}, {@code Long index}, {@code
+ * String oleh}, {@code String olehId}, {@code Date tanggal_dirubah}, {@code String kode}, {@code String
+ * keterangan}, {@code Perpustakaan perpustakaan}; pemetaan persistence: tabel {@code library.koreksi_item};
+ * inisialisasi/lifecycle ({@code setDibuatOleh()}, {@code getDibuatOleh()}, {@code setTanggalPembuatan()},
+ * {@code getTanggalPembuatan()}); pembacaan/pencarian ({@code getOlehId()}, {@code getOleh()}, {@code
+ * getTanggal_dirubah()}, {@code getId()}, {@code getKode()}, {@code getKeterangan()}); mutasi data ({@code
+ * setOlehId()}, {@code setOleh()}, {@code onUpdate()}, {@code setTanggal_dirubah()}, {@code setId()}, {@code
+ * setKode()}); operasi domain lain ({@code toString()}). Bagian lain dari kontrak tetap mengikuti kelas induk
+ * atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> accessor dan mutator hanya membaca atau mengubah state entity/value object di memori.
+ * Persistence, transaksi, otorisasi, dan pemuatan relasi lazy tetap menjadi tanggung jawab DAO/service dengan
+ * session aktif; jangan menaruh query duplikat pada model.</p>
+ *
+ * @see GeneralValueObject
+ */
 @Entity
 @org.hibernate.annotations.Entity(
     dynamicInsert = true,

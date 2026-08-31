@@ -40,6 +40,31 @@ import ais.database.model.streaming.VideoPertemuan;
 import ais.ui.util.MyToolbarbutton;
 import ais.ui.util.MyLabelAgakKecilBold;
 
+/**
+ * Model data untuk tugas. Tipe ini membawa state yang dipertukarkan oleh lapisan persistence,
+ * service, dan UI; makna bisnis utamanya ditentukan oleh field serta relasi yang dideklarasikan.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * GeneralValueObject}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code String JSON}, {@code Tbmuser
+ * currentUser}, {@code TugasFileContent currentTugasFileContent}; inisialisasi/lifecycle ({@code
+ * reInitTugasFileContent()}, {@code reInitTugasFileContent()}); pembacaan/pencarian ({@code
+ * getSyaratMengumpulkanTugas()}, {@code getFormatNilai()}, {@code getFormatNilais()}, {@code getProsentase()},
+ * {@code getJudultugas()}, {@code getIsitugas()}); mutasi data ({@code setSyaratMengumpulkanTugas()}, {@code
+ * setFormatNilai()}, {@code setFormatNilais()}, {@code setProsentase()}, {@code setJudultugas()}, {@code
+ * setIsitugas()}); penghapusan/pembatalan ({@code removeTugasFileContent()}); operasi domain lain ({@code
+ * tulisLokasiTugasFileContent()}, {@code bersihkanLokasiTugasFileContent()}, {@code populateTugasFileContent()},
+ * {@code tugasFileContent()}, {@code apakahAkses()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau
+ * interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> selain accessor state, operasi domain yang disebut di atas dapat membaca/mengubah
+ * persistence, memicu lifecycle, atau membentuk komponen UI. Jangan menganggap model ini selalu murni;
+ * panggil operasi tersebut melalui alur service dengan session, transaksi, dan otorisasi yang sesuai agar
+ * perilakunya tidak disalin ke tempat lain.</p>
+ *
+ * @see GeneralValueObject
+ */
 public abstract class Tugas extends GeneralValueObject {
 
 	public static String JSON = new JSONObject().toString();
