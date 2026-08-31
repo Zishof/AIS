@@ -59,12 +59,99 @@ import ais.database.model.sekolah.MatapelajaranPunyaBukuBahanAjar;
 import ais.database.model.sekolah.Siswa;
 import ais.delivery.email.sender.MailSender;
 
+/**
+ * Kumpulan helper statis level-domain yang menyusun DAN mengirim seluruh email/notifikasi WhatsApp
+ * "resmi" (surat formal berbahasa Indonesia sangat baku) untuk peristiwa spesifik di modul
+ * akademik (perkuliahan, tugas, ujian, diskusi, buku ajar), penerimaan mahasiswa/siswa/pegawai
+ * baru (PMB/PPDB/rekrutmen), dan pembayaran (loket, virtual account BNI/BSI/BRI, Finpay) di AIS.
+ * Berbeda dari {@link ais.delivery.email.sender.MailSender} — yang menjadi <i>mesin pengirim
+ * generik</i> tak terikat domain (menerima subjek/body/penerima sudah jadi lalu menanganinya
+ * lewat kanal email/WA/push, deduplikasi, dan pencatatan {@code Notifikasi}) — kelas ini adalah
+ * <i>lapisan komposisi pesan</i> yang tahu APA yang terjadi di aplikasi (tugas baru diunggah,
+ * pembayaran lunas, calon mahasiswa diterima, dst.), MENGUMPULKAN daftar penerima yang relevan
+ * dari entitas domain terkait, MENYUSUN subjek dan body email (sering disertai versi WhatsApp yang
+ * senada namun memakai markup WA {@code *tebal*} bukan HTML {@code <b>}), lalu MENDELEGASIKAN
+ * pengiriman sesungguhnya ke {@link MailSender#sendMail}/{@link MailSender#sendMailLampiran} dan
+ * (untuk WA) ke {@code ais.action.servlet.Wa#kirimWaViaUltramsg}.
+ *
+ * <h2>Pola berulang pada method publik {@code infoXxx}</h2>
+ * <p>
+ * Hampir seluruh method publik di kelas ini (kecuali beberapa helper kecil seperti
+ * {@link #infoDaftarMahasiswa} yang sekadar delegasi ke varian banyak-berkas) mengikuti kerangka
+ * yang sama: (1) kumpulkan {@code userIds} (JSONArray id/NIM/NISN penerima, dipakai
+ * {@link MailSender} untuk resolusi push/WA) dan {@code emailUser} (StringBuilder alamat email
+ * dipisah koma) dari entitas domain yang diberikan, memakai helper {@code processXxx}
+ * ({@link #processDosen}, {@link #processGuru}, {@link #processMahasiswa}, {@link #processSiswa},
+ * {@link #processPertemuanUsers}, {@link #processTbmUser}) dan {@link #appendEmail} untuk validasi
+ * format email sebelum ditambahkan; (2) bila ada minimal satu penerima (email atau userId),
+ * susun {@code subject} dan {@code body} HTML berbahasa formal panjang; (3) ambil alamat pengirim
+ * dari konfigurasi {@code default_email} (default {@code "info@zishof.com"}); (4) panggil
+ * {@link MailSender#sendMail}/{@code sendMailLampiran} untuk mengirim lewat email (dan, bila
+ * {@code userIds} terisi, secara tidak langsung lewat push/WA di sisi {@link MailSender} bila
+ * parameter {@code kirimkankeWa} diaktifkan); (5) beberapa method (jalur pendaftaran PMB/PPDB dan
+ * jalur pembayaran) SECARA TERPISAH juga mengirim pesan WhatsApp langsung lewat
+ * {@code Wa#kirimWaViaUltramsg}, dengan teks yang disusun ulang (bukan re-use body HTML) memakai
+ * markup WhatsApp dan gerbang aktivasi konfigurasi tersendiri (mis.
+ * {@code aktifkan_kirim_notif_daftar_peserta_didik_baru_ke_wa},
+ * {@code aktifkan_kirim_notif_diterima_peserta_didik_baru_ke_wa},
+ * {@code aktifkan_kirim_notif_pembayaran_ke_wa}).
+ * </p>
+ *
+ * <h2>Method berbasis event ZK asinkron vs sinkron</h2>
+ * <p>
+ * Method yang dipicu dari peristiwa akademik interaktif (unggah materi, tugas, izin, diskusi,
+ * buku ajar, ujian — semua method berawalan {@code infoAda...}) dibungkus
+ * {@link Common#createDefaultTimer(EventListener)} sehingga pengiriman email berjalan asinkron
+ * setelah aksi UI selesai, tidak memblokir thread event ZK yang memicunya. Method yang dipicu dari
+ * alur pendaftaran/pembayaran (semua method berawalan {@code infoDaftar...}, {@code infoBayar...},
+ * {@code infoBatalBayar}, {@code infoLengkap...}, {@code infoNim...}) dijalankan SINKRON pada
+ * thread pemanggil — pemanggil bertanggung jawab menjalankannya di luar thread UI bila diperlukan.
+ * </p>
+ *
+ * <h2>Pembayaran: {@code infoBayar} vs {@code sendPaymentNotification}</h2>
+ * <p>
+ * {@link #infoBayar(Kegiatan, File)} menangani pembayaran generik (loket/tunai, VA lama) atas
+ * sebuah {@link Kegiatan}, dengan body email/WA yang menyertakan tautan verifikasi struk
+ * ({@code /StrukM?id=...}, dienkripsi lewat {@code Common.desEncrypter}). Empat method
+ * {@code infoBayarViaFinpay}/{@code infoBayarViaBni}/{@code infoBayarViaBsi}/{@code infoBayarViaBri}
+ * menangani notifikasi pembayaran lewat masing-masing gateway Host-to-Host, dan seluruhnya
+ * didelegasikan ke satu implementasi bersama {@link #sendPaymentNotification} agar pesan/gerbang
+ * konfigurasi WA konsisten di antara keempat mitra bank/pembayaran tersebut — pola konsolidasi
+ * yang mengurangi duplikasi dibanding menulis ulang badan pesan di tiap method.
+ * </p>
+ *
+ * <h2>Catatan risiko — {@link #buildPublicFileUrlSafe}</h2>
+ * <p>
+ * Beberapa jalur WA (pendaftaran, pembayaran) melampirkan berkas lewat URL publik yang dibangun
+ * dari {@code file.getAbsolutePath()} dengan memotong path pada penanda literal {@code "webapps"}
+ * (lihat {@link #buildPublicFileUrlSafe}) — pola yang sama seperti dipakai
+ * {@link ais.delivery.email.sender.MailSender#kirimNotif} untuk lampiran push. Bila deployment
+ * server tidak memiliki segmen {@code "webapps"} pada path (mis. bukan Tomcat, atau struktur
+ * direktori kustom), method mengembalikan {@code null} secara diam-diam dan lampiran pada pesan WA
+ * tidak terkirim tanpa notifikasi kegagalan eksplisit ke pemanggil.
+ * </p>
+ *
+ * <p>
+ * Tidak ditemukan kredensial/API key tertanam pada kelas ini — nilai default konfigurasi
+ * {@code default_email} ({@code "info@zishof.com"}) hanyalah alamat pengirim fallback, bukan
+ * rahasia autentikasi; seluruh pengiriman email/WA sesungguhnya tetap melalui mekanisme kredensial
+ * runtime milik {@link MailSender} dan {@code Wa}.
+ * </p>
+ */
 public class CommonEmail {
 
 	// ==========================================
 	// UTILITY HELPER METHODS (Memory & Logic Optimized)
 	// ==========================================
 
+	/**
+	 * Menambahkan {@code email} ke {@code emailUser} (dipisah koma dari entri sebelumnya) hanya
+	 * bila valid menurut {@link Common#isValidEmailAddress(String)}; email tidak valid atau
+	 * {@code null} diabaikan secara diam-diam.
+	 *
+	 * @param emailUser akumulator alamat email dipisah koma (dimodifikasi di tempat)
+	 * @param email     alamat email kandidat yang akan ditambahkan, boleh {@code null}
+	 */
 	private static void appendEmail(StringBuilder emailUser, String email) {
 		if (email != null && Common.isValidEmailAddress(email.trim())) {
 			if (emailUser.length() > 0) {
@@ -74,6 +161,18 @@ public class CommonEmail {
 		}
 	}
 
+	/**
+	 * Mengumpulkan alamat email langsung milik setiap {@link Dosen} pada {@code dosens} (lewat
+	 * {@link #appendEmail}) DAN, secara terpisah, mengumpulkan {@code userId} akun
+	 * {@link Tbmuser} aktif yang terasosiasi dengan dosen-dosen tersebut (dipakai
+	 * {@link MailSender} untuk resolusi push/WA berbasis userId, bukan email).
+	 *
+	 * @param session   sesi Hibernate native aktif untuk query {@link Tbmuser}
+	 * @param dosens    koleksi dosen yang emailnya dikumpulkan; tidak melakukan apa pun bila
+	 *                  {@code null}/kosong
+	 * @param userIds   akumulator {@link JSONArray} userId, dimodifikasi di tempat
+	 * @param emailUser akumulator alamat email dipisah koma, dimodifikasi di tempat
+	 */
 	@SuppressWarnings("unchecked")
 	private static void processDosen(Session session, Collection<Dosen> dosens, JSONArray userIds, StringBuilder emailUser) {
 		if (dosens == null || dosens.isEmpty()) return;
@@ -87,6 +186,16 @@ public class CommonEmail {
 		for (String email : emails) userIds.put(email);
 	}
 
+	/**
+	 * Seperti {@link #processDosen}, tetapi untuk entitas {@link Guru} (jalur sekolah): mengumpulkan
+	 * email langsung {@link Guru} DAN userId akun {@link Tbmuser} aktif yang terasosiasi.
+	 *
+	 * @param session   sesi Hibernate native aktif untuk query {@link Tbmuser}
+	 * @param gurus     koleksi guru yang emailnya dikumpulkan; tidak melakukan apa pun bila
+	 *                  {@code null}/kosong
+	 * @param userIds   akumulator {@link JSONArray} userId, dimodifikasi di tempat
+	 * @param emailUser akumulator alamat email dipisah koma, dimodifikasi di tempat
+	 */
 	@SuppressWarnings("unchecked")
 	private static void processGuru(Session session, Collection<Guru> gurus, JSONArray userIds, StringBuilder emailUser) {
 		if (gurus == null || gurus.isEmpty()) return;
@@ -100,6 +209,16 @@ public class CommonEmail {
 		for (String email : emails) userIds.put(email);
 	}
 
+	/**
+	 * Mengumpulkan NIM (sebagai {@code userIds}) dan alamat email setiap {@link Mahasiswa} pada
+	 * {@code mahasiswas}. Berbeda dari {@link #processDosen}/{@link #processGuru}, tidak
+	 * memerlukan query tambahan ke {@link Tbmuser} karena NIM sendiri sudah menjadi identitas
+	 * penerima yang dipahami {@link MailSender}.
+	 *
+	 * @param mahasiswas daftar mahasiswa; tidak melakukan apa pun bila {@code null}/kosong
+	 * @param userIds    akumulator {@link JSONArray} NIM, dimodifikasi di tempat
+	 * @param emailUser  akumulator alamat email dipisah koma, dimodifikasi di tempat
+	 */
 	private static void processMahasiswa(List<Mahasiswa> mahasiswas, JSONArray userIds, StringBuilder emailUser) {
 		if (mahasiswas == null || mahasiswas.isEmpty()) return;
 		for (Mahasiswa e : mahasiswas) {
@@ -110,6 +229,14 @@ public class CommonEmail {
 		}
 	}
 
+	/**
+	 * Seperti {@link #processMahasiswa}, untuk entitas {@link Siswa} (jalur sekolah): mengumpulkan
+	 * Nomor Induk Siswa Nasional sebagai {@code userIds} dan alamat email.
+	 *
+	 * @param siswas    daftar siswa; tidak melakukan apa pun bila {@code null}/kosong
+	 * @param userIds   akumulator {@link JSONArray} NISN, dimodifikasi di tempat
+	 * @param emailUser akumulator alamat email dipisah koma, dimodifikasi di tempat
+	 */
 	private static void processSiswa(List<Siswa> siswas, JSONArray userIds, StringBuilder emailUser) {
 		if (siswas == null || siswas.isEmpty()) return;
 		for (Siswa e : siswas) {
@@ -120,6 +247,18 @@ public class CommonEmail {
 		}
 	}
 
+	/**
+	 * Mengumpulkan seluruh pihak terkait satu {@link Pertemuan} perkuliahan/kelas ke dalam
+	 * {@code userIds}/{@code emailUser}: dosen dan guru pengampu ({@link #processDosen},
+	 * {@link #processGuru}) serta mahasiswa dan siswa peserta ({@link #processMahasiswa},
+	 * {@link #processSiswa}) — dipakai oleh seluruh method {@code infoAda...} yang notifikasinya
+	 * berkonteks satu pertemuan (materi baru, tugas, ujian, diskusi).
+	 *
+	 * @param session   sesi Hibernate native aktif
+	 * @param pertemuan pertemuan sumber daftar peserta; tidak melakukan apa pun bila {@code null}
+	 * @param userIds   akumulator {@link JSONArray} id penerima, dimodifikasi di tempat
+	 * @param emailUser akumulator alamat email dipisah koma, dimodifikasi di tempat
+	 */
 	private static void processPertemuanUsers(Session session, Pertemuan pertemuan, JSONArray userIds, StringBuilder emailUser) {
 		if (pertemuan == null) return;
 		processDosen(session, pertemuan.ambilDosen(), userIds, emailUser);
@@ -128,6 +267,16 @@ public class CommonEmail {
 		processSiswa(pertemuan.ambilSiswa(), userIds, emailUser);
 	}
 
+	/**
+	 * Menambahkan {@code userId} dan email milik satu {@link Tbmuser} (biasanya pengguna yang
+	 * sedang login/memicu aksi, mis. dosen yang mengunggah materi) ke akumulator penerima —
+	 * dipakai agar pengguna yang memicu suatu peristiwa akademik ikut menerima salinan
+	 * notifikasinya sendiri sebagai konfirmasi.
+	 *
+	 * @param tbmuser   pengguna yang ditambahkan sebagai penerima, boleh {@code null}
+	 * @param userIds   akumulator {@link JSONArray} id penerima, dimodifikasi di tempat
+	 * @param emailUser akumulator alamat email dipisah koma, dimodifikasi di tempat
+	 */
 	private static void processTbmUser(Tbmuser tbmuser, JSONArray userIds, StringBuilder emailUser) {
 		if (tbmuser != null) {
 			if (tbmuser.getUserId() != null) userIds.put(tbmuser.getUserId());
@@ -135,6 +284,14 @@ public class CommonEmail {
 		}
 	}
 
+	/**
+	 * Menentukan sapaan waktu (Pagi/Siang/Sore/Malam) berdasarkan jam sistem saat ini, dipakai
+	 * untuk membuka body pesan pembayaran ({@link #infoBayar}, {@link #sendPaymentNotification})
+	 * agar terasa personal/kontekstual.
+	 *
+	 * @return {@code "Siang"} untuk jam 10–14, {@code "Sore"} untuk 15–17, {@code "Malam"} untuk
+	 *         18–24, selain itu {@code "Pagi"}
+	 */
 	private static String getWaktuSapaan() {
 		int jam = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
 		if (jam >= 10 && jam < 15) return "Siang";
@@ -143,6 +300,14 @@ public class CommonEmail {
 		return "Pagi";
 	}
 
+	/**
+	 * Menutup sesi Hibernate native ({@code disconnect()}+{@code close()} bila masih terbuka) lalu
+	 * memanggil {@link HibernateUtil#closeSession()} untuk membersihkan sesi thread-local —
+	 * dipanggil di blok {@code finally} pada method {@code infoAda...} yang berjalan di dalam
+	 * timer asinkron ZK.
+	 *
+	 * @param session sesi Hibernate native yang akan ditutup, boleh {@code null}
+	 */
 	private static void closeHibernateSession(Session session) {
 		if (session != null && session.isOpen()) {
 			session.disconnect();
@@ -155,6 +320,17 @@ public class CommonEmail {
 	// MAIN METHODS
 	// ==========================================
 
+	/**
+	 * Mengirim notifikasi email (asinkron, lihat Javadoc kelas) ke seluruh dosen/guru pengampu dan
+	 * mahasiswa/siswa peserta {@code pertemuan} bahwa materi/berkas perkuliahan baru
+	 * ({@code pertemuanFileContent}) telah diunggah. Penerima dikumpulkan lewat
+	 * {@link #processTbmUser} (pengguna pengunggah) dan {@link #processPertemuanUsers}.
+	 *
+	 * @param pertemuan            pertemuan tempat materi diunggah; method tidak melakukan apa pun
+	 *                             bila {@code null}
+	 * @param pertemuanFileContent berkas materi yang baru diunggah; method tidak melakukan apa pun
+	 *                             bila {@code null}
+	 */
 	public static void infoAdaFilePerkuliahan(final Pertemuan pertemuan, final PertemuanFileContent pertemuanFileContent) {
 		if (pertemuan == null || pertemuanFileContent == null) return;
 		Common.createDefaultTimer(new EventListener() {
@@ -196,6 +372,16 @@ public class CommonEmail {
 		});
 	}
 
+	/**
+	 * Mengirim notifikasi email (asinkron) bahwa sebuah tugas akademik baru diterbitkan.
+	 * Menemukan {@link Pertemuan} terkait dari {@code tugas} (langsung bila {@code tugas} adalah
+	 * {@link Pertemuan}, atau lewat {@link TugasPertemuan#ambilPertemuan()}), lalu mengumpulkan
+	 * dan mengirim ke seluruh peserta pertemuan tersebut lewat {@link #processPertemuanUsers}.
+	 * Tidak melakukan apa pun bila pertemuan terkait tidak dapat ditemukan.
+	 *
+	 * @param tugas tugas yang baru diterbitkan (dapat berupa {@link Pertemuan} langsung atau
+	 *              {@link TugasPertemuan})
+	 */
 	public static void infoAdaTugasPerkuliahan(final Tugas tugas) {
 		Pertemuan p = null;
 		if (tugas instanceof Pertemuan) {
@@ -245,6 +431,15 @@ public class CommonEmail {
 		}
 	}
 
+	/**
+	 * Mengirim notifikasi email (asinkron) ke dosen/guru dan peserta pertemuan terkait bahwa
+	 * seorang mahasiswa mengajukan izin ketidakhadiran ({@code pengajuanIzin}), agar dapat segera
+	 * ditinjau dan disetujui/ditolak. Bila data izin sudah tidak lagi memiliki referensi
+	 * pertemuan/perkuliahan yang valid (data lama), notifikasi dilewati secara diam-diam karena
+	 * tidak ada konteks akademik yang aman untuk disertakan pada pesan.
+	 *
+	 * @param pengajuanIzin pengajuan izin ketidakhadiran yang baru dibuat
+	 */
 	public static void infoAdaIzinAbsensi(final PengajuanIzinTidakMasukPerkuliahan pengajuanIzin) {
 		Common.createDefaultTimer(new EventListener() {
 			@Override
@@ -291,6 +486,16 @@ public class CommonEmail {
 		});
 	}
 
+	/**
+	 * Mengirim notifikasi email (asinkron) bahwa tugas kelompok baru dibagikan. Pertemuan terkait
+	 * ({@code tugasKelompok.ambilPertemuan()}) boleh {@code null} (tugas kelompok KKN/PKL tidak
+	 * selalu terkait langsung ke sebuah {@link Pertemuan}) — dalam kasus ini info konteks diambil
+	 * dari kelompok KKN/PKL terkait ({@code getKelompokKkn()}/{@code getKelompokPkl()}) alih-alih
+	 * {@code pertemuan.info()}, mencegah {@link NullPointerException} yang pernah terjadi
+	 * sebelumnya pada kondisi ini (lihat komentar riwayat perbaikan pada badan method).
+	 *
+	 * @param tugasKelompok tugas kelompok yang baru dibagikan
+	 */
 	public static void infoAdaTugasKelompokPerkuliahan(final TugasKelompok tugasKelompok) {
 		Common.createDefaultTimer(new EventListener() {
 			@Override
@@ -345,6 +550,13 @@ public class CommonEmail {
 		});
 	}
 
+	/**
+	 * Mengirim notifikasi email (asinkron) ke seluruh peserta {@code pertemuan} bahwa sebuah ujian
+	 * dijadwalkan pada pertemuan tersebut, memuat nama dan jenis ujian.
+	 *
+	 * @param pertemuan pertemuan tempat ujian dijadwalkan
+	 * @param ujian     ujian yang dijadwalkan
+	 */
 	public static void infoAdaUjianPerkuliahan(final Pertemuan pertemuan, final Ujian ujian) {
 		Common.createDefaultTimer(new EventListener() {
 			@Override
@@ -387,6 +599,16 @@ public class CommonEmail {
 		});
 	}
 
+	/**
+	 * Mengirim notifikasi email (asinkron) bahwa ada tanggapan/postingan baru pada forum diskusi
+	 * {@code pertemuan}, HANYA bila konfigurasi {@code email_diskusi_aktif} aktif (default
+	 * TIDAK AKTIF — fitur ini di-gate secara eksplisit karena volume diskusi berpotensi tinggi dan
+	 * dapat membanjiri kotak masuk bila selalu aktif). Isi diskusi dibersihkan dari markup HTML
+	 * (kecuali baris baru yang dikonversi ke {@code <br>}) lewat Jsoup sebelum disisipkan ke body.
+	 *
+	 * @param pertemuan             pertemuan tempat forum diskusi berada
+	 * @param pertemuanPunyaDiskusi entri diskusi baru yang memicu notifikasi
+	 */
 	public static void infoAdaDiskusiPerkuliahan(final Pertemuan pertemuan, final PertemuanPunyaDiskusi pertemuanPunyaDiskusi) {
 		if (Common.bolehKonfigurasi("email_diskusi_aktif", Konfigurasi.TIDAK_AKTIF)) {
 			Common.createDefaultTimer(new EventListener() {
@@ -437,6 +659,17 @@ public class CommonEmail {
 		}
 	}
 
+	/**
+	 * Mengirim notifikasi email (asinkron) ke dosen pengampu dan seluruh mahasiswa terdaftar pada
+	 * {@code perkuliahan} bahwa referensi buku bahan ajar baru tersedia. Penerima mahasiswa
+	 * dikumpulkan lewat query langsung ke {@link Detailperkuliahan} (bukan lewat
+	 * {@link #processMahasiswa}) untuk mengambil seluruh mahasiswa yang terdaftar pada
+	 * {@code perkuliahan}, bukan hanya peserta satu pertemuan spesifik.
+	 *
+	 * @param perkuliahan                      perkuliahan (mata kuliah + kelas) tempat buku ajar
+	 *                                         ditambahkan
+	 * @param matakuliahPunyaBukuBahanAjar     relasi buku bahan ajar yang baru ditambahkan
+	 */
 	public static void infoAdaBukuAjar(final Perkuliahan perkuliahan, final MatakuliahPunyaBukuBahanAjar matakuliahPunyaBukuBahanAjar) {
 		Common.createDefaultTimer(new EventListener() {
 			@SuppressWarnings("unchecked")
@@ -497,6 +730,16 @@ public class CommonEmail {
 		});
 	}
 
+	/**
+	 * Varian {@link #infoAdaBukuAjar(Perkuliahan, MatakuliahPunyaBukuBahanAjar)} untuk jalur
+	 * sekolah: mengirim notifikasi email (asinkron) ke guru pengampu dan seluruh siswa pada kelas
+	 * {@code jadwalPelajaran} bahwa referensi buku bahan ajar mata pelajaran baru tersedia.
+	 * Penerima siswa dikumpulkan lewat query langsung ke {@link KelasSiswaPunyaSiswa}.
+	 *
+	 * @param jadwalPelajaran                      jadwal pelajaran (mata pelajaran + kelas) tempat
+	 *                                              buku ajar ditambahkan
+	 * @param matapelajaranPunyaBukuBahanAjar      relasi buku bahan ajar yang baru ditambahkan
+	 */
 	public static void infoAdaBukuAjar(final JadwalPelajaran jadwalPelajaran, final MatapelajaranPunyaBukuBahanAjar matapelajaranPunyaBukuBahanAjar) {
 		Common.createDefaultTimer(new EventListener() {
 			@SuppressWarnings("unchecked")
@@ -548,10 +791,28 @@ public class CommonEmail {
 		});
 	}
 
+	/** Varian satu-berkas dari {@link #infoDaftarMahasiswaBanyakFile}; sekadar delegasi. */
 	public static void infoDaftarMahasiswa(final BiodataCalonMahasiswa biodataCalonMahasiswa, final File file) throws Exception {
 		infoDaftarMahasiswaBanyakFile(biodataCalonMahasiswa, file);
 	}
 
+	/**
+	 * Mengirim email (sinkron) konfirmasi bahwa data pendaftaran calon mahasiswa baru
+	 * ({@code biodataCalonMahasiswa}) telah diterima sistem, dilampiri {@code file} (mis. bukti
+	 * pendaftaran), dengan tembusan opsional ke alamat monitoring registrasi yang dapat berbeda
+	 * per kombinasi tahun/prodi/program/status awal (konfigurasi
+	 * {@code alamat_email_monitoring_regitrasi} — perhatikan penulisan "regitrasi" tanpa huruf 's'
+	 * pada kunci konfigurasi ini, sesuai apa adanya di kode). Bila konfigurasi
+	 * {@code aktifkan_kirim_notif_daftar_peserta_didik_baru_ke_wa} aktif, mengirim pula pesan
+	 * WhatsApp terpisah (teks berbeda dari body email) ke nomor HP calon mahasiswa/telepon rumah/
+	 * nomor orang tua (dicoba berurutan, nomor placeholder semua-nol diabaikan) beserta lampiran
+	 * berkas pertama bila dapat diresolusi ke URL publik lewat {@link #buildPublicFileUrlSafe}.
+	 *
+	 * @param biodataCalonMahasiswa data pendaftaran calon mahasiswa; tidak melakukan apa pun bila
+	 *                              {@code null}
+	 * @param file                  lampiran opsional (mis. bukti pendaftaran/berkas panduan)
+	 * @throws Exception diteruskan dari kegagalan pengiriman email/pembangunan payload
+	 */
 	public static void infoDaftarMahasiswaBanyakFile(final BiodataCalonMahasiswa biodataCalonMahasiswa, final File... file) throws Exception {
 		StringBuilder emailUser = new StringBuilder();
 		JSONArray userIds = new JSONArray();
@@ -613,6 +874,19 @@ public class CommonEmail {
 		}
 	}
 
+	/**
+	 * Membangun URL publik untuk sebuah berkas lokal dengan mengambil bagian path setelah segmen
+	 * literal {@code "webapps"} (konvensi struktur deployment Tomcat AIS) dan menggabungkannya
+	 * dengan host request saat ini — dipakai untuk melampirkan berkas pada pesan WhatsApp (yang
+	 * memerlukan URL, bukan berkas mentah). Lihat catatan risiko pada Javadoc kelas: mengembalikan
+	 * {@code null} secara diam-diam (bukan melempar exception) bila path tidak mengandung segmen
+	 * {@code "webapps"} atau bila terjadi kegagalan lain (dilaporkan lewat
+	 * {@link Common#tampilErrorJikaAdmin(Exception)}).
+	 *
+	 * @param file berkas lokal yang akan diubah jadi URL publik, boleh {@code null}
+	 * @return URL publik berkas, atau {@code null} bila {@code file} {@code null}, path tidak
+	 *         mengandung {@code "webapps"}, atau terjadi kegagalan
+	 */
 	private static String buildPublicFileUrlSafe(File file) {
 		try {
 			if (file == null || file.getAbsolutePath() == null) {
@@ -631,6 +905,19 @@ public class CommonEmail {
 		}
 	}
 
+	/**
+	 * Mengirim email (sinkron) pengumuman kelulusan/penerimaan calon mahasiswa
+	 * ({@code biodataCalonMahasiswa}) sebagai mahasiswa baru, memuat program studi dan program/
+	 * jenis kelas kelulusan, dilampiri {@code file} (biasanya panduan daftar ulang & pembayaran).
+	 * Mengikuti pola tembusan monitoring dan fallback WhatsApp yang sama seperti
+	 * {@link #infoDaftarMahasiswaBanyakFile}, digerbangi konfigurasi
+	 * {@code aktifkan_kirim_notif_diterima_peserta_didik_baru_ke_wa}.
+	 *
+	 * @param biodataCalonMahasiswa data calon mahasiswa yang dinyatakan diterima; tidak melakukan
+	 *                              apa pun bila {@code null}
+	 * @param file                  lampiran panduan daftar ulang/pembayaran
+	 * @throws Exception diteruskan dari kegagalan pengiriman email/pembangunan payload
+	 */
 	public static void infoDaftarMahasiswaDinyatakanDIterima(final BiodataCalonMahasiswa biodataCalonMahasiswa, final File... file) throws Exception {
 		StringBuilder emailUser = new StringBuilder();
 		JSONArray userIds = new JSONArray();
@@ -694,10 +981,24 @@ public class CommonEmail {
 		}
 	}
 
+	/** Varian satu-berkas dari {@link #infoDaftarSiswaBanyakFile}; sekadar delegasi. */
 	public static void infoDaftarSiswa(final CalonSiswa calonSiswa, final File file) throws Exception {
 		infoDaftarSiswaBanyakFile(calonSiswa, file);
 	}
 
+	/**
+	 * Varian {@link #infoDaftarMahasiswaBanyakFile} untuk jalur sekolah (PPDB): mengirim email
+	 * (sinkron) konfirmasi pendaftaran {@code calonSiswa} dilampiri {@code file}, beserta pesan
+	 * WhatsApp terpisah (memuat nomor registrasi dan tanggal lahir sebagai konfirmasi identitas)
+	 * ke SELURUH nomor telepon terkait siswa ({@code calonSiswa.ambilTelp()} — bisa lebih dari
+	 * satu nomor, mis. ayah dan ibu, berbeda dari jalur mahasiswa yang hanya mencoba satu nomor
+	 * secara berurutan), digerbangi konfigurasi yang sama
+	 * {@code aktifkan_kirim_notif_daftar_peserta_didik_baru_ke_wa}.
+	 *
+	 * @param calonSiswa data pendaftaran calon siswa; tidak melakukan apa pun bila {@code null}
+	 * @param file       lampiran opsional
+	 * @throws Exception diteruskan dari kegagalan pengiriman email/pembangunan payload
+	 */
 	public static void infoDaftarSiswaBanyakFile(final CalonSiswa calonSiswa, final File... file) throws Exception {
 		StringBuilder emailUser = new StringBuilder();
 		JSONArray userIds = new JSONArray();
@@ -748,6 +1049,17 @@ public class CommonEmail {
 		}
 	}
 
+	/**
+	 * Mengirim email (sinkron) berisi salinan lengkap Biodata Induk Mahasiswa
+	 * ({@code biodataMahasiswa}) sebagai lampiran, untuk keperluan verifikasi mandiri oleh
+	 * mahasiswa atas data yang tercatat di sistem (nama, NIK, domisili, dsb.) sebelum dipakai pada
+	 * dokumen resmi (transkrip, ijazah, dst.). Tidak ada jalur WhatsApp pada method ini.
+	 *
+	 * @param biodataMahasiswa biodata lengkap mahasiswa; tidak melakukan apa pun bila
+	 *                         {@code biodataMahasiswa} atau mahasiswa terkaitnya {@code null}
+	 * @param file             lampiran salinan biodata (biasanya PDF)
+	 * @throws Exception diteruskan dari kegagalan pengiriman email
+	 */
 	public static void infoLengkapMahasiswa(final BiodataMahasiswa biodataMahasiswa, final File file) throws Exception {
 		StringBuilder emailUser = new StringBuilder();
 		JSONArray userIds = new JSONArray();
@@ -772,6 +1084,16 @@ public class CommonEmail {
 		}
 	}
 
+	/**
+	 * Mengirim email (sinkron) pemberitahuan bahwa Nomor Induk Mahasiswa (NIM) resmi telah
+	 * diterbitkan untuk {@code biodataCalonMahasiswa} (menandakan verifikasi dan pembayaran awal
+	 * selesai), dengan detail NIM/ID card dilampirkan sebagai berkas.
+	 *
+	 * @param biodataCalonMahasiswa data calon mahasiswa yang NIM-nya baru diterbitkan; tidak
+	 *                              melakukan apa pun bila {@code null}
+	 * @param file                  lampiran detail NIM/kartu identitas
+	 * @throws Exception diteruskan dari kegagalan pengiriman email
+	 */
 	public static void infoNimMahasiswa(final BiodataCalonMahasiswa biodataCalonMahasiswa, final File file) throws Exception {
 		StringBuilder emailUser = new StringBuilder();
 		JSONArray userIds = new JSONArray();
@@ -797,6 +1119,15 @@ public class CommonEmail {
 		}
 	}
 
+	/**
+	 * Mengirim email (sinkron) berisi Kartu Tanda Peserta Ujian seleksi masuk untuk
+	 * {@code biodataCalonMahasiswa}, dilampiri {@code file} (kartu ujian dalam format cetak).
+	 *
+	 * @param biodataCalonMahasiswa data calon mahasiswa peserta ujian seleksi; tidak melakukan apa
+	 *                              pun bila {@code null}
+	 * @param file                  lampiran kartu tanda peserta ujian
+	 * @throws Exception diteruskan dari kegagalan pengiriman email
+	 */
 	public static void infoDaftarUjianMahasiswa(final BiodataCalonMahasiswa biodataCalonMahasiswa, final File[] file) throws Exception {
 		StringBuilder emailUser = new StringBuilder();
 		JSONArray userIds = new JSONArray();
@@ -823,6 +1154,16 @@ public class CommonEmail {
 		}
 	}
 
+	/**
+	 * Varian {@link #infoDaftarUjianMahasiswa} untuk jalur sekolah: mengirim email (sinkron)
+	 * berisi Kartu Tanda Peserta Ujian seleksi masuk untuk {@code calonSiswa}, dilampiri
+	 * {@code file}.
+	 *
+	 * @param calonSiswa data calon siswa peserta ujian seleksi; tidak melakukan apa pun bila
+	 *                   {@code null}
+	 * @param file       lampiran kartu tanda peserta ujian
+	 * @throws Exception diteruskan dari kegagalan pengiriman email
+	 */
 	public static void infoDaftarUjianSiswa(final CalonSiswa calonSiswa, final File[] file) throws Exception {
 		StringBuilder emailUser = new StringBuilder();
 		JSONArray userIds = new JSONArray();
@@ -848,6 +1189,18 @@ public class CommonEmail {
 		}
 	}
 
+	/**
+	 * Varian {@link #infoDaftarUjianMahasiswa} untuk jalur rekrutmen pegawai: mengirim email
+	 * (sinkron) berisi Kartu Tanda Tes seleksi rekrutmen untuk {@code calonPegawai}, dilampiri
+	 * {@code file}. Berbeda dari dua varian lain, tidak mengumpulkan {@code userIds} (hanya
+	 * mengandalkan alamat email {@code calonPegawai}) karena calon pegawai belum tentu memiliki
+	 * identitas userId di sistem pada tahap seleksi ini.
+	 *
+	 * @param calonPegawai data calon pegawai peserta tes seleksi; tidak melakukan apa pun bila
+	 *                     {@code null}
+	 * @param file         lampiran kartu tanda tes seleksi
+	 * @throws Exception diteruskan dari kegagalan pengiriman email
+	 */
 	public static void infoDaftarUjianPegawai(final CalonPegawai calonPegawai, final File[] file) throws Exception {
 		StringBuilder emailUser = new StringBuilder();
 		JSONArray userIds = new JSONArray();
@@ -870,6 +1223,21 @@ public class CommonEmail {
 		}
 	}
 
+	/**
+	 * Mengirim email (sinkron) pemberitahuan bahwa sebuah transaksi pembayaran
+	 * ({@code kegiatan}, direferensikan lewat {@code kodeAsli}) DIBATALKAN/dianulir (void) — mis.
+	 * akibat kegagalan rekonsiliasi bank, kesalahan nominal, atau kedaluwarsa token pembayaran —
+	 * sehingga status kegiatan ditarik kembali ke "Belum Dibayar". Sebelum mengirim, method ini
+	 * menghasilkan ulang berkas bukti pembayaran (PDF, nama berkas dipilih berdasarkan apakah
+	 * pembayar adalah mahasiswa aktif atau calon mahasiswa, dan apakah kegiatan memiliki cicilan
+	 * bulanan) sebagai lampiran; termasuk mencoba menyisipkan kop surat fakultas terkait bila
+	 * tersedia (kegagalan pengambilan kop diabaikan secara diam-diam agar pengiriman tidak batal
+	 * hanya karena kop tidak ditemukan).
+	 *
+	 * @param kegiatan  kegiatan/transaksi yang pembayarannya dibatalkan
+	 * @param kodeAsli  kode referensi transaksi asli yang dianulir, disisipkan ke subjek dan body
+	 * @throws Exception diteruskan dari kegagalan menghasilkan laporan PDF atau mengirim email
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static void infoBatalBayar(final Kegiatan kegiatan, final String kodeAsli) throws Exception {
 		StringBuilder emailUser = new StringBuilder();
@@ -957,6 +1325,22 @@ public class CommonEmail {
 		}
 	}
 
+	/**
+	 * Mengirim email + (bila diaktifkan konfigurasi {@code aktifkan_kirim_notif_pembayaran_ke_wa})
+	 * WhatsApp konfirmasi bahwa pembayaran atas {@code kegiatan} telah lunas dan terverifikasi
+	 * penuh, dilampiri {@code file} (kuitansi/struk). Body memuat tautan verifikasi struk terenkripsi
+	 * ({@code /StrukM?id=EE<id-terenkripsi>}, memakai {@code Common.desEncrypter}) yang dapat
+	 * dibuka tanpa login untuk cross-check keaslian bukti bayar. Institusi (nama kampus) diresolusi
+	 * berjenjang dari fakultas mahasiswa, lalu dari gelombang pendaftaran calon mahasiswa, lalu
+	 * fallback ke {@link PerguruanTinggiUtil#getPerguruanTinggi()}. Nomor tujuan WhatsApp dicoba
+	 * dari beberapa sumber berurutan (telepon mahasiswa, HP/telepon rumah biodata calon mahasiswa
+	 * terkait) sebelum menyerah.
+	 *
+	 * @param kegiatan kegiatan/transaksi yang baru lunas dibayar; method langsung kembali tanpa
+	 *                 efek apa pun bila {@code null}
+	 * @param file     lampiran kuitansi/bukti pembayaran
+	 * @throws Exception diteruskan dari kegagalan enkripsi tautan struk atau pengiriman email
+	 */
 	public static void infoBayar(final Kegiatan kegiatan, final File file) throws Exception {
 		if (kegiatan == null) {
 			return;

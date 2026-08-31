@@ -41,14 +41,93 @@ import ais.database.model.sekolah.Siswa;
 import ais.delivery.email.sender.MailSender;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Mesin inti perhitungan <b>kehadiran harian pegawai/dosen/guru/mahasiswa/siswa</b> untuk
+ * kebutuhan penggajian (payroll) dan rekap presensi di AIS. Kelas ini murni statis (kumpulan
+ * method utilitas, tanpa instance state) dan menjadi titik temu antara data mentah kehadiran
+ * (scan mesin sidik jari, absensi manual, cuti/izin) dengan entitas ringkasan harian
+ * {@link StatuskehadiranKaryawanHarian} yang menjadi dasar perhitungan gaji, tunjangan kehadiran,
+ * dan potongan ketidakhadiran.
+ *
+ * <h2>Empat area tanggung jawab</h2>
+ * <ol>
+ * <li><b>Resolusi/pembuatan baris kehadiran harian</b> — keluarga overload
+ * {@code getDefaultStatuskehadiranKaryawanHarian}: mencari baris {@link
+ * StatuskehadiranKaryawanHarian} yang sudah ada untuk kombinasi (tanggal, pegawai/mahasiswa/siswa),
+ * atau membuat baris baru berstatus {@link ConstantValues#BELUM_ABSEN}/{@link
+ * ConstantValues#TIDAK_ADA_ALASAN} bila belum ada, sekaligus melengkapi info hari libur (nasional
+ * lewat {@link LiburNasional#ambilLiburNasional}, rutin/mingguan lewat {@link LiburRutin}) dan
+ * shift kerja yang berlaku (lewat {@link DetailJenisShiftPegawaiHelper}). Tersedia dalam tiga
+ * bentuk: satu baris untuk satu tanggal ({@link #getDefaultStatuskehadiranKaryawanHarian(Date,
+ * Pegawai, Mahasiswa, Siswa, Double, Double, Session, boolean)} dan dua overload pembungkusnya),
+ * peta banyak baris untuk banyak pegawai dalam rentang tanggal bebas ({@link
+ * #getDefaultStatuskehadiranKaryawanHarian(List, Date, Date, List, Session, boolean)}), dan peta
+ * satu bulan/satu tahun penuh untuk satu pegawai ({@link
+ * #getDefaultStatuskehadiranKaryawanHarian(List, Integer, Integer, Pegawai, Session, boolean)}/
+ * {@link #getDefaultStatuskehadiranKaryawanHarian(List, Integer, Pegawai, Session, boolean)}) —
+ * dua overload terakhir ini dipakai laporan rekap bulanan/tahunan dan MEMBANGUN rantai
+ * {@code back}/{@code next} berurutan antar hari lewat {@link
+ * StatuskehadiranKaryawanHarian#setBack}/{@code setNext} agar laporan dapat menavigasi hari
+ * sebelum/sesudahnya tanpa query tambahan.</li>
+ * <li><b>Penentuan status cuti/izin</b> — {@link #chekCuti(List, Session, Date, Pegawai,
+ * StatuskehadiranKaryawanHarian, boolean)}: mencocokkan tanggal tertentu terhadap rentang cuti
+ * ({@link CutiDanIzin}) milik pegawai, termasuk menghormati daftar TANGGAL PENGECUALIAN
+ * ({@code kecualiTanggals}, JSON array tanggal yang sengaja dikecualikan dari rentang cuti — mis.
+ * cuti mingguan berulang yang tidak berlaku pada tanggal libur tertentu).</li>
+ * <li><b>Sinkronisasi status kehadiran ke modul lain</b> — {@link #simpanDetail(Session,
+ * StatuskehadiranKaryawanHarian, boolean)}: method paling kompleks di kelas ini, menyebarkan satu
+ * perubahan status kehadiran ({@link StatuskehadiranKaryawanHarian}) ke SELURUH modul terkait
+ * secara konsisten: mencatat kehadiran ke jadwal {@link Pertemuan} yang relevan (lewat {@link
+ * #simpanAbsenPertemuan}), memperbarui rekap piket guru ({@link AbsenGuruPiket}) atau piket siswa
+ * ({@link AbsenPiket}/{@link AbsenPiketDetail}/{@link KelasSiswa}), dan — khusus status "Masuk"
+ * (kode {@code "M"}) — mengirim notifikasi ucapan selamat kehadiran secara ASINKRON (thread
+ * terpisah, bukan lewat {@link #MAIL_POOL} milik {@link MailSender}) lewat
+ * {@link MailSender#simpanNotif}, dengan sapaan waktu (Pagi/Siang/Sore/Malam) yang dihitung dari
+ * jam sistem saat notifikasi dikirim.</li>
+ * <li><b>Resolusi shift kerja</b> — {@link #shiftRotasiHari(Session, Date, JenisShiftPegawai)}
+ * menghitung shift mana yang berlaku pada satu tanggal untuk shift BERPUTAR/ROTASI (dihitung dari
+ * selisih hari terhadap {@code berlakuMulai} modulo jumlah hari siklus shift), sedangkan {@link
+ * #getDetailJenisShiftPegawai}/{@link #shiftDetail} adalah passthrough tipis ke {@link
+ * DetailJenisShiftPegawaiHelper} untuk resolusi shift non-rotasi.</li>
+ * </ol>
+ *
+ * <h2>Pola penanganan sesi Hibernate: parameter {@code baru}</h2>
+ * <p>
+ * Hampir seluruh method di kelas ini menerima parameter {@code boolean baru} yang mengendalikan
+ * SIAPA yang bertanggung jawab atas transaksi Hibernate: bila {@code true}, method ini NUMPANG
+ * pada {@code session}/transaksi yang sudah dibuka pemanggil (tidak membuka/menutup sesi atau
+ * transaksinya sendiri, kecuali pengecualian eksplisit yang dijelaskan pada javadoc {@link
+ * #getDefaultStatuskehadiranKaryawanHarian(Date, Pegawai, Mahasiswa, Siswa, Double, Double,
+ * Session, boolean) overload kanonik}); bila {@code false}, method ini membuka
+ * {@link Session} native BARU miliknya sendiri lewat {@link HibernateUtil#currentNativeSession()},
+ * menjalankan transaksinya sendiri, lalu menutupnya sebelum kembali — dipakai saat pemanggil
+ * berjalan di thread/proses latar yang session Hibernate-nya sudah tidak valid lagi (mis. proses
+ * batch/terjadwal). Kekeliruan riwayat pada pola ini (commit tak sengaja menutup transaksi milik
+ * pemanggil) pernah menjadi akar masalah nyata — didokumentasikan langsung sebagai komentar
+ * "ROOT CAUSE" pada badan {@link #getDefaultStatuskehadiranKaryawanHarian(Date, Pegawai, Mahasiswa,
+ * Siswa, Double, Double, Session, boolean)}.
+ * </p>
+ *
+ * <p>
+ * Kelas ini TIDAK menangani perhitungan NOMINAL gaji/potongan/tunjangan secara langsung (mis.
+ * konversi jam kerja menjadi rupiah) — perannya murni pada lapisan PENENTUAN STATUS KEHADIRAN
+ * harian (hadir/tidak hadir/cuti/libur) yang menjadi masukan bagi modul penggajian lain untuk
+ * kalkulasi nominal. Sebagian besar query di kelas ini memakai Hibernate Criteria API dengan
+ * kombinasi {@code Restrictions.or}/{@code Restrictions.sqlRestriction("false")} sebagai trik
+ * "kondisi kosong aman" ketika daftar id yang dicari bisa kosong (menghindari klausa
+ * {@code IN ()} yang tidak valid secara SQL).
+ * </p>
+ */
 public class CommonPayroll {
 
+	/** Seperti overload kanonik {@link #getDefaultStatuskehadiranKaryawanHarian(Date, Pegawai, Mahasiswa, Siswa, Double, Double, Session, boolean)}, dengan {@code session} diambil otomatis dari sesi Hibernate thread-local saat ini dan {@code baru=false} (numpang sesi, tidak membuka transaksi sendiri). */
 	public static StatuskehadiranKaryawanHarian getDefaultStatuskehadiranKaryawanHarian(Date tanggal, Pegawai pegawai,
 			Mahasiswa mahasiswa, Siswa siswa, Double lat, Double lng) {
 		Session session = HibernateUtil.currentSession();
 		return getDefaultStatuskehadiranKaryawanHarian(tanggal, pegawai, mahasiswa, siswa, lat, lng, session, false);
 	}
 
+	/** Seperti overload kanonik {@link #getDefaultStatuskehadiranKaryawanHarian(Date, Pegawai, Mahasiswa, Siswa, Double, Double, Session, boolean)}, dengan {@code lat}/{@code lng} diterima sebagai {@link String} (mis. langsung dari parameter request web/GPS perangkat) dan diparsing ke {@link Double}; nilai yang bukan angka valid (lewat {@link Common#isNumber(String)}) diperlakukan sebagai {@code null}. */
 	public static StatuskehadiranKaryawanHarian getDefaultStatuskehadiranKaryawanHarian(Date tanggal, Pegawai pegawai,
 			Mahasiswa mahasiswa, Siswa siswa, String lat, String lng, Session session, boolean baru) {
 		return getDefaultStatuskehadiranKaryawanHarian(tanggal, pegawai, mahasiswa, siswa,
@@ -57,6 +136,51 @@ public class CommonPayroll {
 				baru);
 	}
 
+	/**
+	 * Implementasi kanonik resolusi/pembuatan baris kehadiran harian untuk SATU (tanggal, subjek)
+	 * — subjek dapat berupa {@code pegawai} (termasuk pegawai yang juga berperan {@code guru}
+	 * dan/atau {@code dosen}, dicocokkan lewat id masing-masing), {@code mahasiswa}, atau
+	 * {@code siswa} (persis satu dari ketiganya yang relevan per pemanggilan). Mencari baris
+	 * {@link StatuskehadiranKaryawanHarian} yang sudah ada untuk kombinasi tersebut; bila TIDAK
+	 * ditemukan, membuat baris baru dengan status {@link ConstantValues#BELUM_ABSEN}, koordinat
+	 * {@code lat}/{@code lng} yang diberikan, info hari libur nasional/rutin, dan shift kerja yang
+	 * berlaku (lewat {@link DetailJenisShiftPegawaiHelper#getJenisShiftPunyaPegawai}); bila SUDAH
+	 * ada, hanya memperbarui info hari libur, melengkapi shift kerja bila sebelumnya kosong, dan
+	 * memperbarui koordinat hanya bila nilai baru yang diberikan tidak {@code null} (tidak menimpa
+	 * koordinat lama dengan {@code null}).
+	 *
+	 * <p>
+	 * <b>Catatan transaksi (ROOT CAUSE historis)</b> — saat membuat baris baru dengan
+	 * {@code baru=true}, method ini HANYA membuka dan meng-commit transaksinya sendiri bila
+	 * {@code session} BELUM memiliki transaksi aktif pada saat dipanggil. Sebelumnya method ini
+	 * SELALU begin+commit transaksi sendiri ketika {@code baru==true}, walau pemanggil (mis. proses
+	 * latar {@code AbsensiKehadiranPegawaiHarianHelper}) sudah membuka transaksinya sendiri lebih
+	 * dulu pada {@code session} yang SAMA — karena {@code session.getTransaction()} mengembalikan
+	 * objek {@link org.hibernate.Transaction} yang SAMA untuk satu session, commit di sini secara
+	 * diam-diam mengakhiri transaksi milik pemanggil, menyebabkan
+	 * {@code TransactionException: Transaction not successfully started} saat pemanggil mencoba
+	 * commit lagi di akhir loop-nya — gejala yang jauh dari akar masalah aslinya. Perbaikannya:
+	 * method ini sekarang memeriksa {@link org.hibernate.Transaction#isActive()} lebih dulu dan
+	 * hanya begin/commit bila belum ada transaksi aktif, sehingga kontrol commit/rollback tetap di
+	 * tangan pemanggil ketika pemanggil sudah memilikinya.
+	 * </p>
+	 *
+	 * @param tanggal  tanggal kehadiran yang dicari/dibuat
+	 * @param pegawai  pegawai subjek (juga dicocokkan lewat relasi guru/dosen-nya bila ada); boleh
+	 *                 {@code null} bila subjek adalah {@code mahasiswa}/{@code siswa}
+	 * @param mahasiswa mahasiswa subjek; boleh {@code null} bila subjek adalah {@code pegawai}/{@code siswa}
+	 * @param siswa    siswa subjek; boleh {@code null} bila subjek adalah {@code pegawai}/{@code mahasiswa}
+	 * @param lat      koordinat lintang lokasi absen (opsional, untuk baris baru atau pembaruan
+	 *                 koordinat baris yang sudah ada)
+	 * @param lng      koordinat bujur lokasi absen (opsional)
+	 * @param session  sesi Hibernate aktif tempat query/penyimpanan dijalankan
+	 * @param baru     {@code true} bila pemanggil ingin method ini mengelola transaksinya sendiri
+	 *                 untuk penyimpanan baris baru (tunduk pada aturan deteksi transaksi aktif di
+	 *                 atas); {@code false} bila pemanggil akan meng-commit sendiri di luar method
+	 *                 ini
+	 * @return baris {@link StatuskehadiranKaryawanHarian} yang ditemukan atau baru dibuat untuk
+	 *         kombinasi (tanggal, subjek) yang diberikan
+	 */
 	public static StatuskehadiranKaryawanHarian getDefaultStatuskehadiranKaryawanHarian(Date tanggal, Pegawai pegawai,
 			Mahasiswa mahasiswa, Siswa siswa, Double lat, Double lng, Session session, boolean baru) {
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
@@ -169,6 +293,38 @@ public class CommonPayroll {
 		return statuskehadiranKaryawanHarian;
 	}
 
+	/**
+	 * Varian batch: menyusun peta baris kehadiran harian untuk BANYAK {@code pegawai} sekaligus
+	 * pada rentang tanggal {@code mulai}..{@code sampai} (kunci peta:
+	 * {@code "<tanggal format dateFormat83>_<id pegawai>"}). Rentang query database sengaja
+	 * diperluas 7 hari di kedua sisi ({@code mulai-7} s.d. {@code sampai+7}) untuk memuat data
+	 * konteks di luar rentang tampilan, meski hanya baris dalam rentang {@code mulai}..{@code sampai}
+	 * (eksklusif {@code sampai}, lihat kondisi loop {@code while (calendar.before(s))}) yang
+	 * benar-benar dibentuk/dimasukkan ke peta hasil. Untuk setiap pegawai dan setiap tanggal dalam
+	 * rentang, baris yang sudah ada dicocokkan lewat kombinasi id pegawai ATAU id guru/dosen
+	 * terkaitnya; baris baru dibuat berstatus {@link ConstantValues#TIDAK_ADA_ALASAN} bila
+	 * tanggalnya sudah lewat ({@code before(sekarang)}) atau {@link ConstantValues#BELUM_ABSEN}
+	 * bila belum, lalu status cuti/izinnya ditentukan lewat {@link #chekCuti}.
+	 *
+	 * <p>
+	 * Berbeda dari dua overload lain ({@link #getDefaultStatuskehadiranKaryawanHarian(List,
+	 * Integer, Integer, Pegawai, Session, boolean)}/{@link #getDefaultStatuskehadiranKaryawanHarian(
+	 * List, Integer, Pegawai, Session, boolean)}), varian ini TIDAK membangun rantai
+	 * {@code back}/{@code next} antar hari (dirancang untuk banyak pegawai sekaligus, bukan
+	 * navigasi hari berurutan satu pegawai).
+	 * </p>
+	 *
+	 * @param cutiDanIzinsSemua daftar SELURUH cuti/izin yang relevan (akan disaring per pegawai
+	 *                          di dalam method ini lewat kecocokan {@link CutiDanIzin#getPegawai()})
+	 * @param mulai   awal rentang tanggal yang ditampilkan (inklusif)
+	 * @param sampai  akhir rentang tanggal yang ditampilkan (eksklusif, karena kondisi loop
+	 *                {@code before})
+	 * @param pegawais daftar pegawai yang datanya disusun
+	 * @param session sesi Hibernate aktif tempat query dijalankan
+	 * @param baru    diteruskan ke {@link #chekCuti} dan resolusi shift; lihat javadoc kelas untuk
+	 *                penjelasan umum parameter ini
+	 * @return peta baris kehadiran harian berkunci {@code "<tanggal>_<idPegawai>"}
+	 */
 	@SuppressWarnings("unchecked")
 	public static Map<String, StatuskehadiranKaryawanHarian> getDefaultStatuskehadiranKaryawanHarian(
 			List<CutiDanIzin> cutiDanIzinsSemua, Date mulai, Date sampai, List<Pegawai> pegawais, Session session,
@@ -317,6 +473,37 @@ public class CommonPayroll {
 		return statuskehadiranKaryawanHarians;
 	}
 
+	/**
+	 * Varian batch untuk laporan rekap SATU BULAN PENUH milik SATU {@code pegawai} (kunci peta:
+	 * {@code "<tanggal format dateFormat83>"}, satu baris per hari kalender pada bulan tersebut).
+	 * Baris yang dimuat dari database difilter berdasarkan RENTANG TANGGAL (awal s.d. akhir bulan,
+	 * jam 00:00:00.000 s.d. 23:59:59.999), BUKAN hanya kolom denormalisasi {@code bulan}/{@code tahun}
+	 * pada entitas — perbedaan ini disengaja (lihat komentar inline pada badan method) karena
+	 * sebagian baris {@link StatuskehadiranKaryawanHarian} punya kolom {@code tanggal} terisi
+	 * (mis. diisi scan mesin/API atau jalur lama) TETAPI kolom {@code bulan}/{@code tahun}
+	 * kosong/tidak konsisten, sehingga data tersebut tampil di modul Presensi (yang membaca lewat
+	 * {@code tanggal}) namun HILANG dari Rekap/Laporan Kehadiran bila filter memakai
+	 * {@code eq(bulan)+eq(tahun)}. Filter rentang tanggal adalah superset aman: seluruh baris yang
+	 * dulu lolos filter bulan/tahun pasti juga punya tanggal dalam rentang ini, ditambah baris yang
+	 * bulan/tahun-nya kosong ikut tertangkap.
+	 *
+	 * <p>
+	 * Method ini MEMBANGUN rantai {@code back}/{@code next} berurutan antar hari lewat {@link
+	 * StatuskehadiranKaryawanHarian#setBack}/{@code setNext} saat mengiterasi tanggal 1 hingga hari
+	 * terakhir bulan tersebut, sehingga UI laporan dapat menavigasi hari sebelum/sesudahnya tanpa
+	 * query tambahan.
+	 * </p>
+	 *
+	 * @param cutiDanIzins daftar cuti/izin milik {@code pegawai} yang relevan pada rentang bulan ini
+	 * @param bulan  bulan yang direkap (1-12)
+	 * @param tahun  tahun yang direkap
+	 * @param pegawai pegawai yang datanya direkap
+	 * @param session sesi Hibernate aktif tempat query dijalankan
+	 * @param baru   diteruskan ke {@link #chekCuti}; lihat javadoc kelas untuk penjelasan umum
+	 *               parameter ini
+	 * @return peta baris kehadiran harian berkunci {@code "<tanggal>"}, satu entri per hari
+	 *         kalender pada bulan tersebut, terangkai lewat {@code back}/{@code next}
+	 */
 	@SuppressWarnings("unchecked")
 	public static Map<String, StatuskehadiranKaryawanHarian> getDefaultStatuskehadiranKaryawanHarian(
 			List<CutiDanIzin> cutiDanIzins, Integer bulan, Integer tahun, Pegawai pegawai, Session session,

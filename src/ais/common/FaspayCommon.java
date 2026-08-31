@@ -377,6 +377,34 @@ public class FaspayCommon {
 		return faspayRequestDetails;
 	}
 
+	/**
+	 * Mengumpulkan rincian biaya yang akan dibayar dari grid cicilan pembayaran pada antarmuka
+	 * ZK, hanya menyertakan baris yang jumlah cicilannya diisi dan bernilai signifikan (di luar
+	 * rentang -0.01 hingga 0.01).
+	 *
+	 * <p>
+	 * Untuk setiap baris yang disertakan: validator diambil dari
+	 * {@link CicilanPembayaran#getValidator()} bila ada dan valid, atau fallback ke pengguna yang
+	 * sedang login ({@link Common#getCurrentUser()}) bila cicilan belum memiliki validator (mis.
+	 * baris cicilan baru yang belum tersimpan). Jenis biaya (pengaturan bulanan atau item biaya
+	 * biasa) dapat ditimpa oleh pilihan pengguna pada combobox {@code itemBiaya} bila berbeda
+	 * dari nilai bawaan cicilan. Khusus cicilan BARU (belum memiliki id, {@code cicilanPembayaran.getId() == null})
+	 * yang terkait {@link PengaturanPembayaranBulanan}, denda keterlambatan dihitung ulang secara
+	 * dinamis lewat {@link PengaturanPembayaranBulanan#checkDenda} — mempertimbangkan apakah
+	 * mahasiswa termasuk dalam jadwal pembayaran khusus ({@code khususUntukNim}) yang berlaku
+	 * untuk NIM-nya.
+	 * </p>
+	 *
+	 * @param gridCicilan     grid ZK berisi baris-baris cicilan, dengan atribut {@code "jumlahCicilan"},
+	 *                        {@code "cicilanPembayaran"}, {@code "tanggal"}, {@code "itemBiaya"},
+	 *                        dan {@code "keterangan"} pada setiap {@link Row}
+	 * @param mahasiswa       mahasiswa yang membayar, dipakai untuk kalkulasi nominal/denda
+	 * @param semester        semester berjalan, dipakai untuk kalkulasi nominal/denda
+	 * @param jadwalPembayaran jadwal pembayaran yang berlaku, dipakai untuk menentukan apakah
+	 *                        jadwal khusus per-NIM berlaku bagi mahasiswa ini saat menghitung
+	 *                        denda cicilan baru
+	 * @return daftar {@link FaspayRequestDetail} untuk baris-baris cicilan yang diisi jumlahnya
+	 */
 	public static List<FaspayRequestDetail> populateFaspayRequestDetail(Grid gridCicilan, Mahasiswa mahasiswa,
 			Integer semester, JadwalPembayaran jadwalPembayaran) {
 		@SuppressWarnings("unchecked")
@@ -452,6 +480,26 @@ public class FaspayCommon {
 		return faspayRequestDetails;
 	}
 
+	/**
+	 * Titik masuk tingkat tinggi untuk memulai pembayaran biaya pendaftaran mahasiswa baru lewat
+	 * Faspay: menentukan jurusan acuan biaya (prodi lulus bila sudah ditetapkan, atau prodi
+	 * pilihan pertama/kedua sebagai fallback bila belum), menghitung seluruh biaya yang harus
+	 * dibayar lewat {@link PembayaranUtil#getDetailBiayaCalonMahasiswa}, menentukan jadwal
+	 * pembayaran (beserta aturan denda) yang berlaku lewat
+	 * {@link PembayaranUtil#getJadwalPembayaranDanDendaBerdasarkanTahunAkademik}, lalu langsung
+	 * memulai transaksi Faspay untuk total biaya tersebut lewat {@link #onSaveFaspay}.
+	 *
+	 * <p>
+	 * Bila tidak ada biaya yang berlaku ({@code detailBiayas} kosong) atau tidak ditemukan jadwal
+	 * pembayaran yang berlaku, method tidak melakukan apa pun (transaksi tidak dimulai).
+	 * </p>
+	 *
+	 * @param calonMahasiswa data calon mahasiswa yang hendak melakukan pembayaran pendaftaran
+	 * @param jenisKegiatan  jenis kegiatan (mis. pendaftaran/her-registrasi) yang menentukan
+	 *                       komponen biaya yang berlaku
+	 * @throws Exception diteruskan dari kegagalan yang tidak tertangkap secara internal, termasuk
+	 *                    dari {@link #onSaveFaspay}
+	 */
 	public static void bayarCalonMahasiswa(BiodataCalonMahasiswa calonMahasiswa, JenisKegiatan jenisKegiatan)
 			throws Exception {
 		Jurusan prodiLulus = calonMahasiswa.getProdiLulus();
@@ -506,6 +554,58 @@ public class FaspayCommon {
 
 	}
 
+	/**
+	 * Menyusun payload XML transaksi lengkap sesuai spesifikasi API Faspay ("Post Data
+	 * Transaksi") dari rincian pembayaran yang sudah dikumpulkan ({@code faspayRequestDetails}),
+	 * mengirimkannya lewat {@link #sendRequest}, lalu menampilkan hasilnya (halaman kode Virtual
+	 * Account/QR bila berhasil, pesan kegagalan bila gagal).
+	 *
+	 * <p>
+	 * Item transaksi hanya dibangun dari baris {@code faspayRequestDetails} yang BELUM terkait
+	 * cicilan tersimpan ({@code detail.getIdCicilan() == null}) — rincian yang berasal dari
+	 * cicilan yang sudah ada tidak disertakan sebagai item baris XML terpisah di sini (rincian
+	 * tersebut tetap disimpan sebagai {@link FaspayRequestDetail} oleh {@link #sendRequest}).
+	 * Ditambah satu baris "Biaya Administrasi" bila konfigurasi {@code faspay_biaya_administrasi}
+	 * bernilai positif. Nomor tagihan dibangkitkan lewat {@link Common#getGeneratedBarCode()}, dan
+	 * signature memakai {@code SHA1(MD5(UserID+Password+bill_no))}. Deskripsi tagihan
+	 * ({@code bill_desc}) memakai nama {@code jenisKegiatan} (berbeda dari
+	 * {@link FaspayKeranjangPembayaran} yang menggabungkan nama seluruh kegiatan terpilih).
+	 * </p>
+	 *
+	 * <p>
+	 * Data pelanggan diambil dari {@code mahasiswa} (termasuk data tambahan
+	 * {@link BiodataMahasiswa}) bila tidak {@code null}, atau dari {@code biodataCalonMahasiswa}
+	 * sebagai fallback — perilaku identik dengan {@link FaspayKeranjangPembayaran#onPilihFaspay}.
+	 * Setelah {@link #sendRequest} berhasil menyimpan {@link FaspayRequest}, baris tersebut
+	 * DIBACA ULANG dari database (bukan memakai objek yang dikembalikan langsung) sebelum kode QR
+	 * dan halaman pembayaran ditampilkan — memastikan data yang ditampilkan konsisten dengan yang
+	 * benar-benar tersimpan.
+	 * </p>
+	 *
+	 * @param amn                       nominal yang hendak dibayar (di luar biaya administrasi)
+	 * @param mahasiswa                 mahasiswa pembayar, boleh {@code null}
+	 * @param biodataCalonMahasiswa     data calon mahasiswa pembayar (dipakai bila
+	 *                                  {@code mahasiswa} {@code null})
+	 * @param jenisKegiatan             jenis kegiatan yang dibayar, dicatat ke deskripsi tagihan
+	 *                                  dan ke {@link FaspayRequest}
+	 * @param jadwalPembayaran          jadwal pembayaran terkait, dicatat ke {@link FaspayRequest}
+	 * @param semester                  semester terkait transaksi
+	 * @param tahunAkademik             tahun akademik terkait transaksi
+	 * @param keterangan                keterangan tambahan transaksi, dicatat ke {@link FaspayRequest}
+	 * @param pengurangan               nilai pengurangan/potongan yang sudah diperhitungkan,
+	 *                                  dicatat ke {@link FaspayRequest}
+	 * @param nilaiBiayaHarusDiBayars   total nilai biaya yang seharusnya dibayar (sebelum
+	 *                                  potongan/pengurangan), dicatat ke {@link FaspayRequest}
+	 * @param faspayRequestDetails      rincian baris pembayaran (item + cicilan) yang disimpan
+	 *                                  bersama transaksi
+	 * @param faspayRequestDetailBiayas rincian baris biaya yang disimpan bersama transaksi
+	 * @param payment_channel           kode kanal pembayaran Faspay yang dipilih (pg_code)
+	 * @param payment_channel_name      nama kanal pembayaran yang dipilih (pg_name)
+	 * @param event                     event ZK asal pemanggilan
+	 * @return selalu {@code true} pada implementasi saat ini, terlepas dari keberhasilan
+	 *         transaksi (status sesungguhnya hanya terlihat dari tampilan yang dimunculkan)
+	 * @throws Exception diteruskan dari kegagalan yang tidak tertangkap secara internal
+	 */
 	public static boolean onPilihFaspay(final Double amn, Mahasiswa mahasiswa,
 			BiodataCalonMahasiswa biodataCalonMahasiswa, JenisKegiatan jenisKegiatan, JadwalPembayaran jadwalPembayaran,
 			Integer semester, String tahunAkademik, String keterangan, Double pengurangan,
@@ -683,6 +783,36 @@ public class FaspayCommon {
 		return true;
 	}
 
+	/**
+	 * Titik masuk pertama alur pembayaran tunggal Faspay: mengambil daftar kanal pembayaran yang
+	 * tersedia dari Faspay (permintaan XML "Request List of Payment Gateway" ditandatangani
+	 * dengan {@code SHA1(MD5(UserID+Password))}), lalu langsung melanjutkan ke
+	 * {@link #onPilihFaspay} bila hanya ada satu kanal, atau menampilkan dialog radio-button
+	 * pemilihan bank/kanal ({@link MyWindow} modal berjudul "Pilihlah Bank") bila kanal tersedia
+	 * lebih dari satu. Struktur dan penanganan galat identik dengan
+	 * {@link FaspayKeranjangPembayaran#onSaveFaspay}; lihat juga peringatan keamanan pada Javadoc
+	 * kelas mengenai kredensial merchant yang tertanam sebagai nilai default.
+	 *
+	 * @param amn                       nominal total yang hendak dibayar (harus minimal 0.01;
+	 *                                  bila kurang, method langsung mengembalikan {@code false})
+	 * @param mahasiswa                 mahasiswa pembayar, boleh {@code null}
+	 * @param biodataCalonMahasiswa     data calon mahasiswa pembayar
+	 * @param jenisKegiatan             jenis kegiatan yang dibayar
+	 * @param jadwalPembayaran          jadwal pembayaran terkait
+	 * @param semester                  semester terkait transaksi
+	 * @param tahunAkademik             tahun akademik terkait transaksi
+	 * @param keterangan                keterangan tambahan transaksi
+	 * @param pengurangan               nilai pengurangan/potongan yang sudah diperhitungkan
+	 * @param nilaiBiayaHarusDiBayars   total nilai biaya yang seharusnya dibayar
+	 * @param faspayRequestDetails      rincian baris pembayaran yang akan diteruskan ke
+	 *                                  {@link #onPilihFaspay}
+	 * @param faspayRequestDetailBiayas rincian baris biaya yang akan diteruskan ke
+	 *                                  {@link #onPilihFaspay}
+	 * @param event                     event ZK asal pemanggilan
+	 * @return {@code true} bila proses berhasil dimulai atau kanal berhasil diproses;
+	 *         {@code false} bila {@code amn < 0.01} atau kanal pembayaran tidak ditemukan
+	 * @throws Exception diteruskan dari kegagalan yang tidak tertangkap secara internal
+	 */
 	@SuppressWarnings({ "deprecation" })
 	public static boolean onSaveFaspay(final Double amn, final Mahasiswa mahasiswa,
 			final BiodataCalonMahasiswa biodataCalonMahasiswa, final JenisKegiatan jenisKegiatan,
@@ -824,6 +954,63 @@ public class FaspayCommon {
 		return true;
 	}
 
+	/**
+	 * Mengirim payload XML transaksi ke endpoint gateway Faspay (konfigurasi
+	 * {@code faspay_gateway_url}) lewat HTTP POST, memparse respons, dan menyimpan
+	 * {@link FaspayRequest} beserta SELURUH baris {@link FaspayRequestDetail} dan
+	 * {@link FaspayRequestDetailBiaya} terkait dalam SATU transaksi Hibernate.
+	 *
+	 * <p>
+	 * Berbeda dari {@link FaspayKeranjangPembayaran#sendRequest} (yang hanya menyimpan baris
+	 * {@link FaspayRequest} tanpa detail terpisah), method ini secara eksplisit melakukan
+	 * {@code session.save(...)} untuk setiap elemen {@code faspayRequestDetails} dan
+	 * {@code faspayRequestDetailBiayas} setelah menautkannya ke {@link FaspayRequest} induk,
+	 * seluruhnya di dalam satu transaksi — bila penyimpanan detail gagal di tengah jalan,
+	 * kegagalan ditangkap, dicatat lewat {@code InfoTeknisPembayaran.catat(...)} dengan pesan
+	 * eksplisit "Transaksi diterima gateway namun GAGAL disimpan di aplikasi" (menandakan gateway
+	 * sudah menerima dana/permintaan namun pencatatan lokal tidak lengkap — skenario yang perlu
+	 * ditindaklanjuti manual oleh admin), dan method mengembalikan {@code null}.
+	 * </p>
+	 *
+	 * <p>
+	 * Sama seperti {@link FaspayKeranjangPembayaran#sendRequest}: karakter {@code &} pada
+	 * {@code postData} diganti kata {@code "dan"} sebelum dikirim; kode status respons selain
+	 * {@code "00"} dicatat sebagai penolakan gateway; dan empat kategori kegagalan jaringan
+	 * ({@link java.net.ConnectException}, {@link java.net.SocketTimeoutException},
+	 * {@link org.apache.commons.httpclient.ConnectTimeoutException}, kegagalan umum lain)
+	 * ditangani terpisah dengan pesan diagnostik masing-masing, dan pada setiap kasus kegagalan
+	 * sesi Hibernate serta koneksi HTTP ditutup secara eksplisit sebelum mengembalikan
+	 * {@code null} ke pemanggil.
+	 * </p>
+	 *
+	 * @param postData                  payload XML transaksi (karakter {@code &} akan
+	 *                                  digantikan {@code "dan"} sebelum dikirim)
+	 * @param mahasiswa                 mahasiswa terkait transaksi, boleh {@code null}
+	 * @param biodataCalonMahasiswa     calon mahasiswa terkait transaksi, boleh {@code null}
+	 * @param jenisKegiatan             jenis kegiatan terkait, dicatat ke {@link FaspayRequest}
+	 * @param jadwalPembayaran          jadwal pembayaran terkait, dicatat ke {@link FaspayRequest}
+	 * @param semester                  semester terkait transaksi
+	 * @param tahunAkademik             tahun akademik terkait transaksi
+	 * @param keterangan                keterangan tambahan transaksi
+	 * @param pengurangan               nilai pengurangan/potongan yang sudah diperhitungkan
+	 * @param nilaiBiayaHarusDiBayars   total nilai biaya yang seharusnya dibayar
+	 * @param amount                    nominal transaksi (di luar biaya administrasi)
+	 * @param merchant_id               id merchant Faspay pada transaksi ini
+	 * @param signature                 signature transaksi yang sudah dihitung pemanggil
+	 * @param bill_no                   nomor tagihan unik transaksi ini
+	 * @param payment_channel_name      nama kanal pembayaran yang dipilih
+	 * @param faspayRequestDetails      rincian baris pembayaran yang ditautkan dan disimpan
+	 *                                  bersama {@link FaspayRequest} induk
+	 * @param faspayRequestDetailBiayas rincian baris biaya yang ditautkan dan disimpan bersama
+	 *                                  {@link FaspayRequest} induk
+	 * @param hapusCicilanSebelumnya    ditulis apa adanya ke
+	 *                                  {@link FaspayRequest#setHapusCicilanSebelumnya}
+	 * @return {@link FaspayRequest} yang sudah tersimpan lengkap beserta seluruh detailnya bila
+	 *         berhasil; {@code null} bila terjadi kegagalan jaringan, parsing, atau penyimpanan
+	 *         (termasuk kegagalan penyimpanan SETELAH gateway menerima transaksi)
+	 * @throws Exception dideklarasikan pada signature namun praktiknya seluruh kegagalan
+	 *                    ditangani secara internal dan tidak dilempar keluar
+	 */
 	@SuppressWarnings("deprecation")
 	public static FaspayRequest sendRequest(String postData, Mahasiswa mahasiswa,
 			BiodataCalonMahasiswa biodataCalonMahasiswa, JenisKegiatan jenisKegiatan, JadwalPembayaran jadwalPembayaran,

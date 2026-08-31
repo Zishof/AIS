@@ -584,30 +584,83 @@ public class CommonSecurityLoginHelper extends Common {
 
 
 
+	/**
+	 * Memicu pemeriksaan hak akses baca standar untuk permintaan saat ini. Sekadar pembungkus
+	 * tipis di atas {@link CommonPrivilages#doCheckPrevilagesRead()}.
+	 */
 	public static void doCheckSecurity() {
 		CommonPrivilages.doCheckPrevilagesRead();
 	}
 
 
 
+	/**
+	 * Varian ringkas {@link #doLogin(Tbmuser, String, String, String)} tanpa parameter tambahan
+	 * ({@code parameter=null}).
+	 */
 	public static void doLogin(Tbmuser tbmuser, String linkProfile, String callback_url) throws Exception {
 		doLogin(tbmuser, linkProfile, null, callback_url);
 	}
 
 
 
+	/**
+	 * Varian ringkas {@link #doLogin(Mahasiswa, String, String, String)} tanpa parameter
+	 * tambahan ({@code parameter=null}).
+	 */
 	public static void doLogin(Mahasiswa mahasiswa, String linkProfile, String callback_url) throws Exception {
 		doLogin(mahasiswa, linkProfile, null, callback_url);
 	}
 
 
 
+	/**
+	 * Varian ringkas {@link #doLogin(Siswa, String, String, String)} tanpa parameter tambahan
+	 * ({@code parameter=null}).
+	 */
 	public static void doLogin(Siswa siswa, String linkProfile, String callback_url) throws Exception {
 		doLogin(siswa, linkProfile, null, callback_url);
 	}
 
 
 
+	/**
+	 * Implementasi kanonik login sosial (mis. via Google/Facebook) untuk pengguna {@link Tbmuser}
+	 * — dipanggil setelah proses otentikasi sosial di lapisan lain berhasil mengidentifikasi
+	 * entitas {@code tbmuser} yang bersangkutan.
+	 *
+	 * <p>
+	 * Langkah kerja: (1) menutup dialog konfirmasi tutup halaman ZK ({@link
+	 * Clients#confirmClose(String)}); (2) memeriksa apakah role pengguna termasuk dalam daftar
+	 * yang diblokir dari login sosial (konfigurasi {@code ConstantValues#grupPenggunaBlok},
+	 * daftar role dipisah koma, dibandingkan case-insensitive) — bila diblokir, menampilkan
+	 * peringatan dan memanggil {@code Common.goLogoff()}, lalu method berhenti; (3) bila lolos,
+	 * memanggil {@code SecurityFilter.doAutoLogin(...)} dengan userId dan kata sandi HASIL
+	 * DEKRIPSI ({@code Common.desEncrypter.get().decrypt(tbmuser.getUserPassword())} — lihat
+	 * peringatan keamanan pada javadoc kelas terkait penyimpanan kata sandi reversibel) untuk
+	 * benar-benar membangun sesi login; (4) mengarahkan ulang (redirect) browser ke
+	 * {@code callback_url} atau {@code "main" + parameter} sebagai default.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Catatan perilaku:</b> redirect SELALU dilakukan di akhir method — bahkan bila
+	 * {@code SecurityFilter.doAutoLogin(...)} mengembalikan {@code false} (gagal), method tetap
+	 * memanggil {@link ExecutionsCtrl#sendRedirect(String)} seolah login berhasil (dicatat
+	 * eksplisit dalam log konsol sebagai peringatan). Seluruh langkah pengecekan blokir dibungkus
+	 * {@code try/catch} yang menelan exception (dicatat via {@code System.out}/{@code
+	 * Common.tampilErrorJikaAdmin}), sehingga kegagalan pengecekan blokir TIDAK menghentikan
+	 * proses login — hanya dicatat sebagai log.
+	 * </p>
+	 *
+	 * @param tbmuser      entitas pengguna yang login
+	 * @param linkProfile  tautan profil, diteruskan ke {@code SecurityFilter.doAutoLogin}
+	 * @param parameter    parameter tambahan yang disisipkan ke URL redirect default
+	 *                     ({@code "main" + parameter}) bila {@code callback_url} {@code null}
+	 * @param callback_url URL tujuan redirect setelah login; bila {@code null}, dipakai
+	 *                     {@code "main" + parameter}
+	 * @throws Exception diteruskan dari kegagalan {@code SecurityFilter.doAutoLogin} atau proses
+	 *                    redirect
+	 */
 	public static void doLogin(Tbmuser tbmuser, String linkProfile, String parameter, String callback_url)
 			throws Exception {
 		try {
@@ -656,6 +709,20 @@ public class CommonSecurityLoginHelper extends Common {
 
 
 
+	/**
+	 * Sama seperti {@link #doLogin(Tbmuser, String, String, String)} namun untuk pengguna
+	 * {@link Mahasiswa} — role yang diblokir dari login sosial dicek dengan literal tetap
+	 * {@code "mhs"} (bukan role dinamis seperti pada varian {@link Tbmuser}), kata sandi untuk
+	 * {@code SecurityFilter.doAutoLogin} didekripsi dari {@code mahasiswa.getPass()}. Lihat
+	 * javadoc {@link #doLogin(Tbmuser, String, String, String)} untuk penjelasan lengkap alur dan
+	 * catatan perilaku redirect-selalu-jalan.
+	 *
+	 * @param mahasiswa    entitas mahasiswa yang login
+	 * @param linkProfile  tautan profil
+	 * @param parameter    parameter tambahan URL redirect default
+	 * @param callback_url URL tujuan redirect
+	 * @throws Exception diteruskan dari kegagalan proses login/redirect
+	 */
 	public static void doLogin(Mahasiswa mahasiswa, String linkProfile, String parameter, String callback_url)
 			throws Exception {
 		try {
@@ -700,6 +767,19 @@ public class CommonSecurityLoginHelper extends Common {
 
 
 
+	/**
+	 * Sama seperti {@link #doLogin(Tbmuser, String, String, String)} namun untuk pengguna
+	 * {@link Siswa} — role diblokir dicek dengan literal {@code "mhs"} (sama seperti varian
+	 * {@link Mahasiswa}), otentikasi dilakukan dengan {@code siswa.getNomorIndukNasional()}
+	 * sebagai username dan kata sandi hasil dekripsi {@code siswa.getPass()}. Lihat javadoc
+	 * {@link #doLogin(Tbmuser, String, String, String)} untuk penjelasan lengkap.
+	 *
+	 * @param siswa        entitas siswa yang login
+	 * @param linkProfile  tautan profil
+	 * @param parameter    parameter tambahan URL redirect default
+	 * @param callback_url URL tujuan redirect
+	 * @throws Exception diteruskan dari kegagalan proses login/redirect
+	 */
 	public static void doLogin(Siswa siswa, String linkProfile, String parameter, String callback_url)
 			throws Exception {
 		try {
@@ -744,6 +824,15 @@ public class CommonSecurityLoginHelper extends Common {
 
 
 
+	/**
+	 * Memeriksa apakah fitur "ingat saya" berbasis cookie untuk login PMB (calon mahasiswa baru)
+	 * aktif, dibaca dari konfigurasi {@code KONFIG_PMB_LOGIN_COOKIE}. Kegagalan pembacaan
+	 * konfigurasi (mis. exception apa pun) diperlakukan sebagai tidak aktif ({@code false}) demi
+	 * keamanan (fail-closed).
+	 *
+	 * @return {@code true} hanya bila konfigurasi ditemukan dan nilainya sama dengan
+	 *         {@link Konfigurasi#AKTIF} (case-insensitive)
+	 */
 	public static boolean isPmbCookieLoginEnabled() {
 		try {
 			Konfigurasi konfigurasi = Common.getKonfigurasi(KONFIG_PMB_LOGIN_COOKIE, Konfigurasi.TIDAK_AKTIF);
@@ -756,6 +845,15 @@ public class CommonSecurityLoginHelper extends Common {
 
 
 
+	/**
+	 * Varian tanpa parameter {@link #isLogin(HttpServletRequest)}: menentukan
+	 * {@link HttpServletRequest} aktif dari konteks eksekusi ZK saat ini
+	 * ({@link ExecutionsCtrl#getCurrent()}), atau dari {@code RequestContext.get()} sebagai
+	 * fallback bila di luar konteks ZK.
+	 *
+	 * @return entitas {@link BiodataCalonMahasiswa} yang sedang login, atau {@code null} bila
+	 *         tidak ada request aktif atau tidak sedang login
+	 */
 	public static BiodataCalonMahasiswa isLogin() {
 		HttpServletRequest request = null;
 		if (ExecutionsCtrl.getCurrent() != null) {
@@ -769,6 +867,34 @@ public class CommonSecurityLoginHelper extends Common {
 
 
 
+	/**
+	 * Implementasi kanonik pemeriksaan status login PMB (calon mahasiswa baru), dengan
+	 * pemulihan otomatis dari cookie "ingat saya" bila sesi HTTP belum/tidak memilikinya.
+	 *
+	 * <p>
+	 * Urutan pengecekan: (1) bila {@link HttpSession} yang ada sudah memiliki attribute
+	 * {@code "BiodataCalonMahasiswa"}, kembalikan langsung tanpa akses database; (2) bila tidak,
+	 * dan fitur cookie PMB tidak aktif ({@link #isPmbCookieLoginEnabled()} bernilai
+	 * {@code false}), kembalikan {@code null} (tidak login); (3) bila aktif, baca cookie
+	 * {@code COOKIE_PMB_BIODATA}, DEKRIPSI nilainya untuk memperoleh id entitas, dan muat entitas
+	 * {@link BiodataCalonMahasiswa} dari cache/database lewat {@code ConstantValues.ambil(...)};
+	 * (4) bila entitas ditemukan, PULIHKAN sesi HTTP dengan menuliskan kembali seluruh attribute
+	 * standar ({@code BiodataCalonMahasiswa}, {@code mytbmuser}, {@code usersTemp}, {@code user})
+	 * sehingga pemanggilan berikutnya dalam sesi yang sama tidak perlu lagi membaca cookie/database.
+	 * </p>
+	 *
+	 * <p>
+	 * Nilai id {@code "-1"} pada hasil dekripsi cookie diperlakukan khusus sebagai "tidak ada
+	 * login" (bukan error) — kemungkinan penanda eksplisit dari kode yang menulis cookie untuk
+	 * merepresentasikan status logout tanpa harus menghapus cookie. Seluruh exception (termasuk
+	 * kegagalan dekripsi cookie yang rusak/dipalsukan) ditangkap dan menghasilkan {@code null},
+	 * bukan dilempar ulang.
+	 * </p>
+	 *
+	 * @param request HTTP request sumber sesi/cookie; {@code null} menghasilkan {@code null}
+	 * @return entitas {@link BiodataCalonMahasiswa} yang sedang login (dari sesi atau dipulihkan
+	 *         dari cookie), atau {@code null} bila tidak login/gagal
+	 */
 	public static BiodataCalonMahasiswa isLogin(HttpServletRequest request) {
 		if (request == null) {
 			return null;
@@ -814,6 +940,12 @@ public class CommonSecurityLoginHelper extends Common {
 
 
 
+	/**
+	 * Varian tanpa parameter {@link #setLogout(HttpServletRequest, HttpServletResponse)}:
+	 * menentukan request/response aktif dari konteks eksekusi ZK saat ini, atau dari
+	 * {@code RequestContext}/{@code ResponseContext} sebagai fallback. Seluruh exception
+	 * ditangkap dan dicatat ke {@link ErrorAuditUtil}, tidak dilempar ulang.
+	 */
 	public static void setLogout() {
 
 		try {
@@ -837,6 +969,16 @@ public class CommonSecurityLoginHelper extends Common {
 
 
 
+	/**
+	 * Implementasi kanonik logout PMB: menghapus attribute sesi standar
+	 * ({@code BiodataCalonMahasiswa}, {@code mytbmuser}, {@code usersTemp}, {@code user}) dan
+	 * meng-invalidate seluruh {@link HttpSession}, lalu membersihkan cookie login PMB lewat
+	 * {@code clearPmbLoginCookies(request, response)} (dipanggil tanpa syarat, terlepas dari
+	 * apakah invalidasi sesi berhasil).
+	 *
+	 * @param request  HTTP request sumber sesi/cookie yang akan dibersihkan
+	 * @param response HTTP response tempat penghapusan cookie ditulis
+	 */
 	public static void setLogout(HttpServletRequest request, HttpServletResponse response) {
 		try {
 			HttpSession session = request == null ? null : request.getSession(false);
@@ -856,6 +998,14 @@ public class CommonSecurityLoginHelper extends Common {
 
 
 
+	/**
+	 * Varian tanpa parameter {@link #setLogin(HttpServletRequest, HttpServletResponse,
+	 * BiodataCalonMahasiswa)}: menentukan request/response aktif dari konteks ZK saat ini, atau
+	 * dari {@code RequestContext}/{@code ResponseContext} sebagai fallback. Kegagalan ditangkap
+	 * dan dicatat ke {@link ErrorAuditUtil}, tidak dilempar ulang.
+	 *
+	 * @param biodataCalonMahasiswa entitas calon mahasiswa yang akan ditandai login
+	 */
 	public static void setLogin(BiodataCalonMahasiswa biodataCalonMahasiswa) {
 		try {
 			HttpServletRequest request = null;
@@ -876,6 +1026,28 @@ public class CommonSecurityLoginHelper extends Common {
 
 
 
+	/**
+	 * Implementasi kanonik login PMB: menulis attribute sesi standar
+	 * ({@code BiodataCalonMahasiswa}, {@code mytbmuser}, {@code usersTemp}, {@code user} — yang
+	 * terakhir tiga berupa objek {@link Tbmuser} yang dibungkus dari {@code biodataCalonMahasiswa}
+	 * lewat konstruktor {@code new Tbmuser(BiodataCalonMahasiswa)}), lalu — hanya bila
+	 * {@code res} tidak {@code null} DAN {@link #isPmbCookieLoginEnabled()} aktif — menulis dua
+	 * cookie persisten (180 hari, {@code Secure} mengikuti {@code request.isSecure()}):
+	 * {@code COOKIE_PMB_BIODATA} (id entitas terenkripsi) dan {@code COOKIE_PMB_USERID} (nomor
+	 * registrasi, tidak dienkripsi, hanya dibungkus {@code Common.nilaiCookieAman(...)}).
+	 *
+	 * <p>
+	 * Bila {@code request} atau {@code biodataCalonMahasiswa} {@code null}, method berhenti
+	 * lebih awal tanpa efek apa pun. Kegagalan penulisan sesi maupun cookie ditangani terpisah
+	 * (masing-masing dalam blok {@code try/catch} sendiri) sehingga kegagalan menulis cookie
+	 * tidak menggagalkan penulisan sesi, dan sebaliknya.
+	 * </p>
+	 *
+	 * @param request                HTTP request sumber sesi
+	 * @param res                    HTTP response tempat cookie ditulis; {@code null} berarti
+	 *                               cookie tidak ditulis (hanya sesi)
+	 * @param biodataCalonMahasiswa  entitas calon mahasiswa yang ditandai login
+	 */
 	public static void setLogin(HttpServletRequest request, HttpServletResponse res,
 			BiodataCalonMahasiswa biodataCalonMahasiswa) {
 		if (request == null || biodataCalonMahasiswa == null) {
@@ -921,6 +1093,14 @@ public class CommonSecurityLoginHelper extends Common {
 
 
 
+	/**
+	 * Varian tanpa parameter {@link #isLoginCalonSiswa(HttpServletRequest)}: menentukan request
+	 * aktif dari konteks ZK saat ini atau {@code RequestContext} sebagai fallback.
+	 *
+	 * @return entitas {@link CalonSiswa} yang tersimpan di sesi ({@code request.getSession(true)}
+	 *         — SELALU membuat sesi baru bila belum ada), atau {@code null} bila tidak login
+	 *         atau terjadi kegagalan (ditangani lewat {@link Common#tampilErrorJikaAdmin(Exception)})
+	 */
 	public static CalonSiswa isLoginCalonSiswa() {
 		try {
 
@@ -941,6 +1121,14 @@ public class CommonSecurityLoginHelper extends Common {
 
 
 
+	/**
+	 * Memeriksa status login {@link CalonSiswa} (calon siswa PPDB) murni dari attribute sesi
+	 * HTTP — TIDAK ada mekanisme pemulihan dari cookie seperti pada
+	 * {@link #isLogin(HttpServletRequest)} untuk PMB.
+	 *
+	 * @param request HTTP request sumber sesi
+	 * @return entitas {@link CalonSiswa} dari sesi, atau {@code null} bila tidak login/gagal
+	 */
 	public static CalonSiswa isLoginCalonSiswa(HttpServletRequest request) {
 		try {
 			return (CalonSiswa) request.getSession(true).getAttribute("CalonSiswa");
@@ -952,6 +1140,11 @@ public class CommonSecurityLoginHelper extends Common {
 
 
 
+	/**
+	 * Varian tanpa parameter {@link #setLogoutCalonSiswa(HttpServletRequest,
+	 * HttpServletResponse)}: menentukan request/response aktif dari konteks ZK saat ini, atau
+	 * dari {@code RequestContext}/{@code ResponseContext} sebagai fallback.
+	 */
 	public static void setLogoutCalonSiswa() {
 		HttpServletRequest request = null;
 		if (ExecutionsCtrl.getCurrent() != null) {
@@ -974,6 +1167,23 @@ public class CommonSecurityLoginHelper extends Common {
 
 
 
+	/**
+	 * Implementasi kanonik logout {@link CalonSiswa}: mengosongkan (bukan menghapus) attribute
+	 * sesi {@code CalonSiswa}/{@code mytbmuser}/{@code usersTemp}/{@code user} (di-set ke
+	 * {@code null}, session tidak di-invalidate — berbeda dari {@link #setLogout(HttpServletRequest,
+	 * HttpServletResponse)} versi PMB yang meng-invalidate seluruh sesi).
+	 *
+	 * <p>
+	 * <b>Catatan perilaku cookie:</b> berbeda dari {@code clearPmbLoginCookies} yang hanya
+	 * menghapus cookie tertentu, method ini mengiterasi SELURUH cookie pada {@code request}
+	 * (bukan hanya cookie terkait login CalonSiswa) dan menghapus semuanya (nilai dikosongkan,
+	 * {@code maxAge=0}) — efek sampingnya adalah SEMUA cookie yang dikirim browser untuk domain
+	 * ini akan dihapus oleh operasi logout ini, bukan hanya cookie login.
+	 * </p>
+	 *
+	 * @param request  HTTP request sumber sesi/cookie
+	 * @param response HTTP response tempat penghapusan cookie ditulis
+	 */
 	public static void setLogoutCalonSiswa(HttpServletRequest request, HttpServletResponse response) {
 		try {
 
@@ -1000,6 +1210,12 @@ public class CommonSecurityLoginHelper extends Common {
 
 
 
+	/**
+	 * Memeriksa status login {@link PenyediaAsset} (penyedia/vendor aset) murni dari attribute
+	 * sesi HTTP ({@code request.getSession(true)}), tanpa mekanisme cookie.
+	 *
+	 * @return entitas {@link PenyediaAsset} dari sesi, atau {@code null} bila tidak login/gagal
+	 */
 	public static PenyediaAsset isLoginPenyediaAsset() {
 		try {
 
@@ -1020,6 +1236,11 @@ public class CommonSecurityLoginHelper extends Common {
 
 
 
+	/**
+	 * Logout {@link PenyediaAsset}: mengosongkan attribute sesi
+	 * {@code PenyediaAsset}/{@code mytbmuser}/{@code usersTemp}/{@code user} (di-set
+	 * {@code null}, tanpa invalidate sesi maupun penghapusan cookie).
+	 */
 	public static void setLogoutPenyediaAsset() {
 		try {
 			HttpServletRequest request = null;
@@ -1042,6 +1263,12 @@ public class CommonSecurityLoginHelper extends Common {
 
 
 
+	/**
+	 * Memeriksa status login {@link CalonPegawai} (calon pegawai rekrutmen) murni dari attribute
+	 * sesi HTTP ({@code request.getSession(true)}), tanpa mekanisme cookie.
+	 *
+	 * @return entitas {@link CalonPegawai} dari sesi, atau {@code null} bila tidak login/gagal
+	 */
 	public static CalonPegawai isLoginCalonPegawai() {
 		try {
 
@@ -1062,6 +1289,11 @@ public class CommonSecurityLoginHelper extends Common {
 
 
 
+	/**
+	 * Logout {@link CalonPegawai}: mengosongkan attribute sesi
+	 * {@code CalonPegawai}/{@code mytbmuser}/{@code usersTemp}/{@code user} (di-set
+	 * {@code null}, tanpa invalidate sesi maupun penghapusan cookie).
+	 */
 	public static void setLogoutCalonPegawai() {
 		try {
 			HttpServletRequest request = null;
@@ -1084,6 +1316,13 @@ public class CommonSecurityLoginHelper extends Common {
 
 
 
+	/**
+	 * Varian tanpa parameter {@link #setLogin(HttpServletRequest, CalonSiswa)}: menentukan
+	 * request aktif dari konteks ZK saat ini atau {@code RequestContext} sebagai fallback.
+	 * Kegagalan ditangani lewat {@link Common#tampilErrorJikaAdmin(Exception)}.
+	 *
+	 * @param calonSiswa entitas calon siswa yang ditandai login
+	 */
 	public static void setLogin(CalonSiswa calonSiswa) {
 		try {
 			HttpServletRequest request = null;
@@ -1102,6 +1341,15 @@ public class CommonSecurityLoginHelper extends Common {
 
 
 
+	/**
+	 * Login {@link CalonSiswa} pada sesi saja (tanpa cookie persisten) — menulis attribute sesi
+	 * {@code CalonSiswa} dan {@code mytbmuser}/{@code usersTemp}/{@code user} (dibungkus dari
+	 * {@code new Tbmuser(CalonSiswa)}). Lihat {@link #setLogin(HttpServletRequest,
+	 * HttpServletResponse, CalonSiswa)} untuk varian yang juga menulis cookie.
+	 *
+	 * @param request    HTTP request sumber sesi
+	 * @param calonSiswa entitas calon siswa yang ditandai login
+	 */
 	public static void setLogin(HttpServletRequest request, CalonSiswa calonSiswa) {
 		try {
 
@@ -1118,6 +1366,24 @@ public class CommonSecurityLoginHelper extends Common {
 
 
 
+	/**
+	 * Implementasi kanonik login {@link CalonSiswa} dengan cookie persisten: menulis attribute
+	 * sesi (sama seperti {@link #setLogin(HttpServletRequest, CalonSiswa)}) DAN dua cookie
+	 * ({@code "calonSiswa"} berisi id terenkripsi, {@code "userid"} berisi nomor registrasi),
+	 * masing-masing berumur 180 hari.
+	 *
+	 * <p>
+	 * Berbeda dari {@link #setLogin(HttpServletRequest, HttpServletResponse,
+	 * BiodataCalonMahasiswa)} versi PMB, method ini TIDAK dikondisikan oleh saklar konfigurasi
+	 * apa pun (mis. {@link #isPmbCookieLoginEnabled()}) — cookie login {@link CalonSiswa} SELALU
+	 * ditulis tanpa syarat setiap kali method ini dipanggil, dan flag {@code Secure} pada cookie
+	 * TIDAK diset eksplisit (berbeda dari cookie PMB yang mengikuti {@code request.isSecure()}).
+	 * </p>
+	 *
+	 * @param request    HTTP request sumber sesi
+	 * @param res        HTTP response tempat cookie ditulis
+	 * @param calonSiswa entitas calon siswa yang ditandai login
+	 */
 	public static void setLogin(HttpServletRequest request, HttpServletResponse res, CalonSiswa calonSiswa) {
 		try {
 
@@ -1151,6 +1417,10 @@ public class CommonSecurityLoginHelper extends Common {
 
 
 
+	/**
+	 * Varian ringkas {@link #tampilErrorJikaAdmin(Exception, String, boolean)} tanpa info
+	 * tambahan dan tanpa opsi unduh ({@code info=""}, {@code download=false}).
+	 */
 	public static String tampilErrorJikaAdmin(Exception ex) {
 		// ex.printStackTrace();
 		return tampilErrorJikaAdmin(ex, "", false);
@@ -1158,6 +1428,17 @@ public class CommonSecurityLoginHelper extends Common {
 
 
 
+	/**
+	 * Menampilkan detail exception ke pengguna HANYA bila pengguna saat ini adalah admin
+	 * (logika penentuan admin dan penampilan didelegasikan sepenuhnya ke
+	 * {@link CommonHelperClass#tampilErrorJikaAdmin(Exception, String, boolean)}). Sekadar
+	 * pembungkus tipis untuk kompatibilitas nama method pada kelas ini.
+	 *
+	 * @param ex       exception yang akan ditampilkan/dicatat
+	 * @param info     informasi tambahan yang disisipkan ke tampilan error
+	 * @param download bila {@code true}, sediakan opsi mengunduh detail error
+	 * @return pesan/hasil sebagaimana dikembalikan {@link CommonHelperClass#tampilErrorJikaAdmin}
+	 */
 	public static String tampilErrorJikaAdmin(Exception ex, String info, boolean download) {
 
 		return CommonHelperClass.tampilErrorJikaAdmin(ex, info, download);
@@ -1166,12 +1447,42 @@ public class CommonSecurityLoginHelper extends Common {
 
 
 
+	/**
+	 * Membuat {@link EventListener} yang, saat dipicu, memulai proses unduh detail
+	 * {@code ex}. Sekadar pembungkus tipis di atas
+	 * {@link CommonHelperClass#downloadError(Exception)}.
+	 *
+	 * @param ex exception yang detailnya akan diunduh
+	 * @return listener siap dipasang ke komponen UI (mis. tombol unduh)
+	 */
 	public static EventListener downloadError(Exception ex) {
 		return CommonHelperClass.downloadError(ex);
 	}
 
 
 
+	/**
+	 * Memverifikasi kombinasi username/password terhadap data {@link Tbmuser} atau
+	 * {@link Mahasiswa} tersimpan.
+	 *
+	 * <p>
+	 * Pertama mencari {@link Tbmuser} aktif dengan {@code userId} sama dengan {@code username}.
+	 * Bila TIDAK ditemukan, jalur verifikasi BERBEDA dipakai untuk {@link Mahasiswa}: kata sandi
+	 * masukan dienkripsi lebih dulu ({@code Common.desEncrypter.get().encrypt(password)}) lalu
+	 * dibandingkan LANGSUNG di query SQL terhadap kolom {@code pass} tersimpan (perbandingan
+	 * ciphertext-ke-ciphertext) — berbeda dari jalur {@link Tbmuser} yang mendekripsi kata sandi
+	 * tersimpan lebih dulu baru membandingkan plaintext-ke-plaintext dengan
+	 * {@code password.equals(pwd)} (lihat peringatan keamanan pada javadoc kelas ini terkait
+	 * penyimpanan kata sandi reversibel dan perbandingan non-constant-time).
+	 * </p>
+	 *
+	 * @param username userId ({@link Tbmuser}) atau NIM ({@link Mahasiswa}) yang diverifikasi
+	 * @param password kata sandi masukan yang diverifikasi (plain text)
+	 * @return {@code true} bila kombinasi username/password cocok dengan salah satu entitas
+	 *         (Tbmuser atau Mahasiswa) yang aktif; {@code false} bila {@code username}/{@code
+	 *         password} {@code null}, tidak cocok, atau terjadi kegagalan yang tertangkap
+	 *         secara internal
+	 */
     public static boolean checkLogin(String username, String password) {
         if (username == null || password == null) {
             return false;
@@ -1212,6 +1523,43 @@ public class CommonSecurityLoginHelper extends Common {
 
 
 
+    /**
+     * Implementasi alur "lupa password": mencari akun pengguna berdasarkan {@code username} di
+     * antara lima kemungkinan jenis entitas ({@link Tbmuser}, dan turunannya {@link Dosen}/
+     * {@link Pegawai} lewat relasi {@code Tbmuser}, {@link Mahasiswa}, {@link Siswa}), lalu — bila
+     * ditemukan tepat satu akun yang cocok dan email tujuannya valid — MENDEKRIPSI kata sandi
+     * tersimpan dan MENGIRIMKANNYA APA ADANYA (plain text) lewat email ke alamat terdaftar.
+     *
+     * <p>
+     * <b>Lihat peringatan keamanan pada javadoc kelas ini (poin #1 dan #2)</b> — method ini
+     * adalah SATU-SATUNYA tempat kata sandi asli (hasil dekripsi) dikirim keluar sistem (via
+     * email), yang HANYA mungkin dilakukan karena kata sandi disimpan sebagai enkripsi
+     * reversibel, bukan hash satu-arah. Ini bukan tautan reset password sekali pakai — pengguna
+     * menerima kata sandi lama mereka apa adanya.
+     * </p>
+     *
+     * <p>
+     * Urutan prioritas pencocokan akun: {@link Dosen} (via relasi {@code Tbmuser#getDosen()}) →
+     * {@link Pegawai} (via {@code Tbmuser#getPegawai()}) → {@link Tbmuser} generik →
+     * {@link Mahasiswa} → {@link Siswa}. Bila ditemukan LEBIH DARI SATU akun yang cocok pada
+     * salah satu jenis entitas ({@code daftarUser}/{@code daftarMahasiswa}/{@code daftarSiswa}
+     * masing-masing dibatasi maksimum 2 hasil untuk deteksi duplikasi), method menolak mengirim
+     * apa pun dan mengembalikan pesan yang meminta pengguna menghubungi admin — demi keamanan,
+     * kata sandi tidak dikirim bila identitas ambigu. Bila email tujuan kosong/tidak valid,
+     * dikembalikan pesan yang meminta pengguna melengkapi data email lewat admin (tanpa mengirim
+     * email apa pun).
+     * </p>
+     *
+     * @param username userId ({@link Tbmuser}/{@link Dosen}/{@link Pegawai}), NIM ({@link
+     *                 Mahasiswa}), atau nomor induk nasional ({@link Siswa}) yang kata sandinya
+     *                 ingin dipulihkan
+     * @return pesan hasil dalam Bahasa Indonesia untuk ditampilkan ke pengguna — bisa berupa
+     *         konfirmasi pengiriman sukses, pesan penolakan (akun ganda/ambigu), pesan email
+     *         belum terdaftar, pesan akun tidak ditemukan, atau pesan kegagalan teknis
+     * @throws Exception dideklarasikan pada tanda tangan namun pada praktiknya sebagian besar
+     *                    kegagalan (query database, dekripsi, pengiriman email) ditangkap secara
+     *                    internal dan dikembalikan sebagai pesan teks, bukan dilempar ulang
+     */
     public static String kirimLupaPassword(String username) throws Exception {
         JSONArray userIds = new JSONArray();
         userIds.put(username);

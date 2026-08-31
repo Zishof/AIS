@@ -32,12 +32,128 @@ import ais.database.model.Tbmuser;
 import ais.database.model.Wilayah;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Klien integrasi AIS dengan sistem PMB (Penerimaan Mahasiswa Baru) pihak ketiga
+ * <b>"Arkatama"</b> (host default {@code https://pmb.pusdiktan.id}, tampak sebagai platform PMB
+ * milik/berkaitan dengan Pusdiktan). Kelas ini menjembatani dua arah komunikasi: (1) MENGIRIM
+ * data pendaftar (calon mahasiswa) dari AIS ke sistem Arkatama begitu mereka mendaftar
+ * ({@link #doPost}) dan begitu mereka dinyatakan lolos seleksi berkas ({@link #doPostLolos}); dan
+ * (2) MENARIK data referensi (provinsi, kabupaten/kota, kecamatan, jalur masuk, agama, program
+ * studi, jenis sekolah, jurusan sekolah, pekerjaan orang tua) dari sistem Arkatama ke tabel-tabel
+ * referensi lokal AIS lewat serangkaian method {@code syn*} yang dipicu bersama oleh
+ * {@link #synRef()}.
+ *
+ * <p>
+ * <b>PERINGATAN KEAMANAN — kredensial tertanam (hardcoded) sebagai nilai default</b>: method
+ * {@link #login()} mengambil kredensial akun Arkatama lewat
+ * {@link Common#getKonfigurasi(String, String)} dengan nilai default tertanam langsung di kode
+ * sumber bila konfigurasi database belum diisi: {@code pmb_arkatama_username} default
+ * {@code "445002"} dan {@code pmb_arkatama_password} default {@code "12345"} — password berupa
+ * angka sederhana yang mudah ditebak. Kredensial ini berpotensi terpakai diam-diam sebagai
+ * fallback produksi bila baris konfigurasi terkait belum diisi eksplisit di database, dan
+ * tersimpan sebagai plain text di riwayat kontrol versi. Nilai-nilai ini TIDAK diubah di sini —
+ * lihat catatan keamanan pada laporan dokumentasi.
+ * </p>
+ *
+ * <p>
+ * <b>PERINGATAN KEAMANAN TAMBAHAN — token dan kredensial pada baris perintah proses</b>: seluruh
+ * komunikasi HTTP di kelas ini dilakukan dengan MEMANGGIL BINER {@code curl} EKSTERNAL lewat
+ * {@link ProcessBuilder} (bukan memakai pustaka HTTP client Java), dengan (a) flag {@code -k}
+ * yang MENONAKTIFKAN verifikasi sertifikat TLS/SSL (rentan terhadap serangan
+ * man-in-the-middle), dan (b) kredensial login ({@link #doLogin}) maupun token akses
+ * (header {@code Authorization: <token>} pada {@link #doPost}, {@link #doPostLolos},
+ * {@link #prosesPost}, {@link #prosesGet}) diteruskan sebagai ARGUMEN BARIS PERINTAH biasa
+ * (bukan lewat mekanisme yang lebih aman seperti variabel lingkungan atau stdin sebagaimana
+ * dilakukan {@link ais.common.gdrive.BackupUtil} untuk password basis data). Argumen baris
+ * perintah suatu proses umumnya terlihat oleh pengguna lain pada mesin yang sama lewat perkakas
+ * inspeksi proses OS (mis. {@code ps aux} di Unix), sehingga token/kredensial berpotensi
+ * terekspos ke pihak lain yang memiliki akses ke server aplikasi selama proses {@code curl}
+ * berjalan.
+ * </p>
+ *
+ * <p>
+ * <b>PERINGATAN DESAIN — state autentikasi bersifat statis-global, bukan per-sesi/per-pengguna</b>:
+ * field {@link #token}, {@link #username}, dan {@link #password} adalah field statis PUBLIK pada
+ * kelas ini — artinya HANYA ADA SATU token/kredensial aktif untuk SELURUH aplikasi (dibagikan
+ * lintas seluruh thread/pengguna/sesi HTTP yang berjalan pada JVM yang sama), bukan disimpan per
+ * request/per pengguna. Konsekuensinya: (a) dua proses sinkronisasi atau pengiriman data yang
+ * berjalan bersamaan pada thread berbeda dapat saling menimpa {@link #token} satu sama lain
+ * (race condition), berpotensi menyebabkan satu proses memakai token milik proses lain atau token
+ * yang sudah tidak valid; (b) karena field ini {@code public}, kode lain di luar kelas ini secara
+ * teknis dapat membaca ATAU MENGUBAH token/kredensial yang sedang aktif secara langsung tanpa
+ * melalui {@link #login()}. Perilaku ini tidak diubah di sini karena instruksi dokumentasi hanya
+ * mencakup penambahan Javadoc — lihat catatan pada laporan dokumentasi.
+ * </p>
+ *
+ * <p>
+ * <b>Pola sinkronisasi referensi ({@code syn*})</b> — seluruh method {@code synXxx(Label label)}
+ * (kecuali {@link #synRef()} yang bertindak sebagai orkestrator) mengikuti struktur identik: (1)
+ * memanggil endpoint referensi Arkatama yang bersangkutan lewat {@link #prosesGet(String)}; (2)
+ * untuk setiap baris data yang dikembalikan, mencari entitas lokal AIS yang cocok dengan strategi
+ * bertingkat — persis berdasarkan kode (exact match), lalu persis berdasarkan nama (exact match),
+ * lalu nama yang BERAKHIR dengan teks pencarian ({@link MatchMode#END}) sebagai upaya toleransi
+ * variasi penulisan — dan bila tidak ditemukan sama sekali, entitas baru dibuat; (3) entitas
+ * ditandai berasal dari sinkronisasi ini lewat kolom {@code keterangan} yang diisi
+ * {@code PmbArkatama.class.getSimpleName()} ({@code "PmbArkatama"}); (4) untuk beberapa entitas
+ * ({@link JenisSeleksi}, {@link JenisSekolahMahasiswaBaru}, {@link JurusanSekolahMahasiswaBaru},
+ * {@link PekerjaanOrangTua}), SETELAH seluruh baris dari Arkatama diproses, dijalankan SQL native
+ * {@code UPDATE ... SET aktif=false WHERE keterangan != 'PmbArkatama'} — pola ini secara efektif
+ * MENONAKTIFKAN seluruh baris entitas terkait yang BUKAN berasal dari sinkronisasi Arkatama
+ * (termasuk baris yang dibuat manual oleh admin AIS), menjadikan sistem Arkatama sebagai
+ * "sumber kebenaran" (source of truth) tunggal untuk entitas-entitas tersebut setiap kali
+ * sinkronisasi dijalankan. Data wilayah administratif (provinsi/kabupaten-kota/kecamatan)
+ * disinkronkan ganda: ke entitas domain AIS ({@link Propinsi}/{@link Kota}) DAN ke tabel generik
+ * {@link Wilayah} berjenjang (level 1/2/3, dihubungkan lewat kolom {@code induk}/{@code feeder}),
+ * yang tampaknya dipakai sistem lapor-diri eksternal lain (mis. PDDikti/Feeder Dikti) di luar
+ * cakupan file ini.
+ * </p>
+ *
+ * <p>
+ * Method {@link #synRef()} adalah titik masuk orkestrasi: memeriksa gerbang konfigurasi
+ * {@code integrasi_pmb_arkatama} (default {@link Konfigurasi#TIDAK_AKTIF}), lalu bila aktif,
+ * menjalankan {@link #login()} diikuti seluruh method {@code syn*} secara berurutan pada sebuah
+ * {@link Thread} terpisah agar antarmuka tidak terkunci, dengan progres dipantau lewat
+ * {@link Timer} ZK yang membaca {@link Label} yang diperbarui thread pekerja.
+ * </p>
+ */
 public class PmbArkatama {
 
+	/**
+	 * Token akses (bearer) hasil login terakhir ke API Arkatama. <b>PERINGATAN</b>: field statis
+	 * PUBLIK yang dibagikan lintas seluruh aplikasi (bukan per-sesi/per-pengguna) — lihat
+	 * peringatan desain pada Javadoc kelas.
+	 */
 	public static String token = "";
+	/**
+	 * Username Arkatama yang terakhir dipakai untuk login, disimpan sebagai state global.
+	 * <b>PERINGATAN</b>: lihat peringatan desain pada Javadoc kelas.
+	 */
 	public static String username = "";
+	/**
+	 * Password Arkatama yang terakhir dipakai untuk login, disimpan sebagai state global dalam
+	 * bentuk plain text di memori. <b>PERINGATAN</b>: lihat peringatan desain pada Javadoc kelas.
+	 */
 	public static String password = "";
 
+	/**
+	 * Melakukan autentikasi ke endpoint {@code /api/Auth} Arkatama lewat proses {@code curl}
+	 * eksternal, mengirim {@code username}/{@code password} sebagai body JSON, memparse respons,
+	 * dan menyimpan token hasil login ke field statis {@link #token}. Juga menyimpan
+	 * {@code username}/{@code password} yang dipakai ke field statis {@link #username}/
+	 * {@link #password} (lihat peringatan keamanan pada Javadoc kelas mengenai kredensial pada
+	 * baris perintah proses dan state global).
+	 *
+	 * <p>
+	 * Kegagalan (jaringan, parsing JSON, kredensial ditolak) ditangkap dan dicatat lewat
+	 * {@link ais.common.ErrorAuditUtil#record(Throwable, String)}; pada kegagalan, {@link #token}
+	 * TIDAK diperbarui (tetap bernilai sebelumnya), sehingga pemanggil perlu memeriksa
+	 * {@link #token} setelah pemanggilan untuk mengetahui apakah login berhasil.
+	 * </p>
+	 *
+	 * @param username username akun Arkatama
+	 * @param password password akun Arkatama
+	 * @param strURL   URL lengkap endpoint autentikasi Arkatama
+	 */
 	private static void doLogin(String username, String password, String strURL) {
 		PmbArkatama.username = username;
 		PmbArkatama.password = password;
@@ -82,6 +198,31 @@ public class PmbArkatama {
 		}
 	}
 
+	/**
+	 * Mengirim data pendaftaran satu calon mahasiswa ke Arkatama lewat endpoint
+	 * {@code /api/Registrasi/register}, memetakan field {@link BiodataCalonMahasiswa} AIS ke
+	 * format JSON yang diharapkan Arkatama (jalur masuk, nama, NIK, NISN, jenis kelamin, email,
+	 * kode provinsi/kabupaten/kecamatan hasil turunan dari kecamatan calon, nomor pendaftaran,
+	 * asal instansi, dan jabatan di instansi asal bila diisi).
+	 *
+	 * <p>
+	 * Bila {@link #token} kosong, {@link #login()} dipanggil otomatis lebih dulu. Bila respons
+	 * Arkatama berstatus {@code "200"}, id registrasi hasil Arkatama disimpan ke field
+	 * {@code biodataCalonMahasiswa.setPinPassword(...)} (dipakai kembali sebagai referensi id
+	 * eksternal pada {@link #doPostLolos}) dan pesan sukses ditambahkan ke {@code hasils}; selain
+	 * itu (termasuk pengecualian apa pun), pesan kegagalan berisi detail error dari Arkatama
+	 * ditambahkan ke {@code hasils}. Method ini tidak melempar pengecualian ke pemanggil — seluruh
+	 * hasil (sukses maupun gagal) dilaporkan lewat penambahan baris ke {@code hasils}, sehingga
+	 * cocok dipanggil berulang untuk memproses banyak calon mahasiswa sekaligus tanpa satu
+	 * kegagalan menghentikan proses keseluruhan.
+	 * </p>
+	 *
+	 * @param biodataCalonMahasiswa data calon mahasiswa yang hendak didaftarkan ke Arkatama; field
+	 *                              {@code pinPassword}-nya akan diisi id registrasi Arkatama bila
+	 *                              berhasil
+	 * @param hasils                daftar (dimodifikasi di tempat) tempat menambahkan pesan hasil
+	 *                              (sukses/gagal) untuk baris pendaftaran ini
+	 */
 	public static void doPost(BiodataCalonMahasiswa biodataCalonMahasiswa, List<String> hasils) {
 		if (token == null || token.trim().isEmpty()) {
 			login();
@@ -154,6 +295,32 @@ public class PmbArkatama {
 		}
 	}
 
+	/**
+	 * Mengirim data kelulusan seleksi berkas satu calon mahasiswa ke Arkatama lewat endpoint
+	 * {@code /api/Registrasi/lolosBerkas}, memetakan field {@link BiodataCalonMahasiswa} yang jauh
+	 * lebih lengkap dibanding {@link #doPost} — mencakup id registrasi Arkatama sebelumnya
+	 * (diambil dari {@code getPinPassword()}, hasil {@link #doPost} sebelumnya), data pribadi
+	 * lengkap (agama, status perkawinan, no HP), wilayah asal, URL foto profil (diambil lewat
+	 * {@link CommonMedia#getUrlFotoPengguna}), pilihan program studi 1 dan 2, jenis dan jurusan
+	 * sekolah asal, pekerjaan ayah, serta data instansi asal (khusus jalur tertentu, mis. pindahan
+	 * dari instansi lain).
+	 *
+	 * <p>
+	 * Bila {@link #token} kosong, {@link #login()} dipanggil otomatis lebih dulu. Bila respons
+	 * Arkatama berstatus {@code "200"}, id registrasi kelulusan hasil Arkatama disimpan ke
+	 * {@code biodataCalonMahasiswa.setProgramNIM(...)} dan pesan sukses ditambahkan ke
+	 * {@code hasils}; selain itu, pesan berisi detail error ditambahkan ke {@code hasils}.
+	 * Method ini tidak melempar pengecualian ke pemanggil, mengikuti pola pelaporan hasil yang
+	 * sama dengan {@link #doPost}.
+	 * </p>
+	 *
+	 * @param biodataCalonMahasiswa data calon mahasiswa yang sudah lolos seleksi berkas; harus
+	 *                              sudah memiliki {@code pinPassword} terisi dari {@link #doPost}
+	 *                              sebelumnya; field {@code programNIM}-nya akan diisi id
+	 *                              registrasi kelulusan Arkatama bila berhasil
+	 * @param hasils                daftar (dimodifikasi di tempat) tempat menambahkan pesan hasil
+	 *                              (sukses/gagal) untuk baris ini
+	 */
 	public static void doPostLolos(BiodataCalonMahasiswa biodataCalonMahasiswa, List<String> hasils) {
 		if (token == null || token.trim().isEmpty()) {
 			login();
@@ -262,6 +429,19 @@ public class PmbArkatama {
 		}
 	}
 
+	/**
+	 * Method utilitas generik untuk mengirim permintaan HTTP POST ke Arkatama dengan body
+	 * {@code data} dan header {@code Authorization: <token>}, memakai proses {@code curl}
+	 * eksternal (bukan objek {@link GetMethod} yang dibuat pada baris-baris awal method ini, yang
+	 * hanya dipakai untuk menyusun header namun TIDAK PERNAH benar-benar dieksekusi — permintaan
+	 * sesungguhnya sepenuhnya dilakukan lewat {@code curl}), lalu memparse respons menjadi
+	 * {@link JSONObject}.
+	 *
+	 * @param strURL URL lengkap endpoint yang dituju
+	 * @param data   body permintaan (string JSON) yang dikirim lewat {@code --data} curl
+	 * @return respons yang berhasil diparse sebagai {@link JSONObject}, atau {@code null} bila
+	 *         permintaan/parsing gagal
+	 */
 	public static JSONObject prosesPost(String strURL, String data) {
 		try {
 			GetMethod post = new GetMethod(strURL);
@@ -294,6 +474,18 @@ public class PmbArkatama {
 		return null;
 	}
 
+	/**
+	 * Method utilitas generik untuk mengirim permintaan HTTP GET ke Arkatama dengan header
+	 * {@code Authorization: <token>}, memakai proses {@code curl} eksternal (objek
+	 * {@link GetMethod} yang dibuat di awal method hanya dipakai untuk menyusun header dan TIDAK
+	 * PERNAH benar-benar dieksekusi, sama seperti pada {@link #prosesPost}), lalu memparse
+	 * respons menjadi {@link JSONObject}. Dipakai oleh seluruh method {@code syn*} untuk menarik
+	 * data referensi dari Arkatama.
+	 *
+	 * @param strURL URL lengkap endpoint referensi yang dituju
+	 * @return respons yang berhasil diparse sebagai {@link JSONObject}, atau {@code null} bila
+	 *         permintaan/parsing gagal
+	 */
 	private static JSONObject prosesGet(String strURL) {
 		try {
 			GetMethod post = new GetMethod(strURL);
@@ -326,6 +518,13 @@ public class PmbArkatama {
 		return null;
 	}
 
+	/**
+	 * Melakukan login ke Arkatama memakai kredensial dari konfigurasi
+	 * {@code pmb_arkatama_username}/{@code pmb_arkatama_password} (lihat peringatan keamanan pada
+	 * Javadoc kelas mengenai nilai default kredensial yang tertanam) dan host dari konfigurasi
+	 * {@code pmb_arkatama_host_url} (default {@code https://pmb.pusdiktan.id}), lalu mendelegasikan
+	 * ke {@link #doLogin(String, String, String)} yang mengisi {@link #token}.
+	 */
 	public static void login() {
 		String username = Common.getKonfigurasi("pmb_arkatama_username", "445002").getNilai();
 		String password = Common.getKonfigurasi("pmb_arkatama_password", "12345").getNilai();
@@ -336,6 +535,18 @@ public class PmbArkatama {
 		doLogin(username, password, strURL);
 	}
 
+	/**
+	 * Menyinkronkan data provinsi dari Arkatama ({@code /api/Ref/Provinsi}) ke entitas
+	 * {@link Propinsi} AIS DAN ke {@link Wilayah} level 1 (wilayah induk teratas, dengan
+	 * {@code induk} diset {@code "000000"}), mengikuti pola pencarian/pembuatan bertingkat dan
+	 * penandaan {@code keterangan} yang dijelaskan pada Javadoc kelas. Berbeda dari method
+	 * {@code syn*} lain, method ini TIDAK menonaktifkan baris provinsi yang bukan berasal dari
+	 * sinkronisasi ini (tidak ada langkah {@code UPDATE ... aktif=false} di akhir).
+	 *
+	 * @param label komponen label ZK untuk menampilkan progres proses (kode+nama yang sedang
+	 *              diproses) ke pengguna; nilainya dibaca oleh {@link Timer} pemantau di
+	 *              {@link #synRef()}
+	 */
 	public static void synPropinsi(Label label) {
 		String strURL = (Common.getKonfigurasi("pmb_arkatama_host_url", "https://pmb.pusdiktan.id").getNilai()
 				+ "/api/Ref/Provinsi");
@@ -405,6 +616,18 @@ public class PmbArkatama {
 		}
 	}
 
+	/**
+	 * Menyinkronkan data kabupaten/kota dari Arkatama ({@code /api/Ref/KabupatenKota}) ke entitas
+	 * {@link Kota} AIS (dikaitkan ke {@link Propinsi} induknya lewat kode provinsi) DAN ke
+	 * {@link Wilayah} level 2 (dikaitkan ke {@link Wilayah} level 1 induknya). Baris kabupaten/kota
+	 * yang provinsi induknya belum ditemukan di AIS (belum tersinkron lewat {@link #synPropinsi})
+	 * dilewati tanpa dibuat. Mengikuti pola pencarian/pembuatan bertingkat yang sama, dengan
+	 * strategi pencarian nama tambahan (penggantian kata "kabupaten" menjadi "kab." lalu dicocokkan
+	 * sebagai akhiran nama) sebagai upaya terakhir sebelum membuat baris baru. Tidak menonaktifkan
+	 * baris yang bukan dari sinkronisasi ini.
+	 *
+	 * @param label komponen label ZK untuk menampilkan progres proses
+	 */
 	public static void synKotakab(Label label) {
 		String strURL = (Common.getKonfigurasi("pmb_arkatama_host_url", "https://pmb.pusdiktan.id").getNilai()
 				+ "/api/Ref/KabupatenKota");
@@ -508,6 +731,16 @@ public class PmbArkatama {
 		}
 	}
 
+	/**
+	 * Menyinkronkan data kecamatan dari Arkatama ({@code /api/Ref/Kecamatan}) ke {@link Wilayah}
+	 * level 3, dikaitkan ke {@link Wilayah} level 2 (kabupaten/kota) induknya lewat kode
+	 * kabupaten/kota. Berbeda dari {@link #synPropinsi}/{@link #synKotakab}, kecamatan HANYA
+	 * disinkronkan ke tabel {@link Wilayah} generik — tidak ada entitas domain khusus AIS untuk
+	 * kecamatan yang diperbarui di sini. Baris kecamatan yang kabupaten/kota induknya belum
+	 * ditemukan dilewati. Tidak menonaktifkan baris yang bukan dari sinkronisasi ini.
+	 *
+	 * @param label komponen label ZK untuk menampilkan progres proses
+	 */
 	public static void synKecamatan(Label label) {
 		String strURL = (Common.getKonfigurasi("pmb_arkatama_host_url", "https://pmb.pusdiktan.id").getNilai()
 				+ "/api/Ref/Kecamatan");
@@ -573,6 +806,20 @@ public class PmbArkatama {
 		}
 	}
 
+	/**
+	 * Menyinkronkan data jalur masuk (jenis seleksi) dari Arkatama ({@code /api/Ref/JalurMasuk})
+	 * ke entitas {@link JenisSeleksi} AIS. Pencarian entitas yang sudah ada HANYA dilakukan
+	 * berdasarkan kode (exact match) — strategi fallback pencarian berdasarkan nama yang dipakai
+	 * method {@code syn*} lain tampak DIKOMENTARI (dinonaktifkan) pada implementasi ini, sehingga
+	 * baris dengan kode yang berbeda namun nama yang mirip akan selalu dibuat sebagai baris baru,
+	 * bukan dicocokkan ke baris yang sudah ada. Kode jalur tambahan dari Arkatama disimpan ke
+	 * {@link JenisSeleksi#setKodeLain(String)}. Setelah seluruh baris diproses, jalankan SQL
+	 * native yang MENONAKTIFKAN ({@code aktif=false}) seluruh baris {@code jenis_seleksi} yang
+	 * BUKAN berasal dari sinkronisasi ini (lihat pola pada Javadoc kelas) — termasuk jenis seleksi
+	 * yang dibuat manual oleh admin AIS untuk keperluan di luar jalur Arkatama.
+	 *
+	 * @param label komponen label ZK untuk menampilkan progres proses
+	 */
 	public static void synJalurMasuk(Label label) {
 		String strURL = (Common.getKonfigurasi("pmb_arkatama_host_url", "https://pmb.pusdiktan.id").getNilai()
 				+ "/api/Ref/JalurMasuk");
@@ -629,6 +876,14 @@ public class PmbArkatama {
 		}
 	}
 
+	/**
+	 * Menyinkronkan data agama dari Arkatama ({@code /api/Ref/agama}) ke entitas {@link Agama}
+	 * AIS, mengikuti pola pencarian/pembuatan bertingkat standar (kode exact, nama exact, nama
+	 * berakhiran) dan penandaan {@code keterangan}. Tidak menonaktifkan baris yang bukan dari
+	 * sinkronisasi ini (tidak ada langkah {@code UPDATE ... aktif=false}).
+	 *
+	 * @param label komponen label ZK untuk menampilkan progres proses
+	 */
 	public static void synAgama(Label label) {
 		String strURL = (Common.getKonfigurasi("pmb_arkatama_host_url", "https://pmb.pusdiktan.id").getNilai()
 				+ "/api/Ref/agama");
@@ -676,6 +931,14 @@ public class PmbArkatama {
 		}
 	}
 
+	/**
+	 * Menyinkronkan data program studi dari Arkatama ({@code /api/Ref/prodi}) ke entitas
+	 * {@link Jurusan} AIS, mengikuti pola pencarian/pembuatan bertingkat standar. Kode program
+	 * studi tambahan dari Arkatama disimpan ke {@link Jurusan#setKodeLain(String)}. Tidak
+	 * menonaktifkan baris yang bukan dari sinkronisasi ini.
+	 *
+	 * @param label komponen label ZK untuk menampilkan progres proses
+	 */
 	public static void synProdi(Label label) {
 		String strURL = (Common.getKonfigurasi("pmb_arkatama_host_url", "https://pmb.pusdiktan.id").getNilai()
 				+ "/api/Ref/prodi");
@@ -725,6 +988,16 @@ public class PmbArkatama {
 		}
 	}
 
+	/**
+	 * Menyinkronkan data jenis sekolah asal dari Arkatama ({@code /api/Ref/jenisSekolah}) ke
+	 * entitas {@link JenisSekolahMahasiswaBaru} AIS, mengikuti pola pencarian/pembuatan bertingkat
+	 * standar (pencarian dibatasi pada baris yang sedang aktif atau belum berstatus). Setelah
+	 * seluruh baris diproses, dijalankan SQL native yang menonaktifkan seluruh baris
+	 * {@code jenis_sekolah_mahasiswa_baru} yang bukan berasal dari sinkronisasi ini (lihat pola
+	 * pada Javadoc kelas).
+	 *
+	 * @param label komponen label ZK untuk menampilkan progres proses
+	 */
 	public static void synJenisSekolah(Label label) {
 		String strURL = (Common.getKonfigurasi("pmb_arkatama_host_url", "https://pmb.pusdiktan.id").getNilai()
 				+ "/api/Ref/jenisSekolah");
@@ -777,6 +1050,22 @@ public class PmbArkatama {
 		}
 	}
 
+	/**
+	 * Menyinkronkan data jurusan sekolah asal dari Arkatama ({@code /api/Ref/jurusanSekolah}) ke
+	 * entitas {@link JurusanSekolahMahasiswaBaru} AIS. Berbeda dari method {@code syn*} lain,
+	 * respons Arkatama untuk endpoint ini TIDAK menyertakan informasi jenis sekolah induknya
+	 * secara eksplisit per baris — sehingga method ini mengambil SELURUH
+	 * {@link JenisSekolahMahasiswaBaru} yang sedang aktif di AIS lebih dulu, lalu untuk SETIAP
+	 * baris jurusan dari Arkatama, baris tersebut dicocokkan/dibuat SEKALI UNTUK MASING-MASING
+	 * jenis sekolah yang ada (loop bersarang: setiap baris data Arkatama × setiap
+	 * {@link JenisSekolahMahasiswaBaru} aktif) — dengan kata lain, satu nama/kode jurusan dari
+	 * Arkatama akan menghasilkan satu baris {@link JurusanSekolahMahasiswaBaru} untuk TIAP jenis
+	 * sekolah yang aktif di AIS, bukan hanya satu baris global. Setelah seluruh kombinasi
+	 * diproses, dijalankan SQL native yang menonaktifkan seluruh baris
+	 * {@code jurusan_sekolah_mahasiswa_baru} yang bukan berasal dari sinkronisasi ini.
+	 *
+	 * @param label komponen label ZK untuk menampilkan progres proses
+	 */
 	public static void synJurusanSekolah(Label label) {
 		String strURL = (Common.getKonfigurasi("pmb_arkatama_host_url", "https://pmb.pusdiktan.id").getNilai()
 				+ "/api/Ref/jurusanSekolah");
@@ -846,6 +1135,15 @@ public class PmbArkatama {
 		}
 	}
 
+	/**
+	 * Menyinkronkan data pekerjaan orang tua dari Arkatama ({@code /api/Ref/pekerjaan}) ke
+	 * entitas {@link PekerjaanOrangTua} AIS, mengikuti pola pencarian/pembuatan bertingkat standar
+	 * (pencarian dibatasi pada baris yang sedang aktif atau belum berstatus). Setelah seluruh
+	 * baris diproses, dijalankan SQL native yang menonaktifkan seluruh baris
+	 * {@code pekerjaan_orang_tua} yang bukan berasal dari sinkronisasi ini.
+	 *
+	 * @param label komponen label ZK untuk menampilkan progres proses
+	 */
 	public static void synPekerjaanOrangTua(Label label) {
 		String strURL = (Common.getKonfigurasi("pmb_arkatama_host_url", "https://pmb.pusdiktan.id").getNilai()
 				+ "/api/Ref/pekerjaan");

@@ -48,8 +48,102 @@ import ais.database.model.sekolah.Sekolah;
 import ais.database.model.sekolah.Siswa;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Kelas utilitas statis pusat untuk modul PSB (Penerimaan Siswa Baru) sekolah pada AIS,
+ * menangani seluruh siklus hidup seorang calon siswa SETELAH pendaftaran hingga menjadi siswa
+ * resmi: alokasi ruang ujian, pembangkitan nomor ujian/nomor registrasi/nomor induk siswa
+ * (NIS), konversi massal calon siswa yang lulus menjadi siswa aktif (lewat upload Excel), serta
+ * penyalinan data terkait (foto, keanggotaan kelas reguler/les) dari {@link CalonSiswa} ke
+ * {@link Siswa} hasil konversi.
+ *
+ * <p>
+ * Kelompok fungsi utama pada kelas ini:
+ * </p>
+ * <ol>
+ * <li><b>Alokasi ruang ujian</b> — {@link #dapatkanRuangUjian(CalonSiswa)} (dan varian internal
+ * {@link #dapatkanRuangUjian(CalonSiswa, Session)}) menempatkan calon siswa ke ruang ujian PSB
+ * yang belum penuh, memilih ruang dengan id terkecil yang tersedia untuk gelombang pendaftaran
+ * terkait, lalu menandai ruang penuh bila kapasitasnya nyaris tercapai.</li>
+ * <li><b>Pembangkitan nomor identitas</b> — {@link #generateNoUjian(CalonSiswa, List)}/
+ * {@link #generateNoUjian(CalonSiswa)} (nomor ujian, lewat implementasi {@link
+ * NoUjianGeneratorPsb} yang dapat diganti via konfigurasi {@code class_untuk_generate_no_ujian_psb}),
+ * {@link #generateNoRegistrasi(CalonSiswa)} (nomor registrasi, lewat {@link NoRegGeneratorPsb}
+ * via konfigurasi {@code class_untuk_generate_no_reg_psb}), serta {@link
+ * #generateCode(FormatNis, CalonSiswa)}/{@link #getindex(FormatNis, CalonSiswa)} (nomor
+ * agenda/surat berformat kustom lewat {@link FormatNis}, dengan nomor urut otomatis atau indeks
+ * manual). Pola generator yang dapat diganti lewat konfigurasi kelas (reflection
+ * {@link Class#forName(String)}) ini konsisten dipakai di seluruh kelas untuk memungkinkan
+ * kustomisasi format nomor per instalasi AIS tanpa mengubah kode inti.</li>
+ * <li><b>Konversi calon siswa menjadi siswa</b> — {@link #onGenerateNis(CalonSiswa,
+ * NisGenerator)}/{@link #onGenerateNis(CalonSiswa, NisGenerator, boolean)} adalah alur INDIVIDUAL
+ * (satu calon siswa, dipicu manual dari layar admin): membangkitkan NIS (lewat {@link FormatNis}
+ * bila sekolah punya format aktif, atau {@link NisGenerator} sebagai fallback), memanggil
+ * {@link #saveSiswa} untuk membuat/memperbarui record {@link Siswa}, lalu (opsional) mencetak
+ * bukti PDF dan menyalin lampiran/keanggotaan kelas. {@link #uploadKelulusan(File, EventListener)}
+ * adalah alur MASSAL (banyak calon siswa sekaligus lewat berkas Excel), dijalankan di THREAD
+ * TERPISAH dengan progres dilaporkan lewat {@link Timer} ZK yang di-polling setiap 200ms,
+ * memvalidasi kuota gelombang pendaftaran per baris, dan memakai {@link
+ * ais.common.UploadReportHelper} untuk merangkum baris yang sukses/gagal menjadi satu laporan
+ * yang dapat diunduh pengguna di akhir proses.</li>
+ * <li><b>Method pendukung konversi</b> — {@link #saveSiswa(Session, CalonSiswa, String,
+ * boolean)} adalah implementasi INTI pembuatan/pembaruan record {@link Siswa} dari
+ * {@link CalonSiswa} (menyalin seluruh properti yang namanya sama persis di kedua entitas lewat
+ * refleksi metadata Hibernate), sedangkan {@link #copyLampiran(CalonSiswa, Siswa)},
+ * {@link #masukkanKelas(CalonSiswa, Siswa)}, dan {@link #masukkanKelasLes(CalonSiswa, Siswa)}
+ * menyalin data pendukung (foto, keanggotaan kelas reguler, keanggotaan kelas les) setelah
+ * siswa baru terbentuk.</li>
+ * </ol>
+ *
+ * <p>
+ * <b>Manajemen sesi & transaksi Hibernate</b> — kelas ini memakai CAMPURAN sesi mandiri
+ * ({@code HibernateUtil.getSessionFactory().openSession()}, dipakai
+ * {@link #dapatkanRuangUjian(CalonSiswa)} dan alur upload massal di dalam thread terpisah pada
+ * {@link #uploadKelulusan}) dan sesi thread-local ({@code HibernateUtil.currentNativeSession()},
+ * dipakai method-method lain). Beberapa method secara eksplisit menutup lalu membuka ulang sesi
+ * thread-local di tengah proses (lihat komentar "session mungkin ditutup oleh masukkanKelas/Les
+ * — buka ulang" pada {@link #uploadKelulusan}) karena method pendukung seperti
+ * {@link #masukkanKelas}/{@link #masukkanKelasLes} menutup sesi thread-local di akhir
+ * eksekusinya sebagai bagian dari pola "buka-pakai-tutup" per operasi.
+ * </p>
+ *
+ * <p>
+ * <b>Ketahanan alur upload massal</b> — {@link #uploadKelulusan} dirancang agar KEGAGALAN SATU
+ * BARIS (mis. data siswa sudah dipakai calon siswa lain, transaksi database gagal) TIDAK
+ * menggagalkan seluruh proses: setiap baris diproses dalam blok try-catch tersendiri, kegagalan
+ * transaksi di-rollback dan sesi dibersihkan ({@code session.clear()}) sebelum melanjutkan ke
+ * baris berikutnya (mencegah error "current transaction is aborted" PostgreSQL merambat ke
+ * baris lain), dan setiap hasil (sukses/gagal beserta alasannya) dicatat ke
+ * {@link ais.common.UploadReportHelper} untuk laporan akhir yang dapat diunduh pengguna.
+ * </p>
+ *
+ * <p>
+ * <b>CATATAN KEAMANAN:</b> pada {@link #saveSiswa(Session, CalonSiswa, String, boolean)}, kata
+ * sandi awal akun siswa baru diisi dari NIS itu sendiri dan dienkripsi memakai
+ * {@code Common.desEncrypter} — yaitu enkripsi SIMETRIS REVERSIBEL (DES), BUKAN fungsi hash
+ * satu-arah (mis. bcrypt/SHA). Pola ini konsisten dengan kelas utilitas AIS lain
+ * ({@code Common.desEncrypter}) sehingga bukan sesuatu yang unik untuk kelas ini, namun tetap
+ * berarti siapa pun yang memegang kunci enkripsi DES dan akses ke kolom {@code pass} di
+ * database berpotensi memulihkan kata sandi asli seluruh akun siswa (yang notabene sama dengan
+ * NIS yang sudah publik/diketahui banyak pihak). Javadoc ini TIDAK mengubah mekanisme tersebut
+ * sesuai instruksi; dicatat di sini sebagai observasi keamanan untuk ditindaklanjuti bila
+ * dianggap perlu (mis. migrasi ke hashing satu-arah untuk akun baru).
+ * </p>
+ */
 public class CommonPSB {
 
+	/**
+	 * Mencari dan mengalokasikan ruang ujian PSB yang tersedia bagi seorang calon siswa,
+	 * dijalankan dalam sesi & transaksi Hibernate MANDIRI (bukan sesi thread-local) untuk
+	 * isolasi proses dan mencegah kebocoran koneksi. Delegasi logika inti ke overload privat
+	 * {@link #dapatkanRuangUjian(CalonSiswa, Session)}.
+	 *
+	 * @param calonSiswa calon siswa yang akan dialokasikan ruang ujian; bila {@code null} atau
+	 *                   belum memiliki {@code gelombangPendaftaranPsb}, method langsung
+	 *                   mengembalikan {@code null} tanpa membuka sesi database
+	 * @return record {@link RuangGelombangPendaftaranPsbPSB} (alokasi ruang) yang berhasil
+	 *         disimpan, atau {@code null} bila tidak ada ruang tersedia atau terjadi kegagalan
+	 *         (transaksi di-rollback, kegagalan dicatat ke audit, tidak dilempar ke pemanggil)
+	 */
 	public static RuangGelombangPendaftaranPsbPSB dapatkanRuangUjian(CalonSiswa calonSiswa) {
 		// Validasi awal untuk mencegah NullPointerException
 		if (calonSiswa == null || calonSiswa.getGelombangPendaftaranPsb() == null) {
@@ -99,6 +193,29 @@ public class CommonPSB {
 		}
 	}
 
+	/**
+	 * Implementasi inti pencarian & alokasi ruang ujian, dijalankan dalam {@code session} yang
+	 * diberikan pemanggil (transaksi sudah dimulai di luar method ini).
+	 *
+	 * <p>
+	 * Alur: (1) mencari {@link RuangPSB} dengan status belum penuh ({@code penuh=0}) untuk
+	 * gelombang pendaftaran terkait, id terkecil (satu query gabungan, dioptimalkan dari
+	 * sebelumnya dua query terpisah); (2) menghitung jumlah calon siswa yang sudah memiliki
+	 * nomor ujian di ruang tersebut; (3) mengecek apakah calon siswa ini SUDAH memiliki alokasi
+	 * ruang sebelumnya (untuk memperbarui, bukan menduplikasi); (4) menyimpan/memperbarui
+	 * alokasi lewat {@link Common#refreshSaveOrUpdate(Session, Object)}; (5) bila kapasitas
+	 * ruang akan terlampaui setelah penambahan calon siswa ini (isi + 2 melebihi kapasitas —
+	 * ambang aman untuk menghindari race condition alokasi bersamaan), menandai ruang sebagai
+	 * penuh ({@code setPenuh(1)}).
+	 * </p>
+	 *
+	 * @param calonSiswa calon siswa yang akan dialokasikan; bila {@code null} atau belum
+	 *                   memiliki {@code gelombangPendaftaranPsb}, langsung mengembalikan
+	 *                   {@code null}
+	 * @param session    sesi Hibernate aktif (transaksi dikelola oleh pemanggil)
+	 * @return record alokasi {@link RuangGelombangPendaftaranPsbPSB} (baru atau yang
+	 *         diperbarui), atau {@code null} bila tidak ada ruang ujian yang tersedia
+	 */
 	private static RuangGelombangPendaftaranPsbPSB dapatkanRuangUjian(CalonSiswa calonSiswa, Session session) {
 		if (calonSiswa == null || calonSiswa.getGelombangPendaftaranPsb() == null) {
 			return null;
@@ -153,6 +270,21 @@ public class CommonPSB {
 		return ruangGelombangPendaftaranPsbPSB;
 	}
 
+	/**
+	 * Membangkitkan nomor ujian PSB untuk seorang calon siswa lewat implementasi
+	 * {@link NoUjianGeneratorPsb} yang dikonfigurasi ({@code class_untuk_generate_no_ujian_psb},
+	 * default {@link DefaultNoUjianGeneratorPsb}), dimuat lewat refleksi
+	 * ({@link Class#forName(String)} + {@code newInstance()}). Varian ini menampung pesan
+	 * kegagalan ke {@code warnings} (dipakai bila pemanggil mengumpulkan banyak peringatan
+	 * sekaligus, mis. proses batch) alih-alih menampilkan dialog langsung.
+	 *
+	 * @param calonSiswa calon siswa yang nomor ujiannya akan dibangkitkan
+	 * @param warnings   list yang akan ditambahi pesan peringatan bila pembangkitan gagal
+	 * @return nomor ujian yang dibangkitkan, atau string kosong bila gagal (pesan kegagalan
+	 *         ditambahkan ke {@code warnings})
+	 * @throws Exception dideklarasikan untuk kompatibilitas signature; kegagalan generator
+	 *                    ditangkap secara internal dan tidak dilempar ulang
+	 */
 	@SuppressWarnings({})
 	public static String generateNoUjian(CalonSiswa calonSiswa, List<String> warnings) throws Exception {
 
@@ -171,6 +303,17 @@ public class CommonPSB {
 
 	}
 
+	/**
+	 * Seperti {@link #generateNoUjian(CalonSiswa, List)}, namun untuk pemakaian INTERAKTIF
+	 * (bukan batch): kegagalan ditampilkan langsung ke pengguna lewat
+	 * {@link PesanFormalHelper#tampilkanGagalException} alih-alih ditampung ke list peringatan.
+	 *
+	 * @param calonSiswa calon siswa yang nomor ujiannya akan dibangkitkan
+	 * @return nomor ujian yang dibangkitkan, atau string kosong bila gagal (pesan kegagalan
+	 *         sudah ditampilkan ke pengguna)
+	 * @throws Exception dideklarasikan untuk kompatibilitas signature; kegagalan generator
+	 *                    ditangkap secara internal dan tidak dilempar ulang
+	 */
 	@SuppressWarnings({})
 	public static String generateNoUjian(CalonSiswa calonSiswa) throws Exception {
 
@@ -191,6 +334,18 @@ public class CommonPSB {
 
 	}
 
+	/**
+	 * Membangkitkan nomor registrasi PSB untuk seorang calon siswa lewat implementasi
+	 * {@link NoRegGeneratorPsb} yang dikonfigurasi ({@code class_untuk_generate_no_reg_psb},
+	 * default {@link DefaultNoRegGeneratorPsb}), dimuat lewat refleksi. Kegagalan ditampilkan
+	 * ke pengguna lewat {@link PesanFormalHelper#tampilkanGagalException} DAN dicatat lewat
+	 * {@link Common#tampilErrorJikaAdmin(Exception)}.
+	 *
+	 * @param calonSiswa calon siswa yang nomor registrasinya akan dibangkitkan
+	 * @return nomor registrasi yang dibangkitkan, atau string kosong bila gagal
+	 * @throws Exception dideklarasikan untuk kompatibilitas signature; kegagalan generator
+	 *                    ditangkap secara internal dan tidak dilempar ulang
+	 */
 	public static String generateNoRegistrasi(CalonSiswa calonSiswa) throws Exception {
 		try {
 
@@ -209,6 +364,19 @@ public class CommonPSB {
 		return "";
 	}
 
+	/**
+	 * Membangkitkan satu string nomor (mis. NIS, nomor surat/agenda) berformat kustom dari
+	 * {@link FormatNis}. Indeks urut diambil dari nomor indeks tetap {@code
+	 * formatNis.getNomorIndex()} bila {@code formatNis} dikonfigurasi memakai indeks manual
+	 * ({@code gunakanIndexUrut=true}, dan nomor indeks tersebut LANGSUNG dinaikkan/disimpan
+	 * lewat {@link FormatNis#tambahIndexNomorSurat(FormatNis)} setelah dipakai — efek samping
+	 * ini terjadi SETIAP kali method dipanggil), atau dihitung otomatis lewat
+	 * {@link #getindex(FormatNis, CalonSiswa)} bila tidak.
+	 *
+	 * @param formatNis  konfigurasi format nomor yang dipakai
+	 * @param calonSiswa calon siswa yang datanya (tahun masuk) dipakai untuk memformat nomor
+	 * @return nomor hasil format sesuai {@link FormatNis#format(Long, int)}
+	 */
 	public static String generateCode(FormatNis formatNis, CalonSiswa calonSiswa) {
 
 		Long index = formatNis.getGunakanIndexUrut() ? formatNis.getNomorIndex() : getindex(formatNis, calonSiswa);

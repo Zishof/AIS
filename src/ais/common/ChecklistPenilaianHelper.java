@@ -308,6 +308,48 @@ public class ChecklistPenilaianHelper {
         return datas;
     }
 
+    /**
+     * Menghitung status lengkap pengisian checklist/angket umum varian DENGAN grup kuesioner
+     * eksplisit ({@code grup_kuesioner_umum}) bagi seorang pengguna pada tahun akademik/
+     * semester tertentu — termasuk checklist umum langsung, parameter tambahan, DAN rujukan ke
+     * grup checklist penilaian dosen/guru. Method ini adalah varian TERLENGKAP dari keluarga
+     * {@code getJumlahStatusChecklist*}, dipakai sebagai sumber data oleh
+     * {@link #checkStatusChecklistUmumGrup(String, String, Tbmuser)}.
+     *
+     * <p>
+     * Alur kerja singkat: (1) menjalankan satu query SQL native besar yang menggabungkan jadwal,
+     * grup checklist umum, checklist umum, parameter tambahan angket beserta wajib-isi-nya,
+     * grup checklist dosen, DAN grup checklist guru sekaligus, difilter pada grup kuesioner
+     * yang menargetkan {@code tbmuser} dan berlaku pada rentang tanggal saat ini; (2)
+     * mengelompokkan hasil ke berbagai {@link Set} id (checklist terjadwal, parameter terjadwal,
+     * grup checklist dosen/guru terjadwal, dst); (3) bila ada checklist umum terjadwal DAN grup
+     * kuesioner terkait, membandingkan siapa saja target penilaian (bisa {@code tbmuser} itu
+     * sendiri, atau — bila {@code Common.getCurrentUser()} berbeda dari {@code tbmuser}, artinya
+     * penilai menilai ORANG LAIN — seluruh anggota grup kuesioner selain penilai) dengan data
+     * yang sudah diisi lewat {@code ambilChecklistHasilPenilaianUmum}, untuk menyimpulkan
+     * {@code adaChecklist} (masih ada yang wajib namun belum diisi untuk SALAH SATU target).
+     * </p>
+     *
+     * @param tahunAkademik tahun akademik yang diperiksa, boleh {@code null}/kosong untuk semua
+     * @param semester      semester yang diperiksa, boleh {@code null}/kosong untuk semua
+     * @param tbmuser       pengguna target; bila {@code null} atau belum memiliki userId,
+     *                      langsung mengembalikan hasil "kosong" (belum ada apa pun)
+     * @param refresh       {@code true} untuk memaksa pengambilan ulang data checklist hasil
+     *                      penilaian tanpa cache internal entitas
+     * @return array 12-elemen hasil {@link #buildReturnStatusChecklistUmumGrup}: {@code
+     *         [0] adaChecklist} ({@link Boolean}), {@code [1] adaParameterTambahan} ({@link
+     *         Boolean}, saat ini selalu {@code false} pada method ini), {@code [2]}
+     *         data kunci "{@code id_userId}" checklist terjadwal ({@code Set<String>}),
+     *         {@code [3]} data kunci checklist yang sudah dipilih ({@code Set<String>}),
+     *         {@code [4]} parameter tambahan terjadwal ({@code Set<Long>}), {@code [5]}
+     *         parameter yang sudah dipilih ({@code Set<Long>}, saat ini selalu kosong pada
+     *         method ini), {@code [6]} checklist yang sudah diisi KHUSUS oleh {@code tbmuser}
+     *         ({@code Set<Long>}), {@code [7]} seluruh checklist umum terjadwal ({@code
+     *         Set<Long>}), {@code [8]} apakah ada angket dosen dari jadwal ini ({@link
+     *         Boolean}), {@code [9]} apakah ada angket guru dari jadwal ini ({@link Boolean}),
+     *         {@code [10]} grup checklist dosen terjadwal ({@code Set<Long>}), {@code [11]}
+     *         grup checklist guru terjadwal ({@code Set<Long>})
+     */
     @SuppressWarnings("unchecked")
     public static Object[] getJumlahStatusChecklistUmumGrup(String tahunAkademik, String semester, Tbmuser tbmuser, boolean refresh) {
         Session session = null;
@@ -499,6 +541,38 @@ public class ChecklistPenilaianHelper {
                 grupChecklistPenilaianDosenTerjadwal, grupChecklistPenilaianGuruTerjadwal);
     }
 
+    /**
+     * Menghitung status lengkap pengisian checklist umum DAN parameter tambahan angket varian
+     * TANPA grup kuesioner ({@code grup_kuesioner_umum is null}, target ditentukan berdasarkan
+     * peran pengguna lewat {@link #buildSqlTambahanUmum}) bagi seorang pengguna pada tahun
+     * akademik/semester tertentu. Dipakai sebagai sumber data oleh
+     * {@link #checkStatusChecklistUmum(String, String, Tbmuser)}.
+     *
+     * <p>
+     * Alur kerja: (1) menjalankan query SQL native untuk menemukan checklist umum dan
+     * parameter tambahan angket yang wajib diisi ({@code wajibdiisi=true} atau {@code null}) dan
+     * berlaku pada rentang tanggal saat ini, disaring lewat {@link #buildSqlTambahanUmum}; (2)
+     * untuk checklist umum, membandingkan dengan data hasil penilaian pengguna (diambil dari
+     * entitas {@link Mahasiswa}/{@link Dosen}/{@link Tbmuser} tergantung peran, HANYA yang tidak
+     * terkait pertemuan spesifik dan sesuai tahun akademik/semester yang diminta) untuk
+     * menyimpulkan {@code adaChecklist}; (3) untuk parameter tambahan, membandingkan dengan data
+     * {@link IsiAngketParameterUmum} yang sudah diisi — setiap parameter dianggap belum lengkap
+     * ({@code adaParameterTambahan=true}) bila belum ada jawaban sama sekali, ATAU jawaban yang
+     * ada untuk id parameter tersebut (atau id sentinel {@code "-1"}, kemungkinan menandai
+     * "jawaban umum berlaku untuk semua parameter") memiliki {@code name1} kosong/null.
+     * </p>
+     *
+     * @param tahunAkademik tahun akademik yang diperiksa, boleh {@code null} untuk semua
+     * @param semester      semester yang diperiksa, boleh {@code null} untuk semua
+     * @param tbmuser       pengguna target
+     * @param refresh       {@code true} untuk memaksa pengambilan ulang data checklist hasil
+     *                      penilaian tanpa cache internal entitas
+     * @return array 6-elemen: {@code [0] adaChecklist} ({@link Boolean}), {@code [1]
+     *         adaParameterTambahan} ({@link Boolean}), {@code [2]} checklist umum terjadwal
+     *         ({@code Set<Long>}), {@code [3]} checklist yang sudah dipilih ({@code Set<Long>}),
+     *         {@code [4]} parameter tambahan terjadwal ({@code Set<Long>}), {@code [5]}
+     *         parameter yang sudah lengkap diisi ({@code Set<Long>})
+     */
     @SuppressWarnings("unchecked")
     public static Object[] getJumlahStatusChecklistUmum(String tahunAkademik, String semester, Tbmuser tbmuser, boolean refresh) {
         Session session = null;
@@ -629,6 +703,19 @@ public class ChecklistPenilaianHelper {
                 checklistPenilaianUmumTerjadwalDipilih, parameterTambahanAngketUmumTerjadwal,
                 checklistParameterTerjadwalDipilih };
     }
+    /**
+     * Menyederhanakan hasil {@link #getJumlahStatusChecklistUmum(String, String, Tbmuser,
+     * boolean)} (dipanggil dengan {@code refresh=false}) menjadi satu penanda {@link Boolean}:
+     * apakah pengguna MASIH memiliki checklist umum (varian tanpa grup kuesioner) yang wajib
+     * namun belum diisi. Bernilai {@code true} bila jumlah checklist terjadwal LEBIH BANYAK
+     * dari jumlah yang sudah dipilih, ATAU bila flag {@code adaChecklist} dari method sumber
+     * data bernilai {@code true}.
+     *
+     * @param tahunAkademik tahun akademik yang diperiksa
+     * @param semester      semester yang diperiksa
+     * @param tbmuser       pengguna target
+     * @return {@code true} bila masih ada checklist umum yang wajib diisi namun belum lengkap
+     */
     @SuppressWarnings("unchecked")
     public static Boolean checkStatusChecklistUmum(String tahunAkademik, String semester, Tbmuser tbmuser) {
         Object[] data = getJumlahStatusChecklistUmum(tahunAkademik, semester, tbmuser, false);
@@ -644,6 +731,29 @@ public class ChecklistPenilaianHelper {
                 || Boolean.TRUE.equals(adaChecklistAda);
     }
 
+    /**
+     * Menyederhanakan hasil {@link #getJumlahStatusChecklistUmumGrup(String, String, Tbmuser,
+     * boolean)} (dipanggil dengan {@code refresh=false}) menjadi satu penanda {@link Boolean}:
+     * apakah pengguna MASIH memiliki checklist umum varian grup kuesioner yang wajib namun
+     * belum diisi (mengecek per-target apakah {@code tbmuser} sudah mengisi SEMUA pertanyaan
+     * terjadwal untuk target tersebut). Memakai elemen {@code [7]} (total pertanyaan terjadwal)
+     * vs {@code [6]} (jumlah yang sudah diisi {@code tbmuser} ybs) dari array hasil, ditambah
+     * elemen {@code [0]} sebagai jaring pengaman tambahan.
+     *
+     * <p>
+     * <b>Catatan riwayat perbaikan</b> (didokumentasikan di komentar kode asli): versi
+     * sebelumnya method ini secara keliru membandingkan elemen {@code [2]} vs {@code [3]}
+     * (bertipe {@code Set<String>}, diisi pada cabang if/else yang saling eksklusif sehingga
+     * salah satunya selalu kosong) — akibatnya gate ini nyaris tidak pernah bekerja dengan
+     * benar. Versi saat ini memakai elemen {@code [7]}/{@code [6]} yang bertipe benar.
+     * </p>
+     *
+     * @param tahunAkademik tahun akademik yang diperiksa
+     * @param semester      semester yang diperiksa
+     * @param tbmuser       pengguna target
+     * @return {@code true} bila masih ada checklist umum (varian grup kuesioner) yang wajib
+     *         diisi namun belum lengkap bagi {@code tbmuser}
+     */
     @SuppressWarnings("unchecked")
     public static Boolean checkStatusChecklistUmumGrup(String tahunAkademik, String semester, Tbmuser tbmuser) {
         Object[] data = getJumlahStatusChecklistUmumGrup(tahunAkademik, semester, tbmuser, false);
@@ -669,6 +779,18 @@ public class ChecklistPenilaianHelper {
                 || Boolean.TRUE.equals(adaChecklistAda);
     }
 
+    /**
+     * Menentukan apakah seorang mahasiswa memiliki jadwal angket penilaian DOSEN yang
+     * dirujuk lewat jadwal checklist umum ({@code grup_checklist_penilaian_dosen} pada
+     * {@code jadwal_checklist_penilaian_umum}), berlaku pada tahun akademik/semester tertentu.
+     *
+     * @param tahunAkademik tahun akademik yang diperiksa
+     * @param semester      semester yang diperiksa
+     * @param tbmuser       pengguna target; bila bukan mahasiswa (tidak memiliki
+     *                      {@link Mahasiswa} terkait), langsung mengembalikan {@code false}
+     * @return {@code true} bila ada minimal satu grup checklist penilaian dosen yang dirujuk
+     *         dari jadwal umum dan relevan bagi pengguna
+     */
     public static Boolean adaJadwalAngketDosenDariJadwalUmum(String tahunAkademik, String semester, Tbmuser tbmuser) {
         if (tbmuser == null || tbmuser.getMahasiswa() == null || tbmuser.getMahasiswa().getId() == null) {
             return Boolean.FALSE;
@@ -676,6 +798,18 @@ public class ChecklistPenilaianHelper {
         return Boolean.valueOf(!ambilGrupAngketDosenGuruDariJadwalUmum(tahunAkademik, semester, tbmuser, true).isEmpty());
     }
 
+    /**
+     * Seperti {@link #adaJadwalAngketDosenDariJadwalUmum(String, String, Tbmuser)}, namun
+     * untuk jadwal angket penilaian GURU ({@code grup_checklist_penilaian_guru}), berlaku bagi
+     * pengguna yang berperan sebagai siswa.
+     *
+     * @param tahunAkademik tahun akademik yang diperiksa
+     * @param semester      semester yang diperiksa
+     * @param tbmuser       pengguna target; bila bukan siswa (tidak memiliki {@link Siswa}
+     *                      terkait), langsung mengembalikan {@code false}
+     * @return {@code true} bila ada minimal satu grup checklist penilaian guru yang dirujuk
+     *         dari jadwal umum dan relevan bagi pengguna
+     */
     public static Boolean adaJadwalAngketGuruDariJadwalUmum(String tahunAkademik, String semester, Tbmuser tbmuser) {
         if (tbmuser == null || tbmuser.getSiswa() == null || tbmuser.getSiswa().getId() == null) {
             return Boolean.FALSE;
@@ -683,6 +817,24 @@ public class ChecklistPenilaianHelper {
         return Boolean.valueOf(!ambilGrupAngketDosenGuruDariJadwalUmum(tahunAkademik, semester, tbmuser, false).isEmpty());
     }
 
+    /**
+     * Implementasi bersama untuk {@link #adaJadwalAngketDosenDariJadwalUmum} dan
+     * {@link #adaJadwalAngketGuruDariJadwalUmum}: mengambil himpunan id grup checklist
+     * penilaian dosen ATAU guru (dipilih lewat parameter {@code dosen}) yang dirujuk dari
+     * jadwal checklist umum yang berlaku pada tahun akademik/semester tertentu dan relevan bagi
+     * {@code tbmuser} — mempertimbangkan baik jadwal dengan grup kuesioner eksplisit (dicek
+     * lewat keanggotaan {@code grup_kuosioner_umum_detail}) maupun tanpa grup kuesioner (dicek
+     * lewat {@link #buildSqlTambahanUmum}, sama seperti jalur checklist umum lainnya).
+     *
+     * @param tahunAkademik tahun akademik yang diperiksa, boleh {@code null}/kosong
+     * @param semester      semester yang diperiksa, boleh {@code null}/kosong
+     * @param tbmuser       pengguna target; bila {@code null} atau belum memiliki userId,
+     *                      mengembalikan {@link Set} kosong
+     * @param dosen         {@code true} untuk mengambil grup checklist penilaian DOSEN,
+     *                      {@code false} untuk grup checklist penilaian GURU
+     * @return himpunan id grup checklist yang relevan; kosong bila tidak ada atau terjadi
+     *         kegagalan query
+     */
     @SuppressWarnings("unchecked")
     private static Set<Long> ambilGrupAngketDosenGuruDariJadwalUmum(String tahunAkademik, String semester,
             Tbmuser tbmuser, boolean dosen) {
@@ -749,6 +901,15 @@ public class ChecklistPenilaianHelper {
         return result;
     }
 
+    /**
+     * Membungkus seluruh variabel status hasil {@link #getJumlahStatusChecklistUmumGrup} menjadi
+     * satu array {@link Object}[] 12-elemen dengan urutan tetap. Lihat javadoc
+     * {@link #getJumlahStatusChecklistUmumGrup(String, String, Tbmuser, boolean)} untuk arti
+     * setiap indeks pada array yang dikembalikan.
+     *
+     * @return array 12-elemen berisi seluruh status checklist umum grup, urutan tetap sesuai
+     *         parameter method ini
+     */
     private static Object[] buildReturnStatusChecklistUmumGrup(boolean adaChecklist, boolean adaParameterTambahan,
             Set<String> checklistPenilaianUmumTerjadwalData, Set<String> checklistPenilaianUmumTerjadwalDipilih,
             Set<Long> parameterTambahanAngketUmumTerjadwal, Set<Long> checklistParameterTerjadwalDipilih,
@@ -763,6 +924,19 @@ public class ChecklistPenilaianHelper {
                 grupChecklistPenilaianDosenTerjadwal, grupChecklistPenilaianGuruTerjadwal };
     }
 
+    /**
+     * Memeriksa apakah satu baris {@link ChecklistHasilPenilaianUmum} cocok dengan filter
+     * tahun akademik/semester yang diminta, dan BUKAN merupakan hasil penilaian yang terkait
+     * pertemuan spesifik ({@code getPertemuanId() != null}, yang berarti bukan bagian dari
+     * checklist umum berjadwal ini).
+     *
+     * @param row           baris hasil penilaian yang diperiksa
+     * @param tahunAkademik tahun akademik yang diharapkan, {@code null} berarti cocok untuk
+     *                      tahun akademik apa pun
+     * @param semester      semester yang diharapkan, {@code null} berarti cocok untuk semester
+     *                      apa pun
+     * @return {@code true} bila baris tersebut cocok dengan filter dan bukan terkait pertemuan
+     */
     private static boolean isChecklistHasilUmumSesuaiJadwal(ChecklistHasilPenilaianUmum row, String tahunAkademik,
             String semester) {
         if (row == null || row.getPertemuanId() != null) {
@@ -773,6 +947,7 @@ public class ChecklistPenilaianHelper {
         return (tahunAkademik == null || tahunAkademik.equals(ta)) && (semester == null || semester.equals(smt));
     }
 
+    /** Mengambil id checklist penilaian umum ({@code checklistPenilaianUmum}) dari satu baris hasil penilaian, atau {@code null} bila tidak ada/terjadi kegagalan akses (exception ditelan). */
     private static Long getChecklistPenilaianUmumId(ChecklistHasilPenilaianUmum row) {
         try {
             return row == null || row.getChecklistPenilaianUmum() == null ? null
@@ -782,6 +957,7 @@ public class ChecklistPenilaianHelper {
         }
     }
 
+    /** Mengambil elemen ke-{@code index} dari {@code row} dan mengonversinya ke {@link Long} lewat {@link #getLong(Object)}; {@code null} bila indeks di luar jangkauan. */
     private static Long getLong(Object[] row, int index) {
         if (row == null || row.length <= index) {
             return null;
@@ -789,6 +965,7 @@ public class ChecklistPenilaianHelper {
         return getLong(row[index]);
     }
 
+    /** Mengonversi hasil kolom mentah (biasanya {@link Number} dari JDBC/Hibernate) menjadi {@link Long}; mencoba parsing string sebagai fallback, {@code null} bila gagal/nilai {@code null}. */
     private static Long getLong(Object value) {
         if (value == null) {
             return null;
@@ -803,6 +980,7 @@ public class ChecklistPenilaianHelper {
         }
     }
 
+    /** Menutup {@code session} dengan aman bila masih terbuka; kegagalan {@code close()} ditelan dan dicatat ke audit, tidak dilempar ke pemanggil. */
     private static void closeOpenedSession(Session session) {
         if (session == null) {
             return;
@@ -820,6 +998,46 @@ public class ChecklistPenilaianHelper {
     // PRIVATE HELPER METHODS (Optimasi untuk DRY & Memory Usage)
     // ===========================================================================================
 
+    /**
+     * Membangun fragmen klausa SQL ({@code WHERE ... AND (fragmen ini)}) yang menentukan
+     * apakah baris {@code grup_checklist_penilaian_umum} (alias {@code b}) DITARGETKAN bagi
+     * {@code tbmuser}, berdasarkan peran/kategori pengguna tersebut. Dipakai oleh seluruh
+     * method jalur checklist umum TANPA grup kuesioner eksplisit.
+     *
+     * <p>
+     * Urutan pengecekan peran (dari paling spesifik ke default, hanya SATU cabang yang
+     * berlaku — kecuali override asisten di akhir): pengguna dengan role "umum" (
+     * {@link #isUserUmum}) → hanya target {@code UNTUK_LINK_UMUM}; mahasiswa berstatus "lulus"
+     * (mengandung kata "lulus" pada nama status) → target {@code UNTUK_ALUMNI} dengan filter
+     * status mahasiswa/fakultas/jurusan/jenjang/program/angkatan; mahasiswa aktif lainnya →
+     * target {@code UNTUK_MAHASISWA} (dengan filter serupa) ATAU {@code UNTUK_UMUM}; dosen →
+     * {@code UNTUK_DOSEN} atau {@code UNTUK_UMUM}; siswa → {@code UNTUK_SISWA} (filter
+     * angkatan/yayasan/sekolah) atau {@code UNTUK_UMUM}; guru → {@code UNTUK_GURU} atau
+     * {@code UNTUK_UMUM}; orang tua → {@code UNTUK_ORANG_TUA} atau {@code UNTUK_UMUM}; pengguna
+     * lain yang punya userId → {@code UNTUK_ADMIN} atau {@code UNTUK_UMUM}. Di akhir, BILA
+     * mahasiswa yang bersangkutan juga tercatat sebagai asisten aktif pada tahun ajaran/
+     * semester terkait ({@link #isMahasiswaAsisten}), klausa hasil DIGABUNG (OR) dengan target
+     * {@code UNTUK_ASISTEN} — sehingga mahasiswa-asisten bisa mendapat DUA kategori jadwal
+     * sekaligus.
+     * </p>
+     *
+     * <p>
+     * Nilai string yang disisipkan ke SQL (nama kategori {@code diperuntukkan}, program studi)
+     * SELALU melalui {@link #escapeSql(String)} untuk mencegah SQL injection lewat karakter
+     * kutip tunggal; nilai numerik (id fakultas/jurusan/jenjang/status, tahun angkatan)
+     * disisipkan langsung tanpa risiko injection karena berasal dari {@link Long}/
+     * {@link Integer}, bukan string bebas pengguna.
+     * </p>
+     *
+     * @param tbmuser       pengguna yang perannya ingin ditentukan
+     * @param tahunAkademik tahun ajaran, dipakai HANYA untuk pengecekan status asisten
+     *                      ({@link #isMahasiswaAsisten})
+     * @param semester      semester, dipakai HANYA untuk pengecekan status asisten
+     * @return fragmen SQL boolean (tanpa kata kunci {@code WHERE}/{@code AND} di depan, namun
+     *         sudah dibungkus tanda kurung bila perlu) yang bila {@code true} berarti grup
+     *         checklist tersebut ditargetkan bagi {@code tbmuser}; {@code " false "} bila tidak
+     *         ada peran yang cocok sama sekali
+     */
     private static String buildSqlTambahanUmum(Tbmuser tbmuser, String tahunAkademik, String semester) {
         Mahasiswa mahasiswa = tbmuser == null ? null : tbmuser.getMahasiswa();
         Dosen dosen = tbmuser == null ? null : tbmuser.ambilDosen();
@@ -895,12 +1113,19 @@ public class ChecklistPenilaianHelper {
         return sqlTambahan.toString();
     }
 
+    /** Memeriksa apakah role akses {@code tbmuser} adalah role "umum" (dibandingkan dengan {@link ConstantValues#tbmroleUmum}). */
     private static boolean isUserUmum(Tbmuser tbmuser) {
         return tbmuser != null && tbmuser.hakAkses() != null && tbmuser.hakAkses().getRoleId() != null
                 && ConstantValues.tbmroleUmum != null && ConstantValues.tbmroleUmum.getRoleId() != null
                 && ConstantValues.tbmroleUmum.getRoleId().equals(tbmuser.hakAkses().getRoleId());
     }
 
+    /**
+     * Mengambil {@link StatusMahasiswa} terkini seorang mahasiswa lewat
+     * {@link ais.action.master.helper.HistoryStatusMahasiswaUtil#currentStatus(Mahasiswa)}
+     * dengan aman — mengembalikan {@code null} (bukan melempar exception) bila {@code mahasiswa}
+     * {@code null} atau terjadi kegagalan apa pun saat mengambil riwayat status.
+     */
     private static StatusMahasiswa getStatusMahasiswaAman(Mahasiswa mahasiswa) {
         try {
             return mahasiswa == null ? null
@@ -910,6 +1135,21 @@ public class ChecklistPenilaianHelper {
         }
     }
 
+    /**
+     * Memeriksa apakah seorang mahasiswa tercatat sebagai asisten aktif ({@link
+     * MahasiswaJadiAsisten}) pada tahun ajaran/semester tertentu (atau pada perkuliahan apa pun
+     * bila {@code tahunAkademik} dan {@code semester} keduanya {@code null}), dibaca dari cache
+     * global {@link ConstantValues#ambilBerdasarClass(Class)}.
+     *
+     * @param mahasiswa     mahasiswa yang diperiksa
+     * @param tahunAkademik tahun ajaran yang harus cocok dengan {@code perkuliahan} terkait
+     *                      penugasan asisten, boleh {@code null} bersamaan dengan {@code semester}
+     *                      untuk mengabaikan filter ini
+     * @param semester      semester (ganjil/genap) yang harus cocok
+     * @return {@code true} bila ditemukan penugasan asisten aktif yang cocok; {@code false}
+     *         bila tidak ditemukan atau terjadi kegagalan (ditangani lewat
+     *         {@link Common#tampilErrorJikaAdmin(Exception)})
+     */
     private static boolean isMahasiswaAsisten(Mahasiswa mahasiswa, String tahunAkademik, String semester) {
         try {
             Map<Long, MahasiswaJadiAsisten> map = ConstantValues.ambilBerdasarClass(MahasiswaJadiAsisten.class);
@@ -940,10 +1180,17 @@ public class ChecklistPenilaianHelper {
         return false;
     }
 
+    /** Membandingkan dua {@link String} dengan aman terhadap {@code null} (dua {@code null} dianggap sama). */
     private static boolean safeEquals(String a, String b) {
         return a == null ? b == null : a.equals(b);
     }
 
+    /**
+     * Menambahkan fragmen SQL {@code " and (<column>=<value> or <column> is null)"} ke
+     * {@code sb} (mengizinkan baris dengan kolom {@code NULL} untuk lolos filter, dianggap
+     * "berlaku untuk semua nilai"), atau {@code " and <column> is null "} bila {@code value}
+     * {@code null} (hanya baris dengan kolom kosong yang lolos).
+     */
     private static void appendLongFilter(StringBuilder sb, String column, Long value) {
         if (value == null) {
             sb.append(" and ").append(column).append(" is null ");
@@ -952,6 +1199,11 @@ public class ChecklistPenilaianHelper {
         }
     }
 
+    /**
+     * Seperti {@link #appendLongFilter(StringBuilder, String, Long)}, untuk nilai bertipe
+     * {@link String}; nilai yang disisipkan selalu melalui {@link #escapeSql(String)} untuk
+     * mencegah SQL injection.
+     */
     private static void appendStringFilter(StringBuilder sb, String column, String value) {
         if (value == null || value.trim().isEmpty()) {
             sb.append(" and ").append(column).append(" is null ");
@@ -961,6 +1213,13 @@ public class ChecklistPenilaianHelper {
         }
     }
 
+    /**
+     * Menambahkan fragmen SQL yang memfilter berdasarkan rentang angkatan
+     * ({@code b.mulai_angkatan}/{@code b.sampai_angkatan}) terhadap {@code tahunAngkatan}: bila
+     * {@code tahunAngkatan} {@code null}, hanya baris tanpa batas angkatan sama sekali yang
+     * lolos; bila ada, baris lolos bila {@code tahunAngkatan} berada dalam rentang (batas
+     * kosong dianggap tidak terbatas pada sisi tersebut).
+     */
     private static void appendAngkatanFilter(StringBuilder sb, Integer tahunAngkatan) {
         if (tahunAngkatan == null) {
             sb.append(" and b.mulai_angkatan is null and b.sampai_angkatan is null ");
@@ -970,10 +1229,22 @@ public class ChecklistPenilaianHelper {
         }
     }
 
+    /**
+     * Meng-escape karakter kutip tunggal ({@code '} → {@code ''}) pada {@code value} agar aman
+     * disisipkan ke literal string SQL yang dibangun lewat konkatenasi manual, sebagai
+     * pencegahan SQL injection sederhana. Lihat catatan keamanan pada javadoc kelas terkait
+     * satu method ({@link #getJumlahStatusChecklistUmum}) yang TIDAK memakai fungsi ini secara
+     * konsisten.
+     *
+     * @param value nilai mentah, boleh {@code null}
+     * @return {@code value} dengan kutip tunggal di-escape, atau string kosong bila
+     *         {@code value} {@code null}
+     */
     private static String escapeSql(String value) {
         return value == null ? "" : value.replace("'", "''");
     }
 
+    /** Mengambil id fakultas dari jurusan mahasiswa, atau {@code null} bila tidak ada/gagal diakses. */
     private static Long getFakultasId(Mahasiswa mahasiswa) {
         try {
             return mahasiswa == null || mahasiswa.getJurusan() == null || mahasiswa.getJurusan().getFakultas() == null
@@ -983,6 +1254,7 @@ public class ChecklistPenilaianHelper {
         }
     }
 
+    /** Mengambil id jurusan mahasiswa, atau {@code null} bila tidak ada/gagal diakses. */
     private static Long getJurusanId(Mahasiswa mahasiswa) {
         try {
             return mahasiswa == null || mahasiswa.getJurusan() == null ? null : mahasiswa.getJurusan().getId();
@@ -991,6 +1263,7 @@ public class ChecklistPenilaianHelper {
         }
     }
 
+    /** Mengambil id jenjang mahasiswa, atau {@code null} bila tidak ada/gagal diakses. */
     private static Long getJenjangId(Mahasiswa mahasiswa) {
         try {
             return mahasiswa == null || mahasiswa.getJenjang() == null ? null : mahasiswa.getJenjang().getId();
@@ -999,6 +1272,7 @@ public class ChecklistPenilaianHelper {
         }
     }
 
+    /** Mengambil id yayasan pengelola sekolah siswa, atau {@code null} bila tidak ada/gagal diakses. */
     private static Long getYayasanId(Siswa siswa) {
         try {
             return siswa == null || siswa.getSekolah() == null || siswa.getSekolah().getYayasan() == null ? null
@@ -1008,6 +1282,7 @@ public class ChecklistPenilaianHelper {
         }
     }
 
+    /** Mengambil id sekolah siswa, atau {@code null} bila tidak ada/gagal diakses. */
     private static Long getSekolahId(Siswa siswa) {
         try {
             return siswa == null || siswa.getSekolah() == null ? null : siswa.getSekolah().getId();
