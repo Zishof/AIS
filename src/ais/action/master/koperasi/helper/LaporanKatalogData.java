@@ -260,6 +260,7 @@ public final class LaporanKatalogData {
         k.items.add(item("akn_histori_bb", "Histori Buku Besar (Saldo Berjalan)", "Mutasi tiap akun + saldo berjalan per baris (dari Jurnal Akuntansi)."));
         k.items.add(item("akn_ringkasan_bb", "Ringkasan Buku Besar", "Total Debet, Kredit & Saldo per akun (dari Jurnal Akuntansi)."));
         k.items.add(item("akn_neraca_saldo", "Neraca Percobaan (Neraca Saldo)", "Saldo Debet/Kredit per akun; total harus seimbang (dari Jurnal Akuntansi)."));
+        k.items.add(item("akn_neraca_percobaan", "Neraca Percobaan Lengkap (Awal - Mutasi - Akhir)", "Format kertas kerja yayasan: saldo awal D/K, mutasi kas dan non kas D/K, saldo akhir D/K per akun."));
         k.items.add(item("akn_daftar_akun", "Daftar Akun Perkiraan (Bagan Akun)", "Seluruh akun beserta klasifikasi Kelompok Laporan (Neraca/Laba Rugi)."));
         k.items.add(item("akn_ringkasan_beban", "Ringkasan Pencatatan Beban", "Total beban per akun (klasifikasi Beban/Biaya/HPP) dari Jurnal Akuntansi."));
         k.items.add(item("akn_rincian_beban", "Rincian Beban Pembayaran", "Rincian baris jurnal yang membebani akun Beban (per akun) dari Jurnal Akuntansi."));
@@ -273,6 +274,7 @@ public final class LaporanKatalogData {
         k.items.add(item("akn_rekening_koran", "Rekening Koran (Kas & Bank)", "Mutasi tiap akun Kas/Bank: penerimaan vs pengeluaran (dari Jurnal Akuntansi)."));
         k.items.add(item("akn_penerimaan", "Ringkasan Daftar Penerimaan", "Total uang masuk per akun Kas/Bank pada periode (dari Jurnal Akuntansi)."));
         k.items.add(item("akn_pembayaran", "Ringkasan Daftar Pembayaran", "Total uang keluar per akun Kas/Bank pada periode (dari Jurnal Akuntansi)."));
+        k.items.add(item("akn_posisi_dana", "Posisi Dana (Saldo Kas & Bank per Rekening)", "Saldo awal, mutasi debet/kredit, dan saldo akhir tiap rekening kas/bank dalam satu tabel. Padanan lembar Posisi Saldo Bank pada laporan yayasan."));
         semua.add(k);
 
         k = new Kat("Keuangan");
@@ -283,6 +285,7 @@ public final class LaporanKatalogData {
         k.items.add(item("akn_lr_12bulan", "Laba Rugi — 12 Bulan (Berbasis Jurnal)", "Dua belas bulan berakhir pada bulan Tgl Sampai, satu kolom per bulan."));
         k.items.add(item("akn_neraca_lajur", "Neraca Lajur (Kertas Kerja)", "Saldo tiap akun dipilah ke kolom Laba Rugi dan Neraca — kertas kerja tutup buku."));
         k.items.add(item("akn_arus_kas", "Arus Kas (Berbasis Jurnal Akuntansi)", "Mutasi akun Kas/Bank dari jurnal TERPOSTING, diuraikan menurut akun lawan; saldo awal & akhir ikut ditampilkan."));
+        k.items.add(item("akn_arus_kas_aktivitas", "Arus Kas per Aktivitas (Operasional/Investasi/Pendanaan)", "Arus kas dikelompokkan ke aktivitas memakai Kelompok Laporan jenis Arus Kas atau kolom Aktifitas pada master akun. Padanan Laporan Penerimaan dan Pengeluaran Cash yayasan."));
         k.items.add(item("fin_laba_rugi", "Laba Rugi (Ringkas Operasional)", "Pembanding cepat dari data transaksi POS, BUKAN dari jurnal: penjualan − HPP − bahan. Laporan resmi = versi Berbasis Jurnal."));
         k.items.add(item("fin_neraca", "Neraca (Ringkas Operasional)", "Pembanding cepat dari data transaksi POS, BUKAN dari jurnal: kas, persediaan, piutang & modal per Tgl Sampai."));
         k.items.add(item("fin_penerimaan_per_metode", "Penerimaan per Kas/Bank (Harian)", "Penerimaan penjualan per akun kas/bank per hari. Nota split dipecah ke tiap metode sesuai nominalnya."));

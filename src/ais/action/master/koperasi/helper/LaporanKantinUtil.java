@@ -430,6 +430,13 @@ public final class LaporanKantinUtil {
     private static final String TAG_KLAS =
         " lower(coalesce(c.keterangan,'') || ' ' || coalesce(m.keterangan,'') || ' ' || coalesce(f.keterangan,'')) ";
 
+    /** Urutan baku seksi Arus Kas: Operasional, Investasi, Pendanaan, lain-lain, lalu yang belum dipetakan. */
+    private static final String URUT_SEKSI_ARUS =
+        " case when lower(l.seksi) like '%operasi%' then 1 "
+      + "      when lower(l.seksi) like '%investasi%' then 2 "
+      + "      when lower(l.seksi) like '%pendanaan%' or lower(l.seksi) like '%pembiayaan%' then 3 "
+      + "      when lower(l.seksi) like '%belum dipetakan%' then 9 else 4 end ";
+
     /** Filter akun BEBAN/BIAYA (termasuk HPP) berdasar klasifikasi + hanya kelompok aktif. */
     private static final String FILTER_BEBAN =
         " and (c.aktif is null or c.aktif) and ( " + TAG_KLAS + " like '%beban%' or " + TAG_KLAS + " like '%biaya%' "
@@ -3106,6 +3113,179 @@ public final class LaporanKantinUtil {
                     }
                 } catch (Exception e) {
                     H.status = "99"; H.message = "Gagal menyusun Arus Kas berbasis jurnal: " + e.getMessage();
+                }
+                return H;
+
+            } else if ("akn_posisi_dana".equals(r)) {
+                judul = "Posisi Dana (Saldo Kas & Bank per Rekening)";
+                catatan = "Satu baris per akun Kas/Bank: SALDO AWAL (seluruh jurnal terposting SEBELUM Tgl Mulai), "
+                    + "MUTASI Debet/Kredit dalam periode, dan SALDO AKHIR (= awal + debet - kredit). Padanan lembar "
+                    + "'Posisi Saldo Bank' pada paket laporan keuangan yayasan. Jurnal TERPOSTING Satuan Kerja kantin.";
+                String wPd = klausaLedgerSampai(session, tglSampai, prm);
+                String sebelumPd = ada(tglMulai)
+                    ? " cast(a.tanggal_transaksi as date) < cast(:tglMulaiPd as date) " : " false ";
+                if (ada(tglMulai)) { prm.put("tglMulaiPd", tglMulai.trim()); }
+                sql = "select d.kode as kode, d.nama as nama, "
+                    + " coalesce(sum(case when " + sebelumPd + " then coalesce(a.debet,0) - coalesce(a.kredit,0) "
+                    + "     else 0 end),0) as saldo_awal, "
+                    + " coalesce(sum(case when " + sebelumPd + " then 0 else coalesce(a.debet,0) end),0) as mutasi_debet, "
+                    + " coalesce(sum(case when " + sebelumPd + " then 0 else coalesce(a.kredit,0) end),0) as mutasi_kredit, "
+                    + " coalesce(sum(coalesce(a.debet,0) - coalesce(a.kredit,0)),0) as saldo_akhir "
+                    + FROM_LEDGER + wPd + FILTER_KASBANK
+                    + " group by d.id, d.kode, d.nama "
+                    + " having coalesce(sum(coalesce(a.debet,0)),0) <> 0 or coalesce(sum(coalesce(a.kredit,0)),0) <> 0 "
+                    + " order by d.kode ";
+                tipe = new String[]{"text","text","num","num","num","num"};
+                kolom.add(new Kolom("Kode","text")); kolom.add(new Kolom("Akun Kas/Bank","text"));
+                kolom.add(new Kolom("Saldo Awal","num")); kolom.add(new Kolom("Mutasi Debet","num"));
+                kolom.add(new Kolom("Mutasi Kredit","num")); kolom.add(new Kolom("Saldo Akhir","num"));
+
+            } else if ("akn_neraca_percobaan".equals(r)) {
+                judul = "Neraca Percobaan Lengkap (Saldo Awal, Mutasi, Saldo Akhir)";
+                catatan = "Format kertas kerja yayasan: SALDO AWAL Debet/Kredit (sebelum Tgl Mulai), MUTASI periode "
+                    + "yang dipisah MUTASI KAS (jurnal yang menyentuh akun Kas/Bank) dan MUTASI NON KAS (jurnal "
+                    + "penyesuaian/memorial), lalu SALDO AKHIR Debet/Kredit. Total tiap pasang kolom harus seimbang. "
+                    + "Jurnal TERPOSTING Satuan Kerja kantin.";
+                String wNp = klausaLedgerSampai(session, tglSampai, prm);
+                String sebelumNp = ada(tglMulai)
+                    ? " cast(a.tanggal_transaksi as date) < cast(:tglMulaiNp as date) " : " false ";
+                if (ada(tglMulai)) { prm.put("tglMulaiNp", tglMulai.trim()); }
+                // Jurnal "kas" = grup transaksinya memuat minimal satu baris berakun Kas/Bank.
+                String grupKas = " exists ( select 1 from akunting.transaksi a2 "
+                    + "     join akunting.akun d2 on d2.id = a2.akun "
+                    + "     where a2.grup_transaksi = a.grup_transaksi "
+                    + "       and ( d2.bank_id is not null or d2.norek is not null "
+                    + "             or lower(coalesce(d2.nama,'')) like '%kas%' "
+                    + "             or lower(coalesce(d2.nama,'')) like '%bank%' ) ) ";
+                String sAwal = "coalesce(sum(case when " + sebelumNp
+                    + " then coalesce(a.debet,0) - coalesce(a.kredit,0) else 0 end),0)";
+                String sAkhir = "coalesce(sum(coalesce(a.debet,0) - coalesce(a.kredit,0)),0)";
+                sql = "select d.kode as kode, d.nama as nama, "
+                    + " case when " + sAwal + " > 0 then " + sAwal + " else 0 end as awal_debet, "
+                    + " case when " + sAwal + " < 0 then -" + sAwal + " else 0 end as awal_kredit, "
+                    + " coalesce(sum(case when not (" + sebelumNp + ") and " + grupKas
+                    + "     then coalesce(a.debet,0) else 0 end),0) as kas_debet, "
+                    + " coalesce(sum(case when not (" + sebelumNp + ") and " + grupKas
+                    + "     then coalesce(a.kredit,0) else 0 end),0) as kas_kredit, "
+                    + " coalesce(sum(case when not (" + sebelumNp + ") and not (" + grupKas
+                    + "     ) then coalesce(a.debet,0) else 0 end),0) as nonkas_debet, "
+                    + " coalesce(sum(case when not (" + sebelumNp + ") and not (" + grupKas
+                    + "     ) then coalesce(a.kredit,0) else 0 end),0) as nonkas_kredit, "
+                    + " case when " + sAkhir + " > 0 then " + sAkhir + " else 0 end as akhir_debet, "
+                    + " case when " + sAkhir + " < 0 then -" + sAkhir + " else 0 end as akhir_kredit "
+                    + FROM_LEDGER + wNp
+                    + " group by d.id, d.kode, d.nama "
+                    + " having coalesce(sum(coalesce(a.debet,0)),0) <> 0 or coalesce(sum(coalesce(a.kredit,0)),0) <> 0 "
+                    + " order by d.kode ";
+                tipe = new String[]{"text","text","num","num","num","num","num","num","num","num"};
+                kolom.add(new Kolom("Kode","text")); kolom.add(new Kolom("Nama Akun","text"));
+                kolom.add(new Kolom("Saldo Awal Debet","num")); kolom.add(new Kolom("Saldo Awal Kredit","num"));
+                kolom.add(new Kolom("Mutasi Kas Debet","num")); kolom.add(new Kolom("Mutasi Kas Kredit","num"));
+                kolom.add(new Kolom("Mutasi Non Kas Debet","num")); kolom.add(new Kolom("Mutasi Non Kas Kredit","num"));
+                kolom.add(new Kolom("Saldo Akhir Debet","num")); kolom.add(new Kolom("Saldo Akhir Kredit","num"));
+
+            } else if ("akn_arus_kas_aktivitas".equals(r)) {
+                H.judul = "Arus Kas per Aktivitas (Operasional / Investasi / Pendanaan)";
+                H.catatan = "Mutasi Kas/Bank jurnal TERPOSTING diuraikan menurut AKUN LAWAN, lalu dikelompokkan ke "
+                    + "AKTIVITAS memakai Kelompok Laporan jenis 'Arus Kas' (Akuntansi > Setup Laporan); bila akun belum "
+                    + "dipetakan di sana dipakai kolom 'Aktifitas (Arus Kas)' pada master Kode Akun. Nilai kas dialokasikan "
+                    + "PROPORSIONAL ke tiap akun lawan sehingga totalnya sama dengan mutasi kas sesungguhnya. Padanan "
+                    + "lembar 'Laporan Penerimaan dan Pengeluaran Cash' pada paket laporan keuangan yayasan.";
+                H.grup = -1; H.grandTotal = false;
+                H.kolom.add(new Kolom("Keterangan","text")); H.kolom.add(new Kolom("Penerimaan","num"));
+                H.kolom.add(new Kolom("Pengeluaran","num")); H.kolom.add(new Kolom("Bersih","num"));
+                H.tipe = new String[]{"text","num","num","num"};
+                try {
+                    Map<String,Object> pAwalAk = new LinkedHashMap<String,Object>();
+                    String wAwalAk = klausaLedgerSebelum(session, tglMulai, pAwalAk);
+                    double saldoAwalAk = angkaTunggal(session,
+                        "select coalesce(sum(a.debet),0) - coalesce(sum(a.kredit),0) "
+                        + FROM_LEDGER + wAwalAk + FILTER_KASBANK, pAwalAk);
+
+                    Map<String,Object> pAkhirAk = new LinkedHashMap<String,Object>();
+                    String wAkhirAk = klausaLedgerSampai(session, tglSampai, pAkhirAk);
+                    double saldoAkhirAk = angkaTunggal(session,
+                        "select coalesce(sum(a.debet),0) - coalesce(sum(a.kredit),0) "
+                        + FROM_LEDGER + wAkhirAk + FILTER_KASBANK, pAkhirAk);
+
+                    // Seksi aktivitas akun lawan: Kelompok Laporan jenis "Arus Kas" -> master_grup_laporan.nama;
+                    // cadangan: kolom akun.aktifitas; bila dua-duanya kosong dikumpulkan ke keranjang "belum
+                    // dipetakan" supaya kekurangan setup TERLIHAT, bukan diam-diam masuk Operasional.
+                    String seksiAk = " coalesce( ( select max(m3.nama) "
+                        + "     from akunting.kelompok_laporan_punya_akun b3 "
+                        + "     join akunting.kelompok_laporan c3 on c3.id = b3.kelompok_laporan "
+                        + "     join akunting.jenis_laporan f3 on f3.id = c3.jenis_laporan "
+                        + "     left join akunting.master_grup_laporan m3 on m3.id = c3.master_grup_laporan "
+                        + "     where b3.akun = d.id and (c3.aktif is null or c3.aktif) "
+                        + "       and lower(coalesce(f3.keterangan,'')) like '%arus%' ), "
+                        + "   nullif(trim(coalesce(d.aktifitas,'')),''), "
+                        + "   '(Belum dipetakan ke Aktivitas Arus Kas)' ) ";
+
+                    Map<String,Object> ppAk = new LinkedHashMap<String,Object>();
+                    String wpAk = klausaLedger(session, tglMulai, tglSampai, ppAk);
+                    String qAk = "with kas as ( select a.grup_transaksi as gid, "
+                        + "     sum(coalesce(a.debet,0)) as masuk, sum(coalesce(a.kredit,0)) as keluar "
+                        + FROM_LEDGER + wpAk + FILTER_KASBANK + " group by a.grup_transaksi ), "
+                        + " lawan as ( select a.grup_transaksi as gid, " + seksiAk + " as seksi, "
+                        + "     (d.kode || ' ' || d.nama) as label, "
+                        + "     sum(coalesce(a.debet,0)) as ld, sum(coalesce(a.kredit,0)) as lk "
+                        + FROM_LEDGER + wpAk + FILTER_BUKAN_KASBANK
+                        + "   group by a.grup_transaksi, " + seksiAk + ", d.kode, d.nama ), "
+                        + " tot as ( select gid, sum(ld) as sld, sum(lk) as slk from lawan group by gid ) "
+                        + " select l.seksi as seksi, l.label as label, "
+                        + "   sum(case when coalesce(t.slk,0) > 0 then k.masuk * (l.lk / t.slk) else 0 end) as masuk, "
+                        + "   sum(case when coalesce(t.sld,0) > 0 then k.keluar * (l.ld / t.sld) else 0 end) as keluar "
+                        + " from kas k join lawan l on l.gid = k.gid join tot t on t.gid = k.gid "
+                        + " group by l.seksi, l.label "
+                        + " having sum(case when coalesce(t.slk,0) > 0 then k.masuk * (l.lk / t.slk) else 0 end) <> 0 "
+                        + "     or sum(case when coalesce(t.sld,0) > 0 then k.keluar * (l.ld / t.sld) else 0 end) <> 0 "
+                        + " order by " + URUT_SEKSI_ARUS + ", l.seksi, l.label ";
+                    SQLQuery qq = session.createSQLQuery(qAk);
+                    for (Map.Entry<String,Object> e : ppAk.entrySet()) { qq.setParameter(e.getKey(), e.getValue()); }
+                    List<?> rowsAk = qq.list();
+
+                    if (rowsAk.isEmpty() && saldoAwalAk == 0.0 && saldoAkhirAk == 0.0) {
+                        H.baris.add(new Object[]{"Belum ada mutasi Kas/Bank pada jurnal TERPOSTING untuk periode ini.",
+                            null, null, null});
+                        return H;
+                    }
+
+                    H.baris.add(new Object[]{"SALDO AWAL KAS & BANK", null, null, Double.valueOf(saldoAwalAk)});
+                    String seksiKini = null;
+                    double subMasuk = 0.0, subKeluar = 0.0, totMasuk = 0.0, totKeluar = 0.0;
+                    for (Object ro : rowsAk) {
+                        Object[] rr = (Object[]) ro;
+                        String seksi = rr[0] == null ? "(Tanpa Aktivitas)" : rr[0].toString();
+                        String label = rr[1] == null ? "" : rr[1].toString();
+                        double masuk = (rr[2] instanceof Number) ? ((Number) rr[2]).doubleValue() : 0.0;
+                        double keluar = (rr[3] instanceof Number) ? ((Number) rr[3]).doubleValue() : 0.0;
+                        if (!seksi.equals(seksiKini)) {
+                            if (seksiKini != null) {
+                                H.baris.add(new Object[]{"    Arus Kas Bersih - " + seksiKini,
+                                    Double.valueOf(subMasuk), Double.valueOf(subKeluar),
+                                    Double.valueOf(subMasuk - subKeluar)});
+                            }
+                            seksiKini = seksi; subMasuk = 0.0; subKeluar = 0.0;
+                            H.baris.add(new Object[]{seksi.toUpperCase(), null, null, null});
+                        }
+                        H.baris.add(new Object[]{"    " + label, Double.valueOf(masuk), Double.valueOf(keluar),
+                            Double.valueOf(masuk - keluar)});
+                        subMasuk += masuk; subKeluar += keluar; totMasuk += masuk; totKeluar += keluar;
+                    }
+                    if (seksiKini != null) {
+                        H.baris.add(new Object[]{"    Arus Kas Bersih - " + seksiKini,
+                            Double.valueOf(subMasuk), Double.valueOf(subKeluar),
+                            Double.valueOf(subMasuk - subKeluar)});
+                    }
+                    H.baris.add(new Object[]{"KENAIKAN (PENURUNAN) KAS & BANK", Double.valueOf(totMasuk),
+                        Double.valueOf(totKeluar), Double.valueOf(totMasuk - totKeluar)});
+                    H.baris.add(new Object[]{"SALDO AKHIR KAS & BANK", null, null, Double.valueOf(saldoAkhirAk)});
+                    if (ada(tglMulai) && ada(tglSampai)) {
+                        H.baris.add(new Object[]{"SELISIH (harus 0)", null, null,
+                            Double.valueOf(saldoAwalAk + totMasuk - totKeluar - saldoAkhirAk)});
+                    }
+                } catch (Exception e) {
+                    H.status = "99"; H.message = "Gagal menyusun Arus Kas per Aktivitas: " + e.getMessage();
                 }
                 return H;
 
