@@ -36,6 +36,15 @@ import ais.database.model.Konfigurasi;
  * dieksekusi. Efektifnya kelas ini saat ini hanya mencatat log pengecekan, bukan menonaktifkan
  * mahasiswa secara nyata.
  * </p>
+ *
+ * <p>
+ * <b>Keputusan (audit keamanan)</b>: ini tergolong pengamanan yang disengaja (governance),
+ * bukan bug. SQL update dikomentari di ATAS pengaman konfigurasi {@code
+ * mahasiswa_s1_lambat_bayar_langsung_tidak_aktif} yang sendirinya sudah default
+ * {@link Konfigurasi#TIDAK_AKTIF} — dua lapis pengaman independen untuk operasi tak-reversibel
+ * (menonaktifkan akun mahasiswa massal berdasar status pembayaran). TIDAK diaktifkan kembali di
+ * sini; mengaktifkannya perlu persetujuan eksplisit pemilik modul akademik/keuangan.
+ * </p>
  */
 public class AutoNotActivatingMahasiswaS1Processor extends TimerTask {
 

@@ -85,6 +85,28 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Composer ZK ({@link GenericAutowireComposer}) yang menjadi antarmuka pengisian angket/kuesioner
+ * ({@link ChecklistPenilaianUmum}, disusun berjenjang: {@link GrupChecklistPenilaianUmum} &rarr;
+ * {@link SubGrupChecklistPenilaianUmum} &rarr; butir pertanyaan) untuk peserta apa pun — mahasiswa,
+ * siswa, dosen, guru, orang tua, admin, atau pengunjung umum tanpa login (diautentikasi sementara
+ * lewat email, membuat {@link Tbmuser} beran role "umum" dengan password acak bila belum ada —
+ * lihat {@link #doAfterCompose}).
+ * <p>
+ * Alur: (1) layar daftar menampilkan seluruh periode {@link JadwalChecklistPenilaianUmum} yang
+ * sedang berlaku (rentang tanggal mencakup hari ini) beserta status "X dari Y terisi" untuk
+ * peserta yang login; (2) mengklik satu periode membuka dialog berisi grup-grup pertanyaan yang
+ * <b>relevan bagi peserta</b> — kecocokan ditentukan lewat kolom {@code diperuntukkan} pada grup
+ * (disusun sebagai SQL native di {@link #buildDiperuntukkanCriterion}: mahasiswa dicocokkan juga
+ * dengan status mahasiswa/tahun angkatan/fakultas/jurusan atau status alumni; siswa dengan tahun
+ * masuk/yayasan/sekolah; dosen/guru/orang tua/admin dengan grup khusus perannya masing-masing atau
+ * grup "umum"; mahasiswa yang sedang menjadi asisten dosen — {@link #isMahasiswaAsisten} — turut
+ * melihat grup asisten); (3) tiap jawaban (radio Likert + keterangan opsional) disimpan sebagai
+ * satu baris {@link ChecklistHasilPenilaianUmum} yang di-upsert per kombinasi (identitas peserta,
+ * butir pertanyaan, tahun akademik, semester, {@code pertemuanId} opsional) sehingga pengisian
+ * ulang tidak menduplikasi jawaban.
+ * </p>
+ */
 public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComposer {
 
 	private static final long serialVersionUID = -5779730267402400328L;
@@ -105,6 +127,7 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 	private Map<IsiAngketParameterUmum, Object[]> data = new HashMap<IsiAngketParameterUmum, Object[]>();
 	private Long pertemuanId = null;
 
+	/** Membangun header halaman (logo institusi/sekolah/yayasan dan judul kuesioner dari konfigurasi), dengan tata letak berbeda untuk mobile vs desktop. */
 	private void initHeader() {
 
 		Sekolah sekolah = SekolahUtil.getSekolah();
@@ -212,10 +235,12 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 		}
 	}
 
+	/** Mengalihkan browser ke halaman utama setelah peserta menyatakan selesai mengisi angket. */
 	public void onIsiAngketDosenSelesai(Event event) {
 		execution.sendRedirect(Common.getRequestHostWithProtocol() + "/main");
 	}
 
+	/** Memeriksa keamanan sesi sebelum komponen ZK mulai dibangun. */
 	@Override
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page,
 			org.zkoss.zk.ui.Component parent, org.zkoss.zk.ui.metainfo.ComponentInfo compInfo) {
@@ -223,6 +248,13 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 		return super.doBeforeCompose(page, parent, compInfo);
 	}
 
+	/**
+	 * Menyiapkan halaman: menerapkan gaya dan header, lalu menentukan identitas peserta — dari
+	 * parameter URL ({@code mahasiswa}/{@code siswa}/{@code dosen}/{@code guru}, dipakai saat
+	 * tautan angket dikirim langsung ke satu orang) atau dari user yang sedang login. Bila tidak
+	 * ada identitas apa pun (pengunjung anonim), menampilkan dialog input email untuk membuat/
+	 * mengambil {@link Tbmuser} beran umum sementara sebelum melanjutkan ke daftar angket.
+	 */
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
 		Common.initLaguage();
@@ -403,6 +435,7 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 		});
 	}
 
+	/** Renderer baris grid daftar periode angket: tahun akademik, semester, status "X dari Y terisi" (dihitung via {@link ChecklistPenilaianHelper#getJumlahStatusChecklistUmum}, baris disorot hijau bila sudah lengkap), dan tombol "Lakukan Penilaian" yang membuka dialog pengisian ({@link #init}). Baris disembunyikan bila tidak ada grup checklist yang relevan bagi peserta pada periode tersebut. */
 	class DataRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -469,6 +502,7 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 		}
 	}
 
+	/** Memuat daftar periode {@link JadwalChecklistPenilaianUmum} yang sedang berlaku (tanggal hari ini berada dalam rentang mulai-sampai) ke grid, terurut tahun akademik dan semester menurun. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 		Session session = null;
@@ -495,6 +529,7 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 		}
 	}
 
+	/** Membuka {@link #addWindow} sebagai dialog pengisian angket untuk {@code tahunAkademik}/{@code semester} tertentu, membangun kontennya lewat {@link #initData}. */
 	private void init(String tahunAkademik, String semester, String diperuntukkan, final EventListener eventListener) {
 		addWindow.setTitle("Angket Penilaian");
 		Common.clear(addWindow);
@@ -508,6 +543,7 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 	}
 
 
+	/** Varian publik {@link #initData(String, String, String, Window, EventListener, boolean, boolean)} yang menerima identitas peserta secara eksplisit (dipakai pemanggil eksternal, mis. layar penilaian dosen oleh mahasiswa dalam satu pertemuan tertentu via {@code pertemuanId}), sebelum mendelegasikan ke method internal. */
 	public Div initData(Mahasiswa mahasiswa, Dosen dosen, Tbmuser tbmuser, String tahunAkademik, String semester,
 			String diperuntukkan, Window addWindow, EventListener eventListener, boolean tampilSimpan, Long pertemuanId,
 			boolean refresh) {
@@ -518,6 +554,7 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 		return initData(tahunAkademik, semester, diperuntukkan, addWindow, eventListener, tampilSimpan, refresh);
 	}
 
+	/** Menerapkan gaya visual dasar (latar, sudut membulat, tanpa border) pada layout utama, grid, dan jendela dialog. */
 	private void applyPageStyle() {
 		if (pustakaLayout != null) {
 			pustakaLayout.setWidth("100%");
@@ -537,6 +574,7 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 		}
 	}
 
+	/** Membuat satu {@link Div} yang dapat digulir vertikal (scroll tunggal, bukan scroll bertingkat) sebagai wadah konten dialog angket, ditambahkan ke {@code targetWindow}. */
 	private Div createSingleScrollContainer(Window targetWindow) {
 		Div container = new Div();
 		container.setWidth("100%");
@@ -552,6 +590,7 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 		return container;
 	}
 
+	/** Menerapkan gaya "kartu" (latar putih, sudut membulat, bayangan tipis) pada baris dan kontainer satu butir pertanyaan angket. */
 	private void applyQuestionCardStyle(Row row, Vbox container) {
 		if (row != null) {
 			row.setValign("top");
@@ -564,6 +603,7 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 		}
 	}
 
+	/** Membuat label teks pertanyaan dengan gaya standar (dipakai berulang saat merender tiap butir angket). */
 	private Label createQuestionLabel(String text) {
 		Label label = new Label(text == null ? "" : text);
 		label.setWidth("100%");
@@ -571,6 +611,7 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 		return label;
 	}
 
+	/** Menerapkan gaya standar pada kotak teks keterangan tambahan satu butir angket. */
 	private void styleKeteranganTextbox(Textbox textbox) {
 		if (textbox == null) {
 			return;
@@ -581,12 +622,14 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 				+ "border-radius:6px; padding:6px; margin-top:6px; background:#f8fafc;");
 	}
 
+	/** Menerapkan gaya standar pada grup pilihan radio (skala penilaian) satu butir angket. */
 	private void styleRadioGroup(Radiogroup radiogroup) {
 		if (radiogroup != null) {
 			radiogroup.setStyle("display:block; padding-top:6px; color:#334155;");
 		}
 	}
 
+	/** Mengambil status mahasiswa terkini {@code mahasiswa} secara aman (menelan galat, mengembalikan {@code null} bila gagal) via {@link ais.action.master.helper.HistoryStatusMahasiswaUtil#currentStatus}. */
 	private StatusMahasiswa getStatusMahasiswaAman(Mahasiswa mahasiswa) {
 		try {
 			return mahasiswa == null ? null
@@ -597,6 +640,16 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 		}
 	}
 
+	/**
+	 * Menyusun kriteria SQL native berdasarkan kolom {@code diperuntukkan} pada
+	 * {@link GrupChecklistPenilaianUmum} yang menentukan grup mana yang relevan bagi peserta saat
+	 * ini: {@code diperuntukkan} eksplisit (bila diberikan pemanggil) diutamakan; lalu peserta
+	 * ber-role umum hanya melihat grup {@code UNTUK_LINK_UMUM}; mahasiswa/siswa dicocokkan lewat
+	 * {@link #buildMahasiswaCriterion}/{@link #buildSiswaCriterion} (mempertimbangkan status/
+	 * angkatan/fakultas/jurusan atau yayasan/sekolah); dosen/guru/orang tua/admin dicocokkan ke
+	 * grup khusus perannya masing-masing atau grup {@code UNTUK_UMUM}; bila tidak ada identitas
+	 * sama sekali, tidak ada grup yang cocok ({@code false}).
+	 */
 	private Criterion buildDiperuntukkanCriterion(String diperuntukkan, StatusMahasiswa statusMahasiswa) {
 		if (diperuntukkan != null && !diperuntukkan.trim().isEmpty()) {
 			return Restrictions.sqlRestriction("diperuntukkan='" + escapeSql(diperuntukkan.trim()) + "'");
@@ -638,6 +691,7 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 		return Restrictions.sqlRestriction("false");
 	}
 
+	/** Menyusun kondisi SQL untuk grup {@code diperuntukkan} mahasiswa/alumni: grup {@code UNTUK_ALUMNI} bila status mahasiswa mengandung "lulus", atau {@code UNTUK_MAHASISWA} (juga {@code UNTUK_UMUM}) bila tidak, masing-masing dipersempit ke status/tahun angkatan/fakultas/jurusan grup bila diisi (kosong berarti berlaku semua). */
 	private String buildMahasiswaCriterion(StatusMahasiswa statusMahasiswa) {
 		boolean alumni = statusMahasiswa != null && statusMahasiswa.getNama() != null
 				&& statusMahasiswa.getNama().toLowerCase().trim().contains("lulus");
@@ -662,6 +716,7 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 		return sql.toString();
 	}
 
+	/** Menyusun kondisi SQL untuk grup {@code diperuntukkan} siswa: grup {@code UNTUK_SISWA} (juga {@code UNTUK_UMUM}), dipersempit ke tahun masuk/yayasan/sekolah grup bila diisi (kosong berarti berlaku semua). */
 	private String buildSiswaCriterion() {
 		StringBuilder sql = new StringBuilder("((diperuntukkan='")
 				.append(escapeSql(GrupChecklistPenilaianUmum.UNTUK_SISWA)).append("' ");
@@ -672,12 +727,14 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 		return sql.toString();
 	}
 
+	/** Menentukan apakah {@link #tbmuser} saat ini berperan sebagai role "umum" ({@link ConstantValues#tbmroleUmum}). */
 	private boolean isUserUmum() {
 		return tbmuser != null && tbmuser.hakAkses() != null && tbmuser.hakAkses().getRoleId() != null
 				&& ConstantValues.tbmroleUmum != null && ConstantValues.tbmroleUmum.getRoleId() != null
 				&& ConstantValues.tbmroleUmum.getRoleId().equals(tbmuser.hakAkses().getRoleId());
 	}
 
+	/** Memeriksa apakah {@link #mahasiswa} saat ini terdaftar sebagai {@link MahasiswaJadiAsisten} aktif untuk suatu perkuliahan pada {@code tahunAkademik}/{@code semester} yang diberikan. */
 	private boolean isMahasiswaAsisten(String tahunAkademik, String semester) {
 		try {
 			Map<Long, MahasiswaJadiAsisten> map = ConstantValues.ambilBerdasarClass(MahasiswaJadiAsisten.class);
@@ -703,6 +760,7 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 		return false;
 	}
 
+	/** Menambahkan kondisi SQL "{@code column} cocok {@code value} atau kolom grup kosong (berlaku semua)" ke {@code sb}, atau "{@code column} kosong" bila {@code value} {@code null} (peserta tidak punya nilai untuk dimensi ini). */
 	private static void appendLongFilter(StringBuilder sb, String column, Long value) {
 		if (value == null) {
 			sb.append(" and ").append(column).append(" is null ");
@@ -711,6 +769,7 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 		}
 	}
 
+	/** Menambahkan kondisi SQL rentang tahun angkatan grup ({@code mulai_angkatan}/{@code sampai_angkatan}, kosong berarti tanpa batas) yang harus mencakup {@code tahunAngkatan} peserta, atau mensyaratkan rentang grup kosong bila {@code tahunAngkatan} {@code null}. */
 	private static void appendAngkatanFilter(StringBuilder sb, Integer tahunAngkatan) {
 		if (tahunAngkatan == null) {
 			sb.append(" and mulai_angkatan is null and sampai_angkatan is null ");
@@ -754,6 +813,7 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 		}
 	}
 
+	/** Menentukan apakah kolom keterangan tambahan perlu ditampilkan untuk butir-butir pada {@code grup}, mengikuti flag {@code tampilKeterangan} pada {@link ais.database.model.AngketPenilaianUmum} induknya. */
 	private static boolean isTampilKeterangan(GrupChecklistPenilaianUmum grup) {
 		try {
 			return grup != null && grup.getAngketPenilaianUmum() != null
@@ -763,6 +823,7 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 		}
 	}
 
+	/** Mem-parsing kolom {@code pilihan} (JSON label per nilai skala) milik {@code checklist} menjadi {@link JSONObject}, aman terhadap nilai kosong/tidak valid (mengembalikan objek kosong). */
 	private static JSONObject buildPilihanJson(ChecklistPenilaianUmum checklist) {
 		try {
 			String pilihan = checklist == null ? null : checklist.getPilihan();
@@ -772,6 +833,7 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 		}
 	}
 
+	/** Memeriksa apakah {@code hasil} (jawaban tersimpan sebelumnya) cocok dengan {@code tahunAkademik}/{@code semester} yang sedang ditampilkan, dan (bila berlaku) {@link #pertemuanId} yang sama — dipakai untuk memuat kembali jawaban lama ke form. */
 	private boolean isChecklistSesuaiJadwal(ChecklistHasilPenilaianUmum hasil, String tahunAkademik, String semester) {
 		if (hasil == null || hasil.getChecklistPenilaianUmum() == null || hasil.getChecklistPenilaianUmum().getId() == null) {
 			return false;
@@ -789,10 +851,23 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 		return value == null ? "" : value;
 	}
 
+	/** Meng-escape kutip tunggal pada {@code value} sebelum disisipkan ke SQL native mentah yang dibangun lewat concatenation string di {@link #buildDiperuntukkanCriterion} dan sekitarnya — mitigasi dasar terhadap SQL injection pada nilai {@code diperuntukkan} (bukan input pengguna langsung, tapi konstanta/enum internal). */
 	private static String escapeSql(String value) {
 		return value == null ? "" : value.replace("'", "''");
 	}
 
+	/**
+	 * Merender seluruh isi dialog pengisian angket untuk {@code tahunAkademik}/{@code semester} ke
+	 * dalam {@code groupboxRow}: mencari {@link JadwalChecklistPenilaianUmum} yang jadwalnya cocok
+	 * dan grupnya lolos {@link #buildDiperuntukkanCriterion} (ditambah grup asisten bila peserta
+	 * sedang menjadi asisten — {@link #isMahasiswaAsisten}); untuk tiap grup, menyusun daftar
+	 * {@link ChecklistPenilaianUmum} aktifnya (dikelompokkan per sub-grup, terurut), lalu merender
+	 * tiap butir sebagai kartu berisi pertanyaan, skala pilihan radio (jumlah pilihan dapat
+	 * dikonfigurasi per angket atau lewat konfigurasi global {@code jumlah_pilihan_checklist_penilaian_umum}),
+	 * dan kolom keterangan opsional ({@link #isTampilKeterangan}). Jawaban yang sudah pernah
+	 * tersimpan dan masih cocok jadwal ({@link #isChecklistSesuaiJadwal}) dimuat kembali ke form.
+	 * Menyimpan jawaban (bila {@code tampilSimpan}) mendelegasikan ke {@link #onSave}.
+	 */
 	@SuppressWarnings({ "deprecation", "unchecked" })
 	private void dataChecklist(final String tahunAkademik, final String semester, Row groupboxRow, String diperuntukkan,
 			final EventListener eventListener, boolean tampilSimpan, boolean refresh) throws Exception {
@@ -1083,6 +1158,7 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 		}
 	}
 
+	/** Menentukan apakah jawaban boleh dikaitkan langsung ke {@link #tbmuser} (bukan ke relasi mahasiswa/siswa/dosen/guru-nya) — berlaku hanya untuk peserta tanpa peran akademik spesifik (mis. admin atau pengguna umum). */
 	private boolean bolehSimpanKeTbmuser() {
 		if (tbmuser == null || tbmuser.getUserId() == null || tbmuser.getUserId().trim().isEmpty()) {
 			return false;
@@ -1101,6 +1177,7 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 		return true;
 	}
 
+	/** Membangun kontainer scroll berisi seluruh grup pertanyaan angket untuk {@code tahunAkademik}/{@code semester} yang relevan bagi peserta saat ini, didelegasikan ke {@link #dataChecklist}. */
 	private Div initData(final String tahunAkademik, final String semester, final String diperuntukkan,
 			final Window addWindow, final EventListener eventListener, final boolean tampilSimpan, boolean refresh) {
 
@@ -1210,6 +1287,18 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 		return groupbox;
 	}
 
+	/**
+	 * Menyimpan (upsert) satu jawaban {@link ChecklistHasilPenilaianUmum} untuk
+	 * {@code checklistPenilaianUmum}: dicari baris yang sudah ada berdasarkan kombinasi identitas
+	 * peserta (mahasiswa/siswa/dosen/guru/tbmuser, sesuai yang berlaku — lihat
+	 * {@link #bolehSimpanKeTbmuser}), butir pertanyaan, tahun akademik, semester, dan
+	 * {@link #pertemuanId} opsional — bila ditemukan diperbarui, bila tidak dibuat baru. Nilai
+	 * radio diparse sebagai integer (default 0 bila tidak valid). Juga menandai cache "belum
+	 * lengkap" milik peserta sebagai kotor (via method {@code belum(...)}) agar status pengisian
+	 * disegarkan.
+	 *
+	 * @return selalu {@code true} (kegagalan ditangani lewat notifikasi error, bukan return value)
+	 */
 	private boolean onSave(String tahunAkademik, String semester, ChecklistPenilaianUmum checklistPenilaianUmum,
 			Radio radio, String keterangan) throws Exception {
 

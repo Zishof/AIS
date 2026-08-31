@@ -68,8 +68,33 @@ import jxl.Cell;
 import jxl.Sheet;
 import jxl.Workbook;
 
+/**
+ * Utilitas UI ZK untuk mengelola harga jual {@link AlatMedis} (alat/layanan medis) per
+ * {@link KelasPerawatan} (kelas perawatan) pada modul SIRS, mencakup impor/ekspor massal lewat
+ * Excel dan komponen editor grid interaktif untuk satu alat medis. Harga dapat berupa harga jual
+ * reguler ({@link BiayaAlatMedisPerKelas} milik langsung {@code alatMedis}) atau harga khusus
+ * ({@code milik} {@link TarifKhususPunyaAlatMedis}, untuk kontrak tarif khusus dokter/asuransi/
+ * komunitas/pasien tertentu — lihat {@link TarifKhusus}), keduanya diwakili entitas
+ * {@link BiayaAlatMedisPerKelas} yang sama, dibedakan lewat kolom pemilik yang terisi.
+ */
 public class CommonAlatMedis {
 
+	/**
+	 * Menangani unggahan berkas Excel (.xls, format JXL) berisi harga jual alat medis massal:
+	 * membaca sheet bernama {@code "1000000-DATA"} sebagai daftar master alat medis (id, kode,
+	 * nama, status aktif, flag "harga sama semua kelas", jenis alat medis, serta kolom penanda
+	 * ruang/departemen seperti Lab/Operasi/Radiologi/VK/Renal Unit/Gizi), lalu untuk tiap baris
+	 * membuat/memperbarui {@link AlatMedis} dan harga jualnya pada {@link KelasPerawatan} "umum" —
+	 * bila flag "harga sama semua kelas" aktif, harga umum tersebut disalin otomatis ke seluruh
+	 * kelas perawatan lain (memakai {@link CommonTarifAlatMedis#getBiayaAlatMedisPerKelas} untuk
+	 * resolusi baris {@link BiayaAlatMedisPerKelas} yang tepat, termasuk konteks
+	 * {@link TarifKhususPunyaAlatMedis} bila {@code tarifKhusus} diberikan). Sheet lain (bernama
+	 * sesuai kelas perawatan) menyediakan harga per kelas secara eksplisit bila tidak seragam.
+	 * Diproses asinkron di thread terpisah dengan indikator progres agar UI tidak terblokir.
+	 *
+	 * @param tarifKhusus konteks tarif khusus tujuan harga (boleh {@code null} untuk harga jual reguler)
+	 * @param jenis       jenis alat medis yang menjadi cakupan impor (mis. {@link AlatMedis#JENIS_UMUM})
+	 */
 	public static void onUploadBiaya(Event event, final TarifKhusus tarifKhusus, final String jenis) throws Exception {
 
 		final Media media;

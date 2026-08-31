@@ -31,6 +31,16 @@ import ais.database.model.Konfigurasi;
  * ais.action.ws.util.PembayaranUtil#getJadwalPembayaranDanDendaIgnoreStart}), method berhenti
  * total (early return) untuk seluruh jenjang tersisa, bukan hanya melewati jenjang itu.
  * </p>
+ *
+ * <p>
+ * <b>Keputusan (audit keamanan)</b>: ini tergolong pengamanan yang disengaja (governance),
+ * bukan bug. SQL update dikomentari di ATAS pengaman konfigurasi
+ * {@code mhs_all_lambat_bayar_langsung_tidak_aktif} yang sendirinya sudah default
+ * {@link Konfigurasi#TIDAK_AKTIF} - dua lapis pengaman independen untuk operasi tak-reversibel
+ * (menonaktifkan akun mahasiswa massal lintas jenjang berdasar status pembayaran). TIDAK
+ * diaktifkan kembali di sini; mengaktifkannya perlu persetujuan eksplisit pemilik modul
+ * akademik/keuangan, bukan keputusan teknis satu baris kode.
+ * </p>
  */
 public class AutoNotActivatingMahasiswaSemuaJenjangProcessor extends TimerTask {
 

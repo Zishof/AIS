@@ -52,6 +52,16 @@ import ais.database.model.library.Pengarang;
  * tersebut. Method {@link #main(String[])} adalah cuplikan uji manual pembersihan prefiks
  * {@code /authors/}, tidak dipakai sebagai entry point produksi.
  * </p>
+ *
+ * <p>
+ * <b>Keputusan (audit keamanan)</b>: ini tergolong kode usang yang sengaja dinonaktifkan
+ * (governance), bukan bug yang perlu diaktifkan kembali. Path default-nya mengarah ke satu
+ * dump data Open Library bertanggal 2012 - ini jelas tugas impor satu-kali historis untuk
+ * mengisi katalog awal perpustakaan digital, bukan proses berulang yang relevan untuk data
+ * terkini. Rekomendasi: biarkan nonaktif (atau hapus kelas ini sepenuhnya bila dipastikan tidak
+ * ada rencana pemakaian ulang) - TIDAK diaktifkan kembali di sini karena tidak ada manfaat
+ * bisnis yang jelas dan file sumbernya kemungkinan besar sudah tidak ada di server produksi.
+ * </p>
  */
 public class ItemImporterProcessor extends TimerTask {
 

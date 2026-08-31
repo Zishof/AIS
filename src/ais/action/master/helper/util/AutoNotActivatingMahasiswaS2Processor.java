@@ -27,8 +27,18 @@ import ais.database.model.Konfigurasi;
  * jadwal sudah tidak ada, blok transaksi dibuka dan ditutup, namun pernyataan SQL
  * {@code UPDATE mahasiswa SET status = ...} yang menonaktifkan mahasiswa masih
  * <b>dikomentari (nonaktif)</b> di kode sumber — sehingga saat ini method tidak benar-benar
- * mengubah status mahasiswa mana pun walaupun kondisinya terpenuhi. Kemungkinan sengaja
- * dimatikan sementara untuk keperluan pengujian/keamanan, atau fitur belum selesai diaktifkan.
+ * mengubah status mahasiswa mana pun walaupun kondisinya terpenuhi.
+ * </p>
+ *
+ * <p>
+ * <b>Keputusan (audit keamanan)</b>: ini tergolong pengamanan yang disengaja (governance),
+ * bukan bug yang perlu "diperbaiki" dengan mengaktifkan kembali SQL update-nya. Indikasinya:
+ * pernyataan SQL dikomentari di ATAS pengaman konfigurasi {@code
+ * mahasiswa_s2_lambat_bayar_langsung_tidak_aktif} yang sendirinya sudah default
+ * {@link Konfigurasi#TIDAK_AKTIF} — dua lapis pengaman independen untuk operasi yang tidak
+ * reversibel (menonaktifkan akun mahasiswa secara massal berdasar status pembayaran). TIDAK
+ * diaktifkan kembali di sini; mengaktifkannya adalah keputusan bisnis yang perlu persetujuan
+ * eksplisit pemilik modul akademik/keuangan, bukan keputusan teknis satu baris kode.
  * </p>
  */
 public class AutoNotActivatingMahasiswaS2Processor extends TimerTask {
