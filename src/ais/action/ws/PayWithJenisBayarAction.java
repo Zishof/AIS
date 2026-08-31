@@ -3,6 +3,21 @@ package ais.action.ws;
 import ais.action.ws.model.Response;
 import ais.database.model.LogHostToHost;
 
+/**
+ * Controller/action ZK untuk pay with jenis bayar. Tipe ini merupakan titik masuk UI yang
+ * menghubungkan event layar dengan perilaku domain yang diwarisi atau dikonfigurasi khusus oleh
+ * kelas ini.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal: {@code action}; operasi lokal: {@code hello()},
+ * {@code reversal()}, {@code inquery()}, {@code pay}(). Bagian lain dari kontrak tetap mengikuti kelas induk
+ * atau interface yang disebut di atas.</p>
+ * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
+ * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
+ * serta session Hibernate milik request yang aktif.</p>
+ */
 public class PayWithJenisBayarAction {
 	private PembayaranWithJenisBayarAction action = new PembayaranWithJenisBayarAction();
 

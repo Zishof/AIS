@@ -15,6 +15,21 @@ import org.hibernate.annotations.Fetch;
 import org.hibernate.annotations.FetchMode;
 import org.hibernate.envers.Audited;
 
+/**
+ * Komponen dashboard khusus untuk role has dashboard. Kelas ini memilih variasi data atau tampilan
+ * dashboard sambil memakai lifecycle dan mekanisme pemuatan dari kelas induknya.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * GeneralValueObject}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal: {@code id}, {@code userRole}, {@code dashboard},
+ * {@code name}, {@code originDashboard}; operasi lokal: {@code onUpdate()}, {@code getId()}, {@code setId()},
+ * {@code hakAkses()}, {@code setUserRole()}, {@code setDashboard()}, {@code getDashboard()}, {@code setName}().
+ * Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ *
+ * @see GeneralValueObject
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited

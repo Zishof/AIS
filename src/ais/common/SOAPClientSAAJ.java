@@ -4,6 +4,17 @@ import javax.xml.soap.*;
 import javax.xml.transform.*;
 import javax.xml.transform.stream.*;
 
+/**
+ * Tipe khusus untuk soap client saaj. Kelas ini memberi nama dan batas tanggung jawab yang
+ * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah operasi lokal: {@code main()}, {@code createSOAPRequest()},
+ * {@code printSOAPResponse}(). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut
+ * di atas.</p>
+ */
 public class SOAPClientSAAJ {
 
     /**

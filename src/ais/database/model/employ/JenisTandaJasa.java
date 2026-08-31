@@ -31,6 +31,23 @@ import ais.database.model.GeneralValueObject;
 
 
 
+/**
+ * Model data untuk jenis tanda jasa. Tipe ini membawa state yang dipertukarkan oleh lapisan
+ * persistence, service, dan UI; makna bisnis utamanya ditentukan oleh field serta relasi yang
+ * dideklarasikan.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * GeneralValueObject}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal: {@code id}, {@code oleh}, {@code olehId}, {@code
+ * keterangan}, {@code nama}, {@code tanggal_dirubah}; operasi lokal: {@code getOlehId()}, {@code setOlehId()},
+ * {@code onUpdate()}, {@code getId()}, {@code setId()}, {@code setOleh()}, {@code getOleh()}, {@code
+ * setTanggal_dirubah}(). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
+ * atas.</p>
+ *
+ * @see GeneralValueObject
+ */
 public class JenisTandaJasa extends GeneralValueObject {
 
 	/**
