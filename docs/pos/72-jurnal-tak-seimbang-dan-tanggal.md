@@ -65,6 +65,30 @@ apakah tanggal jurnal dokumen itu jatuh sebelum closing terakhir.
 | Tabrakan `kodeUnik` (dok 71) | kaki siswa diperbaiki + teruji; kolom ber-pemilik ganda disapu tuntas |
 | Jurnal tak seimbang (dok ini §1) | struktur berisiko teridentifikasi; menunggu bukti data lewat Q7/Q8 |
 | Tanggal jurnal vs penyaring (dok ini §2) | bukan cacat; dicatat sebagai penjelasan gejala |
+| Penulis jurnal di luar `Posting*Action` (dok ini §4) | bersih |
+
+## 4. Sapuan penutup: penulis jurnal di luar penamaan `Posting*Action`
+
+Seluruh sapuan sebelumnya berpusat pada berkas `Posting*Action`. Sepuluh berkas lain juga
+memanggil `CommonAkunting.saveTransaksi` — termasuk mesin-mesin koperasi terbaru — dan
+disapu dengan daftar periksa yang sama:
+
+`PenghapusanMasterAssetAction`, `TransaksiKoperasiAction`, `PembatalanTransaksiUtil`,
+`PostingBiayaSalesUtil`, `PostingDanaAnggotaUtil`, `JurnalPenyesuaianHelper`,
+`PostingKantinLanjutanHelper`, `SaldoAwalAkunHelper`, `TutupBukuHelper`
+(plus `PostingJurnalHelper` yang ternyata hanya menyebutnya di Javadoc).
+
+Hasil: **bersih**. Tidak ada Dr X / Cr X. Kelima berkas yang membatalkan jurnal semuanya
+menghapus grup DAN baris transaksi anaknya dengan penjaga `closing is null`. Enam jenis
+riwayat pada `PostingDanaAnggotaUtil` adalah enam dokumen berbeda, dan satu-satunya
+dokumen ber-kaki ganda di sana (modal penyertaan masuk/kembali) sudah memakai
+`hapusJurnalJenis` yang menyaring per jenis.
+
+Lima laporan "menulis jurnal tanpa mengecap dokumen" seluruhnya terjelaskan:
+`PostingKantinLanjutanHelper` mengecap lewat `UPDATE ... SET posting_history`, bukan
+setter; sedangkan `JurnalPenyesuaianHelper`, `SaldoAwalAkunHelper`, dan `TutupBukuHelper`
+memang menjurnal langsung saat input tanpa dokumen sumber (dok 61 §1) sehingga tidak ada
+yang perlu dicap.
 
 Yang tersisa seluruhnya menunggu **akses baca ke basis data produksi** — bukan pekerjaan
 kode. Jalankan skrip diagnosa r78717, lalu putuskan pemulihannya bersama bagian keuangan.
