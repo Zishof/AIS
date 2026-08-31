@@ -137,6 +137,78 @@ Satu-satunya tabel di jalur `si_*` yang bergantung `search_path`. Kini
 `@Table(schema = "public", ...)` — **tidak dipindah**, hanya dieksplisitkan: ini tabel legacy
 lintas-tenant. Idempotensi jalur tenant memakai `<schema-tenant>.idempotency_record` dari v8.
 
+## Temuan yang mengubah rencana P4: schema tenant BUKAN cermin legacy
+
+Diuji langsung pada PostgreSQL 16.4 dengan schema tenant hasil katalog v9, dan hasilnya
+membatalkan asumsi yang paling menggoda tentang P4.
+
+### Asumsi yang gugur
+
+Helper Sales/Inventory menulis nama schema **harfiah** di dalam SQL:
+
+```java
+"COALESCE((SELECT SUM(" + kolomQty + ") FROM koperasi." + tabel + " x WHERE ..."
+```
+
+Ada **111 rujukan `koperasi.` semacam itu di tujuh helper**, menyentuh 37 tabel. Dari
+bentuknya, P4 tampak seperti pekerjaan mekanis: satu titik penentuan schema, lalu ganti
+seluruh literal. Rintisan seperti itu sudah dicoba pada `SalesInventoryStokHelper` dan
+**berhasil dikompilasi tanpa satu pun galat**.
+
+Ia tetap salah.
+
+### Yang sebenarnya terjadi
+
+Dari sepuluh tabel yang dipakai helper itu, **lima tidak ada** di schema tenant:
+
+| Legacy | Schema tenant |
+|---|---|
+| `satuan_produk` | `satuan` |
+| `mutasi_stok_toko` | — (lebur ke `mutasi_stok`) |
+| `mutasi_stok_produksi` | — (lebur ke `mutasi_stok`) |
+| `pengadaan_produk` | — (lebur ke `mutasi_stok`) |
+| `retur_pembelian` | — (lebur ke `mutasi_stok`) |
+
+Kolomnya pun berbeda. Dari lima kolom `produk` yang dipakai helper, **empat berganti**:
+
+| Legacy | Schema tenant |
+|---|---|
+| `p.satuan` | `p.satuan_id` |
+| `p.hargabeli` | `p.harga_beli_terakhir` |
+| `p.hargajual` | `p.harga_jual_standar` |
+| `p.toko` | **hilang** — digantikan model `gudang`/`lokasi_stok` |
+| `p.stok_minimum` | sama |
+
+### Sebabnya disengaja, bukan kelalaian
+
+Schema tenant memakai **satu buku besar append-only** `mutasi_stok` — berkolom `jenis`,
+`arah`, `dokumen_tipe`, `dokumen_id`, `pembalik_dari_id` — dengan `saldo_stok` sebagai
+turunan. Legacy menghitung stok dengan menjumlahkan **delapan tabel terpisah**.
+
+Itu keputusan desain yang sudah tercatat di [03](03-migrasi-schema.md) ("Mutasi append-only,
+saldo turunan"), dan memang lebih baik. Konsekuensinya yang belum tercatat: **kueri legacy
+tidak dapat dipindahkan, hanya dapat ditulis ulang.**
+
+### Karena itu rintisannya dibatalkan
+
+Perubahan pada `SalesInventoryStokHelper` di-`revert`, dan kelas pemilih schema yang menyertainya
+dibuang. Menyimpannya berarti menaruh kode yang merutekan kueri ke tabel dan kolom yang tidak
+ada — gagal saat dijalankan, bukan saat dikompilasi. Kode yang lulus kompilasi tetapi pasti
+gagal di runtime lebih berbahaya daripada tidak ada kode sama sekali, sebab ia tampak selesai.
+
+### Yang harus dikerjakan P4, kalau begitu
+
+1. **Pemetaan kueri per aksi**, bukan per tabel. Untuk tiap aksi `si_*`, tentukan bentuk
+   kueri setara pada model `mutasi_stok`/`saldo_stok`.
+2. **Dua jalur berdampingan**, dipilih dari `ActorContext.tenant`: jalur legacy tetap persis
+   seperti sekarang, jalur tenant memakai kueri baru. Bukan satu kueri ber-prefiks.
+3. **Uji kesetaraan**: data yang sama dimasukkan lewat kedua model harus menghasilkan
+   Awal/Masuk/Keluar/Akhir yang sama. Tanpa uji ini, perbedaan pembulatan atau tanda pada
+   `arah` tidak akan ketahuan sampai ada selisih stok di toko sungguhan.
+
+Perkiraan sebelumnya — "111 literal, pekerjaan mekanis" — **terlalu rendah**. Yang benar:
+sebelas helper, masing-masing perlu kueri baru dan uji kesetaraan sendiri.
+
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
 **Sebelas helper, 7.512 baris, belum satu pun kuerinya dipindah ke schema tenant.**
