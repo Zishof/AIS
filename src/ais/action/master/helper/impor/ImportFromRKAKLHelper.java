@@ -3,7 +3,6 @@ package ais.action.master.helper.impor;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
@@ -47,13 +46,26 @@ public class ImportFromRKAKLHelper {
 	/** Separator baris platform, dipakai saat menyusun string SQL multi-baris agar mudah dibaca di log. */
 	public static String NL = System.getProperty("line.separator");
 
-	/** Formatter tanggal {@code yyyy-MM-dd} (thread-local) untuk mengonversi nilai field DBF bertipe tanggal menjadi literal SQL. */
-	public static final ThreadLocal<SimpleDateFormat> dateFormat = new ThreadLocal<SimpleDateFormat>() {
-		@Override
-		protected SimpleDateFormat initialValue() {
-			return new SimpleDateFormat("yyyy-MM-dd");
+	/**
+	 * Memvalidasi bahwa {@code name} berupa identifier SQL aman (hanya huruf/angka/garis bawah)
+	 * sebelum dipakai dalam DDL/DML yang dirakit lewat konkatenasi string — nama tabel/kolom tidak
+	 * bisa diikat sebagai parameter bind seperti nilai data biasa. Menolak identifier kosong atau
+	 * yang mengandung karakter di luar {@code [A-Za-z0-9_]} untuk mencegah SQL/DDL injection lewat
+	 * nama berkas DBF atau nama field DBF yang berasal dari sumber tidak tepercaya.
+	 *
+	 * @param name    identifier yang akan divalidasi
+	 * @param konteks label sumber identifier untuk pesan galat (mis. "nama tabel", "nama kolom")
+	 * @return {@code name} apa adanya, bila valid
+	 * @throws IllegalArgumentException bila {@code name} kosong atau mengandung karakter tidak aman
+	 */
+	private static String sanitizeIdentifier(String name, String konteks) {
+		if (name == null || !name.matches("[A-Za-z0-9_]+")) {
+			throw new IllegalArgumentException("Impor RKAKL ditolak: " + konteks
+					+ " mengandung karakter yang tidak diperbolehkan (hanya huruf, angka, dan garis bawah diizinkan): "
+					+ name);
 		}
-	};
+		return name;
+	}
 
 	/** Titik masuk CLI untuk pengujian manual: membaca berkas resource {@code mahasiswa.sql} lewat {@link #read(String)} dan mencetaknya. */
 	public static void main(String[] argv) throws IOException {
@@ -133,42 +145,44 @@ public class ImportFromRKAKLHelper {
 			try {
 				Session session = HibernateUtil.currentNativeSession();
 				session.getTransaction().begin();
+				String tableName = sanitizeIdentifier(file.getName().substring(0,
+						file.getName().length() - 4), "nama tabel (dari nama berkas)");
 				String sqlCreateTable = "CREATE TABLE rab_import.\""
-						+ (file.getName().substring(0,
-								file.getName().length() - 4)) + "\" ( " + NL;
+						+ tableName + "\" ( " + NL;
 				String filed = "";
 				for (int i = 0; i < reader.getFieldCount(); i++) {
 					DBFField field = reader.getField(i);
+					String fieldName = sanitizeIdentifier(field.getName(), "nama kolom (dari field DBF)");
 
 					// field.getDataType()
 					if (field.getDataType() == DBFField.FIELD_TYPE_C)
-						filed += filed.equals("") ? "\"" + field.getName()
+						filed += filed.equals("") ? "\"" + fieldName
 								+ "\" character varying("
 								+ field.getFieldLength() + ")" : ",\""
-								+ field.getName() + "\" character varying("
+								+ fieldName + "\" character varying("
 								+ field.getFieldLength() + ")";
 					else if (field.getDataType() == DBFField.FIELD_TYPE_N
 							|| field.getDataType() == DBFField.FIELD_TYPE_M)
-						filed += filed.equals("") ? "\"" + field.getName()
-								+ "\" numeric" : ",\"" + field.getName()
+						filed += filed.equals("") ? "\"" + fieldName
+								+ "\" numeric" : ",\"" + fieldName
 								+ "\" numeric";
 					else if (field.getDataType() == DBFField.FIELD_TYPE_D)
-						filed += filed.equals("") ? "\"" + field.getName()
-								+ "\" date" : ",\"" + field.getName()
+						filed += filed.equals("") ? "\"" + fieldName
+								+ "\" date" : ",\"" + fieldName
 								+ "\" date";
 					else if (field.getDataType() == DBFField.FIELD_TYPE_F)
-						filed += filed.equals("") ? "\"" + field.getName()
+						filed += filed.equals("") ? "\"" + fieldName
 								+ "\" double precision" : ",\""
-								+ field.getName() + "\" double precision";
+								+ fieldName + "\" double precision";
 					else if (field.getDataType() == DBFField.FIELD_TYPE_L)
-						filed += filed.equals("") ? "\"" + field.getName()
-								+ "\" bool" : ",\"" + field.getName()
+						filed += filed.equals("") ? "\"" + fieldName
+								+ "\" bool" : ",\"" + fieldName
 								+ "\" bool";
 					else {
-						filed += filed.equals("") ? "\"" + field.getName()
+						filed += filed.equals("") ? "\"" + fieldName
 								+ "\" character varying("
 								+ field.getFieldLength() + ")" : ",\""
-								+ field.getName() + "\" character varying("
+								+ fieldName + "\" character varying("
 								+ field.getFieldLength() + ")";
 					}
 
@@ -227,11 +241,13 @@ public class ImportFromRKAKLHelper {
 						progressmeterChild.setValue((row * 100) / rowCount);
 					}
 
+					String tableName = sanitizeIdentifier(file.getName().substring(0, file.getName()
+							.length() - 4), "nama tabel (dari nama berkas)");
 					String sqlInsert = "INSERT INTO rab_import.\""
-							+ (file.getName().substring(0, file.getName()
-									.length() - 4)) + "\" VALUES ";
+							+ tableName + "\" VALUES ";
 
 					sqlInsert += "(" + NL;
+					List<Object> insertParams = new ArrayList<Object>();
 					for (int i = 0; i < reader.getFieldCount(); i++) {
 						DBFField field = reader.getField(i);
 
@@ -242,49 +258,48 @@ public class ImportFromRKAKLHelper {
 
 						else if (field.getDataType() == DBFField.FIELD_TYPE_C) {
 							if (!rowobj[i].toString().trim().equals("")) {
-
-								String data = rowobj[i].toString().trim()
-										.replaceAll("'", "");
-
-								sqlInsert += "'" + data + "'";
+								sqlInsert += "?";
+								insertParams.add(rowobj[i].toString().trim());
 							} else {
 								sqlInsert += "null";
 							}
 						} else if (field.getDataType() == DBFField.FIELD_TYPE_N
 								|| field.getDataType() == DBFField.FIELD_TYPE_M) {
 							if (!rowobj[i].toString().trim().equals("")) {
-								sqlInsert += "" + rowobj[i] + "";
+								sqlInsert += "?";
+								insertParams.add(rowobj[i]);
 							} else {
 								sqlInsert += "null";
 							}
 						} else if (field.getDataType() == DBFField.FIELD_TYPE_F) {
 							if (!rowobj[i].toString().trim().equals("")) {
-								sqlInsert += "" + rowobj[i] + "";
+								sqlInsert += "?";
+								insertParams.add(rowobj[i]);
 							} else {
 								sqlInsert += "null";
 							}
 						} else if (field.getDataType() == DBFField.FIELD_TYPE_L) {
 							if (!rowobj[i].toString().trim().equals("")) {
-								sqlInsert += "" + rowobj[i] + "";
+								sqlInsert += "?";
+								insertParams.add(rowobj[i]);
 							} else {
 								sqlInsert += "null";
 							}
 						} else if (field.getDataType() == DBFField.FIELD_TYPE_D) {
-							try {
-								if (!rowobj[i].toString().trim().equals("")) {
-									sqlInsert += "'"
-											+ dateFormat.get().format(rowobj[i])
-											+ "'";
-
+							if (!rowobj[i].toString().trim().equals("")) {
+								sqlInsert += "?";
+								if (rowobj[i] instanceof java.util.Date) {
+									insertParams.add(new java.sql.Date(((java.util.Date) rowobj[i]).getTime()));
 								} else {
-									sqlInsert += "null";
+									insertParams.add(rowobj[i].toString());
 								}
-							} catch (Exception e) {
-								sqlInsert += "'" + rowobj[i] + "'";
+							} else {
+								sqlInsert += "null";
 							}
 						} else {
 							if (!rowobj[i].toString().trim().equals("")) {
-								sqlInsert += "" + rowobj[i] + "";
+								sqlInsert += "?";
+								insertParams.add(rowobj[i]);
 							} else {
 								sqlInsert += "null";
 							}
@@ -302,7 +317,11 @@ public class ImportFromRKAKLHelper {
 					System.out.println("sqlInsert = " + sqlInsert);
 					Session session = HibernateUtil.currentNativeSession();
 					session.getTransaction().begin();
-					session.createSQLQuery(sqlInsert).executeUpdate();
+					org.hibernate.SQLQuery insertQuery = session.createSQLQuery(sqlInsert);
+					for (int p = 0; p < insertParams.size(); p++) {
+						insertQuery.setParameter(p, insertParams.get(p));
+					}
+					insertQuery.executeUpdate();
 					session.getTransaction().commit();
 					
 					HibernateUtil.closeSession();

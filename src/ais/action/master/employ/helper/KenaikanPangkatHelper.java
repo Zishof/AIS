@@ -61,6 +61,15 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper UI ZK untuk mengelola riwayat kenaikan pangkat/golongan/jabatan ({@link KenaikanPangkat})
+ * milik satu {@link Pegawai}: daftar riwayat dalam grid berpencarian (baris yang mencerminkan
+ * jabatan yang sedang dijabat — {@code menjabat=true} — disorot hijau muda), form tambah/ubah
+ * lengkap mencakup jenis kenaikan pangkat, jabatan (fungsional/struktural/umum — hanya salah
+ * satu yang relevan per baris), golongan/gaji pokok, dasar peraturan, nomor dan tanggal surat
+ * usul serta surat keputusan beserta pejabat penandatangan, rentang berlaku, dan lampiran
+ * dokumen pendukung lewat {@link LampiranLain}.
+ */
 public class KenaikanPangkatHelper {
 
 	private MyGrid grid = new MyGrid();
@@ -98,10 +107,12 @@ public class KenaikanPangkatHelper {
 	private AmbilDataSatuanKerjaBanbox searchparent;
 	private SatuanKerjaTreeModel satuanKerjaTreeModel;
 
+	/** Menyiapkan helper untuk {@code pegawai} tertentu, atau untuk semua pegawai bila {@code null}. */
 	public KenaikanPangkatHelper(final Pegawai pegawai) {
 		this.pegawai = pegawai;
 	}
 
+	/** Renderer baris grid untuk {@link KenaikanPangkat}: jabatan (fungsional/struktural/umum, salah satu yang terisi), jenis kenaikan pangkat, nomor/tanggal surat usul, golongan/gaji pokok, peraturan, nomor/tanggal SK dan pejabat penandatangan, ditandai warna hijau muda bila mencerminkan jabatan yang sedang dijabat. */
 	class KenaikanPangkatRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -225,7 +236,8 @@ public class KenaikanPangkatHelper {
 		}
 	}
 
-	public Borderlayout display() throws Exception { 
+	/** Membangun kerangka layar daftar kenaikan pangkat: panel filter (pegawai, status, satuan kerja) di utara dan grid rincian di tengah, lalu langsung memuat datanya. */
+	public Borderlayout display() throws Exception {
 
 		North north = new North();
 		Center center = new Center();
@@ -405,6 +417,7 @@ public class KenaikanPangkatHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Memuat ulang daftar {@link KenaikanPangkat} sesuai filter aktif ke grid. */
 	public void onSearchDefault(Event event) {
 		
 		SatuanKerja parent = (SatuanKerja) searchparent.getAttribute("satuanKerja");
@@ -439,6 +452,7 @@ public class KenaikanPangkatHelper {
 
 	}
 
+	/** Membangun form tambah/ubah untuk {@code kenaikanPangkat} (baru atau sudah ada): jenis kenaikan, jabatan (fungsional/struktural/umum), golongan/gaji pokok, peraturan dasar, data surat usul dan SK, rentang berlaku, serta lampiran dokumen, menggantikan tampilan daftar sementara. */
 	public void init(final KenaikanPangkat kenaikanPangkat) throws Exception {
 		this.kenaikanPangkat = kenaikanPangkat;
 
@@ -781,6 +795,7 @@ public class KenaikanPangkatHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Memvalidasi dan menyimpan data {@link KenaikanPangkat} dari form; mengembalikan {@code false} bila validasi gagal (pesan sudah ditampilkan ke pengguna), {@code true} bila berhasil disimpan. */
 	public boolean save(Event event) throws Exception {
 
 		if (ambilDataPegawaiBanbox.getAttribute("pegawai") == null) {

@@ -1845,6 +1845,17 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 		return true;
 	}
 
+	/**
+	 * Menyusun kriteria pencarian {@link SettingBiaya} sesuai filter layar (jenis kegiatan ketat;
+	 * jenjang/jurusan/status awal/program/angkatan longgar — nilai kosong pada baris data tetap ikut
+	 * cocok, konsisten dengan cara penerapan biaya di method statis {@code get*}), ditambah
+	 * pencarian teks bebas pada gelombang pendaftaran dan paket/jenis seleksi (via {@code LEFT_JOIN}
+	 * agar baris tanpa gelombang/paket tetap tampil), diurutkan berdasarkan prioritas lalu id
+	 * terbaru bila diminta.
+	 *
+	 * @param order {@code true} untuk menyertakan pengurutan
+	 * @return kriteria Hibernate siap dieksekusi
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(SettingBiaya.class);
@@ -1932,6 +1943,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 	}
 
 	
+	/** Menjalankan pencarian setting biaya sesuai kriteria dan halaman paging aktif, lalu merender hasilnya ke grid; no-op bila komponen pencarian belum siap. */
 	public void onSearchDefault(Event event) {
 		if (searchJenisKegiatan == null) {
 			return;
@@ -1948,6 +1960,14 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 
 	}
 
+	/**
+	 * Memeriksa apakah kombinasi kriteria pada form (angkatan, khusus/batasi mahasiswa tertentu,
+	 * tahun-semester {@code ta} yang disusun dari tahun akademik + semester terpilih, rentang
+	 * semester min/maks, dan opsi ikut-settingan-di-sini) sudah dipakai oleh baris
+	 * {@link SettingBiaya} lain, untuk mencegah duplikasi aturan tagihan yang saling tumpang tindih.
+	 *
+	 * @return {@code true} bila kombinasi kriteria sudah terdaftar pada baris lain, {@code false} bila belum
+	 */
 	public Boolean checkSettingBiaya() {
 
 		String tahunAkademik = (String) (this.tahunAkademik.getSelectedItem() == null
@@ -2066,6 +2086,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 								? Restrictions.sqlRestriction("1=1") : Restrictions.sqlRestriction("1=0"))));
 	}
 
+	/** Seperti {@link #getItemBiaya(Session, Integer, Jenjang, Integer, JenisKegiatan, StatusAwalMahasiswa, StatusMahasiswa, JenisSeleksi, GelombangPendaftaran, Paket, Jurusan, String, String, AfiliasiCalonMahasiswa, Integer, String)}, tanpa NIM mahasiswa spesifik (tidak menerapkan penyaringan/prioritas per-mahasiswa individual). */
 	public static List<ItemBiaya> getItemBiaya(Session session, Integer angkatan, Jenjang jenjang, Integer semester,
 			JenisKegiatan jenisKegiatan, StatusAwalMahasiswa statusAwalMahasiswa, StatusMahasiswa statusMahasiswa,
 			JenisSeleksi jenisSeleksi, GelombangPendaftaran gelombangPendaftaran, Paket paket, Jurusan jurusan,
@@ -2075,6 +2096,35 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 				afiliasiCalonMahasiswa, ta, null);
 	}
 
+	/**
+	 * Menentukan daftar {@link ItemBiaya} yang berlaku untuk satu konteks mahasiswa/calon mahasiswa:
+	 * mencari seluruh {@link SettingBiaya} UMUM (bukan {@code khususBuatMahasiswaTertentu}, bukan
+	 * {@code gunakanBiayaDefault}) dengan {@code ta} tidak melebihi tahun-semester yang diminta dan
+	 * jenis kegiatan cocok, menyaring+memprioritaskan lewat
+	 * {@link ais.action.master.helper.SettingBiayaMahasiswaSelector} (termasuk pengecekan daftar
+	 * pengecualian per NIM bila {@code nimMahasiswa} diberikan), lalu memilih SATU baris paling
+	 * spesifik berdasarkan seluruh kriteria yang diberikan, dan akhirnya mengambil item biayanya
+	 * yang aktif dan berlaku pada semester yang diminta (memperhatikan flag tidak-ditagih-semester-
+	 * ganjil/genap dan rentang min/maks semester per item).
+	 *
+	 * @param session                  sesi Hibernate aktif
+	 * @param angkatan                 tahun angkatan mahasiswa/calon mahasiswa
+	 * @param jenjang                  jenjang pendidikan
+	 * @param semester                 semester berjalan (memengaruhi item yang tidak ditagih ganjil/genap dan rentang min/maks smt)
+	 * @param jenisKegiatan            jenis kegiatan penagihan (kriteria wajib cocok persis)
+	 * @param statusAwalMahasiswa      status awal mahasiswa, boleh {@code null}
+	 * @param statusMahasiswa          status mahasiswa saat ini, boleh {@code null}
+	 * @param jenisSeleksi             jenis seleksi PMB, boleh {@code null}
+	 * @param gelombangPendaftaran     gelombang pendaftaran, boleh {@code null}
+	 * @param paket                    paket PMB, boleh {@code null}
+	 * @param jurusan                  program studi
+	 * @param program                  kode program (mis. reguler/karyawan)
+	 * @param kelamin                  jenis kelamin, boleh {@code null}
+	 * @param afiliasiCalonMahasiswa   afiliasi calon mahasiswa, boleh {@code null}
+	 * @param ta                       kode tahun-semester (format {@code YYYYS}) batas atas setting biaya yang dipertimbangkan
+	 * @param nimMahasiswa             NIM untuk penyaringan/pengecualian per-individu, boleh {@code null}
+	 * @return daftar item biaya yang berlaku, atau {@code null} bila mahasiswa termasuk daftar pengecualian setting yang cocok
+	 */
 	public static List<ItemBiaya> getItemBiaya(Session session, Integer angkatan, Jenjang jenjang, Integer semester,
 			JenisKegiatan jenisKegiatan, StatusAwalMahasiswa statusAwalMahasiswa, StatusMahasiswa statusMahasiswa,
 			JenisSeleksi jenisSeleksi, GelombangPendaftaran gelombangPendaftaran, Paket paket, Jurusan jurusan,
@@ -2146,6 +2196,21 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 		return itemBiayas;
 	}
 
+	/**
+	 * Menyusun daftar {@link DetailBiaya} default (tagihan siap pakai) untuk satu
+	 * {@link BiodataCalonMahasiswa} berdasarkan {@link SettingBiayaDetail} KHUSUS individu tersebut
+	 * ({@code khususBuatMahasiswaTertentu=true}) yang rentang semesternya mencakup {@code semester}
+	 * yang diminta dan {@code ta} setting tidak melebihi batas yang diminta (baris berprioritas dan
+	 * ta terbaru dipilih). Mendelegasikan penyusunan detail ke
+	 * {@link #getDefaultSettingBiaya(Session, SettingBiayaDetail, Integer, BiodataCalonMahasiswa)}.
+	 *
+	 * @param session                sesi Hibernate aktif
+	 * @param biodataCalonMahasiswa  calon mahasiswa yang tagihannya disusun
+	 * @param jenisKegiatan          jenis kegiatan penagihan
+	 * @param semester               semester tagihan yang diminta
+	 * @param ta                     kode tahun-semester batas atas setting yang dipertimbangkan
+	 * @return daftar detail biaya, {@code null} bila tidak ada setting khusus yang cocok, atau daftar kosong bila calon mahasiswa termasuk daftar pengecualian
+	 */
 	public static List<DetailBiaya> getDetailBiayaDefault(Session session, BiodataCalonMahasiswa biodataCalonMahasiswa,
 			JenisKegiatan jenisKegiatan, Integer semester, Integer ta) {
 		SettingBiayaDetail settingBiayaDetail = (SettingBiayaDetail) ConstantValues.simpleObject(
@@ -2174,6 +2239,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 		}
 	}
 
+	/** Seperti {@link #getDetailBiayaDefault(Session, BiodataCalonMahasiswa, JenisKegiatan, Integer, Integer)}, untuk mahasiswa aktif ({@link Mahasiswa}) alih-alih calon mahasiswa. */
 	public static List<DetailBiaya> getDetailBiayaDefault(Session session, Mahasiswa mahasiswa,
 			JenisKegiatan jenisKegiatan, Integer semester, Integer ta) {
 		SettingBiayaDetail settingBiayaDetail = (SettingBiayaDetail) ConstantValues.simpleObject(
@@ -2201,6 +2267,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 	}
 
 	
+	/** Seperti varian dengan {@code nimMahasiswa}, tanpa penyaringan/pengecualian per-individu. */
 	public static List<DetailBiaya> getDetailBiayaDefault(Session session, Integer angkatan, Jenjang jenjang,
 			Integer semester, JenisKegiatan jenisKegiatan, StatusAwalMahasiswa statusAwalMahasiswa,
 			StatusMahasiswa statusMahasiswa, JenisSeleksi jenisSeleksi, GelombangPendaftaran gelombangPendaftaran,
@@ -2211,6 +2278,16 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 				afiliasiCalonMahasiswa, ta, null);
 	}
 
+	/**
+	 * Varian {@code getDetailBiayaDefault} berbasis kriteria mentah (bukan entitas mahasiswa/calon
+	 * mahasiswa langsung): menentukan {@link ItemBiaya} yang berlaku lewat {@link #getItemBiaya},
+	 * lalu menyusun {@link DetailBiaya} default per item dari setting biaya UMUM yang paling cocok
+	 * (bukan setting khusus individu — bandingkan dengan overload berbasis
+	 * {@link BiodataCalonMahasiswa}/{@link Mahasiswa} yang mencari {@link SettingBiayaDetail} khusus).
+	 *
+	 * @param nimMahasiswa NIM untuk penyaringan/pengecualian per-individu, boleh {@code null}
+	 * @return daftar detail biaya default yang berlaku sesuai kriteria
+	 */
 	public static List<DetailBiaya> getDetailBiayaDefault(Session session, Integer angkatan, Jenjang jenjang,
 			Integer semester, JenisKegiatan jenisKegiatan, StatusAwalMahasiswa statusAwalMahasiswa,
 			StatusMahasiswa statusMahasiswa, JenisSeleksi jenisSeleksi, GelombangPendaftaran gelombangPendaftaran,
@@ -2267,6 +2344,32 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 	}
 
 	
+	/**
+	 * Menyusun daftar {@link DetailBiaya} dari seluruh {@link DetailSettingBiaya} milik satu
+	 * {@link SettingBiaya} (setting UMUM, bukan khusus individu) yang aktif dan berlaku pada
+	 * semester yang diminta: untuk tiap item, MEMAKAI baris {@link DetailBiaya} yang sudah persis
+	 * cocok (setting biaya + detail setting + semester + jurusan + program yang sama) bila ada, atau
+	 * MENYALIN dari template {@link DetailBiaya} terdekat (dicocokkan dari kriteria yang lebih umum)
+	 * bila belum ada baris persis — sehingga nominal/label biaya konsisten dengan histori sebelumnya
+	 * ketimbang dibuat kosong dari nol.
+	 *
+	 * @param session                sesi Hibernate aktif
+	 * @param settingBiaya           setting biaya sumber daftar item
+	 * @param angkatan               tahun angkatan, dipakai untuk mencari template terdekat
+	 * @param jenjang                jenjang pendidikan
+	 * @param semester               semester tagihan yang diminta
+	 * @param jenisKegiatan          jenis kegiatan penagihan
+	 * @param statusAwalMahasiswa    status awal mahasiswa, boleh {@code null}
+	 * @param statusMahasiswa        status mahasiswa saat ini, boleh {@code null}
+	 * @param jenisSeleksi           jenis seleksi PMB, boleh {@code null}
+	 * @param gelombangPendaftaran   gelombang pendaftaran, boleh {@code null}
+	 * @param paket                  paket PMB, boleh {@code null}
+	 * @param jurusan                program studi
+	 * @param program                kode program
+	 * @param kelamin                jenis kelamin, boleh {@code null}
+	 * @param afiliasiCalonMahasiswa afiliasi calon mahasiswa, boleh {@code null}
+	 * @return daftar detail biaya siap pakai untuk setting biaya yang diberikan
+	 */
 	public static List<DetailBiaya> getDefaultSettingBiaya(Session session, SettingBiaya settingBiaya, Integer angkatan,
 			Jenjang jenjang, Integer semester, JenisKegiatan jenisKegiatan, StatusAwalMahasiswa statusAwalMahasiswa,
 			StatusMahasiswa statusMahasiswa, JenisSeleksi jenisSeleksi, GelombangPendaftaran gelombangPendaftaran,
@@ -2403,6 +2506,21 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 	}
 
 	
+	/**
+	 * Varian {@link #getDefaultSettingBiaya(Session, SettingBiaya, Integer, Jenjang, Integer,
+	 * JenisKegiatan, StatusAwalMahasiswa, StatusMahasiswa, JenisSeleksi, GelombangPendaftaran, Paket,
+	 * Jurusan, String, String, AfiliasiCalonMahasiswa)} berbasis {@link SettingBiayaDetail} KHUSUS
+	 * satu {@link Mahasiswa}: sebelum menyusun detail, memeriksa apakah mahasiswa sudah lulus/keluar
+	 * sebelum semester yang diminta — bila ya dan jenis kegiatan setting TIDAK menandai
+	 * {@code tagihanJugaUntukAlumni}, mengembalikan daftar kosong (mahasiswa yang sudah tidak aktif
+	 * tidak lagi ditagih kecuali jenis kegiatan tersebut memang berlaku untuk alumni).
+	 *
+	 * @param session            sesi Hibernate aktif
+	 * @param settingBiayaDetail setting biaya detail khusus milik mahasiswa ini
+	 * @param semester           semester tagihan yang diminta
+	 * @param mahasiswa          mahasiswa target, diperiksa status kelulusan/keluarnya
+	 * @return daftar detail biaya, atau daftar kosong bila mahasiswa sudah tidak aktif dan jenis kegiatan bukan untuk alumni
+	 */
 	public static List<DetailBiaya> getDefaultSettingBiaya(Session session, SettingBiayaDetail settingBiayaDetail,
 			Integer semester, Mahasiswa mahasiswa) {
 		List<DetailBiaya> detailBiayas = new ArrayList<DetailBiaya>();
@@ -2509,6 +2627,11 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 	}
 
 	
+	/**
+	 * Seperti {@link #getDefaultSettingBiaya(Session, SettingBiayaDetail, Integer, Mahasiswa)}, untuk
+	 * {@link BiodataCalonMahasiswa} (calon mahasiswa, belum berstatus mahasiswa aktif) — tanpa
+	 * pengecekan status kelulusan/keluar yang hanya relevan untuk mahasiswa aktif.
+	 */
 	public static List<DetailBiaya> getDefaultSettingBiaya(Session session, SettingBiayaDetail settingBiayaDetail,
 			Integer semester, BiodataCalonMahasiswa biodataCalonMahasiswa) {
 		List<DetailSettingBiaya> detailSettingBiayas = ConstantValues
@@ -2596,6 +2719,17 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 	}
 
 	
+	/**
+	 * Varian {@link #getItemBiaya}/{@link #getDefaultSettingBiaya} yang HANYA menyertakan item biaya
+	 * dengan nominal default eksplisit lebih dari nol ({@code defaultBiaya > 0.1}) — dipakai untuk
+	 * konteks yang butuh daftar tagihan bernominal pasti (bukan item "default kosong"/nol yang
+	 * biasanya diisi manual belakangan). Sama seperti {@link #getItemBiaya}, mencari
+	 * {@link SettingBiaya} UMUM paling cocok/prioritas, lalu menyusun {@link DetailBiaya} per item
+	 * (memakai baris tersimpan bila cocok persis, atau template terdekat/entitas baru bila belum ada).
+	 *
+	 * @return daftar detail biaya bernominal default non-nol yang berlaku sesuai kriteria, daftar
+	 *         kosong bila tidak ada setting biaya yang cocok
+	 */
 	public static List<DetailBiaya> getDetailBiayaBukanDefaultBiaya(Session session, Integer angkatan, Jenjang jenjang,
 			Integer semester, JenisKegiatan jenisKegiatan, StatusAwalMahasiswa statusAwalMahasiswa,
 			StatusMahasiswa statusMahasiswa, JenisSeleksi jenisSeleksi, GelombangPendaftaran gelombangPendaftaran,

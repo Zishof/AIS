@@ -90,6 +90,35 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.action.master.helper.FilterLanjutHelper;
 
+/**
+ * Composer ZK inti mesin disposisi/persetujuan SOP (Standard Operating Procedure): mengelola satu
+ * langkah ({@link DisposisiAlurSop}) dalam satu kasus/instans SOP yang sedang berjalan
+ * ({@link DisposisiSop}) yang mengikuti definisi alur ({@link AlurSop}, node dalam graf langkah
+ * milik {@link Sop}). Bagian atas kelas menampilkan daftar riwayat langkah disposisi (difilter
+ * rentang tanggal, kata kunci, fakultas/jurusan/yayasan/sekolah dari SOP terkait, dan dibatasi ke
+ * langkah yang berhak dilihat aktor lewat {@link AktorSop#buatCriterionPengaju}); bagian
+ * {@code init}/{@code onSave} menyediakan jendela modal untuk memproses satu langkah baru.
+ *
+ * <h2>Alur satu langkah disposisi</h2>
+ * {@link #init(DisposisiAlurSop, AlurSop, DisposisiSop, java.util.Set, boolean)} (privat, dipanggil
+ * lewat {@link #init(GeneralValueObject)} atau {@link #onAddExternal}) menyusun formulir dinamis:
+ * info SOP dan lampirannya, formulir kustom opsional dimuat lewat refleksi dari
+ * {@code alurSop.getFormInputan()} (implementasi {@link FormSop}), parameter tambahan
+ * ({@link ParameterTambahanAlurSop} dikelompokkan lewat {@link KelompokParameterTambahanAlurSop}),
+ * unggahan dokumen wajib/opsional ({@link DokumenAlurSop}), dan pilihan langkah berikutnya
+ * (radio group atau checkbox-multi, dari {@code alurSop.ambilOpsiAlurSetelahnya()}/
+ * {@code ambilAlurSetelahnya()}) — termasuk opsi "kembali ke langkah sebelumnya" (menonaktifkan
+ * {@code setujuiData}) dan "Setujui dan Selesai". {@link #check()} memvalidasi kelengkapan (catatan
+ * wajib, lampiran wajib, waktu, pilihan langkah berikut, dokumen wajib) sebelum
+ * {@link #onSave(Event)} menyimpan {@link DisposisiAlurSop} baru/perbarui dalam transaksi (dengan
+ * penanganan konflik optimistic-lock {@link org.hibernate.StaleStateException} secara eksplisit),
+ * menghapus baris langkah-berikutnya basi yang menunjuk ke langkah ini, lalu memperbarui penanda
+ * agregat pada {@link DisposisiSop} (langkah terakhir/langkah disetujui) secara aman-konkuren
+ * lewat {@code KunciEntityHelper.jalankanDenganKunci} (kunci baris + retry, menghindari deadlock
+ * antar thread aplikasi dan gantung akibat {@code statement_timeout}). {@link #checkAndSave}
+ * adalah helper statis idempoten yang dipakai bersama untuk memperbarui penanda tersebut hanya
+ * bila benar-benar berubah.
+ */
 public class DisposisiAlurSopAction extends GenericAutowireComposer
 		implements DataCriteria, DataSearchDefault, DataInitDefault {
 
@@ -148,6 +177,7 @@ public class DisposisiAlurSopAction extends GenericAutowireComposer
 	private List<String> opsiAlurSops;
 	private Hbox hboxAktor;
 
+	/** Memverifikasi keamanan sesi lewat {@link Common#doCheckSecurity()} sebelum halaman disusun. */
 	@Override
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page,
 			org.zkoss.zk.ui.Component parent, org.zkoss.zk.ui.metainfo.ComponentInfo compInfo) {
@@ -155,6 +185,7 @@ public class DisposisiAlurSopAction extends GenericAutowireComposer
 		return super.doBeforeCompose(page, parent, compInfo);
 	}
 
+	/** Menyiapkan rentang tanggal filter default (bulan berjalan), memuat daftar awal, menyiapkan paginasi dan kombo filter fakultas/jurusan/yayasan/sekolah (visibilitas mengikuti konfigurasi {@code user_fakultas}/{@code user_yayasan}), dan menambahkan tombol cetak data massal. */
 	@Override
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);

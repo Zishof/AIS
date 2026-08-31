@@ -101,6 +101,24 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper ZK yang membangun tampilan dan alur input nilai (rapor) untuk peserta satu
+ * {@link KelasLesSiswa} (kelas les/mata pelajaran) — kelas dengan kompleksitas dan ukuran TERBESAR
+ * di paket ini, memodelkan struktur penilaian berjenjang sekolah: satu {@link Matapelajaran}
+ * memiliki satu {@link JenisPenilaian}, yang memiliki beberapa {@link GrupPenilaian} (mis. "Nilai
+ * Harian", "UTS", "UAS", ditampilkan sebagai tab utama), tiap grup memiliki beberapa
+ * {@link GrupKategoriItemPenilaianSiswa} (mis. per kategori/kompetensi, ditampilkan sebagai
+ * sub-tab, plus satu sub-tab "Total" bila grup mengaktifkan {@code adaTotal}), dan tiap kategori
+ * memiliki beberapa {@link JenisItemPenilaianSiswa} (kolom input nilai individual, dapat bertipe
+ * input manual atau {@code FORMULA} yang dihitung otomatis dari item lain lewat
+ * {@link GrupPenilaianUtil}). Seluruh sub-tab dibangun LAZY (baru dirender saat diklik pertama kali,
+ * kecuali tab pertama yang langsung dimuat) mengingat volume komponen yang sangat besar untuk kelas
+ * dengan banyak siswa (tinggi grid disesuaikan dinamis dari jumlah siswa). Setiap sel nilai memicu
+ * penghitungan ulang total/huruf (lewat {@link NilaiHurufSekolah}) dan tersimpan langsung ke
+ * {@link KelasLesSiswaPunyaSiswa} (lewat {@code populateDetailNilai}/{@code populateDetailNilaiTotal})
+ * begitu diedit. Menyediakan juga unggah massal nilai dari file Excel per kombinasi grup/kategori
+ * ({@link #uploadDataNilai}) dan ekspor Excel dengan pewarnaan sel kustom (Apache POI/ZK POI).
+ */
 public class DetailPenilaianLesSiswaHelper {
 
 	private KelasLesSiswa kelasLesSiswa;
@@ -113,6 +131,13 @@ public class DetailPenilaianLesSiswaHelper {
 
 	}
 
+	/**
+	 * Menyusun kriteria untuk mengambil peserta aktif kelas les yang sedang aktif pada helper ini,
+	 * diurutkan nomor urut, tahun masuk, lalu nama siswa bila diminta.
+	 *
+	 * @param order {@code true} untuk menyertakan pengurutan
+	 * @return kriteria Hibernate siap dieksekusi
+	 */
 	public Criteria initCriteria(boolean order) {
 
 		Session session = HibernateUtil.currentSession();
@@ -240,6 +265,22 @@ public class DetailPenilaianLesSiswaHelper {
 		return rows;
 	}
 
+	/**
+	 * Membangun seluruh antarmuka input/tampilan nilai untuk peserta aktif kelas les di dalam
+	 * komponen target: satu tab per {@link GrupPenilaian} yang berlaku (difilter tingkat kelas bila
+	 * grup dibatasi ke tingkat tertentu), masing-masing berisi sub-tab per
+	 * {@link GrupKategoriItemPenilaianSiswa} (plus sub-tab "Total" bila grup mengaktifkannya), yang
+	 * masing-masing berisi grid nilai per siswa dengan kolom sesuai {@link JenisItemPenilaianSiswa}
+	 * grup/kategori tersebut. Untuk pengguna yang login sebagai siswa/calon siswa, tampilan dibatasi
+	 * hanya-baca ke data yang sudah tervalidasi ({@code hanyaValid}). Seluruh sub-tab dibangun LAZY
+	 * (isi baru dirender saat tab diklik pertama kali) kecuali tab pertama yang langsung dimuat, demi
+	 * performa pada kelas dengan banyak siswa dan banyak kombinasi grup/kategori/item nilai.
+	 *
+	 * @param detail     komponen kontainer target tempat seluruh struktur tab dipasang
+	 * @param kelasLesSiswa kelas les yang nilainya ditampilkan/diinput
+	 * @param siswasTemp daftar peserta kelas les (hanya yang aktif yang benar-benar dipakai)
+	 * @throws Exception diteruskan apa adanya dari kegagalan query atau pembangunan komponen
+	 */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	public static void displayPenilaian(final Component detail, final KelasLesSiswa kelasLesSiswa,
 			List<KelasLesSiswaPunyaSiswa> siswasTemp) throws Exception {
@@ -2550,6 +2591,27 @@ public class DetailPenilaianLesSiswaHelper {
 		}
 	}
 
+	/**
+	 * Memproses unggahan massal nilai dari file Excel untuk satu kombinasi grup/kategori penilaian:
+	 * membaca setiap baris di thread latar belakang terpisah, meresolusi siswa per baris (via id atau
+	 * NISN), lalu untuk setiap semester dan jenis item nilai mengisi nilai dari sel Excel (atau
+	 * menghitungnya otomatis via {@link GrupPenilaianUtil#ambilTarget} bila item bertipe
+	 * {@link JenisItemPenilaianSiswa#FORMULA}), menyimpannya lewat
+	 * {@link KelasLesSiswaPunyaSiswa#populateDetailNilai}, lalu menghitung dan menyimpan total
+	 * kategori lewat {@code populateDetailNilaiTotal}. Menampilkan indikator sibuk dan progres lewat
+	 * {@link Timer}, lalu memanggil {@code eventListener} saat proses tuntas.
+	 *
+	 * @param file                          file Excel (.xlsx) yang sudah diunggah dan tersimpan di disk
+	 * @param eventListener                 callback yang dipanggil setelah proses upload selesai
+	 * @param contents                      daftar kolom identitas siswa di awal sheet (menentukan offset kolom nilai)
+	 * @param smts                          daftar semester yang diproses
+	 * @param jenisItemPenilaianSiswas      daftar jenis item nilai (kolom) yang diproses per semester
+	 * @param siswas                        daftar peserta kelas les yang menjadi kandidat pencocokan baris
+	 * @param kelasLesSiswa                 kelas les target
+	 * @param grupKategoriItemPenilaianSiswa kategori penilaian target
+	 * @param grupPenilaian                 grup penilaian target
+	 * @throws Exception diteruskan apa adanya dari kegagalan membuka workbook
+	 */
 	public static void uploadDataNilai(final File file, final EventListener eventListener, final String[] contents,
 			final int[] smts, final List<JenisItemPenilaianSiswa> jenisItemPenilaianSiswas,
 			final List<KelasLesSiswaPunyaSiswa> siswas, final KelasLesSiswa kelasLesSiswa,

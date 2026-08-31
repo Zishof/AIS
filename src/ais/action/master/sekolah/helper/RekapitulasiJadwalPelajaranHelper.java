@@ -53,8 +53,23 @@ import ais.ui.util.MyLabelConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Utilitas UI ZK (statis) untuk menampilkan rekapitulasi jadwal pelajaran/mengajar sekolah:
+ * membangun panel pencarian dan daftar {@link JadwalPelajaran} yang dikelompokkan per guru/kelas
+ * dengan statistik opsional ({@link #display}), memuat ulang datanya sesuai filter tahun ajaran/
+ * semester/kata kunci ({@link #reload}), dan menyediakan dialog tambah/ubah jadwal mengajar
+ * tunggal ({@link #tambahJadwalMengajar}) yang dapat dikaitkan ke {@link KelasLesSiswa} les privat
+ * bila diberikan.
+ */
 public class RekapitulasiJadwalPelajaranHelper {
 
+	/**
+	 * Membuka dialog modal untuk menambah atau mengubah satu {@link JadwalPelajaran}: memilih
+	 * kelas siswa dan (opsional) kelas les siswa, mata pelajaran, hari/jam, dan detail lainnya.
+	 * Bila {@code lesSiswa} diberikan, jadwal yang dibuat otomatis dikaitkan sebagai jadwal les
+	 * privat untuknya. {@code eventListenerData} dipanggil dengan {@link JadwalPelajaran} hasil
+	 * simpan setelah dialog ditutup dengan sukses.
+	 */
 	public static void tambahJadwalMengajar(final EventListener eventListenerData, final KelasLesSiswa lesSiswa)
 			throws Exception {
 		final MyWindow window = new MyWindow("Tambah atau Ubah Jadwal Mengajar", "none", true);
@@ -261,6 +276,16 @@ public class RekapitulasiJadwalPelajaranHelper {
 		window.onModal();
 	}
 
+	/**
+	 * Membangun kerangka panel rekapitulasi jadwal pelajaran pada {@code parent}: toolbar
+	 * pencarian (kata kunci, tahun ajaran, semester — default semester berjalan), tombol "Tambah
+	 * Jadwal Mengajar" (tampil hanya untuk user non-siswa/calon siswa/mahasiswa/calon mahasiswa —
+	 * yaitu guru/staf) yang membuka {@link #tambahJadwalMengajar}, dan tombol Refresh. Perubahan
+	 * filter memuat ulang data via {@link #reload} secara otomatis (dengan jeda kecil/debounce
+	 * lewat {@link Common#createDefaultTimer} saat pertama kali dibuka).
+	 *
+	 * @param tampilStatistik menampilkan ringkasan statistik tambahan pada hasil rekapitulasi
+	 */
 	public static void display(Component parent, final Tbmuser tbmuser, final boolean tampilStatistik) {
 
 		Borderlayout subBorderlayoutUtama = new Borderlayout();
@@ -363,6 +388,15 @@ public class RekapitulasiJadwalPelajaranHelper {
 	}
 
 	@SuppressWarnings({ "unchecked", "deprecation" })
+	/**
+	 * Memuat ulang isi {@code center} sesuai filter tahun ajaran ({@code ta}), semester
+	 * ({@code smt}), dan kata kunci ({@code cari}): mengambil {@link JadwalPelajaran} milik user
+	 * (guru/siswa/mahasiswa sesuai perannya) yang cocok, lalu merender ringkasannya (dikelompokkan
+	 * dan, bila {@code tampilStatistik}, disertai statistik tambahan).
+	 *
+	 * @param refreh menandai pemuatan ulang eksplisit (mis. dari tombol Refresh) vs otomatis
+	 * @param page   halaman data yang dimuat (paginasi), {@code -1} untuk halaman awal/reset
+	 */
 	private static void reload(final Tbmuser tbmuser, final Center center, final String ta, final String smt,
 			final String cari, boolean refreh, int page, final boolean tampilStatistik) {
 		if (center != null) {
@@ -822,6 +856,7 @@ public class RekapitulasiJadwalPelajaranHelper {
 	}
 
 
+	/** Menutup {@code session} Hibernate secara diam-diam, menelan (dan mencatat) galat bila penutupan gagal. */
 	private static void closeHibernateSessionQuietly(Session session) {
 		ais.common.ElearningSessionUtil.closeQuietly(session);
 	}

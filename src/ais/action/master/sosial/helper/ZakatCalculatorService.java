@@ -65,10 +65,16 @@ public final class ZakatCalculatorService {
         else {BigDecimal gross=valueOptional(in,"grossIncome",valueOptional(in,"amount",ZERO));BigDecimal deductions=valueOptional(in,"deductions",ZERO);if(deductions.signum()<0)throw new IllegalArgumentException("Pengurang tidak valid.");base=gross.subtract(deductions);if(base.signum()<0)base=ZERO;nisab=nisabValue(p);if("INCOME_MONTHLY".equals(key)&&"ANNUAL".equalsIgnoreCase(p.getNisabBasis()))nisab=nisab.divide(TWELVE,scale,rounding);put(breakdown,"gross",gross,"deductions",deductions);}
         boolean reached=base.compareTo(nisab)>=0;BigDecimal amount=reached?base.multiply(rate).setScale(scale,rounding):ZERO.setScale(scale,rounding);return new ZakatCalculationResult(reached,nisab.setScale(scale,rounding),base.setScale(scale,rounding),rate,amount,breakdown);
     }
+    /** Menghitung nilai nisab dari kuantitas nisab kebijakan, dikalikan harga referensi bila ada (mis. nisab emas dalam gram x harga per gram). */
     private BigDecimal nisabValue(KebijakanPerhitunganZakat p){BigDecimal q=positive(p.getNisabQuantity(),"Nisab");return p.getReferencePrice()==null?q:q.multiply(positive(p.getReferencePrice(),"Harga referensi"));}
+    /** Mengambil field {@code k} dari {@code o} sebagai {@link BigDecimal} wajib non-negatif dan di bawah batas 10^15; melempar {@link IllegalArgumentException} bila tidak ada/tidak valid. */
     private BigDecimal value(JSONObject o,String k){BigDecimal v=valueOptional(o,k,null);if(v==null||v.signum()<0)throw new IllegalArgumentException(k+" wajib berupa angka non-negatif.");if(v.compareTo(new BigDecimal("1000000000000000"))>0)throw new IllegalArgumentException(k+" melampaui batas.");return v;}
+    /** Mengambil field {@code k} dari {@code o} sebagai {@link BigDecimal} (koma ribuan dibuang), atau default {@code d} bila tidak ada/null. */
     private BigDecimal valueOptional(JSONObject o,String k,BigDecimal d){try{if(!o.has(k)||o.isNull(k))return d;return new BigDecimal(String.valueOf(o.get(k)).replace(",",""));}catch(Exception e){throw new IllegalArgumentException(k+" tidak valid.");}}
+    /** Memastikan {@code v} tidak null dan &gt; 0, melempar {@link IllegalStateException} berlabel {@code n} bila tidak (dipakai untuk parameter kebijakan yang wajib positif). */
     private BigDecimal positive(BigDecimal v,String n){if(v==null||v.signum()<=0)throw new IllegalStateException(n+" harus lebih besar dari nol.");return v;}
+    /** Mem-parse {@code v} sebagai {@link RoundingMode}, jatuh ke {@code HALF_UP} bila null/tidak valid. */
     private RoundingMode rounding(String v){try{return v==null?RoundingMode.HALF_UP:RoundingMode.valueOf(v);}catch(Exception e){return RoundingMode.HALF_UP;}}
+    /** Menyisipkan dua pasangan kunci-nilai ke {@code o} sekaligus (untuk menyusun objek "breakdown" perhitungan); kegagalan JSON diabaikan diam-diam. */
     private JSONObject put(JSONObject o,String k1,Object v1,String k2,Object v2){try{o.put(k1,v1).put(k2,v2);}catch(Exception ignored){}return o;}
 }

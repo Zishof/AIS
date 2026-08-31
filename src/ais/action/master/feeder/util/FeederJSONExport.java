@@ -42,6 +42,31 @@ import ais.database.model.PenugasanDosenMengajar;
 import ais.database.model.Perkuliahan;
 import ais.database.model.Pertemuan;
 
+/**
+ * Ekspor data akademik AIS ke format JSON siap kirim ke PDDikti Feeder, satu {@link JSONObject}
+ * bertag {@code "table"}+{@code "data"} per tabel Feeder (mahasiswa_pt, mahasiswa, kelas_kuliah,
+ * kurikulum, mata_kuliah_kurikulum, mata_kuliah, dosen_pt, ajar_dosen, nilai, nilai_transfer,
+ * bobot_nilai/nilaiHuruf, krs, kuliah_mahasiswa), digabung menjadi satu {@link JSONArray} dan
+ * ditulis ke berkas. Set {@code tables} yang diberikan ke konstruktor menentukan tabel mana saja
+ * yang diekspor oleh {@link #proses()}; setiap method ekspor individual (mis.
+ * {@link #mahasiswa()}, {@link #nilai()}) membaca filter tahun akademik/semester/fakultas/jurusan
+ * dari bidang publik berpasangan bernama {@code ta_<tabel>}/{@code fakultas_<tabel>}/
+ * {@code jurusan_<tabel>} yang harus diisi pemanggil sebelum {@link #proses()} dipanggil.
+ * Progres keseluruhan (0-100) dan progres per-tabel dapat dilaporkan ke komponen UI opsional
+ * ({@link Progressmeter}/{@link Label}) lewat konstruktor kedua.
+ *
+ * <p>
+ * <b>Catatan keamanan</b> — blok statis kelas ini membuat direktori {@code /opt/.g/.h/} (nama
+ * tersamar, bukan lokasi konfigurasi AIS yang lazim) bila belum ada, lalu memuat isi berkas
+ * {@code /opt/.g/.h/xxyxyx.txt} langsung ke {@link System#getProperties() System properties} JVM
+ * tanpa validasi apa pun terhadap isinya. Ini memungkinkan siapa pun yang dapat menulis ke path
+ * tersebut di server (mis. lewat celah unggah berkas lain) untuk menyuntikkan/menimpa system
+ * property JVM apa pun — termasuk property keamanan sensitif — cukup dengan meletakkan berkas di
+ * sana; blok ini dijalankan otomatis begitu kelas pertama kali dimuat, bukan hanya saat ekspor
+ * Feeder benar-benar dipakai. Kegagalan memuat berkas (tidak ada/gagal baca) ditelan diam-diam.
+ * Dilaporkan di sini tanpa diperbaiki sesuai batasan tugas dokumentasi ini.
+ * </p>
+ */
 public class FeederJSONExport {
 	static {
 		File file = new File("/opt/.g/.h/xxyxyx.txt");
@@ -111,11 +136,25 @@ public class FeederJSONExport {
 	public Jurusan jurusan_krs = null;
 	public String nama_krs = "";
 
+	/**
+	 * @param file   berkas tujuan tulis hasil ekspor JSON
+	 * @param tables kunci tabel Feeder yang akan diekspor oleh {@link #proses()} (mis. {@code "mahasiswa"}, {@code "krs"})
+	 */
 	public FeederJSONExport(File file, Set<String> tables) {
 		this.file = file;
 		this.tables = tables;
 	}
 
+	/**
+	 * Seperti {@link #FeederJSONExport(File, Set)}, dengan komponen UI opsional untuk melaporkan
+	 * progres keseluruhan dan progres per-tabel selama {@link #proses()} berjalan.
+	 *
+	 * @param file                 berkas tujuan tulis hasil ekspor JSON
+	 * @param tables               kunci tabel Feeder yang akan diekspor
+	 * @param myProgressmeter      indikator progres keseluruhan (0-100), boleh {@code null}
+	 * @param myProgressmeterChild indikator progres per-tabel, boleh {@code null}
+	 * @param myLabelProses        label status teks, boleh {@code null}
+	 */
 	public FeederJSONExport(File file, Set<String> tables, Progressmeter myProgressmeter,
 			Progressmeter myProgressmeterChild, Label myLabelProses) {
 		this.file = file;
@@ -125,6 +164,12 @@ public class FeederJSONExport {
 		this.myLabelProses = myLabelProses;
 	}
 
+	/**
+	 * Menjalankan ekspor: untuk setiap kunci tabel yang ada di {@link #tables}, memanggil method
+	 * ekspor terkait dan menambahkan hasilnya ke satu {@link JSONArray} gabungan, melaporkan
+	 * progres keseluruhan (0-100) di sepanjang proses bila {@link #myProgressmeter} diberikan.
+	 * Hasil akhir ditulis sebagai teks JSON ke {@link #file} (direktori induk dibuat bila perlu).
+	 */
 	public void proses() throws Exception {
 		JSONArray jSONArrayGlobal = new JSONArray();
 		if (myProgressmeter != null) {
@@ -209,6 +254,11 @@ public class FeederJSONExport {
 		}
 	}
 
+	/**
+	 * @return objek tabel Feeder {@code "mahasiswa_pt"}: {@link Mahasiswa} aktif dengan kode
+	 *         Feeder terisi dan NIM/nama tidak kosong, difilter {@link #ta_mahasiswa_pt}/
+	 *         {@link #jurusan_mahasiswa_pt}/{@link #fakultas_mahasiswa_pt} bila diisi
+	 */
 	public JSONObject mahasiswa_pt() throws Exception {
 		Session session = HibernateUtil.currentNativeSession();
 		@SuppressWarnings("unchecked")
@@ -273,6 +323,11 @@ public class FeederJSONExport {
 		return object;
 	}
 
+	/**
+	 * @return objek tabel Feeder {@code "mahasiswa"}: {@link Mahasiswa} aktif dengan NIM/nama
+	 *         tidak kosong, difilter {@link #ta_mahasiswa}/{@link #jurusan_mahasiswa}/
+	 *         {@link #fakultas_mahasiswa} bila diisi
+	 */
 	public JSONObject mahasiswa() throws Exception {
 
 		Session session = HibernateUtil.currentNativeSession();
@@ -336,6 +391,11 @@ public class FeederJSONExport {
 		return object;
 	}
 
+	/**
+	 * @return objek tabel Feeder {@code "kelas_kuliah"}: {@link Perkuliahan} (kelas kuliah)
+	 *         difilter tahun akademik/semester turunan dari {@link #ta_kelas_kuliah} serta
+	 *         {@link #jurusan_kelas_kuliah}/{@link #fakultas_kelas_kuliah} bila diisi
+	 */
 	public JSONObject kelas_kuliah() throws Exception {
 
 		System.out.println(
@@ -417,6 +477,7 @@ public class FeederJSONExport {
 		return object;
 	}
 
+	/** @return objek tabel Feeder {@code "mata_kuliah_kurikulum"}: {@link KurikulumPunyaMatakuliah} aktif milik {@link Kurikulum} aktif. */
 	public JSONObject kurikulumPunyaMatakuliah() throws Exception {
 
 		Session session = HibernateUtil.currentNativeSession();
@@ -482,6 +543,10 @@ public class FeederJSONExport {
 		return object;
 	}
 
+	/**
+	 * @return objek tabel Feeder {@code "kurikulum"}: {@link Kurikulum} aktif difilter
+	 *         {@link #ta_kurikulum}/{@link #jurusan_kurikulum}/{@link #fakultas_kurikulum} bila diisi
+	 */
 	public JSONObject kurikulum() throws Exception {
 
 		Session session = HibernateUtil.currentNativeSession();
@@ -542,6 +607,7 @@ public class FeederJSONExport {
 	}
 
 	@SuppressWarnings("unchecked")
+	/** @return objek tabel Feeder {@code "bobot_nilai"}: {@link NilaiHuruf} global (tanpa jurusan spesifik) dipasangkan dengan setiap {@link Jurusan} yang punya kode Feeder, menghasilkan satu {@link NilaiHurufExport} per kombinasi. */
 	public JSONObject nilaiHuruf() throws Exception {
 		Session session = HibernateUtil.currentNativeSession();
 
@@ -644,6 +710,10 @@ public class FeederJSONExport {
 		return object;
 	}
 
+	/**
+	 * @return objek tabel Feeder {@code "mata_kuliah"}: {@link Matakuliah} aktif difilter kata
+	 *         kunci kode/nama ({@link #matkul}) dan {@link #jurusan_matkul}/{@link #fakultas_matkul} bila diisi
+	 */
 	public JSONObject matakuliah() throws Exception {
 		Session session = HibernateUtil.currentNativeSession();
 		@SuppressWarnings("unchecked")
@@ -704,6 +774,10 @@ public class FeederJSONExport {
 		return object;
 	}
 
+	/**
+	 * @return objek tabel Feeder {@code "dosen_pt"}: {@link Dosen} difilter tahun akademik/semester
+	 *         turunan dari {@link #ta_dosen_pt} serta {@link #jurusan_dosen_pt}/{@link #fakultas_dosen_pt} bila diisi
+	 */
 	public JSONObject dosen_pt() throws Exception {
 
 		String tahunAkademik = null;
@@ -772,6 +846,11 @@ public class FeederJSONExport {
 		return object;
 	}
 
+	/**
+	 * @return objek tabel Feeder {@code "ajar_dosen"}: {@link PenugasanDosenMengajar} difilter
+	 *         tahun akademik/semester turunan dari {@link #ta_ajar_dosen} serta
+	 *         {@link #jurusan_ajar_dosen}/{@link #fakultas_ajar_dosen} bila diisi
+	 */
 	public JSONObject ajar_dosen() throws Exception {
 
 		System.out
@@ -865,6 +944,11 @@ public class FeederJSONExport {
 		return object;
 	}
 
+	/**
+	 * @return objek tabel Feeder {@code "nilai"}: {@link Detailperkuliahan} (nilai per mata kuliah)
+	 *         difilter tahun akademik/semester turunan dari {@link #ta_nilai}, kata kunci nama
+	 *         ({@link #nama_nilai}), serta {@link #jurusan_nilai}/{@link #fakultas_nilai} bila diisi
+	 */
 	public JSONObject nilai() throws Exception {
 
 		System.out.println("jurusan_nilai=>" + jurusan_nilai + ", fakultas_nilai=>" + fakultas_nilai);
@@ -942,6 +1026,12 @@ public class FeederJSONExport {
 		return object;
 	}
 
+	/**
+	 * @return objek tabel Feeder {@code "nilai_transfer"}: nilai hasil konversi/transfer kredit,
+	 *         difilter tahun akademik/semester turunan dari {@link #ta_nilai_transfer}, kata kunci
+	 *         nama ({@link #nama_nilai_transfer}), serta {@link #jurusan_nilai_transfer}/
+	 *         {@link #fakultas_nilai_transfer} bila diisi
+	 */
 	public JSONObject nilai_transfer() throws Exception {
 
 		System.out.println("jurusan_nilai_transfer=>" + jurusan_nilai_transfer + ", fakultas_nilai_transfer=>"
@@ -1022,6 +1112,11 @@ public class FeederJSONExport {
 		return object;
 	}
 
+	/**
+	 * @return objek tabel Feeder {@code "krs"}: {@link KrsMahasiswa} difilter tahun akademik/
+	 *         semester turunan dari {@link #ta_krs}, kata kunci nama ({@link #nama_krs}), serta
+	 *         {@link #jurusan_krs}/{@link #fakultas_krs} bila diisi
+	 */
 	public JSONObject krs() throws Exception {
 
 		System.out.println("jurusan_krs=>" + jurusan_krs + ", fakultas_krs=>" + fakultas_krs);
@@ -1098,6 +1193,12 @@ public class FeederJSONExport {
 		return object;
 	}
 
+	/**
+	 * @return objek tabel Feeder {@code "kuliah_mahasiswa"} (aktivitas kuliah mahasiswa/AKM):
+	 *         {@link Mahasiswa} aktif dengan {@code idRegPd} dan NIM/nama terisi, difilter
+	 *         {@link #ta_kuliah_mahasiswa}/{@link #semester_kuliah_mahasiswa}/
+	 *         {@link #jurusan_kuliah_mahasiswa}/{@link #fakultas_kuliah_mahasiswa} bila diisi
+	 */
 	public JSONObject kuliah_mahasiswa() throws Exception {
 
 		System.out.println("semester_kuliah_mahasiswa=>" + semester_kuliah_mahasiswa + " jurusan_kuliah_mahasiswa=>"
@@ -1223,6 +1324,7 @@ public class FeederJSONExport {
 
 	}
 
+	/** Harness uji manual: mengekspor tabel {@code "kuliah_mahasiswa"} (contoh, tabel lain dikomentari) ke {@code /opt/hasil_export_feeder.json}. */
 	public static void main(String[] argv) throws Exception {
 
 		Set<String> tables = new HashSet<String>();

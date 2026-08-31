@@ -51,8 +51,44 @@ import ais.database.model.surat.SuratKeluar;
 import ais.database.model.surat.SuratMasuk;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Handler API JSON (dipanggil oleh dispatcher servlet berbasis nama aksi, bukan JAX-RS beranotasi
+ * {@code @Path}) untuk modul persuratan mobile: alur disposisi/persetujuan surat masuk dan surat
+ * keluar, daftar klasifikasi template surat, parameter mail-merge template, cetak PDF surat
+ * (digabung dengan lampiran lain lewat {@link PDFMergerUtility}), dan daftar lampiran gambar/berkas
+ * surat. Setiap method publik mengikuti pola yang sama: memvalidasi token lewat
+ * {@link ApiUtil#currentUser(JSONObject, HttpServletRequest)} (mengembalikan {@code status="97"}
+ * bila tidak valid), membuka sesi Hibernate sendiri (ditutup di {@code finally}), lalu
+ * mengembalikan {@link JSONObject} beracuan kode status ({@code "00"}=sukses, {@code "90"}=galat
+ * bisnis/tidak ditemukan, {@code "97"}=token tidak sesuai) dengan pesan pada {@code description}.
+ *
+ * <h2>Alur disposisi (persetujuan berjenjang)</h2>
+ * Setiap surat memiliki rantai {@code AlurPersetujuanSurat(Masuk|Keluar)} (definisi jenjang
+ * jabatan yang harus menyetujui, berbentuk pohon parent-child) dan baris
+ * {@code AlurPersetujuanSurat(Masuk|Keluar)Status} (status persetujuan aktual per pejabat per
+ * jenjang untuk satu surat tertentu, dibuat sesuai kebutuhan/lazy). Method {@code disposisi_simpan_*}
+ * membuat baris status awal untuk pejabat-pejabat pada jenjang jabatan pertama; method
+ * {@code disposisi_surat_*} mencatat keputusan (disetujui/ditolak) pada satu baris status, lalu —
+ * bila disetujui — membuat/mengaktifkan baris status untuk jenjang berikutnya (mengirim notifikasi
+ * email lewat {@link BroadcastHelper}), atau — bila ditolak — menghapus baris jenjang berikutnya
+ * yang belum diproses dan memanggil {@link DasboardSurat#tolak}. Resolusi pejabat yang berwenang
+ * pada satu jenjang jabatan memakai kecocokan role/username eksplisit ({@code jenisPengguna}/
+ * {@code usernamePengguna}) ATAU kecocokan entitas pegawai/dosen/guru pemanggil dengan pejabat
+ * terdaftar; bila tidak ada yang cocok secara spesifik, jatuh kembali ke SELURUH pejabat aktif
+ * pada jenjang jabatan tersebut (tanpa penyaringan lebih lanjut).
+ */
 public class SuratApi {
 
+	/**
+	 * Membuat baris {@link AlurPersetujuanSuratMasukStatus} awal (jenjang jabatan pertama pada
+	 * rantai persetujuan surat) untuk setiap pejabat berwenang, mengirim email notifikasi ke
+	 * masing-masing lewat {@link BroadcastHelper#kirimEmailSuratMasuk}. Lihat javadoc kelas
+	 * untuk alur resolusi pejabat berwenang.
+	 *
+	 * @param req     permintaan HTTP (untuk resolusi token bila tidak dikirim di body)
+	 * @param request body permintaan JSON; wajib berisi {@code suratId}
+	 * @return {@code {status, description, lanjut:[...]}} — {@code lanjut} berisi baris status yang dibuat/ditemukan
+	 */
 	public static JSONObject disposisi_simpan_surat_masuk(HttpServletRequest req, JSONObject request) {
 		JSONObject jsonObject = new JSONObject();
 		try {
@@ -190,6 +226,7 @@ public class SuratApi {
 		return jsonObject;
 	}
 
+	/** Seperti {@link #disposisi_simpan_surat_masuk(HttpServletRequest, JSONObject)}, untuk surat keluar ({@link AlurPersetujuanSuratKeluarStatus}), memakai email {@link BroadcastHelper#kirimEmailSuratKeluar}. */
 	public static JSONObject disposisi_simpan_surat_keluar(HttpServletRequest req, JSONObject request) {
 		JSONObject jsonObject = new JSONObject();
 		try {
@@ -330,6 +367,17 @@ public class SuratApi {
 		return jsonObject;
 	}
 
+	/**
+	 * Mencatat keputusan persetujuan/penolakan satu baris {@link AlurPersetujuanSuratKeluarStatus}
+	 * (mengisi pejabat penindaklanjut, waktu, dan keterangan), lalu memproses jenjang berikutnya:
+	 * bila disetujui, membuat/menemukan baris status untuk setiap pejabat pada jenjang berikutnya
+	 * dan mengirim notifikasi email; bila ditolak, menghapus baris jenjang berikutnya yang belum
+	 * diproses dan memanggil {@link DasboardSurat#tolak}.
+	 *
+	 * @param req     permintaan HTTP (untuk resolusi token)
+	 * @param request body permintaan JSON; wajib berisi {@code alurId} (id baris status), opsional {@code keterangan}/{@code disetujui}/{@code ditolak}
+	 * @return {@code {status, description, disposisi, lanjut:[...]}}
+	 */
 	@SuppressWarnings("unchecked")
 	public static JSONObject disposisi_surat_keluar(HttpServletRequest req, JSONObject request) {
 		JSONObject jsonObject = new JSONObject();
@@ -541,6 +589,7 @@ public class SuratApi {
 		return jsonObject;
 	}
 
+	/** Seperti {@link #disposisi_surat_keluar(HttpServletRequest, JSONObject)}, untuk surat masuk ({@link AlurPersetujuanSuratMasukStatus}). */
 	@SuppressWarnings("unchecked")
 	public static JSONObject disposisi_surat_masuk(HttpServletRequest req, JSONObject request) {
 		JSONObject jsonObject = new JSONObject();
@@ -751,6 +800,19 @@ public class SuratApi {
 	}
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Mencari template {@link KlasifikasiSuratKeluar} (klasifikasi surat keluar) yang dapat
+	 * diajukan oleh {@code tbmuser} yang login: dibatasi ke fakultas/jurusan/sekolah/yayasan milik
+	 * user (atau tanpa batas bila kolom klasifikasi kosong), target audiens
+	 * ({@code KlasifikasiSuratKeluarUntuk}) yang sesuai peran user (mahasiswa/siswa/dosen/guru,
+	 * atau "Umum"), grup pengguna yang diizinkan (kolom {@code kode_grup_pengguna}, dicek lewat
+	 * SQL {@code ANY(string_to_array(...))}), dan status aktif; difilter tambahan kata kunci
+	 * kode/nama/format nomor surat.
+	 *
+	 * @param req     permintaan HTTP (untuk resolusi token)
+	 * @param request body permintaan JSON; opsional {@code kode}/{@code nama}/{@code nomor}
+	 * @return {@code {status, description, data:[...]}}
+	 */
 	public static JSONObject klasifikasi(HttpServletRequest req, JSONObject request) {
 		JSONObject jsonObject = new JSONObject();
 		try {
@@ -899,6 +961,16 @@ public class SuratApi {
 		return jsonObject;
 	}
 
+	/**
+	 * Mengambil daftar parameter mail-merge ({@link KlasifikasiSuratKeluarParemeter}) untuk satu
+	 * template surat (dari {@code id} surat keluar yang sudah ada, atau {@code id_klasifikasi}
+	 * langsung), beserta nilai yang sudah diisi ({@link KlasifikasiSuratKeluarParemeterValue})
+	 * untuk surat tersebut bila ada, atau nilai default template bila belum.
+	 *
+	 * @param req     permintaan HTTP (untuk resolusi token)
+	 * @param request body permintaan JSON; {@code id} (surat keluar) dan/atau {@code id_klasifikasi}
+	 * @return {@code {status, description, data:[{key, nilai, tampil, id, type}, ...]}}
+	 */
 	@SuppressWarnings("unchecked")
 	public static JSONObject parameter(HttpServletRequest req, JSONObject request) {
 		JSONObject jsonObject = new JSONObject();
@@ -990,6 +1062,17 @@ public class SuratApi {
 		return jsonObject;
 	}
 
+	/**
+	 * Seperti {@link #parameter(HttpServletRequest, JSONObject)} (memerlukan surat keluar yang
+	 * sudah tersimpan, {@code id} wajib), sekaligus menyimpan nilai baru untuk setiap parameter
+	 * yang kuncinya ({@code key}) ditemukan sebagai field pada {@code request} —
+	 * {@link KlasifikasiSuratKeluarParemeterValue} terkait dibuat atau diperbarui langsung ke
+	 * basis data untuk tiap parameter yang diisi.
+	 *
+	 * @param req     permintaan HTTP (untuk resolusi token)
+	 * @param request body permintaan JSON; {@code id} (surat keluar, wajib) dan field bernama sesuai key tiap parameter yang ingin diperbarui
+	 * @return {@code {status, description, data:[{key, nilai, tampil, id, type}, ...]}} (nilai terbaru setelah pembaruan)
+	 */
 	@SuppressWarnings("unchecked")
 	public static JSONObject updateParameter(HttpServletRequest req, JSONObject request) {
 		JSONObject jsonObject = new JSONObject();
@@ -1104,6 +1187,15 @@ public class SuratApi {
 		return jsonObject;
 	}
 
+	/**
+	 * Mengambil detail satu surat keluar beserta ringkasan riwayat disposisinya sebagai daftar
+	 * HTML ({@code <li>} per baris {@link AlurPersetujuanSuratKeluarStatus}, menandai status
+	 * sudah-ditindaklanjuti/ditolak/belum-ditindaklanjuti beserta nama pejabat dan waktu).
+	 *
+	 * @param req     permintaan HTTP (untuk resolusi token)
+	 * @param request body permintaan JSON; wajib berisi {@code id} surat keluar
+	 * @return {@code {status, description, info: "<li>...</li>...", data: {...properti surat...}}}
+	 */
 	@SuppressWarnings("unchecked")
 	public static JSONObject info(HttpServletRequest req, JSONObject request) {
 
@@ -1272,6 +1364,19 @@ public class SuratApi {
 		return jsonObject;
 	}
 
+	/**
+	 * Menghasilkan berkas PDF cetak lengkap satu surat keluar: merender template disposisi lewat
+	 * {@link SuratKeluarAction#cetakDisposisi} (bila sudah ada baris disposisi tersimpan) atau
+	 * merender langsung dari template JRXML terdaftar ({@code FILE_JRXML_LAYOUT_SURAT}, hingga 15
+	 * varian bernomor {@code _2".."_15"}) bila belum ada disposisi, lalu menggabungkan seluruh
+	 * halaman dan lampiran foto/berkas ber-ekstensi PDF ({@link FotoGambarSuratKeluar}) menjadi
+	 * satu berkas lewat {@link PDFMergerUtility}. Identitas pemohon (bila {@code tbmuser} tidak
+	 * diberikan) diturunkan dari konseptor surat atau mahasiswa/siswa/guru/dosen pemiliknya.
+	 *
+	 * @param idS    id surat keluar sebagai teks, atau id terenkripsi berawalan {@code "EE"} (didekripsi lewat {@code Common.desEncrypter})
+	 * @param tbmuser pengguna konteks untuk mail-merge isi surat, boleh {@code null} (diturunkan otomatis)
+	 * @return berkas PDF hasil gabungan, atau {@code null} bila tidak ada template/lampiran yang berhasil dibuat
+	 */
 	@SuppressWarnings("unchecked")
 	public static File cetakSurat(String idS, Tbmuser tbmuser) throws Exception {
 
@@ -1413,6 +1518,17 @@ public class SuratApi {
 		}
 	}
 
+	/**
+	 * Varian API dari alur cetak pada {@link #cetakSurat(String, Tbmuser)} (logikanya diduplikasi
+	 * inline, bukan memanggil method tersebut): menautkan identitas pemanggil ke surat sebelum
+	 * mail-merge, merender+menggabungkan PDF template/lampiran, lalu mengembalikan URL unduh
+	 * (rute {@code /report/...} atau {@code /pdf?p=...} terenkripsi, tergantung konfigurasi
+	 * {@code Common#pakaiDirReportTergabung()}).
+	 *
+	 * @param req     permintaan HTTP (untuk resolusi token)
+	 * @param request body permintaan JSON; wajib berisi {@code id} surat keluar
+	 * @return {@code {status, description, url}} — {@code url} kosong/tidak ada bila berkas gagal dibuat
+	 */
 	public static JSONObject cetak(HttpServletRequest req, JSONObject request) {
 		JSONObject jsonObject = new JSONObject();
 		try {
@@ -1561,6 +1677,15 @@ public class SuratApi {
 		return jsonObject;
 	}
 
+	/**
+	 * Mengambil daftar lampiran gambar/berkas ({@link FotoGambarSuratKeluar}) satu surat keluar,
+	 * masing-masing dengan URL akses (tautan pratinjau Google Drive bila diunggah ke Drive, atau
+	 * URL unduh lokal lewat {@link LampiranLain#ambilLinkLampiranLain}).
+	 *
+	 * @param req     permintaan HTTP (untuk resolusi token)
+	 * @param request body permintaan JSON; wajib berisi {@code id} surat keluar
+	 * @return {@code {status, description, data:[{id, nama, url}, ...]}}
+	 */
 	@SuppressWarnings("unchecked")
 	public static JSONObject lampiranSuratKeluar(HttpServletRequest req, JSONObject request) {
 		JSONObject jsonObject = new JSONObject();
@@ -1647,6 +1772,7 @@ public class SuratApi {
 		return jsonObject;
 	}
 
+	/** Seperti {@link #lampiranSuratKeluar(HttpServletRequest, JSONObject)}, untuk lampiran surat masuk ({@link FotoGambarSuratMasuk}); {@code request} wajib berisi {@code id} surat masuk. */
 	@SuppressWarnings("unchecked")
 	public static JSONObject lampiranSuratMasuk(HttpServletRequest req, JSONObject request) {
 		JSONObject jsonObject = new JSONObject();

@@ -84,8 +84,8 @@ import ais.ui.util.WaktuUtil;
  * Query penghitungan ukuran halaman dan pengambilan baris memakai SQL native langsung terhadap
  * tabel {@code audio_pertemuan} (via {@link StreamingHibernateUtil}, sesi terpisah dari sesi
  * Hibernate utama) demi performa pada volume data besar, dengan klausa {@code where} dirakit
- * sebagai string (termasuk penyisipan nilai pencarian {@code cari} langsung ke klausa
- * {@code ilike} — lihat catatan validasi input pada method {@link #reload(List, Paging, MyGrid,
+ * sebagai string; nilai pencarian {@code cari} diikat lewat parameter bernama, bukan konkatenasi
+ * langsung — lihat catatan pada method {@link #reload(List, Paging, MyGrid,
  * Mahasiswa, boolean, Date, Date, String, VOPembelajaran)}).
  * </p>
  */
@@ -396,11 +396,12 @@ public class RekapitulasiAudioHelper {
 	 * pertemuan terakhir yang tanggalnya sudah lewat hari ini (pengalaman "scroll ke hari ini").
 	 *
 	 * <p>
-	 * <b>Catatan keamanan</b>: klausa {@code where} dirakit sebagai string, dan nilai
-	 * {@code cari} disisipkan langsung ke klausa {@code ilike} SQL tanpa parameter terikat/escaping
-	 * ({@code "and real_file ilike '%" + cari + "%'"}) — berpotensi SQL injection bila {@code cari}
-	 * mengandung karakter kutip tunggal atau metakarakter SQL lain. Dilaporkan sesuai instruksi
-	 * tugas, tidak diperbaiki di sini.
+	 * <b>Catatan keamanan (diperbaiki)</b>: klausa {@code where} tetap dirakit sebagai string, namun
+	 * nilai {@code cari} kini diikat lewat parameter bernama {@code :cari} pada query SQL native
+	 * ({@code createSQLQuery(sql).setString("cari", "%" + cari + "%")}) dan lewat
+	 * {@code Restrictions.sqlRestriction(sql, value, Type)} pada {@link Criteria} — bukan lagi
+	 * konkatenasi string mentah. Sebelumnya nilai {@code cari} disisipkan langsung ke klausa
+	 * {@code ilike} tanpa parameter terikat/escaping, berpotensi SQL injection.
 	 * </p>
 	 *
 	 * @param pertemuans  daftar id {@link Pertemuan} yang membatasi cakupan audio; kosong berarti
@@ -440,12 +441,16 @@ public class RekapitulasiAudioHelper {
 		}
 
 		if (!cari.isEmpty()) {
-			where = where + " and real_file ilike '%" + cari + "%' ";
+			where = where + " and real_file ilike :cari ";
 		}
 
 		String sql = "select count(*) as size from audio_pertemuan a where " + where + ";";
 
-		int size = ((Number) session.createSQLQuery(sql).uniqueResult()).intValue();
+		org.hibernate.SQLQuery sizeQuery = session.createSQLQuery(sql);
+		if (!cari.isEmpty()) {
+			sizeQuery.setString("cari", "%" + cari + "%");
+		}
+		int size = ((Number) sizeQuery.uniqueResult()).intValue();
 		paging.setTotalSize(size);
 		paging.setVisible(size > Common.ROWS_COUNT_ON_PAGE);
 
@@ -465,7 +470,11 @@ public class RekapitulasiAudioHelper {
 
 			sql = "select count(*) as size from audio_pertemuan a where " + where1 + ";";
 
-			int page = ((Number) session.createSQLQuery(sql).uniqueResult()).intValue();
+			org.hibernate.SQLQuery pageQuery = session.createSQLQuery(sql);
+			if (!cari.isEmpty()) {
+				pageQuery.setString("cari", "%" + cari + "%");
+			}
+			int page = ((Number) pageQuery.uniqueResult()).intValue();
 
 			try {
 				System.out.println("page -> " + page + ", size -> " + size + ", pertemuans -> " + pertemuans.size());
@@ -480,8 +489,12 @@ public class RekapitulasiAudioHelper {
 			}
 		}
 
+		String whereCriteria = cari.isEmpty() ? where : where.replace(":cari", "?");
+		org.hibernate.criterion.Criterion whereCriterion = cari.isEmpty() ? Restrictions.sqlRestriction(whereCriteria)
+				: Restrictions.sqlRestriction(whereCriteria, "%" + cari + "%", new org.hibernate.type.StringType());
+
 		List<AudioPertemuan> tugasPertemuans = session.createCriteria(AudioPertemuan.class)
-				.add(Restrictions.sqlRestriction(where)).addOrder(Order.asc("pertemuan")).addOrder(Order.asc("id"))
+				.add(whereCriterion).addOrder(Order.asc("pertemuan")).addOrder(Order.asc("id"))
 				.setMaxResults(Common.ROWS_COUNT_ON_PAGE)
 				.setFirstResult(Common.ROWS_COUNT_ON_PAGE * (paging == null ? 0 : paging.getActivePage())).list();
 

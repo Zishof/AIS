@@ -32,12 +32,31 @@ import org.apache.commons.io.IOUtils;
 import org.hibernate.SQLQuery;
 import org.hibernate.Session;
 
+/**
+ * Helper migrasi data dari SLiMS/Senayan (aplikasi perpustakaan open-source berbasis MySQL) ke
+ * modul perpustakaan AIS ({@code library.*}), dipicu lewat unggahan satu berkas ZIP ekspor
+ * Senayan. Alur kerja ({@link #importZip}): (1) memvalidasi dan mengekstrak ZIP (harus berisi
+ * tepat satu berkas {@code .sql} dan satu folder {@code images}); (2) menyalin gambar sampul ke
+ * {@link #IMAGE_TARGET_ROOT}; (3) membaca dump SQL MySQL statement demi statement (menghormati
+ * string berkutip agar titik koma di dalam string tidak dianggap pemisah statement),
+ * mengonversi {@code CREATE TABLE}/{@code INSERT INTO} ke dialek PostgreSQL (lihat
+ * {@link #convertCreateTable}/{@link #convertInsert}/{@link #mapMysqlType}) dan menjalankannya ke
+ * sebuah <b>schema staging</b> sementara bernama {@code senayan_<timestamp>} — statement jenis
+ * lain (DDL selain CREATE TABLE, transaksi, kunci tabel, dsb.) dilewati; (4) memigrasikan data
+ * dari schema staging ke tabel-tabel {@code library.*} produksi ({@link #migrateToLibrary}).
+ * Setiap tahap melaporkan progres lewat {@link ProgressListener} dan mencatat log rinci/diagnostik
+ * ke {@link Result#reportFile} untuk membantu audit bila ada statement yang gagal direstore.
+ * Kegagalan pada tahap mana pun dibungkus sebagai {@link ImportException} yang menyertakan lokasi
+ * berkas laporan diagnostik.
+ */
 public class ImportterSenayaranHelper {
 
+	/** Callback progres impor: dipanggil berkala dengan persentase (0-100) dan pesan status berjalan. */
 	public interface ProgressListener {
 		void onProgress(int percent, String message);
 	}
 
+	/** Kumpulan hasil dan statistik satu proses impor ZIP Senayan: lokasi berkas kerja, jumlah statement SQL yang berhasil/dilewati/gagal direstore, jumlah item/barcode/anggota yang berhasil dimigrasikan, serta log pesan proses. */
 	public static class Result {
 		public String schema;
 		public File zipFile;
@@ -57,15 +76,18 @@ public class ImportterSenayaranHelper {
 		public final List<String> messages = new ArrayList<String>();
 	}
 
+	/** Exception yang membungkus kegagalan proses impor, menyertakan lokasi {@link #getReportFile() berkas laporan diagnostik} yang sudah ditulis sejauh proses berjalan. */
 	public static class ImportException extends Exception {
 		private static final long serialVersionUID = 1L;
 		private final File reportFile;
 
+		/** Membungkus {@code cause} dengan {@code message} dan menyertakan {@code reportFile} untuk diagnosis lanjut. */
 		public ImportException(String message, Throwable cause, File reportFile) {
 			super(message, cause);
 			this.reportFile = reportFile;
 		}
 
+		/** Berkas teks berisi log/diagnostik proses impor sejauh sempat berjalan sebelum gagal. */
 		public File getReportFile() {
 			return reportFile;
 		}
@@ -74,6 +96,14 @@ public class ImportterSenayaranHelper {
 	private static final String IMAGE_TARGET_ROOT = "/opt/gambar_perpus";
 	private Result activeResult;
 
+	/**
+	 * Menjalankan seluruh pipeline migrasi Senayan dari {@code zipFile} — lihat alur lengkap pada
+	 * dokumentasi kelas. Direktori kerja sementara dibuat di bawah {@code java.io.tmpdir} dengan
+	 * nama schema unik berbasis timestamp.
+	 *
+	 * @return {@link Result} berisi lokasi berkas kerja dan statistik lengkap proses migrasi
+	 * @throws ImportException bila proses gagal pada tahap mana pun (validasi, ekstraksi, restore SQL, atau migrasi)
+	 */
 	public Result importZip(File zipFile, ProgressListener progressListener) throws Exception {
 		Result result = new Result();
 		File baseDir = new File(System.getProperty("java.io.tmpdir"), "senayan-import");
@@ -133,6 +163,11 @@ public class ImportterSenayaranHelper {
 		}
 	}
 
+	/**
+	 * Memvalidasi struktur {@code zipFile} sebelum diekstrak: menolak entri dengan path tidak aman
+	 * (mengandung {@code ..} atau path absolut — proteksi zip-slip/path traversal), dan
+	 * mensyaratkan isi ZIP berupa tepat satu berkas {@code .sql} dan satu folder {@code images}.
+	 */
 	private void validateZip(File zipFile, Result result) throws IOException {
 		ZipFile zip = new ZipFile(zipFile);
 		try {
@@ -162,6 +197,7 @@ public class ImportterSenayaranHelper {
 		}
 	}
 
+	/** Mengekstrak {@code zipFile} ke {@code destination}, memverifikasi ulang (defense-in-depth) bahwa jalur kanonik tiap entri tetap berada di dalam {@code destination} sebelum ditulis — mencegah zip-slip/path traversal. */
 	private void extractZipSafely(File zipFile, File destination) throws IOException {
 		String destinationPath = destination.getCanonicalPath() + File.separator;
 		ZipFile zip = new ZipFile(zipFile);
@@ -193,12 +229,14 @@ public class ImportterSenayaranHelper {
 		}
 	}
 
+	/** Mencari satu-satunya berkas {@code .sql} di bawah {@code root} (rekursif); {@code null} bila jumlahnya bukan tepat satu. */
 	private File findSqlFile(File root) {
 		List<File> files = new ArrayList<File>();
 		findFiles(root, files, ".sql");
 		return files.size() == 1 ? files.get(0) : null;
 	}
 
+	/** Mencari folder bernama {@code images} di bawah {@code root} hasil ekstraksi ZIP Senayan. */
 	private File findImagesDirectory(File root) {
 		if (root == null || !root.exists()) {
 			return null;
@@ -222,6 +260,7 @@ public class ImportterSenayaranHelper {
 		return null;
 	}
 
+	/** Mengumpulkan secara rekursif seluruh berkas di bawah {@code root} yang namanya berakhiran {@code suffix} ke dalam {@code files}. */
 	private void findFiles(File root, List<File> files, String suffix) {
 		File[] children = root.listFiles();
 		if (children == null) {
@@ -236,6 +275,13 @@ public class ImportterSenayaranHelper {
 		}
 	}
 
+	/**
+	 * Membaca {@code result.sqlFile} (dump MySQL) byte demi byte, membagi menjadi statement demi
+	 * statement berdasarkan titik koma di luar string berkutip (menghormati escape backslash agar
+	 * titik koma/kutip di dalam string tidak salah dianggap pemisah), lalu memproses tiap
+	 * statement lewat {@link #processMysqlStatement} ke schema staging {@code result.schema} yang
+	 * baru dibuat. Progres dilaporkan berkala berdasarkan proporsi byte yang sudah dibaca.
+	 */
 	private void restoreSql(Result result, ProgressListener progressListener) throws Exception {
 		Session session = HibernateUtil.currentSession();
 		executeSql(session, "create schema if not exists " + qident(result.schema));
@@ -286,6 +332,13 @@ public class ImportterSenayaranHelper {
 				+ result.skippedStatements + ", gagal=" + result.failedStatements);
 	}
 
+	/**
+	 * Memproses satu statement SQL MySQL mentah: melewati (menambah {@code skippedStatements})
+	 * statement kosong, komentar, atau jenis yang tidak relevan bagi staging (SET, transaksi,
+	 * lock tabel, DROP/ALTER TABLE); mengonversi {@code CREATE TABLE}/{@code INSERT INTO} ke
+	 * dialek PostgreSQL lalu menjalankannya, mencatat sukses/gagal (dengan diagnostik) ke
+	 * {@code result}.
+	 */
 	private void processMysqlStatement(Session session, String raw, Result result) {
 		String statement = stripLeadingMysqlComments(raw == null ? "" : raw.trim());
 		if (statement.length() == 0 || statement.startsWith("--") || statement.startsWith("/*!")
@@ -322,6 +375,7 @@ public class ImportterSenayaranHelper {
 		}
 	}
 
+	/** Menghapus baris komentar ({@code --} atau {@code #}) di awal {@code statement} secara berulang hingga tidak tersisa lagi. */
 	private String stripLeadingMysqlComments(String statement) {
 		String result = statement == null ? "" : statement.trim();
 		boolean changed = true;
@@ -340,6 +394,7 @@ public class ImportterSenayaranHelper {
 		return result;
 	}
 
+	/** Mengonversi satu statement {@code CREATE TABLE} MySQL menjadi {@code CREATE TABLE IF NOT EXISTS} PostgreSQL pada {@code schema} staging, memetakan tiap definisi kolom lewat {@link #mapMysqlType}; mengembalikan {@code null} bila nama tabel atau daftar kolom tidak dapat diekstrak. */
 	private String convertCreateTable(String statement, String schema) {
 		String table = extractMysqlTableName(statement);
 		if (table == null) {
@@ -376,6 +431,7 @@ public class ImportterSenayaranHelper {
 		return first ? null : sql.toString();
 	}
 
+	/** Mengonversi satu statement {@code INSERT INTO} MySQL agar menyasar {@code schema} staging: mengganti backtick dengan kutip ganda, melepas penanda {@code _binary}, membetulkan escape kutip tunggal, dan mengubah tanggal MySQL nol ({@code 0000-00-00...}) atau tanggal tidak valid menjadi {@code NULL} (PostgreSQL tidak menerima tanggal nol). */
 	private String convertInsert(String statement, String schema) {
 		String table = extractMysqlTableName(statement);
 		if (table == null) {
@@ -392,6 +448,7 @@ public class ImportterSenayaranHelper {
 		return sql;
 	}
 
+	/** Mengekstrak nama tabel dari statement {@code CREATE TABLE}/{@code INSERT INTO} mentah, dicoba lewat identifier berkutip backtick lebih dulu, lalu jatuh kembali ke posisi kata ketiga bila tidak ada backtick. */
 	private String extractMysqlTableName(String statement) {
 		int tick = statement.indexOf('`');
 		if (tick >= 0) {
@@ -402,6 +459,7 @@ public class ImportterSenayaranHelper {
 		return parts.length >= 3 ? parts[2] : null;
 	}
 
+	/** Memetakan satu definisi kolom MySQL mentah (tipe data beserta atribut seperti {@code UNSIGNED}/{@code CHARACTER SET}/{@code DEFAULT}/{@code COMMENT}, yang dilepas karena tidak relevan di PostgreSQL) ke tipe data PostgreSQL yang paling mendekati (bigint/integer/smallint/timestamp/date/numeric/varchar/char/dst.). */
 	private String mapMysqlType(String raw) {
 		String t = raw.toLowerCase(Locale.ENGLISH);
 		t = t.replaceAll("(?i)character\\s+set\\s+\\S+", " ");
@@ -446,6 +504,7 @@ public class ImportterSenayaranHelper {
 		return "text";
 	}
 
+	/** Memecah {@code body} definisi kolom {@code CREATE TABLE} berdasarkan koma tingkat-atas (tidak memecah koma yang berada di dalam tanda kurung, mis. {@code decimal(10,2)}). */
 	private List<String> splitTopLevel(String body) {
 		List<String> result = new ArrayList<String>();
 		StringBuilder current = new StringBuilder();
@@ -469,6 +528,20 @@ public class ImportterSenayaranHelper {
 		return result;
 	}
 
+	/**
+	 * Memigrasikan data dari schema staging {@code result.schema} ke tabel-tabel produksi
+	 * {@code library.*}, dalam tahapan (dilaporkan lewat {@code progressListener}): (1) memastikan
+	 * baris {@code saldo_awal} (stok awal) dan kompatibilitas kolom staging tersedia
+	 * ({@link #ensureSaldoAwal}/{@link #ensureStagingCompatibility}); (2) master penerbit,
+	 * pengarang, dan kategori (upsert berdasarkan nama, tidak menduplikasi yang sudah ada); (3)
+	 * bibliografi buku ({@code biblio} &rarr; {@code library.item}, termasuk path gambar sampul
+	 * yang sudah dipindahkan ke {@link #IMAGE_TARGET_ROOT}) dan pembaruan baris yang sudah ada
+	 * sebelumnya (deteksi via kolom {@code deep}=id biblio asal); (4) relasi item-pengarang dan
+	 * item-kategori; (5) barcode item dan detail saldo awal; (6) anggota perpustakaan. Seluruh
+	 * langkah SQL bersifat idempoten (memeriksa keberadaan terlebih dahulu) sehingga migrasi dapat
+	 * dijalankan ulang dengan aman. Jumlah item/barcode/anggota yang berhasil dimigrasikan dicatat
+	 * ke {@code result} di akhir.
+	 */
 	private void migrateToLibrary(Result result, ProgressListener progressListener) throws Exception {
 		Session session = HibernateUtil.currentSession();
 		try {
@@ -607,6 +680,7 @@ public class ImportterSenayaranHelper {
 		}
 	}
 
+	/** Membuat (atau mengambil bila sudah ada) satu baris {@code library.saldo_awal} (stok awal) untuk import Senayan ini, dikaitkan ke {@code perpustakaanId} dan {@code userId} pembuat, ditandai dengan {@code schema} staging untuk idempotensi. */
 	private Long ensureSaldoAwal(Session session, Long perpustakaanId, String userId, String schema) {
 		if (userId == null) {
 			userId = "admin";
@@ -648,6 +722,7 @@ public class ImportterSenayaranHelper {
 		return id;
 	}
 
+	/** Membuat tabel staging kosong (mst_publisher/mst_language/mst_place/item) bila belum ada pada dump Senayan, agar query migrasi berikutnya yang mereferensikannya tidak gagal. */
 	private void ensureStagingCompatibility(Session session, String schema) {
 		executeSql(session, "create table if not exists " + qident(schema)
 				+ ".mst_publisher(publisher_id integer, publisher_name text)");
@@ -659,6 +734,7 @@ public class ImportterSenayaranHelper {
 				+ ".item(item_id integer, biblio_id integer, item_code text, coll_type_id integer)");
 	}
 
+	/** Mengambil id user yang sedang login (untuk dicatat sebagai pembuat data hasil migrasi), {@code null} bila tidak tersedia. */
 	private String currentUserId(Session session) {
 		try {
 			Tbmuser user = Common.getCurrentUser();
@@ -672,6 +748,7 @@ public class ImportterSenayaranHelper {
 		return id == null ? "admin" : id;
 	}
 
+	/** Mengambil id {@link Perpustakaan} tujuan migrasi dari user yang sedang login ({@link Common#getCurrentPerpustakaan()}), atau bila tidak tersedia, id perpustakaan pertama yang ada di database sebagai fallback. */
 	private Long currentPerpustakaanId(Session session) {
 		try {
 			Perpustakaan perpustakaan = Common.getCurrentPerpustakaan();
@@ -684,6 +761,7 @@ public class ImportterSenayaranHelper {
 				.uniqueResult());
 	}
 
+	/** Memeriksa keberadaan {@code table} pada {@code schema} lewat {@code information_schema.tables} — dipakai untuk membuat setiap langkah migrasi tahan terhadap dump Senayan yang tidak lengkap. */
 	private boolean tableExists(Session session, String schema, String table) {
 		Number n = (Number) session
 				.createSQLQuery("select count(*) from information_schema.tables where table_schema=:schema and table_name=:table")
@@ -691,6 +769,7 @@ public class ImportterSenayaranHelper {
 		return n != null && n.intValue() > 0;
 	}
 
+	/** Menjalankan {@code sql} berupa {@code SELECT COUNT(*)...} dan mengembalikan hasilnya sebagai {@code int}; mencatat {@code sql} ke {@link #activeResult} untuk keperluan diagnostik bila terjadi kegagalan. */
 	private int count(Session session, String sql) {
 		if (activeResult != null) {
 			activeResult.currentSql = sql;
@@ -699,6 +778,7 @@ public class ImportterSenayaranHelper {
 		return n == null ? 0 : n.intValue();
 	}
 
+	/** Menjalankan {@code sql} native (DDL/DML) dalam transaksi sendiri (dibuat bila belum ada transaksi aktif, rollback otomatis bila gagal); mencatat {@code sql} ke {@link #activeResult} untuk diagnostik. */
 	private void executeSql(Session session, String sql) {
 		if (activeResult != null) {
 			activeResult.currentSql = sql;
@@ -720,6 +800,7 @@ public class ImportterSenayaranHelper {
 		}
 	}
 
+	/** Menyalin {@code source} (berkas atau direktori, rekursif) ke {@code target}, membuat direktori tujuan sesuai kebutuhan. */
 	private static void copyDirectory(File source, File target) throws IOException {
 		if (source == null || !source.exists()) {
 			return;
@@ -747,22 +828,27 @@ public class ImportterSenayaranHelper {
 		}
 	}
 
+	/** Menormalkan pemisah path entri ZIP ke {@code /}, mengantisipasi ZIP yang dibuat di Windows. */
 	private static String normalizeZipName(String name) {
 		return name == null ? "" : name.replace('\\', '/');
 	}
 
+	/** Meng-quote {@code name} sebagai identifier SQL PostgreSQL (tanda kutip ganda, dengan escaping kutip ganda internal). */
 	private static String qident(String name) {
 		return "\"" + name.replace("\"", "\"\"") + "\"";
 	}
 
+	/** Meng-escape kutip tunggal pada {@code s} untuk disisipkan aman sebagai literal string SQL. */
 	private static String esc(String s) {
 		return s == null ? "" : s.replace("'", "''");
 	}
 
+	/** Mengonversi {@code n} menjadi {@link Long}, {@code null} bila {@code n} {@code null}. */
 	private static Long numberToLong(Number n) {
 		return n == null ? null : Long.valueOf(n.longValue());
 	}
 
+	/** Menyusun pesan galat ringkas (maks. 240 karakter) dari akar penyebab {@code e}, untuk ditampilkan pada log/diagnostik. */
 	private static String shortMessage(Exception e) {
 		String message = rootCauseMessage(e);
 		if (message == null) {
@@ -771,6 +857,7 @@ public class ImportterSenayaranHelper {
 		return message.length() > 240 ? message.substring(0, 240) : message;
 	}
 
+	/** Menelusuri rantai {@code getCause()} hingga akar, mengembalikan pesannya (atau pesan {@code e} sendiri bila akar tidak punya pesan, atau nama kelas exception sebagai upaya terakhir). */
 	private static String rootCauseMessage(Throwable e) {
 		if (e == null) {
 			return "";
@@ -786,6 +873,7 @@ public class ImportterSenayaranHelper {
 		return message == null ? root.getClass().getName() : message;
 	}
 
+	/** Menulis (menimpa) header awal {@code result.reportFile}: waktu mulai, schema staging, lokasi ZIP, dan catatan bahwa berkas ini dapat ditempel ke AI untuk analisis kegagalan. */
 	private void writeReportHeader(Result result) {
 		BufferedWriter writer = null;
 		try {
@@ -811,6 +899,7 @@ public class ImportterSenayaranHelper {
 		}
 	}
 
+	/** Mencatat ringkasan akhir proses (statistik statement/item/barcode/anggota) ke log, lalu menambahkan ke {@code reportFile} sebuah "prompt" siap-pakai yang menuntun AI menganalisis kegagalan migrasi MySQL-ke-PostgreSQL (nilai tanggal nol, escape, tipe data, dsb.) bila diperlukan. */
 	private void logSummary(Result result, String status) {
 		log(result, "SUMMARY", "Status=" + status + ", schema=" + result.schema + ", restored="
 				+ result.restoredStatements + ", skipped=" + result.skippedStatements + ", failed="
@@ -843,6 +932,7 @@ public class ImportterSenayaranHelper {
 		}
 	}
 
+	/** Menambahkan satu baris log berstempel waktu (jam:menit:detik) dan {@code level} ke {@code result.reportFile}. */
 	private void log(Result result, String level, String message) {
 		if (result == null || result.reportFile == null) {
 			return;
@@ -861,6 +951,7 @@ public class ImportterSenayaranHelper {
 		}
 	}
 
+	/** Mencatat rincian lengkap {@code e} ke laporan: akar penyebab, seluruh rantai {@code cause}, detail {@link SQLException} (SQL state, kode error, exception berantai berikutnya), dan stack trace penuh. */
 	private void logException(Result result, Exception e) {
 		log(result, "ROOT_CAUSE", rootCauseMessage(e));
 		Throwable t = e;
@@ -895,6 +986,7 @@ public class ImportterSenayaranHelper {
 		log(result, "SQL", abbreviate(statement, 4000));
 	}
 
+	/** Mengklasifikasikan {@code statement} sebagai {@code "CREATE TABLE"}, {@code "INSERT"}, atau {@code "statement"} generik, untuk keperluan pesan diagnostik. */
 	private String statementKind(String statement) {
 		if (statement == null) {
 			return "statement";
