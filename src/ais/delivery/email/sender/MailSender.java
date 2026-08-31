@@ -57,6 +57,34 @@ import ais.database.model.Tbmuser;
 import ais.database.model.sekolah.Siswa;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Mesin produksi tunggal untuk seluruh pengiriman email, notifikasi in-app, WhatsApp, dan push
+ * mobile di AIS. Lihat dokumentasi paket {@link ais.delivery.email.sender package-info} untuk
+ * peta lengkap kelas, pola overload berlapis, dan peringatan keamanan terkait kredensial tertanam
+ * di {@link #main(String[])} milik kelas ini.
+ *
+ * <h2>Alur baku (berlaku di hampir semua metode publik kelas ini)</h2>
+ * <ol>
+ * <li>Buat/ambil record {@link ais.database.model.Notifikasi} lebih dulu lewat salah satu varian
+ * {@code simpanNotif*} — ini SELALU terjadi lebih dulu, apa pun kanal pengirimannya, sehingga
+ * riwayat "apa yang dikirim ke siapa" tetap lengkap walau kanal aktual (email/WA/push) gagal atau
+ * dimatikan lewat konfigurasi.</li>
+ * <li>Deduplikasi penerima memakai {@link #notifSudah}, sehingga permintaan kirim berulang dengan
+ * kombinasi (objek data + subjek + user) yang sama tidak membuat notifikasi dobel.</li>
+ * <li>Kanal aktual dijalankan asinkron lewat {@link #submitEmail(Runnable)} di atas
+ * {@link #MAIL_POOL}, dengan setiap saklar kanal (email langsung vs Brevo, WA, push) dicek
+ * terhadap konfigurasi via {@code ais.common.Common#bolehKonfigurasi}.</li>
+ * <li>Hasil pengiriman (sukses/gagal/pesan error, per kanal) ditulis balik ke kolom
+ * {@code hasil}/{@code hasilEmail} pada baris {@link ais.database.model.Notifikasi} yang sama,
+ * sehingga riwayat notifikasi juga berfungsi sebagai log pengiriman.</li>
+ * </ol>
+ *
+ * <p>
+ * Kelas ini murni statis (tidak ada instance state) kecuali dua bidang paket ini sendiri:
+ * {@link #MAIL_POOL} (pool thread bersama) dan {@link #notifSudah} (cache dedup proses-hidup,
+ * tidak persisten lintas restart JVM).
+ * </p>
+ */
 public class MailSender {
 
 	/** Selang minimum antar-laporan kegagalan autentikasi SMTP ke audit. */
@@ -66,14 +94,26 @@ public class MailSender {
 	private static final java.util.concurrent.atomic.AtomicLong AUTH_GAGAL_TERAKHIR =
 		new java.util.concurrent.atomic.AtomicLong(0L);
 
-	// Pembatas konkurensi kirim email/notifikasi. DULU tiap kirim = `new Thread(...).start()` (tak
-	// terbatas) → di beban tinggi ribuan raw-thread lahir (snapshot: "total dimulai" belasan ribu,
-	// puluhan Thread-#### di MailSender$4.run), masing-masing buka Session+transaksi+koneksi c3p0+audit
-	// Envers → pool DB & statement-cache HABIS (BasicResourcePool/GooGooStatementCache antre) + heap
-	// tertekan. Sekarang semua dispatch lewat pool TETAP kecil + antrean; saat antrean penuh tugas
-	// dijalankan di thread pemanggil (CallerRunsPolicy = backpressure) alih-alih melahirkan thread
-	// tanpa batas. SMTP diurutkan secara default untuk mencegah penyedia memblokir banyak
-	// login bersamaan; masih dapat diubah secara eksplisit via -Dmail.pool.size.
+	/**
+	 * Ukuran tetap {@link #MAIL_POOL} — jumlah thread worker yang boleh mengirim email/notifikasi
+	 * secara bersamaan. Dibaca sekali saat pemuatan kelas dari properti sistem
+	 * {@code -Dmail.pool.size} (default {@code "1"}, dipaksa minimal 1 bila nilai yang diberikan
+	 * tidak valid atau kurang dari 1).
+	 *
+	 * <p>
+	 * <b>Sejarah desain</b> — pembatas konkurensi kirim email/notifikasi. DULU tiap kirim =
+	 * {@code new Thread(...).start()} (tak terbatas) → di beban tinggi ribuan raw-thread lahir
+	 * (snapshot: "total dimulai" belasan ribu, puluhan {@code Thread-####} di
+	 * {@code MailSender$4.run}), masing-masing buka Session+transaksi+koneksi c3p0+audit Envers →
+	 * pool DB & statement-cache HABIS ({@code BasicResourcePool}/{@code GooGooStatementCache}
+	 * antre) + heap tertekan. Sekarang semua dispatch lewat pool TETAP kecil + antrean; saat
+	 * antrean penuh tugas dijalankan di thread pemanggil ({@link
+	 * java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy} = backpressure) alih-alih
+	 * melahirkan thread tanpa batas. SMTP diurutkan secara default (ukuran 1) untuk mencegah
+	 * penyedia memblokir banyak login bersamaan; masih dapat diubah secara eksplisit via
+	 * {@code -Dmail.pool.size} bila penyedia mengizinkan koneksi paralel lebih banyak.
+	 * </p>
+	 */
 	private static final int MAIL_POOL_SIZE;
 	static {
 		int n = 1;
@@ -84,6 +124,13 @@ public class MailSender {
 		MAIL_POOL_SIZE = n < 1 ? 1 : n;
 	}
 
+	/**
+	 * Pool thread tetap ({@link #MAIL_POOL_SIZE} worker daemon, antrean {@link
+	 * java.util.concurrent.ArrayBlockingQueue} berkapasitas 1000) tempat seluruh pekerjaan kirim
+	 * email/WA/push dijalankan. Diakses lewat {@link #submitEmail(Runnable)}, tidak pernah
+	 * langsung dari luar kelas ini. Worker diberi nama {@code MailSender-worker-N} untuk
+	 * memudahkan identifikasi di thread dump saat diagnosis.
+	 */
 	private static final java.util.concurrent.ExecutorService MAIL_POOL = new java.util.concurrent.ThreadPoolExecutor(
 			MAIL_POOL_SIZE, MAIL_POOL_SIZE, 60L, java.util.concurrent.TimeUnit.SECONDS,
 			new java.util.concurrent.ArrayBlockingQueue<Runnable>(1000), new java.util.concurrent.ThreadFactory() {
@@ -102,6 +149,11 @@ public class MailSender {
 	 * Membungkus tugas agar Session Hibernate thread-local SELALU ditutup setelah selesai — penting karena
 	 * thread pool dipakai-ulang (raw-thread lama mati sendiri; thread pool tidak). Bila antrean penuh,
 	 * CallerRunsPolicy menjalankan di thread pemanggil (backpressure), bukan melahirkan thread baru.
+	 *
+	 * @param r tugas kirim (biasanya menutup satu koneksi SMTP/panggilan HTTP) yang akan dibungkus
+	 *          dan diserahkan ke {@link #MAIL_POOL}; bila {@code execute} melempar (mis. pool sudah
+	 *          shutdown), tugas dijalankan langsung di thread pemanggil sebagai fail-safe agar
+	 *          email tidak hilang begitu saja.
 	 */
 	private static void submitEmail(final Runnable r) {
 		Runnable wrapped = new Runnable() {
