@@ -86,7 +86,7 @@ public class DefaultNoUjianGeneratorPegawai implements NoUjianGeneratorPegawai {
 					MyMessageboxConfig.INFORMATION);
 			return "";
 		}
-		String noUjianFinal = buatNomorUjianUnik(session, pengecualian);
+		String noUjianFinal = buatNomorUjianUnik(session, calonPegawai, pengecualian);
 		if (noUjianFinal == null || noUjianFinal.trim().isEmpty()) {
 			return "";
 		}
@@ -108,27 +108,19 @@ public class DefaultNoUjianGeneratorPegawai implements NoUjianGeneratorPegawai {
 	}
 
 	/**
-	 * Membentuk nomor ujian unik berurutan, dimulai dari nomor tertinggi yang sudah tersimpan
-	 * (dibaca lewat SQL native {@code to_number(substr(noujian,5),...)}, sehingga hanya bagian
-	 * setelah 4 karakter awal nomor yang diperlakukan sebagai angka urut) ditambah jumlah
-	 * pengecualian, dipadatkan sejumlah digit sesuai konfigurasi
-	 * {@code jumlah_increments_no_ujian_pegawai} (default 8). Mencoba hingga
-	 * {@link #MAX_ATTEMPT} kali sebelum menyerah dan mengembalikan string kosong.
+	 * Membentuk nomor ujian unik berurutan, dimulai dari nomor ujian terbesar yang sudah tersimpan
+	 * pada calon pegawai, lalu dipadatkan sejumlah digit sesuai konfigurasi.
 	 */
-	private String buatNomorUjianUnik(Session session, List<String> pengecualian) {
+	private String buatNomorUjianUnik(Session session, CalonPegawai calonPegawai, List<String> pengecualian) {
 		int digit = ambilJumlahDigit();
-		Number max = (Number) session.createSQLQuery(
-				"select max(to_number(substr(noujian,5),'99999999999999')) from calon_pegawai where noujian != '' and noujian is not null and substr(noujian,5)!=''")
-				.uniqueResult();
-		int dasar = max == null ? 0 : max.intValue();
+		long dasar = RecruitmentNumberGeneratorSupport.nomorUjianBerikutnya(session, digit, calonPegawai, pengecualian)
+				- 1;
 		for (int attempt = 0; attempt < MAX_ATTEMPT; attempt++) {
 			String noUjian = formatNomor(dasar + pengecualian.size() + attempt + 1, digit);
 			if (pengecualian.contains(noUjian)) {
 				continue;
 			}
-			Number count = (Number) session.createCriteria(CalonPegawai.class).add(Restrictions.eq("noUjian", noUjian))
-					.setProjection(Projections.rowCount()).uniqueResult();
-			if (count == null || count.intValue() == 0) {
+			if (!RecruitmentNumberGeneratorSupport.nomorUjianSudahDipakai(session, noUjian, calonPegawai)) {
 				return noUjian;
 			}
 			pengecualian.add(noUjian);
@@ -147,8 +139,7 @@ public class DefaultNoUjianGeneratorPegawai implements NoUjianGeneratorPegawai {
 	}
 
 	/** Memadatkan {@code nomor} dengan nol di depan hingga sepanjang {@code digit} karakter. */
-	private String formatNomor(int nomor, int digit) {
-		String hasil = "00000000000000000000" + nomor;
-		return hasil.substring(hasil.length() - digit);
+	private String formatNomor(long nomor, int digit) {
+		return RecruitmentNumberGeneratorSupport.leftPadNomor(nomor, digit);
 	}
 }

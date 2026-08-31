@@ -4,8 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.hibernate.Session;
-import org.hibernate.criterion.Projections;
-import org.hibernate.criterion.Restrictions;
 
 import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
@@ -13,10 +11,8 @@ import ais.database.model.recruitment.CalonPegawai;
 
 /**
  * Implementasi baku algoritma penomoran nomor registrasi calon pegawai ({@link CalonPegawai}) pada
- * modul rekrutmen. Basis nomor diambil dari id maksimum {@link CalonPegawai} saat ini, jumlah
- * digit dapat dikonfigurasi lewat {@code jumlah_increments_no_registrasi_pegawai} (default 5), dan
- * keunikan dicek terhadap kolom {@code nomorInduk}. Bila bentrok, dicoba nomor berikutnya hingga
- * {@link #MAX_ATTEMPT} kali sebelum menyerah dan mengembalikan nomor berbasis estimasi kasar.
+ * modul rekrutmen. Basis nomor diambil dari nomor registrasi terbesar yang sudah tersimpan,
+ * bukan dari id data, agar nomor tidak meloncat ketika ada data lain yang tidak ikut format nomor.
  */
 public class DefaultNoRegGeneratorPegawai implements NoRegGeneratorPegawai {
 
@@ -42,31 +38,24 @@ public class DefaultNoRegGeneratorPegawai implements NoRegGeneratorPegawai {
 	@Override
 	public String generateNoReg(List<String> jumlahPengecualian, CalonPegawai calonPegawai) {
 		List<String> pengecualian = jumlahPengecualian == null ? new ArrayList<String>() : jumlahPengecualian;
-		Session session = HibernateUtil.currentNativeSession();
+		Session session = HibernateUtil.openSession();
 		try {
-			Number maxId = (Number) session.createCriteria(CalonPegawai.class).setProjection(Projections.max("id"))
-					.uniqueResult();
-			long dasar = maxId == null ? 0L : maxId.longValue();
 			int digit = ambilJumlahDigit();
+			long dasar = RecruitmentNumberGeneratorSupport.nomorRegistrasiBerikutnya(session, digit, calonPegawai,
+					pengecualian) - 1;
 			for (int attempt = 0; attempt < MAX_ATTEMPT; attempt++) {
 				String noReg = formatNomor(dasar + pengecualian.size() + attempt + 1, digit);
 				if (pengecualian.contains(noReg)) {
 					continue;
 				}
-				Number count = (Number) session.createCriteria(CalonPegawai.class)
-						.add(Restrictions.eq("nomorInduk", noReg)).setProjection(Projections.rowCount()).uniqueResult();
-				if (count == null || count.intValue() == 0) {
+				if (!RecruitmentNumberGeneratorSupport.nomorRegistrasiSudahDipakai(session, noReg, calonPegawai)) {
 					return noReg;
 				}
 				pengecualian.add(noReg);
 			}
 			return formatNomor(dasar + pengecualian.size() + 1, digit);
 		} finally {
-			if (session.isOpen()) {
-				session.disconnect();
-				session.close();
-			}
-			HibernateUtil.closeSession();
+			HibernateUtil.closeSessionQuietly(session);
 		}
 	}
 

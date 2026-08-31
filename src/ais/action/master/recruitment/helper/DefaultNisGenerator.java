@@ -43,7 +43,7 @@ public class DefaultNisGenerator implements NisGenerator {
 	@Override
 	public String generateNis(CalonPegawai calonPegawai, List<String> jumlahPengecualian) {
 		List<String> pengecualian = jumlahPengecualian == null ? new ArrayList<String>() : jumlahPengecualian;
-		Session session = HibernateUtil.currentNativeSession();
+		Session session = HibernateUtil.openSession();
 		try {
 			Number jumlahData = (Number) session.createCriteria(Pegawai.class).setProjection(Projections.rowCount())
 					.setMaxResults(1).uniqueResult();
@@ -62,7 +62,7 @@ public class DefaultNisGenerator implements NisGenerator {
 			}
 			return formatNomor(jumlah + pengecualian.size() + 1, 5);
 		} finally {
-			HibernateUtil.closeSession();
+			HibernateUtil.closeSessionQuietly(session);
 		}
 	}
 
