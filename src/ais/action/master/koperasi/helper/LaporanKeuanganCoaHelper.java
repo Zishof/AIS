@@ -67,19 +67,37 @@ public final class LaporanKeuanganCoaHelper {
 	}
 
 	/** Kelas tampung baris laporan (satu KelompokLaporan) beserta nilainya dan rincian akunnya. */
-	private static final class Baris {
-		String label;
-		double nilai;
-		final List<String[]> rincian = new ArrayList<String[]>(); // {kode+nama, nilaiRp}
+	public static final class Baris {
+		public String label;
+		public double nilai;
+		public final List<Rincian> rincian = new ArrayList<Rincian>();
+	}
+
+	/**
+	 * Satu akun rinci di bawah sebuah baris laporan.
+	 *
+	 * <p>Nilainya disimpan sebagai angka, bukan teks rupiah yang sudah
+	 * diformat, supaya struktur yang sama dapat dipakai baik oleh perender HTML
+	 * (yang memformatnya sendiri) maupun oleh kontrak native yang harus
+	 * mengirim angka mentah.</p>
+	 */
+	public static final class Rincian {
+		public final String nama;
+		public final double nilai;
+
+		Rincian(String nama, double nilai) {
+			this.nama = nama;
+			this.nilai = nilai;
+		}
 	}
 
 	/** Kelas tampung satu kelompok besar (MasterGrupLaporan) dan baris-barisnya. */
-	private static final class Grup {
-		String nama;
-		String keterangan;
-		final List<Baris> baris = new ArrayList<Baris>();
+	public static final class Grup {
+		public String nama;
+		public String keterangan;
+		public final List<Baris> baris = new ArrayList<Baris>();
 
-		double total() {
+		public double total() {
 			double t = 0.0;
 			for (Baris b : baris) {
 				t += b.nilai;
@@ -100,6 +118,29 @@ public final class LaporanKeuanganCoaHelper {
 	public static void render(Component host, Session session, JenisLaporan jl, Date awal, Date sampai) {
 		if (host == null || jl == null || jl.getId() == null) {
 			return;
+		}
+		String namaLaporan = jl.getNama() == null ? "Laporan Keuangan" : jl.getNama();
+		host.appendChild(DashboardUiKit.html(bangunHtml(namaLaporan, kumulatif(jl), awal, sampai,
+				susun(session, jl, awal, sampai))));
+	}
+
+	/** true bila laporan bersifat kumulatif (neraca) alih-alih periodik. */
+	public static boolean kumulatif(JenisLaporan jl) {
+		String nama = jl == null || jl.getNama() == null ? "Laporan Keuangan" : jl.getNama();
+		return nama.toLowerCase().contains("neraca");
+	}
+
+	/**
+	 * Susun isi laporan sebagai struktur data, terpisah dari penyajiannya.
+	 *
+	 * <p>Pemisahan ini yang memungkinkan laporan yang sama disajikan sebagai
+	 * tabel HTML oleh layar ZK dan sebagai JSON oleh kontrak native tanpa dua
+	 * kali menghitung saldo dan memetakan akun.</p>
+	 */
+	public static LinkedHashMap<Long, Grup> susun(Session session, JenisLaporan jl, Date awal, Date sampai) {
+		LinkedHashMap<Long, Grup> kosong = new LinkedHashMap<Long, Grup>();
+		if (jl == null || jl.getId() == null) {
+			return kosong;
 		}
 		String namaLaporan = jl.getNama() == null ? "Laporan Keuangan" : jl.getNama();
 		boolean kumulatif = namaLaporan.toLowerCase().contains("neraca");
@@ -141,7 +182,7 @@ public final class LaporanKeuanganCoaHelper {
 							if (rinci) {
 								String namaAkun = (akun.getKode() == null ? "" : akun.getKode() + " ")
 										+ (akun.getNama() == null ? "" : akun.getNama());
-								b.rincian.add(new String[] { namaAkun, DashboardUiKit.money(nilai) });
+								b.rincian.add(new Rincian(namaAkun, nilai));
 							}
 						} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/koperasi/helper/LaporanKeuanganCoaHelper.java:146");
 							// lewati pemetaan bermasalah
@@ -155,7 +196,7 @@ public final class LaporanKeuanganCoaHelper {
 			}
 		}
 
-		host.appendChild(DashboardUiKit.html(bangunHtml(namaLaporan, kumulatif, awal, sampai, grupMap)));
+		return grupMap;
 	}
 
 	/** Susun tampilan HTML laporan bertingkat + subtotal + ikhtisar (Neraca / Laba Rugi). */
@@ -182,11 +223,11 @@ public final class LaporanKeuanganCoaHelper {
 					.append("</td></tr>");
 			for (Baris b : g.baris) {
 				if (!b.rincian.isEmpty()) {
-					for (String[] r : b.rincian) {
+					for (Rincian r : b.rincian) {
 						sb.append("<tr><td style='padding:3px 8px 3px 26px;border:1px solid #e2e8f0;color:#475569;'>")
-								.append(DashboardUiKit.esc(r[0])).append("</td>")
+								.append(DashboardUiKit.esc(r.nama)).append("</td>")
 								.append("<td style='padding:3px 8px;border:1px solid #e2e8f0;text-align:right;color:#475569;'>Rp ")
-								.append(r[1]).append("</td></tr>");
+								.append(DashboardUiKit.money(r.nilai)).append("</td></tr>");
 					}
 				}
 				sb.append("<tr><td style='padding:4px 8px 4px 16px;border:1px solid #e2e8f0;font-weight:600;'>")

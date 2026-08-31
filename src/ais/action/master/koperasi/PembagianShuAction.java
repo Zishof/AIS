@@ -2,10 +2,8 @@ package ais.action.master.koperasi;
 
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.hibernate.Session;
 import org.zkoss.zk.ui.Component;
@@ -16,10 +14,10 @@ import org.zkoss.zul.Doublebox;
 import org.zkoss.zul.Intbox;
 
 import ais.action.master.koperasi.helper.SimpanPinjamUiUtil;
+import ais.action.master.koperasi.util.PembagianShuHelper;
 import ais.common.Common;
 import ais.common.ConstantValues;
 import ais.database.hibernate.HibernateUtil;
-import ais.database.model.koperasi.AnggotaKoperasi;
 import ais.database.model.koperasi.PembagianShu;
 import ais.database.model.koperasi.ShuAnggota;
 import ais.database.model.koperasi.TransaksiKoperasi;
@@ -177,116 +175,23 @@ public class PembagianShuAction extends GenericAutowireComposer {
 	 * Hitung bagian SHU tiap anggota dan simpan. Membuat/memperbarui {@link PembagianShu} untuk tahun
 	 * terpilih, menghapus {@link ShuAnggota} lama-nya, lalu menyimpan hasil pembagian yang baru.
 	 */
-	@SuppressWarnings("unchecked")
+	/**
+	 * Hitung dan simpan pembagian SHU tahun terpilih.
+	 *
+	 * <p>Perhitungannya milik {@link PembagianShuHelper} agar layar native
+	 * memakai rumus yang persis sama; di sini hanya nilai formulir yang
+	 * dikumpulkan.</p>
+	 */
 	private void hitungDanSimpan(Session session) {
-		int thn = tahunTerpilih();
-
-		PembagianShu pembagian = cariPembagian(session, thn);
-		if (pembagian == null) {
-			pembagian = new PembagianShu();
-			pembagian.setTahun(Integer.valueOf(thn));
-			try {
-				pembagian.setKoperasi(Common.getCurrentKoperasi());
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/koperasi/PembagianShuAction.java:190");
-			}
-		}
-		pembagian.setTotalShu(nilai(totalShu));
-		pembagian.setPersenCadangan(nilai(persenCadangan));
-		pembagian.setPersenJasaModal(nilai(persenJasaModal));
-		pembagian.setPersenJasaUsaha(nilai(persenJasaUsaha));
-		pembagian.setPersenPendidikan(nilai(persenPendidikan));
-		pembagian.setPersenPengurus(nilai(persenPengurus));
-		pembagian.setPersenSosial(nilai(persenSosial));
-		pembagian.setStatus(PembagianShu.STATUS_DIBAGIKAN);
-		Common.refreshSaveOrUpdate(session, pembagian);
-		session.flush();
-
-		// Hapus rincian lama agar tidak menumpuk saat dihitung ulang.
-		try {
-			session.createQuery("delete from ShuAnggota s where s.pembagianShu.id = :id")
-					.setParameter("id", pembagian.getId()).executeUpdate();
-		} catch (Exception e) {
-			Common.tampilErrorJikaAdmin(e);
-		}
-
-		Long tipeSimpanan = ConstantValues.SIMPANAN != null ? ConstantValues.SIMPANAN.getId() : null;
-		Long tipePinjaman = ConstantValues.PINJAMAN != null ? ConstantValues.PINJAMAN.getId() : null;
-
-		Map<Long, Double> simpananPer = new HashMap<Long, Double>();
-		Map<Long, Double> partisipasiPer = new HashMap<Long, Double>();
-		Map<Long, AnggotaKoperasi> anggotaMap = new HashMap<Long, AnggotaKoperasi>();
-
-		// Basis jasa modal: total simpanan tiap anggota.
-		if (tipeSimpanan != null) {
-			List<TransaksiKoperasi> simp = session.createQuery(
-					"select distinct t from TransaksiKoperasi t left join fetch t.anggotaKoperasi a "
-							+ "where t.produkKoperasi.tipeProdukKoperasi.id = :tipe")
-					.setParameter("tipe", tipeSimpanan).list();
-			for (TransaksiKoperasi t : simp) {
-				akumulasi(t, t.getNilai(), simpananPer, anggotaMap);
-			}
-		}
-		// Basis jasa usaha: total jasa/bunga (margin) pinjaman tiap anggota.
-		if (tipePinjaman != null) {
-			List<TransaksiKoperasi> pinj = session.createQuery(
-					"select distinct t from TransaksiKoperasi t left join fetch t.anggotaKoperasi a "
-							+ "left join fetch t.produkKoperasi p where p.tipeProdukKoperasi.id = :tipe")
-					.setParameter("tipe", tipePinjaman).list();
-			for (TransaksiKoperasi t : pinj) {
-				try {
-					if (t.getAktif()) {
-						akumulasi(t, t.getMargin(), partisipasiPer, anggotaMap);
-					}
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/koperasi/PembagianShuAction.java:240");
-				}
-			}
-		}
-
-		double totalSimpAll = jumlah(simpananPer);
-		double totalPartAll = jumlah(partisipasiPer);
-		double nominalJasaModal = pembagian.getNominalJasaModal();
-		double nominalJasaUsaha = pembagian.getNominalJasaUsaha();
-
-		for (Map.Entry<Long, AnggotaKoperasi> e : anggotaMap.entrySet()) {
-			try {
-				Long aid = e.getKey();
-				double simpanan = get0(simpananPer, aid);
-				double partisipasi = get0(partisipasiPer, aid);
-				double jasaModal = totalSimpAll > 0 ? simpanan / totalSimpAll * nominalJasaModal : 0.0;
-				double jasaUsaha = totalPartAll > 0 ? partisipasi / totalPartAll * nominalJasaUsaha : 0.0;
-
-				ShuAnggota sa = new ShuAnggota();
-				sa.setPembagianShu(pembagian);
-				sa.setAnggota(e.getValue());
-				sa.setTotalSimpanan(Double.valueOf(simpanan));
-				sa.setTotalTransaksi(Double.valueOf(partisipasi));
-				sa.setJasaModal(Double.valueOf(jasaModal));
-				sa.setJasaUsaha(Double.valueOf(jasaUsaha));
-				sa.setTotalShu(Double.valueOf(jasaModal + jasaUsaha));
-				session.save(sa);
-			} catch (Exception ex) {
-				Common.tampilErrorJikaAdmin(ex);
-			}
-		}
-		session.flush();
-	}
-
-	/** Tambahkan {@code nilai} ke akumulator per anggota, sekaligus mencatat objek anggotanya. */
-	private void akumulasi(TransaksiKoperasi t, double nilaiTambah, Map<Long, Double> akum,
-			Map<Long, AnggotaKoperasi> anggotaMap) {
-		try {
-			AnggotaKoperasi a = t.getAnggotaKoperasi();
-			if (a == null || a.getId() == null) {
-				return;
-			}
-			Long aid = a.getId();
-			Double v = akum.get(aid);
-			akum.put(aid, Double.valueOf((v == null ? 0.0 : v.doubleValue()) + nilaiTambah));
-			if (!anggotaMap.containsKey(aid)) {
-				anggotaMap.put(aid, a);
-			}
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/koperasi/PembagianShuAction.java:288");
-		}
+		PembagianShuHelper.Parameter p = new PembagianShuHelper.Parameter();
+		p.totalShu = nilai(totalShu);
+		p.persenCadangan = nilai(persenCadangan);
+		p.persenJasaModal = nilai(persenJasaModal);
+		p.persenJasaUsaha = nilai(persenJasaUsaha);
+		p.persenPendidikan = nilai(persenPendidikan);
+		p.persenPengurus = nilai(persenPengurus);
+		p.persenSosial = nilai(persenSosial);
+		PembagianShuHelper.hitungDanSimpan(session, tahunTerpilih(), p);
 	}
 
 	// ════════════════════════════════════════════════════════════════════════════════════════
@@ -401,13 +306,7 @@ public class PembagianShuAction extends GenericAutowireComposer {
 
 	/** Cari pembagian SHU untuk satu tahun (baris terbaru bila kebetulan ada lebih dari satu). */
 	private PembagianShu cariPembagian(Session session, int thn) {
-		try {
-			return (PembagianShu) session.createQuery("from PembagianShu p where p.tahun = :th order by p.id desc")
-					.setParameter("th", Integer.valueOf(thn)).setMaxResults(1).uniqueResult();
-		} catch (Exception e) {
-			Common.tampilErrorJikaAdmin(e);
-			return null;
-		}
+		return PembagianShuHelper.cari(session, thn);
 	}
 
 	private int tahunTerpilih() {
@@ -427,16 +326,4 @@ public class PembagianShuAction extends GenericAutowireComposer {
 		return box == null || box.getValue() == null ? 0.0 : box.getValue().doubleValue();
 	}
 
-	private static double jumlah(Map<Long, Double> map) {
-		double s = 0.0;
-		for (Double v : map.values()) {
-			s += v == null ? 0.0 : v.doubleValue();
-		}
-		return s;
-	}
-
-	private static double get0(Map<Long, Double> map, Long key) {
-		Double v = map.get(key);
-		return v == null ? 0.0 : v.doubleValue();
-	}
 }

@@ -29,8 +29,15 @@ public class PengaturanKantinAction extends GenericAutowireComposer {
 
     private Div host;
 
-    /** Daftar tab: {label, path zul}. Semua path menunjuk halaman ZK master yang sudah ada. */
-    private static final String[][] TABS = {
+    /**
+     * Daftar tab: {label, path zul}. Semua path menunjuk halaman master yang sudah ada.
+     *
+     * <p>Sengaja publik: kontrak native memakai daftar yang SAMA agar tab pada
+     * layar native tidak pernah menyimpang dari layar ZK. Menyalin daftar ini
+     * ke sisi klien akan membuat tab hilang atau menunjuk halaman usang setiap
+     * kali daftar di sini berubah.</p>
+     */
+    public static final String[][] TABS = {
             { "Member", "/pages/master/koperasi/anggota_koperasi.zul" },
             { "Produk", "/pages/master/inventory/produk.zul" },
             { "Jenis Produk", "/pages/master/inventory/jenis_produk.zul" },

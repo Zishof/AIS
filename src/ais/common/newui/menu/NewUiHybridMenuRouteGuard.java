@@ -68,6 +68,9 @@ public final class NewUiHybridMenuRouteGuard {
                 || "options".equals(value) || "lookup".equals(value)
                 // ringkasan read-only (mis. Informasi Pembayaran Mahasiswa)
                 || "informasi".equals(value)
+                // penetapan harga keranjang kantin: hanya membaca lalu menghitung.
+                // Harus ada di KEDUA penjaga; index.jsp memanggil penjaga ini dulu.
+                || "harga".equals(value)
                 || "relation_lookup".equals(value) || "search".equals(value)
                 || "revisions".equals(value) || "global_revisions".equals(value)
                 || "compare".equals(value) || "export".equals(value) || value.startsWith("export_")

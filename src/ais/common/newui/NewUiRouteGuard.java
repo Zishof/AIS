@@ -83,6 +83,11 @@ public final class NewUiRouteGuard {
                 || "options".equals(value) || "lookup".equals(value)
                 // ringkasan read-only (mis. Informasi Pembayaran Mahasiswa)
                 || "informasi".equals(value)
+                // penetapan harga keranjang: membaca katalog & aturan diskon lalu
+                // menghitung, tanpa menyimpan apa pun. SENGAJA bukan "hitung",
+                // karena beberapa layar memakai onHitung untuk aksi yang MENULIS
+                // (mis. hitung & simpan pembagian SHU).
+                || "harga".equals(value)
                 || "relation_lookup".equals(value) || "search".equals(value)
                 || "revisions".equals(value) || "global_revisions".equals(value)
                 || "compare".equals(value) || "export".equals(value) || value.startsWith("export_")
