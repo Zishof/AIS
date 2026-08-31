@@ -112,6 +112,38 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.SmartDateTimeUtil;
 
 /* TAMPILAN_ALUR_SOP_COMPACT_CARD_V12_2026_06_04 */
+/**
+ * Controller/action ZK untuk tampilan alur sop. Tipe ini merupakan titik masuk UI yang
+ * menghubungkan event layar dengan perilaku domain yang diwarisi atau dikonfigurasi khusus oleh
+ * kelas ini.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * GenericAutowireComposer}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code String ATTR_TAMPILKAN_ALUR_MENUNGGU},
+ * {@code Rows rows}, {@code Textbox cari}, {@code Tabpanels tabpanels}, {@code Component menu}, {@code
+ * Borderlayout layoutUtama}, {@code Tabs tabs}, {@code MyWindow window}; inisialisasi/lifecycle ({@code
+ * doBeforeCompose()}, {@code doAfterCompose()}, {@code buatToolbarAdminLaporan()}, {@code initCriteria()});
+ * pembacaan/pencarian ({@code loadMenu()}, {@code loadData()}, {@code tampil()}, {@code
+ * tampilInfoAktorDisposisi()}, {@code ambilSemuaAlurSopUntukOverview()}); mutasi data ({@code prosess()}, {@code
+ * prosess()}, {@code prosess()}, {@code prosess()}, {@code prosess()}); penghapusan/pembatalan ({@code
+ * appendTombolBatalMenungguJikaAktor()}); pelaporan/ekspor ({@code cetakDisposisi()}, {@code
+ * renderWorkflowOverviewPanel()}, {@code renderWorkflowOverview()}, {@code renderWorkflowOverview()}, {@code
+ * renderWorkflowProgressCard()}, {@code renderBaganSopDefinisi()}); operasi domain lain ({@code
+ * cleanupSession()}, {@code isUserLoginTermasukAktorBerikutnya()}, {@code safeString()}, {@code hasText()},
+ * {@code createFormSop()}, {@code createEmptyFormData()}). Bagian lain dari kontrak tetap mengikuti kelas induk
+ * atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
+ * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
+ * serta session Hibernate milik request yang aktif.</p>
+ *
+ * @see GenericAutowireComposer
+ */
 public class TampilanAlurSopAction extends GenericAutowireComposer {
 
 	private static final long serialVersionUID = -2301873239699174688L;

@@ -65,6 +65,33 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyTreeitemConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Controller/action ZK untuk alur persetujuan surat keluar tree. Tipe ini merupakan titik masuk UI
+ * yang menghubungkan event layar dengan perilaku domain yang diwarisi atau dikonfigurasi khusus
+ * oleh kelas ini.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * GenericAutowireComposer}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyWindow addWindow}, {@code Tree tree},
+ * {@code Combobox jenisJabatan}, {@code Textbox nama}, {@code Textbox keterangan}, {@code MyCheckboxConfig
+ * defaultItem}, {@code Checkbox searchaktif}, {@code boolean edit}; inisialisasi/lifecycle ({@code
+ * doBeforeCompose()}, {@code doAfterCompose()}, {@code initTree()}, {@code init()}, {@code
+ * initKelengkapanBerkas()}); pembacaan/pencarian ({@code onReloadTree()}, {@code reloadTreeitem()}, {@code
+ * reloadTreeitem()}, {@code reloadTotal()}); mutasi data ({@code onSave()}); operasi domain lain ({@code
+ * onAdd()}, {@code openChilds()}, {@code closeChilds()}, {@code hasSomeChilds()}). Bagian lain dari kontrak
+ * tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
+ * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
+ * serta session Hibernate milik request yang aktif.</p>
+ *
+ * @see GenericAutowireComposer
+ */
 public class AlurPersetujuanSuratKeluarTreeAction extends GenericAutowireComposer {
 
 	/**

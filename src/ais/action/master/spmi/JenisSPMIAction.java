@@ -31,6 +31,32 @@ import ais.ui.util.MyInclude;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Controller/action ZK untuk jenis spmi. Tipe ini merupakan titik masuk UI yang menghubungkan
+ * event layar dengan perilaku domain yang diwarisi atau dikonfigurasi khusus oleh kelas ini.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * BaseSPMIAction}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan
+ * yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
+ * tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Textbox kode}, {@code Textbox nama},
+ * {@code Textbox keterangan}, {@code JenisSPMI jenisSPMI}, {@code Tabpanel standarTab}, {@code Tabpanel
+ * butirMutuTab}, {@code Tabpanel indikatorTab}, {@code Tabpanel skenarioTab}; inisialisasi/lifecycle ({@code
+ * doAfterCompose()}, {@code init()}, {@code initCriteria()}); pembacaan/pencarian ({@code loadTab()}, {@code
+ * onDownloadSpmiGlobal()}, {@code onUploadSpmiGlobal()}, {@code resolveUploadEvent()}, {@code
+ * onSearchDefault()}); mutasi data ({@code onSave()}); operasi domain lain ({@code onStandar()}, {@code
+ * onButirMutu()}, {@code onIndikator()}, {@code onSkenario()}, {@code onAdd()}, {@code buildForm()}). Bagian
+ * lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
+ * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
+ * serta session Hibernate milik request yang aktif.</p>
+ *
+ * @see BaseSPMIAction
+ */
 public class JenisSPMIAction extends BaseSPMIAction {
 
     private static final long serialVersionUID = -5779730267402400328L;

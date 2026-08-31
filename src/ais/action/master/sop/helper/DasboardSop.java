@@ -69,6 +69,35 @@ import ais.ui.util.MyLabelBoldAja;
 import ais.ui.util.MyLabelKecil;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Komponen dashboard khusus untuk dasboard sop. Kelas ini memilih variasi data atau tampilan
+ * dashboard sambil memakai lifecycle dan mekanisme pemuatan dari kelas induknya.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * MyPortallayout}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan
+ * yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
+ * tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code boolean debug}, {@code boolean debuh},
+ * {@code int DETAIL_PAGE_SIZE}, {@code Tbmuser tbmuser}, {@code Tabs tabs}, {@code Tabpanels tabpanels}, {@code
+ * Component menu}, {@code int DASHBOARD_SAMPLE_LIMIT}; inisialisasi/lifecycle ({@code init()});
+ * pembacaan/pencarian ({@code getAktorRestriction()}, {@code getAktorRestriction()}, {@code
+ * getCountPengajuanBaru()}, {@code getCountDataPengajuanAnda()}, {@code tampilkanLoadingDashboardSop()}, {@code
+ * updateLoadingDashboardSop()}); validasi/perhitungan ({@code invalidateSopDashboardCache()}, {@code
+ * bolehSetujuiMassal()}); mutasi data ({@code renderFunnelProsesSop()}, {@code attachKlikProses()}, {@code
+ * jalankanSetujuiMassalMenunggu()}, {@code dialogSetujuiMassal()}, {@code setujuiTugas()});
+ * penghapusan/pembatalan ({@code removeCriteriaReferences()}); pelaporan/ekspor ({@code renderHomeDasborTab()},
+ * {@code renderHomeDasborContentAsync()}, {@code renderHomeDasborContent()}, {@code renderHeroDasbor()}, {@code
+ * renderMetricCards()}, {@code renderDasborSopGlobalFilter()}); operasi domain lain ({@code
+ * createDipantauCriteria()}, {@code analyzeDashboardRows()}, {@code clearTime()}, {@code addCounter()}, {@code
+ * buildRecentItem()}, {@code isDisposisiSelesai()}); konfigurasi constructor: {@code tbmuser}. Bagian lain dari
+ * kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ *
+ * @see MyPortallayout
+ */
 public class DasboardSop extends MyPortallayout {
 
 	private static final long serialVersionUID = -9006490521125337935L;
