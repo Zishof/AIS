@@ -25,6 +25,32 @@ import ais.action.master.dashboard.admin.DashboardRekapStatusAwalMahasiswaMahasi
 import ais.action.master.dashboard.admin.DashboardRekapTahunKelulusanMahasiswaBaru;
 import ais.common.Common;
 
+/**
+ * Controller/action ZK untuk rekap rekap. Tipe ini merupakan titik masuk UI yang menghubungkan
+ * event layar dengan perilaku domain yang diwarisi atau dikonfigurasi khusus oleh kelas ini.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * GenericAutowireComposer}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Tabpanel rekapitulasiGelombang}, {@code
+ * Tabpanel rekapitulasi}, {@code Tabpanel rekapitulasiJenisSeleksi}, {@code Tabpanel rekapitulasiKota}, {@code
+ * Tabpanel rekapitulasiKecamatan}, {@code Tabpanel rekapitulasiAgama}, {@code Tabpanel rekapitulasiAsalSma},
+ * {@code Tabpanel rekapitulasiTahunKelulusan}; inisialisasi/lifecycle ({@code doBeforeCompose()}, {@code
+ * doAfterCompose()}); operasi domain lain ({@code onRekapitulasiGelombang()}, {@code onRekapitulasi()}, {@code
+ * onRekapitulasiJenisSeleksi()}, {@code onRekapitulasiKota()}, {@code onRekapitulasiKecamatan()}, {@code
+ * onRekapitulasiAgama()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
+ * atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
+ * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
+ * serta session Hibernate milik request yang aktif.</p>
+ *
+ * @see GenericAutowireComposer
+ */
 public class RekapRekapAction extends GenericAutowireComposer {
 
 	/**

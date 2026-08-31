@@ -14,6 +14,25 @@ import org.zkoss.calendar.impl.SimpleCalendarModel;
 import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 
+/**
+ * Tipe khusus untuk hari libur kalender model. Kelas ini memberi nama dan batas tanggung jawab
+ * yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * SimpleCalendarModel}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code String filterText}, {@code Set
+ * calendarEvents}; pembacaan/pencarian ({@code get()}, {@code setList()}); mutasi data ({@code setFilterText()},
+ * {@code update()}); penghapusan/pembatalan ({@code remove()}); operasi domain lain ({@code add()}). Bagian lain
+ * dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ *
+ * @see SimpleCalendarModel
+ */
 public class HariLiburKalenderModel extends SimpleCalendarModel {
 	/**
 	 * 
