@@ -31,6 +31,29 @@ import ais.ui.util.WaktuUtil;
 import net.objecthunter.exp4j.Expression;
 import net.objecthunter.exp4j.ExpressionBuilder;
 
+/**
+ * Tipe khusus untuk item kpi tree model. Kelas ini memberi nama dan batas tanggung jawab yang
+ * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * AbstractTreeModel}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Boolean tampilkanSemua}, {@code
+ * FormatKpiDetail formatKpiDetail}, {@code Date sekarang}, {@code ArrayList nilaiKpis}; pembacaan/pencarian
+ * ({@code getChildren()}, {@code getChildren()}, {@code getChild()}, {@code getChildCount()}, {@code
+ * getParentCount()}, {@code getParentSet()}); validasi/perhitungan ({@code kodeVariabelValid()}, {@code
+ * hitungItemKpi()}, {@code hitungItemKpi()}, {@code hitungNilaiKpi()}, {@code hitungNilaiKpi()});
+ * penghapusan/pembatalan ({@code deleteChilds()}); operasi domain lain ({@code generateAllChildren()}, {@code
+ * isLeaf()}, {@code copyByFormat()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang
+ * disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ *
+ * @see AbstractTreeModel
+ */
 public class ItemKpiTreeModel extends AbstractTreeModel {
 	private static boolean kodeVariabelValid(String kode) {
 		return kode != null && kode.matches("[A-Za-z_][A-Za-z0-9_]*");

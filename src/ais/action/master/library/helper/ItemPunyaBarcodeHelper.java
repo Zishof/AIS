@@ -57,6 +57,24 @@ import net.sourceforge.barbecue.Barcode;
 import net.sourceforge.barbecue.BarcodeFactory;
 import net.sourceforge.barbecue.BarcodeImageHandler;
 
+/**
+ * Helper terfokus untuk item punya barcode. Tipe ini membungkus satu variasi kecil dari alur yang
+ * lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid gridBarcode}, {@code boolean
+ * add}, {@code boolean delete}, {@code Textbox barcode}, {@code AmbilDataPerpustakaanBanbox perpustakaan},
+ * {@code Item item}, {@code BatchItemPunyaBarcode batchItemPunyaBarcode}; inisialisasi/lifecycle ({@code
+ * initDetail()}, {@code initRow()}); pembacaan/pencarian ({@code loadDataDetail()}); mutasi data ({@code
+ * setAdd()}); operasi domain lain ({@code pastikanSessionTerbuka()}); konfigurasi constructor: {@code add},
+ * {@code delete}. Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class ItemPunyaBarcodeHelper {
 
 	/**
