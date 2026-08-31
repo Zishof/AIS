@@ -2013,11 +2013,19 @@ public class InitIndex {
 		submitDdl(new Runnable() {
 			@Override
 			public void run() {
+				org.hibernate.Session session = null;
 				try {
-					ais.common.Common.updateSql10Menit(sql);
+					session = ais.database.hibernate.HibernateUtil.getSessionFactory().openSession();
+					session.createSQLQuery(sql).executeUpdate();
 				} catch (Throwable e) {
 					ais.common.ErrorAuditUtil.record(e,
 							"auto-audit(empty-catch) src/ais/common/InitIndex.java:initIndexRevisiEnversGenerik");
+				} finally {
+					if (session != null) {
+						try { session.clear(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "InitIndex.initIndexRevisiEnversGenerik-clear"); }
+						try { session.disconnect(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "InitIndex.initIndexRevisiEnversGenerik-disconnect"); }
+						try { session.close(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "InitIndex.initIndexRevisiEnversGenerik-close"); }
+					}
 				}
 			}
 		});

@@ -111,6 +111,17 @@ import ais.ui.util.WaktuUtil;
 public class PembayaranOnline extends GenericAutowireComposer {
 
 	private static final long serialVersionUID = 7381263733011550603L;
+	private static final int MAKS_WORKER_TAGIHAN = 16;
+
+	private static int hitungJumlahWorkerTagihan(int totalData) {
+		if (totalData <= 0) {
+			return 1;
+		}
+		int berbasisCpu = Runtime.getRuntime().availableProcessors() * 2;
+		int jumlahWorker = Math.min(MAKS_WORKER_TAGIHAN, berbasisCpu);
+		jumlahWorker = Math.max(2, jumlahWorker);
+		return Math.min(jumlahWorker, totalData);
+	}
 
 	private AmbilDataSiswaBanbox siswa;
 	private AmbilDataCalonSiswaBanbox calonSiswa;
@@ -2810,7 +2821,7 @@ public class PembayaranOnline extends GenericAutowireComposer {
 				"Sistem sedang membaca pengaturan biaya, menghitung tagihan, bantuan/potongan, dan menyiapkan tombol pembayaran.",
 				10);
 
-		final ExecutorService executor = Executors.newFixedThreadPool(Math.min(50, totalData));
+		final ExecutorService executor = Executors.newFixedThreadPool(hitungJumlahWorkerTagihan(totalData));
 
 		for (int i = 0; i < totalData; i++) {
 			final int index = i;
@@ -2843,10 +2854,10 @@ public class PembayaranOnline extends GenericAutowireComposer {
 						boolean isValid = false;
 						if (pbWorker.getAktif()) {
 							if (siswaWorker != null && !jbs.getGunakanCalonSiswa()
-									&& DetailTagihanSiswaHelper.apakahAda(pbWorker, siswaWorker)) {
+									&& DetailTagihanSiswaHelper.apakahAda(workerSession, pbWorker, siswaWorker)) {
 								isValid = true;
 							} else if (calonWorker != null && jbs.getGunakanCalonSiswa()
-									&& DetailTagihanCalonSiswaHelper.apakahAda(pbWorker, calonWorker)) {
+									&& DetailTagihanCalonSiswaHelper.apakahAda(workerSession, pbWorker, calonWorker)) {
 								isValid = true;
 							}
 						}

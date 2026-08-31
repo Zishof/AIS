@@ -1089,6 +1089,14 @@ public class DetailTagihanCalonSiswaHelper implements DataLoader, DataCriteria {
 				.setProjection(Projections.rowCount()).uniqueResult()).intValue() > 0;
 	}
 
+	public static boolean apakahAda(Session session, PengaturanBiaya pengaturanBiaya, CalonSiswa calonSiswa) {
+		if (session == null || !session.isOpen()) {
+			return apakahAda(pengaturanBiaya, calonSiswa);
+		}
+		return ((Number) initCriteria(session, pengaturanBiaya, calonSiswa, new Textbox(), null, false, false)
+				.setProjection(Projections.rowCount()).uniqueResult()).intValue() > 0;
+	}
+
 	public Criteria initCriteria(boolean order) {
 		PengaturanBiayaItemBiaya pengaturanBiayaItemBiaya = (PengaturanBiayaItemBiaya) (biayaItem
 				.getSelectedItem() == null || biayaItem.getSelectedItem().getValue() == null ? null

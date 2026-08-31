@@ -1344,6 +1344,14 @@ public class DetailTagihanSiswaHelper implements DataLoader, DataCriteria {
 				.setProjection(Projections.rowCount()).uniqueResult()).intValue() > 0;
 	}
 
+	public static boolean apakahAda(Session session, PengaturanBiaya pengaturanBiaya, Siswa siswa) {
+		if (session == null || !session.isOpen()) {
+			return apakahAda(pengaturanBiaya, siswa);
+		}
+		return ((Number) initCriteria(session, pengaturanBiaya, siswa, new Textbox(), null, false, false)
+				.setProjection(Projections.rowCount()).uniqueResult()).intValue() > 0;
+	}
+
 	public Criteria initCriteria(boolean order) {
 
 		PengaturanBiayaItemBiaya pengaturanBiayaItemBiaya = (PengaturanBiayaItemBiaya) (biayaItem

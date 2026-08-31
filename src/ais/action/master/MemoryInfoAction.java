@@ -241,6 +241,9 @@ private MyToolbarbuttonConfig find;
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 		GenericActionDashboardHelper.showProgress(progressHtml, 15, "Memuat data", "Membaca data sesuai filter yang aktif.");
+		if (paging != null && event != null && !"onPaging".equals(event.getName())) {
+			paging.setActivePage(0);
+		}
 		Common.initPaging(initCriteria(false), paging);
 
 		List<MemoryInfo> memoryInfo = initCriteria(true).setMaxResults(Common.ROWS_COUNT_ON_PAGE)
@@ -261,6 +264,8 @@ private MyToolbarbuttonConfig find;
 		try {
 			return initCriteria(true).setMaxResults(maks).list();
 		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"MemoryInfoAction: gagal mengambil sampel memori sesuai filter aktif");
 			return new java.util.ArrayList<MemoryInfo>();
 		}
 	}

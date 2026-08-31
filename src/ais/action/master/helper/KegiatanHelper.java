@@ -61,6 +61,7 @@ import ais.database.model.CicilanPembayaran;
 import ais.database.model.DetailBiaya;
 import ais.database.model.DetailKegiatan;
 import ais.database.model.Fakultas;
+import ais.database.model.GeneralValueObject;
 import ais.database.model.HistoryStatusMahasiswa;
 import ais.database.model.ItemBiaya;
 import ais.database.model.JadwalPembayaran;
@@ -166,7 +167,9 @@ public class KegiatanHelper {
 		// untuk transaksi ini. Best-effort (diam bila bukan PostgreSQL / tanpa transaksi aktif).
 		try {
 			session.createSQLQuery("SET LOCAL lock_timeout = '5000ms'").executeUpdate();
-		} catch (Exception ignore) { ais.common.ErrorAuditUtil.record(ignore, "auto-audit(empty-catch) src/ais/action/master/helper/KegiatanHelper.java:118");
+		} catch (Exception ignore) {
+			// Best-effort saja. Jika koneksi sudah ditutup atau database bukan PostgreSQL,
+			// jangan jadikan SET LOCAL lock_timeout sebagai error aplikasi.
 		}
 	}
 
@@ -318,9 +321,9 @@ public class KegiatanHelper {
 				tx.commit();
 			}
 		} catch (Exception e) {
-			boolean staleRowHilang = isStaleState(e) && entity instanceof Kegiatan
-					&& ((Kegiatan) entity).getId() != null
-					&& !kegiatanMasihAda(((Kegiatan) entity).getId());
+			boolean staleRowHilang = isStaleState(e) && entity instanceof GeneralValueObject
+					&& ((GeneralValueObject) entity).getId() != null
+					&& !entityMasihAda(entity.getClass(), ((GeneralValueObject) entity).getId());
 			// KE-19 ("current transaction is aborted, commands ignored until end of transaction
 			// block" / SQLState 25P02): begitu sebuah statement GAGAL di PostgreSQL (di sini
 			// flush() kena 55P03 "canceling statement due to lock timeout" saat update baris
@@ -339,7 +342,7 @@ public class KegiatanHelper {
 			// dipulihkan -- tapi TIDAK ikut transaksiMati (dipisah dari kondisi retry di bawah): retry
 			// merge 3x pada pelanggaran unique constraint yang genuinely permanen (bukan kontensi
 			// sesaat) hanya membuang waktu karena akan gagal identik setiap kali.
-			boolean transaksiPerluDipulihkan = transaksiMati || isConstraintViolation(e);
+			boolean transaksiPerluDipulihkan = transaksiMati || isConstraintViolation(e) || staleRowHilang;
 			if (isNewTx) {
 				if (tx != null && tx.isActive()) {
 					try { tx.rollback(); } catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/master/helper/KegiatanHelper.java:251");}
@@ -348,8 +351,10 @@ public class KegiatanHelper {
 				pulihkanTransaksiTerabort(session, tx);
 			}
 			try { if (isUsableSession(session)) session.clear(); } catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/master/helper/KegiatanHelper.java:253");}
-			// Recalculation dan reversal dapat beradu: bila baris Kegiatan memang sudah
-			// dihapus transaksi lain, row-count 0 adalah hasil idempoten, bukan kegagalan.
+			// Recalculation dan reversal dapat beradu: bila baris yang sedang disinkronkan
+			// memang sudah dihapus transaksi lain, row-count 0 adalah hasil idempoten,
+			// bukan kegagalan. Ini tidak hanya terjadi pada Kegiatan, tetapi juga pada
+			// DetailKegiatan/CicilanPembayaran yang dibangun ulang saat hitung tagihan.
 			if (staleRowHilang) {
 				return;
 			}
@@ -669,11 +674,11 @@ public class KegiatanHelper {
 		return false;
 	}
 
-	private static boolean kegiatanMasihAda(Long id) {
+	private static boolean entityMasihAda(Class clazz, Serializable id) {
 		Session cek = null;
 		try {
 			cek = openIsolatedSession();
-			return cek.get(Kegiatan.class, id) != null;
+			return cek.get(clazz, id) != null;
 		} catch (Exception e) {
 			return true;
 		} finally {

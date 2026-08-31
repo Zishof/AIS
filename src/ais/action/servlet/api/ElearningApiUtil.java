@@ -133,8 +133,9 @@ public class ElearningApiUtil {
 					Session sessSyaratKrs = HibernateUtil.openSession();
 					try {
 
-					KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa, semester, tahapan,
-							semesterPendek, refresh);
+					KrsMahasiswa krsMahasiswa = refresh
+							? Common.singkronkanKrsMahasiswa(mahasiswa, semester, tahapan, semesterPendek, true)
+							: Common.ambilKrsMahasiswaTanpaSinkronisasi(mahasiswa, semester, tahapan, semesterPendek);
 					Dosen dosenPembimbingAkademik = krsMahasiswa.getDosenPa();
 
 					Konfigurasi konfigurasi;
@@ -2284,8 +2285,9 @@ public class ElearningApiUtil {
 						}
 					}
 
-					System.out.println("property -> " + property + ", data -> " + strid + ", val -> " + value
-							+ ", oldValue -> " + oldValue + ", dataBerubah -> " + dataBerubah);
+					System.out.println("property -> " + property + ", data -> " + strid + ", val -> "
+							+ labelObjectAman(value) + ", oldValue -> " + labelObjectAman(oldValue)
+							+ ", dataBerubah -> " + dataBerubah);
 
 					// --- EKSEKUSI UPDATE HANYA JIKA BERUBAH ---
 					if (dataBerubah) {
@@ -2663,6 +2665,29 @@ public class ElearningApiUtil {
 			System.out.println("[API-WARN] Nilai non-angka untuk field Double '" + property + "': " + strid
 					+ ". Nilai lama dipertahankan.");
 			return oldValue instanceof Double ? (Double) oldValue : null;
+		}
+	}
+
+	private static String labelObjectAman(Object value) {
+		if (value == null) {
+			return "null";
+		}
+		if (value instanceof GeneralValueObject) {
+			Serializable id = ((GeneralValueObject) value).getId();
+			return value.getClass().getName() + "#" + (id == null ? "baru" : id.toString());
+		}
+		if (value instanceof Tbmuser) {
+			Serializable id = ((Tbmuser) value).getUserId();
+			return value.getClass().getName() + "#" + (id == null ? "baru" : id.toString());
+		}
+		if (value instanceof Tbmrole) {
+			Serializable id = ((Tbmrole) value).getRoleId();
+			return value.getClass().getName() + "#" + (id == null ? "baru" : id.toString());
+		}
+		try {
+			return value.toString();
+		} catch (Exception e) {
+			return value.getClass().getName();
 		}
 	}
 

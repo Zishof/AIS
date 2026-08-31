@@ -1381,6 +1381,7 @@ public class Item extends GeneralValueObject {
 		this.callnumber = callnumber;
 	}
 
+	@Column(name = "lampiran_path", nullable = true, columnDefinition = "text")
 	public String getLampiranPath() {
 		return lampiranPath;
 	}

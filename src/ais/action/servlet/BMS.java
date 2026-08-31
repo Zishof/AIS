@@ -819,7 +819,13 @@ public class BMS extends HttpServlet {
 
 	public static String doProses(String data, HttpServletRequest request, BankHost bankHost, String bank, boolean chek)
 			throws Exception {
-		JSONObject req = data == null ? null : new JSONObject(data);
+		if (data == null || data.trim().length() == 0 || !data.trim().startsWith("{")) {
+			JSONObject response = new JSONObject();
+			response.put("errorCode", "30");
+			response.put("statusDescription", "Format request tidak valid");
+			return response.toString();
+		}
+		JSONObject req = new JSONObject(data);
 
 		String va = req == null || req.isNull("nim") ? (request == null ? "" : request.getParameter("nim"))
 				: req.getString("nim");
@@ -924,4 +930,3 @@ public class BMS extends HttpServlet {
 		return jsonObjectResponse.toString();
 	}
 }
-

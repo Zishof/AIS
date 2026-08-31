@@ -502,7 +502,8 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 		jenisKegiatan.setWidth("90%");
 
 		jenisKegiatan.setReadonly(true);
-		if (settingBiaya.getId() == null && searchJenisKegiatan.getSelectedItem() != null) {
+		if (settingBiaya.getId() == null && searchJenisKegiatan != null
+				&& searchJenisKegiatan.getSelectedItem() != null) {
 			Common.selectComboItem(jenisKegiatan, searchJenisKegiatan.getSelectedItem().getValue());
 		}
 
@@ -516,7 +517,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 		jenjang.setReadonly(true);
 		jenjang.setWidth("90%");
 
-		if (settingBiaya.getId() == null && searchjenjang.getSelectedItem() != null) {
+		if (settingBiaya.getId() == null && searchjenjang != null && searchjenjang.getSelectedItem() != null) {
 			Common.selectComboItem(jenjang, searchjenjang.getSelectedItem().getValue());
 		} else if (settingBiaya.getId() == null) {
 			jenjang.setSelectedItem(comboitem);
@@ -532,7 +533,8 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 		statusAwalMahasiswa.setReadonly(true);
 		statusAwalMahasiswa.setWidth("90%");
 
-		if (settingBiaya.getId() == null && searchstatusAwalMahasiswa.getSelectedItem() != null
+		if (settingBiaya.getId() == null && searchstatusAwalMahasiswa != null
+				&& searchstatusAwalMahasiswa.getSelectedItem() != null
 				&& searchstatusAwalMahasiswa.getSelectedItem().getValue() != null) {
 			Common.selectComboItem(statusAwalMahasiswa, searchstatusAwalMahasiswa.getSelectedItem().getValue());
 		}
@@ -567,7 +569,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 		program.setWidth("90%");
 		Common.selectComboItem(program, settingBiaya.getProgram());
 
-		if (settingBiaya.getId() == null && searchprogram.getSelectedItem() != null
+		if (settingBiaya.getId() == null && searchprogram != null && searchprogram.getSelectedItem() != null
 				&& searchprogram.getSelectedItem().getValue() != null) {
 			Common.selectComboItem(program, searchprogram.getSelectedItem().getValue());
 		}
@@ -593,7 +595,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 		Common.selectComboItem(angkatan, settingBiaya.getAngkatan());
 		row.appendChild(angkatan);
 		angkatan.setReadonly(true);
-		if (settingBiaya.getId() == null && searchAngkatan.getSelectedItem() != null) {
+		if (settingBiaya.getId() == null && searchAngkatan != null && searchAngkatan.getSelectedItem() != null) {
 			Common.selectComboItem(angkatan, searchAngkatan.getSelectedItem().getValue());
 		} else if (settingBiaya.getId() == null) {
 			angkatan.setSelectedItem(comboitem);

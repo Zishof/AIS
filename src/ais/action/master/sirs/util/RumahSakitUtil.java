@@ -21,6 +21,7 @@ public final class RumahSakitUtil {
     private static final Object CACHE_LOCK = new Object();
     private static volatile Map<String, RumahSakit> byDomain = Collections.emptyMap();
     private static volatile long loadedAt;
+    private static volatile boolean refreshing;
 
     private RumahSakitUtil() { }
 
@@ -49,6 +50,7 @@ public final class RumahSakitUtil {
         synchronized (CACHE_LOCK) {
             byDomain = Collections.emptyMap();
             loadedAt = 0L;
+            refreshing = false;
         }
     }
 
@@ -69,28 +71,40 @@ public final class RumahSakitUtil {
         long now = System.currentTimeMillis();
         if (now - loadedAt < CACHE_MILLIS) return;
         synchronized (CACHE_LOCK) {
+            now = System.currentTimeMillis();
             if (now - loadedAt < CACHE_MILLIS) return;
-            Session session = null;
-            try {
-                session = HibernateUtil.getSessionFactory().openSession();
-                List<RumahSakit> rows = session.createCriteria(RumahSakit.class)
-                        .add(Restrictions.eq("aktif", Boolean.TRUE)).list();
-                Map<String, RumahSakit> replacement = new LinkedHashMap<String, RumahSakit>();
-                for (RumahSakit item : rows) {
-                    if (item == null || item.getId() == null) continue;
-                    String configuredDomains = item.getDomain();
-                    if (configuredDomains == null || configuredDomains.trim().length() == 0) continue;
-                    for (String raw : configuredDomains.split("[,;\\s]+")) {
-                        String domain = normalize(raw);
-                        if (domain.length() > 0) replacement.put(domain, item);
-                    }
+            if (refreshing) return;
+            refreshing = true;
+        }
+        Map<String, RumahSakit> replacement = null;
+        Session session = null;
+        try {
+            session = HibernateUtil.getSessionFactory().openSession();
+            List<RumahSakit> rows = session.createCriteria(RumahSakit.class)
+                    .add(Restrictions.eq("aktif", Boolean.TRUE)).list();
+            replacement = new LinkedHashMap<String, RumahSakit>();
+            for (RumahSakit item : rows) {
+                if (item == null || item.getId() == null) continue;
+                String configuredDomains = item.getDomain();
+                if (configuredDomains == null || configuredDomains.trim().length() == 0) continue;
+                for (String raw : configuredDomains.split("[,;\\s]+")) {
+                    String domain = normalize(raw);
+                    if (domain.length() > 0) replacement.put(domain, item);
                 }
-                byDomain = Collections.unmodifiableMap(replacement);
-            } catch (Exception e) {
-                ais.common.ErrorAuditUtil.record(e, "RumahSakitUtil.refresh");
-            } finally {
+            }
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "RumahSakitUtil.refresh");
+        } finally {
+            if (session != null && session.isOpen()) try { session.close(); } catch (Exception ignored) { }
+        }
+        synchronized (CACHE_LOCK) {
+            try {
+                if (replacement != null) {
+                    byDomain = Collections.unmodifiableMap(replacement);
+                }
                 loadedAt = System.currentTimeMillis();
-                if (session != null && session.isOpen()) try { session.close(); } catch (Exception ignored) { }
+            } finally {
+                refreshing = false;
             }
         }
     }

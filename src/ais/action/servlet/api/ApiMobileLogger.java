@@ -20,9 +20,10 @@ public final class ApiMobileLogger {
     }
 
     public static void save(HttpServletRequest request, JSONObject jsonObject, String responseBody) {
-        Session session = HibernateUtil.getSessionFactory().openSession();
+        Session session = null;
         Transaction transaction = null;
         try {
+            session = HibernateUtil.getSessionFactory().openSession();
             Tbmuser users = ApiUtil.currentUser(jsonObject, request);
             LogMobile log = buildLog(request, jsonObject, responseBody, users);
 
@@ -31,6 +32,7 @@ public final class ApiMobileLogger {
             transaction.commit();
         } catch (Exception e) {
             ApiHelperSupport.rollbackQuietly(transaction);
+            ais.common.ErrorAuditUtil.record(e, "ApiMobileLogger.save: log mobile dilewati agar request utama tidak ikut gagal");
         } finally {
             ApiHelperSupport.closeOpenedSession(session);
         }

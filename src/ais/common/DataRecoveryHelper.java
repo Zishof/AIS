@@ -70,6 +70,14 @@ public class DataRecoveryHelper {
         String fkProtectorSiswa = 
                 " AND (a.siswa_id IS NULL OR EXISTS (SELECT 1 FROM sekolah.siswa s WHERE s.id = a.siswa_id)) " +
                 " AND (a.calon_siswa_id IS NULL OR EXISTS (SELECT 1 FROM sekolah.calon_siswa ccs WHERE ccs.id = a.calon_siswa_id)) ";
+        String fkProtectorTagihan =
+                fkProtectorSiswa +
+                " AND a.pengaturan_biaya IS NOT NULL " +
+                " AND EXISTS (SELECT 1 FROM sekolah.pengaturan_biaya pb WHERE pb.id = a.pengaturan_biaya) " +
+                " AND a.item_biaya_id IS NOT NULL " +
+                " AND EXISTS (SELECT 1 FROM sekolah.item_biaya_sekolah ib WHERE ib.id = a.item_biaya_id) " +
+                " AND a.nominal_biaya_id IS NOT NULL " +
+                " AND EXISTS (SELECT 1 FROM sekolah.nominal_biaya nb WHERE nb.id = a.nominal_biaya_id) ";
 
         Session session = null;
         Transaction tx = null;
@@ -113,6 +121,42 @@ public class DataRecoveryHelper {
             // =================================================================================
             if (progress != null) progress.onProgress(25, "Memulihkan Tagihan yang hilang...");
 
+            String sqlHitungTagihanDilewati =
+                    "SELECT COUNT(1) " +
+                    "FROM new_audit.tagihan__audit a " +
+                    "INNER JOIN (" +
+                    "    SELECT id, MAX(REV) as max_rev " +
+                    "    FROM new_audit.tagihan__audit " +
+                    "    WHERE REVTYPE IN (0, 1) AND pengaturan_biaya IN (:pbIds) " +
+                    "    GROUP BY id" +
+                    ") a2 ON a.id = a2.id AND a.REV = a2.max_rev " +
+                    joinA +
+                    "WHERE a.pengaturan_biaya IN (:pbIds) " +
+                    "  AND a.pembayaran_siswa_detail_id IS NOT NULL " +
+                    "  AND NOT EXISTS (SELECT 1 FROM sekolah.tagihan utama WHERE utama.id = a.id) " +
+                    "  AND NOT EXISTS (SELECT 1 FROM sekolah.tagihan cek_kode WHERE cek_kode.kode_unik = a.kode_unik) " +
+                    condSiswa +
+                    "  AND (a.pengaturan_biaya IS NULL " +
+                    "       OR NOT EXISTS (SELECT 1 FROM sekolah.pengaturan_biaya pb WHERE pb.id = a.pengaturan_biaya) " +
+                    "       OR a.item_biaya_id IS NULL " +
+                    "       OR NOT EXISTS (SELECT 1 FROM sekolah.item_biaya_sekolah ib WHERE ib.id = a.item_biaya_id) " +
+                    "       OR a.nominal_biaya_id IS NULL " +
+                    "       OR NOT EXISTS (SELECT 1 FROM sekolah.nominal_biaya nb WHERE nb.id = a.nominal_biaya_id) " +
+                    "       OR (a.siswa_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sekolah.siswa s WHERE s.id = a.siswa_id)) " +
+                    "       OR (a.calon_siswa_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sekolah.calon_siswa ccs WHERE ccs.id = a.calon_siswa_id))) ";
+
+            SQLQuery qHitungTagihanDilewati = session.createSQLQuery(sqlHitungTagihanDilewati);
+            qHitungTagihanDilewati.setTimeout(600);
+            qHitungTagihanDilewati.setParameterList("pbIds", pbIds);
+            Number jumlahTagihanDilewati = (Number) qHitungTagihanDilewati.uniqueResult();
+            if (jumlahTagihanDilewati != null && jumlahTagihanDilewati.intValue() > 0 && warnings != null) {
+                warnings.add(jumlahTagihanDilewati.intValue()
+                        + " data tagihan audit tidak direstore karena relasi induknya sudah tidak ada "
+                        + "(pengaturan biaya/item biaya/nominal biaya/siswa/calon siswa). "
+                        + "Data tersebut aman dilewati agar proses recovery lain tetap berjalan; "
+                        + "jalankan Muat Ulang/Reload Tagihan untuk membentuk tagihan dari setting biaya yang masih aktif.");
+            }
+
             String sqlInsertTagihan = 
                     "INSERT INTO sekolah.tagihan (id, kode_unik, nominal, denda, diskon, bulan, tahun, bayarke, pengaturan_biaya, siswa_id, calon_siswa_id, item_biaya_id, nominal_biaya_id) " + 
                     "SELECT a.id, a.kode_unik, a.nominal, a.denda, a.diskon, a.bulan, a.tahun, a.bayarke, a.pengaturan_biaya, a.siswa_id, a.calon_siswa_id, a.item_biaya_id, a.nominal_biaya_id " +
@@ -128,7 +172,7 @@ public class DataRecoveryHelper {
                     "  AND a.pembayaran_siswa_detail_id IS NOT NULL " +
                     "  AND NOT EXISTS (SELECT 1 FROM sekolah.tagihan utama WHERE utama.id = a.id) " +
                     "  AND NOT EXISTS (SELECT 1 FROM sekolah.tagihan cek_kode WHERE cek_kode.kode_unik = a.kode_unik) " + // PELINDUNG DUPLIKAT KODE UNIK
-                    fkProtectorSiswa + // <- Pelindung FK Aman
+                    fkProtectorTagihan + // <- Pelindung FK Aman
                     condSiswa;
 
             SQLQuery qInsertTagihan = session.createSQLQuery(sqlInsertTagihan);
@@ -260,16 +304,7 @@ public class DataRecoveryHelper {
             }
             e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/DataRecoveryHelper.java:261");
         } finally {
-            if (session != null) {
-                try { 
-                    if (session.isOpen()) { 
-                        session.disconnect(); 
-                        session.close(); 
-                    } 
-                } catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/common/DataRecoveryHelper.java:269");
-                    // Abaikan exception saat menutup koneksi
-                }
-            }
+            HibernateUtil.closeSession();
         }
     }
 }

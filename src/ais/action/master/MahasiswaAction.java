@@ -7688,8 +7688,8 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 				}
 			}
 			if (!historyIds.isEmpty()) {
-				session.createQuery("update HistoryStatusMahasiswa set statusMahasiswa = :aktif where id in (:ids)")
-						.setParameter("aktif", ConstantValues.AKTIF).setParameterList("ids", historyIds).executeUpdate();
+				session.createSQLQuery("update public.history_status_mahasiswa set status_mahasiswa = :aktifId where id in (:ids)")
+						.setParameter("aktifId", ConstantValues.AKTIF.getId()).setParameterList("ids", historyIds).executeUpdate();
 			}
 			tx.commit();
 		} catch (Exception e) {

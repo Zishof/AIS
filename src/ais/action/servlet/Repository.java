@@ -249,6 +249,9 @@ public class Repository extends HttpServlet {
             int latestPage=requestedLatestPage==null?1:requestedLatestPage.intValue();
             SearchResult latestResult;
             try{latestResult=service.latestPage(latestPage,6);}catch(Exception e){if(!retryMode)throw e;logDegraded(e,"latest",requestId);latestResult=new SearchResult();latestResult.query=new Query();latestResult.query.page=1;latestResult.query.pageSize=6;}
+            if(latestResult==null){latestResult=new SearchResult();latestResult.query=new Query();latestResult.query.page=1;latestResult.query.pageSize=6;}
+            if(latestResult.query==null){latestResult.query=new Query();latestResult.query.page=latestPage;latestResult.query.pageSize=6;}
+            if(latestResult.items==null){latestResult.items=Collections.emptyList();}
             request.setAttribute("repoLatestPage",latestResult);
             request.setAttribute("repoLatest",latestResult.items);
             try{request.setAttribute("repoPopularCollections",service.popularCollections(6));}catch(Exception e){logDegraded(e,"popular-collections",requestId);request.setAttribute("repoPopularCollections",Collections.emptyList());}
