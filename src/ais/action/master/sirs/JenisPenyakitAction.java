@@ -25,6 +25,14 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Action CRUD (berbasis kerangka {@link GenericCrudAction}, modul SIRS/rumah sakit) untuk
+ * mengelola data master Jenis Penyakit ({@link JenisPenyakit}) — kategori diagnosa/penyakit
+ * (nama, keterangan) yang dipakai sebagai referensi pencatatan rekam medis pasien.
+ * {@link #initCriteria(boolean)} membangun kueri pencarian dengan filter nama.
+ * {@link #onSave(Event)} memvalidasi nama wajib isi dan unik (lewat
+ * {@link #checkNamaJenisPenyakit()}) sebelum menyimpan.
+ */
 public class JenisPenyakitAction extends GenericCrudAction<JenisPenyakit> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -44,6 +52,12 @@ public class JenisPenyakitAction extends GenericCrudAction<JenisPenyakit> {
     @Override
     protected String getWindowTitle() { return "Pendataan Jenis Penyakit"; }
 
+    /**
+     * Membangun kueri pencarian jenis penyakit, difilter nama.
+     *
+     * @param order {@code true} untuk mengurutkan hasil berdasarkan nama
+     * @return kriteria Hibernate siap dieksekusi/dipaginasi
+     */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -133,6 +147,12 @@ public class JenisPenyakitAction extends GenericCrudAction<JenisPenyakit> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi (nama wajib isi dan unik) dan menyimpan data jenis penyakit.
+     *
+     * @param event event ZK asal aksi simpan
+     * @return {@code true} bila data berhasil disimpan
+     */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Nama Jenis Penyakit wajib diisi terlebih dahulu. Langkah yang dapat dilakukan: (1) isikan Nama Jenis Penyakit pada kolom yang tersedia; (2) pastikan kolom tidak dikosongkan; (3) simpan kembali data setelah kolom terisi.", "Peringatan",
@@ -156,6 +176,7 @@ public class JenisPenyakitAction extends GenericCrudAction<JenisPenyakit> {
         return true;
     }
 
+    /** @return {@code true} bila nama pada form sudah dipakai jenis penyakit lain (dikecualikan data yang sedang diedit). */
     public Boolean checkNamaJenisPenyakit() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(JenisPenyakit.class)

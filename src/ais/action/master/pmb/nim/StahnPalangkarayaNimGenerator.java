@@ -11,14 +11,31 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.Mahasiswa;
 
+/**
+ * Algoritma penomoran NIM khusus institusi STAHN Palangkaraya, berpola
+ * {@code <YY tahun angkatan><kode prodi><urut 3 digit>} (tanpa segmen semester/program seperti
+ * generator umum). Nomor urut dihitung dari jumlah {@link Mahasiswa} aktif yang sudah terdaftar pada
+ * kombinasi (tahun angkatan, jurusan) yang sama ditambah 1, BUKAN lewat {@link NimGeneratorSupport}
+ * — kelas ini mandiri, hanya mengecek duplikasi terhadap tabel {@code mahasiswa} (tidak mengecek
+ * {@code biodata_calon_mahasiswa} lain seperti helper umum).
+ */
 public class StahnPalangkarayaNimGenerator implements NimGenerator {
 
+	/** Varian ringkas {@link #generateNim(BiodataCalonMahasiswa, List)} tanpa daftar pengecualian awal. */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa) {
 		return generateNim(calonMahasiswa, new ArrayList<String>());
 	}
 
-	// generate NIM
+	/**
+	 * Menghasilkan NIM untuk {@code calonMahasiswa} sesuai pola kelas ini (lihat javadoc kelas).
+	 * Mengembalikan {@code "-"} bila calon mahasiswa belum punya prodi lulus. Rekursif: bila NIM
+	 * yang dihasilkan ternyata sudah dipakai mahasiswa lain, dicoba lagi dengan
+	 * {@code jumlahPengecualian} bertambah satu (menggeser nomor urut).
+	 *
+	 * @param jumlahPengecualian jumlah percobaan gagal sebelumnya (dipakai sebagai offset tambahan nomor urut)
+	 * @return NIM yang dihasilkan, atau {@code "-"} bila prodi lulus belum diisi
+	 */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa, List<String> jumlahPengecualian) {
 

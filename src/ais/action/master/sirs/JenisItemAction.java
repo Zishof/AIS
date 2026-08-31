@@ -26,6 +26,14 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Action CRUD (berbasis kerangka {@link GenericCrudAction}, modul SIRS/rumah sakit) untuk
+ * mengelola data master Jenis Item Medis ({@link JenisItemMedis}) — kategori item persediaan
+ * medis (kode, nama), dipakai sebagai referensi pengelompokan item pada modul persediaan farmasi/
+ * medis. {@link #initCriteria(boolean)} membangun kueri pencarian dengan filter nama dan kode.
+ * {@link #onSave(Event)} memvalidasi nama wajib isi dan unik (lewat
+ * {@link #checkNamaJenisBarang()}) sebelum menyimpan.
+ */
 public class JenisItemAction extends GenericCrudAction<JenisItemMedis> {
 
     private static final long serialVersionUID = 3786091220301468178L;
@@ -45,6 +53,12 @@ public class JenisItemAction extends GenericCrudAction<JenisItemMedis> {
     @Override
     protected String getWindowTitle() { return "Pendataan Jenis Item"; }
 
+    /**
+     * Membangun kueri pencarian jenis item medis, difilter nama dan kode.
+     *
+     * @param order {@code true} untuk mengurutkan hasil berdasarkan nama
+     * @return kriteria Hibernate siap dieksekusi/dipaginasi
+     */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -136,6 +150,12 @@ public class JenisItemAction extends GenericCrudAction<JenisItemMedis> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi (kode dan nama wajib isi, nama unik) dan menyimpan data jenis item medis.
+     *
+     * @param event event ZK asal aksi simpan
+     * @return {@code true} bila data berhasil disimpan
+     */
     public boolean onSave(Event event) throws Exception {
         if (kode.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Kode Barang wajib diisi terlebih dahulu. Langkah yang dapat dilakukan: (1) isikan Kode Barang pada kolom yang tersedia; (2) pastikan kolom tidak dikosongkan; (3) simpan kembali data setelah kode terisi.", "Peringatan",
@@ -164,6 +184,7 @@ public class JenisItemAction extends GenericCrudAction<JenisItemMedis> {
         return true;
     }
 
+    /** @return {@code true} bila nama pada form sudah dipakai jenis item lain (dikecualikan data yang sedang diedit). */
     public Boolean checkNamaJenisBarang() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(JenisItemMedis.class)

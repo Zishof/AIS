@@ -66,6 +66,16 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.UIUtil;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD pendataan {@link Fakultas}: identitas fakultas (nama Indonesia/Inggris, kode, warna
+ * tema), struktur pejabat (dekan, 3 pudek, hingga 3 label pejabat tambahan dengan pegawainya),
+ * relasi ke {@link PerguruanTinggi} dan {@link SatuanKerja}, deskripsi kaya (CKEditor), serta
+ * lampiran kop surat/footer/kop stempel ({@link LampiranLain}). Bila konfigurasi
+ * {@code terhubung_ke_dspace} aktif, toolbar tambahan disediakan untuk mengekspor berkas hasil
+ * akreditasi fakultas ke repositori DSpace ({@link #getDspace}) atau membatalkan ekspor
+ * (menghapus item DSpace terkait), keduanya berjalan asinkron dengan indikator progres. Dibangun
+ * di atas kerangka {@link GenericCrudAction}.
+ */
 public class FakultasAction extends GenericCrudAction<Fakultas> {
 
     private static final long serialVersionUID = 3786091220301468178L;
@@ -97,20 +107,30 @@ public class FakultasAction extends GenericCrudAction<Fakultas> {
     // ======================== Abstract implementations ========================
 
     @Override
+    /** Kelas entitas yang dikelola: {@link Fakultas}. */
     protected Class<Fakultas> getEntityClass() { return Fakultas.class; }
 
+    /** Membuat instance {@link Fakultas} kosong untuk form tambah data baru. */
     @Override
     protected Fakultas createNewEntity() { return new Fakultas(); }
 
+    /** Judul jendela: {@code "Pendataan Fakultas"}. */
     @Override
     protected String getWindowTitle() { return "Pendataan Fakultas"; }
 
+    /** Daftar kolom yang disertakan pada templat cetak/unggah data massal fakultas. */
     @Override
     protected String[] getDownloadUploadContents() {
         return new String[] { "kode", "nama", "namaEn", "dekan", "perguruanTinggi", "deskripsi",
                 "labelPejabat1", "labelPejabat2", "labelPejabat3", "pegawai1", "pegawai2", "pegawai3" };
     }
 
+    /**
+     * Menambahkan tombol cetak, dan (bila DSpace terhubung) tombol "Ekspor Berkas" — mengunggah
+     * seluruh berkas hasil akreditasi fakultas yang cocok filter pencarian ke DSpace secara
+     * asinkron dengan progres — serta "Batalkan Ekspor Berkas" yang menghapus item DSpace terkait
+     * dan mencatatnya ke log ({@link LogLoginAction#tampilDpsaceLog}).
+     */
     @Override
     protected void onAfterInit(Component comp) throws Exception {
         MyToolbarbuttonConfig cetakToolbarbutton = Common.cetakData(Fakultas.class, this,
@@ -246,6 +266,7 @@ public class FakultasAction extends GenericCrudAction<Fakultas> {
         }
     }
 
+    /** Menyusun kriteria pencarian {@link Fakultas}, dibatasi ke {@link PerguruanTinggi} terpilih (bila ada) dan difilter berdasarkan kata kunci nama. */
     @Override
     public Criteria initCriteria(boolean order) {
         PerguruanTinggi selectedPT = PerguruanTinggiUtil.getPerguruanTinggi();
@@ -269,12 +290,25 @@ public class FakultasAction extends GenericCrudAction<Fakultas> {
     }
 
     @Override
+    /** Penyedia renderer baris grid hasil pencarian: {@code FakultasRenderer}. */
     protected MyRowRenderer createRenderer() {
         return new FakultasRenderer();
     }
 
     // ======================== Static DSpace helper (dipanggil oleh JurusanAction) ========================
 
+    /**
+     * Membuat atau memperbarui ({@code update}) entitas komunitas DSpace yang merepresentasikan
+     * {@code fakultas} (nama, teks hak cipta, deskripsi pengantar/singkat/sidebar disusun dari
+     * data fakultas), didelegasikan ke {@link DspaceInformation#dspaceProcess}. Bila konfigurasi
+     * {@code dpsace_jadikan_fakultas_sebagai_root} aktif, komunitas dibuat sebagai root
+     * {@code communities}; bila tidak, dibuat sebagai sub-komunitas dari komunitas
+     * {@link PerguruanTinggi} induknya (dipanggil rekursif via
+     * {@code PerguruanTinggiAction.getDspace}). Dipanggil juga dari {@code JurusanAction} sebagai
+     * langkah pembuatan komunitas induk sebelum membuat komunitas jurusan.
+     *
+     * @return informasi entitas DSpace (UUID dan metadata terkait) hasil pembuatan/pembaruan
+     */
     public static DspaceInformation getDspace(String cookie, Fakultas fakultas, boolean update) throws Exception {
         JSONObject jsonPost = new JSONObject();
         jsonPost.put("name", fakultas.getNama());
@@ -298,6 +332,7 @@ public class FakultasAction extends GenericCrudAction<Fakultas> {
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/ubah {@link Fakultas}: identitas (kode, nama ID/EN, warna, WA), relasi perguruan tinggi/satuan kerja, struktur pejabat (dekan/pudek/pejabat tambahan), deskripsi kaya, opsi wajib satuan kerja untuk dosen, dan lampiran kop/footer/kop stempel, beserta tombol Batal dan Simpan. */
     @Override
     protected void buildFormContent(MyWindow window, final Fakultas fakultas) throws Exception {
         Borderlayout borderlayout = new MyBorderlayout();
@@ -543,6 +578,13 @@ public class FakultasAction extends GenericCrudAction<Fakultas> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi dan menyimpan data {@link Fakultas}: kode dan nama wajib diisi dan harus unik
+     * (dicek via {@link #checkKodeFakultas()}/{@link #checkNamaFakultas()}), lalu
+     * menyimpan/memperbarui entitas beserta lampiran kop/footer/kop stempel.
+     *
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal (pesan sudah ditampilkan ke pengguna)
+     */
     public boolean onSave(Event event) throws Exception {
         try {
             if (kode.getValue().trim().equals("")) {
@@ -689,6 +731,7 @@ public class FakultasAction extends GenericCrudAction<Fakultas> {
         return true;
     }
 
+    /** Memeriksa apakah nama pada form sudah dipakai {@link Fakultas} lain (mengecualikan entitas yang sedang diedit). */
     public Boolean checkNamaFakultas() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(Fakultas.class)
@@ -701,6 +744,7 @@ public class FakultasAction extends GenericCrudAction<Fakultas> {
         return count != 0;
     }
 
+    /** Memeriksa apakah kode pada form sudah dipakai {@link Fakultas} lain (mengecualikan entitas yang sedang diedit). */
     public Boolean checkKodeFakultas() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(Fakultas.class)
@@ -715,6 +759,7 @@ public class FakultasAction extends GenericCrudAction<Fakultas> {
 
     // ======================== Renderer ========================
 
+    /** Renderer baris grid untuk {@link Fakultas}: kode, nama (dengan tombol riwayat revisi), dekan, perguruan tinggi, dan tombol edit/hapus. */
     class FakultasRenderer extends MyRowRenderer {
 
         @Override

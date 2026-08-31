@@ -535,6 +535,7 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 		renderCssSpiderVisual(charts, data);
 	}
 
+	/** Menggambar bar distribusi jumlah jawaban per nilai (1-5) sebagai bar CSS proporsional. */
 	private void renderCssDistributionVisual(Div parent, DashboardData data) {
 		Div box = visualBox(parent, "Grafik Distribusi Nilai", "Bar CSS jumlah jawaban nilai 1 sampai 5.");
 		int max = 1;
@@ -556,6 +557,7 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 		}
 	}
 
+	/** Menggambar bar tren rata-rata nilai per guru (ranking) sebagai bar CSS. */
 	private void renderCssTrendVisual(Div parent, DashboardData data) {
 		Div box = visualBox(parent, "Trend Rata-rata Guru", "Trend CSS dari rata-rata guru pada filter aktif.");
 		List<Stat> stats = data.getGuruRanking(true);
@@ -573,6 +575,7 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 		}
 	}
 
+	/** Menggambar bar rata-rata nilai per kelompok pertanyaan ({@link GrupChecklistPenilaianGuru}) sebagai gauge CSS ("radar" sederhana berbentuk daftar bar, bukan diagram radar sesungguhnya). */
 	private void renderCssSpiderVisual(Div parent, DashboardData data) {
 		Div box = visualBox(parent, "Spider Web Aspek Guru", "Radar/spider web CSS berdasarkan rata-rata kelompok/aspek.");
 		List<Stat> stats = new ArrayList<Stat>(data.groupStats.values());
@@ -598,6 +601,7 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 				+ "<div style='flex:1;font-size:12px;color:#334155;'>" + labels.toString() + "</div></div>").setParent(box);
 	}
 
+	/** @return kontainer kartu visualisasi dengan judul+subjudul, ditempel ke {@code parent}. */
 	private Div visualBox(Div parent, String title, String subtitle) {
 		Div box = new Div();
 		box.setStyle("background:white;border:1px solid #dde5f2;border-radius:12px;padding:12px;min-width:280px;flex:1;box-sizing:border-box;box-shadow:0 2px 8px rgba(0,0,0,.05);");
@@ -626,6 +630,7 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 				+ "<div style='height:10px;width:" + percent + "%;background:linear-gradient(90deg,#0ea5e9,#22c55e);border-radius:999px;'></div></div>").setParent(row);
 	}
 
+	/** @return {@code value} dibatasi ke rentang 0-100 (dibulatkan), dipakai sebagai lebar bar CSS persentase. */
 	private int clampPercent(double value) {
 		if (value < 0D) {
 			return 0;
@@ -636,6 +641,7 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 		return (int) Math.round(value);
 	}
 
+	/** Menampilkan tabel ringkasan distribusi nilai (jumlah dan persentase tiap nilai 1-5), tiap baris dapat diklik untuk membuka rincian jawaban bernilai tersebut. */
 	private void renderDistribution(Div parent, DashboardData data) {
 		Div box = section(parent, "Distribusi Nilai");
 		MyGrid grid = new MyGrid();
@@ -671,6 +677,7 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 		}
 	}
 
+	/** Menampilkan tabel ranking (nama, jumlah jawaban, rata-rata, bar proporsional), dibatasi {@code max} baris teratas; tiap baris dapat diklik untuk membuka rincian jawaban. */
 	private void renderStatGrid(Div parent, String title, String firstHeader, List<Stat> stats, int max) {
 		Div box = section(parent, title);
 		MyGrid grid = new MyGrid();
@@ -713,6 +720,7 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 		}
 	}
 
+	/** Menampilkan hingga 10 masukan/komentar terbaru dari siswa (guru, siswa/pertanyaan, isi masukan). */
 	private void renderMasukan(Div parent, DashboardData data) {
 		Div box = section(parent, "Masukan / Catatan Terbaru");
 		MyGrid grid = new MyGrid();
@@ -750,6 +758,7 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 		}
 	}
 
+	/** @return kontainer panel bergaya kartu dengan judul dan deskripsi penjelas otomatis ({@link #sectionDescription}), ditempel ke {@code parent}. */
 	private Div section(Div parent, String title) {
 		Div box = new Div();
 		box.setStyle("background:white;border:1px solid #dde5f2;border-radius:12px;padding:12px;min-width:360px;flex:1;box-sizing:border-box;margin-bottom:12px;");
@@ -760,6 +769,7 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 		return box;
 	}
 
+	/** @return kalimat penjelas awam untuk panel {@code title} (dicocokkan lewat kata kunci dalam judul), untuk membantu pembaca non-teknis memahami tiap panel dasbor. */
 	private String sectionDescription(String title) {
 		if (title == null) {
 			return "Panel ini membantu membaca hasil angket guru secara ringkas tanpa menghitung data secara manual.";
@@ -804,6 +814,7 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 		}
 	}
 
+	/** @return guru terpilih pada filter {@link #guru} (dibaca dari atribut {@code "guru"} lalu {@code "myValue"}), atau {@code null} bila tidak dipilih/gagal dibaca. */
 	private Guru selectedGuru() {
 		try {
 			Object value = guru == null ? null : guru.getAttribute("guru");
@@ -825,6 +836,11 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 		return null;
 	}
 
+	/**
+	 * @return {@code true} bila belum ada filter sekolah/yayasan dipilih, atau sekolah/yayasan
+	 *         hasil resolusi dari {@code jadwal} (dicoba dari beberapa jalur relasi berbeda:
+	 *         langsung, lewat kelas, lewat rombongan belajar, lewat siswa) cocok dengan yang dipilih
+	 */
 	private boolean matchSekolahYayasan(Object jadwal, Object selectedYayasan, Object selectedSekolah) {
 		if (selectedYayasan == null && selectedSekolah == null) {
 			return true;
@@ -862,6 +878,11 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 		return idA.equals(idB);
 	}
 
+	/**
+	 * @return {@code true} bila baris angket tidak punya jadwal terkait, atau tahun ajaran/semester
+	 *         jadwalnya (dibaca lewat beberapa nama getter berbeda karena variasi model jadwal)
+	 *         cocok dengan filter {@code ta}/{@code smt} yang dipilih (filter kosong/"Semua" selalu cocok)
+	 */
 	private boolean matchJadwal(ChecklistBaruPenilaianGuruOlehSiswa hasil, String ta, String smt) {
 		Object jadwal = safeCall(hasil, "getJadwalPelajaran");
 		if (jadwal == null) {
@@ -979,6 +1000,7 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 		return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
 	}
 
+	/** @return batas maksimum baris angket yang dipindai per pemuatan dasbor, dari konfigurasi {@code maksimal_data_dasbor_angket_guru} (default dan fallback 20000, dipaksa minimal 100). */
 	private int readMaxScan() {
 		try {
 			String nilai = Common.getKonfigurasi("maksimal_data_dasbor_angket_guru", "20000").getNilai();
@@ -990,6 +1012,7 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 	}
 
 
+	/** @return label bergaya tautan yang membuka popup rincian ({@link #showDataPopup}) saat diklik. */
 	private Label clickableLabel(String text, final String title, final String[] headers, final List rowsData) {
 		Label label = new Label(text == null ? "" : text);
 		label.setStyle("cursor:pointer;color:#1d4ed8;text-decoration:underline;");
@@ -1009,6 +1032,7 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 		return rows;
 	}
 
+	/** Menampilkan jendela modal berisi tabel rincian ({@code headers} sebagai kolom, {@code rowsData} sebagai baris) untuk drill-down dari kartu/label dasbor yang diklik. */
 	private void showDataPopup(String title, String[] headers, List rowsData) {
 		try {
 			MyWindow window = new MyWindow();
@@ -1080,6 +1104,7 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 		try { session.close(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/report/format1/akademik/LaporanAngketGuruDashboardWindow.java:1006");}
 	}
 
+	/** Akumulator statistik sederhana (jumlah, total, rata-rata) untuk satu entitas (kelompok pertanyaan atau guru), beserta baris detail jawaban yang menyusunnya. */
 	private static class Stat {
 		String name;
 		double total;
@@ -1090,6 +1115,7 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 		double average() { return count == 0 ? 0.0 : total / count; }
 	}
 
+	/** Kumpulan data teragregasi hasil {@link #loadDashboardData}: filter yang dipakai, statistik keseluruhan, distribusi nilai, statistik per kelompok pertanyaan dan per guru, serta daftar baris untuk drill-down (masukan terbaru, detail jawaban, baris pengisi). */
 	private static class DashboardData {
 		String tahunAkademik;
 		String semester;

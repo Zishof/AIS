@@ -525,6 +525,7 @@ public class CalendarJadwalPolyComposer extends GenericForwardComposer {
 		}
 	}
 
+	/** Menangani event kalender "ubah jadwal" (klik event yang ada): mensyaratkan poli terpilih, memuat {@link JadwalDokter} berdasarkan id yang disimpan pada judul event kalender, lalu membuka form ubah ({@code editWindow}) terisi datanya. */
 	public void onEventEdit$calendars(ForwardEvent event) throws Exception {
 
 		Poly myPoly = (Poly) (poly.getSelectedItem() == null ? null : poly.getSelectedItem().getValue());
@@ -595,11 +596,13 @@ public class CalendarJadwalPolyComposer extends GenericForwardComposer {
 		editWindow.setAttribute("ce", ce);
 	}
 
+	/** Menutup form ubah jadwal tanpa membersihkan ghost (berbeda dari {@link #onClose$addWindow}). */
 	public void onClose$editWindow(ForwardEvent event) {
 		event.getOrigin().stopPropagation();
 		editWindow.setVisible(false);
 	}
 
+	/** Menyimpan perubahan jadwal (via {@link #onSave()}) dan menutup form; bila berhasil, kalender dimuat ulang setelah jeda singkat agar transaksi Hibernate sempat commit. */
 	public void onClick$okBtn$editWindow(ForwardEvent event) throws Exception {
 
 		if (onSave()) {
@@ -620,6 +623,7 @@ public class CalendarJadwalPolyComposer extends GenericForwardComposer {
 
 	}
 
+	/** Menghapus permanen {@link JadwalDokter} yang sedang diedit setelah konfirmasi pengguna, lalu menutup form dan memuat ulang kalender setelah jeda singkat. */
 	public void onClick$deleteBtn$editWindow(ForwardEvent event) {
 		try {
 			MyMessageboxConfig.show("Apakah Bapak/Ibu yakin ingin menghapus jadwal ini? Data jadwal yang telah dihapus tidak dapat dikembalikan.", "Pertanyaan",
@@ -653,6 +657,7 @@ public class CalendarJadwalPolyComposer extends GenericForwardComposer {
 		}
 	}
 
+	/** Menangani event kalender "geser/ubah durasi" (drag-resize event yang sudah ada): memperbarui waktu mulai/selesai event pada model kalender secara lokal (tanpa langsung menyimpan ke database). */
 	public void onEventUpdate$calendars(ForwardEvent event) {
 		CalendarsEvent evt = (CalendarsEvent) event.getOrigin();
 		org.zkoss.calendar.Calendars cal = (org.zkoss.calendar.Calendars) evt.getTarget();
@@ -663,6 +668,7 @@ public class CalendarJadwalPolyComposer extends GenericForwardComposer {
 		m.update(sce);
 	}
 
+	/** Menggeser kalender ke halaman sebelumnya/berikutnya sesuai tombol panah yang diklik. */
 	public void onMoveDate(ForwardEvent event) {
 		if ("arrow-left".equals(event.getData()))
 			calendars.previousPage();
@@ -671,12 +677,14 @@ public class CalendarJadwalPolyComposer extends GenericForwardComposer {
 
 	}
 
+	/** Menggeser kalender kembali ke tanggal hari ini. */
 	public void onToday(ForwardEvent event) {
 		calendars.setCurrentDate(Calendar.getInstance(TimeZone.getDefault()).getTime());
 
 	}
 
 	@SuppressWarnings("rawtypes")
+	/** Menggilir (rotate) zona waktu tampilan kalender ke entri berikutnya pada daftar zona waktu yang terdaftar di komponen. */
 	public void onSwitchTimeZone(ForwardEvent event) {
 		Map<?, ?> zone = calendars.getTimeZones();
 		if (!zone.isEmpty()) {
@@ -687,12 +695,14 @@ public class CalendarJadwalPolyComposer extends GenericForwardComposer {
 
 	}
 
+	/** Mengubah hari pertama minggu kalender sesuai pilihan pada listbox terkait. */
 	public void onUpdateFirstDayOfWeek(ForwardEvent event) {
 		Listbox listbox = (Listbox) event.getOrigin().getTarget();
 		calendars.setFirstDayOfWeek(listbox.getSelectedItem().getLabel());
 
 	}
 
+	/** Mengubah mode tampilan kalender: harian/5-hari/mingguan (mold "default" dengan jumlah hari sesuai) atau bulanan (mold "month"), sesuai teks yang dipilih. */
 	public void onUpdateView(ForwardEvent event) {
 		String text = String.valueOf(event.getData());
 		int days = "Day".equals(text) ? 1 : "5 Days".equals(text) ? 5 : "Week".equals(text) ? 7 : 0;
@@ -704,6 +714,12 @@ public class CalendarJadwalPolyComposer extends GenericForwardComposer {
 			calendars.setMold("month");
 	}
 
+	/**
+	 * Memvalidasi dan menyimpan {@link JadwalDokter} dari form (shift, dokter, waktu mulai/selesai,
+	 * hari, lokasi, dan poli semuanya wajib diisi), lalu menyimpan/memperbarui entitas.
+	 *
+	 * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal (pesan sudah ditampilkan ke pengguna)
+	 */
 	public boolean onSave() throws Exception {
 
 		if (shift.getSelectedItem() == null) {
@@ -765,6 +781,7 @@ public class CalendarJadwalPolyComposer extends GenericForwardComposer {
 		return true;
 	}
 
+	/** Alias untuk {@link #onRefresh(Event)}, mengikuti konvensi nama handler pencarian di seluruh aplikasi. */
 	public void onSearchDefault(Event event) {
 		onRefresh(event);
 	}

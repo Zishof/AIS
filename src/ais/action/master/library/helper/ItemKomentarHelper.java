@@ -25,6 +25,13 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.library.Item;
 import ais.database.model.library.ItemKomentar;
 
+/**
+ * Helper pengelola grid komentar publik pada satu item pustaka ({@link Item}) — menampilkan
+ * daftar komentar ({@link ItemKomentar}: isi komentar, nama, kontak, email pengirim) dengan opsi
+ * hapus per baris (hanya bila pengguna berhak {@link CommonPrivilages#DELETE}). Murni tampilan
+ * baca-saja + hapus; tidak menyediakan form tambah/ubah komentar (komentar diasumsikan dikirim
+ * lewat kanal publik lain, mis. halaman item pustaka).
+ */
 public class ItemKomentarHelper {
 
 	private MyGrid gridKomentar;
@@ -32,6 +39,7 @@ public class ItemKomentarHelper {
 	// private boolean edit = false;
 	private boolean delete = false;
 
+	/** Membuat helper yang akan mengelola isi {@code gridKomentar}; hak hapus ditentukan dari {@link CommonPrivilages} saat ini. */
 	public ItemKomentarHelper(MyGrid gridKomentar) {
 		this.gridKomentar = gridKomentar;
 		// add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -39,6 +47,13 @@ public class ItemKomentarHelper {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun panel grid komentar (kolom Komentar/Oleh/Email/Hapus) untuk {@code item} dan
+	 * memuat seluruh komentar yang sudah ada.
+	 *
+	 * @param item item pustaka target
+	 * @return borderlayout siap ditambahkan sebagai panel tab/jendela
+	 */
 	public Borderlayout initDetail(final Item item) {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -88,6 +103,13 @@ public class ItemKomentarHelper {
 		}
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan nama, kontak, dan email pengirim komentar, beserta tombol
+	 * hapus (bila berhak) yang meminta konfirmasi sebelum menghapus baris dari database.
+	 *
+	 * @param row          baris grid target
+	 * @param itemKomentar komentar untuk baris ini
+	 */
 	public void initRow(final Row row, final ItemKomentar itemKomentar) {
 		row.setValign("top");row.setAttribute("itemKomentar", itemKomentar);
 

@@ -53,8 +53,33 @@ import ais.database.model.Skripsi;
 @Path("/feeder")
 @Singleton
 
+/**
+ * Titik akhir REST (Jersey/JAX-RS) untuk integrasi PDDikti Feeder: menyediakan data akademik dalam
+ * format yang siap dipetakan ke skema Feeder (mahasiswa baru/lama, mata kuliah, kurikulum, dosen,
+ * perkuliahan/KRS per kelas maupun per mahasiswa, nilai transfer, dan AKM/angka kredit mengajar per
+ * angkatan), serta satu endpoint penulisan generik ({@link #update}) yang menandai baris data lokal
+ * dengan id hasil sinkronisasi Feeder ({@code feeder}/{@code id_reg_pd}/{@code feeder_kode}, tergantung
+ * tabel). Sebagian besar parameter path (nama, fakultas, jurusan, dsb.) di-URL-decode setelah karakter
+ * {@code "_"} dibuang, mengikuti pola encoding khusus yang dipakai skrip sinkronisasi Feeder.
+ *
+ * <p>
+ * <b>Catatan keamanan — CELAH SERIUS:</b>
+ * </p>
+ * <ul>
+ * <li>{@link #update(String, String, String, String, String)} TIDAK memeriksa autentikasi apa pun,
+ * dan untuk beberapa tabel (mis. cabang {@code "penugasan_dosen_mengajar"} dan
+ * {@code "detailperkuliahan"}/{@code "nilai_transfer"}) menyusun perintah SQL dengan MENYAMBUNG
+ * LANGSUNG parameter {@code data1}/{@code data2}/{@code key} dari URL ke dalam string SQL (mis.
+ * {@code "update penugasan_dosen_mengajar set feeder='" + data1 + "' where id=" + key}) tanpa
+ * parameter binding — celah SQL injection yang jelas, dieksploitasi lewat parameter path URL tanpa
+ * perlu login sama sekali.</li>
+ * <li>Seluruh endpoint GET lain di kelas ini (data mahasiswa/dosen/matakuliah/kurikulum/perkuliahan/
+ * nilai) juga tidak memeriksa autentikasi — siapa pun yang mengetahui URL dapat menariknya.</li>
+ * </ul>
+ */
 public class FeederResource {
 
+	/** Mengembalikan waktu server saat ini (epoch millis). */
 	public long getSystemTime() {
 		return System.currentTimeMillis();
 	}
@@ -62,6 +87,7 @@ public class FeederResource {
 	@GET
 	@Path("test/{nama}")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/** Endpoint uji coba sederhana yang menggemakan (echo) parameter {@code nama} yang diberikan. */
 	public CommonID getMahasiswa(@PathParam("nama") String nama) {
 		CommonID commonID = new CommonID();
 		commonID.setInfo1(nama);
@@ -71,6 +97,27 @@ public class FeederResource {
 	@GET
 	@Path("update/{tabel}/{key}/{data1}/{data2}")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Menandai satu baris data lokal sebagai sudah disinkronkan ke PDDikti Feeder: tabel target
+	 * dipilih lewat percabangan string {@code tabel} (mahasiswa/mahasiswabynim/matakuliah/kurikulum/
+	 * kurikulum_punya_matakuliah/penugasan_dosen_mengajar/perkuliahan/detailperkuliahan/
+	 * nilai_transfer/nilaitransfer, dan kemungkinan tabel lain — lihat badan method untuk daftar
+	 * lengkap), menuliskan {@code data1}/{@code data2} ke kolom {@code feeder}/{@code id_reg_pd}/
+	 * {@code feeder_kode} sesuai tabel.
+	 *
+	 * <p>
+	 * <b>PERINGATAN KEAMANAN:</b> tidak ada pemeriksaan autentikasi, dan sejumlah cabang tabel
+	 * menyusun SQL update dengan menyambung {@code data1}/{@code data2}/{@code key} langsung ke
+	 * string SQL (bukan parameter binding) — celah SQL injection. Lihat catatan keamanan pada
+	 * javadoc kelas.
+	 * </p>
+	 *
+	 * @param tabel nama tabel/entitas tujuan (menentukan cabang logika yang dijalankan)
+	 * @param key   id baris tujuan (atau NIM untuk cabang {@code mahasiswabynim})
+	 * @param data1 nilai utama yang dituliskan (makna tergantung tabel, mis. kode Feeder)
+	 * @param data2 nilai kedua yang dituliskan (makna tergantung tabel, mis. id_reg_pd)
+	 * @return status hasil (jumlah baris terpengaruh via {@code info1})
+	 */
 	public CommonID update(@PathParam("tabel") String tabel, @PathParam("key") String key,
 			@PathParam("data1") String data1, @PathParam("data2") String data2) {
 
@@ -198,6 +245,16 @@ public class FeederResource {
 	@GET
 	@Path("mahasiswa/{nama}/{ta}/{fakultas}/{jurusan}")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Mengambil data mahasiswa (existing) yang cocok dengan filter nama/tahun akademik/fakultas/
+	 * jurusan, diformat siap dipetakan ke skema PDDikti Feeder. Tidak memeriksa autentikasi.
+	 *
+	 * @param nama     filter nama mahasiswa (URL-encoded, garis bawah di-strip sebelum decode)
+	 * @param ta       tahun akademik/angkatan filter
+	 * @param fakultas filter fakultas (URL-encoded)
+	 * @param jurusan  filter jurusan (URL-encoded)
+	 * @return data mahasiswa yang cocok dalam struktur {@link CommonID}
+	 */
 	public CommonID getMahasiswa(@PathParam("nama") String nama, @PathParam("ta") String ta,
 			@PathParam("fakultas") String fakultas, @PathParam("jurusan") String jurusan) {
 		Session session = HibernateUtil.currentNativeSession();
@@ -674,6 +731,14 @@ public class FeederResource {
 	@GET
 	@Path("mahasiswa_baru/{nama}/{ta}/{fakultas}/{jurusan}")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Seperti {@link #getMahasiswa(String, String, String, String)}, dikhususkan untuk mahasiswa
+	 * BARU (belum tersinkron ke Feeder) yang cocok dengan filter. Tidak memeriksa autentikasi.
+	 *
+	 * @param nama     filter nama mahasiswa (URL-encoded)
+	 * @param ta       tahun akademik/angkatan filter
+	 * @return data mahasiswa baru yang cocok dalam struktur {@link CommonID}
+	 */
 	public CommonID getMahasiswaBaru(@PathParam("nama") String nama, @PathParam("ta") String ta,
 			@PathParam("fakultas") String fakultas, @PathParam("jurusan") String jurusan) {
 		Session session = HibernateUtil.currentNativeSession();
@@ -771,6 +836,14 @@ public class FeederResource {
 	@GET
 	@Path("matakuliah/{nama}/{fakultas}/{jurusan}")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Mengambil data mata kuliah (existing) yang cocok dengan filter nama/fakultas/jurusan, diformat
+	 * siap dipetakan ke skema PDDikti Feeder. Tidak memeriksa autentikasi.
+	 *
+	 * @param nama     filter nama mata kuliah (URL-encoded)
+	 * @param fakultas filter fakultas (URL-encoded)
+	 * @return data mata kuliah yang cocok dalam struktur {@link CommonID}
+	 */
 	public CommonID getMatakuliah(@PathParam("nama") String nama, @PathParam("fakultas") String fakultas,
 			@PathParam("jurusan") String jurusan) {
 		Session session = HibernateUtil.currentNativeSession();
@@ -839,6 +912,10 @@ public class FeederResource {
 	@GET
 	@Path("matakuliah_baru/{nama}/{fakultas}/{jurusan}")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Seperti {@link #getMatakuliah(String, String, String)}, dikhususkan untuk mata kuliah BARU
+	 * (belum tersinkron ke Feeder) yang cocok dengan filter. Tidak memeriksa autentikasi.
+	 */
 	public CommonID getMatakuliah_Baru(@PathParam("nama") String nama, @PathParam("fakultas") String fakultas,
 			@PathParam("jurusan") String jurusan) {
 		Session session = HibernateUtil.currentNativeSession();
@@ -929,6 +1006,10 @@ public class FeederResource {
 	@GET
 	@Path("kurikulum/{nama}/{fakultas}/{jurusan}")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Mengambil data kurikulum yang cocok dengan filter nama/fakultas/jurusan, diformat siap
+	 * dipetakan ke skema PDDikti Feeder. Tidak memeriksa autentikasi.
+	 */
 	public CommonID getKurikulum(@PathParam("nama") String nama, @PathParam("fakultas") String fakultas,
 			@PathParam("jurusan") String jurusan) {
 
@@ -1023,6 +1104,10 @@ public class FeederResource {
 	@GET
 	@Path("dosen/{ta}/{nama}/{fakultas}/{jurusan}")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Mengambil data dosen yang cocok dengan filter tahun akademik/nama/fakultas/jurusan, diformat
+	 * siap dipetakan ke skema PDDikti Feeder. Tidak memeriksa autentikasi.
+	 */
 	public CommonID getDosen(@PathParam("ta") String ta, @PathParam("nama") String nama,
 			@PathParam("fakultas") String fakultas, @PathParam("jurusan") String jurusan) {
 		Session session = HibernateUtil.currentNativeSession();
@@ -1204,6 +1289,11 @@ public class FeederResource {
 	@GET
 	@Path("perkuliahan/{ta}/{nama}/{kelas}/{fakultas}/{jurusan}")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Mengambil data penawaran perkuliahan (kelas) yang cocok dengan filter tahun akademik/nama
+	 * mata kuliah/kelas/fakultas/jurusan, diformat siap dipetakan ke skema PDDikti Feeder. Tidak
+	 * memeriksa autentikasi.
+	 */
 	public CommonID getPerkuliahan(@PathParam("ta") String ta, @PathParam("nama") String nama,
 			@PathParam("kelas") String kelas, @PathParam("fakultas") String fakultas,
 			@PathParam("jurusan") String jurusan) {
@@ -1213,6 +1303,12 @@ public class FeederResource {
 	@GET
 	@Path("perkuliahan_mhs/{ta}/{nama}/{kelas}/{fakultas}/{jurusan}/{mhs}")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Mengambil data KRS/perkuliahan per mahasiswa untuk satu kelas yang cocok dengan filter tahun
+	 * akademik/nama mata kuliah/kelas/fakultas/jurusan/mahasiswa, diformat siap dipetakan ke skema
+	 * PDDikti Feeder. Dipakai juga oleh {@link #getPerkuliahan} dengan filter mahasiswa kosong.
+	 * Tidak memeriksa autentikasi.
+	 */
 	public CommonID getPerkuliahanMhs(@PathParam("ta") String ta, @PathParam("nama") String nama,
 			@PathParam("kelas") String kelas, @PathParam("fakultas") String fakultas,
 			@PathParam("jurusan") String jurusan, @PathParam("mhs") String mhs) {
@@ -1406,6 +1502,11 @@ public class FeederResource {
 	@GET
 	@Path("nilai_transfer/{mhs}/{nama}/{fakultas}/{jurusan}")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Mengambil data nilai transfer (konversi nilai dari kampus asal) yang cocok dengan filter
+	 * mahasiswa/nama/fakultas/jurusan, diformat siap dipetakan ke skema PDDikti Feeder. Tidak
+	 * memeriksa autentikasi.
+	 */
 	public CommonID getNilaiTransfer(@PathParam("mhs") String mhs, @PathParam("nama") String nama,
 			@PathParam("fakultas") String fakultas, @PathParam("jurusan") String jurusan) {
 
@@ -1483,6 +1584,11 @@ public class FeederResource {
 	@GET
 	@Path("akm/{mhs}/{ta}/{fakultas}/{jurusan}")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Mengambil data AKM (Angka Kredit Mengajar/Aktivitas Kuliah Mahasiswa, tergantung konteks
+	 * Feeder) untuk satu mahasiswa pada tahun akademik tertentu, difilter fakultas/jurusan. Tidak
+	 * memeriksa autentikasi.
+	 */
 	public CommonID getAkm(@PathParam("mhs") String mhs, @PathParam("ta") String ta,
 			@PathParam("fakultas") String fakultas, @PathParam("jurusan") String jurusan) {
 		return getAkmAngkatan(mhs, fakultas, fakultas, jurusan, "_");
@@ -1491,6 +1597,10 @@ public class FeederResource {
 	@GET
 	@Path("akm_angkatan/{mhs}/{ta}/{fakultas}/{jurusan}/{angkatan}")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Seperti {@link #getAkm(String, String, String, String)}, dipersempit lagi ke satu angkatan
+	 * spesifik. Tidak memeriksa autentikasi.
+	 */
 	public CommonID getAkmAngkatan(@PathParam("mhs") String mhs, @PathParam("ta") String ta,
 			@PathParam("fakultas") String fakultas, @PathParam("jurusan") String jurusan,
 			@PathParam("angkatan") String angkatan) {

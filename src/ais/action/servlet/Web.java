@@ -13,19 +13,39 @@ import ais.common.home.WebsitePageService;
 import ais.common.home.WebsitePageViewModel;
 import ais.database.model.Konfigurasi;
 
+/**
+ * Servlet titik masuk halaman website publik institusi (CMS beranda kampus/sekolah) — merender
+ * beranda dan halaman-halaman situs publik (profil, berita, dsb.) lewat {@link HomePortalService}
+ * dan {@link WebsitePageService} ("website UI v4"), dengan mekanisme fallback berlapis ke tampilan
+ * JSP lama ({@code /WEB-INF/baru/website.jsp}): (1) bila konfigurasi {@code website_ui_v4}
+ * dinonaktifkan, (2) bila terjadi exception apa pun saat membangun halaman v4 (dicatat lewat
+ * {@link ais.common.ErrorAuditUtil#recordVisibleFailure} dan header respons
+ * {@code X-Website-Fallback: legacy} disertakan agar mudah dipantau). Sebelum merender, method
+ * juga menginisialisasi variabel statis global {@link Common#REAL_PATH}/{@code REAL_PATH_REPORT_TEMP}/
+ * {@code ROOT}/{@code CURRENT_URL}/{@code CURRENT_URL_SIMPLE} dari request saat ini, dan
+ * mengalihkan ke {@code /index} bila situs kampus dinonaktifkan lewat konfigurasi
+ * {@code website_kampus_aktif}.
+ */
 public class Web extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 
+	/** Menangani permintaan {@code GET} — didelegasikan ke {@link #process(HttpServletRequest, HttpServletResponse)} bersama {@code POST}. */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 		process(request, response);
 	}
 
+	/** Menangani permintaan {@code POST} — didelegasikan ke {@link #process(HttpServletRequest, HttpServletResponse)} bersama {@code GET}. */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 		process(request, response);
 	}
 
+	/**
+	 * Menentukan dan merender halaman website publik yang diminta: beranda bila path kosong/"/",
+	 * atau halaman spesifik ({@link WebsitePageService#supports(String)}/{@code build}) — 404 bila
+	 * path tidak dikenali. Lihat dokumentasi kelas untuk detail alur fallback ke JSP lama.
+	 */
 	private void process(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		Common.REAL_PATH = getServletContext().getRealPath("/");
 		Common.REAL_PATH_REPORT_TEMP = getServletContext().getRealPath("/report");
@@ -78,6 +98,11 @@ public class Web extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Membaca flag fitur boolean dari konfigurasi aplikasi (kunci {@code key}), menerima nilai
+	 * {@code AKTIF}/{@code "true"}/{@code "yes"} (tanpa membedakan besar/kecil huruf) sebagai
+	 * {@code true}. Mengembalikan {@code fallback} bila konfigurasi tidak ada atau terjadi galat.
+	 */
 	private boolean isEnabled(String key, boolean fallback) {
 		try {
 			Konfigurasi config = Common.getKonfigurasi(key,

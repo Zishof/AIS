@@ -35,6 +35,16 @@ import ais.ui.util.MyDoublebox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper pengelola grid nominal item biaya sekolah pada satu pengaturan tarif
+ * ({@link PengaturanBiaya}) — untuk setiap item biaya aktif yang terikat pengaturan tersebut
+ * ({@link PengaturanBiayaItemBiaya}), memastikan/menyiapkan baris nominal berkode unik
+ * ({@link NominalBiaya}, dibuat otomatis dari {@code defaultBiaya} bila belum ada) dan
+ * menampilkannya untuk diedit langsung pada grid (auto-save saat berubah). Nominal ditampilkan
+ * sebagai label baca-saja (bukan field edit) bila rentang minimal-maksimal biaya item tersebut
+ * tetap (fixed) atau item memiliki parameter tambahan (nominal dihitung dari parameter, bukan
+ * diisi manual).
+ */
 public class DetailTagihanItemBiayaHelper implements DataLoader, DataCriteria {
 
 	private MyGrid grid;
@@ -44,6 +54,7 @@ public class DetailTagihanItemBiayaHelper implements DataLoader, DataCriteria {
 
 	private Paging paging;
 
+	/** Membuat helper dengan komponen paging siap pakai; panggil {@link #displayDetailPA} untuk membangun tampilan. */
 	public DetailTagihanItemBiayaHelper() {
 
 		paging = new Paging();
@@ -122,6 +133,13 @@ public class DetailTagihanItemBiayaHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/**
+	 * Membangun kueri Hibernate untuk daftar item biaya aktif milik {@link #pengaturanBiaya},
+	 * difilter kata kunci nama item.
+	 *
+	 * @param order {@code true} untuk mengurutkan hasil berdasarkan nama item menurun
+	 * @return kriteria Hibernate siap dieksekusi/dipaginasi
+	 */
 	public Criteria initCriteria(boolean order) {
 
 		Session session = HibernateUtil.currentSession();
@@ -140,6 +158,7 @@ public class DetailTagihanItemBiayaHelper implements DataLoader, DataCriteria {
 		return criteria;
 	}
 
+	/** Mengeksekusi {@link #initCriteria(boolean)} untuk halaman aktif dan merender hasilnya ke {@link #grid} lewat {@code DetailPARenderer}. */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Common.initPaging(initCriteria(false), paging);
@@ -152,6 +171,14 @@ public class DetailTagihanItemBiayaHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/**
+	 * Membangun panel lengkap (form pencarian nama item + grid nominal) untuk
+	 * {@code pengaturanBiaya} dan memasangnya ke {@code component}.
+	 *
+	 * @param pengaturanBiaya pengaturan tarif target
+	 * @param component       komponen ZK induk tempat panel dipasang
+	 * @param window          jendela induk (dipakai untuk konteks tampilan)
+	 */
 	public void displayDetailPA(final PengaturanBiaya pengaturanBiaya, final Component component,
 			final MyWindow window) {
 

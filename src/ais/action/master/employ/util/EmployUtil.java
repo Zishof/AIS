@@ -14,8 +14,35 @@ import ais.database.model.Pegawai;
 import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
 
+/**
+ * Utilitas modul employ untuk menjembatani sesi login dari aplikasi luar (portal Liferay, dilihat
+ * dari pengecekan {@code "default@liferay.com"}) ke sesi AIS: meresolusi/membuat {@link Tbmuser}
+ * berdasarkan parameter {@code email}/{@code userId} yang dikirim portal, mengaitkannya ke
+ * {@link Pegawai}, dan menaruh hasilnya di {@code Sessions}/request sebagai {@code "usersTemp"}
+ * (pola auto-login yang sama dipakai action lain yang membaca sesi tersebut).
+ */
 public class EmployUtil {
 
+	/**
+	 * Mengautentikasi/menyediakan-otomatis user dari parameter portal luar {@code email}/{@code userId}
+	 * pada {@code execution}. Menampilkan pesan HTML "harus login" ke {@code page} dan mengembalikan
+	 * {@code null} bila parameter {@code email} tidak dikirim/masih default portal; menampilkan
+	 * pesan "belum terhubung ke data pegawai" dan mengembalikan {@code null} bila user ditemukan/
+	 * dibuat tapi tidak berelasi {@link Pegawai} apa pun.
+	 *
+	 * <p>
+	 * Bila {@link Tbmuser} belum ada untuk {@link Pegawai} yang cocok emailnya, satu baris baru
+	 * dibuat otomatis dengan role {@link Tbmrole#PEGAWAI}, akses root, dan PASSWORD DISET SAMA
+	 * DENGAN EMAIL dalam bentuk tidak terenkripsi ({@code is_encripted=false}) — pola auto-provisioning
+	 * ini mengasumsikan otentikasi sesungguhnya sudah dilakukan oleh portal luar (Liferay), bukan
+	 * oleh AIS sendiri.
+	 * </p>
+	 *
+	 * @param execution konteks eksekusi ZK yang membawa parameter dari portal luar
+	 * @param page      halaman ZK tempat pesan error ditampilkan bila gagal
+	 * @param namaModul nama modul yang ditampilkan pada pesan "harus login"
+	 * @return {@link Pegawai} yang berhasil diautentikasi, atau {@code null} bila gagal (pesan sudah ditampilkan ke {@code page})
+	 */
 	public Pegawai initLoginFromOutApp(Execution execution, Page page, String namaModul) {
 		String email = execution.getParameter("email") == null ? "-11111111" : execution.getParameter("email");
 		String userId = execution.getParameter("userId") == null ? "-11111111" : execution.getParameter("userId");

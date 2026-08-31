@@ -12,13 +12,35 @@ import ais.database.model.library.BatchItemPunyaBarcode;
 import ais.database.model.library.ItemPunyaBarcode;
 import ais.database.model.library.TipeItem;
 
+/**
+ * Algoritma penomoran barcode koleksi perpustakaan (varian "YTB"), berpola
+ * {@code <kode tipe item><kode perpustakaan>.<nomor urut 5 digit>.<nomor eksemplar>}: kode tipe
+ * item + kode perpustakaan diikuti nomor urut (dihitung dari nilai maksimum segmen posisi 4-8 pada
+ * barcode {@link ItemPunyaBarcode} yang sudah ada di perpustakaan tersebut, via SQL native yang
+ * memvalidasi segmen tersebut berupa angka) dan nomor eksemplar ke- (jumlah
+ * {@link ItemPunyaBarcode} yang sudah ada untuk kombinasi item+perpustakaan yang sama, ditambah 1).
+ * Bila barcode hasil sudah terpakai, dicoba ulang secara rekursif dengan barcode tersebut
+ * ditambahkan ke daftar pengecualian; percobaan dihentikan paksa (dikembalikan dengan prefiks
+ * {@code "--"}) setelah lebih dari 10.050 percobaan gagal untuk mencegah rekursi tak berujung pada
+ * proses batch yang sangat besar.
+ */
 public class YtbBarcodeGenerator implements BarcodeGenerator {
 
+	/** Varian ringkas {@link #generateBarcode(List, BatchItemPunyaBarcode)} tanpa daftar pengecualian awal. */
 	@Override
 	public String generateBarcode(BatchItemPunyaBarcode batchItemPunyaBarcode) {
 		return generateBarcode(new ArrayList<String>(), batchItemPunyaBarcode);
 	}
 
+	/**
+	 * Menghasilkan barcode untuk {@code batchItemPunyaBarcode} sesuai pola kelas ini (lihat javadoc
+	 * kelas). Rekursif: bila barcode yang dihasilkan ternyata sudah dipakai, dicoba lagi dengan
+	 * barcode tersebut ditambahkan ke {@code barcodePengecualian} (juga dipakai sebagai penambah
+	 * nomor urut agar percobaan berikutnya tidak mengulang nilai yang sama).
+	 *
+	 * @param barcodePengecualian daftar barcode yang harus dianggap sudah terpakai (dimutasi dan diteruskan pada percobaan ulang)
+	 * @return barcode yang dihasilkan, atau nilai berprefiks {@code "--"} bila batas 10.050 percobaan terlampaui
+	 */
 	@Override
 	public String generateBarcode(List<String> barcodePengecualian, BatchItemPunyaBarcode batchItemPunyaBarcode) {
 

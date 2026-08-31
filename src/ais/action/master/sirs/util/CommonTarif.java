@@ -14,8 +14,32 @@ import ais.database.model.sirs.Dokter;
 import ais.database.model.sirs.Komunitas;
 import ais.database.model.sirs.Pasien;
 
+/**
+ * Utilitas resolusi tarif khusus (modul SIRS/rumah sakit): mencari baris "tarif khusus" (relasi
+ * {@code tarifKhusus} pada entitas {@code clazz}, mis. tarif tindakan/kamar/obat) yang berlaku
+ * pada tanggal berjalan (rentang {@code mulai}-{@code sampai}, aktif) dan paling spesifik cocok
+ * dengan kombinasi {@link Dokter}, {@link Asuransi}, {@link Komunitas}, dan {@link Pasien} yang
+ * diberikan.
+ */
 public class CommonTarif {
 
+	/**
+	 * Mencari tarif khusus yang berlaku dengan strategi generalisasi bertingkat: dimulai dari
+	 * kecocokan paling spesifik (seluruh dimensi dokter/asuransi/komunitas/pasien dicocokkan persis
+	 * dengan parameter yang diberikan, atau {@code null} bila parameter kosong), lalu bila tidak
+	 * ditemukan, dilonggarkan langkah demi langkah — melepas syarat pasien, lalu komunitas, lalu
+	 * asuransi, lalu dokter (dan kombinasinya) — hingga akhirnya jatuh ke tarif umum yang tidak
+	 * terikat dimensi apa pun sama sekali. Di setiap langkah, hanya baris teraktif dan terbaru
+	 * (diurutkan {@code mulai} menurun) yang diambil.
+	 *
+	 * @param clazz          kelas entitas tarif yang memiliki relasi {@code tarifKhusus}
+	 * @param mainCriterion  kriteria tambahan pada entitas utama (mis. jenis tindakan/item spesifik)
+	 * @param dokter         dokter terkait, boleh {@code null}
+	 * @param asuransi       asuransi pasien, boleh {@code null}
+	 * @param komunitas      kumpulan komunitas pasien, boleh {@code null}/kosong
+	 * @param pasien         pasien spesifik (untuk tarif personal), boleh {@code null}
+	 * @return baris tarif khusus paling spesifik yang cocok dan berlaku, atau {@code null} bila tidak ada sama sekali
+	 */
 	@SuppressWarnings("rawtypes")
 	public static Object getTarif(Class clazz, Criterion mainCriterion, Dokter dokter, Asuransi asuransi,
 			Set<Komunitas> komunitas, Pasien pasien) {

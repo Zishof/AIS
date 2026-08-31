@@ -98,6 +98,44 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.action.master.helper.FilterLanjutHelper;
 
+/**
+ * Layar CRUD sekaligus MESIN INTI penentuan tagihan biaya kuliah/sekolah ({@link SettingBiaya}
+ * beserta rincian {@link DetailSettingBiaya}) — salah satu komponen paling kritis pada modul
+ * keuangan AIS. Satu baris {@link SettingBiaya} mendefinisikan sekumpulan ATURAN pencocokan
+ * (jenis kegiatan, angkatan, jenjang, jurusan, program, status awal/status mahasiswa, kelamin,
+ * jenis seleksi, gelombang pendaftaran, paket, afiliasi, rentang semester, tahun akademik) beserta
+ * DAFTAR ITEM BIAYA yang berlaku bila aturan tersebut cocok dengan data mahasiswa/calon mahasiswa
+ * yang sedang ditagih. Nilai {@code null} pada field pencocokan (kecuali {@code jenisKegiatan})
+ * berarti "berlaku untuk SEMUA" (wildcard) — baik saat pencarian (layar ini) maupun saat penerapan
+ * (method statis {@code get*}), konsisten memakai pola {@code isNull OR eq} agar setting umum tetap
+ * ikut cocok saat difilter nilai spesifik. Saat beberapa baris {@link SettingBiaya} sama-sama cocok,
+ * pemilihan satu baris "paling spesifik/prioritas" didelegasikan ke
+ * {@link ais.action.master.helper.SettingBiayaMahasiswaSelector}.
+ *
+ * <p>
+ * Selain layar CRUD (pencarian, form tambah/ubah dengan grid pemilihan item biaya per
+ * {@code bayarKe}, unggah massal, validasi duplikasi lewat {@link #checkSettingBiaya()}), kelas ini
+ * menyediakan kumpulan method STATIS yang dipanggil dari banyak tempat lain di aplikasi (proses
+ * pembuatan tagihan mahasiswa/calon mahasiswa) untuk MENERAPKAN aturan setting biaya:
+ * </p>
+ * <ul>
+ * <li>{@link #getItemBiaya} — daftar {@link ItemBiaya} yang berlaku untuk satu konteks mahasiswa
+ * berdasarkan setting biaya UMUM (bukan {@code khususBuatMahasiswaTertentu}, bukan
+ * {@code gunakanBiayaDefault}) yang paling cocok/prioritas.</li>
+ * <li>{@link #getDetailBiayaDefault} (empat overload: berbasis {@link BiodataCalonMahasiswa},
+ * {@link Mahasiswa}, atau kombinasi kriteria mentah) — mencari {@link SettingBiayaDetail} KHUSUS
+ * satu individu ({@code khususBuatMahasiswaTertentu=true}) yang cocok rentang semester, lalu
+ * mendelegasikan penyusunan detail tagihan ke {@link #getDefaultSettingBiaya}. Mahasiswa yang masuk
+ * daftar pengecualian ({@code isMahasiswaDikecualikan}) menerima tagihan kosong
+ * ({@link PengecualianTagihanList#kosong()}), bukan {@code null}.</li>
+ * <li>{@link #getDefaultSettingBiaya} (tiga overload) — menyusun daftar {@link DetailBiaya} aktual
+ * dari {@link DetailSettingBiaya} suatu {@link SettingBiaya}/{@link SettingBiayaDetail}, memakai
+ * baris {@link DetailBiaya} yang sudah ada bila cocok persis, atau menyalin dari template terdekat
+ * bila belum ada.</li>
+ * <li>{@link #getDetailBiayaBukanDefaultBiaya} — varian untuk setting biaya yang BUKAN default
+ * (mis. biaya tambahan/opsional di luar paket biaya utama).</li>
+ * </ul>
+ */
 public class SetingBiayaAction extends GenericAutowireComposer {
 	private static final long serialVersionUID = 3786091220301468178L;
 	private MyWindow addWindow;
@@ -152,6 +190,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 		return super.doBeforeCompose(page, parent, compInfo);
 	}
 
+	/** Menginisialisasi layar: cek sesi/hak baca (logoff bila tidak valid), mengisi seluruh combobox filter pencarian (jenis kegiatan, angkatan 2000-2030, jenjang, jurusan, status awal, program), hak akses ubah/hapus, pencarian awal, dan paging. */
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
 		Common.initLaguage();
@@ -437,6 +476,16 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 
 	}
 
+	/**
+	 * Membuka dialog tambah/ubah setting biaya dari LUAR layar ini (dipanggil oleh layar lain yang
+	 * ingin menyisipkan pembuatan setting biaya baru): membuat instance {@code SetingBiayaAction}
+	 * sementara, memasang jendela modal berdiri sendiri, dan memanggil {@code eventListener} setelah
+	 * data disimpan.
+	 *
+	 * @param eventListener callback yang dipanggil setelah setting biaya berhasil disimpan
+	 * @param settingBiaya  entitas setting biaya yang diedit (entitas baru untuk tambah data)
+	 * @throws Exception diteruskan apa adanya dari kegagalan pembangunan form
+	 */
 	public static void onAddExternal(EventListener eventListener, SettingBiaya settingBiaya) throws Exception {
 		SetingBiayaAction setingBiayaAction = new SetingBiayaAction();
 		setingBiayaAction.eventListener = eventListener;
@@ -454,6 +503,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 
 	}
 
+	/** Membuka form tambah setting biaya baru. */
 	public void onAdd(Event event) throws Exception {
 		init(new SettingBiaya());
 		addWindow.setVisible(true);
@@ -1646,6 +1696,20 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 
 	}
 
+	/**
+	 * Memvalidasi lalu menyimpan data setting biaya dari form: menolak bila jenis kegiatan belum
+	 * dipilih, atau kombinasi kriteria yang sama sudah terdaftar ({@link #checkSettingBiaya()}); jika
+	 * lolos menyimpan/memperbarui entitas {@link SettingBiaya} dengan seluruh field kriteria, lalu
+	 * menyinkronkan daftar {@link DetailSettingBiaya} per {@code bayarKe} sesuai pilihan pada grid
+	 * item biaya — item lama yang tidak lagi dipilih dihapus KECUALI masih dipakai oleh
+	 * {@link DetailBiaya} (tagihan mahasiswa nyata) yang sudah ada, dalam hal ini item tersebut
+	 * dipertahankan dan pengguna diberi tahu lewat pesan peringatan (mencegah pelanggaran foreign
+	 * key ke tagihan yang sudah terbentuk).
+	 *
+	 * @param event event ZK pemicu penyimpanan (tombol simpan)
+	 * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal
+	 * @throws Exception diteruskan apa adanya dari kegagalan Hibernate saat menyimpan
+	 */
 	public boolean onSave(Event event) throws Exception {
 		if (jenisKegiatan.getSelectedItem() == null) {
 			PesanFormalHelper.tampilkanGagal("penyimpanan data Jenis Kegiatan",

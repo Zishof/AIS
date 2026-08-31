@@ -9,20 +9,31 @@ import ais.action.master.feeder.integrator.helper.DownloadAktifitasMahasiwaSkrip
 import ais.ui.util.MyButtonTabbox;
 import ais.ui.util.MyWindow;
 
+/**
+ * Jendela hub Feeder DIKTI untuk aktivitas mahasiswa "peserta mahasiswa": mengelompokkan empat
+ * laporan unduhan integrasi Feeder ke dalam tab lazy-load ({@link MyButtonTabbox}) — KKN, PKL,
+ * Skripsi, dan Bimbingan (tugas akhir) — masing-masing didelegasikan ke kelas helper
+ * {@code DownloadAktifitasMahasiwa*PesertaMahasiswa} miliknya sendiri. Setiap tab hanya dibangun
+ * saat pertama kali dipilih pengguna (lazy), tab pertama ("Download KKN") dipilih otomatis saat
+ * jendela dibuka.
+ */
 public class AktifitasMahasiswaPesertaMahasiswaIntegrator extends MyWindow {
 
 	private static final long serialVersionUID = -3384689142222653374L;
 
+	/** Konstruktor default: membangun tab hub aktivitas mahasiswa. */
 	public AktifitasMahasiswaPesertaMahasiswaIntegrator() {
 		super();
 		init();
 	}
 
+	/** Konstruktor dengan judul/border/closable eksplisit. */
 	public AktifitasMahasiswaPesertaMahasiswaIntegrator(String title, String border, boolean closable) {
 		super(title, border, closable);
 		init();
 	}
 
+	/** Membangun keempat tab lazy-load (KKN, PKL, Skripsi, Bimbingan) dan memilih tab pertama. */
 	private void init() {
 		MyButtonTabbox btnTab = MyButtonTabbox.buat(this, "100%", new int[] { 0 });
 
