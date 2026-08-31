@@ -1252,6 +1252,19 @@ public class DasboardPiutang extends MyWindow {
 				.replace("'", "&#39;");
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link DasboardPiutang} untuk filter state. Tipe ini mengelompokkan nilai
+	 * antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasboardPiutang}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String tahunAkademik}, {@code String
+	 * semester}, {@code Fakultas fakultas}, {@code Jurusan jurusan}, {@code JenisKegiatan jenisPembayaran}, {@code
+	 * String keyword}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DasboardPiutang
+	 */
 	private static class FilterState {
 		String tahunAkademik;
 		String semester;
@@ -1261,6 +1274,20 @@ public class DasboardPiutang extends MyWindow {
 		String keyword;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link DashboardRow} milik {@link DasboardPiutang}. Kelas ini memberi nama pada
+	 * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasboardPiutang}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String kode}, {@code String nama},
+	 * {@code String jenis}, {@code double dibayar}, {@code double tagihan}, {@code double sisa}, {@code String
+	 * tahunAkademik}, {@code int semester}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see DasboardPiutang
+	 */
 	private static class DashboardRow {
 		String kode;
 		String nama;
@@ -1275,6 +1302,20 @@ public class DasboardPiutang extends MyWindow {
 		String status;
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link DasboardPiutang} untuk dashboard data. Tipe ini mengelompokkan nilai
+	 * antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasboardPiutang}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List rows}, {@code int jumlahData},
+	 * {@code int jumlahTagihan}, {@code int jumlahDibayar}, {@code int jumlahPiutang}, {@code int jumlahLunas},
+	 * {@code int jumlahBelumBayar}, {@code int jumlahParsial}. Aturan bisnis bersama tetap berada pada kelas induk
+	 * atau service yang dipanggilnya.</p>
+	 *
+	 * @see DasboardPiutang
+	 */
 	private static class DashboardData {
 		List<DashboardRow> rows = new ArrayList<DashboardRow>();
 		int jumlahData;
@@ -1297,6 +1338,20 @@ public class DasboardPiutang extends MyWindow {
 		Map<String, SegmentRow> perStatus;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link SegmentRow} milik {@link DasboardPiutang}. Kelas ini memberi nama pada
+	 * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasboardPiutang}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String nama}, {@code int count},
+	 * {@code int lunas}, {@code int belumBayar}, {@code int parsial}, {@code double tagihan}, {@code double
+	 * dibayar}, {@code double piutang}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see DasboardPiutang
+	 */
 	private static class SegmentRow {
 		String nama;
 		int count;
@@ -1309,6 +1364,22 @@ public class DasboardPiutang extends MyWindow {
 		double lebihBayar;
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link DasboardPiutang} untuk html category model. Tipe ini mengelompokkan
+	 * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasboardPiutang}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List rows}; operasi lokal: {@code
+	 * clear()}, {@code setValue()}, {@code getRows}(). Aturan bisnis bersama tetap berada pada kelas induk atau
+	 * service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see DasboardPiutang
+	 */
 	private static class HtmlCategoryModel {
 		private List<HtmlCategoryRow> rows = new ArrayList<HtmlCategoryRow>();
 
@@ -1329,6 +1400,19 @@ public class DasboardPiutang extends MyWindow {
 		}
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link DasboardPiutang} untuk html category row. Tipe ini mengelompokkan
+	 * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasboardPiutang}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String series}, {@code String
+	 * category}, {@code double value}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see DasboardPiutang
+	 */
 	private static class HtmlCategoryRow {
 		String series;
 		String category;

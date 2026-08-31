@@ -1586,6 +1586,22 @@ public class DasboardRekapKegiatanPegawai extends MyWindow {
 				"&#39;");
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link DasboardRekapKegiatanPegawai} untuk pegawai dashboard summary. Tipe
+	 * ini mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+	 * jelas.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DasboardRekapKegiatanPegawai}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Pegawai pegawai}, {@code String
+	 * nama}, {@code String satuanKerja}, {@code double catatan}, {@code double kegiatan}, {@code double datang},
+	 * {@code double pulang}, {@code double tanpaKegiatan}. Aturan bisnis bersama tetap berada pada kelas induk
+	 * atau service yang dipanggilnya.</p>
+	 *
+	 * @see DasboardRekapKegiatanPegawai
+	 */
 	private static class PegawaiDashboardSummary {
 		Pegawai pegawai;
 		String nama;

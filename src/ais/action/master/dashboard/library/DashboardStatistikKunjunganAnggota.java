@@ -280,6 +280,7 @@ public class DashboardStatistikKunjunganAnggota extends MyWindow {
 		center.appendChild(new Html(buildHtml(data)));
 	}
 
+	/** Merangkai seluruh markup kartu (ringkasan, tren, komposisi, radar) menjadi satu blok HTML. */
 	private String buildHtml(VisualData data) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("<div style='font-family:Arial,sans-serif;padding:12px;'>");
@@ -300,6 +301,7 @@ public class DashboardStatistikKunjunganAnggota extends MyWindow {
 		return sb.toString();
 	}
 
+	/** Merangkai markup "Tren Harian": satu blok per tanggal, satu bar horizontal per perpustakaan pada tanggal itu. */
 	private String buildTrend(VisualData data) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("<div style='background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;margin-bottom:12px;'>");
@@ -330,6 +332,7 @@ public class DashboardStatistikKunjunganAnggota extends MyWindow {
 		return sb.toString();
 	}
 
+	/** Merangkai markup "Komposisi Perpustakaan": satu bar per unit perpustakaan, proporsional terhadap total keseluruhan. */
 	private String buildComposition(VisualData data) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("<div style='background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;margin-bottom:12px;'>");
@@ -353,6 +356,7 @@ public class DashboardStatistikKunjunganAnggota extends MyWindow {
 		return sb.toString();
 	}
 
+	/** Merangkai markup "Radar Aktivitas": tiga gauge (aktivitas relatif terhadap dirinya sendiri, sebaran unit perpustakaan, hari aktif dari basis 30 hari). */
 	private String buildRadar(VisualData data) {
 		int aktivitas = percent(data.total, Math.max(data.total, 1.0));
 		int persebaran = percent(data.totalPerpustakaan.size(), Math.max(data.totalPerpustakaan.size(), 1));
@@ -413,6 +417,20 @@ public class DashboardStatistikKunjunganAnggota extends MyWindow {
 		return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;");
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link VisualData} milik {@link DashboardStatistikKunjunganAnggota}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DashboardStatistikKunjunganAnggota}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code TreeMap rows}, {@code LinkedHashMap
+	 * totalPerpustakaan}, {@code List perpustakaan}, {@code double total}, {@code double max}. Aturan bisnis
+	 * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DashboardStatistikKunjunganAnggota
+	 */
 	private static class VisualData {
 		private TreeMap<String, Map<String, Double>> rows = new TreeMap<String, Map<String, Double>>();
 		private LinkedHashMap<String, Double> totalPerpustakaan = new LinkedHashMap<String, Double>();

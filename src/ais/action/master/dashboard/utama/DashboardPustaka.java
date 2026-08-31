@@ -2544,6 +2544,20 @@ public class DashboardPustaka extends MyWindow {
 		ais.ui.util.DashboardModernHtmlUtil.closeOpenedSession(session);
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link LibraryDashboardData} milik {@link DashboardPustaka}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DashboardPustaka}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Perpustakaan filterPerpustakaan},
+	 * {@code Anggota filterAnggota}, {@code Date filterMulai}, {@code Date filterSampai}, {@code int
+	 * totalKoleksi}, {@code int totalEksemplar}, {@code int totalDipinjam}, {@code int totalPeminjamanPeriode}.
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DashboardPustaka
+	 */
 	private static class LibraryDashboardData {
 		Perpustakaan filterPerpustakaan;
 		Anggota filterAnggota;
@@ -2573,6 +2587,18 @@ public class DashboardPustaka extends MyWindow {
 		List<OverdueInfo> keterlambatan = new ArrayList<OverdueInfo>();
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link NameValue} milik {@link DashboardPustaka}. Kelas ini memberi nama pada
+	 * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DashboardPustaka}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String name}, {@code int value}.
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DashboardPustaka
+	 */
 	private static class NameValue {
 		String name;
 		int value;
@@ -2583,6 +2609,20 @@ public class DashboardPustaka extends MyWindow {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link ItemInfo} milik {@link DashboardPustaka}. Kelas ini memberi nama pada
+	 * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DashboardPustaka}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code String nama}, {@code
+	 * String subInfo}, {@code String coverUrl}, {@code int dilihat}, {@code int diunduh}, {@code boolean ebook},
+	 * {@code String readUrl}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see DashboardPustaka
+	 */
 	private static class ItemInfo {
 		Long id;
 		String nama;
@@ -2595,6 +2635,19 @@ public class DashboardPustaka extends MyWindow {
 		String downloadUrl;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link OverdueInfo} milik {@link DashboardPustaka}. Kelas ini memberi nama pada
+	 * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DashboardPustaka}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String namaItem}, {@code String
+	 * peminjam}, {@code Date batasWaktu}, {@code int hariTerlambat}. Aturan bisnis bersama tetap berada pada kelas
+	 * induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DashboardPustaka
+	 */
 	private static class OverdueInfo {
 		String namaItem;
 		String peminjam;

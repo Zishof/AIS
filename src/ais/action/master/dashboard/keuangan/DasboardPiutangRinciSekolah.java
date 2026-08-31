@@ -1506,6 +1506,22 @@ public class DasboardPiutangRinciSekolah extends MyWindow {
 		}
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link DasboardPiutangRinciSekolah} untuk dashboard data. Tipe ini
+	 * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+	 * jelas.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DasboardPiutangRinciSekolah}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int totalBaris}, {@code int
+	 * jumlahPiutang}, {@code int jumlahLunas}, {@code int jumlahBelumBayar}, {@code int jumlahSebagian}, {@code
+	 * int jumlahLebihBayar}, {@code int jumlahSiswa}, {@code int jumlahCalon}. Aturan bisnis bersama tetap berada
+	 * pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DasboardPiutangRinciSekolah
+	 */
 	private static class DashboardData {
 		int totalBaris;
 		int jumlahPiutang;
@@ -1526,6 +1542,20 @@ public class DasboardPiutangRinciSekolah extends MyWindow {
 		List<DashboardGroup> bucketGroups = new ArrayList<DashboardGroup>();
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link DashboardGroup} milik {@link DasboardPiutangRinciSekolah}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DasboardPiutangRinciSekolah}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String key}, {@code String tipe},
+	 * {@code String extraSql}, {@code int count}, {@code double tagihan}, {@code double dibayar}, {@code double
+	 * piutang}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DasboardPiutangRinciSekolah
+	 */
 	private static class DashboardGroup {
 		String key;
 		String tipe;
@@ -1536,6 +1566,20 @@ public class DasboardPiutangRinciSekolah extends MyWindow {
 		double piutang;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link DashboardPerson} milik {@link DasboardPiutangRinciSekolah}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DasboardPiutangRinciSekolah}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String kode}, {@code String nama},
+	 * {@code String status}, {@code int count}, {@code double tagihan}, {@code double dibayar}, {@code double
+	 * piutang}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DasboardPiutangRinciSekolah
+	 */
 	private static class DashboardPerson {
 		String kode;
 		String nama;

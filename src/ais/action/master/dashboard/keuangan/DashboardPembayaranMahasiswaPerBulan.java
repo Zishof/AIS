@@ -582,6 +582,22 @@ public class DashboardPembayaranMahasiswaPerBulan extends MyWindow {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link PreviewPembayaranRow} milik {@link DashboardPembayaranMahasiswaPerBulan}.
+	 * Kelas ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok
+	 * anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DashboardPembayaranMahasiswaPerBulan}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String nim}, {@code String nama},
+	 * {@code String bulan}, {@code String semester}, {@code String itemBiaya}, {@code Double nominal}, {@code
+	 * Double telahDibayar}, {@code Double akumulasiTagihan}. Aturan bisnis bersama tetap berada pada kelas induk
+	 * atau service yang dipanggilnya.</p>
+	 *
+	 * @see DashboardPembayaranMahasiswaPerBulan
+	 */
 	private static class PreviewPembayaranRow {
 		private String nim;
 		private String nama;

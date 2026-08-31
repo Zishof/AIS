@@ -1019,6 +1019,20 @@ public class DasboardKinerja extends MyPortallayout {
 		return p < 0 ? 0 : (p > 100 ? 100 : p);
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link DashboardKinerjaData} milik {@link DasboardKinerja}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasboardKinerja}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code long totalCatatan}, {@code int
+	 * totalPegawaiDalamSampel}, {@code int catatanHariIni}, {@code int catatanBulanIni}, {@code int
+	 * terverifikasiAsesor}, {@code int belumVerifikasiAsesor}, {@code int catatanKosong}, {@code List latest}.
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DasboardKinerja
+	 */
 	private static class DashboardKinerjaData {
 		long totalCatatan = 0L;
 		int totalPegawaiDalamSampel = 0;

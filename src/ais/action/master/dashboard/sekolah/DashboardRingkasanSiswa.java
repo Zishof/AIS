@@ -144,6 +144,19 @@ public class DashboardRingkasanSiswa extends MyWindow {
     // Inner data class
     // ══════════════════════════════════════════════════════════════════════
 
+    /**
+     * Tipe implementasi bersarang {@link SekolahData} milik {@link DashboardRingkasanSiswa}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * DashboardRingkasanSiswa}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String nama}, {@code int total},
+     * {@code int laki}, {@code int prp}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see DashboardRingkasanSiswa
+     */
     private static final class SekolahData {
         String nama;
         int    total;

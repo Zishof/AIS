@@ -787,6 +787,22 @@ public class DasboardDaftarPengajuanTransfer extends MyWindow {
 		return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link DasboardDaftarPengajuanTransfer} untuk dashboard data. Tipe ini
+	 * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+	 * jelas.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DasboardDaftarPengajuanTransfer}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code long total}, {@code double
+	 * totalNominal}, {@code long belumDiproses}, {@code long diajukan}, {@code long transfer}, {@code long
+	 * transitori}, {@code List jenisLabels}, {@code List jenisValues}. Aturan bisnis bersama tetap berada pada
+	 * kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DasboardDaftarPengajuanTransfer
+	 */
 	private static class DashboardData {
 		long total;
 		double totalNominal;
@@ -802,6 +818,20 @@ public class DasboardDaftarPengajuanTransfer extends MyWindow {
 		List<ProsesTransitoriSopRow> prosesTransitoriSopRows = new ArrayList<ProsesTransitoriSopRow>();
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link SatkerRow} milik {@link DasboardDaftarPengajuanTransfer}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DasboardDaftarPengajuanTransfer}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String nama}, {@code long total},
+	 * {@code long belum}, {@code long diajukan}, {@code long selesai}, {@code double nominal}. Aturan bisnis
+	 * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DasboardDaftarPengajuanTransfer
+	 */
 	private static class SatkerRow {
 		String nama;
 		long total;
@@ -811,12 +841,40 @@ public class DasboardDaftarPengajuanTransfer extends MyWindow {
 		double nominal;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link TrendRow} milik {@link DasboardDaftarPengajuanTransfer}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DasboardDaftarPengajuanTransfer}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String label}, {@code long total},
+	 * {@code double nominal}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see DasboardDaftarPengajuanTransfer
+	 */
 	private static class TrendRow {
 		String label;
 		long total;
 		double nominal;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link DisposisiSopRow} milik {@link DasboardDaftarPengajuanTransfer}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DasboardDaftarPengajuanTransfer}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code long disposisiSopId}, {@code String
+	 * nama}, {@code long total}, {@code double nominal}, {@code long belum}, {@code long diajukan}, {@code long
+	 * selesai}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DasboardDaftarPengajuanTransfer
+	 */
 	private static class DisposisiSopRow {
 		long disposisiSopId;
 		String nama;
@@ -827,6 +885,21 @@ public class DasboardDaftarPengajuanTransfer extends MyWindow {
 		long selesai;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link ProsesTransitoriSopRow} milik {@link DasboardDaftarPengajuanTransfer}.
+	 * Kelas ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok
+	 * anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DasboardDaftarPengajuanTransfer}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code long disposisiSopId}, {@code String
+	 * nama}, {@code long total}, {@code double nominal}, {@code long menungguPersetujuan}, {@code long
+	 * sudahDisetujui}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DasboardDaftarPengajuanTransfer
+	 */
 	private static class ProsesTransitoriSopRow {
 		long disposisiSopId;
 		String nama;

@@ -871,6 +871,21 @@ public class DashboardSirsKomprehensif extends MyPortallayout {
         return p;
     }
 
+    /**
+     * Kontrak callback/strategi bersarang milik {@link DashboardSirsKomprehensif}. Tipe ini memisahkan satu
+     * variasi perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+     *
+     * <p><b>Scope:</b> setiap instance terikat pada instance {@link DashboardSirsKomprehensif} dan dapat mengakses
+     * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code getTitle()}, {@code getHeaders()},
+     * {@code getCriteria()}, {@code addOrder()}, {@code render}(). Aturan bisnis bersama tetap berada pada kelas
+     * induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see DashboardSirsKomprehensif
+     */
     public interface Config<T> {
         String getTitle();
         String[] getHeaders();
