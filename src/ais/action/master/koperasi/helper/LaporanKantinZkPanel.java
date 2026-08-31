@@ -201,6 +201,9 @@ public final class LaporanKantinZkPanel {
 		boolean butuhProduk = item.optBoolean("produk", false);
 		boolean butuhPelanggan = item.optBoolean("pelanggan", false);
 		boolean butuhPerToko = item.optBoolean("perToko", false);
+		// Laporan berbasis jurnal bergantung Satuan Kerja: satu instalasi melayani banyak unit
+		// usaha yang masing-masing menuntut paket laporannya sendiri plus konsolidasi.
+		boolean butuhSatker = item.optBoolean("satker", false);
 
 		Tbmuser current = Common.getCurrentUser();
 		final boolean lockToko = current != null && current.getPedagang() != null
@@ -252,6 +255,36 @@ public final class LaporanKantinZkPanel {
 			comboToko = null;
 		}
 
+		final Combobox comboSatker;
+		if (butuhSatker) {
+			Vbox v = new Vbox();
+			v.setSpacing("2px");
+			v.setParent(filterBox);
+			new Label("Unit / Satuan Kerja").setParent(v);
+			comboSatker = new Combobox();
+			comboSatker.setWidth("220px");
+			comboSatker.setReadonly(true);
+			comboSatker.setParent(v);
+			try {
+				org.json.JSONArray daftarSatker = LaporanKatalogData.daftarSatuanKerja();
+				long bawaan = LaporanKatalogData.satuanKerjaBawaan();
+				for (int i = 0; i < daftarSatker.length(); i++) {
+					org.json.JSONObject s = daftarSatker.getJSONObject(i);
+					org.zkoss.zul.Comboitem ci = new org.zkoss.zul.Comboitem(s.optString("nama"));
+					ci.setValue(Long.valueOf(s.optLong("id")));
+					ci.setParent(comboSatker);
+					// Baris pertama (id 0 = Semua Unit) dipakai bila unit bawaan belum diatur.
+					if (i == 0 || s.optLong("id") == bawaan) {
+						comboSatker.setSelectedItem(ci);
+					}
+				}
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e, "auto-audit LaporanKantinZkPanel.daftarSatuanKerja");
+			}
+		} else {
+			comboSatker = null;
+		}
+
 		final Checkbox chkPerToko;
 		if (butuhPerToko && !lockToko) {
 			Vbox v = new Vbox();
@@ -287,7 +320,7 @@ public final class LaporanKantinZkPanel {
 			public void onEvent(Event event) throws Exception {
 				try {
 					Map<String, String> p = kumpulkanParam(idLaporan, tglMulai, tglSampai, txtProduk, txtPelanggan,
-							comboToko, chkPerToko);
+							comboToko, chkPerToko, comboSatker);
 					HttpServletRequest wrapped = new ParamRequestWrapper(nativeRequest(), p);
 					LaporanKantinUtil.Hasil H = LaporanKantinUtil.build(wrapped);
 					hasilTerakhir[0] = H;
@@ -316,7 +349,7 @@ public final class LaporanKantinZkPanel {
 			public void onEvent(Event event) throws Exception {
 				try {
 					Map<String, String> p = kumpulkanParam(idLaporan, tglMulai, tglSampai, txtProduk, txtPelanggan,
-							comboToko, chkPerToko);
+							comboToko, chkPerToko, comboSatker);
 					HttpServletRequest wrapped = new ParamRequestWrapper(nativeRequest(), p);
 					LaporanKantinUtil.Hasil H = LaporanKantinUtil.build(wrapped);
 					if (!"00".equals(H.status)) {
@@ -343,7 +376,7 @@ public final class LaporanKantinZkPanel {
 			public void onEvent(Event event) throws Exception {
 				try {
 					Map<String, String> p = kumpulkanParam(idLaporan, tglMulai, tglSampai, txtProduk, txtPelanggan,
-							comboToko, chkPerToko);
+							comboToko, chkPerToko, comboSatker);
 					HttpServletRequest wrapped = new ParamRequestWrapper(nativeRequest(), p);
 					LaporanKantinUtil.Hasil H = LaporanKantinUtil.build(wrapped);
 					if (!"00".equals(H.status)) {
@@ -402,7 +435,7 @@ public final class LaporanKantinZkPanel {
 
 	private static Map<String, String> kumpulkanParam(String idLaporan, Datebox tglMulai, Datebox tglSampai,
 			ais.ui.util.MyTextbox txtProduk, ais.ui.util.MyTextbox txtPelanggan, Combobox comboToko,
-			Checkbox chkPerToko) {
+			Checkbox chkPerToko, Combobox comboSatker) {
 		Map<String, String> p = new HashMap<String, String>();
 		p.put("r", idLaporan);
 		if (tglMulai.getValue() != null) {
@@ -424,6 +457,10 @@ public final class LaporanKantinZkPanel {
 		}
 		if (chkPerToko != null) {
 			p.put("perToko", chkPerToko.isChecked() ? "true" : "false");
+		}
+		if (comboSatker != null && comboSatker.getSelectedItem() != null
+				&& comboSatker.getSelectedItem().getValue() instanceof Long) {
+			p.put("satkerId", String.valueOf(comboSatker.getSelectedItem().getValue()));
 		}
 		return p;
 	}

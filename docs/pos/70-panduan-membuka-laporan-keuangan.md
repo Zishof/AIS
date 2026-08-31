@@ -1,6 +1,6 @@
-# Panduan Membuka Laporan Keuangan (POS Desktop/Android)
+# Panduan Membuka Laporan Keuangan (POS Desktop, POS Android, JSP, ZK)
 
-Tanggal: 31 Agustus 2026, keadaan pada r78668. Menjawab "pastikan laporan-laporan di atas sudah
+Tanggal: 31 Agustus 2026, keadaan pada r78695. Menjawab "pastikan laporan-laporan di atas sudah
 semua, dan jelaskan di mana cara membuka menu laporan-laporan tersebut". Daftar apa yang sudah ada
 dan celah yang sudah ditutup dibahas di dok [66](66-laporan-keuangan-standar-yayasan.md),
 [67](67-laporan-aktivitas-dan-pemilih-unit.md), dan [69](69-penutup-peta-posting.md); dokumen ini
@@ -63,7 +63,28 @@ Tiga sebab yang paling sering, berurutan dari yang paling umum:
 3. **Unit yang dipilih salah.** Jurnal lama yang satuan kerjanya kosong hanya terlihat pada
    "Semua Unit (Konsolidasi)".
 
-## 5. Versi web lama (ZK)
+## 5. Empat platform, satu katalog
+
+Katalog laporan hidup di SATU tempat pada server (`LaporanKatalogData`), dan keempat penyaji
+membacanya dari sana — jadi laporan baru muncul di semuanya tanpa didaftarkan ulang:
+
+| Platform | Layar | Sumber katalog |
+|---|---|---|
+| POS Desktop & Android | Laporan-Laporan Keuangan / Laporan-Laporan | aksi API `laporan_keuangan_katalog` / `laporan_katalog` |
+| JSP | `laporan_keuangan.jsp` / `laporan_laporan.jsp` | `katalogKeuangan()` / `katalog()` |
+| ZK | panel laporan pada dasbor kantin | `LaporanKantinZkPanel` memanggil katalog yang sama |
+
+**Yang diperbaiki r78694/r78695**: `laporan_laporan.jsp` dahulu menyalin katalognya sebagai array
+JavaScript sendiri, dan salinan itu **tertinggal 19 laporan** — termasuk enam laporan baru serta
+Umur Hutang Supplier, Buku Besar Pembantu Piutang/Utang, Daftar Aset Tetap, Laba Rugi 2 Periode &
+12 Bulan, dan Neraca Lajur. Salinan itu dihapus dan diganti katalog server, sehingga tidak ada
+lagi jalan bagi JSP untuk diam-diam basi. Diperiksa lebih dulu bahwa tidak ada satu pun laporan
+yang HANYA ada di salinan JSP, jadi penggantian ini murni menambah.
+
+**Pemilih Unit / Satuan Kerja** kini juga ada di JSP dan ZK, bukan hanya di POS — memakai daftar
+unit dan unit bawaan dari server yang sama.
+
+## 6. Versi web lama (ZK)
 
 Laporan resmi berformat JRXML masih tersedia di aplikasi web: **Buku Besar**, **Jurnal Harian**,
 **Laporan Akun**, **Laporan Keuangan** (Neraca/Laba Rugi/Arus Kas lewat combo Jenis Laporan),

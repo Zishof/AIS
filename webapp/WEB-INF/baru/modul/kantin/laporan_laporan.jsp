@@ -25,6 +25,20 @@ if (tbmuserLap == null || tbmuserLap.getUserId() == null) {
 String rndLap = Common.getGeneratedBarCode(7);
 String svcLap = Common.ROOT + "/baru?hanya_tampil_jsp=true&p=kantin&s=laporan_laporan_service";
 String pdfLap = Common.ROOT + "/LaporanKantinPdf";
+String satuanKerjaLapJson = "[]";
+long satuanKerjaLapBawaan = 0L;
+// Pemilih Unit: satu instalasi melayani banyak unit usaha, dan laporan berbasis jurnal
+// dahulu terkunci pada konfigurasi satuan_kerja_kantin sehingga hanya satu unit terlihat.
+try {
+    satuanKerjaLapJson = ais.action.master.koperasi.helper.LaporanKatalogData.daftarSatuanKerja().toString();
+    satuanKerjaLapBawaan = ais.action.master.koperasi.helper.LaporanKatalogData.satuanKerjaBawaan();
+} catch (Exception eSK) { ais.common.ErrorAuditUtil.record(eSK, "auto-audit(empty-catch) laporan_laporan.jsp satuanKerja"); }
+String reportsSemuaJson = "[]";
+// Katalog dibaca dari SUMBER YANG SAMA dengan Desktop/Android/ZK (LaporanKatalogData.katalog()).
+// Dahulu berkas ini menyalin katalognya sebagai array JavaScript sendiri, dan salinan itu
+// tertinggal 19 laporan -- setiap laporan baru harus diketik dua kali atau JSP diam-diam basi.
+try { reportsSemuaJson = ais.action.master.koperasi.helper.LaporanKatalogData.katalog().toString(); }
+catch (Exception eLS) { ais.common.ErrorAuditUtil.record(eLS, "auto-audit(empty-catch) laporan_laporan.jsp katalog"); }
 Toko scopeTokoLap = (tbmuserLap.getPedagang() != null) ? tbmuserLap.getPedagang().getToko() : null;
 boolean lockTokoLap = (scopeTokoLap != null);
 
@@ -138,6 +152,10 @@ if (!lockTokoLap) {
               <label class="form-label small fw-bold mb-1"><%=Common.getBahasaConfig("Tanggal Sampai")%></label>
               <input type="date" id="fSampai<%=rndLap%>" class="form-control">
             </div>
+            <div class="col-md-3" id="wrapSatker<%=rndLap%>" style="display:none;">
+              <label class="form-label small fw-bold mb-1"><%=Common.getBahasaConfig("Unit / Satuan Kerja")%></label>
+              <select id="fSatker<%=rndLap%>" class="form-select"></select>
+            </div>
             <div class="col-md-3" id="wrapProduk<%=rndLap%>" style="display:none;">
               <label class="form-label small fw-bold mb-1"><%=Common.getBahasaConfig("Cari Produk (kode / nama)")%></label>
               <input type="text" id="fProduk<%=rndLap%>" class="form-control" placeholder="<%=Common.getBahasaConfig("kode atau nama produk")%>">
@@ -222,241 +240,12 @@ if (!lockTokoLap) {
   var TOKO_NAMA = "<%=lockTokoLap ? (scopeTokoLap.getNama()==null?"":scopeTokoLap.getNama().replace("\\","").replace("\"","")) : ""%>";
   var NAMA_INSTANSI = "<%=namaInstansiLap.replace("\\","").replace("\"","")%>";
   var LOGO_URL = "<%=logoLap.replace("\\","").replace("\"","")%>";
-  // Peluncur laporan Akuntansi (ZK) — Satuan Kerja kantin dipra-pilih otomatis di dalam form.
-  var LAUNCH = "<%=Common.ROOT%>/pages/master/kantin/laporan_keuangan.zul?lap=";
-  var DASHAKUN = "<%=Common.ROOT%>/common/display.zul?p=akuntansi";
+  // URL peluncur laporan Akuntansi (ZK) kini ikut datang dari katalog server.
 
-  var REPORTS = [
-    {kat:"Penjualan", items:[
-      {id:"pnj_barang_laku", judul:"Barang Paling Laku", ket:"Peringkat produk berdasarkan jumlah terjual.", produk:true, perToko:true},
-      {id:"pnj_faktur", judul:"Daftar Faktur Penjualan", ket:"Daftar transaksi/faktur penjualan beserta totalnya.", pelanggan:true},
-      {id:"pnj_per_barang", judul:"Penjualan per Barang", ket:"Rekap qty & nilai penjualan per produk.", produk:true, perToko:true},
-      {id:"pnj_rincian_barang", judul:"Rincian Penjualan per Barang", ket:"Rincian baris penjualan tiap produk (dikelompokkan).", produk:true},
-      {id:"pnj_per_pelanggan", judul:"Penjualan Barang per Pelanggan", ket:"Nilai belanja per pelanggan/anggota.", pelanggan:true, perToko:true},
-      {id:"pnj_per_kategori_pelanggan", judul:"Penjualan per Kategori Pelanggan", ket:"Nilai penjualan per kategori anggota.", perToko:true},
-      {id:"pnj_per_cabang", judul:"Penjualan per Cabang", ket:"Nilai penjualan per toko/merchant."},
-      {id:"pnj_per_pemasok", judul:"Penjualan Barang Per Pemasok", ket:"Nilai penjualan dikelompokkan per pemasok.", produk:true, perToko:true},
-      {id:"pnj_uang_muka", judul:"Uang Muka Penjualan", ket:"Faktur dengan pembayaran sebagian (uang muka).", pelanggan:true},
-      {id:"pnj_detail_transaksi", judul:"Detail Transaksi Penjualan", ket:"Rincian item tiap transaksi POS (per nomor faktur).", produk:true},
-      {id:"pnj_per_jam", judul:"Penjualan per Jam", ket:"Omzet & transaksi tiap jam operasional (jam ramai).", perToko:true},
-      {id:"pnj_per_kategori", judul:"Penjualan per Kategori", ket:"Rekap penjualan per kategori produk.", perToko:true},
-      {id:"retur_barang", judul:"Retur Barang", ket:"Daftar transaksi retur barang.", produk:true}
-    ]},
-    {kat:"Accurate POS", items:[
-      {id:"pos_kasir_harian", judul:"Penjualan per Kasir per Hari", ket:"Rekap penjualan tiap kasir dirinci per tanggal.", perToko:true},
-      {id:"pos_harian", judul:"Penjualan Harian (Semua Kasir)", ket:"Total penjualan seluruh kasir per tanggal.", perToko:true},
-      {id:"pos_per_kasir", judul:"Laporan Penerimaan Per Kasir", ket:"Penerimaan kas per kasir/operator (akumulasi).", perToko:true},
-      {id:"transaksi_per_kasir", judul:"Transaksi Per Kasir", ket:"Rekonsiliasi modal, penerimaan, kas closing, dan selisih per kasir.", perToko:true},
-      {id:"pos_per_akun_bank", judul:"Penerimaan Per Akun (Bank/Tunai/E-Money/Voucher)", ket:"Penerimaan per metode/akun pembayaran.", perToko:true}
-    ]},
-    {kat:"Kasir & Kas", items:[
-      {id:"pos_kasir_harian", judul:"Penjualan per Kasir per Hari", ket:"Rekap penjualan tiap kasir dirinci per tanggal."},
-      {id:"kas_buka_tutup", judul:"Buka Tutup Kas Kasir", ket:"Sesi kas: modal awal, tunai, non-tunai, uang fisik, selisih."},
-      {id:"kas_selisih", judul:"Selisih Kas Kasir", ket:"Sesi kas yang selisih (pengawasan akurasi kas)."},
-      {id:"kasir_sering_selisih", judul:"Kasir Sering Selisih", ket:"Peringkat kasir berdasar frekuensi & besar selisih kas."}
-    ]},
-    {kat:"Pembelian", items:[
-      {id:"beli_penerimaan", judul:"Daftar Penerimaan Barang", ket:"Daftar penerimaan barang (kulakan) per faktur.", produk:false},
-      {id:"beli_pesanan", judul:"Daftar Pesanan Pembelian", ket:"Ringkasan pembelian per pemasok.", produk:false},
-      {id:"beli_rincian_penerimaan", judul:"Rincian Penerimaan Barang", ket:"Rincian item penerimaan (dikelompokkan per pemasok).", produk:true},
-      {id:"beli_rincian_pesanan", judul:"Rincian Pesanan Pembelian", ket:"Rincian item pembelian (dikelompokkan per pemasok).", produk:true},
-      {id:"beli_faktur", judul:"Faktur Pembelian", ket:"Daftar faktur pembelian per nomor faktur pemasok.", produk:false}
-    ]},
-    {kat:"Persediaan", items:[
-      {id:"sed_barang_jasa", judul:"Daftar Barang dan Jasa", ket:"Master barang/jasa beserta harga & stok.", produk:true},
-      {id:"sed_penyesuaian", judul:"Daftar Penyesuaian Stok Barang", ket:"Ringkasan penyesuaian (stok opname) per produk.", produk:true},
-      {id:"sed_penyesuaian_rinci", judul:"Penyesuaian Stok Barang (Rinci)", ket:"Rincian selisih penyesuaian (dikelompokkan per produk).", produk:true},
-      {id:"sed_stok_harian", judul:"Stok Harian (Nilai Persediaan)", ket:"Posisi stok terkini + nilai persediaan.", produk:true}
-    ]},
-    {kat:"Gudang", items:[
-      {id:"gud_kuantitas", judul:"Kuantitas Barang per Gudang", ket:"Stok kuantitas per gudang/toko.", produk:true},
-      {id:"gud_penghitungan", judul:"Lembar Penghitungan Stok", ket:"Lembar kerja penghitungan fisik stok.", produk:true},
-      {id:"gud_mutasi_kategori", judul:"Ringkasan Mutasi Gudang By Category", ket:"Mutasi masuk/keluar per kategori produk."},
-      {id:"gud_mutasi_item", judul:"Ringkasan Mutasi Gudang By Item", ket:"Mutasi masuk/keluar per item produk.", produk:true},
-      {id:"pakai_bahan", judul:"Pemakaian Bahan Baku", ket:"Rincian pemakaian bahan baku (dikelompokkan per produk).", produk:true}
-    ]},
-    {kat:"Pergudangan — Stok & Posisi", items:[
-      {id:"wh_stok_kini", judul:"Stok Saat Ini (per Lokasi)", ket:"Posisi stok tiap lokasi/gudang + nilai persediaan.", produk:true},
-      {id:"wh_valuasi", judul:"Valuasi Persediaan per Lokasi", ket:"Total nilai barang diringkas per lokasi/gudang."},
-      {id:"wh_stok_minus", judul:"Stok Minus (per Lokasi)", ket:"Barang berstok negatif — deteksi salah input/jual tanpa stok.", produk:true},
-      {id:"wh_stok_kosong", judul:"Stok Kosong (per Lokasi)", ket:"Barang yang pernah bergerak namun stoknya kini 0.", produk:true},
-      {id:"stok_per_kategori", judul:"Stok per Kategori", ket:"Rekap jumlah & nilai stok per kategori produk.", perToko:true},
-      {id:"wh_umur_stok", judul:"Analisa Umur Stok", ket:"Lama sejak barang terakhir masuk (barang lama menumpuk).", produk:true},
-      {id:"stok_minimum", judul:"Stok Minimum / Reorder", ket:"Produk yang stoknya mencapai/di bawah batas minimum.", produk:true, perToko:true}
-    ]},
-    {kat:"Expired, Rusak & Hilang", items:[
-      {id:"barang_mendekati_expired", judul:"Barang Mendekati Kadaluarsa", ket:"Produk yang akan kedaluwarsa dalam 60 hari.", produk:true, perToko:true},
-      {id:"barang_expired", judul:"Barang Kadaluarsa (Expired)", ket:"Produk yang sudah lewat tanggal kedaluwarsa.", produk:true, perToko:true},
-      {id:"barang_rusak", judul:"Barang Rusak", ket:"Barang berkurang saat opname karena rusak/basi/pecah/cacat.", produk:true},
-      {id:"barang_hilang", judul:"Barang Hilang", ket:"Barang berkurang saat opname karena hilang/dicuri.", produk:true},
-      {id:"nilai_kerugian", judul:"Nilai Kerugian Barang", ket:"Akumulasi kerugian dari kekurangan stok saat opname per produk.", produk:true}
-    ]},
-    {kat:"Pergudangan — Kartu & Mutasi", items:[
-      {id:"stok_per_tanggal", judul:"Stok Barang per Tanggal", ket:"Saldo stok tiap barang pada tanggal tertentu; filter kategori/grup, unduh Excel atau PDF.", produk:true, perToko:true, stokPerTanggal:true},
-      {id:"wh_kartu_stok", judul:"Kartu Stok Barang", ket:"Riwayat masuk/keluar/transfer/koreksi + saldo berjalan.", produk:true},
-      {id:"wh_mutasi_harian", judul:"Mutasi Stok Harian", ket:"Total barang masuk & keluar tiap hari."},
-      {id:"wh_mutasi_barang", judul:"Mutasi Stok per Barang", ket:"Rekap masuk/keluar/perubahan bersih per produk.", produk:true},
-      {id:"wh_mutasi_petugas", judul:"Mutasi Stok per Petugas", ket:"Aktivitas mutasi stok per petugas gudang."},
-      {id:"wh_mutasi_dokumen", judul:"Mutasi per Dokumen (Referensi)", ket:"Pergerakan stok per nomor referensi/dokumen."}
-    ]},
-    {kat:"Pergudangan — Masuk / Keluar / Transfer", items:[
-      {id:"wh_barang_masuk", judul:"Barang Masuk (per Lokasi)", ket:"Rincian barang masuk ke tiap lokasi/gudang.", produk:true},
-      {id:"wh_barang_keluar", judul:"Barang Keluar (per Lokasi)", ket:"Rincian barang keluar dari tiap lokasi/gudang.", produk:true},
-      {id:"wh_transfer", judul:"Transfer Stok Antar Lokasi", ket:"Perpindahan barang dari satu lokasi ke lokasi lain.", produk:true}
-    ]},
-    {kat:"Produksi & Resep (BOM)", items:[
-      {id:"resep_bom", judul:"Resep / BOM per Menu", ket:"Komposisi bahan baku tiap menu + subtotal biaya.", produk:true},
-      {id:"resep_hpp_menu", judul:"HPP & Margin per Menu (dari Resep)", ket:"HPP dari bahan baku vs harga jual & untung.", produk:true},
-      {id:"pakai_bahan", judul:"Pemakaian Bahan Baku", ket:"Rincian pemakaian bahan baku aktual (per produk).", produk:true},
-      {id:"kebutuhan_bahan", judul:"Kebutuhan Bahan Baku (Resep x Jual)", ket:"Bahan yang SEHARUSNYA dipakai dari resep x menu terjual."},
-      {id:"bahan_selisih_resep", judul:"Selisih Bahan Aktual vs Resep", ket:"Pemakaian aktual vs seharusnya (deteksi pemborosan).", produk:true},
-      {id:"realisasi_produksi", judul:"Realisasi Produksi Harian", ket:"Porsi rencana/dibuat/terjual/sisa/waste per hari (menu Produksi Kantin).", produk:true},
-      {id:"rekap_produksi", judul:"Rekap Produksi per Menu", ket:"Total rencana/dibuat/terjual/sisa/waste per menu.", produk:true},
-      {id:"waste_produksi", judul:"Sisa Makanan / Waste Produksi", ket:"Porsi terbuang/rusak + nilai kerugian.", produk:true}
-    ]},
-    {kat:"Stock Opname", items:[
-      {id:"sed_penyesuaian", judul:"Ringkasan Penyesuaian per Produk", ket:"Jumlah & total selisih opname per produk.", produk:true},
-      {id:"sed_penyesuaian_rinci", judul:"Rincian Penyesuaian (Hasil Opname)", ket:"Rincian stok sistem vs fisik & selisih.", produk:true},
-      {id:"opname_selisih_nilai", judul:"Selisih Opname (Nilai Terbesar)", ket:"Barang dengan selisih terbesar (qty & nilai).", produk:true},
-      {id:"opname_per_toko", judul:"Riwayat Opname per Toko", ket:"Rekap jumlah opname & nilai selisih per toko."},
-      {id:"produk_sering_dikoreksi", judul:"Produk Sering Dikoreksi", ket:"Produk yang paling sering dikoreksi saat opname.", produk:true},
-      {id:"jadwal_opname", judul:"Jadwal Stock Opname", ket:"Rencana/kegiatan opname beserta status (dari menu Jadwal Opname)."},
-      {id:"berita_acara_opname", judul:"Berita Acara Opname (Ringkasan)", ket:"Ringkasan hasil opname per toko: item lebih/kurang & nilai selisih."}
-    ]},
-    {kat:"Pemusnahan & Penghapusan", items:[
-      {id:"pemusnahan", judul:"Pemusnahan / Penghapusan Barang", ket:"Daftar penghapusan/pemusnahan barang + status persetujuan."},
-      {id:"pemusnahan_rinci", judul:"Rincian Pemusnahan per Item", ket:"Barang yang dimusnahkan per dokumen.", produk:true}
-    ]},
-    {kat:"Tenant / Stan", items:[
-      {id:"mst_tenant", judul:"Daftar Tenant / Stan", ket:"Daftar tenant/stan/outlet beserta jumlah produk."},
-      {id:"pnj_per_cabang", judul:"Penjualan per Tenant/Outlet", ket:"Omzet & transaksi per tenant/toko."},
-      {id:"tenant_setoran", judul:"Setoran & Bagi Hasil Tenant", ket:"Kewajiban (bagi hasil+sewa+biaya) & setoran per periode."},
-      {id:"tenant_bagi_hasil", judul:"Rekap Bagi Hasil per Tenant", ket:"Total omzet/kewajiban/setoran/sisa per tenant."},
-      {id:"tenant_tunggakan", judul:"Tunggakan Tenant", ket:"Tenant dengan setoran kurang dari kewajiban."}
-    ]},
-    {kat:"Piutang", items:[
-      {id:"ar_saldo", judul:"Daftar Saldo Piutang Customer", ket:"Saldo piutang per pelanggan/anggota.", pelanggan:true, perToko:true},
-      {id:"ar_faktur_belum_lunas", judul:"Faktur Belum Lunas", ket:"Faktur penjualan yang belum lunas.", pelanggan:true},
-      {id:"ar_umur_piutang", judul:"Umur Piutang (Aging)", ket:"Sisa piutang per kelompok umur 0-30/31-60/61-90/>90 hari.", pelanggan:true},
-      {id:"ar_sisa_kredit", judul:"Limit & Sisa Kredit Pelanggan", ket:"Plafon kredit anggota vs piutang terpakai; sisa & tanda melebihi limit. Atur limit di Pengaturan.", pelanggan:true}
-    ]},
-    {kat:"Pajak (PPN)", items:[
-      {id:"akn_ppn_rekap", judul:"Rekapitulasi PPN (Keluaran & Masukan)", ket:"Aktivitas akun PPN; Saldo = Kredit - Debet, total baris = PPN Kurang/(Lebih) Bayar. Akun PPN dikenali dari nama akun."},
-      {id:"akn_ppn_keluaran", judul:"Rincian PPN Keluaran (Penjualan)", ket:"Baris jurnal pada akun PPN Keluaran — PPN dipungut atas penjualan."},
-      {id:"akn_ppn_masukan", judul:"Rincian PPN Masukan (Pembelian)", ket:"Baris jurnal pada akun PPN Masukan — PPN dibayar atas pembelian."}
-    ]},
-    {kat:"Anggaran (RAB)", items:[
-      {id:"akn_anggaran", judul:"Anggaran vs Realisasi (RAB)", ket:"Serapan anggaran RAB (Workspace) Satuan Kerja kantin: Anggaran, Realisasi, Sisa, % Serap. Tahun dari filter tanggal."}
-    ]},
-    {kat:"Gaji Karyawan (Payroll)", items:[
-      {id:"akn_gaji_rincian", judul:"Rincian Gaji Karyawan", ket:"Komponen gaji per karyawan (Payroll seluruh instansi). Periode = tanggal bayar gaji."},
-      {id:"akn_gaji_komponen", judul:"Porsi Gaji per Komponen", ket:"Total nilai gaji per komponen (tunjangan, potongan, dll)."},
-      {id:"akn_gaji_pph", judul:"Pajak Penghasilan (PPh) Karyawan", ket:"Total PPh/pajak per karyawan dari komponen gaji."}
-    ]},
-    {kat:"Rekonsiliasi Bank", items:[
-      {id:"akn_rekon_ikhtisar", judul:"Ikhtisar Rekonsiliasi Bank", ket:"Saldo Buku (jurnal) vs Saldo Rekening Koran (bank) per akun + Selisih. Entri rekening koran di Pengaturan."},
-      {id:"akn_rekon_belum", judul:"Mutasi Rek. Koran Belum Cocok", ket:"Baris rekening koran bank yang belum direkonsiliasi dengan buku."}
-    ]},
-    {kat:"Buku Besar (Akuntansi)", items:[
-      {id:"akn_jurnal", judul:"Keseluruhan Jurnal (Jurnal Umum)", ket:"Semua baris jurnal TERPOSTING Satuan Kerja kantin (dari Jurnal Akuntansi)."},
-      {id:"akn_buku_besar", judul:"Rincian Buku Besar (per Akun)", ket:"Mutasi tiap akun + subtotal Debet/Kredit (dari Jurnal Akuntansi)."},
-      {id:"akn_histori_bb", judul:"Histori Buku Besar (Saldo Berjalan)", ket:"Mutasi tiap akun + saldo berjalan per baris (dari Jurnal Akuntansi)."},
-      {id:"akn_ringkasan_bb", judul:"Ringkasan Buku Besar", ket:"Total Debet, Kredit & Saldo per akun (dari Jurnal Akuntansi)."},
-      {id:"akn_neraca_saldo", judul:"Neraca Percobaan (Neraca Saldo)", ket:"Saldo Debet/Kredit per akun; total harus seimbang (dari Jurnal Akuntansi)."},
-      {id:"akn_daftar_akun", judul:"Daftar Akun Perkiraan (Bagan Akun)", ket:"Seluruh akun beserta klasifikasi Kelompok Laporan (Neraca/Laba Rugi)."},
-      {id:"akn_ringkasan_beban", judul:"Ringkasan Pencatatan Beban", ket:"Total beban per akun (klasifikasi Beban/Biaya/HPP) dari Jurnal Akuntansi."},
-      {id:"akn_rincian_beban", judul:"Rincian Beban Pembayaran", ket:"Rincian baris jurnal yang membebani akun Beban (per akun) dari Jurnal Akuntansi."},
-      {id:"akn_diagnosa_jurnal_toko", judul:"Diagnosa Jurnal Toko (Belum Diposting)", ket:"Dokumen toko yang belum masuk buku besar per jenis: kulakan, bayar hutang, terima piutang, retur, opname, mutasi."},
-      {id:"akn_diagnosa_akun", judul:"Diagnosa Pemetaan Akun", ket:"Akun yang dipakai jurnal TERPOSTING tetapi belum dipetakan ke Kelompok Laporan aktif, sehingga tidak muncul di Laba Rugi/Neraca."},
-      {id:"gl_rincian", judul:"Rincian Buku Besar Kas (Ringkas)", ket:"Pembanding cepat dari data transaksi POS, BUKAN dari jurnal. Versi jurnalnya: 'Rekening Koran (Kas & Bank)'."}
-    ]},
-    {kat:"Kas & Bank (Akuntansi)", items:[
-      {id:"akn_rekening_koran", judul:"Rekening Koran (Kas & Bank)", ket:"Mutasi tiap akun Kas/Bank: penerimaan vs pengeluaran (dari Jurnal Akuntansi)."},
-      {id:"akn_penerimaan", judul:"Ringkasan Daftar Penerimaan", ket:"Total uang masuk per akun Kas/Bank pada periode (dari Jurnal Akuntansi)."},
-      {id:"akn_pembayaran", judul:"Ringkasan Daftar Pembayaran", ket:"Total uang keluar per akun Kas/Bank pada periode (dari Jurnal Akuntansi)."}
-    ]},
-    {kat:"Keuangan", items:[
-      {id:"akn_laba_rugi", judul:"Laba Rugi (Berbasis Jurnal Akuntansi)", ket:"Laba rugi resmi dari jurnal TERPOSTING + klasifikasi akun (Satuan Kerja kantin)."},
-      {id:"akn_neraca", judul:"Neraca (Berbasis Jurnal Akuntansi)", ket:"Neraca resmi dari jurnal TERPOSTING (kumulatif s/d Tgl Sampai) + laba berjalan; dilengkapi baris SELISIH."},
-      {id:"akn_arus_kas", judul:"Arus Kas (Berbasis Jurnal Akuntansi)", ket:"Mutasi akun Kas/Bank dari jurnal TERPOSTING, diuraikan menurut akun lawan; saldo awal & akhir ikut ditampilkan."},
-      {id:"fin_laba_rugi", judul:"Laba Rugi (Ringkas Operasional)", ket:"Pembanding cepat dari data transaksi POS, BUKAN dari jurnal: penjualan − HPP − bahan. Laporan resmi = versi Berbasis Jurnal."},
-      {id:"fin_neraca", judul:"Neraca (Ringkas Operasional)", ket:"Pembanding cepat dari data transaksi POS, BUKAN dari jurnal: kas, persediaan, piutang & modal per Tgl Sampai."},
-      {id:"fin_arus_kas", judul:"Arus Kas (Ringkas Operasional)", ket:"Pembanding cepat dari data transaksi POS, BUKAN dari jurnal: penerimaan penjualan vs pengeluaran pengadaan."}
-    ]},
-    {kat:"Laporan Keuangan Resmi — Komparatif (Akuntansi)", items:[
-      {id:"lk_keu2",  judul:"Neraca / Laba Rugi / Arus Kas — 2 Periode", ket:"Perbandingan 2 periode (pilih jenis di combo 'Jenis Laporan'). Resmi dari jurnal, Satuan Kerja kantin.", url:LAUNCH+"keu2"},
-      {id:"lk_keu12", judul:"Neraca / Laba Rugi / Arus Kas — 12 Bulan", ket:"Kolom 12 bulan berjalan (pilih jenis di combo). Resmi dari jurnal akuntansi.", url:LAUNCH+"keu12"},
-      {id:"lk_keu2th",judul:"Neraca / Laba Rugi / Arus Kas — 2 Tahun", ket:"Perbandingan 2 tahun (pilih jenis di combo). Resmi dari jurnal akuntansi.", url:LAUNCH+"keu2th"},
-      {id:"lk_neracalajur", judul:"Neraca Lajur (Kertas Kerja)", ket:"Worksheet neraca lajur akuntansi resmi.", url:LAUNCH+"neracalajur"}
-    ]},
-    {kat:"Buku Besar Resmi (Akuntansi)", items:[
-      {id:"lk_trial", judul:"Neraca Saldo / Trial Balance", ket:"Neraca saldo resmi dari jurnal (versi Akuntansi, format JRXML).", url:LAUNCH+"trial"},
-      {id:"lk_bukubesar", judul:"Buku Besar", ket:"Buku besar resmi per akun (versi Akuntansi).", url:LAUNCH+"bukubesar"},
-      {id:"lk_bukubesartgl", judul:"Buku Besar per Tanggal", ket:"Buku besar resmi difilter tanggal (versi Akuntansi).", url:LAUNCH+"bukubesartgl"},
-      {id:"lk_jurnal", judul:"Jurnal Harian", ket:"Daftar jurnal harian resmi (versi Akuntansi).", url:LAUNCH+"jurnal"}
-    ]},
-    {kat:"Arus Kas & Analisa Keuangan (Akuntansi)", items:[
-      {id:"lk_aruskas12", judul:"Arus Kas — 12 Bulan (Kolom)", ket:"Arus kas resmi format kolom 12 bulan.", url:LAUNCH+"aruskas12"},
-      {id:"lk_aruskas31", judul:"Arus Kas — 31 Hari (Kolom)", ket:"Arus kas resmi harian 31 hari.", url:LAUNCH+"aruskas31"},
-      {id:"lk_dashakun", judul:"Rasio, Grafik, Laba Ditahan & Proyeksi Kas", ket:"Buka Dasbor Akuntansi penuh: rasio keuangan, grafik, laba ditahan, perubahan ekuitas, proyeksi kas.", url:DASHAKUN}
-    ]},
-    {kat:"Margin, Laba & Analisa", items:[
-      {id:"margin_produk", judul:"Margin per Produk/Menu", ket:"Penjualan, HPP, dan laba per produk.", produk:true, perToko:true},
-      {id:"margin_kategori", judul:"Margin per Kategori", ket:"Penjualan, HPP, dan laba kotor per kategori.", perToko:true},
-      {id:"laba_kotor_harian", judul:"Laba Kotor Harian", ket:"Penjualan dikurangi HPP per hari.", perToko:true},
-      {id:"produk_bawah_modal", judul:"Produk Dijual di Bawah Modal", ket:"Transaksi harga jual < harga modal (potensi rugi).", produk:true, perToko:true},
-      {id:"slow_moving", judul:"Barang Slow Moving", ket:"Produk paling lambat bergerak (qty terkecil).", produk:true, perToko:true},
-      {id:"harga_beli_terakhir", judul:"Harga Beli Terakhir", ket:"Harga modal terakhir tiap produk dari pengadaan.", produk:true},
-      {id:"mgr_pertumbuhan", judul:"Pertumbuhan Penjualan (Bulanan)", ket:"Tren omzet & transaksi per bulan.", perToko:true},
-      {id:"analisa_diskon", judul:"Analisa Diskon per Produk", ket:"Total diskon yang diberikan tiap produk.", produk:true, perToko:true},
-      {id:"kontribusi_produk", judul:"Kontribusi Produk (%)", ket:"Persentase sumbangan tiap produk ke omzet.", produk:true, perToko:true},
-      {id:"dead_stock", judul:"Barang Dead Stock / Tidak Laku", ket:"Produk berstok tapi tanpa penjualan pada periode.", produk:true, perToko:true},
-      {id:"perputaran_stok", judul:"Perputaran Stok (Turnover)", ket:"Qty terjual dibagi stok saat ini.", produk:true, perToko:true},
-      {id:"prediksi_habis", judul:"Prediksi Kehabisan Stok", ket:"Perkiraan hari stok habis dari rata-rata jual 30 hari.", produk:true},
-      {id:"rekomendasi_beli", judul:"Rekomendasi Pembelian Ulang", ket:"Produk mau habis <14 hari + saran jumlah beli.", produk:true}
-    ]},
-    {kat:"Pengadaan (Vendor / PO / BAST)", items:[
-      {id:"beli_pr", judul:"Permintaan Pengadaan (PR)", ket:"Daftar Purchase Requisition beserta status persetujuan."},
-      {id:"beli_pr_rinci", judul:"Rincian PR per Item", ket:"Item barang tiap PR (dikelompokkan per nomor PR).", produk:true},
-      {id:"beli_po", judul:"Pesanan Pembelian (PO)", ket:"Purchase Order ke vendor + status pembayaran."},
-      {id:"beli_po_rinci", judul:"Rincian PO per Item", ket:"Item barang tiap PO (dikelompokkan per nomor PO).", produk:true},
-      {id:"beli_bast", judul:"Penerimaan Barang (BAST)", ket:"Berita Acara Serah Terima barang dari vendor."},
-      {id:"beli_bast_rinci", judul:"Rincian BAST per Item", ket:"Item barang tiap penerimaan/BAST (per nomor BAST).", produk:true},
-      {id:"beli_tagihan", judul:"Terima Tagihan / Pembayaran Vendor", ket:"Tagihan vendor: nilai, dibayar, pajak, sisa."},
-      {id:"beli_utang_vendor", judul:"Utang Vendor (Belum Lunas)", ket:"Sisa kewajiban ke tiap vendor."},
-      {id:"beli_per_vendor", judul:"Pembelian per Vendor", ket:"Rekap nilai PO per vendor."},
-      {id:"beli_retur_pengadaan", judul:"Retur Pengadaan (ke Vendor)", ket:"Retur barang yang dikembalikan ke vendor."},
-      {id:"beli_belum_datang", judul:"Barang Belum Diterima (PR)", ket:"Permintaan pengadaan yang barangnya belum lengkap datang."}
-    ]},
-    {kat:"Deposit / Saldo", items:[
-      {id:"saldo_deposit", judul:"Deposit / Top Up Saldo", ket:"Daftar setoran/top up saldo (modul Deposit)."},
-      {id:"saldo_deposit_rekap", judul:"Rekap Deposit per Nama", ket:"Total top up per nama/pengguna."},
-      {id:"psaldo_rincian", judul:"Rincian Penyesuaian Saldo (Opname Voucher)", ket:"Hasil opname saldo anggota: saldo sistem vs saldo seharusnya, selisih, dan alasannya."},
-      {id:"psaldo_rekap", judul:"Rekap Penyesuaian Saldo per Anggota", ket:"Berapa kali saldo tiap anggota disesuaikan beserta total selisihnya."},
-      {id:"potong_gaji", judul:"Potong Gaji Pegawai", ket:"Potongan gaji pegawai (mis. belanja kantin) dari Transaksi Pegawai. Cari: ketik kantin.", pelanggan:true}
-    ]},
-    {kat:"Dompet, Tabungan & Voucher", items:[
-      {id:"dompet_saldo", judul:"Saldo Tabungan/Dompet per Anggota", ket:"Saldo tabungan tiap anggota/siswa/mahasiswa (Deposit).", pelanggan:true},
-      {id:"dompet_per_jenis", judul:"Rekap Tabungan per Jenis", ket:"Total saldo per jenis tabungan."},
-      {id:"pencairan_saldo", judul:"Pencairan / Penarikan Saldo", ket:"Pencairan saldo anggota + status.", pelanggan:true},
-      {id:"rekap_pencairan", judul:"Rekap Pencairan/Refund", ket:"Rekap pencairan berhasil per cara bayar."},
-      {id:"voucher_kantin", judul:"Voucher Kantin (Topup/Expiry)", ket:"Voucher/topup beserta kadaluarsa & status.", pelanggan:true}
-    ]},
-    {kat:"Konsumsi (Siswa / Mahasiswa)", items:[
-      {id:"pnj_per_pelanggan", judul:"Belanja per Siswa/Mahasiswa", ket:"Total belanja per anggota/pelanggan.", pelanggan:true},
-      {id:"konsumsi_kelas", judul:"Rekap Belanja per Kelas", ket:"Total belanja kantin per kelas siswa."},
-      {id:"konsumsi_prodi", judul:"Rekap Belanja per Prodi/Jurusan", ket:"Total belanja kantin per prodi/jurusan mahasiswa."}
-    ]},
-    {kat:"Audit", items:[
-      {id:"audit_harga", judul:"Audit Perubahan Harga", ket:"Riwayat perubahan harga modal produk (Envers)."},
-      {id:"audit_master", judul:"Audit Perubahan Master Barang", ket:"Riwayat perubahan nama produk (Envers)."}
-    ]},
-    {kat:"Master Data", items:[
-      {id:"mst_pemasok", judul:"Daftar Pemasok / Supplier", ket:"Daftar pemasok beserta total pengadaan."},
-      {id:"mst_pelanggan", judul:"Daftar Pelanggan / Member", ket:"Daftar anggota/pelanggan koperasi.", pelanggan:true},
-      {id:"mst_vendor", judul:"Daftar Vendor / Penyedia", ket:"Master vendor/penyedia dari modul Pengadaan."}
-    ]}
-  ];
+  var REPORTS = <%= reportsSemuaJson %>;
+
+  var SATKER_OPSI = <%= satuanKerjaLapJson %>;
+  var SATKER_BAWAAN = <%= satuanKerjaLapBawaan %>;
 
   var current = null, lastData = null;
 
@@ -739,6 +528,8 @@ if (!lockTokoLap) {
     current = rep; lastData = null;
     el("repJudul").textContent = rep.judul;
     el("repKet").textContent = rep.ket||"";
+    var wsk = el("wrapSatker");
+    if (wsk) { wsk.style.display = rep.satker ? "" : "none"; if (rep.satker) isiOpsiSatker(); }
     el("wrapProduk").style.display = rep.produk ? "" : "none";
     el("wrapPelanggan").style.display = rep.pelanggan ? "" : "none";
     var wpt = el("wrapPerToko");
@@ -755,12 +546,27 @@ if (!lockTokoLap) {
     el("listView").style.display = "";
   };
 
+  // Isi pilihan unit sekali saja; nilai 0 berarti Semua Unit (konsolidasi).
+  function isiOpsiSatker(){
+    var s = el("fSatker");
+    if (!s || s.options.length) { return; }
+    for (var i = 0; i < SATKER_OPSI.length; i++) {
+      var o = document.createElement("option");
+      o.value = SATKER_OPSI[i].id;
+      o.textContent = SATKER_OPSI[i].nama || "";
+      s.appendChild(o);
+    }
+    s.value = String(SATKER_BAWAAN);
+    if (!s.value) { s.value = "0"; }
+  }
+
   function filterParams(){
     var p = new URLSearchParams();
     p.append("r", current.id);
     var t = el("fToko"); if (t) p.append("tokoId", t.value||"");
     p.append("tglMulai", el("fMulai").value||"");
     p.append("tglSampai", el("fSampai").value||"");
+    if (current.satker && el("fSatker")) p.append("satkerId", el("fSatker").value||"");
     if (current.produk && el("fProduk")) p.append("qProduk", el("fProduk").value||"");
     if (current.pelanggan && el("fPelanggan")) p.append("qPelanggan", el("fPelanggan").value||"");
     if (current.perToko && el("fPerToko") && el("fPerToko").checked) p.append("perToko", "true");

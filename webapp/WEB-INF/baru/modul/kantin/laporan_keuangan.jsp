@@ -27,6 +27,14 @@ String svcLap = Common.ROOT + "/baru?hanya_tampil_jsp=true&p=kantin&s=laporan_la
 String reportsKeuanganJson = "[]";
 try { reportsKeuanganJson = ais.action.master.koperasi.helper.LaporanKatalogData.katalogKeuangan().toString(); } catch (Exception eLK) { ais.common.ErrorAuditUtil.record(eLK, "auto-audit(empty-catch) laporan_keuangan.jsp katalogKeuangan"); }
 String pdfLap = Common.ROOT + "/LaporanKantinPdf";
+String satuanKerjaLapJson = "[]";
+long satuanKerjaLapBawaan = 0L;
+// Pemilih Unit: satu instalasi melayani banyak unit usaha, dan laporan berbasis jurnal
+// dahulu terkunci pada konfigurasi satuan_kerja_kantin sehingga hanya satu unit terlihat.
+try {
+    satuanKerjaLapJson = ais.action.master.koperasi.helper.LaporanKatalogData.daftarSatuanKerja().toString();
+    satuanKerjaLapBawaan = ais.action.master.koperasi.helper.LaporanKatalogData.satuanKerjaBawaan();
+} catch (Exception eSK) { ais.common.ErrorAuditUtil.record(eSK, "auto-audit(empty-catch) laporan_keuangan.jsp satuanKerja"); }
 // Pintasan ke layar akuntansi ZK mengikuti togel menu yang SAMA dgn Desktop/Android
 // (grid TbmroleAction). Fail-closed: tanpa peran, tidak ada pintasan yang muncul.
 ais.database.model.Tbmrole roleLap = tbmuserLap.hakAkses();
@@ -198,6 +206,10 @@ if (!lockTokoLap) {
               <label class="form-label small fw-bold mb-1"><%=Common.getBahasaConfig("Tanggal Sampai")%></label>
               <input type="date" id="fSampai<%=rndLap%>" class="form-control">
             </div>
+            <div class="col-md-3" id="wrapSatker<%=rndLap%>" style="display:none;">
+              <label class="form-label small fw-bold mb-1"><%=Common.getBahasaConfig("Unit / Satuan Kerja")%></label>
+              <select id="fSatker<%=rndLap%>" class="form-select"></select>
+            </div>
             <div class="col-md-3" id="wrapProduk<%=rndLap%>" style="display:none;">
               <label class="form-label small fw-bold mb-1"><%=Common.getBahasaConfig("Cari Produk (kode / nama)")%></label>
               <input type="text" id="fProduk<%=rndLap%>" class="form-control" placeholder="<%=Common.getBahasaConfig("kode atau nama produk")%>">
@@ -246,6 +258,9 @@ if (!lockTokoLap) {
   var DASHAKUN = "<%=Common.ROOT%>/common/display.zul?p=akuntansi";
 
   var REPORTS = <%= reportsKeuanganJson %>;
+
+  var SATKER_OPSI = <%= satuanKerjaLapJson %>;
+  var SATKER_BAWAAN = <%= satuanKerjaLapBawaan %>;
 
   var current = null, lastData = null;
 
@@ -307,6 +322,8 @@ if (!lockTokoLap) {
     current = rep; lastData = null;
     el("repJudul").textContent = rep.judul;
     el("repKet").textContent = rep.ket||"";
+    var wsk = el("wrapSatker");
+    if (wsk) { wsk.style.display = rep.satker ? "" : "none"; if (rep.satker) isiOpsiSatker(); }
     el("wrapProduk").style.display = rep.produk ? "" : "none";
     el("wrapPelanggan").style.display = rep.pelanggan ? "" : "none";
     var wpt = el("wrapPerToko");
@@ -321,12 +338,27 @@ if (!lockTokoLap) {
     el("listView").style.display = "";
   };
 
+  // Isi pilihan unit sekali saja; nilai 0 berarti Semua Unit (konsolidasi).
+  function isiOpsiSatker(){
+    var s = el("fSatker");
+    if (!s || s.options.length) { return; }
+    for (var i = 0; i < SATKER_OPSI.length; i++) {
+      var o = document.createElement("option");
+      o.value = SATKER_OPSI[i].id;
+      o.textContent = SATKER_OPSI[i].nama || "";
+      s.appendChild(o);
+    }
+    s.value = String(SATKER_BAWAAN);
+    if (!s.value) { s.value = "0"; }
+  }
+
   function filterParams(){
     var p = new URLSearchParams();
     p.append("r", current.id);
     var t = el("fToko"); if (t) p.append("tokoId", t.value||"");
     p.append("tglMulai", el("fMulai").value||"");
     p.append("tglSampai", el("fSampai").value||"");
+    if (current.satker && el("fSatker")) p.append("satkerId", el("fSatker").value||"");
     if (current.produk && el("fProduk")) p.append("qProduk", el("fProduk").value||"");
     if (current.pelanggan && el("fPelanggan")) p.append("qPelanggan", el("fPelanggan").value||"");
     if (current.perToko && el("fPerToko") && el("fPerToko").checked) p.append("perToko", "true");
