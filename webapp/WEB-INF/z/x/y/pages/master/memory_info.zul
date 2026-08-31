@@ -74,8 +74,8 @@
 											<row>
 												<label use="ais.ui.util.MyLabelConfig" value="Pemakaian Memori" />
 												<combobox id="statusPemakaian" readonly="true" width="180px"
-													forward="onChange=onSearchDefault">
-													<comboitem label="Semua" value="SEMUA" selected="true" />
+													onCreate="self.setSelectedIndex(0)" forward="onChange=onSearchDefault">
+													<comboitem label="Semua" value="SEMUA" />
 													<comboitem label="Memori Kritis (>= 85%)" value="KRITIS" />
 													<comboitem label="Waspada (75% - 84,99%)" value="WASPADA" />
 													<comboitem label="Normal (&lt; 75%)" value="NORMAL" />
