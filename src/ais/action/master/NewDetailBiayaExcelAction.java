@@ -17,6 +17,7 @@ import java.util.Set;
 import java.util.TreeSet;
 
 import org.apache.commons.lang.StringUtils;
+import org.hibernate.Criteria;
 import org.hibernate.Session;
 import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
@@ -71,6 +72,7 @@ import ais.common.ProgressListener;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.AfiliasiCalonMahasiswa;
 import ais.database.model.DetailBiaya;
+import ais.database.model.DetailSettingBiaya;
 import ais.database.model.Fakultas;
 import ais.database.model.GelombangPendaftaran;
 import ais.database.model.ItemBiaya;
@@ -89,6 +91,7 @@ import ais.database.model.PerguruanTinggi;
 import ais.database.model.Perkuliahan;
 import ais.database.model.StatusAwalMahasiswa;
 import ais.database.model.StatusMahasiswa;
+import ais.database.model.SettingBiaya;
 import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
 import ais.ui.util.MyButtonConfig;
@@ -199,6 +202,9 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 	private MyCheckboxConfig aktifRencana;
 	private Rows rowsRencana;
 	private Jurusan jurusanPengaturanPembayaranBulanan;
+	/* Mode reuse dari panel Setting Biaya. Dalam mode ini editor bulanan tidak
+	 * boleh memilih SettingBiaya lain yang kebetulan lebih tinggi bobotnya. */
+	private SettingBiaya settingBiayaBulanan;
 	private String filterKelas;
 	private String filterJenisTempatTinggalMahasiswa;
 	private MyToolbarbuttonConfig download;
@@ -450,6 +456,12 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 			session.removeAttribute("usersTemp");
 			Common.goLogoff();
 			return;
+		}
+
+		String settingBiayaBulananId = execution.getParameter("settingBiayaBulanan");
+		if (settingBiayaBulananId != null && Common.isNumber(settingBiayaBulananId)) {
+			settingBiayaBulanan = (SettingBiaya) ConstantValues.ambil(SettingBiaya.class.getName(),
+					Long.parseLong(settingBiayaBulananId));
 		}
 
 		// FIX NPE: Jurusan TIDAK punya properti Hibernate-mapped "keterangan".
@@ -1786,6 +1798,7 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 		save.setParent(toolbar);
 
 		save = new MyToolbarbuttonConfig("Simpan ke semua Prodi (jika % tagihan sama)", "/img/save.gif");
+		save.setVisible(settingBiayaBulanan == null);
 		save.setTooltiptext("Simpan");
 		save.addEventListener("onClick", new EventListener() {
 			@Override
@@ -1807,6 +1820,7 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 		save.setParent(toolbar);
 
 		save = new MyToolbarbuttonConfig("Simpan ke semua Program (jika % tagihan sama)", "/img/save.gif");
+		save.setVisible(settingBiayaBulanan == null);
 		save.setTooltiptext("Simpan");
 		save.addEventListener("onClick", new EventListener() {
 			@Override
@@ -2549,6 +2563,7 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 				jurusan, (String) searchProgram.getSelectedItem().getValue(), kelamin, afiliasiCalonMahasiswa, ta
 
 		);
+		detailSettingBiayas = itemBiayaUntukEditorBulanan(detailSettingBiayas);
 
 		if (detailSettingBiayas.isEmpty()) {
 			searchSemester.setDisabled(false);
@@ -2724,7 +2739,7 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 
 		String kelamin = null;
 		AfiliasiCalonMahasiswa afiliasiCalonMahasiswa = null;
-		final List<ItemBiaya> detailSettingBiayas = SetingBiayaAction.getItemBiaya(HibernateUtil.currentSession(),
+		List<ItemBiaya> itemBiayaHasilSeleksi = SetingBiayaAction.getItemBiaya(HibernateUtil.currentSession(),
 				labelAngkatan.getValue(),
 				(Jenjang) (searchJenjang.getSelectedItem() == null ? null : searchJenjang.getSelectedItem().getValue()),
 				smt, (JenisKegiatan) searchJenisKegiatan.getSelectedItem().getValue(),
@@ -2736,6 +2751,7 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 						: searchGelombangPendaftaran.getSelectedItem().getValue()),
 				(Paket) (searchPaket.getSelectedItem() == null ? null : searchPaket.getSelectedItem().getValue()), j,
 				(String) searchProgram.getSelectedItem().getValue(), kelamin, afiliasiCalonMahasiswa, ta);
+		final List<ItemBiaya> detailSettingBiayas = itemBiayaUntukEditorBulanan(itemBiayaHasilSeleksi);
 
 		if (detailSettingBiayas.isEmpty()) {
 			// PERMINTAAN: setiap hasil (berhasil/gagal) WAJIB diinformasikan ke pengguna secara
@@ -2791,8 +2807,10 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 		if ((event != null && event.getName().equalsIgnoreCase("refresh data"))
 				|| (componentOrigin != null && componentOrigin instanceof Toolbarbutton
 						&& ((Toolbarbutton) componentOrigin).getLabel().equalsIgnoreCase("Refresh Biaya"))) {
-			bersihkan((Integer) searchSemester.getSelectedItem().getValue(),
-					(String) searchTahunAjaran.getSelectedItem().getValue(), false);
+			if (settingBiayaBulanan == null) {
+				bersihkan((Integer) searchSemester.getSelectedItem().getValue(),
+						(String) searchTahunAjaran.getSelectedItem().getValue(), false);
+			}
 		}
 
 		mapsData = getDefaultDetailBiaya((Integer) searchSemester.getSelectedItem().getValue(),
@@ -2930,8 +2948,92 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 		return jenis instanceof JenisTinggalMahasiswa ? (JenisTinggalMahasiswa) jenis : null;
 	}
 
+	@SuppressWarnings("unchecked")
+	private List<ItemBiaya> itemBiayaUntukEditorBulanan(List<ItemBiaya> hasilSeleksiUmum) {
+		if (settingBiayaBulanan == null || settingBiayaBulanan.getId() == null) {
+			return hasilSeleksiUmum;
+		}
+		Criteria criteria = HibernateUtil.currentSession().createCriteria(DetailSettingBiaya.class)
+				.createAlias("settingBiaya", "settingBiayaEditor")
+				.createAlias("itemBiaya", "itemBiayaEditor")
+				.add(Restrictions.eq("settingBiayaEditor.id", settingBiayaBulanan.getId()))
+				.add(Restrictions.eq("itemBiayaEditor.aktif", true))
+				.setProjection(Projections.groupProperty("itemBiaya.id"));
+		return ConstantValues.simpleList(criteria, ItemBiaya.class, false);
+	}
+
+	private DetailBiaya getDefaultDetailBiayaSettingBulanan(Integer semester, String tahunAjaran,
+			ItemBiaya itemBiaya, Jurusan jurusan, String program) {
+		Session sessionBiaya = HibernateUtil.currentNativeSession();
+		try {
+			sessionBiaya.getTransaction().begin();
+			SettingBiaya settingAktif = (SettingBiaya) sessionBiaya.get(SettingBiaya.class,
+					settingBiayaBulanan.getId());
+			DetailSettingBiaya detailSetting = (DetailSettingBiaya) sessionBiaya
+					.createCriteria(DetailSettingBiaya.class)
+					.createAlias("settingBiaya", "settingBiayaTemplate")
+					.createAlias("itemBiaya", "itemBiayaTemplate")
+					.add(Restrictions.eq("settingBiayaTemplate.id", settingAktif.getId()))
+					.add(Restrictions.eq("itemBiayaTemplate.id", itemBiaya.getId()))
+					.addOrder(Order.asc("bayarKe")).addOrder(Order.asc("id"))
+					.setMaxResults(1).uniqueResult();
+			if (detailSetting == null) {
+				throw new IllegalStateException("Item biaya tidak ditemukan pada Setting Biaya yang dipilih.");
+			}
+
+			DetailBiaya detailBiaya = (DetailBiaya) sessionBiaya.createCriteria(DetailBiaya.class)
+					.createAlias("settingBiaya", "settingBiayaDetailTemplate")
+					.createAlias("detailSettingBiaya", "detailSettingTemplate")
+					.add(Restrictions.eq("settingBiayaDetailTemplate.id", settingAktif.getId()))
+					.add(Restrictions.eq("detailSettingTemplate.id", detailSetting.getId()))
+					.add(semester == null ? Restrictions.isNull("semester") : Restrictions.eq("semester", semester))
+					.add(jurusan == null ? Restrictions.isNull("jurusan") : Restrictions.eq("jurusan", jurusan))
+					.add(program == null ? Restrictions.isNull("program") : Restrictions.eq("program", program))
+					.add(Restrictions.isNull("settingBiayaDetail"))
+					.addOrder(Order.desc("id")).setMaxResults(1).uniqueResult();
+
+			if (detailBiaya == null) {
+				detailBiaya = new DetailBiaya();
+				detailBiaya.setNama("Template Bulanan Setting Biaya " + settingAktif.getId());
+				detailBiaya.setSettingBiaya(settingAktif);
+				detailBiaya.setDetailSettingBiaya(detailSetting);
+				detailBiaya.setItemBiaya(detailSetting.getItemBiaya());
+				detailBiaya.setBayarKe(detailSetting.getBayarKe());
+				detailBiaya.setNilaiBiaya(detailSetting.getDefaultBiaya());
+				detailBiaya.setJenisKegiatan(settingAktif.getJenisKegiatan());
+				detailBiaya.setJurusan(jurusan);
+				detailBiaya.setProgram(program);
+				detailBiaya.setSemester(semester);
+				detailBiaya.setTahunAkademik(tahunAjaran);
+				detailBiaya.setAngkatan(labelAngkatan.getValue());
+				detailBiaya.setMulaiBelajarDiSemester(
+						(String) searchMulaiBelajarDiSemester.getSelectedItem().getValue());
+				detailBiaya.setJenjang((Jenjang) searchJenjang.getSelectedItem().getValue());
+				detailBiaya.setStatusMahasiswa((StatusMahasiswa) searchStatusMahasiswa.getSelectedItem().getValue());
+				detailBiaya.setStatusAwalMahasiswa(
+						(StatusAwalMahasiswa) searchStatusAwalMahasiswa.getSelectedItem().getValue());
+				detailBiaya.setWnaAtauWni((String) searchWargaNegara.getSelectedItem().getValue());
+				detailBiaya.setDefaultTanggalTagihan(detailSetting.getDefaultTanggalTagihan());
+				detailBiaya.setKeterangan(detailSetting.getDefaultKeterangan());
+				sessionBiaya.save(detailBiaya);
+			}
+			sessionBiaya.getTransaction().commit();
+			return detailBiaya;
+		} catch (RuntimeException e) {
+			if (sessionBiaya.getTransaction().isActive()) {
+				sessionBiaya.getTransaction().rollback();
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSession();
+		}
+	}
+
 	private DetailBiaya getDefaultDetailBiaya(Map<String, DetailBiaya> maps, Integer semester, String tahunAjaran,
 			ItemBiaya itemBiaya, Jurusan jurusan, String program) {
+		if (settingBiayaBulanan != null) {
+			return getDefaultDetailBiayaSettingBulanan(semester, tahunAjaran, itemBiaya, jurusan, program);
+		}
 		Integer angkatan = labelAngkatan.getValue();
 		String mulaiBelajar = (String) searchMulaiBelajarDiSemester.getSelectedItem().getValue();
 
@@ -3012,6 +3114,9 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 
 	@SuppressWarnings("unchecked")
 	private Map<String, DetailBiaya> getDefaultDetailBiaya(Integer semester, String tahunAjaran, boolean semuaProgram) {
+		if (settingBiayaBulanan != null) {
+			return new HashMap<String, DetailBiaya>();
+		}
 		Session session = HibernateUtil.currentSession();
 		StatusMahasiswa statusMahasiswa = (StatusMahasiswa) searchStatusMahasiswa.getSelectedItem().getValue();
 		StatusAwalMahasiswa statusAwalMahasiswa = (StatusAwalMahasiswa) searchStatusAwalMahasiswa.getSelectedItem()

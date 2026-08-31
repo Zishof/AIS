@@ -24,6 +24,7 @@ import ais.database.model.Jenjang;
 import ais.database.model.Jurusan;
 import ais.database.model.Mahasiswa;
 import ais.database.model.Paket;
+import ais.database.model.PengaturanPembayaranBulanan;
 import ais.database.model.SettingBiaya;
 import ais.database.model.SettingBiayaDetail;
 import ais.database.model.StatusAwalMahasiswa;
@@ -246,6 +247,67 @@ public class SetingBiayaHelper {
                 }
             }
             throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Menyalin template jadwal bulanan milik SettingBiaya ke DetailBiaya mahasiswa.
+     * Template dibuat oleh editor bulanan yang dibuka dari panel Setting Biaya dan
+     * sengaja tidak terikat ke SettingBiayaDetail (mahasiswa) tertentu.
+     */
+    @SuppressWarnings("unchecked")
+    private static void sinkronkanPengaturanBulananDariTemplate(Session session, DetailBiaya tujuan,
+            SettingBiayaDetail binding, DetailSettingBiaya detailSettingBiaya, Integer semester) {
+        if (session == null || tujuan == null || tujuan.getId() == null || binding == null
+                || binding.getSettingBiaya() == null || binding.getSettingBiaya().getId() == null
+                || detailSettingBiaya == null || detailSettingBiaya.getId() == null
+                || binding.getSettingBiaya().getJenisKegiatan() == null
+                || !binding.getSettingBiaya().getJenisKegiatan().getHanyaBerupaAngsuran()) {
+            return;
+        }
+
+        Long settingBiayaId = binding.getSettingBiaya().getId();
+        Criteria templateCriteria = session.createCriteria(DetailBiaya.class)
+                .createAlias("settingBiaya", "settingBiayaTemplateBulanan")
+                .createAlias("detailSettingBiaya", "detailSettingBiayaTemplateBulanan")
+                .add(Restrictions.eq("settingBiayaTemplateBulanan.id", settingBiayaId))
+                .add(Restrictions.eq("detailSettingBiayaTemplateBulanan.id", detailSettingBiaya.getId()))
+                .add(semester == null ? Restrictions.isNull("semester") : Restrictions.eq("semester", semester))
+                .add(Restrictions.isNull("settingBiayaDetail"))
+                .add(Restrictions.eq("nama", "Template Bulanan Setting Biaya " + settingBiayaId))
+                .add(eqAtauNull("jurusan", tujuan.getJurusan()))
+                .add(eqAtauKosong("program", tujuan.getProgram()))
+                .addOrder(Order.desc("id")).setMaxResults(1);
+        DetailBiaya template = (DetailBiaya) templateCriteria.uniqueResult();
+        if (template == null) {
+            return;
+        }
+
+        List<PengaturanPembayaranBulanan> sumber = session.createCriteria(PengaturanPembayaranBulanan.class)
+                .createAlias("detailBiaya", "detailBiayaSumberBulanan")
+                .add(Restrictions.eq("detailBiayaSumberBulanan.id", template.getId()))
+                .addOrder(Order.asc("bulan")).list();
+        for (PengaturanPembayaranBulanan asal : sumber) {
+            PengaturanPembayaranBulanan target = (PengaturanPembayaranBulanan) session
+                    .createCriteria(PengaturanPembayaranBulanan.class)
+                    .createAlias("detailBiaya", "detailBiayaTujuanBulanan")
+                    .add(Restrictions.eq("detailBiayaTujuanBulanan.id", tujuan.getId()))
+                    .add(Restrictions.eq("bulan", asal.getBulan())).setMaxResults(1).uniqueResult();
+            boolean baru = target == null;
+            if (baru) {
+                target = new PengaturanPembayaranBulanan();
+                target.setDetailBiaya(tujuan);
+                target.setBulan(asal.getBulan());
+            }
+            target.setNominal(asal.getNominal());
+            target.setPersentase(asal.getPersentase());
+            target.setDeadline(asal.getDeadline());
+            target.setAktif(asal.getAktif());
+            target.setKeterangan(asal.getKeterangan());
+            target.setDikalikanDenganKondisiKhusus(asal.getDikalikanDenganKondisiKhusus());
+            target.setTetapDitampilkanWalaupunNol(asal.getTetapDitampilkanWalaupunNol());
+            target.setTanggalTagihanSelaluDibuatAwalBulan(asal.getTanggalTagihanSelaluDibuatAwalBulan());
+            saveOrUpdateEntity(session, target, !baru);
         }
     }
 
@@ -820,6 +882,8 @@ public class SetingBiayaHelper {
                 detailBiaya.setDefaultTanggalTagihan(detailSettingBiaya.getDefaultTanggalTagihan());
                 detailBiaya.setKeterangan(detailSettingBiaya.getDefaultKeterangan());
                 detailBiaya.setNilaiBiaya(detailSettingBiaya.getDefaultBiaya());
+                sinkronkanPengaturanBulananDariTemplate(session, detailBiaya, settingBiayaDetail,
+                        detailSettingBiaya, semester);
                 detailBiayas.add(detailBiaya);
             }
 
@@ -910,6 +974,8 @@ public class SetingBiayaHelper {
                 detailBiaya.setDefaultTanggalTagihan(detailSettingBiaya.getDefaultTanggalTagihan());
                 detailBiaya.setKeterangan(detailSettingBiaya.getDefaultKeterangan());
                 detailBiaya.setNilaiBiaya(detailSettingBiaya.getDefaultBiaya());
+                sinkronkanPengaturanBulananDariTemplate(session, detailBiaya, settingBiayaDetail,
+                        detailSettingBiaya, semester);
                 detailBiayas.add(detailBiaya);
             }
 
