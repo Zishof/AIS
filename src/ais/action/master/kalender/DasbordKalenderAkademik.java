@@ -86,6 +86,20 @@ public class DasbordKalenderAkademik extends Div {
     // Data container
     // ================================================================
 
+    /**
+     * Tipe implementasi bersarang {@link KaData} milik {@link DasbordKalenderAkademik}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * DasbordKalenderAkademik}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List list}, {@code int total}, {@code
+     * int berlangsung}, {@code int belumMulai}, {@code int selesai}, {@code Map perBulan}, {@code Map perJenis},
+     * {@code Map perStatus}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see DasbordKalenderAkademik
+     */
     private static class KaData {
         List<KalenderAkademik> list = new ArrayList<KalenderAkademik>();
         int total, berlangsung, belumMulai, selesai;
@@ -721,6 +735,21 @@ public class DasbordKalenderAkademik extends Div {
         gridTabel.setModelCheckMobile(model);
     }
 
+    /**
+     * Renderer lokal untuk layar/komponen {@link DasbordKalenderAkademik}. Kelas ini menerjemahkan satu item data
+     * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+     *
+     * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasbordKalenderAkademik} dan dapat mengakses
+     * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+     * implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int no}; operasi lokal: {@code
+     * render}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+     * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+     * renderer/listener ini.</p>
+     *
+     * @see DasbordKalenderAkademik
+     */
     private class TabelRenderer extends MyRowRenderer {
         private int no = (pagingTabel == null ? 0 : pagingTabel.getActivePage()) * 15;
         public void render(Row row, Object obj) throws Exception {

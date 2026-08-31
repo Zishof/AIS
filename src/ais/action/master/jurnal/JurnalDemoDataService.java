@@ -22,11 +22,38 @@ public final class JurnalDemoDataService {
     private static final int MIN_ARTICLES = 100, MAX_ARTICLES = 200;
     private final JurnalAuthorizationService auth = new JurnalAuthorizationService();
 
+    /**
+     * Pembawa data/helper lokal milik {@link JurnalDemoDataService} untuk result. Tipe ini mengelompokkan nilai
+     * antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * JurnalDemoDataService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+     * diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String key}, {@code String
+     * authorName}, {@code String authorReference}, {@code int journalsRequested}, {@code int journalsCreated},
+     * {@code int articlesPerJournal}, {@code int articlesCreated}, {@code int contributorsCreated}. Aturan bisnis
+     * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see JurnalDemoDataService
+     */
     public static final class Result {
         public String key, authorName, authorReference;
         public int journalsRequested, journalsCreated, articlesPerJournal, articlesCreated, contributorsCreated;
         public long elapsedMillis;
     }
+    /**
+     * Tipe implementasi bersarang {@link RemoveResult} milik {@link JurnalDemoDataService}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * JurnalDemoDataService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+     * diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String key}, {@code int
+     * journalsRemoved}, {@code int articlesRemoved}, {@code int contributorsRemoved}. Aturan bisnis bersama tetap
+     * berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see JurnalDemoDataService
+     */
     public static final class RemoveResult {
         public String key;
         public int journalsRemoved, articlesRemoved, contributorsRemoved;
@@ -147,5 +174,18 @@ public final class JurnalDemoDataService {
     private static String clean(String v,String d){return v==null||v.trim().length()==0?d:v.trim();}
     private static String normalize(String v){String x=v.toLowerCase(Locale.ENGLISH).replaceAll("[^a-z0-9]+"," ").trim();return x.length()>255?x.substring(0,255):x;}
     private static String limit(String v,int n){return v.length()<=n?v:v.substring(0,n);}
+    /**
+     * Tipe implementasi bersarang {@link Author} milik {@link JurnalDemoDataService}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * JurnalDemoDataService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+     * diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long authorityId}, {@code String
+     * name}, {@code String reference}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see JurnalDemoDataService
+     */
     private static final class Author{final Long authorityId;final String name,reference;Author(Long id,String n,String r){authorityId=id;name=n;reference=r;}}
 }

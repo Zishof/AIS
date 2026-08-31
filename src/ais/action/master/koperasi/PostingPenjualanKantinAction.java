@@ -215,6 +215,20 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 	}
 
 	// ── Baris kategori penjualan per header (dari query level baris) ──────────────────────────
+	/**
+	 * Tipe implementasi bersarang {@link KategoriBaris} milik {@link PostingPenjualanKantinAction}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * PostingPenjualanKantinAction}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long jpId}, {@code String jpNama},
+	 * {@code Long akunPendapatanId}, {@code Long akunPpnId}, {@code double lineTotal}. Aturan bisnis bersama tetap
+	 * berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see PostingPenjualanKantinAction
+	 */
 	private static final class KategoriBaris {
 		Long jpId;
 		String jpNama;

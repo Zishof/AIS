@@ -56,6 +56,22 @@ import org.apache.commons.io.IOUtils;
  */
 @SuppressWarnings({ "rawtypes", "unchecked" })
 public final class MahasiswaExistingBulkOperationService {
+    /**
+     * Tipe implementasi bersarang {@link Download} milik {@link MahasiswaExistingBulkOperationService}. Kelas ini
+     * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * MahasiswaExistingBulkOperationService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar
+     * aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String fileName}, {@code byte bytes};
+     * operasi lokal: {@code getFileName()}, {@code getBytes}(). Aturan bisnis bersama tetap berada pada kelas
+     * induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see MahasiswaExistingBulkOperationService
+     */
     public static final class Download {
         private final String fileName;
         private final byte[] bytes;

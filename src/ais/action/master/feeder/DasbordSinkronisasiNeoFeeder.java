@@ -584,6 +584,21 @@ public class DasbordSinkronisasiNeoFeeder extends Div {
     // GENERIC PANEL FRAMEWORK
     // =========================================================
 
+    /**
+     * Pembawa data/helper lokal milik {@link DasbordSinkronisasiNeoFeeder} untuk panel state. Tipe ini
+     * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+     * jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * DasbordSinkronisasiNeoFeeder}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+     * kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int offset}, {@code int totalFeeder},
+     * {@code String filterCari}, {@code boolean bandingInline}. Aturan bisnis bersama tetap berada pada kelas
+     * induk atau service yang dipanggilnya.</p>
+     *
+     * @see DasbordSinkronisasiNeoFeeder
+     */
     private static final class PanelState {
         int offset = 0;
         int totalFeeder = 0;
@@ -593,6 +608,21 @@ public class DasbordSinkronisasiNeoFeeder extends Div {
         boolean bandingInline = false;
     }
 
+    /**
+     * Kontrak callback/strategi bersarang milik {@link DasbordSinkronisasiNeoFeeder}. Tipe ini memisahkan satu
+     * variasi perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+     *
+     * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasbordSinkronisasiNeoFeeder} dan dapat
+     * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code run}(). Aturan bisnis bersama tetap
+     * berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see DasbordSinkronisasiNeoFeeder
+     */
     private interface PanelAction {
         void run() throws Exception;
     }

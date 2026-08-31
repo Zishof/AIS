@@ -333,10 +333,18 @@ public class OrganisasiIntraKampusPunyaMahasiswaHelper implements DataLoader, Da
 
 	}
 
+	/** @return diri sendiri sebagai {@link DataLoader}, dipakai untuk menyegarkan grid ini dari helper picker ({@link AmbilDataMahasiswaForOrganisasiIntraKampusHelper}) setelah penambahan anggota. */
 	private DataLoader getDataloader() {
 		return this;
 	}
 
+	/**
+	 * Membangun panel daftar anggota organisasi (toolbar filter+aksi, grid berpaging) ke dalam
+	 * {@code component}, untuk {@code organisasiIntraKampus} yang diberikan. Filter fakultas/prodi
+	 * dikunci otomatis bila organisasi sudah dibatasi pada fakultas/jurusan tertentu. Tombol
+	 * "Bersihkan" menghapus SELURUH anggota yang BELUM disetujui via SQL langsung (setelah
+	 * konfirmasi) — tidak menyentuh anggota yang sudah disetujui.
+	 */
 	public void display(final OrganisasiIntraKampus organisasiIntraKampus, final Component component,
 			final MyWindow window) {
 		this.organisasiIntraKampus = organisasiIntraKampus;
@@ -520,6 +528,20 @@ public class OrganisasiIntraKampusPunyaMahasiswaHelper implements DataLoader, Da
 				hlink_style.setFillForegroundColor(new XSSFColor(Color.LIGHT_GRAY));
 				hlink_style.setFont(hlink_font);
 
+				/**
+				 * Helper implementasi bersarang milik {@link OrganisasiIntraKampusPunyaMahasiswaHelper} untuk data adding
+				 * helper. Kelas ini mengemas langkah lokal yang dipakai kelas induk dan bukan service domain alternatif.
+				 *
+				 * <p><b>Scope:</b> setiap instance terikat pada instance {@link OrganisasiIntraKampusPunyaMahasiswaHelper} dan
+				 * dapat mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+				 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code process}(). Aturan bisnis bersama
+				 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+				 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+				 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+				 * tambahkan perilaku lintas domain pada service bersama.</p>
+				 *
+				 * @see OrganisasiIntraKampusPunyaMahasiswaHelper
+				 */
 				class DataAddingHelper {
 					public void process(XSSFRow row, int index,
 							OrganisasiIntraKampusPunyaMahasiswa organisasiIntraKampusPunyaMahasiswa, String jenis)
@@ -654,6 +676,7 @@ public class OrganisasiIntraKampusPunyaMahasiswaHelper implements DataLoader, Da
 
 	}
 
+	/** Kontrak {@link DataSearchDefault#onSearchDefault(Event)}; mendelegasikan ke {@link #loadData(Object)}. */
 	@Override
 	public void onSearchDefault(Event event) {
 		loadData(null);

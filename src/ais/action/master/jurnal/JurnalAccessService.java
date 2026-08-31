@@ -20,6 +20,17 @@ import ais.database.model.repository.RepoItem;
 /** Evaluator open/embargo/subscription/institution-IP dengan policy snapshot immutable. */
 public final class JurnalAccessService {
     private final JurnalAuthorizationService auth = new JurnalAuthorizationService();
+    /**
+     * Tipe implementasi bersarang {@link Decision} milik {@link JurnalAccessService}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link JurnalAccessService}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean allowed}, {@code String
+     * reason}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see JurnalAccessService
+     */
     public static final class Decision { public final boolean allowed; public final String reason; Decision(boolean a, String r) { allowed = a; reason = r; } }
 
     public LanggananJurnal activate(Long journalId, Long collectionId, String policyKey, String userId,

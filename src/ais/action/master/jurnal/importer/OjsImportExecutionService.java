@@ -126,6 +126,30 @@ public final class OjsImportExecutionService {
     private static String safe(String v,int max){if(v==null)return null;return v.length()<=max?v:v.substring(0,max);}
     private static String token(String v){String x=clean(v);if(x.length()<2||x.length()>160||!x.matches("[A-Za-z0-9._:/-]+"))throw new IllegalArgumentException("Idempotency key import tidak valid.");return x;}
     private static String clean(String v){return v==null?"":v.trim();}private static boolean blank(String v){return clean(v).length()==0;}
+    /**
+     * Tipe implementasi bersarang {@link TableShape} milik {@link OjsImportExecutionService}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * OjsImportExecutionService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List columns}, {@code List pk}.
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see OjsImportExecutionService
+     */
     private static final class TableShape{final List<String> columns=new ArrayList<String>();final List<String> pk=new ArrayList<String>();}
+    /**
+     * Pembawa data/helper lokal milik {@link OjsImportExecutionService} untuk row. Tipe ini mengelompokkan nilai
+     * antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * OjsImportExecutionService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String pk}, {@code LinkedHashMap
+     * values}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see OjsImportExecutionService
+     */
     private static final class Row{String pk;final LinkedHashMap<String,String> values=new LinkedHashMap<String,String>();}
 }

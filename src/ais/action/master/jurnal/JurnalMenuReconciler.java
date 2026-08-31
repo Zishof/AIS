@@ -25,6 +25,18 @@ public final class JurnalMenuReconciler {
     public static final long PARENT_ID = 2000460500L;
     public static final long CHILD_ID_BASE = 2000000000L;
 
+    /**
+     * Tipe implementasi bersarang {@link Desired} milik {@link JurnalMenuReconciler}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link JurnalMenuReconciler}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code long id}, {@code long root}, {@code
+     * long child}, {@code String label}, {@code String url}, {@code int order}. Aturan bisnis bersama tetap berada
+     * pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see JurnalMenuReconciler
+     */
     public static final class Desired {
         public final long id;
         public final long root;
@@ -38,6 +50,21 @@ public final class JurnalMenuReconciler {
         }
     }
 
+    /**
+     * Pembawa data/helper lokal milik {@link JurnalMenuReconciler} untuk result. Tipe ini mengelompokkan nilai
+     * antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link JurnalMenuReconciler}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List inserts}, {@code List updates},
+     * {@code List unchanged}, {@code List conflicts}, {@code boolean applied}; operasi lokal: {@code safe}().
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see JurnalMenuReconciler
+     */
     public static final class Result {
         public final List<String> inserts=new ArrayList<String>();
         public final List<String> updates=new ArrayList<String>();

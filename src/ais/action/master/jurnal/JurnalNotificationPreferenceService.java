@@ -21,6 +21,19 @@ public final class JurnalNotificationPreferenceService {
     private static final String TYPE="JOURNAL_NOTIFICATION";
     private static final Set<String> DIGESTS=Collections.unmodifiableSet(new HashSet<String>(Arrays.asList("IMMEDIATE","DAILY","WEEKLY","NONE")));
     private static final Set<String> MANDATORY=Collections.unmodifiableSet(new HashSet<String>(Arrays.asList("PASSWORD_RESET_CONFIRM","USER_VALIDATE_CONTEXT","USER_VALIDATE_SITE","CHANGE_EMAIL")));
+    /**
+     * Tipe implementasi bersarang {@link Preference} milik {@link JurnalNotificationPreferenceService}. Kelas ini
+     * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * JurnalNotificationPreferenceService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean email}, {@code boolean
+     * inApp}, {@code String digest}, {@code Set unsubscribed}. Aturan bisnis bersama tetap berada pada kelas induk
+     * atau service yang dipanggilnya.</p>
+     *
+     * @see JurnalNotificationPreferenceService
+     */
     public static final class Preference{public boolean email=true,inApp=true;public String digest="IMMEDIATE";public final Set<String> unsubscribed=new HashSet<String>();}
 
     public Preference load(Long journalId,String userId){if(journalId==null||blank(userId))throw new IllegalArgumentException("Jurnal dan pengguna wajib diisi.");Session s=HibernateUtil.currentSession();RepoUserPreference row=row(s,journalId,userId);return row==null?new Preference():parse(row.getQueryValue());}

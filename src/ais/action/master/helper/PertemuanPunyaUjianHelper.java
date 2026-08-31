@@ -1473,6 +1473,23 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 		return label;
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link PertemuanPunyaUjianHelper}. Kelas ini menerjemahkan satu item
+	 * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * PertemuanPunyaUjianHelper}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+	 * dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code DetailUjianHelper detailUjianHelper},
+	 * {@code Mahasiswa mahasiswa}, {@code BiodataCalonMahasiswa biodataCalonMahasiswa}, {@code EventListener
+	 * eventListener}, {@code boolean tampilInfo}; operasi lokal: {@code render}(). Aturan bisnis bersama tetap
+	 * berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see PertemuanPunyaUjianHelper
+	 */
 	public static class DetailPertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
 		private DetailUjianHelper detailUjianHelper = new DetailUjianHelper();

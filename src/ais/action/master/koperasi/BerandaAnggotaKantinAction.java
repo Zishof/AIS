@@ -70,6 +70,19 @@ public class BerandaAnggotaKantinAction extends GenericAutowireComposer {
     /** Aturan diskon aktif; perhitungannya milik {@link KantinDiskonEngine}. */
     private List<KantinDiskonEngine.Aturan> rules = new ArrayList<KantinDiskonEngine.Aturan>();
 
+    /**
+     * Tipe implementasi bersarang {@link Item} milik {@link BerandaAnggotaKantinAction}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * BerandaAnggotaKantinAction}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code String kode}, {@code
+     * String nama}, {@code double harga}, {@code Long idToko}, {@code String namaToko}, {@code int jumlah}, {@code
+     * double diskon}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see BerandaAnggotaKantinAction
+     */
     private static final class Item {
         final Long id;
         final String kode;

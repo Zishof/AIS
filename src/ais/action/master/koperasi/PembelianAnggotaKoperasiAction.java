@@ -182,6 +182,20 @@ public class PembelianAnggotaKoperasiAction extends GenericAutowireComposer {
 		});
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link PembelianAnggotaKoperasiAction}. Kelas ini menerjemahkan satu
+	 * item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link PembelianAnggotaKoperasiAction} dan dapat
+	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see PembelianAnggotaKoperasiAction
+	 */
 	class PembelianAnggotaKoperasiRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -868,6 +882,23 @@ public class PembelianAnggotaKoperasiAction extends GenericAutowireComposer {
 
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link PembelianAnggotaKoperasiDetailAction} milik {@link
+	 * PembelianAnggotaKoperasiAction}. Kelas ini memberi nama pada state atau perilaku lokal agar tanggung
+	 * jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link PembelianAnggotaKoperasiAction} dan dapat
+	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Grid grid}, {@code Footer
+	 * totalDiskon}, {@code Footer total}, {@code Footer totalHrg}; operasi lokal: {@code loadData()}, {@code
+	 * loadTotal()}, {@code display}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see PembelianAnggotaKoperasiAction
+	 */
 	public class PembelianAnggotaKoperasiDetailAction extends MyDiv {
 
 		/**
@@ -885,6 +916,20 @@ public class PembelianAnggotaKoperasiAction extends GenericAutowireComposer {
 			display();
 		}
 
+		/**
+		 * Renderer lokal untuk layar/komponen {@link PembelianAnggotaKoperasiDetailAction}. Kelas ini menerjemahkan
+		 * satu item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+		 *
+		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link PembelianAnggotaKoperasiDetailAction} dan
+		 * dapat mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+		 * renderer/listener ini.</p>
+		 *
+		 * @see PembelianAnggotaKoperasiDetailAction
+		 */
 		class PembelianAnggotaKoperasiDetailRenderer extends ais.ui.util.MyRowRenderer {
 
 			public PembelianAnggotaKoperasiDetailRenderer() {

@@ -16,6 +16,18 @@ public final class OjsTransformCatalog {
     private static final Set<String> NOT_APPLICABLE = set(
         "failed_jobs filter_groups filter_settings filters job_batches jobs oai_resumption_tokens sessions temporary_files usage_stats_institution_temporary_records usage_stats_total_temporary_records usage_stats_unique_item_investigations_temporary_records usage_stats_unique_item_requests_temporary_records");
 
+    /**
+     * Tipe implementasi bersarang {@link Outcome} milik {@link OjsTransformCatalog}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link OjsTransformCatalog}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String disposition}, {@code String
+     * targetType}, {@code String targetField}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+     * yang dipanggilnya.</p>
+     *
+     * @see OjsTransformCatalog
+     */
     public static final class Outcome {
         public final String disposition, targetType, targetField;
         Outcome(String d, String t, String f) { disposition=d; targetType=t; targetField=f; }

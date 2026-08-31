@@ -4,7 +4,35 @@ import java.security.MessageDigest;import java.sql.*;import java.util.*;
 
 /** External-source inspection only. Never uses OjsHibernateUtil and never mutates the source. */
 public final class OjsImportPreflightService{
+ /**
+  * Tipe implementasi bersarang {@link Config} milik {@link OjsImportPreflightService}. Kelas ini memberi nama
+  * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+  *
+  * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+  * OjsImportPreflightService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+  * dan diuji.</p>
+  * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String jdbcUrl}, {@code String user},
+  * {@code String password}, {@code String schema}, {@code int loginTimeoutSeconds}, {@code int
+  * queryTimeoutSeconds}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+  * dipanggilnya.</p>
+  *
+  * @see OjsImportPreflightService
+  */
  public static final class Config{public String jdbcUrl,user,password,schema;public int loginTimeoutSeconds=15,queryTimeoutSeconds=30;}
+ /**
+  * Pembawa data/helper lokal milik {@link OjsImportPreflightService} untuk result. Tipe ini mengelompokkan
+  * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+  *
+  * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+  * OjsImportPreflightService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+  * dan diuji.</p>
+  * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String dialect}, {@code String
+  * version}, {@code String schemaSignature}, {@code int expectedTables}, {@code int foundTables}, {@code int
+  * foundFields}, {@code List missing}, {@code Map fieldsByTable}. Aturan bisnis bersama tetap berada pada kelas
+  * induk atau service yang dipanggilnya.</p>
+  *
+  * @see OjsImportPreflightService
+  */
  public static final class Result{public String dialect,version,schemaSignature;public int expectedTables,foundTables,foundFields;public final List<String> missing=new ArrayList<String>();public final Map<String,Integer> fieldsByTable=new LinkedHashMap<String,Integer>();}
  public Result inspect(Config cfg)throws Exception{validate(cfg);DriverManager.setLoginTimeout(Math.max(1,Math.min(60,cfg.loginTimeoutSeconds)));Properties p=new Properties();p.setProperty("user",cfg.user);p.setProperty("password",cfg.password);Connection c=null;try{c=DriverManager.getConnection(cfg.jdbcUrl,p);c.setReadOnly(true);c.setAutoCommit(false);Result r=new Result();r.expectedTables=OjsSourceCatalog.TABLES.size();r.dialect=dialect(cfg.jdbcUrl);DatabaseMetaData m=c.getMetaData();Map<String,String> physical=new HashMap<String,String>();ResultSet tables=m.getTables(c.getCatalog(),blank(cfg.schema)?null:cfg.schema,"%",new String[]{"TABLE"});try{while(tables.next()){String n=tables.getString("TABLE_NAME");if(n!=null)physical.put(n.toLowerCase(),n);}}finally{tables.close();}inventory(c,cfg,m,physical,OjsSourceCatalog.TABLES,r);r.version=readVersion(c,cfg,r);if("LEGACY".equals(r.version)){r.expectedTables=OjsLegacySourceCatalog.TABLES.size();r.missing.clear();r.fieldsByTable.clear();r.foundTables=0;r.foundFields=0;inventory(c,cfg,m,physical,OjsLegacySourceCatalog.TABLES,r);}r.schemaSignature=signature(r);c.rollback();return r;}finally{if(c!=null)try{c.rollback();}catch(Exception ignored){}if(c!=null)try{c.close();}catch(Exception ignored){}}}
  private static void inventory(Connection c,Config cfg,DatabaseMetaData m,Map<String,String>physical,List<String>expectedTables,Result r)throws Exception{for(String expected:expectedTables){String actual=physical.get(expected);if(actual==null){r.missing.add(expected);continue;}int count=0;ResultSet cols=m.getColumns(c.getCatalog(),blank(cfg.schema)?null:cfg.schema,actual,"%");try{while(cols.next())count++;}finally{cols.close();}r.fieldsByTable.put(expected,Integer.valueOf(count));r.foundTables++;r.foundFields+=count;}}

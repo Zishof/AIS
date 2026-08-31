@@ -166,6 +166,21 @@ public class RekapitulasiUjianHelper {
 				final Combobox pertemuan = new Combobox();
 				final MyFormRow rowTambah = new MyFormRow();
 
+				/**
+				 * Tipe implementasi bersarang {@link PertemuanEvent} milik {@link RekapitulasiUjianHelper}. Kelas ini memberi
+				 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+				 *
+				 * <p><b>Scope:</b> setiap instance terikat pada instance {@link RekapitulasiUjianHelper} dan dapat mengakses
+				 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+				 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code VOPembelajaran vo}, {@code Pertemuan
+				 * pertemuanPilih}; operasi lokal: {@code onEvent}(). Aturan bisnis bersama tetap berada pada kelas induk atau
+				 * service yang dipanggilnya.</p>
+				 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+				 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+				 * tambahkan perilaku lintas domain pada service bersama.</p>
+				 *
+				 * @see RekapitulasiUjianHelper
+				 */
 				class PertemuanEvent implements EventListener {
 
 					private VOPembelajaran vo;

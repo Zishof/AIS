@@ -14,6 +14,20 @@ import ais.database.model.jurnal.ImportSumberOjs;
 /** Final fail-closed data/file reconciliation gate for an executed import job. */
 public final class OjsImportReconciliationService {
     private final JurnalAuthorizationService auth=new JurnalAuthorizationService();
+    /**
+     * Pembawa data/helper lokal milik {@link OjsImportReconciliationService} untuk result. Tipe ini mengelompokkan
+     * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * OjsImportReconciliationService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long jobId}, {@code String status},
+     * {@code long mappings}, {@code long linked}, {@code long notApplicable}, {@code long derived}, {@code long
+     * failedFields}, {@code long pendingFiles}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+     * yang dipanggilnya.</p>
+     *
+     * @see OjsImportReconciliationService
+     */
     public static final class Result{public Long jobId;public String status;public long mappings,linked,notApplicable,derived,failedFields,pendingFiles;public final JSONArray blockers=new JSONArray();public boolean complete;}
     public Result finalizeJob(Long jobId,Tbmuser actor){
         auth.requireWorkflow(actor,"manageImport");Session s=HibernateUtil.currentSession();Transaction tx=s.getTransaction();boolean own=!tx.isActive();

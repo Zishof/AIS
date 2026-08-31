@@ -245,6 +245,25 @@ public class GenericCrudImportService {
         return Class.forName(name);
     } }
 
+    /**
+     * Pekerjaan latar bersarang milik {@link GenericCrudImportService} untuk import job. Tipe ini membatasi state
+     * yang dibawa ke eksekusi asinkron dan tidak boleh membawa session request secara implisit.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * GenericCrudImportService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String jobKey}, {@code String
+     * fileHash}, {@code String ownerUserKey}, {@code String ownerRoleKey}, {@code String entityKey}, {@code String
+     * status}, {@code long createdAt}, {@code long expiresAt}; operasi lokal: {@code summary()}, {@code
+     * getJobKey()}, {@code getFileHash()}, {@code getStatus()}, {@code setStatus()}, {@code getExpiresAt()},
+     * {@code getRows()}, {@code getErrors()}, {@code matches}(). Aturan bisnis bersama tetap berada pada kelas
+     * induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> pekerjaan berjalan di thread lain. Buka/tutup resource miliknya sendiri, jangan
+     * memakai komponen ZK atau session Hibernate request tanpa aktivasi yang eksplisit, dan laporkan kegagalan
+     * melalui mekanisme kelas induk.</p>
+     *
+     * @see GenericCrudImportService
+     */
     public static class ImportJob implements Serializable {
         private static final long serialVersionUID = 1L;
         private String jobKey, fileHash, ownerUserKey, ownerRoleKey, entityKey, status = "PREVIEWING";

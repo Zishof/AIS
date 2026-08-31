@@ -80,6 +80,21 @@ public final class JurnalWorkflowService {
     private String capability(String target){if(PUBLISHED.equals(target)||SCHEDULED.equals(target))return "publish";if(RETRACTED.equals(target))return "retract";if(ACCEPTED.equals(target)||REJECTED.equals(target)||REVISION_REQUIRED.equals(target))return "makeFinalDecision";return null;}
     private static Map<String,Set<String>> transitions(){Map<String,Set<String>> m=new HashMap<String,Set<String>>();put(m,DRAFT,SUBMITTED,WITHDRAWN);put(m,SUBMITTED,SCREENING,IN_REVIEW,REJECTED,WITHDRAWN);put(m,SCREENING,IN_REVIEW,REVISION_REQUIRED,REJECTED,WITHDRAWN);put(m,IN_REVIEW,REVISION_REQUIRED,ACCEPTED,REJECTED,WITHDRAWN);put(m,REVISION_REQUIRED,SUBMITTED,IN_REVIEW,WITHDRAWN);put(m,ACCEPTED,COPYEDITING);put(m,COPYEDITING,PRODUCTION);put(m,PRODUCTION,PROOF);put(m,PROOF,PUBLICATION_READY,PRODUCTION);put(m,PUBLICATION_READY,SCHEDULED,PUBLISHED);put(m,SCHEDULED,PUBLICATION_READY,PUBLISHED);put(m,PUBLISHED,RETRACTED);put(m,WITHDRAWN,SUBMITTED);return Collections.unmodifiableMap(m);}
     private static void put(Map<String,Set<String>> m,String from,String...to){m.put(from,Collections.unmodifiableSet(new HashSet<String>(Arrays.asList(to))));}
+    /**
+     * Kontrak callback/strategi bersarang milik {@link JurnalWorkflowService}. Tipe ini memisahkan satu variasi
+     * perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+     *
+     * <p><b>Scope:</b> setiap instance terikat pada instance {@link JurnalWorkflowService} dan dapat mengakses
+     * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+     * implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code run}(). Aturan bisnis bersama tetap
+     * berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see JurnalWorkflowService
+     */
     private interface Work<T>{T run(Session s);}
     private <T>T write(Work<T>w){Session s=HibernateUtil.currentSession();Transaction tx=s.getTransaction();boolean own=!tx.isActive();try{if(own)tx.begin();T result=w.run(s);if(own)tx.commit();return result;}catch(RuntimeException e){if(own&&tx.isActive())tx.rollback();throw e;}catch(Exception e){if(own&&tx.isActive())tx.rollback();throw new IllegalStateException(e);}}
     private RepoItem item(Session s,Long id){RepoItem x=(RepoItem)s.get(RepoItem.class,id);if(x==null||!Boolean.TRUE.equals(x.getAktif())||!"JOURNAL_SUBMISSION".equals(x.getDocumentType()))throw new IllegalArgumentException("Naskah tidak ditemukan.");return x;}
@@ -92,5 +107,17 @@ public final class JurnalWorkflowService {
     private static String sha256(String v){try{byte[] d=MessageDigest.getInstance("SHA-256").digest(v.getBytes("UTF-8"));StringBuilder b=new StringBuilder();for(byte x:d)b.append(String.format("%02x",x&255));return b.toString();}catch(Exception e){throw new IllegalStateException(e);}}
     private static JSONObject parseObject(String value,String message){try{return new JSONObject(value);}catch(Exception e){throw new IllegalArgumentException(message,e);}}
     private static void required(String v,String m){if(blank(v))throw new IllegalArgumentException(m);}private static boolean blank(String v){return v==null||v.trim().length()==0;}private static String clean(String v){return v==null?"":v.trim();}
+    /**
+     * Tipe implementasi bersarang {@link JournalContext} milik {@link JurnalWorkflowService}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * JurnalWorkflowService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+     * diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code String tenant}.
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see JurnalWorkflowService
+     */
     private static final class JournalContext{final Long id;final String tenant;JournalContext(Long i,String t){id=i;tenant=t;}}
 }

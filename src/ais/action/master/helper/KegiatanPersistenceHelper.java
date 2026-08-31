@@ -81,6 +81,19 @@ public class KegiatanPersistenceHelper {
 	private static final ConcurrentHashMap<Long, PendingKegiatanData> pendingTasks = new ConcurrentHashMap<Long, PendingKegiatanData>();
 	private static final Object[] kegiatanLocks = buatKegiatanLocks();
 
+	/**
+	 * Tipe implementasi bersarang {@link PendingKegiatanData} milik {@link KegiatanPersistenceHelper}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * KegiatanPersistenceHelper}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+	 * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code ScheduledFuture future}, {@code
+	 * String cicilans}, {@code String detailKegiatans}, {@code Kegiatan kegiatan}. Aturan bisnis bersama tetap
+	 * berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see KegiatanPersistenceHelper
+	 */
 	private static class PendingKegiatanData {
 		private ScheduledFuture<?> future;
 		private String cicilans;
@@ -94,6 +107,18 @@ public class KegiatanPersistenceHelper {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link RekapPembayaran} milik {@link KegiatanPersistenceHelper}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * KegiatanPersistenceHelper}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+	 * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String bulans}, {@code Double
+	 * dibayar}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see KegiatanPersistenceHelper
+	 */
 	private static class RekapPembayaran {
 		private String bulans = "{}";
 		private Double dibayar = Double.valueOf(0.0);

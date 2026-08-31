@@ -719,6 +719,21 @@ public class DashboardKepatuhanKantinAction extends GenericAutowireComposer {
 
     // ======================== Cache & SQL ========================
 
+    /**
+     * Kontrak callback/strategi bersarang milik {@link DashboardKepatuhanKantinAction}. Tipe ini memisahkan satu
+     * variasi perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+     *
+     * <p><b>Scope:</b> setiap instance terikat pada instance {@link DashboardKepatuhanKantinAction} dan dapat
+     * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code build}(). Aturan bisnis bersama
+     * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see DashboardKepatuhanKantinAction
+     */
     private interface HtmlBuilder {
         String build();
     }

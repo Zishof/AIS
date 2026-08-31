@@ -48,6 +48,19 @@ public final class ProsesPoinBulananHelper {
 	private ProsesPoinBulananHelper() {
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link HasilProsesPoin} milik {@link ProsesPoinBulananHelper}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * ProsesPoinBulananHelper}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+	 * dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int pegawaiDiproses}, {@code int
+	 * voucherDiterbitkan}, {@code int dilewatiSudahAda}, {@code double totalNominal}. Aturan bisnis bersama tetap
+	 * berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see ProsesPoinBulananHelper
+	 */
 	public static class HasilProsesPoin {
 		public int pegawaiDiproses = 0;
 		public int voucherDiterbitkan = 0;

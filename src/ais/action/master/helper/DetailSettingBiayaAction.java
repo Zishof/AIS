@@ -482,6 +482,21 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		}
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link DetailSettingBiayaAction}. Kelas ini menerjemahkan satu item data
+	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DetailSettingBiayaAction} dan dapat mengakses
+	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean refresh}, {@code boolean
+	 * rst}; operasi lokal: {@code render}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see DetailSettingBiayaAction
+	 */
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		private boolean refresh;
@@ -554,6 +569,21 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		}
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link DetailSettingBiayaAction}. Kelas ini menerjemahkan satu item data
+	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DetailSettingBiayaAction} dan dapat mengakses
+	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean refresh}, {@code boolean
+	 * rst}; operasi lokal: {@code render}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see DetailSettingBiayaAction
+	 */
 	class MahasiswaSettingRenderer extends ais.ui.util.MyRowRenderer {
 
 		private boolean refresh;
@@ -737,6 +767,21 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		}
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link DetailSettingBiayaAction}. Kelas ini menerjemahkan satu item data
+	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DetailSettingBiayaAction} dan dapat mengakses
+	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean refresh}, {@code boolean
+	 * rst}; operasi lokal: {@code render}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see DetailSettingBiayaAction
+	 */
 	class CalonMahasiswaSettingRenderer extends ais.ui.util.MyRowRenderer {
 
 		private boolean refresh;
@@ -1008,6 +1053,21 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		return new Object[] { kegiatan, detailKegiatans, datas };
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link DetailSettingBiayaAction}. Kelas ini menerjemahkan satu item data
+	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DetailSettingBiayaAction} dan dapat mengakses
+	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean refresh}, {@code boolean
+	 * rst}; operasi lokal: {@code render}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see DetailSettingBiayaAction
+	 */
 	class CalonMahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		private boolean refresh;

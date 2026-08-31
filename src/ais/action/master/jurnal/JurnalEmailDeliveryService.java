@@ -17,6 +17,18 @@ import ais.database.model.Tbmuser;
 public final class JurnalEmailDeliveryService {
     private final JurnalEmailService templates=new JurnalEmailService();
     private final JurnalAuthorizationService auth=new JurnalAuthorizationService();
+    /**
+     * Tipe implementasi bersarang {@link Recipient} milik {@link JurnalEmailDeliveryService}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * JurnalEmailDeliveryService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String userId}, {@code String email}.
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see JurnalEmailDeliveryService
+     */
     public static final class Recipient { public final String userId,email; public Recipient(String userId,String email){required(userId,"User ID penerima wajib diisi.");this.userId=userId.trim();this.email=validateEmail(email);} }
 
     /** Preference-aware per-user ledger. Deferred digest rows remain in the existing Notifikasi table. */

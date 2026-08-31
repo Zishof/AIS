@@ -317,6 +317,22 @@ public final class JurnalFileService {
     private static String clean(String value) { return value == null ? "" : value.trim(); }
     private static String hex(byte[] bytes) { StringBuilder b = new StringBuilder(); for (byte x : bytes) b.append(String.format("%02x", x & 255)); return b.toString(); }
 
+    /**
+     * Tipe implementasi bersarang {@link DigestInputStream} milik {@link JurnalFileService}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link JurnalFileService}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code MessageDigest digest}, {@code long
+     * max}, {@code long count}; operasi lokal: {@code read()}, {@code read()}, {@code guard()}, {@code hex}().
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see JurnalFileService
+     */
     private static final class DigestInputStream extends FilterInputStream {
         final MessageDigest digest; final long max; long count;
         DigestInputStream(InputStream in, long maximum) throws Exception { super(in); max = maximum; digest = MessageDigest.getInstance("SHA-256"); }

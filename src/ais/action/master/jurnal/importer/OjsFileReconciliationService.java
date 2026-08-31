@@ -15,6 +15,19 @@ import ais.database.model.repository.RepoBitstream;
 
 /** Secure, resumable reconciliation from an OJS files_dir into streaming_ais. */
 public final class OjsFileReconciliationService {
+    /**
+     * Pembawa data/helper lokal milik {@link OjsFileReconciliationService} untuk result. Tipe ini mengelompokkan
+     * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * OjsFileReconciliationService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code long manifests}, {@code long linked},
+     * {@code long alreadyLinked}, {@code long missing}, {@code long rejected}, {@code long failed}. Aturan bisnis
+     * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see OjsFileReconciliationService
+     */
     public static final class Result { public long manifests,linked,alreadyLinked,missing,rejected,failed; }
 
     @SuppressWarnings("unchecked")

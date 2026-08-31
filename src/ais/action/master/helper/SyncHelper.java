@@ -33,11 +33,39 @@ import ais.ui.util.MyToolbarbuttonConfig;
 public class SyncHelper {
 
 	// --- Antarmuka untuk mengambil data dari Class Pemanggil (Controller) ---
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link SyncHelper}. Tipe ini memisahkan satu variasi perilaku
+	 * lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link SyncHelper} dan dapat mengakses state kelas
+	 * induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code getData}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see SyncHelper
+	 */
 	public interface SyncDataProvider {
 		List<Perkuliahan> getData() throws Exception;
 	}
 
 	// --- Antarmuka untuk Aksi Dinamis (Callback) Eksekusi per Item ---
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link SyncHelper}. Tipe ini memisahkan satu variasi perilaku
+	 * lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link SyncHelper} dan dapat mengakses state kelas
+	 * induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code execute}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see SyncHelper
+	 */
 	public interface SyncAction {
 		void execute(Perkuliahan perkuliahan, Session session) throws Exception;
 	}

@@ -57,6 +57,17 @@ public final class MahasiswaVirtualAccountHelper {
 	private MahasiswaVirtualAccountHelper() {
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link TagihanSudahDibayarException} milik {@link
+	 * MahasiswaVirtualAccountHelper}. Kelas ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya
+	 * tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * MahasiswaVirtualAccountHelper}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 *
+	 * @see MahasiswaVirtualAccountHelper
+	 */
 	public static class TagihanSudahDibayarException extends Exception {
 		private static final long serialVersionUID = 1L;
 

@@ -16,6 +16,19 @@ import ais.database.model.repository.RepoItemMetadata;
  * Values are always XML escaped and only Repository allowlisted fields are read.
  */
 public final class JurnalMetadataFormatService {
+    /**
+     * Tipe implementasi bersarang {@link Format} milik {@link JurnalMetadataFormatService}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * JurnalMetadataFormatService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String prefix}, {@code String
+     * schema}, {@code String namespace}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see JurnalMetadataFormatService
+     */
     public static final class Format {
         public final String prefix;
         public final String schema;

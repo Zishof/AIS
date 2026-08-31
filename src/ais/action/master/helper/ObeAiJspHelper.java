@@ -189,6 +189,18 @@ public class ObeAiJspHelper {
 	// ---------------------------------------------------------------------
 	// Parser format teks COCOK / ALASAN_COCOK / USUL_BARU
 	// ---------------------------------------------------------------------
+	/**
+	 * Tipe implementasi bersarang {@link Seleksi} milik {@link ObeAiJspHelper}. Kelas ini memberi nama pada state
+	 * atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link ObeAiJspHelper}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List cocok}, {@code List baru},
+	 * {@code String alasan}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see ObeAiJspHelper
+	 */
 	public static class Seleksi {
 		public List<String> cocok = new ArrayList<String>();
 		public List<String[]> baru = new ArrayList<String[]>(); // [kode, deskripsi]

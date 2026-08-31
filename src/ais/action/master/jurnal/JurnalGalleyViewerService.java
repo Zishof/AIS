@@ -15,6 +15,19 @@ public final class JurnalGalleyViewerService {
     public static final long MAX_RENDER_BYTES=2L*1024L*1024L;
     private static final Charset UTF8=Charset.forName("UTF-8");
     private final JurnalFileService files=new JurnalFileService();
+    /**
+     * Tipe implementasi bersarang {@link Rendered} milik {@link JurnalGalleyViewerService}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * JurnalGalleyViewerService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long bitstreamId}, {@code String
+     * title}, {@code String bodyHtml}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see JurnalGalleyViewerService
+     */
     public static final class Rendered {public final Long bitstreamId;public final String title,bodyHtml;Rendered(Long id,String title,String body){bitstreamId=id;this.title=title;bodyHtml=body;}}
     public Rendered renderHtml(Long id,Tbmuser actor,String remote)throws Exception{RepoBitstream meta=metadata(id,actor,remote);String mime=lower(meta.getMimeType());if(!("text/html".equals(mime)||"application/xhtml+xml".equals(mime)))throw new IllegalArgumentException("File bukan galley HTML.");return new Rendered(meta.getId(),safeTitle(meta.getNamaFile()),sanitizeHtml(read(meta,actor,remote)));}
     public Rendered renderJats(Long id,Tbmuser actor,String remote)throws Exception{RepoBitstream meta=metadata(id,actor,remote);String mime=lower(meta.getMimeType());if(!("application/xml".equals(mime)||"text/xml".equals(mime)||"application/jats+xml".equals(mime)||"application/xhtml+xml".equals(mime)))throw new IllegalArgumentException("File bukan galley JATS/XML.");return new Rendered(meta.getId(),safeTitle(meta.getNamaFile()),jatsToAccessibleHtml(read(meta,actor,remote)));}

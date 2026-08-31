@@ -114,6 +114,18 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
                 }
             });
 
+    /**
+     * Tipe implementasi bersarang {@link CountCacheEntry} milik {@link GenericRevisiHelper}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link GenericRevisiHelper}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code long value}, {@code long createdAt}.
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see GenericRevisiHelper
+     */
     private static class CountCacheEntry {
         private long value;
         private long createdAt;
@@ -124,10 +136,39 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         }
     }
 
+    /**
+     * Kontrak callback/strategi bersarang milik {@link GenericRevisiHelper}. Tipe ini memisahkan satu variasi
+     * perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link GenericRevisiHelper}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code apply}(). Aturan bisnis bersama
+     * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see GenericRevisiHelper
+     */
     public static interface QueryCustomizer {
         void apply(Session session, AuditQuery query) throws Exception;
     }
 
+    /**
+     * Tipe implementasi bersarang {@link FixedPropertyFilter} milik {@link GenericRevisiHelper}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link GenericRevisiHelper}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String property}, {@code Object
+     * value}; operasi lokal: {@code apply()}, {@code toString}(). Aturan bisnis bersama tetap berada pada kelas
+     * induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see GenericRevisiHelper
+     */
     public static class FixedPropertyFilter implements QueryCustomizer {
         private String property;
         private Object value;
@@ -149,6 +190,21 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         }
     }
 
+    /**
+     * Tipe implementasi bersarang {@link EntityIdFilter} milik {@link GenericRevisiHelper}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link GenericRevisiHelper}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Serializable id}; operasi lokal:
+     * {@code getId()}, {@code apply()}, {@code toString}(). Aturan bisnis bersama tetap berada pada kelas induk
+     * atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see GenericRevisiHelper
+     */
     public static class EntityIdFilter implements QueryCustomizer {
         private Serializable id;
 
@@ -1085,6 +1141,20 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         }
     }
 
+    /**
+     * Tipe implementasi bersarang {@link RevisionLoadContext} milik {@link GenericRevisiHelper}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> setiap instance terikat pada instance {@link GenericRevisiHelper} dan dapat mengakses state
+     * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+     * implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean allDataMode}, {@code int
+     * limit}, {@code int first}, {@code long total}, {@code int selectedTabIndex}, {@code String title}, {@code
+     * Session session}, {@code AuditQuery query}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+     * yang dipanggilnya.</p>
+     *
+     * @see GenericRevisiHelper
+     */
     private class RevisionLoadContext {
         boolean allDataMode;
         int limit;
@@ -1728,6 +1798,20 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         return null;
     }
 
+    /**
+     * Renderer lokal untuk layar/komponen {@link GenericRevisiHelper}. Kelas ini menerjemahkan satu item data
+     * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+     *
+     * <p><b>Scope:</b> setiap instance terikat pada instance {@link GenericRevisiHelper} dan dapat mengakses state
+     * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+     * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+     * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+     * renderer/listener ini.</p>
+     *
+     * @see GenericRevisiHelper
+     */
     class DataRenderer extends ais.ui.util.MyRowRenderer {
         public void render(Row row, Object data) throws Exception {
             row.setValign("top");
@@ -2512,6 +2596,20 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         return s;
     }
 
+    /**
+     * Tipe implementasi bersarang {@link RevisionDashboardData} milik {@link GenericRevisiHelper}. Kelas ini
+     * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link GenericRevisiHelper}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int totalRevisi}, {@code int
+     * totalPerubahan}, {@code int totalBarisBerubah}, {@code int totalDataUnik}, {@code int totalTambah}, {@code
+     * int totalUbah}, {@code int totalHapus}, {@code int malam}. Aturan bisnis bersama tetap berada pada kelas
+     * induk atau service yang dipanggilnya.</p>
+     *
+     * @see GenericRevisiHelper
+     */
     private static class RevisionDashboardData {
         int totalRevisi;
         int totalPerubahan;
@@ -2697,6 +2795,19 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         }
     }
 
+    /**
+     * Tipe implementasi bersarang {@link ComparisonChange} milik {@link GenericRevisiHelper}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link GenericRevisiHelper}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String field}, {@code String before},
+     * {@code String after}, {@code boolean parsed}. Aturan bisnis bersama tetap berada pada kelas induk atau
+     * service yang dipanggilnya.</p>
+     *
+     * @see GenericRevisiHelper
+     */
     private static class ComparisonChange implements Serializable {
         private static final long serialVersionUID = 6511472314475237202L;
         String field;
@@ -3995,6 +4106,23 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
                 normalizeHibernateClass(relationClass), relationId));
     }
 
+    /**
+     * Tipe implementasi bersarang {@link DeferredRelation} milik {@link GenericRevisiHelper}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link GenericRevisiHelper}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String key}, {@code Class
+     * ownerClass}, {@code Serializable ownerId}, {@code String property}, {@code Class relationClass}, {@code
+     * Serializable relationId}; operasi lokal: {@code describe}(). Aturan bisnis bersama tetap berada pada kelas
+     * induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see GenericRevisiHelper
+     */
     private static class DeferredRelation {
         private String key;
         private Class ownerClass;
@@ -5811,6 +5939,26 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         return "Cek detail error, pastikan data relasi masih tersedia, struktur tabel sesuai model, dan ulangi restore setelah refresh halaman.";
     }
 
+    /**
+     * Tipe implementasi bersarang {@link RestoreProgress} milik {@link GenericRevisiHelper}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> setiap instance terikat pada instance {@link GenericRevisiHelper} dan dapat mengakses state
+     * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+     * implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String processName}, {@code Class
+     * clazz}, {@code Date startedAt}, {@code Date finishedAt}, {@code int primaryTotal}, {@code int
+     * primaryProcessed}, {@code int total}, {@code int attempted}; operasi lokal: {@code start()}, {@code
+     * setPrimaryTotal()}, {@code addDynamicTotal()}, {@code setPrimaryProcessed()}, {@code
+     * markPrimaryProcessed()}, {@code setStatus()}, {@code beginItem()}, {@code itemSuccess()}, {@code
+     * itemFailed()}, {@code finishSuccess}(). Aturan bisnis bersama tetap berada pada kelas induk atau service
+     * yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see GenericRevisiHelper
+     */
     private class RestoreProgress {
         private String processName;
         private Class clazz;

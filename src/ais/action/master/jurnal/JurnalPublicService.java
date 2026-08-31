@@ -17,13 +17,111 @@ import org.json.JSONObject;
 
 /** Query publik jurnal; hanya DTO allowlist dan publikasi berstatus PUBLISHED. */
 public final class JurnalPublicService {
+    /**
+     * Tipe implementasi bersarang {@link BlockCard} milik {@link JurnalPublicService}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link JurnalPublicService}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String key}, {@code String title},
+     * {@code String bodyText}; operasi lokal: {@code getKey()}, {@code getTitle()}, {@code getBodyText}(). Aturan
+     * bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see JurnalPublicService
+     */
     public static final class BlockCard {public String key,title,bodyText;public String getKey(){return key;}public String getTitle(){return title;}public String getBodyText(){return bodyText;}}
+    /**
+     * DTO allowlist metadata jurnal yang dikembalikan oleh {@link JurnalPublicService}. Field mencakup identitas,
+     * deskripsi, slug, informasi pembaca/penulis/pustakawan, pengaturan submission, analytics, dan blok konten
+     * publik. Tipe ini tidak memuat entity Hibernate atau aturan publikasi.
+     *
+     * @see JurnalPublicService
+     */
     public static final class JournalCard {public Long id;public String name,description,slug,readerInfo,authorInfo,librarianInfo,subscriptionInfo,analyticsProvider,analyticsMeasurementId;public boolean allowSubmissions;public final List<BlockCard> customBlocks=new ArrayList<BlockCard>();public Long getId(){return id;}public String getName(){return name;}public String getDescription(){return description;}public String getSlug(){return slug;}public String getReaderInfo(){return readerInfo;}public String getAuthorInfo(){return authorInfo;}public String getLibrarianInfo(){return librarianInfo;}public String getSubscriptionInfo(){return subscriptionInfo;}public boolean isAllowSubmissions(){return allowSubmissions;}public List<BlockCard> getCustomBlocks(){return customBlocks;}public String getAnalyticsProvider(){return analyticsProvider;}public String getAnalyticsMeasurementId(){return analyticsMeasurementId;}}
+    /**
+     * DTO allowlist satu galley/berkas artikel publik. Hanya identitas, nama, MIME type, dan mode viewer yang
+     * diekspos; stream dan pemeriksaan akses tetap ditangani endpoint/service terkait.
+     *
+     * @see JurnalPublicService
+     */
     public static final class GalleyCard {public Long id;public String name,mimeType,viewer;public Long getId(){return id;}public String getName(){return name;}public String getMimeType(){return mimeType;}public String getViewer(){return viewer;}}
+    /**
+     * DTO allowlist artikel berstatus publik beserta metadata bibliografi, nama penulis, dan daftar galley.
+     * Pembentukan DTO dilakukan oleh {@link JurnalPublicService}; tipe ini hanya membawa state respons dan tidak
+     * boleh mengambil alih query atau keputusan status publikasi.
+     *
+     * @see JurnalPublicService
+     */
     public static final class ArticleCard {public Long id,collectionId;public String title,authors,abstractText,doi,language,slug,journalTitle,publisher,issn;public Date publishedAt;public final List<String> authorNames=new ArrayList<String>();public final List<GalleyCard> galleys=new ArrayList<GalleyCard>();public Long getId(){return id;}public Long getCollectionId(){return collectionId;}public String getTitle(){return title;}public String getAuthors(){return authors;}public List<String> getAuthorNames(){return authorNames;}public String getAbstractText(){return abstractText;}public String getDoi(){return doi;}public String getLanguage(){return language;}public String getSlug(){return slug;}public String getJournalTitle(){return journalTitle;}public String getPublisher(){return publisher;}public String getIssn(){return issn;}public Date getPublishedAt(){return publishedAt;}public List<GalleyCard> getGalleys(){return galleys;}}
+    /**
+     * Tipe implementasi bersarang {@link IssueCard} milik {@link JurnalPublicService}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link JurnalPublicService}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code Long collectionId},
+     * {@code String title}, {@code String slug}, {@code Date publishedAt}, {@code List articles}; operasi lokal:
+     * {@code getId()}, {@code getCollectionId()}, {@code getTitle()}, {@code getSlug()}, {@code getPublishedAt()},
+     * {@code getArticles}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see JurnalPublicService
+     */
     public static final class IssueCard {public Long id,collectionId;public String title,slug;public Date publishedAt;public final List<ArticleCard> articles=new ArrayList<ArticleCard>();public Long getId(){return id;}public Long getCollectionId(){return collectionId;}public String getTitle(){return title;}public String getSlug(){return slug;}public Date getPublishedAt(){return publishedAt;}public List<ArticleCard> getArticles(){return articles;}}
+    /**
+     * Tipe implementasi bersarang {@link StaticPage} milik {@link JurnalPublicService}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link JurnalPublicService}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long collectionId}, {@code String
+     * journalSlug}, {@code String slug}, {@code String title}, {@code String bodyText}; operasi lokal: {@code
+     * getCollectionId()}, {@code getJournalSlug()}, {@code getSlug()}, {@code getTitle()}, {@code getBodyText}().
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see JurnalPublicService
+     */
     public static final class StaticPage {public Long collectionId;public String journalSlug,slug,title,bodyText;public Long getCollectionId(){return collectionId;}public String getJournalSlug(){return journalSlug;}public String getSlug(){return slug;}public String getTitle(){return title;}public String getBodyText(){return bodyText;}}
+    /**
+     * Tipe implementasi bersarang {@link SubjectCard} milik {@link JurnalPublicService}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link JurnalPublicService}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String name}, {@code int count};
+     * operasi lokal: {@code getName()}, {@code getCount}(). Aturan bisnis bersama tetap berada pada kelas induk
+     * atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see JurnalPublicService
+     */
     public static final class SubjectCard {public String name;public int count;public String getName(){return name;}public int getCount(){return count;}}
+    /**
+     * Tipe implementasi bersarang {@link Home} milik {@link JurnalPublicService}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link JurnalPublicService}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List journals}, {@code List latest};
+     * operasi lokal: {@code getJournals()}, {@code getLatest}(). Aturan bisnis bersama tetap berada pada kelas
+     * induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see JurnalPublicService
+     */
     public static final class Home {public final List<JournalCard> journals=new ArrayList<JournalCard>();public final List<ArticleCard> latest=new ArrayList<ArticleCard>();public List<JournalCard> getJournals(){return journals;}public List<ArticleCard> getLatest(){return latest;}}
 
     public Home home(){Home out=new Home();out.journals.addAll(journals());out.latest.addAll(latest(12));return out;}

@@ -146,6 +146,22 @@ public class PenjadwalanHelper {
 	private MyCheckboxConfig hanyaYangAktif;
 	private MyCheckboxConfig urutkanManual;
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link PenjadwalanHelper}. Kelas ini menerjemahkan satu item data
+	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link PenjadwalanHelper}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Tbmuser tbmuser}, {@code Long
+	 * pertId}, {@code Perkuliahan perkuliahan}, {@code EventListener eventListener}, {@code Integer perteKe};
+	 * operasi lokal: {@code render}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see PenjadwalanHelper
+	 */
 	public static class PertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
 		private Tbmuser tbmuser = Common.getCurrentUser();

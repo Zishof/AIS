@@ -1633,10 +1633,35 @@ public class TimetablePerkuliahanWindow extends MyWindow {
         return jam == null ? "" : jam.trim().replace('.', ':');
     }
 
+    /**
+     * Tipe implementasi bersarang {@link AnalisisJadwal} milik {@link TimetablePerkuliahanWindow}. Kelas ini
+     * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * TimetablePerkuliahanWindow}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int total}, {@code int terjadwal},
+     * {@code int belumTerjadwal}, {@code int tanpaDosen}, {@code int tanpaRuang}, {@code int konflik}, {@code int
+     * jumlahJam}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see TimetablePerkuliahanWindow
+     */
     private static final class AnalisisJadwal {
         int total, terjadwal, belumTerjadwal, tanpaDosen, tanpaRuang, konflik, jumlahJam;
     }
 
+    /**
+     * Tipe implementasi bersarang {@link SlotJadwal} milik {@link TimetablePerkuliahanWindow}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * TimetablePerkuliahanWindow}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String hari}, {@code JamPerkuliahan
+     * jam}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see TimetablePerkuliahanWindow
+     */
     private static final class SlotJadwal {
         final String hari;
         final JamPerkuliahan jam;

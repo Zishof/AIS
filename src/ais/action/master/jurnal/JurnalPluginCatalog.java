@@ -2,6 +2,18 @@ package ais.action.master.jurnal;
 import java.util.*;
 /** Canonical 45 bundled OJS plugin dispositions; implementation evidence is tracked per key. */
 public final class JurnalPluginCatalog{
+ /**
+  * Tipe implementasi bersarang {@link Entry} milik {@link JurnalPluginCatalog}. Kelas ini memberi nama pada
+  * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+  *
+  * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link JurnalPluginCatalog}.
+  * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+  * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int id}, {@code String key}, {@code
+  * String disposition}, {@code String target}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+  * yang dipanggilnya.</p>
+  *
+  * @see JurnalPluginCatalog
+  */
  public static final class Entry{public final int id;public final String key,disposition,target;Entry(int i,String k,String d,String t){id=i;key=k;disposition=d;target=t;}}
  public static final List<Entry> ALL;private static final Map<String,Entry> BY_KEY;
  static{String raw=

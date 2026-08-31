@@ -1646,6 +1646,20 @@ public class MainHelper {
 			include.setWidth("100%");
 			include.setHeight("100%");
 
+			/**
+			 * Event listener lokal milik {@link MainHelper}. Kelas ini menangani event untuk komponen induk dan meneruskan
+			 * pekerjaan domain ke method/service yang sudah tersedia.
+			 *
+			 * <p><b>Scope:</b> setiap instance terikat pada instance {@link MainHelper} dan dapat mengakses state kelas
+			 * induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+			 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code onEvent}(). Aturan bisnis bersama
+			 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+			 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+			 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+			 * renderer/listener ini.</p>
+			 *
+			 * @see MainHelper
+			 */
 			class FotoEventListener implements EventListener, Serializable {
 
 				/**
@@ -1704,6 +1718,13 @@ public class MainHelper {
 			include.setWidth("100%");
 			include.setHeight("100%");
 
+			/**
+			 * Listener lokal yang menutup dialog biodata dosen dan menyegarkan foto pengguna setelah penyuntingan.
+			 * Instance menangkap window, foto, dan pengguna milik alur {@link MainHelper}; gunakan hanya pada desktop
+			 * yang membuatnya dan jangan dibagikan lintas session.
+			 *
+			 * @see MainHelper
+			 */
 			class FotoEventListener implements EventListener, Serializable {
 
 				/**

@@ -166,6 +166,20 @@ public final class GenericCrudZkossParityService {
         return value.length() == 0 ? "Buka fungsi" : value;
     }
 
+    /**
+     * Tipe implementasi bersarang {@link Entry} milik {@link GenericCrudZkossParityService}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * GenericCrudZkossParityService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+     * kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String actionClass}, {@code String
+     * resourcePath}, {@code String route}, {@code Set handlers}. Aturan bisnis bersama tetap berada pada kelas
+     * induk atau service yang dipanggilnya.</p>
+     *
+     * @see GenericCrudZkossParityService
+     */
     private static final class Entry {
         final String actionClass; final String resourcePath; final String route; final Set handlers;
         Entry(String actionClass, String resourcePath, String route, Set handlers) {

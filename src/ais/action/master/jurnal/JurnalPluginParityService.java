@@ -33,6 +33,19 @@ public final class JurnalPluginParityService {
     private static double jaccard(Set<String>a,Set<String>b){if(a.isEmpty()||b.isEmpty())return 0D;Set<String>i=new HashSet<String>(a);i.retainAll(b);Set<String>u=new HashSet<String>(a);u.addAll(b);return ((double)i.size())/u.size();}
     private static Set<String> tokens(String value){Set<String>out=new HashSet<String>();for(String x:clean(value).toLowerCase(Locale.ENGLISH).split("[^\\p{L}\\p{N}]+"))if(x.length()>2&&!STOP.contains(x))out.add(x);return out;}
     private static final Set<String> STOP=new HashSet<String>(Arrays.asList("dan","yang","the","and","untuk","dengan","dari","this","that","pada"));
+    /**
+     * Tipe implementasi bersarang {@link Scored} milik {@link JurnalPluginParityService}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * JurnalPluginParityService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code JurnalPublicService.ArticleCard
+     * article}, {@code double score}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see JurnalPluginParityService
+     */
     private static final class Scored{final JurnalPublicService.ArticleCard article;final double score;Scored(JurnalPublicService.ArticleCard a,double s){article=a;score=s;}}
     private static String xmlDecl(){return"<?xml version=\"1.0\" encoding=\"UTF-8\"?>";}private static String xml(String v){return clean(v).replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&apos;");}
     private static String lang(String v){String x=clean(v);return x.matches("[A-Za-z]{2,3}(?:[-_][A-Za-z]{2})?")?x:"id";}private static String clean(String v){return v==null?"":v.trim();}

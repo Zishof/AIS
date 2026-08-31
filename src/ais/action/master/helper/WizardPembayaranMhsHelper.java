@@ -169,6 +169,20 @@ import org.zkoss.zul.Grid;
 public class WizardPembayaranMhsHelper {
 
     // ============================================================ INNER DTO
+    /**
+     * Tipe implementasi bersarang {@link TagihanItem} milik {@link WizardPembayaranMhsHelper}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * WizardPembayaranMhsHelper}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code DetailBiaya detailBiaya}, {@code
+     * PengaturanPembayaranBulanan bulanan}, {@code JenisKegiatan jenis}, {@code boolean bisaDiubah}, {@code double
+     * nominal}, {@code String keterangan}, {@code double sudahDibayar}, {@code double kekurangan}. Aturan bisnis
+     * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see WizardPembayaranMhsHelper
+     */
     private static final class TagihanItem {
         final DetailBiaya detailBiaya;
         /**

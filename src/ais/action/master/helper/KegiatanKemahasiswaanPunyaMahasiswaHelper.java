@@ -131,6 +131,22 @@ public class KegiatanKemahasiswaanPunyaMahasiswaHelper implements DataLoader, Da
 
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link KegiatanKemahasiswaanPunyaMahasiswaHelper}. Kelas ini
+	 * menerjemahkan satu item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik
+	 * kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link KegiatanKemahasiswaanPunyaMahasiswaHelper} dan
+	 * dapat mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean delete}, {@code List
+	 * jabatanKegiatanKemahasiswaans}, {@code List skalaKegiatanKemahasiswaans}; operasi lokal: {@code render}().
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see KegiatanKemahasiswaanPunyaMahasiswaHelper
+	 */
 	class DetailKegiatanKemahasiswaanRenderer extends ais.ui.util.MyRowRenderer {
 
 		private boolean delete = false;
@@ -617,6 +633,20 @@ public class KegiatanKemahasiswaanPunyaMahasiswaHelper implements DataLoader, Da
 				hlink_style.setFillForegroundColor(new XSSFColor(Color.LIGHT_GRAY));
 				hlink_style.setFont(hlink_font);
 
+				/**
+				 * Helper implementasi bersarang milik {@link KegiatanKemahasiswaanPunyaMahasiswaHelper} untuk data adding
+				 * helper. Kelas ini mengemas langkah lokal yang dipakai kelas induk dan bukan service domain alternatif.
+				 *
+				 * <p><b>Scope:</b> setiap instance terikat pada instance {@link KegiatanKemahasiswaanPunyaMahasiswaHelper} dan
+				 * dapat mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+				 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code process}(). Aturan bisnis bersama
+				 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+				 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+				 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+				 * tambahkan perilaku lintas domain pada service bersama.</p>
+				 *
+				 * @see KegiatanKemahasiswaanPunyaMahasiswaHelper
+				 */
 				class DataAddingHelper {
 					public void process(XSSFRow row, int index,
 							KegiatanKemahasiswaanPunyaMahasiswa kegiatanKemahasiswaanPunyaMahasiswa, String jenis)

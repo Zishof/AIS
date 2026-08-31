@@ -28,6 +28,21 @@ import ais.database.model.repository.*;
  * It never executes source payloads and never opens a second Hibernate factory.</p>
  */
 public final class OjsDomainTransformService {
+    /**
+     * Pembawa data/helper lokal milik {@link OjsDomainTransformService} untuk result. Tipe ini mengelompokkan
+     * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * OjsDomainTransformService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code long mappings}, {@code long
+     * linkedMappings}, {@code long notApplicableMappings}, {@code long derivedMappings}, {@code long
+     * submissionsCreated}, {@code long issuesCreated}, {@code long metadataCreated}, {@code long
+     * emailTemplatesCreated}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see OjsDomainTransformService
+     */
     public static final class Result {
         public long mappings, linkedMappings, notApplicableMappings, derivedMappings;
         public long submissionsCreated, issuesCreated, metadataCreated;
@@ -191,5 +206,18 @@ public final class OjsDomainTransformService {
     private static String json(String v){return v==null?"":v.replace("\\","\\\\").replace("\"","\\\"").replace("\r","\\r").replace("\n","\\n");}
     private static String sha256(String v){try{byte[] h=MessageDigest.getInstance("SHA-256").digest(v.getBytes("UTF-8"));StringBuilder b=new StringBuilder();for(byte x:h)b.append(String.format("%02x",x&255));return b.toString();}catch(Exception e){throw new IllegalStateException(e);}}
     private static long stableId(String table,String pk){try{byte[] h=MessageDigest.getInstance("SHA-256").digest((table+'\n'+pk).getBytes("UTF-8"));long x=0;for(int i=0;i<8;i++)x=(x<<8)|(h[i]&255L);return x==Long.MIN_VALUE?0L:Math.abs(x);}catch(Exception e){throw new IllegalStateException(e);}}
+    /**
+     * Pembawa data/helper lokal milik {@link OjsDomainTransformService} untuk row. Tipe ini mengelompokkan nilai
+     * antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * OjsDomainTransformService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String table}, {@code String pk},
+     * {@code Map fields}, {@code Object target}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+     * yang dipanggilnya.</p>
+     *
+     * @see OjsDomainTransformService
+     */
     private static final class Row{final String table,pk;final Map<String,String>fields=new HashMap<String,String>();Object target;Row(String t,String p){table=t;pk=p;}}
 }

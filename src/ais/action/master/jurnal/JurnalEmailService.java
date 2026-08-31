@@ -23,6 +23,18 @@ public final class JurnalEmailService {
             "(?is)<\\s*(script|iframe|object|embed|form|meta|base)\\b|on[a-z]+\\s*=|javascript\\s*:|data\\s*:\\s*text/html");
     private final JurnalAuthorizationService auth = new JurnalAuthorizationService();
 
+    /**
+     * Tipe implementasi bersarang {@link Rendered} milik {@link JurnalEmailService}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link JurnalEmailService}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String subject}, {@code String body},
+     * {@code String templateKey}, {@code String locale}, {@code int version}. Aturan bisnis bersama tetap berada
+     * pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see JurnalEmailService
+     */
     public static final class Rendered {
         public String subject, body, templateKey, locale;
         public int version;

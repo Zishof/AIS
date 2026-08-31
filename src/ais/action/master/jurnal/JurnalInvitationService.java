@@ -17,6 +17,19 @@ import ais.database.model.penelitiandanpengabdian.JurnalPenelitian;
 public final class JurnalInvitationService {
     private final JurnalAuthorizationService auth = new JurnalAuthorizationService();
     private final SecureRandom random = new SecureRandom();
+    /**
+     * Tipe implementasi bersarang {@link Issued} milik {@link JurnalInvitationService}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * JurnalInvitationService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code String token},
+     * {@code Date expiresAt}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see JurnalInvitationService
+     */
     public static final class Issued { public Long id; public String token; public Date expiresAt; }
 
     public Issued issue(Long journalId, String ignoredTenant, String email, String roleKey, String scopeType,

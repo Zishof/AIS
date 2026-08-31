@@ -163,6 +163,21 @@ public class UpdateDataKapasitasProdi extends GenericAutowireComposer {
 
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link Process} milik {@link UpdateDataKapasitasProdi}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link UpdateDataKapasitasProdi} dan dapat mengakses
+	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code run()}, {@code doProcess}(). Aturan
+	 * bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see UpdateDataKapasitasProdi
+	 */
 	private class Process implements Runnable {
 
 		@Override
