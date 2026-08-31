@@ -3,6 +3,12 @@ package ais.database.dao.asset;
 import ais.database.dao.GenericHibernateDao;
 import ais.database.model.asset.KelompokAsset;
 
+/**
+ * Implementasi Hibernate {@link KelompokAssetDao} untuk entitas
+ * {@link ais.database.model.asset.KelompokAsset}. Kelas ini sengaja kosong: seluruh logika CRUD
+ * generik diwariskan dari {@link ais.database.dao.GenericHibernateDao}, lihat Javadoc di sana
+ * untuk detail perilaku method.
+ */
 public class KelompokAssetDaoImpl extends
 		GenericHibernateDao<KelompokAsset, Long, KelompokAssetDao> implements
 		KelompokAssetDao {

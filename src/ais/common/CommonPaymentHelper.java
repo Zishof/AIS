@@ -427,6 +427,84 @@ import de.undercouch.citeproc.csl.CSLType;
 
 
 
+/**
+ * Helper generik lintas payment gateway/lintas modul untuk logika pembayaran mahasiswa di AIS —
+ * bagian dari hierarki {@link Common} (di-extend, bukan dikomposisi, mengikuti pola pewarisan
+ * "helper besar" yang dipakai beberapa kelas utilitas AIS lain) yang khusus menangani DUA area
+ * besar: (1) <b>pengecekan status pembayaran</b> sebagai syarat berbagai aksi akademik (isi KRS,
+ * persetujuan KRS, pengajuan proposal/sidang skripsi, wisuda, penilaian), dan (2) <b>pencatatan
+ * cicilan pembayaran</b> (baik untuk mahasiswa aktif lewat {@link Kegiatan} maupun pendaftar/calon
+ * mahasiswa lewat {@link KegiatanTemporary}) beserta rekonsiliasi Host-to-Host (H2H) dengan bank.
+ * Kelas ini TIDAK memanggil satu payment gateway spesifik pun secara langsung (bandingkan dengan
+ * {@link CimbCommon}/{@link OttoUtil} yang masing-masing mengintegrasikan satu gateway) — perannya
+ * murni sebagai logika bisnis "apakah mahasiswa sudah cukup bayar" dan "bagaimana mencatat
+ * cicilan", tidak bergantung pada gateway pembayaran mana pun yang dipakai untuk membayar.
+ *
+ * <h2>Area 1 — Pengecekan status pembayaran (gerbang syarat aksi akademik)</h2>
+ * <p>
+ * Method {@code checkStatusPembayaran*} dipanggil sebagai GERBANG sebelum mahasiswa diizinkan
+ * melakukan aksi akademik tertentu. Polanya konsisten: (a) periksa pengecualian eksplisit lebih
+ * dulu — baik lewat konfigurasi {@code checkApakahMahasiswaBolehAmbilKrsLewatPengecualian}, maupun
+ * lewat mekanisme "bypass" terpusat {@link #checkBaypassStatusPembayaranMahasiswa} (baris {@link
+ * BaypassPembayaranMahasiswa} yang berlaku untuk kombinasi mahasiswa+jenis kegiatan+semester+
+ * rentang tanggal tertentu, mis. pembebasan biaya untuk kasus khusus); (b) bila saklar konfigurasi
+ * terkait dimatikan (mis. {@code mahasiswa_harus_bayar_sebelum_isi_krs}), gerbang otomatis
+ * diloloskan; (c) bila tidak ada pengecualian, hitung apakah mahasiswa sudah membayar minimal
+ * ambang tertentu (mis. {@code hitungPersentaseLunasAktual() >= 0.1}, atau memiliki cicilan untuk
+ * kode item biaya syarat tertentu yang dikonfigurasi per semester/angkatan/jurusan/program/status
+ * awal mahasiswa lewat {@code Common.getKonfigurasi(...)} dengan variasi parameter). Method-method
+ * ini secara historis besar dan bercabang banyak karena mengakumulasi aturan bisnis bertahun-tahun
+ * (mis. penanganan khusus mahasiswa semester 1, mahasiswa pindahan, konversi ke data
+ * {@link BiodataCalonMahasiswa} untuk mahasiswa baru yang belum lengkap datanya di
+ * {@link Kegiatan}) — sebagian besar hanya mendelegasikan ke {@link CommonHelperClass} sebagai
+ * implementasi kanonik sesungguhnya (mis. {@code checkStatusPembayaranMahasiswaSebelumnya},
+ * {@code checkStatusPembayaranKegiatanMahasiswa}, dan seluruh varian {@code ...PengajuanSkripsi}/
+ * {@code ...PengajuanSidang}/{@code ...PengajuanWisuda}), sedangkan
+ * {@link #checkStatusPembayaranMahasiswa} sendiri berisi logika penuh di kelas ini.
+ * </p>
+ *
+ * <h2>Area 2 — Pencatatan cicilan pembayaran</h2>
+ * <p>
+ * Method {@code simpanCicilan*}/{@code ambilCicilan*}/{@code copyCicilanPembayaranKe*} menangani
+ * siklus hidup baris {@link CicilanPembayaran} (cicilan sukses) dan {@link CicilanPembayaranGagal}
+ * (cicilan gagal, mis. hasil rekonsiliasi Host-to-Host yang tidak cocok): {@link
+ * #simpanCicilanTanpaMencicil} membuat satu ATAU BANYAK baris cicilan sekaligus (satu per
+ * {@link DetailBiaya}/{@link PengaturanPembayaranBulanan} dalam koleksi yang diberikan, atau satu
+ * baris "generik" tanpa rincian item bila koleksi kosong/{@code null}) tanpa proses cicil-mencicil
+ * bertahap (nilai dan tanggal validasi ditentukan langsung oleh pemanggil, bukan dihitung ulang);
+ * {@link #ambilCicilanPembayarans}/{@link #ambilCicilanPembayaranGagals} mencari baris cicilan yang
+ * cocok dengan satu baris {@link LogHostToHost} (parsing kolom {@code item} berformat
+ * {@code kodeItem\<pemisah>\<...>\namaBulan} dipisah {@code |}, dicocokkan berdasarkan kode item
+ * biaya + bulan + (nomor registrasi/nomor ujian calon mahasiswa ATAU NIM mahasiswa) + tanggal); dan
+ * {@link #copyCicilanPembayaranKeGagal}/{@link #copyCicilanPembayaranKeSukses} adalah konversi dua
+ * arah antara kedua entitas tersebut (dipakai saat rekonsiliasi H2H mengoreksi status sukses/gagal
+ * suatu transaksi setelah pencatatan awal).
+ * </p>
+ * <p>
+ * {@link #initCicilan} adalah satu-satunya method di kelas ini yang membangun komponen UI ZKoss
+ * (baris {@link Hbox}/{@link Vbox}/{@link Label} untuk satu baris cicilan pada grid ZKoss, lengkap
+ * dengan area unggah bukti pembayaran lewat {@link LampiranLain#createDownloadUploadFileLain});
+ * {@link #filterCicilanPembayaran} melakukan deduplikasi daftar cicilan berdasarkan kunci komposit
+ * yang berbeda tergantung apakah cicilan terkait pembayaran bulanan dengan nilai variabel/tetap
+ * atau pembayaran biaya biasa.
+ * </p>
+ *
+ * <h2>Catatan keamanan — konstruksi SQL native via string concatenation</h2>
+ * <p>
+ * Beberapa query di kelas ini memakai {@link Restrictions#sqlRestriction(String)} dengan nilai yang
+ * disisipkan lewat concatenation string langsung ke dalam SQL, alih-alih parameter terikat
+ * (bind parameter). Contoh: {@link #checkStatusPembayaranMahasiswa} menyisipkan
+ * {@code mahasiswa.getNim().trim()} langsung ke klausa {@code WHERE} SQL native saat mencari
+ * {@link BiodataCalonMahasiswa} yang cocok, dan beberapa method lain menyisipkan tanggal terformat
+ * ke {@code sqlRestriction}. NIM berasal dari data mahasiswa yang sudah tervalidasi di database
+ * (bukan input request langsung), sehingga risiko praktisnya rendah pada jalur ini, namun pola
+ * penyisipan string mentah ke SQL tetap merupakan praktik yang rawan bila suatu saat nilai yang
+ * disisipkan berasal dari input pengguna yang belum divalidasi. Sesuai lingkup pekerjaan
+ * dokumentasi ini, pola query tersebut TIDAK diubah di sini — dicatat sebagai catatan tinjauan
+ * keamanan untuk perbaikan terpisah bila diperlukan (migrasi ke parameter terikat/Criteria API
+ * murni).
+ * </p>
+ */
 @SuppressWarnings({ "rawtypes", "unchecked", "deprecation" })
 public class CommonPaymentHelper extends Common {
 
@@ -435,14 +513,17 @@ public class CommonPaymentHelper extends Common {
 	private static final String COOKIE_PMB_BIODATA = "biodataCalonMahasiswa";
 	private static final String COOKIE_PMB_USERID = "userid";
 
+	/** Mengembalikan {@code value} setelah di-trim, atau string kosong bila {@code value} bernilai {@code null}. */
 	private static String safeTrim(String value) {
 		return value == null ? "" : value.trim();
 	}
 
+	/** Mengecek apakah {@code value} bernilai {@code null} atau kosong setelah di-trim. */
 	private static boolean isBlank(String value) {
 		return value == null || value.trim().length() == 0;
 	}
 
+	/** Memastikan {@code directory} ada sebagai direktori, membuatnya (beserta direktori antara) bila belum ada. */
 	private static boolean ensureDirectory(File directory) {
 		if (directory == null) {
 			return false;
@@ -453,6 +534,7 @@ public class CommonPaymentHelper extends Common {
 		return directory.mkdirs();
 	}
 
+	/** Menampilkan pesan galat CRUD ke admin (lewat {@link Common#tampilErrorJikaAdmin}) dan sebagai alert ke pengguna ({@code pesan} plus detail {@code e.getMessage()} bila ada), dengan kegagalan menampilkan alert itu sendiri diredam. */
 	private static void tampilCrudError(Exception e, String pesan) {
 		Common.tampilErrorJikaAdmin(e);
 		String detail = e == null || e.getMessage() == null ? "" : "\n" + e.getMessage();
@@ -465,6 +547,24 @@ public class CommonPaymentHelper extends Common {
 
 
 
+	/**
+	 * Seperti {@link #checkBaypassStatusPembayaranMahasiswa(Integer, Integer, Mahasiswa, Collection)},
+	 * untuk SATU {@link JenisKegiatan}. Sebelum mendelegasikan, melakukan pengecekan cepat tambahan:
+	 * bila {@code jenisKegiatan} dan {@code semester} sama-sama diberikan dan semester berada DI LUAR
+	 * rentang {@code minSmt}/{@code maxSmt} milik {@code jenisKegiatan}, method langsung mengembalikan
+	 * {@code true} (dianggap bypass berlaku) tanpa query database — logikanya: bila jenis kegiatan
+	 * tersebut memang tidak berlaku untuk semester mahasiswa saat ini, tidak relevan untuk menagih
+	 * syarat pembayaran terkait kegiatan tersebut sama sekali.
+	 *
+	 * @param semester      semester berjalan mahasiswa, boleh {@code null}
+	 * @param tahap         tahap pembayaran (0/{@code null} berarti tidak membatasi berdasarkan
+	 *                      tahap, hanya berdasarkan semester)
+	 * @param mahasiswa     mahasiswa yang diperiksa
+	 * @param jenisKegiatan jenis kegiatan terkait syarat pembayaran, boleh {@code null}
+	 * @return {@code true} bila mahasiswa memiliki pengecualian bypass yang berlaku (baik dari
+	 *         pengecekan rentang semester cepat di atas, maupun dari baris
+	 *         {@link BaypassPembayaranMahasiswa} yang cocok); {@code false} bila tidak ada bypass
+	 */
 	public static boolean checkBaypassStatusPembayaranMahasiswa(Integer semester, Integer tahap, Mahasiswa mahasiswa,
 			JenisKegiatan jenisKegiatan) {
 
@@ -483,6 +583,37 @@ public class CommonPaymentHelper extends Common {
 
 
 
+	/**
+	 * Implementasi kanonik pengecekan bypass syarat pembayaran: mencari baris
+	 * {@link BaypassPembayaranMahasiswa} yang cocok dengan {@code mahasiswa}, salah satu dari
+	 * {@code jenisKegiatans} (atau berlaku untuk SEMUA jenis kegiatan bila kolom
+	 * {@code jenisKegiatan} pada baris bypass bernilai {@code null}), kombinasi
+	 * semester/tahap (dilonggarkan menjadi "selalu cocok" bila {@code tahap} bernilai
+	 * {@code null}/{@code 0}), DAN berada dalam rentang tanggal berlaku (
+	 * {@code berlaku_mulai}/{@code berlaku_sampai}, boleh {@code null} berarti tidak terbatas pada
+	 * ujung tersebut). Perbandingan tanggal SENGAJA dibungkus fungsi SQL {@code DATE(...)} pada kedua
+	 * sisi (bukan perbandingan timestamp mentah) — dijelaskan pada komentar inline di badan method —
+	 * agar pengecualian tetap aktif sepanjang HARI mulai/sampai berapa pun komponen jamnya, termasuk
+	 * data impor lama yang jam-nya kebetulan bukan tengah malam.
+	 *
+	 * <p>
+	 * Dua jenis kegagalan koneksi/protokol JDBC tertentu ({@link java.util.NoSuchElementException}
+	 * yang mengindikasikan korupsi state protokol JDBC, dan {@link IllegalStateException} dengan
+	 * pesan resultset tanpa struktur field) ditangani secara KHUSUS: keduanya dianggap sebagai
+	 * "tidak ada bypass" (hitungan diperlakukan sebagai 0) alih-alih dilempar sebagai galat ke
+	 * pemanggil — pola defensif untuk mencegah kegagalan koneksi database yang jarang terjadi
+	 * menghalangi mahasiswa yang seharusnya tidak diblokir bypass sama sekali.
+	 * </p>
+	 *
+	 * @param semester     semester berjalan mahasiswa, boleh {@code null}
+	 * @param tahap        tahap pembayaran, {@code null}/{@code 0} berarti tidak membatasi tahap
+	 * @param mahasiswa    mahasiswa yang diperiksa
+	 * @param jenisKegiatans kumpulan jenis kegiatan yang relevan; {@code null}/kosong berarti tidak
+	 *                       membatasi berdasarkan jenis kegiatan (cocok dengan bypass jenis apa pun)
+	 * @return {@code true} bila ditemukan minimal satu baris {@link BaypassPembayaranMahasiswa} yang
+	 *         cocok dan sedang berlaku; {@code false} bila tidak ada, atau bila terjadi kegagalan
+	 *         koneksi JDBC tertentu yang ditangani sebagai "tidak ada bypass"
+	 */
 	public static boolean checkBaypassStatusPembayaranMahasiswa(Integer semester, Integer tahap, Mahasiswa mahasiswa,
 			Collection<JenisKegiatan> jenisKegiatans) {
 
@@ -539,6 +670,7 @@ public class CommonPaymentHelper extends Common {
 
 
 
+	/** Seperti {@link #checkStatusPembayaranMahasiswa(Integer, Integer, Mahasiswa, boolean, boolean, boolean)} dengan {@code check=true} (saklar konfigurasi gerbang pembayaran selalu diperiksa, tidak dilewati). */
 	public static boolean checkStatusPembayaranMahasiswa(Integer semester, Integer tahap, Mahasiswa mahasiswa,
 			boolean persetujuan, boolean sp) {
 		return checkStatusPembayaranMahasiswa(semester, tahap, mahasiswa, true, persetujuan, sp);
@@ -546,6 +678,58 @@ public class CommonPaymentHelper extends Common {
 
 
 
+	/**
+	 * Implementasi kanonik gerbang syarat pembayaran sebelum mahasiswa boleh mengisi/menyetujui KRS
+	 * (Kartu Rencana Studi) reguler atau semester pendek (SP). Urutan pemeriksaan:
+	 * <ol>
+	 * <li>Bila mahasiswa memenuhi pengecualian eksplisit lewat
+	 * {@code Common.checkApakahMahasiswaBolehAmbilKrsLewatPengecualian}, langsung {@code true}.</li>
+	 * <li>Semester {@code null}/{@code <= 0}, atau semester 1 dan konfigurasi
+	 * {@code mahasiswa_baru_mengikuti_persyaratan_krs_spt_mahasiswa} tidak aktif, langsung
+	 * {@code true} (mahasiswa baru tidak dikenai syarat pembayaran KRS).</li>
+	 * <li>Untuk jalur SEMESTER PENDEK ({@code sp=true}): bila {@code check} dan saklar
+	 * {@code mahasiswa_harus_bayar_sebelum_isi_krs_sp} tidak aktif, langsung {@code true}. Jika
+	 * tidak, kode item biaya syarat (dikonfigurasi per semester/angkatan/jurusan/program/status awal
+	 * mahasiswa lewat {@code kode_item_biaya_mahasiswa_harus_bayar_sebelum_isi_krs_sp}) diperiksa:
+	 * bila kosong, langsung {@code true}; jika ada, hasil ditentukan dari jumlah cicilan yang sudah
+	 * dibayar untuk kode tersebut, dengan bypass ({@link #checkBaypassStatusPembayaranMahasiswa})
+	 * sebagai jalan pintas tambahan bila belum lunas.</li>
+	 * <li>Untuk jalur KRS REGULER ({@code sp=false}): bila {@code check} dan saklar terkait
+	 * ({@code mahasiswa_harus_bayar_sebelum_persetujuan_krs} atau
+	 * {@code mahasiswa_harus_bayar_sebelum_isi_krs}, dipilih berdasarkan {@code persetujuan}) tidak
+	 * aktif, langsung {@code true}. Untuk pengisian awal (bukan persetujuan): total tagihan syarat
+	 * KRS dihitung lewat {@code hitungTagihanMahasiswaSebagaiSyaratKrs} — bila kurang dari
+	 * {@code 0.01} (dianggap lunas/tidak ada tagihan), langsung {@code true}; jika tidak, kode item
+	 * biaya syarat diperiksa satu per satu (dipisah {@code ;}) dengan logika cicilan+bypass yang
+	 * sama seperti jalur SP.</li>
+	 * <li>Terakhir, bila belum ada keputusan dari langkah di atas, method memeriksa daftar
+	 * {@link Kegiatan} yang sudah dibayar mahasiswa untuk jenis-jenis kegiatan KRS
+	 * ({@link CommonHelperClass#jenisKegiatansUntukKrs}, dimuat ulang sekali lewat
+	 * {@code reloadJenisKegiatans()} bila belum ada) — dengan penanganan KHUSUS untuk mahasiswa yang
+	 * baru pindah masuk kampus ini (semester 1, atau semester sama dengan/tepat setelah
+	 * {@code pindahKeKampusIniMasukSemester}) yang belum punya {@link Kegiatan}: kegiatan yang sudah
+	 * dibayar dicari dari data {@link BiodataCalonMahasiswa} yang NIM-nya cocok (dicari lewat SQL
+	 * native — lihat catatan keamanan pada javadoc kelas {@link CommonPaymentHelper}), digabung
+	 * dengan jenis kegiatan "Pendaftaran Ulang Mahasiswa Baru". Hasil akhir bernilai {@code true}
+	 * bila ADA minimal satu {@link Kegiatan} dengan persentase lunas aktual {@code >= 0.1} (10%).</li>
+	 * </ol>
+	 *
+	 * @param semester    semester berjalan yang akan diisi/disetujui KRS-nya
+	 * @param tahap       tahap pembayaran, diteruskan ke {@link #checkBaypassStatusPembayaranMahasiswa}
+	 * @param mahasiswa   mahasiswa yang diperiksa
+	 * @param check       bila {@code false}, saklar konfigurasi gerbang ({@code
+	 *                    mahasiswa_harus_bayar_sebelum_...}) DILEWATI sepenuhnya (pemeriksaan
+	 *                    tagihan/cicilan tetap dijalankan) — dipakai saat pemanggil ingin hasil
+	 *                    "apakah sudah bayar" murni tanpa peduli status saklar fitur
+	 * @param persetujuan bila {@code true}, dianggap sebagai gerbang PERSETUJUAN KRS (bukan
+	 *                    pengisian awal) — memilih kunci konfigurasi berbeda dan melewati pengecekan
+	 *                    tagihan minimum
+	 * @param sp          bila {@code true}, dianggap sebagai gerbang KRS SEMESTER PENDEK (jalur kode
+	 *                    item biaya dan konfigurasi yang berbeda dari KRS reguler)
+	 * @return {@code true} bila mahasiswa boleh melanjutkan aksi (syarat terpenuhi, ada
+	 *         pengecualian/bypass, atau saklar terkait tidak aktif); {@code false} bila syarat
+	 *         pembayaran belum terpenuhi
+	 */
 	public static boolean checkStatusPembayaranMahasiswa(Integer semester, Integer tahap, Mahasiswa mahasiswa,
 			boolean check, boolean persetujuan, boolean sp) {
 
@@ -713,6 +897,7 @@ public class CommonPaymentHelper extends Common {
 
 
 
+	/** Seperti {@link #checkStatusPembayaranMahasiswaSebelumnya(Integer, Integer, Mahasiswa, boolean)} dengan {@code persetujuan=false}. */
 	public static boolean checkStatusPembayaranMahasiswaSebelumnya(Integer semester, Integer tahap,
 			Mahasiswa mahasiswa) {
 		return checkStatusPembayaranMahasiswaSebelumnya(semester, tahap, mahasiswa, false);
@@ -720,6 +905,17 @@ public class CommonPaymentHelper extends Common {
 
 
 
+	/**
+	 * Memeriksa syarat pembayaran SEMESTER-SEMESTER SEBELUMNYA (bukan semester berjalan) — mis.
+	 * dipakai sebagai syarat tambahan sebelum mengizinkan aksi yang mensyaratkan seluruh tunggakan
+	 * lampau lunas. Murni mendelegasikan ke implementasi kanonik di {@link CommonHelperClass}.
+	 *
+	 * @param semester    semester acuan (pemeriksaan mencakup semester-semester sebelum ini)
+	 * @param tahap       tahap pembayaran
+	 * @param mahasiswa   mahasiswa yang diperiksa
+	 * @param persetujuan bila {@code true}, memakai jalur/konfigurasi gerbang persetujuan
+	 * @return hasil pemeriksaan dari {@link CommonHelperClass}
+	 */
 	public static boolean checkStatusPembayaranMahasiswaSebelumnya(Integer semester, Integer tahap, Mahasiswa mahasiswa,
 			boolean persetujuan) {
 		return CommonHelperClass.checkStatusPembayaranMahasiswaSebelumnya(semester, tahap, mahasiswa, persetujuan);
@@ -727,6 +923,15 @@ public class CommonPaymentHelper extends Common {
 
 
 
+	/**
+	 * Memeriksa syarat pembayaran untuk satu {@link FormulirKegiatan} (kegiatan non-KRS yang
+	 * mensyaratkan pembayaran, mis. kegiatan kemahasiswaan berbayar). Murni mendelegasikan ke
+	 * implementasi kanonik di {@link CommonHelperClass}.
+	 *
+	 * @param formulirKegiatan kegiatan yang syarat pembayarannya diperiksa
+	 * @param mahasiswa        mahasiswa yang diperiksa
+	 * @return hasil pemeriksaan dari {@link CommonHelperClass}
+	 */
 	public static boolean checkStatusPembayaranKegiatanMahasiswa(FormulirKegiatan formulirKegiatan,
 			Mahasiswa mahasiswa) {
 		return CommonHelperClass.checkStatusPembayaranKegiatanMahasiswa(formulirKegiatan, mahasiswa);
@@ -734,6 +939,18 @@ public class CommonPaymentHelper extends Common {
 
 
 
+	/**
+	 * Memeriksa syarat pembayaran semester-semester sebelumnya sebagai gerbang PENILAIAN (mis.
+	 * dosen tidak dapat menginput nilai bila mahasiswa punya tunggakan). Murni mendelegasikan ke
+	 * implementasi kanonik di {@link CommonHelperClass}.
+	 *
+	 * @param semester     semester acuan
+	 * @param tahap        tahap pembayaran
+	 * @param mahasiswa    mahasiswa yang diperiksa
+	 * @param harusLunas   ambang batas persentase/nilai yang harus lunas agar gerbang dilewati
+	 * @param termasukSmt1 bila {@code true}, semester 1 turut diperhitungkan dalam pemeriksaan
+	 * @return hasil pemeriksaan dari {@link CommonHelperClass}
+	 */
 	public static boolean checkStatusPembayaranMahasiswaSebelumnyaUntukPenilaian(Integer semester, Integer tahap,
 			Mahasiswa mahasiswa, Double harusLunas, boolean termasukSmt1) {
 		return CommonHelperClass.checkStatusPembayaranMahasiswaSebelumnyaUntukPenilaian(semester, tahap, mahasiswa,
@@ -742,6 +959,16 @@ public class CommonPaymentHelper extends Common {
 
 
 
+	/**
+	 * Memeriksa syarat pembayaran sebagai gerbang PENGAJUAN PROPOSAL SKRIPSI untuk satu format
+	 * penilaian proposal tertentu. Murni mendelegasikan ke implementasi kanonik di
+	 * {@link CommonHelperClass}.
+	 *
+	 * @param formatNilaiProposalSkripsi format nilai proposal terkait
+	 * @param semester                   semester berjalan
+	 * @param mahasiswa                  mahasiswa yang mengajukan
+	 * @return hasil pemeriksaan dari {@link CommonHelperClass}
+	 */
 	public static boolean checkStatusPembayaranMahasiswaPengajuanSkripsi(
 			FormatNilaiProposalSkripsi formatNilaiProposalSkripsi, Integer semester, Mahasiswa mahasiswa) {
 		return CommonHelperClass.checkStatusPembayaranMahasiswaPengajuanSkripsi(formatNilaiProposalSkripsi, semester,
@@ -750,6 +977,16 @@ public class CommonPaymentHelper extends Common {
 
 
 
+	/**
+	 * Memeriksa syarat pembayaran sebagai gerbang PENGAJUAN SIDANG SKRIPSI untuk satu format
+	 * penilaian sidang tertentu. Murni mendelegasikan ke implementasi kanonik di
+	 * {@link CommonHelperClass}.
+	 *
+	 * @param formatNilaiSkripsi format nilai sidang terkait
+	 * @param semester           semester berjalan
+	 * @param mahasiswa          mahasiswa yang mengajukan
+	 * @return hasil pemeriksaan dari {@link CommonHelperClass}
+	 */
 	public static boolean checkStatusPembayaranMahasiswaPengajuanSidang(FormatNilaiSkripsi formatNilaiSkripsi,
 			Integer semester, Mahasiswa mahasiswa) {
 		return CommonHelperClass.checkStatusPembayaranMahasiswaPengajuanSidang(formatNilaiSkripsi, semester, mahasiswa);
@@ -757,12 +994,39 @@ public class CommonPaymentHelper extends Common {
 
 
 
+	/**
+	 * Memeriksa syarat pembayaran sebagai gerbang PENGAJUAN WISUDA. Murni mendelegasikan ke
+	 * implementasi kanonik di {@link CommonHelperClass}.
+	 *
+	 * @param semester  semester berjalan
+	 * @param mahasiswa mahasiswa yang mengajukan wisuda
+	 * @return hasil pemeriksaan dari {@link CommonHelperClass}
+	 */
 	public static boolean checkStatusPembayaranMahasiswaPengajuanWisuda(Integer semester, Mahasiswa mahasiswa) {
 		return CommonHelperClass.checkStatusPembayaranMahasiswaPengajuanWisuda(semester, mahasiswa);
 	}
 
 
 
+	/**
+	 * Pembungkus transaksional untuk {@link #simpanCicilanTanpaMencicil(Kegiatan, Double, Date,
+	 * String, JenisPembayaran, Collection, Session)}: membuka session Hibernate baru, memulai
+	 * transaksi, mendelegasikan pencatatan cicilan, lalu commit dan menutup session — dipakai saat
+	 * pemanggil TIDAK memiliki session/transaksi Hibernate yang sedang berjalan (nama method
+	 * "TanpaSesseion" merujuk pada tidak adanya session yang perlu disediakan pemanggil, bukan
+	 * "tanpa session sama sekali"). Kegagalan ditampilkan ke admin lewat
+	 * {@link Common#tampilErrorJikaAdmin} tanpa dilempar ke pemanggil.
+	 *
+	 * @param kegiatan       kegiatan (mahasiswa aktif) yang dicatat pembayarannya
+	 * @param nominal        nominal cicilan, dipakai hanya untuk jalur tanpa rincian item
+	 *                       ({@code detailBiayas} kosong)
+	 * @param tanggalValidasi tanggal validasi pembayaran
+	 * @param keterangan     keterangan cicilan
+	 * @param jenisPembayaran jenis/metode pembayaran
+	 * @param detailBiayas   koleksi {@link DetailBiaya}/{@link PengaturanPembayaranBulanan} rincian
+	 *                       item yang dibayar; kosong/{@code null} berarti satu baris cicilan
+	 *                       generik tanpa rincian item
+	 */
 	public static void simpanCicilanDefaultTanpaSesseion(Kegiatan kegiatan, Double nominal, Date tanggalValidasi,
 			String keterangan, JenisPembayaran jenisPembayaran, @SuppressWarnings("rawtypes") Collection detailBiayas) {
 		Session session = HibernateUtil.currentNativeSession();
@@ -788,6 +1052,43 @@ public class CommonPaymentHelper extends Common {
 
 
 
+	/**
+	 * Mencatat cicilan pembayaran untuk satu {@link Kegiatan} (mahasiswa aktif) TANPA proses
+	 * cicil-mencicil bertahap (satu kali pencatatan penuh, bukan menghitung sisa cicilan berikutnya)
+	 * — dipakai saat mahasiswa membayar langsung dari luar mekanisme cicilan biasa (mis. hasil
+	 * rekonsiliasi Host-to-Host, penyesuaian manual admin). Lebih dulu memanggil
+	 * {@link PembayaranUtil#getResetCicilanOld} untuk membersihkan cicilan lama yang mungkin perlu
+	 * disegarkan/dihapus sebelum baris baru dicatat.
+	 *
+	 * <p>
+	 * Bila {@code detailBiayas} kosong/{@code null}: membuat SATU baris {@link CicilanPembayaran}
+	 * generik (tanpa item biaya spesifik) dengan {@code nominal} yang diberikan langsung. Bila
+	 * {@code detailBiayas} berisi elemen: membuat SATU baris per elemen (bertipe
+	 * {@link DetailBiaya} langsung, atau {@link PengaturanPembayaranBulanan} yang detail biayanya
+	 * diturunkan darinya), dengan nilai per baris dihitung dari
+	 * {@link PengaturanPembayaranBulanan#ambilNominalModifikasi(Mahasiswa, Integer)} (bila terkait
+	 * pembayaran bulanan dan kegiatan punya {@link Mahasiswa}) atau nilai nominal/biaya baru pada
+	 * {@link DetailBiaya} itu sendiri, diberi nomor urut ({@code ke}) mulai dari 1. Setiap baris
+	 * disimpan lewat {@link Common#refreshSaveOrUpdate}, dan bila baris tersebut sudah memiliki
+	 * {@link BuktiPembayaran} terkait, relasi baliknya turut diperbarui lewat
+	 * {@link Common#refreshUpdate}.
+	 * </p>
+	 *
+	 * @param kegiatan        kegiatan (mahasiswa aktif) yang dicatat pembayarannya
+	 * @param nominal         nominal cicilan, dipakai hanya untuk jalur tanpa rincian item
+	 * @param tanggalValidasi tanggal validasi pembayaran, diisikan ke setiap baris
+	 * @param keterangan      keterangan cicilan, diisikan ke setiap baris
+	 * @param jenisPembayaran jenis/metode pembayaran, diisikan ke setiap baris
+	 * @param detailBiayas    koleksi {@link DetailBiaya}/{@link PengaturanPembayaranBulanan} rincian
+	 *                        item; kosong/{@code null} berarti satu baris generik
+	 * @param session         session Hibernate aktif dengan transaksi yang sudah dimulai oleh
+	 *                        pemanggil (method ini TIDAK membuka/menutup session/transaksi sendiri)
+	 * @return baris {@link CicilanPembayaran} TERAKHIR yang dibuat/disimpan (bukan seluruh daftar —
+	 *         bila {@code detailBiayas} berisi banyak elemen, hanya baris paling akhir yang
+	 *         dikembalikan; baris-baris sebelumnya tetap tersimpan ke database namun referensinya
+	 *         tidak dikembalikan ke pemanggil), atau {@code null} bila terjadi kegagalan yang
+	 *         tertangkap secara internal (ditampilkan ke admin, tidak dilempar ke pemanggil)
+	 */
 	public static CicilanPembayaran simpanCicilanTanpaMencicil(Kegiatan kegiatan, Double nominal, Date tanggalValidasi,
 			String keterangan, JenisPembayaran jenisPembayaran, @SuppressWarnings("rawtypes") Collection detailBiayas,
 			Session session) {
@@ -867,6 +1168,21 @@ public class CommonPaymentHelper extends Common {
 
 
 
+	/**
+	 * Seperti {@link #simpanCicilanDefaultTanpaSesseion(Kegiatan, Double, Date, String,
+	 * JenisPembayaran, Collection)}, untuk {@link KegiatanTemporary} (kegiatan pendaftaran/calon
+	 * mahasiswa yang belum menjadi {@link Kegiatan} permanen). Berbeda dari varian
+	 * {@link Kegiatan}, method ini TIDAK membungkus proses dalam {@code try/catch} — kegagalan akan
+	 * diteruskan sebagai exception tak tertangani ke pemanggil, bukan ditampilkan sebagai alert.
+	 *
+	 * @param kegiatanTemporary kegiatan sementara (pendaftaran/calon mahasiswa) yang dicatat
+	 *                          pembayarannya
+	 * @param nominal           nominal cicilan, dipakai hanya untuk jalur tanpa rincian item
+	 * @param tanggalValidasi   tanggal validasi pembayaran
+	 * @param keterangan        keterangan cicilan
+	 * @param jenisPembayaran   jenis/metode pembayaran
+	 * @param detailBiayas      koleksi rincian item; kosong/{@code null} berarti satu baris generik
+	 */
 	public static void simpanCicilanDefaultTanpaSesseion(KegiatanTemporary kegiatanTemporary, Double nominal,
 			Date tanggalValidasi, String keterangan, JenisPembayaran jenisPembayaran,
 			@SuppressWarnings("rawtypes") Collection detailBiayas) {
@@ -883,6 +1199,29 @@ public class CommonPaymentHelper extends Common {
 
 
 
+	/**
+	 * Seperti {@link #simpanCicilanTanpaMencicil(Kegiatan, Double, Date, String, JenisPembayaran,
+	 * Collection, Session)}, untuk {@link KegiatanTemporary}. Perbedaan penting: method ini SELALU
+	 * menghapus lebih dulu SELURUH baris {@link CicilanPembayaran} yang sudah ada untuk
+	 * {@code kegiatanTemporary} ini (lewat SQL native {@code DELETE}) sebelum mencatat baris baru —
+	 * berbeda dari varian {@link Kegiatan} yang memakai
+	 * {@link PembayaranUtil#getResetCicilanOld} (reset yang lebih selektif). Pola "hapus semua lalu
+	 * tulis ulang" ini masuk akal untuk kegiatan sementara karena datanya belum final/permanen.
+	 *
+	 * @param kegiatanTemporary kegiatan sementara yang dicatat pembayarannya; cicilan lamanya
+	 *                          (bila ada) dihapus seluruhnya lebih dulu
+	 * @param nominal           nominal cicilan, dipakai hanya untuk jalur tanpa rincian item
+	 * @param tanggalValidasi   tanggal validasi pembayaran
+	 * @param keterangan        keterangan cicilan
+	 * @param jenisPembayaran   jenis/metode pembayaran
+	 * @param detailBiayas      koleksi rincian item; kosong/{@code null} berarti satu baris generik
+	 * @param session           session Hibernate aktif dengan transaksi yang sudah dimulai oleh
+	 *                          pemanggil
+	 * @return baris {@link CicilanPembayaran} TERAKHIR yang dibuat/disimpan (lihat catatan yang sama
+	 *         pada {@link #simpanCicilanTanpaMencicil(Kegiatan, Double, Date, String,
+	 *         JenisPembayaran, Collection, Session)} mengenai hanya baris terakhir yang
+	 *         dikembalikan)
+	 */
 	public static CicilanPembayaran simpanCicilanTanpaMencicil(KegiatanTemporary kegiatanTemporary, Double nominal,
 			Date tanggalValidasi, String keterangan, JenisPembayaran jenisPembayaran,
 			@SuppressWarnings("rawtypes") Collection detailBiayas, Session session) {
@@ -956,6 +1295,30 @@ public class CommonPaymentHelper extends Common {
 
 
 
+	/**
+	 * Mencari baris {@link CicilanPembayaran} yang cocok dengan satu baris rekonsiliasi
+	 * {@link LogHostToHost} (log transaksi Host-to-Host dari bank). Kolom
+	 * {@code logHostToHost.getItem()} berisi daftar item transaksi berformat
+	 * {@code kodeItem\<pemisah>\<...>\namaBulan} (elemen dipisah {@code \}, mengambil indeks 0
+	 * sebagai kode item biaya dan indeks 2 sebagai nama bulan), dengan beberapa item dipisah
+	 * {@code |}. Kegagalan parsing satu elemen item dicatat sebagai error admin dan elemen tersebut
+	 * dilewati, tidak menggagalkan parsing elemen lain. Hasil parsing dipakai untuk mencari cicilan
+	 * yang: terkait {@code logHostToHost.getKegiatan()}, kode item biaya-nya termasuk dalam daftar
+	 * yang diparsing, nama bulan pembayaran bulanannya termasuk dalam daftar yang diparsing (bila
+	 * daftar kosong, kondisi ini sengaja dibuat SELALU GAGAL lewat {@code sqlRestriction("false")} —
+	 * bukan diabaikan — sehingga log tanpa item yang valid tidak mencocokkan cicilan mana pun),
+	 * pemilik kegiatan cocok dengan {@code kode} (nomor registrasi ATAU nomor ujian calon
+	 * mahasiswa) ATAU {@code nim} (NIM mahasiswa aktif), dan tanggal cicilan (dibandingkan hanya
+	 * bagian TANGGAL lewat {@code DATE(...)}) sama dengan {@code tanggal}.
+	 *
+	 * @param session       session Hibernate aktif untuk query
+	 * @param logHostToHost log transaksi H2H sumber daftar item yang dicari kecocokannya
+	 * @param kode          nomor registrasi/nomor ujian calon mahasiswa yang dicocokkan
+	 * @param nim           NIM mahasiswa aktif yang dicocokkan
+	 * @param tanggal       tanggal transaksi yang dicocokkan (hanya bagian tanggal, bukan waktu)
+	 * @return daftar {@link CicilanPembayaran} yang cocok, bisa kosong bila tidak ada kecocokan atau
+	 *         {@code item} pada log tidak berisi kode/bulan yang valid
+	 */
 	public static List<CicilanPembayaran> ambilCicilanPembayarans(Session session, LogHostToHost logHostToHost,
 			String kode, String nim, Date tanggal) {
 		List<String> bulans = new ArrayList<String>();
@@ -1009,6 +1372,19 @@ public class CommonPaymentHelper extends Common {
 
 
 
+	/**
+	 * Seperti {@link #ambilCicilanPembayarans(Session, LogHostToHost, String, String, Date)}, tetapi
+	 * mencari pada entitas {@link CicilanPembayaranGagal} (cicilan yang GAGAL tervalidasi/gagal
+	 * rekonsiliasi) alih-alih {@link CicilanPembayaran} yang sukses. Logika parsing item dan kriteria
+	 * pencarian identik.
+	 *
+	 * @param session       session Hibernate aktif untuk query
+	 * @param logHostToHost log transaksi H2H sumber daftar item yang dicari kecocokannya
+	 * @param kode          nomor registrasi/nomor ujian calon mahasiswa yang dicocokkan
+	 * @param nim           NIM mahasiswa aktif yang dicocokkan
+	 * @param tanggal       tanggal transaksi yang dicocokkan
+	 * @return daftar {@link CicilanPembayaranGagal} yang cocok, bisa kosong
+	 */
 	public static List<CicilanPembayaranGagal> ambilCicilanPembayaranGagals(Session session,
 			LogHostToHost logHostToHost, String kode, String nim, Date tanggal) {
 		List<String> bulans = new ArrayList<String>();
@@ -1061,6 +1437,16 @@ public class CommonPaymentHelper extends Common {
 
 
 
+	/**
+	 * Membuat objek {@link CicilanPembayaranGagal} BARU (belum disimpan) dengan seluruh field
+	 * disalin dari {@code cicilanPembayaran} yang sukses — dipakai saat rekonsiliasi H2H
+	 * menyimpulkan bahwa suatu cicilan yang tadinya tercatat sukses ternyata harus dipindahkan ke
+	 * status gagal. Penyimpanan ke database (termasuk penghapusan baris sukses asal, bila perlu)
+	 * adalah tanggung jawab pemanggil, bukan method ini.
+	 *
+	 * @param cicilanPembayaran cicilan sukses sumber data yang disalin
+	 * @return objek {@link CicilanPembayaranGagal} baru dengan field yang sama, belum tersimpan
+	 */
 	public static CicilanPembayaranGagal copyCicilanPembayaranKeGagal(CicilanPembayaran cicilanPembayaran) {
 		CicilanPembayaranGagal cicilanPembayaranGagal = new CicilanPembayaranGagal(cicilanPembayaran.getDetailBiaya());
 		cicilanPembayaranGagal.setItemBiaya(cicilanPembayaran.getItemBiaya());
@@ -1079,6 +1465,16 @@ public class CommonPaymentHelper extends Common {
 
 
 
+	/**
+	 * Kebalikan dari {@link #copyCicilanPembayaranKeGagal(CicilanPembayaran)}: membuat objek
+	 * {@link CicilanPembayaran} BARU (belum disimpan) dengan seluruh field disalin dari
+	 * {@code cicilanPembayaranGagal} — dipakai saat rekonsiliasi H2H menyimpulkan bahwa suatu
+	 * cicilan yang tadinya tercatat gagal ternyata harus dipindahkan ke status sukses. Penyimpanan
+	 * ke database adalah tanggung jawab pemanggil.
+	 *
+	 * @param cicilanPembayaranGagal cicilan gagal sumber data yang disalin
+	 * @return objek {@link CicilanPembayaran} baru dengan field yang sama, belum tersimpan
+	 */
 	public static CicilanPembayaran copyCicilanPembayaranKeSukses(CicilanPembayaranGagal cicilanPembayaranGagal) {
 		CicilanPembayaran cicilanPembayaran = new CicilanPembayaran(cicilanPembayaranGagal.getDetailBiaya());
 		cicilanPembayaran.setItemBiaya(cicilanPembayaranGagal.getItemBiaya());
@@ -1097,6 +1493,35 @@ public class CommonPaymentHelper extends Common {
 
 
 
+	/**
+	 * Membangun satu BARIS ZKoss ({@code row}, sudah dibuat oleh pemanggil, ditambahkan sebagai
+	 * anak {@code rowsCicilan} di sini) untuk menampilkan satu {@link CicilanPembayaran} pada grid
+	 * cicilan pembayaran, lengkap dengan label "Ke-N" dan area unggah/unduh bukti pembayaran.
+	 * Berbeda tampilannya tergantung apakah cicilan SUDAH punya {@link BuktiPembayaran}
+	 * ({@code cicilanPembayaran.getBuktiPembayaran()} atau atribut {@code "buktiPembayaran"} yang
+	 * sudah ada pada {@code row}, yang pertama diprioritaskan): bila BELUM ada, ditampilkan
+	 * komponen unggah aktif lewat {@link LampiranLain#createDownloadUploadFileLain} yang saat
+	 * lampiran berhasil diunggah akan mendaftarkannya ke {@code buktiPembayarans} (map berbagi milik
+	 * pemanggil, dikunci berdasarkan {@code idLampiran} sementara/permanen) dan memperbarui
+	 * {@code idLampiran} pada {@code cicilanPembayaran}; bila SUDAH ada, ditampilkan sebagai
+	 * tautan unduh saja (read-only, tidak bisa diganti dari sini). Sejumlah atribut ZKoss disimpan
+	 * pada {@code row} untuk dibaca kembali oleh kode pemanggil saat menyusun ulang data dari grid
+	 * (mis. {@code "cicilanPembayaran"}, {@code "buttonHapus"}, {@code "idLampiran"},
+	 * {@code "hboxLampiran"}).
+	 *
+	 * @param buktiPembayarans map berbagi (dimiliki pemanggil) tempat lampiran bukti pembayaran yang
+	 *                         baru diunggah didaftarkan, dikunci berdasarkan id lampiran
+	 *                         sementara/permanen
+	 * @param rowsCicilan      kontainer {@link Rows} grid ZKoss tempat {@code row} ditambahkan
+	 * @param row              baris ZKoss yang akan diisi (sudah dibuat pemanggil, belum punya
+	 *                         parent)
+	 * @param i                indeks urutan baris (dipakai untuk label "Ke-(i+1)")
+	 * @param cicilanPembayaran data cicilan yang direpresentasikan baris ini
+	 * @param buttonHapus      konfigurasi tombol hapus baris, disimpan sebagai atribut {@code row}
+	 *                         untuk dipakai kode lain (tidak dirender langsung oleh method ini)
+	 * @return {@link Hbox} kontainer area lampiran yang baru dibuat, sudah ditambahkan ke struktur
+	 *         baris
+	 */
 	public static Hbox initCicilan(final Map<Long, LampiranLain> buktiPembayarans, final Rows rowsCicilan,
 			final Row row, int i, CicilanPembayaran cicilanPembayaran, MyToolbarbuttonConfig buttonHapus) {
 		BuktiPembayaran buktiPembayaran = (BuktiPembayaran) row.getAttribute("buktiPembayaran");
@@ -1158,6 +1583,22 @@ public class CommonPaymentHelper extends Common {
 
 
 
+	/**
+	 * Menghilangkan duplikat dari {@code cicilanPembayarans} berdasarkan kunci komposit yang dipilih
+	 * tergantung jenis cicilan (dipakai sebelum menampilkan/menyimpan ulang daftar cicilan agar
+	 * tidak ada baris yang secara efektif merepresentasikan pembayaran yang sama muncul dobel):
+	 * untuk cicilan {@link PengaturanPembayaranBulanan} dengan nilai yang BOLEH DIUBAH pengguna
+	 * ({@code getNilaiBisaDiubah()}), kunci mencakup id cicilan itu sendiri (sehingga setiap baris
+	 * tetap dianggap unik walau bulan+item-nya sama, karena nilainya bisa berbeda-beda per baris);
+	 * untuk cicilan bulanan dengan nilai TETAP, kunci hanya bulan+item biaya (baris dengan
+	 * bulan+item sama dianggap duplikat, yang terakhir diproses akan menang menggantikan yang
+	 * sebelumnya di map); untuk cicilan biaya biasa (bukan bulanan), kunci mencakup item biaya +
+	 * nilai terformat + tanggal terformat.
+	 *
+	 * @param cicilanPembayarans daftar sumber yang mungkin mengandung duplikat
+	 * @return daftar baru berisi satu {@link CicilanPembayaran} per kunci unik (urutan tidak
+	 *         dijamin sama dengan input, mengikuti urutan iterasi {@link HashMap})
+	 */
 	public static List<CicilanPembayaran> filterCicilanPembayaran(List<CicilanPembayaran> cicilanPembayarans) {
 		Map<String, CicilanPembayaran> mapCicilanPembayaran = new HashMap<String, CicilanPembayaran>();
 		for (CicilanPembayaran cicilanPembayaran : cicilanPembayarans) {

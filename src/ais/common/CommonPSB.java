@@ -387,6 +387,22 @@ public class CommonPSB {
 		return noAgenda;
 	}
 
+	/**
+	 * Menghitung nomor urut (indeks) berikutnya untuk {@link FormatNis} bertipe indeks
+	 * OTOMATIS (bukan manual), dengan menghitung jumlah {@link CalonSiswa} yang sudah memiliki
+	 * {@code gelombangPendaftaranPsb} (sudah didaftarkan lewat PSB), difilter opsional per
+	 * tahun masuk (bila {@code formatNis.getResetUrutanTiapTahun()} aktif — nomor urut reset
+	 * setiap tahun) dan per tanggal reset kustom (bila {@code formatNis.getResetTiap()} sudah
+	 * lewat atau sama dengan tanggal pendaftaran calon siswa — nomor urut reset pada tanggal
+	 * tertentu). Hasil hitung ditambah 1 untuk mendapat nomor urut berikutnya.
+	 *
+	 * @param formatNis  konfigurasi format yang menentukan aturan reset nomor urut; bila
+	 *                   {@code null}, method langsung mengembalikan {@code 0L}
+	 * @param calonSiswa calon siswa yang tahun masuk & tanggal pendaftarannya dipakai sebagai
+	 *                   acuan filter
+	 * @return nomor urut berikutnya (mulai dari 1 bila belum ada data sebelumnya yang cocok
+	 *         filter)
+	 */
 	public static Long getindex(FormatNis formatNis, CalonSiswa calonSiswa) {
 		if (formatNis == null) {
 			return 0L;
@@ -414,10 +430,42 @@ public class CommonPSB {
 		return ++index;
 	}
 
+	/** Seperti {@link #onGenerateNis(CalonSiswa, NisGenerator, boolean)} dengan {@code cetak=true} (mencetak bukti PDF setelah NIS dibangkitkan). */
 	public static String onGenerateNis(CalonSiswa calonSiswa, NisGenerator nimGenerator) throws Exception {
 		return onGenerateNis(calonSiswa, nimGenerator, true);
 	}
 
+	/**
+	 * Titik masuk konversi INDIVIDUAL satu calon siswa (yang sudah dinyatakan
+	 * {@code telahDiterima}) menjadi siswa resmi dengan Nomor Induk Siswa (NIS).
+	 *
+	 * <p>
+	 * Alur kerja: (1) menolak proses dengan pesan peringatan bila calon siswa belum dinyatakan
+	 * diterima; (2) bila calon siswa SUDAH memiliki {@link Siswa} terkait (sudah pernah
+	 * dikonversi), hanya menampilkan info NIS yang sudah ada (bila {@code cetak=true}) tanpa
+	 * membuat data baru; (3) bila belum, menentukan NIS: memakai {@link FormatNis} aktif milik
+	 * sekolah calon siswa (lewat {@link #generateCode(FormatNis, CalonSiswa)}) bila ada, atau
+	 * {@code nimGenerator} sebagai fallback; (4) membersihkan tautan {@code calonsiswa} pada
+	 * baris {@code sekolah.siswa} lama (SQL native langsung) untuk mencegah duplikasi tautan;
+	 * (5) memanggil {@link #saveSiswa(Session, CalonSiswa, String, boolean)} untuk membuat/
+	 * memperbarui record {@link Siswa}; (6) bila {@code cetak=true}, menampilkan dialog info
+	 * NIS yang lalu (saat pengguna menutup dialog, via {@link EventListener}) mencetak bukti
+	 * PDF ({@code sekolah/Biodata_Nis}) dan menyalin lampiran/keanggotaan kelas — bila
+	 * pencetakan PDF gagal, penyalinan lampiran/kelas TETAP dijalankan lewat blok
+	 * {@code catch}; bila {@code cetak=false}, penyalinan lampiran/kelas dijalankan langsung
+	 * tanpa dialog/cetak.
+	 * </p>
+	 *
+	 * @param calonSiswa   calon siswa yang akan dikonversi menjadi siswa
+	 * @param nimGenerator generator NIS fallback, dipakai bila sekolah tidak memiliki
+	 *                     {@link FormatNis} aktif
+	 * @param cetak        {@code true} untuk menampilkan dialog info dan mencetak bukti PDF
+	 *                     setelah proses; {@code false} untuk proses senyap (dipakai alur batch
+	 *                     seperti {@link #uploadKelulusan})
+	 * @return NIS yang dibangkitkan/dipakai, atau string kosong bila calon siswa belum diterima
+	 *         atau sudah memiliki siswa terkait
+	 * @throws Exception diteruskan dari kegagalan operasi database atau pembangkitan laporan PDF
+	 */
 	public static String onGenerateNis(final CalonSiswa calonSiswa, NisGenerator nimGenerator, boolean cetak)
 			throws Exception {
 
@@ -530,6 +578,53 @@ public class CommonPSB {
 		}
 	}
 
+	/**
+	 * Titik masuk konversi MASSAL banyak calon siswa sekaligus menjadi siswa resmi, berdasarkan
+	 * berkas Excel ({@code .xlsx}) berisi daftar id/nomor registrasi calon siswa, NIS (opsional),
+	 * dan status diterima per baris. Seluruh proses dijalankan di THREAD TERPISAH (bukan thread
+	 * request ZK) agar antarmuka tetap responsif, dengan progres dilaporkan lewat komponen
+	 * {@link Label} yang di-polling setiap 200ms oleh {@link Timer} ZK di sisi UI.
+	 *
+	 * <p>
+	 * Format kolom Excel yang dibaca per baris (indeks kolom, 0-based): kolom 0 = id
+	 * {@link CalonSiswa} (angka; bila gagal diparsing, dicari lewat kolom 1 sebagai nomor
+	 * registrasi), kolom 1 = nomor registrasi (fallback pencarian bila kolom 0 gagal/kosong),
+	 * kolom 3 = NIS (bila kosong, dibangkitkan otomatis lewat {@code nisGenerator} yang
+	 * dikonfigurasi {@code class_untuk_generate_nis}, kecuali siswa sudah punya NIS
+	 * sebelumnya — NIS lama dipertahankan), kolom 6 = status diterima ({@code "true"}/lainnya).
+	 * </p>
+	 *
+	 * <p>
+	 * Untuk setiap baris: (1) mencari {@link CalonSiswa} berdasarkan id atau nomor registrasi;
+	 * (2) mengecek kuota gelombang pendaftaran ({@code kuotaDiterima}) — bila jumlah yang sudah
+	 * diterima pada gelombang tersebut MELEBIHI/MENYAMAI kuota, SELURUH PROSES DIHENTIKAN
+	 * (bukan hanya baris ini) dan label diset {@code "Penuh"} sehingga timer UI menampilkan
+	 * peringatan kuota penuh; (3) memperbarui status {@code telahDiterima} calon siswa; (4)
+	 * membersihkan tautan {@code calonsiswa} lama pada {@code sekolah.siswa}; (5) memanggil
+	 * {@link #saveSiswa} untuk membuat/memperbarui {@link Siswa}, lalu menyalin lampiran/
+	 * keanggotaan kelas; (6) mencatat hasil baris (sukses/gagal) ke {@code report} untuk
+	 * laporan akhir. Kegagalan pada satu baris (baik saat menyimpan status diterima maupun
+	 * kegagalan lain apa pun) DITANGKAP secara terpisah, transaksi terkait di-rollback, sesi
+	 * dibersihkan (dan dibuka ulang bila ternyata tertutup oleh {@link #masukkanKelas}/
+	 * {@link #masukkanKelasLes}), lalu proses BERLANJUT ke baris berikutnya — satu baris
+	 * bermasalah tidak menggagalkan seluruh upload.
+	 * </p>
+	 *
+	 * <p>
+	 * Setelah seluruh baris diproses, laporan ringkasan disimpan ke berkas lewat
+	 * {@link ais.common.UploadReportHelper#simpanLaporan()} dan path-nya diteruskan ke UI untuk
+	 * diunduh pengguna ({@code Filedownload.save}) bersamaan dengan dialog pemberitahuan hasil
+	 * akhir (jumlah sukses/gagal via {@code report.getRingkasan()}).
+	 * </p>
+	 *
+	 * @param file          berkas Excel {@code .xlsx} berisi daftar calon siswa yang akan
+	 *                      dikonversi
+	 * @param eventListener listener yang dipanggil setelah dialog hasil akhir (sukses maupun
+	 *                      kuota penuh) ditutup pengguna
+	 * @throws Exception diteruskan dari kegagalan inisialisasi awal (mis. pembuatan komponen
+	 *                    {@link Timer}); kegagalan per-baris di dalam thread pemrosesan
+	 *                    ditangani secara internal dan tidak dilempar ke pemanggil method ini
+	 */
 	public static void uploadKelulusan(final File file, final EventListener eventListener) throws Exception {
 
 		final Label peringatan = new Label("");
@@ -806,6 +901,17 @@ public class CommonPSB {
 
 	}
 
+	/**
+	 * Menyalin foto calon siswa ({@link FotoCalonSiswa}) menjadi foto siswa resmi
+	 * ({@link FotoSiswa}) setelah konversi ke {@link Siswa} berhasil, memakai sesi streaming
+	 * khusus ({@link StreamingHibernateUtil}) yang cocok untuk data biner besar (foto). Bila
+	 * siswa tujuan sudah memiliki foto sebelumnya (mis. dari proses konversi ulang), foto lama
+	 * DIHAPUS lebih dulu sebelum foto baru disimpan (bukan ditambahkan sebagai foto ke sekian).
+	 * Tidak melakukan apa pun bila calon siswa tidak memiliki foto tersimpan.
+	 *
+	 * @param calonSiswa calon siswa sumber foto
+	 * @param siswa      siswa tujuan yang akan menerima salinan foto
+	 */
 	public static void copyLampiran(CalonSiswa calonSiswa, Siswa siswa) {
 
 		try {
@@ -843,6 +949,17 @@ public class CommonPSB {
 
 	}
 
+	/**
+	 * Menyalin keanggotaan kelas les ({@link KelasLesSiswa}) yang sudah dipilih calon siswa
+	 * (lewat {@link CalonSiswa#ambilKelasLesSiswa()}) menjadi record keanggotaan
+	 * {@link KelasLesSiswaPunyaSiswa} untuk siswa hasil konversi, satu record per kelas les,
+	 * hanya bila belum ada record keanggotaan yang sama (dicek lewat hitung baris agar tidak
+	 * terjadi duplikasi saat method dipanggil berulang, mis. pada retry setelah kegagalan
+	 * sebagian). Sesi thread-local ditutup di akhir method (baik sukses maupun gagal).
+	 *
+	 * @param calonSiswa calon siswa sumber daftar kelas les
+	 * @param siswa      siswa tujuan yang akan didaftarkan ke kelas les yang sama
+	 */
 	public static void masukkanKelasLes(CalonSiswa calonSiswa, Siswa siswa) {
 		Session session = HibernateUtil.currentNativeSession();
 		try {
@@ -874,6 +991,15 @@ public class CommonPSB {
 		HibernateUtil.closeSession();
 	}
 
+	/**
+	 * Seperti {@link #masukkanKelasLes(CalonSiswa, Siswa)}, namun untuk keanggotaan kelas
+	 * reguler ({@code calonSiswa.getKelasSiswa()} → record {@link KelasSiswaPunyaSiswa}).
+	 * Tidak melakukan apa pun bila calon siswa tidak memiliki kelas siswa yang dipilih. Sesi
+	 * thread-local ditutup di akhir method.
+	 *
+	 * @param calonSiswa calon siswa sumber data kelas
+	 * @param siswa      siswa tujuan yang akan didaftarkan ke kelas yang sama
+	 */
 	public static void masukkanKelas(CalonSiswa calonSiswa, Siswa siswa) {
 		if (calonSiswa.getKelasSiswa() != null) {
 			Session session = HibernateUtil.currentNativeSession();
@@ -903,6 +1029,61 @@ public class CommonPSB {
 		}
 	}
 
+	/**
+	 * Implementasi INTI pembuatan atau pembaruan record {@link Siswa} dari data
+	 * {@link CalonSiswa} yang sudah dinyatakan diterima, dipakai bersama oleh
+	 * {@link #onGenerateNis} dan alur upload massal {@link #uploadKelulusan}.
+	 *
+	 * <p>
+	 * Tidak melakukan apa pun (mengembalikan {@code null}) bila {@code calonSiswa} belum
+	 * dinyatakan {@code telahDiterima}. Bila diterima, alur kerjanya:
+	 * </p>
+	 * <ol>
+	 * <li>Memuat ulang {@code calonSiswa} dalam sesi AKTIF bila objek yang diberikan detached
+	 * ({@code !session.contains(calonSiswa)}) — penting agar relasi lazy-load (mis.
+	 * {@code gelombangPendaftaranPsb.sekolah}) tidak melempar {@code LazyInitializationException}
+	 * yang bisa tertelan diam-diam saat penyalinan properti di bawah, yang akhirnya membuat
+	 * {@code siswa.sekolah} tetap {@code null} dan siswa tersaring dari pencarian yang mensyaratkan
+	 * sekolah tidak kosong.</li>
+	 * <li>Mencari {@link Siswa} yang sudah ada terkait {@code calonSiswa} lewat asosiasi
+	 * langsung, atau bila tidak ada, mencari berdasarkan kecocokan nama+tanggal lahir+tahun
+	 * masuk+sekolah (menangani kasus data siswa sudah ada dari jalur lain sebelum konversi
+	 * PSB); bila tetap tidak ditemukan, membuat {@link Siswa} BARU dengan kata sandi awal =
+	 * NIS terenkripsi (lihat catatan keamanan pada javadoc kelas).</li>
+	 * <li>Bila {@link Siswa} sudah ada dan {@code nim} yang diberikan kosong, NIS LAMA
+	 * dipertahankan (tidak ditimpa kosong); bila {@code nim} diberikan, NIS lama akan diganti.</li>
+	 * <li>Menyalin SELURUH properti yang namanya sama persis di kedua entitas (irisan nama
+	 * properti {@link CalonSiswa} dan {@link Siswa}) lewat metadata Hibernate
+	 * ({@link ClassMetadata}) — properti PSB spesifik yang tidak ada padanannya di
+	 * {@link Siswa} (mis. alamat sekolah asal) dilewati secara proaktif (bukan dianggap error)
+	 * karena memang tidak relevan lagi setelah diterima.</li>
+	 * <li>Menetapkan NIS final, dan sebagai jaring pengaman memastikan {@code sekolah}/
+	 * {@code yayasan} pada siswa tidak kosong bila tersedia pada calon siswa (mengantisipasi
+	 * properti yang gagal tersalin di langkah sebelumnya).</li>
+	 * <li>Membersihkan tautan {@code calonsiswa} pada baris {@code sekolah.siswa} LAIN yang
+	 * mungkin masih merujuk ke {@code calonSiswa} ini (SQL native, DALAM transaksi yang sama
+	 * agar atomik, mencegah pelanggaran constraint unik {@code siswa_calonsiswa_key|});
+	 * {@code session.clear()} SELALU dijalankan setelahnya (di luar try-catch pembersihan)
+	 * agar cache level-1 Hibernate tidak menulis-balik nilai lama meskipun SQL pembersihan
+	 * gagal.</li>
+	 * <li>Menyimpan {@link Siswa} lewat {@link Common#refreshSaveOrUpdate(Session, Object)},
+	 * menautkan {@code calonSiswa.setSiswa(siswa)} secara in-memory, DAN secara terpisah
+	 * meng-update kolom {@code siswa_id} pada {@code sekolah.calon_siswa} lewat SQL native
+	 * (karena {@code calonSiswa} yang detached dari sesi ini tidak otomatis ter-flush oleh
+	 * setter in-memory saja).</li>
+	 * </ol>
+	 *
+	 * @param session     sesi Hibernate aktif tempat operasi dijalankan
+	 * @param calonSiswa  calon siswa sumber data, sudah harus {@code telahDiterima}
+	 * @param nim         NIS yang akan dipakai; boleh kosong bila siswa sudah ada dan NIS lama
+	 *                    hendak dipertahankan
+	 * @param commitMaual {@code true} agar method ini SENDIRI membuka dan meng-commit
+	 *                    transaksi ({@code session.getTransaction().begin()/commit()});
+	 *                    {@code false} bila pemanggil sudah mengelola transaksi di luar method
+	 *                    ini (mis. transaksi sudah dibuka sebelum memanggil method ini)
+	 * @return record {@link Siswa} yang berhasil dibuat/diperbarui, atau {@code null} bila
+	 *         {@code calonSiswa} belum dinyatakan diterima
+	 */
 	public static Siswa saveSiswa(Session session, CalonSiswa calonSiswa, String nim, boolean commitMaual) {
 
 		if (calonSiswa.getTelahDiterima()) {

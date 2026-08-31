@@ -2,6 +2,12 @@ package ais.database.dao;
 
 import ais.database.model.PertemuanPunyaDiskusi;
 
+/**
+ * Kontrak DAO untuk entitas {@link ais.database.model.PertemuanPunyaDiskusi} (data relasi
+ * pertemuan dengan diskusinya). Pasangan Dao/DaoImpl ini murni memakai perilaku generik
+ * {@link ais.database.dao.GenericDao} tanpa method tambahan -- lihat javadoc di sana untuk
+ * semantik lengkap tiap operasi CRUD yang tersedia.
+ */
 public interface PertemuanPunyaDiskusiDao extends GenericDao<PertemuanPunyaDiskusi, Long>{
 
 }

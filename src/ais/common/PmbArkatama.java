@@ -1197,6 +1197,34 @@ public class PmbArkatama {
 		}
 	}
 
+	/**
+	 * Titik masuk orkestrasi sinkronisasi seluruh data referensi dari Arkatama ke AIS. Memeriksa
+	 * gerbang konfigurasi {@code integrasi_pmb_arkatama} (default {@link Konfigurasi#TIDAK_AKTIF})
+	 * terlebih dahulu — bila tidak aktif, menampilkan pemberitahuan dan menghentikan proses tanpa
+	 * melakukan apa pun.
+	 *
+	 * <p>
+	 * Bila aktif, dijalankan sebuah {@link Thread} terpisah yang: (1) memanggil {@link #login()};
+	 * (2) bila {@link #token} berhasil terisi, menjalankan seluruh method {@code syn*} secara
+	 * BERURUTAN — {@link #synAgama}, {@link #synProdi}, {@link #synJalurMasuk},
+	 * {@link #synJenisSekolah}, {@link #synJurusanSekolah} (bergantung pada
+	 * {@link #synJenisSekolah} sudah dijalankan lebih dulu karena memakai daftar jenis sekolah
+	 * aktif), {@link #synPekerjaanOrangTua}, {@link #synPropinsi}, {@link #synKotakab}
+	 * (bergantung pada {@link #synPropinsi}), {@link #synKecamatan} (bergantung pada
+	 * {@link #synKotakab}) — urutan ini PENTING karena beberapa sinkronisasi bergantung pada data
+	 * yang sudah disinkronkan oleh method sebelumnya; (3) bila login gagal ({@link #token} tetap
+	 * kosong), {@code label} diisi penanda {@code "Error"}.
+	 * </p>
+	 *
+	 * <p>
+	 * Progres dipantau lewat {@link Timer} ZK (interval 500ms) yang membaca nilai {@code label}:
+	 * begitu kembali kosong (proses selesai normal), ditampilkan pemberitahuan sukses; bila
+	 * bernilai {@code "Error"} (login gagal), ditampilkan pesan kegagalan terstruktur lewat
+	 * {@link PesanFormalHelper#tampilkanGagal} beserta saran tindak lanjut (periksa
+	 * kredensial/konfigurasi, periksa akses jaringan, ulangi beberapa saat lagi) — pada kedua
+	 * kasus, timer melepas dirinya sendiri ({@code timer.detach()}) setelah menampilkan hasil.
+	 * </p>
+	 */
 	public static void synRef() {
 
 		if (!Common.bolehKonfigurasi("integrasi_pmb_arkatama", Konfigurasi.TIDAK_AKTIF)) {

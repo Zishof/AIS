@@ -638,6 +638,34 @@ public class CommonPayroll {
 		return statuskehadiranKaryawanHarians;
 	}
 
+	/**
+	 * Varian batch untuk laporan rekap SATU TAHUN PENUH milik SATU {@code pegawai} (kunci peta:
+	 * {@code "<tanggal format dateFormat83>"}). Sama seperti overload bulanan
+	 * ({@link #getDefaultStatuskehadiranKaryawanHarian(List, Integer, Integer, Pegawai, Session,
+	 * boolean)}), baris dimuat berdasarkan RENTANG TANGGAL (1 Januari 00:00:00.000 s.d. 31
+	 * Desember 23:59:59.999 tahun tersebut) sebagai superset aman terhadap kolom denormalisasi
+	 * {@code tahun} yang mungkin kosong, dan rantai {@code back}/{@code next} antar hari dibangun
+	 * berurutan.
+	 *
+	 * <p>
+	 * <b>Catatan (didokumentasikan apa adanya, bukan diubah)</b> — loop pembentukan hari pada
+	 * method ini beriterasi {@code i = 1} hingga {@code 356} ({@code for (int i = 1; i <= 356;
+	 * i++)}), BUKAN 365/366 hari sebagaimana jumlah hari sesungguhnya dalam setahun. Akibatnya,
+	 * sekitar 9–10 hari terakhir tahun (menjelang akhir Desember) TIDAK ikut terbentuk dalam peta
+	 * hasil method ini — kemungkinan besar ini adalah cacat (bug) pada batas iterasi, bukan
+	 * perilaku yang disengaja, namun dicatat di sini sebagai observasi atas kode yang ada tanpa
+	 * mengubahnya, sesuai cakupan pekerjaan dokumentasi ini.
+	 * </p>
+	 *
+	 * @param cutiDanIzins daftar cuti/izin milik {@code pegawai} yang relevan pada tahun tersebut
+	 * @param tahun   tahun yang direkap
+	 * @param pegawai pegawai yang datanya direkap
+	 * @param session sesi Hibernate aktif tempat query dijalankan
+	 * @param baru    diteruskan ke {@link #chekCuti}; lihat javadoc kelas untuk penjelasan umum
+	 *                parameter ini
+	 * @return peta baris kehadiran harian berkunci {@code "<tanggal>"} untuk (sebagian besar) hari
+	 *         kalender pada tahun tersebut — lihat catatan batas iterasi 356 hari di atas
+	 */
 	@SuppressWarnings("unchecked")
 	public static Map<String, StatuskehadiranKaryawanHarian> getDefaultStatuskehadiranKaryawanHarian(
 			List<CutiDanIzin> cutiDanIzins, Integer tahun, Pegawai pegawai, Session session, boolean baru) {
@@ -766,6 +794,37 @@ public class CommonPayroll {
 		return statuskehadiranKaryawanHarians;
 	}
 
+	/**
+	 * Menentukan apakah {@code tanggal} termasuk dalam salah satu rentang cuti/izin di
+	 * {@code cutiDanIzins}, lalu menetapkannya ke {@code statuskehadiranKaryawanHarian} lewat
+	 * {@link StatuskehadiranKaryawanHarian#setCutiDanIzin}. Sebuah tanggal dianggap "sedang
+	 * cuti/izin" bila berada strict di antara {@link CutiDanIzin#getMulai()} dan
+	 * {@link CutiDanIzin#getSampai()}, ATAU sama persis dengan salah satu batas tersebut
+	 * (dibandingkan lewat format tanggal {@code Common.dateFormat83}, sehingga komponen jam/menit
+	 * diabaikan) — KECUALI tanggal tersebut termasuk dalam daftar pengecualian eksplisit
+	 * {@link CutiDanIzin#getKecualiTanggals()} (string JSON array tanggal berformat
+	 * {@code Common.dateFormat4}, mis. dipakai untuk mengecualikan tanggal tertentu dari cuti
+	 * berulang/mingguan). Kegagalan mem-parsing {@code kecualiTanggals} (JSON/tanggal rusak)
+	 * ditangkap dan diabaikan secara aman (dianggap tidak ada pengecualian) agar tidak
+	 * menghentikan proses absensi keseluruhan. Bila lebih dari satu cuti cocok, cuti PERTAMA yang
+	 * ditemukan pada {@code cutiDanIzins} yang dipakai (pencarian berhenti begitu kecocokan valid
+	 * pertama ditemukan).
+	 *
+	 * @param cutiDanIzins                    daftar cuti/izin kandidat (idealnya sudah difilter
+	 *                                         milik {@code pegawai} yang sama oleh pemanggil)
+	 * @param session                         tidak dipakai langsung oleh isi method ini saat ini
+	 *                                         (dideklarasikan untuk konsistensi tanda tangan
+	 *                                         dengan pemanggil)
+	 * @param tanggal                         tanggal yang diperiksa
+	 * @param pegawai                         tidak dipakai langsung oleh isi method ini saat ini
+	 *                                         (dideklarasikan untuk konsistensi tanda tangan
+	 *                                         dengan pemanggil)
+	 * @param statuskehadiranKaryawanHarian    baris kehadiran harian yang akan diisi/ditimpa
+	 *                                         {@code cutiDanIzin}-nya di tempat
+	 * @param baru                             tidak dipakai langsung oleh isi method ini saat ini
+	 *                                         (dideklarasikan untuk konsistensi tanda tangan
+	 *                                         dengan pemanggil)
+	 */
 	public static void chekCuti(List<CutiDanIzin> cutiDanIzins, Session session, Date tanggal, Pegawai pegawai,
 			StatuskehadiranKaryawanHarian statuskehadiranKaryawanHarian, boolean baru) {
 		CutiDanIzin cutiDanIzin = null;
@@ -815,6 +874,56 @@ public class CommonPayroll {
 
 	}
 
+	/**
+	 * Menyebarkan satu baris {@link StatuskehadiranKaryawanHarian} yang sudah memiliki status
+	 * kehadiran ({@code getStatusabsensi() != null}) ke seluruh modul terkait yang harus tetap
+	 * konsisten dengannya. Ini adalah method paling kompleks di kelas ini karena mencakup empat
+	 * efek samping berurutan, masing-masing dibungkus penanganan galat agar kegagalan satu bagian
+	 * tidak menggagalkan bagian lain:
+	 *
+	 * <ol>
+	 * <li><b>Sinkron ke jadwal {@link Pertemuan}</b> — memanggil {@link #simpanAbsenPertemuan}
+	 * dengan {@code session} yang sama bila {@code baru=true}, atau dengan {@link Session} native
+	 * baru (dibuka dan ditutup sendiri) bila {@code baru=false}. Kegagalan tahap ini ditangkap dan
+	 * hanya dicatat ke {@link ErrorAuditUtil}, tidak menghentikan tahap berikutnya.</li>
+	 * <li><b>Notifikasi ucapan selamat kehadiran (khusus pegawai murni, bukan guru/siswa)</b> —
+	 * bila subjek adalah {@code pegawai} tanpa {@code guru}/{@code siswa} terkait DAN status
+	 * kehadirannya berkode {@code "M"} (Masuk), sebuah THREAD BARU (bukan lewat pool milik
+	 * {@link MailSender}) dijalankan untuk mengumpulkan username {@link Tbmuser} aktif milik
+	 * pegawai tersebut, menyusun pesan ucapan selamat berisi sapaan waktu (Pagi/Siang/Sore/Malam,
+	 * dihitung dari jam sistem saat notifikasi benar-benar dikirim, BUKAN saat kehadiran dicatat),
+	 * lalu mengirimkannya lewat {@link MailSender#simpanNotif}.</li>
+	 * <li><b>Sinkron ke piket guru</b> — bila subjek terkait {@link Guru}, memperbarui/membuat
+	 * baris {@link AbsenGuruPiket} untuk jam-ke ({@link AbsenGuruPiket#jamKe}), tahun ajaran, dan
+	 * semester yang berlaku pada tanggal tersebut (diselesaikan lewat {@link
+	 * RencanaTahunAkademikAction#getCurrentRencanaTahunAkademik}, jatuh ke semester berjalan
+	 * sistem bila tidak ditemukan rencana tahun akademik spesifik), dengan pesan keterangan yang
+	 * sama-sama diperkaya sapaan waktu khusus untuk status "Masuk".</li>
+	 * <li><b>Sinkron ke piket siswa</b> — bila subjek terkait {@link Siswa} dan memiliki
+	 * {@link KelasSiswa}, memperbarui/membuat baris {@link AbsenPiket} beserta
+	 * {@link AbsenPiketDetail}-nya dan memperbarui status kehadiran pada {@link KelasSiswa} itu
+	 * sendiri (lewat {@link Common#refreshUpdate}), dengan pola tahun ajaran/semester dan pesan
+	 * ucapan selamat yang serupa dengan jalur guru.</li>
+	 * </ol>
+	 *
+	 * <p>
+	 * Seluruh isi method dibungkus satu blok {@code try}/{@code catch} terluar — kegagalan tak
+	 * tertangani di manapun dalam keempat tahap di atas (di luar penanganan lokal masing-masing
+	 * tahap) berujung dicatat ke {@link ErrorAuditUtil} tanpa dilempar ke pemanggil, sehingga
+	 * method ini pada dasarnya TIDAK PERNAH melempar exception ke luar.
+	 * </p>
+	 *
+	 * @param session                         sesi Hibernate aktif (dipakai langsung bila
+	 *                                         {@code baru=true}; bila {@code baru=false}, sesi
+	 *                                         native baru dibuka sendiri untuk setiap sub-operasi
+	 *                                         penyimpanan dan sesi ini tidak dipakai untuk menulis)
+	 * @param statuskehadiranKaryawanHarian    baris kehadiran harian sumber; tidak melakukan apa
+	 *                                         pun bila {@code null} atau status kehadirannya belum
+	 *                                         terisi
+	 * @param baru                             menentukan pengelola transaksi/sesi pada setiap
+	 *                                         sub-operasi penyimpanan; lihat javadoc kelas untuk
+	 *                                         penjelasan umum parameter ini
+	 */
 	public static void simpanDetail(Session session, final StatuskehadiranKaryawanHarian statuskehadiranKaryawanHarian,
 			boolean baru) {
 
@@ -1153,6 +1262,24 @@ public class CommonPayroll {
 		}
 	}
 
+	/**
+	 * Menghitung hari-ke berapa dalam siklus shift ROTASI ({@code jenisShiftPegawai}) yang berlaku
+	 * pada {@code tanggal} tertentu, lalu mengembalikan seluruh baris {@link
+	 * DetailJenisShiftPegawai} untuk hari-ke tersebut (terurut lewat kolom {@code ke}). Perhitungan
+	 * dilakukan dengan mengambil selisih hari (dalam hari penuh, hasil pembagian bulat
+	 * {@link TimeUnit#DAYS}) antara {@code tanggal} dan tanggal {@link
+	 * JenisShiftPegawai#getBerlakuMulai()} (dikurangi satu hari, dijangkarkan ke jam 01:01:01),
+	 * lalu mengambil sisa bagi ({@code modulo}) terhadap {@link
+	 * JenisShiftPegawai#getJumlahHari()} — jumlah hari dalam satu siklus rotasi shift — sehingga
+	 * pola shift berulang secara periodik sejak tanggal mulai berlakunya.
+	 *
+	 * @param session          sesi Hibernate aktif tempat query dijalankan
+	 * @param tanggal          tanggal yang dicari posisi hari rotasinya
+	 * @param jenisShiftPegawai definisi shift rotasi (tanggal mulai berlaku dan jumlah hari
+	 *                          siklusnya)
+	 * @return daftar {@link DetailJenisShiftPegawai} untuk hari-ke hasil perhitungan rotasi,
+	 *         terurut menaik berdasarkan kolom {@code ke}
+	 */
 	@SuppressWarnings("unchecked")
 	public static List<DetailJenisShiftPegawai> shiftRotasiHari(Session session, Date tanggal,
 			JenisShiftPegawai jenisShiftPegawai) {
@@ -1183,18 +1310,114 @@ public class CommonPayroll {
 				DetailJenisShiftPegawai.class);
 	}
 
+	/**
+	 * Passthrough tipis ke {@link DetailJenisShiftPegawaiHelper#getDetailJenisShiftPegawai(Pegawai,
+	 * Mahasiswa, Siswa, Date, Date, String, boolean)}: menyelesaikan detail shift kerja (non-rotasi)
+	 * yang berlaku untuk subjek ({@code pegawai}/{@code mahasiswa}/{@code siswa}) pada
+	 * {@code tanggal} tertentu, mempertimbangkan hari ({@code hari}) dan status hari libur nasional
+	 * ({@code liburNasional}). Logika resolusi sesungguhnya didelegasikan sepenuhnya ke helper
+	 * tersebut — lihat javadocnya untuk rincian aturan pemilihan shift.
+	 *
+	 * @param pegawai        subjek pegawai, boleh {@code null} bila subjek adalah mahasiswa/siswa
+	 * @param mahasiswa      subjek mahasiswa, boleh {@code null} bila subjek adalah pegawai/siswa
+	 * @param siswa          subjek siswa, boleh {@code null} bila subjek adalah pegawai/mahasiswa
+	 * @param mulai          tanggal mulai berlaku shift yang dipertimbangkan
+	 * @param tanggal        tanggal yang dicari detail shift-nya
+	 * @param hari           nama/kode hari yang relevan untuk pencocokan shift
+	 * @param liburNasional  {@code true} bila {@code tanggal} adalah hari libur nasional
+	 * @return detail shift kerja yang berlaku, atau {@code null} sesuai kontrak helper bila tidak
+	 *         ditemukan
+	 */
 	public static DetailJenisShiftPegawai getDetailJenisShiftPegawai(Pegawai pegawai, Mahasiswa mahasiswa, Siswa siswa,
 			Date mulai, Date tanggal, String hari, boolean liburNasional) {
 		return DetailJenisShiftPegawaiHelper.getDetailJenisShiftPegawai(pegawai, mahasiswa, siswa, mulai, tanggal, hari,
 				liburNasional);
 	}
 
+	/**
+	 * Passthrough tipis ke {@link DetailJenisShiftPegawaiHelper#shiftDetail(Session, Date, Date,
+	 * String, boolean, List, JenisShiftPegawai)}: menyelesaikan detail shift kerja untuk
+	 * {@code jenisShiftPegawai} tertentu dari kandidat {@code ids}, pada {@code tanggal} dan
+	 * {@code hari} yang diberikan. Logika resolusi sesungguhnya didelegasikan sepenuhnya ke helper
+	 * tersebut.
+	 *
+	 * @param session          sesi Hibernate aktif
+	 * @param tanggal          tanggal yang dicari detail shift-nya
+	 * @param mulai            tanggal mulai berlaku shift yang dipertimbangkan
+	 * @param hari             nama/kode hari yang relevan untuk pencocokan shift
+	 * @param liburNasional    {@code true} bila {@code tanggal} adalah hari libur nasional
+	 * @param ids              daftar id kandidat {@link DetailJenisShiftPegawai} yang dipertimbangkan
+	 * @param jenisShiftPegawai jenis shift yang menaungi kandidat {@code ids}
+	 * @return detail shift kerja yang berlaku, atau {@code null} sesuai kontrak helper bila tidak
+	 *         ditemukan
+	 */
 	public static DetailJenisShiftPegawai shiftDetail(Session session, Date tanggal, Date mulai, String hari,
 			boolean liburNasional, List<Long> ids, JenisShiftPegawai jenisShiftPegawai) {
 		return DetailJenisShiftPegawaiHelper.shiftDetail(session, tanggal, mulai, hari, liburNasional, ids,
 				jenisShiftPegawai);
 	}
 
+	/**
+	 * Mencatat kehadiran (status {@link ConstantValues#MASUK}) pada jadwal {@link Pertemuan}
+	 * (perkuliahan/pelajaran) yang SEDANG BERLANGSUNG saat method ini dipanggil, untuk subjek mana
+	 * pun yang diberikan (dosen, guru, mahasiswa, dan/atau siswa — beberapa dapat diisi sekaligus
+	 * dalam satu pemanggilan, masing-masing diproses independen). Dipakai sebagai jembatan antara
+	 * pencatatan kehadiran umum (mis. hasil scan sidik jari) dan pencatatan kehadiran PER SESI
+	 * kelas/kuliah yang lebih terperinci.
+	 *
+	 * <h4>Jendela toleransi waktu</h4>
+	 * <p>
+	 * "Sedang berlangsung" ditentukan lewat jendela waktu di sekitar waktu sistem saat ini:
+	 * {@link Pertemuan#getWaktuMulai()} harus berada di antara (waktu sekarang −
+	 * {@code toleransi_jam_masuk_perkuliahan_dalam_menit_sebelum}, default 60 menit) dan (waktu
+	 * sekarang + {@code toleransi_jam_masuk_perkuliahan_dalam_menit_setelah}, default 60 menit),
+	 * keduanya dibaca dari konfigurasi. Ini memungkinkan pencatatan kehadiran tetap valid meski
+	 * absen dilakukan agak lebih awal/terlambat dari jadwal resmi pertemuan.</p>
+	 *
+	 * <h4>Empat jalur pencocokan independen, masing-masing digerbangi flag konstanta</h4>
+	 * <ul>
+	 * <li><b>Dosen</b> (aktif hanya bila {@link ConstantValues#ABSEN_DOSEN_TERINTEGRASI_DENGAN_FINGER_PRINT})
+	 * — mencocokkan {@code dosen} terhadap sepuluh slot pengajar {@link Perkuliahan} ({@code dosen1}
+	 * s.d. {@code dosen10}, mengakomodasi tim-teaching hingga 10 dosen).</li>
+	 * <li><b>Guru</b> (aktif hanya bila {@link ConstantValues#ABSEN_GURU_TERINTEGRASI_DENGAN_FINGER_PRINT})
+	 * — mencocokkan {@code guru} terhadap dua belas slot pengajar jadwal pelajaran ({@code guru}
+	 * s.d. {@code guru12}).</li>
+	 * <li><b>Mahasiswa</b> (aktif hanya bila {@link ConstantValues#ABSEN_MAHASISWA_TERINTEGRASI_DENGAN_FINGER_PRINT})
+	 * — mencocokkan pertemuan yang perkuliahannya terdaftar pada {@code detailperkuliahan} milik
+	 * {@code mahasiswa} (lewat SQL native {@code sqlRestriction}, bukan kriteria Hibernate murni).</li>
+	 * <li><b>Siswa</b> (aktif hanya bila {@link ConstantValues#ABSEN_SISWA_TERINTEGRASI_DENGAN_FINGER_PRINT})
+	 * — mencocokkan jadwal pelajaran yang kelasnya (reguler lewat {@code kelas_punya_siswa} atau
+	 * kelas les lewat {@code kelas_les_punya_siswa}) diikuti aktif oleh {@code siswa} (juga lewat
+	 * SQL native).</li>
+	 * </ul>
+	 * <p>
+	 * Untuk setiap pertemuan yang cocok dan {@link Pertemuan#getAktif()} bertanda {@code true},
+	 * status diisi {@link ConstantValues#MASUK}, keterangan {@code s} disisipkan, jam masuk diisi
+	 * waktu sistem saat ini, jam selesai dipertahankan dari jadwal semula, lalu disimpan dalam
+	 * transaksi tersendiri per pertemuan lewat {@link Common#refreshUpdate(Session, Object)}.
+	 * {@link Pertemuan} TERAKHIR yang berhasil diproses (dari jalur mana pun, dosen/guru/
+	 * mahasiswa/siswa — bila beberapa jalur aktif dan sama-sama menemukan kecocokan, hasil dari
+	 * jalur yang diproses PALING AKHIR yang menang) dikembalikan sebagai hasil method.
+	 * </p>
+	 *
+	 * @param session   sesi Hibernate aktif tempat seluruh query dan penyimpanan dijalankan
+	 * @param pegawai   HANYA dipakai untuk baris log diagnostik ({@code System.out.println}) pada
+	 *                  jalur dosen/guru, tidak memengaruhi logika pencocokan pertemuan itu sendiri
+	 * @param dosen     subjek dosen yang dicocokkan terhadap jadwal perkuliahan; boleh {@code null}
+	 *                  untuk melewati jalur dosen
+	 * @param guru      subjek guru yang dicocokkan terhadap jadwal pelajaran; boleh {@code null}
+	 *                  untuk melewati jalur guru
+	 * @param mahasiswa subjek mahasiswa yang dicocokkan terhadap detail perkuliahannya; boleh
+	 *                  {@code null} untuk melewati jalur mahasiswa
+	 * @param siswa     subjek siswa yang dicocokkan terhadap kelas/kelas les yang diikutinya; boleh
+	 *                  {@code null} untuk melewati jalur siswa
+	 * @param s         teks keterangan yang disisipkan ke setiap {@link Pertemuan} yang berhasil
+	 *                  dicatat kehadirannya (digabung di depan keterangan yang sudah ada, dipisah
+	 *                  {@code ";"} bila keterangan sebelumnya tidak kosong)
+	 * @return {@link Pertemuan} terakhir yang berhasil dicatat kehadirannya dari jalur mana pun
+	 *         yang aktif dan cocok, atau {@code null} bila tidak ada satu pun pertemuan yang cocok
+	 *         pada jendela waktu saat ini
+	 */
 	@SuppressWarnings("unchecked")
 	public static Pertemuan simpanAbsenPertemuan(Session session, Pegawai pegawai, Dosen dosen, Guru guru,
 			Mahasiswa mahasiswa, Siswa siswa, String s) {

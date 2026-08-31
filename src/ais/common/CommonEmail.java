@@ -1427,26 +1427,59 @@ public class CommonEmail {
 		}
 	}
 
+	/**
+	 * Mengirim notifikasi pembayaran (email + WA sesuai gerbang konfigurasi) untuk transaksi lewat
+	 * gateway <b>Finpay</b>, didelegasikan ke {@link #sendPaymentNotification}. Nama kegiatan pada
+	 * subjek/body diambil dari {@code finpayRequest.getJenisKegiatan()}, atau label default
+	 * {@code "Kegiatan Akademik (Mitra Finpay)"} bila tidak tersedia.
+	 *
+	 * @param finpayRequest request pembayaran Finpay yang sudah berhasil/terverifikasi
+	 * @param file          lampiran kuitansi/bukti pembayaran
+	 * @throws Exception diteruskan dari kegagalan pengiriman email/WA
+	 */
 	public static void infoBayarViaFinpay(final FinpayRequest finpayRequest, final File file) throws Exception {
-		sendPaymentNotification(finpayRequest, finpayRequest.getBiodataCalonMahasiswa(), finpayRequest.getMahasiswa(), 
+		sendPaymentNotification(finpayRequest, finpayRequest.getBiodataCalonMahasiswa(), finpayRequest.getMahasiswa(),
 				finpayRequest.getJenisKegiatan() != null ? finpayRequest.getJenisKegiatan().getNamaKegiatan() : "Kegiatan Akademik (Mitra Finpay)", file);
 	}
 
+	/** Seperti {@link #infoBayarViaFinpay}, untuk gateway <b>Bank BNI</b>; label default {@code "Kegiatan Akademik (Bank BNI)"}. */
 	public static void infoBayarViaBni(final BniRequest bniRequest, final File file) throws Exception {
-		sendPaymentNotification(bniRequest, bniRequest.getBiodataCalonMahasiswa(), bniRequest.getMahasiswa(), 
+		sendPaymentNotification(bniRequest, bniRequest.getBiodataCalonMahasiswa(), bniRequest.getMahasiswa(),
 				bniRequest.getJenisKegiatan() != null ? bniRequest.getJenisKegiatan().getNamaKegiatan() : "Kegiatan Akademik (Bank BNI)", file);
 	}
 
+	/** Seperti {@link #infoBayarViaFinpay}, untuk gateway <b>Bank BSI</b> (lihat juga {@link BsiKeranjangPembayaran}); label default {@code "Kegiatan Akademik (Bank BSI)"}. */
 	public static void infoBayarViaBsi(final BsiRequest bsiRequest, final File file) throws Exception {
-		sendPaymentNotification(bsiRequest, bsiRequest.getBiodataCalonMahasiswa(), bsiRequest.getMahasiswa(), 
+		sendPaymentNotification(bsiRequest, bsiRequest.getBiodataCalonMahasiswa(), bsiRequest.getMahasiswa(),
 				bsiRequest.getJenisKegiatan() != null ? bsiRequest.getJenisKegiatan().getNamaKegiatan() : "Kegiatan Akademik (Bank BSI)", file);
 	}
 
+	/** Seperti {@link #infoBayarViaFinpay}, untuk gateway <b>Bank BRI</b>; label default {@code "Kegiatan Akademik (Bank BRI)"}. */
 	public static void infoBayarViaBri(final BriRequest briRequest, final File file) throws Exception {
-		sendPaymentNotification(briRequest, briRequest.getBiodataCalonMahasiswa(), briRequest.getMahasiswa(), 
+		sendPaymentNotification(briRequest, briRequest.getBiodataCalonMahasiswa(), briRequest.getMahasiswa(),
 				briRequest.getJenisKegiatan() != null ? briRequest.getJenisKegiatan().getNamaKegiatan() : "Kegiatan Akademik (Bank BRI)", file);
 	}
 
+	/**
+	 * Implementasi kanonik bersama untuk keempat method {@code infoBayarViaXxx}
+	 * (Finpay/BNI/BSI/BRI): mengumpulkan penerima dari {@code biodataCalonMahasiswa}/
+	 * {@code mahasiswa}, menyusun subjek/body pembayaran generik "Notifikasi Kemitraan Bank"
+	 * (menyebut {@code jenisKegiatanNama} dan skema Host-to-Host/H2H), mengirim email lewat
+	 * {@link MailSender#sendMailLampiran}, dan meneruskan flag {@code kirimkankeWa} ke
+	 * {@link MailSender} berdasarkan konfigurasi {@code aktifkan_kirim_notif_pembayaran_ke_wa}
+	 * (default AKTIF — berbeda dari beberapa gerbang WA lain di kelas ini yang default tidak
+	 * aktif). Kegagalan pengiriman ditangkap dan dicatat ({@code ErrorAuditUtil}) tanpa dilempar
+	 * ulang, sehingga kegagalan notifikasi pembayaran TIDAK menggagalkan alur pembayaran itu
+	 * sendiri di sisi pemanggil.
+	 *
+	 * @param requestObj          entitas request pembayaran (Finpay/BNI/BSI/BRI) yang diteruskan
+	 *                            ke {@link MailSender} sebagai {@code dataObject} metadata
+	 *                            notifikasi
+	 * @param biodataCalonMahasiswa biodata calon mahasiswa terkait, boleh {@code null}
+	 * @param mahasiswa            mahasiswa terkait, boleh {@code null}
+	 * @param jenisKegiatanNama    nama kegiatan yang dibayar, disisipkan ke subjek/body
+	 * @param file                 lampiran kuitansi/bukti pembayaran
+	 */
 	// Helper terpusat untuk ke-4 vendor pembayaran online (Finpay, BNI, BSI, BRI)
 	private static void sendPaymentNotification(GeneralValueObject requestObj, BiodataCalonMahasiswa biodataCalonMahasiswa, Mahasiswa mahasiswa, String jenisKegiatanNama, File file) {
 		StringBuilder emailUser = new StringBuilder();
@@ -1486,6 +1519,16 @@ public class CommonEmail {
 		}
 	}
 
+	/**
+	 * Varian {@link #infoAdaUjianPerkuliahan} untuk jalur sekolah: mengirim notifikasi email
+	 * (asinkron) bahwa ujian dijadwalkan pada {@code pertemuan} yang terkait
+	 * {@link JadwalPelajaran}, ke guru pengampu ({@code jadwalPelajaran.populateGuru()}) dan siswa
+	 * peserta pertemuan tersebut. Tidak melakukan apa pun bila {@code pertemuan} tidak memiliki
+	 * {@link JadwalPelajaran} terkait.
+	 *
+	 * @param pertemuan pertemuan (kelas sekolah) tempat ujian dijadwalkan
+	 * @param ujian     ujian yang dijadwalkan
+	 */
 	public static void infoAdaUjianJadwalPelajaran(final Pertemuan pertemuan, final Ujian ujian) {
 		Common.createDefaultTimer(new EventListener() {
 			@Override
