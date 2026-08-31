@@ -9,6 +9,7 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 
 import org.hibernate.Criteria;
@@ -48,22 +49,59 @@ import ais.ui.util.WaktuUtil;
  * siswa (termasuk saldo deposit) untuk ditampilkan di kios.
  *
  * <p>
- * <b>Catatan keamanan</b> — TIDAK SEPERTI keluarga {@code *Resource} lain di paket ini (yang
- * mewajibkan {@code username}/{@code password}), SELURUH endpoint di kelas ini tidak memiliki
- * pemeriksaan autentikasi/otorisasi apa pun: siapa saja yang dapat menjangkau path {@code /pos/*}
- * dapat mencatat absensi orang lain ({@link #absen}, memanipulasi jam masuk/pulang lewat
- * parameter {@code state}), mencatat transaksi pembelian ({@link #update}, termasuk mengurangi
- * saldo deposit siswa manapun via {@code kode_member}), serta membaca data pribadi siswa
- * (nama orang tua, sisa deposit, foto, nomor induk) tanpa verifikasi identitas pemanggil sama
- * sekali. Ini adalah keputusan desain lama (diasumsikan hanya dapat dijangkau dari jaringan
- * internal kios/mesin absensi tepercaya), dilaporkan di sini tanpa diperbaiki sesuai batasan
- * tugas dokumentasi ini.
+ * <b>Catatan keamanan:</b> TIDAK SEPERTI keluarga {@code *Resource} lain di paket ini (yang
+ * mewajibkan {@code username}/{@code password}), endpoint di kelas ini tidak memakai login
+ * pengguna — perangkatnya adalah kios/mesin absensi tanpa akun staf/siswa, bukan orang yang login
+ * interaktif. Sebelumnya SELURUH endpoint (termasuk {@link #update}/{@link #absen}) tidak
+ * memiliki pemeriksaan apa pun sama sekali, memungkinkan siapa saja yang menjangkau path
+ * {@code /pos/*} mencatat transaksi pembelian ({@link #update}, termasuk mengurangi saldo deposit
+ * siswa manapun via {@code kode_member}) atau memanipulasi absensi ({@link #absen}) tanpa
+ * verifikasi apa pun.
+ * </p>
+ * <p>
+ * <b>DITAMBAL 2026-09-01:</b> {@link #update} dan kedua overload {@code getAbsen} kini mewajibkan
+ * {@code secret} (query param) yang cocok dengan konfigurasi {@code pos_api_secret} — lihat
+ * {@link #isValidPosSecret(String)}. TANPA nilai default hardcoded: sebelum {@code pos_api_secret}
+ * diisi di database, kedua endpoint ini gagal-tertutup (fail-closed) untuk SEMUA pemanggil,
+ * termasuk kios/mesin absensi yang sudah ada — perangkat lunak/firmware perangkat tersebut perlu
+ * diperbarui untuk menyertakan {@code ?secret=...} sebelum berfungsi kembali. Endpoint baca-saja
+ * lain di kelas ini ({@link #getSiswa}/{@link #getAmbilSiswa}, pencarian produk) TIDAK diubah pada
+ * perbaikan ini — masih tanpa autentikasi (dampak dinilai lebih rendah: kebocoran data, bukan
+ * transaksi finansial/penulisan).
  * </p>
  */
 @Path("/pos")
 @Singleton
 
 public class PosResource {
+
+	/**
+	 * Memvalidasi {@code secret} yang dikirim kios/mesin absensi terhadap konfigurasi
+	 * {@code pos_api_secret} (DITAMBAHKAN 2026-09-01 — lihat catatan keamanan pada javadoc kelas).
+	 * TIDAK punya nilai default hardcoded: bila konfigurasi belum diisi di database, method ini
+	 * SELALU mengembalikan {@code false} (fail-closed) alih-alih jatuh kembali ke suatu rahasia
+	 * bawaan yang ikut ter-commit ke source control (pola yang sengaja dihindari di sini, berbeda
+	 * dari {@code Absen#isValidPassword}).
+	 *
+	 * @param secret nilai yang dikirim kios lewat query param {@code secret}
+	 * @return {@code true} bila {@code secret} cocok (case-sensitive) dengan konfigurasi yang
+	 *         tersimpan dan konfigurasi tersebut sudah diisi; {@code false} pada semua kondisi lain
+	 */
+	private static boolean isValidPosSecret(String secret) {
+		try {
+			if (secret == null || secret.trim().length() == 0) {
+				return false;
+			}
+			String configured = Common.getKonfigurasi("pos_api_secret", "").getNilai();
+			return configured != null && configured.trim().length() > 0 && configured.trim().equals(secret.trim());
+		} catch (Exception e) {
+			try {
+				Common.tampilErrorJikaAdmin(e);
+			} catch (Exception ignored) {
+			}
+			return false;
+		}
+	}
 
 	/** @return waktu sistem server saat ini (epoch milidetik), dipakai klien untuk sinkronisasi jam. */
 	public long getSystemTime() {
@@ -379,30 +417,54 @@ public class PosResource {
 		}
 	}
 
-	/** Seperti {@link #absen(String, String, String)} dengan deteksi otomatis masuk/pulang ({@code state=null}). */
+	/**
+	 * Seperti {@link #absen(String, String, String)} dengan deteksi otomatis masuk/pulang
+	 * ({@code state=null}).
+	 *
+	 * <p>
+	 * <b>Catatan keamanan (DITAMBAL 2026-09-01):</b> kini mewajibkan {@code secret} yang cocok
+	 * dengan konfigurasi {@code pos_api_secret} (query param) — lihat catatan keamanan lengkap pada
+	 * {@link #update} dan {@link #isValidPosSecret(String)}. Mesin absensi lama TIDAK akan berfungsi
+	 * sampai diperbarui untuk menyertakan {@code ?secret=...}.
+	 * </p>
+	 */
 	@GET
 	@Path("absen/{id_finger}/{waktu}")
 	@Produces({ MediaType.APPLICATION_JSON })
-	public CommonID getAbsen(@PathParam("id_finger") String id_finger, @PathParam("waktu") String waktu) {
+	public CommonID getAbsen(@PathParam("id_finger") String id_finger, @PathParam("waktu") String waktu,
+			@QueryParam("secret") String secret) {
 
+		if (!isValidPosSecret(secret)) {
+			throw new NotFoundException("forbidden access");
+		}
 		return PosResource.absen(id_finger, waktu, null);
 	}
 
 	/**
-	 * Mencatat absensi masuk/pulang via mesin sidik jari. Tidak memvalidasi kredensial (lihat
-	 * catatan keamanan di javadoc kelas).
+	 * Mencatat absensi masuk/pulang via mesin sidik jari.
+	 *
+	 * <p>
+	 * <b>Catatan keamanan (DITAMBAL 2026-09-01):</b> kini mewajibkan {@code secret} yang cocok
+	 * dengan konfigurasi {@code pos_api_secret} (query param) — lihat catatan keamanan lengkap pada
+	 * {@link #update} dan {@link #isValidPosSecret(String)}. Mesin absensi lama TIDAK akan berfungsi
+	 * sampai diperbarui untuk menyertakan {@code ?secret=...}.
+	 * </p>
 	 *
 	 * @param id_finger id sidik jari/NIM/nomor induk yang dipindai
 	 * @param waktu     waktu absensi
 	 * @param state     {@code "0"} untuk paksa masuk, {@code "1"} untuk paksa pulang, lainnya untuk otomatis
+	 * @param secret    kredensial bersama kios/mesin absensi (query param, wajib)
 	 * @return respons status absensi, lihat {@link #absen(String, String, String)}
 	 */
 	@GET
 	@Path("absen/{id_finger}/{waktu}/{state}")
 	@Produces({ MediaType.APPLICATION_JSON })
 	public CommonID getAbsen(@PathParam("id_finger") String id_finger, @PathParam("waktu") String waktu,
-			@PathParam("state") String state) {
+			@PathParam("state") String state, @QueryParam("secret") String secret) {
 
+		if (!isValidPosSecret(secret)) {
+			throw new NotFoundException("forbidden access");
+		}
 		return PosResource.absen(id_finger, waktu, state);
 	}
 
@@ -420,8 +482,21 @@ public class PosResource {
 	 * @param tanggal_dan_waktu waktu transaksi (format {@code Common#databaseDateFormat1})
 	 * @param kode_member       nomor induk siswa pembeli, boleh kosong
 	 * @param kode_kios         identitas kios asal transaksi
+	 * @param secret            kredensial bersama kios (query param, wajib — lihat catatan keamanan)
 	 * @return respons dengan {@code info1="Sukses"}/{@code "Gagal"} sesuai hasil
-	 * @throws NotFoundException bila terjadi kesalahan internal
+	 * @throws NotFoundException bila terjadi kesalahan internal, atau bila {@code secret} tidak valid
+	 *
+	 * <p>
+	 * <b>Catatan keamanan (DITAMBAL 2026-09-01):</b> method ini sebelumnya TIDAK memeriksa
+	 * autentikasi/otorisasi apa pun — siapa pun yang mengetahui/menebak URL dapat mencatat transaksi
+	 * pembelian kios (termasuk mengurangi saldo deposit siswa mana pun via {@code kode_member}) tanpa
+	 * verifikasi identitas pemanggil sama sekali. Kini mewajibkan {@code secret} yang cocok dengan
+	 * konfigurasi {@code pos_api_secret} (query param, lihat {@link #isValidPosSecret(String)}, TANPA
+	 * nilai default hardcoded — bila konfigurasi belum diisi endpoint ini gagal-tertutup/fail-closed
+	 * untuk SEMUA pemanggil). Kios yang sudah ada TIDAK akan berfungsi sampai (1) nilai
+	 * {@code pos_api_secret} diisi di konfigurasi, dan (2) perangkat lunak/firmware kios diperbarui
+	 * untuk menyertakan {@code ?secret=...} pada tiap permintaan.
+	 * </p>
 	 */
 	@GET
 	@Path("kirim_transaksi/{kode_invoice}/{produk_id}/{jumlah}/{diskon}/{tanggal_dan_waktu}/{kode_member}/{kode_kios}")
@@ -429,7 +504,11 @@ public class PosResource {
 	public CommonID update(@PathParam("kode_invoice") String kode_invoice, @PathParam("produk_id") String produk_id,
 			@PathParam("jumlah") String jumlah, @PathParam("diskon") String diskon,
 			@PathParam("tanggal_dan_waktu") String tanggal_dan_waktu, @PathParam("kode_member") String kode_member,
-			@PathParam("kode_kios") String kode_kios) {
+			@PathParam("kode_kios") String kode_kios, @QueryParam("secret") String secret) {
+
+		if (!isValidPosSecret(secret)) {
+			throw new NotFoundException("forbidden access");
+		}
 
 		Session session = HibernateUtil.currentNativeSession();
 		try {
