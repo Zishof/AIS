@@ -26,6 +26,23 @@ public final class LaporanPerkuliahanJspHelper {
     //  PARAM
     // =====================================================================
 
+    /**
+     * Tipe implementasi bersarang {@link Param} milik {@link LaporanPerkuliahanJspHelper}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * LaporanPerkuliahanJspHelper}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String tahunAjaran}, {@code String
+     * semester}, {@code String kelas}, {@code String hari}, {@code String dosenKeyword}, {@code String mkKeyword},
+     * {@code String jurusanKeyword}; operasi lokal: {@code isEmpty()}, {@code toQueryString()}, {@code
+     * appendQs}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see LaporanPerkuliahanJspHelper
+     */
     public static final class Param {
         public String tahunAjaran    = "";
         public String semester       = "";

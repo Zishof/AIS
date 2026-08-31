@@ -442,9 +442,52 @@ public final class SpmiGlobalExcelHelper {
     private static void widths(XSSFSheet sh, int[] widths) { for (int i = 0; i < widths.length; i++) sh.setColumnWidth(i, widths[i] * 256); }
     private static void addListValidation(XSSFSheet sh, int col, int first, int last, String[] values) { DataValidationHelper helper = new XSSFDataValidationHelper(sh); DataValidationConstraint constraint = helper.createExplicitListConstraint(values); DataValidation validation = helper.createValidation(constraint, new CellRangeAddressList(first, last, col, col)); validation.setShowErrorBox(true); validation.createErrorBox("Nilai tidak valid", "Pilih Ya atau Tidak."); sh.addValidationData(validation); }
 
+    /**
+     * Tipe implementasi bersarang {@link MasterRow} milik {@link SpmiGlobalExcelHelper}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * SpmiGlobalExcelHelper}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+     * diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String location}, {@code String ref},
+     * {@code String parentRef}, {@code String businessCode}, {@code String name}, {@code String description},
+     * {@code Integer order}, {@code Boolean active}. Aturan bisnis bersama tetap berada pada kelas induk atau
+     * service yang dipanggilnya.</p>
+     *
+     * @see SpmiGlobalExcelHelper
+     */
     private static final class MasterRow { String location, ref, parentRef, businessCode, name, description; Integer order; Boolean active; }
+    /**
+     * Tipe implementasi bersarang {@link Counter} milik {@link SpmiGlobalExcelHelper}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * SpmiGlobalExcelHelper}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+     * diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int inserted}, {@code int updated}.
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see SpmiGlobalExcelHelper
+     */
     private static final class Counter { int inserted; int updated; }
 
+    /**
+     * Tipe implementasi bersarang {@link ImportResult} milik {@link SpmiGlobalExcelHelper}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * SpmiGlobalExcelHelper}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+     * diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int jenis}, {@code int standar},
+     * {@code int butir}, {@code int indikator}, {@code int skenario}, {@code int inserted}, {@code int updated};
+     * operasi lokal: {@code message()}, {@code getInserted()}, {@code getUpdated}(). Aturan bisnis bersama tetap
+     * berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see SpmiGlobalExcelHelper
+     */
     public static final class ImportResult {
         private final int jenis, standar, butir, indikator, skenario, inserted, updated;
         ImportResult(int jenis, int standar, int butir, int indikator, int skenario, int inserted, int updated) { this.jenis = jenis; this.standar = standar; this.butir = butir; this.indikator = indikator; this.skenario = skenario; this.inserted = inserted; this.updated = updated; }
@@ -452,6 +495,23 @@ public final class SpmiGlobalExcelHelper {
         public int getInserted() { return inserted; } public int getUpdated() { return updated; }
     }
 
+    /**
+     * Tipe implementasi bersarang {@link Styles} milik {@link SpmiGlobalExcelHelper}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * SpmiGlobalExcelHelper}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+     * diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code XSSFCellStyle title}, {@code
+     * XSSFCellStyle header}, {@code XSSFCellStyle body}, {@code XSSFCellStyle input}, {@code XSSFCellStyle
+     * inputCenter}, {@code XSSFCellStyle note}; operasi lokal: {@code style}(). Aturan bisnis bersama tetap berada
+     * pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see SpmiGlobalExcelHelper
+     */
     private static final class Styles {
         final XSSFCellStyle title, header, body, input, inputCenter, note;
         Styles(XSSFWorkbook wb) {

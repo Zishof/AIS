@@ -448,6 +448,21 @@ class LaporanSkripsiDashboardUtil {
         return s;
     }
 
+    /**
+     * Pembawa data/helper lokal milik {@link LaporanSkripsiDashboardUtil} untuk dashboard summary. Tipe ini
+     * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+     * jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * LaporanSkripsiDashboardUtil}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+     * kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int total}, {@code int sudah}, {@code
+     * int belum}, {@code int dosenUnik}, {@code double avgNilai}, {@code double avgIpk}. Aturan bisnis bersama
+     * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see LaporanSkripsiDashboardUtil
+     */
     private static class DashboardSummary {
         int total;
         int sudah;

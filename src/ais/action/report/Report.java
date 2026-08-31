@@ -217,6 +217,20 @@ public class Report extends GenericAutowireComposer {
 	 */
 	public static final String PARAM_REPORT_PROGRESS = "_REPORT_PROGRESS_CONTEXT";
 
+	/**
+	 * Tipe implementasi bersarang {@link ProgressContext} milik {@link Report}. Kelas ini memberi nama pada state
+	 * atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link Report}. Dependensi
+	 * yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code org.zkoss.zul.Vbox box}, {@code
+	 * org.zkoss.zul.Progressmeter progressmeter}, {@code org.zkoss.zul.Label title}, {@code org.zkoss.zul.Label
+	 * detail}, {@code org.zkoss.zul.Vbox errorBox}, {@code org.zkoss.zk.ui.Desktop desktop}, {@code Component
+	 * parent}, {@code boolean autoCreated}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see Report
+	 */
 	public static class ProgressContext {
 		private org.zkoss.zul.Vbox box;
 		private org.zkoss.zul.Progressmeter progressmeter;
@@ -229,10 +243,40 @@ public class Report extends GenericAutowireComposer {
 		private File errorDetailFile;
 	}
 
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link Report}. Tipe ini memisahkan satu variasi perilaku lokal
+	 * tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link Report}. Dependensi
+	 * yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini merupakan
+	 * detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code execute}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see Report
+	 */
 	private static interface FileReportExecutor {
 		File execute() throws Exception;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link ReportGenerationException} milik {@link Report}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link Report}. Dependensi
+	 * yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code File detailFile}; operasi lokal:
+	 * {@code getDetailFile}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see Report
+	 */
 	public static class ReportGenerationException extends Exception {
 		private static final long serialVersionUID = 3416043229438988841L;
 		private File detailFile;

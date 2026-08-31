@@ -60,6 +60,17 @@ public abstract class BaseSPMIAction extends GenericAutowireComposer
     protected boolean delete;
 
     // ---- Holder returned by prepareFormWindow ----
+    /**
+     * Tipe implementasi bersarang {@link FormHolder} milik {@link BaseSPMIAction}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link BaseSPMIAction}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Borderlayout borderlayout}, {@code
+     * Rows rows}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see BaseSPMIAction
+     */
     protected static final class FormHolder {
         public final Borderlayout borderlayout;
         public final Rows         rows;

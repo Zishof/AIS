@@ -350,6 +350,20 @@ public class SuratMasukAction extends GenericAutowireComposer implements DataCri
 	        FilterLanjutHelper.setup(comp);
 }
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link SuratMasukAction}. Kelas ini menerjemahkan satu item data menjadi
+	 * baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link SuratMasukAction} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see SuratMasukAction
+	 */
 	class SuratMasukRenderer extends ais.ui.util.MyRowRenderer {
 
 		@SuppressWarnings("unchecked")
@@ -2570,6 +2584,20 @@ public class SuratMasukAction extends GenericAutowireComposer implements DataCri
 		return html;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link DisposisiMasukChip} milik {@link SuratMasukAction}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link SuratMasukAction}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int nomor}, {@code String label},
+	 * {@code String penerima}, {@code String catatan}, {@code String status}, {@code String warna}, {@code String
+	 * latar}, {@code String tooltip}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see SuratMasukAction
+	 */
 	private static final class DisposisiMasukChip {
 		int nomor;
 		String label;

@@ -377,6 +377,21 @@ public class LaporanRekapAngketDosenPerJurusanWindow extends MyWindow {
 
 	private static final int MAKSIMAL_THREAD_HITUNG_ULANG = 250;
 
+	/**
+	 * Tipe implementasi bersarang {@link ChecklistDosenInfo} milik {@link
+	 * LaporanRekapAngketDosenPerJurusanWindow}. Kelas ini memberi nama pada state atau perilaku lokal agar
+	 * tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * LaporanRekapAngketDosenPerJurusanWindow}. Dependensi yang diperlukan harus diberikan secara eksplisit agar
+	 * aman digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai
+	 * API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code int bobot}, {@code
+	 * ChecklistPenilaianDosen checklist}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see LaporanRekapAngketDosenPerJurusanWindow
+	 */
 	private static class ChecklistDosenInfo {
 		private Long id;
 		private int bobot;

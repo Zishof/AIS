@@ -217,6 +217,19 @@ public class DasboardSurat extends MyPortallayout {
 	}
 
 
+	/**
+	 * Tipe implementasi bersarang {@link DashboardSuratRenderRequestV19} milik {@link DasboardSurat}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasboardSurat}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code org.zkoss.zul.Div body}, {@code Date
+	 * mulai}, {@code Date sampai}, {@code ais.database.model.rab.SatuanKerja satuanKerja}, {@code String keyword}.
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DasboardSurat
+	 */
 	private static class DashboardSuratRenderRequestV19 {
 		org.zkoss.zul.Div body;
 		Date mulai;
@@ -235,6 +248,21 @@ public class DasboardSurat extends MyPortallayout {
 	}
 
 
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link DasboardSurat}. Tipe ini memisahkan satu variasi perilaku
+	 * lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasboardSurat} dan dapat mengakses state kelas
+	 * induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see DasboardSurat
+	 */
 	private interface LegacyDashboardRenderer {
 		void render() throws Exception;
 	}
@@ -2902,12 +2930,42 @@ private Criterion createSuratKeluarOrPejabatAccessCriterion(String suratPrefix, 
 	}
 
 
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link DasboardSurat}. Tipe ini memisahkan satu variasi perilaku
+	 * lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasboardSurat} dan dapat mengakses state kelas
+	 * induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code count()}, {@code list}(). Aturan
+	 * bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see DasboardSurat
+	 */
 	private interface DashboardDetailProviderV8 {
 		long count() throws Exception;
 
 		List list(int firstResult, int maxResults) throws Exception;
 	}
 
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link DasboardSurat}. Tipe ini memisahkan satu variasi perilaku
+	 * lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasboardSurat} dan dapat mengakses state kelas
+	 * induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code build}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see DasboardSurat
+	 */
 	private interface DashboardDetailCriteriaBuilderV8 {
 		Criteria build(Session session, boolean order) throws Exception;
 	}
@@ -5369,6 +5427,20 @@ private Criterion createSuratKeluarOrPejabatAccessCriterion(String suratPrefix, 
 	}
 
 
+	/**
+	 * Tipe implementasi bersarang {@link DashboardAlurParentGroupV14} milik {@link DasboardSurat}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasboardSurat}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String jenis}, {@code String
+	 * tanggal}, {@code String kode}, {@code String perihal}, {@code String parameterHtml}, {@code String
+	 * timelineHtml}, {@code String ringkasanHtml}. Aturan bisnis bersama tetap berada pada kelas induk atau
+	 * service yang dipanggilnya.</p>
+	 *
+	 * @see DasboardSurat
+	 */
 	private static class DashboardAlurParentGroupV14 {
 		String jenis;
 		String tanggal;
@@ -5380,6 +5452,21 @@ private Criterion createSuratKeluarOrPejabatAccessCriterion(String suratPrefix, 
 	}
 
 
+	/**
+	 * Tipe implementasi bersarang {@link DashboardSuratData} milik {@link DasboardSurat}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasboardSurat}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Date mulai}, {@code Date sampai},
+	 * {@code ais.database.model.rab.SatuanKerja satuanKerja}, {@code String keyword}, {@code long
+	 * totalPengajuanKeluar}, {@code long totalPersetujuanKeluar}, {@code long totalMenungguKeluar}, {@code long
+	 * totalDisetujuiKeluar}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see DasboardSurat
+	 */
 	private static class DashboardSuratData {
 		Date mulai;
 		Date sampai;
@@ -5407,6 +5494,18 @@ private Criterion createSuratKeluarOrPejabatAccessCriterion(String suratPrefix, 
 		List<DashboardItem> pendingMasuk = new ArrayList<DashboardItem>();
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link DasboardSurat} untuk dashboard mini row. Tipe ini mengelompokkan
+	 * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasboardSurat}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String label}, {@code long value}.
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DasboardSurat
+	 */
 	private static class DashboardMiniRow {
 		String label;
 		long value;
@@ -5417,6 +5516,19 @@ private Criterion createSuratKeluarOrPejabatAccessCriterion(String suratPrefix, 
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link DashboardItem} milik {@link DasboardSurat}. Kelas ini memberi nama pada
+	 * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasboardSurat}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String title}, {@code String
+	 * description}, {@code String meta}, {@code String status}. Aturan bisnis bersama tetap berada pada kelas
+	 * induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DasboardSurat
+	 */
 	private static class DashboardItem {
 		String title;
 		String description;

@@ -1075,6 +1075,20 @@ public final class AmiExcelHelper {
         return value == null ? "" : String.valueOf(value);
     }
 
+    /**
+     * Tipe implementasi bersarang {@link AuditRow} milik {@link AmiExcelHelper}. Kelas ini memberi nama pada state
+     * atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link AmiExcelHelper}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code StandarSPMI standard}, {@code
+     * ButirMutuSPMI clause}, {@code IndikatorSPMI indicator}, {@code SkenarioSPMI scenario}, {@code
+     * HasilTemuanSPMI finding}, {@code String sheetName}, {@code int excelRow}. Aturan bisnis bersama tetap berada
+     * pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see AmiExcelHelper
+     */
     private static final class AuditRow {
         final StandarSPMI standard;
         final ButirMutuSPMI clause;
@@ -1094,6 +1108,19 @@ public final class AmiExcelHelper {
         }
     }
 
+    /**
+     * Tipe implementasi bersarang {@link SheetBlock} milik {@link AmiExcelHelper}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link AmiExcelHelper}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code StandarSPMI standard}, {@code List
+     * rows}, {@code String sheetName}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see AmiExcelHelper
+     */
     private static final class SheetBlock {
         final StandarSPMI standard;
         final List<AuditRow> rows = new ArrayList<AuditRow>();
@@ -1101,6 +1128,20 @@ public final class AmiExcelHelper {
         SheetBlock(StandarSPMI standard) { this.standard = standard; }
     }
 
+    /**
+     * Tipe implementasi bersarang {@link ImportedRow} milik {@link AmiExcelHelper}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link AmiExcelHelper}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long scenarioId}, {@code Integer
+     * score}, {@code String auditorNote}, {@code String recommendation}, {@code String evidenceLink}, {@code
+     * String readiness}, {@code String auditeeNote}. Aturan bisnis bersama tetap berada pada kelas induk atau
+     * service yang dipanggilnya.</p>
+     *
+     * @see AmiExcelHelper
+     */
     private static final class ImportedRow {
         Long scenarioId;
         Integer score;
@@ -1111,6 +1152,22 @@ public final class AmiExcelHelper {
         String auditeeNote;
     }
 
+    /**
+     * Tipe implementasi bersarang {@link ImportResult} milik {@link AmiExcelHelper}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link AmiExcelHelper}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int total}, {@code int inserted},
+     * {@code int updated}, {@code int skipped}; operasi lokal: {@code getProcessed()}, {@code getInserted()},
+     * {@code getUpdated()}, {@code getSkipped()}, {@code message}(). Aturan bisnis bersama tetap berada pada kelas
+     * induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see AmiExcelHelper
+     */
     public static final class ImportResult {
         private final int total;
         private final int inserted;
@@ -1136,6 +1193,24 @@ public final class AmiExcelHelper {
         }
     }
 
+    /**
+     * Tipe implementasi bersarang {@link Styles} milik {@link AmiExcelHelper}. Kelas ini memberi nama pada state
+     * atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link AmiExcelHelper}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code XSSFCellStyle title}, {@code
+     * XSSFCellStyle section}, {@code XSSFCellStyle header}, {@code XSSFCellStyle body}, {@code XSSFCellStyle
+     * input}, {@code XSSFCellStyle inputCenter}, {@code XSSFCellStyle note}, {@code XSSFCellStyle summaryLabel};
+     * operasi lokal: {@code base}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see AmiExcelHelper
+     */
     private static final class Styles {
         final XSSFCellStyle title;
         final XSSFCellStyle section;

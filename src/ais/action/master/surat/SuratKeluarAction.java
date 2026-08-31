@@ -441,6 +441,20 @@ public class SuratKeluarAction extends GenericAutowireComposer implements DataCr
 	        FilterLanjutHelper.setup(comp);
 }
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link SuratKeluarAction}. Kelas ini menerjemahkan satu item data
+	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link SuratKeluarAction} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see SuratKeluarAction
+	 */
 	class SuratKeluarRenderer extends ais.ui.util.MyRowRenderer {
 
 		@SuppressWarnings("unchecked")
@@ -1161,6 +1175,19 @@ public class SuratKeluarAction extends GenericAutowireComposer implements DataCr
 		return html;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link DisposisiKeluarChip} milik {@link SuratKeluarAction}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link SuratKeluarAction}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int nomor}, {@code String label},
+	 * {@code String status}, {@code String warna}, {@code String latar}, {@code String tooltip}. Aturan bisnis
+	 * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see SuratKeluarAction
+	 */
 	private static final class DisposisiKeluarChip {
 		int nomor;
 		String label;

@@ -59,6 +59,23 @@ public class DasboardSPMI extends Div {
     // Data container
     // ----------------------------------------------------------------
 
+    /**
+     * Tipe implementasi bersarang {@link SpmiData} milik {@link DasboardSPMI}. Kelas ini memberi nama pada state
+     * atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasboardSPMI}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int totalAmi}, {@code int disetujui},
+     * {@code int menunggu}, {@code int ditolak}, {@code int totalTemuan}, {@code int jmlO}, {@code int jmlKtsMyr},
+     * {@code int jmlKtsMnr}; operasi lokal: {@code healthPct()}, {@code covPct()}, {@code ktsPct()}, {@code
+     * zona}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see DasboardSPMI
+     */
     private static class SpmiData {
         // AMI status
         int totalAmi, disetujui, menunggu, ditolak;

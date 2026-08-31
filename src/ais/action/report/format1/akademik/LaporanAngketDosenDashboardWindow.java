@@ -1309,6 +1309,22 @@ public class LaporanAngketDosenDashboardWindow extends MyWindow {
 		}
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link LaporanAngketDosenDashboardWindow} untuk filter. Tipe ini
+	 * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+	 * jelas.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * LaporanAngketDosenDashboardWindow}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String tahunAkademik}, {@code String
+	 * semester}, {@code String program}, {@code Fakultas fakultas}, {@code Jurusan jurusan}, {@code
+	 * MasaPerkuliahan masaPerkuliahan}, {@code Dosen dosen}, {@code boolean onlyActive}. Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see LaporanAngketDosenDashboardWindow
+	 */
 	private static class Filter implements Serializable {
 		private static final long serialVersionUID = 1L;
 		String tahunAkademik;
@@ -1321,6 +1337,22 @@ public class LaporanAngketDosenDashboardWindow extends MyWindow {
 		boolean onlyActive;
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link LaporanAngketDosenDashboardWindow} untuk dashboard data. Tipe ini
+	 * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+	 * jelas.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * LaporanAngketDosenDashboardWindow}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code long totalAngket}, {@code long
+	 * totalNilai}, {@code int totalPertanyaan}, {@code double totalSkor}, {@code double totalSkorBerbobot}, {@code
+	 * double totalBobot}, {@code double rataRata}, {@code double rataRataBerbobot}. Aturan bisnis bersama tetap
+	 * berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see LaporanAngketDosenDashboardWindow
+	 */
 	private static class DashboardData implements Serializable {
 		private static final long serialVersionUID = 1L;
 		long totalAngket;
@@ -1352,6 +1384,20 @@ public class LaporanAngketDosenDashboardWindow extends MyWindow {
 		List formRows = new ArrayList();
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link QuestionInfo} milik {@link LaporanAngketDosenDashboardWindow}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * LaporanAngketDosenDashboardWindow}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long id}, {@code String label},
+	 * {@code String groupName}, {@code double bobot}. Aturan bisnis bersama tetap berada pada kelas induk atau
+	 * service yang dipanggilnya.</p>
+	 *
+	 * @see LaporanAngketDosenDashboardWindow
+	 */
 	private static class QuestionInfo implements Serializable {
 		private static final long serialVersionUID = 1L;
 		Long id;
@@ -1367,6 +1413,23 @@ public class LaporanAngketDosenDashboardWindow extends MyWindow {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link Accumulator} milik {@link LaporanAngketDosenDashboardWindow}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * LaporanAngketDosenDashboardWindow}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String name}, {@code long count},
+	 * {@code double sum}, {@code List details}; operasi lokal: {@code add()}, {@code average}(). Aturan bisnis
+	 * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see LaporanAngketDosenDashboardWindow
+	 */
 	private static class Accumulator implements Serializable {
 		private static final long serialVersionUID = 1L;
 		String name;
@@ -1388,6 +1451,23 @@ public class LaporanAngketDosenDashboardWindow extends MyWindow {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link AccumulatorComparator} milik {@link LaporanAngketDosenDashboardWindow}.
+	 * Kelas ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok
+	 * anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * LaporanAngketDosenDashboardWindow}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean desc}; operasi lokal: {@code
+	 * compare}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see LaporanAngketDosenDashboardWindow
+	 */
 	private static class AccumulatorComparator implements java.util.Comparator, Serializable {
 		private static final long serialVersionUID = 1L;
 		boolean desc;
@@ -1411,6 +1491,19 @@ public class LaporanAngketDosenDashboardWindow extends MyWindow {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link MahasiswaKey} milik {@link LaporanAngketDosenDashboardWindow}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * LaporanAngketDosenDashboardWindow}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long value}. Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see LaporanAngketDosenDashboardWindow
+	 */
 	private static class MahasiswaKey implements Serializable {
 		private static final long serialVersionUID = 1L;
 		Long value;
