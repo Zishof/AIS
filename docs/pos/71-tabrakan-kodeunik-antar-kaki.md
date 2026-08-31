@@ -131,3 +131,21 @@ Gejala lapangan yang harus dicurigai pada data LAMA (jurnal yang terlanjur ditul
 r78693): **satu tagihan yang denda atau diskonnya "sudah diposting" tetapi jurnalnya tidak
 ada di buku besar, dan jurnal piutangnya berlabel jenis denda/diskon.** Perbaikan ini
 mencegah kejadian baru; data lama yang sudah telanjur bertabrakan perlu ditinjau terpisah.
+
+## 7. Sapuan penutup: seluruh kolom referensi ber-pemilik ganda
+
+§3 memeriksa dokumen ber-CAP ganda. Bentuk lain dari risiko yang sama adalah satu **kolom
+referensi jurnal yang dimiliki lebih dari satu layar posting** — dua modul berbeda menulis
+jurnal pada dokumen yang sama. Disapu untuk seluruh entitas yang ikut rumus `ambilUnik`
+(hanya entitas itu yang bisa bertabrakan):
+
+| Kolom | Pemilik | Status |
+|---|---|---|
+| `tagihan` | 4 layar siswa | **diperbaiki r78693** (ref khas per kaki) |
+| `cicilan_pembayaran` | Cicilan Mahasiswa + Dibayar Dimuka | aman — `null` vs `'dimuka'` |
+| `pertangungjawaban` | LPJ + Pengembalian | aman — `null` vs `'pengembalian'` |
+| `pemesanan_pengadaan_master_asset` | Pemesanan DP + Jurnal Balik DP | aman — `null` vs `'DP_BALIK_PEKERJAAN'`; berkasnya bahkan sudah memuat Javadoc yang menjelaskan kewajiban saringan `ref is null` |
+| `deposit` | (positif palsu) | pemilik tunggal — layar deposit siswa memakai kolom `deposit_siswa` |
+| `transitori` | (positif palsu) | pemilik tunggal — kecocokan pada `PostingUangMukaAction` hanyalah teks Javadoc `jika transitori=true` |
+
+Tidak ada sisa risiko tabrakan pada kelas ini.
