@@ -345,6 +345,13 @@ public class ManajemenProperty {
 					}
 					// Handle Specific Entities (Refactored logic)
 					else {
+						if (val instanceof GeneralValueObject && !Hibernate.isInitialized(val)) {
+							parameters.put(currentKey + ".id", "");
+							parameters.put(currentKey + ".nama", "");
+							parameters.put(currentKey + ".kode", "");
+							continue;
+						}
+
 						// Logic untuk TTD & QR
 						if (val instanceof SuratKeluar) {
 							parameters.put(currentKey + ".qr.surat_keluar", ((SuratKeluar) val).ttdQr());

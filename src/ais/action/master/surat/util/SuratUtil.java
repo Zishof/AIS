@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.hibernate.Hibernate;
 import org.hibernate.Session;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
@@ -239,7 +240,9 @@ public class SuratUtil {
 		}
 
 		for (Object o : ConstantValues.ambilBerdasarClass(Yayasan.class).values()) {
-			((Yayasan) o).putFile(parameters);
+			if (Hibernate.isInitialized(o)) {
+				((Yayasan) o).putFile(parameters);
+			}
 		}
 
 		Sekolah sekolah = SekolahUtil.getSekolah();
@@ -254,15 +257,21 @@ public class SuratUtil {
 		}
 
 		for (Object o : ConstantValues.ambilBerdasarClass(PerguruanTinggi.class).values()) {
-			((PerguruanTinggi) o).putFile(parameters);
+			if (Hibernate.isInitialized(o)) {
+				((PerguruanTinggi) o).putFile(parameters);
+			}
 		}
 
 		for (Object o : ConstantValues.ambilBerdasarClass(Fakultas.class).values()) {
-			((Fakultas) o).putFile(parameters);
+			if (Hibernate.isInitialized(o)) {
+				((Fakultas) o).putFile(parameters);
+			}
 		}
 
 		for (Object o : ConstantValues.ambilBerdasarClass(Jurusan.class).values()) {
-			((Jurusan) o).putFile(parameters);
+			if (Hibernate.isInitialized(o)) {
+				((Jurusan) o).putFile(parameters);
+			}
 		}
 
 		String kop = ambilKop(tbmuser);
