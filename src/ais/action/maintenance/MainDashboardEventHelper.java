@@ -55,6 +55,21 @@ import ais.database.model.sekolah.Sekolah;
 import ais.ui.util.MyInclude;
 import ais.ui.util.MyWindow;
 
+/**
+ * Komponen dashboard khusus untuk main dashboard event. Kelas ini memilih variasi data atau
+ * tampilan dashboard sambil memakai lifecycle dan mekanisme pemuatan dari kelas induknya.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah operasi domain lain ({@code onPustaka()}, {@code onWorkflow()},
+ * {@code onRepository()}, {@code onAntarJemput()}, {@code onSpmi()}, {@code onKantin()}). Bagian lain dari
+ * kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 final class MainDashboardEventHelper {
 
 	private MainDashboardEventHelper() {

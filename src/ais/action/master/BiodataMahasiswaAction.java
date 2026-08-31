@@ -112,6 +112,34 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Controller/action ZK untuk biodata mahasiswa. Tipe ini merupakan titik masuk UI yang
+ * menghubungkan event layar dengan perilaku domain yang diwarisi atau dikonfigurasi khusus oleh
+ * kelas ini.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * GenericAutowireComposer}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code String DEFAULT_TIDAK_WAJIB}, {@code
+ * String DATA}, {@code String DATA_DESC}, {@code MyWindow win}, {@code Textbox tempatlahir}, {@code MyDatebox
+ * tanggallahir}, {@code Combobox kelamin}, {@code Decimalbox pin}; inisialisasi/lifecycle ({@code
+ * doBeforeCompose()}, {@code doAfterCompose()}, {@code initData()}, {@code initKelulusan()}, {@code
+ * initAlamat()}, {@code initOrangTua()}); pembacaan/pencarian ({@code ambilIntDecimalboxAman()}, {@code
+ * ambilTanggalAman()}, {@code isTampilFotoBiodata()}, {@code setTampilFotoBiodata()}); validasi/perhitungan
+ * ({@code checkEmailMahasiswa()}, {@code checkBiodataMahasiswa()}); mutasi data ({@code onSave()}); operasi
+ * domain lain ({@code displayBiodataWindow()}, {@code ekstrakAngkaPertama()}, {@code batasiTeksKolom()}). Bagian
+ * lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
+ * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
+ * serta session Hibernate milik request yang aktif.</p>
+ *
+ * @see GenericAutowireComposer
+ */
 public class BiodataMahasiswaAction extends GenericAutowireComposer {
 
 	public final static String[] DEFAULT_TIDAK_WAJIB = new String[] { "namaArab", "namaTionghoa", "npsn",

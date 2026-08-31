@@ -172,6 +172,35 @@ import ais.ui.util.MyTreeitemConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Tipe khusus untuk main action2. Kelas ini memberi nama dan batas tanggung jawab yang eksplisit
+ * pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * GenericAutowireComposer}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Tabbox iframe}, {@code Borderlayout
+ * tinggiFrame}, {@code Center centerTinggiFrame}, {@code Div footer}, {@code West navigation}, {@code West
+ * navigasi}, {@code Center navigasicenter}, {@code North mycenter}; inisialisasi/lifecycle ({@code initPesan()},
+ * {@code initBg()}, {@code initChatRoom()}, {@code doBeforeCompose()}, {@code doAfterCompose()}, {@code
+ * initData()}); pembacaan/pencarian ({@code onUploadFoto()}, {@code tampilPilihRole()}, {@code
+ * refreshMain2ModuleButtonVisibility()}, {@code getMain2CurrentHeaderHeight()}); mutasi data ({@code
+ * setDashboardTitle()}, {@code updateUserOnline()}); pelaporan/ekspor ({@code renderMain2HeaderFromContext()},
+ * {@code renderMain2ShortcutMenu()}, {@code renderMain2LandingDashboard()}); operasi domain lain ({@code
+ * selectExistingTab()}, {@code createStandardTabbox()}, {@code createStandardTab()}, {@code onPustaka()}, {@code
+ * onWorkflow()}, {@code onAdministrasi()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface
+ * yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
+ * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
+ * serta session Hibernate milik request yang aktif.</p>
+ *
+ * @see GenericAutowireComposer
+ */
 public class MainAction2 extends GenericAutowireComposer {
 
 	private static final long serialVersionUID = 2446397351568124278L;
