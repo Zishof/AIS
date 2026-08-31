@@ -20,6 +20,26 @@ import ais.database.model.file.FileFoto;
 import ais.database.model.file.FileFotoLain;
 import ais.database.model.file.LampiranLain;
 
+/**
+ * Kontrak callback yang dijalankan setelah proses upload UI selesai. Interface ini memisahkan
+ * mekanisme upload dari tindakan lanjutan milik layar pemanggil.
+ *
+ * <p><b>Batas tanggung jawab:</b> tipe ini mendeklarasikan kontrak {@link EventListener}. Implementasi konkret
+ * bertanggung jawab atas transaksi, resource, error handling, dan efek samping; pemanggil sebaiknya bergantung
+ * pada kontrak ini agar tidak menggandakan integrasi.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyToolbarbuttonConfig downloadButton},
+ * {@code boolean janganPreviewDiLayarUtama}, {@code Serializable ref}, {@code String jenis}, {@code boolean
+ * usingId}, {@code Row vbPreview}, {@code MyToolbarbuttonConfig hapusButton}, {@code Class clazz};
+ * inisialisasi/lifecycle ({@code buatLinkPreviewInline()}, {@code buatLinkBerkasResmi()}); operasi domain lain
+ * ({@code onEvent()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
+ * atas.</p>
+ * <p><b>Efek samping:</b> setter dan helper mengubah state komponen ZK yang sedang terpasang pada desktop.
+ * Gunakan pada event thread UI dan jangan membagikan instance antar session; aturan bisnis dan transaksi
+ * persistence tetap harus didelegasikan ke action atau service pemanggil.</p>
+ * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
+ * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
+ * serta session Hibernate milik request yang aktif.</p>
+ */
 public class SetelahUpload implements EventListener {
 
 	private MyToolbarbuttonConfig downloadButton;

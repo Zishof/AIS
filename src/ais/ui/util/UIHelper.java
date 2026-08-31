@@ -15,6 +15,22 @@ import org.zkoss.zul.Row;
 import org.zkoss.zul.Toolbarbutton;
 import org.zkoss.zul.Vbox;
 
+/**
+ * Kumpulan operasi UI ZK bersama untuk ui. Gunakan utilitas ini sebagai titik tunggal pembuatan,
+ * penataan, validasi, dan interaksi komponen agar action tidak menggandakan pola tampilan.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah inisialisasi/lifecycle ({@code buatBarisAksi()}, {@code
+ * buatBarisAksi()}); pembacaan/pencarian ({@code ambilItemAksi()}); operasi domain lain ({@code selIdentitas()},
+ * {@code wrapKebab()}, {@code addToKebab()}, {@code absorptionKebab()}, {@code rapikanKolomSisaKanan()}, {@code
+ * isKebabContainer()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
+ * atas.</p>
+ * <p><b>Efek samping:</b> operasi dapat membuat atau mengubah pohon komponen ZK, memulai download, dan
+ * membaca privilege/session Hibernate. Panggil pada event thread dengan konteks desktop dan pengguna aktif;
+ * jangan menyalin pembentukan menu atau pemeriksaan privilege ke action lain.</p>
+ */
 public class UIHelper {
 
     /**
