@@ -21,6 +21,7 @@ import org.hibernate.criterion.Restrictions;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
+import ais.database.model.RolePrivilage;
 import ais.database.model.repository.RepoBitstream;
 import ais.database.model.repository.RepoCollection;
 import ais.database.model.repository.RepoItem;
@@ -599,13 +600,13 @@ public class RepositoryWorkflowService {
     }
 
     private void requireOwnerOrAdmin(RepoItem item, Tbmuser actor) {
-        if (!actor.getUserId().equals(item.getOwnerId()) && !isRepositoryAdministrator(actor))
+        if (!actor.getUserId().equals(item.getOwnerId()) && !isRepositoryManager(actor))
             throw new SecurityException("Item bukan milik pengguna aktif.");
     }
 
     private void requireOwnerReviewerOrAdmin(RepoItem item, Tbmuser actor) {
         if (actor.getUserId().equals(item.getOwnerId()) || actor.getUserId().equals(item.getAssignedReviewerId())
-                || isRepositoryAdmin(actor)) return;
+                || isRepositoryAdmin(actor) || isRepositoryManager(actor)) return;
         throw new SecurityException("Pengguna tidak berhak melihat aktivitas item.");
     }
 
@@ -624,11 +625,35 @@ public class RepositoryWorkflowService {
         if(user==null)return false;try{Tbmrole role=user.hakAkses();return role!=null&&Tbmrole.ADMINISTRATOR.equalsIgnoreCase(role.getRoleId());}catch(Exception e){return false;}
     }
 
+    /** Pengelola operasional berdasarkan privilege UPDATE menu Repository, bukan flag baca. */
+    public boolean isRepositoryManager(Tbmuser user) {
+        if (isRepositoryAdministrator(user)) return true;
+        if (user == null) return false;
+        Session permissionSession = null;
+        try {
+            Tbmrole role = user.hakAkses();
+            if (role == null || blank(role.getRoleId())) return false;
+            permissionSession = HibernateUtil.getSessionFactory().openSession();
+            Number count = (Number) permissionSession.createCriteria(RolePrivilage.class)
+                    .createAlias("role", "repositoryRole").createAlias("menu", "repositoryMenu")
+                    .add(Restrictions.eq("repositoryRole.roleId", role.getRoleId()))
+                    .add(Restrictions.in("repositoryMenu.id", new Long[]{16001L,16002L,16003L,16004L}))
+                    .add(Restrictions.eq("update", Integer.valueOf(1)))
+                    .setProjection(Projections.rowCount()).uniqueResult();
+            return count != null && count.longValue() > 0L;
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "RepositoryWorkflowService.isRepositoryManager");
+            return false;
+        } finally {
+            HibernateUtil.closeSessionQuietly(permissionSession);
+        }
+    }
+
     public boolean canDeposit(Tbmuser user) {
         if (user == null) return false;
         try {
             Tbmrole role = user.hakAkses();
-            return isRepositoryAdministrator(user) || (role != null && Boolean.TRUE.equals(role.getBacaRepository()));
+            return (role != null && Boolean.TRUE.equals(role.getBacaRepository())) || isRepositoryManager(user);
         } catch (Exception e) { return false; }
     }
 

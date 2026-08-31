@@ -205,7 +205,7 @@ public class RepositoryFileService {
 
     private RepoItem requiredEditableItem(Session session, Long id, Tbmuser actor) {
         RepoItem item = requiredVisibleWorkspaceItem(session, id, actor);
-        if (!actor.getUserId().equals(item.getOwnerId()) && !workflow.isRepositoryAdministrator(actor))
+        if (!actor.getUserId().equals(item.getOwnerId()) && !workflow.isRepositoryManager(actor))
             throw new SecurityException("Hanya pemilik deposit atau administrator yang dapat mengubah berkas.");
         String state = item.getWorkflowStatus();
         if (!RepositoryWorkflowService.DRAFT.equals(state) && !RepositoryWorkflowService.REVISION_REQUIRED.equals(state))
@@ -222,7 +222,8 @@ public class RepositoryFileService {
     private RepoItem requiredVisibleWorkspaceItem(Session session, Long id, Tbmuser actor) {
         RepoItem item = (RepoItem) session.get(RepoItem.class, id);
         if (item == null || !RepositoryTenantScope.currentKey().equals(item.getTenantKey()) || !Boolean.TRUE.equals(item.getAktif())) throw new IllegalArgumentException("Item tidak ditemukan.");
-        if (!actor.getUserId().equals(item.getOwnerId()) && !workflow.isRepositoryAdmin(actor))
+        if (!actor.getUserId().equals(item.getOwnerId()) && !workflow.isRepositoryAdmin(actor)
+                && !workflow.isRepositoryManager(actor))
             throw new SecurityException("Item bukan milik pengguna aktif.");
         return item;
     }

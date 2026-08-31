@@ -72,6 +72,7 @@ String reviewBase=root+"/repository-workspace?view=review&reviewQ="+wu(reviewPag
   </aside>
   <section class="repo-workspace-main">
     <div class="repo-card repo-card-pad"><div class="repo-section-head"><div><p class="repo-eyebrow">Deposit wizard</p><h1><%=item==null?"Buat deposit baru":wh(item.getTitle().length()==0?"Lengkapi draft":item.getTitle())%></h1></div><%if(item!=null){%><span class="repo-chip"><%=wh(item.getWorkflowStatus())%></span><%}%></div>
+      <%if(item==null){%><div class="repo-alert repo-alert-info" role="status"><strong>Alur unggah:</strong> lengkapi informasi utama dan simpan sebagai draft terlebih dahulu. Setelah draft tersimpan, bagian <strong>Berkas</strong> dan tombol <strong>Unggah</strong> akan tampil di halaman yang sama.</div><%}%>
       <ol class="repo-stepper repo-stepper-nine" aria-label="Tahapan deposit"><li class="active">1 Jenis karya</li><li>2 Informasi utama</li><li>3 Penulis</li><li>4 Akademik</li><li>5 Subjek</li><li>6 File</li><li>7 Lisensi</li><li>8 Preview</li><li>9 Kirim</li></ol>
       <form method="post" action="<%=root%>/repository-workspace" class="repo-workspace-form" <%=item!=null&&canEdit?"data-repo-autosave":""%>>
         <input type="hidden" name="csrf" value="<%=wh(csrf)%>"><input type="hidden" name="action" value="<%=item==null?"create":"save"%>"><%if(item!=null){%><input type="hidden" name="id" value="<%=item.getId()%>"><input type="hidden" name="version" value="<%=item.getLockVersion()%>"><%}%>

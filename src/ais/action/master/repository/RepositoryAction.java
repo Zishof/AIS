@@ -12,6 +12,8 @@ import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zk.ui.util.GenericAutowireComposer;
 import org.zkoss.zul.Checkbox;
+import org.zkoss.zul.A;
+import org.zkoss.zul.Hbox;
 import org.zkoss.zul.Html;
 import org.zkoss.zul.Label;
 import org.zkoss.zul.ListModel;
@@ -25,6 +27,7 @@ import ais.common.CommonPrivilages;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.repository.RepoCollection;
 import ais.database.model.repository.RepoItem;
+import ais.database.model.Tbmuser;
 import ais.ui.util.MyGrid;
 import ais.ui.util.MyRowRenderer;
 import ais.ui.util.MyToolbarbuttonConfig;
@@ -45,6 +48,9 @@ public class RepositoryAction extends GenericAutowireComposer {
     private org.zkoss.zul.Tabbox repoTabbox;
 
     private boolean canUpdate = false;
+    private boolean canManageRepository = false;
+    private Tbmuser currentUser;
+    private final RepositoryWorkflowService workflow = new RepositoryWorkflowService();
 
     // -------------------------------------------------------------------------
     // Lifecycle
@@ -63,7 +69,9 @@ public class RepositoryAction extends GenericAutowireComposer {
     public void doAfterCompose(Component comp) throws Exception {
         super.doAfterCompose(comp);
         Common.initLaguage();
+        currentUser = Common.getCurrentUser();
         canUpdate = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
+        canManageRepository = workflow.isRepositoryManager(currentUser);
         applyPrivileges();
         // Import SQL tidak diekspos dari browser. Sinkronisasi repository hanya
         // dijalankan melalui aksi/service typed dengan pemeriksaan privilege.
@@ -150,6 +158,13 @@ public class RepositoryAction extends GenericAutowireComposer {
         org.zkoss.zk.ui.Executions.getCurrent().sendRedirect(root + "/repository-workspace", "_blank");
     }
 
+    /** Jalur eksplisit menuju deposit baru agar fitur unggah mudah ditemukan dari konsol. */
+    public void onOpenUpload(Event event) {
+        String root = Common.ROOT == null ? "" : Common.ROOT;
+        org.zkoss.zk.ui.Executions.getCurrent().sendRedirect(
+                root + "/repository-workspace?view=deposit", "_blank");
+    }
+
     // -------------------------------------------------------------------------
     // Private Helpers
     // -------------------------------------------------------------------------
@@ -184,6 +199,8 @@ public class RepositoryAction extends GenericAutowireComposer {
         Session session = HibernateUtil.currentSession();
         List<RepoCollection> data = session
                 .createCriteria(RepoCollection.class)
+                .add(Restrictions.eq("tenantKey", RepositoryTenantScope.currentKey()))
+                .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
                 .addOrder(Order.asc("sortOrder"))
                 .addOrder(Order.asc("nama"))
                 .list();
@@ -209,6 +226,7 @@ public class RepositoryAction extends GenericAutowireComposer {
         Session session = HibernateUtil.currentSession();
         boolean activeOnly = searchAktif == null || searchAktif.isChecked();
         Criteria c = session.createCriteria(RepoItem.class)
+                .add(Restrictions.eq("tenantKey", RepositoryTenantScope.currentKey()))
                 .add(activeOnly
                         ? Restrictions.or(
                                 Restrictions.isNull("aktif"),
@@ -252,7 +270,22 @@ public class RepositoryAction extends GenericAutowireComposer {
         @Override
         public void render(Row row, Object data) throws Exception {
             RepoItem item = (RepoItem) data;
-            new Label(item.getTitle()).setParent(row);
+            String root = Common.ROOT == null ? "" : Common.ROOT;
+            boolean owner = currentUser != null && currentUser.getUserId().equals(item.getOwnerId());
+            boolean manageable = owner || canManageRepository;
+            boolean publicItem = "Publik".equals(publicationLabel(item));
+            if (publicItem || manageable) {
+                A title = new A(item.getTitle());
+                title.setHref(publicItem ? root + "/repository/item/" + item.getId()
+                        : root + "/repository-workspace?view=deposit&id=" + item.getId());
+                title.setTarget("_blank");
+                title.setTooltiptext(publicItem ? "Buka detail karya pada portal Repository"
+                        : "Buka item pada workspace Repository");
+                title.setSclass("repo-item-title-link");
+                title.setParent(row);
+            } else {
+                new Label(item.getTitle()).setParent(row);
+            }
             new Label(item.getSourceLabel()).setParent(row);
             new Label(item.getDocumentType()).setParent(row);
             Html accessBadge = new Html(accessBadge(item.getAccessPolicy()));
@@ -264,6 +297,24 @@ public class RepositoryAction extends GenericAutowireComposer {
             turnitinBadge.setParent(row);
             new Label(item.getDspaceHandle()).setParent(row);
             new Label(item.getSyncMessage()).setParent(row);
+            Hbox actions = new Hbox();
+            actions.setSpacing("6px");
+            if (publicItem) {
+                A detail = new A("Buka");
+                detail.setHref(root + "/repository/item/" + item.getId());
+                detail.setTarget("_blank");
+                detail.setSclass("repo-row-action");
+                detail.setParent(actions);
+            }
+            if (manageable) {
+                A manage = new A("Kelola file");
+                manage.setHref(root + "/repository-workspace?view=deposit&id=" + item.getId());
+                manage.setTarget("_blank");
+                manage.setTooltiptext("Buka metadata dan unggah berkas untuk item ini");
+                manage.setSclass("repo-row-action repo-row-action-primary");
+                manage.setParent(actions);
+            }
+            actions.setParent(row);
         }
     }
 

@@ -38,6 +38,11 @@ sama dengan WAR.
     quality, daftar notifikasi, mark-as-read, dan statistik alert tidak memuat ID tenant lain.
 13. **Origin publik:** cocokkan canonical HTML, robots, sitemap, RSS/Atom, URL DataCite, dan COAR
     dengan `ais.repository.publicBaseUrl`; uji pula port nonstandar serta konfigurasi IPv6.
+14. **Konsol ZK Repository:** login sebagai pengelola perpustakaan dengan privilege UPDATE, pastikan
+    tombol `Unggah Karya Ilmiah` membuka draft baru; simpan metadata lalu unggah PDF. Pada tab Item,
+    pastikan judul dan `Buka` menuju detail publik, `Kelola file` membuka item yang sama, serta jumlah
+    item/collection/bitstream hanya berasal dari tenant aktif. Ulangi dengan role read-only dan
+    pastikan `Kelola file` tidak muncul.
 
 Setiap kegagalan harus mencatat request ID, tenant, role, URL, waktu, input nonrahasia, hasil aktual,
 hasil yang diharapkan, dan bukti log. Jangan memakai data produksi untuk test destruktif.

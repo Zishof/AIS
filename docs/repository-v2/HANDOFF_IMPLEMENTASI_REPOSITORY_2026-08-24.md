@@ -531,3 +531,25 @@ Konfigurasi server tambahan didokumentasikan pada `INTEGRATIONS.md`, termasuk
 `ais.repository.publicBaseUrl`, `ais.repository.maxUploadBytes`, dan timeout antivirus. Semua
 perubahan bagian ini hanya divalidasi secara statis. Build WAR, deploy, Tomcat, database, scanner,
 dan integrasi eksternal tetap menjadi tahap server milik operator.
+
+## 23. Perbaikan akses Item dan penemuan fitur upload 31 Agustus 2026
+
+Konsol Repository ZK lama sebelumnya menampilkan judul sebagai label pasif dan tidak menyediakan
+jalur upload yang eksplisit. Form berkas sebenarnya berada di workspace terpisah dan baru tampil
+setelah metadata awal disimpan menjadi draft. Selain itu, grid serta angka dashboard lama belum
+dibatasi dengan `tenant_key`, sedangkan portal detail sudah tenant-safe. Perbedaan tersebut dapat
+membuat judul terlihat di konsol tetapi menghasilkan 404 ketika dibuka pada portal institusi aktif.
+
+Perbaikannya:
+
+- tombol `Unggah Karya Ilmiah` ditambahkan pada toolbar konsol dan membuka deposit baru;
+- workspace menjelaskan bahwa draft metadata harus disimpan terlebih dahulu sebelum form berkas
+  dan tombol Unggah muncul;
+- judul publik menjadi tautan detail, dan setiap baris mempunyai aksi `Buka`;
+- role dengan privilege UPDATE menu Repository dikenali sebagai pengelola operasional sehingga
+  dapat membuka aksi `Kelola file` untuk item tenant aktif tanpa menjadikan seluruh pembaca
+  Repository sebagai administrator;
+- grid Item, daftar Collection, seluruh angka, bitstream, checksum, group counter, dan daftar
+  terbaru dashboard ZK sekarang dibatasi ke tenant institusi aktif.
+
+Build WAR, deployment, dan uji database/server tidak dijalankan sesuai instruksi operator.

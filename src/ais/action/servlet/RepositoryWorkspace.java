@@ -63,8 +63,10 @@ public class RepositoryWorkspace extends HttpServlet {
             request.setAttribute("repoUser", user);
             boolean canReview = workflow.isRepositoryAdmin(user);
             boolean administrator = workflow.isRepositoryAdministrator(user);
+            boolean repositoryManager = workflow.isRepositoryManager(user);
             request.setAttribute("repoCanReview", Boolean.valueOf(canReview));
             request.setAttribute("repoIsAdmin", Boolean.valueOf(administrator));
+            request.setAttribute("repoIsManager", Boolean.valueOf(repositoryManager));
             request.setAttribute("repoCollections", publicService.listCollections(500));
             int workspacePageSize=positiveInt(request.getParameter("workspaceSize"),20,100);
             ItemPage depositPage=workflow.myDepositsPage(user,request.getParameter("depositQ"),request.getParameter("depositStatus"),positiveInt(request.getParameter("depositPage"),1,1000000),workspacePageSize);
@@ -83,7 +85,7 @@ public class RepositoryWorkspace extends HttpServlet {
                         ? workflow.reviewItem(id, user) : workflow.workspaceItem(id, user);
                 request.setAttribute("repoWorkspaceItem", item);
                 request.setAttribute("repoCanEditItem", Boolean.valueOf(
-                        user.getUserId().equals(item.getOwnerId()) || administrator));
+                        user.getUserId().equals(item.getOwnerId()) || repositoryManager));
                 request.setAttribute("repoWorkspaceFiles", files.list(id, user));
                 request.setAttribute("repoWorkspaceHistory", workflow.history(id, user));
                 request.setAttribute("repoAuthorOrcids", workflow.authorOrcids(id, user));

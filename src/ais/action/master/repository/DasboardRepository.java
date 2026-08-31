@@ -456,10 +456,19 @@ public class DasboardRepository extends MyPortallayout {
 
     private int countActive(Session session, Class<?> clazz,
             String property, Object value) {
+        if (RepoBitstream.class.equals(clazz)) {
+            String hql = "select count(b.id) from RepoBitstream b where (b.aktif is null or b.aktif=true) "
+                    + "and b.itemId in (select i.id from RepoItem i where i.tenantKey=:tenant "
+                    + "and (i.aktif is null or i.aktif=true))";
+            Object result = session.createQuery(hql).setString("tenant", RepositoryTenantScope.currentKey()).uniqueResult();
+            return result == null ? 0 : ((Number) result).intValue();
+        }
         Criteria c = session.createCriteria(clazz)
                 .add(Restrictions.or(
                         Restrictions.isNull("aktif"),
                         Restrictions.eq("aktif", Boolean.TRUE)));
+        if (RepoItem.class.equals(clazz) || RepoCollection.class.equals(clazz))
+            c.add(Restrictions.eq("tenantKey", RepositoryTenantScope.currentKey()));
         if (property != null) {
             c.add(value == null
                     ? Restrictions.isNull(property)
@@ -500,23 +509,28 @@ public class DasboardRepository extends MyPortallayout {
 
     private int countItemsWithBitstream(Session session) {
         Object r = session.createSQLQuery(
-                "SELECT count(DISTINCT item_id) FROM public.repo_bitstream "
-                + "WHERE aktif IS NULL OR aktif = true")
+                "SELECT count(DISTINCT b.item_id) FROM public.repo_bitstream b "
+                + "JOIN public.repo_item i ON i.id=b.item_id "
+                + "WHERE (b.aktif IS NULL OR b.aktif=true) "
+                + "AND (i.aktif IS NULL OR i.aktif=true) AND i.tenant_key=:tenant")
+                .setString("tenant", RepositoryTenantScope.currentKey())
                 .uniqueResult();
         return r == null ? 0 : ((Number) r).intValue();
     }
 
     private int countBitstreamWithChecksum(Session session) {
         Object r = session.createSQLQuery(
-                "SELECT count(*) FROM public.repo_bitstream "
-                + "WHERE (aktif IS NULL OR aktif = true) "
-                + "AND checksum IS NOT NULL AND checksum <> ''")
+                "SELECT count(*) FROM public.repo_bitstream b JOIN public.repo_item i ON i.id=b.item_id "
+                + "WHERE (b.aktif IS NULL OR b.aktif=true) AND (i.aktif IS NULL OR i.aktif=true) "
+                + "AND i.tenant_key=:tenant AND b.checksum IS NOT NULL AND b.checksum <> ''")
+                .setString("tenant", RepositoryTenantScope.currentKey())
                 .uniqueResult();
         return r == null ? 0 : ((Number) r).intValue();
     }
 
     private Criteria baseItemCriteria(Session session) {
         Criteria c = session.createCriteria(RepoItem.class)
+                .add(Restrictions.eq("tenantKey", RepositoryTenantScope.currentKey()))
                 .add(Restrictions.or(
                         Restrictions.isNull("aktif"),
                         Restrictions.eq("aktif", Boolean.TRUE)));
@@ -546,14 +560,16 @@ public class DasboardRepository extends MyPortallayout {
                 "SELECT coalesce(c.nama,'Tanpa Collection'), count(i.id) "
                 + "FROM public.repo_item i "
                 + "LEFT JOIN public.repo_collection c ON i.collection_id = c.id "
-                + "WHERE i.aktif IS NULL OR i.aktif = true "
+                + "WHERE (i.aktif IS NULL OR i.aktif = true) AND i.tenant_key=:tenant "
                 + "GROUP BY coalesce(c.nama,'Tanpa Collection') "
                 + "ORDER BY count(i.id) DESC LIMIT 10")
+                .setString("tenant", RepositoryTenantScope.currentKey())
                 .list();
         fillMap(d.perCollection, colRows);
 
         // per-source
         List<Object[]> srcRows = session.createCriteria(RepoItem.class)
+                .add(Restrictions.eq("tenantKey", RepositoryTenantScope.currentKey()))
                 .add(Restrictions.or(
                         Restrictions.isNull("aktif"),
                         Restrictions.eq("aktif", Boolean.TRUE)))
@@ -565,6 +581,7 @@ public class DasboardRepository extends MyPortallayout {
 
         // per-document-type
         List<Object[]> typeRows = session.createCriteria(RepoItem.class)
+                .add(Restrictions.eq("tenantKey", RepositoryTenantScope.currentKey()))
                 .add(Restrictions.or(
                         Restrictions.isNull("aktif"),
                         Restrictions.eq("aktif", Boolean.TRUE)))

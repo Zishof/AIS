@@ -105,6 +105,10 @@
 		border-bottom: 1px solid #f1f5f9 !important;
 	}
 	.repo-grid .z-row:hover td { background: #f8fafc !important; }
+	.repo-item-title-link { color: var(--theme-primary,#1d4ed8) !important; font-weight: 650; text-decoration: none; }
+	.repo-item-title-link:hover, .repo-item-title-link:focus { text-decoration: underline; }
+	.repo-row-action { display:inline-block; padding:4px 8px; border:1px solid #cbd5e1; border-radius:6px; color:#334155 !important; text-decoration:none; white-space:nowrap; }
+	.repo-row-action-primary { background:var(--theme-primary,#1d4ed8); border-color:var(--theme-primary,#1d4ed8); color:#fff !important; }
 
 	/* --- Status Badge --- */
 	.repo-badge {
@@ -188,6 +192,10 @@
 									tooltiptext="Buka portal Repository publik yang responsif"
 									forward="onClick=onOpenPublic" />
 								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+									label="Unggah Karya Ilmiah" image="/img/upload.gif"
+									tooltiptext="Buat deposit baru, simpan metadata, lalu unggah PDF atau berkas pendukung"
+									forward="onClick=onOpenUpload" />
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
 									label="Workspace Deposit &amp; Review" image="/img/edit.gif"
 									tooltiptext="Buka workflow typed untuk deposit, review, profil, dan preservasi"
 									forward="onClick=onOpenWorkspace" />
@@ -243,9 +251,11 @@
 										<column use="ais.ui.util.MyColumnConfig"
 											label="Handle DSpace" width="160px"
 											sclass="repo-col-hide" />
-										<column use="ais.ui.util.MyColumnConfig"
-											label="Pesan" width="210px"
-											sclass="repo-col-hide" />
+									<column use="ais.ui.util.MyColumnConfig"
+										label="Pesan" width="210px"
+										sclass="repo-col-hide" />
+									<column use="ais.ui.util.MyColumnConfig"
+										label="Aksi" width="190px" />
 									</columns>
 								</grid>
 								<paging id="pagingItem" detailed="true"
