@@ -19,6 +19,26 @@ import ais.database.model.repository.RepoItem;
 import ais.database.model.repository.RepoItemMetadata;
 import ais.ui.dspace.DspaceCommon;
 
+/**
+ * Tipe khusus untuk repository sync. Kelas ini memberi nama dan batas tanggung jawab yang
+ * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code String STATUS_SYNCED}, {@code String
+ * STATUS_FAILED}, {@code String STATUS_DRAFT}, {@code int DEFAULT_BATCH_SIZE}, {@code long
+ * REPOSITORY_SYNC_LOCK_ID}, {@code long JEDA_IZIN_DITOLAK_MS}, {@code java.util.Map SUMBER_DITUNDA_IZIN};
+ * pembacaan/pencarian ({@code getDefaultSources()}, {@code findRepoItem()}, {@code findRepoItemByOai()}, {@code
+ * findAnyRepoItemByOai()}, {@code getLong()}); mutasi data ({@code saveMetadata()}); operasi domain lain ({@code
+ * isConnectionDead()}, {@code perbaikiLockVersionKosong()}, {@code terapkanLockTimeout()}, {@code
+ * cobaKunciSinkronisasi()}, {@code synchronizeAll()}, {@code synchronizeAll()}). Bagian lain dari kontrak tetap
+ * mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class RepositorySyncService {
 
 	public static final String STATUS_SYNCED = "SYNCED";

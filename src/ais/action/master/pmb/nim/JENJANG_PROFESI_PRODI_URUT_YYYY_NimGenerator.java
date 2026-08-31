@@ -13,6 +13,26 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.Mahasiswa;
 
+/**
+ * Tipe khusus untuk jenjang profesi prodi urut yyyy nim generator. Kelas ini memberi nama dan
+ * batas tanggung jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang
+ * diimplementasikannya.
+ *
+ * <p><b>Batas tanggung jawab:</b> tipe ini mendeklarasikan kontrak {@link NimGenerator}. Implementasi konkret
+ * bertanggung jawab atas transaksi, resource, error handling, dan efek samping; pemanggil sebaiknya bergantung
+ * pada kontrak ini agar tidak menggandakan integrasi.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code String NILAI_KOSONG};
+ * pembacaan/pencarian ({@code getKonfigurasi()}, {@code getKonfigurasiInteger()}, {@code getObjectProperty()},
+ * {@code getStringProperty()}); validasi/perhitungan ({@code hitungMahasiswaAktifByTahunDanProdi()}, {@code
+ * hitungMahasiswaAktifProfesi()}); operasi domain lain ({@code generateNim()}, {@code generateNim()}, {@code
+ * generateNimNonProfesi()}, {@code generateNimProfesi()}, {@code isJenjangProfesi()}, {@code
+ * resolveKodeProgramProfesi()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang
+ * disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class JENJANG_PROFESI_PRODI_URUT_YYYY_NimGenerator implements NimGenerator {
 
 	private static final String NILAI_KOSONG = "-";

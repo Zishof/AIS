@@ -47,6 +47,28 @@ import ais.ui.util.MyRowStyled;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper terfokus untuk verifikasi pmb. Tipe ini membungkus satu variasi kecil dari alur yang
+ * lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah inisialisasi/lifecycle ({@code buatGridVerifikasi()}, {@code
+ * buatBerkasJikaPerlu()}); pembacaan/pencarian ({@code tampilkanGrid()}, {@code tampilkanGrid()}, {@code
+ * reloadGelombang()}, {@code reloadJenisSeleksi()}, {@code ambilVerifikasiEfektif()}, {@code
+ * ambilJenisSeleksiCalon()}); validasi/perhitungan ({@code checkVerifikasi()}, {@code
+ * checkVerifikasiSebelumUjian()}, {@code checkVerifikasiSebelumInterview()}); mutasi data ({@code setVisible()},
+ * {@code simpanVerifikasi()}); penghapusan/pembatalan ({@code tambahTombolHapusBerkasAdmin()}); pelaporan/ekspor
+ * ({@code renderBarisVerifikasi()}, {@code renderBarisAdmin()}, {@code renderBarisCalon()}); operasi domain lain
+ * ({@code belumLewatTanggalDaftarUlang()}, {@code isAktif()}, {@code filterDenganJenisSeleksiJikaAda()}, {@code
+ * tambahJikaAktif()}, {@code sortVerifikasi()}, {@code namaVerifikasi()}). Bagian lain dari kontrak tetap
+ * mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class VerifikasiPMBHelper {
 
 	public static EventListener tampilkanGrid(final Component rowVerifikasi,

@@ -31,6 +31,34 @@ import ais.database.model.rab.SumberDana;
 import ais.database.model.rab.Workspace;
 import ais.database.model.rab.WorkspacePunyaPegawai;
 
+/**
+ * Tipe khusus untuk workspace tree model. Kelas ini memberi nama dan batas tanggung jawab yang
+ * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * AbstractTreeModel}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Integer tahunWorkspace}, {@code Integer
+ * revisi}, {@code Set satuanKerjas}, {@code SumberDana sumberDana}, {@code SatuanKerjaTreeModel
+ * satuanKerjaTreeModel}, {@code boolean termasukYgNonAktif}; pembacaan/pencarian ({@code getChildCountById()},
+ * {@code getRealisasiProses()}, {@code getCheckForLeafNulll()}, {@code getChildren()}, {@code
+ * anakTerurutTampil()}, {@code getSatuChildren()}); validasi/perhitungan ({@code checkRootSatuanKerja()}, {@code
+ * checkForParent()}, {@code checkForParent()}, {@code checkBentrok()}, {@code checkBentrok()}); mutasi data
+ * ({@code ubahRealisasiParents()}, {@code ubahHargaTotalParentss()}, {@code ubahHargaTotalParentssRecursive()},
+ * {@code ubahHargaTotalParents()}, {@code ubahHargaTotalParentsRecursive()}, {@code ubahMulaiParents()});
+ * penghapusan/pembatalan ({@code deleteChilds()}, {@code deleteChildsRecursive()}, {@code
+ * deleteChildsWithNativeSession()}); operasi domain lain ({@code closeSession()}, {@code copy()}, {@code
+ * copyChild()}, {@code createNewWorkspace()}, {@code main()}, {@code sudahDigunakanTransaksi()}); konfigurasi
+ * constructor: {@code satuanKerjaTreeModel}. Bagian lain dari kontrak tetap mengikuti kelas induk atau interface
+ * yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ *
+ * @see AbstractTreeModel
+ */
 public class WorkspaceTreeModel extends AbstractTreeModel { 
 
 	private static final long serialVersionUID = -5115651721345571411L;

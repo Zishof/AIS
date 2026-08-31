@@ -60,6 +60,29 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Tipe khusus untuk ambil data satuan kerja banbox. Kelas ini memberi nama dan batas tanggung
+ * jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
+ * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
+ * tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Tree tree}, {@code EventListener
+ * eventListener}, {@code SatuanKerjaTreeModel satuanKerjaTreeModel}, {@code Boolean chooseAll}, {@code boolean
+ * hasDisplayed}, {@code SatuanKerja satuanKerja}, {@code Tbmuser tbmuser}, {@code boolean kunciDomain};
+ * pembacaan/pencarian ({@code cariSatuanKerjaByDomain()}, {@code onSearchDefault()}, {@code setEventListener()},
+ * {@code getEventListener()}); mutasi data ({@code setChooseAll()}); operasi domain lain ({@code display()});
+ * konfigurasi constructor: {@code kunciDomain}, {@code satuanKerja}, {@code satuanKerjaTreeModel}, {@code
+ * tbmuser}, {@code yayasan}. Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
+ * atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ *
+ * @see Bandbox
+ */
 public class AmbilDataSatuanKerjaBanbox extends Bandbox implements GetEventListener {
 
 	/**
