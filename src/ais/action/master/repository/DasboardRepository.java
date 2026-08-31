@@ -795,6 +795,20 @@ public class DasboardRepository extends MyPortallayout {
     // Inner Data Classes
     // -------------------------------------------------------------------------
 
+    /**
+     * Pembawa data/helper lokal milik {@link DasboardRepository} untuk dashboard data. Tipe ini mengelompokkan
+     * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasboardRepository}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int totalCollection}, {@code int
+     * totalItem}, {@code int totalBitstream}, {@code int syncedItem}, {@code int failedItem}, {@code int
+     * turnitinIndexed}, {@code int openAccess}, {@code int restrictedAccess}. Aturan bisnis bersama tetap berada
+     * pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see DasboardRepository
+     */
     private static class DashboardData {
         int totalCollection;
         int totalItem;
@@ -818,6 +832,19 @@ public class DasboardRepository extends MyPortallayout {
         List<RecentItem>     recentItems      = new ArrayList<RecentItem>();
     }
 
+    /**
+     * Tipe implementasi bersarang {@link RecentItem} milik {@link DasboardRepository}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasboardRepository}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String title}, {@code String source},
+     * {@code String status}, {@code String time}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+     * yang dipanggilnya.</p>
+     *
+     * @see DasboardRepository
+     */
     private static class RecentItem {
         String title;
         String source;
@@ -825,6 +852,18 @@ public class DasboardRepository extends MyPortallayout {
         String time;
     }
 
+    /**
+     * Tipe implementasi bersarang {@link LabelCount} milik {@link DasboardRepository}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasboardRepository}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String label}, {@code int count}.
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see DasboardRepository
+     */
     private static class LabelCount {
         String label;
         int    count;

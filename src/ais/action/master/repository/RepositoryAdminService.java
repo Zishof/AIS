@@ -41,6 +41,20 @@ public class RepositoryAdminService {
     private final RepositoryWorkflowService workflow = new RepositoryWorkflowService();
     private final RepositoryFileService fileService = new RepositoryFileService();
 
+    /**
+     * Tipe implementasi bersarang {@link Health} milik {@link RepositoryAdminService}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * RepositoryAdminService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+     * diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code long collections}, {@code long
+     * items}, {@code long publicItems}, {@code long missingOai}, {@code long duplicateOai}, {@code long
+     * failedSync}, {@code long bitstreams}, {@code long missingChecksum}. Aturan bisnis bersama tetap berada pada
+     * kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see RepositoryAdminService
+     */
     public static class Health {
         public long collections, items, publicItems, missingOai, duplicateOai, failedSync;
         public long bitstreams, missingChecksum, pendingScan, infected, turnitinSubmitted;
@@ -56,11 +70,40 @@ public class RepositoryAdminService {
         public final Map<String, Long> referrers = new LinkedHashMap<String, Long>();
         public final Map<String, Long> dailyTrend = new LinkedHashMap<String, Long>();
     }
+    /**
+     * Tipe implementasi bersarang {@link ImportResult} milik {@link RepositoryAdminService}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * RepositoryAdminService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+     * diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int rows}, {@code int validRows},
+     * {@code List errors}; operasi lokal: {@code isValid}(). Aturan bisnis bersama tetap berada pada kelas induk
+     * atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see RepositoryAdminService
+     */
     public static class ImportResult {
         public int rows, validRows;
         public final List<String> errors = new ArrayList<String>();
         public boolean isValid() { return errors.isEmpty(); }
     }
+    /**
+     * Tipe implementasi bersarang {@link FixityResult} milik {@link RepositoryAdminService}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * RepositoryAdminService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+     * diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int checked}, {@code int ok}, {@code
+     * int missing}, {@code int mismatch}, {@code List errors}. Aturan bisnis bersama tetap berada pada kelas induk
+     * atau service yang dipanggilnya.</p>
+     *
+     * @see RepositoryAdminService
+     */
     public static class FixityResult {
         public int checked, ok, missing, mismatch;
         public final List<String> errors = new ArrayList<String>();
