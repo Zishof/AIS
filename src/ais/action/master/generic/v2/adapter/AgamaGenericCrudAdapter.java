@@ -13,6 +13,21 @@ import ais.action.master.generic.v2.GenericCrudException;
 import ais.common.HeadlessBusinessRuleException;
 import ais.database.model.Agama;
 
+/**
+ * Tipe khusus untuk agama generic crud adapter. Kelas ini memberi nama dan batas tanggung jawab
+ * yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * AbstractGenericCrudEntityAdapter}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk
+ * variasi ini; perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak
+ * bercabang atau tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah operasi lokal: {@code createNew()}, {@code validateCreate()},
+ * {@code validateUpdate()}, {@code validate()}, {@code beforeSave()}, {@code canDelete()}, {@code delete()},
+ * {@code getNaturalKeyProperties}(). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang
+ * disebut di atas.</p>
+ *
+ * @see AbstractGenericCrudEntityAdapter
+ */
 @SuppressWarnings({ "rawtypes", "unchecked" })
 public class AgamaGenericCrudAdapter extends AbstractGenericCrudEntityAdapter<Agama>
         implements GenericCrudScopeAdapter {
