@@ -265,8 +265,14 @@ public class PostingCicilanMahasiswaAction extends GenericAutowireComposer {
 									cicilanPembayaran.setPostingHistory(null);
 									session.update(cicilanPembayaran);
 									
+									// "ref != 'dimuka'" SAJA tidak pernah mengenai kaki utama: kaki ini
+									// ditulis lewat overload saveTransaksi tanpa ref, jadi ref-nya NULL,
+									// dan pada SQL "NULL != 'dimuka'" bernilai NULL -- bukan true.
+									// Akibatnya cap dilepas tetapi jurnalnya tertinggal yatim. Bentuk
+									// di bawah ini sama dengan mesin batalkanPostingSemua di berkas ini.
 									session.createSQLQuery("delete from akunting.grup_transaksi where cicilan_pembayaran="
-											+ cicilanPembayaran.getId() + " and ref != 'dimuka'" + " and closing is null")
+											+ cicilanPembayaran.getId() + " and (ref is null or ref != 'dimuka')"
+											+ " and closing is null")
 											.executeUpdate();
 											
 									rowProcessed++;
@@ -820,8 +826,13 @@ public class PostingCicilanMahasiswaAction extends GenericAutowireComposer {
 									cicilanPembayaran.setPostingHistory(null);
 									localSession.update(cicilanPembayaran);
 									
-									localSession.createSQLQuery("delete from akunting.grup_transaksi where (ref is null or ref='') and cicilan_pembayaran="
-													+ cicilanPembayaran.getId() + " and ref != 'dimuka'" + " and closing is null")
+									// Bentuk lama menggabungkan "(ref is null or ref='')" DENGAN
+									// "ref != 'dimuka'"; untuk baris ber-ref NULL syarat kedua bernilai
+									// NULL sehingga barisnya tidak pernah terhapus -- cap lepas, jurnal
+									// yatim. Disamakan dengan mesin batalkanPostingSemua di berkas ini.
+									localSession.createSQLQuery("delete from akunting.grup_transaksi where cicilan_pembayaran="
+													+ cicilanPembayaran.getId() + " and (ref is null or ref != 'dimuka')"
+													+ " and closing is null")
 											.executeUpdate();
 									tx.commit();
 								} catch (Exception e) {
