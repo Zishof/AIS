@@ -53,6 +53,17 @@ import ais.ui.util.MyComboitemConfig;
 import ais.ui.util.MyGrid;
 import ais.ui.util.MyWindow;
 
+/**
+ * Jendela laporan rekapitulasi status mahasiswa: mirip {@link LaporanRekapitulasiMahasiswa}
+ * (biodata lengkap, pejabat struktural terkait, IPK/IPS, judisium, masa studi) namun difilter
+ * lebih detail — rentang tahun angkatan, rentang tahun lulus, status mahasiswa saat ini, status
+ * awal mahasiswa, dan status keluar (termasuk opsi "belum keluar/masih aktif") — dan TANPA
+ * kolom biaya per semester. Seluruh kandidat mahasiswa (dalam rentang tahun angkatan) diperiksa
+ * satu per satu lewat serangkaian kondisi bersarang (tahun lulus, fakultas, jurusan, kelamin,
+ * program, status keluar, status awal, tahun angkatan, lalu status saat ini setelah sinkronisasi
+ * ulang KRS semester berjalan) sebelum baris datanya disertakan. Dicetak sebagai PDF lewat mesin
+ * laporan lama ({@link Report}), diproses di thread terpisah dengan progress bar.
+ */
 public class LaporanRekapitulasiStatusMahasiswa extends MyWindow {
 
 	private static final long serialVersionUID = 4766478176972379068L;
@@ -80,6 +91,7 @@ public class LaporanRekapitulasiStatusMahasiswa extends MyWindow {
 	private Decimalbox tahunLulus;
 	private Decimalbox tahunLulusSd;
 
+	/** Membuat jendela laporan dan langsung menyusun tampilan filter dasar (tanpa memuat data laporan). */
 	public LaporanRekapitulasiStatusMahasiswa() {
 		super();
 		try {
@@ -97,12 +109,20 @@ public class LaporanRekapitulasiStatusMahasiswa extends MyWindow {
 
 	}
 
+	/**
+	 * Membuat jendela laporan dengan judul, gaya border, dan status dapat-ditutup kustom.
+	 *
+	 * @param title    judul jendela
+	 * @param border   gaya border jendela
+	 * @param closable apakah jendela dapat ditutup pengguna
+	 */
 	public LaporanRekapitulasiStatusMahasiswa(String title, String border, boolean closable) throws Exception {
 		super(title, border, closable);
 
 		init();
 	}
 
+	/** Menyusun panel filter (fakultas/jurusan/program/rentang angkatan/rentang tahun lulus/status/status awal/kelamin/status keluar/tahun akademik/semester) di West beserta tombol lihat laporan dan toolbar ekspor. */
 	private void init() throws Exception {
 
 		kurikulumFakultas = new Combobox();
@@ -303,6 +323,7 @@ public class LaporanRekapitulasiStatusMahasiswa extends MyWindow {
 
 	}
 
+	/** @return peta parameter laporan (filter fakultas/jurusan/angkatan/status/program/kelamin/tahun akademik/semester, dan {@link #maps} bila sudah dihitung) untuk mesin cetak PDF lama; juga menyimpan {@code fak}/{@code jur}/{@code ta}/{@code jenisSemester} ke bidang instans untuk dipakai {@link #generateDataDanImageAlbum}. */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	protected Map generateParameter() throws Exception {
 
@@ -352,6 +373,12 @@ public class LaporanRekapitulasiStatusMahasiswa extends MyWindow {
 		return parameters;
 	}
 
+	/**
+	 * Menampilkan progress bar, menjalankan {@link #generateDataDanImageAlbum} di thread
+	 * terpisah, lalu menghasilkan dan menampilkan berkas PDF lewat mesin laporan lama.
+	 *
+	 * @param event event pemicu (tidak dipakai)
+	 */
 	@SuppressWarnings({})
 	public void onLaporanPerkuliahan(Event event) throws Exception {
 
@@ -388,6 +415,17 @@ public class LaporanRekapitulasiStatusMahasiswa extends MyWindow {
 
 	}
 
+	/**
+	 * Menghitung ulang {@link #maps}: mengambil kandidat mahasiswa aktif dalam rentang tahun
+	 * angkatan, lalu untuk tiap mahasiswa memeriksa berurutan (short-circuit) apakah cocok
+	 * dengan seluruh filter (rentang tahun lulus, fakultas, jurusan, kelamin, program, status
+	 * keluar, status awal, batas bawah/atas tahun angkatan, dan akhirnya status mahasiswa saat
+	 * ini setelah sinkronisasi ulang {@link KrsMahasiswa} semester berjalan) sebelum baris
+	 * datanya (biodata lengkap, pejabat struktural terkait, IPK/IPS, judisium, masa studi)
+	 * ditambahkan ke {@link #maps}. Progres ditulis ke {@code label} di setiap iterasi.
+	 *
+	 * @param label komponen label UI untuk menampilkan progres
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	protected void generateDataDanImageAlbum(Label label) {
 		StatusMahasiswa selectedStatusMahasiswa = (StatusMahasiswa) (status.getSelectedItem() == null

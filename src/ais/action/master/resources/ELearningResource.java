@@ -582,6 +582,7 @@ public class ELearningResource {
 	@GET
 	@Path("masuk/{username}/{password}/")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/** Login tanpa token perangkat; mendelegasikan ke {@link #getMasukToken(String, String, String)} dengan token {@code null}. */
 	public CommonID getMasuk(@PathParam("username") String username, @PathParam("password") String password)
 			throws Exception {
 		return getMasukToken(username, password, null);
@@ -590,6 +591,20 @@ public class ELearningResource {
 	@GET
 	@Path("masuk_token/{username}/{password}/{token}")
 	@Produces({ MediaType.APPLICATION_JSON })
+	/**
+	 * Login mobile universal: mencoba mencocokkan {@code username}/{@code password} (password
+	 * dienkripsi DES sebelum dibandingkan) secara berurutan sebagai {@link Mahasiswa} (NIM), lalu
+	 * {@link Siswa} (nomor induk), lalu {@link Penduduk} (kode), lalu {@link Tbmuser} (userId) — yang
+	 * pertama cocok dipakai. Mengembalikan daftar menu mobile dinamis dalam {@link CommonID} sesuai
+	 * jenis akun yang berhasil login (mis. menu KRS hanya muncul untuk mahasiswa). Parameter
+	 * {@code token} diterima untuk keperluan token perangkat (push notification dsb.).
+	 *
+	 * @param username NIM/nomor induk/kode/userId pengguna
+	 * @param password password akun (dikirim polos via path URL, dienkripsi DES sebelum dibandingkan)
+	 * @param token    token perangkat untuk notifikasi, boleh {@code null}
+	 * @return ringkasan hasil login berisi daftar menu mobile dalam field JSON
+	 * @throws Exception diteruskan apa adanya dari kegagalan query/pembentukan JSON
+	 */
 	public CommonID getMasukToken(@PathParam("username") String username, @PathParam("password") String password,
 			@PathParam("token") String token) throws Exception {
 

@@ -38,6 +38,23 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper UI ZK untuk mengelola rincian barang/jasa ({@link PermintaanPengadaanMasterAssetDetail})
+ * pada satu {@link PermintaanPengadaanMasterAsset} (permintaan pengadaan aset/PR). Menampilkan
+ * grid rincian dengan kolom kuantitas dan harga beli yang dapat diedit (dikunci begitu permintaan
+ * sudah disetujui — lihat {@link #isPermintaanDisetujui}), total per baris dan total keseluruhan
+ * dihitung ulang otomatis, serta fitur "ikuti harga DPP terbaru" yang mengambil harga referensi
+ * pengadaan terakhir suatu {@link MasterAsset} ({@link AssetHargaDppHistoryUtil}) — baik per
+ * baris maupun sekaligus untuk seluruh baris yang masih dapat diubah harganya — dan menyimpannya
+ * balik sebagai harga beli default {@link MasterAsset} untuk pengajuan berikutnya.
+ * <p>
+ * Beberapa method privat/statis di sini menangani masalah sesi Hibernate ZK yang umum: entitas
+ * yang datang dari komponen ZK (mis. atribut baris) sering berasal dari sesi Hibernate lama,
+ * sehingga sebelum diubah harus diambil ulang ("managed") dari sesi Hibernate aktif saat ini
+ * (lihat {@link #getManagedPermintaan}/{@link #getManagedMasterAsset}/{@link #getManagedDetail}) —
+ * mencegah error "Illegal attempt to associate a collection with two open sessions".
+ * </p>
+ */
 public class PermintaanPengadaanMasterAssetHelper {
 
 	private MyGrid gridMasterAsset;
@@ -48,22 +65,27 @@ public class PermintaanPengadaanMasterAssetHelper {
 	private boolean persetujuan = false;
 	private PermintaanPengadaanMasterAsset currentPermintaanPengadaanMasterAsset;
 
+	/** Menyiapkan helper untuk {@code gridMasterAsset} yang diberikan. */
 	public PermintaanPengadaanMasterAssetHelper(MyGrid gridMasterAsset) {
 		this.gridMasterAsset = gridMasterAsset;
 	}
 
+	/** Mengembalikan nilai {@code double} primitif dari {@code value}, {@code 0.0} bila {@code null}. */
 	private static double doubleValue(Double value) {
 		return value == null ? 0.0 : value.doubleValue();
 	}
 
+	/** Mengembalikan {@code value} yang di-trim, atau string kosong bila {@code null}. */
 	private static String safeText(String value) {
 		return value == null ? "" : value.trim();
 	}
 
+	/** Memformat {@code value} sebagai angka lokal, {@code "0"} bila {@code null}. */
 	private static String formatNumber(Double value) {
 		return Common.numberFormat.get().format(doubleValue(value));
 	}
 
+	/** Menghitung total harga satu baris rincian: jumlah dikali harga beli. */
 	private static double hitungTotal(PermintaanPengadaanMasterAssetDetail detail) {
 		if (detail == null) {
 			return 0.0;
@@ -71,14 +93,17 @@ public class PermintaanPengadaanMasterAssetHelper {
 		return doubleValue(detail.getJumlah()) * doubleValue(detail.getHargaBeli());
 	}
 
+	/** Menentukan apakah {@code data} sudah disetujui (kolom {@code disetujuiOleh} terisi) — begitu disetujui, rincian tidak lagi dapat diedit/dihapus. */
 	private static boolean isPermintaanDisetujui(PermintaanPengadaanMasterAsset data) {
 		return data != null && data.getDisetujuiOleh() != null;
 	}
 
+	/** Menentukan apakah baris rincian bersifat baca-saja: berlaku bila permintaan induknya sudah disetujui, atau user tidak punya hak edit. */
 	private static boolean isDetailReadonly(PermintaanPengadaanMasterAssetDetail detail, boolean edit) {
 		return detail == null || isPermintaanDisetujui(detail.getPermintaanPengadaanMasterAsset()) || !edit;
 	}
 
+	/** Menentukan apakah harga beli boleh diubah untuk {@code detail}, mengikuti flag {@code hargaBolehDiubah} pada {@link MasterAsset} terkait (default boleh bila belum ada master asset). */
 	private static boolean isHargaBolehDiubah(PermintaanPengadaanMasterAssetDetail detail) {
 		if (detail == null || detail.getMasterAsset() == null) {
 			return true;
@@ -86,6 +111,7 @@ public class PermintaanPengadaanMasterAssetHelper {
 		return detail.getMasterAsset().getHargaBolehDiubah();
 	}
 
+	/** Mengambil ulang {@code data} dari {@code session} aktif saat ini (bila punya id), mencegah asosiasi entitas lintas sesi Hibernate. */
 	private static PermintaanPengadaanMasterAsset getManagedPermintaan(Session session,
 			PermintaanPengadaanMasterAsset data) {
 		if (session == null || data == null || data.getId() == null) {
@@ -100,6 +126,7 @@ public class PermintaanPengadaanMasterAssetHelper {
 		}
 	}
 
+	/** Mengambil ulang {@code data} dari {@code session} aktif saat ini (bila punya id), mencegah asosiasi entitas lintas sesi Hibernate. */
 	private static MasterAsset getManagedMasterAsset(Session session, MasterAsset data) {
 		if (session == null || data == null || data.getId() == null) {
 			return data;
@@ -113,6 +140,7 @@ public class PermintaanPengadaanMasterAssetHelper {
 		}
 	}
 
+	/** Mengambil ulang {@code data} dari {@code session} aktif saat ini (bila punya id), mencegah asosiasi entitas lintas sesi Hibernate. */
 	private static PermintaanPengadaanMasterAssetDetail getManagedDetail(Session session,
 			PermintaanPengadaanMasterAssetDetail data) {
 		if (session == null || data == null || data.getId() == null) {
@@ -127,6 +155,15 @@ public class PermintaanPengadaanMasterAssetHelper {
 		}
 	}
 
+	/**
+	 * Membangun kerangka panel rincian barang/jasa untuk {@code permintaanPengadaanMasterAsset}:
+	 * hak edit/hapus ditentukan dari status persetujuan permintaan (dikunci total begitu sudah
+	 * disetujui), toolbar termasuk tombol "ikuti harga DPP terbaru semua baris"
+	 * ({@link #ikutiHargaDppTerbaruSemuaBaris}), dan grid rincian dengan footer total keseluruhan,
+	 * lalu langsung memuat datanya.
+	 *
+	 * @param persetujuan menandai bahwa panel dibuka dalam konteks alur persetujuan (memengaruhi kontrol yang ditampilkan)
+	 */
 	public MyGroupboxStyled initDetail(final PermintaanPengadaanMasterAsset permintaanPengadaanMasterAsset,
 			boolean persetujuan) throws Exception {
 		this.currentPermintaanPengadaanMasterAsset = permintaanPengadaanMasterAsset;
@@ -329,6 +366,7 @@ public class PermintaanPengadaanMasterAssetHelper {
 		return myGroupboxStyled;
 	}
 
+	/** Listener yang menjumlahkan ulang total semua baris rincian yang terlihat pada grid dan memperbarui label footer total. */
 	public EventListener eventListenerHitungUlang = new EventListener() {
 		@SuppressWarnings("unchecked")
 		@Override
@@ -352,6 +390,12 @@ public class PermintaanPengadaanMasterAssetHelper {
 		}
 	};
 
+	/**
+	 * Memuat seluruh {@link PermintaanPengadaanMasterAssetDetail} milik {@code permintaanPengadaanMasterAsset}
+	 * (dicari berdasarkan id induk, bukan objek langsung, dengan flush mode Hibernate dimatikan
+	 * sementara — lihat komentar kode untuk alasan teknisnya) dan merender satu baris grid per
+	 * rincian, lalu menjadwalkan penghitungan ulang total via {@link #eventListenerHitungUlang}.
+	 */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final PermintaanPengadaanMasterAsset permintaanPengadaanMasterAsset) throws Exception {
 		List<PermintaanPengadaanMasterAssetDetail> details = new ArrayList<PermintaanPengadaanMasterAssetDetail>();
@@ -411,6 +455,7 @@ public class PermintaanPengadaanMasterAssetHelper {
 		Common.createDefaultTimer(eventListenerHitungUlang);
 	}
 
+	/** Merender satu baris grid untuk {@code detail}: nama barang, kuantitas dan harga beli (dapat diedit sesuai {@link #isDetailReadonly}/{@link #isHargaBolehDiubah}), total baris, panel harga DPP terbaru ({@link #appendHargaDppTerbaru}), dan tombol hapus. */
 	public void initRow(final Row row, final PermintaanPengadaanMasterAssetDetail detail) throws Exception {
 		if (detail == null) {
 			return;
@@ -560,6 +605,7 @@ public class PermintaanPengadaanMasterAssetHelper {
 	}
 
 
+	/** Menambahkan panel info harga DPP (referensi pengadaan) terbaru untuk {@link MasterAsset} milik {@code detail} beserta tombol "Ikuti" untuk menerapkannya, atau pesan "belum ada riwayat" bila tidak tersedia. */
 	private void appendHargaDppTerbaru(final Row row, final PermintaanPengadaanMasterAssetDetail detail,
 			final MyDoublebox harga, final Label total, boolean disabled) throws Exception {
 		Vbox box = new Vbox();
@@ -598,6 +644,7 @@ public class PermintaanPengadaanMasterAssetHelper {
 		});
 	}
 
+	/** Menerapkan harga DPP {@code info} ke {@code detail} (field form dan, bila sudah tersimpan, ke database), sekaligus memperbarui harga beli default {@link MasterAsset} untuk pengajuan berikutnya, dan menyegarkan total baris/keseluruhan. Menolak dengan pesan bila belum ada riwayat harga. */
 	private void terapkanHargaDppTerbaru(final PermintaanPengadaanMasterAssetDetail detail,
 			final AssetHargaDppHistoryUtil.HargaDppInfo info, final MyDoublebox harga, final Label total) throws Exception {
 		if (detail == null || info == null || !info.hasHarga()) {
@@ -627,6 +674,7 @@ public class PermintaanPengadaanMasterAssetHelper {
 		eventListenerHitungUlang.onEvent(null);
 	}
 
+	/** Menerapkan harga DPP terbaru ke seluruh baris rincian yang masih dapat diedit dan boleh diubah harganya, memuat ulang grid, lalu menampilkan ringkasan jumlah baris yang berhasil diperbarui. */
 	@SuppressWarnings("unchecked")
 	private void ikutiHargaDppTerbaruSemuaBaris() throws Exception {
 		if (gridMasterAsset == null || gridMasterAsset.getRows() == null) {
@@ -665,6 +713,7 @@ public class PermintaanPengadaanMasterAssetHelper {
 				MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
 	}
 
+	/** Menyimpan {@code hargaDppSatuan} sebagai harga beli default (referensi) {@code masterAsset}, dipakai untuk mengisi harga awal pada pengajuan berikutnya. */
 	private void updateHargaDefaultMasterAsset(Session session, MasterAsset masterAsset, Double hargaDppSatuan) {
 		if (session == null || masterAsset == null || masterAsset.getId() == null || hargaDppSatuan == null) {
 			return;

@@ -1176,6 +1176,21 @@ public class AbsensiSiswaHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Titik masuk utama: membangun seluruh panel manajemen kehadiran untuk {@code pertemuan} ke
+	 * dalam {@code tabpanelUtama}. Menentukan daftar siswa yang seharusnya hadir
+	 * ({@link #populateSiswaDariPertemuan}), status kehadiran default dari konfigurasi
+	 * {@code default_status_kehadiran}, dan tata letak berbeda untuk mobile (panel info, daftar
+	 * kehadiran, daftar izin ditumpuk vertikal) vs desktop (border layout tiga panel: info di
+	 * barat, daftar kehadiran di tengah, daftar izin di timur, dimuat lewat timer). Panel dikunci
+	 * (read-only) bila helper dibangun untuk konteks satu siswa/calon siswa tertentu, dan field
+	 * tanggal/waktu/ruang dikunci bila pengguna adalah guru yang tidak diizinkan mengubah jadwal.
+	 * Daftar izin/sakit tidak ditampilkan untuk pertemuan yang merupakan sesi ujian PMB/PSB.
+	 *
+	 * @param pertemuan     pertemuan yang kehadirannya dikelola
+	 * @param tabpanelUtama komponen ZK induk tempat seluruh panel disisipkan (dibersihkan lebih dulu)
+	 * @param tampilInfo    tampilkan ringkasan info pertemuan di puncak panel info
+	 */
 	public void mainInit(final Pertemuan pertemuan, Component tabpanelUtama, boolean tampilInfo) throws Exception {
 		this.tabpanelUtama = tabpanelUtama;
 		this.tampilInfo = tampilInfo;
@@ -1281,6 +1296,7 @@ public class AbsensiSiswaHelper {
 		}
 	}
 
+	/** Menandai cache tren absensi kotor untuk perkuliahan terkait, lalu membangun ulang seluruh panel dari nol lewat {@link #mainInit(Pertemuan, Component, boolean)} (dijadwalkan lewat timer default). */
 	private void reload(final Pertemuan pertemuan) {
 		// Absensi berubah → segarkan cache tren agar grafik yang dirender ulang memakai data baru.
 		try {
@@ -1299,6 +1315,16 @@ public class AbsensiSiswaHelper {
 		});
 	}
 
+	/**
+	 * Membangun panel daftar kehadiran siswa untuk {@code pertemuan}: statistik ringkas (gaya
+	 * kartu donat/gauge), tren kehadiran, toolbar aksi massal, dan baris kehadiran per siswa
+	 * (didelegasikan ke {@link #tampilRowAbsensi} lewat {@link #reloadAbsensiBaru}). Dibangun
+	 * sebagai satu wadah vertikal penuh-lebar (bukan sel-sel baris ZK berdampingan) agar kartu
+	 * statistik dan tren tersusun rapi di atas grid data.
+	 *
+	 * @param parentrow komponen ZK induk tempat panel disisipkan
+	 * @param pertemuan pertemuan yang daftar kehadirannya ditampilkan
+	 */
 	private void createListSiswaAbsensi(Component parentrow, final Pertemuan pertemuan) {
 
 		Row utamaBanget = Common.tampilanScroll1(parentrow);
@@ -1710,6 +1736,7 @@ public class AbsensiSiswaHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Menyusun riwayat sesi absensi daring (online) {@code pertemuan}, dikelompokkan per timestamp/sesi ke peta detail (dosen/mahasiswa yang tercatat online pada sesi tersebut). */
 	private TreeMap<String, Map<String, String>> reloadSejarahAbsensiOnline(Pertemuan pertemuan) {
 		String sebelumnya = pertemuan.retreive("sejarah");
 		JSONObject jsonObject = new JSONObject();
@@ -1746,6 +1773,11 @@ public class AbsensiSiswaHelper {
 	private TreeMap<String, Map<String, String>> maps;
 	private String namaPencarianOnline = "";
 
+	/**
+	 * Menampilkan dialog modal riwayat absensi daring {@code pertemuan}, memuat data lewat
+	 * {@link #reloadSejarahAbsensiOnline(Pertemuan)} dan menyajikannya sebagai daftar sesi yang
+	 * dapat diperluas untuk melihat detail peserta yang tercatat online pada tiap sesi.
+	 */
 	private void tampilkanAbsensiOnline(final Pertemuan pertemuan) {
 		Common.clear(rowUtamaAbsensiOnline);
 		Tbmuser tbmuser = Common.getCurrentUser();
@@ -2434,6 +2466,14 @@ public class AbsensiSiswaHelper {
 
 	}
 
+	/**
+	 * Membangun toolbar aksi massal di atas grid kehadiran (khusus tampak bagi staf, bukan siswa
+	 * sendiri): "Ikut Diskusi" (menandai seluruh peserta diskusi hadir lewat
+	 * {@link PertemuanPunyaDiskusiHelper#diskusiDianggapHadir}) dan "Ikut Ujian" (aksi serupa
+	 * untuk peserta ujian), masing-masing hanya tampil bila pertemuan memiliki diskusi/ujian
+	 * terkait; menyimpan perubahan lewat {@link #sesuaikan(Pertemuan, boolean)} dan membangun
+	 * ulang panel setelah aksi selesai.
+	 */
 	private void tampilBawah(final Pertemuan pertemuan, Row vlayout) {
 		final Tbmuser tbmuser = Common.getCurrentUser();
 
@@ -2794,6 +2834,15 @@ public class AbsensiSiswaHelper {
 
 	private LampiranLain lampiranTizakMasuk;
 
+	/**
+	 * Membangun panel daftar pengajuan izin/sakit untuk {@code pertemuan}: toolbar "Ajukan Izin
+	 * atau Sakit" (membuka dialog form pengajuan baru, dengan lampiran bukti opsional) dan grid
+	 * daftar pengajuan yang sudah ada, dirender lewat {@link SiswaIzinRenderer}.
+	 *
+	 * @param parentrow komponen ZK induk tempat panel disisipkan
+	 * @param pertemuan pertemuan yang daftar izinnya ditampilkan/dikelola
+	 * @return border layout siap disisipkan ke tata letak utama
+	 */
 	private Borderlayout createListSiswaIzin(Component parentrow, final Pertemuan pertemuan) {
 
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -3051,6 +3100,18 @@ public class AbsensiSiswaHelper {
 		return borderlayout;
 	}
 
+	/**
+	 * Menuliskan kembali seluruh field form info pertemuan (topik, metode, guru tamu, buku
+	 * rujukan, waktu mulai/selesai, status pertemuan/ujian, ruang, tanggal dan tanggal realisasi,
+	 * konfigurasi kelas daring beserta seluruh tautan Zoom/BBB/Skype/WhatsApp/Meet/lain, batas
+	 * toleransi waktu absen daring, lokasi dan jarak) ke entitas {@code pertemuan} di memori;
+	 * bila {@code update} bernilai {@code true}, entitas di-refresh dari database lebih dulu
+	 * (bila sudah tersimpan) dan disimpan setelah diperbarui.
+	 *
+	 * @param pertemuan pertemuan yang diperbarui dari isian form
+	 * @param update    simpan perubahan ke database bila {@code true}; hanya perbarui objek di memori bila {@code false}
+	 * @return selalu {@code true} (tidak ada jalur kegagalan validasi pada method ini)
+	 */
 	public boolean sesuaikan(Pertemuan pertemuan, boolean update) {
 
 		if (update) {
@@ -3108,6 +3169,7 @@ public class AbsensiSiswaHelper {
 		return true;
 	}
 
+	/** Membangun toolbar aksi massal ({@link #tampilBawah}) diikuti satu baris kehadiran per siswa ({@link #tampilRowAbsensi}) untuk seluruh {@link #siswas} pada {@code pertemuan}. */
 	private void reloadAbsensiBaru(final Pertemuan pertemuan, final Rows rowsUtama) {
 
 		jadwalPelajaran = pertemuan.getJadwalPelajaran();
@@ -3132,6 +3194,7 @@ public class AbsensiSiswaHelper {
 
 	}
 
+	/** Memuat ulang daftar pengajuan izin/sakit {@code pertemuan} ke {@link #siswaIzinGrid}, dirender lewat {@link SiswaIzinRenderer}. */
 	private void reloadIzinAbsensi(Pertemuan pertemuan) {
 
 		List<PengajuanIzinTidakMasukPerkuliahan> pengajuanIzinTidakMasukPerkuliahans = pertemuan
@@ -3143,6 +3206,23 @@ public class AbsensiSiswaHelper {
 
 	}
 
+	/**
+	 * Mengisi {@code rowDataAbsen} dengan satu baris kehadiran {@code siswa} pada
+	 * {@code pertemuan}: foto, identitas, kolom status kehadiran (combobox pilihan dari
+	 * {@code statusabsensis}, disimpan langsung ke database saat berubah), waktu, dan catatan.
+	 * Baris ini adalah unit terkecil yang membentuk grid kehadiran dibangun berulang oleh
+	 * {@link #reloadAbsensiBaru}.
+	 *
+	 * @param rowDataAbsen  baris ZK yang diisi
+	 * @param index         nomor urut baris (untuk kolom nomor)
+	 * @param siswa         siswa yang kehadirannya ditampilkan/diedit pada baris ini
+	 * @param statusabsensis daftar pilihan status kehadiran yang dapat dipilih
+	 * @param status        status kehadiran default bila belum ada data tersimpan
+	 * @param semester      semester konteks (dari jadwal pelajaran), memengaruhi tampilan tertentu
+	 * @param tbmuser       pengguna yang sedang login, menentukan hak edit baris
+	 * @param tahap         tahap penilaian terkait, boleh {@code null}
+	 * @param pertemuan     pertemuan yang menjadi konteks kehadiran
+	 */
 	private void tampilRowAbsensi(Row rowDataAbsen, Integer index, final Siswa siswa,
 			List<Statusabsensi> statusabsensis, Statusabsensi status, Integer semester, Tbmuser tbmuser, Integer tahap,
 			final Pertemuan pertemuan) throws Exception {
@@ -3474,11 +3554,19 @@ public class AbsensiSiswaHelper {
 		private Tbmuser tbmuser;
 		private Pertemuan pertemuan;
 
+		/** Membangun renderer untuk daftar pengajuan izin/sakit {@code pertemuan}, menangkap pengguna yang sedang login untuk keperluan pemeriksaan hak akses per baris. */
 		public SiswaIzinRenderer(Pertemuan pertemuan) {
 			tbmuser = Common.getCurrentUser();
 			this.pertemuan = pertemuan;
 		}
 
+		/**
+		 * Perenderan satu baris pengajuan izin/sakit: checkbox persetujuan (staf saja; menyetujui
+		 * langsung memperbarui status kehadiran siswa pada pertemuan lewat
+		 * {@link Pertemuan#populate}), foto dan identitas siswa, status dan keterangan pengajuan,
+		 * lampiran bukti, dan tombol hapus (hanya bila belum disetujui, dan hanya bagi staf atau
+		 * pemilik pengajuan).
+		 */
 		@Override
 		public void render(Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");
@@ -3588,6 +3676,21 @@ public class AbsensiSiswaHelper {
 		}
 	}
 
+	/**
+	 * Membangun widget status kehadiran asisten kelas ({@code asisten}) pada {@code pertemuan}:
+	 * bagi staf (bukan konteks satu siswa tertentu), berupa combobox status kehadiran (dari
+	 * daftar status yang bukan "belajar"/"cuti"/"dinas") ditambah rentang waktu dan catatan,
+	 * yang tersimpan langsung ke {@code pertemuan} saat berubah dan mengisi otomatis waktu
+	 * mulai/selesai dari jam pertemuan bila status berkode {@code "M"} (masuk); bagi siswa/calon
+	 * siswa (tampilan read-only), hanya label nama status.
+	 *
+	 * @param asisten   asisten kelas yang statusnya ditampilkan; {@link Label} kosong bila {@code null}
+	 * @param pertemuan pertemuan yang menjadi konteks
+	 * @param siswa     bila diisi, tampilan read-only untuk siswa ini
+	 * @param calonSiswa bila diisi, tampilan read-only untuk calon siswa ini
+	 * @param sesuaikan callback yang dipanggil setelah status kehadiran berubah, untuk menyinkronkan tampilan induk
+	 * @return komponen widget siap disisipkan
+	 */
 	public static Component createStatusKehadiran(final Siswa asisten, final Pertemuan pertemuan, Siswa siswa,
 			CalonSiswa calonSiswa, final EventListener sesuaikan) {
 		if (asisten == null) {
@@ -3704,6 +3807,20 @@ public class AbsensiSiswaHelper {
 
 	}
 
+	/**
+	 * Membangun widget input status kehadiran satu {@code guru} pada {@code pertemuan} untuk
+	 * konteks staf (editable): combobox status kehadiran beserta komponen tambahan yang
+	 * menyesuaikan status terpilih (mis. rentang waktu untuk status masuk, kolom catatan/alasan
+	 * untuk status lain), tersimpan langsung ke {@code pertemuan} saat berubah dan memicu
+	 * {@code sesuaikan} untuk menyinkronkan tampilan induk.
+	 *
+	 * @param statusabsensi     status kehadiran guru saat ini (nilai awal komponen)
+	 * @param pertemuan         pertemuan yang menjadi konteks
+	 * @param guru              guru yang statusnya diedit
+	 * @param tanggalRealisasi  komponen tanggal realisasi terkait, ikut disinkronkan bila relevan
+	 * @param sesuaikan         callback yang dipanggil setelah status berubah
+	 * @return komponen widget siap disisipkan
+	 */
 	public static Component boleh(Statusabsensi statusabsensi, final Pertemuan pertemuan, final Guru guru,
 			final MyDatebox tanggalRealisasi, final EventListener sesuaikan) {
 		final Tbmuser tbmuser = Common.getCurrentUser();
@@ -4118,6 +4235,7 @@ public class AbsensiSiswaHelper {
 		}
 	}
 
+	/** Adaptor: mengubah koleksi {@link CommonVO} (pembungkus generik) berisi {@link Guru} menjadi {@link Collection}{@code <Guru>} lalu mendelegasikan ke {@link #createStatusKehadiran(Collection, Pertemuan)}. */
 	public static Component createStatusKehadiranData(Collection<CommonVO> dataGuru, final Pertemuan pertemuan)
 			throws Exception {
 		Collection<Guru> collection = new ArrayList<Guru>();
@@ -4130,6 +4248,15 @@ public class AbsensiSiswaHelper {
 		return d;
 	}
 
+	/**
+	 * Membangun widget ringkasan status kehadiran (read-only) untuk sekelompok {@code gurus}
+	 * pada {@code pertemuan}: satu kartu kecil (foto, nama, status kehadiran, jam) per guru,
+	 * disusun dalam grid maksimal 3 kolom bila jumlah guru lebih dari 3 agar tetap ringkas.
+	 *
+	 * @param gurus     kumpulan guru yang statusnya ditampilkan
+	 * @param pertemuan pertemuan yang menjadi konteks
+	 * @return komponen ringkasan siap disisipkan, {@link Label} kosong bila {@code gurus} kosong
+	 */
 	public static Component createStatusKehadiran(Collection<Guru> gurus, final Pertemuan pertemuan) throws Exception {
 		if (gurus.isEmpty()) {
 			return new Label();
@@ -4294,6 +4421,23 @@ public class AbsensiSiswaHelper {
 		return hbox;
 	}
 
+	/**
+	 * Membangun widget status kehadiran satu {@code guru} pada {@code pertemuan}, varian paling
+	 * lengkap yang menggabungkan seluruh aturan: bila jadwal pelajaran mensyaratkan input sesuai
+	 * jadwal dan waktu saat ini berada di luar rentang jam pertemuan, guru pengampu hanya
+	 * melihat status kehadirannya sebagai label read-only (tidak dapat mengubah di luar jendela
+	 * waktu tersebut). Selain itu: bagi staf (bukan konteks siswa tertentu), didelegasikan ke
+	 * {@link #boleh} untuk widget editable; bagi siswa/calon siswa, ditampilkan sebagai
+	 * ringkasan read-only (status dan keterangan).
+	 *
+	 * @param guru             guru yang statusnya ditampilkan/diedit; {@link Label} kosong bila {@code null}
+	 * @param pertemuan        pertemuan yang menjadi konteks
+	 * @param siswa            bila diisi, tampilan read-only untuk siswa ini
+	 * @param calonSiswa       bila diisi, tampilan read-only untuk calon siswa ini
+	 * @param tanggalRealisasi komponen tanggal realisasi terkait, diteruskan ke {@link #boleh} bila relevan
+	 * @param sesuaikan        callback yang dipanggil setelah status berubah
+	 * @return komponen widget siap disisipkan
+	 */
 	public static Component createStatusKehadiran(final Guru guru, final Pertemuan pertemuan, Siswa siswa,
 			CalonSiswa calonSiswa, final MyDatebox tanggalRealisasi, final EventListener sesuaikan) {
 		if (guru == null) {

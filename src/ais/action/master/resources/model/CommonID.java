@@ -1,6 +1,14 @@
 package ais.action.master.resources.model;
 
 
+/**
+ * DTO generik untuk endpoint web service JAX-RS (paket {@code ais.action.master.resources}):
+ * membawa {@code id} beserta hingga 23 kolom informasi tambahan bertipe teks generik
+ * ({@code info1}..{@code info23}) yang maknanya berbeda-beda tergantung konteks pemanggilnya —
+ * dipakai sebagai bentuk respons ringkas untuk data referensi/lookup yang jumlah dan urutan
+ * kolomnya bervariasi antar entitas, tanpa perlu membuat kelas DTO baru untuk setiap kasus.
+ * Seluruhnya berupa field data polos (getter/setter trivial).
+ */
 public class CommonID {
 	private Long id;
 	private String info1;

@@ -32,6 +32,15 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.UIUtil;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Action CRUD (berbasis kerangka {@link GenericCrudAction}) untuk mengelola data master Operator
+ * Seluler ({@link OperatorSeluler}) — daftar penyedia layanan telepon seluler (kode, nama,
+ * keterangan) yang dipakai sebagai referensi di formulir yang meminta operator seluler pengguna.
+ * Mendukung unduh/unggah massal lewat Excel ({@link #onAfterInit(Component)}).
+ * {@link #onSave(Event)} memvalidasi nama wajib isi dan unik (lewat
+ * {@link #checkNamaOperatorSeluler()}) sebelum menyimpan. {@link #initCriteria(boolean)}
+ * membangun kueri pencarian standar.
+ */
 public class OperatorSelulerAction extends GenericCrudAction<OperatorSeluler> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -73,6 +82,12 @@ public class OperatorSelulerAction extends GenericCrudAction<OperatorSeluler> {
     }
 
     @Override
+    /**
+     * Membangun kueri pencarian operator seluler.
+     *
+     * @param order {@code true} untuk menyertakan pengurutan hasil
+     * @return kriteria Hibernate siap dieksekusi/dipaginasi
+     */
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
         Criteria criteria = session.createCriteria(OperatorSeluler.class)
@@ -166,6 +181,12 @@ public class OperatorSelulerAction extends GenericCrudAction<OperatorSeluler> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi (nama wajib isi dan unik) dan menyimpan data operator seluler.
+     *
+     * @param event event ZK asal aksi simpan
+     * @return {@code true} bila data berhasil disimpan
+     */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             PesanFormalHelper.tampilkanGagal("penyimpanan data Operator Seluler",
@@ -198,6 +219,7 @@ public class OperatorSelulerAction extends GenericCrudAction<OperatorSeluler> {
         return true;
     }
 
+    /** @return {@code true} bila nama pada form sudah dipakai operator seluler lain (dikecualikan data yang sedang diedit). */
     public Boolean checkNamaOperatorSeluler() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(OperatorSeluler.class)

@@ -17,6 +17,19 @@ import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.PenghargaanDosen;
 
+/**
+ * Laporan borang akreditasi BAN-PT butir A-7.1.5 (karya dosen berupa penghargaan/paten/HAKI): untuk
+ * rentang tahun akademik terpilih (mulai s.d. selesai), menampilkan seluruh {@link PenghargaanDosen}
+ * berstatus {@link PenghargaanDosen#DISETUJUI} pada rentang tersebut, dengan kolom ceklis kategori
+ * ditentukan dari nama {@code kategoriPenghargaan} (mengandung "paten" -> kolom Paten, mengandung
+ * "haki" -> kolom HAKI, selain itu -> kolom Karya/Penghargaan umum).
+ *
+ * <p>
+ * Tidak melakukan apa pun bila tahun akademik awal belum dipilih. Data dimuat di thread terpisah
+ * dan dirender ke worksheet {@link #sheetCode} ("A-7.1.5_PT") lewat
+ * {@link SaptoUtil#displayWorksheet} (tanpa handler klik sel — laporan ini murni tampilan).
+ * </p>
+ */
 public class LaporanKaryaDosen_A_7_1_5 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-7.1.5_PT";
@@ -24,6 +37,7 @@ public class LaporanKaryaDosen_A_7_1_5 extends SaptoBaseWindow {
     private Combobox tahunAjaran;
     private Combobox tahunAjaran1;
 
+    /** Konstruktor default: menyiapkan filter rentang tahun akademik (default keduanya periode berjalan) lalu membangun kerangka jendela dan langsung memuat data. */
     public LaporanKaryaDosen_A_7_1_5() {
         super();
         try {
@@ -33,6 +47,7 @@ public class LaporanKaryaDosen_A_7_1_5 extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Konstruktor dengan judul/border/closable eksplisit; kegagalan inisialisasi dilempar ke pemanggil. */
     public LaporanKaryaDosen_A_7_1_5(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         Common.selectComboItem(tahunAjaran = Common.generateTahunAjaran(tahunAjaran), Common.getCurrentTahunAkademik());
@@ -40,8 +55,10 @@ public class LaporanKaryaDosen_A_7_1_5 extends SaptoBaseWindow {
         buildBase(true);
     }
 
+    /** @return kode sheet template worksheet borang, {@link #sheetCode}. */
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Menambahkan filter rentang tahun akademik (mulai s.d. selesai, keduanya wajib/readonly; memicu {@link #onCetak} otomatis saat berubah) ke baris toolbar filter. */
     @Override
     protected void buildFilters(Row row) {
         row.appendChild(new ais.ui.util.MyLabelConfig("Tahun Akademik *"));
@@ -61,6 +78,12 @@ public class LaporanKaryaDosen_A_7_1_5 extends SaptoBaseWindow {
         });
     }
 
+    /**
+     * Handler cetak: memuat {@link PenghargaanDosen} disetujui dalam rentang tahun terpilih di
+     * thread terpisah, menandai kolom kategori (Paten/HAKI/umum) berdasarkan nama kategori
+     * penghargaannya, lalu menampilkannya lewat {@link SaptoUtil#displayWorksheet}. Tidak
+     * melakukan apa pun bila tahun akademik awal belum dipilih.
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

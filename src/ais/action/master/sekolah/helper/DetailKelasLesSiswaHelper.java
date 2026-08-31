@@ -76,6 +76,19 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK yang menampilkan dan mengelola detail satu {@link KelasLesSiswa} (kelas les/ekstra
+ * kurikuler sekolah) dalam empat tab: Peserta (daftar siswa anggota kelas les — {@link
+ * KelasLesSiswaPunyaSiswa} — dengan status kewajiban pembayaran per siswa, status aktif, status
+ * kelulusan/persetujuan {@code acc}, cetak sertifikat kelulusan, dan hapus), Pertemuan (jadwal
+ * pertemuan kelas les, didelegasikan ke {@link JadwalPelajaran} terkait), Kehadiran (rekap absensi,
+ * lewat {@link CommonReportHelper}/{@link DetailpertemuanHelper}), dan Penilaian. Baris peserta
+ * menampilkan daftar kewajiban pembayaran yang belum lunas ({@link PengaturanBiaya}/
+ * {@link JenisBiayaSekolah}) langsung di grid; status aktif dikunci (tidak bisa diubah) bila kelas
+ * les memiliki syarat pengaturan pembayaran yang berlaku. Mendukung unggah massal penempatan siswa
+ * ke kelas les dari file Excel ({@link #uploadDataSiswa}). Mengimplementasikan {@link DataLoader}
+ * dan {@link DataCriteria} agar dapat dipasang ke komponen baku (paging, tombol cetak).
+ */
 public class DetailKelasLesSiswaHelper implements DataLoader, DataCriteria {
 
 	private MyGrid grid;
@@ -91,6 +104,7 @@ public class DetailKelasLesSiswaHelper implements DataLoader, DataCriteria {
 	private Combobox statusAktif;
 	private Combobox statusLulus;
 
+	/** Membuat helper baru: mengevaluasi hak akses hapus/tambah dan menyiapkan komponen paging yang memuat ulang data saat halaman berganti. */
 	public DetailKelasLesSiswaHelper() {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 		create = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -105,6 +119,7 @@ public class DetailKelasLesSiswaHelper implements DataLoader, DataCriteria {
 		});
 	}
 
+	/** Renderer baris grid daftar peserta kelas les: foto, NIS (link riwayat revisi), nama, daftar kewajiban pembayaran belum lunas, nomor urut (editable), checkbox aktif/lulus (masing-masing tersimpan otomatis dan mengatur visibilitas tombol sertifikat/hapus), dan tombol cetak sertifikat/hapus. */
 	class DetailPARenderer extends ais.ui.util.MyRowRenderer {
 
 		public DetailPARenderer() {
@@ -270,6 +285,13 @@ public class DetailKelasLesSiswaHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/**
+	 * Menyusun kriteria pencarian siswa peserta kelas les aktif, difilter status aktif, status
+	 * lulus/{@code acc}, nama/NIS/NISN, dan angkatan, diurutkan nomor urut lalu nama bila diminta.
+	 *
+	 * @param order {@code true} untuk menyertakan pengurutan
+	 * @return kriteria Hibernate siap dieksekusi
+	 */
 	public Criteria initCriteria(boolean order) {
 
 		Session session = HibernateUtil.currentSession();
@@ -307,6 +329,7 @@ public class DetailKelasLesSiswaHelper implements DataLoader, DataCriteria {
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Memuat halaman siswa peserta kelas les sesuai kriteria pencarian dan halaman paging aktif, lalu merender hasilnya ke grid. */
 	public void loadData(Object value) {
 		Common.initPaging(initCriteria(false), paging);
 		List<KelasLesSiswaPunyaSiswa> siswa = ConstantValues.simpleList(
@@ -320,6 +343,15 @@ public class DetailKelasLesSiswaHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/**
+	 * Membangun panel detail kelas les di dalam komponen target dengan empat tab: Peserta (grid
+	 * daftar siswa dengan pencarian dan paging), Pertemuan (jadwal pertemuan, dimuat lazy saat tab
+	 * diklik), Kehadiran (rekap absensi), dan Penilaian.
+	 *
+	 * @param kelasLesSiswa kelas les yang detailnya ditampilkan/dikelola
+	 * @param component     komponen kontainer target, dibersihkan dan diisi ulang oleh method ini
+	 * @param window        jendela pemanggil (konteks tambahan untuk dialog terkait)
+	 */
 	public void displayDetailPA(final KelasLesSiswa kelasLesSiswa, final Component component, final MyWindow window) {
 
 		this.kelasLesSiswa = kelasLesSiswa;
@@ -928,6 +960,17 @@ public class DetailKelasLesSiswaHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/**
+	 * Memproses unggahan massal penempatan siswa ke kelas les dari file Excel (.xlsx): membaca setiap
+	 * baris di thread latar belakang terpisah, meresolusi entitas {@link Siswa} per baris, dan
+	 * mendaftarkannya sebagai peserta {@code kelasLesSiswa}. Menampilkan indikator sibuk dan progres
+	 * persentase lewat {@link Timer}, lalu menampilkan pesan selesai dan memanggil
+	 * {@code eventListener} saat proses tuntas.
+	 *
+	 * @param file          file Excel (.xlsx) yang sudah diunggah dan tersimpan di disk
+	 * @param eventListener callback yang dipanggil setelah proses upload selesai (mis. memuat ulang layar)
+	 * @throws Exception diteruskan apa adanya dari kegagalan I/O atau parsing workbook
+	 */
 	public void uploadDataSiswa(final File file, final EventListener eventListener) throws Exception {
 
 		final StringBuilder laporan = new StringBuilder();

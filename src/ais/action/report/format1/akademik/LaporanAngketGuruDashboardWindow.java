@@ -51,6 +51,28 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Dasbor (bukan laporan cetak PDF seperti kelas {@code Laporan*} lain di paket ini) yang
+ * merangkum hasil angket penilaian guru oleh siswa ({@link ChecklistBaruPenilaianGuruOlehSiswa}),
+ * dirender sebagai kartu statistik dan visualisasi HTML/CSS ringan (distribusi nilai, tren, radar
+ * per kelompok pertanyaan) langsung di halaman, tanpa mesin cetak laporan. Filter tersedia untuk
+ * tahun akademik, semester, guru tertentu, yayasan/sekolah, dan opsi "hanya angket aktif" (hanya
+ * menghitung {@link ChecklistPenilaianGuru}/{@link GrupChecklistPenilaianGuru} yang berstatus
+ * aktif). Setiap perubahan filter memuat ulang seluruh dasbor dari basis data.
+ *
+ * <h2>Alur pengambilan data ({@link #loadDashboardData})</h2>
+ * Untuk setiap baris {@link ChecklistBaruPenilaianGuruOlehSiswa} (dibatasi jumlah maksimum
+ * pemindaian lewat {@link #readMaxScan()}), baris dilewati bila jadwal/tahun akademik/
+ * semesternya tidak cocok filter ({@link #matchJadwal}) atau sekolah/yayasannya tidak cocok
+ * ({@link #matchSekolahYayasan}). Nilai jawaban per pertanyaan diambil lewat
+ * {@link #ambilValueGuruAman}, yang mengutamakan parsing kolom {@code keterangan} berformat
+ * legacy (baris dipisah {@code "___"}, tiap baris diawali penanda {@code "DATA"} lalu diproses
+ * lewat {@link #parseAngketValueGuru}) dan baru jatuh kembali ke method model
+ * {@code hasilAngket.ambilValue()} bila kolom keterangan kosong — memastikan kompatibilitas
+ * mundur dengan dua skema penyimpanan jawaban angket yang pernah dipakai. Hasil akhirnya
+ * diakumulasi ke objek {@link DashboardData} (statistik per kelompok pertanyaan, per guru,
+ * distribusi nilai, dan daftar masukan/komentar terbaru).
+ */
 public class LaporanAngketGuruDashboardWindow extends MyWindow {
 
 	private static final long serialVersionUID = 6409442098743220322L;
@@ -76,6 +98,7 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 	private Combobox yayasan;
 	private Combobox sekolah;
 
+	/** Membuat jendela dasbor dan langsung menyusun tampilan filter serta memuat dasbor awal. */
 	public LaporanAngketGuruDashboardWindow() {
 		super();
 		try {
@@ -91,11 +114,19 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 		}
 	}
 
+	/**
+	 * Membuat jendela dasbor dengan judul, gaya border, dan status dapat-ditutup kustom.
+	 *
+	 * @param title    judul jendela
+	 * @param border   gaya border jendela
+	 * @param closable apakah jendela dapat ditutup pengguna
+	 */
 	public LaporanAngketGuruDashboardWindow(String title, String border, boolean closable) throws Exception {
 		super(title, border, closable);
 		init();
 	}
 
+	/** Menyusun toolbar filter (tahun akademik, semester, hanya-aktif, refresh, yayasan/sekolah/guru, tombol hitung ulang) dan area konten dasbor, lalu memuat dasbor awal lewat {@link #reloadDashboard()}. */
 	private void init() throws Exception {
 		DashboardGridExportHelper.pasang(this, "Laporan Angket Guru Dashboard Window");
 		setHeight("100%");
@@ -234,6 +265,7 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 		reloadDashboard();
 	}
 
+	/** Menampilkan indikator memuat, mengambil data terbaru lewat {@link #loadDashboardData} dalam sesi Hibernate mandiri, lalu merender dasbor ({@link #renderDashboard}); menampilkan pesan galat pada area konten bila gagal. */
 	private void reloadDashboard() {
 		Session session = null;
 		try {
@@ -262,6 +294,14 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 		}
 	}
 
+	/**
+	 * Mengambil dan mengagregasi seluruh data dasbor sesuai filter aktif. Lihat javadoc kelas
+	 * untuk alur lengkap (penyaringan jadwal/sekolah, parsing jawaban dua-skema, agregasi ke
+	 * {@link DashboardData}).
+	 *
+	 * @param session sesi Hibernate untuk query
+	 * @return data teragregasi siap dirender
+	 */
 	@SuppressWarnings("unchecked")
 	private DashboardData loadDashboardData(Session session) throws Exception {
 		DashboardData data = new DashboardData();
@@ -375,6 +415,7 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 	}
 
 
+	/** Mengambil jawaban satu baris angket: mengutamakan parsing kolom {@code keterangan} legacy (lihat javadoc kelas), jatuh kembali ke {@code hasilAngket.ambilValue()} bila kolom itu kosong atau gagal diparsing. */
 	private List<Object[]> ambilValueGuruAman(ChecklistBaruPenilaianGuruOlehSiswa hasilAngket) {
 		List<Object[]> values = new ArrayList<Object[]>();
 		if (hasilAngket == null) {
@@ -405,6 +446,7 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 		return values;
 	}
 
+	/** Mem-parsing satu segmen jawaban legacy berformat {@code "DATA<idPertanyaan>;<nilai><>keterangan"} (penanda {@code "DATA"} di awal, id dan nilai dipisah {@code ";"}, keterangan opsional dipisah {@code "<>"}); mengembalikan {@code null} bila format tidak dikenali. */
 	private Object[] parseAngketValueGuru(String value) {
 		if (value == null) {
 			return null;
@@ -432,6 +474,7 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 		}
 	}
 
+	/** Merangkai seluruh bagian dasbor (kartu ringkasan, visualisasi CSS, distribusi nilai, ranking guru, masukan terbaru) ke {@link #dashboardContent}. */
 	private void renderDashboard(DashboardData data) {
 		Div container = new Div();
 		container.setStyle("width:100%;height:100%;overflow:auto;box-sizing:border-box;padding:12px;background:#f6f8fb;");
@@ -464,6 +507,7 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 		renderMasukan(left, data);
 	}
 
+	/** Membuat satu kartu statistik (judul, nilai besar, deskripsi); nilai dapat diklik untuk membuka popup rincian ({@link #showDataPopup}) bila {@code rowsData} diberikan. */
 	private Div card(final String title, String value, String desc, final List rowsData, final String[] headers) {
 		Div card = new Div();
 		card.setStyle("min-width:155px;flex:1;background:white;border:1px solid #dde5f2;border-radius:12px;padding:12px;box-shadow:0 2px 8px rgba(0,0,0,.05);cursor:pointer;");
@@ -481,6 +525,7 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 	}
 
 
+	/** Menyusun ketiga visualisasi HTML/CSS (distribusi nilai, tren, radar per kelompok) berdampingan. */
 	private void renderCssVisualizations(Div parent, DashboardData data) {
 		Div charts = new Div();
 		charts.setStyle("display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px;");

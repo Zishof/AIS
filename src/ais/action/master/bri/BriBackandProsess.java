@@ -18,8 +18,50 @@ import ais.database.model.Konfigurasi;
 import ais.database.model.bri.BriRequest;
 import ais.database.model.bri.BriResponse;
 
+/**
+ * Tugas latar belakang (dijadwalkan sebagai {@link TimerTask}) untuk sinkronisasi status
+ * pembayaran BRIVA (BRI Virtual Account) — integrasi payment gateway Bank Rakyat Indonesia untuk
+ * modul pembayaran mahasiswa. Aktif hanya bila konfigurasi {@code aktifkan_pembayaran_via_bri}
+ * bernilai aktif ({@link #run()}). Setiap siklus memanggil endpoint laporan BRIVA
+ * ({@code /report/<merchant>/<brivaNo>/<tanggal>/<tanggal>} lewat {@link BriCommon#get(String)})
+ * untuk hari berjalan dan menyimpan/mencocokkan setiap baris hasil ke {@link BriRequest}/
+ * {@link BriResponse} lokal lewat {@link #simpan}, lalu memicu {@link Briresponse#prosesResponse}
+ * bila statusnya sudah lunas. {@link #checkSatu(BriRequest, Session)} adalah jalur pengecekan
+ * status satu transaksi tertentu secara sinkron (dipanggil dari UI, bukan dari siklus timer): bila
+ * ada respons lokal berstatus sukses, langsung dipakai; bila tidak, kelas ini memanggil endpoint
+ * status BRIVA per-VA ({@code /status/<merchant>/<brivaNo>/<va>}) untuk memperbarui status.
+ *
+ * <p>
+ * <b>Catatan keamanan (temuan, tidak diperbaiki):</b> kelas ini sendiri tidak menyimpan
+ * kredensial, namun seluruh pemanggilan jaringan didelegasikan ke {@link BriCommon} (di
+ * {@code ais.common.BriCommon}, bukan bagian dari 83 berkas tugas ini tetapi dipanggil langsung
+ * oleh kelas ini), yang berisi KREDENSIAL API BRI TERTANAM (hardcoded) sebagai nilai default
+ * parameter {@code Common.getKonfigurasi(key, default)} — dipakai setiap kali konfigurasi
+ * database belum diisi administrator: {@code client_id} ({@code bri_merchant_id}, di sekitar
+ * {@code BriCommon.java:492}), {@code client_secret} ({@code bri_password}, sekitar baris 494),
+ * {@code auth code} ({@code bri_auth_code}, sekitar baris 496), {@code X-BRI-KEY}/API key
+ * ({@code bri_api_key}, sekitar baris 504/546/616), dan token {@code Authorization: Bearer}
+ * ({@code bri_auth_code_barier}, sekitar baris 540/608). Nilai-nilai ini tampak seperti
+ * kredensial API sungguhan yang tertanam langsung di kode sumber (bukan hanya placeholder kosong),
+ * sehingga tersimpan dalam riwayat kontrol versi dan berpotensi bocor bila kode ini pernah
+ * dipublikasikan atau dibagikan. Ini WAJIB diverifikasi dan ditangani oleh tim yang berwenang
+ * (mis. rotasi kredensial, pemindahan ke penyimpanan rahasia/vault) — tidak diperbaiki di sini
+ * sesuai instruksi tugas dokumentasi ini.
+ * </p>
+ */
 public class BriBackandProsess extends TimerTask {
 
+	/**
+	 * Mengecek status pembayaran satu {@link BriRequest} secara sinkron: memakai
+	 * {@link BriResponse} lokal berstatus sukses bila sudah ada, jika tidak memanggil endpoint
+	 * status BRIVA per-VA milik BRI untuk memperbarui status pembayaran dan menyimpan hasilnya,
+	 * lalu memicu {@link Briresponse#prosesResponse} bila pembayaran sudah lunas (kode status
+	 * {@code "00"}).
+	 *
+	 * @param briRequest permintaan VA yang akan dicek statusnya
+	 * @param session    sesi Hibernate aktif untuk membaca/menulis data lokal
+	 * @return payload JSON hasil pengecekan (dari respons lokal atau API BRI), atau {@code null} bila gagal
+	 */
 	public static JSONObject checkSatu(BriRequest briRequest, Session session) {
 		JSONObject bri = null;
 		BriResponse briResponse = (BriResponse) session.createCriteria(BriResponse.class)
@@ -110,6 +152,14 @@ public class BriBackandProsess extends TimerTask {
 		return bri;
 	}
 
+	/**
+	 * Mencocokkan satu baris hasil laporan BRIVA ({@code responseData}, berisi {@code custCode})
+	 * ke {@link BriRequest} lokal berdasarkan nomor VA, lalu menyimpan/memperbarui
+	 * {@link BriResponse} terkait sebagai lunas dan memicu {@link Briresponse#prosesResponse}.
+	 * Tidak melakukan apa pun bila transaksi tersebut sudah pernah tercatat sukses sebelumnya
+	 * (dicegah lewat pengecekan jumlah baris {@link BriResponse} berstatus {@code "00"}) atau
+	 * bila tidak ditemukan {@link BriRequest} yang cocok dengan VA tersebut.
+	 */
 	private void simpan(String merchant_id, JSONObject response, JSONObject responseData, Session session)
 			throws Exception {
 		// System.out.println("simpan --> responseData = " + responseData);
@@ -158,6 +208,14 @@ public class BriBackandProsess extends TimerTask {
 		}
 	}
 
+	/**
+	 * Siklus terjadwal: bila pembayaran via BRI aktif, mengambil laporan transaksi BRIVA hari ini
+	 * dari API BRI dan mencocokkan/menyimpan setiap barisnya lewat {@link #simpan}. Respons API
+	 * dapat berbentuk array atau objek tunggal, ditangani lewat percobaan parse array lebih dulu
+	 * lalu jatuh kembali ke objek tunggal bila gagal. Seluruh kegagalan diserap secara diam-diam
+	 * (dicatat ke audit galat) agar satu siklus gagal tidak menghentikan penjadwalan berikutnya;
+	 * sesi Hibernate selalu ditutup di blok {@code finally}.
+	 */
 	@Override
 	public void run() {
 		try {

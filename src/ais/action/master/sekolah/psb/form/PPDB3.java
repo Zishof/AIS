@@ -75,6 +75,19 @@ import ais.ui.util.MyLabelAgakKecilBoldBiru;
 import ais.ui.util.MyLabelBolder;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Varian formulir pendaftaran PSB (Penerimaan Siswa Baru) "3" — versi PALING LENGKAP di antara
+ * varian PPDB di paket ini, mencakup data inti calon siswa, data lengkap kedua orang tua
+ * (ayah/ibu: kelahiran, pendidikan, pekerjaan, instansi, alamat, kontak, penghasilan), hubungan
+ * orang tua-anak, DAN kuesioner tumbuh-kembang anak tujuh kategori (A. Riwayat Kelahiran,
+ * B. Masa Balita, C. Perkembangan Fisik/Motorik, D. Sosial, E. Bermain, F. Kebiasaan Sehari-hari,
+ * G. Pendidikan — cocok untuk pendaftaran jenjang PAUD/TK), parameter tambahan dinamis, opsi siswa
+ * pindahan/alumni/anak pegawai, dan foto. Memperluas {@code PPDB} untuk mewarisi kerangka baku
+ * formulir PSB. Alur simpan sama seperti varian lain: validasi ({@link #check()}) lalu
+ * {@link #onSave(Event)} menyimpan {@link CalonSiswa} (nomor registrasi dibangkitkan otomatis untuk
+ * data baru), menautkan foto yang sudah diunggah sebelum entitas punya id, dan menyimpan penghubung
+ * berkas verifikasi kelengkapan.
+ */
 public class PPDB3 extends PPDB {
 
 	private static final long serialVersionUID = 1L;
@@ -251,16 +264,24 @@ public class PPDB3 extends PPDB {
 		}
 	};
 
+	/** Konstruktor kosong (dipakai framework/refleksi, juga saat membuka ulang form akibat deteksi kesamaan data via {@code checkKesamaan}); tidak langsung membangun form. */
 	public PPDB3() {
 		super();
 	}
 
+	/** Konstruktor utama; langsung membangun form lewat {@link #init()} untuk calon siswa dan gelombang pendaftaran yang diberikan. */
 	public PPDB3(CalonSiswa calonSiswa, GelombangPendaftaranPsb gelombangPendaftaranPsb,
 			EventListener eventListener) {
 		super(calonSiswa, gelombangPendaftaranPsb, eventListener);
 		init();
 	}
 
+	/**
+	 * Membangun seluruh tampilan formulir pendaftaran lengkap: kop gelombang, judul dan informasi
+	 * gelombang, data inti calon siswa, data lengkap kedua orang tua, hubungan orang tua-anak,
+	 * kuesioner tumbuh-kembang anak tujuh kategori (A-G), parameter tambahan dinamis, opsi siswa
+	 * pindahan/alumni, unggah foto, dan pernyataan persetujuan.
+	 */
 	@SuppressWarnings({ "deprecation", "unchecked" })
 	public void init() {
 
@@ -967,6 +988,16 @@ public class PPDB3 extends PPDB {
 		return tb;
 	}
 
+	/**
+	 * Memvalidasi field wajib formulir sebelum disimpan: nama, tempat/tanggal lahir calon siswa,
+	 * nama dan HP/telepon ayah, nama dan HP/telepon ibu, persetujuan pernyataan dicentang, dan
+	 * kelengkapan info asal pendaftaran ({@link CalonSiswaAction#checkInfoDariMana}). Setiap
+	 * kegagalan menampilkan pesan dan memfokuskan/menggulir ke field yang bermasalah. Kuesioner
+	 * tumbuh-kembang anak (kategori A-G) TIDAK divalidasi wajib isi di sini.
+	 *
+	 * @return {@code true} bila seluruh validasi lolos, {@code false} sebaliknya
+	 * @throws Exception diteruskan apa adanya dari kegagalan pemeriksaan
+	 */
 	public boolean check() throws Exception {
 		if (nama.getValue().trim().isEmpty()) {
 			MyMessageboxConfig.show(
@@ -1090,6 +1121,17 @@ public class PPDB3 extends PPDB {
 		}
 	};
 
+	/**
+	 * Memvalidasi (lewat {@link #check()}) lalu menyimpan data calon siswa: menuliskan seluruh field
+	 * form (data inti, data orang tua, kuesioner tumbuh-kembang) ke entitas {@link CalonSiswa}
+	 * (termasuk nomor registrasi baru bila data baru), menyimpan/memperbarui entitas, menautkan foto
+	 * yang sudah diunggah sebelum entitas punya id, menyimpan penghubung berkas verifikasi
+	 * kelengkapan, dan membersihkan cache sesi {@link CalonSiswa}.
+	 *
+	 * @param event event ZK pemicu penyimpanan (tombol simpan)
+	 * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal
+	 * @throws Exception diteruskan apa adanya dari kegagalan Hibernate saat menyimpan
+	 */
 	public boolean onSave(Event event) throws Exception {
 		if (!check()) {
 			return false;

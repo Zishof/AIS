@@ -21,10 +21,24 @@ import ais.database.model.Jurusan;
 import ais.database.model.KategoriPrestasiDosen;
 import ais.database.model.PrestasiDosen;
 
+/**
+ * Laporan borang akreditasi BAN-PT butir A-4.5.4 (prestasi dosen tingkat lokal/nasional/
+ * internasional): untuk fakultas/jurusan terpilih, menampilkan seluruh {@link PrestasiDosen}
+ * berstatus {@link PrestasiDosen#DISETUJUI}, dengan kolom ceklis tingkat ditentukan dari
+ * {@link KategoriPrestasiDosen} (persis "Internasional"/"Nasional"; kategori lain dianggap lokal).
+ *
+ * <p>
+ * Data dimuat di thread terpisah dan dirender ke worksheet {@link #sheetCode} ("A-4.5.4") lewat
+ * {@link SaptoUtil#displayWorksheet}. Klik baris data memicu {@link DosenAction#cetakDRHDosen}
+ * untuk dosen baris tersebut (offset baris tetap 9, mengikuti tata letak template worksheet).
+ * </p>
+ */
 public class LaporanProfileDosen_A_4_5_4 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-4.5.4";
     private static final long serialVersionUID = 3331244819198611604L;
+
+    /** Konstruktor default: menyiapkan filter fakultas/jurusan lalu membangun kerangka jendela. */
     public LaporanProfileDosen_A_4_5_4() {
         super();
         try {
@@ -33,19 +47,28 @@ public class LaporanProfileDosen_A_4_5_4 extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Konstruktor dengan judul/border/closable eksplisit; kegagalan inisialisasi dilempar ke pemanggil. */
     public LaporanProfileDosen_A_4_5_4(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         initFakultasJurusan();
         buildBase(false);
     }
 
+    /** @return kode sheet template worksheet borang, {@link #sheetCode}. */
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Menambahkan filter fakultas/jurusan standar ke baris toolbar filter. */
     @Override
     protected void buildFilters(Row row) {
         addFakultasJurusanFilter(row);
     }
 
+    /**
+     * Handler cetak: memuat {@link PrestasiDosen} disetujui pada jurusan terpilih di thread
+     * terpisah, menandai kolom tingkat (Internasional/Nasional/lokal) berdasarkan
+     * {@link KategoriPrestasiDosen}, lalu menampilkannya lewat {@link SaptoUtil#displayWorksheet}.
+     * Klik sel data memicu {@link DosenAction#cetakDRHDosen} untuk dosen baris yang diklik.
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

@@ -34,6 +34,14 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper pengelola grid indikator kinerja pada satu kegiatan tugas jabatan
+ * ({@link KegiatanTugasJabatan}, modul LKP/Laporan Kinerja Pegawai) — menghubungkan kegiatan
+ * tersebut ke satu atau lebih {@link Indikator} RAB beserta target capaian
+ * ({@link KegiatanTugasJabatanPunyaIndikator}: nilai target, satuan, output). Toolbar "Tambah
+ * Indikator" membuka picker massal ({@link AmbilDataIndikatorBanyak}, mengecualikan indikator yang
+ * sudah terpasang) agar beberapa indikator dapat ditambahkan sekaligus.
+ */
 public class KegiatanTugasJabatanPunyaIndikatorHelper {
 
 	private MyGrid gridIndikator;
@@ -41,6 +49,7 @@ public class KegiatanTugasJabatanPunyaIndikatorHelper {
 	private boolean edit = false;
 	private boolean delete = false;
 
+	/** Membuat helper yang akan mengelola isi {@code gridIndikator}; hak tambah/ubah/hapus ditentukan dari {@link CommonPrivilages} saat ini. */
 	public KegiatanTugasJabatanPunyaIndikatorHelper(MyGrid gridIndikator) {
 		this.gridIndikator = gridIndikator;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -48,6 +57,13 @@ public class KegiatanTugasJabatanPunyaIndikatorHelper {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Membangun panel indikator untuk {@code kegiatanTugasJabatan}: toolbar tambah indikator massal
+	 * (bila berhak) dan grid menampilkan seluruh indikator yang sudah terpasang.
+	 *
+	 * @param kegiatanTugasJabatan kegiatan tugas jabatan target
+	 * @return borderlayout siap ditambahkan sebagai panel tab/jendela
+	 */
 	public Borderlayout initDetail(final KegiatanTugasJabatan kegiatanTugasJabatan) {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
@@ -158,6 +174,13 @@ public class KegiatanTugasJabatanPunyaIndikatorHelper {
 		}
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan kode dan nama indikator, nilai target (dapat diedit),
+	 * combobox satuan, dan field output.
+	 *
+	 * @param row                                     baris grid target
+	 * @param kegiatanTugasJabatanPunyaIndikator       data relasi indikator untuk baris ini
+	 */
 	public void initRow(final Row row, final KegiatanTugasJabatanPunyaIndikator kegiatanTugasJabatanPunyaIndikator) {
 		row.setValign("top");row.setAttribute("kegiatanTugasJabatanPunyaIndikator", kegiatanTugasJabatanPunyaIndikator);
 

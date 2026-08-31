@@ -14,24 +14,36 @@ import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.sapto.LahanPerguruanTinggiSapto;
 
+/**
+ * Laporan borang akreditasi BAN-PT butir A-6.2.2 (data lahan institusi): menampilkan seluruh
+ * {@link LahanPerguruanTinggiSapto} (lokasi, jenis kepemilikan, nama, luas), terurut lokasi lalu id,
+ * tanpa filter apa pun (layar ini tidak menyediakan filter, lihat {@link #buildFilters}). Data
+ * dimuat di thread terpisah dan dirender ke worksheet {@link #sheetCode} ("A-6.2.2_PT") lewat
+ * {@link SaptoUtil#displayWorksheet}.
+ */
 public class LaporanLahanInstitusi_A_6_2_2 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-6.2.2_PT";
     private static final long serialVersionUID = 3331244819198611604L;
 
+    /** Konstruktor default: membangun kerangka jendela dan langsung memuat data (tanpa filter). */
     public LaporanLahanInstitusi_A_6_2_2() {
         super();
         try { buildBase(true); } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Konstruktor dengan judul/border/closable eksplisit; kegagalan inisialisasi dilempar ke pemanggil. */
     public LaporanLahanInstitusi_A_6_2_2(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         buildBase(true);
     }
 
+    /** @return kode sheet template worksheet borang, {@link #sheetCode}. */
     @Override protected String getSheetCode() { return sheetCode; }
+    /** Tidak menambahkan filter apa pun — laporan ini selalu menampilkan seluruh data lahan. */
     @Override protected void buildFilters(Row row) { /* no filters */ }
 
+    /** Handler cetak: memuat seluruh {@link LahanPerguruanTinggiSapto} di thread terpisah, lalu menampilkannya lewat {@link SaptoUtil#displayWorksheet}. */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

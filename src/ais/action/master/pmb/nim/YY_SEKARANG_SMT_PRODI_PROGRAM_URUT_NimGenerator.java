@@ -12,14 +12,34 @@ import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.Perkuliahan;
 import ais.database.model.Program;
 
+/**
+ * Algoritma penomoran NIM (Nomor Induk Mahasiswa) berpola
+ * {@code <YY tahun sekarang><1=Ganjil/2=Genap><kode prodi><kode program><urut>}: dua digit terakhir
+ * TAHUN BERJALAN (bukan tahun angkatan calon mahasiswa) + kode semester mulai + kode prodi lulus +
+ * kode {@link Program} + nomor urut (jumlah digit dari konfigurasi
+ * {@code jumlah_digit_gen_nim_mahasiswa}, default 4). Nomor urut dan pengecekan duplikasi
+ * didelegasikan ke {@link NimGeneratorSupport}; bila NIM hasil sudah terpakai, dicoba ulang secara
+ * rekursif dengan NIM tersebut ditambahkan ke daftar pengecualian.
+ *
+ * @see NimGeneratorSupport
+ */
 public class YY_SEKARANG_SMT_PRODI_PROGRAM_URUT_NimGenerator implements NimGenerator {
 
+	/** Varian ringkas {@link #generateNim(BiodataCalonMahasiswa, List)} tanpa daftar pengecualian awal. */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa) {
 		return generateNim(calonMahasiswa, new ArrayList<String>());
 	}
 
-	// generate NIM
+	/**
+	 * Menghasilkan NIM untuk {@code calonMahasiswa} sesuai pola kelas ini (lihat javadoc kelas).
+	 * Mengembalikan {@code "-"} bila calon mahasiswa belum punya prodi lulus. Rekursif: bila NIM
+	 * yang dihasilkan ternyata sudah dipakai, dicoba lagi dengan NIM tersebut ditambahkan ke
+	 * {@code jumlahPengecualian} agar nomor urut berikutnya melompatinya.
+	 *
+	 * @param jumlahPengecualian daftar NIM yang harus dianggap sudah terpakai (dimutasi dan diteruskan pada percobaan ulang)
+	 * @return NIM yang dihasilkan, atau {@code "-"} bila prodi lulus belum diisi
+	 */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa, List<String> jumlahPengecualian) {
 

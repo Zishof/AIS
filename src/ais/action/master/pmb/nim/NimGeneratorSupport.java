@@ -9,13 +9,41 @@ import org.hibernate.Session;
 
 import ais.database.model.BiodataCalonMahasiswa;
 
+/**
+ * Utilitas bersama untuk keluarga algoritma penomoran NIM (Nomor Induk Mahasiswa) per-institusi
+ * ({@code *NimGenerator.java} pada paket ini): menentukan nomor urut berikutnya yang belum
+ * terpakai untuk kombinasi prefix/suffix tertentu, memeriksa apakah suatu NIM sudah dipakai, dan
+ * memformat nomor urut dengan left-padding nol.
+ *
+ * <p>
+ * Nomor urut ditentukan dengan mengumpulkan seluruh NIM yang cocok pola {@code prefix%suffix} dari
+ * tabel {@code mahasiswa} (mahasiswa aktif) DAN {@code biodata_calon_mahasiswa} (calon mahasiswa
+ * lain yang NIM-nya sudah di-generate lebih dulu, mengecualikan baris calon mahasiswa yang sedang
+ * diproses sendiri), digabung dengan {@code nimPengecualian} (mis. NIM yang sedang dicadangkan di
+ * memori pada proses batch), lalu mengambil nomor urut terbesar di antaranya (diekstrak dari bagian
+ * tengah NIM setelah prefix dan sebelum suffix) dan menambahkannya satu.
+ * </p>
+ */
 public class NimGeneratorSupport {
 
+	/** Varian ringkas {@link #nomorUrutBerikutnya(Session, String, String, int, BiodataCalonMahasiswa, List)} tanpa suffix (suffix kosong). */
 	public static long nomorUrutBerikutnya(Session session, String prefix, int jumlahDigit,
 			BiodataCalonMahasiswa calonMahasiswa, List<String> nimPengecualian) {
 		return nomorUrutBerikutnya(session, prefix, "", jumlahDigit, calonMahasiswa, nimPengecualian);
 	}
 
+	/**
+	 * Menghitung nomor urut berikutnya yang belum terpakai untuk kombinasi {@code prefix}/{@code suffix}
+	 * (lihat dokumentasi kelas untuk sumber data dan algoritma). Cocok dipakai baik di dalam maupun
+	 * di luar transaksi Hibernate karena murni membaca lewat SQL native.
+	 *
+	 * @param prefix            awalan NIM (mis. kode tahun/prodi), boleh {@code null} (dianggap kosong)
+	 * @param suffix            akhiran NIM, boleh {@code null} (dianggap kosong)
+	 * @param jumlahDigit       jumlah digit nomor urut yang diekstrak dari bagian tengah NIM
+	 * @param calonMahasiswa    baris calon mahasiswa yang sedang diproses (dikecualikan dari pengecekan agar tidak menghitung NIM dirinya sendiri), boleh {@code null}
+	 * @param nimPengecualian   daftar NIM tambahan yang dianggap sudah terpakai (mis. dicadangkan di memori pada proses batch), boleh {@code null}
+	 * @return nomor urut berikutnya (nomor terbesar yang ditemukan + 1), minimal 1
+	 */
 	public static long nomorUrutBerikutnya(Session session, String prefix, String suffix, int jumlahDigit,
 			BiodataCalonMahasiswa calonMahasiswa, List<String> nimPengecualian) {
 		Set<String> nimTerpakai = new HashSet<String>();
@@ -51,6 +79,7 @@ public class NimGeneratorSupport {
 		return nomorTerbesar + 1L;
 	}
 
+	/** Memeriksa apakah {@code nim} sudah dipakai oleh {@code mahasiswa} manapun atau {@code biodata_calon_mahasiswa} lain (mengecualikan {@code calonMahasiswa} sendiri bila diberikan). */
 	public static boolean nimSudahDipakai(Session session, String nim, BiodataCalonMahasiswa calonMahasiswa) {
 		Number countMahasiswa = (Number) session.createSQLQuery("select count(1) from mahasiswa where nim = :nim")
 				.setString("nim", nim).uniqueResult();
@@ -70,11 +99,18 @@ public class NimGeneratorSupport {
 				|| (countCalon != null && countCalon.intValue() > 0);
 	}
 
+	/** Memformat {@code nomor} sebagai string berisi {@code jumlahDigit} digit, dipadatkan nol di kiri (mis. {@code leftPadNomor(7, 4)} -> {@code "0007"}). */
 	public static String leftPadNomor(long nomor, int jumlahDigit) {
 		String hasil = "000000000000" + nomor;
 		return hasil.substring(hasil.length() - jumlahDigit);
 	}
 
+	/**
+	 * Mengekstrak bagian nomor urut ({@code jumlahDigit} digit terakhir sebelum {@code suffix}) dari
+	 * {@code nim}, atau {@code null} bila {@code nim} tidak cocok pola (tidak diawali {@code prefix},
+	 * tidak diakhiri {@code suffix}, bagian tengah lebih pendek dari {@code jumlahDigit}, atau bagian
+	 * yang diekstrak bukan seluruhnya digit).
+	 */
 	private static Long ambilNomorUrut(String prefix, String suffix, int jumlahDigit, String nim) {
 		if (nim == null) {
 			return null;

@@ -62,6 +62,20 @@ import ais.ui.util.MyComboitemConfig;
 import ais.ui.util.MyGrid;
 import ais.ui.util.MyWindow;
 
+/**
+ * Jendela laporan rekapitulasi data mahasiswa lengkap (biodata, status akademik per semester,
+ * IPK/IPS, judisium, masa studi, pejabat struktural terkait jurusan/fakultas, hingga rincian
+ * tagihan biaya per semester) untuk dicetak sebagai PDF lewat mesin laporan lama ({@link Report}).
+ * Difilter fakultas/jurusan/program/rentang tahun angkatan/status mahasiswa/jenis kelamin/tahun
+ * akademik/semester, dengan jumlah kolom status per semester ({@code smt1..smtN}) mengikuti
+ * pilihan "Sampai Semester" (maksimum {@link #Smt}, default 16). Untuk setiap mahasiswa, status
+ * tiap semester ditentukan dari sinkronisasi ulang {@link KrsMahasiswa} semester tersebut
+ * ({@code Common#singkronkanKrsMahasiswa}), dan biaya tiap semester dihitung dari detail
+ * biaya/pengaturan pembayaran bulanan lewat {@link PembayaranUtil} (semester 1 memakai jalur
+ * pendaftaran ulang mahasiswa baru bila mahasiswa masih memiliki data calon mahasiswa, semester
+ * lain memakai jalur pendaftaran mahasiswa lama). Pemrosesan data dijalankan asinkron dengan
+ * server-push progres lewat {@link ais.common.AsyncTaskManager#jalankanDenganPush}.
+ */
 public class LaporanRekapitulasiMahasiswa extends MyWindow {
 
 	private static final long serialVersionUID = 4766478176972379068L;
@@ -87,6 +101,7 @@ public class LaporanRekapitulasiMahasiswa extends MyWindow {
 	private Integer Smt = 16;
 	private Intbox tahunAngkatanSd;
 
+	/** Membuat jendela laporan dan langsung menyusun tampilan filter dasar (tanpa memuat data laporan). */
 	public LaporanRekapitulasiMahasiswa() {
 		super();
 		try {
@@ -104,12 +119,20 @@ public class LaporanRekapitulasiMahasiswa extends MyWindow {
 
 	}
 
+	/**
+	 * Membuat jendela laporan dengan judul, gaya border, dan status dapat-ditutup kustom.
+	 *
+	 * @param title    judul jendela
+	 * @param border   gaya border jendela
+	 * @param closable apakah jendela dapat ditutup pengguna
+	 */
 	public LaporanRekapitulasiMahasiswa(String title, String border, boolean closable) throws Exception {
 		super(title, border, closable);
 
 		init();
 	}
 
+	/** Menyusun panel filter (fakultas/jurusan/program/angkatan/status/kelamin/tahun akademik/semester/sampai semester) di West beserta tombol lihat laporan dan toolbar ekspor. */
 	private void init() throws Exception {
 
 		kurikulumFakultas = new Combobox();
@@ -287,6 +310,7 @@ public class LaporanRekapitulasiMahasiswa extends MyWindow {
 
 	}
 
+	/** @return peta parameter laporan (filter fakultas/jurusan/angkatan/status/program/kelamin/sampai-semester/tahun akademik/semester, dan {@link #maps} bila sudah dihitung) untuk mesin cetak PDF lama; juga menyimpan filter ke bidang instans untuk dipakai {@link #generateDataDanImageAlbum}. */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	protected Map generateParameter() throws Exception {
 
@@ -348,6 +372,19 @@ public class LaporanRekapitulasiMahasiswa extends MyWindow {
 		return parameters;
 	}
 
+	/**
+	 * Menghitung ulang {@link #maps}: mengambil mahasiswa aktif sesuai filter (rentang tahun
+	 * angkatan, fakultas/jurusan/program/kelamin), lalu untuk setiap mahasiswa yang statusnya
+	 * (setelah sinkronisasi KRS semester berjalan) cocok dengan filter status yang dipilih
+	 * (atau semua bila tidak difilter), membangun satu baris data berisi biodata lengkap,
+	 * pejabat struktural terkait (dosen PA, kaprodi, dekan, wakil dekan, kajur), IPK/IPS/SKS,
+	 * judisium, masa studi (dihitung dari tanggal mulai kegiatan belajar mengajar s.d. tanggal
+	 * lulus atau hari ini), status per semester ({@code smt1..smtN}) dan rincian biaya per
+	 * semester ({@code biaya_smt_N}, dihitung dari {@link PembayaranUtil} sesuai jalur
+	 * pendaftaran yang berlaku). Progres ditulis ke {@code label} di setiap iterasi mahasiswa.
+	 *
+	 * @param label komponen label UI untuk menampilkan progres
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	protected void generateDataDanImageAlbum(Label label) {
 		StatusMahasiswa selectedStatusMahasiswa = (StatusMahasiswa) (status.getSelectedItem() == null
@@ -826,6 +863,13 @@ public class LaporanRekapitulasiMahasiswa extends MyWindow {
 		ais.action.report.helper.LoadingReportUtil.selesai(label);
 	}
 
+	/**
+	 * Menampilkan progress bar, mengaktifkan server-push desktop, lalu menjalankan
+	 * {@link #generateDataDanImageAlbum} pada thread pool terkelola dan menghasilkan/menampilkan
+	 * berkas PDF lewat mesin laporan lama setelah data siap.
+	 *
+	 * @param event event pemicu (tidak dipakai)
+	 */
 	@SuppressWarnings({})
 	public void onLaporanPerkuliahan(Event event) throws Exception {
 

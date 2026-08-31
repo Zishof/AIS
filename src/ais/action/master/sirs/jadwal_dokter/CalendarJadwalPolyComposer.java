@@ -53,6 +53,21 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyDatebox;
 import ais.ui.util.MyTextbox;
 
+/**
+ * Composer ZK ({@link GenericForwardComposer}, terikat ke berkas ZUL kalender lewat konvensi
+ * penamaan {@code on<Event>$<componentId>}) untuk mengelola jadwal dokter/tenaga medis per poli
+ * SIRS dalam tampilan kalender ({@code org.zkoss.calendar.Calendars}). Menampilkan jadwal
+ * ({@link JadwalDokter}) sebagai event kalender untuk satu {@link Poly} terpilih, mendukung
+ * membuat jadwal baru dengan menyeret area kosong kalender ({@link #onEventCreate$calendars}),
+ * mengubah jadwal yang ada dengan mengklik event ({@link #onEventEdit$calendars}), menghapus
+ * jadwal, serta navigasi tampilan (maju/mundur minggu, hari ini, ganti zona waktu, ganti mode
+ * tampilan hari/5-hari/minggu/bulan). Saat jadwal baru dibuat dari slot waktu kosong, {@link Shift}
+ * yang berlaku otomatis dicari berdasarkan waktu mulai slot tersebut. Jam mulai/selesai tampilan
+ * dan zona waktu kalender diambil dari konfigurasi {@code penjadwalan_jam_mulai}/
+ * {@code penjadwalan_jam_selesai}/{@code penjadwalan_timezone}. Akses ke layar ini disyaratkan
+ * memiliki privilese {@link CommonPrivilages#READ} (dicek di {@link #doAfterCompose}, mengarahkan
+ * ke logout bila tidak valid).
+ */
 public class CalendarJadwalPolyComposer extends GenericForwardComposer {
 
 	private static final long serialVersionUID = 201011240904L;
@@ -81,6 +96,7 @@ public class CalendarJadwalPolyComposer extends GenericForwardComposer {
 
 	private JadwalDokter jadwalDokter;
 
+	/** Menggeser tampilan kalender mundur satu minggu, lalu memuat ulang modelnya. */
 	public void onBack(Event event) {
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 		calendar.setTime(calendars.getCurrentDate());
@@ -90,6 +106,7 @@ public class CalendarJadwalPolyComposer extends GenericForwardComposer {
 		calendars.invalidate();
 	}
 
+	/** Menggeser tampilan kalender maju satu minggu, lalu memuat ulang modelnya. */
 	public void onNext(Event event) {
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 		calendar.setTime(calendars.getCurrentDate());
@@ -99,6 +116,7 @@ public class CalendarJadwalPolyComposer extends GenericForwardComposer {
 		calendars.invalidate();
 	}
 
+	/** Membangun form tambah/ubah jadwal ({@code addWindow} untuk data baru, {@code editWindow} untuk data yang sudah ada) berisi shift, poli, dokter, hari, lokasi, keterangan, dan warna, diisi dari {@code jadwalDokter} yang diberikan. */
 	@SuppressWarnings({})
 	private void init(final JadwalDokter jadwalDokter) throws Exception {
 
@@ -336,11 +354,13 @@ public class CalendarJadwalPolyComposer extends GenericForwardComposer {
 		cancel.setParent(toolbar);
 	}
 
+	/** Memuat ulang model kalender sesuai poli yang sedang dipilih tanpa mengubah tanggal yang sedang ditampilkan. */
 	public void onRefresh(Event event) {
 		initCalendarModel();
 		calendars.invalidate();
 	}
 
+	/** Memvalidasi hak akses baca; mengisi combobox poli, format tanggal, zona waktu, jam mulai/selesai kalender dari konfigurasi; dan menyiapkan combobox hari dalam seminggu. */
 	@Override
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
@@ -404,6 +424,7 @@ public class CalendarJadwalPolyComposer extends GenericForwardComposer {
 
 	}
 
+	/** Menyusun ulang model event kalender berdasarkan poli yang sedang dipilih, didelegasikan ke {@link CommonSirs#initCalendarModel}; tidak melakukan apa-apa bila belum ada poli terpilih. */
 	private void initCalendarModel() {
 
 		Poly myPoly = (Poly) (poly.getSelectedItem() == null ? null : poly.getSelectedItem().getValue());
@@ -412,6 +433,13 @@ public class CalendarJadwalPolyComposer extends GenericForwardComposer {
 		CommonSirs.initCalendarModel(null, null, myPoly, calendars);
 	}
 
+	/**
+	 * Menangani event kalender "buat jadwal baru" (drag pada area kosong): mensyaratkan poli
+	 * terpilih, mencari {@link Shift} yang berlaku pada waktu mulai slot yang diseret (shift
+	 * dengan {@code mulai} terbaru yang tidak melewati waktu tersebut), lalu membuka form tambah
+	 * ({@code addWindow}) terisi poli/shift/lokasi/hari default dari slot dan shift yang
+	 * ditemukan. Menolak dengan pesan bila poli belum dipilih atau shift tidak ditemukan.
+	 */
 	public void onEventCreate$calendars(ForwardEvent event) throws Exception {
 
 		Poly myPoly = (Poly) (poly.getSelectedItem() == null ? null : poly.getSelectedItem().getValue());
@@ -456,12 +484,14 @@ public class CalendarJadwalPolyComposer extends GenericForwardComposer {
 		evt.stopClearGhost();
 	}
 
+	/** Menutup form tambah jadwal, membersihkan event "ghost" sementara pada kalender yang dibuat saat drag dimulai. */
 	public void onClose$addWindow(ForwardEvent event) {
 		event.getOrigin().stopPropagation();
 		((CalendarsEvent) addWindow.getAttribute("calevent")).clearGhost();
 		addWindow.setVisible(false);
 	}
 
+	/** Menyimpan jadwal baru (via {@link #onSave()}) dan menutup form; bila berhasil, kalender dimuat ulang setelah jeda singkat agar transaksi Hibernate sempat commit. */
 	public void onClick$okBtn$addWindow(ForwardEvent event) throws Exception {
 
 		if (onSave()) {
@@ -481,6 +511,7 @@ public class CalendarJadwalPolyComposer extends GenericForwardComposer {
 
 	}
 
+	/** Membatalkan form tambah/ubah jadwal, membersihkan event "ghost" sementara pada kedua kemungkinan jendela (tambah/ubah). */
 	public void onClick$cancelBtn$addWindow(ForwardEvent event) {
 		addWindow.setVisible(false);
 		try {

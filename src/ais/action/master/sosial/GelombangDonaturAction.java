@@ -28,6 +28,14 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Action CRUD (berbasis kerangka {@link GenericCrudAction}) untuk mengelola data master "Masa
+ * Pendaftaran Donatur" ({@link GelombangDonatur}) pada modul sosial/donasi — periode (kode, nama,
+ * tanggal mulai-sampai, keterangan) di mana pendaftaran donatur baru dibuka. Mendukung
+ * unduh/unggah massal lewat Excel ({@link #onAfterInit(Component)}). {@link #onSave(Event)}
+ * memvalidasi nama wajib isi dan unik (lewat {@link #checkNamaGelombangDonatur()}) sebelum
+ * menyimpan. {@link #initCriteria(boolean)} membangun kueri pencarian dengan filter status aktif.
+ */
 public class GelombangDonaturAction extends GenericCrudAction<GelombangDonatur> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -55,6 +63,7 @@ public class GelombangDonaturAction extends GenericCrudAction<GelombangDonatur> 
         return new String[] { "id", "kode", "nama", "mulai", "sampai", "keterangan", "aktif" };
     }
 
+    /** Menambahkan tombol cetak dan unggah data (Excel) ke toolbar, mengikuti pola CRUD baku. */
     @Override
     protected void onAfterInit(Component comp) throws Exception {
         String[] contents = getDownloadUploadContents();
@@ -70,6 +79,12 @@ public class GelombangDonaturAction extends GenericCrudAction<GelombangDonatur> 
         }
     }
 
+    /**
+     * Membangun kueri pencarian masa pendaftaran donatur, difilter status aktif.
+     *
+     * @param order {@code true} untuk mengurutkan hasil berdasarkan nama
+     * @return kriteria Hibernate siap dieksekusi/dipaginasi
+     */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -177,6 +192,12 @@ public class GelombangDonaturAction extends GenericCrudAction<GelombangDonatur> 
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi (nama wajib isi dan unik) dan menyimpan data masa pendaftaran donatur.
+     *
+     * @param event event ZK asal aksi simpan
+     * @return {@code true} bila data berhasil disimpan
+     */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Nama Masa Pendaftaran Donatur harus diisi", "Peringatan",
@@ -203,6 +224,7 @@ public class GelombangDonaturAction extends GenericCrudAction<GelombangDonatur> 
         return true;
     }
 
+    /** @return {@code true} bila nama pada form sudah dipakai gelombang donatur lain (dikecualikan data yang sedang diedit). */
     public Boolean checkNamaGelombangDonatur() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(GelombangDonatur.class)

@@ -90,6 +90,7 @@ public class RiwayatSeminarPegawaiHelper {
 		this.pegawai = pegawai;
 	}
 
+	/** Renderer baris grid untuk {@link Seminar}: pegawai, judul seminar, tanggal, lokasi, pembicara utama, peran, ikon status (centang/peringatan), dan tombol ubah/hapus (hapus hanya untuk status belum ok). */
 	class RiwayatSeminarPegawaiRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -178,6 +179,7 @@ public class RiwayatSeminarPegawaiHelper {
 		}
 	}
 
+	/** Membangun kerangka layar daftar riwayat seminar: panel filter (pegawai, status, satuan kerja) di utara dan grid rincian di tengah, lalu langsung memuat datanya. */
 	public Borderlayout display() throws Exception {
 
 		North north = new North();
@@ -355,6 +357,7 @@ public class RiwayatSeminarPegawaiHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Memuat ulang daftar {@link Seminar} sesuai filter aktif ke grid. */
 	public void onSearchDefault(Event event) {
 
 		SatuanKerja parent = (SatuanKerja) searchparent.getAttribute("satuanKerja");
@@ -388,6 +391,7 @@ public class RiwayatSeminarPegawaiHelper {
 
 	}
 
+	/** Membangun form tambah/ubah untuk {@code riwayatSeminarPegawai} (baru atau sudah ada): judul, tanggal mulai/selesai, lokasi, pembicara utama, peran, keterangan, status, dan lampiran dokumen, menggantikan tampilan daftar sementara. */
 	public void init(final Seminar riwayatSeminarPegawai) throws Exception {
 		this.riwayatSeminarPegawai = riwayatSeminarPegawai;
 
@@ -569,6 +573,7 @@ public class RiwayatSeminarPegawaiHelper {
 		window.onModal();
 	}
 
+	/** Memvalidasi dan menyimpan data {@link Seminar} dari form; mengembalikan {@code false} bila validasi gagal (pesan sudah ditampilkan ke pengguna), {@code true} bila berhasil disimpan. */
 	public boolean save(Event event) throws Exception {
 
 		if (ambilDataPegawaiBanbox.getAttribute("pegawai") == null) {
