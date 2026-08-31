@@ -173,6 +173,35 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.SmartDateTimeUtil;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Komponen dashboard khusus untuk dashboard timeline pertemuan. Kelas ini memilih variasi data
+ * atau tampilan dashboard sambil memakai lifecycle dan mekanisme pemuatan dari kelas induknya.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * MyWindow}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
+ * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
+ * tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code boolean
+ * tampilkan_singkron_kalendar_di_elearning}, {@code boolean tampilkan_kalendar_di_elearning}, {@code boolean
+ * tampilkan_dasbor_di_elearning}, {@code boolean tampilkan_obe_di_elearning}, {@code boolean reloadBlnSd},
+ * {@code Center center}, {@code Paging paging}, {@code Grid grid}; inisialisasi/lifecycle ({@code init()},
+ * {@code initBulanSd()}, {@code initCriteria()}, {@code initCriteria()}, {@code initStaticCriteria()}, {@code
+ * initSpreadsheet()}); pembacaan/pencarian ({@code updateDashboardLoading()}, {@code
+ * buildKehadiranLoadingMessage()}, {@code buildELearningLoadingHtml()}, {@code buildInlineMiniLoadingHtml()},
+ * {@code getLabelLampiranDashboardELearning()}, {@code getLongSqlValue()}); validasi/perhitungan ({@code
+ * hitungPersen()}, {@code isValidStatusKode()}, {@code extractAttendanceKode()}, {@code
+ * checkApakahSesuaiJadwal()}); mutasi data ({@code shouldUpdateKehadiranProgress()}); pelaporan/ekspor ({@code
+ * renderDetailRow()}, {@code renderDashboardSummaryRow()}); operasi domain lain ({@code
+ * buildDashboardSummary()}, {@code buildDashboardSummary()}, {@code buildObeComponent()}, {@code
+ * countUniqueRelationIds()}, {@code buildObePlaceholderHtml()}, {@code buildObeStatsHtml()}). Bagian lain dari
+ * kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ *
+ * @see MyWindow
+ */
 public class DashboardTimelinePertemuan extends MyWindow {
 
 	private static final long serialVersionUID = 790038368339375113L;

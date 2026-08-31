@@ -41,6 +41,22 @@ import ais.ui.util.MyComboitemConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.UIUtil;
 
+/**
+ * Komponen dashboard khusus untuk dashboard akunting tahun. Kelas ini memilih variasi data atau
+ * tampilan dashboard sambil memakai lifecycle dan mekanisme pemuatan dari kelas induknya.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Double nilaiSaldo}, {@code List
+ * columnHeadersAdding}, {@code EventListener dataAdding}; operasi domain lain ({@code display()}, {@code
+ * appendDashboardSopDescriptionRow()}, {@code buildMiniInfoCard()}, {@code safeDashboardHtml()}). Bagian lain
+ * dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class DashboardAkuntingTahunHelper {
 
 	public static Double nilaiSaldo = 0.0;

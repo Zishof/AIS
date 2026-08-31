@@ -47,6 +47,26 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Komponen dashboard khusus untuk dashboard sks dan ipk mahasiswa. Kelas ini memilih variasi data
+ * atau tampilan dashboard sambil memakai lifecycle dan mekanisme pemuatan dari kelas induknya.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * MyWindow}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
+ * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
+ * tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Combobox searchfakultas}, {@code
+ * Combobox searchjurusan}, {@code Combobox tahunAkademik}, {@code Combobox semesterAbsensi}, {@code Combobox
+ * searchsemester}, {@code Combobox searchprogram}, {@code Combobox angkatanMhsMulai}, {@code Combobox
+ * angkatanMhs}; inisialisasi/lifecycle ({@code initFakultas()}, {@code init()}, {@code initSpreadsheet()}).
+ * Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ *
+ * @see MyWindow
+ */
 public class DashboardSKSDanIPKMahasiswa extends MyWindow {
 
 	/**

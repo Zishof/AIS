@@ -68,6 +68,30 @@ import ais.ui.util.MyWindow;
 
 import org.zkoss.zul.Html;
 
+/**
+ * Komponen dashboard khusus untuk dashboard rekap aset. Kelas ini memilih variasi data atau
+ * tampilan dashboard sambil memakai lifecycle dan mekanisme pemuatan dari kelas induknya.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * MyWindow}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
+ * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
+ * tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code boolean debug}, {@code Combobox
+ * searchstatus}, {@code Center center}, {@code MyDatebox mulai}, {@code MyDatebox sampai}, {@code Map mapping};
+ * inisialisasi/lifecycle ({@code init()}); pembacaan/pencarian ({@code loadDashboard()}); mutasi data ({@code
+ * setDebug()}, {@code renderAnalitikAsetInventarisTambahan()}, {@code renderAnalitikAsetHeader()}, {@code
+ * renderKesehatanDataAset()}, {@code renderStatusAsetRingkas()}, {@code renderGroupedAsetPanel()});
+ * pelaporan/ekspor ({@code renderSimpleTablePanel()}); operasi domain lain ({@code isDebug()}, {@code
+ * debugException()}, {@code countCriteria()}, {@code createAnalitikPortalchildren()}, {@code
+ * createAnalitikPanel()}, {@code createMiniInfoCard()}). Bagian lain dari kontrak tetap mengikuti kelas induk
+ * atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ *
+ * @see MyWindow
+ */
 public class DashboardRekapAset extends MyWindow {
 
 	private static final long serialVersionUID = 790038368339375113L;

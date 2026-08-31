@@ -43,6 +43,28 @@ import ais.ui.util.MyComboitemConfig;
 import ais.ui.util.MyWindow;
 
 import ais.ui.util.DashboardModernHtmlUtil;
+/**
+ * Komponen dashboard khusus untuk dashboard statistik pengajuan bimbingan per jurusan. Kelas ini
+ * memilih variasi data atau tampilan dashboard sambil memakai lifecycle dan mekanisme pemuatan
+ * dari kelas induknya.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * MyWindow}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
+ * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
+ * tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code org.zkoss.zul.Html mychart}, {@code Div
+ * center}, {@code Combobox searchsemester}, {@code Combobox tahunAkademik}, {@code Combobox angkatan}, {@code
+ * Combobox angkatansd}, {@code AmbilDataDosenBanbox dosen}, {@code boolean tampilRinci}; inisialisasi/lifecycle
+ * ({@code reinit()}, {@code initFakultas()}, {@code init()}, {@code initChart()}); konfigurasi constructor:
+ * {@code tampilRinci}. Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
+ * atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ *
+ * @see MyWindow
+ */
 public class DashboardStatistikPengajuanBimbinganPerJurusan extends MyWindow {
 
 	/**

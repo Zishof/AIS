@@ -48,6 +48,28 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.UIUtil;
 
 import ais.ui.util.DashboardModernHtmlUtil;
+/**
+ * Komponen dashboard khusus untuk dasboard standing instruction. Kelas ini memilih variasi data
+ * atau tampilan dashboard sambil memakai lifecycle dan mekanisme pemuatan dari kelas induknya.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * MyWindow}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
+ * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
+ * tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Center center}, {@code
+ * AmbilDataSatuanKerjaBanbox searchparent}, {@code MyDatebox start}, {@code MyDatebox end}, {@code int width},
+ * {@code int height}, {@code SatuanKerjaTreeModel satuanKerjaTreeModel}, {@code Grid grid};
+ * inisialisasi/lifecycle ({@code init()}); pembacaan/pencarian ({@code reload()}); mutasi data ({@code
+ * standingInstructionBelumDiprosesCriterion()}); operasi domain lain ({@code transferViaSqlText()}, {@code
+ * standingInstructionDiajukanCriterion()}, {@code standingInstructionTransferCriterion()}). Bagian lain dari
+ * kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ *
+ * @see MyWindow
+ */
 public class DasboardStandingInstruction extends MyWindow {
 
 	/**
