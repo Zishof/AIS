@@ -319,7 +319,7 @@ public final class GenericCrudAutoDefinitionFactory {
                 || p.equals("validator")) skor += 35;
         // Kode internal/teknis: berguna untuk sistem, membingungkan di tabel.
         if (p.equals("kodeunik") || p.equals("kodereq") || p.equals("koderequest")
-                || p.equals("refnumber") || p.equals("ref")) skor -= 25;
+                || p.equals("refnumber") || p.equals("ref") || p.equals("refva")) skor -= 90;
         // Relasi ke entitas pokok lebih informatif daripada flag konfigurasi.
         if ("relation".equals(tipe)) {
             skor += 25;
@@ -328,9 +328,17 @@ public final class GenericCrudAutoDefinitionFactory {
                     || p.contains("kelas") || p.contains("pegawai")
                     || p.contains("kegiatan") || p.contains("pembayaran")
                     || p.contains("prodi") || p.contains("deposit")) skor += 15;
+            // Subjek utama baris (siapa/kegiatan apa) selalu layak tampil.
+            if (p.equals("siswa") || p.equals("mahasiswa") || p.equals("calonsiswa")
+                    || p.equals("calonmahasiswa") || p.equals("kegiatan")
+                    || p.equals("jeniskegiatan") || p.equals("pegawai")) skor += 25;
         }
-        // Bendera konfigurasi/boolean cenderung tidak informatif di tabel.
-        if (java.endsWith("Boolean") || java.equals("boolean")) skor -= 60;
+        // Bendera konfigurasi/boolean cenderung tidak informatif di tabel,
+        // kecuali boolean yang memang menyatakan keadaan baris.
+        boolean bool = java.endsWith("Boolean") || java.equals("boolean");
+        boolean keadaan = p.equals("lunas") || p.equals("valid") || p.equals("batal")
+                || p.equals("disetujui") || p.equals("terverifikasi") || p.equals("terkirim");
+        if (bool) skor -= keadaan ? 10 : 60;
         if (p.startsWith("boleh") || p.startsWith("auto") || p.startsWith("default")
                 || p.startsWith("gunakan") || p.startsWith("tampilkan") || p.startsWith("wajib")
                 || p.startsWith("harus") || p.startsWith("aktifkan")) skor -= 25;
