@@ -364,7 +364,7 @@ public class PostingUtangDiskonSiswaAction extends GenericAutowireComposer {
 																		diskonTidakLangsung, tagihan,
 																		tagihan.getPengaturanBiaya()
 																				.getSekolah().getSatuanKerja(),
-																		session);
+																		ais.action.master.helper.PostingJurnalHelper.REF_DISKON_SISWA, session);
 															} else {
 																CommonAkunting.saveTransaksi(akunKredit, akunDebet,
 																		akunDiskon, akunUtangDiskon,
@@ -373,7 +373,7 @@ public class PostingUtangDiskonSiswaAction extends GenericAutowireComposer {
 																		diskonTidakLangsung, tagihan,
 																		tagihan.getPengaturanBiaya()
 																				.getSekolah().getSatuanKerja(),
-																		session);
+																		ais.action.master.helper.PostingJurnalHelper.REF_DISKON_SISWA, session);
 															}
 															session.getTransaction().commit();
 														} catch (Exception e) {
@@ -627,13 +627,13 @@ public class PostingUtangDiskonSiswaAction extends GenericAutowireComposer {
 												postingHistoryDiskon, apakahUangMasuk, ket, tagihan.getTanggalBayar(),
 												nilai, diskonTidakLangsung, tagihan, tagihan.getNominalBiaya()
 														.getPengaturanBiaya().getSekolah().getSatuanKerja(),
-												session);
+												ais.action.master.helper.PostingJurnalHelper.REF_DISKON_SISWA, session);
 									} else {
 										CommonAkunting.saveTransaksi(akunKredit, akunDebet, akunDiskon, akunUtangDiskon,
 												postingHistoryDiskon, apakahUangMasuk, ket, tagihan.getTanggalBayar(),
 												nilai, diskonTidakLangsung, tagihan, tagihan.getNominalBiaya()
 														.getPengaturanBiaya().getSekolah().getSatuanKerja(),
-												session);
+												ais.action.master.helper.PostingJurnalHelper.REF_DISKON_SISWA, session);
 									}
 
 								}
@@ -947,11 +947,11 @@ public class PostingUtangDiskonSiswaAction extends GenericAutowireComposer {
 						if (nilai > 0.1) {
 							CommonAkunting.saveTransaksi(akunDebet, akunKredit, null, null, postingHistory,
 									true, ket, tagihan.getTanggalBayar(), nilai, Double.valueOf(0.0), tagihan,
-									satuanKerja, session);
+									satuanKerja, ais.action.master.helper.PostingJurnalHelper.REF_DISKON_SISWA, session);
 						} else {
 							CommonAkunting.saveTransaksi(akunKredit, akunDebet, null, null, postingHistory,
 									true, ket, tagihan.getTanggalBayar(), nilai, Double.valueOf(0.0), tagihan,
-									satuanKerja, session);
+									satuanKerja, ais.action.master.helper.PostingJurnalHelper.REF_DISKON_SISWA, session);
 						}
 						session.getTransaction().commit();
 						tersimpan = true;

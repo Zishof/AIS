@@ -400,7 +400,7 @@ public class PostingDibayarDimukaSiswaAction extends GenericAutowireComposer {
 																		nilai, denda, tagihan,
 																		tagihan.getPengaturanBiaya()
 																				.getSekolah().getSatuanKerja(),
-																		session);
+																		ais.action.master.helper.PostingJurnalHelper.REF_DIMUKA_SISWA, session);
 															} else {
 																CommonAkunting.saveTransaksi(akunKredit, akunDebet,
 																		akunDenda, akunPiutangDenda,
@@ -410,7 +410,7 @@ public class PostingDibayarDimukaSiswaAction extends GenericAutowireComposer {
 																		nilai, denda, tagihan,
 																		tagihan.getPengaturanBiaya()
 																				.getSekolah().getSatuanKerja(),
-																		session);
+																		ais.action.master.helper.PostingJurnalHelper.REF_DIMUKA_SISWA, session);
 															}
 															session.getTransaction().commit();
 														} catch (Exception e) {
@@ -671,14 +671,14 @@ public class PostingDibayarDimukaSiswaAction extends GenericAutowireComposer {
 												tagihan.getPembayaranSiswaDetail().getPembayaranSiswa().getTanggal(),
 												nilai, denda, tagihan, tagihan.getPengaturanBiaya()
 														.getSekolah().getSatuanKerja(),
-												session);
+												ais.action.master.helper.PostingJurnalHelper.REF_DIMUKA_SISWA, session);
 									} else {
 										CommonAkunting.saveTransaksi(akunKredit, akunDebet, akunDenda, akunPiutangDenda,
 												postingHistoryUangMuka, apakahUangMasuk, ket,
 												tagihan.getPembayaranSiswaDetail().getPembayaranSiswa().getTanggal(),
 												nilai, denda, tagihan, tagihan.getPengaturanBiaya()
 														.getSekolah().getSatuanKerja(),
-												session);
+												ais.action.master.helper.PostingJurnalHelper.REF_DIMUKA_SISWA, session);
 									}
 
 								}
@@ -1025,11 +1025,11 @@ public class PostingDibayarDimukaSiswaAction extends GenericAutowireComposer {
 						if (nilai > 0.1) {
 							CommonAkunting.saveTransaksi(akunDebet, akunKredit, null, null, postingHistory,
 									true, ket, bayar == null ? null : bayar.getTanggal(), nilai,
-									Double.valueOf(0.0), tagihan, satuanKerja, session);
+									Double.valueOf(0.0), tagihan, satuanKerja, ais.action.master.helper.PostingJurnalHelper.REF_DIMUKA_SISWA, session);
 						} else {
 							CommonAkunting.saveTransaksi(akunKredit, akunDebet, null, null, postingHistory,
 									true, ket, bayar == null ? null : bayar.getTanggal(), nilai,
-									Double.valueOf(0.0), tagihan, satuanKerja, session);
+									Double.valueOf(0.0), tagihan, satuanKerja, ais.action.master.helper.PostingJurnalHelper.REF_DIMUKA_SISWA, session);
 						}
 						session.getTransaction().commit();
 						tersimpan = true;

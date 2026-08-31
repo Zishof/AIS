@@ -53,6 +53,22 @@ public final class PostingJurnalHelper {
 	public static final String REF_PEKERJAAN_NON_DP = "PEKERJAAN_NON_DP";
 	/** ref grup transaksi pengembalian sisa uang muka (jurnal pengembalian LPJ). */
 	public static final String REF_PENGEMBALIAN = "pengembalian";
+	/*
+	 * Tiga ref di bawah ini MEMBEDAKAN KAKI JURNAL pada satu dokumen Tagihan siswa, yang
+	 * memikul empat kaki sekaligus (piutang, denda, diskon, dibayar dimuka). Tanpa ref
+	 * pembeda, keempatnya berbagi satu kodeUnik -- GrupTransaksi.ambilUnik() menyusun kunci
+	 * dari kelas+id dokumen+ref, sedangkan kolom jenis TIDAK ikut karena ia getter turunan
+	 * dari postingHistory.jenis. Akibatnya CommonAkunting.saveTransaksi menganggap kaki kedua
+	 * sebagai duplikat: jurnalnya TIDAK ditulis dan grup kaki pertama hanya dicap ulang.
+	 * Lihat dok pos/71. Kaki PIUTANG sengaja tetap ber-ref null sebagai kaki utama, persis
+	 * pola LPJ uang muka (utama null, pajak 'pajak', pengembalian 'pengembalian').
+	 */
+	/** ref kaki jurnal denda pada tagihan siswa. */
+	public static final String REF_DENDA_SISWA = "denda_siswa";
+	/** ref kaki jurnal diskon pada tagihan siswa. */
+	public static final String REF_DISKON_SISWA = "diskon_siswa";
+	/** ref kaki jurnal dibayar dimuka pada tagihan siswa. */
+	public static final String REF_DIMUKA_SISWA = "dimuka_siswa";
 
 	/** Properti GrupTransaksi yang boleh dipakai sebagai filter entitas closing. */
 	private static final String[] ENTITAS_CLOSING = { "pertangungjawaban", "kasKecil", "kasBesar", "pajak",
