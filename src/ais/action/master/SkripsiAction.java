@@ -206,6 +206,18 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 	// private Textbox judul;
 	private AmbilDataDosenSkripsiBanbox pembimbing;
 	private Combobox formatNilaiSkripsi;
+	/**
+	 * Snapshot jenis pengajuan ketika form edit dibuka. Nilai ini menjadi sumber
+	 * otoritatif selama pengguna tidak mengubah combobox Jenis Pengajuan.
+	 *
+	 * Form skripsi memuat ulang daftar jenis pengajuan ketika mahasiswa, tahun
+	 * akademik, atau semester berubah. Tanpa snapshot terpisah, pilihan hasil muat
+	 * ulang dapat ikut menimpa entity yang sedang diedit, sehingga penyimpanan field
+	 * lain mengubah jenis pengajuan (mis. Munaqasah 2 Pembimbing menjadi Munaqasah
+	 * 1 Pembimbing).
+	 */
+	private FormatNilaiSkripsi formatNilaiSkripsiSaatFormDibuka;
+	private boolean formatNilaiSkripsiDiubahPengguna;
 	private MyDatebox awalBimbingan;
 	private MyDatebox akhirBimbingan;
 	private MyCheckboxConfig telahSidang;
@@ -3253,6 +3265,7 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 		@SuppressWarnings("unchecked")
 		@Override
 		public void onEvent(Event arg0) throws Exception {
+			FormatNilaiSkripsi pilihanSebelumMuatUlang = ambilFormatNilaiSkripsiYangHarusDipertahankan();
 			Common.clear(SkripsiAction.this.formatNilaiSkripsi);
 			Mahasiswa mahasiswa = (Mahasiswa) SkripsiAction.this.mahasiswa.getAttribute("mahasiswa");
 
@@ -3329,7 +3342,7 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 					SkripsiAction.this.formatNilaiSkripsi.appendChild(comboitem);
 				}
 			}
-			Common.selectComboItem(true, formatNilaiSkripsi, skripsi.getFormatNilaiSkripsi());
+			Common.selectComboItem(true, formatNilaiSkripsi, pilihanSebelumMuatUlang);
 			// Jangan memilih item pertama setelah nilai tersimpan berhasil dipilih.
 			// Pada layar edit, perilaku lama selalu menimpa jenis pengajuan yang benar
 			// (mis. Seminar Hasil/Skripsi II) dengan item pertama (mis. Perbaikan Proposal).
@@ -3346,6 +3359,29 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 //			}
 		}
 	};
+
+	private FormatNilaiSkripsi ambilFormatNilaiSkripsiTerpilih() {
+		return (FormatNilaiSkripsi) (formatNilaiSkripsi == null || formatNilaiSkripsi.getSelectedItem() == null
+				? null : formatNilaiSkripsi.getSelectedItem().getValue());
+	}
+
+	private FormatNilaiSkripsi ambilFormatNilaiSkripsiYangHarusDipertahankan() {
+		if (!formatNilaiSkripsiDiubahPengguna && formatNilaiSkripsiSaatFormDibuka != null) {
+			return formatNilaiSkripsiSaatFormDibuka;
+		}
+		FormatNilaiSkripsi pilihanSaatIni = ambilFormatNilaiSkripsiTerpilih();
+		if (pilihanSaatIni != null) {
+			return pilihanSaatIni;
+		}
+		return skripsi == null ? null : skripsi.getFormatNilaiSkripsi();
+	}
+
+	private void pertahankanFormatNilaiSkripsiSaatEdit() {
+		if (skripsi != null && skripsi.getId() != null && !formatNilaiSkripsiDiubahPengguna
+				&& formatNilaiSkripsiSaatFormDibuka != null) {
+			Common.selectComboItem(true, formatNilaiSkripsi, formatNilaiSkripsiSaatFormDibuka);
+		}
+	}
 	private BiodataMahasiswa biodataMahasiswa = null;
 	private Textbox namaUntukIjazah;
 	private MyTextbox tanggallahirManual;
@@ -3974,6 +4010,12 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 
 		@Override
 		public void onEvent(Event arg0) throws Exception {
+			// Pemanggilan internal memakai event null hanya untuk menyegarkan tampilan
+			// penilaian. Hanya onChange nyata dari combobox yang boleh menandai bahwa
+			// pengguna memang bermaksud mengganti Jenis Pengajuan.
+			if (arg0 != null && "onChange".equals(arg0.getName())) {
+				formatNilaiSkripsiDiubahPengguna = true;
+			}
 			FormatNilaiSkripsi f = (FormatNilaiSkripsi) (formatNilaiSkripsi.getSelectedItem() == null ? null
 					: formatNilaiSkripsi.getSelectedItem().getValue());
 			if (f != null) {
@@ -4092,6 +4134,8 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 
 	private void init(final Skripsi skripsi, boolean tampilkanSimpan) throws Exception {
 		this.skripsi = skripsi;
+		this.formatNilaiSkripsiSaatFormDibuka = skripsi == null ? null : skripsi.getFormatNilaiSkripsi();
+		this.formatNilaiSkripsiDiubahPengguna = false;
 		Common.clear(addWindow);
 		addWindow.setTitle(
 				skripsi.getId() == null ? "Tambah Data " + Common.getKonfigurasi("label_skripsi", "skripsi").getNilai()
@@ -4507,6 +4551,10 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 			return false;
 		}
 
+		// Guard terakhir: menyimpan judul, dosen, nilai, atau informasi kelulusan
+		// tidak boleh mengubah Jenis Pengajuan yang sudah tersimpan. Perubahan hanya
+		// diterima setelah pengguna benar-benar mengganti combobox Jenis Pengajuan.
+		pertahankanFormatNilaiSkripsiSaatEdit();
 		if (!checkSyarat()) {
 			return false;
 		}
