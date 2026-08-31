@@ -1064,6 +1064,17 @@ public final class SalesInventoryTripHelper {
 				r.put("kode", str(k.getKode()));
 				r.put("nama", str(k.getNama()));
 				r.put("aktif", Boolean.TRUE.equals(k.getAktif()));
+				// Akun beban kategori: dipakai mesin posting "Biaya Sesi Sales" (dok 61 butir E).
+				try {
+					if (k.getAkun() != null) {
+						r.put("akunId", k.getAkun().getId());
+						r.put("akunKode", str(k.getAkun().getKode()));
+						r.put("akunNama", str(k.getAkun().getNama()));
+					}
+				} catch (Exception abaikan) {
+					ais.common.ErrorAuditUtil.record(abaikan,
+							"auto-audit SalesInventoryTripHelper.expenseCategoryList akun");
+				}
 				arr.put(r);
 			}
 			hasil.put("status", "00");
@@ -1098,6 +1109,12 @@ public final class SalesInventoryTripHelper {
 			k.setNama(nama);
 			if (!request.isNull("aktif")) {
 				k.setAktif(Boolean.valueOf(request.optBoolean("aktif", true)));
+			}
+			if (request.has("akunId")) {
+				Long akunId = optLong(request, "akunId");
+				k.setAkun(akunId == null ? null
+						: (ais.database.model.akunting.Akun) session.get(
+								ais.database.model.akunting.Akun.class, akunId));
 			}
 			session.saveOrUpdate(k);
 			tx.commit();

@@ -116,6 +116,8 @@ public final class DraftJurnalApiHelper {
         if ("Penyesuaian Saldo Anggota".equals(namaBaris)) return "penyesuaian_saldo_anggota";
         if ("Modal Penyertaan Masuk".equals(namaBaris)) return "modal_penyertaan";
         if ("Pembagian SHU".equals(namaBaris)) return "pembagian_shu";
+        // Biaya sesi sales serumpun izin dengan menu Biaya Sales pada modul Inventory & Sales.
+        if ("Biaya Sesi Sales".equals(namaBaris)) return "biaya_sales";
         if ("Pengembalian Modal Penyertaan".equals(namaBaris)) return "modal_penyertaan";
         // Jurnal balik pembatalan serumpun izin dengan posting penjualannya.
         if ("Pembatalan Penjualan Kantin".equals(namaBaris)) return "posting_penjualan";
@@ -480,6 +482,12 @@ public final class DraftJurnalApiHelper {
                         .postingSemuaModalKembali(mulai, sampai, tbmuser, new Date())
                     : ais.action.master.koperasi.helper.PostingDanaAnggotaUtil
                         .batalkanPostingSemuaModalKembali(mulai, sampai);
+        } else if ("Biaya Sesi Sales".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.koperasi.helper.PostingBiayaSalesUtil.postingSemua(mulai,
+                        sampai, tbmuser, new Date())
+                    : ais.action.master.koperasi.helper.PostingBiayaSalesUtil
+                        .batalkanPostingSemua(mulai, sampai);
         } else if ("Pembagian SHU".equals(nama)) {
             jumlah = posting
                     ? ais.action.master.koperasi.helper.PostingDanaAnggotaUtil.postingSemuaShu(mulai,

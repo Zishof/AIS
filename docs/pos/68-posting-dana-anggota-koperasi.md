@@ -1,7 +1,8 @@
 # Posting Dana Anggota Koperasi (dok 61 butir B)
 
 Tanggal: 31 Agustus 2026. Kode masuk SVN **r78646** (topup & pencairan), **r78649** (penyesuaian saldo & modal
-penyertaan), dan **r78651** (pembagian SHU). Membuka butir **B** gap analysis
+penyertaan), **r78651** (pembagian SHU), dan **r78657**
+(kaki pengembalian modal penyertaan). Membuka butir **B** gap analysis
 [61-gap-analysis-posting.md](61-gap-analysis-posting.md) — butir terakhir yang tersisa dari peta
 posting, dan satu-satunya yang dahulu ditandai "menunggu keputusan akuntansi".
 
@@ -26,6 +27,7 @@ dokumennya tetap tampil sebagai draf di dasbor sehingga kekurangan setup terliha
 | **Pencairan Diskon Anggota** (`PencairanDiskon`) | status `BERHASIL`, nominal cair ≠ 0 | **Dr** akun beban pencairan / **Cr** akun kas/bank cara pembayaran | waktu pencairan |
 | **Penyesuaian Saldo Anggota** (`PenyesuaianSaldoAnggota`) | selisih ≠ 0 | memorial tanpa kas: selisih POSITIF **Dr** akun selisih / **Cr** kewajiban saldo anggota; NEGATIF kebalikannya, nilainya mutlak | waktu opname |
 | **Modal Penyertaan Masuk** (`ModalPenyertaanKoperasi`) | aktif, nominal ≠ 0, `tanggal_masuk` terisi | **Dr** akun kas penerimaan modal / **Cr** akun modal penyertaan | tanggal masuk |
+| **Pengembalian Modal Penyertaan** | status `DITARIK`, nominal ≠ 0, `tanggal_kembali` terisi | **Dr** akun modal penyertaan / **Cr** akun kas — kebalikan kaki masuk | tanggal kembali |
 | **Pembagian SHU** (`PembagianShu`) | status `DIBAGIKAN`, total SHU ≠ 0 | **Dr** akun SHU ditahan (total) / **Cr** tujuh pos pembagian sesuai persentase | tanggal RAT |
 
 Lima kunci Konfigurasi baru:
@@ -81,9 +83,10 @@ Harness `TesPostingDanaAnggota` (scratchpad, DB UAT), fixture rentang **1–31 J
 | SHU terpecah | 20/30/50% dari 10.000.001 → cadangan 2jt, jasa modal 3jt, jasa usaha 5.000.001 (selisih pembulatan 1 rupiah ke pos terbesar) |
 | SHU seimbang | debet SHU ditahan = jumlah seluruh kredit pos, selisih nol |
 | SHU dijaga | dokumen berpersentase 90% dan dokumen berpos tanpa akun TIDAK dijurnal sebagian pun; tetap draf |
-| Idempoten & batal | posting/batal ulang 0 untuk kelimanya; jurnal habis; dokumen kembali draf |
+| Dua kaki modal | M3 punya dua jurnal terpisah berdua cap; membatalkan kaki kembali tidak menyentuh kaki masuk; kaki kembali bisa diposting ulang |
+| Idempoten & batal | posting/batal ulang 0 untuk keenamnya; jurnal habis; dokumen kembali draf |
 
-**LULUS 31, GAGAL 0.**
+**LULUS 37, GAGAL 0.**
 
 ### Jebakan baru yang ditemukan harness
 
@@ -94,14 +97,22 @@ yang lalu memblokir penghapusan akun karena FK. Penanda diganti jendela tanggal.
 jebakan yang sama dengan `getTanggalTransaksi()`, `getDibayar()`, dan `getKodeInvoice()` pada
 modul lain — **jangan pernah memakai kolom bergetter turunan sebagai penanda data uji.**
 
-## 4. Sisa butir B dan alasannya
+## 4. Dua kaki pada satu dokumen
+
+Modal penyertaan memuat DUA peristiwa uang pada satu baris. Kaki kembali memakai cap
+`postingHistoryKembali` sendiri (pola `propertiPosting` yang sudah dipakai keuangan
+siswa/mahasiswa), dan penghapusan jurnalnya **disaring menurut JENIS posting history** — tanpa
+saringan itu, membatalkan satu kaki ikut menghapus jurnal kaki lainnya. Kaki masuk pun diubah
+memakai saringan yang sama. Diuji khusus: membatalkan kaki kembali tidak menyentuh jurnal kaki
+masuk, dan kaki kembali bisa diposting ulang sesudahnya.
+
+## 5. Sisa butir B
 
 | Dokumen | Keadaan | Catatan |
 |---|---|---|
-| `ModalPenyertaanKoperasi` — kaki KEMBALI | belum | Satu baris memuat DUA peristiwa uang (setoran saat `tanggal_masuk`, pengembalian saat status DITARIK / `tanggal_kembali`) sementara satu dokumen hanya punya satu cap `posting_history`. Perlu cap kedua (`posting_history_kembali`) plus baris dasbor sendiri; sengaja tidak dipaksakan ke dalam pola satu-cap yang dipakai seluruh mesin lain. |
 | `DepositoRolloverKoperasi` | **tidak perlu** | Rollover hanya memperpanjang jangka waktu deposito yang sudah ada; tidak ada uang berpindah. Yang perlu dijurnal adalah penempatan/pencairan pokoknya (lewat simpan-pinjam, dok 62) dan akrual bunganya — bukan peristiwa rollover-nya. |
 
-## 5. Bagi admin
+## 6. Bagi admin
 
 Isi kelima Konfigurasi di §2 sebelum memakai baris posting yang baru. Selama sebuah kunci masih
 kosong, baris posting terkait tidak menjurnal apa pun dan dokumennya menetap sebagai draf —
@@ -110,5 +121,5 @@ alasannya tercatat di ErrorAudit.
 Pastikan pula setiap **Cara Pembayaran Koperasi** yang dipakai topup dan pencairan sudah
 ditautkan ke akun kas/bank-nya; tanpa itu dokumennya juga menetap sebagai draf.
 
-Tidak ada tabel baru; lima kolom `posting_history` dan lima kolom referensi pada
+Tidak ada tabel baru; lima kolom `posting_history` + satu `posting_history_kembali` dan lima kolom referensi pada
 `akunting.grup_transaksi` dibuat `hbm2ddl update` saat Tomcat mulai.

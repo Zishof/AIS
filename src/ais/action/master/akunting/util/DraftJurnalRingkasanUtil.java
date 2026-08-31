@@ -107,7 +107,7 @@ public final class DraftJurnalRingkasanUtil {
             "gaji", "transaksi_pegawai_payroll", "penggajian_pegawai",
             "simpan_pinjam_koperasi", "topup_saldo_anggota", "pencairan_diskon",
             "penyesuaian_saldo_anggota", "modal_penyertaan", "modal_penyertaan_kembali",
-            "pembagian_shu", "pembatalan_kantin", "mahasiswa", "siswa", "penyusutan", "penghapusan_aset", "pengajuan_transfer", "transitori", "closing",
+            "pembagian_shu", "biaya_sesi_sales", "pembatalan_kantin", "mahasiswa", "siswa", "penyusutan", "penghapusan_aset", "pengajuan_transfer", "transitori", "closing",
             "posting_hpp", "posting_penjualan_kantin", "posting_kulakan", "posting_bayar_hutang",
             "posting_terima_piutang", "posting_penyesuaian" };
 
@@ -141,6 +141,8 @@ public final class DraftJurnalRingkasanUtil {
         if ("simpan_pinjam_koperasi".equals(kunci)) return "simpan_pinjam";
         // Keluarga dana anggota serumpun dengan simpan-pinjam: sama-sama perputaran dana milik
         // anggota koperasi, bukan penjualan.
+        // Biaya sesi sales bagian modul Inventory & Sales, bukan dana anggota.
+        if ("biaya_sesi_sales".equals(kunci)) return "posting_penjualan";
         if ("topup_saldo_anggota".equals(kunci) || "pencairan_diskon".equals(kunci)
                 || "penyesuaian_saldo_anggota".equals(kunci) || "modal_penyertaan".equals(kunci)
                 || "modal_penyertaan_kembali".equals(kunci) || "pembagian_shu".equals(kunci)) {
@@ -404,6 +406,13 @@ public final class DraftJurnalRingkasanUtil {
                     hitungProperti(session, kriteriaModalKembali(session, mulai, sampai),
                             "postingHistoryKembali", true),
                     hitungClosing(session, "modalPenyertaanKoperasi", null, null, mulai, sampai)));
+        } else if ("biaya_sesi_sales".equals(kunci)) {
+            out.add(new Baris(kunci, "Biaya Sesi Sales",
+                    "Biaya sesi sales lapangan yang masih aktif dipastikan menjadi jurnal beban"
+                            + " memakai akun kategori biayanya.",
+                    hitungPostingHistory(session, kriteriaBiayaSales(session, mulai, sampai), false),
+                    hitungPostingHistory(session, kriteriaBiayaSales(session, mulai, sampai), true),
+                    hitungClosing(session, "notaSalesBiaya", null, null, mulai, sampai)));
         } else if ("pembagian_shu".equals(kunci)) {
             out.add(new Baris(kunci, "Pembagian SHU",
                     "SHU yang sudah dibagikan dipastikan menjadi jurnal pemecahan ke pos cadangan,"
@@ -696,6 +705,11 @@ public final class DraftJurnalRingkasanUtil {
     private static Criteria kriteriaModalKembali(Session session, Date mulai, Date sampai) {
         return ais.action.master.koperasi.helper.PostingDanaAnggotaUtil.kriteriaModalKembaliStatic(
                 session, mulai, sampai);
+    }
+
+    private static Criteria kriteriaBiayaSales(Session session, Date mulai, Date sampai) {
+        return ais.action.master.koperasi.helper.PostingBiayaSalesUtil.kriteriaBiayaStatic(session,
+                mulai, sampai);
     }
 
     private static Criteria kriteriaPembagianShu(Session session, Date mulai, Date sampai) {
@@ -1064,6 +1078,9 @@ public final class DraftJurnalRingkasanUtil {
         }
         if ("Pengembalian Modal Penyertaan".equals(namaBaris)) {
             return kriteriaModalKembali(session, mulai, sampai);
+        }
+        if ("Biaya Sesi Sales".equals(namaBaris)) {
+            return kriteriaBiayaSales(session, mulai, sampai);
         }
         if ("Gaji".equals(namaBaris)) return kriteriaPembayaranGaji(session, mulai, sampai);
         if ("Transaksi Pegawai".equals(namaBaris)) {

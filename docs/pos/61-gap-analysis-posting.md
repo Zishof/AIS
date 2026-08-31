@@ -66,10 +66,13 @@ sudah terposting, jadi buku besar akan menyimpan aset yang fisiknya sudah dihapu
 baris "Penghapusan Aset" + mesin memakai pasangan akun JenisPengapusanBarang, teruji
 10/10, dok [65-posting-penghapusan-aset.md](65-posting-penghapusan-aset.md).
 
-### E. Modul Inventory Sales (`NotaSalesKas` dkk.) — buku terpisah (kemungkinan by design)
-Keluarga NotaSales memakai kas & jurnal mini sendiri (layar `kas_jurnal`); helper-nya
-tidak menyentuh `grup_transaksi`. Konsolidasi ke buku besar AIS saat ini manual.
-Dicatat sebagai keputusan lingkup, bukan cacat.
+### E. Modul Inventory Sales — DUGAAN "BUKU TERPISAH" TERNYATA KELIRU
+Penelusuran ulang (dok [69](69-penutup-peta-posting.md)) menunjukkan modul ini TIDAK memakai buku
+tandingan: layar `kas_jurnal` membaca langsung `akunting.transaksi` dan Master Akun-nya adalah
+`akunting.akun` yang sama. `NotaSalesPembelian` sekadar TAUTAN ke faktur kulakan yang sudah punya
+jalur posting; `NotaSalesKas` adalah catatan laci kas sesi (kontrol operasional, sejenis sesi kas
+kasir yang memang tidak dijurnal per sesi). **Celah nyatanya satu: biaya sesi sales** —
+**SELESAI r78666**, akun beban diambil dari master Kategori Biaya Sales.
 
 ### Catatan operasional (bukan celah akuntansi)
 Sesi kas kasir (modal awal, setoran akhir) adalah kontrol kas operasional, tidak lazim

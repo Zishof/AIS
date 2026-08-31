@@ -2760,4 +2760,18 @@ public class GrupTransaksi extends GeneralValueObject {
 		this.pembagianShu = pembagianShu;
 	}
 
+
+	private ais.database.model.koperasi.NotaSalesBiaya notaSalesBiaya;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@Fetch(FetchMode.SELECT)
+	@JoinColumn(name = "nota_sales_biaya", nullable = true)
+	public ais.database.model.koperasi.NotaSalesBiaya getNotaSalesBiaya() {
+		return notaSalesBiaya;
+	}
+
+	public void setNotaSalesBiaya(ais.database.model.koperasi.NotaSalesBiaya notaSalesBiaya) {
+		this.notaSalesBiaya = notaSalesBiaya;
+	}
+
 }

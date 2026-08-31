@@ -88,7 +88,9 @@ awal, empat jurnal kas, satu memorial tanpa kas):
 
 ## 5. Yang masih perlu keputusan / pekerjaan admin
 
-1. **Pemetaan Aktivitas Arus Kas belum diisi.** Selama akun belum dipetakan (Akuntansi >
+1. **Pemetaan Aktivitas Arus Kas belum diisi** — kini ada alat bantunya: laporan
+   **Diagnosa Pemetaan Aktivitas Arus Kas** (r78658) menampilkan persis akun penggerak kas mana
+   yang belum dipetakan, diurut dari penyumbang terbesar. Selama akun belum dipetakan (Akuntansi >
    Setup Laporan, jenis "Arus Kas") atau kolom Aktifitas pada Kode Akun belum diisi, seluruh
    nilai jatuh ke keranjang "Belum dipetakan". Perhatikan: kelompok jenis Arus Kas yang ada
    baru bernaung di grup **Operasional** dan **Investasi** — grup **Pendanaan** perlu
@@ -108,10 +110,13 @@ awal, empat jurnal kas, satu memorial tanpa kas):
    bergaya persediaan (saldo awal barang + pembelian − persediaan akhir) tetap TIDAK ada di versi
    berbasis jurnal — di buku besar HPP adalah satu akun beban; versi berbasis stok tersedia di
    kategori "Margin, Laba & Analisa".
-5. **Kelas yatim yang ditemukan sepanjang audit** (belum tersentuh, dicatat saja):
-   `LaporanBukuKasUmum` (satu-satunya BKU, tidak terpasang di menu mana pun),
-   `LaporanNeracaLajur`, `LaporanBukuBesarPerTanggal`, `LaporanRiwayatTransaksi`,
-   `LaporanJurnalHarianSimple`. Berkas JRXML-nya ada, menunya tidak.
+5. **Kelas yatim yang ditemukan sepanjang audit.** `LaporanBukuKasUmum` — yang paling penting
+   karena satu-satunya BKU — sudah **digantikan laporan native `akn_buku_kas_umum` (r78658)** yang
+   justru lebih dekat ke lembar yayasan (saldo berjalan + akun lawan) dan berjalan di semua
+   platform. Sisanya belum tersentuh, dicatat saja:
+   `LaporanNeracaLajur` (padanan native `akn_neraca_lajur` sudah ada),
+   `LaporanBukuBesarPerTanggal`, `LaporanRiwayatTransaksi`, `LaporanJurnalHarianSimple` —
+   berkas JRXML-nya ada, menunya tidak.
 
 ## 6. Sisi operasional (server)
 

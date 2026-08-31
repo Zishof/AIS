@@ -204,4 +204,21 @@ public class NotaSalesBiaya extends GeneralValueObject {
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
+
+	private ais.database.model.akunting.PostingHistory postingHistory;
+
+	/**
+	 * Riwayat posting jurnal biaya sesi sales (dok 61 butir E): terisi begitu mesin
+	 * {@code PostingBiayaSalesUtil} menjurnalkan biaya ini.
+	 */
+	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
+	@javax.persistence.JoinColumn(name = "posting_history", nullable = true)
+	public ais.database.model.akunting.PostingHistory getPostingHistory() {
+		return postingHistory;
+	}
+
+	public void setPostingHistory(ais.database.model.akunting.PostingHistory postingHistory) {
+		this.postingHistory = postingHistory;
+	}
+
 }

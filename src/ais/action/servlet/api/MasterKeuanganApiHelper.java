@@ -106,10 +106,14 @@ public final class MasterKeuanganApiHelper {
 	private static boolean tipeSah(String tipe) {
 		return "jenis_uang_muka".equals(tipe) || "jenis_kas_kecil".equals(tipe)
 				|| "jenis_kas_besar".equals(tipe) || "jenis_reimbursement".equals(tipe)
-				|| "jenis_pengeluaran".equals(tipe) || "cara_pembayaran_transfer".equals(tipe);
+				|| "jenis_pengeluaran".equals(tipe) || "cara_pembayaran_transfer".equals(tipe)
+				|| "kategori_biaya_sales".equals(tipe);
 	}
 
 	private static String label(String tipe) {
+		if ("kategori_biaya_sales".equals(tipe)) {
+			return "Kategori Biaya Sales";
+		}
 		if ("jenis_uang_muka".equals(tipe)) {
 			return "Jenis Uang Muka";
 		}
@@ -152,6 +156,9 @@ public final class MasterKeuanganApiHelper {
 			a.put(medan("akunId", "Akun Biaya", false));
 		} else if ("jenis_pengeluaran".equals(tipe)) {
 			a.put(medan("akunId", "Akun Biaya", true));
+		} else if ("kategori_biaya_sales".equals(tipe)) {
+			// Akun beban per kategori biaya sesi sales -- dipakai mesin posting "Biaya Sesi Sales".
+			a.put(medan("akunId", "Akun Beban", true));
 		} else {
 			a.put(medan("akunId", "Akun Kas/Bank", true));
 			a.put(medan("akunKeduaId", "Akun Transitori", false));
@@ -210,6 +217,12 @@ public final class MasterKeuanganApiHelper {
 				sql = "SELECT m.id, '' AS kode, COALESCE(m.nama,''), COALESCE(m.keterangan,''),"
 						+ " COALESCE(m.aktif,true), m.akun, CAST(NULL AS bigint), CAST(NULL AS bigint), CAST(NULL AS bigint),"
 						+ " CAST(0 AS bigint), CAST(NULL AS bigint) FROM akunting.jenis_pengeluaran m";
+			} else if ("kategori_biaya_sales".equals(tipe)) {
+				sql = "SELECT m.id, COALESCE(m.kode,''), COALESCE(m.nama,''), '' AS keterangan,"
+						+ " COALESCE(m.aktif,true), m.akun, CAST(NULL AS bigint), CAST(NULL AS bigint),"
+						+ " CAST(NULL AS bigint),"
+						+ " (SELECT count(*) FROM koperasi.nota_sales_biaya x WHERE x.kategori = m.id)"
+						+ " , CAST(NULL AS bigint) FROM koperasi.kategori_biaya_sales m";
 			} else {
 				sql = "SELECT m.id, COALESCE(m.kode,''), COALESCE(m.nama,''), COALESCE(m.keterangan,''),"
 						+ " COALESCE(m.aktif,true), m.akun, m.akun_transitori, CAST(NULL AS bigint), CAST(NULL AS bigint),"
@@ -307,7 +320,8 @@ public final class MasterKeuanganApiHelper {
 
 			JSONArray tipe = new JSONArray();
 			String[] semua = { "jenis_uang_muka", "jenis_kas_kecil", "jenis_kas_besar",
-					"jenis_reimbursement", "jenis_pengeluaran", "cara_pembayaran_transfer" };
+					"jenis_reimbursement", "jenis_pengeluaran", "cara_pembayaran_transfer",
+					"kategori_biaya_sales" };
 			for (int i = 0; i < semua.length; i++) {
 				JSONObject j = new JSONObject();
 				j.put("tipe", semua[i]);
@@ -316,8 +330,9 @@ public final class MasterKeuanganApiHelper {
 				j.put("punyaKode", !"jenis_reimbursement".equals(semua[i])
 						&& !"jenis_pengeluaran".equals(semua[i]));
 				j.put("punyaAnggaran", "jenis_reimbursement".equals(semua[i]));
-				// jenis_pengeluaran satu-satunya yang tidak bertautan satuan kerja.
-				j.put("punyaSatuanKerja", !"jenis_pengeluaran".equals(semua[i]));
+				// jenis_pengeluaran & kategori_biaya_sales tidak bertautan satuan kerja.
+				j.put("punyaSatuanKerja", !"jenis_pengeluaran".equals(semua[i])
+						&& !"kategori_biaya_sales".equals(semua[i]));
 				tipe.put(j);
 			}
 
@@ -439,6 +454,20 @@ public final class MasterKeuanganApiHelper {
 				m.setAkun(akun);
 				session.saveOrUpdate(m);
 				idBaru = m.getId();
+			} else if ("kategori_biaya_sales".equals(tipe)) {
+				ais.database.model.koperasi.KategoriBiayaSales m = baru
+						? new ais.database.model.koperasi.KategoriBiayaSales()
+						: (ais.database.model.koperasi.KategoriBiayaSales) session.get(
+								ais.database.model.koperasi.KategoriBiayaSales.class, Long.valueOf(id));
+				if (m == null) {
+					throw new IllegalStateException(label(tipe) + " tidak ditemukan.");
+				}
+				m.setNama(nama);
+				m.setKode(kode);
+				m.setAktif(Boolean.valueOf(aktif));
+				m.setAkun(akun);
+				session.saveOrUpdate(m);
+				idBaru = m.getId();
 			} else {
 				CaraPembayaranTransfer m = baru ? new CaraPembayaranTransfer()
 						: (CaraPembayaranTransfer) session.get(CaraPembayaranTransfer.class, Long.valueOf(id));
@@ -539,6 +568,9 @@ public final class MasterKeuanganApiHelper {
 		if ("jenis_pengeluaran".equals(tipe)) {
 			return session.get(JenisPengeluaran.class, Long.valueOf(id));
 		}
+		if ("kategori_biaya_sales".equals(tipe)) {
+			return session.get(ais.database.model.koperasi.KategoriBiayaSales.class, Long.valueOf(id));
+		}
 		return session.get(CaraPembayaranTransfer.class, Long.valueOf(id));
 	}
 
@@ -558,6 +590,8 @@ public final class MasterKeuanganApiHelper {
 			// bukan lewat relasi -- jadi dicari sebagai teks pada dokumen yang ada.
 			sql = "SELECT count(*) FROM akunting.reimbursement_pegawai"
 					+ " WHERE COALESCE(formula,'') LIKE '%\"jenisPengeluaran\":' || ? || '%'";
+		} else if ("kategori_biaya_sales".equals(tipe)) {
+			sql = "SELECT count(*) FROM koperasi.nota_sales_biaya WHERE kategori = ?";
 		} else {
 			sql = "SELECT count(*) FROM akunting.proses_transfer WHERE cara_pembayaran_transfer = ?";
 		}

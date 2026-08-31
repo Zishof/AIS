@@ -665,6 +665,9 @@ public class CommonAkunting {
 		} else if (reference != null
 				&& reference instanceof ais.database.model.koperasi.PembagianShu) {
 			grupTransaksi.setPembagianShu((ais.database.model.koperasi.PembagianShu) reference);
+		} else if (reference != null
+				&& reference instanceof ais.database.model.koperasi.NotaSalesBiaya) {
+			grupTransaksi.setNotaSalesBiaya((ais.database.model.koperasi.NotaSalesBiaya) reference);
 		} else if (reference != null && reference instanceof ais.database.model.koperasi.PembatalanTransaksiKantin) {
 			grupTransaksi.setPembatalanTransaksiKantin(
 					(ais.database.model.koperasi.PembatalanTransaksiKantin) reference);

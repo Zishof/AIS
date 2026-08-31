@@ -85,4 +85,22 @@ public class KategoriBiayaSales extends GeneralValueObject {
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
+
+	private ais.database.model.akunting.Akun akun;
+
+	/**
+	 * Akun BEBAN untuk kategori biaya ini (dok 61 butir E). Diisi lewat master Kategori Biaya
+	 * Sales; selama kosong, biaya berkategori ini tidak dapat dijurnal dan tetap tampil sebagai
+	 * draf di dasbor Draft Jurnal — pola yang sama dengan pasangan akun jenis penghapusan aset.
+	 */
+	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
+	@javax.persistence.JoinColumn(name = "akun", nullable = true)
+	public ais.database.model.akunting.Akun getAkun() {
+		return akun;
+	}
+
+	public void setAkun(ais.database.model.akunting.Akun akun) {
+		this.akun = akun;
+	}
+
 }
