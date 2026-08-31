@@ -13,6 +13,22 @@ import org.json.JSONObject;
 
 import ais.common.Common;
 
+/**
+ * Komponen batas HTTP/servlet untuk date scroll filter. Tipe ini menerima input dari luar
+ * aplikasi, meneruskannya ke layanan domain, lalu membentuk respons tanpa menduplikasi aturan
+ * bisnis.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah pembacaan/pencarian ({@code getFilteredDateData()}); operasi
+ * domain lain ({@code main()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut
+ * di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class DateScrollFilter {
 
 	// Class pembantu untuk memudahkan sorting

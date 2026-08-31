@@ -82,6 +82,23 @@ import ais.database.model.sekolah.Siswa;
 import ais.ui.util.MyCheckboxConfig;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Penyusun/penyaji laporan untuk laporan api. Kelas ini mengubah data domain menjadi bentuk
+ * laporan yang dipakai UI, ekspor, atau proses cetak tanpa memindahkan aturan transaksi ke lapisan
+ * report.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah pelaporan/ekspor ({@code reportUrl()}); operasi domain lain
+ * ({@code laporan_absen()}, {@code raport_siswa()}, {@code catatan_guru()}, {@code catatan_kelas_siswa()},
+ * {@code catatan_pegawai()}, {@code catatan_administrasi()}). Bagian lain dari kontrak tetap mengikuti kelas
+ * induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class LaporanApi {
 
 	/**

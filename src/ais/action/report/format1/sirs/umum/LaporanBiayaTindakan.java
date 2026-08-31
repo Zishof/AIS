@@ -27,6 +27,26 @@ import ais.action.report.helper.ParameterListener;
 import ais.common.Common;
 import ais.database.model.sirs.JenisTindakan;
 
+/**
+ * Penyusun/penyaji laporan untuk laporan biaya tindakan. Kelas ini mengubah data domain menjadi
+ * bentuk laporan yang dipakai UI, ekspor, atau proses cetak tanpa memindahkan aturan transaksi ke
+ * lapisan report.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * Window}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
+ * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
+ * tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Center center}, {@code Combobox
+ * jenisBarang}; inisialisasi/lifecycle ({@code init()}); pelaporan/ekspor ({@code onCetak()}); operasi domain
+ * lain ({@code generateParameter()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang
+ * disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ *
+ * @see Window
+ */
 public class LaporanBiayaTindakan extends Window {
 
 	private Center center;

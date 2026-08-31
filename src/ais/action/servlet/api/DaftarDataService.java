@@ -54,6 +54,24 @@ import ais.database.model.sekolah.Guru;
 import ais.database.model.sekolah.Siswa;
 // Pastikan import class model dan utilitas lain sesuai package project Anda
 
+/**
+ * Komponen batas HTTP/servlet untuk daftar data. Tipe ini menerima input dari luar aplikasi,
+ * meneruskannya ke layanan domain, lalu membentuk respons tanpa menduplikasi aturan bisnis.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Pattern ALIAS_SQL_INTERNAL}, {@code Map
+ * MAP_ENTITY_TO_FOTO}; pembacaan/pencarian ({@code load()}, {@code load()}, {@code load()}); mutasi data ({@code
+ * createCriteriaProses()}, {@code proses()}, {@code prosesFoto()}); operasi domain lain ({@code
+ * countMemakaiAliasSqlInternal()}, {@code daftar()}, {@code daftar()}, {@code sql()}, {@code
+ * formatAndPutValue()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
+ * atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class DaftarDataService { // Sesuaikan nama class dengan file asli
 
 	/* Alias seperti "suratkeluar1_" adalah nama tabel INTERNAL yang dibuat

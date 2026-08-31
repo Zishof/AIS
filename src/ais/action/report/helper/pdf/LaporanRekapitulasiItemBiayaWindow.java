@@ -4,6 +4,22 @@ package ais.action.report.helper.pdf;
 import ais.ui.util.MyFormRow;
 import ais.action.report.format1.keuangan.LaporanRekapitulasiItemBiaya;
 
+/**
+ * Penyusun/penyaji laporan untuk laporan rekapitulasi item biaya window. Kelas ini mengubah data
+ * domain menjadi bentuk laporan yang dipakai UI, ekspor, atau proses cetak tanpa memindahkan
+ * aturan transaksi ke lapisan report.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * LaporanRekapitulasiItemBiaya}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi
+ * ini; perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang
+ * atau tumpang tindih.</p>
+ * <p>Tipe ini sengaja tidak menambah state maupun operasi publik. Keberadaannya bukan duplikasi implementasi:
+ * nama kelas dipakai sebagai penanda variasi untuk konfigurasi, binding ZK/SOAP, dependency lookup, atau
+ * pemilihan perilaku polimorfik. Karena itu jangan menyalin method dari kelas induk ke sini kecuali kontraknya
+ * memang berbeda.</p>
+ *
+ * @see LaporanRekapitulasiItemBiaya
+ */
 public class LaporanRekapitulasiItemBiayaWindow extends
 		LaporanRekapitulasiItemBiaya {
 

@@ -106,6 +106,26 @@ import ais.database.model.surat.SuratMasuk;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Komponen batas HTTP/servlet untuk elearning api util. Tipe ini menerima input dari luar
+ * aplikasi, meneruskannya ke layanan domain, lalu membentuk respons tanpa menduplikasi aturan
+ * bisnis.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah pembacaan/pencarian ({@code daftarAmbilKrs()});
+ * validasi/perhitungan ({@code alasanPedagangTidakBolehDihapus()}); mutasi data ({@code
+ * update_nilai_mahasiswa()}, {@code update_absen()}, {@code simpanData()}, {@code simpanProperty()}, {@code
+ * simpanDataBanyak()}, {@code simpanDataRinci()}); penghapusan/pembatalan ({@code hapusDataRinci()}, {@code
+ * hapusDataRinci()}); operasi domain lain ({@code syaratKrs()}, {@code dataRinci()}, {@code ta()}, {@code
+ * file()}, {@code current_smt()}, {@code daftar_nilai_mahasiswa()}). Bagian lain dari kontrak tetap mengikuti
+ * kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class ElearningApiUtil {
 
 	@SuppressWarnings({ "unchecked" })

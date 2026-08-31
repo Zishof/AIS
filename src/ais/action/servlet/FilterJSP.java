@@ -25,6 +25,23 @@ import ais.common.SecurityFilter;
 import ais.database.model.OnlineUsers;
 import ais.database.model.Tbmuser;
 
+/**
+ * Komponen batas HTTP/servlet untuk filter jsp. Tipe ini menerima input dari luar aplikasi,
+ * meneruskannya ke layanan domain, lalu membentuk respons tanpa menduplikasi aturan bisnis.
+ *
+ * <p><b>Batas tanggung jawab:</b> tipe ini mendeklarasikan kontrak {@link Filter}. Implementasi konkret
+ * bertanggung jawab atas transaksi, resource, error handling, dan efek samping; pemanggil sebaiknya bergantung
+ * pada kontrak ini agar tidak menggandakan integrasi.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah inisialisasi/lifecycle ({@code init()}); validasi/perhitungan
+ * ({@code checkSingleDeviceBlock()}, {@code checkSingleDeviceBlock()}); operasi domain lain ({@code destroy()},
+ * {@code doFilter()}, {@code isUserMatch()}, {@code handleLogout()}, {@code handleRouting()}, {@code
+ * handleSubdomainRedirects()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut
+ * di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class FilterJSP implements Filter {
 
 	@Override

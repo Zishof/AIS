@@ -44,6 +44,22 @@ import ais.database.model.sekolah.KelasSiswa;
 import ais.database.model.sekolah.Siswa;
 import ais.database.model.sisdes.Penduduk;
 
+/**
+ * Komponen batas HTTP/servlet untuk api util. Tipe ini menerima input dari luar aplikasi,
+ * meneruskannya ke layanan domain, lalu membentuk respons tanpa menduplikasi aturan bisnis.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah pembacaan/pencarian ({@code ambilPerguruanTinggi()}, {@code
+ * ambilCode()}); mutasi data ({@code proseslogin()}); operasi domain lain ({@code currentUser()}, {@code
+ * currentUser()}, {@code pengumuman()}, {@code filterInstanceOfPengumumanAkademis()}, {@code konfigurasi()},
+ * {@code code()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class ApiUtil {
 
 	public static Tbmuser currentUser(JSONObject request, HttpServletRequest req) {

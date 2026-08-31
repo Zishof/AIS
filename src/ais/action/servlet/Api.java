@@ -28,6 +28,28 @@ import ais.common.Common;
 import ais.database.model.PerguruanTinggi;
 import ais.database.model.Tbmuser;
 
+/**
+ * Komponen batas HTTP/servlet untuk api. Tipe ini menerima input dari luar aplikasi, meneruskannya
+ * ke layanan domain, lalu membentuk respons tanpa menduplikasi aturan bisnis.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * HttpServlet}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan
+ * yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
+ * tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code int HTTP_OK}, {@code Map tokens},
+ * {@code Long randLong}, {@code Set nexts}, {@code Object PMB_SESSION_LOCK}, {@code Map ROUTES};
+ * inisialisasi/lifecycle ({@code initTokens()}); pembacaan/pencarian ({@code ambil()}, {@code doGet()}, {@code
+ * handleDownloadRequest()}); penghapusan/pembatalan ({@code removeToken()}); operasi domain lain ({@code
+ * putToken()}, {@code createPmbSessionMarker()}, {@code writeResponse()}, {@code addCorsHeaders()}, {@code
+ * doPost()}, {@code doOptions()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang
+ * disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ *
+ * @see HttpServlet
+ */
 public class Api extends HttpServlet {
     private static final long serialVersionUID = 1L;
 

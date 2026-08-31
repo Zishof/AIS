@@ -34,6 +34,26 @@ import ais.database.model.sekolah.Siswa;
 import ais.ui.util.SmartDateTimeUtil;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Komponen batas HTTP/servlet untuk absensi api. Tipe ini menerima input dari luar aplikasi,
+ * meneruskannya ke layanan domain, lalu membentuk respons tanpa menduplikasi aturan bisnis.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code long BATAS_MUNDUR_WAKTU_ABSEN_MILLIS},
+ * {@code long BATAS_MAJU_WAKTU_ABSEN_MILLIS}, {@code String KUNCI_WAKTU_ABSEN}, {@code String
+ * FORMAT_WAKTU_ABSEN}; pembacaan/pencarian ({@code ambilWaktuAbsensi()}); operasi domain lain ({@code absen()},
+ * {@code parseWaktuAbsensi()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut
+ * di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
+ * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
+ * serta session Hibernate milik request yang aktif.</p>
+ */
 public class AbsensiApiAction {
 	private static final long BATAS_MUNDUR_WAKTU_ABSEN_MILLIS = 24L * 60L * 60L * 1000L;
 	private static final long BATAS_MAJU_WAKTU_ABSEN_MILLIS = 5L * 60L * 1000L;

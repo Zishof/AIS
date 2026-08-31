@@ -86,6 +86,33 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import net.sf.jasperreports.engine.JasperCompileManager;
 
+/**
+ * Penyusun/penyaji laporan untuk common report. Kelas ini mengubah data domain menjadi bentuk
+ * laporan yang dipakai UI, ekspor, atau proses cetak tanpa memindahkan aturan transaksi ke lapisan
+ * report.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code int DEFAULT_SPREADSHEET_ROWS}, {@code
+ * int DEFAULT_SPREADSHEET_COLUMNS}, {@code int PARAMETER_PAGE_SIZE}, {@code int BUFFER_SIZE}, {@code String
+ * REPORT_PREFIX}, {@code ThreadLocal DATE_FORMAT}, {@code ThreadLocal DATE_TIME_FORMAT}; inisialisasi/lifecycle
+ * ({@code buatLabelTabel()}, {@code buatSelNilaiKonfigurasi()}, {@code buatRingkasanParameterHtml()}, {@code
+ * buatFileReport()}, {@code buatSalinanJrxmlUtf8()}, {@code buatAwalMinggu()}); pembacaan/pencarian ({@code
+ * tampilkanReportPDF()}, {@code tampilkanReportPDF()}, {@code tampilkanReportXLS()}, {@code
+ * tampilkanReportXLS()}, {@code tambahTombolDownloadJrxml()}, {@code tambahTombolUploadJrxml()});
+ * validasi/perhitungan ({@code bersihkanKarakterXmlTidakValid()}); mutasi data ({@code
+ * tambahTombolResetJrxml()}, {@code handleResetJrxml()}, {@code ubahMenjadiSerializable()}, {@code
+ * updateProgress()}); pelaporan/ekspor ({@code generateReportType()}, {@code exportReport()}, {@code
+ * exportReport()}, {@code tambahTombolExport()}, {@code exportReport()}, {@code handleHistoryReport()}); operasi
+ * domain lain ({@code tambahTombolHistory()}, {@code tambahTombolParameter()}, {@code isiTabInclude()}, {@code
+ * salinParameter()}, {@code muatNamaKonfigurasiAman()}, {@code bukaPopupEditKonfigurasi()}). Bagian lain dari
+ * kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class CommonReport {
 
     private static final int DEFAULT_SPREADSHEET_ROWS = 5000;
