@@ -80,8 +80,47 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.SmartDateTimeUtil;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper widget "Rekapitulasi Ujian" — daftar {@link PertemuanPunyaUjian} (ujian yang
+ * ditautkan ke satu {@link Pertemuan}) untuk satu pengguna atau satu
+ * {@link VOPembelajaran} (perkuliahan/jadwal pelajaran) tertentu, sekaligus penyedia
+ * wizard {@link #buatbaru} yang DIPAKAI BERSAMA oleh helper rekap lain
+ * ({@code RekapitulasiTugasHelper}) untuk membuat entri baru (Ujian/Tugas/Tugas
+ * Kelompok) yang ditautkan ke sebuah {@link Pertemuan}.
+ *
+ * <p>
+ * Berbeda dari {@code RekapitulasiTugasHelper} yang memakai SQL native
+ * {@code UNION ALL} untuk performa, {@link #reload(List, Paging, MyGrid, Mahasiswa, boolean, Date, Date, String, VOPembelajaran)}
+ * di sini memakai Hibernate {@link Criteria} langsung atas {@link PertemuanPunyaUjian}
+ * (join {@code ujian}), dengan filter tanggal disuntikkan sebagai literal SQL
+ * ter-format (bukan parameter binding, tapi nilai berasal dari objek {@link Date}
+ * ter-format lewat {@link Common#databaseDateFormat}, bukan input pengguna langsung).
+ * Untuk mahasiswa/siswa/calon, baris grid menampilkan kontrol "boleh ikut ujian atau
+ * tidak" lewat {@link PertemuanPunyaUjianHelper#tampilBolekIkutUjianAtauTidak}
+ * (termasuk info kuota dan hasil ujian mereka sendiri); untuk staf, baris hanya
+ * membuka detail pertemuan (tab Ujian, index 6) lewat {@link PertemuanHelper}.
+ * </p>
+ */
 public class RekapitulasiUjianHelper {
 
+	/**
+	 * Membuat tombol "Buat &lt;nama&gt;" (mis. "Buat Ujian", "Buat Tugas", "Buat Tugas
+	 * Kelompok" — dipakai lintas helper rekap) yang membuka jendela wizard: memilih
+	 * {@link Pertemuan} target (langsung dari daftar pertemuan {@code perkuliahan} bila
+	 * terisi, dengan tombol tambah pertemuan baru bila belum ada; atau memilih dulu
+	 * Perkuliahan/Kelas Siswa/Kelas Les Siswa lalu Jadwal Pelajaran lalu Pertemuan bila
+	 * {@code perkuliahan} {@code null}), lalu tombol "Lanjut" membuka
+	 * {@link PertemuanHelper} pada tab {@code nomor} (untuk "Tugas Kelompok", memakai
+	 * {@link TugasKelompokHelper#onAddExternal} sebagai gantinya). Tombol hanya
+	 * terlihat untuk pengguna staf (bukan mahasiswa/siswa/calon).
+	 *
+	 * @param tbmuser     pengguna yang membuat entri baru
+	 * @param perkuliahan konteks perkuliahan/jadwal pelajaran; {@code null} untuk memilih bebas lintas kelas
+	 * @param dataLoader  callback pemuatan ulang data pemanggil setelah entri dibuat
+	 * @param nomor       indeks tab {@link PertemuanHelper} yang dibuka setelah "Lanjut"
+	 * @param nama        label jenis entri (mis. "Ujian", "Tugas", "Tugas Kelompok"), dipakai pada judul tombol/jendela dan menentukan jalur khusus "Tugas Kelompok"
+	 * @return tombol toolbar siap pakai
+	 */
 	public static MyToolbarbuttonConfig buatbaru(final Tbmuser tbmuser, final VOPembelajaran perkuliahan,
 			final DataLoader dataLoader, final int nomor, final String nama) {
 		MyToolbarbuttonConfig refresh = new MyToolbarbuttonConfig("Buat " + nama, "/img/svg/addthis.svg");
@@ -740,10 +779,22 @@ public class RekapitulasiUjianHelper {
 		return refresh;
 	}
 
+	/** Seperti {@link #display(Component, Tbmuser, VOPembelajaran)} tanpa membatasi ke satu {@link VOPembelajaran} — menampilkan rekap ujian milik {@code tbmuser} secara umum. */
 	public static void display(Component parent, final Tbmuser tbmuser) {
 		display(parent, tbmuser, null);
 	}
 
+	/**
+	 * Membangun panel "Rekapitulasi Ujian" ke dalam {@code parent}: toolbar pencarian
+	 * (dan filter rentang tanggal bila {@code perkuliahan} {@code null}), tombol "Buat
+	 * Ujian" ({@link #buatbaru}, tab 6) dan Refresh. Rentang tanggal default: satu
+	 * bulan sebelum s.d. satu bulan setelah rencana tahun akademik berjalan. Grid
+	 * dimuat lewat {@link #reload(Tbmuser, Component, Date, Date, String, boolean, boolean, VOPembelajaran)}.
+	 *
+	 * @param parent      kontainer ZK tempat panel dibangun
+	 * @param tbmuser     pengguna yang rekap ujiannya ditampilkan (menentukan cakupan pertemuan: mahasiswa/dosen/guru/siswa/admin)
+	 * @param perkuliahan bila terisi, membatasi rekap hanya ke pertemuan milik satu {@link Perkuliahan}/{@link JadwalPelajaran} ini; {@code null} untuk rekap umum milik {@code tbmuser}
+	 */
 	public static void display(Component parent, final Tbmuser tbmuser, final VOPembelajaran perkuliahan) {
 
 		org.zkoss.zul.Vbox subVboxUtama = new org.zkoss.zul.Vbox();
@@ -827,6 +878,26 @@ public class RekapitulasiUjianHelper {
 		sampai.addEventListener("onChange", eventListener);
 	}
 
+	/**
+	 * Menentukan daftar id {@link Pertemuan} yang relevan bagi konteks tampilan
+	 * (langsung dari {@code perkuliahan} bila terisi; via
+	 * {@code Mahasiswa#ambilPertemuan}/{@code Dosen#ambilPertemuan} bila pengguna
+	 * mahasiswa/dosen — dengan opsi muat ulang cache 6 bulan sebelum-sesudah rentang
+	 * tanggal saat {@code refreh}; via kriteria timeline umum
+	 * {@link DashboardTimelinePertemuan#initStaticCriteria} untuk guru/siswa sekolah;
+	 * atau kosong untuk admin karena filter dilewati di query data), lalu membangun
+	 * grid berpaging dan memuat halaman pertama lewat
+	 * {@link #reload(List, Paging, MyGrid, Mahasiswa, boolean, Date, Date, String, VOPembelajaran)}.
+	 *
+	 * @param tbmuser    pengguna yang menentukan cakupan pertemuan
+	 * @param center     kontainer ZK yang akan diisi ulang (dibersihkan lebih dulu)
+	 * @param mulai      awal rentang tanggal filter
+	 * @param sampai     akhir rentang tanggal filter
+	 * @param cari       kata kunci pencarian kode/nama ujian
+	 * @param refreh     paksa muat ulang cache pertemuan mahasiswa/dosen dari database
+	 * @param awal       arahkan halaman aktif ke baris pertama yang tanggal ujiannya sudah lewat
+	 * @param perkuliahan bila terisi, membatasi ke satu {@link VOPembelajaran} tertentu
+	 */
 	@SuppressWarnings("unchecked")
 	private static void reload(final Tbmuser tbmuser, final Component center, final Date mulai, final Date sampai,
 			final String cari, boolean refreh, boolean awal, final VOPembelajaran perkuliahan) {
@@ -1017,6 +1088,27 @@ public class RekapitulasiUjianHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Implementasi inti pemuatan data grid rekap ujian lewat Hibernate {@link Criteria}
+	 * atas {@link PertemuanPunyaUjian} (join {@code ujian}). Menghitung total baris dan
+	 * (bila {@code awal}) menentukan halaman aktif berdasarkan jumlah baris yang
+	 * tanggal ujiannya sebelum hari ini, lalu mengambil satu halaman data terurut
+	 * berdasarkan tanggal mulai ujian. Filter kepemilikan memakai {@code pertemuans}
+	 * kecuali untuk admin di luar konteks {@code perkuliahan} spesifik (filter
+	 * dilewati sepenuhnya). Filter rentang tanggal (bila {@code perkuliahan}
+	 * {@code null}) disuntikkan sebagai literal SQL ter-format dari objek {@link Date}
+	 * (bukan input pengguna langsung).
+	 *
+	 * @param pertemuans  daftar id {@link Pertemuan} yang menjadi cakupan (diabaikan untuk admin non-konteks)
+	 * @param paging      komponen paging yang total/halaman aktifnya diperbarui
+	 * @param grid        grid target yang modelnya diisi ulang
+	 * @param mahasiswa   mahasiswa terkait (diteruskan ke {@link DetailPertemuanRenderer})
+	 * @param awal        hitung ulang dan set halaman aktif ke baris pertama yang sudah lewat tanggal ujian
+	 * @param mulai       awal rentang tanggal filter (diabaikan bila {@code perkuliahan} terisi)
+	 * @param sampai      akhir rentang tanggal filter (diabaikan bila {@code perkuliahan} terisi)
+	 * @param cari        kata kunci pencarian kode/nama ujian
+	 * @param perkuliahan bila terisi, filter tanggal tidak berlaku (semua ujian pada pertemuan cakupan ditampilkan)
+	 */
 	private static void reload(final List<Long> pertemuans, final Paging paging, final MyGrid grid,
 			final Mahasiswa mahasiswa, boolean awal, final Date mulai, final Date sampai, final String cari,
 			final VOPembelajaran perkuliahan) {
@@ -1107,16 +1199,38 @@ public class RekapitulasiUjianHelper {
 
 	}
 
+	/**
+	 * Perender baris grid rekap ujian. Menampilkan judul ujian, jumlah peserta yang
+	 * telah mengikuti ujian, indikator "dilihat", dan rentang tanggal+topik pertemuan.
+	 * Perilaku klik berbeda menurut jenis pengguna: untuk mahasiswa/calon
+	 * mahasiswa/siswa/calon siswa, delegasi ke
+	 * {@link PertemuanPunyaUjianHelper#tampilBolekIkutUjianAtauTidak} yang menampilkan
+	 * kontrol ikut-ujian sesuai kuota dan hasil ujian mereka sendiri (menggantikan
+	 * listener klik default); untuk staf, klik judul/tombol membuka
+	 * {@link PertemuanHelper} pada tab Ujian (index 6).
+	 */
 	public static class DetailPertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
 		private Tbmuser tbmuser = Common.getCurrentUser();
 		private EventListener eventListener;
 
+		/**
+		 * @param mahasiswa              tidak digunakan langsung (parameter dipertahankan untuk kompatibilitas dengan pola renderer serupa)
+		 * @param biodataCalonMahasiswa  tidak digunakan langsung (parameter dipertahankan untuk kompatibilitas dengan pola renderer serupa)
+		 * @param eventListener          callback yang dipanggil setelah jendela detail/aksi ikut-ujian selesai, untuk memuat ulang grid
+		 */
 		public DetailPertemuanRenderer(Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa,
 				EventListener eventListener) {
 			this.eventListener = eventListener;
 		}
 
+		/**
+		 * Merender satu baris {@link PertemuanPunyaUjian}: menyembunyikan baris bila
+		 * pertemuan terkait sudah tidak ada, menyegarkan cache ujian
+		 * ({@link HasilUjianHelper#reinitUjian}), lalu menampilkan judul, statistik
+		 * peserta, dan link yang perilakunya bergantung jenis pengguna (lihat javadoc
+		 * kelas).
+		 */
 		@Override
 		public void render(final Row arg0, Object data) throws Exception {
 			final PertemuanPunyaUjian pertemuanPunyaUjian = (PertemuanPunyaUjian) data;

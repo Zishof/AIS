@@ -324,11 +324,13 @@ public class PenilaianSkripsiHelper implements DataLoader {
 		window.onModal();
 	}
 
+	/** @return {@code true} bila nilai skripsi ini sengaja disembunyikan dari mahasiswa yang sedang login. */
 	private boolean nilaiDisembunyikanUntukMahasiswa() {
 		return skripsi != null && skripsi.getSembunyikanNilaiKemahasiswa() && tbmuser != null
 				&& tbmuser.getMahasiswa() != null;
 	}
 
+	/** @return {@link Matakuliah} tujuan nilai skripsi (dari {@code Perkuliahan} atau matakuliah konversi pada {@link Detailperkuliahan} terkait), atau {@code null} bila tidak ada/gagal. */
 	private Matakuliah getMatakuliahNilai() {
 		try {
 			Detailperkuliahan detailperkuliahan = skripsi == null ? null : skripsi.getDetailperkuliahan();
@@ -340,6 +342,7 @@ public class PenilaianSkripsiHelper implements DataLoader {
 		}
 	}
 
+	/** @return {@link NilaiHuruf} yang berlaku untuk {@code nilai}, berdasarkan angkatan/jurusan/fakultas mahasiswa dan tahun akademik/semester skripsi; {@code null} bila gagal ditentukan. */
 	private NilaiHuruf getNilaiHuruf(Double nilai) {
 		try {
 			Matakuliah matakuliah = getMatakuliahNilai();
@@ -379,6 +382,13 @@ public class PenilaianSkripsiHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Memetakan nama peran ({@code commonVO.getName()}, mis. label {@code dosen1}/{@code dosen2}
+	 * dari {@link ais.database.model.FormatNilaiSkripsi} skripsi ini) ke kolom nilai
+	 * {@link Skripsi} yang sesuai (ketua sidang, pembimbing 1-3, penguji 1-5).
+	 *
+	 * @return nilai dosen untuk peran tersebut, atau {@code 0.0} bila tidak cocok peran mana pun
+	 */
 	private Double nilaiDosen(CommonVO commonVO) {
 		if (commonVO == null || skripsi == null || skripsi.getFormatNilaiSkripsi() == null) {
 			return 0.0;
@@ -407,6 +417,7 @@ public class PenilaianSkripsiHelper implements DataLoader {
 		return 0.0;
 	}
 
+	/** Seperti {@link #nilaiDosen(CommonVO)}, tapi mengembalikan persentase bobot peran tersebut dari {@link ais.database.model.FormatNilaiSkripsi}, bukan nilainya. */
 	private Double persenDosen(CommonVO commonVO) {
 		if (commonVO == null || skripsi == null || skripsi.getFormatNilaiSkripsi() == null) {
 			return 0.0;
@@ -435,6 +446,12 @@ public class PenilaianSkripsiHelper implements DataLoader {
 		return 0.0;
 	}
 
+	/**
+	 * Menyalin total nilai/IP/nilai huruf/status lulus {@link #skripsi} ke {@link Detailperkuliahan}
+	 * terkait (bila skripsi sudah tertaut ke satu baris KRS), termasuk kolom "sementara" yang
+	 * dihitung ulang dari nilai huruf saat ini, lalu menyimpan perubahan. Tidak melakukan apa pun
+	 * bila skripsi belum tertaut ke {@code Detailperkuliahan}.
+	 */
 	private void sinkronkanNilaiKeDetailPerkuliahan() {
 		Detailperkuliahan detailperkuliahan = skripsi == null ? null : skripsi.getDetailperkuliahan();
 		if (detailperkuliahan == null) {
@@ -466,6 +483,7 @@ public class PenilaianSkripsiHelper implements DataLoader {
 		Common.refreshUpdate(detailperkuliahan);
 	}
 
+	/** Menghitung ulang nilai huruf/IP/status lulus {@link #skripsi} dari total nilainya saat ini ({@link #getNilaiHuruf(Double)}) dan menuliskannya kembali ke {@code skripsi}. */
 	private void terapkanNilaiAkhir() {
 		Double total = skripsi == null ? null : skripsi.getTotalNilai();
 		NilaiHuruf nilaiHuruf = getNilaiHuruf(total);
@@ -476,6 +494,17 @@ public class PenilaianSkripsiHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Menghitung ulang nilai dari SETIAP dosen penilai ({@link Skripsi#dataDosen(boolean)}) lewat
+	 * {@link Skripsi#cariNilaiDariDosen}, lalu menerapkan hasil akhirnya
+	 * ({@link #terapkanNilaiAkhir()}), menyimpan skripsi, dan menyinkronkan ke
+	 * {@link Detailperkuliahan} ({@link #sinkronkanNilaiKeDetailPerkuliahan()}). Dipanggil setelah
+	 * penggantian dosen penilai agar total nilai tetap konsisten.
+	 *
+	 * @param refreshDetail bila {@code true}, diteruskan ke {@code cariNilaiDariDosen} untuk memaksa
+	 *                      pembacaan ulang detail nilai (bukan dari cache)
+	 * @return jumlah dosen yang berhasil dihitung ulang nilainya
+	 */
 	private int hitungUlangSemuaNilaiDosen(boolean refreshDetail) {
 		int jumlah = 0;
 		if (skripsi == null || skripsi.getFormatNilaiSkripsi() == null) {
@@ -504,6 +533,7 @@ public class PenilaianSkripsiHelper implements DataLoader {
 		return jumlah;
 	}
 
+	/** Menampilkan pesan informasi ringkasan hasil {@link #hitungUlangSemuaNilaiDosen(boolean)}. */
 	private void tampilkanPesanHitungUlang(int jumlah) {
 		try {
 			MyMessageboxConfig.show("Nilai berhasil dihitung ulang untuk " + jumlah
@@ -514,6 +544,16 @@ public class PenilaianSkripsiHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Membangun markup HTML+CSS custom (di-scope lewat class {@code ps-*}) berisi dashboard
+	 * ringkasan penilaian sidang: kartu total nilai/nilai huruf/jumlah dosen penilai, bar
+	 * perbandingan nilai per dosen (dengan bobot masing-masing), visual "radar" sederhana untuk
+	 * keseimbangan bobot, dan panel identitas mahasiswa. Nilai disamarkan ("-") bila
+	 * {@link #nilaiDisembunyikanUntukMahasiswa()}. Semua teks dinamis di-escape lewat {@link #html}
+	 * untuk mencegah HTML injection dari data (mis. nama dosen/mahasiswa).
+	 *
+	 * @return komponen {@link Html} siap dipasang ke parent
+	 */
 	private Html buatDashboardNilai() {
 		String nilaiTotal = nilaiDisembunyikanUntukMahasiswa() ? "-" : formatDouble(skripsi == null ? null : skripsi.getTotalNilai());
 		String nilaiHuruf = nilaiDisembunyikanUntukMahasiswa() ? "-" : html(skripsi == null ? "" : skripsi.getNilaiHuruf());
@@ -572,6 +612,16 @@ public class PenilaianSkripsiHelper implements DataLoader {
 		return new Html(html.toString());
 	}
 
+	/**
+	 * Perender baris grid utama untuk satu dosen penilai (dibungkus {@link CommonVO}: nama peran +
+	 * objek {@link Dosen}). Nama kelas ini warisan pola serupa dari helper KKN — isinya BUKAN
+	 * kelompok KKN, melainkan satu baris "dosen + perannya" pada penilaian skripsi. Menampilkan
+	 * panel catatan dosen (dapat dibuka), lampiran per peran, foto+nama dosen (dengan tombol ubah
+	 * dosen bila {@link #bolehUbahDosenPenilai()}), nama peran, persentase bobot, nilai+nilai huruf
+	 * (disamarkan bila {@link #nilaiDisembunyikanUntukMahasiswa()}), dan tombol buka window entri
+	 * nilai ({@link #init(Dosen, String)}). Baris dosen login sendiri (bila dosen) diberi highlight
+	 * latar hijau muda.
+	 */
 	class DetailKelompokKknRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -704,6 +754,17 @@ public class PenilaianSkripsiHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Mengambil daftar {@link KomponenPenilaianSkripsi} yang berlaku untuk peran {@code jenis} pada
+	 * jurusan/fakultas mahasiswa skripsi ini (komponen dengan jurusan/fakultas null berlaku umum),
+	 * disusun sebagai peta induk → daftar anak (komponen berjenjang punya {@code parent}; komponen
+	 * tanpa anak tetap masuk sebagai kunci dengan daftar kosong). Kolom kebolehan
+	 * ({@code dosen1}..{@code dosen7}) yang dicek ditentukan dari kecocokan {@code jenis} terhadap
+	 * label peran pada {@link ais.database.model.FormatNilaiSkripsi} skripsi ini.
+	 *
+	 * @param jenis label peran dosen (mis. {@code FormatNilaiSkripsi#getDosen1()})
+	 * @return peta komponen induk ke daftar komponen anaknya (terurut alami/{@code Comparable})
+	 */
 	@SuppressWarnings("unchecked")
 	private TreeMap<KomponenPenilaianSkripsi, List<KomponenPenilaianSkripsi>> populateKomponen(String jenis) {
 		String kolom = "dosen1";
@@ -763,6 +824,19 @@ public class PenilaianSkripsiHelper implements DataLoader {
 		return dataKomponenPenilaian;
 	}
 
+	/**
+	 * Membuka window modal entri nilai untuk satu {@code dosen} pada satu peran ({@code jenis}):
+	 * satu baris per {@link KomponenPenilaianSkripsi} (lewat {@link #populateKomponen(String)}),
+	 * masing-masing dengan kotak input nilai (readonly bagi mahasiswa atau bagi dosen lain yang
+	 * bukan pemilik baris) yang langsung menyimpan dan memicu hitung ulang total saat berubah, serta
+	 * kotak catatan dosen dan lampiran per peran. Footer menampilkan total nilai peran ini beserta
+	 * nilai hurufnya. Tombol "Hitung Ulang" memaksa kalkulasi ulang paksa (bypass cache); tombol
+	 * "Selesai" menutup window dan memuat ulang grid pemanggil.
+	 *
+	 * @param dosen dosen yang nilainya dientri
+	 * @param jenis peran dosen tersebut (label dari {@code FormatNilaiSkripsi})
+	 * @throws Exception diteruskan dari kegagalan pembangunan UI atau akses data
+	 */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	private void init(final Dosen dosen, final String jenis) throws Exception {
 		final MyWindow addWindow = new MyWindow();
@@ -1093,6 +1167,13 @@ public class PenilaianSkripsiHelper implements DataLoader {
 		addWindow.onModal();
 	}
 
+	/**
+	 * Memuat ulang grid daftar dosen penilai ({@link Skripsi#dataDosen(boolean)}) dan footer
+	 * ringkasan (total nilai, nilai huruf, checkbox "Sembunyikan nilai ke mahasiswa" bagi user
+	 * berwenang). Footer nilai disamarkan bila {@link #nilaiDisembunyikanUntukMahasiswa()}.
+	 *
+	 * @param value tidak dipakai; parameter standar {@link DataLoader}
+	 */
 	public void loadData(Object value) {
 
 		ListModel strset = new SimpleListModel(skripsi.dataDosen(false));
@@ -1149,6 +1230,17 @@ public class PenilaianSkripsiHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun UI lengkap penilaian sidang skripsi di dalam {@code component}: panel administratif
+	 * sidang (kolom kiri) dan dashboard+grid dosen penilai (kolom kanan). Lihat javadoc kelas untuk
+	 * rincian lengkap fitur. Otomatis mencoba menautkan skripsi ke {@link Detailperkuliahan} KRS yang
+	 * sesuai bila belum tertaut dan {@code FormatNilaiSkripsi} sudah diset.
+	 *
+	 * @param skripsi      data skripsi yang dinilai
+	 * @param component    komponen induk ZK; isinya dibersihkan lebih dulu
+	 * @param eventListener callback yang dipicu setiap kali nilai berubah (event data berisi
+	 *                      {@code skripsi}), dipakai pemanggil untuk menyegarkan tampilan lain
+	 */
 	public void display(final Skripsi skripsi, final Component component, final EventListener eventListener) {
 		this.skripsi = skripsi;
 		this.eventListener = eventListener;

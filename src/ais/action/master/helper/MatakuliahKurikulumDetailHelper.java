@@ -76,6 +76,51 @@ import ais.ui.util.MyPanel;
 import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper composer untuk mengelola Rencana Pembelajaran Semester (RPS) tingkat KURIKULUM — daftar
+ * {@link KurikulumPunyaMatakuliahDetail} (satu baris per pertemuan ke-1..N: topik, indikator,
+ * metode/waktu pembelajaran, pengalaman belajar, tugas & penilaian, buku rujukan, status
+ * pertemuan) milik satu {@link KurikulumPunyaMatakuliah} (matakuliah dalam konteks kurikulum
+ * tertentu). Ini adalah TEMPLATE rencana pembelajaran yang kemudian dapat "disalin" menjadi baris
+ * {@link Pertemuan} nyata pada satu {@link Perkuliahan} (kelas) tertentu lewat {@link #simpan}.
+ *
+ * <p>
+ * Tampilan utama ({@link #display}) berupa tabbox: tab "Rencana Pembelajaran" (grid RPS ini,
+ * ATAU — bila kurikulum memakai skema OBE/Outcome-Based Education pada tahun ajaran & ganjil-genap
+ * yang berlaku, dicek lewat {@link ais.database.model.Kurikulum#apakahObe} — sebuah iframe
+ * {@code /pages/master/rps_obe.zul} yang menggantikan grid biasa sepenuhnya), serta tab lazy-load
+ * File/Buku Referensi/Buku Ajar/Artikel/Audio/Video (masing-masing menampilkan jumlah item pada
+ * labelnya, dimuat hanya saat tab pertama kali diklik).
+ * </p>
+ *
+ * <p>
+ * <b>Pembuatan massal pertemuan RPS</b> ({@link #tampilTombolBuatKurikulumPunyaMatakuliahDetail}):
+ * dialog "Buat Rencana Pembelajaran" menghasilkan N baris {@link KurikulumPunyaMatakuliahDetail}
+ * sekaligus sesuai jumlah pertemuan yang diminta, secara otomatis menandai pertemuan di
+ * pertengahan sebagai UTS dan pertemuan terakhir sebagai UAS (bila dicentang), dan opsional
+ * menghapus seluruh rencana lama lebih dulu. Idempoten terhadap nomor urut yang sudah ada (tidak
+ * menimpa baris yang sudah dibuat manual).
+ * </p>
+ *
+ * <p>
+ * <b>Penyalinan ke kelas nyata</b> ({@link #simpan(Perkuliahan, KurikulumPunyaMatakuliah, List,
+ * Date, boolean)}, static): untuk setiap {@link KurikulumPunyaMatakuliahDetail}, dibuatkan (atau
+ * dipakai ulang bila sudah ada) satu baris {@link Pertemuan} pada {@code perkuliahan}, dengan
+ * tanggal dihitung mingguan (+7 hari) berturut-turut mulai dari {@code tgl} yang diberikan; bila
+ * {@code lewatiTanggalMerahNasional} aktif, tanggal yang jatuh pada hari libur/tanggal merah
+ * nasional dilompati ({@link Common#isHolidayMerahDanAtauHariLibur}). Lampiran (silabus/SAP milik
+ * kurikulum, serta file/audio/video milik setiap detail RPS) turut disalin ke perkuliahan/
+ * pertemuan hasil lewat dua overload {@link #copyLampiran} — SEBAGAI SALINAN baru (bukan referensi
+ * bersama), ditandai {@code copyDari} ke sumber aslinya.
+ * </p>
+ *
+ * <p>
+ * Editing inline (topik, indikator, dsb.) pada grid RPS hanya diizinkan untuk pengguna yang BUKAN
+ * mahasiswa/siswa/dosen (mis. admin); pengguna lain melihat versi read-only (label). Setiap baris
+ * juga menampilkan ringkasan jumlah lampiran file/audio/video yang sudah tertaut lewat
+ * {@link #createKeterangan}.
+ * </p>
+ */
 public class MatakuliahKurikulumDetailHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -95,6 +140,7 @@ public class MatakuliahKurikulumDetailHelper implements DataLoader {
 	public MyDatebox tanggalMulaiPerkuliahan;
 	private MyCheckboxConfig lewatiTanggalMerahNasional = null;
 
+	/** Menginisialisasi sub-helper (file/audio/video pertemuan) dan flag privilese tambah/hapus untuk pengguna saat ini. */
 	public MatakuliahKurikulumDetailHelper() {
 		filePerkuliahanHelper = new FilePerkuliahanHelper(null, null);
 		videoPertemuanHelper = new VideoPertemuanHelper(true, false);
@@ -103,6 +149,12 @@ public class MatakuliahKurikulumDetailHelper implements DataLoader {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Menghitung dan mengisi {@link #tanggalMulaiPerkuliahan} dengan tanggal pertama yang jatuh
+	 * pada hari {@code hari} (mis. "Senin") terhitung sejak tanggal mulai
+	 * {@link RencanaTahunAkademik} yang sedang berlaku — dipakai agar tanggal mulai perkuliahan
+	 * default mengikuti hari jadwal kelas yang dipilih.
+	 */
 	public void setHariMulai(String hari) {
 		if (tanggalMulaiPerkuliahan != null && hari != null) {
 			RencanaTahunAkademik rencanaTahunAkademik = RencanaTahunAkademikAction
@@ -124,12 +176,30 @@ public class MatakuliahKurikulumDetailHelper implements DataLoader {
 		}
 	}
 
+	/** Varian instance: mengambil tanggal mulai dan flag lewati-tanggal-merah dari state form saat ini, lalu mendelegasikan ke {@link #simpan(Perkuliahan, KurikulumPunyaMatakuliah, List, Date, boolean)}. */
 	public void simpan(Perkuliahan perkuliahan) {
 		Date tgl = tanggalMulaiPerkuliahan == null ? null : tanggalMulaiPerkuliahan.getValue();
 		MatakuliahKurikulumDetailHelper.simpan(perkuliahan, kurikulumPunyaMatakuliah, kurikulumPunyaMatakuliahDetails,
 				tgl, lewatiTanggalMerahNasional == null ? true : lewatiTanggalMerahNasional.isChecked());
 	}
 
+	/**
+	 * Menyalin template RPS {@code kurikulumPunyaMatakuliahDetails} menjadi baris
+	 * {@link Pertemuan} nyata pada {@code perkuliahan}, dengan tanggal berturut-turut mingguan
+	 * (+7 hari) mulai dari {@code tgl}. Untuk setiap detail, pertemuan yang sudah ada (dicari lebih
+	 * dulu berdasarkan tautan {@code kurikulumPunyaMatakuliahDetail}, lalu berdasarkan tanggal yang
+	 * sama pada perkuliahan yang sama) dipakai ulang; bila belum ada, dibuat baru dengan seluruh
+	 * atribut disalin dari template (topik, indikator, metode, dsb.) beserta ruang/jam dari
+	 * {@code perkuliahan}, lalu lampirannya turut disalin lewat
+	 * {@link #copyLampiran(KurikulumPunyaMatakuliahDetail, Pertemuan)}. Silabus/SAP milik
+	 * kurikulum juga disalin sekali ke {@code perkuliahan} lewat
+	 * {@link #copyLampiran(KurikulumPunyaMatakuliah, Perkuliahan)}. Tidak melakukan apa pun bila
+	 * {@code kurikulumPunyaMatakuliahDetails} kosong, {@code tgl} {@code null}, atau
+	 * {@code perkuliahan} belum tersimpan.
+	 *
+	 * @param lewatiTanggalMerahNasional bila {@code true}, tanggal pertemuan yang jatuh pada hari
+	 *                                   libur/tanggal merah nasional dilompati ke minggu berikutnya
+	 */
 	public static void simpan(Perkuliahan perkuliahan, KurikulumPunyaMatakuliah kurikulumPunyaMatakuliah,
 			List<KurikulumPunyaMatakuliahDetail> kurikulumPunyaMatakuliahDetails, Date tgl,
 			boolean lewatiTanggalMerahNasional) {
@@ -194,6 +264,12 @@ public class MatakuliahKurikulumDetailHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Menyalin lampiran Silabus dan SAP milik {@code kurikulumPunyaMatakuliah} ke
+	 * {@code perkuliahan}, HANYA bila {@code perkuliahan} belum memiliki lampiran jenis tersebut
+	 * (idempoten — tidak menimpa lampiran yang sudah diunggah manual pada kelas). Setiap salinan
+	 * ditandai {@code copyDari} ke {@link LampiranLain} sumber, dalam sesi streaming mandiri.
+	 */
 	public static void copyLampiran(KurikulumPunyaMatakuliah kurikulumPunyaMatakuliah, Perkuliahan perkuliahan) {
 
 		try {
@@ -239,6 +315,15 @@ public class MatakuliahKurikulumDetailHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Menyalin SELURUH {@link PertemuanFileContent}, {@link VideoPertemuan}, dan
+	 * {@link AudioPertemuan} yang tertaut ke {@code kurikulumPunyaMatakuliahDetail} (template RPS)
+	 * menjadi salinan baru yang tertaut ke {@code pertemuan} (kelas nyata) — setiap salinan
+	 * ditandai {@code copyDari} ke sumbernya dan referensi kurikulum-nya dikosongkan (murni milik
+	 * pertemuan hasil salinan). Selalu menyalin ulang (tidak mengecek duplikasi) setiap kali
+	 * dipanggil — dipanggil hanya saat {@link Pertemuan} baru pertama kali dibuat di
+	 * {@link #simpan(Perkuliahan, KurikulumPunyaMatakuliah, List, Date, boolean)}.
+	 */
 	@SuppressWarnings("unchecked")
 	public static void copyLampiran(KurikulumPunyaMatakuliahDetail kurikulumPunyaMatakuliahDetail,
 			Pertemuan pertemuan) {
@@ -320,6 +405,17 @@ public class MatakuliahKurikulumDetailHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Menambahkan tombol "Buat Rencana Pembelajaran" ke {@code toolbar} (tampil hanya untuk
+	 * pengguna berprivilese CREATE yang bukan mahasiswa/siswa/dosen) yang membuka dialog untuk
+	 * membangkitkan N baris {@link KurikulumPunyaMatakuliahDetail} sekaligus — mengisi deskripsi
+	 * pembelajaran, capaian/kompetensi, silabus, dan jumlah pertemuan; opsional menandai pertemuan
+	 * tengah sebagai UTS dan pertemuan akhir sebagai UAS, serta opsional menghapus seluruh rencana
+	 * lama lebih dulu. Baris dengan nomor urut yang sudah ada dilewati (tidak ditimpa).
+	 *
+	 * @param eventListener dipanggil (lewat timer default) setelah baris berhasil dibuat, untuk
+	 *                      menyegarkan tampilan pemanggil
+	 */
 	public void tampilTombolBuatKurikulumPunyaMatakuliahDetail(Toolbar toolbar, final EventListener eventListener) {
 		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Buat Rencana Pembelajaran", "/img/new.gif");
 		button.setVisible(add && tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null
@@ -569,6 +665,7 @@ public class MatakuliahKurikulumDetailHelper implements DataLoader {
 		button.setParent(toolbar);
 	}
 
+	/** Perender baris grid RPS: ringkasan jumlah lampiran (via {@link #createKeterangan}), field topik/indikator/waktu/pengalaman/tugas/rujukan/metode/status (inline-editable, autosave, hanya untuk pengguna non-mahasiswa/siswa/dosen; read-only berupa label untuk pengguna lain), dan tombol hapus. */
 	class DetailMatakuliahRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -779,6 +876,13 @@ public class MatakuliahKurikulumDetailHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Memuat ulang grid RPS dengan seluruh {@link KurikulumPunyaMatakuliahDetail} milik
+	 * {@link #kurikulumPunyaMatakuliah}, dan membangun ulang panel ringkasan di {@link #north}
+	 * (deskripsi pembelajaran, kompetensi, lampiran silabus) — bila {@link #perkuliahan} diberikan,
+	 * panel ini juga menampilkan/mengedit tanggal mulai perkuliahan dan opsi lewati tanggal merah.
+	 * Kontrak {@link DataLoader#loadData(Object)}; {@code value} tidak dipakai.
+	 */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
@@ -861,6 +965,18 @@ public class MatakuliahKurikulumDetailHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Membangun seluruh tabbox RPS+lampiran ke dalam {@code component}. Lihat javadoc kelas untuk
+	 * uraian lengkap perilaku (termasuk pencabangan ke iframe RPS-OBE bila kurikulum memakai skema
+	 * OBE) dan tab-tab lazy-load.
+	 *
+	 * @param kurikulumPunyaMatakuliah matakuliah-dalam-kurikulum yang RPS-nya ditampilkan/dikelola
+	 * @param perkuliahan              kelas nyata terkait (untuk fitur "Tgl. Mulai" & penyalinan
+	 *                                 RPS ke pertemuan), boleh {@code null} bila konteksnya murni
+	 *                                 master data kurikulum tanpa kelas spesifik
+	 * @param component                kontainer ZK tujuan; isi sebelumnya dibersihkan lewat
+	 *                                 {@link Common#clear}
+	 */
 	public void display(final KurikulumPunyaMatakuliah kurikulumPunyaMatakuliah, final Perkuliahan perkuliahan,
 			final Component component) {
 		this.kurikulumPunyaMatakuliah = kurikulumPunyaMatakuliah;
@@ -1229,6 +1345,14 @@ public class MatakuliahKurikulumDetailHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Membangun ringkasan jumlah lampiran (File/Audio/Video) tertaut pada satu
+	 * {@code kurikulumPunyaMatakuliahDetail} sebagai tiga tautan {@link A} sebaris — angka dicetak
+	 * merah bila jumlahnya lebih dari nol. Bila {@code dataLoader} diberikan, setiap tautan dapat
+	 * diklik untuk membuka {@link KurikulumPunyaMatakuliahHelper} pada tab terkait (0=File,
+	 * 1=Audio, 2=Video). Query hitungan memakai SQL native pada sesi streaming mandiri agar ringan
+	 * dipanggil berulang saat merender banyak baris grid.
+	 */
 	@SuppressWarnings("unchecked")
 	public static Hbox createKeterangan(final KurikulumPunyaMatakuliahDetail kurikulumPunyaMatakuliahDetail,
 			final DataLoader dataLoader) {
