@@ -128,7 +128,47 @@ Deteksi saringan juga harus mengenali `ref !=` / `ref <>`, bukan hanya `ref is n
 `ref='...'`; putaran pertama menandai jalur cicilan sebagai "tanpa saringan" (positif palsu)
 padahal cacat sebenarnya justru pada BENTUK saringannya.
 
-## 5. Sisa
+## 5. Sapuan lanjutan: lima kelas cacat lain (31 Agustus 2026)
 
-Tidak ada temuan terbuka dari kelas ini. Lima entitas ber-cap ganda sudah diperiksa
-seluruhnya; tiga cacat diperbaiki, sisanya terverifikasi benar.
+Sesudah kelas kaki-ganda tuntas, lima kelas berikutnya disapu atas seluruh repo. Satu
+temuan nyata, empat bersih.
+
+### 5.1 TEMUAN — hapus Jurnal Umum lewat API menembus periode tutup buku (r78681)
+
+`JurnalUmumApiHelper.hapus()` hanya menolak jurnal yang sudah punya `postingHistory`.
+Jurnal umum **diketik manual** sehingga lazim ber-`postingHistory` null — akibatnya entri
+di dalam periode yang sudah ditutup buku tetap dapat dihapus lewat API, dan angka periode
+terkunci ikut berubah. Asimetri yang mencolok: jalur **simpan** di berkas yang sama sudah
+menolak tanggal sebelum closing terakhir; hanya jalur hapus yang tidak berpenjaga.
+
+Perbaikan memasang dua penjagaan yang mencerminkan jalur simpan: penanda `closing` pada
+barisnya, dan tanggal transaksinya terhadap closing terakhir (menangkap baris di periode
+tertutup yang belum sempat bercap).
+
+**Diuji** dengan harness `TesPenjagaClosingJurnalUmum` (fixture `UATJU-`, jendela April–Mei
+2092 — tabel `akunting.closing` kosong di UAT sehingga fixture membuat closing sendiri dan
+menghapusnya lagi di akhir supaya harness lain tidak terpengaruh):
+
+| Skenario | Hasil |
+|---|---|
+| A: baris bercap `closing` | hapus DITOLAK, jurnal beserta dua barisnya utuh |
+| B: tanpa cap, tanggal sebelum closing terakhir | hapus DITOLAK dengan pesan menyebut tanggal dan batas closing |
+| C: **KONTROL** — jurnal sah sesudah periode closing | hapus BERHASIL dan benar-benar terhapus; penjaganya presisi, bukan pemblokir borongan |
+
+**LULUS 7, GAGAL 0.**
+
+### 5.2 Empat kelas yang disapu dan BERSIH
+
+| Kelas | Cara periksa | Hasil |
+|---|---|---|
+| Hapus jurnal tanpa penjaga `closing` | semua pernyataan delete atas `grup_transaksi`/`transaksi`, jendela ±8 baris | selain §5.1: sisanya konteks lain yang sah — pembersih duplikat, hapus baris draf `simpan=false`, javadoc |
+| Penghitung closing diam-diam nol | properti `hitungClosing` vs whitelist `ENTITAS_CLOSING` | bersih: `hitungClosing` tidak memvalidasi whitelist melainkan memakai properti `GrupTransaksi` langsung, dan keempat properti di luar whitelist (`danaTalangan`, `penggantianKasKecil`, `pertangungjawabanKasBesar`, `uangMuka`) memang ADA; whitelist hanya menjaga parameter URL drill-through, dan ke-19 nama yang dikirim layar ZK semuanya lolos |
+| Posting dobel (mesin tanpa saringan `isNull(cap)`) | badan tiap `postingSemua` statis | bersih; satu-satunya laporan (`PostingProsesTransferAction`) positif palsu — saringannya ada di luar jangkauan regex |
+| Kebersihan pembatalan (lepas cap tanpa hapus jurnal / hapus grup tanpa hapus anak) | badan tiap `batalkan*` statis | bersih; `PostingTransaksiHarianAction` memang SENGAJA tidak menghapus jurnalnya — untuk Jurnal Umum baris jurnal ITU dokumen ketikan pengguna, jadi pembatalan hanya melepas cap (dan sudah berpenjaga `closing`) |
+| Baris dasbor ber-cap non-baku tak dipetakan | entitas ber-cap ganda vs `propertiPosting` | bersih: setiap kaki yang punya baris dasbor sudah dipetakan; empat baris yang tertandai kata kunci ternyata berada di entitas ber-cap tunggal |
+
+## 6. Sisa
+
+Tidak ada temuan terbuka dari kelas-kelas ini. Lima entitas ber-cap ganda dan lima kelas
+cacat lanjutan sudah diperiksa seluruhnya; empat cacat diperbaiki dan teruji, sisanya
+terverifikasi benar.
