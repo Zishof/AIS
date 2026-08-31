@@ -152,6 +152,40 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Controller/action ZK untuk biodata calon mahasiswa. Tipe ini merupakan titik masuk UI yang
+ * menghubungkan event layar dengan perilaku domain yang diwarisi atau dikonfigurasi khusus oleh
+ * kelas ini.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * MyWindow}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
+ * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
+ * tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code String DEFAULT_TIDAK_AKTIF}, {@code
+ * String DEFAULT_TIDAK_WAJIB}, {@code String DATA}, {@code String DATA_DESC}, {@code Textbox noRegistrasi},
+ * {@code Textbox nama}, {@code Textbox tempatLahir}, {@code MyDatebox tanggalLahir}; inisialisasi/lifecycle
+ * ({@code initBg()}, {@code init()}); pembacaan/pencarian ({@code loadBiodataCalonMahasiswa()}, {@code
+ * refreshSelectedGelombangPendaftaranComboValue()}, {@code getPaketDipilih()}, {@code getSelectedComboValue()},
+ * {@code getSelectedStringValue()}, {@code getPaketDipilihDenganFallback()}); validasi/perhitungan ({@code
+ * bolehCalonMahasiswaMengubahGelombangPendaftaran()}, {@code validasiJenjangProdiSesuaiPaket()}, {@code
+ * validasiPilihanTermasukPaket()}, {@code validasiKuotaPaketJurusanPmb()}, {@code validasiKuotaPerPilihan()});
+ * mutasi data ({@code setdata()}, {@code onSave()}, {@code sinkronkanPembayaranSetelahStatusAwalBerubah()},
+ * {@code sinkronkanPembayaranSetelahPendaftaranBaru()}); pelaporan/ekspor ({@code onCetakKartu()}); operasi
+ * domain lain ({@code infoMahasiswaBaru()}, {@code pesanKonflikDariException()}, {@code
+ * closeOpenedNativeSession()}, {@code isCalonMahasiswaLogin()}, {@code isCalonMahasiswaSudahDiterima()}, {@code
+ * jenisSeleksiSesuaiGelombang()}); konfigurasi constructor: {@code myPaket}, {@code mygelombangPendaftaran},
+ * {@code myjenisSeleksi}. Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
+ * atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
+ * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
+ * serta session Hibernate milik request yang aktif.</p>
+ *
+ * @see MyWindow
+ */
 public class BiodataCalonMahasiswaAction extends MyWindow {
 
 	@SuppressWarnings("unchecked")
