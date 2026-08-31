@@ -33,22 +33,55 @@ import ais.service.tenant.TenantRbac;
  */
 public final class TenantRbacSelfTest {
 
+	/** Kelas utilitas murni statis — tidak pernah diinstansiasi. */
 	private TenantRbacSelfTest() {
 	}
 
+	/** Penghitung kegagalan lintas kelima blok uji; bukan JUnit sehingga dikelola manual. */
 	private static int gagal;
 
+	/**
+	 * Catat satu kegagalan: cetak baris {@code GAGAL: <pesan>} ke {@code System.out} dan
+	 * naikkan {@link #gagal}. Dipanggil langsung untuk kegagalan yang tidak berbentuk
+	 * pemeriksaan boolean sederhana, dan secara internal oleh {@link #benar(boolean, String)}.
+	 *
+	 * @param pesan penjelasan kegagalan, ditulis apa adanya ke keluaran konsol
+	 */
 	private static void salah(String pesan) {
 		System.out.println("  GAGAL: " + pesan);
 		gagal++;
 	}
 
+	/**
+	 * Assersi manual: catat kegagalan lewat {@link #salah(String)} bila {@code syarat}
+	 * bernilai {@code false}. Pengganti {@code assertTrue} JUnit pada harness ini — tidak
+	 * menghentikan eksekusi saat gagal, hanya menambah hitungan {@link #gagal}.
+	 *
+	 * @param syarat kondisi yang diharapkan benar
+	 * @param pesan  penjelasan yang dicetak bila {@code syarat} salah
+	 */
 	private static void benar(boolean syarat, String pesan) {
 		if (!syarat) {
 			salah(pesan);
 		}
 	}
 
+	/**
+	 * Titik masuk harness manual (bukan JUnit) untuk penjaga RBAC tenant. Jalankan dari
+	 * {@code C:\opt\AIS\ais\src\main} dengan {@code java ais.service.tenant.test.TenantRbacSelfTest}
+	 * — direktori kerja itu WAJIB karena {@link #ujiSeluruhAksiTerpetakan()} memindai berkas
+	 * sumber dispatcher lewat path relatif (lihat {@link #cariSumber()}). Menjalankan kelima
+	 * blok uji berurutan ({@link #ujiSeluruhAksiTerpetakan()}, {@link #ujiAuditorHanyaMembaca()},
+	 * {@link #ujiTanpaTenantTidakTersentuh()}, {@link #ujiPeranKosongDitolak()},
+	 * {@link #ujiPemisahanKewenangan()}), lalu bila {@link #gagal} &gt; 0 melempar
+	 * {@link IllegalStateException} berisi jumlah masalah; bila lolos, mencetak
+	 * {@code "TenantRbacSelfTest OK"} dan memanggil {@code System.exit(0)} eksplisit.
+	 *
+	 * @param a tidak dipakai
+	 * @throws Exception diteruskan dari {@link #ujiSeluruhAksiTerpetakan()} (mis. kegagalan
+	 *                    membaca berkas sumber); {@link IllegalStateException} bila ada satu
+	 *                    atau lebih pemeriksaan yang gagal
+	 */
 	public static void main(String[] a) throws Exception {
 		ujiSeluruhAksiTerpetakan();
 		ujiAuditorHanyaMembaca();
@@ -104,6 +137,15 @@ public final class TenantRbacSelfTest {
 		}
 	}
 
+	/**
+	 * Cari direktori sumber dispatcher aksi {@code si_*}, dicoba dari beberapa path relatif
+	 * kandidat agar toleran terhadap variasi direktori kerja saat harness dijalankan (mis.
+	 * dari {@code src/main} langsung atau dari satu tingkat di bawahnya).
+	 *
+	 * @return direktori kandidat pertama yang benar-benar ada, atau {@code null} bila tidak
+	 *         satu pun ditemukan (pemanggil melaporkannya sebagai kegagalan keras, bukan
+	 *         dilewati diam-diam)
+	 */
 	private static File cariSumber() {
 		String[] kandidat = { "java/ais/action/servlet/api", "src/ais/action/servlet/api",
 				"../java/ais/action/servlet/api" };
@@ -116,8 +158,21 @@ public final class TenantRbacSelfTest {
 		return null;
 	}
 
+	/** Pola literal string {@code "si_..."} pada kode sumber — dasar pemindaian {@link #kumpulkan}. */
 	private static final Pattern POLA_AKSI = Pattern.compile("\"(si_[a-z_]+)\"");
 
+	/**
+	 * Pindai seluruh berkas {@code .java} langsung di {@code dir} (tidak rekursif ke
+	 * subdirektori) baris demi baris, kumpulkan setiap literal yang cocok {@link #POLA_AKSI}
+	 * ke {@code keluar}. Dipakai {@link #ujiSeluruhAksiTerpetakan()} untuk membangun daftar
+	 * aksi {@code si_*} secara langsung dari sumber, bukan salinan yang ditulis ulang di sini.
+	 *
+	 * @param dir    direktori yang dipindai; bila bukan direktori (atau tidak dapat
+	 *               dilistir), method kembali tanpa efek
+	 * @param keluar himpunan terurut tempat aksi yang ditemukan diakumulasikan (dipanggil
+	 *               berulang untuk beberapa direktori sehingga bersifat akumulatif)
+	 * @throws Exception diteruskan dari kegagalan membaca berkas (mis. {@code IOException})
+	 */
 	private static void kumpulkan(File dir, TreeSet<String> keluar) throws Exception {
 		File[] isi = dir.listFiles();
 		if (isi == null) {
@@ -145,6 +200,12 @@ public final class TenantRbacSelfTest {
 
 	// ------------------------------------------------------------------ (2)
 
+	/**
+	 * Blok (2): pastikan peran {@link TenantRbac#AUDITOR} dapat membaca daftar/laporan/riwayat
+	 * audit, tetapi ditolak untuk SEMUA aksi tulis (create/update/deactivate/save/reverse)
+	 * yang dicontohkan di sini — auditor yang dapat mengubah kehilangan artinya sebagai
+	 * auditor (lihat javadoc kelas).
+	 */
 	private static void ujiAuditorHanyaMembaca() {
 		TenantContext auditor = konteks(TenantRbac.AUDITOR);
 		benar(TenantRbac.boleh(auditor, "si_customer_list"), "AUDITOR harus dapat membaca");
@@ -170,6 +231,12 @@ public final class TenantRbacSelfTest {
 
 	// ------------------------------------------------------------------ (3)
 
+	/**
+	 * Blok (3): pastikan konteks {@code null} (pengguna tanpa tenant, keadaan seluruh
+	 * pengguna hari ini) tetap LEWAT untuk aksi apa pun — RBAC tenant ini adalah lapisan
+	 * TAMBAHAN yang hanya aktif untuk anggota tenant; izin pengguna non-tenant tetap
+	 * ditentukan lapisan lama yang sudah ada, tidak boleh tiba-tiba diblokir oleh lapisan ini.
+	 */
 	private static void ujiTanpaTenantTidakTersentuh() {
 		benar(TenantRbac.boleh(null, "si_customer_create"),
 				"konteks null (pengguna tanpa tenant) harus LEWAT -- itu keadaan seluruh"
@@ -178,6 +245,12 @@ public final class TenantRbacSelfTest {
 				"konteks null harus lewat untuk aksi apa pun pada lapisan ini");
 	}
 
+	/**
+	 * Blok (3, lanjutan): anggota tenant TANPA peran (string kosong) atau dengan peran yang
+	 * tidak dikenal harus ditolak fail-closed (§12.4) — bukan diperlakukan sebagai "boleh
+	 * segalanya" atau "abaikan saja". Juga memeriksa {@code peranDikenal} abai huruf
+	 * besar-kecil dan jumlah peran minimum ({@link TenantRbac#PERAN} — delapan peran §16).
+	 */
 	private static void ujiPeranKosongDitolak() {
 		benar(!TenantRbac.boleh(konteks(""), "si_customer_list"),
 				"anggota tenant TANPA peran harus ditolak (fail-closed §12.4)");
@@ -230,6 +303,17 @@ public final class TenantRbacSelfTest {
 		benar(TenantRbac.boleh(owner, "si_coa_save"), "OWNER boleh seluruhnya");
 	}
 
+	/**
+	 * Bentuk {@link TenantContext} minimal ber-schema {@code tenant_uji}/
+	 * {@code tenant_uji__audit} dengan satu peran keanggotaan tertentu — dipakai berulang
+	 * oleh {@link #ujiAuditorHanyaMembaca()} dan {@link #ujiPemisahanKewenangan()} untuk
+	 * menghindari duplikasi konstruksi builder di setiap kasus uji.
+	 *
+	 * @param peran nilai {@code membershipRole} yang disisipkan ke konteks, mis. salah satu
+	 *              konstanta {@link TenantRbac} ({@code AUDITOR}, {@code OWNER}, dst.) atau
+	 *              string sembarang untuk menguji peran yang tidak dikenal
+	 * @return konteks tenant TENANT_ONLY siap pakai untuk {@link TenantRbac#boleh}
+	 */
 	private static TenantContext konteks(String peran) {
 		return TenantContext.builder().tenantId(Long.valueOf(1)).tenantMode("TENANT_ONLY")
 				.membershipRole(peran).schemaName("tenant_uji")
