@@ -1105,15 +1105,33 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 	 * menjadi {@code DIKEMBALIKAN} bila ada, dan mencatat {@link DetailTransaksi} kode
 	 * {@link LibraryUtil#PENGEMBALIAN_MASUK} untuk tiap item yang dikembalikan.
 	 *
+	 * <p>
+	 * <b>Catatan keamanan (DITAMBAL 2026-09-01):</b> method ini sebelumnya TIDAK memeriksa
+	 * autentikasi/otorisasi apa pun — {@code userid} (id {@link Tbmuser}) diterima mentah dari path
+	 * URL dan langsung dipakai sebagai {@code dibuatOleh}/{@code disetujuiOleh} TANPA verifikasi
+	 * bahwa pemanggil benar-benar staf tersebut, sehingga siapa pun yang mengetahui/menebak URL
+	 * dapat memproses pengembalian buku (termasuk perhitungan denda) atas nama anggota dan staf
+	 * mana pun. Kini mewajibkan {@code username}/{@code password} staf yang valid (query param,
+	 * divalidasi lewat {@link Common#checkLogin(String, String)} — pola yang sama dipakai
+	 * {@link #pinjam}/{@link MahasiswaResource#bayar}) sebelum transaksi diproses. Pemanggil lama
+	 * yang belum menyertakan {@code ?username=...&password=...} akan ditolak; pembaruan pada sisi
+	 * pemanggil (aplikasi desktop/kios perpustakaan) diperlukan agar endpoint ini kembali berfungsi.
+	 * </p>
+	 *
 	 * @param items daftar item dipisah {@code |}, tiap entri {@code id,check,jumlahPerpanjangan,keterangan}
 	 * @return {@link CommonID} berisi id {@link KembaliPengadaanItem} yang dibuat/diperbarui
+	 * @throws com.sun.jersey.api.NotFoundException bila {@code username}/{@code password} tidak valid
 	 */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("kembalikan/{userid}/{peminjaman}/{items}/")
 	@Produces({ MediaType.APPLICATION_JSON })
 	public CommonID kembalikan(@PathParam("userid") String userid, @PathParam("peminjaman") String peminjaman,
-			@PathParam("items") String items) {
+			@PathParam("items") String items, @QueryParam("username") String username,
+			@QueryParam("password") String password) {
+
+		if (!Common.checkLogin(username, password))
+			throw new NotFoundException("forbidden access");
 
 		Session session = HibernateUtil.currentNativeSession();
 		PeminjamanPengadaanItem peminjamanPengadaanItem = (PeminjamanPengadaanItem) session
@@ -1277,15 +1295,32 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 	 * yang masih berlaku (status diubah jadi {@code PINJAM}) bila tidak — serta mencatat
 	 * {@link DetailTransaksi} kode {@link LibraryUtil#PINJAM_KELUAR} untuk tiap item.
 	 *
+	 * <p>
+	 * <b>Catatan keamanan (DITAMBAL 2026-09-01):</b> method ini sebelumnya TIDAK memeriksa
+	 * autentikasi/otorisasi apa pun — {@code userid} (id {@link Tbmuser}) diterima mentah dari path
+	 * URL dan langsung dipakai sebagai {@code dibuatOleh}/{@code disetujuiOleh} TANPA verifikasi
+	 * bahwa pemanggil benar-benar staf tersebut, sehingga siapa pun yang mengetahui/menebak URL
+	 * dapat membuat transaksi peminjaman buku nyata atas nama anggota dan staf mana pun. Kini
+	 * mewajibkan {@code username}/{@code password} staf yang valid (query param, divalidasi lewat
+	 * {@link Common#checkLogin(String, String)} — pola yang sama dipakai
+	 * {@link MahasiswaResource#bayar}) sebelum transaksi dibuat. Pemanggil lama yang belum
+	 * menyertakan {@code ?username=...&password=...} akan ditolak; pembaruan pada sisi pemanggil
+	 * (aplikasi desktop/kios perpustakaan) diperlukan agar endpoint ini kembali berfungsi.
+	 * </p>
+	 *
 	 * @param items daftar item dipisah {@code |}, tiap entri {@code idItem,barcode}
 	 * @return {@link CommonID} berisi id {@link PeminjamanPengadaanItem} yang dibuat
-	 * @throws Exception bila anggota masih punya peminjaman belum dikembalikan (saat konfigurasi terkait aktif)
+	 * @throws Exception bila anggota masih punya peminjaman belum dikembalikan (saat konfigurasi terkait aktif), atau bila {@code username}/{@code password} tidak valid
 	 */
 	@GET
 	@Path("pinjam/{userid}/{perpustakaan}/{anggota}/{items}/")
 	@Produces({ MediaType.APPLICATION_JSON })
 	public CommonID pinjam(@PathParam("userid") String userid, @PathParam("perpustakaan") String perpustakaan,
-			@PathParam("anggota") String anggota, @PathParam("items") String items) throws Exception {
+			@PathParam("anggota") String anggota, @PathParam("items") String items,
+			@QueryParam("username") String username, @QueryParam("password") String password) throws Exception {
+
+		if (!Common.checkLogin(username, password))
+			throw new NotFoundException("forbidden access");
 
 		items = URLDecoder.decode(items, "UTF-8");
 		items = items.trim().equals("_") ? "" : items;
