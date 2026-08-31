@@ -1277,6 +1277,30 @@ public class MailSender {
 		}
 	}
 
+	/**
+	 * Varian {@code sendMail} khusus EMAIL TAGIHAN (mis. tagihan SPP/kuliah/koperasi): berbeda
+	 * dari keluarga {@code sendMailLampiran} biasa karena meneruskan {@code tagihan=true} ke
+	 * {@link #sendMailProcess}, yang menggerbangi pengiriman lewat konfigurasi
+	 * {@code aktfikan_pengiriman_email_tagihan} (terpisah dari gerbang
+	 * {@code aktfikan_pengiriman_email_akademik} milik email non-tagihan) dan bisa opsional
+	 * menampilkan messagebox hasil pengiriman ke pengguna ({@code tampilHasil}). Anggota pertama
+	 * dari tiga overload; delegasi akhir ke {@link
+	 * #sendMailLampiranTagihan(JSONArray, String, String, String, String, PrintStream, boolean,
+	 * GeneralValueObject, JSONArray, boolean, File...) varian kanonik privat} di bawah.
+	 *
+	 * @param userIds        daftar user id penerima
+	 * @param subject        judul email tagihan
+	 * @param body           isi email tagihan (HTML)
+	 * @param sender         alamat pengirim; ditolak bila cocok {@code email_tidak_boleh_kirim_dari}
+	 * @param recipientsTemp alamat email penerima dipisah koma
+	 * @param out            aliran opsional untuk log debug SMTP
+	 * @param tampilHasil    tampilkan {@code Messagebox} hasil pengiriman ke pengguna setelah
+	 *                       ~4 detik (dipakai saat dipanggil langsung dari tombol UI, bukan job
+	 *                       batch)
+	 * @param dataObject     entitas tagihan terkait, untuk metadata notifikasi
+	 * @param file           lampiran {@link File} (mis. PDF tagihan), digabung jadi satu PDF
+	 * @throws Exception diteruskan dari kegagalan penyimpanan notifikasi/pengiriman
+	 */
 	public static void sendMailLampiranTagihan(JSONArray userIds, String subject, String body, String sender,
 			String recipientsTemp, PrintStream out, boolean tampilHasil, GeneralValueObject dataObject, File... file)
 			throws Exception {
@@ -1291,6 +1315,7 @@ public class MailSender {
 				attachmentsData, false, file);
 	}
 
+	/** Seperti {@link #sendMailLampiranTagihan(JSONArray, String, String, String, String, PrintStream, boolean, GeneralValueObject, File...)}, dengan flag {@code kirimkankeWa} eksplisit untuk fan-out WhatsApp. */
 	public static void sendMailLampiranTagihan(JSONArray userIds, String subject, String body, String sender,
 			String recipientsTemp, PrintStream out, boolean tampilHasil, GeneralValueObject dataObject,
 			boolean kirimkankeWa, File... file) throws Exception {
@@ -1305,6 +1330,34 @@ public class MailSender {
 				attachmentsData, kirimkankeWa, file);
 	}
 
+	/**
+	 * Implementasi kanonik privat {@link #sendMailLampiranTagihan(JSONArray, String, String,
+	 * String, String, PrintStream, boolean, GeneralValueObject, File...)}. Sama strukturnya dengan
+	 * {@link #sendMailLampiran(JSONArray, String, String, String, String, PrintStream,
+	 * GeneralValueObject, JSONArray, boolean, File...)} (simpan notifikasi → pilih Brevo vs SMTP
+	 * langsung → kirim per-alamat), TIGA perbedaan: (1) selalu meneruskan {@code akademik=false,
+	 * tagihan=true} ke {@link #sendMailProcess} sehingga gerbang konfigurasinya
+	 * {@code aktfikan_pengiriman_email_tagihan}, BUKAN {@code aktfikan_pengiriman_email_akademik};
+	 * (2) TIDAK menambahkan {@code alamat_email_monitoring} ke daftar penerima (berbeda dari
+	 * varian non-tagihan); (3) bila {@code tampilHasil=true}, menjadwalkan
+	 * {@link Common#createDefaultTimer} yang menampilkan {@code Messagebox} berisi
+	 * {@code notif.getHasil()}+{@code notif.getHasilEmail()} kira-kira 4 detik kemudian (memberi
+	 * waktu tugas asinkron di {@link #MAIL_POOL} untuk menuliskan hasilnya lebih dulu — BUKAN
+	 * jaminan sinkron, hanya perkiraan waktu tunggu).
+	 *
+	 * @param userIds         daftar user id penerima
+	 * @param subject         judul email
+	 * @param body            isi email (HTML)
+	 * @param sender          alamat pengirim
+	 * @param recipientsTemp  alamat email penerima dipisah koma
+	 * @param out             aliran opsional untuk log debug SMTP
+	 * @param tampilHasil     tampilkan messagebox hasil pengiriman setelah ~4 detik
+	 * @param dataObject      entitas tagihan terkait
+	 * @param attachmentsData lampiran JSON, boleh {@code null}
+	 * @param kirimkankeWa    kirim juga push/WhatsApp
+	 * @param file            lampiran {@link File}
+	 * @throws Exception diteruskan dari kegagalan penyimpanan notifikasi/pengiriman
+	 */
 	private static void sendMailLampiranTagihan(JSONArray userIds, String subject, String body, String sender,
 			String recipientsTemp, PrintStream out, boolean tampilHasil, GeneralValueObject dataObject,
 			JSONArray attachmentsData, boolean kirimkankeWa, File... file) throws Exception {
@@ -1355,6 +1408,44 @@ public class MailSender {
 		}
 	}
 
+	/**
+	 * Jalur pengiriman email alternatif lewat API transaksional Brevo (domain lama
+	 * {@code sendinblue.com}, endpoint kini {@code https://api.brevo.com/v3/smtp/email}),
+	 * dipakai sebagai pengganti SMTP langsung ({@link #sendMailProcess}) ketika konfigurasi
+	 * {@code aktfikan_pengiriman_email_menggunakan_sendinblue.com} aktif. Dipanggil dari SEMUA
+	 * keluarga {@code sendMail*}/{@code sendMailLampiran*} yang memilih Brevo, sehingga method ini
+	 * harus menangani baik email biasa maupun tagihan secara identik (tidak ada pembeda
+	 * akademik/tagihan di jalur Brevo, berbeda dari jalur SMTP langsung yang menggerbangi
+	 * keduanya secara terpisah di {@link #sendMailProcess}).
+	 *
+	 * <p>
+	 * Setiap alamat pada {@code recipientsTemp} (dipisah koma) dibungkus sebagai satu entri
+	 * {@code messageVersions[].to[]} pada payload Brevo — sehingga secara teknis satu panggilan
+	 * HTTP dapat mengirim ke banyak penerima sekaligus dengan konten identik (BUKAN
+	 * personalisasi per penerima). Kunci API dibaca dari konfigurasi {@code key_sendinblue.com}.
+	 * Payload dikirim lewat proses {@code curl} eksternal dengan body JSON dialirkan via STDIN
+	 * ({@code --data-binary @-}), pola yang sama dan untuk alasan yang sama dengan
+	 * {@link #kirimNotif}: menghindari batas {@code ARG_MAX} OS pada body email formal yang
+	 * panjang. Dijalankan asinkron lewat {@link #submitEmail(Runnable)}; hasil mentah respons
+	 * {@code curl} dituliskan ke {@code notifikasi.setHasilEmail(hasil)} bila {@code notifikasi}
+	 * tidak {@code null}.
+	 * </p>
+	 *
+	 * @param userIds        tidak dipakai langsung di badan method (diteruskan untuk konsistensi
+	 *                       tanda tangan dengan pemanggil, dibaca lewat closure)
+	 * @param subject        judul email
+	 * @param body           isi email (HTML), dikirim sebagai {@code htmlContent}
+	 * @param sender         alamat pengirim, dikirim sebagai {@code sender.email} dengan nama
+	 *                       tampilan tetap {@code "Email Informasi"}
+	 * @param recipientsTemp alamat email penerima dipisah koma; bila kosong/{@code null}, method
+	 *                       berhenti lebih awal dan menulis pesan "penerima kosong" ke
+	 *                       {@code notifikasi.setHasilEmail}
+	 * @param out            aliran opsional; bila tidak {@code null}, payload+hasil dicetak juga
+	 *                       ke sana selain ke {@code System.out}
+	 * @param notifikasi     record notifikasi yang diperbarui dengan hasil pengiriman, boleh
+	 *                       {@code null}
+	 * @param temp           lampiran {@link File}, digabung jadi satu PDF sebelum dikirim
+	 */
 	private static void sendinblue(final JSONArray userIds, final String subject, final String body,
 			final String sender, final String recipientsTemp, final PrintStream out, final Notifikasi notifikasi,
 			File... temp) {
@@ -1498,6 +1589,29 @@ public class MailSender {
 		});
 	}
 
+	/**
+	 * Varian {@code sendMail} untuk pengiriman "massal ke banyak alamat sekaligus dari satu
+	 * panggilan" — secara struktur SAMA dengan {@link #sendMailLampiran(JSONArray, String,
+	 * String, String, String, PrintStream, GeneralValueObject, JSONArray, boolean, File...)}
+	 * (simpan notifikasi → pilih Brevo vs SMTP → kirim per-alamat via {@link #sendMailProcess}),
+	 * dengan SATU perbedaan penting: selalu meneruskan {@code akademik=true, tagihan=true} ke
+	 * {@link #sendMailProcess}, sehingga pesan lolos gerbang konfigurasi bila SALAH SATU dari
+	 * {@code aktfikan_pengiriman_email_akademik} ATAU {@code aktfikan_pengiriman_email_tagihan}
+	 * aktif (bukan memerlukan keduanya) — cocok untuk pengumuman lintas kategori yang tidak murni
+	 * akademik maupun murni tagihan. Anggota pertama dari tiga overload; delegasi akhir ke
+	 * {@link #sendMailLampiranAll(JSONArray, String, String, String, String, PrintStream,
+	 * GeneralValueObject, JSONArray, boolean, File...) varian kanonik privat} di bawah.
+	 *
+	 * @param userIds        daftar user id penerima
+	 * @param subject        judul email
+	 * @param body           isi email (HTML)
+	 * @param sender         alamat pengirim; ditolak bila cocok {@code email_tidak_boleh_kirim_dari}
+	 * @param recipientsTemp alamat email penerima dipisah koma
+	 * @param out            aliran opsional untuk log debug SMTP
+	 * @param dataObject     entitas terkait untuk metadata notifikasi
+	 * @param file           lampiran {@link File}, digabung jadi satu PDF
+	 * @throws Exception diteruskan dari kegagalan penyimpanan notifikasi/pengiriman
+	 */
 	public static void sendMailLampiranAll(JSONArray userIds, String subject, String body, String sender,
 			String recipientsTemp, PrintStream out, GeneralValueObject dataObject, File... file) throws Exception {
 		boolean tidakBoleh = Common.getKonfigurasi("email_tidak_boleh_kirim_dari", "notify@tarunabakti.or.id")
@@ -1511,6 +1625,7 @@ public class MailSender {
 				file);
 	}
 
+	/** Seperti {@link #sendMailLampiranAll(JSONArray, String, String, String, String, PrintStream, GeneralValueObject, File...)}, dengan flag {@code kirimkankeWa} eksplisit untuk fan-out WhatsApp. */
 	public static void sendMailLampiranAll(JSONArray userIds, String subject, String body, String sender,
 			String recipientsTemp, PrintStream out, GeneralValueObject dataObject, boolean kirimkankeWa, File... file)
 			throws Exception {
@@ -1525,6 +1640,29 @@ public class MailSender {
 				kirimkankeWa, file);
 	}
 
+	/**
+	 * Implementasi kanonik privat {@link #sendMailLampiranAll(JSONArray, String, String, String,
+	 * String, PrintStream, GeneralValueObject, File...)}: identik strukturnya dengan
+	 * {@link #sendMailLampiran(JSONArray, String, String, String, String, PrintStream,
+	 * GeneralValueObject, JSONArray, boolean, File...)}, KECUALI dua hal — (1) selalu meneruskan
+	 * {@code akademik=true, tagihan=true} ke {@link #sendMailProcess} (gerbang OR, lihat javadoc
+	 * overload publik pertama), dan (2) TIDAK menambahkan {@code alamat_email_monitoring} ke
+	 * daftar penerima pada jalur SMTP langsung (berbeda dari
+	 * {@link #sendMailLampiran(JSONArray, String, String, String, String, PrintStream,
+	 * GeneralValueObject, JSONArray, boolean, File...)} yang menambahkannya).
+	 *
+	 * @param userIds         daftar user id penerima
+	 * @param subject         judul email
+	 * @param body            isi email (HTML)
+	 * @param sender          alamat pengirim
+	 * @param recipientsTemp  alamat email penerima dipisah koma
+	 * @param out             aliran opsional untuk log debug SMTP
+	 * @param dataObject      entitas terkait
+	 * @param attachmentsData lampiran JSON, boleh {@code null}
+	 * @param kirimkankeWa    kirim juga push/WhatsApp
+	 * @param file            lampiran {@link File}
+	 * @throws Exception diteruskan dari kegagalan penyimpanan notifikasi/pengiriman
+	 */
 	private static void sendMailLampiranAll(JSONArray userIds, String subject, String body, String sender,
 			String recipientsTemp, PrintStream out, GeneralValueObject dataObject, JSONArray attachmentsData,
 			boolean kirimkankeWa, File... file) throws Exception {
@@ -1553,6 +1691,72 @@ public class MailSender {
 		}
 	}
 
+	/**
+	 * Satu-satunya tempat di kelas ini yang benar-benar membuka koneksi SMTP dan mengirim email
+	 * lewat JavaMail API ({@link Transport#send(Message)}) — semua kanal "SMTP langsung" (bukan
+	 * Brevo) dari seluruh keluarga {@code sendMail*} bermuara ke sini, SATU PANGGILAN PER ALAMAT
+	 * penerima (pemanggil yang memecah {@code recipientsTemp} yang berisi banyak alamat).
+	 *
+	 * <h3>Gerbang pengiriman</h3>
+	 * <p>
+	 * Email hanya benar-benar dikirim bila kombinasi {@code akademik}/{@code tagihan} dan
+	 * konfigurasi terkait terpenuhi: {@code (akademik && aktfikan_pengiriman_email_akademik) ||
+	 * (tagihan && aktfikan_pengiriman_email_tagihan)}, DAN konfigurasi umum
+	 * {@code aktfikan_pengiriman_email} juga aktif (default TIDAK AKTIF). Bila salah satu gerbang
+	 * tidak terpenuhi, method berhenti tanpa membuka koneksi SMTP maupun menyentuh
+	 * {@code notifikasi} sama sekali — TIDAK ada percobaan kirim dan TIDAK ada pencatatan
+	 * kegagalan untuk kasus ini (berbeda dari kegagalan SMTP sungguhan, yang tetap dicatat ke
+	 * {@code notifikasi.setHasilEmail}).
+	 * </p>
+	 *
+	 * <h3>Normalisasi domain</h3>
+	 * <p>
+	 * Dua salah ketik domain umum diperbaiki otomatis sebelum dikirim:
+	 * {@code @ahoo.co}→{@code @yahoo.co} dan {@code @mail.com}→{@code @gmail.com}. Untuk host SMTP
+	 * Microsoft resmi ({@code office365.com}/{@code outlook.com}), port dan properti STARTTLS
+	 * dipaksa ke kombinasi yang bekerja (587 + STARTTLS + {@code auth.mechanisms=LOGIN}, SSL
+	 * socket dimatikan) — kombinasi lama berbawaan SSL socket port 465 dapat mencapai server lewat
+	 * relay tertentu tetapi autentikasinya ditolak 535; normalisasi ini HANYA berlaku untuk host
+	 * Microsoft, penyedia lain tetap memakai konfigurasi {@code default_mail_*} apa adanya.
+	 * </p>
+	 *
+	 * <h3>Penanganan galat autentikasi</h3>
+	 * <p>
+	 * Kegagalan autentikasi ({@link javax.mail.AuthenticationFailedException}, kode SMTP 535
+	 * 5.7.3) diperlakukan sebagai masalah KONFIGURASI, bukan masalah pesan spesifik — ia akan
+	 * gagal identik untuk SETIAP pesan berikutnya sampai kredensial/metode autentikasi dibetulkan
+	 * di Pengaturan Email. Karena itu waktu kegagalan dicatat ke {@link #AUTH_GAGAL_TERAKHIR} dan
+	 * pelaporan penuh ke audit diredam menjadi maksimal sekali per {@link #JEDA_LAPOR_AUTH_MS}
+	 * (15 menit) — bila belum lewat jeda, pengiriman berikutnya bahkan tidak dicoba sama sekali
+	 * ({@code Transport.send} dilewati) dan hanya dicatat sebagai "ditunda sementara". Ini
+	 * mencegah satu kredensial SMTP yang rusak membanjiri audit dengan ribuan stack trace identik
+	 * dan menenggelamkan galat lain yang lebih actionable. Kegagalan transient (koneksi/DNS,
+	 * {@link com.sun.mail.smtp.SMTPSendFailedException}) hanya dicatat ke {@code System.err},
+	 * TIDAK ke audit admin.
+	 * </p>
+	 *
+	 * <p>
+	 * Dijalankan asinkron lewat {@link #submitEmail(Runnable)}; hasil (sukses/gagal/pesan galat,
+	 * dipotong maksimal 2000 karakter) ditulis ke {@code notifikasi.setHasilEmail} dalam transaksi
+	 * Hibernate tersendiri.
+	 * </p>
+	 *
+	 * @param subject       judul email
+	 * @param body          isi email; diformalkan lewat {@link
+	 *                      ais.common.FormalisasiPesanUtil#bungkusFormalHtml} bila fitur
+	 *                      formalisasi email aktif
+	 * @param sender        alamat pengirim (header {@code Sender}, bukan {@code From})
+	 * @param recipientsTemp satu atau beberapa alamat penerima dipisah koma
+	 * @param out           aliran opsional untuk mengaktifkan {@code session.setDebug(true)} dan
+	 *                      mengalirkan log JavaMail ke sana
+	 * @param akademik      gerbang lewat {@code aktfikan_pengiriman_email_akademik} bila
+	 *                      {@code true}
+	 * @param tagihan       gerbang lewat {@code aktfikan_pengiriman_email_tagihan} bila
+	 *                      {@code true}
+	 * @param notifikasi    record yang diperbarui dengan hasil pengiriman, boleh {@code null}
+	 * @param temp          lampiran {@link File}, digabung jadi satu PDF lewat
+	 *                      {@link #jadikanSatuFilePdf}
+	 */
 	private static void sendMailProcess(final String subject, final String body, final String sender,
 			String recipientsTemp, final PrintStream out, boolean akademik, boolean tagihan,
 			final Notifikasi notifikasi, File... temp) {
@@ -1788,6 +1992,28 @@ public class MailSender {
 
 	}
 
+	/**
+	 * <b>Kode uji coba manual peninggalan — bukan bagian dari alur aplikasi.</b> Tidak dipanggil
+	 * dari kode aplikasi mana pun (dikonfirmasi via pencarian referensi di seluruh {@code src/});
+	 * satu-satunya cara method ini berjalan adalah dieksekusi langsung sebagai entry point Java
+	 * ({@code java ais.delivery.email.sender.MailSender}) dari command line, yang dalam praktiknya
+	 * tidak pernah terjadi di lingkungan produksi/deployment web AIS.
+	 *
+	 * <p>
+	 * <b>PERINGATAN KEAMANAN:</b> method ini menanam kunci API Mailgun secara langsung di kode
+	 * sumber (bukan dibaca dari konfigurasi runtime seperti jalur produksi
+	 * {@link #sendMailProcess}), untuk akun {@code postmaster@unsika.ac.id}. Dokumentasi ini
+	 * sengaja TIDAK menghapus kredensial tersebut — keputusan menghapus/merotasi kredensial di
+	 * luar cakupan pekerjaan dokumentasi murni dan sebaiknya ditinjau terlebih dahulu apakah kunci
+	 * tersebut masih aktif di sisi Mailgun sebelum kode ini disentuh. Lihat juga peringatan serupa
+	 * di dokumentasi paket {@link ais.delivery.email.sender package-info}. JANGAN jadikan method
+	 * ini contoh pola yang benar untuk mengirim email — pola yang benar ada di
+	 * {@link #sendMailProcess}, yang membaca kredensial via
+	 * {@code Common.getKonfigurasi("default_email_username"/"default_email_password", ...)}.
+	 * </p>
+	 *
+	 * @param args tidak dipakai
+	 */
 	public static void main(String[] args) {
 		// Recipient's email ID needs to be mentioned.
 		String to = "fauzioke2003@gmail.com";
