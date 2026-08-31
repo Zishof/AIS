@@ -298,7 +298,12 @@ public final class GenericCrudAutoDefinitionFactory {
         if (p.equals("nomorinduk") || p.equals("nim") || p.equals("nis")
                 || p.startsWith("nomor") || p.equals("noregistrasi")) skor += 65;
         if (p.equals("judul") || p.equals("label") || p.equals("uraian")) skor += 60;
-        if (p.startsWith("tanggal") || p.equals("waktu") || p.equals("bulan")
+        String java = field.getJavaType() == null ? "" : field.getJavaType();
+        boolean tanggalAsli = java.endsWith("Date") || java.endsWith("Timestamp")
+                || java.endsWith("Calendar");
+        // Hanya properti bertipe tanggal yang layak bonus waktu; nama seperti
+        // tanggalTagihanMengikutiRencanaTahunAkademik justru sebuah flag Boolean.
+        if ((p.startsWith("tanggal") && tanggalAsli) || p.equals("waktu") || p.equals("bulan")
                 || p.equals("tahun") || p.equals("tahunajaran") || p.equals("tahunakademik")
                 || p.equals("semester") || p.equals("smt")) skor += 55;
         if (p.equals("nominal") || p.equals("jumlah") || p.equals("nilai") || p.equals("total")
@@ -320,11 +325,12 @@ public final class GenericCrudAutoDefinitionFactory {
             skor += 25;
             if (p.contains("siswa") || p.contains("mahasiswa") || p.contains("sekolah")
                     || p.contains("itembiaya") || p.contains("jenis") || p.contains("akun")
-                    || p.contains("kelas") || p.contains("pegawai")) skor += 15;
+                    || p.contains("kelas") || p.contains("pegawai")
+                    || p.contains("kegiatan") || p.contains("pembayaran")
+                    || p.contains("prodi") || p.contains("deposit")) skor += 15;
         }
         // Bendera konfigurasi/boolean cenderung tidak informatif di tabel.
-        String java = field.getJavaType() == null ? "" : field.getJavaType();
-        if (java.endsWith("Boolean") || java.equals("boolean")) skor -= 30;
+        if (java.endsWith("Boolean") || java.equals("boolean")) skor -= 60;
         if (p.startsWith("boleh") || p.startsWith("auto") || p.startsWith("default")
                 || p.startsWith("gunakan") || p.startsWith("tampilkan") || p.startsWith("wajib")
                 || p.startsWith("harus") || p.startsWith("aktifkan")) skor -= 25;

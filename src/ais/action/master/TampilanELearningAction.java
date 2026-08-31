@@ -3023,6 +3023,13 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 	 * Bila masih {@code false} padahal form sudah tampil, artinya data belum termuat → picu ulang.
 	 */
 	private boolean dataKiriTampil = false;
+	/**
+	 * Nama atribut pada Rows untuk menandai permintaan pemuatan yang paling baru.
+	 * Beberapa pemicu awal e-Learning (eager, ON_OPEN, timer, dan self-healing)
+	 * dapat datang berdekatan. Hanya permintaan terbaru yang boleh merender hasil
+	 * agar satu kelas tidak ditambahkan dua kali oleh dua proses yang bersamaan.
+	 */
+	private static final String ATTR_PERMINTAAN_LOAD_ELEARNING = "ais.elearning.permintaan.load";
 
 	/**
 	 * Menjalankan pemilihan menu e-Learning AWAL (Perkuliahan/Pelajaran) satu kali saja, LANGSUNG &
@@ -6671,7 +6678,6 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 				mengulangStatus, sidangStatus, pagingEvent, kelas, pagingLoad, jenisFormulirKegiatan);
 	}
 
-	private Integer size = 0;
 	private String tAlama = "";
 
 	private Div createRowsProgressPanel(Rows rows, String title, String description, int percent) {
@@ -6781,8 +6787,20 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 			final MyCheckboxConfig seminarStatus, final MyCheckboxConfig lulusStatus,
 			final MyCheckboxConfig gagalStatus, final MyCheckboxConfig belumStatus, final MyCheckboxConfig setujuStatus,
 			final MyCheckboxConfig mengulangStatus, final MyCheckboxConfig sidangStatus,
-			final EventListener pagingEvent, final String kelas, boolean pagingLoad,
+			final EventListener pagingEvent, final String kelas, final boolean pagingLoad,
 			final JenisFormulirKegiatan jenisFormulirKegiatan) {
+
+		/*
+		 * Token per-Rows mencegah race saat pemicu eager, ON_OPEN, timer 1 detik,
+		 * dan self-healing memanggil loadData hampir bersamaan. Proses lama tetap
+		 * boleh menyelesaikan pembacaan agar session/thread ditutup normal, tetapi
+		 * hasilnya tidak boleh lagi menambah baris bila sudah ada permintaan baru.
+		 */
+		final Object tokenPermintaan = new Object();
+		if (rows != null) {
+			rows.setAttribute(ATTR_PERMINTAAN_LOAD_ELEARNING, tokenPermintaan);
+		}
+		final int[] jumlahHasilPermintaan = new int[] { 0 };
 
 		if (refresh || pagingLoad) {
 			tAlama = "";
@@ -6836,6 +6854,10 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 
 			@Override
 			public void onEvent(Event arg0) throws Exception {
+				if (rows == null || rows.getAttribute(ATTR_PERMINTAAN_LOAD_ELEARNING) != tokenPermintaan) {
+					detachRowsProgressPanel(progressPanel);
+					return;
+				}
 
 				// Tandai bahwa pemuatan DATA panel kiri BENAR-BENAR berjalan (inner timer loadData
 				// fire & fetch selesai, kini sedang me-render hasil). Dipakai self-heal di
@@ -6871,8 +6893,8 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 					paging.setPageSize(jumlahDataDalamSatuHalamanElearning);
 					paging.setPageIncrement(Common.isMobile() ? 4 : 6);
 					paging.setMold("os");
-					paging.setTotalSize(size);
-					paging.setVisible(size > jumlahDataDalamSatuHalamanElearning);
+					paging.setTotalSize(jumlahHasilPermintaan[0]);
+					paging.setVisible(jumlahHasilPermintaan[0] > jumlahDataDalamSatuHalamanElearning);
 					paging.setDetailed(false);
 				}
 
@@ -7091,7 +7113,7 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 							jumlahDataDalamSatuHalamanElearning * (paging == null ? 0 : paging.getActivePage()),
 							jumlahDataDalamSatuHalamanElearning, jenisFormulirKegiatan);
 					voPembelajarans = (List<VOPembelajaran>) objects[0];
-					size = (Integer) objects[1];
+					jumlahHasilPermintaan[0] = ((Integer) objects[1]).intValue();
 
 				} else if (dosen != null) {
 
@@ -7141,7 +7163,7 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 							jumlahDataDalamSatuHalamanElearning * (paging == null ? 0 : paging.getActivePage()),
 							jumlahDataDalamSatuHalamanElearning, jenisFormulirKegiatan);
 					voPembelajarans = (List<VOPembelajaran>) objects[0];
-					size = (Integer) objects[1];
+					jumlahHasilPermintaan[0] = ((Integer) objects[1]).intValue();
 
 					if (session.isOpen()) {
 						session.disconnect();
@@ -7154,7 +7176,7 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 					Session sessionPkl = HibernateUtil.currentNativeSession();
 					try {
 						List<KelompokPkl> pkls = ambilKelompokPklMilikSiswa(sessionPkl, siswaLogin, keyword);
-						size = pkls.size();
+						jumlahHasilPermintaan[0] = pkls.size();
 						int off = jumlahDataDalamSatuHalamanElearning * (paging == null ? 0 : paging.getActivePage());
 						int end = Math.min(off + jumlahDataDalamSatuHalamanElearning, pkls.size());
 						voPembelajarans = off >= pkls.size() ? new ArrayList<KelompokPkl>()
@@ -7162,7 +7184,7 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 					} catch (Exception ePkl) {
 						ais.common.Common.tampilErrorJikaAdmin(ePkl);
 						voPembelajarans = new ArrayList<KelompokPkl>();
-						size = 0;
+						jumlahHasilPermintaan[0] = 0;
 					} finally {
 						if (sessionPkl != null && sessionPkl.isOpen()) {
 							sessionPkl.disconnect();
@@ -7277,7 +7299,7 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 							}
 						}
 					}
-					size = _full.size();
+					jumlahHasilPermintaan[0] = _full.size();
 					int _off = jumlahDataDalamSatuHalamanElearning * (paging == null ? 0 : paging.getActivePage());
 					voPembelajarans = _full.subList(
 							Math.min(_off, _full.size()),
@@ -7400,6 +7422,14 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 							executor.shutdown();
 						}
 					}
+				}
+
+				// Abaikan hasil proses lama bila filter/pemicu lain sudah membuat permintaan baru.
+				// Pengecekan dilakukan sesaat sebelum render sehingga proses lama tidak dapat
+				// menggandakan kelas yang sudah dirender oleh permintaan terbaru.
+				if (rows == null || rows.getAttribute(ATTR_PERMINTAAN_LOAD_ELEARNING) != tokenPermintaan) {
+					detachRowsProgressPanel(progressPanel);
+					return;
 				}
 
 				// 9. INSERT HASIL AKHIR KE ZK UI MODEL SECARA SINKRON DAN AMAN
