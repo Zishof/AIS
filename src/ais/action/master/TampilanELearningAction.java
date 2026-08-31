@@ -2443,7 +2443,8 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 				public void onEvent(Event arg0) throws Exception {
 
 					/*
-					 * Jangan bergantung pada Region.isOpen(). Pada render awal, East sudah
+					 * REGRESSION GUARD: jangan tambahkan kembali menuKanan.isOpen().
+					 * Pada render awal, East sudah
 					 * terlihat di browser tetapi state open server-side ZK 5 kadang belum
 					 * tersinkron. Akibatnya callback timeline (reloadBlnSd=true) tertolak
 					 * dan panel baru terisi setelah tombol Refresh ditekan. Selama komponen

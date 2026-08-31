@@ -43,6 +43,8 @@ import ais.ui.util.MyWindow;
 public class ElearningSekolah extends MyWindow {
 
 	private static final long serialVersionUID = 1L;
+	private static final String TINGGI_HALAMAN = "5100px";
+	private static final String TINGGI_KONTEN = "5000px";
 	private Tbmuser tbmuser;
 
 	/** Membuka dasbor e-Learning untuk user yang sedang login; menampilkan pesan galat ramah bila gagal dimuat. */
@@ -59,20 +61,22 @@ public class ElearningSekolah extends MyWindow {
 	}
 
 	private void init() throws Exception {
-		setHeight("100%");
+		setHeight(TINGGI_HALAMAN);
 		setWidth("100%");
 		setBorder("none");
 		setClosable(false);
 		setSizable(false);
 		setVisible(true);
-		setStyle("background:#f8fafc;border:0;min-height:720px;height:100%;overflow:hidden;box-sizing:border-box;");
+		setStyle("background:#f8fafc;border:0;min-height:" + TINGGI_HALAMAN
+				+ ";overflow:visible;box-sizing:border-box;");
 
 		final Sekolah sekolah = SekolahUtil.getSekolah();
 
 		Borderlayout borderlayout = new Borderlayout();
 		borderlayout.setWidth("100%");
-		borderlayout.setHeight("100%");
-		borderlayout.setStyle("border:0;background:#f8fafc;min-height:720px;overflow:hidden;");
+		borderlayout.setHeight(TINGGI_HALAMAN);
+		borderlayout.setStyle("border:0;background:#f8fafc;min-height:" + TINGGI_HALAMAN
+				+ ";overflow:hidden;");
 		borderlayout.setParent(this);
 
 		Center center = new Center();
@@ -84,7 +88,7 @@ public class ElearningSekolah extends MyWindow {
 		Div wrapper = new Div();
 		wrapper.setWidth("100%");
 		wrapper.setHeight("100%");
-		wrapper.setStyle("background:#f8fafc;min-height:700px;height:100%;overflow:auto;"
+		wrapper.setStyle("background:#f8fafc;min-height:" + TINGGI_HALAMAN + ";height:100%;overflow:auto;"
 				+ "box-sizing:border-box;padding:0;margin:0;");
 		wrapper.setParent(center);
 
@@ -92,8 +96,9 @@ public class ElearningSekolah extends MyWindow {
 
 		Div tabHost = new Div();
 		tabHost.setWidth("100%");
-		tabHost.setHeight("calc(100vh - 205px)");
-		tabHost.setStyle("min-height:620px;background:#ffffff;border:1px solid #dbeafe;border-radius:14px;"
+		tabHost.setHeight(TINGGI_KONTEN);
+		tabHost.setStyle("min-height:" + TINGGI_KONTEN
+				+ ";background:#ffffff;border:1px solid #dbeafe;border-radius:14px;"
 				+ "box-shadow:0 8px 22px rgba(15,23,42,0.08);overflow:hidden;box-sizing:border-box;");
 		tabHost.setParent(wrapper);
 

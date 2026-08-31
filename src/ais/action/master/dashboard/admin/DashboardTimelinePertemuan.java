@@ -5427,9 +5427,9 @@ public class DashboardTimelinePertemuan extends MyWindow {
 						});
 					}
 
-					/* Beri tahu panel pendamping juga pada load awal. Sebelumnya callback
-					 * hanya berjalan setelah refresh filter, sehingga panel kanan e-Learning
-					 * menerima pertemuansa kosong sampai pengguna menekan Refresh. */
+					/* REGRESSION GUARD: jangan hapus `jadikanAwal` dari kondisi ini.
+					 * Panel kanan e-Learning membutuhkan callback setelah pertemuansa pada
+					 * load pertama siap; tanpa itu data baru muncul setelah Refresh. */
 					if ((reloadBlnSd || jadikanAwal) && eventRefresh != null) {
 						reloadBlnSd = false;
 						eventRefresh.onEvent(arg0);

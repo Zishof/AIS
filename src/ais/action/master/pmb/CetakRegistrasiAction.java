@@ -4027,8 +4027,8 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 				+ "background:#eef7ff;border-left:4px solid #0d6efd;border-radius:0 6px 6px 0;"
 				+ "font-size:12px;line-height:1.5'>"
 				+ "<b>Analisis mengikuti filter calon mahasiswa yang sedang aktif.</b><br>"
-				+ "Sistem membaca prefix NIM lalu merapikan nomor urut terakhir. "
-				+ "Perubahan hanya dilakukan setelah operator menekan tombol replace."
+				+ "Sistem membaca prefix NIM lalu membandingkan NIM existing dengan NIM urut/suggestion. "
+				+ "Perubahan hanya dilakukan setelah operator menekan tombol Apply."
 				+ "<br><b>" + perluDirapikan + "</b> data memiliki saran NIM baru."
 				+ "</div>").setParent(vbMain);
 
@@ -4060,10 +4060,10 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 			org.zkoss.zul.Column cProdi = new org.zkoss.zul.Column("Prodi");
 			cProdi.setWidth("190px");
 			cProdi.setParent(cols);
-			org.zkoss.zul.Column cLama = new org.zkoss.zul.Column("NIM Lama");
+			org.zkoss.zul.Column cLama = new org.zkoss.zul.Column("NIM Existing");
 			cLama.setWidth("135px");
 			cLama.setParent(cols);
-			org.zkoss.zul.Column cSaran = new org.zkoss.zul.Column("NIM Saran");
+			org.zkoss.zul.Column cSaran = new org.zkoss.zul.Column("NIM Urut/Suggestion");
 			cSaran.setWidth("135px");
 			cSaran.setParent(cols);
 			org.zkoss.zul.Column cStatus = new org.zkoss.zul.Column("Status");
@@ -4099,7 +4099,7 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 				new Label(s.nimSaran == null ? "-" : s.nimSaran).setParent(row);
 				new Label(s.status == null ? "-" : s.status).setParent(row);
 
-				MyToolbarbuttonConfig btnReplace = new MyToolbarbuttonConfig("Replace", "/img/svg/check2.svg");
+				MyToolbarbuttonConfig btnReplace = new MyToolbarbuttonConfig("Apply", "/img/svg/check2.svg");
 				btnReplace.setDisabled(!s.aman || s.nimSaran == null || s.nimSaran.equals(s.nimLama));
 				btnReplace.setParent(row);
 				btnReplace.addEventListener("onClick", new EventListener() {
@@ -4119,7 +4119,7 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 		hbFooter.setParent(vbMain);
 
 		final List<NimUrutanSuggestion> finalSuggestions = suggestions;
-		MyToolbarbuttonConfig btnTerpilih = new MyToolbarbuttonConfig("Replace Terpilih", "/img/svg/check2.svg");
+		MyToolbarbuttonConfig btnTerpilih = new MyToolbarbuttonConfig("Apply Terpilih", "/img/svg/check2.svg");
 		btnTerpilih.setParent(hbFooter);
 		btnTerpilih.addEventListener("onClick", new EventListener() {
 			@Override
@@ -4135,7 +4135,7 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 			}
 		});
 
-		MyToolbarbuttonConfig btnSemua = new MyToolbarbuttonConfig("Replace Semua Aman", "/img/svg/check2.svg");
+		MyToolbarbuttonConfig btnSemua = new MyToolbarbuttonConfig("Apply Semua Aman", "/img/svg/check2.svg");
 		btnSemua.setParent(hbFooter);
 		btnSemua.addEventListener("onClick", new EventListener() {
 			@Override
@@ -4266,7 +4266,7 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 	private void replaceSaranUrutanNimDenganKonfirmasi(final List<NimUrutanSuggestion> pilihan,
 			final org.zkoss.zul.Window win) throws Exception {
 		if (pilihan == null || pilihan.isEmpty()) {
-			MyMessageboxConfig.show("Belum ada NIM yang dipilih untuk direplace.", "Peringatan",
+			MyMessageboxConfig.show("Belum ada NIM yang dipilih untuk di-apply.", "Peringatan",
 					MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
 			return;
 		}
@@ -4282,8 +4282,8 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 			ringkas.append("... dan ").append(pilihan.size() - limit).append(" data lainnya.\n");
 		}
 
-		MyMessageboxConfig.show("Replace NIM berikut?\n\n" + ringkas.toString(),
-				"Konfirmasi Replace NIM",
+		MyMessageboxConfig.show("Apply perubahan NIM berikut?\n\n" + ringkas.toString(),
+				"Konfirmasi Apply NIM",
 				MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL,
 				MyMessageboxConfig.QUESTION, new EventListener() {
 			@Override
@@ -4295,7 +4295,7 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 				replaceSaranUrutanNim(pilihan);
 				win.detach();
 				onSearchDefault(null);
-				MyMessageboxConfig.show("Replace NIM selesai untuk " + pilihan.size() + " data.",
+				MyMessageboxConfig.show("Apply NIM selesai untuk " + pilihan.size() + " data.",
 						"Berhasil", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
 			}
 		});
