@@ -41,6 +41,11 @@ dok. 53 (rute PRODUKSI menghasilkan WO draf)
 
 ## Prasyarat deployment dan pesan mandiri
 
+> **USANG per 30-08-2026 (dok. 58):** tabel produksi & distribusi sudah
+> dipindah ke skema `koperasi` yang selalu ada — TIDAK ada lagi provisioning
+> namespace manual. Deployment cukup deploy build + restart; instruksi
+> `inventory_production` di bawah ini dipertahankan hanya sebagai riwayat.
+
 Namespace PostgreSQL `inventory_production` harus tersedia **sebelum** aplikasi
 server melakukan bootstrap. Setelah namespace tersedia, restart server agar
 `hbm2ddl.auto=update` membuat `production_document` dan tabel produksi terkait.
