@@ -46,11 +46,24 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK untuk mengelola "Rincian Aspek" ({@link DetailKelompokKegiatanKesiswaan}) milik satu
+ * {@link KelompokKegiatanKesiswaan} pada modul kesiswaan (relasi "punya banyak"). Setiap rincian
+ * aspek dapat ditautkan ke banyak {@link JabatanKegiatanKesiswaan} dan {@link
+ * SkalaKegiatanKesiswaan} lewat checkbox multi-pilih pada form edit. Implementasi sengaja
+ * menghindari {@code TreeSet} bawaan koleksi entitas dan memakai {@code List}/
+ * {@code LinkedHashMap}/{@code LinkedHashSet} untuk menampung/menyusun jabatan dan skala terpilih —
+ * comparator baku {@code GeneralValueObject} mengurutkan berdasarkan {@code nomorUrut} dan
+ * mengembalikan 0 untuk item bernomor urut sama, sehingga {@code TreeSet} akan MENOLAK/MENIMPA item
+ * kedua dengan nomor urut sama (data hilang secara diam-diam). List/LinkedHashMap/LinkedHashSet
+ * mempertahankan seluruh item terlepas dari nilai {@code nomorUrut}-nya.
+ */
 public class DetailKelompokKegiatanKesiswaanHelper implements DataLoader {
 
 	private MyGrid grid;
 	private KelompokKegiatanKesiswaan kelompokKegiatanKesiswaan;
 
+	/** Renderer baris grid daftar rincian aspek: nama, daftar jabatan terkait, daftar skala terkait, nomor urut (editable), checkbox aktif/bisa-dipilih-siswa (editable), dan tombol edit/hapus. */
 	class DetailKelompokKegiatanKesiswaanRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -178,6 +191,7 @@ public class DetailKelompokKegiatanKesiswaanHelper implements DataLoader {
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Memuat seluruh rincian aspek milik kelompok kegiatan kesiswaan aktif, diurutkan nomor urut, dan merender hasilnya ke grid. */
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
 		List<DetailKelompokKegiatanKesiswaan> detailKelompokKegiatanKesiswaan = session

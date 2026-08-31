@@ -44,6 +44,21 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper UI pengelola item pinjaman pada satu transaksi sirkulasi peminjaman perpustakaan
+ * ({@link PeminjamanPengadaanItem}/{@link PeminjamanPengadaanItemDetail}). Dirancang untuk alur
+ * kerja pemindaian cepat: kolom barcode besar ({@code font-size:xx-large}) menerima input scanner
+ * dan langsung menambahkan item saat Enter ditekan ({@link #loadBarcode}), dengan validasi
+ * berlapis sebelum penambahan — anggota dan perpustakaan harus sudah dipilih, batas maksimal
+ * jumlah item per anggota ({@code jumlahMaksimalPeminjaman}, dihitung lewat
+ * {@link LibraryUtil#getJumlahMaksimalPeminjaman}) tidak boleh terlampaui, item dengan barcode
+ * yang sama tidak boleh dipinjam dua kali sekaligus (bila konfigurasi
+ * {@code item_yg_disirkulasikan_tidak_boleh_sama} aktif), dan item yang barcode-nya masih dipinjam
+ * anggota lain (belum ada catatan pengembalian) ditolak dengan pesan mencantumkan peminjam
+ * sebelumnya. Alternatif penambahan lewat picker banyak-pilih terbatas stok
+ * ({@code AmbilDataItemBanyakBerdasarkanStok}) juga tersedia. Jumlah pinjam per item dibatasi
+ * {@code perpustakaan.getMaxPinjam()}. Permintaan yang sudah disetujui mengunci seluruh input.
+ */
 public class PeminjamanPengadaanItemPunyaItemHelper {
 
 	private MyGrid gridItem;
@@ -56,6 +71,7 @@ public class PeminjamanPengadaanItemPunyaItemHelper {
 	private PeminjamanPengadaanItem peminjamanPengadaanItem;
 	private Number jumlahMaksimalPeminjaman;
 
+	/** Membuat helper untuk {@code gridItem} dan menentukan visibilitas/status enable tombol tambah/edit/hapus dari hak akses pengguna saat ini. */
 	public PeminjamanPengadaanItemPunyaItemHelper(MyGrid gridItem) {
 		this.gridItem = gridItem;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -63,6 +79,7 @@ public class PeminjamanPengadaanItemPunyaItemHelper {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/** Menetapkan anggota dan perpustakaan peminjam pada transaksi, lalu menghitung ulang dan menyimpan batas maksimal jumlah item yang boleh dipinjam anggota tersebut. */
 	public void setAnggota(Anggota anggota, Perpustakaan perpustakaan) {
 		peminjamanPengadaanItem.setAnggota(anggota);
 		peminjamanPengadaanItem.setPerpustakaan(perpustakaan);
@@ -74,6 +91,18 @@ public class PeminjamanPengadaanItemPunyaItemHelper {
 		}
 	}
 
+	/**
+	 * Membangun tata letak lengkap panel item pinjaman untuk {@code peminjamanPengadaanItem}:
+	 * toolbar berisi tombol "Tambah Item" (picker terbatas stok, dengan validasi anggota/
+	 * perpustakaan/batas maksimal) dan kolom scan barcode besar (memicu {@link #loadBarcode} saat
+	 * Enter, dinonaktifkan bila permintaan sudah disetujui); diikuti grid kolom gambar/kode/
+	 * barcode/nama/jumlah/keterangan/hapus yang langsung dimuat dengan data tersimpan
+	 * ({@link #loadDataDetail}).
+	 *
+	 * @param peminjamanPengadaanItem transaksi peminjaman yang daftar itemnya dikelola
+	 * @return {@link Borderlayout} siap ditempelkan ke jendela detail transaksi
+	 * @throws Exception diteruskan dari kegagalan pembangunan komponen/query data
+	 */
 	public Borderlayout initDetail(final PeminjamanPengadaanItem peminjamanPengadaanItem) throws Exception {
 		this.peminjamanPengadaanItem = peminjamanPengadaanItem;
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -341,6 +370,7 @@ public class PeminjamanPengadaanItemPunyaItemHelper {
 		return borderlayout;
 	}
 
+	/** Memuat seluruh {@link PeminjamanPengadaanItemDetail} tersimpan milik {@code peminjamanPengadaanItem} (kosong bila belum persisten) dan merender masing-masing sebagai baris grid. */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final PeminjamanPengadaanItem peminjamanPengadaanItem) throws Exception {
 
@@ -359,6 +389,17 @@ public class PeminjamanPengadaanItemPunyaItemHelper {
 		}
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan gambar item, kode ISBN/ISSN, barcode spesifik yang dipinjam,
+	 * label revisi+nama item, input jumlah (divalidasi terhadap {@code perpustakaan.getMaxPinjam()},
+	 * direset ke 1 bila melebihi), field keterangan, dan tombol hapus (dengan dialog konfirmasi).
+	 * Seluruh input dinonaktifkan bila permintaan induk sudah disetujui atau pengguna tidak punya
+	 * hak edit.
+	 *
+	 * @param row                              baris ZK yang akan diisi
+	 * @param peminjamanPengadaanItemDetail    entitas detail item (baru atau tersimpan) yang direpresentasikan baris ini
+	 * @throws Exception diteruskan dari kegagalan pembangunan komponen
+	 */
 	public void initRow(final Row row, final PeminjamanPengadaanItemDetail peminjamanPengadaanItemDetail)
 			throws Exception {
 
@@ -474,6 +515,20 @@ public class PeminjamanPengadaanItemPunyaItemHelper {
 		});
 	}
 
+	/**
+	 * Menangani pemindaian/pengetikan satu barcode: mencari {@link ItemPunyaBarcode} persis sesuai
+	 * teks (fallback ke ISBN-10/ISBN/ISSN bila tidak ditemukan sebagai barcode — namun penambahan
+	 * hanya berlanjut bila keduanya, item maupun {@code itemPunyaBarcode}, ditemukan). Menolak
+	 * dengan pesan bila: barcode kosong, item tidak ditemukan, salinan barcode tersebut masih
+	 * dipinjam anggota lain (belum ada {@code kembaliPengadaanItemDetail}), atau item yang sama
+	 * sudah ada di grid (bila konfigurasi {@code item_yg_disirkulasikan_tidak_boleh_sama} aktif).
+	 * Bila valid, menambahkan baris detail baru (jumlah 1, terikat ke barcode spesifik) ke grid dan
+	 * menyimpan langsung ke database bila transaksi sudah persisten. Fokus dikembalikan ke kolom
+	 * barcode setelah selesai agar pemindaian berikutnya dapat langsung dilakukan.
+	 *
+	 * @param peminjamanPengadaanItem transaksi peminjaman tempat detail baru ditambahkan
+	 * @throws Exception diteruskan dari kegagalan pembangunan komponen/query data
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadBarcode(PeminjamanPengadaanItem peminjamanPengadaanItem) throws Exception {
 		String barcode = this.barcode.getText().trim();
@@ -588,10 +643,12 @@ public class PeminjamanPengadaanItemPunyaItemHelper {
 		this.barcode.select();
 	}
 
+	/** Mengembalikan perpustakaan yang sedang dipakai sebagai konteks batas pinjam. */
 	public Perpustakaan getPerpustakaan() {
 		return perpustakaan;
 	}
 
+	/** Menetapkan perpustakaan konteks (dipakai untuk validasi {@code maxPinjam} per item, terpisah dari perpustakaan pada entitas transaksi). */
 	public void setPerpustakaan(Perpustakaan perpustakaan) {
 		this.perpustakaan = perpustakaan;
 	}

@@ -263,11 +263,28 @@ public class JadwalPelajaranPunyaItemHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Seperti {@link #display(JadwalPelajaran, Component)}, memakai {@link #jadwalPelajaran}
+	 * saat ini (bisa {@code null}) dengan kondisi SQL tambahan kustom bila jadwal tidak diisi.
+	 *
+	 * @param sqltambahan kondisi SQL tambahan dipakai saat {@link #jadwalPelajaran} {@code null}
+	 * @param component   komponen wadah yang akan diisi
+	 */
 	public void display(final String sqltambahan, final Component component) {
 		this.sqltambahan = sqltambahan;
 		display(jadwalPelajaran, component);
 	}
 
+	/**
+	 * Menyusun tata letak grid referensi pustaka untuk {@code jadwalPelajaran} (kolom
+	 * sampul/kode-ISBN-ISSN/nama/pengarang/penerbit/catatan/aksi). Bila {@code component} berupa
+	 * {@link Tabpanel}, menambahkan judul dan toolbar "Ambil Referensi"/"Ambil Google Book"
+	 * (hanya untuk user non-siswa) di atas grid; bila tidak, grid ditempel langsung ke
+	 * {@code component}. Selalu diakhiri dengan memuat data lewat {@link #loadData(Object)}.
+	 *
+	 * @param jadwalPelajaran jadwal pelajaran yang referensinya ditampilkan, boleh {@code null}
+	 * @param component       komponen wadah yang akan diisi ulang (dikosongkan lebih dulu)
+	 */
 	public void display(final JadwalPelajaran jadwalPelajaran, final Component component) {
 		this.jadwalPelajaran = jadwalPelajaran;
 		Common.clear(component);

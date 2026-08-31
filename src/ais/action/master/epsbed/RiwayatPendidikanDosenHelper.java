@@ -46,6 +46,16 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper layar riwayat pendidikan dosen untuk keperluan pelaporan EPSBED/PDDIKTI (Evaluasi Program
+ * Studi Berbasis Evaluasi Diri): jenjang, gelar akademik, perguruan tinggi asal, bidang ilmu,
+ * lokasi (negara/propinsi/kota, atau kota bebas teks untuk institusi luar negeri), rentang tahun
+ * masuk-lulus, dan nilai akhir. {@link #display(Dosen)} adalah jalur <b>fallback legacy</b>: bila
+ * dosen sudah memiliki data {@link Pegawai} tertaut, seluruh tampilan didelegasikan ke
+ * {@link RiwayatPendidikanPegawaiHelper} (helper riwayat pendidikan berbasis pegawai yang lebih
+ * baru dan lebih lengkap); form dan penyimpanan lewat {@link RiwayatPendidikanDosenDao} di kelas
+ * ini hanya benar-benar dipakai untuk dosen yang belum memiliki data pegawai tertaut.
+ */
 public class RiwayatPendidikanDosenHelper {
 
 	private MyGrid grid = new MyGrid();
@@ -75,6 +85,7 @@ public class RiwayatPendidikanDosenHelper {
 	private Combobox tahunMasuk;
 	private Doublebox nilaiAkhir;
 
+	/** Menyiapkan combobox jenjang, negara, dan pilihan tahun masuk/lulus (90 tahun ke belakang dari tahun berjalan) yang dipakai berulang pada form tambah/edit. */
 	public RiwayatPendidikanDosenHelper() {
 
 		rowPropinsi = new Row();
@@ -107,6 +118,7 @@ public class RiwayatPendidikanDosenHelper {
 
 	}
 
+	/** Perender baris grid riwayat pendidikan (jalur legacy): menampilkan tahun masuk/lulus, jenjang, nama perguruan tinggi, kota/propinsi atau negara, nilai akhir, dan tombol ubah/hapus. */
 	class PublikasiDosenRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -185,6 +197,16 @@ public class RiwayatPendidikanDosenHelper {
 		}
 	}
 
+	/**
+	 * Menampilkan layar riwayat pendidikan untuk {@code dosen}. Bila dosen memiliki data
+	 * {@link Pegawai} tertaut (dicari via {@link ConstantValues#ambil} lalu fallback query
+	 * langsung), tampilan sepenuhnya didelegasikan ke {@link RiwayatPendidikanPegawaiHelper}; bila
+	 * tidak, membangun tata letak legacy sendiri (toolbar tambah + grid berpaging 50 baris) dan
+	 * langsung memuat data.
+	 *
+	 * @param dosen dosen yang riwayat pendidikannya akan ditampilkan
+	 * @return tata letak {@link Borderlayout} siap ditempel ke komponen induk
+	 */
 	public Borderlayout display(Dosen dosen) throws Exception {
 		this.dosen = dosen;
 
@@ -288,6 +310,7 @@ public class RiwayatPendidikanDosenHelper {
 		}
 	}
 
+	/** Memuat seluruh riwayat pendidikan {@code dosen} (diurutkan tahun masuk) ke grid pada jalur legacy. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Dosen dosen) {
 
@@ -303,6 +326,15 @@ public class RiwayatPendidikanDosenHelper {
 
 	}
 
+	/**
+	 * Membangun form tambah/edit satu entri riwayat pendidikan (jalur legacy): jenjang, gelar
+	 * akademik, kode+nama perguruan tinggi, bidang ilmu, negara (memicu tampilan
+	 * propinsi/kota bila Indonesia, atau kota teks bebas bila luar negeri lewat
+	 * {@link #insertPropinsi}/{@link #insertKota}/{@link #removePropinsi}), tanggal ijazah, tahun
+	 * masuk/lulus, dan nilai akhir.
+	 *
+	 * @param riwayatPendidikanDosen entri yang diedit, atau instance baru untuk entri baru
+	 */
 	public void init(final RiwayatPendidikanDosen riwayatPendidikanDosen) throws Exception {
 		this.riwayatPendidikanDosen = riwayatPendidikanDosen;
 		Common.clear(borderlayout);
@@ -483,6 +515,14 @@ public class RiwayatPendidikanDosenHelper {
 
 	}
 
+	/**
+	 * Memvalidasi (jenjang, negara, tahun masuk, tahun lulus wajib dipilih; tahun masuk tidak boleh
+	 * melebihi tahun lulus) dan menyimpan/memperbarui entri riwayat pendidikan lewat
+	 * {@link RiwayatPendidikanDosenDao} (jalur legacy).
+	 *
+	 * @param event event pemicu tombol simpan
+	 * @return {@code true} bila validasi lolos dan data tersimpan; {@code false} bila validasi gagal
+	 */
 	public boolean save(Event event) throws Exception {
 
 		if (jenjang.getSelectedItem() == null) {
@@ -545,6 +585,7 @@ public class RiwayatPendidikanDosenHelper {
 		return true;
 	}
 
+	/** Menyisipkan combobox propinsi (disaring berdasarkan {@code negara}) ke {@link #rowPropinsi}; mengubah propinsi memicu penyusunan ulang combobox kota lewat {@link #insertKota}. */
 	public void insertPropinsi(final Rows rows, Negara negara) {
 		// rowPropinsi = new Row();
 		// rowPropinsi.setParent(rows);

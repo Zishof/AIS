@@ -44,6 +44,15 @@ import ais.database.model.epsbed.EpsbedPembiayaanPenelitian;
 import ais.database.model.epsbed.EpsbedPeranPenulisan;
 import ais.database.model.epsbed.EpsbedPublikasiIlmiahDosen;
 
+/**
+ * Helper ZK untuk mengelola daftar publikasi ilmiah dosen ({@link EpsbedPublikasiIlmiahDosen}) pada
+ * modul pelaporan EPSBED, dipasang pada layar detail dosen. Menyediakan tampilan daftar berpaging
+ * (tahun/bulan, judul, jenis, media publikasi, tautan URL, tombol edit/hapus) dan form
+ * tambah/ubah satu baris publikasi (jenis penelitian, media publikasi, peran penulisan,
+ * mandiri/kelompok, tahun/bulan, pembiayaan, jumlah biaya, judul, URL). Komponen combobox referensi
+ * (jenis penelitian, media publikasi, peran, pembiayaan, pilihan bulan 1-12, pilihan tahun 20 tahun
+ * ke belakang) dibangun sekali di konstruktor dan dipakai ulang antar pemanggilan form.
+ */
 public class PublikasiIlmiahDosenHelper {
 
 	private MyGrid grid = new MyGrid();
@@ -78,6 +87,7 @@ public class PublikasiIlmiahDosenHelper {
 	MyToolbarbuttonConfig kembali = new MyToolbarbuttonConfig("Kembali", "/img/cancel.gif");
 	private Textbox url;
 
+	/** Membuat helper dan menyiapkan seluruh combobox referensi (jenis penelitian, media publikasi, peran, pembiayaan, mandiri/kelompok, bulan, tahun) yang dipakai ulang oleh form tambah/ubah. */
 	public PublikasiIlmiahDosenHelper() {
 		// this.dosen = dosen;
 		Common.insertCombo(jenisPenelitian = new Combobox(), "nama", EpsbedJenisKaryaIlmiah.class);
@@ -116,6 +126,7 @@ public class PublikasiIlmiahDosenHelper {
 
 	}
 
+	/** Renderer baris grid daftar publikasi: kolom tahun/bulan, judul, mandiri/kelompok, media publikasi, tautan URL (buka tab baru), dan tombol edit/hapus. */
 	class PublikasiDosenRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -181,6 +192,13 @@ public class PublikasiIlmiahDosenHelper {
 		}
 	}
 
+	/**
+	 * Membangun panel daftar publikasi ilmiah untuk satu dosen: tombol tambah data di utara dan grid
+	 * daftar berpaging di tengah.
+	 *
+	 * @param dosen dosen yang daftar publikasinya ditampilkan
+	 * @return komponen {@link Borderlayout} siap dipasang ke layar pemanggil
+	 */
 	public Borderlayout display(final Dosen dosen) {
 		this.dosen = dosen;
 
@@ -270,6 +288,7 @@ public class PublikasiIlmiahDosenHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Memuat daftar publikasi ilmiah milik dosen yang diberikan (diurutkan tahun lalu bulan terbaru lebih dulu) dan merender hasilnya ke grid. */
 	public void onSearchDefault(Dosen dosen) {
 
 		Session session = HibernateUtil.currentSession();
@@ -286,6 +305,13 @@ public class PublikasiIlmiahDosenHelper {
 
 	}
 
+	/**
+	 * Membangun form tambah/ubah satu baris publikasi ilmiah dosen, mem-prefill combobox/textbox
+	 * dari data yang diberikan (kosong untuk data baru), dan memasang tombol simpan/kembali.
+	 *
+	 * @param epsbedPublikasiDosen data publikasi yang diedit (entitas baru untuk tambah data)
+	 * @throws Exception diteruskan apa adanya dari kegagalan pembangunan komponen
+	 */
 	public void init(final EpsbedPublikasiIlmiahDosen epsbedPublikasiDosen) throws Exception {
 		this.publikasiDosen = epsbedPublikasiDosen;
 		// System.out.println("test");
@@ -400,6 +426,13 @@ public class PublikasiIlmiahDosenHelper {
 
 	}
 
+	/**
+	 * Menyimpan data publikasi ilmiah dari form ke entitas {@link #publikasiDosen} (memuat ulang
+	 * entitas terkelola dari database bila sudah punya id) dan mempersistennya.
+	 *
+	 * @param event event ZK pemicu penyimpanan (tombol simpan)
+	 * @return selalu {@code true} pada implementasi saat ini
+	 */
 	public boolean save(Event event) {
 		Session session = HibernateUtil.currentSession();
 		if (publikasiDosen.getId() != null) {

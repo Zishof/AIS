@@ -143,18 +143,21 @@ public class LaporanSidang extends MyWindow {
         }
     }
 
+    /** Membangun window laporan dengan judul, tipe border, dan status closable yang dapat diatur eksplisit, dengan inisialisasi form filter yang sama seperti konstruktor baku. */
     public LaporanSidang(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         initComboboxFakultasJurusan();
         init();
     }
 
+    /** Menyiapkan combobox fakultas dan prodi cascading ({@code Common#initFakultasDanJurusan}), tanpa nilai default terpilih. */
     private void initComboboxFakultasJurusan() {
         fakultas = new Combobox();
         jurusan = new Combobox();
         Common.initFakultasDanJurusan(fakultas, jurusan, null, null);
     }
 
+    /** Membangun tata letak window: panel filter dapat dilipat di barat, area dashboard/PDF di tengah, dan toolbar ekspor di utara; menampilkan dashboard kosong awal atau langsung memuat laporan bila jadwal sidang sudah ditentukan. */
     @SuppressWarnings("deprecation")
     private void init() throws Exception {
         Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -209,6 +212,7 @@ public class LaporanSidang extends MyWindow {
         }
     }
 
+    /** Membangun seluruh baris komponen filter (fakultas, prodi, program, angkatan, status mahasiswa/keluar, dosen, mahasiswa, tahun akademik, semester, status sidang) dan tombol Tampilkan Dashboard/Cetak PDF Lama. */
     private void buildFilterRows(Rows rows) {
         tambahRow(rows, "Fakultas", fakultas);
         fakultas.setWidth("92%");
@@ -305,6 +309,7 @@ public class LaporanSidang extends MyWindow {
         });
     }
 
+    /** Menambahkan satu baris form berlabel {@code label} berisi {@code component} ke {@code rows}. */
     private void tambahRow(Rows rows, String label, org.zkoss.zk.ui.Component component) {
         MyFormRow row = new MyFormRow();
         row.setValign("top");
@@ -314,6 +319,7 @@ public class LaporanSidang extends MyWindow {
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
+    /** Menyusun peta parameter laporan dari seluruh isian filter saat ini (fakultas, dosen, mahasiswa, jadwal sidang, program, jurusan, angkatan, status, tahun akademik, semester, dan {@code maps} hasil query bila sudah dihitung). */
     private Map generateParameter() throws Exception {
         Dosen dosen = getSelectedDosen();
         Mahasiswa mahasiswa = getSelectedMahasiswa();
@@ -335,6 +341,16 @@ public class LaporanSidang extends MyWindow {
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
+    /**
+     * Mengambil dan mengolah seluruh data {@link Skripsi} sesuai filter aktif (fakultas, prodi,
+     * program, angkatan, status keluar, dosen pembimbing/penguji, mahasiswa tertentu, jadwal
+     * sidang, tahun akademik, semester, status sudah/belum sidang), menyimpan hasilnya ke bidang
+     * {@link #maps}. Untuk setiap skripsi: KRS mahasiswa disinkronkan ke kondisi terkini,
+     * riwayat status mahasiswa diambil, baris dilewati bila tidak cocok dengan filter status
+     * mahasiswa terpilih (penyaringan tambahan di memori, tidak dapat dilakukan lewat query SQL
+     * murni), lalu diubah menjadi {@link Map} data lengkap lewat {@link #buildMapSidang}.
+     * Memperbarui {@code label} dengan progres persentase selama pemrosesan berjalan.
+     */
     protected void generateDataDanImageAlbum(Label label) {
         maps = new ArrayList<Map>();
         Dosen dosenPemimbing = getSelectedDosen();
@@ -393,6 +409,14 @@ public class LaporanSidang extends MyWindow {
     }
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
+    /**
+     * Menyusun satu baris data laporan sidang dari {@code skripsi} beserta konteksnya: properti
+     * dasar {@link Skripsi} dan {@link KrsMahasiswa} (lewat {@code Common#insertProperty}), foto
+     * kelulusan, judisium (predikat kelulusan, ID dan Inggris), data dosen PA, SKS, IPK/IPS
+     * beserta variannya (dibulatkan ke atas/bawah/terdekat, terbilang lewat
+     * {@link IndonesianNumberToWords}), lima anggota tim penguji/pembimbing beserta ketua
+     * sidang, nilai dan status sidang, serta status keaktifan mahasiswa saat sidang berlangsung.
+     */
     private Map buildMapSidang(Skripsi skripsi, Mahasiswa mahasiswa, KrsMahasiswa krsMahasiswa,
             HistoryStatusMahasiswa historyStatus) {
         Map map = new HashMap();
@@ -453,6 +477,7 @@ public class LaporanSidang extends MyWindow {
         return map;
     }
 
+    /** Menjalankan {@link #generateDataDanImageAlbum(Label)} di thread terpisah (dengan progress bar) lalu merender ulang dashboard HTML. */
     public void onLaporan(Event event) throws Exception {
         final Label label = Common.displayLoadBar(new EventListener() {
             @Override
@@ -473,6 +498,7 @@ public class LaporanSidang extends MyWindow {
         }).start();
     }
 
+    /** Menjalankan {@link #generateDataDanImageAlbum(Label)} di thread terpisah (dengan progress bar) lalu membuat dan menampilkan PDF laporan sidang "cara lama" (template Jasper via {@link ais.action.report.Report}). */
     public void onCetakLama(Event event) throws Exception {
         final Label label = Common.displayLoadBar(new EventListener() {
             @Override
@@ -495,6 +521,7 @@ public class LaporanSidang extends MyWindow {
         }).start();
     }
 
+    /** Merender ulang dashboard HTML dari {@link #maps} (atau tampilan kosong bila belum ada data) ke panel tengah. */
     private void renderDashboard() {
         center.getChildren().clear();
         String html = (maps == null || maps.isEmpty()) ? LaporanSkripsiDashboardUtil.empty("Dashboard Laporan Sidang", getFilterInfo())
@@ -502,11 +529,13 @@ public class LaporanSidang extends MyWindow {
         center.appendChild(new Html(html));
     }
 
+    /** Menampilkan dashboard HTML kosong awal (sebelum laporan pernah dijalankan) ke panel tengah. */
     private void tampilkanDashboardAwal() {
         center.getChildren().clear();
         center.appendChild(new Html(LaporanSkripsiDashboardUtil.empty("Dashboard Laporan Sidang", getFilterInfo())));
     }
 
+    /** Membangun kriteria OR yang mencocokkan {@code dosen} pada salah satu dari tujuh peran penguji/pembimbing skripsi (pembimbing, pembimbing3, ketua sidang, penguji1-5). */
     private Criterion buildDosenCriterion(Dosen dosen) {
         Criterion criterion = Restrictions.eq("pembimbing", dosen);
         criterion = Restrictions.or(criterion, Restrictions.eq("ketuaSidang", dosen));
@@ -580,6 +609,7 @@ public class LaporanSidang extends MyWindow {
                 : (StatusMahasiswa) status.getSelectedItem().getValue();
     }
 
+    /** Mengecek apakah {@code historyStatus} cocok dengan status mahasiswa yang dipilih pada filter (selalu cocok bila filter status tidak dipilih). */
     private boolean cocokStatusMahasiswa(HistoryStatusMahasiswa historyStatus) {
         StatusMahasiswa selected = getSelectedStatusMahasiswa();
         if (selected == null) {
@@ -589,6 +619,7 @@ public class LaporanSidang extends MyWindow {
                 && selected.getId().equals(historyStatus.getStatusMahasiswa().getId());
     }
 
+    /** Mengambil status riwayat mahasiswa terkini untuk {@code krsMahasiswa}, atau {@code null} bila tidak tersedia atau gagal dibaca. */
     private HistoryStatusMahasiswa getHistoryStatus(KrsMahasiswa krsMahasiswa) {
         try {
             return krsMahasiswa == null ? null : ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(krsMahasiswa);
@@ -597,6 +628,7 @@ public class LaporanSidang extends MyWindow {
         }
     }
 
+    /** Menentukan label status aktif mahasiswa pada saat sidang: nama status keluar bila mahasiswa sudah lulus pada semester sidang atau sebelumnya, selain itu nama status riwayat terkini. */
     private String getNamaStatusAktif(Mahasiswa mahasiswa, Skripsi skripsi, HistoryStatusMahasiswa historyStatus) {
         if (mahasiswa.getStatusKeluar() != null && mahasiswa.getSemesterLulus() != null && skripsi.getSemester() != null
                 && mahasiswa.getSemesterLulus().intValue() <= skripsi.getSemester().intValue()) {
@@ -606,10 +638,12 @@ public class LaporanSidang extends MyWindow {
                 : historyStatus.getStatusMahasiswa().getNama();
     }
 
+    /** Mengecek apakah {@code skripsi} sudah melaksanakan sidang ({@code telahSidang == 1}). */
     private boolean isSudahSidang(Skripsi skripsi) {
         return skripsi.getTelahSidang() != null && skripsi.getTelahSidang().intValue() == 1;
     }
 
+    /** Menyusun ringkasan filter aktif (tahun akademik, semester, prodi) sebagai satu baris teks untuk ditampilkan pada judul dashboard. */
     private String getFilterInfo() {
         String ta = getSelectedTahunAkademik() == null ? "Semua TA" : getSelectedTahunAkademik();
         String smt = getSelectedSemesterValue() == null ? "Semua Semester" : String.valueOf(getSelectedSemesterValue());
@@ -617,6 +651,7 @@ public class LaporanSidang extends MyWindow {
         return ta + " • " + smt + " • " + prodi;
     }
 
+    /** Memperbarui {@code label} progres: menampilkan {@code message} bila diberikan, selain itu menampilkan persentase pemrosesan {@code mahasiswa} saat ini terhadap {@code size} total baris. */
     private void updateLabel(Label label, Mahasiswa mahasiswa, int index, int size, String message) {
         if (label == null) {
             return;

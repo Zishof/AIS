@@ -41,6 +41,14 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.UIUtil;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD modul SIRS untuk {@link Diskon} (aturan diskon transaksi pasien): kode (auto-generate),
+ * nama, masa berlaku, persentase nilai, batas jumlah minimal/maksimal transaksi untuk mendapat
+ * diskon, akun akuntansi tujuan pencatatan diskon, dan cakupan opsional (khusus
+ * {@link Asuransi}/{@link Komunitas} tertentu). Rincian penerapan diskon dikelola terpisah lewat
+ * {@link DiskonDetailAction} (ditampilkan lazy per baris grid); menghapus {@link Diskon} juga
+ * menghapus baris {@code sirs.diskon_detail} terkait lewat SQL native sebelum entitas induk dihapus.
+ */
 public class DiskonAction extends GenericCrudAction<Diskon> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -65,15 +73,19 @@ public class DiskonAction extends GenericCrudAction<Diskon> {
 
     // ======================== Abstract implementations ========================
 
+    /** @return kelas entitas yang dikelola layar ini, {@link Diskon}. */
     @Override
     protected Class<Diskon> getEntityClass() { return Diskon.class; }
 
+    /** @return instance {@link Diskon} kosong untuk form tambah baru. */
     @Override
     protected Diskon createNewEntity() { return new Diskon(); }
 
+    /** @return judul jendela form tambah/ubah. */
     @Override
     protected String getWindowTitle() { return "Pendataan Diskon"; }
 
+    /** Inisialisasi layar: mengisi combo filter asuransi dan komunitas. */
     @Override
     public void doAfterCompose(Component comp) throws Exception {
         super.doAfterCompose(comp);
@@ -81,6 +93,7 @@ public class DiskonAction extends GenericCrudAction<Diskon> {
         Common.insertCombo(searchKomunitas, "nama", Komunitas.class);
     }
 
+    /** Membentuk criteria pencarian {@link Diskon} berdasarkan filter nama (ILIKE), asuransi, dan komunitas, diurut id menurun bila {@code order} true. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -98,6 +111,7 @@ public class DiskonAction extends GenericCrudAction<Diskon> {
         return criteria;
     }
 
+    /** @return renderer baris grid untuk {@link Diskon} ({@link DiskonRenderer}). */
     @Override
     protected MyRowRenderer createRenderer() {
         return new DiskonRenderer();
@@ -105,6 +119,7 @@ public class DiskonAction extends GenericCrudAction<Diskon> {
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/ubah {@link Diskon}: kode (readonly, auto-generate), nama, rentang tanggal berlaku, nilai persen, batas jumlah minimal/maksimal, akun tujuan, cakupan asuransi/komunitas, status aktif, dan keterangan. */
     @Override
     protected void buildFormContent(MyWindow window, final Diskon diskon) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -226,6 +241,7 @@ public class DiskonAction extends GenericCrudAction<Diskon> {
 
     // ======================== Save logic ========================
 
+    /** Memvalidasi (nama, tanggal mulai, dan akun wajib terisi) dan menyimpan {@link Diskon}; kode di-generate ulang saat entitas baru dibuat. @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal. */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show(
@@ -273,6 +289,7 @@ public class DiskonAction extends GenericCrudAction<Diskon> {
 
     // ======================== Renderer ========================
 
+    /** Renderer baris grid {@link Diskon}: rincian detail ter-embed via {@link DiskonDetailAction}, nama, rentang tanggal, nilai, batas minimal/maksimal, akun, asuransi, komunitas, status aktif, keterangan, dan tombol ubah/hapus (hapus juga membersihkan {@code sirs.diskon_detail} terkait). */
     class DiskonRenderer extends MyRowRenderer {
 
         @Override

@@ -43,20 +43,38 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper ZK untuk mengelola daftar penghargaan yang pernah diterima seorang pegawai
+ * ({@link Pegawai}), dipasang pada layar detail pegawai. Berbeda dari kebanyakan helper "punya
+ * banyak" lain di aplikasi yang menyimpan baris detail ke tabel relasi terpisah, kelas ini
+ * menyimpan seluruh daftar penghargaan sebagai SATU string JSON ({@code JSONArray} dari
+ * {@code JSONObject}) di kolom {@link Pegawai#getPenghargaan()}/{@code setPenghargaan} —
+ * tambah/ubah/hapus satu entri berarti membaca ulang array, memodifikasinya di memori, lalu
+ * menulis ulang seluruh array sebagai string dan menyimpan entitas {@link Pegawai} (lihat
+ * {@link #saveToDatabase}). Setiap entri penghargaan diberi id UUID acak sebagai kunci stabil,
+ * dipakai juga untuk menautkan lampiran file pendukung lewat {@link LampiranLain} (kunci referensi
+ * {@code "Penghargaan_"+id}).
+ */
 public class PenghargaanPegawaiHelper {
 
     private MyGrid grid = new MyGrid();
     private Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
-    
+
     private Pegawai pegawai;
     private final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-    
+
     protected LampiranLain lampiranPenghargaan;
 
+    /**
+     * Membuat helper terikat pada satu pegawai target.
+     *
+     * @param pegawai pegawai yang daftar penghargaannya ditampilkan/dikelola
+     */
     public PenghargaanPegawaiHelper(Pegawai pegawai) {
         this.pegawai = pegawai;
     }
 
+    /** Mem-parse kolom {@code penghargaan} milik pegawai menjadi {@link JSONArray}; mengembalikan array kosong bila kolom kosong atau gagal di-parse. */
     private JSONArray getPenghargaanArray() {
         if (pegawai != null && pegawai.getPenghargaan() != null && !pegawai.getPenghargaan().trim().isEmpty()) {
             try {
@@ -68,6 +86,7 @@ public class PenghargaanPegawaiHelper {
         return new JSONArray();
     }
 
+    /** Renderer baris grid daftar penghargaan: kolom tanggal, nomor surat, nama, keterangan, dan tombol unduh lampiran (bila ada)/edit/hapus. */
     class PenghargaanRenderer extends ais.ui.util.MyRowRenderer {
         @Override
         public void render(final Row row, Object data) throws Exception {
@@ -135,6 +154,13 @@ public class PenghargaanPegawaiHelper {
         }
     }
 
+    /**
+     * Membangun panel daftar penghargaan pegawai: tombol tambah data di utara dan grid daftar
+     * berpaging di tengah.
+     *
+     * @return komponen {@link Borderlayout} siap dipasang ke layar pemanggil
+     * @throws Exception diteruskan apa adanya dari kegagalan pembangunan komponen
+     */
     public Borderlayout display() throws Exception {
         North north = new North();
         Center center = new Center();
@@ -190,6 +216,7 @@ public class PenghargaanPegawaiHelper {
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
+    /** Mem-parse ulang array JSON penghargaan pegawai menjadi daftar {@link JSONObject} dan merendernya ke grid. */
     public void onSearchDefault() {
         JSONArray arr = getPenghargaanArray();
         List<JSONObject> listPenghargaan = new ArrayList<JSONObject>();
@@ -207,6 +234,16 @@ public class PenghargaanPegawaiHelper {
         grid.setModel(strset);
     }
 
+    /**
+     * Membangun dan menampilkan dialog modal tambah/ubah satu entri penghargaan: form
+     * tanggal/nomor surat/nama/keterangan beserta unggah lampiran pendukung. Entri baru diberi id
+     * UUID acak sebagai kunci stabil; validasi mewajibkan tanggal dan nomor surat terisi sebelum
+     * disimpan. Penyimpanan mendelegasikan penulisan ulang array JSON ke {@link #saveData}, lalu
+     * (bila ada lampiran baru diunggah) menautkan lampiran tersebut ke id pegawai.
+     *
+     * @param dataEdit entri penghargaan yang diedit ({@code null} untuk menambah entri baru)
+     * @throws Exception diteruskan apa adanya dari kegagalan pembangunan komponen
+     */
     public void init(final JSONObject dataEdit) throws Exception {
         final boolean isEdit = (dataEdit != null);
         final String currentId = isEdit ? dataEdit.optString("id") : UUID.randomUUID().toString();
@@ -378,6 +415,7 @@ public class PenghargaanPegawaiHelper {
         window.doModal();
     }
 
+    /** Menyisipkan atau memperbarui satu entri (dicocokkan berdasarkan id) di dalam array JSON penghargaan, lalu menulis ulang seluruh array ke database lewat {@link #saveToDatabase}. */
     private boolean saveData(JSONObject objToSave, boolean isEdit) {
         try {
             JSONArray arr = getPenghargaanArray();
@@ -406,6 +444,7 @@ public class PenghargaanPegawaiHelper {
         }
     }
 
+    /** Menghapus satu entri (berdasarkan id) dari array JSON penghargaan, menulis ulang array ke database, lalu memuat ulang grid. */
     private void deleteData(String idToDelete) {
         try {
             JSONArray arr = getPenghargaanArray();

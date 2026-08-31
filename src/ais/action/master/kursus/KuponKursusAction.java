@@ -50,6 +50,13 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Composer ZK CRUD untuk {@link KuponKursus} (kupon diskon kursus): kode, nama, tipe diskon
+ * (persen/nominal via {@link KuponKursus#PERSEN}/{@link KuponKursus#NOMINAL}), nilai, masa berlaku,
+ * batas pemakaian (kosong = tak terbatas), dan cakupan (satu {@link ProdukKursus} tertentu atau
+ * kosong = berlaku untuk semua kursus). Grid menampilkan pemakaian saat ini vs batas
+ * ({@code jumlahDipakai / batasPemakaian}) dan checkbox aktif yang langsung tersimpan saat diubah.
+ */
 public class KuponKursusAction extends GenericAutowireComposer
 		implements DataCriteria, DataSearchDefault, DataInitDefault {
 
@@ -78,6 +85,7 @@ public class KuponKursusAction extends GenericAutowireComposer
 	private KuponKursus kuponKursus;
 	private MyToolbarbuttonConfig add;
 
+	/** Menjalankan pemeriksaan keamanan standar sebelum komponen ZK di-compose. */
 	@Override
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page,
 			org.zkoss.zk.ui.Component parent, org.zkoss.zk.ui.metainfo.ComponentInfo compInfo) {
@@ -85,6 +93,7 @@ public class KuponKursusAction extends GenericAutowireComposer
 		return super.doBeforeCompose(page, parent, compInfo);
 	}
 
+	/** Inisialisasi layar: privilese CREATE/UPDATE/DELETE, pencarian awal, paging, dan tombol cetak data. */
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
 		Common.initLaguage();
@@ -110,6 +119,7 @@ public class KuponKursusAction extends GenericAutowireComposer
 		Common.appendKeToolbar(cetakToolbarbutton, add, comp);
 	}
 
+	/** Renderer baris grid {@link KuponKursus}: kode, nama (dengan revisi), tipe+nilai diskon, cakupan produk kursus, pemakaian vs batas, checkbox aktif (autosave), dan tombol ubah/hapus. */
 	class KuponKursusRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -150,12 +160,14 @@ public class KuponKursusAction extends GenericAutowireComposer
 
 	}
 
+	/** Handler tombol "Tambah": membuka form dengan {@link KuponKursus} kosong baru. */
 	public void onAdd(Event event) throws Exception {
 		init(new KuponKursus());
 		addWindow.setVisible(true);
 		addWindow.onModal();
 	}
 
+	/** Implementasi {@link DataInitDefault}: membuka form ubah untuk {@code obj} (dipanggil mis. dari tombol ubah baris {@link Common#copyEditDeleteButtons}). */
 	@Override
 	public void init(GeneralValueObject obj) throws Exception {
 		kuponKursus = (KuponKursus) obj;
@@ -164,6 +176,7 @@ public class KuponKursusAction extends GenericAutowireComposer
 		addWindow.onModal();
 	}
 
+	/** Membangun form tambah/ubah {@link KuponKursus}: kode, nama, keterangan, tipe+nilai diskon, rentang berlaku, batas pemakaian, cakupan produk kursus, dan status aktif, plus toolbar Batal/Simpan. */
 	private void init(KuponKursus kuponKursus) {
 		this.kuponKursus = kuponKursus;
 		addWindow.setTitle(kuponKursus.getId() == null ? "Tambah Kupon Kursus" : "Ubah Kupon Kursus");
@@ -295,6 +308,7 @@ public class KuponKursusAction extends GenericAutowireComposer
 		borderlayout.setParent(addWindow);
 	}
 
+	/** Memvalidasi (kode dan nilai kupon wajib terisi, nilai harus &gt; 0) dan menyimpan {@link KuponKursus} dari nilai form saat ini. @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal. */
 	public boolean onSave(Event event) throws Exception {
 		if (kode.getValue().trim().equals("")) {
 			MyMessageboxConfig.show("Kode Kupon harus diisi", "Peringatan", MyMessageboxConfig.OK,
@@ -329,6 +343,7 @@ public class KuponKursusAction extends GenericAutowireComposer
 		return true;
 	}
 
+	/** Implementasi {@link DataCriteria}: membentuk criteria pencarian {@link KuponKursus} berdasarkan filter aktif dan kode/nama (ILIKE), diurut kode bila {@code order} true. */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(KuponKursus.class)
@@ -345,6 +360,7 @@ public class KuponKursusAction extends GenericAutowireComposer
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Implementasi {@link DataSearchDefault}: menjalankan ulang pencarian dan memuat ulang {@link #grid} serta {@link #paging}. */
 	public void onSearchDefault(Event event) {
 		Common.initPaging(initCriteria(false), paging);
 

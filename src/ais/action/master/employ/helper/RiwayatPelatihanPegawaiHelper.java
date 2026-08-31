@@ -52,6 +52,16 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper UI pengelola riwayat pelatihan/diklat/kursus pegawai ({@link RiwayatPelatihanPegawai}).
+ * Struktur dan perilaku identik dengan {@link RiwayatKeteranganLainPegawaiHelper}: alur persetujuan
+ * dua tahap (checkbox status oleh pengguna {@link CommonPrivilages#APPROVE} membekukan form),
+ * mode terikat-pegawai atau lintas-pegawai dengan filter satuan kerja hierarkis, dan lampiran
+ * dokumen wajib lewat {@code FotoLampiranPegawaiHelper}. Field tambahan spesifik pelatihan: jenis
+ * pelatihan ({@link JenisPelatihan}), tema/jurusan pelatihan, rentang tanggal mulai-selesai
+ * (divalidasi mulai tidak boleh setelah selesai), status ada sertifikat, dan nomor sertifikat/
+ * ijazah.
+ */
 public class RiwayatPelatihanPegawaiHelper {
 
 	private MyGrid grid = new MyGrid();
@@ -79,10 +89,12 @@ public class RiwayatPelatihanPegawaiHelper {
 	private AmbilDataSatuanKerjaBanbox searchparent;
 	private MyCheckboxConfig sertifikasi;
 
+	/** Membuat helper; bila {@code pegawai} tidak {@code null}, tampilan terikat pada satu pegawai tersebut (dropdown pegawai dikunci), selain itu menampilkan lintas pegawai dengan filter satuan kerja. */
 	public RiwayatPelatihanPegawaiHelper(Pegawai pegawai) {
 		this.pegawai = pegawai;
 	}
 
+	/** Renderer baris grid: nama pegawai, tanggal mulai/selesai, nama, jenis, tema, no ijazah, lokasi, keterangan, ikon status persetujuan, dan tombol edit (membuka {@link #init}) + hapus (disembunyikan bila sudah disetujui, dengan dialog konfirmasi). */
 	class RiwayatPelatihanPegawaiRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -163,6 +175,15 @@ public class RiwayatPelatihanPegawaiHelper {
 		}
 	}
 
+	/**
+	 * Membangun tata letak lengkap panel riwayat pelatihan: baris filter (pegawai terkunci atau
+	 * satuan kerja hierarkis bila lintas pegawai, plus status persetujuan), tombol "Tambah Data",
+	 * dan grid berpaginasi (50 baris/halaman) yang dimuat lewat timer default memanggil
+	 * {@link #onSearchDefault}.
+	 *
+	 * @return {@link Borderlayout} siap ditempelkan ke jendela detail pegawai
+	 * @throws Exception diteruskan dari kegagalan pembangunan komponen
+	 */
 	public Borderlayout display() throws Exception {
 
 		North north = new North();
@@ -343,6 +364,7 @@ public class RiwayatPelatihanPegawaiHelper {
 		return borderlayout;
 	}
 
+	/** Menjalankan pencarian riwayat pelatihan sesuai filter satuan kerja (termasuk seluruh turunannya)/pegawai/status persetujuan saat ini dan menyegarkan grid dengan {@link RiwayatPelatihanPegawaiRenderer}. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -377,6 +399,18 @@ public class RiwayatPelatihanPegawaiHelper {
 
 	}
 
+	/**
+	 * Membuka jendela modal tambah/edit satu riwayat pelatihan: panel timur berisi pengelola
+	 * lampiran dokumen ({@code FotoLampiranPegawaiHelper}), panel tengah berisi form (pegawai,
+	 * tanggal mulai/selesai, nama pelatihan, jenis pelatihan, tema, status sertifikat, nomor
+	 * sertifikat/ijazah, lokasi, keterangan, dan checkbox status persetujuan — hanya tampil bagi
+	 * pengguna berhak {@link CommonPrivilages#APPROVE}). Form dibekukan bila entri sudah
+	 * berstatus disetujui, dan otomatis dibekukan/dibuka ulang saat checkbox status diubah. Tombol
+	 * Simpan memicu {@link #save(Event)}.
+	 *
+	 * @param riwayatPelatihanPegawai entitas baru atau tersimpan yang akan diedit
+	 * @throws Exception diteruskan dari kegagalan pembangunan komponen
+	 */
 	public void init(final RiwayatPelatihanPegawai riwayatPelatihanPegawai) throws Exception {
 		this.riwayatPelatihanPegawai = riwayatPelatihanPegawai;
 
@@ -555,6 +589,17 @@ public class RiwayatPelatihanPegawaiHelper {
 		window.onModal();
 	}
 
+	/**
+	 * Memvalidasi (pegawai, tanggal mulai, tanggal selesai, nama, dan lokasi pelatihan wajib
+	 * diisi; tanggal mulai tidak boleh setelah tanggal selesai; setiap baris lampiran pada grid
+	 * foto harus sudah memiliki berkas terunggah) lalu menyimpan/memperbarui entitas
+	 * {@link RiwayatPelatihanPegawai} beserta seluruh lampiran {@link FotoLampiranPegawai} terkait
+	 * dalam sesi Hibernate streaming terpisah.
+	 *
+	 * @param event event pemicu (tidak dipakai langsung)
+	 * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal
+	 * @throws Exception diteruskan dari kegagalan Hibernate di luar penanganan lampiran (yang ditangkap dan ditampilkan hanya untuk admin)
+	 */
 	@SuppressWarnings("unchecked")
 	public boolean save(Event event) throws Exception {
 

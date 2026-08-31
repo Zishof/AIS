@@ -46,6 +46,21 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Jendela dasbor admin "Statistik Kunjungan Pengguna Mobile": merangkum login yang tercatat pada
+ * {@code log_mobile} (login lewat aplikasi/perangkat mobile), difilter fakultas/prodi,
+ * yayasan/sekolah, rentang tanggal, kata kunci profil perangkat, dan kelompok pengguna
+ * (mahasiswa/dosen/siswa/guru/admin, masing-masing bisa dimatikan lewat checkbox). Seluruh
+ * pengambilan data dan rendering panel (kartu ringkas, tren harian, komposisi, radar, tabel)
+ * didelegasikan ke {@link StatistikKunjunganDashboardUtil} yang dipakai bersama oleh dasbor
+ * kunjungan sejenis lainnya — kelas ini hanya menyusun filter dan memanggil util tersebut.
+ *
+ * <p>
+ * Bagi admin, tombol "Lihat Rinci" (hanya muncul pada mode widget {@link #tampilRinci}) membuka
+ * jendela terpisah berisi {@link Iframe} ke laporan log login penuh
+ * ({@code /pages/master/log_login.zul}).
+ * </p>
+ */
 public class DashboardStatistikKunjunganPenggunaMobile extends MyWindow {
 
 	private static final long serialVersionUID = -28636873241676666L;
@@ -67,6 +82,7 @@ public class DashboardStatistikKunjunganPenggunaMobile extends MyWindow {
 	private int width = 1200;
 	private int height = 430;
 
+	/** Konstruktor jendela standalone: memuat filter fakultas/jurusan/yayasan/sekolah, membangun layar, lalu memuat grafik lewat timer non-blocking (tanpa indikator busy). */
 	public DashboardStatistikKunjunganPenggunaMobile() throws Exception {
 		super();
 		initFakultas();
@@ -78,12 +94,14 @@ public class DashboardStatistikKunjunganPenggunaMobile extends MyWindow {
 		});
 	}
 
+	/** Konstruktor mode widget dasbor berukuran tetap (menandai {@link #tampilRinci}, memunculkan tombol "Lihat Rinci" bagi admin). */
 	public DashboardStatistikKunjunganPenggunaMobile(int width, int height) throws Exception {
 		super();
 		tampilRinci = true;
 		reinit(width, height);
 	}
 
+	/** Menyimpan ukuran widget lalu membangun ulang seluruh layar dan grafik dari awal. */
 	public void reinit(int width, int height) throws Exception {
 		this.width = width;
 		this.height = height;
@@ -92,6 +110,7 @@ public class DashboardStatistikKunjunganPenggunaMobile extends MyWindow {
 		initChart();
 	}
 
+	/** Konstruktor dengan judul/border/closable eksplisit. */
 	public DashboardStatistikKunjunganPenggunaMobile(String title, String border, boolean closable) throws Exception {
 		super(title, border, closable);
 		initFakultas();

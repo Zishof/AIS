@@ -25,8 +25,25 @@ import ais.database.model.Perkuliahan;
 import ais.database.model.Ruang;
 import ais.database.model.Tbmuser;
 
+/**
+ * Helper logika bisnis KRS (Kartu Rencana Studi) untuk konsumen resource API (dipakai bersama
+ * {@code KrsResource}): menghapus dan mengambil (mendaftar) mata kuliah, dengan validasi
+ * kelengkapan syarat (dosen pembimbing akademik, status pembayaran, batas SKS berdasarkan IP,
+ * mata kuliah prasyarat, kapasitas kelas, dan status persetujuan sebelum penghapusan).
+ */
 public class KrsResourceHelper {
 
+	/**
+	 * Menghapus baris {@link Detailperkuliahan} (KRS) milik mahasiswa untuk daftar id
+	 * {@link Perkuliahan} yang diberikan ({@code krs}, dipisah koma), beserta komentar terkait.
+	 * Hanya baris yang belum mengikuti perkuliahan ({@code ikutiPerkuliahan} kosong) yang
+	 * disertakan. Menolak (melempar {@link NotFoundException}) bila ada baris yang sudah disetujui
+	 * ({@link Detailperkuliahan#DISETUJUI}), atau — bila konfigurasi
+	 * {@code batalkan_persetujuan_harus_memiliki_nilai_nol} aktif — sudah disetujui dan punya nilai
+	 * bukan nol.
+	 *
+	 * @return {@code true} bila berhasil dihapus (atau tidak ada baris yang cocok untuk dihapus)
+	 */
 	@SuppressWarnings("unchecked")
 	public static boolean hapusKrs(Mahasiswa mahasiswa, Integer semester, String krs) {
 		Session session = HibernateUtil.currentSession();
@@ -88,6 +105,14 @@ public class KrsResourceHelper {
 		return true;
 	}
 
+	/**
+	 * Memeriksa prasyarat sebelum mahasiswa boleh mengambil KRS: harus sudah punya dosen
+	 * pembimbing akademik, dan harus sudah membayar biaya perkuliahan semester bersangkutan
+	 * (dicek via {@link Common#checkStatusPembayaranMahasiswa}). Melempar
+	 * {@link NotFoundException} berisi pesan yang menjelaskan syarat mana yang belum terpenuhi.
+	 *
+	 * @return {@code true} bila seluruh prasyarat terpenuhi
+	 */
 	public static boolean checkAmbil(Mahasiswa mahasiswa, Integer semester, String krs) {
 
 		if (mahasiswa.getDosen() == null) {
@@ -111,6 +136,23 @@ public class KrsResourceHelper {
 		return true;
 	}
 
+	/**
+	 * Mendaftarkan mahasiswa ke daftar {@link Perkuliahan} yang diberikan ({@code krs}, dipisah
+	 * koma) sebagai KRS semester berjalan. Alur: (1) memvalidasi prasyarat via
+	 * {@link #checkAmbil}; (2) menghitung total SKS yang akan diambil dan menolak bila melebihi
+	 * batas maksimal berdasarkan IP mahasiswa ({@link Common#checkPembatasanSKSBerdasarkanIP});
+	 * (3) untuk tiap perkuliahan (mata kuliah duplikat pada input dilewati), memvalidasi mata
+	 * kuliah prasyarat sudah pernah diambil (query SQL native ke tabel
+	 * {@code matakuliah_prasyarat}/{@code detailperkuliahan}), memvalidasi kapasitas kelas belum
+	 * penuh (dibandingkan {@link Perkuliahan#getKapasitasKelas()} atau
+	 * {@link Ruang#getDefaultKapasitas()}), lalu membuat/memperbarui baris
+	 * {@link Detailperkuliahan}. Peringatan kapasitas kelas dikumpulkan dan dilaporkan di akhir
+	 * (tidak menghentikan proses mata kuliah lain), sementara pelanggaran prasyarat langsung
+	 * menghentikan proses dengan {@link NotFoundException}.
+	 *
+	 * @return {@code true} bila seluruh mata kuliah berhasil didaftarkan
+	 * @throws NotFoundException bila prasyarat tidak terpenuhi, SKS melebihi batas, prasyarat mata kuliah belum diambil, kapasitas kelas penuh, atau terjadi kegagalan lain saat penyimpanan
+	 */
 	public static boolean ambilKrs(Mahasiswa mahasiswa, Integer semester, String krs, Tbmuser tbmuser) {
 
 		if (!checkAmbil(mahasiswa, semester, krs)) {
@@ -240,6 +282,7 @@ public class KrsResourceHelper {
 		return true;
 	}
 
+	/** Menghitung total SKS gabungan (mata kuliah yang sedang diambil pada {@code perkuliahans} + yang sudah diambil sebelumnya) via {@link KrsUtilHelper#hitungSksYangTelahDiambil}, dipakai untuk validasi batas SKS. */
 	@SuppressWarnings({ })
 	private static Integer hitungSksYangTelahDiambil(Mahasiswa mahasiswa, Integer semester,
 			List<Perkuliahan> perkuliahans) {

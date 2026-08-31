@@ -44,9 +44,56 @@ import ais.database.model.sekolah.Tagihan;
 import ais.delivery.email.sender.MailSender;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Utilitas pencetakan struk dan pengiriman notifikasi pembayaran siswa modul Sekolah, mendukung
+ * beberapa jalur pembayaran: tunai/manual ({@link #cetakStruk}), deposit ({@link #cetakDeposit}),
+ * dan berbagai payment gateway bank — BRI, BNI, BSI, dan Virtual Account
+ * ({@link #cetakBri}/{@link #cetakBni}/{@link #cetakBsi}/{@link #cetakVa}). Keempat method
+ * {@code cetak<Bank>} mengikuti pola yang identik: menyiapkan parameter laporan (id transaksi,
+ * id sekolah, nominal terbilang, kode transaksi 8 digit dari {@link #formatKodeTransaksi}, waktu
+ * cetak), menyalin data biodata siswa/calon siswa, memanggil {@link #dataPembayaran} untuk
+ * melampirkan rincian item tagihan, lalu menghasilkan PDF struk lewat {@link Report} dan
+ * mengirimkannya ({@link #kirim}).
+ *
+ * <p>
+ * {@link #dataPembayaran} adalah inti pengumpulan data: mengambil seluruh
+ * {@link PembayaranSiswaDetail} terkait satu pembayaran (dicocokkan lewat salah satu dari
+ * bniRequest/briRequest/bsiRequest/virtualAccountBank/pembayaranSiswa — berhenti lebih awal bila
+ * {@code pembayaranSiswa} belum tersimpan, untuk menghindari {@code TransientObjectException}
+ * Hibernate), menjumlahkan nominal riil tiap baris (memakai {@code nominalManual} bila diisi,
+ * atau {@code nominal+denda-diskon} dari {@link Tagihan} terkait), dan menyinkronkan ulang kolom
+ * {@code nominal}/{@code tambahanDeposit} pada {@link PembayaranSiswa} bila berbeda dari hasil
+ * hitung. Method ini membuka sesi Hibernate sendiri dan hanya membuka transaksi baru bila belum
+ * ada transaksi aktif (mendukung dipanggil dari dalam maupun luar transaksi pemanggil).
+ * </p>
+ *
+ * <p>
+ * {@link #kirim} mengirim notifikasi pembayaran berhasil ke wali murid lewat dua kanal: email
+ * (lampiran PDF struk, lewat {@link MailSender}) dan, bila konfigurasi
+ * {@code aktifkan_kirim_notif_pembayaran_ke_wa} aktif, WhatsApp (lewat {@code Wa.kirimWaViaUltramsg},
+ * dijalankan dengan jeda 2 detik lewat timer agar tidak memblokir alur cetak). Salam pembuka
+ * (Pagi/Siang/Sore/Malam) disesuaikan otomatis dengan jam saat pengiriman.
+ * </p>
+ */
 @SuppressWarnings({ "unchecked", "rawtypes" })
 public class PembayaranSiswaUtil {
 
+	/**
+	 * Mengumpulkan rincian item pembayaran (satu pembayaran dicocokkan lewat salah satu request
+	 * bank/VA atau {@code pembayaranSiswa} langsung), menjumlahkan nominal riil, menyinkronkan
+	 * ulang {@code pembayaranSiswa.nominal}/{@code tambahanDeposit} bila berbeda, dan mengisi
+	 * {@code parameters} dengan kunci {@code "terbilang"} (nominal dalam kata) dan {@code "maps"}
+	 * (daftar baris rincian item siap dicetak). Berhenti tanpa efek bila {@code pembayaranSiswa}
+	 * diberikan tapi belum tersimpan (id null) dan tidak ada request bank/VA lain yang valid.
+	 *
+	 * @param pembayaranSiswa     entitas pembayaran utama, boleh {@code null} bila dicocokkan lewat request bank/VA
+	 * @param bniRequest          request BNI terkait, boleh {@code null}
+	 * @param briRequest          request BRI terkait, boleh {@code null}
+	 * @param bsiRequest          request BSI terkait, boleh {@code null}
+	 * @param virtualAccountBank  request Virtual Account terkait, boleh {@code null}
+	 * @param parameters          peta parameter laporan yang akan diisi {@code terbilang}/{@code maps}
+	 * @throws Exception diteruskan dari kegagalan Hibernate (transaksi lokal di-rollback bila dibuka sendiri)
+	 */
 	public static void dataPembayaran(PembayaranSiswa pembayaranSiswa, BniRequest bniRequest, BriRequest briRequest,
 			BsiRequest bsiRequest, VirtualAccountBank virtualAccountBank, Map parameters) throws Exception {
 
@@ -235,7 +282,7 @@ public class PembayaranSiswaUtil {
 		}
 	}
 
-	// Helper method untuk menyeragamkan pembuatan format kode transaksi (Efisiensi memori)
+	/** Menghasilkan kode transaksi 8 digit dari {@code id} (8 digit terakhir bila id cukup panjang, dipadding nol bila lebih pendek), atau angka acak 8 digit bila {@code id} {@code null}. */
 	private static String formatKodeTransaksi(Long id) {
 		if (id == null) {
 			return String.format("%08d", Common.randLong());
@@ -247,6 +294,7 @@ public class PembayaranSiswaUtil {
 		return String.format("%08d", id);
 	}
 
+	/** Mencetak struk PDF untuk pembayaran tunai/manual (tanpa payment gateway) dan mengirimkannya ke wali murid lewat email/WhatsApp; tidak melakukan apa pun bila {@code pembayaranSiswa} {@code null}. */
 	@SuppressWarnings({ })
 	public static void cetakStruk(PembayaranSiswa pembayaranSiswa) throws Exception {
 		if (pembayaranSiswa == null) return; 
@@ -280,6 +328,7 @@ public class PembayaranSiswaUtil {
 		}
 	}
 
+	/** Mencetak struk PDF setoran deposit siswa ({@link DepositSiswa}, hanya bila nominal &gt; 0.1) dan mengirimkannya ke wali murid lewat email/WhatsApp. */
 	@SuppressWarnings({ })
 	public static void cetakDeposit(DepositSiswa depositSiswa) throws Exception {
 		if (depositSiswa != null && depositSiswa.getNominal() != null && depositSiswa.getNominal() > 0.1) {
@@ -298,6 +347,7 @@ public class PembayaranSiswaUtil {
 		}
 	}
 
+	/** Mencetak struk PDF pembayaran via payment gateway BRI dan mengirimkannya ke wali murid; lihat pola umum {@code cetak<Bank>} pada javadoc kelas. */
 	@SuppressWarnings({ })
 	public static void cetakBri(PembayaranSiswa pembayaranSiswa, BriRequest briRequest) throws Exception {
 		Map parameters = new HashMap();
@@ -350,6 +400,7 @@ public class PembayaranSiswaUtil {
 		}
 	}
 
+	/** Mencetak struk PDF pembayaran via payment gateway BNI dan mengirimkannya ke wali murid; lihat pola umum {@code cetak<Bank>} pada javadoc kelas. */
 	@SuppressWarnings({ })
 	public static void cetakBni(PembayaranSiswa pembayaranSiswa, BniRequest bniRequest) throws Exception {
 		Map parameters = new HashMap();
@@ -402,11 +453,13 @@ public class PembayaranSiswaUtil {
 		}
 	}
 
+	/** Mengirim notifikasi pembayaran untuk {@code pembayaranSiswa} (siswa/calon siswa diambil darinya); tidak melakukan apa pun bila {@code pembayaranSiswa} {@code null}. */
 	public static void kirim(PembayaranSiswa pembayaranSiswa, File file) throws Exception {
 		if (pembayaranSiswa == null) return;
 		kirim(pembayaranSiswa.getSiswa(), pembayaranSiswa.getCalonSiswa(), pembayaranSiswa, file);
 	}
 
+	/** Menyusun URL struk terenkripsi (bila {@code pembayaranSiswa} tersimpan) dan mendelegasikan ke {@link #kirim(Siswa, CalonSiswa, Double, String, File)} dengan nominal dari {@code pembayaranSiswa}. */
 	public static void kirim(Siswa siswa, CalonSiswa calonSiswa, PembayaranSiswa pembayaranSiswa, File file)
 			throws Exception {
 		String url = "";
@@ -417,6 +470,22 @@ public class PembayaranSiswaUtil {
 		kirim(siswa, calonSiswa, pembayaranSiswa == null ? null : pembayaranSiswa.getNominal(), url, file);
 	}
 
+	/**
+	 * Implementasi kanonik pengiriman notifikasi pembayaran: menyusun subjek+isi pesan (salam
+	 * disesuaikan jam, nominal dan link struk disisipkan bila diberikan), mengirim email lewat
+	 * {@link MailSender#sendMailLampiran} ke alamat email siswa/calon siswa (digabung bila
+	 * keduanya valid), dan bila konfigurasi {@code aktifkan_kirim_notif_pembayaran_ke_wa} aktif,
+	 * mengirim WhatsApp ke seluruh nomor telepon terkait siswa/calon siswa (dari
+	 * {@code ambilTelp()}, melewati nomor placeholder semua-nol) lewat timer tertunda 2 detik agar
+	 * tidak memblokir alur cetak.
+	 *
+	 * @param siswa      siswa penerima notifikasi, boleh {@code null} bila memakai {@code calonSiswa}
+	 * @param calonSiswa calon siswa penerima notifikasi, boleh {@code null} bila memakai {@code siswa}
+	 * @param nilai      nominal pembayaran untuk ditampilkan di pesan, boleh {@code null}
+	 * @param url        link struk online, boleh {@code null}/kosong
+	 * @param file       berkas PDF struk untuk dilampirkan
+	 * @throws Exception diteruskan dari kegagalan pengiriman email
+	 */
 	public static void kirim(final Siswa siswa, final CalonSiswa calonSiswa, final Double nilai, final String url,
 			final File file) throws Exception {
 
@@ -499,6 +568,7 @@ public class PembayaranSiswaUtil {
 		}
 	}
 
+	/** Mencetak struk PDF pembayaran via Virtual Account bank dan mengirimkannya ke wali murid; parameter {@code cetak} memicu pembuatan salinan PDF tambahan (mis. untuk dicetak langsung di kasir). Lihat pola umum {@code cetak<Bank>} pada javadoc kelas. */
 	@SuppressWarnings({ })
 	public static void cetakVa(PembayaranSiswa pembayaranSiswa, VirtualAccountBank virtualAccountBank, boolean cetak)
 			throws Exception {
@@ -561,6 +631,7 @@ public class PembayaranSiswaUtil {
 		}
 	}
 
+	/** Mencetak struk PDF pembayaran via payment gateway BSI dan mengirimkannya ke wali murid; lihat pola umum {@code cetak<Bank>} pada javadoc kelas. */
 	@SuppressWarnings({ })
 	public static void cetakBsi(PembayaranSiswa pembayaranSiswa, BsiRequest bsiRequest) throws Exception {
 		Map parameters = new HashMap();

@@ -39,6 +39,18 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper UI (bukan entitas/aksi tersendiri) untuk mengelola daftar penerbitan
+ * ({@link ItemPunyaTerbit}) sebuah {@link Item} pustaka pada satuan kerja dan perpustakaan
+ * tertentu: grid ringkasan (satuan kerja, perpustakaan, mulai, sampai, tanggal dibuat) yang dapat
+ * difilter berdasarkan satuan kerja/perpustakaan terpilih di toolbar, serta jendela isi/edit
+ * terpisah ({@link #init(ItemPunyaTerbit)}) berisi editor konten kaya ({@link MyCkEditor}, prefill
+ * dari abstrak/catatan item bila konten kosong) dan pemilih tanggal mulai/sampai. Konten baru
+ * langsung tersimpan ke basis data bila {@code item} sudah punya id; bila belum (item baru),
+ * baris hanya ditambahkan ke grid dan penyimpanan sesungguhnya ditangani proses simpan item
+ * induk. Visibilitas tambah/ubah/hapus mengikuti hak akses
+ * {@link CommonPrivilages#CREATE}/{@link CommonPrivilages#UPDATE}/{@link CommonPrivilages#DELETE}.
+ */
 public class ItemPunyaTerbitHelper {
 
 	private MyGrid gridTerbit;
@@ -49,6 +61,7 @@ public class ItemPunyaTerbitHelper {
 	private AmbilDataPerpustakaanBanbox perpustakaan;
 	private Item item;
 
+	/** @param gridTerbit grid yang akan diisi/dikelola helper ini */
 	public ItemPunyaTerbitHelper(MyGrid gridTerbit) {
 		this.gridTerbit = gridTerbit;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -56,6 +69,14 @@ public class ItemPunyaTerbitHelper {
 		edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
 	}
 
+	/**
+	 * Menyusun tata letak (filter satuan kerja+perpustakaan, toolbar tambah/refresh, grid
+	 * penerbitan dengan kolom Satuan Kerja/Perpustakaan/Mulai/Sampai/Tgl Dibuat/Hapus) dan
+	 * langsung memuat data penerbitan {@code item} yang sudah tersimpan.
+	 *
+	 * @param item item pustaka yang daftar penerbitannya dikelola
+	 * @return komponen tata letak siap pakai untuk ditempelkan ke jendela detail
+	 */
 	public Borderlayout initDetail(final Item item) throws Exception {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 		this.item = item;

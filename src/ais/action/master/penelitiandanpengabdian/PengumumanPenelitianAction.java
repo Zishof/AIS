@@ -56,6 +56,34 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Composer ZK untuk pengelolaan Pengumuman Penelitian ({@link PengumumanPenelitian}) — papan
+ * pengumuman modul Penelitian dan Pengabdian, dilengkapi thread diskusi/komentar
+ * ({@link DiskusiPengumumanPenelitian}) dan daftar user "koresponsi" ({@code korespondensi}, kunci
+ * berupa daftar userId dipisah koma) yang otomatis menerima notifikasi email saat pengumuman dibuat
+ * atau ada komentar baru.
+ *
+ * <h2>Alur kerja</h2>
+ * <p>
+ * {@link #doAfterCompose(Component)} menyiapkan pencarian, hak edit/hapus dari
+ * {@link CommonPrivilages}, dan paging; {@link #doBeforeCompose} menjalankan pemeriksaan keamanan
+ * halaman lebih dulu. Tombol tambah ({@link #onAdd(Event)}) membuka form pengumuman (judul,
+ * tanggal mulai-sampai, catatan berformat CKEditor, status aktif, boleh dikomentari, daftar
+ * koresponsi); tombol simpan memicu {@link #onSave(Event)} yang mewajibkan judul terisi, mencatat
+ * pembuat pengumuman (userId + nama role) dan default koresponsi ke pembuat sendiri bila kosong,
+ * lalu mengirim email pemberitahuan ke seluruh koresponsi lewat {@link #kirimEmailKeKorespondensi}.
+ * </p>
+ * <p>
+ * Pencarian daftar memakai {@link #initCriteria(boolean)} (filter kata kunci pada judul/catatan)
+ * dieksekusi oleh {@link #onSearchDefault(Event)}. Dua method statis menangani notifikasi email
+ * asinkron (lewat {@link Common#createDefaultTimer}, dikirim via {@link MailSender}):
+ * {@link #kirimEmailKeKorespondensi(PengumumanPenelitian)} saat pengumuman dibuat/diubah (ke
+ * seluruh koresponsi), dan {@link #kirimEmail(DiskusiPengumumanPenelitian)} saat ada komentar baru
+ * (ke koresponsi, penulis komentar sebelumnya, dan pembuat komentar sendiri) — keduanya mengumpulkan
+ * alamat email dari beberapa sumber (Tbmuser koresponsi, mahasiswa/user yang pernah berkomentar) dan
+ * memfilter hanya alamat yang lolos {@code Common.isValidEmailAddress}.
+ * </p>
+ */
 public class PengumumanPenelitianAction extends GenericAutowireComposer {
 	private static final long serialVersionUID = 3786091220301468178L;
 	private MyWindow addWindow;
@@ -81,12 +109,14 @@ public class PengumumanPenelitianAction extends GenericAutowireComposer {
 	private Textbox korespondensi;
 
 	@Override
+	/** Menjalankan pemeriksaan keamanan halaman ({@code Common.doCheckSecurity()}) sebelum komponen ZK di-compose. */
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page,
 			org.zkoss.zk.ui.Component parent, org.zkoss.zk.ui.metainfo.ComponentInfo compInfo) {
 		Common.doCheckSecurity();
 		return super.doBeforeCompose(page, parent, compInfo);
 	}
 
+	/** Inisialisasi composer setelah komponen ZK ter-wiring: menyiapkan pencarian, hak edit/hapus, dan paging. */
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
 		Common.initLaguage();
@@ -231,6 +261,7 @@ public class PengumumanPenelitianAction extends GenericAutowireComposer {
 		}
 	}
 
+	/** Handler tombol tambah: membuka form dengan entitas {@link PengumumanPenelitian} baru (kosong). */
 	public void onAdd(Event event) throws Exception {
 		init(new PengumumanPenelitian());
 		addWindow.setVisible(true);
@@ -391,6 +422,14 @@ public class PengumumanPenelitianAction extends GenericAutowireComposer {
 
 	}
 
+	/**
+	 * Memvalidasi (judul wajib isi) dan menyimpan pengumuman: mencatat pembuat (userId + nama
+	 * role), default kolom koresponsi ke pembuat sendiri bila dikosongkan, lalu memicu pengiriman
+	 * email notifikasi ke seluruh koresponsi lewat {@link #kirimEmailKeKorespondensi}.
+	 *
+	 * @param event event ZK asal aksi simpan
+	 * @return {@code true} bila pengumuman berhasil disimpan
+	 */
 	public boolean onSave(Event event) throws Exception {
 		if (judul.getValue().trim().equals("")) {
 			MyMessageboxConfig.show("Judul harus diisi", "Peringatan", MyMessageboxConfig.OK,
@@ -423,6 +462,13 @@ public class PengumumanPenelitianAction extends GenericAutowireComposer {
 		return true;
 	}
 
+	/**
+	 * Membangun kueri Hibernate untuk daftar pengumuman, difilter kata kunci pencarian pada judul
+	 * atau catatan.
+	 *
+	 * @param order {@code true} untuk mengurutkan hasil berdasarkan tanggal menaik
+	 * @return kriteria Hibernate siap dieksekusi/dipaginasi
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(PengumumanPenelitian.class);
@@ -434,6 +480,7 @@ public class PengumumanPenelitianAction extends GenericAutowireComposer {
 		return criteria;
 	}
 
+	/** Mengeksekusi ulang pencarian pengumuman untuk halaman aktif dan merender hasilnya ke grid daftar. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 		Common.initPaging(initCriteria(false), paging);
@@ -447,6 +494,15 @@ public class PengumumanPenelitianAction extends GenericAutowireComposer {
 
 	}
 
+	/**
+	 * Mengirim email notifikasi komentar baru ({@code diskusiPengumumanPenelitian}) secara asinkron
+	 * (lewat {@link Common#createDefaultTimer}) ke: pembuat komentar sendiri (bila email valid),
+	 * seluruh user pada daftar koresponsi pengumuman, dan seluruh mahasiswa/user yang pernah
+	 * berkomentar sebelumnya pada pengumuman yang sama. Tidak melakukan apa pun bila isi komentar
+	 * kosong.
+	 *
+	 * @param diskusiPengumumanPenelitian komentar/diskusi yang baru dibuat
+	 */
 	public static void kirimEmail(final DiskusiPengumumanPenelitian diskusiPengumumanPenelitian) {
 		if (!diskusiPengumumanPenelitian.getCatatan().trim().isEmpty()) {
 			Common.createDefaultTimer(new EventListener() {
@@ -560,6 +616,14 @@ public class PengumumanPenelitianAction extends GenericAutowireComposer {
 		}
 	}
 
+	/**
+	 * Mengirim email pemberitahuan pengumuman baru/diubah secara asinkron ke seluruh user pada
+	 * daftar koresponsi ({@code pengumumanPenelitian.getKorespondensi()}), berisi judul, isi
+	 * pengumuman, dan daftar komentar yang sudah ada. Tidak melakukan apa pun bila catatan atau
+	 * daftar koresponsi kosong.
+	 *
+	 * @param pengumumanPenelitian pengumuman yang baru dibuat/diubah
+	 */
 	public static void kirimEmailKeKorespondensi(final PengumumanPenelitian pengumumanPenelitian) {
 		if (!pengumumanPenelitian.getCatatan().trim().isEmpty() && !pengumumanPenelitian.getKorespondensi().isEmpty()) {
 			Common.createDefaultTimer(new EventListener() {

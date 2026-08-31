@@ -38,6 +38,19 @@ import ais.database.model.library.Perpustakaan;
 import ais.ui.util.MyDoublebox;
 import ais.ui.util.MyTextbox;
 
+/**
+ * Helper UI (bukan entitas/aksi tersendiri) untuk mengelola detail koreksi stok item pustaka
+ * ({@link KoreksiItemDetail}) pada sebuah {@link KoreksiItem} (dokumen koreksi/adjustment stok):
+ * menghitung stok berjalan tiap item lewat SQL agregasi transaksi ({@code library.detail_transaksi}
+ * dikalikan {@code jenis} kode transaksinya) sebelum baris ditambahkan, memungkinkan penambahan
+ * item manual ({@code AmbilDataItemBanyak}) maupun berdasarkan filter stok
+ * ({@code AmbilDataItemBanyakBerdasarkanStok}), dan menghitung ulang "stok menjadi" (stok saat ini
+ * + koreksi bertanda sesuai jenis penambahan/pengurangan) setiap kali jenis koreksi atau jumlah
+ * diubah. Seluruh kolom baris (jenis koreksi, jumlah, keterangan) dan tombol hapus dinonaktifkan
+ * begitu {@code koreksiItem} sudah {@code disetujuiOleh} (telah disetujui). Perpustakaan wajib
+ * dipilih ({@code getPerpustakaan}) sebelum item dapat ditambahkan. Visibilitas tombol tambah/
+ * hapus mengikuti hak akses {@link CommonPrivilages#CREATE}/{@link CommonPrivilages#DELETE}.
+ */
 public class KoreksiItemPunyaItemHelper {
 
 	private MyGrid gridItem;
@@ -46,6 +59,7 @@ public class KoreksiItemPunyaItemHelper {
 
 	private List<KodeTransaksi> kodeTransaksis = new ArrayList<KodeTransaksi>();
 
+	/** @param gridItem grid yang akan diisi/dikelola helper ini */
 	public KoreksiItemPunyaItemHelper(MyGrid gridItem) {
 		this.gridItem = gridItem;
 		kodeTransaksis.add(LibraryUtil.adjustmentPenambahan);
@@ -55,6 +69,16 @@ public class KoreksiItemPunyaItemHelper {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/**
+	 * Menyusun tata letak (toolbar dua tombol tambah — manual dan berdasar stok — plus tombol
+	 * refresh yang dinonaktifkan bila sudah disetujui, dan grid detail koreksi dengan kolom
+	 * Kode/ISBN/Nama/Jenis Koreksi/Jumlah/Stok/Menjadi/Keterangan/Hapus) dan langsung memuat
+	 * detail {@code koreksiItem} yang sudah tersimpan.
+	 *
+	 * @param koreksiItem     dokumen koreksi stok yang detailnya dikelola
+	 * @param getPerpustakaan komponen pemilih perpustakaan; nilainya wajib diisi sebelum item dapat ditambahkan
+	 * @return komponen tata letak siap pakai untuk ditempelkan ke jendela detail
+	 */
 	public Borderlayout initDetail(final KoreksiItem koreksiItem, final AmbilDataPerpustakaanBanbox getPerpustakaan)
 			throws Exception {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -274,6 +298,7 @@ public class KoreksiItemPunyaItemHelper {
 		return borderlayout;
 	}
 
+	/** Memuat baris {@link KoreksiItemDetail} tersimpan milik {@code koreksiItem} ke dalam grid (kosong bila dokumen belum tersimpan). */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final KoreksiItem koreksiItem) throws Exception {
 
@@ -292,6 +317,17 @@ public class KoreksiItemPunyaItemHelper {
 		}
 	}
 
+	/**
+	 * Mengisi satu baris grid dengan kode/nama item (via {@link RevisiHelper}), stok berjalan,
+	 * kombo jenis koreksi (Penambahan/Pengurangan), jumlah, dan keterangan — setiap perubahan
+	 * jenis/jumlah menghitung ulang {@code jumlah} bertanda (mutlak dikali {@code jenis} kode
+	 * transaksi) dan {@code stokmenjadi} (stok + jumlah bertanda), lalu menyimpan langsung bila
+	 * baris sudah tersimpan. Semua kolom dan tombol hapus dinonaktifkan bila
+	 * {@code koreksiItem} sudah disetujui.
+	 *
+	 * @param row               baris grid yang diisi
+	 * @param koreksiItemDetail data detail koreksi untuk baris ini
+	 */
 	public void initRow(final Row row, final KoreksiItemDetail koreksiItemDetail) throws Exception {
 		row.setValign("top");row.setAttribute("koreksiItemDetail", koreksiItemDetail);
 

@@ -24,8 +24,28 @@ import ais.database.model.rab.SatuanKerja;
 import ais.database.model.sekolah.Sekolah;
 import ais.database.model.sekolah.Yayasan;
 
+/**
+ * Utilitas resolusi konteks tenant (sekolah/yayasan) untuk modul sekolah pada arsitektur
+ * multi-tenant AIS: menentukan {@link Sekolah}/{@link Yayasan} aktif dari sesi HTTP saat ini,
+ * dengan fallback berurutan mencari objek permintaan HTTP ({@link ExecutionsCtrl} milik ZK, lalu
+ * {@link RequestContext} untuk konteks non-ZK/background), lalu mencocokkan hak akses user atau
+ * nama domain server terhadap peta {@code sekolahByDomain}/{@code yayasanByDomain} pada
+ * {@code SekolahAction}/{@code YayasanAction}. Hasil resolusi di-cache pada atribut sesi HTTP
+ * ({@code sekolah_data}/{@code yayasan_data}) agar tidak perlu diresolusi ulang setiap
+ * permintaan. Juga menyediakan pembentukan URL media (logo/background) khusus sekolah/yayasan
+ * yang teridentifikasi. Pemanggilan dari thread tanpa konteks HTTP (mis. proses async/background)
+ * sengaja tidak melempar exception — cukup mengembalikan objek {@link Sekolah}/{@link Yayasan}
+ * kosong sebagai fallback aman.
+ */
 public class SekolahUtil {
 
+	/**
+	 * @return kumpulan {@link SatuanKerja} default yang dapat diakses user yang login: bila hak
+	 *         aksesnya menyebutkan daftar kode satuan kerja ({@code hakAkses().getSatuanKerjas()}),
+	 *         dibatasi ke kode-kode tersebut; bila tidak, seluruh satuan kerja default milik
+	 *         {@link Yayasan} aktif (lihat {@link #getYayasan()}), atau himpunan kosong bila
+	 *         yayasan tidak teridentifikasi
+	 */
 	public static HashSet<SatuanKerja> ambilSatuanKerjas() {
 
 		Tbmuser tbmuser = Common.getCurrentUser();
@@ -61,6 +81,11 @@ public class SekolahUtil {
 		}
 	}
 
+	/**
+	 * @return {@link Yayasan} aktif untuk permintaan saat ini, diresolusi dari konteks HTTP ZK
+	 *         atau {@link RequestContext} (lihat javadoc kelas); yayasan kosong bila tidak ada
+	 *         konteks permintaan sama sekali
+	 */
 	public static Yayasan getYayasan() {
 		try {
 			HttpServletRequest request = null;
@@ -94,6 +119,11 @@ public class SekolahUtil {
 		return new Yayasan();
 	}
 
+	/**
+	 * @param request permintaan HTTP saat ini, boleh {@code null}
+	 * @return {@link Yayasan} dari cache sesi ({@code yayasan_data}) bila ada, atau diresolusi
+	 *         ulang lewat {@link #getYayasanData} dan disimpan ke sesi untuk permintaan berikutnya
+	 */
 	public static Yayasan getYayasan(HttpServletRequest request) {
 
 		Yayasan yayasan = (Yayasan) (request == null ? null : request.getSession().getAttribute("yayasan_data"));
@@ -108,6 +138,13 @@ public class SekolahUtil {
 
 	}
 
+	/**
+	 * Meresolusi {@link Yayasan} dari awal (tanpa cache sesi): lebih dulu dari yayasan pemilik
+	 * {@link Sekolah} aktif (bila teridentifikasi), lalu dari kecocokan nama domain server
+	 * terhadap peta {@code YayasanAction.yayasanByDomain} (diinisialisasi ulang bila kosong).
+	 * Mengembalikan {@link Yayasan} kosong bila tidak ada konteks permintaan atau tidak ada yang
+	 * cocok.
+	 */
 	private static Yayasan getYayasanData(HttpServletRequest request) {
 
 		try {
@@ -150,6 +187,11 @@ public class SekolahUtil {
 		return new Yayasan();
 	}
 
+	/**
+	 * @return {@link Sekolah} aktif untuk permintaan saat ini, diresolusi dari konteks HTTP ZK
+	 *         atau {@link RequestContext} (lihat javadoc kelas); sekolah kosong bila tidak ada
+	 *         konteks permintaan sama sekali
+	 */
 	public static Sekolah getSekolah() {
 		try {
 
@@ -185,6 +227,11 @@ public class SekolahUtil {
 		return new Sekolah();
 	}
 
+	/**
+	 * @param request permintaan HTTP saat ini, boleh {@code null}
+	 * @return {@link Sekolah} dari cache sesi ({@code sekolah_data}) bila ada, atau diresolusi
+	 *         ulang lewat {@link #getSekolahData} dan disimpan ke sesi untuk permintaan berikutnya
+	 */
 	public static Sekolah getSekolah(HttpServletRequest request) {
 		Sekolah sekolah = (Sekolah) (request == null ? null : request.getSession().getAttribute("sekolah_data"));
 		if (sekolah != null && sekolah.getId() != null) {
@@ -198,6 +245,14 @@ public class SekolahUtil {
 		return sekolah;
 	}
 
+	/**
+	 * Meresolusi {@link Sekolah} dari awal (tanpa cache sesi): lebih dulu dari
+	 * {@code hakAkses().getSekolah()} user yang login (bila ada), lalu dari kecocokan nama domain
+	 * server terhadap peta {@code SekolahAction.sekolahByDomain} (diinisialisasi ulang bila
+	 * kosong). Mengembalikan {@link Sekolah} kosong bila tidak ada konteks permintaan atau tidak
+	 * ada yang cocok — dirancang tidak melempar exception agar proses tanpa konteks HTTP (mis.
+	 * laporan payroll asinkron) tidak gagal karenanya.
+	 */
 	private static Sekolah getSekolahData(HttpServletRequest request) {
 
 		try {
@@ -238,6 +293,12 @@ public class SekolahUtil {
 		return new Sekolah();
 	}
 
+	/**
+	 * @param jenis  jenis media (mis. {@code "logo"}, {@code "background"}); nama file berpola
+	 *               {@code jenis + <idSekolah> + (.jpg untuk background, .png lainnya)}
+	 * @return URL media sekolah aktif untuk permintaan saat ini, atau URL gambar bawaan
+	 *         ({@code main.jpg}/{@code logo.png}) bila sekolah tidak teridentifikasi/tidak ada konteks
+	 */
 	public static String getSekolahMedia(String jenis) {
 		try {
 			HttpServletRequest request = null;
@@ -274,10 +335,21 @@ public class SekolahUtil {
 		}
 	}
 
+	/** Seperti {@link #getSekolahMedia(HttpServletRequest, String, Sekolah)} dengan sekolah diresolusi otomatis dari domain server. */
 	public static String getSekolahMedia(HttpServletRequest request, String jenis) {
 		return getSekolahMedia(request, jenis, null);
 	}
 
+	/**
+	 * Membentuk URL media sekolah, dasarnya host+context path permintaan (atau
+	 * {@code CURRENT_URL} dari konfigurasi bila {@code dapatkan_code_via_url_custom} aktif).
+	 *
+	 * @param request permintaan HTTP saat ini (wajib, dipakai untuk membentuk base URL)
+	 * @param jenis   jenis media, lihat {@link #getSekolahMedia(String)}
+	 * @param sekolah sekolah target; bila {@code null}, diresolusi dari kecocokan nama domain
+	 *                server terhadap {@code SekolahAction.sekolahByDomain}
+	 * @return URL media sekolah, atau URL gambar bawaan bila sekolah tidak dapat ditentukan/terjadi galat
+	 */
 	public static String getSekolahMedia(HttpServletRequest request, String jenis, Sekolah sekolah) {
 		String CURRENT_URL = (Common.isSecure(request) ? "https://" : "http://") + request.getServerName()
 				+ (request.getServerPort() == 80 || request.getServerPort() == 443 ? "" : ":" + request.getServerPort())
@@ -339,6 +411,7 @@ public class SekolahUtil {
 		}
 	}
 
+	/** Seperti {@link #getSekolahMedia(String)}, untuk media yayasan aktif alih-alih sekolah. */
 	public static String getYayasanMedia(String jenis) {
 		try {
 			HttpServletRequest request = null;
@@ -375,10 +448,20 @@ public class SekolahUtil {
 		}
 	}
 
+	/** Seperti {@link #getYayasanMedia(HttpServletRequest, String, Yayasan)} dengan yayasan diresolusi otomatis dari domain server. */
 	public static String getYayasanMedia(HttpServletRequest request, String jenis) {
 		return getYayasanMedia(request, jenis, null);
 	}
 
+	/**
+	 * Membentuk URL media yayasan, dasarnya host+context path permintaan.
+	 *
+	 * @param request permintaan HTTP saat ini (wajib)
+	 * @param jenis   jenis media, lihat {@link #getSekolahMedia(String)}
+	 * @param yayasan yayasan target; bila {@code null}, diresolusi dari kecocokan nama domain
+	 *                server terhadap {@code YayasanAction.yayasanByDomain}
+	 * @return URL media yayasan, atau URL gambar bawaan bila yayasan tidak dapat ditentukan/terjadi galat
+	 */
 	public static String getYayasanMedia(HttpServletRequest request, String jenis, Yayasan yayasan) {
 
 		try {

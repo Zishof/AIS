@@ -36,18 +36,27 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper UI ZK untuk mengelola lampiran foto/berkas ({@link FotoInformasiRab}) pada satu
+ * {@link InformasiRab}: unggah berkas baru (disimpan sebagai BLOB via
+ * {@link StreamingHibernateUtil}, sesi Hibernate terpisah dari sesi utama agar tidak membebani
+ * transaksi form utama), unduh, toggle tampil/sembunyi, dan hapus per baris. Aksi tambah/hapus
+ * tampil sesuai privilese {@link CommonPrivilages#CREATE}/{@link CommonPrivilages#DELETE} user.
+ */
 public class InformasiRabPunyaFotoHelper {
 
 	private MyGrid gridFotoGambar;
 	private boolean add = false;
 	private boolean delete = false;
 
+	/** Menyiapkan helper untuk {@code gridFotoGambar} yang diberikan; hak tambah/hapus ditentukan dari privilese user yang sedang login. */
 	public InformasiRabPunyaFotoHelper(MyGrid gridFotoGambar) {
 		this.gridFotoGambar = gridFotoGambar;
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 	}
 
+	/** Membangun kerangka layar lampiran foto: toolbar unggah berkas (bila punya hak tambah) dan grid dengan kolom Nama/Jenis/Tampil/aksi, lalu langsung memuat datanya. Berkas yang diunggah sebelum {@code informasiRab} tersimpan (id {@code null}) sementara dikaitkan ke id acak. */
 	public Borderlayout initDetail(
 			final InformasiRab informasiRab) throws Exception {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -142,6 +151,7 @@ public class InformasiRabPunyaFotoHelper {
 		return borderlayout;
 	}
 
+	/** Memuat seluruh {@link FotoInformasiRab} milik {@code informasiRab} (terbaru dulu) dan merender satu baris grid per berkas. */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(
 			final InformasiRab informasiRab) throws Exception {
@@ -167,6 +177,7 @@ public class InformasiRabPunyaFotoHelper {
 		StreamingHibernateUtil.getInstance().closeSession();
 	}
 
+	/** Merender satu baris grid untuk {@code fotoInformasiRab}: nama/jenis (dapat diklik untuk unduh), checkbox tampil/sembunyi (disimpan langsung saat diubah), dan tombol unduh/hapus (hapus dengan konfirmasi). */
 	public void initRow(final Row row,
 			final FotoInformasiRab fotoInformasiRab)
 			throws Exception {

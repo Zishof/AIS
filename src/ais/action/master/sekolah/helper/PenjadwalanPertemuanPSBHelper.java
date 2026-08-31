@@ -267,6 +267,14 @@ public class PenjadwalanPertemuanPSBHelper {
 		return true;
 	}
 
+	/**
+	 * Membangun dan menampilkan dialog modal agenda pertemuan untuk jadwal pertemuan PSB yang
+	 * diberikan: toolbar tambah pertemuan di utara, grid daftar pertemuan di tengah, dan tombol
+	 * batal/simpan di selatan.
+	 *
+	 * @param jadwalPertemuanPSB jadwal pertemuan PSB yang agendanya disusun
+	 * @param dataLoader         callback pemuatan ulang data pemanggil setelah penyimpanan
+	 */
 	public void display(final JadwalPertemuanPSB jadwalPertemuanPSB, final DataLoader dataLoader) {
 		this.jadwalPertemuanPSB = jadwalPertemuanPSB;
 		this.dataLoader = dataLoader;
@@ -430,6 +438,7 @@ public class PenjadwalanPertemuanPSBHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Memuat daftar pertemuan aktif milik jadwal pertemuan PSB yang sedang ditampilkan, diurutkan waktu mulai, lalu merender hasilnya ke grid. */
 	public void onSearchDefault(Event event) {
 
 		Session session = HibernateUtil.currentSession();

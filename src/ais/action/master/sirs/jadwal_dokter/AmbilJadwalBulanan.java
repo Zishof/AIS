@@ -34,6 +34,16 @@ import ais.database.model.sirs.JadwalDokter;
 import ais.database.model.sirs.Poly;
 import ais.ui.util.CustomSimpleDateFormatter;
 
+/**
+ * Jendela dialog ZK untuk menelusuri {@link JadwalDokter} (jadwal praktik dokter/tenaga medis
+ * SIRS) dalam tampilan kalender mingguan (komponen {@code org.zkoss.calendar.Calendars}),
+ * difilter berdasarkan dokter, poli, dan lokasi. Memilih satu slot jadwal pada kalender
+ * (event {@code onEventEdit}) memanggil {@code eventListener} milik pemanggil dengan
+ * {@code [JadwalDokter, tanggalDilayani]}, lalu menutup dialog — dipakai sebagai pemilih jadwal
+ * saat membuat janji/kunjungan pasien. Jam mulai/selesai tampilan dan zona waktu kalender diambil
+ * dari konfigurasi {@code penjadwalan_jam_mulai}/{@code penjadwalan_jam_selesai}/
+ * {@code penjadwalan_timezone}.
+ */
 public class AmbilJadwalBulanan extends Window {
 
 	private static final long serialVersionUID = 201011240904L;
@@ -46,11 +56,13 @@ public class AmbilJadwalBulanan extends Window {
 	private Date tanggal;
 	private String jenis;
 
+	/** Memuat ulang model kalender sesuai filter dokter/poli/lokasi saat ini tanpa mengubah tanggal yang sedang ditampilkan. */
 	public void onRefresh(Event event) {
 		initCalendarModel();
 		calendars.invalidate();
 	}
 
+	/** Menggeser tampilan kalender mundur satu minggu, lalu memuat ulang modelnya. */
 	public void onBack(Event event) {
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 		calendar.setTime(calendars.getCurrentDate());
@@ -60,6 +72,7 @@ public class AmbilJadwalBulanan extends Window {
 		calendars.invalidate();
 	}
 
+	/** Menggeser tampilan kalender maju satu minggu, lalu memuat ulang modelnya. */
 	public void onNext(Event event) {
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 		calendar.setTime(calendars.getCurrentDate());
@@ -69,6 +82,11 @@ public class AmbilJadwalBulanan extends Window {
 		calendars.invalidate();
 	}
 
+	/**
+	 * Membuka dialog kalender jadwal, dimulai dari {@code tanggal}, difilter untuk {@code jenis}
+	 * poli tertentu (boleh {@code null} untuk semua jenis). {@code eventListener} dipanggil saat
+	 * pengguna memilih satu slot jadwal.
+	 */
 	public AmbilJadwalBulanan(Date tanggal, String jenis, EventListener eventListener) throws Exception {
 
 		super("Lihan dan Ambil Jadwal", "none", true);
@@ -83,6 +101,7 @@ public class AmbilJadwalBulanan extends Window {
 
 	}
 
+	/** Membangun kerangka dialog: filter dokter/poli/lokasi + tombol Refresh di utara, komponen kalender di tengah, dan toolbar Batal/Back/Next di selatan. */
 	private void init() {
 
 		Borderlayout borderlayout = new Borderlayout();
@@ -248,6 +267,7 @@ public class AmbilJadwalBulanan extends Window {
 		});
 	}
 
+	/** Menyusun ulang model event kalender berdasarkan lokasi/dokter/poli yang sedang dipilih, didelegasikan ke {@link CommonSirs#initCalendarModel}. */
 	private void initCalendarModel() {
 
 		Lokasi myLokasi = (Lokasi) lokasi.getAttribute("lokasi");
@@ -257,6 +277,7 @@ public class AmbilJadwalBulanan extends Window {
 		CommonSirs.initCalendarModel(myLokasi, myDokter, myPoly, calendars, true, jenis);
 	}
 
+	/** Alias untuk {@link #onRefresh(Event)}, mengikuti konvensi nama handler pencarian di seluruh aplikasi. */
 	public void onSearchDefault(Event event) {
 		onRefresh(event);
 	}

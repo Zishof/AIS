@@ -43,6 +43,28 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper UI ZK modul aset untuk mengelola daftar barang/jasa yang dipesan pada satu transaksi
+ * {@link PemesananPengadaanMasterAsset}, lewat baris {@link PemesananPengadaanMasterAssetDetail}
+ * (kuantitas, harga beli, diskon, pajak PPN/PPH, keterangan). Panel menyesuaikan diri terhadap
+ * tiga mode: edit biasa, {@code persetujuan} (read-only, kolom diganti label), dan
+ * {@code pembelianLangsung} (menyembunyikan kolom rincian harga/diskon/pajak, hanya menampilkan
+ * kolom ringkas — total 7 kolom, bukan 12).
+ *
+ * <p>
+ * Tombol "Ambil Data Barang/Jasa" membuka dialog {@code AmbilDataMasterAssetBanyak} (pemilih
+ * aset multi-pilih, dengan aset yang sudah ada di daftar dikecualikan), hanya tampak bila belum
+ * disetujui dan checkbox {@code tampaPermintaan} dicentang (menandakan pemesanan tanpa permintaan
+ * pengadaan formal terlebih dulu). Setiap baris menghitung ulang PPN/PPH/total lewat method
+ * entitas ({@code hitungPpn}/{@code hitungPph}/{@code getHargaTotal}) tiap kali salah satu field
+ * berubah, dan mengubah harga beli default pada {@link MasterAsset} induk juga ikut diperbarui
+ * (lewat timer default). {@link #eventListenerHitungUlang} menjumlahkan seluruh baris menjadi
+ * total keseluruhan, ditampilkan di baris kaki tabel dan disinkronkan ke kolom {@code nilai}
+ * pada {@link PemesananPengadaanMasterAsset} induk bila berbeda. Baris juga menampilkan tautan
+ * riwayat revisi berjenjang (ke permintaan pengadaan dan/atau penerimaan pengadaan asal, bila
+ * ada) serta unggah/unduh gambar aset lewat {@link LampiranLain}.
+ * </p>
+ */
 public class PemesananPengadaanMasterAssetHelper {
 
 	private MyGrid gridMasterAsset;
@@ -59,10 +81,23 @@ public class PemesananPengadaanMasterAssetHelper {
 
 	private boolean pembelianLangsung;
 
+	/** Membangun helper terikat pada {@code gridMasterAsset}; hak edit/hapus dan konteks transaksi ditentukan penuh saat {@link #initDetail} dipanggil. */
 	public PemesananPengadaanMasterAssetHelper(MyGrid gridMasterAsset) {
 		this.gridMasterAsset = gridMasterAsset;
 	}
 
+	/**
+	 * Membangun panel (groupbox) "Daftar Pemesanan Barang/Jasa" untuk
+	 * {@code pemesananPengadaanMasterAsset}: toolbar (Ambil Data, Refresh, History — tampil
+	 * sesuai kondisi), grid kolom yang menyesuaikan mode {@code pembelianLangsung}, dan baris
+	 * kaki total. Hak edit/hapus dihitung dari status persetujuan transaksi.
+	 *
+	 * @param pemesananPengadaanMasterAsset transaksi pemesanan yang menjadi konteks detail
+	 * @param persetujuan                   bila {@code true}, panel dalam mode read-only (dipaksa juga bila {@code pembelianLangsung})
+	 * @param pembelianLangsung              bila {@code true}, kolom rincian harga/diskon/pajak disembunyikan dan panel dipaksa read-only
+	 * @param tampaPermintaan                checkbox penanda "tanpa permintaan pengadaan formal", mengendalikan visibilitas tombol tambah
+	 * @return groupbox siap disisipkan sebagai konten form pemesanan pengadaan
+	 */
 	public MyGroupboxStyled initDetail(final PemesananPengadaanMasterAsset pemesananPengadaanMasterAsset,
 			final boolean persetujuan, boolean pembelianLangsung, final MyCheckboxConfig tampaPermintaan)
 			throws Exception {
@@ -313,6 +348,7 @@ public class PemesananPengadaanMasterAssetHelper {
 		return myGroupboxStyled;
 	}
 
+	/** Menjumlahkan ulang total semua baris yang tampil di grid, menyinkronkannya ke kolom {@code nilai} transaksi induk (bila berbeda dan sudah tersimpan), dan memperbarui label total di kaki tabel. */
 	public EventListener eventListenerHitungUlang = new EventListener() {
 
 		@SuppressWarnings("unchecked")
@@ -342,6 +378,7 @@ public class PemesananPengadaanMasterAssetHelper {
 		}
 	};
 
+	/** Memuat baris-baris pemesanan tersimpan untuk {@code pemesananPengadaanMasterAsset} dari database, merendernya ke grid, lalu menghitung ulang total lewat timer default. */
 	@SuppressWarnings("unchecked")
 	private void loadDataDetail(final PemesananPengadaanMasterAsset pemesananPengadaanMasterAsset) throws Exception {
 
@@ -366,6 +403,17 @@ public class PemesananPengadaanMasterAssetHelper {
 		Common.createDefaultTimer(eventListenerHitungUlang);
 	}
 
+	/**
+	 * Mengisi {@code row} dengan tautan riwayat revisi berjenjang (aset, permintaan pengadaan
+	 * asal, penerimaan pengadaan asal — bila ada), unggah/unduh gambar aset, dan kolom
+	 * kuantitas/harga beli/diskon/pajak PPN-PPH/keterangan — masing-masing dirender sebagai
+	 * komponen editable (bila bukan mode persetujuan dan berhak ubah) atau label read-only (mode
+	 * persetujuan/kolom disembunyikan pada pembelian langsung), dengan kolom rincian
+	 * harga/diskon/pajak seluruhnya disembunyikan pada mode {@code pembelianLangsung}. Perubahan
+	 * pada field manapun memicu penghitungan ulang PPN/PPH/total baris dan total keseluruhan,
+	 * serta memperbarui harga beli default pada {@link MasterAsset} induk. Tombol hapus (bila
+	 * pengguna berhak dan bukan mode persetujuan) meminta konfirmasi sebelum menghapus baris.
+	 */
 	public void initRow(final Row row, final PemesananPengadaanMasterAssetDetail pemesananPengadaanMasterAssetDetail)
 			throws Exception {
 

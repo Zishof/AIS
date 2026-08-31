@@ -62,6 +62,30 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper pengelola pengajuan laporan untuk satu tahap pelaporan
+ * ({@link TahapanPelaporanPenelitianDanPengabdian}) pada modul Penelitian dan Pengabdian: dosen
+ * mengunggah laporan (catatan + berkas opsional) untuk suatu tahap tertentu, terkait ke proposal
+ * pengajuan penelitian/pengabdian ({@link PengajuanPenelitianDanPengabdian}) miliknya, disimpan
+ * sebagai {@link PengajuanTahapanPelaporanPenelitianDanPengabdian} beserta berkas terkait
+ * ({@link FilePengajuanTahapanPelaporanPenelitianDanPengabdian}).
+ *
+ * <p>
+ * {@link #displayWindowPengajuan} membuka jendela modal berisi form pengajuan laporan tahap: pilih
+ * proposal terkait (bila belum ditentukan lewat field {@link #pengajuanPenelitianDanPengabdian}),
+ * catatan (CKEditor), dan opsional berkas yang sudah diunggah sebelumnya ({@code Media}/{@code File}
+ * dari komponen upload). Setelah disimpan, penyimpanan berkas (bila ada) dan pembentukan URL akses
+ * publiknya dijalankan asinkron lewat timer agar transaksi utama cepat selesai. Bila tahap sudah
+ * berstatus {@code DISETUJUI}, form dikunci (read-only, tombol Simpan disembunyikan) dan catatan
+ * ditampilkan sebagai HTML statis, bukan editor.
+ * </p>
+ * <p>
+ * {@link #displayPengajuan} membangun panel daftar pengajuan laporan tahap (grid dengan pencarian
+ * berdasarkan catatan atau identitas pengaju — user id/nama, atau NIM/nama mahasiswa) yang
+ * dipasang ke {@code component} pemanggil; pencarian dijalankan lewat {@link #initCriteria(boolean)}
+ * dan {@link #loadDataPengajuan()}.
+ * </p>
+ */
 public class PengajuanTahapanPelaporanPenelitianDanPengabdianHelper implements DataCriteria {
 
 	private MyGrid gridPengajuan;
@@ -76,6 +100,19 @@ public class PengajuanTahapanPelaporanPenelitianDanPengabdianHelper implements D
 
 	private PengajuanPenelitianDanPengabdian pengajuanPenelitianDanPengabdian;
 
+	/**
+	 * Membuka jendela modal form pengajuan laporan untuk {@code tahapanPelaporanPenelitianDanPengabdianData}.
+	 * Menyimpan/memperbarui baris {@link PengajuanTahapanPelaporanPenelitianDanPengabdian} terkait
+	 * proposal terpilih dan catatan yang diisi; bila {@code f}/{@code media} diberikan, berkas
+	 * disimpan sebagai {@link FilePengajuanTahapanPelaporanPenelitianDanPengabdian} secara asinkron
+	 * (lewat timer) setelah baris utama tersimpan, lengkap dengan URL akses publik berkas. Form
+	 * dikunci (read-only) bila data yang diedit sudah berstatus {@code DISETUJUI}.
+	 *
+	 * @param tahapanPelaporanPenelitianDanPengabdianData tahap pelaporan target
+	 * @param pengajuanTahapanPelaporanPenelitianDanPengabdianData data pengajuan yang diedit, boleh {@code null} untuk pengajuan baru
+	 * @param media informasi berkas yang diunggah (nama, tipe konten), boleh {@code null}
+	 * @param f     berkas fisik hasil unggahan pada disk server, boleh {@code null}
+	 */
 	public void displayWindowPengajuan(
 			final TahapanPelaporanPenelitianDanPengabdian tahapanPelaporanPenelitianDanPengabdianData,
 			final PengajuanTahapanPelaporanPenelitianDanPengabdian pengajuanTahapanPelaporanPenelitianDanPengabdianData,
@@ -255,6 +292,15 @@ public class PengajuanTahapanPelaporanPenelitianDanPengabdianHelper implements D
 		window.onModal();
 	}
 
+	/**
+	 * Membangun panel daftar pengajuan laporan untuk {@code tahapanPelaporanPenelitianDanPengabdianData},
+	 * opsional difilter ke satu {@code pengajuanPenelitianDanPengabdian} (proposal) tertentu, dan
+	 * memasangnya ke {@code component}. Menyediakan kolom pencarian catatan dan identitas pengaju.
+	 *
+	 * @param tahapanPelaporanPenelitianDanPengabdianData tahap pelaporan target
+	 * @param pengajuanPenelitianDanPengabdian             proposal pembatas cakupan, boleh {@code null} untuk semua proposal
+	 * @param component                                    komponen ZK induk tempat panel dipasang
+	 */
 	public void displayPengajuan(
 			final TahapanPelaporanPenelitianDanPengabdian tahapanPelaporanPenelitianDanPengabdianData,
 			final PengajuanPenelitianDanPengabdian pengajuanPenelitianDanPengabdian, final Component component) {
@@ -406,6 +452,14 @@ public class PengajuanTahapanPelaporanPenelitianDanPengabdianHelper implements D
 
 	}
 
+	/**
+	 * Membangun kueri Hibernate untuk daftar pengajuan laporan tahap, difilter proposal (bila
+	 * ditentukan), tahap pelaporan target, dan kata kunci pencarian catatan/identitas pengaju
+	 * (userId/nama user atau NIM/nama mahasiswa).
+	 *
+	 * @param order {@code true} untuk menyertakan pengurutan hasil (id menurun)
+	 * @return kriteria Hibernate siap dieksekusi/dipaginasi
+	 */
 	public Criteria initCriteria(boolean order) {
 
 		Session session = HibernateUtil.currentSession();
@@ -440,6 +494,7 @@ public class PengajuanTahapanPelaporanPenelitianDanPengabdianHelper implements D
 		return criteria;
 	}
 
+	/** Mengeksekusi {@link #initCriteria(boolean)} untuk halaman aktif dan merender hasilnya ke {@link #gridPengajuan}, sekaligus memperbarui total halaman {@link #paging}. */
 	@SuppressWarnings("unchecked")
 	public void loadDataPengajuan() {
 		Common.initPaging(initCriteria(false), paging);

@@ -47,6 +47,18 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper layar riwayat <b>Kartu Identitas</b> pegawai (mis. KTP, NPWP, kartu pegawai, dsb) modul
+ * employ — salah satu dari beberapa helper "Riwayat*PegawaiHelper" yang berbagi pola serupa
+ * (bandingkan dengan {@link RiwayatOrganisasiSekolahPegawaiHelper},
+ * {@link RiwayatTandaJasaPegawaiHelper}). Dapat dipakai dalam dua mode: terikat ke satu
+ * {@code pegawai} tertentu (field pencarian pegawai dikunci) atau mode admin lintas pegawai
+ * (dengan filter satuan kerja hierarkis lewat {@link SatuanKerjaTreeModel}, mencakup seluruh anak
+ * unit organisasi). Setiap entri riwayat wajib melampirkan berkas bukti lewat
+ * {@link FotoLampiranPegawaiHelper} sebelum dapat disimpan. Entri yang sudah berstatus "Disetujui"
+ * dikunci dari pengeditan ({@link Common#freeze}) kecuali oleh pengguna dengan hak
+ * {@link CommonPrivilages#APPROVE}; entri yang sudah disetujui juga tidak dapat dihapus dari grid.
+ */
 public class RiwayatKartuIdentitasPegawaiHelper {
 
 	private MyGrid grid = new MyGrid();
@@ -66,10 +78,12 @@ public class RiwayatKartuIdentitasPegawaiHelper {
 	private AmbilDataSatuanKerjaBanbox searchparent;
 	private SatuanKerjaTreeModel satuanKerjaTreeModel;
 
+	/** Membuat helper untuk satu {@code pegawai} tertentu (mengunci filter pencarian pegawai), atau mode admin lintas pegawai bila {@code pegawai} {@code null}. */
 	public RiwayatKartuIdentitasPegawaiHelper(Pegawai pegawai) {
 		this.pegawai = pegawai;
 	}
 
+	/** Perender baris grid riwayat kartu identitas: menampilkan pegawai, nama kartu, keterangan, ikon status persetujuan, dan tombol ubah/hapus (hapus disembunyikan bila sudah disetujui). */
 	class RiwayatKartuIdentitasPegawaiRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -143,6 +157,13 @@ public class RiwayatKartuIdentitasPegawaiHelper {
 		}
 	}
 
+	/**
+	 * Membangun tata letak layar riwayat kartu identitas: panel filter (pegawai atau satuan kerja
+	 * tergantung mode, plus status persetujuan) dan grid hasil berpaging 50 baris, langsung memuat
+	 * data awal lewat timer default.
+	 *
+	 * @return tata letak {@link Borderlayout} siap ditempel ke komponen induk
+	 */
 	public Borderlayout display() throws Exception {
 
 		North north = new North();
@@ -297,6 +318,12 @@ public class RiwayatKartuIdentitasPegawaiHelper {
 		return borderlayout;
 	}
 
+	/**
+	 * Menjalankan pencarian riwayat kartu identitas sesuai filter aktif: bila filter satuan kerja
+	 * dipilih, mencakup seluruh unit organisasi turunannya (lewat
+	 * {@link SatuanKerjaTreeModel#getChildsSet}); disaring juga berdasarkan pegawai dan status
+	 * persetujuan, lalu merender hasil ke grid.
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -331,6 +358,15 @@ public class RiwayatKartuIdentitasPegawaiHelper {
 
 	}
 
+	/**
+	 * Membuka jendela modal tambah/edit satu entri riwayat kartu identitas: panel timur berisi
+	 * unggahan lampiran bukti ({@link FotoLampiranPegawaiHelper}) dan form (pegawai, nama kartu,
+	 * keterangan, checkbox status persetujuan — hanya tampak bagi pengguna berhak
+	 * {@link CommonPrivilages#APPROVE}). Form dikunci ({@link Common#freeze}) bila entri sudah
+	 * berstatus disetujui.
+	 *
+	 * @param riwayatKartuIdentitasPegawai entri yang diedit, atau instance baru untuk entri baru
+	 */
 	public void init(final RiwayatKartuIdentitasPegawai riwayatKartuIdentitasPegawai) throws Exception {
 		this.riwayatKartuIdentitasPegawai = riwayatKartuIdentitasPegawai;
 
@@ -462,6 +498,15 @@ public class RiwayatKartuIdentitasPegawaiHelper {
 		window.onModal();
 	}
 
+	/**
+	 * Memvalidasi (pegawai wajib dipilih, nama kartu wajib diisi, setiap baris lampiran pada grid
+	 * dokumen wajib sudah terunggah — item {@code null}) dan menyimpan/memperbarui entri riwayat
+	 * kartu identitas beserta seluruh lampirannya ({@link FotoLampiranPegawai}, disimpan lewat sesi
+	 * {@link StreamingHibernateUtil} terpisah dan tertaut ke id entri ini setelah entri tersimpan).
+	 *
+	 * @param event event pemicu tombol simpan
+	 * @return {@code true} bila validasi lolos dan data tersimpan; {@code false} bila validasi gagal
+	 */
 	@SuppressWarnings("unchecked")
 	public boolean save(Event event) throws Exception {
 

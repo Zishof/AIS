@@ -51,6 +51,15 @@ import ais.database.model.employ.RiwayatOrganisasiSekolahPegawai;
 import ais.database.model.file.FotoLampiranPegawai;
 import ais.database.model.rab.SatuanKerja;
 
+/**
+ * Helper layar riwayat <b>Organisasi Sekolah/Kemasyarakatan</b> yang pernah/sedang diikuti pegawai
+ * modul employ — mengikuti pola yang sama dengan helper "Riwayat*PegawaiHelper" lain (bandingkan
+ * {@link RiwayatKartuIdentitasPegawaiHelper}). Setiap entri mencatat nama organisasi, kedudukan,
+ * rentang tahun mulai-selesai, tempat, pimpinan, dan periode, wajib melampirkan berkas bukti lewat
+ * {@link FotoLampiranPegawaiHelper}. Entri berstatus "Disetujui" dikunci dari pengeditan kecuali
+ * oleh pengguna berhak {@link CommonPrivilages#APPROVE}, dan tidak dapat dihapus. Mendukung mode
+ * terikat satu pegawai maupun mode admin lintas pegawai dengan filter satuan kerja hierarkis.
+ */
 public class RiwayatOrganisasiSekolahPegawaiHelper {
 
 	private MyGrid grid = new MyGrid();
@@ -76,11 +85,13 @@ public class RiwayatOrganisasiSekolahPegawaiHelper {
 	private AmbilDataSatuanKerjaBanbox searchparent;
 	private SatuanKerjaTreeModel satuanKerjaTreeModel;
 
+	/** Membuat helper untuk satu {@code pegawai} tertentu (mengunci filter pencarian pegawai), atau mode admin lintas pegawai bila {@code pegawai} {@code null}. */
 	public RiwayatOrganisasiSekolahPegawaiHelper( Pegawai pegawai) {
 		this.pegawai = pegawai;
 
 	}
 
+	/** Perender baris grid riwayat organisasi: menampilkan pegawai, nama organisasi, kedudukan, tahun mulai/selesai, tempat, pimpinan, periode, ikon status persetujuan, dan tombol ubah/hapus (hapus disembunyikan bila sudah disetujui). */
 	class RiwayatOrganisasiSekolahPegawaiRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -171,7 +182,14 @@ public class RiwayatOrganisasiSekolahPegawaiHelper {
 		}
 	}
 
-	public Borderlayout display() throws Exception { 
+	/**
+	 * Membangun tata letak layar riwayat organisasi: panel filter (pegawai atau satuan kerja
+	 * tergantung mode, plus status persetujuan) dan grid hasil berpaging 10 baris, langsung memuat
+	 * data awal lewat timer default.
+	 *
+	 * @return tata letak {@link Borderlayout} siap ditempel ke komponen induk
+	 */
+	public Borderlayout display() throws Exception {
 
 		North north = new North();
 		Center center = new Center();
@@ -344,9 +362,14 @@ public class RiwayatOrganisasiSekolahPegawaiHelper {
 		return borderlayout;
 	}
 
+	/**
+	 * Menjalankan pencarian riwayat organisasi sesuai filter aktif: bila filter satuan kerja
+	 * dipilih, mencakup seluruh unit organisasi turunannya; disaring juga berdasarkan pegawai dan
+	 * status persetujuan, diurutkan berdasarkan tahun mulai, lalu merender hasil ke grid.
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
-		
+
 		SatuanKerja parent = (SatuanKerja) searchparent.getAttribute("satuanKerja");
 		Set<SatuanKerja> satuanKerjas = ais.action.master.sekolah.util.SekolahUtil.ambilSatuanKerjas();
 		if (parent != null) {
@@ -381,6 +404,14 @@ public class RiwayatOrganisasiSekolahPegawaiHelper {
 
 	}
 
+	/**
+	 * Membuka jendela modal tambah/edit satu entri riwayat organisasi: panel timur berisi unggahan
+	 * lampiran bukti dan form (pegawai, nama organisasi, kedudukan, tahun mulai/selesai, tempat,
+	 * pimpinan, periode, checkbox status persetujuan — hanya tampak bagi pengguna berhak
+	 * {@link CommonPrivilages#APPROVE}). Form dikunci bila entri sudah berstatus disetujui.
+	 *
+	 * @param riwayatOrganisasiSekolahPegawai entri yang diedit, atau instance baru untuk entri baru
+	 */
 	public void init(
 			final RiwayatOrganisasiSekolahPegawai riwayatOrganisasiSekolahPegawai)
 			throws Exception {
@@ -557,6 +588,14 @@ public class RiwayatOrganisasiSekolahPegawaiHelper {
 		window.onModal();
 	}
 
+	/**
+	 * Memvalidasi (pegawai, nama organisasi, tahun mulai/selesai, tempat wajib diisi; setiap baris
+	 * lampiran wajib sudah terunggah) dan menyimpan/memperbarui entri riwayat organisasi beserta
+	 * lampirannya.
+	 *
+	 * @param event event pemicu tombol simpan
+	 * @return {@code true} bila validasi lolos dan data tersimpan; {@code false} bila validasi gagal
+	 */
 	@SuppressWarnings("unchecked")
 	public boolean save(Event event) throws Exception {
 

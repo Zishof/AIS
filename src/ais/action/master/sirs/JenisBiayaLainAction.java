@@ -28,6 +28,13 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.ZkCompat;
 
+/**
+ * Layar CRUD pendataan {@link JenisBiayaLain} ("Variable Transaksi") pada modul SIRS: variabel
+ * biaya lain-lain yang dipetakan ke satu {@link Akun} akunting, dikelompokkan berdasarkan jenis
+ * transaksi tempat variabel tersebut dipakai (penjualan, pembelian, penerimaan, pembayaran kasir
+ * tunai/non-tunai/asuransi, deposit, setor transaksi penjualan, atau lain-lain — lihat konstanta
+ * {@link JenisBiayaLain}). Dibangun di atas kerangka {@link GenericCrudAction}.
+ */
 public class JenisBiayaLainAction extends GenericCrudAction<JenisBiayaLain> {
 
     private static final long serialVersionUID = -5779730267402400328L;
@@ -44,21 +51,26 @@ public class JenisBiayaLainAction extends GenericCrudAction<JenisBiayaLain> {
 
     // ======================== Abstract implementations ========================
 
+    /** Kelas entitas yang dikelola: {@link JenisBiayaLain}. */
     @Override
     protected Class<JenisBiayaLain> getEntityClass() { return JenisBiayaLain.class; }
 
+    /** Membuat instance {@link JenisBiayaLain} kosong untuk form tambah data baru. */
     @Override
     protected JenisBiayaLain createNewEntity() { return new JenisBiayaLain(); }
 
+    /** Judul jendela: {@code "Pendataan Variable Transaksi"}. */
     @Override
     protected String getWindowTitle() { return "Pendataan Variable Transaksi"; }
 
+    /** Melengkapi inisialisasi bawaan dengan mengisi pilihan jenis pada combobox filter pencarian. */
     @Override
     public void doAfterCompose(Component comp) throws Exception {
         super.doAfterCompose(comp);
         initJenis(searchjenis);
     }
 
+    /** Menyusun kriteria pencarian {@link JenisBiayaLain}, difilter ilike nama/kode dan exact match jenis, terurut id menurun bila {@code order} true. */
     @Override
     public Criteria initCriteria(boolean order) {
         Session session = HibernateUtil.currentSession();
@@ -76,11 +88,13 @@ public class JenisBiayaLainAction extends GenericCrudAction<JenisBiayaLain> {
         return criteria;
     }
 
+    /** Penyedia renderer baris grid hasil pencarian: {@link JenisBiayaLainRenderer}. */
     @Override
     protected MyRowRenderer createRenderer() {
         return new JenisBiayaLainRenderer();
     }
 
+    /** Mengisi {@code cb} dengan seluruh nilai konstan jenis transaksi yang dikenal {@link JenisBiayaLain} (penjualan, pembelian, dst.). */
     private void initJenis(Combobox cb) {
         if (cb == null) return;
         addComboItem(cb, JenisBiayaLain.PENJUALAN);
@@ -97,6 +111,7 @@ public class JenisBiayaLainAction extends GenericCrudAction<JenisBiayaLain> {
         cb.setWidth("90%");
     }
 
+    /** Menambahkan satu {@link Comboitem} berlabel/bernilai {@code value} ke {@code cb}. */
     private void addComboItem(Combobox cb, String value) {
         Comboitem item = new Comboitem(value);
         item.setValue(value);
@@ -105,6 +120,7 @@ public class JenisBiayaLainAction extends GenericCrudAction<JenisBiayaLain> {
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/ubah {@link JenisBiayaLain}: kode (dibangkitkan otomatis, tidak dapat diedit), nama, jenis, akun tujuan, dan keterangan, beserta tombol Batal dan Simpan. */
     @Override
     protected void buildFormContent(MyWindow window, final JenisBiayaLain jenisBiayaLain) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -195,6 +211,13 @@ public class JenisBiayaLainAction extends GenericCrudAction<JenisBiayaLain> {
 
     // ======================== Save logic ========================
 
+    /**
+     * Memvalidasi dan menyimpan data {@link JenisBiayaLain}: menolak bila nama kosong, jenis
+     * belum dipilih, atau akun tujuan belum dipilih, lalu menyimpan/memperbarui entitas (kode
+     * dibangkitkan otomatis via {@link Common#generateCode} untuk data baru).
+     *
+     * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal (pesan sudah ditampilkan ke pengguna)
+     */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Nama Variabel Transaksi wajib diisi terlebih dahulu. Langkah yang dapat dilakukan: (1) isikan Nama Variabel Transaksi pada kolom yang tersedia; (2) pastikan kolom tidak dikosongkan; (3) simpan kembali data setelah kolom terisi.", "Peringatan",
@@ -232,6 +255,7 @@ public class JenisBiayaLainAction extends GenericCrudAction<JenisBiayaLain> {
 
     // ======================== Renderer ========================
 
+    /** Renderer baris grid untuk {@link JenisBiayaLain}: kode, nama (dengan tombol riwayat revisi), jenis, akun tujuan, keterangan, dan tombol edit/hapus. */
     class JenisBiayaLainRenderer extends MyRowRenderer {
 
         @Override
