@@ -1,6 +1,7 @@
 package ais.action.master;
 
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -9,12 +10,14 @@ import java.util.Set;
 import org.hibernate.Criteria;
 import org.hibernate.Session;
 import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Restrictions;
 import org.zkoss.zk.ui.Component;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zk.ui.util.Clients;
 import org.zkoss.zk.ui.util.GenericAutowireComposer;
 import org.zkoss.zul.Label;
+import org.zkoss.zul.Combobox;
 import org.zkoss.zul.ListModel;
 import org.zkoss.zul.Paging;
 import org.zkoss.zul.Row;
@@ -29,6 +32,7 @@ import ais.database.model.MemoryInfo;
 import ais.ui.util.DataCriteria;
 import ais.ui.util.DataSearchDefault;
 import ais.ui.util.MyGrid;
+import ais.ui.util.MyDatebox;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 import org.zkoss.zul.Html;
@@ -43,6 +47,9 @@ public class MemoryInfoAction extends GenericAutowireComposer implements DataCri
 
 	private Paging paging;
 	private MyGrid grid;
+	private MyDatebox start;
+	private MyDatebox end;
+	private Combobox statusPemakaian;
 
 	
 	private Html dashboardHtml;
@@ -60,6 +67,7 @@ private MyToolbarbuttonConfig find;
 		// TODO Auto-generated method stub
 		super.doAfterCompose(comp);
 		Common.initLaguage();
+		initDefaultTanggal();
 		refreshDashboardSafe();
 
 		onSearchDefault(null);
@@ -109,6 +117,51 @@ private MyToolbarbuttonConfig find;
 			}
 		});
 	}
+
+	/** Default satu minggu terakhir sampai hari ini. */
+	private void initDefaultTanggal() {
+		Calendar hariIni = Calendar.getInstance();
+		hariIni.set(Calendar.HOUR_OF_DAY, 0);
+		hariIni.set(Calendar.MINUTE, 0);
+		hariIni.set(Calendar.SECOND, 0);
+		hariIni.set(Calendar.MILLISECOND, 0);
+		if (end != null) {
+			end.setReadonly(true);
+			end.setValue(hariIni.getTime());
+		}
+		if (start != null) {
+			start.setReadonly(true);
+			Calendar satuMinggu = (Calendar) hariIni.clone();
+			satuMinggu.add(Calendar.DATE, -7);
+			start.setValue(satuMinggu.getTime());
+		}
+	}
+
+	private Date tanggalMulai() {
+		return start == null ? null : start.getValue();
+	}
+
+	private Date tanggalSampaiEksklusif() {
+		if (end == null || end.getValue() == null) {
+			return null;
+		}
+		Calendar batas = Calendar.getInstance();
+		batas.setTime(end.getValue());
+		batas.set(Calendar.HOUR_OF_DAY, 0);
+		batas.set(Calendar.MINUTE, 0);
+		batas.set(Calendar.SECOND, 0);
+		batas.set(Calendar.MILLISECOND, 0);
+		batas.add(Calendar.DATE, 1);
+		return batas.getTime();
+	}
+
+	private String statusPemakaianTerpilih() {
+		if (statusPemakaian == null || statusPemakaian.getSelectedItem() == null
+				|| statusPemakaian.getSelectedItem().getValue() == null) {
+			return "SEMUA";
+		}
+		return statusPemakaian.getSelectedItem().getValue().toString();
+	}
 	private void refreshDashboardSafe() {
 		try {
 			GenericActionDashboardHelper.refresh(dashboardHtml, progressHtml, MemoryInfo.class,
@@ -146,6 +199,12 @@ private MyToolbarbuttonConfig find;
 			double persen = nilai(memoryInfo.getMaxMemory()) > 0
 					? (nilai(memoryInfo.getTotalFreeMemory()) * 100.0) / nilai(memoryInfo.getMaxMemory()) : 0;
 			new Label(Common.numberFormat.get().format(persen) + "%").setParent(arg0);
+			double terpakai = 100.0 - persen;
+			Label status = new Label(terpakai >= 85.0 ? "Kritis" : terpakai >= 75.0 ? "Waspada" : "Normal");
+			status.setStyle(terpakai >= 85.0
+					? "color:#b91c1c;font-weight:bold;"
+					: terpakai >= 75.0 ? "color:#b45309;font-weight:bold;" : "color:#15803d;font-weight:bold;");
+			status.setParent(arg0);
 		}
 
 	}
@@ -153,6 +212,25 @@ private MyToolbarbuttonConfig find;
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(MemoryInfo.class);
+		Date mulai = tanggalMulai();
+		Date sampai = tanggalSampaiEksklusif();
+		if (mulai != null) {
+			criteria.add(Restrictions.ge("tanggal_dirubah", mulai));
+		}
+		if (sampai != null) {
+			criteria.add(Restrictions.lt("tanggal_dirubah", sampai));
+		}
+		String status = statusPemakaianTerpilih();
+		if ("KRITIS".equals(status)) {
+			criteria.add(Restrictions.sqlRestriction(
+					"{alias}.maxMemory > 0 and ({alias}.maxMemory - {alias}.totalFreeMemory) * 100 >= {alias}.maxMemory * 85"));
+		} else if ("WASPADA".equals(status)) {
+			criteria.add(Restrictions.sqlRestriction(
+					"{alias}.maxMemory > 0 and ({alias}.maxMemory - {alias}.totalFreeMemory) * 100 >= {alias}.maxMemory * 75 and ({alias}.maxMemory - {alias}.totalFreeMemory) * 100 < {alias}.maxMemory * 85"));
+		} else if ("NORMAL".equals(status)) {
+			criteria.add(Restrictions.sqlRestriction(
+					"{alias}.maxMemory > 0 and ({alias}.maxMemory - {alias}.totalFreeMemory) * 100 < {alias}.maxMemory * 75"));
+		}
 
 		if (order)
 			criteria.addOrder(Order.desc("id"));
@@ -181,8 +259,7 @@ private MyToolbarbuttonConfig find;
 	@SuppressWarnings("unchecked")
 	private List<MemoryInfo> ambilSampelMemori(int maks) {
 		try {
-			return HibernateUtil.currentSession().createCriteria(MemoryInfo.class)
-					.addOrder(Order.desc("id")).setMaxResults(maks).list();
+			return initCriteria(true).setMaxResults(maks).list();
 		} catch (Exception e) {
 			return new java.util.ArrayList<MemoryInfo>();
 		}
@@ -218,6 +295,11 @@ private MyToolbarbuttonConfig find;
 		text.append("5. Berikan rekomendasi berurutan: tindakan mendesak, pemeriksaan lanjutan, lalu perbaikan konfigurasi/kode yang aman.\n");
 		text.append("6. Gunakan rumus: used = allocated - free_allocated = max - total_free; total_free_pct = total_free / max.\n\n");
 		text.append("Dibuat pada       : ").append(format.format(new Date())).append('\n');
+		text.append("Filter tanggal    : ")
+				.append(start == null || start.getValue() == null ? "-" : format.format(start.getValue()))
+				.append(" s.d. ")
+				.append(end == null || end.getValue() == null ? "-" : format.format(end.getValue())).append('\n');
+		text.append("Filter pemakaian  : ").append(statusPemakaianTerpilih()).append('\n');
 		text.append("Jumlah sampel     : ").append(sampel.size()).append(" (maksimal ").append(MAKS_SAMPEL_AI).append(")\n");
 		text.append("Urutan data       : terlama ke terbaru\n");
 

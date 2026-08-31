@@ -63,7 +63,27 @@
 						</column>
 					</columns>
 										<rows>
-											
+											<row>
+												<label use="ais.ui.util.MyLabelConfig" value="Tanggal Mulai" />
+												<datebox use="ais.ui.util.MyDatebox" id="start"
+													forward="onChange=onSearchDefault" cols="12" />
+												<label use="ais.ui.util.MyLabelConfig" value="Tanggal Sampai" />
+												<datebox use="ais.ui.util.MyDatebox" id="end"
+													forward="onChange=onSearchDefault" cols="12" />
+											</row>
+											<row>
+												<label use="ais.ui.util.MyLabelConfig" value="Pemakaian Memori" />
+												<combobox id="statusPemakaian" readonly="true" width="180px"
+													forward="onChange=onSearchDefault">
+													<comboitem label="Semua" value="SEMUA" selected="true" />
+													<comboitem label="Memori Kritis (>= 85%)" value="KRITIS" />
+													<comboitem label="Waspada (75% - 84,99%)" value="WASPADA" />
+													<comboitem label="Normal (&lt; 75%)" value="NORMAL" />
+												</combobox>
+												<label use="ais.ui.util.MyLabelConfig" value="Keterangan" />
+												<label use="ais.ui.util.MyLabelConfig"
+													value="Kritis berarti memori terpakai mencapai 85% atau lebih." />
+											</row>
 										</rows>
 									</grid>
 								</div>
@@ -85,6 +105,8 @@
 										use="ais.ui.util.MyColumnConfig" label="Total Memori Bebas" />
 									<column
 										use="ais.ui.util.MyColumnConfig" label="% Bebas" />
+									<column
+										use="ais.ui.util.MyColumnConfig" label="Status" width="110px" />
 								</columns>
 
 							</grid>
