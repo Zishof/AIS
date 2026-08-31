@@ -2444,54 +2444,40 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 
 					if (menuKanan.isOpen() && (reloadBlnSd || centerMateri.getChildren().isEmpty()
 							|| southKomentar.getChildren().isEmpty())) {
+						/*
+						 * Jangan bungkus lagi dengan Timer. Pemicu ini sendiri sudah datang dari
+						 * ON_OPEN, callback timeline, atau jalur load-awal yang ditunda. Timer
+						 * bertingkat pada render pertama kadang tidak pernah terpicu, sehingga
+						 * panel baru terisi setelah pengguna menekan Refresh. loadMenuKanan()
+						 * hanya memasang kerangka secara sinkron; pengambilan beratnya tetap
+						 * dijalankan lewat createDefaultTimerNoBusy di dalam method tersebut.
+						 */
+						boolean refreshKanan = reloadBlnSd;
+						if (btnKanan == null || btnKanan.getTabAktif() == 1) {
+							loadMenuKanan(centerMateri, cari, rows1, paging1, TampilanELearningAction.MATERI,
+									refreshKanan);
+						} else {
+							loadMenuKanan(southKomentar, cari, rows2, paging2, TampilanELearningAction.KOMENTAR,
+									refreshKanan);
+						}
+						reloadBlnSd = false;
 
-						Common.createDefaultTimer(new EventListener() {
-
-							@Override
-							public void onEvent(Event arg0) throws Exception {
-
-								if (btnKanan == null || btnKanan.getTabAktif() == 1) {
-									loadMenuKanan(centerMateri, cari, rows1, paging1, TampilanELearningAction.MATERI,
-											reloadBlnSd);
-								} else {
-									loadMenuKanan(southKomentar, cari, rows2, paging2, TampilanELearningAction.KOMENTAR,
-											reloadBlnSd);
-								}
-
-								reloadBlnSd = false;
-
-								// SELF-HEAL panel KIRI "Perkuliahan & Kelas": bila DATA daftarnya belum termuat,
-								// picu ulang DI DALAM Timer ANDAL INI — yaitu Timer yang SAMA yang memuat panel
-								// KANAN (TERBUKTI selalu tampil). Timer ini dibuat di konteks menuKanan ON_OPEN
-								// (post-render) sehingga inner timer loadData yang dijadwalkan reloadDataKiri IKUT
-								// fire → daftar Perkuliahan/Kelas muncul tanpa perlu memilih combo dulu. Idempoten:
-								// dataKiriTampil jadi true begitu loadData benar-benar jalan → tak dipicu berulang.
-								if (!dataKiriTampil && reloadDataKiri != null) {
-									try {
-										reloadDataKiri.onEvent(null);
-									} catch (Exception eHealKiri) {
-										ais.common.Common.tampilErrorJikaAdmin(eHealKiri);
-									}
-								}
-
-								// SELF-HEAL panel TENGAH "Linimasa": bila komponen timeline SUDAH ada TAPI
-								// daftar pertemuan (pertemuansa) belum termuat — mis. pemuatan awal
-								// initSpreadsheet yang dijadwalkan saat konstruksi/include TAK ter-fire —
-								// picu ULANG di konteks ANDAL ini (menuKanan ON_OPEN, post-render, jalur
-								// yang sama yang membuat panel KANAN selalu tampil). Saat timeline selesai
-								// memuat, callback-nya (eventRefresh) memanggil eventListenerMateri lagi
-								// sehingga panel KANAN ikut terisi datanya (self-heal berantai). Idempoten:
-								// hanya dipicu selama pertemuansa masih null.
-								if (dashboardTimelinePertemuan != null
-										&& dashboardTimelinePertemuan.pertemuansa == null) {
-									try {
-										dashboardTimelinePertemuan.initSpreadsheet(false, true);
-									} catch (Exception eHealTengah) {
-										ais.common.Common.tampilErrorJikaAdmin(eHealTengah);
-									}
-								}
+						if (!dataKiriTampil && reloadDataKiri != null) {
+							try {
+								reloadDataKiri.onEvent(null);
+							} catch (Exception eHealKiri) {
+								ais.common.Common.tampilErrorJikaAdmin(eHealKiri);
 							}
-						});
+						}
+
+						if (dashboardTimelinePertemuan != null
+								&& dashboardTimelinePertemuan.pertemuansa == null) {
+							try {
+								dashboardTimelinePertemuan.initSpreadsheet(false, true);
+							} catch (Exception eHealTengah) {
+								ais.common.Common.tampilErrorJikaAdmin(eHealTengah);
+							}
+						}
 					}
 
 				}
