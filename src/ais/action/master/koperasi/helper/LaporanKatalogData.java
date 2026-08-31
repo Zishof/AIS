@@ -333,12 +333,14 @@ public final class LaporanKatalogData {
         k.items.add(item("akn_rincian_beban", "Rincian Beban Pembayaran", "Rincian baris jurnal yang membebani akun Beban (per akun) dari Jurnal Akuntansi."));
         k.items.add(item("akn_diagnosa_jurnal_toko", "Diagnosa Jurnal Toko (Belum Diposting)", "Dokumen toko yang belum masuk buku besar per jenis: kulakan, bayar hutang, terima piutang, retur, opname, mutasi."));
         k.items.add(item("akn_diagnosa_akun", "Diagnosa Pemetaan Akun", "Akun yang dipakai jurnal TERPOSTING tetapi belum dipetakan ke Kelompok Laporan aktif, sehingga tidak muncul di Laba Rugi/Neraca."));
+        k.items.add(item("akn_diagnosa_aktivitas", "Diagnosa Pemetaan Aktivitas Arus Kas", "Akun penggerak kas yang belum punya aktivitas Operasional/Investasi/Pendanaan, sehingga nilainya menumpuk di keranjang belum dipetakan pada Arus Kas per Aktivitas."));
         k.items.add(item("gl_rincian", "Rincian Buku Besar Kas (Ringkas)", "Pembanding cepat dari data transaksi POS, BUKAN dari jurnal. Versi jurnalnya: 'Rekening Koran (Kas & Bank)'."));
         k.items.add(item("akn_aset_tetap", "Daftar Aset Tetap (Nilai Buku)", "Aktiva tetap aktif: nilai perolehan, akumulasi penyusutan, dan nilai buku."));
         semua.add(k);
 
         k = new Kat("Kas & Bank (Akuntansi)");
         k.items.add(item("akn_rekening_koran", "Rekening Koran (Kas & Bank)", "Mutasi tiap akun Kas/Bank: penerimaan vs pengeluaran (dari Jurnal Akuntansi)."));
+        k.items.add(item("akn_buku_kas_umum", "Buku Kas Umum (Mutasi Kas & Bank)", "Buku kas per rekening: tiap mutasi berurut tanggal beserta akun lawan dan SALDO BERJALAN. Padanan lembar Mutasi Kas & Bank pada laporan yayasan."));
         k.items.add(item("akn_penerimaan", "Ringkasan Daftar Penerimaan", "Total uang masuk per akun Kas/Bank pada periode (dari Jurnal Akuntansi)."));
         k.items.add(item("akn_pembayaran", "Ringkasan Daftar Pembayaran", "Total uang keluar per akun Kas/Bank pada periode (dari Jurnal Akuntansi)."));
         k.items.add(item("akn_posisi_dana", "Posisi Dana (Saldo Kas & Bank per Rekening)", "Saldo awal, mutasi debet/kredit, dan saldo akhir tiap rekening kas/bank dalam satu tabel. Padanan lembar Posisi Saldo Bank pada laporan yayasan."));

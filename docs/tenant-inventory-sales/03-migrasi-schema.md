@@ -147,13 +147,51 @@ tabel yang tidak pernah dibuat.
 > Mengubah patokan hanya boleh bila versinya **belum terpasang pada tenant mana pun**.
 > Sesudah terpasang, satu-satunya jalan benar adalah menambah versi baru di akhir katalog.
 
+## Dijalankan pada PostgreSQL sungguhan
+
+Katalog ini **sudah dieksekusi utuh**, bukan hanya diperiksa secara statis.
+
+| | |
+|---|---|
+| Mesin | PostgreSQL 16.4 |
+| Pernyataan dijalankan | **313** (311 DDL katalog + 2 `CREATE SCHEMA`) |
+| Galat | **0** |
+| Tabel ERP | **74** dari bundel + 1 `tenant_schema_migration` = **75**, cocok `TABEL_WAJIB_ERP` |
+| Tabel audit | **5**, cocok `TABEL_WAJIB_AUDIT` tanpa selisih |
+| Indeks | 323 |
+| Kolom | 1.245 |
+
+Ke-11 checksum bundel cocok dengan nilai yang dipatok di `TenantSchemaMigrasiSelfTest`, jadi
+yang dijalankan memang katalog yang sama dengan yang dijaga uji statis.
+
+### Cara mengulanginya
+
+Verifikasi ini **tidak** memerlukan basis data yang sudah ada, dan sengaja begitu: ia
+dijalankan pada klaster sekali-pakai supaya tidak ada kemungkinan menyentuh data sungguhan.
+
+```
+initdb -D <dir-sementara> -U uji --auth=trust
+pg_ctl -D <dir-sementara> -o "-p 55432" start
+
+javac -sourcepath src/main/java -d out       src/main/java/ais/service/tenant/test/TenantSchemaDdlDump.java
+java -cp out ais.service.tenant.test.TenantSchemaDdlDump uji_tenant uji_tenant__audit > katalog.sql
+psql -h 127.0.0.1 -p 55432 -U uji -d postgres -v ON_ERROR_STOP=1 -f katalog.sql
+```
+
+`ON_ERROR_STOP=1` penting: tanpanya psql melanjutkan sesudah pernyataan yang gagal dan
+kode keluarnya tetap nol, sehingga katalog rusak tampak lulus.
+
+### Satu selisih yang BUKAN cacat
+
+Skrip menghasilkan 74 tabel sedangkan `TABEL_WAJIB_ERP` berisi 75. Yang tidak ikut adalah
+`tenant_schema_migration` — tabel riwayat yang dibuat `TenantSchemaService.terapkanMigrasi`
+sendiri, bukan oleh bundel DDL. Selisih satu ini **wajar dan harus tetap ada**; kalau suatu
+saat skrip menghasilkan 75, berarti ada bundel yang keliru ikut membuat tabel riwayat.
+
 ## Yang BELUM dikerjakan
 
 - **Belum ada satu pun kueri yang memakai tabel ini.** Menyambungkan `si_*` ke schema
   tenant adalah P4.
-- **Belum pernah dijalankan pada basis data sungguhan.** Seluruh verifikasi di sini bersifat
-  statis. Uji fresh-schema dan repeat-migration yang §11.6 minta memerlukan PostgreSQL dan
-  belum dijalankan.
 - **Penulis audit belum ada.** Tabel `audit_baris` sudah berdiri, tetapi yang mengisinya —
   perluasan pola `TenantDataPlaneService` ke tabel tenant — belum dibuat.
 - `gudang_id`/`lokasi_stok_id` sudah ada pada mutasi dan saldo, tetapi kebijakan

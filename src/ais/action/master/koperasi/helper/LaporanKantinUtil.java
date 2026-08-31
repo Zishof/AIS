@@ -3411,6 +3411,77 @@ public final class LaporanKantinUtil {
                 }
                 return H;
 
+            } else if ("akn_buku_kas_umum".equals(r)) {
+                judul = "Buku Kas Umum (Mutasi Kas & Bank)"; grupIdx = 0;
+                catatan = "Buku kas per rekening: tiap mutasi Kas/Bank berurut tanggal dengan AKUN LAWAN-nya "
+                    + "dan SALDO BERJALAN. Saldo berjalan sudah memperhitungkan saldo sebelum Tgl Mulai, "
+                    + "sehingga baris terakhir tiap rekening sama dengan saldo akhir pada Posisi Dana. "
+                    + "Padanan lembar 'Mutasi Kas & Bank' pada paket laporan keuangan yayasan. "
+                    + "Jurnal TERPOSTING Satuan Kerja terpilih.";
+                String wBku = klausaLedger(session, tglMulai, tglSampai, prm);
+                String awalBku = "0";
+                if (ada(tglMulai)) {
+                    prm.put("tglMulaiBku", tglMulai.trim());
+                    awalBku = "( select coalesce(sum(x.debet),0) - coalesce(sum(x.kredit),0) "
+                        + "   from akunting.transaksi x "
+                        + "   join akunting.grup_transaksi x1 on x1.id = x.grup_transaksi "
+                        + "   where x.akun = a.akun and x1.posting_history is not null "
+                        + "     and ( :satker = -1 or x1.satuan_kerja = :satker ) "
+                        + "     and cast(x.tanggal_transaksi as date) < cast(:tglMulaiBku as date) )";
+                }
+                sql = "select (d.kode || ' - ' || d.nama) as akun, "
+                    + " cast(a.tanggal_transaksi as date) as tgl, coalesce(a.kode,'-') as nojurnal, "
+                    + " coalesce(a.keterangan,'') as uraian, "
+                    + " coalesce( ( select string_agg(distinct (d2.kode || ' ' || d2.nama), ', ') "
+                    + "     from akunting.transaksi a2 join akunting.akun d2 on d2.id = a2.akun "
+                    + "     where a2.grup_transaksi = a.grup_transaksi and a2.akun <> a.akun ), '-' ) as lawan, "
+                    + " coalesce(a.debet,0) as masuk, coalesce(a.kredit,0) as keluar, "
+                    + " ( " + awalBku + " + sum(coalesce(a.debet,0) - coalesce(a.kredit,0)) "
+                    + "     over (partition by d.id order by a.tanggal_transaksi, a.id "
+                    + "           rows between unbounded preceding and current row) ) as saldo "
+                    + FROM_LEDGER + wBku + FILTER_KASBANK
+                    + " order by d.kode, a.tanggal_transaksi, a.id ";
+                tipe = new String[]{"text","tgl","text","text","text","num","num","num"};
+                kolom.add(new Kolom("Akun Kas/Bank","text")); kolom.add(new Kolom("Tanggal","tgl"));
+                kolom.add(new Kolom("No. Jurnal","text")); kolom.add(new Kolom("Uraian","text"));
+                kolom.add(new Kolom("Akun Lawan","text")); kolom.add(new Kolom("Penerimaan","num"));
+                kolom.add(new Kolom("Pengeluaran","num")); kolom.add(new Kolom("Saldo Berjalan","num"));
+
+            } else if ("akn_diagnosa_aktivitas".equals(r)) {
+                judul = "Diagnosa Pemetaan Aktivitas Arus Kas";
+                catatan = "Akun LAWAN yang benar-benar menggerakkan Kas/Bank pada jurnal TERPOSTING tetapi BELUM "
+                    + "punya aktivitas arus kas -- baik lewat Kelompok Laporan jenis 'Arus Kas' maupun kolom "
+                    + "'Aktifitas (Arus Kas)' di master Kode Akun. Selama akun ini belum dipetakan, nilainya "
+                    + "menumpuk di keranjang '(Belum dipetakan ke Aktivitas Arus Kas)' pada laporan Arus Kas "
+                    + "per Aktivitas. Urut dari penyumbang terbesar supaya yang paling berpengaruh dibereskan dulu.";
+                String wDa = klausaLedger(session, tglMulai, tglSampai, prm);
+                sql = "select d.kode as kode, d.nama as nama, "
+                    + " coalesce(sum(coalesce(a.debet,0) + coalesce(a.kredit,0)),0) as nilai, "
+                    + " case when exists ( select 1 from akunting.kelompok_laporan_punya_akun b4 "
+                    + "         join akunting.kelompok_laporan c4 on c4.id = b4.kelompok_laporan "
+                    + "         join akunting.jenis_laporan f4 on f4.id = c4.jenis_laporan "
+                    + "         where b4.akun = d.id and lower(coalesce(f4.keterangan,'')) like '%arus%' ) "
+                    + "      then 'Terpetakan, tetapi kelompoknya non-aktif' "
+                    + "      else 'BELUM dipetakan (Kelompok Laporan maupun kolom Aktifitas)' end as status "
+                    + FROM_LEDGER + wDa + FILTER_BUKAN_KASBANK
+                    + " and exists ( select 1 from akunting.transaksi a3 "
+                    + "     join akunting.akun d3 on d3.id = a3.akun "
+                    + "     where a3.grup_transaksi = a.grup_transaksi "
+                    + "       and ( d3.bank_id is not null or d3.norek is not null "
+                    + "             or lower(coalesce(d3.nama,'')) like '%kas%' "
+                    + "             or lower(coalesce(d3.nama,'')) like '%bank%' ) ) "
+                    + " and nullif(trim(coalesce(d.aktifitas,'')),'') is null "
+                    + " and not exists ( select 1 from akunting.kelompok_laporan_punya_akun b5 "
+                    + "     join akunting.kelompok_laporan c5 on c5.id = b5.kelompok_laporan "
+                    + "     join akunting.jenis_laporan f5 on f5.id = c5.jenis_laporan "
+                    + "     where b5.akun = d.id and (c5.aktif is null or c5.aktif) "
+                    + "       and lower(coalesce(f5.keterangan,'')) like '%arus%' ) "
+                    + " group by d.id, d.kode, d.nama "
+                    + " order by coalesce(sum(coalesce(a.debet,0) + coalesce(a.kredit,0)),0) desc, d.kode ";
+                tipe = new String[]{"text","text","num","text"};
+                kolom.add(new Kolom("Kode","text")); kolom.add(new Kolom("Nama Akun","text"));
+                kolom.add(new Kolom("Nilai Mutasi Terkait Kas","num")); kolom.add(new Kolom("Status","text"));
+
             } else if ("akn_diagnosa_akun".equals(r)) {
                 judul = "Diagnosa Pemetaan Akun (Jurnal vs Kelompok Laporan)";
                 catatan = "Akun yang DIPAKAI jurnal TERPOSTING tetapi BELUM terpetakan ke Kelompok Laporan aktif, sehingga "
