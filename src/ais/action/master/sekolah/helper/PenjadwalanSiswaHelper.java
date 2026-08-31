@@ -91,6 +91,35 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper layar pengelolaan <b>jadwal pertemuan</b> (sesi pembelajaran/{@link Pertemuan}) untuk
+ * satu {@link JadwalPelajaran} (mata pelajaran+kelas) modul sekolah — analog dengan pengelolaan
+ * perkuliahan pada modul akademik, tetapi khusus jenjang sekolah (SD/SMP/SMA). Tampilan utama
+ * ({@link #display(JadwalPelajaran, Component)}) berupa tab: daftar pertemuan (dengan status
+ * kehadiran, materi, tugas, ujian per pertemuan), deskripsi pembelajaran, dan capaian/kompetensi.
+ *
+ * <p>
+ * Fungsi utama yang disediakan lewat tombol toolbar statis:
+ * </p>
+ * <ul>
+ * <li>{@link #tampilTombolBuatPertemuan} — membangkitkan seluruh pertemuan satu semester
+ * sekaligus berdasarkan pola jadwal (hari + jam pelajaran, hingga 5 slot bergantian) dan masa
+ * pembelajaran yang dikonfigurasi pada {@code jadwalPelajaran}; menolak dijalankan bila hari/jam/
+ * masa belum lengkap diisi di menu jadwal pelajaran.</li>
+ * <li>{@link #buatSatuPertemuan} — menambah satu pertemuan tambahan (ad-hoc) pada tanggal/jam
+ * pilihan bebas; disembunyikan bagi siswa/mahasiswa, dan bagi guru bila
+ * {@code jadwalPelajaran.guruBisaMerubahTanggalJadwalPelajaran} dimatikan.</li>
+ * <li>{@link #tampilTombolAturUlangWaktu}/{@link #prosesTampilTombolAturUlangWaktu} — menyusun
+ * ulang tanggal seluruh pertemuan dari satu tanggal mulai baru, dengan opsi melewati hari libur
+ * nasional.</li>
+ * <li>{@link #tampilTombolAmbil} — menyalin isi pembelajaran (materi/catatan, berkas, video,
+ * audio, ujian, tugas kelompok/mandiri, deskripsi, capaian) dari {@link JadwalPelajaran} lain
+ * (agenda template) ke jadwal ini lewat {@link #copyLampiranPertemuan}; peserta, kehadiran, dan
+ * nilai per-siswa SENGAJA TIDAK ikut disalin. Menghasilkan laporan ringkas jumlah item tersalin
+ * dan daftar kendala per pertemuan.</li>
+ * <li>{@link #tampilTombolHapus} — menghapus seluruh baris {@link Pertemuan} milik jadwal ini.</li>
+ * </ul>
+ */
 public class PenjadwalanSiswaHelper {
 
 	private JadwalPelajaran jadwalPelajaran;
@@ -99,6 +128,7 @@ public class PenjadwalanSiswaHelper {
 	private MyCheckboxConfig hanyaYangAktif;
 	private MyCheckboxConfig urutkanManual;
 
+	/** Mem-parsing waktu dari string dengan mencoba dua pola berurutan ({@code HH.mm} lalu {@code HH:mm}), melempar exception parsing pola terakhir bila keduanya gagal. */
 	private static Date parseWaktu(String nilai) throws ParseException {
 		ParseException terakhir = null;
 		String[] pola = new String[] { "HH.mm", "HH:mm" };
@@ -114,6 +144,7 @@ public class PenjadwalanSiswaHelper {
 		throw terakhir;
 	}
 
+	/** Mengambil status pertemuan default "Tatap Muka" dari cache {@link ConstantValues#TATAP_MUKA} bila tersedia, atau memuat langsung dari database (id 236) sebagai fallback. */
 	private static StatusPertemuan ambilStatusPertemuanDefault(Session session) {
 		if (ConstantValues.TATAP_MUKA != null) {
 			return ConstantValues.TATAP_MUKA;
@@ -121,6 +152,12 @@ public class PenjadwalanSiswaHelper {
 		return session == null ? null : (StatusPertemuan) session.get(StatusPertemuan.class, Long.valueOf(236L));
 	}
 
+	/**
+	 * Perender baris grid daftar pertemuan: menampilkan tanggal, jam, status pertemuan, materi/
+	 * catatan pembelajaran (dapat disunting inline), dan indikator kelengkapan (berkas, video,
+	 * audio, ujian, tugas) per pertemuan, dengan aksi sesuai peran pengguna saat ini
+	 * ({@link #tbmuser}).
+	 */
 	class PertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
 		private Tbmuser tbmuser = Common.getCurrentUser();
@@ -529,6 +566,7 @@ public class PenjadwalanSiswaHelper {
 
 	}
 
+	/** Menambahkan tombol "Hapus" ke {@code toolbar} yang, setelah konfirmasi, menghapus seluruh baris {@link Pertemuan} milik {@code jadwalPelajaran} lewat SQL native lalu memanggil {@code eventListener}. */
 	public static void tampilTombolHapus(Toolbar toolbar, final JadwalPelajaran jadwalPelajaran,
 			final EventListener eventListener) {
 		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Hapus", "/img/svg/trash.svg");
@@ -570,6 +608,7 @@ public class PenjadwalanSiswaHelper {
 		button.setParent(toolbar);
 	}
 
+	/** Menambahkan tombol "Ubah Tanggal Mulai" ke {@code toolbar} yang membuka dialog {@link #prosesTampilTombolAturUlangWaktu}. */
 	public static void tampilTombolAturUlangWaktu(Toolbar toolbar, final JadwalPelajaran jadwalPelajaran,
 			final EventListener eventListener) {
 		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Ubah Tanggal Mulai", "/img/svg/edit-box-line.svg");
@@ -584,6 +623,13 @@ public class PenjadwalanSiswaHelper {
 		button.setParent(toolbar);
 	}
 
+	/**
+	 * Menambahkan tombol "Buat Pertemuan" ke {@code toolbar} yang membangkitkan seluruh pertemuan
+	 * satu semester untuk {@code jadwalPelajaran} sekaligus, berdasarkan pola jadwal (hari + jam
+	 * pelajaran, mendukung hingga 5 slot bergantian) dan masa pembelajaran yang sudah dikonfigurasi.
+	 * Menolak dijalankan (menampilkan peringatan) bila jam pelajaran, hari, atau masa jadwal
+	 * pelajaran belum lengkap diisi.
+	 */
 	public static void tampilTombolBuatPertemuan(Component toolbar, final JadwalPelajaran jadwalPelajaran,
 			final EventListener eventListener) {
 		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Buat Pertemuan", "/img/new.gif");
@@ -861,6 +907,16 @@ public class PenjadwalanSiswaHelper {
 		button.setParent(toolbar);
 	}
 
+	/**
+	 * Menambahkan tombol "Ambil / Copy dari agenda lain" ke {@code toolbar}: membuka dialog
+	 * pemilihan {@link JadwalPelajaran} template ({@link AmbilDataTemplatePembelajaran}), lalu
+	 * menyalin deskripsi pembelajaran, pendahuluan, capaian pembelajaran, dan seluruh isi
+	 * pertemuan (materi/catatan, berkas, video, audio, ujian, tugas — lewat
+	 * {@link #copyLampiranPertemuan(Pertemuan, Pertemuan)}) dari jadwal sumber ke
+	 * {@code jadwalPelajaran} saat ini. Peserta, kehadiran, dan nilai per-siswa TIDAK ikut disalin.
+	 * Menyusun dan menawarkan unduhan laporan teks ringkas berisi jumlah item tersalin per
+	 * kategori dan daftar kendala yang terjadi per pertemuan.
+	 */
 	public static void tampilTombolAmbil(Component toolbar, final JadwalPelajaran jadwalPelajaran,
 			final DataLoader dataLoader) {
 		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Ambil / Copy dari agenda lain", "/img/new.gif");
@@ -1106,6 +1162,11 @@ public class PenjadwalanSiswaHelper {
 		button.setParent(toolbar);
 	}
 
+	/**
+	 * Membangun dan menampilkan dialog "Atur Tanggal & Interval Pertemuan": tanggal mulai baru,
+	 * opsi melewati tanggal merah/hari libur nasional, dan jenis pengaturan ulang interval, lalu
+	 * menyusun ulang tanggal seluruh pertemuan {@code jadwalPelajaran} sesuai pilihan tersebut.
+	 */
 	public static void prosesTampilTombolAturUlangWaktu(final JadwalPelajaran jadwalPelajaran,
 			final EventListener eventListener) throws Exception {
 
@@ -1466,6 +1527,13 @@ public class PenjadwalanSiswaHelper {
 
 	}
 
+	/**
+	 * Menyalin satu lampiran bertipe {@code jenis} (mis. {@link LampiranLain#CATATAN_PERKULIAHAN})
+	 * dari {@code pertemuan} ke {@code pertemuanBaru}, hanya bila lampiran sumber ada dan
+	 * {@code pertemuanBaru} belum memiliki lampiran jenis tersebut (menghindari duplikasi bila
+	 * dipanggil berulang). Lampiran baru dibuat sebagai referensi salinan ({@code copyDari}), bukan
+	 * duplikasi fisik data.
+	 */
 	public static void copyLampiranPertemuan(Pertemuan pertemuan, Pertemuan pertemuanBaru, String jenis) {
 
 		LampiranLain lam = LampiranLain.ambil(pertemuan.getId(), jenis);

@@ -594,6 +594,7 @@ public class LaporanRekapitulasiSidang extends MyWindow {
         center.appendChild(new Html(LaporanSkripsiDashboardUtil.empty("Dashboard Rekapitulasi Sidang", getFilterInfo())));
     }
 
+    /** @return kriteria "dosen ini menjabat salah satu dari 8 peran (pembimbing/ketuaSidang/penguji1-5/pembimbing3) pada skripsi". */
     private Criterion buildDosenCriterion(Dosen dosen) {
         Criterion criterion = Restrictions.eq("pembimbing", dosen);
         criterion = Restrictions.or(criterion, Restrictions.eq("ketuaSidang", dosen));
@@ -667,6 +668,7 @@ public class LaporanRekapitulasiSidang extends MyWindow {
                 : (StatusMahasiswa) status.getSelectedItem().getValue();
     }
 
+    /** @return {@code true} bila tidak ada filter status mahasiswa dipilih, atau status historis mahasiswa cocok dengan status terpilih. */
     private boolean cocokStatusMahasiswa(HistoryStatusMahasiswa historyStatus) {
         StatusMahasiswa selected = getSelectedStatusMahasiswa();
         if (selected == null) {
@@ -676,6 +678,7 @@ public class LaporanRekapitulasiSidang extends MyWindow {
                 && selected.getId().equals(historyStatus.getStatusMahasiswa().getId());
     }
 
+    /** @return status historis mahasiswa terkini untuk {@code krsMahasiswa}, atau {@code null} bila tidak ada/gagal diambil. */
     private HistoryStatusMahasiswa getHistoryStatus(KrsMahasiswa krsMahasiswa) {
         try {
             return krsMahasiswa == null ? null : ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(krsMahasiswa);
@@ -684,6 +687,7 @@ public class LaporanRekapitulasiSidang extends MyWindow {
         }
     }
 
+    /** @return nama status keluar mahasiswa bila sudah lulus pada/sebelum semester skripsi ini, atau nama status historis aktifnya bila belum. */
     private String getNamaStatusAktif(Mahasiswa mahasiswa, Skripsi skripsi, HistoryStatusMahasiswa historyStatus) {
         if (mahasiswa.getStatusKeluar() != null && mahasiswa.getSemesterLulus() != null && skripsi.getSemester() != null
                 && mahasiswa.getSemesterLulus().intValue() <= skripsi.getSemester().intValue()) {
@@ -693,10 +697,12 @@ public class LaporanRekapitulasiSidang extends MyWindow {
                 : historyStatus.getStatusMahasiswa().getNama();
     }
 
+    /** @return {@code true} bila {@code skripsi.getTelahSidang()} bernilai 1. */
     private boolean isSudahSidang(Skripsi skripsi) {
         return skripsi.getTelahSidang() != null && skripsi.getTelahSidang().intValue() == 1;
     }
 
+    /** @return ringkasan singkat filter aktif (tahun akademik, semester, prodi) untuk ditampilkan sebagai subjudul dashboard. */
     private String getFilterInfo() {
         String ta = getSelectedTahunAkademik() == null ? "Semua TA" : getSelectedTahunAkademik();
         String smt = getSelectedSemesterValue() == null ? "Semua Semester" : String.valueOf(getSelectedSemesterValue());
@@ -704,6 +710,7 @@ public class LaporanRekapitulasiSidang extends MyWindow {
         return ta + " • " + smt + " • " + prodi;
     }
 
+    /** Memperbarui teks {@code label} progres: pesan tetap bila {@code message} diisi, atau persentase "Memproses data &lt;mahasiswa&gt; (n%)" bila tidak. */
     private void updateLabel(Label label, Mahasiswa mahasiswa, int index, int size, String message) {
         if (label == null) {
             return;

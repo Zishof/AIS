@@ -47,6 +47,21 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper jendela pemilihan ("picker") organisasi siswa ({@link OrganisasiSiswa}) untuk didaftarkan
+ * sebagai keanggotaan {@code siswa} — menampilkan daftar organisasi (dapat difilter sekolah/yayasan
+ * dan kata kunci nama) dengan checkbox per baris; organisasi yang sudah pernah didaftarkan untuk
+ * siswa tersebut ditandai dan dikunci (tidak dapat dicentang ulang) untuk mencegah duplikasi.
+ *
+ * <p>
+ * {@link #display(DataLoader, MyWindow)} membangun jendela lengkap (filter + grid + tombol
+ * Simpan/Batal) dan memasangnya ke {@code window}; tombol Simpan memanggil {@link #save()} yang
+ * membuat baris {@link OrganisasiSiswaPunyaSiswa} baru untuk setiap organisasi yang dicentang
+ * (dan belum terdaftar sebelumnya), mencatat pengguna yang menambahkan
+ * ({@code oleh}/{@code tbmuser}) dan asal perubahan ({@code diubahDari="SiswaAction"}), lalu
+ * memanggil {@code dataLoader} untuk menyegarkan tampilan pemanggil.
+ * </p>
+ */
 public class AmbilDataOrganisasiForOrganisasiSiswaHelper {
 
 	private Siswa siswa;
@@ -58,6 +73,7 @@ public class AmbilDataOrganisasiForOrganisasiSiswaHelper {
 
 	private Paging paging;
 
+	/** Membuat helper untuk memilih organisasi yang akan didaftarkan ke {@code siswa}. */
 	public AmbilDataOrganisasiForOrganisasiSiswaHelper(Siswa siswa) {
 		this.siswa = siswa;
 
@@ -102,6 +118,11 @@ public class AmbilDataOrganisasiForOrganisasiSiswaHelper {
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
+	/**
+	 * Menyimpan pendaftaran {@link #siswa} ke setiap organisasi yang dicentang (dan tidak
+	 * dinonaktifkan, yaitu belum terdaftar sebelumnya) sebagai baris {@link OrganisasiSiswaPunyaSiswa}
+	 * baru.
+	 */
 	public void save() throws InterruptedException {
 		Session session = HibernateUtil.currentSession();
 		final Tbmuser tbmuser = Common.getCurrentUser();
@@ -140,6 +161,14 @@ public class AmbilDataOrganisasiForOrganisasiSiswaHelper {
 		}
 	}
 
+	/**
+	 * Membangun jendela lengkap picker organisasi (filter + grid + toolbar Simpan/Batal) dan
+	 * memasangnya ke {@code window}; tombol Simpan memicu {@link #save()} lalu memanggil ulang
+	 * {@code dataLoader} untuk menyegarkan tampilan pemanggil.
+	 *
+	 * @param dataLoader pemuat data pemanggil yang disegarkan setelah penyimpanan berhasil
+	 * @param window     jendela target tempat picker dibangun
+	 */
 	public void display(final DataLoader dataLoader, final MyWindow window) {
 
 		Common.clear(window);
@@ -314,6 +343,13 @@ public class AmbilDataOrganisasiForOrganisasiSiswaHelper {
 		}
 	}
 
+	/**
+	 * Membangun kueri Hibernate untuk daftar organisasi siswa yang dapat dipilih, difilter
+	 * sekolah/yayasan dan kata kunci nama.
+	 *
+	 * @param order {@code true} untuk menyertakan pengurutan hasil
+	 * @return kriteria Hibernate siap dieksekusi/dipaginasi
+	 */
 	public Criteria initCriteria(boolean order) {
 
 		Session session = HibernateUtil.currentSession();
@@ -337,6 +373,7 @@ public class AmbilDataOrganisasiForOrganisasiSiswaHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Mengeksekusi ulang pencarian ({@link #initCriteria(boolean)}) untuk halaman aktif dan merender hasilnya ke grid pilihan organisasi. */
 	public void onSearchDefault(Event event) {
 
 		Common.initPaging50(initCriteria(false), paging);

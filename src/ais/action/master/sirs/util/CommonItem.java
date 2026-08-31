@@ -1157,11 +1157,31 @@ public class CommonItem {
 
 	}
 
+	/**
+	 * Helper UI untuk membangun dan menyimpan grid harga jual satu {@link ItemMedis} (atau satu
+	 * {@link TarifKhususPunyaItem}) per {@link KelasPerawatan}, lengkap dengan rincian pembagian
+	 * biaya per {@link JenisBiaya} (nominal tetap atau persentase) dan opsi harga dapat
+	 * diubah saat transaksi. Checkbox "semua harga sama" ({@link #semuahargasama}) menyalin nilai
+	 * baris pertama (kelas perawatan pertama) ke seluruh baris lain dan menguncinya, memudahkan
+	 * pengisian saat harga tidak dibedakan per kelas.
+	 */
 	public static class InitHarga {
 
+		/** Grid baris harga jual per kelas perawatan, dibangun oleh {@link #initHargaJual}. */
 		public Grid gridHargaJual = new Grid();
+		/** Checkbox "semua harga sama" yang menyalin dan mengunci nilai baris pertama ke seluruh baris lain. */
 		public Checkbox semuahargasama = new Checkbox();
 
+		/**
+		 * Menyimpan seluruh baris {@link HargaJualItem} (dan rincian {@link Biaya} per jenis biaya
+		 * di dalamnya) dari isian grid {@link #gridHargaJual} saat ini, ditautkan ke {@code item}
+		 * atau ke {@code tarifKhususPunyaItem} (saling eksklusif — hanya salah satu yang diisi
+		 * sesuai mana yang diberikan).
+		 *
+		 * @param item                    item medis tujuan (dipakai bila {@code tarifKhususPunyaItem} {@code null})
+		 * @param tarifKhususPunyaItem    tautan tarif khusus tujuan (dipakai bila diberikan, mengabaikan {@code item})
+		 * @return selalu {@code true}
+		 */
 		@SuppressWarnings("unchecked")
 		public boolean saveDetail(ItemMedis item, TarifKhususPunyaItem tarifKhususPunyaItem) {
 			Session session = HibernateUtil.currentSession();
@@ -1217,6 +1237,7 @@ public class CommonItem {
 			return true;
 		}
 
+		/** Listener checkbox "semua harga sama": bila dicentang, menyalin dan mengunci nilai seluruh field baris pertama ({@code mainRow}) ke baris kelas perawatan lainnya; bila tidak dicentang, mengembalikan baris lain menjadi dapat disunting independen. */
 		public EventListener ubahStatusRubahSemuaEventListener = new EventListener() {
 
 			@SuppressWarnings({ "unchecked" })
@@ -1335,6 +1356,15 @@ public class CommonItem {
 		};
 
 		@SuppressWarnings("unchecked")
+		/**
+		 * Membangun tab panel harga jual untuk {@code item} (atau {@code tarifKhususPunyaItem}):
+		 * satu baris per {@link KelasPerawatan} aktif, masing-masing berisi nilai harga jual,
+		 * checkbox harga dapat diubah saat transaksi dan pembagian biaya dalam persen, serta
+		 * rincian input per {@link JenisBiaya} yang berlaku untuk item ini (nominal/persen,
+		 * mengikuti flag pembagian persen). Baris pertama berlaku sebagai sumber salinan saat
+		 * checkbox {@link #semuahargasama} diaktifkan. Memuat data harga yang sudah tersimpan bila
+		 * ada, dan menautkan tombol simpan pada {@code onSave}.
+		 */
 		public void initHargaJual(final ItemMedis item, final Tabpanel tabpanel, final OnSave onSave,
 				final TarifKhususPunyaItem tarifKhususPunyaItem) throws Exception {
 

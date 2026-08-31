@@ -45,6 +45,16 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Composer ZK untuk pengelolaan data master Konsentrasi ({@link Konsentrasi}) — bidang
+ * peminatan/spesialisasi di bawah suatu {@link Jurusan} (mis. konsentrasi dalam satu program
+ * studi). Mengikuti pola CRUD standar action-layer AIS: pencarian dengan filter nama dan jurusan
+ * ({@link #initCriteria(boolean)}/{@link #onSearchDefault(Event)}), form tambah/ubah
+ * ({@link #onAdd(Event)}) dengan validasi field wajib (nama, jurusan) pada
+ * {@link #onSave(Event)}, disimpan lewat {@link KonsentrasiDao}. {@link #doBeforeCompose} menjaga
+ * keamanan halaman lebih dulu; {@link #doAfterCompose(Component)} memvalidasi sesi login dan hak
+ * baca sebelum melanjutkan inisialisasi (redirect logoff bila tidak valid).
+ */
 public class KonsentrasiAction extends GenericAutowireComposer implements DataCriteria, DataSearchDefault {
 	private static final long serialVersionUID = 3786091220301468178L;
 	private MyWindow addWindow;
@@ -62,12 +72,14 @@ public class KonsentrasiAction extends GenericAutowireComposer implements DataCr
 	private boolean delete;
 
 	@Override
+	/** Menjalankan pemeriksaan keamanan halaman ({@code Common.doCheckSecurity()}) sebelum komponen ZK di-compose. */
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page,
 			org.zkoss.zk.ui.Component parent, org.zkoss.zk.ui.metainfo.ComponentInfo compInfo) {
 		Common.doCheckSecurity();
 		return super.doBeforeCompose(page, parent, compInfo);
 	}
 
+	/** Inisialisasi composer setelah komponen ZK ter-wiring: memvalidasi sesi login dan hak baca (redirect logoff bila tidak valid), lalu menyiapkan toolbar dan pencarian. */
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
 		Common.initLaguage();
@@ -181,6 +193,7 @@ public class KonsentrasiAction extends GenericAutowireComposer implements DataCr
 
 	}
 
+	/** Handler tombol tambah: membuka form dengan entitas {@link Konsentrasi} baru (kosong). */
 	public void onAdd(Event event) throws Exception {
 		init(new Konsentrasi());
 		addWindow.setVisible(true);
@@ -260,6 +273,13 @@ public class KonsentrasiAction extends GenericAutowireComposer implements DataCr
 
 	}
 
+	/**
+	 * Memvalidasi (nama dan jurusan wajib isi) dan menyimpan data konsentrasi lewat
+	 * {@link KonsentrasiDao}.
+	 *
+	 * @param event event ZK asal aksi simpan
+	 * @return {@code true} bila data berhasil disimpan
+	 */
 	public boolean onSave(Event event) throws Exception {
 		if (nama.getValue().trim().equals("")) {
 			PesanFormalHelper.tampilkanGagal("penyimpanan data Nama",
@@ -302,6 +322,12 @@ public class KonsentrasiAction extends GenericAutowireComposer implements DataCr
 		return true;
 	}
 
+	/**
+	 * Membangun kueri pencarian konsentrasi, difilter nama dan jurusan.
+	 *
+	 * @param order {@code true} untuk menyertakan pengurutan hasil
+	 * @return kriteria Hibernate siap dieksekusi/dipaginasi
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(Konsentrasi.class);

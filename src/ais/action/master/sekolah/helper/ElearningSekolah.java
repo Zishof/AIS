@@ -29,11 +29,23 @@ import ais.ui.util.MyButtonTabbox;
 import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Jendela dasbor e-Learning untuk modul sekolah: menyajikan ringkasan aktivitas pembelajaran
+ * daring dalam beberapa tab yang dimuat lazy (dibangun saat pertama kali dibuka, bukan sekaligus
+ * di awal, lewat {@link ais.ui.util.MyButtonTabbox}) — Ringkasan (statistik umum, tab pertama yang
+ * langsung dimuat karena event seleksi tab bawaan ZK 5 tidak konsisten), Pertemuan
+ * ({@link DashboardTimelinePertemuan}, linimasa pertemuan kelas), Ujian
+ * ({@link RekapitulasiUjianHelper}), Tugas ({@link RekapitulasiTugasHelper}), Tugas Kelompok
+ * ({@link RekapitulasiTugasKelompokHelper}), dan Materi (materi ajar yang diunggah guru). Data
+ * disaring sesuai user yang sedang login ({@link #tbmuser}) dan sekolah konteks
+ * ({@link SekolahUtil#getSekolah()}).
+ */
 public class ElearningSekolah extends MyWindow {
 
 	private static final long serialVersionUID = 1L;
 	private Tbmuser tbmuser;
 
+	/** Membuka dasbor e-Learning untuk user yang sedang login; menampilkan pesan galat ramah bila gagal dimuat. */
 	public ElearningSekolah() {
 		super();
 		tbmuser = Common.getCurrentUser();

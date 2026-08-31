@@ -41,15 +41,36 @@ import ais.database.model.inventory.Produk;
 import ais.database.model.sekolah.Siswa;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Endpoint REST (JAX-RS/Jersey) untuk perangkat POS (point of sale) kios sekolah dan mesin
+ * absensi sidik jari (fingerprint): mencatat absensi masuk/pulang lewat {@link #absen}, mencatat
+ * transaksi pembelian kios lewat {@link #update}, serta menyediakan pencarian produk dan data
+ * siswa (termasuk saldo deposit) untuk ditampilkan di kios.
+ *
+ * <p>
+ * <b>Catatan keamanan</b> — TIDAK SEPERTI keluarga {@code *Resource} lain di paket ini (yang
+ * mewajibkan {@code username}/{@code password}), SELURUH endpoint di kelas ini tidak memiliki
+ * pemeriksaan autentikasi/otorisasi apa pun: siapa saja yang dapat menjangkau path {@code /pos/*}
+ * dapat mencatat absensi orang lain ({@link #absen}, memanipulasi jam masuk/pulang lewat
+ * parameter {@code state}), mencatat transaksi pembelian ({@link #update}, termasuk mengurangi
+ * saldo deposit siswa manapun via {@code kode_member}), serta membaca data pribadi siswa
+ * (nama orang tua, sisa deposit, foto, nomor induk) tanpa verifikasi identitas pemanggil sama
+ * sekali. Ini adalah keputusan desain lama (diasumsikan hanya dapat dijangkau dari jaringan
+ * internal kios/mesin absensi tepercaya), dilaporkan di sini tanpa diperbaiki sesuai batasan
+ * tugas dokumentasi ini.
+ * </p>
+ */
 @Path("/pos")
 @Singleton
 
 public class PosResource {
 
+	/** @return waktu sistem server saat ini (epoch milidetik), dipakai klien untuk sinkronisasi jam. */
 	public long getSystemTime() {
 		return System.currentTimeMillis();
 	}
 
+	/** Endpoint uji konektivitas: mengembalikan {@code nama} yang dikirim tanpa memproses data apa pun. */
 	@GET
 	@Path("test/{nama}")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -100,6 +121,7 @@ public class PosResource {
 		}
 	}
 
+	/** @return nama untuk ditampilkan pada respons absensi: nama pegawai, atau "NIM-nama" mahasiswa, atau "NISN-nama" siswa (prioritas dalam urutan itu). */
 	private static String getNamaAbsen(Pegawai pegawai, Mahasiswa mahasiswa, Siswa siswa) {
 		try {
 			if (pegawai != null) {
@@ -116,6 +138,7 @@ public class PosResource {
 		return "";
 	}
 
+	/** Menyusun respons standar {@link #absen}: id finger, waktu, nama, status absensi (pesan {@code info} bila diisi, atau status/label pertemuan), serta jam masuk/pulang terformat. */
 	private static CommonID buildAbsenResponse(String idFinger, String waktu, String info, Pegawai pegawai,
 			Mahasiswa mahasiswa, Siswa siswa, StatuskehadiranKaryawanHarian statuskehadiranKaryawanHarian,
 			Pertemuan pertemuanUtama) {
@@ -154,6 +177,7 @@ public class PosResource {
 		return commonID;
 	}
 
+	/** @return {@code true} bila {@code tanggal} (dikurangi toleransi 2 jam) masih di masa depan relatif terhadap waktu server saat ini. */
 	private static boolean isFutureAttendanceTime(Date tanggal) {
 		try {
 			Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
@@ -188,6 +212,26 @@ public class PosResource {
 		return "";
 	}
 
+	/**
+	 * Implementasi kanonik pencatatan absensi via mesin sidik jari, dipakai kedua overload REST
+	 * {@code getAbsen}. Alur kerja: (1) validasi id/waktu tidak kosong dan waktu tidak di masa
+	 * depan ({@link #isFutureAttendanceTime}); (2) cari identitas pemilik {@code id_finger} —
+	 * berurutan: pegawai (lewat kolom idfinger pegawai/guru/dosen), lalu mahasiswa (idfinger atau
+	 * NIM), lalu siswa (idfinger, NISN, atau nomor induk); (3) ambil/bentuk baris
+	 * {@link StatuskehadiranKaryawanHarian} harian default untuk identitas dan tanggal tersebut;
+	 * (4) tentukan jam masuk/pulang berdasarkan {@code state} ({@code "0"}=masuk hanya bila lebih
+	 * awal dari yang tercatat, {@code "1"}=pulang hanya bila lebih akhir, lainnya=isi masuk dulu
+	 * baru pulang) dan tentukan shift lewat {@code CommonPayroll#getDetailJenisShiftPegawai};
+	 * (5) simpan baris kehadiran dalam transaksi, lalu simpan detail perhitungan lewat
+	 * {@code CommonPayroll#simpanDetail} (kegagalan langkah ini tidak menggagalkan absensi).
+	 * Setiap kegagalan validasi/pencarian mengembalikan respons dengan pesan galat spesifik,
+	 * bukan melempar exception.
+	 *
+	 * @param id_finger id sidik jari/NIM/nomor induk yang dipindai
+	 * @param waktu     waktu absensi (format {@code Common#dateFormat9})
+	 * @param state     {@code "0"} untuk paksa catat sebagai masuk, {@code "1"} untuk pulang, atau {@code null}/lainnya untuk deteksi otomatis
+	 * @return respons berisi status absensi (sukses dengan jam masuk/pulang, atau pesan gagal)
+	 */
 	public static CommonID absen(String id_finger, String waktu, String state) {
 		Session session = null;
 		Transaction transaction = null;
@@ -333,6 +377,7 @@ public class PosResource {
 		}
 	}
 
+	/** Seperti {@link #absen(String, String, String)} dengan deteksi otomatis masuk/pulang ({@code state=null}). */
 	@GET
 	@Path("absen/{id_finger}/{waktu}")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -341,6 +386,15 @@ public class PosResource {
 		return PosResource.absen(id_finger, waktu, null);
 	}
 
+	/**
+	 * Mencatat absensi masuk/pulang via mesin sidik jari. Tidak memvalidasi kredensial (lihat
+	 * catatan keamanan di javadoc kelas).
+	 *
+	 * @param id_finger id sidik jari/NIM/nomor induk yang dipindai
+	 * @param waktu     waktu absensi
+	 * @param state     {@code "0"} untuk paksa masuk, {@code "1"} untuk paksa pulang, lainnya untuk otomatis
+	 * @return respons status absensi, lihat {@link #absen(String, String, String)}
+	 */
 	@GET
 	@Path("absen/{id_finger}/{waktu}/{state}")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -350,6 +404,23 @@ public class PosResource {
 		return PosResource.absen(id_finger, waktu, state);
 	}
 
+	/**
+	 * Mencatat (atau memperbarui, dicocokkan lewat kombinasi kode invoice + produk) satu baris
+	 * transaksi pembelian {@link Pembelian} dari kios: mencari {@link Produk} berdasarkan id,
+	 * mengaitkan ke {@link Siswa} bila {@code kode_member} cocok dengan nomor induk siswa, lalu
+	 * menyimpan harga jual saat ini, kuantitas, kios asal, dan waktu transaksi. Tidak memvalidasi
+	 * kredensial (lihat catatan keamanan di javadoc kelas).
+	 *
+	 * @param kode_invoice      kode invoice transaksi (URL-encoded, garis bawah dianggap kosong)
+	 * @param produk_id         id produk yang dibeli
+	 * @param jumlah            kuantitas yang dibeli
+	 * @param diskon            nilai diskon (diterima tapi tidak dipakai pada implementasi saat ini)
+	 * @param tanggal_dan_waktu waktu transaksi (format {@code Common#databaseDateFormat1})
+	 * @param kode_member       nomor induk siswa pembeli, boleh kosong
+	 * @param kode_kios         identitas kios asal transaksi
+	 * @return respons dengan {@code info1="Sukses"}/{@code "Gagal"} sesuai hasil
+	 * @throws NotFoundException bila terjadi kesalahan internal
+	 */
 	@GET
 	@Path("kirim_transaksi/{kode_invoice}/{produk_id}/{jumlah}/{diskon}/{tanggal_dan_waktu}/{kode_member}/{kode_kios}")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -424,6 +495,16 @@ public class PosResource {
 		}
 	}
 
+	/**
+	 * Mencari produk aktif berdasarkan kode/nama (dipaginasi), dikembalikan sebagai JSON array
+	 * teks pada {@code info1}. Tidak memvalidasi kredensial.
+	 *
+	 * @param nama   kata kunci pencarian kode/nama produk (URL-encoded), atau kosong untuk semua
+	 * @param mulai  offset baris awal (paginasi)
+	 * @param banyak jumlah baris maksimal (default 100 bila tidak valid)
+	 * @return respons dengan {@code info1} berisi JSON array objek {id, nama, kode, harga}
+	 * @throws NotFoundException bila terjadi kesalahan internal
+	 */
 	@GET
 	@Path("produk/{nama}/{mulai}/{banyak}")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -488,6 +569,11 @@ public class PosResource {
 		}
 	}
 
+	/**
+	 * @param nama kata kunci pencarian kode/nama produk (URL-encoded), atau kosong untuk semua
+	 * @return respons dengan {@code info1} berisi jumlah produk aktif yang cocok
+	 * @throws NotFoundException bila terjadi kesalahan internal
+	 */
 	@GET
 	@Path("jumlah_produk/{nama}")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -521,6 +607,11 @@ public class PosResource {
 		}
 	}
 
+	/**
+	 * @param nama kata kunci pencarian nomor induk/nama siswa (URL-encoded), atau kosong untuk semua
+	 * @return respons dengan {@code info1} berisi jumlah siswa aktif yang cocok
+	 * @throws NotFoundException bila terjadi kesalahan internal
+	 */
 	@GET
 	@Path("jumlah_siswa/{nama}")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -555,6 +646,18 @@ public class PosResource {
 		}
 	}
 
+	/**
+	 * Mencari siswa aktif berdasarkan nomor induk/nama (dipaginasi), dikembalikan sebagai JSON
+	 * array teks pada {@code info1} — termasuk sisa deposit dan nama orang tua per siswa. Tidak
+	 * memvalidasi kredensial (lihat catatan keamanan di javadoc kelas: data pribadi ini terbuka
+	 * tanpa autentikasi).
+	 *
+	 * @param nama   kata kunci pencarian nomor induk/nama siswa (URL-encoded), atau kosong untuk semua
+	 * @param mulai  offset baris awal (paginasi)
+	 * @param banyak jumlah baris maksimal (default 100 bila tidak valid)
+	 * @return respons dengan {@code info1} berisi JSON array objek {id, nama, foto, nomorInduk, sisaDeposit, sekolah, ayah, ibu, tahunMasuk}
+	 * @throws NotFoundException bila terjadi kesalahan internal
+	 */
 	@GET
 	@Path("siswa/{nama}/{mulai}/{banyak}")
 	@Produces({ MediaType.APPLICATION_JSON })

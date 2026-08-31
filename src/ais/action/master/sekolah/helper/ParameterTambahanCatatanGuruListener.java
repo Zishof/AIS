@@ -26,6 +26,22 @@ import ais.database.model.sekolah.ParameterTambahanCatatanGuru;
 import ais.ui.util.MyLabelStyled;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Listener ZK yang membangun, memvalidasi, dan menyimpan "parameter tambahan" dinamis
+ * ({@link ParameterTambahan}) pada form {@link CatatanGuru} (catatan guru terhadap siswa),
+ * dikelompokkan per {@link KelompokParameterTambahanCatatanGuru} — padanan modul sekolah dari
+ * {@code ParameterTambahanPengajuanTransaksiPegawaiListener} pada modul payroll, dengan struktur
+ * dan pola kerja yang identik.
+ *
+ * <p>
+ * Nilai tersimpan sebagai teks berformat baris {@code "<idKelompok>-><idParameter><=>nilai<=>keterangan"}
+ * pada kolom {@code parameterTambahanInds} milik {@code catatanGuru}, di-parse ulang tiap kali form
+ * dibangun untuk mengisi nilai awal komponen. {@link #onEvent} membangun ulang seluruh baris
+ * parameter dari nol; {@link #validate()} memeriksa parameter wajib diisi dan lampiran wajib;
+ * {@link #onSave} menuliskan nilai akhir kembali ke entitas lewat
+ * {@code catatanGuru.populateParameterTambahan}.
+ * </p>
+ */
 public class ParameterTambahanCatatanGuruListener implements EventListener {
 
 	private List<Row> parameterRows;
@@ -34,6 +50,15 @@ public class ParameterTambahanCatatanGuruListener implements EventListener {
 	private Map<String, LampiranLain> lampiranLains;
 	private Set<KelompokParameterTambahanCatatanGuru> kelompokParameterTambahanCatatanGurus;
 
+	/**
+	 * Membuat listener terikat {@code catatanGuru} dan kelompok parameter yang relevan.
+	 *
+	 * @param catatanGuru                          entitas induk yang parameter tambahannya dikelola
+	 * @param kelompokParameterTambahanCatatanGurus kelompok parameter yang ditampilkan
+	 * @param parameterRows                        daftar baris komponen dinamis (diisi/dibersihkan oleh listener ini)
+	 * @param lampiranLains                        peta lampiran per {@code jenis} parameter yang sudah diunggah
+	 * @param rows                                 {@link Rows} host tempat baris ditempel
+	 */
 	public ParameterTambahanCatatanGuruListener(CatatanGuru catatanGuru,
 			Set<KelompokParameterTambahanCatatanGuru> kelompokParameterTambahanCatatanGurus, List<Row> parameterRows,
 			Map<String, LampiranLain> lampiranLains, Rows rows) {
@@ -44,6 +69,13 @@ public class ParameterTambahanCatatanGuruListener implements EventListener {
 		this.lampiranLains = lampiranLains;
 	}
 
+	/**
+	 * Memvalidasi seluruh baris parameter yang sedang ditampilkan: menolak (menampilkan pesan dan
+	 * mengembalikan {@code false}) bila ada parameter wajib diisi yang masih kosong, atau parameter
+	 * yang mewajibkan lampiran tapi belum ada file di {@link #lampiranLains}.
+	 *
+	 * @return {@code true} bila seluruh baris valid atau tidak ada baris sama sekali
+	 */
 	public boolean validate() throws Exception {
 		if (parameterRows == null || parameterRows.isEmpty()) {
 			return true;
@@ -77,12 +109,21 @@ public class ParameterTambahanCatatanGuruListener implements EventListener {
 		return true;
 	}
 
+	/** Menuliskan nilai seluruh baris parameter dinamis saat ini ke {@code catatanGuru} lewat {@code populateParameterTambahan}. */
 	public void onSave(CatatanGuru catatanGuru) {
 
 		catatanGuru.populateParameterTambahan(parameterRows);
 
 	}
 
+	/**
+	 * Membangun ulang seluruh baris parameter tambahan dari nol: menyembunyikan/mengosongkan baris
+	 * lama, lalu untuk tiap {@link KelompokParameterTambahanCatatanGuru} memuat
+	 * {@link ParameterTambahan} aktif terkait (terurut), membuat baris judul kelompok dan satu baris
+	 * komponen input per parameter (nilai awal di-parse dari {@code parameterTambahanInds}), lalu
+	 * mendelegasikan pembuatan komponen ke {@link ParameterTambahan#initComponent}. Kelompok tanpa
+	 * parameter yang benar-benar ditampilkan disembunyikan.
+	 */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	@Override
 	public void onEvent(Event event) throws Exception {

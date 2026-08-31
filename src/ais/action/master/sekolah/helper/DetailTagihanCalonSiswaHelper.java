@@ -93,6 +93,37 @@ import ais.ui.util.MyLabelAgakKecil;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Helper UI besar untuk layar rincian tagihan biaya calon siswa PMB: menampilkan matriks
+ * "calon siswa &times; item biaya" untuk satu {@link PengaturanBiaya} (konfigurasi paket biaya
+ * PMB, mis. biaya formulir/daftar ulang/SPP), tempat setiap sel menunjukkan status tagihan
+ * ({@link Tagihan}) dan pembayaran ({@link PembayaranSiswaDetail}) calon siswa untuk item biaya
+ * tersebut, dengan opsi tampilan per-bulan (kolom bergeser bulan ke bulan untuk item biaya
+ * berulang seperti SPP) lewat filter rentang bulan mulai-sampai. Menyediakan aksi "Singkronkan"
+ * (menjalankan ulang {@link PengaturanBiaya#reloadTagihan} untuk membuat/menyesuaikan baris
+ * tagihan sesuai konfigurasi terbaru) dan unggah massal status pembayaran dari Excel
+ * ({@link #uploadDataCalonSiswa}).
+ *
+ * <p>
+ * Kepesertaan calon siswa terhadap satu {@link PengaturanBiaya} ditentukan lewat kriteria
+ * penargetan yang sangat kaya di {@link #initCriteria(Session, PengaturanBiaya, CalonSiswa,
+ * Textbox, PengaturanBiayaItemBiaya, boolean, boolean)}: dicocokkan lewat gelombang pendaftaran
+ * PSB atau paket PSB (langsung, atau tidak langsung lewat {@link GelombangPendaftaranPsb} yang
+ * ditandai "sesuai kelas"/"sesuai kelas saat diterima" terhadap jenis biaya sekolah terkait),
+ * dapat dipersempit ke daftar siswa tertentu ({@code khususBuatSiswaTertentu}), satu kelas
+ * ({@code kelasSiswa}), banyak nama kelas sekaligus ({@code kelasBanyak}, dipisah koma), kelas
+ * les, tahun angkatan, sekolah, dan jurusan/penjurusan sekolah — kombinasi filter ini
+ * memungkinkan satu paket biaya berlaku sangat spesifik (satu siswa) hingga sangat luas (seluruh
+ * angkatan).
+ * </p>
+ *
+ * <p>
+ * {@link #onTagihanRinciBaru} adalah komponen UI terpisah yang menangani pemecahan satu nominal
+ * pembayaran menjadi beberapa cicilan/tagihan ({@link Tagihan}) sekaligus — pengguna mencentang
+ * tagihan mana yang dibayar dan mengisi nominal per tagihan, dengan total berjalan ditampilkan di
+ * footer grid (termasuk persentase dan sisa bila item biaya boleh diangsur bebas).
+ * </p>
+ */
 public class DetailTagihanCalonSiswaHelper implements DataLoader, DataCriteria {
 
 	private MyGrid grid;
@@ -106,12 +137,18 @@ public class DetailTagihanCalonSiswaHelper implements DataLoader, DataCriteria {
 	private boolean edit = false;
 	private boolean approve = false;
 
+	/**
+	 * Membuat helper. Bila {@code calonSiswa} tidak {@code null}, tampilan terikat pada satu calon
+	 * siswa tersebut (label nama statis, bukan kolom pencarian); {@code edit} mengizinkan
+	 * perubahan nominal/tanggal tagihan, {@code approve} mengizinkan aksi persetujuan pembayaran.
+	 */
 	public DetailTagihanCalonSiswaHelper(CalonSiswa calonSiswa, boolean edit, boolean approve) {
 		this.calonSiswa = calonSiswa;
 		this.edit = edit;
 		this.approve = approve;
 	}
 
+	/** Renderer baris grid utama: satu baris per {@link CalonSiswa}, kolom-kolom menampilkan status tagihan/pembayaran item biaya {@code pengaturanBiayaItemBiaya} (satu kolom per bulan bila {@code pembayaranTerakhir} mengindikasikan tampilan multi-bulan aktif). */
 	class DetailPARenderer extends ais.ui.util.MyRowRenderer {
 
 		private Tbmuser tbmuser = Common.getCurrentUser();
@@ -120,16 +157,26 @@ public class DetailTagihanCalonSiswaHelper implements DataLoader, DataCriteria {
 
 		private Integer pembayaranTerakhir;
 
+		/** Membuat renderer untuk item biaya {@code pengaturanBiayaItemBiaya} tertentu, dengan {@code pembayaranTerakhir} sebagai penanda periode tagihan terakhir yang relevan untuk tampilan multi-bulan. */
 		public DetailPARenderer(PengaturanBiayaItemBiaya pengaturanBiayaItemBiaya, Integer pembayaranTerakhir) {
 			this.pengaturanBiayaItemBiaya = pengaturanBiayaItemBiaya;
 			this.pembayaranTerakhir = pembayaranTerakhir;
 		}
 
+		/** Merender satu baris calon siswa untuk tampilan kolom tunggal (bukan mode "bagi" pembagian nominal antar tagihan); mendelegasikan ke {@link #render(Row, Object, boolean)}. */
 		@Override
 		public void render(Row row, Object data) throws Exception {
 			render(row, data, false);
 		}
 
+		/**
+		 * Implementasi inti render satu baris calon siswa: menampilkan status tagihan (lunas/
+		 * belum/sebagian) dan tombol aksi (bayar, revisi, hapus, lihat rincian) untuk item biaya
+		 * {@link #pengaturanBiayaItemBiaya}. Parameter {@code bagi} mengaktifkan mode di mana
+		 * satu pembayaran dapat dipecah ke beberapa tagihan sekaligus (memakai UI
+		 * {@link DetailTagihanCalonSiswaHelper#onTagihanRinciBaru}) — dipakai saat item biaya
+		 * mengizinkan pembayaran gabungan/angsuran lintas periode.
+		 */
 		public void render(final Row row, Object data, boolean bagi) throws Exception {
 			row.setValign("top");
 			final CalonSiswa calonSiswa = (CalonSiswa) data;

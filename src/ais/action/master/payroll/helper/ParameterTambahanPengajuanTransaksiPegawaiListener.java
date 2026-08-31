@@ -26,6 +26,23 @@ import ais.database.model.payroll.PengajuanTransaksiPegawai;
 import ais.ui.util.MyLabelStyled;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Listener ZK yang membangun, memvalidasi, dan menyimpan "parameter tambahan" dinamis
+ * ({@link ParameterTambahan}) pada form {@link PengajuanTransaksiPegawai} (pengajuan transaksi
+ * payroll pegawai), dikelompokkan per {@link KelompokParameterTambahanPengajuanTransaksiPegawai}.
+ * Nilai tersimpan sebagai teks berformat baris {@code "<idKelompok>-><idParameter><=>nilai<=>keterangan"}
+ * pada kolom {@code parameterTambahanInds} milik {@code pengajuanPegawai}, di-parse ulang tiap kali
+ * form dibangun untuk mengisi nilai awal komponen.
+ *
+ * <p>
+ * Sebagai {@link EventListener}, {@link #onEvent} membangun ulang seluruh baris parameter dari nol
+ * (dipanggil ulang, mis. saat jenis pengajuan berubah dan kelompok parameter yang relevan berbeda);
+ * komponen input tiap parameter didelegasikan ke {@link ParameterTambahan#initComponent}. Kelompok
+ * yang tidak punya parameter aktif apa pun disembunyikan. {@link #validate()} memeriksa parameter
+ * wajib diisi dan lampiran wajib sebelum form induk diizinkan tersimpan; {@link #onSave} menuliskan
+ * nilai akhir kembali ke entitas lewat {@code pengajuanPegawai.populateParameterTambahan}.
+ * </p>
+ */
 public class ParameterTambahanPengajuanTransaksiPegawaiListener implements EventListener {
 
 	private List<Row> parameterRows;
@@ -35,6 +52,16 @@ public class ParameterTambahanPengajuanTransaksiPegawaiListener implements Event
 	private Set<KelompokParameterTambahanPengajuanTransaksiPegawai> kelompokParameterTambahanPengajuanTransaksiPegawais;
 	private boolean readonly = false;
 
+	/**
+	 * Membuat listener terikat {@code pengajuanPegawai} dan kelompok parameter yang relevan.
+	 *
+	 * @param pengajuanPegawai                                       entitas induk yang parameter tambahannya dikelola
+	 * @param kelompokParameterTambahanPengajuanTransaksiPegawais    kelompok parameter yang ditampilkan
+	 * @param parameterRows                                          daftar baris komponen dinamis (diisi/dibersihkan oleh listener ini)
+	 * @param lampiranLains                                          peta lampiran per {@code jenis} parameter yang sudah diunggah
+	 * @param rows                                                   {@link Rows} host tempat baris ditempel
+	 * @param readonly                                                {@code true} untuk menonaktifkan seluruh komponen input
+	 */
 	public ParameterTambahanPengajuanTransaksiPegawaiListener(PengajuanTransaksiPegawai pengajuanPegawai,
 			Set<KelompokParameterTambahanPengajuanTransaksiPegawai> kelompokParameterTambahanPengajuanTransaksiPegawais,
 			List<Row> parameterRows, Map<String, LampiranLain> lampiranLains, Rows rows, boolean readonly) {
@@ -46,6 +73,14 @@ public class ParameterTambahanPengajuanTransaksiPegawaiListener implements Event
 		this.lampiranLains = lampiranLains;
 	}
 
+	/**
+	 * Memvalidasi seluruh baris parameter yang sedang ditampilkan: menolak (menampilkan pesan dan
+	 * mengembalikan {@code false}) bila ada parameter wajib diisi ({@code getWajibDiisi()}) yang
+	 * masih kosong, atau parameter yang mewajibkan lampiran ({@code getHarusMenyertakanLampiran()})
+	 * tapi belum ada file di {@link #lampiranLains} untuk kombinasi kelompok+parameternya.
+	 *
+	 * @return {@code true} bila seluruh baris valid atau tidak ada baris sama sekali
+	 */
 	public boolean validate() throws Exception {
 		if (parameterRows == null || parameterRows.isEmpty()) {
 			return true;
@@ -80,12 +115,22 @@ public class ParameterTambahanPengajuanTransaksiPegawaiListener implements Event
 		return true;
 	}
 
+	/** Menuliskan nilai seluruh baris parameter dinamis saat ini ke {@code pengajuanPegawai} lewat {@code populateParameterTambahan}. */
 	public void onSave(PengajuanTransaksiPegawai pengajuanPegawai) {
 
 		pengajuanPegawai.populateParameterTambahan(parameterRows);
 
 	}
 
+	/**
+	 * Membangun ulang seluruh baris parameter tambahan dari nol: menyembunyikan/mengosongkan baris
+	 * lama, lalu untuk tiap {@link KelompokParameterTambahanPengajuanTransaksiPegawai} memuat
+	 * {@link ParameterTambahan} aktif terkait (terurut), membuat baris judul kelompok dan satu baris
+	 * komponen input per parameter (nilai awal di-parse dari {@code parameterTambahanInds} yang
+	 * tersimpan), lalu mendelegasikan pembuatan komponen ke
+	 * {@link ParameterTambahan#initComponent}. Kelompok tanpa parameter yang benar-benar
+	 * ditampilkan disembunyikan.
+	 */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	@Override
 	public void onEvent(Event event) throws Exception {

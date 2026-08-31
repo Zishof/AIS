@@ -406,6 +406,7 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 		html.setParent(box);
 	}
 
+	/** Membangun dan menampilkan kartu progress (judul, progress meter, detail persentase) di panel tengah, mengembalikan {@link ProgressContext} untuk diperbarui selanjutnya. */
 	private ProgressContext tampilkanProgressBar() {
 		ProgressContext progress = new ProgressContext();
 		center.getChildren().clear();
@@ -446,6 +447,7 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 		return progress;
 	}
 
+	/** Memperbarui progress meter dan label judul/detail pada {@code progress} (dipaksa ke rentang 0-100), mengaktifkan {@link #desktop} sementara agar perubahan langsung terkirim ke browser lewat server push; diam-diam diabaikan bila progress sudah selesai atau desktop tidak aktif (pengguna sudah menutup halaman). */
 	private void updateProgress(final ProgressContext progress, final int persen, final String judul,
 			final String detail) {
 		if (progress == null || progress.selesai || desktop == null) {
@@ -478,6 +480,7 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 		}
 	}
 
+	/** Menandai {@code progress} selesai dan mengganti kartu progress dengan pratinjau PDF {@code file} (atau pesan "selesai tanpa file" bila berkas tidak ada/gagal dibuat). */
 	private void sembunyikanProgressDanTampilkanPdf(final ProgressContext progress, final File file) {
 		if (progress != null) {
 			progress.selesai = true;
@@ -507,6 +510,7 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 		}
 	}
 
+	/** Menampilkan kartu pesan bahwa data sudah selesai diproses namun berkas PDF tidak ditemukan/gagal dibuat. */
 	private void tampilkanPesanSelesaiTanpaFile() {
 		if (center == null) {
 			return;
@@ -527,6 +531,7 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 		html.setParent(box);
 	}
 
+	/** Memaksa {@code progress} menjadi selesai (100%, pesan {@code pesan}) bila belum ditandai selesai — jaring pengaman bila alur normal ({@link #sembunyikanProgressDanTampilkanPdf}) belum sempat dipanggil. */
 	private void pastikanProgressBerhenti(final ProgressContext progress, final String pesan) {
 		if (progress == null || progress.selesai || desktop == null) {
 			return;
@@ -552,6 +557,7 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 		}
 	}
 
+	/** Menandai {@code progress} gagal dan menampilkan pesan galat (judul dan detail berwarna merah) pada kartu progress, mencatat {@code error} ke audit. */
 	private void tampilkanErrorProgress(final ProgressContext progress, final Exception error) {
 		if (progress != null) {
 			progress.gagal = true;
@@ -585,6 +591,7 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 		}
 	}
 
+	/** Membuat peta parameter laporan baru (thread-safe/synchronized, karena diisi paralel selama pemrosesan data). */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	private Map buatParameterBaru() {
 		Map map = ais.common.HashMapGenerator.getRand();
@@ -594,6 +601,7 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 		return Collections.synchronizedMap(map);
 	}
 
+	/** Menaruh satu pasangan {@code key}/{@code value} ke {@link #parameters} (membuat peta bila belum ada), nilai {@code null} disimpan sebagai string kosong; tidak melakukan apa pun bila {@code key} {@code null}. */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	private void putParameter(String key, Object value) {
 		if (key == null) {
@@ -605,6 +613,7 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 		parameters.put(key, value == null ? "" : value);
 	}
 
+	/** Menggabungkan seluruh entri {@code values} ke {@link #parameters} (membuat peta bila belum ada); tidak melakukan apa pun bila {@code values} kosong/{@code null}. */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	private void putAllParameter(Map values) {
 		if (values == null || values.isEmpty()) {
@@ -616,36 +625,44 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 		parameters.putAll(values);
 	}
 
+	/** Mengecek apakah {@code pegawai} termasuk cakupan laporan presensi (tipe pegawai tidak menyatakan dikecualikan dari presensi). */
 	private static boolean pegawaiMasukPresensi(Pegawai pegawai) {
 		return pegawai == null || pegawai.getTipePegawai() == null || pegawai.getTipePegawai().getMasukPresensi() == null
 				|| Boolean.TRUE.equals(pegawai.getTipePegawai().getMasukPresensi());
 	}
 
+	/** Mengecek apakah {@code cutiDanIzin} sudah disetujui. */
 	private static boolean isCutiDisetujui(CutiDanIzin cutiDanIzin) {
 		return cutiDanIzin != null && Boolean.TRUE.equals(cutiDanIzin.getSetujui());
 	}
 
+	/** Mengecek apakah {@code cutiDanIzin} memotong jatah cuti pegawai. */
 	private static boolean isMemotongJatahCuti(CutiDanIzin cutiDanIzin) {
 		return cutiDanIzin != null && Boolean.TRUE.equals(cutiDanIzin.getMemotongJatahCuti());
 	}
 
+	/** Mengecek apakah {@code statusabsensi} memiliki id yang sama dengan {@code id}. */
 	private static boolean isStatus(Statusabsensi statusabsensi, Long id) {
 		return statusabsensi != null && statusabsensi.getId() != null && statusabsensi.getId().equals(id);
 	}
 
+	/** Mengembalikan {@code value} sebagai {@code int}, atau {@code 0} bila {@code null}. */
 	private static int intValue(Integer value) {
 		return value == null ? 0 : value.intValue();
 	}
 
+	/** Mengembalikan {@code value} sebagai {@code double}, atau {@code 0.0} bila {@code null}. */
 	private static double doubleValue(Double value) {
 		return value == null ? 0.0 : value.doubleValue();
 	}
 
+	/** Mengembalikan representasi string {@code value}, atau string kosong bila {@code null}. */
 	private static String stringValue(Object value) {
 		return value == null ? "" : String.valueOf(value);
 	}
 
 	@SuppressWarnings({ "rawtypes", "unchecked" })
+	/** Mengurai teks parameter tambahan berformat baris {@code "label<=>nilai"} menjadi peta label (huruf kecil) ke nilai; peta kosong bila {@code rawParams} kosong. */
 	private static Map parseParameterTambahan(String rawParams) {
 		Map hasil = new HashMap();
 		if (rawParams == null || rawParams.trim().length() == 0) {
@@ -666,6 +683,7 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
+	/** Melengkapi {@link #parameters} (membuat baru bila belum ada) dengan flag hari aktif terpilih dan rentang tanggal mulai/sampai sebelum diteruskan ke pembuatan laporan. */
 	private Map generateParameter() throws Exception {
 
 		if (parameters == null) {
@@ -690,6 +708,7 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 		return parameters;
 	}
 
+	/** Mengembalikan {@code date} (atau hari ini bila {@code null}) dengan waktu dinormalkan ke awal hari (00:00:00.000). */
 	private static Date awalHari(Date date) {
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 		calendar.setTime(date == null ? ais.ui.util.WaktuUtil.getDate() : date);
@@ -700,6 +719,7 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 		return calendar.getTime();
 	}
 
+	/** Mengembalikan {@code date} dengan waktu dinormalkan ke akhir hari (23:59:59.999). */
 	private static Date akhirHari(Date date) {
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 		calendar.setTime(awalHari(date));
@@ -710,6 +730,7 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 		return calendar.getTime();
 	}
 
+	/** Menghitung jumlah hari inklusif antara {@code mulai} dan {@code sampai} (kedua tanggal ikut dihitung), {@code 0} bila {@code mulai} setelah {@code sampai}. */
 	private static int hitungJumlahHariInklusif(Date mulai, Date sampai) {
 		Calendar cMulai = ais.ui.util.WaktuUtil.getCalendar();
 		cMulai.setTime(awalHari(mulai));
@@ -732,6 +753,7 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
+	/** Mengisi parameter {@code tanggal_1}..{@code tanggal_N} (satu per hari dalam rentang {@code mulai}-{@code sampai}, inklusif) dan {@code jumlah_hari} pada {@link #parameters}, dipakai template laporan untuk menyusun kolom per tanggal. */
 	private void isiParameterTanggalGlobal(Date mulai, Date sampai) {
 		if (parameters == null) {
 			parameters = buatParameterBaru();
@@ -756,6 +778,23 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
+	/**
+	 * Menghitung data presensi/absensi seluruh pegawai sesuai filter (satuan kerja beserta
+	 * turunannya, jenis pegawai dosen/guru/pegawai umum, ikatan dinas dosen) untuk setiap hari
+	 * dalam rentang tanggal, menghasilkan satu baris {@link Map} per pegawai per hari (disimpan
+	 * ke parameter laporan). Untuk setiap pegawai: mem-pre-fetch dan meng-cache label parameter
+	 * tambahan per {@link JenisPengajuanPegawai} (menghindari query berulang), mencocokkan
+	 * {@link PengajuanPegawai} (cuti/izin/tugas dinas) yang bentang tanggalnya menimpa rentang
+	 * laporan (dipotong ke batas rentang bila melampaui), dan menghitung ringkasan kehadiran per
+	 * hari (status hadir/cuti disetujui/memotong jatah cuti, dsb. lewat helper
+	 * {@code isCutiDisetujui}/{@code isMemotongJatahCuti}/{@code isStatus}). Pegawai yang
+	 * dikecualikan dari presensi ({@link #pegawaiMasukPresensi}) dilewati. Pemrosesan per
+	 * pegawai dijalankan paralel lewat {@link ParallelTaskExecutor} dengan hasil dikumpulkan ke
+	 * peta tersinkronisasi, sementara {@code progress} diperbarui secara berkala mencerminkan
+	 * jumlah hari-pegawai yang sudah selesai diproses dari total keseluruhan.
+	 *
+	 * @param progress konteks progress yang diperbarui selama perhitungan berjalan
+	 */
 	public void generateDataDanImageAlbum(final ProgressContext progress) throws Exception {
 
 		Session session = null;
@@ -1509,6 +1548,15 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 		}
 	}
 
+	/**
+	 * Memicu alur lengkap pembuatan laporan: menampilkan kartu progress, menjalankan
+	 * {@link #generateDataDanImageAlbum(ProgressContext)} lalu membuat berkas PDF — seluruhnya
+	 * di dalam satu tugas latar belakang yang dijalankan dengan server push ZK aktif
+	 * ({@code AsyncTaskManager#jalankanDenganPush}) agar kartu progress terus diperbarui live
+	 * di browser selama proses berjalan. Diabaikan (tidak melakukan apa pun) bila laporan
+	 * sedang diproses ({@link #sedangMemprosesLaporan}); flag ini dikunci di awal dan dilepas di
+	 * akhir (blok {@code finally}) tanpa memandang hasil.
+	 */
 	@SuppressWarnings({})
 	public void onKHS(Event event) throws Exception {
 

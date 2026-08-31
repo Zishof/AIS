@@ -118,6 +118,30 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.SmartDateTimeUtil;
 
+/**
+ * Helper UI besar yang mengelola ujian-ujian ({@link Ujian}, via relasi
+ * {@link PertemuanPunyaUjian}) yang ditempelkan pada satu {@link Pertemuan} (sesi
+ * perkuliahan/pelajaran). Menyediakan dua sisi tampilan tergantung konstruksi: dari sudut pandang
+ * siswa/calon siswa ({@code siswa}/{@code calonSiswa} non-null) — daftar ujian dengan tombol
+ * "Ikut Ujian"/"Lihat Hasil" (lewat {@link #tampilBolekIkutUjianAtauTidak}, mendelegasikan alur
+ * pengerjaan ke {@code ProsesUjianHelper}); atau dari sudut pandang dosen/guru/staf — pengelolaan
+ * penuh: menempelkan ujian dari bank soal ({@code "Ambil Bahan Ujian"}, lewat
+ * {@code AmbilDataUjianBanyak}), membuat ujian baru ({@code "Buat Ujian"}), mengedit pengaturan
+ * tiap ujian (revisi, waktu mulai/selesai, batas jumlah percobaan), mengelola soal
+ * ({@code DetailUjianHelper}), melihat/merekap hasil ujian ({@code HasilUjianHelper}/
+ * {@code HasilUjianSiswaHelper}/{@code RekapHasilUjian}), format penilaian
+ * ({@code FormatPenilaianHelper}), dan pencetakan sertifikat kelulusan ujian
+ * ({@code SertifikatAction}).
+ *
+ * <p>
+ * Aturan bolehkut/tidaknya siswa mengikuti ujian ({@link #tampilBolekIkutUjianAtauTidak})
+ * mempertimbangkan pembatasan cakupan ujian (khusus sekolah/yayasan tertentu untuk ujian PMB),
+ * jendela waktu ujian ({@code mulaiUjian}/{@code sampaiUjian}), dan batas jumlah percobaan
+ * ({@code jumlahBolehIkut} vs {@code hasilUjianMahasiswa.getJumlahIkut()}) — tombol "Ikut Ujian"
+ * berubah menjadi "Lihat Hasil" bila percobaan sudah habis, dan disembunyikan sepenuhnya bila
+ * ujian belum boleh melihat jawaban/nilai setelah selesai.
+ * </p>
+ */
 public class PertemuanPunyaUjianSiswaHelper implements DataLoader {
 
 	private MyGrid grid;
@@ -127,11 +151,26 @@ public class PertemuanPunyaUjianSiswaHelper implements DataLoader {
 
 	private CalonSiswa calonSiswa = null;
 
+	/** Membuat helper dari sudut pandang {@code siswa} atau {@code calonSiswa} (salah satu boleh null); bila keduanya null, dianggap dilihat dari sudut pandang staf/dosen dengan hak pengelolaan penuh. */
 	public PertemuanPunyaUjianSiswaHelper(Siswa siswa, CalonSiswa calonSiswa) {
 		this.siswa = siswa;
 		this.calonSiswa = calonSiswa;
 	}
 
+	/**
+	 * Menghasilkan tombol toolbar yang membuka dialog filter (yayasan/sekolah/prodi, rentang
+	 * tanggal, dosen, atau dibatasi hanya ujian pada {@code pertemuan} ini saja) untuk mencetak
+	 * laporan Excel berisi rincian jawaban tiap peserta per soal ujian yang cocok filter (kolom:
+	 * NIM/No Reg, nama, fakultas, jurusan, status awal, angkatan, ujian, soal, jawaban huruf,
+	 * jawaban teks, benar/salah). Laporan dibangun di thread terpisah dengan indikator sibuk dan
+	 * timer polling, lalu ditampilkan sebagai pratinjau spreadsheet dalam jendela modal dengan
+	 * tombol unduh berkas {@code .xlsx}.
+	 *
+	 * @param pertemuan   pertemuan konteks (dipakai sebagai default filter bila "hanya ujian di pertemuan ini" dicentang)
+	 * @param buttonLabel label tombol yang ditampilkan
+	 * @param buttonImage ikon tombol
+	 * @return tombol toolbar siap ditempelkan ke tata letak pemanggil
+	 */
 	public MyToolbarbuttonConfig prosesUlangSoal(final Pertemuan pertemuan, String buttonLabel, String buttonImage) {
 
 		MyToolbarbuttonConfig toolbarbutton = new MyToolbarbuttonConfig(buttonLabel, buttonImage);
@@ -887,6 +926,23 @@ public class PertemuanPunyaUjianSiswaHelper implements DataLoader {
 		return toolbarbutton;
 	}
 
+	/**
+	 * Menampilkan pada {@code arg0} status kelayakan siswa/calon siswa mengikuti
+	 * {@code pertemuanPunyaUjian}: pesan penolakan bila ujian dibatasi untuk sekolah/yayasan lain
+	 * (khusus ujian PMB), pesan "belum mulai"/"telah berakhir" di luar jendela waktu ujian, atau
+	 * tombol "Ikut Ujian"/"Lihat Hasil" (tergantung sisa jumlah percobaan dibanding
+	 * {@code jumlahBolehIkut}) yang mendelegasikan ke {@code ProsesUjianHelper.ikut}/
+	 * {@code tampil}. Tombol hasil disembunyikan bila konfigurasi ujian tidak mengizinkan melihat
+	 * jawaban/nilai setelah ujian selesai.
+	 *
+	 * @param arg0                 baris ZK tempat status/tombol ditambahkan
+	 * @param pertemuanPunyaUjian  relasi ujian-pertemuan yang diperiksa
+	 * @param siswa                siswa peserta, boleh {@code null} bila {@code calonSiswa} diisi
+	 * @param calonSiswa           calon siswa peserta, boleh {@code null} bila {@code siswa} diisi
+	 * @param hasilUjianMahasiswa  hasil ujian tersimpan bila sudah pernah dikerjakan, boleh {@code null}
+	 * @param eventListener        callback yang dipanggil setelah aksi ikut ujian/lihat hasil selesai
+	 * @return label pesan status bila ditampilkan (tidak boleh ikut/belum mulai/berakhir), atau {@code null} bila yang ditampilkan adalah tombol aksi
+	 */
 	public static Label tampilBolekIkutUjianAtauTidak(Row arg0, final PertemuanPunyaUjian pertemuanPunyaUjian,
 			final Siswa siswa, final CalonSiswa calonSiswa, final HasilUjianMahasiswa hasilUjianMahasiswa,
 			final EventListener eventListener) {
@@ -995,6 +1051,17 @@ public class PertemuanPunyaUjianSiswaHelper implements DataLoader {
 		return label;
 	}
 
+	/**
+	 * Renderer baris grid utama kelas ini: satu baris per {@link PertemuanPunyaUjian}. Dari sudut
+	 * pandang siswa/calon siswa, menampilkan informasi ujian beserta status kelayakan dan tombol
+	 * ikut/lihat hasil ({@link #tampilBolekIkutUjianAtauTidak}). Dari sudut pandang staf/dosen,
+	 * menampilkan detail lengkap ujian (nama, jenis, dosen/guru, batasan waktu/percobaan) dengan
+	 * kemampuan mengedit pengaturan (revisi lewat {@code RevisiPertemuanPunyaUjianHelper}),
+	 * mengelola soal ({@link #detailUjianHelper}), menghapus, serta tombol untuk melihat/merekap
+	 * hasil ujian seluruh peserta ({@code HasilUjianHelper}/{@code RekapHasilUjian}/
+	 * {@code RekapHasilUjianPerVoPertemuan}), memformat nilai ({@code FormatPenilaianHelper}), dan
+	 * mencetak sertifikat kelulusan ujian ({@code SertifikatAction}) bila berlaku.
+	 */
 	class DetailPertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
 		private DetailUjianHelper detailUjianHelper = new DetailUjianHelper();
@@ -2090,6 +2157,7 @@ public class PertemuanPunyaUjianSiswaHelper implements DataLoader {
 		}
 	}
 
+	/** Memuat seluruh {@link PertemuanPunyaUjian} milik {@link #pertemuan} (memaksa hitung ulang bila {@code value} bernilai {@code true}, sesuai perspektif hak akses {@code tbmuser} saat ini) dan menampilkannya di grid dengan {@link DetailPertemuanRenderer}. */
 	public void loadData(Object value) {
 		// Session session = HibernateUtil.currentSession();
 		// List<PertemuanPunyaUjian> pertemuanPunyaUjian =
@@ -2116,6 +2184,17 @@ public class PertemuanPunyaUjianSiswaHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membangun tampilan lengkap daftar ujian pada {@code pertemuan} ke dalam {@code component}:
+	 * toolbar (khusus staf/dosen) berisi tombol "Ambil Bahan Ujian" (menempelkan ujian yang sudah
+	 * ada dari bank soal via {@code AmbilDataUjianBanyak}, dengan pengaturan default batas waktu
+	 * 30 menit dan tenggat besok, memicu notifikasi email+in-app ke peserta) dan "Buat Ujian"
+	 * (membuat entitas {@link Ujian} baru dengan dosen/mata kuliah atau guru/mata pelajaran
+	 * default dari {@code pertemuan}), diikuti grid daftar ujian ({@link #loadData}).
+	 *
+	 * @param pertemuan pertemuan yang ujian-ujiannya dikelola
+	 * @param component komponen ZK tempat tata letak dibangun (dibersihkan lebih dulu bila tidak null)
+	 */
 	@SuppressWarnings("unchecked")
 	public void display(final Pertemuan pertemuan, final Component component) {
 		this.pertemuan = pertemuan;

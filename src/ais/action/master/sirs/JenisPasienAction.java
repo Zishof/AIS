@@ -64,6 +64,7 @@ public class JenisPasienAction extends GenericCrudAction<JenisPasien> {
         return criteria;
     }
 
+    /** @return renderer baris grid untuk {@link JenisPasien} ({@link JenisPasienRenderer}). */
     @Override
     protected MyRowRenderer createRenderer() {
         return new JenisPasienRenderer();
@@ -71,6 +72,7 @@ public class JenisPasienAction extends GenericCrudAction<JenisPasien> {
 
     // ======================== Form content ========================
 
+    /** Membangun form tambah/ubah {@link JenisPasien}: nama dan keterangan, plus toolbar Batal/Simpan. */
     @Override
     protected void buildFormContent(MyWindow window, final JenisPasien jenisPasien) throws Exception {
         org.zkoss.zul.Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
@@ -142,6 +144,7 @@ public class JenisPasienAction extends GenericCrudAction<JenisPasien> {
 
     // ======================== Save logic ========================
 
+    /** Memvalidasi (nama wajib diisi dan harus unik) dan menyimpan {@link JenisPasien} dari nilai form saat ini. @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal. */
     public boolean onSave(Event event) throws Exception {
         if (nama.getValue().trim().isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, Nama Jenis Pasien wajib diisi terlebih dahulu. Langkah yang dapat dilakukan: (1) isikan Nama Jenis Pasien pada kolom yang tersedia; (2) pastikan kolom tidak dikosongkan; (3) simpan kembali data setelah kolom terisi.", "Peringatan",
@@ -165,6 +168,7 @@ public class JenisPasienAction extends GenericCrudAction<JenisPasien> {
         return true;
     }
 
+    /** @return {@code true} bila sudah ada {@link JenisPasien} lain dengan nama yang sama persis (mengecualikan entitas yang sedang diedit). */
     public Boolean checkNamaJenisPasien() {
         Session session = HibernateUtil.currentSession();
         int count = ((Number) session.createCriteria(JenisPasien.class)
@@ -179,6 +183,7 @@ public class JenisPasienAction extends GenericCrudAction<JenisPasien> {
 
     // ======================== Renderer ========================
 
+    /** Renderer baris grid {@link JenisPasien}: nama (dengan revisi), keterangan, dan tombol ubah/hapus. */
     class JenisPasienRenderer extends MyRowRenderer {
 
         @Override

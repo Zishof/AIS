@@ -25,8 +25,27 @@ import ais.database.model.Pegawai;
 import ais.database.model.PenilaianAsesor;
 import ais.database.model.PenunjangKinerjaDosen;
 
+/**
+ * Helper batch modul BKD (Beban Kerja Dosen) yang menghitung SKS pembimbingan PKL (Praktik Kerja
+ * Lapangan) dosen dan mencatatnya sebagai {@link AsesemenPenilaian} (bidang
+ * {@link PenunjangKinerjaDosen#PENDIDIKAN}, spesifikasi {@link PenilaianAsesor#PEMBIMBING_PKL})
+ * untuk satu tahun akademik/semester — pola dan struktur kerjanya identik dengan
+ * {@code BkdBimbinganSkripsiHelper}, hanya sumber datanya berupa
+ * {@link MahasiswaDapatKelompokPkl} (dosen pembimbing 1-5 pada {@code kelompokPkl}) alih-alih
+ * bimbingan tugas akhir.
+ *
+ * <p>
+ * SKS dihitung dari jumlah mahasiswa bimbingan PKL dosen pada jenjang/periode tertentu, dipetakan
+ * ke nilai SKS lewat tabel rentang di konfigurasi {@link ParameterUmum} berkunci
+ * {@code jumlah_sks_pembimbing_pkl_<idJenjang>} (default {@code "1-25=1;26-50=2;51-75=3;76-100=4"},
+ * diterjemahkan lewat {@code KonfigurasiBkdAction.terjemahkanNilai}). Setelah
+ * {@link AsesemenPenilaian} disimpan, {@code PenilaianAsesorAction.checkPenilaian} memastikan baris
+ * {@link PenilaianAsesor} terkait tersinkron dengan {@link Asesor} yang berlaku.
+ * </p>
+ */
 public class BkdPklHelper {
 
+	/** Memproses seluruh {@link Jenjang} aktif untuk {@code pegawai} (atau seluruh dosen pembimbing PKL bila {@code null}) pada tahun akademik/semester tertentu, mendelegasikan ke overload per-jenjang. */
 	@SuppressWarnings("unchecked")
 	public static void populate(Session session, final Pegawai pegawai, String tahunAkademik, String semester,
 			Label label) {
@@ -38,6 +57,13 @@ public class BkdPklHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Untuk satu {@code jenjang}: bila {@code pegawai} diberikan (dan berelasi ke {@link Dosen}),
+	 * memproses dosen tersebut langsung. Bila {@code pegawai} {@code null}, mengumpulkan seluruh
+	 * dosen yang tercatat sebagai pembimbing 1-5 pada {@link MahasiswaDapatKelompokPkl} yang
+	 * diterima ({@code diterima=true}) pada periode tersebut (dideduplikasi lewat {@link TreeSet}),
+	 * lalu memproses masing-masing.
+	 */
 	public static void populate(Session session, final Pegawai pegawai, Jenjang jenjang, String tahunAkademik,
 			String semester, Label label) {
 

@@ -62,6 +62,22 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.action.master.helper.FilterLanjutHelper;
 
+/**
+ * Layar CRUD konfigurasi parameter tambahan pada angket/checklist penilaian (Umum/Dosen/Guru) —
+ * menentukan {@link ParameterTambahan} kustom apa yang muncul pada satu grup checklist penilaian
+ * tertentu, opsional dipersempit lagi ke fakultas/jurusan/yayasan/sekolah/program/jenjang, dan
+ * opsional dibatasi ke angkatan mahasiswa tertentu (checkbox per tahun angkatan pada grid, tersimpan
+ * otomatis saat dicentang/dilepas). Aturan bisnis inti: satu baris {@link ParameterTambahanAngketUmum}
+ * harus tertaut TEPAT SATU dari tiga jenis grup checklist (Umum/Dosen/Guru) — dijaga di dua tempat,
+ * pemilihan combobox target saling mengosongkan combobox target lain
+ * ({@link #addTargetComboListener}) dan divalidasi ulang saat simpan
+ * ({@link #selectedFormTargetCount()}). Tombol tambah dapat menambah satu parameter kosong ATAU,
+ * bila filter target grup checklist sedang aktif, membuka dialog pemilihan banyak parameter
+ * sekaligus ({@link AmbilDataParameterTambahanBanyak}) untuk didaftarkan massal ke target tersebut.
+ * Menyediakan juga tab manajemen parameter global (iframe ke halaman {@code parameter_tambahan.zul})
+ * dan aksi cetak/unggah massal data. Mengimplementasikan {@link DataSearchDefault} dan
+ * {@link DataCriteria} agar dapat dipasang ke komponen baku (paging, tombol cetak/unggah).
+ */
 public class ParameterTambahanAngketUmumAction extends GenericAutowireComposer
 		implements DataSearchDefault, DataCriteria {
 
@@ -113,6 +129,7 @@ public class ParameterTambahanAngketUmumAction extends GenericAutowireComposer
 		return super.doBeforeCompose(page, parent, compInfo);
 	}
 
+	/** Menginisialisasi komponen dasar layar: cek konteks PT/sekolah/yayasan, isi combobox filter, pasang toolbar cetak/unggah, muat pencarian awal, dan siapkan paging. */
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
 		Common.initLaguage();
@@ -203,11 +220,13 @@ public class ParameterTambahanAngketUmumAction extends GenericAutowireComposer
 		}
 	}
 
+	/** Mengosongkan pilihan combobox filter grup checklist (Umum/Dosen/Guru) dan menjalankan ulang pencarian. */
 	public void onResetParameter(Event event) {
 		populateSearchGroupCombos(false);
 		onSearchDefault(null);
 	}
 
+	/** Membuka tab "Manajemen Parameter" berisi iframe ke halaman pengelolaan {@link ParameterTambahan} global; hanya dimuat sekali (tidak dibangun ulang bila sudah pernah dibuka). */
 	public void onManajemenParameter(Event event) {
 		if (manajemenParameter == null) {
 			return;
@@ -222,6 +241,7 @@ public class ParameterTambahanAngketUmumAction extends GenericAutowireComposer
 		}
 	}
 
+	/** Renderer baris grid daftar parameter angket: label target (Umum/Dosen/Guru + isi grup), unit organisasi terkait, program/jenjang, parameter (dengan link riwayat revisi) beserta detailnya, checkbox "Semua Angkatan" dengan daftar checkbox per tahun angkatan (tersimpan otomatis), dan tombol edit/hapus. */
 	class ParameterTambahanAngketUmumRenderer extends ais.ui.util.MyRowRenderer {
 
 		@SuppressWarnings("unchecked")
@@ -366,6 +386,17 @@ public class ParameterTambahanAngketUmumAction extends GenericAutowireComposer
 	}
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Menangani tombol tambah: bila tidak ada tepat satu target grup checklist terpilih pada filter
+	 * pencarian, membuka form tambah satu parameter kosong seperti biasa; bila ADA tepat satu target
+	 * terpilih, membuka dialog pemilihan banyak {@link ParameterTambahan} sekaligus
+	 * ({@link AmbilDataParameterTambahanBanyak}, mengecualikan parameter yang sudah terdaftar untuk
+	 * kombinasi filter yang sama) dan mendaftarkan seluruh parameter terpilih sekaligus ke target
+	 * tersebut beserta filter unit organisasi yang sedang aktif.
+	 *
+	 * @param event event ZK pemicu (tombol tambah)
+	 * @throws Exception diteruskan apa adanya dari kegagalan query atau pembangunan komponen
+	 */
 	public void onAdd(Event event) throws Exception {
 		Object target = selectedSearchTarget();
 		if (target == null) {
@@ -594,6 +625,15 @@ public class ParameterTambahanAngketUmumAction extends GenericAutowireComposer
 		}
 	}
 
+	/**
+	 * Memvalidasi lalu menyimpan data parameter angket dari form: menolak bila tidak tepat satu
+	 * target grup checklist (Umum/Dosen/Guru) terpilih, atau parameter belum dipilih; jika lolos
+	 * menyimpan/memperbarui entitas dengan seluruh filter unit organisasi yang diisi.
+	 *
+	 * @param event event ZK pemicu penyimpanan (tombol simpan)
+	 * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal
+	 * @throws Exception diteruskan apa adanya dari kegagalan Hibernate saat menyimpan
+	 */
 	public boolean onSave(Event event) throws Exception {
 		if (selectedFormTargetCount() != 1) {
 			MyMessageboxConfig.show("Pilih salah satu target: Kelompok Angket Umum, Dosen, atau Guru", "Peringatan",
@@ -632,6 +672,15 @@ public class ParameterTambahanAngketUmumAction extends GenericAutowireComposer
 		return true;
 	}
 
+	/**
+	 * Menyusun kriteria pencarian {@link ParameterTambahanAngketUmum}, difilter nama parameter dan
+	 * seluruh combobox filter unit organisasi/grup checklist yang terisi, diurutkan id terbaru lebih
+	 * dulu bila diminta. Nilai combo "Semua" berupa entitas placeholder tanpa id diperlakukan sebagai
+	 * tanpa filter (menghindari {@code TransientObjectException}).
+	 *
+	 * @param order {@code true} untuk menyertakan pengurutan
+	 * @return kriteria Hibernate siap dieksekusi
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(ParameterTambahanAngketUmum.class)
@@ -655,6 +704,7 @@ public class ParameterTambahanAngketUmumAction extends GenericAutowireComposer
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Menjalankan pencarian sesuai kriteria dan halaman paging aktif, lalu merender hasilnya ke grid. */
 	public void onSearchDefault(Event event) {
 		Common.initPaging(initCriteria(false), paging);
 		List<ParameterTambahanAngketUmum> datas = initCriteria(true).setMaxResults(Common.ROWS_COUNT_ON_PAGE)

@@ -52,6 +52,14 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Dialog pemilihan banyak siswa ZK untuk mendaftarkan peserta ({@link FormulirKegiatanPeserta})
+ * ke satu {@link FormulirKegiatan} (formulir kegiatan kesiswaan) — pola dasarnya sama dengan
+ * {@link AmbilDataSiswaForDiskonSiswaHelper}/{@link AmbilDataSiswaForKegiatanKesiswaanHelper},
+ * dengan filter tambahan berupa kelas ({@code kelas}) dan guru wali/pengampu ({@code guru}).
+ * Combo yayasan/sekolah otomatis terkunci bila sudah ditetapkan pada formulir kegiatan; siswa
+ * yang sudah terdaftar sebagai peserta tampil tercentang dan terkunci.
+ */
 public class AmbilDataSiswaForFormulirKegiatanHelper {
 
 	private FormulirKegiatan formulirKegiatan;
@@ -68,6 +76,7 @@ public class AmbilDataSiswaForFormulirKegiatanHelper {
 	private AmbilDataKelasSiswaBanbox kelas;
 	private AmbilDataGuruBanbox guru;
 
+	/** Menyiapkan dialog untuk {@code formulirKegiatan}; combo yayasan/sekolah otomatis terisi dan terkunci bila sudah ditetapkan pada formulir kegiatan, atau bebas dipilih bila belum. */
 	public AmbilDataSiswaForFormulirKegiatanHelper(FormulirKegiatan formulirKegiatan) {
 		this.formulirKegiatan = formulirKegiatan;
 		Yayasan yayasan = formulirKegiatan.getYayasan();
@@ -122,6 +131,7 @@ public class AmbilDataSiswaForFormulirKegiatanHelper {
 
 	}
 
+	/** Renderer baris grid untuk {@link Siswa}: checkbox pilih (tercentang dan terkunci bila siswa sudah terdaftar sebagai peserta {@link #formulirKegiatan}), nomor induk, nama, dan tahun masuk. */
 	class SiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -148,6 +158,7 @@ public class AmbilDataSiswaForFormulirKegiatanHelper {
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
+	/** Menyimpan {@link FormulirKegiatanPeserta} untuk setiap siswa yang tercentang dan belum terkunci pada grid. */
 	public void save() throws InterruptedException {
 		Session session = HibernateUtil.currentSession();
 		final Tbmuser tbmuser = Common.getCurrentUser();
@@ -214,6 +225,7 @@ public class AmbilDataSiswaForFormulirKegiatanHelper {
 
 	}
 
+	/** Membangun kerangka dialog: panel filter pencarian (nomor induk/nama/yayasan/sekolah/tahun angkatan/kelas/guru) di utara, grid siswa berpaging di tengah, dan tombol Simpan/Batal di selatan, lalu langsung memuat data dan membuka dialog sebagai modal. */
 	public void display(final DataLoader dataLoader, final MyWindow window) {
 
 		Common.clear(window);
@@ -435,6 +447,7 @@ public class AmbilDataSiswaForFormulirKegiatanHelper {
 		}
 	}
 
+	/** Menyusun kriteria pencarian {@link Siswa} berdasarkan nomor induk (ilike), nama (ilike), tahun masuk, sekolah, yayasan, kelas ({@link KelasSiswaPunyaSiswa}), dan guru wali/pengampu; terurut tahun masuk menurun lalu NIM bila {@code order} true. */
 	@SuppressWarnings("unchecked")
 	public Criteria initCriteria(boolean order) {
 
@@ -506,6 +519,7 @@ public class AmbilDataSiswaForFormulirKegiatanHelper {
 	}
 
 	@SuppressWarnings("unchecked")
+	/** Memuat ulang daftar siswa sesuai filter aktif (dipaginasi 50 baris via {@link #paging}) ke grid. */
 	public void onSearchDefault(Event event) {
 
 		Common.initPaging50(initCriteria(false), paging);

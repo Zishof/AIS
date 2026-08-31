@@ -672,6 +672,7 @@ public class CalendarJadwalDokterComposer extends GenericForwardComposer {
 		}
 	}
 
+	/** Menangani pergeseran/resize event kalender secara langsung (drag) di sisi tampilan: memperbarui tanggal mulai/selesai pada model event ZK, TANPA menyimpan ke database (perubahan permanen tetap lewat {@link #onSave()}). */
 	public void onEventUpdate$calendars(ForwardEvent event) {
 		CalendarsEvent evt = (CalendarsEvent) event.getOrigin();
 		org.zkoss.calendar.Calendars cal = (org.zkoss.calendar.Calendars) evt.getTarget();
@@ -682,6 +683,7 @@ public class CalendarJadwalDokterComposer extends GenericForwardComposer {
 		m.update(sce);
 	}
 
+	/** Menggeser kalender ke halaman sebelumnya/berikutnya sesuai tombol navigasi yang diklik ({@code "arrow-left"} atau lainnya). */
 	public void onMoveDate(ForwardEvent event) {
 		if ("arrow-left".equals(event.getData()))
 			calendars.previousPage();
@@ -690,12 +692,14 @@ public class CalendarJadwalDokterComposer extends GenericForwardComposer {
 
 	}
 
+	/** Menggeser tampilan kalender ke tanggal hari ini. */
 	public void onToday(ForwardEvent event) {
 		calendars.setCurrentDate(Calendar.getInstance(TimeZone.getDefault()).getTime());
 
 	}
 
 	@SuppressWarnings("rawtypes")
+	/** Mengganti zona waktu kalender aktif dengan zona waktu berikutnya dari daftar zona waktu yang dikonfigurasi. */
 	public void onSwitchTimeZone(ForwardEvent event) {
 		Map<?, ?> zone = calendars.getTimeZones();
 		if (!zone.isEmpty()) {
@@ -706,12 +710,14 @@ public class CalendarJadwalDokterComposer extends GenericForwardComposer {
 
 	}
 
+	/** Mengubah hari pertama minggu kalender sesuai pilihan pengguna pada listbox terkait. */
 	public void onUpdateFirstDayOfWeek(ForwardEvent event) {
 		Listbox listbox = (Listbox) event.getOrigin().getTarget();
 		calendars.setFirstDayOfWeek(listbox.getSelectedItem().getLabel());
 
 	}
 
+	/** Mengubah mode tampilan kalender (Hari/5 Hari/Minggu memakai mold {@code "default"} dengan jumlah hari sesuai, atau mold {@code "month"} untuk tampilan bulan). */
 	public void onUpdateView(ForwardEvent event) {
 		String text = String.valueOf(event.getData());
 		int days = "Day".equals(text) ? 1 : "5 Days".equals(text) ? 5 : "Week".equals(text) ? 7 : 0;
@@ -723,6 +729,14 @@ public class CalendarJadwalDokterComposer extends GenericForwardComposer {
 			calendars.setMold("month");
 	}
 
+	/**
+	 * Memvalidasi lalu menyimpan data jadwal dokter dari form tambah/ubah: mewajibkan shift, tenaga
+	 * medis, waktu mulai/selesai (berasal dari shift terpilih), hari, lokasi, dan poli terisi; jika
+	 * lolos, menuliskan seluruh field ke entitas {@link JadwalDokter} dan menyimpan/memperbarui.
+	 *
+	 * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal
+	 * @throws Exception diteruskan apa adanya dari kegagalan Hibernate saat menyimpan
+	 */
 	public boolean onSave() throws Exception {
 
 		if (shift.getSelectedItem() == null) {
@@ -784,6 +798,7 @@ public class CalendarJadwalDokterComposer extends GenericForwardComposer {
 		return true;
 	}
 
+	/** Alias pencarian default; mendelegasikan ke {@link #onRefresh(Event)}. */
 	public void onSearchDefault(Event event) {
 		onRefresh(event);
 	}

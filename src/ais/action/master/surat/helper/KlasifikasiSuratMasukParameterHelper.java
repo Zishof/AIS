@@ -384,6 +384,9 @@ public class KlasifikasiSuratMasukParameterHelper implements DataCriteria, DataS
 		});
 	}
 
+	/**
+	 * @return kriteria Hibernate untuk seluruh parameter milik {@link #klasifikasiSuratMasuk}, diurutkan id menurun.
+	 */
 	@Override
 	public Object initCriteria(boolean order) {
 		// TODO Auto-generated method stub
@@ -391,6 +394,7 @@ public class KlasifikasiSuratMasukParameterHelper implements DataCriteria, DataS
 				.addOrder(Order.desc("id")).add(Restrictions.eq("klasifikasiSuratMasuk", klasifikasiSuratMasuk));
 	}
 
+	/** Memuat ulang grid parameter lewat {@code loadDataDetail()}. */
 	@Override
 	public void onSearchDefault(Event event) {
 		loadDataDetail();

@@ -173,6 +173,7 @@ public class LaporanRekapitulasiJudisium extends MyWindow {
         tampilkanDashboardAwal();
     }
 
+    /** Menyusun seluruh baris filter pada panel barat: tahun akademik, fakultas/prodi, program, angkatan, status mahasiswa, gelombang/jadwal sidang, predikat yudisium, dosen, mahasiswa, opsi hitung ulang IP/IPK, serta tombol Tampilkan Dashboard dan Cetak PDF Lama. */
     private void buildFilterRows(Rows rows) {
         tahunAkademik = new Combobox();
         tahunAkademik = Common.generateTahunAjaran(tahunAkademik);
@@ -252,6 +253,7 @@ public class LaporanRekapitulasiJudisium extends MyWindow {
         });
     }
 
+    /** Menambahkan satu baris label+komponen ke {@code rows}, dipakai berulang untuk menyusun panel filter. */
     private void tambahRow(Rows rows, String label, org.zkoss.zk.ui.Component component) {
         MyFormRow row = new MyFormRow();
         row.setValign("top");
@@ -260,6 +262,7 @@ public class LaporanRekapitulasiJudisium extends MyWindow {
         row.appendChild(component);
     }
 
+    /** Menyusun peta parameter laporan (fakultas/dosen/mahasiswa/program/jurusan/angkatan/status/tahun akademik id, {@code -1} bila tidak difilter) untuk keperluan cetak PDF lama; menyertakan {@link #maps} (data hasil kalkulasi terakhir) bila sudah tersedia. */
     @SuppressWarnings({ "unchecked", "rawtypes" })
     private Map generateParameter() throws Exception {
         Dosen dosen = getSelectedDosen();
@@ -279,6 +282,15 @@ public class LaporanRekapitulasiJudisium extends MyWindow {
         return parameters;
     }
 
+    /**
+     * Menghitung data rekapitulasi yudisium ke {@link #maps}: mencari id {@link Skripsi} lulus
+     * yang cocok filter aktif (gelombang/jadwal sidang, tahun akademik, fakultas/prodi, program,
+     * angkatan, mahasiswa, dosen — lihat {@link #buildDosenCriterion}), lalu untuk tiap skripsi
+     * menyinkronkan {@link KrsMahasiswa} (SKS/IPK terkini), mengambil status histori mahasiswa
+     * saat itu, menyaring berdasarkan status mahasiswa dan predikat yudisium terpilih, dan
+     * merangkum baris data (gelombang, fakultas, NIM, nama, SKS, IP/IPK, nilai skripsi, predikat,
+     * tanggal lulus, status aktif). Progres diperbarui ke {@code label} selama proses berjalan.
+     */
     @SuppressWarnings({ "unchecked", "rawtypes" })
     protected void generateDataDanImageAlbum(Label label) {
         maps = new ArrayList<Map>();
@@ -360,6 +372,7 @@ public class LaporanRekapitulasiJudisium extends MyWindow {
         updateLabel(label, null, 0, 0, "");
     }
 
+    /** Menampilkan indikator progres, lalu menghitung data ({@link #generateDataDanImageAlbum}) di thread terpisah dan merender dashboard HTML hasilnya. */
     public void onLaporan(Event event) throws Exception {
         final Label label = Common.displayLoadBar(new EventListener() {
             @Override
@@ -380,6 +393,7 @@ public class LaporanRekapitulasiJudisium extends MyWindow {
         }).start();
     }
 
+    /** Menghitung data ({@link #generateDataDanImageAlbum}) di thread terpisah, lalu menghasilkan berkas PDF gaya lama via {@link Report#generateFileReportWithProgress} dan menampilkannya di area konten. */
     public void onCetakLama(Event event) throws Exception {
         final Label label = Common.displayLoadBar(new EventListener() {
             @Override
@@ -402,6 +416,7 @@ public class LaporanRekapitulasiJudisium extends MyWindow {
         }).start();
     }
 
+    /** Merender dashboard HTML dari {@link #maps} (data hasil kalkulasi terakhir) ke area konten, atau tampilan kosong bila belum ada data. */
     private void renderDashboard() {
         center.getChildren().clear();
         String html = (maps == null || maps.isEmpty())
@@ -410,11 +425,13 @@ public class LaporanRekapitulasiJudisium extends MyWindow {
         center.appendChild(new Html(html));
     }
 
+    /** Menampilkan dashboard kosong (belum ada data dihitung) saat jendela pertama kali dibuka. */
     private void tampilkanDashboardAwal() {
         center.getChildren().clear();
         center.appendChild(new Html(LaporanSkripsiDashboardUtil.empty("Dashboard Rekapitulasi Yudisium", getFilterInfo())));
     }
 
+    /** Menyusun kriteria kecocokan {@code dosen} terhadap salah satu dari 7 slot pembimbing/penguji skripsi (pembimbing, pembimbing3, ketua sidang, penguji1-4). */
     private Criterion buildDosenCriterion(Dosen dosen) {
         Criterion cc = Restrictions.or(Restrictions.eq("pembimbing", dosen), Restrictions.eq("ketuaSidang", dosen));
         cc = Restrictions.or(cc, Restrictions.eq("penguji1", dosen));
@@ -476,6 +493,7 @@ public class LaporanRekapitulasiJudisium extends MyWindow {
         return s == null || s.getId() == null ? -1L : s.getId();
     }
 
+    /** Memeriksa apakah {@code historyStatus} cocok dengan status mahasiswa yang difilter pada form (selalu cocok bila tidak ada filter status). */
     private boolean cocokStatusMahasiswa(HistoryStatusMahasiswa historyStatus) {
         StatusMahasiswa selected = getSelectedStatusMahasiswa();
         if (selected == null) {
@@ -485,6 +503,7 @@ public class LaporanRekapitulasiJudisium extends MyWindow {
                 && selected.getId().equals(historyStatus.getStatusMahasiswa().getId());
     }
 
+    /** Mengambil status histori mahasiswa terkini untuk {@code krsMahasiswa} via {@link ais.action.master.helper.HistoryStatusMahasiswaUtil#currentStatus}, mengembalikan {@code null} bila gagal atau tidak tersedia. */
     private HistoryStatusMahasiswa getHistoryStatus(KrsMahasiswa krsMahasiswa) {
         try {
             return krsMahasiswa == null ? null : ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(krsMahasiswa);
@@ -508,6 +527,7 @@ public class LaporanRekapitulasiJudisium extends MyWindow {
                 : (Judisium) judisium.getSelectedItem().getValue();
     }
 
+    /** Menyusun ringkasan teks filter aktif (tahun akademik, prodi, gelombang) untuk ditampilkan sebagai subjudul dashboard. */
     private String getFilterInfo() {
         String ta = getSelectedTahunAkademik() == null ? "Semua TA" : getSelectedTahunAkademik();
         String prodi = getSelectedJurusanObject() == null ? "Semua Prodi" : getSelectedJurusanObject().getNama();
@@ -515,6 +535,7 @@ public class LaporanRekapitulasiJudisium extends MyWindow {
         return ta + " • " + prodi + " • " + gel;
     }
 
+    /** Memperbarui teks {@code label} indikator progres: pesan tetap bila diberikan, atau persentase kemajuan berdasarkan {@code index}/{@code size} dan mahasiswa yang sedang diproses. */
     private void updateLabel(Label label, Mahasiswa mahasiswa, int index, int size, String message) {
         if (label == null) {
             return;
