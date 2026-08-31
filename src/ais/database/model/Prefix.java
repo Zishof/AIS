@@ -13,14 +13,6 @@ import javax.persistence.TemporalType;
 
 import org.hibernate.envers.Audited;
 
-@Entity
-@org.hibernate.annotations.Entity(
-    dynamicInsert = true,
-    dynamicUpdate = true
-)
-@Audited
-@Table(schema = "public", name = "prefix")
-
 /**
  * Model data untuk prefix. Tipe ini membawa state yang dipertukarkan oleh lapisan persistence,
  * service, dan UI; makna bisnis utamanya ditentukan oleh field serta relasi yang dideklarasikan.
@@ -37,6 +29,13 @@ import org.hibernate.envers.Audited;
  *
  * @see GeneralValueObject
  */
+@Entity
+@org.hibernate.annotations.Entity(
+    dynamicInsert = true,
+    dynamicUpdate = true
+)
+@Audited
+@Table(schema = "public", name = "prefix")
 public class Prefix extends GeneralValueObject {
 
 	/**

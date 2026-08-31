@@ -29,16 +29,6 @@ import org.hibernate.envers.Audited;
 
 import ais.database.model.GeneralValueObject;
 
-@Entity
-@org.hibernate.annotations.Entity(
-    dynamicInsert = true,
-    dynamicUpdate = true
-)
-@Audited
-@Table(schema = "public", name = "detail_kelompok_kegiatan_kesiswaan")
-
-
-
 /**
  * Entitas Hibernate untuk satu sub-unit/detail dari {@link KelompokKegiatanKesiswaan} (kelompok
  * kegiatan kesiswaan/ekstrakurikuler) — dipetakan ke tabel
@@ -57,6 +47,13 @@ import ais.database.model.GeneralValueObject;
  * sendiri.
  * </p>
  */
+@Entity
+@org.hibernate.annotations.Entity(
+    dynamicInsert = true,
+    dynamicUpdate = true
+)
+@Audited
+@Table(schema = "public", name = "detail_kelompok_kegiatan_kesiswaan")
 public class DetailKelompokKegiatanKesiswaan extends GeneralValueObject {
 	private static final long serialVersionUID = -7050166125892447098L;
 	private Long id;

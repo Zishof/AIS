@@ -21,16 +21,6 @@ import ais.database.model.GeneralValueObject;
 
 
 
-@Entity
-@org.hibernate.annotations.Entity(
-    dynamicInsert = true,
-    dynamicUpdate = true
-)
-@Audited
-@Table(schema = "employ", name = "jenis_tanda_jasa")
-
-
-
 /**
  * Model data untuk jenis tanda jasa. Tipe ini membawa state yang dipertukarkan oleh lapisan
  * persistence, service, dan UI; makna bisnis utamanya ditentukan oleh field serta relasi yang
@@ -48,6 +38,13 @@ import ais.database.model.GeneralValueObject;
  *
  * @see GeneralValueObject
  */
+@Entity
+@org.hibernate.annotations.Entity(
+    dynamicInsert = true,
+    dynamicUpdate = true
+)
+@Audited
+@Table(schema = "employ", name = "jenis_tanda_jasa")
 public class JenisTandaJasa extends GeneralValueObject {
 
 	/**
