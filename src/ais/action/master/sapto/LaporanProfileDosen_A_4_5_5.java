@@ -22,10 +22,21 @@ import ais.database.model.JabatanOrganisasiDosen;
 import ais.database.model.Jurusan;
 import ais.database.model.OrganisasiDosenPunyaDosen;
 
+/**
+ * Laporan borang akreditasi BAN-PT sapto butir <b>A-4.5.5</b> (keikutsertaan dosen dalam
+ * organisasi keilmuan/keahlian): menampilkan daftar {@link OrganisasiDosenPunyaDosen} yang sudah
+ * disetujui ({@code persetujuan=true}), difilter opsional per fakultas/jurusan, dengan penanda
+ * kolom tingkat organisasi (Internasional/Nasional/Lokal) berdasarkan
+ * {@link JabatanOrganisasiDosen}. Mengklik satu baris data pada lembar kerja mencetak Daftar
+ * Riwayat Hidup (DRH) dosen bersangkutan lewat {@link DosenAction#cetakDRHDosen(Dosen)}.
+ */
 public class LaporanProfileDosen_A_4_5_5 extends SaptoBaseWindow {
 
+    /** Kode lembar borang akreditasi yang dilaporkan kelas ini. */
     public static final String sheetCode = "A-4.5.5";
     private static final long serialVersionUID = 3331244819198611604L;
+
+    /** Membuat jendela laporan dengan filter fakultas/jurusan awal dan langsung membangun tampilan dasar. */
     public LaporanProfileDosen_A_4_5_5() {
         super();
         try {
@@ -34,19 +45,35 @@ public class LaporanProfileDosen_A_4_5_5 extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /**
+     * Membuat jendela laporan dengan judul, gaya border, dan status dapat-ditutup kustom.
+     *
+     * @param title    judul jendela
+     * @param border   gaya border jendela
+     * @param closable apakah jendela dapat ditutup pengguna
+     */
     public LaporanProfileDosen_A_4_5_5(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         initFakultasJurusan();
         buildBase(false);
     }
 
+    /** @return {@link #sheetCode}, kode lembar borang akreditasi yang dilaporkan kelas ini. */
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Menyusun baris filter fakultas/jurusan. */
     @Override
     protected void buildFilters(Row row) {
         addFakultasJurusanFilter(row);
     }
 
+    /**
+     * Memuat data keikutsertaan organisasi dosen (difilter jurusan bila dipilih) secara asinkron
+     * di thread terpisah, lalu menampilkannya sebagai worksheet dengan klik-baris yang mencetak
+     * DRH dosen terkait.
+     *
+     * @param event event pemicu (boleh {@code null}, tidak dipakai)
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

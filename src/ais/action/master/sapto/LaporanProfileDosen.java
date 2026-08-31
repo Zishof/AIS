@@ -21,10 +21,22 @@ import ais.database.model.Dosen;
 import ais.database.model.Jurusan;
 import ais.database.model.RiwayatPendidikanDosen;
 
+/**
+ * Laporan SAPTO/borang akreditasi BAN-PT sheet dasar "DOSEN": rekap profil pendidikan seluruh
+ * dosen tetap aktif (memiliki NIDN), difilter opsional per fakultas/jurusan. Untuk setiap dosen
+ * ditampilkan nama, NIDN, tanggal lahir, jabatan fungsional, serta riwayat pendidikan S1/S2/S3
+ * masing-masing (gelar akademik, nama sekolah/kampus asal, bidang ilmu) yang diambil dari
+ * {@link RiwayatPendidikanDosen}. Data dimuat asinkron di thread terpisah lalu dirender lewat
+ * {@link SaptoUtil#displayWorksheet}; mengklik baris dosen memicu cetak Daftar Riwayat Hidup (DRH)
+ * dosen tersebut lewat {@link DosenAction#cetakDRHDosen}. Berbeda dari kelas {@code Laporan*_A_X_Y}
+ * lain di paket ini, sheet ini tidak terikat satu butir borang tertentu (kode sheet {@code "DOSEN"}
+ * dipakai sebagai sumber profil dasar yang dirujuk laporan-laporan A.4.x lain).
+ */
 public class LaporanProfileDosen extends SaptoBaseWindow {
 
     public static final String sheetCode = "DOSEN";
     private static final long serialVersionUID = 3331244819198611604L;
+    /** Membangun jendela laporan dengan filter fakultas/jurusan siap pakai. */
     public LaporanProfileDosen() {
         super();
         try {
@@ -33,19 +45,30 @@ public class LaporanProfileDosen extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Membangun jendela laporan dengan judul/border/closable kustom. */
     public LaporanProfileDosen(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         initFakultasJurusan();
         buildBase(false);
     }
 
+    /** @return kode sheet borang {@code "DOSEN"}. */
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Membangun baris filter fakultas/jurusan lewat {@link #addFakultasJurusanFilter}. */
     @Override
     protected void buildFilters(Row row) {
         addFakultasJurusanFilter(row);
     }
 
+    /**
+     * Menghitung dan menampilkan rekap profil pendidikan dosen aktif ber-NIDN, difilter jurusan
+     * bila dipilih. Pengambilan riwayat pendidikan S1/S2/S3 tiap dosen dijalankan asinkron di
+     * thread terpisah; hasil dirender lewat {@link SaptoUtil#displayWorksheet}. Mengklik baris
+     * dosen mencetak DRH dosen tersebut.
+     *
+     * @param event event pemicu (perubahan filter), boleh {@code null}
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

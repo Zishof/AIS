@@ -11,12 +11,13 @@ import ais.database.model.BiodataCalonMahasiswa;
 
 /**
  * Pembangkit NIM dengan format {@code [prefix_pmb]+YY+KODEPRODI+URUT}, mis. {@code "26TI0007"}
- * (dengan prefiks konfigurasi {@code prefix_pmb} bila diisi). Bagian {@code URUT} dihitung dari
- * jumlah mahasiswa aktif yang sudah terdaftar pada tahun angkatan dan jurusan (prodi lulus) yang
- * sama, dipadatkan sejumlah digit sesuai konfigurasi {@code jumlah_digit_gen_nim_mahasiswa}
- * (default 4). Bila calon mahasiswa belum memiliki prodi lulus, dikembalikan {@code "-"}. Bila
- * nomor hasil bentrok dengan yang sudah tersimpan, dibangkitkan ulang secara rekursif dengan
- * nomor tersebut ditambahkan ke daftar pengecualian.
+ * (dengan prefiks konfigurasi {@code prefix_pmb} bila diisi). Bagian {@code URUT} dihitung lewat
+ * helper bersama {@link NimGeneratorSupport#nomorUrutBerikutnya} berbasis prefiks
+ * tahun+kode prodi, dipadatkan sejumlah digit sesuai konfigurasi
+ * {@code jumlah_digit_gen_nim_mahasiswa} (default 4). Bila calon mahasiswa belum memiliki prodi
+ * lulus, dikembalikan {@code "-"}. Keunikan nomor hasil diperiksa lewat
+ * {@link NimGeneratorSupport#nimSudahDipakai}; bila bentrok, dibangkitkan ulang secara rekursif
+ * dengan nomor tersebut ditambahkan ke daftar pengecualian.
  */
 public class YY_PRODI_URUT_NimGenerator implements NimGenerator {
 

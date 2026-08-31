@@ -14,10 +14,11 @@ import ais.database.model.Program;
 /**
  * Algoritma pembangkit NIM dengan lima komponen sesuai nama kelas: 2 digit tahun angkatan, 1
  * digit kode semester (1=Ganjil, 2=Genap), kode prodi lulus, kode {@link Program} (atau
- * {@code "_"} bila program tidak dikenal/tidak memiliki nomor), dan digit urutan mahasiswa aktif
- * pada kombinasi (tahun, program, semester mulai, prodi) yang sama (panjang dari konfigurasi
- * {@code jumlah_digit_gen_nim_mahasiswa}, default 4). Mengembalikan {@code "-"} bila calon
- * mahasiswa belum memiliki prodi lulus.
+ * {@code "_"} bila program tidak dikenal/tidak memiliki nomor), dan digit urutan (panjang dari
+ * konfigurasi {@code jumlah_digit_gen_nim_mahasiswa}, default 4) yang dihitung lewat
+ * {@link NimGeneratorSupport#nomorUrutBerikutnya} sebagai angka setelah urutan tertinggi yang
+ * sudah dipakai di antara NIM ber-prefix (tahun+semester+prodi+program) yang sama. Mengembalikan
+ * {@code "-"} bila calon mahasiswa belum memiliki prodi lulus.
  */
 public class YY_SMT_PRODI_PROGRAM_URUT_NimGenerator implements NimGenerator {
 

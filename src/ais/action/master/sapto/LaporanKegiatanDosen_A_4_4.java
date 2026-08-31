@@ -19,12 +19,25 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.TugasBelajarDosen;
 import ais.ui.util.DataCriteriaWithColumn;
 
+/**
+ * Laporan SAPTO/borang akreditasi BAN-PT butir A.4.4 (kode sheet {@code A-4.4_PT}): rekap jumlah
+ * dosen tetap yang mengikuti tugas belajar ({@link TugasBelajarDosen}) dalam 3 tahun akademik
+ * terakhir (tahun ajaran terpilih dan dua tahun sebelumnya), dipecah per jenjang studi lanjut ke
+ * dalam tiga baris — jenjang selain S2/S3/Sp-1/Sp-2, jenjang S2/Sp-1, dan jenjang S3/Sp-2 — dengan
+ * kolom untuk masing-masing dari tiga tahun tersebut. Pengambilan data dijalankan asinkron di
+ * thread terpisah agar antarmuka tidak terkunci selama kueri berjalan, hasilnya disimpan sebagai
+ * atribut pada {@link Label} placeholder lalu dirender oleh {@link SaptoUtil#displayWorksheet}.
+ * Setiap sel angka dapat diklik untuk mengunduh rincian data dosen yang menyusun angka tersebut
+ * (nama, bidang, jenjang, negara tujuan, identitas kepegawaian lengkap) lewat
+ * {@link Common#cetakDataCustomButton}.
+ */
 public class LaporanKegiatanDosen_A_4_4 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-4.4_PT";
     private static final long serialVersionUID = 3331244819198611604L;
     private Combobox tahunAjaran;
 
+    /** Membangun jendela laporan dengan tahun ajaran berjalan terpilih otomatis pada combobox filter. */
     public LaporanKegiatanDosen_A_4_4() {
         super();
         try {
@@ -33,14 +46,17 @@ public class LaporanKegiatanDosen_A_4_4 extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Membangun jendela laporan dengan judul/border/closable kustom; tahun ajaran berjalan terpilih otomatis. */
     public LaporanKegiatanDosen_A_4_4(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         Common.selectComboItem(tahunAjaran = Common.generateTahunAjaran(tahunAjaran), Common.getCurrentTahunAkademik());
         buildBase(true);
     }
 
+    /** @return kode sheet borang {@code "A-4.4_PT"}. */
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Membangun baris filter berisi combobox pilihan tahun ajaran; perubahan pilihan memicu cetak ulang otomatis. */
     @Override
     protected void buildFilters(Row row) {
         row.appendChild(new ais.ui.util.MyLabelConfig("Tahun Akademik *"));
@@ -52,6 +68,16 @@ public class LaporanKegiatanDosen_A_4_4 extends SaptoBaseWindow {
         });
     }
 
+    /**
+     * Menghitung dan menampilkan rekap tugas belajar dosen 3 tahun terakhir untuk tahun ajaran
+     * yang dipilih. Kueri SQL native menghitung jumlah baris {@code tugas_belajar_dosen} per tahun
+     * (tahun terpilih dan dua tahun sebelumnya) dalam tiga kelompok jenjang, dijalankan di thread
+     * terpisah agar UI tetap responsif; hasil disimpan sebagai atribut {@code datas} pada
+     * {@link Label} placeholder dan dirender lewat {@link SaptoUtil#displayWorksheet}. Sel data
+     * yang diklik memicu unduhan rincian dosen penyusun angka tersebut.
+     *
+     * @param event event pemicu (perubahan combobox tahun ajaran), boleh {@code null}
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

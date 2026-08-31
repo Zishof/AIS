@@ -9,22 +9,31 @@ import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
 
+/**
+ * Implementasi {@link NimGenerator} baku (fallback) yang dipakai institusi tanpa algoritma
+ * penomoran khusus. Format NIM (contoh {@code 106091002858}): digit 1 = kode jenjang; digit 2 =
+ * kode program (dari {@code programNIM} bila diisi, jika tidak dari {@code program}); digit 3–4 =
+ * 2 digit terakhir tahun angkatan; digit 5–6 = kode fakultas dari program studi kelulusan; digit
+ * 7–8 = kode program studi kelulusan; digit 9 dst. = 5 digit nomor urut auto-increment yang mulai
+ * dari 1 lagi setiap tahun angkatan berganti. Penghitungan nomor urut berikutnya dan pengecekan
+ * pemakaian NIM didelegasikan ke helper bersama {@link NimGeneratorSupport}; tabrakan ditangani
+ * rekursif via daftar pengecualian.
+ */
 public class DefaultNimGenerator implements NimGenerator {
 
+	/** Menghasilkan NIM tanpa daftar pengecualian; mendelegasikan ke varian dengan daftar kosong. */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa) {
 		return generateNim(calonMahasiswa, new ArrayList<String>());
 	}
 
-	// generate NIM
-	/*
-	 * contoh NIM: 106091002858 digit pertama = jenjang (dalam contoh di atas:
-	 * 1) digit kedua sampai ketiga = tahun angkatan (dalam contoh di atas: 06)
-	 * digit keempat sampai ke kelima = fakultas (dalam contoh di atas: 09)
-	 * digit keenam sampai ke ketujuh = prodi (dalam contoh di atas: 10) digit
-	 * kedelapan sampai seterusnya = nomor urut mahasiswa tiap prodi (dalam
-	 * contoh di atas: 02858). Dalam tiap tahun angkatan nomor urut mahasiswa
-	 * akan diulang lagi dari nomor 1
+	/**
+	 * Menghasilkan NIM baku 12-digit (lihat format di javadoc kelas) untuk calon mahasiswa,
+	 * menggunakan {@link NimGeneratorSupport} untuk nomor urut dan verifikasi keunikan.
+	 *
+	 * @param calonMahasiswa      data calon mahasiswa, sumber jenjang, program, tahun, dan prodi kelulusan
+	 * @param jumlahPengecualian  daftar NIM yang harus dihindari, dimodifikasi di tempat saat rekursi
+	 * @return NIM baku 12-digit yang belum terpakai
 	 */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa,

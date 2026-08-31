@@ -10,14 +10,34 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.Program;
 
+/**
+ * Implementasi {@link NimGenerator} berformat {@code [2 digit tahun][kode prodi][kode
+ * program][N digit urut]} (nama kelas mengikuti pola format: YY=tahun, PRODI=kode prodi,
+ * PROGRAM=kode program studi/jenjang dari {@link Program#getNum()}, URUT=nomor urut). Berbeda dari
+ * generator NIM lain di paket ini yang menghitung nomor urut secara manual lewat query Hibernate
+ * langsung, kelas ini mendelegasikan penghitungan nomor urut berikutnya dan pengecekan pemakaian NIM
+ * ke helper bersama {@link NimGeneratorSupport} ({@code nomorUrutBerikutnya}/{@code nimSudahDipakai}).
+ * Panjang digit urut dapat dikonfigurasi lewat {@code jumlah_digit_gen_nim_mahasiswa} (default 4).
+ * Mengembalikan {@code "-"} tanpa membangkitkan nomor bila calon mahasiswa belum punya
+ * {@code prodiLulus}; tabrakan NIM ditangani rekursif via daftar pengecualian.
+ */
 public class YY_PRODI_PROGRAM_URUT_NimGenerator implements NimGenerator {
 
+	/** Menghasilkan NIM tanpa daftar pengecualian; mendelegasikan ke varian dengan daftar kosong. */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa) {
 		return generateNim(calonMahasiswa, new ArrayList<String>());
 	}
 
-	// generate NIM
+	/**
+	 * Menghasilkan NIM berformat {@code [2 digit tahun][kode prodi][kode program][N digit urut]}
+	 * untuk calon mahasiswa yang sudah memiliki program studi kelulusan, dengan nomor urut dihitung
+	 * lewat {@link NimGeneratorSupport}; mengembalikan {@code "-"} bila {@code prodiLulus} belum diisi.
+	 *
+	 * @param calonMahasiswa      data calon mahasiswa, sumber tahun masuk, prodi kelulusan, dan program
+	 * @param jumlahPengecualian  daftar NIM yang harus dihindari, dimodifikasi di tempat saat rekursi
+	 * @return NIM yang belum terpakai, atau {@code "-"} bila {@code prodiLulus} belum diisi
+	 */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa, List<String> jumlahPengecualian) {
 

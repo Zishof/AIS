@@ -17,15 +17,42 @@ import ais.database.model.RuangPMB;
 import ais.database.model.RuangPaketPMB;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Varian kedua algoritma penomoran nomor ujian PMB, berbeda dari {@link PrefixNoUjianGenerator}
+ * karena sekaligus menangani <b>penempatan ruang ujian</b> (bukan cuma penomoran). Alurnya: (1)
+ * bila nomor ujian sudah pernah diberikan, kembalikan apa adanya (idempoten); (2) bila gelombang
+ * pendaftaran mensyaratkan pembayaran sebelum login, verifikasi status lunas pembayaran registrasi
+ * — bila belum lunas, tampilkan peringatan dan batalkan; (3) cari ruang ujian ({@link RuangPMB})
+ * dengan id terkecil yang belum penuh dan cocok paket + gelombang pendaftaran; (4) hitung sisa
+ * kapasitas ruang tersebut, dan bila masih ada slot, bentuk nomor ujian dari 2 digit tahun +
+ * nomor urut (jumlah digit dapat dikonfigurasi lewat {@code jumlah_increments_no_ujian_pmb},
+ * default 8), simpan ke entitas, lalu daftarkan penempatan ruang lewat
+ * {@link CommonPMB#dapatkanRuangUjian}; (5) bila ruang sudah penuh saat proses berjalan, tampilkan
+ * peringatan dan batalkan.
+ */
 public class DefaultNoUjianGenerator2 implements NoUjianGenerator {
 
+	/** Singleton utilitas pembayaran PMB, dipakai untuk pengecekan status lunas registrasi. */
 	public static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
+	/** Seperti {@link #generateNoUjian(BiodataCalonMahasiswa, List)} tanpa daftar nomor yang harus dihindari. */
 	@Override
 	public String generateNoUjian(BiodataCalonMahasiswa biodataCalonMahasiswa) throws Exception {
 		return generateNoUjian(biodataCalonMahasiswa, new ArrayList<String>());
 	}
 
+	/**
+	 * Menghasilkan (atau mengembalikan nomor ujian yang sudah ada bagi) {@code biodataCalonMahasiswa},
+	 * sekaligus menempatkannya ke ruang ujian yang tersedia. Lihat javadoc kelas untuk alur lengkap.
+	 * Rekursif bila nomor yang dihasilkan bentrok dengan {@code jumlahPengecualian}.
+	 *
+	 * @param biodataCalonMahasiswa calon mahasiswa yang akan diberi nomor ujian dan ruang
+	 * @param jumlahPengecualian    daftar nomor yang harus dihindari, dimutasi langsung saat bentrokan
+	 * @return nomor ujian final, atau string kosong bila pembayaran registrasi belum lunas atau
+	 *         seluruh ruang ujian yang cocok sudah penuh (kedua kasus menampilkan pesan peringatan
+	 *         ke pengguna, bukan melempar exception)
+	 * @throws Exception diteruskan dari kegagalan akses konfigurasi/database
+	 */
 	// generate NIM
 	@Override
 	public String generateNoUjian(BiodataCalonMahasiswa biodataCalonMahasiswa, List<String> jumlahPengecualian)

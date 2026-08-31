@@ -11,11 +11,11 @@ import ais.database.model.BiodataCalonMahasiswa;
 
 /**
  * Pembangkit Nomor Registrasi (No. Reg) calon mahasiswa dengan format {@code TAHUN+URUT}, mis.
- * {@code "20260007"}. Bagian {@code URUT} dihitung dari jumlah calon mahasiswa aktif yang sudah
- * terdaftar pada tahun dan program studi (prodi1) yang sama, dipadatkan sejumlah digit sesuai
- * konfigurasi {@code jumlah_digit_no_reg_calon_mhs} (default 4). Bila nomor hasil bentrok dengan
- * yang sudah tersimpan, dibangkitkan ulang secara rekursif dengan nomor tersebut ditambahkan ke
- * daftar pengecualian.
+ * {@code "20260007"}. Bagian {@code URUT} dihitung lewat helper bersama
+ * {@link NoRegGeneratorSupport#nomorUrutBerikutnya}, dipadatkan sejumlah digit sesuai
+ * konfigurasi {@code jumlah_digit_no_reg_calon_mhs} (default 4). Keunikan nomor hasil diperiksa
+ * lewat {@link NoRegGeneratorSupport#nomorSudahDipakai}; bila bentrok, dibangkitkan ulang secara
+ * rekursif dengan nomor tersebut ditambahkan ke daftar pengecualian.
  */
 public class TAHUN_NoRegGenerator implements NoRegGenerator {
 

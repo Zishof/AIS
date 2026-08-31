@@ -27,18 +27,45 @@ import com.sun.jersey.spi.resource.Singleton;
 
 
 
+/**
+ * Titik akhir REST (Jersey/JAX-RS) hanya-baca untuk data {@link BiodataMahasiswa} (biodata detail
+ * mahasiswa, bukan data induk {@code Mahasiswa} itu sendiri), dipakai integrasi eksternal (mis.
+ * aplikasi mobile/portal pihak ketiga). Setiap permintaan diautentikasi ulang per-request lewat
+ * {@code username}/{@code password} yang disertakan sebagai segmen path URL dan divalidasi via
+ * {@link Common#checkLogin} — pola yang sama dipakai seluruh keluarga {@code *Resource} di paket
+ * ini (lihat {@code DataResource} sebagai basis generik CRUD-baca). Memperluas
+ * {@link DataResource} untuk mewarisi operasi {@code getData}/{@code getAllData} generik, dengan
+ * tambahan pencarian berbasis NIM mahasiswa ({@link #getDataByNIM}).
+ *
+ * <p>
+ * <b>Catatan keamanan:</b> username dan password dikirim sebagai bagian dari path URL pada
+ * permintaan GET, bukan header/body — pola ini rawan tercatat di log akses server, cache proxy,
+ * riwayat browser, dan header {@code Referer}. Ini berlaku pada seluruh method publik kelas ini
+ * yang menerima {@code @PathParam("password")}.
+ * </p>
+ */
 public class BiodataMahasiswaResource extends DataResource<BiodataMahasiswa> {
 
+	/** Membuat resource yang terikat ke entitas {@link BiodataMahasiswa}. */
 	public BiodataMahasiswaResource() {
 		super(BiodataMahasiswa.class);
 	}
 
+	/** Mengembalikan diri sendiri (self) sebagai representasi JSON kosong — dipakai untuk pemeriksaan endpoint dasar. */
 	@GET
 	@Produces({ MediaType.APPLICATION_JSON })
 	public BiodataMahasiswaResource getXml() {
 		return this;
 	}
 
+	/**
+	 * Mengambil satu {@link BiodataMahasiswa} berdasarkan id, setelah autentikasi username/password.
+	 *
+	 * @param username username untuk autentikasi (dikirim via path URL)
+	 * @param password password untuk autentikasi (dikirim via path URL)
+	 * @param id       id baris {@link BiodataMahasiswa} yang diminta
+	 * @return data biodata mahasiswa yang diminta
+	 */
 	@GET
 	@Path("load/{username}/{password}/{id}/")
 	@Produces({ MediaType.APPLICATION_JSON
@@ -48,6 +75,16 @@ public class BiodataMahasiswaResource extends DataResource<BiodataMahasiswa> {
 		return super.getData(username, password, id);
 	}
 
+	/**
+	 * Mengambil satu {@link BiodataMahasiswa} berdasarkan NIM mahasiswa terkait, setelah autentikasi
+	 * username/password.
+	 *
+	 * @param username username untuk autentikasi (dikirim via path URL)
+	 * @param password password untuk autentikasi (dikirim via path URL)
+	 * @param nim      NIM mahasiswa yang biodatanya dicari
+	 * @return data biodata mahasiswa yang cocok
+	 * @throws NotFoundException bila autentikasi gagal, data tidak ditemukan, atau terjadi galat internal
+	 */
 	@GET
 	@Path("getDataByNIM/{username}/{password}/{nim}/")
 	@Produces({ MediaType.APPLICATION_JSON
@@ -78,6 +115,13 @@ public class BiodataMahasiswaResource extends DataResource<BiodataMahasiswa> {
 		}
 	}
 
+	/**
+	 * Mengambil seluruh data {@link BiodataMahasiswa} tanpa filter pencarian, setelah autentikasi.
+	 *
+	 * @param username username untuk autentikasi (dikirim via path URL)
+	 * @param password password untuk autentikasi (dikirim via path URL)
+	 * @return daftar seluruh biodata mahasiswa
+	 */
 	@GET
 	@Path("search/{username}/{password}/")
 	@Produces({ MediaType.APPLICATION_JSON
@@ -88,6 +132,15 @@ public class BiodataMahasiswaResource extends DataResource<BiodataMahasiswa> {
 		return super.getAllData(username, password);
 	}
 
+	/**
+	 * Mengambil data {@link BiodataMahasiswa} yang cocok dengan satu kata kunci pencarian, setelah
+	 * autentikasi. Logika pencocokan kata kunci diwarisi dari {@link DataResource#getAllData}.
+	 *
+	 * @param username username untuk autentikasi (dikirim via path URL)
+	 * @param password password untuk autentikasi (dikirim via path URL)
+	 * @param search   kata kunci pencarian
+	 * @return daftar biodata mahasiswa yang cocok
+	 */
 	@GET
 	@Path("search/{username}/{password}/{search}/")
 	@Produces({ MediaType.APPLICATION_JSON
@@ -99,6 +152,16 @@ public class BiodataMahasiswaResource extends DataResource<BiodataMahasiswa> {
 		return super.getAllData(username, password, search);
 	}
 
+	/**
+	 * Mengambil data {@link BiodataMahasiswa} yang cocok dengan dua kata kunci pencarian, setelah
+	 * autentikasi. Logika pencocokan kata kunci diwarisi dari {@link DataResource#getAllData}.
+	 *
+	 * @param username username untuk autentikasi (dikirim via path URL)
+	 * @param password password untuk autentikasi (dikirim via path URL)
+	 * @param search   kata kunci pencarian pertama
+	 * @param search1  kata kunci pencarian kedua
+	 * @return daftar biodata mahasiswa yang cocok
+	 */
 	@GET
 	@Path("search/{username}/{password}/{search}/{search1}/")
 	@Produces({ MediaType.APPLICATION_JSON

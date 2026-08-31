@@ -22,8 +22,16 @@ import ais.database.model.Jurusan;
 import ais.database.model.Skripsi;
 import ais.ui.util.DataCriteriaWithColumn;
 
+/**
+ * Laporan borang akreditasi BAN-PT sapto butir <b>A-5.5.2</b> (rata-rata lama penyelesaian tugas
+ * akhir/skripsi): menghitung rata-rata {@code selesaiDalamBulan} pada {@link Skripsi} tiga tahun
+ * terakhir relatif terhadap tahun akademik terpilih, difilter opsional per fakultas/jurusan.
+ * Menyediakan tombol unduh data mentah pendukung (kolom-kolom {@link #SKRIPSI_COLS}) lewat
+ * {@link Common#cetakDataCustomButton}.
+ */
 public class LaporanDosenPembimbingTugasAkhir_A_5_5_2 extends SaptoBaseWindow {
 
+    /** Kode lembar borang akreditasi yang dilaporkan kelas ini. */
     public static final String sheetCode = "A-5.5.2";
     private static final long serialVersionUID = 3331244819198611604L;
     private Combobox tahunAjaran;
@@ -33,6 +41,7 @@ public class LaporanDosenPembimbingTugasAkhir_A_5_5_2 extends SaptoBaseWindow {
 
     private static final String[] SKRIPSI_COLS = {"mahasiswa.nim","mahasiswa.nama","mahasiswa.jurusan.nama","judul","abstrack","keyword","pembimbing.nama","ketuaSidang.nama","pembimbing3.nama","penguji1.nama","penguji2.nama","penguji3.nama","penguji4.nama","totalNilai","nilaiHuruf","tanggalSidang","tanggalSeminar","telahSidang","ruangSidang","waktuSidang","waktuSampaiSidang","semester","tahunAkademik","lokasiUjian","nomorSk","tglSk","selesaiDalamBulan"};
 
+    /** Membuat jendela laporan dengan filter fakultas/jurusan dan tahun akademik berjalan, lalu langsung membangun tampilan dasar. */
     public LaporanDosenPembimbingTugasAkhir_A_5_5_2() {
         super();
         try {
@@ -42,6 +51,13 @@ public class LaporanDosenPembimbingTugasAkhir_A_5_5_2 extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /**
+     * Membuat jendela laporan dengan judul, gaya border, dan status dapat-ditutup kustom.
+     *
+     * @param title    judul jendela
+     * @param border   gaya border jendela
+     * @param closable apakah jendela dapat ditutup pengguna
+     */
     public LaporanDosenPembimbingTugasAkhir_A_5_5_2(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         initFakultasJurusan();
@@ -49,8 +65,10 @@ public class LaporanDosenPembimbingTugasAkhir_A_5_5_2 extends SaptoBaseWindow {
         buildBase(false);
     }
 
+    /** @return {@link #sheetCode}, kode lembar borang akreditasi yang dilaporkan kelas ini. */
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Menyusun baris filter fakultas/jurusan dan tahun akademik; memilih ulang tahun akademik langsung mencetak ulang laporan. */
     @Override
     protected void buildFilters(Row row) {
         addFakultasJurusanFilter(row);
@@ -64,6 +82,13 @@ public class LaporanDosenPembimbingTugasAkhir_A_5_5_2 extends SaptoBaseWindow {
         });
     }
 
+    /**
+     * Menghitung rata-rata lama penyelesaian skripsi (3 tahun terakhir relatif ke tahun akademik
+     * terpilih, difilter jurusan bila dipilih) secara asinkron di thread terpisah, lalu
+     * menampilkannya sebagai worksheet lengkap dengan tombol unduh data pendukung.
+     *
+     * @param event event pemicu (boleh {@code null}, tidak dipakai)
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

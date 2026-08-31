@@ -2,6 +2,19 @@ package ais.action.master.jurnal.test;
 
 import ais.action.master.jurnal.JurnalProfileValidator;
 
+/**
+ * Harness uji manual (bukan JUnit, dijalankan lewat {@code main}) untuk {@link JurnalProfileValidator}
+ * — validator konfigurasi profil jurnal (integrasi OJS) berbasis JSON, mencakup tiga area:
+ * {@code workflow} (alur review), {@code access} (kebijakan akses/harga), dan {@code metadata}
+ * (UI publik jurnal). Kasus yang diuji: (1) workflow valid diterima dan menghasilkan JSON ternormalisasi
+ * tidak kosong; (2) form review yang sudah berstatus {@code PUBLISHED} bersifat immutable — mencoba
+ * menghapusnya dari workflow baru harus ditolak; (3) kebijakan akses dengan harga negatif ditolak;
+ * (4) kebijakan akses format {@code OPEN} valid diterima; (5) metadata UI publik lengkap (locale,
+ * blok kustom, analytics GA4, halaman publik) valid diterima; (6) blok kustom dengan {@code key}
+ * duplikat ditolak; (7) konfigurasi analytics dengan {@code measurementId} berformat salah ditolak.
+ * Helper {@link #deny} memverifikasi bahwa suatu aksi melempar {@link IllegalArgumentException}
+ * sebagaimana diharapkan; {@link #check} melempar {@link IllegalStateException} bila asersi gagal.
+ */
 public final class JurnalProfileValidatorSelfTest {
     private JurnalProfileValidatorSelfTest() {}
 

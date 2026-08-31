@@ -24,8 +24,27 @@ import ais.database.model.PenilaianAsesor;
 import ais.database.model.PenunjangKinerjaDosen;
 import ais.database.model.Perkuliahan;
 
+/**
+ * Helper modul BKD untuk mempopulasi ulang penilaian asesmen kegiatan <b>pembimbingan
+ * akademik (PA)</b> dosen. Tiga overload {@code populate} membentuk rantai pemrosesan bertingkat:
+ * varian pertama meng-iterasi seluruh jenjang pendidikan aktif; varian kedua, untuk satu jenjang,
+ * memproses satu dosen tertentu atau (bila {@code pegawai} null) seluruh dosen PA yang membimbing
+ * mahasiswa pada jenjang tersebut; varian ketiga menghitung SKS pembimbingan satu dosen berdasarkan
+ * jumlah mahasiswa aktif bimbingannya (dibatasi maksimum SKS dari parameter umum konfigurasi),
+ * menyimpan baris {@link AsesemenPenilaian}, lalu memicu {@link PenilaianAsesorAction#checkPenilaian}.
+ */
 public class BkdDosenPaHelper {
 
+	/**
+	 * Mempopulasi ulang penilaian PA untuk seluruh jenjang pendidikan aktif, meneruskan ke
+	 * {@link #populate(Session, Pegawai, Jenjang, String, String, Label)} per jenjang.
+	 *
+	 * @param session       sesi Hibernate aktif
+	 * @param pegawai       dosen PA yang diproses, atau {@code null} untuk semua dosen PA
+	 * @param tahunAkademik tahun akademik penilaian
+	 * @param semester      semester penilaian
+	 * @param label         komponen label UI tempat progres ditampilkan
+	 */
 	@SuppressWarnings("unchecked")
 	public static void populate(Session session, final Pegawai pegawai, String tahunAkademik, String semester,
 			Label label) {
@@ -36,6 +55,19 @@ public class BkdDosenPaHelper {
 		}
 	}
 
+	/**
+	 * Mempopulasi ulang penilaian PA pada {@code jenjang} tertentu: bila {@code pegawai} adalah
+	 * seorang dosen, langsung diproses; bila {@code null}, seluruh dosen yang menjadi PA
+	 * ({@code dosenPa}) mahasiswa aktif jenjang tersebut dicari lebih dulu lalu diproses satu per
+	 * satu, dengan progres persentase ditampilkan ke {@code label}.
+	 *
+	 * @param session       sesi Hibernate aktif
+	 * @param pegawai       dosen PA yang diproses, atau {@code null} untuk semua dosen PA jenjang ini
+	 * @param jenjang       jenjang pendidikan yang diproses
+	 * @param tahunAkademik tahun akademik penilaian
+	 * @param semester      semester penilaian
+	 * @param label         komponen label UI tempat progres ditampilkan, boleh {@code null}
+	 */
 	@SuppressWarnings("unchecked")
 	public static void populate(Session session, final Pegawai pegawai, Jenjang jenjang, String tahunAkademik,
 			String semester, Label label) {
@@ -66,6 +98,23 @@ public class BkdDosenPaHelper {
 		}
 	}
 
+	/**
+	 * Menghitung dan menyimpan/memutakhirkan satu baris {@link AsesemenPenilaian} untuk pembimbingan
+	 * akademik {@code dosen} pada {@code jenjang} tertentu. Mencari asesor aktif dosen ini terlebih
+	 * dahulu (tanpa asesor, method tidak melakukan apa pun). Jumlah mahasiswa aktif bimbingan
+	 * dihitung dari {@code KrsMahasiswa} pada tahun akademik+semester yang bersangkutan, dibatasi
+	 * ke maksimum ({@code jumlah_sks_pembimbing_akademik_mahasiswa_<idJenjang>}, default 8) sebelum
+	 * dikalikan tarif SKS per mahasiswa. Tidak melakukan apa pun bila tidak ada mahasiswa bimbingan
+	 * aktif ({@code qtyBimbinganSkripis == 0}).
+	 *
+	 * @param session       sesi Hibernate aktif
+	 * @param dosen         dosen pembimbing akademik; method langsung kembali tanpa efek bila
+	 *                      {@code null} atau belum tertaut data pegawai
+	 * @param jenjang       jenjang pendidikan mahasiswa bimbingan
+	 * @param tahunAkademik tahun akademik penilaian
+	 * @param semester      semester penilaian
+	 * @param label         tidak dipakai langsung di method ini (parameter diteruskan dari pemanggil)
+	 */
 	@SuppressWarnings("unchecked")
 	public static void populate(Session session, Dosen dosen, Jenjang jenjang, String tahunAkademik, String semester,
 			Label label) {

@@ -17,6 +17,16 @@ import ais.database.model.sirs.DiagnosaPenyakit;
 import ais.database.model.sirs.DiagnosaPenyakitPunyaPemeriksaan;
 import ais.database.model.sirs.Pemeriksaan;
 
+/**
+ * Helper laporan SIRS untuk menyusun daftar hierarkis hasil pemeriksaan ({@link Pemeriksaan},
+ * struktur pohon parent-child mis. "Tanda Vital" &gt; "Tekanan Darah") milik satu
+ * {@link DiagnosaPenyakit}, siap dicetak sebagai baris-baris laporan rekam medis. Setiap baris
+ * hasil berupa {@link Map} dengan kunci {@code nama} (berindentasi sesuai kedalaman hierarki),
+ * {@code nilai} (nilai pemeriksaan spesifik pasien/diagnosis bila tercatat lewat
+ * {@link DiagnosaPenyakitPunyaPemeriksaan}), dan {@code satuan}. Konstruksi objek langsung memicu
+ * penyusunan seluruh daftar ({@link #createHeader()}), sehingga {@link #getHasil()} siap dipanggil
+ * segera setelah instansiasi.
+ */
 @SuppressWarnings("rawtypes")
 public class PemeriksaanReportHelper {
 
@@ -25,17 +35,20 @@ public class PemeriksaanReportHelper {
 	private List hasil = new ArrayList();
 	private String jenis;
 
+	/** Membuat helper dan langsung membangun daftar hasil pemeriksaan hierarkis untuk {@code diagnosaPenyakit} pada {@code jenis} pemeriksaan tertentu. */
 	public PemeriksaanReportHelper(DiagnosaPenyakit diagnosaPenyakit, String jenis) {
 		this.diagnosaPenyakit = diagnosaPenyakit;
 		this.jenis = jenis;
 		createHeader();
 	}
 
+	/** Mengembalikan daftar baris hasil pemeriksaan ({@code List<Map>} berkunci nama/nilai/satuan) yang sudah disusun di konstruktor. */
 	public List getHasil() {
 		System.out.println("hasil = " + hasil);
 		return hasil;
 	}
 
+	/** Mengumpulkan id seluruh pemeriksaan akar (tanpa parent) yang menjadi leluhur dari pemeriksaan berjenis {@code jenis} yang tercatat pada {@code diagnosaPenyakit}, dengan menelusuri rantai parent tiap pemeriksaan sampai ke akar. */
 	@SuppressWarnings("unchecked")
 	private Set<Long> populateRootParents() {
 		Set<Long> longs = new HashSet();
@@ -62,6 +75,7 @@ public class PemeriksaanReportHelper {
 		return longs;
 	}
 
+	/** Mengambil pemeriksaan akar (hasil {@link #populateRootParents()}) terurut nama, menambahkannya sebagai baris header, lalu memanggil {@link #createSub} untuk setiap akar guna mengisi turunannya secara rekursif. */
 	@SuppressWarnings("unchecked")
 	private void createHeader() {
 		Session session = HibernateUtil.currentSession();
@@ -81,6 +95,16 @@ public class PemeriksaanReportHelper {
 		}
 	}
 
+	/**
+	 * Menambahkan baris untuk setiap anak langsung {@code parent} (atau seluruh pemeriksaan akar
+	 * bila {@code parent} {@code null}), berindentasi sesuai kedalaman. Bila suatu pemeriksaan
+	 * masih memiliki anak, method memanggil dirinya sendiri secara rekursif untuk anak tersebut
+	 * (nilai dikosongkan — hanya node daun yang membawa nilai). Bila pemeriksaan adalah node daun,
+	 * nilai diisi dari {@link DiagnosaPenyakitPunyaPemeriksaan} terkait (nama + pilihan ganda +
+	 * keterangan) bila ada, atau dikosongkan bila tidak tercatat.
+	 *
+	 * @param parent pemeriksaan induk yang anak-anaknya akan diproses; {@code null} untuk level akar
+	 */
 	@SuppressWarnings("unchecked")
 	private void createSub(Pemeriksaan parent) {
 		Session session = HibernateUtil.currentSession();

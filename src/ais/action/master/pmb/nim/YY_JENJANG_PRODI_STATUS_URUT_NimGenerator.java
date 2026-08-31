@@ -10,14 +10,41 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.Jurusan;
 
+/**
+ * Pembangkit NIM dengan format {@code YY+KODEJENJANG+KODEPRODI+STATUS+URUT}, mis.
+ * {@code "26S1TI10007"}. {@code KODEPRODI} diselaraskan lewat {@link #ambilKodeProdi(Jurusan)}
+ * (memakai id prodi sebagai fallback bila kode kosong/hanya berisi tanda hubung, dipadatkan jadi
+ * minimal 2 karakter alfanumerik); {@code STATUS} bernilai {@code "2"} bila mahasiswa pindahan
+ * atau {@code "1"} bila bukan. Setiap komponen divalidasi tidak kosong dan tidak mengandung
+ * {@code '-'}/{@code '_'} lewat {@link #validasiKomponenNim} sebelum digabung, dan NIM akhir
+ * divalidasi ulang lewat {@link #validasiNim} — keduanya melempar {@link
+ * IllegalArgumentException} bila gagal, sehingga NIM cacat tidak pernah sampai tersimpan. Nomor
+ * urut dan pengecekan keunikan didelegasikan ke helper bersama {@link NimGeneratorSupport}
+ * ({@code nomorUrutBerikutnya}/{@code leftPadNomor}/{@code nimSudahDipakai}); bila nomor hasil
+ * bentrok, dibangkitkan ulang secara rekursif.
+ */
 public class YY_JENJANG_PRODI_STATUS_URUT_NimGenerator implements NimGenerator {
 
+	/** Membangkitkan NIM baru untuk {@code calonMahasiswa} tanpa daftar pengecualian awal. */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa) {
 		return generateNim(calonMahasiswa, new ArrayList<String>());
 	}
 
-	// generate NIM
+	/**
+	 * Membangkitkan NIM berformat {@code YY+KODEJENJANG+KODEPRODI+STATUS+URUT}, memvalidasi
+	 * setiap komponen dan hasil akhirnya, menghindari nomor pada {@code jumlahPengecualian}
+	 * maupun yang sudah dipakai (dicek lewat {@link NimGeneratorSupport#nimSudahDipakai});
+	 * mengulang secara rekursif bila terjadi bentrok. Mengembalikan {@code "-"} bila calon
+	 * mahasiswa belum memiliki prodi lulus.
+	 *
+	 * @param calonMahasiswa     data calon mahasiswa yang akan diberi NIM
+	 * @param jumlahPengecualian daftar NIM yang harus dihindari, diperbarui di tempat saat
+	 *                           terjadi bentrok
+	 * @return NIM baru yang belum dipakai, atau {@code "-"} bila prodi lulus belum ditentukan
+	 * @throws IllegalArgumentException bila salah satu komponen atau NIM hasil gabungan tidak
+	 *                                    valid (kosong atau mengandung {@code '-'}/{@code '_'})
+	 */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa, List<String> jumlahPengecualian) {
 
@@ -74,6 +101,14 @@ public class YY_JENJANG_PRODI_STATUS_URUT_NimGenerator implements NimGenerator {
 		return nim;
 	}
 
+	/**
+	 * Menormalkan kode prodi untuk dipakai sebagai komponen NIM: memakai id prodi sebagai
+	 * fallback bila kode kosong atau hanya berisi tanda hubung/garis bawah, membuang karakter
+	 * non-alfanumerik, dan menambahkan nol di depan bila hasilnya hanya 1 karakter.
+	 *
+	 * @throws IllegalArgumentException bila kode akhir tetap kosong (prodi tidak punya kode
+	 *                                    maupun id yang bisa dipakai)
+	 */
 	private String ambilKodeProdi(Jurusan prodi) {
 		String kode = prodi == null ? "" : prodi.getKode();
 		if (kode != null) {
@@ -92,6 +127,7 @@ public class YY_JENJANG_PRODI_STATUS_URUT_NimGenerator implements NimGenerator {
 		return kode;
 	}
 
+	/** Memastikan {@code nim} tidak kosong dan tidak mengandung {@code '-'}/{@code '_'}; melempar {@link IllegalArgumentException} bila tidak. */
 	private void validasiNim(String nim, BiodataCalonMahasiswa calonMahasiswa) {
 		if (nim == null || nim.trim().isEmpty() || nim.indexOf('-') >= 0 || nim.indexOf('_') >= 0) {
 			throw new IllegalArgumentException("Format NIM tidak valid untuk "
@@ -99,6 +135,7 @@ public class YY_JENJANG_PRODI_STATUS_URUT_NimGenerator implements NimGenerator {
 		}
 	}
 
+	/** Memastikan komponen {@code nilai} (diberi label {@code label} untuk pesan galat) tidak kosong dan tidak mengandung {@code '-'}/{@code '_'}; melempar {@link IllegalArgumentException} bila tidak. */
 	private void validasiKomponenNim(String nilai, String label, BiodataCalonMahasiswa calonMahasiswa) {
 		if (nilai == null || nilai.trim().isEmpty() || nilai.indexOf('-') >= 0 || nilai.indexOf('_') >= 0) {
 			throw new IllegalArgumentException("Komponen " + label + " untuk generate NIM belum valid"

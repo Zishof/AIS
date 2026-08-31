@@ -19,24 +19,46 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Dosen;
 import ais.ui.util.DataCriteriaWithColumn;
 
+/**
+ * Laporan borang akreditasi BAN-PT SAPTO butir A-4.3.2 (rekap jumlah dosen tidak tetap
+ * {@code tetap=0}) tingkat institusi, disilangkan berdasarkan jenjang pendidikan (S3/Sp-2, S2/Sp-1,
+ * S1/Profesi/D4) dan jabatan fungsional (Profesor, Lektor Kepala, Lektor, Asisten Ahli, Tenaga
+ * Pengajar). Angka dihitung lewat satu query SQL native gabungan {@code UNION ALL} tiga blok per
+ * jenjang terhadap tabel {@code dosen}, {@code employ.pendidikan}, dan
+ * {@code jabatan_fungsional_dosen}. Tidak memiliki filter (laporan selalu mencakup seluruh
+ * institusi); klik satu sel hasil memicu unduh data tambahan detail dosen yang termasuk
+ * kombinasi jenjang+jabatan sel tersebut lewat {@link Common#cetakDataCustomButton}.
+ */
 public class LaporanDosenInstitusi_A_4_3_2 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-4.3.2_PT";
     private static final long serialVersionUID = 3331244819198611604L;
 
+    /** Membangun jendela laporan (tanpa filter) dan langsung menyiapkan kerangka laporan. */
     public LaporanDosenInstitusi_A_4_3_2() {
         super();
         try { buildBase(true); } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Konstruktor varian dengan judul/border/closable eksplisit, dipakai saat jendela dibuat sebagai komponen tersemat. */
     public LaporanDosenInstitusi_A_4_3_2(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         buildBase(true);
     }
 
+    /** Mengembalikan kode sheet borang BAN-PT yang ditangani jendela ini: {@link #sheetCode}. */
     @Override protected String getSheetCode() { return sheetCode; }
+    /** Tidak ada filter untuk laporan ini — cakupan selalu seluruh institusi. */
     @Override protected void buildFilters(Row row) { /* no filters */ }
 
+    /**
+     * Menyusun dan menampilkan worksheet A-4.3.2: menjalankan query SQL native gabungan tiga blok
+     * (per jenjang pendidikan S3/Sp-2, S2/Sp-1, S1/Profesi/D4) yang menghitung silang jumlah dosen
+     * tidak tetap per jabatan fungsional, dijalankan di thread terpisah. Sel hasil dapat diklik
+     * untuk mengunduh data tambahan detail dosen sesuai kombinasi jenjang+jabatan sel tersebut.
+     *
+     * @param event event pemicu, boleh {@code null} (laporan ini tidak punya filter yang memicu ulang)
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

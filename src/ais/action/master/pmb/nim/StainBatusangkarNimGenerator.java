@@ -12,14 +12,58 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.Jurusan;
 
+/**
+ * Algoritma NIM khusus STAIN Batusangkar. Format NIM 4 komponen ditambah nomor urut:
+ * {@code [2 digit terakhir tahun angkatan][kode jenjang][kode program studi kelulusan, dipad jadi
+ * minimal 2 karakter][1 digit jenis kelamin: "1"=Laki-laki, "2"=Perempuan, "0"=tidak diketahui]
+ * [4 digit nomor urut]}, mis. {@code 26S1TI104201} (ilustratif). Kode prodi diambil dari
+ * {@link Jurusan#getKode()}; bila kosong atau hanya berisi tanda {@code -}/{@code _}, jatuh
+ * kembali ke id numerik prodi, lalu disaring hanya karakter alfanumerik dan dipad nol di depan
+ * bila panjangnya 1 karakter — bila tetap kosong, method melempar
+ * {@link IllegalArgumentException} (kode prodi wajib tersedia).
+ *
+ * <h2>Pencarian nomor urut</h2>
+ * <p>
+ * Berbeda dari generator NIM lain di paket ini yang hanya mengandalkan hitung baris (COUNT),
+ * kelas ini secara eksplisit mengumpulkan SELURUH NIM yang sudah memakai {@code prefix} yang sama
+ * (4 komponen pertama) dari tabel {@code mahasiswa} DAN {@code biodata_calon_mahasiswa} (via SQL
+ * native, dikecualikan baris calon mahasiswa itu sendiri bila sudah punya id) ditambah daftar
+ * pengecualian dari percobaan rekursif sebelumnya, mengekstrak 4 digit nomor urut dari setiap NIM
+ * yang cocok pola, lalu mengambil nomor TERBESAR + 1 sebagai nomor urut berikutnya — pendekatan
+ * ini tahan terhadap "lubang" penomoran (nomor yang dihapus/dilewati) dibanding pendekatan
+ * COUNT+1 murni.
+ * </p>
+ * <p>
+ * Setiap komponen NIM divalidasi tidak kosong lewat {@link #validasiKomponenNim} sebelum
+ * digabungkan; hasil akhir divalidasi tidak kosong lewat {@link #validasiNim}. Bila NIM hasil
+ * gabungan ternyata sudah terpakai (dicek ulang lewat {@link #nimSudahDipakai}), nomor tersebut
+ * ditambahkan ke daftar pengecualian dan method memanggil dirinya sendiri untuk mencoba nomor
+ * berikutnya.
+ * </p>
+ */
 public class StainBatusangkarNimGenerator implements NimGenerator {
 
+	/** Menghasilkan NIM baru tanpa daftar pengecualian awal — lihat {@link #generateNim(BiodataCalonMahasiswa, List)}. */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa) {
 		return generateNim(calonMahasiswa, new ArrayList<String>());
 	}
 
-	// generate NIM
+	/**
+	 * Menyusun dan memvalidasi NIM berformat {@code [2 digit tahun][jenjang][prodi][jenis
+	 * kelamin][4 digit urut]} (lihat detail format di dokumentasi kelas), menghindari nilai yang
+	 * ada di {@code jumlahPengecualian} maupun yang sudah dipakai di tabel {@code mahasiswa}/
+	 * {@code biodata_calon_mahasiswa}; mencoba ulang secara rekursif bila terjadi bentrok.
+	 *
+	 * @param calonMahasiswa     calon mahasiswa target; {@code tahun}, {@code jenjang},
+	 *                           {@code prodiLulus}, dan {@code jenisKelamin}-nya menentukan
+	 *                           komponen awal NIM
+	 * @param jumlahPengecualian NIM-NIM yang sudah dicoba dan diketahui bentrok, dihindari pada
+	 *                           percobaan berikutnya (diperbarui di tempat)
+	 * @return NIM baru yang belum pernah dipakai
+	 * @throws IllegalArgumentException bila salah satu komponen (tahun/jenjang/prodi/jenis
+	 *                                   kelamin) tidak dapat ditentukan
+	 */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa, List<String> jumlahPengecualian) {
 
@@ -59,6 +103,11 @@ public class StainBatusangkarNimGenerator implements NimGenerator {
 		return nim;
 	}
 
+	/**
+	 * Mengambil nomor urut terbesar di antara seluruh NIM/nomor calon yang sudah berawalan
+	 * {@code prefix} (dari tabel {@code mahasiswa} dan {@code biodata_calon_mahasiswa}, ditambah
+	 * {@code jumlahPengecualian}), lalu mengembalikan nilai tersebut ditambah satu.
+	 */
 	private Long ambilNomorUrutBerikutnya(String prefix, BiodataCalonMahasiswa calonMahasiswa,
 			List<String> jumlahPengecualian) {
 		Session session = null;

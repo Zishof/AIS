@@ -12,14 +12,35 @@ import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.Mahasiswa;
 import ais.database.model.Perkuliahan;
 
+/**
+ * Implementasi {@link NimGenerator} khusus institusi NIIT: NIM disusun dari kode program studi
+ * kelulusan, 2 digit terakhir tahun masuk, kode kategori masuk 1 digit (mahasiswa baru semester
+ * ganjil/genap = 1/2, pindahan non-CCIT ganjil/genap = 3/4, pindahan dari kampus CCIT ganjil/genap
+ * = 5/6 — lihat percabangan {@code merupakanPindahan}/{@code pindahanDariKampus}), kode program
+ * (Reguler = 0, selain itu = 1), lalu 3 digit nomor urut sekuensial dihitung dari jumlah mahasiswa
+ * aktif pada kombinasi (tahun angkatan, jurusan) yang sama. Mengembalikan {@code "-"} tanpa
+ * membangkitkan nomor bila calon mahasiswa belum punya {@code prodiLulus}. Keunikan diverifikasi
+ * ulang terhadap {@link Mahasiswa} dan tabrakan ditangani rekursif via daftar pengecualian.
+ */
 public class NiitNimGenerator implements NimGenerator {
 
+	/** Menghasilkan NIM tanpa daftar pengecualian; mendelegasikan ke varian dengan daftar kosong. */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa) {
 		return generateNim(calonMahasiswa, new ArrayList<String>());
 	}
 
-	// generate NIM
+	/**
+	 * Menghasilkan NIM berformat {@code [kode prodi][2 digit tahun][kode kategori masuk][kode
+	 * program][3 digit urut]} untuk calon mahasiswa yang sudah memiliki program studi kelulusan;
+	 * mengembalikan {@code "-"} bila belum. Kode kategori masuk membedakan mahasiswa baru, pindahan
+	 * dari kampus CCIT, dan pindahan dari kampus lain, masing-masing dipecah lagi berdasarkan
+	 * semester mulai ganjil/genap.
+	 *
+	 * @param calonMahasiswa      data calon mahasiswa, sumber tahun masuk, status pindahan, dan program
+	 * @param jumlahPengecualian  daftar NIM yang harus dihindari, dimodifikasi di tempat saat rekursi
+	 * @return NIM yang belum terpakai, atau {@code "-"} bila {@code prodiLulus} belum diisi
+	 */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa, List<String> jumlahPengecualian) {
 

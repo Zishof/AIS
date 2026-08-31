@@ -21,7 +21,32 @@ import ais.database.model.Pegawai;
 import ais.database.model.PenilaianAsesor;
 import ais.database.model.SkalaKegiatanKedosenan;
 
+/**
+ * Helper modul BKD (Beban Kerja Dosen) untuk mempopulasi ulang penilaian asesmen kegiatan
+ * kedosenan ({@link AsesemenPenilaian}) dari data kegiatan kedosenan yang sudah disetujui
+ * ({@link KegiatanKedosenanPunyaDosen}). Dua overload {@code populate} saling melengkapi: varian
+ * pertama meng-iterasi seluruh kegiatan kedosenan tersetujui (opsional difilter dosen/tahun
+ * akademik/semester) dan menampilkan progres ke {@link Label} UI; varian kedua memproses satu
+ * kegiatan untuk satu dosen, menghitung SKS dari parameter umum konfigurasi, menyimpan/memutakhirkan
+ * baris asesmen, lalu memicu pengecekan penilaian asesor terkait lewat
+ * {@link PenilaianAsesorAction#checkPenilaian}.
+ */
 public class BkdKegiatanDosenHelper {
+	/**
+	 * Mempopulasi ulang penilaian asesmen untuk seluruh kegiatan kedosenan yang sudah disetujui
+	 * ({@code persetujuan=true}) dan memiliki skala + jabatan kegiatan terisi, disaring opsional
+	 * berdasarkan {@code pegawai} (dosen tertentu atau semua bila {@code null}), tahun akademik,
+	 * dan semester. Untuk setiap kegiatan yang dosennya memiliki data pegawai, delegasikan ke
+	 * overload {@link #populate(Session, Pegawai, String, String, KegiatanKedosenanPunyaDosen)}
+	 * dan tampilkan progres persentase pada {@code label}.
+	 *
+	 * @param session       sesi Hibernate aktif
+	 * @param pegawai       dosen yang akan diproses, atau {@code null} untuk semua dosen dengan
+	 *                      kegiatan kedosenan
+	 * @param tahunAkademik filter tahun akademik, atau {@code null} untuk semua tahun
+	 * @param semester      filter semester, atau {@code null} untuk semua semester
+	 * @param label         komponen label UI tempat progres pemrosesan ditampilkan
+	 */
 	@SuppressWarnings("unchecked")
 	public static void populate(Session session, final Pegawai pegawai, String tahunAkademik, String semester,
 			Label label) {
@@ -55,6 +80,23 @@ public class BkdKegiatanDosenHelper {
 
 	}
 
+	/**
+	 * Menghitung dan menyimpan/memutakhirkan satu baris {@link AsesemenPenilaian} untuk
+	 * {@code pegawai} dan {@code kegiatanKedosenanPunyaDosen}: mencari asesor aktif yang ditugaskan
+	 * ke pegawai tersebut ({@link AsesorPegawai}) — bila tidak ada asesor, method tidak melakukan
+	 * apa pun; SKS diambil dari parameter umum konfigurasi bernama gabungan kelompok/detail
+	 * kegiatan + skala + jabatan kegiatan (default {@code "0.0"} bila belum dikonfigurasi);
+	 * keterangan naratif disusun otomatis dari nama pegawai, kegiatan, aspek, tingkat, dan
+	 * jabatan. Setelah disimpan, memicu {@link PenilaianAsesorAction#checkPenilaian} untuk asesor
+	 * yang bersangkutan.
+	 *
+	 * @param session                        sesi Hibernate aktif
+	 * @param pegawai                        dosen yang dinilai; method langsung kembali tanpa efek
+	 *                                        bila {@code null}
+	 * @param tahunAkademik                  tahun akademik penilaian
+	 * @param semester                       semester penilaian
+	 * @param kegiatanKedosenanPunyaDosen     kegiatan kedosenan tersetujui yang dinilai
+	 */
 	@SuppressWarnings("unchecked")
 	public static void populate(Session session, final Pegawai pegawai, String tahunAkademik, String semester,
 			KegiatanKedosenanPunyaDosen kegiatanKedosenanPunyaDosen) {

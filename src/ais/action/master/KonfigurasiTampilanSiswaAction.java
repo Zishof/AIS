@@ -17,12 +17,23 @@ import ais.database.model.Konfigurasi;
 import ais.ui.util.MyButtonTabbox;
 import ais.ui.util.MyInclude;
 
+/**
+ * Layar konfigurasi tampilan field-field pada modul Siswa: mengizinkan admin menentukan per-field
+ * (lewat {@link SiswaAction#DATA}) apakah field tersebut tampil/wajib diisi pada form siswa,
+ * disimpan sebagai baris {@link Konfigurasi} berkunci {@code siswa_tampil_<key>}. Tata letak berupa
+ * tab utama "Form Siswa" (dibangun langsung, memakai inner {@link Tabbox} agar mekanisme
+ * {@code createSpan()} dari kelas induk berfungsi) plus 7 tab konfigurasi sub-form terkait
+ * (jenis tinggal, transportasi, penghasilan, dsb) yang masing-masing dimuat malas dari berkas
+ * ZUL terpisah lewat {@link MyInclude}. Mewarisi mekanisme render baris konfigurasi generik dari
+ * {@link KonfigurasiNewAction}.
+ */
 public class KonfigurasiTampilanSiswaAction extends KonfigurasiNewAction {
 
 	private static final long serialVersionUID = -5779730267402400328L;
 
 	private Div outerTabsDiv;
 
+	/** Menjalankan pemeriksaan keamanan sebelum komponen ZK dibangun (hook siklus hidup ZK). */
 	@Override
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page,
 			org.zkoss.zk.ui.Component parent, org.zkoss.zk.ui.metainfo.ComponentInfo compInfo) {
@@ -30,6 +41,7 @@ public class KonfigurasiTampilanSiswaAction extends KonfigurasiNewAction {
 		return super.doBeforeCompose(page, parent, compInfo);
 	}
 
+	/** Memverifikasi sesi login &amp; hak akses baca, lalu membangun tab utama "Form Siswa" dan 7 tab sub-konfigurasi lazy-load; mengarahkan ke logoff bila sesi/izin tidak valid. */
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterComposeOri(comp);
 		Common.initLaguage();
@@ -78,6 +90,7 @@ public class KonfigurasiTampilanSiswaAction extends KonfigurasiNewAction {
 		btabs.pulihkanSeleksi(subZuls.length + 1);
 	}
 
+	/** Mengembalikan deskripsi label ({@link SiswaAction#DATA_DESC}) untuk nama field {@code key} pada {@link SiswaAction#DATA}, atau string kosong bila tidak ditemukan. */
 	public static String keyDesc(String key) {
 		int index = 0;
 		for (String h : SiswaAction.DATA) {
@@ -89,6 +102,7 @@ public class KonfigurasiTampilanSiswaAction extends KonfigurasiNewAction {
 		return "";
 	}
 
+	/** Memeriksa apakah {@code key} termasuk dalam {@link SiswaAction#DEFAULT_TIDAK_AKTIF} (field yang defaultnya tidak aktif/tidak tampil). */
 	public static boolean apakahAdaTidakAktif(String key) {
 		boolean ada = false;
 		for (String h : SiswaAction.DEFAULT_TIDAK_AKTIF) {
@@ -100,6 +114,7 @@ public class KonfigurasiTampilanSiswaAction extends KonfigurasiNewAction {
 		return ada;
 	}
 
+	/** Memeriksa apakah {@code key} termasuk dalam {@link SiswaAction#DEFAULT_TIDAK_WAJIB} (field yang defaultnya aktif tapi tidak wajib diisi). */
 	public static boolean apakahAdaTidakWajib(String key) {
 		boolean ada = false;
 		for (String h : SiswaAction.DEFAULT_TIDAK_WAJIB) {
@@ -111,10 +126,12 @@ public class KonfigurasiTampilanSiswaAction extends KonfigurasiNewAction {
 		return ada;
 	}
 
+	/** Memeriksa apakah field {@code key} wajib diisi, berdasarkan status konfigurasi tersimpan ({@link #statusWajibIsi}) bernilai {@link Konfigurasi#AKTIF}. */
 	public static boolean wajibIsi(String key) {
 		return statusWajibIsi(key).equals(Konfigurasi.AKTIF);
 	}
 
+	/** Membaca status konfigurasi tampilan field {@code key} ({@code siswa_tampil_<key>}) dari database, dengan default ditentukan dari {@link #apakahAdaTidakAktif}/{@link #apakahAdaTidakWajib}. */
 	public static String statusWajibIsi(String key) {
 		String defaultValue = apakahAdaTidakAktif(key) ? Konfigurasi.TIDAK_AKTIF
 				: apakahAdaTidakWajib(key) ? Konfigurasi.AKTIF_TIDAK_WAJIB : Konfigurasi.AKTIF;
@@ -122,6 +139,7 @@ public class KonfigurasiTampilanSiswaAction extends KonfigurasiNewAction {
 		return konfigurasi.getNilai();
 	}
 
+	/** Mengembalikan daftar nama field (di luar {@code id}) dari {@link SiswaAction#DATA} yang saat ini terkonfigurasi wajib diisi. */
 	public static List<String> dataYangWajibDiisi() {
 		List<String> strings = new ArrayList<String>();
 		for (String key : SiswaAction.DATA) {

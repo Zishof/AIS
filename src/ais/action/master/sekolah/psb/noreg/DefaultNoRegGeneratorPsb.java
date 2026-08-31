@@ -4,8 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.hibernate.Session;
-import org.hibernate.criterion.Projections;
-import org.hibernate.criterion.Restrictions;
 
 import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
@@ -20,18 +18,7 @@ public class DefaultNoRegGeneratorPsb implements NoRegGeneratorPsb {
 
 	@Override
 	public String generateNoReg(List<String> jumlahPengecualian, CalonSiswa calonSiswa) {
-		Session session = HibernateUtil.currentNativeSession();
-		Number number = (Number) session.createCriteria(CalonSiswa.class)
-				.add(Restrictions.isNotNull("gelombangPendaftaranPsb")).setProjection(Projections.max("id"))
-				.uniqueResult();
-
-		if (number == null) {
-			number = 0;
-		} else {
-			number = number.longValue() + (jumlahPengecualian.size() + 1);
-		}
-		String kodeRegistratsi = "00000000000000000000000000000000000000" + number.longValue();
-
+		Session session = HibernateUtil.openSession();
 		Integer jumlahIncrements = 5;
 		try {
 			jumlahIncrements = Integer
@@ -40,16 +27,15 @@ public class DefaultNoRegGeneratorPsb implements NoRegGeneratorPsb {
 			Common.tampilErrorJikaAdmin(e);
 		}
 
-		String noreg = (calonSiswa.getTahunMasuk() + "")
-				+ kodeRegistratsi.substring(kodeRegistratsi.length() - jumlahIncrements, kodeRegistratsi.length());
+		String prefix = calonSiswa.getTahunMasuk() + "";
+		long nomorUrut = NoRegGeneratorPsbSupport.nomorUrutBerikutnya(session, prefix, jumlahIncrements, calonSiswa,
+				jumlahPengecualian);
+		String noreg = prefix + NoRegGeneratorPsbSupport.leftPadNomor(nomorUrut, jumlahIncrements);
 
-		Integer count = ((Number) session.createCriteria(CalonSiswa.class).add(Restrictions.eq("nomorInduk", noreg))
-				.setProjection(Projections.rowCount()).uniqueResult()).intValue();
-		// session.disconnect();
-		if (session.isOpen()) {session.disconnect();session.close();}
-		HibernateUtil.closeSession();
+		boolean nomorSudahDipakai = NoRegGeneratorPsbSupport.nomorSudahDipakai(session, noreg, calonSiswa);
+		HibernateUtil.closeSessionQuietly(session);
 
-		if (count > 0) {
+		if (nomorSudahDipakai) {
 			jumlahPengecualian.add(noreg);
 			return generateNoReg(jumlahPengecualian, calonSiswa);
 		} else {

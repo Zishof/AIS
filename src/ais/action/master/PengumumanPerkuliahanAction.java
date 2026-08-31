@@ -783,6 +783,17 @@ public class PengumumanPerkuliahanAction extends GenericAutowireComposer {
 		return pengumuman;
 	}
 
+	/**
+	 * Membangun grid editor daftar pertanyaan polling (dibaca dari kolom JSON {@code isiPolling})
+	 * lengkap dengan tombol "Tambah Polling" yang membuka jendela input judul+isi baru. Setiap
+	 * entri baru diberi {@code ref} acak ({@link Common#randLong()}) sebagai identitas unik yang
+	 * dipakai {@link #tampilkanPolling} untuk mencocokkan jawaban pemilih. Bila pengumuman sudah
+	 * tersimpan ({@code getId() != null}), perubahan langsung di-{@code refreshUpdate}; bila belum,
+	 * perubahan hanya ditahan di objek in-memory sampai form induk disimpan.
+	 *
+	 * @param eventListener dipicu setiap kali daftar polling berubah (tambah/hapus), membawa {@code pengumumanPerkuliahan} sebagai data event
+	 * @return grid ZK siap pakai berisi daftar pertanyaan polling saat ini
+	 */
 	public static Grid initIsiPolling(final PengumumanPerkuliahan pengumumanPerkuliahan,
 			final EventListener eventListener) throws Exception {
 
@@ -930,6 +941,7 @@ public class PengumumanPerkuliahanAction extends GenericAutowireComposer {
 		return subGrid;
 	}
 
+	/** Menambahkan satu baris tampilan pertanyaan polling ({@code jsonObject}) ke {@code subrowsRefs}, lengkap dengan tombol hapus yang menghilangkan entri tersebut (dicocokkan lewat {@code ref}) dari kolom JSON {@code isiPolling}. Dipanggil oleh {@link #initIsiPolling} untuk setiap entri awal maupun entri baru. */
 	private static void addIsiPolling(final JSONObject jsonObject, final PengumumanPerkuliahan pengumumanPerkuliahan,
 			Rows subrowsRefs, final EventListener eventListener) throws Exception {
 		final Long ref = ais.common.CommonJSONUtil.ambilLong(jsonObject,"ref");
@@ -986,6 +998,15 @@ public class PengumumanPerkuliahanAction extends GenericAutowireComposer {
 	}
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Menampilkan widget polling publik di {@code vbox}: bila user yang login belum menjawab,
+	 * menampilkan pilihan {@link Radio} yang saat diklik menyimpan jawaban ke kolom JSON
+	 * {@code jawabanPolling} (map {@code userId -> ref}) lalu me-refresh tampilan; bila sudah
+	 * menjawab (atau ada pengguna lain sudah menjawab), menampilkan hasil rekap per pilihan berupa
+	 * persentase dan {@link Progressmeter}, dengan pilihan milik user ditandai khusus. Tidak
+	 * menampilkan apa pun bila belum ada pertanyaan polling atau user belum login. Kegagalan
+	 * ditangkap dan dilaporkan lewat {@link Common#tampilErrorJikaAdmin}.
+	 */
 	public static void tampilkanPolling(final PengumumanPerkuliahan pengumumanPerkuliahan, final Component vbox) {
 		try {
 			Common.clear(vbox);

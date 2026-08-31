@@ -13,8 +13,11 @@ import ais.database.model.BiodataCalonMahasiswa;
  * Algoritma pembangkit nomor registrasi PMB bawaan (dipakai bila institusi tidak memiliki
  * generator khusus). Format nomor: tahun pendaftaran ({@code biodataCalonMahasiswa.getTahun()})
  * diikuti sejumlah digit urutan (panjang dikontrol konfigurasi
- * {@code jumlah_increments_no_registrasi_pmb}, default 8) yang diturunkan dari
- * {@code id} tertinggi record {@link BiodataCalonMahasiswa} aktif saat ini.
+ * {@code jumlah_increments_no_registrasi_pmb}, default 8). Urutan dihitung lewat
+ * {@link NoRegGeneratorSupport#nomorUrutBerikutnya} sebagai angka setelah urutan tertinggi yang
+ * sudah dipakai di antara nomor registrasi ber-prefix tahun yang sama (mempertimbangkan juga
+ * nomor yang sudah dipesan dalam batch berjalan lewat {@code jumlahPengecualian}), lalu dicek
+ * ulang keunikannya lewat {@link NoRegGeneratorSupport#nomorSudahDipakai}.
  */
 public class DefaultNoRegGenerator implements NoRegGenerator {
 
@@ -25,9 +28,10 @@ public class DefaultNoRegGenerator implements NoRegGenerator {
 	}
 
 	/**
-	 * Menghasilkan nomor registrasi format tahun+urutan berbasis {@code id} tertinggi; bila hasil
-	 * sudah dipakai, nomor tersebut ditambahkan ke {@code jumlahPengecualian} dan method memanggil
-	 * dirinya sendiri secara rekursif untuk mencoba urutan berikutnya.
+	 * Menghasilkan nomor registrasi format tahun+urutan (urutan = angka setelah urutan tertinggi
+	 * yang sudah dipakai untuk prefix tahun yang sama); bila hasil ternyata sudah dipakai, nomor
+	 * tersebut ditambahkan ke {@code jumlahPengecualian} dan method memanggil dirinya sendiri
+	 * secara rekursif untuk mencoba urutan berikutnya.
 	 *
 	 * @param jumlahPengecualian nomor yang harus dihindari (diperbarui di tempat sebagai akumulator rekursi)
 	 * @param biodataCalonMahasiswa data calon mahasiswa yang akan diberi nomor registrasi

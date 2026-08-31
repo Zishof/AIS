@@ -12,9 +12,10 @@ import ais.database.model.BiodataCalonMahasiswa;
 /**
  * Algoritma pembangkit nomor registrasi PMB khusus institusi STAIN Batusangkar. Format nomor:
  * 4 digit tahun berjalan diikuti 5 digit urutan pendaftar tahun tersebut (mis.
- * {@code "2026" + "00042"}). Urutan dihitung dari jumlah baris {@link BiodataCalonMahasiswa}
- * aktif yang nomor registrasinya sudah diawali tahun berjalan, ditambah jumlah nomor yang sudah
- * dipesan-tapi-belum-tersimpan dalam batch berjalan ({@code jumlahPengecualian}).
+ * {@code "2026" + "00042"}). Urutan dihitung lewat {@link NoRegGeneratorSupport#nomorUrutBerikutnya}
+ * sebagai angka setelah urutan tertinggi yang sudah dipakai di antara nomor registrasi ber-prefix
+ * tahun berjalan (mempertimbangkan juga nomor yang sudah dipesan dalam batch berjalan lewat
+ * {@code jumlahPengecualian}).
  */
 public class StainBatusangkarNoRegGenerator implements NoRegGenerator {
 

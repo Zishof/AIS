@@ -69,10 +69,45 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyLabelKecil;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Mesin utama penyusun peta parameter ({@code Map<String,Object>}) yang dipakai untuk mencetak
+ * template {@link SuratKeluar} (surat keluar): mengumpulkan data identitas pengaju (mahasiswa,
+ * dosen, guru, siswa, pegawai), tanda tangan/QR, kop surat, alur persetujuan/disposisi, variabel
+ * global {@link VariableSuratKeluar}, serta parameter khusus klasifikasi surat
+ * ({@link KlasifikasiSuratKeluarParemeter}) — baik dari komponen UI (mode interaktif) maupun dari
+ * data tersimpan di database (mode background task/cetak ulang).
+ *
+ * <p>
+ * Method utama {@link #ubahIsiSuratKeluar(Rows, KlasifikasiSuratKeluar, Mahasiswa, Dosen, Pegawai,
+ * Tbmuser, String, SuratKeluar, Groupbox, Map)} membuka sesi Hibernate terisolasi sendiri (bukan
+ * {@code HibernateUtil.currentSession()}) via {@link #openIsolatedSession()} agar aman dipanggil
+ * dari thread background/cetak massal tanpa mengganggu sesi request ZK yang sedang aktif, dan
+ * menutupnya sendiri di {@code finally} lewat {@link #closeOpenedSession(Session)} — TIDAK pernah
+ * memanggil {@code HibernateUtil.closeSession()} global. Seluruh method publik disinkronisasi
+ * ({@code synchronized static}) karena membagikan/menimpa isi {@code parameters} yang sama.
+ * </p>
+ *
+ * <p>
+ * Sebagian besar method privat lain ({@code prosesDaftarMahasiswa}, {@code prosesDaftarSiswa},
+ * {@code prosesDaftarPengguna}, dan turunannya {@code prosesPengaju}/{@code prosesPengikut*}) adalah
+ * helper yang menangani parameter bertipe "daftar" (multi-entitas dipisah koma) pada klasifikasi
+ * surat: setiap entitas diproyeksikan lewat {@link ClassMetadata} Hibernate dan nilainya digabung
+ * (dipisah {@code ;}) ke dalam satu string per properti lewat {@link #gabungNilaiMap}, sehingga
+ * template surat bisa menampilkan daftar nilai gabungan (mis. nama seluruh mahasiswa yang diundang)
+ * dalam satu placeholder.
+ * </p>
+ */
 public class SuratUtilHelper {
 
-	/* public agar SuratKeluarAction.onSave memakai konversi aman yang sama
-	 * (attribute "nilai" bisa berisi java.io.File untuk parameter gambar). */
+	/**
+	 * Mengonversi nilai komponen form parameter surat menjadi {@link String} secara aman, termasuk
+	 * kasus khusus atribut {@code "nilai"} berisi {@link File} (parameter bertipe gambar) yang
+	 * dikonversi ke path absolutnya. Dipakai bersama oleh helper ini dan
+	 * {@code SuratKeluarAction.onSave} agar logika konversi konsisten di kedua tempat.
+	 *
+	 * @param value nilai mentah dari komponen/atribut form, boleh {@code null} atau {@link File}
+	 * @return representasi string yang aman untuk disimpan sebagai nilai parameter, tidak pernah {@code null}
+	 */
 	public static String nilaiParameterAman(Object value) {
 		if (value == null) {
 			return "";
@@ -87,6 +122,16 @@ public class SuratUtilHelper {
 	// =========================================================================================
 	// 1. METHOD DELEGATOR (Penggabungan & Reuse agar tidak ada redundansi)
 	// =========================================================================================
+	/**
+	 * Varian ringkas (delegator) dari {@link #ubahIsiSuratKeluar(Rows, KlasifikasiSuratKeluar,
+	 * Mahasiswa, Dosen, Pegawai, Tbmuser, String, SuratKeluar, Groupbox, Map)} untuk mode "database"
+	 * (dipanggil tanpa komponen {@link Rows} UI, mis. dari proses cetak ulang/background). Sengaja
+	 * TIDAK memanggil getter relasi lazy pada {@code suratKeluar} di sini — seluruh relasi diambil
+	 * ulang di method utama memakai sesi baru yang terisolasi, untuk menghindari
+	 * {@code LazyInitializationException} lintas sesi.
+	 *
+	 * @return {@code parameters} yang sudah diisi, atau map kosong bila {@code suratKeluar} {@code null}
+	 */
 	@SuppressWarnings({ })
 	public synchronized static Map<String, Object> ubahIsiSuratKeluar(SuratKeluar suratKeluar, Tbmuser tbmuser,
 			Groupbox west, final Map<String, Object> parameters) {
@@ -103,6 +148,41 @@ public class SuratUtilHelper {
 	// =========================================================================================
 	// 2. METHOD UTAMA (CORE ENGINE)
 	// =========================================================================================
+	/**
+	 * Implementasi kanonik ("mesin inti") penyusunan seluruh parameter cetak {@link SuratKeluar}.
+	 * Membuka sesi Hibernate terisolasi sendiri, lalu secara berurutan: (1) me-resolve ulang
+	 * {@code suratKeluar} pada sesi baru bila mode database ({@code rows == null}); (2) mengisi
+	 * parameter umum surat (nomor, perihal, tanggal dalam berbagai format, QR code, kop surat,
+	 * gambar tanda tangan); (3) mengisi identitas pengaju (pegawai/siswa/guru/dosen/mahasiswa)
+	 * beserta data terkait (skripsi, request tugas akhir, KRS, riwayat status, nilai per mata
+	 * kuliah); (4) mengisi variabel global {@link VariableSuratKeluar} dan status alur
+	 * persetujuan/disposisi beserta tanda tangan pejabat; (5) mengisi parameter khusus klasifikasi
+	 * surat — dari komponen UI bila {@code rows != null} (mode interaktif), atau dari
+	 * {@link KlasifikasiSuratKeluarParemeter}/{@link KlasifikasiSuratKeluarParemeterValue} tersimpan
+	 * bila {@code rows == null} (mode database); (6) membangun panel pencarian parameter di
+	 * {@code west} bila diberikan dan user adalah admin.
+	 *
+	 * <p>
+	 * Parameter entitas ({@code myKlasifikasiSuratKeluar}, {@code mahasiswa}, {@code dosen},
+	 * {@code pegawai}, {@code mycode}) yang diberikan {@code null} akan diisi otomatis dari relasi
+	 * {@code suratKeluar} (bila tersedia). Seluruh kegagalan pada langkah individual ditangkap dan
+	 * dilaporkan lewat {@link #safeError(Exception)} tanpa menghentikan keseluruhan proses, kecuali
+	 * kegagalan membuka sesi Hibernate yang membuat method mengembalikan {@code parameters} apa
+	 * adanya (atau map kosong bila {@code null}).
+	 * </p>
+	 *
+	 * @param rows                        baris komponen form parameter (mode UI), atau {@code null} untuk mode database
+	 * @param myKlasifikasiSuratKeluar    klasifikasi surat, boleh {@code null} (diambil dari {@code suratKeluar})
+	 * @param mahasiswa                   mahasiswa pengaju, boleh {@code null}
+	 * @param dosen                       dosen pengaju, boleh {@code null}
+	 * @param pegawai                     pegawai pengaju, boleh {@code null}
+	 * @param tbmuser                     user yang sedang login (dipakai untuk kop default dan visibilitas panel parameter)
+	 * @param mycode                      nomor surat override, boleh {@code null}
+	 * @param suratKeluar                 entitas surat keluar target
+	 * @param west                        panel UI tempat menampilkan daftar parameter (khusus admin), boleh {@code null}
+	 * @param parameters                  map parameter yang akan diisi/ditimpa
+	 * @return {@code parameters} yang telah diisi lengkap, siap dipakai mesin cetak laporan (JasperReports/iText)
+	 */
 	@SuppressWarnings({ "deprecation", "unchecked" })
 	public synchronized static Map<String, Object> ubahIsiSuratKeluar(Rows rows,
 			KlasifikasiSuratKeluar myKlasifikasiSuratKeluar, Mahasiswa mahasiswa, Dosen dosen, Pegawai pegawai,
@@ -578,6 +658,7 @@ public class SuratUtilHelper {
 	}
 
 
+	/** Membuka sesi Hibernate baru yang terisolasi dari sesi request ZK aktif; mengembalikan {@code null} (dengan error dilaporkan) bila gagal. */
 	private static Session openIsolatedSession() {
 		try {
 			return HibernateUtil.getSessionFactory().openSession();
@@ -587,6 +668,7 @@ public class SuratUtilHelper {
 		}
 	}
 
+	/** Memuat ulang {@code suratKeluar} pada {@code session} terisolasi (agar relasi lazy bisa diakses), mengembalikan entitas asal apa adanya bila id kosong, sesi tak terpakai, atau gagal dimuat. */
 	private static SuratKeluar resolveSuratKeluar(Session session, SuratKeluar suratKeluar) {
 		if (suratKeluar == null || suratKeluar.getId() == null || !isSessionUsable(session)) {
 			return suratKeluar;
@@ -600,6 +682,7 @@ public class SuratUtilHelper {
 		}
 	}
 
+	/** Memeriksa apakah {@code session} tidak {@code null}, masih terbuka, dan masih terkoneksi ke database. */
 	private static boolean isSessionUsable(Session session) {
 		try {
 			return session != null && session.isOpen() && session.isConnected();
@@ -608,6 +691,7 @@ public class SuratUtilHelper {
 		}
 	}
 
+	/** Menutup {@code session} yang dibuka {@link #openIsolatedSession()} secara aman (clear, disconnect, close berurutan, tiap langkah dibungkus try-catch agar kegagalan satu langkah tidak menggagalkan langkah berikutnya). */
 	private static void closeOpenedSession(Session session) {
 		if (session == null) {
 			return;
@@ -656,6 +740,14 @@ public class SuratUtilHelper {
 	// HELPER METHODS (Disederhanakan untuk Efisiensi)
 	// =========================================================================
 
+	/**
+	 * Mengisi parameter foto ({@code putPhoto}, dipanggil via refleksi karena entitas berbeda tidak
+	 * berbagi antarmuka) dan tanda tangan ({@code prefix + ".ttd"}) untuk satu entitas pengaju
+	 * (pegawai/siswa/guru/dosen/mahasiswa). Tanda tangan hanya diisi bila file lampiran
+	 * {@code tipeLampiran} ditemukan DAN lolos validasi {@link Common#isGambarLaporanValid(File)} —
+	 * mencegah path gambar rusak/kosong lolos ke JasperReports/iText yang akan menggagalkan seluruh
+	 * pembuatan laporan dengan {@code ReportGenerationException}.
+	 */
 	private static void prosesDataPerson(Object personEntity, String prefix, String tipeLampiran, Map<String, Object> parameters) {
 		if (personEntity == null) {
 			parameters.put(prefix + ".ttd", "");
@@ -685,6 +777,13 @@ public class SuratUtilHelper {
 	}
 
 	@SuppressWarnings("rawtypes")
+	/**
+	 * Menyalin seluruh properti Hibernate {@code entity} (via {@link ClassMetadata}) ke
+	 * {@code parameters} dengan prefix {@code "<prefix>.<properti>"}, termasuk satu tingkat properti
+	 * anak bila nilainya berupa {@link GeneralValueObject} lain. Properti relasi lazy yang belum
+	 * diinisialisasi ({@code !Hibernate.isInitialized(val)}) diisi string kosong untuk menghindari
+	 * memicu query tambahan/{@code LazyInitializationException}.
+	 */
 	private static void salinClassMetadata(Object entity, Class clazz, String prefix, Map<String, Object> parameters) {
 		ClassMetadata metadata = HibernateUtil.getClassMetadata(clazz);
 		if (metadata == null) return;
@@ -716,12 +815,14 @@ public class SuratUtilHelper {
 		}
 	}
 
+	/** Menggabungkan {@code value} (atau {@code "-"} bila kosong) ke entri {@code key} pada {@code map}, dipisah {@code ";"} dari nilai sebelumnya — dipakai untuk merangkai nilai satu properti dari banyak entitas "daftar" menjadi satu string parameter template. */
 	private static void gabungNilaiMap(Map<String, String> map, String key, Object value) {
 		String valStr = (value == null || value.toString().trim().isEmpty()) ? "-" : value.toString();
 		String existing = map.get(key);
 		map.put(key, existing == null ? valStr : existing + ";" + valStr);
 	}
 
+	/** Memproses parameter bertipe {@code DAFTAR_MAHASISWA}: memecah {@code stringData} (NIM dipisah koma), memasukkan properti tiap {@link Mahasiswa} baik dengan kunci per-NIM/per-indeks maupun digabung ({@link #gabungNilaiMap}) di bawah {@code paramKey}. */
 	private static void prosesDaftarMahasiswa(String stringData, String paramKey, Map<String, Object> parameters) {
 		try {
 			int i = 1;
@@ -749,6 +850,7 @@ public class SuratUtilHelper {
 		}
 	}
 
+	/** Seperti {@link #prosesDaftarMahasiswa}, untuk parameter {@code DAFTAR_SISWA} (dicocokkan lewat NIS). */
 	private static void prosesDaftarSiswa(String stringData, String paramKey, Map<String, Object> parameters) {
 		try {
 			int i = 1;
@@ -777,6 +879,14 @@ public class SuratUtilHelper {
 		}
 	}
 
+	/**
+	 * Memproses parameter bertipe {@code DAFTAR_PENGGUNA}: menggabungkan properti pengaju utama
+	 * ({@code dosen}/{@code guru}/{@code pegawai}, via {@link #prosesPengaju}) dengan properti setiap
+	 * "pengikut" yang tercantum di {@code stringData} (dipisah koma, dicocokkan berurutan sebagai
+	 * {@link Tbmuser}, lalu {@link Mahasiswa} via NIM, lalu {@link Siswa} via NIS). Kunci gabungan
+	 * ({@code daftar.*}/{@code pengikut.*}/{@code pengikut.semua.*}) memakai union seluruh nama
+	 * properti dari kelima jenis entitas agar template bisa merujuk satu nama kolom yang seragam.
+	 */
 	private static void prosesDaftarPengguna(String stringData, String paramKey, Dosen dosen, Guru guru, Pegawai pegawai, Map<String, Object> parameters) {
 		try {
 			ClassMetadata metaMhs = HibernateUtil.getClassMetadata(Mahasiswa.class);
@@ -839,6 +949,7 @@ public class SuratUtilHelper {
 		}
 	}
 
+	/** Menggabungkan seluruh properti {@code entity} (pengaju utama surat) ke {@code mapData} di bawah prefix {@code daftar.<tipe>.} dan {@code pengaju.<tipe>.}; tidak melakukan apa pun bila {@code entity}/{@code meta} {@code null}. */
 	private static void prosesPengaju(Object entity, ClassMetadata meta, Set<String> propsAll, Map<String, String> mapData, String tipe) {
 		if (entity == null || meta == null) return;
 		for (String prop : propsAll) {
@@ -849,6 +960,7 @@ public class SuratUtilHelper {
 		}
 	}
 
+	/** Menggabungkan properti relasi peran {@code user} (dosen/guru/pegawai, bila ada) dan properti {@link Tbmuser} sendiri ke {@code mapData}, termasuk kunci gabungan {@code pengikut.semua.*} lintas peran. Perlakuan khusus: kode pegawai yang juga dosen diganti NIDN, jabatan kosong diisi "Dosen". */
 	private static void prosesPengikutUser(Tbmuser user, ClassMetadata metaDosen, ClassMetadata metaGuru, ClassMetadata metaPegawai, ClassMetadata metaUser, Set<String> propsAll, Map<String, String> mapData) {
 		if (user.getDosen() != null && metaDosen != null) {
 			for (String prop : propsAll) {
@@ -891,6 +1003,7 @@ public class SuratUtilHelper {
 		}
 	}
 
+	/** Menggabungkan properti {@code mhs} ke {@code mapData} (prefix {@code daftar.mahasiswa.}/{@code pengikut.pegawai.}/{@code pengikut.semua.}); properti {@code kode}/{@code nidn} dipetakan ke {@code nim}, dan {@code jabatan} kosong diisi "Mahasiswa" agar seragam dengan entitas peran lain. */
 	private static void prosesPengikutMahasiswa(Mahasiswa mhs, ClassMetadata metaMhs, Set<String> propsAll, Map<String, String> mapData) {
 		if (metaMhs == null) return;
 		for (String prop : propsAll) {
@@ -907,6 +1020,7 @@ public class SuratUtilHelper {
 		}
 	}
 
+	/** Seperti {@link #prosesPengikutMahasiswa}, untuk {@link Siswa} (properti {@code kode}/{@code nidn} dipetakan ke {@code nomorInduk}, jabatan kosong diisi "Siswa"). */
 	private static void prosesPengikutSiswa(Siswa siswa, ClassMetadata metaSiswa, Set<String> propsAll, Map<String, String> mapData) {
 		if (metaSiswa == null) return;
 		for (String prop : propsAll) {

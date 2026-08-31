@@ -2804,6 +2804,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return commonID;
 	}
 
+	/** Seperti varian dengan {@code ddc}, tanpa memfilter kode DDC. */
 	@GET
 	@Path("daftar_publikasi_item/{satuanKerja}/{perpustakaan}/{cari}/{kategori}/{jenis}/{publikasi}/{start}/{banyak}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -2815,6 +2816,16 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return daftarPublikasiItem(satuanKerja, perpustakaan, cari, kategori, jenis, publikasi, "", start, banyak);
 	}
 
+	/**
+	 * Implementasi kanonik daftar publikasi item ({@link ItemPunyaTerbit}) yang sedang berlaku
+	 * (tanggal berjalan berada di antara {@code mulai} dan {@code sampai}): difilter berdasarkan
+	 * satuan kerja penerbit, perpustakaan publikasi, kode DDC (lewat subquery ke
+	 * {@link DataDdcItemDetail}), kata kunci pencarian bebas (nama/tema/abstrak ID+EN/kata kunci
+	 * ID+EN/ISBN/ISSN/pengarang/konten publikasi), kategori, dan jenis item. Tiap hasil dirangkum
+	 * lewat {@link #createLayoutItemTerbit} beserta jumlah komentarnya.
+	 *
+	 * @return daftar ringkasan {@link CommonID} publikasi item yang cocok, terpaginasi
+	 */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("daftar_publikasi_item/{satuanKerja}/{perpustakaan}/{cari}/{kategori}/{jenis}/{publikasi}/{ddc}/{start}/{banyak}/")
@@ -2928,6 +2939,13 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return commonIDs;
 	}
 
+	/**
+	 * Menambahkan {@link ItemPunyaTerbitKomentar} pada satu {@link ItemPunyaTerbit}. Parameter
+	 * dikirim sebagai satu daftar query string {@code item} berisi 4 elemen posisional:
+	 * {@code [0]=id publikasi, [1]=nama, [2]=kontak, [3]=email}.
+	 *
+	 * @return {@code "OK"} bila berhasil, {@code "ERROR"} bila publikasi tidak ditemukan
+	 */
 	@GET
 	@Path("/tambah_komentar_item_terbit")
 	@Produces("text/plain")
@@ -2972,6 +2990,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return "OK";
 	}
 
+	/** Daftar {@link ItemPunyaTerbitKomentar} (maks. {@link Common#MAX_RESULT_20}) untuk satu publikasi item, terbaru dulu. */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("daftar_item_terbit_komentar/{item}/")
@@ -3000,6 +3019,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return commonIDs;
 	}
 
+	/** Daftar seluruh {@link ItemPunyaTerbitKomentar} lintas publikasi, terbaru dulu, dipaginasi. */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("daftar_item_terbit_komentar_semua/{start}/{banyak}/")
@@ -3029,6 +3049,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return commonIDs;
 	}
 
+	/** Menghitung jumlah {@link ItemPunyaTerbitKomentar} pada satu publikasi item, dikembalikan sebagai {@code info1} berformat angka. */
 	@GET
 	@Path("daftar_item_terbit_jumlah_komentar/{item}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -3044,6 +3065,13 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return commonID;
 	}
 
+	/**
+	 * Menambahkan {@link InformasiPerpustakaanKomentar} pada satu {@link InformasiPerpustakaan}.
+	 * Parameter dikirim sebagai satu daftar query string {@code item}: {@code [0]=id informasi,
+	 * [1]=nama, [2]=kontak, [3]=email}.
+	 *
+	 * @return {@code "OK"} bila berhasil, {@code "ERROR"} bila informasi perpustakaan tidak ditemukan
+	 */
 	@GET
 	@Path("/tambah_komentar_informasi_perpustakaan")
 	@Produces("text/plain")
@@ -3088,6 +3116,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return "OK";
 	}
 
+	/** Daftar {@link DomainPenelitian} default (root/kategori) di bawah {@code parent}, opsional difilter per {@link Penerbit}. */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("daftar_domain_penelitian/{penerbit}/{parent}/")
@@ -3119,6 +3148,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return commonIDs;
 	}
 
+	/** Seperti {@link #daftarKategoriItem(String)}, mengambil kategori root (tanpa {@code parent}). */
 	@GET
 	@Path("daftar_kategori_item/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -3126,6 +3156,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return daftarKategoriItem("");
 	}
 
+	/** Daftar {@link KategoriItem} default di bawah {@code parent} tertentu (atau root bila kosong), untuk pohon kategori item. */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("daftar_kategori_item/{parent}/")
@@ -3150,6 +3181,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return commonIDs;
 	}
 
+	/** Seperti {@link #daftarDdcItem(String)}, mengambil kode DDC root (tanpa {@code parent}). */
 	@GET
 	@Path("daftar_ddc_item/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -3157,6 +3189,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return daftarDdcItem("");
 	}
 
+	/** Daftar {@link DdcItem} default (Dewey Decimal Classification) di bawah {@code parent} tertentu (atau root bila kosong), terurut per kode. */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("daftar_ddc_item/{parent}/")
@@ -3182,6 +3215,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return commonIDs;
 	}
 
+	/** Seperti {@link #daftarUdcItem(String)}, mengambil kode UDC root (tanpa {@code parent}). */
 	@GET
 	@Path("daftar_udc_item/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -3189,6 +3223,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return daftarUdcItem("");
 	}
 
+	/** Daftar {@link UdcItem} default (Universal Decimal Classification) di bawah {@code parent} tertentu (atau root bila kosong), terurut per kode. */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("daftar_udc_item/{parent}/")
@@ -3214,6 +3249,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return commonIDs;
 	}
 
+	/** Daftar seluruh {@link ais.database.model.library.JenisItem} (jenis item: buku, jurnal, dst.), terurut nama. */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("daftar_jenis_item/")
@@ -3233,6 +3269,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return commonIDs;
 	}
 
+	/** Daftar seluruh {@link Perpustakaan} aktif tanpa filter (bandingkan dengan {@link #daftarPerpustakaan(String, String)} yang mendukung filter nama/satuan kerja). */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("daftar_perpustakaan/")
@@ -3250,6 +3287,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return commonIDs;
 	}
 
+	/** Seperti varian dengan {@code start}/{@code banyak}, dengan halaman default (0, 10 baris). */
 	@GET
 	@Path("daftar_informasi_perpustakaan/{satuanKerja}/{perpustakaan}/{cari}/")
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -3258,6 +3296,13 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return daftarInformasiPerpustakaan(satuanKerja, perpustakaan, cari, "0", "10");
 	}
 
+	/**
+	 * Daftar {@link InformasiPerpustakaan} (pengumuman/berita perpustakaan) yang sedang berlaku
+	 * (tanggal berjalan di antara {@code mulai} dan {@code sampai}), difilter berdasarkan kata
+	 * kunci konten, satuan kerja, dan perpustakaan, terbaru dulu dan dipaginasi. Tiap hasil
+	 * dilengkapi lampiran foto ({@link FotoInformasiPerpustakaan}, diambil via
+	 * {@link StreamingHibernateUtil}) dan jumlah komentarnya.
+	 */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("daftar_informasi_perpustakaan/{satuanKerja}/{perpustakaan}/{cari}/{start}/{banyak}/")
@@ -3339,6 +3384,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return commonIDs;
 	}
 
+	/** Daftar {@link InformasiPerpustakaanKomentar} (maks. {@link Common#MAX_RESULT_20}) untuk satu {@link InformasiPerpustakaan}, terbaru dulu. */
 	@SuppressWarnings("unchecked")
 	@GET
 	@Path("daftar_informasi_perpustakaan_komentar/{item}/")
@@ -3367,6 +3413,7 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 		return commonIDs;
 	}
 
+	/** Menghitung jumlah {@link InformasiPerpustakaanKomentar} pada satu {@link InformasiPerpustakaan}, dikembalikan sebagai {@code info1} berformat angka. */
 	@GET
 	@Path("daftar_informasi_perpustakaan_jumlah_komentar/{item}/")
 	@Produces({ MediaType.APPLICATION_JSON })

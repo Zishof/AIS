@@ -12,14 +12,32 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.Mahasiswa;
 
+/**
+ * Implementasi {@link NimGenerator} khusus institusi Bina Insani: NIM disusun dari tahun masuk penuh
+ * (4 digit), bagian kedua kode program studi kelulusan (dipisah tanda {@code "-"}, mis.
+ * {@code "S1-TI"} menjadi {@code "TI"}), lalu nomor urut sekuensial yang panjangnya dapat
+ * dikonfigurasi lewat {@code jumlah_digit_gen_nim_mahasiswa} (default 4 digit), dihitung dari jumlah
+ * mahasiswa aktif pada kombinasi (tahun angkatan, jurusan) yang sama. Mengembalikan string kosong
+ * bila calon mahasiswa belum punya {@code prodiLulus}. Keunikan diverifikasi ulang terhadap
+ * {@link Mahasiswa} dan tabrakan ditangani rekursif via daftar pengecualian.
+ */
 public class BinaInsaniNimGenerator implements NimGenerator {
 
+	/** Menghasilkan NIM tanpa daftar pengecualian; mendelegasikan ke varian dengan daftar kosong. */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa) {
 		return generateNim(calonMahasiswa, new ArrayList<String>());
 	}
 
-	// generate NIM
+	/**
+	 * Menghasilkan NIM berformat {@code [4 digit tahun][bagian kedua kode prodi][N digit urut]}
+	 * (N dari konfigurasi {@code jumlah_digit_gen_nim_mahasiswa}) untuk calon mahasiswa yang sudah
+	 * memiliki program studi kelulusan; mengembalikan string kosong bila belum.
+	 *
+	 * @param calonMahasiswa      data calon mahasiswa, sumber tahun masuk dan program studi kelulusan
+	 * @param jumlahPengecualian  daftar NIM yang harus dihindari, dimodifikasi di tempat saat rekursi
+	 * @return NIM yang belum terpakai, atau string kosong bila {@code prodiLulus} belum diisi
+	 */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa, List<String> jumlahPengecualian) {
 		if (calonMahasiswa.getProdiLulus() != null) {

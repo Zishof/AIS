@@ -28,17 +28,29 @@ import ais.database.model.Kurikulum;
 import ais.database.model.KurikulumPunyaMatakuliah;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Laporan borang akreditasi BAN-PT butir A-5.1.3 (mata kuliah pilihan dalam kurikulum): mendaftar
+ * {@link KurikulumPunyaMatakuliah} berstatus "Pilihan" (dicocokkan {@code ILIKE} sebagian) dan
+ * aktif, milik satu kurikulum yang dipilih pengguna lewat {@link AmbilDataKurikulumBanbox},
+ * diurutkan menurut semester lalu kode mata kuliah. Mengikuti kerangka kerja laporan sapto
+ * ({@link SaptoBaseWindow}); subkelas ini menentukan {@code sheetCode} ({@code "A-5.1.3"}), filter
+ * pemilih kurikulum, dan pengisian data di {@link #onCetak}. Baris pada worksheet dapat diklik
+ * untuk membuka jendela modal berisi detail Rencana Pembelajaran Semester (RPS) mata kuliah
+ * tersebut lewat {@link MatakuliahKurikulumDetailHelper}.
+ */
 public class LaporanKurikulumDanMatakuliah_A_5_1_3 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-5.1.3";
     private static final long serialVersionUID = 3331244819198611604L;
     private AmbilDataKurikulumBanbox kurikulum;
 
+    /** Membuat jendela laporan dan langsung membangun tata letak dasar (tanpa filter tambahan). */
     public LaporanKurikulumDanMatakuliah_A_5_1_3() {
         super();
         try { buildBase(false); } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Membuat jendela laporan dengan judul/border/closable kustom; setup sama seperti konstruktor default. */
     public LaporanKurikulumDanMatakuliah_A_5_1_3(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         buildBase(false);
@@ -46,6 +58,7 @@ public class LaporanKurikulumDanMatakuliah_A_5_1_3 extends SaptoBaseWindow {
 
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Menambahkan pemilih kurikulum ({@link AmbilDataKurikulumBanbox}) ke baris filter; memicu {@link #onCetak} otomatis saat kurikulum dipilih. */
     @Override
     protected void buildFilters(Row row) {
         row.appendChild(new ais.ui.util.MyLabelConfig("Kurikulum (harus dipilih)"));
@@ -57,6 +70,7 @@ public class LaporanKurikulumDanMatakuliah_A_5_1_3 extends SaptoBaseWindow {
         row.appendChild(kurikulum);
     }
 
+    /** Mengambil mata kuliah pilihan aktif milik kurikulum terpilih (di thread terpisah bila kurikulum sudah dipilih) dan menampilkannya sebagai worksheet A-5.1.3, dengan klik baris membuka detail RPS dalam jendela modal. */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

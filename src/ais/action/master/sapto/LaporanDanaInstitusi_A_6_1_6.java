@@ -16,12 +16,24 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.sapto.JenisDanaPenerimaanSapto;
 import ais.database.model.sapto.JenisDanaPenggunaanSapto;
 
+/**
+ * Jendela laporan borang akreditasi BAN-PT (SAPTO) butir A-6.1.6_PT — Dana Penelitian Institusi:
+ * menyajikan rekap dana penelitian per sumber dana (PT sendiri/yayasan, pemerintah, dalam negeri,
+ * luar negeri) untuk tiga tahun berjalan (TS-2, TS-1, TS) berdasarkan tahun akademik yang dipilih.
+ * Data diambil lewat SQL native langsung terhadap tabel {@code temporary.dana_penggunaan__sapto}
+ * yang difilter pada jenis penggunaan "Penelitian" dan dikelompokkan per sumber dana; nilai tahun
+ * disisipkan langsung ke string SQL (bukan parameter bind) namun berasal dari combobox tahun
+ * akademik yang dibangun sendiri oleh {@link Common#generateTahunAjaran}, bukan input bebas
+ * pengguna. Memperluas {@link SaptoBaseWindow} untuk kerangka layar cetak/ekspor borang SAPTO baku.
+ */
 public class LaporanDanaInstitusi_A_6_1_6 extends SaptoBaseWindow {
 
+    /** Kode sheet/butir borang SAPTO yang diwakili laporan ini. */
     public static final String sheetCode = "A-6.1.6_PT";
     private static final long serialVersionUID = 3331244819198611604L;
     private Combobox tahunAjaran;
 
+    /** Konstruktor default; menyiapkan pilihan tahun akademik berjalan lalu membangun kerangka dasar layar. */
     public LaporanDanaInstitusi_A_6_1_6() {
         super();
         try {
@@ -30,6 +42,7 @@ public class LaporanDanaInstitusi_A_6_1_6 extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Konstruktor dengan judul/border/closable eksplisit, diteruskan ke {@link SaptoBaseWindow}. */
     public LaporanDanaInstitusi_A_6_1_6(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         Common.selectComboItem(tahunAjaran = Common.generateTahunAjaran(tahunAjaran), Common.getCurrentTahunAkademik());
@@ -38,6 +51,7 @@ public class LaporanDanaInstitusi_A_6_1_6 extends SaptoBaseWindow {
 
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Membangun baris filter berisi combobox tahun akademik; perubahan pilihan langsung memicu {@link #onCetak}. */
     @Override
     protected void buildFilters(Row row) {
         row.appendChild(new ais.ui.util.MyLabelConfig("Tahun Akademik *"));
@@ -49,6 +63,14 @@ public class LaporanDanaInstitusi_A_6_1_6 extends SaptoBaseWindow {
         });
     }
 
+    /**
+     * Menangani aksi cetak/tampilkan lembar kerja: mengosongkan konten, lalu di thread terpisah
+     * menjalankan empat query agregat SQL native (satu per kelompok sumber dana) yang menjumlahkan
+     * nilai dana penggunaan bertipe "Penelitian" pada tahun TS-2/TS-1/TS, menyusun hasilnya menjadi
+     * baris tabel worksheet, lalu menampilkannya lewat {@link SaptoUtil#displayWorksheet}.
+     *
+     * @param event event ZK pemicu aksi cetak (juga dipanggil manual dengan {@code null} saat filter berubah)
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

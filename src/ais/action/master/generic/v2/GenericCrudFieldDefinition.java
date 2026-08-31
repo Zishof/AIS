@@ -2,6 +2,23 @@ package ais.action.master.generic.v2;
 
 import java.io.Serializable;
 
+/**
+ * Objek data (POJO serializable) yang mendeskripsikan satu kolom/properti entitas pada framework
+ * CRUD generik {@code ais.action.master.generic.v2}. Satu instance mewakili metadata lengkap sebuah
+ * field untuk kebutuhan render UI otomatis dan validasi: {@code property}/{@code label}/
+ * {@code javaType} adalah identitas dasar; {@code editorType} menentukan komponen input (default
+ * {@code "text"}); flag visibilitas ({@code tableVisible}, {@code quickFilter}, {@code detailVisible})
+ * mengatur di layar mana kolom muncul; flag hak akses per-field ({@code readable}, {@code createable},
+ * {@code updateable}, {@code required}) mengatur operasi apa yang diizinkan pada kolom tersebut
+ * secara independen dari hak akses entitas; {@code sortable}/{@code searchable}/{@code exportable}
+ * mengatur kapabilitas query dan ekspor; {@code sensitive} menandai kolom berisi data sensitif (mis.
+ * untuk masking); {@code restoreable} menandai kolom dapat dipulihkan setelah soft-delete;
+ * {@code relationEntityKey}/{@code relationDisplayProperty}/{@code relationSearchProperties}
+ * mendeskripsikan relasi ke entitas lain (untuk field bertipe lookup/dropdown); {@code enumValues}
+ * menyediakan daftar nilai tetap untuk field enum; dan {@code position} menentukan urutan tampil
+ * (default 9999, ditempatkan paling akhir bila tidak diatur eksplisit). Seluruh metode adalah
+ * getter/setter sederhana atas field-field di atas.
+ */
 public class GenericCrudFieldDefinition implements Serializable {
     private static final long serialVersionUID = 1L;
     private String property;

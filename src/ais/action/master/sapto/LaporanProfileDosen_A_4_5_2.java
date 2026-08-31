@@ -20,10 +20,20 @@ import ais.database.model.Dosen;
 import ais.database.model.Jurusan;
 import ais.database.model.TugasBelajarDosen;
 
+/**
+ * Laporan borang akreditasi BAN-PT butir A-4.5.2 (tugas belajar dosen): mendaftar seluruh
+ * {@link TugasBelajarDosen} (studi lanjut dosen), opsional difilter berdasarkan jurusan, diurutkan
+ * menurut tahun. Mengikuti kerangka kerja laporan sapto ({@link SaptoBaseWindow}); subkelas ini
+ * menentukan {@code sheetCode} ({@code "A-4.5.2"}), filter fakultas/jurusan, dan pengisian data di
+ * {@link #onCetak}. Setiap baris pada worksheet dapat diklik ({@code onCellClick}) untuk langsung
+ * mencetak Daftar Riwayat Hidup (DRH) dosen bersangkutan lewat
+ * {@link DosenAction#cetakDRHDosen(Dosen)}.
+ */
 public class LaporanProfileDosen_A_4_5_2 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-4.5.2";
     private static final long serialVersionUID = 3331244819198611604L;
+    /** Membuat jendela laporan, menginisialisasi filter fakultas/jurusan, dan membangun tata letak dasar. */
     public LaporanProfileDosen_A_4_5_2() {
         super();
         try {
@@ -32,6 +42,7 @@ public class LaporanProfileDosen_A_4_5_2 extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Membuat jendela laporan dengan judul/border/closable kustom; setup sama seperti konstruktor default. */
     public LaporanProfileDosen_A_4_5_2(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         initFakultasJurusan();
@@ -40,11 +51,13 @@ public class LaporanProfileDosen_A_4_5_2 extends SaptoBaseWindow {
 
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Menambahkan filter fakultas/jurusan bawaan {@link SaptoBaseWindow} ke baris filter. */
     @Override
     protected void buildFilters(Row row) {
         addFakultasJurusanFilter(row);
     }
 
+    /** Mengambil data {@link TugasBelajarDosen} (difilter jurusan bila dipilih, di thread terpisah) dan menampilkannya sebagai worksheet A-4.5.2 dengan klik baris untuk cetak DRH dosen. */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

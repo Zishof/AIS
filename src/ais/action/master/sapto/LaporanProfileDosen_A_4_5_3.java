@@ -23,10 +23,19 @@ import ais.database.model.JabatanKegiatanKedosenan;
 import ais.database.model.Jurusan;
 import ais.database.model.KegiatanKedosenanPunyaDosen;
 
+/**
+ * Laporan borang akreditasi BAN-PT SAPTO butir A-4.5.3 (rekap keikutsertaan dosen tetap dalam
+ * kegiatan pengembangan diri/kompetensi — sebagai narasumber atau peserta). Menyusun daftar
+ * kegiatan kedosenan yang sudah disetujui ({@code persetujuan=true}), opsional difilter jurusan,
+ * diurutkan berdasarkan tanggal mulai; setiap baris menandai kolom "Narasumber" atau "Peserta"
+ * sesuai jabatan dosen dalam kegiatan tersebut. Klik satu baris pada worksheet hasil memicu
+ * pencetakan DRH (Daftar Riwayat Hidup) dosen terkait lewat {@link DosenAction#cetakDRHDosen}.
+ */
 public class LaporanProfileDosen_A_4_5_3 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-4.5.3";
     private static final long serialVersionUID = 3331244819198611604L;
+    /** Membangun jendela laporan tanpa filter tahun akademik (hanya filter fakultas/jurusan), langsung menyiapkan kerangka laporan. */
     public LaporanProfileDosen_A_4_5_3() {
         super();
         try {
@@ -35,19 +44,31 @@ public class LaporanProfileDosen_A_4_5_3 extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Konstruktor varian dengan judul/border/closable eksplisit, dipakai saat jendela dibuat sebagai komponen tersemat. */
     public LaporanProfileDosen_A_4_5_3(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         initFakultasJurusan();
         buildBase(false);
     }
 
+    /** Mengembalikan kode sheet borang BAN-PT yang ditangani jendela ini: {@link #sheetCode}. */
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Membangun baris filter berisi pilihan fakultas + jurusan (lewat {@code addFakultasJurusanFilter}); memilih jurusan membatasi dosen yang muncul di laporan. */
     @Override
     protected void buildFilters(Row row) {
         addFakultasJurusanFilter(row);
     }
 
+    /**
+     * Menyusun dan menampilkan worksheet A-4.5.3: mengambil seluruh kegiatan kedosenan tersetujui
+     * (opsional difilter jurusan terpilih), diurutkan berdasarkan tanggal mulai, lalu untuk
+     * masing-masing baris menandai kolom "Narasumber"/"Peserta" sesuai jabatan dosen dalam
+     * kegiatan. Data disusun di thread terpisah agar UI tetap responsif; klik baris pada worksheet
+     * hasil memicu cetak DRH dosen terkait.
+     *
+     * @param event event pemicu (perubahan filter jurusan), boleh {@code null}
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

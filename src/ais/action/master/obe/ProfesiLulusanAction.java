@@ -19,6 +19,14 @@ import org.zkoss.zul.Row;
 import org.zkoss.zul.Rows;
 import org.zkoss.zul.Textbox;
 
+/**
+ * Layar CRUD (tambah/ubah/cari/aktif-nonaktifkan) untuk data <b>Profesi Lulusan</b> pada modul OBE
+ * (Outcome-Based Education) — daftar profesi yang menjadi tujuan kompetensi lulusan sebuah program
+ * studi (mis. "Analis Sistem", "Guru", dsb). Mengikuti pola aksi standar {@link ObeBaseAction}: data
+ * wajib terikat ke satu program studi (fakultas + jurusan), form dibangun lewat helper
+ * {@code buildFormBorderlayout}/{@code addKodeNamaFakultasJurusanRows}, dan hasil pencarian
+ * ditampilkan lewat {@link ProfesiLulusanRenderer} dengan toggle aktif/nonaktif langsung dari grid.
+ */
 @SuppressWarnings({"deprecation", "unchecked"})
 public class ProfesiLulusanAction extends ObeBaseAction {
 
@@ -35,6 +43,7 @@ public class ProfesiLulusanAction extends ObeBaseAction {
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
+    /** Inisialisasi standar layar ZK: mendaftarkan kolom data ({@code id, kode, nama, jurusan, keterangan, aktif}) yang dikenali komponen ini. */
     @Override
     public void doAfterCompose(Component comp) throws Exception {
         String[] contents = {"id", "kode", "nama", "jurusan", "keterangan", "aktif"};
@@ -43,15 +52,18 @@ public class ProfesiLulusanAction extends ObeBaseAction {
 
     // ── Tambah / edit ─────────────────────────────────────────────────────────
 
+    /** Membuka form tambah data profesi lulusan baru (kosong). */
     public void onAdd(Event event) throws Exception {
         initForm(new ProfesiLulusan());
     }
 
+    /** Membuka form edit untuk data profesi lulusan yang sudah ada, dipanggil dari tombol edit pada grid. */
     @Override
     public void init(GeneralValueObject obj) throws Exception {
         initForm((ProfesiLulusan) obj);
     }
 
+    /** Membangun form tambah/edit profesi lulusan: kode, nama, pilihan fakultas+jurusan, dan keterangan, lengkap dengan toolbar simpan. */
     private void initForm(ProfesiLulusan pl) {
         this.profesiLulusan = pl;
 
@@ -83,6 +95,13 @@ public class ProfesiLulusanAction extends ObeBaseAction {
 
     // ── Simpan ────────────────────────────────────────────────────────────────
 
+    /**
+     * Memvalidasi (nama wajib, jurusan wajib) dan menyimpan/memperbarui data profesi lulusan dari
+     * isian form saat ini.
+     *
+     * @param event event pemicu tombol simpan
+     * @return {@code true} bila validasi lolos dan data tersimpan; {@code false} bila validasi gagal (form tidak ditutup)
+     */
     public boolean onSave(Event event) throws Exception {
         if (!validateNamaRequired(nama, "Profesi Lulusan")) return false;
         if (!validateJurusanRequired(jurusan)) return false;
@@ -103,6 +122,7 @@ public class ProfesiLulusanAction extends ObeBaseAction {
 
     // ── Pencarian & grid ─────────────────────────────────────────────────────
 
+    /** Membangun kriteria pencarian data profesi lulusan, dibatasi fakultas/jurusan sesuai filter aktif dan diurutkan berdasarkan kode+nama; lihat komentar kode untuk alasan kriteria OBE standar dipakai. */
     @Override
     public Criteria initCriteria(boolean order) {
         // Profesi Lulusan wajib terikat ke Prodi pada form. Gunakan kriteria OBE
@@ -112,6 +132,7 @@ public class ProfesiLulusanAction extends ObeBaseAction {
                 order, true, "kode", "nama");
     }
 
+    /** Menjalankan pencarian default dan merender hasilnya ke grid lewat {@link ProfesiLulusanRenderer}. */
     @Override
     public void onSearchDefault(Event event) {
         executeSearch(initCriteria(false), initCriteria(true), new ProfesiLulusanRenderer());
@@ -119,6 +140,7 @@ public class ProfesiLulusanAction extends ObeBaseAction {
 
     // ── Renderer ─────────────────────────────────────────────────────────────
 
+    /** Perender baris grid pencarian profesi lulusan: menampilkan kode, nama, jurusan, ringkasan keterangan, toggle aktif langsung tersimpan saat diklik, dan tombol ubah/hapus. */
     class ProfesiLulusanRenderer extends MyRowRenderer {
         @Override
         public void render(final Row row, Object obj) throws Exception {

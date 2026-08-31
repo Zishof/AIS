@@ -21,11 +21,14 @@ import ais.ui.util.MyMessageboxConfig;
  * kembalikan langsung tanpa proses ulang; (2) cari {@link RuangPSB} yang belum penuh pada
  * gelombang pendaftaran calon siswa; (3) bila tidak ada ruang tersedia atau ruang yang dipilih
  * sudah penuh, tampilkan pesan informasi dan kembalikan string kosong; (4) bentuk nomor ujian dari
- * 2 digit terakhir tahun masuk + digit urutan global (diambil dari nomor ujian tertinggi yang
- * sudah tersimpan di seluruh sekolah, panjang dari konfigurasi {@code jumlah_increments_no_ujian_psb},
- * default 8) dan langsung menyimpannya ke {@code calonSiswa}; (5) bila nomor ternyata sudah
- * dipakai calon siswa lain, coba lagi secara rekursif; (6) setelah berhasil, tetapkan penempatan
- * ruang ujian lewat {@link CommonPSB#dapatkanRuangUjian(CalonSiswa)}.
+ * 2 digit terakhir tahun masuk + digit urutan (panjang dari konfigurasi
+ * {@code jumlah_increments_no_ujian_psb}, default 8), dihitung lewat
+ * {@link NoUjianGeneratorPsbSupport#nomorUrutBerikutnya} sebagai angka setelah urutan tertinggi
+ * yang sudah dipakai di antara nomor ujian ber-prefix tahun masuk yang sama, dan langsung
+ * menyimpannya ke {@code calonSiswa}; (5) bila nomor ternyata sudah dipakai calon siswa lain
+ * (dicek lewat {@link NoUjianGeneratorPsbSupport#nomorSudahDipakai}), coba lagi secara rekursif;
+ * (6) setelah berhasil, tetapkan penempatan ruang ujian lewat
+ * {@link CommonPSB#dapatkanRuangUjian(CalonSiswa)}.
  */
 public class DefaultNoUjianGeneratorPsb implements NoUjianGeneratorPsb {
 
@@ -90,15 +93,11 @@ public class DefaultNoUjianGeneratorPsb implements NoUjianGeneratorPsb {
 				Common.tampilErrorJikaAdmin(e);
 			}
 
-			int penambahan = jumlahPengecualian.size();
-
-			Number count = ((Number) session
-					.createSQLQuery(
-							"select max(to_number(substr(noujian,5),'99999999999999')) from sekolah.calon_siswa where noujian != '' and noujian is not null and substr(noujian,5)!=''")
-					.uniqueResult());
-			String noUjian = "00000000000" + (((count == null ? 0 : count.intValue()) + 1) + penambahan);
+			long nomorUrut = NoUjianGeneratorPsbSupport.nomorUrutBerikutnya(session, digitSatuDanDua,
+					jumlahIncrements, calonSiswa, jumlahPengecualian);
+			String noUjian = NoUjianGeneratorPsbSupport.leftPadNomor(nomorUrut, jumlahIncrements);
 			System.out.println("noUjian => " + noUjian);
-			noUjianFinal = digitSatuDanDua + noUjian.substring(noUjian.length() - jumlahIncrements, noUjian.length());
+			noUjianFinal = digitSatuDanDua + noUjian;
 
 			session.refresh(calonSiswa);
 			calonSiswa.setNoUjian(noUjianFinal);
@@ -112,10 +111,9 @@ public class DefaultNoUjianGeneratorPsb implements NoUjianGeneratorPsb {
 			return "";
 		}
 
-		Integer count = ((Number) session.createCriteria(CalonSiswa.class).add(Restrictions.isNotNull("gelombangPendaftaranPsb")).add(Restrictions.eq("noUjian", noUjianFinal))
-				.setProjection(Projections.rowCount()).uniqueResult()).intValue();
+		boolean nomorSudahDipakai = NoUjianGeneratorPsbSupport.nomorSudahDipakai(session, noUjianFinal, calonSiswa);
 
-		if (!count.equals(0)) {
+		if (nomorSudahDipakai) {
 			jumlahPengecualian.add(noUjianFinal);
 			return generateNoUjian(calonSiswa, jumlahPengecualian);
 		} else {

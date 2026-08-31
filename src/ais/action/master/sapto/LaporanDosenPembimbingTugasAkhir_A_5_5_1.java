@@ -23,6 +23,17 @@ import ais.database.model.Jurusan;
 import ais.database.model.Skripsi;
 import ais.ui.util.DataCriteriaWithColumn;
 
+/**
+ * Laporan borang akreditasi BAN-PT butir A-5.5.1 (dosen pembimbing/penguji tugas akhir): mendaftar
+ * dosen yang pernah menjadi pembimbing utama, ketua sidang, atau pembimbing kedua ({@code
+ * pembimbing}/{@code ketuaSidang}/{@code pembimbing3}) pada {@link Skripsi} tahun akademik
+ * terpilih (opsional difilter jurusan mahasiswa), beserta jumlah mahasiswa bimbingan masing-masing
+ * dosen. Mengikuti kerangka kerja laporan sapto ({@link SaptoBaseWindow}); subkelas ini menentukan
+ * {@code sheetCode} ({@code "A-5.5.1"}), filter fakultas/jurusan + tahun akademik, dan pengisian
+ * data di {@link #onCetak}. Baris pada worksheet dapat diklik untuk mengunduh daftar skripsi
+ * detail (kolom sesuai {@link #SKRIPSI_COLS}) yang dibimbing/diuji dosen bersangkutan, lewat
+ * {@link Common#cetakDataCustomButton}.
+ */
 public class LaporanDosenPembimbingTugasAkhir_A_5_5_1 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-5.5.1";
@@ -32,8 +43,10 @@ public class LaporanDosenPembimbingTugasAkhir_A_5_5_1 extends SaptoBaseWindow {
     private static final String[] EMPTY_COLS = new String[180];
     static { Arrays.fill(EMPTY_COLS, ""); }
 
+    /** Daftar nama properti {@link Skripsi} yang disertakan pada unduhan data detail saat baris worksheet diklik. */
     private static final String[] SKRIPSI_COLS = {"mahasiswa.nim","mahasiswa.nama","mahasiswa.jurusan.nama","judul","abstrack","keyword","pembimbing.nama","ketuaSidang.nama","pembimbing3.nama","penguji1.nama","penguji2.nama","penguji3.nama","penguji4.nama","totalNilai","nilaiHuruf","tanggalSidang","tanggalSeminar","telahSidang","ruangSidang","waktuSidang","waktuSampaiSidang","semester","tahunAkademik","lokasiUjian","nomorSk","tglSk","selesaiDalamBulan"};
 
+    /** Membuat jendela laporan dengan filter fakultas/jurusan dan tahun akademik berjalan sebagai default, lalu membangun tata letak dasar. */
     public LaporanDosenPembimbingTugasAkhir_A_5_5_1() {
         super();
         try {
@@ -43,6 +56,7 @@ public class LaporanDosenPembimbingTugasAkhir_A_5_5_1 extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Membuat jendela laporan dengan judul/border/closable kustom; setup sama seperti konstruktor default. */
     public LaporanDosenPembimbingTugasAkhir_A_5_5_1(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         initFakultasJurusan();
@@ -52,6 +66,7 @@ public class LaporanDosenPembimbingTugasAkhir_A_5_5_1 extends SaptoBaseWindow {
 
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Menambahkan filter fakultas/jurusan serta dropdown tahun akademik ke baris filter; memicu {@link #onCetak} otomatis saat tahun diganti. */
     @Override
     protected void buildFilters(Row row) {
         addFakultasJurusanFilter(row);
@@ -65,6 +80,7 @@ public class LaporanDosenPembimbingTugasAkhir_A_5_5_1 extends SaptoBaseWindow {
         });
     }
 
+    /** Mengumpulkan dosen pembimbing/ketua sidang/pembimbing kedua skripsi tahun akademik terpilih beserta jumlah bimbingannya (query id lebih dulu, lalu nama dosen di thread terpisah) dan menampilkannya sebagai worksheet A-5.5.1, dengan klik baris membuka unduhan detail skripsi dosen bersangkutan. */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

@@ -16,12 +16,23 @@ import ais.common.ConstantValues;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Jurusan;
 
+/**
+ * Laporan borang akreditasi BAN-PT butir A-6.2.1.1 (perolehan dana per sumber): merekap dana
+ * penerimaan dari tabel sementara {@code temporary.dana_penerimaan__sapto} untuk 3 tahun terakhir
+ * (tahun-2 s.d. tahun berjalan), dikelompokkan menjadi 4 kategori sumber dana tetap: Perguruan
+ * Tinggi, Yayasan, Kemristekdikti/Kementerian lain, dan Lembaga/institusi lain (dalam &amp; luar
+ * negeri/sumber lain). Setiap kategori dijumlahkan per tahun lewat SQL native ber-{@code CASE WHEN},
+ * opsional difilter jurusan. Mengikuti kerangka kerja laporan sapto ({@link SaptoBaseWindow});
+ * subkelas ini menentukan {@code sheetCode} ({@code "A-6.2.1.1"}), filter fakultas/jurusan +
+ * tahun akademik, dan pengisian data di {@link #onCetak}.
+ */
 public class LaporanDana_A_6_2_1_1 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-6.2.1.1";
     private static final long serialVersionUID = 3331244819198611604L;
     private Combobox tahunAjaran;
 
+    /** Membuat jendela laporan dengan filter fakultas/jurusan dan tahun akademik berjalan sebagai default, lalu membangun tata letak dasar. */
     public LaporanDana_A_6_2_1_1() {
         super();
         try {
@@ -31,6 +42,7 @@ public class LaporanDana_A_6_2_1_1 extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Membuat jendela laporan dengan judul/border/closable kustom; setup sama seperti konstruktor default. */
     public LaporanDana_A_6_2_1_1(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         initFakultasJurusan();
@@ -40,6 +52,7 @@ public class LaporanDana_A_6_2_1_1 extends SaptoBaseWindow {
 
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Menambahkan filter fakultas/jurusan serta dropdown tahun akademik ke baris filter; memicu {@link #onCetak} otomatis saat tahun diganti. */
     @Override
     protected void buildFilters(Row row) {
         addFakultasJurusanFilter(row);
@@ -53,6 +66,7 @@ public class LaporanDana_A_6_2_1_1 extends SaptoBaseWindow {
         });
     }
 
+    /** Menjalankan rekap SQL native dana penerimaan per kategori sumber dana untuk 3 tahun terakhir (di thread terpisah, difilter jurusan bila dipilih) dan menampilkannya sebagai worksheet A-6.2.1.1. */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

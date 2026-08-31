@@ -24,8 +24,41 @@ import ais.database.model.PenunjangKinerjaDosen;
 import ais.database.model.Perkuliahan;
 import ais.database.model.Skripsi;
 
+/**
+ * Helper penghitung dan penyimpan komponen BKD (Beban Kerja Dosen) untuk peran dosen sebagai
+ * <b>penguji tugas akhir/skripsi</b> ({@code PenilaianAsesor.PENGUJI_TA}), pada bidang "Pendidikan".
+ * Untuk satu tahun akademik + semester (dan opsional satu {@link Jenjang} tertentu), kelas ini
+ * mencari mahasiswa yang skripsinya telah disidang ({@code telahSidang=1}) di mana dosen menjadi
+ * pembimbing atau salah satu dari tiga penguji ({@code penguji1/2/3}), menghitung SKS beban
+ * mengajar yang didapat (dibatasi maksimum konfigurasi per jenjang lewat {@link ParameterUmum}
+ * kunci {@code jumlah_sks_ujian_tugas_akhir_<idJenjang>}), lalu menyimpan/memperbarui satu baris
+ * {@link AsesemenPenilaian} berisi rincian mahasiswa yang diuji sebagai keterangan. Setelah
+ * tersimpan, penilaian tersebut diteruskan ke {@link PenilaianAsesorAction#checkPenilaian} agar
+ * asesor terkait (dosen dengan relasi {@link AsesorPegawai} aktif) dapat menilainya.
+ *
+ * <p>
+ * Tiga overload {@code populate} membentuk rantai pemrosesan bertingkat: (1) varian tanpa
+ * {@code jenjang} memproses SEMUA jenjang aktif; (2) varian dengan {@code Pegawai} + {@code jenjang}
+ * memproses satu dosen (bila {@code pegawai} punya relasi dosen) atau, bila {@code pegawai} null,
+ * SEMUA dosen yang muncul sebagai pembimbing/penguji skripsi pada jenjang tersebut (dengan progres
+ * dilaporkan lewat {@code label} bila diberikan); (3) varian inti dengan {@link Dosen} eksplisit
+ * yang benar-benar melakukan perhitungan dan penyimpanan.
+ * </p>
+ */
 public class BkdPengujiSkripsiHelper {
 
+	/**
+	 * Memproses BKD penguji skripsi untuk {@code pegawai} pada SEMUA {@link Jenjang} aktif,
+	 * mendelegasikan tiap jenjang ke {@link #populate(Session, Pegawai, Jenjang, String, String, Label)}.
+	 *
+	 * @param session       sesi Hibernate aktif
+	 * @param pegawai       pegawai target; bila relasinya ke {@link Dosen} ada, hanya dosen
+	 *                      tersebut yang diproses — bila {@code null} pada overload berikutnya,
+	 *                      seluruh dosen relevan diproses
+	 * @param tahunAkademik tahun akademik target
+	 * @param semester      semester target ({@link Perkuliahan#GANJIL} atau genap)
+	 * @param label         komponen ZK opsional untuk menampilkan progres pemrosesan ke pengguna
+	 */
 	@SuppressWarnings("unchecked")
 	public static void populate(Session session, final Pegawai pegawai, String tahunAkademik, String semester,
 			Label label) {
@@ -36,6 +69,20 @@ public class BkdPengujiSkripsiHelper {
 		}
 	}
 
+	/**
+	 * Memproses BKD penguji skripsi pada satu {@code jenjang}. Bila {@code pegawai} relasinya ke
+	 * {@link Dosen} ada, mendelegasikan langsung ke overload {@link Dosen} untuk dosen tersebut
+	 * saja. Bila {@code pegawai} {@code null}, mencari SEMUA dosen (pembimbing atau salah satu dari
+	 * {@code penguji1/2/3}) pada skripsi jenjang/tahun/semester tersebut yang telah disidang, lalu
+	 * memproses masing-masing satu per satu (progres dilaporkan lewat {@code label} bila diberikan).
+	 *
+	 * @param session       sesi Hibernate aktif
+	 * @param pegawai       pegawai target, atau {@code null} untuk memproses semua dosen relevan
+	 * @param jenjang       jenjang pendidikan yang menjadi cakupan pencarian skripsi
+	 * @param tahunAkademik tahun akademik target
+	 * @param semester      semester target
+	 * @param label         komponen ZK opsional untuk menampilkan progres
+	 */
 	@SuppressWarnings("unchecked")
 	public static void populate(Session session, final Pegawai pegawai, Jenjang jenjang, String tahunAkademik,
 			String semester, Label label) {
@@ -72,6 +119,26 @@ public class BkdPengujiSkripsiHelper {
 		}
 	}
 
+	/**
+	 * Implementasi inti: menghitung dan menyimpan komponen BKD penguji skripsi untuk satu
+	 * {@code dosen} tertentu. Tidak melakukan apa pun bila dosen tidak memiliki asesor aktif
+	 * ({@link AsesorPegawai}) atau tidak muncul sebagai pembimbing/penguji pada skripsi yang telah
+	 * disidang di jenjang/tahun/semester tersebut. Jumlah mahasiswa yang diuji dibatasi maksimum
+	 * konfigurasi ({@code jumlah_sks_ujian_tugas_akhir_<idJenjang>}, default maksimum 8 mahasiswa)
+	 * sebelum dikalikan bobot SKS per mahasiswa dari konfigurasi yang sama. Baris
+	 * {@link AsesemenPenilaian} yang sudah ada untuk kombinasi
+	 * dosen+spesifikasi+jenjang+tahun+semester yang sama diperbarui (bukan dibuat baru berulang).
+	 * Setelah tersimpan, memicu {@link PenilaianAsesorAction#checkPenilaian} untuk seluruh asesor
+	 * aktif dosen tersebut.
+	 *
+	 * @param session       sesi Hibernate aktif
+	 * @param dosen         dosen yang dinilai sebagai penguji tugas akhir
+	 * @param jenjang       jenjang pendidikan cakupan skripsi
+	 * @param tahunAkademik tahun akademik target
+	 * @param semester      semester target
+	 * @param label         tidak dipakai langsung pada overload ini (diteruskan untuk konsistensi
+	 *                      tanda tangan pemanggilan berantai)
+	 */
 	@SuppressWarnings("unchecked")
 	public static void populate(Session session, Dosen dosen, Jenjang jenjang, String tahunAkademik, String semester,
 			Label label) {

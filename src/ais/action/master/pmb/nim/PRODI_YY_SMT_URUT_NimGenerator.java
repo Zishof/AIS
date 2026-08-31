@@ -10,14 +10,36 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.Perkuliahan;
 
+/**
+ * Algoritma NIM pola umum "PRODI_YY_SMT_URUT": {@code [kode program studi kelulusan][2 digit
+ * terakhir tahun angkatan][1 digit kode semester mulai: "1"=Ganjil, "2"=Genap][N digit nomor
+ * urut]}, mis. {@code TI26100 07}. Jumlah digit nomor urut dapat diatur lewat konfigurasi
+ * {@code jumlah_digit_gen_nim_mahasiswa} (default 4). Nomor urut berikutnya dan pengecekan
+ * bentrok didelegasikan ke {@link NimGeneratorSupport} berdasarkan prefix (prodi+tahun+semester)
+ * yang sudah terbentuk. Bila {@code calonMahasiswa.getProdiLulus()} belum diisi, NIM dikembalikan
+ * sebagai {@code "-"}. Bukan spesifik satu institusi — dipakai sebagai pola default yang
+ * membedakan penomoran per semester masuk (ganjil/genap) selain per tahun.
+ */
 public class PRODI_YY_SMT_URUT_NimGenerator implements NimGenerator {
 
+	/** Menghasilkan NIM baru tanpa daftar pengecualian awal — lihat {@link #generateNim(BiodataCalonMahasiswa, List)}. */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa) {
 		return generateNim(calonMahasiswa, new ArrayList<String>());
 	}
 
-	// generate NIM
+	/**
+	 * Menghasilkan NIM berformat {@code kode prodi lulus+2 digit tahun+1 digit semester+N digit
+	 * urut}, menghindari nilai yang ada di {@code jumlahPengecualian} maupun yang sudah dipakai
+	 * mahasiswa lain di database (lewat {@link NimGeneratorSupport}); mencoba ulang secara
+	 * rekursif bila terjadi bentrok.
+	 *
+	 * @param calonMahasiswa     calon mahasiswa target; {@code prodiLulus}, {@code tahun}, dan
+	 *                           {@code semesterMulai}-nya menentukan bagian awal NIM
+	 * @param jumlahPengecualian NIM-NIM yang sudah dicoba dan diketahui bentrok, dihindari pada
+	 *                           percobaan berikutnya (diperbarui di tempat)
+	 * @return NIM baru yang belum pernah dipakai, atau {@code "-"} bila {@code prodiLulus} belum diisi
+	 */
 	@Override
 	public String generateNim(BiodataCalonMahasiswa calonMahasiswa, List<String> jumlahPengecualian) {
 

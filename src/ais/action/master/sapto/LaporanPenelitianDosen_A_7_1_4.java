@@ -20,12 +20,20 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.penelitiandanpengabdian.Artikel;
 import ais.ui.util.DataCriteriaWithColumn;
 
+/**
+ * Laporan borang akreditasi BAN-PT SAPTO butir A-7.1.4 (jumlah artikel jurnal dosen tetap yang
+ * telah terindeks sitasi, disetujui, dan diterbitkan dalam 3 tahun akademik terakhir — TS-2, TS-1,
+ * TS digabung). Menghitung total {@link Artikel} yang memenuhi kriteria tersebut untuk tahun
+ * akademik terpilih; menyediakan tombol unduh data tambahan (detail per artikel, mis. NIDN dosen,
+ * judul, ISSN, dsb) lewat {@link Common#cetakDataCustomButton} saat sel hasil diklik.
+ */
 public class LaporanPenelitianDosen_A_7_1_4 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-7.1.4_PT";
     private static final long serialVersionUID = 3331244819198611604L;
     private Combobox tahunAjaran;
 
+    /** Membangun jendela laporan dengan tahun akademik berjalan terpilih pada combobox filter, lalu langsung membangun kerangka laporan. */
     public LaporanPenelitianDosen_A_7_1_4() {
         super();
         try {
@@ -34,14 +42,17 @@ public class LaporanPenelitianDosen_A_7_1_4 extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Konstruktor varian dengan judul/border/closable eksplisit, dipakai saat jendela dibuat sebagai komponen tersemat. */
     public LaporanPenelitianDosen_A_7_1_4(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         Common.selectComboItem(tahunAjaran = Common.generateTahunAjaran(tahunAjaran), Common.getCurrentTahunAkademik());
         buildBase(true);
     }
 
+    /** Mengembalikan kode sheet borang BAN-PT yang ditangani jendela ini: {@link #sheetCode}. */
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Membangun baris filter berisi combobox pilihan tahun akademik (readonly); memilih ulang tahun akademik memicu {@link #onCetak} otomatis. */
     @Override
     protected void buildFilters(Row row) {
         row.appendChild(new ais.ui.util.MyLabelConfig("Tahun Akademik *"));
@@ -53,6 +64,15 @@ public class LaporanPenelitianDosen_A_7_1_4 extends SaptoBaseWindow {
         });
     }
 
+    /**
+     * Menyusun dan menampilkan worksheet A-7.1.4: menghitung jumlah {@link Artikel} dosen tetap
+     * yang terindeks sitasi, berstatus disetujui, dan tahun terbitnya termasuk TS-2/TS-1/TS
+     * relatif terhadap tahun akademik terpilih, dijalankan di thread terpisah. Sel hasil dapat
+     * diklik untuk mengunduh data tambahan detail artikel lewat
+     * {@link Common#cetakDataCustomButton}.
+     *
+     * @param event event pemicu (perubahan combobox tahun akademik), boleh {@code null}
+     */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

@@ -8,6 +8,14 @@ import ais.database.model.library.JenisIdentitasAnggota;
 import ais.database.model.library.TipeAnggota;
 
 
+/**
+ * Model data (POJO field publik, tanpa getter/setter aktif — sisa versi lama dikomentari)
+ * yang merepresentasikan satu baris transaksi peminjaman item perpustakaan beserta data anggota
+ * peminjam (kode identitas, nama, alamat, kontak) dan status proses (informasi/pesan galat,
+ * jumlah perpanjangan, batas maksimal peminjaman). Dipakai sebagai wadah data sementara di alur
+ * UI peminjaman perpustakaan, bukan entitas Hibernate persisten — lihat {@code data} untuk daftar
+ * {@link CommonVO} tambahan yang menampung informasi turunan/perhitungan lain.
+ */
 public class PeminjamanItem {
 	public Long id;
 	public Double jumlah;

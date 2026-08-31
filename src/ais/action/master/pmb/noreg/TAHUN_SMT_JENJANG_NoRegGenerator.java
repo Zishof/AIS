@@ -15,11 +15,11 @@ import ais.database.model.Perkuliahan;
  * Pembangkit Nomor Registrasi (No. Reg) calon mahasiswa dengan format
  * {@code TAHUN+SMT+KODEJENJANG+URUT}, mis. {@code "20261S1007"}. {@code SMT} adalah {@code "1"}
  * untuk semester ganjil dan {@code "2"} untuk genap ({@link Perkuliahan#GANJIL}); bagian
- * {@code URUT} dihitung dari jumlah calon mahasiswa aktif yang sudah terdaftar pada tahun dan
- * semester mulai yang sama, dipadatkan sejumlah digit sesuai konfigurasi
- * {@code jumlah_digit_no_reg_calon_mhs} (default 3). Bila nomor hasil bentrok dengan yang sudah
- * tersimpan, dibangkitkan ulang secara rekursif dengan nomor tersebut ditambahkan ke daftar
- * pengecualian.
+ * {@code URUT} dihitung lewat helper bersama {@link NoRegGeneratorSupport#nomorUrutBerikutnya}
+ * berbasis prefiks tahun+semester+jenjang, dipadatkan sejumlah digit sesuai konfigurasi
+ * {@code jumlah_digit_no_reg_calon_mhs} (default 3). Keunikan nomor hasil diperiksa lewat
+ * {@link NoRegGeneratorSupport#nomorSudahDipakai}; bila bentrok, dibangkitkan ulang secara
+ * rekursif dengan nomor tersebut ditambahkan ke daftar pengecualian.
  */
 public class TAHUN_SMT_JENJANG_NoRegGenerator implements NoRegGenerator {
 

@@ -21,10 +21,21 @@ import ais.database.model.Dosen;
 import ais.database.model.Jurusan;
 import ais.database.model.RiwayatPendidikanDosen;
 
+/**
+ * Laporan borang akreditasi BAN-PT butir A-4.4.1 (profil dosen tetap): mendaftar dosen aktif
+ * dengan ikatan kerja tetap dan NIDN terisi (opsional difilter jurusan), diurutkan menurut nama.
+ * Untuk setiap dosen, riwayat pendidikan S1/S2/S3 ({@link RiwayatPendidikanDosen}) diambil terpisah
+ * dan ditampilkan sebagai kolom gelar/nama sekolah/bidang ilmu per jenjang. Mengikuti kerangka
+ * kerja laporan sapto ({@link SaptoBaseWindow}); subkelas ini menentukan {@code sheetCode}
+ * ({@code "A-4.4.1"}), filter fakultas/jurusan, dan pengisian data di {@link #onCetak}. Baris pada
+ * worksheet dapat diklik untuk mencetak DRH dosen bersangkutan lewat
+ * {@link DosenAction#cetakDRHDosen(Dosen)}.
+ */
 public class LaporanProfileDosen_A_4_4_1 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-4.4.1";
     private static final long serialVersionUID = 3331244819198611604L;
+    /** Membuat jendela laporan, menginisialisasi filter fakultas/jurusan, dan membangun tata letak dasar. */
     public LaporanProfileDosen_A_4_4_1() {
         super();
         try {
@@ -33,6 +44,7 @@ public class LaporanProfileDosen_A_4_4_1 extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Membuat jendela laporan dengan judul/border/closable kustom; setup sama seperti konstruktor default. */
     public LaporanProfileDosen_A_4_4_1(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         initFakultasJurusan();
@@ -41,11 +53,13 @@ public class LaporanProfileDosen_A_4_4_1 extends SaptoBaseWindow {
 
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Menambahkan filter fakultas/jurusan bawaan {@link SaptoBaseWindow} ke baris filter. */
     @Override
     protected void buildFilters(Row row) {
         addFakultasJurusanFilter(row);
     }
 
+    /** Mengambil daftar dosen tetap aktif ber-NIDN (difilter jurusan bila dipilih) beserta riwayat pendidikan S1/S2/S3 masing-masing (di thread terpisah) dan menampilkannya sebagai worksheet A-4.4.1 dengan klik baris untuk cetak DRH dosen. */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {

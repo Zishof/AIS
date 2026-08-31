@@ -17,8 +17,33 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Konfigurasi;
 import ais.database.model.ipaymu.IpaymuResponse;
 
+/**
+ * Tugas terjadwal ({@link TimerTask}) yang secara berkala mengecek ulang status transaksi
+ * pembayaran iPaymu yang masih tertunda ({@code PENDING}/{@code SEDANG_DIPROSES}) dalam 3 bulan
+ * terakhir, lalu menyinkronkan status lokal ({@link IpaymuResponse}) dengan hasil API
+ * "CekTransaksi" iPaymu. Hanya berjalan bila konfigurasi {@code aktifkan_pembayaran_via_ipaymu}
+ * aktif (default TIDAK AKTIF). Bila transaksi berhasil (status 1), memicu tindak lanjut lewat
+ * {@link IPayMuResponse#prosesResponse(IpaymuResponse)} (mis. pelunasan tagihan terkait).
+ *
+ * <p>
+ * <b>Peringatan keamanan</b> — bila konfigurasi {@code ipaymu_key} belum diisi di database,
+ * method {@link #run()} memakai API key iPaymu <b>hardcode</b> sebagai nilai default/fallback:
+ * lihat literal string pada baris pemanggilan {@code Common.getKonfigurasi("ipaymu_key", ...)}.
+ * Kredensial tertanam ini TIDAK diubah/dihapus di sini sesuai batasan tugas dokumentasi — namun
+ * perlu ditinjau ulang oleh tim terkait (idealnya key hanya berasal dari konfigurasi/vault, tanpa
+ * default tertanam di kode sumber).
+ * </p>
+ */
 public class IpaymuBackandProsess extends TimerTask {
 
+	/**
+	 * Menjalankan satu siklus pengecekan status transaksi iPaymu yang masih tertunda dalam 3 bulan
+	 * terakhir dan menyinkronkan hasilnya ke database lokal. Lihat javadoc kelas untuk alur dan
+	 * peringatan keamanan terkait API key default. Tidak melakukan apa-apa bila konfigurasi
+	 * {@code aktifkan_pembayaran_via_ipaymu} tidak aktif. Kegagalan per-transaksi (mis. request
+	 * HTTP gagal) ditangkap per item sehingga tidak menghentikan pemrosesan transaksi lain dalam
+	 * siklus yang sama.
+	 */
 	@Override
 	public void run() {
 		try {

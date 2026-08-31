@@ -18,12 +18,23 @@ import ais.common.ConstantValues;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.KerjasamaAntarInstansi;
 
+/**
+ * Laporan borang akreditasi BAN-PT butir A-7.3.3 (kerjasama luar negeri): mendaftar seluruh
+ * {@link KerjasamaAntarInstansi} dengan mitra di luar Indonesia ({@code negara != INDONESIA})
+ * untuk 3 tahun terakhir dari tahun akademik yang dipilih (tahun, tahun-1, tahun-2), diurutkan
+ * berdasarkan tanggal mulai kerjasama. Mengikuti kerangka kerja laporan sapto:
+ * {@link SaptoBaseWindow} menyediakan tata letak dasar, subkelas ini hanya menentukan
+ * {@code sheetCode} ({@code "A-7.3.3_PT"}), filter (dropdown tahun akademik), dan logika pengisian
+ * data di {@link #onCetak}. Data diambil di thread terpisah agar UI tidak terblokir, lalu
+ * ditampilkan lewat {@link SaptoUtil#displayWorksheet}.
+ */
 public class LaporanKerjasamaLuarNegeri_A_7_3_3 extends SaptoBaseWindow {
 
     public static final String sheetCode = "A-7.3.3_PT";
     private static final long serialVersionUID = 3331244819198611604L;
     private Combobox tahunAjaran;
 
+    /** Membuat jendela laporan dengan tahun akademik berjalan sebagai default dan langsung membangun tata letak dasar. */
     public LaporanKerjasamaLuarNegeri_A_7_3_3() {
         super();
         try {
@@ -32,6 +43,7 @@ public class LaporanKerjasamaLuarNegeri_A_7_3_3 extends SaptoBaseWindow {
         } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
     }
 
+    /** Membuat jendela laporan dengan judul/border/closable kustom; setup sama seperti konstruktor default. */
     public LaporanKerjasamaLuarNegeri_A_7_3_3(String title, String border, boolean closable) throws Exception {
         super(title, border, closable);
         Common.selectComboItem(tahunAjaran = Common.generateTahunAjaran(tahunAjaran), Common.getCurrentTahunAkademik());
@@ -40,6 +52,7 @@ public class LaporanKerjasamaLuarNegeri_A_7_3_3 extends SaptoBaseWindow {
 
     @Override protected String getSheetCode() { return sheetCode; }
 
+    /** Menambahkan filter dropdown tahun akademik ke baris filter; memicu {@link #onCetak} otomatis saat tahun diganti. */
     @Override
     protected void buildFilters(Row row) {
         row.appendChild(new ais.ui.util.MyLabelConfig("Tahun Akademik *"));
@@ -51,6 +64,7 @@ public class LaporanKerjasamaLuarNegeri_A_7_3_3 extends SaptoBaseWindow {
         });
     }
 
+    /** Mengambil data {@link KerjasamaAntarInstansi} luar negeri untuk 3 tahun terakhir dari tahun akademik terpilih (di thread terpisah) dan menampilkannya sebagai worksheet A-7.3.3. */
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onCetak(Event event) {
