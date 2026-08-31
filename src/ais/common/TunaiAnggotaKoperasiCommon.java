@@ -15,8 +15,90 @@ import ais.database.model.koperasi.PembayaranAnggotaKoperasiDetail;
 import ais.database.model.koperasi.TransaksiKoperasiDetail;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Kelas utilitas statis untuk memproses pembayaran tunai anggota koperasi pada modul koperasi
+ * AIS ({@code ais.database.model.koperasi}), mencakup dua skenario yang dapat terjadi sekaligus
+ * dalam satu transaksi pembayaran: (1) pelunasan/angsuran atas satu atau lebih rincian
+ * transaksi pinjaman koperasi yang sudah ada ({@link TransaksiKoperasiDetail}, dipilih lewat
+ * centang pada layar antarmuka), dan (2) penambahan setoran/topup tabungan anggota
+ * ({@code deposit}) yang tidak terkait transaksi pinjaman mana pun.
+ *
+ * <p>
+ * Kelas ini hanya memiliki satu method publik, {@link #onSave(AnggotaKoperasi, Collection,
+ * Double, String, CaraPembayaranKoperasi, Rows, Date)}, yang dipanggil dari layar (composer ZK)
+ * kasir/loket pembayaran koperasi saat petugas menekan tombol simpan pembayaran tunai. Alur
+ * kerjanya:
+ * </p>
+ * <ol>
+ * <li>Menghitung total nilai tagihan dari {@code rowsDetailBiaya} (rincian biaya yang
+ * ditampilkan di grid ZK, dijumlahkan lewat
+ * {@link PembayaranAnggotaKoperasi#chekDetail(Rows)}) ditambah nilai {@code deposit} (topup
+ * tabungan). Bila totalnya nol atau nyaris nol (kurang dari {@code 0.1}), penyimpanan dibatalkan
+ * dan pesan kegagalan formal ditampilkan lewat {@link PesanFormalHelper#tampilkanGagal} — tidak
+ * ada satu pun record yang dibuat.</li>
+ * <li>Memvalidasi bahwa {@code anggotaKoperasi} (pemilik pembayaran) sudah dipilih dan memiliki
+ * id; bila tidak, penyimpanan juga dibatalkan dengan pesan formal serupa.</li>
+ * <li>Menyusun teks {@code keterangan} otomatis yang merangkum angsuran ke berapa saja yang
+ * dibayar (dari nomor urut {@link TransaksiKoperasiDetail#getKe()}) dan/atau nilai topup
+ * tabungan yang disertakan.</li>
+ * <li>Dalam satu transaksi Hibernate, memuat ulang {@link AnggotaKoperasi} secara terkelola
+ * (managed) dari sesi native untuk memastikan entitas tidak "basi" (mis. sudah dihapus pihak
+ * lain), lalu membuat dan menyimpan record induk {@link PembayaranAnggotaKoperasi} (tanggal,
+ * cara pembayaran, nominal total, nilai deposit, validator/petugas).</li>
+ * <li>Untuk setiap {@link TransaksiKoperasiDetail} yang dicentang dan belum pernah dibayar
+ * (dicek lewat {@code getPembayaranAnggotaKoperasiDetail() == null} pada versi terkelola dari
+ * database, sebagai penjagaan terhadap pembayaran ganda), dibuat baris rincian
+ * {@link PembayaranAnggotaKoperasiDetail} dengan nominal gabungan margin+pokok, lalu detail
+ * transaksi ditandai sudah terbayar dengan menautkannya ke rincian pembayaran baru tersebut.</li>
+ * <li>Transaksi di-commit; bila terjadi exception di titik mana pun setelah transaksi dimulai,
+ * dilakukan rollback eksplisit (hanya bila transaksi masih aktif) sebelum exception dilempar
+ * ulang ke pemanggil, dan sesi Hibernate selalu dibersihkan (clear/disconnect/close) di blok
+ * {@code finally} apa pun hasilnya.</li>
+ * </ol>
+ *
+ * <p>
+ * Penanganan galat pada kelas ini mengikuti dua pola berbeda secara sengaja: kegagalan validasi
+ * bisnis (tagihan nol, anggota belum dipilih) ditangani secara "lunak" — pesan formal ditampilkan
+ * ke pengguna dan method mengembalikan {@code null} tanpa exception — sedangkan kegagalan teknis
+ * (anggota tidak ditemukan di database saat transaksi berjalan, kegagalan Hibernate lainnya)
+ * ditangani secara "keras" lewat exception yang dilempar ke pemanggil setelah rollback, sehingga
+ * pemanggil (layar ZK) bertanggung jawab menampilkan pesan galat generik.
+ * </p>
+ */
 public class TunaiAnggotaKoperasiCommon {
 
+    /**
+     * Memproses dan menyimpan satu transaksi pembayaran tunai anggota koperasi, mencakup
+     * pelunasan/angsuran rincian pinjaman yang dipilih ({@code tag}) dan/atau penambahan
+     * setoran tabungan ({@code deposit}), dalam satu transaksi database. Lihat javadoc kelas
+     * untuk uraian lengkap alur kerja, aturan validasi, dan strategi penanganan galat.
+     *
+     * @param anggotaKoperasi        anggota koperasi pemilik pembayaran; wajib sudah memiliki
+     *                               id (tersimpan di database) atau method mengembalikan
+     *                               {@code null} dengan pesan kegagalan formal
+     * @param tag                    kumpulan {@link TransaksiKoperasiDetail} yang dicentang
+     *                               pengguna untuk dilunasi/diangsur pada pembayaran ini, boleh
+     *                               {@code null}/kosong bila pembayaran hanya berupa topup
+     *                               tabungan
+     * @param deposit                nilai tambahan setoran/topup tabungan anggota, boleh
+     *                               {@code null} (diperlakukan sebagai {@code 0.0})
+     * @param validator              nama/identitas petugas yang memvalidasi pembayaran, boleh
+     *                               {@code null} (disimpan sebagai string kosong)
+     * @param caraPembayaranKoperasi metode pembayaran yang dipilih (mis. tunai, transfer)
+     * @param rowsDetailBiaya        komponen grid ZK berisi rincian biaya yang dicentang,
+     *                               dipakai untuk menghitung total tagihan lewat
+     *                               {@link PembayaranAnggotaKoperasi#chekDetail(Rows)}; boleh
+     *                               {@code null} bila tidak ada rincian biaya tambahan
+     * @param tanggalTransaski       tanggal transaksi/pembayaran; bila {@code null}, dipakai
+     *                               tanggal saat ini dari {@link ais.ui.util.WaktuUtil#getDate()}
+     * @return record {@link PembayaranAnggotaKoperasi} yang berhasil disimpan, atau
+     *         {@code null} bila validasi awal gagal (total tagihan nol atau anggota belum
+     *         dipilih) dan pesan kegagalan formal sudah ditampilkan ke pengguna
+     * @throws Exception dilempar ulang setelah rollback bila terjadi kegagalan teknis saat
+     *                    proses penyimpanan berlangsung, mis. data anggota koperasi tidak
+     *                    ditemukan/sudah dihapus di database ({@link IllegalArgumentException})
+     *                    atau kegagalan Hibernate lainnya
+     */
     public static PembayaranAnggotaKoperasi onSave(AnggotaKoperasi anggotaKoperasi,
             Collection<TransaksiKoperasiDetail> tag, Double deposit, String validator,
             CaraPembayaranKoperasi caraPembayaranKoperasi, Rows rowsDetailBiaya, Date tanggalTransaski)
@@ -141,6 +223,7 @@ public class TunaiAnggotaKoperasiCommon {
         }
     }
 
+    /** Mengembalikan nilai {@code double} dari {@link Double}, atau {@code 0.0} bila {@code null}. */
     private static double safeDouble(Double value) {
         return value == null ? 0.0 : value.doubleValue();
     }

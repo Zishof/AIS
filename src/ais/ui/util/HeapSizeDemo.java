@@ -6,10 +6,44 @@ import java.util.TreeMap;
 
 import ais.common.Common;
 
+/**
+ * Utilitas pemantauan penggunaan heap JVM yang dipanggil saat menyusun baris status admin (mis.
+ * di {@code MainAction}/{@code MainAction2}) untuk menampilkan ringkasan memori bebas/terpakai
+ * kepada administrator. Setiap pemanggilan {@link #check()} juga mencatat snapshot penggunaan
+ * memori ke {@link #data}, membentuk riwayat sederhana yang dapat dipakai untuk melihat tren
+ * pemakaian heap dari waktu ke waktu selama JVM berjalan (tidak persisten, hilang saat restart).
+ *
+ * <p>
+ * <b>Catatan penting (lihat komentar rinci di {@link #check()})</b>: method ini murni method
+ * TAMPILAN (read-only terhadap heap) dan TIDAK BOLEH memicu {@code Runtime.gc()} — versi
+ * sebelumnya pernah memanggil {@code gc()} manual saat persentase pemakaian tinggi, yang
+ * menyebabkan jeda Full GC stop-the-world setiap kali halaman status admin dirender. Pembersihan
+ * memori manual tetap tersedia lewat jalur terpisah (tombol admin "Bersihkan Memori Tak
+ * Terpakai" di layar Daftar Pengguna Online, dan guard memori terjadwal di
+ * {@code UserOnlineCounter.runGc}).
+ * </p>
+ */
 public class HeapSizeDemo {
 
+	/**
+	 * Riwayat snapshot penggunaan memori: kunci berupa stempel waktu (format
+	 * {@code Common#datetimeFormat3s}), nilai berupa pasangan {@code {freeMemory, memoryInUse}}
+	 * dalam MB. Tumbuh selama JVM berjalan (tidak pernah dibersihkan otomatis) dan dibungkus
+	 * {@link Collections#synchronizedMap(Map)} agar aman diakses dari banyak thread (mis.
+	 * beberapa admin membuka halaman status bersamaan).
+	 */
 	public static Map<String, Long[]> data =  Collections.synchronizedMap(new TreeMap<String, Long[]>());
 
+	/**
+	 * Menghitung dan mengembalikan ringkasan penggunaan heap JVM saat ini dalam bentuk teks
+	 * ({@code "<bebas>MB/<terpakai>MB/<persen>%"}), sekaligus mencatat snapshot nilai bebas dan
+	 * terpakai (dalam MB) ke {@link #data} dengan kunci stempel waktu saat ini. Persentase
+	 * dihitung terhadap {@code Runtime#totalMemory()} (heap yang sudah di-commit JVM), BUKAN
+	 * {@code Runtime#maxMemory()} (batas {@code -Xmx}) — lihat catatan kelas untuk implikasi
+	 * penting dari pilihan ini terhadap keputusan GC manual.
+	 *
+	 * @return ringkasan teks penggunaan heap saat ini
+	 */
 	public static String check() {
 		// java.io.PrintStream out = System.out;
 

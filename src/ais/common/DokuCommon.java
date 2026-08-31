@@ -41,8 +41,93 @@ import ais.ui.util.MyDoublebox;
 import ais.ui.util.MyDoubleboxMin;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Kelas utilitas statis untuk integrasi payment gateway <b>Doku</b> di AIS, menangani seluruh
+ * alur pembayaran biaya kuliah/pendaftaran mahasiswa (baik mahasiswa aktif maupun calon
+ * mahasiswa) mulai dari penyusunan rincian tagihan dari komponen antarmuka ZK, penghitungan
+ * tanda tangan transaksi (SHA1), penyimpanan record permintaan pembayaran ke database, hingga
+ * pembentukan formulir HTML auto-submit yang mengarahkan browser pengguna ke gateway pembayaran
+ * Doku (pola integrasi Doku "Basic API" lama: form POST browser berisi field tersandi, bukan
+ * REST API server-to-server).
+ *
+ * <p>
+ * Alur kerja umum melibatkan tiga lapisan:
+ * </p>
+ * <ol>
+ * <li><b>Penyusunan rincian tagihan</b> — {@link #populateDetailBiaya(Grid, List)},
+ * {@link #populateDokuRequestDetailDariDetailBiaya(List)}, dan
+ * {@link #populateDokuRequestDetail(Grid, Mahasiswa, Integer, JadwalPembayaran)} membaca nilai
+ * dari komponen grid ZK (baris biaya, baris cicilan) yang sudah diisi/diedit pengguna di layar
+ * pembayaran, lalu mengonversinya menjadi objek {@link DokuRequestDetail}/
+ * {@link DokuRequestDetailBiaya} yang siap disimpan.</li>
+ * <li><b>Orkestrasi pembayaran</b> — {@link #bayarCalonMahasiswa(BiodataCalonMahasiswa,
+ * JenisKegiatan)} adalah titik masuk khusus alur pendaftaran mahasiswa baru: menghitung detail
+ * biaya yang wajib dibayar calon mahasiswa berdasarkan program studi & gelombang pendaftaran
+ * lewat {@link PembayaranUtil}, lalu mendelegasikan ke {@link #onSaveDoku} untuk memulai
+ * transaksi. Untuk alur pembayaran mahasiswa aktif, pemanggil biasanya memanggil
+ * {@link #onSaveDoku} secara langsung dari layar pembayaran terkait.</li>
+ * <li><b>Eksekusi transaksi</b> — {@link #onSaveDoku} adalah method inti: menghitung tanda
+ * tangan transaksi ({@code WORDS = SHA1(AMOUNT + key + TRANSIDMERCHANT)}), memanggil
+ * {@link #sendRequest} untuk menyimpan record {@link DokuRequest} beserta detailnya ke database
+ * SEBELUM permintaan dikirim ke gateway (karena Doku "Basic API" memakai form-post browser,
+ * bukan panggilan HTTP langsung dari server — request ke Doku baru benar-benar terjadi saat
+ * browser pengguna men-submit form), lalu menulis berkas HTML sementara berisi form auto-submit
+ * ke direktori {@code /tmp} pada {@code Common.REAL_PATH} dan menampilkannya lewat
+ * {@link Common#displayWindow(String, boolean, String)} agar browser pengguna diarahkan ke
+ * gateway pembayaran Doku.</li>
+ * </ol>
+ *
+ * <p>
+ * Kegagalan penyimpanan record transaksi ({@link #sendRequest}) ditangani lewat pola
+ * "Informasi Teknis" bersama seluruh payment gateway AIS ({@link InfoTeknisPembayaran}):
+ * detail teknis kegagalan dicatat lewat {@link InfoTeknisPembayaran#catat(String)} dan
+ * ditampilkan ke pengguna sebagai bagian pesan alert kegagalan
+ * ({@link InfoTeknisPembayaran#pesanGagal()}) oleh {@link #onSaveDoku}, sehingga pengguna/admin
+ * mendapat konteks teknis tanpa perlu membuka log server.
+ * </p>
+ *
+ * <p>
+ * <b>PERINGATAN KEAMANAN:</b> method {@link #onSaveDoku} membaca kredensial integrasi Doku
+ * dari konfigurasi database ({@code Common.getKonfigurasi}) dengan NILAI DEFAULT yang ditulis
+ * langsung (hardcoded) di kode sumber sebagai fallback: {@code doku_key} (default
+ * {@code "w6Z2y3F2q5j6"}, dipakai sebagai bagian dari perhitungan SHA1 tanda tangan transaksi
+ * {@code WORDS} — nilai ini setara dengan shared-secret Doku) dan {@code doku_merchant_id}
+ * (default {@code "10444535"}, id merchant Doku). Bila nilai-nilai tersebut adalah kredensial
+ * merchant produksi sungguhan (bukan sekadar contoh), siapa pun dengan akses baca kode sumber
+ * dapat menghitung ulang tanda tangan {@code WORDS} yang sah dan berpotensi memalsukan/mengubah
+ * parameter transaksi yang dikirim ke Doku. Javadoc ini TIDAK mengubah nilai-nilai tersebut
+ * sesuai instruksi; lihat ringkasan laporan terkait untuk detail lokasi baris agar dapat
+ * ditindaklanjuti (mis. hapus default hardcoded, pastikan konfigurasi selalu diisi lewat
+ * database/secret store, dan rotasi shared-secret di sisi Doku bila memang bocor).
+ * </p>
+ */
 public class DokuCommon {
 
+	/**
+	 * Menyusun daftar {@link DokuRequestDetailBiaya} dari baris-baris (rows) sebuah komponen
+	 * {@link Grid} ZK yang menampilkan rincian biaya, sambil menerapkan aturan pengurangan
+	 * khusus untuk item biaya bertipe {@link ItemBiaya#DIKALI_NILAI_MINUS}.
+	 *
+	 * <p>
+	 * Untuk setiap baris grid yang tampak ({@code isVisible()}), nilai biaya diambil dari
+	 * atribut {@code myValue} ({@link DetailBiaya}) baris tersebut (memakai
+	 * {@code nilaiBiayaBaru} bila ada, jika tidak memakai {@code nilaiBiaya}), lalu ditimpa
+	 * dengan nilai komponen input pada atribut {@code tag} bila komponen tersebut berupa
+	 * {@link Doublebox} yang dapat diedit ({@code getItemBiaya().getNilaiBisaDiubah()}) atau
+	 * berupa {@link Label} (diparsing dari teks berformat angka). Bila item biaya bertipe
+	 * {@code DIKALI_NILAI_MINUS}, nilai akhirnya diambil dari komponen
+	 * {@link MyDoubleboxMin} yang sesuai pada parameter {@code pengurangan} (dicocokkan lewat
+	 * id {@link DetailBiaya} pada atribut {@code itemBiaya}).
+	 * </p>
+	 *
+	 * @param gridss      komponen {@link Grid} ZK berisi baris rincian biaya, dengan setiap
+	 *                    {@link Row} membawa atribut {@code myValue} ({@link DetailBiaya}) dan
+	 *                    {@code tag} (komponen input terkait)
+	 * @param pengurangan daftar komponen {@link MyDoubleboxMin} untuk item biaya bertipe
+	 *                    {@code DIKALI_NILAI_MINUS}, dicocokkan lewat atribut {@code itemBiaya}
+	 * @return daftar {@link DokuRequestDetailBiaya} siap simpan, satu per baris grid yang
+	 *         tampak
+	 */
 	@SuppressWarnings("unchecked")
 	public static List<DokuRequestDetailBiaya> populateDetailBiaya(Grid gridss, List<MyDoubleboxMin> pengurangan) {
 		List<DokuRequestDetailBiaya> dokuRequestDetailBiayas = new ArrayList<DokuRequestDetailBiaya>();
@@ -92,6 +177,17 @@ public class DokuCommon {
 		return dokuRequestDetailBiayas;
 	}
 
+	/**
+	 * Mengonversi daftar {@link DokuRequestDetailBiaya} (hasil {@link #populateDetailBiaya})
+	 * menjadi daftar {@link DokuRequestDetail} yang siap disimpan sebagai rincian permintaan
+	 * pembayaran Doku, dengan nomor urut ({@code ke}) berurutan mulai dari 1 dan tanggal
+	 * diisi tanggal saat ini ({@link ais.ui.util.WaktuUtil#getDate()}). Dipakai pada alur
+	 * pembayaran biaya non-cicilan (mis. {@link #bayarCalonMahasiswa}).
+	 *
+	 * @param dokuRequestDetailBiayas daftar rincian biaya sumber
+	 * @return daftar {@link DokuRequestDetail} yang setara, dengan {@code pengaturanPembayaranBulanan}
+	 *         selalu {@code null} (bukan pembayaran bulanan)
+	 */
 	public static List<DokuRequestDetail> populateDokuRequestDetailDariDetailBiaya(
 			List<DokuRequestDetailBiaya> dokuRequestDetailBiayas) {
 		List<DokuRequestDetail> dokuRequestDetails = new ArrayList<DokuRequestDetail>();
@@ -112,6 +208,41 @@ public class DokuCommon {
 		return dokuRequestDetails;
 	}
 
+	/**
+	 * Menyusun daftar {@link DokuRequestDetail} dari baris-baris grid cicilan pembayaran ZK,
+	 * hanya menyertakan baris yang jumlah cicilannya diisi (bukan nol/mendekati nol).
+	 * </p>
+	 * <p>
+	 * Untuk setiap baris yang memenuhi syarat, method ini:
+	 * </p>
+	 * <ul>
+	 * <li>Menentukan validator (petugas) dari {@link CicilanPembayaran#getValidator()}, atau
+	 * bila kosong/null, memakai representasi pengguna yang sedang login
+	 * ({@link Common#getCurrentUser()}).</li>
+	 * <li>Menentukan {@link ItemBiaya}/{@link DetailBiaya}/{@link PengaturanPembayaranBulanan}
+	 * yang berlaku, bergantung pada tipe nilai yang dipilih pengguna pada combobox jenis biaya
+	 * (bisa berupa {@link PengaturanPembayaranBulanan} untuk pembayaran bulanan/SPP, atau
+	 * {@link DetailBiaya} untuk biaya sekali bayar).</li>
+	 * <li>Menyalin nilai {@code denda}/{@code nilaiAsli} dari {@link CicilanPembayaran} yang
+	 * sudah ada bila cicilan tersebut sudah memiliki id (record lama); bila cicilan baru
+	 * (belum memiliki id) dan terkait {@link PengaturanPembayaranBulanan}, denda dan nilai asli
+	 * DIHITUNG ULANG lewat {@link PengaturanPembayaranBulanan#ambilNominalModifikasi(Mahasiswa,
+	 * Integer)} dan {@link PengaturanPembayaranBulanan#checkDenda}, termasuk pengecekan apakah
+	 * {@code jadwalPembayaran} berlaku khusus untuk NIM mahasiswa yang bersangkutan.</li>
+	 * </ul>
+	 *
+	 * @param gridCicilan     komponen {@link Grid} ZK berisi baris cicilan pembayaran, dengan
+	 *                        atribut {@code jumlahCicilan}, {@code cicilanPembayaran},
+	 *                        {@code tanggal}, {@code itemBiaya}, dan {@code keterangan} pada
+	 *                        setiap {@link Row}
+	 * @param mahasiswa       mahasiswa pemilik cicilan, dipakai untuk menghitung nominal
+	 *                        modifikasi dan pengecekan jadwal khusus NIM
+	 * @param semester        semester berjalan, diteruskan ke perhitungan nominal modifikasi
+	 * @param jadwalPembayaran jadwal pembayaran yang berlaku (untuk pengecekan denda
+	 *                         keterlambatan), boleh {@code null}
+	 * @return daftar {@link DokuRequestDetail} untuk baris cicilan yang diisi, dengan nomor
+	 *         urut ({@code ke}) berurutan mulai dari 1
+	 */
 	public static List<DokuRequestDetail> populateDokuRequestDetail(Grid gridCicilan, Mahasiswa mahasiswa,
 			Integer semester, JadwalPembayaran jadwalPembayaran) {
 		@SuppressWarnings("unchecked")
@@ -189,6 +320,25 @@ public class DokuCommon {
 		return dokuRequestDetails;
 	}
 
+	/**
+	 * Titik masuk alur pembayaran biaya pendaftaran untuk seorang calon mahasiswa lewat
+	 * gateway Doku. Menentukan program studi acuan (memakai {@code prodiLulus} bila calon
+	 * mahasiswa sudah dinyatakan lulus/diterima pada satu program studi, atau salah satu dari
+	 * {@code prodi1}/{@code prodi2} bila belum), menghitung daftar {@link DetailBiaya} yang
+	 * wajib dibayar lewat {@link PembayaranUtil#getDetailBiayaCalonMahasiswa}, menentukan
+	 * jadwal pembayaran & denda yang berlaku lewat
+	 * {@link PembayaranUtil#getJadwalPembayaranDanDendaBerdasarkanTahunAkademik}, lalu bila
+	 * ditemukan jadwal pembayaran yang valid, mendelegasikan eksekusi transaksi ke
+	 * {@link #onSaveDoku}. Bila tidak ada biaya yang harus dibayar atau tidak ditemukan jadwal
+	 * pembayaran yang berlaku, method ini tidak melakukan apa pun (tidak ada transaksi
+	 * dimulai).
+	 *
+	 * @param calonMahasiswa data calon mahasiswa yang akan membayar biaya pendaftaran
+	 * @param jenisKegiatan  jenis kegiatan/gelombang penerimaan yang menentukan komponen biaya
+	 *                       yang berlaku
+	 * @throws Exception diteruskan dari kegagalan perhitungan biaya/jadwal pembayaran
+	 *                    ({@link PembayaranUtil}) atau dari {@link #onSaveDoku}
+	 */
 	public static void bayarCalonMahasiswa(BiodataCalonMahasiswa calonMahasiswa, JenisKegiatan jenisKegiatan)
 			throws Exception {
 		Jurusan prodiLulus = calonMahasiswa.getProdiLulus();

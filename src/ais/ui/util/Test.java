@@ -4,8 +4,26 @@ import java.text.DecimalFormat;
 
 import org.json.JSONObject;
 
+/**
+ * Berkas uji coba/scratch manual (bukan bagian dari alur aplikasi, tidak dipanggil kelas lain)
+ * untuk mengecek perilaku format angka: bagaimana {@code MyJSONObject} (varian
+ * {@link org.json.JSONObject} milik AIS) merender angka besar/desimal dalam {@code toString()},
+ * dibandingkan dengan {@link java.text.DecimalFormat} memakai pola tanpa notasi ilmiah
+ * ({@code "###########################"}, maksimum 6 digit desimal). Sebagian besar isi method
+ * {@code main} berupa kode yang dikomentari — sisa eksperimen lama (parsing tanggal minggu,
+ * decode URL, konstanta scope Google Drive/Calendar) yang ditinggalkan sebagai catatan, bukan
+ * kode aktif.
+ */
 public class Test {
 
+	/**
+	 * Menjalankan eksperimen format angka: membandingkan hasil {@code DecimalFormat} dan
+	 * {@code MyJSONObject.toString()} untuk tiga nilai (angka besar, {@code 0.4}, {@code 3.74})
+	 * dan mencetak hasilnya ke konsol. Tidak ada nilai kembali yang dikonsumsi program lain.
+	 *
+	 * @param argv argumen baris perintah, tidak dipakai
+	 * @throws Exception diteruskan apa adanya dari operasi JSON/format di dalamnya
+	 */
 	public static void main(String[] argv) throws Exception {
 
 		JSONObject name = new JSONObject();

@@ -9,8 +9,48 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 
+/**
+ * Kode uji coba manual (scratch/manual test, BUKAN kelas uji JUnit) peninggalan yang dipakai
+ * untuk mencoba secara langsung integrasi pembuatan Virtual Account <b>BRI (Bank Rakyat
+ * Indonesia) BRIVA</b> lewat endpoint {@code https://developer.bri.co.id/v1/api/briva}, dengan
+ * mengirim 70 permintaan berturut-turut (kemungkinan untuk uji beban/stres sederhana atau
+ * membuat banyak data uji sekaligus).
+ *
+ * <p>
+ * Seluruh badan kelas hanya berisi satu method {@link #main(String[])} yang dijalankan secara
+ * manual dari command line/IDE untuk keperluan eksperimen pengembang, bukan dipanggil dari alur
+ * aplikasi AIS mana pun. Sebagian besar isi file (baris-baris setelah loop utama) berupa kode
+ * yang DIKOMENTARI (potongan eksperimen lama seputar parsing format {@code <=>} kustom, protokol
+ * ISO 8583 bit48/bit62, dan pemanggilan REST lama ke {@code zishofdemo.cloudapp.net}) yang
+ * ditinggalkan sebagai referensi/riwayat eksperimen. Sesuai instruksi pekerjaan dokumentasi ini,
+ * kelas ini TIDAK dihapus atau dirapikan — hanya diberi Javadoc apa adanya.
+ * </p>
+ *
+ * <h2 style="color:red">PERINGATAN KEAMANAN — kredensial API tertanam di kode</h2>
+ * <p>
+ * Method {@link #main(String[])} menyertakan kredensial API BRI sebagai literal string langsung
+ * di kode sumber (bukan dibaca dari konfigurasi runtime): header {@code X-BRI-KEY} bernilai
+ * {@code "74c6af09da81c1ba474a552c6b03b25b6940875c"} dan header {@code Authorization} bernilai
+ * {@code "Bearer 700d15850067afdbccdcff19946a20e8c2dac38e"}. Kedua nilai ini adalah kredensial
+ * nyata yang sudah ter-commit ke source control. Sesuai instruksi tugas dokumentasi ini,
+ * kredensial tersebut TIDAK diubah/dihapus — dilaporkan secara terpisah pada ringkasan akhir
+ * pekerjaan dokumentasi agar dapat ditindaklanjuti (idealnya: pindahkan ke konfigurasi rahasia
+ * dan rotasi kredensial di sisi BRI karena sudah pernah terekspos di riwayat source control).
+ * </p>
+ */
 public class Test2 {
 
+	/**
+	 * Menjalankan 70 kali permintaan HTTP POST berturut-turut ke endpoint BRIVA BRI untuk membuat
+	 * Virtual Account uji coba, dengan nomor VA/kode pelanggan digenerasi acak
+	 * ({@link Common#getGeneratedAngkaDigit(int)}) dan tanggal kedaluwarsa di-set H+1 dari
+	 * tanggal saat dijalankan. Respons tiap permintaan (status code + body) dicetak ke konsol.
+	 * Lihat peringatan keamanan pada Javadoc kelas mengenai kredensial BRI yang tertanam langsung
+	 * pada method ini. Kode setelah loop (baris-baris yang dikomentari) tidak dieksekusi.
+	 *
+	 * @param args tidak dipakai
+	 * @throws Exception diteruskan apa adanya dari kegagalan HTTP client Apache HttpComponents
+	 */
 	public static void main(String[] args) throws Exception {
 
 		// PostMethod post = new

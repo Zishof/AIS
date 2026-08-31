@@ -16,23 +16,72 @@ import ais.database.model.PerguruanTinggi;
 import ais.database.model.sekolah.Sekolah;
 import ais.database.model.sekolah.Yayasan;
 
+/**
+ * {@link Initiator} ZK yang dipasang pada berkas {@code .zul} halaman-halaman utama AIS untuk
+ * menyesuaikan judul tab browser (page title) dan ikon favicon secara dinamis berdasarkan
+ * institusi/tenant yang sedang aktif (Perguruan Tinggi, Sekolah, atau Yayasan) sebelum halaman
+ * ditampilkan ke pengguna. Ini memungkinkan satu basis kode AIS yang sama melayani banyak
+ * instansi (multi-tenant) dengan identitas visual (judul + logo) yang berbeda-beda tanpa
+ * konfigurasi statis per instalasi.
+ *
+ * <p>
+ * Logika utama berada pada {@link #doInit(Page, Map)}, yang dijalankan ZK sebelum komponen
+ * halaman dikomposisi. Method tersebut:
+ * </p>
+ * <ol>
+ * <li>Mengambil {@link HttpServletRequest} aktif (dari {@link ExecutionsCtrl} bila tersedia,
+ * jika tidak jatuh ke {@link RequestContext#get()}).</li>
+ * <li>Menentukan entitas institusi yang relevan untuk request tersebut: {@code
+ * PerguruanTinggi}, {@code Yayasan}, dan {@code Sekolah} lewat {@code PerguruanTinggiUtil} dan
+ * {@code SekolahUtil}, serta memakai {@code Common#chekPtAtauSekolah()} untuk menentukan apakah
+ * instalasi ini berjenis sekolah ({@code ptYa[1]}).</li>
+ * <li>Memilih judul halaman dan logo sesuai prioritas: Sekolah aktif → Yayasan aktif →
+ * Perguruan Tinggi aktif, dengan judul default diambil dari konfigurasi {@code judul_header}
+ * (atau {@code judul_header_sekolah} untuk jalur sekolah) dan logo default berupa
+ * {@code /img/logo.png} bila tidak ada logo kustom yang diunggah untuk institusi terkait.</li>
+ * <li>Menuliskan judul terpilih ke {@code PageDefinition} halaman dan menyimpan URL logo
+ * terpilih sebagai atribut halaman {@code myFavicon} (dibaca oleh template/layout untuk
+ * merender tag favicon).</li>
+ * </ol>
+ * <p>
+ * Seluruh proses dibungkus satu blok try-catch tunggal: kegagalan apa pun (mis. request tidak
+ * tersedia, entitas institusi tidak ditemukan) dicatat lewat {@code ErrorAuditUtil.record} dan
+ * TIDAK menghentikan pemuatan halaman — halaman tetap tampil dengan judul/favicon default bila
+ * penentuan dinamis gagal.
+ * </p>
+ */
 public class MyInit implements Initiator {
 
+	/** Tidak melakukan apa pun; hook siklus hidup {@link Initiator} yang tidak dipakai kelas ini. */
 	public void doAfterCompose(Page arg0) throws Exception {
 		// TODO Auto-generated method stub
 
 	}
 
+	/** Tidak menangani exception apa pun (selalu mengembalikan {@code false}, meneruskan exception ke penanganan default ZK). */
 	public boolean doCatch(Throwable arg0) throws Exception {
 		// TODO Auto-generated method stub
 		return false;
 	}
 
+	/** Tidak melakukan apa pun; hook siklus hidup {@link Initiator} yang tidak dipakai kelas ini. */
 	public void doFinally() throws Exception {
 		// TODO Auto-generated method stub
 
 	}
 
+	/**
+	 * Menentukan dan menerapkan judul halaman serta favicon dinamis sesuai institusi/tenant
+	 * aktif untuk request saat ini — lihat penjelasan alur lengkap pada javadoc kelas
+	 * {@link MyInit}. Dipanggil ZK sebelum komponen halaman dikomposisi; seluruh kegagalan
+	 * ditangkap dan dicatat, tidak dilempar ulang.
+	 *
+	 * @param arg0 halaman ZK yang sedang diinisialisasi
+	 * @param arg1 peta argumen inisialisasi dari deklarasi {@code <?init class="..."?>} di
+	 *             berkas {@code .zul}, tidak dipakai implementasi ini
+	 * @throws Exception tidak pernah dilempar keluar; seluruh kegagalan ditangkap secara
+	 *                    internal dan dicatat lewat audit error
+	 */
 	@SuppressWarnings("rawtypes")
 	@Override
 	public void doInit(Page arg0, Map arg1) throws Exception {

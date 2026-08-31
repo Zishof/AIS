@@ -10,8 +10,41 @@ import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.objdetect.CascadeClassifier;
 
+/**
+ * Kode contoh/uji coba manual (bukan komponen yang dipanggil dari alur aplikasi AIS lainnya)
+ * untuk deteksi wajah pada sebuah gambar menggunakan OpenCV (paket {@code org.opencv.*}), memakai
+ * pendeteksi berbasis cascade Haar klasik ({@link CascadeClassifier} dengan file
+ * {@code haarcascade_frontalface_alt.xml}).
+ *
+ * <p>
+ * <b>Nama kelas:</b> nama {@code FeceDetection} tampaknya salah ketik dari "Face Detection"
+ * (huruf "e" seharusnya "a"). Nama ini TIDAK diubah sebagai bagian dari pekerjaan dokumentasi
+ * ini — mengganti nama kelas berpotensi memengaruhi referensi lain dan berada di luar cakupan
+ * penyisipan Javadoc murni.
+ * </p>
+ *
+ * <p>
+ * Seluruh logika berada pada satu method {@link #main(String[])} yang bersifat prosedural dan
+ * bergantung pada path berkas <b>tertanam langsung di kode</b> (bukan dibaca dari konfigurasi):
+ * file cascade {@code "haarcascade_frontalface_alt.xml"} harus berada di direktori kerja saat
+ * dijalankan, gambar masukan dibaca dari path absolut Windows {@code "E:\input.jpg"}, dan hasil
+ * deteksi (gambar dengan kotak hijau mengelilingi wajah yang ditemukan) ditulis ke
+ * {@code "E:\Ouput.jpg"} (perhatikan juga salah ketik "Ouput" alih-alih "Output" pada nama file
+ * keluaran, dibiarkan apa adanya). Path-path ini membuat kelas hanya dapat dijalankan pada mesin
+ * dengan struktur direktori yang sama persis; ini bukan kredensial/rahasia, hanya path lokal
+ * peninggalan pada kode contoh, sehingga tidak memerlukan tindak lanjut keamanan.
+ * </p>
+ */
 public class FeceDetection {
 
+	/**
+	 * Menjalankan alur demo deteksi wajah end-to-end: memuat pustaka native OpenCV, memuat model
+	 * cascade wajah, membaca gambar masukan, mendeteksi wajah, menggambar kotak pembatas hijau di
+	 * sekeliling tiap wajah yang ditemukan, lalu menyimpan gambar hasil ke berkas keluaran. Lihat
+	 * Javadoc kelas untuk peringatan mengenai path berkas yang tertanam langsung di kode.
+	 *
+	 * @param args tidak dipakai
+	 */
 	public static void main(String[] args) {
 
 		// Core.NATIVE_LIBRARY_NAME must be loaded before

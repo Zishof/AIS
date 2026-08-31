@@ -18,8 +18,81 @@ import ais.database.model.sekolah.Siswa;
 
 //import org.json.JSONObject;
 
+/**
+ * Klien integrasi payment gateway OTTO (OttoPay) untuk membuat token transaksi virtual account
+ * (VA) online bagi empat kategori pembayar yang dikenal AIS: mahasiswa aktif ({@link Mahasiswa}),
+ * calon mahasiswa/pendaftar ({@link BiodataCalonMahasiswa}), siswa sekolah aktif ({@link Siswa}),
+ * dan calon siswa/pendaftar sekolah ({@link CalonSiswa}). Kelas ini menyediakan empat overload
+ * publik {@link #post} — satu per kategori pembayar — yang seluruhnya menyusun payload JSON
+ * permintaan token dengan struktur identik ({@code customerDetails} + {@code transactionDetails})
+ * namun mengambil data identitas (email, nama, nomor identitas sebagai {@code lastName}, nomor HP)
+ * dari entitas yang berbeda, lalu bermuara pada satu implementasi privat kanonik {@link
+ * #doPost(String, VirtualAccountBank)} yang benar-benar menandatangani dan mengirim permintaan ke
+ * OttoPay.
+ *
+ * <h2>Alur permintaan token (di {@link #doPost})</h2>
+ * <ol>
+ * <li>Body JSON mentah yang sudah disusun pemanggil disimpan apa adanya ke
+ * {@link VirtualAccountBank#setRequest(String)} untuk keperluan audit/rekonsiliasi.</li>
+ * <li>Body tersebut "dibersihkan" ({@code b}) dengan membuang seluruh karakter selain huruf,
+ * angka, {@code { } : . ,} — bentuk ringkas inilah yang dipakai sebagai bahan tanda tangan, BUKAN
+ * body asli yang dikirim ke API (body asli tetap dikirim utuh via {@code --data-raw}).</li>
+ * <li>Kredensial ({@code otto_api_key}/{@code otto_mid}) dan URL endpoint token
+ * ({@code otto_token_url}) dibaca dari konfigurasi terpusat AIS lewat
+ * {@code Common.getKonfigurasi(String, String)}, dengan nilai default yang tertanam di kode sumber
+ * bila konfigurasi belum diisi — lihat peringatan keamanan di bawah.</li>
+ * <li>Timestamp Unix (epoch milliseconds) diambil lalu tiga digit terakhirnya dipotong (efektif
+ * epoch second dengan presisi turun), dipakai sebagai bagian dari tanda tangan dan header
+ * {@code Timestamp}.</li>
+ * <li>Tanda tangan (signature) dihitung sebagai HMAC-SHA512 atas string
+ * {@code lower(bodyBersih) + "&" + timestamp + "&" + apiKey}, dengan {@code apiKey} itu sendiri
+ * dipakai sebagai kunci HMAC (lewat Guava {@link Hashing#hmacSha512(byte[])}).</li>
+ * <li>MID (merchant id) di-encode Base64 dan dikirim sebagai header {@code Authorization: Basic
+ * <MID base64>} — perhatikan ini BUKAN skema HTTP Basic Auth standar (yang seharusnya
+ * {@code base64(user:password)}), melainkan MID polos yang di-Base64-kan sendiri, sekadar
+ * memanfaatkan nama header {@code Authorization: Basic} sebagai konvensi API OttoPay.</li>
+ * <li>Permintaan HTTP POST dijalankan lewat proses eksternal {@code curl} (bukan pustaka HTTP
+ * Java), dengan seluruh header (Signature/Timestamp/Authorization/Content-Type) dan body
+ * ({@code --data-raw}) sebagai argumen baris perintah — konsekuensinya, isi permintaan (termasuk
+ * signature dan MID ter-encode) tercetak ke {@code System.out} sebelum eksekusi, dan berpotensi
+ * juga terlihat di daftar proses OS selama {@code curl} berjalan.</li>
+ * <li>Output {@code curl} (stdout gabungan) dibaca penuh, disimpan ke
+ * {@link VirtualAccountBank#setResponse(String)} untuk audit, lalu diparsing sebagai
+ * {@link JSONObject} dan dikembalikan ke pemanggil.</li>
+ * </ol>
+ *
+ * <p>
+ * <b>PERINGATAN KEAMANAN — kredensial default tertanam:</b> pada baris pembacaan konfigurasi di
+ * {@link #doPost}, nilai default yang dipakai bila kunci {@code otto_api_key} atau
+ * {@code otto_mid} belum diisi di konfigurasi ditulis langsung sebagai literal string di kode
+ * sumber kelas ini ({@code apiKey} default {@code "KP33PP0EE0AAP1EE1009010PP01I91OA"}, {@code MID}
+ * default {@code "OP1E00030999"}). Nilai-nilai ini kemungkinan besar kredensial sandbox/uji coba
+ * OttoPay (konsisten dengan default URL endpoint yang juga mengarah ke subdomain
+ * {@code dev-secure.ottopay.id}), namun tetap merupakan kredensial yang ter-commit dalam bentuk
+ * teks polos ke riwayat kode sumber. Sesuai lingkup pekerjaan dokumentasi ini, nilai-nilai
+ * tersebut TIDAK diubah atau dihapus di sini — instalasi produksi WAJIB mengisi konfigurasi
+ * {@code otto_api_key}/{@code otto_mid}/{@code otto_token_url} secara eksplisit agar tidak
+ * bergantung pada default tertanam ini, dan kredensial default tersebut sebaiknya ditinjau apakah
+ * perlu dirotasi di sisi OttoPay bila sempat terekspos di luar lingkungan uji coba.
+ * </p>
+ */
 public class OttoUtil {
 
+	/**
+	 * Membuat token transaksi VA online OttoPay untuk pembayaran oleh mahasiswa aktif. Menyusun
+	 * payload dari data {@code mahasiswa} (email, nama, NIM sebagai {@code lastName}, nomor HP) dan
+	 * nama perguruan tinggi (diturunkan dari rantai relasi jurusan-fakultas-perguruan tinggi milik
+	 * mahasiswa) sebagai {@code merchantName}, dengan {@code orderId} dibangkitkan dari
+	 * {@link Common#getGeneratedBarCode()}. Delegasi akhir ke {@link #doPost(String,
+	 * VirtualAccountBank)} yang menandatangani dan mengirim permintaan sesungguhnya.
+	 *
+	 * @param mahasiswa                 mahasiswa yang melakukan pembayaran, sumber data identitas
+	 * @param nominal                   nominal transaksi dalam Rupiah (IDR)
+	 * @param virtualAccountBankOnline  entitas VA yang akan diisi request/response mentah untuk audit
+	 * @return respons token dari OttoPay dalam bentuk {@link JSONObject}
+	 * @throws Exception diteruskan dari kegagalan proses {@code curl} eksternal atau parsing JSON
+	 *                    respons di {@link #doPost}
+	 */
 	public static JSONObject post(Mahasiswa mahasiswa, int nominal, VirtualAccountBank virtualAccountBankOnline)
 			throws Exception {
 
@@ -32,6 +105,18 @@ public class OttoUtil {
 		return doPost(bodyS, virtualAccountBankOnline);
 	}
 
+	/**
+	 * Seperti {@link #post(Mahasiswa, int, VirtualAccountBank)}, untuk pembayaran oleh calon
+	 * mahasiswa/pendaftar. Nomor registrasi pendaftaran dipakai sebagai {@code lastName}, dan nama
+	 * perguruan tinggi diambil dari gelombang pendaftaran milik {@code biodataCalonMahasiswa}
+	 * sebagai {@code merchantName}.
+	 *
+	 * @param biodataCalonMahasiswa    calon mahasiswa yang melakukan pembayaran
+	 * @param nominal                  nominal transaksi dalam Rupiah (IDR)
+	 * @param virtualAccountBankOnline entitas VA yang akan diisi request/response mentah untuk audit
+	 * @return respons token dari OttoPay dalam bentuk {@link JSONObject}
+	 * @throws Exception diteruskan dari {@link #doPost(String, VirtualAccountBank)}
+	 */
 	public static JSONObject post(BiodataCalonMahasiswa biodataCalonMahasiswa, int nominal,
 			VirtualAccountBank virtualAccountBankOnline) throws Exception {
 
@@ -44,6 +129,17 @@ public class OttoUtil {
 		return doPost(bodyS, virtualAccountBankOnline);
 	}
 
+	/**
+	 * Seperti {@link #post(Mahasiswa, int, VirtualAccountBank)}, untuk pembayaran oleh siswa sekolah
+	 * aktif. Nomor induk siswa nasional dipakai sebagai {@code lastName}, dan nama sekolah (dari
+	 * relasi {@code siswa.getSekolah()}) sebagai {@code merchantName}.
+	 *
+	 * @param siswa                    siswa yang melakukan pembayaran
+	 * @param nominal                  nominal transaksi dalam Rupiah (IDR)
+	 * @param virtualAccountBankOnline entitas VA yang akan diisi request/response mentah untuk audit
+	 * @return respons token dari OttoPay dalam bentuk {@link JSONObject}
+	 * @throws Exception diteruskan dari {@link #doPost(String, VirtualAccountBank)}
+	 */
 	public static JSONObject post(Siswa siswa, int nominal, VirtualAccountBank virtualAccountBankOnline)
 			throws Exception {
 
@@ -55,6 +151,17 @@ public class OttoUtil {
 		return doPost(bodyS, virtualAccountBankOnline);
 	}
 
+	/**
+	 * Seperti {@link #post(Mahasiswa, int, VirtualAccountBank)}, untuk pembayaran oleh calon
+	 * siswa/pendaftar sekolah. Nomor registrasi pendaftaran dipakai sebagai {@code lastName}, dan
+	 * nama sekolah sebagai {@code merchantName}.
+	 *
+	 * @param calonSiswa               calon siswa yang melakukan pembayaran
+	 * @param nominal                  nominal transaksi dalam Rupiah (IDR)
+	 * @param virtualAccountBankOnline entitas VA yang akan diisi request/response mentah untuk audit
+	 * @return respons token dari OttoPay dalam bentuk {@link JSONObject}
+	 * @throws Exception diteruskan dari {@link #doPost(String, VirtualAccountBank)}
+	 */
 	public static JSONObject post(CalonSiswa calonSiswa, int nominal, VirtualAccountBank virtualAccountBankOnline)
 			throws Exception {
 
@@ -66,6 +173,21 @@ public class OttoUtil {
 		return doPost(bodyS, virtualAccountBankOnline);
 	}
 
+	/**
+	 * Implementasi kanonik seluruh keluarga {@code post}: menandatangani payload JSON yang sudah
+	 * disusun pemanggil (HMAC-SHA512), menyiapkan header otentikasi OttoPay, mengirim permintaan
+	 * lewat proses eksternal {@code curl}, dan mengembalikan respons sebagai JSON. Lihat javadoc
+	 * kelas untuk uraian langkah demi langkah proses penandatanganan dan peringatan keamanan terkait
+	 * kredensial default tertanam.
+	 *
+	 * @param bodyS                    body JSON permintaan token, sudah disusun lengkap oleh salah
+	 *                                 satu overload {@code post}
+	 * @param virtualAccountBankOnline entitas VA yang diisi request mentah (sebelum kirim) dan
+	 *                                 response mentah (setelah kirim) untuk keperluan audit
+	 * @return respons {@code curl} yang diparsing sebagai {@link JSONObject}
+	 * @throws Exception bila proses {@code curl} gagal dijalankan/dibaca, atau bila output yang
+	 *                    diterima bukan JSON valid
+	 */
 	private static JSONObject doPost(String bodyS, VirtualAccountBank virtualAccountBankOnline) throws Exception {
 
 		virtualAccountBankOnline.setRequest(bodyS);

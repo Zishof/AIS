@@ -61,9 +61,122 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.WaktuUtil;
 // Import Hibernate & FileUtils (Apache Commons) diasumsikan sudah ada
 
+/**
+ * Kelas utilitas statis <b>grab-bag</b> (kumpulan fungsi bantu lintas-topik yang tidak cukup besar
+ * untuk masing-masing punya kelas sendiri) untuk modul akademik AIS. Isinya sengaja beragam —
+ * bukan cacat desain, melainkan pola umum pada codebase legacy berukuran besar: fungsi-fungsi
+ * kecil yang dipakai berulang dari banyak layar/aksi dikumpulkan di satu tempat agar mudah
+ * ditemukan, alih-alih tersebar sebagai duplikat di tiap pemanggil. Berdasarkan isinya, kelas ini
+ * dapat dibagi menjadi beberapa kelompok fungsi:
+ *
+ * <h2>1. Pelaporan galat (error handling)</h2>
+ * <p>
+ * {@link #tampilErrorJikaAdmin(Exception)}/{@link #tampilErrorJikaAdmin(Exception, String,
+ * boolean)}, {@link #downloadError(Exception)}, {@link #getStackTraceAsString(Throwable)}, serta
+ * dua helper privat {@link #saveAndDownloadErrorFile(String)} dan
+ * {@link #saveErrorToDatabase(String)} — menyediakan jalur seragam untuk menampilkan dialog galat
+ * ke pengguna (dengan opsi copy detail teknis untuk dikirim ke admin), menyimpan stack trace ke
+ * tabel {@link ErrorLog}, dan mengunduhnya sebagai berkas teks bila diperlukan.
+ * </p>
+ *
+ * <h2>2. Query string</h2>
+ * <p>
+ * {@link #convertToQueryString(Map)} beserta helper privatnya
+ * ({@link #appendQueryParam(StringBuilder, String, String)}, {@link #encodeUTF8(String)}) —
+ * mengubah {@link Map} parameter (termasuk nilai berbentuk larik {@code String[]}) menjadi string
+ * query URL yang sudah di-encode UTF-8.
+ * </p>
+ *
+ * <h2>3. Cache jenis kegiatan (in-memory, lintas-request)</h2>
+ * <p>
+ * Enam field statis publik bertipe {@code TreeSet<JenisKegiatan>}
+ * ({@link #jenisKegiatansTanpaDaftarUlang}, {@link #jenisKegiatansAktif},
+ * {@link #jenisKegiatansUntukKrs}, {@link #jenisKegiatansUntukNilai},
+ * {@link #jenisKegiatansUntukSyaratAktif}, {@link #jenisKegiatansUntukSyaratUjian}) menyimpan hasil
+ * query {@link JenisKegiatan} yang sudah difilter/diurutkan untuk berbagai konteks (KRS, penilaian,
+ * syarat keaktifan, syarat ujian, dsb.), diisi ulang lewat {@link #reloadJenisKegiatans()} /
+ * {@link #reloadJenisKegiatans(Session)}. Karena bersifat statis, cache ini dibagi oleh SELURUH
+ * pengguna aplikasi pada satu JVM — dirancang untuk data referensi yang jarang berubah, bukan data
+ * spesifik per-pengguna.
+ * </p>
+ *
+ * <h2>4. Pembangun komponen UI ZK (Combobox)</h2>
+ * <p>
+ * {@link #initJenisPembayaranMahasiswa(Combobox)},
+ * {@link #initJenisPembayaranBiodataCalonMahasiswa(Combobox)},
+ * {@link #initJenisPembayaranMahasiswaDanBiodataCalonMahasiswa(Combobox)},
+ * {@link #initJenisSemester(Combobox)}/{@link #initJenisSemester(Combobox, boolean)},
+ * {@link #createComboKonfigurasi(Combobox)}, {@link #createComboJenisPembayaranDanSemua(Combobox)},
+ * {@link #createComboJenisPembayaran(Combobox)} — masing-masing menerima {@link Combobox} ZK yang
+ * sudah ada (atau membuat baru bila {@code null}) dan mengisinya dengan pilihan yang relevan
+ * (jenis kegiatan/pembayaran, jenis semester, daftar konfigurasi), sekaligus menentukan item yang
+ * terpilih secara default.
+ * </p>
+ *
+ * <h2>5. Perhitungan status semester/tahapan mahasiswa</h2>
+ * <p>
+ * {@link #getSemesterString()}, {@link #generateStatusSemester(Mahasiswa)},
+ * {@link #generateSemestersForGrid(Mahasiswa, int, int, Integer)},
+ * {@link #generateSemestersForGridTahapan(Mahasiswa, int)} — menghasilkan riwayat
+ * semester/tahapan studi seorang mahasiswa (tahun akademik, status, nomor tahap) untuk ditampilkan
+ * pada grid UI, dengan logika percabangan berbeda bergantung pada jumlah "tahapan" pembayaran yang
+ * dikonfigurasi untuk program studi mahasiswa tersebut (2, 3, atau 4 tahap per tahun akademik).
+ * </p>
+ *
+ * <h2>6. Gerbang syarat pembayaran (payment gate) — kelompok terbesar</h2>
+ * <p>
+ * Keluarga method {@code checkStatusPembayaran*}/{@code checkPembayaran*} adalah inti bisnis
+ * kelas ini: masing-masing memutuskan apakah seorang {@link Mahasiswa} SUDAH memenuhi syarat
+ * pembayaran minimum untuk melanjutkan suatu aksi akademik — mengambil KRS
+ * ({@link #checkPembayaranSebelumKRSSudahMemenuhi}), memenuhi syarat KRS berdasarkan pelunasan
+ * semester sebelumnya ({@link #checkStatusPembayaranMahasiswaSebelumnya(Integer, Integer,
+ * Mahasiswa, boolean)}), mengikuti suatu {@link FormulirKegiatan}
+ * ({@link #checkStatusPembayaranKegiatanMahasiswa}), melihat nilai
+ * ({@link #checkStatusPembayaranMahasiswaSebelumnyaUntukPenilaian}), mengajukan proposal skripsi
+ * ({@link #checkStatusPembayaranMahasiswaPengajuanSkripsi}), mengajukan sidang
+ * ({@link #checkStatusPembayaranMahasiswaPengajuanSidang}), atau mendaftar wisuda
+ * ({@link #checkStatusPembayaranMahasiswaPengajuanWisuda}). Setiap method membaca ambang batas
+ * persentase pelunasan dari {@link ais.database.model.Konfigurasi} (berbeda-beda per konteks,
+ * dapat dipersempit per jurusan/program/angkatan), menghormati pengecualian (dispensasi cuti,
+ * pengecualian jadwal KRS via {@link #checkApakahMahasiswaBolehAmbilKrsLewatPengecualian}, dan
+ * jalur "baypass" lewat {@code Common.checkBaypassStatusPembayaranMahasiswa}), lalu menghitung
+ * persentase pemenuhan tagihan aktual lewat
+ * {@link KegiatanPersistenceHelper#hitungPersentasePemenuhanTagihan}. Method pendukung
+ * {@link #hitungTagihanMahasiswaSebagaiSyaratKrs(Session, Mahasiswa, Integer)} menjumlahkan total
+ * nominal tagihan (termasuk skema cicilan bulanan) untuk satu semester sebagai syarat KRS.
+ * </p>
+ *
+ * <h2>7. Lain-lain</h2>
+ * <p>
+ * {@link #getMatakuliahApakahEkivalen(Matakuliah, String, boolean)} — resolusi mata kuliah
+ * ekivalen untuk seorang mahasiswa. {@link #checkApakahDosenBolehMenilai} — memeriksa apakah dosen
+ * (atau petugas pengelola yang bertindak atas nama dosen) berhak memberi nilai pada suatu periode
+ * berdasarkan pengecualian jadwal penilaian yang berlaku. {@link #checkUsername(String, String,
+ * Long)} — memvalidasi keunikan username/NIM/username-ortu calon akun baru lintas empat entitas
+ * berbeda.
+ * </p>
+ *
+ * <p>
+ * <b>Catatan umum:</b> banyak method di kelas ini membuka dan menutup {@link Session} Hibernate
+ * secara manual (bukan lewat pengelolaan transaksi terpusat), serta memanggil
+ * {@link MyMessageboxConfig} untuk menampilkan pesan penolakan langsung ke pengguna dari dalam
+ * logika bisnis — pola ini dipertahankan apa adanya sesuai cakupan pekerjaan dokumentasi (hanya
+ * menambah Javadoc, tidak mengubah logika).
+ * </p>
+ */
 public class CommonHelperClass {
 
-	// 1. Menggunakan StringBuilder untuk performa lebih cepat
+	/**
+	 * Mengubah {@link Map} pasangan kunci-nilai menjadi string query URL (format
+	 * {@code key1=val1&key2=val2}), dengan setiap nilai di-encode UTF-8 lewat
+	 * {@link java.net.URLEncoder}. Entri dengan kunci atau nilai {@code null} dilewati. Nilai
+	 * bertipe {@code String[]} diperlakukan sebagai multi-value: setiap elemen larik menghasilkan
+	 * satu pasangan {@code key=value} terpisah dengan kunci yang sama.
+	 *
+	 * @param map peta parameter; boleh {@code null} atau kosong
+	 * @return string query URL (tanpa {@code "?"} di depan), atau string kosong bila {@code map}
+	 *         {@code null}/kosong
+	 */
 	public static String convertToQueryString(Map<String, Object> map) {
 		if (map == null || map.isEmpty()) {
 			return "";
@@ -96,7 +209,7 @@ public class CommonHelperClass {
 		return sb.toString();
 	}
 
-	// Helper kecil untuk append parameter
+	/** Menambahkan satu pasangan {@code key=value} (nilai sudah di-encode) ke {@code sb}, dengan {@code "&"} pemisah bila {@code sb} sudah berisi data. */
 	private static void appendQueryParam(StringBuilder sb, String key, String val) {
 		if (sb.length() > 0) {
 			sb.append("&");
@@ -104,7 +217,7 @@ public class CommonHelperClass {
 		sb.append(key).append("=").append(encodeUTF8(val));
 	}
 
-	// Wrapper untuk URLEncoder agar tidak perlu try-catch berulang di loop
+	/** Membungkus {@link java.net.URLEncoder#encode(String, String)} dengan UTF-8; mengembalikan {@code s} apa adanya (fallback) bila encoding gagal, dan string kosong bila {@code s} {@code null}. */
 	private static String encodeUTF8(String s) {
 		try {
 			return s != null ? URLEncoder.encode(s, "UTF-8") : "";
@@ -113,10 +226,27 @@ public class CommonHelperClass {
 		}
 	}
 
+	/** Seperti {@link #tampilErrorJikaAdmin(Exception, String, boolean)} tanpa info tambahan dan tanpa opsi unduh berkas ({@code info=""}, {@code download=false}). */
 	public static String tampilErrorJikaAdmin(Exception ex) {
 		return tampilErrorJikaAdmin(ex, "", false);
 	}
 
+	/**
+	 * Implementasi kanonik penanganan galat terpusat: mengambil stack trace {@code ex} (lewat
+	 * {@link #getStackTraceAsString(Throwable)}), menggabungkannya dengan {@code info} tambahan
+	 * bila ada, secara opsional menawarkan unduhan berkas teks berisi stack trace tersebut
+	 * ({@link #saveAndDownloadErrorFile(String)} bila {@code download=true}), SELALU menyimpan
+	 * catatan galat ke tabel {@link ErrorLog} ({@link #saveErrorToDatabase(String)}), lalu
+	 * menampilkan dialog {@link MyMessageboxConfig#showDetail} ke pengguna dengan tombol "Detail"
+	 * untuk menyalin informasi teknis (disertai langkah perbaikan yang disarankan bila {@code info}
+	 * kosong).
+	 *
+	 * @param ex       exception yang akan dilaporkan
+	 * @param info     konteks tambahan yang disisipkan di awal stack trace (mis. nama aksi/layar
+	 *                 yang sedang berjalan), boleh kosong
+	 * @param download {@code true} untuk juga menawarkan unduhan berkas teks berisi stack trace
+	 * @return string stack trace lengkap (termasuk {@code info}) yang sudah dicatat/ditampilkan
+	 */
 	public static String tampilErrorJikaAdmin(Exception ex, String info, boolean download) {
 		// 2. Mengambil stack trace menggunakan helper method (DRY)
 		String stackTrace = getStackTraceAsString(ex);
@@ -152,6 +282,15 @@ public class CommonHelperClass {
 		return stackTrace;
 	}
 
+	/**
+	 * Membangun {@link EventListener} ZK yang, saat dipicu, mengambil stack trace {@code ex} dan
+	 * langsung menawarkan unduhannya sebagai berkas teks lewat
+	 * {@link #saveAndDownloadErrorFile(String)}. Dipakai untuk memasang tombol/tautan "Unduh
+	 * Detail Galat" terpisah dari dialog {@link #tampilErrorJikaAdmin} utama.
+	 *
+	 * @param ex exception yang stack trace-nya akan diunduh saat listener dipicu
+	 * @return {@link EventListener} siap dipasang pada komponen ZK
+	 */
 	public static EventListener downloadError(final Exception ex) {
 		// Java 1.7 belum support Lambda, jadi pakai Anonymous Class
 		return new EventListener() {
@@ -165,6 +304,14 @@ public class CommonHelperClass {
 
 	// --- PRIVATE HELPER METHODS (Agar kode utama lebih bersih) ---
 
+	/**
+	 * Mengonversi stack trace {@link Throwable} menjadi string, memakai
+	 * {@link Throwable#printStackTrace(PrintWriter)} ke {@link StringWriter}.
+	 *
+	 * @param t throwable yang akan dikonversi; boleh {@code null}
+	 * @return representasi teks stack trace, string kosong bila {@code t} {@code null}, atau pesan
+	 *         galat singkat bila proses konversi sendiri gagal
+	 */
 	public static String getStackTraceAsString(Throwable t) {
 		if (t == null)
 			return "";

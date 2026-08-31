@@ -23,15 +23,91 @@ import ais.database.model.file.PertemuanFileContent;
 import ais.database.model.streaming.AudioPertemuan;
 import ais.database.model.streaming.VideoPertemuan;
 
+/**
+ * Kumpulan helper statis untuk mengumpulkan (secara paralel-terbatas) dua jenis data ringkasan
+ * e-learning lintas banyak {@link Pertemuan} sekaligus: komentar/diskusi (lewat
+ * {@link #ambilKomentar}) dan materi/konten (lewat {@link #ambilMateri}) — mis. untuk menyusun
+ * tampilan ringkasan aktivitas kelas/pertemuan tanpa harus memuat dan menggabungkan data satu per
+ * satu secara sekuensial di thread request.
+ *
+ * <h2>Pola paralelisasi</h2>
+ * <p>
+ * Kedua method utama memakai pola yang identik: untuk setiap unit kerja (satu diskusi atau satu
+ * pertemuan), sebuah {@link Runnable} disebar ke {@link ExecutorService} berukuran tetap yang
+ * dibuat lewat {@link Executors#newFixedThreadPool(int)}, dengan jumlah thread dibatasi oleh
+ * {@link DbThreadPool#safe(int)} — bukan sekadar dibatasi jumlah unit kerja, karena pekerjaan ini
+ * DB-bound (setiap worker membuka koneksi Hibernate sendiri) dan pool koneksi database harus
+ * disisakan untuk request web normal lainnya. Penyelesaian seluruh worker ditunggu lewat
+ * {@link CountDownLatch} dengan batas waktu 30 detik; bila timeout terlampaui, executor
+ * dimatikan paksa ({@code shutdownNow()}) dan hasil yang sudah terkumpul sejauh itu tetap
+ * dikembalikan (partial result), bukan melempar exception. Hasil tiap worker ditulis ke
+ * {@link ConcurrentSkipListMap} (aman diakses banyak thread sekaligus, otomatis terurut
+ * berdasarkan kunci) sebelum akhirnya disalin ke {@link TreeMap} hasil akhir secara sekuensial
+ * di thread pemanggil.
+ * </p>
+ * <p>
+ * Logging debug ke konsol seluruhnya dikendalikan lewat saklar konstan {@link #DEBUG_MODE}
+ * (bernilai {@code false} secara default) — bukan dibaca dari konfigurasi runtime, sehingga untuk
+ * mengaktifkan log debug perlu mengubah nilai konstanta ini dan build ulang.
+ * </p>
+ */
 public class MateriDanKomentarHelper {
 
-	// Switch untuk menghidupkan/mematikan log debug di console
+	/** Saklar kompilasi untuk menghidupkan/mematikan log debug progres paralel ke konsol. */
 	private static final boolean DEBUG_MODE = false;
 
 	// =========================================================================================
 	// 1. METODE AMBIL KOMENTAR / DISKUSI (PARALEL TERBATAS SESUAI POOL DB)
 	// =========================================================================================
 
+	/**
+	 * Mengumpulkan seluruh komentar/diskusi ({@link PertemuanPunyaDiskusi}) dari kumpulan
+	 * {@code pertemuans} yang diberikan, difilter berdasarkan peran penulis komentar (dosen,
+	 * mahasiswa, guru, siswa, admin) dan opsional kata kunci pencarian, lalu mengembalikannya
+	 * sebagai peta terurut berdasarkan kunci gabungan tanggal-perubahan + id diskusi.
+	 *
+	 * <p>
+	 * Alur kerja: (1) mengambil seluruh id {@link PertemuanPunyaDiskusi} yang menjadi milik
+	 * kumpulan {@code pertemuans} lewat {@link Pertemuan#ambilPertemuanPunyaDiskusiTotalSemua};
+	 * (2) untuk tiap id, di thread worker terpisah, memuat entity diskusi lewat
+	 * {@link GeneralValueObject#ambilData}, membuangnya bila penulisnya tidak termasuk peran
+	 * yang diizinkan ({@code dosenBol}/{@code mahasiswaBol}/{@code guruBol}/{@code siswaBol}/
+	 * {@code adminBol}), lalu (bila {@code cari} tidak kosong) membuang juga hasil yang isi
+	 * komentar maupun identitas penulisnya (NIM/nama/NIDN/kode/username) tidak memuat kata
+	 * kunci pencarian (case-insensitive); (3) diskusi yang lolos filter dimasukkan ke peta hasil
+	 * dengan kunci {@code "<tanggal_dirubah formatted>_diskusi_<id>"} sehingga hasil akhir
+	 * otomatis terurut berdasarkan waktu perubahan terbaru.
+	 * </p>
+	 *
+	 * <p>
+	 * Nilai setiap entri hasil berupa {@code Object[]} beranggotakan
+	 * {@code {idDiskusi, idPertemuan, tanggalDirubah}} — bukan entity {@link
+	 * PertemuanPunyaDiskusi} penuh, agar pemanggil dapat memuat ulang entity sesuai kebutuhan
+	 * tampilan tanpa menahan referensi objek besar di memori selama proses paralel berlangsung.
+	 * </p>
+	 *
+	 * @param pertemuans   peta nama pertemuan ke id-nya, sumber data yang akan diproses; bila
+	 *                     {@code null}/kosong, method mengembalikan peta kosong tanpa memproses
+	 * @param refresh      diteruskan tanpa dipakai langsung di method ini (dipertahankan untuk
+	 *                     kesamaan tanda tangan/pola dengan {@link #ambilMateri}); pengambilan
+	 *                     total diskusi selalu memakai {@code false} pada pemanggilan
+	 *                     {@link Pertemuan#ambilPertemuanPunyaDiskusiTotalSemua}
+	 * @param dosenBol     sertakan komentar yang ditulis dosen bila {@code true}
+	 * @param mahasiswaBol sertakan komentar yang ditulis mahasiswa bila {@code true}
+	 * @param guruBol      sertakan komentar yang ditulis guru bila {@code true}
+	 * @param siswaBol     sertakan komentar yang ditulis siswa bila {@code true}
+	 * @param adminBol     sertakan komentar yang ditulis admin/{@link Tbmuser} generik (bukan
+	 *                     dosen/mahasiswa) bila {@code true}
+	 * @param cari         kata kunci pencarian bebas (dicocokkan ke isi komentar dan identitas
+	 *                     penulis, case-insensitive); {@code null}/kosong berarti tanpa filter
+	 * @param label        komponen ZK {@link Label} yang diteruskan ke
+	 *                     {@link Pertemuan#ambilPertemuanPunyaDiskusiTotalSemua} (biasanya untuk
+	 *                     keperluan progres/UI di lapisan pemanggil)
+	 * @return peta hasil terurut kunci {@code "tanggal_diskusi_id"} ke {@code Object[]}
+	 *         {@code {idDiskusi, idPertemuan, tanggalDirubah}}; tidak pernah {@code null}, boleh
+	 *         kosong. Bila proses paralel melebihi batas waktu 30 detik, hasil yang dikembalikan
+	 *         adalah hasil parsial dari worker yang sempat selesai
+	 */
 	public static TreeMap<String, Object[]> ambilKomentar(final TreeMap<String, Long> pertemuans, final boolean refresh,
 			final boolean dosenBol, final boolean mahasiswaBol, final boolean guruBol, final boolean siswaBol,
 			final boolean adminBol, final String cari, final Label label) {
@@ -169,6 +245,14 @@ public class MateriDanKomentarHelper {
 		return finalResult;
 	}
 
+	/**
+	 * Menambahkan {@code text} (setelah di-trim) ke {@code sb} diikuti satu spasi, hanya bila
+	 * {@code text} tidak {@code null}/kosong. Dipakai untuk membangun teks gabungan yang dicari
+	 * kata kuncinya di {@link #ambilKomentar}, aman terhadap field yang bernilai {@code null}.
+	 *
+	 * @param sb   buffer tujuan, dimodifikasi di tempat
+	 * @param text teks yang akan ditambahkan; diabaikan bila kosong/{@code null}
+	 */
 	private static void appendSafe(StringBuilder sb, String text) {
 		if (text != null && !text.trim().isEmpty()) {
 			sb.append(text.trim()).append(" ");
@@ -179,11 +263,65 @@ public class MateriDanKomentarHelper {
 	// 2. METODE AMBIL MATERI E-LEARNING (PARALEL TERBATAS SESUAI POOL DB)
 	// =========================================================================================
 
+	/**
+	 * Varian ringkas {@link #ambilMateri(TreeMap, boolean, Label, boolean, Tbmuser)} dengan
+	 * {@code urutBerdasarkanNama=false} — hasil diurutkan murni berdasarkan tanggal/waktu konten
+	 * (perilaku default untuk tampilan kronologis).
+	 */
 	public static TreeMap<String, Object[]> ambilMateri(TreeMap<String, Long> pertemuans, boolean refresh, Label label,
 			Tbmuser tbmuser) {
 		return ambilMateri(pertemuans, refresh, label, false, tbmuser);
 	}
 
+	/**
+	 * Implementasi kanonik: mengumpulkan SELURUH jenis konten pembelajaran dari kumpulan
+	 * {@code pertemuans} yang diberikan — materi berkas ({@link PertemuanFileContent}), audio
+	 * ({@link AudioPertemuan}), video ({@link VideoPertemuan}), tugas langsung pada pertemuan
+	 * (field {@code judultugas}), tugas relasi ({@link Tugas}), dan ujian
+	 * ({@link PertemuanPunyaUjian}) — ke dalam satu peta hasil gabungan terurut, memakai pola
+	 * paralelisasi yang sama seperti dijelaskan pada javadoc kelas ini (satu worker per
+	 * {@link Pertemuan}, dibatasi {@link DbThreadPool#safe(int)} thread, timeout 30 detik).
+	 *
+	 * <p>
+	 * Bila {@code refresh} bernilai {@code true}, cache anak-data milik {@link Pertemuan}
+	 * (kunci {@code pertemuan_file_content}, {@code audio_pertemuan}, {@code video_pertemuan},
+	 * {@code pertemuan_tugas}, {@code kelompok_tugas}, {@code pertemuan_punya_Ujian}) dibatalkan
+	 * lebih dulu lewat {@code pertemuan.belum(...)} SEBELUM data diambil. Ini sengaja dilakukan
+	 * karena tidak semua alur simpan konten (mis. simpan TUGAS) menginvalidasi cache terkait
+	 * secara otomatis — tanpa langkah ini, konten yang baru saja ditambahkan pengguna bisa jadi
+	 * tidak langsung muncul di ringkasan sampai cache kedaluwarsa dengan sendirinya. Kegagalan
+	 * saat membatalkan cache diabaikan (dicatat ke {@link ErrorAuditUtil}, tidak menghentikan
+	 * pengambilan data) agar satu invalidasi cache yang gagal tidak menggagalkan seluruh proses.
+	 * </p>
+	 *
+	 * <p>
+	 * Setiap jenis konten mendapat kunci unik dengan pola
+	 * {@code "<baseKey>_<jenis>_<id>"} (jenis: {@code materi}, {@code audio}, {@code video},
+	 * {@code tugas_pertemuan}, {@code tugas}, {@code ujian}), dengan {@code baseKey} berupa
+	 * gabungan (opsional) nomor urut/judul pertemuan dan tanggal yang diformat — bila
+	 * {@code urutBerdasarkanNama=true}, urutan tampilan mengutamakan nama/urutan pertemuan
+	 * sebelum tanggal; bila {@code false}, urutan murni berdasarkan tanggal. Nilai setiap entri
+	 * berupa {@code Object[]} beranggotakan {@code {entitasKonten, pertemuanInduk, tanggalKunci}}.
+	 * </p>
+	 *
+	 * @param pertemuans          peta nama pertemuan ke id-nya, sumber data yang akan diproses;
+	 *                            bila {@code null}/kosong, mengembalikan peta kosong
+	 * @param refresh             bila {@code true}, batalkan cache anak-data pertemuan sebelum
+	 *                            mengambil ulang konten dari database (lihat penjelasan di atas)
+	 * @param label               komponen ZK {@link Label} diteruskan apa adanya tanpa dipakai
+	 *                            langsung di method ini (dipertahankan untuk kesamaan tanda
+	 *                            tangan dengan {@link #ambilKomentar})
+	 * @param urutBerdasarkanNama bila {@code true}, kunci pengurutan diawali nomor urut/judul
+	 *                            pertemuan sebelum tanggal; bila {@code false}, murni berdasarkan
+	 *                            tanggal
+	 * @param tbmuser             pengguna aktif, diteruskan ke
+	 *                            {@link Pertemuan#ambilPertemuanPunyaUjianTotal(Tbmuser)} untuk
+	 *                            menentukan cakupan ujian yang boleh dilihat pengguna tersebut
+	 * @return peta hasil terurut kunci gabungan ke {@code Object[]}
+	 *         {@code {entitasKonten, pertemuanInduk, tanggalKunci}}; tidak pernah {@code null},
+	 *         boleh kosong. Sama seperti {@link #ambilKomentar}, hasil dapat berupa hasil
+	 *         parsial bila batas waktu 30 detik terlampaui
+	 */
 	public static TreeMap<String, Object[]> ambilMateri(final TreeMap<String, Long> pertemuans, final boolean refresh,
 			final Label label, final boolean urutBerdasarkanNama, final Tbmuser tbmuser) {
 

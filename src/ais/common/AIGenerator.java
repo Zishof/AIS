@@ -33,8 +33,96 @@ import ais.ui.util.MyLabelBold;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Kelas utilitas ZK yang membangun {@link EventListener} generik untuk fitur
+ * "<b>Generate dengan AI</b>" yang dipasang di berbagai layar AIS (mis. tombol
+ * "Generate pengumuman", "Generate deskripsi", dsb. — lihat pemanggil-pemanggilnya). Satu-satunya
+ * pintu masuk publik, {@link #generateApa}, mengembalikan sebuah {@link EventListener} siap-pakai
+ * yang, saat dipicu (klik tombol), menampilkan dialog input teks (opsional), mengirim permintaan
+ * ke layanan AI generatif, dan menampilkan hasilnya secara <i>streaming</i> pada popup progres
+ * sebelum menyerahkan hasil akhir ke {@link ais.ui.util.MyCkEditor} dan/atau ke listener callback
+ * pemanggil.
+ *
+ * <h2>Dua penyedia AI</h2>
+ * <p>
+ * Model AI yang dipakai ditentukan oleh saklar konfigurasi {@code ai_menggunakan_gemini}
+ * (default: TIDAK AKTIF):
+ * </p>
+ * <ul>
+ * <li><b>Gemini (Google Generative AI)</b> — dipakai bila saklar tersebut AKTIF. Permintaan
+ * dibangun dari templat prompt few-shot yang dapat dikonfigurasi per {@code labelPengumuman} lewat
+ * kunci {@code ai_chatbot_model_gemini_<labelPengumuman>} (placeholder seperti
+ * {@code BANTUAN_APA_SAJA}, {@code TANYA_APA_SAJA}, {@code MENGAJAR_APA_SAJA},
+ * {@code UNIVERSITAS_APA_SAJA} disubstitusi sebelum dikirim), dikirim non-streaming lewat
+ * {@code curl} ke endpoint {@code generativelanguage.googleapis.com}, dan hasilnya diambil sekali
+ * dari field {@code candidates[0].content.parts[0].text} pada respons JSON.</li>
+ * <li><b>Ollama (server model lokal/self-hosted)</b> — dipakai sebagai default. Permintaan
+ * dikirim ke {@code <ollama_url>/api/chat} dengan {@code stream=true}, dan {@code curl} membaca
+ * responsnya baris-per-baris (setiap baris adalah satu potongan JSON NDJSON) sehingga teks hasil
+ * tersusun bertahap (streaming) dan dapat ditampilkan progresif ke pengguna. Sejumlah parameter
+ * performa (jumlah token maksimum {@code ollama_num_predict}, ukuran konteks {@code ollama_num_ctx},
+ * jumlah thread {@code ollama_num_thread}) dapat dikonfigurasi; kegagalan yang dianggap sementara
+ * (server sibuk/model sedang dimuat/timeout) memicu retry otomatis dengan backoff linear
+ * ({@code 1500ms * percobaan}), sedangkan kegagalan lain diserahkan ke {@link EventListener}
+ * bawaan yang juga men-<i>trigger</i> retry lewat rekursi {@code ambilPesan}.</li>
+ * </ul>
+ *
+ * <h2 style="color:red">PERINGATAN KEAMANAN — kredensial/endpoint tertanam di kode</h2>
+ * <p>
+ * Nilai default pada {@code Common.getKonfigurasi("ai_chatbot_api_key_gemini", "AIzaSy...")}
+ * (di dalam method privat {@code ambilPesan} pada listener yang dibangun {@link #generateApa})
+ * menyertakan API key Google Gemini secara literal di kode sumber sebagai fallback bila
+ * konfigurasi belum diisi di database. Selain itu, URL server Ollama juga tertanam sebagai nilai
+ * default literal: {@code Common.getKonfigurasi("ollama_url", "http://38.47.182.162:11434")} —
+ * ini adalah alamat IP publik server AI internal, bukan rahasia otentikasi, namun tetap mengekspos
+ * topologi infrastruktur. Sesuai instruksi tugas dokumentasi ini, nilai-nilai tersebut TIDAK
+ * diubah/dihapus — dilaporkan pada ringkasan akhir pekerjaan dokumentasi agar dapat
+ * ditindaklanjuti (idealnya API key dipindahkan ke konfigurasi rahasia dan dirotasi karena sudah
+ * pernah terekspos di riwayat source control).
+ * </p>
+ *
+ * <h2>Struktur UI yang dibangun</h2>
+ * <p>
+ * Bila {@code tanyaLangsung=false}, listener yang dikembalikan pertama-tama menampilkan jendela
+ * modal berisi textbox permintaan pengguna (label {@code labelTentang}) dengan tombol "Lanjut" —
+ * baru setelah pengguna menekan tombol tersebut, proses AI (di atas) sesungguhnya dijalankan pada
+ * thread terpisah. Selama proses berjalan, popup progres bergaya (judul "🪄 ... sedang diproses
+ * AI", progress meter, area teks streaming) diperbarui setiap 700ms lewat {@link Timer} ZK yang
+ * membaca counter token yang sudah diterima ({@code jmlToken}, sebuah
+ * {@link java.util.concurrent.atomic.AtomicInteger}) untuk mengestimasi persentase kemajuan
+ * relatif terhadap target token ({@code ollama_num_predict}). Popup ditutup otomatis begitu
+ * proses AI selesai (ditandai label progres kosong), lalu {@code listenerSetelahSelesaiOk}
+ * dipanggil dan (bila diberikan) {@link ais.ui.util.MyCkEditor#setValue(String)} diisi dengan
+ * hasil yang sudah diberi format bold sederhana lewat {@code ais.action.servlet.Wa#ubahKeBold}.
+ * </p>
+ *
+ * <p>
+ * Kelas ini murni kumpulan method statis — tidak ada state instans maupun konstruktor privat
+ * eksplisit (Java menyediakan konstruktor publik default).
+ * </p>
+ */
 public class AIGenerator {
 
+	/**
+	 * Varian ringkas {@link #generateApa(String, String, Textbox, String, boolean, String,
+	 * String, MyCkEditor, EventListener, String, EventListener)} tanpa textbox sumber teks
+	 * tambahan ({@code tentangText=null}) — dipakai saat konteks pertanyaan ke AI sepenuhnya
+	 * berasal dari label/parameter statis, bukan dari isi field lain pada layar.
+	 *
+	 * @param labelPengumuman     nama fitur/objek yang di-generate (tampil di judul popup progres
+	 *                            dan pesan galat)
+	 * @param labelTentang        label pertanyaan pada dialog input (bila {@code tanyaLangsung=false})
+	 * @param tanyaLabel          awalan kalimat pertanyaan yang dikirim ke AI
+	 * @param tanyaLangsung       {@code true} bila proses AI langsung dijalankan tanpa menampilkan
+	 *                            dialog input terlebih dahulu
+	 * @param tanyaAkhiran        akhiran kalimat pertanyaan yang dikirim ke AI
+	 * @param konfigurasiSystem   pesan/peran sistem yang dikirim ke model (jalur Ollama)
+	 * @param myCkEditor          editor kaya-teks yang diisi hasil generate, boleh {@code null}
+	 * @param listenerSetelahSelesai dipanggil setelah hasil akhir tersedia
+	 * @param tanyaMengajar       nilai substitusi placeholder {@code MENGAJAR_APA_SAJA} (jalur Gemini)
+	 * @param listenerProses      dipanggil berkala (tiap tick timer) selama proses streaming berjalan
+	 * @return {@link EventListener} siap dipasang pada komponen ZK (mis. tombol) untuk memicu alur generate
+	 */
 	public static EventListener generateApa(String labelPengumuman, String labelTentang, String tanyaLabel,
 			boolean tanyaLangsung, String tanyaAkhiran, String konfigurasiSystem, MyCkEditor myCkEditor,
 			EventListener listenerSetelahSelesai, String tanyaMengajar, EventListener listenerProses) {
@@ -42,6 +130,41 @@ public class AIGenerator {
 				konfigurasiSystem, myCkEditor, listenerSetelahSelesai, tanyaMengajar, listenerProses);
 	}
 
+	/**
+	 * Implementasi kanonik: membangun dan mengembalikan {@link EventListener} yang menjalankan
+	 * seluruh alur "Generate dengan AI" (dialog input opsional, pemanggilan Gemini/Ollama, popup
+	 * progres streaming, penyaluran hasil ke {@link ais.ui.util.MyCkEditor} dan listener callback).
+	 * Lihat Javadoc kelas untuk penjelasan mendalam mengenai kedua penyedia AI, struktur UI yang
+	 * dibangun, dan peringatan keamanan terkait kredensial/endpoint tertanam.
+	 *
+	 * @param labelPengumuman        nama fitur/objek yang di-generate; dipakai pada judul popup
+	 *                               progres, kunci konfigurasi templat Gemini
+	 *                               ({@code ai_chatbot_model_gemini_<labelPengumuman>}), dan pesan galat
+	 * @param labelTentang           label pertanyaan pada dialog input (bila {@code tanyaLangsung=false}
+	 *                               dan {@code tentangText=null})
+	 * @param tentangText            textbox sumber konteks tambahan pada layar pemanggil; bila
+	 *                               tidak {@code null} dan berisi nilai, dipakai sebagai pengganti
+	 *                               {@code labelTentang}/{@code tanyaLabel} saat menyusun pertanyaan
+	 * @param tanyaLabel             awalan kalimat pertanyaan yang dikirim ke AI
+	 * @param tanyaLangsung          {@code true} bila proses AI langsung dijalankan tanpa dialog
+	 *                               input pengguna terlebih dahulu (memakai {@code tanyaAkhiran}
+	 *                               langsung sebagai pertanyaan)
+	 * @param tanyaAkhiran           akhiran kalimat pertanyaan yang dikirim ke AI
+	 * @param konfigurasiSystem      pesan/peran sistem yang dikirim ke model pada jalur Ollama,
+	 *                               digabung dengan nama institusi (sekolah/perguruan tinggi) saat ini
+	 * @param myCkEditor             editor kaya-teks yang diisi progresif selama streaming dan hasil
+	 *                               akhirnya, boleh {@code null} bila tidak diperlukan
+	 * @param listenerSetelahSelesaiOk dipanggil setelah popup progres ditutup dan hasil akhir
+	 *                               tersedia; menerima {@link Event} dengan {@code getData()} berisi
+	 *                               teks hasil generate
+	 * @param tanyaMengajar          nilai substitusi placeholder {@code MENGAJAR_APA_SAJA} pada
+	 *                               templat prompt Gemini
+	 * @param listenerProses         dipanggil pada setiap tick {@link Timer} progres (~700ms)
+	 *                               selama proses berjalan, menerima {@link Event} berisi teks
+	 *                               parsial yang sudah diterima sejauh ini
+	 * @return {@link EventListener} siap dipasang pada komponen ZK (mis. {@code onClick} tombol)
+	 *         untuk memicu seluruh alur generate AI
+	 */
 	public static EventListener generateApa(final String labelPengumuman, final String labelTentang,
 			final Textbox tentangText, final String tanyaLabel, final boolean tanyaLangsung, final String tanyaAkhiran,
 			final String konfigurasiSystem, final MyCkEditor myCkEditor, final EventListener listenerSetelahSelesaiOk,
@@ -58,6 +181,21 @@ public class AIGenerator {
 					private final java.util.concurrent.atomic.AtomicInteger jmlToken = new java.util.concurrent.atomic.AtomicInteger(
 							0);
 
+					/**
+					 * Mengirim satu permintaan ke penyedia AI aktif (Gemini atau Ollama, lihat Javadoc
+					 * kelas {@link AIGenerator}) dan menulis hasilnya ke {@code data}/{@code label}.
+					 * Bersifat rekursif: dipanggil ulang dengan {@code coba+1} saat terjadi kegagalan
+					 * yang dianggap dapat dipulihkan (jalur Ollama: exception umum atau error sementara
+					 * seperti server sibuk), dengan {@code coba > 5} sebagai batas maksimum percobaan —
+					 * setelah itu, pesan kegagalan ditulis ke {@code error} dan proses dihentikan.
+					 *
+					 * @param coba  nomor percobaan saat ini (dimulai dari 0)
+					 * @param label komponen label progres; dikosongkan saat percobaan ini selesai
+					 *              (menjadi penanda "selesai" bagi timer progres UI)
+					 * @param data  komponen tempat teks hasil (parsial maupun akhir) ditulis
+					 * @param error komponen tempat pesan galat ditulis bila seluruh percobaan gagal
+					 * @throws Exception diteruskan dari kegagalan yang tidak tertangani secara internal
+					 */
 					private void ambilPesan(int coba, Label label, Textbox data, Textbox error) throws Exception {
 
 						if (coba > 5) {

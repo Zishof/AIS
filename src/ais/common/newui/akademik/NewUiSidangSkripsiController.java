@@ -40,8 +40,25 @@ public final class NewUiSidangSkripsiController {
 
     private NewUiSidangSkripsiController() { }
 
+    /** Pengajuan sidang skripsi/munaqosah (entity {@link Skripsi}). */
+    public static final String JENIS_SIDANG = "sidang";
+    /**
+     * Pengajuan proposal tugas akhir (entity
+     * {@code MahasiswaRequestTugasAkhir}), menu kata kunci
+     * <code>proposal_sidang_atau_munaqosah</code> yang dipetakan
+     * {@code CommonUiFactoryHelper.tampilkanTugasAkhir()}. Baris berstatus
+     * GAGAL dilewati, persis seperti layar ZK.
+     */
+    public static final String JENIS_PROPOSAL = "proposal";
+
+    /** Kompatibilitas: pemanggil lama tanpa jenis dianggap pengajuan sidang. */
     public static void handle(HttpServletRequest request, HttpServletResponse response, String pageKey)
             throws Exception {
+        handle(request, response, JENIS_SIDANG, pageKey);
+    }
+
+    public static void handle(HttpServletRequest request, HttpServletResponse response,
+            String jenis, String pageKey) throws Exception {
         response.setContentType("application/json; charset=UTF-8");
         response.setHeader("Cache-Control", "no-store");
         JSONObject json = new JSONObject();
@@ -55,9 +72,14 @@ public final class NewUiSidangSkripsiController {
             Mahasiswa mahasiswa = user.getMahasiswa();
             if (mahasiswa == null) throw new SecurityException("Anda harus login sebagai mahasiswa.");
 
-            if ("meta".equals(action)) meta(json, mahasiswa);
-            else if ("list".equals(action) || "get".equals(action)) pengajuan(json, mahasiswa);
-            else throw new IllegalArgumentException("Aksi tidak dikenal.");
+            if (!JENIS_SIDANG.equals(jenis) && !JENIS_PROPOSAL.equals(jenis)) {
+                throw new IllegalArgumentException("Jenis pengajuan tidak dikenal.");
+            }
+            if ("meta".equals(action)) meta(json, mahasiswa, jenis);
+            else if ("list".equals(action) || "get".equals(action)) {
+                if (JENIS_PROPOSAL.equals(jenis)) proposal(json, mahasiswa);
+                else pengajuan(json, mahasiswa);
+            } else throw new IllegalArgumentException("Aksi tidak dikenal.");
             json.put("ok", true);
         } catch (SecurityException e) { response.setStatus(403); fail(json, "FORBIDDEN", e.getMessage()); }
         catch (IllegalArgumentException e) { response.setStatus(422); fail(json, "VALIDATION_FAILED", e.getMessage()); }
@@ -69,12 +91,46 @@ public final class NewUiSidangSkripsiController {
         write(response, json);
     }
 
-    private static void meta(JSONObject j, Mahasiswa mahasiswa) throws Exception {
+    private static void meta(JSONObject j, Mahasiswa mahasiswa, String jenis) throws Exception {
         j.put("nim", nz(mahasiswa.getNim()));
         j.put("nama", nz(mahasiswa.getNama()));
+        j.put("jenis", jenis);
+        j.put("judul", JENIS_PROPOSAL.equals(jenis)
+                ? "Pengajuan Proposal Tugas Akhir" : "Pengajuan Sidang Skripsi/Tugas Akhir");
         // Pendaftaran belum tersedia native; klien tidak boleh menampilkan
         // tombol daftar agar tidak menjanjikan proses yang belum ada.
         j.put("bolehDaftar", false);
+    }
+
+    /**
+     * Pengajuan proposal tugas akhir milik mahasiswa aktif. Baris berstatus
+     * {@code GAGAL_STATUS} dilewati — layar ZK pun menganggapnya bukan
+     * pengajuan yang berlaku, sehingga mahasiswa dapat mengajukan ulang.
+     */
+    private static void proposal(JSONObject j, Mahasiswa mahasiswa) throws Exception {
+        Session s = HibernateUtil.openSession();
+        try {
+            ais.database.model.MahasiswaRequestTugasAkhir permintaan =
+                    (ais.database.model.MahasiswaRequestTugasAkhir) s
+                            .createCriteria(ais.database.model.MahasiswaRequestTugasAkhir.class)
+                            .add(Restrictions.ne("status",
+                                    ais.database.model.MahasiswaRequestTugasAkhir.GAGAL_STATUS))
+                            .add(Restrictions.eq("mahasiswa", mahasiswa))
+                            .setMaxResults(1).uniqueResult();
+            if (permintaan == null) {
+                j.put("terdaftar", false);
+                j.put("pesan", "Belum ada pengajuan proposal untuk mahasiswa ini.");
+                return;
+            }
+            j.put("terdaftar", true);
+            j.put("id", permintaan.getId());
+            j.put("judul", nz(permintaan.getNama()));
+            j.put("jenisPengajuan", nz(permintaan.getJenis()));
+            j.put("semester", permintaan.getSemester() == null ? JSONObject.NULL : permintaan.getSemester());
+            j.put("tahunAkademik", nz(permintaan.getTahunAkademik()));
+            j.put("status", nz(permintaan.getStatus()));
+            j.put("keterangan", nz(permintaan.getKeterangan()));
+        } finally { s.close(); }
     }
 
     /**

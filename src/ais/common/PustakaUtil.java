@@ -14,8 +14,67 @@ import ais.database.model.Mahasiswa;
 import ais.database.model.library.PeminjamanPengadaanItemDetail;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Utilitas statis modul perpustakaan (pustaka) AIS yang menegakkan kebijakan penguncian akses
+ * login mahasiswa berdasarkan keterlambatan pengembalian pinjaman pustaka (buku maupun item
+ * pengadaan pustaka lain). Kelas ini merupakan bagian dari rangkaian pemeriksaan "boleh login
+ * atau tidak" yang dijalankan pada alur autentikasi mahasiswa, di mana institusi dapat memilih
+ * untuk memblokir mahasiswa masuk ke sistem selama mereka masih memiliki pinjaman pustaka yang
+ * terlambat dikembalikan melebihi ambang batas hari tertentu.
+ *
+ * <p>
+ * Perilaku kelas ini sepenuhnya digerbangi oleh dua konfigurasi ({@link Konfigurasi}) yang dapat
+ * diatur institusi:
+ * </p>
+ * <ul>
+ * <li>{@code apakah_mahasiswa_tidak_bisa_login_sebelum_mengembalikan_buku_perpustakaan_jika_terlambat_sebanyak_beberapa_hari}
+ * — saklar utama (default {@link Konfigurasi#TIDAK_AKTIF}); bila tidak aktif, seluruh pemeriksaan
+ * di kelas ini dilewati dan mahasiswa selalu dianggap boleh login (dari sisi pustaka).</li>
+ * <li>{@code jumlah_hari_mahasiswa_tidak_bisa_login_sebelum_mengembalikan_buku_perpustakaan_jika_terlambat}
+ * — ambang batas jumlah hari keterlambatan (default {@code "100"} hari) yang, bila terlampaui
+ * oleh salah satu pinjaman aktif mahasiswa, akan memblokir login.</li>
+ * </ul>
+ *
+ * <p>
+ * Bila saklar utama aktif, kelas ini menelusuri seluruh baris
+ * {@link PeminjamanPengadaanItemDetail} milik mahasiswa yang bersangkutan yang BELUM
+ * dikembalikan (kolom {@code kembaliPengadaanItemDetail} bernilai {@code null}), dan
+ * mengumpulkan pesan keterangan untuk setiap item yang jumlah hari keterlambatannya sudah
+ * mencapai atau melampaui ambang batas. Bila ada satu saja item yang melewati ambang, sebuah
+ * kotak pesan informasi ditampilkan kepada mahasiswa berisi rincian item/buku dan perpustakaan
+ * asalnya, dan mahasiswa dipaksa keluar (logoff) begitu kotak pesan tersebut ditutup — sehingga
+ * proses login dibatalkan secara efektif.
+ * </p>
+ */
 public class PustakaUtil {
 
+	/**
+	 * Memeriksa apakah seorang mahasiswa boleh melanjutkan proses login ditinjau dari kepatuhan
+	 * pengembalian pinjaman pustaka, sesuai kebijakan yang diatur lewat konfigurasi
+	 * {@code apakah_mahasiswa_tidak_bisa_login_sebelum_mengembalikan_buku_perpustakaan_jika_terlambat_sebanyak_beberapa_hari}
+	 * dan ambang hari keterlambatan
+	 * {@code jumlah_hari_mahasiswa_tidak_bisa_login_sebelum_mengembalikan_buku_perpustakaan_jika_terlambat}.
+	 *
+	 * <p>
+	 * Bila saklar konfigurasi tidak aktif, method langsung mengembalikan {@code true} tanpa
+	 * menyentuh database. Bila aktif, seluruh pinjaman aktif (belum dikembalikan) milik
+	 * {@code mahasiswa} diperiksa; bila ditemukan satu atau lebih pinjaman yang keterlambatannya
+	 * mencapai/melampaui ambang batas, ditampilkan kotak pesan informasi berisi rincian
+	 * keterlambatan dan mahasiswa dipaksa logoff (lewat {@link Common#goLogoff()}) saat kotak
+	 * pesan ditutup, kemudian method mengembalikan {@code false}.
+	 * </p>
+	 *
+	 * @param mahasiswa mahasiswa yang sedang mencoba login dan hendak diperiksa status pinjaman
+	 *                  pustakanya
+	 * @return {@code true} bila mahasiswa boleh melanjutkan login (tidak ada pinjaman terlambat
+	 *         melewati ambang, atau fitur ini tidak aktif); {@code false} bila mahasiswa memiliki
+	 *         pinjaman yang terlambat melewati ambang batas hari (login diblokir, kotak pesan
+	 *         sudah ditampilkan dan logoff sudah dijadwalkan)
+	 * @throws Exception diteruskan apa adanya dari kegagalan yang tidak tertangkap di jalur
+	 *                    pemrosesan (dalam praktiknya sebagian besar kegagalan Hibernate sudah
+	 *                    ditangkap secara internal dan dicatat lewat
+	 *                    {@link ais.common.ErrorAuditUtil#record(Throwable, String)})
+	 */
 	@SuppressWarnings("unchecked")
 	public static boolean checkPeminjamaBuku(Mahasiswa mahasiswa) throws Exception {
 		if (Common.bolehKonfigurasi("apakah_mahasiswa_tidak_bisa_login_sebelum_mengembalikan_buku_perpustakaan_jika_terlambat_sebanyak_beberapa_hari", Konfigurasi.TIDAK_AKTIF)) {

@@ -26,9 +26,86 @@ import ais.database.model.TugasKelompok;
 import ais.database.model.TugasPertemuan;
 import ais.database.model.file.TugasFileContent;
 
+/**
+ * Mesin kalkulasi dan penyimpanan nilai akhir mahasiswa untuk satu mata kuliah (satu
+ * {@link Perkuliahan}), dipakai oleh fitur "Web Grading" — antarmuka non-ZKoss (kemungkinan REST/
+ * servlet, mengingat nama "Web") bagi dosen untuk memicu perhitungan ulang nilai akhir. Kelas ini
+ * murni berisi logika database dan matematika (secara eksplisit dipisahkan dari komponen UI ZKoss
+ * sesuai komentar penulis aslinya), mendukung DUA rezim kurikulum yang berjalan berdampingan di
+ * AIS:
+ * <ul>
+ * <li><b>OBE (Outcome-Based Education)</b> — bobot komponen nilai (ujian, tugas per pertemuan,
+ * tugas kelompok) disimpan sebagai JSON per {@link FormatNilai} (kunci {@code
+ * formatNilaiId}/{@code formatNilaiId + "_bobot"}) pada masing-masing entitas komponen, sehingga
+ * satu komponen penilaian dapat berkontribusi ke banyak Sub-CPMK (Capaian Pembelajaran Mata
+ * Kuliah) sekaligus dengan bobot berbeda-beda per Sub-CPMK. Deteksi rezim OBE dilakukan per
+ * {@link Perkuliahan} lewat {@code kurikulum.apakahObe(tahunAjaran, ganjilGenap)}.</li>
+ * <li><b>Non-OBE (konvensional)</b> — setiap komponen penilaian terikat pada SATU
+ * {@link FormatNilai} lewat referensi langsung (bukan JSON multi-kunci), dan bobotnya diambil dari
+ * properti {@code prosentase} milik komponen itu sendiri.</li>
+ * </ul>
+ * <p>
+ * Kedua rezim ini ditangani oleh satu mesin kalkulasi yang sama ({@link
+ * #kalkulasiDanSimpanNilai(Perkuliahan, FormatNilai, Tbmuser)}), dengan percabangan {@code isObe}
+ * di setiap titik pengumpulan/kalkulasi bobot dan skor.
+ * </p>
+ *
+ * <h2>Alur kalkulasi nilai</h2>
+ * <ol>
+ * <li>Perkuliahan paralel digabung (bila perkuliahan ini "merupakan paralel" dari perkuliahan
+ * induk) sehingga komponen penilaian dari seluruh kelas paralel ikut dihitung sebagai satu
+ * kesatuan.</li>
+ * <li>Seluruh komponen penilaian yang cocok dengan {@link FormatNilai}/Sub-CPMK target
+ * dikumpulkan: ujian ({@link PertemuanPunyaUjian}), tugas per pertemuan ({@link Pertemuan}/
+ * {@link TugasPertemuan}), dan tugas kelompok ({@link TugasKelompok}).</li>
+ * <li>Total persentase bobot ({@code totalPersen}) dijumlahkan dari seluruh komponen yang
+ * terkumpul, sebagai penyebut normalisasi nilai akhir.</li>
+ * <li>Untuk setiap mahasiswa peserta ({@link Detailperkuliahan}): bobot komponen yang mahasiswa
+ * tersebut punya dispensasi tidak ikut (ditandai dalam string {@code mhsYgTidakIkut} berformat
+ * {@code ",id,id,..."} pada tiap komponen) dikeluarkan dari penyebut ({@code totalPersenTidakIkut}),
+ * lalu nilai tiap komponen yang diikuti dijumlahkan secara proporsional:
+ * {@code nilaiSemua += (skor * bobotKomponen) / (totalPersen - totalPersenTidakIkut)}. Untuk OBE,
+ * skor ujian dinormalisasi dulu ke skala 100 dari pasangan nilai/nilai-maksimum yang tersimpan
+ * dalam JSON {@code nilaiObe}.</li>
+ * <li>Nilai akhir disimpan ke {@link Detailperkuliahan} lewat {@code populateDetailNilai}, lalu
+ * total nilai dan huruf mutu final maupun "sementara" (nilai berjalan sebelum semua komponen
+ * lengkap) dihitung lewat {@code hitungTotalNilai}/{@code hitungTotalNilaiSementara} dan dipetakan
+ * ke huruf mutu lewat {@link Common#getNilaiHuruf}.</li>
+ * <li>Setiap 50 mahasiswa, session di-{@code flush()} dan {@code clear()} untuk mencegah
+ * penumpukan objek ter-cache Hibernate (mencegah OutOfMemory pada perkuliahan dengan peserta
+ * sangat banyak) — pola ini menunjukkan kelas ini dirancang untuk beroperasi pada volume data
+ * signifikan.</li>
+ * </ol>
+ *
+ * <p>
+ * Setiap pemanggilan membuka {@link Session} Hibernate baru dan terpisah dari session HTTP request
+ * yang sedang berjalan, lalu menarik ulang ("re-attach") entitas {@link Perkuliahan}/
+ * {@link FormatNilai} yang diterima dari pemanggil ke session baru tersebut — pola ini sengaja
+ * dipakai untuk mencegah {@code LazyInitializationException} saat mengakses koleksi anak
+ * (pertemuan, tugas, dsb.) milik entitas yang mungkin diterima dari session yang sudah tertutup.
+ * Perkuliahan yang sudah dikunci ({@code kul.getDikunci() != null}) menolak kalkulasi dengan
+ * melempar {@link Exception}.
+ * </p>
+ */
 public class WebGradingHelper {
 
-    // 1. Fungsi Sinkronisasi Utama untuk Kurikulum OBE
+    /**
+     * Titik masuk sinkronisasi nilai untuk kurikulum OBE: menerima payload JSON
+     * {@code formatNilaisData} berisi daftar id {@link FormatNilai} (Sub-CPMK) yang perlu dihitung
+     * ulang, lalu untuk setiap {@link FormatNilai} milik {@code perkuliahan} yang (a) memiliki
+     * {@code statusPertemuan} dan (b) id-nya muncul sebagai kunci pada JSON tersebut, memicu
+     * kalkulasi lewat {@link #kalkulasiDanSimpanNilai(Perkuliahan, FormatNilai, Tbmuser)} secara
+     * berurutan satu per satu Sub-CPMK.
+     *
+     * @param perkuliahan      perkuliahan (mata kuliah pada satu kelas) yang nilainya disinkronkan
+     * @param formatNilaisData JSON yang kuncinya adalah id {@link FormatNilai} yang diminta untuk
+     *                         dihitung ulang (nilai pada tiap kunci tidak dipakai, hanya keberadaan
+     *                         kunci yang diperiksa lewat {@code isNull})
+     * @param tbmuser          pengguna yang memicu sinkronisasi, diteruskan untuk pencatatan
+     *                         audit/histori perubahan nilai
+     * @throws Exception diteruskan dari {@link #kalkulasiDanSimpanNilai}, termasuk bila perkuliahan
+     *                    sudah terkunci untuk penilaian
+     */
     public static void sinkronObe(Perkuliahan perkuliahan, String formatNilaisData, Tbmuser tbmuser) throws Exception {
         Session session = null;
         try {
@@ -49,12 +126,43 @@ public class WebGradingHelper {
         }
     }
 
-    // 2. Fungsi Sinkronisasi Utama untuk Kurikulum Non-OBE
+    /**
+     * Titik masuk sinkronisasi nilai untuk kurikulum non-OBE: berbeda dari {@link
+     * #sinkronObe(Perkuliahan, String, Tbmuser)}, method ini menerima langsung SATU objek
+     * {@link FormatNilai} target (bukan JSON berisi banyak id) karena pada kurikulum non-OBE setiap
+     * permintaan sinkronisasi selalu untuk satu kolom nilai tunggal. Hanya meneruskan pemanggilan ke
+     * {@link #kalkulasiDanSimpanNilai(Perkuliahan, FormatNilai, Tbmuser)} tanpa logika tambahan.
+     *
+     * @param perkuliahan perkuliahan (mata kuliah pada satu kelas) yang nilainya disinkronkan
+     * @param fn          format nilai/kolom nilai target yang akan dihitung ulang
+     * @param tbmuser     pengguna yang memicu sinkronisasi, diteruskan untuk audit
+     * @throws Exception diteruskan dari {@link #kalkulasiDanSimpanNilai}
+     */
     public static void sinkronNonObe(Perkuliahan perkuliahan, FormatNilai fn, Tbmuser tbmuser) throws Exception {
         kalkulasiDanSimpanNilai(perkuliahan, fn, tbmuser);
     }
 
-    // 3. Mesin Kalkulasi Inti (Murni Logika Database & Matematika, Tanpa UI ZKoss)
+    /**
+     * Mesin kalkulasi inti — satu-satunya tempat yang benar-benar menghitung dan menyimpan nilai
+     * akhir mahasiswa untuk satu {@link FormatNilai}/Sub-CPMK pada satu {@link Perkuliahan} (beserta
+     * kelas paralelnya). Dipanggil oleh {@link #sinkronObe} maupun {@link #sinkronNonObe}; murni
+     * logika database dan matematika tanpa dependensi komponen UI ZKoss. Lihat javadoc kelas
+     * {@link WebGradingHelper} untuk uraian lengkap alur kalkulasi (pengumpulan komponen penilaian,
+     * normalisasi bobot, dispensasi tidak-ikut, penyimpanan nilai akhir dan sementara, serta
+     * batching flush Hibernate).
+     *
+     * @param kulParam perkuliahan target (akan ditarik ulang/"re-attach" ke session baru di dalam
+     *                 method ini agar koleksi anaknya dapat diakses tanpa
+     *                 {@code LazyInitializationException})
+     * @param fnParam  format nilai/Sub-CPMK target yang dihitung ulang (juga ditarik ulang ke
+     *                 session baru)
+     * @param tbmuser  pengguna yang memicu kalkulasi, diteruskan ke {@code populateDetailNilai}
+     *                 untuk pencatatan audit/histori
+     * @throws Exception bila {@code kulParam}/{@code fnParam} tidak valid setelah re-attach, bila
+     *                    perkuliahan sudah terkunci untuk penilaian ({@code kul.getDikunci() !=
+     *                    null}), atau bila terjadi kegagalan database di tengah proses (transaksi
+     *                    akan di-rollback lebih dulu sebelum exception diteruskan)
+     */
     @SuppressWarnings("unchecked")
     private static void kalkulasiDanSimpanNilai(Perkuliahan kulParam, FormatNilai fnParam, Tbmuser tbmuser) throws Exception {
         if (fnParam == null || kulParam == null) return;

@@ -37,13 +37,123 @@ import ais.action.master.surat.util.SuratUtil;
 import ais.common.Common;
 import ais.database.model.file.LampiranLain;
 
+/**
+ * Kumpulan utilitas statis (grab-bag, tidak menyimpan state instance) yang dipakai layar-layar
+ * eCampus AIS untuk menghasilkan dan menata keluaran berbentuk spreadsheet Excel (XLSX). Kelas ini
+ * menjembatani dua dunia komponen spreadsheet yang dipakai aplikasi:
+ * <ol>
+ * <li><b>{@link org.zkoss.zss.ui.Spreadsheet}</b> — komponen ZK Spreadsheet (ZSS) yang menampilkan
+ * berkas XLSX langsung di dalam halaman ZUL. Method {@link #tampilkan(List, Spreadsheet)} dan
+ * {@link #tampilkan(List, Spreadsheet, boolean)} membangun berkas XLSX dari nol memakai API POI
+ * hasil fork ZK ({@code org.zkoss.poi.*}) lalu menempelkannya ke komponen ini lewat
+ * {@code setSrc(...)}.</li>
+ * <li><b>{@link org.zkoss.zss.model.Worksheet}</b> — model data sheet ZSS yang biasanya sudah
+ * terikat ke komponen {@code Spreadsheet} yang sedang ditampilkan di layar (mis. sheet rekap yang
+ * diisi sel demi sel oleh kode pemanggil, bukan dibangun dari {@code List<List>} sekaligus). Seluruh
+ * method {@code setCellValue}/{@code setCellValueBold}/{@code setBold}/{@code setBorder}/
+ * {@code mergeCells} beroperasi pada level ini, memakai helper {@link org.zkoss.zss.ui.impl.Utils}
+ * untuk mengambil-atau-membuat sel ({@code getOrCreateCell}) sebelum menata gaya (font, border,
+ * warna latar) dan mengisi nilainya.</li>
+ * </ol>
+ *
+ * <h2>Konvensi penataan yang dipakai berulang</h2>
+ * <p>
+ * Hampir seluruh method di kelas ini mengikuti satu konvensi visual yang sama, meniru gaya "laporan
+ * resmi" dengan header abu-abu tebal dan badan tabel bergaris tipis:
+ * </p>
+ * <ul>
+ * <li><b>Baris header</b> — baris pertama data (indeks 1 pada varian {@code setCellValue}/
+ * {@code setCellValueBold}, atau baris kedua/{@code rowIndex==1} versi 0-based dalam
+ * {@link #tampilkan(List, Spreadsheet, boolean)} lewat pengecekan yang setara) ditebalkan dan diberi
+ * latar abu-abu ({@code IndexedColors.GREY_40_PERCENT} pada varian {@code Worksheet}, atau
+ * {@code Color.LIGHT_GRAY} pada varian {@code XSSFWorkbook} di {@link #tampilkan}).</li>
+ * <li><b>Penanda label manual</b> — nilai teks apa pun (di baris mana pun) yang <i>diawali</i> dua
+ * tanda bintang ({@code "**"}) diperlakukan sebagai label/sub-header: diberi gaya header (tebal +
+ * latar abu-abu) yang sama seperti baris pertama, dan prefiks {@code "**"} dibuang sebelum
+ * ditampilkan — kecuali pada {@link #setCellValueBold(Worksheet, int, int, Object)} yang memiliki
+ * kuirk tersendiri (lihat catatan pada method tersebut).</li>
+ * <li><b>Baris/sel biasa</b> — border tipis di keempat sisi, latar putih, font normal; nilai numerik
+ * diformat lewat {@code Common.numberFormat}, nilai {@link java.util.Date} lewat
+ * {@code Common.dateFormat5} (khusus varian {@code Object}).</li>
+ * </ul>
+ *
+ * <h2>Overload per tipe nilai</h2>
+ * <p>
+ * {@code setCellValue}/{@code setCellValueBold} hadir dalam lima varian ({@link Object},
+ * {@link Long}, {@link Integer}, {@link Double}, {@link String}) yang secara fungsional serupa
+ * (deteksi header/label, border tipis, format angka) tetapi TIDAK saling delegasi — tiap overload
+ * mengulang logikanya sendiri secara independen. Overload {@link Object} adalah yang paling lengkap
+ * (satu-satunya yang menangani {@link java.util.Date} secara eksplisit); overload bertipe spesifik
+ * ({@code Long}/{@code Integer}/{@code Double}) tidak memiliki cabang deteksi label {@code "**"}
+ * karena nilainya berupa angka murni, sehingga hanya baris header ({@code rowIndex==1}) yang ditebalkan.
+ * </p>
+ *
+ * <h2>Ketergantungan lintas paket</h2>
+ * <p>
+ * {@link #tampilkan(List, Spreadsheet, boolean)} mengambil kop surat institusi lewat
+ * {@code ais.action.master.surat.util.SuratUtil#ambilKopLampiranLain()} dan menyisipkannya sebagai
+ * gambar di baris-baris teratas sheet, serta menulis berkas sementara ke bawah
+ * {@code Common.REAL_PATH + "/tmp/"} dengan nama yang mengandung timestamp dari
+ * {@link ais.ui.util.WaktuUtil#getDate()} — berkas ini TIDAK dihapus otomatis oleh method ini
+ * (pembersihan berkas lama di direktori {@code tmp} menjadi tanggung jawab proses lain).
+ * </p>
+ *
+ * <p>
+ * <b>Catatan campuran API POI</b> — sebagian besar kelas di file ini memakai POI hasil fork ZK
+ * ({@code org.zkoss.poi.*}), namun satu import ({@code org.apache.poi.ss.usermodel.IndexedColors})
+ * berasal dari Apache POI asli. Ini tidak menimbulkan masalah kompilasi karena {@code IndexedColors}
+ * hanya dipakai sebagai sumber konstanta indeks warna (mis. {@code GREY_40_PERCENT}, {@code WHITE})
+ * yang diteruskan sebagai {@code short}, kompatibel dengan API {@code setFillForegroundColor} pada
+ * kedua varian POI.
+ * </p>
+ */
 public class EcampusUtil {
 
+	/**
+	 * Varian ringkas {@link #tampilkan(List, Spreadsheet, boolean)} dengan {@code auto=true}, yaitu
+	 * lebar kolom akan disesuaikan otomatis ({@code autoSizeColumn}) untuk setiap kolom yang diisi.
+	 *
+	 * @param datas   data tabel yang akan dirender, baris demi baris; boleh {@code null} (diperlakukan
+	 *                sebagai daftar kosong)
+	 * @param excelku komponen ZK Spreadsheet tujuan; wajib tidak {@code null}
+	 * @throws Exception diteruskan dari kegagalan pembuatan workbook POI atau penulisan berkas XLSX
+	 */
 	@SuppressWarnings("rawtypes")
 	public static void tampilkan(List<List> datas, Spreadsheet excelku) throws Exception {
 		tampilkan(datas, excelku, true);
 	}
 
+	/**
+	 * Membangun satu berkas XLSX dari nol (memakai {@link org.zkoss.poi.xssf.usermodel.XSSFWorkbook})
+	 * berisi data {@code datas}, menuliskannya ke direktori sementara aplikasi, lalu menempelkannya ke
+	 * komponen {@code excelku} ({@link org.zkoss.zss.ui.Spreadsheet}) agar tampil di layar ZK.
+	 *
+	 * <p>
+	 * Alur kerja: (1) tentukan lebar tabel ({@code lebar}, minimal 1) dari kolom terbanyak di antara
+	 * seluruh baris data mulai indeks baris {@code mulaiRow=4}; (2) siapkan dua {@code CellStyle} —
+	 * {@code hlink_style} untuk baris pertama/label {@code "**"} (tebal, latar abu-abu muda, border
+	 * bawah ganda) dan {@code bodystyle} untuk sel biasa (normal, border tipis); (3) isi setiap sel:
+	 * nilai {@link Integer}/{@link Double} ditulis sebagai angka asli, nilai lain ditulis sebagai
+	 * teks (dengan prefiks {@code "**"} dibuang bila ada); baris yang seluruh selnya kosong tidak
+	 * diberi gaya sama sekali (dibiarkan polos); (4) bila {@code auto} bernilai {@code true}, lebar
+	 * tiap kolom disesuaikan otomatis lewat {@code sheet.autoSizeColumn} (kegagalan per-kolom
+	 * ditelan diam-diam agar satu kolom bermasalah tidak menggagalkan seluruh render); (5) bila kop
+	 * surat institusi tersedia ({@code SuratUtil.ambilKopLampiranLain()}), gambar tersebut disisipkan
+	 * di kolom 0-7 baris 0-5 sheet; (6) workbook ditulis ke berkas fisik di bawah
+	 * {@code Common.REAL_PATH + "/tmp/rekap_<timestamp>.xlsx"}; (7) komponen {@code excelku} diarahkan
+	 * ke berkas tersebut (path relatif {@code "../../tmp/"}) beserta atribut tampilan (lebar/tinggi
+	 * 100%, border, {@code maxrows}/{@code maxcolumns} mengikuti ukuran data).
+	 * </p>
+	 *
+	 * @param datas   data tabel yang akan dirender, baris demi baris (setiap elemen {@link List}
+	 *                mewakili satu baris; baris {@code null} dilewati); boleh {@code null}
+	 *                (diperlakukan sebagai daftar kosong)
+	 * @param excelku komponen ZK Spreadsheet tujuan; method melempar
+	 *                {@link IllegalArgumentException} bila {@code null}
+	 * @param auto    bila {@code true}, lebar kolom disesuaikan otomatis setelah setiap sel diisi
+	 * @throws Exception diteruskan dari kegagalan pembuatan workbook POI, pembacaan berkas kop surat,
+	 *                    atau penulisan berkas XLSX ke disk
+	 */
 	@SuppressWarnings("rawtypes")
 	public static void tampilkan(List<List> datas, Spreadsheet excelku, boolean auto) throws Exception {
 		if (excelku == null) {
@@ -211,6 +321,20 @@ public class EcampusUtil {
 
 	}
 
+	/**
+	 * Menulis {@code value} ke sel {@code (rowIndex, colIndex)} pada {@code sheet}, dengan deteksi
+	 * otomatis gaya header/label: baris pertama ({@code rowIndex==1}) atau nilai teks berprefiks
+	 * {@code "**"} ditebalkan dengan latar abu-abu (prefiks dibuang dari tampilan); sel lain diberi
+	 * latar putih. Border tipis diterapkan di keempat sisi untuk semua sel. Nilai {@link Number}
+	 * diformat lewat {@code Common.numberFormat}, nilai {@link Date} lewat {@code Common.dateFormat5},
+	 * nilai lain memakai {@code toString()}. Kegagalan (mis. sel tidak dapat dibuat) ditangkap dan
+	 * dialihkan ke {@code Common.tampilErrorJikaAdmin} alih-alih dilempar ke pemanggil.
+	 *
+	 * @param sheet    sheet ZSS tujuan
+	 * @param rowIndex indeks baris (0-based); baris 1 diperlakukan sebagai header
+	 * @param colIndex indeks kolom (0-based)
+	 * @param value    nilai yang ditulis; boleh {@code null} (ditulis sebagai string kosong)
+	 */
 	public static void setCellValue(Worksheet sheet, int rowIndex, int colIndex, Object value) {
 		try {
 
@@ -253,6 +377,17 @@ public class EcampusUtil {
 		}
 	}
 
+	/**
+	 * Varian {@link #setCellValue(Worksheet, int, int, Object)} khusus {@link Long}: tidak memiliki
+	 * deteksi label {@code "**"} (nilai selalu numerik murni); hanya baris header
+	 * ({@code rowIndex==1}) yang ditebalkan dan diberi latar abu-abu. Nilai diformat lewat
+	 * {@code Common.numberFormat}.
+	 *
+	 * @param sheet    sheet ZSS tujuan
+	 * @param rowIndex indeks baris (0-based); baris 1 diperlakukan sebagai header
+	 * @param colIndex indeks kolom (0-based)
+	 * @param value    nilai numerik; boleh {@code null} (ditulis sebagai string kosong)
+	 */
 	public static void setCellValue(Worksheet sheet, int rowIndex, int colIndex, Long value) {
 		try {
 			Cell cell = Utils.getOrCreateCell(sheet, rowIndex, colIndex);
@@ -283,6 +418,7 @@ public class EcampusUtil {
 		}
 	}
 
+	/** Seperti {@link #setCellValue(Worksheet, int, int, Long)}, untuk nilai bertipe {@link Integer}. */
 	public static void setCellValue(Worksheet sheet, int rowIndex, int colIndex, Integer value) {
 		try {
 			Cell cell = Utils.getOrCreateCell(sheet, rowIndex, colIndex);
@@ -314,6 +450,7 @@ public class EcampusUtil {
 		}
 	}
 
+	/** Seperti {@link #setCellValue(Worksheet, int, int, Long)}, untuk nilai bertipe {@link Double}. */
 	public static void setCellValue(Worksheet sheet, int rowIndex, int colIndex, Double value) {
 		try {
 			Cell cell = Utils.getOrCreateCell(sheet, rowIndex, colIndex);
@@ -344,6 +481,18 @@ public class EcampusUtil {
 		}
 	}
 
+	/**
+	 * Varian {@link #setCellValue(Worksheet, int, int, Object)} khusus {@link String}: memiliki
+	 * kembali deteksi label {@code "**"} (prefiks dibuang bila ditemukan, sel ditebalkan dengan latar
+	 * abu-abu) selain deteksi baris header ({@code rowIndex==1}). Nilai ditulis apa adanya (tanpa
+	 * pemformatan angka/tanggal karena sudah berupa {@link String}).
+	 *
+	 * @param sheet    sheet ZSS tujuan
+	 * @param rowIndex indeks baris (0-based); baris 1 diperlakukan sebagai header
+	 * @param colIndex indeks kolom (0-based)
+	 * @param value    nilai teks; boleh {@code null} (ditulis sebagai string kosong); prefiks
+	 *                 {@code "**"} menandai sel sebagai label dan dibuang dari tampilan
+	 */
 	public static void setCellValue(Worksheet sheet, int rowIndex, int colIndex, String value) {
 		try {
 			Cell cell = Utils.getOrCreateCell(sheet, rowIndex, colIndex);
@@ -381,6 +530,28 @@ public class EcampusUtil {
 		}
 	}
 
+	/**
+	 * Seperti {@link #setCellValue(Worksheet, int, int, Object)}, tetapi font SELALU ditebalkan
+	 * (bukan hanya pada baris header/label). Latar tetap mengikuti deteksi header
+	 * ({@code rowIndex==1}) atau prefiks {@code "**"} — abu-abu untuk header/label, putih untuk sel
+	 * biasa.
+	 *
+	 * <p>
+	 * <b>Catatan perilaku</b> — berbeda dari {@link #setCellValue(Worksheet, int, int, Object)}, pada
+	 * varian ini nilai sel ditulis dua kali: sekali di dalam percabangan header/label (yang membuang
+	 * prefiks {@code "**"} bila ada), dan sekali lagi tanpa syarat setelah percabangan tersebut
+	 * (dengan nilai penuh, TANPA membuang prefiks {@code "**"}). Penulisan kedua ini menimpa
+	 * penulisan pertama, sehingga untuk nilai teks berprefiks {@code "**"}, prefiks tersebut TETAP
+	 * tampil di sel akhir walaupun sel diberi gaya header/label — berbeda dari
+	 * {@link #setCellValue(Worksheet, int, int, Object)} maupun
+	 * {@link #setCellValueBold(Worksheet, int, int, String)} yang berhasil membuang prefiksnya.
+	 * </p>
+	 *
+	 * @param sheet    sheet ZSS tujuan
+	 * @param rowIndex indeks baris (0-based); baris 1 diperlakukan sebagai header
+	 * @param colIndex indeks kolom (0-based)
+	 * @param value    nilai yang ditulis; boleh {@code null} (ditulis sebagai string kosong)
+	 */
 	public static void setCellValueBold(Worksheet sheet, int rowIndex, int colIndex, Object value) {
 		try {
 			Cell cell = Utils.getOrCreateCell(sheet, rowIndex, colIndex);
@@ -420,6 +591,16 @@ public class EcampusUtil {
 		}
 	}
 
+	/**
+	 * Varian {@link #setCellValueBold(Worksheet, int, int, Object)} khusus {@link Long}: font selalu
+	 * tebal; latar abu-abu hanya pada baris header ({@code rowIndex==1}), tidak ada deteksi label
+	 * {@code "**"} (nilai selalu numerik murni). Nilai diformat lewat {@code Common.numberFormat}.
+	 *
+	 * @param sheet    sheet ZSS tujuan
+	 * @param rowIndex indeks baris (0-based); baris 1 diperlakukan sebagai header
+	 * @param colIndex indeks kolom (0-based)
+	 * @param value    nilai numerik; boleh {@code null} (ditulis sebagai string kosong)
+	 */
 	public static void setCellValueBold(Worksheet sheet, int rowIndex, int colIndex, Long value) {
 		try {
 			Cell cell = Utils.getOrCreateCell(sheet, rowIndex, colIndex);
@@ -449,6 +630,7 @@ public class EcampusUtil {
 		}
 	}
 
+	/** Seperti {@link #setCellValueBold(Worksheet, int, int, Long)}, untuk nilai bertipe {@link Integer}. */
 	public static void setCellValueBold(Worksheet sheet, int rowIndex, int colIndex, Integer value) {
 		try {
 			Cell cell = Utils.getOrCreateCell(sheet, rowIndex, colIndex);
@@ -478,6 +660,7 @@ public class EcampusUtil {
 		}
 	}
 
+	/** Seperti {@link #setCellValueBold(Worksheet, int, int, Long)}, untuk nilai bertipe {@link Double}. */
 	public static void setCellValueBold(Worksheet sheet, int rowIndex, int colIndex, Double value) {
 
 		try {
@@ -508,6 +691,18 @@ public class EcampusUtil {
 		}
 	}
 
+	/**
+	 * Varian {@link #setCellValueBold(Worksheet, int, int, Object)} khusus {@link String}: font
+	 * selalu tebal; berbeda dari overload {@link Object}, method ini TIDAK memiliki penulisan nilai
+	 * ganda sehingga prefiks {@code "**"} berhasil dibuang dari tampilan saat sel diberi gaya
+	 * header/label — perilaku ini konsisten dengan {@link #setCellValue(Worksheet, int, int, String)}.
+	 *
+	 * @param sheet    sheet ZSS tujuan
+	 * @param rowIndex indeks baris (0-based); baris 1 diperlakukan sebagai header
+	 * @param colIndex indeks kolom (0-based)
+	 * @param value    nilai teks; boleh {@code null} (ditulis sebagai string kosong); prefiks
+	 *                 {@code "**"} menandai sel sebagai label dan dibuang dari tampilan
+	 */
 	public static void setCellValueBold(Worksheet sheet, int rowIndex, int colIndex, String value) {
 		try {
 			Cell cell = Utils.getOrCreateCell(sheet, rowIndex, colIndex);
@@ -544,6 +739,16 @@ public class EcampusUtil {
 		}
 	}
 
+	/**
+	 * Menebalkan (atau menghilangkan penebalan) font untuk seluruh sel dalam area {@code rect} pada
+	 * {@code sheet}. Sekadar pembungkus tipis atas {@link Utils#setFontBold(Worksheet, Rect, Boolean)}
+	 * yang menelan pengecualian secara diam-diam (dicatat ke {@code ErrorAuditUtil}) agar kegagalan
+	 * penataan gaya tidak menggagalkan alur tampilan yang memanggilnya.
+	 *
+	 * @param sheet  sheet ZSS tujuan
+	 * @param rect   area sel yang ditata (baris/kolom awal-akhir)
+	 * @param isBold {@code true} untuk menebalkan, {@code false} untuk mengembalikan ke normal
+	 */
 	public static void setBold(Worksheet sheet, Rect rect, Boolean isBold) {
 
 		try {
@@ -554,6 +759,17 @@ public class EcampusUtil {
 
 	}
 
+	/**
+	 * Menerapkan gaya border pada seluruh sel dalam area {@code rect}. Sekadar pembungkus tipis atas
+	 * {@link Utils#setBorder(Worksheet, Rect, short, BorderStyle, String)} yang menelan pengecualian
+	 * secara diam-diam (dicatat ke {@code ErrorAuditUtil}).
+	 *
+	 * @param sheet      sheet ZSS tujuan
+	 * @param rect       area sel yang ditata
+	 * @param borderFull kombinasi bit sisi border yang diterapkan (lihat konstanta {@code Rect}/API ZSS)
+	 * @param thin       gaya garis border (mis. tipis, tebal, putus-putus)
+	 * @param color      warna border dalam format yang diterima {@link Utils#setBorder}
+	 */
 	public static void setBorder(Worksheet sheet, Rect rect, short borderFull, BorderStyle thin, String color) {
 //		setBorder(sheet, rect);
 
@@ -564,6 +780,21 @@ public class EcampusUtil {
 		}
 	}
 
+	/**
+	 * Menggabung area sel {@code (tRow, lCol)} sampai {@code (bRow, rCol)} menjadi satu sel gabungan
+	 * (merged region), lalu meratakan konten sel pojok kiri-atas ke kiri ({@code ALIGN_LEFT}).
+	 * Kegagalan (mis. area tumpang tindih dengan merge lain) ditangkap dan dicatat ke
+	 * {@code ErrorAuditUtil}, tidak dilempar ke pemanggil.
+	 *
+	 * @param sheet  sheet ZSS tujuan
+	 * @param tRow   baris atas area yang digabung
+	 * @param lCol   kolom kiri area yang digabung
+	 * @param bRow   baris bawah area yang digabung
+	 * @param rCol   kolom kanan area yang digabung
+	 * @param across parameter tidak dipakai oleh implementasi saat ini (area selalu digabung penuh
+	 *               sebagai satu region, bukan per-baris); dipertahankan untuk kompatibilitas
+	 *               signature pemanggil
+	 */
 	public static void mergeCells(Worksheet sheet, int tRow, int lCol, int bRow, int rCol, boolean across) {
 		try {
 			sheet.addMergedRegion(new CellRangeAddress(tRow, bRow, lCol, rCol));

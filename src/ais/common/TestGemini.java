@@ -3,8 +3,47 @@ package ais.common;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 
+/**
+ * Kelas uji coba (proof-of-concept) untuk memanggil Google Gemini API ({@code
+ * gemini-2.0-flash-exp:generateContent}) lewat perintah {@code curl} eksternal yang dijalankan
+ * via {@link Runtime#exec(String)}, dengan riwayat percakapan few-shot berisi profil AIS/eCampus/
+ * eSchool yang ditanam langsung di kode sebagai konteks chatbot. Kelas ini murni eksperimen —
+ * tidak ada bagian lain aplikasi yang memanggil kelas ini; satu-satunya jalur eksekusi adalah
+ * {@link #main(String[])} miliknya sendiri.
+ *
+ * <p>
+ * <b>PERINGATAN KEAMANAN:</b> method {@link #main(String[])} menanam API key Google Gemini
+ * secara eksplisit dalam kode sumber (nilai literal menggantikan placeholder {@code API_KEY}),
+ * BUKAN dibaca dari konfigurasi runtime. Ini adalah kredensial nyata yang ter-commit ke source
+ * tree. Sesuai batasan tugas dokumentasi ini, nilai tersebut TIDAK diubah/dihapus di sini —
+ * lihat catatan lengkap pada laporan dokumentasi terkait untuk lokasi persis dan rekomendasi
+ * rotasi kredensial.
+ * </p>
+ *
+ * <p>
+ * Perlu dicatat juga bahwa perintah yang dibangun memakai sintaks process-substitution shell
+ * ({@code <(echo '...')}) yang merupakan fitur Bash, sedangkan {@link Runtime#exec(String)}
+ * menjalankan perintah tanpa melalui shell interaktif — sehingga pada banyak lingkungan
+ * (termasuk Windows) perintah ini kemungkinan besar tidak akan berjalan sebagaimana mestinya.
+ * Ini murni pengamatan atas kode yang ada, bukan sesuatu yang diubah oleh dokumentasi ini.
+ * </p>
+ */
 public class TestGemini {
 
+	/**
+	 * Membangun satu perintah {@code curl} lengkap (sebagai string) untuk memanggil endpoint
+	 * Gemini {@code generateContent} dengan riwayat percakapan few-shot berisi profil AIS/
+	 * eCampus/eSchool yang ditanam di kode, menyisipkan API key dan pertanyaan pengguna ke
+	 * placeholder {@code API_KEY}/{@code TANYA_APA_SAJA}, lalu menjalankannya lewat
+	 * {@link Runtime#exec(String)} dan mencetak keluaran proses ke konsol.
+	 *
+	 * <p>
+	 * Lihat peringatan keamanan pada javadoc kelas ini terkait API key Gemini yang tertanam
+	 * langsung di badan method ini.
+	 * </p>
+	 *
+	 * @param args argumen baris perintah, tidak dipakai
+	 */
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
 

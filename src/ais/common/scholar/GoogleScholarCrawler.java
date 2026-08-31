@@ -44,19 +44,92 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.ScholarArticle;
 import ais.database.model.ScholarAuthor;
 
+/**
+ * Web scraper (bukan pemanggil API resmi) untuk halaman hasil pencarian Google Scholar
+ * ({@code https://scholar.google.com/scholar}), dipakai modul kepustakaan/publikasi AIS untuk
+ * mengimpor metadata artikel ilmiah (judul, tautan, deskripsi/abstrak singkat, jumlah sitasi, daftar
+ * penulis) ke tabel {@link ScholarArticle}/{@link ScholarAuthor} berdasarkan kata kunci pencarian.
+ * Kelas ini memperluas {@code HtmlDataExtractor} dari pustaka pihak ketiga <i>docear</i> (metadata
+ * extraction framework) dan memakai Jsoup untuk mem-parse HTML mentah hasil pencarian.
+ *
+ * <h2>Apa yang di-scrape</h2>
+ * <p>
+ * Untuk setiap halaman hasil (satu halaman = satu nilai {@code start} pada parameter URL, diproses
+ * per iterasi lewat {@link #startCrawl(int, String)}), method ini mencari seluruh elemen
+ * {@code <div class="gs_r gs_or gs_scl">} — kontainer satu entri hasil pencarian pada tata letak
+ * Google Scholar — lalu untuk masing-masing entri mengekstrak: judul artikel dan tautannya (dari
+ * {@code h3.gs_rt}), cuplikan deskripsi (dari {@code div.gs_rs}), tautan dan jumlah "dikutip oleh"
+ * (dari elemen {@code a} pertama pada {@code div.gs_fl}), serta daftar penulis (dari
+ * {@code .gs_a>a}, atau bila tidak ada tautan penulis, dari teks polos {@code div.gs_a}). Data
+ * mentah HTML halaman hasil disimpan sementara sebagai berkas gzip di
+ * {@code /opt/temporary_crawling/} (dinamai dari kata kunci + nomor iterasi) sebelum di-parse,
+ * berfungsi sebagai cache agar halaman yang sama tidak diambil ulang dari internet bila proses
+ * diulang.
+ * </p>
+ *
+ * <h2>Penanganan cookie, CAPTCHA, dan rate-limit</h2>
+ * <p>
+ * Google Scholar menerapkan proteksi anti-bot yang agresif. Kelas ini menyiasatinya dengan:
+ * menyimpan/memuat ulang cookie sesi dari berkas {@link #cookieFileName} lewat {@link #getCookies}
+ * (meminta cookie baru via {@link #requestNewCookie} bila belum ada), dan menangani dua kode status
+ * HTTP kegagalan secara berbeda di {@link #startCrawl(int, String)}: status 503 memicu
+ * {@link #handleCaptchaRequest(HttpStatusException)} yang mengunduh gambar CAPTCHA, meminta
+ * penyelesaiannya (secara interaktif dari {@link System#in} bila tidak ada
+ * {@link MetaDataListener} terdaftar, atau lewat event {@link CaptchaEvent} ke listener bila ada),
+ * mengirim balik jawaban CAPTCHA lewat form yang di-parse dari halaman, lalu <b>mengulang crawl
+ * dari awal secara rekursif</b> bila berhasil; status 403 memicu permintaan cookie baru dan
+ * pengulangan rekursif satu kali (dijaga oleh {@link #triedNewCookie} agar tidak mengulang tanpa
+ * batas).
+ * </p>
+ *
+ * <h2>Risiko fragility (kerapuhan) parsing HTML</h2>
+ * <p>
+ * <b>Seluruh logika ekstraksi bergantung penuh pada nama kelas CSS internal Google Scholar</b>
+ * (mis. {@code gs_r}, {@code gs_or}, {@code gs_scl}, {@code gs_ri}, {@code gs_rt}, {@code gs_rs},
+ * {@code gs_fl}, {@code gs_a}) yang <b>tidak didokumentasikan secara publik dan dapat berubah kapan
+ * saja</b> tanpa pemberitahuan pada perubahan tata letak halaman Google Scholar. Bila struktur HTML
+ * berubah, seluruh selektor CSS di {@link #startCrawl(int, String)} akan gagal mencocokkan elemen
+ * (umumnya menghasilkan string kosong atau {@link NullPointerException} pada pemanggilan
+ * {@code .first()} yang mengasumsikan elemen selalu ditemukan) tanpa peringatan eksplisit, sehingga
+ * hasil crawl dapat diam-diam menjadi kosong/tidak lengkap. Selain itu, sebagai scraper yang
+ * mengambil data dari situs pihak ketiga, kelas ini juga rentan terhadap perubahan kebijakan
+ * anti-bot (blokir IP, perubahan struktur cookie/CAPTCHA) yang dapat menghentikan fungsinya sewaktu-
+ * waktu di luar kendali kode ini. Tidak ada mekanisme <i>throttling</i>/jeda eksplisit antar
+ * permintaan di dalam kelas ini sendiri, sehingga penggunaan yang terlalu agresif berisiko memicu
+ * pemblokiran oleh Google.
+ * </p>
+ */
 public class GoogleScholarCrawler extends HtmlDataExtractor {
 
+	/** Komponen ZK yang diperbarui dengan progres crawl (judul artikel + persentase) selama {@link #startCrawl(int, String)} berjalan. */
 	private Label label;
+	/** Penanda agar permintaan cookie baru pada kegagalan HTTP 403 hanya diulang sekali (mencegah rekursi tanpa batas). */
 	private boolean triedNewCookie = false;
 
+	/**
+	 * Membuat crawler baru yang melaporkan progresnya ke komponen ZK {@code label} yang diberikan.
+	 *
+	 * @param label komponen label ZK tempat progres pencarian ditampilkan ke pengguna
+	 */
 	public GoogleScholarCrawler(Label label) {
 		this.label = label;
 	}
 
+	/** Nama berkas penyimpanan cookie sesi Google Scholar (format XML, dibaca/ditulis lewat {@code readCookies}/{@code saveCookies} milik kelas induk). */
 	private String cookieFileName = "GoogleScholarCookie.xml";
+	/** URL dasar Google Scholar tempat seluruh permintaan pencarian/CAPTCHA diarahkan. */
 	private String BaseURL = "https://scholar.google.com";
+	/** Kode bahasa (parameter {@code hl}) yang dikirim pada permintaan pencarian; default Indonesia ("id"). */
 	private String language = "id";
 
+	/**
+	 * Mengambil cookie sesi dari berkas {@code fileName}; bila belum ada/tidak terbaca, meminta
+	 * cookie baru dari server lewat {@link #requestNewCookie(String)}.
+	 *
+	 * @param fileName nama berkas penyimpanan cookie
+	 * @return peta cookie siap pakai untuk permintaan berikutnya ke Google Scholar
+	 * @throws IOException diteruskan dari operasi baca berkas cookie
+	 */
 	private Map<String, String> getCookies(String fileName) throws IOException {
 		Map<String, String> cookies = readCookies(fileName);
 		if (cookies == null) {
@@ -65,6 +138,17 @@ public class GoogleScholarCrawler extends HtmlDataExtractor {
 		return cookies;
 	}
 
+	/**
+	 * Meminta cookie sesi baru dari {@link #BaseURL} (abaikan error HTTP agar respons tetap terbaca
+	 * walau status bukan 200), lalu menyesuaikan nilai cookie {@code GSP} dengan menambahkan
+	 * {@code :CF=4} — parameter tersembunyi yang mengaktifkan tautan ekspor BibTeX pada daftar hasil
+	 * pencarian. Cookie yang diperoleh disimpan ke berkas {@code fileName} untuk dipakai ulang pada
+	 * pemanggilan berikutnya.
+	 *
+	 * @param fileName nama berkas tujuan penyimpanan cookie
+	 * @return peta cookie baru, atau {@code null} bila permintaan gagal (kegagalan dicatat ke logger,
+	 *         tidak dilempar sebagai exception)
+	 */
 	private Map<String, String> requestNewCookie(String fileName) {
 		Map<String, String> cookies = null;
 		try {
@@ -81,6 +165,22 @@ public class GoogleScholarCrawler extends HtmlDataExtractor {
 		return cookies;
 	}
 
+	/**
+	 * Menangani halaman tantangan CAPTCHA yang dikembalikan Google Scholar (biasanya sebagai respons
+	 * status 503). Mengambil ulang halaman tantangan dari {@code e.getUrl()}, mencari gambar CAPTCHA
+	 * pertama di halaman, lalu meminta penyelesaiannya: secara interaktif lewat konsol
+	 * ({@link System#in}) bila tidak ada {@link MetaDataListener} terdaftar pada crawler ini, atau
+	 * lewat event {@link CaptchaEvent} yang disiarkan ke seluruh listener terdaftar bila ada. Jawaban
+	 * CAPTCHA yang diperoleh disisipkan ke data form tantangan (menggantikan field bernama
+	 * {@code "captcha"}) dan dikirim balik ke server; bila berhasil, cookie hasil respons
+	 * digabungkan ke cookie tersimpan dan disimpan ulang.
+	 *
+	 * @param e exception status HTTP yang memicu penanganan CAPTCHA (dipakai untuk mengambil
+	 *          {@code getUrl()} halaman tantangan)
+	 * @return {@code true} bila CAPTCHA berhasil diselesaikan dan dikirim (pemanggil dapat mengulang
+	 *         permintaan asli); {@code false} bila gagal pada tahap mana pun (tidak ada gambar,
+	 *         CAPTCHA tidak dijawab, atau kegagalan IO)
+	 */
 	private boolean handleCaptchaRequest(HttpStatusException e) {
 		try {
 			Response response = getConnection(e.getUrl()).ignoreHttpErrors(true).execute();

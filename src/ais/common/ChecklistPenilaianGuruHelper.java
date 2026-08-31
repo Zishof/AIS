@@ -15,11 +15,73 @@ import ais.database.model.sekolah.ChecklistBaruPenilaianGuruOlehSiswa;
 import ais.database.model.sekolah.ChecklistPenilaianGuru;
 import ais.database.model.sekolah.Siswa;
 
+/**
+ * Kelas utilitas statis (tidak dapat diinstansiasi) untuk modul penilaian guru oleh siswa pada
+ * aplikasi sekolah AIS ({@code ais.database.model.sekolah}), yang menjawab pertanyaan bisnis
+ * inti: "apakah seorang siswa masih memiliki kewajiban mengisi checklist penilaian guru yang
+ * belum diselesaikan untuk tahun ajaran/semester tertentu?".
+ *
+ * <p>
+ * Kelas ini menyediakan dua method statis yang saling bergantung:
+ * </p>
+ * <ol>
+ * <li>{@link #getJadwalPelajaranSiswa(Siswa, String, String)} — menghitung daftar id jadwal
+ * pelajaran ({@code sekolah.jadwal_pelajaran}) yang relevan bagi seorang siswa pada tahun
+ * ajaran/semester tertentu, mencakup baik jadwal kelas reguler ({@code kelas_punya_siswa})
+ * maupun jadwal kelas les ({@code kelas_les_punya_siswa}), lewat SQL native gabungan
+ * (subquery {@code IN}) yang hanya menyertakan keanggotaan kelas yang aktif.</li>
+ * <li>{@link #checkStatusChecklistGuru(Siswa, String, String)} — memakai hasil method pertama
+ * untuk menentukan, bagi setiap kombinasi (jadwal pelajaran x guru pengampu x checklist
+ * penilaian guru aktif) yang berlaku, apakah SEMUA kombinasi tersebut sudah memiliki data
+ * penilaian tersimpan ({@link ChecklistBaruPenilaianGuruOlehSiswa}) dari siswa yang
+ * bersangkutan. Method ini mengembalikan {@code true} bila MASIH ADA kombinasi yang belum
+ * diisi (artinya siswa masih punya kewajiban mengisi checklist), dan {@code false} bila semua
+ * kombinasi sudah lengkap terisi (atau bila data prasyarat, seperti jadwal pelajaran/checklist
+ * aktif, tidak ditemukan sama sekali).</li>
+ * </ol>
+ *
+ * <p>
+ * Kedua method membuka sesi Hibernate sendiri secara independen (bukan sesi thread-local dari
+ * {@link HibernateUtil}) lewat {@code HibernateUtil.getSessionFactory().openSession()}, dan
+ * SELALU menutupnya di blok {@code finally}; kegagalan apa pun ditangani secara "lunak" lewat
+ * {@link Common#tampilErrorJikaAdmin(Exception)} (menampilkan detail error hanya untuk admin)
+ * dan method mengembalikan nilai default yang aman (list kosong / {@code false}) alih-alih
+ * melempar exception ke pemanggil — cocok untuk dipakai langsung dalam kondisi tampilan UI
+ * (mis. menentukan apakah ikon peringatan checklist ditampilkan pada dashboard siswa) tanpa
+ * perlu penanganan exception tambahan di sisi pemanggil.
+ * </p>
+ *
+ * <p>
+ * Constructor kelas ini sengaja diprivatkan ({@link #ChecklistPenilaianGuruHelper()}) karena
+ * seluruh anggotanya statis dan kelas ini murni berperan sebagai kumpulan fungsi utilitas,
+ * tidak pernah diinstansiasi.
+ * </p>
+ */
 public class ChecklistPenilaianGuruHelper {
 
+	/** Constructor privat — kelas ini murni kumpulan method statis dan tidak boleh diinstansiasi. */
 	private ChecklistPenilaianGuruHelper() {
 	}
 
+	/**
+	 * Mengambil daftar id jadwal pelajaran ({@code sekolah.jadwal_pelajaran}) yang relevan bagi
+	 * seorang siswa, mencakup jadwal dari kelas reguler ({@code kelas_punya_siswa}) maupun
+	 * kelas les ({@code kelas_les_punya_siswa}) yang keanggotaannya masih aktif, difilter
+	 * opsional berdasarkan tahun ajaran dan ganjil/genap semester.
+	 *
+	 * @param siswa       siswa yang jadwal pelajarannya ingin diambil; bila {@code null} atau
+	 *                    belum memiliki id, method langsung mengembalikan list kosong
+	 * @param tahunAjaran nilai tahun ajaran untuk memfilter jadwal (mis. {@code "2025/2026"}),
+	 *                    boleh {@code null}/kosong untuk tidak memfilter berdasarkan tahun ajaran
+	 * @param ganjilGenap penanda semester ganjil/genap (dibandingkan terhadap
+	 *                    {@link Perkuliahan#GANJIL} untuk menentukan sisa bagi 2 kolom
+	 *                    {@code semester}), boleh {@code null}/kosong untuk tidak memfilter
+	 *                    berdasarkan semester
+	 * @return daftar id jadwal pelajaran yang cocok, terurut menaik; list kosong bila siswa
+	 *         tidak valid, tidak ada jadwal yang cocok, atau terjadi kegagalan query (kegagalan
+	 *         ditangani lewat {@link Common#tampilErrorJikaAdmin(Exception)}, tidak dilempar ke
+	 *         pemanggil)
+	 */
 	@SuppressWarnings("unchecked")
 	public static List<Long> getJadwalPelajaranSiswa(Siswa siswa, String tahunAjaran, String ganjilGenap) {
 		List<Long> result = new ArrayList<Long>();
@@ -77,6 +139,37 @@ public class ChecklistPenilaianGuruHelper {
 		return result;
 	}
 
+	/**
+	 * Menentukan apakah seorang siswa MASIH memiliki checklist penilaian guru yang belum
+	 * diselesaikan untuk tahun ajaran/semester tertentu.
+	 *
+	 * <p>
+	 * Alur kerja: (1) mengambil jadwal pelajaran relevan siswa lewat
+	 * {@link #getJadwalPelajaranSiswa(Siswa, String, String)}; (2) mengambil id checklist
+	 * penilaian guru yang aktif dan berlaku untuk siswa ({@code untukSiswa=true} pada angket
+	 * induknya); (3) membaca kolom guru pengampu ({@code guru_id} s.d. {@code guru12_id}) dari
+	 * setiap jadwal pelajaran yang relevan lewat SQL native, lalu membentuk himpunan kunci
+	 * WAJIB berupa kombinasi {@code "<jadwalId>_<guruId>_<checklistId>"} untuk setiap pasangan
+	 * (jadwal, guru pengampu, checklist aktif); (4) membaca data penilaian yang SUDAH tersimpan
+	 * dari siswa ({@link ChecklistBaruPenilaianGuruOlehSiswa}) dan membentuk himpunan kunci
+	 * TERISI dengan pola yang sama (nilai checklist diambil lewat
+	 * {@link ChecklistBaruPenilaianGuruOlehSiswa#ambilValue()}); (5) mengembalikan {@code true}
+	 * bila himpunan TERISI TIDAK mencakup seluruh himpunan WAJIB (artinya masih ada kombinasi
+	 * yang belum dinilai siswa).
+	 * </p>
+	 *
+	 * @param siswa       siswa yang statusnya ingin diperiksa; bila {@code null} atau belum
+	 *                    memiliki id, method langsung mengembalikan {@code false}
+	 * @param ganjilGenap penanda semester ganjil/genap, diteruskan ke
+	 *                    {@link #getJadwalPelajaranSiswa(Siswa, String, String)}
+	 * @param tahunAjaran nilai tahun ajaran, diteruskan ke
+	 *                    {@link #getJadwalPelajaranSiswa(Siswa, String, String)}
+	 * @return {@code true} bila masih ada kombinasi jadwal-guru-checklist yang wajib diisi
+	 *         namun belum dinilai oleh siswa; {@code false} bila semua sudah lengkap, bila
+	 *         tidak ada jadwal/checklist/guru yang berlaku, atau bila terjadi kegagalan query
+	 *         (ditangani lewat {@link Common#tampilErrorJikaAdmin(Exception)}, tidak dilempar
+	 *         ke pemanggil)
+	 */
 	@SuppressWarnings("unchecked")
 	public static boolean checkStatusChecklistGuru(Siswa siswa, String ganjilGenap, String tahunAjaran) {
 		if (siswa == null || siswa.getId() == null) {

@@ -20,8 +20,66 @@ import ais.database.model.Menu;
 import ais.database.model.RolePrivilage;
 import ais.database.model.Tbmuser;
 
+/**
+ * Utilitas "auto-start" untuk halaman utama ZK: secara otomatis mengarahkan pengguna berperan
+ * <b>dosen</b> langsung ke menu <b>Manajemen KRS Dosen</b> segera setelah login, tanpa dosen
+ * perlu mengklik menu tersebut secara manual — sebuah fitur kenyamanan yang dapat dinyalakan atau
+ * dimatikan lewat konfigurasi {@code dosen_langsung_ke_manajemen_krs} (default {@link
+ * ais.database.model.Konfigurasi#AKTIF AKTIF}).
+ *
+ * <h2>Cara kerja</h2>
+ * <p>
+ * Kelas ini murni statis (satu method utilitas, tidak ada instance state) dan dipanggil dari titik
+ * masuk halaman utama ZK setelah sesi pengguna terbentuk. {@link #autoStartManajemenKRS()}
+ * memeriksa apakah pengguna yang sedang login adalah dosen (lewat {@link
+ * Tbmuser#ambilDosen()} dan {@code hakAkses().getRoleId()} bernilai {@code "dosen"}); bila ya,
+ * dipasang {@link org.zkoss.zul.Timer} ZK dengan jeda 500 milidetik yang, saat menyala,
+ * menjalankan seluruh logika perpindahan menu di dalam {@link EventListener#onEvent(Event)}
+ * anonimnya.
+ * </p>
+ * <p>
+ * Penundaan lewat {@link org.zkoss.zul.Timer} (bukan eksekusi langsung/sinkron) sengaja dipakai
+ * agar komponen ZK halaman utama (khususnya {@code Tabbox}/{@code West}/{@code North} yang
+ * diambil dari atribut sesi {@code "iframe"}/{@code "navigation"}/{@code "mycenter"}) sudah
+ * selesai dirender dan tersedia di sesi sebelum dimanipulasi — pola umum ZK untuk menghindari
+ * mengakses komponen UI yang belum sepenuhnya terpasang pada siklus render yang sama.
+ * </p>
+ * <p>
+ * Saat timer menyala, method ini melakukan beberapa hal sekaligus: (1) memastikan role dosen
+ * memiliki hak akses penuh (create/read/update/delete) ke menu {@link
+ * ConstantValues#MENU_MANAJEMEN_KRS_DOSEN} lewat {@link ais.database.model.RolePrivilage},
+ * membuat baris privilese baru bila belum ada; (2) menandai menu aktif di sesi
+ * ({@code "currentMenu"}); (3) mencatat baris {@link ais.database.model.DetailLogLogin} sebagai
+ * jejak audit "menu apa yang otomatis dibuka saat login" dalam transaksi Hibernate tersendiri
+ * (kegagalan pencatatan audit ini ditangkap dan dicatat ke {@link ErrorAuditUtil}, TIDAK
+ * menggagalkan proses auto-start secara keseluruhan); (4) membuka tab menu Manajemen KRS Dosen
+ * lewat {@link Common#insertToTab}; dan (5) merapikan tata letak halaman utama (melebarkan panel
+ * navigasi ke 250px, melepas panel {@code North}/{@code mycenter} bila ada) agar tampilan
+ * konsisten dengan pengalaman membuka menu tersebut secara manual.
+ * </p>
+ * <p>
+ * Seluruh galat di dalam handler timer ditangkap generik dan hanya dicatat ke
+ * {@link ErrorAuditUtil} — kegagalan auto-start (mis. gagal menyimpan privilese atau audit log)
+ * tidak boleh membuat halaman utama pengguna gagal dimuat, sehingga penanganannya sengaja
+ * dibuat "diam" (fail-silent) dari sudut pandang pengguna akhir.
+ * </p>
+ */
 public class AutoStarter {
 
+	/**
+	 * Memeriksa apakah pengguna yang sedang login adalah dosen dan konfigurasi
+	 * {@code dosen_langsung_ke_manajemen_krs} aktif; bila keduanya terpenuhi, memasang
+	 * {@link org.zkoss.zul.Timer} berjeda 500 ms yang — saat menyala — memberi hak akses penuh
+	 * role dosen ke menu Manajemen KRS Dosen, mencatat audit login, lalu membuka menu tersebut
+	 * secara otomatis pada halaman utama ZK pengguna. Lihat javadoc kelas untuk rincian lengkap
+	 * tahapan yang dijalankan di dalam handler timer.
+	 *
+	 * <p>
+	 * Method ini tidak melakukan apa pun (tidak ada efek samping) bila konfigurasi dimatikan,
+	 * bila tidak ada pengguna yang login pada sesi saat ini, atau bila pengguna yang login bukan
+	 * dosen.
+	 * </p>
+	 */
 	public static void autoStartManajemenKRS() {
 		Konfigurasi dosen = Common.getKonfigurasi("dosen_langsung_ke_manajemen_krs", Konfigurasi.AKTIF);
 		if (dosen.getNilai().equalsIgnoreCase(Konfigurasi.AKTIF)) {
@@ -38,6 +96,12 @@ public class AutoStarter {
 
 				timer.addEventListener("onTimer", new EventListener() {
 
+					/**
+					 * Dijalankan sekali saat timer 500ms menyala: memberi hak akses penuh role
+					 * dosen ke menu Manajemen KRS Dosen, mencatat audit login, lalu membuka menu
+					 * tersebut secara otomatis pada halaman utama ZK. Lihat javadoc kelas
+					 * {@link AutoStarter} untuk rincian lengkap.
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 

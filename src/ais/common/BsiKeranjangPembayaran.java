@@ -26,8 +26,60 @@ import ais.database.model.Mahasiswa;
 import ais.database.model.bsi.BsiRequest;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Integrasi pembayaran mahasiswa lewat gateway <b>BSI e-Collection</b> (Bank Syariah Indonesia,
+ * memakai pustaka enkripsi bersama {@code com.bni.encrypt.BNIHash}) pada keranjang pembayaran
+ * AIS: membangun nomor Virtual Account, menandatangani/mengenkripsi payload permintaan billing
+ * lewat {@code BNIHash}, mengirimkannya ke gateway BSI (langsung ke {@code bsi_gateway_url} atau
+ * lewat forwarder {@code bsi_ip_client} bila dikonfigurasi), menyimpan hasilnya sebagai entitas
+ * {@link BsiRequest}, lalu menampilkan kode pembayaran ke mahasiswa/calon mahasiswa beserta bukti
+ * PDF yang dikirim via email ({@link CommonEmail#infoBayarViaBsi}).
+ *
+ * <p>
+ * Kelas ini mengikuti pola serupa integrasi payment gateway lain di paket {@code ais.common}
+ * (bandingkan {@link JatelindoKeranjangPembayaran} untuk Jatelindo/Mandiri dan {@link BJBUtil}
+ * untuk BJB): nomor VA dibentuk dari kombinasi prefix konfigurasi, {@code merchant_id}, dan
+ * digit acak/NIM (diatur lewat saklar {@code angka_va_bsi_menggunakan_nim}); permintaan
+ * dieksekusi via {@code org.apache.commons.httpclient} (Apache Commons HttpClient versi lama,
+ * ditandai {@code @SuppressWarnings("deprecation")} pada {@link #sendRequest}); dan kegagalan
+ * dicatat lewat mekanisme bersama {@link InfoTeknisPembayaran} serta {@code BsiCommon} agar pesan
+ * error konsisten dengan kanal pembayaran lain.
+ * </p>
+ *
+ * <h2>Peringatan keamanan — kredensial BSI tertanam sebagai nilai default</h2>
+ * <p>
+ * <b>Konfigurasi {@code bsi_password} pada {@link #onPilihBsi} memiliki nilai default yang
+ * merupakan kunci/password enkripsi nyata dalam bentuk teks polos:
+ * {@code "685dedd9f045787873794ead6276f8bf"}.</b> Nilai ini dipakai langsung sebagai parameter
+ * {@code key} pada {@code BNIHash.hashData}/{@code BNIHash.parseData} untuk mengenkripsi dan
+ * mendekripsi payload permintaan/respons BSI — bila konfigurasi runtime
+ * {@code bsi_password} tidak diisi eksplisit, sistem otomatis memakai kredensial bawaan ini.
+ * Karena berkas ini berada pada working copy SVN dan berpotensi sudah ter-commit ke riwayat
+ * repositori, kredensial ini WAJIB dianggap berpotensi bocor. Dokumentasi ini TIDAK mengubah
+ * maupun menghapus nilai tersebut — pemilik integrasi BSI disarankan meninjau apakah kunci ini
+ * masih aktif di sisi bank dan mempertimbangkan rotasi serta pemindahan penuh ke konfigurasi
+ * rahasia runtime tanpa default tertanam di kode.
+ * </p>
+ */
 public class BsiKeranjangPembayaran {
 
+	/**
+	 * Titik masuk validasi + eksekusi pembuatan Virtual Account BSI untuk satu transaksi
+	 * keranjang pembayaran mahasiswa. Menolak permintaan dengan nominal kurang dari {@code 0.01},
+	 * lalu mendelegasikan pembuatan VA dan tampilan kode pembayaran ke {@link #onPilihBsi}.
+	 *
+	 * @param amn                        nominal yang harus dibayar
+	 * @param mahasiswa                  mahasiswa yang membayar, boleh {@code null} bila
+	 *                                   pembayaran atas nama calon mahasiswa
+	 * @param biodataCalonMahasiswa      biodata calon mahasiswa (jalur PMB), boleh {@code null}
+	 * @param selectedKegiatanTemporary  kumpulan item kegiatan/tagihan sementara yang dipilih
+	 *                                   untuk dibayar pada transaksi ini
+	 * @param event                      event ZK pemicu aksi
+	 * @return {@code true} bila permintaan diteruskan untuk diproses; {@code false} bila nominal
+	 *         kurang dari {@code 0.01} dan permintaan ditolak lebih awal
+	 * @throws Exception diteruskan dari {@link #onPilihBsi} bila terjadi kegagalan tak terduga di
+	 *                    luar penanganan internalnya
+	 */
 	@SuppressWarnings({})
 	public static boolean onSaveBsi(final Double amn, final Mahasiswa mahasiswa,
 			final BiodataCalonMahasiswa biodataCalonMahasiswa, final Set<KegiatanTemporary> selectedKegiatanTemporary,
@@ -42,6 +94,36 @@ public class BsiKeranjangPembayaran {
 		return true;
 	}
 
+	/**
+	 * Membangun payload permintaan billing BSI (nomor VA, tanggal kedaluwarsa, data
+	 * pembayar, nominal) lalu mengenkripsinya lewat {@code BNIHash.hashData}, mengirimkannya
+	 * lewat {@link #sendRequest}, dan bila berhasil menampilkan kode pembayaran (VA) ke pengguna
+	 * lewat dialog {@link MyMessageboxConfig}. Setelah pengguna menutup dialog, secara asinkron
+	 * (lewat {@link Common#createDefaultTimer}) membuat bukti pembayaran PDF
+	 * ({@code Bukti_Bsi_Mahasiswa}) dan mengirimkannya via email lewat
+	 * {@link CommonEmail#infoBayarViaBsi}.
+	 *
+	 * <p>
+	 * Nomor Virtual Account dibentuk dari prefix konfigurasi {@code angka_prefix_va_bsi} (default
+	 * {@code "8"}) + {@code merchant_id} (konfigurasi {@code bsi_merchant_id}, default
+	 * {@code "000"}) + baik NIM mahasiswa/nomor registrasi calon mahasiswa (bila
+	 * {@code angka_va_bsi_menggunakan_nim} aktif) maupun digit acak (konfigurasi
+	 * {@code generated_angka_digit_bsi}, default 8), lalu dipotong/di-pad ke panjang tetap sesuai
+	 * konfigurasi {@code virtual_account_angka_digit_bsi} (default 16). Bila pembuatan request
+	 * gagal (mengembalikan {@code null} atau VA kosong), menampilkan pesan gagal generik lewat
+	 * {@link InfoTeknisPembayaran#pesanGagal()}.
+	 * </p>
+	 *
+	 * @param amn                        nominal yang harus dibayar
+	 * @param mahasiswa                  mahasiswa yang membayar, boleh {@code null}
+	 * @param biodataCalonMahasiswa      biodata calon mahasiswa, boleh {@code null}
+	 * @param selectedKegiatanTemporary  item kegiatan/tagihan sementara yang dipilih
+	 * @param event                      event ZK pemicu aksi
+	 * @return selalu {@code true} — status gagal disampaikan lewat dialog pesan, bukan lewat nilai
+	 *         balik
+	 * @throws Exception diteruskan dari kegagalan yang tidak tertangani secara internal (mis. saat
+	 *                    menyusun payload sebelum enkripsi)
+	 */
 	@SuppressWarnings("unchecked")
 	public static boolean onPilihBsi(final Double amn, Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa,
 			final Set<KegiatanTemporary> selectedKegiatanTemporary, Event event) throws Exception {
@@ -214,6 +296,50 @@ public class BsiKeranjangPembayaran {
 		return true;
 	}
 
+	/**
+	 * Mengirim payload billing yang sudah dienkripsi ke endpoint gateway BSI (langsung ke
+	 * {@code bsi_gateway_url}, default {@code https://apibeta.bsi-ecollection.com/}, atau lewat
+	 * forwarder internal {@code bsi_ip_client + "/BsiForwarder"} bila dikonfigurasi) memakai
+	 * Apache Commons HttpClient (API lama, method ini ditandai {@code @SuppressWarnings
+	 * ("deprecation")}), mem-parse dan mendekripsi respons lewat {@code BNIHash.parseData}, lalu
+	 * menyimpan hasilnya sebagai entitas {@link BsiRequest} dalam transaksi Hibernate tersendiri.
+	 * Sebelum memulai, memanggil {@link InfoTeknisPembayaran#bersihkan()} agar detail kegagalan
+	 * transaksi sebelumnya tidak ikut tampil pada alert transaksi baru. Karakter {@code '&'} pada
+	 * {@code postData} diganti dengan kata {@code "dan"} sebelum dikirim.
+	 *
+	 * <p>
+	 * Respons BSI diperiksa lewat kode {@code status}: bila bukan {@code "000"} (kode sukses),
+	 * permintaan dianggap ditolak gateway — pesan/kode status dicatat ke
+	 * {@link InfoTeknisPembayaran#catat(String)} dan method mengembalikan {@code null} tanpa
+	 * menyimpan apa pun ke database. Bila status sukses namun penyimpanan ke database gagal, flag
+	 * lokal {@code gagalSimpan} diset {@code true} (menandakan VA sudah diterbitkan pihak BSI
+	 * walau gagal tercatat di aplikasi) dan diteruskan ke
+	 * {@code BsiCommon#catatKegagalanBsi(Exception, String, boolean)} pada blok catch terluar
+	 * untuk membedakan pesan error dari kegagalan sebelum permintaan terkirim.
+	 * </p>
+	 *
+	 * @param postData                  payload JSON permintaan yang sudah dienkripsi/berisi
+	 *                                   {@code client_id} dan {@code data} terenkripsi
+	 * @param mahasiswa                 mahasiswa yang membayar, boleh {@code null}
+	 * @param biodataCalonMahasiswa     biodata calon mahasiswa, boleh {@code null}
+	 * @param selectedKegiatanTemporary item kegiatan/tagihan sementara yang dipilih; diambil satu
+	 *                                  elemen pertamanya untuk menentukan semester dan tahun
+	 *                                  akademik
+	 * @param amount                    nominal yang harus dibayar
+	 * @param merchant_id               kode merchant/client id BSI
+	 * @param signature                 payload asli sebelum dienkripsi (dipakai untuk audit/log,
+	 *                                  bukan dikirim langsung ke gateway)
+	 * @param bill_no                   nomor tagihan/invoice yang dibuat lokal sebelum permintaan
+	 *                                  dikirim
+	 * @param key                       kunci enkripsi/dekripsi BSI (nilai {@code bsi_password})
+	 * @param hapusCicilanSebelumnya    tandai apakah request cicilan/VA sebelumnya perlu
+	 *                                  dihapus/digantikan
+	 * @return entitas {@link BsiRequest} tersimpan bila berhasil penuh; {@code null} bila gateway
+	 *         menolak permintaan (status bukan {@code "000"}); objek {@link BsiRequest} yang belum
+	 *         tentu tersimpan bila terjadi kegagalan lain yang ditangkap secara internal
+	 * @throws Exception dilempar ulang khusus dari kegagalan penyimpanan ke database (lihat
+	 *                    {@code gagalSimpan})
+	 */
 	@SuppressWarnings("deprecation")
 	public static BsiRequest sendRequest(String postData, Mahasiswa mahasiswa,
 			BiodataCalonMahasiswa biodataCalonMahasiswa, final Set<KegiatanTemporary> selectedKegiatanTemporary,

@@ -22,12 +22,91 @@ import ais.common.Common;
 import ais.common.ConstantValues;
 import ais.common.URLCommon;
 
+/**
+ * Utilitas integrasi AIS eCampus dengan <b>DSpace</b> — perangkat lunak repositori institusional
+ * sumber terbuka yang lazim dipakai kampus untuk menyimpan dan mempublikasikan koleksi digital
+ * seperti skripsi, tesis, disertasi, dan jurnal ilmiah. Kelas ini membungkus REST API DSpace
+ * (autentikasi berbasis cookie {@code JSESSIONID}, unggah berkas sebagai <i>bitstream</i> pada
+ * suatu <i>item</i>, dan pengecekan status layanan) memakai {@link java.net.HttpURLConnection}
+ * mentah — tanpa pustaka klien HTTP tingkat tinggi.
+ *
+ * <h2>Dua jalur login yang hidup berdampingan</h2>
+ * <p>
+ * Kelas ini memiliki DUA implementasi login yang tumpang tindih secara fungsional namun berbeda
+ * kematangan:
+ * </p>
+ * <ul>
+ * <li>{@link #logintest()} — jalur LAMA/uji coba: kredensial DAN alamat REST DITULIS LANGSUNG di
+ * kode ({@link #USERNAME}, {@link #PASSWORD}, {@link #REST_URL}), tidak membaca konfigurasi
+ * runtime, dan tidak menangani skenario proxy/Cloudflare. Dipertahankan bersama {@link
+ * #main(String[])} sebagai peninggalan pengujian manual — lihat peringatan keamanan di bawah.</li>
+ * <li>{@link #login()} — jalur PRODUKSI: kredensial dibaca dari konfigurasi runtime
+ * ({@code dspace_username}/{@code dspace_password} lewat {@code Common.getKonfigurasi}), dan
+ * alamat REST dicoba berurutan (endpoint internal lebih dulu, baru endpoint publik) untuk mengatasi
+ * kasus proteksi Cloudflare/WAF yang memblokir permintaan server-ke-server ke endpoint publik. Bila
+ * kedua alamat gagal karena pemblokiran WAF, endpoint yang akhirnya berhasil dipakai disimpan
+ * kembali ke {@link ais.common.ConstantValues#DSPACE_URL_PRIVATE} agar operasi DSpace berikutnya
+ * (mis. {@link #upload}) memakai endpoint yang sama dengan endpoint login yang berhasil — penting
+ * karena cookie sesi {@code JSESSIONID} hanya valid untuk host yang menerbitkannya.</li>
+ * </ul>
+ *
+ * <h2>Alur unggah berkas</h2>
+ * <p>
+ * {@link #upload(String, String, String, String)} mengirim satu berkas sebagai <i>bitstream</i> ke
+ * item DSpace tertentu (diidentifikasi lewat UUID) memakai request {@code multipart/form-data}
+ * yang disusun manual (boundary dari heksadesimal timestamp, header per-bagian ditulis lewat
+ * {@link java.io.PrintWriter}, isi biner disalin langsung ke {@link java.io.OutputStream} lewat
+ * {@link java.nio.file.Files#copy}). Nama berkas dan deskripsi disertakan sebagai parameter query
+ * pada URL endpoint {@code /items/{uuid}/bitstreams}, bukan sebagai bagian multipart — mengikuti
+ * konvensi REST API DSpace versi lama (DSpace 5/6 REST API klasik).
+ * </p>
+ *
+ * <h2>Penanganan galat berorientasi pesan pengguna</h2>
+ * <p>
+ * {@link #pesanKoneksi(Exception)} menerjemahkan pengecualian teknis (terutama pemblokiran
+ * Cloudflare/WAF yang terdeteksi lewat {@link ais.common.URLCommon#isWafForbidden(Exception)})
+ * menjadi pesan berbahasa Indonesia yang actionable bagi administrator kampus, mengarahkan mereka
+ * untuk mengisi konfigurasi {@code dspace_private_url_internal} — pola ini konsisten dengan
+ * penanganan galat di {@link #login()}.
+ * </p>
+ *
+ * @see ais.common.ConstantValues#DSPACE_URL_PRIVATE
+ * @see ais.common.URLCommon
+ */
 public class DspaceCommon {
 
+	/**
+	 * Alamat dasar REST API DSpace yang dipakai oleh jalur uji coba {@link #logintest()}/
+	 * {@link #upload}/{@link #main(String[])} — <b>bukan</b> yang dipakai jalur produksi
+	 * {@link #login()}/{@link #status(String)}, yang membaca alamat dari
+	 * {@link ais.common.ConstantValues#DSPACE_URL_PRIVATE} (konfigurasi runtime).
+	 */
 	public static String REST_URL = "http://demo.ecampus.id/rest";
+	/**
+	 * Username DSpace tertanam langsung di kode sumber, dipakai HANYA oleh jalur uji coba
+	 * {@link #logintest()}. Lihat peringatan keamanan pada javadoc kelas — nilai ini adalah
+	 * kredensial nyata (alamat email), bukan placeholder.
+	 */
 	private static String USERNAME = "fauzioke2003@gmail.com";
+	/**
+	 * Password DSpace tertanam langsung di kode sumber, dipakai HANYA oleh jalur uji coba
+	 * {@link #logintest()}. Lihat peringatan keamanan pada javadoc kelas.
+	 */
 	private static String PASSWORD = "jangannakal";
 
+	/**
+	 * Jalur login UJI COBA/PENINGGALAN ke DSpace: memakai {@link #REST_URL} dan kredensial
+	 * tertanam ({@link #USERNAME}/{@link #PASSWORD}) alih-alih konfigurasi runtime. Mem-POST
+	 * {@code email}+{@code password} ke {@code /login}, lalu mem-parsing header respons
+	 * {@code Set-Cookie} secara naif (memisah pada karakter {@code "="} pertama, mengambil bagian
+	 * sebelum {@code ";"}) untuk mendapatkan nilai cookie sesi. Untuk jalur produksi yang membaca
+	 * kredensial dari konfigurasi dan menangani multi-endpoint, gunakan {@link #login()}.
+	 *
+	 * @return nilai cookie sesi DSpace hasil login
+	 * @throws Exception bila server tidak mengembalikan cookie {@code Set-Cookie} sama sekali
+	 *                    (kredensial salah atau endpoint tidak dapat diakses), atau kegagalan
+	 *                    jaringan lain yang diteruskan dari {@link URLCommon#getPostResponseHeader}
+	 */
 	public static String logintest() throws Exception {
 
 		String postData = "email=" + USERNAME + "&password=" + PASSWORD;
@@ -56,6 +135,28 @@ public class DspaceCommon {
 
 	}
 
+	/**
+	 * Mengunggah satu berkas lokal sebagai <i>bitstream</i> baru pada item DSpace {@code uuid}, lewat
+	 * {@code POST /items/{uuid}/bitstreams} berformat {@code multipart/form-data} yang disusun manual
+	 * (boundary unik dari heksadesimal waktu saat ini, header/isi bagian ditulis langsung ke stream
+	 * koneksi). Nama berkas dan deskripsi dikirim sebagai parameter query URL (ter-encode UTF-8),
+	 * sedangkan isi biner berkas disalin langsung dari disk ke {@link java.io.OutputStream} koneksi
+	 * lewat {@link java.nio.file.Files#copy(java.nio.file.Path, java.io.OutputStream)} tanpa
+	 * dibuffer penuh di memori.
+	 *
+	 * <p>
+	 * Kode status HTTP dan isi respons dicetak ke {@code System.out} untuk keperluan diagnosis;
+	 * method tidak mengembalikan nilai maupun memvalidasi kode status — pemanggil yang perlu
+	 * memastikan sukses harus memeriksa log atau memodifikasi method ini.
+	 * </p>
+	 *
+	 * @param cookie      cookie sesi {@code JSESSIONID} hasil {@link #login()}/{@link #logintest()}
+	 * @param uuid        UUID item DSpace tujuan unggahan
+	 * @param filepath    path berkas lokal yang akan diunggah
+	 * @param description deskripsi bitstream, disisipkan sebagai parameter query {@code description}
+	 * @throws Exception diteruskan dari kegagalan koneksi HTTP, penulisan multipart, atau pembacaan
+	 *                    berkas lokal
+	 */
 	public static void upload(String cookie, String uuid, String filepath, String description) throws Exception {
 		File binaryFile = new File(filepath);
 
@@ -124,6 +225,15 @@ public class DspaceCommon {
 		System.out.println("resultBuf = " + resultBuf.toString());
 	}
 
+	/**
+	 * Titik masuk uji coba manual (dijalankan langsung dari IDE/command line, bukan dipanggil oleh
+	 * aplikasi) untuk memverifikasi jalur {@link #logintest()} + {@link #upload} terhadap server
+	 * DSpace di {@link #REST_URL}. Path berkas dan UUID item pada isi method ini bersifat contoh
+	 * spesifik-mesin developer, bukan konfigurasi umum.
+	 *
+	 * @param argv tidak dipakai
+	 * @throws Exception diteruskan dari {@link #logintest()}/{@link #upload}
+	 */
 	public static void main(String[] argv) throws Exception {
 		String cookie = logintest();
 		upload(cookie, "e9adbe28-d7b9-42df-a913-7f5c69b42851", "C:\\opt\\background.png", "test deskrips file yaaa");
@@ -145,6 +255,17 @@ public class DspaceCommon {
 		// "a9e8c451-5ba0-4887-8b9e-e157c6430388", postData);
 	}
 
+	/**
+	 * Mengecek status layanan DSpace produksi lewat {@code GET
+	 * {ConstantValues.DSPACE_URL_PRIVATE}/status}, terautentikasi memakai cookie sesi yang diberikan.
+	 * Berbeda dari {@link #logintest()}/{@link #upload}, method ini memakai alamat REST dari
+	 * konfigurasi runtime ({@link ais.common.ConstantValues#DSPACE_URL_PRIVATE}), sejalan dengan
+	 * jalur produksi {@link #login()}.
+	 *
+	 * @param cookie cookie sesi {@code JSESSIONID} hasil {@link #login()}
+	 * @return respons JSON mentah dari endpoint {@code /status} (mis. status login, tipe pengguna)
+	 * @throws Exception diteruskan dari kegagalan koneksi HTTP atau parsing JSON respons
+	 */
 	public static JSONObject status(String cookie) throws Exception {
 
 		String urlStr = ConstantValues.DSPACE_URL_PRIVATE + "/status";
@@ -176,6 +297,33 @@ public class DspaceCommon {
 
 	}
 
+	/**
+	 * Jalur login PRODUKSI ke DSpace: kredensial dibaca dari konfigurasi runtime
+	 * ({@code dspace_username}/{@code dspace_password}, dengan nilai default yang identik dengan
+	 * kredensial tertanam di {@link #USERNAME}/{@link #PASSWORD} — lihat peringatan keamanan pada
+	 * javadoc kelas), lalu login dicoba berurutan ke daftar alamat kandidat: alamat internal
+	 * ({@code dspace_private_url_internal}, bila diisi) lebih dulu, baru alamat utama
+	 * ({@link ais.common.ConstantValues#DSPACE_URL_PRIVATE}). Urutan ini sengaja mengutamakan
+	 * endpoint internal karena endpoint publik dapat diblokir oleh proteksi Cloudflare/WAF terhadap
+	 * permintaan otomatis server-ke-server.
+	 *
+	 * <p>
+	 * Bila percobaan ke suatu alamat gagal karena pemblokiran WAF (dideteksi lewat
+	 * {@link ais.common.URLCommon#isWafForbidden(Exception)}), method lanjut mencoba alamat
+	 * berikutnya dalam daftar; kegagalan karena sebab lain (mis. kredensial salah) langsung
+	 * dilempar tanpa mencoba alamat lain. Begitu satu alamat berhasil login,
+	 * {@link ais.common.ConstantValues#DSPACE_URL_PRIVATE} DIPERBARUI ke alamat tersebut (efek
+	 * samping global) agar pemanggilan DSpace berikutnya dalam sesi yang sama konsisten memakai
+	 * endpoint yang sama dengan endpoint login yang berhasil.
+	 * </p>
+	 *
+	 * @return nilai cookie sesi {@code JSESSIONID} hasil login
+	 * @throws IOException bila SEMUA alamat kandidat gagal karena pemblokiran WAF (pesan mengarahkan
+	 *                      administrator mengisi {@code dspace_private_url_internal}), bila tidak ada
+	 *                      satu pun alamat DSpace terkonfigurasi, atau bila kegagalan login pada suatu
+	 *                      alamat disebabkan hal lain di luar WAF (langsung dilempar dari
+	 *                      {@link #loginKeAlamat})
+	 */
 	public static String login() throws Exception {
 		String username = Common.getKonfigurasi("dspace_username", "fauzioke2003@gmail.com").getNilai();
 		String password = Common.getKonfigurasi("dspace_password", "jangannakal").getNilai();
@@ -218,6 +366,24 @@ public class DspaceCommon {
 				+ "dspace_private_url_internal.");
 	}
 
+	/**
+	 * Melakukan satu percobaan login POST ke {@code alamat + "/login"} dan mengekstrak nilai cookie
+	 * {@code JSESSIONID} dari seluruh header {@code Set-Cookie} pada respons (dapat berupa beberapa
+	 * nilai cookie berbeda dalam satu respons; hanya pasangan bernama persis {@code JSESSIONID},
+	 * dibandingkan tanpa memandang huruf besar/kecil, yang diambil). Dipanggil oleh {@link #login()}
+	 * untuk setiap alamat kandidat.
+	 *
+	 * @param alamat   alamat dasar REST DSpace (tanpa {@code /login}), sudah dirapikan lewat
+	 *                 {@link #rapikanAlamat(String)}
+	 * @param postData isi body POST berformat {@code application/x-www-form-urlencoded}
+	 *                 ({@code email=...&password=...})
+	 * @return nilai cookie sesi {@code JSESSIONID}
+	 * @throws IOException diteruskan langsung bila kegagalan berasal dari
+	 *                      {@link URLCommon#getPostResponseHeader} (termasuk kasus WAF, dideteksi
+	 *                      belakangan oleh pemanggil), dibungkus ulang dengan pesan beralamat bila
+	 *                      berasal dari pengecualian lain, atau dilempar bila respons tidak memuat
+	 *                      cookie {@code JSESSIONID} sama sekali
+	 */
 	private static String loginKeAlamat(String alamat, String postData) throws IOException {
 		String urlStr = alamat + "/login";
 		String cookie = "";
@@ -256,6 +422,14 @@ public class DspaceCommon {
 		return cookie;
 	}
 
+	/**
+	 * Merapikan alamat dasar URL dengan membuang spasi di ujung dan seluruh garis miring ({@code /})
+	 * berlebih di akhir string, sehingga penggabungan dengan path (mis. {@code "/login"}) tidak
+	 * menghasilkan garis miring ganda.
+	 *
+	 * @param alamat alamat mentah, boleh {@code null}
+	 * @return alamat yang sudah dirapikan, atau string kosong bila {@code alamat} {@code null}
+	 */
 	private static String rapikanAlamat(String alamat) {
 		String hasil = alamat == null ? "" : alamat.trim();
 		while (hasil.endsWith("/")) {
@@ -264,6 +438,16 @@ public class DspaceCommon {
 		return hasil;
 	}
 
+	/**
+	 * Menerjemahkan pengecualian teknis hasil operasi DSpace menjadi pesan berbahasa Indonesia yang
+	 * siap ditampilkan ke pengguna/administrator. Membedakan dua kasus: pemblokiran Cloudflare/WAF
+	 * (dideteksi lewat {@link ais.common.URLCommon#isWafForbidden(Exception)} atau lewat penanda
+	 * teks {@code "Cloudflare/WAF"} pada pesan pengecualian, yang cocok dengan pesan yang dilempar
+	 * {@link #login()}) versus kegagalan koneksi umum lainnya.
+	 *
+	 * @param exception pengecualian yang ditangkap dari operasi DSpace (login/upload/status)
+	 * @return pesan siap tampil yang mengarahkan administrator ke langkah perbaikan yang relevan
+	 */
 	public static String pesanKoneksi(Exception exception) {
 		if (URLCommon.isWafForbidden(exception)
 				|| (exception != null && exception.getMessage() != null

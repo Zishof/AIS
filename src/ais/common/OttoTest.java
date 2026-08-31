@@ -10,8 +10,64 @@ import com.google.common.hash.Hashing;
 
 //import org.json.JSONObject;
 
+/**
+ * Potongan kode uji-coba mandiri (bukan bagian dari alur transaksi aplikasi AIS) yang
+ * mendemonstrasikan cara membangun permintaan token pembayaran ke gateway <b>OttoPay</b>
+ * (endpoint lingkungan pengembangan {@code https://dev-secure.ottopay.id}), meliputi penyusunan
+ * payload JSON transaksi, pembuatan tanda tangan HMAC-SHA512, encoding Basic Authorization
+ * berbasis Base64 dari Merchant ID, dan eksekusi permintaan HTTP POST lewat proses eksternal
+ * {@code curl} (bukan lewat pustaka HTTP client Java).
+ *
+ * <p>
+ * Nama kelas ("OttoTest") dan gaya penulisannya — konstanta {@code apiKey}/{@code MID} tertanam
+ * langsung, banyak blok komentar berisi contoh payload JSON alternatif yang dinonaktifkan,
+ * timestamp yang dipaksa ({@code currentTimestamp = "1540383020"}) alih-alih memakai waktu
+ * berjalan — menunjukkan kelas ini adalah skrip eksplorasi/pengujian integrasi yang dipakai saat
+ * mengembangkan dukungan pembayaran lewat OttoPay, dijalankan manual sebagai program {@code main}
+ * ketimbang dipanggil oleh kode aplikasi produksi.
+ * </p>
+ *
+ * <h2>Alur pembuatan tanda tangan (signature)</h2>
+ * <p>
+ * Signature dihitung sebagai HMAC-SHA512 (kunci = {@code apiKey}) atas string gabungan
+ * {@code body_json.trim().toLowerCase() + "&" + timestamp + "&" + apiKey}, memakai pustaka Guava
+ * ({@link com.google.common.hash.Hashing#hmacSha512(byte[])}). Header {@code Authorization}
+ * memakai skema Basic dengan Merchant ID (bukan pasangan username:password) yang di-encode
+ * Base64. Permintaan dikirim lewat {@link ProcessBuilder} yang menjalankan {@code curl} sebagai
+ * proses child dan membaca stdout-nya baris demi baris — pola yang sama seperti dipakai mesin
+ * produksi push notification ({@code ais.delivery.email.sender.MailSender#kirimNotif}) untuk
+ * menghindari batas panjang argumen command-line pada payload besar, walau di sini bodinya
+ * relatif pendek.
+ * </p>
+ *
+ * <h2>Peringatan keamanan — kredensial payment gateway tertanam di kode sumber</h2>
+ * <p>
+ * <b>Kelas ini menanam langsung dua rahasia integrasi OttoPay sebagai literal string di kode
+ * sumber:</b> {@code apiKey} bernilai {@code "KP33PP0EE0AAP1EE1009010PP01I91OA"} (dipakai sebagai
+ * kunci HMAC penanda tangan permintaan) dan {@code MID} (Merchant ID) bernilai
+ * {@code "OP1E00030999"} (dipakai untuk header Authorization Basic). Walau endpoint yang dituju
+ * berupa lingkungan {@code dev-secure.ottopay.id} (kemungkinan sandbox/pengembangan), kedua nilai
+ * ini tetap merupakan kredensial integrasi yang semestinya tidak ter-commit ke kontrol versi
+ * dalam bentuk teks polos. Karena kelas ini terverifikasi tidak dipanggil oleh kode aplikasi lain
+ * (hanya dapat dijalankan manual lewat {@code main}), dokumentasi ini TIDAK mengubah maupun
+ * menghapus nilai-nilai tersebut — namun pemilik integrasi disarankan meninjau apakah
+ * {@code apiKey}/{@code MID} ini masih valid dan, bila iya, mempertimbangkan rotasi serta
+ * pemindahan ke konfigurasi runtime bila kelas ini (atau turunannya) akan dipakai lebih lanjut.
+ * </p>
+ */
 public class OttoTest {
 
+	/**
+	 * Menjalankan satu siklus percobaan permintaan token pembayaran OttoPay: menyusun payload
+	 * JSON transaksi contoh, menghitung timestamp dan signature HMAC-SHA512, meng-encode Merchant
+	 * ID ke Basic Authorization, lalu mengeksekusi permintaan lewat proses {@code curl} eksternal
+	 * dan mencetak setiap tahapan (timestamp, signature, MID, hasil respons) ke konsol untuk
+	 * keperluan debugging manual.
+	 *
+	 * @param t argumen baris perintah (tidak dipakai)
+	 * @throws Exception diteruskan apa adanya dari kegagalan proses {@code curl} atau pembacaan
+	 *                    stream keluarannya
+	 */
 	public static void main(String[] t) throws Exception {
 
 //		JSONObject body = new JSONObject();

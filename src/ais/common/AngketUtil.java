@@ -44,8 +44,84 @@ import ais.database.model.sekolah.Yayasan;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyWindow;
 
-public class AngketUtil { 
+/**
+ * Kelas utilitas statis untuk mekanisme "gerbang" (gate) angket/kuesioner penilaian dosen oleh
+ * mahasiswa dan penilaian guru oleh siswa: memeriksa apakah pengguna (mahasiswa/siswa) masih punya
+ * kewajiban mengisi angket penilaian yang belum lengkap untuk periode akademik berjalan, dan bila
+ * ya, memaksa jendela pengisian angket muncul secara modal sebelum pengguna dapat melanjutkan
+ * mengakses aplikasi. Kelas ini dipanggil dari alur login/inisialisasi sesi akademik — lihat
+ * {@link #checkAngket(Mahasiswa, int)} dan {@link #checkAngket(Siswa)} sebagai titik masuk utama.
+ *
+ * <h2>Konsep "checklist" penilaian</h2>
+ * <p>
+ * Setiap perkuliahan/jadwal pelajaran yang diikuti mahasiswa/siswa pada periode tertentu memiliki
+ * satu atau lebih dosen/guru pengajar. Untuk setiap kombinasi (dosen/guru, perkuliahan/jadwal),
+ * sistem mendefinisikan aturan penilaian ({@link ChecklistPenilaianDosen}/
+ * {@link ChecklistPenilaianGuru}) yang berlaku berdasarkan filter fakultas/jurusan (atau
+ * yayasan/sekolah untuk siswa), program studi, dan angkatan. {@link #checkStatusChecklist} menyusun
+ * seluruh kombinasi (id-aturan, dosen/guru-perkuliahan) yang <i>seharusnya</i> sudah dinilai, lalu
+ * membandingkannya dengan kombinasi yang <i>sudah benar-benar dinilai</i> (diambil dari
+ * {@link Mahasiswa#ambilChecklistBaruPenilaianDosenOlehMahasiswa}/
+ * {@link Siswa#ambilChecklistBaruPenilaianGuruOlehSiswa}). Bila ada satu saja kombinasi yang belum
+ * dinilai, method mengembalikan {@code true} (masih ada kewajiban) sehingga jendela angket
+ * ditampilkan.
+ * </p>
+ *
+ * <h2>Alur pemblokiran dan penentuan periode</h2>
+ * <p>
+ * {@link #checkAngket(Mahasiswa, int)} pertama-tama memeriksa apakah mahasiswa sedang diblokir
+ * login lewat {@link BlokirMahasiswa} — bila ya, sesi langsung diinvalidasi dan pengguna dilempar
+ * keluar (logoff) tanpa sempat memeriksa angket sama sekali. Bila tidak diblokir, method
+ * menentukan periode/jenis semester (ganjil/genap/semester pendek) yang relevan lewat dua jalur
+ * berbeda tergantung konfigurasi {@code input_angket_penilaian_dosen_harus_berdasarkan_kalender_akademik}:
+ * jalur "kalender akademik" (mencari konfigurasi yang cocok dengan {@link KonfigurasiKalenderAkademik}
+ * aktif saat ini) atau jalur "semester berjalan" (langsung memakai {@link Common#getKonfigurasi}
+ * berbasis tahun akademik dan jenis semester saat ini serta semester sebelumnya). Kedua jalur sama-
+ * sama dapat memicu jendela angket untuk periode semester berjalan, semester pendek (SP), maupun
+ * satu semester ke belakang.
+ * </p>
+ * <p>
+ * {@link #checkAngket(Siswa)} memakai pola serupa untuk siswa: memeriksa {@link BlokirSiswa},
+ * menentukan periode lewat {@link KonfigurasiKalenderAkademik} teraktif untuk yayasan/sekolah siswa
+ * tersebut (fallback ke tahun akademik/semester saat ini bila tidak ada kalender yang cocok), lalu
+ * memanggil {@link #displayPenilaianAngket(Siswa, String, String)} bila angket sedang berlangsung.
+ * </p>
+ *
+ * <h2>Tampilan jendela angket</h2>
+ * <p>
+ * {@link #displayPenilaianAngket(Mahasiswa, String, String, int, Integer)} dan
+ * {@link #displayPenilaianAngket(Siswa, String, String)} membuka jendela ZK modal berisi
+ * {@code AngketDosenWindow}/{@code AngketGuruWindow}, dan bila jendela tersebut tidak/belum
+ * menyelesaikan seluruh pengisian, timer default ({@link Common#createDefaultTimer}) dijadwalkan
+ * untuk menampilkan pesan peringatan informatif kepada pengguna. Kedua method mengembalikan
+ * {@code false} bila jendela angket ditampilkan (menandakan alur pemanggil harus berhenti/menunggu),
+ * dan {@code true} bila tidak ada kewajiban pengisian tersisa (alur boleh lanjut).
+ * </p>
+ *
+ * <p>
+ * Seluruh pekerjaan berat (query checklist, pembukaan jendela) dijalankan lewat
+ * {@link Common#createDefaultTimer(EventListener)} — pola umum di UI ZK untuk menunda eksekusi
+ * hingga setelah render awal komponen selesai, sehingga pengguna tidak melihat jendela kosong/UI
+ * yang belum siap saat gerbang angket dievaluasi.
+ * </p>
+ */
+public class AngketUtil {
 
+	/**
+	 * Menampilkan jendela angket penilaian guru untuk siswa bila statusnya masih memiliki kewajiban
+	 * pengisian ({@link #checkStatusChecklist(Siswa, String, String)} bernilai {@code true}).
+	 * Jendela dibangun dari jadwal pelajaran yang diikuti siswa pada tahun ajaran/semester tersebut
+	 * (baik kelas reguler maupun kelas les) memakai {@code AngketGuruWindow}, ditampilkan modal, dan
+	 * bila tidak segera dilengkapi, timer default menampilkan pesan peringatan berisi instruksi
+	 * langkah-langkah melengkapi angket.
+	 *
+	 * @param siswa siswa yang statusnya diperiksa
+	 * @param ta    tahun ajaran yang diperiksa
+	 * @param jenis jenis semester ({@link Perkuliahan#GANJIL}/{@link Perkuliahan#GENAP})
+	 * @return {@code false} bila jendela angket ditampilkan (masih ada kewajiban pengisian);
+	 *         {@code true} bila tidak ada kewajiban tersisa
+	 * @throws Exception diteruskan dari operasi ZK/Hibernate di dalamnya
+	 */
 	@SuppressWarnings("unchecked")
 	public static boolean displayPenilaianAngket(final Siswa siswa, final String ta, final String jenis)
 			throws Exception {
@@ -99,6 +175,24 @@ public class AngketUtil {
 		}
 	}
 
+	/**
+	 * Menampilkan jendela angket penilaian dosen untuk mahasiswa bila statusnya masih memiliki
+	 * kewajiban pengisian ({@link #checkStatusChecklist(Mahasiswa, int, Integer)} bernilai
+	 * {@code true}). Berbeda dari varian siswa, pembangunan jendela di sini dilakukan di dalam timer
+	 * default ({@link Common#createDefaultTimer}) itu sendiri (bukan langsung), dan jendela
+	 * {@code AngketDosenWindow} dibangun dari daftar perkuliahan+paralel yang diikuti mahasiswa
+	 * ({@link Mahasiswa#ambilPerkuliahanDanParalel(int, Integer)}).
+	 *
+	 * @param mahasiswa mahasiswa yang statusnya diperiksa
+	 * @param ta        tahun ajaran yang diperiksa
+	 * @param jenis     jenis semester (ganjil/genap/semester pendek)
+	 * @param semester  nomor semester berjalan mahasiswa
+	 * @param sp        penanda semester pendek ({@link Perkuliahan#SEMESTER_PENDEK}), atau
+	 *                  {@code null} untuk semester reguler
+	 * @return {@code false} bila jendela angket dijadwalkan tampil (masih ada kewajiban pengisian);
+	 *         {@code true} bila tidak ada kewajiban tersisa
+	 * @throws Exception diteruskan dari operasi ZK/Hibernate di dalamnya
+	 */
 	public static boolean displayPenilaianAngket(final Mahasiswa mahasiswa, final String ta, final String jenis,
 			final int semester, final Integer sp) throws Exception {
 		// TODO Auto-generated method stub
@@ -144,6 +238,21 @@ public class AngketUtil {
 		}
 	}
 
+	/**
+	 * Memeriksa apakah {@code mahasiswa} masih memiliki kewajiban pengisian angket penilaian dosen
+	 * yang belum lengkap untuk {@code semester}/{@code sp} tertentu. Menyusun seluruh kombinasi
+	 * (id-aturan {@link ChecklistPenilaianDosen}, dosen-perkuliahan) yang seharusnya dinilai
+	 * berdasarkan filter fakultas/jurusan/program/angkatan mahasiswa, lalu membandingkannya dengan
+	 * kombinasi yang sudah tersimpan di
+	 * {@link Mahasiswa#ambilChecklistBaruPenilaianDosenOlehMahasiswa(Session, boolean)}.
+	 *
+	 * @param mahasiswa mahasiswa yang diperiksa
+	 * @param semester  nomor semester berjalan (dipakai mengambil daftar perkuliahan+paralel)
+	 * @param sp        penanda semester pendek, atau {@code null}
+	 * @return {@code true} bila ada minimal satu kombinasi (aturan, dosen-perkuliahan) yang belum
+	 *         dinilai; {@code false} bila tidak ada perkuliahan/aturan yang berlaku, atau seluruh
+	 *         kewajiban sudah terpenuhi
+	 */
 	@SuppressWarnings("unchecked")
 	public static Boolean checkStatusChecklist(Mahasiswa mahasiswa, int semester, Integer sp) {
 
@@ -252,6 +361,21 @@ public class AngketUtil {
 		return false;
 	}
 
+	/**
+	 * Varian siswa dari {@link #checkStatusChecklist(Mahasiswa, int, Integer)}: memeriksa apakah
+	 * {@code siswa} masih memiliki kewajiban pengisian angket penilaian guru yang belum lengkap
+	 * untuk tahun ajaran {@code ta} dan jenis semester {@code smt}. Kombinasi (id-aturan
+	 * {@link ChecklistPenilaianGuru}, guru-jadwal pelajaran) yang seharusnya dinilai disusun
+	 * berdasarkan filter yayasan/sekolah/program/angkatan siswa (mencakup kelas reguler maupun kelas
+	 * les), lalu dibandingkan dengan kombinasi tersimpan di
+	 * {@link Siswa#ambilChecklistBaruPenilaianGuruOlehSiswa(Session, boolean)}.
+	 *
+	 * @param siswa siswa yang diperiksa
+	 * @param ta    tahun ajaran yang diperiksa
+	 * @param smt   jenis semester ({@link Perkuliahan#GANJIL}/{@link Perkuliahan#GENAP})
+	 * @return {@code true} bila ada minimal satu kombinasi yang belum dinilai; {@code false} bila
+	 *         tidak ada jadwal/aturan yang berlaku, atau seluruh kewajiban sudah terpenuhi
+	 */
 	@SuppressWarnings("unchecked")
 	public static Boolean checkStatusChecklist(Siswa siswa, String ta, String smt) {
 
@@ -368,6 +492,23 @@ public class AngketUtil {
 		return false;
 	}
 
+	/**
+	 * Titik masuk utama gerbang angket untuk mahasiswa, dipanggil pada alur login/inisialisasi sesi
+	 * akademik. Alurnya: (1) periksa apakah mahasiswa sedang diblokir login lewat
+	 * {@link BlokirMahasiswa} — bila ya, sesi diinvalidasi dan pengguna dilogoff paksa tanpa
+	 * pemeriksaan angket; (2) bila tidak diblokir, tentukan periode yang perlu diperiksa (semester
+	 * berjalan, semester pendek, dan satu semester sebelumnya) memakai salah satu dari dua strategi
+	 * tergantung konfigurasi {@code input_angket_penilaian_dosen_harus_berdasarkan_kalender_akademik}
+	 * — berbasis {@link KonfigurasiKalenderAkademik} bila aktif, atau berbasis
+	 * {@link Common#getKonfigurasi} langsung bila tidak; (3) untuk tiap periode yang sedang
+	 * berlangsung (menurut konfigurasi terkait), panggil {@link #displayPenilaianAngket(Mahasiswa,
+	 * String, String, int, Integer)} — begitu salah satu pemanggilan mengembalikan {@code false}
+	 * (jendela angket ditampilkan), method langsung berhenti tanpa memeriksa periode berikutnya.
+	 * Seluruh pekerjaan dijalankan di dalam {@link Common#createDefaultTimer(EventListener)}.
+	 *
+	 * @param mahasiswa  mahasiswa yang sedang login/aktif sesinya
+	 * @param currentSmt nomor semester berjalan mahasiswa saat ini
+	 */
 	public static void checkAngket(final Mahasiswa mahasiswa, final int currentSmt) {
 		Common.createDefaultTimer(new EventListener() {
 
@@ -564,6 +705,21 @@ public class AngketUtil {
 		});
 	}
 
+	/**
+	 * Varian siswa dari {@link #checkAngket(Mahasiswa, int)}, titik masuk gerbang angket penilaian
+	 * guru pada alur login/inisialisasi sesi siswa. Alurnya: (1) periksa {@link BlokirSiswa} aktif
+	 * untuk siswa tersebut yang menandakan login diblokir — bila ada, sesi diinvalidasi dan pengguna
+	 * dilogoff paksa; (2) bila tidak diblokir, cari {@link KonfigurasiKalenderAkademik} teraktif
+	 * (rentang tanggal mencakup hari ini) untuk yayasan/sekolah siswa dengan kunci konfigurasi
+	 * {@code checklist_penilaian_guru} — bila ditemukan, tahun ajaran dan jenis semester diambil dari
+	 * kalender tersebut; bila tidak, fallback ke tahun akademik/semester saat ini
+	 * ({@link Common#getCurrentTahunAkademik()}/{@link Common#isNowSemensterGanjil()}); (3) bila
+	 * konfigurasi menandakan angket sedang berlangsung ({@code AKTIF}), panggil
+	 * {@link #displayPenilaianAngket(Siswa, String, String)}. Seluruh pekerjaan dijalankan di dalam
+	 * {@link Common#createDefaultTimer(EventListener)}.
+	 *
+	 * @param siswa siswa yang sedang login/aktif sesinya
+	 */
 	public static void checkAngket(final Siswa siswa) {
 		Common.createDefaultTimer(new EventListener() {
 

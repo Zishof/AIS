@@ -28,16 +28,80 @@ import ais.ui.util.UIUtil;
 
 // Pastikan import class entity Anda sesuai (LampiranLain, dll)
 
+/**
+ * Kelas utilitas berisi rutin <b>inisialisasi/migrasi data satu-kali saat startup aplikasi</b>
+ * ("Encrip Semua" — nama historis, bukan tentang enkripsi kriptografi melainkan tampaknya
+ * singkatan/istilah internal untuk "proses semua" data lama yang perlu disiapkan/dimigrasikan).
+ * Satu-satunya method publik, {@link #encripSemua()}, dipanggil sekali saat aplikasi start dan
+ * menjalankan beberapa pekerjaan latar belakang independen secara paralel di thread terpisah:
+ * ekstraksi berkas laporan JRXML dan ZIP SCORM yang belum diekstrak ke disk, pemuatan cache label
+ * multi-bahasa ke memori ({@link MemoryDbUtil}), inisialisasi menu aplikasi, dan migrasi data
+ * historis kolom {@code tahunAkademik} pada {@link Detailperkuliahan} yang belum terisi.
+ *
+ * <p>
+ * <b>Catatan penamaan:</b> komentar {@code // Ganti nama class sesuai file Anda} dan
+ * {@code // Pastikan import class entity Anda sesuai} pada kode asli mengindikasikan kelas ini
+ * kemungkinan berasal dari templat/potongan kode yang di-generate atau ditempel dari sumber lain,
+ * lalu disesuaikan untuk kebutuhan AIS. Nama kelas dan struktur dipertahankan apa adanya sesuai
+ * instruksi pekerjaan dokumentasi ini.
+ * </p>
+ *
+ * <h2>Detail per pekerjaan pada {@link #encripSemua()}</h2>
+ * <ul>
+ * <li><b>Thread 1 (proses berkas):</b> membuka sesi Hibernate streaming terpisah
+ * ({@link StreamingHibernateUtil}) untuk memproses tiga kategori data secara berurutan dalam satu
+ * thread: (a) seluruh {@link LampiranLain} berekstensi {@code .jrxml} yang templat fisiknya belum
+ * ada di direktori laporan ({@link #processJrxml(LampiranLain)}); (b) seluruh
+ * {@link ais.database.model.file.PertemuanFileContent} dengan {@code lokasiFisik} terisi, diekstrak
+ * sebagai ZIP SCORM ({@link #prosesUnzip(String, File)}); (c) seluruh {@link LampiranLain} dengan
+ * {@code lokasiFisik} terisi, diekstrak dengan cara yang sama. Setiap item diproses dalam blok
+ * {@code try/catch} tersendiri agar satu berkas bermasalah (hilang, korup) tidak menghentikan
+ * seluruh batch.</li>
+ * <li><b>Thread 2 (cache bahasa):</b> memuat seluruh baris {@link LabelBahasa} dari database dan
+ * mengisi tiga peta in-memory ({@code MemoryDbUtil.getBahasaIndonesias/Englishs/Arabs()}) agar
+ * pencarian terjemahan label UI tidak perlu query database berulang saat runtime.</li>
+ * <li><b>Thread utama (menu + migrasi akademik):</b> memanggil {@code UIUtil.initMenus} dan
+ * {@code MenuInitializer.initMenus} secara sinkron pada sesi Hibernate terisolasi, lalu menghitung
+ * jumlah baris {@link Detailperkuliahan} yang kolom {@code tahunAkademik}-nya masih kosong padahal
+ * relasi mahasiswa dan semester (bukan nol) sudah terisi; bila ada, seluruh id baris tersebut
+ * diambil lalu migrasi dijalankan pada thread ketiga terpisah lewat
+ * {@link #updateDetailPerkuliahanBatch(List)}.</li>
+ * </ul>
+ *
+ * <p>
+ * Dijaga idempoten oleh flag statis {@link #hasEncript}: pemanggilan {@link #encripSemua()}
+ * kedua dan seterusnya pada JVM yang sama langsung kembali tanpa melakukan apa pun. Flag ini
+ * di-set {@code true} SEBELUM blok {@code synchronized} dijalankan, sehingga panggilan bersamaan
+ * (concurrent) yang tiba tepat sebelum flag ter-set berpotensi (secara teori, dalam jendela waktu
+ * yang sangat sempit) lolos pemeriksaan bersama-sama; blok {@link #LOCK_INIT_ENCRIPT} sendiri
+ * hanya mengunci badan method setelah pengecekan flag, bukan pengecekan-dan-set flag secara atomik.
+ * </p>
+ */
 public class DataProcessor { // Ganti nama class sesuai file Anda
 
 	private static final Logger log = Logger.getLogger(DataProcessor.class);
 
+	/** Penanda apakah {@link #encripSemua()} sudah pernah dijalankan pada JVM ini (guard idempoten). */
 	private static boolean hasEncript = false;
 	// Konstanta untuk path panjang agar lebih rapi
+	/**
+	 * Path dasar (relatif terhadap {@link Common#REAL_PATH}) tempat hasil ekstraksi ZIP SCORM
+	 * disimpan. Struktur direktori berlapis yang tidak lazim ({@code /f/s/2/s/s/e/e/w/...} diulang
+	 * enam kali) tampaknya sengaja dibuat dalam/tersembunyi (mungkin untuk alasan historis atau
+	 * menghindari akses langsung); nilainya dipertahankan apa adanya.
+	 */
 	private static final String SCORM_BASE_PATH = "/f/s/2/s/s/e/e/w/f/s/2/s/s/e/e/w/f/s/2/s/s/e/e/w/f/s/2/s/s/e/e/w/f/s/2/s/s/e/e/w/f/s/2/s/s/e/e/w/scorm/";
 
+	/** Objek kunci untuk blok {@code synchronized} pada {@link #encripSemua()}. */
 	private static final Object LOCK_INIT_ENCRIPT = new Object();
 
+	/**
+	 * Titik masuk tunggal kelas ini: menjalankan seluruh pekerjaan inisialisasi/migrasi data
+	 * satu-kali (ekstraksi berkas JRXML/ZIP, pemuatan cache bahasa, inisialisasi menu, migrasi
+	 * {@code tahunAkademik}) secara paralel di beberapa thread latar belakang. Aman dipanggil
+	 * berkali-kali — hanya pemanggilan pertama pada JVM yang benar-benar bekerja (lihat
+	 * {@link #hasEncript}). Lihat Javadoc kelas untuk rincian lengkap tiap pekerjaan.
+	 */
 	@SuppressWarnings("unchecked")
 	public static void encripSemua() {
 		// Cek state
@@ -193,6 +257,15 @@ public class DataProcessor { // Ganti nama class sesuai file Anda
 
 	// --- HELPER METHODS (Private) ---
 
+	/**
+	 * Menyalin templat laporan JRXML dari lokasi penyimpanan lampiran ({@code lampiran.ambilFile()})
+	 * ke direktori laporan aplikasi ({@code Common.ambilREAL_PATH_REPORT()}), hanya bila berkas
+	 * tujuan belum ada di sana. Kegagalan (mis. berkas sumber hilang) dicatat ke
+	 * {@link ais.common.ErrorAuditUtil} dan diabaikan (tidak dilempar ulang) agar item lain dalam
+	 * batch tetap diproses.
+	 *
+	 * @param lampiran entitas {@link LampiranLain} yang mewakili satu berkas {@code .jrxml}
+	 */
 	private static void processJrxml(LampiranLain lampiran) {
 		try {
 			File fileJrxml = new File(Common.ambilREAL_PATH_REPORT() + "/" + lampiran.getNama());
@@ -216,6 +289,19 @@ public class DataProcessor { // Ganti nama class sesuai file Anda
 		}
 	}
 
+	/**
+	 * Mengekstrak satu berkas ZIP (paket SCORM) ke direktori tujuan di bawah
+	 * {@link #SCORM_BASE_PATH}, dengan sejumlah pemeriksaan untuk data lama yang berpotensi rusak:
+	 * berkas 0-byte dilewati lebih awal (dianggap upload terputus, bukan ZIP valid), validitas
+	 * struktur ZIP diperiksa lebih dulu ({@code new ZipFile(...)}) SEBELUM direktori hasil
+	 * ekstraksi lama dihapus (agar hasil ekstraksi lama tetap dipertahankan bila sumber ternyata
+	 * rusak), dan {@link ZipException} akibat ZIP korup dicatat sebagai peringatan ringkas (tanpa
+	 * stack trace penuh/audit DB) agar log tidak dibanjiri pada migrasi data lama berskala besar.
+	 *
+	 * @param lokasiFisik        path berkas ZIP utama yang dicoba lebih dulu
+	 * @param fileSourceFallback berkas alternatif (mis. hasil {@code ambilFile()} pada entitas)
+	 *                           yang dipakai bila {@code lokasiFisik} tidak ditemukan di disk
+	 */
 	private static void prosesUnzip(String lokasiFisik, File fileSourceFallback) {
 		try {
 			File fileZip = new File(lokasiFisik);
@@ -274,6 +360,18 @@ public class DataProcessor { // Ganti nama class sesuai file Anda
 		}
 	}
 
+	/**
+	 * Migrasi data historis: mengisi kolom {@code tahunAkademik} yang masih kosong pada
+	 * sekumpulan baris {@link Detailperkuliahan} (id-nya sudah dihitung sebelumnya oleh
+	 * {@link #encripSemua()}), dihitung dari tahun angkatan dan semester mulai mahasiswa terkait
+	 * lewat {@link Common#getTahunAkademik(Integer, Integer, String)}. Diproses dalam satu
+	 * transaksi Hibernate dengan flush+clear session setiap 20 baris (batching) untuk menjaga
+	 * penggunaan memori tetap terkendali pada migrasi data berskala besar. Bila terjadi galat,
+	 * seluruh transaksi di-rollback dan galat ditampilkan/dicatat lewat
+	 * {@link Common#tampilErrorJikaAdmin(Exception)}.
+	 *
+	 * @param ids daftar id {@link Detailperkuliahan} yang akan dimigrasikan
+	 */
 	private static void updateDetailPerkuliahanBatch(List<Long> ids) {
 		Session mySession = null;
 		Transaction tx = null;

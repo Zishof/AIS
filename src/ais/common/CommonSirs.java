@@ -71,8 +71,86 @@ import ais.database.model.sirs.TindakanDiagnosaPenyakit;
 import ais.ui.util.MyMessageboxConfig;
 import net.sf.jasperreports.engine.data.JRMapCollectionDataSource;
 
+/**
+ * Kelas utilitas statis untuk modul Sistem Informasi Rumah Sakit (SIRS) di AIS: menaungi logika
+ * penjadwalan dokter/shift, pencetakan dokumen klinis (kartu pasien, status pasien, hasil diagnosa,
+ * lembar tracer), perhitungan diskon/pajak/harga layanan medis, serta pembuatan kode/nomor rekam
+ * medis pasien. Seluruh method bersifat statis (tidak ada instance state) dan sebagian besar
+ * langsung memanggil sesi Hibernate aktif ({@link HibernateUtil#currentSession()}) untuk membaca
+ * atau menulis data transaksional rumah sakit — kode kelas ini karenanya erat berpadanan dengan
+ * struktur skema database {@code sirs.*} (mis. tabel {@code detail_transaksi_layanan},
+ * {@code detail_transaksi_pasien}).
+ *
+ * <h2>Kelompok fungsi utama</h2>
+ * <ol>
+ * <li><b>Penjadwalan lokasi/shift/dokter</b> — {@link #getCurrentShift(Lokasi, Boolean)} mencari
+ * shift yang sedang berlangsung pada suatu lokasi (dengan penanganan khusus shift yang melewati
+ * tengah malam); {@link #initLokasiDanShift} (dua overload) membangun baris ZK berisi combobox
+ * pemilihan lokasi (dan opsional shift) lengkap dengan event wiring untuk memberi tahu pemanggil
+ * setiap kali pilihan berubah; {@link #initCalendarModel} dan {@link #createSimpleCalendarEvent}
+ * membangun model kalender ZK ({@link SimpleCalendarModel}) dari jadwal praktik dokter
+ * ({@link JadwalDokter}) untuk ditampilkan pada komponen {@link Calendars}.</li>
+ * <li><b>Pencetakan dokumen klinis</b> — kelompok method {@code onCetak*}
+ * ({@link #onCetakKartuPasien(Pendaftaran)}, {@link #onCetakStatusPasien(Pasien)},
+ * {@link #onCetakHasilDiagnosaPasienRawatInap(DiagnosaPenyakit)},
+ * {@link #onCetakHasilDiagnosaPasien(DiagnosaPenyakit)}, {@link #onCetakTracer(Pendaftaran)})
+ * menyiapkan parameter laporan (termasuk barcode/QR kode pasien lewat
+ * {@link BarcodeCommon#generateCRCode(String, java.io.File)}), memanggil
+ * {@link Report#generateFileReport} untuk membangkitkan berkas PDF dari template Jasper, lalu
+ * menampilkannya lewat {@link Report#tampil}. Pola parameter pada method-method ini sangat mirip
+ * satu sama lain (data identitas pasien, kesatuan dinas TNI/PNS, riwayat kunjungan) sehingga
+ * duplikasi logika cukup tinggi — perubahan pada satu template kemungkinan perlu diselaraskan
+ * manual ke method serupa lainnya.</li>
+ * <li><b>Diskon &amp; pajak medis</b> — {@link #getDiskonSekarang} dan {@link #getPajakSekarang}
+ * mencari aturan diskon/pajak yang berlaku pada tanggal tertentu untuk kombinasi item/tindakan/alat
+ * medis, asuransi, dan komunitas; {@link #getTotalDiskonDalamPersen} dan
+ * {@link #getTotalPajakDalamPersen} menjumlahkan persentasenya; {@link #hitungDiskonRacikan} dan
+ * {@link #hitungPajakRacikan} menerapkan perhitungan tersebut ke racikan obat (kumpulan item dengan
+ * takaran masing-masing).</li>
+ * <li><b>Harga jual &amp; HPP</b> — {@link #hitungHargaJualRacikan} menjumlahkan harga jual seluruh
+ * komponen racikan; {@link #hitungHPP(ItemMedis, Session)} dan
+ * {@link #hitungHargaBeli(ItemMedis, Session)} menghitung harga pokok penjualan/harga beli rata-rata
+ * item medis langsung lewat SQL native atas tabel {@code sirs.detail_transaksi_pasien}.</li>
+ * <li><b>Transaksi layanan &amp; kode pasien</b> — {@link #simpanTransaksiTindakan} mencatat baris
+ * {@link DetailTransaksiLayanan} untuk satu tindakan yang dikenakan ke pasien (menghapus baris lama
+ * yang belum lunas untuk pendaftaran/kartu cetak yang sama sebelum menyimpan ulang, mencegah baris
+ * dobel saat aksi diulang); {@link #generateMaxByJenisPasien} dan {@link #generateCodePasien}
+ * membangun kode rekam medis pasien baru berbasis jenis pasien (umum/dinas TNI-AD/AL/AU/PNS/siswa)
+ * dengan pola awalan huruf ({@code D}, {@code S}, {@code L}) yang di-parse ulang dari kode existing
+ * memakai fungsi SQL {@code to_number(replace(...))}, lalu memverifikasi keunikannya secara
+ * rekursif bila terjadi tabrakan.</li>
+ * <li><b>Data pendukung lain</b> — {@link #getMinggu(Integer, Integer)} memuat/membangun daftar
+ * minggu kalender untuk suatu bulan-tahun (dipakai laporan periodik), memakai sesi Hibernate
+ * dedikasi ({@code openSession()}) yang ditutup eksplisit di blok {@code finally} untuk mencegah
+ * kebocoran koneksi; {@link #populateJasaRacik()} memastikan data induk "Jasa Racik" (Bubuk/Sirup/
+ * Krim) selalu tersedia, membuatnya otomatis bila belum ada.</li>
+ * </ol>
+ *
+ * <p>
+ * <b>Catatan pengelolaan sesi Hibernate</b> — sebagian besar method di kelas ini memakai sesi
+ * thread-bound lewat {@link HibernateUtil#currentSession()} (siklus hidupnya dikelola di luar
+ * kelas ini, umumnya per-request), tetapi beberapa method (mis. {@link #getMinggu},
+ * {@link #generateMaxByJenisPasien}, {@link #generateCodePasien}) sengaja membuka sesi dedikasi
+ * lewat {@code HibernateUtil.getSessionFactory().openSession()} dan menutupnya sendiri di blok
+ * {@code finally} — pola ini dipakai ketika method perlu memastikan sesi ditutup segera terlepas
+ * dari sesi request yang sedang berjalan, dengan komentar kode menegaskan ini sebagai perbaikan atas
+ * potensi kebocoran koneksi pada versi sebelumnya.
+ * </p>
+ */
 public class CommonSirs {
 
+	/**
+	 * Mencari daftar {@link Shift} yang sedang berlaku pada {@code lokasi} tertentu berdasarkan jam
+	 * saat ini. Bila {@code allTime} bernilai {@code true}, seluruh shift lokasi tersebut
+	 * dikembalikan tanpa filter jam. Bila pencarian pada jam biasa (0-24) tidak menemukan hasil dan
+	 * {@code allTime} bernilai {@code false}, pencarian diulang dengan menambahkan 24 jam ke waktu
+	 * saat ini — menangani kasus shift yang jam mulainya lebih besar dari jam selesainya karena
+	 * melewati tengah malam (mis. shift malam 22:00–06:00).
+	 *
+	 * @param lokasi  lokasi/cabang yang shift-nya dicari
+	 * @param allTime bila {@code true}, abaikan filter jam dan kembalikan semua shift lokasi
+	 * @return daftar {@link Shift} yang cocok; bisa kosong bila tidak ada shift yang berlaku
+	 */
 	@SuppressWarnings("unchecked")
 	public static List<Shift> getCurrentShift(Lokasi lokasi, Boolean allTime) {
 
@@ -99,6 +177,22 @@ public class CommonSirs {
 		return shifts;
 	}
 
+	/**
+	 * Membangun baris ZK ({@link Row}) berisi combobox pemilihan {@link Lokasi} (beserta baris info
+	 * "Toko" terkait bila lokasi memiliki toko), menyisipkannya ke {@code rows}, dan mendaftarkan
+	 * event {@code onChange} yang meneruskan lokasi terpilih ke {@code myEventListener}. Bila
+	 * {@code myLokasi} sudah diberikan, combobox langsung dinonaktifkan (terkunci pada lokasi
+	 * tersebut); bila hanya ada satu pilihan lokasi, combobox otomatis memilihnya. Varian ini tidak
+	 * menyertakan pemilihan shift — bandingkan dengan overload
+	 * {@link #initLokasiDanShift(Lokasi, Shift, Rows, EventListener)}.
+	 *
+	 * @param myLokasi         lokasi yang sudah ditentukan sebelumnya (mengunci combobox), boleh
+	 *                         {@code null} untuk membiarkan pengguna memilih
+	 * @param rows             kontainer {@link Rows} ZK tempat baris combobox disisipkan
+	 * @param myEventListener  listener yang dipanggil dengan lokasi terpilih setiap kali pilihan
+	 *                         berubah
+	 * @throws Exception diteruskan dari operasi ZK/Hibernate di dalamnya
+	 */
 	public static void initLokasiDanShift(Lokasi myLokasi, Rows rows, final EventListener myEventListener)
 			throws Exception {
 		final Label tokodata = new Label();
@@ -151,6 +245,23 @@ public class CommonSirs {
 
 	}
 
+	/**
+	 * Varian lengkap {@link #initLokasiDanShift(Lokasi, Rows, EventListener)} yang menambahkan
+	 * combobox pemilihan {@link Shift} berantai (<i>cascading</i>) di bawah combobox lokasi: setiap
+	 * kali lokasi berubah, daftar shift dimuat ulang lewat {@link #getCurrentShift(Lokasi, Boolean)}
+	 * untuk lokasi tersebut. Bila {@code myShift} sudah ditentukan, kedua combobox dikunci pada
+	 * lokasi dan shift tersebut; bila belum, event awal dipicu manual ({@code eventListener.onEvent
+	 * (null)}) agar tampilan langsung konsisten dengan pilihan default. Hasil akhir (lokasi + shift
+	 * terpilih) diteruskan ke {@code myEventListener} setiap kali salah satu combobox berubah.
+	 *
+	 * @param myLokasi        lokasi yang sudah ditentukan sebelumnya, boleh {@code null}
+	 * @param myShift         shift yang sudah ditentukan sebelumnya (mengunci kedua combobox), boleh
+	 *                        {@code null}
+	 * @param rows            kontainer {@link Rows} ZK tempat baris-baris combobox disisipkan
+	 * @param myEventListener listener yang dipanggil dengan {@code [lokasi, shift]} terpilih setiap
+	 *                        kali salah satu pilihan berubah
+	 * @throws Exception diteruskan dari operasi ZK/Hibernate di dalamnya
+	 */
 	@SuppressWarnings("deprecation")
 	public static void initLokasiDanShift(Lokasi myLokasi, Shift myShift, Rows rows,
 			final EventListener myEventListener) throws Exception {
@@ -242,10 +353,35 @@ public class CommonSirs {
 		shiftEventListener.onEvent(null);
 	}
 
+	/** Varian ringkas {@link #initCalendarModel(Lokasi, Dokter, Poly, Calendars, Boolean, String)} tanpa penyesuaian jam tampil otomatis dan tanpa filter jenis poli ({@code sesuaikan=false}, {@code jenis=null}). */
 	public static void initCalendarModel(Lokasi myLokasi, Dokter myDokter, Poly myPoly, Calendars calendars) {
 		initCalendarModel(myLokasi, myDokter, myPoly, calendars, false, null);
 	}
 
+	/**
+	 * Membangun {@link SimpleCalendarModel} berisi jadwal praktik dokter ({@link JadwalDokter}) untuk
+	 * rentang tanggal yang ditampilkan {@code calendars} (dari {@code getBeginDate()} sampai
+	 * {@code getEndDate()}), difilter menurut hari dalam minggu, lokasi, dokter, poli, jenis poli, dan
+	 * masa berlaku jadwal ({@code jadwalDokterDimulai}/{@code jadwalDokterSampai}). Setiap jadwal yang
+	 * cocok diubah menjadi satu {@link SimpleCalendarEvent} lewat
+	 * {@link #createSimpleCalendarEvent(JadwalDokter, Calendar)} dan ditambahkan ke model.
+	 *
+	 * <p>
+	 * Bila {@code sesuaikan} bernilai {@code true}, method ini juga melacak jam mulai paling awal
+	 * ({@code minjam}) dan jam selesai paling akhir ({@code maxjam}) dari seluruh shift yang muncul,
+	 * lalu menyetel jam tampil awal/akhir komponen {@link Calendars} ke rentang tersebut — sehingga
+	 * kalender secara otomatis "menyesuaikan diri" menampilkan hanya rentang jam yang relevan, bukan
+	 * 24 jam penuh.
+	 * </p>
+	 *
+	 * @param myLokasi  filter lokasi; {@code null} berarti semua lokasi
+	 * @param myDokter  filter dokter; {@code null} berarti semua dokter
+	 * @param myPoly    filter poli; {@code null} berarti semua poli
+	 * @param calendars komponen ZK {@link Calendars} yang model dan rentang jam tampilnya diisi/diubah
+	 * @param sesuaikan bila {@code true}, jam tampil kalender disesuaikan otomatis ke rentang shift
+	 *                  yang ditemukan
+	 * @param jenis     filter jenis poli ({@code poly.jenis}); {@code null} berarti semua jenis
+	 */
 	@SuppressWarnings("unchecked")
 	public static void initCalendarModel(Lokasi myLokasi, Dokter myDokter, Poly myPoly, Calendars calendars,
 			Boolean sesuaikan, String jenis) {
@@ -314,6 +450,22 @@ public class CommonSirs {
 		}
 	}
 
+	/**
+	 * Mengubah satu {@link JadwalDokter} (jadwal praktik terkait shift tertentu) menjadi satu
+	 * {@link SimpleCalendarEvent} untuk tanggal {@code current}: jam mulai/selesai event diambil dari
+	 * jam mulai/selesai {@link Shift} milik jadwal tersebut, digabungkan dengan tanggal
+	 * {@code current}. Bila jam mulai shift lebih besar dari jam selesainya (shift melewati tengah
+	 * malam), tanggal selesai event dipaksa ke akhir hari ({@code 23:59:59}) alih-alih benar-benar
+	 * menghitung ke hari berikutnya. Warna header/konten event diambil dari kolom {@code warna}
+	 * jadwal (format {@code "headerColor,contentColor"}) bila diisi; teks konten event berisi ringkasan
+	 * dokter, poli, lokasi, dan masa berlaku jadwal.
+	 *
+	 * @param myJadwalDokter jadwal praktik dokter yang akan direpresentasikan sebagai event kalender
+	 * @param current        tanggal spesifik (dalam rentang berulang) yang dipasangkan dengan jam
+	 *                       shift milik jadwal ini
+	 * @return {@link SimpleCalendarEvent} terkunci ({@code locked=true}) siap ditambahkan ke model
+	 *         kalender
+	 */
 	public static SimpleCalendarEvent createSimpleCalendarEvent(JadwalDokter myJadwalDokter, Calendar current) {
 		Calendar m = Calendar.getInstance();
 		m.setTime(myJadwalDokter.getShift().getMulai());
@@ -373,6 +525,20 @@ public class CommonSirs {
 		return sce;
 	}
 
+	/**
+	 * Mencatat/menampilkan pencetakan kartu pasien untuk satu {@link Pendaftaran}. Bila belum ada
+	 * record {@link CetakKartuPasien} untuk pendaftaran tersebut, method ini membuat satu record baru
+	 * (dengan kode dibangkitkan lewat {@link Common#generateCode}) dan mencatat transaksi tindakan
+	 * "Pembuatan Kartu" ({@code ConstantValues.PEMBUATAN_KARTU}) lewat
+	 * {@link #simpanTransaksiTindakan(Pasien, Tindakan, KelasPerawatan, Lokasi, Double, Pendaftaran,
+	 * CetakKartuPasien)} — sehingga biaya pembuatan kartu hanya dikenakan sekali per pendaftaran
+	 * meskipun tombol cetak ditekan berulang kali. Pencetakan fisik dilakukan lewat
+	 * {@link CetakKartuPasienAction#onCetakKartu(Pasien)} yang selalu dipanggil terlepas dari apakah
+	 * record baru dibuat atau sudah ada sebelumnya.
+	 *
+	 * @param pendaftaran pendaftaran pasien yang kartunya akan dicetak
+	 * @throws Exception diteruskan dari operasi Hibernate/pembuatan kode/pencetakan
+	 */
 	@SuppressWarnings({})
 	public static void onCetakKartuPasien(Pendaftaran pendaftaran) throws Exception {
 		Session session = HibernateUtil.currentSession();
@@ -400,6 +566,19 @@ public class CommonSirs {
 
 	}
 
+	/**
+	 * Membangkitkan dan menampilkan laporan PDF "Data Identitas Pasien" (template
+	 * {@code sirs/data_identitas_pasien}). Method ini membuat berkas barcode/QR sementara dari kode
+	 * pasien lewat {@link BarcodeCommon#generateCRCode(String, java.io.File)}, mengumpulkan seluruh
+	 * data identitas pasien (nama, kesatuan dinas TNI-AD/AL/AU/PNS, pangkat, NIP, kontak, status
+	 * perkawinan, agama, pendidikan, pekerjaan, tanggal kunjungan pertama, tanggal lahir, alamat,
+	 * tanggal registrasi) ke sebuah {@link Map} parameter, lalu menyerahkannya ke
+	 * {@link Report#generateFileReport} dan {@link Report#tampil} untuk dirender dan ditampilkan ke
+	 * pengguna. Seluruh kegagalan ditangkap dan dicatat lewat {@code ErrorAuditUtil.record}; method
+	 * ini tidak melempar exception keluar maupun mengembalikan nilai.
+	 *
+	 * @param pasien pasien yang datanya akan dicetak
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static void onCetakStatusPasien(Pasien pasien) {
 
@@ -462,6 +641,20 @@ public class CommonSirs {
 		}
 	}
 
+	/**
+	 * Membangkitkan dan menampilkan laporan PDF "Diagnosa Pasien Rawat Inap" (template
+	 * {@code sirs/diagnosa_pasien_rawat_inap_satuan}) untuk satu {@link DiagnosaPenyakit}. Selain data
+	 * identitas pasien (sama seperti {@link #onCetakStatusPasien(Pasien)}), laporan ini menyertakan
+	 * data spesifik rawat inap dari {@link Pendaftaran} terkait (nomor registrasi, kelas/ruang/kamar
+	 * perawatan, tempat tidur), riwayat pemeriksaan berdasarkan jenis (keluhan/riwayat/periksa lewat
+	 * {@link PemeriksaanReportHelper}), daftar resep (item satuan maupun racikan beserta detailnya),
+	 * daftar tindakan dan alat medis yang dipakai, serta enam kolom diagnosa awal/akhir. Berkas
+	 * barcode/QR dibuat sekali dari kode pasien. Seluruh kegagalan ditangkap dan dicatat; method ini
+	 * tidak melempar exception keluar.
+	 *
+	 * @param diagnosaPenyakit catatan diagnosa rawat inap yang akan dicetak, dari sini
+	 *                         {@link Pendaftaran} dan {@link Pasien} terkait diturunkan
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static void onCetakHasilDiagnosaPasienRawatInap(DiagnosaPenyakit diagnosaPenyakit) {
 
@@ -626,6 +819,17 @@ public class CommonSirs {
 
 	}
 
+	/**
+	 * Varian rawat jalan dari {@link #onCetakHasilDiagnosaPasienRawatInap(DiagnosaPenyakit)}:
+	 * membangkitkan dan menampilkan laporan PDF "Diagnosa Pasien" (template
+	 * {@code sirs/diagnosa_pasien}) tanpa data kelas/ruang/kamar/tempat tidur rawat inap, dengan
+	 * pasien diambil langsung dari {@code diagnosaPenyakit.getPasien()} alih-alih lewat
+	 * {@link Pendaftaran}. Isi laporan lainnya (riwayat pemeriksaan, resep, tindakan, alat medis, enam
+	 * kolom diagnosa) identik strukturnya dengan varian rawat inap. Seluruh kegagalan ditangkap dan
+	 * dicatat; method ini tidak melempar exception keluar.
+	 *
+	 * @param diagnosaPenyakit catatan diagnosa rawat jalan yang akan dicetak
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static void onCetakHasilDiagnosaPasien(DiagnosaPenyakit diagnosaPenyakit) {
 
@@ -779,6 +983,16 @@ public class CommonSirs {
 		}
 	}
 
+	/**
+	 * Membangkitkan dan menampilkan laporan PDF "Tracer Pasien" (template {@code sirs/tracer_pasien}),
+	 * yaitu lembar pelacak lokasi rekam medis fisik pasien yang biasa diselipkan sebagai penanda saat
+	 * berkas rekam medis dikeluarkan dari rak penyimpanan. Parameter yang disertakan mencakup barcode
+	 * kode pendaftaran, tanggal pendaftaran, nomor rekam medis, nama pasien, nama poli, nomor antrian,
+	 * dan nama dokter. Seluruh kegagalan ditangkap dan dicatat; method ini tidak melempar exception
+	 * keluar.
+	 *
+	 * @param pendaftaran pendaftaran yang lembar tracer-nya akan dicetak
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static void onCetakTracer(Pendaftaran pendaftaran) {
 
@@ -821,6 +1035,12 @@ public class CommonSirs {
 		}
 	}
 
+	/**
+	 * Menjumlahkan seluruh persentase diskon yang berlaku (lewat {@link #getDiskonSekarang}) untuk
+	 * kombinasi item/tindakan/alat medis, jumlah, tanggal, asuransi, dan komunitas yang diberikan.
+	 *
+	 * @return total persentase diskon gabungan (mis. {@code 15.0} berarti 15%)
+	 */
 	public static Double getTotalDiskonDalamPersen(ItemMedis item, Tindakan tindakan, AlatMedis alatMedis,
 			Integer jumlah, Date tanggal, Asuransi asuransi, Set<Komunitas> komunitas) {
 		Double total = 0.0;
@@ -832,6 +1052,12 @@ public class CommonSirs {
 		return total;
 	}
 
+	/**
+	 * Menjumlahkan seluruh persentase pajak yang berlaku saat ini (lewat {@link #getPajakSekarang})
+	 * untuk kombinasi item/tindakan/alat medis, asuransi, dan komunitas yang diberikan.
+	 *
+	 * @return total persentase pajak gabungan
+	 */
 	public static Double getTotalPajakDalamPersen(ItemMedis item, Tindakan tindakan, AlatMedis alatMedis,
 			Asuransi asuransi, Set<Komunitas> komunitas) {
 		Double total = 0.0;
@@ -843,6 +1069,16 @@ public class CommonSirs {
 		return total;
 	}
 
+	/**
+	 * Mencari aturan {@link Diskon} yang sedang berlaku (aktif, rentang tanggal {@code mulai}/
+	 * {@code sampai} mencakup {@code tanggal}, rentang {@code jumlahMinimal}/{@code jumlahMaksimal}
+	 * mencakup {@code jumlah}) untuk kombinasi asuransi dan komunitas yang diberikan, difilter lagi
+	 * berdasarkan item/tindakan/alat medis spesifik bila parameter terkait tidak {@code null}.
+	 * Query dikelompokkan per {@code diskon} ({@code groupProperty}) agar satu aturan diskon dengan
+	 * banyak baris {@link DiskonDetail} tidak muncul berulang dalam hasil.
+	 *
+	 * @return daftar {@link Diskon} yang berlaku untuk kombinasi kriteria yang diberikan
+	 */
 	@SuppressWarnings("unchecked")
 	public static List<Diskon> getDiskonSekarang(ItemMedis item, Tindakan tindakan, AlatMedis alatMedis, Integer jumlah,
 			Date tanggal, Asuransi asuransi, Set<Komunitas> komunitas) {
@@ -866,6 +1102,15 @@ public class CommonSirs {
 		return diskons;
 	}
 
+	/**
+	 * Mencari aturan {@link PajakMedis} yang sedang berlaku pada tanggal saat ini (aktif, rentang
+	 * {@code mulai}/{@code sampai} mencakup {@link Date#Date() sekarang}) untuk kombinasi asuransi dan
+	 * komunitas yang diberikan, difilter lagi berdasarkan item/tindakan/alat medis spesifik bila
+	 * parameter terkait tidak {@code null}. Query dikelompokkan per {@code pajak} agar satu aturan
+	 * pajak dengan banyak baris {@link PajakDetail} tidak muncul berulang.
+	 *
+	 * @return daftar {@link PajakMedis} yang berlaku untuk kombinasi kriteria yang diberikan
+	 */
 	@SuppressWarnings("unchecked")
 	public static List<PajakMedis> getPajakSekarang(ItemMedis item, Tindakan tindakan, AlatMedis alatMedis,
 			Asuransi asuransi, Set<Komunitas> komunitas) {
@@ -886,6 +1131,15 @@ public class CommonSirs {
 		return pajaks;
 	}
 
+	/**
+	 * Memastikan data induk untuk jasa peracikan obat selalu tersedia. Mencari (atau membuat bila
+	 * belum ada) {@link JenisTindakan} bernama {@code JASA_RACIK}, lalu memastikan tiga
+	 * {@link Tindakan} standar di bawahnya ("Bubuk", "Sirup", "Krim") ada — bila daftar tindakan
+	 * untuk jenis tersebut masih kosong, ketiganya dibuat otomatis. Method ini idempoten: pemanggilan
+	 * berulang tidak akan menduplikasi data yang sudah ada.
+	 *
+	 * @return daftar {@link Tindakan} jasa racik (baik yang sudah ada maupun yang baru dibuat)
+	 */
 	@SuppressWarnings("unchecked")
 	public static List<Tindakan> populateJasaRacik() {
 
@@ -924,6 +1178,15 @@ public class CommonSirs {
 		return tindakansJasaRaciks;
 	}
 
+	/**
+	 * Menghitung total harga jual satu {@link Racikan} dengan menjumlahkan harga jual tiap item
+	 * komponennya (lewat {@link CommonTarifItem#getHargaJualItem}, yang mempertimbangkan kelas
+	 * perawatan, dokter, asuransi, komunitas, dan pasien) dikalikan takaran masing-masing item pada
+	 * {@link RacikanDetail}. Item pada detail racikan yang bernilai {@code null} dilewati.
+	 *
+	 * @return total harga jual racikan (0.0 bila tidak ada item atau harga jual tidak ditemukan)
+	 * @throws Exception diteruskan dari {@link CommonTarifItem#getHargaJualItem}
+	 */
 	@SuppressWarnings("unchecked")
 	public static Double hitungHargaJualRacikan(Racikan racikan, KelasPerawatan kelasPerawatan, Dokter dokter,
 			Asuransi asuransi, Set<Komunitas> komunitas, Pasien pasien) throws Exception {
@@ -947,6 +1210,15 @@ public class CommonSirs {
 		return harJual;
 	}
 
+	/**
+	 * Menghitung total nilai diskon (dalam nominal, bukan persen) untuk satu {@link Racikan}: untuk
+	 * tiap item komponen, persentase diskon yang berlaku ({@link #getTotalDiskonDalamPersen}) dikali
+	 * harga jual item tersebut ({@link CommonTarifItem#getHargaJualItem}) dan takarannya, lalu
+	 * dijumlahkan ke seluruh komponen racikan.
+	 *
+	 * @return total nominal diskon racikan
+	 * @throws Exception diteruskan dari {@link CommonTarifItem#getHargaJualItem}
+	 */
 	@SuppressWarnings("unchecked")
 	public static Double hitungDiskonRacikan(Racikan racikan, KelasPerawatan kelasPerawatan, Date tanggal,
 			Dokter dokter, Asuransi asuransi, Set<Komunitas> komunitas, Pasien pasien) throws Exception {
@@ -972,6 +1244,14 @@ public class CommonSirs {
 		return totalDiskon;
 	}
 
+	/**
+	 * Menghitung total nilai pajak (dalam nominal) untuk satu {@link Racikan}, dengan pola perhitungan
+	 * yang sama seperti {@link #hitungDiskonRacikan} tetapi memakai
+	 * {@link #getTotalPajakDalamPersen} sebagai sumber persentase.
+	 *
+	 * @return total nominal pajak racikan
+	 * @throws Exception diteruskan dari {@link CommonTarifItem#getHargaJualItem}
+	 */
 	@SuppressWarnings("unchecked")
 	public static Double hitungPajakRacikan(Racikan racikan, KelasPerawatan kelasPerawatan, Dokter dokter,
 			Asuransi asuransi, Set<Komunitas> komunitas, Pasien pasien) throws Exception {
@@ -998,6 +1278,17 @@ public class CommonSirs {
 		return totalPajak;
 	}
 
+	/**
+	 * Menghitung Harga Pokok Penjualan (HPP) rata-rata satu {@link ItemMedis} lewat SQL native:
+	 * {@code sum(amount)/sum(qty)} atas baris {@code sirs.detail_transaksi_pasien} dengan kode
+	 * transaksi "saldo awal" atau "beli masuk". Bila {@code session} diberikan {@code null}, sesi
+	 * Hibernate aktif dipakai.
+	 *
+	 * @param item    item medis yang HPP-nya dihitung; bila {@code null}/tanpa id, hasil kueri kosong
+	 * @param session sesi Hibernate yang dipakai; {@code null} berarti pakai
+	 *                {@link HibernateUtil#currentSession()}
+	 * @return HPP rata-rata, atau {@code 0.0} bila tidak ada data transaksi terkait
+	 */
 	public static Double hitungHPP(ItemMedis item, Session session) {
 		String sql = "select sum(a.amount)/sum(a.qty) from sirs.detail_transaksi_pasien a where a.item = "
 				+ (item == null || item.getId() == null ? -1 : item.getId()) + " and a.kode_transaksi in (" + ConstantValues.saldoAwal.getId()
@@ -1007,6 +1298,16 @@ public class CommonSirs {
 		return hpp == null ? 0.0 : hpp.doubleValue();
 	}
 
+	/**
+	 * Menghitung harga beli rata-rata satu {@link ItemMedis} lewat SQL native ({@code sum(amount)/
+	 * sum(qty)}) atas baris {@code sirs.detail_transaksi_pasien} dengan kode transaksi "beli masuk"
+	 * saja (berbeda dari {@link #hitungHPP} yang juga menyertakan "saldo awal").
+	 *
+	 * @param item    item medis yang harga belinya dihitung
+	 * @param session sesi Hibernate yang dipakai; {@code null} berarti pakai
+	 *                {@link HibernateUtil#currentSession()}
+	 * @return harga beli rata-rata, atau {@code 0.0} bila tidak ada data pembelian terkait
+	 */
 	public static Double hitungHargaBeli(ItemMedis item, Session session) {
 		String sql = "select sum(a.amount)/sum(a.qty) from sirs.detail_transaksi_pasien a where a.item = "
 				+ (item == null || item.getId() == null ? -1 : item.getId()) + " and a.kode_transaksi in (" + ConstantValues.beliMasuk.getId()
@@ -1016,11 +1317,36 @@ public class CommonSirs {
 		return hb == null ? 0.0 : hb.doubleValue();
 	}
 
+	/** Varian ringkas {@link #simpanTransaksiTindakan(Pasien, Tindakan, KelasPerawatan, Lokasi, Double, Pendaftaran, CetakKartuPasien)} tanpa keterkaitan ke pendaftaran atau cetak kartu pasien tertentu. */
 	public static DetailTransaksiLayanan simpanTransaksiTindakan(Pasien pasien, Tindakan tindakan,
 			KelasPerawatan kelasPerawatan, Lokasi lokasi, Double qty) throws Exception {
 		return simpanTransaksiTindakan(pasien, tindakan, kelasPerawatan, lokasi, qty, null, null);
 	}
 
+	/**
+	 * Mencatat satu baris {@link DetailTransaksiLayanan} untuk tindakan yang dikenakan kepada
+	 * {@code pasien}. Bila {@code pendaftaran}/{@code cetakKartuPasien} diberikan, baris transaksi
+	 * layanan lama yang <b>belum lunas</b> ({@code lunas=false}) untuk pendaftaran/cetak kartu yang
+	 * sama dihapus lebih dulu lewat SQL native — mencegah baris dobel bila aksi (mis. cetak kartu)
+	 * diulang sebelum dibayar. Bila {@code pasien} kosong, ditampilkan peringatan dan method
+	 * mengembalikan {@code null}; bila {@code tindakan} kosong, method diam-diam mengembalikan
+	 * {@code null} (pesan peringatan untuk kasus ini dinonaktifkan lewat komentar). Detail biaya
+	 * (harga, diskon, pajak) ditentukan oleh
+	 * {@link CommonPendaftaranUtil#setDetailBiaya(DetailTransaksiLayanan, KelasPerawatan)}.
+	 *
+	 * @param pasien           pasien yang dikenakan tindakan; wajib diisi
+	 * @param tindakan         tindakan/layanan yang dikenakan; wajib diisi
+	 * @param kelasPerawatan   kelas perawatan yang menentukan tarif berlaku
+	 * @param lokasi           lokasi/cabang tempat transaksi dicatat
+	 * @param qty              kuantitas tindakan; {@code null} diperlakukan sebagai {@code 0.0}
+	 * @param pendaftaran      pendaftaran terkait (untuk pembersihan baris belum lunas), boleh
+	 *                         {@code null}
+	 * @param cetakKartuPasien record cetak kartu terkait (untuk pembersihan baris belum lunas), boleh
+	 *                         {@code null}
+	 * @return {@link DetailTransaksiLayanan} yang tersimpan lengkap dengan detail biaya, atau
+	 *         {@code null} bila {@code pasien}/{@code tindakan} tidak diisi
+	 * @throws Exception diteruskan dari operasi Hibernate/perhitungan biaya
+	 */
 	public static DetailTransaksiLayanan simpanTransaksiTindakan(Pasien pasien, Tindakan tindakan,
 			KelasPerawatan kelasPerawatan, Lokasi lokasi, Double qty, Pendaftaran pendaftaran,
 			CetakKartuPasien cetakKartuPasien) throws Exception {
@@ -1062,8 +1388,32 @@ public class CommonSirs {
 		return CommonPendaftaranUtil.setDetailBiaya(detailTransaksiLayanan, kelasPerawatan);
 	}
 
+	/**
+	 * Field statis publik yang dideklarasikan tetapi tidak diinisialisasi maupun dipakai di dalam
+	 * kelas ini sendiri (kemungkinan dipakai/diisi dari kode pemanggil lain sebagai cache sementara
+	 * daftar minggu). Bandingkan dengan variabel lokal {@code SELEDTED_MINGGUS} di
+	 * {@link #getMinggu(Integer, Integer)} yang namanya mirip tetapi merupakan variabel terpisah.
+	 */
 	public static List<Minggu> CURRENT_MINGGUS;
 
+	/**
+	 * Memuat (atau membangun bila belum ada) daftar {@link Minggu} kalender untuk kombinasi
+	 * {@code bulan}/{@code tahun} tertentu — dipakai laporan-laporan periodik SIRS berbasis minggu.
+	 * Bila {@code bulan}/{@code tahun} tidak diberikan, dipakai bulan/tahun saat ini. Bila belum ada
+	 * baris {@link Minggu} tersimpan untuk kombinasi tersebut, daftar dibangun lewat
+	 * {@link CommonReport#getMinggu(Integer, Integer)} dan setiap barisnya disimpan dalam transaksi
+	 * terpisah, ditandai dengan bulan/tahun/pengguna pembuat.
+	 *
+	 * <p>
+	 * Method ini membuka sesi Hibernate dedikasi ({@code openSession()}, bukan sesi thread-bound)
+	 * dan menjaminnya ditutup di blok {@code finally} (idempoten lewat pengecekan {@code isOpen()})
+	 * agar tidak terjadi kebocoran koneksi walau terjadi exception di tengah proses.
+	 * </p>
+	 *
+	 * @param bulan bulan (1-12) yang dicari; {@code null} berarti bulan saat ini
+	 * @param tahun tahun yang dicari; {@code null} berarti tahun saat ini
+	 * @return daftar {@link Minggu} untuk bulan/tahun tersebut
+	 */
 	@SuppressWarnings("unchecked")
 	public static List<Minggu> getMinggu(Integer bulan, Integer tahun) {
 		bulan = bulan == null ? (Calendar.getInstance().get(Calendar.MONTH) + 1) : bulan;
@@ -1100,6 +1450,22 @@ public class CommonSirs {
 		}
 	}
 
+	/**
+	 * Mencari nomor urut tertinggi yang sudah dipakai pada kode rekam medis {@link Pasien} untuk
+	 * {@code jenisPasien} tertentu, dipakai sebagai basis pembuatan kode pasien berikutnya oleh
+	 * {@link #generateCodePasien}. Kode pasien memakai awalan huruf sebagai penanda kategori: {@code
+	 * D} untuk pasien dinas TNI/PNS, kombinasi {@code D}+{@code S} untuk pasien dinas yang juga siswa,
+	 * dan kode tanpa awalan {@code S}/{@code L}/{@code D} di posisi tertentu untuk pasien umum. Nomor
+	 * urut diekstrak dari kode existing lewat fungsi SQL {@code to_number(replace(replace(replace(
+	 * kode,'D',''),'L',''),'S',''))} dengan {@code max(...)} untuk mendapatkan nilai tertinggi; kode
+	 * yang tidak mengandung digit murni setelah huruf penanda dihilangkan diperlakukan sebagai
+	 * {@code 0}. Kode dengan awalan {@code SS}, {@code DD}, atau {@code L} tunggal (bukan bagian dari
+	 * kombinasi valid) dikecualikan dari pencarian.
+	 *
+	 * @param jenisPasien kategori pasien (umum/dinas/siswa) yang menentukan pola filter kode;
+	 *                    {@code null} berarti tanpa filter kategori tambahan
+	 * @return nomor urut tertinggi yang ditemukan, atau {@code 0L} bila tidak ada kode yang cocok
+	 */
 	public static Long generateMaxByJenisPasien(JenisPasien jenisPasien) {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -1180,10 +1546,38 @@ public class CommonSirs {
 		}
 	}
 
+	/** Varian ringkas {@link #generateCodePasien(int, String, String, JenisPasien, Long)} yang memulai pencarian nomor urut dari {@code penambahan=1L} (nomor urut berikutnya setelah nomor tertinggi saat ini). */
 	public static String generateCodePasien(int panjang, String awalan, String akhiran, JenisPasien jenisPasien) {
 		return generateCodePasien(panjang, awalan, akhiran, jenisPasien, 1L);
 	}
 
+	/**
+	 * Membangun kode rekam medis pasien baru yang dijamin unik, dengan format
+	 * {@code awalan + angka(panjang digit, zero-padded) + akhiran}. Nomor urut dasar diambil dari
+	 * nomor tertinggi existing untuk {@code jenisPasien} tersebut (lewat
+	 * {@link #generateMaxByJenisPasien(JenisPasien)} bila {@code jenisPasien} diisi, atau dari id
+	 * {@link Pasien} tertinggi bila tidak) ditambah {@code penambahan}. Setelah kode kandidat
+	 * dibangun, method memeriksa apakah kode tersebut sudah dipakai; bila sudah, method memanggil
+	 * dirinya sendiri secara rekursif dengan {@code penambahan} dinaikkan satu sampai ditemukan kode
+	 * yang belum dipakai.
+	 *
+	 * <p>
+	 * Method ini membuka sesi Hibernate dedikasi untuk pengecekan keunikan dan menjaminnya ditutup di
+	 * blok {@code finally}. <b>Catatan konkurensi</b> — pengecekan keunikan dan penyimpanan kode
+	 * akhir tidak dilakukan dalam satu transaksi atomik di method ini sendiri; bila dua proses
+	 * memanggil method ini bersamaan untuk {@code jenisPasien} yang sama, keduanya berpotensi
+	 * menerima kode kandidat yang sama sebelum salah satunya benar-benar menyimpan data pasien.
+	 * </p>
+	 *
+	 * @param panjang     jumlah digit angka pada kode (di-zero-pad dari kiri)
+	 * @param awalan      prefiks kode, boleh kosong/{@code null}
+	 * @param akhiran     sufiks kode, boleh kosong
+	 * @param jenisPasien kategori pasien yang menentukan basis pencarian nomor urut tertinggi
+	 * @param penambahan  jumlah yang ditambahkan ke nomor urut tertinggi untuk mendapatkan kandidat
+	 *                    nomor urut baru; dinaikkan otomatis pada tiap percobaan rekursif saat
+	 *                    terjadi tabrakan kode
+	 * @return kode pasien baru yang belum pernah dipakai
+	 */
 	public static String generateCodePasien(int panjang, String awalan, String akhiran, JenisPasien jenisPasien,
 			Long penambahan) {
 		Long max = null;

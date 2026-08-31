@@ -18,8 +18,80 @@ import ais.database.model.sekolah.Siswa;
 import ais.database.model.sekolah.Tagihan;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Helper transaksional untuk memproses pembayaran <b>tunai</b> siswa/calon siswa pada modul
+ * keuangan sekolah AIS, meliputi pembuatan record {@link PembayaranSiswa} dari sekumpulan
+ * {@link Tagihan} yang dipilih pada layar UI (ZKoss {@link Rows}), pencatatan opsional ke
+ * {@link DepositSiswa} bila sebagian pembayaran dialokasikan sebagai deposit/titipan, serta
+ * penyimpanan rincian biaya per baris lewat {@link PembayaranSiswa#saveDetail(Rows, Session)}.
+ *
+ * <p>
+ * Kelas ini murni statis (tidak menyimpan state), berfungsi sebagai lapisan logika bisnis yang
+ * dipanggil dari layar transaksi pembayaran tunai (mis. loket pembayaran sekolah) setelah
+ * operator memilih tagihan mana yang dibayar dan menekan tombol simpan. Seluruh operasi database
+ * dijalankan dalam beberapa transaksi Hibernate berurutan (pembayaran, lalu deposit bila ada, lalu
+ * detail rincian biaya) memakai sesi Hibernate native yang sama, dan sesi tersebut selalu ditutup
+ * di blok {@code finally} lewat {@code KegiatanPersistenceHelper#closeNativeSession}.
+ * </p>
+ *
+ * <h2>Alur kerja {@link #onSave}</h2>
+ * <ol>
+ * <li>Validasi bahwa total nominal dari {@code rowsDetailBiaya} (dihitung lewat
+ * {@link PembayaranSiswa#chekDetail(Rows)}) lebih dari nol; bila tidak, tampilkan pesan gagal
+ * formal lewat {@link PesanFormalHelper#tampilkanGagal} dan kembalikan {@code null} tanpa
+ * menyentuh database.</li>
+ * <li>Batasi {@code tabungan} (nominal yang diambil dari tabungan siswa) agar tidak melebihi
+ * total tagihan yang dipilih.</li>
+ * <li>Tentukan "tagihan bulanan" acuan — diutamakan tagihan pertama yang memiliki nilai
+ * {@code bulan} terisi; bila tidak ada satu pun, jatuh ke tagihan pertama dalam koleksi apa
+ * adanya — dipakai untuk mengisi kolom bulan/tahun/tahunBulan pada {@link PembayaranSiswa}.</li>
+ * <li>Susun teks {@code keterangan} gabungan dari seluruh tagihan yang dibayar (id, nama item
+ * biaya, keterangan "ke-N" bila item dibayar bertahap, bulan, tahun).</li>
+ * <li>Bila {@code calonSiswa} tidak diberikan tapi {@code siswa} memiliki referensi calon siswa,
+ * ambil ulang entitas {@link CalonSiswa} tersebut lewat {@code ConstantValues.ambil}.</li>
+ * <li>Bangun dan simpan entitas {@link PembayaranSiswa} baru dengan seluruh atribut di atas.</li>
+ * <li>Bila {@code deposit} diberikan dan lebih dari {@code 0.1}, cari (atau buat baru)
+ * {@link DepositSiswa} yang terasosiasi dengan pembayaran ini, lalu simpan/perbarui.</li>
+ * <li>Simpan rincian per baris tagihan lewat {@link PembayaranSiswa#saveDetail}.</li>
+ * </ol>
+ *
+ * <p>
+ * Kegagalan pada blok penyimpanan ditangkap, dicetak ke stack trace, dan direkam lewat
+ * {@code ais.common.ErrorAuditUtil#record} tanpa dilempar ulang — pemanggil tetap menerima objek
+ * {@link PembayaranSiswa} yang dikembalikan (kemungkinan belum tersimpan penuh bila terjadi
+ * galat di tengah proses) dan perlu memeriksa keberhasilannya sendiri bila diperlukan.
+ * </p>
+ */
 public class TunaiSiswaCommon {
 
+	/**
+	 * Memproses satu transaksi pembayaran tunai siswa/calon siswa: memvalidasi rincian biaya yang
+	 * dipilih, membangun dan menyimpan record {@link PembayaranSiswa}, mencatat deposit opsional,
+	 * dan menyimpan rincian per baris tagihan. Lihat penjelasan alur lengkap pada Javadoc kelas.
+	 *
+	 * @param siswa                siswa yang membayar; boleh {@code null} bila pembayaran atas
+	 *                              nama calon siswa
+	 * @param calonSiswa            calon siswa yang membayar (mis. saat proses pendaftaran/PSB);
+	 *                              boleh {@code null} — bila {@code null} dan {@code siswa}
+	 *                              memiliki referensi calon siswa, akan diambil otomatis
+	 * @param tag                   koleksi {@link Tagihan} yang dibayarkan pada transaksi ini
+	 * @param deposit               nominal yang dialokasikan sebagai deposit/titipan siswa, boleh
+	 *                              {@code null}; hanya dicatat ke {@link DepositSiswa} bila lebih
+	 *                              dari {@code 0.1}
+	 * @param tabungan              nominal yang diambil dari tabungan manual siswa untuk menutup
+	 *                              sebagian/seluruh tagihan, boleh {@code null}; dibatasi agar
+	 *                              tidak melebihi total tagihan
+	 * @param validator             identitas/kode operator yang memvalidasi pembayaran
+	 * @param akunPembayaranSiswa   akun kas/bank tujuan pencatatan pembayaran tunai
+	 * @param rowsDetailBiaya       baris-baris rincian biaya pada layar UI (ZKoss {@link Rows})
+	 *                              yang sudah dicentang/dipilih operator untuk dibayar
+	 * @param tanggalTransaski      tanggal transaksi pembayaran (dipakai untuk kolom tanggal dan
+	 *                              tanggal bayar)
+	 * @return record {@link PembayaranSiswa} yang dibuat dan disimpan, atau {@code null} bila
+	 *         validasi awal gagal (tidak ada tagihan terpilih dengan nominal lebih dari nol)
+	 * @throws Exception diteruskan apa adanya dari kegagalan di luar blok simpan-tangkap (mis.
+	 *                    kegagalan pada {@link PembayaranSiswa#chekDetail(Rows)})
+	 */
 	public static PembayaranSiswa onSave(Siswa siswa, CalonSiswa calonSiswa, Collection<Tagihan> tag, Double deposit,
 			Double tabungan, String validator, AkunPembayaranSiswa akunPembayaranSiswa, Rows rowsDetailBiaya,
 			Date tanggalTransaski) throws Exception {
