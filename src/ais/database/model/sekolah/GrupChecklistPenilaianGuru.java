@@ -20,6 +20,17 @@ import org.hibernate.envers.Audited;
 
 import ais.database.model.GeneralValueObject;
 
+/**
+ * Entitas Hibernate untuk tabel {@code sekolah.grup_checklist_penilaian_guru}, merepresentasikan
+ * satu grup/kategori dalam checklist penilaian kinerja guru pada modul sekolah (SD/SMP/SMA) —
+ * padanan {@link ais.database.model.sekolah} dari {@link ais.database.model.GrupChecklistPenilaianDosen}
+ * pada modul perguruan tinggi. Grup ini menaungi butir-butir pertanyaan checklist (mis. dikelola
+ * lewat entitas checklist penilaian guru terkait) dan terhubung ke satu
+ * {@link #getAngketPenilaianGuru()} (angket/kuesioner induk) via relasi {@code @ManyToOne} lazy,
+ * opsional.
+ * <p>
+ * Perubahan tercatat historisnya lewat {@link Audited} (Hibernate Envers).
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited
@@ -33,7 +44,9 @@ public class GrupChecklistPenilaianGuru extends GeneralValueObject {
 	private String olehId;
 	private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/** Angket penilaian guru induk tempat grup ini berada. */
 	private AngketPenilaianGuru angketPenilaianGuru;
+	/** Nama/judul grup checklist, mis. "Kedisiplinan", "Penguasaan Materi". */
 	private String isi;
 	private String keterangan;
 	private Boolean aktif;

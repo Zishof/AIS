@@ -21,6 +21,21 @@ import org.hibernate.envers.Audited;
 import ais.common.Common;
 import ais.database.model.GeneralValueObject;
 
+/**
+ * Entitas Hibernate yang memetakan tabel {@code sekolah.angket_penilaian_guru}
+ * pada modul jenjang sekolah. Merepresentasikan satu item pertanyaan/pernyataan
+ * pada angket penilaian kinerja guru (mis. "Guru menjelaskan materi dengan
+ * jelas") berikut petunjuk pengisian ({@code petunjuk}) dan jumlah pilihan
+ * skor Likert-nya ({@code jumlahPilihan}, default 5 bila tidak diisi — lihat
+ * {@link #getJumlahPilihan()}).
+ *
+ * <p>
+ * Angket dapat dibatasi cakupannya per {@link Yayasan}/{@link Sekolah}/
+ * {@code program}/{@code angkatan}, serta ditandai untuk diisi oleh siswa
+ * ({@code untukSiswa}) dan/atau oleh guru sendiri ({@code untukGuru}) sebagai
+ * responden. Diaudit lewat Hibernate Envers ({@code @Audited}).
+ * </p>
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited
@@ -124,6 +139,7 @@ public class AngketPenilaianGuru extends GeneralValueObject {
 		this.keterangan = keterangan;
 	}
 
+	/** Petunjuk pengisian angket; bila kosong, jatuh ke konfigurasi {@code keterangan_checklist_penilaian_guru_oleh_siswa}. */
 	@Column(name = "petunjuk", columnDefinition = "text")
 	public String getPetunjuk() {
 		String content = Common.getKonfigurasi("keterangan_checklist_penilaian_guru_oleh_siswa",
@@ -136,6 +152,7 @@ public class AngketPenilaianGuru extends GeneralValueObject {
 		this.petunjuk = petunjuk;
 	}
 
+	/** Jumlah pilihan skor (skala Likert); default dari konfigurasi {@code jumlah_pilihan_checklist_penilaian_guru_oleh_siswa} (fallback 5) bila belum diisi/tidak valid. */
 	@Column(name = "jumlah_pilihan")
 	public Integer getJumlahPilihan() {
 		Integer defaultJumlah = 5;

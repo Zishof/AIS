@@ -24,6 +24,28 @@ import org.hibernate.envers.Audited;
 import ais.common.Common;
 import ais.database.model.GeneralValueObject;
 
+/**
+ * Entitas Hibernate untuk tabel {@code sekolah.checklist_baru_penilaian_guru_oleh_siswa},
+ * merepresentasikan satu baris rekap penilaian seorang {@link Guru} oleh seorang {@link Siswa}
+ * untuk satu {@link JadwalPelajaran} tertentu (modul jenjang sekolah). Kombinasi
+ * (siswa, jadwalPelajaran, guru) bersifat unik per baris — dijaga lewat kolom turunan
+ * {@link #getKodeUnik()} yang dihitung otomatis dari id ketiga relasi tersebut.
+ * <p>
+ * Berbeda dari pola satu-baris-per-item-penilaian, seluruh jawaban siswa atas banyak butir
+ * {@link ChecklistPenilaianGuru} untuk kombinasi ini disimpan <b>terpadatkan dalam satu kolom
+ * teks</b> {@link #getKeterangan()}, dengan format per butir {@code "DATA<idButir>;<nilai><>ket"}
+ * dan antar-butir dipisah {@code "___"}. Method {@link #setValue(Integer, Siswa, Guru,
+ * JadwalPelajaran, ChecklistPenilaianGuru, String)}, {@link #getValue(ChecklistPenilaianGuru)},
+ * {@link #getKeteranganValue(ChecklistPenilaianGuru)}, {@link #check(ChecklistPenilaianGuru)},
+ * dan {@link #ambilValue()} adalah satu-satunya jalur baca/tulis format terpadatkan ini —
+ * dipakai alih-alih tabel anak terpisah agar seluruh hasil checklist satu siswa-guru-jadwal
+ * dapat diperbarui dalam satu baris/transaksi.
+ * <p>
+ * Perubahan (create/update) tercatat historisnya lewat anotasi {@link Audited} (Hibernate
+ * Envers), dan setiap update otomatis memperbarui {@link #getTanggal_dirubah()} lewat callback
+ * {@link javax.persistence.PreUpdate} yang memanggil
+ * {@link ais.database.hibernate.AuditTimestampInterceptor#ubah(Object)}.
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited
@@ -136,6 +158,7 @@ public class ChecklistBaruPenilaianGuruOlehSiswa extends GeneralValueObject {
 		this.guru = guru;
 	}
 
+	/** Kunci unik turunan {@code "<idSiswa>_<idJadwalPelajaran>_<idGuru>"}, dihitung ulang dari relasi setiap kali diakses; nilai lama dikembalikan bila salah satu relasi belum tersimpan (belum ber-id). */
 	@Column(name = "kode_unik", unique = true)
 	public String getKodeUnik() {
 		Siswa s = getSiswa();

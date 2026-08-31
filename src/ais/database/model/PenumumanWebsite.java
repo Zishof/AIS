@@ -17,6 +17,20 @@ import javax.persistence.TemporalType;
 
 import org.hibernate.envers.Audited;
 
+/**
+ * Entitas Hibernate untuk tabel {@code public.penumuman_website}, merepresentasikan satu
+ * pengumuman/berita yang ditampilkan pada situs web publik institusi (mis. halaman "Berita
+ * Kampus"). Satu baris berisi judul ({@link #getJudul()}), ringkasan ({@link #getRingkasan()}),
+ * isi lengkap ({@link #getIsi()}), kategori tampilan ({@link #getKategori()}, default
+ * {@code "Berita Kampus"}), tanggal publikasi ({@link #getTanggal()}), dan status tayang
+ * ({@link #getAktif()}). Setiap pengumuman terikat pada satu {@link #getPerguruanTinggi()}
+ * (institusi pemilik konten, relevan pada instalasi multi-institusi/multi-tenant).
+ * <p>
+ * Perubahan (create/update) tercatat historisnya lewat anotasi {@link Audited} (Hibernate
+ * Envers), dan setiap update otomatis memperbarui {@link #getTanggal_dirubah()} lewat callback
+ * {@link javax.persistence.PreUpdate} yang memanggil
+ * {@link ais.database.hibernate.AuditTimestampInterceptor#ubah(Object)}.
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited

@@ -23,6 +23,23 @@ import org.json.JSONObject;
 
 import ais.database.model.GeneralValueObject;
 
+/**
+ * Entitas Hibernate untuk tabel {@code sekolah.checklist_penilaian_guru}, merepresentasikan
+ * satu butir/pertanyaan master pada checklist penilaian guru (modul jenjang sekolah) — isi
+ * pertanyaan ({@link #getIsi()}), bobot nilainya ({@link #getBobot()}), dan opsi pilihan
+ * jawaban dalam bentuk JSON ({@link #getPilihan()}, default {@code "{}"} bila kosong/tidak
+ * valid). Setiap butir tergabung dalam satu {@link #getGrupChecklistPenilaianGuru()}
+ * (pengelompokan butir checklist).
+ * <p>
+ * Id butir pada tabel ini adalah kunci {@code idButir} yang dirujuk oleh format teks
+ * terpadatkan pada {@link ChecklistBaruPenilaianGuruOlehSiswa#getKeterangan()} (jawaban siswa
+ * atas guru untuk butir-butir ini disimpan di sana, bukan pada tabel relasi terpisah).
+ * <p>
+ * Perubahan (create/update) tercatat historisnya lewat anotasi {@link Audited} (Hibernate
+ * Envers), dan setiap update otomatis memperbarui {@link #getTanggal_dirubah()} lewat callback
+ * {@link javax.persistence.PreUpdate} yang memanggil
+ * {@link ais.database.hibernate.AuditTimestampInterceptor#ubah(Object)}.
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited
@@ -168,6 +185,7 @@ public class ChecklistPenilaianGuru extends GeneralValueObject {
 		this.pilihan = pilihan;
 	}
 
+	/** Menghasilkan kunci pengurutan/pengelompokan tampilan gabungan grup, 5 huruf awal isi butir, dan id butir (masing-masing id diformat 5 digit lewat {@link #NF}). */
 	public String ambilkey() {
 		String nama = getIsi() == null ? "" : getIsi().trim();
 		String key = nama.length() > 5 ? nama.substring(0, 5) : nama;

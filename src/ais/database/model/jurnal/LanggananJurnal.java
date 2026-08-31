@@ -1,5 +1,26 @@
 package ais.database.model.jurnal;
 import java.util.Date; import javax.persistence.*;
+/**
+ * Entitas Hibernate untuk tabel {@code penelitiandanpengabdian.langganan_jurnal}, merepresentasikan
+ * satu langganan akses berbayar terhadap koleksi/kumpulan konten jurnal ilmiah
+ * ({@link #getCollectionId()} — id koleksi, dirujuk sebagai kolom FK biasa, bukan relasi
+ * {@code @ManyToOne} eksplisit) pada sistem jurnal OJS-style di AIS. Langganan dapat dimiliki
+ * oleh individu ({@link #getUserId()}) atau oleh institusi ({@link #getInstitutionId()} beserta
+ * {@link #getInstitutionType()}, mis. perguruan tinggi/perpustakaan berlangganan untuk seluruh
+ * anggotanya) — kedua jenis kepemilikan bersifat opsional/salah satu.
+ * <p>
+ * {@link #getPolicyKey()} merujuk kebijakan/paket langganan yang berlaku, dengan
+ * {@link #getPolicySnapshotJson()} menyimpan salinan (snapshot) aturan kebijakan tersebut dalam
+ * JSON pada saat langganan dibuat — sehingga perubahan kebijakan di kemudian hari tidak mengubah
+ * hak akses langganan yang sudah berjalan. Masa berlaku langganan ditentukan oleh
+ * {@link #getStartsAt()}/{@link #getEndsAt()}, dan {@link #getPaymentId()} menghubungkan langganan
+ * ke transaksi pembayaran terkait (id pembayaran, kolom FK biasa), dengan
+ * {@link #getExternalReference()} untuk referensi tambahan ke sistem eksternal (mis. payment
+ * gateway atau agregator langganan pihak ketiga).
+ * <p>
+ * Kolom teknis bersama (id, tenant, audit, versi optimistic-locking) diwariskan dari
+ * {@link JurnalEntityBase}.
+ */
 @Entity @Table(schema="penelitiandanpengabdian",name="langganan_jurnal")
 public class LanggananJurnal extends JurnalEntityBase {
  private static final long serialVersionUID=1L; private Long collectionId,institutionId,paymentId; private String policyKey,policySnapshotJson,userId,institutionType,status,externalReference; private Date startsAt,endsAt;

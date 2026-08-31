@@ -1,6 +1,32 @@
 package ais.database.model.sosial;
 
 import java.math.BigDecimal; import java.util.Date; import javax.persistence.*; import org.hibernate.envers.Audited;
+/**
+ * Entitas Hibernate untuk tabel {@code public.kebijakan_perhitungan_zakat}, merepresentasikan
+ * satu versi kebijakan/aturan perhitungan zakat untuk satu {@link #getJenisZakat()} (mis. zakat
+ * maal, zakat fitrah, zakat penghasilan) pada modul sosial. Baris ini adalah data konfigurasi
+ * yang menjadi acuan (referensi) ketika sebuah {@link PerhitunganZakat} dibuat — bukan hasil
+ * perhitungan itu sendiri.
+ * <p>
+ * Parameter perhitungan mencakup ambang nisab ({@link #getNisabBasis()},
+ * {@link #getNisabQuantity()}, {@link #getNisabUnit()}), tarif/kadar zakat
+ * ({@link #getRate()}), harga acuan komoditas nisab pada waktu tertentu
+ * ({@link #getReferencePrice()}/{@link #getReferencePriceAt()}), lama kepemilikan harta yang
+ * disyaratkan ({@link #getHaulMonths()}), serta nilai zakat fitrah dalam bentuk uang maupun
+ * beras ({@link #getFitrahCash()}/{@link #getFitrahKg()}). Formula aktual yang dipakai untuk
+ * menghitung dirujuk lewat kunci {@link #getFormulaKey()} (diimplementasikan di lapisan
+ * servis/aksi, bukan di entitas ini), dengan pembulatan hasil diatur lewat
+ * {@link #getRoundingMode()}/{@link #getResultScale()}.
+ * <p>
+ * Kebijakan berlaku untuk suatu periode ({@link #getEffectiveFrom()}&ndash;
+ * {@link #getEffectiveUntil()}) dan dapat berbeda per wilayah ({@link #getRegion()}); setiap
+ * revisi kebijakan dicatat sebagai versi baru ({@link #getVersion()}) lengkap dengan sumber
+ * rujukan ({@link #getSourceReference()}) dan siapa/kapan kebijakan disetujui
+ * ({@link #getApprovedBy()}/{@link #getApprovedAt()}).
+ * <p>
+ * Mewarisi kolom multi-tenant {@code tenant_key} dari {@link SocialRecord}. Perubahan
+ * (create/update) tercatat historisnya lewat anotasi {@link Audited} (Hibernate Envers).
+ */
 @Entity @Audited @org.hibernate.annotations.Entity(dynamicInsert=true,dynamicUpdate=true)
 @Table(schema="public",name="kebijakan_perhitungan_zakat")
 public class KebijakanPerhitunganZakat extends SocialRecord {

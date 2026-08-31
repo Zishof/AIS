@@ -1,7 +1,33 @@
 package ais.database.model.penelitiandanpengabdian;
 
+/**
+ * Catatan: kelas ini BUKAN entitas Hibernate (tidak ada anotasi
+ * {@code @Entity}/{@code @Table}, tidak ada field persisten) — berbeda dari
+ * kebanyakan kelas lain di paket {@code ais.database.model}. Kelas ini murni
+ * penyedia templat HTML statis untuk modul penelitian &amp; pengabdian kepada
+ * masyarakat dosen: {@link #init()} mengembalikan satu string HTML raksasa
+ * berisi kumpulan lampiran baku proposal/laporan hibah penelitian-pengabdian
+ * ala DIKTI, di antaranya Format Justifikasi Anggaran, Format Jadwal
+ * Kegiatan, Format Susunan Organisasi Tim, Format Biodata Ketua/Anggota Tim
+ * Peneliti, Format Surat Pernyataan Ketua Peneliti/Pelaksana, Format Catatan
+ * Harian (Logbook), dan Format Laporan Kemajuan (sampul muka + halaman
+ * pengesahan). Setiap bagian dibungkus {@code <div class="content-frame">}
+ * berisi tabel kosong siap-isi (placeholder {@code &nbsp;}/titik-titik) yang
+ * ditampilkan sebagai lampiran umum/contoh format pada layar pengajuan
+ * penelitian &amp; pengabdian masyarakat, bukan diisi dari data entitas
+ * tersimpan.
+ */
 public class LampiranUmumPenelitian {
 
+	/**
+	 * Menghasilkan satu blok HTML statis berisi seluruh templat lampiran umum
+	 * penelitian &amp; pengabdian masyarakat (lihat javadoc kelas untuk daftar
+	 * bagiannya). Isinya konstan (hard-coded), tidak bergantung pada state atau
+	 * parameter apa pun.
+	 *
+	 * @return string HTML gabungan seluruh templat lampiran, siap ditampilkan
+	 *         apa adanya
+	 */
 	public static String init() {
 
 		String s = "<div class=\"content-frame\" style=\"width:625px;\">\n"

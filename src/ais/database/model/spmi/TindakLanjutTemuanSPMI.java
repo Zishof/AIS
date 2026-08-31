@@ -22,6 +22,18 @@ import org.hibernate.envers.Audited;
 
 import ais.database.model.GeneralValueObject;
 
+/**
+ * Entitas Hibernate yang memetakan tabel {@code public.tindak_lanjut_temuan_spmi}
+ * pada modul SPMI (Sistem Penjaminan Mutu Internal) perguruan tinggi.
+ * Merepresentasikan satu rencana/aksi tindak lanjut ({@code deskripsi}) atas
+ * satu {@link HasilTemuanSPMI} (temuan audit mutu internal) — siapa
+ * penanggung jawabnya ({@code picNama}), target waktu penyelesaian
+ * ({@code targetDate}), realisasi tanggal selesai ({@code tanggalSelesai}),
+ * progres dalam persen (0-100, dijepit lewat {@link #setProgressPersen(int)}),
+ * serta status alur ({@code status} — lihat konstanta {@link #BELUM_DIMULAI},
+ * {@link #SEDANG_BERJALAN}, {@link #TERLAMBAT}, {@link #SELESAI} dan peta
+ * label {@link #statusLabel}).
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited
@@ -30,11 +42,16 @@ public class TindakLanjutTemuanSPMI extends GeneralValueObject {
 
     private static final long serialVersionUID = 7312948576234019801L;
 
+    /** Tindak lanjut belum mulai dikerjakan. */
     public static final String BELUM_DIMULAI   = "Belum Dimulai";
+    /** Tindak lanjut sedang dikerjakan, belum melewati target waktu. */
     public static final String SEDANG_BERJALAN = "Sedang Berjalan";
+    /** Tindak lanjut melewati {@code targetDate} tapi belum selesai. */
     public static final String TERLAMBAT       = "Terlambat";
+    /** Tindak lanjut sudah selesai dikerjakan. */
     public static final String SELESAI         = "Selesai";
 
+    /** Peta label tampilan untuk tiap nilai status (kunci = nilai = label, untuk keperluan dropdown UI). */
     public static final Map<String, String> statusLabel = new LinkedHashMap<String, String>();
     static {
         statusLabel.put(BELUM_DIMULAI,   BELUM_DIMULAI);
@@ -136,10 +153,12 @@ public class TindakLanjutTemuanSPMI extends GeneralValueObject {
         return progressPersen;
     }
 
+    /** Nilai dijepit ke rentang 0-100 sebelum disimpan. */
     public void setProgressPersen(int progressPersen) {
         this.progressPersen = Math.max(0, Math.min(100, progressPersen));
     }
 
+    /** Status alur tindak lanjut; default {@link #BELUM_DIMULAI} bila belum diisi. */
     @Column(name = "status")
     public String getStatus() {
         return status == null ? BELUM_DIMULAI : status.trim();

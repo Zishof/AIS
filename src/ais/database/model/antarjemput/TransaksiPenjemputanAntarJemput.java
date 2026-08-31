@@ -21,6 +21,26 @@ import org.hibernate.envers.Audited;
 import ais.database.model.GeneralValueObject;
 import ais.database.model.Pegawai;
 
+/**
+ * Entitas Hibernate untuk tabel {@code public.transaksi_penjemputan_antar_jemput},
+ * merepresentasikan satu transaksi/kejadian penjemputan siswa pada modul layanan antar-jemput.
+ * Satu baris tercipta saat kartu penjemput ({@link #getKartuPenjemputAntarJemput()}) atau siswa
+ * di-scan ({@link #getWaktuScan()}, {@link #getTipeScan()}, {@link #getNomorScan()}) di pintu
+ * gerbang ({@link #getPintuGerbang()}), lalu mengalir melalui status antrian
+ * {@link #MENUNGGU} &rarr; {@link #DIPANGGIL} &rarr; {@link #SELESAI} (atau {@link #DITOLAK})
+ * yang dilihat lewat {@link #getStatus()}, dengan nomor antrian tampil di
+ * {@link #getNomorAntrian()}.
+ * <p>
+ * Relasi {@code @ManyToOne} (lazy) ke {@link JadwalAntarJemput} (jadwal antar-jemput terkait),
+ * {@link KartuPenjemputAntarJemput} (kartu identitas penjemput yang di-scan), dan
+ * {@link Pegawai} sebagai {@link #getSatpam()} (petugas keamanan yang memproses transaksi ini
+ * di gerbang).
+ * <p>
+ * Perubahan (create/update) tercatat historisnya lewat anotasi {@link Audited} (Hibernate
+ * Envers), dan setiap update otomatis memperbarui {@link #getTanggal_dirubah()} lewat callback
+ * {@link javax.persistence.PreUpdate} yang memanggil
+ * {@link ais.database.hibernate.AuditTimestampInterceptor#ubah(Object)}.
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited
@@ -29,9 +49,13 @@ public class TransaksiPenjemputanAntarJemput extends GeneralValueObject {
 
 	private static final long serialVersionUID = 2463821577548439816L;
 
+	/** Status transaksi: baru dibuat, menunggu dipanggil. */
 	public static final String MENUNGGU = "MENUNGGU";
+	/** Status transaksi: siswa/nomor antrian sudah dipanggil. */
 	public static final String DIPANGGIL = "DIPANGGIL";
+	/** Status transaksi: proses penjemputan selesai. */
 	public static final String SELESAI = "SELESAI";
+	/** Status transaksi: penjemputan ditolak (mis. kartu/identitas tidak valid). */
 	public static final String DITOLAK = "DITOLAK";
 
 	private Long id;

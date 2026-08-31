@@ -30,6 +30,36 @@ import ais.database.model.sekolah.ChecklistBaruPenilaianGuruOlehSiswa;
 import ais.database.model.sekolah.Guru;
 import ais.database.model.sekolah.Siswa;
 
+/**
+ * Entitas Hibernate untuk satu pengisian angket/kuesioner berparameter umum — dipetakan ke tabel
+ * {@code public.isi_angket_parameter_umum}. "Umum" di sini berarti satu skema angket generik ini
+ * dipakai lintas jenis pengisi ({@link Mahasiswa}, {@link Siswa}, {@link Dosen}, {@link Guru},
+ * atau {@link Tbmuser} untuk pengguna umum/admin) dan lintas jenis penilaian (checklist dosen oleh
+ * mahasiswa, checklist guru oleh siswa, atau jadwal checklist penilaian umum lain) — HANYA SATU
+ * dari relasi pengisi/relasi konteks penilaian yang relevan aktif per baris.
+ *
+ * <h2>"Pemilik khusus" vs {@link #tbmuser} (lihat {@link #setTbmuser(Tbmuser)})</h2>
+ * <p>
+ * Kolom {@code tbmuser} HANYA dipakai untuk pengguna umum/admin yang benar-benar berupa baris di
+ * tabel {@code tbmuser} — bila salah satu dari {@link #mahasiswa}, {@link #siswa}, {@link #dosen},
+ * atau {@link #guru} terisi ("pemilik khusus"), {@link #getTbmuser()} SELALU dipaksa {@code null}
+ * lewat {@link #clearTbmuserJikaAdaPemilikKhusus()} (dipanggil dari keempat setter pemilik khusus
+ * tsb). {@link #setTbmuser(Tbmuser)} juga menolak {@link Tbmuser} yang sebenarnya cuma
+ * wrapper/pseudo (mis. {@code new Tbmuser(mahasiswa)} — dideteksi lewat
+ * {@link #isTbmuserWrapperPeserta(Tbmuser)}) agar tidak melanggar FK {@code tbmuser} sungguhan.
+ * </p>
+ *
+ * <h2>Nama default &amp; parameter tambahan berformat teks</h2>
+ * <p>
+ * {@link #getNama()} membangkitkan nama default lewat {@link #buildNamaDefault()} bila belum diisi
+ * manual (kombinasi konteks penilaian + identitas pengisi, dipotong maksimal 250 karakter). Pola
+ * penyimpanan {@link #parameterTambahan}/{@link #parameterTambahanInds} sebagai string {@code TEXT}
+ * multi-baris berdelimiter {@code "<=>"} identik dengan
+ * {@link ais.database.model.payroll.CutiDanIzin} — lihat Javadoc kelas itu untuk detail formatnya;
+ * di sini jenis parameter ("jenis") dibedakan lewat prefiks {@code "DOSEN:"}/{@code "GURU:"} atau
+ * id grup checklist penilaian umum, lihat {@link #buildJenis(Row, ParameterTambahan)}.
+ * </p>
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited
@@ -43,16 +73,27 @@ public class IsiAngketParameterUmum extends GeneralValueObject {
 	private String olehId;
 	private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/** Pengisi angket sebagai mahasiswa; bila terisi, {@link #tbmuser} otomatis dikosongkan (lihat "Pemilik khusus" pada Javadoc kelas). */
 	private Mahasiswa mahasiswa;
+	/** Pengisi angket sebagai dosen; lihat catatan "Pemilik khusus" pada Javadoc kelas. */
 	private Dosen dosen;
+	/** Pengisi angket sebagai siswa; lihat catatan "Pemilik khusus" pada Javadoc kelas. */
 	private Siswa siswa;
+	/** Pengisi angket sebagai guru; lihat catatan "Pemilik khusus" pada Javadoc kelas. */
 	private Guru guru;
+	/** Pengisi angket sebagai pengguna umum/admin (BUKAN mahasiswa/siswa/dosen/guru) — lihat {@link #setTbmuser(Tbmuser)}. */
 	private Tbmuser tbmuser;
+	/** Jadwal checklist penilaian umum yang menjadi konteks pengisian ini (wajib/non-null di kolom DB). */
 	private JadwalChecklistPenilaianUmum jadwalChecklistPenilaianUmum;
+	/** Konteks penilaian dosen oleh mahasiswa, bila angket ini bagian dari checklist tsb. */
 	private ChecklistBaruPenilaianDosenOlehMahasiswa checklistBaruPenilaianDosenOlehMahasiswa;
+	/** Konteks penilaian guru oleh siswa, bila angket ini bagian dari checklist tsb. */
 	private ChecklistBaruPenilaianGuruOlehSiswa checklistBaruPenilaianGuruOlehSiswa;
+	/** Nama tampilan pengisian angket ini; dibangkitkan otomatis oleh {@link #buildNamaDefault()} bila kosong. */
 	private String nama;
+	/** Lihat "Nama default & parameter tambahan berformat teks" pada Javadoc kelas — bentuk dengan label lengkap. */
 	private String parameterTambahan;
+	/** Lihat "Nama default & parameter tambahan berformat teks" pada Javadoc kelas — bentuk ringkas dengan id/jenis saja. */
 	private String parameterTambahanInds;
 
 	public IsiAngketParameterUmum() {
@@ -124,6 +165,12 @@ public class IsiAngketParameterUmum extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * @return nama default: {@code "Angket Parameter Umum"} ditambah konteks penilaian
+	 *         (Dosen/Guru/Jadwal beserta id-nya) dan identitas pengisi (MHS/SISWA/DOSEN/GURU/USER
+	 *         beserta id/username), dipotong maksimal 250 karakter. Exception saat membaca
+	 *         relasi apa pun diabaikan secara aman (bagian nama tsb cukup dilewati).
+	 */
 	private String buildNamaDefault() {
 		StringBuilder sb = new StringBuilder("Angket Parameter Umum");
 		try {
@@ -225,6 +272,12 @@ public class IsiAngketParameterUmum extends GeneralValueObject {
 		return tbmuser;
 	}
 
+	/**
+	 * @param tbmuser pengguna umum/admin pengisi angket; diabaikan (di-set {@code null}) bila baris
+	 *                ini sudah punya "pemilik khusus" ({@link #memilikiPemilikKhusus()}) atau bila
+	 *                {@code tbmuser} sebenarnya wrapper/pseudo peserta (lihat "Pemilik khusus" pada
+	 *                Javadoc kelas)
+	 */
 	public void setTbmuser(Tbmuser tbmuser) {
 		/*
 		 * Kolom tbmuser hanya dipakai untuk pengguna umum/admin yang benar-benar
@@ -250,6 +303,7 @@ public class IsiAngketParameterUmum extends GeneralValueObject {
 		return mahasiswa != null || siswa != null || dosen != null || guru != null;
 	}
 
+	/** @return {@code true} bila {@code user} sebenarnya {@link Tbmuser} wrapper/pseudo yang membungkus mahasiswa/siswa/dosen/guru (lihat {@link Tbmuser#getMahasiswa()} dkk.), bukan baris {@code tbmuser} sungguhan — {@code false} juga bila terjadi exception saat pengecekan. */
 	private boolean isTbmuserWrapperPeserta(Tbmuser user) {
 		if (user == null) {
 			return false;
@@ -315,6 +369,13 @@ public class IsiAngketParameterUmum extends GeneralValueObject {
 		this.parameterTambahanInds = parameterTambahanInds;
 	}
 
+	/**
+	 * Mem-parse {@link #getParameterTambahan()} menjadi daftar {@link CommonVO}, satu per baris
+	 * teks — lihat "Nama default & parameter tambahan berformat teks" pada Javadoc kelas untuk
+	 * format persisnya. Baris kosong dilewati; hasil terurut menurut nomor urut parameter.
+	 *
+	 * @return daftar parameter tambahan terisi milik pengisian angket ini
+	 */
 	public List<CommonVO> ambilDataParameterTambahan() {
 		List<CommonVO> commonVOs = new ArrayList<CommonVO>();
 		String[] splNama = getParameterTambahan().split("\\n");
@@ -349,6 +410,19 @@ public class IsiAngketParameterUmum extends GeneralValueObject {
 		return commonVOs;
 	}
 
+	/**
+	 * Membangun ulang {@link #parameterTambahan} dan {@link #parameterTambahanInds} dari baris
+	 * komponen ZK ({@code parameterRows}) hasil input pengguna. Setiap {@link Row} diharapkan
+	 * membawa attribute {@code parameterTambahan} dan salah satu dari
+	 * {@code grupChecklistPenilaianDosen}/{@code grupChecklistPenilaianGuru}/
+	 * {@code grupChecklistPenilaianUmum} (dipakai {@link #buildJenis(Row, ParameterTambahan)} dan
+	 * {@link #getLabelGrup(Row)} untuk menentukan jenis/label grup) — baris tanpa keduanya
+	 * dilewati. Bila {@link ParameterTambahan#getHarusMenyertakanLampiran()} true, method ini juga
+	 * mencoba melampirkan URL berkas via {@link LampiranLain#ambil(Long, String)}.
+	 *
+	 * @param parameterRows baris ZK berisi komponen input parameter tambahan; tidak melakukan apa
+	 *                       pun bila {@code null}/kosong
+	 */
 	public void populateParameterTambahan(List<Row> parameterRows) {
 		if (parameterRows == null || parameterRows.isEmpty()) {
 			return;
@@ -400,6 +474,7 @@ public class IsiAngketParameterUmum extends GeneralValueObject {
 		setParameterTambahan(parameterTambahanStr);
 	}
 
+	/** @return kode "jenis" parameter tambahan untuk {@code row}: {@code "DOSEN:<idGrup>->id"}, {@code "GURU:<idGrup>->id"}, atau {@code "<idGrupUmum>->id"} tergantung attribute grup mana yang ada pada {@code row}; string kosong bila tidak ada satupun. */
 	private String buildJenis(Row row, ParameterTambahan parameterTambahan) {
 		Object grup = row.getAttribute("grupChecklistPenilaianDosen");
 		if (grup instanceof GrupChecklistPenilaianDosen) {
@@ -416,6 +491,7 @@ public class IsiAngketParameterUmum extends GeneralValueObject {
 		return "";
 	}
 
+	/** @return label tampilan grup checklist untuk {@code row} (prefiks {@code "Dosen:"}/{@code "Guru:"} atau isi grup umum apa adanya), default {@code "Parameter"} bila tidak ada attribute grup yang cocok. */
 	private String getLabelGrup(Row row) {
 		Object grup = row.getAttribute("grupChecklistPenilaianDosen");
 		if (grup instanceof GrupChecklistPenilaianDosen) {
@@ -432,6 +508,14 @@ public class IsiAngketParameterUmum extends GeneralValueObject {
 		return "Parameter";
 	}
 
+	/**
+	 * Ekspor entitas ini (mengikuti mekanisme {@code write} umum di {@link GeneralValueObject}),
+	 * dengan relasi {@link JadwalChecklistPenilaianUmum}, {@link ChecklistBaruPenilaianDosenOlehMahasiswa},
+	 * {@link ChecklistBaruPenilaianGuruOlehSiswa}, dan {@link ParameterTambahan} disertakan sebagai
+	 * nama kelas yang boleh di-resolve/di-load bersamaan.
+	 *
+	 * @return berkas hasil ekspor
+	 */
 	public File write() {
 		return write(JadwalChecklistPenilaianUmum.class.getName(), ChecklistBaruPenilaianDosenOlehMahasiswa.class.getName(),
 				ChecklistBaruPenilaianGuruOlehSiswa.class.getName(), ParameterTambahan.class.getName());

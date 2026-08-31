@@ -21,6 +21,30 @@ import org.hibernate.envers.Audited;
 
 import ais.common.Common;
 
+/**
+ * Entitas Hibernate untuk tabel {@code public.perguruan_tinggi_lain}, merepresentasikan satu
+ * perguruan tinggi <b>eksternal</b> (di luar institusi induk AIS sendiri, yang datanya
+ * tersimpan pada entitas terpisah {@link PerguruanTinggi}). Baris pada tabel ini berfungsi
+ * sebagai data referensi/master perguruan tinggi lain, dipakai antara lain untuk mencatat:
+ * <ul>
+ * <li>asal perguruan tinggi calon mahasiswa/mahasiswa pindahan (lihat
+ * {@link ais.database.model.BiodataCalonMahasiswa} dan {@link ais.database.model.Mahasiswa}),</li>
+ * <li>perguruan tinggi tempat dosen mengajar di luar institusi induk (lihat
+ * {@link ais.database.model.MengajarDiPerguruanTinggiLain}), dan</li>
+ * <li>data hasil impor feeder PDDikti ({@code ais.action.master.feeder.util.FeederJSONImport}).</li>
+ * </ul>
+ * <p>
+ * Struktur field-nya sengaja meniru profil {@link PerguruanTinggi} (identitas legal, alamat,
+ * kontak, data sarana-prasarana untuk pelaporan EPSBED/PDDikti, akreditasi BAN-PT, rekening
+ * bank, dan pejabat rektor) namun tanpa relasi ke entitas internal AIS lain (tidak ada
+ * {@code @ManyToOne} ke {@link Pendaftar}/{@link Pegawai}/dsb.) karena institusi yang dicatat
+ * di sini bukan bagian dari organisasi yang dikelola AIS.
+ * <p>
+ * Perubahan (create/update) tercatat historisnya lewat anotasi {@link Audited} (Hibernate
+ * Envers), dan setiap update otomatis memperbarui {@link #getTanggal_dirubah()} lewat callback
+ * {@link javax.persistence.PreUpdate} yang memanggil
+ * {@link ais.database.hibernate.AuditTimestampInterceptor#ubah(Object)}.
+ */
 @Entity
 @org.hibernate.annotations.Entity(
     dynamicInsert = true,
@@ -35,6 +59,7 @@ public class PerguruanTinggiLain extends GeneralValueObject {
 	private String oleh;
 	private String olehId;
 
+	/** Id pengguna yang terakhir membuat/mengubah baris ini (audit jejak perubahan). */
 	public String getOlehId() {
 		return olehId;
 	}
@@ -47,6 +72,7 @@ public class PerguruanTinggiLain extends GeneralValueObject {
 		this.oleh = oleh;
 	}
 
+	/** Nama pengguna yang terakhir membuat/mengubah baris ini (audit jejak perubahan). */
 	public String getOleh() {
 		return oleh;
 	}
@@ -431,6 +457,7 @@ public class PerguruanTinggiLain extends GeneralValueObject {
 		this.deskripsi = deskripsi;
 	}
 
+	/** Id/kode perguruan tinggi ini pada sistem feeder PDDikti, bila hasil impor dari feeder. */
 	public String getFeeder() {
 		return feeder == null || feeder.trim().isEmpty() ? null : feeder.trim();
 	}
@@ -632,6 +659,7 @@ public class PerguruanTinggiLain extends GeneralValueObject {
 		this.rektorNip = rektorNip;
 	}
 
+	/** Kode institusi pada SINTA (Science and Technology Index) Kemdikbudristek. */
 	public String getKodeSinta() {
 		return kodeSinta == null ? "" : kodeSinta.trim();
 	}

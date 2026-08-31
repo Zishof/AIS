@@ -25,6 +25,23 @@ import ais.database.model.Pegawai;
 import ais.database.model.sekolah.Guru;
 import ais.database.model.sekolah.Siswa;
 
+/**
+ * Entitas Hibernate yang memetakan tabel {@code public.kartu_penjemput_antar_jemput}
+ * pada modul layanan antar-jemput siswa/mahasiswa. Merepresentasikan satu
+ * kartu identitas penjemput (mis. kartu ber-barcode yang dipegang orang tua/wali
+ * atau petugas jemput) yang berlaku untuk satu peserta didik/mahasiswa/dosen/guru/
+ * pegawai tertentu, lengkap dengan identitas penjemput ({@code namaPenjemput},
+ * {@code hubungan}, {@code nomorIdentitas}, {@code nomorHp}), nomor & barcode
+ * kartu, serta masa berlaku ({@code berlakuMulai}..{@code berlakuSampai}) dan
+ * status aktif/nonaktif kartu.
+ *
+ * <p>
+ * Berelasi many-to-one opsional ke {@link Siswa}, {@link Mahasiswa},
+ * {@link Guru}, {@link Dosen}, dan {@link Pegawai} — kartu penjemput dapat
+ * dikaitkan ke salah satu jenis peserta tersebut, tergantung jenjang layanan
+ * antar-jemput. Diaudit lewat Hibernate Envers ({@code @Audited}).
+ * </p>
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited
@@ -107,6 +124,7 @@ public class KartuPenjemputAntarJemput extends GeneralValueObject {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/** Kode kartu; bila belum diisi langsung, jatuh ke {@link #getNomorKartu()}. */
 	@Column(name = "kode", length = 50)
 	public String getKode() {
 		return kode == null ? getNomorKartu() : kode.trim();
@@ -116,6 +134,7 @@ public class KartuPenjemputAntarJemput extends GeneralValueObject {
 		this.kode = kode;
 	}
 
+	/** Nama tampilan kartu; bila belum diisi langsung, jatuh ke {@link #getNamaPenjemput()}. */
 	@Column(name = "nama", length = 255)
 	public String getNama() {
 		return nama == null ? getNamaPenjemput() : nama.trim();
@@ -206,6 +225,7 @@ public class KartuPenjemputAntarJemput extends GeneralValueObject {
 		this.berlakuSampai = berlakuSampai;
 	}
 
+	/** Status aktif kartu; default {@code true} bila belum diisi. */
 	public Boolean getAktif() {
 		return aktif == null ? Boolean.TRUE : aktif;
 	}

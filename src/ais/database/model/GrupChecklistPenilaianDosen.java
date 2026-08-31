@@ -18,6 +18,14 @@ import javax.persistence.TemporalType;
 
 import org.hibernate.envers.Audited;
 
+/**
+ * Entitas Hibernate yang memetakan tabel {@code public.grup_checklist_penilaian_dosen}.
+ * Merepresentasikan satu butir/kelompok item checklist ({@code isi}) di bawah
+ * satu {@link AngketPenilaianDosen} (angket penilaian kinerja dosen) — dipakai
+ * untuk mengelompokkan item-item pertanyaan/pernyataan pada angket penilaian
+ * dosen (mis. oleh mahasiswa atau atasan) ke dalam grup checklist yang dapat
+ * diaktifkan/dinonaktifkan ({@code aktif}).
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited

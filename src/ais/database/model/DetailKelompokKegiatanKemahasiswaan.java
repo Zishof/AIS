@@ -23,6 +23,25 @@ import javax.persistence.TemporalType;
 import org.hibernate.Hibernate;
 import org.hibernate.envers.Audited;
 
+/**
+ * Entitas Hibernate untuk tabel {@code public.detail_kelompok_kegiatan_kemahasiswaan},
+ * merepresentasikan satu jenis/rincian kegiatan kemahasiswaan (mis. jenis lomba/organisasi
+ * tertentu) di bawah satu {@link #getKelompokKegiatanKemahasiswaan() kelompok} kegiatan
+ * kemahasiswaan yang lebih umum (modul aktivitas/prestasi mahasiswa). Master data ini
+ * dipakai sebagai referensi saat mahasiswa mencatatkan keikutsertaan pada suatu kegiatan.
+ * <p>
+ * Relasi many-to-many memetakan rincian kegiatan ini ke daftar jabatan yang mungkin diisi
+ * mahasiswa dalam kegiatan tersebut ({@link #getJabatanKegiatanKemahasiswaans()}) serta daftar
+ * skala/tingkatan kegiatan yang berlaku ({@link #getSkalaKegiatanKemahasiswaans()}, mis.
+ * lokal/nasional/internasional). Flag {@link #getBisaDipilihMahasiswa()} menentukan apakah
+ * rincian ini boleh dipilih langsung oleh mahasiswa saat entri mandiri, dan otomatis bernilai
+ * {@code false} bila kelompok induknya (bila sudah termuat) juga tidak boleh dipilih mahasiswa.
+ * <p>
+ * Perubahan (create/update) tercatat historisnya lewat anotasi {@link Audited} (Hibernate
+ * Envers), dan setiap update otomatis memperbarui {@link #getTanggal_dirubah()} lewat callback
+ * {@link javax.persistence.PreUpdate} yang memanggil
+ * {@link ais.database.hibernate.AuditTimestampInterceptor#ubah(Object)}.
+ */
 @Entity
 @org.hibernate.annotations.Entity(
     dynamicInsert = true,

@@ -39,6 +39,24 @@ import ais.database.model.GeneralValueObject;
 
 
 
+/**
+ * Entitas Hibernate untuk satu sub-unit/detail dari {@link KelompokKegiatanKesiswaan} (kelompok
+ * kegiatan kesiswaan/ekstrakurikuler) — dipetakan ke tabel
+ * {@code public.detail_kelompok_kegiatan_kesiswaan} (modul {@code sekolah}). Mis. bila
+ * "Ekstrakurikuler Pramuka" adalah {@link KelompokKegiatanKesiswaan}, maka "Pramuka Penggalang" /
+ * "Pramuka Siaga" bisa jadi baris {@link DetailKelompokKegiatanKesiswaan} di bawahnya. Terhubung
+ * many-to-many ke {@link JabatanKegiatanKesiswaan} (jabatan/peran yang tersedia di detail kelompok
+ * ini, mis. Ketua/Sekretaris) dan {@link SkalaKegiatanKesiswaan} (skala kegiatan, mis.
+ * sekolah/kecamatan/nasional) lewat tabel penghubung masing-masing.
+ *
+ * <h2>{@link #getBisaDipilihSiswa()}</h2>
+ * <p>
+ * Nilai efektif bukan murni field {@link #bisaDipilihSiswa} — bila
+ * {@link KelompokKegiatanKesiswaan#getBisaDipilihSiswa()} milik induk ({@link #kelompokKegiatanKesiswaan})
+ * bernilai {@code false}, detail ini IKUT dipaksa tidak bisa dipilih siswa apa pun nilai field-nya
+ * sendiri.
+ * </p>
+ */
 public class DetailKelompokKegiatanKesiswaan extends GeneralValueObject {
 	private static final long serialVersionUID = -7050166125892447098L;
 	private Long id;
@@ -76,12 +94,15 @@ public class DetailKelompokKegiatanKesiswaan extends GeneralValueObject {
 		return id + "-" + nama;
 	}
 
+	/** Kelompok kegiatan kesiswaan induk dari detail ini. */
 	private KelompokKegiatanKesiswaan kelompokKegiatanKesiswaan;
 	private String nama;
 	private Integer nomorUrut;
 	private Boolean aktif;
+	/** Cache; nilai efektif dihitung ulang di {@link #getBisaDipilihSiswa()}, ikut dipaksa {@code false} bila induk {@link #kelompokKegiatanKesiswaan} tidak bisa dipilih siswa. */
 	private Boolean bisaDipilihSiswa;
 
+	/** Jabatan/peran (mis. Ketua, Sekretaris) yang tersedia untuk dipilih pada detail kelompok ini. */
 	private Set<JabatanKegiatanKesiswaan> jabatanKegiatanKesiswaans = new TreeSet<JabatanKegiatanKesiswaan>();
 
 	@ManyToMany(targetEntity = JabatanKegiatanKesiswaan.class, cascade = { CascadeType.MERGE, CascadeType.PERSIST })
@@ -94,6 +115,7 @@ public class DetailKelompokKegiatanKesiswaan extends GeneralValueObject {
 		this.jabatanKegiatanKesiswaans = jabatanKegiatanKesiswaans;
 	}
 
+	/** Skala kegiatan (mis. tingkat sekolah/kecamatan/nasional) yang berlaku untuk detail kelompok ini. */
 	private Set<SkalaKegiatanKesiswaan> skalaKegiatanKesiswaans = new TreeSet<SkalaKegiatanKesiswaan>();
 
 	@ManyToMany(targetEntity = SkalaKegiatanKesiswaan.class, cascade = { CascadeType.MERGE, CascadeType.PERSIST })
@@ -153,6 +175,7 @@ public class DetailKelompokKegiatanKesiswaan extends GeneralValueObject {
 		this.aktif = aktif;
 	}
 
+	/** @return apakah detail kelompok ini bisa dipilih siswa — {@code false} bila induk {@link #kelompokKegiatanKesiswaan} tidak bisa dipilih siswa, atau nilai field {@link #bisaDipilihSiswa} sendiri (default {@code true}) bila induk mengizinkan. */
 	public Boolean getBisaDipilihSiswa() {
 		if (kelompokKegiatanKesiswaan != null && !kelompokKegiatanKesiswaan.getBisaDipilihSiswa()) {
 			bisaDipilihSiswa = false;

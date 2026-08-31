@@ -31,6 +31,34 @@ import ais.database.model.file.LampiranLain;
 import ais.database.model.rab.SatuanKerja;
 import ais.database.model.sop.DisposisiSop;
 
+/**
+ * Entitas Hibernate untuk tabel {@code public.perguruan_tinggi}, merepresentasikan sebuah
+ * perguruan tinggi (institusi pendidikan tinggi) sebagai unit organisasi induk di AIS — analog
+ * dengan entitas sekolah pada modul jenjang sekolah. Satu baris pada tabel ini mewakili satu
+ * perguruan tinggi beserta profil kelengkapan datanya: identitas legal (akta pendirian, izin
+ * operasi, akreditasi BAN-PT), alamat dan kontak, data sarana-prasarana (luas tanah/ruang kuliah/
+ * lab/perpustakaan, jumlah buku) yang umumnya dipakai untuk pelaporan EPSBED/PDDikti, informasi
+ * rekening bank, serta pejabat struktural (rektor dan jajaran wakil/pejabat lain).
+ * <p>
+ * Perubahan (create/update) tercatat historisnya lewat anotasi {@link Audited} (Hibernate
+ * Envers), dan setiap update otomatis memperbarui {@link #getTanggal_dirubah()} lewat callback
+ * {@link javax.persistence.PreUpdate} yang memanggil
+ * {@link ais.database.hibernate.AuditTimestampInterceptor#ubah(Object)}.
+ * <p>
+ * Relasi ke entitas lain (semua {@code @ManyToOne}, lazy):
+ * <ul>
+ * <li>{@link #getPendaftar()} — data pendaftaran/legal PT dari sistem PMB; banyak field profil
+ * (nama, alamat1, telepon, domain, motto, email, kode) di-override untuk mengambil nilai dari
+ * {@link Pendaftar} ini bila tersedia, sehingga kolom lokal berfungsi sebagai fallback/cache.</li>
+ * <li>{@link #getSatuanKerja()} — satuan kerja tempat PT ini bernaung (modul RAB/anggaran).</li>
+ * <li>{@link #getKepala()}, {@link #getWakil1()}/{@link #getWakil2()}/{@link #getWakil3()},
+ * {@link #getPejabat1()}..{@link #getPejabat5()} — pegawai ({@link Pegawai}) yang menjabat sebagai
+ * pimpinan/rektor dan pejabat struktural lain; label jabatan pejabat1-5 dapat dikustomisasi lewat
+ * {@link #getLabelPejabat1()} dst.</li>
+ * <li>{@link #getDikunci()} — user ({@link Tbmuser}) yang mengunci baris ini dari pengeditan.</li>
+ * <li>{@link #getDisposisiSop()} — disposisi SOP terkait PT ini.</li>
+ * </ul>
+ */
 @Entity
 @org.hibernate.annotations.Entity(
     dynamicInsert = true,
@@ -41,7 +69,9 @@ import ais.database.model.sop.DisposisiSop;
 public class PerguruanTinggi extends VoKunci {
 	private static final long serialVersionUID = -7550455125892447098L;
 	private Long id;
+	/** Nama user yang terakhir mengubah/membuat baris ini (audit jejak, bukan relasi FK). */
 	private String oleh;
+	/** ID user yang terakhir mengubah/membuat baris ini (audit jejak, bukan relasi FK). */
 	private String olehId;
 
 	public String getOlehId() {
@@ -75,7 +105,9 @@ public class PerguruanTinggi extends VoKunci {
 		return nama;
 	}
 
+	/** Kode yayasan penaung; diisi dari {@link #getPendaftar()} bila relasi tersedia. */
 	private String kodeYayasan;
+	/** Kode unik perguruan tinggi (dipakai lintas modul); diisi dari {@link #getPendaftar()} bila relasi tersedia. */
 	private String kodePerguruanTinggi;
 	private String nama;
 	private String namaSingkat;
@@ -96,78 +128,138 @@ public class PerguruanTinggi extends VoKunci {
 	private Date tanggalAkta;
 	private Date tanggalAwalPendirian;
 	private String nomorAkta;
+	/** Status kelembagaan, mis. "Swasta"/"Negeri"; default "Swasta" bila kosong. */
 	private String status;
+	/** Daftar alamat email dipisah koma; {@link #appendEmail(String)} menambah alamat baru tanpa duplikat. */
 	private String email;
 	private String website;
+	/** Nama domain institusi; diisi dari {@link #getPendaftar()} bila relasi tersedia. */
 	private String domain;
+	/** Motto/slogan institusi; diisi dari {@link #getPendaftar()} bila relasi tersedia. */
 	private String motto;
+	/** CSS kustom untuk tampilan portal PT ini. */
 	private String css;
+	/** Kode institusi pada SINTA (Science and Technology Index) Kemdikbud. */
 	private String kodeSinta;
+	/** Pilihan tema tampilan portal; nilai valid lihat {@link #TAMPILAN_DEFAULT}, {@link #TAMPILAN_KLASIK}, {@link #TAMPILAN_BARU}. */
 	private String piilhanTampilan;
 
 	public static final String TAMPILAN_DEFAULT = "default";
 	public static final String TAMPILAN_KLASIK = "klasik";
 	public static final String TAMPILAN_BARU = "baru";
 
+	/** Luas tanah total (m2) — data sarana-prasarana untuk pelaporan EPSBED/PDDikti. */
 	private Double luasTanahTotal;
+	/** Luas kebun/lahan percobaan total (m2). */
 	private Double luasKebunLahanPercobaanTotal;
+	/** Luas total ruang kuliah (m2). */
 	private Double luasTotalRuangKuliah;
+	/** Jumlah ruang kuliah. */
 	private Integer jumlahRuangKuliah;
+	/** Luas total ruang laboratorium/studio (m2). */
 	private Double luasTotalLabStudio;
+	/** Jumlah ruang laboratorium. */
 	private Integer jumlahRuangLab;
+	/** Luas total ruang dosen tetap (m2). */
 	private Double luasTotalRuangDosenTetap;
+	/** Luas total ruang administrasi (m2). */
 	private Double luasTotalRuangAdministrasi;
+	/** Luas total ruang seminar (m2). */
 	private Double luasTotalRuangSeminar;
+	/** Luas total ruang kegiatan ekstrakurikuler (m2). */
 	private Double luasTotalRuangEkskul;
+	/** Luas total pusat komputer (m2). */
 	private Double luasTotalPusatKomputer;
+	/** Luas total ruang perpustakaan (m2). */
 	private Double luasTotalRuangPerpustakaan;
+	/** Jumlah judul buku koleksi perpustakaan. */
 	private Integer jumlahJudulBuku;
+	/** Jumlah eksemplar buku koleksi perpustakaan. */
 	private Integer jumlahEksemplarBuku;
 	private String deskripsi;
 
+	/** Nomor SK izin operasional pendirian PT. */
 	private String skIzinOperasi;
+	/** Tanggal terbit SK izin operasional. */
 	private Date tglSkIzinOperasi;
+	/** Nama/jabatan pejabat penandatangan SK izin operasional. */
 	private String pejabatIzinOperasi;
+	/** Nomor rekening bank institusi. */
 	private String noRek;
+	/** Nama bank tempat rekening institusi. */
 	private String nmBank;
+	/** Unit/cabang bank tempat rekening institusi. */
 	private String unitCabang;
+	/** Nama pemilik rekening bank institusi. */
 	private String nmRek;
+	/** Luas tanah milik sendiri (m2). */
 	private Double luasTanahMilik;
+	/** Luas tanah bukan milik sendiri, mis. sewa/pinjam (m2). */
 	private Double luasTanahBukanMilik;
 
+	/** Tahun akademik pertama kali PT ini menerima mahasiswa baru. */
 	private Integer tahunPertamaMenerimaMahasiswa;
 
+	/** Peringkat akreditasi institusi (BAN-PT), mis. "Unggul"/"Baik Sekali". */
 	private String peringkatAkreditasi;
+	/** Predikat akreditasi institusi, mis. "A"/"B"/"C". */
 	private String akreditasi;
+	/** Nomor SK akreditasi BAN-PT. */
 	private String noSkAkreditasi;
+	/** Tanggal penetapan akreditasi. */
 	private Date tanggalAkreditasi;
 
+	/** Status aktif PT; default true bila belum diisi. */
 	private Boolean aktif;
+	/** Nama rektor/pimpinan tertinggi PT. */
 	private String rektor;
+	/** NIP rektor/pimpinan tertinggi PT. */
 	private String rektorNip;
+	/** Kode/identitas feeder PDDikti untuk sinkronisasi data ke Kemdikbud. */
 	private String feeder;
+	/** Satuan kerja (modul RAB/anggaran) tempat PT ini bernaung. */
 	private SatuanKerja satuanKerja;
+	/** Pegawai yang menjabat sebagai kepala/pimpinan PT. */
 	private Pegawai kepala;
+	/** Pegawai yang menjabat sebagai wakil pimpinan I. */
 	private Pegawai wakil1;
+	/** Pegawai yang menjabat sebagai wakil pimpinan II. */
 	private Pegawai wakil2;
+	/** Pegawai yang menjabat sebagai wakil pimpinan III. */
 	private Pegawai wakil3;
 
+	/** Pegawai pejabat struktural lain #1, dengan label dapat dikustomisasi lewat {@link #labelPejabat1}. */
 	private Pegawai pejabat1;
+	/** Pegawai pejabat struktural lain #2, dengan label dapat dikustomisasi lewat {@link #labelPejabat2}. */
 	private Pegawai pejabat2;
+	/** Pegawai pejabat struktural lain #3, dengan label dapat dikustomisasi lewat {@link #labelPejabat3}. */
 	private Pegawai pejabat3;
+	/** Pegawai pejabat struktural lain #4, dengan label dapat dikustomisasi lewat {@link #labelPejabat4}. */
 	private Pegawai pejabat4;
+	/** Pegawai pejabat struktural lain #5, dengan label dapat dikustomisasi lewat {@link #labelPejabat5}. */
 	private Pegawai pejabat5;
 
+	/** Nomor WhatsApp resmi institusi. */
 	private String wa;
+	/** Menentukan apakah dosen wajib memilih satuan kerja saat input data. */
 	private Boolean dosenHarusPakaiSatuanKerja;
+	/** Label jabatan untuk {@link #pejabat1}; default "Pejabat I". */
 	private String labelPejabat1;
+	/** Label jabatan untuk {@link #pejabat2}; default "Pejabat II". */
 	private String labelPejabat2;
+	/** Label jabatan untuk {@link #pejabat3}; default "Pejabat III". */
 	private String labelPejabat3;
+	/** Label jabatan untuk {@link #pejabat4}; default "Pejabat IV". */
 	private String labelPejabat4;
+	/** Label jabatan untuk {@link #pejabat5}; default "Pejabat V". */
 	private String labelPejabat5;
+	/** Data pendaftaran/legal PT dari sistem PMB; sumber fallback untuk banyak field profil di atas. */
 	private Pendaftar pendaftar;
+	/** Konten header kop surat khusus modul PMB (HTML/teks bebas). */
 	private String headerpmb;
+	/** User yang mengunci baris ini dari pengeditan lebih lanjut. */
 	private Tbmuser dikunci;
+	/** Disposisi SOP terkait institusi ini. */
 	private DisposisiSop disposisiSop;
 
 	public PerguruanTinggi() {

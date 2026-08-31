@@ -23,6 +23,21 @@ import ais.database.model.Pegawai;
 import ais.database.model.asset.Asset;
 import ais.database.model.asset.AssetDetail;
 
+/**
+ * Entitas Hibernate untuk satu kendaraan layanan antar-jemput siswa — dipetakan ke tabel
+ * {@code public.kendaraan_antar_jemput} (modul {@code antarjemput}). Merepresentasikan armada
+ * (bus/mobil jemputan) beserta kru default (sopir + hingga 3 kenek/pendamping), opsional terhubung
+ * ke aset inventaris AIS lewat {@link Asset}/{@link AssetDetail} untuk pelacakan aset fisiknya.
+ * Dipakai sebagai default kendaraan &amp; sopir pada {@link JadwalAntarJemput} (lihat
+ * {@link JadwalAntarJemput#getSopir()}).
+ *
+ * <h2>Fallback nilai default</h2>
+ * <p>
+ * {@link #getNama()} memakai nama {@link #assetDetail} lalu {@link #asset} sebagai fallback bila
+ * nama kendaraan belum diisi manual; {@link #getNomorPolisi()} selalu dinormalisasi ke huruf
+ * besar; {@link #getKapasitasDuduk()} default {@code 0}; {@link #getAktif()} default {@code true}.
+ * </p>
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited
@@ -37,14 +52,20 @@ public class KendaraanAntarJemput extends GeneralValueObject {
 	private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
 	private String kode;
+	/** Nama kendaraan; bila belum diisi, fallback ke nama {@link #assetDetail} lalu {@link #asset} — lihat {@link #getNama()}. */
 	private String nama;
 	private String keterangan;
+	/** Nomor polisi/plat kendaraan; selalu dikembalikan huruf besar oleh {@link #getNomorPolisi()}. */
 	private String nomorPolisi;
+	/** Kapasitas jumlah tempat duduk penumpang; default {@code 0} bila belum di-set. */
 	private Integer kapasitasDuduk;
 	private Boolean aktif;
 
+	/** Aset inventaris AIS yang berkorespondensi dengan kendaraan ini, bila dicatat sebagai aset (level induk). */
 	private Asset asset;
+	/** Detail aset inventaris AIS yang berkorespondensi dengan kendaraan ini (lebih spesifik dari {@link #asset}). */
 	private AssetDetail assetDetail;
+	/** Sopir default kendaraan ini. */
 	private Pegawai sopir;
 	private Pegawai kenek1;
 	private Pegawai kenek2;

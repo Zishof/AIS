@@ -13,6 +13,34 @@ import javax.persistence.Version;
 import org.hibernate.envers.Audited;
 import ais.database.model.GeneralValueObject;
 
+/**
+ * Entitas Hibernate untuk tabel {@code public.repo_item}, merepresentasikan satu item
+ * (karya ilmiah/dokumen) pada modul repositori institusional AIS — modul bergaya DSpace untuk
+ * menyimpan dan mempublikasikan skripsi/tesis/disertasi/jurnal beserta metadatanya. Satu baris
+ * mewakili satu item: metadata bibliografis ({@link #getTitle()}, {@link #getAuthors()},
+ * {@link #getAbstractText()}, {@link #getSubjects()}, {@link #getPublisher()},
+ * {@link #getLanguage()}, {@link #getDocumentType()}), teks hasil ekstraksi berkas untuk
+ * pengindeksan/pencarian ({@link #getExtractedText()}), status alur kerja penerbitan
+ * ({@link #getWorkflowStatus()}, {@link #getAccessPolicy()}, embargo, penarikan/
+ * {@code withdrawn}), serta identitas untuk interoperabilitas dengan sistem repositori lain
+ * (OAI-PMH via {@link #getOaiIdentifier()}, DSpace UUID/handle, DOI).
+ * <p>
+ * Item ini tergabung dalam satu koleksi lewat {@link #getCollectionId()} (id koleksi, relasi
+ * disimpan sebagai id polos, bukan {@code @ManyToOne}) dan dapat menunjuk balik ke entitas
+ * sumber AIS asal item ini diproduksi (mis. tugas akhir mahasiswa) lewat pasangan
+ * {@link #getSourceClass()}/{@link #getSourceId()}/{@link #getSourceLabel()}. Status sinkronisasi
+ * dengan layanan eksternal (mis. deteksi plagiarisme Turnitin, endpoint OAI) dilacak lewat
+ * {@link #getSyncStatus()}/{@link #getSyncMessage()}/{@link #getLastSyncAt()} dan
+ * {@link #getTurnitinIndexed()}/{@link #getTurnitinIndexedAt()}. Versi metadata sebelumnya
+ * (revisi) dapat ditelusuri lewat {@link #getPreviousVersionId()}/{@link #getVersionNumber()};
+ * kolom {@link #getLockVersion()} adalah kolom {@code @Version} JPA murni untuk optimistic
+ * locking, terpisah dari penomoran versi metadata tersebut.
+ * <p>
+ * Perubahan (create/update) tercatat historisnya lewat anotasi {@link Audited} (Hibernate
+ * Envers), dan setiap update otomatis memperbarui {@link #getTanggal_dirubah()} lewat callback
+ * {@link javax.persistence.PreUpdate} yang memanggil
+ * {@link ais.database.hibernate.AuditTimestampInterceptor#ubah(Object)}.
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited
@@ -97,18 +125,22 @@ public class RepoItem extends GeneralValueObject {
     public String getOaiIdentifier() { return this.oaiIdentifier; }
     public void setOaiIdentifier(String oaiIdentifier) { this.oaiIdentifier = oaiIdentifier; }
 
+    /** Menandakan item ini sudah ditarik dari publikasi (soft-withdraw); lihat {@link #getWithdrawnAt()}/{@link #getWithdrawalReason()}. */
     @Column(name = "is_withdrawn")
     public Boolean getIsWithdrawn() { return isWithdrawn == null ? false : isWithdrawn; }
     public void setIsWithdrawn(Boolean isWithdrawn) { this.isWithdrawn = isWithdrawn; }
 
+    /** Nama kelas entitas AIS asal item ini diproduksi (mis. tugas akhir mahasiswa), dipasangkan dengan {@link #getSourceId()}. */
     @Column(name = "source_class", length = 255)
     public String getSourceClass() { return sourceClass == null ? null : sourceClass.trim(); }
     public void setSourceClass(String sourceClass) { this.sourceClass = sourceClass; }
 
+    /** Id baris pada entitas sumber ({@link #getSourceClass()}) yang menjadi asal item ini. */
     @Column(name = "source_id")
     public Long getSourceId() { return sourceId; }
     public void setSourceId(Long sourceId) { this.sourceId = sourceId; }
 
+    /** Label tampilan untuk entitas sumber, dipakai agar UI tidak perlu memuat ulang entitas asal hanya untuk menampilkan nama. */
     @Column(name = "source_label", length = 255)
     public String getSourceLabel() { return sourceLabel; }
     public void setSourceLabel(String sourceLabel) { this.sourceLabel = sourceLabel; }

@@ -1,5 +1,26 @@
 package ais.database.model.sosial;
 import java.math.BigDecimal; import java.util.Date; import javax.persistence.*; import org.hibernate.envers.Audited;
+/**
+ * Entitas Hibernate yang memetakan tabel {@code public.social_payment_reconciliation}
+ * pada modul donasi/zakat/dana sosial. Merepresentasikan satu baris hasil
+ * rekonsiliasi pembayaran donasi ({@link PembayaranDonasi}) terhadap laporan
+ * penyelesaian (settlement) dari gerbang pembayaran ({@code gateway}) —
+ * dipakai untuk mencocokkan nominal yang seharusnya diterima
+ * ({@code expectedAmount}) dengan nominal yang benar-benar diterima
+ * ({@code receivedAmount}) setelah dipotong biaya gerbang ({@code fee}),
+ * beserta selisihnya ({@code difference}). {@code settlementReference} adalah
+ * nomor referensi penyelesaian dari gateway, unik per kombinasi
+ * ({@code tenantKey}, {@code gateway}, {@code settlementReference}).
+ *
+ * <p>
+ * Bila ditemukan ketidaksesuaian, jenisnya dicatat di {@code exceptionType}
+ * dan catatan peninjauan di {@code notes}, {@code reviewedBy}, {@code
+ * reviewedAt} — merepresentasikan alur kerja tim keuangan/bendahara
+ * meninjau dan menutup selisih rekonsiliasi. Mewarisi kolom teknis
+ * multi-tenant &amp; jejak audit dari {@link SocialRecord}, dan diaudit lewat
+ * Hibernate Envers ({@code @Audited}).
+ * </p>
+ */
 @Entity @Audited @org.hibernate.annotations.Entity(dynamicInsert=true,dynamicUpdate=true) @Table(schema="public",name="social_payment_reconciliation",uniqueConstraints=@UniqueConstraint(columnNames={"tenant_key","gateway","settlement_reference"}))
 public class SocialPaymentReconciliation extends SocialRecord { private static final long serialVersionUID=1L; private PembayaranDonasi payment; private Date settlementDate,reviewedAt; private String gateway,settlementReference,exceptionType,notes,reviewedBy; private BigDecimal expectedAmount,receivedAmount,fee,difference;
  @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="payment_id") public PembayaranDonasi getPayment(){return payment;} public void setPayment(PembayaranDonasi v){payment=v;}

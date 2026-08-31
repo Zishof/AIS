@@ -12,6 +12,34 @@ import javax.persistence.TemporalType;
 import org.hibernate.envers.Audited;
 import ais.database.model.GeneralValueObject;
 
+/**
+ * Entitas Hibernate yang memetakan tabel {@code public.repo_bitstream} pada
+ * modul repositori institusional (mirip DSpace — lihat juga {@code ais.ui.dspace.DspaceCommon},
+ * {@link RepoItem}, {@link RepoCollection}) untuk skripsi/tesis/jurnal.
+ * Merepresentasikan satu berkas fisik (bitstream) yang menjadi bagian dari
+ * satu item repositori ({@code itemId}, referensi ke {@link RepoItem} tanpa
+ * relasi JPA eksplisit) — path penyimpanan di server ({@code pathSistem}),
+ * metadata berkas ({@code namaFile}, {@code mimeType}, {@code ukuranByte},
+ * {@code checksum}), pengelompokan bundle ala DSpace ({@code bundleName},
+ * default {@code "ORIGINAL"}), serta kebijakan akses ({@code accessPolicy},
+ * default {@code "OPEN_ACCESS"}).
+ *
+ * <p>
+ * {@code sourceClass}/{@code sourceId} menyimpan referensi polimorfik opsional
+ * ke entitas asal yang mengunggah berkas ini (mis. tugas akhir/jurnal),
+ * sedangkan {@code dspaceUuid} menyimpan UUID padanan bila berkas ini
+ * bermigrasi dari/ke instalasi DSpace asli. Sejumlah field tambahan mendukung
+ * alur kerja pengelolaan berkas: pemeriksaan plagiarisme Turnitin
+ * ({@code turnitinSubmitted}/{@code turnitinSubmittedAt}), pemindaian virus
+ * ({@code virusScanStatus}, default {@code "PENDING"}; {@code virusScannedAt}),
+ * validitas tanda tangan digital ({@code signatureValid}), penomoran versi
+ * berkas ({@code fileVersion}, default {@code 1}), tahapan/jenis naskah pada
+ * alur review jurnal ala OJS ({@code journalStage}, {@code journalGenre},
+ * {@code reviewRound}), serta status penyimpanan konten ({@code storageState},
+ * default {@code "PENDING_CONTENT"}) dan referensi konten terkait
+ * ({@code contentRef}). Diaudit lewat Hibernate Envers ({@code @Audited}).
+ * </p>
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited
@@ -22,10 +50,10 @@ public class RepoBitstream extends GeneralValueObject {
     private Long id;
     private Long itemId;
     private String namaFile;
-    private String mimeType;     
-    private String pathSistem;   
+    private String mimeType;
+    private String pathSistem;
     private Long ukuranByte;
-    private String checksum;     
+    private String checksum;
     private String bundleName;
     private String description;
     private String accessPolicy;

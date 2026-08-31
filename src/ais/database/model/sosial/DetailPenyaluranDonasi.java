@@ -1,7 +1,35 @@
 package ais.database.model.sosial;
 import java.math.BigDecimal; import java.util.Date; import javax.persistence.*; import org.hibernate.envers.Audited;
+/**
+ * Entitas Hibernate: satu baris rincian penyaluran dana pada modul sosial/donasi AIS — dipetakan
+ * ke tabel {@code public.detail_penyaluran_donasi}. Merupakan pecahan/detail dari satu
+ * {@link PenyaluranDonasi} (event/batch penyaluran) untuk kombinasi {@link #fundType} (jenis dana,
+ * mis. Zakat/Infaq/Sedekah), {@link #beneficiaryCategory} (kategori penerima manfaat), dan
+ * {@link #sourceAllocation} (alokasi dana sumber yang dipakai) tertentu — memungkinkan satu event
+ * penyaluran mencakup banyak kombinasi jenis-dana/kategori-penerima dalam baris terpisah, masing-
+ * masing dengan nominal ({@link #amount}), jumlah penerima manfaat, lokasi, bukti penyaluran
+ * ({@link #evidenceJson}), referensi akuntansi, dan status persetujuannya sendiri. {@link #program}
+ * (program donatur) opsional, dipakai bila penyaluran ini terikat pada program donasi tertentu.
+ */
 @Entity @Audited @org.hibernate.annotations.Entity(dynamicInsert=true,dynamicUpdate=true) @Table(schema="public",name="detail_penyaluran_donasi")
-public class DetailPenyaluranDonasi extends SocialRecord { private static final long serialVersionUID=1L; private PenyaluranDonasi distribution; private JenisDanaSosial fundType; private ProgramDonatur program; private KategoriPenerimaManfaat beneficiaryCategory; private AlokasiDonasi sourceAllocation; private BigDecimal amount; private Date distributionDate; private Integer beneficiaryCount; private String location,description,evidenceJson,accountingReference,approvalStatus;
+public class DetailPenyaluranDonasi extends SocialRecord {
+ private static final long serialVersionUID=1L;
+ /** Event/batch penyaluran donasi induk dari detail ini (wajib). */
+ private PenyaluranDonasi distribution;
+ /** Jenis dana sosial yang disalurkan pada detail ini (mis. Zakat/Infaq/Sedekah, wajib). */
+ private JenisDanaSosial fundType;
+ /** Program donatur terkait, bila penyaluran ini terikat pada program donasi tertentu (opsional). */
+ private ProgramDonatur program;
+ /** Kategori penerima manfaat penyaluran ini (wajib). */
+ private KategoriPenerimaManfaat beneficiaryCategory;
+ /** Alokasi donasi sumber yang dipakai untuk mendanai penyaluran ini (wajib). */
+ private AlokasiDonasi sourceAllocation;
+ /** Nominal dana yang disalurkan pada detail ini. */
+ private BigDecimal amount;
+ private Date distributionDate;
+ private Integer beneficiaryCount;
+ /** Lokasi penyaluran; deskripsi bebas; bukti penyaluran sebagai JSON mentah (mis. daftar foto/dokumen, tidak divalidasi skema di entitas); referensi jurnal akuntansi terkait; dan status persetujuan detail penyaluran ini (bebas teks). */
+ private String location,description,evidenceJson,accountingReference,approvalStatus;
  @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="distribution_id",nullable=false) public PenyaluranDonasi getDistribution(){return distribution;} public void setDistribution(PenyaluranDonasi v){distribution=v;}
  @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="fund_type_id",nullable=false) public JenisDanaSosial getFundType(){return fundType;} public void setFundType(JenisDanaSosial v){fundType=v;}
  @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="program_id") public ProgramDonatur getProgram(){return program;} public void setProgram(ProgramDonatur v){program=v;}

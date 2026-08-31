@@ -20,6 +20,22 @@ import org.hibernate.envers.Audited;
 
 import ais.database.model.GeneralValueObject;
 
+/**
+ * Entitas Hibernate untuk log pengiriman notifikasi layanan antar-jemput siswa — dipetakan ke
+ * tabel {@code public.log_notifikasi_antar_jemput} (modul {@code antarjemput}). Mencatat satu
+ * upaya pengiriman notifikasi (mis. ke perangkat soundbox/WA/aplikasi orang tua) terkait satu
+ * kejadian penjemputan/pengantaran ({@link #detailPenjemputanAntarJemput}), termasuk kanal
+ * pengiriman, isi pesan, status, jumlah percobaan, dan waktu kirim/diterima — dipakai untuk audit
+ * &amp; troubleshooting pengiriman notifikasi (retry, delivery tracking).
+ *
+ * <h2>Nilai default</h2>
+ * <p>
+ * {@link #getKanal()} default {@code "SOUNDBOX"} (kanal notifikasi paling umum di layanan
+ * antar-jemput AIS — perangkat pengeras suara di titik jemput); {@link #getStatus()} default
+ * {@code "ANTRI"}; {@link #getPercobaan()} default {@code 0}; {@link #getNama()} fallback ke
+ * {@link #getKanal()} bila belum diisi.
+ * </p>
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited
@@ -34,16 +50,25 @@ public class LogNotifikasiAntarJemput extends GeneralValueObject {
 	private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
 	private String kode;
+	/** Nama log; fallback ke {@link #getKanal()} bila belum diisi — lihat {@link #getNama()}. */
 	private String nama;
 	private String keterangan;
+	/** Kanal pengiriman notifikasi (mis. SOUNDBOX, WA, dsb); default {@code "SOUNDBOX"} — lihat {@link #getKanal()}. */
 	private String kanal;
+	/** Identitas/alamat perangkat tujuan notifikasi (mis. id perangkat soundbox atau nomor tujuan). */
 	private String perangkatTujuan;
+	/** Isi pesan notifikasi yang dikirim. */
 	private String pesan;
+	/** Status pengiriman (mis. ANTRI/TERKIRIM/GAGAL); default {@code "ANTRI"} — lihat {@link #getStatus()}. */
 	private String status;
+	/** Jumlah percobaan pengiriman yang sudah dilakukan; default {@code 0}. */
 	private Integer percobaan;
+	/** Waktu notifikasi dikirim dari sistem. */
 	private Date waktuKirim;
+	/** Waktu notifikasi tercatat diterima/di-ack oleh perangkat tujuan. */
 	private Date waktuDiterima;
 
+	/** Kejadian penjemputan/pengantaran yang menjadi konteks/pemicu notifikasi ini. */
 	private DetailPenjemputanAntarJemput detailPenjemputanAntarJemput;
 
 	public LogNotifikasiAntarJemput() {

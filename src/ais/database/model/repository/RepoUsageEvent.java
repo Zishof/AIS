@@ -11,6 +11,26 @@ import javax.persistence.Table;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
 
+/**
+ * Entitas Hibernate yang memetakan tabel {@code public.repo_usage_event} pada
+ * modul repositori institusional (mirip DSpace — lihat juga {@link RepoItem},
+ * {@link RepoBitstream}) untuk skripsi/tesis/jurnal. Merepresentasikan satu
+ * baris log statistik penggunaan (mirip DSpace Solr statistics/usage event) —
+ * satu kejadian akses terhadap {@link RepoItem} ({@code itemId}) dan/atau
+ * {@link RepoBitstream} ({@code bitstreamId}) tertentu, mis. tampil halaman
+ * atau unduh berkas ({@code eventType}), beserta konteks pengunjung
+ * ({@code visitorHash} — hash pengunjung, bukan IP mentah; {@code actorId}
+ * bila pengunjung login; {@code userAgentClass}; {@code countryCode};
+ * {@code referrerHost}) dan waktu kejadian ({@code occurredAt}).
+ *
+ * <p>
+ * Berbeda dari kebanyakan entitas lain di paket ini: kelas ini TIDAK
+ * mewarisi {@link ais.database.model.GeneralValueObject} dan TIDAK diaudit
+ * lewat Hibernate Envers — wajar untuk tabel log kejadian bervolume tinggi
+ * yang bersifat tulis-sekali (immutable), ditandai eksplisit lewat
+ * {@code dynamicUpdate = false} pada anotasi entity Hibernate.
+ * </p>
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = false)
 @Table(schema = "public", name = "repo_usage_event")

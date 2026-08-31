@@ -9,12 +9,25 @@ import javax.persistence.TemporalType;
 import javax.persistence.UniqueConstraint;
 import org.hibernate.envers.Audited;
 
+/**
+ * Entitas Hibernate: satu baris pengaturan tingkat-penyewa (tenant) untuk modul sosial/donasi AIS
+ * — dipetakan ke tabel {@code public.social_tenant_setting}, SATU baris per {@code tenant_key}
+ * (unique constraint pada kolom itu, diwariskan dari {@link SocialRecord#getTenantKey()}). Modul
+ * sosial dipakai untuk pengelolaan donasi/zakat; entitas ini menyimpan konfigurasi portal publik
+ * penyewa (nama, mode operasi, info izin/legalitas lembaga penyalur, kontak publik) beserta
+ * flag fitur dan versi kebijakan privasi/S&amp;K yang berlaku. Lihat {@link SocialRecord} untuk
+ * kolom teknis bersama (id, tenant key, status, audit) yang diwariskan seluruh entitas modul ini.
+ */
 @Entity @org.hibernate.annotations.Entity(dynamicInsert=true,dynamicUpdate=true) @Audited
 @Table(schema="public",name="social_tenant_setting",uniqueConstraints=@UniqueConstraint(columnNames={"tenant_key"}))
 public class SocialTenantSetting extends SocialRecord {
     private static final long serialVersionUID=1L;
+    /** Nama portal publik, mode operasi (mis. mandiri/terkelola), nomor izin lembaga penyalur, nama mitra, kontak publik, flag fitur (JSON/teks bebas), dan versi dokumen privasi/S&amp;K yang berlaku bagi penyewa ini. */
     private String portalName,operationMode,permitNumber,partnerName,publicContact,featureFlags,privacyVersion,termsVersion;
-    private Date permitValidUntil; private Boolean publicCollectionEnabled,gatewayEnabled,receiptEnabled;
+    /** Tanggal berakhirnya masa berlaku izin ({@link #permitNumber}) lembaga penyalur. */
+    private Date permitValidUntil;
+    /** Apakah koleksi/galeri publik donasi ditampilkan, apakah gateway pembayaran online aktif, dan apakah kuitansi otomatis diterbitkan — masing-masing dianggap {@code false} bila {@code null} di database. */
+    private Boolean publicCollectionEnabled,gatewayEnabled,receiptEnabled;
     @Column(name="portal_name",length=255) public String getPortalName(){return portalName;} public void setPortalName(String v){portalName=trim(v);}
     @Column(name="operation_mode",length=60) public String getOperationMode(){return operationMode;} public void setOperationMode(String v){operationMode=trim(v);}
     @Column(name="permit_number",length=255) public String getPermitNumber(){return permitNumber;} public void setPermitNumber(String v){permitNumber=trim(v);}

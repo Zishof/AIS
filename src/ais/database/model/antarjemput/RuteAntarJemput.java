@@ -16,6 +16,17 @@ import org.hibernate.envers.Audited;
 
 import ais.database.model.GeneralValueObject;
 
+/**
+ * Entitas Hibernate untuk tabel {@code public.rute_antar_jemput}, merepresentasikan satu rute
+ * (trayek) layanan antar-jemput kendaraan sekolah/perguruan tinggi pada modul "antarjemput" —
+ * mendefinisikan titik awal dan akhir perjalanan, jam keberangkatan, estimasi durasi tempuh, dan
+ * jenis layanannya ({@link #JEMPUT}, {@link #ANTAR}, atau {@link #PULANG_PERGI}). Entitas ini
+ * tidak memiliki relasi {@code @ManyToOne}/{@code @OneToMany} eksplisit ke entitas lain; entitas
+ * {@link JadwalAntarJemput} (jadwal operasional harian) dan kendaraan terkait mereferensikan rute
+ * ini secara terpisah.
+ * <p>
+ * Perubahan tercatat historisnya lewat {@link Audited} (Hibernate Envers).
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited
@@ -24,8 +35,11 @@ public class RuteAntarJemput extends GeneralValueObject {
 
 	private static final long serialVersionUID = 2463821577548439812L;
 
+	/** Jenis layanan: rute penjemputan (dari rumah/titik kumpul menuju sekolah/kampus). */
 	public static final String JEMPUT = "JEMPUT";
+	/** Jenis layanan: rute pengantaran (dari sekolah/kampus menuju rumah/titik kumpul). */
 	public static final String ANTAR = "ANTAR";
+	/** Jenis layanan: rute pulang-pergi (jemput dan antar dalam satu rute). */
 	public static final String PULANG_PERGI = "PULANG_PERGI";
 
 	private Long id;
@@ -36,10 +50,15 @@ public class RuteAntarJemput extends GeneralValueObject {
 	private String kode;
 	private String nama;
 	private String keterangan;
+	/** Jenis layanan rute; nilai valid lihat {@link #JEMPUT}, {@link #ANTAR}, {@link #PULANG_PERGI}. Default {@link #JEMPUT}. */
 	private String jenisLayanan;
+	/** Lokasi/alamat titik awal rute. */
 	private String titikAwal;
+	/** Lokasi/alamat titik akhir rute. */
 	private String titikAkhir;
+	/** Jam keberangkatan terjadwal untuk rute ini. */
 	private Date jamBerangkat;
+	/** Estimasi lama tempuh rute dalam menit. */
 	private Integer estimasiMenit;
 	private Boolean aktif;
 

@@ -3,6 +3,25 @@ package ais.database.model.sosial;
 import javax.persistence.*;
 import org.hibernate.envers.Audited;
 
+/**
+ * Entitas Hibernate untuk tabel {@code public.jenis_dana_sosial}, merepresentasikan satu jenis
+ * dana pada modul sosial/donasi/zakat (mis. zakat maal, zakat fitrah, infaq, sedekah, wakaf) yang
+ * menaungi satu {@link #getSosialChannel()} (kanal/program penggalangan dana) via relasi
+ * {@code @ManyToOne} lazy wajib. Kombinasi {@code tenant_key} + {@code kode} dijaga unik lewat
+ * {@code @UniqueConstraint} pada tabel, sehingga setiap penyewa (tenant) punya kode jenis dana
+ * sendiri-sendiri.
+ * <p>
+ * {@link #getRestricted()} menandai apakah dana ini bersifat terikat (restricted fund — hanya
+ * boleh dipakai untuk peruntukan tertentu, mis. zakat yang wajib disalurkan ke 8 asnaf) versus
+ * dana bebas. {@link #getCalculationRequired()} menandai apakah penyetoran dana jenis ini
+ * memerlukan perhitungan (mis. kalkulasi nishab/kadar zakat) sebelum jumlah final ditetapkan.
+ * {@link #getPublicActive()} mengontrol apakah jenis dana ini ditampilkan ke publik/donatur
+ * (default aktif). {@link #getReceiptType()} menentukan jenis format bukti/tanda terima donasi,
+ * dan {@link #getAccountingCode()} adalah kode akun akuntansi untuk pencatatan/pelaporan
+ * keuangan dana ini.
+ * <p>
+ * Perubahan tercatat historisnya lewat {@link Audited} (Hibernate Envers).
+ */
 @Entity @Audited @org.hibernate.annotations.Entity(dynamicInsert=true,dynamicUpdate=true)
 @Table(schema="public",name="jenis_dana_sosial",uniqueConstraints=@UniqueConstraint(columnNames={"tenant_key","kode"}))
 public class JenisDanaSosial extends SocialRecord {

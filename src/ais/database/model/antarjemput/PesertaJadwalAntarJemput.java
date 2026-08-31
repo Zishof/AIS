@@ -26,6 +26,23 @@ import ais.database.model.sekolah.Guru;
 import ais.database.model.sekolah.KelasSiswa;
 import ais.database.model.sekolah.Siswa;
 
+/**
+ * Entitas Hibernate untuk tabel {@code public.peserta_jadwal_antar_jemput}, merepresentasikan
+ * satu orang peserta (siswa/mahasiswa/guru/dosen/pegawai) yang terdaftar berlangganan pada suatu
+ * {@link JadwalAntarJemput} (jadwal rute layanan antar-jemput/shuttle sekolah atau perguruan
+ * tinggi). Modul "antarjemput" mengelola operasional kendaraan antar-jemput siswa/pegawai.
+ * <p>
+ * Peserta selalu terhubung ke tepat satu jadwal lewat {@link #getJadwalAntarJemput()}, sedangkan
+ * relasi ke siapa orangnya bersifat polimorfik: hanya salah satu dari {@link #getSiswa()},
+ * {@link #getMahasiswa()}, {@link #getGuru()}, {@link #getDosen()}, atau {@link #getPegawai()}
+ * yang terisi tergantung jenis peserta (siswa untuk modul sekolah, mahasiswa untuk modul
+ * perguruan tinggi, dst). {@link #getNama()} mengambil nama dari field lokal atau, bila kosong,
+ * dari salah satu relasi tersebut sesuai urutan prioritas siswa &gt; mahasiswa &gt; guru &gt;
+ * dosen &gt; pegawai. {@link #getKelasSiswa()} adalah cache kelas siswa yang otomatis diisi dari
+ * {@link #getSiswa()} bila peserta adalah siswa.
+ * <p>
+ * Perubahan tercatat historisnya lewat {@link Audited} (Hibernate Envers).
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited
@@ -43,18 +60,29 @@ public class PesertaJadwalAntarJemput extends GeneralValueObject {
 	private String nama;
 	private String keterangan;
 	private Integer nomorUrut;
+	/** Lokasi/alamat titik penjemputan peserta. */
 	private String titikJemput;
+	/** Lokasi/alamat titik penurunan peserta. */
 	private String titikTurun;
+	/** Catatan kondisi kesehatan peserta yang relevan bagi petugas antar-jemput. */
 	private String catatanKesehatan;
+	/** Status langganan layanan antar-jemput peserta ini, mis. "AKTIF"/nonaktif; default "AKTIF". */
 	private String statusLangganan;
 	private Boolean aktif;
 
+	/** Jadwal/rute antar-jemput yang diikuti peserta ini. */
 	private JadwalAntarJemput jadwalAntarJemput;
+	/** Terisi bila peserta adalah siswa (modul sekolah). */
 	private Siswa siswa;
+	/** Terisi bila peserta adalah mahasiswa (modul perguruan tinggi). */
 	private Mahasiswa mahasiswa;
+	/** Terisi bila peserta adalah guru (modul sekolah). */
 	private Guru guru;
+	/** Terisi bila peserta adalah dosen (modul perguruan tinggi). */
 	private Dosen dosen;
+	/** Terisi bila peserta adalah pegawai/staf. */
 	private Pegawai pegawai;
+	/** Cache kelas siswa, otomatis diisi dari {@link #siswa} bila kosong. */
 	private KelasSiswa kelasSiswa;
 
 	public PesertaJadwalAntarJemput() {

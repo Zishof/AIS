@@ -20,16 +20,33 @@ import org.hibernate.annotations.Fetch;
 import org.hibernate.annotations.FetchMode;
 import org.hibernate.envers.Audited;
 
+/**
+ * Entitas Hibernate untuk tabel {@code public.checklist_penilaian_dosen_oleh_mahasiswa},
+ * merepresentasikan satu jawaban penilaian yang diberikan seorang {@link #getMahasiswa()}
+ * terhadap seorang {@link #getDosen()} atas satu butir {@link #getChecklistPenilaianDosen()}
+ * (item checklist penilaian dosen), pada {@link #getTahunAkademik()}/{@link #getSemester()} dan
+ * (opsional) untuk mata kuliah {@link #getPerkuliahan()} tertentu. Nilai skor tersimpan di
+ * {@link #getNilai()} menggunakan skala konstanta kelas ini: {@link #SANGAT_BAIK} (1) sampai
+ * {@link #BURUK} (5). {@link #getChecklistBaruPenilaianDosenOlehMahasiswa()} menghubungkan baris
+ * ini ke versi/skema checklist penilaian yang lebih baru bila berlaku.
+ * <p>
+ * Perubahan tercatat historisnya lewat {@link Audited} (Hibernate Envers).
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited
 @Table(schema = "public", name = "checklist_penilaian_dosen_oleh_mahasiswa")
 public class ChecklistPenilaianDosenOlehMahasiswa extends GeneralValueObject {
 
+	/** Skor "sangat baik" (nilai terbaik) pada skala penilaian {@link #getNilai()}. */
 	public static final Integer SANGAT_BAIK = 1;
+	/** Skor "baik". */
 	public static final Integer BAIK = 2;
+	/** Skor "cukup". */
 	public static final Integer CUKUP = 3;
+	/** Skor "kurang baik". */
 	public static final Integer KURANG_BAIK = 4;
+	/** Skor "buruk" (nilai terendah) pada skala penilaian {@link #getNilai()}. */
 	public static final Integer BURUK = 5;
 
 	private static final long serialVersionUID = 2463821577548439808L;
@@ -39,14 +56,20 @@ public class ChecklistPenilaianDosenOlehMahasiswa extends GeneralValueObject {
 	private String olehId;
 	private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/** Mahasiswa yang memberikan penilaian. */
 	private Mahasiswa mahasiswa;
 	private String tahunAkademik;
 	private Integer semester;
+	/** Skor penilaian; lihat konstanta {@link #SANGAT_BAIK}..{@link #BURUK}. */
 	private Integer nilai;
+	/** Dosen yang dinilai. */
 	private Dosen dosen;
+	/** Mata kuliah/kelas kuliah konteks penilaian ini, bila ada. */
 	private Perkuliahan perkuliahan;
+	/** Butir checklist penilaian yang dijawab oleh baris ini. */
 	private ChecklistPenilaianDosen checklistPenilaianDosen;
 	private String keterangan;
+	/** Referensi ke skema checklist penilaian dosen versi baru, bila baris ini memakainya. */
 	private ChecklistBaruPenilaianDosenOlehMahasiswa checklistBaruPenilaianDosenOlehMahasiswa;
 
 	public ChecklistPenilaianDosenOlehMahasiswa() {

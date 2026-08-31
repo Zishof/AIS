@@ -26,6 +26,25 @@ import ais.database.model.sekolah.Guru;
 import ais.database.model.sekolah.KelasSiswa;
 import ais.database.model.sekolah.Siswa;
 
+/**
+ * Entitas Hibernate yang memetakan tabel {@code public.detail_penjemputan_antar_jemput}
+ * pada modul layanan antar-jemput siswa/mahasiswa. Merepresentasikan satu baris
+ * status penjemputan untuk satu peserta pada satu transaksi antar-jemput —
+ * yaitu perjalanan status seorang peserta (siswa/mahasiswa/guru/dosen/pegawai)
+ * sejak menunggu panggilan hingga diserahkan ke penjemput, lengkap dengan
+ * waktu pemanggilan ({@code waktuDipanggil}), waktu keluar kelas
+ * ({@code waktuKeluarKelas}), dan waktu serah terima ({@code waktuSerahTerima}).
+ *
+ * <p>
+ * Berelasi many-to-one ke {@link TransaksiPenjemputanAntarJemput} (transaksi
+ * antar-jemput yang menaunginya) dan {@link PesertaJadwalAntarJemput} (peserta
+ * pada jadwal antar-jemput); dari peserta jadwal itu pula sejumlah field
+ * ({@code nama}, {@link #getSiswa()}, {@link #getMahasiswa()}, {@link #getGuru()},
+ * {@link #getDosen()}, {@link #getPegawai()}, {@link #getKelasSiswa()}) diwarisi
+ * secara lazy bila belum diisi langsung pada baris ini. Diaudit lewat Hibernate
+ * Envers ({@code @Audited}).
+ * </p>
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited
@@ -34,9 +53,13 @@ public class DetailPenjemputanAntarJemput extends GeneralValueObject {
 
 	private static final long serialVersionUID = 2463821577548439817L;
 
+	/** Status awal: peserta terdaftar pada penjemputan tapi belum dipanggil. */
 	public static final String MENUNGGU_PANGGILAN = "MENUNGGU_PANGGILAN";
+	/** Status: panggilan penjemputan sudah dikirim/diumumkan ke peserta. */
 	public static final String SUDAH_DIPANGGIL = "SUDAH_DIPANGGIL";
+	/** Status: peserta sudah keluar kelas menuju titik penjemputan. */
 	public static final String KELUAR_KELAS = "KELUAR_KELAS";
+	/** Status akhir: peserta sudah diserahterimakan ke penjemput. */
 	public static final String DISERAHKAN = "DISERAHKAN";
 
 	private Long id;
@@ -122,6 +145,7 @@ public class DetailPenjemputanAntarJemput extends GeneralValueObject {
 		this.kode = kode;
 	}
 
+	/** Nama peserta; bila belum diisi langsung, diambil dari {@link #getPesertaJadwalAntarJemput()}. */
 	@Column(name = "nama", length = 255)
 	public String getNama() {
 		if (nama != null) {
@@ -146,6 +170,7 @@ public class DetailPenjemputanAntarJemput extends GeneralValueObject {
 		this.keterangan = keterangan;
 	}
 
+	/** Teks yang ditampilkan/diumumkan saat memanggil peserta; bila kosong, dibangkitkan otomatis dari {@link #getNama()}. */
 	@Column(name = "teks_panggilan")
 	public String getTeksPanggilan() {
 		if (teksPanggilan == null && getNama() != null) {
@@ -167,6 +192,7 @@ public class DetailPenjemputanAntarJemput extends GeneralValueObject {
 		this.perangkatTujuan = perangkatTujuan;
 	}
 
+	/** Status alur panggilan (lihat konstanta {@link #MENUNGGU_PANGGILAN} dkk.); default {@link #MENUNGGU_PANGGILAN} bila belum diisi. */
 	@Column(name = "status_panggilan", length = 40)
 	public String getStatusPanggilan() {
 		return statusPanggilan == null ? MENUNGGU_PANGGILAN : statusPanggilan;

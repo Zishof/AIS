@@ -21,6 +21,19 @@ import org.hibernate.envers.Audited;
 import ais.database.model.rab.SatuanKerja;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Entitas Hibernate untuk tabel {@code public.dokumen_akreditasi}, merepresentasikan satu
+ * dokumen/berkas pendukung (dapat berupa folder pengelompokan maupun dokumen sesungguhnya)
+ * yang dilampirkan pada satu baris {@link #getAkreditasi() Akreditasi}. Dokumen disusun
+ * hierarkis lewat relasi self-reference {@link #getInduk()} (dokumen induk/folder pembungkus),
+ * dengan urutan tampil diatur oleh {@link #getNomorUrut()}. Relasi tambahan ke
+ * {@link ais.database.model.rab.SatuanKerja} menandai unit kerja pemilik dokumen.
+ * <p>
+ * Perubahan (create/update) tercatat historisnya lewat anotasi {@link Audited} (Hibernate
+ * Envers), dan setiap update otomatis memperbarui {@link #getTanggal_dirubah()} lewat callback
+ * {@link javax.persistence.PreUpdate} yang memanggil
+ * {@link ais.database.hibernate.AuditTimestampInterceptor#ubah(Object)}.
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited

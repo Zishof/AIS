@@ -18,6 +18,26 @@ import javax.persistence.TemporalType;
 
 import org.hibernate.envers.Audited;
 
+/**
+ * Entitas Hibernate yang memetakan tabel
+ * {@code public.biodata_calon_mahasiswa_punya_verifikasi_parameter} pada modul
+ * penerimaan mahasiswa baru. Merupakan tabel penghubung (junction) yang
+ * mencatat hasil verifikasi satu {@link ParameterVerifikasiCalonMahasiswa}
+ * (mis. item cek berkas/syarat pendaftaran) untuk satu {@link
+ * BiodataCalonMahasiswa} (data calon mahasiswa) yang mendaftar lewat satu
+ * {@link PaketPunyaParameterVerifikasiCalonMahasiswa} (paket parameter
+ * verifikasi yang berlaku, mis. per jalur/gelombang seleksi) — flag
+ * {@code verified} menandai apakah parameter tersebut sudah dinyatakan
+ * terverifikasi, dan {@code keterangan} menyimpan catatan petugas verifikasi.
+ *
+ * <p>
+ * {@code nama} otomatis diisi dari nama {@link ParameterVerifikasiCalonMahasiswa}
+ * terkait bila belum diisi manual — lihat {@link #ambilNamaParameterDefault()},
+ * yang juga dipanggil pada {@code @PrePersist}/{@code @PreUpdate} untuk
+ * menormalkan field sebelum disimpan. Diaudit lewat Hibernate Envers
+ * ({@code @Audited}).
+ * </p>
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited

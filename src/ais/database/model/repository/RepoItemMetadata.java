@@ -12,6 +12,26 @@ import javax.persistence.TemporalType;
 import org.hibernate.envers.Audited;
 import ais.database.model.GeneralValueObject;
 
+/**
+ * Entitas Hibernate yang memetakan tabel {@code public.repo_item_metadata} pada
+ * modul repositori institusional (mirip DSpace — lihat juga {@link RepoItem},
+ * {@link RepoBitstream}) untuk skripsi/tesis/jurnal. Merepresentasikan satu
+ * pasangan bidang-nilai metadata Dublin Core (mis. {@code dc.title},
+ * {@code dc.contributor.author}) milik satu {@link RepoItem}
+ * ({@code itemId}, referensi tanpa relasi JPA eksplisit) — pola ini
+ * bersesuaian dengan tabel {@code metadatavalue} pada DSpace asli: satu item
+ * dapat memiliki banyak baris metadata dengan {@code metadataField} yang
+ * berbeda-beda maupun berulang (mis. banyak penulis), diurutkan lewat
+ * {@code place}.
+ *
+ * <p>
+ * {@code authority} dan {@code confidence} mengikuti mekanisme authority
+ * control ala DSpace: {@code authority} menyimpan kunci/ID otoritatif rujukan
+ * nilai (mis. ID pada pengendali nama/istilah terkendali), sedangkan
+ * {@code confidence} menyimpan tingkat keyakinan pencocokan authority
+ * tersebut (default {@code -1} bila belum diisi/tidak diketahui).
+ * </p>
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited
@@ -21,9 +41,9 @@ public class RepoItemMetadata extends GeneralValueObject {
     private static final long serialVersionUID = 1L;
     private Long id;
     private Long itemId;
-    private String metadataField; 
-    private String metadataValue; 
-    private String language;      
+    private String metadataField;
+    private String metadataValue;
+    private String language;
     private Integer place;
     private String authority;
     private Integer confidence;

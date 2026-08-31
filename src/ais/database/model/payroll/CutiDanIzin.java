@@ -40,6 +40,54 @@ import ais.database.model.file.LampiranLain;
 import ais.database.model.sop.DataSop;
 import ais.database.model.sop.DisposisiSop;
 
+/**
+ * Entitas Hibernate untuk pengajuan cuti &amp; izin kepegawaian AIS — dipetakan ke tabel
+ * {@code payroll.cuti_dan_izin}. Merupakan bagian dari modul payroll/kepegawaian dan sekaligus
+ * subclass dari {@link DataSop}, sehingga alur persetujuannya (approval workflow) mengikuti pola
+ * SOP/disposisi generik AIS lewat relasi {@link #getDisposisiSop() disposisiSop} — BUKAN lewat
+ * field {@code setujui}/{@code disetujiOleh}/{@code setujuiTanggal} yang tersimpan langsung di
+ * baris ini (lihat catatan pada masing-masing getter di bawah, yang justru MENGHITUNG ULANG nilai
+ * tersebut dari {@code disposisiSop} setiap kali dipanggil).
+ *
+ * <h2>Alur persetujuan (lihat {@link #getDisposisiSop()}, {@link #getSetujui()},
+ * {@link #getDisetujuiOleh()}, {@link #getSetujuiTanggal()}, {@link #getDiajukanOleh()})</h2>
+ * <p>
+ * Pengajuan cuti terhubung ke satu {@link DisposisiSop} (alur disposisi SOP generik AIS).
+ * Ketiga getter {@code setujui}, {@code disetujuiOleh}, dan {@code setujuiTanggal} membaca ulang
+ * nilainya dari {@code disposisiSop.getDisposisiSetuju()} setiap kali dipanggil (bukan murni
+ * mengembalikan field yang di-set manual) — field instance-nya sendiri hanya dipakai sebagai
+ * cache/fallback. Demikian pula {@link #getDiajukanOleh()} diturunkan dari
+ * {@code disposisiSop.getDisposisiStart()} bila tersedia.
+ * </p>
+ *
+ * <h2>Parameter tambahan berformat teks ({@link #getParameterTambahan()}/
+ * {@link #getParameterTambahanInds()})</h2>
+ * <p>
+ * Sama seperti pola di {@link ais.database.model.IsiAngketParameterUmum}: daftar parameter
+ * tambahan (custom field per {@link JenisCutiDanIzin}) disimpan sebagai SATU string {@code TEXT}
+ * berisi banyak baris (dipisah {@code \n}), tiap baris berisi field dipisah token literal
+ * {@code "<=>"} dengan urutan kurang-lebih
+ * {@code label->nilai<=>url_lampiran<=>nomor_urut<=>id_parameter}. Lihat
+ * {@link #populateParameterTambahan(List)} (menulis dari komponen ZK {@code Row}) dan
+ * {@link #ambilDataParameterTambahan()} (mem-parse balik ke {@link CommonVO}) untuk format
+ * persisnya. Rapuh terhadap token {@code "<=>"} atau {@code "\n"} yang muncul di dalam nilai
+ * pengguna sendiri.
+ * </p>
+ *
+ * <h2>Penghitungan jatah cuti ({@link #getJumlahHariCuti()}, {@link #getKecualiTanggals()})</h2>
+ * <p>
+ * Jumlah hari cuti dihitung dari rentang {@link #getMulai()}..{@link #getSampai()} (memakai hari
+ * kerja saja bila {@link Statusabsensi#getHariLiburDihitung()} true), lalu dikurangi tanggal yang
+ * ada di {@link #getKecualiTanggals()} — sebuah string JSON array (mis.
+ * {@code ["Senin, 08-06-2026", ...]}, diparse dengan {@code Common.dateFormat4}) berisi
+ * tanggal-tanggal dalam rentang yang SENGAJA tidak dihitung sebagai cuti. Method statis
+ * {@link #apakahSedangCuti(Pegawai, Date)} memakai daftar kecuali yang sama untuk menentukan
+ * apakah seorang pegawai sedang cuti pada tanggal tertentu.
+ * </p>
+ *
+ * @see DataSop
+ * @see DisposisiSop
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited
@@ -48,27 +96,44 @@ public class CutiDanIzin extends DataSop {
 
     private static final long serialVersionUID = 2463821577548439808L;
     private Long id;
+    /** Nama pengguna yang terakhir mengubah baris ini (audit, bukan pemohon cuti — lihat {@link #diajukanOleh}). */
     private String oleh;
     private String olehId;
     private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
     private String keterangan;
+    /** Tanggal mulai cuti/izin (inklusif). */
     private Date mulai;
+    /** Tanggal selesai cuti/izin (inklusif). */
     private Date sampai;
+    /** Pegawai yang mengajukan cuti/izin ini. */
     private Pegawai pegawai;
+    /** Status absensi yang berlaku selama rentang cuti ini (menentukan apakah memotong jatah cuti &amp; apakah hari libur ikut dihitung). */
     private Statusabsensi statusabsensi;
+    /** Cache; nilai efektif selalu dihitung ulang di {@link #getMemotongJatahCuti()} dari {@link Statusabsensi#getMemotongJatahCuti()}. */
     private Boolean memotongJatahCuti;
+    /** Cache; nilai efektif selalu dihitung ulang di {@link #getSetujui()} dari {@link #disposisiSop}. */
     private Boolean setujui;
+    /** Cache; nilai efektif selalu dihitung ulang di {@link #getDisetujuiOleh()} dari {@link #disposisiSop}. */
     private Tbmuser disetujiOleh;
+    /** Cache; nilai efektif selalu dihitung ulang di {@link #getSetujuiTanggal()} dari {@link #disposisiSop}. */
     private Date setujuiTanggal;
+    /** Jenis cuti/izin (mis. Cuti Tahunan, Izin Sakit) — menentukan parameter tambahan apa saja yang relevan. */
     private JenisCutiDanIzin jenisCutiDanIzin;
+    /** Lihat "Parameter tambahan berformat teks" pada Javadoc kelas — bentuk dengan label lengkap. */
     private String parameterTambahan;
+    /** Lihat "Parameter tambahan berformat teks" pada Javadoc kelas — bentuk ringkas dengan id saja (dipakai untuk pencarian/pencocokan lampiran). */
     private String parameterTambahanInds;
+    /** Jatah cuti yang dipakai oleh pengajuan ini (unit hari, dari perhitungan bisnis di luar entitas ini). */
     private Double jumlahCuti;
+    /** Cache; nilai efektif selalu dihitung ulang di {@link #getJumlahHariCuti()} dari rentang {@link #mulai}/{@link #sampai} dikurangi {@link #kecualiTanggals}. */
     private Integer jumlahHariCuti;
     private Double jumlahCutiBersama;
     private Double sisaCuti;
+    /** Cache; nilai efektif diturunkan di {@link #getDiajukanOleh()} dari {@link #disposisiSop} bila tersedia. */
     private Tbmuser diajukanOleh;
+    /** Alur disposisi SOP yang menjadi sumber kebenaran status persetujuan pengajuan ini — lihat "Alur persetujuan" pada Javadoc kelas. */
     private DisposisiSop disposisiSop;
+    /** JSON array berisi tanggal (format {@code Common.dateFormat4}) dalam rentang {@link #mulai}-{@link #sampai} yang DIKECUALIKAN dari perhitungan hari cuti — lihat "Penghitungan jatah cuti" pada Javadoc kelas. */
     private String kecualiTanggals;
 
     public CutiDanIzin() {
@@ -173,6 +238,12 @@ public class CutiDanIzin extends DataSop {
         this.statusabsensi = statusabsensi;
     }
 
+    /**
+     * @return {@code true} bila {@link #disposisiSop} sudah memiliki disposisi "setuju" dengan
+     *         pemroses ({@code getDiajukanOleh()} pada disposisi tersebut) terisi; nilai TIDAK
+     *         dibaca langsung dari field {@link #setujui} — field itu hanya cache hasil hitung
+     *         terakhir (lihat "Alur persetujuan" pada Javadoc kelas).
+     */
     public Boolean getSetujui() {
         if (getDisposisiSop() != null) {
             disetujiOleh = getDisposisiSop().getDisposisiSetuju() == null ? null : getDisposisiSop().getDisposisiSetuju().getDiajukanOleh();
@@ -185,6 +256,7 @@ public class CutiDanIzin extends DataSop {
         this.setujui = setujui;
     }
 
+    /** @return apakah pengajuan ini memotong jatah cuti pegawai — diturunkan dari {@link Statusabsensi#getMemotongJatahCuti()} bila {@link #statusabsensi} terisi, atau {@code true} bila tidak. */
     public Boolean getMemotongJatahCuti() {
         statusabsensi = getStatusabsensi();
         memotongJatahCuti = (statusabsensi != null ? statusabsensi.getMemotongJatahCuti() : true);
@@ -195,6 +267,7 @@ public class CutiDanIzin extends DataSop {
         this.memotongJatahCuti = memotongJatahCuti;
     }
 
+    /** @return pengguna yang menyetujui disposisi {@link #disposisiSop} ini, atau {@code null} bila belum/tidak ada disposisi setuju — lihat "Alur persetujuan" pada Javadoc kelas. */
     @ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
     @JoinColumn(name = "disetuji_oleh", nullable = true)
     public Tbmuser getDisetujuiOleh() {
@@ -215,6 +288,7 @@ public class CutiDanIzin extends DataSop {
         this.disetujiOleh = disetujiOleh;
     }
 
+    /** @return tanggal/waktu disposisi setuju pada {@link #disposisiSop}, atau {@code null} bila belum disetujui — lihat "Alur persetujuan" pada Javadoc kelas. */
     @Temporal(TemporalType.TIMESTAMP)
     public Date getSetujuiTanggal() {
         if (getDisposisiSop() != null && getDisposisiSop().getDisposisiSetuju() != null && getDisposisiSop().getDisposisiSetuju().getDiajukanOleh() != null) {
@@ -252,6 +326,13 @@ public class CutiDanIzin extends DataSop {
         this.parameterTambahanInds = parameterTambahanInds;
     }
 
+    /**
+     * Mem-parse {@link #getParameterTambahan()} (satu baris teks per parameter, lihat "Parameter
+     * tambahan berformat teks" pada Javadoc kelas) menjadi daftar {@link CommonVO} yang siap
+     * ditampilkan/diiterasi di layar ZK, terurut menurut nomor urut parameter.
+     *
+     * @return daftar parameter tambahan terisi milik pengajuan ini; kosong bila belum ada data
+     */
     public List<CommonVO> ambilDataParameterTambahan() {
         List<CommonVO> commonVOs = new ArrayList<CommonVO>();
         String pt = getParameterTambahan();
@@ -291,6 +372,18 @@ public class CutiDanIzin extends DataSop {
         return commonVOs;
     }
 
+    /**
+     * Membangun ulang {@link #parameterTambahan} dan {@link #parameterTambahanInds} dari baris
+     * komponen ZK ({@code parameterRows}) hasil input pengguna — dipanggil dari layar pengajuan
+     * cuti/izin saat form parameter tambahan disimpan. Setiap {@link Row} diharapkan membawa
+     * attribute {@code parameterTambahan} dan {@code kelompokParameterTambahanCutiDanIzin} (di-set
+     * oleh kode ZK pemanggil); baris tanpa kedua attribute tersebut dilewati begitu saja. Bila
+     * {@link ParameterTambahan#getHarusMenyertakanLampiran()} true, method ini juga mencoba
+     * melampirkan URL berkas via {@link LampiranLain#ambil(Long, String)}.
+     *
+     * @param parameterRows baris ZK berisi komponen input parameter tambahan; tidak melakukan apa
+     *                       pun bila {@code null}/kosong
+     */
     public void populateParameterTambahan(List<Row> parameterRows) {
         if (parameterRows == null || parameterRows.isEmpty()) {
             return;
@@ -379,6 +472,7 @@ public class CutiDanIzin extends DataSop {
         this.sisaCuti = sisaCuti;
     }
 
+    /** @return pengaju cuti/izin, diambil dari disposisi awal ({@code disposisiSop.getDisposisiStart()}) bila tersedia, atau fallback ke field {@link #diajukanOleh} yang di-set manual. */
     @ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
     @JoinColumn(name = "diajukan_oleh", nullable = true)
     public Tbmuser getDiajukanOleh() {
@@ -402,6 +496,16 @@ public class CutiDanIzin extends DataSop {
         return disposisiSop;
     }
 
+    /**
+     * Menolak meng-set {@link #disposisiSop} ke {@code null} atau ke entitas belum tersimpan
+     * (id {@code null}) — dipertahankan hingga diganti dengan disposisi lain yang valid.
+     * Catatan: klausa ternary di badan method ini secara efektif selalu bernilai {@code
+     * disposisiSop} (kondisi kedua ternary sudah pasti false pada titik ini karena guard di atas
+     * baru saja memastikan {@code disposisiSop} bukan null dan id-nya bukan null) — perilaku
+     * kode saat ini sederhana "set langsung setelah guard", dicatat di sini tanpa mengubah logika.
+     *
+     * @param disposisiSop disposisi SOP baru; diabaikan bila {@code null} atau belum punya id
+     */
     public void setDisposisiSop(DisposisiSop disposisiSop) {
         if (disposisiSop == null || disposisiSop.getId() == null) {
             return;
@@ -409,6 +513,22 @@ public class CutiDanIzin extends DataSop {
         this.disposisiSop = (this.disposisiSop != null && (disposisiSop == null || disposisiSop.getId() == null)) ? this.disposisiSop : disposisiSop;
     }
 
+    /**
+     * Query statis: mencari pengajuan cuti/izin milik {@code pegawai} yang SUDAH DISETUJUI
+     * ({@code setujui = true}) dan mencakup {@code tanggal} dalam rentang {@code mulai..sampai},
+     * lalu mengembalikan pengajuan pertama (terurut menurut {@code mulai}, lalu {@code id}) yang
+     * tanggalnya TIDAK termasuk daftar {@link #getKecualiTanggals()} (lihat
+     * {@link #apakahTanggalDikecualikan(CutiDanIzin, Date)}). Membuka sesi Hibernate native sendiri
+     * ({@link HibernateUtil#currentNativeSession()}) dan SELALU menutupnya di blok
+     * {@code finally} (termasuk {@link HibernateUtil#closeSession()}), sehingga aman dipanggil dari
+     * luar siklus request/thread-session biasa.
+     *
+     * @param pegawai pegawai yang diperiksa; {@code null} langsung mengembalikan {@code null}
+     * @param tanggal tanggal yang diperiksa; {@code null} langsung mengembalikan {@code null}
+     * @return pengajuan cuti yang berlaku pada {@code tanggal} tsb, atau {@code null} bila tidak
+     *         sedang cuti (atau terjadi exception apa pun — exception ditelan dan dianggap
+     *         "tidak sedang cuti", TIDAK dilaporkan ke pemanggil)
+     */
     @SuppressWarnings("unchecked")
     public static CutiDanIzin apakahSedangCuti(Pegawai pegawai, Date tanggal) {
         if (pegawai == null || tanggal == null) return null;
@@ -453,6 +573,14 @@ public class CutiDanIzin extends DataSop {
         }
     }
 
+    /**
+     * @return {@code true} bila {@code tanggal} ada di dalam JSON array {@link #getKecualiTanggals()}
+     *         milik {@code cutiDanIzin} — dicocokkan lebih dulu sebagai teks (format
+     *         {@code Common.dateFormat4}, mis. {@code "Senin, 08-06-2026"}), lalu sebagai fallback
+     *         diparse ulang jadi {@link Date} dan dibandingkan lewat {@code Common.databaseDateFormat}
+     *         agar tetap cocok meski kapitalisasi nama hari berbeda. Format lama/tidak valid pada
+     *         {@code kecualiTanggals} diabaikan secara aman (dianggap tidak ada tanggal dikecualikan).
+     */
     private static boolean apakahTanggalDikecualikan(CutiDanIzin cutiDanIzin, Date tanggal) {
         if (cutiDanIzin == null || tanggal == null) {
             return false;
@@ -500,6 +628,19 @@ public class CutiDanIzin extends DataSop {
         return false;
     }
 
+    /**
+     * Menghitung jumlah hari cuti efektif dari rentang {@link #getMulai()}..{@link #getSampai()}
+     * (inklusif kedua ujung), memakai hari kerja saja ({@code Common.getWorkingDaysBetweenTwoDates})
+     * bila {@link Statusabsensi#getHariLiburDihitung()} pada {@link #statusabsensi} bernilai true,
+     * atau seluruh hari kalender ({@code Common.getBetweenTwoDates}) bila tidak — lalu dikurangi
+     * tanggal-tanggal pada {@link #getKecualiTanggals()} yang jatuh dalam rentang tsb DAN belum
+     * dikecualikan otomatis oleh sistem (mis. tanggal itu memang hari libur/akhir pekan yang sudah
+     * tidak dihitung sejak awal, dicek lewat {@code Common.isHolidayMerahDanAtauHariLibur}) — untuk
+     * menghindari pengurangan ganda. Hasil dijamin tidak negatif; exception apa pun membuat method
+     * ini mengembalikan {@code 0} alih-alih melempar.
+     *
+     * @return jumlah hari cuti yang dihitung; {@code 0} bila data tidak lengkap atau terjadi error
+     */
     public Integer getJumlahHariCuti() {
         try {
             if (getStatusabsensi() != null && getMulai() != null && getSampai() != null) {

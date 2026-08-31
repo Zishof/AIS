@@ -11,12 +11,26 @@ import javax.persistence.Table;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
 
+/**
+ * Entitas Hibernate untuk relasi terarah antar-item repositori institusional AIS (modul
+ * {@code repository}, bergaya DSpace) — dipetakan ke tabel {@code public.repo_item_relation}.
+ * Menyatakan {@link #itemId} berelasi dengan {@link #relatedItemId} lewat jenis relasi bebas teks
+ * {@link #relationType} (mis. "cites", "isVersionOf", "isSupplementTo" — tidak dibatasi enum di
+ * level entitas). Kedua id item TIDAK dipetakan sebagai relasi Hibernate {@code @ManyToOne} ke
+ * entitas item repositori — hanya id mentah (lebih longgar/decoupled, navigasi ke item sesungguhnya
+ * harus lewat query eksplisit oleh pemanggil). {@link #actorId} mencatat siapa yang membuat relasi
+ * ini (untuk audit). Tidak extends {@link ais.database.model.GeneralValueObject} (berbeda dari
+ * mayoritas entitas AIS lain) — hanya {@link Serializable} polos, dan TIDAK di-{@code @Audited}
+ * lewat Envers.
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Table(schema = "public", name = "repo_item_relation")
 public class RepoItemRelation implements Serializable {
     private static final long serialVersionUID = 1L;
+    /** Id item sumber relasi ({@link #itemId}), id item tujuan relasi ({@link #relatedItemId}) — keduanya id mentah, bukan relasi Hibernate ke entitas item. */
     private Long id, itemId, relatedItemId;
+    /** Jenis relasi (bebas teks, mis. "cites"/"isVersionOf") dan id aktor/pengguna yang membuat relasi ini. */
     private String relationType, actorId;
     private Integer sortOrder;
     private Date createdAt;

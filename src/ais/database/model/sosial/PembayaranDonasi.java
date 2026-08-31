@@ -1,5 +1,27 @@
 package ais.database.model.sosial;
 import java.math.BigDecimal; import java.util.Date; import javax.persistence.*; import org.hibernate.envers.Audited;
+/**
+ * Entitas Hibernate untuk tabel {@code public.pembayaran_donasi}, merepresentasikan satu upaya
+ * pembayaran (payment attempt) lewat payment gateway pihak ketiga untuk melunasi satu
+ * {@link #getTransaction() transaksi donasi} ({@link TransaksiDonasi}) pada modul dana
+ * sosial/donasi/zakat. Satu transaksi donasi dapat memiliki beberapa baris pembayaran (mis. bila
+ * percobaan pertama kedaluwarsa/gagal dan donatur mencoba ulang), sehingga baris ini berperan
+ * sebagai log per-percobaan pembayaran, bukan status donasi itu sendiri.
+ * <p>
+ * Kombinasi {@code gateway_id} + {@code gateway_order_id} dijaga unik lewat
+ * {@code @UniqueConstraint} pada tabel, mengidentifikasi transaksi ini secara unik di sisi
+ * payment gateway. Field {@code callback*} ({@link #getCallbackTransactionId()},
+ * {@link #getCallbackFingerprint()}, {@link #getCallbackPayloadRedacted()}) menyimpan jejak
+ * notifikasi callback/webhook dari gateway — {@code callbackPayloadRedacted} secara eksplisit
+ * dimaksudkan menyimpan payload yang sudah disensor (redacted) agar data sensitif callback tidak
+ * tersimpan mentah, dan {@code callbackFingerprint} (unique) dipakai untuk deteksi/pencegahan
+ * pemrosesan callback duplikat. Field {@code settlementBatch}/{@code reconciliationStatus}
+ * mendukung proses rekonsiliasi dana dengan laporan settlement gateway.
+ * <p>
+ * Relasi {@code @ManyToOne} (lazy): {@link #getTransaction()} (transaksi donasi induk) dan
+ * {@link #getSosialChannel()} (kanal/program donasi yang menerima dana). Perubahan tercatat
+ * historisnya lewat {@link Audited} (Hibernate Envers).
+ */
 @Entity @Audited @org.hibernate.annotations.Entity(dynamicInsert=true,dynamicUpdate=true) @Table(schema="public",name="pembayaran_donasi",uniqueConstraints={@UniqueConstraint(columnNames={"gateway_id","gateway_order_id"})})
 public class PembayaranDonasi extends SocialRecord { private static final long serialVersionUID=1L; private TransaksiDonasi transaction; private SosialChannel sosialChannel; private String gatewayId,gatewayOrderId,gatewayReference,paymentStatus,callbackTransactionId,callbackFingerprint,callbackPayloadRedacted,currency,paymentUrl,settlementBatch,reconciliationStatus,failureReason,requestId; private BigDecimal requestAmount,fee,total; private Date issuedAt,expiryAt,paidAt,lastInquiryAt; private Integer retryCount;
  @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="transaction_id",nullable=false) public TransaksiDonasi getTransaction(){return transaction;} public void setTransaction(TransaksiDonasi v){transaction=v;}

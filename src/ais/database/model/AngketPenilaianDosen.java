@@ -20,6 +20,25 @@ import org.hibernate.envers.Audited;
 
 import ais.common.Common;
 
+/**
+ * Entitas Hibernate untuk tabel {@code public.angket_penilaian_dosen}, merepresentasikan satu
+ * butir/item pertanyaan pada angket (kuesioner) penilaian kinerja dosen — dipakai antara lain
+ * dalam proses sertifikasi dosen di mana mahasiswa atau dosen sendiri mengisi checklist penilaian
+ * (lihat entitas terkait {@link ChecklistPenilaianDosen} dan
+ * {@link ChecklistPenilaianDosenOlehMahasiswa}). Setiap butir angket dapat dibatasi cakupannya ke
+ * {@link #getFakultas()} dan/atau {@link #getJurusan()} tertentu (keduanya {@code @ManyToOne}
+ * lazy, opsional/nullable — bila kosong berarti berlaku umum), serta ke program studi/angkatan
+ * tertentu via field teks {@link #getProgram()}/{@link #getAngkatan()}. Flag
+ * {@link #getUntukDosen()} dan {@link #getUntukMahasiswa()} menentukan target pengisi angket
+ * (dosen menilai diri sendiri/rekan, atau mahasiswa menilai dosen).
+ * <p>
+ * {@link #getPetunjuk()} dan {@link #getJumlahPilihan()} memiliki nilai default yang diambil dari
+ * {@link ais.common.Common#getKonfigurasi(String, String)} bila field lokal kosong, sehingga
+ * petunjuk pengisian dan skala penilaian (default 1-5) dapat diatur secara global lewat
+ * konfigurasi aplikasi tanpa mengubah tiap baris data.
+ * <p>
+ * Perubahan tercatat historisnya lewat {@link Audited} (Hibernate Envers).
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited
@@ -34,16 +53,26 @@ public class AngketPenilaianDosen extends GeneralValueObject {
 	private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
 	private String kode;
+	/** Teks pertanyaan/pernyataan butir angket. */
 	private String isi;
 	private String keterangan;
+	/** Petunjuk pengisian angket; bila kosong diambil dari konfigurasi aplikasi (lihat {@link #getPetunjuk()}). */
 	private String petunjuk;
+	/** Jumlah pilihan/skala skor penilaian (mis. skala 1-5); bila kosong diambil dari konfigurasi aplikasi. */
 	private Integer jumlahPilihan;
+	/** Fakultas cakupan berlakunya butir angket ini; kosong berarti berlaku untuk semua fakultas. */
 	private Fakultas fakultas;
+	/** Jurusan cakupan berlakunya butir angket ini; kosong berarti berlaku untuk semua jurusan. */
 	private Jurusan jurusan;
+	/** Program studi cakupan berlakunya butir angket ini (teks bebas, bukan relasi). */
 	private String program;
+	/** Angkatan mahasiswa cakupan berlakunya butir angket ini. */
 	private String angkatan;
+	/** Menandakan butir ini berlaku untuk penilaian oleh/terhadap dosen. */
 	private Boolean untukDosen;
+	/** Menandakan butir ini berlaku untuk penilaian oleh mahasiswa. */
 	private Boolean untukMahasiswa;
+	/** Menentukan apakah kolom keterangan ditampilkan saat pengisian angket. */
 	private Boolean tampilKeterangan;
 
 	public AngketPenilaianDosen() {

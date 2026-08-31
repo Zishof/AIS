@@ -1,5 +1,32 @@
 package ais.database.model.sosial;
 import java.math.BigDecimal; import java.util.Date; import javax.persistence.*; import org.hibernate.envers.Audited;
+/**
+ * Entitas Hibernate untuk tabel {@code public.transaksi_donasi}, merepresentasikan satu
+ * transaksi donasi pada modul sosial (donasi/dana sosial). Setiap transaksi mengacu ke jenis
+ * dana yang dituju ({@link #getFundType()}), kanal donasi tempat transaksi dibuat
+ * ({@link #getSosialChannel()}), dan opsional identitas donatur terdaftar
+ * ({@link #getDonorIdentity()}) — nama/kontak donatur pada saat transaksi tetap disalin ke
+ * {@link #getDonorNameSnapshot()}/{@link #getDonorContactSnapshot()} sebagai <i>snapshot</i>
+ * yang tidak berubah walau data identitas donatur diperbarui belakangan. Bila donasi ini
+ * merupakan pembayaran zakat, hasil perhitungan nisab/kadar zakat terkait dirujuk lewat
+ * {@link #getCalculation()} ke {@link PerhitunganZakat}.
+ * <p>
+ * Nominal transaksi dipecah menjadi {@link #getGrossDonationAmount()} (jumlah donasi kotor),
+ * {@link #getPlatformContribution()} (kontribusi tambahan untuk platform, bila ada),
+ * {@link #getGatewayFee()} (biaya payment gateway), dan {@link #getTotalPayable()} (total yang
+ * harus dibayar donatur). Idempotensi permintaan pembuatan transaksi dijaga lewat kombinasi
+ * unik {@code tenant_key}+{@link #getIdempotencyKey()} (mencegah transaksi dobel akibat
+ * retry/klik ganda), sementara {@link #getTransactionNumber()} adalah nomor transaksi yang
+ * ditampilkan ke pengguna dan unik secara global. Status pembayaran/pencatatan dilacak lewat
+ * {@link #getReceiptStatus()} dan {@link #getAccountingStatus()}, dengan
+ * {@link #getExpiresAt()}/{@link #getPaidAt()} menandai masa berlaku dan waktu pembayaran
+ * diterima. Kolom {@link #getAnonymous()}/{@link #getPublicPrayer()}/{@link #getPublicName()}
+ * mengatur privasi tampilan donatur dan doa ({@link #getPrayer()}) pada dinding donasi publik
+ * (bila fitur tersebut aktif).
+ * <p>
+ * Mewarisi kolom multi-tenant {@code tenant_key} dari {@link SocialRecord}. Perubahan
+ * (create/update) tercatat historisnya lewat anotasi {@link Audited} (Hibernate Envers).
+ */
 @Entity @Audited @org.hibernate.annotations.Entity(dynamicInsert=true,dynamicUpdate=true) @Table(schema="public",name="transaksi_donasi",uniqueConstraints={@UniqueConstraint(columnNames={"transaction_number"}),@UniqueConstraint(columnNames={"tenant_key","idempotency_key"})})
 public class TransaksiDonasi extends SocialRecord { private static final long serialVersionUID=1L; private String transactionNumber,donorNameSnapshot,donorContactSnapshot,publicName,currency,sourceChannel,idempotencyKey,requestId,prayer,receiptStatus,accountingStatus; private SocialDonorIdentity donorIdentity; private JenisDanaSosial fundType; private PerhitunganZakat calculation; private SosialChannel sosialChannel; private BigDecimal grossDonationAmount,platformContribution,gatewayFee,totalPayable; private Boolean anonymous,publicPrayer; private Date expiresAt,paidAt;
  @Column(name="transaction_number",nullable=false,length=80) public String getTransactionNumber(){return transactionNumber;} public void setTransactionNumber(String v){transactionNumber=trim(v);}

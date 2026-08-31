@@ -1,5 +1,22 @@
 package ais.database.model.jurnal;
 import java.util.Date; import javax.persistence.*;
+/**
+ * Entitas Hibernate untuk tabel {@code penelitiandanpengabdian.undangan_peran_jurnal},
+ * merepresentasikan satu undangan bagi seseorang (via {@link #getEmail()}) untuk mengemban
+ * suatu peran ({@link #getRoleKey()}, mis. editor/reviewer/penulis) pada modul manajemen
+ * jurnal (bagian dari domain penelitian dan pengabdian). Cakupan peran yang diundangkan
+ * ditentukan oleh pasangan {@link #getScopeType()}/{@link #getScopeKey()} (mis. cakupan satu
+ * jurnal tertentu lewat {@code jurnalPenelitianId} yang diwarisi dari
+ * {@link JurnalEntityBase}, atau cakupan lain sesuai nilai {@code scopeType}).
+ * <p>
+ * Undangan diverifikasi lewat token sekali pakai yang hanya disimpan dalam bentuk hash
+ * ({@link #getTokenHash()}, bukan token mentah — token asli dikirim ke penerima lewat kanal
+ * lain, mis. email) dan memiliki masa berlaku ({@link #getExpiresAt()}). Siklus hidup undangan
+ * dilacak lewat {@link #getStatus()} beserta stempel waktu tindakan penerima:
+ * {@link #getAcceptedAt()} (diterima, dengan {@link #getInvitedUserId()} diisi bila penerima
+ * lalu terhubung ke akun pengguna AIS), {@link #getDeclinedAt()} (ditolak), atau
+ * {@link #getRevokedAt()} (dicabut oleh pengundang sebelum direspons).
+ */
 @Entity @Table(schema="penelitiandanpengabdian",name="undangan_peran_jurnal")
 public class UndanganPeranJurnal extends JurnalEntityBase {
  private static final long serialVersionUID=1L; private String email,roleKey,scopeType,scopeKey,tokenHash,status,invitedUserId; private Date expiresAt,acceptedAt,declinedAt,revokedAt;

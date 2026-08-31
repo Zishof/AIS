@@ -1,5 +1,26 @@
 package ais.database.model.sosial;
 import java.math.BigDecimal; import javax.persistence.*; import org.hibernate.envers.Audited;
+/**
+ * Entitas Hibernate untuk tabel {@code public.perhitungan_zakat}, merepresentasikan satu hasil
+ * perhitungan (simulasi atau perhitungan resmi) kewajiban zakat seorang donatur
+ * ({@link #getDonorIdentity()}, opsional) untuk satu {@link #getJenisZakat()}, dijalankan
+ * berdasarkan kebijakan yang berlaku saat itu ({@link #getPolicy()}, dengan
+ * {@link #getPolicyVersion()} menyalin versi {@link KebijakanPerhitunganZakat} yang dipakai
+ * sebagai jejak audit meski kebijakan induk direvisi kemudian).
+ * <p>
+ * Input dan hasil perhitungan disimpan mentah sebagai JSON ({@link #getInputJson()}/
+ * {@link #getResultJson()}) agar fleksibel menampung struktur input yang berbeda-beda antar
+ * jenis zakat, sementara nilai kunci hasilnya diringkas ke kolom terstruktur:
+ * {@link #getAmount()} (nominal zakat yang wajib dibayar), {@link #getReachedNisab()} (apakah
+ * harta yang dihitung mencapai ambang nisab), {@link #getNisabValueSnapshot()}/
+ * {@link #getRateSnapshot()} (nilai nisab dan tarif yang dipakai pada saat perhitungan ini —
+ * snapshot, tidak berubah walau kebijakan berubah), dan {@link #getConverted()} (apakah
+ * perhitungan ini berlanjut menjadi transaksi donasi sungguhan, lihat
+ * {@link TransaksiDonasi#getCalculation()}).
+ * <p>
+ * Mewarisi kolom multi-tenant {@code tenant_key} dari {@link SocialRecord}. Perubahan
+ * (create/update) tercatat historisnya lewat anotasi {@link Audited} (Hibernate Envers).
+ */
 @Entity @Audited @org.hibernate.annotations.Entity(dynamicInsert=true,dynamicUpdate=true) @Table(schema="public",name="perhitungan_zakat")
 public class PerhitunganZakat extends SocialRecord { private static final long serialVersionUID=1L; private SocialDonorIdentity donorIdentity; private JenisZakat jenisZakat; private KebijakanPerhitunganZakat policy; private String inputJson,resultJson,policyVersion,requestId,currency; private BigDecimal nisabValueSnapshot,rateSnapshot,amount; private Boolean reachedNisab,converted;
  @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="donor_identity_id") public SocialDonorIdentity getDonorIdentity(){return donorIdentity;} public void setDonorIdentity(SocialDonorIdentity v){donorIdentity=v;}

@@ -22,6 +22,23 @@ import ais.common.Common;
 import ais.database.model.GeneralValueObject;
 import ais.database.model.Pegawai;
 
+/**
+ * Entitas Hibernate untuk satu jadwal layanan antar-jemput siswa — dipetakan ke tabel
+ * {@code public.jadwal_antar_jemput} (modul {@code antarjemput}). Menggabungkan sebuah
+ * {@link RuteAntarJemput} (rute) dengan {@link KendaraanAntarJemput} (kendaraan) dan kru
+ * (sopir + hingga 3 kenek/pendamping) pada tanggal/jam/hari tertentu, dengan status siklus hidup
+ * {@link #DRAFT} → {@link #AKTIF} → {@link #SELESAI} (atau {@link #BATAL}).
+ *
+ * <h2>Fallback nilai default</h2>
+ * <p>
+ * Beberapa getter mengisi nilai secara otomatis bila belum di-set eksplisit: {@link #getNama()}
+ * memakai nama {@link #ruteAntarJemput} sebagai fallback; {@link #getSopir()} memakai sopir dari
+ * {@link #kendaraanAntarJemput} sebagai fallback bila sopir jadwal ini belum ditentukan sendiri;
+ * {@link #getTahunAjaran()} dan {@link #getSemester()} memakai tahun akademik/semester berjalan
+ * ({@code Common.getCurrentTahunAkademik()}/{@code Common.isNowSemensterGanjil()}) sebagai
+ * default; {@link #getStatus()} default {@link #DRAFT}; {@link #getAktif()} default {@code true}.
+ * </p>
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited
@@ -30,9 +47,13 @@ public class JadwalAntarJemput extends GeneralValueObject {
 
 	private static final long serialVersionUID = 2463821577548439813L;
 
+	/** Jadwal baru dibuat, belum diaktifkan/dijalankan. */
 	public static final String DRAFT = "DRAFT";
+	/** Jadwal aktif/sedang berjalan. */
 	public static final String AKTIF = "AKTIF";
+	/** Jadwal sudah selesai dijalankan. */
 	public static final String SELESAI = "SELESAI";
+	/** Jadwal dibatalkan. */
 	public static final String BATAL = "BATAL";
 
 	private Long id;
@@ -41,19 +62,26 @@ public class JadwalAntarJemput extends GeneralValueObject {
 	private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
 	private String kode;
+	/** Nama jadwal; bila belum diisi, fallback ke nama {@link #ruteAntarJemput} — lihat {@link #getNama()}. */
 	private String nama;
 	private String keterangan;
+	/** Tanggal spesifik jadwal ini berlaku (untuk jadwal sekali jalan/non-berulang). */
 	private Date tanggal;
 	private Date jamMulai;
 	private Date jamSelesai;
+	/** Hari berulang jadwal ini berlaku (mis. untuk jadwal rutin mingguan), bebas format teks. */
 	private String hari;
+	/** Tahun ajaran; default tahun akademik berjalan bila belum di-set — lihat {@link #getTahunAjaran()}. */
 	private String tahunAjaran;
+	/** Semester (1=ganjil, 2=genap); default semester berjalan bila belum di-set — lihat {@link #getSemester()}. */
 	private Integer semester;
+	/** Status siklus hidup jadwal — salah satu {@link #DRAFT}/{@link #AKTIF}/{@link #SELESAI}/{@link #BATAL}, default {@link #DRAFT}. */
 	private String status;
 	private Boolean aktif;
 
 	private RuteAntarJemput ruteAntarJemput;
 	private KendaraanAntarJemput kendaraanAntarJemput;
+	/** Sopir jadwal ini; bila belum di-set, fallback ke sopir {@link #kendaraanAntarJemput} — lihat {@link #getSopir()}. */
 	private Pegawai sopir;
 	private Pegawai kenek1;
 	private Pegawai kenek2;

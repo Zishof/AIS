@@ -22,6 +22,25 @@ import javax.persistence.TemporalType;
 
 import org.hibernate.envers.Audited;
 
+/**
+ * Entitas Hibernate yang memetakan tabel {@code public.detail_kelompok_kegiatan_kedosenan}
+ * pada modul kegiatan kedosenan (kinerja/aktivitas dosen, mis. untuk perhitungan
+ * beban kerja/angka kredit). Merepresentasikan satu butir detail/rincian di
+ * bawah satu {@link KelompokKegiatanKedosenan} (kelompok kegiatan induk) —
+ * mis. satu jenis kegiatan spesifik dalam kelompok "Pendidikan &amp; Pengajaran".
+ *
+ * <p>
+ * Berelasi many-to-many ke {@link JabatanKegiatanKedosenan} (jabatan fungsional
+ * dosen yang boleh memilih detail ini, lewat tabel penghubung
+ * {@code detail_kelompok_has_jabatan_kegiatan_kedosenan}) dan {@link
+ * SkalaKegiatanKedosenan} (skala/tingkat kegiatan, lewat tabel penghubung
+ * {@code detail_kelompok_has_skala_kegiatan_kedosenan}). Flag {@code
+ * bisaDipilihDosen} otomatis bernilai {@code false} bila kelompok induknya
+ * ({@link KelompokKegiatanKedosenan}) sudah tidak bisa dipilih dosen — lihat
+ * {@link #getBisaDipilihDosen()}. Diaudit lewat Hibernate Envers
+ * ({@code @Audited}).
+ * </p>
+ */
 @Entity
 @org.hibernate.annotations.Entity(
     dynamicInsert = true,
@@ -144,6 +163,7 @@ public class DetailKelompokKegiatanKedosenan extends GeneralValueObject {
 		this.aktif = aktif;
 	}
 
+	/** Default {@code true}, tapi dipaksa {@code false} bila kelompok induk ({@link #getKelompokKegiatanKedosenan()}) juga tidak bisa dipilih dosen. */
 	public Boolean getBisaDipilihDosen() {
 		if (kelompokKegiatanKedosenan != null && !kelompokKegiatanKedosenan.getBisaDipilihDosen()) {
 			bisaDipilihDosen = false;

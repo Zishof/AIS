@@ -21,6 +21,20 @@ import javax.persistence.TemporalType;
 import org.hibernate.envers.Audited;
 import org.json.JSONObject;
 
+/**
+ * Entitas Hibernate untuk tabel {@code public.checklist_penilaian_dosen}, merepresentasikan satu
+ * butir/item checklist yang dipakai untuk menilai kinerja dosen (mis. oleh mahasiswa lewat
+ * {@link ChecklistPenilaianDosenOlehMahasiswa}). Setiap butir tergabung dalam satu
+ * {@link #getGrupChecklistPenilaianDosen()} (kelompok/kategori checklist, mis. "Kedisiplinan",
+ * "Penguasaan Materi"), memiliki {@link #getBobot()} untuk perhitungan skor tertimbang, dan
+ * opsional {@link #getPilihan()} berupa string JSON yang mendefinisikan daftar pilihan jawaban
+ * kustom (bila kosong berlaku skala penilaian standar).
+ * <p>
+ * {@link #ambilkey()} menghasilkan kunci unik berbasis kombinasi id grup, lima huruf pertama isi
+ * pertanyaan, dan id checklist — dipakai sebagai key baris pada rekap/laporan penilaian.
+ * <p>
+ * Perubahan tercatat historisnya lewat {@link Audited} (Hibernate Envers).
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited
@@ -41,10 +55,14 @@ public class ChecklistPenilaianDosen extends GeneralValueObject {
 	private String olehId;
 	private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/** Teks pertanyaan/pernyataan butir checklist penilaian. */
 	private String isi;
 	private String keterangan;
+	/** Grup/kategori tempat butir checklist ini berada. */
 	private GrupChecklistPenilaianDosen grupChecklistPenilaianDosen;
+	/** Daftar pilihan jawaban kustom dalam format JSON; default JSON kosong bila belum diisi. */
 	private String pilihan;
+	/** Bobot butir ini dalam perhitungan skor tertimbang; default 1.0. */
 	private Double bobot;
 	private Boolean aktif;
 

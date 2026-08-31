@@ -18,6 +18,14 @@ import javax.persistence.TemporalType;
 
 import org.hibernate.envers.Audited;
 
+/**
+ * Entitas Hibernate: baris tautan many-to-many-like antara {@link BiodataCalonMahasiswa} (calon
+ * mahasiswa pendaftar) dan {@link VerifikasiKelengkapanCalonMahasiswa} (item verifikasi berkas
+ * yang wajib dipenuhi, mis. "Ijazah", "KTP Orang Tua") — dipetakan ke tabel
+ * {@code public.biodata_calon_mahasiswa_punya_verifikasi_berkas}. Satu baris = status verifikasi
+ * satu jenis berkas untuk satu calon mahasiswa: sudah diunggah ({@link #uploaded}) dan/atau sudah
+ * diverifikasi petugas ({@link #verified}), berikut nama berkas dan keterangan bebas.
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited
@@ -31,10 +39,15 @@ public class BiodataCalonMahasiswaPunyaVerifikasiBerkas extends GeneralValueObje
 	private String olehId;
 	private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/** Calon mahasiswa pemilik berkas ini. */
 	private BiodataCalonMahasiswa biodataCalonMahasiswa;
+	/** Item/jenis verifikasi kelengkapan yang harus dipenuhi oleh berkas ini. */
 	private VerifikasiKelengkapanCalonMahasiswa verifikasiKelengkapanCalonMahasiswa;
+	/** Apakah berkas sudah diverifikasi/disetujui petugas; dinormalisasi ke {@code false} (bukan {@code null}) sebelum simpan. */
 	private Boolean verified;
+	/** Apakah berkas sudah diunggah oleh calon mahasiswa; dinormalisasi ke {@code false} (bukan {@code null}) sebelum simpan. */
 	private Boolean uploaded;
+	/** Nama berkas yang diunggah. */
 	private String namaFile;
 	private String keterangan;
 
@@ -85,6 +98,7 @@ public class BiodataCalonMahasiswaPunyaVerifikasiBerkas extends GeneralValueObje
 		normalize();
 	}
 
+	/** Dipanggil dari {@link #onPersist()}/{@link #onUpdate()}: mengisi {@link #verified}/{@link #uploaded} dengan {@code false} bila {@code null}, dan men-trim {@link #namaFile}/{@link #keterangan}. */
 	private void normalize() {
 		if (verified == null) {
 			verified = Boolean.FALSE;

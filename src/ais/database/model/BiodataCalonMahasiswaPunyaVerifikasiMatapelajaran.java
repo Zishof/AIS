@@ -19,6 +19,23 @@ import javax.persistence.TemporalType;
 import org.apache.commons.lang.StringUtils;
 import org.hibernate.envers.Audited;
 
+/**
+ * Entitas Hibernate: baris tautan antara {@link BiodataCalonMahasiswa} (calon mahasiswa pendaftar)
+ * dan {@link MatapelajaranSekolah} (mata pelajaran asal sekolah) — dipetakan ke tabel
+ * {@code public.biodata_calon_mahasiswa_punya_verifikasi_matapelajaran}. Menyimpan nilai rapor per
+ * kelas/tingkat untuk satu mata pelajaran calon mahasiswa tsb, dipakai verifikasi berkas nilai saat
+ * pendaftaran (mis. syarat KKM minimum via {@link #kkm}).
+ *
+ * <h2>Format {@link #nilaiKelas}</h2>
+ * <p>
+ * Alih-alih relasi/tabel terpisah per kelas, nilai per kelas disimpan sebagai SATU string di
+ * {@link #nilaiKelas}: entri dipisah {@code ";"}, tiap entri berformat
+ * {@code "<namaKelas>#<nilai>#<verified>"} (dipisah {@code "#"}). Lihat
+ * {@link #masukkanNilai(String, Boolean, Double)} (menulis/mengganti entri per kelas),
+ * {@link #ambilNilai(String)}, dan {@link #ambilVerifikasi(String)} (membaca balik) untuk detail
+ * parsing-nya. Rapuh terhadap nama kelas yang mengandung karakter {@code ';'} atau {@code '#'}.
+ * </p>
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited
@@ -32,9 +49,13 @@ public class BiodataCalonMahasiswaPunyaVerifikasiMatapelajaran extends GeneralVa
 	private String olehId;
 	private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/** Calon mahasiswa pemilik data nilai ini. */
 	private BiodataCalonMahasiswa biodataCalonMahasiswa;
+	/** Mata pelajaran asal sekolah yang nilainya dicatat. */
 	private MatapelajaranSekolah matapelajaranSekolah;
+	/** Nilai per kelas dalam format encoded {@code "kelas#nilai#verified;..."} — lihat "Format {@link #nilaiKelas}" pada Javadoc kelas. Jangan diakses langsung; pakai {@link #masukkanNilai(String, Boolean, Double)}/{@link #ambilNilai(String)}/{@link #ambilVerifikasi(String)}. */
 	private String nilaiKelas;
+	/** Kriteria Ketuntasan Minimal (KKM) untuk mata pelajaran ini; dinormalisasi ke {@code 0.0} (bukan {@code null}) sebelum simpan. */
 	private Double kkm;
 	private String keterangan;
 
@@ -146,6 +167,16 @@ public class BiodataCalonMahasiswaPunyaVerifikasiMatapelajaran extends GeneralVa
 		this.nilaiKelas = nilaiKelas;
 	}
 
+	/**
+	 * Menulis atau mengganti entri nilai untuk {@code kelas} tertentu di {@link #nilaiKelas} —
+	 * bila {@code kelas} sudah ada entrinya (dicocokkan case-insensitive), entri lama diganti;
+	 * bila belum, entri baru ditambahkan di akhir. Lihat "Format {@link #nilaiKelas}" pada Javadoc
+	 * kelas untuk struktur penyimpanannya.
+	 *
+	 * @param kelas   nama kelas/tingkat; tidak melakukan apa pun bila kosong/{@code null}
+	 * @param verified status verifikasi nilai untuk kelas tsb
+	 * @param nilai   nilai rapor untuk kelas tsb
+	 */
 	public void masukkanNilai(String kelas, Boolean verified, Double nilai) {
 		if (isBlank(kelas)) {
 			return;
@@ -178,6 +209,7 @@ public class BiodataCalonMahasiswaPunyaVerifikasiMatapelajaran extends GeneralVa
 		setNilaiKelas(baru.toString());
 	}
 
+	/** @return nilai rapor untuk {@code kelas} tsb dari {@link #nilaiKelas} (lihat "Format {@link #nilaiKelas}" pada Javadoc kelas), atau {@code 0.0} bila {@code kelas} kosong/tidak ditemukan/gagal diparse. */
 	public Double ambilNilai(String kelas) {
 		if (isBlank(kelas)) {
 			return Double.valueOf(0.0);
@@ -195,6 +227,7 @@ public class BiodataCalonMahasiswaPunyaVerifikasiMatapelajaran extends GeneralVa
 		return Double.valueOf(0.0);
 	}
 
+	/** @return status verifikasi untuk {@code kelas} tsb dari {@link #nilaiKelas}, atau {@code false} bila {@code kelas} kosong/tidak ditemukan. */
 	public Boolean ambilVerifikasi(String kelas) {
 		if (isBlank(kelas)) {
 			return Boolean.FALSE;

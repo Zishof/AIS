@@ -22,6 +22,25 @@ import org.json.JSONObject;
 import ais.common.Common;
 import ais.ui.util.MyJSONObject;
 
+/**
+ * Entitas Hibernate untuk tabel {@code public.detail_setting_biaya}, merepresentasikan satu baris
+ * rincian dari sebuah pengaturan biaya ({@link SettingBiaya}) — yaitu berapa besar biaya
+ * {@link #getItemBiaya()} tertentu yang ditagihkan pada termin/tahap pembayaran ke-
+ * {@link #getBayarKe()}, lengkap dengan nilai default tanggal tagihan, tanggal deadline, dan
+ * keterangan tagihan yang akan dipakai saat sistem meng-generate tagihan mahasiswa secara massal.
+ * <p>
+ * {@link #getBiayaPerProdi()} menyimpan override nilai default (biaya/tanggal tagihan/deadline/
+ * keterangan) per jurusan dalam bentuk string JSON, dengan key berpola {@code b_<idJurusan>},
+ * {@code t_<idJurusan>}, {@code d_<idJurusan>}, {@code ket_<idJurusan>}; method
+ * {@code ambilDefaultBiaya}, {@code ambilDefaultTanggalTagihan}, {@code ambilDefaultTanggalDeadline},
+ * dan {@code ambilDefaultKeteranganTagihan} membaca override tersebut untuk {@link Jurusan}
+ * tertentu, sehingga satu baris {@code DetailSettingBiaya} dapat punya nilai berbeda per jurusan
+ * tanpa perlu baris terpisah.
+ * <p>
+ * Relasi {@code @ManyToOne} (lazy): {@link #getSettingBiaya()} (skema/paket biaya induk) dan
+ * {@link #getItemBiaya()} (jenis biaya, mis. SPP/her-registrasi/dsb). Perubahan tercatat
+ * historisnya lewat {@link Audited} (Hibernate Envers).
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited
@@ -76,13 +95,18 @@ public class DetailSettingBiaya extends GeneralValueObject {
 		return id + "-" + settingBiaya + "-" + itemBiaya + "-" + bayarKe;
 	}
 
+	/** Pengaturan/skema biaya induk tempat rincian ini berada. */
 	private SettingBiaya settingBiaya;
+	/** Jenis/item biaya yang ditagihkan, mis. SPP, her-registrasi, dsb. */
 	private ItemBiaya itemBiaya;
+	/** Nilai biaya default; default 0.0 bila kosong. */
 	private Double defaultBiaya;
 	private Date defaultTanggalTagihan;
 	private Date defaultTanggalDeadline;
 	private String defaultKeterangan;
+	/** Override nilai (biaya/tanggal/keterangan) per jurusan, disimpan sebagai string JSON; lihat {@link #getBiayaPerProdi()}. */
 	private String biayaPerProdi;
+	/** Nomor urut termin/tahap pembayaran (mis. 1 = pembayaran pertama); default 1. */
 	private Integer bayarKe;
 
 	@Id

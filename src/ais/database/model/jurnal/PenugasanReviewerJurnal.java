@@ -1,5 +1,28 @@
 package ais.database.model.jurnal;
 import java.util.Date; import javax.persistence.*;
+/**
+ * Entitas Hibernate untuk tabel {@code penelitiandanpengabdian.penugasan_reviewer_jurnal},
+ * merepresentasikan satu penugasan reviewer (mitra bestari) untuk me-review satu naskah/artikel
+ * pada sistem jurnal ilmiah OJS-style di AIS. Naskah yang direview dirujuk lewat
+ * {@link #getItemId()} (id item/submission artikel — tidak dipetakan sebagai relasi
+ * {@code @ManyToOne} eksplisit, hanya kolom FK biasa) dan reviewer dirujuk lewat
+ * {@link #getReviewerId()} (id user reviewer, juga berupa kolom teks/FK longgar, bukan relasi
+ * objek). Satu naskah dapat melalui beberapa ronde review, dilacak lewat {@link #getRoundNumber()}.
+ * <p>
+ * {@link #getAnonymityMode()} menentukan skema keanoniman proses review (mis. single/double-blind
+ * antara penulis dan reviewer). Siklus hidup penugasan dilacak lewat rangkaian timestamp
+ * {@link #getInvitedAt()} (diundang) → {@link #getAcceptedAt()}/{@link #getDeclinedAt()} (respons
+ * menerima/menolak, dengan tenggat {@link #getResponseDueAt()}) → {@link #getCompletedAt()}
+ * (review selesai, dengan tenggat {@link #getReviewDueAt()}) atau {@link #getCancelledAt()}
+ * (dibatalkan), dengan {@link #getStatus()} sebagai penanda status kini. Hasil review tersimpan
+ * sebagai {@link #getRecommendation()} (rekomendasi keputusan) dan {@link #getResponseJson()}
+ * (isi lengkap formulir review dalam JSON, mengikuti skema {@link #getFormVersionKey()}), dengan
+ * {@link #getResponseChecksum()} untuk verifikasi integritas data respons dan
+ * {@link #getConflictJson()} untuk mencatat deklarasi konflik kepentingan reviewer.
+ * <p>
+ * Kolom teknis bersama (id, tenant, audit, versi optimistic-locking) diwariskan dari
+ * {@link JurnalEntityBase}.
+ */
 @Entity @Table(schema="penelitiandanpengabdian",name="penugasan_reviewer_jurnal")
 public class PenugasanReviewerJurnal extends JurnalEntityBase {
  private static final long serialVersionUID=1L; private Long itemId; private Integer roundNumber; private String reviewerId,status,anonymityMode,recommendation,formVersionKey,responseJson,responseChecksum,conflictJson; private Date invitedAt,responseDueAt,reviewDueAt,acceptedAt,declinedAt,completedAt,cancelledAt;

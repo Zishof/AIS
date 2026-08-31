@@ -23,6 +23,27 @@ import org.hibernate.envers.Audited;
 import ais.common.Common;
 import ais.database.model.rab.SatuanKerja;
 
+/**
+ * Entitas Hibernate untuk tabel {@code public.akreditasi}, merepresentasikan satu baris
+ * akreditasi/sertifikasi/audit eksternal yang diperoleh institusi, satuan kerja, program
+ * studi (jurusan), atau dosen perorangan. Satu baris mencakup lembaga pemberi
+ * ({@link #getLembaga()}), lingkup ({@link #getLingkup()}: PT/Fakultas/Unit), tingkat
+ * ({@link #getTingkat()}: Lokal/Nasional/Internasional), peringkat yang diperoleh, masa
+ * berlaku ({@link #getMulai()}&ndash;{@link #getSampai()}), serta jenis dokumen — lihat
+ * konstanta {@link #JENIS_EKSTERNAL}, {@link #JENIS_INTERNASIONAL},
+ * {@link #JENIS_EKSTERNAL_KEUANGAN}, dan {@link #DOKUMEN} (nilai default {@link #getJenis()}
+ * bila kosong, dan dipaksa bila baris ini terkait {@link #getDosen()}).
+ * <p>
+ * Relasi {@code @ManyToOne} (lazy) opsional ke {@link Jurusan} (program studi terkait),
+ * {@link Dosen} (bila akreditasi/sertifikasi ini melekat pada dosen perorangan, bukan
+ * institusi/unit), dan {@link ais.database.model.rab.SatuanKerja} (unit kerja terkait, modul
+ * RAB/anggaran).
+ * <p>
+ * Perubahan (create/update) tercatat historisnya lewat anotasi {@link Audited} (Hibernate
+ * Envers), dan setiap update otomatis memperbarui {@link #getTanggal_dirubah()} lewat callback
+ * {@link javax.persistence.PreUpdate} yang memanggil
+ * {@link ais.database.hibernate.AuditTimestampInterceptor#ubah(Object)}.
+ */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited
@@ -236,6 +257,7 @@ public class Akreditasi extends GeneralValueObject {
         this.sampai = sampai;
     }
 
+    /** Jenis akreditasi/dokumen (lihat konstanta {@link #JENIS}); default {@link #DOKUMEN}, dan selalu {@link #DOKUMEN} bila baris ini terkait {@link #getDosen()}. */
     public String getJenis() {
         if (dosen != null) {
             return DOKUMEN;
@@ -302,6 +324,7 @@ public class Akreditasi extends GeneralValueObject {
         this.dosen = dosen;
     }
 
+    /** Daftar kode grup pengguna (dipisah koma, dinormalisasi lewat {@link #normalizeCommaText(String)}) yang berhak melihat/mengelola baris ini; kosong bila terkait {@link #getDosen()}. */
     public String getKodeGrupPengguna() {
         if (getDosen() != null) {
             return "";
