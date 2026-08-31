@@ -395,7 +395,8 @@ public class CapaianLulusanAction extends ObeBaseAction {
         for (String d : capaianLulusan.getProfil().split(",")) {
             try {
                 if (!d.trim().isEmpty()) {
-                    Long id = Long.parseLong(d.trim());
+                    Long id = parseStoredRelationId(d);
+                    if (id == null) continue;
                     ProfilLulusan p = (ProfilLulusan) ConstantValues.ambil(ProfilLulusan.class.getName(), id);
                     if (p != null && !selectedProfilLulusan.containsKey(id)) selectedProfilLulusan.put(id, p);
                 }
@@ -432,7 +433,8 @@ public class CapaianLulusanAction extends ObeBaseAction {
         for (String d : capaianLulusan.getBahanKajian().split(",")) {
             try {
                 if (!d.trim().isEmpty()) {
-                    Long id = Long.parseLong(d.trim());
+                    Long id = parseStoredRelationId(d);
+                    if (id == null) continue;
                     BahanKajian bk = (BahanKajian) ConstantValues.ambil(BahanKajian.class.getName(), id);
                     if (bk != null && !selectedBahanKajian.containsKey(id)) selectedBahanKajian.put(id, bk);
                 }
@@ -466,7 +468,8 @@ public class CapaianLulusanAction extends ObeBaseAction {
         for (String d : capaianLulusan.getReferensi().split(",")) {
             try {
                 if (!d.trim().isEmpty()) {
-                    Long id = Long.parseLong(d.trim());
+                    Long id = parseStoredRelationId(d);
+                    if (id == null) continue;
                     ReferensiLulusan ref = (ReferensiLulusan) ConstantValues.ambil(ReferensiLulusan.class.getName(), id);
                     if (ref != null && !selectedReferensiLulusan.containsKey(id))
                         selectedReferensiLulusan.put(id, ref);
@@ -477,6 +480,26 @@ public class CapaianLulusanAction extends ObeBaseAction {
                 "Referensi CPL (SN-Dikti/KKNI/Peta Okupasi)", new CheckboxLabelFn<ReferensiLulusan>() {
                     @Override public String label(ReferensiLulusan r) { return r.getNama(); }
                 });
+    }
+
+    private Long parseStoredRelationId(String value) {
+        if (value == null) return null;
+        String token = value.trim();
+        if (token.length() == 0) return null;
+        int underscore = token.indexOf('_');
+        if (underscore > 0) {
+            token = token.substring(0, underscore);
+        }
+        int dash = token.indexOf('-');
+        if (dash > 0) {
+            token = token.substring(0, dash);
+        }
+        try {
+            return Long.valueOf(token.trim());
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "CapaianLulusanAction.parseStoredRelationId:value=" + value);
+            return null;
+        }
     }
 
     // ── Simpan ────────────────────────────────────────────────────────────────

@@ -1120,7 +1120,8 @@ public class Perkuliahan extends VOPembelajaran {
 
 		try {
 			if (dikunci != null && dikunci.getDosen() != null && dikunci.getDosen().getId() != null) {
-				if (!populateDosenBuId().contains(dikunci.getDosen().getId())) {
+				List<Long> dosenIds = populateDosenBuId();
+				if (dosenIds == null || !dosenIds.contains(dikunci.getDosen().getId())) {
 					dikunci = null;
 				}
 			}

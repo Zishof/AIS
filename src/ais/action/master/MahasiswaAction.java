@@ -2321,6 +2321,10 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 
 												System.out.println(hasil);
 
+												if (hasil == null || !hasil.trim().startsWith("{")) {
+													throw new IllegalArgumentException("Response layanan tidak berbentuk JSON. Response: "
+															+ (hasil == null ? "" : hasil));
+												}
 												JSONObject jsonObject = new JSONObject(hasil);
 
 												row.createCell(5).setCellValue(

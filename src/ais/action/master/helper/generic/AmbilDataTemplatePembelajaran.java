@@ -219,7 +219,7 @@ public class AmbilDataTemplatePembelajaran extends MyWindow {
 				}
 			});
 
-			final Radio checkbox = new Radio(templatePembelajaran.getNama());
+			final Radio checkbox = new Radio(labelTemplatePembelajaran(templatePembelajaran));
 			checkbox.setParent(arg0);
 			arg0.setAttribute("checkbox", checkbox);
 			if (jadwalPelajaran != null && jadwalPelajaran.getId().equals(templatePembelajaran.getId())) {
@@ -258,15 +258,15 @@ public class AmbilDataTemplatePembelajaran extends MyWindow {
 			}
 
 			if (templatePembelajaran instanceof KelompokKkn) {
-				checkbox.setLabel(((KelompokKkn) templatePembelajaran).getNama_kelompok());
+				checkbox.setLabel(safeText(((KelompokKkn) templatePembelajaran).getNama_kelompok()));
 			}
 
 			if (templatePembelajaran instanceof KelompokPkl) {
-				checkbox.setLabel(((KelompokPkl) templatePembelajaran).getNama_kelompok());
+				checkbox.setLabel(safeText(((KelompokPkl) templatePembelajaran).getNama_kelompok()));
 			}
 
 			if (templatePembelajaran instanceof FormulirKegiatan) {
-				checkbox.setLabel(((FormulirKegiatan) templatePembelajaran).getNama());
+				checkbox.setLabel(safeText(((FormulirKegiatan) templatePembelajaran).getNama()));
 			}
 
 			if (templatePembelajaran instanceof MahasiswaRequestTugasAkhir) {
@@ -282,10 +282,25 @@ public class AmbilDataTemplatePembelajaran extends MyWindow {
 			}
 
 			if (templatePembelajaran instanceof Wisuda) {
-				checkbox.setLabel(((Wisuda) templatePembelajaran).getNama());
+				checkbox.setLabel(safeText(((Wisuda) templatePembelajaran).getNama()));
 			}
 		}
 
+	}
+
+	private String labelTemplatePembelajaran(GeneralValueObject templatePembelajaran) {
+		if (templatePembelajaran == null) return "";
+		try {
+			return safeText(templatePembelajaran.getNama());
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "AmbilDataTemplatePembelajaran.labelTemplatePembelajaran:id="
+					+ templatePembelajaran.getId());
+			return templatePembelajaran.getId() == null ? "" : ("ID " + templatePembelajaran.getId());
+		}
+	}
+
+	private String safeText(String value) {
+		return value == null ? "" : value;
 	}
 
 	public void display() {
