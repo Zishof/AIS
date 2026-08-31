@@ -249,6 +249,10 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 		public void render(final Row row, Object data) throws Exception {row.setValign("top");
 			final Detailperkuliahan detailperkuliahan = (Detailperkuliahan) GeneralValueObject
 					.ambilData(Detailperkuliahan.class, data.toString());
+			if (detailperkuliahan == null || detailperkuliahan.getMahasiswa() == null) {
+				new Label("Data KRS/perkuliahan tidak ditemukan atau mahasiswa sudah tidak terhubung.").setParent(row);
+				return;
+			}
 
 			CommonMedia.tampilkanGambarKecil(detailperkuliahan.getMahasiswa()).setParent(row);
 			Vbox vbox = new Vbox();

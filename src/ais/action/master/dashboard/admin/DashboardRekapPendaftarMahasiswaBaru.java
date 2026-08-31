@@ -378,6 +378,11 @@ public class DashboardRekapPendaftarMahasiswaBaru extends MyWindow {
 		Integer[] nilaisLaki = new Integer[generalValueObjects.size()];
 		Integer[] nilaisPerempuan = new Integer[generalValueObjects.size()];
 		Integer[] nilais = new Integer[generalValueObjects.size()];
+		for (int i = 0; i < generalValueObjects.size(); i++) {
+			nilaisLaki[i] = 0;
+			nilaisPerempuan[i] = 0;
+			nilais[i] = 0;
+		}
 		// Integer tidakTerdefinisi = 0;
 		Integer totalLaki = 0;
 		Integer totalPerempuan = 0;

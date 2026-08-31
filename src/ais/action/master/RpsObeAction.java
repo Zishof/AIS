@@ -1447,12 +1447,16 @@ public class RpsObeAction extends GenericAutowireComposer {
 				for (int idx = 1; idx <= cpmkList.size(); idx++) {
 					Object bv = sub.get("bobot_index_" + idx);
 					double bd = 0;
-					if (bv != null) { try { bd = Double.parseDouble(bv.toString()); } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/action/master/RpsObeAction.java:1312");} }
+					if (bv != null) {
+						bd = rpsAsDouble(bv, 0);
+					}
 					rowBobot += bd;
 					sb.append("<td class='tc'>").append(bd > 0 ? rpsHd(bd) : "&mdash;").append("</td>");
 				}
 				Object bMain = sub.get("bobot");
-				if (bMain != null) { try { rowBobot = Double.parseDouble(bMain.toString()); } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/action/master/RpsObeAction.java:1317");} }
+				if (bMain != null) {
+					rowBobot = rpsAsDouble(bMain, rowBobot);
+				}
 				grandTotal += rowBobot;
 				sb.append("<td class='tc'>").append(rowBobot > 0 ? rpsHd(rowBobot) : "").append("</td></tr>");
 			}

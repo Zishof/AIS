@@ -516,6 +516,9 @@ public class CatatanMahasiswaAction extends GenericAutowireComposer
 					parameterRows = new ArrayList<Row>();
 					lampiranLains = new HashMap<String, LampiranLain>();
 
+					if (j == null) {
+						return;
+					}
 					HibernateUtil.currentSession().refresh(j);
 
 					Set<KelompokParameterTambahanCatatanMahasiswa> kelompokParameterTambahanCatatanMahasiswas = new TreeSet<KelompokParameterTambahanCatatanMahasiswa>();
