@@ -312,4 +312,26 @@ public class ModalPenyertaanKoperasi extends ais.database.model.GeneralValueObje
 		this.postingHistory = postingHistory;
 	}
 
+	private ais.database.model.akunting.PostingHistory postingHistoryKembali;
+
+	/**
+	 * Cap posting KAKI KEDUA: pengembalian modal kepada penyerta.
+	 *
+	 * <p>Satu baris modal penyertaan memuat DUA peristiwa uang — setoran saat
+	 * {@code tanggalMasuk} dan pengembalian saat status DITARIK / {@code tanggalKembali}. Satu cap
+	 * tidak cukup: memakai cap yang sama akan membuat pembatalan salah satu kaki menghapus jurnal
+	 * kaki lainnya. Pola dua cap ini sama dengan yang sudah dipakai keuangan siswa/mahasiswa
+	 * ({@code postingHistoryDenda}, {@code postingHistoryDiskon}, dst).</p>
+	 */
+	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
+	@javax.persistence.JoinColumn(name = "posting_history_kembali", nullable = true)
+	public ais.database.model.akunting.PostingHistory getPostingHistoryKembali() {
+		return postingHistoryKembali;
+	}
+
+	public void setPostingHistoryKembali(
+			ais.database.model.akunting.PostingHistory postingHistoryKembali) {
+		this.postingHistoryKembali = postingHistoryKembali;
+	}
+
 }

@@ -630,7 +630,8 @@ public final class PostingDanaAnggotaUtil {
                 try {
                     session = ais.database.hibernate.HibernateUtil.currentNativeSession();
                     session.getTransaction().begin();
-                    hapusJurnal(session, "modal_penyertaan_koperasi", modal.getId());
+                    hapusJurnalJenis(session, "modal_penyertaan_koperasi", modal.getId(),
+                            PostingHistory.JENIS_MODAL_PENYERTAAN);
                     modal.setPostingHistory(null);
                     session.update(modal);
                     session.getTransaction().commit();
@@ -851,12 +852,156 @@ public final class PostingDanaAnggotaUtil {
         return n;
     }
 
+    // =============================================================== MODAL PENYERTAAN KEMBALI
+
+    /**
+     * Kriteria pengembalian modal penyertaan: sudah DITARIK, bernominal, dan
+     * {@code tanggal_kembali} berada pada rentang.
+     */
+    public static org.hibernate.Criteria kriteriaModalKembaliStatic(Session session, Date mulai,
+            Date sampai) {
+        org.hibernate.Criteria c = session.createCriteria(
+                ais.database.model.koperasi.ModalPenyertaanKoperasi.class)
+                .add(Restrictions.eq("status",
+                        ais.database.model.koperasi.ModalPenyertaanKoperasi.STATUS_DITARIK))
+                .add(Restrictions.isNotNull("nominal"))
+                .add(Restrictions.ne("nominal", 0.0))
+                .add(Restrictions.isNotNull("tanggalKembali"));
+        batasiTanggal(c, "this_.tanggal_kembali", mulai, sampai);
+        return c;
+    }
+
+    /**
+     * Jurnal balik kaki kedua: <b>Dr</b> akun modal penyertaan / <b>Cr</b> akun kas — kebalikan
+     * kaki masuk, bertanggal pengembalian, memakai cap {@code postingHistoryKembali} sendiri
+     * sehingga kedua kaki bisa diposting dan dibatalkan tanpa saling mengganggu.
+     */
+    public static int postingSemuaModalKembali(Date mulai, Date sampai, Tbmuser oleh, Date tglPosting) {
+        int n = 0;
+        Session session = ais.database.hibernate.HibernateUtil.currentNativeSession();
+        try {
+            List<?> daftar = kriteriaModalKembaliStatic(session, mulai, sampai)
+                    .add(Restrictions.isNull("postingHistoryKembali")).list();
+            if (daftar.isEmpty()) {
+                return 0;
+            }
+            Akun akunKas = akunKonfigurasi(KONF_AKUN_KAS_MODAL);
+            Akun akunModal = akunKonfigurasi(KONF_AKUN_MODAL_PENYERTAAN);
+            if (akunKas == null || akunModal == null) {
+                laporkanKonfigurasiKosong(akunKas == null ? KONF_AKUN_KAS_MODAL
+                        : KONF_AKUN_MODAL_PENYERTAAN, "jurnal pengembalian modal penyertaan");
+                return 0;
+            }
+
+            PostingHistory ph = buatRiwayat(session, PostingHistory.JENIS_PENGEMBALIAN_MODAL, oleh,
+                    tglPosting, mulai, sampai,
+                    "Posting massal pengembalian modal penyertaan dari dasbor jurnal");
+
+            for (Object o : daftar) {
+                ais.database.model.koperasi.ModalPenyertaanKoperasi modal =
+                        (ais.database.model.koperasi.ModalPenyertaanKoperasi) o;
+                if (modal == null) {
+                    continue;
+                }
+                try {
+                    Double nilai = modal.getNominal();
+                    if (nilai == null || nilai == 0.0) {
+                        continue;
+                    }
+                    String ket = "Pengembalian modal penyertaan " + modal.getNamaPenyerta()
+                            + " senilai " + Common.numberFormat.get().format(nilai)
+                            + (modal.getNomorPerjanjian() == null ? ""
+                                    : " (perjanjian " + modal.getNomorPerjanjian() + ")");
+
+                    session = ais.database.hibernate.HibernateUtil.currentNativeSession();
+                    session.getTransaction().begin();
+                    boolean tersimpan = ais.action.master.akunting.util.CommonAkunting.saveTransaksi(
+                            new Akun[] { akunModal }, new Akun[] { akunKas }, null, null, ph, true,
+                            ket, modal.getTanggalKembali(), new Double[] { nilai },
+                            new Double[] { nilai }, 0.0, modal, null, session);
+                    if (tersimpan) {
+                        modal.setPostingHistoryKembali(ph);
+                        session.update(modal);
+                        session.getTransaction().commit();
+                        n++;
+                    } else {
+                        session.getTransaction().rollback();
+                    }
+                } catch (Exception e) {
+                    balikkan(session);
+                    ais.common.ErrorAuditUtil.record(e, "PostingDanaAnggotaUtil modal kembali jalur API");
+                }
+            }
+
+            if (n == 0) {
+                hapusRiwayatKosong(ph);
+            }
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "PostingDanaAnggotaUtil.postingSemua modal kembali");
+        } finally {
+            tutup(session);
+        }
+        return n;
+    }
+
+    public static int batalkanPostingSemuaModalKembali(Date mulai, Date sampai) {
+        int n = 0;
+        Session session = ais.database.hibernate.HibernateUtil.currentNativeSession();
+        try {
+            List<?> daftar = kriteriaModalKembaliStatic(session, mulai, sampai)
+                    .add(Restrictions.isNotNull("postingHistoryKembali")).list();
+            for (Object o : daftar) {
+                ais.database.model.koperasi.ModalPenyertaanKoperasi modal =
+                        (ais.database.model.koperasi.ModalPenyertaanKoperasi) o;
+                if (modal == null) {
+                    continue;
+                }
+                try {
+                    session = ais.database.hibernate.HibernateUtil.currentNativeSession();
+                    session.getTransaction().begin();
+                    hapusJurnalJenis(session, "modal_penyertaan_koperasi", modal.getId(),
+                            PostingHistory.JENIS_PENGEMBALIAN_MODAL);
+                    modal.setPostingHistoryKembali(null);
+                    session.update(modal);
+                    session.getTransaction().commit();
+                    n++;
+                } catch (Exception e) {
+                    balikkan(session);
+                    ais.common.ErrorAuditUtil.record(e, "PostingDanaAnggotaUtil batal modal kembali");
+                }
+            }
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "PostingDanaAnggotaUtil.batalkan modal kembali");
+        } finally {
+            tutup(session);
+        }
+        return n;
+    }
+
     private static void hapusJurnal(Session session, String kolomReferensi, Long id) {
         session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in ("
                 + " select id from akunting.grup_transaksi where " + kolomReferensi
                 + " = " + id + " and closing is null )").executeUpdate();
         session.createSQLQuery("delete from akunting.grup_transaksi where " + kolomReferensi
                 + " = " + id + " and closing is null").executeUpdate();
+    }
+
+    /**
+     * Seperti {@link #hapusJurnal}, tetapi hanya menghapus jurnal yang berasal dari SATU jenis
+     * posting. Wajib dipakai dokumen yang punya lebih dari satu kaki jurnal (mis. modal
+     * penyertaan: masuk dan kembali) — tanpa saringan ini, membatalkan satu kaki akan ikut
+     * menghapus jurnal kaki lainnya yang sama sekali tidak diminta.
+     */
+    private static void hapusJurnalJenis(Session session, String kolomReferensi, Long id, String jenis) {
+        session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in ("
+                + " select g.id from akunting.grup_transaksi g"
+                + " join akunting.posting_history ph on ph.id = g.posting_history"
+                + " where g." + kolomReferensi + " = " + id + " and g.closing is null"
+                + " and ph.jenis = :jenis )").setParameter("jenis", jenis).executeUpdate();
+        session.createSQLQuery("delete from akunting.grup_transaksi g where g." + kolomReferensi
+                + " = " + id + " and g.closing is null and exists ( select 1 from"
+                + " akunting.posting_history ph where ph.id = g.posting_history"
+                + " and ph.jenis = :jenis )").setParameter("jenis", jenis).executeUpdate();
     }
 
     private static void balikkan(Session session) {

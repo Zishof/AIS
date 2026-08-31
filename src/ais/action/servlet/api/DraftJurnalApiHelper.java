@@ -116,6 +116,7 @@ public final class DraftJurnalApiHelper {
         if ("Penyesuaian Saldo Anggota".equals(namaBaris)) return "penyesuaian_saldo_anggota";
         if ("Modal Penyertaan Masuk".equals(namaBaris)) return "modal_penyertaan";
         if ("Pembagian SHU".equals(namaBaris)) return "pembagian_shu";
+        if ("Pengembalian Modal Penyertaan".equals(namaBaris)) return "modal_penyertaan";
         // Jurnal balik pembatalan serumpun izin dengan posting penjualannya.
         if ("Pembatalan Penjualan Kantin".equals(namaBaris)) return "posting_penjualan";
         // Kunci deskriptif fail-closed (pola siswa/mahasiswa/simpan-pinjam).
@@ -473,6 +474,12 @@ public final class DraftJurnalApiHelper {
                         .postingSemuaModal(mulai, sampai, tbmuser, new Date())
                     : ais.action.master.koperasi.helper.PostingDanaAnggotaUtil
                         .batalkanPostingSemuaModal(mulai, sampai);
+        } else if ("Pengembalian Modal Penyertaan".equals(nama)) {
+            jumlah = posting
+                    ? ais.action.master.koperasi.helper.PostingDanaAnggotaUtil
+                        .postingSemuaModalKembali(mulai, sampai, tbmuser, new Date())
+                    : ais.action.master.koperasi.helper.PostingDanaAnggotaUtil
+                        .batalkanPostingSemuaModalKembali(mulai, sampai);
         } else if ("Pembagian SHU".equals(nama)) {
             jumlah = posting
                     ? ais.action.master.koperasi.helper.PostingDanaAnggotaUtil.postingSemuaShu(mulai,

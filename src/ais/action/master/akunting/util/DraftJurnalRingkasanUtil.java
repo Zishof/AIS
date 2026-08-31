@@ -106,7 +106,8 @@ public final class DraftJurnalRingkasanUtil {
             "pembayaran_tagihan_vendor", "pembayaran_dp_vendor", "pembayaran_termin_vendor", "perjanjian_kerjasama",
             "gaji", "transaksi_pegawai_payroll", "penggajian_pegawai",
             "simpan_pinjam_koperasi", "topup_saldo_anggota", "pencairan_diskon",
-            "penyesuaian_saldo_anggota", "modal_penyertaan", "pembagian_shu", "pembatalan_kantin", "mahasiswa", "siswa", "penyusutan", "penghapusan_aset", "pengajuan_transfer", "transitori", "closing",
+            "penyesuaian_saldo_anggota", "modal_penyertaan", "modal_penyertaan_kembali",
+            "pembagian_shu", "pembatalan_kantin", "mahasiswa", "siswa", "penyusutan", "penghapusan_aset", "pengajuan_transfer", "transitori", "closing",
             "posting_hpp", "posting_penjualan_kantin", "posting_kulakan", "posting_bayar_hutang",
             "posting_terima_piutang", "posting_penyesuaian" };
 
@@ -142,7 +143,7 @@ public final class DraftJurnalRingkasanUtil {
         // anggota koperasi, bukan penjualan.
         if ("topup_saldo_anggota".equals(kunci) || "pencairan_diskon".equals(kunci)
                 || "penyesuaian_saldo_anggota".equals(kunci) || "modal_penyertaan".equals(kunci)
-                || "pembagian_shu".equals(kunci)) {
+                || "modal_penyertaan_kembali".equals(kunci) || "pembagian_shu".equals(kunci)) {
             return "simpan_pinjam";
         }
         if ("pembatalan_kantin".equals(kunci)) return "posting_penjualan";
@@ -393,6 +394,15 @@ public final class DraftJurnalRingkasanUtil {
                             false),
                     hitungPostingHistory(session, kriteriaModalPenyertaan(session, mulai, sampai),
                             true),
+                    hitungClosing(session, "modalPenyertaanKoperasi", null, null, mulai, sampai)));
+        } else if ("modal_penyertaan_kembali".equals(kunci)) {
+            out.add(new Baris(kunci, "Pengembalian Modal Penyertaan",
+                    "Modal penyertaan yang sudah DITARIK dipastikan menjadi jurnal balik: modal"
+                            + " berkurang dan kas keluar.",
+                    hitungProperti(session, kriteriaModalKembali(session, mulai, sampai),
+                            "postingHistoryKembali", false),
+                    hitungProperti(session, kriteriaModalKembali(session, mulai, sampai),
+                            "postingHistoryKembali", true),
                     hitungClosing(session, "modalPenyertaanKoperasi", null, null, mulai, sampai)));
         } else if ("pembagian_shu".equals(kunci)) {
             out.add(new Baris(kunci, "Pembagian SHU",
@@ -681,6 +691,11 @@ public final class DraftJurnalRingkasanUtil {
     private static Criteria kriteriaModalPenyertaan(Session session, Date mulai, Date sampai) {
         return ais.action.master.koperasi.helper.PostingDanaAnggotaUtil.kriteriaModalStatic(session,
                 mulai, sampai);
+    }
+
+    private static Criteria kriteriaModalKembali(Session session, Date mulai, Date sampai) {
+        return ais.action.master.koperasi.helper.PostingDanaAnggotaUtil.kriteriaModalKembaliStatic(
+                session, mulai, sampai);
     }
 
     private static Criteria kriteriaPembagianShu(Session session, Date mulai, Date sampai) {
@@ -1047,6 +1062,9 @@ public final class DraftJurnalRingkasanUtil {
         if ("Pembagian SHU".equals(namaBaris)) {
             return kriteriaPembagianShu(session, mulai, sampai);
         }
+        if ("Pengembalian Modal Penyertaan".equals(namaBaris)) {
+            return kriteriaModalKembali(session, mulai, sampai);
+        }
         if ("Gaji".equals(namaBaris)) return kriteriaPembayaranGaji(session, mulai, sampai);
         if ("Transaksi Pegawai".equals(namaBaris)) {
             return kriteriaTransaksiPegawai(session, mulai, sampai);
@@ -1120,6 +1138,9 @@ public final class DraftJurnalRingkasanUtil {
         if ("Siswa - Piutang Denda".equals(namaBaris)) return "postingHistoryDenda";
         if ("Siswa - Utang Diskon".equals(namaBaris)) return "postingHistoryDiskon";
         if ("Pengembalian Uang Muka".equals(namaBaris)) return "postingHistoryPengembalian";
+        // Modal penyertaan punya DUA cap: kaki masuk memakai postingHistory bawaan,
+        // kaki pengembalian memakai cap keduanya sendiri.
+        if ("Pengembalian Modal Penyertaan".equals(namaBaris)) return "postingHistoryKembali";
         if (namaBaris != null && (namaBaris.startsWith("Mahasiswa - ") || namaBaris.startsWith("Siswa - ")
                 || namaBaris.startsWith("Fix Aset") || namaBaris.startsWith("Aset dalam Pekerjaan")
                 || "Jurnal Penyusutan".equals(namaBaris) || "Jurnal Pengajuan Transfer".equals(namaBaris)
