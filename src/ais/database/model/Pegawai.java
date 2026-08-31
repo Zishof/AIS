@@ -3137,11 +3137,15 @@ public class Pegawai extends Karyawan {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "tendik_fakultas", nullable = true)
 	public Fakultas getTendikFakultas() {
-
-		if (getDosen() != null && dosen.getFakultas() != null) {
-			tendikFakultas = dosen.getFakultas();
-		} else {
-			tendikFakultas = check(tendikFakultas);
+		try {
+			if (dosen != null && dosen.getFakultas() != null) {
+				tendikFakultas = dosen.getFakultas();
+			} else if (dosen == null) {
+				tendikFakultas = check(tendikFakultas);
+			}
+		} catch (org.hibernate.HibernateException detachedRelation) {
+			// Laporan dapat membaca Pegawai setelah sesi asal ditutup. Pertahankan nilai
+			// tendik yang sudah tersedia tanpa memaksa inisialisasi proxy Dosen.
 		}
 
 		return tendikFakultas;
@@ -3154,11 +3158,14 @@ public class Pegawai extends Karyawan {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "tendik_jurusan", nullable = true)
 	public Jurusan getTendikJurusan() {
-
-		if (getDosen() != null && dosen.getJurusan() != null) {
-			tendikJurusan = dosen.getJurusan();
-		} else {
-			tendikJurusan = check(tendikJurusan);
+		try {
+			if (dosen != null && dosen.getJurusan() != null) {
+				tendikJurusan = dosen.getJurusan();
+			} else if (dosen == null) {
+				tendikJurusan = check(tendikJurusan);
+			}
+		} catch (org.hibernate.HibernateException detachedRelation) {
+			// Jangan membuka kembali relasi lazy dari koneksi laporan yang sudah ditutup.
 		}
 
 		return tendikJurusan;
@@ -3171,11 +3178,14 @@ public class Pegawai extends Karyawan {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "tendik_sekolah", nullable = true)
 	public Sekolah getTendikSekolah() {
-
-		if (getGuru() != null && guru.getSekolah() != null) {
-			tendikSekolah = guru.getSekolah();
-		} else {
-			tendikSekolah = check(tendikSekolah);
+		try {
+			if (guru != null && guru.getSekolah() != null) {
+				tendikSekolah = guru.getSekolah();
+			} else if (guru == null) {
+				tendikSekolah = check(tendikSekolah);
+			}
+		} catch (org.hibernate.HibernateException detachedRelation) {
+			// Jangan membuka kembali relasi lazy dari koneksi laporan yang sudah ditutup.
 		}
 
 		return tendikSekolah;

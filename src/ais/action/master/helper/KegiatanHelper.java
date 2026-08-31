@@ -321,7 +321,8 @@ public class KegiatanHelper {
 				tx.commit();
 			}
 		} catch (Exception e) {
-			boolean staleRowHilang = isStaleState(e) && entity instanceof GeneralValueObject
+			boolean staleState = isStaleState(e);
+			boolean staleRowHilang = staleState && entity instanceof GeneralValueObject
 					&& ((GeneralValueObject) entity).getId() != null
 					&& !entityMasihAda(entity.getClass(), ((GeneralValueObject) entity).getId());
 			// KE-19 ("current transaction is aborted, commands ignored until end of transaction
@@ -336,7 +337,7 @@ public class KegiatanHelper {
 			// transaksi yang sudah dipastikan mati SELALU di-rollback lalu dibuka ulang agar sesi
 			// pemanggil kembali bisa dipakai (data yang belum commit memang sudah hilang saat
 			// PostgreSQL meng-abort transaksi -- rollback tidak menambah kehilangan apa pun).
-			boolean transaksiMati = isLockTimeout(e) || isTransactionAborted(e);
+			boolean transaksiMati = isLockTimeout(e) || isTransactionAborted(e) || staleState;
 			// isConstraintViolation() (unique/FK, mis. Mahasiswa.nimkey) JUGA meng-ABORT transaksi
 			// PostgreSQL persis seperti lock timeout, jadi transaksi milik pemanggil tetap harus
 			// dipulihkan -- tapi TIDAK ikut transaksiMati (dipisah dari kondisi retry di bawah): retry
@@ -399,7 +400,7 @@ public class KegiatanHelper {
 					if (retryTx != null && retryTx.isActive()) {
 						try { retryTx.rollback(); } catch (Exception ex2) { ais.common.ErrorAuditUtil.record(ex2, "auto-audit(empty-catch) src/ais/action/master/helper/KegiatanHelper.java:281");}
 					}
-					if (isLockTimeout(retryEx) || isTransactionAborted(retryEx)) {
+					if (isLockTimeout(retryEx) || isTransactionAborted(retryEx) || isStaleState(retryEx)) {
 						// KE-19 (PENYEBAB UTAMA error yang dilaporkan): percobaan berikutnya JANGAN
 						// memakai `sessionAsli` lagi. Sesi itu transaksinya SUDAH ter-abort oleh lock
 						// timeout pada percobaan pertama, dan isUsableSession() cuma memeriksa

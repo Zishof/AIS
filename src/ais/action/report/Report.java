@@ -1662,7 +1662,7 @@ public class Report extends GenericAutowireComposer {
 	 */
 	private static void recompileJasperJikaJrxmlLebihBaru(File fileJasper) {
 		try {
-			if (fileJasper == null || !fileJasper.exists()) {
+			if (fileJasper == null) {
 				return;
 			}
 			String jasperPath = fileJasper.getAbsolutePath();
@@ -1674,7 +1674,7 @@ public class Report extends GenericAutowireComposer {
 			if (!fileJrxml.exists()) {
 				return;
 			}
-			if (fileJrxml.lastModified() > fileJasper.lastModified()) {
+			if (!fileJasper.exists() || fileJrxml.lastModified() > fileJasper.lastModified()) {
 				compileJasperAtomically(fileJrxml, fileJasper);
 			}
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/report/Report.java:recompileJasperJikaJrxmlLebihBaru");

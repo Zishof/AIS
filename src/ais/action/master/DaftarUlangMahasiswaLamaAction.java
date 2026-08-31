@@ -4583,18 +4583,23 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 							for (Row row : rows) {
 								MyDoublebox jumlahCicilan = (MyDoublebox) row.getAttribute("jumlahCicilan");
 								if (jumlahCicilan == null) continue;
-								jumlah += (jumlahCicilan.getValue() == null ? 0.0 : jumlahCicilan.getValue());
+								Double nilaiCicilan;
+								try {
+									nilaiCicilan = jumlahCicilan.getValue();
+								} catch (org.zkoss.zk.ui.WrongValueException inputBelumValid) {
+									continue;
+								}
+								jumlah += nilaiCicilan == null ? 0.0 : nilaiCicilan;
 
 								CicilanPembayaran cicilanPembayaran = (CicilanPembayaran) row
 										.getAttribute("cicilanPembayaran");
 								if (cicilanPembayaran == null) continue;
-								cicilanPembayaran.setNilai(jumlahCicilan.getValue());
+								cicilanPembayaran.setNilai(nilaiCicilan);
 								row.setValign("top");
 								row.setAttribute("cicilanPembayaran", cicilanPembayaran);
 
 								if (cicilanPembayaran.getId() == null)
-									jumlahDibayar += (jumlahCicilan.getValue() == null ? 0.0
-											: jumlahCicilan.getValue());
+									jumlahDibayar += nilaiCicilan == null ? 0.0 : nilaiCicilan;
 							}
 
 							footerTotal.setValue(Common.numberFormat.get().format(jumlah));
@@ -4610,7 +4615,13 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 								boolean ada = false;
 								for (Row r2 : rows) {
 									MyDoublebox jc = (MyDoublebox) r2.getAttribute("jumlahCicilan");
-									if (jc == null || jc.getValue() == null || jc.getValue() <= 0.0) {
+									Double nilaiRingkasan = null;
+									try {
+										nilaiRingkasan = jc == null ? null : jc.getValue();
+									} catch (org.zkoss.zk.ui.WrongValueException inputBelumValid) {
+										continue;
+									}
+									if (nilaiRingkasan == null || nilaiRingkasan <= 0.0) {
 										continue;
 									}
 									// HANYA yang AKAN dibayar sekarang = cicilan baru (getId()==null),
@@ -4631,7 +4642,7 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 									rin.append("<div style='display:flex;justify-content:space-between;gap:10px;"
 											+ "padding:4px 0;border-bottom:1px dashed #e2e8f0;'><span style='color:#334155;'>")
 											.append(escHtmlWizard(nm)).append("</span><b style='color:#0f172a;white-space:nowrap;'>Rp ")
-											.append(Common.numberFormat.get().format(jc.getValue())).append("</b></div>");
+											.append(Common.numberFormat.get().format(nilaiRingkasan)).append("</b></div>");
 									ada = true;
 								}
 								String konten = "<div style='font-size:12px;background:#ffffff;border:1px solid #e2e8f0;"

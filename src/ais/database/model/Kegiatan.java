@@ -1505,7 +1505,10 @@ public class Kegiatan extends GeneralValueObject {
 					ais.common.ErrorAuditUtil.record(ignored, "auto-audit src/ais/database/model/Kegiatan.java:diskon-rollback");
 				}
 				if (!isLockTimeout(error) || attempt == 2) throw error;
-				try { Thread.sleep(150L * (attempt + 1)); } catch (InterruptedException interrupted) {
+				try {
+					long jitter = (long) (Math.random() * 250L);
+					Thread.sleep(350L * (attempt + 1) + jitter);
+				} catch (InterruptedException interrupted) {
 					Thread.currentThread().interrupt();
 					throw interrupted;
 				}
@@ -1520,7 +1523,14 @@ public class Kegiatan extends GeneralValueObject {
 		Throwable current = error;
 		while (current != null) {
 			String message = current.getMessage() == null ? "" : current.getMessage().toLowerCase();
-			if (message.indexOf("lock timeout") >= 0 || message.indexOf("could not obtain lock") >= 0) return true;
+			if (current instanceof java.sql.SQLException) {
+				String state = ((java.sql.SQLException) current).getSQLState();
+				if ("55P03".equals(state) || "57014".equals(state) || "40P01".equals(state)) return true;
+			}
+			if (message.indexOf("lock timeout") >= 0 || message.indexOf("could not obtain lock") >= 0
+					|| message.indexOf("statement timeout") >= 0
+					|| message.indexOf("canceling statement due to") >= 0
+					|| message.indexOf("deadlock detected") >= 0) return true;
 			current = current.getCause();
 		}
 		return false;

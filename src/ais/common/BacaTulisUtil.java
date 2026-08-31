@@ -862,8 +862,37 @@ public class BacaTulisUtil {
 			saveToDatabase(parentKey, globalKey, data);
 		} else {
 			if (file != null) {
-				FileUtils.writeStringToFile(file, data);
+				tulisFileAtomik(file, data);
 			}
+		}
+	}
+
+	private static void tulisFileAtomik(File file, String data) throws Exception {
+		File parent = file.getParentFile();
+		if (parent != null && !parent.exists() && !parent.mkdirs() && !parent.exists()) {
+			throw new java.io.IOException("Folder tujuan tidak dapat dibuat: " + parent);
+		}
+		File temp = new File(file.getAbsolutePath() + ".tmp" + Thread.currentThread().getId()
+				+ "_" + System.nanoTime());
+		File backup = new File(file.getAbsolutePath() + ".bak");
+		try {
+			FileUtils.writeStringToFile(temp, data);
+			if (!temp.isFile()) throw new java.io.IOException("Berkas sementara gagal dibuat: " + temp);
+			if (temp.renameTo(file)) return;
+			if (backup.exists() && !backup.delete()) {
+				throw new java.io.IOException("Berkas cadangan lama tidak dapat dihapus: " + backup);
+			}
+			boolean adaBerkasLama = file.exists();
+			if (adaBerkasLama && !file.renameTo(backup)) {
+				throw new java.io.IOException("Berkas lama tidak dapat dipindahkan: " + file);
+			}
+			if (!temp.renameTo(file)) {
+				if (adaBerkasLama) backup.renameTo(file);
+				throw new java.io.IOException("Berkas baru tidak dapat diaktifkan: " + file);
+			}
+			if (backup.exists()) backup.delete();
+		} finally {
+			if (temp.exists()) temp.delete();
 		}
 	}
 

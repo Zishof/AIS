@@ -1199,18 +1199,16 @@ public abstract class VOMahasiswa extends VoKunci {
 	public Double hitungTotalCicilanPembayaran(Kegiatan kegiatan) {
 		List<CicilanPembayaran> cicilanPembayaransTemp = ambilCicilan();
 		Double total = 0.0;
+		if (kegiatan == null || kegiatan.getId() == null || cicilanPembayaransTemp == null) return total;
 		for (CicilanPembayaran cicilanPembayaran : cicilanPembayaransTemp) {
-			try {
-				if (kegiatan.getId().equals(cicilanPembayaran.getKegiatan().getId())) {
+			if (cicilanPembayaran != null && cicilanPembayaran.getKegiatan() != null
+					&& kegiatan.getId().equals(cicilanPembayaran.getKegiatan().getId())) {
 					Double nilai = cicilanPembayaran.getNilai() == null ? 0.0 : cicilanPembayaran.getNilai();
 					// Denda yang DIBATALKAN tidak boleh menambah total (nilai cicilan = nominal + denda).
 					if (dendaCicilanDibatalkan(cicilanPembayaran)) {
 						nilai -= (cicilanPembayaran.getDenda() == null ? 0.0 : cicilanPembayaran.getDenda());
 					}
 					total += nilai;
-				}
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/VOMahasiswa.java:1187");
-				// TODO: handle exception
 			}
 		}
 		cicilanPembayaransTemp = null;
@@ -1220,20 +1218,14 @@ public abstract class VOMahasiswa extends VoKunci {
 	public Double hitungDendaCicilanPembayaran(Kegiatan kegiatan) {
 		List<CicilanPembayaran> cicilanPembayaransTemp = ambilCicilan();
 		Double total = 0.0;
+		if (kegiatan == null || kegiatan.getId() == null || cicilanPembayaransTemp == null) return total;
 		for (CicilanPembayaran cicilanPembayaran : cicilanPembayaransTemp) {
-			try {
-				// FIX NPE: cicilanPembayaran.getKegiatan() bisa null (relasi belum lengkap/data
-				// transisi) -- baris ini ikut disatukan dgn pola try-catch spt saudaranya
-				// hitungTotalCicilanPembayaran, supaya satu baris cicilan bermasalah tidak
-				// menggagalkan seluruh hitungan.
-				if (kegiatan.getId().equals(cicilanPembayaran.getKegiatan().getId())) {
+			if (cicilanPembayaran != null && cicilanPembayaran.getKegiatan() != null
+					&& kegiatan.getId().equals(cicilanPembayaran.getKegiatan().getId())) {
 					// Lewati denda yang sudah DIBATALKAN (reversible: ikut Kegiatan.pembatalanDenda).
 					if (!dendaCicilanDibatalkan(cicilanPembayaran)) {
-						total += cicilanPembayaran.getDenda();
+						total += cicilanPembayaran.getDenda() == null ? 0.0 : cicilanPembayaran.getDenda();
 					}
-				}
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/VOMahasiswa.java:1220");
-				// TODO: handle exception
 			}
 		}
 		cicilanPembayaransTemp = null;
@@ -1244,12 +1236,12 @@ public abstract class VOMahasiswa extends VoKunci {
 		List<CicilanPembayaran> cicilanPembayaransTemp = ambilCicilan();
 		Double total = 0.0;
 		Double denda = 0.0;
+		if (kegiatan == null || kegiatan.getId() == null || cicilanPembayaransTemp == null) {
+			return new Double[] { total, denda };
+		}
 		for (CicilanPembayaran cicilanPembayaran : cicilanPembayaransTemp) {
-			try {
-				// FIX NPE: cicilanPembayaran.getKegiatan() bisa null (relasi belum lengkap/data
-				// transisi) -- lindungi tiap baris spt saudaranya hitungTotalCicilanPembayaran,
-				// supaya satu baris cicilan bermasalah tidak menggagalkan seluruh hitungan.
-				if (kegiatan.getId().equals(cicilanPembayaran.getKegiatan().getId())) {
+			if (cicilanPembayaran != null && cicilanPembayaran.getKegiatan() != null
+					&& kegiatan.getId().equals(cicilanPembayaran.getKegiatan().getId())) {
 					Double nilai = cicilanPembayaran.getNilai() == null ? 0.0 : cicilanPembayaran.getNilai();
 					Double dendaItem = cicilanPembayaran.getDenda() == null ? 0.0 : cicilanPembayaran.getDenda();
 					// Denda DIBATALKAN → keluarkan dari nilai cicilan (= nominal + denda) dan dari total denda.
@@ -1259,9 +1251,6 @@ public abstract class VOMahasiswa extends VoKunci {
 					}
 					total += nilai;
 					denda += dendaItem;
-				}
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/VOMahasiswa.java:1236");
-				// TODO: handle exception
 			}
 		}
 		cicilanPembayaransTemp = null;

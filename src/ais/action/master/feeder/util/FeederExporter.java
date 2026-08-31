@@ -1490,10 +1490,20 @@ public class FeederExporter {
 				List<CommonVO> dataDosen = skripsi.dataDosen(true);
 				int pembimbing = 1;
 				int penguji = 1;
+				if (dataDosen == null) {
+					dataDosen = new ArrayList<CommonVO>();
+				}
 				for (CommonVO commonVO : dataDosen) {
+					if (commonVO == null || !(commonVO.getValueObject() instanceof Dosen)) {
+						if (errorLog != null) {
+							errorLog.add("Data dosen pembimbing/penguji belum lengkap untuk aktivitas "
+									+ (skripsi.getJudul() == null ? "tugas akhir" : skripsi.getJudul()) + ".");
+						}
+						continue;
+					}
 					Dosen dosen = (Dosen) commonVO.getValueObject();
 					if (dosen.getFeeder() != null) {
-						String key = commonVO.getName();
+						String key = commonVO.getName() == null ? "" : commonVO.getName();
 						String nama1 = commonVO.getName1();
 						if (key.toLowerCase().trim().contains("penguji")) {
 

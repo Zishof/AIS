@@ -155,7 +155,12 @@ public class PenjadwalanKrsMahasiswaHelper {
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
-					pertemuan.setStatusPertemuan((StatusPertemuan) ujian.getSelectedItem().getValue());
+					StatusPertemuan status = null;
+					if (ujian.getSelectedItem() != null
+							&& ujian.getSelectedItem().getValue() instanceof StatusPertemuan) {
+						status = (StatusPertemuan) ujian.getSelectedItem().getValue();
+					}
+					pertemuan.setStatusPertemuan(status);
 					Session session = HibernateUtil.currentSession();
 					Common.refreshUpdate(session, (pertemuan));
 				}
