@@ -8,26 +8,42 @@ import org.hibernate.Session;
 
 import ais.database.model.recruitment.CalonPegawai;
 
+/**
+ * Logika bersama "nomor urut berikutnya" untuk keluarga {@code *NoRegGeneratorPegawai}/
+ * {@code *NoUjianGeneratorPegawai} di paket {@code ais.action.master.recruitment.helper} — padanan
+ * modul rekrutmen pegawai dari {@link ais.action.master.pmb.noreg.NoRegGeneratorSupport}/
+ * {@link ais.action.master.pmb.noujian.NoUjianGeneratorSupport} yang dipakai modul PMB mahasiswa.
+ * Algoritma sama ("cari nomor terbesar lalu +1", lihat Javadoc {@code NoRegGeneratorSupport} untuk
+ * detail), TAPI kelas ini menangani DUA kolom sekaligus dalam satu kelas ({@code nomor_induk} dan
+ * {@code noujian} pada tabel {@code calon_pegawai}) via parameter {@code kolom} pada method privat
+ * bersama, alih-alih dua kelas terpisah — dan TIDAK mendukung prefix/suffix (nomor rekrutmen
+ * pegawai di sini murni numerik tanpa awalan/akhiran institusi).
+ */
 public class RecruitmentNumberGeneratorSupport {
 
+	/** Nomor urut registrasi (kolom {@code nomor_induk}) berikutnya — lihat Javadoc kelas untuk algoritma. */
 	public static long nomorRegistrasiBerikutnya(Session session, int jumlahDigit, CalonPegawai calonPegawai,
 			List<String> nomorPengecualian) {
 		return nomorBerikutnya(session, "nomor_induk", jumlahDigit, calonPegawai, nomorPengecualian);
 	}
 
+	/** Nomor urut ujian (kolom {@code noujian}) berikutnya — lihat Javadoc kelas untuk algoritma. */
 	public static long nomorUjianBerikutnya(Session session, int jumlahDigit, CalonPegawai calonPegawai,
 			List<String> nomorPengecualian) {
 		return nomorBerikutnya(session, "noujian", jumlahDigit, calonPegawai, nomorPengecualian);
 	}
 
+	/** Pengecekan ulang eksistensi tepat-sama pada kolom {@code nomor_induk} sebelum menyimpan. */
 	public static boolean nomorRegistrasiSudahDipakai(Session session, String nomor, CalonPegawai calonPegawai) {
 		return nomorSudahDipakai(session, "nomor_induk", nomor, calonPegawai);
 	}
 
+	/** Pengecekan ulang eksistensi tepat-sama pada kolom {@code noujian} sebelum menyimpan. */
 	public static boolean nomorUjianSudahDipakai(Session session, String nomor, CalonPegawai calonPegawai) {
 		return nomorSudahDipakai(session, "noujian", nomor, calonPegawai);
 	}
 
+	/** Meratakan {@code nomor} dengan awalan {@code "0"} hingga {@code jumlahDigit} karakter. */
 	public static String leftPadNomor(long nomor, int jumlahDigit) {
 		String hasil = "00000000000000000000000000000000000000" + nomor;
 		return hasil.substring(hasil.length() - jumlahDigit);

@@ -63,18 +63,25 @@ import ais.database.model.Skripsi;
  * {@code "_"} dibuang, mengikuti pola encoding khusus yang dipakai skrip sinkronisasi Feeder.
  *
  * <p>
- * <b>Catatan keamanan — CELAH SERIUS:</b>
+ * <b>Catatan keamanan:</b>
  * </p>
  * <ul>
- * <li>{@link #update(String, String, String, String, String)} TIDAK memeriksa autentikasi apa pun,
- * dan untuk beberapa tabel (mis. cabang {@code "penugasan_dosen_mengajar"} dan
- * {@code "detailperkuliahan"}/{@code "nilai_transfer"}) menyusun perintah SQL dengan MENYAMBUNG
- * LANGSUNG parameter {@code data1}/{@code data2}/{@code key} dari URL ke dalam string SQL (mis.
- * {@code "update penugasan_dosen_mengajar set feeder='" + data1 + "' where id=" + key}) tanpa
- * parameter binding — celah SQL injection yang jelas, dieksploitasi lewat parameter path URL tanpa
- * perlu login sama sekali.</li>
- * <li>Seluruh endpoint GET lain di kelas ini (data mahasiswa/dosen/matakuliah/kurikulum/perkuliahan/
- * nilai) juga tidak memeriksa autentikasi — siapa pun yang mengetahui URL dapat menariknya.</li>
+ * <li><b>CELAH SQL INJECTION DITUTUP (2026-09-01):</b> {@link #update(String, String, String, String)}
+ * untuk cabang tabel {@code "penugasan_dosen_mengajar"}, {@code "detailperkuliahan"}, dan
+ * {@code "nilai_transfer"}/{@code "nilaitransfer"} sebelumnya menyusun perintah SQL dengan
+ * MENYAMBUNG LANGSUNG parameter {@code data1}/{@code data2}/{@code key} dari URL ke dalam string
+ * SQL — celah SQL injection yang jelas, dieksploitasi lewat parameter path URL tanpa perlu login
+ * sama sekali. Ketiga cabang ini kini memakai parameter binding ({@code SQLQuery#setParameter})
+ * alih-alih konkatenasi string; perilaku update untuk pemanggil yang sah tidak berubah.</li>
+ * <li><b>MASIH TERBUKA — TIDAK ADA AUTENTIKASI:</b> {@link #update(String, String, String, String)}
+ * dan seluruh endpoint GET lain di kelas ini (data mahasiswa/dosen/matakuliah/kurikulum/
+ * perkuliahan/nilai) masih TIDAK memeriksa autentikasi/otorisasi apa pun — siapa pun yang
+ * mengetahui URL dapat memanggilnya, termasuk memicu {@code update} untuk baris data mana pun
+ * (meski sudah tidak lagi rentan SQL injection). Ini sengaja TIDAK ditambal pada perbaikan ini
+ * karena menambah pemeriksaan kredensial baru berisiko memutus integrasi sinkronisasi PDDikti
+ * Feeder yang sudah berjalan tanpa koordinasi dengan pemanggilnya; direkomendasikan menambahkan
+ * pembatasan di level jaringan (IP allow-list/reverse proxy) atau kredensial bersama, dikoordinasikan
+ * dengan pemilik skrip sinkronisasi Feeder.</li>
  * </ul>
  */
 public class FeederResource {
@@ -106,10 +113,11 @@ public class FeederResource {
 	 * {@code feeder_kode} sesuai tabel.
 	 *
 	 * <p>
-	 * <b>PERINGATAN KEAMANAN:</b> tidak ada pemeriksaan autentikasi, dan sejumlah cabang tabel
-	 * menyusun SQL update dengan menyambung {@code data1}/{@code data2}/{@code key} langsung ke
-	 * string SQL (bukan parameter binding) — celah SQL injection. Lihat catatan keamanan pada
-	 * javadoc kelas.
+	 * <b>PERINGATAN KEAMANAN:</b> tidak ada pemeriksaan autentikasi (lihat catatan keamanan pada
+	 * javadoc kelas — sengaja belum ditambal pada perbaikan ini). Celah SQL injection yang
+	 * sebelumnya ada pada cabang {@code "penugasan_dosen_mengajar"}/{@code "detailperkuliahan"}/
+	 * {@code "nilai_transfer"} (konkatenasi string langsung ke SQL) SUDAH DITUTUP — ketiga cabang
+	 * itu kini memakai parameter binding ({@code SQLQuery#setParameter}).
 	 * </p>
 	 *
 	 * @param tabel nama tabel/entitas tujuan (menentukan cabang logika yang dijalankan)
@@ -200,8 +208,9 @@ public class FeederResource {
 				}
 
 			} else if (tabel.equalsIgnoreCase("penugasan_dosen_mengajar")) {
-				sql = "update penugasan_dosen_mengajar set feeder='" + data1 + "' where id=" + key;
-				hasil = session.createSQLQuery(sql).executeUpdate();
+				sql = "update penugasan_dosen_mengajar set feeder=:data1 where id=:key";
+				hasil = session.createSQLQuery(sql).setParameter("data1", data1)
+						.setParameter("key", Long.parseLong(key.trim())).executeUpdate();
 			}
 
 			else if (tabel.equalsIgnoreCase("perkuliahan")) {
@@ -219,12 +228,13 @@ public class FeederResource {
 				}
 
 			} else if (tabel.equalsIgnoreCase("detailperkuliahan")) {
-				sql = "update detailperkuliahan set id_kls='" + data1 + "', id_reg_pd = '" + data2 + "' where id="
-						+ key;
-				hasil = session.createSQLQuery(sql).executeUpdate();
+				sql = "update detailperkuliahan set id_kls=:data1, id_reg_pd = :data2 where id=:key";
+				hasil = session.createSQLQuery(sql).setParameter("data1", data1).setParameter("data2", data2)
+						.setParameter("key", Long.parseLong(key.trim())).executeUpdate();
 			} else if (tabel.equalsIgnoreCase("nilai_transfer") || tabel.equalsIgnoreCase("nilaitransfer")) {
-				sql = "update detailperkuliahan set feeder_kode='" + data1 + "' where id=" + key;
-				hasil = session.createSQLQuery(sql).executeUpdate();
+				sql = "update detailperkuliahan set feeder_kode=:data1 where id=:key";
+				hasil = session.createSQLQuery(sql).setParameter("data1", data1)
+						.setParameter("key", Long.parseLong(key.trim())).executeUpdate();
 			}
 
 			System.out.println("sql = " + sql + ", hasil => " + hasil);

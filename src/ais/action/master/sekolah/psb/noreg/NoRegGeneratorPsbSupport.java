@@ -8,8 +8,28 @@ import org.hibernate.Session;
 
 import ais.database.model.sekolah.CalonSiswa;
 
+/**
+ * Logika bersama "nomor urut berikutnya" untuk keluarga {@code *NoRegGeneratorPsb} di paket
+ * {@code ais.action.master.sekolah.psb.noreg} — padanan modul PSB (Penerimaan Siswa Baru) dari
+ * {@link ais.action.master.pmb.noreg.NoRegGeneratorSupport} yang dipakai modul PMB perguruan
+ * tinggi. Algoritma identik ("cari nomor {@code nomor_induk} terbesar berpola prefix pada tabel
+ * {@code sekolah.calon_siswa}, lalu +1", dikecualikan baris {@code calonSiswa} sendiri dan
+ * mempertimbangkan {@code nomorPengecualian} dalam memori — lihat Javadoc
+ * {@code NoRegGeneratorSupport} untuk penjelasan lengkap), TAPI versi PSB ini TIDAK mendukung
+ * {@code suffix} (hanya prefix) karena format nomor registrasi PSB sekolah tidak memakai akhiran.
+ */
 public class NoRegGeneratorPsbSupport {
 
+	/**
+	 * @param session           sesi Hibernate aktif
+	 * @param prefix            awalan tetap nomor registrasi sekolah/jalur ini
+	 * @param jumlahDigit       dipertahankan untuk kompatibilitas tanda tangan, padding lewat
+	 *                          {@link #leftPadNomor}
+	 * @param calonSiswa        data calon siswa yang sedang diproses, boleh {@code null}
+	 * @param nomorPengecualian nomor lain yang sedang dipakai di memori tapi belum tersimpan,
+	 *                          boleh {@code null}
+	 * @return nomor urut berikutnya yang belum terpakai (mulai dari 1)
+	 */
 	public static long nomorUrutBerikutnya(Session session, String prefix, int jumlahDigit, CalonSiswa calonSiswa,
 			List<String> nomorPengecualian) {
 		long nomorTerbesar = 0;
@@ -28,6 +48,7 @@ public class NoRegGeneratorPsbSupport {
 		return nomorTerbesar + 1;
 	}
 
+	/** Pengecekan ulang eksistensi tepat-sama (kolom {@code nomor_induk}) sebelum menyimpan — jaring pengaman terhadap race condition. */
 	public static boolean nomorSudahDipakai(Session session, String noRegistrasi, CalonSiswa calonSiswa) {
 		if (noRegistrasi == null || noRegistrasi.trim().length() == 0) {
 			return false;
@@ -45,6 +66,7 @@ public class NoRegGeneratorPsbSupport {
 		return count != null && count.longValue() > 0;
 	}
 
+	/** Meratakan {@code nomor} dengan awalan {@code "0"} hingga {@code jumlahDigit} karakter. */
 	public static String leftPadNomor(long nomor, int jumlahDigit) {
 		String hasil = "00000000000000000000000000000000000000" + nomor;
 		return hasil.substring(hasil.length() - jumlahDigit);

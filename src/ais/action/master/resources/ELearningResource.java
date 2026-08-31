@@ -14,7 +14,6 @@ import javax.ws.rs.core.MediaType;
 
 import org.hibernate.Criteria;
 import org.hibernate.Session;
-import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -30,7 +29,6 @@ import ais.common.CommonMedia;
 import ais.common.ConstantValues;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Dosen;
-import ais.database.model.GeneralValueObject;
 import ais.database.model.Konfigurasi;
 import ais.database.model.Mahasiswa;
 import ais.database.model.Pertemuan;
@@ -54,17 +52,21 @@ import ais.ui.util.WaktuUtil;
  * generik berbasis nama kelas Java.
  *
  * <p>
- * <b>Catatan keamanan — CELAH SERIUS:</b> {@link #getAmbilData(String, String, String, String)}
- * (endpoint {@code GET /elearning/ambil_data/{token}/{clazz}/{mulai}/{banyak}}) menerima nama kelas
- * Java SEMBARANG dari path URL dan langsung memuatnya lewat {@code Class.forName(clazz)} lalu
- * menjalankan query Hibernate {@code Criteria} terhadapnya, mengembalikan seluruh baris (dipaging
- * {@code mulai}/{@code banyak}) sebagai JSON — TANPA memvalidasi parameter {@code token} sama sekali
- * (parameter itu diterima tapi tidak pernah dibandingkan ke nilai apa pun; variabel lokalnya bahkan
- * dinamai {@code username} namun tidak dipakai untuk autentikasi). Siapa pun yang mengetahui URL
- * dapat mengekspos isi tabel entitas Hibernate APA PUN yang dikenal aplikasi (mis. {@link Tbmuser}
- * berisi hash password, data keuangan, data pribadi) tanpa login sama sekali. Endpoint lain di kelas
- * ini ({@link #simpanLive}/{@link #stopLive}/{@link #simpanAbsen}) juga tidak memeriksa autentikasi,
- * meski dampaknya lebih terbatas (kontrol status streaming/absensi per id pertemuan).
+ * <b>Catatan keamanan — CELAH SERIUS (DITUTUP 2026-09-01):</b> {@link #getAmbilData(String, String,
+ * String, String)} (endpoint {@code GET /elearning/ambil_data/{token}/{clazz}/{mulai}/{banyak}})
+ * sebelumnya menerima nama kelas Java SEMBARANG dari path URL dan langsung memuatnya lewat
+ * {@code Class.forName(clazz)} lalu menjalankan query Hibernate {@code Criteria} terhadapnya,
+ * mengembalikan seluruh baris (dipaging {@code mulai}/{@code banyak}) sebagai JSON — TANPA
+ * memvalidasi parameter {@code token} sama sekali (parameter itu diterima tapi tidak pernah
+ * dibandingkan ke nilai apa pun). Siapa pun yang mengetahui URL dapat mengekspos isi tabel entitas
+ * Hibernate APA PUN yang dikenal aplikasi (mis. {@link Tbmuser} berisi hash password, data
+ * keuangan, data pribadi) tanpa login sama sekali. Endpoint ini kini DINONAKTIFKAN (selalu
+ * melempar {@link NotFoundException}) sampai diganti dengan implementasi yang memvalidasi token
+ * sesi DAN membatasi kelas entitas yang boleh diambil lewat allow-list eksplisit — lihat catatan
+ * pada {@link #getAmbilData(String, String, String, String)}. Endpoint lain di kelas ini
+ * ({@link #simpanLive}/{@link #stopLive}/{@link #simpanAbsen}) juga tidak memeriksa autentikasi,
+ * meski dampaknya lebih terbatas (kontrol status streaming/absensi per id pertemuan) dan TIDAK
+ * diubah pada perbaikan ini.
  * </p>
  */
 public class ELearningResource {
@@ -534,49 +536,44 @@ public class ELearningResource {
 	@Path("ambil_data/{token}/{clazz}/{mulai}/{banyak}")
 	@Produces({ MediaType.TEXT_PLAIN })
 	/**
-	 * Mengambil data generik dari kelas entitas Hibernate mana pun yang namanya diberikan lewat URL,
-	 * dipaging {@code mulai}/{@code banyak}, diurutkan id terbaru lebih dulu, dan diserialisasi ke
-	 * JSON sederhana ({@link Common#convertToJsonObjectSimple}).
+	 * DINONAKTIFKAN (2026-09-01) — sebelumnya mengambil data generik dari kelas entitas Hibernate
+	 * MANA PUN yang namanya diberikan lewat URL ({@code Class.forName(clazz)}), dipaging
+	 * {@code mulai}/{@code banyak}, dan diserialisasi ke JSON, TANPA memvalidasi parameter
+	 * {@code token} sama sekali — siapa pun dapat mengekspos tabel entitas apa pun (mis.
+	 * {@link Tbmuser}, berisi hash password seluruh pengguna) tanpa login. Method ini sekarang
+	 * SELALU melempar {@link NotFoundException} tanpa memuat kelas atau menjalankan query apa
+	 * pun, menutup total celah kebocoran data ini.
 	 *
 	 * <p>
-	 * <b>PERINGATAN KEAMANAN:</b> parameter {@code token} TIDAK PERNAH divalidasi — endpoint ini
-	 * dapat diakses dan mengekspos data entitas apa pun tanpa autentikasi. Lihat catatan keamanan
-	 * pada javadoc kelas.
+	 * Untuk mengaktifkan kembali dengan aman, implementasi pengganti perlu: (1) memvalidasi
+	 * {@code token} terhadap sesi aktif (bandingkan ke kolom {@code token} pada
+	 * {@link Mahasiswa}/{@link Siswa}/{@link ais.database.model.sisdes.Penduduk}/{@link Tbmuser},
+	 * diisi oleh {@link #getMasukToken(String, String, String)} saat login), DAN (2) membatasi
+	 * {@code clazz} ke daftar allow-list kelas entitas yang memang dimaksudkan untuk diakses lewat
+	 * endpoint mobile ini — daftar tersebut tidak dapat disimpulkan dari kode yang ada dan perlu
+	 * ditentukan oleh pemilik aplikasi.
 	 * </p>
 	 *
-	 * @param username nama parameter path adalah {@code token}, namun nilainya tidak dipakai untuk
-	 *                 autentikasi sama sekali (parameter mati/tidak divalidasi)
-	 * @param clazz    nama lengkap kelas Java (mis. {@code ais.database.model.Tbmuser}) yang datanya diambil
-	 * @param mulai    offset baris awal (paging)
-	 * @param banyak   jumlah maksimum baris yang diambil
-	 * @return string JSON array berisi data entitas yang diminta
-	 * @throws Exception termasuk {@link NotFoundException} bila kelas tidak ditemukan atau query gagal
+	 * @param username nama parameter path adalah {@code token}; tidak lagi dipakai (endpoint nonaktif)
+	 * @param clazz    tidak lagi dipakai (endpoint nonaktif)
+	 * @param mulai    tidak lagi dipakai (endpoint nonaktif)
+	 * @param banyak   tidak lagi dipakai (endpoint nonaktif)
+	 * @return tidak pernah kembali secara normal — selalu melempar {@link NotFoundException}
+	 * @throws Exception selalu {@link NotFoundException} ("Endpoint dinonaktifkan sementara...")
 	 */
 	public String getAmbilData(@PathParam("token") String username, @PathParam("clazz") String clazz,
 			@PathParam("mulai") String mulai, @PathParam("banyak") String banyak) throws Exception {
-		String hasil = "";
-		try {
-			Class claz = Class.forName(clazz);
-			Session session = HibernateUtil.currentNativeSession();
-			List<GeneralValueObject> generalValueObjects = session.createCriteria(claz).addOrder(Order.desc("id"))
-					.setFirstResult(Integer.parseInt(mulai.trim())).setMaxResults(Integer.parseInt(banyak.trim()))
-					.list();
-
-			JSONArray jsonArray = new JSONArray();
-			for (GeneralValueObject valueObject : generalValueObjects) {
-				jsonArray.put(Common.convertToJsonObjectSimple(valueObject, 0));
-			}
-
-			HibernateUtil.closeSession();
-
-			hasil = jsonArray.toString();
-			jsonArray = null;
-			generalValueObjects = null;
-		} catch (Exception e) {
-			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/resources/ELearningResource.java:490");
-			throw new NotFoundException("Terjadi kesalahan internal");
-		}
-		return hasil;
+		// DINONAKTIFKAN SEMENTARA (2026-09-01): endpoint ini sebelumnya memuat kelas Hibernate
+		// APA SAJA yang diminta lewat parameter `clazz` (Class.forName + Criteria) dan
+		// mengekspos seluruh baris tabelnya sebagai JSON, TANPA memvalidasi parameter `token`
+		// sama sekali — kebocoran data tanpa autentikasi (mis. Tbmuser berisi hash password
+		// seluruh pengguna). Ditutup total alih-alih ditambal parsial karena menutup celah ini
+		// dengan benar butuh (a) validasi token terhadap sesi aktif dan (b) daftar allow-list
+		// kelas entitas yang boleh diambil lewat endpoint ini — daftar itu tidak diketahui dari
+		// pembacaan kode saja dan perlu ditentukan oleh pemilik aplikasi/API mobile sebelum
+		// endpoint ini diaktifkan kembali dengan aman.
+		throw new NotFoundException(
+				"Endpoint dinonaktifkan sementara karena celah keamanan (kebocoran data tanpa autentikasi)");
 	}
 
 	@GET

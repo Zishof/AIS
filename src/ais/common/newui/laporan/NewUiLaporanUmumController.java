@@ -65,9 +65,24 @@ public final class NewUiLaporanUmumController {
     static final class Filter {
         final String nama, label, tipe, entity;
         final boolean wajib;
+        /**
+         * Bila diisi, controller ikut mengirim parameter bernama ini berisi
+         * NAMA entity terpilih. Beberapa template mencetak nama unit pada kop
+         * laporan, dan pada ZK nilainya diambil dari objek terpilih — bukan
+         * dikirim klien, sehingga tidak dapat dipalsukan dari sisi aplikasi.
+         */
+        final String paramNama;
         Filter(String nama, String label, String tipe, boolean wajib, String entity) {
+            this(nama, label, tipe, wajib, entity, null);
+        }
+        Filter(String nama, String label, String tipe, boolean wajib, String entity, String paramNama) {
             this.nama = nama; this.label = label; this.tipe = tipe;
-            this.wajib = wajib; this.entity = entity;
+            this.wajib = wajib; this.entity = entity; this.paramNama = paramNama;
+        }
+        /** Relasi yang sekaligus mengirim nama entity pada parameter lain. */
+        static Filter relasiBernama(String nama, String label, String entity, boolean wajib,
+                String paramNama) {
+            return new Filter(nama, label, TIPE_RELASI, wajib, entity, paramNama);
         }
         static Filter tahun(boolean wajib) { return new Filter("tahun", "Tahun", TIPE_TAHUN, wajib, null); }
         static Filter bulan(boolean wajib) { return new Filter("bulan", "Bulan", TIPE_BULAN, wajib, null); }
@@ -79,15 +94,23 @@ public final class NewUiLaporanUmumController {
         static Filter teks(String nama, String label) { return new Filter(nama, label, TIPE_TEKS, false, null); }
     }
 
-    /** Satu laporan: judul, template Jasper, dan filternya. */
+    /** Satu laporan: judul, template Jasper, filter, dan parameter tetapnya. */
     static final class Laporan {
         final String judul, template;
         final List<Filter> filter;
+        /**
+         * Parameter bernilai tetap yang dituntut template namun tidak berasal
+         * dari masukan pengguna — mis. {@code nama_laporan} pada laporan arus
+         * harian, yang pada ZK selalu bernilai sama karena dihitung dari
+         * {@code Calendar.getMaximum(DAY_OF_MONTH)}.
+         */
+        final Map<String, String> tetap = new LinkedHashMap<String, String>();
         Laporan(String judul, String template, Filter... filter) {
             this.judul = judul; this.template = template;
             this.filter = new ArrayList<Filter>();
             for (int i = 0; i < filter.length; i++) this.filter.add(filter[i]);
         }
+        Laporan tetap(String nama, String nilai) { tetap.put(nama, nilai); return this; }
     }
 
     private static final Map<String, Laporan> REGISTRI = new LinkedHashMap<String, Laporan>();
@@ -141,13 +164,50 @@ public final class NewUiLaporanUmumController {
                 new Laporan("Pengembalian Per Anggota", "library/pengembalian_per_anggota_pengadaan_semua",
                         perpustakaan(), anggota(), Filter.mulai(), Filter.sampai()));
 
+        REGISTRI.put("library_stok_item",
+                new Laporan("Monitor Stok Item", "library/stok_item",
+                        perpustakaan(),
+                        Filter.relasi("item", "Item", "ais.database.model.library.Item", false),
+                        Filter.mulai(), Filter.sampai()));
+
         // --- Akuntansi ------------------------------------------------------
         REGISTRI.put("akunting_arus_kas",
                 new Laporan("Laporan Arus Kas", "akunting/laporan_arus_12_bulan",
                         new Filter("tahun1", "Tahun", TIPE_TAHUN, true, null),
-                        Filter.relasi("akun", "Akun", "ais.database.model.akunting.Akun", false),
+                        Filter.relasi("akun", "Akun", "ais.database.model.akunting.Akun", true),
                         Filter.relasi("satuan_kerja", "Satuan Kerja",
                                 "ais.database.model.rab.SatuanKerja", false)));
+        // nama_laporan pada ZK dibentuk dari Calendar.getMaximum(DAY_OF_MONTH)
+        // yang nilainya selalu 31, sehingga di sini cukup ditetapkan.
+        REGISTRI.put("akunting_arus_harian",
+                new Laporan("Laporan Arus Harian", "akunting/laporan_arus_31_hari",
+                        new Filter("tahun1", "Tahun", TIPE_TAHUN, true, null),
+                        new Filter("bulan1", "Bulan", TIPE_BULAN, true, null),
+                        Filter.relasi("akun", "Akun", "ais.database.model.akunting.Akun", true),
+                        Filter.relasi("satuan_kerja", "Satuan Kerja",
+                                "ais.database.model.rab.SatuanKerja", false))
+                        .tetap("nama_laporan", "akunting/laporan_arus_31_hari"));
+
+        // --- Penelitian dan pengabdian --------------------------------------
+        REGISTRI.put("penelitian_rekap_artikel",
+                new Laporan("Rekap Publikasi Ilmiah / Jurnal",
+                        "penelitiandanpengabdian/Rekap_Artikel",
+                        Filter.relasiBernama("fakultas", "Fakultas",
+                                "ais.database.model.Fakultas", false, "fakultas_nama"),
+                        Filter.relasiBernama("jurusan", "Jurusan",
+                                "ais.database.model.Jurusan", false, "jurusan_nama"),
+                        Filter.teks("judul", "Judul"),
+                        Filter.teks("userid", "User ID")));
+
+        // --- Anggaran (RAB) --------------------------------------------------
+        REGISTRI.put("rab_realisasi_per_jenis",
+                new Laporan("Realisasi Anggaran Per Jenis Item",
+                        "rab/Realisasi_Anggaran_Per_Jenis_Item_Workspace",
+                        Filter.relasiBernama("satuan_kerja_id", "Satuan Kerja",
+                                "ais.database.model.rab.SatuanKerja", true, "satuan_kerja"),
+                        Filter.tahun(true), Filter.bulan(true),
+                        new Filter("tanggal_mulai", "Tanggal Mulai", TIPE_TANGGAL, false, null),
+                        new Filter("tanggal_selesai", "Tanggal Selesai", TIPE_TANGGAL, false, null)));
     }
 
     private static Filter perpustakaan() {
@@ -272,7 +332,10 @@ public final class NewUiLaporanUmumController {
             if (mentah.length() == 0) {
                 if (f.wajib) throw new IllegalArgumentException(f.label + " wajib diisi.");
                 // Tidak dipilih: id relasi dikirim -1 seperti ZK; filter lain dilewati.
-                if (TIPE_RELASI.equals(f.tipe)) parameters.put(f.nama, Long.valueOf(-1L));
+                if (TIPE_RELASI.equals(f.tipe)) {
+                    parameters.put(f.nama, Long.valueOf(-1L));
+                    if (f.paramNama != null) parameters.put(f.paramNama, "");
+                }
                 continue;
             }
             if (TIPE_TAHUN.equals(f.tipe) || TIPE_BULAN.equals(f.tipe)) {
@@ -293,9 +356,19 @@ public final class NewUiLaporanUmumController {
                 Long id = id(mentah);
                 if (id == null) throw new IllegalArgumentException(f.label + " tidak sah.");
                 parameters.put(f.nama, id);
+                if (f.paramNama != null) {
+                    // Nama diambil dari basis data, bukan dari klien, supaya
+                    // kop laporan tidak dapat dipalsukan lewat parameter.
+                    parameters.put(f.paramNama, namaEntity(f.entity, id));
+                }
             } else {
                 parameters.put(f.nama, mentah);
             }
+        }
+
+        // Parameter tetap ditambahkan terakhir agar tidak dapat ditimpa masukan.
+        for (Map.Entry<String, String> e : laporan.tetap.entrySet()) {
+            parameters.put(e.getKey(), e.getValue());
         }
 
         java.io.File pdf = ais.action.report.Report.generateFileReportSimple(

@@ -9,6 +9,7 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 
 
@@ -598,9 +599,14 @@ public class MahasiswaResource extends DataResource<Mahasiswa> {
 	 * sesuai parameter, menyimpannya, lalu memicu {@link PembayaranUtil#simpanPembayaranMahasiswa}.
 	 *
 	 * <p>
-	 * <b>Catatan keamanan:</b> method ini TIDAK melakukan autentikasi/otorisasi apa pun — tidak ada
-	 * pemeriksaan login atau kepemilikan sesi. Siapa pun yang mengetahui/menebak URL dapat memicu
-	 * pembuatan transaksi pembayaran untuk mahasiswa mana pun dengan nominal sembarang.
+	 * <b>Catatan keamanan (DITAMBAL 2026-09-01):</b> method ini sebelumnya TIDAK melakukan
+	 * autentikasi/otorisasi apa pun — siapa pun yang mengetahui/menebak URL dapat memicu pembuatan
+	 * transaksi pembayaran untuk mahasiswa mana pun dengan nominal sembarang. Kini mewajibkan
+	 * {@code username}/{@code password} yang valid (query param, divalidasi lewat
+	 * {@link Common#checkLogin(String, String)} — pola yang sama dipakai
+	 * {@link #jenisPembayaran(String, String)} di kelas ini) sebelum transaksi dibuat. Pemanggil lama
+	 * yang belum menyertakan {@code ?username=...&password=...} akan ditolak; pembaruan pada sisi
+	 * pemanggil (aplikasi mobile/kasir) diperlukan agar endpoint ini kembali berfungsi.
 	 * </p>
 	 *
 	 * @param jenisKegiatan id {@link JenisKegiatan} (string angka)
@@ -608,11 +614,19 @@ public class MahasiswaResource extends DataResource<Mahasiswa> {
 	 * @param itemBiaya     id {@link ItemBiaya} (string angka)
 	 * @param bahasa        kode bahasa untuk detail biaya
 	 * @param nominal       nominal pembayaran (string angka, tidak divalidasi batas)
+	 * @param username      username/NIM untuk autentikasi (query param, wajib)
+	 * @param password      password untuk autentikasi (query param, wajib)
 	 * @return kegiatan pembayaran yang terbentuk
+	 * @throws NotFoundException bila {@code username}/{@code password} tidak valid
 	 */
 	public Kegiatan bayar(@PathParam("jenisKegiatan") String jenisKegiatan, @PathParam("mahasiswa") String mahasiswa,
 			@PathParam("itemBiaya") String itemBiaya, @PathParam("bahasa") String bahasa,
-			@PathParam("nominal") String nominal) {
+			@PathParam("nominal") String nominal, @QueryParam("username") String username,
+			@QueryParam("password") String password) {
+
+		if (!Common.checkLogin(username, password))
+			throw new NotFoundException("forbidden access");
+
 		Session session = HibernateUtil.currentNativeSession();
 		Mahasiswa aMahasiswa = (Mahasiswa) session.createCriteria(Mahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 				.add(Restrictions.idEq(Long.parseLong(mahasiswa.trim()))).uniqueResult();
