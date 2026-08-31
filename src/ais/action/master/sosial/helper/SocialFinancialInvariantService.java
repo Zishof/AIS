@@ -39,6 +39,27 @@ public final class SocialFinancialInvariantService {
     private BigDecimal sum(Session s,String hql,String tenant){Object value=s.createQuery(hql).setString("tenant",tenant).uniqueResult();return value instanceof BigDecimal?money((BigDecimal)value):BigDecimal.ZERO.setScale(2);}
     private static BigDecimal money(BigDecimal value){return (value==null?BigDecimal.ZERO:value).setScale(2,BigDecimal.ROUND_HALF_UP);}
 
+    /**
+     * Pembawa data/helper lokal milik {@link SocialFinancialInvariantService} untuk snapshot. Tipe ini
+     * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+     * jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * SocialFinancialInvariantService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code BigDecimal settled}, {@code
+     * BigDecimal returned}, {@code BigDecimal allocated}, {@code BigDecimal distributed}, {@code BigDecimal
+     * netSettled}, {@code BigDecimal unallocated}, {@code BigDecimal allocationAvailable}, {@code boolean
+     * exception}; operasi lokal: {@code getSettled()}, {@code getReturned()}, {@code getAllocated()}, {@code
+     * getDistributed()}, {@code getNetSettled()}, {@code getUnallocated()}, {@code getAllocationAvailable()},
+     * {@code hasException}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see SocialFinancialInvariantService
+     */
     public static final class Snapshot {
         private final BigDecimal settled,returned,allocated,distributed,netSettled,unallocated,allocationAvailable;
         private final boolean exception;

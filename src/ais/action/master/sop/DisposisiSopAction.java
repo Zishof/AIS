@@ -410,6 +410,21 @@ public class DisposisiSopAction extends GenericAutowireComposer
 	        FilterLanjutHelper.setup(comp);
 }
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link DisposisiSopAction}. Kelas ini menerjemahkan satu item data
+	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DisposisiSopAction} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String FIELD_KODE_PENGAJUAN}; operasi
+	 * lokal: {@code ambilKodePengajuanRobust()}, {@code ambilKodeDariProperti()}, {@code render}(). Aturan bisnis
+	 * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see DisposisiSopAction
+	 */
 	class DisposisiSopRenderer extends ais.ui.util.MyRowRenderer {
 
 		/** Field kode/nomor pengajuan yang dipindai di properti JSON (top-level &amp; nested). */

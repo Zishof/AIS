@@ -87,54 +87,87 @@ public final class OkupansiTempatTidurDashboardBuilder {
 			return;
 		}
 		try {
-			Session session = HibernateUtil.currentSession(); // request session — JANGAN ditutup manual.
-			List<TempatTidur> beds = session.createCriteria(TempatTidur.class).list();
-			if (beds == null) {
-				beds = new ArrayList<TempatTidur>();
-			}
-
-			Map<String, Integer> perStatus = new LinkedHashMap<String, Integer>();
-			Map<String, Integer> perKelasTotal = new LinkedHashMap<String, Integer>();
-			Map<String, Integer> perKelasTerisi = new LinkedHashMap<String, Integer>();
-			int total = 0;
-			int terisi = 0;
-			int kosong = 0;
-
-			for (TempatTidur bed : beds) {
-				if (bed == null) {
-					continue;
-				}
-				total++;
-
-				String namaStatus = "(Tak diketahui)";
-				StatusTempatTidur st = bed.getStatusTempatTidur();
-				if (st != null && st.getNama() != null && st.getNama().trim().length() > 0) {
-					namaStatus = st.getNama().trim();
-				}
-				tambah(perStatus, namaStatus);
-
-				String namaKelas = "(Tanpa Kelas)";
-				KelasPerawatan kp = bed.getKelasPerawatan();
-				if (kp != null && kp.getNama() != null && kp.getNama().trim().length() > 0) {
-					namaKelas = kp.getNama().trim();
-				}
-				tambah(perKelasTotal, namaKelas);
-
-				String low = namaStatus.toLowerCase();
-				boolean isTerisi = low.indexOf("isi") >= 0; // "terisi"/"berisi"
-				boolean isKosong = low.indexOf("kosong") >= 0 || low.indexOf("tersedia") >= 0;
-				if (isTerisi) {
-					terisi++;
-					tambah(perKelasTerisi, namaKelas);
-				} else if (isKosong) {
-					kosong++;
-				}
-			}
-
-			gambar(target, total, terisi, kosong, perStatus, perKelasTotal, perKelasTerisi);
+			Data d = data();
+			gambar(target, d.total, d.terisi, d.kosong, d.perStatus, d.perKelasTotal, d.perKelasTerisi);
 		} catch (Exception e) {
 			tampilkanGagal(target, e);
 		}
+	}
+
+	/** Rekap okupansi: hitungan menyeluruh, per status, dan per kelas perawatan. */
+	public static final class Data {
+		public final int total;
+		public final int terisi;
+		public final int kosong;
+		public final Map<String, Integer> perStatus;
+		public final Map<String, Integer> perKelasTotal;
+		public final Map<String, Integer> perKelasTerisi;
+
+		Data(int total, int terisi, int kosong, Map<String, Integer> perStatus,
+				Map<String, Integer> perKelasTotal, Map<String, Integer> perKelasTerisi) {
+			this.total = total;
+			this.terisi = terisi;
+			this.kosong = kosong;
+			this.perStatus = perStatus;
+			this.perKelasTotal = perKelasTotal;
+			this.perKelasTerisi = perKelasTerisi;
+		}
+	}
+
+	/**
+	 * Data mentah dasbor, terpisah dari penyajiannya.
+	 *
+	 * <p>Dipakai bersama layar ZK dan kontrak native supaya kueri serta
+	 * agregasinya hanya ada di satu tempat.</p>
+	 */
+	@SuppressWarnings("unchecked")
+	public static Data data() {
+		Session session = HibernateUtil.currentSession(); // request session — JANGAN ditutup manual.
+		List<TempatTidur> beds = session.createCriteria(TempatTidur.class).list();
+		if (beds == null) {
+			beds = new ArrayList<TempatTidur>();
+		}
+
+		Map<String, Integer> perStatus = new LinkedHashMap<String, Integer>();
+		Map<String, Integer> perKelasTotal = new LinkedHashMap<String, Integer>();
+		Map<String, Integer> perKelasTerisi = new LinkedHashMap<String, Integer>();
+		int total = 0;
+		int terisi = 0;
+		int kosong = 0;
+
+		for (TempatTidur bed : beds) {
+			if (bed == null) {
+				continue;
+			}
+			total++;
+
+			String namaStatus = "(Tak diketahui)";
+			StatusTempatTidur st = bed.getStatusTempatTidur();
+			if (st != null && st.getNama() != null && st.getNama().trim().length() > 0) {
+				namaStatus = st.getNama().trim();
+			}
+			tambah(perStatus, namaStatus);
+
+			String namaKelas = "(Tanpa Kelas)";
+			KelasPerawatan kp = bed.getKelasPerawatan();
+			if (kp != null && kp.getNama() != null && kp.getNama().trim().length() > 0) {
+				namaKelas = kp.getNama().trim();
+			}
+			tambah(perKelasTotal, namaKelas);
+
+			// Status bebas teks, jadi terisi/kosong dikenali dari kata kuncinya —
+			// sama seperti versi ZK, supaya angka kedua layar tidak berbeda.
+			String low = namaStatus.toLowerCase();
+			boolean isTerisi = low.indexOf("isi") >= 0; // "terisi"/"berisi"
+			boolean isKosong = low.indexOf("kosong") >= 0 || low.indexOf("tersedia") >= 0;
+			if (isTerisi) {
+				terisi++;
+				tambah(perKelasTerisi, namaKelas);
+			} else if (isKosong) {
+				kosong++;
+			}
+		}
+		return new Data(total, terisi, kosong, perStatus, perKelasTotal, perKelasTerisi);
 	}
 
 	// ─────────────────────────── internal ───────────────────────────

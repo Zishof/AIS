@@ -80,6 +80,24 @@ public class DasboardSPI extends Div {
     // Data container
     // ----------------------------------------------------------------
 
+    /**
+     * Tipe implementasi bersarang {@link SpiData} milik {@link DasboardSPI}. Kelas ini memberi nama pada state
+     * atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasboardSPI}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int totalPenugasan}, {@code int
+     * disetujui}, {@code int menunggu}, {@code int ditolak}, {@code int totalTemuan}, {@code int jmlKritis},
+     * {@code int jmlMayor}, {@code int jmlMinor}; operasi lokal: {@code healthPct()}, {@code covPct()}, {@code
+     * beratPct()}, {@code zona}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see DasboardSPI
+     */
     private static class SpiData {
         int totalPenugasan, disetujui, menunggu, ditolak;
 

@@ -224,6 +224,20 @@ public class PembayaranAction extends GenericAutowireComposer {
 		});
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link PembayaranAction}. Kelas ini menerjemahkan satu item data menjadi
+	 * baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link PembayaranAction} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see PembayaranAction
+	 */
 	class PembayaranRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -1809,6 +1823,22 @@ public class PembayaranAction extends GenericAutowireComposer {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link PembayaranDetailAction} milik {@link PembayaranAction}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link PembayaranAction} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Grid grid}, {@code Footer
+	 * totalDiskon}, {@code Footer totalPajak}, {@code Footer total}, {@code Footer totalHrg}; operasi lokal:
+	 * {@code loadData()}, {@code loadTotal()}, {@code display}(). Aturan bisnis bersama tetap berada pada kelas
+	 * induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see PembayaranAction
+	 */
 	public class PembayaranDetailAction extends Borderlayout {
 
 		/**
@@ -1827,6 +1857,34 @@ public class PembayaranAction extends GenericAutowireComposer {
 			display();
 		}
 
+		/**
+		 * Renderer lokal untuk layar/komponen {@link ReturDetailAction}. Kelas ini menerjemahkan satu item data
+		 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+		 *
+		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link ReturDetailAction} dan dapat mengakses state
+		 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+		 * renderer/listener ini.</p>
+		 *
+		 * @see ReturDetailAction
+		 */
+		/**
+		 * Renderer lokal untuk layar/komponen {@link PembayaranDetailAction}. Kelas ini menerjemahkan satu item data
+		 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+		 *
+		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link PembayaranDetailAction} dan dapat mengakses
+		 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+		 * renderer/listener ini.</p>
+		 *
+		 * @see PembayaranDetailAction
+		 */
 		class PembayaranDetailRenderer extends ais.ui.util.MyRowRenderer {
 
 			public PembayaranDetailRenderer() {
@@ -2128,6 +2186,22 @@ public class PembayaranAction extends GenericAutowireComposer {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link ReturDetailAction} milik {@link PembayaranAction}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link PembayaranAction} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Grid grid}, {@code Footer
+	 * totalDiskon}, {@code Footer totalPajak}, {@code Footer total}, {@code Footer totalHrg}; operasi lokal:
+	 * {@code loadData()}, {@code loadTotal()}, {@code display}(). Aturan bisnis bersama tetap berada pada kelas
+	 * induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see PembayaranAction
+	 */
 	public class ReturDetailAction extends Borderlayout {
 
 		/**
@@ -2148,6 +2222,7 @@ public class PembayaranAction extends GenericAutowireComposer {
 			display();
 		}
 
+		/** Renderer detail pembayaran retur yang memakai state layar dan lifecycle event {@link ReturDetailAction}. */
 		class PembayaranDetailRenderer extends ais.ui.util.MyRowRenderer {
 
 			public PembayaranDetailRenderer() {
@@ -2412,6 +2487,22 @@ public class PembayaranAction extends GenericAutowireComposer {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link PembayaranNonTunaiAction} milik {@link PembayaranAction}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link PembayaranAction} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Grid grid}, {@code Long index},
+	 * {@code Footer totalHrg}, {@code TreeMap pembayaranNonTunais}; operasi lokal: {@code loadData()}, {@code
+	 * loadTotal()}, {@code display}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see PembayaranAction
+	 */
 	public class PembayaranNonTunaiAction extends Borderlayout {
 
 		/**
@@ -2432,6 +2523,20 @@ public class PembayaranAction extends GenericAutowireComposer {
 			display();
 		}
 
+		/**
+		 * Renderer lokal untuk layar/komponen {@link PembayaranNonTunaiAction}. Kelas ini menerjemahkan satu item data
+		 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+		 *
+		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link PembayaranNonTunaiAction} dan dapat mengakses
+		 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+		 * renderer/listener ini.</p>
+		 *
+		 * @see PembayaranNonTunaiAction
+		 */
 		class PembayaranNonTunaiRenderer extends ais.ui.util.MyRowRenderer {
 
 			public PembayaranNonTunaiRenderer() {

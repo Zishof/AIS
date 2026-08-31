@@ -79,29 +79,52 @@ public final class DiagnosaTerbanyakDashboardBuilder {
 		}
 		int th = tahun == null ? Calendar.getInstance().get(Calendar.YEAR) : tahun.intValue();
 		try {
-			Session session = HibernateUtil.currentSession(); // request session — JANGAN ditutup manual.
-
-			String sql = "select coalesce(nullif(trim(i.nama_indonesia),''), i.kode, '(Tanpa Nama)') as diagnosa, "
-					+ "count(*) as jml from sirs.diagnosa_penyakit d "
-					+ "inner join sirs.icd i on (d.diagnosa_akhir1 = i.id) "
-					+ "where to_char(d.tanggal,'YYYY') = '" + th + "' "
-					+ "group by 1 order by jml desc limit 10";
-
-			List<Object[]> baris = session.createSQLQuery(sql).list();
-			if (baris == null) {
-				baris = new ArrayList<Object[]>();
-			}
-
-			// Total seluruh kasus terdiagnosis (untuk KPI & porsi) — hitung terpisah agar akurat.
-			String sqlTotal = "select count(*) from sirs.diagnosa_penyakit d "
-					+ "where d.diagnosa_akhir1 is not null and to_char(d.tanggal,'YYYY') = '" + th + "'";
-			Object totObj = session.createSQLQuery(sqlTotal).uniqueResult();
-			long totalSemua = (totObj instanceof Number) ? ((Number) totObj).longValue() : 0;
-
-			gambar(target, th, baris, totalSemua);
+			Data d = data(th);
+			gambar(target, th, d.baris, d.totalSemua);
 		} catch (Exception e) {
 			tampilkanGagal(target, e);
 		}
+	}
+
+	/** Sepuluh diagnosa terbanyak beserta total kasus terdiagnosis setahun. */
+	public static final class Data {
+		/** Tiap baris: {nama diagnosa, jumlah}. */
+		public final List<Object[]> baris;
+		public final long totalSemua;
+
+		Data(List<Object[]> baris, long totalSemua) {
+			this.baris = baris;
+			this.totalSemua = totalSemua;
+		}
+	}
+
+	/**
+	 * Data mentah dasbor, terpisah dari penyajiannya.
+	 *
+	 * <p>Dipakai bersama layar ZK dan kontrak native supaya kueri serta
+	 * agregasinya hanya ada di satu tempat.</p>
+	 */
+	@SuppressWarnings("unchecked")
+	public static Data data(int tahun) {
+		Session session = HibernateUtil.currentSession(); // request session — JANGAN ditutup manual.
+
+		String sql = "select coalesce(nullif(trim(i.nama_indonesia),''), i.kode, '(Tanpa Nama)') as diagnosa, "
+				+ "count(*) as jml from sirs.diagnosa_penyakit d "
+				+ "inner join sirs.icd i on (d.diagnosa_akhir1 = i.id) "
+				+ "where to_char(d.tanggal,'YYYY') = '" + tahun + "' "
+				+ "group by 1 order by jml desc limit 10";
+
+		List<Object[]> baris = session.createSQLQuery(sql).list();
+		if (baris == null) {
+			baris = new ArrayList<Object[]>();
+		}
+
+		// Total seluruh kasus terdiagnosis (untuk KPI & porsi) — hitung terpisah agar akurat.
+		String sqlTotal = "select count(*) from sirs.diagnosa_penyakit d "
+				+ "where d.diagnosa_akhir1 is not null and to_char(d.tanggal,'YYYY') = '" + tahun + "'";
+		Object totObj = session.createSQLQuery(sqlTotal).uniqueResult();
+		long totalSemua = (totObj instanceof Number) ? ((Number) totObj).longValue() : 0;
+		return new Data(baris, totalSemua);
 	}
 
 	// ─────────────────────────── internal ───────────────────────────

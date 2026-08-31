@@ -415,6 +415,19 @@ public class AlurSopAction extends GenericAutowireComposer implements DataCriter
 	}
 
 
+	/**
+	 * Tipe implementasi bersarang {@link DiagramDokumenInfo} milik {@link AlurSopAction}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link AlurSopAction}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String kode}, {@code String nama},
+	 * {@code boolean wajib}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see AlurSopAction
+	 */
 	private static class DiagramDokumenInfo {
 		private String kode;
 		private String nama;
@@ -592,6 +605,20 @@ public class AlurSopAction extends GenericAutowireComposer implements DataCriter
 	 */
 	private SopUtil.AktorLookup aktorLookupRender;
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link AlurSopAction}. Kelas ini menerjemahkan satu item data menjadi
+	 * baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AlurSopAction} dan dapat mengakses state kelas
+	 * induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see AlurSopAction
+	 */
 	class AlurSopRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override

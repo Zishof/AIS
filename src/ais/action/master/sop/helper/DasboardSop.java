@@ -4341,6 +4341,20 @@ public class DasboardSop extends MyPortallayout {
 	}
 
 
+	/**
+	 * Tipe implementasi bersarang {@link SopDashboardData} milik {@link DasboardSop}. Kelas ini memberi nama pada
+	 * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasboardSop}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int jumlahSopBaru}, {@code int
+	 * menungguSaya}, {@code int sudahSayaDisposisi}, {@code int selesai}, {@code int menungguAktor}, {@code int
+	 * mendekatiDeadline}, {@code int totalAntrian}, {@code int totalAktivitas}. Aturan bisnis bersama tetap berada
+	 * pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DasboardSop
+	 */
 	private static class SopDashboardData {
 		int jumlahSopBaru;
 		int menungguSaya;
@@ -4365,6 +4379,19 @@ public class DasboardSop extends MyPortallayout {
 		List<SopRecentItem> aktivitasTerbaru = new ArrayList<SopRecentItem>();
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link SopRecentItem} milik {@link DasboardSop}. Kelas ini memberi nama pada
+	 * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasboardSop}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String sop}, {@code String aktor},
+	 * {@code String waktu}, {@code String status}, {@code String deadline}. Aturan bisnis bersama tetap berada
+	 * pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DasboardSop
+	 */
 	private static class SopRecentItem {
 		String sop;
 		String aktor;
@@ -4373,21 +4400,76 @@ public class DasboardSop extends MyPortallayout {
 		String deadline;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link CounterItem} milik {@link DasboardSop}. Kelas ini memberi nama pada state
+	 * atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasboardSop}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String label}, {@code int count}.
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DasboardSop
+	 */
 	private static class CounterItem {
 		String label;
 		int count;
 	}
 
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link DasboardSop}. Tipe ini memisahkan satu variasi perilaku
+	 * lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasboardSop} dan dapat mengakses state kelas
+	 * induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code buildCriteria}(). Aturan bisnis
+	 * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see DasboardSop
+	 */
 	interface DetailCriteriaProvider {
 		Criteria buildCriteria(boolean order);
 	}
 
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link DasboardSop}. Tipe ini memisahkan satu variasi perilaku
+	 * lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasboardSop} dan dapat mengakses state kelas
+	 * induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code getHeaders()}, {@code render}().
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see DasboardSop
+	 */
 	interface DetailRowRenderer {
 		String[] getHeaders();
 
 		void render(Rows rows, List data) throws Exception;
 	}
 
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link DasboardSop}. Tipe ini memisahkan satu variasi perilaku
+	 * lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasboardSop} dan dapat mengakses state kelas
+	 * induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code onToolbarCreated()}, {@code
+	 * getRefreshLabel()}, {@code getRefreshIcon()}, {@code buildCriteria()}, {@code renderData}(). Aturan bisnis
+	 * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see DasboardSop
+	 */
 	interface DashboardDataHandler {
 		void onToolbarCreated(Toolbar toolbar);
 
@@ -4400,6 +4482,21 @@ public class DasboardSop extends MyPortallayout {
 		void renderData(Rows rows, List<DisposisiAlurSop> data, EventListener listener) throws Exception;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link BaseSearchDataHandler} milik {@link DasboardSop}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasboardSop} dan dapat mengakses state kelas
+	 * induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code supportsBulkApprove()}, {@code
+	 * onToolbarCreated()}, {@code getRefreshLabel()}, {@code getRefreshIcon}(). Aturan bisnis bersama tetap berada
+	 * pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see DasboardSop
+	 */
 	abstract class BaseSearchDataHandler implements DashboardDataHandler {
 		public boolean supportsBulkApprove() {
 			return false;

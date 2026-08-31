@@ -87,40 +87,64 @@ public final class PendapatanDashboardBuilder {
 		}
 		int th = tahun == null ? Calendar.getInstance().get(Calendar.YEAR) : tahun.intValue();
 		try {
-			Session session = HibernateUtil.currentSession(); // request session — JANGAN ditutup manual.
-
-			String sql = "select to_char(tanggal_pembayaran,'MM') as bln, "
-					+ "coalesce(sum(total_biaya),0) as total, "
-					+ "coalesce(sum(bayar_tunai),0) as tunai, "
-					+ "coalesce(sum(bayar_non_tunai),0) as nontunai "
-					+ "from sirs.pembayaran where to_char(tanggal_pembayaran,'YYYY') = '" + th + "' "
-					+ "group by 1 order by 1";
-
-			List<Object[]> baris = session.createSQLQuery(sql).list();
-			if (baris == null) {
-				baris = new ArrayList<Object[]>();
-			}
-
-			double[] totalBulan = new double[12];
-			double[] tunaiBulan = new double[12];
-			double[] nonTunaiBulan = new double[12];
-			for (Object[] row : baris) {
-				if (row == null || row.length < 4) {
-					continue;
-				}
-				int b = parseBulanIndex(row[0]);
-				if (b < 0) {
-					continue;
-				}
-				totalBulan[b] = angka(row[1]);
-				tunaiBulan[b] = angka(row[2]);
-				nonTunaiBulan[b] = angka(row[3]);
-			}
-
-			gambar(target, th, totalBulan, tunaiBulan, nonTunaiBulan);
+			Data d = data(th);
+			gambar(target, th, d.totalBulan, d.tunaiBulan, d.nonTunaiBulan);
 		} catch (Exception e) {
 			tampilkanGagal(target, e);
 		}
+	}
+
+	/** Pendapatan per bulan (indeks 0..11) dipilah tunai dan non-tunai. */
+	public static final class Data {
+		public final double[] totalBulan;
+		public final double[] tunaiBulan;
+		public final double[] nonTunaiBulan;
+
+		Data(double[] totalBulan, double[] tunaiBulan, double[] nonTunaiBulan) {
+			this.totalBulan = totalBulan;
+			this.tunaiBulan = tunaiBulan;
+			this.nonTunaiBulan = nonTunaiBulan;
+		}
+	}
+
+	/**
+	 * Data mentah dasbor, terpisah dari penyajiannya.
+	 *
+	 * <p>Dipakai bersama layar ZK dan kontrak native supaya kueri serta
+	 * agregasinya hanya ada di satu tempat.</p>
+	 */
+	@SuppressWarnings("unchecked")
+	public static Data data(int tahun) {
+		Session session = HibernateUtil.currentSession(); // request session — JANGAN ditutup manual.
+
+		String sql = "select to_char(tanggal_pembayaran,'MM') as bln, "
+				+ "coalesce(sum(total_biaya),0) as total, "
+				+ "coalesce(sum(bayar_tunai),0) as tunai, "
+				+ "coalesce(sum(bayar_non_tunai),0) as nontunai "
+				+ "from sirs.pembayaran where to_char(tanggal_pembayaran,'YYYY') = '" + tahun + "' "
+				+ "group by 1 order by 1";
+
+		List<Object[]> baris = session.createSQLQuery(sql).list();
+		if (baris == null) {
+			baris = new ArrayList<Object[]>();
+		}
+
+		double[] totalBulan = new double[12];
+		double[] tunaiBulan = new double[12];
+		double[] nonTunaiBulan = new double[12];
+		for (Object[] row : baris) {
+			if (row == null || row.length < 4) {
+				continue;
+			}
+			int b = parseBulanIndex(row[0]);
+			if (b < 0) {
+				continue;
+			}
+			totalBulan[b] = angka(row[1]);
+			tunaiBulan[b] = angka(row[2]);
+			nonTunaiBulan[b] = angka(row[3]);
+		}
+		return new Data(totalBulan, tunaiBulan, nonTunaiBulan);
 	}
 
 	// ─────────────────────────── internal ───────────────────────────

@@ -188,6 +188,20 @@ public class AlatMedisAction extends GenericAutowireComposer implements OnSave {
 		CommonAlatMedis.onDownloadBiaya(event, null, AlatMedis.JENIS_UMUM);
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link AlatMedisAction}. Kelas ini menerjemahkan satu item data menjadi
+	 * baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AlatMedisAction} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see AlatMedisAction
+	 */
 	class AlatMedisRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -234,6 +248,20 @@ public class AlatMedisAction extends GenericAutowireComposer implements OnSave {
 						column.setParent(columns);
 						column.setLabel("Keterangan");
 
+						/**
+						 * Tipe implementasi bersarang {@link BiayaAlatMedisPerKelasRendere} milik {@link AlatMedisRenderer}. Kelas ini
+						 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+						 *
+						 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AlatMedisRenderer} dan dapat mengakses state
+						 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+						 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+						 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+						 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+						 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+						 * tambahkan perilaku lintas domain pada service bersama.</p>
+						 *
+						 * @see AlatMedisRenderer
+						 */
 						class BiayaAlatMedisPerKelasRendere extends ais.ui.util.MyRowRenderer {
 
 							@Override
@@ -655,6 +683,22 @@ public class AlatMedisAction extends GenericAutowireComposer implements OnSave {
 
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link BiayaAlatMedisPerKelasAction} milik {@link AlatMedisAction}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AlatMedisAction} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List kelasPerawatans}, {@code boolean
+	 * edit}, {@code MyTextbox kodeAlatMedisan}, {@code MyTextbox nama}, {@code Combobox jenisAlatMedis}, {@code
+	 * Grid grid}; operasi lokal: {@code loadData()}, {@code display}(). Aturan bisnis bersama tetap berada pada
+	 * kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see AlatMedisAction
+	 */
 	public class BiayaAlatMedisPerKelasAction extends Window {
 
 		/**
@@ -679,6 +723,34 @@ public class AlatMedisAction extends GenericAutowireComposer implements OnSave {
 			display();
 		}
 
+		/**
+		 * Renderer lokal untuk layar/komponen {@link LayananAlatMedisAction}. Kelas ini menerjemahkan satu item data
+		 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+		 *
+		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link LayananAlatMedisAction} dan dapat mengakses
+		 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+		 * renderer/listener ini.</p>
+		 *
+		 * @see LayananAlatMedisAction
+		 */
+		/**
+		 * Renderer lokal untuk layar/komponen {@link BiayaAlatMedisPerKelasAction}. Kelas ini menerjemahkan satu item
+		 * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+		 *
+		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link BiayaAlatMedisPerKelasAction} dan dapat
+		 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+		 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Session session}; operasi lokal:
+		 * {@code render}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+		 * renderer/listener ini.</p>
+		 *
+		 * @see BiayaAlatMedisPerKelasAction
+		 */
 		class AlatMedisRenderer extends ais.ui.util.MyRowRenderer {
 
 			private Session session = HibernateUtil.currentSession();
@@ -1049,6 +1121,22 @@ public class AlatMedisAction extends GenericAutowireComposer implements OnSave {
 
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link LayananAlatMedisAction} milik {@link AlatMedisAction}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AlatMedisAction} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean edit}, {@code MyTextbox
+	 * kodeAlatMedisan}, {@code MyTextbox nama}, {@code Combobox jenisAlatMedis}, {@code Grid grid}; operasi lokal:
+	 * {@code loadData()}, {@code display}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see AlatMedisAction
+	 */
 	public class LayananAlatMedisAction extends Window {
 
 		/**
@@ -1069,6 +1157,7 @@ public class AlatMedisAction extends GenericAutowireComposer implements OnSave {
 			display();
 		}
 
+		/** Renderer baris alat medis pada sublayar layanan; terikat pada state dan event thread {@link LayananAlatMedisAction}. */
 		class AlatMedisRenderer extends ais.ui.util.MyRowRenderer {
 
 			public AlatMedisRenderer() {

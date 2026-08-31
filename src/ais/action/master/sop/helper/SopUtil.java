@@ -135,6 +135,18 @@ public class SopUtil {
 		public List<Tbmuser> aktors = new ArrayList<Tbmuser>();
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link AktorHitung} milik {@link SopUtil}. Kelas ini memberi nama pada state
+	 * atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link SopUtil}. Dependensi
+	 * yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini merupakan
+	 * detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code LinkedHashMap datasAktor}, {@code
+	 * boolean ada}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see SopUtil
+	 */
 	private static class AktorHitung {
 		LinkedHashMap<String, Tbmuser> datasAktor;
 		boolean ada;

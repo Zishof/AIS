@@ -86,34 +86,58 @@ public final class KadaluarsaFarmasiDashboardBuilder {
 			return;
 		}
 		try {
-			Session session = HibernateUtil.currentSession(); // request session — JANGAN ditutup manual.
-
-			// Hitung jumlah catatan kadaluarsa per kondisi waktu, langsung di database.
-			String sqlBucket = "select case "
-					+ "when a.tanggal_kadaluarsa < now() then 0 "
-					+ "when a.tanggal_kadaluarsa <= now() + interval '30 day' then 1 "
-					+ "when a.tanggal_kadaluarsa <= now() + interval '90 day' then 2 "
-					+ "else 3 end as bucket, count(*) as jml "
-					+ "from sirs.kadaluarsa a where a.tanggal_kadaluarsa is not null group by 1 order by 1";
-			List<Object[]> barisBucket = session.createSQLQuery(sqlBucket).list();
-			if (barisBucket == null) {
-				barisBucket = new ArrayList<Object[]>();
-			}
-
-			// Sepuluh item paling dekat kadaluarsa (belum lewat) beserta sisa hari.
-			String sqlItem = "select coalesce(nullif(trim(c.nama),''), '(Tanpa Nama)') as nama, "
-					+ "(CAST(a.tanggal_kadaluarsa AS date) - CAST(now() AS date)) as sisa_hari "
-					+ "from sirs.kadaluarsa a left join sirs.item_medis c on (a.item = c.id) "
-					+ "where a.tanggal_kadaluarsa >= now() order by a.tanggal_kadaluarsa asc limit 10";
-			List<Object[]> barisItem = session.createSQLQuery(sqlItem).list();
-			if (barisItem == null) {
-				barisItem = new ArrayList<Object[]>();
-			}
-
-			gambar(target, barisBucket, barisItem);
+			Data d = data();
+			gambar(target, d.bucket, d.item);
 		} catch (Exception e) {
 			tampilkanGagal(target, e);
 		}
+	}
+
+	/** Rekap kadaluarsa: jumlah per rentang waktu, dan sepuluh item terdekat. */
+	public static final class Data {
+		/** Tiap baris: {bucket 0..3, jumlah}. */
+		public final List<Object[]> bucket;
+		/** Tiap baris: {nama item, sisa hari}. */
+		public final List<Object[]> item;
+
+		Data(List<Object[]> bucket, List<Object[]> item) {
+			this.bucket = bucket;
+			this.item = item;
+		}
+	}
+
+	/**
+	 * Data mentah dasbor, terpisah dari penyajiannya.
+	 *
+	 * <p>Dipakai bersama layar ZK dan kontrak native supaya kueri serta
+	 * agregasinya hanya ada di satu tempat.</p>
+	 */
+	@SuppressWarnings("unchecked")
+	public static Data data() {
+		Session session = HibernateUtil.currentSession(); // request session — JANGAN ditutup manual.
+
+		// Hitung jumlah catatan kadaluarsa per kondisi waktu, langsung di database.
+		String sqlBucket = "select case "
+				+ "when a.tanggal_kadaluarsa < now() then 0 "
+				+ "when a.tanggal_kadaluarsa <= now() + interval '30 day' then 1 "
+				+ "when a.tanggal_kadaluarsa <= now() + interval '90 day' then 2 "
+				+ "else 3 end as bucket, count(*) as jml "
+				+ "from sirs.kadaluarsa a where a.tanggal_kadaluarsa is not null group by 1 order by 1";
+		List<Object[]> barisBucket = session.createSQLQuery(sqlBucket).list();
+		if (barisBucket == null) {
+			barisBucket = new ArrayList<Object[]>();
+		}
+
+		// Sepuluh item paling dekat kadaluarsa (belum lewat) beserta sisa hari.
+		String sqlItem = "select coalesce(nullif(trim(c.nama),''), '(Tanpa Nama)') as nama, "
+				+ "(CAST(a.tanggal_kadaluarsa AS date) - CAST(now() AS date)) as sisa_hari "
+				+ "from sirs.kadaluarsa a left join sirs.item_medis c on (a.item = c.id) "
+				+ "where a.tanggal_kadaluarsa >= now() order by a.tanggal_kadaluarsa asc limit 10";
+		List<Object[]> barisItem = session.createSQLQuery(sqlItem).list();
+		if (barisItem == null) {
+			barisItem = new ArrayList<Object[]>();
+		}
+		return new Data(barisBucket, barisItem);
 	}
 
 	// ─────────────────────────── internal ───────────────────────────

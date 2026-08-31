@@ -83,50 +83,61 @@ public final class PendaftaranOverviewDashboardBuilder {
 	 * @param target wadah {@link MyChart} tempat dasbor digambar (tak boleh null).
 	 * @param tahun  tahun yang ditinjau; bila null dipakai tahun berjalan.
 	 */
-	@SuppressWarnings("unchecked")
 	public static void render(MyChart target, Integer tahun) {
 		if (target == null) {
 			return;
 		}
 		int th = tahun == null ? Calendar.getInstance().get(Calendar.YEAR) : tahun.intValue();
 		try {
-			Session session = HibernateUtil.currentSession(); // request session — JANGAN ditutup manual.
-
-			String sql = "select to_char(tanggalpendaftaran,'MM') as bln, "
-					+ "coalesce(nullif(trim(jenis),''),'(Lainnya)') as jns, count(*) as jml "
-					+ "from sirs.pendaftaran where to_char(tanggalpendaftaran,'YYYY') = '" + th + "' "
-					+ "group by 1, 2 order by 1, 2";
-
-			List<Object[]> baris = session.createSQLQuery(sql).list();
-			if (baris == null) {
-				baris = new ArrayList<Object[]>();
-			}
-
-			// Pivot: jenis -> array 12 bulan. LinkedHashMap menjaga urutan kemunculan.
-			Map<String, double[]> perJenis = new LinkedHashMap<String, double[]>();
-			for (Object[] row : baris) {
-				if (row == null || row.length < 3) {
-					continue;
-				}
-				int bulanIdx = parseBulanIndex(row[0]); // 0..11
-				if (bulanIdx < 0) {
-					continue;
-				}
-				String jenis = row[1] == null ? "(Lainnya)" : row[1].toString();
-				double jml = (row[2] instanceof Number) ? ((Number) row[2]).doubleValue() : 0;
-
-				double[] arr = perJenis.get(jenis);
-				if (arr == null) {
-					arr = new double[12];
-					perJenis.put(jenis, arr);
-				}
-				arr[bulanIdx] += jml;
-			}
-
-			gambar(target, th, perJenis);
+			gambar(target, th, data(th));
 		} catch (Exception e) {
 			tampilkanGagal(target, e);
 		}
+	}
+
+	/**
+	 * Data mentah dasbor, terpisah dari penyajiannya.
+	 *
+	 * <p>Dipakai bersama oleh layar ZK (yang merangkainya menjadi HTML) dan
+	 * kontrak native (yang mengirimkannya sebagai JSON). Pemisahan ini menjaga
+	 * agar kueri dan agregasinya hanya ada di satu tempat; menyalinnya ke
+	 * kontrak akan membuat angka kedua layar menyimpang seiring waktu.</p>
+	 */
+	@SuppressWarnings("unchecked")
+	public static Map<String, double[]> data(int tahun) {
+		Session session = HibernateUtil.currentSession(); // request session — JANGAN ditutup manual.
+
+		String sql = "select to_char(tanggalpendaftaran,'MM') as bln, "
+				+ "coalesce(nullif(trim(jenis),''),'(Lainnya)') as jns, count(*) as jml "
+				+ "from sirs.pendaftaran where to_char(tanggalpendaftaran,'YYYY') = '" + tahun + "' "
+				+ "group by 1, 2 order by 1, 2";
+
+		List<Object[]> baris = session.createSQLQuery(sql).list();
+		if (baris == null) {
+			baris = new ArrayList<Object[]>();
+		}
+
+		// Pivot: jenis -> array 12 bulan. LinkedHashMap menjaga urutan kemunculan.
+		Map<String, double[]> perJenis = new LinkedHashMap<String, double[]>();
+		for (Object[] row : baris) {
+			if (row == null || row.length < 3) {
+				continue;
+			}
+			int bulanIdx = parseBulanIndex(row[0]); // 0..11
+			if (bulanIdx < 0) {
+				continue;
+			}
+			String jenis = row[1] == null ? "(Lainnya)" : row[1].toString();
+			double jml = (row[2] instanceof Number) ? ((Number) row[2]).doubleValue() : 0;
+
+			double[] arr = perJenis.get(jenis);
+			if (arr == null) {
+				arr = new double[12];
+				perJenis.put(jenis, arr);
+			}
+			arr[bulanIdx] += jml;
+		}
+		return perJenis;
 	}
 
 	// ─────────────────────────── internal ───────────────────────────

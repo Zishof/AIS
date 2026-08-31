@@ -158,6 +158,20 @@ public class AmbilDataTindakanBanbox extends Bandbox {
 	private MyTextbox nama;
 	private Combobox jenisTindakan;
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link AmbilDataTindakanBanbox}. Kelas ini menerjemahkan satu item data
+	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataTindakanBanbox} dan dapat mengakses
+	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see AmbilDataTindakanBanbox
+	 */
 	class TindakanRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -204,6 +218,20 @@ public class AmbilDataTindakanBanbox extends Bandbox {
 						column.setParent(columns);
 						column.setLabel("Keterangan");
 
+						/**
+						 * Tipe implementasi bersarang {@link BiayaTindakanPerKelasRendere} milik {@link TindakanRenderer}. Kelas ini
+						 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+						 *
+						 * <p><b>Scope:</b> setiap instance terikat pada instance {@link TindakanRenderer} dan dapat mengakses state
+						 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+						 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+						 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+						 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+						 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+						 * tambahkan perilaku lintas domain pada service bersama.</p>
+						 *
+						 * @see TindakanRenderer
+						 */
 						class BiayaTindakanPerKelasRendere extends MyRowRenderer {
 
 							@Override

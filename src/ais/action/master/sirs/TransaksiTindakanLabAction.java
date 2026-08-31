@@ -239,6 +239,20 @@ public class TransaksiTindakanLabAction extends GenericAutowireComposer implemen
 		});
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link TransaksiTindakanLabAction}. Kelas ini menerjemahkan satu item
+	 * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link TransaksiTindakanLabAction} dan dapat
+	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see TransaksiTindakanLabAction
+	 */
 	class TransaksiRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -389,6 +403,21 @@ public class TransaksiTindakanLabAction extends GenericAutowireComposer implemen
 		return borderlayout;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link TransaksiDetailAction} milik {@link TransaksiTindakanLabAction}. Kelas
+	 * ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link TransaksiTindakanLabAction} dan dapat
+	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Grid grid}; operasi lokal: {@code
+	 * loadData()}, {@code display}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see TransaksiTindakanLabAction
+	 */
 	public class TransaksiDetailAction extends Borderlayout {
 
 		/**
@@ -403,6 +432,20 @@ public class TransaksiTindakanLabAction extends GenericAutowireComposer implemen
 			display();
 		}
 
+		/**
+		 * Renderer lokal untuk layar/komponen {@link TransaksiDetailAction}. Kelas ini menerjemahkan satu item data
+		 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+		 *
+		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link TransaksiDetailAction} dan dapat mengakses
+		 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+		 * renderer/listener ini.</p>
+		 *
+		 * @see TransaksiDetailAction
+		 */
 		class TransaksiDetailRenderer extends ais.ui.util.MyRowRenderer {
 
 			public TransaksiDetailRenderer() {
@@ -568,6 +611,22 @@ public class TransaksiTindakanLabAction extends GenericAutowireComposer implemen
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link TindakanLabDetailLabAction} milik {@link TransaksiTindakanLabAction}.
+	 * Kelas ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok
+	 * anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link TransaksiTindakanLabAction} dan dapat
+	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Grid grid}; operasi lokal: {@code
+	 * loadData()}, {@code display}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see TransaksiTindakanLabAction
+	 */
 	public class TindakanLabDetailLabAction extends Borderlayout {
 
 		/**
@@ -582,6 +641,20 @@ public class TransaksiTindakanLabAction extends GenericAutowireComposer implemen
 			display();
 		}
 
+		/**
+		 * Renderer lokal untuk layar/komponen {@link TindakanLabDetailLabAction}. Kelas ini menerjemahkan satu item
+		 * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+		 *
+		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link TindakanLabDetailLabAction} dan dapat
+		 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+		 * renderer/listener ini.</p>
+		 *
+		 * @see TindakanLabDetailLabAction
+		 */
 		class TindakanLabDetailRenderer extends ais.ui.util.MyRowRenderer {
 
 			public TindakanLabDetailRenderer() {

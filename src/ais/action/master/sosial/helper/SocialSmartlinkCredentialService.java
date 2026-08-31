@@ -11,6 +11,25 @@ import ais.database.model.sosial.SosialChannel;
 
 /** Reads credentials once from the SosialChannel master selected for the donation. */
 public final class SocialSmartlinkCredentialService {
+ /**
+  * Tipe implementasi bersarang {@link Credential} milik {@link SocialSmartlinkCredentialService}. Kelas ini
+  * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+  *
+  * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+  * SocialSmartlinkCredentialService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+  * digunakan dan diuji.</p>
+  * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long channelId}, {@code String code},
+  * {@code String url}, {@code String username}, {@code String password}, {@code String channels}, {@code String
+  * callbackSecret}, {@code String allowedIps}; operasi lokal: {@code getChannelId()}, {@code getCode()}, {@code
+  * getUrl()}, {@code getUsername()}, {@code getPassword()}, {@code getChannels()}, {@code getCallbackSecret()},
+  * {@code getAllowedIps()}, {@code getFee}(). Aturan bisnis bersama tetap berada pada kelas induk atau service
+  * yang dipanggilnya.</p>
+  * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+  * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+  * tambahkan perilaku lintas domain pada service bersama.</p>
+  *
+  * @see SocialSmartlinkCredentialService
+  */
  public static final class Credential {
   private final Long channelId; private final String code,url,username,password,channels,callbackSecret,allowedIps; private final BigDecimal fee;
   private Credential(Long id,String c,String u,String n,String p,String ch,String secret,String ips,BigDecimal f){channelId=id;code=c;url=u;username=n;password=p;channels=ch;callbackSecret=secret;allowedIps=ips;fee=f;}

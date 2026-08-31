@@ -101,24 +101,9 @@ public final class RawatJalanDashboardBuilder {
 		}
 		int th = tahun == null ? Calendar.getInstance().get(Calendar.YEAR) : tahun.intValue();
 		int bl = bulan == null ? (Calendar.getInstance().get(Calendar.MONTH) + 1) : bulan.intValue();
-
 		try {
-			// Pastikan tabel bantu "minggu" untuk bulan/tahun ini terisi sebelum di-query.
-			CommonSirs.getMinggu(bl, th);
-
-			Session session = HibernateUtil.currentSession(); // request session — JANGAN ditutup manual.
-			List<Poly> polies = ambilPoly(session);
-
-			StringBuilder sql = new StringBuilder(512);
-			sql.append("select to_char(max(m.tanggal_mulai),'DD-MM') || ' s.d ' || to_char(max(m.tanggal_sampai),'DD-MM') as periode, ");
-			appendKolomPoli(sql, polies);
-			sql.append("-1 from minggu m inner join pendaftaran aa on (date(aa.tanggalpendaftaran) between date(m.tanggal_mulai) and date(m.tanggal_sampai)) ")
-					.append("where aa.jenis = 'Rawat Jalan' and m.bulan = ").append(bl)
-					.append(" and m.tahun = ").append(th)
-					.append(" group by m.id order by date(max(m.tanggal_mulai))");
-
-			renderDariSql(target, session, sql.toString(), polies,
-					"Kunjungan Pasien Rawat Jalan — per Minggu, Bulan " + bl + " Tahun " + th, "minggu");
+			Data d = dataMingguan(th, bl);
+			gambar(target, d.judul, d.satuanPeriode, d.periodeLabels, d.polies, d.matriks);
 		} catch (Exception e) {
 			tampilkanGagal(target, e);
 		}
@@ -136,21 +121,68 @@ public final class RawatJalanDashboardBuilder {
 		}
 		int th = tahun == null ? Calendar.getInstance().get(Calendar.YEAR) : tahun.intValue();
 		try {
-			Session session = HibernateUtil.currentSession(); // request session — JANGAN ditutup manual.
-			List<Poly> polies = ambilPoly(session);
-
-			StringBuilder sql = new StringBuilder(512);
-			sql.append("select to_char(aa.tanggalpendaftaran,'MM') as periode, ");
-			appendKolomPoli(sql, polies);
-			sql.append("-1 from sirs.pendaftaran aa where aa.jenis = 'Rawat Jalan' ")
-					.append("and to_char(aa.tanggalpendaftaran,'YYYY') = '").append(th).append("' ")
-					.append("group by to_char(aa.tanggalpendaftaran,'MM') order by periode");
-
-			renderDariSql(target, session, sql.toString(), polies,
-					"Kunjungan Pasien Rawat Jalan — per Bulan, Tahun " + th, "bulan");
+			Data d = dataBulanan(th);
+			gambar(target, d.judul, d.satuanPeriode, d.periodeLabels, d.polies, d.matriks);
 		} catch (Exception e) {
 			tampilkanGagal(target, e);
 		}
+	}
+
+	/** Matriks kunjungan {@code nilai[periode][poli]} beserta label barisnya. */
+	public static final class Data {
+		public final String judul;
+		public final String satuanPeriode;
+		public final List<String> periodeLabels;
+		public final List<Poly> polies;
+		public final List<double[]> matriks;
+
+		Data(String judul, String satuanPeriode, List<String> periodeLabels, List<Poly> polies,
+				List<double[]> matriks) {
+			this.judul = judul;
+			this.satuanPeriode = satuanPeriode;
+			this.periodeLabels = periodeLabels;
+			this.polies = polies;
+			this.matriks = matriks;
+		}
+	}
+
+	/**
+	 * Data kunjungan rawat jalan per minggu dalam satu bulan.
+	 *
+	 * <p>Tabel bantu {@code minggu} disiapkan lebih dulu; tanpa itu bulan yang
+	 * belum pernah dibuka tidak menghasilkan satu baris pun.</p>
+	 */
+	public static Data dataMingguan(int tahun, int bulan) {
+		CommonSirs.getMinggu(bulan, tahun);
+		Session session = HibernateUtil.currentSession(); // request session — JANGAN ditutup manual.
+		List<Poly> polies = ambilPoly(session);
+
+		StringBuilder sql = new StringBuilder(512);
+		sql.append("select to_char(max(m.tanggal_mulai),'DD-MM') || ' s.d ' || to_char(max(m.tanggal_sampai),'DD-MM') as periode, ");
+		appendKolomPoli(sql, polies);
+		sql.append("-1 from minggu m inner join pendaftaran aa on (date(aa.tanggalpendaftaran) between date(m.tanggal_mulai) and date(m.tanggal_sampai)) ")
+				.append("where aa.jenis = 'Rawat Jalan' and m.bulan = ").append(bulan)
+				.append(" and m.tahun = ").append(tahun)
+				.append(" group by m.id order by date(max(m.tanggal_mulai))");
+
+		return dariSql(session, sql.toString(), polies,
+				"Kunjungan Pasien Rawat Jalan — per Minggu, Bulan " + bulan + " Tahun " + tahun, "minggu");
+	}
+
+	/** Data kunjungan rawat jalan per bulan sepanjang satu tahun. */
+	public static Data dataBulanan(int tahun) {
+		Session session = HibernateUtil.currentSession(); // request session — JANGAN ditutup manual.
+		List<Poly> polies = ambilPoly(session);
+
+		StringBuilder sql = new StringBuilder(512);
+		sql.append("select to_char(aa.tanggalpendaftaran,'MM') as periode, ");
+		appendKolomPoli(sql, polies);
+		sql.append("-1 from sirs.pendaftaran aa where aa.jenis = 'Rawat Jalan' ")
+				.append("and to_char(aa.tanggalpendaftaran,'YYYY') = '").append(tahun).append("' ")
+				.append("group by to_char(aa.tanggalpendaftaran,'MM') order by periode");
+
+		return dariSql(session, sql.toString(), polies,
+				"Kunjungan Pasien Rawat Jalan — per Bulan, Tahun " + tahun, "bulan");
 	}
 
 	// ─────────────────────────── internal ───────────────────────────
@@ -175,12 +207,12 @@ public final class RawatJalanDashboardBuilder {
 	}
 
 	/**
-	 * Menjalankan SQL agregasi, menyusun matriks {@code nilai[periode][poli]}, lalu menggambar dasbor.
+	 * Menjalankan SQL agregasi lalu menyusun matriks {@code nilai[periode][poli]}.
 	 * Kolom pertama tiap baris = label periode (String); kolom berikutnya = jumlah pasien per poli.
 	 */
 	@SuppressWarnings("unchecked")
-	private static void renderDariSql(MyChart target, Session session, String sql, List<Poly> polies,
-			String judul, String satuanPeriode) {
+	private static Data dariSql(Session session, String sql, List<Poly> polies, String judul,
+			String satuanPeriode) {
 		List<Object[]> baris = session.createSQLQuery(sql).list();
 		if (baris == null) {
 			baris = new ArrayList<Object[]>();
@@ -210,8 +242,7 @@ public final class RawatJalanDashboardBuilder {
 			periodeLabels.add(label);
 			matriks.add(perPoli);
 		}
-
-		gambar(target, judul, satuanPeriode, periodeLabels, polies, matriks);
+		return new Data(judul, satuanPeriode, periodeLabels, polies, matriks);
 	}
 
 	/** Rakit seluruh grafik HTML/CSS dari data yang sudah tersedia dan suntikkan ke wadah. */

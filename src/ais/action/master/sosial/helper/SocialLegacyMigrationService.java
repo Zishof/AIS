@@ -23,6 +23,32 @@ public final class SocialLegacyMigrationService {
 
     private String uniqueSlug(Session s,String tenant,String value,Long id){String slug=(value==null?"program":value).toLowerCase().replaceAll("[^a-z0-9]+","-").replaceAll("^-|-$","");if(slug.isEmpty())slug="program";if(slug.length()>160)slug=slug.substring(0,160);slug=slug+"-"+id;Number n=(Number)s.createCriteria(SocialProgramExtension.class).add(Restrictions.eq("tenantKey",tenant)).add(Restrictions.eq("slug",slug)).setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult();return n!=null&&n.longValue()>0?slug+"-legacy":slug;}
     private String shorten(String v,int max){if(v==null)return null;v=v.trim();return v.length()>max?v.substring(0,max):v;} private long count(Session s,Class type){Number n=(Number)s.createCriteria(type).setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult();return n==null?0:n.longValue();} private long countTenant(Session s,Class type,String tenant){Number n=(Number)s.createCriteria(type).add(Restrictions.eq("tenantKey",tenant)).setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult();return n==null?0:n.longValue();} private void close(Session s){if(s!=null)try{s.close();}catch(Exception ignored){}}
+    /**
+     * Tipe implementasi bersarang {@link Preview} milik {@link SocialLegacyMigrationService}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * SocialLegacyMigrationService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code long legacyDonors}, {@code long
+     * legacyPrograms}, {@code long mappedDonors}, {@code long mappedPrograms}. Aturan bisnis bersama tetap berada
+     * pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see SocialLegacyMigrationService
+     */
     public static final class Preview {public final long legacyDonors,legacyPrograms,mappedDonors,mappedPrograms;private Preview(long a,long b,long c,long d){legacyDonors=a;legacyPrograms=b;mappedDonors=c;mappedPrograms=d;}}
+    /**
+     * Pembawa data/helper lokal milik {@link SocialLegacyMigrationService} untuk result. Tipe ini mengelompokkan
+     * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * SocialLegacyMigrationService}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int donorCreated}, {@code int
+     * programCreated}, {@code int rejected}, {@code List rejection}. Aturan bisnis bersama tetap berada pada kelas
+     * induk atau service yang dipanggilnya.</p>
+     *
+     * @see SocialLegacyMigrationService
+     */
     public static final class Result {public final int donorCreated,programCreated,rejected;public final List<String> rejection;private Result(int a,int b,int c,List<String> d){donorCreated=a;programCreated=b;rejected=c;rejection=d;}}
 }
