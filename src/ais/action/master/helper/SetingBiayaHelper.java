@@ -211,7 +211,8 @@ public class SetingBiayaHelper {
             Object[] datas = new Object[] { statusMahasiswa, kelamin, afiliasiCalonMahasiswa, program, angkatan, jenjang,
                     statusAwalMahasiswa, jenisSeleksi, gelombangPendaftaran, paket, jurusan };
 
-            SettingBiaya settingBiaya = (SettingBiaya) GeneralValueObject.ambilSatuData(SettingBiaya.class, settingBiayas, properties, datas);
+            SettingBiaya settingBiaya = SettingBiayaMahasiswaSelector.pilihSatuDenganPrioritas(settingBiayas,
+                    properties, datas);
 
             if (settingBiaya == null) {
                 return new ArrayList<ItemBiaya>();
@@ -252,6 +253,7 @@ public class SetingBiayaHelper {
                             .add(Restrictions.or(Restrictions.isNull("settingBiaya.maxSmt"), Restrictions.ge("settingBiaya.maxSmt", smtValue)))
                             .add(Restrictions.or(Restrictions.isNull("minSmt"), Restrictions.le("minSmt", smtValue)))
                             .add(Restrictions.or(Restrictions.isNull("maxSmt"), Restrictions.ge("maxSmt", smtValue)))
+                            .addOrder(Order.asc("settingBiaya.prioritas"))
                             .addOrder(Order.desc("settingBiaya.ta")).addOrder(Order.desc("id")).setMaxResults(1),
                     SettingBiayaDetail.class);
 
@@ -290,6 +292,7 @@ public class SetingBiayaHelper {
                             .add(Restrictions.or(Restrictions.isNull("settingBiaya.maxSmt"), Restrictions.ge("settingBiaya.maxSmt", smtValue)))
                             .add(Restrictions.or(Restrictions.isNull("minSmt"), Restrictions.le("minSmt", smtValue)))
                             .add(Restrictions.or(Restrictions.isNull("maxSmt"), Restrictions.ge("maxSmt", smtValue)))
+                            .addOrder(Order.asc("settingBiaya.prioritas"))
                             .addOrder(Order.desc("settingBiaya.ta")).addOrder(Order.desc("id")).setMaxResults(1),
                     SettingBiayaDetail.class);
 
@@ -370,7 +373,8 @@ public class SetingBiayaHelper {
             Object[] datas = new Object[] { jenisSeleksi, statusMahasiswa, kelamin, afiliasiCalonMahasiswa, program,
                     angkatan, jenjang, statusAwalMahasiswa, gelombangPendaftaran, paket, jurusan };
 
-            SettingBiaya settingBiaya = (SettingBiaya) GeneralValueObject.ambilSatuData(SettingBiaya.class, settingBiayas, properties, datas);
+            SettingBiaya settingBiaya = SettingBiayaMahasiswaSelector.pilihSatuDenganPrioritas(settingBiayas,
+                    properties, datas);
 
             System.out.println("[TAGIHAN-DEBUG] getDetailBiayaDefault(cohort): SettingBiaya TERPILIH = "
                     + (settingBiaya == null ? "TIDAK ADA YANG COCOK (kembalikan list kosong)" : "id=" + settingBiaya.getId()));
@@ -780,13 +784,15 @@ public class SetingBiayaHelper {
                     .addOrder(Order.asc("jurusan")).addOrder(Order.asc("program"));
 
             List<SettingBiaya> settingBiayas = ConstantValues.simpleList(criteria, SettingBiaya.class);
+			settingBiayas = SettingBiayaMahasiswaSelector.saringDanPrioritaskan(session, settingBiayas, null);
 
             String[] properties = new String[] { "statusMahasiswa", "kelamin", "afiliasiCalonMahasiswa", "program",
                     "angkatan", "jenjang", "statusAwalMahasiswa", "jenisSeleksi", "gelombangPendaftaran", "paket", "jurusan" };
             Object[] datas = new Object[] { statusMahasiswa, kelamin, afiliasiCalonMahasiswa, program, angkatan, jenjang,
                     statusAwalMahasiswa, jenisSeleksi, gelombangPendaftaran, paket, jurusan };
 
-            SettingBiaya settingBiaya = (SettingBiaya) GeneralValueObject.ambilSatuData(SettingBiaya.class, settingBiayas, properties, datas);
+            SettingBiaya settingBiaya = SettingBiayaMahasiswaSelector.pilihSatuDenganPrioritas(settingBiayas,
+                    properties, datas);
 
             if (settingBiaya == null) {
                 return new ArrayList<DetailBiaya>();

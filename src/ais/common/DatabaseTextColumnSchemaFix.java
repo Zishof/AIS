@@ -108,6 +108,31 @@ public final class DatabaseTextColumnSchemaFix {
 		addColumnTextIfMissing("new_audit", "setting_biaya__audit", "pengecualian_mahasiswa");
 		addColumnBooleanIfMissing("public", "setting_biaya", "batasi_mahasiswa_tertentu");
 		addColumnBooleanIfMissing("new_audit", "setting_biaya__audit", "batasi_mahasiswa_tertentu");
+		addColumnIntegerIfMissing("public", "setting_biaya", "prioritas");
+		addColumnIntegerIfMissing("new_audit", "setting_biaya__audit", "prioritas");
+	}
+
+	/** Tambah kolom integer bila belum ada; nilai lama dinormalisasi oleh InitIndex. */
+	private static void addColumnIntegerIfMissing(String schema, String table, String column) {
+		if (!isSafeIdentifier(schema) || !isSafeIdentifier(table) || !isSafeIdentifier(column)
+				|| getColumnInfo(schema, table, column) != null) {
+			return;
+		}
+		Session session = null;
+		Transaction tx = null;
+		try {
+			session = HibernateUtil.getSessionFactory().openSession();
+			tx = session.beginTransaction();
+			session.createSQLQuery("ALTER TABLE " + quote(schema) + "." + quote(table) + " ADD COLUMN "
+					+ quote(column) + " integer").executeUpdate();
+			tx.commit();
+			log("Berhasil tambah kolom integer: " + schema + "." + table + "." + column);
+		} catch (Exception e) {
+			rollbackQuietly(tx);
+			log("Gagal tambah kolom " + schema + "." + table + "." + column + " : " + e.getMessage());
+		} finally {
+			closeQuietly(session);
+		}
 	}
 
 	/** Tambah kolom boolean bila belum ada; dipakai juga untuk menjaga schema audit Envers. */

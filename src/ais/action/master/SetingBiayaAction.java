@@ -59,6 +59,7 @@ import ais.action.master.helper.AmbilDataAfiliasiCalonMahasiswaBanbox;
 import ais.action.master.helper.DetailSettingBiayaAction;
 import ais.action.master.helper.PengecualianTagihanList;
 import ais.action.master.helper.RevisiHelper;
+import ais.action.master.helper.SettingBiayaMahasiswaSelector;
 import ais.action.master.helper.util.PerguruanTinggiUtil;
 import ais.common.Common;
 import ais.common.PesanFormalHelper;
@@ -72,7 +73,6 @@ import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.DetailBiaya;
 import ais.database.model.DetailSettingBiaya;
 import ais.database.model.GelombangPendaftaran;
-import ais.database.model.GeneralValueObject;
 import ais.database.model.ItemBiaya;
 import ais.database.model.JenisKegiatan;
 import ais.database.model.JenisSeleksi;
@@ -143,6 +143,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 	private Combobox tahunAkademik;
 	private Combobox semester;
 	private Textbox pengecualianMahasiswa;
+	private Intbox prioritas;
 
 	@Override
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page,
@@ -276,6 +277,10 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 					? "Tidak ada mahasiswa yang dikecualikan"
 					: "NIM berikut tidak akan memperoleh tagihan dari setting ini");
 			pengecualian.setParent(arg0);
+
+			Label labelPrioritas = new Label(settingBiaya.getPrioritas().toString());
+			labelPrioritas.setTooltiptext("Angka lebih kecil didahulukan sebelum pembobotan kecocokan setting biaya");
+			labelPrioritas.setParent(arg0);
 
 			Session session = HibernateUtil.currentSession();
 			List<DetailSettingBiaya> selectedItemBiaya = ConstantValues
@@ -718,6 +723,14 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 		pengecualianMahasiswa.setTooltiptext(
 				"Masukkan NIM mahasiswa yang tidak boleh memakai setting biaya ini. Pisahkan dengan koma, titik koma, spasi, atau baris baru. Contoh: 20240001, 20240002");
 		row.appendChild(pengecualianMahasiswa);
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Prioritas"));
+		prioritas = new Intbox(settingBiaya.getPrioritas());
+		prioritas.setTooltiptext(
+				"Semakin kecil nilainya, semakin dahulu setting ini dipertimbangkan. Jika sama, sistem memakai pembobotan kecocokan seperti sebelumnya. Nilai bawaan: 10.");
+		row.appendChild(prioritas);
 
 		row = new MyFormRow();
 		row.setParent(rows);
@@ -1688,6 +1701,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 		settingBiaya.setKhususBuatMahasiswaTertentu(khususBuatMahasiswaTertentu.isChecked());
 		settingBiaya.setBatasiMahasiswaTertentu(batasiMahasiswaTertentu.isChecked());
 		settingBiaya.setPengecualianMahasiswa(pengecualianMahasiswa.getValue());
+		settingBiaya.setPrioritas(prioritas.getValue());
 		settingBiaya.setJumlahPembayaran(jumlahPembayaran.getValue());
 		settingBiaya.setTampilkanPerProdi(tampilkanPerProdi.isChecked());
 		settingBiaya.setStatusMahasiswa((StatusMahasiswa) (statusMahasiswa.getSelectedItem() == null ? null
@@ -1769,7 +1783,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(SettingBiaya.class);
 		if (order)
-			criteria.addOrder(Order.desc("id"));
+			criteria.addOrder(Order.asc("prioritas")).addOrder(Order.desc("id"));
 		// CATATAN (perbaikan "tagihan sudah dibuat tapi tak muncul di setup"):
 		// Untuk field pengelompokan (jenjang/jurusan/statusAwal/program/angkatan/gelombang),
 		// NULL berarti "berlaku untuk SEMUA". Filter memakai "isNull OR eq" (bukan eq ketat) agar
@@ -2026,7 +2040,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 		Object[] datas = new Object[] { statusMahasiswa, kelamin, afiliasiCalonMahasiswa, program, angkatan, jenjang,
 				statusAwalMahasiswa, jenisSeleksi, gelombangPendaftaran, paket, jurusan };
 
-		SettingBiaya settingBiaya = (SettingBiaya) GeneralValueObject.ambilSatuData(SettingBiaya.class, settingBiayas,
+		SettingBiaya settingBiaya = SettingBiayaMahasiswaSelector.pilihSatuDenganPrioritas(settingBiayas,
 				properties, datas);
 
 		System.out.println(
@@ -2078,6 +2092,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 								.sqlRestriction((semester == null ? 0 : semester) + " between minsmt and maxsmt"))
 						.add(Restrictions.sqlRestriction(
 								(semester == null ? 0 : semester) + " between min_smt_detail and max_smt_detail"))
+						.addOrder(Order.asc("settingBiaya.prioritas"))
 						.addOrder(Order.desc("settingBiaya.ta")).addOrder(Order.desc("id")).setMaxResults(1),
 				SettingBiayaDetail.class);
 
@@ -2104,6 +2119,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 								.sqlRestriction((semester == null ? 0 : semester) + " between minsmt and maxsmt"))
 						.add(Restrictions.sqlRestriction(
 								(semester == null ? 0 : semester) + " between min_smt_detail and max_smt_detail"))
+						.addOrder(Order.asc("settingBiaya.prioritas"))
 						.addOrder(Order.desc("settingBiaya.ta")).addOrder(Order.desc("id")).setMaxResults(1),
 				SettingBiayaDetail.class);
 
@@ -2156,7 +2172,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 		Object[] datas = new Object[] { jenisSeleksi, statusMahasiswa, kelamin, afiliasiCalonMahasiswa, program,
 				angkatan, jenjang, statusAwalMahasiswa, gelombangPendaftaran, paket, jurusan };
 
-		SettingBiaya settingBiaya = (SettingBiaya) GeneralValueObject.ambilSatuData(SettingBiaya.class, settingBiayas,
+		SettingBiaya settingBiaya = SettingBiayaMahasiswaSelector.pilihSatuDenganPrioritas(settingBiayas,
 				properties, datas);
 
 //		System.out.println(
@@ -2533,6 +2549,8 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 				.addOrder(Order.asc("angkatan")).addOrder(Order.asc("jenisKegiatan"))
 				.addOrder(Order.asc("statusAwalMahasiswa")).addOrder(Order.asc("jenisSeleksi"))
 				.addOrder(Order.asc("jurusan")).addOrder(Order.asc("program")), SettingBiaya.class);
+		settingBiayas = ais.action.master.helper.SettingBiayaMahasiswaSelector.saringDanPrioritaskan(session,
+				settingBiayas, null);
 
 		String[] properties = new String[] { "statusMahasiswa", "kelamin", "afiliasiCalonMahasiswa", "program",
 				"angkatan", "jenjang", "statusAwalMahasiswa", "jenisSeleksi", "gelombangPendaftaran", "paket",
@@ -2541,7 +2559,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 		Object[] datas = new Object[] { statusMahasiswa, kelamin, afiliasiCalonMahasiswa, program, angkatan, jenjang,
 				statusAwalMahasiswa, jenisSeleksi, gelombangPendaftaran, paket, jurusan };
 
-		SettingBiaya settingBiaya = (SettingBiaya) GeneralValueObject.ambilSatuData(SettingBiaya.class, settingBiayas,
+		SettingBiaya settingBiaya = SettingBiayaMahasiswaSelector.pilihSatuDenganPrioritas(settingBiayas,
 				properties, datas);
 
 		System.out.println("getDetailBiayaBukanDefaultBiaya settingBiaya -> " + settingBiaya);

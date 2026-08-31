@@ -107,6 +107,7 @@ public class SettingBiaya extends GeneralValueObject {
 	private String semester;
 	private String tahunAkademik;
 	private String pengecualianMahasiswa;
+	private Integer prioritas = 10;
 
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
@@ -300,6 +301,19 @@ public class SettingBiaya extends GeneralValueObject {
 
 	public void setPengecualianMahasiswa(String pengecualianMahasiswa) {
 		this.pengecualianMahasiswa = pengecualianMahasiswa == null ? null : pengecualianMahasiswa.trim();
+	}
+
+	/**
+	 * Urutan pemilihan Setting Biaya. Angka yang lebih kecil didahulukan,
+	 * sedangkan nilai 10 menjaga perilaku seluruh data lama dan data baru.
+	 */
+	@Column(name = "prioritas")
+	public Integer getPrioritas() {
+		return prioritas == null ? Integer.valueOf(10) : prioritas;
+	}
+
+	public void setPrioritas(Integer prioritas) {
+		this.prioritas = prioritas == null ? Integer.valueOf(10) : prioritas;
 	}
 
 	/** Pemeriksaan tunggal agar seluruh jalur billing memakai aturan pengecualian yang sama. */

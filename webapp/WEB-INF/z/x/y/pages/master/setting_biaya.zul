@@ -134,8 +134,12 @@
 						<column
 						use="ais.ui.util.MyColumnConfig" width="10%" label="Pengecualian Mahasiswa"
 						tooltiptext="Daftar NIM mahasiswa yang tidak memperoleh tagihan dari setting ini" />
+					<column
+						use="ais.ui.util.MyColumnConfig" width="6%" label="Prioritas"
+						sort="auto(prioritas)"
+						tooltiptext="Angka lebih kecil dipilih lebih dahulu; nilai bawaan adalah 10" />
 
-						<column
+					<column
 						use="ais.ui.util.MyColumnConfig" width="14%"
 						label="Item Biaya" />
 						<column

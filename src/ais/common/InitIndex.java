@@ -2405,10 +2405,32 @@ public class InitIndex {
 		}
 	}
 
+	/**
+	 * Menyiapkan prioritas pemilihan Setting Biaya untuk instalasi lama maupun
+	 * instalasi baru. Nilai 10 mempertahankan perilaku lama karena seluruh data
+	 * lama berada pada tingkat yang sama; pengguna dapat memberi angka lebih kecil
+	 * hanya pada aturan yang memang harus didahulukan.
+	 */
+	private static void initPrioritasSettingBiaya() {
+		String[] sqls = new String[] {
+				"ALTER TABLE public.setting_biaya ADD COLUMN IF NOT EXISTS prioritas integer DEFAULT 10",
+				"UPDATE public.setting_biaya SET prioritas=10 WHERE prioritas IS NULL",
+				"ALTER TABLE public.setting_biaya ALTER COLUMN prioritas SET DEFAULT 10" };
+		for (String sql : sqls) {
+			try {
+				eksekusiSqlAmanDdl(sql);
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e,
+						"auto-audit InitIndex.initPrioritasSettingBiaya");
+			}
+		}
+	}
+
 	public static void initEksekusiQueryIndex() {
 		// Migrasi kompatibilitas skema harus selesai secara sinkron sebelum pool
 		// pekerjaan index paralel diaktifkan.
 		bersihkanAccessedUsersSaatStartup();
+		initPrioritasSettingBiaya();
 		initAturanDiskonProdukNullable();
 		initCaraPembayaranMasukSebagaiHutang();
 		initKebijakanReturProduk();
