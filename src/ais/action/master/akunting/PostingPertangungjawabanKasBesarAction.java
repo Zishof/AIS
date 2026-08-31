@@ -1014,12 +1014,19 @@ public class PostingPertangungjawabanKasBesarAction extends GenericAutowireCompo
 				try {
 					session = HibernateUtil.currentNativeSession();
 					session.getTransaction().begin();
+					// Saringan "ref is null" menyamakan mesin ini dengan kedua tombol batal di
+					// layarnya sendiri: yang dibatalkan hanya kaki UTAMA. Entitas ini membawa cap
+					// postingHistoryPajak dan postingHistoryPengembalian yang belum dipakai siapa
+					// pun; begitu salah satunya diimplementasikan (seperti yang sudah terjadi pada
+					// LPJ uang muka), penghapusan tanpa saringan akan ikut melenyapkan jurnalnya.
 					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
 							+ " (select id from akunting.grup_transaksi"
-							+ "  where pertangungjawaban_kas_besar=" + pj.getId() + " and closing is null)")
+							+ "  where ref is null and pertangungjawaban_kas_besar=" + pj.getId()
+							+ " and closing is null)")
 							.executeUpdate();
 					session.createSQLQuery("delete from akunting.grup_transaksi"
-							+ " where pertangungjawaban_kas_besar=" + pj.getId() + " and closing is null")
+							+ " where ref is null and pertangungjawaban_kas_besar=" + pj.getId()
+							+ " and closing is null")
 							.executeUpdate();
 					pj.setPostingHistory(null);
 					session.update(pj);

@@ -842,7 +842,18 @@ public class PostingBiayaAdministrasiPembayaranMahasiswaAction extends GenericAu
 					.add(Restrictions.isNotNull("postingHistory")).list();
 			for (LogPembayaran log : daftar) {
 				try {
-					String syarat = "log_pembayaran=" + log.getId() + " and closing is null";
+					// Satu LogPembayaran memikul DUA kaki jurnal pada kolom referensi yang sama
+					// (biaya administrasi di sini, biaya payment gateway di action sebelahnya).
+					// Keduanya menulis ref null dan jenis riwayat yang sama, jadi satu-satunya
+					// pembeda adalah RIWAYAT yang ditunjuk capnya. Tanpa saringan posting_history
+					// ini, membatalkan kaki administrasi ikut menghapus jurnal kaki payment
+					// gateway padahal capnya tetap terpasang -- dokumen tampak terposting
+					// sementara jurnalnya sudah lenyap.
+					if (log.getPostingHistory() == null || log.getPostingHistory().getId() == null) {
+						continue;
+					}
+					String syarat = "log_pembayaran=" + log.getId() + " and posting_history="
+							+ log.getPostingHistory().getId() + " and closing is null";
 					session = HibernateUtil.currentNativeSession();
 					session.getTransaction().begin();
 					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"

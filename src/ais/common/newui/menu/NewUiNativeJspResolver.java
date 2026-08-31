@@ -80,10 +80,13 @@ public final class NewUiNativeJspResolver {
             else if (score == bestScore && best != null && !sameLogicalPage(best, path)) tied = true;
         }
         if (best == null || tied) return null;
-        int moduleStart = ROOT.length(); int moduleEnd = best.indexOf('/', moduleStart);
+        int moduleStart = ROOT.length();
         int uiux = best.indexOf("/uiux/");
-        if (moduleEnd < 0 || uiux < 0) return null;
-        String module = best.substring(moduleStart, moduleEnd);
+        if (uiux < 0 || uiux <= moduleStart) return null;
+        // Modul adalah SELURUH awalan sebelum /uiux/ (mis. "root/maintenance"),
+        // bukan segmen pertama saja. Memakai segmen pertama membuat service
+        // yang dituju melompat ke berkas milik modul induk yang berbeda.
+        String module = best.substring(moduleStart, uiux);
         String page = best.substring(uiux + 6, best.length() - 4);
         String target = best;
         if (service) target = ROOT + module + "/services/" + page + "_service.jsp";
@@ -100,6 +103,22 @@ public final class NewUiNativeJspResolver {
         }
         if (normalizedRoute.indexOf("master") >= 0 && path.startsWith(ROOT + "root/")) value += 80;
         if (path.indexOf("/helper/") >= 0 && normalizedRoute.indexOf("helper") < 0) value -= 20;
+        // Submodul (segmen antara modul dan /uiux/) hanya relevan bila route
+        // lama menyebutnya. Tanpa penalti ini dua scaffold bernama sama —
+        // mis. root/uiux/pertemuan.jsp dari action/master dan
+        // root/maintenance/uiux/pertemuan.jsp dari action/maintenance — selalu
+        // seri, dan resolver menolak keduanya sehingga menu yang sebenarnya
+        // sudah punya halaman dilaporkan "adapter belum dikonfigurasi".
+        int uiux = path.indexOf("/uiux/");
+        int moduleEnd = path.indexOf('/', ROOT.length());
+        if (uiux > 0 && moduleEnd > 0 && uiux > moduleEnd) {
+            String[] extra = path.substring(moduleEnd + 1, uiux).split("/");
+            for (int i = 0; i < extra.length; i++) {
+                String token = compact(extra[i]);
+                if (token.length() == 0) continue;
+                if (normalizedRoute.indexOf(token) < 0) value -= 200;
+            }
+        }
         return value;
     }
 
