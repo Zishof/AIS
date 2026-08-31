@@ -35,6 +35,7 @@ import ais.database.model.JenisKegiatan;
 import ais.database.model.Kegiatan;
 import ais.database.model.Mahasiswa;
 import ais.database.model.Perkuliahan;
+import ais.database.model.Tbmuser;
 
 /**
  * Resource JAX-RS ({@code /biaya}) yang mengekspos data referensi dan transaksi biaya kuliah
@@ -300,6 +301,19 @@ public class BiayaResource extends DataResource<Mahasiswa> {
 	 * bulan (untuk cicilan bulanan), waktu, nilai, dan keterangan — dikembalikan sebagai JSON
 	 * array (string) di dalam {@code info1} pada {@link CommonID}.
 	 *
+	 * <p>
+	 * <b>Catatan keamanan (IDOR DITUTUP 2026-09-01):</b> {@link Common#checkLogin(String, String)}
+	 * hanya memvalidasi kredensial PEMANGGIL (bisa staf {@link Tbmuser} ATAU mahasiswa via NIM), tapi
+	 * sebelumnya TIDAK membatasi filter {@code nim} — sekali kredensial mahasiswa mana pun valid,
+	 * pemanggil bisa memasukkan NIM mahasiswa LAIN dan membaca riwayat pembayaran orang tersebut
+	 * (nominal, item, keterangan) — celah IDOR (broken object-level authorization). Kini bila
+	 * {@code username} yang login cocok dengan NIM {@link Mahasiswa} (bukan staf {@link Tbmuser}),
+	 * filter {@code nim} DIPAKSA ke NIM mahasiswa itu sendiri, mengabaikan nilai {@code nim} yang
+	 * dikirim lewat URL — mahasiswa hanya bisa melihat riwayat pembayarannya sendiri. Staf yang login
+	 * (bukan mahasiswa) TIDAK dibatasi, sesuai kebutuhan pencarian administratif lintas mahasiswa yang
+	 * sudah menjadi fungsi utama endpoint ini.
+	 * </p>
+	 *
 	 * @throws com.sun.jersey.api.NotFoundException bila autentikasi username/password gagal
 	 */
 	@SuppressWarnings("unchecked")
@@ -323,6 +337,23 @@ public class BiayaResource extends DataResource<Mahasiswa> {
 
 		if (!Common.checkLogin(username, password))
 			throw new NotFoundException("fobidden access");
+
+		// Common#checkLogin memvalidasi Tbmuser (staf) LEBIH DULU, dan hanya mengecek Mahasiswa bila
+		// tidak ada Tbmuser yang cocok — replikasi urutan yang sama di sini agar staf yang username-nya
+		// kebetulan sama dengan NIM seorang mahasiswa tetap diperlakukan sebagai staf (tidak dibatasi).
+		Session loginCheckSession = HibernateUtil.currentNativeSession();
+		Tbmuser loginSebagaiStaf = (Tbmuser) loginCheckSession.createCriteria(Tbmuser.class)
+				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+				.add(Restrictions.eq("userId", username)).setMaxResults(1).uniqueResult();
+		if (loginSebagaiStaf == null) {
+			Mahasiswa loginSebagaiMahasiswa = (Mahasiswa) loginCheckSession.createCriteria(Mahasiswa.class)
+					.add(Restrictions.eq("nim", username)).setMaxResults(1).uniqueResult();
+			if (loginSebagaiMahasiswa != null) {
+				// Mahasiswa yang login hanya boleh melihat riwayat pembayarannya sendiri — abaikan nim
+				// dari URL untuk mencegah IDOR (lihat catatan keamanan pada javadoc method).
+				nim = username;
+			}
+		}
 
 		String tahunAkademik = Common.getCurrentTahunAkademik();
 		String semesters = Common.isNowSemensterGanjil() ? Perkuliahan.GANJIL : Perkuliahan.GANJIL;
