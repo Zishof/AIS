@@ -127,6 +127,25 @@ import ais.database.model.spmi.JenisSPMI;
 import ais.database.model.surat.SifatSurat;
 import ais.ui.util.FormSop;
 
+/**
+ * Helper terfokus untuk init data. Tipe ini membungkus satu variasi kecil dari alur yang lebih
+ * umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Object LOCK_CLASS_INIT};
+ * inisialisasi/lifecycle ({@code splitInitData()}, {@code initData()}, {@code initMaster()}, {@code
+ * initPembersihanFile()}, {@code doInitData()}, {@code loadAndInitStandardData()}); pembacaan/pencarian ({@code
+ * ambilBatasBarisKecil()}); mutasi data ({@code executeHqlUpdateIsolated()}, {@code
+ * updateSatuanKerjaBackfillTahanDeadlock()}); operasi domain lain ({@code rollbackActiveTransaction()}, {@code
+ * beginTransactionIfNeeded()}, {@code commitTransactionIfActive()}, {@code closeOpenedSession()}, {@code
+ * splitConfigSemicolon()}, {@code addLogAbsensiChunk()}). Bagian lain dari kontrak tetap mengikuti kelas induk
+ * atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> sesuai operasi yang dipanggil, utilitas dapat mengubah komponen UI, membaca/menulis
+ * persistence atau berkas, dan memanggil layanan lain. Gunakan method kanonik di kelas ini melalui konteks
+ * request/transaksi yang tepat, bukan menyalin implementasinya.</p>
+ */
 public class InitDataHelper {
 
 	private static final Object LOCK_CLASS_INIT = new Object();

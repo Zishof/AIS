@@ -4,6 +4,22 @@ import ais.database.model.ParameterTambahan;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * Helper terfokus untuk parameter tambahan html. Tipe ini membungkus satu variasi kecil dari alur
+ * yang lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan
+ * implementasi.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code List TIPE_OBJECT_LOOKUP};
+ * pembacaan/pencarian ({@code lolosSyaratTampil()}, {@code syaratTampilAttr()}); operasi domain lain ({@code
+ * generateHtmlComponent()}, {@code nilaiCocok()}, {@code petaNilaiDariInds()}, {@code skipLogicScript()}).
+ * Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> sesuai operasi yang dipanggil, utilitas dapat mengubah komponen UI, membaca/menulis
+ * persistence atau berkas, dan memanggil layanan lain. Gunakan method kanonik di kelas ini melalui konteks
+ * request/transaksi yang tepat, bukan menyalin implementasinya.</p>
+ */
 public class ParameterTambahanHtmlHelper {
 
     // Konstanta tipe pencarian objek / Bandbox

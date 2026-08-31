@@ -20,6 +20,21 @@ import ais.database.model.AccessedUsers;
 import ais.database.model.LogLogin;
 import ais.database.model.OnlineUsers;
 
+/**
+ * Listener lifecycle aplikasi/web untuk logout listener. Tipe ini bereaksi terhadap startup,
+ * session, atau logout dan mengelola state global terkait tanpa mengambil alih aturan bisnis
+ * request.
+ *
+ * <p><b>Batas tanggung jawab:</b> tipe ini mendeklarasikan kontrak {@link LogoutSuccessHandler}. Implementasi
+ * konkret bertanggung jawab atas transaksi, resource, error handling, dan efek samping; pemanggil sebaiknya
+ * bergantung pada kontrak ini agar tidak menggandakan integrasi.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah mutasi data ({@code setLogout()}); penghapusan/pembatalan ({@code
+ * hapus()}); operasi domain lain ({@code onLogoutSuccess()}). Bagian lain dari kontrak tetap mengikuti kelas
+ * induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> callback berjalan pada lifecycle container dan dapat mengubah session, response,
+ * penghitung global, atau resource aplikasi. Implementasi harus thread-safe dan tidak menyimpan data pengguna
+ * request pada field singleton.</p>
+ */
 public class LogoutListener implements LogoutSuccessHandler {
 
 	/**

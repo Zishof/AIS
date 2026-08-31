@@ -287,6 +287,25 @@ import ais.database.model.surat.StatusDipertahankan;
 import ais.database.model.surat.VariableSuratKeluar;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Utilitas bersama AIS untuk init data. Kelas ini mengonsolidasikan operasi lintas layar/service
+ * yang benar-benar satu domain agar pemanggil tidak membuat helper dengan fungsi paralel.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code boolean init}, {@code boolean running},
+ * {@code boolean stopRequested}, {@code long lastStartedMillis}, {@code long lastFinishedMillis}, {@code
+ * ExecutorService executor}, {@code Object LOCK_INIT}; inisialisasi/lifecycle ({@code isInitialized()}, {@code
+ * resetInitFlag()}, {@code initData()}, {@code initClasses()}, {@code doInitData()}); pembacaan/pencarian
+ * ({@code getLastStartedMillis()}, {@code getLastFinishedMillis()}, {@code reloadDefaults()}); operasi domain
+ * lain ({@code isRunning()}, {@code isStopRequested()}, {@code tutupExecutor()}, {@code
+ * hentikanUntukShutdown()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
+ * atas.</p>
+ * <p><b>Efek samping:</b> sesuai operasi yang dipanggil, utilitas dapat mengubah komponen UI, membaca/menulis
+ * persistence atau berkas, dan memanggil layanan lain. Gunakan method kanonik di kelas ini melalui konteks
+ * request/transaksi yang tepat, bukan menyalin implementasinya.</p>
+ */
 public class InitData {
 
 	public static volatile boolean init = false;

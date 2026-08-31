@@ -24,6 +24,22 @@ import net.sourceforge.barbecue.Barcode;
 import net.sourceforge.barbecue.BarcodeFactory;
 import net.sourceforge.barbecue.BarcodeImageHandler;
 
+/**
+ * Utilitas bersama AIS untuk barcode common. Kelas ini mengonsolidasikan operasi lintas
+ * layar/service yang benar-benar satu domain agar pemanggil tidak membuat helper dengan fungsi
+ * paralel.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code long index}; operasi domain lain
+ * ({@code generateBarcodeImage()}, {@code generateBarcodeAImage()}, {@code generateBarcodeKotakAImage()}, {@code
+ * generateQrAImage()}, {@code generateCode()}, {@code generateCode()}). Bagian lain dari kontrak tetap mengikuti
+ * kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> sesuai operasi yang dipanggil, utilitas dapat mengubah komponen UI, membaca/menulis
+ * persistence atau berkas, dan memanggil layanan lain. Gunakan method kanonik di kelas ini melalui konteks
+ * request/transaksi yang tepat, bukan menyalin implementasinya.</p>
+ */
 public class BarcodeCommon {
 
 	private static long index = 1L;

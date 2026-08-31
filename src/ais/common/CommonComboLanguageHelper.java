@@ -427,6 +427,34 @@ import de.undercouch.citeproc.csl.CSLType;
 
 
 
+/**
+ * Helper terfokus untuk common combo language. Tipe ini membungkus satu variasi kecil dari alur
+ * yang lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan
+ * implementasi.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * Common}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
+ * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
+ * tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code String TAB_CARACTER}, {@code Object
+ * BAHASA_CONFIG_LOCK}, {@code java.util.concurrent.BlockingQueue ANTRIAN_TERJEMAH}, {@code java.util.Set
+ * SUDAH_DIANTRI}, {@code boolean workerTerjemahJalan}, {@code Object WORKER_TERJEMAH_LOCK}, {@code Logger log},
+ * {@code String COOKIE_PMB_BIODATA}; inisialisasi/lifecycle ({@code ambilAtauBuatLabelBahasa()}, {@code
+ * ambilAtauBuatLabelBahasaTiga()}, {@code initJenisPembayaranMahasiswa()}, {@code
+ * initJenisPembayaranBiodataCalonMahasiswa()}, {@code initJenisPembayaranMahasiswaDanBiodataCalonMahasiswa()},
+ * {@code initJenisSemester()}); pembacaan/pencarian ({@code ambilBahasaDariMemory()}, {@code
+ * ambilNilaiBahasa()}, {@code cariLabelBahasa()}, {@code ambilLabelBahasaSetelahGagalInsert()}, {@code
+ * tampilCrudError()}, {@code getBahasaConfig()}); mutasi data ({@code enqueueSimpanTerjemah()}, {@code
+ * simpanTerjemahKeDatabase()}, {@code simpanBahasaKeMemory()}, {@code simpanBahasaPenggunaKeDatabase()}, {@code
+ * updateBahasaEntitas()}); operasi domain lain ({@code buildBahasaKey()}, {@code autoTerjemahBilaPerlu()},
+ * {@code pastikanWorkerTerjemahJalan()}, {@code jalankanWorkerTerjemah()}, {@code pilihBahasa()}, {@code
+ * bahasa()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> sesuai operasi yang dipanggil, utilitas dapat mengubah komponen UI, membaca/menulis
+ * persistence atau berkas, dan memanggil layanan lain. Gunakan method kanonik di kelas ini melalui konteks
+ * request/transaksi yang tepat, bukan menyalin implementasinya.</p>
+ *
+ * @see Common
+ */
 @SuppressWarnings({ "rawtypes", "unchecked", "deprecation" })
 public class CommonComboLanguageHelper extends Common {
 

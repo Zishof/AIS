@@ -26,6 +26,22 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Dosen;
 import ais.database.model.Mahasiswa;
 
+/**
+ * Helper terfokus untuk object. Tipe ini membungkus satu variasi kecil dari alur yang lebih umum
+ * agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Set
+ * PROPERTI_TAK_DIKENAL_SUDAH_DILAPORKAN}; pembacaan/pencarian ({@code getContentAsObject()}, {@code
+ * getContentAsObject()}); mutasi data ({@code setObjectValues()}, {@code setObjectValues()}, {@code
+ * setObjectValues()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
+ * atas.</p>
+ * <p><b>Efek samping:</b> operasi bekerja pada input/state di memori dan tidak membuka session, melakukan I/O
+ * jaringan, atau menulis berkas. Pertahankan utilitas ini deterministik agar aman dipakai ulang oleh laporan dan
+ * UI.</p>
+ */
 public class ObjectHelper {
 
 	/**

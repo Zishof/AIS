@@ -41,6 +41,23 @@ import ais.ui.util.MyRowStyled;
 import ais.ui.util.MyToolbarbuttonConfig;
 // Pastikan import class domain Anda ada (Tbmuser, Mahasiswa, dll)
 
+/**
+ * Helper terfokus untuk ui class. Tipe ini membungkus satu variasi kecil dari alur yang lebih umum
+ * agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code String EXT_UPDATE}; pembacaan/pencarian
+ * ({@code infoDiuploadOleh()}, {@code tampilkanUserDiUI()}, {@code tampilanScroll()}, {@code
+ * tampilanScrollTabbox()}, {@code tampilanScroll1()}, {@code tampilanScroll2()}); operasi domain lain ({@code
+ * generateOlehId()}, {@code createBaseGrid()}, {@code createBaseRow()}, {@code jadikanCenterScrollable()},
+ * {@code createVideoConrefrence()}, {@code applyReadMore()}). Bagian lain dari kontrak tetap mengikuti kelas
+ * induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> sesuai operasi yang dipanggil, utilitas dapat mengubah komponen UI, membaca/menulis
+ * persistence atau berkas, dan memanggil layanan lain. Gunakan method kanonik di kelas ini melalui konteks
+ * request/transaksi yang tepat, bukan menyalin implementasinya.</p>
+ */
 public class UIClassHelper {
 
 	private static final String EXT_UPDATE = "external_update;";

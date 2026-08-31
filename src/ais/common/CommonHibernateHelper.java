@@ -15,6 +15,24 @@ import ais.database.model.Program;
 import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
 
+/**
+ * Helper pemulihan dan sinkronisasi entity Hibernate untuk pola refresh, update, save-or-update, dan delete.
+ * Kelas ini menangani session yang tidak lagi valid, stale/missing row, merge ulang, flush aman, serta retry
+ * terbatas untuk lock timeout agar pemanggil tidak membuat variasi penanganan persistence sendiri-sendiri.
+ *
+ * <p><b>Batas tanggung jawab:</b> helper hanya mengatur mekanika Hibernate dan pemulihan kegagalan umum; validasi,
+ * otorisasi, dan keputusan bisnis tetap milik service. Session pengganti diambil melalui {@link HibernateUtil}
+ * supaya kepemilikan dan penutupannya tetap mengikuti lifecycle request.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code int MAX_LOCK_TIMEOUT_RETRY};
+ * pembacaan/pencarian ({@code getSafeSession()}, {@code refreshUpdate()}, {@code refreshUpdate()}, {@code
+ * refreshUpdate()}, {@code refresh()}, {@code refreshSaveOrUpdate()}); operasi domain lain ({@code
+ * isSpecialClass()}, {@code isLockTimeout()}, {@code isStaleOrMissingRow()}, {@code recoverWithMerge()}, {@code
+ * safeFlush()}, {@code safeFlush()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang
+ * disebut di atas.</p>
+ * <p><b>Efek samping:</b> operasi dapat merge, refresh, save/update, delete, flush, commit, atau rollback entity.
+ * Retry hanya ditujukan untuk lock timeout yang dikenali, bukan constraint violation. Pemanggil yang memasok
+ * session tetap bertanggung jawab atas batas transaksi yang lebih luas.</p>
+ */
 public class CommonHibernateHelper { // Ganti nama class sesuai class Anda
 
     // --- Helper Methods (Private) untuk penyederhanaan logika ---

@@ -23,6 +23,25 @@ import ais.database.model.RolePrivilage;
 import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
 
+/**
+ * Helper menu dan privilege untuk common privilages. Tipe ini membentuk navigasi berdasarkan hak
+ * pengguna dan menjadi satu sumber pemeriksaan tampilan menu agar action tidak menyusun kebijakan
+ * sendiri.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Object LOG_ACTIVITY_SCHEMA_LOCK},
+ * {@code boolean logActivitySchemaChecked}, {@code Integer READ}, {@code Integer CREATE}, {@code Integer
+ * UPDATE}, {@code Integer DELETE}, {@code Integer APPROVE}, {@code Integer REJECT}; validasi/perhitungan ({@code
+ * doCheckPrevilagesRead()}, {@code checkPrevilages()}, {@code checkPrevilages()}, {@code checkPrevilages()},
+ * {@code checkPrevilages()}); mutasi data ({@code saveActivity()}); operasi domain lain ({@code
+ * bersihkanKarakterDatabase()}, {@code pastikanSequenceLogUserActifity()}, {@code buildKeterangan()}). Bagian
+ * lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> sesuai operasi yang dipanggil, utilitas dapat mengubah komponen UI, membaca/menulis
+ * persistence atau berkas, dan memanggil layanan lain. Gunakan method kanonik di kelas ini melalui konteks
+ * request/transaksi yang tepat, bukan menyalin implementasinya.</p>
+ */
 public class CommonPrivilages {
 	private static final Object LOG_ACTIVITY_SCHEMA_LOCK = new Object();
 	private static volatile boolean logActivitySchemaChecked = false;

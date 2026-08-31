@@ -85,6 +85,26 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Helper terfokus untuk grading. Tipe ini membungkus satu variasi kecil dari alur yang lebih umum
+ * agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code String EXCEL_MIME_TYPE}, {@code int
+ * GRID_PAGE_SIZE}, {@code int BATCH_SIZE}; inisialisasi/lifecycle ({@code buatToolbarAtas()});
+ * pembacaan/pencarian ({@code getCellText()}, {@code tampilkanGridDariExcel()}, {@code tampilkanPopupExcel()});
+ * validasi/perhitungan ({@code hitungNilaiBerdasarkanJenisItemPenilaianSiswa()}, {@code
+ * hitungNilaiBerdasarkanJenisItemPenilaianSiswa()}, {@code hitungNilaiBerdasarkanJenisItemPenilaianSiswa()},
+ * {@code hitungNilaiBerdasarkanFormatNilaiObe()}, {@code hitungNilaiBerdasarkanFormatNilai()}, {@code
+ * hitungNilaiBerdasarkanFormatNilai()}); operasi domain lain ({@code closeSession()}, {@code
+ * closeInputStream()}, {@code trim()}, {@code hasText()}, {@code containsId()}, {@code escapeHtml()}). Bagian
+ * lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> sesuai operasi yang dipanggil, utilitas dapat mengubah komponen UI, membaca/menulis
+ * persistence atau berkas, dan memanggil layanan lain. Gunakan method kanonik di kelas ini melalui konteks
+ * request/transaksi yang tepat, bukan menyalin implementasinya.</p>
+ */
 public class GradingHelper {
 
 	private static final String EXCEL_MIME_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";

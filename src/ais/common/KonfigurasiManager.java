@@ -20,6 +20,28 @@ import ais.database.model.StatusAwalMahasiswa;
 import ais.database.model.sekolah.Sekolah;
 import ais.database.model.sekolah.Yayasan;
 
+/**
+ * Facade kanonik untuk membaca, membuat, dan menyimpan {@link Konfigurasi} AIS. Overload lookup menangani nilai
+ * default serta scope tahun akademik, semester, angkatan, program, jurusan, dan metadata tambahan; hasil juga
+ * diintegrasikan dengan cache konfigurasi agar pemanggil tidak mengulang query yang sama.
+ *
+ * <p><b>Batas tanggung jawab:</b> seluruh pencarian dan pembuatan default konfigurasi harus melewati manager ini.
+ * Validasi khusus domain boleh memanggilnya, tetapi jangan menyalin aturan fallback, scope, sinkronisasi cache,
+ * atau pemulihan sequence ke action/service lain.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code java.util.Set BENTROK_ID_TERCATAT},
+ * {@code String TABEL_KONFIGURASI}, {@code Konfigurasi konfigurasiKosong}; pembacaan/pencarian ({@code
+ * getKonfigurasi()}, {@code getKonfigurasi()}, {@code getKonfigurasi()}, {@code cariKonfigurasi()}, {@code
+ * getKonfigurasi()}, {@code getKonfigurasi()}); validasi/perhitungan ({@code
+ * checkKonfigurasiDenganKalenderAkademik()}, {@code checkKonfigurasiDenganKalenderAkademikAktif()}, {@code
+ * checkKonfigurasiDenganKalenderAkademik()}, {@code cekKetersediaanKonfigurasi()}); mutasi data ({@code
+ * perbaikiSequenceDanSimpan()}, {@code simpanKonfigurasi()}, {@code prosesKonfigurasi()}); operasi domain lain
+ * ({@code kumpulanNamaKonfigurasi()}, {@code fetchKonfigurasiKalender()}). Bagian lain dari kontrak tetap
+ * mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> getter dapat memuat cache dan, bila konfigurasi belum ada, membuat nilai default;
+ * operasi simpan/proses menulis database serta menyegarkan cache. Beberapa jalur memperbaiki sequence yang
+ * bentrok secara terisolasi. Gunakan overload yang menerima {@link Session} saat harus bergabung dengan
+ * transaksi pemanggil.</p>
+ */
 public class KonfigurasiManager {
 
 	/**

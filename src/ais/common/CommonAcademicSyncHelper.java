@@ -427,6 +427,33 @@ import de.undercouch.citeproc.csl.CSLType;
 
 
 
+/**
+ * Helper terfokus untuk common academic sync. Tipe ini membungkus satu variasi kecil dari alur
+ * yang lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan
+ * implementasi.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * Common}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
+ * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
+ * tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Logger log}, {@code String
+ * COOKIE_PMB_BIODATA}, {@code String COOKIE_PMB_USERID}; inisialisasi/lifecycle ({@code initDefaultJudisium()});
+ * pembacaan/pencarian ({@code tampilCrudError()}, {@code getIpkUntukPengambilanKRS()}, {@code
+ * getIpkUntukPengambilanKRSDenganIPLast()}, {@code ambilDataKrsMahasiswa()}, {@code
+ * singkronkanKrsMahasiswaRefresh()}, {@code ambilKrsMahasiswaTanpaSinkronisasi()}); validasi/perhitungan ({@code
+ * checkKelasJadwalPerkuliahan()}, {@code checkKelasJadwalTemplatePerkuliahanDetail()}, {@code
+ * checkMatakuliahPrasyarat()}, {@code checkApakahMemenuhiSyaratBeasiswa()}, {@code
+ * checkApakahMemenuhiSyaratOrganisasiKemahasiswaan()}, {@code checkDosenPa()}); mutasi data ({@code
+ * updateNilaiKonversi()}); penghapusan/pembatalan ({@code hapusMatakuliahYangMelebihiKetentuan()}); operasi
+ * domain lain ({@code safeTrim()}, {@code isBlank()}, {@code ensureDirectory()}, {@code
+ * createDefaultFormatNilai()}, {@code singkronisasiStatusMahasiswa()}, {@code singkronisasiStatusMahasiswa()}).
+ * Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> sesuai operasi yang dipanggil, utilitas dapat mengubah komponen UI, membaca/menulis
+ * persistence atau berkas, dan memanggil layanan lain. Gunakan method kanonik di kelas ini melalui konteks
+ * request/transaksi yang tepat, bukan menyalin implementasinya.</p>
+ *
+ * @see Common
+ */
 @SuppressWarnings({ "rawtypes", "unchecked", "deprecation" })
 public class CommonAcademicSyncHelper extends Common {
 

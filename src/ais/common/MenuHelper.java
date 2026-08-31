@@ -20,6 +20,26 @@ import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
 import ais.database.model.sekolah.Sekolah;
 
+/**
+ * Helper terfokus untuk menu. Tipe ini membungkus satu variasi kecil dari alur yang lebih umum
+ * agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code long MENU_DASBOR_EMEDIC_ID}, {@code
+ * long KIOS_KOPERASI_MENU_ID}, {@code String KANTIN_MENU_IDS}, {@code String REPOSITORY_MENU_IDS}, {@code String
+ * SIRS_DASHBOARD_MENU_IDS}, {@code long SIRS_PARENT_MENU_ID}, {@code long SIRS_PARENT_CHILD_CODE}, {@code long
+ * SIRS_DASHBOARD_GROUP_CHILD}; pembacaan/pencarian ({@code getIconForMenu()}, {@code loadTree()}, {@code
+ * getChildren()}); mutasi data ({@code ensureSimpanPinjamMenus()}); penghapusan/pembatalan ({@code
+ * hapusMenuDuplikatBawaan()}); operasi domain lain ({@code cleanupObsoleteMenus()}, {@code
+ * nonaktifkanMenuDasborEmedic()}, {@code sembunyikanMenuSirsSementara()}, {@code ensureMenusDariSnapshot()},
+ * {@code dalamJangkauanInt()}, {@code ensureAntarJemputMenus()}). Bagian lain dari kontrak tetap mengikuti kelas
+ * induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> sesuai operasi yang dipanggil, utilitas dapat mengubah komponen UI, membaca/menulis
+ * persistence atau berkas, dan memanggil layanan lain. Gunakan method kanonik di kelas ini melalui konteks
+ * request/transaksi yang tepat, bukan menyalin implementasinya.</p>
+ */
 public class MenuHelper {
 
     /**

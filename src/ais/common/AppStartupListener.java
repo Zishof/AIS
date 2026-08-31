@@ -23,6 +23,28 @@ import org.apache.commons.lang3.StringUtils;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.hibernate.StreamingHibernateUtil;
 
+/**
+ * Koordinator startup dan shutdown aplikasi web AIS. Saat servlet context aktif, listener menyiapkan konfigurasi,
+ * database dinamis, skin, data awal, maintenance latar, dan retry upload; saat context dihentikan, listener
+ * menghentikan scheduler/executor serta menutup resource Hibernate utama dan streaming.
+ *
+ * <p><b>Batas tanggung jawab:</b> kelas ini adalah satu titik orkestrasi lifecycle container. Implementasi detail
+ * inisialisasi tetap didelegasikan ke manager terkait; jangan menambahkan bootstrap atau scheduler paralel pada
+ * servlet/listener lain tanpa memasukkannya ke urutan startup dan shutdown di sini.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Boolean truncareAccessedUsers}, {@code
+ * boolean hasTruncate}, {@code Object LOCK_SKIN}, {@code boolean prosesSkin}, {@code long lastCheckTime}, {@code
+ * boolean fileExistsCache}, {@code File markerFile}, {@code long CHECK_INTERVAL}; inisialisasi/lifecycle ({@code
+ * contextInitialized()}, {@code jalankanInitData()}, {@code resetHibernateSessionsBeforeStartupTask()}, {@code
+ * initConfig()}, {@code setupDynamicDatabase()}, {@code initSkin()}); pembacaan/pencarian ({@code
+ * registerDoUploadRetryScheduler()}, {@code getProperty()}); mutasi data ({@code stopSaverSchedulers()});
+ * operasi domain lain ({@code isStartupInProgress()}, {@code contextDestroyed()}, {@code hentikanSpringTimer()},
+ * {@code startBackgroundMaintenance()}, {@code stopBackgroundMaintenance()}, {@code
+ * closeHibernateSessionQuietly()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang
+ * disebut di atas.</p>
+ * <p><b>Efek samping:</b> callback mengubah state global, membuat task latar, memuat data/cache, dan menutup
+ * factory/session. Guard dan lock harus tetap thread-safe; listener tidak boleh menyimpan data pengguna request
+ * pada field instance container.</p>
+ */
 public class AppStartupListener implements ServletContextListener {
 
 	private Boolean truncareAccessedUsers = false;

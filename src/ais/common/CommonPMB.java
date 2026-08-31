@@ -70,6 +70,27 @@ import ais.database.model.sekolah.CalonSiswa;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Utilitas bersama AIS untuk common pmb. Kelas ini mengonsolidasikan operasi lintas layar/service
+ * yang benar-benar satu domain agar pemanggil tidak membuat helper dengan fungsi paralel.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code PembayaranUtil pembayaranUtil};
+ * pembacaan/pencarian ({@code getProdiPilihan()}, {@code getTotalTagihan()}, {@code uploadFoto()}, {@code
+ * ambilNoUjianDariObject()}, {@code ambilIdBiodataCalonMahasiswa()}, {@code ambilNoUjianDariDatabase()});
+ * validasi/perhitungan ({@code isNimPmbValid()}, {@code isNimPmbValidAtauDiizinkan()}); mutasi data ({@code
+ * setTimeoutTransaksiPmb()}, {@code simpanNoUjianLangsung()}, {@code saveMahasiswa()}, {@code saveMahasiswa()},
+ * {@code saveMahasiswa()}, {@code saveMahasiswa()}); penghapusan/pembatalan ({@code
+ * isErrorTimeoutAtauCancelDatabase()}); operasi domain lain ({@code generateNoRegistrasi()}, {@code
+ * generateNoRegistrasi()}, {@code generateNoUjian()}, {@code isBlankString()}, {@code
+ * isNimPmbMengandungTandaHubung()}, {@code konfirmasiNimMengandungTandaJikaPerlu()}). Bagian lain dari kontrak
+ * tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> sesuai operasi yang dipanggil, utilitas dapat mengubah komponen UI, membaca/menulis
+ * persistence atau berkas, dan memanggil layanan lain. Gunakan method kanonik di kelas ini melalui konteks
+ * request/transaksi yang tepat, bukan menyalin implementasinya.</p>
+ */
 public class CommonPMB {
 
 	public static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();

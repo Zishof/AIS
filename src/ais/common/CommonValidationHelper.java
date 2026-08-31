@@ -428,6 +428,26 @@ import de.undercouch.citeproc.csl.CSLType;
 
 
 
+/**
+ * Helper terfokus untuk common validation. Tipe ini membungkus satu variasi kecil dari alur yang
+ * lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * Common}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
+ * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
+ * tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Logger log}, {@code String
+ * COOKIE_PMB_BIODATA}, {@code String COOKIE_PMB_USERID}, {@code Pattern POLA_ANGKA_DESIMAL}; pembacaan/pencarian
+ * ({@code tampilCrudError()}); validasi/perhitungan ({@code checkUsername()}, {@code checkIsStringNull()},
+ * {@code isValidEmailAddress()}, {@code isValidJsonObject()}); operasi domain lain ({@code safeTrim()}, {@code
+ * isBlank()}, {@code ensureDirectory()}, {@code isNumber()}, {@code isDateBetween()}). Bagian lain dari kontrak
+ * tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> sesuai operasi yang dipanggil, utilitas dapat mengubah komponen UI, membaca/menulis
+ * persistence atau berkas, dan memanggil layanan lain. Gunakan method kanonik di kelas ini melalui konteks
+ * request/transaksi yang tepat, bukan menyalin implementasinya.</p>
+ *
+ * @see Common
+ */
 @SuppressWarnings({ "rawtypes", "unchecked", "deprecation" })
 public class CommonValidationHelper extends Common {
 

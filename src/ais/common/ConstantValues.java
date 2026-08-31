@@ -80,6 +80,29 @@ import nl.captcha.gimpy.FishEyeGimpyRenderer;
 import nl.captcha.noise.StraightLineNoiseProducer;
 import nl.captcha.text.producer.DefaultTextProducer;
 
+/**
+ * Registry konfigurasi runtime, cache referensi, dan konstanta global AIS. Selain nama key, nilai default, dan
+ * kode status, kelas legacy ini juga memuat data master ke memori, menyediakan query sederhana lintas modul,
+ * serta mengoordinasikan inisialisasi ulang. Karena itu kelas ini <b>bukan</b> sekadar kumpulan konstanta murni.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan key dan accessor yang sudah tersedia sebagai sumber kanonik untuk
+ * konfigurasi/cache global. Aturan transaksi spesifik domain tetap berada di service terkait; jangan menambah
+ * query atau cache kedua hanya untuk memperoleh data referensi yang sudah dikelola kelas ini.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code String NO_URUT}, {@code Integer
+ * UKURAN_BATAS_MOBILE}, {@code Integer JUMLAH_DIGIT_DIBELAKANG_KOMA}, {@code JenisEvaluasi EvaluasiAkademik},
+ * {@code JenisEvaluasi AktivitasPartisipatif}, {@code JenisEvaluasi HasilProyek}, {@code JenisEvaluasi
+ * KognitifPengetahuan}, {@code JenisEvaluasi Tugas}; inisialisasi/lifecycle ({@code initJumlahTahapan()}, {@code
+ * initPembobotanNilai()}, {@code initKehadiran()}, {@code shouldStartInitData()}, {@code startInitDataAsync()},
+ * {@code reInitDataDiMemory()}); pembacaan/pencarian ({@code getJumlahTahapan()}, {@code simpleList()}, {@code
+ * simpleList()}, {@code ambilBanyak()}, {@code ambilByNim()}, {@code ambilByNis()}); validasi/perhitungan
+ * ({@code checkStaff()}); penghapusan/pembatalan ({@code hapus()}); operasi domain lain ({@code
+ * openReadOnlySession()}, {@code closeOpenedSession()}, {@code classExist()}, {@code classExist()}, {@code
+ * simpleObject()}, {@code simpleObject()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface
+ * yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> method inisialisasi/reload mengubah state statis bersama dan dapat membuka session
+ * read-only atau menjalankan pekerjaan asinkron; method hapus tertentu juga memodifikasi data/cache. Akses harus
+ * mempertimbangkan startup dan konkurensi, serta tidak membawa session request ke thread inisialisasi.</p>
+ */
 public class ConstantValues {
 
 	private static Session openReadOnlySession() {

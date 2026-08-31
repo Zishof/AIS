@@ -65,6 +65,22 @@ import ais.ui.util.MyDoublebox;
 import ais.ui.util.MyDoubleboxMin;
 import ais.ui.util.MyMessageboxConfig;
 
+/**
+ * Helper integrasi bank untuk bni common. Kelas ini memusatkan format request/response, koneksi,
+ * validasi, dan pencatatan khusus bank agar adapter pembayaran tidak menggandakan protokol.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah pembacaan/pencarian ({@code ambilInfoTeknisTerakhir()}); mutasi
+ * data ({@code onSaveBni()}, {@code onSaveBni()}, {@code onSaveBni()}); operasi domain lain ({@code
+ * createButton()}, {@code populateDetailBiaya()}, {@code populateBniRequestDetailDariDetailBiaya()}, {@code
+ * populateBniRequestDetail()}, {@code populateBniRequestDetail()}, {@code bayarCalonMahasiswa()}). Bagian lain
+ * dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> sesuai operasi yang dipanggil, utilitas dapat mengubah komponen UI, membaca/menulis
+ * persistence atau berkas, dan memanggil layanan lain. Gunakan method kanonik di kelas ini melalui konteks
+ * request/transaksi yang tepat, bukan menyalin implementasinya.</p>
+ */
 public class BniCommon {
 
 	public static MyButtonConfig createButton() {

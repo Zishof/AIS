@@ -48,6 +48,22 @@ import ais.database.model.surat.SuratMasuk;
 // import ais.database.model.*; 
 // import ais.util.*;
 
+/**
+ * Utilitas bersama AIS untuk manajemen property. Kelas ini mengonsolidasikan operasi lintas
+ * layar/service yang benar-benar satu domain agar pemanggil tidak membuat helper dengan fungsi
+ * paralel.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code String IMAGE_EXTENSIONS};
+ * pembacaan/pencarian ({@code getKey()}); operasi domain lain ({@code safeToString()}, {@code insertProperty()},
+ * {@code isImageFile()}, {@code formatDate()}, {@code formatNumber()}, {@code processSignature()}). Bagian lain
+ * dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> sesuai operasi yang dipanggil, utilitas dapat mengubah komponen UI, membaca/menulis
+ * persistence atau berkas, dan memanggil layanan lain. Gunakan method kanonik di kelas ini melalui konteks
+ * request/transaksi yang tepat, bukan menyalin implementasinya.</p>
+ */
 public class ManajemenProperty {
 
 	private static final String[] IMAGE_EXTENSIONS = { ".jpg", ".png", ".jpeg", ".gif", ".tif", ".bmp" };

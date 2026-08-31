@@ -25,6 +25,22 @@ import ais.database.model.Tbmrole;
 // import com.yourpackage.RolePrivilage;
 // import com.yourpackage.ConstantValues; 
 
+/**
+ * Helper menu dan privilege untuk menu initializer. Tipe ini membentuk navigasi berdasarkan hak
+ * pengguna dan menjadi satu sumber pemeriksaan tampilan menu agar action tidak menyusun kebijakan
+ * sendiri.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah inisialisasi/lifecycle ({@code initMenus()}); pembacaan/pencarian
+ * ({@code addPrivilegeToRoles()}); operasi domain lain ({@code createMenu()}, {@code createMenu()}, {@code
+ * ensureSiswaRoleAndPrivileges()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang
+ * disebut di atas.</p>
+ * <p><b>Efek samping:</b> sesuai operasi yang dipanggil, utilitas dapat mengubah komponen UI, membaca/menulis
+ * persistence atau berkas, dan memanggil layanan lain. Gunakan method kanonik di kelas ini melalui konteks
+ * request/transaksi yang tepat, bukan menyalin implementasinya.</p>
+ */
 public class MenuInitializer {
 
 	public static void initMenus(Session session) {

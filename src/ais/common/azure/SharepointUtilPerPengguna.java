@@ -58,6 +58,25 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Adapter layanan eksternal/per-pengguna untuk sharepoint util per pengguna. Tipe ini membungkus
+ * autentikasi, client API, dan mapping data layanan tersebut agar detail integrasi tidak disalin
+ * ke action pemanggil.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code String DRIVE_PATH}, {@code String
+ * APPLICATION_NAME}, {@code FileDataStoreFactory dataStoreFactory}, {@code HttpTransport httpTransport}, {@code
+ * JsonFactory JSON_FACTORY}, {@code String username}, {@code Drive drive}, {@code java.io.File file}; mutasi
+ * data ({@code prosesBackup()}, {@code prosesBackup()}); operasi domain lain ({@code kirimBackupLangsung()},
+ * {@code kirimBackupLangsung()}, {@code displayLink()}); konfigurasi constructor: {@code dataStoreFactory},
+ * {@code file}, {@code httpTransport}, {@code lokasi}, {@code username}. Bagian lain dari kontrak tetap
+ * mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> operasi dapat membaca kredensial per pengguna, melakukan I/O jaringan, menyegarkan
+ * token, atau memetakan data remote. Jangan membagikan client/token antar pengguna; gunakan adapter ini sebagai
+ * satu batas integrasi dan tangani kegagalan layanan luar.</p>
+ */
 public class SharepointUtilPerPengguna {
 	
 	

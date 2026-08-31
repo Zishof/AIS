@@ -16,6 +16,22 @@ import ais.database.model.Perkuliahan;
 import ais.database.model.Program;
 import ais.database.model.Tbmuser;
 
+/**
+ * Utilitas bersama AIS untuk common penjadwalan. Kelas ini mengonsolidasikan operasi lintas
+ * layar/service yang benar-benar satu domain agar pemanggil tidak membuat helper dengan fungsi
+ * paralel.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah pembacaan/pencarian ({@code getKonfigurasi()}); operasi domain
+ * lain ({@code apakahPenjadwalanTidakAktif()}, {@code apakahPenjadwalanTidakAktif()}, {@code
+ * apakahPenjadwalanTidakAktif()}, {@code statusLingkupKalenderAkademik()}, {@code jumlah()}). Bagian lain dari
+ * kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> sesuai operasi yang dipanggil, utilitas dapat mengubah komponen UI, membaca/menulis
+ * persistence atau berkas, dan memanggil layanan lain. Gunakan method kanonik di kelas ini melalui konteks
+ * request/transaksi yang tepat, bukan menyalin implementasinya.</p>
+ */
 public class CommonPenjadwalan {
 
 	public static Konfigurasi getKonfigurasi(String tahunAkademik, String jenisSemester, Integer semesterPendek) {

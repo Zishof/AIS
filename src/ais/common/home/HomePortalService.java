@@ -4,6 +4,25 @@ import javax.servlet.http.HttpServletRequest;
 
 import ais.common.Common;
 
+/**
+ * Penyusun {@link HomePortalViewModel} untuk beranda aplikasi dan website resmi institusi. Service ini
+ * menggabungkan konfigurasi section, resolver link, identitas/jenis institusi, terminologi, konten, layanan
+ * digital, tautan aplikasi, dan SEO menjadi satu model siap-render.
+ *
+ * <p>{@link #build(HttpServletRequest)} memakai namespace konfigurasi {@code home_v3};
+ * {@link #buildWebsite(HttpServletRequest)} memakai {@code website_v4} agar pengaturan presentasi website tidak
+ * tercampur dengan beranda aplikasi. Variasi kampus, sekolah/yayasan, dan fasilitas kesehatan diselesaikan di
+ * sini sehingga renderer tidak perlu mengulang percabangan institusi.</p>
+ *
+ * <p><b>Batas tanggung jawab:</b> pengambilan konten tetap didelegasikan ke {@link HomePortalContentService},
+ * pembacaan konfigurasi ke {@link HomePortalSectionResolver}, dan normalisasi link ke
+ * {@link HomePortalLinkResolver}. Tambahkan aturan komposisi portal pada service ini, bukan pada JSP/action
+ * terpisah, agar section, URL kanonik, dan fallback tidak memiliki implementasi paralel.</p>
+ *
+ * <p><b>Efek samping:</b> setiap pemanggilan membentuk view model baru dan membaca konfigurasi/konten melalui
+ * collaborator. Service tidak menyimpan token pengguna atau melakukan autentikasi layanan eksternal; request
+ * hanya dipakai untuk context path, URL kanonik, dan identitas institusi.</p>
+ */
 public class HomePortalService {
     private final HomePortalSectionResolver config = new HomePortalSectionResolver();
     private final HomePortalLinkResolver links = new HomePortalLinkResolver();

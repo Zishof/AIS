@@ -49,6 +49,24 @@ import ais.database.model.sekolah.CalonSiswa;
 import ais.database.model.sekolah.Guru;
 import ais.database.model.sekolah.Siswa;
 
+/**
+ * Utilitas berkas/media untuk profile image util. Kelas ini memusatkan resolusi lokasi, stream,
+ * upload/download, atau transformasi media agar aturan penyimpanan dan respons file tidak
+ * tersebar.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah pembacaan/pencarian ({@code targetFotoProfil()}, {@code
+ * tampilkanGambar()}, {@code tampilkanGambarKecil()}, {@code getUrlFotoDariObject()}, {@code
+ * cariFotoCalonDariMahasiswa()}, {@code cariFileFotoLain()}); mutasi data ({@code simpanFotoDariObject()});
+ * operasi domain lain ({@code isProtectedEcampusLampiranUrl()}, {@code escapeAttr()}, {@code
+ * protectedOfficePreviewInfo()}, {@code urlFotoProfil()}, {@code ekstrakEntitasUtama()}, {@code preview()}).
+ * Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> sesuai operasi yang dipanggil, utilitas dapat mengubah komponen UI, membaca/menulis
+ * persistence atau berkas, dan memanggil layanan lain. Gunakan method kanonik di kelas ini melalui konteks
+ * request/transaksi yang tepat, bukan menyalin implementasinya.</p>
+ */
 public class ProfileImageUtil {
 
 	private static final class TargetFotoProfil {

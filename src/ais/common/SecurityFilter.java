@@ -35,6 +35,28 @@ import ais.database.model.sekolah.Siswa;
 import ais.database.model.sisdes.Penduduk;
 import nl.captcha.Captcha;
 
+/**
+ * Filter keamanan HTTP untuk security filter. Komponen ini memeriksa request/session sebelum akses
+ * diteruskan ke aplikasi dan harus tetap menjadi satu titik kebijakan autentikasi pada jalur yang
+ * dilindungi.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * GenericFilterBean}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Map dataLogin}, {@code Map dataOnline};
+ * pembacaan/pencarian ({@code getCurrentFromSpringUser()}, {@code getCurrentFromSpringUser()}, {@code
+ * getCurrentFromUsername()}, {@code getCurrentFromUsername()}, {@code getActiveRequest()}, {@code
+ * findPesertaKursusByEntity()}); mutasi data ({@code saveOnlineData()}, {@code saveUserToSessions()}); operasi
+ * domain lain ({@code doFilter()}, {@code doingFilter()}, {@code doAutoLogin()}, {@code doAutoLogin()}, {@code
+ * isIdEqual()}, {@code kosong()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang
+ * disebut di atas.</p>
+ * <p><b>Efek samping:</b> callback berjalan pada lifecycle container dan dapat mengubah session, response,
+ * penghitung global, atau resource aplikasi. Implementasi harus thread-safe dan tidak menyimpan data pengguna
+ * request pada field singleton.</p>
+ *
+ * @see GenericFilterBean
+ */
 public class SecurityFilter extends GenericFilterBean {
 
 	// synchronizedMap (bukan HashMap polos): dibaca/ditulis dari banyak thread

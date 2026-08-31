@@ -1,5 +1,30 @@
 package ais.common;
 
+/**
+ * Utilitas bersama AIS untuk init index. Kelas ini mengonsolidasikan operasi lintas layar/service
+ * yang benar-benar satu domain agar pemanggil tidak membuat helper dengan fungsi paralel.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code java.util.Set
+ * NAMA_INDEX_SUDAH_DIPROSES}, {@code java.util.Set SIGNATURE_INDEX_SUDAH_DIPROSES}, {@code Object
+ * KEBIJAKAN_RETUR_PRODUK_LOCK}, {@code int DDL_PARALEL_THREAD}, {@code java.util.concurrent.ExecutorService
+ * DDL_POOL}, {@code java.util.List DDL_FUTURES}, {@code String TABEL_HIBERNATE_STREAMING}, {@code boolean
+ * MODE_INDEX_POSTGRES_LAMA_TANPA_INCLUDE}; inisialisasi/lifecycle ({@code
+ * initIndexPerpustakaanCoverDanPmbKuota()}, {@code initIndexPmbPortalDanNomorUjianSuperFast()}, {@code
+ * initIndexDashboardStatistikPmbSuperFast()}, {@code initAlterTableParameterTambahanAngketUmum()}, {@code
+ * initDropConstraintNoRegistrasiBiodataCalonMahasiswa()}, {@code initKonsolidasiEbisnisMenuTbmrole()});
+ * pembacaan/pencarian ({@code ambilNamaIndex()}, {@code ambilSignatureIndex()}, {@code cariTutupKurungSql()});
+ * validasi/perhitungan ({@code bolehEksekusiSqlIndex()}); penghapusan/pembatalan ({@code
+ * hapusIncludeIndexPostgresLama()}); operasi domain lain ({@code submitDdl()}, {@code tungguSemuaDdlSelesai()},
+ * {@code normalisasiSqlIndex()}, {@code isKarakterTokenSql()}, {@code indexOfKataIgnoreCase()}, {@code
+ * sqlKompatibelPostgresLama()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang
+ * disebut di atas.</p>
+ * <p><b>Efek samping:</b> sesuai operasi yang dipanggil, utilitas dapat mengubah komponen UI, membaca/menulis
+ * persistence atau berkas, dan memanggil layanan lain. Gunakan method kanonik di kelas ini melalui konteks
+ * request/transaksi yang tepat, bukan menyalin implementasinya.</p>
+ */
 public class InitIndex {
 
 	private static final java.util.Set<String> NAMA_INDEX_SUDAH_DIPROSES = java.util.Collections

@@ -42,6 +42,27 @@ import ais.ui.util.MyCkEditor;
 import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Utilitas bersama AIS untuk init combo util. Kelas ini mengonsolidasikan operasi lintas
+ * layar/service yang benar-benar satu domain agar pemanggil tidak membuat helper dengan fungsi
+ * paralel.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah inisialisasi/lifecycle ({@code initFakultasDanJurusan()}, {@code
+ * initFakultasDanJurusanDanSemua()}, {@code initFakultasDanJurusanDanSemua()}, {@code
+ * initYayasanDanSekolahDanSemua()}, {@code initYayasanDanSekolahDanSemua()}, {@code initJurusanDanSemua()});
+ * pembacaan/pencarian ({@code getFakultasUser()}, {@code getJurusanUser()}, {@code getYayasanUser()}, {@code
+ * getSekolahUser()}, {@code getAktifCriterion()}, {@code getPTCriterion()}); mutasi data ({@code
+ * setReadonlySafe()}, {@code setDisabledSafe()}); operasi domain lain ({@code hideComboAndParent()}, {@code
+ * showComboAndParent()}, {@code clearComboSafe()}, {@code selectComboSafe()}, {@code
+ * autoSelectSingleRealItem()}, {@code insertJurusanByFakultas()}). Bagian lain dari kontrak tetap mengikuti
+ * kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> sesuai operasi yang dipanggil, utilitas dapat mengubah komponen UI, membaca/menulis
+ * persistence atau berkas, dan memanggil layanan lain. Gunakan method kanonik di kelas ini melalui konteks
+ * request/transaksi yang tepat, bukan menyalin implementasinya.</p>
+ */
 public class InitComboUtil {
 
 	// ========================================================================

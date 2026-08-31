@@ -6,6 +6,19 @@ import java.util.List;
 import net.objecthunter.exp4j.function.Function;
 import net.objecthunter.exp4j.operator.Operator;
 
+/**
+ * Utilitas bersama AIS untuk logical util. Kelas ini mengonsolidasikan operasi lintas
+ * layar/service yang benar-benar satu domain agar pemanggil tidak membuat helper dengan fungsi
+ * paralel.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Function IF}, {@code Function UPPER},
+ * {@code Function LOWER}, {@code Function PEMBULATAN}, {@code Function ROUNDUP1000}, {@code Function
+ * ROUNDDOWN1000}, {@code Operator GT}, {@code Operator EQ}. Bagian lain dari kontrak tetap mengikuti kelas induk
+ * atau interface yang disebut di atas.</p>
+ */
 public class LogicalUtil {
 
 	/**

@@ -39,6 +39,24 @@ import ais.database.model.sekolah.Sekolah;
 import ais.database.model.sekolah.Siswa;
 import ais.database.model.sekolah.Yayasan;
 
+/**
+ * Generator UI dinamis untuk jsp curd generator. Kelas ini menerjemahkan metadata/konfigurasi
+ * menjadi form, tabel, tab, atau wizard sehingga action tidak membangun ulang struktur komponen
+ * yang sama.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah pembacaan/pencarian ({@code renderUploadFile()}, {@code
+ * renderUploadFile()}, {@code renderUploadFile()}, {@code uploadFile()}); validasi/perhitungan ({@code
+ * validation()}); pelaporan/ekspor ({@code renderText()}); operasi domain lain ({@code parseDateSafe()}, {@code
+ * textEditor()}, {@code generateSingleInput()}, {@code pilihanValSemuaWizard()}, {@code pilihanValSemuaTab()},
+ * {@code pilihanValSemua()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut
+ * di atas.</p>
+ * <p><b>Efek samping:</b> operasi membuat/mengubah komponen UI dan dapat membaca metadata atau data persistence.
+ * Jalankan dengan desktop/session aktif dan gunakan generator ini sebagai satu sumber struktur dinamis, bukan
+ * menyalin konstruksi widget ke action.</p>
+ */
 public class JSPCurdGenerator {
 
 	// --- HELPER METHODS UNTUK MENGURANGI DUPLIKASI ---

@@ -24,6 +24,21 @@ import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
 import ais.database.model.sekolah.Sekolah;
 
+/**
+ * Helper menu dan privilege untuk common menu. Tipe ini membentuk navigasi berdasarkan hak
+ * pengguna dan menjadi satu sumber pemeriksaan tampilan menu agar action tidak menyusun kebijakan
+ * sendiri.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah pembacaan/pencarian ({@code loadTreeDynamicReport()}, {@code
+ * loadTree()}); operasi domain lain ({@code generateMenuHtml()}, {@code child()}, {@code buildMenuItem()}).
+ * Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> sesuai operasi yang dipanggil, utilitas dapat mengubah komponen UI, membaca/menulis
+ * persistence atau berkas, dan memanggil layanan lain. Gunakan method kanonik di kelas ini melalui konteks
+ * request/transaksi yang tepat, bukan menyalin implementasinya.</p>
+ */
 public class CommonMenu {
 
 	@SuppressWarnings("unchecked")

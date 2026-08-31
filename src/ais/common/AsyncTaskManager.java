@@ -12,6 +12,22 @@ import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zk.ui.util.Clients;
 import org.zkoss.zul.Label;
 
+/**
+ * Pengelola eksekusi tugas asinkron bersama AIS. Kelas ini memusatkan executor, antrean, penamaan
+ * thread, timeout, dan shutdown agar modul tidak membuat thread pool tanpa lifecycle yang seragam.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code ExecutorService EXECUTOR}, {@code
+ * String PUSH_REFCOUNT_ATTR}; pembacaan/pencarian ({@code getBahasaConfig()}, {@code tampilErrorJikaAdmin()});
+ * operasi domain lain ({@code shutdown()}, {@code increfServerPush()}, {@code decrefServerPush()}, {@code
+ * statistikPool()}, {@code tambahPush()}, {@code lepasPush()}). Bagian lain dari kontrak tetap mengikuti kelas
+ * induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> operasi menjadwalkan pekerjaan pada thread lain dan mengelola lifecycle executor
+ * global. Tugas tidak boleh membawa session Hibernate/ZK request lintas thread; shutdown harus dipanggil saat
+ * aplikasi berhenti agar thread tidak bocor.</p>
+ */
 public class AsyncTaskManager {
 
 	// Thread Pool global untuk tugas latar (banyak di antaranya membuka koneksi DB).

@@ -2,6 +2,20 @@ package ais.common;
 
 import java.text.DecimalFormat;
 
+/**
+ * Konverter angka menjadi teks untuk english number to words. Utilitas ini menjadi implementasi
+ * kanonik format terbilang agar laporan, kuitansi, dan UI menghasilkan ejaan yang konsisten.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code String tensNames}, {@code String
+ * numNames}; operasi domain lain ({@code convertLessThanOneThousand()}, {@code convert()}, {@code main()}).
+ * Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> operasi bekerja pada input/state di memori dan tidak membuka session, melakukan I/O
+ * jaringan, atau menulis berkas. Pertahankan utilitas ini deterministik agar aman dipakai ulang oleh laporan dan
+ * UI.</p>
+ */
 public class EnglishNumberToWords {
 
 	private static final String[] tensNames = { "", " ten", " twenty", " thirty", " forty", " fifty", " sixty",

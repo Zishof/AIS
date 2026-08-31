@@ -24,6 +24,23 @@ import ais.database.model.sekolah.Sekolah;
 import ais.database.model.sekolah.Siswa;
 import ais.database.model.sekolah.Yayasan;
 
+/**
+ * Helper terfokus untuk detail jenis shift pegawai. Tipe ini membungkus satu variasi kecil dari
+ * alur yang lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan
+ * implementasi.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah pembacaan/pencarian ({@code getJenisShiftPunyaPegawai()}, {@code
+ * getDetailJenisShiftPegawai()}, {@code findDetailShift()}, {@code getJspIds()}, {@code getDefaultShiftIds()});
+ * operasi domain lain ({@code shiftDetail()}, {@code applyOwnerRestriction()}, {@code
+ * applyActiveAndDateRestrictions()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang
+ * disebut di atas.</p>
+ * <p><b>Efek samping:</b> sesuai operasi yang dipanggil, utilitas dapat mengubah komponen UI, membaca/menulis
+ * persistence atau berkas, dan memanggil layanan lain. Gunakan method kanonik di kelas ini melalui konteks
+ * request/transaksi yang tepat, bukan menyalin implementasinya.</p>
+ */
 public class DetailJenisShiftPegawaiHelper {
 
 	public static JenisShiftPunyaPegawai getJenisShiftPunyaPegawai(Session session, Pegawai pegawai,

@@ -17,6 +17,23 @@ import org.hibernate.Transaction;
 
 import ais.database.hibernate.StreamingHibernateUtil;
 
+/**
+ * Utilitas berkas/media untuk common file util. Kelas ini memusatkan resolusi lokasi, stream,
+ * upload/download, atau transformasi media agar aturan penyimpanan dan respons file tidak
+ * tersebar.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code long MINIMUM_FREE_BYTES}, {@code
+ * AtomicLong increments}; pembacaan/pencarian ({@code getCreateRandomFile()}); operasi domain lain ({@code
+ * ensureWritableFile()}, {@code cleanupStaleTempFiles()}, {@code fastChannelCopy()}, {@code
+ * writeInputStreamToFile()}, {@code writeBlobToFile()}). Bagian lain dari kontrak tetap mengikuti kelas induk
+ * atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> sesuai operasi yang dipanggil, utilitas dapat mengubah komponen UI, membaca/menulis
+ * persistence atau berkas, dan memanggil layanan lain. Gunakan method kanonik di kelas ini melalui konteks
+ * request/transaksi yang tepat, bukan menyalin implementasinya.</p>
+ */
 public class CommonFileUtil {
 	private static final long MINIMUM_FREE_BYTES = 20L * 1024L * 1024L;
 

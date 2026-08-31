@@ -17,6 +17,23 @@ import ais.database.model.Program;
 import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
 
+/**
+ * Generator UI dinamis untuk dynamic table multi tab json generator. Kelas ini menerjemahkan
+ * metadata/konfigurasi menjadi form, tabel, tab, atau wizard sehingga action tidak membangun ulang
+ * struktur komponen yang sama.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah pembacaan/pencarian ({@code load()}); mutasi data ({@code
+ * jsonArrayToSet()}, {@code save()}); pelaporan/ekspor ({@code render()}); operasi domain lain ({@code
+ * generateWizardTable()}, {@code jsonArrayToStringArray()}, {@code jsonArrayToStringMatrix()}, {@code
+ * generateWizardTableLogic()}, {@code paging()}, {@code modal()}). Bagian lain dari kontrak tetap mengikuti
+ * kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> operasi membuat/mengubah komponen UI dan dapat membaca metadata atau data persistence.
+ * Jalankan dengan desktop/session aktif dan gunakan generator ini sebagai satu sumber struktur dinamis, bukan
+ * menyalin konstruksi widget ke action.</p>
+ */
 public class DynamicTableMultiTabJsonGenerator {
 
     /**

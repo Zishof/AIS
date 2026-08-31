@@ -12,6 +12,23 @@ import ais.database.model.LogLogin;
 import ais.database.model.OnlineUsers;
 import ais.database.model.Tbmuser;
 
+/**
+ * Listener lifecycle aplikasi/web untuk session counter. Tipe ini bereaksi terhadap startup,
+ * session, atau logout dan mengelola state global terkait tanpa mengambil alih aturan bisnis
+ * request.
+ *
+ * <p><b>Batas tanggung jawab:</b> tipe ini mendeklarasikan kontrak {@link HttpSessionListener}. Implementasi
+ * konkret bertanggung jawab atas transaksi, resource, error handling, dan efek samping; pemanggil sebaiknya
+ * bergantung pada kontrak ini agar tidak menggandakan integrasi.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code boolean LOG_VERBOSE}, {@code int
+ * SESSION_POOL_SIZE}, {@code java.util.concurrent.ExecutorService SESSION_POOL}; inisialisasi/lifecycle ({@code
+ * initSessionTimeout()}); operasi domain lain ({@code logSesi()}, {@code sessionCreated()}, {@code
+ * sessionDestroyed()}, {@code hentikanPool()}, {@code bersihkanRegistryPerUser()}). Bagian lain dari kontrak
+ * tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> callback berjalan pada lifecycle container dan dapat mengubah session, response,
+ * penghitung global, atau resource aplikasi. Implementasi harus thread-safe dan tidak menyimpan data pengguna
+ * request pada field singleton.</p>
+ */
 public class SessionCounter implements HttpSessionListener {
 
 	// Log verbose banner sesi (SESSION CREATED/DESTROYED/TUTUP). DEFAULT MATI: dulu tiap create/destroy

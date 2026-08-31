@@ -37,6 +37,25 @@ import ais.database.model.sekolah.Sekolah;
 import ais.database.model.sekolah.Siswa;
 import ais.database.model.sisdes.Penduduk;
 
+/**
+ * Filter keamanan HTTP untuk filter login ais. Komponen ini memeriksa request/session sebelum
+ * akses diteruskan ke aplikasi dan harus tetap menjadi satu titik kebijakan autentikasi pada jalur
+ * yang dilindungi.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code PerguruanTinggi perguruanTinggi},
+ * {@code Sekolah sekolah}; pembacaan/pencarian ({@code getFromCacheSafe()}, {@code getUserFromCacheSafe()},
+ * {@code getClientIp()}, {@code saveLoginAndCheckBlacklist()}); validasi/perhitungan ({@code
+ * isSatuanKerjaValid()}, {@code checkBlokirDanKuotaDosen()}, {@code checkBlokirDanKuotaSiswa()}, {@code
+ * checkBlokirDanKuotaMahasiswa()}); operasi domain lain ({@code doingFilter()}, {@code sanitizeCookieValue()},
+ * {@code closeSessionSafely()}, {@code forwardError()}). Bagian lain dari kontrak tetap mengikuti kelas induk
+ * atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> callback berjalan pada lifecycle container dan dapat mengubah session, response,
+ * penghitung global, atau resource aplikasi. Implementasi harus thread-safe dan tidak menyimpan data pengguna
+ * request pada field singleton.</p>
+ */
 public class FilterLoginAis { // Sesuaikan nama class dengan implementasi Anda
 
 	public static PerguruanTinggi perguruanTinggi = null;

@@ -7,6 +7,21 @@ import org.hibernate.metadata.ClassMetadata;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.GeneralValueObject;
 
+/**
+ * Generator UI dinamis untuk dynamic form tab generator. Kelas ini menerjemahkan
+ * metadata/konfigurasi menjadi form, tabel, tab, atau wizard sehingga action tidak membangun ulang
+ * struktur komponen yang sama.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah operasi domain lain ({@code generateForm()}, {@code
+ * generateForm()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
+ * atas.</p>
+ * <p><b>Efek samping:</b> operasi membuat/mengubah komponen UI dan dapat membaca metadata atau data persistence.
+ * Jalankan dengan desktop/session aktif dan gunakan generator ini sebagai satu sumber struktur dinamis, bukan
+ * menyalin konstruksi widget ke action.</p>
+ */
 public class DynamicFormTabGenerator {
 
 	/**
