@@ -299,4 +299,21 @@ public class PembagianShu extends ais.database.model.GeneralValueObject {
 	public String toString() {
 		return "SHU " + getTahun() + " - " + getTotalShu();
 	}
+
+	private ais.database.model.akunting.PostingHistory postingHistory;
+
+	/**
+	 * Riwayat posting jurnal pembagian SHU (dok 61 butir B): terisi begitu mesin
+	 * {@code PostingDanaAnggotaUtil} memecah SHU ke pos-pos pembagiannya.
+	 */
+	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
+	@javax.persistence.JoinColumn(name = "posting_history", nullable = true)
+	public ais.database.model.akunting.PostingHistory getPostingHistory() {
+		return postingHistory;
+	}
+
+	public void setPostingHistory(ais.database.model.akunting.PostingHistory postingHistory) {
+		this.postingHistory = postingHistory;
+	}
+
 }

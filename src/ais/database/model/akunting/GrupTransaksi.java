@@ -2746,4 +2746,18 @@ public class GrupTransaksi extends GeneralValueObject {
 		this.modalPenyertaanKoperasi = modalPenyertaanKoperasi;
 	}
 
+
+	private ais.database.model.koperasi.PembagianShu pembagianShu;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@Fetch(FetchMode.SELECT)
+	@JoinColumn(name = "pembagian_shu", nullable = true)
+	public ais.database.model.koperasi.PembagianShu getPembagianShu() {
+		return pembagianShu;
+	}
+
+	public void setPembagianShu(ais.database.model.koperasi.PembagianShu pembagianShu) {
+		this.pembagianShu = pembagianShu;
+	}
+
 }

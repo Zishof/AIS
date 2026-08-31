@@ -54,6 +54,28 @@ public final class PostingDanaAnggotaUtil {
     /** Kunci Konfigurasi akun MODAL PENYERTAAN (ekuitas/kewajiban jangka panjang penyerta). */
     public static final String KONF_AKUN_MODAL_PENYERTAAN = "akun_modal_penyertaan_id";
 
+    /** Kunci Konfigurasi akun SHU yang menunggu dibagi (sisi DEBET pemecahan SHU). */
+    public static final String KONF_AKUN_SHU_DITAHAN = "akun_shu_ditahan_id";
+
+    /**
+     * Kunci Konfigurasi tujuh pos pembagian SHU, BERURUTAN sama dengan
+     * {@link #persenShu(ais.database.model.koperasi.PembagianShu)}.
+     */
+    public static final String[] KONF_AKUN_POS_SHU = new String[] {
+            "akun_shu_cadangan_id",
+            "akun_shu_jasa_modal_id",
+            "akun_shu_jasa_usaha_id",
+            "akun_shu_pengurus_id",
+            "akun_shu_pendidikan_id",
+            "akun_shu_sosial_id",
+            "akun_shu_lain_id",
+    };
+
+    /** Nama pos pembagian SHU untuk keterangan jurnal, urutannya sama dgn {@link #KONF_AKUN_POS_SHU}. */
+    private static final String[] NAMA_POS_SHU = new String[] {
+            "Cadangan", "Jasa Modal", "Jasa Usaha", "Pengurus", "Pendidikan", "Sosial", "Lain-lain",
+    };
+
     /** Ambil satu Akun dari Konfigurasi; null bila kunci belum diisi atau akunnya tidak ada. */
     private static Akun akunKonfigurasi(String kunci) {
         try {
@@ -620,6 +642,209 @@ public final class PostingDanaAnggotaUtil {
             }
         } catch (Exception e) {
             ais.common.ErrorAuditUtil.record(e, "PostingDanaAnggotaUtil.batalkan modal");
+        } finally {
+            tutup(session);
+        }
+        return n;
+    }
+
+    // ============================================================================ PEMBAGIAN SHU
+
+    /** Persentase tiap pos, urutannya sama dengan {@link #KONF_AKUN_POS_SHU}. */
+    private static double[] persenShu(ais.database.model.koperasi.PembagianShu shu) {
+        return new double[] {
+                shu.getPersenCadangan() == null ? 0.0 : shu.getPersenCadangan().doubleValue(),
+                shu.getPersenJasaModal() == null ? 0.0 : shu.getPersenJasaModal().doubleValue(),
+                shu.getPersenJasaUsaha() == null ? 0.0 : shu.getPersenJasaUsaha().doubleValue(),
+                shu.getPersenPengurus() == null ? 0.0 : shu.getPersenPengurus().doubleValue(),
+                shu.getPersenPendidikan() == null ? 0.0 : shu.getPersenPendidikan().doubleValue(),
+                shu.getPersenSosial() == null ? 0.0 : shu.getPersenSosial().doubleValue(),
+                shu.getPersenLain() == null ? 0.0 : shu.getPersenLain().doubleValue(),
+        };
+    }
+
+    /** Dokumen pembagian SHU yang sudah DIBAGIKAN dan bernilai. */
+    public static org.hibernate.Criteria kriteriaShuStatic(Session session, Date mulai, Date sampai) {
+        org.hibernate.Criteria c = session.createCriteria(
+                ais.database.model.koperasi.PembagianShu.class)
+                .add(Restrictions.eq("status",
+                        ais.database.model.koperasi.PembagianShu.STATUS_DIBAGIKAN))
+                .add(Restrictions.isNotNull("totalShu"))
+                .add(Restrictions.ne("totalShu", 0.0));
+        batasiTanggal(c, "this_.tanggal_rat", mulai, sampai);
+        return c;
+    }
+
+    /**
+     * Jurnal pemecahan SHU: <b>Dr</b> akun SHU ditahan sebesar total, <b>Cr</b> tiap pos pembagian
+     * sebesar persentasenya.
+     *
+     * <p><b>Dua penjagaan yang sengaja ketat, karena jurnal tidak boleh pincang.</b></p>
+     * <ol>
+     * <li>Persentase seluruh pos WAJIB berjumlah 100 (toleransi 0,01). Bila tidak, dokumen
+     * dilewati UTUH — mengalokasikan sisa persentase ke salah satu pos akan mengarang kebijakan
+     * pembagian yang tidak pernah diputuskan RAT.</li>
+     * <li>Setiap pos berpersentase ≠ 0 WAJIB sudah punya akun. Bila ada satu saja yang belum,
+     * dokumen dilewati UTUH — bukan dijurnal sebagian, karena jurnal sebagian pasti tidak
+     * seimbang.</li>
+     * </ol>
+     *
+     * <p>Pembulatan: tiap pos dibulatkan ke rupiah penuh, lalu selisih pembulatan dibebankan ke
+     * pos BERNILAI TERBESAR sehingga total kredit persis sama dengan total debet.</p>
+     */
+    public static int postingSemuaShu(Date mulai, Date sampai, Tbmuser oleh, Date tglPosting) {
+        int n = 0;
+        Session session = ais.database.hibernate.HibernateUtil.currentNativeSession();
+        try {
+            List<?> daftar = kriteriaShuStatic(session, mulai, sampai)
+                    .add(Restrictions.isNull("postingHistory")).list();
+            if (daftar.isEmpty()) {
+                return 0;
+            }
+            Akun akunDitahan = akunKonfigurasi(KONF_AKUN_SHU_DITAHAN);
+            if (akunDitahan == null) {
+                laporkanKonfigurasiKosong(KONF_AKUN_SHU_DITAHAN, "jurnal pembagian SHU");
+                return 0;
+            }
+
+            PostingHistory ph = buatRiwayat(session, PostingHistory.JENIS_PEMBAGIAN_SHU, oleh,
+                    tglPosting, mulai, sampai, "Posting massal pembagian SHU dari dasbor jurnal");
+
+            for (Object o : daftar) {
+                ais.database.model.koperasi.PembagianShu shu =
+                        (ais.database.model.koperasi.PembagianShu) o;
+                if (shu == null) {
+                    continue;
+                }
+                try {
+                    Double total = shu.getTotalShu();
+                    if (total == null || total == 0.0) {
+                        continue;
+                    }
+                    double[] persen = persenShu(shu);
+                    double jumlahPersen = 0.0;
+                    for (int i = 0; i < persen.length; i++) {
+                        jumlahPersen += persen[i];
+                    }
+                    if (Math.abs(jumlahPersen - 100.0) > 0.01) {
+                        ais.common.ErrorAuditUtil.record(new IllegalStateException(
+                                "Pembagian SHU tahun " + shu.getTahun() + ": persentase pos berjumlah "
+                                        + jumlahPersen + ", bukan 100 -- dokumen dilewati agar jurnal"
+                                        + " tidak pincang."), "PostingDanaAnggotaUtil SHU");
+                        continue;
+                    }
+
+                    // Kumpulkan pos bernilai + akunnya; satu pos tanpa akun membatalkan dokumen.
+                    List<Akun> akunPos = new java.util.ArrayList<Akun>();
+                    List<Double> nilaiPos = new java.util.ArrayList<Double>();
+                    List<String> namaPos = new java.util.ArrayList<String>();
+                    boolean lengkap = true;
+                    double terkumpul = 0.0;
+                    for (int i = 0; i < persen.length; i++) {
+                        if (persen[i] == 0.0) {
+                            continue;
+                        }
+                        Akun a = akunKonfigurasi(KONF_AKUN_POS_SHU[i]);
+                        if (a == null) {
+                            laporkanKonfigurasiKosong(KONF_AKUN_POS_SHU[i],
+                                    "jurnal pembagian SHU pos " + NAMA_POS_SHU[i]);
+                            lengkap = false;
+                            break;
+                        }
+                        double nilai = Math.round(total.doubleValue() * persen[i] / 100.0);
+                        akunPos.add(a);
+                        nilaiPos.add(Double.valueOf(nilai));
+                        namaPos.add(NAMA_POS_SHU[i]);
+                        terkumpul += nilai;
+                    }
+                    if (!lengkap || akunPos.isEmpty()) {
+                        continue;
+                    }
+
+                    // Selisih pembulatan dibebankan ke pos bernilai terbesar.
+                    double selisih = total.doubleValue() - terkumpul;
+                    if (selisih != 0.0) {
+                        int terbesar = 0;
+                        for (int i = 1; i < nilaiPos.size(); i++) {
+                            if (nilaiPos.get(i).doubleValue() > nilaiPos.get(terbesar).doubleValue()) {
+                                terbesar = i;
+                            }
+                        }
+                        nilaiPos.set(terbesar,
+                                Double.valueOf(nilaiPos.get(terbesar).doubleValue() + selisih));
+                    }
+
+                    StringBuilder rincian = new StringBuilder();
+                    for (int i = 0; i < namaPos.size(); i++) {
+                        if (i > 0) {
+                            rincian.append(", ");
+                        }
+                        rincian.append(namaPos.get(i)).append(" ")
+                                .append(Common.numberFormat.get().format(nilaiPos.get(i)));
+                    }
+                    String ket = "Pembagian SHU tahun " + shu.getTahun() + " senilai "
+                            + Common.numberFormat.get().format(total) + " ke " + akunPos.size()
+                            + " pos: " + rincian;
+
+                    session = ais.database.hibernate.HibernateUtil.currentNativeSession();
+                    session.getTransaction().begin();
+                    boolean tersimpan = ais.action.master.akunting.util.CommonAkunting.saveTransaksi(
+                            new Akun[] { akunDitahan },
+                            akunPos.toArray(new Akun[akunPos.size()]), null, null, ph, true, ket,
+                            shu.getTanggalRat(), new Double[] { total },
+                            nilaiPos.toArray(new Double[nilaiPos.size()]), 0.0, shu, null, session);
+                    if (tersimpan) {
+                        shu.setPostingHistory(ph);
+                        session.update(shu);
+                        session.getTransaction().commit();
+                        n++;
+                    } else {
+                        session.getTransaction().rollback();
+                    }
+                } catch (Exception e) {
+                    balikkan(session);
+                    ais.common.ErrorAuditUtil.record(e, "PostingDanaAnggotaUtil SHU jalur API");
+                }
+            }
+
+            if (n == 0) {
+                hapusRiwayatKosong(ph);
+            }
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "PostingDanaAnggotaUtil.postingSemua SHU");
+        } finally {
+            tutup(session);
+        }
+        return n;
+    }
+
+    public static int batalkanPostingSemuaShu(Date mulai, Date sampai) {
+        int n = 0;
+        Session session = ais.database.hibernate.HibernateUtil.currentNativeSession();
+        try {
+            List<?> daftar = kriteriaShuStatic(session, mulai, sampai)
+                    .add(Restrictions.isNotNull("postingHistory")).list();
+            for (Object o : daftar) {
+                ais.database.model.koperasi.PembagianShu shu =
+                        (ais.database.model.koperasi.PembagianShu) o;
+                if (shu == null) {
+                    continue;
+                }
+                try {
+                    session = ais.database.hibernate.HibernateUtil.currentNativeSession();
+                    session.getTransaction().begin();
+                    hapusJurnal(session, "pembagian_shu", shu.getId());
+                    shu.setPostingHistory(null);
+                    session.update(shu);
+                    session.getTransaction().commit();
+                    n++;
+                } catch (Exception e) {
+                    balikkan(session);
+                    ais.common.ErrorAuditUtil.record(e, "PostingDanaAnggotaUtil batal SHU");
+                }
+            }
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "PostingDanaAnggotaUtil.batalkan SHU");
         } finally {
             tutup(session);
         }
