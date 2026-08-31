@@ -57,6 +57,30 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.action.master.helper.FilterLanjutHelper;
 
+/**
+ * Composer ZK ({@link GenericAutowireComposer}) untuk mengelola {@link RencanaTahunAkademik}
+ * (periode/tahun akademik yang berlaku, per skema kampus atau sekolah): daftar rencana dalam
+ * grid berpencarian dengan filter berlapis (fakultas/jurusan untuk mode perguruan tinggi, atau
+ * yayasan/sekolah untuk mode sekolah — mode ditentukan otomatis lewat {@link #initModeAplikasi()}),
+ * form tambah/ubah lengkap (nama/semester, rentang tanggal berlaku dan mulai belajar-mengajar,
+ * lingkup fakultas/jurusan/program/status awal mahasiswa/tahun angkatan atau yayasan/sekolah,
+ * keterangan), serta tab terpisah untuk hari libur nasional.
+ * <p>
+ * <b>Bagian terpenting</b> kelas ini adalah keluarga method statis
+ * {@link #getCurrentRencanaTahunAkademik} yang dipanggil luas di seluruh aplikasi untuk
+ * menentukan rencana tahun akademik "yang berlaku" bagi satu user/konteks pada satu waktu.
+ * Resolusinya berbasis skor kecocokan ({@link #hitungScoreRencana}/{@link #tambahScoreJikaCocok}):
+ * setiap dimensi rencana yang diisi (sekolah, yayasan, fakultas, jurusan, program, status awal
+ * mahasiswa, tahun angkatan) harus cocok dengan konteks user — bila salah satu dimensi yang diisi
+ * rencana TIDAK cocok, rencana tersebut gugur total (skor -1); dimensi yang kosong pada rencana
+ * dianggap "berlaku untuk semua" dan tidak menambah/mengurangi skor. Bobot lebih tinggi diberikan
+ * ke kecocokan yang lebih spesifik (sekolah 1000, yayasan 100, jurusan 90, fakultas 80, program
+ * 40, status awal mahasiswa 30, tahun angkatan 20) sehingga rencana paling spesifik yang cocok
+ * dipilih. Di antara rencana dengan skor sama, yang tanggal mulainya lebih baru dimenangkan
+ * ({@link #lebihBaru}). Hasil query rencana tahun akademik di-cache di {@link Common#rencanaTahunAkademiks}
+ * dan dimuat ulang otomatis bila kosong ({@link #reloadCacheRencanaTahunAkademikJikaKosong}).
+ * </p>
+ */
 public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 
 	private static final long serialVersionUID = -5779730267402400328L;
@@ -98,14 +122,17 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 	private MyToolbarbuttonConfig add;
 	private Tabpanel hariLiburNasional;
 
+	/** Konstruktor default (mode aplikasi/scope ditentukan otomatis saat komposisi ZK selesai). */
 	public RencanaTahunAkademikAction() {
 		this(false);
 	}
 
+	/** Konstruktor dengan mode scope eksplisit: {@code buatsekolah=true} memaksa layar ke mode sekolah (yayasan/sekolah), bukan mode perguruan tinggi (fakultas/jurusan). */
 	public RencanaTahunAkademikAction(boolean buatsekolah) {
 		this.buatsekolah = buatsekolah;
 	}
 
+	/** Memeriksa keamanan sesi ({@link Common#doCheckSecurity()}) sebelum komponen ZK mulai dibangun. */
 	@Override
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page,
 			org.zkoss.zk.ui.Component parent, org.zkoss.zk.ui.metainfo.ComponentInfo compInfo) {
@@ -113,6 +140,7 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		return super.doBeforeCompose(page, parent, compInfo);
 	}
 
+	/** Memvalidasi hak akses baca (redirect ke logoff bila gagal), lalu menyiapkan mode aplikasi, komponen filter, data default tahun akademik, dan memuat data awal grid. */
 	@Override
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
@@ -131,6 +159,7 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 	        FilterLanjutHelper.setup(comp);
 }
 
+	/** Memuat konten tab "Hari Libur Nasional" secara lazy (sekali saja) lewat include ZUL saat tab tersebut pertama kali dibuka. */
 	public void onHariLibur(Event event) {
 		if (hariLiburNasional == null) {
 			return;
@@ -144,6 +173,7 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		}
 	}
 
+	/** Menentukan mode layar (perguruan tinggi/{@code pt} dan/atau yayasan-sekolah/{@code ya}) dari konfigurasi institusi ({@link Common#chekPtAtauSekolah()}), dipaksa ke mode sekolah bila {@link #buatsekolah} true. */
 	private void initModeAplikasi() {
 		boolean[] ptYa = Common.chekPtAtauSekolah();
 		pt = ptYa != null && ptYa.length > 0 && ptYa[0];
@@ -155,6 +185,7 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		}
 	}
 
+	/** Mengisi combobox filter tahun ajaran dan tombol tambah (visibilitas sesuai hak akses dan mode aplikasi). */
 	private void initKomponenAwal() {
 		Common.generateTahunAjaranDanSemua(searchnama);
 
@@ -182,6 +213,7 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 				Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
 	}
 
+	/** Memastikan tersedia rencana tahun akademik default (ganjil dan genap) untuk tahun sebelumnya, tahun berjalan, dan tahun berikutnya, dibuat otomatis bila belum ada. */
 	private void initDataDefaultTahunAkademik() {
 		Session sessionData = HibernateUtil.currentSession();
 		int tahun = ais.ui.util.WaktuUtil.getCalendar().get(Calendar.YEAR);
@@ -190,6 +222,7 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		simpanDefaultTahunAkademikJikaBelumAda(sessionData, tahun + 1);
 	}
 
+	/** Membuat sepasang {@link RencanaTahunAkademik} default (semester ganjil dan genap) untuk {@code tahun}, hanya bila belum ada rencana bernama awalan tahun tersebut. */
 	private void simpanDefaultTahunAkademikJikaBelumAda(Session sessionData, int tahun) {
 		if (sessionData == null) {
 			return;
@@ -223,6 +256,7 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		}
 	}
 
+	/** Mendaftarkan paging grid dan memuat data awal secara asinkron lewat timer default. */
 	private void initPagingDanLoadData() {
 		Common.initPaging(paging, new EventListener() {
 			@Override
@@ -239,6 +273,7 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		});
 	}
 
+	/** Renderer baris grid untuk {@link RencanaTahunAkademik}: nama (dengan tombol riwayat revisi), semester, rentang tanggal berlaku dan mulai belajar-mengajar, lingkup (fakultas/jurusan atau yayasan/sekolah), program, status awal mahasiswa, tahun angkatan, keterangan, dan tombol edit/hapus. */
 	class RencanaTahunAkademikRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -292,6 +327,7 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		}
 	}
 
+	/** Meminta konfirmasi lalu menghapus {@code data}, menampilkan pesan bila gagal karena masih berelasi dengan data lain. */
 	private void konfirmasiHapus(final RencanaTahunAkademik data) throws Exception {
 		MyMessageboxConfig.show("Apakah yakin ingin menghapus data ini ?", "Pertanyaan",
 				MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION, new EventListener() {
@@ -316,12 +352,14 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 				});
 	}
 
+	/** Membuka dialog tambah {@link RencanaTahunAkademik} baru. */
 	public void onAdd(Event event) throws Exception {
 		init(new RencanaTahunAkademik());
 		addWindow.setVisible(true);
 		addWindow.onModal();
 	}
 
+	/** Membangun form tambah/ubah {@link RencanaTahunAkademik} untuk {@code data} (baru atau sudah ada), menyusun bagian umum, lingkup (perguruan tinggi atau sekolah sesuai mode), dan keterangan. */
 	private void init(RencanaTahunAkademik data) {
 		this.rencanaTahunAkademik = data == null ? new RencanaTahunAkademik() : data;
 
@@ -360,6 +398,7 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		borderlayout.setParent(addWindow);
 	}
 
+	/** Menyusun bagian umum form: tahun akademik, semester (ganjil/genap/SP), tanggal mulai/sampai berlaku (wajib), dan tanggal mulai kegiatan belajar-mengajar (opsional). */
 	private void initFormUmum(Rows rows, RencanaTahunAkademik data) {
 		Row row = createRow(rows, "Tahun Akademik");
 		nama = new Combobox();
@@ -398,6 +437,7 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		row.appendChild(tanggalMulaiBelajarMengajar);
 	}
 
+	/** Menyusun bagian lingkup mode perguruan tinggi (baris hanya tampil bila {@link #pt} true): fakultas, prodi, program, status awal mahasiswa, tahun angkatan — masing-masing opsional (kosong berarti berlaku untuk semua), dengan default terisi dari fakultas/jurusan user yang login bila belum ditentukan. */
 	private void initFormPerguruanTinggi(Rows rows, RencanaTahunAkademik data) {
 		Tbmuser user = Common.getCurrentUser();
 
@@ -464,6 +504,7 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		}
 	}
 
+	/** Menyusun bagian lingkup mode sekolah (baris hanya tampil bila {@link #ya} true): yayasan dan sekolah, dengan default terisi dari yayasan/sekolah user yang login bila belum ditentukan. */
 	private void initFormSekolah(Rows rows, RencanaTahunAkademik data) {
 		Tbmuser user = Common.getCurrentUser();
 		yayasan = new Combobox();
@@ -487,6 +528,7 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		row.appendChild(sekolah);
 	}
 
+	/** Menyusun baris keterangan bebas pada form. */
 	private void initFormKeterangan(Rows rows, RencanaTahunAkademik data) {
 		Row row = createRow(rows, "Keterangan");
 		keterangan = new Textbox(safe(data.getKeterangan()));
@@ -495,6 +537,7 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		row.appendChild(keterangan);
 	}
 
+	/** Menyusun toolbar Batal/Simpan pada bagian selatan form. */
 	private void initToolbarForm(Borderlayout borderlayout) {
 		South south = new South();
 		ais.ui.util.ZkCompat.setFlex(south, true);
@@ -527,6 +570,7 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		simpan.setParent(toolbar);
 	}
 
+	/** Menambahkan satu baris form berlabel {@code label} ke {@code rows}, dipakai berulang oleh method {@code initForm*}. */
 	private Row createRow(Rows rows, String label) {
 		MyFormRow row = new MyFormRow();
 		row.setValign("top");
@@ -535,6 +579,7 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		return row;
 	}
 
+	/** Mengisi ulang combobox jurusan sesuai fakultas yang sedang dipilih pada form. */
 	private void refreshJurusanByFakultas() {
 		try {
 			if (fakultas != null && fakultas.getSelectedItem() != null && fakultas.getSelectedItem().getValue() != null) {
@@ -548,6 +593,15 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		}
 	}
 
+	/**
+	 * Memvalidasi form ({@link #validasiForm()}) dan keunikan kombinasi tahun akademik+semester
+	 * ({@link #checkNamaRencanaTahunAkademik()}), lalu menyimpan/memperbarui
+	 * {@link RencanaTahunAkademik} dan menyegarkan cache statis {@link Common#rencanaTahunAkademiks}
+	 * secara asinkron ({@link #reloadRencanaTahunAkademikAsync()}) agar perubahan langsung
+	 * terpakai oleh {@link #getCurrentRencanaTahunAkademik} di seluruh aplikasi.
+	 *
+	 * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal (pesan sudah ditampilkan ke pengguna)
+	 */
 	public boolean onSave(Event event) throws Exception {
 		if (!validasiForm()) {
 			return false;
@@ -577,6 +631,7 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		return true;
 	}
 
+	/** Memvalidasi field wajib pada form (tahun akademik, semester, tanggal mulai/sampai) dan memastikan tanggal mulai tidak melewati tanggal sampai. */
 	private boolean validasiForm() throws Exception {
 		if (nama == null || nama.getSelectedItem() == null || nama.getSelectedItem().getValue() == null) {
 			PesanFormalHelper.tampilkanGagal("penyimpanan data Tahun Akademik",
@@ -622,6 +677,7 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		return true;
 	}
 
+	/** Menyalin nilai form ke {@code data}: field umum selalu diisi; lingkup diisi salah satu — yayasan/sekolah bila {@link #isSekolahScopeDipilih()}, atau fakultas/jurusan/program/status awal mahasiswa/tahun angkatan bila tidak (saling meniadakan). */
 	private void isiDataDariForm(RencanaTahunAkademik data) {
 		boolean sekolahScope = isSekolahScopeDipilih();
 
@@ -652,6 +708,7 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		}
 	}
 
+	/** Menentukan apakah data yang sedang diisi pada form termasuk lingkup sekolah (yayasan/sekolah) atau perguruan tinggi (fakultas/jurusan/dst.), berdasarkan mode aplikasi dan/atau kombinasi field mana yang benar-benar terisi pada form. */
 	private boolean isSekolahScopeDipilih() {
 		if (buatsekolah || (!pt && ya)) {
 			return true;
@@ -668,6 +725,7 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		return adaSekolah && !adaPerguruanTinggi;
 	}
 
+	/** Menjadwalkan penyegaran cache statis {@link Common#rencanaTahunAkademiks} secara asinkron lewat timer default, dipanggil setelah data disimpan agar {@link #getCurrentRencanaTahunAkademik} langsung memakai data terbaru. */
 	private void reloadRencanaTahunAkademikAsync() {
 		Common.createDefaultTimer(new EventListener() {
 			@Override
@@ -677,6 +735,7 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		});
 	}
 
+	/** Menyusun kriteria pencarian {@link RencanaTahunAkademik}: filter yayasan/sekolah pada mode sekolah, atau fakultas/jurusan/status awal mahasiswa/program/tahun angkatan pada mode perguruan tinggi (ditentukan lewat {@link #isSearchSekolahMode()}), ditambah filter tahun akademik; terurut nama+semester menurun bila {@code order} true. */
 	public Criteria initCriteria(boolean order) {
 		Session sessionData = HibernateUtil.currentSession();
 		Criteria criteria = sessionData.createCriteria(RencanaTahunAkademik.class);
@@ -717,6 +776,7 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		return criteria;
 	}
 
+	/** Menentukan apakah panel pencarian sedang dalam mode sekolah (vs perguruan tinggi), berdasarkan mode aplikasi dan/atau yayasan/sekolah yang dipilih pada filter. */
 	private boolean isSearchSekolahMode() {
 		if (buatsekolah || (!pt && ya)) {
 			return true;
@@ -730,6 +790,13 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		return getSelectedYayasan(searchyayasan) != null || getSelectedSekolah(searchsekolah) != null;
 	}
 
+	/**
+	 * Menambahkan filter {@code eq(property, value)} ke {@code criteria}, kecuali {@code value}
+	 * berupa entitas {@link ais.database.model.GeneralValueObject} transient (belum tersimpan,
+	 * {@code id} {@code null}) — kasus umum untuk item placeholder combobox seperti
+	 * {@code "=Sekolah="}, yang bila tetap difilter akan memicu
+	 * {@code TransientObjectException} pada Hibernate saat {@code list()} dieksekusi.
+	 */
 	private void addEqIfSelected(Criteria criteria, String property, Object value) {
 		if (criteria == null || property == null || value == null) {
 			return;
@@ -746,6 +813,7 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		criteria.add(Restrictions.eq(property, value));
 	}
 
+	/** Memuat ulang daftar {@link RencanaTahunAkademik} sesuai filter aktif (dipaginasi) ke grid. */
 	@SuppressWarnings({ "unchecked" })
 	public void onSearchDefault(Event event) {
 		try {
@@ -762,6 +830,7 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		}
 	}
 
+	/** Memeriksa apakah kombinasi tahun akademik+semester (dan, tergantung lingkup, fakultas/jurusan/program/status/tahun angkatan atau yayasan/sekolah) pada form sudah dipakai {@link RencanaTahunAkademik} lain (mengecualikan entitas yang sedang diedit). */
 	public Boolean checkNamaRencanaTahunAkademik() {
 		Session sessionData = HibernateUtil.currentSession();
 		Criteria criteria = sessionData.createCriteria(RencanaTahunAkademik.class).setProjection(Projections.rowCount())
@@ -809,10 +878,23 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		criteria.add(value == null ? Restrictions.isNull(property) : Restrictions.eq(property, value));
 	}
 
+	/** Seperti {@link #getCurrentRencanaTahunAkademik(Tbmuser, Date)}, memakai user yang sedang login ({@link Common#getCurrentUser()}). */
 	public static RencanaTahunAkademik getCurrentRencanaTahunAkademik(Date sekarang) {
 		return getCurrentRencanaTahunAkademik(Common.getCurrentUser(), sekarang);
 	}
 
+	/**
+	 * Menentukan {@link RencanaTahunAkademik} yang berlaku pada {@code sekarang} untuk konteks
+	 * {@code tbmuser}: dimensi lingkup (fakultas/jurusan/program/status awal/tahun angkatan untuk
+	 * mahasiswa dan dosen; sekolah untuk siswa dan guru) diturunkan otomatis dari peran user —
+	 * bila user tidak punya peran spesifik (bukan mahasiswa/dosen/siswa/guru), jatuh kembali ke
+	 * sekolah/yayasan konteks aplikasi saat ini ({@link SekolahUtil}). Delegasi akhir ke
+	 * {@link #getCurrentRencanaTahunAkademik(Fakultas, Jurusan, Yayasan, Sekolah,
+	 * StatusAwalMahasiswa, Integer, String, Date, String, String)} — lihat algoritma skor
+	 * kecocokan pada dokumentasi kelas.
+	 *
+	 * @return rencana tahun akademik paling cocok, atau {@code null} bila tidak ada yang cocok
+	 */
 	public static RencanaTahunAkademik getCurrentRencanaTahunAkademik(Tbmuser tbmuser, Date sekarang) {
 		Fakultas fakultas = tbmuser == null ? null : tbmuser.ambilFakultas();
 		Jurusan jurusan = tbmuser == null ? null : tbmuser.ambilJurusan();
@@ -872,6 +954,17 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 				program, sekarang, null, null);
 	}
 
+	/**
+	 * Implementasi kanonik resolusi rencana tahun akademik yang berlaku: mencari lewat cache
+	 * {@link Common#rencanaTahunAkademiks} (dimuat ulang otomatis bila kosong) seluruh rencana
+	 * yang waktu berlakunya cocok (lewat tanggal {@code sekarangB}, atau lewat pasangan literal
+	 * {@code ta}/{@code smt} bila {@code sekarangB} {@code null} — lihat {@link #matchWaktu}),
+	 * lalu di antara kandidat tersebut memilih yang skor kecocokan lingkupnya tertinggi (lihat
+	 * algoritma skor pada dokumentasi kelas); bila skor seri, rencana dengan tanggal mulai lebih
+	 * baru dimenangkan ({@link #lebihBaru}).
+	 *
+	 * @return rencana tahun akademik paling cocok/spesifik, atau {@code null} bila tidak ada kandidat yang cocok atau cache kosong
+	 */
 	public static RencanaTahunAkademik getCurrentRencanaTahunAkademik(Fakultas fakultas, Jurusan jurusan,
 			Yayasan yayasan, Sekolah sekolah, StatusAwalMahasiswa statusAwalMahasiswa, Integer tahunAngkatan,
 			String program, Date sekarangB, String ta, String smt) {
@@ -906,6 +999,7 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		return bestMatch;
 	}
 
+	/** Memuat ulang {@link Common#rencanaTahunAkademiks} dari database bila cache tersebut masih kosong (mis. baru setelah restart aplikasi). */
 	private static void reloadCacheRencanaTahunAkademikJikaKosong() {
 		if (Common.rencanaTahunAkademiks != null && !Common.rencanaTahunAkademiks.isEmpty()) {
 			return;
@@ -922,6 +1016,7 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		}
 	}
 
+	/** Mencocokkan waktu {@code rta} terhadap {@code sekarang} (harus berada dalam rentang tanggal mulai-sampai rencana), atau bila {@code sekarang} {@code null}, mencocokkan langsung nama dan semester literal ({@code ta}/{@code smt}). */
 	private static boolean matchWaktu(RencanaTahunAkademik rta, Date sekarang, String ta, String smt) {
 		if (rta == null) {
 			return false;
@@ -936,6 +1031,7 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 				&& !rta.getTanggalMulai().after(sekarang) && !rta.getTanggalSampai().before(sekarang);
 	}
 
+	/** Menghitung skor kecocokan lingkup {@code rta} terhadap konteks yang diberikan — lihat penjelasan lengkap bobot dan aturan "gugur bila tidak cocok" pada dokumentasi kelas; mengembalikan {@code -1} bila ada dimensi terisi pada {@code rta} yang tidak cocok dengan konteks. */
 	private static int hitungScoreRencana(RencanaTahunAkademik rta, Fakultas fakultas, Jurusan jurusan, Yayasan yayasan,
 			Sekolah sekolah, StatusAwalMahasiswa statusAwalMahasiswa, Integer tahunAngkatan, String program) {
 		int score = 0;
@@ -982,6 +1078,7 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		return score;
 	}
 
+	/** Menambahkan {@code nilai} ke {@code score} bila {@code rtaValue} (dimensi lingkup rencana) sama dengan {@code requestValue} (dicocokkan via id, lewat refleksi {@code getId()}, atau {@code equals} sebagai fallback); tidak menambah apa pun bila {@code rtaValue} kosong (berarti rencana berlaku untuk semua); mengembalikan {@code -1} bila {@code rtaValue} terisi tapi tidak cocok — menandakan rencana ini gugur total. */
 	private static int tambahScoreJikaCocok(int score, Object rtaValue, Object requestValue, int nilai) {
 		if (rtaValue == null) {
 			return score;
@@ -1005,6 +1102,7 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		return -1;
 	}
 
+	/** Menentukan apakah {@code a} punya tanggal mulai lebih baru dari {@code b} — dipakai sebagai tie-breaker saat dua rencana punya skor kecocokan yang sama. */
 	private static boolean lebihBaru(RencanaTahunAkademik a, RencanaTahunAkademik b) {
 		if (a == null || b == null) {
 			return false;
@@ -1018,6 +1116,7 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		return a.getTanggalMulai().after(b.getTanggalMulai());
 	}
 
+	/** Menutup {@code sessionData} secara bertahap (clear, disconnect, close), menelan galat di tiap tahap agar kegagalan penutupan tidak mengganggu alur pemanggil. */
 	private static void closeSession(org.hibernate.Session sessionData) {
 		if (sessionData == null) {
 			return;
@@ -1039,7 +1138,9 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		}
 	}
 
+	/** Utilitas refleksi kecil untuk memanggil {@code getId()} pada entitas tipe apa pun tanpa bergantung pada antarmuka bersama, dipakai {@link #tambahScoreJikaCocok} agar dapat membandingkan entitas lintas tipe (Fakultas, Jurusan, dst.) secara seragam. */
 	private static class GeneralIdUtil {
+		/** Memanggil {@code getId()} pada {@code object} lewat refleksi; {@code null} bila {@code object} {@code null}. */
 		public static Object getId(Object object) throws Exception {
 			return object == null ? null : object.getClass().getMethod("getId", new Class[] {}).invoke(object,
 					new Object[] {});
@@ -1103,6 +1204,7 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 		return value == null ? "" : value;
 	}
 
+	/** Menyusun teks ringkasan lingkup {@code rta} (gabungan fakultas/jurusan atau yayasan/sekolah yang terisi) untuk ditampilkan pada kolom "lingkup" di grid. */
 	private static String formatUnit(RencanaTahunAkademik rta) {
 		if (rta == null) {
 			return "";

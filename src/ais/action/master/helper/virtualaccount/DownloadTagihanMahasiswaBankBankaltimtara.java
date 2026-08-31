@@ -49,16 +49,18 @@ import ais.ui.util.WaktuUtil;
  * </p>
  *
  * <p>
- * <b>Peringatan keamanan (dilaporkan, tidak diperbaiki sesuai instruksi tugas)</b>: kredensial
- * gateway bank memiliki nilai default tertanam langsung di kode sebagai fallback
- * {@link Common#getKonfigurasi(String, String)} — {@code bankaltimtara_password} default
- * {@code "12345678"} (lihat {@link #downloadData}) dan {@code bankaltimtara_qris_password} default
- * {@code "PB@|1Kp@paN19112021"} (lihat {@link #qris}). Objek {@code login} berisi
- * username+password JSON juga dicetak ke stdout/log server via {@code System.out.println} di
- * kedua method tersebut, dan kredensial (lewat header {@code Authorization: Bearer <token>} serta
- * body JSON) dikirim ke proses {@code curl} eksternal lewat argumen baris perintah
- * ({@code --data-raw}), bukan lewat stdin — pada server bersama, argumen proses dapat terlihat
- * oleh user lain lewat {@code ps}. Bandingkan dengan pola parsing respons terpusat di
+ * <b>Peringatan keamanan</b>: kredensial gateway bank memiliki nilai default tertanam langsung
+ * di kode sebagai fallback {@link Common#getKonfigurasi(String, String)} — {@code
+ * bankaltimtara_password} default {@code "12345678"} (lihat {@link #downloadData}) dan {@code
+ * bankaltimtara_qris_password} default {@code "PB@|1Kp@paN19112021"} (lihat {@link #qris}).
+ * Nilai default ini TIDAK diubah di sini (lihat laporan tugas untuk rekomendasi rotasi
+ * kredensial di sisi bank/gateway). <b>Diperbaiki</b>: objek {@code login} berisi
+ * username+password JSON sebelumnya juga dicetak ke stdout/log server via
+ * {@code System.out.println} di kedua method — baris log tersebut sudah dihapus. Kredensial
+ * (lewat header {@code Authorization: Bearer <token>} serta body JSON) tetap dikirim ke proses
+ * {@code curl} eksternal lewat argumen baris perintah ({@code --data-raw}), bukan lewat stdin —
+ * pada server bersama, argumen proses dapat terlihat oleh user lain lewat {@code ps} (tidak
+ * diperbaiki di sini). Bandingkan dengan pola parsing respons terpusat di
  * {@code BankaltimtaraResponseUtil} yang dipakai kedua method ini.
  * </p>
  */
@@ -255,8 +257,6 @@ public class DownloadTagihanMahasiswaBankBankaltimtara {
 					login.put("username", user);
 					login.put("password", pwd);
 
-					System.out.println(login + "");
-
 					String[] command = { "curl", "--silent", "--show-error", "--location", strURL, "--header",
 							"Content-type: application/json", "--data-raw", login.toString() };
 
@@ -431,8 +431,6 @@ public class DownloadTagihanMahasiswaBankBankaltimtara {
 		JSONObject login = new JSONObject();
 		login.put("username", user);
 		login.put("password", pwd);
-
-		System.out.println(login + "");
 
 		String[] command = { "curl", "--silent", "--show-error", "--location", strURL, "--header",
 				"Content-type: application/json", "--data-raw", login.toString() };

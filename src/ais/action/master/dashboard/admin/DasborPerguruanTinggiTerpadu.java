@@ -98,6 +98,62 @@ import ais.ui.util.MyLabelAgakKecil;
 import ais.ui.util.MyPanelConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
+/**
+ * Dasbor tunggal terpadu untuk pimpinan perguruan tinggi: menggabungkan ringkasan dari
+ * puluhan dashboard terpisah yang sebelumnya berdiri sendiri (kurikulum, PMB/SPMB, mahasiswa,
+ * KRS/IPK/nilai, kegiatan kemahasiswaan, dosen, penelitian/publikasi/buku ajar, perkuliahan &
+ * kehadiran, bimbingan/sidang/wisuda/lulusan, kesehatan akademik & mutu data) menjadi satu halaman
+ * hero + filter global + rangkaian panel kartu/analitik/tren, menggantikan panel lama
+ * {@code ProfileAdminPerguruanTinggi} pada {@code DashboardData} (mengikuti pola tata letak
+ * {@code DasboardSurat}: hero, filter global, kartu ringkasan, panel analitik, funnel, top prodi,
+ * tren, dan popup detail).
+ *
+ * <h2>Alur render (lihat {@link #renderContent()})</h2>
+ * Setiap perubahan filter (rentang tahun, fakultas/jurusan, program) membangun ulang seluruh
+ * halaman: {@link #renderHero()} dan panel filter dirender segera, lalu (via timer, agar indikator
+ * memuat sempat tampil ke browser sebelum kueri berat dijalankan) {@link #renderDashboardContentDenganLoading(int)}
+ * memanggil {@link #loadDashboardDataCached()} — yang membungkus {@link #loadDashboardData()} dengan
+ * cache proses-hidup statis ({@code _CACHE}/{@code _EXPIRY}, TTL 5 menit, kunci dari
+ * {@link #buildCacheKey()} = user+filter — DIBAGIKAN LINTAS SESI/USER karena statis, sehingga hasil
+ * query satu user dapat terlihat oleh user lain dengan kombinasi filter identik dalam jendela TTL
+ * yang sama; risiko rendah karena isinya murni data agregat/angka, bukan data personal per baris)
+ * — lalu merender 12 panel berurutan ({@link #renderOverview}, {@link #renderPmbFunnel},
+ * {@link #renderKurikulumMahasiswaAnalytic}, {@link #renderAkademikMahasiswaTambahan},
+ * {@link #renderKesehatanAkademikTambahan}, {@link #renderPerkuliahanKehadiranTambahan},
+ * {@link #renderBimbinganLulusanTambahan}, {@link #renderKemahasiswaanTambahan},
+ * {@link #renderDosenPenelitianTambahan}, {@link #renderTopTablesAndTrends},
+ * {@link #renderExistingDashboardShortcut}, {@link #renderRecommendation}). Sebuah nomor versi
+ * ({@code dashboardLoadVersion}) mencegah hasil render dari permintaan filter yang sudah using
+ * (superseded oleh permintaan filter berikutnya) menimpa tampilan.
+ *
+ * <h2>Model data ({@link DashboardPtData})</h2>
+ * {@link #loadDashboardData()} mengisi satu objek agregat besar berisi puluhan hitungan/rata-rata
+ * (total fakultas/prodi/kurikulum, funnel PMB, mahasiswa & KRS berjalan, IPK/SKS min-max-rata,
+ * kegiatan/organisasi/prestasi mahasiswa, dosen & beban SKS, publikasi/penelitian/buku ajar,
+ * perkuliahan & kehadiran, bimbingan/sidang/wisuda/lulusan) dengan memanggil banyak method
+ * {@code count*}/{@code aggregateKrsNumber} kecil; masing-masing method tersebut mendelegasikan
+ * pembangunan kriteria pencarian ke pasangan {@code create*Criteria}-nya (nama method mengikuti
+ * pola {@code count<Entitas>}/{@code create<Entitas>Criteria}, umumnya menerima parameter opsional
+ * {@code Jurusan forcedJurusan}/{@code Integer tahun} untuk mempersempit cakupan ke jurusan/tahun
+ * tertentu) — pasangan kriteria yang SAMA dipakai ulang oleh {@link #showDetailWindow(String)}
+ * untuk menyusun tabel rincian (dibatasi 150 baris) saat pengguna mengklik angka pada kartu metrik
+ * ({@link #appendMetricCard}/{@link #appendValueMetricCard}, terhubung lewat parameter
+ * {@code detailKey} yang dipetakan {@link #resolveDetailTitle(String)}) — memastikan angka
+ * ringkasan dan rincian drill-down-nya selalu konsisten karena berasal dari kriteria yang identik.
+ * Popup detail ditempelkan lewat {@link #attachPopupWindow(Window)} ke {@code body} (bukan
+ * langsung ke {@code this}) karena {@link MyPortallayout} hanya menerima {@code MyPortalchildren}
+ * sebagai anak langsung.
+ *
+ * <p>
+ * Seluruh panel dirender sebagai blok HTML statis (bukan komponen ZK individual) lewat kumpulan
+ * helper pembangun markup ({@code sectionIntroHtml}, {@code progressSectionHtml}/{@code progressRowHtml},
+ * {@code tableMiniRowsHtml}, {@code trendHtml}, {@code miniStatHtml}, {@code badgeHtml},
+ * {@code riskBadgeHtml}, dll.) demi performa render pada halaman dengan sangat banyak angka.
+ * {@link #calculateAcademicHealthScore(DashboardPtData)} menghasilkan skor komposit kesehatan
+ * akademik (0-100) dari rasio-rasio kunci (mis. tingkat aktivasi KRS, penyelesaian nilai) yang
+ * ditampilkan pada panel kesehatan akademik dan rekomendasi aksi.
+ * </p>
+ */
 public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
 
     private static final long serialVersionUID = 20260529111001L;
@@ -129,6 +185,7 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
     private Jurusan currentJurusan;
     private String currentProgram;
 
+    /** Membuat dasbor untuk user yang sedang login dan langsung menyusun seluruh tampilan lewat {@link #init()}. */
     public DasborPerguruanTinggiTerpadu() throws Exception {
         super();
         setWidth("100%");
@@ -137,14 +194,17 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
         init();
     }
 
+    /** @return {@code true} bila mode debug aktif (kesalahan render ditampilkan detail lewat {@link #debugError}, bukan hanya dicatat diam-diam). */
     public static boolean isDebug() {
         return debug;
     }
 
+    /** @param debugValue aktifkan/nonaktifkan mode debug untuk seluruh instans dasbor pada JVM ini (bidang statis). */
     public static void setDebug(boolean debugValue) {
         debug = debugValue;
     }
 
+    /** Memasang tombol ekspor grid, menyesuaikan tinggi desktop tersimpan milik user, menyusun kerangka panel (hero+filter+body), lalu menentukan nilai filter default dan merender konten awal. */
     private void init() throws Exception {
         DashboardGridExportHelper.pasang(this, "Perguruan Tinggi Terpadu");
         if (tbmuser != null && tbmuser.getUserId() != null) {
@@ -185,6 +245,7 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
         renderContent();
     }
 
+    /** Menentukan rentang tahun filter default (3 tahun terakhir s.d. tahun berjalan) sebelum panel filter pertama kali dirender. */
     private void initDefaultFilterValue() {
         int tahunSekarang = ais.ui.util.WaktuUtil.getCalendar().get(Calendar.YEAR);
         try {
@@ -206,6 +267,14 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
         currentSampai = tahunSekarang;
     }
 
+    /**
+     * Menyusun ulang seluruh halaman dasbor sesuai filter formulir saat ini: membaca dan
+     * menormalkan (tukar bila terbalik) rentang tahun serta fakultas/jurusan/program terpilih,
+     * merender hero dan panel filter segera, lalu menjadwalkan pengambilan data berat dan
+     * render panel konten lewat timer (agar indikator memuat sempat tampil ke browser lebih
+     * dulu) via {@link #renderDashboardContentDenganLoading(int)}, ditandai dengan nomor versi
+     * agar hasil filter yang sudah usang tidak menimpa tampilan filter terbaru.
+     */
     private void renderContent() throws Exception {
         Common.clear(body);
         currentMulai = mulaiTahun == null || mulaiTahun.getValue() == null ? currentMulai : mulaiTahun.getValue();
@@ -240,6 +309,15 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
         });
     }
 
+    /**
+     * Mengambil data agregat (lewat {@link #loadDashboardDataCached()}, dengan pelaporan
+     * progres bertahap) lalu merender kedua belas panel konten secara berurutan (lihat javadoc
+     * kelas). Dibatalkan diam-diam bila {@code loadVersion} sudah usang (filter berubah lagi
+     * sebelum pengambilan data selesai). Kegagalan apa pun ditangkap dan ditampilkan sebagai
+     * pesan galat ringkas ke pengguna, dicatat lewat {@link #debugError}.
+     *
+     * @param loadVersion nomor versi permintaan render ini, dibandingkan terhadap {@code dashboardLoadVersion} saat ini
+     */
     private void renderDashboardContentDenganLoading(int loadVersion) throws Exception {
         try {
             updateDashboardProgress("Mengambil ringkasan Dasbor Perguruan Tinggi Terpadu...", 5);
@@ -274,6 +352,7 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
         }
     }
 
+    /** Menampilkan indikator memuat (bar progres HTML) di awal {@code body}, menggantikan indikator sebelumnya bila ada. */
     private void tampilkanLoadingDashboardTerpadu(String pesan, int persen) {
         if (body == null) {
             return;
@@ -290,6 +369,7 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
         loadingDashboardContainer.appendChild(htmlLoading);
     }
 
+    /** Memperbarui pesan dan persentase pada indikator memuat yang sedang tampil; tidak melakukan apa pun bila belum ada indikator aktif. */
     private void updateDashboardProgress(String pesan, int persen) {
         if (loadingDashboardContainer == null) {
             return;
@@ -305,6 +385,7 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
         }
     }
 
+    /** Melepas indikator memuat dari tampilan bila sedang terpasang. */
     private void hapusLoadingDashboardTerpadu() {
         if (loadingDashboardContainer != null) {
             try {
@@ -318,6 +399,7 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
         loadingDashboardContainer = null;
     }
 
+    /** @return markup HTML bar progres (dibatasi 0-100%) dengan {@code pesan} status di bawahnya. */
     private String buildLoadingDashboardHtml(String pesan, int persen) {
         int progress = persen;
         if (progress < 0) {
@@ -343,6 +425,7 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
                 + "</div>";
     }
 
+    /** Menampilkan banner hero (judul, deskripsi ringkas cakupan dasbor, dan badge periode/user/sumber data) di awal {@code body}. */
     private void renderHero() {
         String user = tbmuser == null ? "Pengguna" : safeText(tbmuser.getUserNama());
         String periode = currentMulai + " s.d. " + currentSampai;
@@ -362,6 +445,7 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
                 + "</div></div></div>");
     }
 
+    /** Menyusun toolbar filter global (rentang tahun, fakultas/prodi, program, tombol refresh); setiap perubahan langsung memicu {@link #renderContent()}. */
     private void renderFilter() throws Exception {
         Div filterContainer = new Div();
         filterContainer.setParent(body);
@@ -421,6 +505,7 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
         refresh.addEventListener("onClick", reloadListener);
     }
 
+    /** @return kunci cache gabungan id user + rentang tahun + fakultas/jurusan/program terpilih, dipakai oleh {@link #loadDashboardDataCached()}. */
     private String buildCacheKey() {
         return (tbmuser == null ? "0" : String.valueOf(tbmuser.getId()))
                 + "|" + currentMulai + "|" + currentSampai
@@ -430,6 +515,11 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
     }
 
     @SuppressWarnings("unchecked")
+    /**
+     * @return data agregat dasbor untuk kombinasi filter saat ini, dari cache statis
+     *         proses-hidup ({@code _CACHE}, TTL {@link #_TTL_MS}) bila masih berlaku, atau
+     *         dihitung ulang lewat {@link #loadDashboardData()} dan disimpan ke cache
+     */
     private DashboardPtData loadDashboardDataCached() throws Exception {
         String _k = buildCacheKey();
         Long _e = _EXPIRY.get(_k);
@@ -442,6 +532,17 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
         return data;
     }
 
+    /**
+     * Menghitung seluruh metrik dasbor untuk filter saat ini ke dalam satu {@link DashboardPtData}:
+     * master fakultas/prodi/kurikulum, funnel PMB (pendaftar-lulus seleksi-daftar ulang-dapat
+     * NIM-isi form tambahan), mahasiswa aktif & KRS berjalan, statistik IPK/SKS kumulatif,
+     * kegiatan/organisasi/prestasi mahasiswa, dosen & beban SKS, publikasi/penelitian/buku ajar,
+     * perkuliahan & kehadiran, hingga bimbingan/sidang/wisuda/lulusan — masing-masing lewat
+     * pasangan method {@code count*}/{@code create*Criteria} terkait (lihat javadoc kelas).
+     * Melaporkan progres pengambilan data bertahap lewat {@link #updateDashboardProgress}.
+     *
+     * @return data agregat lengkap siap dirender oleh seluruh panel {@code render*}
+     */
     private DashboardPtData loadDashboardData() throws Exception {
         DashboardPtData data = new DashboardPtData();
         data.tahunMulai = currentMulai;
@@ -729,6 +830,7 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
         return data;
     }
 
+    /** Panel "Overview Perguruan Tinggi": kartu ringkasan total fakultas/prodi/kurikulum/mahasiswa dan metrik inti lainnya, masing-masing dapat diklik untuk drill-down lewat {@link #showDetailWindow(String)}. */
     private void renderOverview(DashboardPtData data) {
         appendHtml(body, sectionIntroHtml("Overview Perguruan Tinggi",
                 "Ringkasan ini menggabungkan data prodi, kurikulum, PMB/SPMB, mahasiswa aktif, dan KRS berjalan. Nilai pada kartu tertentu dapat diklik untuk membuka contoh data."));
@@ -748,6 +850,7 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
         appendMetricCard(cards, "KRS Berjalan", data.totalMahasiswaKrs, "Estimasi dari detail perkuliahan " + data.tahunAkademikBerjalan, "#dc2626", "KRS", null);
     }
 
+    /** Panel "PMB / SPMB": funnel bertahap pendaftar &rarr; lulus seleksi &rarr; daftar ulang &rarr; dapat NIM &rarr; isi form tambahan, memakai {@link #progressSectionHtml}/{@link #progressRowHtml}. */
     private void renderPmbFunnel(DashboardPtData data) {
         appendHtml(body, sectionIntroHtml(" PMB / SPMB",
                 "Diadaptasi dari DashboardCalonMahasiswa dan RekapPendaftarSpmbSemua: peminat, lulus seleksi, daftar ulang, sampai memperoleh NIM."));
@@ -773,6 +876,7 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
                 + dashboardPanelHtml(funnel) + dashboardPanelHtml(daftarUlang) + "</div>");
     }
 
+    /** Panel "Analitik Kurikulum, Mahasiswa, dan KRS": statistik KRS berjalan, IPK/SKS kumulatif (rata-rata/min/maks), dan status kelengkapan nilai. */
     private void renderKurikulumMahasiswaAnalytic(DashboardPtData data) {
         appendHtml(body, sectionIntroHtml("Analitik Kurikulum, Mahasiswa, dan KRS",
                 "Bagian ini memadukan dashboard kurikulum, dashboard mahasiswa, dan dashboard KRS untuk melihat kesiapan akademik terhadap jumlah mahasiswa."));
@@ -794,6 +898,7 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
                 + dashboardPanelHtml(akademik) + dashboardPanelHtml(krs) + "</div>");
     }
 
+    /** Panel "Dashboard Akademik Mahasiswa": rincian tambahan seputar KRS/nilai/IPK di luar ringkasan pada {@link #renderKurikulumMahasiswaAnalytic}. */
     private void renderAkademikMahasiswaTambahan(DashboardPtData data) {
         appendHtml(body, sectionIntroHtml("Dashboard Akademik Mahasiswa",
                 "Tambahan dari DashboardKrsMahasiswa, DashboardIpkMahasiswa, DashboardNilaiMahasiswa, dan DashboardSksKumulatifMahasiswa. Angka memakai tahun akademik berjalan dan tetap mengikuti filter fakultas/prodi/program bila memungkinkan."));
@@ -826,6 +931,7 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
     }
 
 
+    /** Panel "Dashboard Kesehatan Akademik & Mutu Data": skor komposit dari {@link #calculateAcademicHealthScore(DashboardPtData)} beserta indikator mutu data (mis. tingkat kelengkapan nilai/KRS) yang menyusunnya. */
     private void renderKesehatanAkademikTambahan(DashboardPtData data) {
         appendHtml(body, sectionIntroHtml("Dashboard Kesehatan Akademik & Mutu Data",
                 "Dashboard tambahan ini merangkum kesehatan operasional akademik: kesiapan kurikulum, KRS, validasi nilai, absensi, siklus hidup mahasiswa, rasio dosen-mahasiswa, dan data lulusan. Angka dibuat dari data yang sudah diambil sehingga tidak menambah dependency model baru."));
@@ -891,6 +997,7 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
                 + dashboardPanelHtml(kapasitasAkademik) + dashboardPanelHtml(risikoOperasional) + "</div>");
     }
 
+    /** Panel "Dashboard Bimbingan, Sidang, Wisuda, dan Lulusan": jumlah mahasiswa dalam bimbingan tugas akhir, sidang, wisuda, dan yang sudah lulus (termasuk masa studi rata-rata). */
     private void renderBimbinganLulusanTambahan(DashboardPtData data) {
         appendHtml(body, sectionIntroHtml("Dashboard Bimbingan, Sidang, Wisuda, dan Lulusan",
                 "Tambahan dari DashboardBimbinganMahasiswa, DashboardSidangMahasiswa, DashboardWisudaMahasiswa, DashboardLulusan, dan dashboard rincian lulusan. Data mengikuti filter tahun, fakultas/prodi, dan program."));
@@ -938,6 +1045,7 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
                 + "</div>");
     }
 
+    /** Panel "Dashboard Kemahasiswaan": kegiatan kemahasiswaan, keanggotaan organisasi intra kampus, dan prestasi mahasiswa. */
     private void renderKemahasiswaanTambahan(DashboardPtData data) {
         appendHtml(body, sectionIntroHtml("Dashboard Kemahasiswaan",
                 "Tambahan dari DashboardKegiatanKemahasiswaanUmum, DashboardOrganisasiIntraKampusUmum, dan DashboardPrestasiMahasiswaUmum. Bagian ini memantau aktivitas non-akademik mahasiswa dalam rentang tahun filter."));
@@ -968,6 +1076,7 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
     }
 
 
+    /** Panel "Dashboard Perkuliahan & Kehadiran": jumlah kelas perkuliahan, pertemuan (termasuk yang sudah lewat/berabsensi), dan beban SKS dosen pengajar. */
     private void renderPerkuliahanKehadiranTambahan(DashboardPtData data) {
         appendHtml(body, sectionIntroHtml("Dashboard Perkuliahan & Kehadiran",
                 "Tambahan dari DashboardPerkuliahan, DashboardKehadiranDosen, DashboardKehadiranMahasiswa, dan DashboardPencapaianPerkuliahan. Ringkasan ini memantau penawaran kelas, detail peserta, pertemuan aktif, absensi, serta pencapaian perkuliahan."));
@@ -1019,6 +1128,7 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
                 + "</div>");
     }
 
+    /** Panel "Dashboard Dosen, Penelitian, Publikasi, dan Buku Ajar": dosen aktif, kegiatan/organisasi/prestasi/karya dosen, publikasi ilmiah, penelitian & pengabdian, dan buku ajar. */
     private void renderDosenPenelitianTambahan(DashboardPtData data) {
         appendHtml(body, sectionIntroHtml("Dashboard Dosen, Penelitian, Publikasi, dan Buku Ajar",
                 "Tambahan dari DashboardBebanSksDosen, DashboardKegiatanKedosenanUmum, DashboardOrganisasiDosenUmum, DashboardPrestasiDosenUmum, DashboardKaryaDosenUmum, DashboardPublikasiIlmiah, DashboardPenelitianDanPengabdian, dan DashboardBukuAjar."));
@@ -1061,6 +1171,7 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
                 + "</div>");
     }
 
+    /** Panel "Sebaran Prodi dan Tren Tahunan": tabel top prodi (lewat {@link #tableMiniRowsHtml}) dan grafik tren tahunan sederhana (lewat {@link #trendHtml}) berbasis rentang tahun filter. */
     private void renderTopTablesAndTrends(DashboardPtData data) {
         appendHtml(body, sectionIntroHtml("Sebaran Prodi dan Tren Tahunan",
                 "Membantu pimpinan melihat prodi dengan volume mahasiswa/pendaftar terbesar, kurikulum terbanyak, serta tren tahunan dari data existing."));
@@ -1086,6 +1197,7 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
                 + "</div>");
     }
 
+    /** Panel "Dashboard Rinci Existing": tombol pintasan yang membuka masing-masing dashboard rinci lama (Kurikulum, Calon Mahasiswa, Mahasiswa, dst.) sebagai jendela modal terpisah, menjaga halaman terpadu ini tetap ringan sambil tetap menyediakan akses ke detail operasional. */
     private void renderExistingDashboardShortcut() {
         appendHtml(body, sectionIntroHtml("Dashboard Rinci Existing",
                 "Tombol berikut membuka dashboard rinci yang menjadi sumber data utama. Ini menjaga halaman utama tetap ringan, tetapi pengguna tetap bisa turun ke detail operasional."));
@@ -1257,6 +1369,7 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
         });
     }
 
+    /** Panel "Rekomendasi Aksi": saran tindak lanjut berbasis skor kesehatan akademik dan rasio-rasio kunci lain (mis. mahasiswa belum KRS, nilai belum disetujui), dirender sebagai daftar item rekomendasi ({@link #recommendationItemHtml}). */
     private void renderRecommendation(DashboardPtData data) {
         appendHtml(body, sectionIntroHtml("Rekomendasi Aksi",
                 "Rekomendasi otomatis berdasarkan rasio PMB, kesiapan kurikulum, dan KRS berjalan."));
@@ -1294,6 +1407,7 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
         appendHtml(body, sb.toString());
     }
 
+    /** Menambahkan satu kartu metrik angka (judul, nilai bulat, subjudul, warna aksen, ikon) ke {@code parent}; dapat diklik untuk membuka rincian lewat {@link #showDetailWindow(String)} bila {@code detailKey} diisi. */
     private void appendMetricCard(Component parent, String title, long value, String subtitle, String color, String icon, final String detailKey) {
         Div card = new Div();
         card.setParent(parent);
@@ -1323,6 +1437,7 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
         appendHtml(card, "<div style='font-size:12px; color:#64748b; margin-top:6px;'>" + safeHtml(subtitle) + "</div>");
     }
 
+    /** Seperti {@link #appendMetricCard}, untuk nilai yang sudah berupa teks terformat (mis. desimal/persentase) alih-alih bilangan bulat mentah. */
     private void appendValueMetricCard(Component parent, String title, String value, String subtitle, String color, String icon, final String detailKey) {
         Div card = new Div();
         card.setParent(parent);
@@ -1352,6 +1467,7 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
         appendHtml(card, "<div style='font-size:12px; color:#64748b; margin-top:6px;'>" + safeHtml(subtitle) + "</div>");
     }
 
+    /** Menambahkan satu tombol pintasan (label+ikon) yang menjalankan {@code listener} saat diklik, dipakai untuk membuka dashboard rinci lama pada {@link #renderExistingDashboardShortcut()}. */
     private void appendShortcutButton(Component parent, String label, String image, EventListener listener) {
         MyToolbarbuttonConfig button = new MyToolbarbuttonConfig(label, image);
         button.setParent(parent);
@@ -1391,6 +1507,7 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
         }
     }
 
+    /** Menampilkan {@code dashboard} (komponen jendela dashboard rinci lama) sebagai jendela modal besar (95%x95%), dipakai oleh tombol pintasan pada {@link #renderExistingDashboardShortcut()}. */
     private void showDashboardWindow(String title, Component dashboard) throws Exception {
         Window window = new Window();
         window.setTitle(title);
@@ -1443,6 +1560,7 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
         }
     }
 
+    /** Menempelkan {@code window} popup ke {@code body} (atau induk lain sebagai fallback) alih-alih langsung ke {@code this}, karena {@link MyPortallayout} hanya menerima {@code MyPortalchildren} sebagai anak langsung. */
     private void attachPopupWindow(Window window) {
         /*
          * ZK MyPortallayout hanya menerima MyPortalchildren sebagai direct child.
@@ -1458,6 +1576,14 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
         }
     }
 
+    /**
+     * Menampilkan jendela modal berisi tabel rincian (dibatasi 150 baris) untuk satu metrik kartu
+     * yang diklik: {@code detailKey} menentukan cabang kriteria yang dipakai (menggunakan
+     * method {@code create*Criteria} yang SAMA dengan yang dipakai untuk menghitung ringkasan
+     * pada kartu, menjamin konsistensi angka vs rincian) dan susunan kolom tabel yang ditampilkan.
+     *
+     * @param detailKey kunci metrik (mis. {@code "FAKULTAS"}, {@code "PRODI"}, {@code "KURIKULUM"}, dst.) yang menentukan data dan kolom yang ditampilkan
+     */
     private void showDetailWindow(String detailKey) throws Exception {
         Window window = new Window();
         window.setTitle(resolveDetailTitle(detailKey));
@@ -2710,6 +2836,13 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
         return value;
     }
 
+    /**
+     * @return skor komposit kesehatan akademik (0-100), rata-rata dari beberapa rasio kunci yang
+     *         masing-masing dibatasi ke 0-100 lewat {@link #clampScore(int)}: tingkat aktivasi
+     *         KRS, tingkat penyelesaian nilai (100 dikurangi rasio belum), rasio absensi terisi,
+     *         rasio kurikulum per prodi, rasio daftar ulang, dan (bila ada lulusan) rasio
+     *         wisuda terhadap lulusan
+     */
     private int calculateAcademicHealthScore(DashboardPtData data) {
         int total = 0;
         int count = 0;
@@ -3155,6 +3288,15 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
         }
     }
 
+    /**
+     * Struct data mentah (bukan JavaBean, bidang publik-paket diakses langsung) berisi seluruh
+     * hasil hitungan/agregasi satu kali muat dasbor: filter yang dipakai (rentang tahun, tahun
+     * akademik/semester berjalan), serta puluhan bidang {@code total*}/{@code avg*}/{@code min*}/
+     * {@code max*}/{@code rasio*}/{@code top*}/{@code trend*} yang dipetakan langsung ke kartu dan
+     * panel pada method {@code render*} (lihat javadoc kelas induk untuk bagaimana nilai-nilai ini
+     * dihitung lewat {@link #loadDashboardData()}). Instans ini disimpan di cache statis
+     * {@link #_CACHE} selama {@link #_TTL_MS}.
+     */
     private static class DashboardPtData {
         int tahunMulai;
         int tahunSampai;
@@ -3279,10 +3421,12 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
         List<DashboardMiniRow> trendMasaStudi = new ArrayList<DashboardMiniRow>();
     }
 
+    /** Pasangan label-nilai sederhana untuk satu baris pada tabel top-N atau tren, dipakai oleh {@link #tableMiniRowsHtml}, {@link #trendHtml}, dan {@link #sortAndLimit}. */
     private static class DashboardMiniRow {
         String label;
         long value;
 
+        /** @param label   nama baris (mis. nama prodi/tahun) @param value nilai numerik baris */
         DashboardMiniRow(String label, long value) {
             this.label = label;
             this.value = value;

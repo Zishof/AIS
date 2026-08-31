@@ -170,12 +170,6 @@ public class DownloadTagihanMahasiswaBankBtn {
 			String message = prefix + ":" + jsonData + ":" + postfix;
 			String signature = encode(secret, message);
 
-			System.out.println("secret => " + secret);
-			System.out.println("message => " + message);
-			System.out.println("id => " + prefix);
-			System.out.println("key => " + postfix);
-			System.out.println("signature => " + signature);
-
 			String strURL;
 			if (Common.bolehKonfigurasi("btn_forward_url_aktif", Konfigurasi.TIDAK_AKTIF)) {
 				strURL = Common.getKonfigurasi("btn_forward_url", strURLParam).getNilai() + "?strURL="

@@ -29,16 +29,17 @@ import com.linuxense.javadbf.DBFWriter;
  * pasca-impor (saat ini kosong).
  *
  * <p>
- * <b>Keamanan — WASPADAI</b>: seluruh SQL DDL/DML pembuatan skema, pembuatan tabel, dan
- * penyisipan baris pada {@link #doImport} dan {@link #importData} dibangun lewat
- * <b>konkatenasi string mentah</b> (bukan parameterized query/prepared statement), termasuk
- * nama tabel yang diturunkan langsung dari nama berkas yang diunggah dan nama kolom yang
- * diambil langsung dari nama field pada berkas DBF sumber, serta nilai data string yang hanya
- * disaring dengan penghapusan tanda kutip tunggal ({@code replaceAll("'", "")}) — bukan
- * escaping SQL yang aman. Bila nama berkas/nama field/isi berkas DBF yang diimpor tidak
- * sepenuhnya tepercaya (mis. berasal dari unggahan pengguna atau sumber eksternal yang bisa
- * dimanipulasi), ini berpotensi <b>SQL injection</b> pada DDL (nama tabel/kolom) maupun DML.
- * Tidak diperbaiki di sini sesuai instruksi tugas — hanya dilaporkan.
+ * <b>Keamanan (diperbaiki)</b>: SQL DDL ({@code CREATE TABLE}) pada {@link #doImport} tetap
+ * dirakit lewat konkatenasi string (identifier SQL — nama tabel/kolom — tidak bisa diikat
+ * sebagai parameter bind), namun nama tabel (diturunkan dari nama berkas yang diunggah) dan
+ * nama kolom (diambil dari nama field DBF sumber) kini divalidasi lewat
+ * {@link #sanitizeIdentifier(String, String)} — hanya huruf/angka/garis bawah yang diterima,
+ * selain itu {@link IllegalArgumentException} dilempar dan impor berkas tersebut gagal. Nilai
+ * data pada {@code INSERT} tidak lagi disisipkan sebagai literal string (sebelumnya hanya
+ * disaring dengan menghapus tanda kutip tunggal); kini diikat lewat parameter posisi
+ * ({@code ?}) memakai {@code SQLQuery.setParameter(int, Object)}. Sebelumnya kedua celah ini
+ * berpotensi SQL/DDL injection bila nama berkas/nama field/isi berkas DBF yang diimpor tidak
+ * sepenuhnya tepercaya.
  * </p>
  */
 public class ImportFromRKAKLHelper {

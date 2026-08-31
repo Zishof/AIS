@@ -6,6 +6,12 @@ dan celah yang sudah ditutup dibahas di dok [66](66-laporan-keuangan-standar-yay
 [67](67-laporan-aktivitas-dan-pemilih-unit.md), dan [69](69-penutup-peta-posting.md); dokumen ini
 khusus soal **jalan masuknya**.
 
+> **Versi PDF bergambar**: [70-panduan-laporan-keuangan-an-nahl.pdf](70-panduan-laporan-keuangan-an-nahl.pdf)
+> — panduan siap bagi untuk staf keuangan, tiap laporan digambar maket layarnya lengkap dengan
+> nama kolom yang sebenarnya. Pembuatnya (dan alasan memakai ilustrasi alih-alih tangkapan layar)
+> ada di [panduan-ilustrasi/](panduan-ilustrasi/README.md); PDF-nya dihasilkan ulang dengan
+> `python susun_panduan.py`.
+
 ## 1. Dua pintu, jangan tertukar
 
 Hampir semua laporan keuangan ada di balik SATU layar katalog. Yang membedakan hanya pintunya:
