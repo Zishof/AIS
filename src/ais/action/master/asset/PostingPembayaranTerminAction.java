@@ -1005,7 +1005,7 @@ public class PostingPembayaranTerminAction extends GenericAutowireComposer {
 	private void onSearchDefaultTanpaProgress(Event event) {
 		Common.initPaging(initCriteria(false), paging);
 
-		List<PembayaranTerminMasterAsset> pembayaranTerminMasterAsset = initCriteria(true)
+		List<PembayaranTerminMasterAssetDetail> pembayaranTerminMasterAsset = initCriteria(true)
 				.setMaxResults(Common.ROWS_COUNT_ON_PAGE)
 				.setFirstResult(Common.ROWS_COUNT_ON_PAGE * (paging == null ? 0 : paging.getActivePage())).list();
 		ListModel strset = new SimpleListModel(pembayaranTerminMasterAsset);

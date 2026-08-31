@@ -20,6 +20,15 @@
 			<tab use="ais.ui.util.MyTabConfig">
 				Jurnal Balik DP Pekerjaan
 			</tab>
+			<!-- Dua sisi PEMBAYARAN yang selama ini tertinggal dari hub padahal layarnya
+				sudah ada dan sekeluarga dengan Termin Vendor di atas. Ditambahkan di UJUNG
+				daftar supaya pasangan tab<->tabpanel yang sudah ada tidak bergeser indeks. -->
+			<tab use="ais.ui.util.MyTabConfig">
+				Pembayaran Tagihan Vendor
+			</tab>
+			<tab use="ais.ui.util.MyTabConfig">
+				Pembayaran DP Vendor
+			</tab>
 
 		</tabs>
 		<tabpanels>
@@ -60,6 +69,18 @@
 			<tabpanel use="ais.ui.util.MyTabpanel">
 				<include
 					src="/WEB-INF/z/x/y/pages/master/asset/posting_dp_balik_pesanan_pekerjaan.zul">
+				</include>
+			</tabpanel>
+
+			<tabpanel use="ais.ui.util.MyTabpanel">
+				<include
+					src="/WEB-INF/z/x/y/pages/master/asset/posting_pembayaran.zul">
+				</include>
+			</tabpanel>
+
+			<tabpanel use="ais.ui.util.MyTabpanel">
+				<include
+					src="/WEB-INF/z/x/y/pages/master/asset/posting_pembayaran_dp.zul">
 				</include>
 			</tabpanel>
 
