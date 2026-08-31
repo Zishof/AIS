@@ -179,6 +179,51 @@ FROM (
        AND sum(tr.debet) > 0 AND sum(tr.kredit) > 0
 ) x;
 
+-- -------------------------------------------------------------------------------------
+-- Q7. KESEHATAN UMUM BUKU BESAR: jurnal yang tidak seimbang.
+--     CommonAkunting.saveTransaksi menghitung total debet/kredit lalu MENYIMPANNYA apa
+--     adanya -- tidak ada satu pun penjagaan bahwa keduanya sama. Mesin yang membangun
+--     kedua sisi dari sumber BERBEDA karena itu dapat menulis jurnal timpang tanpa satu
+--     pun galat. Contoh struktur yang perlu diperiksa lewat rincian di bawah: pembayaran
+--     tagihan vendor pada cabang "utang dari anggaran" menyusun DEBET dari seluruh rincian
+--     pemesanan sedangkan KREDIT-nya sebesar yang dibayar -- dua angka yang tidak harus
+--     sama pada pembayaran sebagian.
+-- -------------------------------------------------------------------------------------
+SELECT 'total grup jurnal' AS keterangan, count(*)::text AS nilai FROM akunting.grup_transaksi
+UNION ALL
+SELECT 'grup TIDAK SEIMBANG (selisih baris > 0.5)', count(*)::text
+FROM (SELECT g.id FROM akunting.grup_transaksi g
+      JOIN akunting.transaksi t ON t.grup_transaksi = g.id
+      GROUP BY g.id
+      HAVING abs(COALESCE(sum(t.debet),0) - COALESCE(sum(t.kredit),0)) > 0.5) x
+UNION ALL
+SELECT 'grup yang kolom total_debet/total_kredit-nya tidak cocok dengan barisnya', count(*)::text
+FROM (SELECT g.id FROM akunting.grup_transaksi g
+      JOIN akunting.transaksi t ON t.grup_transaksi = g.id
+      GROUP BY g.id, g.total_debet, g.total_kredit
+      HAVING abs(COALESCE(g.total_debet,0) - COALESCE(sum(t.debet),0)) > 0.5
+          OR abs(COALESCE(g.total_kredit,0) - COALESCE(sum(t.kredit),0)) > 0.5) y
+UNION ALL
+SELECT 'grup TANPA satu pun baris transaksi', count(*)::text
+FROM akunting.grup_transaksi g
+WHERE NOT EXISTS (SELECT 1 FROM akunting.transaksi t WHERE t.grup_transaksi = g.id);
+
+-- -------------------------------------------------------------------------------------
+-- Q8. Rincian jurnal tak seimbang per JENIS posting -- menunjuk modul penyebabnya.
+-- -------------------------------------------------------------------------------------
+SELECT COALESCE(ph.jenis, '(tanpa riwayat)') AS jenis_posting,
+       count(*)                              AS grup_tidak_seimbang,
+       round(sum(x.selisih)::numeric, 2)     AS jumlah_selisih
+FROM (SELECT g.id, g.posting_history,
+             COALESCE(sum(t.debet),0) - COALESCE(sum(t.kredit),0) AS selisih
+      FROM akunting.grup_transaksi g
+      JOIN akunting.transaksi t ON t.grup_transaksi = g.id
+      GROUP BY g.id, g.posting_history
+      HAVING abs(COALESCE(sum(t.debet),0) - COALESCE(sum(t.kredit),0)) > 0.5) x
+LEFT JOIN akunting.posting_history ph ON ph.id = x.posting_history
+GROUP BY COALESCE(ph.jenis, '(tanpa riwayat)')
+ORDER BY 2 DESC;
+
 -- =====================================================================================
 -- CARA MEMBACA HASIL
 --
@@ -199,6 +244,14 @@ FROM (
 -- * Q6 ada isinya  -> jurnal pengembalian uang muka bernilai nol-efek (Dr dan Cr pada akun
 --   yang sama). Pemulihan: batalkan posting pengembaliannya lalu posting ulang; sejak
 --   r78539 pasangan akunnya sudah benar.
+-- * Q7/Q8 ada isinya -> ada jurnal TIDAK SEIMBANG di buku besar. Ini temuan paling serius
+--   karena neraca tidak akan pernah cocok selama baris itu ada. Q8 menunjuk jenis posting
+--   penyebabnya; mulailah menelusuri dari modul dengan jumlah selisih terbesar. Perhatikan
+--   khususnya jenis pembayaran vendor: bila muncul di sana, kemungkinan besar berasal dari
+--   cabang "utang dari anggaran" yang menyusun kedua sisi dari sumber berbeda (lihat
+--   catatan pada Q7). Jangan menambal barisnya secara manual sebelum sebabnya dipastikan.
+-- * "grup TANPA satu pun baris transaksi" > 0 -> grup jurnal kosong; biasanya sisa
+--   penghapusan yang setengah jalan (baris anak terhapus, grupnya tertinggal).
 --
 -- CATATAN PENTING: Q1 juga akan memunculkan kaki yang capnya terpasang padahal jurnalnya
 -- GAGAL disimpan karena sebab lain (idiom layar ZK lama mengecap dokumen meskipun
