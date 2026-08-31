@@ -93,6 +93,34 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
+/**
+ * Controller/action ZK untuk pengajuan pegawai. Tipe ini merupakan titik masuk UI yang
+ * menghubungkan event layar dengan perilaku domain yang diwarisi atau dikonfigurasi khusus oleh
+ * kelas ini.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * GenericAutowireComposer}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyWindow addWindow}, {@code Paging
+ * paging}, {@code MyGrid grid}, {@code Textbox searchkode}, {@code Textbox searchnama}, {@code Textbox
+ * searchpegawai}, {@code AmbilDataSatuanKerjaBanbox searchparent}, {@code MyDatebox start};
+ * inisialisasi/lifecycle ({@code doBeforeCompose()}, {@code doAfterCompose()}, {@code init()}, {@code init()},
+ * {@code initCriteria()}); pembacaan/pencarian ({@code getindex()}, {@code onSearchDefault()}, {@code ambil()},
+ * {@code ambilClass()}); mutasi data ({@code onSave()}, {@code setPersetujuan()}); pelaporan/ekspor ({@code
+ * cetakData()}); operasi domain lain ({@code onLaporan()}, {@code onJenisPengajuanPegawai()}, {@code
+ * onManajemenParameter()}, {@code onAdd()}, {@code form()}, {@code generateCode()}). Bagian lain dari kontrak
+ * tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
+ * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
+ * serta session Hibernate milik request yang aktif.</p>
+ *
+ * @see GenericAutowireComposer
+ */
 public class PengajuanPegawaiAction extends GenericAutowireComposer
 		implements DataCriteria, DataSearchDefault, DataInitDefault, FormSop {
 

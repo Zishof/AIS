@@ -114,6 +114,39 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Controller/action ZK untuk rps obe. Tipe ini merupakan titik masuk UI yang menghubungkan event
+ * layar dengan perilaku domain yang diwarisi atau dikonfigurasi khusus oleh kelas ini.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * GenericAutowireComposer}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code String CFG_HAK_AKSES_UBAH_RPS_OBE},
+ * {@code String CFG_HAK_AKSES_UBAH_MK_OBE}, {@code String CFG_HAK_AKSES_UBAH_OTORITAS_OBE}, {@code String
+ * CFG_HAK_AKSES_UBAH_PL_OBE}, {@code String CFG_HAK_AKSES_UBAH_CPL_OBE}, {@code String
+ * CFG_HAK_AKSES_UBAH_CPMK_OBE}, {@code String CFG_HAK_AKSES_UBAH_SUB_CPMK_OBE}, {@code String
+ * CFG_HAK_AKSES_UBAH_SUB_CPMK_KORELASI_OBE}; inisialisasi/lifecycle ({@code buatRowItemHapus()}, {@code
+ * buatRowRefHapus()}, {@code doBeforeCompose()}, {@code initHakAkses()}, {@code doAfterCompose()}, {@code
+ * initMk()}); pembacaan/pencarian ({@code getRoleIdUserAktif()}, {@code getDefaultHakAksesFiturObe()}, {@code
+ * bolehTampilCetakPdf()}, {@code tampilKunci()}, {@code onDownloadExcel()}, {@code onUploadExcel()});
+ * validasi/perhitungan ({@code bolehMengubahFiturObe()}, {@code bolehMengubahCatatanObe()}); mutasi data ({@code
+ * parseIdsToSet()}, {@code setCsvSeleksiMk()}, {@code simpanCplLangsung()}, {@code updatePertemuan()});
+ * penghapusan/pembatalan ({@code hapusTokenCsvProfil()}); pelaporan/ekspor ({@code cetak()}, {@code onCetak()},
+ * {@code onCetakHtml()}, {@code cetakHtmlByKpmId()}, {@code renderSubCpmkCombo()}); operasi domain lain ({@code
+ * appendIdToString()}, {@code closeSessionQuietly()}, {@code safeTrim()}, {@code daftarReferensiHtml()}, {@code
+ * appendReferensiDariCsv()}, {@code isPengajarInternal()}). Bagian lain dari kontrak tetap mengikuti kelas induk
+ * atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
+ * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
+ * serta session Hibernate milik request yang aktif.</p>
+ *
+ * @see GenericAutowireComposer
+ */
 public class RpsObeAction extends GenericAutowireComposer {
 
 	private static final long serialVersionUID = -5779730267402400328L;

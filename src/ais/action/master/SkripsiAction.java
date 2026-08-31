@@ -180,6 +180,37 @@ import ais.ui.util.MyWindow;
 import de.undercouch.citeproc.CSL;
 import de.undercouch.citeproc.csl.CSLItemData;
 
+/**
+ * Controller/action ZK untuk skripsi. Tipe ini merupakan titik masuk UI yang menghubungkan event
+ * layar dengan perilaku domain yang diwarisi atau dikonfigurasi khusus oleh kelas ini.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * GenericAutowireComposer}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyWindow addWindow}, {@code Paging
+ * paging}, {@code MyGrid grid}, {@code Textbox searchnim}, {@code Textbox searchnama}, {@code Textbox
+ * searchjudul}, {@code Combobox searchsidang}, {@code Combobox searchfakultas}; inisialisasi/lifecycle ({@code
+ * doBeforeCompose()}, {@code doAfterCompose()}, {@code initReferensi()}, {@code initAbstrack()}, {@code
+ * initKelulusan()}, {@code initComponenAddExternal()}); pembacaan/pencarian ({@code onTampilSidang()}, {@code
+ * onTampilJudisium()}, {@code uploadRef()}, {@code onDownloadLampiran()}, {@code getDspaceSkripsiTahun()},
+ * {@code getDspaceSkripsi()}); validasi/perhitungan ({@code mahasiswaBolehUbahDataPersetujuan()}, {@code
+ * checkSyaratPembimbingDanPenguji()}, {@code checkSyarat()}, {@code hitungNilaiHurufSkripsi()}); mutasi data
+ * ({@code onSave()}, {@code setPersetujuan()}, {@code simpanSinkronisasi()}); pelaporan/ekspor ({@code
+ * tombolCetakSK()}, {@code onPrint()}, {@code onPrintJadwal()}, {@code cetakData()}); operasi domain lain
+ * ({@code onGelombangJadwal()}, {@code onFormatNilai()}, {@code onKomponenPenilaian()}, {@code onJadwal()},
+ * {@code onSidang()}, {@code importAktifitasDariFeeder()}). Bagian lain dari kontrak tetap mengikuti kelas induk
+ * atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
+ * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
+ * serta session Hibernate milik request yang aktif.</p>
+ *
+ * @see GenericAutowireComposer
+ */
 public class SkripsiAction extends GenericAutowireComposer implements DataCriteria, FormSop {
 
 	/**
