@@ -1124,9 +1124,11 @@ public class PosApi extends HttpServlet {
 			} else if ("laporan_katalog".equals(action)) {
 				hasil.put("status", "success");
 				hasil.put("kategori", ais.action.master.koperasi.helper.LaporanKatalogData.katalog());
+				sertakanSatuanKerja(hasil);
 			} else if ("laporan_keuangan_katalog".equals(action)) {
 				hasil.put("status", "success");
 				hasil.put("kategori", ais.action.master.koperasi.helper.LaporanKatalogData.katalogKeuangan());
+				sertakanSatuanKerja(hasil);
 				JSONArray pendukung = new JSONArray();
 				JSONObject akun = new JSONObject();
 				akun.put("id", "akun_perkiraan");
@@ -3014,6 +3016,24 @@ public class PosApi extends HttpServlet {
 	 *                lainnya -- checkBayar TIDAK PERNAH mengembalikan "01" dari validasi payload PosApi
 	 *                sendiri, jadi tak butuh cabang DATA_TIDAK_LENGKAP terpisah utk konteks itu).
 	 */
+
+	/**
+	 * Sertakan daftar Satuan Kerja + unit bawaan pada respons katalog laporan.
+	 *
+	 * <p>Layar Laporan Keuangan perlu pemilih unit karena satu instalasi melayani banyak unit usaha
+	 * (sekolah, mart, katering, laundry) yang masing-masing menuntut paket laporannya sendiri plus
+	 * konsolidasi. Dikirim bersama katalog supaya klien tidak perlu satu panggilan tambahan; item
+	 * laporan yang bergantung satuan kerja ditandai flag {@code satker} oleh katalog.</p>
+	 */
+	private static void sertakanSatuanKerja(JSONObject hasil) {
+		try {
+			hasil.put("satuanKerja", ais.action.master.koperasi.helper.LaporanKatalogData.daftarSatuanKerja());
+			hasil.put("satuanKerjaDefault",
+					ais.action.master.koperasi.helper.LaporanKatalogData.satuanKerjaBawaan());
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit PosApi.sertakanSatuanKerja");
+		}
+	}
 	private static void normalisasiStatusKantinHelper(JSONObject hasil, String konteks) throws Exception {
 		String asli = hasil.optString("status", "");
 		hasil.put("statusAsli", asli);

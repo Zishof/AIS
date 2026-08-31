@@ -82,6 +82,73 @@ public final class LaporanKatalogData {
         return o;
     }
 
+    /**
+     * Kategori yang laporannya berbasis JURNAL akuntansi, sehingga bergantung pada Satuan Kerja.
+     * Item di kategori ini diberi flag {@code satker:true} agar penyaji (Desktop/Android/JSP/ZK)
+     * menampilkan pemilih Satuan Kerja; nilainya dikirim balik sebagai parameter {@code satkerId}.
+     */
+    private static final String[] KATEGORI_BERSATKER = new String[] {
+            "Keuangan",
+            "Buku Besar (Akuntansi)",
+            "Kas & Bank (Akuntansi)",
+            "Pajak (PPN)",
+            "Anggaran (RAB)",
+            "Rekonsiliasi Bank",
+    };
+
+    private static boolean kategoriBersatker(String namaKategori) {
+        for (String s : KATEGORI_BERSATKER) {
+            if (s.equals(namaKategori)) { return true; }
+        }
+        return false;
+    }
+
+    /**
+     * Daftar Satuan Kerja untuk pemilih unit pada layar Laporan Keuangan.
+     *
+     * <p>Hanya satuan kerja yang DIPAKAI instansi ({@code default_item = true}) — tabel
+     * {@code rab.satuan_kerja} juga memuat puluhan ribu baris referensi K/L pemerintah hasil impor
+     * RKAKL yang tidak boleh ikut muncul. Baris pertama selalu "Semua Unit (Konsolidasi)" berid 0;
+     * mesin laporan mengartikan {@code satkerId <= 0} sebagai tanpa penyaringan satuan kerja.</p>
+     */
+    public static JSONArray daftarSatuanKerja() throws Exception {
+        JSONArray out = new JSONArray();
+        JSONObject semua = new JSONObject();
+        semua.put("id", 0);
+        semua.put("kode", "");
+        semua.put("nama", Common.getBahasaConfig("Semua Unit (Konsolidasi)"));
+        out.put(semua);
+        try {
+            org.hibernate.Session session = ais.database.hibernate.HibernateUtil.currentSession();
+            List<?> rows = session.createSQLQuery(
+                    "select s.id as id, coalesce(s.kode,'') as kode, coalesce(s.nama,'') as nama "
+                  + " from rab.satuan_kerja s where s.default_item is true order by s.kode, s.nama ")
+                .list();
+            for (Object ro : rows) {
+                Object[] rr = (Object[]) ro;
+                JSONObject o = new JSONObject();
+                o.put("id", rr[0] == null ? 0L : ((Number) rr[0]).longValue());
+                o.put("kode", rr[1] == null ? "" : rr[1].toString());
+                o.put("nama", rr[2] == null ? "" : rr[2].toString());
+                out.put(o);
+            }
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "auto-audit LaporanKatalogData.daftarSatuanKerja");
+        }
+        return out;
+    }
+
+    /** Satuan Kerja yang dipra-pilih: konfigurasi {@code satuan_kerja_kantin}, 0 bila belum diisi. */
+    public static long satuanKerjaBawaan() {
+        try {
+            String v = Common.getKonfigurasi("satuan_kerja_kantin", "").getNilai();
+            if (v != null && v.trim().length() > 0) { return Long.parseLong(v.trim()); }
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "auto-audit LaporanKatalogData.satuanKerjaBawaan");
+        }
+        return 0L;
+    }
+
     private static final class Kat {
         final String nama;
         final List<JSONObject> items = new ArrayList<JSONObject>();
@@ -279,6 +346,7 @@ public final class LaporanKatalogData {
 
         k = new Kat("Keuangan");
         k.items.add(item("akn_laba_rugi", "Laba Rugi (Berbasis Jurnal Akuntansi)", "Laba rugi resmi dari jurnal TERPOSTING + klasifikasi akun (Satuan Kerja kantin)."));
+        k.items.add(item("akn_laporan_aktivitas", "Laporan Aktivitas (Surplus/Defisit)", "Format nirlaba/yayasan: Pendapatan, HPP, Laba Kotor + Contribution Margin, Biaya Tetap, Surplus (Defisit) + Profit Margin."));
         k.items.add(item("akn_neraca", "Neraca (Berbasis Jurnal Akuntansi)", "Neraca resmi dari jurnal TERPOSTING (kumulatif s/d Tgl Sampai) + laba berjalan; dilengkapi baris SELISIH."));
         k.items.add(item("akn_lr_2periode", "Laba Rugi — 2 Periode (Berbasis Jurnal)", "Periode berjalan dibanding periode sebelumnya yang sama panjang, per akun beserta selisihnya."));
         k.items.add(item("akn_neraca_2tanggal", "Neraca — 2 Tanggal (Berbasis Jurnal)", "Saldo tiap akun neraca per Tgl Mulai vs per Tgl Sampai beserta perubahannya."));
@@ -384,7 +452,12 @@ public final class LaporanKatalogData {
             JSONObject o = new JSONObject();
             o.put("kat", Common.getBahasaConfig(kk.nama));
             JSONArray items = new JSONArray();
-            for (JSONObject it : kk.items) items.put(it);
+            boolean bersatker = kategoriBersatker(kk.nama);
+            for (JSONObject it : kk.items) {
+                // Laporan ber-url (JRXML/ZK) memakai formnya sendiri, jadi tidak diberi flag.
+                if (bersatker && !it.has("url")) { it.put("satker", true); }
+                items.put(it);
+            }
             o.put("items", items);
             out.put(o);
         }

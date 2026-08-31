@@ -272,6 +272,12 @@ public final class LaporanKantinUtil {
         if (lintasSatker()) {
             return -1;   // -1 = tanpa penyaringan satuan kerja (lihat LINTAS_SATKER)
         }
+        Long dipilih = SATKER_PILIHAN.get();
+        if (dipilih != null) {
+            // Pilihan pengguna mengalahkan konfigurasi; nilai <= 0 berarti SEMUA satuan kerja
+            // (laporan konsolidasi seluruh unit).
+            return dipilih.longValue() > 0 ? dipilih.longValue() : -1L;
+        }
         try {
             String v = Common.getKonfigurasi("satuan_kerja_kantin", "").getNilai();
             if (v != null && v.trim().length() > 0) { return Long.parseLong(v.trim()); }
@@ -309,6 +315,21 @@ public final class LaporanKantinUtil {
      * menyebarkan hal yang sama ke mana-mana. Selalu dibersihkan di akhir {@code build()}.</p>
      */
     private static final ThreadLocal<Boolean> LINTAS_SATKER = new ThreadLocal<Boolean>();
+
+    /**
+     * Satuan Kerja yang DIPILIH pengguna untuk satu permintaan laporan (parameter {@code satkerId}).
+     *
+     * <p>Satu instalasi AIS melayani banyak unit usaha (mis. sekolah, mart, katering, laundry) yang
+     * masing-masing menuntut paket laporan keuangannya sendiri plus konsolidasi. Tanpa pilihan ini
+     * semua laporan berbasis jurnal terkunci pada konfigurasi {@code satuan_kerja_kantin}, sehingga
+     * hanya satu unit yang bisa dilihat per instalasi. Nilai &lt;= 0 berarti SEMUA unit
+     * (konsolidasi); tidak diisi berarti ikut konfigurasi seperti sebelumnya, jadi perilaku lama
+     * tidak berubah bagi pemanggil yang belum mengirim parameter ini.</p>
+     *
+     * <p>Disimpan per-thread dengan alasan yang sama seperti {@link #LINTAS_SATKER}: klausa ledger
+     * dipakai puluhan cabang laporan. Selalu dibersihkan di akhir {@code build()}.</p>
+     */
+    private static final ThreadLocal<Long> SATKER_PILIHAN = new ThreadLocal<Long>();
 
     private static boolean lintasSatker() {
         Boolean b = LINTAS_SATKER.get();
@@ -491,6 +512,13 @@ public final class LaporanKantinUtil {
 
             Session session = HibernateUtil.currentSession();
             LINTAS_SATKER.set(Boolean.valueOf("true".equalsIgnoreCase(request.getParameter("lintasSatker"))));
+            String satkerParam = request.getParameter("satkerId");
+            if (ada(satkerParam)) {
+                try { SATKER_PILIHAN.set(Long.valueOf(satkerParam.trim())); }
+                catch (Exception e) { SATKER_PILIHAN.remove(); }
+            } else {
+                SATKER_PILIHAN.remove();
+            }
             Map<String, Object> prm = new LinkedHashMap<String, Object>();
             String sql = null;
             String[] tipe = null;
@@ -2771,6 +2799,100 @@ public final class LaporanKantinUtil {
                 }
                 return H;
 
+            } else if ("akn_laporan_aktivitas".equals(r)) {
+                H.judul = "Laporan Aktivitas (Perhitungan Surplus/Defisit)";
+                H.catatan = "Format laporan aktivitas nirlaba/yayasan dari jurnal TERPOSTING + klasifikasi Kelompok "
+                    + "Laporan jenis 'Laba Rugi': Pendapatan, Harga Pokok Penjualan, Laba Kotor beserta Contribution "
+                    + "Margin, Biaya Tetap, lalu Surplus (Defisit) beserta Profit Margin. Akun beban yang kelompoknya "
+                    + "bertanda HPP / harga pokok dihitung sebagai HPP, sisanya sebagai biaya tetap. Akun yang BELUM "
+                    + "dipetakan tidak muncul (lihat 'Diagnosa Pemetaan Akun').";
+                H.grup = -1; H.grandTotal = false;
+                H.kolom.add(new Kolom("Keterangan","text")); H.kolom.add(new Kolom("Nilai","num"));
+                H.tipe = new String[]{"text","num"};
+                Map<String,Object> pa = new LinkedHashMap<String,Object>();
+                String wa = klausaLedger(session, tglMulai, tglSampai, pa);
+                String qa = "select " + LABEL_KLAS + " as kelompok, d.kode as kode, d.nama as nama, "
+                    + " coalesce(sum(a.kredit),0) - coalesce(sum(a.debet),0) as natural_kredit, "
+                    + " coalesce(sum(a.debet),0) - coalesce(sum(a.kredit),0) as natural_debet, "
+                    + TAG_KLAS + " as tag "
+                    + FROM_LEDGER + JOIN_KLAS + wa
+                    + " and (c.aktif is null or c.aktif) "
+                    + " and ( lower(coalesce(f.keterangan,'')) like '%laba%' or lower(coalesce(f.keterangan,'')) like '%rugi%' "
+                    + "       or lower(coalesce(f.keterangan,'')) like '%pendapatan%' "
+                    + "       or lower(coalesce(f.keterangan,'')) like '%beban%' or lower(coalesce(f.keterangan,'')) like '%biaya%' ) "
+                    + " group by c.keterangan, m.keterangan, d.kode, d.nama, f.keterangan, c.urut "
+                    + " order by coalesce(c.urut,0), kelompok, d.kode ";
+                try {
+                    SQLQuery aq = session.createSQLQuery(qa);
+                    for (Map.Entry<String,Object> e : pa.entrySet()) { aq.setParameter(e.getKey(), e.getValue()); }
+                    List<?> arows = aq.list();
+                    if (arows.isEmpty()) {
+                        H.baris.add(new Object[]{"Belum ada data. Pastikan transaksi sudah DIPOSTING ke jurnal & akun "
+                            + "dipetakan ke Kelompok Laporan jenis Laba Rugi.", null});
+                        return H;
+                    }
+                    Map<String, List<Object[]>> gPend = new LinkedHashMap<String, List<Object[]>>();
+                    List<Object[]> barisHpp = new ArrayList<Object[]>();
+                    Map<String, List<Object[]>> gTetap = new LinkedHashMap<String, List<Object[]>>();
+                    double totalPend = 0.0, totalHpp = 0.0, totalTetap = 0.0;
+                    for (Object ro : arows) {
+                        Object[] rr = (Object[]) ro;
+                        String kelompok = rr[0] == null ? "(Tanpa Kelompok)" : rr[0].toString();
+                        String kode = rr[1] == null ? "" : rr[1].toString();
+                        String nama = rr[2] == null ? "" : rr[2].toString();
+                        double natK = (rr[3] instanceof Number) ? ((Number) rr[3]).doubleValue() : 0.0;
+                        double natD = (rr[4] instanceof Number) ? ((Number) rr[4]).doubleValue() : 0.0;
+                        String tag = rr[5] == null ? "" : rr[5].toString();
+                        boolean hpp = tag.contains("hpp") || tag.contains("harga pokok");
+                        boolean beban = hpp || tag.contains("beban") || tag.contains("biaya")
+                            || tag.contains("pengeluaran");
+                        if (hpp) {
+                            totalHpp += natD;
+                            barisHpp.add(new Object[]{ "      " + kode + " " + nama, Double.valueOf(natD) });
+                        } else if (beban) {
+                            totalTetap += natD;
+                            if (!gTetap.containsKey(kelompok)) { gTetap.put(kelompok, new ArrayList<Object[]>()); }
+                            gTetap.get(kelompok).add(new Object[]{ "      " + kode + " " + nama, Double.valueOf(natD) });
+                        } else {
+                            totalPend += natK;
+                            if (!gPend.containsKey(kelompok)) { gPend.put(kelompok, new ArrayList<Object[]>()); }
+                            gPend.get(kelompok).add(new Object[]{ "      " + kode + " " + nama, Double.valueOf(natK) });
+                        }
+                    }
+                    double labaKotor = totalPend - totalHpp;
+                    double surplus = labaKotor - totalTetap;
+
+                    H.baris.add(new Object[]{"A. PENDAPATAN", null});
+                    for (Map.Entry<String, List<Object[]>> e : gPend.entrySet()) {
+                        H.baris.add(new Object[]{"    " + e.getKey(), null});
+                        double sub = 0.0;
+                        for (Object[] x : e.getValue()) { H.baris.add(x); sub += ((Number) x[1]).doubleValue(); }
+                        H.baris.add(new Object[]{"    Subtotal " + e.getKey(), Double.valueOf(sub)});
+                    }
+                    H.baris.add(new Object[]{"JUMLAH PENDAPATAN", Double.valueOf(totalPend)});
+                    H.baris.add(new Object[]{"B. BIAYA", null});
+                    H.baris.add(new Object[]{"  1. HARGA POKOK PENJUALAN (HPP)", null});
+                    for (Object[] x : barisHpp) { H.baris.add(x); }
+                    H.baris.add(new Object[]{"     Jumlah Harga Pokok Penjualan", Double.valueOf(totalHpp)});
+                    H.baris.add(new Object[]{"  2. LABA (RUGI) KOTOR", Double.valueOf(labaKotor)});
+                    H.baris.add(new Object[]{"     Contribution Margin (%)",
+                        totalPend == 0.0 ? null : Double.valueOf(labaKotor * 100.0 / totalPend)});
+                    H.baris.add(new Object[]{"  3. BIAYA TETAP", null});
+                    for (Map.Entry<String, List<Object[]>> e : gTetap.entrySet()) {
+                        H.baris.add(new Object[]{"     " + e.getKey(), null});
+                        double sub = 0.0;
+                        for (Object[] x : e.getValue()) { H.baris.add(x); sub += ((Number) x[1]).doubleValue(); }
+                        H.baris.add(new Object[]{"     Subtotal " + e.getKey(), Double.valueOf(sub)});
+                    }
+                    H.baris.add(new Object[]{"     Jumlah Biaya Tetap", Double.valueOf(totalTetap)});
+                    H.baris.add(new Object[]{"  4. SURPLUS (DEFISIT) - LABA (RUGI) USAHA", Double.valueOf(surplus)});
+                    H.baris.add(new Object[]{"     Profit Margin (%)",
+                        totalPend == 0.0 ? null : Double.valueOf(surplus * 100.0 / totalPend)});
+                } catch (Exception e) {
+                    H.status = "99"; H.message = "Gagal menyusun Laporan Aktivitas: " + e.getMessage();
+                }
+                return H;
+
             } else if ("akn_lr_2periode".equals(r)) {
                 judul = "Laba Rugi \u2014 2 Periode (Berbasis Jurnal)"; grupIdx = 0;
                 catatan = "Periode berjalan (Tgl Mulai s.d Tgl Sampai) dibandingkan dengan periode SEBELUMNYA yang "
@@ -3575,6 +3697,7 @@ public final class LaporanKantinUtil {
             // WAJIB dibersihkan: thread dipakai ulang oleh kontainer, penanda yang tertinggal akan
             // membuat permintaan berikutnya ikut lintas satuan kerja tanpa diminta.
             LINTAS_SATKER.remove();
+            SATKER_PILIHAN.remove();
         }
         return H;
     }

@@ -2893,6 +2893,25 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 			});
 			aksiButtons.add(button);
 
+			button = new MyToolbarbuttonConfig("", "/img/jadwal.png");
+			button.setTooltiptext("History Nilai");
+			button.setVisible(skripsi.getId() != null);
+			button.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					RevisiSkripsiHelper revisiHelper = new RevisiSkripsiHelper(skripsi, new EventListener() {
+						@Override
+						public void onEvent(Event arg0) throws Exception {
+							onSearchDefault(arg0);
+						}
+					});
+					ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(revisiHelper);
+					revisiHelper.setVisible(true);
+					revisiHelper.onModal();
+				}
+			});
+			aksiButtons.add(button);
+
 			button = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
 			button.setTooltiptext("Hapus Data");
 			button.setVisible(delete);
