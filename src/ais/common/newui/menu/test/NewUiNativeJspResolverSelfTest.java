@@ -21,6 +21,24 @@ public final class NewUiNativeJspResolverSelfTest {
         NewUiNativeJspResolver.Result kalender = NewUiNativeJspResolver.resolveFromPaths("/pages/master/rab/kalender.zul", false, paths);
         check(kalender != null && "rab".equals(kalender.getModule()), "disambiguasi modul kalender");
         check(NewUiNativeJspResolver.resolveFromPaths("/pages/master/tidak_ada.zul", false, paths) == null, "route tak dikenal harus fail-closed");
+
+        // Scaffold bernama sama pada modul induk dan submodulnya: submodul
+        // hanya boleh menang bila route lama benar-benar menyebut namanya.
+        Set<String> kembar = new HashSet<String>();
+        kembar.add("/WEB-INF/new/root/uiux/pertemuan.jsp");
+        kembar.add("/WEB-INF/new/root/maintenance/uiux/pertemuan.jsp");
+        kembar.add("/WEB-INF/new/root/uiux/paket.jsp");
+        kembar.add("/WEB-INF/new/root/pmb/uiux/paket.jsp");
+        NewUiNativeJspResolver.Result pertemuan = NewUiNativeJspResolver.resolveFromPaths("/pages/master/pertemuan.zul", false, kembar);
+        check(pertemuan != null && "root".equals(pertemuan.getModule()), "pertemuan master harus menang atas submodul maintenance");
+        NewUiNativeJspResolver.Result pemeliharaan = NewUiNativeJspResolver.resolveFromPaths("/pages/maintenance/pertemuan.zul", false, kembar);
+        check(pemeliharaan != null && "root/maintenance".equals(pemeliharaan.getModule()), "route maintenance harus memilih submodulnya");
+        NewUiNativeJspResolver.Result paket = NewUiNativeJspResolver.resolveFromPaths("/pages/master/paket.zul", true, kembar);
+        check(paket != null && "/WEB-INF/new/root/services/paket_service.jsp".equals(paket.getTarget()), "service paket master");
+        NewUiNativeJspResolver.Result paketPmb = NewUiNativeJspResolver.resolveFromPaths("/pages/pmb/paket.zul", true, kembar);
+        check(paketPmb != null && "/WEB-INF/new/root/pmb/services/paket_service.jsp".equals(paketPmb.getTarget()),
+                "service submodul tidak boleh melompat ke berkas modul induk");
+
         System.out.println("NewUiNativeJspResolverSelfTest OK");
     }
 }
