@@ -978,6 +978,7 @@ public class ImportterSenayaranHelper {
 		}
 	}
 
+	/** Mencatat kegagalan satu statement: menambahkan {@code message} ke {@link Result#messages} (dibatasi 25 entri agar tidak membengkak untuk import dengan banyak kegagalan) dan mencatat detailnya ke log. */
 	private void addDiagnostic(Result result, String message, String statement) {
 		if (result.messages.size() < 25) {
 			result.messages.add(message);
@@ -1001,11 +1002,13 @@ public class ImportterSenayaranHelper {
 		return "statement";
 	}
 
+	/** Seperti {@link #extractMysqlTableName}, mengembalikan {@code "-"} alih-alih {@code null} bila nama tabel tidak dapat diekstrak — aman dipakai langsung dalam pesan diagnostik. */
 	private String safeTableName(String statement) {
 		String table = extractMysqlTableName(statement == null ? "" : statement);
 		return table == null ? "-" : table;
 	}
 
+	/** Merapikan {@code value} (menghapus baris baru) dan memotongnya hingga {@code max} karakter (menambahkan penanda "...[dipotong]") untuk disisipkan ke log tanpa membengkakkan berkas laporan. */
 	private String abbreviate(String value, int max) {
 		if (value == null) {
 			return "";
@@ -1014,6 +1017,7 @@ public class ImportterSenayaranHelper {
 		return compact.length() <= max ? compact : compact.substring(0, max) + " ...[dipotong]";
 	}
 
+	/** Melaporkan progres ke {@code progressListener} bila ada (aman dipanggil dengan listener {@code null}). */
 	private void update(ProgressListener progressListener, int percent, String message) {
 		if (progressListener != null) {
 			progressListener.onProgress(percent, message);

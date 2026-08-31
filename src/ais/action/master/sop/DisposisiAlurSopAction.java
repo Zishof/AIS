@@ -245,6 +245,7 @@ public class DisposisiAlurSopAction extends GenericAutowireComposer
 	// =======================================================================================================
 	// HELPER UI: Menghindari Kode Berulang untuk Render Aktor (Siswa/Mahasiswa/User)
 	// =======================================================================================================
+	/** Menampilkan foto kecil dan nama satu aktor (user/mahasiswa/siswa, prioritas dalam urutan itu) di dalam {@code parentContainer}, dan menampilkan induknya bila sebelumnya tersembunyi. */
 	private void renderAktorUI(Tbmuser user, ais.database.model.Mahasiswa mhs, ais.database.model.sekolah.Siswa siswa, Component parentContainer) {
 		Vbox vbox1 = new Vbox();
 		vbox1.setParent(parentContainer);
@@ -267,6 +268,7 @@ public class DisposisiAlurSopAction extends GenericAutowireComposer
 		}
 	}
 
+	/** Renderer baris tabel riwayat disposisi: identitas pengaju, nama aktor alur, nama+kode SOP (via {@link RevisiHelper}) dalam panel detail, dan properti tambahan (mis. kode terkait) bila tersimpan sebagai JSON. */
 	class DisposisiAlurSopRenderer extends ais.ui.util.MyRowRenderer {
 		@SuppressWarnings({ "unchecked", "deprecation" })
 		@Override
@@ -528,6 +530,20 @@ public class DisposisiAlurSopAction extends GenericAutowireComposer
 		}
 	}
 
+	/**
+	 * Titik masuk eksternal untuk membuka jendela proses satu langkah disposisi dari luar kelas
+	 * ini (mis. dipanggil dari layar lain yang memicu alur SOP): membuat instans composer baru,
+	 * membangun jendela modal, dan mendelegasikan penyusunan formulir ke
+	 * {@link #init(DisposisiAlurSop, AlurSop, DisposisiSop, Set, boolean)}.
+	 *
+	 * @param eventListener   dipanggil setelah proses (simpan/batal) selesai
+	 * @param disposisiAlurSop langkah yang diedit, atau instans baru untuk langkah baru
+	 * @param alurSop         definisi langkah alur SOP yang sedang diproses
+	 * @param disposisiSop    kasus/instans SOP yang sedang berjalan
+	 * @param dokumen         dokumen yang disyaratkan pada langkah ini
+	 * @param editPilihan     izinkan pengeditan pilihan langkah berikutnya
+	 * @param ubah            {@code true} bila formulir dapat diubah (bukan hanya-baca)
+	 */
 	public static void onAddExternal(EventListener eventListener, DisposisiAlurSop disposisiAlurSop, AlurSop alurSop,
 			DisposisiSop disposisiSop, Set<DokumenAlurSop> dokumen, boolean editPilihan, boolean ubah)
 			throws Exception {
@@ -546,6 +562,7 @@ public class DisposisiAlurSopAction extends GenericAutowireComposer
 		disposisiAlurSopAction.addWindow.onModal();
 	}
 
+	/** Implementasi kontrak {@link DataInitDefault}: membuka jendela proses untuk {@code obj} (harus berupa {@link DisposisiAlurSop}) memakai {@link #alurSop}/{@link #disposisiSop}/{@link #dokumen}/{@link #editPilihan} yang sudah ditata sebelumnya pada instans ini. */
 	@Override
 	public void init(GeneralValueObject obj) throws Exception {
 		disposisiAlurSop = (DisposisiAlurSop) obj;
@@ -554,6 +571,17 @@ public class DisposisiAlurSopAction extends GenericAutowireComposer
 		addWindow.onModal();
 	}
 
+	/**
+	 * Menyusun formulir dinamis lengkap untuk satu langkah disposisi SOP. Lihat javadoc kelas
+	 * untuk penjelasan menyeluruh (formulir kustom via refleksi, parameter tambahan, dokumen
+	 * wajib, pilihan langkah berikutnya, opsi kembali/setujui-dan-selesai).
+	 *
+	 * @param disposisiAlurSop langkah yang diedit, atau instans baru untuk langkah baru
+	 * @param alurSop          definisi langkah alur SOP yang sedang diproses
+	 * @param disposisiSop     kasus/instans SOP yang sedang berjalan
+	 * @param dokumen          dokumen yang disyaratkan pada langkah ini
+	 * @param editPilihan      izinkan pengeditan pilihan langkah berikutnya
+	 */
 	@SuppressWarnings({ "deprecation", "unchecked" })
 	private void init(final DisposisiAlurSop disposisiAlurSop, final AlurSop alurSop, final DisposisiSop disposisiSop,
 			final Set<DokumenAlurSop> dokumen, boolean editPilihan) throws Exception {
@@ -1444,6 +1472,17 @@ public class DisposisiAlurSopAction extends GenericAutowireComposer
 	}
 
 	@SuppressWarnings("unchecked")
+	/**
+	 * Memvalidasi formulir langkah disposisi sebelum disimpan: catatan wajib (bila
+	 * {@code alurSop.getCatatanWajibDiisi()}), lampiran catatan wajib (bila dikonfigurasi aktif),
+	 * waktu wajib diisi, pilihan langkah berikutnya wajib dipilih (kecuali
+	 * {@code alurSop.getAlurSetelahnyaTidakWajib()}), validasi parameter tambahan kustom
+	 * ({@link ParameterTambahanDisposisiAlurSopListener#validate()}), dan setiap
+	 * {@link DokumenAlurSop} aktif+wajib harus sudah diunggah. Sebagai efek samping, mengisi
+	 * {@link #selanjutnya} dengan langkah-langkah berikutnya yang dipilih pengguna.
+	 *
+	 * @return {@code true} bila seluruh validasi lolos
+	 */
 	public boolean check() throws Exception {
 		if (alurSop != null && alurSop.getCatatanWajibDiisi() && keterangan.getValue().trim().isEmpty()) {
 			MyMessageboxConfig.show(
@@ -1576,6 +1615,17 @@ public class DisposisiAlurSopAction extends GenericAutowireComposer
 		return true;
 	}
 
+	/**
+	 * Memperbarui penanda agregat pada {@code disposisiSop} ({@code disposisiEnd} = langkah
+	 * terakhir yang tercatat, {@code disposisiSetuju} = langkah yang menyetujui) hanya bila
+	 * nilainya benar-benar berbeda dari yang tersimpan, agar tidak menimbulkan tulis basis data
+	 * yang tidak perlu. Tidak melakukan apa pun bila {@code disposisiSop} {@code null}.
+	 *
+	 * @param session                   sesi Hibernate aktif
+	 * @param disposisiAlurSopTerakhir  langkah yang akan dijadikan penanda akhir terbaru
+	 * @param disposisiAlurSopSetujui   langkah yang menyetujui kasus, boleh {@code null}
+	 * @param disposisiSop              kasus SOP yang penandanya diperbarui
+	 */
 	public static void checkAndSave(Session session, DisposisiAlurSop disposisiAlurSopTerakhir,
 			DisposisiAlurSop disposisiAlurSopSetujui, DisposisiSop disposisiSop) {
 
@@ -1601,6 +1651,17 @@ public class DisposisiAlurSopAction extends GenericAutowireComposer
 		}
 	}
 
+	/**
+	 * Menyimpan langkah disposisi setelah lolos {@link #check()}: membuat baris
+	 * {@link DisposisiAlurSop} baru atau memperbarui yang sudah ada (dengan penanganan konflik
+	 * {@link org.hibernate.StaleStateException} — menampilkan pesan konflik data ke pengguna
+	 * alih-alih gagal diam-diam), menghapus baris langkah-berikutnya basi yang menunjuk ke
+	 * langkah ini bila ini adalah pengeditan, menyimpan lampiran catatan disposisi bila ada, dan
+	 * memperbarui penanda agregat {@link DisposisiSop} secara aman-konkuren (lihat javadoc kelas).
+	 *
+	 * @param event event pemicu (tidak dipakai)
+	 * @return {@code true} bila berhasil disimpan, {@code false} bila validasi gagal atau terjadi galat penyimpanan
+	 */
 	public boolean onSave(Event event) throws Exception {
 		if (!check()) {
 			return false;
@@ -1984,6 +2045,7 @@ public class DisposisiAlurSopAction extends GenericAutowireComposer
 		return true;
 	}
 
+	/** @return kriteria pencarian riwayat {@link DisposisiAlurSop} yang boleh dilihat aktor saat ini (lewat {@link AktorSop#buatCriterionPengaju}), difilter rentang tanggal ({@link #start}/{@link #end}), kata kunci, dan fakultas/jurusan/yayasan/sekolah SOP terkait, diurutkan menurun berdasarkan id bila {@code order} true. */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession(); // Untuk UI Filter dibolehkan
 		Criteria criteria = session.createCriteria(DisposisiAlurSop.class)
@@ -2029,6 +2091,7 @@ public class DisposisiAlurSopAction extends GenericAutowireComposer
 		return criteria;
 	}
 
+	/** Memuat ulang paginasi dan grid riwayat disposisi sesuai filter formulir dan halaman aktif saat ini; tidak melakukan apa pun bila formulir filter belum terpasang. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 		if (searchnama == null) return;

@@ -38,13 +38,16 @@ import ais.database.hibernate.HibernateUtil;
  * </p>
  *
  * <p>
- * <b>Catatan keamanan</b> — SQL {@code CREATE TABLE}/{@code INSERT} pada
- * {@link #doImport(File, Progressmeter, Progressmeter, Label)} dibangun lewat konkatenasi string,
- * bukan prepared statement/parameter binding. Nama tabel disisipkan langsung dari nama berkas DBF
- * ({@code file.getName()}) tanpa validasi/escaping, dan nilai kolom teks hanya dibersihkan dengan
- * menghapus karakter kutip tunggal ({@code replaceAll("'", "")}) — bukan escaping yang aman. Bila
- * nama berkas atau isi berkas DBF yang diimpor berasal dari sumber tidak tepercaya, ini berpotensi
- * SQL injection/DDL injection ke skema {@code importepsbed}. Progress meter dan label diberikan
+ * <b>Catatan keamanan (diperbaiki)</b> — SQL {@code CREATE TABLE} pada
+ * {@link #doImport(File, Progressmeter, Progressmeter, Label)} tetap dibangun lewat konkatenasi
+ * string (identifier SQL tidak bisa diikat sebagai parameter bind), namun nama tabel (dari nama
+ * berkas DBF) dan nama kolom (dari nama field DBF) kini divalidasi lewat
+ * {@link #sanitizeIdentifier(String, String)} — hanya huruf/angka/garis bawah diterima, selain
+ * itu {@link IllegalArgumentException} dilempar dan impor berkas tersebut gagal. Nilai kolom pada
+ * {@code INSERT} tidak lagi disisipkan sebagai literal string; kini diikat lewat parameter posisi
+ * ({@code ?}) memakai {@code SQLQuery.setParameter(int, Object)}. Sebelumnya kedua celah ini
+ * berpotensi SQL injection/DDL injection ke skema {@code importepsbed} bila nama berkas atau isi
+ * berkas DBF yang diimpor berasal dari sumber tidak tepercaya. Progress meter dan label diberikan
  * opsional untuk menampilkan kemajuan proses ke UI (dipanggil dari komponen admin), namun method
  * inti tetap dapat dipakai tanpa UI (parameter {@code null}).
  * </p>
@@ -52,6 +55,27 @@ import ais.database.hibernate.HibernateUtil;
 public class ImportFromEpsbedHelper {
 
 	public static String NL = System.getProperty("line.separator");
+
+	/**
+	 * Memvalidasi bahwa {@code name} berupa identifier SQL aman (hanya huruf/angka/garis bawah)
+	 * sebelum dipakai dalam DDL/DML yang dirakit lewat konkatenasi string — nama tabel/kolom tidak
+	 * bisa diikat sebagai parameter bind seperti nilai data biasa. Menolak identifier kosong atau
+	 * yang mengandung karakter di luar {@code [A-Za-z0-9_]} untuk mencegah SQL/DDL injection lewat
+	 * nama berkas DBF atau nama field DBF yang berasal dari sumber tidak tepercaya.
+	 *
+	 * @param name    identifier yang akan divalidasi
+	 * @param konteks label sumber identifier untuk pesan galat (mis. "nama tabel", "nama kolom")
+	 * @return {@code name} apa adanya, bila valid
+	 * @throws IllegalArgumentException bila {@code name} kosong atau mengandung karakter tidak aman
+	 */
+	private static String sanitizeIdentifier(String name, String konteks) {
+		if (name == null || !name.matches("[A-Za-z0-9_]+")) {
+			throw new IllegalArgumentException("Impor EPSBED ditolak: " + konteks
+					+ " mengandung karakter yang tidak diperbolehkan (hanya huruf, angka, dan garis bawah diizinkan): "
+					+ name);
+		}
+		return name;
+	}
 
 	/** Titik masuk baris perintah untuk pengujian manual: membaca isi {@code mahasiswa.sql} dan mencetaknya. */
 	public static void main(String[] argv) throws IOException {
@@ -126,23 +150,26 @@ public class ImportFromEpsbedHelper {
 			try {
 				Session session = HibernateUtil.currentNativeSession();
 				session.getTransaction().begin();
+				String tableName = sanitizeIdentifier(file.getName().substring(0, file.getName().length() - 4),
+						"nama tabel (dari nama berkas)");
 				String sqlCreateTable = "CREATE TABLE importepsbed.\""
-						+ (file.getName().substring(0, file.getName().length() - 4)) + "\" ( " + NL;
+						+ tableName + "\" ( " + NL;
 				for (int i = 0; i < reader.getFieldCount(); i++) {
 					DBFField field = reader.getField(i);
+					String fieldName = sanitizeIdentifier(field.getName(), "nama kolom (dari field DBF)");
 
 					// field.getDataType()
 					if (field.getDataType() == DBFField.FIELD_TYPE_C)
-						sqlCreateTable += "\"" + field.getName() + "\" character varying(" + field.getFieldLength()
+						sqlCreateTable += "\"" + fieldName + "\" character varying(" + field.getFieldLength()
 								+ ")";
 					if (field.getDataType() == DBFField.FIELD_TYPE_N || field.getDataType() == DBFField.FIELD_TYPE_M)
-						sqlCreateTable += "\"" + field.getName() + "\" numeric";
+						sqlCreateTable += "\"" + fieldName + "\" numeric";
 					if (field.getDataType() == DBFField.FIELD_TYPE_D)
-						sqlCreateTable += "\"" + field.getName() + "\" date";
+						sqlCreateTable += "\"" + fieldName + "\" date";
 					if (field.getDataType() == DBFField.FIELD_TYPE_F)
-						sqlCreateTable += "\"" + field.getName() + "\" double precision";
+						sqlCreateTable += "\"" + fieldName + "\" double precision";
 					if (field.getDataType() == DBFField.FIELD_TYPE_L)
-						sqlCreateTable += "\"" + field.getName() + "\" bool";
+						sqlCreateTable += "\"" + fieldName + "\" bool";
 
 					if (i != reader.getFieldCount() - 1) {
 						sqlCreateTable += "," + NL;
@@ -192,10 +219,13 @@ public class ImportFromEpsbedHelper {
 								+ " dari total " + rowCount);
 					}
 
+					String tableName = sanitizeIdentifier(file.getName().substring(0, file.getName().length() - 4),
+							"nama tabel (dari nama berkas)");
 					String sqlInsert = "INSERT INTO importepsbed.\""
-							+ (file.getName().substring(0, file.getName().length() - 4)) + "\" VALUES ";
+							+ tableName + "\" VALUES ";
 
 					sqlInsert += "(" + NL;
+					List<Object> insertParams = new ArrayList<Object>();
 					for (int i = 0; i < reader.getFieldCount(); i++) {
 						DBFField field = reader.getField(i);
 
@@ -205,42 +235,43 @@ public class ImportFromEpsbedHelper {
 
 						else if (field.getDataType() == DBFField.FIELD_TYPE_C) {
 							if (!rowobj[i].toString().trim().equals("")) {
-
-								String data = rowobj[i].toString().trim().replaceAll("'", "");
-
-								sqlInsert += "'" + data + "'";
+								sqlInsert += "?";
+								insertParams.add(rowobj[i].toString().trim());
 							} else {
 								sqlInsert += "null";
 							}
 						} else if (field.getDataType() == DBFField.FIELD_TYPE_N
 								|| field.getDataType() == DBFField.FIELD_TYPE_M) {
 							if (!rowobj[i].toString().trim().equals("")) {
-								sqlInsert += "" + rowobj[i] + "";
+								sqlInsert += "?";
+								insertParams.add(rowobj[i]);
 							} else {
 								sqlInsert += "null";
 							}
 						} else if (field.getDataType() == DBFField.FIELD_TYPE_F) {
 							if (!rowobj[i].toString().trim().equals("")) {
-								sqlInsert += "" + rowobj[i] + "";
+								sqlInsert += "?";
+								insertParams.add(rowobj[i]);
 							} else {
 								sqlInsert += "null";
 							}
 						} else if (field.getDataType() == DBFField.FIELD_TYPE_L) {
 							if (!rowobj[i].toString().trim().equals("")) {
-								sqlInsert += "" + rowobj[i] + "";
+								sqlInsert += "?";
+								insertParams.add(rowobj[i]);
 							} else {
 								sqlInsert += "null";
 							}
 						} else if (field.getDataType() == DBFField.FIELD_TYPE_D) {
-							try {
-								if (!rowobj[i].toString().trim().equals("")) {
-									sqlInsert += "'" + Common.databaseDateFormat.get().format(rowobj[i]) + "'";
-
+							if (!rowobj[i].toString().trim().equals("")) {
+								sqlInsert += "?";
+								if (rowobj[i] instanceof java.util.Date) {
+									insertParams.add(new java.sql.Date(((java.util.Date) rowobj[i]).getTime()));
 								} else {
-									sqlInsert += "null";
+									insertParams.add(rowobj[i].toString());
 								}
-							} catch (Exception e) {
-								sqlInsert += "'" + rowobj[i] + "'";
+							} else {
+								sqlInsert += "null";
 							}
 						}
 
@@ -254,7 +285,11 @@ public class ImportFromEpsbedHelper {
 
 					// if (row > 0) {
 
-					session.createSQLQuery(sqlInsert).executeUpdate();
+					org.hibernate.SQLQuery insertQuery = session.createSQLQuery(sqlInsert);
+					for (int p = 0; p < insertParams.size(); p++) {
+						insertQuery.setParameter(p, insertParams.get(p));
+					}
+					insertQuery.executeUpdate();
 					// System.out.println("result = " + result + " sqlInsert = "
 					// + sqlInsert);
 					// }
