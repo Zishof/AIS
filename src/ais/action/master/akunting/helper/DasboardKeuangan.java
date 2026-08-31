@@ -3613,6 +3613,20 @@ public class DasboardKeuangan extends MyPortallayout {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link FinanceDashboardData} milik {@link DasboardKeuangan}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasboardKeuangan}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List metrics}, {@code Map perSatker},
+	 * {@code List recentPending}, {@code int totalPendingCount}, {@code int totalApprovedCount}, {@code int
+	 * totalCount}, {@code double totalPendingValue}, {@code double totalApprovedValue}. Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DasboardKeuangan
+	 */
 	private static class FinanceDashboardData {
 		List metrics = new ArrayList();
 		Map perSatker = new TreeMap();
@@ -3625,6 +3639,20 @@ public class DasboardKeuangan extends MyPortallayout {
 		double totalValue;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link FinanceMetric} milik {@link DasboardKeuangan}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasboardKeuangan}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String title}, {@code String
+	 * description}, {@code Class entityClass}, {@code String status}, {@code String color}, {@code int count},
+	 * {@code double value}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see DasboardKeuangan
+	 */
 	private static class FinanceMetric {
 		String title;
 		String description;
@@ -3635,6 +3663,20 @@ public class DasboardKeuangan extends MyPortallayout {
 		double value;
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link DasboardKeuangan} untuk finance satker summary. Tipe ini
+	 * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+	 * jelas.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasboardKeuangan}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String satker}, {@code int count},
+	 * {@code int pendingCount}, {@code double value}, {@code double pendingValue}. Aturan bisnis bersama tetap
+	 * berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DasboardKeuangan
+	 */
 	private static class FinanceSatkerSummary {
 		String satker;
 		int count;
@@ -3643,6 +3685,20 @@ public class DasboardKeuangan extends MyPortallayout {
 		double pendingValue;
 	}
 
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link DasboardKeuangan}. Tipe ini memisahkan satu variasi
+	 * perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasboardKeuangan} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code count()}, {@code list}(). Aturan
+	 * bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see DasboardKeuangan
+	 */
 	interface FinanceDetailProvider {
 		int count() throws Exception;
 

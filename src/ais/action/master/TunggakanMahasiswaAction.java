@@ -495,6 +495,20 @@ public class TunggakanMahasiswaAction extends GenericAutowireComposer implements
 		if (comboitem != null) { comboitem.setValue(ais.database.model.Mahasiswa.WNA); }
 		kewarganegaraan.appendChild(comboitem);
 
+		/**
+		 * Event listener lokal milik {@link TunggakanMahasiswaAction}. Kelas ini menangani event untuk komponen induk
+		 * dan meneruskan pekerjaan domain ke method/service yang sudah tersedia.
+		 *
+		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link TunggakanMahasiswaAction} dan dapat mengakses
+		 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code onEvent}(). Aturan bisnis bersama
+		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+		 * renderer/listener ini.</p>
+		 *
+		 * @see TunggakanMahasiswaAction
+		 */
 		class SearchJurusanEventListener implements EventListener {
 
 			@Override
@@ -514,6 +528,20 @@ public class TunggakanMahasiswaAction extends GenericAutowireComposer implements
 
 		Common.insertCombo(searchfakultas, new String[] { "nama", "kode" }, Fakultas.class, Restrictions.eq("aktif", true));
 
+		/**
+		 * Event listener lokal milik {@link TunggakanMahasiswaAction}. Kelas ini menangani event untuk komponen induk
+		 * dan meneruskan pekerjaan domain ke method/service yang sudah tersedia.
+		 *
+		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link TunggakanMahasiswaAction} dan dapat mengakses
+		 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code onEvent}(). Aturan bisnis bersama
+		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+		 * renderer/listener ini.</p>
+		 *
+		 * @see TunggakanMahasiswaAction
+		 */
 		class SearchFakultasEventListener implements EventListener {
 
 			@Override
@@ -588,6 +616,20 @@ public class TunggakanMahasiswaAction extends GenericAutowireComposer implements
 		});
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link TunggakanMahasiswaAction}. Kelas ini menerjemahkan satu item data
+	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link TunggakanMahasiswaAction} dan dapat mengakses
+	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see TunggakanMahasiswaAction
+	 */
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override

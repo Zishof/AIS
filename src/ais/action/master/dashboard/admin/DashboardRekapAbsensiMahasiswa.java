@@ -982,6 +982,22 @@ public class DashboardRekapAbsensiMahasiswa extends MyWindow {
 		return data;
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link DashboardRekapAbsensiMahasiswa} untuk attendance summary. Tipe ini
+	 * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+	 * jelas.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DashboardRekapAbsensiMahasiswa}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int hadir}, {@code int alpa}, {@code
+	 * int sakit}, {@code int izin}, {@code int totalTidakHadir}, {@code int totalPertemuan}, {@code int
+	 * jumlahBaris}, {@code double persenHadir}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+	 * yang dipanggilnya.</p>
+	 *
+	 * @see DashboardRekapAbsensiMahasiswa
+	 */
 	private static class AttendanceSummary {
 		int hadir;
 		int alpa;

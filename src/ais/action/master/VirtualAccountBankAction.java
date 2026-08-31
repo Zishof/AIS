@@ -1560,6 +1560,21 @@ public class VirtualAccountBankAction extends GenericAutowireComposer implements
 		}
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link VirtualAccountBankAction}. Kelas ini menerjemahkan satu item data
+	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link VirtualAccountBankAction} dan dapat mengakses
+	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean
+	 * aktifkan_chek_ulang_bank_online}; operasi lokal: {@code render}(). Aturan bisnis bersama tetap berada pada
+	 * kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see VirtualAccountBankAction
+	 */
 	class VirtualAccountBankRenderer extends ais.ui.util.MyRowRenderer {
 
 		boolean aktifkan_chek_ulang_bank_online = Common.bolehKonfigurasi("aktifkan_chek_ulang_bank_online", Konfigurasi.TIDAK_AKTIF);

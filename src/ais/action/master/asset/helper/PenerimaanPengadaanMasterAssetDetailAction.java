@@ -110,6 +110,25 @@ public class PenerimaanPengadaanMasterAssetDetailAction extends MyDetail {
 
 	private boolean beliLangsung;
 
+	/**
+	 * Tipe implementasi bersarang {@link TerimaTagihan} milik {@link PenerimaanPengadaanMasterAssetDetailAction}.
+	 * Kelas ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok
+	 * anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * PenerimaanPengadaanMasterAssetDetailAction}. Dependensi yang diperlukan harus diberikan secara eksplisit
+	 * agar aman digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code LampiranLain lainMahasiswa}, {@code
+	 * LampiranLain lainMahasiswa1}, {@code LampiranLain lainMahasiswa12}, {@code LampiranLain lainMahasiswa2},
+	 * {@code LampiranLain lainMahasiswa3}, {@code LampiranLain lainMahasiswa4}, {@code LampiranLain
+	 * lainMahasiswa5}; operasi lokal: {@code init()}, {@code init}(). Aturan bisnis bersama tetap berada pada
+	 * kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see PenerimaanPengadaanMasterAssetDetailAction
+	 */
 	public static class TerimaTagihan {
 
 		protected LampiranLain lainMahasiswa;
@@ -972,6 +991,21 @@ public class PenerimaanPengadaanMasterAssetDetailAction extends MyDetail {
 		});
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link PenerimaanPengadaanMasterAssetDetailAction}. Kelas ini
+	 * menerjemahkan satu item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik
+	 * kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link PenerimaanPengadaanMasterAssetDetailAction}
+	 * dan dapat mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see PenerimaanPengadaanMasterAssetDetailAction
+	 */
 	class PenerimaanPengadaanMasterAssetDetailRenderer extends ais.ui.util.MyRowRenderer {
 
 		public PenerimaanPengadaanMasterAssetDetailRenderer() {

@@ -2077,10 +2077,39 @@ public class DashboardTrenAktivitasPerkuliahan extends MyWindow {
 	}
 
 
+	/**
+	 * Tipe implementasi bersarang {@link FastAggregateData} milik {@link DashboardTrenAktivitasPerkuliahan}. Kelas
+	 * ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DashboardTrenAktivitasPerkuliahan}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Map byPerkuliahan}. Aturan bisnis
+	 * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DashboardTrenAktivitasPerkuliahan
+	 */
 	private static class FastAggregateData {
 		Map<Long, FastPerkuliahanAggregate> byPerkuliahan = new HashMap<Long, FastPerkuliahanAggregate>();
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link FastPerkuliahanAggregate} milik {@link
+	 * DashboardTrenAktivitasPerkuliahan}. Kelas ini memberi nama pada state atau perilaku lokal agar tanggung
+	 * jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DashboardTrenAktivitasPerkuliahan}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List pertemuanIds}, {@code int
+	 * qtyMateri}, {@code int qtyAudio}, {@code int qtyVideo}, {@code int qtyDokumenUpload}, {@code int
+	 * qtyDokumenTarget}, {@code TreeMap dokumenPerJenis}, {@code TreeMap kehadiranDosen}. Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DashboardTrenAktivitasPerkuliahan
+	 */
 	private static class FastPerkuliahanAggregate {
 		List<Long> pertemuanIds = new ArrayList<Long>();
 		int qtyMateri;
@@ -2095,6 +2124,22 @@ public class DashboardTrenAktivitasPerkuliahan extends MyWindow {
 		TreeMap<String, Integer> kehadiranGuru = createStatusMap();
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link DashboardTrenAktivitasPerkuliahan} untuk dashboard data. Tipe ini
+	 * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+	 * jelas.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DashboardTrenAktivitasPerkuliahan}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String filterCaption}, {@code int
+	 * totalPerkuliahanFilter}, {@code int totalPerkuliahanDimuat}, {@code int sampleLimit}, {@code long
+	 * totalPertemuan}, {@code long totalCatatan}, {@code long totalTugas}, {@code long totalUjian}. Aturan bisnis
+	 * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DashboardTrenAktivitasPerkuliahan
+	 */
 	private static class DashboardData {
 		String filterCaption = "";
 		int totalPerkuliahanFilter;
@@ -2128,6 +2173,25 @@ public class DashboardTrenAktivitasPerkuliahan extends MyWindow {
 		TreeMap<String, Integer> kehadiranGuru = createStatusMap();
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link ProdiDashboardStat} milik {@link DashboardTrenAktivitasPerkuliahan}.
+	 * Kelas ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok
+	 * anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DashboardTrenAktivitasPerkuliahan}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String prodi}, {@code long
+	 * pertemuan}, {@code long materi}, {@code long tugas}, {@code long ujian}, {@code long diskusi}, {@code long
+	 * audio}, {@code long video}; operasi lokal: {@code add()}, {@code totalAktivitas}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see DashboardTrenAktivitasPerkuliahan
+	 */
 	private static class ProdiDashboardStat {
 		String prodi;
 		long pertemuan;
@@ -2159,6 +2223,26 @@ public class DashboardTrenAktivitasPerkuliahan extends MyWindow {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link MatkulDashboardStat} milik {@link DashboardTrenAktivitasPerkuliahan}.
+	 * Kelas ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok
+	 * anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DashboardTrenAktivitasPerkuliahan}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long perkuliahanId}, {@code String
+	 * info}, {@code String kode}, {@code String matakuliah}, {@code String kelas}, {@code String prodi}, {@code
+	 * String dosen}, {@code int qtyPertemuan}; operasi lokal: {@code totalAktivitas()}, {@code totalKehadiran()},
+	 * {@code shortTitle}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see DashboardTrenAktivitasPerkuliahan
+	 */
 	private static class MatkulDashboardStat {
 		Long perkuliahanId;
 		String info = "";
@@ -2234,6 +2318,20 @@ public class DashboardTrenAktivitasPerkuliahan extends MyWindow {
 		return total;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link DashboardBar} milik {@link DashboardTrenAktivitasPerkuliahan}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DashboardTrenAktivitasPerkuliahan}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String label}, {@code long value},
+	 * {@code String color}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see DashboardTrenAktivitasPerkuliahan
+	 */
 	private static class DashboardBar {
 		String label;
 		long value;

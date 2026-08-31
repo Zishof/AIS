@@ -95,6 +95,40 @@ public class PostingJurnalAction extends GenericAutowireComposer {
 	private Tab tabPostingHpp;
 
 	/**
+	 * Daftar tab Posting Jurnal: {slug konfigurasi, label, path ZUL}.
+	 *
+	 * <p>Sengaja publik dan tunggal: kontrak native menyajikan daftar yang SAMA
+	 * agar tab pada layar native tidak pernah menyimpang dari layar ZK. Tiap
+	 * baris tetap tunduk pada saklar Konfigurasi
+	 * {@code POSTING_JURNAL_TAB_PREFIX + slug}; urutannya adalah urutan tampil.</p>
+	 */
+	public static final String[][] TABS = {
+			{ "draft_jurnal", "Draft Jurnal", "/WEB-INF/z/x/y/pages/master/akunting/draft_jurnal.zul" },
+			{ "jurnal_umum", "Jurnal Umum", "/WEB-INF/z/x/y/pages/master/akunting/grup_transaksi.zul" },
+			{ "uang_muka_kas", "Uang Muka dan Kas", "/WEB-INF/z/x/y/pages/master/akunting/uang_muka_dan_kas_kecil.zul" },
+			{ "pajak", "Pajak", "/WEB-INF/z/x/y/pages/master/akunting/posting_pertanggunjawaban_pajak.zul" },
+			{ "transaksi_vendor", "Transaksi Vendor", "/WEB-INF/z/x/y/pages/master/akunting/transaksi_vendor.zul" },
+			{ "gaji", "Gaji", "/WEB-INF/z/x/y/pages/master/payroll/posting_transaksi_transaksi_penggajian.zul" },
+			{ "siswa_mahasiswa", "Siswa dan Mahasiswa", "/WEB-INF/z/x/y/pages/master/akunting/transaksi_siswa_dan_mahasiswa.zul" },
+			{ "penyusutan", "Penyusutan", "/WEB-INF/z/x/y/pages/master/asset/posting_penyusutan_tabs.zul" },
+			{ "pengajuan_transfer", "Pengajuan Transfer", "/WEB-INF/z/x/y/pages/master/akunting/posting_proses_transfer.zul" },
+			{ "transitori", "Transitori", "/WEB-INF/z/x/y/pages/master/akunting/posting_proses_transitori.zul" },
+			{ "closing", "Closing", "/WEB-INF/z/x/y/pages/master/akunting/closing.zul" },
+			{ "posting_hpp", "Posting HPP", "/WEB-INF/z/x/y/pages/master/koperasi/posting_hpp_kantin.zul" },
+			{ "posting_penjualan", "Posting Penjualan", "/WEB-INF/z/x/y/pages/master/koperasi/posting_penjualan_kantin.zul" },
+			// Empat posting penutup rantai pengadaan->pembayaran toko (2026-08-20). Tanpa ini akun
+			// Persediaan hanya pernah dikredit jurnal HPP dan Utang Usaha tak pernah terbentuk.
+			{ "posting_kulakan", "Posting Kulakan", "/WEB-INF/z/x/y/pages/master/koperasi/posting_kulakan_toko.zul" },
+			{ "posting_bayar_hutang", "Posting Bayar Hutang", "/WEB-INF/z/x/y/pages/master/koperasi/posting_bayar_hutang_toko.zul" },
+			{ "posting_terima_piutang", "Posting Terima Piutang", "/WEB-INF/z/x/y/pages/master/koperasi/posting_terima_piutang_toko.zul" },
+			{ "posting_penyesuaian", "Posting Penyesuaian", "/WEB-INF/z/x/y/pages/master/koperasi/posting_penyesuaian_toko.zul" },
+			// Siklus akuntansi: saldo awal, penyesuaian berkala, dan tutup buku (2026-08-20).
+			{ "saldo_awal", "Saldo Awal", "/WEB-INF/z/x/y/pages/master/koperasi/siklus_saldo_awal.zul" },
+			{ "jurnal_penyesuaian", "Jurnal Penyesuaian", "/WEB-INF/z/x/y/pages/master/koperasi/siklus_penyesuaian.zul" },
+			{ "tutup_buku_laba_ditahan", "Tutup Buku", "/WEB-INF/z/x/y/pages/master/koperasi/siklus_tutup_buku.zul" },
+	};
+
+	/**
 	 * Memeriksa hak akses pengguna sebelum halaman dirender oleh ZK framework.
 	 *
 	 * <p><b>Tujuan:</b> Mencegah akses tidak sah ke halaman Posting Jurnal dengan
@@ -142,89 +176,10 @@ public class PostingJurnalAction extends GenericAutowireComposer {
 		int idx = 0;
 
 		final String P = Konfigurasi.POSTING_JURNAL_TAB_PREFIX;
-
-		if (Common.bolehKonfigurasi(P + "draft_jurnal")) {
-			btabs.tambahTabZul(idx++, "Draft Jurnal",
-					"/WEB-INF/z/x/y/pages/master/akunting/draft_jurnal.zul");
-		}
-		if (Common.bolehKonfigurasi(P + "jurnal_umum")) {
-			btabs.tambahTabZul(idx++, "Jurnal Umum",
-					"/WEB-INF/z/x/y/pages/master/akunting/grup_transaksi.zul");
-		}
-		if (Common.bolehKonfigurasi(P + "uang_muka_kas")) {
-			btabs.tambahTabZul(idx++, "Uang Muka dan Kas",
-					"/WEB-INF/z/x/y/pages/master/akunting/uang_muka_dan_kas_kecil.zul");
-		}
-		if (Common.bolehKonfigurasi(P + "pajak")) {
-			btabs.tambahTabZul(idx++, "Pajak",
-					"/WEB-INF/z/x/y/pages/master/akunting/posting_pertanggunjawaban_pajak.zul");
-		}
-		if (Common.bolehKonfigurasi(P + "transaksi_vendor")) {
-			btabs.tambahTabZul(idx++, "Transaksi Vendor",
-					"/WEB-INF/z/x/y/pages/master/akunting/transaksi_vendor.zul");
-		}
-		if (Common.bolehKonfigurasi(P + "gaji")) {
-			btabs.tambahTabZul(idx++, "Gaji",
-					"/WEB-INF/z/x/y/pages/master/payroll/posting_transaksi_transaksi_penggajian.zul");
-		}
-		if (Common.bolehKonfigurasi(P + "siswa_mahasiswa")) {
-			btabs.tambahTabZul(idx++, "Siswa dan Mahasiswa",
-					"/WEB-INF/z/x/y/pages/master/akunting/transaksi_siswa_dan_mahasiswa.zul");
-		}
-		if (Common.bolehKonfigurasi(P + "penyusutan")) {
-			btabs.tambahTabZul(idx++, "Penyusutan",
-					"/WEB-INF/z/x/y/pages/master/asset/posting_penyusutan_tabs.zul");
-		}
-		if (Common.bolehKonfigurasi(P + "pengajuan_transfer")) {
-			btabs.tambahTabZul(idx++, "Pengajuan Transfer",
-					"/WEB-INF/z/x/y/pages/master/akunting/posting_proses_transfer.zul");
-		}
-		if (Common.bolehKonfigurasi(P + "transitori")) {
-			btabs.tambahTabZul(idx++, "Transitori",
-					"/WEB-INF/z/x/y/pages/master/akunting/posting_proses_transitori.zul");
-		}
-		if (Common.bolehKonfigurasi(P + "closing")) {
-			btabs.tambahTabZul(idx++, "Closing",
-					"/WEB-INF/z/x/y/pages/master/akunting/closing.zul");
-		}
-		if (Common.bolehKonfigurasi(P + "posting_hpp")) {
-			btabs.tambahTabZul(idx++, "Posting HPP",
-					"/WEB-INF/z/x/y/pages/master/koperasi/posting_hpp_kantin.zul");
-		}
-		if (Common.bolehKonfigurasi(P + "posting_penjualan")) {
-			btabs.tambahTabZul(idx++, "Posting Penjualan",
-					"/WEB-INF/z/x/y/pages/master/koperasi/posting_penjualan_kantin.zul");
-		}
-		// Empat posting penutup rantai pengadaan->pembayaran toko (2026-08-20). Tanpa ini akun
-		// Persediaan hanya pernah dikredit jurnal HPP dan Utang Usaha tak pernah terbentuk.
-		if (Common.bolehKonfigurasi(P + "posting_kulakan")) {
-			btabs.tambahTabZul(idx++, "Posting Kulakan",
-					"/WEB-INF/z/x/y/pages/master/koperasi/posting_kulakan_toko.zul");
-		}
-		if (Common.bolehKonfigurasi(P + "posting_bayar_hutang")) {
-			btabs.tambahTabZul(idx++, "Posting Bayar Hutang",
-					"/WEB-INF/z/x/y/pages/master/koperasi/posting_bayar_hutang_toko.zul");
-		}
-		if (Common.bolehKonfigurasi(P + "posting_terima_piutang")) {
-			btabs.tambahTabZul(idx++, "Posting Terima Piutang",
-					"/WEB-INF/z/x/y/pages/master/koperasi/posting_terima_piutang_toko.zul");
-		}
-		if (Common.bolehKonfigurasi(P + "posting_penyesuaian")) {
-			btabs.tambahTabZul(idx++, "Posting Penyesuaian",
-					"/WEB-INF/z/x/y/pages/master/koperasi/posting_penyesuaian_toko.zul");
-		}
-		// Siklus akuntansi: saldo awal, penyesuaian berkala, dan tutup buku (2026-08-20).
-		if (Common.bolehKonfigurasi(P + "saldo_awal")) {
-			btabs.tambahTabZul(idx++, "Saldo Awal",
-					"/WEB-INF/z/x/y/pages/master/koperasi/siklus_saldo_awal.zul");
-		}
-		if (Common.bolehKonfigurasi(P + "jurnal_penyesuaian")) {
-			btabs.tambahTabZul(idx++, "Jurnal Penyesuaian",
-					"/WEB-INF/z/x/y/pages/master/koperasi/siklus_penyesuaian.zul");
-		}
-		if (Common.bolehKonfigurasi(P + "tutup_buku_laba_ditahan")) {
-			btabs.tambahTabZul(idx++, "Tutup Buku",
-					"/WEB-INF/z/x/y/pages/master/koperasi/siklus_tutup_buku.zul");
+		for (int i = 0; i < TABS.length; i++) {
+			if (Common.bolehKonfigurasi(P + TABS[i][0])) {
+				btabs.tambahTabZul(idx++, TABS[i][1], TABS[i][2]);
+			}
 		}
 
 		super.doAfterCompose(comp);

@@ -115,6 +115,19 @@ public class RekapHasilTugasPerTugasDanUjianObe extends MyWindow {
 	 */
 	private static final int MAX_OBE_PARALLEL_THREADS = 150;
 
+	/**
+	 * Tipe implementasi bersarang {@link ObeCellValue} milik {@link RekapHasilTugasPerTugasDanUjianObe}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * RekapHasilTugasPerTugasDanUjianObe}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Object value}, {@code boolean
+	 * summary}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see RekapHasilTugasPerTugasDanUjianObe
+	 */
 	private static class ObeCellValue {
 		Object value;
 		boolean summary;
@@ -125,6 +138,20 @@ public class RekapHasilTugasPerTugasDanUjianObe extends MyWindow {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link ObeAssessmentColumn} milik {@link RekapHasilTugasPerTugasDanUjianObe}.
+	 * Kelas ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok
+	 * anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * RekapHasilTugasPerTugasDanUjianObe}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long formatId}, {@code String key}.
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see RekapHasilTugasPerTugasDanUjianObe
+	 */
 	private static class ObeAssessmentColumn {
 		Long formatId;
 		String key;
@@ -135,6 +162,19 @@ public class RekapHasilTugasPerTugasDanUjianObe extends MyWindow {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link ObeFormatColumn} milik {@link RekapHasilTugasPerTugasDanUjianObe}. Kelas
+	 * ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * RekapHasilTugasPerTugasDanUjianObe}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code FormatNilai formatNilai}, {@code List
+	 * assessmentColumns}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see RekapHasilTugasPerTugasDanUjianObe
+	 */
 	private static class ObeFormatColumn {
 		FormatNilai formatNilai;
 		List<ObeAssessmentColumn> assessmentColumns = new ArrayList<ObeAssessmentColumn>();
@@ -144,6 +184,21 @@ public class RekapHasilTugasPerTugasDanUjianObe extends MyWindow {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link StudentObeResult} milik {@link RekapHasilTugasPerTugasDanUjianObe}. Kelas
+	 * ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * RekapHasilTugasPerTugasDanUjianObe}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int nomor}, {@code Mahasiswa
+	 * mahasiswa}, {@code Double hasilKonversiTotal}, {@code List cells}, {@code Map subCpmk}, {@code Map cpmk},
+	 * {@code Map cpl}, {@code Map pl}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see RekapHasilTugasPerTugasDanUjianObe
+	 */
 	private static class StudentObeResult {
 		int nomor;
 		Mahasiswa mahasiswa;
@@ -1805,6 +1860,22 @@ public class RekapHasilTugasPerTugasDanUjianObe extends MyWindow {
 		return v.length() <= max ? v : v.substring(0, max) + "...";
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link SheetDashboardInfo} milik {@link RekapHasilTugasPerTugasDanUjianObe}.
+	 * Kelas ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok
+	 * anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * RekapHasilTugasPerTugasDanUjianObe}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int dataRows}, {@code int
+	 * columnCount}, {@code int scoreCount}, {@code int passedCount}, {@code int failedCount}, {@code int bucketA},
+	 * {@code int bucketB}, {@code int bucketC}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+	 * yang dipanggilnya.</p>
+	 *
+	 * @see RekapHasilTugasPerTugasDanUjianObe
+	 */
 	private static class SheetDashboardInfo {
 		int dataRows;
 		int columnCount;
@@ -1822,6 +1893,24 @@ public class RekapHasilTugasPerTugasDanUjianObe extends MyWindow {
 		Map<Integer, ColumnScoreSummary> columnScores = new LinkedHashMap<Integer, ColumnScoreSummary>();
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link RekapHasilTugasPerTugasDanUjianObe} untuk column score summary. Tipe
+	 * ini mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+	 * jelas.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * RekapHasilTugasPerTugasDanUjianObe}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String label}, {@code double total},
+	 * {@code int count}; operasi lokal: {@code average}(). Aturan bisnis bersama tetap berada pada kelas induk
+	 * atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see RekapHasilTugasPerTugasDanUjianObe
+	 */
 	private static class ColumnScoreSummary {
 		String label;
 		double total;

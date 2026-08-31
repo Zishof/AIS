@@ -69,6 +69,21 @@ public class DasbordCatatan extends Div {
     private static final long serialVersionUID = 1L;
 
     // ── Lingkup (scope) — modul catatan yang ditampilkan ─────────────
+    /**
+     * Enum lokal {@link Lingkup} yang mendefinisikan pilihan/status untuk alur DasbordCatatan. Nilainya berlaku
+     * dalam konteks kelas induk dan tidak dimaksudkan sebagai status domain global.
+     *
+     * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasbordCatatan} dan dapat mengakses state
+     * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code getNamaModul}(); nilai: {@code
+     * SEMUA}, {@code MAHASISWA}, {@code ADMINISTRASI}, {@code PEGAWAI}, {@code SISWA}, {@code GURU}, {@code
+     * KELAS_SISWA}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see DasbordCatatan
+     */
     public enum Lingkup {
         SEMUA, MAHASISWA, ADMINISTRASI, PEGAWAI, SISWA, GURU, KELAS_SISWA;
 
@@ -120,6 +135,19 @@ public class DasbordCatatan extends Div {
     // ════════════════════════════════════════════════════════════════════
     // Inner: satu baris catatan yang sudah dinormalisasi dari semua tabel
     // ════════════════════════════════════════════════════════════════════
+    /**
+     * Tipe implementasi bersarang {@link CatatanEntry} milik {@link DasbordCatatan}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasbordCatatan}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Date tanggal}, {@code String
+     * jenisNama}, {@code String subjekNama}, {@code String keterangan}, {@code String sumber}, {@code String
+     * rawParams}, {@code String tahunAjaran}, {@code Integer semester}. Aturan bisnis bersama tetap berada pada
+     * kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see DasbordCatatan
+     */
     static final class CatatanEntry {
         final Date   tanggal;
         final String jenisNama;   // JenisCatatan*.getNama()
@@ -152,6 +180,19 @@ public class DasbordCatatan extends Div {
     // ════════════════════════════════════════════════════════════════════
     // Inner: semua data yang sudah diagregasi untuk dashboard
     // ════════════════════════════════════════════════════════════════════
+    /**
+     * Pembawa data/helper lokal milik {@link DasbordCatatan} untuk dash data. Tipe ini mengelompokkan nilai antara
+     * agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasbordCatatan}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List semua}, {@code Map perJenis},
+     * {@code Map perBulan}, {@code Map perHari}, {@code int total}, {@code int bulanIni}, {@code double
+     * rataPerBulan}, {@code String namaRole}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+     * yang dipanggilnya.</p>
+     *
+     * @see DasbordCatatan
+     */
     static final class DashData {
         List<CatatanEntry>   semua    = new ArrayList<CatatanEntry>();
         // perJenis: jenisNama → jumlah
@@ -1153,6 +1194,22 @@ public class DasbordCatatan extends Div {
         gridTabel.setModelCheckMobile(new SimpleListModel(sub));
     }
 
+    /**
+     * Renderer lokal untuk layar/komponen {@link DasbordCatatan}. Kelas ini menerjemahkan satu item data menjadi
+     * baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+     *
+     * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasbordCatatan} dan dapat mengakses state
+     * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+     * implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int baseNo}; operasi lokal: {@code
+     * render()}, {@code buatSel}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+     * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+     * renderer/listener ini.</p>
+     *
+     * @see DasbordCatatan
+     */
     private class TabelRenderer extends MyRowRenderer {
         private int baseNo;
         TabelRenderer(int baseNo) { this.baseNo = baseNo; }

@@ -68,6 +68,21 @@ public class RiwayatHargaBarangJasaAssetDashboard extends Vbox {
 	private Combobox sumber;
 	private Vbox body;
 
+	/**
+	 * Tipe implementasi bersarang {@link HargaRow} milik {@link RiwayatHargaBarangJasaAssetDashboard}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * RiwayatHargaBarangJasaAssetDashboard}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String sumber}, {@code Date tanggal},
+	 * {@code Long masterAssetId}, {@code String kodeDokumen}, {@code String kodeBarang}, {@code String
+	 * namaBarang}, {@code String vendor}, {@code String jenis}. Aturan bisnis bersama tetap berada pada kelas
+	 * induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see RiwayatHargaBarangJasaAssetDashboard
+	 */
 	private static class HargaRow {
 		private String sumber;
 		private Date tanggal;
@@ -92,6 +107,22 @@ public class RiwayatHargaBarangJasaAssetDashboard extends Vbox {
 		private String keterangan;
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link RiwayatHargaBarangJasaAssetDashboard} untuk summary harga. Tipe ini
+	 * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+	 * jelas.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * RiwayatHargaBarangJasaAssetDashboard}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int jumlahData}, {@code int
+	 * jumlahBarang}, {@code int jumlahVendor}, {@code double totalDpp}, {@code double totalHarga}, {@code double
+	 * minDpp}, {@code double maxDpp}, {@code HargaRow terbaru}. Aturan bisnis bersama tetap berada pada kelas
+	 * induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see RiwayatHargaBarangJasaAssetDashboard
+	 */
 	private static class SummaryHarga {
 		private int jumlahData;
 		private int jumlahBarang;

@@ -200,6 +200,20 @@ public class MatakuliahBerbayarAction extends GenericAutowireComposer {
 		if (comboitem != null) { comboitem.setValue(Perkuliahan.GENAP); }
 		searchGanjilGenap.appendChild(comboitem);
 
+		/**
+		 * Event listener lokal milik {@link MatakuliahBerbayarAction}. Kelas ini menangani event untuk komponen induk
+		 * dan meneruskan pekerjaan domain ke method/service yang sudah tersedia.
+		 *
+		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link MatakuliahBerbayarAction} dan dapat mengakses
+		 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code onEvent}(). Aturan bisnis bersama
+		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+		 * renderer/listener ini.</p>
+		 *
+		 * @see MatakuliahBerbayarAction
+		 */
 		class SearchFakultasEventListener implements EventListener {
 
 			@Override
@@ -218,6 +232,20 @@ public class MatakuliahBerbayarAction extends GenericAutowireComposer {
 
 		}
 
+		/**
+		 * Event listener lokal milik {@link MatakuliahBerbayarAction}. Kelas ini menangani event untuk komponen induk
+		 * dan meneruskan pekerjaan domain ke method/service yang sudah tersedia.
+		 *
+		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link MatakuliahBerbayarAction} dan dapat mengakses
+		 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code onEvent}(). Aturan bisnis bersama
+		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+		 * renderer/listener ini.</p>
+		 *
+		 * @see MatakuliahBerbayarAction
+		 */
 		class FakultasEventListener implements EventListener {
 
 			@Override
@@ -293,6 +321,20 @@ public class MatakuliahBerbayarAction extends GenericAutowireComposer {
 	        FilterLanjutHelper.setup(comp);
 }
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link MatakuliahBerbayarAction}. Kelas ini menerjemahkan satu item data
+	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link MatakuliahBerbayarAction} dan dapat mengakses
+	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see MatakuliahBerbayarAction
+	 */
 	class MatakuliahBerbayarRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override

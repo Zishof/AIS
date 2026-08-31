@@ -505,6 +505,20 @@ public class NilaiHurufAction extends GenericCrudAction<NilaiHuruf> {
 
     // ======================== Renderer ========================
 
+    /**
+     * Renderer lokal untuk layar/komponen {@link NilaiHurufAction}. Kelas ini menerjemahkan satu item data menjadi
+     * baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+     *
+     * <p><b>Scope:</b> setiap instance terikat pada instance {@link NilaiHurufAction} dan dapat mengakses state
+     * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+     * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+     * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+     * renderer/listener ini.</p>
+     *
+     * @see NilaiHurufAction
+     */
     class NilaiHurufRenderer extends MyRowRenderer {
 
         @Override

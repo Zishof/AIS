@@ -520,6 +520,21 @@ class StatistikKunjunganDashboardUtil {
 	};
 	private static final int TOP_LIMIT = 12;
 
+	/**
+	 * Pembawa data/helper lokal milik {@link StatistikKunjunganDashboardUtil} untuk filter. Tipe ini
+	 * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+	 * jelas.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * StatistikKunjunganDashboardUtil}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Fakultas fakultas}, {@code Jurusan
+	 * jurusan}, {@code Yayasan yayasan}, {@code Sekolah sekolah}, {@code Date mulai}, {@code Date sampai}, {@code
+	 * boolean showMahasiswa}, {@code boolean showDosen}. Aturan bisnis bersama tetap berada pada kelas induk atau
+	 * service yang dipanggilnya.</p>
+	 *
+	 * @see StatistikKunjunganDashboardUtil
+	 */
 	static class Filter {
 		Fakultas fakultas;
 		Jurusan jurusan;
@@ -535,6 +550,22 @@ class StatistikKunjunganDashboardUtil {
 		String linkProfile;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link DailyRow} milik {@link StatistikKunjunganDashboardUtil}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * StatistikKunjunganDashboardUtil}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Date tanggal}, {@code long
+	 * mahasiswa}, {@code long dosen}, {@code long siswa}, {@code long guru}, {@code long admin}; operasi lokal:
+	 * {@code total}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see StatistikKunjunganDashboardUtil
+	 */
 	static class DailyRow {
 		Date tanggal;
 		long mahasiswa;
@@ -564,6 +595,18 @@ class StatistikKunjunganDashboardUtil {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link LabelRow} milik {@link StatistikKunjunganDashboardUtil}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * StatistikKunjunganDashboardUtil}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Date tanggal}, {@code String label},
+	 * {@code long jumlah}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see StatistikKunjunganDashboardUtil
+	 */
 	static class LabelRow {
 		Date tanggal;
 		String label;

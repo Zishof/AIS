@@ -122,6 +122,21 @@ public class DasboardPengadaan extends MyPortallayout {
 	private static final int DETAIL_PAGE_SIZE = 10;
 
 	/* V9 GLOBAL FILTER + LEGACY RENDERER BRIDGE */
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link DasboardPengadaan}. Tipe ini memisahkan satu variasi
+	 * perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasboardPengadaan} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see DasboardPengadaan
+	 */
 	private interface LegacyDashboardRenderer {
 		void render() throws Exception;
 	}
@@ -975,16 +990,61 @@ public class DasboardPengadaan extends MyPortallayout {
 	// =======================================================================================
 	// GENERAL DETAIL POPUP: semua angka KPI utama diarahkan ke method ini.
 	// =======================================================================================
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link DasboardPengadaan}. Tipe ini memisahkan satu variasi
+	 * perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasboardPengadaan} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code build}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see DasboardPengadaan
+	 */
 	private interface DetailCriteriaBuilder {
 		Criteria build(Session session, boolean order) throws Exception;
 	}
 
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link DasboardPengadaan}. Tipe ini memisahkan satu variasi
+	 * perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasboardPengadaan} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code count()}, {@code list}(). Aturan
+	 * bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see DasboardPengadaan
+	 */
 	private interface DetailDataProvider {
 		int count(Session session) throws Exception;
 
 		List list(Session session, int firstResult, int maxResults) throws Exception;
 	}
 
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link DasboardPengadaan}. Tipe ini memisahkan satu variasi
+	 * perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasboardPengadaan} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see DasboardPengadaan
+	 */
 	private interface DetailRowRenderer {
 		void render(Row row, Object data) throws Exception;
 	}
@@ -2885,6 +2945,20 @@ public class DasboardPengadaan extends MyPortallayout {
 		ais.ui.util.DashboardModernHtmlUtil.closeOpenedSession(session);
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link PengadaanDashboardData} milik {@link DasboardPengadaan}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasboardPengadaan} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int prPending}, {@code int
+	 * prApproved}, {@code int prRejected}, {@code int poPending}, {@code int poApproved}, {@code int poRejected},
+	 * {@code int paymentApproved}, {@code int pksApproved}. Aturan bisnis bersama tetap berada pada kelas induk
+	 * atau service yang dipanggilnya.</p>
+	 *
+	 * @see DasboardPengadaan
+	 */
 	private class PengadaanDashboardData {
 		int prPending;
 		int prApproved;
@@ -2940,6 +3014,19 @@ public class DasboardPengadaan extends MyPortallayout {
 		List<GroupSummaryItem> sebaranPenyediaPembayaran = new ArrayList<GroupSummaryItem>();
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link ProcurementItem} milik {@link DasboardPengadaan}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasboardPengadaan} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String jenis}, {@code String kode},
+	 * {@code String tanggal}, {@code String pihak}, {@code String status}, {@code String keterangan}, {@code
+	 * Number nilai}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DasboardPengadaan
+	 */
 	private class ProcurementItem {
 		String jenis;
 		String kode;
@@ -2950,6 +3037,19 @@ public class DasboardPengadaan extends MyPortallayout {
 		Number nilai = Double.valueOf(0.0);
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link DasboardPengadaan} untuk summary detail item. Tipe ini mengelompokkan
+	 * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasboardPengadaan} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String label}, {@code String value},
+	 * {@code String description}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see DasboardPengadaan
+	 */
 	private class SummaryDetailItem {
 		String label;
 		String value;
@@ -2962,6 +3062,19 @@ public class DasboardPengadaan extends MyPortallayout {
 		}
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link DasboardPengadaan} untuk group summary item. Tipe ini mengelompokkan
+	 * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasboardPengadaan} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String label}, {@code int count},
+	 * {@code Number value}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see DasboardPengadaan
+	 */
 	private class GroupSummaryItem {
 		String label;
 		int count;
@@ -2972,6 +3085,23 @@ public class DasboardPengadaan extends MyPortallayout {
 	// HELPER CLASSES & METHODS FOR HIGH EFFICIENCY
 	// =======================================================================================
 
+	/**
+	 * Tipe implementasi bersarang {@link PanelConfig} milik {@link DasboardPengadaan}. Kelas ini memberi nama pada
+	 * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasboardPengadaan} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code getTitle()}, {@code getHeaders()},
+	 * {@code getWidths()}, {@code getAligns()}, {@code buildCriteria()}, {@code renderRow()}, {@code
+	 * applyCommonCriteria}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see DasboardPengadaan
+	 */
 	private abstract class PanelConfig<T> {
 		public abstract String getTitle();
 

@@ -36,6 +36,26 @@ public final class AssetHargaDppHistoryUtil {
     private AssetHargaDppHistoryUtil() {
     }
 
+    /**
+     * Tipe implementasi bersarang {@link HargaDppInfo} milik {@link AssetHargaDppHistoryUtil}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * AssetHargaDppHistoryUtil}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long masterAssetId}, {@code String
+     * namaBarang}, {@code String sumber}, {@code String nomorDokumen}, {@code String penyedia}, {@code Date
+     * tanggal}, {@code Double hargaDppTotal}, {@code Double hargaDppSatuan}; operasi lokal: {@code
+     * getMasterAssetId()}, {@code setMasterAssetId()}, {@code getNamaBarang()}, {@code setNamaBarang()}, {@code
+     * getSumber()}, {@code setSumber()}, {@code getNomorDokumen()}, {@code setNomorDokumen()}, {@code
+     * getPenyedia()}, {@code setPenyedia}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see AssetHargaDppHistoryUtil
+     */
     public static class HargaDppInfo {
         private Long masterAssetId;
         private String namaBarang;
@@ -133,6 +153,20 @@ public final class AssetHargaDppHistoryUtil {
         }
     }
 
+    /**
+     * Tipe implementasi bersarang {@link RiwayatHargaDpp} milik {@link AssetHargaDppHistoryUtil}. Kelas ini
+     * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * AssetHargaDppHistoryUtil}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String sumber}, {@code String
+     * nomorDokumen}, {@code String penyedia}, {@code Date tanggal}, {@code Long id}, {@code Double dppTotal},
+     * {@code Double dppSatuan}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see AssetHargaDppHistoryUtil
+     */
     private static class RiwayatHargaDpp {
         private String sumber;
         private String nomorDokumen;

@@ -2383,6 +2383,21 @@ public class PerkuliahanAction extends GenericAutowireComposer
 		}
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link PerkuliahanAction}. Kelas ini menerjemahkan satu item data
+	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link PerkuliahanAction} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code DetailperkuliahanHelper
+	 * detailperkuliahanHelper}; operasi lokal: {@code render}(). Aturan bisnis bersama tetap berada pada kelas
+	 * induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see PerkuliahanAction
+	 */
 	class PerkuliahanRenderer extends ais.ui.util.MyRowRenderer {
 
 		private DetailperkuliahanHelper detailperkuliahanHelper = new DetailperkuliahanHelper(semesterPendek, delete,

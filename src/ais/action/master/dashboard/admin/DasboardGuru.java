@@ -1848,6 +1848,20 @@ public class DasboardGuru extends MyPortallayout {
         }
     }
 
+    /**
+     * Tipe implementasi bersarang {@link DashboardGuruData} milik {@link DasboardGuru}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasboardGuru}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code long totalGuru}, {@code long
+     * totalGuruSemua}, {@code long totalGuruNonAktif}, {@code long totalLakiLaki}, {@code long totalPerempuan},
+     * {@code long totalJenisGuru}, {@code long totalEmailGuru}, {@code long totalHpGuru}. Aturan bisnis bersama
+     * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see DasboardGuru
+     */
     private static class DashboardGuruData {
         long totalGuru;
         long totalGuruSemua;
@@ -1900,6 +1914,18 @@ public class DasboardGuru extends MyPortallayout {
         List<DashboardMiniRow> trendPiket = new ArrayList<DashboardMiniRow>();
     }
 
+    /**
+     * Pembawa data/helper lokal milik {@link DasboardGuru} untuk dashboard mini row. Tipe ini mengelompokkan nilai
+     * antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasboardGuru}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String label}, {@code long value}.
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see DasboardGuru
+     */
     private static class DashboardMiniRow {
         String label;
         long value;
@@ -1910,6 +1936,18 @@ public class DasboardGuru extends MyPortallayout {
         }
     }
 
+    /**
+     * Tipe implementasi bersarang {@link DashboardDetailRow} milik {@link DasboardGuru}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasboardGuru}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String title}, {@code String info},
+     * {@code String note}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see DasboardGuru
+     */
     private static class DashboardDetailRow {
         String title;
         String info;

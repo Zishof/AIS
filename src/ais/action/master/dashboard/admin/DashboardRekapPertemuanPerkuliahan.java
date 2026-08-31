@@ -1721,6 +1721,20 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 				.replace("\"", "&quot;").replace("'", "&#39;");
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link RekapChartRow} milik {@link DashboardRekapPertemuanPerkuliahan}. Kelas
+	 * ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DashboardRekapPertemuanPerkuliahan}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String nama}, {@code int total},
+	 * {@code int pertemuan}, {@code int tugas}, {@code int file}, {@code int audio}, {@code int video}, {@code int
+	 * diskusi}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DashboardRekapPertemuanPerkuliahan
+	 */
 	private static class RekapChartRow {
 		String nama;
 		int total;

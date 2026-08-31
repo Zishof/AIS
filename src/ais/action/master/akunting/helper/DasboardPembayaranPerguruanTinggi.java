@@ -2283,6 +2283,20 @@ public class DasboardPembayaranPerguruanTinggi extends MyPortallayout {
 			}
 
 
+			/**
+			 * Tipe implementasi bersarang {@link PaymentDashboardData} milik {@link DasboardPembayaranPerguruanTinggi}.
+			 * Kelas ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok
+			 * anonim.
+			 *
+			 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasboardPembayaranPerguruanTinggi} dan dapat
+			 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+			 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code double totalTagihan}, {@code double
+			 * totalDibayar}, {@code double totalPiutang}, {@code double totalLebihBayar}, {@code int totalRecord}, {@code
+			 * int jumlahTagihan}, {@code int jumlahDibayar}, {@code int jumlahPiutang}. Aturan bisnis bersama tetap berada
+			 * pada kelas induk atau service yang dipanggilnya.</p>
+			 *
+			 * @see DasboardPembayaranPerguruanTinggi
+			 */
 			class PaymentDashboardData {
 				double totalTagihan;
 				double totalDibayar;
@@ -2304,6 +2318,20 @@ public class DasboardPembayaranPerguruanTinggi extends MyPortallayout {
 				List<PaymentDashboardRow> byValidator = new ArrayList<PaymentDashboardRow>();
 			}
 
+			/**
+			 * Tipe implementasi bersarang {@link PaymentDashboardRow} milik {@link DasboardPembayaranPerguruanTinggi}.
+			 * Kelas ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok
+			 * anonim.
+			 *
+			 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasboardPembayaranPerguruanTinggi} dan dapat
+			 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+			 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String label}, {@code Jurusan
+			 * jurusan}, {@code JenisKegiatan jenisKegiatan}, {@code Number angkatan}, {@code StatusAwalMahasiswa
+			 * statusAwal}, {@code String program}, {@code String validator}, {@code double tagihan}. Aturan bisnis bersama
+			 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+			 *
+			 * @see DasboardPembayaranPerguruanTinggi
+			 */
 			class PaymentDashboardRow {
 				String label;
 				Jurusan jurusan;
@@ -3638,6 +3666,24 @@ public class DasboardPembayaranPerguruanTinggi extends MyPortallayout {
 		}
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link DasboardPembayaranPerguruanTinggi} untuk html category model. Tipe
+	 * ini mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+	 * jelas.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DasboardPembayaranPerguruanTinggi}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List rows}; operasi lokal: {@code
+	 * clear()}, {@code setValue()}, {@code getRows}(). Aturan bisnis bersama tetap berada pada kelas induk atau
+	 * service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see DasboardPembayaranPerguruanTinggi
+	 */
 	private static class HtmlCategoryModel {
 		private List<HtmlCategoryRow> rows = new ArrayList<HtmlCategoryRow>();
 
@@ -3658,6 +3704,21 @@ public class DasboardPembayaranPerguruanTinggi extends MyPortallayout {
 		}
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link DasboardPembayaranPerguruanTinggi} untuk html category row. Tipe ini
+	 * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+	 * jelas.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DasboardPembayaranPerguruanTinggi}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String series}, {@code String
+	 * category}, {@code double value}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see DasboardPembayaranPerguruanTinggi
+	 */
 	private static class HtmlCategoryRow {
 		String series;
 		String category;

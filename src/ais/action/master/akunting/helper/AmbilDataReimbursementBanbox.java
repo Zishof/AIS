@@ -187,6 +187,21 @@ public class AmbilDataReimbursementBanbox extends Bandbox implements GetEventLis
 		}
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link AmbilDataReimbursementBanbox}. Kelas ini menerjemahkan satu item
+	 * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataReimbursementBanbox} dan dapat
+	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see AmbilDataReimbursementBanbox
+	 */
 	private class ReimbursementRenderer extends ais.ui.util.MyRowRenderer {
 		@Override
 		public void render(Row arg0, Object arg1) throws Exception {

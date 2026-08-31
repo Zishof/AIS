@@ -57,6 +57,21 @@ public class DasbordApresiasi extends Div {
 
     private static final long serialVersionUID = 1L;
 
+    /**
+     * Enum lokal {@link Lingkup} yang mendefinisikan pilihan/status untuk alur DasbordApresiasi. Nilainya berlaku
+     * dalam konteks kelas induk dan tidak dimaksudkan sebagai status domain global.
+     *
+     * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasbordApresiasi} dan dapat mengakses state
+     * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code getNamaModul}(); nilai: {@code
+     * SEMUA}, {@code SISWA}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see DasbordApresiasi
+     */
     public enum Lingkup {
         SEMUA, SISWA;
 
@@ -96,6 +111,18 @@ public class DasbordApresiasi extends Div {
     private List<AprEntry>   lastList = new ArrayList<AprEntry>();
     private DashData         lastData;
 
+    /**
+     * Tipe implementasi bersarang {@link AprEntry} milik {@link DasbordApresiasi}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasbordApresiasi}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Date tanggal}, {@code String
+     * jenisNama}, {@code String subjekNama}, {@code String keterangan}, {@code String sumber}. Aturan bisnis
+     * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see DasbordApresiasi
+     */
     static final class AprEntry {
         final Date   tanggal;
         final String jenisNama;
@@ -113,6 +140,19 @@ public class DasbordApresiasi extends Div {
         }
     }
 
+    /**
+     * Pembawa data/helper lokal milik {@link DasbordApresiasi} untuk dash data. Tipe ini mengelompokkan nilai
+     * antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasbordApresiasi}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List semua}, {@code Map perJenis},
+     * {@code Map perBulan}, {@code Map perHari}, {@code int total}, {@code int bulanIni}, {@code double
+     * rataPerBulan}, {@code String namaRole}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+     * yang dipanggilnya.</p>
+     *
+     * @see DasbordApresiasi
+     */
     static final class DashData {
         List<AprEntry>       semua    = new ArrayList<AprEntry>();
         Map<String, Integer> perJenis = new LinkedHashMap<String, Integer>();

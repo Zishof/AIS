@@ -3581,6 +3581,20 @@ public class NilaiObeAction extends GenericAutowireComposer {
 	}
 
 
+	/**
+	 * Tipe implementasi bersarang {@link StudentObeDashboardResult} milik {@link NilaiObeAction}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link NilaiObeAction}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String namaMahasiswa}, {@code String
+	 * nilaiHuruf}, {@code String statusAkhir}, {@code double targetMinimal}, {@code double totalNilaiBobotAkhir},
+	 * {@code double totalBobotFormatAkhir}, {@code double nilaiAkhir}, {@code boolean hasData}. Aturan bisnis
+	 * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see NilaiObeAction
+	 */
 	private static class StudentObeDashboardResult {
 		String namaMahasiswa = "";
 		String nilaiHuruf = "-";
@@ -3598,6 +3612,20 @@ public class NilaiObeAction extends GenericAutowireComposer {
 	}
 
 
+	/**
+	 * Tipe implementasi bersarang {@link StudentAssessmentRow} milik {@link NilaiObeAction}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link NilaiObeAction}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String subCpmkKode}, {@code String
+	 * subCpmkNama}, {@code String cpmkKode}, {@code String namaKomponen}, {@code String jenisKomponen}, {@code
+	 * double nilai}, {@code double bobotKomponen}, {@code double nilaiBerbobot}. Aturan bisnis bersama tetap
+	 * berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see NilaiObeAction
+	 */
 	private static class StudentAssessmentRow {
 		String subCpmkKode = "";
 		String subCpmkNama = "";
@@ -3610,6 +3638,20 @@ public class NilaiObeAction extends GenericAutowireComposer {
 		String status = "";
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link StudentSubCpmkRow} milik {@link NilaiObeAction}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link NilaiObeAction}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String kode}, {@code String nama},
+	 * {@code String cpmkKode}, {@code String cpmkNama}, {@code double bobot}, {@code double total}, {@code double
+	 * konversi}, {@code String status}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see NilaiObeAction
+	 */
 	private static class StudentSubCpmkRow {
 		String kode = "";
 		String nama = "";
@@ -3621,6 +3663,19 @@ public class NilaiObeAction extends GenericAutowireComposer {
 		String status = "";
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link StudentOutcomeRow} milik {@link NilaiObeAction}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link NilaiObeAction}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String kode}, {@code String nama},
+	 * {@code double bobot}, {@code double total}, {@code double nilai}, {@code String status}. Aturan bisnis
+	 * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see NilaiObeAction
+	 */
 	private static class StudentOutcomeRow {
 		String kode = "";
 		String nama = "";
@@ -3630,6 +3685,20 @@ public class NilaiObeAction extends GenericAutowireComposer {
 		String status = "";
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link ObeCalculationResult} milik {@link NilaiObeAction}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link NilaiObeAction}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List rows}, {@code Map totalCpmk},
+	 * {@code Map totalCpl}, {@code double totalBobotPercent}, {@code double totalNilaiMk}, {@code double
+	 * totalNilaiMahasiswaMentah}, {@code double rataNilaiMahasiswa}, {@code double totalKetercapaianCplPercent}.
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see NilaiObeAction
+	 */
 	private static class ObeCalculationResult {
 		List<ObeRowData> rows = new ArrayList<ObeRowData>();
 		Map<String, Double> totalCpmk = new HashMap<String, Double>();
@@ -3642,6 +3711,20 @@ public class NilaiObeAction extends GenericAutowireComposer {
 		int jumlahNilaiMahasiswa = 0;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link ObeRowData} milik {@link NilaiObeAction}. Kelas ini memberi nama pada
+	 * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link NilaiObeAction}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code JSONObject jsonObject}, {@code
+	 * JSONObject subCpmk}, {@code CapaianPembelajaranLulusan cpmk}, {@code FormatNilai formatNilai}, {@code String
+	 * uniqueKey}, {@code String kodeProfilLulusan}, {@code String namaProfilLulusan}, {@code String kodeCapaian}.
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see NilaiObeAction
+	 */
 	private static class ObeRowData {
 		JSONObject jsonObject;
 		JSONObject subCpmk;

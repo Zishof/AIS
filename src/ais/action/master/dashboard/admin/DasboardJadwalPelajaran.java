@@ -2090,6 +2090,20 @@ public class DasboardJadwalPelajaran extends MyPortallayout {
         }
     }
 
+    /**
+     * Tipe implementasi bersarang {@link DashboardJadwalData} milik {@link DasboardJadwalPelajaran}. Kelas ini
+     * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * DasboardJadwalPelajaran}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int tahunMulai}, {@code int
+     * tahunSampai}, {@code String tahunAjaranLabel}, {@code Integer semester}, {@code long totalSekolah}, {@code
+     * long totalGuru}, {@code long totalSiswa}, {@code long totalKelas}. Aturan bisnis bersama tetap berada pada
+     * kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see DasboardJadwalPelajaran
+     */
     private static class DashboardJadwalData {
         int tahunMulai;
         int tahunSampai;
@@ -2148,6 +2162,19 @@ public class DasboardJadwalPelajaran extends MyPortallayout {
         List<DashboardMiniRow> trendPeserta = new ArrayList<DashboardMiniRow>();
     }
 
+    /**
+     * Pembawa data/helper lokal milik {@link DasboardJadwalPelajaran} untuk dashboard mini row. Tipe ini
+     * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+     * jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * DasboardJadwalPelajaran}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String label}, {@code long value}.
+     * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see DasboardJadwalPelajaran
+     */
     private static class DashboardMiniRow {
         String label;
         long value;

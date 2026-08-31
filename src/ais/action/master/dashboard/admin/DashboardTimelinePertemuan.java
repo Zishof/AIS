@@ -3166,6 +3166,19 @@ public class DashboardTimelinePertemuan extends MyWindow {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link AttendanceDashboardInfo} milik {@link DashboardTimelinePertemuan}. Kelas
+	 * ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DashboardTimelinePertemuan}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+	 * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String role}, {@code String kode},
+	 * {@code String label}, {@code String pesertaId}, {@code String nama}, {@code String raw}, {@code Pertemuan
+	 * pertemuan}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DashboardTimelinePertemuan
+	 */
 	private static class AttendanceDashboardInfo {
 		private String role;
 		private String kode;
@@ -3498,6 +3511,23 @@ public class DashboardTimelinePertemuan extends MyWindow {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link LampiranDashboardInfo} milik {@link DashboardTimelinePertemuan}. Kelas
+	 * ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DashboardTimelinePertemuan}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+	 * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long perkuliahanId}, {@code Long
+	 * lampiranId}, {@code String jenis}, {@code String jenisAsli}, {@code String nama}, {@code String link},
+	 * {@code Pertemuan pertemuan}; operasi lokal: {@code parseFormattedInfo()}, {@code adaLampiran()}, {@code
+	 * getDisplayName}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see DashboardTimelinePertemuan
+	 */
 	private static class LampiranDashboardInfo {
 		private Long perkuliahanId;
 		private Long lampiranId;

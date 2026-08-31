@@ -340,6 +340,21 @@ public class WisudaAction extends GenericAutowireComposer {
 		return true;
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link WisudaAction}. Kelas ini menerjemahkan satu item data menjadi
+	 * baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link WisudaAction} dan dapat mengakses state kelas
+	 * induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code DetailwisudaHelper
+	 * detailwisudaHelper}, {@code AktifitasWisudaHelper aktifitasWisudaHelper}; operasi lokal: {@code render}().
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see WisudaAction
+	 */
 	class WisudaRenderer extends ais.ui.util.MyRowRenderer {
 		private DetailwisudaHelper detailwisudaHelper = new DetailwisudaHelper();
 		private AktifitasWisudaHelper aktifitasWisudaHelper = new AktifitasWisudaHelper();

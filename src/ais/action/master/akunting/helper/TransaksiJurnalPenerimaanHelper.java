@@ -500,6 +500,22 @@ public class TransaksiJurnalPenerimaanHelper extends MyWindow {
 		});
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link TransaksiJurnalPenerimaanEditor} milik {@link
+	 * TransaksiJurnalPenerimaanHelper}. Kelas ini memberi nama pada state atau perilaku lokal agar tanggung
+	 * jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link TransaksiJurnalPenerimaanHelper} dan dapat
+	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Transaksi transaksi}; operasi lokal:
+	 * {@code onSave}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see TransaksiJurnalPenerimaanHelper
+	 */
 	private class TransaksiJurnalPenerimaanEditor {
 		private Transaksi transaksi;
 
@@ -577,6 +593,20 @@ public class TransaksiJurnalPenerimaanHelper extends MyWindow {
 		}
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link TransaksiJurnalPenerimaanHelper}. Kelas ini menerjemahkan satu
+	 * item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link TransaksiJurnalPenerimaanHelper} dan dapat
+	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code initNotEdit()}, {@code initEdit()},
+	 * {@code render}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see TransaksiJurnalPenerimaanHelper
+	 */
 	class TransaksiRenderer extends ais.ui.util.MyRowRenderer {
 
 		private void initNotEdit(final Row arg0, final Object arg1) throws Exception {

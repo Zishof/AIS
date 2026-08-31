@@ -1491,6 +1491,21 @@ public class DasboardAktivitasMahasiswa extends MyPortallayout {
 	}
 
 
+	/**
+	 * Pembawa data/helper lokal milik {@link DasboardAktivitasMahasiswa} untuk dashboard load state. Tipe ini
+	 * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+	 * jelas.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DasboardAktivitasMahasiswa}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+	 * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Component parent}, {@code Vbox
+	 * loadingHost}, {@code Label loadingMessage}, {@code Label loadingPercent}, {@code Div loadingProgressBar},
+	 * {@code DashboardData data}, {@code int step}, {@code int token}. Aturan bisnis bersama tetap berada pada
+	 * kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DasboardAktivitasMahasiswa
+	 */
 	private static class DashboardLoadState {
 		Component parent;
 		Vbox loadingHost;
@@ -1502,6 +1517,21 @@ public class DasboardAktivitasMahasiswa extends MyPortallayout {
 		int token;
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link DasboardAktivitasMahasiswa} untuk dashboard data. Tipe ini
+	 * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+	 * jelas.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DasboardAktivitasMahasiswa}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+	 * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean isMahasiswaLogin}, {@code
+	 * Mahasiswa currentMahasiswa}, {@code int kegiatan}, {@code int organisasi}, {@code int prestasi}, {@code int
+	 * penghargaan}, {@code int catatan}, {@code int total}. Aturan bisnis bersama tetap berada pada kelas induk
+	 * atau service yang dipanggilnya.</p>
+	 *
+	 * @see DasboardAktivitasMahasiswa
+	 */
 	private static class DashboardData {
 		boolean isMahasiswaLogin;
 		Mahasiswa currentMahasiswa;
@@ -1524,6 +1554,19 @@ public class DasboardAktivitasMahasiswa extends MyPortallayout {
 		List recentItems = new ArrayList();
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link DashboardItem} milik {@link DasboardAktivitasMahasiswa}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DasboardAktivitasMahasiswa}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+	 * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int tipe}, {@code String tipeLabel},
+	 * {@code String judul}, {@code String mahasiswa}, {@code String kategori}, {@code String status}, {@code Date
+	 * waktu}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DasboardAktivitasMahasiswa
+	 */
 	private static class DashboardItem {
 		int tipe;
 		String tipeLabel;

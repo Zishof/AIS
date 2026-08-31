@@ -14,6 +14,22 @@ public final class DashboardAkademikHtmlCssHelper {
 	private DashboardAkademikHtmlCssHelper() {
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link BarItem} milik {@link DashboardAkademikHtmlCssHelper}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DashboardAkademikHtmlCssHelper}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String label}, {@code String
+	 * subLabel}, {@code int value}; operasi lokal: {@code getLabel()}, {@code getSubLabel()}, {@code getValue}().
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see DashboardAkademikHtmlCssHelper
+	 */
 	public static final class BarItem {
 		private String label;
 		private String subLabel;

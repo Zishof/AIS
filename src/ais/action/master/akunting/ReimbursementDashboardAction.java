@@ -239,15 +239,60 @@ public class ReimbursementDashboardAction extends GenericAutowireComposer {
     private String two(int value) { return value < 10 ? "0" + value : String.valueOf(value); }
     private boolean empty(String value) { return value == null || value.trim().isEmpty(); }
 
+    /**
+     * Tipe implementasi bersarang {@link Metric} milik {@link ReimbursementDashboardAction}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * ReimbursementDashboardAction}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+     * kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String label}, {@code int count},
+     * {@code double amount}, {@code double percentage}; operasi lokal: {@code add}(). Aturan bisnis bersama tetap
+     * berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see ReimbursementDashboardAction
+     */
     private static class Metric {
         String label; int count; double amount; double percentage;
         Metric(String label) { this.label = label; }
         void add(double value) { count++; amount += value; }
     }
+    /**
+     * Tipe implementasi bersarang {@link QueueItem} milik {@link ReimbursementDashboardAction}. Kelas ini memberi
+     * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * ReimbursementDashboardAction}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+     * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+     * kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code ReimbursementPegawai data}, {@code
+     * int age}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see ReimbursementDashboardAction
+     */
     private static class QueueItem {
         ReimbursementPegawai data; int age;
         QueueItem(ReimbursementPegawai data, int age) { this.data = data; this.age = age; }
     }
+    /**
+     * Renderer lokal untuk layar/komponen {@link ReimbursementDashboardAction}. Kelas ini menerjemahkan satu item
+     * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+     *
+     * <p><b>Scope:</b> setiap instance terikat pada instance {@link ReimbursementDashboardAction} dan dapat
+     * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+     * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+     * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+     * renderer/listener ini.</p>
+     *
+     * @see ReimbursementDashboardAction
+     */
     private class MetricRenderer implements RowRenderer {
         public void render(Row row, Object value) {
             Metric m = (Metric) value;
@@ -257,6 +302,21 @@ public class ReimbursementDashboardAction extends GenericAutowireComposer {
             new Label(Common.numberFormat.get().format(m.percentage) + "%").setParent(row);
         }
     }
+    /**
+     * Renderer lokal untuk layar/komponen {@link ReimbursementDashboardAction}. Kelas ini menerjemahkan satu item
+     * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+     *
+     * <p><b>Scope:</b> setiap instance terikat pada instance {@link ReimbursementDashboardAction} dan dapat
+     * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+     * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+     * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+     * renderer/listener ini.</p>
+     *
+     * @see ReimbursementDashboardAction
+     */
     private class QueueRenderer implements RowRenderer {
         public void render(Row row, Object value) {
             QueueItem q = (QueueItem) value;

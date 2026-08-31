@@ -73,6 +73,20 @@ public class MonitorKasBesarDashboard extends Vbox {
 	private MyDatebox tglSampai;
 	private Vbox body;
 
+	/**
+	 * Tipe implementasi bersarang {@link Baris} milik {@link MonitorKasBesarDashboard}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * MonitorKasBesarDashboard}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+	 * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String kode}, {@code String nama},
+	 * {@code String satker}, {@code String jenis}, {@code double nilai}, {@code Date tanggal}, {@code boolean
+	 * disetujui}, {@code boolean dibayarDpc}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+	 * yang dipanggilnya.</p>
+	 *
+	 * @see MonitorKasBesarDashboard
+	 */
 	private static class Baris {
 		String kode;
 		String nama;

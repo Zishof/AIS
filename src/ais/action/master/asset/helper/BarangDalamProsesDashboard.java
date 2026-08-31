@@ -66,6 +66,20 @@ public class BarangDalamProsesDashboard extends Vbox {
 	private MyDatebox tglSampai;
 	private Vbox body;
 
+	/**
+	 * Tipe implementasi bersarang {@link Item} milik {@link BarangDalamProsesDashboard}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * BarangDalamProsesDashboard}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+	 * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String kode}, {@code String vendor},
+	 * {@code String lokasi}, {@code String kodePo}, {@code String uraian}, {@code double nilai}, {@code Date
+	 * tanggal}, {@code boolean disetujui}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see BarangDalamProsesDashboard
+	 */
 	private static class Item {
 		String kode;
 		String vendor;

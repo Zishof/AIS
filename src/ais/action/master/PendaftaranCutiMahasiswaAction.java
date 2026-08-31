@@ -245,6 +245,20 @@ public class PendaftaranCutiMahasiswaAction extends GenericAutowireComposer
 		Common.appendKeToolbar(upload, add, comp);
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link PendaftaranCutiMahasiswaAction}. Kelas ini menerjemahkan satu
+	 * item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link PendaftaranCutiMahasiswaAction} dan dapat
+	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see PendaftaranCutiMahasiswaAction
+	 */
 	class PendaftaranCutiMahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -613,6 +627,20 @@ public class PendaftaranCutiMahasiswaAction extends GenericAutowireComposer
 		rowSemester.appendChild(lblSemester = new Label(pendaftaranCutiMahasiswa.getSemester() == null ? ""
 				: pendaftaranCutiMahasiswa.getSemester().toString()));
 
+		/**
+		 * Event listener lokal milik {@link PendaftaranCutiMahasiswaAction}. Kelas ini menangani event untuk komponen
+		 * induk dan meneruskan pekerjaan domain ke method/service yang sudah tersedia.
+		 *
+		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link PendaftaranCutiMahasiswaAction} dan dapat
+		 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code onEvent}(). Aturan bisnis bersama
+		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+		 * renderer/listener ini.</p>
+		 *
+		 * @see PendaftaranCutiMahasiswaAction
+		 */
 		class SemesterEventListener implements EventListener {
 
 			@Override

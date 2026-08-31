@@ -448,6 +448,22 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 	private AmbilJadwalSidangTugasAkhirBanbox jadwalSidangTugasAkhir;
 	private MyDatebox tanggalSidang;
 
+	/**
+	 * Helper implementasi bersarang milik {@link SkripsiAction} untuk data adding helper. Kelas ini mengemas
+	 * langkah lokal yang dipakai kelas induk dan bukan service domain alternatif.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link SkripsiAction}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code XSSFCellStyle hlink_style}; operasi
+	 * lokal: {@code process}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see SkripsiAction
+	 */
 	private static class DataAddingHelper {
 
 		private XSSFCellStyle hlink_style;
@@ -2853,6 +2869,20 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 		return button;
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link SkripsiAction}. Kelas ini menerjemahkan satu item data menjadi
+	 * baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link SkripsiAction} dan dapat mengakses state kelas
+	 * induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see SkripsiAction
+	 */
 	class SkripsiRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override

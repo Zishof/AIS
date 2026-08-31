@@ -110,6 +110,21 @@ public class TraceStatusPengadaanAssetDashboard extends Vbox {
 	private List<TraceRow> lastRows = new ArrayList<TraceRow>();
 	private Summary lastSummary = new Summary();
 
+	/**
+	 * Tipe implementasi bersarang {@link TraceRow} milik {@link TraceStatusPengadaanAssetDashboard}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * TraceStatusPengadaanAssetDashboard}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int no}, {@code Date tanggal}, {@code
+	 * String prKode}, {@code String anggaran}, {@code String satuanKerja}, {@code double nilaiPengajuan}, {@code
+	 * String jenisPemesanan}, {@code String jenis}. Aturan bisnis bersama tetap berada pada kelas induk atau
+	 * service yang dipanggilnya.</p>
+	 *
+	 * @see TraceStatusPengadaanAssetDashboard
+	 */
 	private static class TraceRow {
 		private int no;
 		private Date tanggal;
@@ -138,6 +153,22 @@ public class TraceStatusPengadaanAssetDashboard extends Vbox {
 		private int stage;
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link TraceStatusPengadaanAssetDashboard} untuk summary. Tipe ini
+	 * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+	 * jelas.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * TraceStatusPengadaanAssetDashboard}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
+	 * kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int total}, {@code int reachUm},
+	 * {@code int reachPo}, {@code int reachBast}, {@code int reachTagihan}, {@code int reachDibayar}, {@code int
+	 * belumProses}, {@code double totalNilai}. Aturan bisnis bersama tetap berada pada kelas induk atau service
+	 * yang dipanggilnya.</p>
+	 *
+	 * @see TraceStatusPengadaanAssetDashboard
+	 */
 	private static class Summary {
 		private int total;
 		private int reachUm;

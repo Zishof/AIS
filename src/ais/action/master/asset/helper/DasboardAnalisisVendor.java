@@ -2960,10 +2960,41 @@ public class DasboardAnalisisVendor extends MyPortallayout {
 		return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;");
 	}
 
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link DasboardAnalisisVendor}. Tipe ini memisahkan satu variasi
+	 * perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasboardAnalisisVendor} dan dapat mengakses
+	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code build}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see DasboardAnalisisVendor
+	 */
 	private interface ExcelRowBuilder {
 		Object[] build(Object obj) throws Exception;
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link DasboardAnalisisVendor}. Kelas ini menerjemahkan satu item data
+	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasboardAnalisisVendor} dan dapat mengakses
+	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code InMemoryRowRenderer renderer};
+	 * operasi lokal: {@code build}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see DasboardAnalisisVendor
+	 */
 	private class RendererExcelRowBuilder implements ExcelRowBuilder {
 		private InMemoryRowRenderer renderer;
 
@@ -2988,25 +3019,94 @@ public class DasboardAnalisisVendor extends MyPortallayout {
 		}
 	}
 
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link DasboardAnalisisVendor}. Tipe ini memisahkan satu variasi
+	 * perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasboardAnalisisVendor} dan dapat mengakses
+	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see DasboardAnalisisVendor
+	 */
 	private interface InMemoryRowRenderer {
 		void render(Row row, Object obj) throws Exception;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link DashboardSession} milik {@link DasboardAnalisisVendor}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DasboardAnalisisVendor}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+	 * diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Session session}, {@code boolean
+	 * mustClose}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DasboardAnalisisVendor
+	 */
 	private static class DashboardSession {
 		Session session;
 		boolean mustClose;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link TrendBucket} milik {@link DasboardAnalisisVendor}. Kelas ini memberi nama
+	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * DasboardAnalisisVendor}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan
+	 * diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int count}, {@code double nominal}.
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DasboardAnalisisVendor
+	 */
 	private static class TrendBucket {
 		int count;
 		double nominal;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link DateRangeRow} milik {@link DasboardAnalisisVendor}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasboardAnalisisVendor} dan dapat mengakses
+	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Date tanggalMulai}, {@code Date
+	 * tanggalAkhir}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DasboardAnalisisVendor
+	 */
 	private class DateRangeRow {
 		Date tanggalMulai;
 		Date tanggalAkhir;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link VendorAnalysisRow} milik {@link DasboardAnalisisVendor}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasboardAnalisisVendor} dan dapat mengakses
+	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long vendorId}, {@code PenyediaAsset
+	 * vendor}, {@code String namaVendor}, {@code double nominalTransaksi}, {@code double totalBiayaDibayar},
+	 * {@code double nilaiTagihan}, {@code double nilaiTagihanDibayar}, {@code double nilaiPr}; operasi lokal:
+	 * {@code getProdukRingkas}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see DasboardAnalisisVendor
+	 */
 	private class VendorAnalysisRow extends DateRangeRow {
 		Long vendorId;
 		PenyediaAsset vendor;
@@ -3067,6 +3167,20 @@ public class DasboardAnalisisVendor extends MyPortallayout {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link ProductAnalysisRow} milik {@link DasboardAnalisisVendor}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasboardAnalisisVendor} dan dapat mengakses
+	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code PenyediaAsset vendor}, {@code String
+	 * namaVendor}, {@code String namaProduk}, {@code double qtyTransaksi}, {@code double nominalTransaksi}, {@code
+	 * double qtyDipesan}, {@code double qtyDatang}, {@code double qtyPo}. Aturan bisnis bersama tetap berada pada
+	 * kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DasboardAnalisisVendor
+	 */
 	private class ProductAnalysisRow extends DateRangeRow {
 		PenyediaAsset vendor;
 		String namaVendor;
@@ -3087,6 +3201,20 @@ public class DasboardAnalisisVendor extends MyPortallayout {
 		int jumlahTransaksi;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link VendorDashboardData} milik {@link DasboardAnalisisVendor}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasboardAnalisisVendor} dan dapat mengakses
+	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Map vendorMap}, {@code Map
+	 * productMap}, {@code List vendorRows}, {@code List productRows}, {@code List prRows}, {@code List poRows},
+	 * {@code List penerimaanRows}, {@code List saldoRows}. Aturan bisnis bersama tetap berada pada kelas induk
+	 * atau service yang dipanggilnya.</p>
+	 *
+	 * @see DasboardAnalisisVendor
+	 */
 	private class VendorDashboardData {
 		Map<String, VendorAnalysisRow> vendorMap = new LinkedHashMap<String, VendorAnalysisRow>();
 		Map<String, ProductAnalysisRow> productMap = new LinkedHashMap<String, ProductAnalysisRow>();

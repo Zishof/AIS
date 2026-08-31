@@ -603,6 +603,23 @@ public class DasboardKepegawaian extends MyWindow {
 
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link DasboardKepegawaian} untuk html category model. Tipe ini
+	 * mengelompokkan nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang
+	 * jelas.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasboardKepegawaian}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List rows}; operasi lokal: {@code
+	 * clear()}, {@code setValue()}, {@code getRows}(). Aturan bisnis bersama tetap berada pada kelas induk atau
+	 * service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see DasboardKepegawaian
+	 */
 	private static class HtmlCategoryModel {
 		private List<HtmlCategoryRow> rows = new ArrayList<HtmlCategoryRow>();
 
@@ -623,6 +640,19 @@ public class DasboardKepegawaian extends MyWindow {
 		}
 	}
 
+	/**
+	 * Pembawa data/helper lokal milik {@link DasboardKepegawaian} untuk html category row. Tipe ini mengelompokkan
+	 * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasboardKepegawaian}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String series}, {@code String
+	 * category}, {@code double value}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 *
+	 * @see DasboardKepegawaian
+	 */
 	private static class HtmlCategoryRow {
 		String series;
 		String category;

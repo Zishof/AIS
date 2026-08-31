@@ -294,6 +294,20 @@ public class PertemuanAction extends GenericAutowireComposer implements DataLoad
 				fileFolderLampiran.mkdirs();
 				System.out.println("fileFolderLampiran => " + fileFolderLampiran.getAbsolutePath());
 
+				/**
+				 * Helper implementasi bersarang milik {@link PertemuanAction} untuk file download helper. Kelas ini mengemas
+				 * langkah lokal yang dipakai kelas induk dan bukan service domain alternatif.
+				 *
+				 * <p><b>Scope:</b> setiap instance terikat pada instance {@link PertemuanAction} dan dapat mengakses state
+				 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+				 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code download}(). Aturan bisnis bersama
+				 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+				 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+				 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+				 * tambahkan perilaku lintas domain pada service bersama.</p>
+				 *
+				 * @see PertemuanAction
+				 */
 				class FileDownloadHelper {
 					public File download(String jenis, Long ref, File fileFolderCalon) {
 						File fileCopy = null;
@@ -1595,6 +1609,20 @@ public class PertemuanAction extends GenericAutowireComposer implements DataLoad
 
 	}
 
+	/**
+	 * Renderer lokal untuk layar/komponen {@link PertemuanAction}. Kelas ini menerjemahkan satu item data menjadi
+	 * baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link PertemuanAction} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean mobile}; operasi lokal:
+	 * {@code render}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see PertemuanAction
+	 */
 	class PertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
 		boolean mobile = Common.isMobile();

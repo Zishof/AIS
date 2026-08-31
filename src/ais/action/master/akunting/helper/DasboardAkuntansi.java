@@ -1950,6 +1950,22 @@ public class DasboardAkuntansi extends MyPortallayout {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link BaseSqlDetailProvider} milik {@link DasboardAkuntansi}. Kelas ini memberi
+	 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasboardAkuntansi} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code getCountSql()}, {@code
+	 * getListSql()}, {@code bind}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+	 * dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see DasboardAkuntansi
+	 */
 	private abstract class BaseSqlDetailProvider implements SqlDetailProvider {
 		public String getCountSql() {
 			return "select count(*) from (" + getBaseSql() + ") x";
@@ -1964,6 +1980,22 @@ public class DasboardAkuntansi extends MyPortallayout {
 		}
 	}
 
+	/**
+	 * Kontrak callback/strategi bersarang milik {@link DasboardAkuntansi}. Tipe ini memisahkan satu variasi
+	 * perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DasboardAkuntansi} dan dapat mengakses state
+	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
+	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code getBaseSql()}, {@code
+	 * getCountSql()}, {@code getListSql()}, {@code getHeaders()}, {@code bind()}, {@code render}(). Aturan bisnis
+	 * bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see DasboardAkuntansi
+	 */
 	private interface SqlDetailProvider {
 		String getBaseSql();
 
@@ -2126,6 +2158,20 @@ public class DasboardAkuntansi extends MyPortallayout {
 		}
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link AkuntansiDashboardData} milik {@link DasboardAkuntansi}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasboardAkuntansi}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code long totalBukti}, {@code long
+	 * totalBaris}, {@code long akunTerpakai}, {@code long jurnalPenyesuaian}, {@code long jurnalPenutup}, {@code
+	 * long transaksiClosing}, {@code int laporanAktif}, {@code double saldoAwal}. Aturan bisnis bersama tetap
+	 * berada pada kelas induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see DasboardAkuntansi
+	 */
 	private static class AkuntansiDashboardData {
 		long totalBukti;
 		long totalBaris;

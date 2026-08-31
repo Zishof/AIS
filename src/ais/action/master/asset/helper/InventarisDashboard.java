@@ -60,6 +60,20 @@ public class InventarisDashboard extends Vbox {
 	private MyDatebox tglSampai;
 	private Vbox body;
 
+	/**
+	 * Tipe implementasi bersarang {@link Item} milik {@link InventarisDashboard}. Kelas ini memberi nama pada
+	 * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link InventarisDashboard}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String kodeBast}, {@code String
+	 * kodePo}, {@code String kodeBarang}, {@code String namaBarang}, {@code String penyedia}, {@code String
+	 * satuanKerja}, {@code double diterima}, {@code Date tanggal}. Aturan bisnis bersama tetap berada pada kelas
+	 * induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see InventarisDashboard
+	 */
 	private static class Item {
 		String kodeBast;
 		String kodePo;

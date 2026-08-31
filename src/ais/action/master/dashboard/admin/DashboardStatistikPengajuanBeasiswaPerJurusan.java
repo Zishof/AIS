@@ -130,6 +130,21 @@ public class DashboardStatistikPengajuanBeasiswaPerJurusan extends MyWindow {
 
 	}
 
+	/**
+	 * Event listener lokal milik {@link DashboardStatistikPengajuanBeasiswaPerJurusan}. Kelas ini menangani event
+	 * untuk komponen induk dan meneruskan pekerjaan domain ke method/service yang sudah tersedia.
+	 *
+	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DashboardStatistikPengajuanBeasiswaPerJurusan}
+	 * dan dapat mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Boolean diterima}, {@code Long
+	 * jurusanId}; operasi lokal: {@code onEvent}(). Aturan bisnis bersama tetap berada pada kelas induk atau
+	 * service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+	 * renderer/listener ini.</p>
+	 *
+	 * @see DashboardStatistikPengajuanBeasiswaPerJurusan
+	 */
 	public class MyEventListener implements EventListener {
 
 		private Boolean diterima;

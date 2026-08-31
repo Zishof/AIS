@@ -237,9 +237,79 @@ public class ReimbursementLaporanAction extends GenericAutowireComposer {
     private int days(Date from,Date to){ return from==null||to==null?0:(int)Math.max(0,(to.getTime()-from.getTime())/86400000L); }
     private boolean isFinance(){ Tbmuser u=Common.getCurrentUser();if(u==null)return false;Set roles=u.ambilRolesId();if(roles!=null){for(Object role:roles){String id=String.valueOf(role);if(Tbmrole.ADMINISTRATOR.equalsIgnoreCase(id)||Tbmrole.KEUANGAN.equalsIgnoreCase(id))return true;}}for(Tbmrole tr:new Tbmrole[]{u.getUserRole(),u.getUserRole2(),u.getUserRole3(),u.getUserRole4(),u.getUserRole5()}){if(tr!=null&&Boolean.TRUE.equals(tr.getKeuangan()))return true;}return false; }
 
+    /**
+     * Pembawa data/helper lokal milik {@link ReimbursementLaporanAction} untuk summary. Tipe ini mengelompokkan
+     * nilai antara agar perhitungan atau rendering tidak memakai array/map tanpa kontrak yang jelas.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * ReimbursementLaporanAction}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String label}, {@code int count},
+     * {@code double amount}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
+     * dipanggilnya.</p>
+     *
+     * @see ReimbursementLaporanAction
+     */
     private static class Summary { String label; int count; double amount; Summary(String label){this.label=label;} }
+    /**
+     * Tipe implementasi bersarang {@link Aging} milik {@link ReimbursementLaporanAction}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+     * ReimbursementLaporanAction}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
+     * dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code ReimbursementPegawai data}, {@code
+     * int age}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see ReimbursementLaporanAction
+     */
     private static class Aging { ReimbursementPegawai data; int age; Aging(ReimbursementPegawai data,int age){this.data=data;this.age=age;} }
+    /**
+     * Renderer lokal untuk layar/komponen {@link ReimbursementLaporanAction}. Kelas ini menerjemahkan satu item
+     * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+     *
+     * <p><b>Scope:</b> setiap instance terikat pada instance {@link ReimbursementLaporanAction} dan dapat
+     * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+     * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+     * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+     * renderer/listener ini.</p>
+     *
+     * @see ReimbursementLaporanAction
+     */
     private class SummaryRenderer implements RowRenderer { public void render(Row row,Object value){Summary s=(Summary)value;new Label(s.label).setParent(row);new Label(String.valueOf(s.count)).setParent(row);new Label("Rp "+Common.numberFormat.get().format(s.amount)).setParent(row);} }
+    /**
+     * Renderer lokal untuk layar/komponen {@link ReimbursementLaporanAction}. Kelas ini menerjemahkan satu item
+     * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+     *
+     * <p><b>Scope:</b> setiap instance terikat pada instance {@link ReimbursementLaporanAction} dan dapat
+     * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+     * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+     * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+     * renderer/listener ini.</p>
+     *
+     * @see ReimbursementLaporanAction
+     */
     private class AgingRenderer implements RowRenderer { public void render(Row row,Object value){Aging a=(Aging)value;ReimbursementPegawai d=a.data;new Label(d.getKode()).setParent(row);new Label(d.getPegawai()==null?"-":d.getPegawai().getNama()).setParent(row);new Label(d.getStatus()).setParent(row);new Label(a.age+" hari").setParent(row);new Label(a.age>7?"Lewat SLA":"Dalam SLA").setParent(row);new Label("Rp "+Common.numberFormat.get().format(d.getNominal())).setParent(row);} }
+    /**
+     * Renderer lokal untuk layar/komponen {@link ReimbursementLaporanAction}. Kelas ini menerjemahkan satu item
+     * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+     *
+     * <p><b>Scope:</b> setiap instance terikat pada instance {@link ReimbursementLaporanAction} dan dapat
+     * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
+     * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
+     * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
+     * renderer/listener ini.</p>
+     *
+     * @see ReimbursementLaporanAction
+     */
     private class DetailRenderer implements RowRenderer { public void render(Row row,Object value){ReimbursementPegawai d=(ReimbursementPegawai)value;new Label(d.getKode()).setParent(row);new Label(date(d.getTanggalPengajuan())).setParent(row);new Label(d.getPegawai()==null?"-":d.getPegawai().getNama()).setParent(row);new Label(d.getKategori()).setParent(row);new Label(d.getDeskripsi()).setParent(row);new Label("Rp "+Common.numberFormat.get().format(d.getNominal())).setParent(row);new Label(d.getPajakPersen()+"%").setParent(row);new Label(d.getStatus()).setParent(row);new Label(d.getAtasan()==null?"-":d.getAtasan().getNama()).setParent(row);new Label(date(d.getTanggalAkuntansi())).setParent(row);new Label(date(d.getTanggalPembayaran())).setParent(row);new Label(d.getMetodePembayaran()==null?"-":d.getMetodePembayaran()).setParent(row);} }
 }

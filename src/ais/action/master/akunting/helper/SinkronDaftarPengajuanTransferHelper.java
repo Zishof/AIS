@@ -130,6 +130,19 @@ public final class SinkronDaftarPengajuanTransferHelper {
 		return hasil;
 	}
 
+	/**
+	 * Tipe implementasi bersarang {@link HasilSinkron} milik {@link SinkronDaftarPengajuanTransferHelper}. Kelas
+	 * ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
+	 * SinkronDaftarPengajuanTransferHelper}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
+	 * digunakan dan diuji.</p>
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code int total}, {@code int berhasil},
+	 * {@code int dilewati}, {@code int gagal}, {@code List pesan}. Aturan bisnis bersama tetap berada pada kelas
+	 * induk atau service yang dipanggilnya.</p>
+	 *
+	 * @see SinkronDaftarPengajuanTransferHelper
+	 */
 	public static final class HasilSinkron {
 		public int total;
 		public int berhasil;

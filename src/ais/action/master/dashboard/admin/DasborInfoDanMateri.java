@@ -1586,10 +1586,38 @@ public class DasborInfoDanMateri extends Window implements Serializable {
         return value == null ? "" : value;
     }
 
+    /**
+     * Kontrak callback/strategi bersarang milik {@link DasborInfoDanMateri}. Tipe ini memisahkan satu variasi
+     * perilaku lokal tanpa membuat service atau interface global yang tumpang tindih.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasborInfoDanMateri}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code execute}(). Aturan bisnis bersama
+     * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+     * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+     * tambahkan perilaku lintas domain pada service bersama.</p>
+     *
+     * @see DasborInfoDanMateri
+     */
     private static interface ChunkExecutor {
         void execute(String inSql);
     }
 
+    /**
+     * Tipe implementasi bersarang {@link DashboardScope} milik {@link DasborInfoDanMateri}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasborInfoDanMateri}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String tahunAkademik}, {@code Sekolah
+     * sekolah}, {@code List pertemuanIds}, {@code List perkuliahanIds}, {@code List jadwalPelajaranIds}, {@code
+     * List matakuliahIds}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see DasborInfoDanMateri
+     */
     private static class DashboardScope {
         String tahunAkademik;
         Sekolah sekolah;
@@ -1599,6 +1627,19 @@ public class DasborInfoDanMateri extends Window implements Serializable {
         List<Long> matakuliahIds = new ArrayList<Long>();
     }
 
+    /**
+     * Tipe implementasi bersarang {@link StatItem} milik {@link DasborInfoDanMateri}. Kelas ini memberi nama pada
+     * state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasborInfoDanMateri}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String kode}, {@code String label},
+     * {@code long total}, {@code String source}, {@code boolean streaming}. Aturan bisnis bersama tetap berada
+     * pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see DasborInfoDanMateri
+     */
     private static class StatItem {
         String kode;
         String label;
@@ -1615,6 +1656,19 @@ public class DasborInfoDanMateri extends Window implements Serializable {
         }
     }
 
+    /**
+     * Tipe implementasi bersarang {@link DetailItem} milik {@link DasborInfoDanMateri}. Kelas ini memberi nama
+     * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+     *
+     * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link DasborInfoDanMateri}.
+     * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+     * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+     * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code String jenis}, {@code String info},
+     * {@code String relasi}, {@code String source}, {@code String database}. Aturan bisnis bersama tetap berada
+     * pada kelas induk atau service yang dipanggilnya.</p>
+     *
+     * @see DasborInfoDanMateri
+     */
     private static class DetailItem {
         String jenis;
         String info;
