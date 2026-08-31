@@ -177,12 +177,47 @@ public class MailSender {
 		}
 	}
 
+	/**
+	 * Titik masuk publik utama untuk mengirim satu email/notifikasi. Ini adalah anggota PERTAMA
+	 * dari keluarga besar overload {@code sendMail}/{@code sendMailLampiran} (14 varian publik di
+	 * kelas ini) yang seluruhnya bermuara pada satu implementasi privat kanonik:
+	 * {@link #sendMailLampiran(JSONArray, String, String, String, String, PrintStream,
+	 * GeneralValueObject, JSONArray, boolean, File...)}. Dokumentasi mendalam tentang ALUR
+	 * pengiriman (kapan {@link ais.database.model.Notifikasi} dibuat, kapan email benar-benar
+	 * terkirim, urutan Brevo-vs-SMTP-langsung, penanganan galat) ada pada implementasi kanonik
+	 * tersebut serta pada {@link #sendMailProcess}; javadoc pada tiap overload publik di bawah ini
+	 * sengaja diringkas karena hanya berbeda pada nilai default yang disisipkan untuk parameter
+	 * opsional (lampiran {@code File}, {@code attachmentsData} JSON, {@code kirimkankeWa},
+	 * {@code PrintStream out} untuk mengalirkan log debug SMTP ke pemanggil) — lihat juga
+	 * penjelasan pola overload berlapis di {@link ais.delivery.email.sender package-info}.
+	 *
+	 * <p>
+	 * Varian ini memanggil overload lain dengan {@code attachmentsData=null} (tanpa lampiran JSON,
+	 * hanya lampiran {@code File} bila dipakai lewat varian {@code sendMailLampiran}) dan
+	 * {@code out=null} (tidak ada aliran log debug ke pemanggil).
+	 * </p>
+	 *
+	 * @param userIds       daftar user id penerima (dipakai untuk resolusi push token/nomor WA,
+	 *                      bukan alamat email — lihat {@code recipients} untuk itu)
+	 * @param subject       judul email/notifikasi
+	 * @param body          isi pesan (HTML)
+	 * @param sender        alamat pengirim; dicek terhadap konfigurasi
+	 *                      {@code email_tidak_boleh_kirim_dari} di implementasi kanonik
+	 * @param recipients    alamat email penerima, dipisah koma
+	 * @param dataObject    entitas terkait (dipakai untuk metadata {@code classData} pada
+	 *                      notifikasi), boleh {@code null}
+	 * @param kirimkankeWa  kirim juga salinan pesan ke WhatsApp penerima (lewat Ultramsg) bila
+	 *                      {@code true}
+	 * @throws Exception diteruskan apa adanya dari implementasi kanonik (mis. kegagalan parsing
+	 *                    alamat email, kegagalan Hibernate saat menyimpan notifikasi)
+	 */
 	public static void sendMail(JSONArray userIds, String subject, String body, String sender, String recipients,
 			GeneralValueObject dataObject, boolean kirimkankeWa) throws Exception {
 		JSONArray attachmentsData = null;
 		sendMail(userIds, subject, body, sender, recipients, dataObject, attachmentsData, kirimkankeWa, null);
 	}
 
+	/** Seperti {@link #sendMail(JSONArray, String, String, String, String, boolean)}, tanpa lampiran, dengan tambahan {@code out} untuk mengalirkan log debug SMTP ke pemanggil (mis. tombol "test kirim" di layar admin). */
 	public static void sendMail(JSONArray userIds, String subject, String body, String sender, String recipients,
 			GeneralValueObject dataObject, PrintStream out, boolean kirimkankeWa) throws Exception {
 		File file = null;
@@ -191,6 +226,7 @@ public class MailSender {
 				file);
 	}
 
+	/** Seperti {@link #sendMail(JSONArray, String, String, String, String, boolean)}, dengan lampiran berupa {@link File} (bukan {@code attachmentsData} JSON) dan tanpa {@code PrintStream}. */
 	public static void sendMailLampiran(JSONArray userIds, String subject, String body, String sender,
 			String recipientsTemp, GeneralValueObject dataObject, boolean kirimkankeWa, File... file) throws Exception {
 		JSONArray attachmentsData = null;
@@ -198,11 +234,13 @@ public class MailSender {
 				kirimkankeWa, file);
 	}
 
+	/** Seperti {@link #sendMail(JSONArray, String, String, String, String, boolean)}, dengan {@code attachmentsData} berupa lampiran JSON (mis. daftar {url,name} yang sudah diunggah sebelumnya) alih-alih {@link File} mentah. */
 	public static void sendMail(JSONArray userIds, String subject, String body, String sender, String recipients,
 			GeneralValueObject dataObject, JSONArray attachmentsData, boolean kirimkankeWa) throws Exception {
 		sendMail(userIds, subject, body, sender, recipients, dataObject, attachmentsData, kirimkankeWa, null);
 	}
 
+	/** Kombinasi {@code attachmentsData} JSON + {@code kirimkankeWa} + {@code PrintStream out} untuk log debug — parameter paling lengkap di antara varian {@code sendMail} publik (tetap bukan kanonik; delegasi akhir tetap ke {@link #sendMailLampiran(JSONArray, String, String, String, String, PrintStream, GeneralValueObject, JSONArray, boolean, File...) varian privat}). */
 	public static void sendMail(JSONArray userIds, String subject, String body, String sender, String recipients,
 			GeneralValueObject dataObject, JSONArray attachmentsData, boolean kirimkankeWa, PrintStream out)
 			throws Exception {
@@ -212,6 +250,7 @@ public class MailSender {
 				file);
 	}
 
+	/** Seperti {@link #sendMailLampiran(JSONArray, String, String, String, String, GeneralValueObject, boolean, File...)}, dengan {@code attachmentsData} JSON tambahan di samping lampiran {@link File}. */
 	public static void sendMailLampiran(JSONArray userIds, String subject, String body, String sender,
 			String recipientsTemp, GeneralValueObject dataObject, JSONArray attachmentsData, boolean kirimkankeWa,
 			File... file) throws Exception {
@@ -219,12 +258,14 @@ public class MailSender {
 				kirimkankeWa, file);
 	}
 
+	/** Varian paling ringkas: tanpa lampiran, tanpa {@code attachmentsData}, {@code kirimkankeWa} default {@code false}. Cocok untuk notifikasi email sederhana tanpa fan-out WhatsApp. */
 	public static void sendMail(JSONArray userIds, String subject, String body, String sender, String recipients,
 			GeneralValueObject dataObject) throws Exception {
 		JSONArray attachmentsData = null;
 		sendMail(userIds, subject, body, sender, recipients, dataObject, attachmentsData, null);
 	}
 
+	/** Seperti varian ringkas {@link #sendMail(JSONArray, String, String, String, String, GeneralValueObject)}, dengan tambahan {@code out} untuk log debug SMTP. */
 	public static void sendMail(JSONArray userIds, String subject, String body, String sender, String recipients,
 			GeneralValueObject dataObject, PrintStream out) throws Exception {
 		File file = null;
@@ -232,6 +273,7 @@ public class MailSender {
 		sendMailLampiran(userIds, subject, body, sender, recipients, out, dataObject, attachmentsData, false, file);
 	}
 
+	/** Varian ringkas dengan lampiran {@link File}, tanpa {@code attachmentsData} JSON/{@code kirimkankeWa}/{@code out} (semua default). */
 	public static void sendMailLampiran(JSONArray userIds, String subject, String body, String sender,
 			String recipientsTemp, GeneralValueObject dataObject, File... file) throws Exception {
 		JSONArray attachmentsData = null;
@@ -239,11 +281,13 @@ public class MailSender {
 				file);
 	}
 
+	/** Varian ringkas dengan {@code attachmentsData} JSON, tanpa lampiran {@link File}/{@code kirimkankeWa}/{@code out}. */
 	public static void sendMail(JSONArray userIds, String subject, String body, String sender, String recipients,
 			GeneralValueObject dataObject, JSONArray attachmentsData) throws Exception {
 		sendMail(userIds, subject, body, sender, recipients, dataObject, attachmentsData, null);
 	}
 
+	/** Seperti {@link #sendMail(JSONArray, String, String, String, String, GeneralValueObject, JSONArray)}, dengan tambahan {@code out} untuk log debug SMTP. */
 	public static void sendMail(JSONArray userIds, String subject, String body, String sender, String recipients,
 			GeneralValueObject dataObject, JSONArray attachmentsData, PrintStream out) throws Exception {
 		File file = null;
@@ -251,6 +295,7 @@ public class MailSender {
 		sendMailLampiran(userIds, subject, body, sender, recipients, out, dataObject, attachmentsData, false, file);
 	}
 
+	/** Varian dengan {@code attachmentsData} JSON DAN lampiran {@link File} sekaligus, tanpa {@code kirimkankeWa}/{@code out}. Anggota terakhir keluarga overload {@code sendMail}/{@code sendMailLampiran} publik; delegasi berikutnya menuju implementasi kanonik privat. */
 	public static void sendMailLampiran(JSONArray userIds, String subject, String body, String sender,
 			String recipientsTemp, GeneralValueObject dataObject, JSONArray attachmentsData, File... file)
 			throws Exception {
@@ -258,20 +303,50 @@ public class MailSender {
 				file);
 	}
 
+	/**
+	 * Cache dedup proses-hidup untuk {@link #simpanNotifikasiHalaman}: kunci
+	 * {@code "HAL_"+kelas+"_"+id+"_"+hashSubjek+"_"+userId} dicatat di sini begitu satu penerima
+	 * pernah diproses untuk kombinasi (objek data + subjek) tertentu, sehingga panggilan berikutnya
+	 * dengan kombinasi identik tidak membuat notifikasi/entry email dobel. TIDAK dibersihkan
+	 * otomatis dan TIDAK persisten — tumbuh selama JVM hidup dan kembali kosong setelah restart
+	 * aplikasi (dedup lintas restart bergantung sepenuhnya pada data {@link
+	 * ais.database.model.Notifikasi} di database, bukan set ini).
+	 */
 	public static Set<String> notifSudah = new HashSet<String>();
 
+	/**
+	 * Menyimpan record {@link Notifikasi} "polos" (tanpa target klik/halaman, berbeda dari
+	 * {@link #simpanNotifikasiHalaman} yang menambahkan {@code bukaZk}/{@code bukaJsp}) dan
+	 * mengirim email/WA bila konfigurasi {@code aktfikan_pengiriman_notif} aktif. Ini anggota
+	 * pertama keluarga overload {@code simpanNotif}; implementasi sesungguhnya ada di
+	 * {@link #simpanNotifInternal} (dipanggil dengan {@code abaikanPengaturanNotif=false}, artinya
+	 * saklar {@code aktfikan_pengiriman_notif} DIHORMATI — kebalikan dari
+	 * {@link #simpanNotifUntukEmail} yang mengabaikan saklar itu demi jalur email).
+	 *
+	 * @param userIdsTemp    daftar user id penerima (untuk push/WA), boleh {@code null}
+	 * @param recipientsTemp alamat email penerima dipisah koma, boleh {@code null}
+	 * @param subject        judul notifikasi
+	 * @param body           isi notifikasi (HTML)
+	 * @param dataObject     entitas terkait untuk metadata {@code classData}, boleh {@code null}
+	 * @param temp           lampiran opsional (digabung jadi satu PDF lewat
+	 *                       {@link #jadikanSatuFilePdf} sebelum disimpan)
+	 * @return record {@link Notifikasi} yang tersimpan, atau {@code null} bila
+	 *         {@code aktfikan_pengiriman_notif} tidak aktif atau tidak ada penerima
+	 */
 	public static Notifikasi simpanNotif(JSONArray userIdsTemp, String recipientsTemp, String subject, String body,
 			GeneralValueObject dataObject, File... temp) {
 		JSONArray attachmentsData = null;
 		return simpanNotif(userIdsTemp, recipientsTemp, subject, body, dataObject, attachmentsData, false, temp);
 	}
 
+	/** Seperti {@link #simpanNotif(JSONArray, String, String, String, GeneralValueObject, File...)}, dengan flag {@code kirimkankeWa} eksplisit untuk fan-out WhatsApp. */
 	public static Notifikasi simpanNotif(JSONArray userIdsTemp, String recipientsTemp, String subject, String body,
 			GeneralValueObject dataObject, boolean kirimkankeWa, File... temp) {
 		JSONArray attachmentsData = null;
 		return simpanNotif(userIdsTemp, recipientsTemp, subject, body, dataObject, attachmentsData, kirimkankeWa, temp);
 	}
 
+	/** Varian paling lengkap {@code simpanNotif}, dengan {@code attachmentsData} JSON tambahan di samping lampiran {@link File}. Meneruskan langsung ke {@link #simpanNotifInternal} dengan {@code abaikanPengaturanNotif=false}. */
 	public static Notifikasi simpanNotif(JSONArray userIdsTemp, String recipientsTemp, String subject, String body,
 			GeneralValueObject dataObject, JSONArray attachmentsData, boolean kirimkankeWa, File... temp) {
 		return simpanNotifInternal(userIdsTemp, recipientsTemp, subject, body, dataObject, attachmentsData, kirimkankeWa,
@@ -485,6 +560,26 @@ public class MailSender {
 	 * - Pengaturan tersebut tetap dihormati untuk pemanggilan simpanNotif biasa.
 	 * - Pengiriman email tidak boleh ikut berhenti hanya karena notifikasi aplikasi
 	 *   dimatikan.
+	 *
+	 * <p>
+	 * Dipanggil secara internal oleh keluarga {@code sendMail*}/{@code sendMailLampiran*} sebelum
+	 * kanal email sesungguhnya dijalankan — lihat {@link #sendMailLampiran(JSONArray, String,
+	 * String, String, String, PrintStream, GeneralValueObject, JSONArray, boolean, File...)}.
+	 * Delegasi ke {@link #simpanNotifInternal} dengan {@code abaikanPengaturanNotif=true}.
+	 * </p>
+	 *
+	 * @param userIdsTemp     daftar user id penerima (untuk push/WA), boleh {@code null}
+	 * @param recipientsTemp  alamat email penerima dipisah koma, boleh {@code null}
+	 * @param subject         judul email
+	 * @param body            isi email (HTML)
+	 * @param dataObject      entitas terkait untuk metadata {@code classData}, boleh {@code null}
+	 * @param attachmentsData lampiran berbentuk JSON (url+nama), boleh {@code null}
+	 * @param kirimkankeWa    kirim juga push (GCP) + WhatsApp lewat {@link #kirimNotif} bila
+	 *                        {@code true}
+	 * @param temp            lampiran {@link File} opsional, digabung jadi satu PDF lewat
+	 *                        {@link #jadikanSatuFilePdf}
+	 * @return record {@link Notifikasi} yang tersimpan, atau {@code null} bila tidak ada penerima
+	 *         email maupun user id
 	 */
 	private static Notifikasi simpanNotifUntukEmail(JSONArray userIdsTemp, String recipientsTemp, String subject,
 			String body, GeneralValueObject dataObject, JSONArray attachmentsData, boolean kirimkankeWa, File... temp) {
@@ -492,6 +587,48 @@ public class MailSender {
 				true, temp);
 	}
 
+	/**
+	 * Implementasi kanonik seluruh keluarga {@code simpanNotif}/{@code simpanNotifUntukEmail}:
+	 * satu-satunya tempat yang benar-benar membangun dan menyimpan baris
+	 * {@link ais.database.model.Notifikasi} untuk jalur "notifikasi polos" (tanpa target klik
+	 * halaman — bandingkan dengan {@link #simpanNotifikasiHalaman} yang punya implementasi
+	 * terpisah karena field tambahannya berbeda).
+	 *
+	 * <p>
+	 * Urutan kerja: (1) bila {@code notifAktif} bernilai {@code false} — yaitu
+	 * {@code abaikanPengaturanNotif=false} DAN konfigurasi {@code aktfikan_pengiriman_notif} tidak
+	 * aktif — method berhenti lebih awal dan mengembalikan {@code null} tanpa menyentuh database
+	 * sama sekali; (2) bila {@link ais.common.FormalisasiPesanUtil#terapkanNotifikasi()} aktif,
+	 * {@code body} dibungkus jadi teks resmi lewat {@link
+	 * ais.common.FormalisasiPesanUtil#bungkusFormalHtml}; (3) lampiran {@code temp} digabung jadi
+	 * satu PDF; (4) userIds dideduplikasi terhadap {@link #notifSudah} berbasis kunci
+	 * {@code kelas+"_"+id+"_"+userId} (CATATAN: kunci di sini TIDAK menyertakan hash subjek,
+	 * berbeda dari kunci dedup di {@link #simpanNotifikasiHalaman} yang menyertakan
+	 * {@code hashSubjek} — dua mekanisme dedup ini independen walaupun berbagi set
+	 * {@link #notifSudah} yang sama); (5) baris {@link Notifikasi} disimpan dalam transaksi
+	 * Hibernate sendiri (rollback eksplisit bila gagal, sesi selalu ditutup di {@code finally});
+	 * (6) cache lonceng notifikasi ditandai kotor lewat
+	 * {@link ais.common.NotifikasiCache#tandaiKotor()}; (7) bila {@code kirimkankeWa} aktif, push +
+	 * WhatsApp dikirim lewat {@link #kirimNotif}. Kanal EMAIL sendiri TIDAK dikirim dari method
+	 * ini — pemanggil (keluarga {@code sendMail*}) yang bertanggung jawab memanggil
+	 * {@link #sendMailProcess} atau {@link #sendinblue} setelah record ini tersimpan.
+	 * </p>
+	 *
+	 * @param userIdsTemp             daftar user id penerima, boleh {@code null}
+	 * @param recipientsTemp          alamat email penerima dipisah koma, boleh {@code null}
+	 * @param subject                 judul pesan
+	 * @param body                    isi pesan (HTML), diformalkan bila fitur formalisasi aktif
+	 * @param dataObject              entitas terkait untuk metadata {@code classData}
+	 * @param attachmentsData         lampiran JSON, boleh {@code null}
+	 * @param kirimkankeWa            kirim juga push/WhatsApp via {@link #kirimNotif}
+	 * @param abaikanPengaturanNotif  bila {@code true}, saklar {@code aktfikan_pengiriman_notif}
+	 *                                DILEWATI (dipakai jalur email lewat
+	 *                                {@link #simpanNotifUntukEmail}); bila {@code false}, saklar
+	 *                                itu DIHORMATI (jalur {@link #simpanNotif} biasa)
+	 * @param temp                    lampiran {@link File} opsional
+	 * @return record {@link Notifikasi} tersimpan, atau {@code null} bila notifikasi nonaktif atau
+	 *         tidak ada penerima
+	 */
 	private static Notifikasi simpanNotifInternal(JSONArray userIdsTemp, String recipientsTemp, String subject,
 			String body, GeneralValueObject dataObject, JSONArray attachmentsData, boolean kirimkankeWa,
 			boolean abaikanPengaturanNotif, File... temp) {
@@ -616,16 +753,62 @@ public class MailSender {
 	}
 
 
+	/** Seperti {@link #kirimNotif(Notifikasi, boolean, JSONObject, JSONArray, boolean, File...)} dengan {@code ubahKeterangan=true} dan {@code kirimkankeWa=false} (push saja, tanpa WhatsApp). */
 	public static List<String> kirimNotif(Notifikasi notifikasi, JSONObject classData, JSONArray attachmentsData,
 			File... file) throws Exception {
 		return kirimNotif(notifikasi, true, classData, attachmentsData, false, file);
 	}
 
+	/** Seperti {@link #kirimNotif(Notifikasi, JSONObject, JSONArray, File...)} dengan flag {@code kirimkankeWa} eksplisit. */
 	public static List<String> kirimNotif(Notifikasi notifikasi, JSONObject classData, JSONArray attachmentsData,
 			boolean kirimkankeWa, File... file) throws Exception {
 		return kirimNotif(notifikasi, true, classData, attachmentsData, kirimkankeWa, file);
 	}
 
+	/**
+	 * Implementasi kanonik pengiriman <b>push notification</b> (lewat server relay
+	 * {@code link_push_multiple_devices_notif}, default {@code dev.ecampus.id:3000}) dan,
+	 * opsional, <b>WhatsApp</b> (lewat {@code Wa#kirimWaViaUltramsg}, hanya bila konfigurasi
+	 * {@code aktifkan_reply_chatbot} aktif) untuk satu record {@link Notifikasi} yang SUDAH
+	 * tersimpan. Dipanggil dari {@link #simpanNotifikasiHalaman} dan {@link #simpanNotifInternal}
+	 * setelah baris notifikasi dibuat — tidak pernah dipanggil sebelum record tersimpan karena
+	 * method ini membaca {@code notifikasi.getNama()} (daftar user id JSON) dan
+	 * {@code notifikasi.getKeterangan()} (subjek+body JSON) dari objek yang diberikan.
+	 *
+	 * <p>
+	 * Resolusi tujuan push memakai kolom {@code gcpToken} pada tiga entitas ({@link
+	 * ais.database.model.Tbmuser}, {@link ais.database.model.Mahasiswa},
+	 * {@link ais.database.model.sekolah.Siswa}) yang cocok dengan userId/NIM/NISN di
+	 * {@code notifikasi.getNama()}; resolusi tujuan WhatsApp memakai kolom nomor HP/telepon pada
+	 * entitas yang sama (termasuk HP orang tua siswa: {@code hp1ayah}/{@code hp1ibu}). Payload push
+	 * dikirim ke {@code linkPost} lewat {@code curl} eksternal dengan body JSON dialirkan via
+	 * STDIN ({@code --data-binary @-}), BUKAN sebagai argumen baris perintah — ini sengaja
+	 * dirancang begitu karena body notifikasi panjang pernah melebihi batas {@code ARG_MAX} OS dan
+	 * membuat {@link ProcessBuilder#start()} gagal dengan "Argument list too long". Pengiriman
+	 * push ke server mobile dapat dimatikan lewat konfigurasi
+	 * {@code aktifkan_push_multiple_devices_notif} (default TIDAK AKTIF).
+	 * </p>
+	 *
+	 * <p>
+	 * Bila {@code ubahKeterangan=true}, kolom {@code keterangan} pada {@code notifikasi} ditulis
+	 * ulang untuk menyisipkan {@code attachments}; bila {@code false} (dipakai
+	 * {@link #simpanNotifikasiHalaman}), {@code keterangan} yang sudah diperkaya dengan
+	 * {@code classData}/{@code bukaZk}/{@code bukaJsp} TIDAK ditimpa. Kolom {@code hasil} pada
+	 * {@code notifikasi} selalu ditulis dengan gabungan respons {@code curl} dari setiap batch
+	 * token push.
+	 * </p>
+	 *
+	 * @param notifikasi          record yang sudah tersimpan, dibaca+diperbarui di tempat
+	 * @param ubahKeterangan      timpa kolom {@code keterangan} dengan lampiran bila {@code true}
+	 * @param classData           metadata objek terkait, disisipkan ke payload push
+	 * @param attachmentsDataFinal lampiran JSON siap pakai; bila {@code null}, dibangun dari
+	 *                             {@code file} yang diberikan
+	 * @param kirimkankeWa         kirim juga ke WhatsApp lewat Ultramsg (bila
+	 *                             {@code aktifkan_reply_chatbot} aktif)
+	 * @param file                 lampiran {@link File} opsional
+	 * @return daftar respons mentah dari setiap panggilan {@code curl} ke server push
+	 * @throws Exception diteruskan dari kegagalan parsing JSON keterangan/nama notifikasi
+	 */
 	@SuppressWarnings("unchecked")
 	public static List<String> kirimNotif(Notifikasi notifikasi, boolean ubahKeterangan, JSONObject classData,
 			final JSONArray attachmentsDataFinal, boolean kirimkankeWa, final File... file) throws Exception {
@@ -940,6 +1123,27 @@ public class MailSender {
 
 	}
 
+	/**
+	 * Menggabungkan seluruh lampiran ber-ekstensi {@code .pdf} di antara {@code file} menjadi
+	 * SATU berkas PDF (lewat {@link org.apache.pdfbox.util.PDFMergerUtility}), sementara lampiran
+	 * non-PDF diteruskan apa adanya. Dipanggil di awal hampir setiap alur kirim di kelas ini
+	 * ({@link #simpanNotifikasiHalaman}, {@link #simpanNotifInternal}, {@link #sendinblue}, dst.)
+	 * sehingga penerima yang mendapat beberapa dokumen PDF sekaligus (mis. beberapa halaman
+	 * tagihan) menerimanya sebagai satu lampiran gabungan, bukan berkas terpisah-pisah.
+	 *
+	 * <p>
+	 * Berkas PDF gabungan baru diberi nama acak lewat {@link Common#getGeneratedBarCode()} dan
+	 * ditulis ke direktori yang sama dengan PDF sumber terakhir yang diproses. Bila proses
+	 * penggabungan gagal (mis. salah satu PDF sumber korup) atau berkas hasil kosong/tidak
+	 * terbentuk, method jatuh kembali ({@code fallback}) mengirim seluruh PDF asli TANPA
+	 * digabung, alih-alih gagal total — kegagalan digabung tidak boleh membuat lampiran hilang.
+	 * </p>
+	 *
+	 * @param file lampiran campuran PDF dan non-PDF, boleh berisi {@code null} (diabaikan) atau
+	 *             kosong
+	 * @return array baru: lampiran non-PDF apa adanya + (bila ada PDF) satu PDF gabungan, atau
+	 *         seluruh PDF asli bila penggabungan gagal; array kosong bila {@code file} kosong/null
+	 */
 	public static File[] jadikanSatuFilePdf(File... file) {
 
 		if (file == null || file.length == 0) {
@@ -997,6 +1201,41 @@ public class MailSender {
 		return filesbaru.toArray(new File[] {});
 	}
 
+	/**
+	 * Implementasi kanonik privat dari seluruh keluarga {@code sendMail}/{@code sendMailLampiran}
+	 * publik (14 overload, lihat javadoc di overload publik pertama untuk peta lengkapnya). Semua
+	 * parameter opsional keluarga itu bermuara di sini dengan nilai final-nya masing-masing.
+	 *
+	 * <p>
+	 * Urutan kerja: (1) tolak pengiriman lebih dulu bila {@code sender} sama dengan
+	 * {@code email_tidak_boleh_kirim_dari} (daftar penolakan sederhana berbasis satu alamat, bukan
+	 * daftar/pola — pengecekan hanya persis-sama, tidak case-sensitive); (2) simpan record
+	 * {@link Notifikasi} lewat {@link #simpanNotifUntukEmail} (saklar
+	 * {@code aktfikan_pengiriman_notif} DIABAIKAN di jalur ini — email tidak boleh berhenti hanya
+	 * karena notifikasi aplikasi dimatikan); (3) pilih penyedia: Brevo/Sendinblue (
+	 * {@link #sendinblue}) bila konfigurasi {@code aktfikan_pengiriman_email_menggunakan_sendinblue.com}
+	 * aktif, selain itu SMTP langsung lewat {@link #sendMailProcess}, dipanggil SEKALI PER ALAMAT
+	 * bila {@code recipientsTemp} berisi beberapa alamat dipisah koma (bukan satu pesan dengan
+	 * banyak penerima To); (4) alamat email monitoring ({@code alamat_email_monitoring}, bila
+	 * diisi) ditambahkan sebagai penerima tambahan pada jalur SMTP langsung — TIDAK pada jalur
+	 * Brevo. Flag {@code akademik}/{@code tagihan} pada {@link #sendMailProcess} selalu
+	 * {@code true, false} di jalur ini (bukan email tagihan) — bandingkan dengan
+	 * {@link #sendMailLampiranTagihan(JSONArray, String, String, String, String, PrintStream,
+	 * boolean, GeneralValueObject, JSONArray, boolean, File...) varian tagihan}.
+	 * </p>
+	 *
+	 * @param userIds         daftar user id penerima (untuk metadata notifikasi/push)
+	 * @param subject         judul email
+	 * @param body            isi email (HTML)
+	 * @param sender          alamat pengirim; ditolak bila cocok {@code email_tidak_boleh_kirim_dari}
+	 * @param recipientsTemp  alamat email penerima dipisah koma
+	 * @param out             aliran opsional untuk log debug SMTP; {@code null} berarti tidak ada
+	 * @param dataObject      entitas terkait untuk metadata notifikasi
+	 * @param attachmentsData lampiran JSON, boleh {@code null}
+	 * @param kirimkankeWa    kirim juga push/WhatsApp lewat jalur {@link #simpanNotifUntukEmail}
+	 * @param file            lampiran {@link File}, digabung jadi satu PDF sebelum dikirim
+	 * @throws Exception diteruskan dari kegagalan penyimpanan notifikasi atau parsing alamat email
+	 */
 	private static void sendMailLampiran(JSONArray userIds, String subject, String body, String sender,
 			String recipientsTemp, PrintStream out, GeneralValueObject dataObject, JSONArray attachmentsData,
 			boolean kirimkankeWa, File... file) throws Exception {
