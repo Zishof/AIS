@@ -118,6 +118,30 @@ import net.sourceforge.barbecue.Barcode;
 import net.sourceforge.barbecue.BarcodeFactory;
 import net.sourceforge.barbecue.BarcodeImageHandler;
 
+/**
+ * Penyusun/penyaji laporan untuk laporan rapor siswa. Kelas ini mengubah data domain menjadi
+ * bentuk laporan yang dipakai UI, ekspor, atau proses cetak tanpa memindahkan aturan transaksi ke
+ * lapisan report.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * MyWindow}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
+ * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
+ * tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Center center}, {@code Paging paging},
+ * {@code Textbox cari}, {@code MyGrid grid}, {@code TreeMap map}, {@code MyDatebox tanggal}, {@code Combobox
+ * sekolah}, {@code Combobox tahunAkademik}; inisialisasi/lifecycle ({@code init()}, {@code initCriteria()});
+ * pembacaan/pencarian ({@code ambilCacheRata()}, {@code ambilCacheTotalKelas()}, {@code onSearchDefault()});
+ * mutasi data ({@code simpanCacheRata()}, {@code simpanCacheTotalKelas()}); pelaporan/ekspor ({@code
+ * onReport()}); operasi domain lain ({@code mulaiRunCacheRapor()}, {@code akhiriRunCacheRapor()}, {@code
+ * runCacheRata()}, {@code runCacheTotalKelas()}, {@code cacheRaporLintasRequestAktif()}, {@code bukaSession()}).
+ * Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ *
+ * @see MyWindow
+ */
 public class LaporanRaporSiswa extends MyWindow {
 
 	private static final long serialVersionUID = 3331244819198611604L;
