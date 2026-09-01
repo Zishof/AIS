@@ -63,7 +63,7 @@ public final class NewUiLaporanUmumController {
 
     /** Satu filter laporan: nama parameter Jasper + cara klien memintanya. */
     static final class Filter {
-        final String nama, label, tipe, entity;
+        final String nama, label, tipe, entity, propertiNama, paramNamaBawaan;
         final boolean wajib;
         /**
          * Bila diisi, controller ikut mengirim parameter bernama ini berisi
@@ -73,16 +73,25 @@ public final class NewUiLaporanUmumController {
          */
         final String paramNama;
         Filter(String nama, String label, String tipe, boolean wajib, String entity) {
-            this(nama, label, tipe, wajib, entity, null);
+            this(nama, label, tipe, wajib, entity, null, "nama", "");
         }
-        Filter(String nama, String label, String tipe, boolean wajib, String entity, String paramNama) {
+        Filter(String nama, String label, String tipe, boolean wajib, String entity, String paramNama,
+                String propertiNama, String paramNamaBawaan) {
             this.nama = nama; this.label = label; this.tipe = tipe;
             this.wajib = wajib; this.entity = entity; this.paramNama = paramNama;
+            this.propertiNama = propertiNama;
+            this.paramNamaBawaan = paramNamaBawaan;
         }
         /** Relasi yang sekaligus mengirim nama entity pada parameter lain. */
         static Filter relasiBernama(String nama, String label, String entity, boolean wajib,
                 String paramNama) {
-            return new Filter(nama, label, TIPE_RELASI, wajib, entity, paramNama);
+            return new Filter(nama, label, TIPE_RELASI, wajib, entity, paramNama, "nama", "");
+        }
+        /** Relasi yang teks tampilannya tidak disimpan pada properti {@code nama}. */
+        static Filter relasiBernamaDenganProperti(String nama, String label, String entity,
+                boolean wajib, String paramNama, String propertiNama, String paramNamaBawaan) {
+            return new Filter(nama, label, TIPE_RELASI, wajib, entity, paramNama, propertiNama,
+                    paramNamaBawaan);
         }
         static Filter tahun(boolean wajib) { return new Filter("tahun", "Tahun", TIPE_TAHUN, wajib, null); }
         static Filter bulan(boolean wajib) { return new Filter("bulan", "Bulan", TIPE_BULAN, wajib, null); }
@@ -198,6 +207,20 @@ public final class NewUiLaporanUmumController {
                                 "ais.database.model.Jurusan", false, "jurusan_nama"),
                         Filter.teks("judul", "Judul"),
                         Filter.teks("userid", "User ID")));
+        REGISTRI.put("penelitian_rekap_penelitian",
+                new Laporan("Rekap Penelitian atau Pengabdian",
+                        "penelitiandanpengabdian/Rekap_Penelitian",
+                        Filter.relasiBernama("fakultas", "Fakultas",
+                                "ais.database.model.Fakultas", false, "fakultas_nama"),
+                        Filter.relasiBernama("jurusan", "Jurusan",
+                                "ais.database.model.Jurusan", false, "jurusan_nama"),
+                        Filter.relasiBernamaDenganProperti("tipePenelitianDanPengabdian",
+                                "Tipe Penelitian/Pengabdian",
+                                "ais.database.model.penelitiandanpengabdian.TipePenelitianDanPengabdian",
+                                false, "namaTipePenelitianDanPengabdian", "isi",
+                                "Penelitian dan Pengabdian"),
+                        Filter.teks("judul", "Judul"),
+                        Filter.teks("userid", "User ID")));
 
         // --- Anggaran (RAB) --------------------------------------------------
         REGISTRI.put("rab_realisasi_per_jenis",
@@ -307,24 +330,26 @@ public final class NewUiLaporanUmumController {
         try {
             Class<?> kelas = Class.forName(dipilih.entity);
             Criteria c = s.createCriteria(kelas).setMaxResults(50);
-            if (q.length() >= 2) c.add(Restrictions.ilike("nama", "%" + q + "%"));
-            try { c.addOrder(Order.asc("nama")); } catch (Exception abaikan) { }
+            if (q.length() >= 2) c.add(Restrictions.ilike(dipilih.propertiNama, "%" + q + "%"));
+            try { c.addOrder(Order.asc(dipilih.propertiNama)); } catch (Exception abaikan) { }
             for (Object o : c.list()) {
                 arr.put(new JSONObject()
                         .put("id", nilaiProperti(o, "getId"))
-                        .put("nama", String.valueOf(nilaiProperti(o, "getNama"))));
+                        .put("nama", String.valueOf(nilaiProperti(o,
+                                getter(dipilih.propertiNama)))));
             }
         } finally { s.close(); }
         j.put("pilihan", arr).put("filter", nama).put("total", arr.length());
     }
 
     /** Nama entity untuk parameter turunan; string kosong bila tidak ditemukan. */
-    private static String namaEntity(String kelas, Long id) {
+    private static String namaEntity(String kelas, Long id, String propertiNama) {
         if (kelas == null || id == null) return "";
         Session s = HibernateUtil.openSession();
         try {
             Object obyek = s.get(Class.forName(kelas), id);
-            return obyek == null ? "" : String.valueOf(nilaiProperti(obyek, "getNama"));
+            return obyek == null ? "" : String.valueOf(nilaiProperti(obyek,
+                    getter(propertiNama)));
         } catch (Exception e) {
             return "";
         } finally {
@@ -335,6 +360,11 @@ public final class NewUiLaporanUmumController {
     private static Object nilaiProperti(Object obyek, String getter) {
         try { return obyek.getClass().getMethod(getter).invoke(obyek); }
         catch (Exception e) { return ""; }
+    }
+
+    private static String getter(String properti) {
+        if (properti == null || properti.length() == 0) return "getNama";
+        return "get" + Character.toUpperCase(properti.charAt(0)) + properti.substring(1);
     }
 
     // ----------------------------------------------------------------- cetak
@@ -348,7 +378,7 @@ public final class NewUiLaporanUmumController {
                 // Tidak dipilih: id relasi dikirim -1 seperti ZK; filter lain dilewati.
                 if (TIPE_RELASI.equals(f.tipe)) {
                     parameters.put(f.nama, Long.valueOf(-1L));
-                    if (f.paramNama != null) parameters.put(f.paramNama, "");
+                    if (f.paramNama != null) parameters.put(f.paramNama, f.paramNamaBawaan);
                 }
                 continue;
             }
@@ -373,7 +403,7 @@ public final class NewUiLaporanUmumController {
                 if (f.paramNama != null) {
                     // Nama diambil dari basis data, bukan dari klien, supaya
                     // kop laporan tidak dapat dipalsukan lewat parameter.
-                    parameters.put(f.paramNama, namaEntity(f.entity, id));
+                    parameters.put(f.paramNama, namaEntity(f.entity, id, f.propertiNama));
                 }
             } else {
                 parameters.put(f.nama, mentah);

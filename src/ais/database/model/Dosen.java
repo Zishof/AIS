@@ -4607,6 +4607,13 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 
 	// KEGIATAN KEDOSENAN
 
+	/**
+	 * Membaca isi mentah berkas indeks JSON kegiatan kedosenan milik dosen ini
+	 * ({@code kegiatanKedosenanPunyaDosen_&lt;id&gt;}).
+	 *
+	 * @return isi berkas indeks, atau {@code VOMahasiswa.dataJSON} (objek JSON kosong) bila berkas
+	 *         tidak ada, kosong, atau gagal dibaca
+	 */
 	public String ambilLokasiKegiatanKedosenanPunyaDosen() {
 		File file = Common.getFileLocation(this, "kegiatanKedosenanPunyaDosen_" + getId().toString());
 		try {
@@ -4618,6 +4625,12 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Menimpa berkas indeks JSON kegiatan kedosenan milik dosen ini. Kegagalan tulis direkam ke
+	 * {@code ErrorAuditUtil} dan tidak dilempar.
+	 *
+	 * @param data isi berkas indeks yang baru
+	 */
 	public void tulisLokasiKegiatanKedosenanPunyaDosen(String data) {
 		File file = Common.getFileLocation(this, "kegiatanKedosenanPunyaDosen_" + getId().toString());
 		try {
@@ -4626,6 +4639,15 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Menambahkan satu kegiatan kedosenan ke indeks dosen ini.
+	 *
+	 * <p><b>Efek samping:</b> selain memperbarui indeks, method ini memanggil
+	 * {@code kegiatanKedosenanPunyaDosen.write()} sehingga berkas cache objek kegiatan itu sendiri
+	 * ikut ditulis ulang.</p>
+	 *
+	 * @param kegiatanKedosenanPunyaDosen kegiatan kedosenan yang dicatat
+	 */
 	public void populateKegiatanKedosenanPunyaDosen(KegiatanKedosenanPunyaDosen kegiatanKedosenanPunyaDosen) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiKegiatanKedosenanPunyaDosen());
@@ -4636,6 +4658,14 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Membangun ulang indeks kegiatan kedosenan dosen ini dari basis data: seluruh
+	 * {@link KegiatanKedosenanPunyaDosen} dengan {@code dosen} sama dengan objek ini diambil terurut
+	 * ID, berkas indeks dikosongkan, lalu tiap kegiatan dicatat kembali lewat
+	 * {@link #populateKegiatanKedosenanPunyaDosen(KegiatanKedosenanPunyaDosen)}.
+	 *
+	 * @param session session Hibernate untuk query kegiatan kedosenan
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitKegiatanKedosenanPunyaDosen(Session session) {
 
@@ -4649,6 +4679,11 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		kegiatanKedosenanPunyaDosens = null;
 	}
 
+	/**
+	 * Mengeluarkan satu kegiatan kedosenan dari indeks dengan menyetel nilainya menjadi string kosong.
+	 *
+	 * @param id ID kegiatan kedosenan yang dikeluarkan
+	 */
 	public void removeKegiatanKedosenanPunyaDosen(Serializable id) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiKegiatanKedosenanPunyaDosen());
@@ -4659,6 +4694,16 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Mengembalikan daftar ID kegiatan kedosenan milik dosen ini.
+	 *
+	 * <p>Bila penanda sekali-jalan {@code udah("KegiatanKedosenanPunyaDosen")} belum ada, indeks
+	 * dibangun ulang lebih dulu memakai session native yang dibuka dan ditutup sendiri oleh method
+	 * ini. Setiap kunci indeks divalidasi dengan {@code ambilData(..., true)} sehingga baris yang
+	 * entitasnya sudah terhapus otomatis tersaring. Kegagalan per item hanya dicatat.</p>
+	 *
+	 * @return daftar ID kegiatan kedosenan; kosong bila tidak ada
+	 */
 	@SuppressWarnings("unchecked")
 	public List<Long> ambilKegiatanKedosenanPunyaDosen() {
 
@@ -4696,6 +4741,12 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 
 	// ORGANISASI DOSEN
 
+	/**
+	 * Membaca isi mentah berkas indeks JSON keanggotaan organisasi profesi milik dosen ini
+	 * ({@code organisasiDosenPunyaDosen_&lt;id&gt;}).
+	 *
+	 * @return isi berkas indeks, atau objek JSON kosong bila berkas tidak ada/gagal dibaca
+	 */
 	public String ambilLokasiOrganisasiDosenPunyaDosen() {
 		File file = Common.getFileLocation(this, "organisasiDosenPunyaDosen_" + getId().toString());
 		try {
@@ -4707,6 +4758,11 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Menimpa berkas indeks JSON keanggotaan organisasi profesi milik dosen ini.
+	 *
+	 * @param data isi berkas indeks yang baru
+	 */
 	public void tulisLokasiOrganisasiDosenPunyaDosen(String data) {
 		File file = Common.getFileLocation(this, "organisasiDosenPunyaDosen_" + getId().toString());
 		try {
@@ -4715,6 +4771,12 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Menambahkan satu keanggotaan organisasi ke indeks dosen ini, sekaligus menulis ulang berkas
+	 * cache objek organisasi tersebut lewat {@code write()}.
+	 *
+	 * @param organisasiDosenPunyaDosen keanggotaan organisasi yang dicatat
+	 */
 	public void populateOrganisasiDosenPunyaDosen(OrganisasiDosenPunyaDosen organisasiDosenPunyaDosen) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiOrganisasiDosenPunyaDosen());
@@ -4725,6 +4787,12 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Membangun ulang indeks keanggotaan organisasi profesi dosen ini dari basis data, dengan pola
+	 * yang sama seperti {@link #reInitKegiatanKedosenanPunyaDosen(Session)}.
+	 *
+	 * @param session session Hibernate untuk query keanggotaan organisasi
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitOrganisasiDosenPunyaDosen(Session session) {
 
@@ -4738,6 +4806,11 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		organisasiDosenPunyaDosens = null;
 	}
 
+	/**
+	 * Mengeluarkan satu keanggotaan organisasi dari indeks dosen ini.
+	 *
+	 * @param id ID keanggotaan organisasi yang dikeluarkan
+	 */
 	public void removeOrganisasiDosenPunyaDosen(Serializable id) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiOrganisasiDosenPunyaDosen());
@@ -4748,6 +4821,13 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Mengembalikan daftar ID keanggotaan organisasi profesi dosen ini, membangun indeks lebih dulu
+	 * bila penanda {@code udah("OrganisasiDosenPunyaDosen")} belum ada. Pola dan efek sampingnya sama
+	 * dengan {@link #ambilKegiatanKedosenanPunyaDosen()}.
+	 *
+	 * @return daftar ID keanggotaan organisasi; kosong bila tidak ada
+	 */
 	@SuppressWarnings("unchecked")
 	public List<Long> ambilOrganisasiDosenPunyaDosen() {
 
@@ -4785,6 +4865,11 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 
 	// PRESTASI DOSEN
 
+	/**
+	 * Membaca isi mentah berkas indeks JSON prestasi dosen ini ({@code prestasiDosen_&lt;id&gt;}).
+	 *
+	 * @return isi berkas indeks, atau objek JSON kosong bila berkas tidak ada/gagal dibaca
+	 */
 	public String ambilLokasiPrestasiDosen() {
 		File file = Common.getFileLocation(this, "prestasiDosen_" + getId().toString());
 		try {
@@ -4796,6 +4881,11 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Menimpa berkas indeks JSON prestasi dosen ini.
+	 *
+	 * @param data isi berkas indeks yang baru
+	 */
 	public void tulisLokasiPrestasiDosen(String data) {
 		File file = Common.getFileLocation(this, "prestasiDosen_" + getId().toString());
 		try {
@@ -4804,6 +4894,12 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Menambahkan satu prestasi ke indeks dosen ini, sekaligus menulis ulang berkas cache objek
+	 * prestasi tersebut lewat {@code write()}.
+	 *
+	 * @param prestasiDosen prestasi yang dicatat
+	 */
 	public void populatePrestasiDosen(PrestasiDosen prestasiDosen) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiPrestasiDosen());
@@ -4814,6 +4910,12 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Membangun ulang indeks prestasi dosen ini dari basis data, dengan pola yang sama seperti
+	 * {@link #reInitKegiatanKedosenanPunyaDosen(Session)}.
+	 *
+	 * @param session session Hibernate untuk query prestasi
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitPrestasiDosen(Session session) {
 
@@ -4826,6 +4928,11 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		prestasiDosens = null;
 	}
 
+	/**
+	 * Mengeluarkan satu prestasi dari indeks dosen ini.
+	 *
+	 * @param id ID prestasi yang dikeluarkan
+	 */
 	public void removePrestasiDosen(Serializable id) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiPrestasiDosen());
@@ -4836,6 +4943,13 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Mengembalikan daftar ID prestasi dosen ini, membangun indeks lebih dulu bila penanda
+	 * {@code udah("PrestasiDosen")} belum ada. Pola dan efek sampingnya sama dengan
+	 * {@link #ambilKegiatanKedosenanPunyaDosen()}.
+	 *
+	 * @return daftar ID prestasi; kosong bila tidak ada
+	 */
 	@SuppressWarnings("unchecked")
 	public List<Long> ambilPrestasiDosen() {
 
@@ -4872,6 +4986,14 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 
 	// KARYA DOSEN
 
+	/**
+	 * Membaca isi mentah berkas indeks JSON penghargaan dosen ini ({@code penghargaanDosen_&lt;id&gt;}).
+	 *
+	 * <p>Catatan: blok ini diberi komentar pemisah {@code // KARYA DOSEN} pada kode, namun isinya
+	 * memang penghargaan, bukan karya.</p>
+	 *
+	 * @return isi berkas indeks, atau objek JSON kosong bila berkas tidak ada/gagal dibaca
+	 */
 	public String ambilLokasiPenghargaanDosen() {
 		File file = Common.getFileLocation(this, "penghargaanDosen_" + getId().toString());
 		try {
@@ -4883,6 +5005,11 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Menimpa berkas indeks JSON penghargaan dosen ini.
+	 *
+	 * @param data isi berkas indeks yang baru
+	 */
 	public void tulisLokasiPenghargaanDosen(String data) {
 		File file = Common.getFileLocation(this, "penghargaanDosen_" + getId().toString());
 		try {
@@ -4891,6 +5018,12 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Menambahkan satu penghargaan ke indeks dosen ini, sekaligus menulis ulang berkas cache objek
+	 * penghargaan tersebut lewat {@code write()}.
+	 *
+	 * @param penghargaanDosen penghargaan yang dicatat
+	 */
 	public void populatePenghargaanDosen(PenghargaanDosen penghargaanDosen) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiPenghargaanDosen());
@@ -4901,6 +5034,12 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Membangun ulang indeks penghargaan dosen ini dari basis data, dengan pola yang sama seperti
+	 * {@link #reInitKegiatanKedosenanPunyaDosen(Session)}.
+	 *
+	 * @param session session Hibernate untuk query penghargaan
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitPenghargaanDosen(Session session) {
 
@@ -4913,6 +5052,11 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		penghargaanDosens = null;
 	}
 
+	/**
+	 * Mengeluarkan satu penghargaan dari indeks dosen ini.
+	 *
+	 * @param id ID penghargaan yang dikeluarkan
+	 */
 	public void removePenghargaanDosen(Serializable id) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiPenghargaanDosen());
@@ -4923,6 +5067,13 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Mengembalikan daftar ID penghargaan dosen ini, membangun indeks lebih dulu bila penanda
+	 * {@code udah("PenghargaanDosen")} belum ada. Pola dan efek sampingnya sama dengan
+	 * {@link #ambilKegiatanKedosenanPunyaDosen()}.
+	 *
+	 * @return daftar ID penghargaan; kosong bila tidak ada
+	 */
 	@SuppressWarnings("unchecked")
 	public List<Long> ambilPenghargaanDosen() {
 
@@ -4960,6 +5111,12 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 
 	// PENELITIAN DAN PENGABDIAN
 
+	/**
+	 * Membaca isi mentah berkas indeks JSON pengajuan penelitian dan pengabdian milik dosen ini
+	 * ({@code pengajuanPenelitianDanPengabdian_&lt;id&gt;}).
+	 *
+	 * @return isi berkas indeks, atau objek JSON kosong bila berkas tidak ada/gagal dibaca
+	 */
 	public String ambilLokasiPengajuanPenelitianDanPengabdian() {
 		File file = Common.getFileLocation(this, "pengajuanPenelitianDanPengabdian_" + getId().toString());
 		try {
@@ -4971,6 +5128,11 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Menimpa berkas indeks JSON pengajuan penelitian dan pengabdian milik dosen ini.
+	 *
+	 * @param data isi berkas indeks yang baru
+	 */
 	public void tulisLokasiPengajuanPenelitianDanPengabdian(String data) {
 		File file = Common.getFileLocation(this, "pengajuanPenelitianDanPengabdian_" + getId().toString());
 		try {
@@ -4979,6 +5141,12 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Menambahkan satu pengajuan penelitian/pengabdian ke indeks dosen ini, sekaligus menulis ulang
+	 * berkas cache objek pengajuan tersebut lewat {@code write()}.
+	 *
+	 * @param pengajuanPenelitianDanPengabdian pengajuan yang dicatat
+	 */
 	public void populatePengajuanPenelitianDanPengabdian(
 			PengajuanPenelitianDanPengabdian pengajuanPenelitianDanPengabdian) {
 		try {
@@ -4991,6 +5159,15 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Membangun ulang indeks pengajuan penelitian dan pengabdian dosen ini dari basis data.
+	 *
+	 * <p>Berbeda dari blok portofolio lain yang menyaring lewat kolom {@code dosen}, query di sini
+	 * menyaring lewat alias {@code tbmuser} ({@code tbmuser.dosen = this}) karena pengajuan melekat
+	 * pada akun pengguna, bukan langsung pada baris dosen.</p>
+	 *
+	 * @param session session Hibernate untuk query pengajuan
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitPengajuanPenelitianDanPengabdian(Session session) {
 
@@ -5004,6 +5181,11 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		pengajuanPenelitianDanPengabdians = null;
 	}
 
+	/**
+	 * Mengeluarkan satu pengajuan penelitian/pengabdian dari indeks dosen ini.
+	 *
+	 * @param id ID pengajuan yang dikeluarkan
+	 */
 	public void removePengajuanPenelitianDanPengabdian(Serializable id) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiPengajuanPenelitianDanPengabdian());
@@ -5014,6 +5196,19 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Mengembalikan daftar ID pengajuan penelitian dan pengabdian milik dosen ini, opsional disaring
+	 * menurut tipe.
+	 *
+	 * <p>Bila penanda {@code udah("PengajuanPenelitianDanPengabdian")} belum ada, indeks dibangun ulang
+	 * lebih dulu. Penyaringan tipe membaca
+	 * {@code pengajuan.getPenelitianDanPengabdian().getTipePenelitianDanPengabdian()}, jadi baris yang
+	 * relasinya tidak lengkap akan gagal dan hanya dicatat ke {@code ErrorAuditUtil} tanpa
+	 * menggagalkan seluruh daftar.</p>
+	 *
+	 * @param tipePenelitianDanPengabdian tipe yang disaring; {@code null} berarti semua tipe
+	 * @return daftar ID pengajuan penelitian dan pengabdian; kosong bila tidak ada
+	 */
 	@SuppressWarnings("unchecked")
 	public List<Long> ambilPengajuanPenelitianDanPengabdian(TipePenelitianDanPengabdian tipePenelitianDanPengabdian) {
 
@@ -5055,6 +5250,11 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 
 	// ARTIKEL
 
+	/**
+	 * Membaca isi mentah berkas indeks JSON artikel milik dosen ini ({@code artikel_&lt;id&gt;}).
+	 *
+	 * @return isi berkas indeks, atau objek JSON kosong bila berkas tidak ada/gagal dibaca
+	 */
 	public String ambilLokasiArtikel() {
 		File file = Common.getFileLocation(this, "artikel_" + getId().toString());
 		try {
@@ -5066,6 +5266,11 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Menimpa berkas indeks JSON artikel milik dosen ini.
+	 *
+	 * @param data isi berkas indeks yang baru
+	 */
 	public void tulisLokasiArtikel(String data) {
 		File file = Common.getFileLocation(this, "artikel_" + getId().toString());
 		try {
@@ -5074,6 +5279,12 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Menambahkan satu artikel ke indeks dosen ini, sekaligus menulis ulang berkas cache objek artikel
+	 * tersebut lewat {@code write()}.
+	 *
+	 * @param artikel artikel yang dicatat
+	 */
 	public void populateArtikel(Artikel artikel) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiArtikel());
@@ -5084,6 +5295,13 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Membangun ulang indeks artikel dosen ini dari basis data. Sama seperti pengajuan penelitian dan
+	 * pengabdian, penyaringan dilakukan lewat alias {@code tbmuser} ({@code tbmuser.dosen = this})
+	 * karena artikel melekat pada akun pengguna.
+	 *
+	 * @param session session Hibernate untuk query artikel
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitArtikel(Session session) {
 
@@ -5096,6 +5314,11 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		artikels = null;
 	}
 
+	/**
+	 * Mengeluarkan satu artikel dari indeks dosen ini.
+	 *
+	 * @param id ID artikel yang dikeluarkan
+	 */
 	public void removeArtikel(Serializable id) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiArtikel());
@@ -5106,6 +5329,17 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Mengembalikan daftar ID artikel milik dosen ini, membangun indeks lebih dulu bila penanda
+	 * {@code udah("Artikel")} belum ada.
+	 *
+	 * <p>Berbeda dari blok portofolio lain, pembangunan ulang di sini dibungkus
+	 * {@code try/catch/finally} lengkap: kegagalan {@code reInitArtikel} tidak menggagalkan pembacaan
+	 * indeks, dan session native tetap di-{@code disconnect} lalu di-{@code close} sebelum
+	 * {@code HibernateUtil.closeSession()}.</p>
+	 *
+	 * @return daftar ID artikel; kosong bila tidak ada
+	 */
 	@SuppressWarnings("unchecked")
 	public List<Long> ambilArtikel() {
 
@@ -5158,6 +5392,12 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 
 	// BUKU DOSEN
 
+	/**
+	 * Membaca isi mentah berkas indeks JSON buku/bahan ajar milik dosen ini
+	 * ({@code bukuBahanAjar_&lt;id&gt;}).
+	 *
+	 * @return isi berkas indeks, atau objek JSON kosong bila berkas tidak ada/gagal dibaca
+	 */
 	public String ambilLokasiBukuBahanAjar() {
 		File file = Common.getFileLocation(this, "bukuBahanAjar_" + getId().toString());
 		try {
@@ -5169,6 +5409,11 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Menimpa berkas indeks JSON buku/bahan ajar milik dosen ini.
+	 *
+	 * @param data isi berkas indeks yang baru
+	 */
 	public void tulisLokasiBukuBahanAjar(String data) {
 		File file = Common.getFileLocation(this, "bukuBahanAjar_" + getId().toString());
 		try {
@@ -5177,6 +5422,12 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Menambahkan satu buku/bahan ajar ke indeks dosen ini, sekaligus menulis ulang berkas cache objek
+	 * buku tersebut lewat {@code write()}.
+	 *
+	 * @param bukuBahanAjar buku/bahan ajar yang dicatat
+	 */
 	public void populateBukuBahanAjar(BukuBahanAjar bukuBahanAjar) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiBukuBahanAjar());
@@ -5187,6 +5438,16 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Membangun ulang indeks buku/bahan ajar dosen ini dari basis data.
+	 *
+	 * <p>Dosen dapat muncul pada salah satu dari lima slot pengarang
+	 * ({@code dosenPengarang1} s.d. {@code dosenPengarang5}), sehingga kriteria disusun sebagai
+	 * rangkaian {@code OR} — pola yang sama dengan slot pengampu pada
+	 * {@link #reInitPerkuliahan(Session)}.</p>
+	 *
+	 * @param session session Hibernate untuk query buku/bahan ajar
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitBukuBahanAjar(Session session) {
 
@@ -5205,6 +5466,11 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		bukuBahanAjars = null;
 	}
 
+	/**
+	 * Mengeluarkan satu buku/bahan ajar dari indeks dosen ini.
+	 *
+	 * @param id ID buku/bahan ajar yang dikeluarkan
+	 */
 	public void removeBukuBahanAjar(Serializable id) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiBukuBahanAjar());
@@ -5215,6 +5481,13 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Mengembalikan daftar ID buku/bahan ajar yang dikarang dosen ini, membangun indeks lebih dulu
+	 * bila penanda {@code udah("BukuBahanAjar")} belum ada. Pola dan efek sampingnya sama dengan
+	 * {@link #ambilKegiatanKedosenanPunyaDosen()}.
+	 *
+	 * @return daftar ID buku/bahan ajar; kosong bila tidak ada
+	 */
 	@SuppressWarnings("unchecked")
 	public List<Long> ambilBukuBahanAjar() {
 
@@ -5251,15 +5524,48 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 
 	public static String DEFAULT_FORMULA = new JSONArray().toString();
 
+	/**
+	 * Rekap kehadiran dan beban SKS dosen dalam bentuk teks JSON (kolom {@code formula} bertipe
+	 * {@code text}).
+	 *
+	 * <p>Isinya adalah {@link org.json.JSONArray} berisi objek per periode dengan kunci
+	 * {@code key} (berformat {@code &lt;param&gt;_&lt;bulan&gt;_&lt;tahun&gt;}), {@code sks},
+	 * {@code hdr} (jumlah hadir), dan {@code hdr_hr} (jumlah hari hadir). Data ini dihitung dan
+	 * dituliskan kembali oleh {@code ais.action.master.helper.ProsesKehadiranDosen} sebagai dasar
+	 * rekap kehadiran/honor, bukan diisi manual lewat layar biodata.</p>
+	 *
+	 * <p>Bila kolom kosong, {@link #DEFAULT_FORMULA} (larik JSON kosong) dikembalikan sehingga
+	 * pemanggil selalu bisa langsung membungkusnya dengan {@code new JSONArray(...)}.</p>
+	 *
+	 * @return teks JSON rekap kehadiran; tidak pernah {@code null} maupun kosong
+	 */
 	@Column(name = "formula", nullable = true, columnDefinition = "text")
 	public String getFormula() {
 		return formula == null || formula.isEmpty() ? DEFAULT_FORMULA : formula;
 	}
 
+	/**
+	 * Mengisi teks JSON rekap kehadiran/SKS dosen. Umumnya hanya dipanggil oleh proses perhitungan
+	 * kehadiran, bukan oleh layar penyuntingan biodata.
+	 *
+	 * @param formula teks JSON larik rekap; lihat {@link #getFormula()} untuk bentuknya
+	 */
 	public void setFormula(String formula) {
 		this.formula = formula;
 	}
 
+	/**
+	 * Golongan PNS dosen (relasi lazy kolom {@code golongan_pns}), dengan <b>pencocokan otomatis</b>
+	 * dari golongan pegawai internal.
+	 *
+	 * <p>Bila kolom kosong sedangkan {@link #getGolonganPegawai()} terisi, seluruh master
+	 * {@link GolonganPns} ditelusuri untuk mencari yang kodenya sama dengan nama golongan pegawai;
+	 * yang cocok pertama dipakai dan ditulis balik ke field. Inilah yang membuat data warisan
+	 * (hanya punya golongan pegawai) tetap menghasilkan golongan PNS yang benar pada
+	 * {@link #getGolongan()} dan berkas pelaporan.</p>
+	 *
+	 * @return golongan PNS, atau {@code null} bila tidak diisi dan tidak ada padanannya
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "golongan_pns", nullable = true)
 	public GolonganPns getGolonganPns() {
@@ -5277,18 +5583,53 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return golonganPns;
 	}
 
+	/**
+	 * Menetapkan golongan PNS dosen.
+	 *
+	 * @param golonganPns golongan PNS
+	 */
 	public void setGolonganPns(GolonganPns golonganPns) {
 		this.golonganPns = golonganPns;
 	}
 
+	/**
+	 * Nomor HP dosen yang sudah <b>dibersihkan dari semua karakter selain angka dan titik</b>
+	 * ({@code replaceAll("[^\\d.]", "")}), sehingga nomor bertanda plus, spasi, atau tanda hubung tetap
+	 * menghasilkan deret angka yang seragam.
+	 *
+	 * <p>Perhatikan bahwa {@link #tampilkanHp(Component)} mengambil nomor dari {@link BiodataDosen},
+	 * bukan dari getter ini; kolom pada tabel dosen ini dipakai sebagai nomor cadangan.</p>
+	 *
+	 * @return nomor HP berupa angka, atau string kosong bila belum diisi
+	 */
 	public String getHp() {
 		return hp == null || hp.isEmpty() ? "" : hp.trim().replaceAll("[^\\d.]", "");
 	}
 
+	/**
+	 * Mengisi nomor HP dosen apa adanya; pembersihan karakter dilakukan saat dibaca.
+	 *
+	 * @param hp nomor HP
+	 */
 	public void setHp(String hp) {
 		this.hp = hp;
 	}
 
+	/**
+	 * Menghasilkan (dan menyimpan-cache) berkas gambar QR tanda tangan digital dosen, lalu
+	 * mengembalikan lokasi absolutnya.
+	 *
+	 * <p>Berkas disimpan di direktori laporan sebagai {@code ttd_dsn_&lt;id&gt;.png} dan hanya dibuat
+	 * sekali: bila berkas sudah ada, isinya dipakai kembali tanpa pembentukan ulang. Isi QR adalah
+	 * gabungan baris NIDN, {@link #getMycode()}, {@code getKode()}, nama, jurusan, fakultas,
+	 * perguruan tinggi, dan alamat host aplikasi — sehingga pemindai dapat memverifikasi penanda
+	 * tangan sekaligus asal sistemnya.</p>
+	 *
+	 * <p><b>Efek samping:</b> menulis berkas ke disk. Karena berkas di-cache berdasarkan ID, perubahan
+	 * nama/jurusan dosen <b>tidak</b> otomatis memperbarui QR — berkas lama harus dihapus manual.</p>
+	 *
+	 * @return lokasi absolut berkas PNG QR tanda tangan dosen
+	 */
 	public String ttdQr() {
 
 		File myfilebarcode = new File(Common.ambilREAL_PATH_REPORT() + "/ttd_dsn_" + getId() + ".png");
@@ -5305,6 +5646,26 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return myfilebarcode.getAbsolutePath();
 	}
 
+	/**
+	 * Mengisi peta parameter laporan (JasperReports) dengan sumber gambar foto dan tanda tangan dosen.
+	 *
+	 * <p>Foto dicari lewat {@link ais.database.model.file.FileFotoLain#ambil(java.io.Serializable,
+	 * String, Class)} untuk jenis {@code FotoDosen.DEFAULT_JENIS}, lalu dipilih dengan urutan
+	 * prioritas: berkas lokal, tautan mentah Dropbox, tautan ekspor Google Drive, tautan unduh biasa,
+	 * dan terakhir gambar bawaan {@code /img/administrator-icon_default.png}. Nilai yang sama
+	 * dipasang pada tiga kunci — {@code foto}, {@code foto_dosen}, dan {@code foto_pegawai} — agar
+	 * berkas laporan lama maupun baru sama-sama menemukan gambarnya.</p>
+	 *
+	 * <p>Tanda tangan diambil dari {@link ais.database.model.file.LampiranLain} jenis
+	 * {@code TTD_DOSEN} ke kunci {@code ttd_dosen}, dan QR tanda tangan dari {@link #ttdQr()} ke kunci
+	 * {@code ttd_dosen_qrcode} (yang dapat menulis berkas PNG baru).</p>
+	 *
+	 * <p>Seluruh kegagalan ditangkap dan hanya dicatat, sehingga laporan tetap dapat dicetak tanpa
+	 * gambar. Dipanggil dari banyak layar cetak, antara lain
+	 * {@code ais.action.master.DosenAction} dan {@code ais.action.master.PegawaiAction}.</p>
+	 *
+	 * @param parameters peta parameter laporan yang <b>diubah langsung</b> oleh method ini
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void putPhoto(Map parameters) {
 		try {

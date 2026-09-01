@@ -74,6 +74,12 @@ public final class NewUiLaporanUmumSelfTest {
         check(handle != null, "method handle tidak ditemukan");
         check(NewUiLaporanUmumController.templateUntuk("laporan_karangan") == null,
                 "kunci tak dikenal harus mengembalikan null");
+        check("penelitiandanpengabdian/Rekap_Penelitian".equals(
+                        NewUiLaporanUmumController.templateUntuk("penelitian_rekap_penelitian")),
+                "Rekap Penelitian/Pengabdian harus memakai template legacy yang tepat");
+        check("penelitiandanpengabdian/Rekap_Artikel".equals(
+                        NewUiLaporanUmumController.templateUntuk("penelitian_rekap_artikel")),
+                "Rekap Publikasi/Jurnal harus tetap memakai template legacy yang tepat");
 
         System.out.println("NewUiLaporanUmumSelfTest OK (" + kunci.length
                 + " laporan, " + relasi + " filter relasi)");

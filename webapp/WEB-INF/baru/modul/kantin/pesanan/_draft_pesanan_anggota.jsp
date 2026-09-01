@@ -464,7 +464,11 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
 
                 let successCount = 0;
                 let failCount = 0;
-                let pesanGagalTerakhir = '';
+                // Daftar, bukan satu string. Bentuk lama (pesanGagalTerakhir) ditimpa
+                // setiap iterasi, jadi bila 5 pesanan gagal dgn 5 sebab berbeda operator
+                // hanya melihat sebab pesanan TERAKHIR -- empat lainnya lenyap, dan
+                // justru pesanan yang gagal duluan itulah yang tidak ketahuan sebabnya.
+                const pesanGagalRinci = [];
                 const pesanPeringatan = [];
                 for (let i = 0; i < listUnpaid.length; i++) {
                     const draft = listUnpaid[i];
@@ -521,7 +525,8 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
                             // otomatis ditolak gerbang sesi kas (status 91) tetapi layar tetap
                             // menampilkan modal sukses -- pesanan macet "belum bayar" tanpa jejak.
                             failCount++;
-                            pesanGagalTerakhir = resBayar.description || resBayar.message || ('status ' + resBayar.status);
+                            pesanGagalRinci.push(draft.kode + ': '
+                                    + (resBayar.description || resBayar.message || ('status ' + resBayar.status)));
                             console.error('Auto-verifikasi gagal utk draft ' + draft.kode + ':', resBayar);
                         }
                     }
@@ -546,7 +551,7 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
                                 </div>
                                 <h4 class="fw-bolder text-dark mb-3"><%=Common.getBahasaConfig("Penyelesaian Otomatis")%></h4>
                                 <p class="text-muted fs-6 mb-4"><%=Common.getBahasaConfig("Sistem telah otomatis memverifikasi pembayaran")%> <b class="text-primary fs-5">` + successCount + `</b> <%=Common.getBahasaConfig("pesanan dari hari sebelumnya menjadi terbayar.")%></p>` +
-                                (failCount > 0 ? `<div class="alert alert-danger text-start small rounded-3 mb-4"><i class="fas fa-triangle-exclamation me-1"></i><b>` + failCount + ` <%=Common.getBahasaConfig("pesanan GAGAL diverifikasi otomatis.")%></b><br>` + pesanGagalTerakhir + `</div>` : '') +
+                                (failCount > 0 ? `<div class="alert alert-danger text-start small rounded-3 mb-4"><i class="fas fa-triangle-exclamation me-1"></i><b>` + failCount + ` <%=Common.getBahasaConfig("pesanan GAGAL diverifikasi otomatis.")%></b><br>` + pesanGagalRinci.join('<br>') + `</div>` : '') +
                                 (pesanPeringatan.length > 0 ? `<div class="alert alert-warning text-start small rounded-3 mb-4"><i class="fas fa-boxes-stacked me-1"></i><b><%=Common.getBahasaConfig("Tercatat, tetapi saldo stoknya perlu diopname:")%></b><br>` + pesanPeringatan.join('<br>') + `</div>` : '') + `
                                 <button type="button" class="btn btn-primary px-5 rounded-pill fw-bold shadow-sm" data-bs-dismiss="modal"><i class="fas fa-check me-2"></i><%=Common.getBahasaConfig("Mengerti")%></button>
                             </div>
@@ -1962,7 +1967,11 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
 
                 let successCount = 0;
                 let failCount = 0;
-                let pesanGagalTerakhir = '';
+                // Daftar, bukan satu string. Bentuk lama (pesanGagalTerakhir) ditimpa
+                // setiap iterasi, jadi bila 5 pesanan gagal dgn 5 sebab berbeda operator
+                // hanya melihat sebab pesanan TERAKHIR -- empat lainnya lenyap, dan
+                // justru pesanan yang gagal duluan itulah yang tidak ketahuan sebabnya.
+                const pesanGagalRinci = [];
                 const pesanPeringatan = [];
                 for (let i = 0; i < listUnpaid.length; i++) {
                     const draft = listUnpaid[i];
@@ -2019,7 +2028,8 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
                             // otomatis ditolak gerbang sesi kas (status 91) tetapi layar tetap
                             // menampilkan modal sukses -- pesanan macet "belum bayar" tanpa jejak.
                             failCount++;
-                            pesanGagalTerakhir = resBayar.description || resBayar.message || ('status ' + resBayar.status);
+                            pesanGagalRinci.push(draft.kode + ': '
+                                    + (resBayar.description || resBayar.message || ('status ' + resBayar.status)));
                             console.error('Auto-verifikasi gagal utk draft ' + draft.kode + ':', resBayar);
                         }
                     }
@@ -2044,7 +2054,7 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
                                 </div>
                                 <h4 class="fw-bolder text-dark mb-3"><%=Common.getBahasaConfig("Penyelesaian Otomatis")%></h4>
                                 <p class="text-muted fs-6 mb-4"><%=Common.getBahasaConfig("Sistem telah otomatis memverifikasi pembayaran")%> <b class="text-primary fs-5">` + successCount + `</b> <%=Common.getBahasaConfig("pesanan dari hari sebelumnya menjadi terbayar.")%></p>` +
-                                (failCount > 0 ? `<div class="alert alert-danger text-start small rounded-3 mb-4"><i class="fas fa-triangle-exclamation me-1"></i><b>` + failCount + ` <%=Common.getBahasaConfig("pesanan GAGAL diverifikasi otomatis.")%></b><br>` + pesanGagalTerakhir + `</div>` : '') +
+                                (failCount > 0 ? `<div class="alert alert-danger text-start small rounded-3 mb-4"><i class="fas fa-triangle-exclamation me-1"></i><b>` + failCount + ` <%=Common.getBahasaConfig("pesanan GAGAL diverifikasi otomatis.")%></b><br>` + pesanGagalRinci.join('<br>') + `</div>` : '') +
                                 (pesanPeringatan.length > 0 ? `<div class="alert alert-warning text-start small rounded-3 mb-4"><i class="fas fa-boxes-stacked me-1"></i><b><%=Common.getBahasaConfig("Tercatat, tetapi saldo stoknya perlu diopname:")%></b><br>` + pesanPeringatan.join('<br>') + `</div>` : '') + `
                                 <button type="button" class="btn btn-primary px-5 rounded-pill fw-bold shadow-sm" data-bs-dismiss="modal"><i class="fas fa-check me-2"></i><%=Common.getBahasaConfig("Mengerti")%></button>
                             </div>
