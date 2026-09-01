@@ -56,6 +56,16 @@ public class MahasiswaRequestTugasAkhir extends VOPembelajaran implements VOPese
 	public static final String LULUS_STATUS = "Sidang";
 	public static final String MENGULANG_STATUS = "Mengulang";
 	public static final String GAGAL_STATUS = "Ditolak";
+	private static final String CATATAN_SEMINAR_DEFAULT_LAMA = "1. Lama Perbaikan\t: .. hari (Maks. 15 hari)\n"
+			+ "2. Jika lebih dari 15 hari s/d 1 (satu) bulan dikenakan sanksi berupa ....\n"
+			+ "3. Jika lebih dari 3 (tiga) bulan dari tanggal ujian maka hasil ujian dibatalkan dan wajib mengajukan judul dan pembimbing baru.";
+	private static final String CATATAN_SEMINAR_DEFAULT = "Batas waktu penyelesaian perbaikan naskah Tugas Akhir adalah maksimal 14 (empat belas) hari kerja, "
+			+ "terhitung sejak hari ini tanggal ................ sampai dengan tanggal ................ Hari kerja dihitung dari Senin sampai Sabtu, "
+			+ "tidak termasuk hari Minggu, libur nasional dan/atau cuti bersama.\n\n"
+			+ "Apabila mahasiswa terlambat menyelesaikan perbaikan melewati batas waktu yang telah ditentukan di berita acara, "
+			+ "maka nilai Tugas Akhir akan diturunkan satu tingkat.\n\n"
+			+ "Apabila melewati 2 (dua) minggu dari batas waktu yang telah dituliskan di berita acara maka mahasiswa wajib "
+			+ "mengikuti ujian ulang sesuai dengan ketentuan dari Akademik.";
 
 	/**
 	 * 
@@ -1196,10 +1206,9 @@ public class MahasiswaRequestTugasAkhir extends VOPembelajaran implements VOPese
 
 	@Column(columnDefinition = "text")
 	public String getCatatanSeminar() {
-		if (catatanSeminar == null || catatanSeminar.trim().isEmpty()) {
-			catatanSeminar = "1. Lama Perbaikan	: .. hari (Maks. 15 hari)\n";
-			catatanSeminar += "2. Jika lebih dari 15 hari s/d 1 (satu) bulan dikenakan sanksi berupa ....\n";
-			catatanSeminar += "3. Jika lebih dari 3 (tiga) bulan dari tanggal ujian maka hasil ujian dibatalkan dan wajib mengajukan judul dan pembimbing baru. \n";
+		String nilaiCatatan = catatanSeminar == null ? "" : catatanSeminar.replace("\r\n", "\n").trim();
+		if (nilaiCatatan.isEmpty() || CATATAN_SEMINAR_DEFAULT_LAMA.equals(nilaiCatatan)) {
+			catatanSeminar = CATATAN_SEMINAR_DEFAULT;
 		}
 		return catatanSeminar;
 	}
