@@ -29,10 +29,16 @@ public class NewUiHybridMenuDiagnostics implements Serializable {
      *
      * <p>Keadaan ini tidak merusak hierarki, sehingga tidak tertangkap
      * pemeriksaan lain — tetapi akibatnya nyata: menunya muncul pada daftar hak
-     * akses, lalu ditolak New UI dengan {@code FORBIDDEN} tanpa keterangan,
-     * karena izinnya jatuh ke {@code NewUiPermission.none()}. Tanpa penghitung
-     * ini, satu-satunya gejala yang terlihat adalah menu yang "kadang tidak bisa
-     * dibuka", dan tidak ada tempat untuk menelusurinya.</p>
+     * akses, lalu ditolak New UI dengan {@code FORBIDDEN} tanpa keterangan.
+     * Tanpa penghitung ini, satu-satunya gejala yang terlihat adalah menu yang
+     * "kadang tidak bisa dibuka", dan tidak ada tempat untuk menelusurinya.</p>
+     *
+     * <p><b>Sebabnya belum diketahui pasti.</b> Dugaan pertama — baris
+     * {@code RolePrivilage} yang hilang sehingga izinnya jatuh ke
+     * {@code NewUiPermission.none()} — memang terjadi pada sebagian menu, tetapi
+     * TIDAK menjelaskan semuanya: ada menu yang {@code hakAksesSaya} laporkan
+     * berhak baca ({@code r=1}) namun tetap tidak terbaca di sini. Penghitung
+     * ini karena itu mencatat GEJALA, bukan sebab.</p>
      *
      * <p>Ini hanya catatan. Tidak ada izin yang diberikan dan tidak ada jawaban
      * yang berubah: memberi akses karena data terlihat tidak lengkap justru
@@ -40,7 +46,12 @@ public class NewUiHybridMenuDiagnostics implements Serializable {
      */
     public void tanpaPrivilage(Long id) {
         tanpaPrivilageCount++;
-        warn("Menu ditugaskan tanpa RolePrivilage: " + id);
+        // Pesannya menyebut YANG TERAMATI, bukan sebabnya. Dugaan awal bahwa
+        // keadaan ini selalu berarti "baris RolePrivilage hilang" TERBUKTI
+        // KELIRU: ada menu yang hakAksesSaya laporkan berhak baca (r=1) namun
+        // tetap tidak terbaca di sini. Menuliskan sebab yang belum terbukti ke
+        // dalam log hanya akan menyesatkan orang yang menelusurinya nanti.
+        warn("Menu ditugaskan tetapi tidak dapat dibaca peran aktif: " + id);
     }
     public void warn(String value) { if (value != null && warnings.size() < 100) warnings.add(value); }
 
