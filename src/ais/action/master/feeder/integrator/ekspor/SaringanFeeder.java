@@ -77,6 +77,19 @@ public final class SaringanFeeder {
     public String jenisSemester = "";
 
     /**
+     * Nama program sebagai teks, bukan entitas.
+     *
+     * <p>Beda dengan {@link #program}. Panel unggah Ajar Dosen memakai combobox
+     * {@code searchprogram} yang menyimpan <i>nama</i> program sebagai String,
+     * sedangkan panel unduh memakai combobox bernama sama yang menyimpan entitas
+     * {@code Program}. Perangkap yang sama dengan {@link #semester} dan
+     * {@link #semesterKe}: nama widget kebetulan sama, artinya tidak. Dipisahkan
+     * supaya keliru pakai menjadi galat kompilasi, bukan saringan yang
+     * diam-diam tidak cocok dengan apa pun.</p>
+     */
+    public String namaProgram = "";
+
+    /**
      * Samakan bentuk nilai teks dengan apa yang dibaca layar lama dari widget.
      *
      * <p>Kotak isian ZK tidak pernah mengembalikan {@code null} untuk teks
@@ -98,5 +111,6 @@ public final class SaringanFeeder {
         if (tahunAjaran == null) tahunAjaran = "";
         if (jenisSemester == null) jenisSemester = "";
         if (kodeMatakuliah == null) kodeMatakuliah = "";
+        if (namaProgram == null) namaProgram = "";
     }
 }

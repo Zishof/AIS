@@ -214,201 +214,49 @@ public class UploadPrestasiMahasiswa extends MyWindow {
 		final Intbox sizedata = new Intbox(30);
 		final Label label = Common.displayLoadBar(this, file, center, sizedata);
 
-		final ais.common.UploadReportHelper report = new ais.common.UploadReportHelper("Upload Prestasi Mahasiswa");
+		final String[] ringkasan = new String[] { "" };
 		final Label downloadPath = new Label("");
+
+		final ais.action.master.feeder.integrator.ekspor.SaringanFeeder saringan = new ais.action.master.feeder.integrator.ekspor.SaringanFeeder();
 
 		new Thread(new Runnable() {
 
 			@Override
 			public void run() {
 				try {
-
-				XSSFWorkbook workbook = new XSSFWorkbook();
-
-				XSSFSheet sheet = workbook.createSheet("Prestasi Mahasiswa");
-				sheet.setDefaultColumnWidth(20);
-
-				XSSFRow rowhead = sheet.createRow((short) 0);
-
-				rowhead.createCell(0).setCellValue("NIM");
-				rowhead.createCell(1).setCellValue("Nama");
-				rowhead.createCell(2).setCellValue("Jenis Prestasi");
-				rowhead.createCell(3).setCellValue("Tingkat Prestasi");
-				rowhead.createCell(4).setCellValue("Nama Prestasi");
-				rowhead.createCell(5).setCellValue("Tahun");
-				rowhead.createCell(6).setCellValue("Penyelenggara");
-				rowhead.createCell(7).setCellValue("Peringkat");
-				rowhead.createCell(8).setCellValue("Kode Prodi");
-
-				XSSFWorkbook workbookUpload;
-				{
-					workbookUpload = new XSSFWorkbook(fileUpload.getAbsolutePath());
-
-					XSSFSheet sheetUpload = workbookUpload.getSheetAt(0);
-					int size = sheetUpload.getLastRowNum() + 1;
-
-					int rowIndex = 1;
-					for (int i = 1; i < size; i++) {
-						/*
-						 * WAJIB openSession(), BUKAN currentNativeSession(). Common.getSheetContentAsObject()
-						 * di dalam pemrosesan baris menutup native session ThreadLocal
-						 * (HibernateUtil.closeSession()), sehingga session hasil currentNativeSession()
-						 * sudah TERTUTUP saat getTransaction().begin() dipanggil -> "Session is closed!"
-						 * di SETIAP baris.
-						 */
-						Session session = HibernateUtil.openSession();
-						try {
-
-							if (Common.getSheetContentAsString(sheetUpload, 0, i) == null) {
-								continue;
-							}
-
-							Mahasiswa mahasiswaMentah = (Mahasiswa) Common.getSheetContentAsObject(sheetUpload, 0, i,
-									Mahasiswa.class);
-
-							// Reload ke session khusus baris ini agar entitas managed (bukan detached
-							// dari session lain yang sudah tertutup) -> akses lazy field & simpan aman.
-							Mahasiswa mahasiswa = mahasiswaMentah == null ? null
-									: (Mahasiswa) session.get(Mahasiswa.class, mahasiswaMentah.getId());
-
-							if (mahasiswa != null) {
-								String nama = Common.getSheetContentAsString(sheetUpload, 4, i);
-								CabangPrestasiMahasiswa cabangPrestasiMahasiswa = (CabangPrestasiMahasiswa) Common
-										.getSheetContentAsObject(sheetUpload, 2, i, CabangPrestasiMahasiswa.class);
-								KategoriPrestasiMahasiswa kategoriPrestasiMahasiswa = (KategoriPrestasiMahasiswa) Common
-										.getSheetContentAsObject(sheetUpload, 3, i, KategoriPrestasiMahasiswa.class);
-								Integer tahun = Common.getSheetContentAsInteger(sheetUpload, 5, i);
-								Integer peringkat = Common.getSheetContentAsInteger(sheetUpload, 7, i);
-								String penyelenggara = Common.getSheetContentAsString(sheetUpload, 6, i);
-
-								if (nama != null && !nama.trim().isEmpty() && cabangPrestasiMahasiswa != null
-										&& kategoriPrestasiMahasiswa != null && tahun != null
-										&& kategoriPrestasiMahasiswa.getKode() != null) {
-									PrestasiMahasiswa prestasiMahasiswa = (PrestasiMahasiswa) session
-											.createCriteria(PrestasiMahasiswa.class)
-											.add(Restrictions.eq("mahasiswa", mahasiswa))
-											.add(Restrictions.eq("cabangPrestasiMahasiswa", cabangPrestasiMahasiswa))
-											.add(Restrictions.eq("kategoriPrestasiMahasiswa",
-													kategoriPrestasiMahasiswa))
-											.add(Restrictions.ilike("nama", nama, MatchMode.EXACT))
-											.add(Restrictions.eq("tahun", tahun)).setMaxResults(1).uniqueResult();
-									if (prestasiMahasiswa == null) {
-										prestasiMahasiswa = new PrestasiMahasiswa();
-										prestasiMahasiswa.setJuara("Juara ke " + peringkat);
-										prestasiMahasiswa.setStatus(PrestasiMahasiswa.DISETUJUI);
-										prestasiMahasiswa.setFakultas(mahasiswa.getJurusan().getFakultas());
-										prestasiMahasiswa.setJurusan(mahasiswa.getJurusan());
-										prestasiMahasiswa.setTanggal(ais.ui.util.WaktuUtil.getDate());
-										prestasiMahasiswa.setTanggalSelesai(ais.ui.util.WaktuUtil.getDate());
-										prestasiMahasiswa.setTempat("");
-										prestasiMahasiswa.setPrestasiLuarKampus(
-												!kategoriPrestasiMahasiswa.getKode().equals("1"));
-
-									}
-									prestasiMahasiswa.setMahasiswa(mahasiswa);
-									prestasiMahasiswa.setCabangPrestasiMahasiswa(cabangPrestasiMahasiswa);
-									prestasiMahasiswa.setKategoriPrestasiMahasiswa(kategoriPrestasiMahasiswa);
-									prestasiMahasiswa.setNama(nama);
-									prestasiMahasiswa.setTahun(tahun);
-									prestasiMahasiswa.setTahunAkademik(tahun + "/" + (tahun + 1));
-									prestasiMahasiswa.setPenyelenggara(penyelenggara);
-									prestasiMahasiswa.setPeringkat(peringkat);
-
-									prestasiMahasiswa.setOleh(tbmuser.getUserNama());
-
-									String olehId = Common.generateOlehId(tbmuser);
-									prestasiMahasiswa.setOlehId(olehId);
-
-									session.getTransaction().begin();
-									try {
-										Common.refreshSaveOrUpdate(session, prestasiMahasiswa);
-										session.getTransaction().commit();
-									} catch (Exception eSimpan) {
-										/*
-										 * WAJIB rollback. Tanpa ini transaksi tetap AKTIF, sehingga begin() pada
-										 * baris berikutnya melempar "Transaction already active".
-										 */
-										try {
-											session.getTransaction().rollback();
-										} catch (Exception eRoll) {
-											ais.common.ErrorAuditUtil.record(eRoll, "rollback-gagal-upload "
-												+ "src/ais/action/master/feeder/integrator/helper/UploadPrestasiMahasiswa.java");
-										}
-										throw eSimpan;
-									}
-
-									XSSFRow row = sheet.createRow(rowIndex);
-
-									row.createCell(0).setCellValue(prestasiMahasiswa.getMahasiswa().getNim());
-									row.createCell(1).setCellValue(prestasiMahasiswa.getMahasiswa().getNama());
-									row.createCell(2)
-											.setCellValue(prestasiMahasiswa.getCabangPrestasiMahasiswa() == null ? "9"
-													: prestasiMahasiswa.getCabangPrestasiMahasiswa().getKode());
-									row.createCell(3)
-											.setCellValue(prestasiMahasiswa.getKategoriPrestasiMahasiswa() == null ? "9"
-													: prestasiMahasiswa.getKategoriPrestasiMahasiswa().getKode());
-									row.createCell(4).setCellValue(prestasiMahasiswa.getNama());
-									row.createCell(5).setCellValue(prestasiMahasiswa.getTahun());
-									row.createCell(6).setCellValue(prestasiMahasiswa.getPenyelenggara());
-									row.createCell(7).setCellValue(prestasiMahasiswa.getPeringkat() == null ? ""
-											: prestasiMahasiswa.getPeringkat().toString());
-
-									row.createCell(8).setCellValue(
-											prestasiMahasiswa.getMahasiswa().getJurusan().getKodeEpsbed());
-
-									label.setValue("Sedang memproses data " + prestasiMahasiswa.toString() + " ("
-											+ Common.numberFormat.get().format(rowIndex * 100.0 / size) + " %)");
-
-									rowIndex++;
-									report.sukses(i, mahasiswa.getNim() + "/" + nama, "Prestasi berhasil diproses");
+					// Pembacaan berkas dan penyimpanannya milik ImporPrestasiMahasiswaFeeder;
+					// layar ini hanya menyediakan berkas beserta saringannya lalu
+					// menampilkan kemajuan dan laporannya. Menyalin aturan
+					// penyimpanannya ke sini akan membuat dua aturan yang harus
+					// dijaga sama -- dan yang berbeda hasilnya adalah isi basis data.
+					ais.action.master.feeder.integrator.impor.HasilImpor hasil = ais.action.master.feeder.integrator.impor.ImporPrestasiMahasiswaFeeder.proses(
+							fileUpload, file, saringan, tbmuser,
+							new ais.common.newui.pekerjaan.PekerjaanRegistry.Progres() {
+								@Override
+								public void lapor(int persen, String pesan) {
+									label.setValue(pesan + " (" + persen + " %)");
 								}
-
-							}
-						} catch (Exception e) {
-							Common.tampilErrorJikaAdmin(e);
-							report.gagal(i, "baris-" + i, e, "Periksa data NIM/Prestasi pada baris ini");
-						} finally {
-							// Tutup session khusus baris ini + bersihkan ThreadLocal sisa helper Excel.
-							HibernateUtil.closeSessionQuietly(session);
-							HibernateUtil.closeSession();
-						}
-					}
-
-					Common.setStyled(sheet);sizedata.setValue(rowIndex + 1);
-
-					try {
-						FileOutputStream fileOut = new FileOutputStream(filename);
-						workbook.write(fileOut);
-						fileOut.close();
-					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						Common.tampilErrorJikaAdmin(e);
-					}
-				}
-
-				System.out.println("Your excel file has been generated! " );
-
-				HibernateUtil.closeSession();
-				try { downloadPath.setValue(report.simpanLaporan().getAbsolutePath()); } catch (Exception rex) { ais.common.ErrorAuditUtil.record(rex, "UploadPrestasiMahasiswa-report"); }
-				label.setValue("");
-
-				} catch (Exception e1) {
-					// FIX "gagal diam-diam": sebelumnya exception di sini hanya dicatat ke log audit
-					// lalu label.setValue("") tetap dipanggil tanpa syarat (=SUKSES palsu) di luar try,
-					// menutupi kegagalan dan membuat popup progres menutup seolah berhasil.
-					Common.tampilErrorJikaAdmin(e1);
+							});
+					sizedata.setValue(hasil.baris + 1);
+					ringkasan[0] = hasil.ringkasan;
+					if (hasil.laporan != null) downloadPath.setValue(hasil.laporan.getAbsolutePath());
+					label.setValue("");
+				} catch (Exception e) {
+					Common.tampilErrorJikaAdmin(e);
 					label.setValue("Error: " + ais.common.PesanFormalHelper.pesanGagalException(
-							"pemrosesan data Prestasi Mahasiswa dari file Excel yang diunggah", null, e1,
+							"pemrosesan berkas Prestasi Mahasiswa yang diunggah", null, e,
 							new String[] {
-									"Periksa kembali koneksi ke server Neo Feeder (Pengaturan Koneksi) dan coba ulangi.",
-									"Pastikan Username/Password Feeder pada Pengaturan Koneksi masih benar.",
-									"Jika kendala berulang, hubungi Administrator Sistem atau laporkan ke Pengembang Sistem disertai tangkapan layar (screenshot) pesan ini." })
+									"Periksa kembali format berkas Excel yang diunggah lalu ulangi.",
+									"Pastikan data acuan yang disebut berkas sudah ada.",
+									"Jika kendala berulang, hubungi Administrator Sistem." })
 							.replace("\n", " "));
 				} finally {
+					/* currentNativeSession() wajib ditutup tepat sekali dan ThreadLocal dibersihkan. */
 					ais.database.hibernate.HibernateUtil.closeSession();
 				}
 			}
 		}).start();
+
 
 		final Timer timerReport = new Timer(500);
 		timerReport.setParent(UploadPrestasiMahasiswa.this);
@@ -421,7 +269,7 @@ public class UploadPrestasiMahasiswa extends MyWindow {
 					if (!downloadPath.getValue().isEmpty()) {
 						Filedownload.save(new java.io.File(downloadPath.getValue()), "text/plain");
 					}
-					MyMessageboxConfig.show(report.getRingkasan(), "Laporan Upload Prestasi Mahasiswa", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+					MyMessageboxConfig.show(ringkasan[0], "Laporan Upload Prestasi Mahasiswa", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
 				} else if (label.getValue().startsWith("Error:")) {
 					timerReport.detach();
 				}

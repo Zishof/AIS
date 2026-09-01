@@ -206,114 +206,6 @@ public class UploadNilaiTransfer extends MyWindow {
 		ais.ui.util.ZkCompat.setFlex(center, true);
 	}
 
-	private Detailperkuliahan createDetailperkulihana(Session session, Mahasiswa mahasiswa, String nim,
-			String kodeMatakuliah, Double nilai, String kodeMatakuliahAsal, String namaMatakuliahAsal, Integer sksAsal,
-			String nilaiHurufAsal, Tbmuser tbmuser) {
-
-		Detailperkuliahan detailperkuliahan = (Detailperkuliahan) session.createCriteria(Detailperkuliahan.class)
-				.createAlias("mahasiswa", "mahasiswa")
-
-				.createAlias("matakuliahKonversi", "matakuliahKonversi", Criteria.INNER_JOIN)
-
-				.add(Restrictions.eq("mahasiswa.nim", nim.trim())).addOrder(Order.desc("id"))
-				.add(Restrictions.ilike("matakuliahKonversi.kode", kodeMatakuliah.trim(), MatchMode.EXACT))
-
-				.setMaxResults(1).uniqueResult();
-
-		if (detailperkuliahan == null && nilai > 0.01) {
-			Matakuliah matakuliah = (Matakuliah) session.createCriteria(Matakuliah.class)
-					.add(Restrictions.ilike("kode", kodeMatakuliah.trim()))
-					.add(Restrictions.eq("jurusan", mahasiswa.getJurusan())).setMaxResults(1).uniqueResult();
-			if (matakuliah == null) {
-				matakuliah = (Matakuliah) session.createCriteria(Matakuliah.class)
-						.add(Restrictions.ilike("kode", kodeMatakuliah.trim())).setMaxResults(1).uniqueResult();
-			}
-
-			if (matakuliah == null) {
-				return detailperkuliahan;
-			}
-
-			KurikulumPunyaMatakuliah kurikulumPunyaMatakuliah = (KurikulumPunyaMatakuliah) (matakuliah == null ? null
-					: session.createCriteria(KurikulumPunyaMatakuliah.class).createAlias("kurikulum", "kurikulum")
-							.createAlias("kurikulum.program", "program")
-							.add(Restrictions.eq("kurikulum.jurusan", mahasiswa.getJurusan()))
-							.add(Restrictions.eq("program.nama", mahasiswa.getProgram()))
-							.add(Restrictions.eq("matakuliah", matakuliah)).addOrder(Order.desc("kurikulum.tahun"))
-							.addOrder(Order.desc("id")).setMaxResults(1).uniqueResult());
-
-			if (detailperkuliahan == null) {
-				detailperkuliahan = new Detailperkuliahan(tbmuser, UploadNilaiTransfer.class);
-			}
-			detailperkuliahan.setMahasiswa(mahasiswa);
-			detailperkuliahan.setMatakuliahKonversi(matakuliah);
-			detailperkuliahan
-					.setSemester(kurikulumPunyaMatakuliah == null ? 0 : kurikulumPunyaMatakuliah.getSemester());
-
-		}
-
-		// System.out.println("detailperkuliahan = " + detailperkuliahan + ",
-		// nilai = " + nilai);
-
-		if (detailperkuliahan == null) {
-			return null;
-		}
-		Matakuliah matakuliah = detailperkuliahan == null ? null
-				: detailperkuliahan.getPerkuliahan() != null ? detailperkuliahan.getPerkuliahan().getMatakuliah()
-						: detailperkuliahan.getMatakuliahKonversi();
-		NilaiHuruf nilaiHuruf = Common.getNilaiHuruf(nilai, mahasiswa.getTahunangkatan(), mahasiswa.getJurusan(),
-				mahasiswa.getJurusan().getFakultas(), detailperkuliahan.getTahunAkademik(),
-				detailperkuliahan.getPerkuliahan() == null ? null : detailperkuliahan.getPerkuliahan().getGanjilGenap(),
-				matakuliah == null ? "" : matakuliah.getKode(),
-				matakuliah == null ? null : matakuliah.getJenisNilaiHuruf());
-		detailperkuliahan.setTotalIP(nilaiHuruf == null ? 0.0 : nilaiHuruf.getNilaiDiIPK());
-		detailperkuliahan.setTotalNilai(nilai);
-		detailperkuliahan.setNilaiHuruf(nilaiHuruf == null ? "" : nilaiHuruf.getNilaiHuruf());
-		detailperkuliahan.setLulus(nilaiHuruf == null ? null : nilaiHuruf.getLulus());
-		detailperkuliahan.setKodeMatakuliahAsal(kodeMatakuliahAsal);
-		detailperkuliahan.setNamaMatakuliahAsal(namaMatakuliahAsal);
-		detailperkuliahan.setNilaiHurufAsal(nilaiHurufAsal);
-		detailperkuliahan.setSksAsal(sksAsal);
-
-		detailperkuliahan.setOleh(tbmuser.getUserNama());
-
-		String olehId = Common.generateOlehId(tbmuser);
-		detailperkuliahan.setOlehId(olehId);
-
-		Double totalSementara = nilai;
-		nilaiHuruf = Common.getNilaiHuruf(totalSementara, detailperkuliahan.getMahasiswa().getTahunangkatan(),
-				detailperkuliahan.getMahasiswa().getJurusan(),
-				detailperkuliahan.getMahasiswa().getJurusan().getFakultas(), detailperkuliahan.getTahunAkademik(),
-				detailperkuliahan.getPerkuliahan() == null ? null : detailperkuliahan.getPerkuliahan().getGanjilGenap(),
-				matakuliah == null ? "" : matakuliah.getKode(),
-				matakuliah == null ? null : matakuliah.getJenisNilaiHuruf());
-
-		detailperkuliahan.setTotalNilaiSementara(totalSementara);
-		detailperkuliahan.setNilaiHurufSementara(nilaiHuruf == null ? "" : nilaiHuruf.getNilaiHuruf());
-		detailperkuliahan.setTotalIPSementara(nilaiHuruf == null ? 0.0 : nilaiHuruf.getNilaiDiIPK());
-
-		session.getTransaction().begin();
-		try {
-			session.saveOrUpdate(detailperkuliahan);
-			session.getTransaction().commit();
-		} catch (RuntimeException eSimpan) {
-			/*
-			 * WAJIB rollback. Tanpa ini transaksi tetap AKTIF, sehingga begin() pada
-			 * baris berikutnya melempar "Transaction already active".
-			 */
-			try {
-				session.getTransaction().rollback();
-			} catch (Exception eRoll) {
-				ais.common.ErrorAuditUtil.record(eRoll, "rollback-gagal-upload "
-					+ "src/ais/action/master/feeder/integrator/helper/UploadNilaiTransfer.java");
-			}
-			throw eSimpan;
-		}
-
-		System.out.println("TA detailperkuliahan = " + detailperkuliahan.getTahunAkademik() + ", semester = "
-				+ detailperkuliahan.getSemester() + ", detailperkuliahan.id = " + detailperkuliahan.getId());
-
-		return detailperkuliahan;
-	}
 
 	@SuppressWarnings({})
 	private void initSpreadsheet(final File fileUpload) throws Exception {
@@ -330,155 +222,49 @@ public class UploadNilaiTransfer extends MyWindow {
 		final Intbox sizedata = new Intbox(30);
 		final Label label = Common.displayLoadBar(this, file, center, sizedata);
 
-		final ais.common.UploadReportHelper report = new ais.common.UploadReportHelper("Upload Nilai Transfer");
+		final String[] ringkasan = new String[] { "" };
 		final Label downloadPath = new Label("");
+
+		final ais.action.master.feeder.integrator.ekspor.SaringanFeeder saringan = new ais.action.master.feeder.integrator.ekspor.SaringanFeeder();
 
 		new Thread(new Runnable() {
 
 			@Override
 			public void run() {
 				try {
-
-				XSSFWorkbook workbook = new XSSFWorkbook();
-
-				XSSFSheet sheet = workbook.createSheet("NILAI");
-				sheet.setDefaultColumnWidth(20);
-
-				XSSFRow rowhead = sheet.createRow((short) 0);
-
-				rowhead.createCell(0).setCellValue("NIM");
-				rowhead.createCell(1).setCellValue("Nama Mahasiswa");
-				rowhead.createCell(2).setCellValue("Kode MK Asal");
-				rowhead.createCell(3).setCellValue("Nama Mata Kuliah Asal");
-				rowhead.createCell(4).setCellValue("SKS Asal");
-				rowhead.createCell(5).setCellValue("Nilai Huruf Asal");
-				rowhead.createCell(6).setCellValue("Kode Matakuliah Diakui");
-				rowhead.createCell(7).setCellValue("Nama Matakuliah Diakui");
-				rowhead.createCell(8).setCellValue("Nilai Huruf Diakui");
-				rowhead.createCell(9).setCellValue("Nilai Angka Diakui");
-				rowhead.createCell(10).setCellValue("Kode Prodi");
-
-				XSSFWorkbook workbookUpload;
-				{
-					workbookUpload = new XSSFWorkbook(fileUpload.getAbsolutePath());
-
-					XSSFSheet sheetUpload = workbookUpload.getSheetAt(0);
-					int size = sheetUpload.getLastRowNum() + 1;
-
-					int rowIndex = 1;
-					for (int i = 1; i < size; i++) {
-						/*
-						 * WAJIB openSession(), BUKAN currentNativeSession(). Pola currentNativeSession()
-						 * yang ditutup manual di akhir tiap iterasi rentan terhadap "Session is closed!"
-						 * bila helper Excel lain (mis. Common.getSheetContentAsObject) ikut menutup
-						 * native session ThreadLocal di tengah pemrosesan baris ini.
-						 */
-						Session session = HibernateUtil.openSession();
-						try {
-
-							if (Common.getSheetContentAsString(sheetUpload, 0, i) == null) {
-								continue;
-							}
-
-							String nim = Common.getSheetContentAsString(sheetUpload, 0, i);
-
-							Mahasiswa mahasiswa = (Mahasiswa) (session.createCriteria(Mahasiswa.class)
-									.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))).add(Restrictions.eq("nim", nim.trim()))
-									.setMaxResults(1).uniqueResult());
-
-							if (mahasiswa != null) {
-
-								String kodeMatakuliah = Common.getSheetContentAsString(sheetUpload, 6, i);
-
-								String kodeMatakuliahAsal = Common.getSheetContentAsString(sheetUpload, 2, i);
-								String namaMatakuliahAsal = Common.getSheetContentAsString(sheetUpload, 3, i);
-								Integer sksAsal = Common.getSheetContentAsInteger(sheetUpload, 4, i);
-								String nilaiHurufAsal = Common.getSheetContentAsString(sheetUpload, 5, i);
-
-								Double nilai = 0.0;
-								String huruf = Common.getSheetContentAsString(sheetUpload, 8, i);
-
-								if ((nilai == null || nilai < 0.01) && huruf != null && !huruf.trim().isEmpty()) {
-
-									NilaiHuruf nilaiHuruf = (NilaiHuruf) session.createCriteria(NilaiHuruf.class)
-											.add(Restrictions.ilike("nilaiHuruf", huruf)).setMaxResults(1)
-											.uniqueResult();
-									if (nilaiHuruf != null) {
-										nilai = (nilaiHuruf.getMulai() + nilaiHuruf.getSampai()) / 2.0;
-									}
-
+					// Pembacaan berkas dan penyimpanannya milik ImporNilaiTransferFeeder;
+					// layar ini hanya menyediakan berkas beserta saringannya lalu
+					// menampilkan kemajuan dan laporannya. Menyalin aturan
+					// penyimpanannya ke sini akan membuat dua aturan yang harus
+					// dijaga sama -- dan yang berbeda hasilnya adalah isi basis data.
+					ais.action.master.feeder.integrator.impor.HasilImpor hasil = ais.action.master.feeder.integrator.impor.ImporNilaiTransferFeeder.proses(
+							fileUpload, file, saringan, tbmuser,
+							new ais.common.newui.pekerjaan.PekerjaanRegistry.Progres() {
+								@Override
+								public void lapor(int persen, String pesan) {
+									label.setValue(pesan + " (" + persen + " %)");
 								}
-
-								label.setValue("Upload data " + nim + " - " + kodeMatakuliah + " - " + nilai + " ("
-										+ Common.numberFormat.get().format(rowIndex * 100.0 / size) + " %)");
-
-								Detailperkuliahan detailperkuliahan = createDetailperkulihana(session, mahasiswa, nim,
-										kodeMatakuliah, nilai, kodeMatakuliahAsal, namaMatakuliahAsal, sksAsal,
-										nilaiHurufAsal, tbmuser);
-
-								if (detailperkuliahan != null) {
-
-									Matakuliah matakuliah = detailperkuliahan.getMatakuliahKonversi() == null
-											? (detailperkuliahan.getPerkuliahan() == null ? null
-													: detailperkuliahan.getPerkuliahan().getMatakuliah())
-											: detailperkuliahan.getMatakuliahKonversi();
-									if (matakuliah != null) {
-
-										ais.action.master.feeder.integrator.ekspor.EksporNilaiTransferFeeder.createData(
-												session, sheet, rowIndex, detailperkuliahan);
-
-										rowIndex++;
-									report.sukses(i, nim + "/" + kodeMatakuliah, "Nilai Transfer berhasil");
-									}
-								}
-
-							}
-						} catch (Exception e) {
-							Common.tampilErrorJikaAdmin(e);
-							report.gagal(i, "baris-" + i, e, "Periksa data NIM/MK Transfer pada baris ini");
-						} finally {
-							// Tutup session khusus baris ini + bersihkan ThreadLocal sisa helper Excel.
-							HibernateUtil.closeSessionQuietly(session);
-							HibernateUtil.closeSession();
-						}
-					}
-
-					Common.setStyled(sheet);
-					sizedata.setValue(rowIndex + 1);
-
-					try {
-						FileOutputStream fileOut = new FileOutputStream(filename);
-						workbook.write(fileOut);
-						fileOut.close();
-					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						Common.tampilErrorJikaAdmin(e);
-					}
-				}
-
-				System.out.println("Your excel file has been generated! ");
-
-				HibernateUtil.closeSession();
-				try { downloadPath.setValue(report.simpanLaporan().getAbsolutePath()); } catch (Exception rex) { ais.common.ErrorAuditUtil.record(rex, "UploadNilaiTransfer-report"); }
-				label.setValue("");
-
-				} catch (Exception e1) {
-					// FIX "gagal diam-diam": sebelumnya exception di sini hanya dicatat ke log audit
-					// lalu label.setValue("") tetap dipanggil tanpa syarat (=SUKSES palsu) di luar try,
-					// menutupi kegagalan dan membuat popup progres menutup seolah berhasil.
-					Common.tampilErrorJikaAdmin(e1);
+							});
+					sizedata.setValue(hasil.baris + 1);
+					ringkasan[0] = hasil.ringkasan;
+					if (hasil.laporan != null) downloadPath.setValue(hasil.laporan.getAbsolutePath());
+					label.setValue("");
+				} catch (Exception e) {
+					Common.tampilErrorJikaAdmin(e);
 					label.setValue("Error: " + ais.common.PesanFormalHelper.pesanGagalException(
-							"pemrosesan data Nilai Transfer dari file Excel yang diunggah", null, e1,
+							"pemrosesan berkas Nilai Transfer yang diunggah", null, e,
 							new String[] {
-									"Periksa kembali koneksi ke server Neo Feeder (Pengaturan Koneksi) dan coba ulangi.",
-									"Pastikan Username/Password Feeder pada Pengaturan Koneksi masih benar.",
-									"Jika kendala berulang, hubungi Administrator Sistem atau laporkan ke Pengembang Sistem disertai tangkapan layar (screenshot) pesan ini." })
+									"Periksa kembali format berkas Excel yang diunggah lalu ulangi.",
+									"Pastikan data acuan yang disebut berkas sudah ada.",
+									"Jika kendala berulang, hubungi Administrator Sistem." })
 							.replace("\n", " "));
 				} finally {
+					/* currentNativeSession() wajib ditutup tepat sekali dan ThreadLocal dibersihkan. */
 					ais.database.hibernate.HibernateUtil.closeSession();
 				}
 			}
 		}).start();
+
 
 		final Timer timerReport = new Timer(500);
 		timerReport.setParent(UploadNilaiTransfer.this);
@@ -491,7 +277,7 @@ public class UploadNilaiTransfer extends MyWindow {
 					if (!downloadPath.getValue().isEmpty()) {
 						Filedownload.save(new java.io.File(downloadPath.getValue()), "text/plain");
 					}
-					MyMessageboxConfig.show(report.getRingkasan(), "Laporan Upload Nilai Transfer", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+					MyMessageboxConfig.show(ringkasan[0], "Laporan Upload Nilai Transfer", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
 				} else if (label.getValue().startsWith("Error:")) {
 					timerReport.detach();
 				}

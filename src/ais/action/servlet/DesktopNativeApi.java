@@ -15,6 +15,7 @@ import org.hibernate.Session;
 
 import ais.action.servlet.api.ApiUtil;
 import ais.common.Common;
+import ais.common.newui.NewUiUnggahRequest;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Menu;
 import ais.database.model.Tbmrole;
@@ -28,6 +29,13 @@ import ais.database.model.Tbmuser;
  * request diteruskan secara internal ke service JSON New UI. Dengan demikian
  * renderer Flutter dapat memakai metadata/list/mutation Generic CRUD yang telah
  * mengikat lifecycle Action existing tanpa membawa presentasi ZK ke klien.</p>
+ *
+ * <p><b>Unggahan berkas.</b> Permintaan yang membawa berkas datang sebagai
+ * {@code multipart/form-data} dan diurai lebih dahulu oleh
+ * {@link NewUiUnggahRequest}, karena deskriptor Servlet 2.5 aplikasi ini tidak
+ * menyediakan {@code getPart()} maupun pembacaan field multipart oleh
+ * {@code getParameter()}. Setelah diurai, permintaan berperilaku seperti form
+ * biasa sehingga otentikasi, penjaga, dan controller di hilir tidak berubah.</p>
  *
  * <p>Route yang belum mempunyai service native tetap fail-closed oleh resolver
  * New UI dengan respons {@code NOT_MAPPED}/{@code SERVICE_NOT_FOUND}. Hal ini
@@ -50,6 +58,27 @@ public class DesktopNativeApi extends HttpServlet {
 		response.setHeader("Pragma", "no-cache");
 		response.setHeader("Referrer-Policy", "no-referrer");
 		response.setHeader("X-Content-Type-Options", "nosniff");
+
+		// Permintaan yang membawa berkas datang sebagai multipart. Badannya diurai
+		// di sini lalu dibungkus supaya seluruh lapisan di hilir -- otentikasi di
+		// bawah, penjaga, index.jsp, controller -- tetap memanggil getParameter()
+		// seperti biasa. Cabang ini hanya dimasuki bila tipe isinya memang
+		// multipart, sehingga perilaku permintaan yang sudah ada tidak berubah.
+		if (NewUiUnggahRequest.multipart(request)) {
+			try {
+				request = NewUiUnggahRequest.urai(request);
+			} catch (IllegalArgumentException e) {
+				writeError(response, HttpServletResponse.SC_BAD_REQUEST, "UPLOAD_INVALID",
+						e.getMessage() == null ? "Berkas unggahan ditolak." : e.getMessage());
+				return;
+			} catch (Exception e) {
+				Common.tampilErrorJikaAdmin(e);
+				writeError(response, HttpServletResponse.SC_BAD_REQUEST, "UPLOAD_INVALID",
+						"Berkas unggahan tidak dapat dibaca. Pastikan ukurannya di bawah "
+								+ (NewUiUnggahRequest.BATAS_UKURAN / (1024 * 1024)) + " MB.");
+				return;
+			}
+		}
 
 		Session db = null;
 		try {

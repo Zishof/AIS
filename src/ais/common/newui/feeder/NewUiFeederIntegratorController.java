@@ -43,7 +43,16 @@ import ais.action.master.feeder.integrator.ekspor.EksporPesertaMahasiswaPklFeede
 import ais.action.master.feeder.integrator.ekspor.EksporPesertaMahasiswaSkripsiFeeder;
 import ais.action.master.feeder.integrator.ekspor.EksporPrestasiMahasiswaFeeder;
 import ais.action.master.feeder.integrator.ekspor.SaringanFeeder;
+import ais.action.master.feeder.integrator.impor.HasilImpor;
+import ais.action.master.feeder.integrator.impor.ImporAjarDosenFeeder;
+import ais.action.master.feeder.integrator.impor.ImporKelasFeeder;
+import ais.action.master.feeder.integrator.impor.ImporKelulusanFeeder;
+import ais.action.master.feeder.integrator.impor.ImporKrsFeeder;
+import ais.action.master.feeder.integrator.impor.ImporNilaiFeeder;
+import ais.action.master.feeder.integrator.impor.ImporNilaiTransferFeeder;
+import ais.action.master.feeder.integrator.impor.ImporPrestasiMahasiswaFeeder;
 import ais.common.Common;
+import ais.common.newui.NewUiUnggahRequest;
 import ais.common.newui.NewUiCsrfUtil;
 import ais.common.newui.NewUiRouteGuard;
 import ais.common.newui.pekerjaan.PekerjaanRegistry;
@@ -83,12 +92,16 @@ import ais.database.model.Tbmuser;
  * kesalahannya adalah lembaga. Karena itu badan ekspor dipindahkan ke kelas
  * tanpa ZK yang dipakai bersama panel lama — bukan disalin.</p>
  *
- * <p><b>Cakupan saat ini.</b> Kedua puluh dua panel <i>Download</i> sudah
- * dipindahkan badannya dan dapat dijalankan dari sini. Tujuh panel
- * <i>Upload</i> belum: membaca berkas unggahan menuntut jalur unggah pada
- * kontrak native yang belum ada. Ketujuhnya tetap diumumkan apa adanya sebagai
- * belum tersedia; klien menampilkannya, bukan menyembunyikannya, supaya operator
- * tahu pekerjaan itu masih dijalankan dari layar lama.</p>
+ * <p><b>Cakupan saat ini.</b> Kedua puluh sembilan panel — dua puluh dua
+ * <i>Download</i> dan tujuh <i>Upload</i> — sudah dipindahkan badannya dan dapat
+ * dijalankan dari sini.</p>
+ *
+ * <p><b>Unduh dan unggah tidak diperlakukan sama.</b> Panel unduh menghasilkan
+ * berkas; panel unggah <b>menulis ke basis data</b>. Karena itu aksinya
+ * dipisahkan: {@code export_mulai} digolongkan aksi baca (setia pada layar ZK,
+ * tempat penyiapan berkas terbuka bagi siapa pun yang boleh membaca menunya),
+ * sedangkan {@code import_mulai} menuntut izin buat sekaligus ubah. Yang kedua
+ * lebih ketat daripada layar lama, dan itu disengaja.</p>
  *
  * <p><b>Hitungan panel pernah salah dua kali.</b> Dua layar "peserta"
  * masing-masing punya empat tab (KKN, PKL, Skripsi, Bimbingan), bukan satu.
@@ -133,6 +146,8 @@ public final class NewUiFeederIntegratorController {
     static final String S_TELAH_DINILAI = "telahDinilai";
     static final String S_BELUM_DINILAI = "belumDinilai";
     static final String S_HITUNG_ULANG = "hitungUlang";
+    /** Nama program sebagai teks; hanya panel unggah Ajar Dosen memakainya. */
+    static final String S_NAMA_PROGRAM = "namaProgram";
 
     /** Saringan yang dipakai seluruh panel aktifitas dan peserta. */
     private static final String[] S_AKTIFITAS = {
@@ -160,9 +175,18 @@ public final class NewUiFeederIntegratorController {
         return new Panel(kode, label, "unduh", true, saringan);
     }
 
-    /** Panel unggah; belum ada jalur unggah berkas pada kontrak native. */
+    /**
+     * Panel unggah yang badan pembacanya sudah pindah.
+     *
+     * <p>Saringannya hampir selalu kosong: berkas unggahan dibaca seluruhnya,
+     * dan panel yang menyaring hanyalah Ajar Dosen.</p>
+     */
+    private static Panel unggah(String kode, String label, String[] saringan) {
+        return new Panel(kode, label, "unggah", true, saringan);
+    }
+
     private static Panel unggah(String kode, String label) {
-        return new Panel(kode, label, "unggah", false, null);
+        return unggah(kode, label, null);
     }
 
     private NewUiFeederIntegratorController() { }
@@ -181,7 +205,8 @@ public final class NewUiFeederIntegratorController {
             p.add(unduh("unduh_ajar_dosen", "Download Ajar Dosen", new String[] {
                     S_FAKULTAS, S_JURUSAN, S_PROGRAM, S_TAHUN_AKADEMIK, S_SEMESTER,
                     S_MASA, S_ANGKATAN, S_KELAS }));
-            p.add(unggah("unggah_ajar_dosen", "Upload Ajar Dosen"));
+            p.add(unggah("unggah_ajar_dosen", "Upload Ajar Dosen",
+                    new String[] { S_JURUSAN, S_NAMA_PROGRAM }));
         } else if ("kelas".equals(mode)) {
             p.add(unduh("unduh_kelas", "Download Kelas", new String[] {
                     S_FAKULTAS, S_JURUSAN, S_PROGRAM, S_TAHUN_AKADEMIK, S_SEMESTER,
@@ -304,6 +329,13 @@ public final class NewUiFeederIntegratorController {
             // layar lama dan memblokir operator yang sah. POST beserta token
             // CSRF tetap diwajibkan karena aksi ini tetap mengerjakan sesuatu.
             else if ("export_mulai".equals(action)) mulai(json, request, mode, pemilik);
+            // "import_mulai" SENGAJA bukan aksi baca. Panel unggah menulis ke
+            // basis data; kedua penjaga memetakan awalan import_ ke izin buat
+            // sekaligus ubah. Itu lebih ketat daripada layar ZK — di sana siapa
+            // pun yang boleh membuka menunya boleh mengunggah — dan pengetatan
+            // itu disengaja: yang dipertaruhkan bukan berkas keluaran melainkan
+            // isi basis data.
+            else if ("import_mulai".equals(action)) imporMulai(json, request, mode, pemilik, user);
             else if ("detail".equals(action)) kemajuan(json, request, pemilik);
             else if (unduhan) {
                 kirimBerkas(request, response, pemilik);
@@ -342,18 +374,29 @@ public final class NewUiFeederIntegratorController {
                 saring.put(k);
             }
             o.put("saringan", saring);
+            if ("unggah".equals(p.jenis)) {
+                // Panel unggah menulis ke basis data. Klien perlu tahu itu untuk
+                // meminta berkas dan menegaskan maksud pengguna, bukan
+                // memperlakukannya sama dengan penyiapan berkas unduhan.
+                o.put("menulisData", true);
+                o.put("aksi", "import_mulai");
+                o.put("bagianBerkas", "berkas");
+                o.put("batasUkuran", NewUiUnggahRequest.BATAS_UKURAN);
+            } else {
+                o.put("menulisData", false);
+                o.put("aksi", "export_mulai");
+            }
             if (!p.native_) {
-                o.put("alasan", "Pembacaan berkas unggahan menuntut jalur unggah berkas yang belum "
-                        + "ada pada kontrak native.");
+                o.put("alasan", "Panel ini belum tersedia native; jalankan dari layar lama.");
             }
             daftar.put(o);
         }
         j.put("panel", daftar);
-        j.put("catatanCakupan", "Seluruh panel unduh sudah dapat dijalankan dari sini. Panel unggah "
-                + "masih dijalankan dari layar lama.");
+        j.put("catatanCakupan", "Seluruh panel unduh dan unggah sudah dapat dijalankan dari sini.");
         // Alur pekerjaan panjang dinyatakan supaya klien tahu harus menanyakan
         // kemajuannya, bukan menunggu satu jawaban yang tidak akan datang.
         j.put("alurPekerjaan", new JSONArray().put("export_mulai").put("detail").put("export"));
+        j.put("alurUnggah", new JSONArray().put("import_mulai").put("detail").put("export"));
     }
 
     /** Data acuan untuk saringan ekspor mahasiswa. */
@@ -472,6 +515,123 @@ public final class NewUiFeederIntegratorController {
     }
 
     /**
+     * Mulai pembacaan berkas unggahan sebagai pekerjaan latar.
+     *
+     * <p>Berkasnya datang pada permintaan yang sama, sudah diurai oleh
+     * {@link ais.common.newui.NewUiUnggahRequest} di gerbang native. Tidak ada
+     * langkah "unggah dulu, mulai kemudian": langkah terpisah berarti berkas
+     * berisi data mahasiswa menganggur di disk server tanpa pemilik dan tanpa
+     * batas waktu, dan sebuah id yang dapat dicoba orang lain. Satu permintaan
+     * menghapus seluruh persoalan itu.</p>
+     */
+    private static void imporMulai(JSONObject j, HttpServletRequest r, String mode,
+            String pemilik, final Tbmuser pengguna) throws Exception {
+        wajibMutasi(r);
+        String kode = text(r.getParameter("panel"), "");
+        Panel dipilih = null;
+        for (Panel p : panel(mode)) {
+            if (p.kode.equals(kode)) dipilih = p;
+        }
+        if (dipilih == null) throw new IllegalArgumentException("Panel tidak dikenal pada layar ini.");
+        if (!"unggah".equals(dipilih.jenis)) {
+            throw new IllegalArgumentException("Panel ini bukan panel unggah.");
+        }
+        if (!dipilih.native_) {
+            throw new IllegalArgumentException("Panel ini belum tersedia native; jalankan dari layar lama.");
+        }
+
+        final File unggahan = berkasUnggahan(r);
+        final SaringanFeeder s = saringan(r, dipilih);
+        final File tujuan = File.createTempFile("feeder_" + kode + "_hasil_", ".xlsx");
+        final String kodePanel = kode;
+        String namaBerkas = "laporan_" + kode + "_"
+                + Common.databaseDateFormat.get().format(ais.ui.util.WaktuUtil.getDate()) + ".txt";
+
+        String id = PekerjaanRegistry.mulai("feeder_" + kode, dipilih.label, pemilik, namaBerkas,
+                new PekerjaanRegistry.Tugas() {
+                    public File kerjakan(PekerjaanRegistry.Progres progres) throws Exception {
+                        try {
+                            HasilImpor hasil = imporSusun(kodePanel, unggahan, tujuan, s, pengguna, progres);
+                            // Ringkasan per baris dijadikan pesan akhir supaya
+                            // hasil impor terbaca tanpa harus membuka laporannya.
+                            // "Berhasil" saja tidak cukup: sebagian baris dapat
+                            // gagal sementara sisanya tersimpan.
+                            progres.lapor(100, hasil.ringkasan == null || hasil.ringkasan.length() == 0
+                                    ? "Selesai memproses " + hasil.baris + " baris."
+                                    : hasil.ringkasan);
+                            return hasil.laporan;
+                        } finally {
+                            // Berkas unggahan memuat data pribadi; ia tidak punya
+                            // alasan untuk tetap ada setelah dibaca.
+                            try { if (unggahan != null) unggahan.delete(); } catch (Exception ignored) { }
+                            try { HibernateUtil.closeSession(); } catch (Exception ignored) { }
+                        }
+                    }
+                });
+        j.put("pekerjaan", id);
+        j.put("panel", kode);
+        j.put("pesan", "Pembacaan berkas dimulai. Tanyakan kemajuannya secara berkala.");
+    }
+
+    /**
+     * Ambil berkas unggahan dari permintaan yang sudah diurai gerbang native.
+     *
+     * <p>Ketiadaannya dijawab sebagai galat permintaan, bukan sebagai impor
+     * kosong yang "berhasil".</p>
+     */
+    private static File berkasUnggahan(HttpServletRequest r) {
+        HttpServletRequest cari = r;
+        // Permintaan sudah diteruskan beberapa lapis sejak diurai, jadi
+        // pembungkusnya dicari menembus lapisan-lapisan itu.
+        while (cari instanceof javax.servlet.http.HttpServletRequestWrapper) {
+            if (cari instanceof NewUiUnggahRequest) {
+                File f = ((NewUiUnggahRequest) cari).getBerkas();
+                if (f != null && f.exists()) return f;
+                break;
+            }
+            javax.servlet.ServletRequest dalam =
+                    ((javax.servlet.http.HttpServletRequestWrapper) cari).getRequest();
+            if (!(dalam instanceof HttpServletRequest)) break;
+            cari = (HttpServletRequest) dalam;
+        }
+        throw new IllegalArgumentException(
+                "Sertakan berkas .xlsx pada permintaan ini (bagian bernama \"berkas\").");
+    }
+
+    /**
+     * Kirim pembacaan berkas ke kelas impor milik panel.
+     *
+     * <p>Ditulis satu per satu dengan alasan yang sama seperti pada penyusun
+     * ekspor, dan lebih penting lagi di sini: salah pemetaan berarti berkas
+     * dibaca dengan aturan panel lain lalu <b>disimpan</b> ke basis data.</p>
+     */
+    private static HasilImpor imporSusun(String kode, File unggahan, File tujuan,
+            SaringanFeeder s, Tbmuser pengguna, PekerjaanRegistry.Progres progres) throws Exception {
+        if ("unggah_ajar_dosen".equals(kode)) {
+            return ImporAjarDosenFeeder.proses(unggahan, tujuan, s, pengguna, progres);
+        }
+        if ("unggah_kelas".equals(kode)) {
+            return ImporKelasFeeder.proses(unggahan, tujuan, s, pengguna, progres);
+        }
+        if ("unggah_krs".equals(kode)) {
+            return ImporKrsFeeder.proses(unggahan, tujuan, s, pengguna, progres);
+        }
+        if ("unggah_nilai".equals(kode)) {
+            return ImporNilaiFeeder.proses(unggahan, tujuan, s, pengguna, progres);
+        }
+        if ("unggah_nilai_transfer".equals(kode)) {
+            return ImporNilaiTransferFeeder.proses(unggahan, tujuan, s, pengguna, progres);
+        }
+        if ("unggah_kelulusan".equals(kode)) {
+            return ImporKelulusanFeeder.proses(unggahan, tujuan, s, pengguna, progres);
+        }
+        if ("unggah_prestasi".equals(kode)) {
+            return ImporPrestasiMahasiswaFeeder.proses(unggahan, tujuan, s, pengguna, progres);
+        }
+        throw new IllegalArgumentException("Panel belum punya pembaca berkas: " + kode);
+    }
+
+    /**
      * Susun saringan dari parameter permintaan, hanya untuk field yang panel ini
      * memang menyatakannya.
      *
@@ -490,6 +650,7 @@ public final class NewUiFeederIntegratorController {
         if (boleh.contains(S_TAHUN_AJARAN)) s.tahunAjaran = text(r.getParameter(S_TAHUN_AJARAN), "");
         if (boleh.contains(S_JENIS_SEMESTER)) s.jenisSemester = text(r.getParameter(S_JENIS_SEMESTER), "");
         if (boleh.contains(S_KODE_MK)) s.kodeMatakuliah = text(r.getParameter(S_KODE_MK), "");
+        if (boleh.contains(S_NAMA_PROGRAM)) s.namaProgram = text(r.getParameter(S_NAMA_PROGRAM), "");
         if (boleh.contains(S_ANGKATAN)) s.angkatan = angka(r.getParameter(S_ANGKATAN), "Angkatan");
         if (boleh.contains(S_SEMESTER_KE)) s.semesterKe = angka(r.getParameter(S_SEMESTER_KE), "Semester");
         if (boleh.contains(S_MULAI)) s.mulai = angka(r.getParameter(S_MULAI), "Mulai");
@@ -606,9 +767,14 @@ public final class NewUiFeederIntegratorController {
             return;
         }
         File f = p.getBerkas();
-        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-        response.setHeader("Content-Disposition", "attachment; filename=\""
-                + (p.getNamaBerkas().length() == 0 ? "feeder.xlsx" : p.getNamaBerkas()) + "\"");
+        String nama = p.getNamaBerkas().length() == 0 ? "feeder.xlsx" : p.getNamaBerkas();
+        // Pekerjaan unduh menghasilkan .xlsx, pekerjaan unggah menghasilkan
+        // laporan teks. Menyebut keduanya spreadsheet membuat berkas laporan
+        // dibuka aplikasi yang salah oleh klien yang mempercayai jenis isi.
+        response.setContentType(nama.toLowerCase().endsWith(".txt")
+                ? "text/plain; charset=UTF-8"
+                : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setHeader("Content-Disposition", "attachment; filename=\"" + nama + "\"");
         response.setContentLength((int) f.length());
         FileInputStream in = new FileInputStream(f);
         try {
