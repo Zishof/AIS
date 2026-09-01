@@ -1354,7 +1354,13 @@ public class PosApi extends HttpServlet {
 				// stok minus" saat form Ubah dibuka -- sebelumnya field ini TIDAK PERNAH dikirim di sini
 				// sehingga form Ubah selalu menganggapnya false, diam-diam mereset nilai asli tiap produk
 				// disimpan ulang. Kasir non-admin (bukan bolehKelolaProduk()) tidak memakai field ini.
-				j.put("izinkanJualMinusStok", Boolean.TRUE.equals(p.getIzinkanJualMinusStok()));
+				// Dikirim APA ADANYA (tri-state), sama seperti pengaturan toko di KantinHelper:
+				// null = "Ikut Pengaturan Toko", FALSE = "Wajib Diblokir Jika Stok Tidak Cukup".
+				// Memipihkannya dgn Boolean.TRUE.equals() membuat null dan FALSE tak terbedakan,
+				// sehingga form Ubah menampilkan produk ber-default sbg "dikunci admin" lalu
+				// MENYIMPANNYA sbg FALSE -- persis reset diam-diam yang field ini justru cegah.
+				j.put("izinkanJualMinusStok", p.getIzinkanJualMinusStok() == null
+						? JSONObject.NULL : p.getIzinkanJualMinusStok());
 				j.put("keterangan", str(p.getKeterangan()));
 				JenisProduk jp = p.getJenisProduk();
 				j.put("kategoriId", jp == null || jp.getId() == null ? JSONObject.NULL : jp.getId());

@@ -18,6 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "MyWindow");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{});
-request.setAttribute("nuiEntityCandidates", new String[]{"TipePenelitianDanPengabdian"});
+request.setAttribute("nuiEntityCandidates", new String[]{"PengajuanPenelitianDanPengabdian"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

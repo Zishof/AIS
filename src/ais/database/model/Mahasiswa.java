@@ -5264,19 +5264,75 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return KrsDetailHelper.ambilDetailperkuliahanMkTertentu(this, semester, kodeAtauNamas);
 	}
 
+	/**
+	 * Rata-rata NILAI ANGKA mata kuliah pada SATU semester (bukan IPK — tidak dibobot SKS).
+	 *
+	 * @param semester       semester yang dihitung.
+	 * @param tahapan        tahapan dalam semester; {@code null}/0 bila tanpa tahapan.
+	 * @param semesterPendek penanda semester pendek.
+	 * @return rata-rata nilai angka; {@code 0.0} bila tidak ada mata kuliah yang dihitung.
+	 * @see #prosesHitungRataRata(java.util.Collection)
+	 */
 	public Double hitungRataRataSemester(Integer semester, Integer tahapan, Integer semesterPendek) {
 		return prosesHitungRataRata(ambilDetailperkuliahan(semester, tahapan, semesterPendek));
 	}
 
+	/**
+	 * Rata-rata NILAI ANGKA secara KUMULATIF sampai semester tertentu.
+	 *
+	 * @param semester       batas semester (inklusif).
+	 * @param tahapan        tahapan dalam semester.
+	 * @param semesterPendek penanda semester pendek.
+	 * @param semua          {@code true} untuk mengabaikan penyaringan status/nilai.
+	 * @return rata-rata nilai angka kumulatif; {@code 0.0} bila tidak ada data.
+	 * @see #prosesHitungRataRata(java.util.Collection)
+	 */
 	public Double hitungRataRataSampaiSemester(Integer semester, Integer tahapan, Integer semesterPendek,
 			boolean semua) {
 		return prosesHitungRataRata(ambilDetailperkuliahanSampai(semester, tahapan, semesterPendek, semua));
 	}
 
+	/**
+	 * Rata-rata NILAI ANGKA atas SELURUH mata kuliah yang pernah ditempuh mahasiswa ini.
+	 *
+	 * @return rata-rata nilai angka; {@code 0.0} bila tidak ada data.
+	 * @see #prosesHitungRataRata(java.util.Collection)
+	 */
 	public Double hitungRataRata() {
 		return prosesHitungRataRata(ambilDetailperkuliahan());
 	}
 
+	/**
+	 * Mesin perhitungan RATA-RATA NILAI ANGKA: menjumlahkan {@code totalNilai} tiap
+	 * {@link Detailperkuliahan} lalu membaginya dengan JUMLAH MATA KULIAH (bukan jumlah SKS),
+	 * sehingga hasilnya rata-rata sederhana, bukan indeks prestasi.
+	 *
+	 * <p><b>Konfigurasi yang menentukan hasil</b> (dibaca dari {@link Konfigurasi} tiap kali
+	 * dipanggil):</p>
+	 * <ul>
+	 *   <li>{@code nilai_0_tidak_masuk_dalam_perhitungan_ipk} — bila AKTIF, mata kuliah dengan
+	 *       {@code totalNilai} di bawah ambang tidak dihitung;</li>
+	 *   <li>{@code nilai_minimal_tidak_masuk_dalam_perhitungan_ipk} — ambang tersebut (bawaan
+	 *       {@code 0.1});</li>
+	 *   <li>{@code nilai_huruf_yg_tidak_masuk_perhitungan_ip} — nilai huruf yang dikecualikan;</li>
+	 *   <li>{@code nilai_belum_verifikasi_tidak_masuk_dalam_perhitungan_ipk} — bila AKTIF, nilai
+	 *       semester BERJALAN ({@link #currentSemester()}) yang belum diverifikasi
+	 *       ({@code Detailperkuliahan.NOT_VERIFIED}) dilewati.</li>
+	 * </ul>
+	 *
+	 * <p>Masukan lebih dulu dilewatkan {@link #saringBerdasarNilaiDan0(java.util.Collection)}
+	 * sehingga mata kuliah duplikat/ekivalen sudah tereliminasi. Hanya baris berstatus
+	 * {@code DISETUJUI} yang dihitung.</p>
+	 *
+	 * <p>Catatan: pembacaan ambang di sini masih memakai {@code Double.parseDouble} langsung, jadi
+	 * konfigurasi berkoma ("0,1") gagal parse dan diam-diam jatuh ke bawaan {@code 0.1} — berbeda
+	 * dari {@link #prosesHitungMutu(java.util.Collection)} dan
+	 * {@link #prosesHitungIpk(java.util.Collection, Boolean)} yang sudah memakai
+	 * {@code Common.parseAngkaKonfigurasi} yang toleran.</p>
+	 *
+	 * @param detailperkuliahans koleksi id detailperkuliahan yang dihitung.
+	 * @return rata-rata nilai angka; {@code 0.0} bila tidak ada mata kuliah yang lolos.
+	 */
 	private Double prosesHitungRataRata(Collection<Long> detailperkuliahans) {
 
 		String nilai0MasukPenghitungan = Common
@@ -5328,18 +5384,53 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return sksMk.equals(0) ? 0.0 : ipkTotal / sksMk.doubleValue();
 	}
 
+	/**
+	 * TOTAL nilai angka (jumlah {@code totalNilai}, tanpa dibagi) pada satu semester.
+	 *
+	 * @param semester       semester yang dihitung.
+	 * @param tahapan        tahapan dalam semester.
+	 * @param semesterPendek penanda semester pendek.
+	 * @return jumlah nilai angka semester itu.
+	 * @see #prosesHitungNilai(java.util.Collection)
+	 */
 	public Double hitungNilaiSemester(Integer semester, Integer tahapan, Integer semesterPendek) {
 		return prosesHitungNilai(ambilDetailperkuliahan(semester, tahapan, semesterPendek));
 	}
 
+	/**
+	 * TOTAL nilai angka secara kumulatif sampai semester tertentu. Dipakai laporan KHS/KRS
+	 * ({@code LaporanKHS}, {@code LaporanKRS} dan turunannya).
+	 *
+	 * @param semester       batas semester (inklusif).
+	 * @param tahapan        tahapan dalam semester.
+	 * @param semesterPendek penanda semester pendek.
+	 * @param semua          {@code true} untuk mengabaikan penyaringan status/nilai.
+	 * @return jumlah nilai angka kumulatif.
+	 * @see #prosesHitungNilai(java.util.Collection)
+	 */
 	public Double hitungNilaiSampaiSemester(Integer semester, Integer tahapan, Integer semesterPendek, boolean semua) {
 		return prosesHitungNilai(ambilDetailperkuliahanSampai(semester, tahapan, semesterPendek, semua));
 	}
 
+	/**
+	 * TOTAL nilai angka atas seluruh mata kuliah yang pernah ditempuh mahasiswa ini.
+	 *
+	 * @return jumlah nilai angka.
+	 * @see #prosesHitungNilai(java.util.Collection)
+	 */
 	public Double hitungNilai() {
 		return prosesHitungNilai(ambilDetailperkuliahan());
 	}
 
+	/**
+	 * Mesin penjumlahan NILAI ANGKA ({@code totalNilai}) — sama persis dengan
+	 * {@link #prosesHitungRataRata(java.util.Collection)} kecuali hasilnya TIDAK dibagi jumlah
+	 * mata kuliah. Membaca rangkaian kunci {@link Konfigurasi} yang sama dan memakai
+	 * {@link #saringBerdasarNilaiDan0(java.util.Collection)} sebagai penyaring awal.
+	 *
+	 * @param detailperkuliahans koleksi id detailperkuliahan yang dihitung.
+	 * @return jumlah nilai angka; {@code 0.0} bila tidak ada yang lolos.
+	 */
 	private Double prosesHitungNilai(Collection<Long> detailperkuliahans) {
 
 		String nilai0MasukPenghitungan = Common
@@ -5387,19 +5478,63 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return ipkTotal;
 	}
 
+	/**
+	 * TOTAL bobot mutu (indeks prestasi &times; SKS) pada satu semester — pembilang rumus IP
+	 * sebelum dibagi total SKS.
+	 *
+	 * @param semester       semester yang dihitung.
+	 * @param tahapan        tahapan dalam semester.
+	 * @param semesterPendek penanda semester pendek.
+	 * @return jumlah IP&times;SKS semester itu.
+	 * @see #prosesHitungTotalIP(java.util.Collection)
+	 */
 	public Double hitungTotalIPSemester(Integer semester, Integer tahapan, Integer semesterPendek) {
 		return prosesHitungTotalIP(ambilDetailperkuliahan(semester, tahapan, semesterPendek));
 	}
 
+	/**
+	 * TOTAL bobot mutu (IP &times; SKS) secara kumulatif sampai semester tertentu.
+	 *
+	 * @param semester       batas semester (inklusif).
+	 * @param tahapan        tahapan dalam semester.
+	 * @param semesterPendek penanda semester pendek.
+	 * @param semua          {@code true} untuk mengabaikan penyaringan status/nilai.
+	 * @return jumlah IP&times;SKS kumulatif.
+	 * @see #prosesHitungTotalIP(java.util.Collection)
+	 */
 	public Double hitungTotalIPSampaiSemester(Integer semester, Integer tahapan, Integer semesterPendek,
 			boolean semua) {
 		return prosesHitungTotalIP(ambilDetailperkuliahanSampai(semester, tahapan, semesterPendek, semua));
 	}
 
+	/**
+	 * TOTAL bobot mutu (IP &times; SKS) atas seluruh mata kuliah yang pernah ditempuh.
+	 *
+	 * @return jumlah IP&times;SKS.
+	 * @see #prosesHitungTotalIP(java.util.Collection)
+	 */
 	public Double hitungTotalIP() {
 		return prosesHitungTotalIP(ambilDetailperkuliahan());
 	}
 
+	/**
+	 * Mesin penjumlahan BOBOT MUTU: {@code totalIP} tiap {@link Detailperkuliahan} dikalikan SKS
+	 * mata kuliahnya, lalu dijumlahkan. Mata kuliah diambil dari {@code matakuliahKonversi} bila
+	 * ada, kalau tidak dari {@code perkuliahan.matakuliah}.
+	 *
+	 * <p>Membaca rangkaian kunci {@link Konfigurasi} yang sama dengan
+	 * {@link #prosesHitungRataRata(java.util.Collection)} dan memakai
+	 * {@link #saringBerdasarNilaiDan0(java.util.Collection)} sebagai penyaring awal.</p>
+	 *
+	 * <p><b>Jebakan:</b> bila sebuah baris tidak punya mata kuliah sama sekali (konversi maupun
+	 * perkuliahan {@code null}), variabel {@code matakuliah} bernilai {@code null} dan
+	 * {@code matakuliah.getSks()} melempar {@code NullPointerException}. Dalam praktik hal ini
+	 * tidak terjadi karena {@link #ambilDetailperkuliahan(Integer)} sudah membuang baris tanpa
+	 * mata kuliah — jangan hilangkan penyaringan itu.</p>
+	 *
+	 * @param detailperkuliahans koleksi id detailperkuliahan yang dihitung.
+	 * @return jumlah IP&times;SKS; {@code 0.0} bila tidak ada yang lolos.
+	 */
 	private Double prosesHitungTotalIP(Collection<Long> detailperkuliahans) {
 
 		String nilai0MasukPenghitungan = Common
@@ -5453,18 +5588,64 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return ipkTotal;
 	}
 
+	/**
+	 * TOTAL mutu (IP &times; SKS) pada satu semester. Isi perhitungannya identik dengan
+	 * {@link #hitungTotalIPSemester(Integer, Integer, Integer)}; keduanya dipertahankan karena
+	 * dipakai laporan yang berbeda.
+	 *
+	 * @param semester       semester yang dihitung.
+	 * @param tahapan        tahapan dalam semester.
+	 * @param semesterPendek penanda semester pendek.
+	 * @return jumlah mutu semester itu.
+	 * @see #prosesHitungMutu(java.util.Collection)
+	 */
 	public Double hitungMutuSemester(Integer semester, Integer tahapan, Integer semesterPendek) {
 		return prosesHitungMutu(ambilDetailperkuliahan(semester, tahapan, semesterPendek));
 	}
 
+	/**
+	 * TOTAL mutu (IP &times; SKS) secara kumulatif sampai semester tertentu. Dipakai kolom "Jumlah
+	 * Mutu" pada transkrip dan laporan KHS/KRS ({@code CommonReportHelper}, {@code LaporanKHS},
+	 * {@code LaporanKRS} dan turunannya, {@code AmbilLaporanMahasiswa}).
+	 *
+	 * @param semester       batas semester (inklusif).
+	 * @param tahapan        tahapan dalam semester.
+	 * @param semesterPendek penanda semester pendek.
+	 * @param semua          {@code true} untuk mengabaikan penyaringan status/nilai.
+	 * @return jumlah mutu kumulatif.
+	 * @see #prosesHitungMutu(java.util.Collection)
+	 */
 	public Double hitungMutuSampaiSemester(Integer semester, Integer tahapan, Integer semesterPendek, boolean semua) {
 		return prosesHitungMutu(ambilDetailperkuliahanSampai(semester, tahapan, semesterPendek, semua));
 	}
 
+	/**
+	 * TOTAL mutu (IP &times; SKS) atas seluruh mata kuliah yang pernah ditempuh.
+	 *
+	 * @return jumlah mutu.
+	 * @see #prosesHitungMutu(java.util.Collection)
+	 */
 	public Double hitungMutu() {
 		return prosesHitungMutu(ambilDetailperkuliahan());
 	}
 
+	/**
+	 * Mesin penjumlahan MUTU ({@code totalIP} &times; SKS), sejalan dengan
+	 * {@link #prosesHitungTotalIP(java.util.Collection)}.
+	 *
+	 * <p><b>Perbedaan penting:</b> ambang minimal di sini dibaca memakai
+	 * {@code Common.parseAngkaKonfigurasi} yang TOLERAN terhadap desimal berkoma ("0,1" maupun
+	 * "0.1"). Komentar panjang di dalam metode menjelaskan mengapa: {@code Double.parseDouble}
+	 * hanya menerima titik, sehingga versi lama membanjiri log dengan stack trace pada tiap
+	 * pembuatan transkrip DAN — jauh lebih berbahaya — mengabaikan nilai konfigurasi admin secara
+	 * diam-diam (admin menulis "2,5", sistem tetap memakai 0.1 dan seluruh IPK ikut salah).</p>
+	 *
+	 * <p>Konfigurasi lain yang dibaca sama dengan {@link #prosesHitungRataRata(java.util.Collection)};
+	 * penyaring awalnya {@link #saringBerdasarNilaiDan0(java.util.Collection)}.</p>
+	 *
+	 * @param detailperkuliahans koleksi id detailperkuliahan yang dihitung.
+	 * @return jumlah mutu; {@code 0.0} bila tidak ada yang lolos.
+	 */
 	private Double prosesHitungMutu(Collection<Long> detailperkuliahans) {
 
 		String nilai0MasukPenghitungan = Common
@@ -5530,19 +5711,53 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return ipkTotal;
 	}
 
+	/**
+	 * TOTAL indeks prestasi mentah ({@code totalIP} TANPA dikali SKS) pada satu semester.
+	 *
+	 * @param semester       semester yang dihitung.
+	 * @param tahapan        tahapan dalam semester.
+	 * @param semesterPendek penanda semester pendek.
+	 * @return jumlah IP semester itu.
+	 * @see #prosesHitungNilaiIp(java.util.Collection)
+	 */
 	public Double hitungNilaiIpSemester(Integer semester, Integer tahapan, Integer semesterPendek) {
 		return prosesHitungNilaiIp(ambilDetailperkuliahan(semester, tahapan, semesterPendek));
 	}
 
+	/**
+	 * TOTAL indeks prestasi mentah secara kumulatif sampai semester tertentu. Dipakai laporan
+	 * KHS/KRS bersama {@link #hitungMutuSampaiSemester(Integer, Integer, Integer, boolean)}.
+	 *
+	 * @param semester       batas semester (inklusif).
+	 * @param tahapan        tahapan dalam semester.
+	 * @param semesterPendek penanda semester pendek.
+	 * @param semua          {@code true} untuk mengabaikan penyaringan status/nilai.
+	 * @return jumlah IP kumulatif.
+	 * @see #prosesHitungNilaiIp(java.util.Collection)
+	 */
 	public Double hitungNilaiIpSampaiSemester(Integer semester, Integer tahapan, Integer semesterPendek,
 			boolean semua) {
 		return prosesHitungNilaiIp(ambilDetailperkuliahanSampai(semester, tahapan, semesterPendek, semua));
 	}
 
+	/**
+	 * TOTAL indeks prestasi mentah atas seluruh mata kuliah yang pernah ditempuh.
+	 *
+	 * @return jumlah IP.
+	 * @see #prosesHitungNilaiIp(java.util.Collection)
+	 */
 	public Double hitungNilaiIp() {
 		return prosesHitungNilaiIp(ambilDetailperkuliahan());
 	}
 
+	/**
+	 * Mesin penjumlahan INDEKS PRESTASI MENTAH: menjumlahkan {@code totalIP} tiap
+	 * {@link Detailperkuliahan} tanpa pembobotan SKS. Konfigurasi dan penyaring awalnya sama
+	 * dengan {@link #prosesHitungRataRata(java.util.Collection)}.
+	 *
+	 * @param detailperkuliahans koleksi id detailperkuliahan yang dihitung.
+	 * @return jumlah IP; {@code 0.0} bila tidak ada yang lolos.
+	 */
 	private Double prosesHitungNilaiIp(Collection<Long> detailperkuliahans) {
 
 		String nilai0MasukPenghitungan = Common
@@ -5591,18 +5806,87 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return ipkTotal;
 	}
 
+	/**
+	 * INDEKS PRESTASI SEMESTER (IPS): rata-rata terbobot SKS atas mata kuliah satu semester.
+	 * Dipakai antara lain dasbor {@code DashboardDataNilaiMahasiswaPerTahunAngkatan}.
+	 *
+	 * @param semester       semester yang dihitung.
+	 * @param tahapan        tahapan dalam semester.
+	 * @param semesterPendek penanda semester pendek.
+	 * @return IP semester; {@code 0.0} bila tidak ada SKS yang dihitung.
+	 * @see #prosesHitungIpk(java.util.Collection, Boolean)
+	 */
 	public Double hitungIPKSemester(Integer semester, Integer tahapan, Integer semesterPendek) {
 		return prosesHitungIpk(ambilDetailperkuliahan(semester, tahapan, semesterPendek));
 	}
 
+	/**
+	 * INDEKS PRESTASI KUMULATIF (IPK) sampai semester tertentu — rata-rata terbobot SKS atas
+	 * seluruh mata kuliah dari semester pertama sampai semester yang diminta.
+	 *
+	 * @param semester       batas semester (inklusif).
+	 * @param tahapan        tahapan dalam semester.
+	 * @param semesterPendek penanda semester pendek.
+	 * @param semua          {@code true} untuk mengabaikan penyaringan status/nilai.
+	 * @return IPK sampai semester itu; {@code 0.0} bila tidak ada SKS yang dihitung.
+	 * @see #prosesHitungIpk(java.util.Collection, Boolean)
+	 */
 	public Double hitungIPKSampaiSemester(Integer semester, Integer tahapan, Integer semesterPendek, boolean semua) {
 		return prosesHitungIpk(ambilDetailperkuliahanSampai(semester, tahapan, semesterPendek, semua));
 	}
 
+	/**
+	 * IPK atas SELURUH mata kuliah yang pernah ditempuh mahasiswa ini.
+	 *
+	 * <p>Catatan pemeliharaan: per pemeriksaan terakhir tidak ada pemanggil metode ini di dalam
+	 * pohon sumber — pemanggil memakai {@link #hitungIPKSampaiSemester(Integer, Integer, Integer,
+	 * boolean)} atau langsung {@link #prosesHitungIpk(java.util.Collection, Boolean)}. Dipertahankan
+	 * demi kelengkapan API entitas.</p>
+	 *
+	 * @return IPK; {@code 0.0} bila tidak ada SKS yang dihitung.
+	 * @see #prosesHitungIpk(java.util.Collection, Boolean)
+	 */
 	public Double hitungIpk() {
 		return prosesHitungIpk(ambilDetailperkuliahan());
 	}
 
+	/**
+	 * <b>Penyaring baku yang menentukan mata kuliah mana yang SAH masuk perhitungan IPK.</b>
+	 * Dipakai seluruh mesin {@code prosesHitung*} di kelas ini serta belasan berkas lain
+	 * ({@code KrsDetailHelper}, {@code ProfileMahasiswa}, {@code TampilStudiMahasiswaHelper}, dst.).
+	 *
+	 * <p>Empat tahap, dijalankan berurutan atas cache objek yang dimuat SEKALI di awal (agar tidak
+	 * ada query berulang per id):</p>
+	 * <ol>
+	 *   <li><b>Nilai 0 &amp; semester.</b> Baris tanpa semester atau bersemester negatif dibuang.
+	 *       Bila {@code nilai_0_tidak_masuk_dalam_perhitungan_ipk} AKTIF, hanya baris dengan
+	 *       {@code totalNilai} &ge; ambang {@code nilai_minimal_tidak_masuk_dalam_perhitungan_ipk}
+	 *       yang lolos.</li>
+	 *   <li><b>Kesamaan NAMA</b> (bila {@code aktifkan_kesamaan_nama}): antar mata kuliah bernama
+	 *       sama, hanya yang nilainya TERTINGGI yang dipertahankan.</li>
+	 *   <li><b>Kesamaan KODE</b> (bila {@code aktifkan_kesamaan_kode}): hal serupa untuk kode mata
+	 *       kuliah yang sama.</li>
+	 *   <li><b>Ekivalensi</b> (bila {@code aktifkan_ekivalen}): diserahkan ke
+	 *       {@link #prosesEkivalenOpt(boolean, String, String, Double, Boolean, java.util.Map,
+	 *       java.util.Map)}; mata kuliah yang disetarakan diambil satu dengan nilai tertinggi.
+	 *       Kunci {@code saring_nilai_ipk_juga_berdasarkan_nama} menentukan apakah pencocokan
+	 *       ekivalensi boleh memakai nama, bukan hanya kode.</li>
+	 * </ol>
+	 *
+	 * <p>Bila sebuah tahap dimatikan lewat konfigurasi, isi tahap itu diteruskan apa adanya
+	 * (kunci peta memakai id, bukan nama/kode).</p>
+	 *
+	 * <p>Ambang minimal dibaca dengan normalisasi koma&rarr;titik supaya konfigurasi bergaya
+	 * Indonesia ("0,1") benar-benar terpakai — lihat komentar KE-FIX di dalam metode.</p>
+	 *
+	 * <p><b>Konsekuensi yang perlu diketahui:</b> mata kuliah ber-SKS 0 (non-kredit/pass-fail)
+	 * ikut tersingkir di sini; bila tetap perlu ditampilkan di transkrip, pakai
+	 * {@link #saringTampilkanSks0Bernilai(java.util.Collection)}. Alasan sebuah baris tersingkir
+	 * dapat dijelaskan ke pengguna lewat {@link #alasanTidakValidDetail(java.util.Collection)}.</p>
+	 *
+	 * @param detailperkuliahans koleksi id detailperkuliahan yang hendak disaring.
+	 * @return koleksi id yang SAH masuk perhitungan; kosong bila masukan kosong/{@code null}.
+	 */
 	public Collection<Long> saringBerdasarNilaiDan0(Collection<Long> detailperkuliahans) {
 		if (detailperkuliahans == null || detailperkuliahans.isEmpty())
 			return new ArrayList<Long>();
@@ -6061,6 +6345,14 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return String.valueOf(Math.round(v * 100.0) / 100.0);
 	}
 
+	/**
+	 * Mengambil {@link Matakuliah} dari sebuah {@link Detailperkuliahan} dengan aman:
+	 * {@code matakuliahKonversi} diutamakan (mata kuliah hasil konversi/pengakuan), baru
+	 * {@code perkuliahan.matakuliah}. Tidak pernah melempar {@code NullPointerException}.
+	 *
+	 * @param dp baris detail perkuliahan; boleh {@code null}.
+	 * @return mata kuliah terkait, atau {@code null} bila tidak ada.
+	 */
 	// Helper untuk mendapatkan matakuliah dengan aman dari Detailperkuliahan
 	private Matakuliah getMatakuliahAman(Detailperkuliahan dp) {
 		if (dp == null)
@@ -6072,6 +6364,34 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return null;
 	}
 
+	/**
+	 * Tahap EKIVALENSI dari {@link #saringBerdasarNilaiDan0(java.util.Collection)}: bila dua mata
+	 * kuliah dinyatakan setara ({@link MatakuliahEkivalen}), hanya yang bernilai tertinggi yang
+	 * dipertahankan.
+	 *
+	 * <p>Versi ini adalah penulisan ulang {@code prosesEkivalen} lama yang lambat: seluruh objek
+	 * sudah tersedia di {@code cacheDp} (tidak ada query di dalam loop), kandidat disaring dulu
+	 * menjadi {@code listValidDp} (semester sah, status {@code DISETUJUI}, nilai huruf tidak
+	 * termasuk yang dikecualikan), lalu pembandingan dilakukan berpasangan dengan himpunan
+	 * {@code removes} sehingga satu baris yang sudah kalah tidak dibandingkan lagi.</p>
+	 *
+	 * <p>Pencocokan ekivalensi memakai KODE mata kuliah; bila {@code berdasarkan_nama} bernilai
+	 * {@code true} (konfigurasi {@code saring_nilai_ipk_juga_berdasarkan_nama}), kesamaan NAMA
+	 * juga diterima. Daftar ekivalensi diambil per mata kuliah lewat
+	 * {@code Matakuliah.ambilEkivalen(nim)} sehingga bisa berbeda antar-kurikulum/angkatan.</p>
+	 *
+	 * <p>Bila {@code aktifkan_ekivalen} bernilai {@code false}, {@code mapkode} dikembalikan apa
+	 * adanya tanpa pemrosesan.</p>
+	 *
+	 * @param aktifkan_ekivalen               saklar konfigurasi ekivalensi.
+	 * @param nilaiHurufTidakMasukPerhitungan nilai huruf yang dikecualikan dari perhitungan.
+	 * @param nilai0MasukPenghitungan         nilai kunci {@code nilai_0_tidak_masuk_dalam_perhitungan_ipk}.
+	 * @param minimal                         ambang nilai minimal.
+	 * @param berdasarkan_nama                izinkan pencocokan ekivalensi lewat nama mata kuliah.
+	 * @param mapkode                         peta hasil tahap sebelumnya (kode/id &rarr; id).
+	 * @param cacheDp                         cache objek detailperkuliahan yang sudah dimuat.
+	 * @return peta hasil akhir tanpa baris yang kalah ekivalensi.
+	 */
 	// Perbaikan prosesEkivalen yang 100x lebih cepat (O(N) Complexity) dan bebas
 	// bug logika
 	private Map<String, Long> prosesEkivalenOpt(boolean aktifkan_ekivalen, String nilaiHurufTidakMasukPerhitungan,
@@ -6170,6 +6490,24 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return hasilAkhir;
 	}
 
+	/**
+	 * Penyaring duplikat/ekivalensi versi ALTERNATIF: untuk tiap mata kuliah, dipilih satu
+	 * {@link Detailperkuliahan} dengan nilai tertinggi, dikelompokkan berdasarkan KODE mata kuliah.
+	 *
+	 * <p>Berbeda dengan {@link #saringBerdasarNilaiDan0(java.util.Collection)}, metode ini TIDAK
+	 * membaca konfigurasi apa pun: tidak ada penyaringan nilai minimal, nilai huruf, maupun status
+	 * verifikasi. Yang dibuang hanya baris tanpa semester/bersemester negatif dan baris yang kalah
+	 * nilai terhadap mata kuliah setara. Karena itu hasilnya biasanya LEBIH BANYAK daripada
+	 * {@code saringBerdasarNilaiDan0}.</p>
+	 *
+	 * <p>Dipakai lewat pembungkus {@link #saringBerdasarNilai(java.util.Collection)} — antara lain
+	 * oleh {@link #prosesHitungSks(java.util.Collection, Boolean, boolean)},
+	 * {@code KrsDanSkripsiHelper}, {@code KrsDetailHelper}, {@code ProfileMahasiswa} dan
+	 * {@code TampilStudiMahasiswaHelper}.</p>
+	 *
+	 * @param detailperkuliahans koleksi id detailperkuliahan yang disaring.
+	 * @return koleksi id terpilih (satu per kode mata kuliah).
+	 */
 	// ------------------------------------------------------------- //
 	// Versi Perbaikan dari saringBerdasarNilaiOk (Bebas NPE & Bug) //
 	// ------------------------------------------------------------- //
@@ -6227,6 +6565,17 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return hasil.values();
 	}
 
+	/**
+	 * Menyimpan satu {@link Detailperkuliahan} ke peta hasil {@link #saringBerdasarNilaiOk(
+	 * java.util.Collection)} dengan kunci KODE mata kuliah (huruf kecil). Bila kode itu sudah
+	 * terisi, yang dipertahankan adalah baris dengan {@code totalNilai} LEBIH TINGGI; pembandingan
+	 * memakai objek dari {@code cacheDp} sehingga tidak ada query tambahan.
+	 *
+	 * @param hasil                  peta hasil (kode mata kuliah &rarr; id detailperkuliahan).
+	 * @param matakuliah             mata kuliah acuan penentu kunci.
+	 * @param detailperkuliahanBaru  calon baris yang hendak disimpan.
+	 * @param cacheDp                cache objek detailperkuliahan yang sudah dimuat.
+	 */
 	private void simpanHasil(Map<String, Long> hasil, Matakuliah matakuliah, Detailperkuliahan detailperkuliahanBaru,
 			Map<Long, Detailperkuliahan> cacheDp) {
 		String kodeMk = matakuliah.getKode().toLowerCase();
@@ -6247,14 +6596,58 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		hasil.put(kodeMk, detailperkuliahanBaru.getId());
 	}
 
+	/**
+	 * Pembungkus tipis {@link #saringBerdasarNilaiOk(java.util.Collection)} — nama yang dipakai
+	 * pemanggil di luar kelas ini.
+	 *
+	 * @param detailperkuliahans koleksi id detailperkuliahan yang disaring.
+	 * @return koleksi id terpilih (satu per kode mata kuliah).
+	 */
 	public Collection<Long> saringBerdasarNilai(Collection<Long> detailperkuliahans) {
 		return saringBerdasarNilaiOk(detailperkuliahans);
 	}
 
+	/**
+	 * Menghitung IPK dari sekumpulan id detailperkuliahan, TANPA membedakan mata kuliah konversi.
+	 * Setara {@code prosesHitungIpk(detailperkuliahans, null)}.
+	 *
+	 * @param detailperkuliahans koleksi id detailperkuliahan yang dihitung.
+	 * @return IPK; {@code 0.0} bila tidak ada SKS yang dihitung.
+	 * @see #prosesHitungIpk(java.util.Collection, Boolean)
+	 */
 	public Double prosesHitungIpk(Collection<Long> detailperkuliahans) {
 		return prosesHitungIpk(detailperkuliahans, null);
 	}
 
+	/**
+	 * <b>Mesin utama perhitungan IPK</b>: {@code IPK = &Sigma;(totalIP &times; SKS) / &Sigma;SKS}
+	 * atas mata kuliah yang lolos {@link #saringBerdasarNilaiDan0(java.util.Collection)}.
+	 *
+	 * <p><b>Aturan penyaringan</b> (selain penyaring awal): hanya baris berstatus
+	 * {@code DISETUJUI}, nilai hurufnya bukan yang dikecualikan konfigurasi
+	 * {@code nilai_huruf_yg_tidak_masuk_perhitungan_ip}, dan — bila
+	 * {@code nilai_belum_verifikasi_tidak_masuk_dalam_perhitungan_ipk} AKTIF — nilai semester
+	 * BERJALAN yang belum diverifikasi dilewati. Bila
+	 * {@code nilai_0_tidak_masuk_dalam_perhitungan_ipk} AKTIF, baris dengan {@code totalNilai} di
+	 * bawah ambang tidak ikut menambah pembilang MAUPUN penyebut.</p>
+	 *
+	 * <p><b>Parameter {@code bukanKonversi}</b> memilah asal mata kuliah:</p>
+	 * <ul>
+	 *   <li>{@code null} — semua mata kuliah dihitung;</li>
+	 *   <li>{@code true} — HANYA mata kuliah non-konversi ({@code matakuliahKonversi} kosong);</li>
+	 *   <li>{@code false} — hanya baris yang punya {@code matakuliahKonversi} ATAU
+	 *       {@code perkuliahan}.</li>
+	 * </ul>
+	 *
+	 * <p>Ambang minimal dibaca memakai {@code Common.parseAngkaKonfigurasi} yang toleran terhadap
+	 * desimal berkoma; komentar di dalam metode menjelaskan mengapa {@code Double.parseDouble}
+	 * langsung berbahaya (nilai konfigurasi admin diabaikan diam-diam sehingga penyaringan IPK
+	 * jadi salah).</p>
+	 *
+	 * @param detailperkuliahans koleksi id detailperkuliahan yang dihitung.
+	 * @param bukanKonversi      pemilah asal mata kuliah; lihat penjelasan di atas.
+	 * @return IPK; {@code 0.0} bila total SKS yang dihitung nol.
+	 */
 	public Double prosesHitungIpk(Collection<Long> detailperkuliahans, Boolean bukanKonversi) {
 
 		String nilai0MasukPenghitungan = Common
@@ -6319,21 +6712,80 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return ipk;
 	}
 
+	/**
+	 * Total SKS atas SELURUH mata kuliah yang pernah ditempuh mahasiswa ini.
+	 *
+	 * @param bukanKonversi pemilah asal mata kuliah ({@code null} = semua, {@code true} = hanya
+	 *        non-konversi, {@code false} = hanya konversi).
+	 * @param semua         {@code true} untuk menghitung tanpa memandang status persetujuan,
+	 *        nilai huruf, verifikasi maupun ambang nilai.
+	 * @return jumlah SKS.
+	 * @see #prosesHitungSks(java.util.Collection, Boolean, boolean)
+	 */
 	public Integer hitungSks(Boolean bukanKonversi, boolean semua) {
 		return prosesHitungSks(ambilDetailperkuliahan(), bukanKonversi, semua);
 	}
 
+	/**
+	 * Total SKS pada SATU semester. Dipakai pemeriksaan jatah SKS saat pengisian KRS
+	 * ({@code KrsUtilHelper}, {@code AmbilDataPerkuliahanHelper} dan sejenisnya).
+	 *
+	 * @param semester       semester yang dihitung.
+	 * @param tahapan        tahapan dalam semester.
+	 * @param semesterPendek penanda semester pendek.
+	 * @param bukanKonversi  pemilah asal mata kuliah.
+	 * @param semua          {@code true} untuk mengabaikan seluruh penyaringan nilai/status.
+	 * @return jumlah SKS semester itu.
+	 * @see #prosesHitungSks(java.util.Collection, Boolean, boolean)
+	 */
 	public Integer hitungSks(Integer semester, Integer tahapan, Integer semesterPendek, Boolean bukanKonversi,
 			boolean semua) {
 		return prosesHitungSks(ambilDetailperkuliahan(semester, tahapan, semesterPendek), bukanKonversi, semua);
 	}
 
+	/**
+	 * Total SKS secara KUMULATIF sampai semester tertentu — angka "SKS yang telah ditempuh" pada
+	 * transkrip dan pemeriksaan syarat kelulusan.
+	 *
+	 * @param semester       batas semester (inklusif).
+	 * @param tahapan        tahapan dalam semester.
+	 * @param semesterPendek penanda semester pendek.
+	 * @param bukanKonversi  pemilah asal mata kuliah.
+	 * @param semua          {@code true} untuk mengabaikan seluruh penyaringan nilai/status.
+	 * @return jumlah SKS kumulatif.
+	 * @see #prosesHitungSks(java.util.Collection, Boolean, boolean)
+	 */
 	public Integer hitungSksSampai(Integer semester, Integer tahapan, Integer semesterPendek, Boolean bukanKonversi,
 			boolean semua) {
 		return prosesHitungSks(ambilDetailperkuliahanSampai(semester, tahapan, semesterPendek, semua), bukanKonversi,
 				semua);
 	}
 
+	/**
+	 * Mesin penjumlahan SKS.
+	 *
+	 * <p>Berbeda dari mesin nilai/IPK lain, penyaring awal yang dipakai di sini adalah
+	 * {@link #saringBerdasarNilai(java.util.Collection)} (yaitu
+	 * {@link #saringBerdasarNilaiOk(java.util.Collection)}), BUKAN
+	 * {@link #saringBerdasarNilaiDan0(java.util.Collection)} — sehingga penyaringannya lebih
+	 * longgar dan tidak bergantung pada ambang nilai saat memilih baris.</p>
+	 *
+	 * <p>Bendera {@code semua} bernilai {@code true} membuat seluruh penjagaan dilewati: status
+	 * persetujuan, nilai huruf yang dikecualikan, penyaringan nilai belum terverifikasi, dan
+	 * ambang nilai minimal semuanya diabaikan sehingga yang dihitung adalah SKS yang DIAMBIL,
+	 * bukan yang lulus. Bendera {@code bukanKonversi} memilah mata kuliah konversi vs biasa
+	 * (perhatikan aturannya sedikit berbeda dari
+	 * {@link #prosesHitungIpk(java.util.Collection, Boolean)}: di sini {@code false} berarti HANYA
+	 * yang punya {@code matakuliahKonversi}).</p>
+	 *
+	 * <p>Hasil {@code null} dari penyaring ditangani sebagai daftar kosong, dan id {@code null} di
+	 * dalam koleksi dilewati.</p>
+	 *
+	 * @param detailperkuliahans koleksi id detailperkuliahan yang dihitung.
+	 * @param bukanKonversi      pemilah asal mata kuliah.
+	 * @param semua              {@code true} untuk mengabaikan seluruh penyaringan nilai/status.
+	 * @return jumlah SKS.
+	 */
 	public Integer prosesHitungSks(Collection<Long> detailperkuliahans, Boolean bukanKonversi, boolean semua) {
 
 		String nilai0MasukPenghitungan = Common
@@ -6409,18 +6861,58 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return sksTotal;
 	}
 
+	/**
+	 * Jumlah MATA KULIAH (bukan SKS) yang pernah ditempuh mahasiswa ini.
+	 *
+	 * @param semua {@code true} untuk menghitung tanpa memandang status/nilai.
+	 * @return cacah mata kuliah.
+	 * @see #prosesHitungMk(java.util.Collection, boolean)
+	 */
 	public Integer hitungMk(boolean semua) {
 		return prosesHitungMk(ambilDetailperkuliahan(), semua);
 	}
 
+	/**
+	 * Jumlah MATA KULIAH pada satu semester.
+	 *
+	 * @param semester       semester yang dihitung.
+	 * @param tahapan        tahapan dalam semester.
+	 * @param semesterPendek penanda semester pendek.
+	 * @param semua          {@code true} untuk menghitung tanpa memandang status/nilai.
+	 * @return cacah mata kuliah semester itu.
+	 * @see #prosesHitungMk(java.util.Collection, boolean)
+	 */
 	public Integer hitungMk(Integer semester, Integer tahapan, Integer semesterPendek, boolean semua) {
 		return prosesHitungMk(ambilDetailperkuliahan(semester, tahapan, semesterPendek), semua);
 	}
 
+	/**
+	 * Jumlah MATA KULIAH secara kumulatif sampai semester tertentu.
+	 *
+	 * @param semester       batas semester (inklusif).
+	 * @param tahapan        tahapan dalam semester.
+	 * @param semesterPendek penanda semester pendek.
+	 * @param semua          {@code true} untuk menghitung tanpa memandang status/nilai.
+	 * @return cacah mata kuliah kumulatif.
+	 * @see #prosesHitungMk(java.util.Collection, boolean)
+	 */
 	public Integer hitungMkSampai(Integer semester, Integer tahapan, Integer semesterPendek, boolean semua) {
 		return prosesHitungMk(ambilDetailperkuliahanSampai(semester, tahapan, semesterPendek, semua), semua);
 	}
 
+	/**
+	 * Mesin pencacah MATA KULIAH. Sejalan dengan
+	 * {@link #prosesHitungRataRata(java.util.Collection)} (memakai penyaring
+	 * {@link #saringBerdasarNilaiDan0(java.util.Collection)} dan rangkaian kunci
+	 * {@link Konfigurasi} yang sama), hanya saja yang dihitung adalah CACAH baris, bukan nilai.
+	 *
+	 * <p>Bendera {@code semua} bernilai {@code true} melewati penyaringan status persetujuan,
+	 * nilai huruf yang dikecualikan, penyaringan nilai belum terverifikasi, dan ambang nilai.</p>
+	 *
+	 * @param detailperkuliahans koleksi id detailperkuliahan yang dihitung.
+	 * @param semua              {@code true} untuk mengabaikan penyaringan status/nilai.
+	 * @return cacah mata kuliah.
+	 */
 	private Integer prosesHitungMk(Collection<Long> detailperkuliahans, boolean semua) {
 
 		String nilai0MasukPenghitungan = Common

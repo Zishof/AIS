@@ -168,6 +168,15 @@ public final class GenericCrudAkademikOverrides {
                 + "ulang lebih dulu — 152 kolom, termasuk relasi golongan, status, dan satuan "
                 + "kerja; bukan pekerjaan yang boleh disisipkan diam-diam.");
 
+        /* Cabang Penelitian dan Pengabdian. */
+        DITAHAN.put("penelitiandanpengabdian/pengajuan_penelitian_dan_pengabdian",
+                "Pengajuan Penelitian/Pengabdian adalah workflow: satu formulir menyimpan pengaju, "
+                + "anggota, sumber dana, lampiran, disposisi SOP, dan status persetujuan. Action "
+                + "menu hanya merakit PengajuanPenelitianDanPengabdianHelper dan tidak mempunyai "
+                + "boolean onSave(Event) untuk satu entity. Daftar native boleh membaca entity "
+                + "PengajuanPenelitianDanPengabdian, tetapi tambah/ubah/hapus generik harus tetap "
+                + "ditutup sampai kontrak workflow khusus tersedia.");
+
         /*
          * Cabang Akuntansi & Keuangan. Yang dinaikkan HANYA bagan akun, karena
          * ia master data: menambah kode akun tidak memindahkan uang, ia

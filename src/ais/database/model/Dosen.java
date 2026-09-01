@@ -190,7 +190,8 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 			new java.util.concurrent.ConcurrentHashMap<String, Object>();
 
 	/**
-	 * 
+	 * Versi serialisasi Java. Nilainya dikunci agar objek {@code Dosen} yang tersimpan di sesi ZK
+	 * atau cache berkas tetap dapat dibaca setelah kelas ini ditambahi field baru.
 	 */
 	private static final long serialVersionUID = -5130925140455694214L;
 	private Long id;
@@ -373,16 +374,32 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 	private Integer onlineMenggunakan;
 	private String onlineLink;
 	private String kodeSinta;
+	/**
+	 * Cache instance {@link BiodataDosen} milik dosen ini. Sengaja {@code public} dan bukan properti
+	 * Hibernate (tidak ada getter/setter ter-map): pengisiannya dilakukan {@link #ambilBiodata(boolean)}
+	 * dan pemanggil lama membacanya langsung. Dapat berisi objek yang belum tersimpan.
+	 */
 	public BiodataDosen biodataDosen;
 	private String formula;
 
+	/** Nilai {@link #getOnlineMenggunakan()} untuk dosen yang tidak mengaktifkan kelas daring. */
 	public static Integer TIDAK_AKTIF = 0;
+	/** Nilai {@link #getOnlineMenggunakan()} untuk platform Jitsi Meet. */
 	public static Integer JITSI = 1;
+	/** Nilai {@link #getOnlineMenggunakan()} untuk platform Google Meet. */
 	public static Integer GOOGLE_MEET = 2;
+	/** Nilai {@link #getOnlineMenggunakan()} untuk platform Zoom. */
 	public static Integer ZOOM = 3;
+	/** Nilai {@link #getOnlineMenggunakan()} untuk platform BigBlueButton. */
 	public static Integer BBB = 4;
+	/** Nilai {@link #getOnlineMenggunakan()} untuk platform Skype. */
 	public static Integer SKYPE = 5;
+	/** Nilai {@link #getOnlineMenggunakan()} untuk panggilan lewat WhatsApp. */
 	public static Integer WA = 6;
+	/**
+	 * Nilai {@link #getOnlineMenggunakan()} untuk platform lain yang tautannya diisi bebas pada
+	 * {@link #getOnlineLink()}.
+	 */
 	public static Integer LAIN = 7;
 
 	/**
@@ -3182,6 +3199,19 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 	/**
 	 * Membaca indeks pertemuan dengan pemulihan data lama yang pernah terpotong. Pasangan ID yang
 	 * masih lengkap dipertahankan; hanya fragmen yang tidak lagi membentuk pasangan JSON yang dibuang.
+	 *
+	 * <p>Seluruh pembacaan dibungkus {@code synchronized} pada {@link #kunciPertemuanDosen()} sehingga
+	 * pemulihan tidak berbenturan dengan penulisan dari thread lain. Bila teks berkas masih JSON yang
+	 * sah, objeknya langsung dikembalikan. Bila tidak, isi berkas dipindai dengan regex pasangan
+	 * {@code "&lt;angka&gt;": "&lt;angka&gt;"}; setiap pasangan utuh dimasukkan ke objek baru, hasil
+	 * pemulihan <b>ditulis balik</b> ke berkas indeks lewat {@link #tulisLokasiPertemuan(String)}, dan
+	 * ringkasan jumlah pasangan yang selamat dicetak ke {@code System.err}.</p>
+	 *
+	 * <p>Dipakai {@link #removePertemuan(Serializable)}, {@link #populatePertemuan(Pertemuan, boolean)},
+	 * dan {@link #ambilPertemuan(Session)} sebagai pengganti {@link #ambilLokasiPertemuan()} langsung.</p>
+	 *
+	 * @return objek indeks pertemuan yang dijamin dapat dipakai; kosong bila tidak ada pasangan yang
+	 *         dapat diselamatkan
 	 */
 	private JSONObject ambilLokasiPertemuanJsonAman() {
 		Object kunci = kunciPertemuanDosen();
@@ -5522,6 +5552,10 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return bukuBahanAjars;
 	}
 
+	/**
+	 * Nilai baku {@link #getFormula()}: larik JSON kosong ({@code []}), sehingga pemanggil selalu
+	 * dapat membungkus hasil getter dengan {@code new JSONArray(...)} tanpa memeriksa {@code null}.
+	 */
 	public static String DEFAULT_FORMULA = new JSONArray().toString();
 
 	/**

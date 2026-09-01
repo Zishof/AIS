@@ -13,6 +13,10 @@ request.setAttribute("nuiServiceSourceClass", "PengajuanPenelitianDanPengabdianA
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.penelitiandanpengabdian");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/penelitiandanpengabdian/PengajuanPenelitianDanPengabdianAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{});
-request.setAttribute("nuiServiceEntities", new String[]{"TipePenelitianDanPengabdian"});
+// Layar ini adalah daftar workflow PengajuanPenelitianDanPengabdian. Kandidat
+// lama TipePenelitianDanPengabdian membuat klien native menampilkan master
+// "Tipe" pada menu "Pengajuan". Mutasi tetap fail-closed oleh Action wrapper
+// yang memang tidak mempunyai kontrak onSave entity tunggal.
+request.setAttribute("nuiServiceEntities", new String[]{"PengajuanPenelitianDanPengabdian"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

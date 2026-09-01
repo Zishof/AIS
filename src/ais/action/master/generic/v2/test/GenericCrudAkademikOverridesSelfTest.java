@@ -48,6 +48,7 @@ public final class GenericCrudAkademikOverridesSelfTest {
             { "root", "penjadwalan_ujian" },
             { "root", "daftar_mahasiswa_lulus" },
             { "root", "mahasiswa_registrasi_wisuda" },
+            { "penelitiandanpengabdian", "pengajuan_penelitian_dan_pengabdian" },
         };
         for (int i = 0; i < ditahan.length; i++) {
             String modul = ditahan[i][0], halaman = ditahan[i][1];
