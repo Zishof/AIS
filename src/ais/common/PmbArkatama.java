@@ -44,15 +44,15 @@ import ais.ui.util.MyMessageboxConfig;
  * {@link #synRef()}.
  *
  * <p>
- * <b>PERINGATAN KEAMANAN — kredensial tertanam (hardcoded) sebagai nilai default</b>: method
- * {@link #login()} mengambil kredensial akun Arkatama lewat
+ * <b>Riwayat keamanan — kredensial tertanam sebagai nilai default (DIPERBAIKI 2026-09-01)</b>:
+ * method {@link #login()} sebelumnya mengambil kredensial akun Arkatama lewat
  * {@link Common#getKonfigurasi(String, String)} dengan nilai default tertanam langsung di kode
- * sumber bila konfigurasi database belum diisi: {@code pmb_arkatama_username} default
- * {@code "445002"} dan {@code pmb_arkatama_password} default {@code "12345"} — password berupa
- * angka sederhana yang mudah ditebak. Kredensial ini berpotensi terpakai diam-diam sebagai
- * fallback produksi bila baris konfigurasi terkait belum diisi eksplisit di database, dan
- * tersimpan sebagai plain text di riwayat kontrol versi. Nilai-nilai ini TIDAK diubah di sini —
- * lihat catatan keamanan pada laporan dokumentasi.
+ * sumber bila konfigurasi database belum diisi ({@code pmb_arkatama_username}/
+ * {@code pmb_arkatama_password}, password berupa angka sederhana yang mudah ditebak). Default
+ * tersebut sudah DIHAPUS (kini string kosong) — login akan gagal dengan jelas bila konfigurasi
+ * belum diisi, bukan diam-diam memakai kredensial lama yang bocor. <b>Tindak lanjut yang TETAP
+ * diperlukan di luar perubahan kode ini:</b> kredensial lama sudah lama berada di riwayat SVN
+ * dan WAJIB dianggap bocor — perlu dirotasi di sisi Arkatama bila masih aktif di produksi.
  * </p>
  *
  * <p>
@@ -526,8 +526,8 @@ public class PmbArkatama {
 	 * ke {@link #doLogin(String, String, String)} yang mengisi {@link #token}.
 	 */
 	public static void login() {
-		String username = Common.getKonfigurasi("pmb_arkatama_username", "445002").getNilai();
-		String password = Common.getKonfigurasi("pmb_arkatama_password", "12345").getNilai();
+		String username = Common.getKonfigurasi("pmb_arkatama_username", "").getNilai();
+		String password = Common.getKonfigurasi("pmb_arkatama_password", "").getNilai();
 
 		String strURL = (Common.getKonfigurasi("pmb_arkatama_host_url", "https://pmb.pusdiktan.id").getNilai()
 				+ "/api/Auth");
