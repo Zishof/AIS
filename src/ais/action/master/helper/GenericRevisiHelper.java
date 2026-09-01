@@ -6694,6 +6694,14 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         return "";
     }
 
+    /**
+     * Menerjemahkan {@link RevisionType} Envers ke label Indonesia untuk kolom "Tipe" pada grid dan
+     * dashboard.
+     *
+     * @param type tipe revisi Envers; boleh {@code null}
+     * @return {@code "Tambah"}/{@code "Ubah"}/{@code "Hapus"}, atau string kosong bila {@code type}
+     *         {@code null} atau tidak dikenali
+     */
     protected String labelRevisionType(RevisionType type) {
         if (type == RevisionType.ADD) return "Tambah";
         if (type == RevisionType.MOD) return "Ubah";
@@ -6701,6 +6709,14 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         return "";
     }
 
+    /**
+     * Menyusun label "Oleh / Class Pengubah" pada grid dengan menggabungkan property {@code oleh} (nama)
+     * dan {@code olehId} (identitas/ID pengubah), dalam format {@code "oleh (olehId)"}. Bila salah satu
+     * kosong, hanya yang terisi yang dikembalikan.
+     *
+     * @param entity entity yang property {@code oleh}/{@code olehId}-nya dibaca
+     * @return label gabungan, atau string kosong bila keduanya kosong/tidak ada
+     */
     protected String readOleh(Object entity) {
         String oleh = readString(entity, "oleh");
         String olehId = readString(entity, "olehId");
@@ -6709,6 +6725,15 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         return oleh + " (" + olehId + ")";
     }
 
+    /**
+     * Membaca satu property teks dari {@code entity} lewat {@link #classMetadata}, dengan penjagaan
+     * {@link #hasProperty(String)} agar tidak melempar exception untuk property yang tidak ada.
+     *
+     * @param entity entity sumber; boleh {@code null}
+     * @param property nama property yang dibaca
+     * @return {@code toString()} nilai property, atau string kosong bila {@code entity}/{@code property}
+     *        {@code null}, property tidak ada, nilainya {@code null}, atau terjadi exception
+     */
     protected String readString(Object entity, String property) {
         try {
             if (entity != null && classMetadata != null && hasProperty(property)) {
@@ -6720,6 +6745,13 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         return "";
     }
 
+    /**
+     * {@code toString()} yang aman terhadap {@code null} maupun exception dari implementasi
+     * {@code toString()} kustom (mis. proxy Hibernate yang gagal lazy-load).
+     *
+     * @param value nilai yang di-{@code toString()}; boleh {@code null}
+     * @return {@code value.toString()}, atau string kosong bila {@code null} atau terjadi exception
+     */
     protected String safeToString(Object value) {
         try {
             return value == null ? "" : value.toString();
@@ -6728,6 +6760,14 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         }
     }
 
+    /**
+     * Format tampilan umum untuk satu nilai property pada grid/detail: tanggal diformat konsisten lewat
+     * {@link #formatDateTime(Date)}, nilai lain memakai {@code toString()} apa adanya. Untuk kebutuhan
+     * khusus popup edit manual (menyertakan ID relasi), lihat {@link #formatValueForManual(Object)}.
+     *
+     * @param value nilai yang diformat; boleh {@code null}
+     * @return teks siap tampil, string kosong bila {@code null} atau terjadi exception
+     */
     protected String formatValue(Object value) {
         try {
             if (value == null) return "";
@@ -6773,6 +6813,14 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         }
     }
 
+    /**
+     * Rollback aman: hanya melakukan {@code tx.rollback()} bila {@code tx} tidak {@code null} dan masih
+     * {@code isActive()}, exception dari rollback itu sendiri ditelan (dicatat lewat {@code ErrorAuditUtil})
+     * agar penanganan error di blok {@code catch} pemanggil tidak gagal karena rollback gagal. Dipanggil di
+     * hampir setiap blok {@code catch} yang mengelilingi operasi transaksional di seluruh class ini.
+     *
+     * @param tx transaksi yang akan di-rollback; boleh {@code null}
+     */
     protected void rollback(Transaction tx) {
         try {
             if (tx != null && tx.isActive()) {
@@ -6782,6 +6830,17 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         }
     }
 
+    /**
+     * Menutup session Hibernate LOKAL secara aman dan lengkap: {@code session.clear()} (lepaskan seluruh
+     * entity dari first-level cache) lalu {@code session.disconnect()} (kembalikan koneksi JDBC ke pool)
+     * lalu {@code session.close()} — masing-masing dibungkus try-catch terpisah (dicatat lewat
+     * {@code ErrorAuditUtil}) sehingga kegagalan satu langkah tidak menghalangi langkah berikutnya
+     * dijalankan. Ini adalah pola penutupan session BAKU yang dipakai di SETIAP method pada class ini yang
+     * membuka session sendiri — selalu dipanggil dari blok {@code finally}, tidak pernah dilewati meski
+     * terjadi exception di badan method.
+     *
+     * @param session session yang akan ditutup; boleh {@code null} (method langsung kembali tanpa efek)
+     */
     protected void closeSession(Session session) {
         if (session != null) {
             try {
