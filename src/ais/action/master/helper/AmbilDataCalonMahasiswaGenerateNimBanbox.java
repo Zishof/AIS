@@ -39,36 +39,32 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data calon mahasiswa generate nim banbox. Kelas ini memberi nama dan
- * batas tanggung jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang
- * diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code Textbox nama}, {@code Textbox noregistrasi}, {@code
- * Textbox noujian}, {@code EventListener eventListener}; pembacaan/pencarian ({@code getEventListener()}, {@code
- * setEventListener()}, {@code onSearchDefault()}); operasi domain lain ({@code display()}). Bagian lain dari
- * kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity
+ * {@link ais.database.model.BiodataCalonMahasiswa} — lihat {@link ais.ui.util.GetEventListener}
+ * untuk arsitektur kerangka umum (constructor/display/onSearchDefault/renderer/callback). Varian
+ * ringkas khusus alur "generate NIM" (pembuatan Nomor Induk Mahasiswa): dipakai untuk mencari
+ * calon mahasiswa yang akan diberi/di-generate-kan NIM. Filter hanya "Nama", "No Reg" (no
+ * registrasi), dan "No Ujian" (ketiganya ILIKE ANYWHERE), dibatasi ke calon mahasiswa aktif —
+ * berbeda dari {@link AmbilDataCalonMahasiswaDaftarUlangBaruBanbox} yang punya filter status
+ * pembayaran/NIM lebih kaya untuk konteks re-registrasi.
+ * <p>
+ * Popup menampilkan grid pilih-tunggal (via {@link Radiogroup}/{@link Radio}), diurutkan menurun
+ * berdasarkan id (50 hasil terbaru). Berbeda dari sebagian besar subclass lain, constructor
+ * LANGSUNG memanggil {@link #display()} (bukan menunda ke listener {@code onOpen}).
  *
  * @see Bandbox
  */
 public class AmbilDataCalonMahasiswaGenerateNimBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 * Serial version UID standar untuk kompatibilitas serialisasi komponen ZK.
 	 */
 	private static final long serialVersionUID = 6452461056684904810L;
 	private MyGrid grid;
 
 	/* Paging server-side per 5 baris (pola AmbilDataPagingHelper). */
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
+	/** Membangun komponen dan LANGSUNG memanggil {@link #display()} di constructor. */
 	public AmbilDataCalonMahasiswaGenerateNimBanbox() {
 		super();
 		display();
@@ -80,26 +76,22 @@ public class AmbilDataCalonMahasiswaGenerateNimBanbox extends Bandbox implements
 
 	private EventListener eventListener;
 
+	/** @return listener pemilihan calon mahasiswa yang sedang terpasang, boleh {@code null} */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
 
+	/** @param eventListener dipanggil setiap kali user memilih satu calon mahasiswa */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataCalonMahasiswaGenerateNimBanbox}. Kelas ini
-	 * menerjemahkan satu item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik
-	 * kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataCalonMahasiswaGenerateNimBanbox} dan
-	 * dapat mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Merender satu baris grid: radio pilih berlabel nama, no registrasi, no ujian, dan gabungan
+	 * nama seluruh prodi pilihan. Memilih baris menutup popup, menyimpan entity
+	 * {@link BiodataCalonMahasiswa} terpilih ke attribute {@code "calonMahasiswa"} pada Bandbox,
+	 * mengisi teks tampilan dengan "no registrasi - nama", mengubah id komponen menjadi
+	 * {@code "calonmhs_<id>"}, lalu memicu {@link #eventListener} bila terpasang.
 	 *
 	 * @see AmbilDataCalonMahasiswaGenerateNimBanbox
 	 */
@@ -157,6 +149,11 @@ public class AmbilDataCalonMahasiswaGenerateNimBanbox extends Bandbox implements
 
 	}
 
+	/**
+	 * Membangun popup pencarian (dipanggil langsung dari constructor): form filter Nama/No
+	 * Reg/No Ujian, grid hasil bermold "paging", lalu memuat data awal lewat
+	 * {@link #onSearchDefault(Event)}.
+	 */
 	public void display() {
 		setReadonly(true);
 		setReadonly(true);
@@ -283,12 +280,19 @@ public class AmbilDataCalonMahasiswaGenerateNimBanbox extends Bandbox implements
 
 	}
 
+	/**
+	 * Menyusun dan menjalankan kriteria pencarian {@link BiodataCalonMahasiswa}: aktif, cocok
+	 * Nama/No Ujian/No Registrasi (ILIKE ANYWHERE), diurutkan menurun berdasarkan id, dibatasi 50
+	 * baris. Mengisi ulang grid dengan hasilnya beserta {@link CalonMahasiswaRenderer}.
+	 *
+	 * @param event tidak dipakai, hanya mengikuti signature standar listener pencarian
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
 		Session session = HibernateUtil.currentSession();
 
-		List<BiodataCalonMahasiswa> biodataCalonMahasiswa1 = 
+		List<BiodataCalonMahasiswa> biodataCalonMahasiswa1 =
 				session.createCriteria(BiodataCalonMahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 						.add(nama.getValue().trim().isEmpty() ? Restrictions.sqlRestriction("true")
 								: Restrictions.ilike("nama", nama.getValue().trim(), MatchMode.ANYWHERE))
