@@ -1034,6 +1034,27 @@ public class KantinHelper {
 		return "SMALLER".equalsIgnoreCase(uom.getTipeKonversi()) ? 1.0 / rasio : rasio;
 	}
 
+	/**
+	 * Membaca kategori UOM tanpa membuat KantinHelper bergantung secara biner pada getter
+	 * yang baru ditambahkan. Ini menjaga rolling deploy tetap berjalan saat model lama dan
+	 * servlet baru sempat hidup bersamaan; data lama tanpa kolom kategori diperlakukan UNIT.
+	 */
+	private static String kategoriUom(SatuanProduk uom) {
+		if (uom == null) return "UNIT";
+		try {
+			java.lang.reflect.Method getter = uom.getClass().getMethod("getKategori", new Class[0]);
+			Object nilai = getter.invoke(uom, new Object[0]);
+			String kategori = nilai == null ? "" : nilai.toString().trim();
+			return kategori.length() == 0 ? "UNIT" : kategori.toUpperCase();
+		} catch (NoSuchMethodException versiModelLama) {
+			return "UNIT";
+		} catch (Exception gagalMembacaKategori) {
+			ais.common.ErrorAuditUtil.record(gagalMembacaKategori,
+					"KantinHelper.kategoriUom satuan=" + (uom.getId() == null ? "-" : uom.getId()));
+			return "UNIT";
+		}
+	}
+
 	/** Faktor pengali jumlah input menjadi jumlah stok/dasar produk. */
 	// public: dipakai juga SalesInventoryReceivableHelper (Fase B) dan
 	// StokThresholdScheduler (Fase C, pembulatan ke satuan pembelian) --
@@ -1043,8 +1064,8 @@ public class KantinHelper {
 		if (input == null) input = produk == null ? null : produk.getSatuanPembelian();
 		if (input == null) input = dasar;
 		if (dasar == null || input == null) return 1.0; // kompatibilitas katalog lama tanpa relasi UOM
-		String kd = dasar.getKategori();
-		String ki = input.getKategori();
+		String kd = kategoriUom(dasar);
+		String ki = kategoriUom(input);
 		if (kd == null || ki == null || !kd.equalsIgnoreCase(ki)) {
 			throw new IllegalArgumentException("UOM pembelian " + input.getNama() + " tidak dapat dikonversi ke satuan stok "
 					+ dasar.getNama() + ". Perbaiki kategori UOM pada Master Data > Satuan/UOM, lalu coba kembali.");
@@ -1367,11 +1388,9 @@ public class KantinHelper {
 												sesiAsal.getStatus() == null ? "" : sesiAsal.getStatus().trim())) {
 											hasil.put("sesi_kas_sudah_tutup", true);
 											hasil.put("sesi_kas_asal", sesiAsal.getKode());
-											ais.common.ErrorAuditUtil.record(
-													new IllegalStateException("Transaksi " + kodeUnik
-															+ " terkirim terlambat dan masuk ke sesi kas "
-															+ sesiAsal.getKode() + " yang sudah ditutup."),
-													"auto-audit src/ais/action/servlet/api/KantinHelper.java:bayar-sesi-kas-sudah-tutup");
+											System.err.println("[POS-TRANSAKSI-TERLAMBAT] Transaksi " + kodeUnik
+													+ " masuk ke sesi kas " + sesiAsal.getKode()
+													+ " yang sudah ditutup; transaksi tetap direkonsiliasi ke sesi asal.");
 										}
 									}
 								}
@@ -2823,6 +2842,9 @@ public class KantinHelper {
 	 * ganda) dan memastikan koneksi SELALU kembali ke pool dalam keadaan transaksi bersih/tertutup.</p>
 	 */
 	private static void tutupSessionPolaB(Session session) {
+		if (session == null) {
+			return;
+		}
 		try {
 			if (session != null && session.isOpen() && session.getTransaction() != null
 					&& session.getTransaction().isActive()) {
@@ -4281,7 +4303,7 @@ public class KantinHelper {
 					hasil.put("description", "Satuan Pembelian/PO tidak ditemukan atau nonaktif. Sinkronkan data dan pilih UOM aktif.");
 					return;
 				}
-				if (p.getSatuan() == null || !p.getSatuan().getKategori().equalsIgnoreCase(pembelian.getKategori())) {
+				if (p.getSatuan() == null || !kategoriUom(p.getSatuan()).equalsIgnoreCase(kategoriUom(pembelian))) {
 					hasil.put("status", "91");
 					hasil.put("description", "Satuan Pembelian/PO harus berada dalam kategori yang sama dengan Satuan Stok/Dasar. Contoh: Pcs dan Dus berada di kategori UNIT; Kg dan Gram di kategori BERAT.");
 					return;
@@ -4333,7 +4355,7 @@ public class KantinHelper {
 						return;
 					}
 					if (p.getSatuan() == null
-							|| !p.getSatuan().getKategori().equalsIgnoreCase(satuanPack.getKategori())) {
+							|| !kategoriUom(p.getSatuan()).equalsIgnoreCase(kategoriUom(satuanPack))) {
 						hasil.put("status", "91");
 						hasil.put("description",
 								"UOM Pack harus sekategori dengan Satuan Stok/Dasar (mis. Botol dan Dus di kategori UNIT).");

@@ -2133,7 +2133,8 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 	private List<Item> loadDataItem(String perpustakaan, String parent, String nama, String isbn, String pengarang,
 			String keyword, String abstrack, String institusi, String kategori, String tahun, String order,
 			String order1, String start, String banyak) {
-		Session session = HibernateUtil.currentNativeSession();
+		Session session = HibernateUtil.openSession();
+		try {
 		Perpustakaan myPerpustakaan = null;
 
 		if (!perpustakaan.trim().equals("") && !perpustakaan.trim().equals("_") && !perpustakaan.trim().equals("-1")) {
@@ -2219,9 +2220,21 @@ public class PerpustakaanResource extends DataResource<Perpustakaan> {
 						: Restrictions.in("parent.id", parents))
 				.setFirstResult(Integer.parseInt(start)).setMaxResults(Integer.parseInt(banyak.trim())).list();
 
-		HibernateUtil.closeSession();
 
 		return items;
+		} finally {
+			if (session != null) {
+				try { session.clear(); } catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "PerpustakaanResource.loadDataItem-clear");
+				}
+				try { session.disconnect(); } catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "PerpustakaanResource.loadDataItem-disconnect");
+				}
+				try { session.close(); } catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "PerpustakaanResource.loadDataItem-close");
+				}
+			}
+		}
 	}
 
 	/**

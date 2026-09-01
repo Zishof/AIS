@@ -39,6 +39,7 @@ import org.zkoss.zul.Paging;
 import ais.action.master.helper.util.GoogleBookSynchronized;
 import ais.action.master.helper.util.OpenLibrarySyncronizer;
 import ais.action.master.library.ItemAction;
+import ais.action.master.resources.PerpustakaanResource;
 import ais.common.Common;
 import ais.common.CommonMedia;
 import ais.common.ConstantValues;
@@ -2325,8 +2326,9 @@ public class LibraryUtil {
 
 		if (Common.bolehKonfigurasi("terintegrasi_dengan_google_book_baru", Konfigurasi.TIDAK_AKTIF)) {
 
-			if (item.size() != Common.ROWS_COUNT_ON_PAGE
-					|| (paging == null ? 0 : paging.getActivePage()) == (paging.getPageCount() - 1)) {
+			boolean halamanTerakhir = paging != null
+					&& paging.getActivePage() == (paging.getPageCount() - 1);
+			if (item == null || item.size() != Common.ROWS_COUNT_ON_PAGE || halamanTerakhir) {
 
 				String perpus = "_";
 
@@ -2352,18 +2354,12 @@ public class LibraryUtil {
 					Common.tampilErrorJikaAdmin(e);
 				}
 
-				HttpServletRequest request = (HttpServletRequest) ExecutionsCtrl.getCurrent().getNativeRequest();
-				String url = "http" + (Common.isSecure(request) ? "s" : "") + "://" + request.getServerName() + ":"
-						+ request.getServerPort() + request.getContextPath() + "/resources/perpustakaan/items_manual/"
-						+ perpus + "/_/" + judul + "/" + isbn + "/" + pengarang + "/" + keyword + "/" + catatan + "/"
-						+ penerbit + "/" + kategori + "/" + tahun + "/_/_/" + size + "/35/false/";
-				System.out.println("url = " + url);
-
 				try {
-					JSONObject items = Common.getJsonObject(url);
-					JSONArray stokItem = items.getJSONArray("item");
+					List<Item> stokItem = new PerpustakaanResource().daftarItemManual(perpus, "_", judul, isbn,
+							pengarang, keyword, catatan, penerbit, kategori, tahun, "_", "_",
+							String.valueOf(size), "35", "false");
 
-					if (eventListener != null && stokItem.length() > 0) {
+					if (eventListener != null && stokItem != null && !stokItem.isEmpty()) {
 						Common.createDefaultTimer(eventListener, "Loading..", false, 5000);
 					}
 

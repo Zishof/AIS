@@ -1,7 +1,9 @@
 package ais.action.master.helper.generic;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.hibernate.Criteria;
 import org.hibernate.Session;
@@ -38,6 +40,7 @@ import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.FormulirKegiatan;
 import ais.database.model.GeneralValueObject;
+import ais.database.model.Mahasiswa;
 import ais.database.model.MahasiswaRequestTugasAkhir;
 import ais.database.model.Perkuliahan;
 import ais.database.model.Pertemuan;
@@ -97,6 +100,7 @@ public class AmbilDataTemplatePembelajaran extends MyWindow {
 	private FormulirKegiatan formulirKegiatan;
 	private Wisuda wisuda;
 	private MyTextbox searchnamadsn;
+	private final Map<Long, String> labelTugasAkhir = new HashMap<Long, String>();
 
 	public AmbilDataTemplatePembelajaran(final Perkuliahan perkuliahan, final KelompokKkn kelompokKkn,
 			final KelompokPkl kelompokPkl, final MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir,
@@ -305,9 +309,8 @@ public class AmbilDataTemplatePembelajaran extends MyWindow {
 			}
 
 			if (templatePembelajaran instanceof MahasiswaRequestTugasAkhir) {
-				checkbox.setLabel(((MahasiswaRequestTugasAkhir) templatePembelajaran).getMahasiswa().getNim() + "-"
-						+ ((MahasiswaRequestTugasAkhir) templatePembelajaran).getMahasiswa().getNama() + "-"
-						+ ((MahasiswaRequestTugasAkhir) templatePembelajaran).getJudul());
+				String label = labelTugasAkhir.get(templatePembelajaran.getId());
+				checkbox.setLabel(label == null ? "Tugas Akhir #" + templatePembelajaran.getId() : label);
 			}
 
 			if (templatePembelajaran instanceof Skripsi) {
@@ -789,6 +792,30 @@ public class AmbilDataTemplatePembelajaran extends MyWindow {
 		}
 
 		List<GeneralValueObject> myTemplatePembelajaran = criteria.setMaxResults(Common.MAX_RESULT).list();
+
+		// Grid ZK merender model setelah method pencarian selesai. Inisialisasi proxy tugas
+		// akhir dan mahasiswa selagi currentSession masih aktif agar renderer tidak mencoba
+		// membuka relasi LAZY dari proxy yang sudah terlepas.
+		labelTugasAkhir.clear();
+		for (GeneralValueObject value : myTemplatePembelajaran) {
+			if (value instanceof MahasiswaRequestTugasAkhir) {
+				try {
+					MahasiswaRequestTugasAkhir requestTugasAkhir = (MahasiswaRequestTugasAkhir) value;
+					org.hibernate.Hibernate.initialize(requestTugasAkhir);
+					Mahasiswa mahasiswa = requestTugasAkhir.getMahasiswa();
+					org.hibernate.Hibernate.initialize(mahasiswa);
+					if (mahasiswa != null) {
+						mahasiswa.getNim();
+						mahasiswa.getNama();
+						labelTugasAkhir.put(requestTugasAkhir.getId(), mahasiswa.getNim() + "-"
+								+ mahasiswa.getNama() + "-" + requestTugasAkhir.getJudul());
+					}
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e,
+							"AmbilDataTemplatePembelajaran.initMahasiswaRequestTugasAkhir");
+				}
+			}
+		}
 
 		ListModel strset = new SimpleListModel(myTemplatePembelajaran);
 		grid.setRowRenderer(new TemplatePembelajaranRenderer());

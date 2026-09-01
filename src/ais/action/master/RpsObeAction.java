@@ -266,7 +266,8 @@ public class RpsObeAction extends GenericAutowireComposer {
 				if (d.contains("|")) {
 					d = d.substring(0, d.indexOf("|")).trim();
 				}
-				if (!d.isEmpty()) {
+				if (!d.isEmpty() && !"null".equalsIgnoreCase(d) && !"undefined".equalsIgnoreCase(d)
+						&& !"-".equals(d)) {
 					try {
 						longs.add(Long.valueOf(d));
 					} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/RpsObeAction.java:230");
@@ -1603,7 +1604,7 @@ public class RpsObeAction extends GenericAutowireComposer {
 				if (kp.contains(":")) {
 					String[] kv = kp.split(":", 2);
 					kompHeaders[ki] = kv[0].trim();
-					try { kompValues[ki] = Double.parseDouble(kv[1].trim()); } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/action/master/RpsObeAction.java:1340");}
+					kompValues[ki] = rpsAsDouble(kv.length > 1 ? kv[1] : null, 0);
 				} else {
 					kompHeaders[ki] = kp;
 				}
@@ -1809,7 +1810,7 @@ public class RpsObeAction extends GenericAutowireComposer {
 				kp = kp.trim();
 				String nm = kp.contains(":") ? kp.split(":", 2)[0].trim() : kp;
 				double bv = 0;
-				if (kp.contains(":")) { try { bv = Double.parseDouble(kp.split(":", 2)[1].trim()); } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/action/master/RpsObeAction.java:MetodeEvaluasiBobot");} }
+				if (kp.contains(":")) { bv = rpsAsDouble(kp.split(":", 2)[1], 0); }
 				if (nm.isEmpty()) continue;
 				totalEval += bv;
 				sb.append("<tr><td style='border:1px solid #000;padding:2px 8px'>").append(rpsHe(nm)).append("</td>");
@@ -2091,7 +2092,10 @@ public class RpsObeAction extends GenericAutowireComposer {
 
 	private static double rpsAsDouble(Object o, double def) {
 		if (o == null) return def;
-		try { return Double.parseDouble(o.toString().trim().replace("%", "").replace(",", ".")); }
+		String value = o.toString().trim().replace("%", "").replace("\"", "").replace("'", "").replace(",", ".");
+		if (value.length() == 0 || "null".equalsIgnoreCase(value) || "undefined".equalsIgnoreCase(value)
+				|| "-".equals(value)) return def;
+		try { return Double.parseDouble(value); }
 		catch (Exception e) { return def; }
 	}
 
@@ -6371,10 +6375,16 @@ public class RpsObeAction extends GenericAutowireComposer {
 		Session session = null;
 		try {
 			session = HibernateUtil.openSession();
-			for (final String idStr : idsFromMk.split("[,|;]")) {
+			for (final String rawIdStr : idsFromMk.split("[,;]")) {
 				try {
-					if (!idStr.trim().isEmpty()) {
-						final Object entity = ConstantValues.ambil(clazz.getName(), Long.parseLong(idStr.trim()));
+					String idStr = rawIdStr == null ? "" : rawIdStr.trim();
+					if (idStr.indexOf("|") >= 0) {
+						idStr = idStr.substring(0, idStr.indexOf("|")).trim();
+					}
+					if (!idStr.isEmpty() && !"null".equalsIgnoreCase(idStr)
+							&& !"undefined".equalsIgnoreCase(idStr) && !"-".equals(idStr)) {
+						final String idKey = idStr;
+						final Object entity = ConstantValues.ambil(clazz.getName(), Long.parseLong(idKey));
 						if (entity != null) {
 							final String namaValue = clazz == BahanKajian.class ? ((BahanKajian) entity).getNama()
 									: ((ReferensiLulusan) entity).getNama();
@@ -6385,19 +6395,19 @@ public class RpsObeAction extends GenericAutowireComposer {
 							vbox.appendChild(hboxD);
 							final Checkbox pilih = new Checkbox(namaValue);
 							hboxD.appendChild(pilih);
-							pilih.setChecked(!jsonObjectData.isNull(idStr));
+							pilih.setChecked(!jsonObjectData.isNull(idKey));
 
 							pilih.addEventListener("onClick", new EventListener() {
 								@Override
 								public void onEvent(Event arg0) throws Exception {
 									if (pilih.isChecked()) {
-										JSONObject itemObj = jsonObjectData.isNull(idStr) ? new JSONObject()
-												: jsonObjectData.getJSONObject(idStr);
+										JSONObject itemObj = jsonObjectData.isNull(idKey) ? new JSONObject()
+												: jsonObjectData.getJSONObject(idKey);
 										itemObj.put("id", idValue);
 										itemObj.put("nama", namaValue);
-										jsonObjectData.put(idStr, itemObj);
+										jsonObjectData.put(idKey, itemObj);
 									} else {
-										jsonObjectData.remove(idStr);
+										jsonObjectData.remove(idKey);
 									}
 									mainJsonObject.put(mainJsonKey, jsonObjectData);
 								}

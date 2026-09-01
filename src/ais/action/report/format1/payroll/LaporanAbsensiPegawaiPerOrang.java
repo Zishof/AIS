@@ -974,6 +974,20 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 					0);
 			final Date sekarang = WaktuUtil.getDate();
 
+			// Entity Pegawai dan seluruh proxy relasinya terikat pada session laporan di
+			// thread ini. Materialisasikan property map sebelum pekerjaan diparalelkan;
+			// Hibernate Session tidak thread-safe dan tidak boleh dipakai worker bersama.
+			final Map<Long, Map> propertiPegawai = new HashMap<Long, Map>();
+			for (Pegawai pegawai : pegawais) {
+				if (pegawai == null || !pegawaiMasukPresensi(pegawai)) {
+					continue;
+				}
+				Map mapPegawai = new HashMap();
+				Common.insertProperty(Pegawai.class, pegawai, mapPegawai, "");
+				mapPegawai.put("id", pegawai.getId());
+				propertiPegawai.put(pegawai.getId(), mapPegawai);
+			}
+
 			// 5. PROSES PARALEL MENGGUNAKAN HELPER (MAX 100 THREADS)
 			ParallelTaskExecutor.process(pegawais, ParallelTaskExecutor.getDefaultReportMaxThreads(), new ParallelTaskExecutor.Task<Pegawai>() { 
 				@Override 
@@ -983,9 +997,10 @@ public class LaporanAbsensiPegawaiPerOrang extends MyWindow {
 						return;
 					}
 
-					Map map = new java.util.HashMap();
+					Map dataDasarPegawai = propertiPegawai.get(pegawai.getId());
+					Map map = dataDasarPegawai == null ? new java.util.HashMap()
+							: new java.util.HashMap(dataDasarPegawai);
 					Map parameterPegawai = new java.util.HashMap();
-					Common.insertProperty(Pegawai.class, pegawai, map, "");
 					map.put("id", pegawai.getId());
 
 					for (Long p : pengajuans) {

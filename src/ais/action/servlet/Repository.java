@@ -16,12 +16,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
 import java.util.UUID;
-import java.util.Base64;
 import java.security.MessageDigest;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
 import javax.servlet.ServletException;
+import javax.servlet.RequestDispatcher;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -29,6 +29,7 @@ import javax.servlet.http.HttpSession;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.apache.commons.codec.binary.Base64;
 
 import ais.action.master.repository.RepositoryPublicService;
 import ais.action.master.repository.RepositoryPublicService.ItemCard;
@@ -214,7 +215,12 @@ public class Repository extends HttpServlet {
             if(publicUser!=null){boolean bookmarked=false;for(RepositoryPublicService.PreferenceView p:service.preferences(publicUser.getUserId(),"BOOKMARK",100))if(detail.id.equals(p.itemId)){bookmarked=true;break;}request.setAttribute("repoBookmarked",Boolean.valueOf(bookmarked));}
             if(!detail.withdrawn){service.recordUsage(detail.id, null, "VIEW", request.getRemoteAddr(), request.getHeader("User-Agent"), actorId(request),country(request),request.getHeader("Referer"));detail.viewCount++;}
         } else if ("search".equals(view) || "browse".equals(view)) {
-            request.setAttribute("repoSearch", service.search(queryFrom(request)));
+            Query searchQuery=queryFrom(request);
+            SearchResult searchResult=service.search(searchQuery);
+            if(searchResult==null){searchResult=new SearchResult();searchResult.query=searchQuery;}
+            if(searchResult.query==null)searchResult.query=searchQuery;
+            if(searchResult.items==null)searchResult.items=Collections.emptyList();
+            request.setAttribute("repoSearch",searchResult);
             if(publicUser!=null){request.setAttribute("repoSavedSearches",service.preferences(publicUser.getUserId(),"SAVED_SEARCH",20));request.setAttribute("repoSearchAlerts",service.preferences(publicUser.getUserId(),"SEARCH_ALERT",20));}
         } else if ("collection".equals(view)) {
             CollectionView collection=service.findCollection(routeId==null?parseLong(request.getParameter("id")):routeId);
@@ -260,7 +266,15 @@ public class Repository extends HttpServlet {
             try{request.setAttribute("repoMostDownloaded",service.mostDownloaded(clean(request.getParameter("downloadPeriod")),6));}catch(Exception e){logDegraded(e,"most-downloaded",requestId);request.setAttribute("repoMostDownloaded",Collections.emptyList());}
             if(publicUser!=null){try{request.setAttribute("repoRecommendations",service.recommendations(publicUser.getUserId(),4));}catch(Exception e){logDegraded(e,"recommendations",requestId);request.setAttribute("repoRecommendations",Collections.emptyList());}try{request.setAttribute("repoSearchAlerts",service.preferences(publicUser.getUserId(),"SEARCH_ALERT",10));}catch(Exception e){logDegraded(e,"search-alerts",requestId);request.setAttribute("repoSearchAlerts",Collections.emptyList());}}
         }
-        request.getRequestDispatcher(JSP).forward(request, response);
+        forwardRepositoryJsp(request,response);
+    }
+
+    private void forwardRepositoryJsp(HttpServletRequest request,HttpServletResponse response)
+            throws ServletException,IOException {
+        RequestDispatcher dispatcher=request.getRequestDispatcher(JSP);
+        if(dispatcher==null)dispatcher=getServletContext().getRequestDispatcher(JSP);
+        if(dispatcher==null)throw new ServletException("Template Repository tidak ditemukan: "+JSP);
+        dispatcher.forward(request,response);
     }
 
     private boolean canRetryHome(HttpServletRequest request,HttpServletResponse response){
@@ -359,7 +373,7 @@ public class Repository extends HttpServlet {
     private void verifyPublicCsrf(HttpSession session,String supplied){String expected=session==null?null:(String)session.getAttribute(CSRF);if(!constantTime(expected,supplied))throw new SecurityException("Token keamanan tidak valid atau sesi telah berakhir.");}
     private boolean constantTime(String a,String b){if(a==null||b==null)return false;int diff=a.length()^b.length(),n=Math.min(a.length(),b.length());for(int i=0;i<n;i++)diff|=a.charAt(i)^b.charAt(i);return diff==0;}
     private String safeRepositoryUrl(HttpServletRequest request,String value){String context=request.getContextPath(),v=clean(value),local=context+"/repository";if(v.equals(local)||v.startsWith(local+"/")||v.startsWith(local+"?"))return v;if(v.equals("/repository")||v.startsWith("/repository/")||v.startsWith("/repository?"))return context+v;return local;}
-    private void renderState(HttpServletRequest request,HttpServletResponse response,int status,String title,String message,String requestId)throws ServletException,IOException{response.setStatus(status);request.setAttribute("repoView","state");request.setAttribute("repoStateCode",Integer.valueOf(status));request.setAttribute("repoStateTitle",title);request.setAttribute("repoStateMessage",message);request.setAttribute("repoRequestId",requestId);request.setAttribute("repoPublicUser",Common.getCurrentUser(request));request.getRequestDispatcher(JSP).forward(request,response);}
+    private void renderState(HttpServletRequest request,HttpServletResponse response,int status,String title,String message,String requestId)throws ServletException,IOException{response.setStatus(status);request.setAttribute("repoView","state");request.setAttribute("repoStateCode",Integer.valueOf(status));request.setAttribute("repoStateTitle",title);request.setAttribute("repoStateMessage",message);request.setAttribute("repoRequestId",requestId);request.setAttribute("repoPublicUser",Common.getCurrentUser(request));forwardRepositoryJsp(request,response);}
 
     private void citation(HttpServletRequest request, HttpServletResponse response) throws Exception {
         ItemDetail item = service.findPublicCitationItem(parseLong(request.getParameter("id")));
@@ -716,7 +730,7 @@ public class Repository extends HttpServlet {
     }
 
     private String buildOaiToken(int page, Long setId, Date from, Date until, String verb) {
-        try{String payload=page+"|"+(setId==null?0L:setId.longValue())+"|"+(from==null?0L:from.getTime())+"|"+(until==null?0L:until.getTime())+"|"+("ListIdentifiers".equals(verb)?"I":"R")+"|"+System.currentTimeMillis();byte[] bytes=payload.getBytes("UTF-8");return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)+"."+Base64.getUrlEncoder().withoutPadding().encodeToString(hmac(bytes));}catch(Exception e){throw new IllegalStateException("Resumption token tidak dapat dibuat.",e);}
+        try{String payload=page+"|"+(setId==null?0L:setId.longValue())+"|"+(from==null?0L:from.getTime())+"|"+(until==null?0L:until.getTime())+"|"+("ListIdentifiers".equals(verb)?"I":"R")+"|"+System.currentTimeMillis();byte[] bytes=payload.getBytes("UTF-8");return Base64.encodeBase64URLSafeString(bytes)+"."+Base64.encodeBase64URLSafeString(hmac(bytes));}catch(Exception e){throw new IllegalStateException("Resumption token tidak dapat dibuat.",e);}
     }
 
     private Long parseOaiTokenLong(String token, String key) {
@@ -736,7 +750,7 @@ public class Repository extends HttpServlet {
         return decodeOaiToken(token)!=null;
     }
 
-    private String[] decodeOaiToken(String token){try{String value=clean(token);int dot=value.indexOf('.');if(dot<=0||dot!=value.lastIndexOf('.'))return null;byte[] payload=Base64.getUrlDecoder().decode(value.substring(0,dot)),signature=Base64.getUrlDecoder().decode(value.substring(dot+1));if(!MessageDigest.isEqual(signature,hmac(payload)))return null;String[] parts=new String(payload,"UTF-8").split("\\|",-1);if(parts.length!=6||!("I".equals(parts[4])||"R".equals(parts[4])))return null;int page=Integer.parseInt(parts[0]);Long.parseLong(parts[1]);Long.parseLong(parts[2]);Long.parseLong(parts[3]);long issued=Long.parseLong(parts[5]),maximumAge=oaiTokenMaximumAge();if(page<1||issued>System.currentTimeMillis()+60000L||System.currentTimeMillis()-issued>maximumAge)return null;return parts;}catch(Exception e){return null;}}
+    private String[] decodeOaiToken(String token){try{String value=clean(token);int dot=value.indexOf('.');if(dot<=0||dot!=value.lastIndexOf('.'))return null;byte[] payload=Base64.decodeBase64(value.substring(0,dot)),signature=Base64.decodeBase64(value.substring(dot+1));if(!MessageDigest.isEqual(signature,hmac(payload)))return null;String[] parts=new String(payload,"UTF-8").split("\\|",-1);if(parts.length!=6||!("I".equals(parts[4])||"R".equals(parts[4])))return null;int page=Integer.parseInt(parts[0]);Long.parseLong(parts[1]);Long.parseLong(parts[2]);Long.parseLong(parts[3]);long issued=Long.parseLong(parts[5]),maximumAge=oaiTokenMaximumAge();if(page<1||issued>System.currentTimeMillis()+60000L||System.currentTimeMillis()-issued>maximumAge)return null;return parts;}catch(Exception e){return null;}}
     private static byte[] hmac(byte[] payload)throws Exception{Mac mac=Mac.getInstance("HmacSHA256");mac.init(new SecretKeySpec(OAI_TOKEN_SECRET,"HmacSHA256"));return mac.doFinal(payload);}
     private static byte[] oaiTokenSecret(){try{String configured=System.getProperty("ais.repository.oaiTokenSecret","").trim();String value=configured.length()>=32?configured:UUID.randomUUID().toString()+UUID.randomUUID().toString();return value.getBytes("UTF-8");}catch(Exception e){throw new ExceptionInInitializerError(e);}}
     private static long oaiTokenMaximumAge(){try{long seconds=Long.parseLong(System.getProperty("ais.repository.oaiTokenTtlSeconds","86400"));return Math.max(300L,Math.min(seconds,604800L))*1000L;}catch(Exception e){return 86400000L;}}

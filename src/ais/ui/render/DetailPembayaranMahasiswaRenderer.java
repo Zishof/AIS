@@ -910,7 +910,8 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 			}
 		}
 
-		JadwalPembayaran jdw = jadwalPembayaran != null && jadwalPembayaran.getKhususUntukNim() != null
+		JadwalPembayaran jdw = jadwalPembayaran != null && mahasiswa != null && mahasiswa.getNim() != null
+				&& jadwalPembayaran.getKhususUntukNim() != null
 				&& jadwalPembayaran.getKhususUntukNim().contains("," + mahasiswa.getNim() + ",") ? jadwalPembayaran
 						: null;
 

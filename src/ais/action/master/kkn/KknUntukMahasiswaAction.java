@@ -220,7 +220,7 @@ public class KknUntukMahasiswaAction extends GenericAutowireComposer {
 			Session session = HibernateUtil.currentSession();
 			final MahasiswaDaftarKkn mahasiswaDaftarKkn = (MahasiswaDaftarKkn) session
 					.createCriteria(MahasiswaDaftarKkn.class).add(Restrictions.eq("mahasiswa", mahasiswa))
-					.add(Restrictions.eq("kkn", kkn)).uniqueResult();
+					.add(Restrictions.eq("kkn", kkn)).addOrder(Order.desc("id")).setMaxResults(1).uniqueResult();
 
 			Label lbl;
 			(lbl = new Label(mahasiswaDaftarKkn == null ? "TIDAK TERDAFTAR"

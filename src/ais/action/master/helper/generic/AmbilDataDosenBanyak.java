@@ -293,9 +293,11 @@ public class AmbilDataDosenBanyak extends MyWindow {
 					for (Row row : rows) {
 						try {
 							MyCheckboxConfig checkbox = (MyCheckboxConfig) row.getAttribute("checkbox");
-							if (checkbox.isChecked() && !checkbox.isDisabled()) {
+							if (checkbox != null && checkbox.isChecked() && !checkbox.isDisabled()) {
 								Dosen myDosen = (Dosen) row.getAttribute("dosen");
-								dosens.add(myDosen);
+								if (myDosen != null) {
+									dosens.add(myDosen);
+								}
 							}
 						} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/generic/AmbilDataDosenBanyak.java:265");
 							// TODO: handle exception
