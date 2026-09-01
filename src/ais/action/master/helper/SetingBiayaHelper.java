@@ -74,8 +74,9 @@ import ais.database.model.StatusMahasiswa;
  * sebelum benar-benar membuat baris baru — pencarian ketat (kunci id persis), pencarian longgar
  * (item+bayarKe, status boleh berbeda dari saat baris lama dibuat karena status mahasiswa bisa
  * berubah lewat sinkron KRS/cuti/kampus-merdeka), dan jaring pengaman terakhir (item+bayarKe+
- * semester+settingBiaya saja) — untuk mencegah baris tagihan duplikat akibat race condition (klik
- * ganda, tab ganda) atau konfigurasi admin yang tumpang tindih. Objek entity yang berasal dari
+ * semester+settingBiaya, ditambah jurusan ketika nominal diatur per prodi) — untuk mencegah baris
+ * tagihan duplikat akibat race condition (klik ganda, tab ganda) tanpa mencampur nominal antarprodi.
+ * Objek entity yang berasal dari
  * cache lintas-sesi (mis. {@code ConstantValues.simpleList}) selalu diikat ke query lewat alias+id,
  * bukan lewat objek langsung, untuk menghindari {@code TransientObjectException}. Method
  * {@link #closeSessionSafely(Session)} sengaja DIKOSONGKAN — {@code Session} yang diterima method
@@ -636,13 +637,17 @@ public class SetingBiayaHelper {
                 if (detailSettingBiaya == null || detailSettingBiaya.getId() == null) {
                     continue;
                 }
+                boolean biayaPerProdi = Boolean.TRUE.equals(settingBiaya.getTampilkanPerProdi());
                 Criteria dbCriteria1 = session.createCriteria(DetailBiaya.class)
                         .createAlias("settingBiaya", "settingBiayaAlias1")
                         .createAlias("detailSettingBiaya", "detailSettingBiayaAlias1")
                         .add(semester == null ? Restrictions.sqlRestriction(SQL_TRUE) : Restrictions.eq("semester", semester))
                         .add(Restrictions.eq("detailSettingBiayaAlias1.id", detailSettingBiaya.getId()))
                         .add(Restrictions.eq("settingBiayaAlias1.id", settingBiaya.getId()))
-                        .add(eqAtauNull("jurusan", jurusan))
+                        .add(biayaPerProdi
+                                ? (jurusan == null ? Restrictions.isNull("jurusan")
+                                        : Restrictions.eq("jurusan", jurusan))
+                                : eqAtauNull("jurusan", jurusan))
                         .add(eqAtauKosong("program", program))
                         .setMaxResults(1).addOrder(Order.desc("id"));
 
@@ -709,12 +714,22 @@ public class SetingBiayaHelper {
                 // database sbg lapis pertahanan terakhir -- lihat catatan di PesanFormalHelper
                 // terkait, silakan diskusikan dgn tim DBA).
                 if (detailBiaya == null) {
-                    DetailBiaya detailBiayaJaringPengaman = (DetailBiaya) session.createCriteria(DetailBiaya.class)
+                    Criteria jaringPengaman = session.createCriteria(DetailBiaya.class)
                             .createAlias("settingBiaya", "settingBiayaAliasJP")
                             .add(semester == null ? Restrictions.sqlRestriction(SQL_TRUE) : Restrictions.eq("semester", semester))
                             .add(Restrictions.eq("bayarKe", detailSettingBiaya.getBayarKe()))
                             .add(Restrictions.eq("itemBiaya", detailSettingBiaya.getItemBiaya()))
-                            .add(Restrictions.eq("settingBiayaAliasJP.id", settingBiaya.getId()))
+                            .add(Restrictions.eq("settingBiayaAliasJP.id", settingBiaya.getId()));
+
+                    // Nominal per prodi tidak boleh memakai DetailBiaya milik prodi lain. Tanpa
+                    // filter ini, jaring pengaman dapat mengambil baris pertama (mis. Administrasi
+                    // Negara Rp750.000) untuk mahasiswa Matematika yang semestinya Rp1.050.000.
+                    if (biayaPerProdi) {
+                        jaringPengaman.add(jurusan == null ? Restrictions.isNull("jurusan")
+                                : Restrictions.eq("jurusan", jurusan));
+                    }
+
+                    DetailBiaya detailBiayaJaringPengaman = (DetailBiaya) jaringPengaman
                             .addOrder(Order.desc("id")).setMaxResults(1).uniqueResult();
 
                     System.out.println("[TAGIHAN-DEBUG]     jaring pengaman terakhir (item+bayarKe+semester+settingBiaya saja) = "
@@ -844,7 +859,11 @@ public class SetingBiayaHelper {
                         .add(Restrictions.eq("detailSettingBiayaAlias2.id", detailSettingBiaya.getId()))
                         .add(Restrictions.eq("settingBiayaAlias2.id", settingBiayaDetail.getSettingBiaya().getId()))
                         .add(Restrictions.eq("settingBiayaDetail", settingBiayaDetail))
-                        .add(eqAtauNull("jurusan", jurusan)).setMaxResults(1).addOrder(Order.desc("id"))
+                        .add(Boolean.TRUE.equals(settingBiayaDetail.getSettingBiaya().getTampilkanPerProdi())
+                                ? (jurusan == null ? Restrictions.isNull("jurusan")
+                                        : Restrictions.eq("jurusan", jurusan))
+                                : eqAtauNull("jurusan", jurusan))
+                        .setMaxResults(1).addOrder(Order.desc("id"))
                         .uniqueResult();
 
                 if (detailBiaya == null) {
@@ -877,6 +896,7 @@ public class SetingBiayaHelper {
                     saveOrUpdateEntity(session, detailBiaya, false);
                 }
                 detailBiaya.setSettingBiaya(settingBiayaDetail.getSettingBiaya());
+                detailBiaya.setJurusan(jurusan);
                 detailBiaya.setDetailSettingBiaya(detailSettingBiaya);
                 detailBiaya.setSettingBiayaDetail(settingBiayaDetail);
                 detailBiaya.setDefaultTanggalTagihan(detailSettingBiaya.getDefaultTanggalTagihan());
@@ -938,7 +958,10 @@ public class SetingBiayaHelper {
                         .add(Restrictions.eq("bayarKe", detailSettingBiaya.getBayarKe()))
                         .add(Restrictions.eq("detailSettingBiayaAlias3.id", detailSettingBiaya.getId()))
                         .add(Restrictions.eq("settingBiayaAlias3.id", settingBiayaDetail.getSettingBiaya().getId()))
-                        .add(eqAtauNull("jurusan", jurusan))
+                        .add(Boolean.TRUE.equals(settingBiayaDetail.getSettingBiaya().getTampilkanPerProdi())
+                                ? (jurusan == null ? Restrictions.isNull("jurusan")
+                                        : Restrictions.eq("jurusan", jurusan))
+                                : eqAtauNull("jurusan", jurusan))
                         .add(Restrictions.eq("settingBiayaDetail", settingBiayaDetail))
                         .setMaxResults(1).addOrder(Order.desc("id")).uniqueResult();
 
