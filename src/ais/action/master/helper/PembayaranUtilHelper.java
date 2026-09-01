@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.TreeSet;
 
 import org.hibernate.Criteria;
+import org.hibernate.CriteriaSpecification;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.hibernate.criterion.MatchMode;
@@ -20,6 +21,7 @@ import org.hibernate.criterion.Restrictions;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import ais.action.master.SetingBiayaAction;
 import ais.action.ws.util.CommonUtil;
 import ais.action.ws.util.ConstantUtil;
 import ais.common.Common;
@@ -48,6 +50,7 @@ import ais.database.model.Paket;
 import ais.database.model.PendaftaranCutiMahasiswa;
 import ais.database.model.PengaturanPembayaranBulanan;
 import ais.database.model.Perkuliahan;
+import ais.database.model.SettingBiaya;
 import ais.database.model.StatusAwalMahasiswa;
 import ais.database.model.StatusMahasiswa;
 
@@ -106,6 +109,18 @@ public class PembayaranUtilHelper {
 
 	private static final String SQL_TRUE = "1=1";
 	private static final String SQL_FALSE = "1=0";
+
+	private static Criteria batasiKeSettingBiayaTerpilih(Criteria criteria, SettingBiaya settingBiaya) {
+		if (criteria == null || settingBiaya == null) {
+			return criteria;
+		}
+		criteria.createAlias("detailSettingBiaya", "settingPrioritasRincian", CriteriaSpecification.LEFT_JOIN);
+		criteria.createAlias("settingBiayaDetail", "settingPrioritasIndividual", CriteriaSpecification.LEFT_JOIN);
+		criteria.add(Restrictions.or(Restrictions.eq("settingBiaya", settingBiaya),
+				Restrictions.or(Restrictions.eq("settingPrioritasRincian.settingBiaya", settingBiaya),
+						Restrictions.eq("settingPrioritasIndividual.settingBiaya", settingBiaya))));
+		return criteria;
+	}
 
 	/**
 	 * Mengecek apakah {@link Jenjang} mahasiswa/calon mahasiswa termasuk daftar id jenjang yang
@@ -661,6 +676,10 @@ public class PembayaranUtilHelper {
 			if (detailSettingBiayas == null) {
 				return PengecualianTagihanList.kosong();
 			}
+			SettingBiaya settingBiayaTerpilih = SetingBiayaAction.getSettingBiayaTerpilih(session, angkatan,
+					jenjang, semester, jenisKegiatan, statusAwalMahasiswa, statusMahasiswa,
+					mahasiswa.getJenisSeleksi(), mahasiswa.getGelombangPendaftaran(), paket, jurusan, program,
+					kelamin, afiliasiCalonMahasiswa, ta, mahasiswa.getNim(), false);
 
 			if (JenisKegiatan.DEBUG_MODE_ANGSURAN) {
 				System.out.println("[DEBUG-ANGSURAN][getDetailBiaya] getItemBiaya size="
@@ -740,6 +759,7 @@ public class PembayaranUtilHelper {
 				}
 			}
 
+			criteria = batasiKeSettingBiayaTerpilih(criteria, settingBiayaTerpilih);
 			filterCriteriaDenganNilaiTambahan(criteria, session, mahasiswa, null);
 
 			if (kelasStr != null) {
@@ -783,7 +803,8 @@ public class PembayaranUtilHelper {
 
 			List<DetailBiaya> biayaDefaultBiaya = SetingBiayaHelper.getDetailBiayaBukanDefaultBiaya(session, angkatan,
 					jenjang, semester, jenisKegiatan, statusAwalMahasiswa, statusMahasiswa, mahasiswa.getJenisSeleksi(),
-					mahasiswa.getGelombangPendaftaran(), paket, jurusan, program, kelamin, afiliasiCalonMahasiswa, ta);
+					mahasiswa.getGelombangPendaftaran(), paket, jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
+					mahasiswa.getNim());
 
 			if (biayaDefaultBiaya != null && !biayaDefaultBiaya.isEmpty()) {
 				for (DetailBiaya detailBiayaDefault : biayaDefaultBiaya) {
@@ -1112,6 +1133,11 @@ public class PembayaranUtilHelper {
 			if (detailSettingBiayas == null) {
 				return PengecualianTagihanList.kosong();
 			}
+			SettingBiaya settingBiayaTerpilih = SetingBiayaAction.getSettingBiayaTerpilih(session, angkatan,
+					jenjang, semester, jenisKegiatan, biodataCalonMahasiswa.getStatusAwalMahasiswa(),
+					ConstantValues.AKTIF, jenisSeleksi, biodataCalonMahasiswa.getGelombangPendaftaran(),
+					biodataCalonMahasiswa.getPaket(), jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
+					biodataCalonMahasiswa.getNim(), false);
 
 			// Cek apakah jenjang calon mhs ini masuk mode angsuran — terpusat via
 			// modeAngsuranUntukJenjang(jenjang, semester, angkatan) sehingga aturan
@@ -1137,6 +1163,7 @@ public class PembayaranUtilHelper {
 					: session.createCriteria(DetailBiaya.class)
 							.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
 			
+			criteria = batasiKeSettingBiayaTerpilih(criteria, settingBiayaTerpilih);
 			filterCriteriaDenganNilaiTambahan(criteria, session, null, biodataCalonMahasiswa);
 
 			criteria = criteria
@@ -1177,7 +1204,7 @@ public class PembayaranUtilHelper {
 						jenjang, semester, jenisKegiatan, biodataCalonMahasiswa.getStatusAwalMahasiswa(),
 						ConstantValues.AKTIF, jenisSeleksi,
 						biodataCalonMahasiswa.getGelombangPendaftaran(), biodataCalonMahasiswa.getPaket(), jurusan, program,
-						kelamin, afiliasiCalonMahasiswa, ta);
+						kelamin, afiliasiCalonMahasiswa, ta, biodataCalonMahasiswa.getNim());
 				if (biayaDefaultBiaya != null && !biayaDefaultBiaya.isEmpty()) {
 					for (DetailBiaya detailBiayaDefault : biayaDefaultBiaya) {
 						detailBiaya.add(detailBiayaDefault);

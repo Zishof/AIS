@@ -1,6 +1,8 @@
 package ais.action.master.helper;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -37,9 +39,10 @@ public final class SettingBiayaMahasiswaSelector {
 				umum.add(setting);
 			}
 		}
-		// Untuk mahasiswa terpilih, setting khusus harus menang dari setting cohort umum.
-		terbatas.addAll(umum);
-		return terbatas;
+		// Begitu ada setting yang memang membatasi mahasiswa dan NIM ini terdaftar,
+		// jangan masukkan setting cohort umum lagi. Mencampur keduanya membuat angka
+		// prioritas setting umum dapat mengambil alih tagihan khusus mahasiswa.
+		return terbatas.isEmpty() ? umum : terbatas;
 	}
 
 	/**
@@ -66,6 +69,18 @@ public final class SettingBiayaMahasiswaSelector {
 					satuPrioritas.add(setting);
 				}
 			}
+			// GeneralValueObject mempertahankan kandidat pertama bila skor spesifikasinya
+			// sama. Urutkan eksplisit agar hasil stabil: setting TA terbaru, lalu ID terbaru.
+			Collections.sort(satuPrioritas, new Comparator<SettingBiaya>() {
+				@Override
+				public int compare(SettingBiaya kiri, SettingBiaya kanan) {
+					int bandingTa = bandingTurun(kiri == null ? null : kiri.getTa(),
+							kanan == null ? null : kanan.getTa());
+					return bandingTa != 0 ? bandingTa
+							: bandingTurun(kiri == null ? null : kiri.getId(),
+									kanan == null ? null : kanan.getId());
+				}
+			});
 			SettingBiaya terpilih = (SettingBiaya) GeneralValueObject.ambilSatuData(SettingBiaya.class,
 					satuPrioritas, properties, datas);
 			if (terpilih != null) {
@@ -73,6 +88,19 @@ public final class SettingBiayaMahasiswaSelector {
 			}
 		}
 		return null;
+	}
+
+	private static int bandingTurun(Comparable kiri, Comparable kanan) {
+		if (kiri == kanan) {
+			return 0;
+		}
+		if (kiri == null) {
+			return 1;
+		}
+		if (kanan == null) {
+			return -1;
+		}
+		return kanan.compareTo(kiri);
 	}
 
 	private static boolean terdaftar(Session session, SettingBiaya setting, String nim) {

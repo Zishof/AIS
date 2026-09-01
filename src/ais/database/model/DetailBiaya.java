@@ -727,6 +727,32 @@ public class DetailBiaya extends GeneralValueObject {
 		this.settingBiaya = settingBiaya;
 	}
 
+	/**
+	 * Mengembalikan induk setting biaya secara kanonis. Data baru menyimpan ketiga
+	 * jalur relasi dengan induk yang sama; urutan ini juga menjaga kompatibilitas
+	 * data lama yang belum mempunyai FK {@code detail_biaya.setting_biaya}.
+	 */
+	@Transient
+	public SettingBiaya getSettingBiayaEfektif() {
+		try {
+			SettingBiayaDetail individual = getSettingBiayaDetail();
+			if (individual != null && individual.getSettingBiaya() != null) {
+				return individual.getSettingBiaya();
+			}
+		} catch (Exception ignored) {
+			// Proxy lama dapat terputus; lanjutkan ke jalur template/rincian langsung.
+		}
+		try {
+			DetailSettingBiaya rincian = getDetailSettingBiaya();
+			if (rincian != null && rincian.getSettingBiaya() != null) {
+				return rincian.getSettingBiaya();
+			}
+		} catch (Exception ignored) {
+			// Lanjutkan ke FK langsung.
+		}
+		return getSettingBiaya();
+	}
+
 	public Double checkDenda(Double nominalModifikasi, Date tanggalBayar, JadwalPembayaran jadwalPembayaran,
 			JenisKegiatan old, PengaturanPembayaranBulanan pengaturanPembayaranBulanan) {
 

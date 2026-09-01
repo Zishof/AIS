@@ -145,6 +145,12 @@ public class PengaturanPembayaranBulanan extends GeneralValueObject {
 		this.detailBiaya = detailBiaya;
 	}
 
+	/** Induk setting biaya tagihan bulanan melalui relasi kanonis DetailBiaya. */
+	@Transient
+	public SettingBiaya getSettingBiayaEfektif() {
+		return getDetailBiaya() == null ? null : getDetailBiaya().getSettingBiayaEfektif();
+	}
+
 	public Double hitungPersentase() {
 
 		if (getDetailBiaya() != null && nominal != null) {

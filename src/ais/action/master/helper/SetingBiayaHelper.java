@@ -1023,6 +1023,16 @@ public class SetingBiayaHelper {
             StatusMahasiswa statusMahasiswa, JenisSeleksi jenisSeleksi, GelombangPendaftaran gelombangPendaftaran,
             Paket paket, Jurusan jurusan, String program, String kelamin, AfiliasiCalonMahasiswa afiliasiCalonMahasiswa,
             Integer ta) {
+		return getDetailBiayaBukanDefaultBiaya(session, angkatan, jenjang, semester, jenisKegiatan,
+				statusAwalMahasiswa, statusMahasiswa, jenisSeleksi, gelombangPendaftaran, paket, jurusan, program,
+				kelamin, afiliasiCalonMahasiswa, ta, null);
+	}
+
+	public static List<DetailBiaya> getDetailBiayaBukanDefaultBiaya(Session session, Integer angkatan,
+			Jenjang jenjang, Integer semester, JenisKegiatan jenisKegiatan,
+			StatusAwalMahasiswa statusAwalMahasiswa, StatusMahasiswa statusMahasiswa, JenisSeleksi jenisSeleksi,
+			GelombangPendaftaran gelombangPendaftaran, Paket paket, Jurusan jurusan, String program,
+			String kelamin, AfiliasiCalonMahasiswa afiliasiCalonMahasiswa, Integer ta, String nimMahasiswa) {
 
         try {
             Criteria criteria = createSettingBiayaCriteria(session, ta, jenisKegiatan, semester, false, false)
@@ -1033,7 +1043,8 @@ public class SetingBiayaHelper {
                     .addOrder(Order.asc("jurusan")).addOrder(Order.asc("program"));
 
             List<SettingBiaya> settingBiayas = ConstantValues.simpleList(criteria, SettingBiaya.class);
-			settingBiayas = SettingBiayaMahasiswaSelector.saringDanPrioritaskan(session, settingBiayas, null);
+			settingBiayas = SettingBiayaMahasiswaSelector.saringDanPrioritaskan(session, settingBiayas,
+					nimMahasiswa);
 
             String[] properties = new String[] { "statusMahasiswa", "kelamin", "afiliasiCalonMahasiswa", "program",
                     "angkatan", "jenjang", "statusAwalMahasiswa", "jenisSeleksi", "gelombangPendaftaran", "paket", "jurusan" };
@@ -1046,6 +1057,9 @@ public class SetingBiayaHelper {
             if (settingBiaya == null) {
                 return new ArrayList<DetailBiaya>();
             }
+			if (settingBiaya.isMahasiswaDikecualikan(nimMahasiswa)) {
+				return PengecualianTagihanList.kosong();
+			}
 
             Criteria dsbCriteria = session.createCriteria(DetailSettingBiaya.class).createAlias("itemBiaya", "itemBiaya");
             applyItemBiayaFilters(dsbCriteria, semester, true);
@@ -1063,26 +1077,6 @@ public class SetingBiayaHelper {
                         .add(semester == null ? Restrictions.sqlRestriction(SQL_TRUE) : Restrictions.eq("semester", semester))
                         .add(eqAtauNull("jurusan", jurusan))
                         .addOrder(Order.desc("id")).setMaxResults(1).uniqueResult();
-
-                if (detailBiaya == null) {
-                    detailBiaya = (DetailBiaya) session.createCriteria(DetailBiaya.class)
-                            .add(Restrictions.eq("bayarKe", detailSettingBiaya.getBayarKe()))
-                            .add(Restrictions.eq("itemBiaya", detailSettingBiaya.getItemBiaya()))
-                            .add(angkatan == null ? Restrictions.isNull("angkatan") : Restrictions.eq("angkatan", angkatan))
-                            .add(jenjang == null ? Restrictions.isNull("jenjang") : Restrictions.eq("jenjang", jenjang))
-                            .add(semester == null ? Restrictions.sqlRestriction(SQL_TRUE) : Restrictions.eq("semester", semester))
-                            .add(gelombangPendaftaran == null ? Restrictions.isNull("gelombangPendaftaran") : Restrictions.eq("gelombangPendaftaran", gelombangPendaftaran))
-                            .add(jurusan == null ? Restrictions.isNull("jurusan") : Restrictions.eq("jurusan", jurusan))
-                            .add(paket == null ? Restrictions.isNull("paket") : Restrictions.eq("paket", paket))
-                            .add(jenisKegiatan == null ? Restrictions.isNull("jenisKegiatan") : Restrictions.eq("jenisKegiatan", jenisKegiatan))
-                            .add(jenisSeleksi == null ? Restrictions.isNull("jenisSeleksi") : Restrictions.eq("jenisSeleksi", jenisSeleksi))
-                            .add(statusAwalMahasiswa == null ? Restrictions.isNull("statusAwalMahasiswa") : Restrictions.eq("statusAwalMahasiswa", statusAwalMahasiswa))
-                            .add(afiliasiCalonMahasiswa == null ? Restrictions.isNull("afiliasiCalonMahasiswa") : Restrictions.eq("afiliasiCalonMahasiswa", afiliasiCalonMahasiswa))
-                            .add(statusMahasiswa == null ? Restrictions.isNull("statusMahasiswa") : Restrictions.eq("statusMahasiswa", statusMahasiswa))
-                            .add(program == null || program.isEmpty() ? Restrictions.or(Restrictions.eq("program", ""), Restrictions.isNull("program")) : Restrictions.eq("program", program))
-                            .add(kelamin == null || kelamin.isEmpty() ? Restrictions.or(Restrictions.eq("kelamin", ""), Restrictions.isNull("kelamin")) : Restrictions.eq("kelamin", kelamin))
-                            .addOrder(Order.desc("id")).setMaxResults(1).uniqueResult();
-                }
 
                 if (detailBiaya == null) {
                     detailBiaya = new DetailBiaya();

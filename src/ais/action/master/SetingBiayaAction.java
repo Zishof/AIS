@@ -2100,6 +2100,42 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 								? Restrictions.sqlRestriction("1=1") : Restrictions.sqlRestriction("1=0"))));
 	}
 
+	/**
+	 * Satu pintu pemilihan induk SettingBiaya. Seluruh jalur item, detail reguler,
+	 * detail default, dan pembayaran bulanan wajib memakai hasil yang sama agar
+	 * setting prioritas rendah tidak tercampur kembali hanya karena ItemBiayanya sama.
+	 */
+	public static SettingBiaya getSettingBiayaTerpilih(Session session, Integer angkatan, Jenjang jenjang,
+			Integer semester, JenisKegiatan jenisKegiatan, StatusAwalMahasiswa statusAwalMahasiswa,
+			StatusMahasiswa statusMahasiswa, JenisSeleksi jenisSeleksi,
+			GelombangPendaftaran gelombangPendaftaran, Paket paket, Jurusan jurusan, String program,
+			String kelamin, AfiliasiCalonMahasiswa afiliasiCalonMahasiswa, Integer ta,
+			String nimMahasiswa, boolean gunakanBiayaDefault) {
+		Criteria criteria = session.createCriteria(SettingBiaya.class)
+				.add(Restrictions.le("ta", ta))
+				.add(Restrictions.or(Restrictions.isNull("khususBuatMahasiswaTertentu"),
+						Restrictions.eq("khususBuatMahasiswaTertentu", false)))
+				.add(Restrictions.eq("jenisKegiatan", jenisKegiatan))
+				.add(kriteriaSemesterIkutSetting(jenisKegiatan, semester));
+		if (gunakanBiayaDefault) {
+			criteria.add(Restrictions.eq("gunakanBiayaDefault", true));
+		} else {
+			criteria.add(Restrictions.or(Restrictions.isNull("gunakanBiayaDefault"),
+					Restrictions.eq("gunakanBiayaDefault", false)));
+		}
+		criteria.addOrder(Order.desc("ta")).addOrder(Order.desc("id"));
+
+		List<SettingBiaya> kandidat = ConstantValues.simpleList(criteria, SettingBiaya.class);
+		kandidat = SettingBiayaMahasiswaSelector.saringDanPrioritaskan(session, kandidat, nimMahasiswa);
+
+		String[] properties = new String[] { "statusMahasiswa", "kelamin", "afiliasiCalonMahasiswa", "program",
+				"angkatan", "jenjang", "statusAwalMahasiswa", "jenisSeleksi", "gelombangPendaftaran", "paket",
+				"jurusan" };
+		Object[] datas = new Object[] { statusMahasiswa, kelamin, afiliasiCalonMahasiswa, program, angkatan, jenjang,
+				statusAwalMahasiswa, jenisSeleksi, gelombangPendaftaran, paket, jurusan };
+		return SettingBiayaMahasiswaSelector.pilihSatuDenganPrioritas(kandidat, properties, datas);
+	}
+
 	/** Seperti {@link #getItemBiaya(Session, Integer, Jenjang, Integer, JenisKegiatan, StatusAwalMahasiswa, StatusMahasiswa, JenisSeleksi, GelombangPendaftaran, Paket, Jurusan, String, String, AfiliasiCalonMahasiswa, Integer, String)}, tanpa NIM mahasiswa spesifik (tidak menerapkan penyaringan/prioritas per-mahasiswa individual). */
 	public static List<ItemBiaya> getItemBiaya(Session session, Integer angkatan, Jenjang jenjang, Integer semester,
 			JenisKegiatan jenisKegiatan, StatusAwalMahasiswa statusAwalMahasiswa, StatusMahasiswa statusMahasiswa,
@@ -2145,36 +2181,11 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 			String program, String kelamin, AfiliasiCalonMahasiswa afiliasiCalonMahasiswa, Integer ta,
 			String nimMahasiswa) {
 
-		List<SettingBiaya> settingBiayas = ConstantValues.simpleList(session.createCriteria(SettingBiaya.class)
+		SettingBiaya settingBiaya = getSettingBiayaTerpilih(session, angkatan, jenjang, semester, jenisKegiatan,
+				statusAwalMahasiswa, statusMahasiswa, jenisSeleksi, gelombangPendaftaran, paket, jurusan, program,
+				kelamin, afiliasiCalonMahasiswa, ta, nimMahasiswa, false);
 
-				.add(Restrictions.le("ta", ta))
-
-				.add(Restrictions.or(Restrictions.isNull("khususBuatMahasiswaTertentu"),
-						Restrictions.eq("khususBuatMahasiswaTertentu", false)))
-				.add(Restrictions.eq("jenisKegiatan", jenisKegiatan))
-				.add(kriteriaSemesterIkutSetting(jenisKegiatan, semester))
-				.add(Restrictions.or(Restrictions.isNull("gunakanBiayaDefault"),
-						Restrictions.eq("gunakanBiayaDefault", false)))
-				.addOrder(Order.desc("ta")).addOrder(Order.asc("statusMahasiswa")).addOrder(Order.asc("kelamin"))
-				.addOrder(Order.asc("paket")).addOrder(Order.asc("gelombangPendaftaran")).addOrder(Order.asc("jenjang"))
-				.addOrder(Order.asc("angkatan")).addOrder(Order.asc("jenisKegiatan"))
-				.addOrder(Order.asc("statusAwalMahasiswa")).addOrder(Order.asc("jenisSeleksi"))
-				.addOrder(Order.asc("jurusan")).addOrder(Order.asc("program")), SettingBiaya.class);
-		settingBiayas = ais.action.master.helper.SettingBiayaMahasiswaSelector.saringDanPrioritaskan(session,
-				settingBiayas, nimMahasiswa);
-
-		String[] properties = new String[] { "statusMahasiswa", "kelamin", "afiliasiCalonMahasiswa", "program",
-				"angkatan", "jenjang", "statusAwalMahasiswa", "jenisSeleksi", "gelombangPendaftaran", "paket",
-				"jurusan" };
-
-		Object[] datas = new Object[] { statusMahasiswa, kelamin, afiliasiCalonMahasiswa, program, angkatan, jenjang,
-				statusAwalMahasiswa, jenisSeleksi, gelombangPendaftaran, paket, jurusan };
-
-		SettingBiaya settingBiaya = SettingBiayaMahasiswaSelector.pilihSatuDenganPrioritas(settingBiayas,
-				properties, datas);
-
-		System.out.println(
-				"getDetailBiayaDefault final settingBiaya -> " + settingBiaya + " dari " + settingBiayas.size());
+		System.out.println("getItemBiaya final settingBiaya -> " + settingBiaya);
 		if (settingBiaya == null) {
 			return new ArrayList<ItemBiaya>();
 		}
@@ -2308,29 +2319,9 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 			Paket paket, Jurusan jurusan, String program, String kelamin, AfiliasiCalonMahasiswa afiliasiCalonMahasiswa,
 			Integer ta, String nimMahasiswa) {
 
-		List<SettingBiaya> settingBiayas = ConstantValues.simpleList(session.createCriteria(SettingBiaya.class)
-				.add(Restrictions.le("ta", ta))
-				.add(Restrictions.or(Restrictions.isNull("khususBuatMahasiswaTertentu"),
-						Restrictions.eq("khususBuatMahasiswaTertentu", false)))
-				.add(Restrictions.eq("jenisKegiatan", jenisKegiatan))
-				.add(kriteriaSemesterIkutSetting(jenisKegiatan, semester))
-				.add(Restrictions.eq("gunakanBiayaDefault", true)).addOrder(Order.desc("ta"))
-				.addOrder(Order.asc("jenisSeleksi")).addOrder(Order.asc("statusMahasiswa"))
-				.addOrder(Order.asc("kelamin")).addOrder(Order.asc("program")).addOrder(Order.asc("paket"))
-				.addOrder(Order.asc("gelombangPendaftaran")).addOrder(Order.asc("jenjang"))
-				.addOrder(Order.asc("angkatan")).addOrder(Order.asc("jenisKegiatan"))
-				.addOrder(Order.asc("statusAwalMahasiswa")).addOrder(Order.asc("jurusan")), SettingBiaya.class);
-		settingBiayas = ais.action.master.helper.SettingBiayaMahasiswaSelector.saringDanPrioritaskan(session,
-				settingBiayas, nimMahasiswa);
-
-		String[] properties = new String[] { "jenisSeleksi", "statusMahasiswa", "kelamin", "afiliasiCalonMahasiswa",
-				"program", "angkatan", "jenjang", "statusAwalMahasiswa", "gelombangPendaftaran", "paket", "jurusan" };
-
-		Object[] datas = new Object[] { jenisSeleksi, statusMahasiswa, kelamin, afiliasiCalonMahasiswa, program,
-				angkatan, jenjang, statusAwalMahasiswa, gelombangPendaftaran, paket, jurusan };
-
-		SettingBiaya settingBiaya = SettingBiayaMahasiswaSelector.pilihSatuDenganPrioritas(settingBiayas,
-				properties, datas);
+		SettingBiaya settingBiaya = getSettingBiayaTerpilih(session, angkatan, jenjang, semester, jenisKegiatan,
+				statusAwalMahasiswa, statusMahasiswa, jenisSeleksi, gelombangPendaftaran, paket, jurusan, program,
+				kelamin, afiliasiCalonMahasiswa, ta, nimMahasiswa, true);
 
 //		System.out.println(
 //				"getDetailBiayaDefault final settingBiaya -> " + settingBiaya + " dari " + settingBiayas.size());
@@ -2428,46 +2419,6 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 					.uniqueResult();
 
 			System.out.println("size detailSettingBiaya -> " + detailSettingBiaya + " | " + detailBiaya);
-
-			if (detailBiaya == null) {
-				detailBiaya = (DetailBiaya) session.createCriteria(DetailBiaya.class)
-						.add(semester == null ? Restrictions.sqlRestriction("true")
-								: Restrictions.eq("semester", semester))
-						.add(Restrictions.eq("bayarKe", detailSettingBiaya.getBayarKe()))
-						.add(Restrictions.eq("itemBiaya", detailSettingBiaya.getItemBiaya()))
-
-						.add(statusAwalMahasiswa == null ? Restrictions.isNull("statusAwalMahasiswa")
-								: Restrictions.eq("statusAwalMahasiswa", statusAwalMahasiswa))
-
-						.add(statusMahasiswa == null ? Restrictions.isNull("statusMahasiswa")
-								: Restrictions.eq("statusMahasiswa", statusMahasiswa))
-
-						.add(Restrictions.or(Restrictions.isNull("program"), Restrictions.eq("program", program)))
-
-						.add(Restrictions.or(Restrictions.isNull("kelamin"), Restrictions.eq("kelamin", kelamin)))
-
-						.add(Restrictions.or(Restrictions.isNull("jenisSeleksi"),
-								Restrictions.eq("jenisSeleksi", jenisSeleksi)))
-
-						.add(angkatan == null ? Restrictions.isNull("angkatan") : Restrictions.eq("angkatan", angkatan))
-						.add(jenjang == null ? Restrictions.isNull("jenjang") : Restrictions.eq("jenjang", jenjang))
-						.add(jenisKegiatan == null ? Restrictions.isNull("jenisKegiatan")
-								: Restrictions.eq("jenisKegiatan", jenisKegiatan))
-
-						.add(jurusan == null ? Restrictions.isNull("jurusan") : Restrictions.eq("jurusan", jurusan))
-
-						.add(afiliasiCalonMahasiswa == null ? Restrictions.isNull("afiliasiCalonMahasiswa")
-								: Restrictions.eq("afiliasiCalonMahasiswa", afiliasiCalonMahasiswa))
-
-						.add(Restrictions.or(Restrictions.isNull("gelombangPendaftaran"),
-								Restrictions.eq("gelombangPendaftaran", gelombangPendaftaran)))
-
-						.add(Restrictions.or(Restrictions.isNull("paket"), Restrictions.eq("paket", paket)))
-
-						.addOrder(Order.desc("id"))
-
-						.setMaxResults(1).uniqueResult();
-			}
 
 			if (detailBiaya == null) {
 				detailBiaya = new DetailBiaya();
@@ -2749,36 +2700,27 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 			StatusMahasiswa statusMahasiswa, JenisSeleksi jenisSeleksi, GelombangPendaftaran gelombangPendaftaran,
 			Paket paket, Jurusan jurusan, String program, String kelamin, AfiliasiCalonMahasiswa afiliasiCalonMahasiswa,
 			Integer ta) {
+		return getDetailBiayaBukanDefaultBiaya(session, angkatan, jenjang, semester, jenisKegiatan,
+				statusAwalMahasiswa, statusMahasiswa, jenisSeleksi, gelombangPendaftaran, paket, jurusan, program,
+				kelamin, afiliasiCalonMahasiswa, ta, null);
+	}
 
-		List<SettingBiaya> settingBiayas = ConstantValues.simpleList(session.createCriteria(SettingBiaya.class)
-				.add(Restrictions.le("ta", ta))
-				.add(Restrictions.or(Restrictions.isNull("khususBuatMahasiswaTertentu"),
-						Restrictions.eq("khususBuatMahasiswaTertentu", false)))
-				.add(Restrictions.eq("jenisKegiatan", jenisKegiatan))
-				.add(kriteriaSemesterIkutSetting(jenisKegiatan, semester))
-				.add(Restrictions.or(Restrictions.isNull("gunakanBiayaDefault"),
-						Restrictions.eq("gunakanBiayaDefault", false)))
-				.addOrder(Order.desc("ta")).addOrder(Order.asc("statusMahasiswa")).addOrder(Order.asc("kelamin"))
-				.addOrder(Order.asc("paket")).addOrder(Order.asc("gelombangPendaftaran")).addOrder(Order.asc("jenjang"))
-				.addOrder(Order.asc("angkatan")).addOrder(Order.asc("jenisKegiatan"))
-				.addOrder(Order.asc("statusAwalMahasiswa")).addOrder(Order.asc("jenisSeleksi"))
-				.addOrder(Order.asc("jurusan")).addOrder(Order.asc("program")), SettingBiaya.class);
-		settingBiayas = ais.action.master.helper.SettingBiayaMahasiswaSelector.saringDanPrioritaskan(session,
-				settingBiayas, null);
+	public static List<DetailBiaya> getDetailBiayaBukanDefaultBiaya(Session session, Integer angkatan, Jenjang jenjang,
+			Integer semester, JenisKegiatan jenisKegiatan, StatusAwalMahasiswa statusAwalMahasiswa,
+			StatusMahasiswa statusMahasiswa, JenisSeleksi jenisSeleksi, GelombangPendaftaran gelombangPendaftaran,
+			Paket paket, Jurusan jurusan, String program, String kelamin, AfiliasiCalonMahasiswa afiliasiCalonMahasiswa,
+			Integer ta, String nimMahasiswa) {
 
-		String[] properties = new String[] { "statusMahasiswa", "kelamin", "afiliasiCalonMahasiswa", "program",
-				"angkatan", "jenjang", "statusAwalMahasiswa", "jenisSeleksi", "gelombangPendaftaran", "paket",
-				"jurusan" };
-
-		Object[] datas = new Object[] { statusMahasiswa, kelamin, afiliasiCalonMahasiswa, program, angkatan, jenjang,
-				statusAwalMahasiswa, jenisSeleksi, gelombangPendaftaran, paket, jurusan };
-
-		SettingBiaya settingBiaya = SettingBiayaMahasiswaSelector.pilihSatuDenganPrioritas(settingBiayas,
-				properties, datas);
+		SettingBiaya settingBiaya = getSettingBiayaTerpilih(session, angkatan, jenjang, semester, jenisKegiatan,
+				statusAwalMahasiswa, statusMahasiswa, jenisSeleksi, gelombangPendaftaran, paket, jurusan, program,
+				kelamin, afiliasiCalonMahasiswa, ta, nimMahasiswa, false);
 
 		System.out.println("getDetailBiayaBukanDefaultBiaya settingBiaya -> " + settingBiaya);
 		if (settingBiaya == null) {
 			return new ArrayList<DetailBiaya>();
+		}
+		if (settingBiaya.isMahasiswaDikecualikan(nimMahasiswa)) {
+			return PengecualianTagihanList.kosong();
 		}
 
 		List<DetailSettingBiaya> detailSettingBiayas = ConstantValues
@@ -2816,48 +2758,6 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 					.add(semester == null ? Restrictions.sqlRestriction("true") : Restrictions.eq("semester", semester))
 					.add(Restrictions.eq("jurusan", jurusan)).addOrder(Order.desc("id")).setMaxResults(1)
 					.uniqueResult();
-
-			if (detailBiaya == null) {
-				detailBiaya = (DetailBiaya) session.createCriteria(DetailBiaya.class)
-						.add(Restrictions.eq("bayarKe", detailSettingBiaya.getBayarKe()))
-						.add(Restrictions.eq("itemBiaya", detailSettingBiaya.getItemBiaya()))
-						.add(angkatan == null ? Restrictions.isNull("angkatan") : Restrictions.eq("angkatan", angkatan))
-						.add(jenjang == null ? Restrictions.isNull("jenjang") : Restrictions.eq("jenjang", jenjang))
-						.add(semester == null ? Restrictions.sqlRestriction("true")
-								: Restrictions.eq("semester", semester))
-
-						.add(gelombangPendaftaran == null ? Restrictions.isNull("gelombangPendaftaran")
-								: Restrictions.eq("gelombangPendaftaran", gelombangPendaftaran))
-
-						.add(jurusan == null ? Restrictions.isNull("jurusan") : Restrictions.eq("jurusan", jurusan))
-
-						.add(paket == null ? Restrictions.isNull("paket") : Restrictions.eq("paket", paket))
-
-						.add(jenisKegiatan == null ? Restrictions.isNull("jenisKegiatan")
-								: Restrictions.eq("jenisKegiatan", jenisKegiatan))
-
-						.add(jenisSeleksi == null ? Restrictions.isNull("jenisSeleksi")
-								: Restrictions.eq("jenisSeleksi", jenisSeleksi))
-
-						.add(statusAwalMahasiswa == null ? Restrictions.isNull("statusAwalMahasiswa")
-								: Restrictions.eq("statusAwalMahasiswa", statusAwalMahasiswa))
-
-						.add(afiliasiCalonMahasiswa == null ? Restrictions.isNull("afiliasiCalonMahasiswa")
-								: Restrictions.eq("afiliasiCalonMahasiswa", afiliasiCalonMahasiswa))
-
-						.add(statusMahasiswa == null ? Restrictions.isNull("statusMahasiswa")
-								: Restrictions.eq("statusMahasiswa", statusMahasiswa))
-
-						.add(program == null || program.isEmpty()
-								? Restrictions.or(Restrictions.eq("program", ""), Restrictions.isNull("program"))
-								: Restrictions.eq("program", program))
-
-						.add(kelamin == null || kelamin.isEmpty()
-								? Restrictions.or(Restrictions.eq("kelamin", ""), Restrictions.isNull("kelamin"))
-								: Restrictions.eq("kelamin", kelamin))
-
-						.addOrder(Order.desc("id")).setMaxResults(1).uniqueResult();
-			}
 
 			if (detailBiaya == null) {
 				detailBiaya = new DetailBiaya();

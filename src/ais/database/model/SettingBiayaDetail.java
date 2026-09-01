@@ -151,7 +151,7 @@ public class SettingBiayaDetail extends GeneralValueObject {
 
 	@Column(name = "max_smt_detail")
 	public Integer getMaxSmt() {
-		return maxSmt == null ? (getSettingBiaya() == null ? null : getSettingBiaya().getMinSmt()) : maxSmt;
+		return maxSmt == null ? (getSettingBiaya() == null ? null : getSettingBiaya().getMaxSmt()) : maxSmt;
 	}
 
 	public void setMaxSmt(Integer maxSmt) {

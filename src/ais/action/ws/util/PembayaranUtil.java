@@ -21,6 +21,7 @@ import javax.servlet.http.HttpServletRequest;
 import org.apache.axis.MessageContext;
 import org.apache.axis.transport.http.HTTPConstants;
 import org.hibernate.Criteria;
+import org.hibernate.CriteriaSpecification;
 import org.hibernate.Session;
 import org.hibernate.criterion.Criterion;
 import org.hibernate.criterion.MatchMode;
@@ -1302,16 +1303,7 @@ public class PembayaranUtil {
 			if (detailBiaya == null) {
 				return false;
 			}
-			SettingBiaya settingBiaya = null;
-			try {
-				settingBiaya = detailBiaya.getSettingBiaya();
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/ws/util/PembayaranUtil.java:996"); /* proxy putus — coba jalur lain */ }
-			if (settingBiaya == null) {
-				try {
-					settingBiaya = detailBiaya.getDetailSettingBiaya() == null ? null
-							: detailBiaya.getDetailSettingBiaya().getSettingBiaya();
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/ws/util/PembayaranUtil.java:1001"); /* proxy putus */ }
-			}
+			SettingBiaya settingBiaya = detailBiaya.getSettingBiayaEfektif();
 			return settingBiaya != null && Boolean.TRUE.equals(settingBiaya.getGunakanBiayaDefault());
 		} catch (Exception e) {
 			return false;
@@ -1666,6 +1658,10 @@ public class PembayaranUtil {
 			tutupSessionSetelahPengecualian(session);
 			return PengecualianTagihanList.kosong();
 		}
+		SettingBiaya settingBiayaTerpilih = SetingBiayaAction.getSettingBiayaTerpilih(session, angkatan, jenjang,
+				semester, jenisKegiatan, statusAwalMahasiswa, statusMahasiswa, mahasiswa.getJenisSeleksi(),
+				mahasiswa.getGelombangPendaftaran(), paket, jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
+				mahasiswa.getNim(), false);
 
 		Criteria criteria = session.createCriteria(DetailBiaya.class);
 
@@ -1720,6 +1716,7 @@ public class PembayaranUtil {
 
 		}
 
+		criteria = batasiKeSettingBiayaTerpilih(criteria, settingBiayaTerpilih);
 		filterCriteriaDenganNilaiTambahan(criteria, session, mahasiswa, null);
 
 		System.out.println("detailSettingBiayas > " + detailSettingBiayas);
@@ -1756,7 +1753,8 @@ public class PembayaranUtil {
 
 		List<DetailBiaya> biayaDefaultBiaya = SetingBiayaAction.getDetailBiayaBukanDefaultBiaya(session, angkatan,
 				jenjang, semester, jenisKegiatan, statusAwalMahasiswa, statusMahasiswa, mahasiswa.getJenisSeleksi(),
-				mahasiswa.getGelombangPendaftaran(), paket, jurusan, program, kelamin, afiliasiCalonMahasiswa, ta);
+				mahasiswa.getGelombangPendaftaran(), paket, jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
+				mahasiswa.getNim());
 		if (!biayaDefaultBiaya.isEmpty()) {
 			if (mahasiswa != null) {
 				for (DetailBiaya detailBiayaDefault : biayaDefaultBiaya) {
@@ -1985,6 +1983,23 @@ public class PembayaranUtil {
 	}
 
 	/**
+	 * Membatasi query DetailBiaya ke satu induk SettingBiaya terpilih. LEFT JOIN
+	 * mempertahankan kompatibilitas data lama: relasi boleh tersimpan langsung,
+	 * melalui DetailSettingBiaya, atau melalui SettingBiayaDetail individual.
+	 */
+	private static Criteria batasiKeSettingBiayaTerpilih(Criteria criteria, SettingBiaya settingBiaya) {
+		if (criteria == null || settingBiaya == null) {
+			return criteria;
+		}
+		criteria.createAlias("detailSettingBiaya", "settingPrioritasRincian", CriteriaSpecification.LEFT_JOIN);
+		criteria.createAlias("settingBiayaDetail", "settingPrioritasIndividual", CriteriaSpecification.LEFT_JOIN);
+		criteria.add(Restrictions.or(Restrictions.eq("settingBiaya", settingBiaya),
+				Restrictions.or(Restrictions.eq("settingPrioritasRincian.settingBiaya", settingBiaya),
+						Restrictions.eq("settingPrioritasIndividual.settingBiaya", settingBiaya))));
+		return criteria;
+	}
+
+	/**
 	 * Mengambil sumber DetailBiaya dari rincian tagihan yang sudah benar-benar
 	 * terbentuk pada Kegiatan. Jalur ini dipakai H2H sebagai pemulihan apabila
 	 * pencarian ulang template biaya kosong (misalnya semester masuk mahasiswa
@@ -2177,6 +2192,11 @@ public class PembayaranUtil {
 			tutupSessionSetelahPengecualian(session);
 			return PengecualianTagihanList.kosong();
 		}
+		SettingBiaya settingBiayaTerpilih = SetingBiayaAction.getSettingBiayaTerpilih(session, angkatan, jenjang,
+				semester, jenisKegiatan, biodataCalonMahasiswa.getStatusAwalMahasiswa(), ConstantValues.AKTIF,
+				biodataCalonMahasiswa.getJenisSeleksi(), biodataCalonMahasiswa.getGelombangPendaftaran(),
+				biodataCalonMahasiswa.getPaket(), jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,
+				biodataCalonMahasiswa.getNim(), false);
 
 		System.out.println("calon mahasiswa jenis kegiatan = " + jenisKegiatan.getNamaKegiatan() + " default "
 				+ ConstantUtil.PENDAFTARAN_ULANG_MAHASISWA_BARU + " min " + jenisKegiatan.getMinSmt() + " max "
@@ -2202,6 +2222,7 @@ public class PembayaranUtil {
 				? session.createCriteria(PengaturanPembayaranBulanan.class)
 						.setProjection(Projections.property("detailBiaya")).createCriteria("detailBiaya")
 				: session.createCriteria(DetailBiaya.class);
+		criteria = batasiKeSettingBiayaTerpilih(criteria, settingBiayaTerpilih);
 		filterCriteriaDenganNilaiTambahan(criteria, session, null, biodataCalonMahasiswa);
 
 		criteria = criteria
@@ -2246,7 +2267,7 @@ public class PembayaranUtil {
 					jenjang, semester, jenisKegiatan, biodataCalonMahasiswa.getStatusAwalMahasiswa(),
 					ConstantValues.AKTIF, biodataCalonMahasiswa.getJenisSeleksi(),
 					biodataCalonMahasiswa.getGelombangPendaftaran(), biodataCalonMahasiswa.getPaket(), jurusan, program,
-					kelamin, afiliasiCalonMahasiswa, ta);
+					kelamin, afiliasiCalonMahasiswa, ta, biodataCalonMahasiswa.getNim());
 			if (!biayaDefaultBiaya.isEmpty()) {
 				for (DetailBiaya detailBiayaDefault : biayaDefaultBiaya) {
 					detailBiaya.add(detailBiayaDefault);
