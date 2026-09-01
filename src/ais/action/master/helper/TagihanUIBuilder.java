@@ -825,13 +825,11 @@ public class TagihanUIBuilder {
 																	Double totalBelumDibayar = 0.0;
 																	List<Map<String, Serializable>> barisLaporan = new ArrayList<Map<String, Serializable>>();
 
-																	resultDTO.put("semuaKey", jk.getId() + "-" + fSmt);
-																	resultDTO.put("semuaVal", new Object[] {
-																			detailBiayas, dataCicilan, kegiatan, barisLaporan });
-																	semua.put(jk.getId() + "-" + fSmt, new Object[] {
-																			detailBiayas, dataCicilan, kegiatan, barisLaporan });
+															resultDTO.put("semuaKey", jk.getId() + "-" + fSmt);
+															resultDTO.put("semuaVal", new Object[] {
+																	detailBiayas, dataCicilan, kegiatan, barisLaporan });
 
-																	for (Object o : detailBiayas) {
+															for (Object o : detailBiayas) {
 																		DetailBiaya tempdetailBiaya = null;
 																		PengaturanPembayaranBulanan pb = null;
 
@@ -1642,8 +1640,8 @@ public class TagihanUIBuilder {
 									}
 
 									try {
-										List<Future<Map<String, Object>>> futures = executor.invokeAll(tasks);
-										executor.shutdown();
+									List<Future<Map<String, Object>>> futures = executor.invokeAll(tasks);
+									executor.shutdown();
 
 										try {
 											if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
@@ -1654,17 +1652,41 @@ public class TagihanUIBuilder {
 											Thread.currentThread().interrupt();
 										}
 
-										if (desktop != null && desktop.isAlive()) {
+									/*
+									 * Worker paralel tidak boleh menulis langsung ke TreeMap "semua".
+									 * Selain TreeMap tidak thread-safe, snapshot sebelumnya dimasukkan sebelum
+									 * barisLaporan selesai diisi. Akibatnya Cetak Semua Tagihan kadang membaca
+									 * snapshot kosong/sebagian walaupun rincian di layar sebenarnya tersedia.
+									 * Kumpulkan seluruh hasil Future lebih dahulu, lalu publikasikan secara atomik.
+									 */
+									List<Map<String, Object>> hasilSelesai = new ArrayList<Map<String, Object>>();
+									TreeMap<String, Object[]> semuaSelesai = new TreeMap<String, Object[]>();
+									for (Future<Map<String, Object>> future : futures) {
+										if (Thread.currentThread().isInterrupted()) {
+											break;
+										}
+										Map<String, Object> res = future.get();
+										if (res != null && !res.isEmpty()) {
+											hasilSelesai.add(res);
+											Object semuaKey = res.get("semuaKey");
+											Object semuaVal = res.get("semuaVal");
+											if (semuaKey instanceof String && semuaVal instanceof Object[]) {
+												semuaSelesai.put((String) semuaKey, (Object[]) semuaVal);
+											}
+										}
+									}
+									synchronized (semua) {
+										semua.clear();
+										semua.putAll(semuaSelesai);
+									}
+
+									if (desktop != null && desktop.isAlive()) {
+										try {
+											org.zkoss.zk.ui.Executions.activate(desktop);
 											try {
-												org.zkoss.zk.ui.Executions.activate(desktop);
-												try {
-													boolean adaInfopmbayaranB = false;
-													for (Future<Map<String, Object>> future : futures) {
-														if (Thread.currentThread().isInterrupted()) {
-															break;
-														}
-														Map<String, Object> res = future.get();
-														if (res != null && !res.isEmpty()) {
+												boolean adaInfopmbayaranB = false;
+												for (Map<String, Object> res : hasilSelesai) {
+													if (res != null && !res.isEmpty()) {
 															Div localUi = (Div) res.get("ui");
 															if (localUi != null && !localUi.getChildren().isEmpty()) {
 																List<org.zkoss.zk.ui.Component> children = new ArrayList<org.zkoss.zk.ui.Component>(

@@ -17,7 +17,10 @@ import net.sf.jasperreports.engine.util.JRSwapFile;
  *       di-fill/export BERSAMAAN per JVM (konfigurasi {@code report_maks_paralel}, default 4).
  *       Sebelumnya tak terbatas: puluhan request cetak paralel = puluhan {@code JasperPrint}
  *       penuh di heap sekaligus (pemicu utama puncak Old Gen). Penunggu antre adil (FIFO)
- *       hingga {@code report_tunggu_antrian_detik} (default 120) lalu diberi pesan sibuk.</li>
+ *       hingga {@code report_tunggu_antrian_detik} (default 120). Setelah batas tersebut,
+ *       secara bawaan penunggu tetap mengantre agar laporan tidak gagal hanya karena lonjakan
+ *       sesaat. Administrator dapat mengaktifkan {@code report_gagalkan_jika_antrian_penuh}
+ *       bila instalasi memang menghendaki perilaku gagal-cepat.</li>
  *   <li><b>Virtualizer</b> — {@link JRSwapFileVirtualizer} per job: halaman laporan melebihi
  *       {@code report_virtualizer_max_halaman_memori} (default 200) di-swap ke berkas temp,
  *       bukan ditahan seluruhnya di heap. Nonaktifkan via konfigurasi
@@ -82,8 +85,10 @@ public final class ReportThrottle {
 	}
 
 	/**
-	 * Ambil satu slot cetak; menunggu adil (FIFO) hingga batas waktu, lalu melempar
-	 * exception berpesan ramah bila server benar-benar kelebihan beban.
+	 * Ambil satu slot cetak; menunggu adil (FIFO) hingga batas waktu. Secara bawaan
+	 * proses tetap mengantre setelah batas waktu sehingga pembatas RAM tetap berlaku
+	 * tanpa menggagalkan laporan. Perilaku lama (gagal-cepat) dapat diaktifkan melalui
+	 * konfigurasi {@code report_gagalkan_jika_antrian_penuh}.
 	 *
 	 * @return true bila slot diperoleh (WAJIB dilepas via {@link #lepasIzin(boolean)})
 	 */
@@ -93,15 +98,23 @@ public final class ReportThrottle {
 			tungguDetik = 1;
 		}
 		try {
-			if (ambilSemaphore().tryAcquire(tungguDetik, TimeUnit.SECONDS)) {
+			Semaphore semaphore = ambilSemaphore();
+			if (semaphore.tryAcquire(tungguDetik, TimeUnit.SECONDS)) {
 				return true;
 			}
+			if (ais.common.Common.bolehKonfigurasi("report_gagalkan_jika_antrian_penuh",
+					ais.database.model.Konfigurasi.TIDAK_AKTIF)) {
+				throw new Exception("Server sedang memproses banyak laporan secara bersamaan (menunggu "
+						+ tungguDetik + " detik). Silakan coba cetak ulang beberapa saat lagi.");
+			}
+			System.out.println("ReportThrottle: antrean melewati " + tungguDetik
+					+ " detik; proses tetap menunggu slot agar laporan tidak gagal dan batas RAM tetap terjaga.");
+			semaphore.acquire();
+			return true;
 		} catch (InterruptedException ie) {
 			Thread.currentThread().interrupt();
 			throw new Exception("Pembuatan laporan dibatalkan saat menunggu antrean cetak.", ie);
 		}
-		throw new Exception("Server sedang memproses banyak laporan secara bersamaan (menunggu " + tungguDetik
-				+ " detik). Silakan coba cetak ulang beberapa saat lagi.");
 	}
 
 	/** Lepas slot cetak. Aman dipanggil dari finally; no-op bila slot tidak pernah diperoleh. */

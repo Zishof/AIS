@@ -3167,11 +3167,15 @@ public class Report extends GenericAutowireComposer {
 		File finalJpg = new File(myFile.getAbsolutePath().replace(".pdf", ".jpg"));
 		FileOutputStream out = null;
 		Connection conn = null;
+		Session session = null;
 		// OPTIMASI RAM FASE 6: jalur render-gambar juga dihitung sebagai satu job laporan
 		// (fill kedua + hingga 100 BufferedImage halaman penuh di heap).
-		boolean izinReportDiperoleh = ReportThrottle.ambilIzin();
-		Session session = openNativeSession();
+		boolean izinReportDiperoleh = false;
 		try {
+			izinReportDiperoleh = ReportThrottle.ambilIzin();
+			// Pembukaan session harus berada di dalam try. Sebelumnya kegagalan di sini
+			// melewati finally dan membocorkan satu permit ReportThrottle secara permanen.
+			session = openNativeSession();
 			File fileJasper = CommonReport.generateFileJasper(fileD, fileD);
 
 			conn = session.connection();
@@ -3237,7 +3241,9 @@ public class Report extends GenericAutowireComposer {
 				}
 			}
 
-			closeNativeSession(session);
+			if (session != null) {
+				closeNativeSession(session);
+			}
 			parameters.remove("REPORT_CONNECTION");
 			ReportThrottle.lepasIzin(izinReportDiperoleh);
 		}

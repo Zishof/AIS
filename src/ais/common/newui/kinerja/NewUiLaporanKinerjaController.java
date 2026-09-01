@@ -213,13 +213,7 @@ public final class NewUiLaporanKinerjaController {
             try { pegawai.putPhoto(parameters); } catch (Exception ignored) { }
         }
 
-        java.io.File pdf = ais.action.report.Report.generateFileReportSimple(
-                ais.action.report.Report.PDF, parameters, v.template);
-        if (pdf == null || !pdf.exists()) throw new IllegalStateException("PDF laporan gagal dibuat.");
-        byte[] isi = java.nio.file.Files.readAllBytes(pdf.toPath());
-        j.put("namaFile", v.kode + "_" + Common.databaseDateFormat.get().format(new Date()) + ".pdf");
-        j.put("varianNama", v.nama);
-        j.put("pdfBase64", java.util.Base64.getEncoder().encodeToString(isi));
+        ais.common.newui.laporan.JasperPdfUtil.tulis(j, v.template, parameters, v.kode, v.nama);
     }
 
     // ------------------------------------------------------------------ util

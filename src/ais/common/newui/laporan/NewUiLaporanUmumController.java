@@ -385,13 +385,7 @@ public final class NewUiLaporanUmumController {
             parameters.put(e.getKey(), e.getValue());
         }
 
-        java.io.File pdf = ais.action.report.Report.generateFileReportSimple(
-                ais.action.report.Report.PDF, parameters, laporan.template);
-        if (pdf == null || !pdf.exists()) throw new IllegalStateException("PDF laporan gagal dibuat.");
-        byte[] isi = java.nio.file.Files.readAllBytes(pdf.toPath());
-        j.put("namaFile", kunci + "_" + Common.databaseDateFormat.get().format(new Date()) + ".pdf");
-        j.put("varianNama", laporan.judul);
-        j.put("pdfBase64", java.util.Base64.getEncoder().encodeToString(isi));
+        JasperPdfUtil.tulis(j, laporan.template, parameters, kunci, laporan.judul);
     }
 
     // ------------------------------------------------------------------ util

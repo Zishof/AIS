@@ -6165,10 +6165,14 @@ public class CommonReportHelper {
 		}
 
 		List<Map<String, Serializable>> maps = new ArrayList<Map<String, Serializable>>();
+		TreeMap<String, Object[]> snapshotLengkap;
+		synchronized (semua) {
+			snapshotLengkap = new TreeMap<String, Object[]>(semua);
+		}
 
-		for (String key : semua.keySet()) {
+		for (String key : snapshotLengkap.keySet()) {
 			Integer smt = Integer.parseInt(key.split("-")[1]);
-			Object[] val = semua.get(key);
+			Object[] val = snapshotLengkap.get(key);
 			Collection detailBiayas = (Collection) val[0];
 			Kegiatan kegiatan = (Kegiatan) val[2];
 
