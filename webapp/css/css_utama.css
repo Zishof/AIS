@@ -5170,30 +5170,35 @@ tr.ais-row-transparent .z-cell {
 /* ======================================================================
    AKTIFITAS PERKULIAHAN - FLOW TOMBOL RESPONSIF (Ujian/Diskusi/Materi/dst)
    Container dibuat di CommonUiFactoryHelper.getDeskripsiPerkuliahanHbox
-   (sclass "ais-aktifitas-tile-flow"). Desktop: mengalir banyak kolom sesuai
-   lebar. Mobile (<=768px): dipaksa 2 kolom per baris agar tidak menumpuk
-   1 tombol per baris.
+   (sclass "ais-aktifitas-tile-flow"). Default selalu horizontal dan membungkus
+   otomatis ketika ruang tidak cukup.
    ====================================================================== */
 .ais-aktifitas-tile-flow {
     display: flex !important;
     flex-wrap: wrap !important;
     gap: 8px !important;
     width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    align-items: flex-start !important;
+    align-content: flex-start !important;
+}
+.ais-aktifitas-tile-flow > * {
+    flex: 0 1 86px !important;
+    width: auto !important;
+    min-width: 70px !important;
+    max-width: 96px !important;
+    margin: 0 !important;
     box-sizing: border-box !important;
 }
 @media (max-width: 768px) {
     .ais-aktifitas-tile-flow {
         justify-content: center !important;
     }
-    /* Tiap tile (Vbox btnWrapper) -> separuh lebar = 2 kolom per baris.
-       !important diperlukan untuk menimpa min-width/max-width inline. */
     .ais-aktifitas-tile-flow > * {
-        flex: 1 1 calc(50% - 8px) !important;
-        width: calc(50% - 8px) !important;
-        min-width: 0 !important;
-        max-width: calc(50% - 8px) !important;
-        margin: 0 !important;
-        box-sizing: border-box !important;
+        flex: 0 1 82px !important;
+        min-width: 68px !important;
+        max-width: 92px !important;
     }
 }
 .ecampus-zul-filter-window,

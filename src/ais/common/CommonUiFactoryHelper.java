@@ -322,22 +322,14 @@ public static Box getDeskripsiJadwalPelajaranHbox(final JadwalPelajaran jadwalPe
 			groupboxStyled.setWidth("100%");
 		}
 
-		final Vbox vboxH = new Vbox();
-		if (horizontal) {
-			vboxH.setParent(groupboxStyled);
-		}
-
-		final Vbox vbox1 = new Vbox();
-		vbox1.setWidth("90px");
-		if (!horizontal) {
-			vbox1.setParent(groupboxStyled);
-		}
 		hbox.appendChild(new Space());
-		final Vbox vbox2 = new Vbox();
-		vbox2.setWidth("120px");
-		if (!horizontal) {
-			vbox2.setParent(groupboxStyled);
-		}
+		final org.zkoss.zul.Div buttonContainerJadwal = new org.zkoss.zul.Div();
+		buttonContainerJadwal.setWidth("100%");
+		buttonContainerJadwal.setSclass("ais-aktifitas-tile-flow");
+		buttonContainerJadwal.setStyle("display: flex; flex-wrap: wrap; gap: 8px; "
+				+ "justify-content: " + (!horizontal ? "center" : "flex-start")
+				+ "; align-items: flex-start; padding-top: 5px;");
+		buttonContainerJadwal.setParent(groupboxStyled);
 		Common.createDefaultTimer(new EventListener() {
 
 			@Override
@@ -367,16 +359,7 @@ public static Box getDeskripsiJadwalPelajaranHbox(final JadwalPelajaran jadwalPe
 				sub2.setStyle("font-size:8px;color:" + (jumlahUjianTotal == 0 ? "blue" : "red"));
 				label.appendChild(sub2);
 
-				Hbox hboxD = new Hbox();
-				if (horizontal) {
-					vboxH.appendChild(hboxD);
-				}
-
-				if (!horizontal) {
-					label.setParent(vbox1);
-				} else {
-					hboxD.appendChild(label);
-				}
+				label.setParent(buttonContainerJadwal);
 
 				sub1.addEventListener("onClick", new EventListener() {
 
@@ -430,11 +413,7 @@ public static Box getDeskripsiJadwalPelajaranHbox(final JadwalPelajaran jadwalPe
 				sub2.setStyle("font-size:8px;color:" + (jumlahDiskusiTotal == 0 ? "blue" : "red"));
 				label.appendChild(sub2);
 
-				if (!horizontal) {
-					label.setParent(vbox1);
-				} else {
-					hboxD.appendChild(label);
-				}
+				label.setParent(buttonContainerJadwal);
 
 				final String[] contents = new String[] { "isi", "siswa.nama", "tbmuser", "parent.isi" };
 				List<String> columnHeadersAdding = new ArrayList<String>();
@@ -558,11 +537,7 @@ public static Box getDeskripsiJadwalPelajaranHbox(final JadwalPelajaran jadwalPe
 				sub2.setStyle("font-size:8px;color:" + (pertemuan_file_content == 0 ? "blue" : "red"));
 				label.appendChild(sub2);
 
-				if (!horizontal) {
-					label.setParent(vbox1);
-				} else {
-					hboxD.appendChild(label);
-				}
+				label.setParent(buttonContainerJadwal);
 
 				sub1.addEventListener("onClick", new EventListener() {
 
@@ -616,11 +591,7 @@ public static Box getDeskripsiJadwalPelajaranHbox(final JadwalPelajaran jadwalPe
 				sub2.setStyle("font-size:8px;color:" + (tugas_file_content == 0 ? "blue" : "red"));
 				label.appendChild(sub2);
 
-				if (!horizontal) {
-					label.setParent(vbox1);
-				} else {
-					hboxD.appendChild(label);
-				}
+				label.setParent(buttonContainerJadwal);
 
 				sub1.addEventListener("onClick", new EventListener() {
 
@@ -674,11 +645,7 @@ public static Box getDeskripsiJadwalPelajaranHbox(final JadwalPelajaran jadwalPe
 				sub2.setStyle("font-size:8px;color:" + (audio_pertemuan == 0 ? "blue" : "red"));
 				label.appendChild(sub2);
 
-				if (!horizontal) {
-					label.setParent(vbox1);
-				} else {
-					hboxD.appendChild(label);
-				}
+				label.setParent(buttonContainerJadwal);
 
 				sub1.addEventListener("onClick", new EventListener() {
 
@@ -732,11 +699,7 @@ public static Box getDeskripsiJadwalPelajaranHbox(final JadwalPelajaran jadwalPe
 				sub2.setStyle("font-size:8px;color:" + (video_pertemuan == 0 ? "blue" : "red"));
 				label.appendChild(sub2);
 
-				if (!horizontal) {
-					label.setParent(vbox1);
-				} else {
-					hboxD.appendChild(label);
-				}
+				label.setParent(buttonContainerJadwal);
 
 				sub1.addEventListener("onClick", new EventListener() {
 
@@ -779,11 +742,6 @@ public static Box getDeskripsiJadwalPelajaranHbox(final JadwalPelajaran jadwalPe
 					}
 				});
 
-				hboxD = new Hbox();
-				if (horizontal) {
-					vboxH.appendChild(hboxD);
-				}
-
 				sub1 = new ais.ui.util.MyToolbarbuttonConfig(Common.getBahasa("Siswa"), "/img/svg/user-box-line.svg");
 				sub1.setOrient("vertical");
 				sub1.setStyle("font-size:10px;font-weight:bold;color:" + (mhsSize == 0 ? "black" : "red"));
@@ -795,11 +753,7 @@ public static Box getDeskripsiJadwalPelajaranHbox(final JadwalPelajaran jadwalPe
 				sub2.setStyle("font-size:8px;color:" + (mhsSize == 0 ? "blue" : "red"));
 				label.appendChild(sub2);
 
-				if (!horizontal) {
-					label.setParent(vbox2);
-				} else {
-					hboxD.appendChild(label);
-				}
+				label.setParent(buttonContainerJadwal);
 
 				sub1.addEventListener("onClick", new EventListener() {
 
@@ -827,11 +781,7 @@ public static Box getDeskripsiJadwalPelajaranHbox(final JadwalPelajaran jadwalPe
 				sub2.setStyle("font-size:8px;color:" + (pert == 0 ? "blue" : "red"));
 				label.appendChild(sub2);
 
-				if (!horizontal) {
-					label.setParent(vbox2);
-				} else {
-					hboxD.appendChild(label);
-				}
+				label.setParent(buttonContainerJadwal);
 
 				sub1.addEventListener("onClick", new EventListener() {
 
@@ -869,11 +819,7 @@ public static Box getDeskripsiJadwalPelajaranHbox(final JadwalPelajaran jadwalPe
 				sub2.setStyle("font-size:8px;color:" + (referensi == 0 ? "blue" : "red"));
 				label.appendChild(sub2);
 
-				if (!horizontal) {
-					label.setParent(vbox2);
-				} else {
-					hboxD.appendChild(label);
-				}
+				label.setParent(buttonContainerJadwal);
 
 				sub1.addEventListener("onClick", new EventListener() {
 
@@ -939,11 +885,7 @@ public static Box getDeskripsiJadwalPelajaranHbox(final JadwalPelajaran jadwalPe
 				sub2.setStyle("font-size:8px;color:" + (bukuAjar == 0 ? "blue" : "red"));
 				label.appendChild(sub2);
 
-				if (!horizontal) {
-					label.setParent(vbox2);
-				} else {
-					hboxD.appendChild(label);
-				}
+				label.setParent(buttonContainerJadwal);
 
 				sub1.addEventListener("onClick", new EventListener() {
 
@@ -999,11 +941,7 @@ public static Box getDeskripsiJadwalPelajaranHbox(final JadwalPelajaran jadwalPe
 				sub2.setStyle("font-size:8px;color:" + (tugas_kelompok == 0 ? "blue" : "red"));
 				label.appendChild(sub2);
 
-				if (!horizontal) {
-					label.setParent(vbox2);
-				} else {
-					hboxD.appendChild(label);
-				}
+				label.setParent(buttonContainerJadwal);
 
 				sub1.addEventListener("onClick", new EventListener() {
 
@@ -2093,21 +2031,14 @@ public static ParameterUmum getParameterUmum(String nama, String defaultValue) {
 		}
 
 		final Vbox vboxH = new Vbox();
-		if (horizontal) {
-			vboxH.setParent(groupboxStyled);
-		}
+		vboxH.setWidth("100%");
+		vboxH.setParent(groupboxStyled);
 
 		final Vbox vbox1 = new Vbox();
 		vbox1.setWidth("100px");
-		if (!horizontal) {
-			vbox1.setParent(groupboxStyled);
-		}
 		hbox.appendChild(new Space());
 		final Vbox vbox2 = new Vbox();
 		vbox2.setWidth("130px");
-		if (!horizontal) {
-			vbox2.setParent(groupboxStyled);
-		}
 
 		/*
 		 * Pada layar mobile, rantai box pembungkus (hbox luar + vboxH) bersifat
@@ -2983,7 +2914,8 @@ public static ParameterUmum getParameterUmum(String nama, String defaultValue) {
 				buttonContainer.setSclass("ais-aktifitas-tile-flow");
 				// Gunakan parameter horizontal bawaan dari getDeskripsiPerkuliahanHbox
 				buttonContainer.setStyle("display: flex; flex-wrap: wrap; gap: 8px; justify-content: "
-						+ (!horizontal ? "center" : "flex-start") + "; padding-top: 5px;");
+						+ (!horizontal ? "center" : "flex-start")
+						+ "; align-items: flex-start; padding-top: 5px;");
 
 				for (Component component : components) {
 					if (component instanceof Button) {
@@ -2996,11 +2928,7 @@ public static ParameterUmum getParameterUmum(String nama, String defaultValue) {
 
 				// Masukkan container tombol ke dalam layout utama yang sudah disiapkan
 				// sebelumnya
-				if (!horizontal) {
-					buttonContainer.setParent(vbox1);
-				} else {
-					buttonContainer.setParent(vboxH);
-				}
+				buttonContainer.setParent(vboxH);
 
 				components.clear();
 				components = null;
