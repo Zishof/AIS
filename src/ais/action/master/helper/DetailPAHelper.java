@@ -63,24 +63,39 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
 /**
- * Helper terfokus untuk detail pa. Tipe ini membungkus satu variasi kecil dari alur yang lebih
- * umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ * Helper layar akademik "Detail PA" (Pembimbing Akademik/dosen wali): menampilkan dan mengelola
+ * daftar {@link Mahasiswa} yang dibimbing seorang {@link Dosen} PA tertentu. Dipanggil dari
+ * halaman profil Dosen lewat {@link #displayDetailPA(Dosen, org.zkoss.zk.ui.Component, MyWindow)}.
+ * Query utama ({@link #initCriteria}) mencari {@link Mahasiswa} aktif dengan
+ * {@code Mahasiswa.dosen == dosen}, disaring nama/NIM dan angkatan dari toolbar pencarian.
  *
- * <p><b>Batas tanggung jawab:</b> tipe ini mendeklarasikan kontrak {@link DataLoader}, {@link DataCriteria}.
- * Implementasi konkret bertanggung jawab atas transaksi, resource, error handling, dan efek samping; pemanggil
- * sebaiknya bergantung pada kontrak ini agar tidak menggandakan integrasi.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code String
- * KONFIG_ROLE_AMBIL_MAHASISWA_DOSEN_PA}, {@code String DEFAULT_ROLE_AMBIL_MAHASISWA_DOSEN_PA}, {@code MyGrid
- * grid}, {@code Dosen dosen}, {@code boolean delete}, {@code Textbox nama}, {@code Intbox angkatan}, {@code
- * boolean create}; inisialisasi/lifecycle ({@code initCriteria()}); pembacaan/pencarian ({@code
- * bolehAmbilMahasiswaDosenPA()}, {@code loadData()}, {@code getDataloader()}, {@code uploadDataMahasiswa()});
- * operasi domain lain ({@code lepaskanDosenPa()}, {@code lepaskanSemuaDosenPa()}, {@code displayDetailPA()});
- * konfigurasi constructor: {@code create}, {@code delete}, {@code paging}, {@code update}. Bagian lain dari
- * kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Alur bisnis inti:</b></p>
+ * <ul>
+ * <li><b>Lepas PA</b> ({@link #lepaskanDosenPa}, {@link #lepaskanSemuaDosenPa}) — memutus relasi
+ * dosen-mahasiswa dengan native SQL update langsung ke kolom {@code krs_mahasiswa.dosen_pa} dan
+ * {@code mahasiswa.dosen} (bukan lewat Hibernate save biasa), sengaja dipakai agar data historis
+ * yang sudah tidak konsisten tetap bisa diperbaiki dalam satu operasi; entitas yang sudah
+ * termuat di first-level cache di-evict/session di-clear agar pembacaan berikutnya konsisten
+ * dengan DB.</li>
+ * <li><b>Ambil mahasiswa dosen PA lain</b> — tombol "Ambil Mahasiswa" (hanya tampil bila
+ * {@link #bolehAmbilMahasiswaDosenPA()} true, dikontrol konfigurasi
+ * {@code hak_akses_ambil_mahasiswa_dosen_pa}, default role {@code am,admfak,admjur}) membuka
+ * {@link AmbilDataMahasiswaForDosenPAHelper} untuk memindahkan mahasiswa dari dosen PA lama ke
+ * dosen ini.</li>
+ * <li><b>Singkronkan KRS massal</b> — tombol "Singkronkan" membuka form rentang semester, lalu di
+ * thread terpisah memanggil {@link Common#singkronkanKrsMahasiswa} untuk setiap semester setiap
+ * mahasiswa bimbingan dan men-set {@code KrsMahasiswa.dosenPa}, dengan transaksi native per
+ * semester.</li>
+ * <li><b>Upload Excel</b> ({@link #uploadDataMahasiswa}) — mem-parse kolom NIM per baris (dengan
+ * fallback pencarian by NIM bila sel tak terbaca sebagai objek), lalu meng-assign
+ * {@code Mahasiswa.dosen} dan {@code KrsMahasiswa.dosenPa} ke dosen ini di background thread
+ * dengan session Hibernate miliknya sendiri (BUKAN session ThreadLocal bersama — lihat komentar
+ * "KE-FIX" di badan method: bug lama menutup session ThreadLocal di tengah loop dan menggagalkan
+ * sisa upload), dengan rollback eksplisit per baris agar satu baris gagal tidak merusak transaksi
+ * baris berikutnya, serta pelaporan hasil per baris via {@link ais.common.LaporanUpload}.</li>
+ * </ul>
+ * <p>Privilese create/update/delete diperiksa sekali di constructor lewat
+ * {@link CommonPrivilages#checkPrevilages} dan dipakai untuk visibilitas tombol Hapus.</p>
  */
 public class DetailPAHelper implements DataLoader, DataCriteria {
 	private static final String KONFIG_ROLE_AMBIL_MAHASISWA_DOSEN_PA =
@@ -101,6 +116,11 @@ public class DetailPAHelper implements DataLoader, DataCriteria {
 	private Paging paging;
 	private AmbilDataKelasBanbox kelas;
 
+	/**
+	 * Cek privilese create/update/delete pengguna saat ini (dipakai untuk visibilitas tombol),
+	 * dan siapkan komponen {@link Paging} yang setiap perubahan halamannya memuat ulang grid
+	 * lewat {@link #loadData(Object)}.
+	 */
 	public DetailPAHelper() {
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 		create = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -161,22 +181,29 @@ public class DetailPAHelper implements DataLoader, DataCriteria {
 		session.clear();
 	}
 
+	/**
+	 * Cek apakah role pengguna saat ini diizinkan memakai fitur "Ambil Mahasiswa" (memindahkan
+	 * mahasiswa dari dosen PA lain ke dosen ini), berdasarkan konfigurasi
+	 * {@value #KONFIG_ROLE_AMBIL_MAHASISWA_DOSEN_PA} (default role:
+	 * {@value #DEFAULT_ROLE_AMBIL_MAHASISWA_DOSEN_PA}).
+	 *
+	 * @return {@code true} bila role pengguna termasuk dalam daftar yang diizinkan.
+	 */
 	private boolean bolehAmbilMahasiswaDosenPA() {
 		return Common.bolehUploadDataKonfigurasi(KONFIG_ROLE_AMBIL_MAHASISWA_DOSEN_PA,
 				DEFAULT_ROLE_AMBIL_MAHASISWA_DOSEN_PA);
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link DetailPAHelper}. Kelas ini menerjemahkan satu item data menjadi
-	 * baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DetailPAHelper} dan dapat mengakses state
-	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer satu baris grid mahasiswa bimbingan: foto, revisi biodata, nama, angkatan, status
+	 * mahasiswa terkini ({@link HistoryStatusMahasiswaUtil#currentStatus}), kelas KRS, keterangan
+	 * pengambilan KRS ({@link Mahasiswa#rubahKeteranganPengambilanKRS}), dan jumlah komentar KRS.
+	 * Efek samping non-obvious: bila {@code Mahasiswa.dosen} tidak sinkron dengan
+	 * {@code KrsMahasiswa.dosenPa} (mis. sudah di-update di tabel mahasiswa tapi KRS belum),
+	 * render() MENYIMPAN ULANG {@code krsMahasiswa.dosenPa} agar keduanya konsisten — jadi
+	 * sekadar menampilkan grid ini bisa memicu satu write ke DB per baris yang tidak sinkron.
+	 * Tombol per baris: Hapus (lepas PA satu mahasiswa via {@link #lepaskanDosenPa}, hanya
+	 * tampil bila {@link #delete}) dan lihat KRS (buka {@link TampilStudiMahasiswaHelper}).
 	 *
 	 * @see DetailPAHelper
 	 */
@@ -186,6 +213,13 @@ public class DetailPAHelper implements DataLoader, DataCriteria {
 
 		}
 
+		/**
+		 * Render satu baris mahasiswa bimbingan — lihat Javadoc kelas untuk detail kolom,
+		 * efek samping sinkronisasi dosenPa, dan tombol aksi.
+		 *
+		 * @param row  baris grid tujuan render.
+		 * @param data data baris, di-cast ke {@link Mahasiswa}.
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {
 			row.setValign("top");
@@ -284,6 +318,17 @@ public class DetailPAHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/**
+	 * Bangun query {@link Mahasiswa} bimbingan {@link #dosen}: aktif (belum keluar,
+	 * {@code aktif} null/true), disaring opsional lewat kelas dari
+	 * {@link AmbilDataKelasBanbox} ({@code kelas} attribute), pencarian nama/NIM ({@code
+	 * ilike ANYWHERE}), dan angkatan.
+	 *
+	 * @param order bila {@code true}, tambahkan pengurutan angkatan desc, NIM asc, id desc
+	 *              (dipakai saat mengambil data untuk grid; pemanggilan tanpa order dipakai
+	 *              untuk {@link Common#initPaging}).
+	 * @return Criteria Hibernate siap dieksekusi.
+	 */
 	public Criteria initCriteria(boolean order) {
 
 		Kelas kelas = (Kelas) (this.kelas.getAttribute("kelas"));
@@ -313,6 +358,13 @@ public class DetailPAHelper implements DataLoader, DataCriteria {
 		return criteria;
 	}
 
+	/**
+	 * Muat ulang grid daftar mahasiswa bimbingan sesuai halaman paging aktif dan filter toolbar
+	 * saat ini ({@link #initCriteria}), lalu pasang {@link DetailPARenderer} sebagai row renderer.
+	 *
+	 * @param value tidak dipakai isinya secara langsung; parameter ini hanya agar method cocok
+	 *              sebagai {@link EventListener}/{@link DataLoader} callback standar layar ini.
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Common.initPaging(initCriteria(false), paging);
@@ -328,10 +380,21 @@ public class DetailPAHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/** @return {@code this}, dipakai sebagai implementasi {@link DataLoader} untuk dipassing ke helper lain. */
 	private DataLoader getDataloader() {
 		return this;
 	}
 
+	/**
+	 * Titik masuk utama: bangun seluruh UI layar Detail PA (toolbar pencarian, tombol Ambil
+	 * Mahasiswa/Bersihkan/Singkronkan/Upload/Cetak, dan grid berpaging) ke dalam {@code component},
+	 * untuk dosen PA yang diberikan. Membersihkan isi {@code component} terlebih dahulu
+	 * ({@link Common#clear}). Lihat Javadoc kelas untuk penjelasan masing-masing alur tombol.
+	 *
+	 * @param dosen     dosen pembimbing akademik yang daftar bimbingannya ditampilkan/dikelola.
+	 * @param component komponen ZK tujuan (dibersihkan lalu diisi ulang).
+	 * @param window    window pemanggil, dipakai sebagai parent window untuk dialog "Singkronkan".
+	 */
 	public void displayDetailPA(final Dosen dosen, final Component component, final MyWindow window) {
 
 		this.dosen = dosen;
@@ -689,6 +752,23 @@ public class DetailPAHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/**
+	 * Proses upload Excel (.xlsx) massal untuk meng-assign {@link #dosen} sebagai PA seluruh
+	 * mahasiswa dalam file. Dijalankan di background thread dengan session Hibernate MILIK
+	 * thread ini sendiri (dibuka via {@link HibernateUtil#openSession()}, bukan session
+	 * ThreadLocal — lihat komentar "KE-FIX" di badan method untuk alasan bug lama yang
+	 * diperbaiki) agar pemanggilan {@link Common#singkronkanKrsMahasiswa} di tengah loop
+	 * (yang bisa menutup session ThreadLocal) tidak merusak proses upload. Setiap baris:
+	 * cari {@link Mahasiswa} lewat objek Excel atau fallback NIM, set {@code Mahasiswa.dosen},
+	 * sinkronkan {@link KrsMahasiswa} lalu set {@code dosenPa}-nya — masing-masing dalam
+	 * transaksi terpisah dengan rollback eksplisit bila gagal (agar transaksi tidak tersisa
+	 * aktif dan menggagalkan baris berikutnya). Progres ditampilkan lewat {@link Clients#showBusy}
+	 * yang di-refresh oleh {@link Timer}; hasil akhir dilaporkan lewat {@link ais.common.LaporanUpload}
+	 * dan diteruskan ke {@code eventListener} setelah selesai.
+	 *
+	 * @param file          file Excel (xlsx) hasil upload; kolom 0 = NIM.
+	 * @param eventListener dipanggil setelah proses selesai (lewat {@link ais.common.LaporanUpload#selesaikan}).
+	 */
 	public void uploadDataMahasiswa(final File file, final EventListener eventListener) throws Exception {
 
 		// Laporan hasil per baris. Menggantikan Label "peringatan" yang disiapkan untuk

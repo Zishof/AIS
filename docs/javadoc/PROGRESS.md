@@ -116,6 +116,36 @@ disentuh (default untuk semua file yang tidak disebut di sini).
   - `ais/action/master/helper/RevisiPertemuanPunyaUjianHelper.java`
   - `ais/action/master/helper/RevisiTugasHelper.java`
 
+- [lengkap] **4 file window ZK modul wisuda** (`ais/action/master/helper/`) — berdiri sendiri,
+  tanpa pola referensi bersama. Semua sudah punya Javadoc class-level TEMPLATE GENERIK dari pass
+  otomatis 1 Sep 2026 (r79992-r80004, pesan "docs: jelaskan tanggung jawab dan kelompok operasi
+  class menengah") yang diganti dengan penjelasan konkret domain wisuda; semua method public
+  (constructor, `init()`, handler tombol) didokumentasikan lengkap. Dikompilasi (javac 1.7,
+  `-implicit:none`, lulus) dan dikommit per file (2 dari 4 tersapu commit sesi paralel lain tanpa
+  pesan — isi diverifikasi benar via `svn diff -c <rev>` sebelum lanjut).
+  - `GenerateNoKursiDanNoRegistrasiWindow.java` r82865 (*) — satu-satunya varian yang men-generate
+    No. Registrasi DAN No. Kursi sekaligus dalam satu window.
+  - `GenerateNoKursiWindow.java` r82867 — kuirk: handler tombol "Generate" bernama
+    `onGenerateLaporanRegistrasiWisuda()` tapi isinya men-generate No. KURSI (sisa copy-paste, nama
+    tidak diperbarui); ada blok kode mati skema penomoran lama berbasis `Projections.rowCount()`
+    yang sudah ditinggalkan.
+  - `GenerateUndanganWisudaWindow.java` r82881 — satu-satunya window yang murni cetak (tidak
+    men-generate nomor apa pun); validasi 3 prasyarat sebelum cetak (nama ayah di
+    `BiodataMahasiswa`, No. Registrasi, No. Kursi); tombol Batal men-detach `Tabpanel` induk.
+  - `LaporanRegistrasiWisudaWindow.java` r82889 — padanan No. Registrasi saja dari
+    `GenerateNoKursiWindow`; di sini nama method `onGenerateLaporanRegistrasiWisuda()` SESUAI
+    isinya (kontras dengan kuirk penamaan di `GenerateNoKursiWindow`); cetak selalu pakai literal
+    `"pdf"` (bukan konstanta `Report.PDF` atau pilihan Combobox).
+
+  **Temuan lintas-file penting**: baik "No. Registrasi Wisuda" maupun "No. Kursi Wisuda" di
+  keempat window ini SAMA-SAMA dihasilkan dari `pendaftaranWisuda.getId().toString()` (primary key
+  baris `PendaftaranWisuda`) yang di-pad nol jadi 8 digit — BUKAN dari counter/sequence terpisah.
+  Akibatnya untuk mahasiswa yang sama, kedua nomor akan bernilai string identik. Kemungkinan besar
+  bukan maksud bisnisnya, tapi tidak diubah (tugas ini hanya Javadoc). Validasi 5 status persetujuan
+  wisuda (Administrasi/Administrasi Fakultas/Keuangan/Perpustakaan/Perpustakaan Fakultas)
+  diduplikasi copy-paste identik di keempat file, tidak ada helper validasi bersama — kandidat
+  refactor/dedup di masa depan (di luar cakupan tugas dokumentasi ini).
+
 - [referensi] `ais/ui/util/GetEventListener.java` — Javadoc interface diperkaya jadi referensi
   arsitektur lengkap untuk pola "Bandbox picker" AIS (subclass `AmbilData*Banbox`, 83 file
   tersebar di banyak package `ais.action.master.<modul>.helper`): kerangka

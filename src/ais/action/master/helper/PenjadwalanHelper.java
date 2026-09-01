@@ -116,26 +116,80 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
 /**
- * Helper terfokus untuk penjadwalan. Tipe ini membungkus satu variasi kecil dari alur yang lebih
- * umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ * Mesin CRUD + orkestrasi UI untuk "Agenda Pertemuan" (RPS/jadwal per-minggu) sebuah perkuliahan, dan —
+ * lewat parameter kembar yang berulang di hampir semua method statis di kelas ini — untuk jenis agenda
+ * sejenis lain yang juga memiliki daftar {@link ais.database.model.Pertemuan}: kelompok KKN
+ * ({@link ais.database.model.kkn.KelompokKkn}), kelompok PKL ({@link ais.database.model.pkl.KelompokPkl}),
+ * bimbingan tugas akhir ({@link ais.database.model.MahasiswaRequestTugasAkhir}), bimbingan/sidang skripsi
+ * ({@link ais.database.model.Skripsi}), bimbingan KRS ({@link ais.database.model.KrsMahasiswa}), formulir
+ * kegiatan ({@link ais.database.model.FormulirKegiatan}), dan wisuda ({@link ais.database.model.Wisuda}).
+ * Hampir setiap method publik menerima kedelapan tipe pemilik itu sekaligus sebagai parameter (lazimnya
+ * hanya satu yang tidak {@code null}), sebagai cara sederhana memakai ulang query/aksi yang sama untuk
+ * banyak domain sekaligus, tanpa interface/superclass bersama.
  *
- * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
- * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
- * implementasi paralel dengan hasil berbeda.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Perkuliahan perkuliahan}, {@code MyGrid
- * grid}, {@code MyCheckboxConfig hanyaYangAktif}, {@code MyCheckboxConfig urutkanManual}; inisialisasi/lifecycle
- * ({@code tampilTombolBuatPertemuan()}, {@code buatPertemuan()}, {@code buatSatuPertemuan()}, {@code
- * buatSatuPertemuan()}); pembacaan/pencarian ({@code tampilTombolDownload()}, {@code tampilTombolHapus()},
- * {@code prosesTampilTombolAturUlangWaktu()}, {@code tampilTombolAturUlangWaktu()}, {@code tampilTombolAmbil()},
- * {@code onSearchDefault()}); validasi/perhitungan ({@code checkBolehHapus()}, {@code checkBolehHapus()}, {@code
- * bolehHapus()}); penghapusan/pembatalan ({@code hapusPertemuanBesertaTugas()}); operasi domain lain ({@code
- * pindahkanUrutanPertemuan()}, {@code daftarPertemuanPratinjau()}, {@code copyLampiranPertemuan()}, {@code
- * pesanError()}, {@code copyLampiranPertemuan()}, {@code display()}). Bagian lain dari kontrak tetap mengikuti
- * kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Entity/tabel utama.</b> {@link ais.database.model.Pertemuan} adalah baris "agenda" itu sendiri
+ * (topik, indikator, tanggal, jam mulai/selesai, status pertemuan, dsb — lihat array {@code contents[]}
+ * pada {@link #display(Perkuliahan, Component)} untuk daftar kolom yang diekspor/diimpor Excel). Untuk
+ * matakuliah berkurikulum OBE, format penilaian (CPMK, komponen penilaian, rubrik, pemetaan soal UTS/UAS,
+ * teknik per-CPMK) hidup di {@link ais.database.model.KurikulumPunyaMatakuliah} — lihat
+ * {@link #tampilTombolAmbil} (menyalin seluruh field itu dari perkuliahan/agenda lain) dan
+ * {@link #buatSatuPertemuan} (membuka editor rincian OBE lewat {@code RpsObeAction} bila kurikulum
+ * memakai OBE). Lampiran/isi satu pertemuan tersebar di {@link ais.database.model.file.LampiranLain}
+ * (RPS/SAP/absen manual/soal UTS-UAS, dsb, per {@code jenis}), {@link ais.database.model.file.PertemuanFileContent},
+ * {@link ais.database.model.streaming.VideoPertemuan}/{@link ais.database.model.streaming.AudioPertemuan}
+ * (di session Hibernate terpisah lewat {@link ais.database.hibernate.StreamingHibernateUtil}),
+ * {@link ais.database.model.PertemuanPunyaUjian}, {@link ais.database.model.TugasKelompok}, dan
+ * {@code ais.database.model.TugasPertemuan} (tugas individu) — semuanya anak dari satu {@code Pertemuan}.</p>
+ *
+ * <p><b>Alur UI (ZK).</b> {@link #display(Perkuliahan, Component)} merender toolbar aksi (buat seluruh
+ * pertemuan sekaligus per interval — {@link #tampilTombolBuatPertemuan}/{@link #buatPertemuan}; tambah
+ * satu pertemuan atau rincian OBE — {@link #buatSatuPertemuan}; ambil/salin agenda dari perkuliahan lain
+ * — {@link #tampilTombolAmbil}; atur ulang tanggal massal — {@link #tampilTombolAturUlangWaktu}/
+ * {@link #prosesTampilTombolAturUlangWaktu}; download Excel — {@link #tampilTombolDownload}; upload;
+ * hapus semua — {@link #tampilTombolHapus}; hapus pertemuan tidak terpakai; refresh; filter "hanya yg
+ * aktif"; toggle urut manual) di atas sebuah {@code MyGrid} yang dirender baris-per-baris oleh
+ * {@link PertemuanRenderer} (satu kartu per pertemuan, lihat javadoc kelas tersebut).
+ * {@link #display(Perkuliahan, DataLoader)} adalah varian jendela modal: bila kurikulum matakuliah
+ * memakai OBE ({@code Kurikulum.apakahObe}), isi jendela digantikan iframe halaman terpisah
+ * {@code /pages/master/rps_obe.zul}; bila tidak, ia mendelegasikan ke
+ * {@link #display(Perkuliahan, Component)} di dalam borderlayout yang sama.</p>
+ *
+ * <p><b>Kuirk/hal non-obvious yang perlu diperhatikan pemanggil atau pemelihara berikutnya:</b></p>
+ * <ul>
+ *   <li>Urutan pertemuan punya dua mode: default OTOMATIS, di mana nomor "Pertemuan ke-" dihitung ulang
+ *   setiap grid dimuat berdasarkan TANGGAL pertemuan (lihat {@code VOPembelajaran#reInitPertemuan}) —
+ *   sehingga mengubah/menyisipkan tanggal bisa menggeser semua nomor sesudahnya (mis. UTS "tadinya
+ *   pertemuan 8 jadi 6"). Tombol Naik/Turun ({@link #pindahkanUrutanPertemuan}) memaksa mode ke MANUAL
+ *   secara permanen begitu dipakai, agar urutan hasil susunan manual tidak lagi ditimpa pengurutan
+ *   tanggal.</li>
+ *   <li>{@link #tampilTombolAmbil} ("Ambil (copy) dari agenda sebelumnya / lain") — fitur salin format
+ *   penilaian/OBE dan seluruh isi pertemuan dari perkuliahan/kelompok lain — sempat dibatasi hanya untuk
+ *   ADMINISTRATOR (r75196, 07-07-2026), lalu di-revert 20-08-2026 karena dosen jadi tidak bisa lagi
+ *   menarik agenda semester sebelumnya sendiri; hak akses sekarang murni ditentukan kondisi di sisi
+ *   pemanggil {@code display(...)}, bukan gerbang di dalam method ini. Peserta, kehadiran, dan nilai
+ *   per-peserta SENGAJA tidak ikut disalin — hanya struktur agenda dan format penilaiannya.</li>
+ *   <li>Tombol "Hapus pertemuan tidak terpakai (&gt;N)" pada {@link #display(Perkuliahan, Component)}
+ *   sengaja menghitung dan menampilkan daftar konkret nomor pertemuan yang akan dihapus PERMANEN sebelum
+ *   dialog konfirmasi (bukan sekadar angka generik), karena batas N ({@code getJumlahMaksimalPertemuan()})
+ *   bisa berubah diam-diam mengikuti setting kurikulum matakuliah — lihat komentar "KE-FIX" pada badan
+ *   method tersebut.</li>
+ *   <li>Field {@code mahasiswas} dideklarasikan tapi baris deklarasinya dikomentari — dead code
+ *   peninggalan, tidak dipakai di mana pun pada kelas ini.</li>
+ *   <li>{@code copyLampiranPertemuan} punya dua overload dengan tanggung jawab berbeda: yang
+ *   {@code void} tiga-parameter menyalin SATU jenis lampiran saja
+ *   ({@link #copyLampiranPertemuan(Pertemuan, Pertemuan, String)}); yang dua-parameter menyalin SEMUA
+ *   jenis konten pertemuan (materi, file/video/audio, ujian, tugas kelompok, tugas mandiri) sekaligus dan
+ *   mengembalikan ringkasan {@link HasilSalinPertemuan} berikut daftar kendala per item
+ *   ({@link #copyLampiranPertemuan(Pertemuan, Pertemuan)}) — dipakai bersama oleh
+ *   {@link #tampilTombolAmbil} untuk membangun laporan hasil salin agenda yang diunduh sebagai .txt.</li>
+ * </ul>
+ * <p><b>Efek samping.</b> Sebagian besar method di kelas ini langsung membaca/menulis basis data lewat
+ * Hibernate ({@code Session.createCriteria}, {@code Common.refreshUpdate/refreshSaveOrUpdate/refreshDelete},
+ * SQL native untuk hapus massal seperti pada {@link #hapusPertemuanBesertaTugas}) sekaligus memanipulasi
+ * komponen ZK secara langsung (membangun {@code Window} modal, grid, listener {@code onClick}/
+ * {@code onChange}). Tidak ada lapisan service terpisah — validasi boleh-hapus, logika penjadwalan, dan
+ * salin-agenda semuanya berada di kelas ini; pemanggil baru sebaiknya memakai method statis yang sudah
+ * ada, bukan menduplikasi query/validasi ini di action lain.</p>
  */
 public class PenjadwalanHelper {
 
@@ -147,18 +201,31 @@ public class PenjadwalanHelper {
 	private MyCheckboxConfig urutkanManual;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link PenjadwalanHelper}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 * {@code RowRenderer} grid agenda: menerjemahkan satu id {@link Pertemuan} (nilai baris dari
+	 * {@code ListModel} milik grid, di-resolve lewat {@code GeneralValueObject.ambilData}) menjadi satu
+	 * baris kartu pertemuan pada grid yang dibangun {@link PenjadwalanHelper#display(Perkuliahan, Component)}.
 	 *
-	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link PenjadwalanHelper}.
-	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Tbmuser tbmuser}, {@code Long
-	 * pertId}, {@code Perkuliahan perkuliahan}, {@code EventListener eventListener}, {@code Integer perteKe};
-	 * operasi lokal: {@code render}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
-	 * dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link PenjadwalanHelper}
+	 * induk — dependensinya ({@code perkuliahan}, {@code eventListener} untuk memberi tahu refresh ke
+	 * pemanggil) diberikan lewat konstruktor.</p>
+	 * <p>Per baris, {@link #render(Row, Object)} menyusun: tombol video conference
+	 * ({@code DashboardTimelinePertemuan.createVideoConrefrence}), tombol absen
+	 * ({@code AbsensiHelper.createTombolAbsen}), tombol agenda kalender mingguan
+	 * ({@code CalendarPerkuliahanMingguIniComposer}), keterangan aktifitas + scan foto
+	 * ({@code AktifitasPerkuliahanHelper.createKeteranganData}); kolom "Urutan" (nomor pertemuan, berupa
+	 * {@code Intbox} yang bisa diketik langsung bila mode manual, atau label saja bila mode otomatis) plus
+	 * tombol Naik/Turun yang memanggil {@link PenjadwalanHelper#pindahkanUrutanPertemuan}; field-field
+	 * yang bisa diedit inline langsung ke {@code Pertemuan} (topik, indikator, waktu pembelajaran,
+	 * pengalaman belajar, tugas dan penilaian, dua buku rujukan, metode pembelajaran) — tiap perubahan
+	 * langsung memanggil {@code Common.refreshUpdate}; combobox status pertemuan; checkbox aktif; tanggal
+	 * dan jam mulai/selesai (dapat diedit bila pengguna bukan mahasiswa dan bukan dosen yang dikunci
+	 * tanggalnya, dengan tombol hapus per baris yang melalui {@link PenjadwalanHelper#checkBolehHapus}
+	 * lebih dulu); serta indikator "sesuai" (checkbox untuk pengelola, ikon untuk peran lain).</p>
+	 * <p><b>Efek samping:</b> hampir setiap listener pada komponen yang dibangun langsung melakukan
+	 * simpan/update/hapus ke basis data via Hibernate (lewat {@code Common.refreshUpdate}/
+	 * {@code refreshSaveOrUpdate} atau {@code PertemuanDao.delete}) dan memanggil {@code perkuliahan.belum()}
+	 * untuk membersihkan cache pertemuan sebelum memicu {@code eventListener} agar grid dimuat ulang.
+	 * Harus dijalankan pada event thread ZK dengan konteks pengguna/session aktif.</p>
 	 *
 	 * @see PenjadwalanHelper
 	 */
@@ -171,11 +238,26 @@ public class PenjadwalanHelper {
 
 		private Integer perteKe = 0;
 
+		/**
+		 * @param perkuliahan   perkuliahan pemilik pertemuan-pertemuan yang akan dirender
+		 * @param eventListener dipanggil setiap kali suatu aksi pada baris (edit tanggal, hapus,
+		 *                      naik/turun urutan, absen, dst.) mengubah data, agar pemanggil memuat
+		 *                      ulang grid
+		 */
 		public PertemuanRenderer(Perkuliahan perkuliahan, EventListener eventListener) {
 			this.perkuliahan = perkuliahan;
 			this.eventListener = eventListener;
 		}
 
+		/**
+		 * Merender satu baris grid untuk id {@link Pertemuan} yang diberikan sebagai {@code arg1}
+		 * (nilai model diresolusi ke entity via {@code GeneralValueObject.ambilData}). Baris
+		 * disembunyikan ({@code setVisible(false)}) bila data kosong/null atau id-nya tidak valid.
+		 * Lihat javadoc {@link PertemuanRenderer} untuk rincian komponen yang dibangun.
+		 *
+		 * @param arg0 baris grid ZK yang akan diisi
+		 * @param arg1 nilai model baris — biasanya id {@link Pertemuan} dalam bentuk {@code String}
+		 */
 		@Override
 		public void render(final Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");
@@ -789,10 +871,29 @@ public class PenjadwalanHelper {
 		}
 	}
 
+	/**
+	 * Sama seperti {@link #checkBolehHapus(Pertemuan, boolean)} dengan {@code warning=true}, yaitu
+	 * menampilkan pesan peringatan ZK bila pertemuan tidak boleh dihapus.
+	 *
+	 * @param pertemuan pertemuan yang akan divalidasi
+	 * @return {@code true} bila pertemuan boleh dihapus
+	 */
 	public static boolean checkBolehHapus(Pertemuan pertemuan) throws Exception {
 		return checkBolehHapus(pertemuan, true);
 	}
 
+	/**
+	 * Memvalidasi apakah satu {@link Pertemuan} boleh dihapus, berdasarkan ada/tidaknya data terkait
+	 * yang akan ikut hilang: absensi kehadiran ("M"/masuk pada {@code hitungStatus()}), materi
+	 * ({@code PertemuanFileContent}), audio, video, ujian ({@code PertemuanPunyaUjian}), diskusi, tugas
+	 * yang sudah dikumpulkan mahasiswa, dan judul tugas yang sudah diisi. Setiap kondisi yang gagal
+	 * langsung menghentikan pengecekan (return {@code false}) tanpa memeriksa kondisi berikutnya.
+	 *
+	 * @param pertemuan pertemuan yang akan divalidasi
+	 * @param warning   bila {@code true}, tampilkan {@link MyMessageboxConfig} berisi alasan spesifik
+	 *                  saat pertemuan tidak boleh dihapus
+	 * @return {@code true} bila pertemuan tidak memiliki data terkait sehingga aman dihapus
+	 */
 	public static boolean checkBolehHapus(Pertemuan pertemuan, boolean warning) throws Exception {
 
 		Map<String, Integer> statuses = pertemuan.hitungStatus();
@@ -868,6 +969,18 @@ public class PenjadwalanHelper {
 		return true;
 	}
 
+	/**
+	 * Memvalidasi apakah SELURUH pertemuan milik satu pemilik agenda (perkuliahan/KKN/PKL/tugas akhir/
+	 * skripsi/KRS/formulir kegiatan/wisuda — tepat satu parameter yang tidak {@code null} dipakai untuk
+	 * mengambil daftar pertemuannya lewat {@code ambilPertemuanList()}) boleh dihapus sekaligus, dengan
+	 * memeriksa tiap pertemuan lewat {@link #checkBolehHapus(Pertemuan)} (tanpa peringatan per-item; ia
+	 * sendiri yang menampilkan pesan begitu menemukan satu pertemuan yang tidak boleh dihapus). Dipakai
+	 * sebagai gerbang sebelum {@link #tampilTombolHapus} (hapus semua pertemuan) maupun sebelum
+	 * regenerasi penuh agenda (hapus-lalu-buat-ulang) pada {@link #tampilTombolBuatPertemuan}.
+	 *
+	 * @return {@code true} bila semua pertemuan pemilik boleh dihapus, atau daftar pertemuannya kosong;
+	 *         {@code false} begitu ditemukan satu pertemuan yang tidak boleh dihapus (berhenti di situ)
+	 */
 	public static boolean bolehHapus(final Perkuliahan perkuliahan, final KelompokKkn kelompokKkn,
 			final KelompokPkl kelompokPkl, final MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir,
 			final Skripsi skripsi, final KrsMahasiswa krsMahasiswa, final FormulirKegiatan formulirKegiatan,
@@ -903,6 +1016,18 @@ public class PenjadwalanHelper {
 		return true;
 	}
 
+	/**
+	 * Menambahkan tombol "Download" (cetak/ekspor Excel) ke {@code toolbar} untuk daftar pertemuan milik
+	 * satu pemilik agenda (hanya satu dari kedelapan parameter pemilik yang perlu diisi). Kolom dasar
+	 * ({@code contents}) diperkaya dengan kolom tambahan per baris lewat {@code dataAdding}: ID, topik,
+	 * tanggal, jam mulai/selesai, dan jenis pertemuan, ditambah kolom dinamis dari
+	 * {@code pertemuan.ambilDataParameterTambahan()} — nilai yang punya URL dijadikan hyperlink berwarna
+	 * biru bergaris bawah pada sel Excel yang dihasilkan (via POI XSSF).
+	 *
+	 * @param toolbar     toolbar ZK tempat tombol ditambahkan
+	 * @param contents    nama-nama field {@link Pertemuan} yang diekspor sebagai kolom dasar
+	 * @param perkuliahan pemilik agenda (perkuliahan), atau {@code null} bila pemilik jenis lain dipakai
+	 */
 	public static void tampilTombolDownload(Toolbar toolbar, String[] contents, final Perkuliahan perkuliahan,
 			final KelompokKkn kelompokKkn, final KelompokPkl kelompokPkl,
 			final MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir, final Skripsi skripsi,
@@ -1040,6 +1165,16 @@ public class PenjadwalanHelper {
 		toolbar.appendChild(cetakToolbarbutton);
 	}
 
+	/**
+	 * Menambahkan tombol "Hapus" ke {@code toolbar} yang, setelah lolos validasi
+	 * {@link #bolehHapus} dan konfirmasi pengguna, menghapus PERMANEN seluruh pertemuan (beserta
+	 * {@code tugas_pertemuan} terkait) milik satu pemilik agenda lewat
+	 * {@link #hapusPertemuanBesertaTugas} (SQL native, bukan lewat Hibernate delete per-baris).
+	 *
+	 * @param toolbar       toolbar ZK tempat tombol ditambahkan
+	 * @param perkuliahan   pemilik agenda (perkuliahan), atau {@code null} bila pemilik jenis lain dipakai
+	 * @param eventListener dipanggil setelah penghapusan berhasil agar pemanggil memuat ulang tampilan
+	 */
 	public static void tampilTombolHapus(Toolbar toolbar, final Perkuliahan perkuliahan, final KelompokKkn kelompokKkn,
 			final KelompokPkl kelompokPkl, final MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir,
 			final Skripsi skripsi, final KrsMahasiswa krsMahasiswa, final FormulirKegiatan formulirKegiatan,
@@ -1103,6 +1238,17 @@ public class PenjadwalanHelper {
 		button.setParent(toolbar);
 	}
 
+	/**
+	 * Menghapus PERMANEN, lewat SQL native (bukan Hibernate/dao), semua baris {@code tugas_pertemuan}
+	 * lalu semua baris {@code pertemuan} milik satu pemilik, tanpa melalui validasi
+	 * {@link #checkBolehHapus} — pemanggil ({@link #tampilTombolHapus}) bertanggung jawab memvalidasi
+	 * lebih dulu. Dipakai untuk hapus massal karena jauh lebih cepat daripada hapus per-entity Hibernate.
+	 *
+	 * @param session      session Hibernate aktif untuk menjalankan SQL native
+	 * @param kolomPemilik nama kolom FK pemilik pada tabel {@code pertemuan} (mis. "perkuliahan",
+	 *                     "kelompok_kkn", "skripsi", dst.)
+	 * @param idPemilik    id baris pemilik pada kolom tersebut
+	 */
 	private static void hapusPertemuanBesertaTugas(Session session, String kolomPemilik, Long idPemilik) {
 		String kondisi = kolomPemilik + "=:idPemilik";
 		session.createSQLQuery("delete from tugas_pertemuan where pertemuan in "
@@ -1111,6 +1257,23 @@ public class PenjadwalanHelper {
 				.executeUpdate();
 	}
 
+	/**
+	 * Membuka jendela modal "Atur Tanggal &amp; Interval Pertemuan": form untuk mengatur ulang secara
+	 * MASSAL tanggal, jam, dan interval (harian/tgl ganjil-genap/2-6 harian/mingguan/2-4 mingguan/bulanan)
+	 * seluruh pertemuan milik satu pemilik agenda, dengan panel pratinjau daftar tanggal yang diperbarui
+	 * langsung (live, lewat listener {@code refreshPratinjau} yang memanggil
+	 * {@link #daftarPertemuanPratinjau}) setiap field tanggal/jenis/lewati-libur berubah.
+	 *
+	 * <p>Saat "Simpan" ditekan: field jadwal (jam mulai/selesai, lewati tanggal merah, tanggal mulai,
+	 * jenis interval, boleh menentukan tanggal mulai sendiri) disimpan ke entity pemilik; kemudian setiap
+	 * id pertemuan pada {@code pemilik.ambilPertemuan()} dimuat satu-per-satu dan tanggal/jamnya ditimpa
+	 * berurutan sesuai kalender yang dihitung ulang dari tanggal mulai baru (melompati tanggal merah bila
+	 * dicentang, via {@code Common.tanggalMerahAja}/{@code Common.curreDate}), lalu di-commit per baris
+	 * dalam transaksi terpisah dan session ditutup setelah tiap iterasi.</p>
+	 *
+	 * @param perkuliahan   pemilik agenda (perkuliahan), atau {@code null} bila pemilik jenis lain dipakai
+	 * @param eventListener dipanggil setelah proses simpan selesai agar pemanggil memuat ulang tampilan
+	 */
 	public static void prosesTampilTombolAturUlangWaktu(final Perkuliahan perkuliahan, final KelompokKkn kelompokKkn,
 			final KelompokPkl kelompokPkl, final MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir,
 			final Skripsi skripsi, final KrsMahasiswa krsMahasiswa, final FormulirKegiatan formulirKegiatan,
@@ -1622,7 +1785,12 @@ public class PenjadwalanHelper {
 		window.onModal();
 	}
 
-	/** Daftar pertemuan (terurut pertemuanKe→tanggal→id) untuk pratinjau tanggal. */
+	/**
+	 * Mengambil daftar pertemuan AKTIF milik satu pemilik agenda, terurut {@code pertemuanKe}→
+	 * {@code tanggal}→{@code id}, khusus untuk dirender di panel pratinjau tanggal pada
+	 * {@link #prosesTampilTombolAturUlangWaktu} (bukan untuk tampilan grid utama). Gagal dengan tenang:
+	 * mengembalikan list kosong dan mencatat error ke {@code ErrorAuditUtil} bila query gagal.
+	 */
 	@SuppressWarnings("unchecked")
 	private static java.util.List<Pertemuan> daftarPertemuanPratinjau(Perkuliahan perkuliahan, KelompokKkn kelompokKkn,
 			KelompokPkl kelompokPkl, FormulirKegiatan formulirKegiatan, Wisuda wisuda, Skripsi skripsi,
@@ -1653,6 +1821,12 @@ public class PenjadwalanHelper {
 		}
 	}
 
+	/**
+	 * Menambahkan tombol "Ubah Tanggal Agenda" ke {@code toolbar} yang, saat diklik, membuka jendela
+	 * pengaturan ulang tanggal massal lewat {@link #prosesTampilTombolAturUlangWaktu}.
+	 *
+	 * @return tombol yang baru dibuat dan sudah ditambahkan ke {@code toolbar}
+	 */
 	public static MyToolbarbuttonConfig tampilTombolAturUlangWaktu(Component toolbar, final Perkuliahan perkuliahan,
 			final KelompokKkn kelompokKkn, final KelompokPkl kelompokPkl,
 			final MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir, final Skripsi skripsi,
@@ -1671,6 +1845,26 @@ public class PenjadwalanHelper {
 		return button;
 	}
 
+	/**
+	 * Menambahkan tombol "Buat Pertemuan" ke {@code toolbar} khusus untuk {@link Perkuliahan} (satu-
+	 * satunya varian penjadwalan di kelas ini yang tidak menerima ke-7 tipe pemilik lain), yang saat
+	 * diklik membuka jendela form RPS lengkap: pendahuluan, deskripsi pembelajaran, capaian/kompetensi,
+	 * lampiran RPS/SAP/absen manual/soal UTS-UAS/lampiran lain sesuai konfigurasi yang aktif, tanggal
+	 * mulai perkuliahan, jam mulai/selesai, jenis interval (harian s.d. bulanan), opsi lewati tanggal
+	 * merah, opsi "jumlah rencana pertemuan mengikuti kurikulum" (bila dicentang,
+	 * {@code jumlahMaksimalPertemuan} disimpan {@code null} agar selalu dibaca dari kurikulum), batas
+	 * minimal persen kehadiran, pengaturan absen online (dosen/mahasiswa, toleransi menit sebelum/sesudah
+	 * jadwal), penanda UTS di pertengahan dan UAS di akhir, serta opsi menghapus pertemuan lama sebelum
+	 * membuat yang baru (divalidasi dulu lewat {@link #bolehHapus}).
+	 *
+	 * <p>Saat "Simpan": entity {@code perkuliahan} diperbarui, RPS/lampiran kurikulum disalin ulang
+	 * ({@code MatakuliahKurikulumDetailHelper.copyLampiran}), lalu {@link #buatPertemuan} dipanggil
+	 * berulang untuk setiap nomor 1..{@code jumlahMaksimalPertemuan}, memajukan kalender sesuai interval
+	 * dan melompati tanggal merah bila diminta.</p>
+	 *
+	 * @param eventListener dipanggil setelah seluruh pertemuan selesai dibuat
+	 * @return listener {@code onClick} tombol tersebut (dikembalikan agar bisa dipicu ulang programatis)
+	 */
 	public static EventListener tampilTombolBuatPertemuan(Component toolbar, final Perkuliahan perkuliahan,
 			final EventListener eventListener) {
 		EventListener buatPertemuan;
@@ -2264,6 +2458,25 @@ public class PenjadwalanHelper {
 		return buatPertemuan;
 	}
 
+	/**
+	 * Membuat (atau, bila sudah ada pertemuan aktif pada tanggal yang sama, mengembalikan yang sudah ada
+	 * tanpa membuat duplikat) satu {@link Pertemuan} untuk nomor urut ke-{@code i} pada tanggal
+	 * {@code currDate}, dipanggil berulang oleh {@link #tampilTombolBuatPertemuan} saat men-generate
+	 * seluruh agenda satu semester. Topik/status default: "Tatap Muka" untuk pertemuan biasa; bila
+	 * {@code i} sama dengan pertemuan terakhir dan {@code uas} dicentang, status/topik/metode diisi UAS;
+	 * lihat lanjutan method (di luar cuplikan ini) untuk penanda UTS di pertengahan. Bila tersedia,
+	 * topik/indikator/dsb diambil dari {@link KurikulumPunyaMatakuliahDetail} nomor urut ke-{@code i}
+	 * pada {@code kurikulumPunyaMatakuliah} milik matakuliah tersebut.
+	 *
+	 * @param i           nomor urut pertemuan yang akan dibuat (1..jumlah maksimal pertemuan)
+	 * @param currDate    tanggal pertemuan tersebut
+	 * @param uts         checkbox "UTS di pertengahan pertemuan"
+	 * @param uas         checkbox "UAS di akhir pertemuan"
+	 * @param waktuMulai  komponen jam mulai perkuliahan (dipakai sebagai jam default pertemuan baru)
+	 * @param waktuSelesai komponen jam selesai perkuliahan (dipakai sebagai jam default pertemuan baru)
+	 * @return pertemuan yang baru dibuat, atau pertemuan aktif yang sudah ada pada tanggal tersebut;
+	 *         {@code null} bila terjadi kegagalan (dicatat ke error audit, tidak dilempar ke pemanggil)
+	 */
 	public static Pertemuan buatPertemuan(Perkuliahan perkuliahan, KurikulumPunyaMatakuliah kurikulumPunyaMatakuliah,
 			Integer i, Date currDate, MyCheckboxConfig uts, MyCheckboxConfig uas, Timebox waktuMulai,
 			Timebox waktuSelesai) {
@@ -2365,6 +2578,44 @@ public class PenjadwalanHelper {
 		return pertemuan;
 	}
 
+	/**
+	 * Menambahkan tombol "Ambil (copy) dari agenda sebelumnya / lain" ke {@code toolbar} — fitur salin
+	 * agenda pembelajaran (dan, untuk perkuliahan, seluruh format penilaian OBE) dari perkuliahan/kelompok
+	 * lain (mis. semester sebelumnya) ke pemilik agenda saat ini. Membuka
+	 * {@link ais.action.master.helper.generic.AmbilDataTemplatePembelajaran} untuk memilih satu atau
+	 * banyak sumber, lalu untuk tiap sumber terpilih:
+	 * <ol>
+	 *   <li>Bila sumber &amp; tujuan sama-sama {@link Perkuliahan}: menyalin deskripsi pembelajaran,
+	 *   pendahuluan, dan capaian pembelajaran prodi ke {@code perkuliahan}; menyalin capaian/profil
+	 *   lulusan dan bahan kajian ke {@link Matakuliah} tujuan; lalu bila kedua sisi memiliki
+	 *   {@link KurikulumPunyaMatakuliah}, menyalin SELURUH struktur/format OBE-nya — minimal
+	 *   ketercapaian, {@code nilaiMenggunakanCpmk}, bobot CPL, pemetaan soal UTS/UAS, komponen penilaian,
+	 *   teknik per-CPMK, rubrik penilaian, deskripsi pembelajaran, capaian pembelajaran prodi, jumlah
+	 *   pertemuan default, dan metadata RPS lain (koordinator, pengembang RPS, tanggal penyusunan, dsb).
+	 *   Nilai dan peserta SENGAJA tidak disalin — keduanya tersimpan di kelas/detail penilaian, bukan
+	 *   di {@code KurikulumPunyaMatakuliah}.</li>
+	 *   <li>Untuk setiap {@link Pertemuan} aktif milik sumber yang belum pernah disalin ke tujuan
+	 *   (dideteksi lewat kolom {@code copyDariPertemuan}, agar tombol ini aman diklik berkali-kali tanpa
+	 *   membuat duplikat), membuat {@code Pertemuan} baru dengan field RPS disalin (indikator, waktu
+	 *   pembelajaran, pengalaman belajar, tugas dan penilaian, topik, ruang, jam, buku rujukan, dsb),
+	 *   lalu menyalin lampiran/isi pertemuan lewat {@link #copyLampiranPertemuan(Pertemuan, Pertemuan)}.</li>
+	 *   <li>Menyalin relasi item pendukung ({@link PerkuliahanPunyaItem} untuk perkuliahan, atau
+	 *   {@link DataPunyaItem} untuk KKN/PKL/tugas akhir/skripsi) yang belum ada di tujuan.</li>
+	 * </ol>
+	 * Setelah selesai, menyusun dan mengunduh laporan ringkas berformat .txt (jumlah pertemuan
+	 * dibuat/dilewati per kategori konten, serta daftar kendala per item bila ada), menampilkan ringkasan
+	 * lewat {@link MyMessageboxConfig}, lalu langsung membuka
+	 * {@link #prosesTampilTombolAturUlangWaktu} agar pengguna mengatur tanggal mulai &amp; interval
+	 * pertemuan yang baru disalin.
+	 *
+	 * <p><b>Catatan riwayat:</b> tombol ini sempat digerbang khusus ADMINISTRATOR (r75196, 07-07-2026)
+	 * sehingga dosen tidak bisa lagi menarik agenda semester sebelumnya sendiri; gerbang itu di-revert
+	 * 20-08-2026 atas permintaan pemilik produk — hak akses sekarang murni ditentukan kondisi pada
+	 * pemanggil {@code display(...)}.</p>
+	 *
+	 * @param dataLoader dipanggil setelah proses salin (dan pengaturan ulang tanggal) selesai, agar
+	 *                   pemanggil memuat ulang tampilan
+	 */
 	public static void tampilTombolAmbil(Component toolbar, final Perkuliahan perkuliahan,
 			final KelompokKkn kelompokKkn, final KelompokPkl kelompokPkl,
 			final MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir, final Skripsi skripsi,
@@ -2813,6 +3064,18 @@ public class PenjadwalanHelper {
 		button.setParent(toolbar);
 	}
 
+	/**
+	 * Menyalin SATU jenis {@link ais.database.model.file.LampiranLain} (mis. RPS, SAP, catatan
+	 * perkuliahan, dsb — lihat konstanta pada {@code LampiranLain}) dari {@code pertemuan} ke
+	 * {@code pertemuanBaru}, memakai session {@code StreamingHibernateUtil} terpisah (lampiran memakai
+	 * penyimpanan streaming/large-object). Tidak melakukan apa pun bila sumber tidak punya lampiran jenis
+	 * tersebut, atau tujuan sudah punya (idempotent — aman dipanggil ulang). Kegagalan di-rollback dan
+	 * dicatat ke error audit, tidak dilempar ke pemanggil.
+	 *
+	 * @param pertemuan    pertemuan sumber
+	 * @param pertemuanBaru pertemuan tujuan
+	 * @param jenis        jenis lampiran yang disalin
+	 */
 	public static void copyLampiranPertemuan(Pertemuan pertemuan, Pertemuan pertemuanBaru, String jenis) {
 		try {
 			Session streamingSession = StreamingHibernateUtil.getInstance().currentSession();
@@ -2887,6 +3150,30 @@ public class PenjadwalanHelper {
 		return sb.toString();
 	}
 
+	/**
+	 * Menyalin SELURUH isi/lampiran satu {@link Pertemuan} ke pertemuan baru hasil salin agenda, dipakai
+	 * oleh {@link #tampilTombolAmbil}. Tiap kategori dibungkus try/catch independen sehingga kegagalan
+	 * satu kategori (atau satu item di dalamnya) tidak menggagalkan kategori lain — kendalanya dicatat ke
+	 * {@link HasilSalinPertemuan#kendala} dan ke error audit:
+	 * <ol>
+	 *   <li>Materi/catatan pembelajaran ({@code LampiranLain.CATATAN_PERKULIAHAN}) via
+	 *   {@link #copyLampiranPertemuan(Pertemuan, Pertemuan, String)}.</li>
+	 *   <li>File, video, dan audio materi ({@link PertemuanFileContent}, {@link VideoPertemuan},
+	 *   {@link AudioPertemuan}) — disalin dalam SATU transaksi streaming (bukan per-item) karena kolom
+	 *   large-object PostgreSQL tak boleh dibaca/ditulis dalam autocommit; kegagalan satu item membatalkan
+	 *   seluruh transaksi kategori ini (jumlah direset ke 0).</li>
+	 *   <li>Ujian ({@link PertemuanPunyaUjian}) milik pertemuan sumber, disalin apa adanya ke pertemuan
+	 *   baru.</li>
+	 *   <li>Tugas kelompok ({@link TugasKelompok}) dan tugas mandiri/individu
+	 *   ({@code ais.database.model.TugasPertemuan}) milik pertemuan sumber — masing-masing di-dedup
+	 *   berdasarkan nama/judul agar tidak dobel bila dipanggil ulang; field per-mahasiswa (nilai,
+	 *   keterangan, status pengumpulan) SENGAJA tidak disalin karena peserta tidak ikut disalin.</li>
+	 * </ol>
+	 *
+	 * @param pertemuan    pertemuan sumber
+	 * @param pertemuanBaru pertemuan tujuan yang isinya akan dilengkapi
+	 * @return ringkasan jumlah item per kategori yang berhasil disalin plus daftar kendala rinci
+	 */
 	@SuppressWarnings("unchecked")
 	public static HasilSalinPertemuan copyLampiranPertemuan(Pertemuan pertemuan, Pertemuan pertemuanBaru) {
 		final HasilSalinPertemuan hasil = new HasilSalinPertemuan();
@@ -3109,11 +3396,39 @@ public class PenjadwalanHelper {
 		return hasil;
 	}
 
+	/**
+	 * Sama seperti {@link #buatSatuPertemuan(Perkuliahan, Tbmuser, EventListener, StatusPertemuan)}
+	 * dengan {@code statusPertemuan=null} (jenis pertemuan dipilih bebas oleh pengguna, default Tatap
+	 * Muka).
+	 */
 	public static MyToolbarbuttonConfig buatSatuPertemuan(Perkuliahan perkuliahan, Tbmuser tbmuser,
 			EventListener eventListenerData) {
 		return buatSatuPertemuan(perkuliahan, tbmuser, eventListenerData, null);
 	}
 
+	/**
+	 * Membangun tombol "Tambah Satu Pertemuan" (untuk perkuliahan non-OBE) atau, bila kurikulum
+	 * matakuliah memakai OBE ({@code Kurikulum.apakahObe}), tombol "Tambah Rincian OBE" yang membuka
+	 * editor rincian mingguan lewat {@code RpsObeAction.editRinci}/{@code reloadRinci} (populate dari
+	 * {@code kurikulumPunyaMatakuliah.getRincian()}, menghitung ulang jumlah pertemuan yang perlu
+	 * disiapkan dari {@code sampaiMingguKe} tiap sub-CPMK, lalu me-refresh cache pertemuan lewat
+	 * {@code RpsObeAction.refreshPertemuan} sebelum menampilkan jendela "Rincian Kurikulum OBE"). Tombol
+	 * OBE disembunyikan bila {@code kurikulumPunyaMatakuliah} kosong atau sudah dikunci; kedua varian
+	 * tombol disembunyikan untuk siswa/mahasiswa, dan untuk guru yang perkuliahannya tidak mengizinkan
+	 * dosen mengubah tanggal.
+	 *
+	 * <p>Pada varian non-OBE, jendela "Pilih Tanggal Pertemuan" meminta tanggal (readonly, default hari
+	 * ini), jam mulai/selesai (default dari jam perkuliahan), jenis pertemuan ({@code statusPertemuan}
+	 * bila diberikan — dikunci lewat {@code Common.freezeGanti} agar tidak bisa diganti — atau Tatap Muka
+	 * sebagai default yang bisa diubah), kemampuan/kompetensi, bahan kajian, metode pembelajaran,
+	 * referensi, dan catatan; menyimpan satu {@link Pertemuan} baru lalu memanggil
+	 * {@code perkuliahan.reInitPertemuan} agar cache urutan pertemuan konsisten.</p>
+	 *
+	 * @param statusPertemuan jenis pertemuan yang dipaksakan (mis. UTS/UAS) pada varian non-OBE, atau
+	 *                        {@code null} untuk membiarkan pengguna memilih bebas (default Tatap Muka)
+	 * @return tombol toolbar yang sudah dilengkapi listener {@code onClick}, belum ditambahkan ke parent
+	 *         mana pun — pemanggil bertanggung jawab memanggil {@code setParent(toolbar)}
+	 */
 	public static MyToolbarbuttonConfig buatSatuPertemuan(final Perkuliahan perkuliahan, final Tbmuser tbmuser,
 			final EventListener eventListenerData, final StatusPertemuan statusPertemuan) {
 
@@ -3439,6 +3754,25 @@ public class PenjadwalanHelper {
 		}
 	}
 
+	/**
+	 * Titik masuk utama tampilan "Agenda Pertemuan" untuk satu {@link Perkuliahan}: membersihkan
+	 * {@code component}, lalu merender borderlayout berisi toolbar aksi (Buat Pertemuan/Tambah Rincian
+	 * OBE, Ambil dari agenda lain, Ubah Tanggal Agenda, Download, Upload, Hapus, "Hapus pertemuan tidak
+	 * terpakai (&gt;N)", Refresh, filter "hanya yg aktif", toggle "Urutkan Manual" bila dikonfigurasi
+	 * aktif) di {@code North} dan grid pertemuan (kolom Urutan, Kemampuan akhir pembelajaran,
+	 * Kriteria/Indikator/Bobot, Waktu, Pengalaman Belajar, Tugas dan Penilaian, Bahan Kajian, Referensi,
+	 * Metode Pembelajaran, Jenis Pert., Aktif, Tanggal/Waktu, kolom aksi) di {@code Center}, dirender
+	 * baris-per-baris oleh {@link PertemuanRenderer}. Tombol Buat/Ambil/Atur-Ulang/Hapus hanya tampil
+	 * bagi pengguna yang bukan mahasiswa dan (bukan dosen, atau dosennya diizinkan mengubah tanggal
+	 * perkuliahan). Memanggil {@link #onSearchDefault} di akhir untuk memuat data pertama kali.
+	 *
+	 * <p>State {@code this.perkuliahan}, {@code this.grid}, {@code this.hanyaYangAktif}, dan
+	 * {@code this.urutkanManual} disimpan sebagai field instance agar bisa diakses ulang oleh
+	 * {@link #onSearchDefault} saat listener toolbar dipicu.</p>
+	 *
+	 * @param perkuliahan perkuliahan yang agendanya ditampilkan
+	 * @param component   komponen ZK induk tempat tampilan dirender (isinya dibersihkan lebih dulu)
+	 */
 	public void display(final Perkuliahan perkuliahan, Component component) {
 		Common.clear(component);
 		this.perkuliahan = perkuliahan;
@@ -3808,6 +4142,24 @@ public class PenjadwalanHelper {
 
 	}
 
+	/**
+	 * Varian jendela modal dari tampilan agenda: membuka {@link Window} berjudul info perkuliahan yang
+	 * berisi, di {@code Center}, salah satu dari dua tampilan tergantung apakah kurikulum matakuliah
+	 * perkuliahan ini memakai OBE ({@code Kurikulum.apakahObe(tahunAjaran, ganjilGenap)}):
+	 * <ul>
+	 *   <li>Bukan OBE (atau kurikulum {@code null}): mendelegasikan ke
+	 *   {@link #display(Perkuliahan, Component)} — grid agenda biasa.</li>
+	 *   <li>OBE: menampilkan iframe {@code /pages/master/rps_obe.zul} (halaman RPS-OBE terpisah,
+	 *   tinggi tetap 12000px) yang membawa parameter {@code kur} (id {@link KurikulumPunyaMatakuliah})
+	 *   dan {@code perkuliahan}; bila {@code kurikulumPunyaMatakuliah} belum ada, menampilkan pesan
+	 *   "Kurikulum belum diisi secara benar".</li>
+	 * </ul>
+	 * Tombol "Selesai" di {@code South} membersihkan cache ({@code perkuliahan.belum()}), memanggil
+	 * {@code dataLoader.loadData(null)}, lalu menutup jendela.
+	 *
+	 * @param perkuliahan perkuliahan yang agendanya ditampilkan
+	 * @param dataLoader  dipanggil saat jendela ditutup, agar pemanggil memuat ulang tampilan induk
+	 */
 	public void display(final Perkuliahan perkuliahan, final DataLoader dataLoader) {
 		final Window window = new Window();
 		window.setClosable(true);
@@ -3874,6 +4226,18 @@ public class PenjadwalanHelper {
 		}
 	}
 
+	/**
+	 * Memuat ulang daftar id pertemuan untuk {@code grid} sesuai state checkbox {@code hanyaYangAktif},
+	 * lalu memasang ulang {@link PertemuanRenderer} dan model-nya. Bila filter "hanya yg aktif" TIDAK
+	 * dicentang, query langsung mengambil semua id pertemuan (aktif maupun tidak) terurut sesuai mode
+	 * urut perkuliahan. Bila dicentang, memakai jalur cache milik {@link Perkuliahan}: kalau cache belum
+	 * ada ({@code !perkuliahan.udah()}), query ulang pertemuan aktif lalu panggil
+	 * {@code perkuliahan.reInitPertemuan(...)} untuk membangun ulang cache (termasuk penomoran ulang bila
+	 * mode urut otomatis) sebelum membaca id dari {@code perkuliahan.ambilPertemuan(0, 1000, false)}.
+	 *
+	 * @param event event pemicu (tidak dipakai isinya, hanya diteruskan lewat listener); boleh
+	 *              {@code null}
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 		Session session = HibernateUtil.currentSession();

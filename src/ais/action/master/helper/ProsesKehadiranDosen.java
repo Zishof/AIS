@@ -63,54 +63,87 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
 /**
- * Tipe khusus untuk proses kehadiran dosen. Kelas ini memberi nama dan batas tanggung jawab yang
- * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ * Window rekapitulasi & pemrosesan kehadiran dosen (akademik). Menghitung ulang, dari data
+ * {@link Pertemuan} yang berstatus "masuk" pada rentang tanggal terpilih, jumlah kehadiran dan
+ * beban SKS tiap dosen -- lalu menyimpan hasilnya sebagai rekap bulanan permanen di tabel
+ * {@link KehadiranDosenBulanan} dan (lewat tombol laporan) menuliskannya sebagai entri JSON ke
+ * kolom {@code Dosen.formula}, yang dipakai modul lain (mis. insentif/honor dosen) sebagai sumber
+ * angka SKS/kehadiran per periode.
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * MyWindow}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Center center}, {@code Combobox
- * tahunAkademik}, {@code Combobox genapGanjil}, {@code Combobox fakultas}, {@code Combobox jurusan}, {@code
- * Textbox matakuliah}, {@code AmbilDataKelasBanbox kelas}, {@code AmbilDataMasaPerkuliahanBanbox
- * masaPerkuliahan}; inisialisasi/lifecycle ({@code init()}); mutasi data ({@code proses()}). Bagian lain dari
- * kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p>Alur UI ({@link #init()}): panel filter kiri (fakultas, prodi, tahun akademik, semester
+ * genap/ganjil, kelas, mata kuliah, status dosen tetap/tidak tetap, dosen, rentang tanggal
+ * perubahan absensi -- default mundur satu bulan dari konfigurasi
+ * {@code tanggal_mulai_absensi}, semester pendek, ekstrakurikuler, dan daftar checkbox jenis
+ * pertemuan yang aktif) diikuti tombol "Proses" yang memicu {@link #proses()}.</p>
+ *
+ * <p><b>Efek samping ({@link #proses()}):</b> menjalankan query rekap lewat
+ * {@link CommonReportHelper#generateParameterMapAbsensiRinciDosen}, mengagregasi hasilnya ke dua
+ * map instance {@link #dataHadir} (per kombinasi dosen+perkuliahan; SKS dibagi rata bila
+ * perkuliahan diampu lebih dari satu dosen) dan {@link #dataHadirPerDosen} (per kombinasi
+ * dosen+jurusan), lalu membangun 3 tab: "Daftar Kehadiran Per Perkuliahan", "Daftar Kehadiran Per
+ * Dosen", dan "Total SKS Per Dosen" (tab ketiga dimuat malas/lazy saat pertama kali diklik).
+ * Tombol laporan pada tiap tab BUKAN sekadar cetak: selain memanggil
+ * {@link Report#generatePDFReport}, tombol tersebut juga menulis/menimpa entri JSON bertanda kunci
+ * seperti {@code DSN_PERK_<bulan>_<tahun>} (atau varian {@code _SP} untuk semester pendek) ke
+ * array {@code Dosen.formula}, serta meng-upsert baris {@link KehadiranDosenBulanan} lewat
+ * {@link Common#refreshSaveOrUpdate} -- keduanya persisten ke database, bukan efek tampilan
+ * semata.</p>
+ * <p><b>Catatan:</b> {@link #dataHadir} dan {@link #dataHadirPerDosen} adalah state instance yang
+ * di-{@code clear()} dan diisi ulang setiap kali {@link #proses()} dipanggil; jangan mengandalkan
+ * isinya di luar alur render tab yang sama.</p>
  *
  * @see MyWindow
  */
 public class ProsesKehadiranDosen extends MyWindow {
 
+	/** Area tengah (Center) tempat 3 tab hasil {@link #proses()} dirender. */
 	private Center center;
 
 	/**
-	 * 
+	 *
 	 */
 	private static final long serialVersionUID = 3331244819198611604L;
+	/** Filter tahun akademik (mis. "2025/2026"), dibaca {@link #proses()}. */
 	private Combobox tahunAkademik;
+	/** Filter semester genap/ganjil, default mengikuti {@link Common#isNowSemensterGanjil()}. */
 	private Combobox genapGanjil;
+	/** Filter fakultas; mengendalikan pilihan {@link #jurusan} lewat {@link Common#initFakultasDanJurusanDanSemua}. */
 	private Combobox fakultas;
+	/** Filter prodi/jurusan; memicu re-scope {@link #masaPerkuliahan} saat berubah. */
 	private Combobox jurusan;
 
+	/** Filter bebas nama mata kuliah (pencocokan teks, terpisah dari picker {@link #matkul}). */
 	private Textbox matakuliah;
+	/** Picker kelas spesifik untuk mempersempit rekap. */
 	private AmbilDataKelasBanbox kelas;
+	/** Picker masa perkuliahan, di-scope ulang mengikuti {@link #jurusan} terpilih. */
 	private AmbilDataMasaPerkuliahanBanbox masaPerkuliahan;
+	/** Picker dosen spesifik untuk mempersempit rekap ke satu dosen. */
 	private AmbilDataDosenBanbox dosen;
+	/** Filter khusus perkuliahan semester pendek. */
 	private MyCheckboxConfig semesterPendek;
+	/** Filter khusus kegiatan ekstrakurikuler (baris disembunyikan dari UI, jarang dipakai). */
 	private MyCheckboxConfig ekstrakurikuler;
 
+	/** Awal rentang tanggal perubahan absensi yang direkap (default: 1 bulan lalu, lihat {@link #init()}). */
 	private MyDatebox mulai;
+	/** Akhir rentang tanggal perubahan absensi yang direkap (default: hari ini). */
 	private MyDatebox sampai;
 
+	/** Picker mata kuliah spesifik untuk mempersempit rekap. */
 	private AmbilDataMatakuliahBanbox matkul;
 
+	/** Filter status kepegawaian dosen: semua / tetap / tidak tetap. */
 	private Combobox tetap;
 
+	/** Checkbox dinamis satu per {@link StatusPertemuan} aktif; hanya yang dicentang diikutkan {@link #proses()}. */
 	private ArrayList<MyCheckboxConfig> listJenisPertemuan;
 
+	/**
+	 * Constructor default: memanggil {@link #init()} untuk membangun UI filter. Kegagalan inisialisasi
+	 * ditangkap di sini (bukan dilempar ke pemanggil) dan ditampilkan sebagai pesan error standar
+	 * {@link PesanFormalHelper#tampilkanGagalException}.
+	 */
 	public ProsesKehadiranDosen() {
 		super();
 		try {
@@ -128,12 +161,33 @@ public class ProsesKehadiranDosen extends MyWindow {
 		}
 	}
 
+	/**
+	 * Constructor dengan judul/border/closable eksplisit (dipakai bila window ini ditanam sebagai
+	 * bagian dari layar lain, bukan popup mandiri). Kegagalan {@link #init()} DIteruskan ke pemanggil
+	 * (berbeda dari constructor default yang menelan exception-nya sendiri).
+	 *
+	 * @param title    judul window
+	 * @param border   mode border ZK (mis. "normal")
+	 * @param closable apakah window menampilkan tombol tutup
+	 * @throws Exception diteruskan dari {@link #init()} bila gagal membangun UI
+	 */
 	public ProsesKehadiranDosen(String title, String border, boolean closable) throws Exception {
 		super(title, border, closable);
 
 		init();
 	}
 
+	/**
+	 * Membangun panel filter (West) window: combobox fakultas/prodi (lewat
+	 * {@link Common#initFakultasDanJurusanDanSemua}), semester genap/ganjil (default mengikuti
+	 * {@link Common#isNowSemensterGanjil()}), tahun akademik, picker kelas/matakuliah/dosen, status
+	 * dosen tetap/tidak tetap, rentang tanggal perubahan absensi (default: mundur 1 bulan dari hari
+	 * ini, tanggal awal mengikuti konfigurasi {@code tanggal_mulai_absensi}), checkbox semester
+	 * pendek/ekstrakurikuler, checkbox jenis pertemuan (satu per {@link StatusPertemuan} yang aktif,
+	 * masing-masing menyimpan referensinya lewat {@code setAttribute("statusPertemuan", ...)} agar
+	 * dibaca kembali oleh {@link #proses()}), serta tombol "Proses" yang memanggil {@link #proses()}.
+	 * Dipanggil sekali dari constructor.
+	 */
 	private void init() {
 
 		fakultas = new Combobox();
@@ -339,11 +393,42 @@ public class ProsesKehadiranDosen extends MyWindow {
 
 	}
 
+	/**
+	 * Agregat kehadiran per kombinasi dosen+perkuliahan (key {@code "<dosen_id>_<perkuliahan_id>"}),
+	 * diisi ulang setiap {@link #proses()} dipanggil. Sumber data render tab "Daftar Kehadiran Per
+	 * Perkuliahan".
+	 */
 	@SuppressWarnings("rawtypes")
 	private Map<String, Map> dataHadir = new TreeMap<String, Map>();
+	/**
+	 * Agregat kehadiran per kombinasi dosen+jurusan (key {@code "<dosen_id>_<jurusan_id>"}), diisi
+	 * ulang setiap {@link #proses()} dipanggil. Sumber data render tab "Daftar Kehadiran Per Dosen".
+	 */
 	@SuppressWarnings("rawtypes")
 	private Map<String, Map> dataHadirPerDosen = new TreeMap<String, Map>();
 
+	/**
+	 * Mengeksekusi rekapitulasi kehadiran dosen berdasarkan seluruh filter pada panel West, lalu
+	 * merender 3 tab hasil di {@link #center}.
+	 *
+	 * <p>Alur: (1) mengosongkan {@link #dataHadir}/{@link #dataHadirPerDosen}; (2) memanggil
+	 * {@link CommonReportHelper#generateParameterMapAbsensiRinciDosen} dengan seluruh nilai filter
+	 * (fakultas, prodi, kelas, masa perkuliahan, tahun akademik, semester, semester pendek,
+	 * ekstrakurikuler, dosen, mata kuliah, rentang tanggal, status dosen tetap, daftar id
+	 * {@link StatusPertemuan} yang dicentang) untuk mengambil baris {@link Pertemuan} yang cocok; (3)
+	 * untuk tiap baris, menghitung SKS efektif (dibagi rata bila {@code jumlah_dosen > 1}, artinya
+	 * perkuliahan diampu bersama) dan mengakumulasi ke {@link #dataHadir} dan
+	 * {@link #dataHadirPerDosen} (jumlah hadir, jumlah hari hadir unik, jumlah mata kuliah unik, SKS
+	 * total); (4) membangun 3 {@link Tabpanel}: rincian per perkuliahan, rekap per dosen, dan (lazy,
+	 * dimuat saat tab diklik pertama kali) total SKS per dosen dari seluruh {@link Perkuliahan} aktif
+	 * pada filter tahun/semester yang sama (dihitung terpisah dari {@link #dataHadir}, langsung dari
+	 * tabel {@link Perkuliahan} lewat proyeksi SUM SKS matakuliah).</p>
+	 *
+	 * <p><b>Efek samping:</b> tombol laporan pada tiap tab (bukan hanya {@link #proses()} sendiri)
+	 * menulis entri JSON ke {@code Dosen.formula} dan meng-upsert {@link KehadiranDosenBulanan} --
+	 * lihat Javadoc kelas untuk detail. {@link #proses()} sendiri hanya membaca dan merender; mutasi
+	 * DB terjadi di listener {@code onClick} tombol laporan di dalamnya.</p>
+	 */
 	private void proses() {
 
 		Common.clear(center);
