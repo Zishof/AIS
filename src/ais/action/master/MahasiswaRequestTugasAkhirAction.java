@@ -3801,7 +3801,8 @@ public class MahasiswaRequestTugasAkhirAction extends GenericAutowireComposer
 				}
 				Common.selectComboItem(true, formatNilaiProposalSkripsi,
 						mahasiswaRequestTugasAkhir.getFormatNilaiProposalSkripsi());
-				if (!formatNilaiProposalSkripsi.getChildren().isEmpty()) {
+				if (formatNilaiProposalSkripsi.getSelectedItem() == null
+						&& !formatNilaiProposalSkripsi.getChildren().isEmpty()) {
 					formatNilaiProposalSkripsi.setSelectedIndex(0);
 				}
 

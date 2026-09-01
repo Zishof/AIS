@@ -49,31 +49,31 @@ import ais.ui.util.GetEventListener;
 import ais.ui.util.MyPanel;
 
 /**
- * Tipe khusus untuk ambil data jam perkuliahan banbox. Kelas ini memberi nama dan batas tanggung
- * jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code EventListener
- * eventListener}, {@code Jurusan jurusan}, {@code boolean edit}, {@code boolean delete}, {@code Textbox nama},
- * {@code Combobox searchfakultas}, {@code Combobox searchjurusan}; pembacaan/pencarian ({@code
- * onSearchDefault()}, {@code setEventListener()}, {@code getEventListener()}); mutasi data ({@code
- * setJurusan()}, {@code setJurusanSelected()}, {@code setFakultasSelected()}); operasi domain lain ({@code
- * display()}); konfigurasi constructor: {@code delete}, {@code edit}. Bagian lain dari kontrak tetap mengikuti
- * kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.JamPerkuliahan} —
+ * lihat {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback).
+ * <p>
+ * {@code JamPerkuliahan} adalah master data jam/slot waktu perkuliahan (mis. "07:00-08:40") yang
+ * dipakai saat menyusun jadwal kelas, opsional dikaitkan ke {@link Jurusan}/{@link Fakultas}/
+ * program tertentu (bila kosong berarti berlaku untuk "Semua"). Popup pencarian menyediakan field
+ * {@code nama} (ilike substring), Combobox fakultas, prodi, dan program; hanya baris
+ * {@code aktif == true} atau {@code aktif} kosong yang tampil, dan filter fakultas/prodi memakai
+ * {@code Restrictions.or(isNull(...), ...)} sehingga jam perkuliahan tanpa fakultas/prodi (berlaku
+ * "Semua") selalu ikut muncul di hasil apa pun kombinasi filternya. Constructor menerima
+ * {@link Jurusan} induk opsional — bila diisi, Combobox fakultas dan prodi otomatis terisi dan
+ * di-nonaktifkan (mengunci pencarian ke fakultas/prodi milik jurusan tersebut). Pemilihan bersifat
+ * TUNGGAL (Radiogroup). Berbeda dari kebanyakan subclass sejenis, popup ini juga menyediakan aksi
+ * CRUD langsung (tombol Tambah/Ubah/Hapus) bila pengguna adalah admin dan/atau punya privilese
+ * {@link ais.common.CommonPrivilages#UPDATE}/{@link ais.common.CommonPrivilages#DELETE} — lihat
+ * {@link JamPerkuliahanRenderer} dan {@link #display()}.
+ * </p>
  *
  * @see Bandbox
  */
 public class AmbilDataJamPerkuliahanBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 *
 	 */
 	private static final long serialVersionUID = 6452451056684904810L;
 	private MyGrid grid;
@@ -83,6 +83,16 @@ public class AmbilDataJamPerkuliahanBanbox extends Bandbox implements GetEventLi
 	private boolean edit = false;
 	private boolean delete = false;
 
+	/**
+	 * Konstruktor dengan filter opsional dari entity induk {@link Jurusan}: bila {@code jurusan}
+	 * tidak null, Combobox fakultas dan prodi di popup pencarian dikunci (disabled) ke fakultas dan
+	 * prodi milik jurusan tersebut. Juga menentukan hak edit/hapus baris ({@link #edit},
+	 * {@link #delete}) dari privilese pengguna saat ini. Selebihnya mengikuti kerangka constructor
+	 * standar di {@link ais.ui.util.GetEventListener} (listener {@code onOpen} lazy-build popup).
+	 *
+	 * @param jurusan prodi induk untuk membatasi pencarian, atau {@code null} untuk pencarian bebas
+	 *                semua fakultas/prodi
+	 */
 	public AmbilDataJamPerkuliahanBanbox(Jurusan jurusan) {
 		super();
 		edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
@@ -108,6 +118,17 @@ public class AmbilDataJamPerkuliahanBanbox extends Bandbox implements GetEventLi
 		});
 	}
 
+	/**
+	 * Mengganti prodi induk yang membatasi pencarian setelah instance dibuat: mengosongkan nilai
+	 * dan atribut Bandbox saat ini, memberi tahu {@link #eventListener} tentang pengosongan
+	 * tersebut, mereset Combobox fakultas/prodi, lalu membangun ulang popup lewat
+	 * {@link #display()} dengan {@link Jurusan} baru. Bukan bagian kerangka standar — method
+	 * spesifik entity ini untuk kasus form yang mengganti prodi pilihan setelah Bandbox terpasang.
+	 *
+	 * @param jurusan prodi induk baru untuk membatasi pencarian
+	 * @throws Exception diteruskan dari {@link EventListener#onEvent(Event)} milik
+	 *                    {@link #eventListener}
+	 */
 	public void setJurusan(Jurusan jurusan) throws Exception {
 
 		setValue("");
@@ -132,16 +153,15 @@ public class AmbilDataJamPerkuliahanBanbox extends Bandbox implements GetEventLi
 	private boolean admin;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataJamPerkuliahanBanbox}. Kelas ini menerjemahkan satu item
-	 * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataJamPerkuliahanBanbox} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer baris grid hasil pencarian {@link JamPerkuliahan}: kolom nama, waktu mulai/selesai,
+	 * jurusan/fakultas/program (tampil "Semua" bila kosong), dan radio button pilihan mengikuti
+	 * kerangka standar (lihat {@link ais.ui.util.GetEventListener}). KHUSUS entity ini, bila
+	 * {@link #admin} bernilai true, kolom terakhir juga menampilkan tombol Ubah (memanggil
+	 * {@link JamPerkuliahanAction#onAddExternal}, hanya tampak bila {@link #edit}) dan tombol Hapus
+	 * (konfirmasi dialog lalu {@link JamPerkuliahanAction#onDelete}, hanya tampak bila
+	 * {@link #delete}) — memungkinkan CRUD master data langsung dari popup picker tanpa membuka
+	 * layar {@link JamPerkuliahanAction} terpisah. Penghapusan yang gagal karena constraint FK
+	 * ditangani dengan pesan ramah lewat {@link ais.common.PesanFormalHelper}.
 	 *
 	 * @see AmbilDataJamPerkuliahanBanbox
 	 */
@@ -265,6 +285,17 @@ public class AmbilDataJamPerkuliahanBanbox extends Bandbox implements GetEventLi
 
 	}
 
+	/**
+	 * Membangun popup pencarian {@link JamPerkuliahan} sekali (dipanggil lazy dari listener
+	 * {@code onOpen} atau ulang dari {@link #setJurusan(Jurusan)}): form dengan field nama,
+	 * fakultas, prodi, program, tombol Cari, dan grid hasil dibungkus
+	 * {@link org.zkoss.zul.Radiogroup} (pilih tunggal). Combobox fakultas/prodi diprapilih dan
+	 * dikunci bila {@link #jurusan} sudah ditentukan lewat constructor. Bila pengguna admin,
+	 * toolbar juga menampilkan tombol Tambah Jam Perkuliahan (hanya tampak bila {@link #edit}).
+	 * Mengikuti kerangka {@code display()} standar — lihat {@link ais.ui.util.GetEventListener}.
+	 * Memanggil {@link #onSearchDefault(Event)} di akhir agar grid terisi saat popup pertama
+	 * dibuka.
+	 */
 	public void display() {
 		setReadonly(true);
 
@@ -462,6 +493,19 @@ public class AmbilDataJamPerkuliahanBanbox extends Bandbox implements GetEventLi
 
 	}
 
+	/**
+	 * Mengeksekusi pencarian {@link JamPerkuliahan} dengan filter {@code aktif} (baris nonaktif
+	 * disembunyikan kecuali kolomnya {@code null}), {@code nama} (ilike substring), program (eq
+	 * bila dipilih), dan jurusan/fakultas (eq bila dipilih, tapi SELALU digabung
+	 * {@code Restrictions.or(isNull(...), ...)} sehingga baris tanpa jurusan/fakultas — berlaku
+	 * "Semua" — selalu ikut tampil terlepas dari filter). Diurutkan berdasar waktu mulai lalu
+	 * selesai, dibatasi {@link ais.common.Common#MAX_RESULT}, lalu memasang
+	 * {@link JamPerkuliahanRenderer} dan model hasil ke {@link #grid}. Mengikuti kerangka
+	 * {@code onSearchDefault} standar — lihat {@link ais.ui.util.GetEventListener}.
+	 *
+	 * @param event event pemicu (klik tombol Cari, atau efek samping dari aksi tambah/hapus
+	 *              inline); boleh {@code null} saat dipanggil dari {@link #display()}
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -499,19 +543,36 @@ public class AmbilDataJamPerkuliahanBanbox extends Bandbox implements GetEventLi
 
 	}
 
+	/** {@inheritDoc} Implementasi setter polos standar — lihat {@link ais.ui.util.GetEventListener}. */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** {@inheritDoc} Implementasi getter polos standar — lihat {@link ais.ui.util.GetEventListener}. */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
 
+	/**
+	 * Menetapkan prodi yang akan diprapilih (bukan dikunci) pada Combobox prodi saat popup
+	 * berikutnya dibangun, dan membersihkan state Bandbox (nilai/atribut) via
+	 * {@link Common#clear(org.zkoss.zul.Bandbox)}. Berbeda dari {@link #setJurusan(Jurusan)}: ini
+	 * hanya mengubah default pilihan combo, bukan mengunci/membatasi hasil pencarian.
+	 *
+	 * @param jurusan prodi yang akan diprapilih
+	 */
 	public void setJurusanSelected(Jurusan jurusan) {
 		Common.clear(this);
 		this.selectedJurusan = jurusan;
 	}
 
+	/**
+	 * Menetapkan fakultas yang akan diprapilih pada Combobox fakultas saat popup berikutnya
+	 * dibangun, dan membersihkan state Bandbox (nilai/atribut). Lihat catatan
+	 * {@link #setJurusanSelected(Jurusan)} — hanya mengubah default pilihan, bukan mengunci hasil.
+	 *
+	 * @param fakultas fakultas yang akan diprapilih
+	 */
 	public void setFakultasSelected(Fakultas fakultas) {
 		Common.clear(this);
 		this.selectedFakultas = fakultas;

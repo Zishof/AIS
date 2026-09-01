@@ -39,30 +39,27 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data komponen produk kursus banbox. Kelas ini memberi nama dan batas
- * tanggung jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang
- * diimplementasikannya.
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.kursus.KomponenProdukKursus}
+ * — lihat {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback). Komponen produk kursus adalah item-item
+ * pembentuk satu produk kursus di modul Kursus AIS (mis. biaya pendaftaran, materi, seragam), masing-masing
+ * dengan kode, nama, harga, dan keterangan sendiri.
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code EventListener eventListener}, {@code Textbox nama};
- * pembacaan/pencarian ({@code onSearchDefault()}, {@code setEventListener()}, {@code getEventListener()});
- * operasi domain lain ({@code display()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface
- * yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p>Pencarian memakai satu {@code Textbox nama} yang dicocokkan (ilike, tanpa memandang posisi substring)
+ * ke kolom {@code kode} ATAU {@code nama} sekaligus, hanya terhadap komponen yang berstatus aktif
+ * ({@code aktif} bernilai {@code null} atau {@code true}), diurutkan ascending berdasar nama. Hasil
+ * ditampilkan dalam {@link Radiogroup} (pilih-tunggal via {@link Radio}) dengan grid client-side bermold
+ * "paging" (page size 50, dibatasi {@code Common.MAX_RESULT_1000}); field {@code pagingHelper} dideklarasikan
+ * namun tidak dipakai pada file ini. Kolom grid: Kode, Nama, Harga (rata kanan, diformat
+ * {@code Common.numberFormat}), Keterangan. Tidak ada parameter constructor tambahan — konstruktor hanya
+ * memasang pola lazy-open standar.</p>
  *
  * @see Bandbox
  */
 public class AmbilDataKomponenProdukKursusBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 *
 	 */
 	private static final long serialVersionUID = 6452461056684904810L;
 	private MyGrid grid;
@@ -72,6 +69,11 @@ public class AmbilDataKomponenProdukKursusBanbox extends Bandbox implements GetE
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
 	private EventListener eventListener;
 
+	/**
+	 * Membangun Bandbox read-only dan memasang listener {@code onOpen} standar: popup dibangun lazy
+	 * (sekali saja, dicek lewat {@code getChildren().isEmpty()}) via {@link #display()}, lalu dibuka
+	 * lewat {@link Common#createDefaultTimer}. Tidak ada parameter filter dari entity induk.
+	 */
 	public AmbilDataKomponenProdukKursusBanbox() {
 		super();
 		setReadonly(true);
@@ -100,16 +102,12 @@ public class AmbilDataKomponenProdukKursusBanbox extends Bandbox implements GetE
 	private Textbox nama;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataKomponenProdukKursusBanbox}. Kelas ini menerjemahkan
-	 * satu item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataKomponenProdukKursusBanbox} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Merender satu baris grid hasil pencarian komponen produk kursus: label Nama, Harga (terformat),
+	 * dan Keterangan, plus satu {@link Radio} pilihan di kolom pertama. Saat radio dicentang
+	 * ({@code onCheck}), popup ditutup, entity {@link KomponenProdukKursus} terpilih disimpan lewat
+	 * {@code setAttribute("komponenProdukKursus", ...)} dan teks tampilan Bandbox diisi
+	 * {@code toString()}-nya, lalu {@link #eventListener} (bila terpasang) diberi tahu — mengikuti pola
+	 * callback standar yang dijelaskan di {@link ais.ui.util.GetEventListener}.
 	 *
 	 * @see AmbilDataKomponenProdukKursusBanbox
 	 */
@@ -145,6 +143,12 @@ public class AmbilDataKomponenProdukKursusBanbox extends Bandbox implements GetE
 
 	}
 
+	/**
+	 * Membangun isi {@link Bandpopup} sekali: panel judul "Daftar Komponen Produk" berisi form
+	 * pencarian ({@code Textbox nama}) + tombol Cari/Bersihkan, dan grid hasil dibungkus
+	 * {@link Radiogroup} (pilih-tunggal). Diakhiri memanggil {@link #onSearchDefault(Event)} dengan
+	 * {@code null} agar grid langsung terisi saat popup pertama dibuka.
+	 */
 	public void display() {
 		setReadonly(true);
 		Bandpopup bandpopup = new ais.ui.util.MyBandpopup();
@@ -251,6 +255,15 @@ public class AmbilDataKomponenProdukKursusBanbox extends Bandbox implements GetE
 
 	}
 
+	/**
+	 * Menjalankan pencarian {@link KomponenProdukKursus} yang aktif ({@code aktif} null atau
+	 * {@code true}), difilter opsional lewat {@code Textbox nama} yang dicocokkan (ilike, kedua arah)
+	 * ke kolom {@code kode} ATAU {@code nama} bila diisi, diurutkan ascending berdasar nama dan dibatasi
+	 * {@code Common.MAX_RESULT_1000} baris. Hasil dipasang ke {@link #grid} lewat
+	 * {@link KomponenProdukKursusRenderer} dan {@code SimpleListModel}.
+	 *
+	 * @param event event pemicu (boleh {@code null}, mis. saat dipanggil dari {@link #display()})
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -276,10 +289,18 @@ public class AmbilDataKomponenProdukKursusBanbox extends Bandbox implements GetE
 
 	}
 
+	/**
+	 * Menetapkan listener yang dipanggil setelah baris komponen produk kursus dipilih.
+	 *
+	 * @param eventListener listener baru yang akan dipasang
+	 */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/**
+	 * @return listener aktif saat ini, atau {@code null} bila belum diset
+	 */
 	public EventListener getEventListener() {
 		return eventListener;
 	}

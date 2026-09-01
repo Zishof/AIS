@@ -430,7 +430,13 @@ public class PembombotanNilai extends GeneralValueObject {
 							}
 							formatNilai.setCapaianPembelajaranLulusan(capaianPembelajaranLulusan);
 							formatNilai.setKodeSubCpmk(capaianPembelajaranLulusan.getKode());
-							formatNilai.setNama(capaianPembelajaranLulusan.getKode());
+							String namaCpmk = capaianPembelajaranLulusan.getNama() == null ? ""
+									: capaianPembelajaranLulusan.getNama().trim();
+							String kodeCpmk = capaianPembelajaranLulusan.getKode() == null ? ""
+									: capaianPembelajaranLulusan.getKode().trim();
+							formatNilai.setNama(kodeCpmk.length() > 0 && namaCpmk.length() > 0
+									? kodeCpmk + " - " + namaCpmk
+									: (kodeCpmk.length() > 0 ? kodeCpmk : namaCpmk));
 							formatNilai.setPersen(capaianPembelajaranLulusan.getBobot());
 							formatNilai.setNomorUrut(index);
 							Common.refreshSaveOrUpdate(session, formatNilai);
@@ -510,7 +516,10 @@ public class PembombotanNilai extends GeneralValueObject {
 								}
 								formatNilai.setCapaianPembelajaranLulusan(capaianPembelajaranLulusan);
 								formatNilai.setKodeSubCpmk(jsonObject.get("key") + "");
-								formatNilai.setNama(nama);
+								String namaTampilan = kode.trim().length() > 0 && nama.trim().length() > 0
+										? kode.trim() + " - " + nama.trim()
+										: (nama.trim().length() > 0 ? nama.trim() : kode.trim());
+								formatNilai.setNama(namaTampilan);
 								formatNilai.setPersen(bobot);
 								formatNilai.setNomorUrut(index);
 								Common.refreshSaveOrUpdate(session, formatNilai);

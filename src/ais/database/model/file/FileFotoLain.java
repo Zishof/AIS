@@ -402,6 +402,7 @@ public abstract class FileFotoLain extends FileFoto {
 
 		if (udah == null || udah.trim().isEmpty() || VOMahasiswa.dataJSON.equalsIgnoreCase(udah) || refresh) {
 			Session session = null;
+			Transaction transaction = null;
 			try {
 				String refName = getRefField(clazz);
 				boolean adaJenis = !refName.equals("id") && !refName.equals("tbmuser")
@@ -422,6 +423,7 @@ public abstract class FileFotoLain extends FileFoto {
 				}
 
 				session = StreamingHibernateUtil.getInstance().getSessionFactory().openSession();
+				transaction = session.beginTransaction();
 				FileFotoLain result = (FileFotoLain) session.createCriteria(clazz)
 						.add(kondisiTambahan.trim().isEmpty() ? Restrictions.sqlRestriction("true")
 								: Restrictions.sqlRestriction(kondisiTambahan))
@@ -436,16 +438,23 @@ public abstract class FileFotoLain extends FileFoto {
 					jsonObject.put("class", clazz.getName());
 					jsonObject.put("id", result.getId());
 					tulisLokasi(jsonObject.toString(), keyFilePrefix, ref, jenis, clazz);
+					transaction.commit();
+					transaction = null;
 					return result;
 				} else {
 					tulisLokasi("0", keyFilePrefix, ref, jenis, clazz);
+					transaction.commit();
+					transaction = null;
 					return null;
 				}
 			} catch (Exception e) {
+				rollbackQuietly(transaction);
+				transaction = null;
 				tulisLokasi("0", keyFilePrefix, ref, jenis, clazz);
 				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/file/FileFotoLain.java:408");
 				return null;
 			} finally {
+				rollbackQuietly(transaction);
 				if (session != null && session.isOpen())
 					session.close();
 			}

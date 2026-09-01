@@ -394,6 +394,9 @@ public class CapaianPembelajaranLulusanAction extends ObeBaseAction {
             kodeText.addEventListener("onChange", syncListener);
             namaText.addEventListener("onChange", syncListener);
             bobotBox.addEventListener("onChange", syncListener);
+			kodeText.addEventListener("onBlur", syncListener);
+			namaText.addEventListener("onBlur", syncListener);
+			bobotBox.addEventListener("onBlur", syncListener);
 
             MyToolbarbuttonConfig delBtn = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
             delBtn.setTooltiptext("Hapus Data");
