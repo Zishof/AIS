@@ -274,6 +274,12 @@ public class PosApi extends HttpServlet {
 			} else if ("topup_saldo".equals(action)) {
 				KantinHelper.topupSaldo(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "topup_saldo");
+			} else if ("topup_online_cara_bayar".equals(action)) {
+				KantinHelper.topupOnlineCaraBayar(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "topup_online_cara_bayar");
+			} else if ("topup_online_buat".equals(action)) {
+				KantinHelper.topupOnlineBuat(tbmuser, payload, hasil, request);
+				normalisasiStatusKantinHelper(hasil, "topup_online_buat");
 			} else if ("akun_ganti_password".equals(action)) {
 				KantinHelper.gantiPasswordSendiri(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "akun_ganti_password");
@@ -1569,7 +1575,8 @@ public class PosApi extends HttpServlet {
 		if ("bayar".equals(action) || "draft_bayar".equals(action)
 				|| "checkBayar".equals(action) || "cari_member".equals(action)
 				|| "cara_bayar_list".equals(action) || "saldo_member".equals(action)
-				|| "topup_saldo".equals(action) || "verifikasi_pin".equals(action)
+				|| "topup_saldo".equals(action) || "topup_online_cara_bayar".equals(action)
+				|| "topup_online_buat".equals(action) || "verifikasi_pin".equals(action)
 				|| "layar_pelanggan_kirim".equals(action) || "layar_pelanggan_ambil".equals(action)
 				|| "survey_kepuasan_simpan".equals(action)) {
 			return menu.optBoolean("kasir", true);
@@ -2158,6 +2165,14 @@ public class PosApi extends HttpServlet {
 		} else if ("checkBayar".equals(konteks) && "01".equals(asli)) {
 			kode = "TIDAK_DITEMUKAN";
 			pesan = desc.length() > 0 ? desc : "Pembayaran belum terkonfirmasi.";
+		} else if (("topup_online_cara_bayar".equals(konteks) || "topup_online_buat".equals(konteks))
+				&& desc.trim().length() > 0) {
+			kode = "TOPUP_ONLINE_DITOLAK";
+			judul = "Topup online belum dapat dibuat";
+			pesan = desc;
+			solusi.put("Periksa member, nominal, serta kanal pembayaran yang dipilih.")
+					.put("Muat ulang pilihan cara bayar dari server, lalu coba kembali.")
+					.put("Saldo tidak berubah selama pembayaran bank belum dikonfirmasi berhasil.");
 		} else {
 			// Gunakan detail teknis juga untuk klasifikasi. KantinHelper sengaja
 			// menyimpan pesan kasir yang aman di description dan exception asli di

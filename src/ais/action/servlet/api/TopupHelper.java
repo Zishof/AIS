@@ -700,6 +700,11 @@ public class TopupHelper {
 
 			String topupStr = request.has("topup") && !request.isNull("topup") ? request.getString("topup") : null;
 			Double topupNumber = parseDoubleSafe(topupStr, 0.0);
+			if (topupNumber == null || topupNumber.doubleValue() <= 0.0) {
+				jsonObject.put("status", "03");
+				jsonObject.put("description", "Nominal topup harus lebih dari 0");
+				return jsonObject;
+			}
 
 			Siswa siswa = tbmuser.getSiswa();
 			CalonSiswa calonSiswa = tbmuser.getCalonSiswa();
@@ -881,6 +886,21 @@ public class TopupHelper {
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static JSONObject topupAnggotaKoperasi(JSONObject request, HttpServletRequest httpServletRequest,
 			Tbmuser tbmuser) {
+		return topupAnggotaKoperasi(request, httpServletRequest, tbmuser,
+				tbmuser == null ? null : tbmuser.getAnggotaKoperasi(), null);
+	}
+
+	/**
+	 * Varian topup anggota untuk petugas POS. Target anggota dan cara pembayaran
+	 * sudah diverifikasi oleh endpoint petugas sebelum method ini dipanggil.
+	 * Seluruh pembuatan VA/payment-link tetap memakai generator yang sama dengan
+	 * aplikasi anggota, sehingga saldo baru masuk dari callback bank/gateway dan
+	 * bukan saat petugas menekan tombol buat tagihan.
+	 */
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public static JSONObject topupAnggotaKoperasi(JSONObject request, HttpServletRequest httpServletRequest,
+			Tbmuser tbmuser, AnggotaKoperasi anggotaTarget,
+			CaraPembayaranKoperasi caraPembayaranTarget) {
 		JSONObject jsonObject = new JSONObject();
 		Session session = null;
 
@@ -897,8 +917,13 @@ public class TopupHelper {
 					&& !request.isNull("caraPembayaranKoperasi") ? request.getString("caraPembayaranKoperasi") : null;
 			String topupStr = request.has("topup") && !request.isNull("topup") ? request.getString("topup") : null;
 			Double topupNumber = parseDoubleSafe(topupStr, 0.0);
+			if (topupNumber == null || topupNumber.doubleValue() <= 0.0) {
+				jsonObject.put("status", "03");
+				jsonObject.put("description", "Nominal topup harus lebih besar dari nol");
+				return jsonObject;
+			}
 
-			AnggotaKoperasi anggotaKoperasi = tbmuser.getAnggotaKoperasi();
+			AnggotaKoperasi anggotaKoperasi = anggotaTarget;
 
 			if (anggotaKoperasi == null) {
 				jsonObject.put("status", "01");
@@ -906,9 +931,11 @@ public class TopupHelper {
 				return jsonObject;
 			}
 
-			CaraPembayaranKoperasi caraPembayaranKoperasi = (CaraPembayaranKoperasi) (caraPembayaranKoperasidata == null
-					? null
-					: GeneralValueObject.ambilData(CaraPembayaranKoperasi.class, caraPembayaranKoperasidata));
+			CaraPembayaranKoperasi caraPembayaranKoperasi = caraPembayaranTarget != null
+					? caraPembayaranTarget
+					: (CaraPembayaranKoperasi) (caraPembayaranKoperasidata == null
+							? null
+							: GeneralValueObject.ambilData(CaraPembayaranKoperasi.class, caraPembayaranKoperasidata));
 			if (caraPembayaranKoperasi == null) {
 				jsonObject.put("status", "01");
 				jsonObject.put("description", "Cara Pembayaran pembayaran harus dipilih");
@@ -918,9 +945,10 @@ public class TopupHelper {
 			session = HibernateUtil.openSession();
 			try {
 
-			double biayaAdministrasi = 0.0;
 			List<String> warnings = new ArrayList<String>();
-			Double amn = topupNumber;
+			double biayaAdministrasi = caraPembayaranKoperasi.getKanalPembayaran() == null
+					|| caraPembayaranKoperasi.getKanalPembayaran().getBiayaAdminEsmartlink() == null ? 0.0
+							: caraPembayaranKoperasi.getKanalPembayaran().getBiayaAdminEsmartlink().doubleValue();
 			String billExpired = "";
 			String va = "";
 			String link = "";
@@ -929,8 +957,37 @@ public class TopupHelper {
 			Map param = new HashMap();
 
 			param.put("esmartlink", true);
+			String channel = request.has("channel") && !request.isNull("channel")
+					? request.optString("channel", "").trim() : "";
+			String variableChannel = caraPembayaranKoperasi.getKanalPembayaran() == null ? ""
+					: caraPembayaranKoperasi.getKanalPembayaran().getVariableBiayaAdminEsmartlink();
+			// Pemanggil lama tidak mengirim channel dan tetap memakai biaya admin dasar.
+			// Endpoint POS selalu mengharuskan channel bila konfigurasi variabel tersedia.
+			if (!channel.isEmpty() && variableChannel != null && !variableChannel.trim().isEmpty()) {
+				boolean channelDitemukan = false;
+				String[] channels = variableChannel.split(";");
+				for (int i = 0; i < channels.length; i++) {
+					String[] bagian = channels[i].trim().split(":", 3);
+					if (bagian.length > 0 && channel.equalsIgnoreCase(bagian[0].trim())) {
+						channelDitemukan = true;
+						if (bagian.length >= 2 && Common.isNumber(bagian[1].trim())) {
+							biayaAdministrasi = Double.valueOf(bagian[1].trim()).doubleValue();
+						}
+						break;
+					}
+				}
+				if (!channelDitemukan) {
+					jsonObject.put("status", "03");
+					jsonObject.put("description", "Kanal pembayaran tidak terdaftar pada konfigurasi server");
+					return jsonObject;
+				}
+			}
+			Double amn = Double.valueOf(topupNumber.doubleValue() + biayaAdministrasi);
+			if (!channel.isEmpty()) {
+				param.put("esmartlinkBayarVia", channel);
+			}
 			virtualAccountBank = DownloadTagihanAnggotaKoperasiBankOnline.downloadData(anggotaKoperasi, topupNumber,
-					0.0, param, bankHost, caraPembayaranKoperasi);
+					Double.valueOf(biayaAdministrasi), param, bankHost, caraPembayaranKoperasi);
 
 			if (virtualAccountBank != null) {
 				if (va.isEmpty())
