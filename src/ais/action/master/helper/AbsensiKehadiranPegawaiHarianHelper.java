@@ -73,25 +73,47 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
 /**
- * Helper terfokus untuk absensi kehadiran pegawai harian. Tipe ini membungkus satu variasi kecil
- * dari alur yang lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan
- * implementasi.
+ * Panel detail (baris ekspansi ZK {@link MyDetail}) yang menampilkan rekap absensi harian satu {@link Pegawai}
+ * (karyawan non-dosen) untuk satu bulan-tahun terpilih, sekaligus menjadi tempat admin/HRD mengoreksi data
+ * kehadiran secara manual. Data utama disimpan pada {@link StatuskehadiranKaryawanHarian}; baris yang belum ada
+ * untuk tanggal tertentu dalam rentang bulan diisi otomatis lewat
+ * {@link CommonPayroll#getDefaultStatuskehadiranKaryawanHarian}.
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * MyDetail}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Combobox bulan}, {@code Combobox
- * tahun}, {@code MyGrid grid}, {@code Pegawai pegawai}, {@code boolean edit}; pembacaan/pencarian ({@code
- * loadData()}); operasi domain lain ({@code display()}, {@code editJam()}, {@code toRelativeFotoUrl()});
- * konfigurasi constructor: {@code edit}. Bagian lain dari kontrak tetap mengikuti kelas induk atau interface
- * yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p>Selain status dan jam masuk/pulang, setiap baris menampilkan besaran turunan penggajian: jumlah jam
+ * masuk/lembur/keluar cepat/terlambat ({@code getJumlahJamMasuk()} dkk. pada
+ * {@link StatuskehadiranKaryawanHarian}) serta info {@link DetailJenisShiftPegawai} — otomatis dari jadwal shift
+ * pegawai, atau override manual lewat checkbox "Manual" beserta combobox shift/jam lembur bila diaktifkan admin.
+ * Baris yang sudah {@code getDikunci()} (mis. sudah diposting payroll) menyembunyikan kontrol override
+ * tersebut.</p>
+ *
+ * <p><b>Efek samping non-obvious yang perlu diperhatikan pemanggil/pemelihara:</b></p>
+ * <ul>
+ * <li>Tombol toolbar "Singkronkan" menjalankan proses batch di {@link Thread} terpisah (tidak memblokir UI):
+ * untuk tiap hari dalam bulan terpilih dibuka transaksi sendiri, dipanggil ulang
+ * {@link CommonPayroll#getDefaultStatuskehadiranKaryawanHarian} dan {@link CommonPayroll#getDetailJenisShiftPegawai}
+ * untuk MENGHITUNG ULANG jenis shift pegawai pada tanggal itu, lalu di-commit per hari (agar kegagalan satu hari
+ * tidak membatalkan hari lain). Progres dipantau lewat {@link Timer} ZK yang polling flag
+ * {@link AtomicBoolean} sampai thread selesai, baru memanggil {@link #loadData(Object)} ulang.</li>
+ * <li>{@link #loadData(Object)} melakukan pengisian/koreksi otomatis jam pulang yang benar-benar menulis ke
+ * database saat grid dimuat (bukan sekadar membaca): mengisi jam pulang yang kosong padahal ada scan online
+ * yang memenuhi durasi kerja minimal shift, dan mengoreksi jam pulang "shadow" (tersimpan lebih awal dari scan
+ * pulang asli).</li>
+ * <li>Riwayat lokasi/foto absensi online (datang dan pulang) ditampilkan lewat sub-{@link MyDetail} per baris,
+ * termasuk peta (iframe Google Maps) dan tautan pop-up foto; tabel "Sejarah Absensi Online" merender seluruh
+ * riwayat scan dari {@code ambilSejarah()}.</li>
+ * <li>{@link #editJam(StatuskehadiranKaryawanHarian)} membuka jendela modal terpisah untuk mengubah status
+ * absensi, jam datang/pulang manual, dan keterangan satu baris dengan commit tersendiri, termasuk aksi cepat
+ * "Jadikan Hanya Kepulangan" untuk kasus scan pertama pegawai yang salah tercatat sebagai kedatangan.</li>
+ * </ul>
+ *
+ * <p>Mode edit grid ditentukan oleh {@link CommonPrivilages#checkPrevilages(String)} dengan hak
+ * {@link CommonPrivilages#UPDATE}; baris yang berasal dari {@link CutiDanIzin} yang sudah disetujui tidak
+ * dirender sebagai kontrol edit (status kehadirannya mengikuti data cuti/izin).</p>
  *
  * @see MyDetail
+ * @see StatuskehadiranKaryawanHarian
+ * @see Pegawai
+ * @see CommonPayroll
  */
 public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 
@@ -105,6 +127,15 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 	private Pegawai pegawai;
 	private boolean edit = false;
 
+	/**
+	 * Membuat panel rekap absensi harian untuk satu {@link Pegawai}. Menentukan mode edit dari
+	 * {@link CommonPrivilages#checkPrevilages(String)} dengan hak {@link CommonPrivilages#UPDATE} (dievaluasi
+	 * sekali di sini, dipakai saat {@link #loadData(Object)} merender baris), dan mendaftarkan listener
+	 * {@code onOpen} yang membersihkan komponen anak lalu memanggil {@link #display()} setiap kali panel ini
+	 * dibuka (lazy render, mengikuti pola siklus hidup {@link MyDetail}).
+	 *
+	 * @param pegawai pegawai yang rekap absensinya akan ditampilkan
+	 */
 	public AbsensiKehadiranPegawaiHarianHelper(Pegawai pegawai) {
 		this.pegawai = pegawai;
 		edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
@@ -120,6 +151,19 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 		});
 	}
 
+	/**
+	 * Membangun UI panel: groupbox berjudul "Daftar absensi pegawai", toolbar dengan combobox Bulan (readonly,
+	 * default bulan berjalan) dan Tahun (readonly, rentang tahun berjalan &minus;10 s.d. +10, default tahun
+	 * berjalan), tombol "Singkronkan" (memicu perhitungan ulang shift satu bulan penuh secara background — lihat
+	 * dokumentasi kelas), tombol "Cari", serta grid berpaging (100 baris/halaman, mold paging "os" di posisi
+	 * atas) dengan kolom Tanggal, Status, Masuk/Pulang, Jam kerja, Shift, Lembur, Cepat, Terlambat, kolom
+	 * tersembunyi "Abaikan Jarak" (lebar 0px, dipakai sebagai anchor kolom checkbox di
+	 * {@link #loadData(Object)}), Keterangan, dan kolom aksi. Perubahan combobox atau klik tombol Cari memicu
+	 * {@link #loadData(Object)} ulang. Data awal langsung dimuat; kegagalan pada pemuatan pertama ditelan dan
+	 * hanya ditampilkan ke admin lewat {@link Common#tampilErrorJikaAdmin(Exception)}.
+	 *
+	 * @return groupbox yang baru dibangun dan sudah menjadi anak dari panel ini
+	 */
 	public Groupbox display() {
 		Groupbox groupbox = new ais.ui.util.MyGroupboxStyled();
 		groupbox.setParent(this);
@@ -411,6 +455,33 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 		return groupbox;
 	}
 
+	/**
+	 * Membuka jendela modal "Ubah Waktu Kehadiran" untuk mengedit satu baris {@link StatuskehadiranKaryawanHarian}
+	 * secara manual: status absensi (disembunyikan bila baris berasal dari {@link CutiDanIzin} yang sudah
+	 * disetujui — status mengikuti cuti/izin dan tidak boleh diubah di sini), checkbox "Tidak ada kehadiran" /
+	 * "Tidak ada kedatangan" / "Tidak ada kepulangan", jam datang dan jam pulang manual (jam pulang yang
+	 * ditampilkan mengutamakan hasil {@code ambilPulangUntukTampil()} — jam scan asli terkoreksi — dibanding
+	 * nilai kolom tersimpan, agar operator melihat jam kepulangan sebenarnya), serta keterangan bebas.
+	 *
+	 * <p>Perubahan checkbox/status langsung meng-enable/disable kontrol jam terkait lewat listener bersama, dan
+	 * bila {@link ConstantValues#aktifkanFingerPrintOtomatisDariKeterangan} aktif, mengetik keterangan yang
+	 * cocok pola tertentu otomatis mengisi & mengunci jam datang/pulang dari
+	 * {@link StatuskehadiranKaryawanHarian#mulaiOtomatisUlangAbsenDariKeterangan()} /
+	 * {@code #sampaiOtomatisUlangAbsenDariKeterangan()}.</p>
+	 *
+	 * <p>Tombol "Jadikan Hanya Kepulangan" adalah aksi cepat untuk kasus pegawai yang tidak absen datang tetapi
+	 * scan pertamanya terlanjur tercatat sebagai kedatangan: menandai "Tidak ada kedatangan", mengosongkan jam
+	 * datang, memastikan jam pulang terisi dari scan pulang asli, lalu memicu event {@code onClick} tombol
+	 * Simpan secara terprogram ({@link Events#sendEvent(Event)}). Tombol Simpan sendiri mencari baris
+	 * {@link StatuskehadiranKaryawanHarian} yang sudah ada berdasarkan id (atau membuat baris baru bila belum
+	 * ada — menyalin tanggal/pegawai/dosen/mahasiswa/guru/minggu/libur dari parameter), menuliskan field yang
+	 * diubah, lalu commit dalam transaksi tersendiri ({@code session.getTransaction()}), menutup session, dan
+	 * memuat ulang grid induk lewat {@link #loadData(Object)} setelah jendela ditutup.</p>
+	 *
+	 * @param statuskehadiranKaryawanHarianTemp baris kehadiran (bisa berupa objek sementara belum tersimpan)
+	 *                                           yang akan diedit
+	 * @throws Exception diteruskan dari akses Hibernate/komponen ZK bila terjadi kegagalan
+	 */
 	private void editJam(final StatuskehadiranKaryawanHarian statuskehadiranKaryawanHarianTemp) throws Exception {
 		final MyWindow window = new MyWindow("Ubah Waktu Kehadiran", "none", true);
 		window.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
@@ -736,6 +807,43 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 
 	}
 
+	/**
+	 * Memuat/merender ulang grid rekap absensi {@code pegawai} untuk bulan dan tahun yang sedang dipilih di
+	 * combobox. Dijalankan lewat {@link Common#createDefaultTimer(EventListener)} (dieksekusi pada siklus
+	 * event berikutnya, bukan langsung) agar UI (mis. indikator busy) sempat ter-render lebih dulu. Menampilkan
+	 * pesan peringatan lewat {@link MyMessageboxConfig#show} dan kembali tanpa efek bila bulan atau tahun belum
+	 * dipilih.
+	 *
+	 * <p><b>Tahapan &amp; efek samping:</b></p>
+	 * <ol>
+	 * <li>Mengambil {@link CutiDanIzin} yang disetujui dan tumpang tindih dengan rentang bulan terpilih, lalu
+	 * memakai {@link CommonPayroll#getDefaultStatuskehadiranKaryawanHarian(List, Integer, Integer, Pegawai,
+	 * Session, boolean)} untuk mendapatkan peta tanggal &rarr; {@link StatuskehadiranKaryawanHarian} (baris yang
+	 * belum ada di database dibuatkan objek default, bukan dipersist di langkah ini).</li>
+	 * <li>Untuk setiap baris yang sudah punya id, memanggil {@code autoUpdatePulangDariSejarah} dan
+	 * {@code autoKoreksiPulangShadow} lewat session Hibernate terpisah ({@code sesiPulangOtomatis}) — keduanya
+	 * BENAR-BENAR MENULIS ke database bila syaratnya terpenuhi (mengisi jam pulang yang kosong dari riwayat scan
+	 * online, atau mengoreksi jam pulang yang tersimpan lebih awal dari scan pulang asli), dengan pola
+	 * buka-proses-tutup session yang dibungkus try/finally agar tidak bocor koneksi.</li>
+	 * <li>Untuk setiap tanggal dalam bulan: menyiapkan sub-{@link MyDetail} berisi info lokasi/foto absen datang
+	 * dan pulang (peta Google Maps via iframe, tautan pop-up foto) serta tabel "Sejarah Absensi Online" dari
+	 * {@code ambilSejarah()} — hanya ditampilkan bila ada data terkait; memberi latar hijau muda pada hari libur
+	 * rutin dan merah muda pada hari libur nasional (menimpa gaya hijau bila keduanya berlaku); merender label
+	 * tanggal sebagai tautan revisi ({@link RevisiHelper#createNewRevisi}); menampilkan jam masuk/pulang dengan
+	 * fallback berlapis ke riwayat scan/keterangan bila kolom tersimpan kosong akibat aturan durasi kerja
+	 * minimal shift; dan, dalam mode edit (lihat dokumentasi kelas), merender kontrol override shift
+	 * manual/lembur manual, checkbox "Abaikan Jarak", serta tombol Ubah (memanggil
+	 * {@link #editJam(StatuskehadiranKaryawanHarian)}) dan tombol kunci
+	 * ({@link GeneralValueObject#tampilKunci}).</li>
+	 * </ol>
+	 *
+	 * <p>Kegagalan pada satu tanggal ditangkap dan dicatat lewat {@code ErrorAuditUtil.record} tanpa
+	 * menghentikan render tanggal-tanggal lain.</p>
+	 *
+	 * @param object tidak digunakan; parameter dipertahankan agar cocok dengan signature listener pemanggil
+	 *               ({@code onChange} combobox / {@code onClick} tombol Cari / callback setelah edit)
+	 * @throws Exception diteruskan dari akses Hibernate/komponen ZK bila terjadi kegagalan
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object object) throws Exception {
 
@@ -1636,7 +1744,15 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 
 	}
 
-	/** Strip protocol+host dari URL foto lokal (/al?d=) agar tetap bekerja saat IP server berubah. */
+	/**
+	 * Mengubah URL absolut foto absensi (yang menyertakan protokol dan host) menjadi URL relatif berbasis path
+	 * {@code /al?d=...}, agar tautan foto tetap berfungsi walau alamat/IP server berubah setelah foto direkam.
+	 * URL yang sudah relatif, kosong, {@code null}, atau tidak mengandung path {@code /al?d=} dikembalikan apa
+	 * adanya (tidak diubah).
+	 *
+	 * @param url URL foto absensi yang akan dirapikan, boleh {@code null} atau kosong
+	 * @return URL relatif mulai dari {@code /al?d=} bila ditemukan; selain itu URL asli tanpa perubahan
+	 */
 	private static String toRelativeFotoUrl(String url) {
 		if (url == null || url.isEmpty()) return url;
 		if (!url.startsWith("http")) return url;

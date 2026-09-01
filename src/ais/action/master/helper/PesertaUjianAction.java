@@ -37,24 +37,28 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Controller/action ZK untuk peserta ujian. Tipe ini merupakan titik masuk UI yang menghubungkan
- * event layar dengan perilaku domain yang diwarisi atau dikonfigurasi khusus oleh kelas ini.
+ * Panel ZK (embed sebagai {@link MyDiv}) yang menampilkan dan mengelola daftar
+ * {@link PesertaUjian} — peserta calon mahasiswa yang terdaftar untuk mengikuti satu
+ * {@link Pertemuan} ujian (mis. ujian PSB/PMB). Dipakai sebagai sub-panel di layar detail
+ * pertemuan ujian, bukan window mandiri.
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * MyDiv}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Pertemuan pertemuan}, {@code MyGrid
- * grid}, {@code boolean edit}, {@code boolean add}, {@code boolean delete}; pembacaan/pencarian ({@code
- * loadData()}); operasi domain lain ({@code display()}); konfigurasi constructor: {@code add}, {@code delete},
- * {@code edit}. Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
- * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
- * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
- * serta session Hibernate milik request yang aktif.</p>
+ * <p><b>Isi grid</b> (dibangun {@link #loadData(Object)}, dirender {@link PesertaUjianRenderer}):
+ * foto {@link BiodataCalonMahasiswa}, nomor registrasi, nama (lewat
+ * {@code RevisiHelper.createNewRevisi} — klik nama membuka riwayat revisi {@link PesertaUjian}),
+ * keterangan (textbox editable inline dengan autosave {@code onChange} bila {@code edit==true}),
+ * dan tombol hapus (bila {@code delete==true}) dengan konfirmasi lewat
+ * {@link MyMessageboxConfig} sebelum {@code Common.refreshDelete}.</p>
+ *
+ * <p><b>Toolbar:</b> satu tombol "Ambil Calon Mahasiswa" (bila {@code add==true}) yang membuka
+ * picker {@code AmbilDataBiodataCalonMahasiswaBanyak}, DIISI dengan daftar
+ * {@link BiodataCalonMahasiswa} yang SUDAH terdaftar untuk pertemuan ini (query
+ * {@code groupProperty("biodataCalonMahasiswa")} pada {@link PesertaUjian} yang
+ * {@code pertemuan == this.pertemuan}) — picker memakai daftar ini untuk menandai/mengecualikan
+ * yang sudah dipilih. Hasil pilihan dibuatkan {@link PesertaUjian} baru (keterangan kosong) dan
+ * disimpan lewat {@code Common.refreshSaveOrUpdate} satu per satu, lalu grid dimuat ulang.</p>
+ *
+ * <p>Hak {@code add}/{@code edit}/{@code delete} ditentukan sekali di constructor dari
+ * {@link CommonPrivilages#checkPrevilages}, tidak berubah sepanjang lifecycle instance.</p>
  *
  * @see MyDiv
  */
@@ -72,6 +76,12 @@ public class PesertaUjianAction extends MyDiv {
 	private boolean add = false;
 	private boolean delete = false;
 
+	/**
+	 * Menghitung hak akses ({@code add}/{@code edit}/{@code delete}) dari privilese pengguna
+	 * login lalu langsung memanggil {@link #display()} untuk membangun seluruh UI panel.
+	 *
+	 * @param pertemuan pertemuan ujian yang daftar pesertanya akan ditampilkan/dikelola.
+	 */
 	public PesertaUjianAction(Pertemuan pertemuan) {
 		super();
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -82,25 +92,33 @@ public class PesertaUjianAction extends MyDiv {
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link PesertaUjianAction}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link PesertaUjianAction} dan dapat mengakses state
-	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer baris grid untuk satu {@link PesertaUjian}: foto, no. registrasi, nama (tautan
+	 * riwayat revisi), keterangan (textbox editable), dan tombol hapus. Terikat ke state
+	 * {@code edit}/{@code delete} milik {@link PesertaUjianAction} induk untuk mengatur
+	 * enable/visible kontrol.
 	 *
 	 * @see PesertaUjianAction
 	 */
 	class PesertaUjianRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** Constructor kosong — tidak ada state renderer sendiri, semua diakses dari kelas induk. */
 		public PesertaUjianRenderer() {
 
 		}
 
+		/**
+		 * Merender satu baris {@link PesertaUjian}: menambahkan foto (via
+		 * {@code CommonMedia.tampilkanGambarKecil}), label nomor registrasi, tautan nama +
+		 * riwayat revisi, textbox keterangan (autosave {@code onChange} bila {@code edit==true},
+		 * disabled bila tidak), dan tombol hapus (visible bila {@code delete==true}) yang
+		 * meminta konfirmasi sebelum {@code Common.refreshDelete(pesertaUjian)} lalu memuat ulang
+		 * grid via {@link PesertaUjianAction#loadData(Object)}. Kegagalan hapus (mis. relasi FK
+		 * terkunci) ditangani lewat {@code PesanFormalHelper.tampilkanGagalException} dengan saran
+		 * perbaikan untuk pengguna, bukan melempar exception mentah.
+		 *
+		 * @param row  baris grid tujuan.
+		 * @param data instance {@link PesertaUjian} untuk baris ini.
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {row.setValign("top");
 			final PesertaUjian pesertaUjian = (PesertaUjian) data;
@@ -178,6 +196,12 @@ public class PesertaUjianAction extends MyDiv {
 		}
 	}
 
+	/**
+	 * Memuat ulang grid: query {@link PesertaUjian} milik {@code pertemuan} ini (urut id
+	 * menurun), lalu pasang {@link PesertaUjianRenderer} baru dan set model grid.
+	 *
+	 * @param value tidak dipakai (parameter standar callback {@code EventListener}/pemuatan ulang).
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
@@ -190,6 +214,13 @@ public class PesertaUjianAction extends MyDiv {
 
 	}
 
+	/**
+	 * Membangun seluruh UI panel: caption "Daftar Peserta &lt;nama pertemuan&gt;", toolbar
+	 * dengan tombol "Ambil Calon Mahasiswa" (lihat Javadoc kelas untuk alur pickernya), dan
+	 * grid paging (10 baris/halaman) dengan kolom Foto/No Re./Peserta/Keterangan/aksi. Diakhiri
+	 * dengan {@link #loadData(Object)} untuk mengisi grid pertama kali. Dipanggil dari
+	 * constructor, jadi berjalan sekali per instance.
+	 */
 	public void display() {
 
 		ais.ui.util.MyDiv groupbox = new ais.ui.util.MyDiv();

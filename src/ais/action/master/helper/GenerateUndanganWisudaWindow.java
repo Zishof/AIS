@@ -34,24 +34,46 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyWindow;
 
 /**
- * Tipe khusus untuk generate undangan wisuda window. Kelas ini memberi nama dan batas tanggung
- * jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ * Window ZK (dialog) modul wisuda untuk MENCETAK UNDANGAN WISUDA seorang mahasiswa dalam format
+ * PDF/lain, setelah No. Registrasi dan No. Kursi Wisuda-nya sudah ada. Berbeda dari tiga window
+ * sejenis lain di paket ini ({@link GenerateNoKursiDanNoRegistrasiWindow},
+ * {@link GenerateNoKursiWindow}, {@link LaporanRegistrasiWisudaWindow}), kelas ini TIDAK
+ * men-generate nomor apa pun — perannya murni cetak, dan justru menolak mencetak bila nomor
+ * belum lengkap.
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * MyWindow}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Textbox nim}, {@code Textbox nama},
- * {@code Textbox fakultas}, {@code Textbox jurusan}, {@code Combobox reportType}, {@code Mahasiswa mahasiswa},
- * {@code PendaftaranWisuda pendaftaranWisuda}, {@code BiodataMahasiswa biodataMahasiswa}; inisialisasi/lifecycle
- * ({@code init()}); pelaporan/ekspor ({@code onCetakUndanganWisuda()}). Bagian lain dari kontrak tetap mengikuti
- * kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Alur data:</b> mahasiswa dipilih lewat {@link AmbilDataMahasiswaBanbox} atau otomatis
+ * dari user login. {@link PendaftaranWisuda} dimuat via
+ * {@code Restrictions.eq("mahasiswa", mahasiswa)} dengan {@code setMaxResults(1)}; window juga
+ * memuat {@link BiodataMahasiswa} milik mahasiswa yang sama (entity tambahan yang tidak dipakai
+ * oleh tiga window sejenis lain) karena nama ayah kandung dibutuhkan sebagai salah satu isi
+ * undangan cetak. Bila {@code pendaftaranWisuda} tidak ditemukan, window menampilkan peringatan
+ * dan berhenti dibangun; bila {@code mahasiswa} sendiri {@code null}, {@code init()} berhenti
+ * lebih awal tanpa pesan (tidak seperti window sejenis lain yang selalu lanjut sampai query
+ * PendaftaranWisuda).</p>
+ *
+ * <p><b>Validasi sebelum cetak</b> ({@code onCetakUndanganWisuda()}) — bukan lewat status
+ * enable/disable tombol seperti window lain, melainkan pengecekan eksplisit di awal method dengan
+ * {@code return} dini dan pesan peringatan berbeda untuk tiap kondisi: (1) {@code biodataMahasiswa}
+ * kosong atau nama ayah belum diisi → arahkan ke menu Biodata Mahasiswa; (2) No. Registrasi Wisuda
+ * belum ada → arahkan untuk registrasi wisuda; (3) No. Kursi belum ada → arahkan untuk generate
+ * nomor kursi (lihat {@link GenerateNoKursiWindow}/{@link GenerateNoKursiDanNoRegistrasiWindow}).
+ * Tombol "Cetak" sendiri hanya dinonaktifkan berdasarkan No. Kursi kosong di {@code init()}; dua
+ * validasi lain (biodata, No. Registrasi) baru dicek saat tombol benar-benar diklik.</p>
+ *
+ * <p><b>Efek samping:</b> mencetak lewat {@link Report#generatePDFReport} dengan basis nama
+ * {@code "Undangan_Wisuda"}, parameter {@code mahasiswa} (id) dan {@code nama_ayah} dari
+ * {@link BiodataMahasiswa#getNamaAyah()}; format mengikuti pilihan {@code Combobox reportType}
+ * dengan fallback {@link Report#PDF}. Ada baris debug {@code System.out.println("nama ayah : " +
+ * ...)} yang tersisa di kode produksi (tidak dihapus, hanya dicatat). Tombol "Batal" pada window
+ * ini men-detach seluruh {@link Tabpanel} induk beserta tab-nya (menutup tab), bukan sekadar
+ * menutup window seperti {@link GenerateNoKursiDanNoRegistrasiWindow}/{@link GenerateNoKursiWindow}
+ * — sama seperti perilaku "Batal" pada {@link LaporanRegistrasiWisudaWindow}, mengindikasikan
+ * kedua window ini biasa dibuka sebagai tab, bukan dialog lepas.</p>
  *
  * @see MyWindow
+ * @see GenerateNoKursiDanNoRegistrasiWindow
+ * @see GenerateNoKursiWindow
+ * @see LaporanRegistrasiWisudaWindow
  */
 public class GenerateUndanganWisudaWindow extends MyWindow {
 
@@ -77,6 +99,12 @@ public class GenerateUndanganWisudaWindow extends MyWindow {
 	private MyButtonConfig batal;
 	private AmbilDataMahasiswaBanbox bandboxMahasiswa;
 
+	/**
+	 * Membuka window untuk mahasiswa yang sedang login, diambil dari
+	 * {@link Common#getCurrentUser()}.{@code getMahasiswa()}. Exception saat inisialisasi ditelan
+	 * dan hanya ditampilkan bila user yang login adalah admin (lihat
+	 * {@link Common#tampilErrorJikaAdmin(Exception)}).
+	 */
 	public GenerateUndanganWisudaWindow() {
 		super();
 		try {
@@ -84,11 +112,30 @@ public class GenerateUndanganWisudaWindow extends MyWindow {
 
 			init(tbmuser.getMahasiswa());
 		} catch (Exception e) {
-			Common.tampilErrorJikaAdmin(e); 
+			Common.tampilErrorJikaAdmin(e);
 		}
 
 	}
 
+	/**
+	 * Membangun ulang seluruh isi window (form data mahasiswa, No. Registrasi/No. Kursi saat ini,
+	 * pilihan format laporan, dan toolbar) untuk {@code mahasiswa} yang diberikan. Dipanggil dari
+	 * constructor dan dari listener Bandbox mahasiswa setiap kali pilihan mahasiswa berubah.
+	 *
+	 * <p>Langkah: (1) {@link Common#clear(org.zkoss.zk.ui.Component)} membuang child lama; (2)
+	 * membangun ulang layout Borderlayout; (3) berhenti dini bila {@code mahasiswa == null}; (4)
+	 * memuat {@link PendaftaranWisuda} milik mahasiswa (query {@code setMaxResults(1)}); bila tidak
+	 * ditemukan, tampilkan peringatan dan window berhenti dibangun; (5) memuat
+	 * {@link BiodataMahasiswa} milik mahasiswa yang sama (dipakai untuk nama ayah pada undangan);
+	 * (6) mengisi textbox readonly NIM/Nama/Fakultas/Prodi/No. Registrasi/No. Kursi serta
+	 * {@code Combobox reportType}; (7) menghitung status enable/disable tombol "Cetak" berdasarkan
+	 * apakah No. Kursi sudah terisi.</p>
+	 *
+	 * @param mahasiswa mahasiswa yang undangan wisudanya akan dicetak; bila {@code null}, method
+	 *        berhenti setelah membangun Bandbox pemilih mahasiswa tanpa mengisi sisa form
+	 * @throws Exception diteruskan dari operasi Hibernate/ZK; ditangkap oleh pemanggil dan hanya
+	 *         ditampilkan ke admin
+	 */
 	private void init(Mahasiswa mahasiswa) throws Exception {
 		this.mahasiswa = mahasiswa;
 		Common.clear(this);
@@ -289,6 +336,19 @@ public class GenerateUndanganWisudaWindow extends MyWindow {
 		batal.setParent(toolbar);
 	}
 
+	/**
+	 * Handler tombol "Cetak". Memvalidasi tiga prasyarat berurutan sebelum mencetak, masing-masing
+	 * dengan {@code return} dini dan pesan peringatan berbeda: (1) {@link #biodataMahasiswa} harus
+	 * ada dan {@link BiodataMahasiswa#getNamaAyah()} harus terisi; (2) {@link PendaftaranWisuda}
+	 * harus sudah punya No. Registrasi Wisuda; (3) harus sudah punya No. Kursi. Bila lolos ketiganya,
+	 * cetak undangan lewat {@link Report#generatePDFReport} dengan basis nama
+	 * {@code "Undangan_Wisuda"}, parameter {@code mahasiswa} (id) dan {@code nama_ayah}, format dari
+	 * {@link #reportType} atau fallback {@link Report#PDF}. Mencetak baris debug nama ayah ke
+	 * {@code System.out} sebelum generate laporan (sisa debugging, tidak dihapus).
+	 *
+	 * @param event event {@code onClick} dari tombol "Cetak" (tidak dipakai isinya)
+	 * @throws Exception diteruskan dari {@link Report#generatePDFReport}
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void onCetakUndanganWisuda(Event event) throws Exception {
 

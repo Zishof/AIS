@@ -47,27 +47,31 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Controller/action ZK untuk program mahasiswa detail. Tipe ini merupakan titik masuk UI yang
- * menghubungkan event layar dengan perilaku domain yang diwarisi atau dikonfigurasi khusus oleh
- * kelas ini.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * MyDetail}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Program program}, {@code MyGrid grid},
- * {@code Textbox pencarian}; inisialisasi/lifecycle ({@code initCriteria()}); pembacaan/pencarian ({@code
- * loadData()}, {@code uploadDataMahasiswa()}); operasi domain lain ({@code display()}). Bagian lain dari kontrak
- * tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
- * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
- * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
- * serta session Hibernate milik request yang aktif.</p>
+ * Window detail (dibuka sebagai popup dari layar induk, lihat {@link MyDetail}) yang menampilkan
+ * dan mengelola daftar {@link Mahasiswa} anggota satu {@link Program} -- kelompok/program
+ * mahasiswa (mis. program unggulan/beasiswa/binaan), BUKAN "program studi"/jurusan akademik.
+ * Keanggotaan disimpan sebagai kolom teks {@code Mahasiswa.program} berisi NAMA program (String),
+ * bukan foreign key ke entity {@link Program} -- lihat catatan pada {@link #initCriteria(boolean)}.
+ * <p>Alur UI ({@link #display()}): grid mahasiswa anggota (foto, NIM + link riwayat revisi lewat
+ * {@link RevisiHelper#createNewRevisi}, angkatan, prodi, tombol hapus per baris) dilengkapi
+ * toolbar untuk: menambah mahasiswa massal lewat picker
+ * {@link ais.action.master.helper.generic.AmbilDataMahasiswaBanyak} (menyetel
+ * {@code mahasiswa.program = program.getNama()} pada seluruh baris terpilih), mencari (textbox
+ * {@link #pencarian} dicocokkan ke nama ATAU NIM), refresh, cetak, upload data dari berkas Excel
+ * (.xlsx), dan menghapus semua anggota yang tampil sekaligus. Baik hapus satu baris maupun hapus
+ * massal hanya menyetel {@code program = null} (melepas keanggotaan), TIDAK menghapus baris
+ * {@link Mahasiswa} itu sendiri.</p>
+ * <p><b>Efek samping:</b> {@link #loadData(Object)} murni membaca ulang grid dari database.
+ * {@link #uploadDataMahasiswa(File, EventListener)} memproses berkas Excel pada thread background
+ * terpisah, satu transaksi Hibernate native per baris (bukan satu transaksi besar untuk seluruh
+ * berkas) sehingga satu baris gagal tidak membatalkan baris lain, dengan rollback eksplisit wajib
+ * sebelum lanjut ke baris berikutnya (lihat komentar inline di method tersebut).</p>
+ * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar
+ * ({@link #grid}, {@link #pencarian}); jangan digunakan sebagai singleton atau dibagikan antar
+ * desktop/session.</p>
  *
  * @see MyDetail
+ * @see Program
  */
 public class ProgramMahasiswaDetailAction extends MyDetail implements DataCriteria {
 
@@ -76,11 +80,22 @@ public class ProgramMahasiswaDetailAction extends MyDetail implements DataCriter
 	 */
 	private static final long serialVersionUID = 5086031585928643232L;
 
+	/** {@link Program} yang anggotanya ditampilkan/dikelola window ini. */
 	private Program program;
+	/** Grid daftar mahasiswa anggota {@link #program}, dirender ulang oleh {@link #loadData(Object)}. */
 	private MyGrid grid;
 
+	/** Textbox pencarian nama/NIM pada toolbar, dibaca oleh {@link #initCriteria(boolean)}. */
 	private Textbox pencarian;
 
+	/**
+	 * Membuat window detail untuk satu {@link Program} dan memasang listener {@code onOpen}: begitu
+	 * window dibuka ({@link #isOpen()} true), state dibersihkan ({@link Common#clear}) lalu
+	 * {@link #display()} dipanggil untuk membangun UI dan memuat data.
+	 *
+	 * @param program program yang anggotanya (mahasiswa dengan {@code program == program.getNama()})
+	 *                akan ditampilkan/dikelola oleh window ini
+	 */
 	public ProgramMahasiswaDetailAction(Program program) {
 		super();
 		this.program = program;
@@ -97,16 +112,15 @@ public class ProgramMahasiswaDetailAction extends MyDetail implements DataCriter
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link ProgramMahasiswaDetailAction}. Kelas ini menerjemahkan satu item
-	 * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 * Row renderer grid mahasiswa anggota {@link #program}. Untuk tiap {@link Mahasiswa}, menggambar:
+	 * foto kecil ({@link CommonMedia#tampilkanGambarKecil}), NIM sekaligus link riwayat revisi lewat
+	 * {@link RevisiHelper#createNewRevisi}, tahun angkatan, nama jurusan/prodi, dan tombol "Hapus"
+	 * (hanya tampak bila mahasiswa masih tercatat punya program) yang setelah konfirmasi menyetel
+	 * {@code mahasiswa.setProgram(null)} dan menyimpannya lewat {@link Common#refreshSaveOrUpdate} --
+	 * yakni melepas keanggotaan, bukan menghapus baris {@link Mahasiswa} itu sendiri.
 	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link ProgramMahasiswaDetailAction} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * <p><b>Scope:</b> instance terikat pada instance {@link ProgramMahasiswaDetailAction} pemilik grid;
+	 * jangan disimpan atau dibagikan lintas desktop/session.</p>
 	 *
 	 * @see ProgramMahasiswaDetailAction
 	 */
@@ -177,6 +191,14 @@ public class ProgramMahasiswaDetailAction extends MyDetail implements DataCriter
 		}
 	}
 
+	/**
+	 * Memuat ulang daftar mahasiswa anggota {@link #program} ke {@link #grid} (maksimum
+	 * {@link Common#MAX_RESULT_1000} baris, mengikuti filter aktif + pencarian nama/NIM dari
+	 * {@link #initCriteria(boolean)}), lalu memasang {@link MahasiswaRenderer} sebagai row renderer.
+	 * Murni operasi baca -- tidak mengubah data.
+	 *
+	 * @param value tidak dipakai oleh implementasi ini (parameter generik pemanggil timer/listener)
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -189,6 +211,17 @@ public class ProgramMahasiswaDetailAction extends MyDetail implements DataCriter
 
 	}
 
+	/**
+	 * Membangun seluruh UI window: judul grup ("Daftar mahasiswa yang masuk kelompok
+	 * {@code program.getNama()}"), toolbar (tombol "Ambil Data Mahasiswa" -- membuka picker
+	 * {@link ais.action.master.helper.generic.AmbilDataMahasiswaBanyak} lalu menetapkan
+	 * {@code mahasiswa.program} pada mahasiswa terpilih; textbox pencarian; refresh; cetak lewat
+	 * {@link Common#cetakData}; upload Excel yang mendelegasikan ke
+	 * {@link #uploadDataMahasiswa(File, EventListener)}; dan "Hapus Semua" yang melepas keanggotaan
+	 * seluruh baris yang tampil), lalu {@link #grid} beserta kolomnya, dan diakhiri memanggil
+	 * {@link #loadData(Object)} untuk mengisi data pertama kali. Dipanggil sekali dari listener
+	 * {@code onOpen} pada constructor.
+	 */
 	public void display() {
 
 		ais.ui.util.MyDiv groupbox = new ais.ui.util.MyDiv();
@@ -411,6 +444,19 @@ public class ProgramMahasiswaDetailAction extends MyDetail implements DataCriter
 		loadData(null);
 	}
 
+	/**
+	 * Implementasi {@link DataCriteria#initCriteria(boolean)}: membangun {@link Criteria} Hibernate
+	 * atas {@link Mahasiswa} yang aktif (kolom {@code aktif} null atau {@code true}) dan tergabung ke
+	 * {@link #program} ini. Keanggotaan dicocokkan lewat {@code Restrictions.eq("program",
+	 * program.getNama())} -- membandingkan NAMA program sebagai String, bukan referensi entity
+	 * {@link Program}, sehingga dua {@link Program} dengan nama sama akan tercampur anggotanya. Bila
+	 * {@link #pencarian} terisi, ditambahkan filter ilike pada nama ATAU nim. Diurutkan {@code id}
+	 * descending.
+	 *
+	 * @param order tidak memengaruhi urutan hasil (parameter interface {@link DataCriteria} yang
+	 *              tidak dipakai oleh implementasi ini -- urutan selalu {@code id desc})
+	 * @return criteria siap dieksekusi ({@code .list()} atau dibungkus paging)
+	 */
 	@Override
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
@@ -423,6 +469,29 @@ public class ProgramMahasiswaDetailAction extends MyDetail implements DataCriter
 				.addOrder(Order.desc("id")).add(Restrictions.eq("program", program.getNama()));
 	}
 
+	/**
+	 * Mengimpor keanggotaan program secara massal dari berkas Excel (.xlsx) hasil upload: setiap
+	 * baris (mulai baris ke-2) dibaca sebagai referensi {@link Mahasiswa} lewat
+	 * {@link Common#getSheetContentAsObject}, dengan fallback pencarian berdasarkan NIM
+	 * ({@link ConstantValues#ambilByNim(String)}) bila sel tidak terbaca sebagai objek/ID. Mahasiswa
+	 * yang ditemukan di-set {@code program = program.getNama()} dan disimpan lewat
+	 * {@link Common#refreshUpdate(Session, Object)} dalam transaksi Hibernate native tersendiri per
+	 * baris (bukan satu transaksi besar untuk seluruh berkas) -- rollback eksplisit WAJIB dilakukan
+	 * bila satu baris gagal, agar {@code begin()} baris berikutnya tidak mewarisi transaksi yang
+	 * masih aktif.
+	 *
+	 * <p>Diproses pada thread background terpisah agar UI tidak blok; progres ditampilkan lewat
+	 * {@link Clients#showBusy} dan sebuah {@link Timer} 200ms yang mem-poll label progres. Hasil per
+	 * baris (berhasil/dilewati/gagal) dicatat ke {@link ais.common.LaporanUpload} dan dilaporkan
+	 * setelah selesai lewat {@code eventListener} yang diberikan pemanggil.</p>
+	 *
+	 * @param file          berkas .xlsx sementara hasil upload (ekstensi sudah divalidasi oleh
+	 *                      pemanggil di {@link #display()})
+	 * @param eventListener dipicu ({@code laporan.selesaikan(eventListener)}) setelah seluruh baris
+	 *                      selesai diproses, untuk menutup indikator sibuk dan menyegarkan grid
+	 * @throws Exception diteruskan dari inisialisasi awal (membaca berkas dsb.); kegagalan per baris
+	 *                    ditangkap dan dicatat ke laporan, tidak menghentikan pemrosesan baris lain
+	 */
 	public void uploadDataMahasiswa(final File file, final EventListener eventListener) throws Exception {
 
 		// Laporan hasil per baris. Menggantikan Label "peringatan" yang disiapkan untuk

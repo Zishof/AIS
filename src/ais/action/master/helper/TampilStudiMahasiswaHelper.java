@@ -110,27 +110,57 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
 /**
- * Helper terfokus untuk tampil studi mahasiswa. Tipe ini membungkus satu variasi kecil dari alur
- * yang lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan
- * implementasi.
+ * Helper akademik yang membangun jendela ZK <b>"Studi Mahasiswa"</b>: gabungan dasbor ringkasan
+ * (IPK/IPS/SKS, validitas nilai, kelulusan MK, kehadiran, tugas akhir) dan tab riwayat KRS per
+ * semester (Reguler, Semester Pendek, Remedial) untuk satu {@link Mahasiswa}. Dipanggil dari
+ * banyak menu (Manajemen KRS, profil mahasiswa, dsb.) lewat {@link #tampil(Mahasiswa, DataLoader,
+ * Boolean)} atau variannya.
  *
- * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
- * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
- * implementasi paralel dengan hasil berbeda.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code Mahasiswa
- * mahasiswa}, {@code Boolean tampilKonversi}, {@code boolean remedial}, {@code Integer semesterPendek}, {@code
- * Tbmuser tbmuser}, {@code Combobox semesterMulai}, {@code Combobox semesterSampai}; inisialisasi/lifecycle
- * ({@code initDashboard()}, {@code initMain()}, {@code initMain()}); pembacaan/pencarian ({@code tampil()},
- * {@code tampil()}, {@code tampil()}, {@code buildMkBelumDiambilHtml()}, {@code buildMkBelumDiambilHtml()},
- * {@code buildMkBelumDiambilHtml()}); validasi/perhitungan ({@code hitungDetailPerkuliahan()}); pelaporan/ekspor
- * ({@code exportStudiMahasiswaExcel()}); operasi domain lain ({@code daftarStatusMatakuliah()}, {@code
- * daftarKurikulumProdi()}, {@code kotakRingkasMkbd()}, {@code xlsSel()}, {@code xlsHeader()}, {@code
- * xlsSheetTabel()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
- * atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Struktur jendela:</b> {@link #tampil(Mahasiswa, DataLoader, Boolean, Integer)} membangun
+ * satu {@code MyWindow} modal berisi {@code Tabbox} 5 tab (Dasbor, KRS, KRS SP, Remedial, Absensi)
+ * yang dimuat MALAS (lazy, hanya saat tab pertama kali diklik/dipilih) lewat listener bersama.
+ * Tab <b>Dasbor</b> didelegasikan ke {@link #initDashboard(Tabpanel, Mahasiswa, MyWindow, DataLoader,
+ * boolean)} (method statis, dipakai juga tombol "Hitung Ulang"); tab <b>KRS/KRS SP/Remedial</b>
+ * memakai instance {@link #initMain(Mahasiswa, DataLoader, Component, Integer)} yang membangun
+ * {@link MyGrid} dengan {@link DataRenderer} sebagai baris-per-semester (expander KRS memakai
+ * {@code MyDetail}, isi detail didelegasikan ke {@code StudiMahasiswaHelper.display(...)} saat
+ * dibuka). Tab <b>Absensi</b> memuat {@code DashboardRekapAbsensiMahasiswa}.</p>
+ *
+ * <p><b>Dasbor (initDashboard):</b> membaca seluruh {@link Detailperkuliahan} mahasiswa (session
+ * Hibernate dedikasi, SELALU ditutup lewat {@link #closeOpenedSession(Session)}), meresolusi MK
+ * ekivalen ({@code Common.getMatakuliahApakahEkivalen}), lalu menyusun kartu ringkasan (SKS
+ * kumulatif, IPK, IPS, valid/tidak valid, lulus/belum, MK konversi), deteksi <b>mata kuliah
+ * berkode sama/ekivalen</b> (potensi SKS ganda — {@link #buildDuplikatEkivalenHtml}), grafik tren
+ * per semester, serta panel portal tambahan: distribusi nilai huruf, rekap kehadiran, rekap KRS
+ * per semester, tugas akhir/skripsi, dan "Mata Kuliah Belum Diambil" (bandingkan kurikulum prodi
+ * vs MK yang sudah tercatat — {@link #buildMkBelumDiambilHtml}, dengan pemilih kurikulum &amp;
+ * filter jenis MK). Tombol toolbar: cetak laporan ber-grafik ({@code DashboardReportKit}, lihat
+ * {@link #buildSumberLaporanStudi}), ekspor Excel multi-sheet ({@link #exportStudiMahasiswaExcel}),
+ * dan hitung ulang (membangun ulang dasbor dengan {@code keDatabase=true} sehingga
+ * {@code mahasiswa.reInitDetailperkuliahan(session)} dipanggil).</p>
+ *
+ * <p><b>Tab KRS (initMain/DataRenderer):</b> grid baris = satu semester (hasil
+ * {@code Common.generateSemestersForGrid}), tiap baris merender KRS terkait lewat
+ * {@link DataRenderer#render}: menangani kasus cuti (tampilkan revisi status saja), semester
+ * konversi ({@code semester == 0}), semester "Lulus" ({@code semester == 1000}, tahap -1), serta
+ * baris normal dengan editor Kelas/Dosen PA/Status Mahasiswa/Status Awal inline — tiap perubahan
+ * langsung <b>commit transaksi Hibernate native session</b> (bukan lewat form simpan terpisah).
+ * Status yang sudah dipaksa lewat konfigurasi {@code batasStudi}/{@code paksaAktifSemester}
+ * ditampilkan sebagai label baca-saja, bukan combo.</p>
+ *
+ * <p><b>State instance utama:</b> {@code Mahasiswa mahasiswa}, {@code MyGrid grid}, flag tampilan
+ * ({@code tampilKonversi}, {@code remedial}, {@code semesterPendek}, {@code smtSelected},
+ * {@code edit}, {@code bukaLangsungKeKrs}), {@code MyDetail detailUtama} (baris KRS pertama yang
+ * otomatis dibuka bila jendela diminta langsung ke semester tertentu).</p>
+ *
+ * <p><b>Kuirk/hal non-obvious:</b> banyak method statis privat ({@code dataKrsPerSemester},
+ * {@code dataKehadiran}, {@code dataSkripsi}, {@code dataPengajuanJudulTA}, {@code
+ * dataMkBelumDiambil}) membuka SESSION HIBERNATE SENDIRI ({@code getSessionFactory().openSession()})
+ * karena dipanggil SETELAH session utama {@link #initDashboard} ditutup — pola ini dipakai
+ * berulang dan wajib dipertahankan bila menambah panel baru. Grup helper HTML privat ({@code th},
+ * {@code td}, {@code tdColor}, {@code tdBadge}, {@code thDup}, {@code tdDup}, {@code
+ * progressCardHtml}, {@code insightItem}, {@code recommendationItemHtml}, dsb.) sekadar
+ * membungkus fragmen {@code <table>/<div>} berstyle inline — tidak memuat logika domain.</p>
  */
 public class TampilStudiMahasiswaHelper {
 
@@ -158,6 +188,14 @@ public class TampilStudiMahasiswaHelper {
 		this.edit = edit;
 	}
 
+	/**
+	 * Varian singkat: buka jendela Studi Mahasiswa langsung ke tab Dasbor (perilaku default),
+	 * tanpa memilih semester awal tertentu. Lihat {@link #tampil(Mahasiswa, DataLoader, Boolean, Integer)}.
+	 *
+	 * @param mahasiswa mahasiswa yang datanya ditampilkan.
+	 * @param dataLoader dipanggil ulang saat jendela ditutup agar grid pemanggil me-refresh datanya; boleh {@code null}.
+	 * @param tampilKonversi bila {@code true}, tampilan KRS turut menampilkan baris mata kuliah konversi.
+	 */
 	public void tampil(Mahasiswa mahasiswa, DataLoader dataLoader, Boolean tampilKonversi) throws Exception {
 		tampil(mahasiswa, dataLoader, tampilKonversi, null);
 	}
@@ -183,6 +221,28 @@ public class TampilStudiMahasiswaHelper {
 		tampil(mahasiswa, dataLoader, tampilKonversi, smtMulai);
 	}
 
+	/**
+	 * Method utama: membangun dan menampilkan (modal) jendela "Studi Mahasiswa" berisi 5 tab
+	 * (Dasbor, KRS, KRS SP, Remedial, Absensi). Sebelum membangun UI, menyinkronkan status
+	 * mahasiswa terkini lewat {@code Common.singkronisasiStatusMahasiswa(...)}. Isi tiap tab
+	 * dimuat MALAS: listener {@code onClick} bersama pada tab Dasbor/KRS/KRS SP/Remedial baru
+	 * membangun kontennya saat tab tersebut pertama kali dipilih (Dasbor via
+	 * {@link #initDashboard}, tab lain via {@link #initMain(Mahasiswa, DataLoader, Component, Integer)});
+	 * tab Absensi memuat {@code DashboardRekapAbsensiMahasiswa} lewat listener terpisah. Tab
+	 * default yang dimuat pertama adalah Dasbor, kecuali {@link #bukaLangsungKeKrs} bernilai
+	 * {@code true} (lihat {@link #tampil(Mahasiswa, DataLoader, Boolean, Integer, boolean)}).
+	 *
+	 * <p>Bila pengguna bukan admin/pemegang hak khusus (role Akademik/Admin Fakultas/Admin
+	 * Jurusan/Administrator, atau terdaftar di konfigurasi
+	 * {@code admin_lain_bisa_menghapus_langsung_data_nilai_mahasiswa_di_menu_krs}) dan parameter
+	 * {@code edit} bernilai {@code false}, jendela di-freeze (baca saja) kecuali tombol
+	 * Tutup/filter semester/Refresh.</p>
+	 *
+	 * @param mahasiswa mahasiswa yang datanya ditampilkan.
+	 * @param dataLoader dipanggil ulang saat jendela ditutup agar grid pemanggil me-refresh datanya; boleh {@code null}.
+	 * @param tampilKonversi bila {@code true}, tampilan KRS turut menampilkan baris mata kuliah konversi.
+	 * @param smtMulai semester yang otomatis dipilih/dibuka pada tab KRS saat jendela terbuka; boleh {@code null}.
+	 */
 	public void tampil(final Mahasiswa mahasiswa, final DataLoader dataLoader, Boolean tampilKonversi,
 			final Integer smtMulai) throws Exception {
 
@@ -681,6 +741,7 @@ public class TampilStudiMahasiswaHelper {
 		return hasil;
 	}
 
+	/** Satu kartu ringkas kecil (label + nilai berwarna) dipakai pada header panel "MK Belum Diambil". */
 	private static String kotakRingkasMkbd(String label, String nilai, String warna) {
 		return "<div style='flex:1;min-width:120px;background:#fff;border:1px solid #e2e8f0;border-left:4px solid "
 				+ warna + ";border-radius:8px;padding:9px 12px;'>"
@@ -689,6 +750,31 @@ public class TampilStudiMahasiswaHelper {
 				+ "</div></div>";
 	}
 
+	/**
+	 * Membangun konten tab <b>Dasbor</b> (dipanggil malas saat tab pertama dipilih, dan ulang oleh
+	 * tombol "Hitung Ulang"). Membaca seluruh {@link Detailperkuliahan} milik {@code mahasiswa} via
+	 * session Hibernate dedikasi (SELALU ditutup di {@code finally} lewat
+	 * {@link #closeOpenedSession(Session)}), meresolusi tiap MK ke ekivalennya
+	 * ({@code Common.getMatakuliahApakahEkivalen}), lalu menghitung ringkasan (SKS
+	 * kumulatif/tercatat, valid/tidak valid, lulus/belum &mdash; hanya bila konfigurasi Nilai Huruf
+	 * yang berlaku mengizinkan status lulus, mis. jenjang S2 &mdash;, MK konversi) serta mendeteksi
+	 * <b>kelompok kode MK sama/ekivalen</b> yang berpotensi membuat SKS Kumulatif lebih besar
+	 * daripada hitung ulang resmi. Hasil dirender sebagai portal ZK (grid header, grafik tren,
+	 * insight, komposisi status, catatan per semester, panel MK Belum Diambil dengan pemilih
+	 * kurikulum/jenis MK, distribusi nilai, kehadiran, rekap KRS, dan tugas akhir) plus toolbar
+	 * cetak laporan/ekspor Excel/hitung ulang/tutup.
+	 *
+	 * <p>Efek samping: membaca (tidak menulis) data KRS/nilai; {@code keDatabase=true} memicu
+	 * {@code mahasiswa.reInitDetailperkuliahan(session)} dan sinkronisasi ulang tiap
+	 * {@link KrsMahasiswa} lewat {@code Common.singkronkanKrsMahasiswa(...)} (bisa menulis KRS bila
+	 * belum ada/berubah). No-op bila {@code parent == null}.</p>
+	 *
+	 * @param parent tabpanel Dasbor tujuan; dibersihkan lebih dulu ({@code Common.clear}).
+	 * @param mahasiswa mahasiswa acuan.
+	 * @param window jendela induk (dipakai tombol Tutup); boleh {@code null} bila dipanggil tanpa jendela modal.
+	 * @param dataLoader dipanggil ulang saat tombol Tutup ditekan agar pemanggil me-refresh datanya; boleh {@code null}.
+	 * @param keDatabase {@code true} untuk memaksa sinkronisasi ulang KRS/detail perkuliahan ke database (tombol "Hitung Ulang").
+	 */
 	public static void initDashboard(final Tabpanel parent, final Mahasiswa mahasiswa, final MyWindow window,
 			final DataLoader dataLoader, boolean keDatabase) {
 		boolean isMobile = Common.isMobile();
@@ -1530,10 +1616,12 @@ public class TampilStudiMahasiswaHelper {
 		}
 	}
 
+	/** Isi satu sel Excel (kolom {@code col}) pada {@code row} dengan {@code val} (null -> string kosong). */
 	private static void xlsSel(org.zkoss.poi.xssf.usermodel.XSSFRow row, int col, String val) {
 		row.createCell(col).setCellValue(val == null ? "" : val);
 	}
 
+	/** Tulis baris header (baris 0) sheet Excel dari daftar nama kolom. */
 	private static void xlsHeader(org.zkoss.poi.xssf.usermodel.XSSFSheet sheet, String[] cols) {
 		org.zkoss.poi.xssf.usermodel.XSSFRow row = sheet.createRow(0);
 		for (int i = 0; i < cols.length; i++) {
@@ -1557,6 +1645,7 @@ public class TampilStudiMahasiswaHelper {
 		}
 	}
 
+	/** Tulis satu baris label:nilai (dua kolom) pada sheet "Ringkasan" di baris {@code r}; mengembalikan baris berikutnya. */
 	private static int xlsRingkas(org.zkoss.poi.xssf.usermodel.XSSFSheet sheet, int r, String label, String val) {
 		org.zkoss.poi.xssf.usermodel.XSSFRow row = sheet.createRow(r);
 		row.createCell(0).setCellValue(label);
@@ -1564,6 +1653,7 @@ public class TampilStudiMahasiswaHelper {
 		return r + 1;
 	}
 
+	/** Ambil {@code m.get(key)} sebagai String (null-safe, memakai {@code toString()}), atau string kosong bila tak ada. */
 	private static String xlsMapStr(Map<String, Object> m, String key) {
 		if (m == null) {
 			return "";
@@ -1572,10 +1662,16 @@ public class TampilStudiMahasiswaHelper {
 		return v == null ? "" : v.toString();
 	}
 
+	/** Null -> string kosong (tanpa trim), selain itu nilai apa adanya. */
 	private static String xlsNz(String s) {
 		return s == null ? "" : s;
 	}
 
+	/**
+	 * Terjemahkan nilai boolean-like pada {@code m.get(key)} (Boolean literal, atau String
+	 * "true"/"1"/"ya" vs "false"/"0"/"tidak") menjadi label {@code t} (true) atau {@code f} (false)
+	 * untuk sel Excel; nilai lain dikembalikan apa adanya.
+	 */
 	private static String xlsBool(Map<String, Object> m, String key, String t, String f) {
 		if (m == null) {
 			return "";
@@ -1597,6 +1693,7 @@ public class TampilStudiMahasiswaHelper {
 		return s;
 	}
 
+	/** Parse String ke int dengan toleransi koma desimal (locale ID); 0 bila kosong/gagal. */
 	private static int xlsParseInt(String s) {
 		try {
 			return s == null || s.trim().isEmpty() ? 0 : (int) Double.parseDouble(s.trim().replace(",", "."));
@@ -1610,20 +1707,29 @@ public class TampilStudiMahasiswaHelper {
 	// Tiap method data membuka SESSION SENDIRI (dipanggil setelah session utama initDashboard ditutup).
 	// ============================================================================================
 
+	/** Sel header {@code <th>} berstyle untuk tabel panel Rekap KRS/Tugas Akhir. */
 	private static String th(String s) {
 		return "<th style='padding:6px 7px;border-bottom:1px solid #e2e8f0;text-align:left;'>" + escapeHtml(s) + "</th>";
 	}
 
+	/** Sel data {@code <td>} berstyle, opsional rata tengah. */
 	private static String td(String s, boolean center) {
 		return "<td style='padding:6px 7px;border-bottom:1px solid #f1f5f9;" + (center ? "text-align:center;" : "")
 				+ "'>" + escapeHtml(s) + "</td>";
 	}
 
+	/** Sel data {@code <td>} rata tengah, tebal, dengan warna teks kustom (mis. angka SKS/MK). */
 	private static String tdColor(String s, String color) {
 		return "<td style='padding:6px 7px;border-bottom:1px solid #f1f5f9;text-align:center;font-weight:700;color:"
 				+ color + ";'>" + escapeHtml(s) + "</td>";
 	}
 
+	/**
+	 * Sel data berisi badge status berwarna: hijau untuk kata mengandung "setuju"/"lulus", merah
+	 * untuk "tolak"/"gagal", biru untuk "sidang"/"seminar"/"proses"/"bimbingan", kuning untuk
+	 * "pengajuan"/"menunggu", abu-abu untuk selain itu. Dipakai kolom Status pada tabel Pengajuan
+	 * Judul TA dan Skripsi.
+	 */
 	private static String tdBadge(String s) {
 		String bg = "#e2e8f0", fg = "#334155";
 		String low = s == null ? "" : s.toLowerCase();
@@ -1641,10 +1747,12 @@ public class TampilStudiMahasiswaHelper {
 				+ escapeHtml(s) + "</span></td>";
 	}
 
+	/** Trim string; null/kosong -> {@code "-"} (placeholder tampilan tabel). */
 	private static String nzTrim(String s) {
 		return s == null || s.trim().isEmpty() ? "-" : s.trim();
 	}
 
+	/** Nama {@link ais.database.model.Dosen}, aman terhadap null/lazy-load gagal -> {@code "-"}. */
 	private static String dosenNama(ais.database.model.Dosen d) {
 		try {
 			return d == null || d.getNama() == null || d.getNama().trim().isEmpty() ? "-" : d.getNama().trim();
@@ -1653,6 +1761,7 @@ public class TampilStudiMahasiswaHelper {
 		}
 	}
 
+	/** Format tanggal ke {@code dd-MM-yyyy}; null/error -> {@code "-"}. */
 	private static String tglIndo(java.util.Date d) {
 		if (d == null) {
 			return "-";
@@ -1664,6 +1773,12 @@ public class TampilStudiMahasiswaHelper {
 		}
 	}
 
+	/**
+	 * Hitung jumlah {@link Detailperkuliahan} mahasiswa pada {@code semester} tertentu (atau semua
+	 * semester bila {@code null}) dengan {@code ikutiPerkuliahan} kosong dan status
+	 * {@code persetujuan} tertentu (dipakai untuk menghitung MK "Disetujui" vs "Belum Disetujui" di
+	 * panel Rekap KRS per Semester). Query {@code rowCount()}; 0 bila gagal.
+	 */
 	private static int hitungDetailPerkuliahan(org.hibernate.Session session, Mahasiswa mahasiswa, Integer semester,
 			Integer persetujuan) {
 		try {
@@ -1719,6 +1834,7 @@ public class TampilStudiMahasiswaHelper {
 		return res;
 	}
 
+	/** Panel HTML "Rekap KRS per Semester": grafik batang SKS diambil per semester + tabel {@link #dataKrsPerSemester}. */
 	private static String buildKrsPerSemesterHtml(Mahasiswa mahasiswa) {
 		List<String[]> rows = dataKrsPerSemester(mahasiswa);
 		if (rows.isEmpty()) {
@@ -1785,6 +1901,7 @@ public class TampilStudiMahasiswaHelper {
 		return r;
 	}
 
+	/** Panel HTML "Rekap Kehadiran": donat Hadir/Izin/Sakit/Alpa dari {@link #dataKehadiran} + ringkasan angka. */
 	private static String buildKehadiranHtml(Mahasiswa mahasiswa) {
 		int[] k = dataKehadiran(mahasiswa);
 		int total = k[4] > 0 ? k[4] : (k[0] + k[1] + k[2] + k[3]);
@@ -1915,6 +2032,12 @@ public class TampilStudiMahasiswaHelper {
 		return res;
 	}
 
+	/**
+	 * Panel HTML "Tugas Akhir &amp; Pengajuan Judul": dua tabel berurutan &mdash; riwayat pengajuan
+	 * judul ({@link #dataPengajuanJudulTA}, status sebagai badge) dan riwayat skripsi
+	 * ({@link #dataSkripsi}, status turunan dari {@code telahSidang}/{@code jadwalSidangTugasAkhir}/
+	 * {@code lulus}). Pesan kosong bila keduanya tidak ada data.
+	 */
 	private static String buildTugasAkhirHtml(Mahasiswa mahasiswa) {
 		List<String[]> skr = dataSkripsi(mahasiswa);
 		List<String[]> req = dataPengajuanJudulTA(mahasiswa);
@@ -1954,6 +2077,7 @@ public class TampilStudiMahasiswaHelper {
 	}
 
 
+	/** Adaptasi {@code List<String[]>} menjadi {@code List<Object[]>} (setiap {@code String[]} dititipkan apa adanya sebagai {@code Object[]}) agar cocok dengan API tabel {@code DashboardReportKit}. */
 	private static List<Object[]> keObjectList(List<String[]> rows) {
 		List<Object[]> out = new ArrayList<Object[]>();
 		if (rows != null) {
@@ -1964,6 +2088,7 @@ public class TampilStudiMahasiswaHelper {
 		return out;
 	}
 
+	/** Parse String ke double dengan toleransi koma desimal dan placeholder {@code "-"}; 0 bila kosong/gagal. */
 	private static double parseDoubleAman(String s) {
 		try {
 			return s == null || s.trim().isEmpty() || s.trim().equals("-") ? 0
@@ -2187,6 +2312,7 @@ public class TampilStudiMahasiswaHelper {
 		};
 	}
 
+	/** Kartu judul + deskripsi singkat (kotak putih rounded) di atas susunan portal dasbor. */
 	private static void appendSectionIntro(Component parent, String title, String description) {
 		new Html("<div style='border:1px solid #e2e8f0;background:#ffffff;border-radius:16px;padding:14px 16px;"
 				+ "box-shadow:0 10px 24px rgba(15,23,42,.06);margin:0 0 4px 0;'>"
@@ -2270,16 +2396,19 @@ public class TampilStudiMahasiswaHelper {
 		return sb.toString();
 	}
 
+	/** Sel header {@code <th>} khusus tabel "MK Berkode Sama/Ekivalen" ({@link #buildDuplikatEkivalenHtml}). */
 	private static String thDup(String s) {
 		return "<th style='text-align:left;padding:6px 8px;border-bottom:1px solid #cbd5e1;font-size:11px;color:#475569;white-space:nowrap;'>"
 				+ escapeHtml(s) + "</th>";
 	}
 
+	/** Sel data {@code <td>} khusus tabel "MK Berkode Sama/Ekivalen"; {@code s} sudah di-escape oleh pemanggil bila perlu. */
 	private static String tdDup(String s) {
 		return "<td style='padding:6px 8px;border-bottom:1px solid #eef2f7;vertical-align:top;'>" + (s == null ? "" : s)
 				+ "</td>";
 	}
 
+	/** Konversi Number/String (mis. dari peta {@code detailData}) ke int SKS; 0 bila gagal. */
 	private static int toIntSks(Object o) {
 		if (o instanceof Number) {
 			return ((Number) o).intValue();
@@ -2291,6 +2420,12 @@ public class TampilStudiMahasiswaHelper {
 		}
 	}
 
+	/**
+	 * Buat satu panel {@code MyPanelConfig} (kartu putih rounded, tak bisa dilipat/ditutup) berisi
+	 * judul dan deskripsi opsional, dipasang ke {@code parent} kolom portal ({@code pcTop}/
+	 * {@code pcLeft}/{@code pcRight}/{@code pcBottom}). Mengembalikan {@link Vbox} isi (body) panel
+	 * agar pemanggil menambahkan konten (grafik/tabel/HTML) di dalamnya.
+	 */
 	private static Vbox createPortalPanel(MyPortalchildren parent, String title, String description) {
 		Panel panel = new ais.ui.util.MyPanelConfig();
 		panel.setTitle(title);
@@ -2319,6 +2454,11 @@ public class TampilStudiMahasiswaHelper {
 		return body;
 	}
 
+	/**
+	 * Panel HTML "Komposisi Status Mata Kuliah": grid kartu progres (validitas nilai; kelulusan MK
+	 * &mdash; hanya ditampilkan bila ada data lulus/tidak lulus; MK konversi) dari
+	 * {@link #progressCardHtml}.
+	 */
 	private static String buildSubjectCompositionHtml(int totalValid, int totalTidakValid, int totalLulus,
 			int totalTidakLulus, int totalKonversi, int totalMk) {
 		StringBuilder sb = new StringBuilder();
@@ -2335,6 +2475,7 @@ public class TampilStudiMahasiswaHelper {
 		return sb.toString();
 	}
 
+	/** Kartu progres (judul, "value / total", bar persentase clamp 0-100%, deskripsi kecil) berwarna {@code color}. */
 	private static String progressCardHtml(String title, int value, int total, String color, String description) {
 		int safeTotal = total <= 0 ? 1 : total;
 		int pct = (int) Math.round(value * 100.0 / safeTotal);
@@ -2353,6 +2494,12 @@ public class TampilStudiMahasiswaHelper {
 				+ "</div></div>";
 	}
 
+	/**
+	 * Panel HTML "Rekomendasi Tindak Lanjut Akademik": rangkaian kartu saran sederhana yang
+	 * diturunkan dari angka ringkasan (validasi nilai, MK belum lulus, kondisi IPK/IPS/SKS
+	 * terakhir dari {@code trendData}, riwayat konversi) &mdash; bukan aturan bisnis tersimpan,
+	 * murni teks bantu untuk staf/wali akademik.
+	 */
 	private static String buildFollowUpRecommendationHtml(List<Map<String, Object>> trendData, int totalValid,
 			int totalTidakValid, int totalLulus, int totalTidakLulus, int totalKonversi) {
 		double ipkAkhir = 0.0;
@@ -2391,6 +2538,7 @@ public class TampilStudiMahasiswaHelper {
 		return sb.toString();
 	}
 
+	/** Kartu rekomendasi (judul + deskripsi) dengan warna latar/teks kustom, dipakai {@link #buildFollowUpRecommendationHtml}. */
 	private static String recommendationItemHtml(String title, String description, String bg, String color) {
 		return "<div style='background:" + bg + ";border:1px solid rgba(15,23,42,.07);border-radius:15px;padding:14px;'>"
 				+ "<div style='font-size:13px;font-weight:900;color:" + color + ";'>" + escapeHtml(title) + "</div>"
@@ -2399,10 +2547,16 @@ public class TampilStudiMahasiswaHelper {
 	}
 
 
+	/** Kartu KPI ringkas tanpa deskripsi. Lihat {@link #createBoxInfo(String, String, String, boolean, String)}. */
 	private static Vbox createBoxInfo(String title, String value, String colorHex, boolean isMobile) {
 		return createBoxInfo(title, value, colorHex, isMobile, "");
 	}
 
+	/**
+	 * Kartu KPI "Ringkasan Cepat Studi Mahasiswa" (judul kecil huruf besar, nilai besar berwarna,
+	 * deskripsi opsional). {@code isMobile} mengubah lebar kartu jadi 100% (tersusun vertikal) alih-alih
+	 * lebar tetap 190px pada tata letak flex desktop.
+	 */
 	private static Vbox createBoxInfo(String title, String value, String colorHex, boolean isMobile, String description) {
 		Vbox box = new Vbox();
 		box.setAlign("start");
@@ -2429,6 +2583,7 @@ public class TampilStudiMahasiswaHelper {
 		return box;
 	}
 
+	/** {@code Groupbox} bergaya kartu modern (mold "3d", rounded, shadow) dengan caption dan deskripsi opsional; dipakai sebagai bingkai "Ringkasan Cepat Studi Mahasiswa". */
 	private static Groupbox createModernGroupbox(Component parent, String title, String description) {
 		Groupbox groupbox = new Groupbox();
 		groupbox.setMold("3d");
@@ -2446,6 +2601,12 @@ public class TampilStudiMahasiswaHelper {
 		return groupbox;
 	}
 
+	/**
+	 * Grafik batang HTML/CSS "Grafik Tren Studi": satu batang per semester dengan tinggi
+	 * proporsional terhadap SKS Kumulatif tertinggi ({@code maxSks}, minimum tinggi 8px agar tetap
+	 * terlihat), disertai label semester, SKS semester/kumulatif, dan IPS/IPK. Pesan placeholder
+	 * bila {@code trendData} kosong.
+	 */
 	private static Html createTrendAkademikHtml(List<Map<String, Object>> trendData) {
 		StringBuilder html = new StringBuilder();
 		html.append("<div style='padding:14px 16px 18px 16px;'>");
@@ -2490,6 +2651,11 @@ public class TampilStudiMahasiswaHelper {
 		return new Html(html.toString());
 	}
 
+	/**
+	 * Header hero (gradient warna tema, {@code var(--ais-theme-primary/accent)}) menampilkan nama,
+	 * NIM, prodi, program, fakultas mahasiswa serta blok penjelasan singkat fungsi dasbor. Aman
+	 * terhadap null (fallback {@code "-"}); kegagalan resolusi fakultas/prodi/program diredam.
+	 */
 	private static String buildDashboardHeaderHtml(Mahasiswa mahasiswa) {
 		String nim = mahasiswa == null ? "-" : nvl(mahasiswa.getNim(), "-");
 		String nama = mahasiswa == null ? "-" : nvl(mahasiswa.getNama(), "-");
@@ -2524,6 +2690,11 @@ public class TampilStudiMahasiswaHelper {
 		return sb.toString();
 	}
 
+	/**
+	 * Panel HTML "Analisa Singkat Akademik": kartu insight (arah IPK naik/turun dibanding semester
+	 * pertama tercatat, IPS terakhir, SKS tercapai, validitas data nilai, dan &mdash; bila relevan
+	 * &mdash; kelulusan MK) diturunkan dari {@code trendData} per semester.
+	 */
 	private static String buildAcademicInsightHtml(List<Map<String, Object>> trendData, int totalValid,
 			int totalTidakValid, int totalLulus, int totalTidakLulus) {
 		double ipkAwal = 0;
@@ -2554,6 +2725,7 @@ public class TampilStudiMahasiswaHelper {
 		return sb.toString();
 	}
 
+	/** Kartu insight tunggal (judul kecil, nilai besar berwarna, deskripsi) dipakai {@link #buildAcademicInsightHtml}. */
 	private static String insightItem(String title, String value, String description, String color) {
 		return "<div style='border:1px solid #e2e8f0;border-radius:14px;padding:13px;background:#f8fafc;'>"
 				+ "<div style='font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:#64748b;font-weight:800;'>"
@@ -2563,6 +2735,11 @@ public class TampilStudiMahasiswaHelper {
 				+ escapeHtml(description) + "</div></div>";
 	}
 
+	/**
+	 * Tutup session Hibernate yang dibuka manual via {@code getSessionFactory().openSession()} oleh
+	 * method data panel dasbor ({@link #dataKrsPerSemester}, {@link #dataKehadiran}, dst.) —
+	 * {@code clear()} lalu {@code close()}, keduanya diredam bila gagal. No-op bila {@code session == null}.
+	 */
 	private static void closeOpenedSession(Session session) {
 		if (session != null) {
 			try {
@@ -2578,6 +2755,7 @@ public class TampilStudiMahasiswaHelper {
 		}
 	}
 
+	/** Konversi Object (Number atau String) ke int; 0 bila null/gagal parse. */
 	private static int toInt(Object value) {
 		if (value == null) {
 			return 0;
@@ -2592,6 +2770,7 @@ public class TampilStudiMahasiswaHelper {
 		}
 	}
 
+	/** Konversi Object (Number atau String) ke double; 0.0 bila null/gagal parse. */
 	private static double toDouble(Object value) {
 		if (value == null) {
 			return 0.0;
@@ -2606,6 +2785,7 @@ public class TampilStudiMahasiswaHelper {
 		}
 	}
 
+	/** Format angka pakai {@code Common.numberFormat} (locale ID); fallback {@code String.valueOf} bila formatter gagal. */
 	private static String formatNumber(double value) {
 		try {
 			return Common.numberFormat.get().format(value);
@@ -2614,6 +2794,7 @@ public class TampilStudiMahasiswaHelper {
 		}
 	}
 
+	/** Null/kosong (setelah trim) -> {@code fallback}, selain itu nilai apa adanya. */
 	private static String nvl(String value, String fallback) {
 		if (value == null || value.trim().length() == 0) {
 			return fallback;
@@ -2621,6 +2802,7 @@ public class TampilStudiMahasiswaHelper {
 		return value;
 	}
 
+	/** Escape karakter HTML dasar ({@code & < > " '}) agar aman disisipkan ke fragmen {@code Html}; null -> string kosong. */
 	private static String escapeHtml(String value) {
 		if (value == null) {
 			return "";
@@ -2635,10 +2817,31 @@ public class TampilStudiMahasiswaHelper {
 	}
 
 	
+	/** Varian tanpa semester awal terpilih. Lihat {@link #initMain(Mahasiswa, DataLoader, Component, Integer)}. */
 	public MyGrid initMain(final Mahasiswa mahasiswa, final DataLoader dataLoader, Component parent) {
 		return initMain(mahasiswa, dataLoader, parent, null);
 	}
 
+	/**
+	 * Bangun toolbar filter semester + toolbar aksi dan {@link MyGrid} riwayat KRS pada tab
+	 * KRS/KRS SP/Remedial (`parent` diisi langsung, dipanggil dari listener tab di
+	 * {@link #tampil(Mahasiswa, DataLoader, Boolean, Integer)}). Toolbar berisi: combo semester
+	 * "mulai"/"sampai" (default dari konfigurasi {@code default_pemilihan_semester_mulai/sampai},
+	 * dibatasi semester lulus mahasiswa bila ada) yang memicu {@link #onSearchDefault} saat
+	 * berubah; tombol Refresh/Hitung IP-IPK ({@code mahasiswa.reInit()} lalu cari ulang ke
+	 * database); Download Semua KRS; {@link #bersihkanKrsMahasiswaDouble} (disembunyikan bila
+	 * pengguna adalah dosen/mahasiswa atau konfigurasi
+	 * {@code tampilkan_tombol_bersihkan_krs_double} nonaktif); tombol pindah semester KRS +1/-1
+	 * (hanya untuk mahasiswa pindahan/alih prodi); Lihat Kurikulum; Catatan (cetak PDF konsultasi);
+	 * Biodata; Ambil Nilai dari Neo Feeder (bila fitur feeder aktif — menjalankan
+	 * {@code MahasiswaAction.ambilNilaiDariFeeder} di thread terpisah dengan progress bar); History
+	 * (buka {@code RevisiDetailPerkuliahanDariMahasiswaHelper}). Grid hasil dipasang kolom via
+	 * {@link #createGridColumn} lalu diisi lewat {@link #onSearchDefault(Event, boolean)}.
+	 *
+	 * @param smtSelected bila tidak {@code null}, kedua combo semester dipaksa ke semester ini
+	 *                    (dipakai saat jendela diminta fokus ke satu semester tertentu).
+	 * @return grid riwayat KRS yang baru dibangun (juga disimpan di field {@link #grid}).
+	 */
 	public MyGrid initMain(final Mahasiswa mahasiswa, final DataLoader dataLoader, Component parent,
 			Integer smtSelected) {
 		this.smtSelected = smtSelected;
@@ -2986,6 +3189,7 @@ public class TampilStudiMahasiswaHelper {
 		return grid;
 	}
 
+	/** Tambahkan satu kolom grid ({@code MyColumnConfig}) berlabel dan lebar tertentu ke {@code parent}. */
 	private void createGridColumn(Columns parent, String label, String width) {
 		MyColumnConfig column = new MyColumnConfig();
 		column.setParent(parent);
@@ -2993,6 +3197,21 @@ public class TampilStudiMahasiswaHelper {
 		column.setWidth(width);
 	}
 
+	/**
+	 * Buat tombol toolbar "Lihat data KRS Double" yang, saat diklik, memicu proses ekspor Excel
+	 * berbasis {@code Common.getBahasaConfig} + {@link Timer} polling (bukan alur ekspor
+	 * {@link #exportStudiMahasiswaExcel} yang lain) untuk menampilkan/mendata KRS ganda milik
+	 * mahasiswa yang berpotensi perlu dibersihkan — hasil ditulis ke berkas sementara di
+	 * {@code /tmp/cetak_data_<timestamp>.xlsx} lalu ditampilkan dalam jendela "Cetak Data" saat
+	 * proses selesai (ditandai label kosong) atau ditutup otomatis bila label berisi {@code "-"}.
+	 * Kegunaan &amp; visibilitas tombol diatur pemanggil di {@link #initMain(Mahasiswa, DataLoader,
+	 * Component, Integer)} (disembunyikan untuk dosen/mahasiswa atau bila konfigurasi
+	 * {@code tampilkan_tombol_bersihkan_krs_double} nonaktif).
+	 *
+	 * @param buttonLabel teks tombol.
+	 * @param buttonImage path ikon tombol.
+	 * @return tombol toolbar siap dipasang ke parent oleh pemanggil.
+	 */
 	public MyToolbarbuttonConfig bersihkanKrsMahasiswaDouble(String buttonLabel, String buttonImage) {
 		MyToolbarbuttonConfig toolbarbutton = new MyToolbarbuttonConfig(buttonLabel, buttonImage);
 
@@ -3330,13 +3549,52 @@ public class TampilStudiMahasiswaHelper {
 	 *
 	 * @see TampilStudiMahasiswaHelper
 	 */
+	/**
+	 * Perender baris grid KRS pada tab KRS/KRS SP/Remedial: satu baris {@code MyGrid} = satu
+	 * semester (data string array dari {@code Common.generateSemestersForGrid}, indeks 0=tahun
+	 * ajaran, 1=semester(,tahap lama), 3=tahap). Nested class instance (bukan statis) karena
+	 * mengakses banyak state induk ({@link #mahasiswa}, {@link #semesterPendek}, {@link #remedial},
+	 * {@link #detailUtama}, {@link #edit}, {@link #onSearchDefault}).
+	 *
+	 * @see #render(Row, Object)
+	 */
 	class DataRenderer extends ais.ui.util.MyRowRenderer {
 		private boolean keDatabase;
 
+		/** @param keDatabase diteruskan ke {@code Common.singkronkanKrsMahasiswa} — {@code true} memaksa sinkronisasi KRS ke database saat baris dirender. */
 		public DataRenderer(boolean keDatabase) {
 			this.keDatabase = keDatabase;
 		}
 
+		/**
+		 * Render satu baris KRS. Alur: sinkronkan {@link KrsMahasiswa} semester ini
+		 * ({@code Common.singkronkanKrsMahasiswa}); sembunyikan baris bila mahasiswa sudah
+		 * keluar/lulus pada semester sebelum semester baris ini; pasang {@code MyDetail} expander
+		 * yang, saat dibuka, mendelegasikan render detail nilai/komentar ke
+		 * {@code StudiMahasiswaHelper.display(...)} (instance baru per baris). Tiga kasus baris:
+		 * <ol>
+		 * <li><b>Cuti disetujui</b> (ada {@link PendaftaranCutiMahasiswa} disetujui pada semester/tahap
+		 *     ini): tampilkan revisi status + label "Cuti" beserta tanggal/keterangan cuti, kolom lain kosong.</li>
+		 * <li><b>Tahap -1 (Konversi lama) / semester 0 (Konversi)</b>: tampilkan keterangan
+		 *     pengambilan KRS dan jumlah komentar via {@link ais.common.listener.DataLoader}-style timer
+		 *     ({@code Common.createDefaultTimer}/{@code createDefaultTimerNoBusy}), tanpa editor Kelas/Dosen/Status.</li>
+		 * <li><b>Baris normal</b>: tampilkan editor inline {@code AmbilDataKelasBanbox} (Kelas) dan
+		 *     {@code AmbilDataDosenBanbox} (Dosen PA) yang LANGSUNG commit transaksi Hibernate native
+		 *     session saat dipilih (turut memperbarui {@code mahasiswa.kelas}/{@code mahasiswa.dosen}
+		 *     bila baris ini semester berjalan mahasiswa); combo Status Mahasiswa (disembunyikan jadi
+		 *     label bila status sudah dipaksa via konfigurasi {@code batasStudi}/
+		 *     {@code paksaAktifSemester}, atau bila semester 1 / ada SKS bukan konversi) yang saat
+		 *     diubah memvalidasi lewat {@code HistoryStatusMahasiswaUtil.checkStatus} lalu
+		 *     meng-update {@link HistoryStatusMahasiswa} langsung ke DB; kode status Keluar/Drop/Lulus
+		 *     ("K"/"D"/"L") otomatis mengosongkan &amp; menyembunyikan Kelas/Dosen PA; serta combo Status
+		 *     Awal Mahasiswa (dikunci di semester 1, dan bila konfigurasi membatasi role yang boleh
+		 *     mengubahnya).</li>
+		 * </ol>
+		 * Efek samping: berbagai cabang menjalankan {@code session.getTransaction().begin()/commit()}
+		 * langsung terhadap {@link KrsMahasiswa}/{@link Mahasiswa}/{@link HistoryStatusMahasiswa} di
+		 * luar siklus simpan form biasa — perubahan Kelas/Dosen PA/Status tersimpan seketika saat
+		 * pengguna memilih nilai baru, tanpa tombol "Simpan" terpisah.
+		 */
 		@Override
 		public void render(final Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");
@@ -4191,6 +4449,18 @@ public class TampilStudiMahasiswaHelper {
 		}
 	}
 
+	/**
+	 * Muat ulang isi grid KRS sesuai rentang semester terpilih ({@link #semesterMulai}/
+	 * {@link #semesterSampai}; default semester berjalan mahasiswa bila belum ada seleksi). Membuat
+	 * ulang model baris ({@code Common.generateSemestersForGrid}) dan memasang {@link DataRenderer}
+	 * baru dengan flag {@code keDatabase}. Bila {@link #smtSelected} diisi, baris detail pertama
+	 * ({@link #detailUtama}) otomatis dibuka lewat timer setelah grid selesai dirender, agar
+	 * jendela langsung fokus ke semester yang diminta.
+	 *
+	 * @param event event pemicu (tidak dipakai isinya, boleh {@code null}); dipertahankan karena
+	 *              method ini juga dipasang langsung sebagai target listener {@code onClick}/{@code onChange}.
+	 * @param keDatabase diteruskan ke {@link DataRenderer} — {@code true} memaksa sinkronisasi KRS ke database saat render (mis. tombol "Refresh / Hitung IP/IPK").
+	 */
 	public void onSearchDefault(Event event, boolean keDatabase) {
 		detailUtama = null;
 		Integer mulai = (Integer) (semesterMulai.getSelectedItem() == null ? 0

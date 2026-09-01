@@ -39,23 +39,27 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
 /**
- * Helper terfokus untuk absensi kehadiran pegawai per hari. Tipe ini membungkus satu variasi kecil
- * dari alur yang lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan
- * implementasi.
+ * Jendela mandiri (ZK {@link MyWindow}) yang menampilkan daftar hari dalam satu bulan-tahun terpilih beserta
+ * fasilitas absensi mandiri lewat pemindaian QR-Code. Untuk setiap tanggal, baris grid menampilkan komponen
+ * {@link AbsensiPegawaiAction} (rekap/aksi absensi pegawai pada hari itu) dan tombol "Absen via QR-Code".
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * MyWindow}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Combobox bulan}, {@code Combobox
- * tahun}, {@code MyGrid grid}; pembacaan/pencarian ({@code loadData()}); operasi domain lain ({@code
- * display()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p>Baris yang jatuh pada hari libur rutin ({@link LiburRutin}, dicocokkan berdasarkan
+ * {@code Calendar.DAY_OF_WEEK} — biasanya akhir pekan) diberi latar kuning, sedangkan baris yang bertepatan
+ * dengan {@link LiburNasional} diberi latar merah muda dan nama liburnya ditampilkan di label tanggal; bila
+ * kedua kondisi terpenuhi sekaligus, gaya libur nasional yang berlaku karena diterapkan belakangan (kondisi
+ * dievaluasi berurutan, bukan digabung).</p>
+ *
+ * <p>Tombol "Absen via QR-Code" membentuk kode presensi berformat {@code "P-" + Common.desEncrypter.encrypt(
+ * tanggal)} (tanggal dienkripsi agar tidak bisa ditebak/diubah dari sisi klien), merender kode tersebut menjadi
+ * gambar QR lewat {@link BarcodeCommon#generateCRCode} ke direktori laporan
+ * ({@link Common#ambilREAL_PATH_REPORT()}), lalu menampilkannya dalam {@link MyWindow} modal terpisah agar
+ * pegawai dapat memindai QR tersebut (mis. lewat aplikasi/endpoint pemindai terpisah) untuk mencatat kehadiran
+ * pada tanggal tersebut tanpa perlu login penuh ke sistem.</p>
  *
  * @see MyWindow
+ * @see AbsensiPegawaiAction
+ * @see LiburNasional
+ * @see LiburRutin
  */
 public class AbsensiKehadiranPegawaiPerHariHelper extends MyWindow {
 
@@ -67,16 +71,36 @@ public class AbsensiKehadiranPegawaiPerHariHelper extends MyWindow {
 	private Combobox tahun;
 	private MyGrid grid;
 
+	/**
+	 * Membuat jendela dengan pengaturan default {@link MyWindow} lalu langsung membangun isinya lewat
+	 * {@link #display()}.
+	 */
 	public AbsensiKehadiranPegawaiPerHariHelper() {
 		super();
 		display();
 	}
 
+	/**
+	 * Membuat jendela dengan judul, tipe border, dan kemampuan ditutup sesuai parameter, lalu langsung
+	 * membangun isinya lewat {@link #display()}.
+	 *
+	 * @param title    judul jendela
+	 * @param border   tipe border jendela (diteruskan ke {@link MyWindow})
+	 * @param closable {@code true} bila jendela menampilkan tombol tutup
+	 */
 	public AbsensiKehadiranPegawaiPerHariHelper(String title, String border, boolean closable) {
 		super(title, border, closable);
 		display();
 	}
 
+	/**
+	 * Membangun UI jendela: {@link Borderlayout} dengan area North berisi toolbar combobox Bulan (1-12, default
+	 * bulan berjalan) dan Tahun (rentang tahun berjalan &minus;10 s.d. +10, default tahun berjalan) beserta
+	 * tombol "Cari", dan area Center berisi grid berpaging (100 baris/halaman) dengan kolom kosong (memuat
+	 * komponen aksi absensi), Tanggal, dan QR-Code. Perubahan combobox atau klik tombol Cari memicu
+	 * {@link #loadData(Object)} ulang. Data awal langsung dimuat; kegagalan pada pemuatan pertama ditelan dan
+	 * hanya ditampilkan ke admin lewat {@link Common#tampilErrorJikaAdmin(Exception)}.
+	 */
 	public void display() {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 		borderlayout.setParent(this);
@@ -171,6 +195,24 @@ public class AbsensiKehadiranPegawaiPerHariHelper extends MyWindow {
 		}
 	}
 
+	/**
+	 * Memuat/merender ulang grid untuk bulan dan tahun yang sedang dipilih di combobox. Menampilkan pesan
+	 * peringatan lewat {@link MyMessageboxConfig#show} dan kembali tanpa efek bila bulan atau tahun belum
+	 * dipilih.
+	 *
+	 * <p>Untuk setiap tanggal dari 1 sampai jumlah hari dalam bulan tersebut, dibuat satu baris berisi:
+	 * komponen {@link AbsensiPegawaiAction} untuk tanggal itu; label tanggal (ditambahi nama libur nasional bila
+	 * ada, dari {@link LiburNasional#ambilLiburNasional(Date)}); dan tombol "Absen via QR-Code" yang saat diklik
+	 * membangkitkan kode presensi terenkripsi, merendernya sebagai gambar QR ke direktori laporan, lalu membuka
+	 * jendela modal berisi gambar tersebut agar pegawai dapat memindainya untuk mencatat kehadiran pada tanggal
+	 * itu. Baris diberi latar kuning bila hari itu cocok dengan {@link LiburRutin} yang aktif (dicari berdasarkan
+	 * hari-dalam-minggu), dan latar merah muda bila bertepatan dengan {@link LiburNasional} (menimpa gaya kuning
+	 * bila kedua kondisi berlaku sekaligus).</p>
+	 *
+	 * @param object tidak digunakan; parameter dipertahankan agar cocok dengan signature listener pemanggil
+	 *               ({@code onChange} combobox / {@code onClick} tombol Cari)
+	 * @throws Exception diteruskan dari akses Hibernate/komponen ZK bila terjadi kegagalan
+	 */
 	public void loadData(Object object) throws Exception {
 		Integer bulan = (Integer) (this.bulan.getSelectedItem() == null ? null
 				: this.bulan.getSelectedItem().getValue());

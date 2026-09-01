@@ -33,12 +33,23 @@ public class NewUiHybridMenuDiagnostics implements Serializable {
      * Tanpa penghitung ini, satu-satunya gejala yang terlihat adalah menu yang
      * "kadang tidak bisa dibuka", dan tidak ada tempat untuk menelusurinya.</p>
      *
-     * <p><b>Sebabnya belum diketahui pasti.</b> Dugaan pertama — baris
-     * {@code RolePrivilage} yang hilang sehingga izinnya jatuh ke
-     * {@code NewUiPermission.none()} — memang terjadi pada sebagian menu, tetapi
-     * TIDAK menjelaskan semuanya: ada menu yang {@code hakAksesSaya} laporkan
-     * berhak baca ({@code r=1}) namun tetap tidak terbaca di sini. Penghitung
-     * ini karena itu mencatat GEJALA, bukan sebab.</p>
+     * <p><b>Sebab yang sudah terbukti: dua API memakai bawaan yang
+     * berlawanan.</b> Ketika sebuah menu tidak punya baris {@code role_privilage},
+     * {@link ais.action.servlet.api.HakAksesApi} sengaja menganggapnya
+     * <i>boleh dibaca tapi tidak boleh diubah</i> dan menandainya
+     * {@code "default": true} — mengikuti kenyataan data di lapangan, seperti
+     * tertulis pada javadoc-nya sendiri. Lapisan ini membaca tabel yang sama dan
+     * menyimpulkan sebaliknya: tanpa baris berarti {@code NewUiPermission.none()},
+     * sehingga menunya ditolak {@code FORBIDDEN}. Data yang sama, bawaan yang
+     * berlawanan — dan gejalanya adalah menu yang muncul pada daftar hak akses
+     * lalu menolak dibuka.</p>
+     *
+     * <p><b>Tetapi itu belum menjelaskan semuanya.</b> Masih ada menu yang
+     * {@code hakAksesSaya} laporkan berhak baca TANPA penanda {@code default}
+     * — artinya barisnya benar-benar ada dan memberi READ — namun tetap ditolak
+     * di sini. Karena itu penghitung ini mencatat GEJALA, bukan sebab; menuliskan
+     * sebab tunggal ke dalam log akan menyesatkan pada kasus yang belum
+     * terjelaskan itu.</p>
      *
      * <p>Ini hanya catatan. Tidak ada izin yang diberikan dan tidak ada jawaban
      * yang berubah: memberi akses karena data terlihat tidak lengkap justru

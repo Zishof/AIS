@@ -118,47 +118,83 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
 /**
- * Helper terfokus untuk aktifitas perkuliahan. Tipe ini membungkus satu variasi kecil dari alur
- * yang lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan
- * implementasi.
+ * Helper UI ZK yang membangun panel "Aktifitas Perkuliahan" — tampilan tab utama satu
+ * {@link Perkuliahan} (kelas matakuliah suatu semester) yang dipakai bersama oleh dosen, mahasiswa,
+ * dan admin (dibedakan lewat {@link Tbmuser} yang sedang login serta parameter {@code mahasiswa}/
+ * {@code biodataCalonMahasiswa} bila dipanggil dari sisi mahasiswa/calon mahasiswa). Instance
+ * dibuat sekali per pembukaan window dan menyimpan state UI lokal (tab mana yang terakhir aktif,
+ * berapa pertemuan yang ditampilkan sekaligus) — bukan singleton, tidak boleh dibagikan antar
+ * request/desktop.
  *
- * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
- * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
- * implementasi paralel dengan hasil berbeda.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code PenjadwalanHelper penjadwalanHelper},
- * {@code Mahasiswa mahasiswa}, {@code BiodataCalonMahasiswa biodataCalonMahasiswa}, {@code Integer mulai},
- * {@code Integer banyak}, {@code Component groupbox}, {@code boolean tampikanTab}, {@code boolean
- * tampilLangsungRinci}; inisialisasi/lifecycle ({@code initAgendaPerkuliahan()}, {@code initDetail()}, {@code
- * initDetail()}); pembacaan/pencarian ({@code tampilCalender()}, {@code tampilkanLampiran()}, {@code
- * tampilRinci()}, {@code tampilRinci()}); mutasi data ({@code chekSimpan()}); operasi domain lain ({@code
- * teksAman()}, {@code namaMatakuliah()}, {@code escapeHtmlAman()}, {@code displayHeader()}, {@code
- * displayHeaderInternal()}, {@code createKeterangan()}); konfigurasi constructor: {@code tbmuser}. Bagian lain
- * dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Struktur tab (dibangun oleh {@link #initDetail(Perkuliahan, DataLoader, Component, int, int)}):</b>
+ * Home (deskripsi/pendahuluan/capaian matakuliah — bisa digenerasi otomatis via {@link AIGenerator}),
+ * Agenda (daftar {@link Pertemuan}/pertemuan kuliah berpaging, dirender oleh
+ * {@link #tampilRinci(Perkuliahan, DataLoader, Tabpanel, Component, int, int, boolean)}), Info
+ * (pengumuman), Ref. (referensi buku/bahan ajar/artikel), Ujian, Tgs (tugas individu), Tgs.Kel.
+ * (tugas kelompok), Nilai, dan Lap. (sub-tab laporan: Rencana Perkuliahan, Jurnal Mengajar, Kontrak
+ * Perkuliahan, Rencana Paralel, Laporan KBM, Tugas Individu, Kehadiran, Nilai, Kehadiran &amp; Nilai,
+ * Ketidakhadiran — masing-masing men-generate PDF via {@link Report#generatePDFReport}). Setiap
+ * pertemuan pada tab Agenda menampilkan tombol aksi cepat (Dasbor/Catatan/Ujian/Diskusi/dst) yang
+ * dibangun oleh {@link #createKeteranganData}.</p>
+ *
+ * <p><b>Kuirk penting ZK 5:</b> memilih tab (klik) TIDAK otomatis membuat {@code Tabpanel}-nya
+ * visible di sisi client — hanya CSS class tab yang berubah. Karena itu hampir setiap listener
+ * {@code onClick} tab di kelas ini secara eksplisit memanggil {@code tab.setSelected(true)} DAN
+ * {@code tabpanel.setVisible(true)} sebelum mengisi konten (idempoten, dicek via
+ * {@code getChildren().isEmpty()}), dan beberapa tempat mem-redispatch {@code onClick} lewat
+ * {@code Events.sendEvent}/listener {@code onSelect} agar tab pertama yang dipilih otomatis oleh ZK
+ * tetap terisi kontennya.</p>
+ *
+ * <p><b>Efek samping:</b> tombol "Kirim ke Feeder" di {@link #initAgendaPerkuliahan} mengirim data
+ * perkuliahan ke server PDDikti Neo Feeder secara asinkron (thread terpisah) via
+ * {@link ais.action.master.feeder.util.FeederExporter}; tombol "History" memuat ulang seluruh
+ * {@link Pertemuan} aktif milik perkuliahan dari database. Method baca (tampilRinci, displayHeader,
+ * createKeterangan*) tidak melakukan mutasi tersembunyi kecuali disebutkan (mis. edit Pendahuluan/
+ * Deskripsi/Capaian langsung melakukan {@code Common.refreshUpdate} saat tombol Simpan diklik).</p>
  */
 public class AktifitasPerkuliahanHelper {
 
+	/** Helper penjadwalan dipakai oleh tombol "Tambah/Ubah Agenda" dan "Buat Pertemuan" di toolbar Agenda. */
 	protected PenjadwalanHelper penjadwalanHelper = new PenjadwalanHelper();
+	/** Mahasiswa pemilik konteks bila panel dibuka dari sisi mahasiswa (mis. lewat Aktifitas Kuliah Mahasiswa); null bila dibuka dari sisi dosen/admin. */
 	private Mahasiswa mahasiswa;
+	/** Calon mahasiswa pemilik konteks bila panel dibuka dari alur pendaftaran/kuliah tamu; null di jalur dosen/admin biasa. */
 	private BiodataCalonMahasiswa biodataCalonMahasiswa;
+	/** Indeks pertemuan awal (0-based) yang ditampilkan pada halaman Agenda aktif. */
 	private Integer mulai;
+	/** Jumlah pertemuan yang ditampilkan sekaligus per halaman Agenda (dipilih via {@link #jumlahDitampilkan}). */
 	private Integer banyak;
+	/** Component induk tempat seluruh tabbox ditempelkan; diisi ulang tiap {@link #initDetail}. */
 	private Component groupbox;
+	/** Menandai tab Agenda sebagai tab aktif terakhir agar tetap terpilih setelah re-render ({@link #initDetail}). */
 	private boolean tampikanTab = false;
+	/** Bila true, seluruh panel ringkasan (KBM/Keaktifan/Rekap) di tab Home langsung dimuat tanpa menunggu klik tombol "Tampilkan". */
 	private boolean tampilLangsungRinci = false;
+	/** Combobox jumlah pertemuan per halaman (1-16) di toolbar Agenda. */
 	private Combobox jumlahDitampilkan;
+	/** Tabpanel Agenda yang diisi ulang oleh {@link #tampilRinci}. */
 	private Tabpanel tabpanelAgenda;
 
+	/** User yang sedang login (hasil {@code Common.getCurrentUser()}), dipakai untuk kontrol visibilitas tombol berbasis peran. */
 	private Tbmuser tbmuser;
+	/** Hak edit konten (Pendahuluan/Deskripsi/Capaian, penilaian, dsb.); diteruskan dari pemanggil, default true. */
 	private boolean edit = true;
 
+	/**
+	 * Daftar jenis "Lampiran Lain" opsional (di luar RPS/SAP/Absen Manual/Soal UTS/UAS baku) yang
+	 * ditampilkan di {@link #tampilkanLampiran} bila konfigurasi {@code tampilkan_&lt;nama&gt;} aktif.
+	 */
 	public static String[] lampiranLain = new String[] { "Laporan Kuliah Umum / Seminar Praktisi I",
 			"Laporan Kuliah Umum / Seminar Praktisi II", "Laporan Integrasi penelitian dalam pembelajaran",
 			"Laporan integrasi pengabdian kepada masyarakat dalam pemebelajaran" };
 
+	/**
+	 * Constructor untuk konteks mahasiswa/calon mahasiswa (atau dosen/admin bila keduanya null).
+	 *
+	 * @param mahasiswa               mahasiswa pemilik konteks, atau null bila bukan sisi mahasiswa.
+	 * @param biodataCalonMahasiswa   calon mahasiswa pemilik konteks, atau null.
+	 * @param edit                    true bila panel boleh menampilkan kontrol edit (Simpan/Ubah).
+	 */
 	public AktifitasPerkuliahanHelper(Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa, boolean edit) {
 		this.edit = edit;
 		this.mahasiswa = mahasiswa;
@@ -166,6 +202,17 @@ public class AktifitasPerkuliahanHelper {
 		tbmuser = Common.getCurrentUser();
 	}
 
+	/**
+	 * Sama seperti {@link #AktifitasPerkuliahanHelper(Mahasiswa, BiodataCalonMahasiswa, boolean)},
+	 * ditambah kendali {@code tampilLangsungRinci} untuk memaksa panel ringkasan tab Home (KBM,
+	 * Keaktifan Peserta, Rekapitulasi Pembelajaran) langsung dimuat tanpa klik tombol "Tampilkan"
+	 * — dipakai pada tampilan ringkas/dasbor yang ingin langsung menampilkan semua data.
+	 *
+	 * @param mahasiswa               mahasiswa pemilik konteks, atau null.
+	 * @param biodataCalonMahasiswa   calon mahasiswa pemilik konteks, atau null.
+	 * @param tampilLangsungRinci     true untuk memuat langsung panel ringkasan tab Home.
+	 * @param edit                    true bila panel boleh menampilkan kontrol edit.
+	 */
 	public AktifitasPerkuliahanHelper(Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa,
 			boolean tampilLangsungRinci, boolean edit) {
 		this.edit = edit;
@@ -175,6 +222,24 @@ public class AktifitasPerkuliahanHelper {
 		tbmuser = Common.getCurrentUser();
 	}
 
+	/**
+	 * Membangun toolbar aksi di atas tab Agenda: "Tambah/Ubah Agenda" (buka {@link #penjadwalanHelper}),
+	 * "Buat Pertemuan" (bila {@code perkuliahan} sudah ada, via {@code PenjadwalanHelper.buatSatuPertemuan}),
+	 * tombol cetak "Absensi"/"UTS"/"UAS" (via {@code CommonReportHelper.onLaporanAbsensi}), tombol
+	 * Kalender ({@link #tampilCalender}), tombol export ruang kelas ({@code ClassRoomUtil.createButton}),
+	 * "Refresh", export DSpace, combobox {@link #jumlahDitampilkan} (memicu {@link #tampilRinci} saat
+	 * berubah), tombol "Kirim ke Feeder" (hanya bila admin diizinkan akses Feeder dan konfigurasi
+	 * {@code aktifkan_terhubung_langsung_ke_feeder} aktif — mengirim data perkuliahan ke server PDDikti
+	 * Neo Feeder secara asinkron di thread terpisah, dengan log error yang bisa di-download bila gagal),
+	 * tombol pemulihan pertemuan ({@code RecoveryPertemuanHelper}), dan tombol "History" (menampilkan
+	 * riwayat revisi lalu me-reload seluruh {@link Pertemuan} aktif perkuliahan dari database).
+	 *
+	 * @param perkuliahan konteks perkuliahan; boleh null untuk sebagian tombol (mis. saat agenda belum
+	 *                    ada), tombol lain menyesuaikan visibilitasnya.
+	 * @param dataLoader  callback yang dipanggil untuk memuat ulang tampilan setelah aksi toolbar
+	 *                    (mis. setelah agenda diubah atau kalender diproses).
+	 * @return toolbar siap ditempel ke parent.
+	 */
 	public Toolbar initAgendaPerkuliahan(final Perkuliahan perkuliahan, final DataLoader dataLoader) {
 
 		Toolbar hbox = new Toolbar();
@@ -540,6 +605,18 @@ public class AktifitasPerkuliahanHelper {
 		return hbox;
 	}
 
+	/**
+	 * Menambahkan tombol "Kalender" (ikon Google Calendar) ke {@code hbox}, tersembunyi untuk
+	 * mahasiswa/siswa. Saat diklik, menentukan {@link PerguruanTinggi} konteks dari dosen/mahasiswa/
+	 * fakultas milik {@link Tbmuser} yang login, lalu memproses sinkronisasi Google Calendar untuk
+	 * seluruh pertemuan {@code voPembelajaran} via {@link CalendarUtil#proses} dan menunggu hasilnya
+	 * dengan {@code CalendarUtil.cretaeTimerWaiting} sebelum memanggil {@code dataLoader.loadData}
+	 * untuk me-refresh tampilan.
+	 *
+	 * @param hbox            parent tempat tombol ditempel.
+	 * @param dataLoader      callback reload setelah sinkronisasi kalender selesai.
+	 * @param voPembelajaran  objek pembelajaran (mis. {@link Perkuliahan}) sumber daftar pertemuan yang disinkronkan.
+	 */
 	public static void tampilCalender(Component hbox, final DataLoader dataLoader,
 			final VOPembelajaran voPembelajaran) {
 		final Tbmuser tbmuser = Common.getCurrentUser();
@@ -593,6 +670,17 @@ public class AktifitasPerkuliahanHelper {
 		});
 	}
 
+	/**
+	 * Varian singkat {@link #initDetail(Perkuliahan, DataLoader, Component, int, int)} dengan
+	 * {@code dataLoader} default (dibangkitkan otomatis di dalam method utama, memanggil
+	 * {@link #tampilRinci} ulang).
+	 *
+	 * @param perkuliahan konteks perkuliahan yang panelnya dibangun.
+	 * @param groupbox    parent tempat seluruh tabbox ditempel.
+	 * @param mulai       indeks pertemuan awal untuk tab Agenda.
+	 * @param banyak      jumlah pertemuan per halaman tab Agenda.
+	 * @throws Exception diteruskan dari operasi ZK/Hibernate di dalamnya.
+	 */
 	public void initDetail(Perkuliahan perkuliahan, Component groupbox, int mulai, int banyak) throws Exception {
 		initDetail(perkuliahan, null, groupbox, mulai, banyak);
 	}
@@ -602,15 +690,26 @@ public class AktifitasPerkuliahanHelper {
 		return s == null ? "" : s;
 	}
 
+	/** Nama {@link ais.database.model.Matakuliah} dari {@code p}, null-safe (string kosong bila perkuliahan/matakuliah/nama null). */
 	private static String namaMatakuliah(Perkuliahan p) {
 		return p == null || p.getMatakuliah() == null || p.getMatakuliah().getNama() == null ? ""
 				: p.getMatakuliah().getNama();
 	}
 
+	/** {@link #teksAman(String)} ditambah escaping HTML dasar (&amp;, &lt;, &gt;) untuk teks yang disisipkan ke markup mentah (mis. judul kartu hero). */
 	private static String escapeHtmlAman(String s) {
 		return teksAman(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
 	}
 
+	/**
+	 * Pembungkus aman untuk {@link #displayHeaderInternal(Perkuliahan, Component)}: menangkap
+	 * exception (mis. NPE pada kolom Pendahuluan/Capaian/matakuliah yang kosong/rusak) agar tab Home
+	 * tidak blank total, dan menampilkan pesan "Sebagian informasi Home gagal dimuat" sebagai
+	 * pengganti bila render internal gagal.
+	 *
+	 * @param perkuliahan konteks perkuliahan.
+	 * @param header      tabpanel Home tempat konten ditempel.
+	 */
 	private void displayHeader(final Perkuliahan perkuliahan, Component header) {
 		try {
 			displayHeaderInternal(perkuliahan, header);
@@ -635,6 +734,20 @@ public class AktifitasPerkuliahanHelper {
 		}
 	}
 
+	/**
+	 * Membangun isi tab "Home": kartu hero judul matakuliah, lalu (bila bukan konteks mahasiswa/calon
+	 * mahasiswa/peserta kursus/siswa) blok Pendahuluan, Deskripsi Pembelajaran, dan Capaian/Kompetensi
+	 * — masing-masing dengan mode tampil (label HTML read-only) dan mode edit (textbox/CKEditor +
+	 * tombol Simpan yang langsung memanggil {@code Common.refreshUpdate} pada {@link Perkuliahan}),
+	 * plus tombol "Generate ..." yang memakai {@link AIGenerator} untuk mengisi teks tersebut otomatis
+	 * dari LLM. Selanjutnya membangun empat kartu ringkasan (Aktifitas Perkuliahan, Kegiatan Belajar
+	 * Mengajar, Keaktifan Peserta Perkuliahan, Rekapitulasi Pembelajaran) yang masing-masing dimuat
+	 * on-demand lewat tombol "Tampilkan" kecuali {@link #tampilLangsungRinci} true, dan terakhir
+	 * lampiran pendukung tingkat matakuliah via {@link #tampilkanLampiran}.
+	 *
+	 * @param perkuliahan konteks perkuliahan.
+	 * @param header      tabpanel Home tempat seluruh grid/kartu ditempel.
+	 */
 	private void displayHeaderInternal(final Perkuliahan perkuliahan, Component header) {
 
 		/* Borderlayout/Center lama dihapus: tanpa tinggi eksplisit Borderlayout
@@ -1179,6 +1292,22 @@ public class AktifitasPerkuliahanHelper {
 		row.appendChild(label);
 	}
 
+	/**
+	 * Menyalin (clone) satu {@link LampiranLain} dari referensi lama ({@code refAmbilDari} + jenis
+	 * bertanda {@code tambahanAmbilDari}) menjadi lampiran baru milik {@code ref} bila lampiran tujuan
+	 * ({@code ref} + {@code jenis}) belum ada — dipakai saat perkuliahan paralel/salinan agenda ingin
+	 * mewarisi lampiran (RPS/SAP/dst.) dari matakuliah sumbernya. Hanya berjalan bila
+	 * {@code tambahanAmbilDari} diisi dan {@code tambahan} kosong (menandai konteks "salinan", bukan
+	 * upload manual baru). Clone menyimpan jejak asal via {@code setCopyDari}. Transaksi Hibernate
+	 * dibuka/di-commit manual; kegagalan di-rollback dan ditampilkan hanya untuk admin
+	 * ({@code Common.tampilErrorJikaAdmin}) tanpa melempar exception ke pemanggil.
+	 *
+	 * @param ref               id entity tujuan (mis. id {@link Perkuliahan} atau matakuliah) yang lampirannya diperiksa/diisi.
+	 * @param refAmbilDari      id entity sumber tempat lampiran asli disalin.
+	 * @param tambahan          suffix jenis pada sisi tujuan; harus kosong agar penyalinan dijalankan.
+	 * @param tambahanAmbilDari suffix jenis pada sisi sumber; harus diisi agar penyalinan dijalankan.
+	 * @param jenis             kode jenis lampiran (mis. {@link LampiranLain#SILABUS}, {@link LampiranLain#SAP}).
+	 */
 	public static void chekSimpan(Long ref, Long refAmbilDari, String tambahan, String tambahanAmbilDari,
 			String jenis) {
 		if (tambahanAmbilDari != null && !tambahanAmbilDari.trim().isEmpty() && refAmbilDari != null) {
@@ -1210,6 +1339,25 @@ public class AktifitasPerkuliahanHelper {
 		}
 	}
 
+	/**
+	 * Menampilkan baris "Lampiran Pendukung" berisi widget upload/download file untuk RPS, SAP,
+	 * Absen Manual, Soal UTS, Soal UAS (masing-masing hanya bila konfigurasi {@code tampilkan_*}
+	 * terkait aktif), seluruh entri statis {@link #lampiranLain} yang diaktifkan via konfigurasi
+	 * {@code tampilkan_&lt;nama&gt;}, serta jenis tambahan dinamis dari konfigurasi
+	 * {@code tampilkan_lampiran_lain_di_agenda} (daftar dipisah koma). Untuk tiap jenis, memanggil
+	 * {@link #chekSimpan} lebih dulu (menyalin dari sumber bila ini konteks salinan/paralel), lalu
+	 * membangun widget {@code LampiranLain.createDownloadUploadFileLain} yang saat file diunggah
+	 * langsung melakukan update Hibernate ({@code session.update}) untuk mematri {@code ref} pada
+	 * lampiran tersebut.
+	 *
+	 * @param rows              Rows ZK tempat baris-baris lampiran ditambahkan.
+	 * @param ref               id entity pemilik lampiran (mis. id {@link Perkuliahan} atau matakuliah).
+	 * @param refAmbilDari      id entity sumber untuk penyalinan otomatis via {@link #chekSimpan}.
+	 * @param tambahan          suffix jenis pada sisi tujuan (mis. kosong untuk konteks utama).
+	 * @param tambahanAmbilDari suffix jenis pada sisi sumber.
+	 * @param bolehUpload       true bila pengguna saat ini boleh mengunggah/mengganti file.
+	 * @param span              nilai colspan ZK opsional untuk merentangkan baris (kosong/null = default).
+	 */
 	@SuppressWarnings("deprecation")
 	public static void tampilkanLampiran(Rows rows, final Long ref, final Long refAmbilDari, final String tambahan,
 			final String tambahanAmbilDari, final boolean bolehUpload, final String span) {
@@ -1545,6 +1693,27 @@ public class AktifitasPerkuliahanHelper {
 		}
 	}
 
+	/**
+	 * Method utama yang membangun seluruh tabbox "Aktifitas Perkuliahan" (lihat daftar tab pada
+	 * Javadoc kelas) dan menempelkannya ke {@code groupbox}. Membersihkan {@code groupbox} lebih
+	 * dulu ({@code Common.clear}), lalu membuat tab Home (eager, langsung terisi via
+	 * {@link #displayHeader}) dan tab-tab lain yang kontennya baru dimuat saat pertama diklik (pola
+	 * lazy-load dengan guard {@code getChildren().isEmpty()} agar tidak dimuat ulang). Menyimpan
+	 * {@code mulai}/{@code banyak}/{@code groupbox} ke field instance untuk dipakai ulang oleh
+	 * listener toolbar (Refresh, Tambah Agenda, History, dll.) yang memanggil {@code initDetail} lagi
+	 * setelah aksinya selesai. Bila {@link #tampikanTab} true (tab Agenda sebelumnya aktif), konten
+	 * Agenda di-render lewat {@code Common.createDefaultTimer} dengan jeda 1 detik agar panel sudah
+	 * benar-benar tampil di client sebelum diisi (menghindari race condition ukuran 0 pada renderer
+	 * PDF/iframe).
+	 *
+	 * @param perkuliahan konteks perkuliahan yang panelnya dibangun; tidak boleh null.
+	 * @param mydataLoader callback reload custom; bila null, dibuatkan default yang memanggil
+	 *                     {@link #tampilRinci} untuk tab Agenda.
+	 * @param groupbox    parent tempat tabbox ditempel; dibersihkan sebelum diisi ulang.
+	 * @param mulai       indeks pertemuan awal untuk tab Agenda.
+	 * @param banyak      jumlah pertemuan per halaman tab Agenda.
+	 * @throws Exception diteruskan dari operasi ZK/Hibernate di dalamnya.
+	 */
 	@SuppressWarnings({})
 	public void initDetail(final Perkuliahan perkuliahan, final DataLoader mydataLoader, final Component groupbox,
 			final int mulai, final int banyak) throws Exception {
@@ -2404,12 +2573,36 @@ public class AktifitasPerkuliahanHelper {
 
 	}
 
+	/** Varian singkat {@link #tampilRinci(Perkuliahan, DataLoader, Tabpanel, Component, int, int, boolean)} tanpa flag {@code tampilHal} (default false). */
 	@SuppressWarnings({})
 	private void tampilRinci(final Perkuliahan perkuliahan, final DataLoader dataLoader, final Tabpanel tabpanel,
 			final Component groupbox, final int mulai, final int banyak) throws Exception {
 		tampilRinci(perkuliahan, dataLoader, tabpanel, groupbox, mulai, banyak, false);
 	}
 
+	/**
+	 * Mengisi ulang tab "Agenda" (sub-tabbox: Rencana dan Realisasi, Kehadiran, Tugas/Ujian/Materi,
+	 * RPS/Form Rencana Pembelajaran, dan — bila kurikulum OBE aktif — Nilai OBE &amp; Rekap Nilai OBE)
+	 * untuk satu {@link Perkuliahan}. Mengambil daftar id {@link Pertemuan} aktif via
+	 * {@code perkuliahan.ambilPertemuan(m, banyak, tampilHal)} (memuat ulang dari DB terlebih dahulu
+	 * bila {@code perkuliahan.udah()} bernilai false, termasuk reinit diskusi tiap pertemuan). Untuk
+	 * tab "Rencana dan Realisasi", tiap {@link Pertemuan} dirender sebagai kartu berisi info tanggal
+	 * rencana/realisasi, riwayat revisi, topik, dosen tamu, catatan, tombol video conference/absen/
+	 * toolbar aksi ({@link #createKeterangan}), status kehadiran, dan (bila konfigurasi mengizinkan)
+	 * komentar/diskusi. Bila belum ada pertemuan sama sekali, menampilkan pesan "belum dibuat" beserta
+	 * tombol "Buat Pertemuan"/"Ambil" (copy dari perkuliahan lain). Paging tab Agenda di-clamp agar
+	 * halaman aktif tidak pernah melebihi total halaman (mencegah {@code WrongValueException} saat
+	 * jumlah pertemuan berkurang).
+	 *
+	 * @param perkuliahan konteks perkuliahan.
+	 * @param dataLoader  callback reload dipanggil ulang oleh listener tombol di dalam kartu pertemuan.
+	 * @param tabpanel    tabpanel Agenda yang dibersihkan lalu diisi ulang.
+	 * @param groupbox    parent luar (dipakai untuk memanggil {@link #initDetail} ulang dari beberapa listener).
+	 * @param m           indeks pertemuan awal (0-based) untuk halaman ini.
+	 * @param banyak      jumlah pertemuan per halaman.
+	 * @param tampilHal   diteruskan ke {@code perkuliahan.ambilPertemuan} untuk menentukan strategi pengambilan halaman.
+	 * @throws Exception diteruskan dari operasi ZK/Hibernate di dalamnya.
+	 */
 	@SuppressWarnings({ "unchecked" })
 	private void tampilRinci(final Perkuliahan perkuliahan, final DataLoader dataLoader, final Tabpanel tabpanel,
 			final Component groupbox, final int m, final int banyak, boolean tampilHal) throws Exception {
@@ -3087,6 +3280,15 @@ public class AktifitasPerkuliahanHelper {
 		tab.focus();
 	}
 
+	/**
+	 * Varian singkat {@link #createKeteranganData} yang mengambil {@link Tbmuser} dan
+	 * {@link Mahasiswa} dari user yang sedang login ({@code Common.getCurrentUser()}).
+	 *
+	 * @param pertemuan  pertemuan yang toolbar aksinya dibangun.
+	 * @param dataLoader callback reload dipanggil dari tombol-tombol navigasi tab.
+	 * @param buttons    komponen tombol tambahan yang disisipkan ke akhir toolbar.
+	 * @return Vbox berisi baris tombol aksi (Dasbor/Catatan/Ujian/dll.), siap ditempel ke parent.
+	 */
 	public static Vbox createKeterangan(final Pertemuan pertemuan, final DataLoader dataLoader, Component... buttons) {
 		Tbmuser tbmuser = Common.getCurrentUser();
 		return createKeteranganData(pertemuan, tbmuser, tbmuser == null ? null : tbmuser.getMahasiswa(), null,
@@ -3094,18 +3296,31 @@ public class AktifitasPerkuliahanHelper {
 
 	}
 
+	/**
+	 * Varian {@link #createKeteranganData} untuk konteks mahasiswa/calon mahasiswa eksplisit, dengan
+	 * {@link Tbmuser} diambil dari user yang sedang login.
+	 *
+	 * @param pertemuan              pertemuan yang toolbar aksinya dibangun.
+	 * @param mahasiswa              konteks mahasiswa eksplisit (menentukan tombol mana yang tampil).
+	 * @param biodataCalonMahasiswa  konteks calon mahasiswa eksplisit.
+	 * @param dataLoader             callback reload.
+	 * @param buttons                tombol tambahan.
+	 * @return Vbox toolbar aksi pertemuan.
+	 */
 	public static Vbox createKeterangan(Pertemuan pertemuan, Mahasiswa mahasiswa,
 			BiodataCalonMahasiswa biodataCalonMahasiswa, DataLoader dataLoader, Component... buttons) {
 		Tbmuser tbmuser = Common.getCurrentUser();
 		return createKeteranganData(pertemuan, tbmuser, mahasiswa, biodataCalonMahasiswa, dataLoader, buttons);
 	}
 
+	/** Varian {@link #createKeteranganData} dengan {@code vertical=false}, {@code simple=false}, tanpa {@code btnTabNav}. */
 	public static Vbox createKeteranganData(Pertemuan pertemuan, Tbmuser tbmuser, Mahasiswa mahasiswa,
 			BiodataCalonMahasiswa biodataCalonMahasiswa, DataLoader dataLoader, Component... buttons) {
 		return createKeteranganData(pertemuan, tbmuser, mahasiswa, biodataCalonMahasiswa, dataLoader, false, false,
 				null, buttons);
 	}
 
+	/** Varian {@link #createKeteranganData} tanpa {@code btnTabNav} eksplisit (navigasi tab jatuh ke {@code PertemuanHelper.display}). */
 	public static Vbox createKeteranganData(final Pertemuan pertemuan, final Tbmuser tbmuser, final Mahasiswa mahasiswa,
 			final BiodataCalonMahasiswa biodataCalonMahasiswa, final DataLoader dataLoader, final boolean vertical,
 			final boolean simple, final Component... buttons) {
@@ -3113,6 +3328,31 @@ public class AktifitasPerkuliahanHelper {
 				null, buttons);
 	}
 
+	/**
+	 * Membangun toolbar tombol aksi cepat untuk satu {@link Pertemuan}: Dasbor (ringkasan), Catatan
+	 * (disorot merah bila {@code pertemuan.getCatatan()} terisi), Ujian (badge jumlah ujian &amp;
+	 * total peserta dari {@code ambilPertemuanPunyaUjianTotal}), Diskusi, File, Tugas (individu &amp;
+	 * kelompok, memicu peringatan bila judul tugas belum diisi tapi sudah ada data tugas), dan
+	 * Evaluasi/kuesioner — masing-masing badge dihitung dari query/agregasi milik {@link Pertemuan}
+	 * dan disembunyikan sesuai peran (mahasiswa/siswa/dosen/admin) serta status {@code getWisuda()}.
+	 * Setiap tombol yang punya {@code dataLoader} akan membuka tab terkait: lewat
+	 * {@code btnTabNav.pilih(index)} bila tersedia (navigasi tab tanpa reload window), atau
+	 * fallback membuka {@code new PertemuanHelper(...).display(pertemuan, dataLoader, index)}.
+	 * Tombol disusun otomatis menjadi baris-baris "pill" horizontal ({@code tampilPerRow} tombol per
+	 * baris: 1000/baris bila {@code vertical}, 4 di mobile, 8 di desktop) agar rapat dan center;
+	 * memanggil {@code pertemuan.masukkanData("akses")} sebagai pencatatan akses.
+	 *
+	 * @param pertemuan              pertemuan yang toolbar aksinya dibangun; tidak boleh null.
+	 * @param tbmuser                user yang sedang login, menentukan tombol mana yang tampil/badge apa yang dihitung.
+	 * @param mahasiswa              konteks mahasiswa (untuk delegasi ke {@code PertemuanHelper}).
+	 * @param biodataCalonMahasiswa  konteks calon mahasiswa (untuk delegasi ke {@code PertemuanHelper}).
+	 * @param dataLoader             callback reload; bila null, tombol navigasi tab tidak dipasangi listener (murni tampilan).
+	 * @param vertical               true untuk menyusun semua tombol dalam satu kolom (satu tombol per baris).
+	 * @param simple                 true untuk menyembunyikan tombol Catatan dan Diskusi (mode ringkas).
+	 * @param btnTabNav              navigasi tab existing untuk dipakai langsung (hindari buka window baru); boleh null.
+	 * @param buttons                tombol tambahan yang disisipkan ke akhir daftar sebelum disusun jadi baris.
+	 * @return Vbox berisi baris-baris tombol aksi, siap ditempel ke parent (mis. kartu pertemuan).
+	 */
 	public static Vbox createKeteranganData(final Pertemuan pertemuan, final Tbmuser tbmuser, final Mahasiswa mahasiswa,
 			final BiodataCalonMahasiswa biodataCalonMahasiswa, final DataLoader dataLoader, final boolean vertical,
 			final boolean simple, final ais.ui.util.MyButtonTabbox btnTabNav, final Component... buttons) {
@@ -3917,6 +4157,21 @@ public class AktifitasPerkuliahanHelper {
 		return vbox;
 	}
 
+	/**
+	 * Membangun tombol "Kalender" untuk satu {@link Pertemuan}. Bila event Google Calendar untuk
+	 * pertemuan ini sudah ada ({@code CalendarUtil.chekSudahAda}), klik membuka tanggal pertemuan
+	 * langsung di Google Calendar (popup/tab baru sesuai {@code Common.isMobile()}); bila belum ada,
+	 * klik memicu pembuatan event via {@link CalendarUtil#proses} untuk konteks
+	 * {@link PerguruanTinggi} yang relevan (diturunkan dari dosen/mahasiswa/fakultas milik
+	 * {@code tbmuser}), lalu memanggil {@code dataLoader.loadData} setelah selesai.
+	 *
+	 * @param pertemuan  pertemuan yang tombolnya dibangun.
+	 * @param tbmuser    user yang sedang login (menentukan konteks perguruan tinggi &amp; visibilitas tombol).
+	 * @param tampil     bila false, tombol langsung disembunyikan tanpa pengecekan lain.
+	 * @param dataLoader callback reload dipanggil setelah event kalender selesai diproses.
+	 * @return tombol siap ditempel ke parent.
+	 * @throws Exception diteruskan dari {@link CalendarUtil}.
+	 */
 	public static MyToolbarbutton createCalendarButton(final Pertemuan pertemuan, final Tbmuser tbmuser, boolean tampil,
 			final DataLoader dataLoader) throws Exception {
 		final boolean ada = CalendarUtil.chekSudahAda(pertemuan, tbmuser);
@@ -3999,6 +4254,18 @@ public class AktifitasPerkuliahanHelper {
 		return a;
 	}
 
+	/**
+	 * Varian tombol Kalender untuk {@link GelombangPendaftaran} (gelombang PMB): klik memproses
+	 * sinkronisasi Google Calendar via {@link CalendarUtil#proses} lalu memanggil
+	 * {@code dataLoader.loadData} setelah selesai. Tersembunyi untuk mahasiswa/siswa/calon.
+	 *
+	 * @param gelombangPendaftaran gelombang pendaftaran yang jadwalnya disinkronkan ke kalender.
+	 * @param tbmuser              user yang sedang login.
+	 * @param tampil               bila false, tombol disembunyikan.
+	 * @param dataLoader           callback reload setelah sinkronisasi selesai.
+	 * @return tombol siap ditempel ke parent.
+	 * @throws Exception diteruskan dari {@link CalendarUtil}.
+	 */
 	public static Button createCalendarButton(final GelombangPendaftaran gelombangPendaftaran, final Tbmuser tbmuser,
 			boolean tampil, final DataLoader dataLoader) throws Exception {
 		MyToolbarbuttonConfig a = new MyToolbarbuttonConfig("Kalender", FileFoto.icon("calendar.google"));
@@ -4044,6 +4311,18 @@ public class AktifitasPerkuliahanHelper {
 		return a;
 	}
 
+	/**
+	 * Varian tombol Kalender untuk {@link InterviewCalonMahasiswa} (jadwal wawancara PMB): klik
+	 * memproses sinkronisasi Google Calendar via {@link CalendarUtil#proses} lalu memanggil
+	 * {@code dataLoader.loadData} setelah selesai. Tersembunyi untuk mahasiswa/siswa/calon.
+	 *
+	 * @param interviewCalonMahasiswa jadwal wawancara yang disinkronkan ke kalender.
+	 * @param tbmuser                 user yang sedang login.
+	 * @param tampil                  bila false, tombol disembunyikan.
+	 * @param dataLoader              callback reload setelah sinkronisasi selesai.
+	 * @return tombol siap ditempel ke parent.
+	 * @throws Exception diteruskan dari {@link CalendarUtil}.
+	 */
 	public static Button createCalendarButton(final InterviewCalonMahasiswa interviewCalonMahasiswa,
 			final Tbmuser tbmuser, boolean tampil, final DataLoader dataLoader) throws Exception {
 		MyToolbarbuttonConfig a = new MyToolbarbuttonConfig("Kalender", FileFoto.icon("calendar.google"));
@@ -4089,6 +4368,15 @@ public class AktifitasPerkuliahanHelper {
 		return a;
 	}
 
+	/**
+	 * Membangun tombol "Classroom", terlihat hanya bila {@link Pertemuan} memiliki
+	 * {@code VOPembelajaran} dengan properti "ClasroomAlternateLink" terisi (link Google Classroom
+	 * hasil integrasi). Klik membuka link tersebut di tab baru (mobile) atau popup terpusat (desktop).
+	 *
+	 * @param pertemuan pertemuan yang link Classroom-nya diperiksa.
+	 * @return tombol siap ditempel ke parent (tersembunyi otomatis bila link tidak ada).
+	 * @throws Exception diteruskan dari {@code pertemuan.ambilVOPembelajaran()}.
+	 */
 	public static MyToolbarbutton createClasroomButton(final Pertemuan pertemuan) throws Exception {
 		VOPembelajaran voPembelajaran = pertemuan.ambilVOPembelajaran();
 		final String link = voPembelajaran == null ? null : voPembelajaran.retreive("ClasroomAlternateLink");

@@ -52,30 +52,75 @@ import ais.database.model.StatusAwalMahasiswa;
 import ais.database.model.StatusMahasiswa;
 
 /**
- * Helper terfokus untuk pembayaran util. Tipe ini membungkus satu variasi kecil dari alur yang
- * lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ * Helper statis (tanpa state instance) yang menghitung <b>tagihan/billing pembayaran mahasiswa
+ * dan calon mahasiswa</b> di AIS — jantung dari modul keuangan akademik: penentuan item biaya apa
+ * saja yang harus dibayar seorang mahasiswa/calon mahasiswa untuk suatu {@link JenisKegiatan}
+ * (mis. her-registrasi, SPP, her-her, pendaftaran ulang mahasiswa baru) pada semester tertentu,
+ * baik dalam mode tagihan reguler ({@link DetailBiaya}) maupun mode angsuran/cicilan bulanan
+ * ({@link PengaturanPembayaranBulanan}).
  *
- * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
- * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
- * implementasi paralel dengan hasil berbeda.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code String SQL_TRUE}, {@code String
- * SQL_FALSE}; pembacaan/pencarian ({@code getDetailBiayaMahasiswa()}, {@code getDetailBiayaMahasiswa()}, {@code
- * getDetailBiayaMahasiswa()}, {@code getDetailBiayaMahasiswaBerdasarkanJenisKegiatan()}, {@code
- * getDetailBiayaMahasiswa()}, {@code getDetailKegiatanMahasiswa()}); operasi domain lain ({@code
- * jenjangCocok()}, {@code closeOpenedSession()}, {@code jenisSeleksiSesuaiGelombang()}, {@code
- * filterCriteriaDenganNilaiTambahan()}, {@code isAktifPengaturanBulanan()}, {@code
- * saringPengaturanPembayaranBulanan()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface
- * yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Entity Hibernate utama yang dipakai:</b> {@link DetailBiaya} (baris tagihan/setting biaya),
+ * {@link ItemBiaya} (jenis item biaya, mis. SPP/her-her), {@link PengaturanPembayaranBulanan}
+ * (satu baris cicilan bulanan yang mengacu ke {@link DetailBiaya}), {@link CicilanPembayaran}
+ * (riwayat pembayaran/cicilan yang sudah dibuat untuk satu {@link ais.database.model.Kegiatan}),
+ * {@link Mahasiswa} dan {@link BiodataCalonMahasiswa} (subjek tagihan), serta {@link Konfigurasi}
+ * yang dibaca berulang kali via {@code Common.getKonfigurasi(...)} untuk menyalakan/mematikan
+ * banyak perilaku opsional (filter kelas, filter tempat tinggal, status non-aktif dianggap aktif,
+ * dsb). Query dibangun dengan Hibernate {@link Criteria}/{@link Restrictions}, sebagian memakai
+ * {@code Restrictions.sqlRestriction(...)} untuk klausa SQL mentah (mis. filter
+ * {@code (realbulan, item_biaya) not in (...)} pada tagihan bulanan yang sudah dibayar).</p>
+ *
+ * <p><b>Alur inti (lihat {@link #getDetailBiayaMahasiswadariDatabase}):</b> (1) short-circuit bila
+ * mahasiswa ditandai {@code tidakAdaTagihan}, pindahan yang belum masuk semester ini, atau sudah
+ * lulus sebelum semester yang diminta; (2) hasil query di-cache per mahasiswa lewat mekanisme
+ * key-value generik {@link GeneralValueObject}/{@code mahasiswa.retreive(key)}/{@code mahasiswa.put(...)}
+ * dengan kunci berisi id mahasiswa+jenisKegiatan+semester+bulan, sehingga panggilan berikutnya
+ * dengan {@code reload=false} tidak perlu query ulang; (3) cek dulu "Setting Biaya khusus" per NIM
+ * lewat {@code SetingBiayaHelper.getDetailBiayaDefault(...)} — bila NIM termasuk daftar pengecualian
+ * tagihan ({@link PengecualianTagihanList}), koleksi kosong sentinel dikembalikan (BUKAN "tidak ada
+ * tagihan", tapi "sengaja dikecualikan"); (4) bila jenis kegiatan dikonfigurasi mode angsuran untuk
+ * jenjang/semester/angkatan mahasiswa ({@code JenisKegiatan.modeAngsuranUntukJenjang(...)}), jalur
+ * dialihkan ke query {@link PengaturanPembayaranBulanan} (tagihan per bulan) alih-alih
+ * {@link DetailBiaya} biasa; (5) hasil disaring lagi lewat berbagai kombinasi kriteria: jenjang,
+ * jurusan, program, jenis kelamin, status mahasiswa/status awal, kewarganegaraan, kelas, jenis
+ * tempat tinggal, gelombang pendaftaran, paket, dan parameter tambahan kustom (lihat
+ * {@link #filterCriteriaDenganNilaiTambahan}).</p>
+ *
+ * <p>Class ini murni kumpulan method {@code static} tanpa field instance — tidak pernah
+ * di-instansiasi (tidak ada constructor eksplisit, hanya constructor default implisit). Dua
+ * konstanta {@code SQL_TRUE}/{@code SQL_FALSE} dipakai sebagai klausa {@code sqlRestriction} netral
+ * agar builder criteria bisa menambahkan kondisi opsional tanpa percabangan if/else terpisah untuk
+ * tiap kombinasi. <b>Kuirk yang perlu diketahui:</b> method privat {@link #jenjangCocok} dideklarasikan
+ * lengkap dengan logikanya tapi <b>tidak pernah dipanggil</b> di mana pun dalam class ini (dead code
+ * peninggalan refactor) — jangan berasumsi ia aktif menyaring apa pun.</p>
+ *
+ * <p><b>Efek samping:</b> sebagian besar method di sini adalah pembacaan (query Hibernate lewat
+ * {@link Session} baru yang selalu ditutup lewat {@link #closeOpenedSession}), namun beberapa method
+ * (mis. {@link #fallbackTagihanDariCicilan}) melakukan <i>write</i> nyata ke DB — memperbaiki
+ * {@code DetailBiaya.nilaiBiaya} dan {@code PengaturanPembayaranBulanan.nominal} yang bernilai 0
+ * berdasarkan riwayat {@link CicilanPembayaran} — dalam transaksi lokalnya sendiri. Pemanggil baru
+ * sebaiknya memakai method yang sudah ada di sini (dipanggil a.l. dari action Daftar Ulang Mahasiswa
+ * dan alur billing lain) daripada menulis ulang query criteria yang sama di tempat lain.</p>
  */
 public class PembayaranUtilHelper {
 
 	private static final String SQL_TRUE = "1=1";
 	private static final String SQL_FALSE = "1=0";
 
+	/**
+	 * Mengecek apakah {@link Jenjang} mahasiswa/calon mahasiswa termasuk daftar id jenjang yang
+	 * tersimpan pada array JSON {@code jenjangAngsuranJson[key]} (format setting angsuran per
+	 * jenjang). Array kosong atau JSON kosong/tidak valid dianggap "cocok untuk semua jenjang"
+	 * (mengembalikan {@code true}); bila array berisi tapi jenjang mahasiswa tidak diketahui,
+	 * dianggap tidak cocok. <b>Catatan:</b> method ini tidak dipanggil dari mana pun di dalam
+	 * class ini saat ini (dead code).
+	 *
+	 * @param jenjangAngsuranJson string JSON berisi peta {@code key -> array id jenjang}
+	 * @param key nama field pada JSON yang berisi daftar id jenjang yang dicek
+	 * @param mahasiswa sumber jenjang bila subjeknya mahasiswa aktif (diutamakan bila keduanya diisi)
+	 * @param biodataCalonMahasiswa sumber jenjang alternatif bila subjeknya calon mahasiswa
+	 * @return {@code true} bila jenjang cocok/tidak ada batasan, {@code false} bila tidak cocok
+	 */
 	private static boolean jenjangCocok(String jenjangAngsuranJson, String key,
 			Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa) {
 		if (jenjangAngsuranJson == null || jenjangAngsuranJson.trim().isEmpty()) return true;
@@ -93,6 +138,15 @@ public class PembayaranUtilHelper {
 		return false;
 	}
 
+	/**
+	 * Menutup {@link Session} Hibernate lokal dengan aman: {@code clear()} lalu
+	 * {@code disconnect()} lalu {@code close()}, masing-masing dibungkus try/catch terpisah
+	 * (kegagalan pada satu langkah tidak menghalangi langkah berikutnya) dan hanya dijalankan
+	 * bila session masih {@code isOpen()}. Dipanggil dari blok {@code finally} tiap method yang
+	 * membuka session sendiri di class ini. Tidak melakukan apa-apa bila {@code session == null}.
+	 *
+	 * @param session session yang akan ditutup; boleh {@code null}
+	 */
 	private static void closeOpenedSession(Session session) {
 		if (session != null) {
 			try {
@@ -116,18 +170,56 @@ public class PembayaranUtilHelper {
 		}
 	}
 
+	/**
+	 * Bentuk paling ringkas untuk mengambil tagihan reguler (non-bulanan) satu mahasiswa: mendelegasikan
+	 * ke {@link #getDetailBiayaMahasiswa(Mahasiswa, Integer, JenisKegiatan, String, boolean)} dengan
+	 * {@code bulan = null}.
+	 *
+	 * @param mahasiswa mahasiswa subjek tagihan
+	 * @param semester semester akademik yang tagihannya dicari (bukan semester kalender)
+	 * @param jenisKegiatan jenis kegiatan/tagihan (mis. SPP, her-registrasi); boleh {@code null} untuk semua jenis
+	 * @param reload {@code true} untuk memaksa query ulang ke DB melewati cache per-mahasiswa
+	 * @return koleksi {@link DetailBiaya} dan/atau {@link PengaturanPembayaranBulanan} yang berlaku
+	 */
 	@SuppressWarnings({ "rawtypes" })
 	public static Collection getDetailBiayaMahasiswa(Mahasiswa mahasiswa, Integer semester, JenisKegiatan jenisKegiatan,
 			boolean reload) {
 		return getDetailBiayaMahasiswa(mahasiswa, semester, jenisKegiatan, null, reload);
 	}
 
+	/**
+	 * Sama seperti {@link #getDetailBiayaMahasiswa(Mahasiswa, Integer, JenisKegiatan, boolean)}
+	 * tetapi bisa membatasi hasil pada satu bulan tagihan (untuk mode angsuran bulanan); tagihan
+	 * bulan yang sudah dibayar tetap DISARING KELUAR (perilaku default, lihat overload berikutnya).
+	 *
+	 * @param mahasiswa mahasiswa subjek tagihan
+	 * @param semester semester akademik yang tagihannya dicari
+	 * @param jenisKegiatan jenis kegiatan/tagihan
+	 * @param bulan nomor bulan (sebagai string) untuk tagihan bulanan, atau {@code null}/kosong untuk tagihan reguler
+	 * @param reload {@code true} untuk memaksa query ulang ke DB melewati cache per-mahasiswa
+	 * @return koleksi {@link DetailBiaya} dan/atau {@link PengaturanPembayaranBulanan} yang berlaku
+	 */
 	@SuppressWarnings({ "rawtypes" })
 	public static Collection getDetailBiayaMahasiswa(Mahasiswa mahasiswa, Integer semester, JenisKegiatan jenisKegiatan,
 			String bulan, boolean reload) {
 		return getDetailBiayaMahasiswa(mahasiswa, semester, jenisKegiatan, bulan, false, reload);
 	}
 
+	/**
+	 * Titik masuk publik utama untuk mengambil tagihan pembayaran seorang mahasiswa; hanya
+	 * meneruskan seluruh parameter apa adanya ke implementasi nyata di
+	 * {@link #getDetailBiayaMahasiswadariDatabase}. Lihat method tersebut untuk penjelasan lengkap
+	 * alur (cache, pengecualian NIM, mode angsuran, filter status/jenjang/dst).
+	 *
+	 * @param mahasiswa mahasiswa subjek tagihan
+	 * @param semester semester akademik yang tagihannya dicari
+	 * @param jenisKegiatan jenis kegiatan/tagihan
+	 * @param bulan nomor bulan (sebagai string) untuk tagihan bulanan, atau {@code null}/kosong untuk tagihan reguler
+	 * @param untukBulananTampilkanMeskipunSudahDibayar {@code true} untuk tetap menampilkan baris
+	 *        bulanan yang sudah dibayar (dipakai layar riwayat), {@code false} untuk menyaringnya (default UI billing)
+	 * @param reload {@code true} untuk memaksa query ulang ke DB melewati cache per-mahasiswa
+	 * @return koleksi {@link DetailBiaya} dan/atau {@link PengaturanPembayaranBulanan} yang berlaku
+	 */
 	@SuppressWarnings({ "rawtypes" })
 	public static Collection getDetailBiayaMahasiswa(Mahasiswa mahasiswa, Integer semester, JenisKegiatan jenisKegiatan,
 			String bulan, Boolean untukBulananTampilkanMeskipunSudahDibayar, boolean reload) {
@@ -136,6 +228,19 @@ public class PembayaranUtilHelper {
 		return d;
 	}
 
+	/**
+	 * Varian yang menghitung otomatis semester akademik mahasiswa saat ini (ganjil/genap berjalan,
+	 * memperhitungkan mahasiswa pindahan lewat {@code pindahKeKampusIniMasukSemester} dan
+	 * {@code semesterMulai}) sebelum mendelegasikan ke
+	 * {@link #getDetailBiayaMahasiswa(Mahasiswa, Integer, JenisKegiatan, String, boolean)}. Dipakai
+	 * saat pemanggil tidak (atau belum) tahu semester eksplisit mahasiswa.
+	 *
+	 * @param mahasiswa mahasiswa subjek tagihan
+	 * @param jenisKegiatan jenis kegiatan/tagihan
+	 * @param bulan nomor bulan (sebagai string) untuk tagihan bulanan, atau {@code null}/kosong untuk tagihan reguler
+	 * @param reload {@code true} untuk memaksa query ulang ke DB melewati cache per-mahasiswa
+	 * @return koleksi {@link DetailBiaya} dan/atau {@link PengaturanPembayaranBulanan} yang berlaku
+	 */
 	@SuppressWarnings("rawtypes")
 	public static Collection getDetailBiayaMahasiswaBerdasarkanJenisKegiatan(Mahasiswa mahasiswa, JenisKegiatan jenisKegiatan,
 			String bulan, boolean reload) {
@@ -145,6 +250,19 @@ public class PembayaranUtilHelper {
 		return PembayaranUtilHelper.getDetailBiayaMahasiswa(mahasiswa, semester, jenisKegiatan, bulan, reload);
 	}
 
+	/**
+	 * Varian yang menurunkan semester akademik dari sebuah {@link JadwalPembayaran} (jadwal yang
+	 * menentukan tahun akademik dan ganjil/genap eksplisit) alih-alih dari semester berjalan
+	 * kalender, lalu mendelegasikan ke
+	 * {@link #getDetailBiayaMahasiswa(Mahasiswa, Integer, JenisKegiatan, String, boolean)} dengan
+	 * {@link JenisKegiatan} yang melekat pada jadwal tersebut.
+	 *
+	 * @param mahasiswa mahasiswa subjek tagihan
+	 * @param jadwalPembayaran jadwal yang menentukan tahun akademik/ganjil-genap dan jenis kegiatan
+	 * @param bulan nomor bulan (sebagai string) untuk tagihan bulanan, atau {@code null}/kosong untuk tagihan reguler
+	 * @param reload {@code true} untuk memaksa query ulang ke DB melewati cache per-mahasiswa
+	 * @return koleksi {@link DetailBiaya} dan/atau {@link PengaturanPembayaranBulanan} yang berlaku
+	 */
 	@SuppressWarnings("rawtypes")
 	public static Collection getDetailBiayaMahasiswa(Mahasiswa mahasiswa, JadwalPembayaran jadwalPembayaran, String bulan,
 			boolean reload) {
@@ -155,6 +273,19 @@ public class PembayaranUtilHelper {
 		return PembayaranUtilHelper.getDetailBiayaMahasiswa(mahasiswa, semester, jadwalPembayaran.getJenisKegiatan(), bulan, reload);
 	}
 
+	/**
+	 * Mengambil daftar {@link DetailKegiatan} (baris kegiatan/aktivitas yang diikuti seorang
+	 * mahasiswa atau calon mahasiswa) dari DB via query {@link Criteria} langsung (tanpa cache),
+	 * opsional disaring per {@link JenisKegiatan}. Bila {@code mahasiswa} dan {@code calonMahasiswa}
+	 * diisi berdua, keduanya digabung dengan OR (baris milik salah satu ikut); bila hanya satu yang
+	 * diisi, hanya baris milik subjek itu yang diambil. Membuka dan selalu menutup {@link Session}
+	 * miliknya sendiri.
+	 *
+	 * @param mahasiswa mahasiswa subjek pencarian, boleh {@code null}
+	 * @param calonMahasiswa calon mahasiswa subjek pencarian, boleh {@code null}
+	 * @param jenisKegiatan penyaring jenis kegiatan; {@code null} berarti semua jenis
+	 * @return daftar {@link DetailKegiatan} yang cocok, atau list kosong bila terjadi error (dicatat via {@code ErrorAuditUtil})
+	 */
 	@SuppressWarnings("unchecked")
 	public static List<DetailKegiatan> getDetailKegiatanMahasiswa(Mahasiswa mahasiswa, BiodataCalonMahasiswa calonMahasiswa,
 			JenisKegiatan jenisKegiatan) {
@@ -183,6 +314,47 @@ public class PembayaranUtilHelper {
 		}
 	}
 
+	/**
+	 * Implementasi nyata (inti) dari perhitungan tagihan pembayaran seorang mahasiswa — semua
+	 * overload {@code getDetailBiayaMahasiswa(...)} akhirnya memanggil method ini. Alur ringkas:
+	 * <ol>
+	 * <li>Short-circuit koleksi kosong bila mahasiswa ditandai {@code tidakAdaTagihan}, belum masuk
+	 * semester pindahannya, atau sudah lulus sebelum semester yang diminta (kecuali
+	 * {@code jenisKegiatan.getTagihanJugaUntukAlumni()} bernilai true).</li>
+	 * <li>Bila {@code reload == false}: coba ambil dari cache per-mahasiswa (kunci berisi
+	 * id mahasiswa+jenisKegiatan+semester+bulan, disimpan via {@code mahasiswa.put/retreive} dan
+	 * dideserialisasi lewat {@link GeneralValueObject}); cache dibuang bila ternyata berisi baris
+	 * dengan semester berbeda dari yang diminta (data basi).</li>
+	 * <li>Tentukan {@code statusMahasiswa} efektif (bisa dipaksa AKTIF oleh beberapa
+	 * {@link Konfigurasi}: status non-aktif/non-lulus/kampus-merdeka boleh membayar seperti aktif,
+	 * atau karena sedang cuti disetujui) dan tahun akademik/{@code ta} (kode tahun+semester numerik).</li>
+	 * <li>Cek "Setting Biaya khusus" per NIM lewat {@code SetingBiayaHelper.getDetailBiayaDefault}
+	 * SEBELUM guard mode angsuran (perbaikan agar setting khusus tidak pernah lolos ke jalur
+	 * bulanan tanpa sempat dibaca) — bila NIM masuk {@link PengecualianTagihanList}, kembalikan
+	 * sentinel kosong pengecualian (bukan "tidak ada tagihan").</li>
+	 * <li>Bila jenis kegiatan memakai mode angsuran untuk jenjang/semester/angkatan mahasiswa ini
+	 * (dan tidak ada setting biaya khusus), kembalikan koleksi kosong biasa agar pemanggil beralih
+	 * ke jalur bulanan (bukan sentinel pengecualian).</li>
+	 * <li>Query {@link Criteria} multi-kondisi ke {@link DetailBiaya} (atau ke
+	 * {@link PengaturanPembayaranBulanan} bila {@code bulan} diisi angka), disaring lewat
+	 * {@link #filterCriteriaDenganNilaiTambahan} dan berbagai atribut mahasiswa (kelas, jenis
+	 * tempat tinggal, tahun akademik, status, jenjang, jurusan, angkatan, dst).</li>
+	 * <li>Hasil di-dedup per {@code itemBiaya} (baris dengan id terbesar yang menang) memakai
+	 * {@link TreeSet}, dilengkapi keterangan via {@code DetailBiaya.updateKeterangan(...)}, ditulis
+	 * ke cache, lalu dikembalikan.</li>
+	 * </ol>
+	 * Membuka {@link Session} sendiri dan selalu menutupnya di {@code finally}; error tak terduga
+	 * dicatat lewat {@code ErrorAuditUtil}/{@code printStackTrace} dan mengembalikan koleksi kosong
+	 * (bukan melempar exception ke pemanggil).
+	 *
+	 * @param mahasiswa mahasiswa subjek tagihan; {@code null} langsung mengembalikan koleksi kosong
+	 * @param semester semester akademik yang tagihannya dihitung
+	 * @param jenisKegiatan jenis kegiatan/tagihan yang dicari
+	 * @param bulan nomor bulan (string angka) untuk memfilter/menghitung tagihan bulanan, {@code null}/kosong untuk tagihan reguler
+	 * @param untukBulananTampilkanMeskipunSudahDibayar bila {@code true}, baris bulanan yang sudah lunas tetap disertakan
+	 * @param reload {@code true} untuk memaksa query ulang ke DB dan mengabaikan cache per-mahasiswa
+	 * @return koleksi {@link DetailBiaya} dan/atau {@link PengaturanPembayaranBulanan} yang berlaku bagi mahasiswa ini
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static Collection getDetailBiayaMahasiswadariDatabase(Mahasiswa mahasiswa, Integer semester,
 			JenisKegiatan jenisKegiatan, String bulan, boolean untukBulananTampilkanMeskipunSudahDibayar,
@@ -717,6 +889,17 @@ public class PembayaranUtilHelper {
 		}
 	}
 
+	/**
+	 * Bentuk ringkas untuk mengambil tagihan seorang calon mahasiswa tanpa semester eksplisit
+	 * (mendelegasikan ke overload dengan {@code semester = null}, mis. untuk tagihan pendaftaran
+	 * yang tidak terikat semester).
+	 *
+	 * @param biodataCalonMahasiswa calon mahasiswa subjek tagihan
+	 * @param jenisKegiatan jenis kegiatan/tagihan yang dicari
+	 * @param jurusan jurusan tujuan; boleh {@code null} (akan ditentukan otomatis di implementasi)
+	 * @param reload {@code true} untuk memaksa query ulang ke DB melewati cache per-calon-mahasiswa
+	 * @return koleksi {@link DetailBiaya} yang berlaku
+	 */
 	public static Collection<DetailBiaya> getDetailBiayaCalonMahasiswa(BiodataCalonMahasiswa biodataCalonMahasiswa,
 			JenisKegiatan jenisKegiatan, Jurusan jurusan, boolean reload) {
 		return getDetailBiayaCalonMahasiswa(biodataCalonMahasiswa, jenisKegiatan, jurusan, null, reload);
@@ -762,6 +945,28 @@ public class PembayaranUtilHelper {
 		return pilihan.get(0);
 	}
 
+	/**
+	 * Analog {@link #getDetailBiayaMahasiswadariDatabase} tetapi untuk subjek
+	 * {@link BiodataCalonMahasiswa} (calon mahasiswa yang belum resmi menjadi {@link Mahasiswa}) —
+	 * dipakai pada tagihan pendaftaran/her-registrasi mahasiswa baru sebelum data mahasiswa
+	 * terbentuk. Alur ringkas: (1) cache per-calon-mahasiswa (kunci id+jenisKegiatan+semester,
+	 * lihat {@link GeneralValueObject}); (2) resolusi {@code jenisSeleksi} yang masih sah lewat
+	 * {@link #jenisSeleksiSesuaiGelombang}; (3) cek Setting Biaya khusus NIM/pengecualian tagihan;
+	 * (4) tentukan apakah jenjang ini harus mode angsuran DAN benar-benar punya baris bulanan
+	 * (lewat {@code PembayaranUtil.hitungBarisBulananSemester}) — bila tidak ada baris bulanan sama
+	 * sekali, mode angsuran dibatalkan agar tagihan reguler tidak ikut hilang; (5) query
+	 * {@link Criteria} ke {@link PengaturanPembayaranBulanan} atau {@link DetailBiaya} tergantung
+	 * hasil (4), disaring lewat paket, gelombang pendaftaran, status awal, jenis seleksi, jenjang,
+	 * jurusan, angkatan, dsb; (6) dedup per {@code itemBiaya}, simpan ke cache, kembalikan.
+	 *
+	 * @param biodataCalonMahasiswa calon mahasiswa subjek tagihan; {@code null} atau
+	 *        {@code jenisKegiatan == null} langsung mengembalikan koleksi kosong
+	 * @param jenisKegiatan jenis kegiatan/tagihan yang dicari
+	 * @param jurusan jurusan tujuan; bila {@code null} akan dicari otomatis (jurusan aktif pertama pada jenjang)
+	 * @param semester semester akademik yang dicari; boleh {@code null} untuk tagihan tanpa semester (mis. pendaftaran)
+	 * @param reload {@code true} untuk memaksa query ulang ke DB melewati cache per-calon-mahasiswa
+	 * @return koleksi {@link DetailBiaya} yang berlaku bagi calon mahasiswa ini
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static Collection<DetailBiaya> getDetailBiayaCalonMahasiswa(BiodataCalonMahasiswa biodataCalonMahasiswa,
 			JenisKegiatan jenisKegiatan, Jurusan jurusan, Integer semester, boolean reload) {
@@ -1030,6 +1235,16 @@ public class PembayaranUtilHelper {
 		}
 	}
 
+	/**
+	 * Bentuk khusus untuk calon mahasiswa BARU yang jurusannya diambil dari
+	 * {@code biodataCalonMahasiswa.getProdiLulus()} (jurusan hasil kelulusan seleksi), lalu
+	 * mendelegasikan ke {@link #getDetailBiayaCalonMahasiswa(BiodataCalonMahasiswa, JenisKegiatan, Jurusan, boolean)}
+	 * tanpa reload (memakai cache bila ada).
+	 *
+	 * @param biodataCalonMahasiswa calon mahasiswa baru subjek tagihan; boleh {@code null}
+	 * @param jenisKegiatan jenis kegiatan/tagihan yang dicari
+	 * @return koleksi {@link DetailBiaya} yang berlaku
+	 */
 	public static Collection<DetailBiaya> getDetailBiayaMahasiswaBaru(BiodataCalonMahasiswa biodataCalonMahasiswa,
 			JenisKegiatan jenisKegiatan) {
 		Jurusan jurusan = null;
@@ -1039,6 +1254,24 @@ public class PembayaranUtilHelper {
 		return getDetailBiayaCalonMahasiswa(biodataCalonMahasiswa, jenisKegiatan, jurusan, false);
 	}
 
+	/**
+	 * Menambahkan (bila diaktifkan lewat {@link Konfigurasi} {@code tambah_dan_aktifkan_filter_ke_1/2/3_paramater_tambahan})
+	 * hingga tiga klausa {@code Restrictions.in("nilaiTambahan1/2/3", ...)} ke {@code criteria} yang
+	 * sedang dibangun, berdasarkan {@code parameterTambahanInds} milik mahasiswa (dibaca via query
+	 * {@link BiodataMahasiswa} terbaru) atau calon mahasiswa. Format {@code parameterTambahanInds}
+	 * adalah baris-baris {@code "label->indeks<=>nilai"} dipisah newline; hanya bagian setelah
+	 * {@code "->"} pada label (indeks parameter) dan nilainya yang dipakai, digabung jadi
+	 * {@code "indeks<=>nilai"} untuk dicocokkan terhadap kolom {@code nilaiTambahanN} pada entity
+	 * tagihan. Tidak melakukan apa-apa bila {@code criteria} atau {@code session} {@code null}, bila
+	 * tidak ada filter yang aktif, atau bila tidak ada nilai tambahan yang berhasil diparse.
+	 * <b>Efek samping:</b> memodifikasi {@code criteria} yang diteruskan (menambahkan restriction),
+	 * tidak mengembalikan nilai.
+	 *
+	 * @param criteria criteria Hibernate yang sedang dibangun untuk query tagihan; dimodifikasi in-place
+	 * @param session session Hibernate aktif, dipakai untuk query {@code parameterTambahanInds} mahasiswa
+	 * @param mahasiswa mahasiswa subjek, boleh {@code null} bila subjeknya calon mahasiswa
+	 * @param biodataCalonMahasiswa calon mahasiswa subjek, dipakai bila {@code mahasiswa} {@code null}
+	 */
 	public static void filterCriteriaDenganNilaiTambahan(Criteria criteria, Session session, Mahasiswa mahasiswa,
 			BiodataCalonMahasiswa biodataCalonMahasiswa) {
 		if (criteria == null || session == null) {
@@ -1100,6 +1333,13 @@ public class PembayaranUtilHelper {
 	}
 
 
+	/**
+	 * Membaca {@link Konfigurasi} {@code tampilkan_pengaturan_bulanan_nol_nilai_bisa_diubah}: bila
+	 * aktif, baris {@link PengaturanPembayaranBulanan} bernominal 0 tetap ditampilkan asalkan
+	 * {@code itemBiaya}-nya ditandai {@code nilaiBisaDiubah} (nilai bisa diedit manual oleh admin).
+	 *
+	 * @return {@code true} bila konfigurasi tersebut aktif, {@code false} bila tidak aktif/gagal dibaca
+	 */
 	private static boolean tampilkanPengaturanBulananNolNilaiBisaDiubah() {
 		try {
 			Konfigurasi konfigurasi = Common.getKonfigurasi(
@@ -1110,6 +1350,14 @@ public class PembayaranUtilHelper {
 		}
 	}
 
+	/**
+	 * Cek sederhana apakah satu baris {@link PengaturanPembayaranBulanan} berstatus aktif
+	 * ({@code getAktif() == true}), aman terhadap {@code null} dan exception (mengembalikan
+	 * {@code false} bila terjadi keduanya).
+	 *
+	 * @param pembayaranBulanan baris pengaturan bulanan yang dicek, boleh {@code null}
+	 * @return {@code true} hanya bila baris tidak {@code null} dan flag aktifnya {@code true}
+	 */
 	private static boolean isAktifPengaturanBulanan(PengaturanPembayaranBulanan pembayaranBulanan) {
 		try {
 			return pembayaranBulanan != null && Boolean.TRUE.equals(pembayaranBulanan.getAktif());
@@ -1118,6 +1366,19 @@ public class PembayaranUtilHelper {
 		}
 	}
 
+	/**
+	 * Mengambil nilai nominal efektif satu baris {@link PengaturanPembayaranBulanan}: mengutamakan
+	 * nominal hasil modifikasi khusus mahasiswa via
+	 * {@code PembayaranNominalModifikasiHelper.ambilNominalModifikasi(...)} bila nilainya signifikan
+	 * (> 0.01 secara absolut); jika tidak ada modifikasi atau modifikasinya nol, jatuh kembali ke
+	 * {@code pembayaranBulanan.getNominal()} asli. Selalu mengembalikan {@link Double} tidak-null
+	 * (default {@code 0.0}); semua exception ditangkap dan dicatat, tidak pernah dilempar ke pemanggil.
+	 *
+	 * @param pembayaranBulanan baris pengaturan bulanan yang nominalnya dicari; {@code null} menghasilkan {@code 0.0}
+	 * @param mahasiswa konteks mahasiswa untuk pencarian modifikasi nominal khusus, boleh {@code null}
+	 * @param semester konteks semester untuk pencarian modifikasi nominal khusus
+	 * @return nominal efektif (modifikasi bila ada dan signifikan, selain itu nominal asli), tidak pernah {@code null}
+	 */
 	private static Double ambilNominalPengaturanBulananAman(PengaturanPembayaranBulanan pembayaranBulanan,
 			Mahasiswa mahasiswa, Integer semester) {
 		Double nominal = Double.valueOf(0.0);
@@ -1148,6 +1409,23 @@ public class PembayaranUtilHelper {
 		return nominal == null ? Double.valueOf(0.0) : nominal;
 	}
 
+	/**
+	 * Menentukan apakah satu baris {@link PengaturanPembayaranBulanan} layak ditampilkan di layar
+	 * billing bulanan. Urutan pemeriksaan: (1) harus aktif ({@link #isAktifPengaturanBulanan}); (2)
+	 * lolos bila nominal efektifnya ({@link #ambilNominalPengaturanBulananAman}) signifikan (&gt; 0.01);
+	 * (3) tetap lolos meski nominal 0 bila item biayanya berjenis {@link ItemBiaya#DIKALI_NILAI_MINUS}
+	 * (biaya pengurang, bisa sah bernilai 0); (4) tetap lolos bila baris ditandai eksplisit
+	 * {@code tetapDitampilkanWalaupunNol}; (5) tetap lolos bila
+	 * {@code tampilkanNolNilaiBisaDiubah} true dan item biayanya {@code nilaiBisaDiubah} (lihat
+	 * {@link #tampilkanPengaturanBulananNolNilaiBisaDiubah}). Selain itu (nominal 0 dan tidak ada
+	 * pengecualian di atas) dianggap tidak layak ditampilkan.
+	 *
+	 * @param pembayaranBulanan baris yang diperiksa
+	 * @param tampilkanNolNilaiBisaDiubah hasil {@link #tampilkanPengaturanBulananNolNilaiBisaDiubah}, diteruskan agar tidak dibaca ulang per baris
+	 * @param mahasiswa konteks mahasiswa untuk perhitungan nominal efektif, boleh {@code null}
+	 * @param semester konteks semester untuk perhitungan nominal efektif
+	 * @return {@code true} bila baris ini harus ditampilkan ke pengguna
+	 */
 	private static boolean isPengaturanBulananLayakDitampilkan(PengaturanPembayaranBulanan pembayaranBulanan,
 			boolean tampilkanNolNilaiBisaDiubah, Mahasiswa mahasiswa, Integer semester) {
 		try {
@@ -1174,12 +1452,36 @@ public class PembayaranUtilHelper {
 		return false;
 	}
 
+	/**
+	 * Bentuk ringkas tanpa konteks mahasiswa/semester (dipakai saat modifikasi nominal per-mahasiswa
+	 * tidak relevan) — mendelegasikan ke overload lengkap dengan {@code mahasiswa}/{@code semester} {@code null}.
+	 *
+	 * @param pengaturanPembayaranBulanans koleksi mentah baris {@link PengaturanPembayaranBulanan} kandidat
+	 * @param nolMasukFilter bila {@code true}, baris nol yang sudah terpilih untuk suatu (bulan, item) bisa digantikan baris lain
+	 * @return daftar baris yang layak ditampilkan, terurut alami, satu baris per pasangan (bulan real, item biaya)
+	 */
 	@SuppressWarnings({ "rawtypes" })
 	public static List<PengaturanPembayaranBulanan> saringPengaturanPembayaranBulanan(List pengaturanPembayaranBulanans,
 			boolean nolMasukFilter) {
 		return saringPengaturanPembayaranBulanan(pengaturanPembayaranBulanans, nolMasukFilter, null, null);
 	}
 
+	/**
+	 * Menyaring dan men-dedup koleksi mentah baris {@link PengaturanPembayaranBulanan} (bisa berisi
+	 * objek tipe lain, yang diabaikan) menjadi satu baris per pasangan kunci
+	 * {@code (realBulan, itemBiaya.id)}: baris pertama yang ditemukan untuk suatu kunci dipertahankan,
+	 * kecuali {@code nolMasukFilter} true dan baris yang sudah terpilih bernominal 0 — dalam kasus itu
+	 * baris berikutnya untuk kunci yang sama menggantikannya (memberi kesempatan baris bernilai lebih
+	 * bermakna untuk tampil). Baris yang tidak layak ditampilkan menurut
+	 * {@link #isPengaturanBulananLayakDitampilkan} disingkirkan lebih dulu. Hasil akhir diurutkan
+	 * memakai {@link Collections#sort} (urutan alami {@link PengaturanPembayaranBulanan}).
+	 *
+	 * @param pengaturanPembayaranBulanans koleksi mentah baris kandidat, boleh berisi {@code null}/tipe lain (diabaikan)
+	 * @param nolMasukFilter bila {@code true}, baris nol yang sudah terpilih untuk suatu (bulan, item) bisa digantikan baris berikutnya
+	 * @param mahasiswa konteks mahasiswa untuk perhitungan nominal efektif (nominal modifikasi khusus), boleh {@code null}
+	 * @param semester konteks semester untuk perhitungan nominal efektif
+	 * @return daftar baris yang layak ditampilkan, terurut alami, satu baris per pasangan (bulan real, item biaya)
+	 */
 	@SuppressWarnings({ "rawtypes" })
 	public static List<PengaturanPembayaranBulanan> saringPengaturanPembayaranBulanan(List pengaturanPembayaranBulanans,
 			boolean nolMasukFilter, Mahasiswa mahasiswa, Integer semester) {
@@ -1229,12 +1531,40 @@ public class PembayaranUtilHelper {
 		return bulanans;
 	}
 
+	/**
+	 * Overload untuk subjek mahasiswa terdaftar: mendelegasikan ke
+	 * {@link #countBulanan(Session, Mahasiswa, BiodataCalonMahasiswa, JenisKegiatan, Integer, Collection, boolean, boolean)}
+	 * dengan {@code biodataCalonMahasiswa = null}.
+	 *
+	 * @param session session Hibernate yang bisa dipakai ulang; boleh {@code null} (akan dibuka session lokal bila perlu)
+	 * @param mahasiswa mahasiswa subjek
+	 * @param jenisKegiatan jenis kegiatan/tagihan yang dihitung jumlah baris bulanannya
+	 * @param semester semester akademik yang dihitung
+	 * @param detailBiayas koleksi {@link DetailBiaya} yang jadi acuan (hasil query billing sebelumnya)
+	 * @param reload {@code true} untuk memaksa hitung ulang melewati cache JSON temporary
+	 * @param comitManual bila {@code true} dan transaksi dibuka lokal, transaksi tersebut di-commit di dalam method
+	 * @return jumlah baris tagihan bulanan aktif yang bernilai signifikan untuk kombinasi ini
+	 */
 	@SuppressWarnings("rawtypes")
 	public static int countBulanan(Session session, Mahasiswa mahasiswa, JenisKegiatan jenisKegiatan, Integer semester,
 			Collection detailBiayas, boolean reload, boolean comitManual) {
 		return countBulanan(session, mahasiswa, null, jenisKegiatan, semester, detailBiayas, reload, comitManual);
 	}
 
+	/**
+	 * Overload untuk subjek calon mahasiswa: mendelegasikan ke
+	 * {@link #countBulanan(Session, Mahasiswa, BiodataCalonMahasiswa, JenisKegiatan, Integer, Collection, boolean, boolean)}
+	 * dengan {@code mahasiswa = null}.
+	 *
+	 * @param session session Hibernate yang bisa dipakai ulang; boleh {@code null}
+	 * @param biodataCalonMahasiswa calon mahasiswa subjek
+	 * @param jenisKegiatan jenis kegiatan/tagihan yang dihitung jumlah baris bulanannya
+	 * @param semester semester akademik yang dihitung
+	 * @param detailBiayas koleksi {@link DetailBiaya} yang jadi acuan
+	 * @param reload {@code true} untuk memaksa hitung ulang melewati cache JSON temporary
+	 * @param comitManual bila {@code true} dan transaksi dibuka lokal, transaksi tersebut di-commit di dalam method
+	 * @return jumlah baris tagihan bulanan aktif yang bernilai signifikan untuk kombinasi ini
+	 */
 	@SuppressWarnings("rawtypes")
 	public static int countBulanan(Session session, BiodataCalonMahasiswa biodataCalonMahasiswa, JenisKegiatan jenisKegiatan,
 			Integer semester, Collection detailBiayas, boolean reload, boolean comitManual) {
@@ -1242,6 +1572,42 @@ public class PembayaranUtilHelper {
 				comitManual);
 	}
 
+	/**
+	 * Menghitung berapa banyak "baris tagihan bulanan" yang berlaku untuk mahasiswa/calon mahasiswa
+	 * ini pada kombinasi jenis kegiatan + semester tertentu — dipakai UI untuk menampilkan jumlah
+	 * cicilan/bulan yang harus dibayar. Alur ringkas:
+	 * <ol>
+	 * <li>{@code detailBiayas} yang merupakan sentinel {@link PengecualianTagihanList} langsung
+	 * menghasilkan {@code 0}.</li>
+	 * <li>Bila {@code jenisKegiatan} punya aturan mode angsuran per jenjang/semester/angkatan
+	 * ({@code modeAngsuranUntukJenjang}): jika {@code TRUE}, hasilnya diambil dari jumlah baris
+	 * bulanan NYATA di billing untuk semester ini ({@code PembayaranUtil.hitungBarisBulananSemester});
+	 * jika query gagal ({@code -1}) dipertahankan perilaku lama, kembalikan {@code 1}. Jika
+	 * {@code FALSE} dan {@code detailBiayas} tidak kosong (billing reguler ada), hasilnya {@code 0};
+	 * jika billing reguler kosong, dicoba fallback menghitung baris
+	 * {@link PengaturanPembayaranBulanan} aktif untuk jenjang+semester ini secara langsung. Jika
+	 * aturan {@code null} (tidak ada aturan per-jenjang), lanjut ke penghitungan DB biasa di bawah.</li>
+	 * <li>Penghitungan DB biasa: hasil di-cache per mahasiswa/calon-mahasiswa lewat
+	 * {@code Common.getJSONTemporary}/{@code setJSONTemporary} (kunci berisi id+jenisKegiatan+semester);
+	 * bila {@code detailBiayas} tidak kosong, dihitung {@code rowCount()} baris
+	 * {@link PengaturanPembayaranBulanan} aktif yang terkait ke salah satu {@code detailBiayas} DAN
+	 * (item biayanya {@link ItemBiaya#DIKALI_NILAI_MINUS} ATAU nominalnya &gt; 0.01) — dijalankan dalam
+	 * transaksi (dibuka lokal bila belum ada transaksi aktif, dan di-commit hanya bila
+	 * {@code comitManual}).</li>
+	 * </ol>
+	 * Session dan transaksi lokal (yang dibuka sendiri oleh method ini karena {@code session} null/tertutup)
+	 * selalu ditutup di {@code finally}; session yang diteruskan pemanggil TIDAK ditutup oleh method ini.
+	 *
+	 * @param session session Hibernate yang bisa dipakai ulang oleh pemanggil; boleh {@code null}/tertutup (akan dibuka session lokal)
+	 * @param mahasiswa mahasiswa subjek, saling eksklusif dengan {@code biodataCalonMahasiswa}
+	 * @param biodataCalonMahasiswa calon mahasiswa subjek, saling eksklusif dengan {@code mahasiswa}
+	 * @param jenisKegiatan jenis kegiatan/tagihan yang dihitung jumlah baris bulanannya
+	 * @param semester semester akademik yang dihitung
+	 * @param detailBiayas koleksi {@link DetailBiaya} acuan (hasil query billing reguler sebelumnya)
+	 * @param reload {@code true} untuk memaksa hitung ulang melewati cache JSON temporary
+	 * @param comitManual bila {@code true} dan transaksi lokal dibuka oleh method ini, transaksi tersebut di-commit di sini (bukan diserahkan ke pemanggil)
+	 * @return jumlah baris tagihan bulanan aktif yang bernilai signifikan untuk kombinasi mahasiswa/jenisKegiatan/semester ini
+	 */
 	@SuppressWarnings({ "rawtypes" })
 	public static int countBulanan(Session session, Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa,
 			JenisKegiatan jenisKegiatan, Integer semester, Collection detailBiayas, boolean reload,
@@ -1445,11 +1811,47 @@ public class PembayaranUtilHelper {
 	}
 
 	/**
-	 * Mengisi dataTagihanData dari riwayat CicilanPembayaran jika kosong,
-	 * sekaligus memperbaiki DetailBiaya/PengaturanPembayaranBulanan yang
-	 * nilaiBiaya/nominal = 0. Dipanggil dari DaftarUlangMahasiswa*Action.
-	 * student boleh Mahasiswa atau BiodataCalonMahasiswa.
+	 * Fallback darurat: bila query billing reguler ({@code dataTagihanData}) kembali KOSONG untuk
+	 * seorang mahasiswa/calon mahasiswa (mis. setting biaya sudah berubah/dihapus sehingga tagihan
+	 * "resmi" tidak lagi bisa dihitung), method ini merekonstruksi tampilan tagihan dari
+	 * <b>riwayat {@link CicilanPembayaran}</b> yang benar-benar sudah dibuat untuk mahasiswa tsb, agar
+	 * layar Daftar Ulang Mahasiswa (dipanggil dari action {@code DaftarUlangMahasiswa*Action}) tidak
+	 * menampilkan tagihan kosong padahal riwayat pembayaran/cicilan ada. {@code student} boleh berupa
+	 * {@link Mahasiswa} atau {@link BiodataCalonMahasiswa}. Alur:
+	 * <ol>
+	 * <li>Tidak melakukan apa pun (return langsung) bila {@code dataTagihanData} sudah berisi data
+	 * lain, {@code null}, atau {@code student} {@code null} — fallback ini murni "jaring pengaman"
+	 * terakhir, bukan sumber data utama.</li>
+	 * <li>Ambil semua {@link CicilanPembayaran} milik {@code student} (disaring {@code jenisKegiatan}
+	 * bila diisi) dan tentukan mode: <i>angsuran</i> (bila {@code jenisKegiatan.getHanyaBerupaAngsuran()}
+	 * atau ada baris cicilan ber-{@link PengaturanPembayaranBulanan}) vs <i>non-angsuran</i>
+	 * (langsung ke {@link DetailBiaya}).</li>
+	 * <li><b>Mode angsuran:</b> kumpulkan {@link PengaturanPembayaranBulanan} unik dari cicilan,
+	 * DISARING agar hanya baris yang semester {@link DetailBiaya}-nya cocok dengan parameter
+	 * {@code semester} yang masuk dataTagihanData (baris legacy tanpa semester TIDAK dianggap cocok
+	 * — perbaikan agar tagihan semester lain tidak "bocor" ke semester yang sedang dibuka). Lalu,
+	 * dalam transaksi terpisah, {@code nilaiBiaya}/{@code nominal} yang masih 0 diperbaiki dari
+	 * jumlah {@code nilaiAsli} cicilan terkait.</li>
+	 * <li><b>Mode non-angsuran:</b> kumpulkan {@link DetailBiaya} unik dari cicilan yang TIDAK
+	 * memiliki {@link PengaturanPembayaranBulanan}, disaring semester sama seperti mode angsuran,
+	 * dan di-dedup tambahan per pasangan {@code (itemBiaya.id, bayarKe)} — bukan per id
+	 * {@link DetailBiaya} mentah — untuk menghindari baris tampil dobel akibat duplikasi
+	 * {@link DetailBiaya} lama untuk item+bayarKe yang sama (baris duplikat yang dilewati dicatat ke
+	 * {@code ErrorAuditUtil} agar bisa ditelusuri/dibersihkan manual). {@code nilaiBiaya}/{@code nominal}
+	 * yang masih 0 diperbaiki serupa dari jumlah {@code nilaiAsli} cicilan.</li>
+	 * </ol>
+	 * Method ini banyak mencetak log diagnostik berprefiks {@code [TAGIHAN-DEBUG]} ke
+	 * {@code System.out} (bukan hanya di mode debug) untuk membantu penelusuran kasus tagihan hilang.
+	 * <b>Efek samping:</b> mengubah {@code dataTagihanData} dan {@code itemBiayas} secara in-place
+	 * (tidak mengembalikan nilai), serta bisa melakukan UPDATE ke DB ({@code DetailBiaya.nilaiBiaya}
+	 * dan {@code PengaturanPembayaranBulanan.nominal}) dalam transaksi lokalnya sendiri — kegagalan
+	 * transaksi perbaikan di-rollback dan dilaporkan via {@code Common.tampilErrorJikaAdmin}, tidak
+	 * menggagalkan pengisian {@code dataTagihanData} yang sudah terjadi sebelumnya.
 	 *
+	 * @param student subjek tagihan, instance {@link Mahasiswa} atau {@link BiodataCalonMahasiswa}; {@code null} membatalkan fallback
+	 * @param jenisKegiatan penyaring jenis kegiatan/tagihan; boleh {@code null} untuk semua jenis kegiatan
+	 * @param dataTagihanData daftar tagihan yang sedang dibangun oleh pemanggil; HANYA diisi bila datang kosong, dan diisi in-place
+	 * @param itemBiayas peta {@code DetailBiaya.id -> DetailBiaya} yang ikut diisi in-place sejalan dengan {@code dataTagihanData}; boleh {@code null}
 	 * @param semester semester yang SEDANG diminta layar ini; baris cicilan yang DetailBiaya-nya
 	 *                 punya semester lain (non-null, tidak sama) DILEWATI -- tanpa ini, riwayat
 	 *                 cicilan/PPB dari semester LAIN (mis. semester berubah lewat Excel upload)
