@@ -56,23 +56,25 @@ import ais.database.model.sekolah.Siswa;
  * </p>
  *
  * <p>
- * <b>PERINGATAN KEAMANAN:</b> method privat {@link #doPost(String, VirtualAccountBank)}
- * membaca sejumlah kredensial/parameter integrasi BRI dari konfigurasi database lewat
- * {@code Common.getKonfigurasi(key, default)}, dengan NILAI DEFAULT yang ditulis langsung
- * (hardcoded) di kode sumber sebagai fallback bila konfigurasi belum diisi — termasuk
- * {@code BRI_CLIENT_ID} (default {@code "WAVmwxO0EXUJyW4SDiY4ydUAe3gUvQYD"}) dan
- * {@code BRI_CLIENT_SECRET} (default {@code "IGa7p9oeRJUhfdVR"}), yang bersifat rahasia dan
- * dipakai langsung sebagai kunci HMAC-SHA512 untuk menandatangani permintaan create-VA. Nilai
- * lain seperti {@code BRI_SRV_ID}, {@code BRI_PARTNER_ID}, {@code BRI_EXTERNAL_ID}, dan
- * {@code BRI_CHANNEL_ID} juga memiliki default tertulis di kode namun bersifat pengenal, bukan
- * rahasia kriptografis. Selain itu, {@link #doPost} mencetak {@code clientSecret},
- * {@code dataToken} (access token OAuth), dan payload penandatanganan ke {@link System#out}
- * lewat beberapa baris {@code System.out.println} untuk keperluan debug — ini berisiko
- * membocorkan token/secret ke berkas log aplikasi. Javadoc ini TIDAK mengubah nilai maupun
- * baris pencetakan tersebut sesuai instruksi; lihat ringkasan laporan terkait untuk detail
- * lokasi baris agar dapat ditindaklanjuti (mis. hapus default hardcoded dan pastikan konfigurasi
- * BRI selalu diisi lewat database/secret store, serta hapus/pindahkan baris log yang mencetak
- * secret ke level debug yang tidak aktif di produksi).
+ * <b>Riwayat keamanan (DIPERBAIKI 2026-09-01):</b> method privat
+ * {@link #doPost(String, VirtualAccountBank)} sebelumnya membaca {@code BRI_CLIENT_ID}/
+ * {@code BRI_CLIENT_SECRET} (dipakai langsung sebagai kunci HMAC-SHA512 penandatangan permintaan
+ * create-VA — bersifat rahasia) lewat {@code Common.getKonfigurasi(key, default)} dengan NILAI
+ * DEFAULT rahasia tertulis langsung di kode sumber. Default tersebut sudah DIHAPUS — kedua nilai
+ * kini WAJIB diisi lewat konfigurasi, dan {@link #doPost} melempar {@link IllegalStateException}
+ * bila salah satunya kosong. Nilai {@code BRI_SRV_ID}, {@code BRI_PARTNER_ID},
+ * {@code BRI_EXTERNAL_ID}, dan {@code BRI_CHANNEL_ID} TETAP memiliki default tertulis di kode
+ * karena bersifat pengenal (identifier), bukan rahasia kriptografis. Seluruh baris
+ * {@code System.out.println}/{@code print} yang sebelumnya mencetak {@code clientSecret},
+ * {@code tokenSignature}, {@code dataToken} (access token OAuth), payload HMAC, {@code signature},
+ * respons API, dan bahkan perintah {@code curl} LENGKAP (termasuk header {@code Authorization}/
+ * {@code X-SIGNATURE}/{@code X-CLIENT-KEY}) ke {@link System#out} juga sudah DIHAPUS —
+ * sebelumnya berisiko membocorkan seluruh rahasia dan token akses ke berkas log aplikasi pada
+ * SETIAP pemanggilan create-VA. <b>Tindak lanjut yang TETAP diperlukan di luar perubahan kode
+ * ini:</b> {@code client_id}/{@code client_secret} yang sebelumnya tertanam sudah lama berada di
+ * riwayat SVN dan harus dianggap bocor — bila itu kredensial sungguhan (bukan kredensial sandbox
+ * BRI, mengingat endpoint yang dipanggil kelas ini adalah {@code sandbox.partner.api.bri.co.id}),
+ * WAJIB dirotasi/dicabut di sisi BRI.
  * </p>
  */
 public class BRIDataUtil {
@@ -368,33 +370,27 @@ public class BRIDataUtil {
 
 		String currentTimestamp = dateFormat.get().format(new Date()) + "+07:00";
 
-		String clientId = Common.getKonfigurasi("BRI_CLIENT_ID", "WAVmwxO0EXUJyW4SDiY4ydUAe3gUvQYD").getNilai();
-		String clientSecret = Common.getKonfigurasi("BRI_CLIENT_SECRET", "IGa7p9oeRJUhfdVR").getNilai();
+		String clientId = Common.getKonfigurasi("BRI_CLIENT_ID", "").getNilai();
+		String clientSecret = Common.getKonfigurasi("BRI_CLIENT_SECRET", "").getNilai();
+		if (clientId == null || clientId.trim().isEmpty() || clientSecret == null || clientSecret.trim().isEmpty()) {
+			throw new IllegalStateException(
+					"Kredensial BRI belum dikonfigurasi. Isi konfigurasi BRI_CLIENT_ID dan BRI_CLIENT_SECRET.");
+		}
 		String dataToken = "";
 
 		try {
 
-			System.out.println("currentTimestamp -> " + currentTimestamp);
-
 			String tokenSignature = BRIUtil.generateSignatureToken(clientId, currentTimestamp);
-
-			System.out.println("tokenSignature -> " + tokenSignature);
 
 			JSONObject jsonObject = new JSONObject();
 			jsonObject.put("grantType", "client_credentials");
 			String postData = jsonObject.toString();
-
-			System.out.println("postData -> " + postData);
 
 			String[] command = { "curl", "--location", "--request", "POST",
 					"https://sandbox.partner.api.bri.co.id/snap/v1.0/access-token/b2b", "--header",
 					"Content-Type: application/json", "--header", "X-TIMESTAMP: " + currentTimestamp, "--header",
 					"X-CLIENT-KEY: " + clientId, "--header", "X-SIGNATURE: " + tokenSignature, "--data-raw", postData };
 
-			System.out.println("request -> ");
-			for (String s : command) {
-				System.out.print(s + " ");
-			}
 			ProcessBuilder process = new ProcessBuilder(command);
 			Process p;
 			p = process.start();
@@ -408,7 +404,6 @@ public class BRIDataUtil {
 				builder.append(System.getProperty("line.separator"));
 			}
 			String hasil = builder.toString();
-			System.out.println("\nresponse -> " + hasil);
 			jsonObject = new JSONObject(hasil);
 			dataToken = jsonObject.getString("accessToken");
 		} catch (Exception e) {
@@ -422,15 +417,8 @@ public class BRIDataUtil {
 
 		String payload = httpMethod + ":" + requestPath + ":" + dataToken + ":" + sha256hex + ":" + currentTimestamp;
 
-		System.out.println("client_secret " + clientSecret);
-		System.out.println("dataToken " + dataToken);
-
-		System.out.println("sebelum HAMAC SHA 512 " + payload);
-
 		String signature = Hashing.hmacSha512(clientSecret.getBytes()).newHasher()
 				.putString(payload, StandardCharsets.UTF_8).hash().toString();
-
-		System.out.println("setelah HAMAC SHA 512 " + signature);
 
 		String partnerId = Common.getKonfigurasi("BRI_PARTNER_ID", "ECAMPUS").getNilai();
 		String externalID = Common.getKonfigurasi("BRI_EXTERNAL_ID", "1262222").getNilai();
@@ -444,11 +432,6 @@ public class BRIDataUtil {
 					"X-PARTNER-ID: " + partnerId, "--header", "CHANNEL-ID: " + channelID, "--header",
 					"X-EXTERNAL-ID: " + externalID, "--data-raw", bodyS };
 
-			System.out.println("request -> ");
-			for (String s : command) {
-				System.out.print(s + " ");
-			}
-
 			ProcessBuilder process = new ProcessBuilder(command);
 			Process p;
 			p = process.start();
@@ -460,7 +443,6 @@ public class BRIDataUtil {
 				builder.append(System.getProperty("line.separator"));
 			}
 			String hasil = builder.toString();
-			System.out.println("\n\nhasil -> " + hasil);
 
 			virtualAccountBankOnline.setResponse(hasil);
 
