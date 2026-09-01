@@ -434,6 +434,79 @@ membuat pengguna mengira jenis dan termin ikut tersimpan.
 punya `status`. Kolomnya dikembalikan kosong, bukan diisi status dokumen: menyamakan keduanya
 akan membuat giro yang belum cair tampak sudah beres.
 
+## Helper keempat: Kas/Jurnal &amp; Laba-Rugi
+
+`SalesInventoryFinanceHelper` — delapan aksi. Helper pertama yang menyentuh **schema ketiga**.
+
+### `akunting` — schema yang luput dari survei awal
+
+Tiga helper sebelumnya hanya merujuk `koperasi` dan `library`. Helper ini juga memakai
+`akunting` (bagan akun dan jurnal). Survei awal saya hanya mencari dua schema pertama, jadi
+ini sempat tidak terlihat.
+
+**Diperiksa ulang untuk seluruh helper**, dan hasilnya melegakan: Stok, Harga, dan Payable
+yang sudah dipindahkan **hanya** merujuk `koperasi` dan `library` — tidak ada rujukan
+`akunting` yang terlewat di sana. Yang memakainya hanya Finance dan Master.
+
+### Pemetaan yang paling banyak berubah bentuk
+
+| Legacy | Tenant |
+|---|---|
+| `akunting.akun` | `akun` |
+| `akunting.transaksi` (satu baris = satu baris jurnal) | `jurnal` (kepala) + `jurnal_detail` (baris) |
+| `nota_sales_biaya` + `kategori_biaya_sales` | `sales_trip_biaya` saja |
+| `sales_order_lapangan(_item)` untuk HPP | `faktur_penjualan(_detail)` |
+| `nota_sales_kas` ber-`jenis='CASH_SALE'` | faktur tanpa baris piutang |
+
+### Tiga keputusan pemetaan yang menentukan angka
+
+**Kategori biaya: join yang lenyap, bukan hilang.** Legacy menautkan `kategori_biaya_sales`;
+model tenant menaruh kategorinya langsung pada `sales_trip_biaya.kategori` bertipe
+`varchar(64)`. Bukan tabel yang hilang, melainkan normalisasi yang memang ditiadakan.
+
+**HPP ada di FAKTUR, bukan di order.** `sales_order_detail` model tenant **tidak punya kolom
+harga pokok sama sekali**; yang punya adalah `faktur_penjualan_detail.harga_beli`. Menghitung
+laba kotor dari order akan menghasilkan **nol harga pokok pada seluruh baris** — laba kotor
+persis sama dengan omzet, dan terlihat wajar sampai ada yang memeriksanya.
+
+**Penjualan tunai = faktur tanpa piutang.** Model tenant tidak punya penanda `CASH_SALE`;
+ketiadaan baris `piutang_customer` yang menjadi penandanya. Polanya sama persis dengan sisi
+pembelian pada helper ketiga — pembelian tunai adalah `pembelian` tanpa `hutang_supplier`.
+
+### Yang ditolak, bukan dijalankan sebagian
+
+**Riwayat audit.** `auditHistory` membaca lewat Envers, yang menaruh seluruh barisnya pada
+satu schema yang ditetapkan **statis per SessionFactory** (`default_schema=new_audit`).
+Membiarkannya berjalan berarti menyajikan riwayat perubahan **seluruh instalasi** kepada satu
+tenant — kebocoran, bukan sekadar hasil yang salah.
+
+**Pembuatan akun baru.** `akun` model tenant mewajibkan kolom `tipe` yang tidak pernah dibawa
+permintaan legacy. Mengarangnya berarti menebak klasifikasi akun — kesalahan yang baru
+terlihat saat laporan keuangan disusun. Pembaruan nama tetap dilayani.
+
+### Saringan lingkup toko tetap ditegakkan
+
+`piutang_customer` model tenant tidak punya kolom toko, sedangkan jalur legacy menyaringnya
+langsung. Fakturnya di-`LEFT JOIN` supaya saringan itu tetap berlaku — membuangnya berarti
+menyajikan piutang seluruh toko kepada pengguna yang lingkupnya satu toko.
+
+### Perbedaan yang dicatat
+
+Nama produk pada laporan: legacy menyimpan salinannya di baris order (membeku saat
+transaksi), tenant menariknya dari master. Bila produk berganti nama, laporan legacy
+menampilkan nama lama dan laporan tenant menampilkan nama sekarang.
+
+### Verifikasi — dan apa yang BELUM diverifikasi
+
+Sepuluh pernyataan SQL yang **benar-benar dihasilkan kodenya** dijalankan pada schema tenant
+PostgreSQL 16.4: **seluruhnya berjalan tanpa galat**. Itu membuktikan tidak ada tabel atau
+kolom yang keliru — kesalahan yang tidak akan ditangkap compiler.
+
+**Uji kesetaraan angka belum ditulis untuk helper ini.** Ketiga helper sebelumnya punya
+`uji-kesetaraan-*.sql` yang membandingkan hasil kedua model atas data yang sama; Finance
+belum. Sampai itu ada, yang terbukti barulah kuerinya sah, **bukan** bahwa angkanya sama
+dengan jalur legacy. Ini pekerjaan berikutnya yang paling mendesak pada helper ini.
+
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
 **Sebelas helper, 7.512 baris, belum satu pun kuerinya dipindah ke schema tenant.**

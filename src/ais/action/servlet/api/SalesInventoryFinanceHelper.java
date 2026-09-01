@@ -77,10 +77,17 @@ public final class SalesInventoryFinanceHelper {
 		try {
 			StringBuilder where = new StringBuilder(" WHERE 1=1");
 			if (!q.isEmpty()) where.append(" AND (LOWER(a.kode) LIKE ? OR LOWER(a.nama) LIKE ?)");
-			java.sql.PreparedStatement ps = session.connection().prepareStatement(
-					"SELECT a.id, a.kode, a.nama, a.keterangan, a.debit_credit, p.kode, p.nama"
-							+ " FROM akunting.akun a LEFT JOIN akunting.akun p ON a.parent = p.id"
-							+ where + " ORDER BY a.kode LIMIT 500");
+			String sqlCoa;
+			if (SalesInventoryFinanceTenant.aktif(ctx)) {
+				String sk = SalesInventoryFinanceTenant.skema(ctx);
+				sqlCoa = SalesInventoryFinanceTenant.selectCoa()
+						+ SalesInventoryFinanceTenant.dasarCoa(sk, where.toString());
+			} else {
+				sqlCoa = "SELECT a.id, a.kode, a.nama, a.keterangan, a.debit_credit, p.kode, p.nama"
+						+ " FROM akunting.akun a LEFT JOIN akunting.akun p ON a.parent = p.id"
+						+ where + " ORDER BY a.kode LIMIT 500";
+			}
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(sqlCoa);
 			int ix = 1;
 			if (!q.isEmpty()) { ps.setString(ix++, "%" + q + "%"); ps.setString(ix++, "%" + q + "%"); }
 			java.sql.ResultSet rs = ps.executeQuery();
@@ -120,6 +127,13 @@ public final class SalesInventoryFinanceHelper {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		Transaction tx = null;
 		try {
+			if (SalesInventoryFinanceTenant.aktif(ctx)) {
+				// Entitas Akun mematok @Table(schema = "akunting"): session.saveOrUpdate() akan
+				// menulis ke bagan akun BERSAMA berapa pun tenant yang aktif. Jalur tenant
+				// karena itu memakai SQL asli.
+				simpanAkunTenant(ctx, tbmuser, request, hasil, session, kode, nama);
+				return;
+			}
 			Long id = optLong(request, "akun_id");
 			Akun a;
 			if (id != null) {
@@ -180,15 +194,27 @@ public final class SalesInventoryFinanceHelper {
 		Long akunId = optLong(request, "akun_id");
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
+			boolean jalurTenant = SalesInventoryFinanceTenant.aktif(ctx);
+			String kolTgl = jalurTenant
+					? SalesInventoryFinanceTenant.kolomTanggalJurnal() : "t.tanggal_transaksi";
+			String kolAkun = jalurTenant
+					? SalesInventoryFinanceTenant.kolomAkunJurnal() : "t.akun";
 			StringBuilder where = new StringBuilder(
-					" WHERE t.tanggal_transaksi >= " + dari
-							+ " AND t.tanggal_transaksi < (" + sampai + " + 1)");
-			if (akunId != null) where.append(" AND t.akun = ?");
-			java.sql.PreparedStatement ps = session.connection().prepareStatement(
-					"SELECT t.id, t.kode, t.jenis_jurnal, t.tanggal_transaksi, t.keterangan,"
-							+ " a.kode, a.nama, COALESCE(t.debet,0), COALESCE(t.kredit,0), t.tanggal_posting"
-							+ " FROM akunting.transaksi t LEFT JOIN akunting.akun a ON t.akun = a.id"
-							+ where + " ORDER BY t.tanggal_transaksi DESC, t.id DESC LIMIT 500");
+					" WHERE " + kolTgl + " >= " + dari
+							+ " AND " + kolTgl + " < (" + sampai + " + 1)");
+			if (akunId != null) where.append(" AND ").append(kolAkun).append(" = ?");
+			String sqlJurnal;
+			if (jalurTenant) {
+				String sk = SalesInventoryFinanceTenant.skema(ctx);
+				sqlJurnal = SalesInventoryFinanceTenant.selectJurnal()
+						+ SalesInventoryFinanceTenant.dasarJurnal(sk, where.toString());
+			} else {
+				sqlJurnal = "SELECT t.id, t.kode, t.jenis_jurnal, t.tanggal_transaksi, t.keterangan,"
+						+ " a.kode, a.nama, COALESCE(t.debet,0), COALESCE(t.kredit,0), t.tanggal_posting"
+						+ " FROM akunting.transaksi t LEFT JOIN akunting.akun a ON t.akun = a.id"
+						+ where + " ORDER BY t.tanggal_transaksi DESC, t.id DESC LIMIT 500";
+			}
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(sqlJurnal);
 			int ix = 1;
 			if (akunId != null) ps.setLong(ix++, akunId.longValue());
 			java.sql.ResultSet rs = ps.executeQuery();
@@ -234,8 +260,11 @@ public final class SalesInventoryFinanceHelper {
 		try {
 			JSONArray salesArr = new JSONArray();
 			java.sql.PreparedStatement ps = session.connection().prepareStatement(
-					"SELECT s.id, s.kode, s.nama FROM koperasi.sales_inventory s"
-							+ " WHERE COALESCE(s.aktif,true) = true ORDER BY s.kode LIMIT 200");
+					SalesInventoryFinanceTenant.aktif(ctx)
+							? SalesInventoryFinanceTenant.sqlSalesperson(
+									SalesInventoryFinanceTenant.skema(ctx))
+							: "SELECT s.id, s.kode, s.nama FROM koperasi.sales_inventory s"
+									+ " WHERE COALESCE(s.aktif,true) = true ORDER BY s.kode LIMIT 200");
 			java.sql.ResultSet rs = ps.executeQuery();
 			while (rs.next()) {
 				JSONObject r = new JSONObject();
@@ -276,33 +305,59 @@ public final class SalesInventoryFinanceHelper {
 			return;
 		}
 		double faktorHpp = 1 + hppTambah / 100.0;
+		boolean jalurTenant = SalesInventoryFinanceTenant.aktif(ctx);
+		String skemaTenant = jalurTenant ? SalesInventoryFinanceTenant.skema(ctx) : null;
 		String kolomGrup;
 		String joinGrup = "";
 		if ("customer".equals(grup)) {
-			kolomGrup = "c.id, c.nama";
-			joinGrup = " JOIN koperasi.anggota_koperasi c ON o.customer = c.id";
+			kolomGrup = jalurTenant ? SalesInventoryFinanceTenant.kolomGrup(grup) : "c.id, c.nama";
+			joinGrup = jalurTenant ? SalesInventoryFinanceTenant.joinCustomer(skemaTenant)
+					: " JOIN koperasi.anggota_koperasi c ON o.customer = c.id";
 		} else if ("sales".equals(grup)) {
-			kolomGrup = "COALESCE(s.id,0), COALESCE(s.nama,'(tanpa sales)')";
-			joinGrup = " LEFT JOIN koperasi.sales_inventory s ON o.sales = s.id";
+			kolomGrup = jalurTenant ? SalesInventoryFinanceTenant.kolomGrup(grup)
+					: "COALESCE(s.id,0), COALESCE(s.nama,'(tanpa sales)')";
+			joinGrup = jalurTenant ? SalesInventoryFinanceTenant.joinSalesperson(skemaTenant)
+					: " LEFT JOIN koperasi.sales_inventory s ON o.sales = s.id";
 		} else {
 			grup = "produk";
-			kolomGrup = "i.produk, i.nama_produk";
+			// Baris faktur tenant tidak menyimpan salinan nama produk; namanya ditarik lewat join.
+			kolomGrup = jalurTenant ? SalesInventoryFinanceTenant.kolomGrup(grup)
+					: "i.produk, i.nama_produk";
+			joinGrup = jalurTenant ? SalesInventoryFinanceTenant.joinProduk(skemaTenant) : "";
 		}
 		Long salesId = optLong(request, "sales_id");
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
-			StringBuilder where = new StringBuilder(
-					" WHERE o.status IN ('SIAP_TAGIH','LUNAS')"
+			StringBuilder where = new StringBuilder(jalurTenant
+					? SalesInventoryFinanceTenant.whereFakturSah()
+							+ " AND o.tanggal >= " + dari + " AND o.tanggal < (" + sampai + " + 1)"
+					: " WHERE o.status IN ('SIAP_TAGIH','LUNAS')"
 							+ " AND o.tanggal >= " + dari + " AND o.tanggal < (" + sampai + " + 1)");
-			if (salesId != null) where.append(" AND o.sales = ?");
-			if (ctx.tokoId != null && !ctx.admin) where.append(" AND o.toko = ?");
-			java.sql.PreparedStatement ps = session.connection().prepareStatement(
-					"SELECT " + kolomGrup + ", SUM(i.jumlah), SUM(i.subtotal),"
-							+ " SUM(i.hpp_snapshot * i.jumlah)"
-							+ " FROM koperasi.sales_order_lapangan_item i"
-							+ " JOIN koperasi.sales_order_lapangan o ON i.sales_order = o.id"
-							+ joinGrup + where
-							+ " GROUP BY " + kolomGrup + " ORDER BY 4 DESC LIMIT 300");
+			if (salesId != null) {
+				where.append(jalurTenant
+						? " AND " + SalesInventoryFinanceTenant.kolomSales() + " = ?"
+						: " AND o.sales = ?");
+			}
+			if (ctx.tokoId != null && !ctx.admin) {
+				where.append(jalurTenant
+						? " AND " + SalesInventoryFinanceTenant.kolomToko() + " = ?"
+						: " AND o.toko = ?");
+			}
+			String sqlLaba;
+			if (jalurTenant) {
+				sqlLaba = "SELECT " + kolomGrup + ", " + SalesInventoryFinanceTenant.kolomUkuran()
+						+ SalesInventoryFinanceTenant.dasarLabaKotor(skemaTenant, joinGrup,
+								where.toString())
+						+ " GROUP BY " + kolomGrup + " ORDER BY 4 DESC LIMIT 300";
+			} else {
+				sqlLaba = "SELECT " + kolomGrup + ", SUM(i.jumlah), SUM(i.subtotal),"
+						+ " SUM(i.hpp_snapshot * i.jumlah)"
+						+ " FROM koperasi.sales_order_lapangan_item i"
+						+ " JOIN koperasi.sales_order_lapangan o ON i.sales_order = o.id"
+						+ joinGrup + where
+						+ " GROUP BY " + kolomGrup + " ORDER BY 4 DESC LIMIT 300";
+			}
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(sqlLaba);
 			int ix = 1;
 			if (salesId != null) ps.setLong(ix++, salesId.longValue());
 			if (ctx.tokoId != null && !ctx.admin) ps.setLong(ix++, ctx.tokoId.longValue());
@@ -360,26 +415,50 @@ public final class SalesInventoryFinanceHelper {
 		String statusLunas = request.optString("status_lunas", "").trim().toLowerCase();
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
-			String exprOut = "(COALESCE(d.total_faktur,0) - COALESCE(d.dibayar_awal,0)"
-					+ " - COALESCE((SELECT SUM(a.nominal) FROM koperasi.alokasi_penerimaan_piutang_customer a"
-					+ " WHERE a.piutang_doc = d.id),0))";
-			StringBuilder where = new StringBuilder(" WHERE o.status IN ('SIAP_TAGIH','LUNAS')"
-					+ " AND o.tanggal >= " + dari + " AND o.tanggal < (" + sampai + " + 1)");
-			if (salesId != null) where.append(" AND o.sales = ?");
-			if (ctx.tokoId != null && !ctx.admin) where.append(" AND o.toko = ?");
-			if (hanyaRugi) where.append(" AND (i.subtotal - i.hpp_snapshot * i.jumlah) < 0");
+			boolean jalurTenant = SalesInventoryFinanceTenant.aktif(ctx);
+			String skemaTenant = jalurTenant ? SalesInventoryFinanceTenant.skema(ctx) : null;
+			String exprOut = jalurTenant
+					? SalesInventoryFinanceTenant.sisaPiutang(skemaTenant)
+					: "(COALESCE(d.total_faktur,0) - COALESCE(d.dibayar_awal,0)"
+							+ " - COALESCE((SELECT SUM(a.nominal) FROM koperasi.alokasi_penerimaan_piutang_customer a"
+							+ " WHERE a.piutang_doc = d.id),0))";
+			String exprLaba = jalurTenant
+					? SalesInventoryFinanceTenant.labaBaris()
+					: "(i.subtotal - i.hpp_snapshot * i.jumlah)";
+			StringBuilder where = new StringBuilder(jalurTenant
+					? SalesInventoryFinanceTenant.whereFakturSah()
+							+ " AND o.tanggal >= " + dari + " AND o.tanggal < (" + sampai + " + 1)"
+					: " WHERE o.status IN ('SIAP_TAGIH','LUNAS')"
+							+ " AND o.tanggal >= " + dari + " AND o.tanggal < (" + sampai + " + 1)");
+			if (salesId != null) {
+				where.append(jalurTenant
+						? " AND " + SalesInventoryFinanceTenant.kolomSales() + " = ?"
+						: " AND o.sales = ?");
+			}
+			if (ctx.tokoId != null && !ctx.admin) {
+				where.append(jalurTenant
+						? " AND " + SalesInventoryFinanceTenant.kolomToko() + " = ?"
+						: " AND o.toko = ?");
+			}
+			if (hanyaRugi) where.append(" AND " + exprLaba + " < 0");
 			if ("lunas".equals(statusLunas)) where.append(" AND " + exprOut + " <= 0.009");
 			else if ("belum".equals(statusLunas)) where.append(" AND " + exprOut + " > 0.009");
-			java.sql.PreparedStatement ps = session.connection().prepareStatement(
-					"SELECT COALESCE(s.nama,'(tanpa sales)'), o.tanggal, COALESCE(d.nomor, o.nomor),"
-							+ " i.nama_produk, i.jumlah, i.hpp_snapshot, i.harga_satuan, i.subtotal,"
-							+ " (i.subtotal - i.hpp_snapshot * i.jumlah), c.nama, " + exprOut
-							+ " FROM koperasi.sales_order_lapangan_item i"
-							+ " JOIN koperasi.sales_order_lapangan o ON i.sales_order = o.id"
-							+ " JOIN koperasi.anggota_koperasi c ON o.customer = c.id"
-							+ " LEFT JOIN koperasi.sales_inventory s ON o.sales = s.id"
-							+ " LEFT JOIN koperasi.piutang_customer_doc d ON d.sales_order = o.id" + where
-							+ " ORDER BY o.tanggal, o.id, i.id LIMIT 500");
+			String sqlRincian;
+			if (jalurTenant) {
+				sqlRincian = SalesInventoryFinanceTenant.selectRincian(skemaTenant)
+						+ SalesInventoryFinanceTenant.dasarRincian(skemaTenant, where.toString());
+			} else {
+				sqlRincian = "SELECT COALESCE(s.nama,'(tanpa sales)'), o.tanggal, COALESCE(d.nomor, o.nomor),"
+						+ " i.nama_produk, i.jumlah, i.hpp_snapshot, i.harga_satuan, i.subtotal,"
+						+ " " + exprLaba + ", c.nama, " + exprOut
+						+ " FROM koperasi.sales_order_lapangan_item i"
+						+ " JOIN koperasi.sales_order_lapangan o ON i.sales_order = o.id"
+						+ " JOIN koperasi.anggota_koperasi c ON o.customer = c.id"
+						+ " LEFT JOIN koperasi.sales_inventory s ON o.sales = s.id"
+						+ " LEFT JOIN koperasi.piutang_customer_doc d ON d.sales_order = o.id" + where
+						+ " ORDER BY o.tanggal, o.id, i.id LIMIT 500";
+			}
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(sqlRincian);
 			int ix = 1;
 			if (salesId != null) ps.setLong(ix++, salesId.longValue());
 			if (ctx.tokoId != null && !ctx.admin) ps.setLong(ix++, ctx.tokoId.longValue());
@@ -453,6 +532,16 @@ public final class SalesInventoryFinanceHelper {
 			tolak(hasil, "Menu terkait tidak aktif untuk akun Anda.");
 			return;
 		}
+		if (SalesInventoryFinanceTenant.aktif(ctx)
+				&& !SalesInventoryFinanceTenant.dukungRiwayatAudit()) {
+			// Envers menaruh seluruh barisnya pada satu schema yang ditetapkan statis per
+			// SessionFactory (default_schema=new_audit). Membiarkannya berjalan berarti
+			// menyajikan riwayat perubahan SELURUH instalasi kepada satu tenant -- kebocoran,
+			// bukan sekadar hasil yang salah.
+			tolak(hasil, "Riwayat audit belum tersedia pada tenant berschema: Envers menulis ke "
+					+ "satu schema audit bersama. Penggantinya menyusul lewat TenantAuditWriter.");
+			return;
+		}
 		Class<?> kelas = (Class<?>) peta[0];
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -520,13 +609,24 @@ public final class SalesInventoryFinanceHelper {
 		Long salesId = optLong(request, "sales_id");
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
+			boolean jalurTenant = SalesInventoryFinanceTenant.aktif(ctx);
+			String skemaTenant = jalurTenant ? SalesInventoryFinanceTenant.skema(ctx) : null;
 			// Pendapatan: faktur AR terbit pada periode (basis FAKTUR).
 			StringBuilder wDoc = new StringBuilder(" WHERE d.status = 'AKTIF'"
 					+ " AND d.tanggal >= " + dari + " AND d.tanggal < (" + sampai + " + 1)");
-			if (salesId != null) wDoc.append(" AND d.sales = ?");
-			if (ctx.tokoId != null && !ctx.admin) wDoc.append(" AND d.toko = ?");
-			java.sql.PreparedStatement ps = session.connection().prepareStatement(
-					"SELECT COALESCE(SUM(d.total_faktur),0), COUNT(*)"
+			if (salesId != null) {
+				wDoc.append(jalurTenant
+						? " AND " + SalesInventoryFinanceTenant.kolomSalesPiutang() + " = ?"
+						: " AND d.sales = ?");
+			}
+			if (ctx.tokoId != null && !ctx.admin) {
+				wDoc.append(jalurTenant
+						? " AND " + SalesInventoryFinanceTenant.kolomTokoPiutang() + " = ?"
+						: " AND d.toko = ?");
+			}
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(jalurTenant
+					? SalesInventoryFinanceTenant.sqlOmzetKredit(skemaTenant, wDoc.toString())
+					: "SELECT COALESCE(SUM(d.total_faktur),0), COUNT(*)"
 							+ " FROM koperasi.piutang_customer_doc d" + wDoc);
 			int ix = 1;
 			if (salesId != null) ps.setLong(ix++, salesId.longValue());
@@ -541,8 +641,11 @@ public final class SalesInventoryFinanceHelper {
 			rs.close(); ps.close();
 
 			// Penjualan tunai lapangan (ledger kas sesi CASH_SALE) pada periode.
-			java.sql.PreparedStatement psK = session.connection().prepareStatement(
-					"SELECT COALESCE(SUM(k.nominal),0) FROM koperasi.nota_sales_kas k"
+			// Saringan lingkup untuk omzet tunai memakai kolom faktur; legacy tidak
+			// menyaringnya sama sekali pada ledger kas, dan perilaku itu dipertahankan.
+			java.sql.PreparedStatement psK = session.connection().prepareStatement(jalurTenant
+					? SalesInventoryFinanceTenant.sqlOmzetTunai(skemaTenant, dari, sampai, "")
+					: "SELECT COALESCE(SUM(k.nominal),0) FROM koperasi.nota_sales_kas k"
 							+ " WHERE k.jenis = 'CASH_SALE' AND k.waktu >= " + dari
 							+ " AND k.waktu < (" + sampai + " + 1)");
 			java.sql.ResultSet rsK = psK.executeQuery();
@@ -550,12 +653,24 @@ public final class SalesInventoryFinanceHelper {
 			rsK.close(); psK.close();
 
 			// HPP: snapshot baris order yang difakturkan pada periode.
-			StringBuilder wHpp = new StringBuilder(" WHERE o.status IN ('SIAP_TAGIH','LUNAS')"
-					+ " AND o.tanggal >= " + dari + " AND o.tanggal < (" + sampai + " + 1)");
-			if (salesId != null) wHpp.append(" AND o.sales = ?");
-			if (ctx.tokoId != null && !ctx.admin) wHpp.append(" AND o.toko = ?");
-			java.sql.PreparedStatement psH = session.connection().prepareStatement(
-					"SELECT COALESCE(SUM(i.hpp_snapshot * i.jumlah),0)"
+			StringBuilder wHpp = new StringBuilder(jalurTenant
+					? SalesInventoryFinanceTenant.whereFakturSah()
+							+ " AND o.tanggal >= " + dari + " AND o.tanggal < (" + sampai + " + 1)"
+					: " WHERE o.status IN ('SIAP_TAGIH','LUNAS')"
+							+ " AND o.tanggal >= " + dari + " AND o.tanggal < (" + sampai + " + 1)");
+			if (salesId != null) {
+				wHpp.append(jalurTenant
+						? " AND " + SalesInventoryFinanceTenant.kolomSales() + " = ?"
+						: " AND o.sales = ?");
+			}
+			if (ctx.tokoId != null && !ctx.admin) {
+				wHpp.append(jalurTenant
+						? " AND " + SalesInventoryFinanceTenant.kolomToko() + " = ?"
+						: " AND o.toko = ?");
+			}
+			java.sql.PreparedStatement psH = session.connection().prepareStatement(jalurTenant
+					? SalesInventoryFinanceTenant.sqlHpp(skemaTenant, wHpp.toString())
+					: "SELECT COALESCE(SUM(i.hpp_snapshot * i.jumlah),0)"
 							+ " FROM koperasi.sales_order_lapangan_item i"
 							+ " JOIN koperasi.sales_order_lapangan o ON i.sales_order = o.id" + wHpp);
 			ix = 1;
@@ -566,8 +681,9 @@ public final class SalesInventoryFinanceHelper {
 			rsH.close(); psH.close();
 
 			// Beban: biaya sesi sales per kategori pada periode.
-			java.sql.PreparedStatement psB = session.connection().prepareStatement(
-					"SELECT kb.nama, COALESCE(SUM(b.nilai),0)"
+			java.sql.PreparedStatement psB = session.connection().prepareStatement(jalurTenant
+					? SalesInventoryFinanceTenant.sqlBeban(skemaTenant, dari, sampai)
+					: "SELECT kb.nama, COALESCE(SUM(b.nilai),0)"
 							+ " FROM koperasi.nota_sales_biaya b"
 							+ " JOIN koperasi.kategori_biaya_sales kb ON b.kategori = kb.id"
 							+ " WHERE b.tanggal >= " + dari + " AND b.tanggal < (" + sampai + " + 1)"
@@ -603,6 +719,73 @@ public final class SalesInventoryFinanceHelper {
 			hasil.put("data", j);
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * Simpan akun pada schema tenant, lewat SQL asli.
+	 *
+	 * <p>Hanya <b>pembaruan nama</b> yang dilayani. Pembuatan akun baru ditolak, dan itu bukan
+	 * kemalasan: kolom {@code tipe} pada {@code akun} model tenant bersifat {@code NOT NULL}
+	 * sedangkan permintaan legacy tidak pernah membawanya. Mengarangnya berarti menebak
+	 * klasifikasi akun -- kesalahan yang baru terlihat saat laporan keuangan disusun.</p>
+	 *
+	 * <p>{@code keterangan} tidak ada pada model tenant, dan {@code debet_credit} legacy bertipe
+	 * bilangan sedangkan {@code saldo_normal} tenant bertipe teks. Keduanya karena itu tidak
+	 * ikut diperbarui; mengubahnya menuntut pemetaan nilai yang belum diputuskan.</p>
+	 */
+	private static void simpanAkunTenant(EbisnisActorContextResolver.ActorContext ctx,
+			Tbmuser tbmuser, JSONObject request, JSONObject hasil, Session session, String kode,
+			String nama) throws Exception {
+		Long id = optLong(request, "akun_id");
+		if (id == null) {
+			tolak(hasil, "Pembuatan akun baru belum tersedia pada tenant berschema: kolom tipe "
+					+ "akun wajib diisi dan tidak ada pada permintaan ini. Buat akunnya lewat "
+					+ "penyiapan bagan akun tenant.");
+			return;
+		}
+		String sk = SalesInventoryFinanceTenant.skema(ctx);
+		String oleh = tbmuser == null || tbmuser.getUserId() == null ? "" : tbmuser.getUserId();
+		java.sql.PreparedStatement cek = session.connection().prepareStatement(
+				SalesInventoryFinanceTenant.adaAkun(sk));
+		boolean ada;
+		try {
+			cek.setLong(1, id.longValue());
+			java.sql.ResultSet rs = cek.executeQuery();
+			ada = rs.next() && rs.getLong(1) > 0;
+			rs.close();
+		} finally {
+			cek.close();
+		}
+		if (!ada) {
+			tolak(hasil, "Akun tidak ditemukan pada tenant ini.");
+			return;
+		}
+		Transaction tx = null;
+		try {
+			tx = session.beginTransaction();
+			java.sql.PreparedStatement upd = session.connection().prepareStatement(
+					SalesInventoryFinanceTenant.ubahAkun(sk));
+			try {
+				upd.setString(1, nama);
+				upd.setString(2, oleh);
+				upd.setLong(3, id.longValue());
+				upd.executeUpdate();
+			} finally {
+				upd.close();
+			}
+			tx.commit();
+			hasil.put("status", "00");
+			hasil.put("id", id);
+		} catch (Exception e) {
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+				// rollback gagal tidak boleh menutupi galat aslinya
+			}
+			throw e;
 		}
 	}
 }
