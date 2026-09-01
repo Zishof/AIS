@@ -55,31 +55,37 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data pegawai banbox. Kelas ini memberi nama dan batas tanggung jawab
- * yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code EventListener eventListener}, {@code List
- * punyaBawahan}, {@code List punyaBawahanDosen}, {@code Tbmuser tbmuser}, {@code boolean admin}, {@code Textbox
- * kodePegawaian}; inisialisasi/lifecycle ({@code initAtasan()}); pembacaan/pencarian ({@code onSearchDefault()},
- * {@code setEventListener()}, {@code getEventListener()}); operasi domain lain ({@code display()}); konfigurasi
- * constructor: {@code tbmuser}, {@code tidakBoleh}. Bagian lain dari kontrak tetap mengikuti kelas induk atau
- * interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.Pegawai} — lihat
+ * {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback). {@code Pegawai} adalah master data
+ * karyawan/staf kampus (bisa merangkap dosen atau guru lewat relasi {@code dosen}/{@code guru}),
+ * dipakai luas di modul akunting untuk memilih penanggung jawab transaksi (mis. pemohon,
+ * pemegang uang muka, atasan pemberi persetujuan).
+ * <p>
+ * Popup menampilkan grid pilih-tunggal (via {@link Radiogroup}) dengan filter "Kode/NIP" (kolom
+ * {@code code}/{@code mycode}), "Nama", status pegawai ({@link Combobox} dari {@link StatusPegawai}
+ * aktif), dan satuan kerja/unit lewat sub-picker {@code searchparent}
+ * ({@link AmbilDataSatuanKerjaBanbox}, mencakup satuan kerja terpilih beserta turunannya). Hasil
+ * selalu dibatasi ke pegawai aktif yang tipe pegawainya "masuk presensi" (atau tanpa tipe pegawai).
+ * <p>
+ * <b>Scoping "atasan-bawahan" (bukan bagian kerangka standar):</b> kecuali pemanggil berstatus
+ * admin ({@code admin=true}, lihat {@link Common#getApakahAdminBolehLihatSemuaPegawai()}), hasil
+ * dibatasi hanya ke pegawai yang merupakan bawahan langsung/tidak langsung (hingga 3 level:
+ * {@code atasanlangsung}, {@code atasanlangsung2}, {@code atasanlangsung3}) dari user login, atau
+ * bawahan menurut relasi jabatan ({@code atasan}/{@code atasanPendukung}/
+ * {@code atasanPendukungCadangan} pada {@link Pejabat} sesuai {@code jenisJabatan} hak akses user),
+ * dihitung sekali di {@link #initAtasan()} saat popup pertama dibuka dan disimpan di
+ * {@link #punyaBawahan}/{@link #punyaBawahanDosen}. Bila daftar bawahan ditemukan, filter satuan
+ * kerja disembunyikan (scoping bawahan menggantikannya). Bila user tidak boleh melihat data
+ * pegawai lain sama sekali ({@code !hakAkses().getMelihatDataPegawaiLain()}), constructor otomatis
+ * memilih pegawai milik user sendiri sebagai default lewat {@code RabUtil.setDefaultPegawai}.
  *
  * @see Bandbox
  */
 public class AmbilDataPegawaiBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 * Serial version UID standar untuk kompatibilitas serialisasi komponen ZK.
 	 */
 	private static final long serialVersionUID = 6452461056684904810L;
 	private MyGrid grid;
@@ -93,10 +99,22 @@ public class AmbilDataPegawaiBanbox extends Bandbox implements GetEventListener 
 	private Tbmuser tbmuser;
 	private boolean admin;
 
+	/**
+	 * Constructor default: mengaktifkan pemilihan pegawai default milik user sendiri
+	 * ({@code notDeafault=true}) kecuali user berhak melihat data pegawai lain
+	 * ({@link Common#getApakahAdminBolehLihatSemuaPegawai()}).
+	 */
 	public AmbilDataPegawaiBanbox() {
 		this(!Common.getApakahAdminBolehLihatSemuaPegawai());
 	}
 
+	/**
+	 * Menghitung sekali (saat popup pertama dibuka) daftar id pegawai yang merupakan bawahan
+	 * user login, lalu menyimpannya ke {@link #punyaBawahan} (bawahan biasa/jabatan) dan
+	 * {@link #punyaBawahanDosen} (bawahan lewat relasi dosen). Tidak melakukan apa pun bila
+	 * {@link #admin} bernilai {@code true}. Bila hasil scoping ditemukan, filter satuan
+	 * kerja/unit ({@link #searchparent}) disembunyikan karena sudah tidak relevan.
+	 */
 	@SuppressWarnings("unchecked")
 	private void initAtasan() {
 		if (!admin) {
@@ -226,10 +244,25 @@ public class AmbilDataPegawaiBanbox extends Bandbox implements GetEventListener 
 		}
 	}
 
+	/**
+	 * @param notDeafault {@code true} untuk otomatis memilih pegawai milik user sendiri sebagai
+	 *                    nilai default saat komponen dibuat
+	 */
 	public AmbilDataPegawaiBanbox(Boolean notDeafault) {
 		this(notDeafault, Common.getApakahAdminBolehLihatSemuaPegawai());
 	}
 
+	/**
+	 * Membuat komponen dan memasang listener {@code onOpen} yang, pada pembukaan pertama,
+	 * membangun popup ({@link #display()}) lalu menghitung scoping atasan-bawahan
+	 * ({@link #initAtasan()}). Bila {@code notDeafault} atau user tidak boleh melihat data
+	 * pegawai lain, pegawai milik user sendiri langsung dipasang sebagai nilai default lewat
+	 * {@code RabUtil.setDefaultPegawai}.
+	 *
+	 * @param notDeafault {@code true} untuk otomatis memilih pegawai milik user sendiri
+	 * @param admin       {@code true} untuk menonaktifkan scoping atasan-bawahan (lihat semua
+	 *                    pegawai tanpa batas hierarki)
+	 */
 	public AmbilDataPegawaiBanbox(Boolean notDeafault, Boolean admin) {
 		super();
 		tbmuser = Common.getCurrentUser();
@@ -285,16 +318,11 @@ public class AmbilDataPegawaiBanbox extends Bandbox implements GetEventListener 
 	private Combobox searchstatus;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataPegawaiBanbox}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataPegawaiBanbox} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Merender satu baris grid pegawai: radio pilih, foto kecil ({@link CommonMedia}), kode+NPWP
+	 * (digabung {@link Vbox}), nama, dan satuan kerja. Memilih baris menutup popup, menyimpan
+	 * entity {@link Pegawai} terpilih ke attribute {@code "pegawai"} dan {@code "myValue"} pada
+	 * Bandbox, mengisi teks tampilan dengan nama pegawai, lalu memicu {@link #eventListener} bila
+	 * terpasang — mengikuti kerangka callback standar di {@link ais.ui.util.GetEventListener}.
 	 *
 	 * @see AmbilDataPegawaiBanbox
 	 */
@@ -341,6 +369,11 @@ public class AmbilDataPegawaiBanbox extends Bandbox implements GetEventListener 
 	private SatuanKerjaTreeModel satuanKerjaTreeModel;
 	private MyLabelConfig labelSatker;
 
+	/**
+	 * Membangun popup pencarian (dipanggil sekali saat pertama dibuka): form filter Kode/NIP,
+	 * Nama, Status, dan Satker/Unit, grid hasil bermold "paging" client-side, lalu memuat data
+	 * awal lewat timer default (setelah {@link #initAtasan()} sempat dijalankan oleh pemanggil).
+	 */
 	public void display() throws Exception {
 		satuanKerjaTreeModel = new SatuanKerjaTreeModel(false);
 		Bandpopup bandpopup = new ais.ui.util.MyBandpopup();
@@ -504,6 +537,16 @@ public class AmbilDataPegawaiBanbox extends Bandbox implements GetEventListener 
 		});
 	}
 
+	/**
+	 * Menyusun ulang dan menjalankan kriteria pencarian {@link Pegawai}: menerapkan scoping
+	 * atasan-bawahan ({@link #punyaBawahan}/{@link #punyaBawahanDosen}) atau, bila kosong,
+	 * scoping satuan kerja dari {@link #searchparent} (kecuali {@link #admin}); lalu menambahkan
+	 * filter aktif, tipe pegawai "masuk presensi", nama, kode/NIP, dan status pegawai. Mengisi
+	 * ulang grid dengan hasil (maksimum {@link Common#MAX_RESULT_500}) beserta
+	 * {@link PegawaiRenderer}.
+	 *
+	 * @param event tidak dipakai, hanya mengikuti signature standar listener pencarian
+	 */
 	public void onSearchDefault(Event event) {
 
 		Session session = HibernateUtil.currentSession();
@@ -624,10 +667,12 @@ public class AmbilDataPegawaiBanbox extends Bandbox implements GetEventListener 
 
 	}
 
+	/** @param eventListener dipanggil setiap kali user memilih satu pegawai */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** @return listener pemilihan pegawai yang sedang terpasang, boleh {@code null} */
 	public EventListener getEventListener() {
 		return eventListener;
 	}

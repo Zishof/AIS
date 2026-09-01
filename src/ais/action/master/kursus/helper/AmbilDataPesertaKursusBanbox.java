@@ -42,29 +42,30 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data peserta kursus banbox. Kelas ini memberi nama dan batas tanggung
- * jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.kursus.PesertaKursus}
+ * — lihat {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback). Peserta kursus adalah orang yang terdaftar
+ * mengikuti suatu kursus di modul Kursus AIS, dengan atribut kode/no. registrasi, nama, email, dan jenis
+ * peserta.
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code Textbox nama}, {@code Textbox noregistrasi}, {@code
- * EventListener eventListener}; pembacaan/pencarian ({@code getEventListener()}, {@code setEventListener()},
- * {@code onSearchDefault()}); operasi domain lain ({@code display()}). Bagian lain dari kontrak tetap mengikuti
- * kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p>Konstruktor melakukan prefill: bila pengguna yang sedang login ({@link Common#getCurrentUser()})
+ * memiliki data {@code PesertaKursus} miliknya sendiri, entity itu langsung dipasang sebagai atribut
+ * {@code pesertaKursus}/{@code myValue} pada Bandbox sebelum popup dibuka. Pencarian memakai dua
+ * {@code Textbox}: {@code nama} (ilike ke kolom {@code nama}) dan {@code noregistrasi} (berlabel "Kode",
+ * ilike ke kolom {@code kode}), keduanya opsional dan digabung AND; hanya peserta aktif
+ * ({@code aktif} null atau {@code true}) yang disertakan, diurutkan ascending berdasar id, dibatasi
+ * {@code Common.MAX_RESULT_20} baris. Hasil ditampilkan dalam {@link Radiogroup} (pilih-tunggal via
+ * {@link Radio}, yang di ZK merupakan subclass {@link Checkbox} sehingga kompatibel dengan header
+ * "select all" pada kolom Nama — meski kombinasi checkbox-header dan radiogroup-body ini tidak lazim,
+ * dampaknya hanya baris terakhir yang dicentang oleh "select all" yang efektif terpilih karena batasan
+ * radiogroup). Tidak ada parameter constructor tambahan.</p>
  *
  * @see Bandbox
  */
 public class AmbilDataPesertaKursusBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 *
 	 */
 	private static final long serialVersionUID = 6452461056684904810L;
 	private MyGrid grid;
@@ -72,6 +73,12 @@ public class AmbilDataPesertaKursusBanbox extends Bandbox implements GetEventLis
 
 	/* Paging server-side per 5 baris (pola AmbilDataPagingHelper). */
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
+
+	/**
+	 * Membangun Bandbox read-only, mem-prefill pilihan dari {@code PesertaKursus} milik pengguna yang
+	 * sedang login (bila ada), lalu memasang listener {@code onOpen} standar: popup dibangun lazy
+	 * (sekali saja) via {@link #display()}, kemudian dibuka lewat {@link Common#createDefaultTimer}.
+	 */
 	public AmbilDataPesertaKursusBanbox() {
 		super();
 
@@ -108,25 +115,29 @@ public class AmbilDataPesertaKursusBanbox extends Bandbox implements GetEventLis
 	private Textbox noregistrasi;
 	private EventListener eventListener;
 
+	/**
+	 * @return listener aktif saat ini, atau {@code null} bila belum diset
+	 */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
 
+	/**
+	 * Menetapkan listener yang dipanggil setelah baris peserta kursus dipilih.
+	 *
+	 * @param eventListener listener baru yang akan dipasang
+	 */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataPesertaKursusBanbox}. Kelas ini menerjemahkan satu item
-	 * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataPesertaKursusBanbox} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Merender satu baris grid hasil pencarian peserta kursus: label Kode, Nama, Email, dan Jenis
+	 * Peserta, plus satu {@link Radio} pilihan di kolom pertama. Saat radio dicentang ({@code onCheck}),
+	 * popup ditutup, entity {@link PesertaKursus} terpilih disimpan lewat
+	 * {@code setAttribute("pesertaKursus"/"myValue", ...)} dan teks tampilan Bandbox diisi nama peserta,
+	 * lalu {@link #eventListener} (bila terpasang) diberi tahu — mengikuti pola callback standar yang
+	 * dijelaskan di {@link ais.ui.util.GetEventListener}.
 	 *
 	 * @see AmbilDataPesertaKursusBanbox
 	 */
@@ -167,6 +178,13 @@ public class AmbilDataPesertaKursusBanbox extends Bandbox implements GetEventLis
 
 	}
 
+	/**
+	 * Membangun isi {@link Bandpopup} sekali: panel judul "Daftar Peserta Kursus" berisi form
+	 * pencarian ({@code Textbox nama}, {@code Textbox noregistrasi}) + tombol Cari/Bersihkan, kolom
+	 * Nama dilengkapi checkbox header "select all", dan grid hasil dibungkus {@link Radiogroup}
+	 * (pilih-tunggal). Diakhiri memanggil {@link #onSearchDefault(Event)} dengan {@code null} agar
+	 * grid langsung terisi saat popup pertama dibuka.
+	 */
 	public void display() {
 		setReadonly(true);
 
@@ -316,6 +334,15 @@ public class AmbilDataPesertaKursusBanbox extends Bandbox implements GetEventLis
 
 	}
 
+	/**
+	 * Menjalankan pencarian {@link PesertaKursus} yang aktif ({@code aktif} null atau {@code true}),
+	 * difilter opsional lewat {@code Textbox nama} (ilike ke kolom {@code nama}) dan
+	 * {@code Textbox noregistrasi} (ilike ke kolom {@code kode}), keduanya digabung AND bila diisi,
+	 * diurutkan ascending berdasar id dan dibatasi {@code Common.MAX_RESULT_20} baris. Hasil dipasang
+	 * ke {@link #grid} lewat {@link PesertaKursusRenderer} dan {@code SimpleListModel}.
+	 *
+	 * @param event event pemicu (boleh {@code null}, mis. saat dipanggil dari {@link #display()})
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

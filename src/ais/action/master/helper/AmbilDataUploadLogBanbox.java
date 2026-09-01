@@ -43,23 +43,24 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data upload log banbox. Kelas ini memberi nama dan batas tanggung jawab
- * yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.UploadLogInfo} —
+ * lihat {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback). {@code UploadLogInfo} mencatat riwayat
+ * berkas yang diunggah pengguna (nama berkas, siapa yang mengunggah, kapan) — Bandbox ini dipakai
+ * untuk memilih berkas dari riwayat unggahan tersebut, bukan mengunggah berkas baru.
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code EventListener eventListener}, {@code MyDatebox start},
- * {@code MyDatebox end}, {@code Tbmuser tbmuser}, {@code Textbox nama}; pembacaan/pencarian ({@code
- * onSearchDefault()}, {@code setEventListener()}, {@code getEventListener()}); operasi domain lain ({@code
- * display()}); konfigurasi constructor: {@code tbmuser}. Bagian lain dari kontrak tetap mengikuti kelas induk
- * atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p>
+ * Hasil pencarian SELALU dibatasi ke berkas milik pengguna yang sedang login ({@code tbmuser},
+ * diisi otomatis dari {@link Common#getCurrentUser()} saat konstruksi — pengguna lain tidak boleh
+ * melihat riwayat upload pengguna ini), ditambah baris dengan kolom {@code diuploadOleh} kosong.
+ * Kriteria pencarian tambahan: nama berkas ({@code nama}, cocok ANYWHERE) dan rentang tanggal
+ * unggah ({@code start}/{@code end}) yang dibandingkan terhadap {@code tanggal_dirubah} lewat
+ * {@code Restrictions.sqlRestriction} berisi tanggal yang sudah diformat lewat
+ * {@link Common#databaseDateFormat} (BUKAN string mentah dari input pengguna, jadi bukan celah SQL
+ * injection). Mode pilih data bersifat TUNGGAL lewat {@link org.zkoss.zul.Radiogroup}, dan grid
+ * hasil memakai paging client-side ({@code grid.setMold("paging")}) alih-alih
+ * {@code AmbilDataPagingHelper} — pola lama yang sah, lihat referensi kerangka.
+ * </p>
  *
  * @see Bandbox
  */
@@ -78,6 +79,12 @@ public class AmbilDataUploadLogBanbox extends Bandbox implements GetEventListene
 	private MyDatebox end;
 	private Tbmuser tbmuser = null;
 
+	/**
+	 * Membangun Bandbox dalam mode readonly, menetapkan {@link #tbmuser} ke pengguna yang sedang
+	 * login lewat {@link Common#getCurrentUser()} (membatasi riwayat upload yang ditampilkan), dan
+	 * memasang listener {@code onOpen} standar (lazy-build popup — lihat
+	 * {@link ais.ui.util.GetEventListener}).
+	 */
 	public AmbilDataUploadLogBanbox() {
 		super();
 		setReadonly(true);
@@ -106,18 +113,12 @@ public class AmbilDataUploadLogBanbox extends Bandbox implements GetEventListene
 	private Textbox nama;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataUploadLogBanbox}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataUploadLogBanbox} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
-	 *
-	 * @see AmbilDataUploadLogBanbox
+	 * Renderer baris grid hasil pencarian riwayat upload: nama berkas, pengunggah (foto kecil + nama
+	 * bila {@code diuploadOleh} terisi, atau {@code olehId} mentah bila tidak), dan tanggal diubah,
+	 * ditambah satu radio button pemilihan. Saat radio dicentang: popup ditutup, entity
+	 * {@code UploadLogInfo} terpilih disimpan sebagai attribute {@code "uploadLog"} pada Bandbox,
+	 * teks tampilan diisi {@code uploadLog.toString()}, lalu {@link #eventListener} (bila terpasang)
+	 * diberi tahu — lihat pola callback di {@link ais.ui.util.GetEventListener}.
 	 */
 	class UploadLogRenderer extends ais.ui.util.MyRowRenderer {
 
@@ -156,6 +157,12 @@ public class AmbilDataUploadLogBanbox extends Bandbox implements GetEventListene
 
 	}
 
+	/**
+	 * Membangun popup pencarian riwayat upload (form filter nama berkas + rentang tanggal + grid
+	 * hasil paging client-side dibungkus {@link org.zkoss.zul.Radiogroup}), lalu memanggil
+	 * {@link #onSearchDefault(Event)} agar grid terisi saat popup pertama kali dibuka. Dipanggil
+	 * sekali oleh listener {@code onOpen} pada konstruktor.
+	 */
 	public void display() {
 		setReadonly(true);
 		Bandpopup bandpopup = new ais.ui.util.MyBandpopup();
@@ -271,6 +278,17 @@ public class AmbilDataUploadLogBanbox extends Bandbox implements GetEventListene
 
 	}
 
+	/**
+	 * Menjalankan {@code Session.createCriteria(UploadLogInfo.class)} dengan filter wajib
+	 * "milik {@link #tbmuser} atau {@code diuploadOleh} kosong" (bila {@code tbmuser} null, tidak
+	 * ada baris yang cocok — {@code Restrictions.sqlRestriction("false")}), nama berkas (ANYWHERE,
+	 * bila diisi), dan rentang tanggal {@code start}/{@code end} terhadap {@code tanggal_dirubah}
+	 * (tanggal diformat via {@link Common#databaseDateFormat} sebelum disisipkan ke SQL literal —
+	 * bukan input pengguna mentah). Hasil dibatasi {@link Common#MAX_RESULT}, lalu grid di-render
+	 * ulang dengan {@link UploadLogRenderer}.
+	 *
+	 * @param event tidak dipakai isinya, sekadar menandai method ini adalah event handler
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -299,10 +317,16 @@ public class AmbilDataUploadLogBanbox extends Bandbox implements GetEventListene
 
 	}
 
+	/**
+	 * {@inheritDoc}
+	 */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/**
+	 * {@inheritDoc}
+	 */
 	public EventListener getEventListener() {
 		return eventListener;
 	}

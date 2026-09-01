@@ -51,30 +51,34 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data kategori item banbox. Kelas ini memberi nama dan batas tanggung
- * jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.library.KategoriItem} — lihat
+ * {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum (constructor/display/onSearchDefault/
+ * renderer/callback). {@code KategoriItem} adalah kategori/klasifikasi koleksi pustaka (mis. "Buku" &gt;
+ * "Fiksi" &gt; "Novel") yang bersifat HIERARKIS lewat relasi {@code parent}; karena itu kelas ini menyimpang
+ * dari kebanyakan subclass Bandbox picker lain yang menampilkan grid datar — di sini popup utama menampilkan
+ * kategori sebagai POHON ({@link Tree}) memakai model khusus {@link KategoriItemTreeModel}.
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Tree tree}, {@code EventListener
- * eventListener}, {@code KategoriItemTreeModel kategoriItemTreeModel}, {@code Boolean chooseAll};
- * pembacaan/pencarian ({@code onSearchDefault()}, {@code setEventListener()}, {@code getEventListener()});
- * mutasi data ({@code setChooseAll()}); operasi domain lain ({@code display()}); konfigurasi constructor: {@code
- * kategoriItemTreeModel}. Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
- * atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p>
+ * Popup terbagi dua tab: tab "Daftar" menampilkan seluruh pohon kategori (dapat diperluas/dipersempit sesuai
+ * struktur parent-anak), dan tab "Sering Dipakai" ({@link KategoriItemSeringDipakai}) menampilkan grid datar
+ * berisi maksimal 20 kategori {@code defaultItem = true} yang diurutkan menurun berdasarkan {@code jmlDipakai}
+ * (jumlah pemakaian), sebagai jalan pintas tanpa perlu menavigasi pohon. Setiap kali sebuah kategori dipilih —
+ * dari node pohon maupun dari baris grid "Sering Dipakai" — kolom {@code jmlDipakai} baris tersebut di-increment
+ * di database, sehingga popularitas kategori terakumulasi dari histori pemakaian.
+ * </p>
+ * <p>
+ * Parameter constructor {@code chooseAll} menentukan apakah SEMUA node pohon boleh dipilih (termasuk node
+ * kategori induk/pengelompokan), atau HANYA node daun ({@code kategoriItemTreeModel.getChildCount(...) == 0}) —
+ * dipakai saat pemanggil hanya boleh menerima kategori final/spesifik, bukan kategori pengelompokan level atas.
+ * Constructor tanpa argumen default ke {@code chooseAll = true}.
+ * </p>
  *
  * @see Bandbox
  */
 public class AmbilDataKategoriItemBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 *
 	 */
 	protected static final long serialVersionUID = 6452461056684904810L;
 	protected Tree tree;
@@ -84,10 +88,19 @@ public class AmbilDataKategoriItemBanbox extends Bandbox implements GetEventList
 
 	private Boolean chooseAll = false;
 
+	/**
+	 * Constructor default; memilih {@code chooseAll = true} (semua node pohon, termasuk kategori induk, boleh
+	 * dipilih). Lihat {@link #AmbilDataKategoriItemBanbox(Boolean)}.
+	 */
 	public AmbilDataKategoriItemBanbox() throws Exception {
 		this(true);
 	}
 
+	/**
+	 * @param chooseAll {@code true} untuk mengizinkan pemilihan semua node pohon kategori (termasuk node yang
+	 *                  punya anak); {@code false} untuk membatasi pemilihan hanya pada node daun (kategori tanpa
+	 *                  sub-kategori). Lihat {@link GetEventListener} untuk pola constructor {@code onOpen} lazy.
+	 */
 	public AmbilDataKategoriItemBanbox(Boolean chooseAll) throws Exception {
 		super();
 		kategoriItemTreeModel = new KategoriItemTreeModel(false);
@@ -112,22 +125,26 @@ public class AmbilDataKategoriItemBanbox extends Bandbox implements GetEventList
 
 	}
 
+	/**
+	 * Mengganti flag {@code chooseAll} setelah instance dibuat. Catatan: pemanggilan {@code display()} di sini
+	 * dikomentari (tidak aktif), sehingga pohon yang sudah terlanjur dirender TIDAK otomatis di-refresh — flag
+	 * baru baru berlaku efektif pada render {@link KategoriItemTreeRenderer} berikutnya.
+	 *
+	 * @param chooseAll nilai baru untuk mode pemilihan node (lihat {@link #AmbilDataKategoriItemBanbox(Boolean)}).
+	 */
 	public void setChooseAll(Boolean chooseAll) throws Exception {
 		this.chooseAll = chooseAll;
 		// display();
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataKategoriItemBanbox}. Kelas ini menerjemahkan satu item
-	 * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataKategoriItemBanbox} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer satu node pohon kategori pada tab "Daftar". Menampilkan nama kategori ({@code kategoriItem}) pada
+	 * kolom pertama, dan komponen pilihan ({@code MyRadioConfig}, tampil sebagai checkbox/radio) pada kolom kedua
+	 * — komponen pilihan hanya DITAMPILKAN bila {@code chooseAll} bernilai true ATAU node tersebut adalah daun
+	 * ({@code kategoriItemTreeModel.getChildCount(kategoriItem) == 0}), sesuai kontrak {@code chooseAll} yang
+	 * dijelaskan di constructor. Saat komponen pilihan dicentang: kolom {@code jmlDipakai} kategori tersebut
+	 * di-increment di database, popup ditutup, nilai/atribut Bandbox diisi, lalu {@link #eventListener} dipanggil
+	 * — lihat {@link GetEventListener} untuk pola callback umum ini.
 	 *
 	 * @see AmbilDataKategoriItemBanbox
 	 */
@@ -183,6 +200,13 @@ public class AmbilDataKategoriItemBanbox extends Bandbox implements GetEventList
 
 	}
 
+	/**
+	 * Membangun popup dua-tab: tab "Daftar" berisi {@link Tree} kategori ({@link KategoriItemTreeRenderer}) dan
+	 * tab "Sering Dipakai" berisi {@link KategoriItemSeringDipakai}. Lihat {@link GetEventListener} untuk kapan
+	 * method ini dipanggil (lazy, sekali, saat popup pertama dibuka).
+	 *
+	 * @see GetEventListener
+	 */
 	public void display() throws Exception {
 		Bandpopup bandpopup = new ais.ui.util.MyBandpopup();
 		bandpopup.setParent(this);
@@ -262,35 +286,35 @@ public class AmbilDataKategoriItemBanbox extends Bandbox implements GetEventList
 
 	}
 
+	/**
+	 * Memasang model pohon ({@link #kategoriItemTreeModel}) dan renderer ({@link KategoriItemTreeRenderer}) ke
+	 * {@link #tree}. Berbeda dari kebanyakan subclass Bandbox picker lain, method ini tidak menjalankan query
+	 * Hibernate langsung — data pohon sudah disiapkan lebih dulu oleh {@link KategoriItemTreeModel} saat
+	 * constructor dipanggil.
+	 */
 	public void onSearchDefault(Event event) throws Exception {
 
 		tree.setModel(kategoriItemTreeModel);
 		tree.setItemRenderer(new KategoriItemTreeRenderer());
 	}
 
+	/** @see GetEventListener */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** @see GetEventListener */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
 
 	/**
-	 * Tipe implementasi bersarang {@link KategoriItemSeringDipakai} milik {@link AmbilDataKategoriItemBanbox}.
-	 * Kelas ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok
-	 * anonim.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataKategoriItemBanbox} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini
-	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code MyGrid grid}, {@code
-	 * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code Textbox nama}; operasi lokal: {@code display()},
-	 * {@code onSearchDefault}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
-	 * dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
-	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
-	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 * Tab kedua popup {@link AmbilDataKategoriItemBanbox}, berisi jalan pintas daftar kategori yang paling sering
+	 * dipakai — grid datar berisi maksimal {@link Common#MAX_RESULT_20} kategori {@code defaultItem = true},
+	 * diurutkan menurun berdasarkan {@code jmlDipakai}, sehingga pengguna tidak perlu menavigasi pohon kategori
+	 * penuh untuk kategori yang biasa dipakai berulang. Field {@link #nama} disediakan pada form namun TIDAK
+	 * dipakai sebagai kriteria filter oleh {@link #onSearchDefault(Event)} saat ini — query tetap memfilter
+	 * {@code defaultItem = true} terlepas dari isi field tersebut.
 	 *
 	 * @see AmbilDataKategoriItemBanbox
 	 */
@@ -312,16 +336,11 @@ public class AmbilDataKategoriItemBanbox extends Bandbox implements GetEventList
 		private Textbox nama;
 
 		/**
-		 * Renderer lokal untuk layar/komponen {@link KategoriItemSeringDipakai}. Kelas ini menerjemahkan satu item
-		 * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-		 *
-		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link KategoriItemSeringDipakai} dan dapat mengakses
-		 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-		 * renderer/listener ini.</p>
+		 * Renderer satu baris grid "Sering Dipakai": menampilkan nama kategori dan nama kategori induknya
+		 * ({@code kategoriItem.getParent()}, kosong bila kategori level teratas). Klik pada baris (bukan
+		 * checkbox/radio terpisah seperti tab pohon) langsung memilih kategori: kolom {@code jmlDipakai}
+		 * di-increment, popup ditutup, nilai/atribut Bandbox diisi, lalu {@link #eventListener} dipanggil — lihat
+		 * {@link GetEventListener} untuk pola callback umum ini.
 		 *
 		 * @see KategoriItemSeringDipakai
 		 */
@@ -360,6 +379,11 @@ public class AmbilDataKategoriItemBanbox extends Bandbox implements GetEventList
 
 		}
 
+		/**
+		 * Membangun UI tab: form pencarian dengan field {@link #nama} (lihat catatan kelas — belum dipakai sebagai
+		 * filter), tombol "Cari", dan grid hasil ({@link KategoriItemRenderer}) dengan paging mold client-side
+		 * ({@code grid.setMold("paging")}, 50 baris/halaman).
+		 */
 		public void display() throws Exception {
 
 			Center center = new Center();
@@ -433,6 +457,11 @@ public class AmbilDataKategoriItemBanbox extends Bandbox implements GetEventList
 
 		}
 
+		/**
+		 * Mengambil hingga {@link Common#MAX_RESULT_20} kategori dengan {@code defaultItem = true}, diurutkan
+		 * menurun berdasarkan {@code jmlDipakai} (kategori paling sering dipilih tampil paling atas). Catatan:
+		 * field {@link #nama} pada form TIDAK dipakai sebagai kriteria di sini.
+		 */
 		@SuppressWarnings("unchecked")
 		public void onSearchDefault(Event event) throws Exception {
 

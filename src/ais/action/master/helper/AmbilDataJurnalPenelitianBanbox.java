@@ -42,29 +42,30 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data jurnal penelitian banbox. Kelas ini memberi nama dan batas tanggung
- * jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * AmbilDataPagingHelper pagingHelper}, {@code EventListener eventListener}, {@code Textbox nama};
- * inisialisasi/lifecycle ({@code initCriteria()}); pembacaan/pencarian ({@code onSearchDefault()}, {@code
- * setEventListener()}, {@code getEventListener()}); operasi domain lain ({@code display()}). Bagian lain dari
- * kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity
+ * {@link ais.database.model.penelitiandanpengabdian.JurnalPenelitian} — lihat
+ * {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback).
+ * <p>
+ * {@code JurnalPenelitian} adalah master data jurnal ilmiah (mis. tempat publikasi hasil
+ * penelitian dosen) pada modul Penelitian dan Pengabdian. Popup pencarian hanya menyediakan satu
+ * kriteria {@code Textbox nama} yang dicocokkan ilike-substring ke kolom {@code judul} jurnal;
+ * hanya baris {@code aktif == true} atau {@code aktif} kosong yang ditampilkan. Kelas ini memakai
+ * pola paging SERVER-SIDE terbaru via {@link AmbilDataPagingHelper} (bukan
+ * {@code grid.setMold("paging")} client-side lama) — lihat {@link #initCriteria} dan
+ * {@link #onSearchDefault}, serta filter toggle pencarian lewat
+ * {@link ais.ui.util.BanboxFilterToggle}. Toolbar popup juga menyediakan tombol "Tambah Jurnal
+ * Baru" yang langsung memanggil {@link JurnalPenelitianAction#onAddExternal} dan otomatis memilih
+ * jurnal yang baru dibuat begitu tersimpan. Pemilihan bersifat TUNGGAL (Radiogroup). Tidak ada
+ * constructor dengan parameter tambahan.
+ * </p>
  *
  * @see Bandbox
  */
 public class AmbilDataJurnalPenelitianBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 *
 	 */
 	private static final long serialVersionUID = 6452461056684904810L;
 	private MyGrid grid;
@@ -73,6 +74,11 @@ public class AmbilDataJurnalPenelitianBanbox extends Bandbox implements GetEvent
 
 	private EventListener eventListener;
 
+	/**
+	 * Konstruktor standar: memasang listener {@code onOpen} yang membangun popup pencarian secara
+	 * lazy pada pembukaan pertama. Mengikuti kerangka standar di
+	 * {@link ais.ui.util.GetEventListener}, tidak ada logika tambahan khusus entity ini.
+	 */
 	public AmbilDataJurnalPenelitianBanbox() {
 		super();
 		setReadonly(true);
@@ -98,19 +104,16 @@ public class AmbilDataJurnalPenelitianBanbox extends Bandbox implements GetEvent
 
 	}
 
+	/** Kriteria pencarian: judul jurnal (ilike, substring). */
 	private Textbox nama;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataJurnalPenelitianBanbox}. Kelas ini menerjemahkan satu
-	 * item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataJurnalPenelitianBanbox} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer baris grid hasil pencarian {@link JurnalPenelitian}: menampilkan kolom judul dan
+	 * satu radio button pilihan. Mengikuti kerangka renderer standar di
+	 * {@link ais.ui.util.GetEventListener} — listener {@code onCheck} menutup popup, menyimpan
+	 * entity terpilih ke atribut {@code "jurnalPenelitian"} dan teks tampilan
+	 * {@code jurnalPenelitian.toString()}, lalu meneruskan event ke {@link #eventListener} bila
+	 * terpasang.
 	 *
 	 * @see AmbilDataJurnalPenelitianBanbox
 	 */
@@ -145,6 +148,14 @@ public class AmbilDataJurnalPenelitianBanbox extends Bandbox implements GetEvent
 
 	}
 
+	/**
+	 * Membangun popup pencarian {@link JurnalPenelitian} sekali (dipanggil lazy dari listener
+	 * {@code onOpen}): form dengan field {@code nama} (judul), tombol Cari, tombol Tambah Jurnal
+	 * Baru, filter toggle {@link ais.ui.util.BanboxFilterToggle}, dan grid hasil ber-paging
+	 * server-side dibungkus {@link org.zkoss.zul.Radiogroup} (pilih tunggal). Mengikuti kerangka
+	 * {@code display()} standar — lihat {@link ais.ui.util.GetEventListener}. Memanggil
+	 * {@link #onSearchDefault(Event)} di akhir agar grid terisi saat popup pertama dibuka.
+	 */
 	public void display() {
 		setReadonly(true);
 		Bandpopup bandpopup = new ais.ui.util.MyBandpopup();
@@ -277,6 +288,19 @@ public class AmbilDataJurnalPenelitianBanbox extends Bandbox implements GetEvent
 
 	}
 
+	/**
+	 * Membangun {@link Criteria} pencarian {@link JurnalPenelitian}: hanya baris {@code aktif}
+	 * (atau {@code null}), dicocokkan ke {@code judul} lewat ilike-substring bila field
+	 * {@link #nama} diisi. Dipanggil oleh {@link AmbilDataPagingHelper} baik untuk menghitung total
+	 * baris maupun mengambil satu halaman data — parameter {@code isOrder} mengontrol apakah
+	 * pengurutan ({@code Order.asc("judul")}) ikut dipasang (hanya perlu saat mengambil data,
+	 * bukan saat menghitung count).
+	 *
+	 * @param session  sesi Hibernate aktif
+	 * @param isOrder  {@code true} untuk memasang {@code ORDER BY judul}, {@code false} bila
+	 *                 criteria hanya dipakai menghitung jumlah baris
+	 * @return criteria siap dieksekusi oleh {@link AmbilDataPagingHelper}
+	 */
 	public Criteria initCriteria(Session session, boolean isOrder) {
 		Criteria criteria = session.createCriteria(JurnalPenelitian.class)
 				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
@@ -288,6 +312,16 @@ public class AmbilDataJurnalPenelitianBanbox extends Bandbox implements GetEvent
 		return criteria;
 	}
 
+	/**
+	 * Mengeksekusi pencarian {@link JurnalPenelitian} lewat {@link AmbilDataPagingHelper#cari},
+	 * yang memanggil balik {@link #initCriteria(Session, boolean)} untuk membangun query per
+	 * halaman (paging server-side, bukan {@code MAX_RESULT} client-side), lalu memasang
+	 * {@link JurnalPenelitianRenderer} dan model hasil ke {@link #grid}. Mengikuti kerangka
+	 * {@code onSearchDefault} standar — lihat {@link ais.ui.util.GetEventListener}.
+	 *
+	 * @param event event pemicu (klik tombol Cari); boleh {@code null} saat dipanggil dari
+	 *              {@link #display()} untuk mengisi grid pertama kali
+	 */
 	public void onSearchDefault(Event event) {
 		List<JurnalPenelitian> jurnalPenelitian = pagingHelper.cari(new AmbilDataPagingHelper.CriteriaFactory() {
 			@Override
@@ -302,10 +336,12 @@ public class AmbilDataJurnalPenelitianBanbox extends Bandbox implements GetEvent
 
 	}
 
+	/** {@inheritDoc} Implementasi setter polos standar — lihat {@link ais.ui.util.GetEventListener}. */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** {@inheritDoc} Implementasi getter polos standar — lihat {@link ais.ui.util.GetEventListener}. */
 	public EventListener getEventListener() {
 		return eventListener;
 	}

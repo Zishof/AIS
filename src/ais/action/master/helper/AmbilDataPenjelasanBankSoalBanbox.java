@@ -44,24 +44,26 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data penjelasan bank soal banbox. Kelas ini memberi nama dan batas
- * tanggung jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang
- * diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code EventListener eventListener}, {@code Textbox nama},
- * {@code Textbox searchisi}, {@code Combobox searchfakultas}, {@code Combobox searchjurusan}, {@code Combobox
- * searchyayasan}; pembacaan/pencarian ({@code onSearchDefault()}, {@code setEventListener()}, {@code
- * getEventListener()}); operasi domain lain ({@code display()}). Bagian lain dari kontrak tetap mengikuti kelas
- * induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.PenjelasanBankSoal} —
+ * lihat {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback).
+ * <p>
+ * Penjelasan bank soal adalah teks pengantar/bacaan (judul + isi HTML) yang dipakai bersama oleh
+ * sekelompok soal dalam bank soal (mis. teks bacaan untuk beberapa soal pemahaman sekaligus).
+ * Popup pencarian menyediakan kriteria judul ({@code Textbox nama}, ilike sebagian) dan isi
+ * ({@code Textbox searchisi}, ilike sebagian ke kolom {@code keterangan}), ditambah filter satuan
+ * institusi yang tampil kondisional berdasarkan {@link ais.common.Common#chekPtAtauSekolah()}:
+ * fakultas/prodi untuk konteks perguruan tinggi, yayasan/sekolah untuk konteks yayasan/sekolah.
+ * Hasil selalu dibatasi ke data aktif ({@code aktif} null atau {@code true}), diurutkan id
+ * menurun lalu nama menaik. Setiap baris grid menampilkan {@link ais.ui.util.MyDetail} yang
+ * me-render isi ({@code keterangan}) sebagai HTML secara lazy saat expand, di samping radio
+ * pilihan tunggal ({@link org.zkoss.zul.Radiogroup}). Toolbar menambahkan tombol "Tambah Grup
+ * Soal/Penjelasan" yang membuka form tambah baru lewat
+ * {@link ais.action.master.PenjelasanBankSoalAction#onAddExternal}; hasil simpanan langsung
+ * dipilihkan ke Bandbox ini (memicu {@link #eventListener}) dan grid dimuat ulang. Grid hasil
+ * memakai mold "paging" client-side (bukan {@code AmbilDataPagingHelper} — field itu dideklarasikan
+ * tapi tidak dipakai di file ini) dibatasi {@link ais.common.Common#MAX_RESULT}.
+ * </p>
  *
  * @see Bandbox
  */
@@ -73,10 +75,17 @@ public class AmbilDataPenjelasanBankSoalBanbox extends Bandbox implements GetEve
 	private static final long serialVersionUID = 6452461056684904810L;
 	private MyGrid grid;
 
-	/* Paging server-side per 5 baris (pola AmbilDataPagingHelper). */
+	/* Catatan: field ini dideklarasikan tapi tidak dipakai secara aktif di file ini — grid hasil
+	 * pencarian di display() memakai mold "paging" client-side, bukan AmbilDataPagingHelper. */
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
 	private EventListener eventListener;
 
+	/**
+	 * Konstruktor standar pola Bandbox picker: kunci input jadi read-only dan pasang listener
+	 * {@code onOpen} yang membangun popup pencarian secara lazy pada pembukaan pertama, lalu
+	 * membuka popup lewat {@link Common#createDefaultTimer}. Lihat
+	 * {@link ais.ui.util.GetEventListener} untuk penjelasan lengkap kerangka ini.
+	 */
 	public AmbilDataPenjelasanBankSoalBanbox() {
 		super();
 		setReadonly(true);
@@ -106,16 +115,13 @@ public class AmbilDataPenjelasanBankSoalBanbox extends Bandbox implements GetEve
 	private Combobox searchsekolah;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataPenjelasanBankSoalBanbox}. Kelas ini menerjemahkan satu
-	 * item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataPenjelasanBankSoalBanbox} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer baris grid hasil pencarian: menampilkan {@link ais.ui.util.MyDetail} yang me-render
+	 * isi ({@code keterangan}) sebagai {@link org.zkoss.zul.Html} secara lazy saat baris di-expand
+	 * (hanya dibangun sekali, {@code detail.getChildren().isEmpty()}), diikuti radio pilihan dan
+	 * label nama/judul. Saat radio dicentang ({@code onCheck}), popup ditutup, entity
+	 * {@link PenjelasanBankSoal} terpilih disimpan sebagai attribute {@code "penjelasanBankSoal"}
+	 * pada Bandbox, teks Bandbox diisi nama/judulnya, lalu {@link #eventListener} (bila terpasang)
+	 * diberi tahu — lihat pola callback selengkapnya di {@link ais.ui.util.GetEventListener}.
 	 *
 	 * @see AmbilDataPenjelasanBankSoalBanbox
 	 */
@@ -164,6 +170,16 @@ public class AmbilDataPenjelasanBankSoalBanbox extends Bandbox implements GetEve
 
 	}
 
+	/**
+	 * Membangun popup pencarian (form kriteria judul/isi/fakultas-prodi/yayasan-sekolah + tombol
+	 * Cari + tombol "Tambah Grup Soal/Penjelasan" + grid hasil berbungkus
+	 * {@link org.zkoss.zul.Radiogroup}) sekali saat popup pertama kali dibuka, lalu memanggil
+	 * {@link #onSearchDefault(Event)} agar grid langsung terisi. Visibilitas blok kriteria
+	 * fakultas/prodi vs yayasan/sekolah ditentukan oleh {@link Common#chekPtAtauSekolah()}. Tombol
+	 * tambah membuka form buat-baru {@link PenjelasanBankSoal} lewat
+	 * {@link PenjelasanBankSoalAction#onAddExternal}; hasil simpanannya langsung dipilihkan ke
+	 * Bandbox ini dan grid dimuat ulang.
+	 */
 	public void display() {
 
 		boolean[] ptYa = Common.chekPtAtauSekolah();
@@ -332,6 +348,17 @@ public class AmbilDataPenjelasanBankSoalBanbox extends Bandbox implements GetEve
 
 	}
 
+	/**
+	 * Menjalankan pencarian {@link PenjelasanBankSoal} berdasarkan kriteria pada form:
+	 * jurusan/fakultas/sekolah/yayasan (eq berdasar id lewat
+	 * {@link CommonSearchFilterHelper#eqSelectedWithId}, no-op bila belum dipilih), judul dan isi
+	 * (ilike sebagian ke {@code nama} dan {@code keterangan}), selalu dibatasi ke data aktif
+	 * ({@code aktif} null atau {@code true}), diurutkan id menurun lalu nama menaik. Hasil dipasang
+	 * ke {@link #grid} lewat {@link PenjelasanBankSoalRenderer} dan dibatasi
+	 * {@link Common#MAX_RESULT} baris.
+	 *
+	 * @param event event pemicu (boleh {@code null}, dipakai juga sebagai pengisi awal/ulang grid)
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -373,10 +400,21 @@ public class AmbilDataPenjelasanBankSoalBanbox extends Bandbox implements GetEve
 
 	}
 
+	/**
+	 * Menetapkan listener yang dipanggil setelah pengguna memilih (atau menambah baru) satu baris
+	 * penjelasan bank soal.
+	 *
+	 * @param eventListener listener baru yang akan dipasang
+	 */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/**
+	 * Mengambil listener yang sedang terpasang.
+	 *
+	 * @return listener aktif saat ini, atau {@code null} bila belum diset
+	 */
 	public EventListener getEventListener() {
 		return eventListener;
 	}

@@ -46,23 +46,32 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data tbmuser banbox. Kelas ini memberi nama dan batas tanggung jawab
- * yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.Tbmuser} — lihat
+ * {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback). {@code Tbmuser} adalah entity akun
+ * pengguna sistem AIS (dosen, pegawai, orang tua, dsb. — bukan mahasiswa: role "Mahasiswa" serta
+ * role penyedia dan orang tua sengaja DIKECUALIKAN dari daftar di sini, lihat
+ * {@code onSearchDefault(Event)}).
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code EventListener eventListener}, {@code List usernames},
- * {@code Textbox nama}, {@code boolean hasDisplayed}, {@code MyTextbox kodeTbmuseran}, {@code MyTextbox email};
- * pembacaan/pencarian ({@code onSearchDefault()}, {@code setEventListener()}, {@code getEventListener()}, {@code
- * getDiperuntukkan()}); mutasi data ({@code setDiperuntukkan()}); operasi domain lain ({@code display()}).
- * Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p>
+ * Kriteria pencarian: User ID ({@code kodeTbmuseran}), nama ({@code nama}), email ({@code email})
+ * — ketiganya cocok ANYWHERE — serta jenis pengguna/role ({@code userRole}, hanya menampilkan role
+ * aktif selain penyedia/orang tua/Mahasiswa). Hasil juga dapat dibatasi ke kumpulan username
+ * tertentu lewat konstruktor {@link #AmbilDataTbmuserBanbox(List)} (mis. saat pemanggil sudah
+ * punya daftar user ID kandidat), dan lewat {@link #setDiperuntukkan(String)} yang memfilter hanya
+ * pengguna berperan dosen atau pegawai sesuai konstanta
+ * {@link ais.database.model.PengumumanAkademis} (dipakai saat Bandbox ini menjadi target
+ * penerima pengumuman akademis). Mode pilih data bersifat TUNGGAL lewat
+ * {@link org.zkoss.zul.Radiogroup}.
+ * </p>
+ * <p>
+ * <b>Penyimpangan dari kerangka konstruktor standar</b> (WAJIB diperhatikan, bukan bug): popup
+ * ({@code Bandpopup} + {@code Radiogroup}) dibangun langsung di dalam konstruktor, bukan di
+ * {@code display()}; dan listener {@code onOpen} memakai flag {@code hasDisplayed} (bukan idiom
+ * baku {@code getChildren().isEmpty()}) untuk memastikan isi popup hanya dibangun sekali, karena
+ * {@link #display(Radiogroup)} menerima {@code Radiogroup} yang sudah dibuat sebelumnya sebagai
+ * parameter alih-alih membangunnya sendiri.
+ * </p>
  *
  * @see Bandbox
  */
@@ -81,10 +90,23 @@ public class AmbilDataTbmuserBanbox extends Bandbox implements GetEventListener 
 
 	private List<String> usernames;
 
+	/**
+	 * Membangun Bandbox tanpa pembatasan username — semua pengguna aktif (selain
+	 * penyedia/orang tua/Mahasiswa) dapat dicari.
+	 */
 	public AmbilDataTbmuserBanbox() {
 		this(null);
 	}
 
+	/**
+	 * Membangun Bandbox dalam mode readonly, opsional membatasi hasil pencarian ke kumpulan
+	 * username tertentu, dan memasang listener {@code onOpen} yang membangun isi popup sekali
+	 * (lewat flag {@link #hasDisplayed}, bukan idiom {@code getChildren().isEmpty()} baku — lihat
+	 * catatan penyimpangan pada Javadoc kelas).
+	 *
+	 * @param usernames daftar username yang membatasi hasil pencarian, atau {@code null}/kosong
+	 *            untuk tidak membatasi
+	 */
 	public AmbilDataTbmuserBanbox(List<String> usernames) {
 		super();
 		this.usernames = usernames;
@@ -120,18 +142,13 @@ public class AmbilDataTbmuserBanbox extends Bandbox implements GetEventListener 
 	private String diperuntukkan = null;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataTbmuserBanbox}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataTbmuserBanbox} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
-	 *
-	 * @see AmbilDataTbmuserBanbox
+	 * Renderer baris grid hasil pencarian pengguna: foto kecil, User ID + nama, nama role, dan
+	 * prodi/fakultas atau sekolah/yayasan asal pengguna (tergantung {@code ambilJurusan()}/
+	 * {@code ambilFakultas()} vs {@code ambilSekolah()}/{@code ambilYayasan()} pada entity), ditambah
+	 * satu radio button pemilihan. Saat radio dicentang: popup ditutup, entity {@code Tbmuser}
+	 * terpilih disimpan sebagai attribute {@code "tbmuser"} pada Bandbox, teks tampilan diisi
+	 * User ID, lalu {@link #eventListener} (bila terpasang) diberi tahu — lihat pola callback di
+	 * {@link ais.ui.util.GetEventListener}.
 	 */
 	class TbmuserRenderer extends ais.ui.util.MyRowRenderer {
 
@@ -176,6 +193,16 @@ public class AmbilDataTbmuserBanbox extends Bandbox implements GetEventListener 
 
 	}
 
+	/**
+	 * Membangun isi popup pencarian pengguna (form filter User ID/nama/email/jenis pengguna + grid
+	 * hasil paging client-side dibungkus {@code radiogroup} yang diterima sebagai parameter — lihat
+	 * catatan penyimpangan konstruktor pada Javadoc kelas), lalu memanggil
+	 * {@link #onSearchDefault(Event)} agar grid terisi. No-op bila sudah pernah dipanggil
+	 * ({@link #hasDisplayed}).
+	 *
+	 * @param radiogroup wadah pilihan tunggal yang sudah dibuat oleh konstruktor
+	 * @throws Exception diteruskan dari operasi ZK di dalamnya
+	 */
 	public void display(Radiogroup radiogroup) throws Exception {
 
 		if (hasDisplayed) {
@@ -328,6 +355,17 @@ public class AmbilDataTbmuserBanbox extends Bandbox implements GetEventListener 
 
 	}
 
+	/**
+	 * Menjalankan {@code Session.createCriteria(Tbmuser.class)} dengan filter status aktif; role
+	 * bukan orang tua/penyedia; jenis pengguna terpilih (bila ada); kumpulan username pembatas
+	 * (bila diberikan lewat konstruktor); User ID/nama/email (ANYWHERE, bila diisi); dan — bila
+	 * {@link #diperuntukkan} diisi lewat {@link #setDiperuntukkan(String)} — hanya pengguna dengan
+	 * relasi dosen atau pegawai sesuai konstanta {@link ais.database.model.PengumumanAkademis}.
+	 * Hasil dibatasi {@link Common#MAX_RESULT}, lalu grid di-render ulang dengan
+	 * {@link TbmuserRenderer}.
+	 *
+	 * @param event tidak dipakai isinya, sekadar menandai method ini adalah event handler
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -369,18 +407,36 @@ public class AmbilDataTbmuserBanbox extends Bandbox implements GetEventListener 
 
 	}
 
+	/**
+	 * {@inheritDoc}
+	 */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/**
+	 * {@inheritDoc}
+	 */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
 
+	/**
+	 * @return nilai penanda target pengumuman yang membatasi pencarian, lihat
+	 *         {@link #setDiperuntukkan(String)}
+	 */
 	public String getDiperuntukkan() {
 		return diperuntukkan;
 	}
 
+	/**
+	 * Membatasi pencarian hanya ke pengguna yang berperan dosen atau pegawai, sesuai konstanta
+	 * {@link ais.database.model.PengumumanAkademis#UNTUK_DOSEN}/{@code UNTUK_PEGAWAI}. Nilai
+	 * {@code null} atau {@link ais.database.model.PengumumanAkademis#UNTUK_UMUM} berarti tidak ada
+	 * pembatasan tambahan.
+	 *
+	 * @param diperuntukkan penanda target pengumuman
+	 */
 	public void setDiperuntukkan(String diperuntukkan) {
 		this.diperuntukkan = diperuntukkan;
 	}

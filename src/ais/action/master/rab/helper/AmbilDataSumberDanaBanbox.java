@@ -41,22 +41,23 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data sumber dana banbox. Kelas ini memberi nama dan batas tanggung jawab
- * yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.rab.SumberDana} —
+ * lihat {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum (constructor/display/
+ * onSearchDefault/renderer/callback). {@code SumberDana} adalah sumber pendanaan (mis. APBN/APBD/
+ * hibah/internal) untuk suatu tahun anggaran dan satuan kerja dalam struktur RAB.
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code EventListener
- * eventListener}, {@code SatuanKerja satuanKerja}, {@code Integer tahun}, {@code Textbox kode}, {@code Textbox
- * nama}; pembacaan/pencarian ({@code onSearchDefault()}, {@code setEventListener()}, {@code getEventListener()},
- * {@code getSatuanKerja()}); mutasi data ({@code setSatuanKerja()}); operasi domain lain ({@code display()}).
- * Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p>
+ * Kriteria pencarian: {@code kode}/nomor dan {@code nama} (ilike kontains), ditambah filter
+ * eksternal {@code tahun} dan {@link SatuanKerja} yang TIDAK punya field UI sendiri di popup —
+ * keduanya hanya dapat diisi lewat {@link #setSatuanKerja(SatuanKerja, Integer)} yang dipanggil
+ * pemanggil luar (mis. layar RAB yang sudah punya konteks satuan kerja/tahun aktif); constructor
+ * default memakai satuan kerja pengguna saat ini dan tahun kalender berjalan. Pencarian juga
+ * membatasi hanya {@code SumberDana} yang {@code aktif} (true atau null); bila {@code tahun} atau
+ * {@code satuanKerja} belum diisi, hasil sengaja dikosongkan total (restriksi selalu-false), BUKAN
+ * ditampilkan tanpa filter — beda dari idiom "1=1 bila kosong" yang lazim di kerangka umum. Pemilihan
+ * bersifat tunggal, ditampilkan lewat {@link Radiogroup}. Bila hasil pencarian hanya satu baris,
+ * baris itu otomatis terpilih dan Bandbox di-{@code setDisabled(true)}.
+ * </p>
  *
  * @see Bandbox
  */
@@ -73,6 +74,14 @@ public class AmbilDataSumberDanaBanbox extends Bandbox implements GetEventListen
 	private Integer tahun;
 //	private SatuanKerjaTreeModel satuanKerjaTreeModel;
 
+	/**
+	 * Constructor mengikuti kerangka standar (lihat {@link ais.ui.util.GetEventListener}); tidak
+	 * menerima parameter satuan kerja/tahun — keduanya diisi belakangan lewat
+	 * {@link #display()} (default satuan kerja pengguna + tahun kalender berjalan) atau eksternal
+	 * lewat {@link #setSatuanKerja(SatuanKerja, Integer)}.
+	 *
+	 * @see ais.ui.util.GetEventListener
+	 */
 	public AmbilDataSumberDanaBanbox() {
 		super();
 //		satuanKerjaTreeModel = new SatuanKerjaTreeModel(false);
@@ -83,18 +92,12 @@ public class AmbilDataSumberDanaBanbox extends Bandbox implements GetEventListen
 	private Textbox nama;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataSumberDanaBanbox}. Kelas ini menerjemahkan satu item
-	 * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 * Renderer baris grid hasil pencarian {@link SumberDana}: kolom Kode/Nomor, Nama, Tahun,
+	 * Tanggal, Satuan Kerja, dan Pagu (diformat), plus radio pilihan yang mengikuti kerangka
+	 * callback standar (tutup popup, simpan atribut {@code "sumberDana"}/{@code "myValue"} dan teks
+	 * tampil {@code "kode - nama"}, teruskan ke {@link #eventListener}).
 	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataSumberDanaBanbox} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
-	 *
-	 * @see AmbilDataSumberDanaBanbox
+	 * @see ais.ui.util.GetEventListener
 	 */
 	class SumberDanaRenderer extends ais.ui.util.MyRowRenderer {
 
@@ -134,6 +137,14 @@ public class AmbilDataSumberDanaBanbox extends Bandbox implements GetEventListen
 
 	}
 
+	/**
+	 * Membangun popup pencarian (form Kode/Nomor + Nama, tombol Cari, grid hasil ber-radio)
+	 * mengikuti kerangka standar, lalu menerapkan default {@code satuanKerja} (satuan kerja
+	 * pengguna saat ini) dan {@code tahun} (tahun kalender berjalan) lewat
+	 * {@link #setSatuanKerja(SatuanKerja, Integer)}, yang sekaligus memicu pencarian awal.
+	 *
+	 * @see ais.ui.util.GetEventListener
+	 */
 	public void display() {
 		setReadonly(true);
 
@@ -264,6 +275,18 @@ public class AmbilDataSumberDanaBanbox extends Bandbox implements GetEventListen
 				ais.ui.util.WaktuUtil.getCalendar().get(Calendar.YEAR));
 	}
 
+	/**
+	 * Menjalankan pencarian {@link SumberDana} aktif ({@code aktif} true atau null) berdasarkan
+	 * {@code kode}/{@code nama} (ilike, opsional), diurutkan berdasar nama, DIBATASI wajib pada
+	 * {@link #tahun} dan {@link #satuanKerja} yang sedang aktif di kelas ini — bila salah satunya
+	 * {@code null}, hasil sengaja kosong (restriksi selalu-false), bukan tanpa filter. Hasil dipasang
+	 * ke {@link #grid} lewat {@link SumberDanaRenderer}. Bila hasil tepat satu baris, baris itu
+	 * otomatis dipilih dan Bandbox dikunci ({@code setDisabled(true)}); bila tidak, nilai dikosongkan
+	 * dan Bandbox diaktifkan kembali.
+	 *
+	 * @param event event pemicu (tidak dipakai isinya; boleh {@code null})
+	 * @see ais.ui.util.GetEventListener
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -296,18 +319,40 @@ public class AmbilDataSumberDanaBanbox extends Bandbox implements GetEventListen
 
 	}
 
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see ais.ui.util.GetEventListener
+	 */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see ais.ui.util.GetEventListener
+	 */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
 
+	/**
+	 * @return satuan kerja filter yang sedang aktif (lihat {@link #setSatuanKerja(SatuanKerja, Integer)})
+	 */
 	public SatuanKerja getSatuanKerja() {
 		return satuanKerja;
 	}
 
+	/**
+	 * Menetapkan filter {@code satuanKerja} dan {@code tahun} dari luar (kelas ini tidak punya field
+	 * UI untuk keduanya), lalu langsung menjalankan ulang {@link #onSearchDefault(Event)}. Kode
+	 * lawas di bawah (visibilitas berdasar leaf-node/label sibling "Sumber Dana") sudah dikomentari
+	 * dan tidak aktif — dipertahankan apa adanya, bukan bagian dari alur berjalan.
+	 *
+	 * @param satuanKerja satuan kerja filter baru (bisa {@code null} agar hasil sengaja kosong)
+	 * @param tahun tahun anggaran filter baru (bisa {@code null} agar hasil sengaja kosong)
+	 */
 	public void setSatuanKerja(SatuanKerja satuanKerja, Integer tahun) {
 		this.satuanKerja = satuanKerja;
 		this.tahun = tahun;

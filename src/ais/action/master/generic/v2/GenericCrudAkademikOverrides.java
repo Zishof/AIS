@@ -20,11 +20,16 @@ import ais.action.master.generic.v2.adapter.KurikulumGenericCrudAdapter;
  * atau tidaknya layar itu menulis. Hanya kedua hal itu yang ditimpa di sini.</p>
  *
  * <h3>Tidak semua layar READ_ONLY pantas dijadikan CRUD</h3>
- * <p>Empat layar sengaja <b>tetap</b> READ_ONLY, dan alasannya ditulis di
+ * <p>Sepuluh layar sengaja <b>tetap</b> READ_ONLY, dan alasannya ditulis di
  * bawah, bukan dibiarkan sebagai kekurangan yang tampak terlewat. Menyalakan
- * tambah/ubah pada keempatnya akan menghasilkan kegagalan yang tidak
+ * tambah/ubah pada layar-layar itu akan menghasilkan kegagalan yang tidak
  * menimbulkan galat — data tersimpan, tetapi salah sasaran atau melewati
  * pemeriksaan hak yang ada pada layar lama.</p>
+ *
+ * <p>Sebagian di antaranya sudah READ_ONLY sejak pabrik definisi, sehingga
+ * mencantumkannya tidak mengubah perilaku apa pun. Yang ditambahkan adalah
+ * alasannya: tanpa itu, layar seperti "Cek oleh bagian Keuangan" tampak seperti
+ * layar yang kelewat belum dinyalakan.</p>
  */
 public final class GenericCrudAkademikOverrides {
 
@@ -55,6 +60,34 @@ public final class GenericCrudAkademikOverrides {
                 "Entity yang terpilih adalah JenisSeleksi, yaitu master jenis seleksi masuk — "
                 + "bukan pokok layar ini (verifikasi berkas dan kelulusan). Menyalakan CRUD akan "
                 + "membuat layar verifikasi menyunting master jenis seleksi.");
+        /*
+         * Lima layar berikut sudah READ_ONLY sejak pabrik definisi, jadi
+         * mencantumkannya di sini TIDAK mengubah perilaku apa pun. Yang
+         * ditambahkan adalah alasannya — karena kelimanya paling mudah dikira
+         * "kelewat belum dinyalakan" oleh orang berikutnya, dan menyalakannya
+         * justru merusak.
+         */
+        DITAHAN.put("root/absens_kehadiran_dosen_harian",
+                "Entity-nya Dosen — master data dosen, bukan catatan kehadiran. Menyalakan CRUD "
+                + "akan membuat layar absensi harian menyunting biodata dosen.");
+        DITAHAN.put("root/absens_kehadiran_pegawai_harian",
+                "Entity-nya Pegawai — master data pegawai, bukan catatan kehadiran. Sama dengan "
+                + "layar absensi dosen.");
+        DITAHAN.put("root/pengecekan_pendaftaran_wisuda_keuangan",
+                "Layar verifikasi: bagian Keuangan menandai satu syarat pada PendaftaranWisuda. "
+                + "Itu mutasi alur kerja pada satu penanda, bukan CRUD atas seluruh baris "
+                + "pendaftaran wisuda. CRUD generik akan memberi bagian Keuangan kuasa menyunting "
+                + "seluruh isi pendaftaran, termasuk yang bukan urusannya.");
+        DITAHAN.put("root/pengecekan_pendaftaran_wisuda_perpustakaan",
+                "Sama dengan layar pengecekan Keuangan: yang boleh diubah hanya penanda milik "
+                + "bagian Perpustakaan Utama, bukan seluruh baris pendaftaran wisuda.");
+        DITAHAN.put("root/pengecekan_pendaftaran_wisuda_perpustakaan_fakultas",
+                "Sama dengan layar pengecekan Perpustakaan Utama, untuk Perpustakaan Fakultas.");
+        DITAHAN.put("root/perkuliahan",
+                "Layar Penjadwalan Ruangan, entity-nya Perkuliahan — baris penawaran mata kuliah. "
+                + "Alasan yang sama dengan root/penjadwalan_ujian: tambah lewat CRUD generik akan "
+                + "membuat penawaran mata kuliah baru dari layar penjadwalan.");
+
         DITAHAN.put("root/mahasiswa_registrasi_wisuda",
                 "Layar ini memang layar tinjau (\"Melihat Pendaftar Wisuda\"). Pendaftaran "
                 + "wisudanya sendiri dikerjakan layar lain; menambah tombol simpan di sini "

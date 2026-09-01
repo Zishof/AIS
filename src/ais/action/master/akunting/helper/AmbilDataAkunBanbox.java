@@ -68,6 +68,12 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.akunting.Akun}
+ * — lihat {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback). Kelas ini menyimpang cukup jauh dari
+ * kerangka standar (dua tab/mode, pohon hierarki, aturan "hanya akun daun") sehingga dijelaskan
+ * detail di bawah, bukan sekadar ditaut.
+ * <p>
  * Komponen "banbox" (bandbox pencarian popup) untuk memilih satu {@link Akun} akunting, dengan
  * dua mode tampilan tergantung apakah satuan kerja aktif memiliki akun level-akar sendiri: bila
  * ya, popup langsung menampilkan tab "Akun Sering Dipakai" ({@link AkunSeringDipakai}, grid

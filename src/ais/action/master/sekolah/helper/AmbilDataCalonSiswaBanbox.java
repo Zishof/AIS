@@ -46,14 +46,29 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.sekolah.CalonSiswa}
+ * — lihat {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback).
+ * <p>
  * Komponen "banbox" (bandbox pencarian popup) untuk memilih satu {@link CalonSiswa} (calon
- * siswa PSB yang sudah memiliki gelombang pendaftaran) dari daftar bergaya modal, dengan filter
- * kode/nama/yayasan/sekolah dan paginasi 5 baris per halaman (dipilih kecil demi efisiensi
- * RAM/jaringan — lihat {@link #PAGE_SIZE_LIMA}). Bila user yang login adalah calon siswa itu
- * sendiri, komponen langsung terisi dan dinonaktifkan (tidak bisa memilih calon siswa lain). Bila
- * user adalah orang tua dengan anak siswa terdaftar, daftar dibatasi ke anak-anaknya saja. Setiap
- * pemanggilan {@link #onSearchDefault(Event)} membuka dan menutup sesi Hibernate sendiri secara
- * mandiri (independen dari sesi thread-local biasa).
+ * siswa PSB — Penerimaan Siswa Baru — yang sudah memiliki gelombang pendaftaran) dari daftar
+ * bergaya modal, dengan filter kode/nama/yayasan/sekolah dan paginasi 5 baris per halaman
+ * (dipilih kecil demi efisiensi RAM/jaringan — lihat {@link #PAGE_SIZE_LIMA}; pola paginasi
+ * server-side eksplisit ini beda dari kebanyakan subclass sejenis yang memakai
+ * {@code AmbilDataPagingHelper}). Kriteria pencarian ({@link #initCriteria(Session, boolean)})
+ * mewajibkan calon siswa sudah punya gelombang pendaftaran, nama terisi, dan berstatus aktif
+ * (atau flag aktif belum diisi). Pemilihan bersifat tunggal lewat {@link Radiogroup}.
+ * </p>
+ * <p>
+ * Dua kekhususan bisnis non-standar: (1) constructor
+ * {@link #AmbilDataCalonSiswaBanbox(Boolean)} menerima flag {@code notDeafault} — bila
+ * {@code true} dan user yang login sendiri tercatat sebagai calon siswa, komponen langsung
+ * terisi dengan data calon siswa itu dan dinonaktifkan (tidak bisa memilih calon siswa lain);
+ * (2) bila user yang login adalah orang tua dengan anak siswa terdaftar, hasil pencarian
+ * dibatasi hanya ke anak-anaknya sendiri. Berbeda dari kerangka umum yang biasanya memakai sesi
+ * Hibernate thread-local, {@link #onSearchDefault(Event)} di sini membuka dan menutup sesi
+ * Hibernate sendiri secara mandiri di setiap pemanggilan.
+ * </p>
  */
 public class AmbilDataCalonSiswaBanbox extends Bandbox implements GetEventListener {
 

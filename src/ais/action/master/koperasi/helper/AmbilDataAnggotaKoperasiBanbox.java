@@ -43,22 +43,24 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data anggota koperasi banbox. Kelas ini memberi nama dan batas tanggung
- * jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ * Implementasi pola "Bandbox picker" AIS untuk entity
+ * {@link ais.database.model.koperasi.AnggotaKoperasi} — lihat {@link ais.ui.util.GetEventListener}
+ * untuk arsitektur kerangka umum (constructor/display/onSearchDefault/renderer/callback).
+ * {@code AnggotaKoperasi} adalah anggota koperasi pegawai (bisa juga berperan sebagai pelanggan
+ * dalam transaksi koperasi) pada modul koperasi kampus.
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code EventListener eventListener}, {@code Textbox kode},
- * {@code Textbox nama}, {@code Combobox koperasi}; pembacaan/pencarian ({@code onSearchDefault()}, {@code
- * setEventListener()}, {@code getEventListener()}); operasi domain lain ({@code display()}). Bagian lain dari
- * kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p>
+ * Pencarian memakai dua kotak teks — {@code kode} dan {@code nama} (masing-masing ILIKE ke kolom
+ * sejenisnya bila diisi) — serta combobox {@code koperasi} untuk membatasi ke koperasi tertentu
+ * (daftar koperasi pada combobox sendiri sudah disaring {@code aktif = true} atau {@code aktif}
+ * null). Hasil pencarian selalu disaring ke anggota dengan {@code aktif = true} atau {@code aktif}
+ * null, diurutkan berdasarkan nama, dan dibatasi {@link Common#MAX_RESULT_50} baris. Setiap baris
+ * grid menampilkan foto kecil anggota ({@link CommonMedia#tampilkanGambarKecil}), nama, nama
+ * koperasi, telepon, dan jenis anggota. Pemilihan bersifat tunggal (baris dibungkus
+ * {@link org.zkoss.zul.Radiogroup}). Constructor dua-argumen menerima parameter {@code Boolean}
+ * yang saat ini tidak dipakai isinya di badan constructor — hanya menyediakan overload terpisah
+ * dari constructor tanpa argumen.
+ * </p>
  *
  * @see Bandbox
  */
@@ -75,10 +77,21 @@ public class AmbilDataAnggotaKoperasiBanbox extends Bandbox implements GetEventL
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
 	private EventListener eventListener;
 
+	/**
+	 * Constructor default — sama dengan memanggil {@link #AmbilDataAnggotaKoperasiBanbox(Boolean)}
+	 * dengan {@code true} (nilai parameter tidak dipakai isinya di badan constructor).
+	 */
 	public AmbilDataAnggotaKoperasiBanbox() {
 		this(true);
 	}
 
+	/**
+	 * Mengikuti kerangka standar {@link ais.ui.util.GetEventListener}: {@code setReadonly(true)},
+	 * atur tooltip/style tampilan Bandbox, lalu memasang listener {@code onOpen} yang lazy-build
+	 * popup ({@link #display()}) pada pembukaan pertama.
+	 *
+	 * @param notDeafault parameter pembeda overload; nilainya tidak dipakai di badan constructor ini
+	 */
 	public AmbilDataAnggotaKoperasiBanbox(Boolean notDeafault) {
 		super();
 		setReadonly(true);
@@ -109,21 +122,21 @@ public class AmbilDataAnggotaKoperasiBanbox extends Bandbox implements GetEventL
 	private Combobox koperasi;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataAnggotaKoperasiBanbox}. Kelas ini menerjemahkan satu
-	 * item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataAnggotaKoperasiBanbox} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer baris grid hasil pencarian anggota koperasi. Mengikuti pola standar
+	 * {@link ais.ui.util.GetEventListener}: tiap baris menampilkan foto kecil, nama anggota, nama
+	 * koperasi, telepon, jenis anggota, plus satu radio button; memilih radio menutup popup,
+	 * menyimpan {@link AnggotaKoperasi} terpilih ke atribut {@code "anggotaKoperasi"} dan
+	 * {@code "myValue"} pada Bandbox, mengisi teks tampilan Bandbox dengan nama anggota, lalu
+	 * meneruskan event ke {@link #eventListener} bila terpasang.
 	 *
 	 * @see AmbilDataAnggotaKoperasiBanbox
 	 */
 	class AnggotaKoperasiRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Merender satu baris grid untuk satu {@link AnggotaKoperasi}: kolom checkbox/radio pilihan,
+		 * foto kecil, nama anggota beserta nama koperasinya, telepon, dan jenis anggota.
+		 */
 		@Override
 		public void render(Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");
@@ -161,6 +174,12 @@ public class AmbilDataAnggotaKoperasiBanbox extends Bandbox implements GetEventL
 
 	}
 
+	/**
+	 * Membangun popup pencarian (form kriteria kode/nama/koperasi + tombol Cari + grid hasil
+	 * dibungkus {@link org.zkoss.zul.Radiogroup}) sekali saat pertama dibuka, lalu memanggil
+	 * {@link #onSearchDefault(Event)} agar grid langsung terisi. Mengikuti kerangka standar
+	 * {@link ais.ui.util.GetEventListener}.
+	 */
 	public void display() {
 
 		setReadonly(true);

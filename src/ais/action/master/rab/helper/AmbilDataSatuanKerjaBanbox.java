@@ -61,25 +61,46 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data satuan kerja banbox. Kelas ini memberi nama dan batas tanggung
- * jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.rab.SatuanKerja} —
+ * lihat {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum (constructor/display/
+ * onSearchDefault/renderer/callback). {@code SatuanKerja} adalah unit kerja/organisasi (satker)
+ * dalam struktur RAB — mendukung hierarki (satu satker dapat punya anak-satker), dan dipakai luas
+ * sebagai unit scoping anggaran/pengadaan di seluruh modul RAB. Kelas ini MENYIMPANG dari kerangka
+ * grid+Restrictions standar: pemilihan memakai {@link Tree} ber-{@link SatuanKerjaTreeModel}
+ * (menampilkan hierarki, bukan daftar datar), popup dibangun LAZY saat {@code onOpen} lewat
+ * {@code display(Radiogroup)} yang dijaga {@code hasDisplayed} (bukan lewat constructor langsung
+ * seperti subclass lain), dan search-nya berbasis Hibernate biasa hanya pada tab kedua.
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Tree tree}, {@code EventListener
- * eventListener}, {@code SatuanKerjaTreeModel satuanKerjaTreeModel}, {@code Boolean chooseAll}, {@code boolean
- * hasDisplayed}, {@code SatuanKerja satuanKerja}, {@code Tbmuser tbmuser}, {@code boolean kunciDomain};
- * pembacaan/pencarian ({@code cariSatuanKerjaByDomain()}, {@code onSearchDefault()}, {@code setEventListener()},
- * {@code getEventListener()}); mutasi data ({@code setChooseAll()}); operasi domain lain ({@code display()});
- * konfigurasi constructor: {@code kunciDomain}, {@code satuanKerja}, {@code satuanKerjaTreeModel}, {@code
- * tbmuser}, {@code yayasan}. Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
- * atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p>
+ * <b>Tiga constructor</b>: {@code ()} dan {@code (Boolean chooseAll)} adalah overload nyaman yang
+ * meneruskan ke {@code (Boolean chooseAll, boolean kepilih)}. {@code chooseAll} menentukan apakah
+ * node NON-leaf (satker yang punya anak) boleh dipilih langsung — bila {@code false}, hanya satker
+ * daun (tanpa anak) yang radio-nya aktif, node induk tampil ter-disable sebagai pengelompokan saja.
+ * {@code kepilih} mengizinkan preset otomatis nilai ke satuan kerja milik pengguna saat ini.
+ * </p>
+ * <p>
+ * <b>Filter/otorisasi non-trivial:</b>
+ * </p>
+ * <ul>
+ * <li><b>Domain lock</b> ({@code cariSatuanKerjaByDomain()}): bila host/URL request memuat salah
+ * satu domain (multi, dipisah koma) milik suatu {@code SatuanKerja}, picker DIKUNCI
+ * ({@code kunciDomain=true}) ke satker itu beserta anak-cucunya, MENANG bahkan atas hak akses
+ * "melihat data satker lain" milik pengguna.</li>
+ * <li><b>Scoping hak akses</b>: bila tidak terkunci domain dan pengguna tidak memiliki hak
+ * "melihat data satker lain", {@link SatuanKerjaTreeModel} dibatasi ke satuan kerja pengguna
+ * (dari {@code Tbmuser.ambilSatuanKerja()}, atau override dari {@code PerguruanTinggi}/
+ * {@code Sekolah} bila diwajibkan lewat flag institusi) beserta anak-cucunya, dan diperkuat lagi
+ * dengan filter kode via {@code tbmuser.hakAkses().getSatuanKerjas()} (daftar kode, dipisah koma).</li>
+ * <li>Nilai preset (domain lock atau satker wajib pengguna) langsung diisi dan komponen
+ * di-{@code setDisabled(true)} agar pengguna tak bisa mengganti.</li>
+ * </ul>
+ * <p>
+ * <b>Dua tab popup</b> (hanya bila TIDAK terkunci domain dan (belum ada satker preset ATAU
+ * pengguna berhak lihat semua satker) — selain itu popup hanya menampilkan tab kedua saja):
+ * tab "Daftar" berisi {@link Tree} hierarki penuh; tab "Tabel" berisi
+ * {@link SatuanKerjaSeringDipakai}, grid pencarian datar (kode/nama) atas satker yang ditandai
+ * {@code defaultItem}, diurutkan berdasar seberapa sering dipakai.
+ * </p>
  *
  * @see Bandbox
  */
@@ -103,14 +124,40 @@ public class AmbilDataSatuanKerjaBanbox extends Bandbox implements GetEventListe
 	private boolean kunciDomain = false;
 	private Yayasan yayasan = null;
 
+	/**
+	 * Overload nyaman: {@code chooseAll=true} (node non-leaf boleh dipilih), {@code kepilih=true}
+	 * (izinkan preset otomatis ke satuan kerja pengguna).
+	 *
+	 * @see #AmbilDataSatuanKerjaBanbox(Boolean, boolean)
+	 */
 	public AmbilDataSatuanKerjaBanbox() throws Exception {
 		this(true);
 	}
 
+	/**
+	 * Overload nyaman dengan {@code kepilih=true}.
+	 *
+	 * @param chooseAll bila {@code false}, hanya satuan kerja daun (tanpa anak) yang dapat dipilih
+	 * @see #AmbilDataSatuanKerjaBanbox(Boolean, boolean)
+	 */
 	public AmbilDataSatuanKerjaBanbox(Boolean chooseAll) throws Exception {
 		this(chooseAll, true);
 	}
 
+	/**
+	 * Constructor utama. Menentukan satuan kerja default pengguna (dari institusi/{@code Tbmuser}),
+	 * menerapkan domain lock ({@link #cariSatuanKerjaByDomain()}) bila host request cocok, lalu
+	 * membangun {@link SatuanKerjaTreeModel} yang di-scope ke satuan kerja terkunci/pengguna (kecuali
+	 * pengguna berhak melihat semua satker). Bila terkunci atau pengguna wajib dibatasi ke satu
+	 * satker, nilai langsung diisi dan komponen dinonaktifkan (termasuk lewat
+	 * {@link ais.common.Common#createDefaultTimer} sebagai workaround timing ZK). UI popup sendiri
+	 * baru dibangun belakangan, lazy, oleh {@link #display(Radiogroup)} saat {@code onOpen}.
+	 *
+	 * @param chooseAll bila {@code false}, hanya satuan kerja daun (tanpa anak) yang dapat dipilih;
+	 *            node induk tetap tampil namun radio-nya dinonaktifkan
+	 * @param kepilih bila {@code true} dan pengguna tidak berhak melihat data satker lain, nilai
+	 *            di-preset otomatis ke satuan kerja pengguna
+	 */
 	public AmbilDataSatuanKerjaBanbox(Boolean chooseAll, boolean kepilih) throws Exception {
 		super();
 		yayasan = SekolahUtil.getYayasan();
@@ -245,24 +292,27 @@ public class AmbilDataSatuanKerjaBanbox extends Bandbox implements GetEventListe
 		return null;
 	}
 
+	/**
+	 * Mengganti flag {@link #chooseAll} (izinkan pilih node non-leaf). Pemanggilan ulang
+	 * {@code display()} sengaja dinonaktifkan (baris dikomentari di source) — perubahan flag TIDAK
+	 * langsung membangun ulang tree yang sudah tampil; hanya memengaruhi render berikutnya.
+	 *
+	 * @param chooseAll nilai baru untuk {@link #chooseAll}
+	 */
 	public void setChooseAll(Boolean chooseAll) throws Exception {
 		this.chooseAll = chooseAll;
 		// display();
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataSatuanKerjaBanbox}. Kelas ini menerjemahkan satu item
-	 * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 * Renderer item {@link Tree} untuk hierarki {@link SatuanKerja} pada tab "Daftar". Menampilkan
+	 * satu {@link Radio} per node, dinonaktifkan bila node punya anak dan {@link #chooseAll} bernilai
+	 * {@code false} (satker non-daun hanya sebagai pengelompokan, tidak dapat dipilih). Saat
+	 * dicentang: menutup popup, menyimpan {@code SatuanKerja} terpilih ke atribut
+	 * {@code "satuanKerja"} dan teks tampil pada Bandbox, lalu meneruskan event ke
+	 * {@link #eventListener} bila terpasang.
 	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataSatuanKerjaBanbox} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
-	 *
-	 * @see AmbilDataSatuanKerjaBanbox
+	 * @see ais.ui.util.GetEventListener
 	 */
 	class SatuanKerjaTreeRenderer extends ais.ui.util.MyTreeitemRenderer {
 
@@ -304,6 +354,17 @@ public class AmbilDataSatuanKerjaBanbox extends Bandbox implements GetEventListe
 
 	}
 
+	/**
+	 * Membangun UI popup sekali (dijaga {@link #hasDisplayed}), dipanggil dari listener
+	 * {@code onOpen} pada popup pertama dibuka (bukan dari constructor — lihat penyimpangan pola
+	 * di Javadoc kelas). Bila TIDAK terkunci domain dan (belum ada satuan kerja preset ATAU pengguna
+	 * berhak melihat semua satker), membangun {@link Tabbox} dua tab: tree hierarki penuh (memanggil
+	 * {@link #onSearchDefault(Event)}) dan {@link SatuanKerjaSeringDipakai}; selain itu hanya
+	 * menampilkan {@link SatuanKerjaSeringDipakai} langsung (tanpa tab/tree) karena scope satker
+	 * pengguna sudah sempit/tetap.
+	 *
+	 * @param radiogroup wadah {@link Radiogroup} tempat popup dibangun (disediakan constructor)
+	 */
 	public void display(Radiogroup radiogroup) throws Exception {
 
 		if (hasDisplayed) {
@@ -383,34 +444,46 @@ public class AmbilDataSatuanKerjaBanbox extends Bandbox implements GetEventListe
 
 	}
 
+	/**
+	 * Memasang {@link #satuanKerjaTreeModel} (sudah di-scope sejak constructor) dan
+	 * {@link SatuanKerjaTreeRenderer} ke {@link #tree}. Tidak menjalankan query baru — model sudah
+	 * dibangun sekali di constructor, method ini hanya menghubungkannya ke komponen {@link Tree}.
+	 *
+	 * @param event event pemicu (tidak dipakai isinya; boleh {@code null})
+	 * @see ais.ui.util.GetEventListener
+	 */
 	public void onSearchDefault(Event event) throws Exception {
 
 		tree.setModel(satuanKerjaTreeModel);
 		tree.setItemRenderer(new SatuanKerjaTreeRenderer());
 	}
 
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see ais.ui.util.GetEventListener
+	 */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see ais.ui.util.GetEventListener
+	 */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
 
 	/**
-	 * Tipe implementasi bersarang {@link SatuanKerjaSeringDipakai} milik {@link AmbilDataSatuanKerjaBanbox}. Kelas
-	 * ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataSatuanKerjaBanbox} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini
-	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code MyGrid grid}, {@code
-	 * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code Textbox kodeSatuanKerjaan}, {@code Textbox nama};
-	 * operasi lokal: {@code display()}, {@code onSearchDefault}(). Aturan bisnis bersama tetap berada pada kelas
-	 * induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
-	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
-	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 * Sub-komponen tab "Tabel" pada popup {@link AmbilDataSatuanKerjaBanbox}: grid pencarian datar
+	 * (kode/nama) atas {@link SatuanKerja} yang ditandai {@code defaultItem=true}, sebagai jalan
+	 * pintas ("sering dipakai") selain menelusuri {@link Tree} di tab "Daftar". Hasil pencarian
+	 * memakai kombinasi filter: hak akses kode satker pengguna (kecuali {@code chooseAll}), yayasan
+	 * yang sama, id anak-cucu satuan kerja default/terkunci kelas induk (kecuali pengguna berhak
+	 * lihat semua satker/terkunci-longgar), serta kode/nama ilike. Memilih baris menaikkan counter
+	 * {@code jmlDipakai} pada entity dan mem-persist-nya (efek samping tulis DB, bukan sekadar baca).
 	 *
 	 * @see AmbilDataSatuanKerjaBanbox
 	 */
@@ -425,6 +498,9 @@ public class AmbilDataSatuanKerjaBanbox extends Bandbox implements GetEventListe
 
 	/* Paging server-side per 5 baris (pola AmbilDataPagingHelper). */
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
+		/**
+		 * Membangun grid pencarian lewat {@link #display()}.
+		 */
 		public SatuanKerjaSeringDipakai() throws Exception {
 			super();
 			display();
@@ -434,18 +510,13 @@ public class AmbilDataSatuanKerjaBanbox extends Bandbox implements GetEventListe
 		private Textbox nama;
 
 		/**
-		 * Renderer lokal untuk layar/komponen {@link SatuanKerjaSeringDipakai}. Kelas ini menerjemahkan satu item data
-		 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+		 * Renderer baris grid "sering dipakai": kolom kode (sebagai label radio) dan nama. Saat radio
+		 * dicentang: menutup popup induk, menyimpan {@code SatuanKerja} terpilih ke Bandbox induk,
+		 * MENAIKKAN counter {@code jmlDipakai} entity lewat query terpisah lalu mem-persist
+		 * ({@code Common.refreshUpdate}) — efek samping tulis DB di luar pola baca standar — baru
+		 * meneruskan event ke {@link AmbilDataSatuanKerjaBanbox#eventListener}.
 		 *
-		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link SatuanKerjaSeringDipakai} dan dapat mengakses
-		 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-		 * renderer/listener ini.</p>
-		 *
-		 * @see SatuanKerjaSeringDipakai
+		 * @see ais.ui.util.GetEventListener
 		 */
 		class SatuanKerjaRenderer extends ais.ui.util.MyRowRenderer {
 
@@ -488,6 +559,11 @@ public class AmbilDataSatuanKerjaBanbox extends Bandbox implements GetEventListe
 
 		}
 
+		/**
+		 * Membangun form pencarian (Kode/Nama) + tombol Cari + grid ber-paging server-side
+		 * ({@code AmbilDataPagingHelper}), lalu memanggil {@link #onSearchDefault(Event)} agar grid
+		 * terisi saat pertama dibangun.
+		 */
 		public void display() throws Exception {
 
 			Center center = new Center();
@@ -569,6 +645,17 @@ public class AmbilDataSatuanKerjaBanbox extends Bandbox implements GetEventListe
 
 		}
 
+		/**
+		 * Menjalankan pencarian {@link SatuanKerja} yang ditandai {@code defaultItem=true}, dengan
+		 * filter: (a) hak akses kode satker pengguna ({@code tbmuser.hakAkses().getSatuanKerjas()},
+		 * kosong berarti tak dibatasi), diabaikan bila {@link AmbilDataSatuanKerjaBanbox#chooseAll};
+		 * (b) yayasan yang sama dengan pengguna (atau tanpa yayasan); (c) id termasuk anak-cucu
+		 * satuan kerja default/terkunci kelas induk, kecuali tidak terkunci-domain dan pengguna
+		 * berhak lihat semua satker (atau tidak ada anak-cucu, atau {@code chooseAll}); (d) kode/nama
+		 * ilike. Diurutkan berdasar nama.
+		 *
+		 * @param event event pemicu (tidak dipakai isinya; boleh {@code null})
+		 */
 		public void onSearchDefault(Event event) throws Exception {
 
 			SatuanKerja parent = satuanKerja;

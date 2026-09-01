@@ -46,23 +46,41 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data kelas les siswa banbox. Kelas ini memberi nama dan batas tanggung
- * jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code EventListener eventListener}, {@code boolean
- * semuaTampil}, {@code boolean waliKelasDanGuru}, {@code String ta}, {@code Textbox nama}, {@code Combobox
- * searchsekolah}; pembacaan/pencarian ({@code onSearchDefault()}, {@code setEventListener()}, {@code
- * getEventListener()}); operasi domain lain ({@code display()}). Bagian lain dari kontrak tetap mengikuti kelas
- * induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity
+ * {@link ais.database.model.sekolah.KelasLesSiswa} — lihat {@link ais.ui.util.GetEventListener}
+ * untuk arsitektur kerangka umum (constructor/display/onSearchDefault/renderer/callback).
+ * <p>
+ * Memilih satu {@link KelasLesSiswa} — kelas les/ekstrakurikuler siswa (kelompok belajar
+ * tambahan di luar kelas reguler, mis. les mata pelajaran, beda dari {@code KelasSiswa} yang
+ * merupakan rombongan belajar reguler) — dari daftar popup, dengan filter nama, sekolah, dan
+ * guru/wali pembina, serta pemilihan tunggal lewat {@link Radiogroup}. Combo sekolah otomatis
+ * terisi dan dinonaktifkan bila konteks sekolah aktif sudah diketahui lewat
+ * {@link SekolahUtil#getSekolah()}. Field {@code wali} adalah nested
+ * {@link AmbilDataGuruBanbox} — picker guru bersarang di dalam picker ini — yang dipasangi
+ * listener sehingga memilih guru di situ langsung memicu pencarian ulang kelas les.
+ * </p>
+ * <p>
+ * <b>Logika filter guru pembina di {@link #onSearchDefault(Event)} bergantung dua flag
+ * constructor</b> ({@link #AmbilDataKelasLesSiswaBanbox(boolean, boolean)}), bukan
+ * kombinasi sederhana:
+ * <ul>
+ * <li>{@code waliKelasDanGuru == true}: bila user login BUKAN guru, hasil difilter ke guru yang
+ * dipilih di picker {@code wali} (atau tampil semua bila belum memilih); bila user login ADALAH
+ * guru, hasil dikosongkan sama sekali (mode ini secara desain hanya untuk user non-guru).</li>
+ * <li>{@code waliKelasDanGuru == false} dan {@code semuaTampil == true}: sama seperti kasus
+ * non-guru di atas — difilter ke guru yang dipilih di picker {@code wali}, atau tampil semua
+ * bila belum dipilih (flag {@code waliKelasDanGuru} diabaikan di cabang ini).</li>
+ * <li>{@code waliKelasDanGuru == false} dan {@code semuaTampil == false}: bila user login
+ * ADALAH guru, hasil dibatasi ke kelas les dengan {@code guruPembina} = guru tsb ATAU flag
+ * {@code absensiharusGuruPembina == true}; bila user login BUKAN guru, hasil dikosongkan.</li>
+ * </ul>
+ * Constructor tanpa argumen memakai {@code semuaTampil=true, waliKelasDanGuru=false}. Field
+ * {@code ta} (tahun akademik berjalan) dan field {@code pagingHelper}
+ * ({@link ais.ui.util.AmbilDataPagingHelper}) dideklarasikan namun TIDAK dipakai di file ini
+ * (paging aktual memakai mold client-side "paging" + {@code Common.MAX_RESULT_1000}) — sisa
+ * refactor yang belum tuntas, bukan bug fungsional yang perlu diperbaiki di sini. Semua hasil
+ * juga difilter ke kelas les yang {@code aktif} true atau belum diisi.
+ * </p>
  *
  * @see Bandbox
  */
@@ -81,12 +99,22 @@ public class AmbilDataKelasLesSiswaBanbox extends Bandbox implements GetEventLis
 	private boolean semuaTampil;
 	private boolean waliKelasDanGuru;
 
+	/** Membuat komponen dengan {@code semuaTampil=true, waliKelasDanGuru=false} (lihat {@link #AmbilDataKelasLesSiswaBanbox(boolean, boolean)}). */
 	public AmbilDataKelasLesSiswaBanbox() {
 		this(true, false);
 	}
 
+	/** Tahun akademik berjalan; dideklarasikan tapi tidak dipakai di file ini. */
 	public String ta = Common.getCurrentTahunAkademik();
 
+	/**
+	 * @param semuaTampil     bila {@code true} (dan {@code waliKelasDanGuru} juga tidak
+	 *                        mengubahnya), hasil difilter ke guru yang dipilih pada picker
+	 *                        {@code wali}, atau tampil semua bila belum dipilih
+	 * @param waliKelasDanGuru bila {@code true}, sembunyikan seluruh hasil untuk user login yang
+	 *                        berperan sebagai guru (mode ini ditujukan untuk user non-guru);
+	 *                        lihat penjelasan lengkap kombinasi kedua flag ini di Javadoc kelas
+	 */
 	public AmbilDataKelasLesSiswaBanbox(boolean semuaTampil, boolean waliKelasDanGuru) {
 		super();
 		this.semuaTampil = semuaTampil;
@@ -119,16 +147,9 @@ public class AmbilDataKelasLesSiswaBanbox extends Bandbox implements GetEventLis
 	private AmbilDataGuruBanbox wali;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataKelasLesSiswaBanbox}. Kelas ini menerjemahkan satu item
-	 * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataKelasLesSiswaBanbox} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer baris hasil pencarian kelas les: radio pilih (memilih kelas les, menutup popup,
+	 * dan memicu {@code eventListener}), nama kelas, ruang, tingkat, sekolah (label "Semua" bila
+	 * kelas les tidak terikat satu sekolah tertentu), mata pelajaran, dan nama guru pembina.
 	 *
 	 * @see AmbilDataKelasLesSiswaBanbox
 	 */
@@ -168,6 +189,15 @@ public class AmbilDataKelasLesSiswaBanbox extends Bandbox implements GetEventLis
 
 	}
 
+	/**
+	 * Menyusun konten popup bandbox (dipanggil sekali saat pertama dibuka): form pencarian
+	 * (nama, sekolah, guru/wali) — label kolom guru berubah menjadi "Wali" bila
+	 * {@code semuaTampil} atau "Guru/Wali" sebaliknya — dengan tombol cari/bersihkan, grid hasil
+	 * dengan paginasi client-side (mold "paging", 50 baris/halaman), lalu memuat data awal lewat
+	 * {@link #onSearchDefault(Event)}.
+	 *
+	 * @see ais.ui.util.GetEventListener
+	 */
 	public void display() {
 		setReadonly(true);
 		Bandpopup bandpopup = new ais.ui.util.MyBandpopup();
@@ -325,6 +355,15 @@ public class AmbilDataKelasLesSiswaBanbox extends Bandbox implements GetEventLis
 
 	}
 
+	/**
+	 * Memuat ulang grid hasil pencarian kelas les sesuai filter formulir dan flag
+	 * {@code semuaTampil}/{@code waliKelasDanGuru} constructor saat ini (lihat penjelasan
+	 * kombinasi lengkap di Javadoc kelas), memakai sesi Hibernate thread-local. Selalu
+	 * menambahkan filter {@code aktif} true/belum diisi, urutan sekolah/tingkat/nama, filter nama
+	 * (ilike) dan sekolah dari formulir, dibatasi {@code Common.MAX_RESULT_1000} baris.
+	 *
+	 * @param event event pemicu (tidak dipakai — pemanggil selalu mengirim {@code null})
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -368,10 +407,12 @@ public class AmbilDataKelasLesSiswaBanbox extends Bandbox implements GetEventLis
 
 	}
 
+	/** @param eventListener dipanggil setiap kali user memilih satu kelas les dari daftar */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** @return listener pemilihan kelas les yang sedang terpasang, boleh {@code null} */
 	public EventListener getEventListener() {
 		return eventListener;
 	}

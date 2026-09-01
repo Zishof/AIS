@@ -40,24 +40,25 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data capaian pembelajaran lulusan banbox. Kelas ini memberi nama dan
- * batas tanggung jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang
- * diimplementasikannya.
+ * Implementasi pola "Bandbox picker" AIS untuk entity
+ * {@link ais.database.model.obe.CapaianPembelajaranLulusan} — lihat
+ * {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback). Entity ini menyimpan rumusan Capaian
+ * Pembelajaran Lulusan (CPL) pada tabel {@code capaian_pembelajaran_lulusan} dalam kurikulum
+ * berbasis OBE (Outcome-Based Education) — mirip {@link ais.database.model.obe.CapaianLulusan}
+ * namun disimpan sebagai entity/tabel terpisah, dipakai di layar-layar yang secara khusus merujuk
+ * ke {@code CapaianPembelajaranLulusan}.
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code EventListener eventListener}, {@code Jurusan jurusan},
- * {@code Textbox nama}, {@code Combobox searchfakultas}, {@code Combobox searchjurusan}; pembacaan/pencarian
- * ({@code onSearchDefault()}, {@code setEventListener()}, {@code getEventListener()}); operasi domain lain
- * ({@code display()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
- * atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p>
+ * Pencarian memakai kotak teks {@code nama} (dicocokkan ILIKE ke kolom {@code kode} maupun
+ * {@code nama} sekaligus, digabung {@code OR}) serta dua combobox {@code searchfakultas} dan
+ * {@code searchjurusan} untuk menyempitkan berdasarkan fakultas/jurusan pemilik CPL. Hanya baris
+ * dengan {@code aktif = true} yang ditampilkan. Bila constructor dipanggil dengan parameter
+ * {@code jurusan} tidak null (filter dari entity induk yang meletakkan Bandbox ini di formnya),
+ * combobox fakultas/jurusan disembunyikan (diganti label statis nama jurusan) dan hasil dikunci ke
+ * jurusan tersebut. Pemilihan bersifat tunggal (baris grid dibungkus
+ * {@link org.zkoss.zul.Radiogroup}, satu {@code MyRadioConfig} per baris).
+ * </p>
  *
  * @see Bandbox
  */
@@ -74,10 +75,23 @@ public class AmbilDataCapaianPembelajaranLulusanBanbox extends Bandbox implement
 	private EventListener eventListener;
 	private Jurusan jurusan = null;
 
+	/**
+	 * Constructor tanpa filter — sama dengan memanggil
+	 * {@link #AmbilDataCapaianPembelajaranLulusanBanbox(Jurusan)} dengan {@code jurusan} {@code null}
+	 * (semua CPL aktif dapat dicari, tanpa dikunci ke jurusan tertentu).
+	 */
 	public AmbilDataCapaianPembelajaranLulusanBanbox() {
 		this(null);
 	}
 
+	/**
+	 * Constructor dengan filter dari entity induk. Mengikuti kerangka standar
+	 * {@link ais.ui.util.GetEventListener}: {@code setReadonly(true)} implisit lewat {@link #display()},
+	 * lalu memasang listener {@code onOpen} yang lazy-build popup pada pembukaan pertama.
+	 *
+	 * @param jurusan bila tidak {@code null}, hasil pencarian dikunci ke jurusan ini dan combobox
+	 *                fakultas/jurusan pada popup diganti label statis (read-only)
+	 */
 	public AmbilDataCapaianPembelajaranLulusanBanbox(Jurusan jurusan) {
 		super();
 		this.jurusan = jurusan;
@@ -104,22 +118,20 @@ public class AmbilDataCapaianPembelajaranLulusanBanbox extends Bandbox implement
 	private Combobox searchjurusan;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataCapaianPembelajaranLulusanBanbox}. Kelas ini
-	 * menerjemahkan satu item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik
-	 * kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataCapaianPembelajaranLulusanBanbox} dan
-	 * dapat mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer baris grid hasil pencarian CPL. Mengikuti pola standar {@link ais.ui.util.GetEventListener}:
+	 * tiap baris menampilkan label kode dan nama CPL plus satu radio button; memilih radio menutup
+	 * popup, menyimpan {@link CapaianPembelajaranLulusan} terpilih ke atribut
+	 * {@code "capaianPembelajaranLulusan"} pada Bandbox, mengisi teks tampilan Bandbox dengan
+	 * {@code kode-nama}, lalu meneruskan event ke {@link #eventListener} bila terpasang.
 	 *
 	 * @see AmbilDataCapaianPembelajaranLulusanBanbox
 	 */
 	class CapaianPembelajaranLulusanRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Merender satu baris grid untuk satu {@link CapaianPembelajaranLulusan}: kolom checkbox/radio
+		 * pilihan, kolom kode, dan kolom nama.
+		 */
 		@Override
 		public void render(Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");
@@ -152,6 +164,12 @@ public class AmbilDataCapaianPembelajaranLulusanBanbox extends Bandbox implement
 
 	}
 
+	/**
+	 * Membangun popup pencarian (form kriteria + tombol Cari + grid hasil dibungkus
+	 * {@link org.zkoss.zul.Radiogroup}) sekali saat pertama dibuka, lalu memanggil
+	 * {@link #onSearchDefault(Event)} agar grid langsung terisi. Mengikuti kerangka standar
+	 * {@link ais.ui.util.GetEventListener}.
+	 */
 	public void display() {
 		setReadonly(true);
 		Bandpopup bandpopup = new ais.ui.util.MyBandpopup();
@@ -301,6 +319,16 @@ public class AmbilDataCapaianPembelajaranLulusanBanbox extends Bandbox implement
 
 	}
 
+	/**
+	 * Menjalankan pencarian {@link CapaianPembelajaranLulusan} aktif berdasarkan kriteria pada popup:
+	 * kombinasi jurusan (dari constructor dan/atau combobox {@code searchjurusan}), fakultas
+	 * (combobox {@code searchfakultas}), serta kecocokan {@code kode}/{@code nama} terhadap teks
+	 * {@code nama}. Hasil dipasang ke {@link #grid} lewat {@link CapaianPembelajaranLulusanRenderer},
+	 * dibatasi {@link Common#MAX_RESULT_1000} baris.
+	 *
+	 * @param event event pemicu (boleh {@code null}, tidak dipakai isinya — hanya sinyal untuk
+	 *              menjalankan ulang pencarian)
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 		Jurusan s = (Jurusan) (searchjurusan.getSelectedItem() == null ? null
@@ -326,10 +354,18 @@ public class AmbilDataCapaianPembelajaranLulusanBanbox extends Bandbox implement
 
 	}
 
+	/**
+	 * Memasang listener yang dipanggil setelah pengguna memilih satu CPL di grid.
+	 *
+	 * @param eventListener listener baru yang akan dipasang
+	 */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/**
+	 * @return listener yang saat ini terpasang, atau {@code null} bila belum diset
+	 */
 	public EventListener getEventListener() {
 		return eventListener;
 	}

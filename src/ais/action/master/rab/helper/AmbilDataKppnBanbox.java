@@ -39,21 +39,25 @@ import ais.database.model.rab.Kppn;
 import ais.ui.util.GetEventListener;
 
 /**
- * Tipe khusus untuk ambil data kppn banbox. Kelas ini memberi nama dan batas tanggung jawab yang
- * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.rab.Kppn} — lihat
+ * {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum (constructor/display/onSearchDefault/
+ * renderer/callback).
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code EventListener
- * eventListener}, {@code Textbox kode}, {@code Textbox nama}; pembacaan/pencarian ({@code onSearchDefault()},
- * {@code setEventListener()}, {@code getEventListener()}); operasi domain lain ({@code display()}). Bagian lain
- * dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p>KPPN (Kantor Pelayanan Perbendaharaan Negara) adalah unit vertikal Ditjen Perbendaharaan yang menjadi
+ * mitra kerja satuan kerja dalam pencairan anggaran; pada modul RAB, KPPN dipilih sebagai referensi satker
+ * saat menyusun dokumen anggaran/pengadaan. Popup pencarian menyediakan dua kriteria teks yang dicocokkan
+ * dengan {@code Restrictions.ilike(..., MatchMode.ANYWHERE)}: {@code kode} dan {@code nama} KPPN (tanpa
+ * penjagaan "kosong = 1=1" — nilai kosong tetap lolos ke {@code ilike} karena pola ANYWHERE terhadap string
+ * kosong otomatis mencocokkan semua baris). Hasil dibungkus {@link org.zkoss.zul.Radiogroup} sehingga
+ * pemilihan bersifat tunggal (satu KPPN per pemilihan), dengan baris grid menampilkan kode, nama, dan
+ * keterangan lewat {@code KppnRenderer}. Paging memakai mode client-side lama ({@code grid.setMold("paging")}
+ * + {@code setPageSize(50)}) dengan hasil query dibatasi {@code Common.MAX_RESULT}, bukan
+ * {@code AmbilDataPagingHelper} server-side.</p>
+ *
+ * <p><b>Catatan penyimpangan kecil dari kerangka standar:</b> constructor kelas ini memanggil
+ * {@code display()} langsung, TANPA listener {@code onOpen} lazy-build + {@code Common#createDefaultTimer}
+ * yang dipakai kebanyakan subclass sejenis lain — popup karena itu dibangun sekali saat instance dibuat,
+ * bukan ditunda sampai Bandbox pertama kali diklik.</p>
  *
  * @see Bandbox
  */
@@ -67,6 +71,12 @@ public class AmbilDataKppnBanbox extends Bandbox implements GetEventListener {
 
 	private EventListener eventListener;
 
+	/**
+	 * Membangun Bandbox picker KPPN dan langsung memanggil {@link #display()} untuk merakit popup
+	 * pencarian (lihat catatan penyimpangan pola pada Javadoc kelas — tidak memakai lazy-build via
+	 * {@code onOpen}). Blok kode terkomentari di bawah adalah sisa percobaan pra-isi nilai default
+	 * dari KPPN pertama dan sengaja tidak aktif.
+	 */
 	public AmbilDataKppnBanbox() {
 		super();
 		// Kppn kppn = (Kppn) HibernateUtil.currentSession()
@@ -86,16 +96,9 @@ public class AmbilDataKppnBanbox extends Bandbox implements GetEventListener {
 	private Textbox nama;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataKppnBanbox}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataKppnBanbox} dan dapat mengakses state
-	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer satu baris grid hasil pencarian KPPN: menampilkan radio pilihan, kode, nama, dan
+	 * keterangan. Listener {@code onCheck} pada radio adalah satu-satunya titik callback pola ini —
+	 * lihat penjelasan umum di {@link ais.ui.util.GetEventListener}.
 	 *
 	 * @see AmbilDataKppnBanbox
 	 */
@@ -131,6 +134,13 @@ public class AmbilDataKppnBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/**
+	 * Merakit popup pencarian KPPN (form kriteria kode/nama, tombol Cari, grid hasil dalam
+	 * {@link org.zkoss.zul.Radiogroup} pilih-tunggal) lalu memanggil {@link #onSearchDefault(Event)}
+	 * agar grid terisi saat popup pertama tampil.
+	 *
+	 * @see ais.ui.util.GetEventListener
+	 */
 	public void display() {
 		setReadonly(true);
 
@@ -244,6 +254,14 @@ public class AmbilDataKppnBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/**
+	 * Menjalankan pencarian KPPN berdasar {@code kode} dan {@code nama} (keduanya
+	 * {@code ilike ANYWHERE}, maks {@code Common.MAX_RESULT} baris, urut nama menaik) lalu mengisi
+	 * ulang grid dengan {@link KppnRenderer}.
+	 *
+	 * @param event event pemicu; boleh {@code null} (dipanggil juga dari {@link #display()})
+	 * @see ais.ui.util.GetEventListener
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -267,10 +285,20 @@ public class AmbilDataKppnBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see ais.ui.util.GetEventListener
+	 */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see ais.ui.util.GetEventListener
+	 */
 	public EventListener getEventListener() {
 		return eventListener;
 	}

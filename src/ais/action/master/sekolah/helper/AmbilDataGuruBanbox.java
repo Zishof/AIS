@@ -47,23 +47,33 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data guru banbox. Kelas ini memberi nama dan batas tanggung jawab yang
- * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code EventListener eventListener}, {@code Textbox kode},
- * {@code Textbox nama}, {@code Combobox searchyayasan}, {@code Combobox searchsekolah}; pembacaan/pencarian
- * ({@code onSearchDefault()}, {@code setEventListener()}, {@code getEventListener()}); operasi domain lain
- * ({@code display()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
- * atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.sekolah.Guru}
+ * — lihat {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback).
+ * <p>
+ * Memilih satu {@link Guru} (guru/tenaga pendidik sekolah) dari daftar popup, dengan filter
+ * kode/NUPTK, nama, yayasan, dan sekolah, serta pemilihan tunggal lewat {@link Radiogroup}.
+ * Kriteria wajib di {@link #onSearchDefault(Event)}: guru harus terhubung ke sekolah
+ * ({@code sekolah} tidak null), status kepegawaian berawalan "aktif" atau belum diisi, dan flag
+ * {@code aktif} bernilai true atau belum diisi. Kolom pencarian "Kode/NUPTK" mencocokkan field
+ * {@code kode} ATAU {@code nuptk} (Nomor Unik Pendidik dan Tenaga Kependidikan) sekaligus.
+ * Filter sekolah dicek terhadap EMPAT field penugasan guru ({@code sekolah}, {@code sekolah1},
+ * {@code sekolah2}, {@code sekolah3} — satu guru bisa mengajar di lebih dari satu unit sekolah),
+ * dan filter sekolah maupun yayasan SAMA SEKALI DILEWATI bila {@code guru.milikUniversitas ==
+ * true} (guru level yayasan/universitas, bukan terikat ke satu sekolah tertentu).
+ * </p>
+ * <p>
+ * Paginasi memakai mold client-side {@code grid.setMold("paging")} + {@code setPageSize(50)}
+ * dengan hasil dibatasi {@code Common.MAX_RESULT_50} — field {@code pagingHelper}
+ * ({@link ais.ui.util.AmbilDataPagingHelper}) dideklarasikan namun TIDAK dipakai di file ini
+ * (sisa refactor yang belum tuntas, bukan bug fungsional yang perlu diperbaiki di sini).
+ * Constructor {@link #AmbilDataGuruBanbox(Boolean)} punya dua inisialisasi khusus non-standar:
+ * (1) bila user yang login BUKAN mahasiswa/siswa dan memiliki yayasan, combo yayasan otomatis
+ * dipilihkan ke yayasan user tersebut dan combo sekolah dibatasi ke sekolah-sekolah aktif di
+ * yayasan itu saja; (2) terpisah dari itu, bila user yang login sendiri tercatat sebagai
+ * {@link Guru}, komponen langsung terisi dengan data guru tersebut dan dinonaktifkan — pola
+ * sama seperti subclass Banbox lain untuk user yang "adalah" entity yang dicari.
+ * </p>
  *
  * @see Bandbox
  */
@@ -80,10 +90,17 @@ public class AmbilDataGuruBanbox extends Bandbox implements GetEventListener {
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
 	private EventListener eventListener;
 
+	/** Membuat komponen dengan inisialisasi default (lihat {@link #AmbilDataGuruBanbox(Boolean)}). */
 	public AmbilDataGuruBanbox() {
 		this(true);
 	}
 
+	/**
+	 * @param notDeafault parameter kompatibilitas kerangka umum (lihat
+	 *                     {@link ais.ui.util.GetEventListener}); di file ini nilainya tidak
+	 *                     dipakai untuk mengubah alur — pengisian otomatis untuk user yang
+	 *                     dirinya sendiri seorang {@link Guru} selalu berjalan
+	 */
 	public AmbilDataGuruBanbox(Boolean notDeafault) {
 		super();
 		setReadonly(true);
@@ -140,16 +157,13 @@ public class AmbilDataGuruBanbox extends Bandbox implements GetEventListener {
 	private Combobox searchsekolah = new Combobox();
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataGuruBanbox}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataGuruBanbox} dan dapat mengakses state
-	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer baris hasil pencarian guru: radio pilih (memilih guru, menutup popup, dan memicu
+	 * {@code eventListener}), foto kecil, kode+NUPTK (ditumpuk dalam {@link Vbox}), nama, status
+	 * kepegawaian, dan kolom "kepemilikan". Kolom kepemilikan dihitung: nama yayasan, ditimpa
+	 * nama sekolah utama bila terisi, lalu ditambah nama sekolah kedua/ketiga/keempat
+	 * ({@code sekolah1}/{@code sekolah2}/{@code sekolah3}) bila diisi — kecuali bila
+	 * {@code guru.getMilikUniversitas() == true}, yang menampilkan teks tetap "Milik Yayasan"
+	 * (guru level yayasan, bukan milik satu sekolah).
 	 *
 	 * @see AmbilDataGuruBanbox
 	 */
@@ -211,6 +225,14 @@ public class AmbilDataGuruBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/**
+	 * Menyusun konten popup bandbox (dipanggil sekali saat pertama dibuka): form pencarian
+	 * (kode/NUPTK, nama, yayasan, sekolah) dengan tombol cari/bersihkan, grid hasil dengan
+	 * paginasi client-side (mold "paging", 50 baris/halaman), lalu memuat data awal lewat
+	 * {@link #onSearchDefault(Event)}.
+	 *
+	 * @see ais.ui.util.GetEventListener
+	 */
 	public void display() {
 
 		Common.initYayasanDanSekolahDanSemua(null, null, searchyayasan, searchsekolah);
@@ -374,6 +396,17 @@ public class AmbilDataGuruBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/**
+	 * Memuat ulang grid hasil pencarian guru sesuai filter formulir saat ini, memakai sesi
+	 * Hibernate thread-local. Kriteria wajib: {@code sekolah} tidak null, status kepegawaian
+	 * berawalan "aktif" atau belum diisi, flag {@code aktif} true/belum diisi. Kode/NUPTK
+	 * dicocokkan terhadap field {@code kode} ATAU {@code nuptk}. Filter sekolah memeriksa empat
+	 * field penugasan ({@code sekolah}/{@code sekolah1}/{@code sekolah2}/{@code sekolah3}), dan
+	 * filter sekolah maupun yayasan dilewati sepenuhnya bila {@code milikUniversitas == true}.
+	 * Hasil dibatasi {@code Common.MAX_RESULT_50} baris.
+	 *
+	 * @param event event pemicu (tidak dipakai — pemanggil selalu mengirim {@code null})
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -424,10 +457,12 @@ public class AmbilDataGuruBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/** @param eventListener dipanggil setiap kali user memilih satu guru dari daftar */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** @return listener pemilihan guru yang sedang terpasang, boleh {@code null} */
 	public EventListener getEventListener() {
 		return eventListener;
 	}

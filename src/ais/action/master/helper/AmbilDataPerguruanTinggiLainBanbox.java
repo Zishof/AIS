@@ -40,23 +40,24 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data perguruan tinggi lain banbox. Kelas ini memberi nama dan batas
- * tanggung jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang
- * diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code EventListener eventListener}, {@code Textbox kode},
- * {@code Textbox nama}; pembacaan/pencarian ({@code onSearchDefault()}, {@code setEventListener()}, {@code
- * getEventListener()}); operasi domain lain ({@code display()}). Bagian lain dari kontrak tetap mengikuti kelas
- * induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.PerguruanTinggiLain} —
+ * lihat {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback).
+ * <p>
+ * Perguruan tinggi lain merepresentasikan institusi pendidikan tinggi DI LUAR institusi pengguna
+ * sendiri (mis. asal kampus mahasiswa pindahan/transfer, riwayat pendidikan sebelumnya) — berbeda
+ * dari entity perguruan tinggi milik sendiri. Popup pencarian menyediakan kriteria kode
+ * ({@code Textbox kode}, cocok ke {@code kodePerguruanTinggi}) dan nama ({@code Textbox nama}),
+ * keduanya dicocokkan {@code ilike} tanpa penjagaan kosong eksplisit (nilai kosong menghasilkan
+ * pola {@code "%%"} yang tetap cocok ke semua baris, efeknya sama dengan idiom
+ * {@code isEmpty() ? sqlRestriction("1=1") : ilike(...)} yang dipakai file lain, hanya ditulis
+ * lebih ringkas). Hasil selalu dibatasi ke data aktif ({@code aktif} true atau null), diurutkan
+ * nama menaik, dan dibatasi {@link ais.common.Common#MAX_RESULT_50} baris (bukan
+ * {@code MAX_RESULT}). Pemilihan bersifat tunggal lewat {@link org.zkoss.zul.Radiogroup}. Selain
+ * constructor tanpa parameter, tersedia constructor {@code AmbilDataPerguruanTinggiLainBanbox(Boolean
+ * notDeafault)} — parameter ini TIDAK dipakai di badan constructor manapun (murni penanda overload,
+ * bukan filter fungsional); constructor tanpa parameter meneruskannya dengan nilai {@code true}.
+ * </p>
  *
  * @see Bandbox
  */
@@ -69,14 +70,27 @@ public class AmbilDataPerguruanTinggiLainBanbox extends Bandbox implements GetEv
 	private MyGrid grid;
 
 
-	/* Paging server-side per 5 baris (pola AmbilDataPagingHelper). */
+	/* Catatan: field ini dideklarasikan tapi tidak dipakai secara aktif di file ini — grid hasil
+	 * pencarian di display() memakai mold "paging" client-side, bukan AmbilDataPagingHelper. */
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
 	private EventListener eventListener;
 
+	/**
+	 * Constructor default, meneruskan ke {@link #AmbilDataPerguruanTinggiLainBanbox(Boolean)}
+	 * dengan nilai {@code true} (parameter tersebut tidak dipakai di badan constructor).
+	 */
 	public AmbilDataPerguruanTinggiLainBanbox() {
 		this(true);
 	}
 
+	/**
+	 * Constructor standar pola Bandbox picker: kunci input jadi read-only dan pasang listener
+	 * {@code onOpen} yang membangun popup pencarian secara lazy pada pembukaan pertama, lalu
+	 * membuka popup lewat {@link Common#createDefaultTimer}. Lihat
+	 * {@link ais.ui.util.GetEventListener} untuk penjelasan lengkap kerangka ini.
+	 *
+	 * @param notDeafault tidak dipakai di badan constructor ini; hanya penanda overload
+	 */
 	public AmbilDataPerguruanTinggiLainBanbox(Boolean notDeafault) {
 		super();
 		setReadonly(true);
@@ -104,16 +118,12 @@ public class AmbilDataPerguruanTinggiLainBanbox extends Bandbox implements GetEv
 	private Textbox nama;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataPerguruanTinggiLainBanbox}. Kelas ini menerjemahkan satu
-	 * item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataPerguruanTinggiLainBanbox} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer baris grid hasil pencarian: menampilkan radio button pilihan diikuti kolom kode dan
+	 * nama perguruan tinggi. Saat radio dicentang ({@code onCheck}), popup ditutup, entity
+	 * {@link PerguruanTinggiLain} terpilih disimpan sebagai attribute {@code "perguruanTinggiLain"}
+	 * (dan {@code "myValue"}) pada Bandbox, teks Bandbox diisi namanya, lalu {@link #eventListener}
+	 * (bila terpasang) diberi tahu — lihat pola callback selengkapnya di
+	 * {@link ais.ui.util.GetEventListener}.
 	 *
 	 * @see AmbilDataPerguruanTinggiLainBanbox
 	 */
@@ -150,6 +160,11 @@ public class AmbilDataPerguruanTinggiLainBanbox extends Bandbox implements GetEv
 
 	}
 
+	/**
+	 * Membangun popup pencarian (form kriteria kode/nama + tombol Cari + grid hasil berbungkus
+	 * {@link org.zkoss.zul.Radiogroup}) sekali saat popup pertama kali dibuka, lalu memanggil
+	 * {@link #onSearchDefault(Event)} agar grid langsung terisi.
+	 */
 	public void display() {
 
 		setReadonly(true);
@@ -260,6 +275,16 @@ public class AmbilDataPerguruanTinggiLainBanbox extends Bandbox implements GetEv
 
 	}
 
+	/**
+	 * Menjalankan pencarian {@link PerguruanTinggiLain} berdasarkan kode dan nama (keduanya
+	 * {@code ilike} sebagian terhadap teks pada form, kosong berarti cocok ke semua), selalu
+	 * dibatasi ke data aktif ({@code aktif} true atau null) dan diurutkan nama menaik. Hasil
+	 * dipasang ke {@link #grid} lewat {@link PerguruanTinggiLainRenderer} dan dibatasi
+	 * {@link Common#MAX_RESULT_50} baris.
+	 *
+	 * @param event event pemicu (boleh {@code null}, dipakai juga sebagai pengisi awal grid saat
+	 *              popup pertama dibuka)
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -281,10 +306,21 @@ public class AmbilDataPerguruanTinggiLainBanbox extends Bandbox implements GetEv
 
 	}
 
+	/**
+	 * Menetapkan listener yang dipanggil setelah pengguna memilih satu baris perguruan tinggi
+	 * lain.
+	 *
+	 * @param eventListener listener baru yang akan dipasang
+	 */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/**
+	 * Mengambil listener yang sedang terpasang.
+	 *
+	 * @return listener aktif saat ini, atau {@code null} bila belum diset
+	 */
 	public EventListener getEventListener() {
 		return eventListener;
 	}

@@ -46,31 +46,37 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data uang muka banbox. Kelas ini memberi nama dan batas tanggung jawab
- * yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code SatuanKerjaTreeModel satuanKerjaTreeModel}, {@code
- * EventListener eventListener}, {@code boolean hanyPr}, {@code Textbox nama}, {@code AmbilDataSatuanKerjaBanbox
- * satuanKerja}; inisialisasi/lifecycle ({@code initCriteria()}); pembacaan/pencarian ({@code onSearchDefault()},
- * {@code setEventListener()}, {@code getEventListener()}); mutasi data ({@code setSatuanKerja()}); operasi
- * domain lain ({@code display()}); konfigurasi constructor: {@code satuanKerjaTreeModel}. Bagian lain dari
- * kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity
+ * {@link ais.database.model.akunting.UangMuka} — lihat {@link ais.ui.util.GetEventListener} untuk
+ * arsitektur kerangka umum (constructor/display/onSearchDefault/renderer/callback). {@code
+ * UangMuka} adalah master data pengajuan uang muka akunting: dana tunai yang diberikan lebih
+ * dahulu kepada satuan kerja/pegawai, disetujui lewat alur SOP, lalu wajib dipertanggungjawabkan
+ * (kecuali sedang dipakai sebagai sumber dana pengadaan, lihat mode {@code hanyPr}).
+ * <p>
+ * Popup menampilkan satu grid pilih-tunggal (via {@link Radiogroup}) dengan filter teks bebas
+ * "Kode/Nama" (cocok kolom {@code kode} atau {@code keterangan}, ILIKE ANYWHERE) dan satuan kerja
+ * lewat sub-picker {@link AmbilDataSatuanKerjaBanbox}. Hasil selalu dibatasi ke uang muka yang
+ * aktif, berstatus {@link UangMuka#DISETUJU} dengan {@code disetujuiOleh} terisi, sudah
+ * direalisasikan/ditransfer (join {@code daftarPengajuanTransfer} — transfer biasa lewat
+ * {@code prosesTransfer.realisasikanOleh}, atau transitori lewat {@code transitoriData.transfer}),
+ * dan berada dalam cakupan satuan kerja terpilih beserta turunannya (atau satuan kerja user login
+ * bila kosong).
+ * <p>
+ * <b>Mode {@code hanyPr}</b> (diaktifkan lewat constructor {@link #AmbilDataUangMukaBanbox(boolean)}):
+ * bila {@code true}, hanya menampilkan uang muka yang sudah tertaut ke pengadaan
+ * ({@code permintaanPengadaanMasterAssets} tidak kosong) dan BELUM diterima
+ * ({@code penerimaanPengadaanMasterAsset} masih null), serta MENGABAIKAN syarat "belum ada
+ * pertangungjawaban" (uang muka yang sudah dipertanggungjawabkan tetap boleh dipakai lagi untuk
+ * pengadaan). Bila {@code false} (default), justru sebaliknya: uang muka harus BELUM punya
+ * {@code pertangungjawaban}. Pencarian dijalankan lewat paginasi server-side
+ * {@link AmbilDataPagingHelper}.
  *
  * @see Bandbox
  */
 public class AmbilDataUangMukaBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 * Serial version UID standar untuk kompatibilitas serialisasi komponen ZK.
 	 */
 	private static final long serialVersionUID = 6452461056684904810L;
 	private MyGrid grid;
@@ -80,10 +86,19 @@ public class AmbilDataUangMukaBanbox extends Bandbox implements GetEventListener
 	private EventListener eventListener;
 	private boolean hanyPr = false;
 
+	/** Constructor default: mode {@link #hanyPr} dinonaktifkan (syarat "belum dipertanggungjawabkan" berlaku). */
 	public AmbilDataUangMukaBanbox() {
 		this(false);
 	}
 
+	/**
+	 * Membangun komponen: memasang mode read-only standar dan listener {@code onOpen} yang
+	 * membangun popup ({@link #display()}) hanya pada pembukaan pertama, mengikuti kerangka umum
+	 * di {@link ais.ui.util.GetEventListener}.
+	 *
+	 * @param hanyPr {@code true} untuk membatasi hasil ke uang muka yang tertaut pengadaan dan
+	 *               belum diterima (lihat penjelasan mode {@code hanyPr} di Javadoc kelas)
+	 */
 	public AmbilDataUangMukaBanbox(boolean hanyPr) {
 		super();
 		this.hanyPr = hanyPr;
@@ -114,16 +129,11 @@ public class AmbilDataUangMukaBanbox extends Bandbox implements GetEventListener
 	private AmbilDataSatuanKerjaBanbox satuanKerja;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataUangMukaBanbox}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataUangMukaBanbox} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Merender satu baris grid uang muka: radio pilih, kode+nama (digabung {@link Vbox}), saldo,
+	 * nilai, sisa (saldo dikurangi nilai, kosong bila saldo &le; 0), dan keterangan. Memilih baris
+	 * menutup popup, menyimpan entity {@link UangMuka} terpilih ke attribute {@code "uangMuka"}
+	 * pada Bandbox, mengisi teks tampilan dengan kodenya, lalu memicu {@link #eventListener} bila
+	 * terpasang — mengikuti kerangka callback standar di {@link ais.ui.util.GetEventListener}.
 	 *
 	 * @see AmbilDataUangMukaBanbox
 	 */
@@ -165,6 +175,11 @@ public class AmbilDataUangMukaBanbox extends Bandbox implements GetEventListener
 
 	}
 
+	/**
+	 * Membangun popup pencarian (dipanggil sekali saat pertama dibuka): form "Kode/Nama" +
+	 * sub-picker satuan kerja, grid hasil berpaginasi server-side ({@link AmbilDataPagingHelper}),
+	 * lalu memuat data awal lewat {@link #onSearchDefault(Event)}.
+	 */
 	public void display() throws Exception {
 		setReadonly(true);
 		Bandpopup bandpopup = new ais.ui.util.MyBandpopup();
@@ -300,6 +315,18 @@ public class AmbilDataUangMukaBanbox extends Bandbox implements GetEventListener
 
 	}
 
+	/**
+	 * Menyusun kriteria pencarian {@link UangMuka}: filter mode {@link #hanyPr} (tertaut
+	 * pengadaan dan belum diterima, mengabaikan syarat pertanggungjawaban), aktif, cocok teks
+	 * "Kode/Nama", sudah direalisasikan (transfer biasa atau transitori), disetujui dengan
+	 * {@code disetujuiOleh} terisi, dan (bila bukan mode {@code hanyPr}) belum punya
+	 * {@code pertangungjawaban}; dibatasi ke satuan kerja terpilih beserta turunannya (atau
+	 * satuan kerja user login bila kosong).
+	 *
+	 * @param session sesi Hibernate untuk membangun kriteria
+	 * @param isOrder tambahkan pengurutan menaik berdasarkan kode bila {@code true}
+	 * @return kriteria pencarian siap dieksekusi
+	 */
 	public Criteria initCriteria(Session session, boolean isOrder) {
 		SatuanKerja parent = (SatuanKerja) satuanKerja.getAttribute("satuanKerja");
 		Set<SatuanKerja> satuanKerjas = ais.action.master.sekolah.util.SekolahUtil.ambilSatuanKerjas();
@@ -361,6 +388,13 @@ public class AmbilDataUangMukaBanbox extends Bandbox implements GetEventListener
 		return criteria;
 	}
 
+	/**
+	 * Mengeksekusi ulang {@link #initCriteria(Session, boolean)} lewat {@link #pagingHelper}
+	 * (paginasi server-side) dan mengisi ulang grid dengan hasilnya beserta
+	 * {@link UangMukaRenderer}.
+	 *
+	 * @param event tidak dipakai, hanya mengikuti signature standar listener pencarian
+	 */
 	public void onSearchDefault(Event event) {
 		List<UangMuka> uangMuka = pagingHelper.cari(new AmbilDataPagingHelper.CriteriaFactory() {
 			@Override
@@ -375,6 +409,15 @@ public class AmbilDataUangMukaBanbox extends Bandbox implements GetEventListener
 
 	}
 
+	/**
+	 * Mengunci filter satuan kerja dari luar (mis. diisi otomatis dari konteks entity induk):
+	 * mengisi teks dan attribute satuan kerja pada sub-picker, menonaktifkannya bila
+	 * {@code satuanKerja} tidak null, lalu memuat ulang hasil pencarian. Tidak melakukan apa pun
+	 * bila popup belum pernah dibuka (sub-picker satuan kerja belum terpasang).
+	 *
+	 * @param satuanKerja satuan kerja yang dipaksakan sebagai filter, atau {@code null} untuk
+	 *                    mengaktifkan kembali pemilihan bebas
+	 */
 	public void setSatuanKerja(SatuanKerja satuanKerja) {
 
 		try {
@@ -393,10 +436,12 @@ public class AmbilDataUangMukaBanbox extends Bandbox implements GetEventListener
 		}
 	}
 
+	/** @param eventListener dipanggil setiap kali user memilih satu uang muka */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** @return listener pemilihan uang muka yang sedang terpasang, boleh {@code null} */
 	public EventListener getEventListener() {
 		return eventListener;
 	}

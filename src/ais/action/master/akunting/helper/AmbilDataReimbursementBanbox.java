@@ -31,12 +31,22 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Banbox pemilih Reimbursement Pegawai untuk BAST (PenerimaanPengadaanMasterAsset)
- * — klon pola {@link AmbilDataUangMukaBanbox}: hanya menampilkan reimbursement yang
+ * Implementasi pola "Bandbox picker" AIS untuk entity
+ * {@link ais.database.model.akunting.ReimbursementPegawai} — lihat
+ * {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback). {@code ReimbursementPegawai} adalah
+ * pengajuan penggantian biaya (reimbursement) yang telah dikeluarkan lebih dahulu oleh pegawai,
+ * disetujui lewat alur SOP.
+ * <p>
+ * Banbox ini dipakai khusus untuk BAST ({@link ais.database.model.PenerimaanPengadaanMasterAsset})
+ * — klon pola {@link AmbilDataUangMukaBanbox} dengan filter disaring manual di Java (bukan lewat
+ * kriteria Hibernate) di {@link #onSearchDefault(Event)}: hanya menampilkan reimbursement yang
  * sudah DISETUJUI (via alur SOP), masih aktif, dan BELUM pernah diterima
- * (penerimaanPengadaanMasterAsset masih null) sehingga satu reimbursement hanya
- * dapat di-BAST-kan sekali. Objek terpilih disimpan pada attribute
- * "reimbursementPegawai".
+ * (penerimaanPengadaanMasterAsset masih null) sehingga satu reimbursement hanya dapat di-BAST-kan
+ * sekali. Field pencarian "Kode" (cocok awal string) dan "Judul" (cocok substring pada
+ * {@code nama}, atau {@code deskripsi} bila {@code nama} kosong); mode pilih-tunggal via
+ * {@link Radiogroup}/{@link Radio}. Objek terpilih disimpan pada attribute
+ * {@code "reimbursementPegawai"}.
  */
 public class AmbilDataReimbursementBanbox extends Bandbox implements GetEventListener {
 
@@ -47,6 +57,11 @@ public class AmbilDataReimbursementBanbox extends Bandbox implements GetEventLis
 	private Textbox namaCari;
 	private EventListener eventListener;
 
+	/**
+	 * Membangun komponen: memasang mode read-only standar dan listener {@code onOpen} yang
+	 * membangun popup ({@link #display()}) hanya pada pembukaan pertama, mengikuti kerangka umum
+	 * di {@link ais.ui.util.GetEventListener}.
+	 */
 	public AmbilDataReimbursementBanbox() {
 		super();
 		setReadonly(true);
@@ -66,6 +81,11 @@ public class AmbilDataReimbursementBanbox extends Bandbox implements GetEventLis
 		});
 	}
 
+	/**
+	 * Membangun popup pencarian (dipanggil sekali saat pertama dibuka): form filter Kode/Judul,
+	 * grid hasil bermold "paging" (10 baris/halaman), lalu memuat data awal lewat
+	 * {@link #onSearchDefault(Event)}.
+	 */
 	private void display() throws Exception {
 		Bandpopup bandpopup = new ais.ui.util.MyBandpopup();
 		bandpopup.setParent(this);
@@ -141,6 +161,15 @@ public class AmbilDataReimbursementBanbox extends Bandbox implements GetEventLis
 		onSearchDefault(null);
 	}
 
+	/**
+	 * Mengambil hingga 500 {@link ReimbursementPegawai} terbaru dari database lalu menyaringnya
+	 * secara manual di Java (bukan lewat kriteria Hibernate): status harus
+	 * {@link ReimbursementPegawai#DISETUJUI}, {@code aktif} true, belum punya
+	 * {@code penerimaanPengadaanMasterAsset}, dan cocok filter teks "Kode"/"Judul" bila diisi.
+	 * Mengisi ulang grid dengan hasilnya beserta {@link ReimbursementRenderer}.
+	 *
+	 * @param event tidak dipakai, hanya mengikuti signature standar listener pencarian
+	 */
 	public void onSearchDefault(Event event) {
 		try {
 			List semua = HibernateUtil.currentSession().createCriteria(ReimbursementPegawai.class)
@@ -188,17 +217,12 @@ public class AmbilDataReimbursementBanbox extends Bandbox implements GetEventLis
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataReimbursementBanbox}. Kelas ini menerjemahkan satu item
-	 * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataReimbursementBanbox} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini
-	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Merender satu baris grid reimbursement: radio pilih, kode, judul (nama atau deskripsi),
+	 * nama pegawai pengaju, nominal, dan tanggal pengeluaran. Memilih baris menutup popup,
+	 * menyimpan entity {@link ReimbursementPegawai} terpilih ke attribute
+	 * {@code "reimbursementPegawai"} pada Bandbox, mengisi teks tampilan dengan kodenya, lalu
+	 * memicu {@link #eventListener} bila terpasang — mengikuti kerangka callback standar di
+	 * {@link ais.ui.util.GetEventListener}.
 	 *
 	 * @see AmbilDataReimbursementBanbox
 	 */
@@ -231,11 +255,13 @@ public class AmbilDataReimbursementBanbox extends Bandbox implements GetEventLis
 		}
 	}
 
+	/** @param eventListener dipanggil setiap kali user memilih satu reimbursement */
 	@Override
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** @return listener pemilihan reimbursement yang sedang terpasang, boleh {@code null} */
 	@Override
 	public EventListener getEventListener() {
 		return eventListener;
