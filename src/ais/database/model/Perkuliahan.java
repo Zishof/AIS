@@ -5179,15 +5179,43 @@ public class Perkuliahan extends VOPembelajaran {
 		}
 	}
 
+	/**
+	 * Menetapkan status penilaian ringkas kelas.
+	 *
+	 * @param status_penilaian salah satu dari {@link #BELUM_ADA_MAHASISWA},
+	 *                         {@link #BELUM_DINILAI}, {@link #SEBAGIAN_BESAR_BELUM_DINILAI},
+	 *                         {@link #SEBAGIAN_BESAR_SUDAH_DINILAI}, atau {@link #SUDAH_DINILAI}.
+	 */
 	public void setStatus_penilaian(Integer status_penilaian) {
 		this.status_penilaian = status_penilaian;
 	}
 
+	/**
+	 * Status penilaian ringkas kelas, disimpan sebagai kode agar daftar kelas dapat diberi penanda
+	 * warna tanpa menghitung ulang nilai tiap peserta.
+	 *
+	 * <p>Nilai {@code null} dinormalkan menjadi {@link #BELUM_ADA_MAHASISWA}. Angka rincinya
+	 * dihitung dari {@link #ambilStatusKrs()}/{@link #ambilStatusPenilaian()} oleh jalur yang
+	 * memperbarui kolom ini.</p>
+	 *
+	 * @return kode status penilaian; tidak pernah {@code null}.
+	 */
 	@Column(name = "status_penilaian", nullable = true)
 	public Integer getStatus_penilaian() {
 		return status_penilaian == null ? BELUM_ADA_MAHASISWA : status_penilaian;
 	}
 
+	/**
+	 * Membaca isi mentah berkas flag store komponen nilai
+	 * ({@code perkuliahan_punya_format_nilai_<id>}).
+	 *
+	 * <p>Berkas ini memetakan id {@link FormatNilai} ke lokasi berkas rinciannya. Berbeda dengan
+	 * flag store peserta, lokasi berkas TIDAK dialihkan ke kelas induk di sini - pengalihan untuk
+	 * kelas paralel terjadi satu tingkat di atas, pada
+	 * {@link #ambilFormatNilai(Session, boolean, boolean)}.</p>
+	 *
+	 * @return isi JSON flag store komponen nilai; tidak pernah {@code null} maupun kosong.
+	 */
 	public String ambilLokasiFormatNilai() {
 		File file = Common.getFileLocation(this, "perkuliahan_punya_format_nilai_" + getId().toString());
 		try {
@@ -5199,6 +5227,12 @@ public class Perkuliahan extends VOPembelajaran {
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Menimpa isi berkas flag store komponen nilai. Kegagalan dicatat dan dicetak ke jejak
+	 * kesalahan.
+	 *
+	 * @param data teks JSON lengkap yang akan disimpan.
+	 */
 	public void tulisLokasiFormatNilai(String data) {
 		File file = Common.getFileLocation(this, "perkuliahan_punya_format_nilai_" + getId().toString());
 		try {
@@ -5208,6 +5242,11 @@ public class Perkuliahan extends VOPembelajaran {
 		}
 	}
 
+	/**
+	 * Mengeluarkan satu komponen nilai dari flag store dengan mengosongkan nilainya.
+	 *
+	 * @param id id {@link FormatNilai} yang dikeluarkan.
+	 */
 	public void removeFormatNilai(Serializable id) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiFormatNilai());
@@ -5218,6 +5257,16 @@ public class Perkuliahan extends VOPembelajaran {
 		}
 	}
 
+	/**
+	 * Menambahkan atau memperbarui satu komponen nilai pada flag store kelas ini.
+	 *
+	 * <p>Nilai yang disimpan adalah lokasi berkas rincian hasil {@code write()} pada objek
+	 * {@link FormatNilai}. Kegagalan hanya dicatat.</p>
+	 *
+	 * @param formatNilai komponen nilai; diabaikan bila {@code null}.
+	 * @param tulisUlang  parameter warisan yang saat ini TIDAK dipakai di dalam badan method -
+	 *                    rincian selalu ditulis ulang. Dipertahankan demi kompatibilitas pemanggil.
+	 */
 	public void populateFormatNilai(FormatNilai formatNilai, boolean tulisUlang) {
 		try {
 			if (formatNilai == null) {
@@ -5230,16 +5279,69 @@ public class Perkuliahan extends VOPembelajaran {
 		}
 	}
 
+	/**
+	 * Komponen-komponen nilai kelas ini tanpa memaksa penyegaran.
+	 *
+	 * @param session session Hibernate; boleh {@code null} bila tidak ingin membangun ulang dari
+	 *                pembobotan.
+	 * @return daftar {@link FormatNilai} aktif, terurut.
+	 * @see #ambilFormatNilai(Session, boolean, boolean)
+	 */
 	public List<FormatNilai> ambilFormatNilai(Session session) {
 		return ambilFormatNilai(session, false);
 	}
 
+	/**
+	 * Komponen-komponen nilai kelas ini dengan kendali penyegaran, dan tetap mengizinkan satu kali
+	 * percobaan ulang bila bobotnya belum genap.
+	 *
+	 * @param session session Hibernate; boleh {@code null}.
+	 * @param refresh {@code true} untuk membangun ulang dari skema pembobotan.
+	 * @return daftar {@link FormatNilai} aktif, terurut.
+	 */
 	public List<FormatNilai> ambilFormatNilai(Session session, boolean refresh) {
 		return ambilFormatNilai(session, refresh, true);
 	}
 
 	public List<FormatNilai> formatNilaisa = null;
 
+	/**
+	 * Implementasi utama pembacaan komponen nilai (bobot UTS, UAS, tugas, kehadiran, dsb) kelas
+	 * ini.
+	 *
+	 * <p>Tahapannya:</p>
+	 * <ol>
+	 * <li><b>Delegasi paralel</b> - kelas paralel memakai komponen nilai kelas induk.</li>
+	 * <li><b>Pembangunan dari pembobotan</b> - bila session tersedia dan flag
+	 * {@code format_nilai_baru} belum ada (atau {@code refresh} diminta), komponen dibangun ulang
+	 * lewat {@code PembombotanNilai.setDefaultPembobotan(this, session, true)} dan hasilnya
+	 * langsung dikembalikan.</li>
+	 * <li><b>Pembacaan flag store</b> - hanya komponen dengan bobot di atas {@code 0.01} dan status
+	 * pertemuannya aktif yang diikutkan; entri yang belum ada di cache dipulihkan dengan membaca
+	 * berkas rinciannya langsung.</li>
+	 * <li><b>Penyembuhan bobot</b> - bila total bobot yang terkumpul kurang dari {@code 99.0} dan
+	 * {@code coba} masih {@code true}, method memanggil dirinya sendiri SEKALI dengan
+	 * {@code refresh=true, coba=false}. Batas {@code coba} inilah yang mencegah rekursi tak
+	 * berujung ketika pembobotan memang tidak pernah mencapai 100%.</li>
+	 * <li><b>Pengurutan dan penomoran</b> - komponen tanpa nomor urut diberi nomor dan
+	 * DISIMPAN ke basis data lewat {@code Common.refreshUpdate(...)}.</li>
+	 * </ol>
+	 *
+	 * <p><b>Keamanan thread:</b> seluruh pemrosesan sengaja dilakukan pada variabel LOKAL dan baru
+	 * di akhir di-assign ke field {@code formatNilaisa}. Sebelumnya pengurutan dilakukan langsung
+	 * atas field bersama, sehingga dua thread dapat mengurutkan daftar yang sama secara bersamaan.
+	 * Jangan mengembalikan pola lama itu.</p>
+	 *
+	 * <p><b>Efek samping:</b> dapat membangun ulang flag store komponen nilai, membaca berkas,
+	 * menulis nomor urut ke basis data, dan menimpa field {@code formatNilaisa}.</p>
+	 *
+	 * @param session session Hibernate; boleh {@code null} untuk melewati pembangunan ulang.
+	 * @param refresh {@code true} untuk memaksa pembangunan ulang dari skema pembobotan.
+	 * @param coba    {@code true} bila masih boleh mencoba sekali lagi ketika total bobot belum
+	 *                mendekati 100%; setel {@code false} untuk melarang percobaan ulang.
+	 * @return daftar komponen nilai aktif, terurut.
+	 * @see PembombotanNilai
+	 */
 	@SuppressWarnings("unchecked")
 	public List<FormatNilai> ambilFormatNilai(Session session, boolean refresh, boolean coba) {
 
@@ -5329,6 +5431,15 @@ public class Perkuliahan extends VOPembelajaran {
 		return localFormatNilai;
 	}
 
+	/**
+	 * Membaca isi mentah berkas flag store daftar kelas paralel ({@code paralel_<id>}).
+	 *
+	 * <p>Berkas ini memetakan id kelas paralel ke lokasi berkas rinciannya, dan selalu memakai id
+	 * kelas INI (bukan induk) - tiap kelas menyimpan pandangannya sendiri tentang siapa saja
+	 * saudara paralelnya.</p>
+	 *
+	 * @return isi JSON flag store paralel; tidak pernah {@code null} maupun kosong.
+	 */
 	public String ambilLokasiParalel() {
 		File file = Common.getFileLocation(this, "paralel_" + getId().toString());
 		try {
@@ -5340,6 +5451,11 @@ public class Perkuliahan extends VOPembelajaran {
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Menimpa isi berkas flag store daftar kelas paralel. Kegagalan hanya dicatat.
+	 *
+	 * @param data teks JSON lengkap yang akan disimpan.
+	 */
 	public void tulisLokasiParalel(String data) {
 		File file = Common.getFileLocation(this, "paralel_" + getId().toString());
 		try {
@@ -5350,6 +5466,11 @@ public class Perkuliahan extends VOPembelajaran {
 		}
 	}
 
+	/**
+	 * Mengeluarkan satu kelas dari daftar paralel dengan mengosongkan nilainya.
+	 *
+	 * @param id id {@link Perkuliahan} yang dikeluarkan.
+	 */
 	public void removeParalel(Serializable id) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiParalel());
@@ -5360,6 +5481,14 @@ public class Perkuliahan extends VOPembelajaran {
 		}
 	}
 
+	/**
+	 * Menambahkan satu kelas ke daftar paralel kelas ini.
+	 *
+	 * <p>Nilai yang disimpan adalah lokasi berkas rincian hasil {@code write()} pada kelas
+	 * tersebut. Kegagalan hanya dicatat.</p>
+	 *
+	 * @param perkuliahan kelas saudara paralel; diabaikan bila {@code null}.
+	 */
 	public void populateParalel(Perkuliahan perkuliahan) {
 		try {
 			if (perkuliahan == null) {
@@ -5373,6 +5502,24 @@ public class Perkuliahan extends VOPembelajaran {
 		}
 	}
 
+	/**
+	 * Membangun ulang daftar kelas paralel dari basis data.
+	 *
+	 * <p>Pencariannya bergantung pada posisi kelas ini dalam kelompok paralel:</p>
+	 * <ul>
+	 * <li><b>Bila kelas ini paralel</b> (punya induk), yang dicari adalah kelas aktif LAIN yang
+	 * berinduk sama, lalu kelas INDUK itu sendiri ditambahkan ke daftar - sehingga tiap anggota
+	 * kelompok melihat seluruh saudaranya termasuk induk.</li>
+	 * <li><b>Bila kelas ini induk</b>, yang dicari adalah kelas aktif yang berinduk kepadanya.</li>
+	 * </ul>
+	 *
+	 * <p>Kelas nonaktif tidak diikutkan ({@code aktif} bernilai {@code true} atau belum diisi).
+	 * Berkas flag store dikosongkan lebih dulu sebelum diisi ulang.</p>
+	 *
+	 * <p>Salah satu langkah {@link #singkronkan(Session)}.</p>
+	 *
+	 * @param session session Hibernate aktif; tidak ditutup oleh method ini.
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitParalel(Session session) {
 		List<Perkuliahan> jadwalParalels;
@@ -5394,6 +5541,18 @@ public class Perkuliahan extends VOPembelajaran {
 		jadwalParalels = null;
 	}
 
+	/**
+	 * Daftar kelas paralel dalam bentuk objek {@link Perkuliahan}.
+	 *
+	 * <p>Objeknya diambil dari cache konstanta global ({@code ConstantValues.ambil(...)}), jadi
+	 * kelas yang belum termuat di cache akan terlewat. Dipakai luas oleh jalur KRS
+	 * ({@code KrsHelper}, {@code KrsKurikulumHelper}, {@code KrsNonPaketHelper},
+	 * {@code IkutPerkuliahanHelper}) dan dasbor rekap tugas/ujian yang harus menggabungkan seluruh
+	 * kelas satu kelompok paralel.</p>
+	 *
+	 * @return daftar kelas paralel; kosong bila kelas ini tidak berkelompok.
+	 * @see #ambilParalel(Dosen)
+	 */
 	public List<Perkuliahan> ambilParalelPerkuliahan() {
 		List<Perkuliahan> perkuliahans = new ArrayList<Perkuliahan>();
 		for (Long idperkuliahan : ambilParalel(null)) {
@@ -5405,10 +5564,36 @@ public class Perkuliahan extends VOPembelajaran {
 		return perkuliahans;
 	}
 
+	/**
+	 * Id kelas-kelas paralel kelas ini, tanpa penyaringan dosen.
+	 *
+	 * @return daftar id kelas paralel.
+	 * @see #ambilParalel(Dosen)
+	 */
 	public List<Long> ambilParalel() {
 		return ambilParalel(null);
 	}
 
+	/**
+	 * Id kelas-kelas paralel kelas ini, dibaca dari flag store.
+	 *
+	 * <p>Bila flag {@code paralel} belum terbangun, daftar dibangun ulang lebih dulu lewat
+	 * {@link #reInitParalel(Session)} pada session yang dibuka dan ditutup sendiri; penutupan
+	 * session dibungkus {@code try/catch} berlapis agar kegagalan {@code disconnect}/{@code close}
+	 * tidak menggagalkan pembacaan yang sudah berhasil.</p>
+	 *
+	 * <p><b>Efek samping:</b> tiap kelas paralel yang ditemukan ditandai
+	 * {@link #flagParalel} bernilai {@code true} sehingga pemanggil dapat membedakannya dari kelas
+	 * yang sedang dibuka.</p>
+	 *
+	 * <p><b>Kuirk:</b> parameter {@code dosen} praktis TIDAK berpengaruh - kedua cabang
+	 * {@code if/else} yang memeriksanya menambahkan id yang sama ke hasil. Penyaringan menurut
+	 * dosen tampaknya pernah direncanakan lalu dinetralkan; jangan mengandalkan parameter ini untuk
+	 * membatasi hasil.</p>
+	 *
+	 * @param dosen dosen penyaring; saat ini tidak berpengaruh terhadap hasil.
+	 * @return daftar id kelas paralel.
+	 */
 	@SuppressWarnings("unchecked")
 	public List<Long> ambilParalel(Dosen dosen) {
 		if (!udah("paralel")) {
@@ -5467,6 +5652,18 @@ public class Perkuliahan extends VOPembelajaran {
 	private String course;
 	private Boolean urutkanotomatis;
 
+	/**
+	 * Konfigurasi e-learning kelas ini dalam bentuk teks JSON (kolom {@code text}).
+	 *
+	 * <p>Implementasi property abstrak {@link VOPembelajaran}; struktur isinya ditafsirkan oleh
+	 * modul e-learning, bukan oleh entity ini.</p>
+	 *
+	 * <p><b>Efek samping:</b> isi disaring {@code filterTidakBoleh(...)} dan hasilnya ditulis balik
+	 * ke field. Nilai kosong dinormalkan menjadi objek JSON kosong sehingga pemanggil selalu
+	 * menerima JSON yang sah.</p>
+	 *
+	 * @return teks JSON konfigurasi e-learning; tidak pernah {@code null} maupun kosong.
+	 */
 	@Override
 	@Column(columnDefinition = "text")
 	public String getCourse() {
@@ -5476,11 +5673,24 @@ public class Perkuliahan extends VOPembelajaran {
 		return course == null || course.trim().isEmpty() ? new JSONObject().toString() : course;
 	}
 
+	/**
+	 * Menetapkan konfigurasi e-learning kelas dalam bentuk teks JSON.
+	 *
+	 * @param course teks JSON konfigurasi.
+	 */
 	@Override
 	public void setCourse(String course) {
 		this.course = course;
 	}
 
+	/**
+	 * Master {@link Kelas} yang menjadi acuan label kelas ini.
+	 *
+	 * <p>Bila terisi, nama master MENIMPA teks bebas pada {@link #getKelas()}. Dipakai institusi
+	 * yang mengelola daftar kelas terpusat alih-alih mengetik "A"/"B" per jadwal.</p>
+	 *
+	 * @return master kelas, atau {@code null} bila label diisi bebas.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kelasref", nullable = true)
 	public Kelas getKelasref() {
@@ -5488,10 +5698,26 @@ public class Perkuliahan extends VOPembelajaran {
 		return kelasref;
 	}
 
+	/**
+	 * Menetapkan master kelas acuan.
+	 *
+	 * @param kelasref master kelas, boleh {@code null}.
+	 */
 	public void setKelasref(Kelas kelasref) {
 		this.kelasref = kelasref;
 	}
 
+	/**
+	 * Menyatakan apakah dosen pengampu boleh memverifikasi sendiri nilai yang ia input.
+	 *
+	 * <p><b>Efek samping dan kuirk:</b> bila belum ditentukan per kelas, nilainya dibaca dari
+	 * konfigurasi {@code dosenBolehVerifikasiNilaiSendiri} - namun perbandingannya dilakukan
+	 * terhadap {@code Konfigurasi.TIDAK_AKTIF}, sehingga hasilnya BERKEBALIKAN dari pembacaan naif
+	 * "aktif berarti boleh". Jangan menyalin pola ini ke tempat lain tanpa memeriksa nilai
+	 * konfigurasi yang sebenarnya tersimpan. Hasilnya ditulis balik ke field.</p>
+	 *
+	 * @return {@code true} bila dosen boleh memverifikasi nilainya sendiri.
+	 */
 	public Boolean getDosenBolehVerifikasiNilaiSendiri() {
 		if (dosenBolehVerifikasiNilaiSendiri == null) {
 			dosenBolehVerifikasiNilaiSendiri = Common
@@ -5501,18 +5727,47 @@ public class Perkuliahan extends VOPembelajaran {
 		return dosenBolehVerifikasiNilaiSendiri == null ? false : dosenBolehVerifikasiNilaiSendiri;
 	}
 
+	/**
+	 * Menetapkan izin dosen memverifikasi nilainya sendiri.
+	 *
+	 * @param dosenBolehVerifikasiNilaiSendiri {@code null} agar mengikuti konfigurasi global.
+	 */
 	public void setDosenBolehVerifikasiNilaiSendiri(Boolean dosenBolehVerifikasiNilaiSendiri) {
 		this.dosenBolehVerifikasiNilaiSendiri = dosenBolehVerifikasiNilaiSendiri;
 	}
 
+	/**
+	 * Menyatakan apakah perkuliahan daring kelas ini boleh diikuti kapan saja, tanpa terikat jam
+	 * jadwal. Default {@code false}.
+	 *
+	 * @return {@code true} bila waktu perkuliahan daring bebas.
+	 */
 	public Boolean getWaktuPerkuliahanOnlineBebas() {
 		return waktuPerkuliahanOnlineBebas == null ? false : waktuPerkuliahanOnlineBebas;
 	}
 
+	/**
+	 * Menetapkan kebebasan waktu perkuliahan daring.
+	 *
+	 * @param waktuPerkuliahanOnlineBebas penanda waktu bebas.
+	 */
 	public void setWaktuPerkuliahanOnlineBebas(Boolean waktuPerkuliahanOnlineBebas) {
 		this.waktuPerkuliahanOnlineBebas = waktuPerkuliahanOnlineBebas;
 	}
 
+	/**
+	 * Menyatakan apakah komponen bernilai nol DIKELUARKAN dari perhitungan nilai akhir.
+	 *
+	 * <p>Bila aktif, komponen yang belum diisi (nol) tidak menurunkan nilai akhir; bobotnya
+	 * dianggap tidak ada. Bandingkan dengan
+	 * {@link #getJikaAdaNilai0TidakMenghitungNilaiAkhir()} yang justru MENAHAN perhitungan selama
+	 * masih ada komponen nol - dua kebijakan berbeda yang mudah tertukar.</p>
+	 *
+	 * <p><b>Efek samping:</b> bila belum ditentukan per kelas, nilainya dibaca dari konfigurasi
+	 * global bernama sama dan ditulis balik ke field.</p>
+	 *
+	 * @return {@code true} bila komponen nol diabaikan dalam perhitungan.
+	 */
 	@Column(name = "nilai_0_tidak_masuk_dalam_perhitungan_nilai_akhir")
 	public Boolean getNilai_0_tidak_masuk_dalam_perhitungan_nilai_akhir() {
 		if (nilai_0_tidak_masuk_dalam_perhitungan_nilai_akhir == null) {
@@ -5521,11 +5776,30 @@ public class Perkuliahan extends VOPembelajaran {
 		return nilai_0_tidak_masuk_dalam_perhitungan_nilai_akhir;
 	}
 
+	/**
+	 * Menetapkan kebijakan pengabaian komponen bernilai nol.
+	 *
+	 * @param nilai_0_tidak_masuk_dalam_perhitungan_nilai_akhir {@code null} agar mengikuti
+	 *                                                          konfigurasi global.
+	 */
 	public void setNilai_0_tidak_masuk_dalam_perhitungan_nilai_akhir(
 			Boolean nilai_0_tidak_masuk_dalam_perhitungan_nilai_akhir) {
 		this.nilai_0_tidak_masuk_dalam_perhitungan_nilai_akhir = nilai_0_tidak_masuk_dalam_perhitungan_nilai_akhir;
 	}
 
+	/**
+	 * Menyatakan apakah nilai akhir DITAHAN selama masih ada komponen bernilai nol.
+	 *
+	 * <p>Kebijakan ini melindungi dari nilai akhir yang terlanjur terbit padahal penilaian belum
+	 * lengkap. Bandingkan dengan
+	 * {@link #getNilai_0_tidak_masuk_dalam_perhitungan_nilai_akhir()}.</p>
+	 *
+	 * <p><b>Efek samping:</b> bila belum ditentukan per kelas, dibaca dari konfigurasi
+	 * {@code jika_ada_nilai_0_tidak_menghitung_nilai_akhir} (default nonaktif) dan ditulis balik ke
+	 * field.</p>
+	 *
+	 * @return {@code true} bila nilai akhir ditahan saat ada komponen nol.
+	 */
 	public Boolean getJikaAdaNilai0TidakMenghitungNilaiAkhir() {
 		if (jikaAdaNilai0TidakMenghitungNilaiAkhir == null) {
 			jikaAdaNilai0TidakMenghitungNilaiAkhir = Common.bolehKonfigurasi("jika_ada_nilai_0_tidak_menghitung_nilai_akhir", Konfigurasi.TIDAK_AKTIF);
@@ -5533,74 +5807,193 @@ public class Perkuliahan extends VOPembelajaran {
 		return jikaAdaNilai0TidakMenghitungNilaiAkhir;
 	}
 
+	/**
+	 * Menetapkan kebijakan penahanan nilai akhir saat ada komponen nol.
+	 *
+	 * @param jikaAdaNilai0TidakMenghitungNilaiAkhir {@code null} agar mengikuti konfigurasi global.
+	 */
 	public void setJikaAdaNilai0TidakMenghitungNilaiAkhir(Boolean jikaAdaNilai0TidakMenghitungNilaiAkhir) {
 		this.jikaAdaNilai0TidakMenghitungNilaiAkhir = jikaAdaNilai0TidakMenghitungNilaiAkhir;
 	}
 
+	/**
+	 * Menyatakan apakah penilaian kelas ini hanya menerima nilai HURUF, tanpa komponen angka.
+	 *
+	 * <p>Dipakai untuk mata kuliah yang dinilai kualitatif (mis. seminar, KKN). Default
+	 * {@code false}.</p>
+	 *
+	 * @return {@code true} bila hanya nilai huruf yang diinput.
+	 */
 	public Boolean getHanyaInputNilaiHuruf() {
 		return hanyaInputNilaiHuruf == null ? false : hanyaInputNilaiHuruf;
 	}
 
+	/**
+	 * Menetapkan mode input nilai huruf saja.
+	 *
+	 * @param hanyaInputNilaiHuruf penanda nilai huruf saja.
+	 */
 	public void setHanyaInputNilaiHuruf(Boolean hanyaInputNilaiHuruf) {
 		this.hanyaInputNilaiHuruf = hanyaInputNilaiHuruf;
 	}
 
+	/**
+	 * Menyatakan apakah dosen boleh mengisi presensi dengan swafoto sebagai bukti kehadiran.
+	 * Default {@code true}.
+	 *
+	 * @return {@code true} bila presensi berfoto diizinkan bagi dosen.
+	 */
 	public Boolean getDosenBolehAbsenMenggunakanFoto() {
 		return dosenBolehAbsenMenggunakanFoto == null ? true : dosenBolehAbsenMenggunakanFoto;
 	}
 
+	/**
+	 * Menetapkan izin presensi berfoto bagi dosen.
+	 *
+	 * @param dosenBolehAbsenMenggunakanFoto penanda izin.
+	 */
 	public void setDosenBolehAbsenMenggunakanFoto(Boolean dosenBolehAbsenMenggunakanFoto) {
 		this.dosenBolehAbsenMenggunakanFoto = dosenBolehAbsenMenggunakanFoto;
 	}
 
+	/**
+	 * Menyatakan apakah mahasiswa boleh mengisi presensi dengan swafoto sebagai bukti kehadiran.
+	 * Default {@code true}.
+	 *
+	 * @return {@code true} bila presensi berfoto diizinkan bagi mahasiswa.
+	 */
 	public Boolean getMahasiswaBolehAbsenMenggunakanFoto() {
 		return mahasiswaBolehAbsenMenggunakanFoto == null ? true : mahasiswaBolehAbsenMenggunakanFoto;
 	}
 
+	/**
+	 * Menetapkan izin presensi berfoto bagi mahasiswa.
+	 *
+	 * @param mahasiswaBolehAbsenMenggunakanFoto penanda izin.
+	 */
 	public void setMahasiswaBolehAbsenMenggunakanFoto(Boolean mahasiswaBolehAbsenMenggunakanFoto) {
 		this.mahasiswaBolehAbsenMenggunakanFoto = mahasiswaBolehAbsenMenggunakanFoto;
 	}
 
+	/**
+	 * Toleransi presensi SEBELUM jam mulai, dalam menit. Default {@code 30}.
+	 *
+	 * <p>Bersama {@link #getBolehAbsenSetelahWaktuMulaiDalamMenit()}, membentuk jendela waktu
+	 * presensi ketika {@link #getKehadiranMahasiswaHarusDiinputSesuaiJadwal()} aktif.</p>
+	 *
+	 * @return toleransi menit sebelum jam mulai; tidak pernah {@code null}.
+	 */
 	public Integer getBolehAbsenSebelumWaktuMulaiDalamMenit() {
 		return bolehAbsenSebelumWaktuMulaiDalamMenit == null ? 30 : bolehAbsenSebelumWaktuMulaiDalamMenit;
 	}
 
+	/**
+	 * Menetapkan toleransi presensi sebelum jam mulai.
+	 *
+	 * @param mahasiswaBolehAbsenSebelumWaktuMulaiDalamMenit toleransi dalam menit; {@code null}
+	 *                                                       agar kembali ke 30.
+	 */
 	public void setBolehAbsenSebelumWaktuMulaiDalamMenit(Integer mahasiswaBolehAbsenSebelumWaktuMulaiDalamMenit) {
 		this.bolehAbsenSebelumWaktuMulaiDalamMenit = mahasiswaBolehAbsenSebelumWaktuMulaiDalamMenit;
 	}
 
+	/**
+	 * Toleransi presensi SETELAH jam mulai, dalam menit. Default {@code 30}.
+	 *
+	 * @return toleransi menit setelah jam mulai; tidak pernah {@code null}.
+	 * @see #getBolehAbsenSebelumWaktuMulaiDalamMenit()
+	 */
 	public Integer getBolehAbsenSetelahWaktuMulaiDalamMenit() {
 		return bolehAbsenSetelahWaktuMulaiDalamMenit == null ? 30 : bolehAbsenSetelahWaktuMulaiDalamMenit;
 	}
 
+	/**
+	 * Menetapkan toleransi presensi setelah jam mulai.
+	 *
+	 * @param bolehAbsenSetelahWaktuMulaiDalamMenit toleransi dalam menit; {@code null} agar kembali
+	 *                                              ke 30.
+	 */
 	public void setBolehAbsenSetelahWaktuMulaiDalamMenit(Integer bolehAbsenSetelahWaktuMulaiDalamMenit) {
 		this.bolehAbsenSetelahWaktuMulaiDalamMenit = bolehAbsenSetelahWaktuMulaiDalamMenit;
 	}
 
+	/**
+	 * Menyatakan apakah presensi tercatat otomatis saat mahasiswa membuka/mengikuti materi
+	 * perkuliahan daring, bukan lewat tombol absen terpisah. Default {@code false}.
+	 *
+	 * @return {@code true} bila presensi mengikuti aktivitas perkuliahan.
+	 */
 	public Boolean getBolehAbsenWaktuIkutiPerkuliahan() {
 		return bolehAbsenWaktuIkutiPerkuliahan == null ? false : bolehAbsenWaktuIkutiPerkuliahan;
 	}
 
+	/**
+	 * Menetapkan pencatatan presensi otomatis saat mengikuti perkuliahan.
+	 *
+	 * @param bolehAbsenWaktuIkutiPerkuliahan penanda presensi otomatis.
+	 */
 	public void setBolehAbsenWaktuIkutiPerkuliahan(Boolean bolehAbsenWaktuIkutiPerkuliahan) {
 		this.bolehAbsenWaktuIkutiPerkuliahan = bolehAbsenWaktuIkutiPerkuliahan;
 	}
 
+	/**
+	 * Ambang persentase kehadiran; peserta yang kehadirannya DI BAWAH angka ini dinilai nol.
+	 *
+	 * <p>Default {@code 0.0}, yang berarti aturan ini nonaktif. Isi mis. {@code 75.0} untuk
+	 * menerapkan syarat kehadiran minimal 75%.</p>
+	 *
+	 * @return ambang persentase kehadiran; tidak pernah {@code null}.
+	 */
 	public Double getPersenKehadiranDinilai0() {
 		return persenKehadiranDinilai0 == null ? 0.0 : persenKehadiranDinilai0;
 	}
 
+	/**
+	 * Menetapkan ambang persentase kehadiran untuk penilaian nol.
+	 *
+	 * @param persenKehadiranDinilai0 ambang persentase; {@code 0.0} atau {@code null} untuk
+	 *                                menonaktifkan.
+	 */
 	public void setPersenKehadiranDinilai0(Double persenKehadiranDinilai0) {
 		this.persenKehadiranDinilai0 = persenKehadiranDinilai0;
 	}
 
+	/**
+	 * Menyatakan apakah rincian komponen/bobot penilaian disembunyikan dari mahasiswa.
+	 * Default {@code false}.
+	 *
+	 * @return {@code true} bila format penilaian disembunyikan.
+	 */
 	public Boolean getSembunyikanFormatPenilaian() {
 		return sembunyikanFormatPenilaian == null ? false : sembunyikanFormatPenilaian;
 	}
 
+	/**
+	 * Menetapkan penyembunyian rincian format penilaian.
+	 *
+	 * @param sembunyikanFormatPenilaian penanda penyembunyian.
+	 */
 	public void setSembunyikanFormatPenilaian(Boolean sembunyikanFormatPenilaian) {
 		this.sembunyikanFormatPenilaian = sembunyikanFormatPenilaian;
 	}
 
+	/**
+	 * Tanggal mulai kegiatan belajar-mengajar menurut rencana tahun akademik - dipakai sebagai
+	 * acuan cadangan {@link #getTanggalMulaiPerkuliahan()} ketika {@link MasaPerkuliahan} tidak
+	 * tersedia.
+	 *
+	 * <p>Property {@code @Transient}: nilainya TIDAK disimpan ke basis data melainkan dicari ulang
+	 * setiap kali lewat {@code RencanaTahunAkademikAction.getCurrentRencanaTahunAkademik(...)}
+	 * dengan kunci fakultas, jurusan, program, tahun akademik, dan semester kelas ini. Untuk kelas
+	 * semester pendek, semester yang dikirim dikonversi dulu menjadi ganjil/genap sesuai paritas
+	 * karena rencana tahun akademik tidak mengenal periode semester pendek.</p>
+	 *
+	 * <p><b>Efek samping:</b> mengosongkan lalu menulis ulang field, dan melakukan query. Kegagalan
+	 * (mis. jurusan {@code null}) hanya dicatat dan menghasilkan {@code null}.</p>
+	 *
+	 * @return tanggal mulai belajar-mengajar, atau {@code null} bila rencana tahun akademik tidak
+	 *         ditemukan.
+	 */
 	@Transient
 	public Date getAwalPerkuliahan() {
 		try {
@@ -5620,42 +6013,106 @@ public class Perkuliahan extends VOPembelajaran {
 		return awalPerkuliahan;
 	}
 
+	/**
+	 * Menetapkan tanggal awal perkuliahan.
+	 *
+	 * <p>Tidak bertahan: {@link #getAwalPerkuliahan()} selalu menghitung ulang dan property ini
+	 * {@code @Transient} sehingga tidak tersimpan.</p>
+	 *
+	 * @param awalPerkuliahan tanggal awal perkuliahan.
+	 */
 	public void setAwalPerkuliahan(Date awalPerkuliahan) {
 		this.awalPerkuliahan = awalPerkuliahan;
 	}
 
+	/**
+	 * Menyatakan apakah kelas ini boleh menetapkan tanggal pertemuan pertamanya SENDIRI.
+	 *
+	 * <p>Default {@code false}, artinya tanggal dihitung otomatis dari masa perkuliahan/rencana
+	 * tahun akademik. Setel {@code true} untuk membiarkan nilai
+	 * {@link #setTanggalMulaiPerkuliahan(Date)} bertahan.</p>
+	 *
+	 * @return {@code true} bila tanggal mulai ditentukan manual.
+	 */
 	public Boolean getBolehMenentukanTanggalMulaiPerkuliahan() {
 		return bolehMenentukanTanggalMulaiPerkuliahan == null ? false : bolehMenentukanTanggalMulaiPerkuliahan;
 	}
 
+	/**
+	 * Menetapkan izin penentuan tanggal mulai perkuliahan secara manual.
+	 *
+	 * @param bolehMenentukanTanggalMulaiPerkuliahan penanda izin.
+	 */
 	public void setBolehMenentukanTanggalMulaiPerkuliahan(Boolean bolehMenentukanTanggalMulaiPerkuliahan) {
 		this.bolehMenentukanTanggalMulaiPerkuliahan = bolehMenentukanTanggalMulaiPerkuliahan;
 	}
 
+	/**
+	 * Mode penyelenggaraan kelas dalam bentuk kode singkat; default {@code "M"}.
+	 *
+	 * @return kode mode penyelenggaraan; tidak pernah {@code null}.
+	 */
 	public String getMode() {
 		return mode == null ? "M" : mode;
 	}
 
+	/**
+	 * Menetapkan mode penyelenggaraan kelas.
+	 *
+	 * @param mode kode mode; {@code null} agar kembali ke {@code "M"}.
+	 */
 	public void setMode(String mode) {
 		this.mode = mode;
 	}
 
+	/**
+	 * Lingkup penyelenggaraan kelas dalam bentuk kode singkat; default {@code "1"}.
+	 *
+	 * @return kode lingkup; tidak pernah {@code null}.
+	 */
 	public String getLingkup() {
 		return lingkup == null ? "1" : lingkup;
 	}
 
+	/**
+	 * Menetapkan lingkup penyelenggaraan kelas.
+	 *
+	 * @param lingkup kode lingkup; {@code null} agar kembali ke {@code "1"}.
+	 */
 	public void setLingkup(String lingkup) {
 		this.lingkup = lingkup;
 	}
 
+	/**
+	 * Batas waktu tambahan (menit) sesudah pertemuan berakhir yang masih memperbolehkan pengisian
+	 * presensi. Default {@code 0} - tidak ada perpanjangan.
+	 *
+	 * @return batas waktu dalam menit; tidak pernah {@code null}.
+	 */
 	public Integer getBatasWaktuBolehAbsenKehadiran() {
 		return batasWaktuBolehAbsenKehadiran == null ? 0 : batasWaktuBolehAbsenKehadiran;
 	}
 
+	/**
+	 * Menetapkan batas waktu tambahan pengisian presensi.
+	 *
+	 * @param batasWaktuBolehAbsenKehadiran batas waktu dalam menit.
+	 */
 	public void setBatasWaktuBolehAbsenKehadiran(Integer batasWaktuBolehAbsenKehadiran) {
 		this.batasWaktuBolehAbsenKehadiran = batasWaktuBolehAbsenKehadiran;
 	}
 
+	/**
+	 * Menyatakan apakah daftar pertemuan kelas ini diurutkan otomatis menurut TANGGAL.
+	 *
+	 * <p>Default {@code true}. Implementasi property abstrak {@link VOPembelajaran}; nilai
+	 * {@code false} berarti pengguna memilih "Urutkan manual" dan urutan mengikuti
+	 * {@code pertemuanKe}. Setelah pengurutan, {@code pertemuanKe} diselaraskan otomatis mengikuti
+	 * tanggal. Lihat komentar di dalam badan method untuk latar belakang pemaksaan lama yang sudah
+	 * dihapus pada kurikulum OBE.</p>
+	 *
+	 * @return {@code true} bila pertemuan diurutkan otomatis menurut tanggal.
+	 */
 	@Override
 	public Boolean getUrutkanotomatis() {
 		// Pertemuan diurutkan otomatis berdasarkan TANGGAL (default true). Dulu kurikulum OBE
@@ -5667,36 +6124,92 @@ public class Perkuliahan extends VOPembelajaran {
 		return urutkanotomatis == null ? true : urutkanotomatis;
 	}
 
+	/**
+	 * Menetapkan mode pengurutan daftar pertemuan.
+	 *
+	 * @param urutkanotomatis {@code true} untuk urut tanggal, {@code false} untuk urut manual.
+	 */
 	@Override
 	public void setUrutkanotomatis(Boolean urutkanotomatis) {
 		this.urutkanotomatis = urutkanotomatis;
 	}
 
+	/**
+	 * Penanda hasil telaah: seluruh pertemuan kelas ini sudah sesuai RPS. Default {@code false}.
+	 *
+	 * <p>Diisi oleh proses penjaminan mutu, bukan dihitung otomatis dari data pertemuan.</p>
+	 *
+	 * @return {@code true} bila seluruh pertemuan dinyatakan sesuai RPS.
+	 * @see #getCatatanSesuaiRps()
+	 */
 	public Boolean getSemuaPertemuanSesuaiRps() {
 		return semuaPertemuanSesuaiRps == null ? false : semuaPertemuanSesuaiRps;
 	}
 
+	/**
+	 * Menetapkan penanda kesesuaian seluruh pertemuan terhadap RPS.
+	 *
+	 * @param semuaPertemuanSesuaiRps penanda kesesuaian.
+	 */
 	public void setSemuaPertemuanSesuaiRps(Boolean semuaPertemuanSesuaiRps) {
 		this.semuaPertemuanSesuaiRps = semuaPertemuanSesuaiRps;
 	}
 
+	/**
+	 * Catatan bebas hasil telaah kesesuaian pertemuan dan nilai terhadap RPS (kolom {@code text}).
+	 *
+	 * @return catatan telaah yang sudah di-trim; string kosong bila belum diisi.
+	 */
 	@Column(columnDefinition = "text")
 	public String getCatatanSesuaiRps() {
 		return catatanSesuaiRps == null ? "" : catatanSesuaiRps.trim();
 	}
 
+	/**
+	 * Menetapkan catatan telaah kesesuaian terhadap RPS.
+	 *
+	 * @param catatanSesuaiRps teks catatan.
+	 */
 	public void setCatatanSesuaiRps(String catatanSesuaiRps) {
 		this.catatanSesuaiRps = catatanSesuaiRps;
 	}
 
+	/**
+	 * Penanda hasil telaah kesesuaian NILAI terhadap RPS, disimpan sebagai angka agar dapat
+	 * menampung lebih dari sekadar ya/tidak. Default {@code 0L}.
+	 *
+	 * @return kode hasil telaah nilai; tidak pernah {@code null}.
+	 */
 	public Long getSemuaNilaiSesuaiRps() {
 		return semuaNilaiSesuaiRps == null ? 0L : semuaNilaiSesuaiRps;
 	}
 
+	/**
+	 * Menetapkan kode hasil telaah kesesuaian nilai terhadap RPS.
+	 *
+	 * @param semuaNilaiSesuaiRps kode hasil telaah.
+	 */
 	public void setSemuaNilaiSesuaiRps(Long semuaNilaiSesuaiRps) {
 		this.semuaNilaiSesuaiRps = semuaNilaiSesuaiRps;
 	}
 
+	/**
+	 * Salinan beku skema pembobotan nilai, dipakai saat kelas DIKUNCI.
+	 *
+	 * <p>Perilakunya bergantung status kunci:</p>
+	 * <ul>
+	 * <li><b>Kelas tidak terkunci</b> - cadangan disamakan dengan skema berjalan
+	 * {@link #getPembombotanNilai()}, sehingga saat kelas dikunci nanti yang membeku adalah skema
+	 * yang benar-benar sedang dipakai.</li>
+	 * <li><b>Kelas terkunci</b> - cadangan dipertahankan apa adanya; bila kosong, diisi dari field
+	 * {@code pembombotanNilai} agar tidak pernah kehilangan acuan.</li>
+	 * </ul>
+	 *
+	 * <p><b>Efek samping:</b> menulis balik ke field dan memanggil {@link #getDikunci()} yang dapat
+	 * membatalkan kunci. Kegagalan hanya dicatat.</p>
+	 *
+	 * @return skema pembobotan cadangan, atau {@code null} bila belum pernah terbentuk.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pembombotan_nilai_backup", nullable = true)
 	public PembombotanNilai getPembombotanNilaiBackup() {
@@ -5716,31 +6229,86 @@ public class Perkuliahan extends VOPembelajaran {
 		return pembombotanNilaiBackup;
 	}
 
+	/**
+	 * Menetapkan salinan beku skema pembobotan nilai.
+	 *
+	 * @param pembombotanNilaiBackup skema cadangan, boleh {@code null}.
+	 */
 	public void setPembombotanNilaiBackup(PembombotanNilai pembombotanNilaiBackup) {
 		this.pembombotanNilaiBackup = pembombotanNilaiBackup;
 	}
 
+	/**
+	 * Menyatakan apakah kelas ini masih aktif.
+	 *
+	 * <p>Default {@code true} bila kolom kosong - itulah sebabnya query di file ini selalu memakai
+	 * bentuk {@code isNull("aktif") OR eq("aktif", true)} alih-alih sekadar {@code eq}: kelas lama
+	 * yang kolomnya belum terisi harus tetap terjaring sebagai aktif (lihat
+	 * {@link #checkMaksSksDosen(Dosen, String, String, Integer, Integer, Long)} dan
+	 * {@link #reInitParalel(Session)}).</p>
+	 *
+	 * @return {@code true} bila kelas aktif.
+	 */
 	public Boolean getAktif() {
 		return aktif == null ? true : aktif;
 	}
 
+	/**
+	 * Menetapkan status aktif kelas.
+	 *
+	 * @param aktif {@code false} untuk menonaktifkan kelas.
+	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
 
+	/**
+	 * Jumlah peserta kelas yang TERSIMPAN pada kolom {@code jumlah_mahasiswa} - angka cache, bukan
+	 * hasil hitung ulang.
+	 *
+	 * <p>Diperbarui oleh {@link #reInitJumlahMhs(int)} lewat jalur
+	 * {@link #ambilDetailperkuliahan(boolean, boolean)} dan {@link #singkronkan(Session)}. Karena
+	 * sifatnya cache, angka ini dapat tertinggal bila flag store peserta berubah tanpa
+	 * sinkronisasi; ketidakcocokan itu justru dipakai sebagai pemicu penyembuhan otomatis di
+	 * {@link #ambilDetailperkuliahan(String, String, String, boolean, boolean, boolean)}.</p>
+	 *
+	 * <p>Nilai {@code null} dinormalkan menjadi {@code 0}.</p>
+	 *
+	 * @return jumlah peserta tersimpan; tidak pernah {@code null}.
+	 * @see #getKapasitasKelas()
+	 * @see #ambilJumlahDetailperkuliahanLangsung()
+	 */
 	public Integer getJumlahMahasiswa() {
 		return jumlahMahasiswa == null ? 0 : jumlahMahasiswa;
 	}
 
+	/**
+	 * Menetapkan cache jumlah peserta kelas.
+	 *
+	 * @param jumlahMahasiswa jumlah peserta.
+	 */
 	public void setJumlahMahasiswa(Integer jumlahMahasiswa) {
 		this.jumlahMahasiswa = jumlahMahasiswa;
 	}
 
+	/**
+	 * Menyatakan apakah mahasiswa baru boleh mengisi presensi SETELAH ada dosen yang mengisi
+	 * presensi pada pertemuan tersebut. Default {@code false}.
+	 *
+	 * <p>Mencegah presensi mahasiswa pada pertemuan yang ternyata tidak jadi berlangsung.</p>
+	 *
+	 * @return {@code true} bila presensi mahasiswa menunggu presensi dosen.
+	 */
 	public Boolean getMahasiswaHanyaBolehAbsenSetelahAdaDosenYangAbsen() {
 		return mahasiswaHanyaBolehAbsenSetelahAdaDosenYangAbsen == null ? false
 				: mahasiswaHanyaBolehAbsenSetelahAdaDosenYangAbsen;
 	}
 
+	/**
+	 * Menetapkan urutan presensi dosen sebelum mahasiswa.
+	 *
+	 * @param mahasiswaHanyaBolehAbsenSetelahAdaDosenYangAbsen penanda urutan presensi.
+	 */
 	public void setMahasiswaHanyaBolehAbsenSetelahAdaDosenYangAbsen(
 			Boolean mahasiswaHanyaBolehAbsenSetelahAdaDosenYangAbsen) {
 		this.mahasiswaHanyaBolehAbsenSetelahAdaDosenYangAbsen = mahasiswaHanyaBolehAbsenSetelahAdaDosenYangAbsen;
@@ -5750,11 +6318,27 @@ public class Perkuliahan extends VOPembelajaran {
 	// Format: [{"cpmk":"CPMK-1","masalah":"...","analisis":"...","rencana":"...","pj":"...","targetWaktu":"...","status":"Pending"}]
 	private String cqiData;
 
+	/**
+	 * Data <i>Continuous Quality Improvement</i> (CQI Loop 1) kelas ini dalam bentuk teks JSON.
+	 *
+	 * <p>Berisi larik catatan perbaikan per CPMK untuk penawaran semester ini; bentuk tiap elemen
+	 * dijelaskan pada komentar deklarasi fieldnya (masalah, analisis, rencana, penanggung jawab,
+	 * target waktu, status). Struktur ini ditafsirkan oleh modul OBE, bukan oleh entity ini.</p>
+	 *
+	 * <p>Nilai {@code null} dikembalikan sebagai string kosong.</p>
+	 *
+	 * @return teks JSON data CQI; tidak pernah {@code null}.
+	 */
 	@javax.persistence.Column(columnDefinition = "text")
 	public String getCqiData() {
 		return cqiData == null ? "" : cqiData;
 	}
 
+	/**
+	 * Menetapkan data CQI kelas dalam bentuk teks JSON.
+	 *
+	 * @param cqiData teks JSON data CQI.
+	 */
 	public void setCqiData(String cqiData) {
 		this.cqiData = cqiData;
 	}

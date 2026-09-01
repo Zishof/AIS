@@ -363,6 +363,77 @@ melabelinya "setara" akan menyembunyikan konsekuensi gap di atas.
 selamanya; model tenant punya `berlaku_sampai`, sehingga mundur ke versi yang masih berlaku.
 Diperagakan pada uji: legacy 2.500, tenant 2.400. Perbedaan ini dikehendaki.
 
+## Helper ketiga: Hutang Supplier
+
+`SalesInventoryPayableHelper` — tujuh aksi. Perbedaan bentuknya paling dalam sejauh ini.
+
+### Legacy menyimpan FAKTUR, tenant menyimpan HUTANG
+
+Legacy menaruh seluruh faktur kulakan di `pengadaan_faktur`, menempelkan
+`payable_faktur_info` 1:1 untuk medan khusus hutang, lalu menyaring mana yang berhutang
+lewat `i.jenis_pembayaran IN ('DP','CREDIT')`.
+
+Model tenant memisahkannya: `pembelian` adalah dokumennya, `hutang_supplier` **hanya berisi
+yang benar-benar berhutang**. Tabel sisi itu lenyap — medannya menyatu.
+
+Akibatnya saringan jenis pembayaran **tidak perlu** di jalur tenant: keberadaan barisnya
+sudah berarti hutang.
+
+### Jebakan yang nyaris menjatuhkan laporan
+
+Laporan pembelian mencakup **pembelian tunai juga**. Menyusunnya dari `hutang_supplier`
+akan menghilangkan seluruh pembelian tunai — tanpa satu pun galat muncul. Angka salah yang
+terlihat benar.
+
+Rancangan pertama di sini memang keliru begitu, dan tertangkap saat memeriksa kolom yang
+sebenarnya dipakai. Laporan kini bertumpu pada `pembelian` dengan `LEFT JOIN hutang_supplier`:
+ada berarti kredit, tidak ada berarti tunai.
+
+### Sisa hutang dihitung, bukan dibaca
+
+`hutang_supplier` menyediakan `terbayar` dan `sisa`. Jalur ini **sengaja tidak memakainya**
+dan menghitung ulang dari `alokasi_pembayaran_hutang`, persis seperti legacy.
+
+Alasannya sama dengan `saldo_stok`: kolom ringkasan bisa basi, dan angka hutang yang basi
+berarti membayar dua kali atau menagih yang sudah lunas.
+
+### Cacat yang ditangkap uji, bukan oleh compiler
+
+`pembayaran_hutang.nomor_dokumen` **NOT NULL**, sedangkan `INSERT` jalur tenant yang pertama
+ditulis tidak mengisinya. Kodenya lulus kompilasi dan akan gagal saat pembayaran pertama
+disimpan.
+
+Sampai ada skema penomoran per tenant, kunci idempotensi dipakai sekaligus sebagai nomor
+dokumen — sudah dijamin unik dan dapat ditelusuri balik. Bukan pengganti penomoran yang
+sebenarnya, dan ditandai begitu di kodenya.
+
+### Uji kesetaraan: `uji-kesetaraan-hutang.sql`
+
+| Blok | Hasil |
+|---|---|
+| Sisa hutang per faktur | **SETARA** (500.000 = 500.000 pada keduanya) |
+| Umur hutang, acuan 2026-02-15 | **SETARA** (B1_30 dan B90) |
+| Laporan pembelian termasuk tunai | **SETARA**, ketiga baris |
+| Jumlah baris laporan | **3 = 3** — tunai tidak hilang |
+
+### Dua keputusan yang ditandai, bukan diambil diam-diam
+
+**Kait ke Daftar Pengajuan Transfer dilewati.** Jalur legacy menautkan tiap pembayaran ke
+`akunting.DaftarPengajuanTransfer` supaya muncul di layar Pembayaran Transfer. Modul itu
+**bersama**, bukan per-tenant — menautkan pembayaran satu tenant ke sana membocorkan datanya
+ke seluruh instalasi. Kaitnya dilewati, dan itu **mengubah perilaku**: pembayaran hutang
+tenant tidak muncul di layar transfer bersama. Padanan per-tenantnya belum ada.
+
+**`purchaseTermsSave` ditolak pada tenant.** Jenis pembayaran dan termin per faktur tidak
+punya tempat di model tenant. Menyimpan jatuh temponya saja lalu melaporkan sukses akan
+membuat pengguna mengira jenis dan termin ikut tersimpan.
+
+### Yang tidak punya padanan
+
+`status_bg` — legacy melacak status giro terpisah dari status dokumen; model tenant hanya
+punya `status`. Kolomnya dikembalikan kosong, bukan diisi status dokumen: menyamakan keduanya
+akan membuat giro yang belum cair tampak sudah beres.
+
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
 **Sebelas helper, 7.512 baris, belum satu pun kuerinya dipindah ke schema tenant.**
