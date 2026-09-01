@@ -130,11 +130,27 @@ public final class GenericCrudAutoDefinitionFactory {
         // signature boolean onSave(Event) pada bytecode Action yang benar-benar dimuat.
         boolean actionCreate = actionCreateBacked;
         boolean actionUpdate = actionBacked;
-        // Delete lama sering bergantung pada row renderer/checkbox/konfirmasi dan
-        // tidak mempunyai kontrak entity tunggal. Jangan menebak soft-delete dari
-        // nama metode; adapter eksplisit wajib disediakan sebelum tombol diaktifkan.
-        boolean actionDelete = false;
-        boolean mutable = !restrictedClass && (actionCreate || actionUpdate || actionDelete);
+        boolean mutable = !restrictedClass && (actionCreate || actionUpdate);
+        boolean softDeletable = hasBooleanProperty(metadata, "aktif");
+        /*
+         * Penghapusan LAMA memang tidak boleh ditebak: pada layar ZK ia sering
+         * bergantung pada row renderer, kotak centang, dan dialog konfirmasi,
+         * sehingga tidak punya kontrak entity tunggal. Larangan itu tetap
+         * berlaku bagi penghapusan permanen — adminDelete tetap dimatikan di
+         * bawah.
+         *
+         * Yang diizinkan di sini hanya penonaktifan lunak, dan itu bukan
+         * tebakan: `aktif` adalah properti yang benar-benar terpetakan pada
+         * model, dan GenericCrudAutoEntityAdapter.delete() menuliskannya apa
+         * adanya tanpa menyentuh baris lain — persis yang dilakukan adapter
+         * eksplisit yang sudah lama ada (AgamaGenericCrudAdapter.delete()).
+         *
+         * Dibatasi pada definisi yang memang sudah boleh diubah: layar yang
+         * hanya dapat dibaca tidak pantas mendapat tombol hapus, dan pembatasan
+         * itu membuat jangkauannya sama dengan jangkauan tambah/ubah yang sudah
+         * berlaku.
+         */
+        boolean actionDelete = mutable && softDeletable;
         definition.setLifecycleStatus(mutable ? GenericCrudDefinition.FULL_CRUD : GenericCrudDefinition.READ_ONLY);
         definition.setEnabled(true);
         definition.setCreateEnabled(autoCreatePossible && actionCreate);
