@@ -75,53 +75,98 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
 /**
- * Helper terfokus untuk penilaian proposal skripsi. Tipe ini membungkus satu variasi kecil dari
- * alur yang lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan
- * implementasi.
+ * Helper ZK untuk layar penilaian seminar/sidang proposal skripsi (Tugas Akhir), dipakai dari
+ * modul Tugas Akhir mahasiswa lewat {@link #display(MahasiswaRequestTugasAkhir, Component)}.
+ * Entity utamanya adalah {@link MahasiswaRequestTugasAkhir} (satu baris = satu pengajuan Tugas
+ * Akhir seorang mahasiswa, menyimpan judul, jadwal seminar, nilai dosen 1-6, total nilai, nilai
+ * huruf, dan status lulus). Bobot dan susunan komponen penilaian diambil dari
+ * {@link ais.database.model.FormatNilaiProposalSkripsi} (kolom {@code dosen1}..{@code dosen6}
+ * menampung nama peran: dosen1-3 = pembimbing 1-3, dosen4-6 = penguji 1-3, masing-masing dengan
+ * persentase bobotnya sendiri), sedangkan daftar sub-komponen nilai (mis. "Penguasaan Materi",
+ * "Sistematika Penulisan") datang dari {@link KomponenPenilaianProposalSkripsi} yang terhubung ke
+ * format nilai lewat {@link ProposalSkripsiPunyaKomponenPenilaianProposalSkripsi} (query di
+ * {@link #populateKomponen(String)}, difilter per jurusan/fakultas dan per kolom peran dosen).
  *
- * <p><b>Batas tanggung jawab:</b> tipe ini mendeklarasikan kontrak {@link DataLoader}. Implementasi konkret
- * bertanggung jawab atas transaksi, resource, error handling, dan efek samping; pemanggil sebaiknya bergantung
- * pada kontrak ini agar tidak menggandakan integrasi.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir}, {@code Footer footerRataRataNilai}, {@code Footer
- * footerNilaiHuruf}, {@code Tbmuser tbmuser}; inisialisasi/lifecycle ({@code init()}, {@code
- * buatDashboardNilai()}); pembacaan/pencarian ({@code loadData()}); operasi domain lain ({@code
- * populateKomponen()}, {@code dashEsc()}, {@code dashFmt()}, {@code dashSafe()}, {@code dashNilaiDosen()},
- * {@code dashPersenDosen()}); konfigurasi constructor: {@code tbmuser}. Bagian lain dari kontrak tetap mengikuti
- * kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Alur UI:</b> {@link #display} membangun satu window ZK dengan {@code Borderlayout}: NORTH
+ * berisi toolbar aksi (pilih matakuliah tujuan nilai, ganti format nilai, singkronkan nilai,
+ * cetak Blanko Penilaian/Berita Acara PDF, refresh, reset nilai untuk admin), WEST berisi form
+ * "Hasil Seminar" (jadwal, tanggal/waktu, upload berkas proposal &amp; presentasi, tanggal
+ * bimbingan, catatan, checkbox "Tanpa Perbaikan"), dan CENTER berisi dasbor ringkasan HTML/CSS
+ * ({@link #buatDashboardNilai()}) diikuti grid "Nilai Seminar" per dosen (baris dirender oleh
+ * inner class {@link DetailKelompokKknRenderer}). Mengklik tombol "Penilaian" pada satu baris
+ * dosen membuka dialog modal lewat {@link #init(Dosen, String)} untuk mengisi nilai per komponen
+ * dan catatan dosen tersebut.</p>
+ *
+ * <p><b>Kuirk penamaan:</b> inner class {@link DetailKelompokKknRenderer} jelas hasil salin-tempel
+ * dari helper modul KKN (Kuliah Kerja Nyata) lain dan TIDAK pernah diubah namanya walau isinya
+ * murni merender baris dosen penilai proposal skripsi — nama ini menyesatkan tapi dibiarkan apa
+ * adanya karena mengubahnya bukan bagian dari perbaikan Javadoc.</p>
+ *
+ * <p><b>Efek samping:</b> method render/tampilan (mis. {@link #loadData(Object)},
+ * {@link #buatDashboardNilai()}) bersifat baca saja terhadap DB, hanya memanipulasi komponen ZK.
+ * Method yang mengubah nilai (event listener di {@link #init(Dosen, String)}, checkbox
+ * "Sembunyikan nilai ke mahasiswa" di {@link #loadData(Object)}, tombol Reset di
+ * {@link #display(MahasiswaRequestTugasAkhir, Component)}) langsung memanggil
+ * {@code Common.refreshUpdate(...)} atau transaksi Hibernate manual sehingga tersimpan seketika
+ * tanpa tombol "Simpan" terpisah — pola auto-save per perubahan field, khas modul penilaian AIS
+ * lain (bandingkan {@code PenilaianSkripsiHelper}).</p>
  */
 public class PenilaianProposalSkripsiHelper implements DataLoader {
 
+	/** Grid ZK "Nilai Seminar" (satu baris per dosen penilai), dipasang ulang tiap {@link #loadData(Object)}. */
 	private MyGrid grid;
+	/** Data Tugas Akhir/proposal skripsi yang sedang ditampilkan/dinilai; diisi oleh {@link #display(MahasiswaRequestTugasAkhir, Component)}. */
 	private MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir;
+	/** Footer grid yang menampilkan rata-rata/total nilai akhir; dibangun ulang di {@link #loadData(Object)}. */
 	private Footer footerRataRataNilai;
+	/** Footer grid yang menampilkan nilai huruf akhir; dibangun ulang di {@link #loadData(Object)}. */
 	private Footer footerNilaiHuruf;
+	/** Pengguna yang sedang login (dosen/mahasiswa/admin), dipakai untuk aturan tampil/sembunyi nilai dan hak edit. */
 	private Tbmuser tbmuser = null;
 
+	/**
+	 * Menyiapkan helper dengan mengambil pengguna yang sedang login ({@link Common#getCurrentUser()})
+	 * ke {@link #tbmuser}; identitas ini menentukan apakah baris grid disorot (dosen yang login
+	 * adalah dosen pembimbing/penguji bersangkutan), apakah nilai disembunyikan (role mahasiswa),
+	 * dan apakah kolom nilai dapat diedit langsung. Instance baru dibuat setiap kali layar penilaian
+	 * dibuka, bukan singleton.
+	 */
 	public PenilaianProposalSkripsiHelper() {
 		tbmuser = Common.getCurrentUser();
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link PenilaianProposalSkripsiHelper}. Kelas ini menerjemahkan satu
-	 * item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 * Row renderer grid "Nilai Seminar": satu baris = satu dosen penilai ({@link CommonVO} yang
+	 * membungkus {@link Dosen} sebagai value object dan "jenis" peran — nama field dosen1..dosen6
+	 * pada {@link ais.database.model.FormatNilaiProposalSkripsi} — sebagai {@code commonVO.getName()}).
+	 * Nama kelas ini adalah kuirk peninggalan salin-tempel dari helper modul KKN lain; isinya
+	 * murni tentang penilaian proposal skripsi, tidak ada hubungan dengan KKN.
 	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link PenilaianProposalSkripsiHelper} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * <p><b>Scope:</b> instance-nya inner class non-static, jadi terikat pada instance
+	 * {@link PenilaianProposalSkripsiHelper} yang membuatnya dan memakai field {@code
+	 * mahasiswaRequestTugasAkhir}/{@code tbmuser} milik kelas induk secara langsung.</p>
 	 *
 	 * @see PenilaianProposalSkripsiHelper
 	 */
 	class DetailKelompokKknRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Merender satu baris dosen penilai: foto, nama dosen, label peran ({@code jenis}),
+		 * persentase bobot perannya, nilai numerik, dan nilai huruf hasil konversi lewat
+		 * {@link Common#getNilaiHuruf}. Baris disorot hijau muda bila dosen yang login adalah
+		 * dosen pada baris tersebut. Menampilkan juga catatan dosen (disimpan sebagai JSON per
+		 * "jenis" di {@link MahasiswaRequestTugasAkhir#getCatatanDosen()}) dan area
+		 * unggah/unduh lampiran "Catatan" via {@link LampiranLain#createDownloadUploadFileLain}.
+		 * Bila {@link MahasiswaRequestTugasAkhir#getSembunyikanNilaiKemahasiswa()} aktif dan
+		 * pengguna login adalah mahasiswa, kolom persentase/nilai/nilai-huruf ditampilkan sebagai
+		 * "-" tanpa mengungkap angka. Tombol "Penilaian" pada baris membuka dialog input komponen
+		 * nilai lewat {@link PenilaianProposalSkripsiHelper#init(Dosen, String)}. Read-only
+		 * terhadap DB (tidak menulis apa pun sendiri), efek sampingnya murni membangun komponen ZK.
+		 *
+		 * @param row  baris grid yang akan diisi komponen anaknya.
+		 * @param data item data grid, harus berupa {@link CommonVO} berisi {@link Dosen} sebagai
+		 *             value object dan nama peran dosen sebagai {@code name}.
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {
 			row.setValign("top");
@@ -244,6 +289,29 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Membuka dialog modal ({@link MyWindow}) untuk mengisi/melihat nilai satu dosen penilai per
+	 * komponen penilaian ({@link KomponenPenilaianProposalSkripsi}, diambil lewat
+	 * {@link #populateKomponen(String)}) beserta catatan dosen untuk mahasiswa yang sedang
+	 * ditampilkan ({@code mahasiswaRequestTugasAkhir}). Untuk tiap komponen (atau sub-komponen bila
+	 * komponen induk punya anak) ditampilkan nama, keterangan, bobot, dan kotak nilai
+	 * ({@link MyDoublebox}) — kotak nilai hanya EDITABLE bila pengguna login adalah dosen
+	 * bersangkutan itu sendiri (bukan mahasiswa, bukan dosen lain); selain itu nilai tampil sebagai
+	 * label read-only. Setiap perubahan nilai langsung memanggil
+	 * {@link MahasiswaRequestTugasAkhir#populateDetailNilai(KomponenPenilaianProposalSkripsi, Dosen, Double, boolean)}
+	 * lalu menghitung ulang total lewat listener {@code hitungUlang} (yang juga memperbarui
+	 * {@link Detailperkuliahan} terkait bila ada, dan menyimpan lewat {@code Common.refreshUpdate}).
+	 * Catatan dosen disimpan sebagai key-value JSON per "jenis" peran dan diunggah lampiran lewat
+	 * {@link LampiranLain#createDownloadUploadFileLain}. Tombol "Hitung Ulang" pada toolbar dialog
+	 * memaksa penghitungan ulang total dari seluruh baris nilai yang sedang tampil; tombol "Selesai"
+	 * menutup window lalu memuat ulang grid utama ({@link #loadData(Object)}) via timer.
+	 *
+	 * @param dosen dosen penilai yang dialognya dibuka (pemilik nilai/catatan yang ditampilkan).
+	 * @param jenis nama peran dosen ini pada format nilai (nilai dari
+	 *              {@code dosen1}..{@code dosen6} milik
+	 *              {@link MahasiswaRequestTugasAkhir#getFormatNilaiProposalSkripsi()}), dipakai
+	 *              sebagai kunci pencarian nilai/komponen dan kunci JSON catatan dosen.
+	 */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	private void init(final Dosen dosen, final String jenis) throws Exception {
 		final MyWindow addWindow = new MyWindow();
@@ -571,6 +639,25 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 		addWindow.onModal();
 	}
 
+	/**
+	 * Mengambil daftar komponen penilaian proposal skripsi yang berlaku untuk satu peran dosen
+	 * ({@code jenis}), lalu mengelompokkannya per komponen induk (parent-child, untuk komponen yang
+	 * punya sub-komponen). Query Hibernate Criteria pada
+	 * {@link ProposalSkripsiPunyaKomponenPenilaianProposalSkripsi} memfilter:
+	 * {@link KomponenPenilaianProposalSkripsi} yang jurusan/fakultasnya kosong (berlaku umum) ATAU
+	 * cocok dengan jurusan/fakultas mahasiswa; kolom peran dosen ({@code dosen1}..{@code dosen6},
+	 * ditentukan dari {@code jenis} lewat pencocokan dengan
+	 * {@code getFormatNilaiProposalSkripsi().getDosenN()}) kosong ATAU bernilai {@code true};
+	 * {@code aktif} kosong ATAU {@code true}; dan terikat ke
+	 * {@link MahasiswaRequestTugasAkhir#getFormatNilaiProposalSkripsi()} yang sama.
+	 *
+	 * @param jenis nama peran dosen (nilai {@code dosen1}..{@code dosen6} pada format nilai) yang
+	 *              menentukan kolom boolean mana pada {@link KomponenPenilaianProposalSkripsi} yang
+	 *              dipakai sebagai filter keterlibatan komponen untuk peran tersebut.
+	 * @return peta terurut (berdasarkan id komponen induk) dari id komponen induk ke daftar
+	 *         sub-komponennya; komponen tanpa induk dan tanpa anak muncul sebagai key dengan list
+	 *         kosong (ditangani sebagai "komponen tunggal" oleh {@link #init(Dosen, String)}).
+	 */
 	@SuppressWarnings("unchecked")
 	private TreeMap<Long, List<KomponenPenilaianProposalSkripsi>> populateKomponen(String jenis) {
 		String kolom = "dosen1";
@@ -634,6 +721,22 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 		return dataKomponenPenilaian;
 	}
 
+	/**
+	 * Implementasi kontrak {@link DataLoader}: memuat ulang grid "Nilai Seminar" dari state
+	 * {@code mahasiswaRequestTugasAkhir} saat ini. Memasang {@link DetailKelompokKknRenderer}
+	 * sebagai row renderer dan model daftar dosen ({@link MahasiswaRequestTugasAkhir#dataDosen(boolean)}),
+	 * membangun ulang footer grid (rata-rata nilai, nilai huruf akhir). Untuk pengguna non-mahasiswa
+	 * dan non-siswa (staf/dosen/admin), menambahkan checkbox "Sembunyikan nilai ke mahasiswa" pada
+	 * footer — mencentang/melepasnya langsung mem-{@code refresh} entity dari DB,
+	 * mengubah {@link MahasiswaRequestTugasAkhir#setSembunyikanNilaiKemahasiswa(Boolean)}, lalu
+	 * menyimpan seketika lewat {@code Common.refreshUpdate} + {@code session.flush()} (auto-save,
+	 * tanpa tombol Simpan terpisah). Bila nilai sedang disembunyikan dan pengguna login adalah
+	 * mahasiswa, footer rata-rata/nilai huruf ditampilkan kosong alih-alih angka asli.
+	 *
+	 * @param value tidak dipakai — parameter ini murni untuk memenuhi tanda tangan
+	 *              {@link DataLoader#loadData(Object)}, dipanggil dengan {@code null} di semua
+	 *              tempat pada file ini.
+	 */
 	public void loadData(Object value) {
 
 		ListModel strset = new SimpleListModel(mahasiswaRequestTugasAkhir.dataDosen(false));
@@ -700,6 +803,16 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 	 * ringkasan Status/Total Bobot/Nilai Tertinggi/Tanggal Seminar, serta identitas mahasiswa. Angka
 	 * bersumber dari MahasiswaRequestTugasAkhir yang sedang dinilai; bila nilai disembunyikan untuk
 	 * mahasiswa maka kartu nilai ditandai "-". Read-only sehingga aman dipanggil ulang tiap render.
+	 *
+	 * <p>Detail per dosen memakai {@link #dashNilaiDosen} dan {@link #dashPersenDosen} untuk
+	 * memetakan "jenis" peran ke pasangan nilai/persentase yang tepat (dosen1-3 = pembimbing 1-3,
+	 * dosen4-6 = penguji 1-3), {@link #dashFmt} untuk format angka dan {@link #dashEsc} untuk
+	 * escape HTML pada teks bebas (nama dosen/mahasiswa, prodi, fakultas) sebelum disisipkan ke
+	 * markup mentah lewat {@link StringBuilder}. Grafik "batang" dan "radar" murni CSS (lebar div /
+	 * rotasi+translate elemen {@code <span>}), tanpa JavaScript maupun library chart.</p>
+	 *
+	 * @return komponen {@link org.zkoss.zul.Html} berisi markup dasbor lengkap dengan {@code
+	 *         <style>} inline, siap ditempel sebagai anak komponen ZK manapun.
 	 */
 	private org.zkoss.zul.Html buatDashboardNilai() {
 		final MahasiswaRequestTugasAkhir m = mahasiswaRequestTugasAkhir;
@@ -770,6 +883,14 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 		return new org.zkoss.zul.Html(html.toString());
 	}
 
+	/**
+	 * Meng-escape karakter HTML berbahaya ({@code & < > "}) pada teks yang akan disisipkan mentah
+	 * ke markup dasbor {@link #buatDashboardNilai()}, mencegah teks bebas (nama, judul, dsb.) merusak
+	 * struktur HTML. {@code null} dikembalikan sebagai string kosong.
+	 *
+	 * @param v teks sumber, boleh {@code null}.
+	 * @return teks yang sudah aman disisipkan ke HTML.
+	 */
 	private String dashEsc(String v) {
 		if (v == null) {
 			return "";
@@ -777,14 +898,40 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 		return v.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
 	}
 
+	/**
+	 * Memformat angka nilai untuk tampilan dasbor memakai {@link Common#numberFormat}; {@code null}
+	 * diperlakukan sebagai {@code 0.0}.
+	 *
+	 * @param v nilai yang akan diformat, boleh {@code null}.
+	 * @return representasi string angka sesuai format angka aplikasi.
+	 */
 	private String dashFmt(Double v) {
 		return Common.numberFormat.get().format(v == null ? 0.0 : v);
 	}
 
+	/**
+	 * Null-safe unboxing untuk nilai {@code Double} dasbor: {@code null} menjadi {@code 0.0}.
+	 *
+	 * @param v nilai sumber, boleh {@code null}.
+	 * @return nilai primitif, {@code 0.0} bila {@code v} adalah {@code null}.
+	 */
 	private double dashSafe(Double v) {
 		return v == null ? 0.0 : v;
 	}
 
+	/**
+	 * Mengambil nilai numerik dosen tertentu pada dasbor berdasarkan "jenis" perannya, dengan
+	 * mencocokkan {@code vo.getName()} ke {@code fmt.getDosen1()}..{@code getDosen6()} lalu
+	 * mengembalikan field {@code nilaiDosenN} yang bersesuaian dari {@code m}
+	 * ({@link MahasiswaRequestTugasAkhir}). Mengembalikan {@code 0.0} bila parameter tidak lengkap
+	 * atau peran tidak dikenali.
+	 *
+	 * @param vo  value object dosen (dari {@link MahasiswaRequestTugasAkhir#dataDosen(boolean)}),
+	 *            {@code name}-nya menentukan peran mana yang dicocokkan.
+	 * @param fmt format nilai proposal skripsi yang memetakan nama peran ke kolom dosen1..dosen6.
+	 * @param m   data Tugas Akhir sumber nilai dosen1..dosen6.
+	 * @return nilai dosen untuk peran tersebut, atau {@code 0.0} bila tidak ditemukan/{@code null}.
+	 */
 	private double dashNilaiDosen(CommonVO vo, ais.database.model.FormatNilaiProposalSkripsi fmt,
 			MahasiswaRequestTugasAkhir m) {
 		if (vo == null || fmt == null || m == null || vo.getName() == null) {
@@ -800,6 +947,16 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 		return 0.0;
 	}
 
+	/**
+	 * Mengambil persentase bobot peran dosen tertentu pada dasbor, dengan mencocokkan
+	 * {@code vo.getName()} ke {@code fmt.getDosen1()}..{@code getDosen6()} lalu mengembalikan
+	 * persentase pembimbing (dosen1-3) atau penguji (dosen4-6) yang bersesuaian dari {@code fmt}.
+	 * Mengembalikan {@code 0.0} bila parameter tidak lengkap atau peran tidak dikenali.
+	 *
+	 * @param vo  value object dosen, {@code name}-nya menentukan peran mana yang dicocokkan.
+	 * @param fmt format nilai proposal skripsi sumber persentase bobot per peran.
+	 * @return persentase bobot peran dosen tersebut, atau {@code 0.0} bila tidak ditemukan/{@code null}.
+	 */
 	private double dashPersenDosen(CommonVO vo, ais.database.model.FormatNilaiProposalSkripsi fmt) {
 		if (vo == null || fmt == null || vo.getName() == null) {
 			return 0.0;
@@ -814,6 +971,45 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 		return 0.0;
 	}
 
+	/**
+	 * Titik masuk utama helper: membangun seluruh layar penilaian proposal skripsi/Tugas Akhir ke
+	 * dalam {@code component} yang diberikan (mengosongkannya lebih dulu lewat
+	 * {@code Common.clear(component)}). Layout memakai {@link Borderlayout} dengan tinggi tetap
+	 * 1050px (dipilih agar tidak kolaps saat form dimuat dari tab custom eLearning, lihat komentar
+	 * inline): NORTH = toolbar aksi, WEST 42% = form "Hasil Seminar", CENTER = dasbor
+	 * ({@link #buatDashboardNilai()}) + grid "Nilai Seminar" per dosen. Method ini idempotent per
+	 * pemanggilan — dipanggil ulang dari beberapa listener (Refresh, Reset, ganti matakuliah, ganti
+	 * format nilai) untuk me-render ulang layar dari state {@code mahasiswaRequestTugasAkhir}
+	 * terbaru.
+	 *
+	 * <p><b>Efek samping saat membangun toolbar</b> (bukan hanya tampilan pasif):</p>
+	 * <ul>
+	 * <li>Bila {@code mahasiswaRequestTugasAkhir.getDetailperkuliahan()} masih kosong, method ini
+	 * MENCOBA mengisinya otomatis lewat
+	 * {@code Common.checkApakahSudahMengambilKrsSeminarSkripsi(...)} dan langsung menyimpannya bila
+	 * ketemu — bukan sekadar membaca.</li>
+	 * <li>Tombol "Blanko Penilaian" dan "Berita Acara" masing-masing membangun peta parameter (nama
+	 * dosen, NIDN/NIP, tanda tangan scan dari {@link LampiranLain#TTD_DOSEN}/{@code TTD_MAHASISWA},
+	 * judul, kaprodi/dekan, dan detail per komponen nilai) lalu memanggil
+	 * {@link Report#generatePDFReport} untuk mencetak PDF "Blanko_Proposal_Skripsi" dan
+	 * "Berita_Acara_Proposal_Skripsi".</li>
+	 * <li>Tombol "Reset" (hanya tampil untuk admin, {@code Common.getApakahAdmin()}) setelah
+	 * konfirmasi akan MENGHAPUS seluruh nilai dosen1-6, nilai huruf, total IP, total nilai, dan
+	 * detail nilai per komponen milik {@code mahasiswaRequestTugasAkhir} lalu menyimpannya — operasi
+	 * destruktif dan tidak bisa dibatalkan selain dengan mengisi ulang nilai secara manual.</li>
+	 * <li>Combobox format nilai menyimpan pilihan langsung ke DB saat berubah; kegagalan simpan
+	 * (mis. format nilai sudah dihapus admin lain, race condition lintas sesi) ditangkap, transaksi
+	 * di-rollback, dicatat lewat {@link ais.common.ErrorAuditUtil}, dan pengguna diberi tahu lewat
+	 * {@link MyMessageboxConfig} alih-alih exception mentah.</li>
+	 * </ul>
+	 *
+	 * @param mahasiswaRequestTugasAkhir data pengajuan Tugas Akhir/proposal skripsi yang akan
+	 *                                   ditampilkan dan dinilai; disimpan ke field instance dengan
+	 *                                   nama sama sehingga dipakai oleh seluruh method lain di
+	 *                                   kelas ini selama instance ini hidup.
+	 * @param component                 komponen ZK induk tempat layar penilaian dipasang; isi
+	 *                                   sebelumnya akan dibuang.
+	 */
 	public void display(final MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir, final Component component) {
 		this.mahasiswaRequestTugasAkhir = mahasiswaRequestTugasAkhir;
 		Common.clear(component);
@@ -1364,6 +1560,25 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 			buttonBlanko.setParent(toolbar);
 			buttonBlanko.addEventListener("onClick", new EventListener() {
 
+				/**
+				 * Membangun satu baris parameter (satu {@link Map}) untuk template PDF "Blanko
+				 * Penilaian" — satu baris per pasangan (dosen, komponen penilaian): identitas
+				 * dosen (NIDN/NIP/nama, path tanda tangan scan dari
+				 * {@link LampiranLain#TTD_DOSEN}), identitas mahasiswa/judul/jurusan/fakultas,
+				 * serta nilai, bobot, dan hasil kali nilai x bobot untuk komponen tersebut.
+				 * Dipanggil berulang per komponen di dalam {@code onEvent} sehingga hasilnya
+				 * dikumpulkan menjadi daftar {@code maps} yang menjadi tabel detail laporan.
+				 *
+				 * @param commonVO                          value object dosen ({@code name}
+				 *                                           = peran, value object = {@link Dosen}).
+				 * @param komponenPenilaianProposalSkripsi   komponen penilaian yang nilainya
+				 *                                           dimasukkan ke baris ini.
+				 * @param induk                              {@code true} bila komponen ini adalah
+				 *                                           komponen tunggal/induk tanpa
+				 *                                           sub-komponen (dipakai template untuk
+				 *                                           membedakan gaya baris).
+				 * @return peta parameter satu baris tabel blanko penilaian.
+				 */
 				@SuppressWarnings({ "unchecked", "rawtypes" })
 				private Map masukkanParameter(CommonVO commonVO,
 						KomponenPenilaianProposalSkripsi komponenPenilaianProposalSkripsi, Boolean induk) {
@@ -1434,6 +1649,19 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 					return parameter;
 				}
 
+				/**
+				 * Handler tombol "Blanko Penilaian": untuk setiap dosen penilai (dari
+				 * {@link MahasiswaRequestTugasAkhir#dataDosen(boolean)}) dan setiap komponen
+				 * penilaiannya ({@link #populateKomponen(String)}) membangun satu baris parameter
+				 * lewat {@code masukkanParameter(...)} di atas, mengumpulkan tanda tangan scan
+				 * dosen ({@link LampiranLain#TTD_DOSEN}) dan mahasiswa
+				 * ({@link LampiranLain#TTD_MAHASISWA}), lalu melengkapi parameter global (judul,
+				 * kaprodi, dekan, jadwal, total nilai, dsb.) sebelum mencetak PDF
+				 * "Blanko_Proposal_Skripsi" lewat {@link Report#generatePDFReport}. Murni baca DB
+				 * dan tulis file laporan sementara; tidak mengubah data penilaian.
+				 *
+				 * @param event event klik tombol, tidak dipakai isinya.
+				 */
 				@SuppressWarnings({ "rawtypes", "unchecked" })
 				@Override
 				public void onEvent(Event event) throws Exception {
@@ -1575,6 +1803,17 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 			buttonBlanko.setParent(toolbar);
 			buttonBlanko.addEventListener("onClick", new EventListener() {
 
+				/**
+				 * Membangun satu baris parameter untuk template PDF "Berita Acara" — satu baris
+				 * per dosen (bukan per komponen seperti pada Blanko Penilaian): identitas dosen,
+				 * kaprodi/dekan, serta nilai total dan persentase bobot peran dosen tersebut
+				 * (dicari lewat perbandingan {@code commonVO.getName()} terhadap
+				 * {@code dosen1}..{@code dosen6} pada {@link ais.database.model.FormatNilaiProposalSkripsi},
+				 * sama seperti pemetaan di {@link DetailKelompokKknRenderer#render}).
+				 *
+				 * @param commonVO value object dosen ({@code name} = peran, value object = {@link Dosen}).
+				 * @return peta parameter satu baris tabel berita acara.
+				 */
 				@SuppressWarnings({ "unchecked", "rawtypes" })
 				private Map masukkanParameter(CommonVO commonVO) {
 					Dosen dosen = (Dosen) commonVO.getValueObject();
@@ -1666,6 +1905,16 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 					return parameter;
 				}
 
+				/**
+				 * Handler tombol "Berita Acara": untuk setiap dosen penilai membangun satu baris
+				 * parameter lewat {@code masukkanParameter(CommonVO)} di atas, mengumpulkan tanda
+				 * tangan scan dosen/mahasiswa, melengkapi parameter global (judul, kaprodi, dekan,
+				 * jadwal, total nilai, dsb.), lalu mencetak PDF "Berita_Acara_Proposal_Skripsi"
+				 * lewat {@link Report#generatePDFReport}. Murni baca DB dan tulis file laporan
+				 * sementara; tidak mengubah data penilaian.
+				 *
+				 * @param event event klik tombol, tidak dipakai isinya.
+				 */
 				@SuppressWarnings({ "rawtypes", "unchecked" })
 				@Override
 				public void onEvent(Event event) throws Exception {
@@ -1786,6 +2035,8 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 			});
 		}
 
+		// Tombol "Refresh": muat ulang seluruh layar dari state mahasiswaRequestTugasAkhir saat ini
+		// (tanpa query baru sendiri — hanya memanggil ulang display()).
 		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Refresh", "/img/Button-Refresh-icon.png");
 		button.addEventListener("onClick", new EventListener() {
 
@@ -1796,6 +2047,10 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 		});
 		button.setParent(toolbar);
 
+		// Tombol "Reset" (khusus admin, lihat Common.getApakahAdmin()): setelah konfirmasi,
+		// menghapus permanen seluruh nilai dosen1-6, nilai huruf, total IP, total nilai, dan detail
+		// nilai per komponen milik mahasiswaRequestTugasAkhir ini, lalu menyimpan dan me-render ulang
+		// layar. Lihat Javadoc display(...) untuk detail efek samping destruktif ini.
 		button = new MyToolbarbuttonConfig("Reset", "/img/Button-Refresh-icon.png");
 		button.setVisible(Common.getApakahAdmin());
 		button.addEventListener("onClick", new EventListener() {

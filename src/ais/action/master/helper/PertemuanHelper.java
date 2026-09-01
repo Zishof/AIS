@@ -60,29 +60,70 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
 /**
- * Helper terfokus untuk pertemuan. Tipe ini membungkus satu variasi kecil dari alur yang lebih
- * umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ * Helper ZK yang membangun window detail satu {@link Pertemuan} (satu sesi kelas/pertemuan
+ * perkuliahan, jadwal pelajaran sekolah, kegiatan KKN, atau kegiatan PKL) dan menampilkannya
+ * sebagai modal beranak-tab. Dipanggil dari banyak titik akademik (dasbor dosen/guru, riwayat
+ * perkuliahan, KRS, dsb.) setiap kali pengguna perlu membuka rincian satu pertemuan.
  *
- * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
- * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
- * implementasi paralel dengan hasil berbeda.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code DataLoader dataLoader}, {@code MyWindow
- * window}, {@code boolean tampilSelesai}, {@code Pertemuan pertemuan}, {@code VideoPertemuanHelper
- * videoPertemuanHelper}, {@code AudioPertemuanHelper audioPertemuanHelper}, {@code FilePerkuliahanHelper
- * filePerkuliahanHelper}, {@code PertemuanPunyaUjianHelper pertemuanPunyaUjianHelper}; inisialisasi/lifecycle
- * ({@code initTugas()}, {@code initTugas()}, {@code initDasbor()}, {@code buatGbClickable()}, {@code init()},
- * {@code initCatatan()}); pembacaan/pencarian ({@code tampilanDesktop()}, {@code tampilanMobile()});
- * validasi/perhitungan ({@code hitungStatusDenganSuffix()}); operasi domain lain ({@code addInfoPertemuan()},
- * {@code gabungStatus()}, {@code tambahStatus()}, {@code ringkasStatus()}, {@code nilaiStatus()}, {@code
- * addKpiCard()}); konfigurasi constructor: {@code absensiHelper}, {@code absensiSiswaHelper}, {@code
- * audioPertemuanHelper}, {@code biodataCalonMahasiswa}, {@code filePerkuliahanHelper}, {@code mahasiswa}, {@code
- * pertemuanPunyaDiskusiHelper}, {@code pertemuanPunyaHasilHelper}, {@code pertemuanPunyaUjianHelper}, {@code
- * pertemuanPunyaUjianSiswaHelper}, {@code tugasMandiriHelper}, {@code videoPertemuanHelper}. Bagian lain dari
- * kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Tab yang dibangun {@link #tampilanDesktop(org.zkoss.zk.ui.Component)} (lazy-load lewat
+ * {@code MyButtonTabbox}):</b></p>
+ * <ol>
+ * <li><b>Dasbor</b> (indeks 9, didaftarkan pertama agar tampil paling kiri) — ringkasan KPI
+ * (total peserta, hadir, belum absen, jumlah tugas/ujian/konten), grafik batang bertumpuk
+ * pengumpulan tugas &amp; partisipasi ujian, radar kelengkapan pertemuan, dan baris navigasi
+ * yang tiap barisnya bisa diklik untuk lompat ke tab terkait. Dibangun oleh
+ * {@link #initDasbor(Div)}.</li>
+ * <li><b>Kehadiran</b> (0) — didelegasikan ke {@link AbsensiSiswaHelper} bila pertemuan berasal
+ * dari {@code JadwalPelajaran}/{@code JadwalUjianPSB}/formulir kegiatan sekolah, atau ke
+ * {@link AbsensiHelper} untuk kasus akademik biasa (perkuliahan, KKN, PKL).</li>
+ * <li><b>Pembelajaran</b> (1) — form catatan/RPS pertemuan ({@code catatan}, {@code indikator},
+ * {@code metodePembelajaran}, {@code pengalamanBelajar}, {@code waktupembelajaran},
+ * {@code tugasDanPenilaian}) dibangun oleh {@link #initCatatan(boolean)}; setiap field punya
+ * tombol "Generate ..." yang memanggil {@link AIGenerator#generateApa} untuk mengisi otomatis
+ * berdasarkan konteks pertemuan (dosen, mahasiswa, matakuliah/matapelajaran, jadwal).</li>
+ * <li><b>Materi</b> (2) — file konten pertemuan lewat {@code filePerkuliahanHelper}
+ * ({@link FilePerkuliahanHelper}).</li>
+ * <li><b>Tugas</b> (3) — daftar {@link Tugas} (individu {@link TugasPertemuan} lewat
+ * {@code tugasMandiriHelper}, kelompok {@link TugasKelompok} lewat {@code tugasKelompokHelper})
+ * ditampilkan sebagai sub-tab, dibangun oleh {@link #initTugas(Component, boolean, boolean)}.</li>
+ * <li><b>Audio</b> (4) / <b>Video</b> (5) — lewat {@code audioPertemuanHelper}/
+ * {@code videoPertemuanHelper}.</li>
+ * <li><b>Ujian</b> (6) — didelegasikan ke {@code pertemuanPunyaUjianSiswaHelper} (jadwal sekolah)
+ * atau {@code pertemuanPunyaUjianHelper} (akademik) — pola percabangan yang sama seperti tab
+ * Kehadiran.</li>
+ * <li><b>Diskusi</b> (7) — lewat {@code pertemuanPunyaDiskusiHelper}.</li>
+ * <li><b>Hasil, Evaluasi, Kusioner</b> (8) — lewat {@code pertemuanPunyaHasilHelper}.</li>
+ * </ol>
+ *
+ * <p><b>Mode tampilan:</b> {@link #init()} memilih antara {@link #tampilanDesktop} (tab button
+ * penuh) dan {@link #tampilanMobile(Center)} (satu tab aktif berdasarkan {@code index}, tanpa
+ * dasbor) berdasarkan {@code Common.isMobile()}.</p>
+ *
+ * <p><b>Konstruksi &amp; identitas pengguna:</b> keempat constructor menentukan "siapa yang
+ * melihat" (mahasiswa, calon mahasiswa/biodataCalonMahasiswa, siswa/calon siswa lewat
+ * {@link Tbmuser}, atau admin/dosen/guru bila semua null) dan meneruskannya ke sub-helper
+ * masing-masing tab supaya query dan hak edit dibatasi sesuai identitas tersebut. Perhatikan
+ * dua kuirk: (1) {@link #PertemuanHelper(Mahasiswa, BiodataCalonMahasiswa)} MENIMPA parameter
+ * {@code mahasiswa}/{@code biodataCalonMahasiswa} yang diteruskan pemanggil dengan milik
+ * {@code Common.getCurrentUser()} bila user sesi punya mahasiswa/biodataCalonMahasiswa sendiri —
+ * jadi parameter itu hanya dipakai sebagai fallback ketika sesi login tidak mewakili siapa pun;
+ * (2) {@link #PertemuanHelper(Mahasiswa, BiodataCalonMahasiswa, boolean)} memanggil constructor
+ * 2-parameter TERLEBIH DAHULU (yang berpotensi menimpa mahasiswa/biodataCalonMahasiswa seperti
+ * di atas) baru kemudian menimpa {@code tampilSelesai}.</p>
+ *
+ * <p><b>Efek samping:</b> perubahan pada field catatan/indikator/metode pembelajaran/pengalaman
+ * belajar/waktu pembelajaran/tugas dan penilaian langsung melakukan
+ * {@code Common.refreshSaveOrUpdate(pertemuan)} pada {@code onChange} (autosave per field, tanpa
+ * tombol simpan terpisah). Membuat tugas individu/kelompok baru ({@code initTugas}) melakukan
+ * {@code session.save()+flush()} langsung lalu memuat ulang koleksi tugas pertemuan. Window
+ * ditutup lewat tombol "Selesai" yang memanggil {@code dataLoader.loadData(null)} (memberi tahu
+ * pemanggil untuk refresh) sebelum {@code window.detach()}.</p>
+ *
+ * <p><b>Titik masuk:</b> lima overload {@link #display} — parameter tambahan (tugas/tugas
+ * kelompok terpilih, file/audio/video terpilih) hanya dipakai untuk mem-preselect item saat
+ * window dibuka (mis. dari notifikasi atau tautan langsung ke satu tugas/file tertentu). Semua
+ * overload berujung ke overload penuh yang membungkus pembukaan window dalam
+ * {@code Common.createDefaultTimer(...)} agar berjalan di siklus event ZK yang benar.</p>
  */
 public class PertemuanHelper {
 
@@ -118,10 +159,26 @@ public class PertemuanHelper {
 	private VideoPertemuan selectedVideoPertemuan = null;
 	private Tbmuser tbmuser;
 
+	/** Constructor tanpa argumen: pakai user login saat ini ({@code Common.getCurrentUser()}). */
 	public PertemuanHelper() {
 		this(Common.getCurrentUser());
 	}
 
+	/**
+	 * Membangun helper untuk identitas {@code tbmuser} tertentu (mahasiswa/calon
+	 * mahasiswa/siswa/calon siswa/dosen/admin — ditentukan dari field mana yang terisi di
+	 * {@link Tbmuser}). Menyiapkan seluruh sub-helper tab (tugas, materi, audio, video,
+	 * absensi, ujian, diskusi, hasil) dengan konteks identitas ini sehingga query dan hak
+	 * edit tiap tab konsisten dengan siapa yang sedang melihat.
+	 *
+	 * @param tbmuser user yang membuka pertemuan; boleh {@code null} (ditangani null-safe untuk
+	 *                {@code videoPertemuanHelper}/{@code audioPertemuanHelper}, tapi TIDAK
+	 *                null-safe untuk {@code pertemuanPunyaUjianSiswaHelper}/
+	 *                {@code absensiSiswaHelper} yang langsung memanggil {@code tbmuser.getSiswa()}
+	 *                tanpa cek null — constructor ini mengasumsikan pemanggil sudah memastikan
+	 *                {@code tbmuser} tidak null kecuali lewat jalur {@link #PertemuanHelper()}
+	 *                yang parameternya berasal dari {@code Common.getCurrentUser()}).
+	 */
 	public PertemuanHelper(Tbmuser tbmuser) {
 		this.tbmuser = tbmuser;
 		if (tbmuser != null) {
@@ -150,11 +207,36 @@ public class PertemuanHelper {
 		pertemuanPunyaHasilHelper = new PertemuanPunyaHasilHelper();
 	}
 
+	/**
+	 * Sama seperti {@link #PertemuanHelper(Mahasiswa, BiodataCalonMahasiswa)} tapi dengan kendali
+	 * eksplisit atas tombol "Selesai" (South toolbar) di {@link #init()}.
+	 *
+	 * @param mahasiswa              lihat kuirk penimpaan di {@link #PertemuanHelper(Mahasiswa, BiodataCalonMahasiswa)}
+	 *                               yang dipanggil terlebih dahulu.
+	 * @param biodataCalonMahasiswa  idem.
+	 * @param tampilSelesai          {@code true} untuk menampilkan toolbar "Selesai" di bawah
+	 *                               window (nilai default {@code true} bila konstruktor lain dipakai).
+	 */
 	public PertemuanHelper(Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa, boolean tampilSelesai) {
 		this(mahasiswa, biodataCalonMahasiswa);
 		this.tampilSelesai = tampilSelesai;
 	}
 
+	/**
+	 * Membangun helper untuk konteks mahasiswa/calon mahasiswa yang diberikan eksplisit.
+	 *
+	 * <p><b>Kuirk penting:</b> method ini membaca ulang {@code Common.getCurrentUser()} dan, bila
+	 * user sesi login punya {@code mahasiswa}/{@code biodataCalonMahasiswa} sendiri, MENIMPA
+	 * parameter yang diteruskan pemanggil dengan milik user sesi tersebut. Akibatnya parameter
+	 * {@code mahasiswa}/{@code biodataCalonMahasiswa} di sini hanya benar-benar dipakai ketika
+	 * user sesi login tidak mewakili siapa pun (mis. dipanggil dari konteks admin/dosen yang
+	 * membuka pertemuan atas nama mahasiswa lain) — bukan sekadar nilai default yang bisa dipaksa.
+	 * {@code tbmuser} boleh {@code null}; seluruh pemakaian berikutnya di constructor ini sudah
+	 * null-safe (beda dengan {@link #PertemuanHelper(Tbmuser)}).</p>
+	 *
+	 * @param mahasiswa             kandidat mahasiswa pemilik konteks (lihat kuirk di atas).
+	 * @param biodataCalonMahasiswa kandidat calon mahasiswa pemilik konteks (lihat kuirk di atas).
+	 */
 	public PertemuanHelper(Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa) {
 		Tbmuser tbmuser = Common.getCurrentUser();
 		this.tbmuser = tbmuser;
@@ -187,10 +269,38 @@ public class PertemuanHelper {
 		pertemuanPunyaHasilHelper = new PertemuanPunyaHasilHelper();
 	}
 
+	/** Overload singkat: memuat tab Tugas tanpa memaksa memilih tab tugas terakhir. */
 	private void initTugas(final Component tabpanelFileTugasPertemuan, boolean tampilInfo) throws Exception {
 		initTugas(tabpanelFileTugasPertemuan, false, tampilInfo);
 	}
 
+	/**
+	 * Membangun isi tab Tugas: sebuah {@link Tabbox} bersarang yang sub-tab-nya adalah tugas
+	 * utama pertemuan ({@code pertemuan.getJudultugas()}, bila diisi) diikuti seluruh
+	 * {@link Tugas} lain (individu {@link TugasPertemuan} atau kelompok {@link TugasKelompok})
+	 * dari {@code pertemuan.ambilTugasTotalSemua()}. Isi sub-tab dimuat LAZY: hanya dibangun saat
+	 * tab benar-benar diklik (event listener {@code onClick} yang cek
+	 * {@code tabpanelUtama.getChildren().isEmpty()}), kecuali tugas yang cocok dengan
+	 * {@code selectedTugasPertemuan}/{@code selectedTugasKelompok} (di-preselect dari
+	 * {@link #display}) yang langsung dibangun dan tab-nya diaktifkan.
+	 *
+	 * <p>Di akhir method ditambahkan tab "Tugas Individu Baru" dan (bila pertemuan berasal dari
+	 * perkuliahan/jadwal pelajaran/KKN/PKL) "Tugas Kelompok Baru" — keduanya hanya tampak untuk
+	 * admin/dosen/guru (disembunyikan bila {@code mahasiswa}/{@code biodataCalonMahasiswa} terisi
+	 * atau {@code tbmuser} adalah peserta kursus/siswa). Mengklik salah satunya membuat entity
+	 * {@link TugasPertemuan}/{@link TugasKelompok} baru dengan atribut penilaian disalin dari
+	 * {@code pertemuan} (format nilai, syarat mengumpulkan, prosentase), langsung
+	 * {@code session.save()+flush()}, lalu memanggil ulang {@code pertemuan.reInitTugasPertemuan}/
+	 * {@code reInitTugasKelompok} dan memuat ulang tab ini dengan tugas baru terpilih.</p>
+	 *
+	 * @param tabpanelFileTugasPertemuan wadah tab (dikosongkan dulu lewat {@code Common.clear}
+	 *                                   bila tidak {@code null}) tempat sub-tabbox dipasang.
+	 * @param selectTerakhir             bila {@code true} dan belum ada tugas terpilih, tab tugas
+	 *                                   TERAKHIR dalam iterasi otomatis dipilih &amp; dimuat (dipakai
+	 *                                   {@link #tampilanMobile} setelah membuat tugas baru).
+	 * @param tampilInfo                 diteruskan ke {@code tugasMandiriHelper.createTugas} untuk
+	 *                                   menampilkan/menyembunyikan info pertemuan di dalam sub-tab.
+	 */
 	private void initTugas(final Component tabpanelFileTugasPertemuan, final boolean selectTerakhir,
 			final boolean tampilInfo) throws Exception {
 		if (tabpanelFileTugasPertemuan != null) {
@@ -433,6 +543,18 @@ public class PertemuanHelper {
 		}
 	}
 
+	/**
+	 * Membangun tampilan desktop: memasang {@code MyButtonTabbox} berisi 9 tab lazy-load (lihat
+	 * daftar lengkap di Javadoc kelas) ke dalam {@code container}, dengan tab Dasbor didaftarkan
+	 * pertama agar tampil di posisi paling kiri walau secara logis merupakan tab "ke-9". Tinggi
+	 * tabbox dipatok {@code calc(100vh - 70px)} untuk menyisakan ruang toolbar South. Di akhir,
+	 * {@code btnTab.pilih(index)} memaksa tab yang sesuai state {@code index} (dari
+	 * {@link #display}) menjadi aktif — dipanggil setelah semua tab terdaftar karena
+	 * {@code buatTombolDanPanel()} pada {@code MyButtonTabbox} akan meng-override pilihan ke tab
+	 * pertama jika dipanggil lebih awal.
+	 *
+	 * @param container komponen ZK tempat tabbox dipasang (Center dari {@link MyBorderlayout}).
+	 */
 	private void tampilanDesktop(org.zkoss.zk.ui.Component container) throws Exception {
 		TreeMap<Long, TugasPertemuan> tugasPertemuansa = pertemuan.ambilTugasPertemuanTotal();
 		final int jumlahTugas = (pertemuan.getJudultugas().isEmpty() ? 0 : 1) + tugasPertemuansa.size();
@@ -563,6 +685,14 @@ public class PertemuanHelper {
 		btnTab.pilih(index);
 	}
 
+	/**
+	 * Menyisipkan panel info ringkas pertemuan (delegasi ke
+	 * {@link DashboardTimelinePertemuan#displayInfoPertemuan(Pertemuan)}) di bagian atas
+	 * {@code panel}, dibungkus {@code Div} dengan garis bawah tipis sebagai pemisah visual.
+	 * Dipakai hanya di tab Dasbor.
+	 *
+	 * @param panel wadah tab Dasbor yang sedang dibangun.
+	 */
 	private void addInfoPertemuan(Div panel) throws Exception {
 		Div infoWrap = new Div();
 		infoWrap.setStyle("border-bottom:1px solid #dee2e6;padding:4px 8px 8px;margin-bottom:8px;");
@@ -570,6 +700,28 @@ public class PertemuanHelper {
 		infoWrap.setParent(panel);
 	}
 
+	/**
+	 * Membangun tab Dasbor: mengumpulkan statistik pertemuan dari method {@link Pertemuan} yang
+	 * relevan (jumlah peserta, status kehadiran, tugas, ujian, materi/audio/video/diskusi — tiap
+	 * pengumpulan data dibungkus {@code try/catch} individual dan diabaikan senyap bila gagal,
+	 * sehingga satu sumber data yang error tidak menggagalkan seluruh dasbor) lalu merender:
+	 * kartu KPI klik-navigasi ({@link #addKpiCard}), tabel kehadiran per jenis peserta
+	 * (mahasiswa/dosen/siswa/guru, lewat {@link #ringkasStatus}), grafik batang bertumpuk
+	 * pengumpulan tugas &amp; partisipasi ujian per item (lewat {@link HtmlChartHelper#stackedBar}),
+	 * radar kelengkapan 7 dimensi (lewat {@link HtmlChartHelper#radar}, skala 0–10 hasil
+	 * normalisasi kasar dari jumlah mentah), bar horizontal konten (materi/audio/video), info
+	 * {@link ais.database.model.VOPembelajaran} bila ada, dan tabel navigasi tab. Setiap groupbox
+	 * dibuat lewat {@link #buatGbClickable(String, int)} sehingga mengklik judulnya langsung
+	 * berpindah ke tab terkait via {@code btnTab.pilih(tabIdx)}.
+	 *
+	 * <p>Kehadiran mahasiswa/siswa dihitung dari parsing string {@code pertemuan.getAbsensi()}
+	 * (lihat {@link #hitungStatusDenganSuffix(String)}), sedangkan kehadiran dosen/guru memakai
+	 * method khusus {@code pertemuan.hitungStatusDosen()}/{@code hitungStatusGuru()} yang totalnya
+	 * dijumlahkan balik dari peta status bila {@code ambilDosen()}/{@code ambilGuru()} gagal atau
+	 * kosong (fallback ganda untuk menghindari total 0 palsu).</p>
+	 *
+	 * @param panel wadah tab Dasbor.
+	 */
 	private void initDasbor(Div panel) throws Exception {
 		addInfoPertemuan(panel);
 
@@ -858,6 +1010,20 @@ public class PertemuanHelper {
 		gbNav.setParent(panel);
 	}
 
+	/**
+	 * Menghitung distribusi kode kehadiran (M/S/I/A) untuk satu jenis peserta dari string mentah
+	 * {@code pertemuan.getAbsensi()}. Format string: entri dipisah {@code ";"}, tiap entri
+	 * dipisah {@code ","} dengan kode status di indeks ke-2 (indeks 0/1 diasumsikan id/nama
+	 * peserta yang tidak dipakai di sini); hanya entri yang KUNCI-nya (nama peserta, case
+	 * -insensitive) berakhiran {@code suffix} yang dihitung — inilah cara sederhana membedakan
+	 * baris kehadiran mahasiswa dari baris kehadiran siswa dalam satu string absensi gabungan.
+	 * Baris yang gagal di-parse (format tak sesuai) diabaikan senyap per-baris agar satu baris
+	 * rusak tidak menggagalkan seluruh rekap.
+	 *
+	 * @param suffix akhiran kunci yang dicari, mis. {@code "mahasiswa"} atau {@code "siswa"}.
+	 * @return peta kode status ({@code "M"/"S"/"I"/"A"}) ke jumlah kemunculannya; peta kosong bila
+	 *         {@code pertemuan}/{@code suffix} {@code null} atau {@code absensi} kosong.
+	 */
 	private java.util.Map<String,Integer> hitungStatusDenganSuffix(String suffix) {
 		java.util.Map<String,Integer> jumlah = new java.util.HashMap<String,Integer>();
 		if (pertemuan == null || suffix == null) {
@@ -883,6 +1049,14 @@ public class PertemuanHelper {
 		return jumlah;
 	}
 
+	/**
+	 * Menggabungkan dua peta status kehadiran (mis. mahasiswa + siswa) menjadi satu peta
+	 * terjumlah per kode status, dipakai untuk rekap "belum absen" gabungan di kartu KPI.
+	 *
+	 * @param a peta pertama (boleh {@code null}).
+	 * @param b peta kedua (boleh {@code null}).
+	 * @return peta baru hasil penjumlahan {@code a} dan {@code b} per kunci.
+	 */
 	private java.util.Map<String,Integer> gabungStatus(java.util.Map<String,Integer> a, java.util.Map<String,Integer> b) {
 		java.util.Map<String,Integer> hasil = new java.util.HashMap<String,Integer>();
 		tambahStatus(hasil, a);
@@ -890,6 +1064,7 @@ public class PertemuanHelper {
 		return hasil;
 	}
 
+	/** Menjumlahkan nilai {@code sumber} ke dalam {@code hasil} per kunci in-place; no-op bila salah satu {@code null}. */
 	private void tambahStatus(java.util.Map<String,Integer> hasil, java.util.Map<String,Integer> sumber) {
 		if (hasil == null || sumber == null) {
 			return;
@@ -903,6 +1078,16 @@ public class PertemuanHelper {
 		}
 	}
 
+	/**
+	 * Merangkai teks ringkasan kehadiran satu jenis peserta, mis. {@code "20 hadir · 1 sakit ·
+	 * 0 izin · 2 alpa · 3 belum absen"}. "Belum absen" dihitung sebagai sisa
+	 * {@code total - hadir - sakit - izin - alpa}, dijamin tidak negatif.
+	 *
+	 * @param statusMap peta kode status ke jumlah, hasil {@link #hitungStatusDenganSuffix} atau
+	 *                  {@code pertemuan.hitungStatusDosen()}/{@code hitungStatusGuru()}.
+	 * @param total     jumlah total peserta jenis ini (penyebut untuk menghitung "belum absen").
+	 * @return baris teks ringkasan siap tampil.
+	 */
 	private String ringkasStatus(java.util.Map<String,Integer> statusMap, int total) {
 		int hadir = nilaiStatus(statusMap, "M");
 		int sakit = nilaiStatus(statusMap, "S");
@@ -913,6 +1098,7 @@ public class PertemuanHelper {
 				+ belum + " belum absen";
 	}
 
+	/** Mengambil jumlah untuk satu {@code kode} status dari {@code statusMap}, {@code 0} bila tidak ada/null. */
 	private int nilaiStatus(java.util.Map<String,Integer> statusMap, String kode) {
 		if (statusMap == null || kode == null) {
 			return 0;
@@ -921,6 +1107,15 @@ public class PertemuanHelper {
 		return nilai == null ? 0 : nilai.intValue();
 	}
 
+	/**
+	 * Membuat {@link org.zkoss.zul.Groupbox} mold "3d" dengan {@code judul} sebagai caption,
+	 * kursor pointer, dan {@code onClick} yang memanggil {@code btnTab.pilih(tabIdx)} — dipakai
+	 * di seluruh tab Dasbor sebagai pola "kartu ringkasan yang bisa diklik untuk navigasi".
+	 *
+	 * @param judul  teks caption groupbox.
+	 * @param tabIdx indeks tab tujuan navigasi saat groupbox diklik.
+	 * @return groupbox baru (belum di-{@code setParent}, dipasang oleh pemanggil).
+	 */
 	private org.zkoss.zul.Groupbox buatGbClickable(String judul, final int tabIdx) {
 		org.zkoss.zul.Groupbox gb = new org.zkoss.zul.Groupbox();
 		gb.setMold("3d");
@@ -936,6 +1131,18 @@ public class PertemuanHelper {
 		return gb;
 	}
 
+	/**
+	 * Menyisipkan satu kartu KPI klik-navigasi (label, nilai besar, subjudul, warna aksen) ke
+	 * {@code parent} lewat {@link HtmlChartHelper#kpiCards}, dibungkus {@code Div} yang saat
+	 * diklik memanggil {@code btnTab.pilih(tabIdx)}.
+	 *
+	 * @param parent   wadah baris kartu KPI.
+	 * @param label    judul kartu, mis. {@code "Total Peserta"}.
+	 * @param nilai    angka besar yang ditonjolkan (sudah berupa {@code String}).
+	 * @param subtitle keterangan kecil di bawah nilai.
+	 * @param warna    kode warna hex aksen kartu.
+	 * @param tabIdx   indeks tab tujuan saat kartu diklik.
+	 */
 	private void addKpiCard(Div parent, String label, String nilai, String subtitle,
 			String warna, final int tabIdx) {
 		Div wrap = new Div();
@@ -954,6 +1161,7 @@ public class PertemuanHelper {
 		wrap.setParent(parent);
 	}
 
+	/** Menambah satu baris label:nilai statis (tanpa interaksi) ke {@code rows}, dipakai di panel info Pembelajaran pada Dasbor. */
 	private void tambahBarisLabel(Rows rows, String label, String nilai) {
 		MyFormRow row = new MyFormRow();
 		row.setParent(rows);
@@ -963,6 +1171,16 @@ public class PertemuanHelper {
 		new Label(nilai).setParent(row);
 	}
 
+	/**
+	 * Menambah satu baris label:nilai ke {@code rows} yang seluruh barisnya bisa diklik (kursor
+	 * pointer, label bergaris bawah putus-putus) untuk pindah ke {@code tabIndex} — dipakai di
+	 * tabel navigasi tab paling bawah Dasbor.
+	 *
+	 * @param rows     wadah baris grid.
+	 * @param label    teks label (kolom kiri, biru bergaris bawah).
+	 * @param nilai    teks nilai/ringkasan (kolom kanan).
+	 * @param tabIndex indeks tab tujuan saat baris diklik.
+	 */
 	private void tambahBarisClickable(Rows rows, String label, String nilai, final int tabIndex) {
 		MyFormRow row = new MyFormRow();
 		row.setStyle("cursor:pointer;");
@@ -979,6 +1197,18 @@ public class PertemuanHelper {
 		new Label(nilai).setParent(row);
 	}
 
+	/**
+	 * Membangun tampilan mobile: TIDAK memakai tab button seperti desktop — hanya me-render
+	 * konten satu tab yang sesuai {@code index} langsung ke {@code div} (indeks 0=Kehadiran,
+	 * 1=Pembelajaran, 2=Materi, 3=Tugas, 4=Audio, 5=Video, 6=Ujian, 7=Diskusi; tidak ada mode
+	 * mobile untuk Dasbor/8=Hasil-Evaluasi). Percabangan Kehadiran/Ujian mengikuti pola yang sama
+	 * dengan {@link #tampilanDesktop}: pilih helper siswa vs akademik berdasarkan asal pertemuan.
+	 * Berisi {@code System.out.println} debug (```index = ...```) yang tersisa dari
+	 * pengembangan — bukan bagian dari kontrak, tidak dihapus di sini agar tidak mengubah
+	 * perilaku existing.
+	 *
+	 * @param div Center tempat konten tab tunggal dirender.
+	 */
 	private void tampilanMobile(Center div) throws Exception {
 		System.out.println("index = " + index);
 		if (index == 0) {
@@ -1013,6 +1243,15 @@ public class PertemuanHelper {
 		}
 	}
 
+	/**
+	 * Menyusun kerangka layout window: {@link MyBorderlayout} dengan Center berisi tab (desktop
+	 * atau mobile, dipilih via {@code Common.isMobile()}) dan South berisi toolbar tombol
+	 * "Selesai" (visibilitasnya mengikuti {@code tampilSelesai}). Tombol "Selesai" memanggil
+	 * {@code dataLoader.loadData(null)} (memberi tahu pemanggil untuk refresh data) lalu
+	 * {@code window.detach()} untuk menutup modal.
+	 *
+	 * @throws Exception diteruskan dari pembangunan tab (query DB, render komponen ZK, dsb.).
+	 */
 	public void init() throws Exception {
 		Borderlayout borderlayout = new MyBorderlayout(true);
 		borderlayout.setParent(window);
@@ -1052,6 +1291,37 @@ public class PertemuanHelper {
 
 	}
 
+	/**
+	 * Membangun tab Pembelajaran (catatan pertemuan + field RPS terkait). Mencatat kunjungan
+	 * lewat {@code pertemuan.masukkanData("melihat_catatan")} sebagai side effect pertama.
+	 *
+	 * <p>Dua tata letak BERBEDA tergantung siapa yang melihat:</p>
+	 * <ul>
+	 * <li><b>Peserta sendiri</b> (mahasiswa/biodataCalonMahasiswa/pesertaKursus/siswa null semua,
+	 * yaitu admin/dosen/guru): grid satu kolom lebar, {@code catatan} berupa {@link Textbox}
+	 * yang bisa langsung diedit (autosave {@code onChange}). Bila {@code pertemuan.getPerkuliahan()
+	 * != null}, ditambah field RPS penuh: Indikator Capaian, Metode Pembelajaran, Pengalaman
+	 * Belajar, Waktu Pembelajaran, Tugas dan Penilaian — masing-masing {@link Textbox} beserta
+	 * tombol "Generate ..." (untuk admin/dosen/guru saja) yang memanggil
+	 * {@link AIGenerator#generateApa} dengan prompt berisi info pertemuan, dosen, dan mahasiswa,
+	 * hasilnya diformat lewat {@code Wa.ubahKeBold(...)} lalu disimpan via
+	 * {@code Common.refreshSaveOrUpdate(pertemuan)}.</li>
+	 * <li><b>Bukan peserta sendiri</b> (dilihat mahasiswa/siswa/calon): grid dua kolom
+	 * (label 15% + isi), field RPS ditampilkan READ-ONLY sebagai {@link Label}, dan
+	 * {@code catatan} hanya bisa diedit bila {@code biodataCalonMahasiswa == null} (calon
+	 * mahasiswa melihat versi read-only lewat {@code MyHtmlIframe}); URL di dalam catatan
+	 * dikonversi jadi tautan {@code <a target="_blank">} lewat {@code Common.getUrls(...)}.</li>
+	 * </ul>
+	 *
+	 * <p>Kedua cabang diakhiri dengan bar unduh/unggah lampiran (Catatan Perkuliahan, Laporan
+	 * Hasil Pembelajaran) via {@link LampiranLain#createDownloadUploadFileLain}, dirapikan rata
+	 * kiri oleh {@link #rataKiriToolbarLampiran(org.zkoss.zk.ui.Component)}.</p>
+	 *
+	 * @param tampilInfo bila {@code true}, sisipkan panel info pertemuan
+	 *                   ({@link DashboardTimelinePertemuan#displayInfoPertemuan}) di baris
+	 *                   pertama grid.
+	 * @return {@link Borderlayout} siap di-{@code appendChild} ke panel tab Pembelajaran.
+	 */
 	@SuppressWarnings("deprecation")
 	private Borderlayout initCatatan(boolean tampilInfo) throws Exception {
 		if (pertemuan != null) {
@@ -1719,25 +1989,56 @@ public class PertemuanHelper {
 		}
 	}
 
+	/**
+	 * Titik masuk utama: membuka window pertemuan dengan tab {@code index} aktif, tanpa
+	 * preselect item apa pun. Lihat overload penuh untuk detail perilaku.
+	 *
+	 * @param pertemuan  entity pertemuan yang akan ditampilkan.
+	 * @param dataLoader dipanggil dengan {@code null} saat window ditutup lewat "Selesai", sinyal
+	 *                   bagi pemanggil untuk memuat ulang data (mis. grid daftar pertemuan).
+	 * @param index      indeks tab yang aktif saat window dibuka (lihat daftar tab di Javadoc kelas).
+	 */
 	public void display(final Pertemuan pertemuan, final DataLoader dataLoader, final int index) throws Exception {
 		display(pertemuan, dataLoader, index, null, null, null, null, null);
 	}
 
+	/** Sama seperti {@link #display(Pertemuan, DataLoader, int)}, plus preselect satu {@link PertemuanFileContent} di tab Materi. */
 	public void display(final Pertemuan pertemuan, final DataLoader dataLoader, final int index,
 			PertemuanFileContent pertemuanFileContent) throws Exception {
 		display(pertemuan, dataLoader, index, null, null, pertemuanFileContent, null, null);
 	}
 
+	/** Sama seperti {@link #display(Pertemuan, DataLoader, int)}, plus preselect satu {@link AudioPertemuan} di tab Audio. */
 	public void display(final Pertemuan pertemuan, final DataLoader dataLoader, final int index,
 			AudioPertemuan audioPertemuan) throws Exception {
 		display(pertemuan, dataLoader, index, null, null, null, audioPertemuan, null);
 	}
 
+	/** Sama seperti {@link #display(Pertemuan, DataLoader, int)}, plus preselect satu {@link VideoPertemuan} di tab Video. */
 	public void display(final Pertemuan pertemuan, final DataLoader dataLoader, final int index,
 			VideoPertemuan videoPertemuan) throws Exception {
 		display(pertemuan, dataLoader, index, null, null, null, null, videoPertemuan);
 	}
 
+	/**
+	 * Overload penuh: menyimpan seluruh state preselect ke field instance, lalu membungkus
+	 * pembukaan window dalam {@code Common.createDefaultTimer(...)} (memastikan eksekusi berjalan
+	 * pada siklus event ZK yang tepat, bukan langsung inline). Di dalam timer: pindahkan
+	 * {@code index} ke field instance, kosongkan window lama bila sedang dipakai ulang
+	 * ({@code Common.clear(window)}), buat {@link MyWindow} baru bila belum ada (ukuran 99% x
+	 * 99%, ditempel ke root page saat ini via {@code ExecutionsCtrl}), set field
+	 * {@code dataLoader}/{@code pertemuan}, panggil {@link #init()} untuk membangun isi window,
+	 * lalu tampilkan sebagai modal ({@code setVisible(true)} + {@code window.onModal()}).
+	 *
+	 * @param pertemuan               entity pertemuan yang akan ditampilkan.
+	 * @param dataLoader              callback refresh saat window ditutup.
+	 * @param index                   indeks tab aktif awal.
+	 * @param selectedTugasPertemuan  tugas individu yang otomatis dibuka di tab Tugas, atau {@code null}.
+	 * @param selectedTugasKelompok   tugas kelompok yang otomatis dibuka di tab Tugas, atau {@code null}.
+	 * @param pertemuanFileContent    materi yang otomatis disorot di tab Materi, atau {@code null}.
+	 * @param audioPertemuan          audio yang otomatis disorot di tab Audio, atau {@code null}.
+	 * @param videoPertemuan          video yang otomatis disorot di tab Video, atau {@code null}.
+	 */
 	public void display(final Pertemuan pertemuan, final DataLoader dataLoader, final int index,
 			TugasPertemuan selectedTugasPertemuan, TugasKelompok selectedTugasKelompok,
 			PertemuanFileContent pertemuanFileContent, AudioPertemuan audioPertemuan, VideoPertemuan videoPertemuan)
