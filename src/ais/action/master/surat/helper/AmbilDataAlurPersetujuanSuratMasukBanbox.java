@@ -60,32 +60,45 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data alur persetujuan surat masuk banbox. Kelas ini memberi nama dan
- * batas tanggung jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang
- * diimplementasikannya.
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.surat.AlurPersetujuanSuratMasuk}
+ * — lihat {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum (constructor/display/
+ * onSearchDefault/renderer/callback). {@code AlurPersetujuanSuratMasuk} adalah satu LANGKAH/NODE pada alur
+ * (workflow) persetujuan/disposisi surat MASUK — konfigurasi berjenjang siapa yang harus memproses/menyetujui
+ * sebuah surat masuk, bersifat HIERARKIS lewat relasi {@code parent} (satu langkah bisa punya sub-langkah,
+ * membentuk rantai/tree disposisi). Struktur dan perilaku kelas ini PARALEL dengan
+ * {@code AmbilDataAlurPersetujuanSuratKeluarBanbox} (untuk surat keluar) — lihat Javadoc kelas tersebut untuk
+ * penjelasan pola yang sama persis; catatan di bawah hanya menyoroti kekhasan/perbedaan kecil versi "masuk".
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Tree tree}, {@code EventListener
- * eventListener}, {@code AlurPersetujuanSuratMasukTreeModel alurPersetujuanSuratMasukTreeModel}, {@code Boolean
- * chooseAll}, {@code Boolean parentOnly}, {@code Combobox fakultas}, {@code Combobox jurusan}, {@code
- * AmbilDataSatuanKerjaBanbox satuanKerja}; pembacaan/pencarian ({@code onSearchDefault()}, {@code
- * setEventListener()}, {@code getEventListener()}); mutasi data ({@code setChooseAll()}); operasi domain lain
- * ({@code display()}); konfigurasi constructor: {@code satuanKerjaTreeModel}. Bagian lain dari kontrak tetap
- * mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p>
+ * <b>Penyimpangan dari kerangka umum</b> (lihat {@link GetEventListener}): constructor memanggil
+ * {@link #display()} secara EAGER (langsung saat instance dibuat, dibungkus try/catch yang mencatat ke
+ * {@link ais.common.ErrorAuditUtil} bila gagal), BUKAN lazy saat {@code onOpen} pertama; dan listener
+ * {@code onOpen} memanggil {@link #onSearchDefault(Event)} SETIAP KALI popup dibuka. Komponen pilihan pada
+ * baris pohon memakai {@link Radio} ZK asli yang DI-DISABLE (bukan disembunyikan) untuk node yang tidak boleh
+ * dipilih.
+ * </p>
+ * <p>
+ * <b>Scoping/filter bisnis multi-dimensi</b>: toolbar popup memuat picker {@link AmbilDataSatuanKerjaBanbox}
+ * (satuan/unit kerja, dengan cascading ke sub-unit lewat {@link SatuanKerjaTreeModel#getChildsSet}), serta
+ * Combobox fakultas/jurusan dan yayasan/sekolah yang visibilitasnya ditentukan lewat
+ * {@code Common.chekPtAtauSekolah()} (berbeda dari versi surat keluar yang menghitung sendiri kombinasi
+ * konfigurasi modul + peran pengguna secara manual — versi ini memakai helper bersama). Setiap perubahan filter
+ * memicu {@link #onSearchDefault(Event)} yang membangun ULANG {@link #alurPersetujuanSuratMasukTreeModel} dengan
+ * referensi widget filter terkini. Parameter {@code tipe} (default {@code "surat"}) membatasi hanya langkah
+ * dengan {@code tipe} yang cocok (atau {@code tipe} null di baris data) yang tampil.
+ * </p>
+ * <p>
+ * <b>{@code chooseAll} vs {@code parentOnly}</b>: sama seperti versi surat keluar — {@code parentOnly} true
+ * membatasi pemilihan HANYA pada node akar (langkah pertama tanpa {@code parent}); bila false, berlaku aturan
+ * standar {@code chooseAll} (semua node vs hanya daun).
+ * </p>
  *
  * @see Bandbox
  */
 public class AmbilDataAlurPersetujuanSuratMasukBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 *
 	 */
 	protected static final long serialVersionUID = 6452461056684904810L;
 	protected Tree tree;
@@ -96,6 +109,12 @@ public class AmbilDataAlurPersetujuanSuratMasukBanbox extends Bandbox implements
 	private Boolean chooseAll = false;
 	private Boolean parentOnly;
 
+	/**
+	 * Constructor ringkas; {@code chooseAll = true}, {@code parentOnly = false}. Lihat
+	 * {@link #AmbilDataAlurPersetujuanSuratMasukBanbox(Boolean, Boolean, String)}.
+	 *
+	 * @param tipe kode tipe alur persetujuan (mis. {@code "surat"}) yang membatasi langkah mana yang tampil.
+	 */
 	public AmbilDataAlurPersetujuanSuratMasukBanbox(String tipe) throws Exception {
 		this(true, false, tipe);
 	}
@@ -109,6 +128,17 @@ public class AmbilDataAlurPersetujuanSuratMasukBanbox extends Bandbox implements
 	private SatuanKerjaTreeModel satuanKerjaTreeModel;
 	private String tipe = "surat";
 
+	/**
+	 * Constructor utama. BERBEDA dari kebanyakan subclass Bandbox picker lain: {@link #display()} dipanggil
+	 * LANGSUNG di constructor (dibungkus try/catch yang hanya mencatat error), dan listener {@code onOpen}
+	 * memanggil {@link #onSearchDefault(Event)} pada SETIAP pembukaan popup (query ulang tiap kali).
+	 *
+	 * @param chooseAll  {@code true} untuk mengizinkan pemilihan semua node (bila {@code parentOnly} false);
+	 *                   {@code false} untuk membatasi pemilihan hanya pada node daun.
+	 * @param parentOnly {@code true} untuk membatasi pemilihan HANYA pada node akar alur, mengesampingkan
+	 *                   {@code chooseAll}.
+	 * @param tipe       kode tipe alur persetujuan yang membatasi langkah mana yang tampil.
+	 */
 	public AmbilDataAlurPersetujuanSuratMasukBanbox(Boolean chooseAll, Boolean parentOnly, String tipe)
 			throws Exception {
 		super();
@@ -134,23 +164,25 @@ public class AmbilDataAlurPersetujuanSuratMasukBanbox extends Bandbox implements
 		});
 	}
 
+	/**
+	 * Mengganti flag {@code chooseAll} setelah instance dibuat. Catatan: pemanggilan {@code display()} di sini
+	 * dikomentari (tidak aktif); karena {@code onSearchDefault} sudah dipanggil ulang tiap {@code onOpen} pada
+	 * kelas ini, flag baru tetap berlaku pada pembukaan popup berikutnya.
+	 *
+	 * @param chooseAll nilai baru untuk mode pemilihan node (lihat constructor utama).
+	 */
 	public void setChooseAll(Boolean chooseAll) throws Exception {
 		this.chooseAll = chooseAll;
 		// display();
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataAlurPersetujuanSuratMasukBanbox}. Kelas ini
-	 * menerjemahkan satu item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik
-	 * kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataAlurPersetujuanSuratMasukBanbox} dan
-	 * dapat mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer satu node pohon alur persetujuan/disposisi surat masuk pada tab "Daftar". Baris disembunyikan
+	 * sepenuhnya bila data {@code null} atau belum tersimpan ({@code getId() == null}). Menampilkan label
+	 * langkah pada kolom pertama dan {@link Radio} pada kolom kedua — DI-DISABLE (bukan disembunyikan) sesuai
+	 * {@code parentOnly}/{@code chooseAll} (lihat catatan class-level). Saat dipilih: kolom {@code jmlDipakai}
+	 * di-increment (via {@code Common.refreshSaveOrUpdate}), popup ditutup, nilai/atribut Bandbox diisi, lalu
+	 * {@link #eventListener} dipanggil — lihat {@link GetEventListener} untuk pola callback umum ini.
 	 *
 	 * @see AmbilDataAlurPersetujuanSuratMasukBanbox
 	 */
@@ -215,6 +247,13 @@ public class AmbilDataAlurPersetujuanSuratMasukBanbox extends Bandbox implements
 
 	}
 
+	/**
+	 * Membangun popup: toolbar filter (picker {@link AmbilDataSatuanKerjaBanbox} + Combobox fakultas/jurusan
+	 * atau yayasan/sekolah, visibilitas ditentukan {@code Common.chekPtAtauSekolah()}) diikuti panel dua-tab —
+	 * tab "Daftar" berisi {@link Tree} alur ({@link AlurPersetujuanSuratMasukTreeRenderer}) dan tab
+	 * "Sering Dipakai" ({@link AlurPersetujuanSuratMasukSeringDipakai}, dibangun lazy saat tab tersebut pertama
+	 * diklik). Dipanggil EAGER dari constructor, bukan lazy saat {@code onOpen} — lihat catatan class-level.
+	 */
 	public void display() throws Exception {
 		Bandpopup bandpopup = new ais.ui.util.MyBandpopup();
 		bandpopup.setParent(this);
@@ -357,6 +396,12 @@ public class AmbilDataAlurPersetujuanSuratMasukBanbox extends Bandbox implements
 
 	}
 
+	/**
+	 * Membangun ULANG {@link #alurPersetujuanSuratMasukTreeModel} dengan referensi widget filter terkini
+	 * ({@link #fakultas}, {@link #jurusan}, {@link #yayasan}, {@link #sekolah}, {@link #satuanKerja}, dan
+	 * {@link #tipe}) lalu memasangnya ke {@link #tree}. Dipanggil ulang setiap filter berubah maupun setiap kali
+	 * popup dibuka — lihat catatan class-level.
+	 */
 	public void onSearchDefault(Event event) throws Exception {
 		alurPersetujuanSuratMasukTreeModel = new AlurPersetujuanSuratMasukTreeModel(false, fakultas, jurusan, yayasan,
 				sekolah, satuanKerja, null, tipe);
@@ -364,29 +409,23 @@ public class AmbilDataAlurPersetujuanSuratMasukBanbox extends Bandbox implements
 		tree.setItemRenderer(new AlurPersetujuanSuratMasukTreeRenderer());
 	}
 
+	/** @see GetEventListener */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** @see GetEventListener */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
 
 	/**
-	 * Tipe implementasi bersarang {@link AlurPersetujuanSuratMasukSeringDipakai} milik {@link
-	 * AmbilDataAlurPersetujuanSuratMasukBanbox}. Kelas ini memberi nama pada state atau perilaku lokal agar
-	 * tanggung jawabnya tidak tersebar sebagai blok anonim.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataAlurPersetujuanSuratMasukBanbox} dan
-	 * dapat mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini
-	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code MyGrid grid}, {@code
-	 * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code Textbox nama}; operasi lokal: {@code display()},
-	 * {@code onSearchDefault}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
-	 * dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
-	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
-	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 * Tab kedua popup {@link AmbilDataAlurPersetujuanSuratMasukBanbox}, dibangun LAZY saat tab "Sering Dipakai"
+	 * pertama kali diklik. Berisi grid datar alur {@code defaultItem = true} yang cocok scoping satuan kerja
+	 * (dengan cascading sub-unit lewat {@link SatuanKerjaTreeModel#getChildsSet}), serta
+	 * fakultas/jurusan/yayasan/sekolah/{@code tipe} — baris cocok bila field terkait {@code null} ATAU sama
+	 * dengan pilihan filter saat ini — diurutkan menurun berdasarkan {@code jmlDipakai}. Catatan: field
+	 * {@link #nama} disediakan pada form namun TIDAK dipakai sebagai kriteria pada query saat ini.
 	 *
 	 * @see AmbilDataAlurPersetujuanSuratMasukBanbox
 	 */
@@ -409,16 +448,11 @@ public class AmbilDataAlurPersetujuanSuratMasukBanbox extends Bandbox implements
 		private Textbox nama;
 
 		/**
-		 * Renderer lokal untuk layar/komponen {@link AlurPersetujuanSuratMasukSeringDipakai}. Kelas ini menerjemahkan
-		 * satu item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-		 *
-		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AlurPersetujuanSuratMasukSeringDipakai} dan
-		 * dapat mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-		 * renderer/listener ini.</p>
+		 * Renderer satu baris grid "Sering Dipakai": menampilkan nama langkah alur sebagai {@link Radio}.
+		 * Berbeda dari counterpart-nya di versi surat keluar, tidak ada guard {@code null}/{@code getId() == null}
+		 * di sini sebelum membuat komponen, dan pemilihan dipasang pada event {@code onClick} (bukan
+		 * {@code onCheck}) — perilaku akhirnya sama: kolom {@code jmlDipakai} di-increment di database, popup
+		 * ditutup, nilai/atribut Bandbox diisi, lalu {@link #eventListener} dipanggil.
 		 *
 		 * @see AlurPersetujuanSuratMasukSeringDipakai
 		 */
@@ -460,6 +494,12 @@ public class AmbilDataAlurPersetujuanSuratMasukBanbox extends Bandbox implements
 
 		}
 
+		/**
+		 * Membangun UI tab: form pencarian dengan field {@link #nama} (lihat catatan kelas — belum dipakai
+		 * sebagai filter), tombol "Cari", dan grid hasil (kolom Nama Item) memakai
+		 * {@link AlurPersetujuanSuratMasukRenderer} dengan paging mold client-side
+		 * ({@code grid.setMold("paging")}, 50 baris/halaman).
+		 */
 		public void display() throws Exception {
 
 			Center center = new Center();
@@ -528,6 +568,13 @@ public class AmbilDataAlurPersetujuanSuratMasukBanbox extends Bandbox implements
 
 		}
 
+		/**
+		 * Mengambil hingga {@link Common#MAX_RESULT} alur persetujuan dengan {@code defaultItem = true} yang
+		 * cocok scoping satuan kerja (termasuk sub-unit lewat {@link SatuanKerjaTreeModel#getChildsSet} bila
+		 * satuan kerja tertentu dipilih pada picker {@link #satuanKerja} kelas induk), serta filter opsional
+		 * jurusan/fakultas/sekolah/yayasan (baris cocok bila field-nya {@code null} ATAU sama dengan pilihan
+		 * saat ini) dan {@code tipe}, diurutkan menurun berdasarkan {@code jmlDipakai}.
+		 */
 		@SuppressWarnings("unchecked")
 		public void onSearchDefault(Event event) throws Exception {
 

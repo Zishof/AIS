@@ -47,31 +47,26 @@ import ais.ui.util.MyComboitemConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data calon mahasiswa daftar ulang baru banbox. Kelas ini memberi nama
- * dan batas tanggung jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang
- * diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code ais.ui.util.AmbilDataSortHelper sortHelper}, {@code
- * Textbox nama}, {@code Textbox noregistrasi}, {@code Textbox noujian}, {@code Textbox nim}, {@code Combobox
- * jenisSeleksi}; pembacaan/pencarian ({@code getEventListener()}, {@code setEventListener()}, {@code
- * onSearchDefault()}); operasi domain lain ({@code display()}). Bagian lain dari kontrak tetap mengikuti kelas
- * induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity
+ * {@link ais.database.model.BiodataCalonMahasiswa} — lihat {@link ais.ui.util.GetEventListener}
+ * untuk arsitektur kerangka umum (constructor/display/onSearchDefault/renderer/callback). Varian
+ * khusus alur "daftar ulang" (re-registrasi) calon mahasiswa baru, dengan filter jauh lebih kaya
+ * dibanding {@link AmbilDataCalonMahasiswaBanbox}: selain "Nama", "No Registrasi", dan "No Ujian",
+ * tersedia filter "NIM", "Jenis Seleksi" ({@link JenisSeleksi}), "Tahun" (5 tahun terakhir hingga
+ * tahun berjalan), "Lulus Seleksi" (checkbox — hanya calon dengan {@code prodiLulus} terisi), dan
+ * "Gelombang" ({@link GelombangPendaftaran} aktif). Toolbar juga punya empat toggle non-standar:
+ * "Bayar Reg." (nominal {@code pembayaranRegistrasi.amount} &gt; 0), "Bayar Daftar Ulang" dan
+ * "Lunas Daftar Ulang" (dari {@code pembayaranDaftarUlang}, join hanya dipasang bila salah satu
+ * toggle ini aktif), dan "Dapat NIM" (NIM sudah terisi dan tidak kosong). Hasil selalu dibatasi ke
+ * calon mahasiswa aktif; kolom grid (termasuk foto kecil via {@link CommonMedia}) dapat diurutkan
+ * server-side lewat {@code sortHelper}, default id menurun.
  *
  * @see Bandbox
  */
 public class AmbilDataCalonMahasiswaDaftarUlangBaruBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 * Serial version UID standar untuk kompatibilitas serialisasi komponen ZK.
 	 */
 	private static final long serialVersionUID = 6452461056684904810L;
 	private MyGrid grid;
@@ -80,6 +75,11 @@ public class AmbilDataCalonMahasiswaDaftarUlangBaruBanbox extends Bandbox implem
 	/* Paging server-side per 5 baris (pola AmbilDataPagingHelper). */
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
 	private final ais.ui.util.AmbilDataSortHelper sortHelper = new ais.ui.util.AmbilDataSortHelper();
+	/**
+	 * Membangun komponen: memasang lebar 95% dan mode read-only, lalu listener {@code onOpen}
+	 * yang, pada pembukaan pertama, membangun popup ({@link #display()}), mengikuti kerangka
+	 * umum di {@link ais.ui.util.GetEventListener}.
+	 */
 	public AmbilDataCalonMahasiswaDaftarUlangBaruBanbox() {
 		super();
 		setWidth("95%");
@@ -119,26 +119,24 @@ public class AmbilDataCalonMahasiswaDaftarUlangBaruBanbox extends Bandbox implem
 	private MyCheckboxConfig lulus;
 	private Combobox gelombang;
 
+	/** @return listener pemilihan calon mahasiswa yang sedang terpasang, boleh {@code null} */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
 
+	/** @param eventListener dipanggil setiap kali user memilih satu calon mahasiswa */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataCalonMahasiswaDaftarUlangBaruBanbox}. Kelas ini
-	 * menerjemahkan satu item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik
-	 * kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataCalonMahasiswaDaftarUlangBaruBanbox}
-	 * dan dapat mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Merender satu baris grid: foto kecil ({@link CommonMedia}), radio pilih berlabel nama, no
+	 * registrasi, no ujian, NIM, gabungan nama prodi pilihan, nama prodi lulus, dan program.
+	 * Memilih baris menutup popup, menyimpan entity {@link BiodataCalonMahasiswa} terpilih ke
+	 * attribute {@code "calonMahasiswa"} pada Bandbox, mengisi teks tampilan dengan
+	 * "no registrasi - nama", mengubah id komponen menjadi {@code "calonmhs_<id>"}, lalu memicu
+	 * {@link #eventListener} bila terpasang — mengikuti kerangka callback standar di
+	 * {@link ais.ui.util.GetEventListener}.
 	 *
 	 * @see AmbilDataCalonMahasiswaDaftarUlangBaruBanbox
 	 */
@@ -209,6 +207,12 @@ public class AmbilDataCalonMahasiswaDaftarUlangBaruBanbox extends Bandbox implem
 
 	private MyCheckboxConfig tampilkanYgSudahdapatNIM;
 
+	/**
+	 * Membangun popup pencarian (dipanggil sekali saat pertama dibuka): form filter lengkap
+	 * (Nama/No Registrasi/No Ujian/NIM/Jenis Seleksi/Tahun/Lulus Seleksi/Gelombang) plus empat
+	 * toggle status pembayaran/NIM di toolbar, grid hasil bermold "paging" dengan kolom yang bisa
+	 * diurutkan server-side, lalu memuat data awal lewat {@link #onSearchDefault(Event)}.
+	 */
 	public void display() {
 		setReadonly(true);
 		setReadonly(true);
@@ -455,6 +459,17 @@ public class AmbilDataCalonMahasiswaDaftarUlangBaruBanbox extends Bandbox implem
 
 	}
 
+	/**
+	 * Menyusun dan menjalankan kriteria pencarian {@link BiodataCalonMahasiswa}: aktif, gelombang
+	 * pendaftaran, status lulus seleksi, cocok Nama/NIM/No Registrasi/No Ujian (ILIKE ANYWHERE),
+	 * jenis seleksi, tahun, status "dapat NIM", dan (bila salah satu toggle terkait aktif) status
+	 * pembayaran registrasi/daftar ulang lewat left join {@code pembayaranRegistrasi}/
+	 * {@code pembayaranDaftarUlang}. Dieksekusi lewat {@code pagingHelper.cariDenganCriteriaUrut}
+	 * dengan pengurutan server-side sesuai kolom yang diklik user (default: id menurun). Mengisi
+	 * ulang grid dengan hasilnya beserta {@link CalonMahasiswaRenderer}.
+	 *
+	 * @param event tidak dipakai, hanya mengikuti signature standar listener pencarian
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

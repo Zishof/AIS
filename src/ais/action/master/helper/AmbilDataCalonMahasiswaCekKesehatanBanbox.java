@@ -40,36 +40,37 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data calon mahasiswa cek kesehatan banbox. Kelas ini memberi nama dan
- * batas tanggung jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang
- * diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code Textbox nama}, {@code Textbox noregistrasi}, {@code
- * Textbox noujian}, {@code EventListener eventListener}; pembacaan/pencarian ({@code getEventListener()}, {@code
- * setEventListener()}, {@code onSearchDefault()}); operasi domain lain ({@code display()}). Bagian lain dari
- * kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity
+ * {@link ais.database.model.BiodataCalonMahasiswa} (dijangkau lewat {@link Kegiatan} induknya) —
+ * lihat {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback). Varian khusus alur "cek kesehatan"
+ * calon mahasiswa baru: query dasarnya BUKAN langsung ke {@link BiodataCalonMahasiswa}, melainkan
+ * ke {@link Kegiatan} — hanya {@code Kegiatan} bertipe {@link JenisKegiatan} dengan nama
+ * {@code ConstantUtil.PENDAFTARAN_ULANG_MAHASISWA_BARU} (kegiatan pendaftaran ulang mahasiswa
+ * baru), berstatus {@code validated=1} (sudah divalidasi), DAN calon mahasiswa terkait harus sudah
+ * punya {@code prodi_lulus} terisi (dinyatakan lulus seleksi/diterima) — yang muncul di hasil
+ * pencarian; entity {@link BiodataCalonMahasiswa} dibaca lewat {@code kegiatan.getCalonMahasiswa()}.
+ * Ini memastikan hanya calon mahasiswa yang statusnya sudah siap untuk dijadwalkan cek kesehatan
+ * yang muncul di popup.
+ * <p>
+ * Popup menampilkan grid pilih-tunggal (via {@link Radiogroup}/{@link Radio}) dengan filter "Nama",
+ * "No Registrasi", dan "No Ujian" (ketiganya ILIKE ANYWHERE). Kolom grid menampilkan no registrasi,
+ * no ujian, dan gabungan nama seluruh prodi pilihan. Berbeda dari sebagian besar subclass lain,
+ * constructor LANGSUNG memanggil {@link #display()} (bukan menunda ke listener {@code onOpen}).
  *
  * @see Bandbox
  */
 public class AmbilDataCalonMahasiswaCekKesehatanBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 * Serial version UID standar untuk kompatibilitas serialisasi komponen ZK.
 	 */
 	private static final long serialVersionUID = 6452461056684904810L;
 	private MyGrid grid;
 
 	/* Paging server-side per 5 baris (pola AmbilDataPagingHelper). */
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
+	/** Membangun komponen dan LANGSUNG memanggil {@link #display()} di constructor. */
 	public AmbilDataCalonMahasiswaCekKesehatanBanbox() {
 		super();
 		display();
@@ -81,26 +82,23 @@ public class AmbilDataCalonMahasiswaCekKesehatanBanbox extends Bandbox implement
 
 	private EventListener eventListener;
 
+	/** @return listener pemilihan calon mahasiswa yang sedang terpasang, boleh {@code null} */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
 
+	/** @param eventListener dipanggil setiap kali user memilih satu calon mahasiswa */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataCalonMahasiswaCekKesehatanBanbox}. Kelas ini
-	 * menerjemahkan satu item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik
-	 * kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataCalonMahasiswaCekKesehatanBanbox} dan
-	 * dapat mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Merender satu baris grid: radio pilih berlabel nama (dibaca dari
+	 * {@code kegiatan.getCalonMahasiswa()}), no registrasi, no ujian, dan gabungan nama seluruh
+	 * prodi pilihan. Memilih baris menutup popup, menyimpan entity
+	 * {@link BiodataCalonMahasiswa} terpilih ke attribute {@code "calonMahasiswa"} pada Bandbox,
+	 * mengisi teks tampilan dengan "no registrasi - nama", mengubah id komponen menjadi
+	 * {@code "calonmhs_<id>"}, lalu memicu {@link #eventListener} bila terpasang.
 	 *
 	 * @see AmbilDataCalonMahasiswaCekKesehatanBanbox
 	 */
@@ -160,6 +158,11 @@ public class AmbilDataCalonMahasiswaCekKesehatanBanbox extends Bandbox implement
 
 	}
 
+	/**
+	 * Membangun popup pencarian (dipanggil langsung dari constructor): form filter Nama/No
+	 * Registrasi/No Ujian, grid hasil bermold "paging", lalu memuat data awal lewat
+	 * {@link #onSearchDefault(Event)}.
+	 */
 	public void display() {
 		setReadonly(true);
 		setReadonly(true);
@@ -288,6 +291,16 @@ public class AmbilDataCalonMahasiswaCekKesehatanBanbox extends Bandbox implement
 
 	}
 
+	/**
+	 * Menyusun dan menjalankan kriteria pencarian: mencari {@link JenisKegiatan} bernama
+	 * {@code ConstantUtil.PENDAFTARAN_ULANG_MAHASISWA_BARU}, lalu mengambil {@link Kegiatan}
+	 * aktif+tervalidasi ({@code validated=1}) dari jenis tersebut yang calon mahasiswanya sudah
+	 * punya {@code prodi_lulus} dan cocok filter Nama/No Ujian/No Registrasi (ILIKE ANYWHERE),
+	 * dibatasi 100 baris. Mengisi ulang grid dengan hasilnya beserta
+	 * {@link CalonMahasiswaRenderer}.
+	 *
+	 * @param event tidak dipakai, hanya mengikuti signature standar listener pencarian
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
