@@ -69,6 +69,7 @@ import ais.action.report.Report;
 import ais.action.report.format1.akademik.LaporanRekapitulasiSeminar;
 import ais.action.report.format1.akademik.LaporanSeminar;
 import ais.common.Common;
+import ais.common.CommonFileMediaHelper;
 import ais.common.PesanFormalHelper;
 import ais.common.CommonMedia;
 import ais.common.CommonPrivilages;
@@ -1287,9 +1288,7 @@ public class MahasiswaRequestTugasAkhirAction extends GenericAutowireComposer
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				List<MahasiswaRequestTugasAkhir> mahasiswaRequestTugasAkhir = initCriteria(true).list();
-				File fileFolderLampiran = new File(
-						"/opt/ecampus/proposal_" + ais.ui.util.WaktuUtil.getCalendar().getTimeInMillis());
-				fileFolderLampiran.mkdirs();
+				File fileFolderLampiran = CommonFileMediaHelper.createWritableWorkDir("proposal");
 				System.out.println("fileFolderLampiran => " + fileFolderLampiran.getAbsolutePath());
 
 				for (MahasiswaRequestTugasAkhir mahasiswa : mahasiswaRequestTugasAkhir) {
@@ -1317,6 +1316,11 @@ public class MahasiswaRequestTugasAkhirAction extends GenericAutowireComposer
 						File parentDir = fileCopy.getParentFile();
 						if (parentDir != null && !parentDir.exists()) {
 							parentDir.mkdirs();
+						}
+						if (parentDir != null && (!parentDir.exists() || !parentDir.canWrite())) {
+							throw new java.io.IOException("Folder tujuan lampiran tidak dapat ditulis: "
+									+ parentDir.getAbsolutePath()
+									+ ". Periksa izin akses folder sementara server dan kapasitas disk.");
 						}
 						FileOutputStream fileOutputStream = null;
 						FileInputStream fileInputStream = null;

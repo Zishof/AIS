@@ -1947,6 +1947,44 @@ public class CommonFileMediaHelper extends Common {
 	}
 
 
+	public static File createWritableWorkDir(String prefix) throws IOException {
+		String nama = (prefix == null || prefix.trim().isEmpty() ? "ecampus" : prefix.trim()) + "_"
+				+ ais.ui.util.WaktuUtil.getCalendar().getTimeInMillis();
+		File dir = createWritableWorkDirInBase(new File("/opt/ecampus"), nama);
+		if (dir != null) {
+			return dir;
+		}
+		dir = createWritableWorkDirInBase(new File(System.getProperty("java.io.tmpdir")), nama);
+		if (dir != null) {
+			return dir;
+		}
+		throw new IOException("Gagal membuat folder kerja sementara untuk arsip lampiran. Folder /opt/ecampus dan "
+				+ "java.io.tmpdir tidak dapat dibuat/ditulis. Periksa izin akses dan kapasitas disk server.");
+	}
+
+	private static File createWritableWorkDirInBase(File baseDir, String nama) {
+		if (baseDir == null || nama == null || nama.trim().isEmpty()) {
+			return null;
+		}
+		try {
+			if (!baseDir.exists() && !baseDir.mkdirs()) {
+				return null;
+			}
+			if (!baseDir.isDirectory() || !baseDir.canWrite()) {
+				return null;
+			}
+			File dir = new File(baseDir, nama);
+			if (!dir.exists() && !dir.mkdirs()) {
+				return null;
+			}
+			return dir.isDirectory() && dir.canWrite() ? dir : null;
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "CommonFileMediaHelper.createWritableWorkDirInBase");
+			return null;
+		}
+	}
+
+
 
 	public static void zipDir(String zipFileName, String dir) throws Exception {
 		File dirObj = new File(dir);

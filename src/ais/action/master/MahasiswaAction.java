@@ -7801,25 +7801,30 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 			if (mhs == null || mhs.getKelompokMahasiswa() == null) {
 				return;
 			}
-			@SuppressWarnings("unchecked")
-			List<HistoryStatusMahasiswa> histories = session.createCriteria(HistoryStatusMahasiswa.class)
-					.add(Restrictions.eq("mahasiswa", mhs))
-					.add(Restrictions.isNull("sp"))
-					.list();
+			List<Long> statusFinalIds = new ArrayList<Long>();
+			if (ConstantValues.LULUS != null && ConstantValues.LULUS.getId() != null) {
+				statusFinalIds.add(ConstantValues.LULUS.getId());
+			}
+			if (ConstantValues.DROP_OUT != null && ConstantValues.DROP_OUT.getId() != null) {
+				statusFinalIds.add(ConstantValues.DROP_OUT.getId());
+			}
+			if (ConstantValues.KELUAR != null && ConstantValues.KELUAR.getId() != null) {
+				statusFinalIds.add(ConstantValues.KELUAR.getId());
+			}
+			session.clear();
 			tx = session.beginTransaction();
-			List<Long> historyIds = new ArrayList<Long>();
-			for (HistoryStatusMahasiswa history : histories) {
-				if (history == null || statusFinalMahasiswa(history.getStatusMahasiswa())) {
-					continue;
-				}
-				if (!statusMahasiswaSama(history.getStatusMahasiswa(), ConstantValues.AKTIF)) {
-					historyIds.add(history.getId());
-				}
+			org.hibernate.SQLQuery query = session.createSQLQuery("update public.history_status_mahasiswa "
+					+ "set status_mahasiswa = :aktifId "
+					+ "where mahasiswa = :mahasiswaId "
+					+ "and sp is null "
+					+ "and (status_mahasiswa is null or status_mahasiswa <> :aktifId) "
+					+ (statusFinalIds.isEmpty() ? "" : "and (status_mahasiswa is null or status_mahasiswa not in (:statusFinalIds))"));
+			query.setParameter("aktifId", ConstantValues.AKTIF.getId());
+			query.setParameter("mahasiswaId", mahasiswa.getId());
+			if (!statusFinalIds.isEmpty()) {
+				query.setParameterList("statusFinalIds", statusFinalIds);
 			}
-			if (!historyIds.isEmpty()) {
-				session.createSQLQuery("update public.history_status_mahasiswa set status_mahasiswa = :aktifId where id in (:ids)")
-						.setParameter("aktifId", ConstantValues.AKTIF.getId()).setParameterList("ids", historyIds).executeUpdate();
-			}
+			query.executeUpdate();
 			tx.commit();
 		} catch (Exception e) {
 			if (tx != null) {
