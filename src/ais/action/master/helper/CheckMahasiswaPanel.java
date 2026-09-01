@@ -34,23 +34,24 @@ import ais.ui.util.MyDoublebox;
 import ais.ui.util.MyGrid;
 
 /**
- * Tipe khusus untuk check mahasiswa panel. Kelas ini memberi nama dan batas tanggung jawab yang
- * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ * Panel ZK ringkasan biaya satu {@link Kegiatan} (satu transaksi/kejadian pembayaran) milik
+ * seorang {@link Mahasiswa}, dipakai saat staf keuangan memvalidasi/mengecek sebuah pembayaran
+ * (mis. dari layar validasi kasir) sebelum diposting. Menampilkan biodata ringkas mahasiswa
+ * (NIM, nama, kewarganegaraan dari {@link BiodataMahasiswa} terbaru — fallback ke {@code WNI}
+ * bila belum ada biodata —, program, prodi, semester, angkatan, tahun akademik, dan tanggal
+ * pembayaran Kegiatan), lalu daftar {@link DetailKegiatan} aktif ({@code aktif} null atau
+ * {@code true}) milik Kegiatan tersebut dalam grid ber-footer tiga baris: label "Jumlah Biaya",
+ * total nilai tagihan seharusnya (dijumlah ulang dari kolom "Nilai" lewat parsing string
+ * {@link Common#numberFormat}), dan total nominal yang benar-benar harus dibayar (dijumlah dari
+ * kolom {@link MyDoublebox} read-only "Yang harus dibayar").
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Panel}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Label kewarganegaraan}, {@code Label
- * jenisKuliah}, {@code Label prodi}, {@code Label semester}, {@code Label labelNimMahasiswa}, {@code Label
- * labelNamaMahasiswa}, {@code Label labelTahunMasuk}, {@code Label labelTahunAkademik}; inisialisasi/lifecycle
- * ({@code init()}); pembacaan/pencarian ({@code listBiaya()}); validasi/perhitungan ({@code
- * hitungJumlahBiaya()}, {@code hitungJumlahBiayaSeharusnya()}). Bagian lain dari kontrak tetap mengikuti kelas
- * induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Kuirk non-obvious:</b> {@link #hitungJumlahBiaya()} dan {@link #hitungJumlahBiayaSeharusnya()}
+ * tidak membaca nilai numerik {@link DetailKegiatan} secara langsung dari model, melainkan
+ * mem-parse ULANG teks yang sudah dirender ke {@link Label}/{@link MyDoublebox} di grid
+ * ({@code rows.getChildren()} lalu indeks kolom tetap 2 dan 3) — pola "hitung dari tampilan"
+ * yang rawan pecah bila urutan kolom grid diubah. Constructor memuat data begitu instance
+ * dibuat ({@code init()} dipanggil langsung dari constructor), jadi objek ini tidak boleh
+ * dibuat sebelum {@link Kegiatan} sumber datanya siap.</p>
  *
  * @see Panel
  */
@@ -79,11 +80,26 @@ public class CheckMahasiswaPanel extends Panel {
 
 	private Label tanggalValidasi = new Label();
 
+	/**
+	 * Simpan {@link Kegiatan} sumber data dan langsung bangun seluruh panel ({@link #init()})
+	 * — biodata ringkas mahasiswa serta grid detail biaya sudah terisi begitu constructor
+	 * selesai.
+	 *
+	 * @param kegiatan Kegiatan (transaksi/kejadian pembayaran) yang ingin dicek/divalidasi.
+	 */
 	public CheckMahasiswaPanel(Kegiatan kegiatan) throws Exception {
 		this.kegiatan = kegiatan;
 		init();
 	}
 
+	/**
+	 * Bangun layout panel (Borderlayout: Center berisi grid biodata, South berisi grid detail
+	 * biaya via {@link #listBiaya}). Membaca {@link Mahasiswa} dari {@link #kegiatan} dan
+	 * {@link BiodataMahasiswa} terbaru miliknya (query {@code addOrder(Order.desc("id"))
+	 * setMaxResults(1)}) untuk menampilkan kewarganegaraan; bila belum ada biodata, kewarganegaraan
+	 * ditampilkan sebagai {@link Mahasiswa#WNI}. Dipanggil dari constructor, jadi seluruh komponen
+	 * ZK panel ini baru ada setelah method ini selesai.
+	 */
 	public void init() throws Exception {
 		setHeight("300px");
 		setWidth("100%");
@@ -175,6 +191,19 @@ public class CheckMahasiswaPanel extends Panel {
 
 	}
 
+	/**
+	 * Bangun grid detail biaya (kolom Status/Item/Nilai/Yang harus dibayar) di dalam {@code comp},
+	 * diisi dari {@link DetailKegiatan} aktif milik {@code kegiatan} (query Hibernate:
+	 * {@code aktif} null atau {@code true}, dibatasi {@link Common#MAX_RESULT}), dirender lewat
+	 * {@link DetailBiayaMahasiswaRenderer}. Menyiapkan tiga baris footer grid (label, kosong,
+	 * total seharusnya, total harus dibayar) lalu memicu penjumlahan awal via
+	 * {@link #hitungJumlahBiayaSeharusnya()} dan {@link #hitungJumlahBiaya()}.
+	 *
+	 * @param comp      komponen South tempat grid dipasang.
+	 * @param mahasiswa mahasiswa pemilik Kegiatan (tidak dipakai langsung untuk query di sini,
+	 *                  disediakan untuk kebutuhan renderer/pemanggil lanjutan).
+	 * @param kegiatan  Kegiatan sumber daftar DetailKegiatan yang ditampilkan.
+	 */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	public void listBiaya(final South comp, final Mahasiswa mahasiswa, final Kegiatan kegiatan) throws Exception {
 
@@ -257,21 +286,28 @@ public class CheckMahasiswaPanel extends Panel {
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link CheckMahasiswaPanel}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link CheckMahasiswaPanel} dan dapat mengakses state
-	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer satu baris grid detail biaya: menampilkan nama {@code ItemBiaya} (dari
+	 * {@link DetailKegiatan#getDetailBiaya()}), nilai biaya terformat, dan nominal "Yang harus
+	 * dibayar" dalam {@link MyDoublebox} read-only. Checkbox "cekBiayaOlehKeuangan" hanya
+	 * menandai visual apakah baris ini punya {@link DetailKegiatan} (selalu true di sini karena
+	 * data sumbernya memang list DetailKegiatan) — checkbox ini dinonaktifkan (disabled), murni
+	 * indikator, tidak mengubah status apa pun.
 	 *
 	 * @see CheckMahasiswaPanel
 	 */
 	class DetailBiayaMahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Render satu baris: checkbox indikator (kolom 0), label nama item biaya (kolom 1),
+		 * label nilai biaya terformat (kolom 2), dan doublebox read-only nominal yang harus
+		 * dibayar (kolom 3) — indeks kolom ini dipakai ulang oleh
+		 * {@link CheckMahasiswaPanel#hitungJumlahBiaya()} dan
+		 * {@link CheckMahasiswaPanel#hitungJumlahBiayaSeharusnya()} untuk menjumlahkan ulang
+		 * dari komponen yang sudah dirender di sini.
+		 *
+		 * @param arg0 baris grid tujuan render.
+		 * @param arg1 data baris, di-cast ke {@link DetailKegiatan}.
+		 */
 		@Override
 		public void render(final Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");
@@ -305,6 +341,11 @@ public class CheckMahasiswaPanel extends Panel {
 
 	}
 
+	/**
+	 * Jumlahkan ulang nominal "Yang harus dibayar" (kolom {@link MyDoublebox} indeks 3 tiap
+	 * baris grid {@link #gridss}) dan tampilkan hasilnya di {@link #labelFooter3}. Nilai
+	 * {@code null} pada doublebox dihitung sebagai 0.0.
+	 */
 	public void hitungJumlahBiaya() {
 		Rows rows = (Rows) gridss.getRows();
 		Double nilaiBiayaHarusDiBayars = 0.0;
@@ -319,6 +360,16 @@ public class CheckMahasiswaPanel extends Panel {
 		}
 	}
 
+	/**
+	 * Jumlahkan ulang nilai biaya "seharusnya" dengan mem-parse teks kolom "Nilai" (indeks 2,
+	 * {@link Label}) tiap baris grid {@link #gridss} lewat {@link Common#numberFormat}, lalu
+	 * tampilkan totalnya di {@link #labelFooter2}. Karena sumbernya teks hasil format angka
+	 * (bukan nilai numerik model), format lokal {@link Common#numberFormat} harus konsisten
+	 * dengan format yang dipakai saat label tersebut dirender di
+	 * {@link DetailBiayaMahasiswaRenderer}.
+	 *
+	 * @throws ParseException bila teks label tidak sesuai format angka yang diharapkan.
+	 */
 	public void hitungJumlahBiayaSeharusnya() throws ParseException {
 
 		// String sumBiayaString = "";

@@ -55,24 +55,49 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
 /**
- * Helper terfokus untuk format penilaian. Tipe ini membungkus satu variasi kecil dari alur yang
- * lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ * Helper UI/domain untuk memilih dan menetapkan <b>Format Nilai</b> (entity {@link PembombotanNilai}) pada
+ * satu {@link Perkuliahan} (kelas kuliah suatu matakuliah di suatu semester). Format Nilai menentukan
+ * komponen dan bobot penilaian (misalnya UTS/UAS/Tugas beserta persentasenya) yang dipakai untuk menghitung
+ * nilai akhir mahasiswa peserta perkuliahan tersebut.
  *
- * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
- * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
- * implementasi paralel dengan hasil berbeda.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code PembombotanNilai
- * selectedPembombotanNilai}, {@code TampilDetailNilaiInterface tampilDetailNilaiInterface}, {@code Perkuliahan
- * perkuliahan}, {@code MyWindow window}, {@code String filterKeyword}, {@code Label labelJumlah};
- * pembacaan/pencarian ({@code onSearchDefault()}); mutasi data ({@code save()}, {@code displayProses()});
- * operasi domain lain ({@code apakahPerkuliahanObe()}, {@code belumAdaStrukturPenilaianObe()}, {@code
- * display()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Dua jalur berbeda tergantung kurikulum:</b></p>
+ * <ul>
+ * <li><b>Kurikulum non-OBE</b> ({@link #apakahPerkuliahanObe(Perkuliahan)} bernilai {@code false}):
+ * menampilkan window pilih Format Nilai ({@link #displayProses(Perkuliahan, MyWindow, TampilDetailNilaiInterface)})
+ * berisi grid pencarian {@link PembombotanNilai} milik dosen pengampu atau format publik (tanpa
+ * {@code dimilikiOleh}), dengan opsi tambah/ubah/hapus format milik sendiri dan tombol simpan yang bisa
+ * diterapkan ke satu perkuliahan atau (opsional, via konfigurasi) ke semua perkuliahan sejenis pada semester
+ * yang sama.</li>
+ * <li><b>Kurikulum OBE</b> ({@link #apakahPerkuliahanObe(Perkuliahan)} bernilai {@code true}): Format Nilai
+ * TIDAK diedit manual di sini — komponen dan bobotnya diturunkan dari CPMK (Capaian Pembelajaran Matakuliah)
+ * pada {@code Matakuliah} dan Sub-CPMK/rincian pada {@code KurikulumPunyaMatakuliah}. Klik "Format Nilai" pada
+ * perkuliahan OBE justru membuka halaman RPS OBE ({@code rps_obe.zul}, tab "CPMK &amp; Sub-CPMK"), atau tab
+ * "Mata Kuliah" (fasilitas salin RPS semester sebelumnya) apabila struktur CPMK/Sub-CPMK-nya masih kosong
+ * ({@link #belumAdaStrukturPenilaianObe(Perkuliahan)}).</li>
+ * </ul>
+ * <p>State instance dibentuk sekali per pemanggilan {@link #display(Perkuliahan, MyWindow, TampilDetailNilaiInterface)}:
+ * {@code perkuliahan} (kelas kuliah target), {@code selectedPembombotanNilai} (format yang sedang dipilih di
+ * grid), {@code tampilDetailNilaiInterface} (callback untuk memuat ulang tampilan nilai setelah format
+ * berubah), {@code window}/{@code grid}/{@code filterKeyword}/{@code labelJumlah} (komponen dan state pencarian
+ * ZK). Karena state ini disimpan sebagai field instance (bukan lokal), satu instance helper hanya aman dipakai
+ * untuk satu window/alur pada satu saat.</p>
+ * <p><b>Efek samping penting:</b> {@link #save(Session)} mengubah {@code Perkuliahan.pembombotanNilai} lalu
+ * memanggil {@link PembombotanNilai#setDefaultPembobotan(Perkuliahan, Session, boolean)} yang dapat mereset
+ * detail komponen nilai mahasiswa yang sudah diinput jika format nilai baru tidak kompatibel dengan format
+ * lama — karena itu {@link #display} menampilkan konfirmasi eksplisit bila sudah ada nilai yang disetujui.</p>
  */
 public class FormatPenilaianHelper {
+
+	/**
+	 * Menentukan apakah {@code perkuliahan} mengikuti kurikulum OBE (Outcome Based Education). Kurikulum
+	 * diambil dari {@code perkuliahan.getKurikulum()}; jika kosong, dicoba lagi lewat
+	 * {@code perkuliahan.getKurikulumPunyaMatakuliah().getKurikulum()}. Hasil akhirnya didelegasikan ke
+	 * {@link ais.database.model.Kurikulum#apakahObe(String, String)} dengan tahun ajaran dan
+	 * ganjil/genap milik perkuliahan tersebut.
+	 *
+	 * @param perkuliahan perkuliahan yang dicek; {@code null} langsung mengembalikan {@code false}
+	 * @return {@code true} bila kurikulum perkuliahan ini berstatus OBE pada tahun ajaran/semester terkait
+	 */
 	public static boolean apakahPerkuliahanObe(Perkuliahan perkuliahan) {
 		if (perkuliahan == null) {
 			return false;
@@ -104,31 +129,37 @@ public class FormatPenilaianHelper {
 				|| rincian == null || rincian.trim().isEmpty() || "{}".equals(rincian.trim());
 	}
 
+	/** Grid ZK yang menampilkan daftar {@link PembombotanNilai} hasil {@link #onSearchDefault(Event)}. */
 	private MyGrid grid;
 
+	/** Format Nilai yang sedang dipilih (radio aktif) di grid; ini yang akan disimpan oleh {@link #save(Session)}. */
 	private PembombotanNilai selectedPembombotanNilai;
 
+	/** Callback pemanggil (layar detail nilai perkuliahan) untuk memuat ulang tampilan nilai setelah format berubah. */
 	private TampilDetailNilaiInterface tampilDetailNilaiInterface;
 
+	/** Perkuliahan (kelas kuliah) yang formatnya sedang diatur; sudah dinormalisasi ke kelas paralel utama oleh {@link #display}. */
 	private Perkuliahan perkuliahan;
 
+	/** Window ZK tempat grid pilihan Format Nilai ditampilkan (dari {@link #displayProses}). */
 	private MyWindow window;
 
+	/** Kata kunci pencarian nama/keterangan Format Nilai, diisi dari textbox "Cari" pada {@link #displayProses}. */
 	private String filterKeyword = "";
 
+	/** Label ringkasan jumlah hasil pencarian ("N ditemukan"/"N format tersedia"), diperbarui oleh {@link #onSearchDefault(Event)}. */
 	private Label labelJumlah;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link FormatPenilaianHelper}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 * Row renderer untuk grid pilihan Format Nilai pada {@link #displayProses}. Setiap baris menampilkan satu
+	 * {@link PembombotanNilai}: radio pemilihan, nama, keterangan, dan kolom pemilik/pembuat.
 	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link FormatPenilaianHelper} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * <p>Bila Format Nilai bersifat publik (field {@code dimilikiOleh} kosong), kolom pemilik menampilkan nama
+	 * {@code oleh} tanpa aksi ubah/hapus. Bila dimiliki seorang dosen ({@code dimilikiOleh} terisi), baris
+	 * menampilkan nama dosen pemilik beserta tombol "Ubah Data" (membuka {@code PembobotanNilaiAction.onAddExternal})
+	 * dan "Hapus Data" (menghapus record via {@link Common#refreshDelete}, dibungkus konfirmasi dan pesan
+	 * kegagalan yang menjelaskan bahwa format yang sudah dipakai pada penilaian tidak bisa dihapus karena
+	 * constraint referensial).</p>
 	 *
 	 * @see FormatPenilaianHelper
 	 */
@@ -138,6 +169,14 @@ public class FormatPenilaianHelper {
 
 		}
 
+		/**
+		 * Merender satu baris grid untuk {@code arg1} (sebuah {@link PembombotanNilai}): radio pemilihan yang
+		 * meng-update {@link FormatPenilaianHelper#selectedPembombotanNilai} lewat listener {@code onCheck},
+		 * label keterangan, label pemilik, dan (khusus format milik dosen) tombol ubah/hapus.
+		 *
+		 * @param arg0 baris grid target
+		 * @param arg1 data baris, harus berupa {@link PembombotanNilai}
+		 */
 		@Override
 		public void render(Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");
@@ -235,6 +274,21 @@ public class FormatPenilaianHelper {
 
 	}
 
+	/**
+	 * Menetapkan {@link #selectedPembombotanNilai} sebagai Format Nilai aktif {@link #perkuliahan} lalu
+	 * menyusun ulang default pembobotan detail nilai mahasiswa.
+	 *
+	 * <p>Bila format yang dipilih belum tersimpan (transient, {@code id == null} — kasus baru saja dibuat lewat
+	 * {@code PembobotanNilaiAction.onAddExternal}), disimpan dulu dengan {@code session.saveOrUpdate(...)} agar
+	 * flush berikutnya tidak melempar {@code TransientObjectException}. Setelah itu {@code perkuliahan} diupdate
+	 * via {@link Common#refreshUpdate(Session, Object)}, {@link PembombotanNilai#setDefaultPembobotan(Perkuliahan,
+	 * Session, boolean)} dipanggil untuk membangun ulang komponen nilai sesuai format baru, dan
+	 * {@link #tampilDetailNilaiInterface} diberi tahu ({@code realoadNilai}) agar tampilan nilai di layar
+	 * pemanggil ikut diperbarui.</p>
+	 *
+	 * @param session sesi Hibernate aktif
+	 * @return selalu {@code true} bila tidak terjadi exception yang menghentikan alur
+	 */
 	public boolean save(Session session) throws InterruptedException {
 
 		// Pastikan selectedPembombotanNilai sudah tersimpan sebelum set ke perkuliahan.
@@ -255,6 +309,36 @@ public class FormatPenilaianHelper {
 		return true;
 	}
 
+	/**
+	 * Membangun dan menampilkan window pemilihan Format Nilai untuk {@code perkuliahan}, atau — bila kurikulum
+	 * perkuliahan ber-OBE — mengalihkan ke halaman RPS OBE sebagai gantinya.
+	 *
+	 * <p><b>Cabang OBE:</b> {@code window} dikosongkan ({@link Common#clear(MyWindow)}), lalu diisi ulang dengan
+	 * komponen dari {@code /WEB-INF/z/x/y/pages/master/rps_obe.zul} via {@code Executions.createComponents}.
+	 * Tab aktif dipilih otomatis: "Mata Kuliah" (berisi tombol "Salin Data dari RPS Lain") bila struktur
+	 * CPMK/Sub-CPMK masih kosong ({@link #belumAdaStrukturPenilaianObe(Perkuliahan)}), atau langsung "CPMK &amp;
+	 * Sub-CPMK" bila sudah terisi. Parameter {@code kur}/{@code mk} dioper agar {@code RpsObeAction} langsung
+	 * memuat kurikulum dan matakuliah yang tepat tanpa pengguna memilih ulang. Sebelum membuat komponen baru,
+	 * fellow ber-id {@code "window"} yang mungkin tersisa dari klik ganda sebelumnya dilepas terlebih dahulu
+	 * (idempoten) untuk mencegah {@code UiException "Not unique in ID space"} — lihat komentar KE-FIX di kode.
+	 * Kegagalan pada cabang ini ditangkap dan diganti pesan info generik "atur bobot penilaian di RPS OBE".</p>
+	 *
+	 * <p><b>Cabang non-OBE:</b> membangun window berisi toolbar (tombol tambah Format Nilai baru — hanya
+	 * tampil untuk dosen bila konfigurasi {@code dosen_dapat_menambah_format_penilaian_sendiri} aktif, atau
+	 * disembunyikan sepenuhnya untuk non-admin bila konfigurasi
+	 * {@code hanya_super_admin_yang_boleh_menambah_format_nilai_baru} aktif — dan kotak pencarian yang memicu
+	 * {@link #onSearchDefault(Event)} saat mengetik/berubah), grid hasil pencarian ({@link PembombotanNilaiRenderer}),
+	 * serta toolbar bawah dengan tombol "Batal", "Pilih Format Nilai" (memanggil {@link #save(Session)}), dan
+	 * (opsional, via konfigurasi {@code aktifkan_simpan_format_nilai_ke_semua_smt}) "Simpan Format Nilai Ke
+	 * Semua Semester" yang membuka sub-window filter (tahun ajaran, semester, program, fakultas/jurusan, dosen)
+	 * lalu menerapkan {@link #selectedPembombotanNilai} ke <b>seluruh</b> {@link Perkuliahan} aktif yang belum
+	 * dikunci dan cocok filter tersebut — method ini melakukan flush eksplisit di tengah loop update.</p>
+	 *
+	 * @param perkuliahan perkuliahan target (state instance {@link #perkuliahan} tidak diubah di sini — dipakai
+	 *            sebagai parameter final agar aman diakses dari listener anonim)
+	 * @param window window ZK yang akan diisi/ditampilkan
+	 * @param tampilDetailNilaiInterface callback pemuat ulang tampilan nilai setelah format disimpan
+	 */
 	public void displayProses(final Perkuliahan perkuliahan, final MyWindow window,
 			final TampilDetailNilaiInterface tampilDetailNilaiInterface) {
 
@@ -735,6 +819,23 @@ public class FormatPenilaianHelper {
 		}
 	}
 
+	/**
+	 * Titik masuk utama untuk mengatur Format Nilai satu perkuliahan. Menormalisasi {@code perkuliahan} ke
+	 * kelas paralel utamanya (bila ada), menyimpan state instance ({@code perkuliahan}, {@code
+	 * tampilDetailNilaiInterface}, {@code selectedPembombotanNilai} awal dari format yang sudah tersimpan),
+	 * lalu memutuskan alur berikutnya.
+	 *
+	 * <p>Untuk kurikulum OBE, langsung diteruskan ke {@link #displayProses} tanpa konfirmasi (mengubah Format
+	 * Nilai OBE tidak mereset nilai karena bobotnya berasal dari RPS, bukan dipilih manual). Untuk kurikulum
+	 * non-OBE, dicek dulu apakah sudah ada {@link ais.database.model.Detailperkuliahan} yang disetujui dengan
+	 * {@code totalNilai >= 0.1}; bila ada, pengguna diminta konfirmasi eksplisit karena mengubah format nilai
+	 * berpotensi mereset nilai yang tidak sesuai format baru ke 0. Setelah dikonfirmasi (atau bila belum ada
+	 * nilai sama sekali), {@link #displayProses} dipanggil.</p>
+	 *
+	 * @param perkuliahan perkuliahan target; bila memiliki kelas paralel, kelas paralel utama yang dipakai
+	 * @param window window ZK yang akan diisi
+	 * @param tampilDetailNilaiInterface callback pemuat ulang tampilan nilai setelah format disimpan
+	 */
 	public void display(Perkuliahan perkuliahan, final MyWindow window,
 			final TampilDetailNilaiInterface tampilDetailNilaiInterface) throws Exception {
 		perkuliahan = perkuliahan.getPerkuliahan_paralel() == null ? perkuliahan : perkuliahan.getPerkuliahan_paralel();

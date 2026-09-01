@@ -34,25 +34,53 @@ import ais.database.model.StatusMahasiswa;
 import ais.ui.util.MyMessageboxConfig;
 
 /**
- * Tipe khusus untuk history status mahasiswa util. Kelas ini memberi nama dan batas tanggung jawab
- * yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ * Utilitas statis (tanpa state instance) yang menghitung, memvalidasi, dan menyimpan status
+ * kemahasiswaan per semester (entity {@link HistoryStatusMahasiswa}, tabel
+ * {@code history_status_mahasiswa}) untuk seorang {@link Mahasiswa}. Status yang dikelola berasal
+ * dari {@link ConstantValues}: {@code AKTIF}, {@code CUTI}, {@code TIDAK_AKTIF} (Nonaktif),
+ * {@code LULUS}, {@code DROP_OUT}, {@code KELUAR}. Kelas ini adalah "otak" di balik pertanyaan
+ * "status mahasiswa X di semester Y itu apa?" dan dipanggil dari sangat banyak tempat: layar
+ * Daftar Ulang, KRS, Proses Tagihan ({@code KegiatanProsesHeper}), laporan EPSBED/PDDIKTI, dsb.
  *
- * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
- * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
- * implementasi paralel dengan hasil berbeda.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah inisialisasi/lifecycle ({@code initDataStatusMahasiswa()}, {@code
- * initStatusHelper()}); pembacaan/pencarian ({@code getHistoryStatusMahasiswa()}, {@code
- * getHistoryStatusMahasiswa()}, {@code getJumlahSemester()}); validasi/perhitungan ({@code checkStatus()},
- * {@code cekDanUpdateCacheStatus()}, {@code cekPembayaranMahasiswa()}); mutasi data ({@code
- * updateSksBukanKonversi()}, {@code prosesNonAktifkanStatusSingkronisasi()}, {@code
- * updateViaTransactionQuietly()}, {@code simpanKeCache()}); operasi domain lain ({@code currentStatusSp()},
- * {@code currentStatus()}, {@code currentStatusSp()}, {@code currentStatus()}, {@code currentStatus()}, {@code
- * currentStatus()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
- * atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Model data.</b> Satu baris {@code HistoryStatusMahasiswa} merepresentasikan status
+ * mahasiswa pada satu {@code semester} (atau {@code tahap}, bila
+ * {@link ConstantValues#aktifkanTahapan} aktif) dalam satu {@code KrsMahasiswa}. Status Semester
+ * Pendek (SP) disimpan TERPISAH dari status reguler lewat kolom {@code sp} — mahasiswa boleh
+ * Nonaktif di semester reguler namun tetap Aktif di SP-nya (lihat
+ * {@link #fetchHistoryFromDb} dan {@link #singkronisasiStatusMahasiswa}).</p>
+ *
+ * <p><b>Caching berlapis.</b> Karena dipanggil sangat sering (tiap render KRS/laporan), status
+ * di-cache dua lapis: (1) cache cepat in-memory lewat
+ * {@link GeneralValueObject#ambilDataLangsung}/{@code masukkanDataLangsung} (key
+ * {@code "HistoryStatusMahasiswa_<idMahasiswa>_<tahap-atau-semester>"}), dan (2) cache JSON
+ * per-mahasiswa lewat {@code Common.getJSONTemporary}/{@code setJSONTemporary} (bertahan lebih
+ * lama, mis. antar request). {@link #getHistoryStatusMahasiswa(KrsMahasiswa, boolean)} dengan
+ * parameter {@code true} (atau semester yang termasuk
+ * {@link Mahasiswa#getPaksaAktifSemester()}) SENGAJA melewati kedua cache ini agar aturan status
+ * terbaru (termasuk aturan "paksa aktif" dan "syarat aktif belum bayar") selalu dievaluasi ulang
+ * dari database, bukan membaca hasil lama yang sudah usang.</p>
+ *
+ * <p><b>Mesin aturan status ({@link #kalkulasiStatusLogikaLanjutan}).</b> Setiap kali status
+ * dihitung ulang dari DB, beberapa aturan bisnis diterapkan berurutan (lihat komentar inline di
+ * method itu untuk riwayat permintaan user per tanggal): (a) keterlambatan bayar konfigurasi
+ * {@code mhs_all_lambat_bayar_langsung_tidak_aktif} men-nonaktifkan mahasiswa hanya di tahun
+ * akademik berjalan; (b) kegiatan bersyarat-aktif (checkbox {@code JenisKegiatan}) yang belum
+ * dibayar sama sekali WAJIB men-nonaktifkan (searah Aktif→Nonaktif, via
+ * {@link #cekPembayaranMahasiswa}), dan begitu lunas WAJIB langsung mengaktifkan kembali (searah
+ * Nonaktif→Aktif, via {@link #adaKegiatanSyaratAktifLunasSemua} — sengaja pakai helper berbeda
+ * karena semantik "tak ada bukti bayar" harus dibaca berbeda tergantung arah transisi); (c) status
+ * Lulus/Keluar/Drop Out ditentukan retroaktif dari {@link Mahasiswa#getStatusKeluar()} begitu
+ * semester mencapai {@link #getJumlahSemester}; (d) field admin
+ * {@link Mahasiswa#getPaksaAktifSemester()} (daftar semester dipisah koma/titik-koma/spasi/pipe,
+ * lihat {@link #semesterAdaDalamDaftar}) memaksa status AKTIF kecuali status sudah terminal
+ * (Lulus/DO/Keluar).</p>
+ *
+ * <p><b>Bukan bagian tanggung jawab kelas ini:</b> UI form KRS/Daftar Ulang itu sendiri (ada di
+ * Action terkait), maupun query pembayaran/tagihan detail (didelegasikan ke
+ * {@link Mahasiswa#ambilKegiatans} dan {@link Kegiatan#hitungPersentaseLunasAktual()}). Pemanggil
+ * baru sebaiknya memakai {@link #currentStatus} atau {@link #getHistoryStatusMahasiswa}, bukan
+ * menyalin query Hibernate Criteria di atas ke Action lain — supaya cache dan aturan status tetap
+ * konsisten satu sumber kebenaran.</p>
  */
 public class HistoryStatusMahasiswaUtil {
 
@@ -60,20 +88,63 @@ public class HistoryStatusMahasiswaUtil {
     // PUBLIC METHODS (OVERLOADED CURRENT STATUS)
     // ========================================================================
 
+    /**
+     * Status Semester Pendek (SP) mahasiswa pada semester/tahap berjalannya sendiri
+     * ({@link Mahasiswa#currentSemester()}/{@link Mahasiswa#currentTahapan()}). Mengambil
+     * {@code KrsMahasiswa} yang sudah ada TANPA memicu sinkronisasi (tidak membuat baris KRS
+     * baru bila belum ada), lalu mendelegasikan ke {@link #currentStatus(KrsMahasiswa)}.
+     *
+     * @param mahasiswa mahasiswa yang dicek
+     * @param sp        flag/kode Semester Pendek yang dicari (lihat {@code Perkuliahan.SEMESTER_PENDEK})
+     * @return status SP saat ini, atau status default (lihat {@link #createDefaultStatus}) bila belum ada baris
+     */
     public static HistoryStatusMahasiswa currentStatusSp(Mahasiswa mahasiswa, Integer sp) {
         return currentStatus(Common.ambilKrsMahasiswaTanpaSinkronisasi(mahasiswa, mahasiswa.currentSemester(),
                 mahasiswa.currentTahapan(), sp));
     }
 
+    /**
+     * Status reguler mahasiswa pada semester berjalannya sendiri, tapi dengan {@code tahap}
+     * eksplisit (dipakai bila {@link ConstantValues#aktifkanTahapan} aktif — mis. jenjang dengan
+     * penomoran tahap berbeda dari semester murni). Tanpa sinkronisasi KRS.
+     *
+     * @param mahasiswa mahasiswa yang dicek
+     * @param tahap     tahap yang dicari (bisa berbeda dari {@link Mahasiswa#currentTahapan()})
+     * @return status saat ini, atau status default bila belum ada baris KRS/history
+     */
     public static HistoryStatusMahasiswa currentStatus(Mahasiswa mahasiswa, Integer tahap) {
         return currentStatus(Common.ambilKrsMahasiswaTanpaSinkronisasi(mahasiswa, mahasiswa.currentSemester(), tahap, null));
     }
 
+    /**
+     * Status Semester Pendek mahasiswa pada {@code semester} eksplisit (bukan semester berjalan
+     * mahasiswa). Parameter {@code tahunAkademik} TIDAK dipakai untuk query (diabaikan; tahap
+     * diambil dari {@link Mahasiswa#currentTahapan()}) — dipertahankan hanya untuk kompatibilitas
+     * signature overload historis pemanggil. Tanpa sinkronisasi KRS.
+     *
+     * @param mahasiswa     mahasiswa yang dicek
+     * @param tahunAkademik tidak dipakai dalam query, lihat catatan di atas
+     * @param semester      nomor semester eksplisit yang dicari
+     * @param sp            flag/kode Semester Pendek
+     * @return status SP pada semester tsb, atau status default bila belum ada baris
+     */
     public static HistoryStatusMahasiswa currentStatusSp(Mahasiswa mahasiswa, String tahunAkademik, Integer semester, Integer sp) {
         Integer tahap = mahasiswa == null ? null : mahasiswa.currentTahapan();
         return currentStatus(Common.ambilKrsMahasiswaTanpaSinkronisasi(mahasiswa, semester, tahap, sp));
     }
 
+    /**
+     * Status reguler mahasiswa pada {@code semester} eksplisit (bukan semester berjalan
+     * mahasiswa). Sama seperti {@link #currentStatusSp(Mahasiswa, String, Integer, Integer)},
+     * parameter {@code tahunAkademik} diabaikan dalam query. Tanpa sinkronisasi KRS (tidak
+     * memaksa evaluasi ulang aturan status terbaru — lihat varian {@code refresh} di bawah untuk
+     * itu).
+     *
+     * @param mahasiswa     mahasiswa yang dicek
+     * @param tahunAkademik tidak dipakai dalam query, lihat catatan di atas
+     * @param semester      nomor semester eksplisit yang dicari
+     * @return status pada semester tsb, atau status default bila belum ada baris
+     */
     public static HistoryStatusMahasiswa currentStatus(Mahasiswa mahasiswa, String tahunAkademik, Integer semester) {
         Integer tahap = mahasiswa == null ? null : mahasiswa.currentTahapan();
         return currentStatus(Common.ambilKrsMahasiswaTanpaSinkronisasi(mahasiswa, semester, tahap, null));
@@ -95,14 +166,42 @@ public class HistoryStatusMahasiswaUtil {
         return currentStatus(krsMahasiswa, refresh);
     }
 
+    /**
+     * Status reguler mahasiswa pada semester dan tahap berjalannya sendiri. Titik masuk paling
+     * umum dipakai bila pemanggil hanya punya objek {@link Mahasiswa} (bukan {@code KrsMahasiswa}
+     * yang sudah di-resolve).
+     *
+     * @param mahasiswa mahasiswa yang dicek
+     * @return status saat ini, atau status default bila belum ada baris
+     */
     public static HistoryStatusMahasiswa currentStatus(Mahasiswa mahasiswa) {
         return currentStatus(Common.ambilKrsMahasiswaTanpaSinkronisasi(mahasiswa, mahasiswa.currentSemester(), mahasiswa.currentTahapan(), null));
     }
 
+    /**
+     * Sinonim {@code currentStatus(krsMahasiswa, false)} — tidak memaksa refresh, boleh
+     * mengembalikan hasil dari cache RAM/JSON bila masih ada.
+     *
+     * @param krsMahasiswa baris KRS mahasiswa (menentukan mahasiswa+semester/tahap+SP yang dicari)
+     * @return status untuk KRS tsb, atau status default bila belum ada baris
+     */
     public static HistoryStatusMahasiswa currentStatus(KrsMahasiswa krsMahasiswa) {
         return currentStatus(krsMahasiswa, false);
     }
 
+    /**
+     * Titik masuk inti "status saat ini": bila {@code krsMahasiswa} tidak merujuk mahasiswa
+     * tersimpan (mahasiswa {@code null} atau belum punya id — mis. objek sementara di form
+     * pendaftaran), TIDAK menyentuh database sama sekali dan langsung mengembalikan status
+     * default transient AKTIF ({@link #createDefaultStatus}). Selain itu mendelegasikan ke
+     * {@link #getHistoryStatusMahasiswa(KrsMahasiswa, boolean)}; bila hasilnya {@code null}
+     * (kasus jarang, mis. exception tak tertangani di sana), tetap jatuh kembali ke status
+     * default alih-alih mengembalikan {@code null} ke pemanggil.
+     *
+     * @param krsMahasiswa baris KRS mahasiswa yang jadi acuan
+     * @param refresh      {@code true} untuk memaksa evaluasi ulang aturan status dari DB (lewati cache)
+     * @return status (tersimpan atau default), tidak pernah {@code null}
+     */
     public static HistoryStatusMahasiswa currentStatus(KrsMahasiswa krsMahasiswa, boolean refresh) {
         Mahasiswa mahasiswa = krsMahasiswa.getMahasiswa();
         Integer semester = krsMahasiswa.getSemester();
@@ -116,6 +215,13 @@ public class HistoryStatusMahasiswaUtil {
         return history != null ? history : createDefaultStatus(krsMahasiswa, mahasiswa, semester, tahap);
     }
 
+    /**
+     * Sinonim {@code getHistoryStatusMahasiswa(krsMahasiswa, false)}: boleh membaca dari cache
+     * cepat bila tersedia dan semester ini tidak termasuk daftar "paksa aktif".
+     *
+     * @param krsMahasiswa baris KRS mahasiswa yang jadi acuan
+     * @return baris {@link HistoryStatusMahasiswa} (baru dibuat & disimpan bila belum ada), atau {@code null} bila terjadi exception yang tak tertangani secara internal
+     */
     public static HistoryStatusMahasiswa getHistoryStatusMahasiswa(KrsMahasiswa krsMahasiswa) {
         return getHistoryStatusMahasiswa(krsMahasiswa, false);
     }

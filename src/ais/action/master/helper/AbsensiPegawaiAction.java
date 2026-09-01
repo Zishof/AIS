@@ -54,28 +54,43 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Controller/action ZK untuk absensi pegawai. Tipe ini merupakan titik masuk UI yang menghubungkan
- * event layar dengan perilaku domain yang diwarisi atau dikonfigurasi khusus oleh kelas ini.
+ * Window/action ZK untuk menampilkan dan mengedit absensi harian seluruh pegawai pada satu tanggal
+ * tertentu. Dibuka dengan parameter {@link Date} yang menjadi acuan seluruh grid: setiap baris
+ * merepresentasikan satu {@link Pegawai} aktif beserta rekam kehadirannya pada tanggal itu, yang
+ * diambil/dibuat via {@link CommonPayroll#getDefaultStatuskehadiranKaryawanHarian} dari entity
+ * {@link StatuskehadiranKaryawanHarian} (tabel status kehadiran harian karyawan — jam masuk/pulang,
+ * jumlah jam kerja, keterlambatan, lembur, foto &amp; lokasi absen, keterangan, serta status
+ * {@link Statusabsensi}).
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * MyDetail}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Date date}, {@code Paging paging},
- * {@code MyGrid grid}, {@code boolean edit}, {@code List statusabsensis}, {@code Calendar calendar}, {@code
- * MyTextbox kode}, {@code MyTextbox nama}; inisialisasi/lifecycle ({@code initCriteria()}); pembacaan/pencarian
- * ({@code loadData()}); operasi domain lain ({@code display()}); konfigurasi constructor: {@code calendar},
- * {@code edit}, {@code statusabsensis}. Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang
- * disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
- * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
- * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
- * serta session Hibernate milik request yang aktif.</p>
+ * <p><b>Alur:</b> konstruktor menyimpan tanggal, menyiapkan {@link Calendar} kerja, memeriksa
+ * privilese {@link CommonPrivilages#UPDATE} untuk menentukan apakah grid boleh diedit ({@code edit}),
+ * dan memuat daftar master {@link Statusabsensi} (mis. Hadir/Masuk/Izin/Cuti/Sakit) yang dipakai
+ * sebagai pilihan combobox saat mengubah status kehadiran seorang pegawai. Saat komponen dibuka
+ * ({@code Events.ON_OPEN}), {@link #display()} membangun toolbar pencarian (kode/nama pegawai),
+ * tombol cetak {@link LaporanAbsensiPegawaiPerHari}, serta grid berpaging yang dirender oleh
+ * {@link PegawaiRenderer}; data diambil lewat {@link #loadData(Event)} yang memakai
+ * {@link #initCriteria(boolean)}.</p>
+ *
+ * <p><b>Mode edit vs. baca (per baris, di {@link PegawaiRenderer}):</b> bila {@code edit} bernilai
+ * {@code true} dan kehadiran pegawai belum memiliki {@code CutiDanIzin} (cuti/izin yang sudah
+ * disetujui menutup kemungkinan edit jam manual), baris menampilkan combobox status, dua
+ * {@code Timebox} (jam masuk/pulang), dan textbox keterangan yang dapat diubah langsung — setiap
+ * perubahan langsung melakukan save-or-update ke {@link StatuskehadiranKaryawanHarian} via
+ * {@code Common.refreshSaveOrUpdate} dan menghitung ulang shift pegawai via
+ * {@link CommonPayroll#getDetailJenisShiftPegawai}, lalu me-refresh label ringkasan (jam kerja,
+ * lembur, cepat pulang, terlambat, shift) tanpa reload grid. Bila tidak, baris hanya menampilkan
+ * label read-only dan link keterangan ({@code renderKeteranganLink}).</p>
+ *
+ * <p><b>Kuirk:</b> bila {@link ConstantValues#aktifkanFingerPrintOtomatisDariKeterangan} aktif,
+ * perubahan kolom keterangan dapat memicu pengisian ulang otomatis jam masuk/pulang berdasarkan pola
+ * teks tertentu (lihat {@code mulaiOtomatisUlangAbsenDariKeterangan}/
+ * {@code sampaiOtomatisUlangAbsenDariKeterangan} pada {@link StatuskehadiranKaryawanHarian}), dan
+ * Timebox terkait dinonaktifkan (read-only) selama nilainya berasal dari fingerprint otomatis
+ * tersebut, bukan input manual.</p>
  *
  * @see MyDetail
+ * @see StatuskehadiranKaryawanHarian
+ * @see Statusabsensi
  */
 public class AbsensiPegawaiAction extends MyDetail {
 
@@ -84,14 +99,29 @@ public class AbsensiPegawaiAction extends MyDetail {
 	 */
 	private static final long serialVersionUID = 5086031585928643232L;
 
+	/** Tanggal absensi yang ditampilkan/diedit; parameter pembentuk window ini. */
 	private Date date;
+	/** Komponen paging grid pegawai, dikonfigurasi ulang setiap {@link #loadData(Event)}. */
 	private Paging paging;
+	/** Grid utama yang menampilkan satu baris per pegawai, dirender oleh {@link PegawaiRenderer}. */
 	private MyGrid grid;
+	/** Hasil pemeriksaan privilese {@link CommonPrivilages#UPDATE}; menentukan apakah baris grid boleh diedit. */
 	private boolean edit = false;
+	/** Daftar master {@link Statusabsensi} (mis. Hadir/Izin/Cuti/Sakit), diisi sekali di constructor untuk pilihan combobox status. */
 	private List<Statusabsensi> statusabsensis;
 
+	/** Kalender kerja yang di-set ke {@link #date}, dipakai untuk mengambil komponen bulan/tahun/tanggal/hari. */
 	private Calendar calendar;
 
+	/**
+	 * Membangun window absensi untuk satu tanggal. Menyiapkan {@link #calendar} dari {@code date},
+	 * memeriksa privilese update untuk menentukan {@link #edit}, memuat seluruh master
+	 * {@link Statusabsensi} terurut nama, dan mendaftarkan listener {@code Events.ON_OPEN} yang
+	 * membersihkan komponen ({@code Common.clear}) lalu memanggil {@link #display()} saat window
+	 * benar-benar dibuka (bukan saat instance dibuat).
+	 *
+	 * @param date tanggal absensi yang akan ditampilkan/diedit.
+	 */
 	@SuppressWarnings("unchecked")
 	public AbsensiPegawaiAction(Date date) {
 		super();
@@ -115,25 +145,39 @@ public class AbsensiPegawaiAction extends MyDetail {
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AbsensiPegawaiAction}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AbsensiPegawaiAction} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Row renderer grid pegawai milik {@link AbsensiPegawaiAction}. Untuk setiap {@link Pegawai} pada
+	 * halaman aktif, {@link #render(Row, Object)} mengambil {@link StatuskehadiranKaryawanHarian}
+	 * default hari itu (membuatkan record baru jika belum ada) dan menyusun sel-sel: foto pegawai,
+	 * kode/NIP, nama (dengan link riwayat revisi via {@code RevisiHelper}), panel info lokasi &amp;
+	 * foto absen datang/pulang (embed Google Maps atau popup foto), lalu — tergantung
+	 * {@link AbsensiPegawaiAction#edit} — kontrol edit (combobox status, Timebox jam, textbox
+	 * keterangan) atau label ringkasan read-only beserta angka jam kerja/lembur/cepat pulang/
+	 * terlambat dan info shift.
 	 *
 	 * @see AbsensiPegawaiAction
 	 */
 	class PegawaiRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** Constructor kosong; renderer tidak menyimpan state sendiri, semua diambil dari kelas induk. */
 		public PegawaiRenderer() {
 
 		}
 
+		/**
+		 * Merender satu baris grid untuk seorang {@link Pegawai}. Mengambil/membuat
+		 * {@link StatuskehadiranKaryawanHarian} default pegawai tersebut pada {@link AbsensiPegawaiAction#date}
+		 * via {@link CommonPayroll#getDefaultStatuskehadiranKaryawanHarian}, menampilkan panel foto/lokasi
+		 * absen datang &amp; pulang bila tersedia, lalu menyusun kontrol edit (jika {@code edit} aktif dan
+		 * belum ada cuti/izin yang disetujui menutup jam manual) atau label ringkasan read-only. Setiap
+		 * listener {@code onChange} pada combobox status, Timebox masuk/keluar, dan textbox keterangan
+		 * langsung menyimpan perubahan ke database ({@code Common.refreshSaveOrUpdate}), menghitung ulang
+		 * shift via {@link CommonPayroll#getDetailJenisShiftPegawai}, dan me-refresh label jam kerja/lembur/
+		 * cepat pulang/terlambat/shift secara in-place tanpa reload grid.
+		 *
+		 * @param row  baris grid ZK yang akan diisi.
+		 * @param data instance {@link Pegawai} untuk baris ini.
+		 * @throws Exception diteruskan dari operasi ZK/Hibernate di dalamnya.
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {
 			row.setValign("top");
@@ -270,6 +314,10 @@ public class AbsensiPegawaiAction extends MyDetail {
 
 				}
 				Common.selectComboItem(radiogroup, statuskehadiranKaryawanHarian.getStatusabsensi());
+				// Saat status absensi diganti: jika status baru berarti "Masuk"/"Hadir" dan jam
+				// masuk/pulang masih kosong (dan tidak sedang cuti/izin disetujui), isi jam masuk
+				// 08:30 dan jam pulang 16:30 sebagai default; jika bukan status hadir, kosongkan
+				// jam masuk/pulang/lembur. Perubahan langsung disimpan dan label ringkasan direfresh.
 				radiogroup.addEventListener("onChange", new EventListener() {
 
 					@Override
@@ -359,6 +407,7 @@ public class AbsensiPegawaiAction extends MyDetail {
 				});
 
 				masuk.setParent(row);
+				// Jam masuk diubah manual: simpan nilai baru, hitung ulang shift & lembur, refresh label.
 				masuk.addEventListener("onChange", new EventListener() {
 
 					@Override
@@ -412,6 +461,7 @@ public class AbsensiPegawaiAction extends MyDetail {
 				});
 
 				keluar.setParent(row);
+				// Jam pulang diubah manual: simpan nilai baru, hitung ulang shift & lembur, refresh label.
 				keluar.addEventListener("onChange", new EventListener() {
 
 					@Override
@@ -475,6 +525,9 @@ public class AbsensiPegawaiAction extends MyDetail {
 				keterangan.setWidth("90%");
 				keterangan.setRows(3);
 				keterangan.setParent(row);
+				// Keterangan diubah: simpan nilai baru; bila fitur fingerprint-otomatis-dari-keterangan
+				// aktif, cek apakah teks keterangan memicu pengisian ulang otomatis jam masuk/pulang dan
+				// kunci (disable) Timebox terkait selama nilainya berasal dari fingerprint otomatis itu.
 				keterangan.addEventListener("onChange", new EventListener() {
 
 					@Override
@@ -545,9 +598,21 @@ public class AbsensiPegawaiAction extends MyDetail {
 		}
 	}
 
+	/** Textbox filter pencarian berdasarkan kode/NIP pegawai (toolbar). */
 	private MyTextbox kode;
+	/** Textbox filter pencarian berdasarkan nama pegawai (toolbar). */
 	private MyTextbox nama;
 
+	/**
+	 * Membangun Hibernate {@link Criteria} untuk daftar {@link Pegawai} yang tampil di grid: hanya
+	 * pegawai aktif ({@code aktif = true} atau {@code null}), disaring case-insensitive
+	 * "mengandung" (LIKE ANYWHERE) terhadap isi textbox {@link #kode} dan {@link #nama} bila diisi.
+	 *
+	 * @param order jika {@code true}, tambahkan pengurutan ascending berdasarkan nama pegawai;
+	 *              dipakai saat mengambil data halaman (berbeda dari saat sekadar menghitung total
+	 *              untuk paging, yang tidak butuh urutan).
+	 * @return criteria siap dieksekusi/di-page terhadap {@link Pegawai}.
+	 */
 	private Criteria initCriteria(boolean order) {
 
 		Criterion critKode = Restrictions.sqlRestriction("false");
@@ -578,6 +643,16 @@ public class AbsensiPegawaiAction extends MyDetail {
 		return criteria;
 	}
 
+	/**
+	 * Memuat ulang isi {@link #grid}: menghitung ulang total baris untuk {@link #paging} lewat
+	 * {@code Common.initPaging}, lalu mengambil satu halaman {@link Pegawai} (sesuai filter
+	 * {@link #initCriteria(boolean)} dan halaman aktif) dan memasangnya ke grid dengan
+	 * {@link PegawaiRenderer} baru. Dipanggil dari {@link #display()} (muat awal) serta setiap
+	 * perubahan filter kode/nama, klik cari, atau pindah halaman paging.
+	 *
+	 * @param event event pemicu (perubahan textbox, klik tombol cari, atau event paging); tidak
+	 *              dipakai langsung, hanya menandai bahwa reload perlu dilakukan.
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Event event) {
 		Common.initPaging(initCriteria(false), paging);
@@ -591,6 +666,15 @@ public class AbsensiPegawaiAction extends MyDetail {
 		grid.renderAll();
 	}
 
+	/**
+	 * Membangun seluruh UI window ini: groupbox judul "Daftar Pegawai", toolbar pencarian
+	 * (kode/nama, tombol cari), tombol cetak yang membuka {@link LaporanAbsensiPegawaiPerHari}
+	 * sebagai modal untuk {@link #date}, serta grid berpaging dengan kolom Foto/NIP/Nama/Status/
+	 * Masuk/Pulang/Jam/Shift/Lembur/Cepat/Terlambat/Keterangan (label kolom memakai kode satuan
+	 * dari {@link ItemGaji}, mis. {@code ItemGaji.V_JAM}). Dipanggil sekali dari listener
+	 * {@code Events.ON_OPEN} pada constructor, diakhiri dengan {@link #loadData(Event)} untuk
+	 * mengisi grid pertama kali.
+	 */
 	private void display() {
 
 		Groupbox groupbox = new ais.ui.util.MyGroupboxStyled();

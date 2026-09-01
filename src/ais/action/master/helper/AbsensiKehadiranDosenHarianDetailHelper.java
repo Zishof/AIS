@@ -28,26 +28,28 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyComboitemConfig;
 
 /**
- * Helper terfokus untuk absensi kehadiran dosen harian detail. Tipe ini membungkus satu variasi
- * kecil dari alur yang lebih umum agar pemanggil memakai nama domain yang jelas dan tidak
- * menggandakan implementasi.
+ * Panel detail (baris ekspansi ZK) yang ditampilkan saat baris {@link StatuskehadiranKaryawanHarian} milik
+ * seorang dosen dibuka pada layar rekap absensi kehadiran karyawan harian. Menyajikan daftar jadwal
+ * {@link Perkuliahan} yang menjadi tanggung jawab dosen tersebut sebagai dosen1 atau dosen2, pada hari, tahun
+ * akademik, dan jenis semester yang dipilih pengguna — sehingga admin/HRD dapat memverifikasi apakah kehadiran
+ * fisik pegawai pada tanggal itu sesuai dengan jadwal mengajarnya.
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * MyDetail}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code StatuskehadiranKaryawanHarian
- * statuskehadiranKaryawanHarian}, {@code MyGrid grid}, {@code Combobox tahunAkademik}, {@code Combobox
- * jenisSemester}, {@code AktifitasPerkuliahanHelper aktifitasPerkuliahanHelper}; pembacaan/pencarian ({@code
- * loadData()}); operasi domain lain ({@code display()}); konfigurasi constructor: {@code
- * aktifitasPerkuliahanHelper}. Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut
- * di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p>Hari pembanding dihitung dari {@code statuskehadiranKaryawanHarian.getTanggal()} (bukan dari combobox),
+ * sedangkan tahun akademik dan jenis semester dipilih lewat toolbar combobox pada {@link #display()}. Setiap
+ * baris jadwal dapat diekspansi lagi menjadi sub-{@link MyDetail} yang baru memanggil
+ * {@link AktifitasPerkuliahanHelper#initDetail} saat dibuka, untuk menampilkan agenda/aktivitas perkuliahan pada
+ * sesi tersebut (jumlah agenda yang ditampilkan diatur lewat konfigurasi
+ * {@code tampilan_jumlah_agenda_perkuliahan}).</p>
+ *
+ * <p>Kolom "Jml Mhs" dihitung dari {@link Detailperkuliahan} yang berstatus
+ * {@link Detailperkuliahan#DISETUJUI} dan belum mengundurkan diri ({@code ikutiPerkuliahan} null); untuk kelas
+ * paralel, penghitungan dialihkan ke {@code perkuliahan.getPerkuliahan_paralel()} karena pendaftaran mahasiswa
+ * kelas paralel dicatat pada kelas induknya, bukan pada baris paralel itu sendiri.</p>
  *
  * @see MyDetail
+ * @see StatuskehadiranKaryawanHarian
+ * @see Perkuliahan
+ * @see AktifitasPerkuliahanHelper
  */
 public class AbsensiKehadiranDosenHarianDetailHelper extends MyDetail {
 
@@ -63,6 +65,14 @@ public class AbsensiKehadiranDosenHarianDetailHelper extends MyDetail {
 	private Combobox jenisSemester;
 	protected AktifitasPerkuliahanHelper aktifitasPerkuliahanHelper;
 
+	/**
+	 * Membuat detail absensi pengajaran dosen untuk satu baris {@link StatuskehadiranKaryawanHarian}. Menyiapkan
+	 * {@link AktifitasPerkuliahanHelper} dalam mode hanya-baca (parameter ketiga {@code true}) dan mendaftarkan
+	 * listener {@code onOpen} yang membersihkan komponen anak lalu memanggil {@link #display()} setiap kali baris
+	 * detail ini dibuka pengguna (lazy render, mengikuti pola siklus hidup {@link MyDetail}).
+	 *
+	 * @param statuskehadiranKaryawanHarian baris status kehadiran harian pegawai (dosen) yang sedang dibuka
+	 */
 	public AbsensiKehadiranDosenHarianDetailHelper(StatuskehadiranKaryawanHarian statuskehadiranKaryawanHarian) {
 		this.statuskehadiranKaryawanHarian = statuskehadiranKaryawanHarian;
 		aktifitasPerkuliahanHelper = new AktifitasPerkuliahanHelper(null, null, true);
@@ -79,6 +89,15 @@ public class AbsensiKehadiranDosenHarianDetailHelper extends MyDetail {
 		});
 	}
 
+	/**
+	 * Membangun UI panel: groupbox berjudul "Daftar absensi pengajaran dosen", toolbar dengan combobox Tahun
+	 * Akademik ({@link Common#generateTahunAjaran}) dan Jenis Semester (Ganjil/Genap, default sesuai
+	 * {@link Common#isNowSemensterGanjil()}), serta grid berpaging (100 baris/halaman) dengan kolom Waktu,
+	 * Matakuliah, Dosen 1, Dosen 2, Ruangan, Kap, Smt, dan Jml Mhs. Perubahan salah satu combobox memicu
+	 * pemuatan ulang lewat {@link #loadData(Object)}. Data awal langsung dimuat; kegagalan pada pemuatan pertama
+	 * ditelan dan hanya ditampilkan ke admin lewat {@link Common#tampilErrorJikaAdmin(Exception)} agar pengguna
+	 * biasa tidak melihat stack trace.
+	 */
 	public void display() {
 		ais.ui.util.MyDiv groupbox = new ais.ui.util.MyDiv();
 		groupbox.setStyle("min-height: 200px;");
@@ -178,6 +197,32 @@ public class AbsensiKehadiranDosenHarianDetailHelper extends MyDetail {
 
 	}
 
+	/**
+	 * Memuat ulang daftar jadwal {@link Perkuliahan} milik dosen pada baris {@code statuskehadiranKaryawanHarian}
+	 * sesuai tahun akademik dan jenis semester yang sedang dipilih di combobox, lalu merender ulang baris-baris
+	 * grid. Kembali tanpa efek (tidak menampilkan apa pun) bila salah satu combobox belum memilih nilai.
+	 *
+	 * <p>Hari pembanding didapat dari {@code statuskehadiranKaryawanHarian.getTanggal()} lewat
+	 * {@link Common#haris}. Query Hibernate mengambil {@link Perkuliahan} yang aktif (atau kolom {@code aktif}
+	 * null), hari serta tahun ajaran cocok, semester termasuk dalam {@link Common#ganjil} atau
+	 * {@link Common#genap} sesuai pilihan, dan dosen1 ATAU dosen2 sama dengan dosen pada
+	 * {@code statuskehadiranKaryawanHarian} — sehingga menemukan semua sesi yang dijadwalkan untuk dosen
+	 * tersebut pada hari itu, terlepas dari posisinya sebagai dosen pengajar pertama atau kedua.</p>
+	 *
+	 * <p>Setiap baris hasil dirender dengan: sub-{@link MyDetail} yang baru membangun tampilan agenda
+	 * perkuliahan ({@link AktifitasPerkuliahanHelper#initDetail}, jumlah agenda dari konfigurasi
+	 * {@code tampilan_jumlah_agenda_perkuliahan}) saat baris tersebut dibuka pengguna — bukan saat grid pertama
+	 * kali dimuat; label waktu (hari, jam mulai-selesai); tautan revisi ke matakuliah lewat
+	 * {@link RevisiHelper#createNewRevisi} (menandai "(Paralel)" bila kelas paralel); nama dosen1/dosen2;
+	 * kode ruangan; kapasitas kelas; semester+kelas; dan jumlah mahasiswa disetujui (subquery
+	 * {@link Detailperkuliahan} berstatus {@link Detailperkuliahan#DISETUJUI} dan {@code ikutiPerkuliahan} null,
+	 * dialihkan ke {@code perkuliahan.getPerkuliahan_paralel()} untuk kelas paralel karena pendaftaran mahasiswa
+	 * dicatat pada kelas induknya).</p>
+	 *
+	 * @param object tidak digunakan; parameter dipertahankan agar cocok dengan signature listener {@code onChange}
+	 *               pada combobox pemanggil
+	 * @throws Exception diteruskan dari akses Hibernate/komponen ZK bila terjadi kegagalan
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object object) throws Exception {
 
