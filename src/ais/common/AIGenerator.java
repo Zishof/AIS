@@ -67,18 +67,20 @@ import ais.ui.util.MyToolbarbuttonConfig;
  * bawaan yang juga men-<i>trigger</i> retry lewat rekursi {@code ambilPesan}.</li>
  * </ul>
  *
- * <h2 style="color:red">PERINGATAN KEAMANAN — kredensial/endpoint tertanam di kode</h2>
+ * <h2>Riwayat keamanan — kredensial/endpoint tertanam di kode</h2>
  * <p>
- * Nilai default pada {@code Common.getKonfigurasi("ai_chatbot_api_key_gemini", "AIzaSy...")}
- * (di dalam method privat {@code ambilPesan} pada listener yang dibangun {@link #generateApa})
- * menyertakan API key Google Gemini secara literal di kode sumber sebagai fallback bila
- * konfigurasi belum diisi di database. Selain itu, URL server Ollama juga tertanam sebagai nilai
- * default literal: {@code Common.getKonfigurasi("ollama_url", "http://38.47.182.162:11434")} —
- * ini adalah alamat IP publik server AI internal, bukan rahasia otentikasi, namun tetap mengekspos
- * topologi infrastruktur. Sesuai instruksi tugas dokumentasi ini, nilai-nilai tersebut TIDAK
- * diubah/dihapus — dilaporkan pada ringkasan akhir pekerjaan dokumentasi agar dapat
- * ditindaklanjuti (idealnya API key dipindahkan ke konfigurasi rahasia dan dirotasi karena sudah
- * pernah terekspos di riwayat source control).
+ * <b>DIPERBAIKI 2026-09-01:</b> nilai default pada
+ * {@code Common.getKonfigurasi("ai_chatbot_api_key_gemini", ...)} (di dalam method privat
+ * {@code ambilPesan} pada listener yang dibangun {@link #generateApa}) sebelumnya menyertakan
+ * API key Google Gemini nyata secara literal di kode sumber sebagai fallback bila konfigurasi
+ * belum diisi di database. Default itu sudah diganti string kosong — kunci kini WAJIB diisi
+ * lewat konfigurasi {@code ai_chatbot_api_key_gemini} di database (kunci konfigurasi yang sama
+ * dipakai bersama oleh {@code ais.action.servlet.Wa}). Kunci lama yang sebelumnya tertanam di
+ * sini (dan di {@code ais.common.TestGemini}, sudah diperbaiki terpisah) sudah lama berada di
+ * riwayat SVN dan WAJIB dianggap bocor — perlu dirotasi/dicabut di Google AI Studio bila masih
+ * dipakai produksi. URL server Ollama TETAP memiliki nilai default literal
+ * ({@code Common.getKonfigurasi("ollama_url", "http://38.47.182.162:11434")}) karena itu alamat
+ * IP infrastruktur internal, bukan rahasia otentikasi — tidak diubah pada perbaikan ini.
  * </p>
  *
  * <h2>Struktur UI yang dibangun</h2>
@@ -277,7 +279,7 @@ public class AIGenerator {
 							String linkPost = "https://generativelanguage.googleapis.com/v1beta/models/"
 									+ versiModelGemini + ":generateContent?key="
 									+ Common.getKonfigurasi("ai_chatbot_api_key_gemini",
-											"AIzaSyDBSOM4dHks3kQuXyhDzhBkRQz98VjHzPs").getNilai();
+											"").getNilai();
 
 							System.out.println("tanyaApa -> " + tanyaApa);
 

@@ -12515,7 +12515,7 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 	protected void initTabAutoIntegrasiEksternal() {
 		Rows rows = createSpan("Integrasi Eksternal (Auto)");
 		rows.appendChild(createRowNilai("Admin yg boleh kirim ke feeder (SUDAH TIDAK DIPAKAI -- digantikan flag per-Role \"Akses Feeder\" di Kelola Role/Grup Pengguna)", "admin_yg_boleh_kirim_ke_feeder", ""));
-		rows.appendChild(createRowNilai("Ai chatbot api key gemini — dipakai di: AIGenerator, Wa", "ai_chatbot_api_key_gemini", "AIzaSyDBSOM4dHks3kQuXyhDzhBkRQz98VjHzPs"));
+		rows.appendChild(createRowNilai("Ai chatbot api key gemini — dipakai di: AIGenerator, Wa (kunci lama yang bocor sudah dihapus 2026-09-01, admin WAJIB isi ulang)", "ai_chatbot_api_key_gemini", ""));
 		rows.appendChild(createRowActiveDefault("Aktifkan ambil buku dari google book — dipakai di: FilePerkuliahanHelper", "aktifkan_ambil_buku_dari_google_book", Konfigurasi.AKTIF));
 		rows.appendChild(createRowActiveDefault("Aktifkan https ke feeder — dipakai di: FeederConnector", "aktifkan_https_ke_feeder", Konfigurasi.TIDAK_AKTIF));
 		rows.appendChild(createRowActiveDefault("Aktifkan terhubung langsung ke feeder — dipakai di: AktifitasPerkuliahanHelper, CabangPrestasiMahasiswaAction, DetailSemesterKurikulumHelper, DetailperkuliahanAction, dll", "aktifkan_terhubung_langsung_ke_feeder", Konfigurasi.AKTIF));

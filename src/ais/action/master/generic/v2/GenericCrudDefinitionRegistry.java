@@ -110,6 +110,10 @@ public final class GenericCrudDefinitionRegistry {
             GenericCrudDefinition generated = GenericCrudAutoDefinitionFactory.build(module, page,
                     serverCandidates, sourcePackage, sourceAction, sourceMethods);
             if (generated == null) return null;
+            // Keputusan per layar cabang Akademik: sebagian dinaikkan menjadi
+            // CRUD penuh beserta adapter validasinya, sebagian sengaja ditahan
+            // tetap READ_ONLY beserta alasannya. Route lain tidak disentuh.
+            GenericCrudAkademikOverrides.terapkan(generated);
             register(generated);
             return generated;
         } catch (Exception rejected) {

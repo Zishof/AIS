@@ -12,12 +12,16 @@ import java.io.InputStreamReader;
  * {@link #main(String[])} miliknya sendiri.
  *
  * <p>
- * <b>PERINGATAN KEAMANAN:</b> method {@link #main(String[])} menanam API key Google Gemini
- * secara eksplisit dalam kode sumber (nilai literal menggantikan placeholder {@code API_KEY}),
- * BUKAN dibaca dari konfigurasi runtime. Ini adalah kredensial nyata yang ter-commit ke source
- * tree. Sesuai batasan tugas dokumentasi ini, nilai tersebut TIDAK diubah/dihapus di sini —
- * lihat catatan lengkap pada laporan dokumentasi terkait untuk lokasi persis dan rekomendasi
- * rotasi kredensial.
+ * <b>Riwayat keamanan (DIPERBAIKI 2026-09-01):</b> {@link #main(String[])} sebelumnya menanam
+ * API key Google Gemini nyata langsung di kode sumber (menggantikan placeholder
+ * {@code API_KEY}). Nilai literal itu sudah DIHAPUS — kunci kini WAJIB disuplai lewat properti
+ * sistem {@code -Dtestgemini.apikey=...} saat kelas ini dijalankan manual, dan {@code main}
+ * berhenti dengan pesan bila belum diisi. <b>Tindak lanjut yang TETAP diperlukan di luar
+ * perubahan kode ini:</b> API key yang sebelumnya tertanam sudah lama berada di riwayat SVN dan
+ * WAJIB dianggap bocor — dirotasi/dicabut di Google AI Studio bila masih aktif (kunci yang sama
+ * juga ditemukan tertanam di {@code ais.common.AIGenerator} dan dipakai sebagai default
+ * konfigurasi {@code ai_chatbot_api_key_gemini} di beberapa tempat lain, sudah diperbaiki
+ * terpisah).
  * </p>
  *
  * <p>
@@ -146,7 +150,15 @@ public class TestGemini {
 				+ "    \"topK\": 40,\r\n" + "    \"topP\": 0.95,\r\n" + "    \"maxOutputTokens\": 8192,\r\n"
 				+ "    \"responseMimeType\": \"text/plain\"\r\n" + "  }\r\n" + "}')";
 
-		tanya = tanya.replaceAll("API_KEY", "AIzaSyDBSOM4dHks3kQuXyhDzhBkRQz98VjHzPs");
+		// DIPERBAIKI 2026-09-01: kunci API Gemini nyata sebelumnya tertulis langsung di sini.
+		// WAJIB disuplai lewat properti sistem -Dtestgemini.apikey=... saat dijalankan manual;
+		// kunci lama yang sebelumnya tertanam sudah lama di riwayat SVN dan harus dianggap bocor.
+		String apiKey = System.getProperty("testgemini.apikey", "");
+		if (apiKey.trim().isEmpty()) {
+			System.out.println("Kunci API belum diisi. Jalankan dengan -Dtestgemini.apikey=...");
+			return;
+		}
+		tanya = tanya.replaceAll("API_KEY", apiKey);
 		tanya = tanya.replaceAll("TANYA_APA_SAJA",
 				"apa itu ecampus dan eschool dan apa saja fitur fitur nya dan bagaimana cara implementasinya dan berapa harganya ?");
 		

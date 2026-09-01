@@ -75,15 +75,107 @@ import org.hibernate.envers.query.AuditEntity;
 import org.hibernate.envers.query.criteria.AuditCriterion;
 
 /**
- * Generic helper untuk menampilkan, mencari, membandingkan, dan merestore data revisi Envers.
+ * Class dasar (generic base class) window ZK untuk menampilkan, mencari, membandingkan, mengedit, dan
+ * merestore riwayat revisi Hibernate Envers milik satu entity Hibernate. Class ini adalah <b>class
+ * referensi utama</b> bagi lebih dari 50 subclass {@code Revisi*Helper} di package {@code ais.action.master.helper}
+ * (mis. {@code RevisiMahasiswaHelper}, {@code RevisiCicilanPembayaranHelper}, dsb) — subclass tersebut hanya
+ * memanggil konstruktor {@link #GenericRevisiHelper(Class, String, EventListener, String[], QueryCustomizer...)}
+ * dan (kadang) meng-override beberapa hook, sehingga Javadoc di subclass cukup singkat dan menaut ke sini
+ * lewat {@code @see}/{@code {@link}}. Baca Javadoc ini sampai selesai sebelum mengubah/membaca ulang perilaku
+ * subclass manapun, karena hampir seluruh logika berat ada di sini, bukan di subclass.
  *
- * Tujuan utama class ini:
- * 1. Menghilangkan duplikasi code pada banyak RevisiXXXHelper lama.
- * 2. Semua akses Hibernate memakai openSession() lokal dan ditutup di finally.
- * 3. Filter pencarian bisa disusun melalui parameter konstruktor.
- * 4. Mendukung restore satu revisi dan restore massal data terbaru dari revisi mulai tanggal tertentu.
+ * <h3>Masalah yang dipecahkan</h3>
+ * Sebelum class ini ada, puluhan class {@code RevisiXXXHelper} lama masing-masing menulis ulang kode yang
+ * nyaris identik: membuka {@code AuditReader} Envers, menyusun filter tanggal/kata kunci/tipe revisi,
+ * merender grid, membandingkan nilai lama-baru per property, dan melakukan restore. Duplikasi ini membuat
+ * perbaikan bug atau penambahan fitur harus diulang di puluhan tempat dan gampang tidak konsisten.
+ * {@code GenericRevisiHelper<T>} menyatukan seluruh logika itu satu kali di sini; subclass hanya memberi tahu
+ * entity Hibernate mana yang mau ditampilkan riwayatnya beserta field-field pencarian yang relevan.
  *
- * Kompatibel Java 1.7 dan gaya try-catch Java 1.6.
+ * <h3>Arsitektur window (3 tab ZK)</h3>
+ * Window dibangun di {@link #init()} memakai {@code Borderlayout} + {@code Tabbox} dengan tiga tab:
+ * <ol>
+ *   <li><b>"Dasbor Data Ini"</b> — ringkasan/analisis (card, trend, komposisi, "spider web") dari data yang
+ *       sedang dilihat, dibangun oleh {@code renderDashboard}/{@code buildDashboardData}.</li>
+ *   <li><b>"Riwayat ID Ini"</b> — riwayat revisi untuk SATU entity spesifik (biasanya disaring lewat
+ *       {@link EntityIdFilter}). Filter yang tersedia: kata kunci bebas ({@code keyword}), rentang tanggal
+ *       ({@code mulai}/{@code sampai}, boleh kosong), tipe revisi ({@code tipeRevisi}: Semua/Tambah/Ubah/Hapus),
+ *       checkbox "Hanya yang berubah"/"Hanya yang dihapus", filter kolom spesifik ({@code filterKolomCari} +
+ *       {@code nilaiKolomCari}), dan filter "kolom berubah" ({@code filterKolomBerubah}) yang hanya
+ *       menampilkan revisi yang benar-benar mengubah satu kolom terpilih.</li>
+ *   <li><b>"Seluruh Data Revisi"</b> — riwayat revisi SEMUA ID pada class entity yang sama (tanpa
+ *       {@link EntityIdFilter}), dengan filter serupa berawalan {@code all*} (mis. {@code allKeyword},
+ *       {@code allMulai}). Rentang tanggal WAJIB diisi di tab ini agar volume data tetap wajar.</li>
+ * </ol>
+ * Kedua tab riwayat memakai grid ({@link #grid}/{@link #allGrid}) dengan paging langsung ke database
+ * (10 baris/halaman, lihat {@code UKURAN_HALAMAN_DB}) lewat komponen {@code Paging} terpisah
+ * ({@link #pagingDb}/{@link #pagingDbAll}) — bukan paging in-memory milik {@code MyGrid} bawaan — supaya
+ * query Envers yang berat tidak perlu menarik seluruh baris sekaligus.
+ *
+ * <h3>Alur data: Envers, session lokal, dan cache count</h3>
+ * Setiap operasi baca memakai {@code Session} Hibernate LOKAL yang dibuka sendiri lewat
+ * {@code HibernateUtil.getSessionFactory().openSession()} dan SELALU ditutup di blok {@code finally} lewat
+ * {@link #closeSession(Session)} (urutan tetap: {@code session.clear()} lalu {@code session.disconnect()}
+ * lalu {@code session.close()}). Pola ini konsisten di seluruh method class ini — jangan pernah menyimpan
+ * {@code Session} sebagai field permanen atau membiarkannya terbuka lintas event ZK. Riwayat revisi dibaca
+ * lewat {@code AuditReader}/{@code AuditQuery} Hibernate Envers, dibangun oleh {@link #buildAuditQuery} (3
+ * overload) dan disaring lewat {@link #buildKeywordCriterion}, filter tanggal/tipe, filter kolom, serta
+ * {@link QueryCustomizer} dari konstruktor. Karena menghitung total baris (COUNT) untuk paging bisa mahal
+ * bila dilakukan berulang setiap perpindahan halaman, hasilnya disimpan di {@code COUNT_CACHE} (TTL 2 menit
+ * lewat {@code COUNT_CACHE_TTL_MS}, dibatasi maksimal 2000 kombinasi filter terakhir lewat
+ * {@code LinkedHashMap} mode LRU) — TTL dicek hanya saat key yang sama dibaca ulang, sehingga entry basi
+ * milik kombinasi filter yang sudah tidak pernah diakses lagi tidak menumpuk tanpa batas.
+ *
+ * <h3>Fitur restore</h3>
+ * Ada dua jalur restore, keduanya berjalan di {@code Thread} terpisah dengan window progress
+ * ({@code RestoreProgress}) supaya UI ZK tetap responsif:
+ * <ul>
+ *   <li><b>Restore satu revisi</b> — {@link #restoreWithConfirm(Serializable)} (minta konfirmasi lalu
+ *       memanggil {@code restoreRevisionObject}) atau langsung {@code restoreRevisionObject(revisionObject, deep)}.
+ *       Bila {@code deep=true}, relasi pendukung yang belum ada di database ikut direstore rekursif
+ *       ({@code restoreDependenciesRecursively}) sebelum data utama disimpan lewat {@code saveOrReplicate}
+ *       dalam SATU transaksi.</li>
+ *   <li><b>Restore massal</b> — {@link #restoreLatestFromDateWithConfirm()} (tombol "Restore Terbaru" pada
+ *       tab "Riwayat ID Ini") memicu {@link #restoreLatestFromDate(Date)}: semua ID dengan revisi sejak
+ *       tanggal tertentu dikembalikan masing-masing ke revisi PALING BARU dalam rentang tersebut, satu
+ *       transaksi terpisah per ID (kegagalan satu ID tidak membatalkan ID lain).</li>
+ * </ul>
+ * Sebelum {@code tx.commit()} pada kedua jalur, dipanggil hook {@code protected}
+ * {@code afterRestoreInTransaction(Session session, AuditReader reader, Object entity)} (badan default
+ * kosong) yang boleh di-override subclass untuk memperbaiki data tambahan yang tidak bisa direstore murni
+ * dari snapshot Envers. Contoh nyata: {@code RevisiCicilanPembayaranHelper} meng-override hook ini untuk
+ * memastikan field {@code pengaturanPembayaranBulanan} pada {@code CicilanPembayaran} yang direstore tetap
+ * terisi (dicari ulang dari {@code Kegiatan}/{@code JenisKegiatan} bila kosong), karena field tersebut
+ * punya aturan bisnis turunan yang tidak selalu tersimpan apa adanya di snapshot revisi lama.
+ *
+ * <h3>Banding nilai, edit manual, dan hapus</h3>
+ * {@link #buildComparisonWithPrevious} membandingkan satu object revisi dengan revisi SEBELUMNYA untuk ID
+ * yang sama (kolom audit teknis {@code oleh}/{@code olehId}/{@code tanggal_dirubah} sengaja dilewati), hasilnya
+ * dipakai baik di ringkasan grid maupun untuk filter "Hanya yang berubah". Detail per-field ditampilkan lewat
+ * {@link #renderDetail}, dengan tombol "Pakai" ({@link #restoreOneProperty}, kembalikan satu field saja ke
+ * nilai revisi) dan "Edit" ({@link #showManualEditPopup} membuka popup, {@link #saveManualPropertyValue}
+ * menyimpan nilai bebas yang diketik admin langsung ke data aktif — BUKAN ke riwayat revisi). Ada juga
+ * {@code bukaFormEditRestore}/{@code simpanFormEditRestore} untuk mengubah seluruh kolom sekaligus dalam satu
+ * form. Data aktif juga bisa dihapus permanen (riwayat revisinya tetap tersimpan) lewat
+ * {@link #deleteDataIniWithConfirm(Serializable)}/{@link #deleteDataIni(Serializable)} — hanya tersedia untuk
+ * admin.
+ *
+ * <h3>Titik ekstensi untuk subclass</h3>
+ * Subclass memanggil konstruktor {@link #GenericRevisiHelper(Class, String, EventListener, String[],
+ * QueryCustomizer...)} dengan: {@code entityClass} (class Hibernate yang diaudit), {@code titleText} (judul
+ * window), {@code callback} (dipanggil balik saat ada event seperti {@code onDeleteDataIni}),
+ * {@code searchProperties} (daftar nama property untuk pencarian kata kunci; bila {@code null}/kosong dipakai
+ * tebakan otomatis lewat {@link #guessSearchProperties()}), dan sejumlah {@link QueryCustomizer} varargs untuk
+ * menyaring {@code AuditQuery} lebih lanjut. Dua implementasi siap pakai disediakan: {@link FixedPropertyFilter}
+ * (menyaring hanya revisi dengan satu property bernilai tetap, mis. hanya revisi milik {@code kegiatan}
+ * tertentu) dan {@link EntityIdFilter} (menyaring hanya revisi milik SATU ID entity — inilah yang membuat tab
+ * "Riwayat ID Ini" berbeda dari tab "Seluruh Data Revisi"; lihat penanganan khusus {@code EntityIdFilter} yang
+ * dilewati saat {@code allDataMode=true} pada {@link #buildAuditQuery}).
+ *
+ * <h3>Kompatibilitas</h3>
+ * Ditulis kompatibel Java 1.6/1.7 (raw types dengan {@code @SuppressWarnings}, gaya try-catch lama, tanpa
+ * diamond operator/lambda) karena seluruh codebase AIS masih dikompilasi dengan {@code -source 1.7 -target 1.7}.
+ * Pertahankan gaya ini saat menambah kode baru di class ini maupun subclass-nya.
  */
 @SuppressWarnings({ "rawtypes", "unchecked" })
 public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
@@ -292,6 +384,19 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         init();
     }
 
+    /**
+     * Membangun seluruh window ZK: layout {@code Borderlayout}, tiga tab ("Dasbor Data Ini", "Riwayat ID
+     * Ini", "Seluruh Data Revisi"), filter pencarian tiap tab, grid riwayat dengan paging database, serta
+     * toolbar tombol Tutup. Dipanggil satu kali dari konstruktor
+     * {@link #GenericRevisiHelper(Class, String, EventListener, String[], QueryCustomizer...)} setelah
+     * seluruh field konstruktor (entityClass, titleText, callback, searchProperties, customizers) di-set.
+     * Di akhir method ini langsung memicu pencarian awal ({@link #onSearchDefault(Event)}) dan merender
+     * dashboard tab "Seluruh Data Revisi" dalam keadaan kosong, sehingga window sudah terisi data begitu
+     * ditampilkan ke pengguna tanpa perlu aksi tambahan.
+     *
+     * @throws Exception bila metadata entity gagal dimuat ({@code loadEntityMetadata}) atau komponen ZK
+     *         gagal dibangun/di-attach
+     */
     protected void init() throws Exception {
         setTitle(titleText);
         setWidth("96%");
@@ -837,11 +942,31 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         return kolomTerurut;
     }
 
+    /**
+     * Event handler tab "Riwayat ID Ini": mengembalikan paging database ke halaman pertama lalu memuat
+     * ulang riwayat revisi entity ini sesuai filter aktif ({@link #keyword}, {@link #mulai}/{@link #sampai},
+     * {@link #tipeRevisi}, dsb). Dipasang sebagai listener {@code onClick}/{@code onCheck}/{@code onChange}
+     * pada tombol "Cari" dan seluruh komponen filter tab ini, juga dipanggil langsung setelah restore/hapus/
+     * edit manual berhasil agar grid menampilkan data terbaru.
+     *
+     * @param event event ZK pemicu; boleh {@code null} bila dipanggil langsung dari kode (bukan dari UI)
+     * @throws Exception diteruskan dari {@link #startRevisionLoad(boolean)}
+     */
     public void onSearchDefault(Event event) throws Exception {
         resetPagingDb(false);
         startRevisionLoad(false);
     }
 
+    /**
+     * Event handler tab "Seluruh Data Revisi": mengembalikan paging database ke halaman pertama lalu
+     * memuat ulang riwayat revisi SEMUA ID pada class entity ini sesuai filter {@code all*} aktif. Dipasang
+     * sebagai listener pada tombol "Tampilkan" dan komponen filter tab ini. Berbeda dari
+     * {@link #onSearchDefault(Event)}, rentang tanggal {@link #allMulai}/{@link #allSampai} divalidasi wajib
+     * diisi oleh {@link #startRevisionLoad(boolean, int)} sebelum query dijalankan.
+     *
+     * @param event event ZK pemicu; boleh {@code null} bila dipanggil langsung dari kode
+     * @throws Exception diteruskan dari {@link #startRevisionLoad(boolean)}
+     */
     public void onSearchAllData(Event event) throws Exception {
         resetPagingDb(true);
         startRevisionLoad(true);
@@ -1305,6 +1430,21 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
                 || text.startsWith("gagal membandingkan"));
     }
 
+    /**
+     * Overload paling ringkas: membangun {@link AuditQuery} riwayat revisi untuk tab "Riwayat ID Ini"
+     * memakai komponen filter default milik tab tersebut ({@link #keyword}, {@link #mulai}, {@link #sampai},
+     * {@link #tipeRevisi}, {@link #hanyaTampilYangDihapus}, {@link #filterKolomCari}, {@link #nilaiKolomCari}).
+     * {@code skipEntityIdFilter} diset {@code false} sehingga {@link EntityIdFilter} dari konstruktor (bila
+     * ada) tetap diterapkan — inilah yang membatasi hasil hanya untuk satu ID entity. Meneruskan ke overload
+     * lengkap {@link #buildAuditQuery(Session, boolean, Textbox, MyDatebox, MyDatebox, Combobox, Checkbox,
+     * Combobox, Textbox)}.
+     *
+     * @param session session Hibernate yang sedang terbuka (milik pemanggil, tidak ditutup di sini)
+     * @return {@link AuditQuery} Envers yang sudah disaring tapi belum dieksekusi (belum dipanggil
+     *         {@code getResultList()})
+     * @throws Exception bila {@code AuditReaderFactory.get(session)} gagal (mis. Envers tidak aktif) atau
+     *         salah satu {@link QueryCustomizer} melempar exception
+     */
     protected AuditQuery buildAuditQuery(Session session) throws Exception {
         return buildAuditQuery(session, false, keyword, mulai, sampai, tipeRevisi, hanyaTampilYangDihapus,
                 filterKolomCari, nilaiKolomCari);
@@ -1471,11 +1611,58 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         }
     }
 
+    /**
+     * Overload menengah tanpa filter checkbox "Hanya yang dihapus" maupun filter kolom spesifik (keduanya
+     * diteruskan sebagai {@code null} ke overload lengkap). Berguna untuk pemanggil/subclass yang hanya
+     * butuh filter kata kunci + tanggal + tipe revisi tanpa dua filter tambahan tersebut.
+     *
+     * @param session session Hibernate yang sedang terbuka
+     * @param skipEntityIdFilter {@code true} untuk MELEWATI {@link EntityIdFilter} pada
+     *        {@link #customizers} (dipakai tab "Seluruh Data Revisi" agar tidak dibatasi satu ID saja)
+     * @param keywordBox komponen kata kunci bebas; boleh {@code null}
+     * @param mulaiBox komponen tanggal mulai; boleh {@code null}/kosong (tanpa batas bawah)
+     * @param sampaiBox komponen tanggal sampai; boleh {@code null}/kosong (tanpa batas atas)
+     * @param tipeBox komponen pilihan tipe revisi (Semua/Tambah/Ubah/Hapus); boleh {@code null}
+     * @return {@link AuditQuery} Envers yang sudah disaring, belum dieksekusi
+     * @throws Exception diteruskan dari overload lengkap
+     * @see #buildAuditQuery(Session, boolean, Textbox, MyDatebox, MyDatebox, Combobox, Checkbox, Combobox, Textbox)
+     */
     protected AuditQuery buildAuditQuery(Session session, boolean skipEntityIdFilter, Textbox keywordBox,
             MyDatebox mulaiBox, MyDatebox sampaiBox, Combobox tipeBox) throws Exception {
         return buildAuditQuery(session, skipEntityIdFilter, keywordBox, mulaiBox, sampaiBox, tipeBox, null, null, null);
     }
 
+    /**
+     * Overload LENGKAP dan inti dari seluruh mekanisme pencarian riwayat revisi: membangun
+     * {@code AuditReader.createQuery().forRevisionsOfEntity(entityClass, false, true)} lalu menambahkan,
+     * berurutan, (1) order menurun berdasar nomor revisi, (2) filter rentang tanggal via
+     * {@link #normalizeStart}/{@link #normalizeEnd} dan {@code applyRevisionDateFilter} (dengan fallback ke
+     * property {@code tanggal_dirubah} bila filter berbasis {@code revisionProperty("timestamp")} tidak
+     * didukung), (3) filter tipe revisi/"hanya yang dihapus" via {@code applyRevisionTypeFilter}, (4) kriteria
+     * kata kunci OR antar {@link #searchProperties} via {@link #buildKeywordCriterion}, (5) kriteria pencarian
+     * satu kolom spesifik via {@code buildColumnSearchCriterion}, dan (6) seluruh {@link QueryCustomizer} dari
+     * konstruktor (melewati instance {@link EntityIdFilter} bila {@code skipEntityIdFilter=true}). Query yang
+     * dikembalikan BELUM dieksekusi — pemanggil ({@link #startRevisionLoad}) yang mengatur
+     * {@code setFirstResult}/{@code setMaxResults} untuk paging database sebelum memanggil
+     * {@code getResultList()}.
+     *
+     * @param session session Hibernate yang sedang terbuka
+     * @param skipEntityIdFilter {@code true} untuk melewati {@link EntityIdFilter} (dipakai tab "Seluruh
+     *        Data Revisi")
+     * @param keywordBox komponen kata kunci bebas; boleh {@code null}
+     * @param mulaiBox komponen tanggal mulai; boleh {@code null}/kosong
+     * @param sampaiBox komponen tanggal sampai; boleh {@code null}/kosong
+     * @param tipeBox komponen pilihan tipe revisi; boleh {@code null}
+     * @param onlyDeletedBox checkbox "Hanya yang dihapus"; bila dicentang, mengalahkan {@code tipeBox}
+     *        (langsung memfilter {@code RevisionType.DEL}); boleh {@code null}
+     * @param columnBox komponen pilihan nama kolom untuk pencarian nilai spesifik; boleh {@code null}
+     * @param columnValueBox nilai teks yang dicari pada {@code columnBox}; boleh {@code null}
+     * @return {@link AuditQuery} Envers final, siap diberi {@code setFirstResult}/{@code setMaxResults}
+     *         lalu dieksekusi
+     * @throws Exception dilempar sebagai {@link RuntimeException} berbungkus pesan Indonesia bila
+     *         {@code AuditReaderFactory.get(session)} gagal, atau diteruskan bila salah satu
+     *         {@link QueryCustomizer#apply(Session, AuditQuery)} melempar exception
+     */
     protected AuditQuery buildAuditQuery(Session session, boolean skipEntityIdFilter, Textbox keywordBox,
             MyDatebox mulaiBox, MyDatebox sampaiBox, Combobox tipeBox, Checkbox onlyDeletedBox,
             Combobox columnBox, Textbox columnValueBox) throws Exception {
@@ -1559,6 +1746,21 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         }
     }
 
+    /**
+     * Membangun kriteria Envers OR-berantai (LIKE ANYWHERE, tidak case-sensitive tergantung kolasi DB) atas
+     * seluruh {@link #searchProperties} (atau hasil {@link #guessSearchProperties()} bila kosong) untuk satu
+     * kata kunci. Hanya property yang benar-benar ada di metadata entity ({@link #hasProperty}) DAN bertipe
+     * teks ({@code isTextProperty}) yang disertakan — property numerik (mis. {@code nis}/{@code nim} yang
+     * ternyata bertipe {@code Integer} pada entity tertentu) sengaja DILEWATI. Ini memperbaiki bug akar
+     * {@code ClassCastException "String cannot be cast to Integer"} yang dulu baru meledak saat
+     * {@code AuditQuery.getResultList()} dieksekusi (bukan saat query dibangun), karena Hibernate tetap
+     * membuat SQL {@code LIKE ?} tapi membind parameter dengan tipe kolom asli.
+     *
+     * @param key kata kunci pencarian; bila {@code null} atau kosong setelah di-trim, method mengembalikan
+     *        {@code null} (tidak ada kriteria yang ditambahkan)
+     * @return kriteria Envers gabungan OR, atau {@code null} bila kata kunci kosong atau tidak ada property
+     *         teks yang cocok untuk disaring
+     */
     protected AuditCriterion buildKeywordCriterion(String key) {
         if (key == null || key.trim().length() == 0) {
             return null;
@@ -1677,6 +1879,17 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         }
     }
 
+    /**
+     * Tebakan otomatis daftar property untuk pencarian kata kunci ketika konstruktor dipanggil dengan
+     * {@code searchProperties} kosong/{@code null}. Mengecek keberadaan sekumpulan nama field umum di
+     * codebase AIS ({@code nama}, {@code kode}, {@code keterangan}, {@code judul}, {@code topik}, {@code nim},
+     * {@code nis}, {@code email}, {@code nomorInduk}, {@code nomorIndukNasional}, {@code noRegistrasi},
+     * {@code noUjian}) lewat {@link #hasProperty(String)}, dan hanya mengembalikan yang benar-benar ada pada
+     * metadata entity ini. Dipanggil dari {@link #buildKeywordCriterion(String)}.
+     *
+     * @return array nama property yang ditemukan (bisa kosong bila tidak satupun kandidat cocok); tidak
+     *         pernah {@code null}
+     */
     protected String[] guessSearchProperties() {
         List<String> props = new ArrayList<String>();
         String[] candidates = new String[] { "nama", "kode", "keterangan", "judul", "topik", "nim", "nis", "email",
@@ -1689,6 +1902,17 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         return props.toArray(new String[props.size()]);
     }
 
+    /**
+     * Mengecek apakah {@code property} terdaftar pada {@link #propertyNames} — daftar nama property Hibernate
+     * (identifier + seluruh property biasa) milik {@link #entityClass} yang dimuat sekali di
+     * {@code loadEntityMetadata()} saat {@link #init()}. Dipakai secara luas sebagai penjaga sebelum
+     * mengakses property lewat refleksi/{@code ClassMetadata} agar tidak melempar exception untuk nama
+     * property yang tidak ada (mis. field yang hanya dimiliki sebagian entity, seperti
+     * {@code tanggal_dirubah}).
+     *
+     * @param property nama property yang dicek; {@code null} selalu menghasilkan {@code false}
+     * @return {@code true} bila property tersebut ada pada metadata {@link #entityClass}
+     */
     protected boolean hasProperty(String property) {
         if (property == null) {
             return false;
@@ -1718,6 +1942,22 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         return Integer.valueOf(MODE_SEMUA);
     }
 
+    /**
+     * Memaksa inisialisasi eager seluruh property (termasuk relasi lazy) dari setiap entity hasil query
+     * revisi, SELAGI {@code session} masih terbuka, supaya rendering grid/dashboard di luar konteks session
+     * (mis. setelah query selesai tapi sebelum session ditutup di tahap berikutnya) tidak memicu
+     * {@code LazyInitializationException}. Dipanggil dari tahap 3 {@link #runRevisionLoadStage} setelah
+     * baris mentah dibaca dari database, sebelum data dipakai untuk membangun dashboard/perbandingan.
+     * <p>
+     * Bila satu property lazy ternyata menunjuk ke baris yang sudah dihapus permanen dari database (FK
+     * yatim pada data revisi/histori lama), {@code ObjectNotFoundException} untuk property tersebut ditangkap
+     * dan dicatat lewat {@code ErrorAuditUtil}, propertinya dibiarkan tidak terinisialisasi, dan entity
+     * lain dalam {@code list} tetap diproses lanjut — satu relasi yatim tidak menggagalkan seluruh baris.
+     *
+     * @param session session Hibernate yang masih terbuka (dipakai untuk resolve proxy lazy)
+     * @param list daftar baris hasil query revisi (Object mentah atau {@code Object[]} Envers); boleh
+     *        {@code null} (method langsung kembali tanpa melakukan apa pun)
+     */
     protected void eagerInitialize(Session session, List list) {
         if (list == null) {
             return;
@@ -1762,6 +2002,17 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         }
     }
 
+    /**
+     * Mengekstrak entity utama dari satu baris hasil {@link AuditQuery}. Envers mengembalikan baris sebagai
+     * {@code Object[]} berisi {@code [entity, revisionEntity, revisionType]} ketika query dibangun dengan
+     * {@code forRevisionsOfEntity(entityClass, false, true)} (parameter kedua {@code selectEntitiesOnly=false}),
+     * tapi kadang pemanggil sudah memiliki entity mentahnya langsung. Method ini menangani kedua bentuk.
+     *
+     * @param value satu baris hasil query — {@code Object[]} berisi entity di indeks 0, atau instance
+     *        {@link #entityClass} langsung
+     * @return entity yang diekstrak, atau {@code null} bila {@code value} bukan salah satu dari kedua bentuk
+     *         di atas
+     */
     protected Object extractEntity(Object value) {
         if (value == null) {
             return null;
@@ -1778,6 +2029,16 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         return null;
     }
 
+    /**
+     * Mengekstrak object revisi Envers (biasanya {@link DefaultRevisionEntity}, berisi nomor revisi, tanggal,
+     * dan field audit kustom seperti {@code oleh}) dari indeks 1 baris {@code Object[]} hasil
+     * {@link AuditQuery}. Dipakai antara lain oleh {@link #buildComparisonWithPrevious} dan
+     * {@link #formatRevisionDate} untuk membaca nomor/tanggal revisi.
+     *
+     * @param value satu baris hasil query, idealnya {@code Object[]} dengan panjang &gt;= 2
+     * @return object revisi Envers di indeks 1, atau {@code null} bila {@code value} bukan {@code Object[]}
+     *         atau panjangnya kurang dari 2
+     */
     protected Object extractRevisionEntity(Object value) {
         if (value instanceof Object[]) {
             Object[] arr = (Object[]) value;
@@ -1788,6 +2049,16 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         return null;
     }
 
+    /**
+     * Mengekstrak {@link RevisionType} (ADD/MOD/DEL) dari indeks 2 baris {@code Object[]} hasil
+     * {@link AuditQuery}. Dipakai antara lain oleh {@link #labelRevisionType(RevisionType)} untuk label
+     * "Tambah"/"Ubah"/"Hapus" pada grid, dan oleh {@link #restoreLatestFromDate(Date)} untuk melewati
+     * revisi bertipe {@code DEL} (data yang sedang dihapus tidak direstore massal).
+     *
+     * @param value satu baris hasil query, idealnya {@code Object[]} dengan panjang &gt;= 3
+     * @return tipe revisi di indeks 2, atau {@code null} bila {@code value} bukan {@code Object[]}, panjangnya
+     *         kurang dari 3, atau elemen di indeks 2 bukan {@link RevisionType}
+     */
     protected RevisionType extractRevisionType(Object value) {
         if (value instanceof Object[]) {
             Object[] arr = (Object[]) value;
@@ -3153,6 +3424,29 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         }
     }
 
+    /**
+     * Overload inti (dipanggil overload tanpa {@code session} setelah membuka session lokal sendiri):
+     * membandingkan {@code revisionObject} dengan revisi SEBELUMNYA untuk ID yang sama dan mengembalikan
+     * ringkasan multi-baris {@code "property: nilaiLama -> nilaiBaru"} (satu baris per property yang berubah,
+     * dipisah {@code \n}), atau pesan status ("Tidak ada perubahan.", "Belum ada revisi sebelumnya untuk ID
+     * yang sama.", dsb) bila tidak ada yang bisa dibandingkan. Hasilnya di-cache di {@link #comparisonCache}
+     * (key = class + ID + nomor revisi, lihat {@code comparisonCacheKey}) agar tidak dihitung ulang untuk
+     * baris grid yang sama dalam satu siklus render — cache ini dikosongkan setiap kali
+     * {@link #runRevisionLoadStage} memulai stage 4 pada pencarian baru.
+     * <p>
+     * Revisi sebelumnya dicari lewat {@code findPreviousRevisionEntityForComparison} (berdasar nomor revisi
+     * bila tersedia, atau berdasar {@code tanggal_dirubah} sebagai fallback). Property audit teknis
+     * ({@code oleh}, {@code olehId}, {@code tanggal_dirubah}/{@code tanggalDirubah}) dilewati lewat
+     * {@code isIgnoredComparisonProperty} agar hasil banding fokus ke data bisnis.
+     *
+     * @param session session Hibernate yang sedang terbuka; bila {@code null} atau sudah tertutup,
+     *        method langsung mengembalikan pesan gagal tanpa melempar exception
+     * @param revisionObject snapshot entity revisi yang sedang dilihat; {@code null} menghasilkan
+     *        "Tidak ada perubahan."
+     * @param revEntity object revisi Envers (hasil {@link #extractRevisionEntity(Object)}) untuk membaca
+     *        nomor revisi; boleh {@code null} (dipakai fallback tanggal)
+     * @return teks ringkasan perubahan siap tampil, tidak pernah {@code null}
+     */
     protected String buildComparisonWithPrevious(Session session, Serializable revisionObject, Object revEntity) {
         String cacheKey = comparisonCacheKey(revisionObject, revEntity);
         try {
@@ -3410,10 +3704,36 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         }
     }
 
+    /**
+     * Overload ringkas {@link #renderDetail(MyDetail, Serializable, Object)} tanpa object revisi Envers
+     * (dipakai bila nomor revisi tidak diperlukan untuk mencari revisi sebelumnya, cukup mengandalkan
+     * fallback tanggal).
+     *
+     * @param detail komponen {@link MyDetail} tujuan render (biasanya baris ekspansi grid)
+     * @param revisionObject snapshot entity revisi yang detailnya ditampilkan
+     */
     protected void renderDetail(MyDetail detail, final Serializable revisionObject) {
         renderDetail(detail, revisionObject, null);
     }
 
+    /**
+     * Merender panel detail satu baris revisi: tombol "Download 1 revisi" (CSV per field) dan grid
+     * Field/Nilai Revisi/Nilai Sebelumnya/Aksi untuk SETIAP property entity (identifier + seluruh property
+     * Hibernate). Untuk tiap property, nilai revisi dan nilai revisi sebelumnya dibandingkan
+     * ({@code sameValueForComparison}); baris yang berbeda ditandai merah, dan bila pengguna admin serta
+     * data aktif ({@code current}, hasil {@code session.get(entityClass, id)}) berupa
+     * {@link GeneralValueObject}, ditampilkan tombol "Pakai" ({@link #restoreOneProperty}, mengembalikan
+     * SATU field ini saja ke nilai revisi) dan "Edit" ({@link #showManualEditPopup}, mengetik nilai bebas).
+     * Nilai relasi ({@link GeneralValueObject}) dirender sebagai tautan yang membuka popup riwayat revisi
+     * object relasi tersebut ({@code openRelatedRevisionPopup}). Dipanggil oleh row renderer grid saat baris
+     * di-expand oleh pengguna, memakai session Hibernate lokal yang dibuka dan ditutup di dalam method ini.
+     *
+     * @param detail komponen {@link MyDetail} tujuan render; isinya dibersihkan lebih dulu lewat
+     *        {@code Common.clear(detail)}
+     * @param revisionObject snapshot entity revisi yang detailnya ditampilkan
+     * @param revEntity object revisi Envers untuk mencari revisi sebelumnya secara akurat berdasar nomor
+     *        revisi; boleh {@code null}
+     */
     protected void renderDetail(MyDetail detail, final Serializable revisionObject, final Object revEntity) {
         Common.clear(detail);
 
@@ -3643,6 +3963,27 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
 		MenuAksiBaris.pasangSelalu(aksi, "Aksi revisi field " + (property == null ? "" : property));
     }
 
+    /**
+     * Membuka popup "Edit Manual Nilai Revisi" untuk SATU field data aktif, dipicu tombol "Edit" pada baris
+     * detail ({@link #renderDetail}). Popup menampilkan info Class, ID, tipe field, serta nilai aktif/revisi/
+     * sebelumnya (lewat {@code formatValueForManual}, yang menyertakan ID untuk field relasi karena ID-lah
+     * yang harus diketik ulang), sebuah textbox multi-baris berisi nilai aktif saat ini (siap diedit), dua
+     * tombol cepat untuk mengisi textbox dari nilai revisi atau nilai sebelumnya, serta tombol Simpan/Batal.
+     * Nilai aktif dibaca sekali di awal method lewat session Hibernate lokal (dibuka lalu ditutup sebelum
+     * popup ditampilkan) — popup sendiri tidak menahan session terbuka. Tombol Simpan meminta konfirmasi
+     * ({@code confirmAndSaveManualValue}) sebelum benar-benar memanggil
+     * {@link #saveManualPropertyValue(GeneralValueObject, String, String)}.
+     * <p>
+     * Perubahan yang dihasilkan popup ini langsung mengubah DATA AKTIF di database, bukan menambah baris
+     * riwayat revisi baru — dipakai untuk situasi darurat/perbaikan data yang tidak bisa diselesaikan lewat
+     * mekanisme restore biasa.
+     *
+     * @param currentObject data aktif ({@link GeneralValueObject}) yang field-nya akan diedit; wajib punya
+     *        ID, jika tidak popup gagal dibuka dengan pesan peringatan
+     * @param property nama property Hibernate yang diedit; wajib tidak kosong
+     * @param revisionValue nilai pada revisi yang sedang dilihat (untuk tombol "Isi dari Nilai Revisi")
+     * @param previousValue nilai pada revisi sebelumnya (untuk tombol "Isi dari Nilai Sebelumnya")
+     */
     protected void showManualEditPopup(final GeneralValueObject currentObject, final String property,
             final Object revisionValue, final Object previousValue) {
         if (currentObject == null || currentObject.getId() == null || property == null || property.trim().length() == 0) {
@@ -3875,6 +4216,27 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
                 });
     }
 
+    /**
+     * Menyimpan nilai teks bebas dari popup {@link #showManualEditPopup} ke SATU property data aktif, dalam
+     * satu transaksi Hibernate lokal: buka session, {@code beginTransaction}, {@code session.get} data aktif
+     * berdasar ID, konversi teks ke tipe property sebenarnya lewat {@code convertManualInputValue} (mengenali
+     * tanggal, angka, boolean, relasi via ID, enum, dsb — lihat {@code buildManualEditHelpText} untuk aturan
+     * formatnya), {@code meta.setPropertyValue}, {@code session.saveOrUpdate}, lalu {@code tx.commit()}.
+     * Kegagalan di titik manapun memicu {@link #rollback(Transaction)} dan pesan error yang dibantu
+     * {@code PesanFormalHelper.tampilkanGagalException} (saran perbaikan dalam Bahasa Indonesia untuk
+     * pengguna). Setelah sukses, memanggil {@link #onSearchDefault(Event)} agar grid menampilkan data
+     * terbaru.
+     * <p>
+     * Ada penanganan khusus non-generik: bila entity berupa {@code ais.database.model.sekolah.Tagihan} dan
+     * property yang diubah adalah {@code aktif} bernilai {@code true}, property {@code aktifkanmanual} ikut
+     * di-set {@code true} — karena {@code Tagihan.getAktif()} adalah computed property yang bisa
+     * di-override balik ke {@code false} oleh logika bulan berjalan saat flush; flag ini memaksa jalur
+     * "rescued" sehingga nilai {@code aktif=true} yang diinginkan admin benar-benar tersimpan.
+     *
+     * @param currentObject data aktif yang akan diubah; wajib punya ID
+     * @param property nama property Hibernate yang diubah; wajib terdaftar pada {@link #hasProperty(String)}
+     * @param inputValue nilai baru dalam bentuk teks bebas, akan dikonversi sesuai tipe asli property
+     */
     protected void saveManualPropertyValue(GeneralValueObject currentObject, String property, String inputValue) {
         Session session = null;
         Transaction tx = null;
@@ -4299,6 +4661,24 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         return (Serializable) id;
     }
 
+    /**
+     * Mengembalikan SATU field data aktif ke {@code value} (nilai dari revisi yang sedang dilihat), dipicu
+     * tombol "Pakai" pada baris detail ({@link #renderDetail}). Berbeda dari
+     * {@link #saveManualPropertyValue(GeneralValueObject, String, String)}, nilai di sini sudah berupa
+     * object Java hasil deserialisasi revisi (bukan teks yang perlu dikonversi ulang) — langsung diterapkan
+     * lewat {@code meta.setPropertyValue}. Berjalan dalam satu transaksi Hibernate lokal
+     * (buka session → begin → set property → {@code saveOrUpdate} → commit); kegagalan memicu
+     * {@link #rollback(Transaction)}. Setelah sukses memanggil {@link #onSearchDefault(Event)} untuk
+     * menyegarkan grid.
+     * <p>
+     * Sama seperti {@link #saveManualPropertyValue}, ada penanganan khusus {@code Tagihan.aktif=true} yang
+     * ikut men-set {@code aktifkanmanual=true} agar nilai tidak ditimpa balik oleh computed property
+     * {@code getAktif()}.
+     *
+     * @param currentObject data aktif yang field-nya dikembalikan; wajib punya ID
+     * @param property nama property yang dikembalikan
+     * @param value nilai revisi yang akan diterapkan ke property tersebut
+     */
     protected void restoreOneProperty(GeneralValueObject currentObject, String property, Object value) {
         Session session = null;
         Transaction tx = null;
@@ -4330,6 +4710,15 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         }
     }
 
+    /**
+     * Menampilkan dialog konfirmasi "Apakah yakin ingin mengembalikan data sesuai revisi ini?" lalu, bila
+     * pengguna memilih OK, memanggil {@code restoreRevisionObject(revisionObject, true)} — restore DALAM
+     * (deep=true, relasi pendukung yang belum ada di database ikut direstore rekursif). Dipasang sebagai
+     * listener tombol restore satu-baris pada grid riwayat revisi.
+     *
+     * @param revisionObject snapshot entity revisi yang akan direstore bila dikonfirmasi
+     * @throws Exception diteruskan dari {@code MyMessageboxConfig.show}
+     */
     protected void restoreWithConfirm(final Serializable revisionObject) throws Exception {
         MyMessageboxConfig.show("Apakah yakin ingin mengembalikan data sesuai revisi ini?", "Konfirmasi Restore",
                 MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION, new EventListener() {
@@ -4668,6 +5057,15 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         }
     }
 
+    /**
+     * Memvalidasi bahwa pengguna adalah admin ({@link #isAdminUser()}), lalu menampilkan dialog konfirmasi
+     * penghapusan (menyertakan Class dan ID data serta peringatan bahwa riwayat revisi tetap tersimpan dan
+     * data masih bisa direstore) sebelum benar-benar memanggil
+     * {@link #deleteDataIni(Serializable)}. Non-admin langsung diberi pesan penolakan tanpa dialog konfirmasi.
+     *
+     * @param revisionObject snapshot entity revisi, dipakai untuk mengambil ID data aktif yang akan dihapus
+     * @throws Exception diteruskan dari {@code MyMessageboxConfig.show}
+     */
     protected void deleteDataIniWithConfirm(final Serializable revisionObject) throws Exception {
         if (!isAdminUser()) {
             MyMessageboxConfig.show("Fungsi Hapus Data Ini hanya tersedia untuk admin.");
@@ -4690,6 +5088,21 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
                 });
     }
 
+    /**
+     * Menghapus PERMANEN baris data aktif (bukan snapshot revisi — riwayat Envers tetap tersimpan) dari
+     * database, dalam satu transaksi Hibernate lokal: resolve ID dari {@code revisionObject}, ambil data
+     * aktif via {@code session.get}, {@code session.delete}, {@code flush}, commit. Hanya boleh dijalankan
+     * oleh admin ({@link #isAdminUser()} dicek ulang di sini juga, tidak hanya di
+     * {@link #deleteDataIniWithConfirm}). Setelah sukses, {@link #callback} (bila ada) diberi tahu lewat
+     * event {@code "onDeleteDataIni"}, lalu grid tab yang sedang aktif disegarkan
+     * ({@link #onSearchAllData(Event)} atau {@link #onSearchDefault(Event)} tergantung tab terpilih).
+     * <p>
+     * Kegagalan (paling umum: pelanggaran foreign key karena data masih dipakai relasi lain) memicu
+     * {@link #rollback(Transaction)} dan pesan error yang menyarankan melepas relasi terlebih dahulu.
+     *
+     * @param revisionObject snapshot entity revisi, dipakai untuk resolve Class dan ID data aktif yang
+     *        akan dihapus
+     */
     protected void deleteDataIni(Serializable revisionObject) {
         Session session = null;
         Transaction tx = null;
@@ -5239,6 +5652,17 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         }
     }
 
+    /**
+     * Menampilkan dialog konfirmasi "Restore semua data terbaru dari revisi mulai tanggal yang dipilih?"
+     * (dipicu tombol "Restore Terbaru" pada tab "Riwayat ID Ini"). Bila dikonfirmasi, tanggal diambil dari
+     * {@link #mulaiRestore}; bila kosong, di-default ke 7 hari lalu ({@link #addDays(Date, int)}) dan nilai
+     * default tersebut ditulis balik ke komponen {@link #mulaiRestore} supaya terlihat di UI. Selanjutnya
+     * memanggil {@code startRestoreLatestFromDate(tanggalRestore)} yang menjalankan restore massal di
+     * thread terpisah dengan window progress.
+     *
+     * @throws Exception diteruskan dari {@code MyMessageboxConfig.show}
+     * @see #restoreLatestFromDate(Date)
+     */
     protected void restoreLatestFromDateWithConfirm() throws Exception {
         MyMessageboxConfig.show("Restore semua data terbaru dari revisi mulai tanggal yang dipilih?", "Konfirmasi Restore Massal",
                 MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION, new EventListener() {
@@ -5273,6 +5697,21 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         thread.start();
     }
 
+    /**
+     * Merestore, secara SINKRON pada thread pemanggil (tanpa window progress ZK — cocok dipanggil dari
+     * kode/batch, bukan hanya dari UI), setiap entity {@link #entityClass} yang punya revisi sejak
+     * {@code fromDate} ke revisi PALING BARU dalam rentang tersebut. Algoritmenya: (1) query seluruh baris
+     * revisi sejak {@code fromDate} (maksimal 5000, diurutkan nomor revisi menurun), (2) lewati baris
+     * bertipe {@code RevisionType.DEL} (data yang sedang/sudah dihapus tidak direstore), (3) deduplikasi per
+     * ID entity — karena urutan menurun, kemunculan PERTAMA per ID otomatis adalah revisi TERBARUnya, (4)
+     * untuk setiap ID target: restore relasi pendukung yang belum ada ({@code restoreDependenciesRecursively}),
+     * {@code saveOrReplicate}, {@code applyDeferredRelations}, commit — dalam TRANSAKSI TERPISAH per ID
+     * sehingga kegagalan satu ID (di-rollback lewat {@link #rollback(Transaction)}) tidak membatalkan ID
+     * lain yang sudah/akan berhasil.
+     *
+     * @param fromDate tanggal awal revisi yang dipertimbangkan; bila {@code null}, di-default ke 7 hari lalu
+     * @return jumlah entity yang berhasil direstore ({@code progress.getSuccessCount()})
+     */
     public int restoreLatestFromDate(Date fromDate) {
         RestoreProgress progress = new RestoreProgress("Restore Massal Revisi", entityClass);
         doRestoreLatestFromDate(fromDate, progress);
@@ -6153,6 +6592,14 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         }
     }
 
+    /**
+     * Menambahkan {@code days} hari ke {@code date} (boleh negatif untuk mundur). Dipakai antara lain untuk
+     * default rentang restore massal (7 hari terakhir).
+     *
+     * @param date tanggal dasar; {@code null} dianggap "sekarang" ({@code new Date()})
+     * @param days jumlah hari yang ditambahkan; negatif untuk mundur
+     * @return tanggal hasil penambahan, tidak pernah {@code null}
+     */
     protected Date addDays(Date date, int days) {
         Calendar c = Calendar.getInstance();
         c.setTime(date == null ? new Date() : date);
@@ -6160,6 +6607,14 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         return c.getTime();
     }
 
+    /**
+     * Menambahkan {@code months} bulan ke {@code date} (boleh negatif untuk mundur). Dipakai untuk default
+     * rentang tanggal tab "Seluruh Data Revisi" ({@code DEFAULT_ALL_DATA_MONTHS} = 6 bulan).
+     *
+     * @param date tanggal dasar; {@code null} dianggap "sekarang"
+     * @param months jumlah bulan yang ditambahkan; negatif untuk mundur
+     * @return tanggal hasil penambahan, tidak pernah {@code null}
+     */
     protected Date addMonths(Date date, int months) {
         Calendar c = Calendar.getInstance();
         c.setTime(date == null ? new Date() : date);
@@ -6167,6 +6622,13 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         return c.getTime();
     }
 
+    /**
+     * Menormalkan {@code date} ke awal hari (00:00:00.000) agar filter tanggal "Mulai" mencakup seluruh hari
+     * itu, bukan hanya dari jam saat komponen tanggal diisi.
+     *
+     * @param date tanggal yang dinormalkan; {@code null} menghasilkan {@code null}
+     * @return tanggal pada awal hari yang sama, atau {@code null} bila {@code date} {@code null}
+     */
     protected Date normalizeStart(Date date) {
         if (date == null) {
             return null;
@@ -6180,6 +6642,13 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         return c.getTime();
     }
 
+    /**
+     * Menormalkan {@code date} ke akhir hari (23:59:59.999) agar filter tanggal "Sampai" mencakup seluruh
+     * hari itu.
+     *
+     * @param date tanggal yang dinormalkan; {@code null} menghasilkan {@code null}
+     * @return tanggal pada akhir hari yang sama, atau {@code null} bila {@code date} {@code null}
+     */
     protected Date normalizeEnd(Date date) {
         if (date == null) {
             return null;
@@ -6193,6 +6662,19 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         return c.getTime();
     }
 
+    /**
+     * Memformat tanggal revisi untuk ditampilkan pada grid: mengutamakan
+     * {@link DefaultRevisionEntity#getRevisionDate()} bila {@code revisionEntity} berupa
+     * {@link DefaultRevisionEntity}, jika tidak jatuh ke fallback membaca property {@code tanggal_dirubah}
+     * langsung dari {@code entity} (untuk entity dengan implementasi audit kustom yang bukan
+     * {@code DefaultRevisionEntity}).
+     *
+     * @param revisionEntity object revisi Envers (hasil {@link #extractRevisionEntity(Object)}); boleh
+     *        {@code null}
+     * @param entity entity data yang dipakai untuk fallback membaca {@code tanggal_dirubah}; boleh
+     *        {@code null}
+     * @return tanggal terformat ({@code dd-MM-yyyy HH:mm:ss}), atau string kosong bila kedua sumber gagal
+     */
     protected String formatRevisionDate(Object revisionEntity, Object entity) {
         try {
             if (revisionEntity instanceof DefaultRevisionEntity) {

@@ -49,6 +49,16 @@ import net.sf.jmimemagic.Magic;
 
 /**
  * Servlet implementation class CheckISBN
+ *
+ * <p>
+ * <b>Riwayat keamanan (DIPERBAIKI 2026-09-01):</b> pemanggilan API Gemini di kelas ini
+ * sebelumnya memakai kunci API Google Gemini nyata sebagai nilai default hardcoded untuk
+ * konfigurasi {@code ai_chatbot_api_key_gemini}. Default itu sudah diganti string kosong —
+ * kunci kini WAJIB diisi lewat konfigurasi database, dan pemanggilan API akan gagal dengan
+ * jelas (bukan diam-diam memakai kunci lama yang sudah bocor) bila konfigurasi belum diisi.
+ * Kunci lama yang sebelumnya tertanam sudah lama berada di riwayat SVN dan WAJIB dianggap
+ * bocor — perlu dirotasi di Google AI Studio/Cloud Console bila masih dipakai produksi.
+ * </p>
  */
 public class Wa extends HttpServlet {
 	private static final long serialVersionUID = 1L;
@@ -129,7 +139,7 @@ public class Wa extends HttpServlet {
 		String linkPost = "https://generativelanguage.googleapis.com/v1beta/models/"
 				+ Common.getKonfigurasi("ai_chatbot_versi_model_gemini", "gemini-2.0-flash").getNilai().trim()
 				+ ":generateContent?key="
-				+ Common.getKonfigurasi("ai_chatbot_api_key_gemini", "AIzaSyDBSOM4dHks3kQuXyhDzhBkRQz98VjHzPs")
+				+ Common.getKonfigurasi("ai_chatbot_api_key_gemini", "")
 						.getNilai();
 
 		System.out.println("tanyaApa -> " + tanyaApa);
@@ -376,7 +386,7 @@ public class Wa extends HttpServlet {
 			String linkPost = "https://generativelanguage.googleapis.com/v1beta/models/"
 					+ Common.getKonfigurasi("ai_chatbot_versi_model_gemini", "gemini-2.0-flash").getNilai().trim()
 					+ ":generateContent?key="
-					+ Common.getKonfigurasi("ai_chatbot_api_key_gemini", "AIzaSyDBSOM4dHks3kQuXyhDzhBkRQz98VjHzPs")
+					+ Common.getKonfigurasi("ai_chatbot_api_key_gemini", "")
 							.getNilai();
 
 //			System.out.println("tanyaApa -> " + tanyaApa);
