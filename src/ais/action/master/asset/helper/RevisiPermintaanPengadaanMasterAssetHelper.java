@@ -3,15 +3,16 @@ import ais.action.master.helper.GenericRevisiHelper;
 import ais.database.model.asset.PermintaanPengadaanMasterAsset;
 import org.zkoss.zk.ui.event.EventListener;
 /**
- * Versi generic dari helper revisi lama.
+ * Subclass tipis dari {@link ais.action.master.helper.GenericRevisiHelper} untuk entity
+ * {@link PermintaanPengadaanMasterAsset} (dokumen master Permintaan Pengadaan Master Asset) —
+ * lihat Javadoc class tersebut untuk penjelasan lengkap arsitektur window, alur Envers, dan
+ * fitur restore.
  *
- * Semua proses baca/restore revisi dipusatkan di GenericRevisiHelper<T> agar:
- * - code lebih ringkas dan mudah dirawat;
- * - semua Hibernate Session memakai openSession();
- * - semua Session ditutup di finally melalui session.clear(), session.disconnect(), dan session.close();
- * - fitur restore satu revisi dan restore massal dari tanggal tertentu tetap tersedia.
- *
- * Kompatibel Java 1.7 / source 1.6.
+ * <p>Kekhasan: pencarian kata kunci hanya menyaring {@code kode}, {@code nama}, dan
+ * {@code keterangan}. Tidak ada {@link QueryCustomizer} tambahan ({@link #buildFilters()} selalu
+ * mengembalikan array kosong), sehingga seluruh riwayat revisi entity ini ditampilkan tanpa
+ * pembatasan induk. Riwayat detail item permintaan didokumentasikan terpisah di
+ * {@link RevisiPermintaanPengadaanMasterAssetDetailHelper}.</p>
  */
 @SuppressWarnings({ "rawtypes", "unchecked" })
 public class RevisiPermintaanPengadaanMasterAssetHelper extends GenericRevisiHelper<PermintaanPengadaanMasterAsset> {
@@ -19,10 +20,17 @@ public class RevisiPermintaanPengadaanMasterAssetHelper extends GenericRevisiHel
 	private static final long serialVersionUID = 6589578552710016753L;
 	private static final String[] SEARCH_PROPERTIES = new String[] { "kode", "nama", "keterangan" };
 
+	/** Tidak ada filter tambahan untuk dokumen master ini — selalu mengembalikan array kosong. */
 	private static QueryCustomizer[] buildFilters() {
 		return new QueryCustomizer[0];
 	}
 
+	/**
+	 * Membuka window riwayat revisi dokumen Permintaan Pengadaan Master Asset (seluruh data,
+	 * tanpa filter induk).
+	 *
+	 * @param eventListener callback yang diteruskan ke {@link ais.action.master.helper.GenericRevisiHelper}.
+	 */
 	public RevisiPermintaanPengadaanMasterAssetHelper(EventListener eventListener) throws Exception {
 		super(PermintaanPengadaanMasterAsset.class, "Revisi Permintaan Pengadaan Master Asset", eventListener, SEARCH_PROPERTIES, buildFilters());
 	}
