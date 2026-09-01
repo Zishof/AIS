@@ -197,10 +197,21 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 	private String oleh;
 	private String olehId;
 
+	/**
+	 * Mengembalikan ID pengguna terakhir yang mengubah baris dosen ini (jejak audit ringan).
+	 *
+	 * @return ID pengguna pengubah terakhir, atau {@code null} bila belum pernah diisi
+	 */
 	public String getOlehId() {
 		return olehId;
 	}
 
+	/**
+	 * Mengisi ID pengguna pengubah terakhir. Nilai {@code null} atau kosong <b>diabaikan</b> supaya
+	 * jejak audit yang sudah ada tidak tertimpa oleh proses yang tidak membawa konteks pengguna.
+	 *
+	 * @param olehId ID pengguna pengubah; diabaikan bila null/kosong
+	 */
 	public void setOlehId(String olehId) {
 		if (olehId == null || olehId.trim().isEmpty()) {
 			return;
@@ -208,6 +219,12 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		this.olehId = olehId;
 	}
 
+	/**
+	 * Mengisi nama pengguna pengubah terakhir. Sama seperti {@link #setOlehId(String)}, nilai
+	 * null/kosong diabaikan agar tidak menghapus jejak yang sudah tercatat.
+	 *
+	 * @param oleh nama pengguna pengubah; diabaikan bila null/kosong
+	 */
 	public void setOleh(String oleh) {
 		if (oleh == null || oleh.trim().isEmpty()) {
 			return;
@@ -215,10 +232,20 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		this.oleh = oleh;
 	}
 
+	/**
+	 * Mengembalikan nama pengguna terakhir yang mengubah baris dosen ini.
+	 *
+	 * @return nama pengguna pengubah terakhir, atau {@code null} bila belum pernah diisi
+	 */
 	public String getOleh() {
 		return oleh;
 	}
 
+	/**
+	 * Callback JPA {@code @PreUpdate}: mendelegasikan pencatatan stempel waktu/pengguna ke
+	 * {@code ais.database.hibernate.AuditTimestampInterceptor#ubah(Object)} tepat sebelum Hibernate
+	 * menulis UPDATE untuk entity ini. Tidak dipanggil manual.
+	 */
 	@javax.persistence.PreUpdate
 	protected void onUpdate() {
 		ais.database.hibernate.AuditTimestampInterceptor.ubah(this);
@@ -226,15 +253,33 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 
 	private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/**
+	 * Mengisi stempel waktu perubahan terakhir.
+	 *
+	 * @param tanggal_dirubah waktu perubahan terakhir
+	 */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/**
+	 * Mengembalikan stempel waktu perubahan terakhir (kolom {@code TIMESTAMP}). Nilai awalnya diisi
+	 * waktu pembuatan objek lewat {@link ais.ui.util.WaktuUtil#getDate()} dan diperbarui oleh
+	 * {@link #onUpdate()}.
+	 *
+	 * @return waktu perubahan terakhir
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
 	}
 
+	/**
+	 * Representasi ringkas untuk log dan komponen ZK berformat {@code id-nidn-nama}. Membaca field
+	 * mentah (bukan getter) sehingga aman dipanggil pada objek yang belum sepenuhnya terinisialisasi.
+	 *
+	 * @return gabungan {@code id}, {@code nidn}, dan {@code nama} dipisah tanda hubung
+	 */
 	public String toString() {
 		return id + "-" + nidn + "-" + nama;
 	}
@@ -340,6 +385,14 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 	public static Integer WA = 6;
 	public static Integer LAIN = 7;
 
+	/**
+	 * Mengembalikan platform kelas daring yang dipakai dosen ini. Bila kolom masih kosong, field
+	 * diisi (write-back) dengan {@link #TIDAK_AKTIF} lebih dulu supaya pemanggil tidak perlu
+	 * menangani {@code null}.
+	 *
+	 * @return salah satu konstanta {@link #TIDAK_AKTIF}, {@link #JITSI}, {@link #GOOGLE_MEET},
+	 *         {@link #ZOOM}, {@link #BBB}, {@link #SKYPE}, {@link #WA}, atau {@link #LAIN}
+	 */
 	public Integer getOnlineMenggunakan() {
 		if (onlineMenggunakan == null) {
 			onlineMenggunakan = TIDAK_AKTIF;
@@ -347,17 +400,43 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return onlineMenggunakan;
 	}
 
+	/**
+	 * Mengisi platform kelas daring yang dipakai dosen ini.
+	 *
+	 * @param onlineMenggunakan salah satu konstanta platform pada kelas ini
+	 */
 	public void setOnlineMenggunakan(Integer onlineMenggunakan) {
 		this.onlineMenggunakan = onlineMenggunakan;
 	}
 
+	/**
+	 * Konstruktor tanpa argumen yang diwajibkan Hibernate/JPA.
+	 */
 	public Dosen() {
 	}
 
+	/**
+	 * Konstruktor pintasan yang hanya mengisi kunci primer — dipakai sebagai objek referensi ringan
+	 * pada kriteria pencarian dan pembandingan tanpa memuat seluruh baris.
+	 *
+	 * @param id kunci primer dosen
+	 */
 	public Dosen(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Konstruktor peninggalan hbm2java untuk kolom-kolom wajib versi awal skema. Hanya mengisi data
+	 * identitas dasar; seluruh relasi (jurusan, jabatan, kepegawaian) tetap kosong.
+	 *
+	 * @param nama         nama dosen
+	 * @param alamat       alamat tempat tinggal
+	 * @param email        alamat surel
+	 * @param telp         nomor telepon
+	 * @param kelamin      jenis kelamin (dinormalkan oleh {@link #getKelamin()})
+	 * @param tempatlahir  tempat lahir
+	 * @param tanggallahir tanggal lahir
+	 */
 	public Dosen(String nama, String alamat, String email, String telp, String kelamin, String tempatlahir,
 			Date tanggallahir) {
 		this.nama = nama;
@@ -369,6 +448,12 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		this.tanggallahir = tanggallahir;
 	}
 
+	/**
+	 * Kunci primer dosen (kolom {@code id}, {@code IDENTITY}).
+	 *
+	 * @return kunci primer, atau {@code null} bila entity belum tersimpan
+	 * @see GeneralValueObject
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -376,10 +461,24 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return this.id;
 	}
 
+	/**
+	 * Mengisi kunci primer. Umumnya hanya dipanggil Hibernate atau saat membuat objek referensi.
+	 *
+	 * @param id kunci primer dosen
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Mengembalikan nama dosen yang sudah dipangkas spasi, tidak pernah {@code null}.
+	 *
+	 * <p>Bila kolom nama kosong, nilai dicari ke berkas cache {@code GeneralValueObject.retreive("nama")}
+	 * sebagai cadangan — berguna untuk baris lama yang kolom {@code nama}-nya belum terisi. Method ini
+	 * <b>menutupi</b> {@link Karyawan#getNama()} yang mengembalikan {@code code + "-" + nama}.</p>
+	 *
+	 * @return nama dosen tanpa spasi berlebih, atau string kosong bila tidak ada
+	 */
 	public String getNama() {
 		try {
 			String s = nama == null || nama.trim().isEmpty() ? retreive("nama") : nama;
@@ -390,6 +489,13 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return nama == null ? "" : nama.trim();
 	}
 
+	/**
+	 * Mengisi nama dosen sekaligus mencerminkannya ke berkas cache lewat
+	 * {@code GeneralValueObject.put(nilai, "nama")} agar {@link #getNama()} tetap punya cadangan.
+	 * Nilai null/kosong diabaikan (tidak menghapus nama yang sudah ada).
+	 *
+	 * @param nama nama dosen; diabaikan bila null/kosong
+	 */
 	public void setNama(String nama) {
 		if (nama != null && !nama.trim().isEmpty()) {
 			put(nama.trim(), "nama");
@@ -397,15 +503,35 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Alamat tempat tinggal dosen (kolom {@code alamat}).
+	 *
+	 * @return alamat, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "alamat")
 	public String getAlamat() {
 		return this.alamat;
 	}
 
+	/**
+	 * Mengisi alamat tempat tinggal dosen.
+	 *
+	 * @param alamat alamat tempat tinggal
+	 */
 	public void setAlamat(String alamat) {
 		this.alamat = alamat;
 	}
 
+	/**
+	 * Mengembalikan alamat surel dosen, yang dapat berisi <b>beberapa</b> alamat dipisah koma.
+	 *
+	 * <p>Getter ini membersihkan diri: koma ganda hasil penggabungan berulang (lihat
+	 * {@link #appendEmail(String)}) dirapikan sampai lima kali lipat, {@code null} diubah menjadi
+	 * string kosong, dan nilai yang hanya berisi {@code ","} dikosongkan. Perubahan tersebut
+	 * <b>ditulis balik</b> ke field sehingga ikut tersimpan pada flush Hibernate berikutnya.</p>
+	 *
+	 * @return daftar surel dipisah koma; string kosong bila tidak ada
+	 */
 	@Column(name = "email", length = 255)
 	public String getEmail() {
 		if (email != null && email.contains(",,")) {
@@ -422,10 +548,26 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return this.email;
 	}
 
+	/**
+	 * Mengganti seluruh isi kolom surel (menimpa daftar yang ada).
+	 *
+	 * @param email satu alamat surel atau beberapa alamat dipisah koma
+	 * @see #appendEmail(String)
+	 */
 	public void setEmail(String email) {
 		this.email = email;
 	}
 
+	/**
+	 * Menambahkan satu alamat surel ke daftar tanpa menghapus yang sudah ada.
+	 *
+	 * <p>Penambahan dilewati bila alamat null/kosong, sudah terkandung di daftar (cek
+	 * {@code StringUtils.contains}), tidak lolos {@code Common.isValidEmailAddress}, atau diawali
+	 * {@code "@"}. Alamat pertama disimpan apa adanya, selebihnya digabung dengan pemisah koma.</p>
+	 *
+	 * @param email alamat surel yang akan ditambahkan
+	 * @see #getEmail()
+	 */
 	public void appendEmail(String email) {
 		if (this.email != null && email != null && !email.trim().isEmpty() && StringUtils.contains(this.email, email)) {
 			return;
@@ -435,15 +577,35 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Nomor telepon dosen (kolom {@code telp}).
+	 *
+	 * @return nomor telepon, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "telp", length = 100)
 	public String getTelp() {
 		return this.telp;
 	}
 
+	/**
+	 * Mengisi nomor telepon dosen.
+	 *
+	 * @param telp nomor telepon
+	 */
 	public void setTelp(String telp) {
 		this.telp = telp;
 	}
 
+	/**
+	 * Mengembalikan jenis kelamin dalam bentuk baku {@code "Laki-laki"} atau {@code "Perempuan"}.
+	 *
+	 * <p>Data historis di kolom ini beragam ({@code "L"}, {@code "P"}, {@code "Laki-Laki"}, teks bebas
+	 * yang memuat "laki"/"puan"). Getter menormalkannya dan <b>menulis balik</b> hasil normalisasi ke
+	 * field, sehingga pembacaan saja dapat memicu UPDATE pada flush berikutnya. Nilai {@code null}
+	 * dijadikan string kosong agar pemanggil aman memakai {@code toLowerCase()}.</p>
+	 *
+	 * @return {@code "Laki-laki"}, {@code "Perempuan"}, atau string kosong bila tidak dikenali
+	 */
 	@Column(name = "kelamin", length = 20)
 	public String getKelamin() {
 
@@ -464,42 +626,90 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return this.kelamin;
 	}
 
+	/**
+	 * Mengisi jenis kelamin apa adanya; pembakuan dilakukan saat dibaca.
+	 *
+	 * @param kelamin jenis kelamin (bentuk apa pun, lihat {@link #getKelamin()})
+	 */
 	public void setKelamin(String kelamin) {
 		this.kelamin = kelamin;
 	}
 
+	/**
+	 * Tempat lahir dosen (kolom {@code tempatlahir}).
+	 *
+	 * @return tempat lahir, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "tempatlahir", length = 100)
 	public String getTempatlahir() {
 		return this.tempatlahir;
 	}
 
+	/**
+	 * Mengisi tempat lahir dosen.
+	 *
+	 * @param tempatlahir tempat lahir
+	 */
 	public void setTempatlahir(String tempatlahir) {
 		this.tempatlahir = tempatlahir;
 	}
 
+	/**
+	 * Tanggal lahir dosen (kolom {@code tanggallahir}, bertipe {@code DATE}).
+	 *
+	 * @return tanggal lahir, atau {@code null} bila belum diisi
+	 */
 	@Temporal(TemporalType.DATE)
 	@Column(name = "tanggallahir", length = 0)
 	public Date getTanggallahir() {
 		return this.tanggallahir;
 	}
 
+	/**
+	 * Mengisi tanggal lahir dosen.
+	 *
+	 * @param tanggallahir tanggal lahir
+	 */
 	public void setTanggallahir(Date tanggallahir) {
 		this.tanggallahir = tanggallahir;
 	}
 
+	/**
+	 * Mengisi pangkat kepegawaian (teks bebas, mis. "Penata Muda Tingkat I").
+	 *
+	 * @param pangkat nama pangkat
+	 */
 	public void setPangkat(String pangkat) {
 		this.pangkat = pangkat;
 	}
 
+	/**
+	 * Pangkat kepegawaian dosen (kolom {@code pangkat}).
+	 *
+	 * @return nama pangkat, atau {@code null} bila belum diisi
+	 * @see #getGolongan()
+	 */
 	@Column(name = "pangkat", length = 255)
 	public String getPangkat() {
 		return pangkat;
 	}
 
+	/**
+	 * Menetapkan jurusan/program studi tempat dosen bernaung.
+	 *
+	 * @param jurusan jurusan induk dosen
+	 */
 	public void setJurusan(Jurusan jurusan) {
 		this.jurusan = jurusan;
 	}
 
+	/**
+	 * Jurusan/program studi induk dosen (relasi {@code ManyToOne} lazy ke kolom {@code jurusan}).
+	 * Nilai dilewatkan {@code check(...)} milik {@link GeneralValueObject} agar proxy lazy yang sudah
+	 * tidak terhubung ke session tetap aman dipakai.
+	 *
+	 * @return jurusan induk, atau {@code null} bila tidak diisi
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jurusan", nullable = true)
 	public Jurusan getJurusan() {
@@ -507,10 +717,24 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return jurusan;
 	}
 
+	/**
+	 * Menetapkan fakultas dosen secara eksplisit. Perlu diketahui bahwa {@link #getFakultas()} akan
+	 * menimpanya dengan fakultas milik {@link #getJurusan()} bila jurusan terisi.
+	 *
+	 * @param fakultas fakultas induk dosen
+	 */
 	public void setFakultas(Fakultas fakultas) {
 		this.fakultas = fakultas;
 	}
 
+	/**
+	 * Fakultas induk dosen, dengan <b>penurunan otomatis dari jurusan</b>: bila {@link #getJurusan()}
+	 * tidak null, nilai kolom {@code fakultas} ditimpa oleh {@code jurusan.getFakultas()} dan ditulis
+	 * balik ke field. Jadi jurusan adalah sumber kebenaran; kolom fakultas hanya cadangan untuk dosen
+	 * yang tidak terikat jurusan.
+	 *
+	 * @return fakultas induk, atau {@code null} bila tidak dapat ditentukan
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "fakultas", nullable = true)
 	public Fakultas getFakultas() {
@@ -522,19 +746,44 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return fakultas;
 	}
 
+	/**
+	 * Mengisi kode dosen (kolom {@code code}, mis. kode singkat pada jadwal).
+	 *
+	 * @param code kode dosen
+	 */
 	public void setCode(String code) {
 		this.code = code;
 	}
 
+	/**
+	 * Kode dosen yang sudah dipangkas spasi dan tidak pernah {@code null}.
+	 *
+	 * @return kode dosen, atau string kosong bila belum diisi
+	 */
 	@Column(name = "code", length = 50)
 	public String getCode() {
 		return code == null ? "" : code.trim();
 	}
 
+	/**
+	 * Mengisi penanda dosen tetap secara langsung. Perlu diketahui bahwa {@link #getTetap()} akan
+	 * menimpanya berdasarkan {@link #getIkatanKerjaDosen()} bila relasi itu terisi.
+	 *
+	 * @param tetap {@code 1} untuk dosen tetap, {@code 0} untuk tidak tetap
+	 */
 	public void setTetap(Integer tetap) {
 		this.tetap = tetap;
 	}
 
+	/**
+	 * Penanda dosen tetap ({@code 1}) atau tidak tetap ({@code 0}), <b>diturunkan</b> dari
+	 * {@link #getIkatanKerjaDosen()} bila relasi tersebut ada — nilai kolom lama otomatis diselaraskan
+	 * dan ditulis balik ke field. Bila ikatan kerja gagal dibaca (mis. proxy lazy putus session)
+	 * kegagalan direkam ke {@code ErrorAuditUtil} dan nilai kolom dipakai apa adanya; bila kolom pun
+	 * kosong, nilai baku {@code 1} (tetap) dipakai.
+	 *
+	 * @return {@code 1} bila dosen tetap, {@code 0} bila tidak tetap; tidak pernah {@code null}
+	 */
 	@Column(name = "tetap", length = 1)
 	public Integer getTetap() {
 		try {
@@ -554,58 +803,134 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return tetap;
 	}
 
+	/**
+	 * Mengisi kode internal alternatif dosen (kolom {@code mycode}), dipakai sebagai kode cadangan
+	 * oleh {@link #ambilKode()} ketika NIDN kosong.
+	 *
+	 * @param mycode kode internal dosen
+	 */
 	public void setMycode(String mycode) {
 		this.mycode = mycode;
 	}
 
+	/**
+	 * Kode internal alternatif dosen yang sudah dipangkas spasi dan tidak pernah {@code null}.
+	 *
+	 * @return kode internal, atau string kosong bila belum diisi
+	 * @see #ambilKode()
+	 */
 	public String getMycode() {
 		return mycode == null ? "" : mycode.trim();
 	}
 
+	/**
+	 * Mengisi NIDN (Nomor Induk Dosen Nasional).
+	 *
+	 * @param nidn NIDN dosen
+	 */
 	public void setNidn(String nidn) {
 		this.nidn = nidn;
 	}
 
+	/**
+	 * NIDN (Nomor Induk Dosen Nasional) yang sudah dipangkas spasi dan tidak pernah {@code null}.
+	 * Dipakai sebagai identitas utama pada pelaporan dan pada QR tanda tangan ({@link #ttdQr()}).
+	 *
+	 * @return NIDN, atau string kosong bila belum diisi
+	 */
 	public String getNidn() {
 		return nidn == null ? "" : nidn.trim();
 	}
 
+	/**
+	 * Mengisi keterangan jabatan berbentuk teks bebas (berbeda dari relasi
+	 * {@link #getSpesifikasiJabatan()} dan {@link #getJabatanFungsionalDosen()}).
+	 *
+	 * @param jabatan keterangan jabatan
+	 */
 	public void setJabatan(String jabatan) {
 		this.jabatan = jabatan;
 	}
 
+	/**
+	 * Keterangan jabatan berbentuk teks bebas (kolom {@code jabatan}).
+	 *
+	 * @return keterangan jabatan, atau {@code null} bila belum diisi
+	 */
 	public String getJabatan() {
 		return jabatan;
 	}
 
+	/**
+	 * Mengisi bidang spesialisasi/keahlian pertama.
+	 *
+	 * @param spesialisasi1 bidang keahlian pertama
+	 */
 	public void setSpesialisasi1(String spesialisasi1) {
 		this.spesialisasi1 = spesialisasi1;
 	}
 
+	/**
+	 * Bidang spesialisasi/keahlian pertama, tidak pernah {@code null}.
+	 *
+	 * @return bidang keahlian pertama, atau string kosong bila belum diisi
+	 */
 	public String getSpesialisasi1() {
 		return spesialisasi1 == null ? "" : spesialisasi1;
 	}
 
+	/**
+	 * Mengisi bidang spesialisasi/keahlian kedua.
+	 *
+	 * @param spesialisasi2 bidang keahlian kedua
+	 */
 	public void setSpesialisasi2(String spesialisasi2) {
 		this.spesialisasi2 = spesialisasi2;
 	}
 
+	/**
+	 * Bidang spesialisasi/keahlian kedua, tidak pernah {@code null}.
+	 *
+	 * @return bidang keahlian kedua, atau string kosong bila belum diisi
+	 */
 	public String getSpesialisasi2() {
 		return spesialisasi2 == null ? "" : spesialisasi2;
 	}
 
+	/**
+	 * Mengisi bidang spesialisasi/keahlian ketiga.
+	 *
+	 * @param spesialisasi3 bidang keahlian ketiga
+	 */
 	public void setSpesialisasi3(String spesialisasi3) {
 		this.spesialisasi3 = spesialisasi3;
 	}
 
+	/**
+	 * Bidang spesialisasi/keahlian ketiga, tidak pernah {@code null}.
+	 *
+	 * @return bidang keahlian ketiga, atau string kosong bila belum diisi
+	 */
 	public String getSpesialisasi3() {
 		return spesialisasi3 == null ? "" : spesialisasi3;
 	}
 
+	/**
+	 * Menetapkan jabatan struktural dosen di perguruan tinggi sendiri.
+	 *
+	 * @param spesifikasiJabatan jabatan struktural
+	 */
 	public void setSpesifikasiJabatan(Jabatan spesifikasiJabatan) {
 		this.spesifikasiJabatan = spesifikasiJabatan;
 	}
 
+	/**
+	 * Jabatan struktural dosen di perguruan tinggi sendiri (relasi lazy ke kolom
+	 * {@code spesifikasi_jabatan}), dilewatkan {@code check(...)} agar proxy lazy aman dipakai.
+	 *
+	 * @return jabatan struktural, atau {@code null} bila tidak menjabat
+	 * @see #getSpesifikasiJabatanPtLain()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "spesifikasi_jabatan", nullable = true)
 	public Jabatan getSpesifikasiJabatan() {
@@ -613,10 +938,23 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return spesifikasiJabatan;
 	}
 
+	/**
+	 * Mengisi nama golongan sebagai teks. Perlu diketahui bahwa {@link #getGolongan()} akan
+	 * menimpanya dari relasi golongan bila salah satunya terisi.
+	 *
+	 * @param golongan nama golongan (mis. "III/b")
+	 */
 	public void setGolongan(String golongan) {
 		this.golongan = golongan;
 	}
 
+	/**
+	 * Nama golongan kepegawaian sebagai teks, <b>diturunkan</b> dengan urutan prioritas:
+	 * {@link #getGolonganPns()} lebih dulu, lalu {@link #getGolonganPegawai()}; bila keduanya kosong
+	 * barulah nilai kolom teks dipakai. Hasil turunan ditulis balik ke field.
+	 *
+	 * @return nama golongan, atau {@code null} bila tidak dapat ditentukan
+	 */
 	public String getGolongan() {
 		if (getGolonganPns() != null) {
 			golongan = getGolonganPns().getNama();
@@ -626,6 +964,13 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return golongan;
 	}
 
+	/**
+	 * Golongan kepegawaian internal (modul {@code employ}) pada relasi lazy kolom
+	 * {@code golongan_pegawai}, dilewatkan {@code check(...)}.
+	 *
+	 * @return golongan pegawai, atau {@code null} bila tidak diisi
+	 * @see #getGolonganPns()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "golongan_pegawai", nullable = true)
 	public Golongan getGolonganPegawai() {
@@ -633,10 +978,25 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return golonganPegawai;
 	}
 
+	/**
+	 * Menetapkan golongan kepegawaian internal dosen.
+	 *
+	 * @param golonganPegawai golongan pegawai
+	 */
 	public void setGolonganPegawai(Golongan golonganPegawai) {
 		this.golonganPegawai = golonganPegawai;
 	}
 
+	/**
+	 * Membandingkan dua dosen berdasarkan nama secara <b>menurun</b> (perhatikan urutan operand:
+	 * {@code o.nama.compareTo(nama)}), sehingga {@code Collections.sort} tanpa pembalik menghasilkan
+	 * daftar Z→A. Objek yang bukan {@code Dosen} atau yang salah satu namanya {@code null} dianggap
+	 * setara ({@code 0}) agar pengurutan tidak melempar exception pada data tidak lengkap.
+	 *
+	 * @param arg0 objek pembanding
+	 * @return nilai negatif/nol/positif hasil pembandingan nama secara terbalik
+	 * @see GeneralValueObject#compareTo(GeneralValueObject)
+	 */
 	@Override
 	public int compareTo(GeneralValueObject arg0) {
 		if (arg0 instanceof Dosen) {
