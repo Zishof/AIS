@@ -147,6 +147,22 @@ public final class GenericCrudAkademikOverrides {
         DITAHAN.put("inventory/dashboard_stok_kantin",
                 "Dasbor Stok & Mutasi: sama dengan dasbor kantin lain, entity-nya Toko.");
 
+        /* Cabang Kepegawaian. */
+        DITAHAN.put("kpi/item_kpi_tree",
+                "Penilaian Target KPI. ItemKpiTreeAction.onSave menyimpan SATU form menjadi BANYAK "
+                + "baris — satu item per KPI terpilih — menentukan `parent` dari simpul yang "
+                + "sedang disorot pada pohon, dan menyusun `formula` dari larik. Formulir CRUD "
+                + "generik hanya membuat satu baris datar tanpa induk dan tanpa formula, yaitu "
+                + "item KPI yang menggantung di luar pohonnya.");
+        DITAHAN.put("root/pegawai",
+                "Pendataan Pegawai. Layar master terbesar di cabang ini, sehingga paling sering "
+                + "ditanyakan mengapa tidak bisa disimpan. PegawaiAction tidak punya "
+                + "boolean onSave(Event) maupun field jendela yang dapat dititipi invoker, jadi "
+                + "pendaftaran otomatis tidak akan pernah menaikkannya. Menaikkannya lewat "
+                + "definisi eksplisit menuntut seluruh aturan simpan biodata pegawai ditulis "
+                + "ulang lebih dulu — 152 kolom, termasuk relasi golongan, status, dan satuan "
+                + "kerja; bukan pekerjaan yang boleh disisipkan diam-diam.");
+
         DITAHAN.put("root/mahasiswa_registrasi_wisuda",
                 "Layar ini memang layar tinjau (\"Melihat Pendaftar Wisuda\"). Pendaftaran "
                 + "wisudanya sendiri dikerjakan layar lain; menambah tombol simpan di sini "
