@@ -683,7 +683,18 @@ public final class NewUiKantinMemberController {
     @SuppressWarnings("unchecked")
     private static List<Object[]> rows(String sql) {
         SQLQuery q = HibernateUtil.currentSession().createSQLQuery(sql);
-        return q.list();
+        List<?> hasilMentah = q.list();
+        List<Object[]> hasil = new ArrayList<Object[]>();
+        if (hasilMentah == null) {
+            return hasil;
+        }
+        for (Object baris : hasilMentah) {
+            Object[] data = barisTunggal(baris);
+            if (data != null) {
+                hasil.add(data);
+            }
+        }
+        return hasil;
     }
 
     private static Object[] satu(String sql) {
