@@ -553,14 +553,13 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 
 			/*
 			 * Tata letak PORTAL responsif (reuse ais.ui.util.PortalUiHelper —
-			 * komponen yang sama dengan halaman e-Learning). Semua bagian membentang
-			 * penuh dan tersusun vertikal. Daftar pembayaran sering masih kosong sebelum
-			 * tagihan dipilih; susunan dua kolom meninggalkan separuh layar kosong.
-			 * Logika lama tidak diubah, hanya "tempat" konten dipindah ke panel portal.
+			 * komponen yang sama dengan halaman e-Learning): data/tagihan di kiri dan
+			 * daftar pembayaran di kanan pada desktop. CSS portal menumpuk keduanya
+			 * menjadi satu kolom pada layar mobile.
 			 */
 			MyPortallayout portal = ais.ui.util.PortalUiHelper.portal(portalHost);
-			MyPortalchildren kolMahasiswa = ais.ui.util.PortalUiHelper.kolom(portal, "100%");
-			MyPortalchildren kolPembayaran = ais.ui.util.PortalUiHelper.kolom(portal, "100%");
+			MyPortalchildren kolMahasiswa = ais.ui.util.PortalUiHelper.kolom(portal, "50%");
+			MyPortalchildren kolPembayaran = ais.ui.util.PortalUiHelper.kolom(portal, "50%");
 			MyPortalchildren kolAnalisis = ais.ui.util.PortalUiHelper.kolom(portal, "100%");
 
 			org.zkoss.zk.ui.Component bodyMahasiswa = ais.ui.util.PortalUiHelper.panel(kolMahasiswa,

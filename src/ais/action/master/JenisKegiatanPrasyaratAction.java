@@ -32,6 +32,7 @@ import org.zkoss.zul.Textbox;
 import org.zkoss.zul.Toolbar;
 
 import ais.action.master.helper.RevisiHelper;
+import ais.action.master.helper.KegiatanPersistenceHelper;
 import ais.common.Common;
 import ais.common.PesanFormalHelper;
 import ais.common.CommonPrivilages;
@@ -769,8 +770,21 @@ public class JenisKegiatanPrasyaratAction extends GenericAutowireComposer
 		if (kegiatan == null) {
 			return 0.0;
 		}
-		Double totalTagihanBersih = kegiatan.hitungTagihan();
-		if (totalTagihanBersih == null || totalTagihanBersih.doubleValue() <= 0.01) {
+
+		Double totalTagihanBersih = KegiatanPersistenceHelper.hitungTagihanSegarKonsisten(kegiatan);
+		if (totalTagihanBersih != null) {
+			double total = Math.max(0.0, totalTagihanBersih.doubleValue());
+			if (total <= 0.01) {
+				return 100.0;
+			}
+
+			Double dibayar = kegiatan.hitungDibayarAktualTanpaBatas();
+			double persentase = ((dibayar == null ? 0.0 : dibayar.doubleValue()) / total) * 100.0;
+			return Math.min(100.0, Math.max(0.0, persentase));
+		}
+
+		Double totalTagihan = kegiatan.hitungTagihan();
+		if (totalTagihan == null || totalTagihan.doubleValue() <= 0.01) {
 			return 100.0;
 		}
 		Double persentase = kegiatan.hitungPersentaseLunasAktual();
