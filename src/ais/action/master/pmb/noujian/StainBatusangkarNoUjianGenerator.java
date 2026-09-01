@@ -70,7 +70,7 @@ public class StainBatusangkarNoUjianGenerator implements NoUjianGenerator {
 
 			Kegiatan kegiatan = biodataCalonMahasiswa.getPembayaranRegistrasi();
 
-			if (kegiatan == null || kegiatan.getId() == null || !kegiatan.getLunas()) {
+			if (!CommonPMB.isPembayaranRegistrasiTerpenuhi(kegiatan)) {
 				String infoBelumbayarSaatLogincalonMahasiswa = Common.getKonfigurasi(
 						"infoBelumbayarSaatProsescalonMahasiswa",
 						"Calon Mahasiswa dengan nomor pendaftaran [noreg] belum dapat diproses karena belum melakukan proses pembayaran.")

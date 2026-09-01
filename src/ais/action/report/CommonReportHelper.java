@@ -4485,7 +4485,7 @@ public class CommonReportHelper {
 			if (gelombang != null && gelombang.getHarusBayarSebelumBisaLogin()) {
 				Kegiatan kegiatan = biodataCalonMahasiswa.getPembayaranRegistrasi();
 
-				if (kegiatan == null || kegiatan.getId() == null || !kegiatan.getLunas()) {
+				if (!CommonPMB.isPembayaranRegistrasiTerpenuhi(kegiatan)) {
 					String infoBelumBayar = Common.getKonfigurasi("infoBelumbayarSaatProsescalonMahasiswa",
 							"Calon Mahasiswa dengan nomor pendaftaran [noreg] belum dapat diproses karena belum melakukan proses pembayaran.")
 							.getNilai();

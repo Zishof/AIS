@@ -37,6 +37,7 @@ import org.zkoss.zul.Vbox;
 import org.zkoss.zul.Window;
 
 import ais.action.master.KonfigurasiTampilanBiodataCalonMahasiswaAction;
+import ais.action.master.helper.KegiatanPersistenceHelper;
 import ais.action.master.helper.PembayaranUtilHelper;
 import ais.action.master.pmb.VerifikasiPMBHelper;
 import ais.action.master.pmb.nim.NimGenerator;
@@ -269,13 +270,17 @@ public class CommonPMB {
 		if (kegiatan == null || kegiatan.getId() == null) {
 			return false;
 		}
-		Double tagihan = kegiatan.getTagihan();
-		if (tagihan != null && Math.abs(tagihan.doubleValue()) < 0.01) {
+		if (Boolean.TRUE.equals(kegiatan.getLunas())) {
 			return true;
 		}
-		Double persentaseLunas = kegiatan.getPersentaseLunas();
-		return Boolean.TRUE.equals(kegiatan.getLunas())
-				|| (persentaseLunas != null && persentaseLunas.doubleValue() >= 99.0);
+		Double persentasePemenuhan = KegiatanPersistenceHelper
+				.hitungPersentasePemenuhanTagihan(kegiatan);
+		if (persentasePemenuhan != null && persentasePemenuhan.doubleValue() >= 99.0) {
+			return true;
+		}
+		// Fallback untuk instalasi yang menonaktifkan perhitungan tagihan segar.
+		Double tagihan = kegiatan.getTagihan();
+		return tagihan != null && Math.abs(tagihan.doubleValue()) < 0.01;
 	}
 
 	public static boolean isNimPmbMengandungTandaHubung(String nim) {
