@@ -116,6 +116,34 @@ public final class NewUiHybridMenuTreeBuilderSelfTest {
         built = NewUiHybridMenuTreeBuilder.build(cycle);
         check(built.getDiagnostics().getCycleCount() > 0, "cycle not diagnosed");
         check(built.getDiagnostics().hasCriticalWarnings(), "cycle must remain a critical warning");
+
+        // Daun yang ditugaskan tetapi tidak dapat dibaca harus TERCATAT, bukan
+        // diperbaiki. Pada susunan pertama hanya menu 3 yang begitu: menu 1 dan
+        // 6 sama-sama tidak terbaca tetapi PUNYA anak, jadi keduanya cabang dan
+        // ketidakterbacaannya memang wajar (cabang struktural).
+        //
+        // Susunannya dibangun ulang dari daftar baru, bukan memakai `source`
+        // yang sudah dilewatkan build() di atas: build() menandai jenis tiap
+        // simpul, sehingga memakai ulang objek yang sama akan menguji keadaan
+        // yang tidak pernah terjadi pada jalur sungguhan.
+        List<NewUiHybridMenuNode> segar = new ArrayList<NewUiHybridMenuNode>();
+        segar.add(node(1, 0, 10, 1, false, false));
+        segar.add(node(2, 10, 20, 1, true, true));
+        segar.add(node(3, 10, 30, 2, false, true));
+        segar.add(node(6, 10, 60, 3, false, false));
+        segar.add(node(7, 60, 70, 1, true, true));
+        NewUiHybridMenuTreeBuilder.Result awal = NewUiHybridMenuTreeBuilder.build(segar);
+        check(awal.getDiagnostics().getTanpaPrivilageCount() == 1,
+                "assigned-but-unreadable leaf must be diagnosed exactly once, got "
+                        + awal.getDiagnostics().getTanpaPrivilageCount());
+        check(!awal.getDiagnostics().hasCriticalWarnings(),
+                "missing privilege is a data condition, not a structural fault");
+        check(awal.getDiagnostics().summary().indexOf("tanpaPrivilage=") >= 0,
+                "diagnostics summary must name the new counter");
+        // Yang dicatat TIDAK boleh berubah menjadi terlihat.
+        NewUiHybridMenuSnapshot ulang = new NewUiHybridMenuSnapshot("u", "r", "pt", awal);
+        check(ulang.findVisible(Long.valueOf(3L)) == null,
+                "diagnosing a missing privilege must not grant access");
         System.out.println("PASS Hybrid Menu V2 tree/catalog/guard self-test");
     }
 }

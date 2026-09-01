@@ -102,6 +102,26 @@ public final class NewUiHybridMenuTreeBuilder {
             bucket.add(node);
         }
 
+        // Daun yang ditugaskan ke role tetapi tidak dapat dibaca. Hierarkinya
+        // sehat, sehingga tidak tertangkap pemeriksaan mana pun di atas —
+        // padahal akibatnya nyata: menunya muncul pada daftar hak akses lalu
+        // ditolak New UI dengan FORBIDDEN tanpa keterangan, karena izinnya
+        // jatuh ke NewUiPermission.none(). Dicatat, BUKAN diperbaiki: memberi
+        // akses karena datanya terlihat tidak lengkap membalik arah fail-closed.
+        //
+        // "Daun" ditentukan dari byRoot, BUKAN dari isBranch(): jenis simpul
+        // baru ditetapkan pada klasifikasi di bawah, sehingga sebelum itu setiap
+        // simpul masih mengaku daun dan seluruh cabang akan ikut terhitung.
+        for (int i = 0; i < accepted.size(); i++) {
+            NewUiHybridMenuNode node = accepted.get(i);
+            if (node == null) continue;
+            Long kunciAnak = value(node.getChild());
+            if (kunciAnak.longValue() != 0L && byRoot.containsKey(kunciAnak)) continue;
+            if (node.getPermission() == null || !node.getPermission().isCanRead()) {
+                diagnostics.tanpaPrivilage(node.getMenuId());
+            }
+        }
+
         List<NewUiHybridMenuNode> branches = new ArrayList<NewUiHybridMenuNode>();
         List<NewUiHybridMenuNode> virtualBranches = new ArrayList<NewUiHybridMenuNode>();
         List<NewUiHybridMenuNode> virtualLeaves = new ArrayList<NewUiHybridMenuNode>();
