@@ -113,13 +113,35 @@ final class SalesInventoryHargaTenant {
 				+ " WHERE m.produk_id = p.id),0)";
 	}
 
-	/** Harga jual UMUM yang berlaku hari ini (tanpa customer tertentu). */
+	/**
+	 * <h4>Harga jual UMUM -- ASUMSI yang perlu ditegaskan pemilik keputusan</h4>
+	 *
+	 * <p>Legacy menyatakan harga umum sebagai baris {@code harga_jual_customer} dengan
+	 * {@code anggota_koperasi IS NULL}. Model tenant <b>tidak dapat menyatakannya begitu</b>:
+	 * {@code customer_id} di sana {@code NOT NULL} (lihat {@code TenantSchemaMigrationsV3}),
+	 * sehingga baris harga tanpa customer mustahil ada.</p>
+	 *
+	 * <p>Satu-satunya representasi harga umum yang tersedia pada model tenant adalah
+	 * {@code produk.harga_jual_standar}, dan itulah yang dipakai di sini.</p>
+	 *
+	 * <p><b>Bila yang dimaksud desain sebenarnya adalah {@code customer_id} boleh kosong,
+	 * maka ini gap katalog, bukan pilihan pemetaan</b> -- perbaikannya sebuah migrasi v10
+	 * yang melonggarkan kolom itu, bukan mengubah DDL yang sudah dirilis (katalognya
+	 * append-only ber-checksum). Keputusan itu bukan efek samping pemindahan kueri, jadi
+	 * ditandai di sini alih-alih diputuskan diam-diam.</p>
+	 */
 	static String hargaUmum(String skema) {
-		return "(SELECT h.harga FROM " + skema + "harga_jual_customer h WHERE h.produk_id = p.id"
-				+ " AND h.customer_id IS NULL AND COALESCE(h.aktif,true) = true"
-				+ " AND h.berlaku_dari <= CURRENT_DATE"
-				+ " AND (h.berlaku_sampai IS NULL OR h.berlaku_sampai >= CURRENT_DATE)"
-				+ " ORDER BY h.berlaku_dari DESC, h.id DESC LIMIT 1)";
+		return "COALESCE(p.harga_jual_standar, NULL)";
+	}
+
+	/**
+	 * Benar bila model tenant sanggup menyimpan harga khusus-umum sebagai baris tersendiri.
+	 * Selama {@code customer_id} masih {@code NOT NULL}, jawabannya tidak -- dan saringan
+	 * "hanya umum" harus ditolak terang-terangan, bukan mengembalikan daftar kosong yang
+	 * tampak seperti "memang belum ada datanya".
+	 */
+	static boolean dukungBarisHargaUmum() {
+		return false;
 	}
 
 	/** Harga beli supplier terbaru yang masih berlaku hari ini. */

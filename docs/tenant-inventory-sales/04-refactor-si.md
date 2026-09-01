@@ -285,6 +285,84 @@ Tidak diperbaiki di sini: mengubah angka yang selama ini dilihat pengguna adalah
 Anda, bukan efek samping pekerjaan tenant. Di sisi tenant persoalan ini tidak muncul, sebab
 produksi adalah satu `jenis` pada buku besar yang sama.
 
+## Helper kedua: Harga Supplier/Customer &amp; Analisa Harga
+
+`SalesInventoryHargaHelper` — lima aksi — kini juga melayani dua model. Helper ini membawa
+dimensi yang tidak ada pada helper pertama: **dua di antaranya menulis**.
+
+### Pemblokir baru yang ditemukan: entitas Hibernate mematok schema
+
+Jalur simpan legacy memakai entitas (`session.saveOrUpdate(new HargaBeliSupplier())`), bukan
+SQL. Entitasnya menyatakan schemanya di anotasi:
+
+```java
+@Table(schema = "koperasi", name = "harga_beli_supplier")
+```
+
+Pemetaan itu **statis per SessionFactory**. Artinya `session.saveOrUpdate()` selalu menulis
+ke `koperasi`, berapa pun tenant yang sedang aktif — yaitu persis kebocoran yang seluruh
+pekerjaan ini hendak cegah.
+
+**Ini bukan persoalan satu helper.** Di deployment ini **1.551 entitas** memakai
+`@Table(schema=...)`, 98 di antaranya `koperasi`. Sembilan dari sebelas helper Sales/Inventory
+menulis lewat entitas — 93 panggilan `save`/`update`/`delete` seluruhnya. Setiap jalur tulis
+menghadapi tembok yang sama, dan sifatnya sekelas dengan pemblokir Envers.
+
+Jalan keluar yang dipakai di sini: **jalur tenant menulis lewat SQL asli**, tanpa entitas.
+Aturan bisnisnya tidak dilonggarkan — tanggal efektif ganda tetap ditolak, dan versi
+tersimpan tetap tidak boleh diubah harga/tanggal/pihak/produknya.
+
+### Supplier legacy tidak berada di schema `koperasi`
+
+Ia di `library.penyedia`. Jalur tenant menariknya ke `<schema>.supplier`, sehingga daftar
+pemasok satu tenant tidak lagi bercampur dengan tenant lain. Ini salah satu contoh konkret
+manfaat pemisahan, bukan sekadar biaya.
+
+### Gap katalog yang tersingkap: harga umum tidak dapat disimpan
+
+Legacy menyatakan harga umum sebagai baris `harga_jual_customer` dengan
+`anggota_koperasi IS NULL`. Model tenant **tidak dapat menyatakannya**:
+
+```
+customer_id bigint NOT NULL REFERENCES {S}.customer(id)
+```
+
+Konsekuensinya di jalur tenant, dan semuanya **gagal-tertutup, bukan diam-diam**:
+
+| Jalur | Perlakuan |
+|---|---|
+| Saringan "hanya umum" pada daftar | **Ditolak** dengan sebab, bukan daftar kosong yang terbaca "belum ada datanya" |
+| Simpan harga tanpa anggota | **Ditolak** lebih awal dengan sebab, bukan dibiarkan gagal di lapisan basis data |
+| Kolom harga umum pada Analisa | Memakai `produk.harga_jual_standar` — satu-satunya representasi yang tersedia |
+
+**Kalau yang dimaksud desain sebenarnya adalah `customer_id` boleh kosong, ini gap katalog
+dan bukan pilihan pemetaan.** Perbaikannya sebuah migrasi **v10** yang melonggarkan kolom
+itu — bukan menyunting DDL yang sudah dirilis, sebab katalognya append-only ber-checksum.
+Keputusan itu bukan efek samping pemindahan kueri, jadi ditandai alih-alih diputuskan
+diam-diam.
+
+### Uji kesetaraan: `uji-kesetaraan-harga.sql`
+
+| Blok | Hasil |
+|---|---|
+| Daftar harga beli supplier | 2 baris **SETARA** |
+| Daftar harga jual customer | **SETARA**; baris harga umum dilaporkan tanpa padanan |
+| Analisa harga — stok &amp; harga beli terbaru | **SETARA** untuk kedua produk |
+
+Stok pada jalur tenant memakai rumus yang **sama persis** dengan helper pertama
+(`SUM(arah * kuantitas)`), supaya layar Analisa Harga dan layar Persediaan tidak pernah
+menyebut angka stok berbeda untuk produk yang sama.
+
+### Dua hal yang dilaporkan uji, bukan diklaim setara
+
+**Harga umum pada produk tanpa baris harga umum eksplisit.** Legacy mengosongkannya; jalur
+tenant memakai harga jual standar yang selalu terisi. Uji melaporkannya apa adanya —
+melabelinya "setara" akan menyembunyikan konsekuensi gap di atas.
+
+**Harga kedaluwarsa.** Legacy hanya punya satu tanggal efektif, sehingga harga lama terpilih
+selamanya; model tenant punya `berlaku_sampai`, sehingga mundur ke versi yang masih berlaku.
+Diperagakan pada uji: legacy 2.500, tenant 2.400. Perbedaan ini dikehendaki.
+
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
 **Sebelas helper, 7.512 baris, belum satu pun kuerinya dipindah ke schema tenant.**

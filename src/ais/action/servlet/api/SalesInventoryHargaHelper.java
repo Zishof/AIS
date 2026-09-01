@@ -157,6 +157,14 @@ public final class SalesInventoryHargaHelper {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		Transaction tx = null;
 		try {
+			if (SalesInventoryHargaTenant.aktif(ctx)) {
+				// Entitas Hibernate mematok @Table(schema = "koperasi"), sehingga
+				// session.saveOrUpdate() SELALU menulis ke schema bersama berapa pun tenant
+				// yang aktif. Jalur tenant karena itu menulis lewat SQL asli. Aturannya sama:
+				// tanggal efektif ganda ditolak, versi tersimpan tidak boleh diubah harganya.
+				simpanHargaTenant(ctx, tbmuser, request, hasil, session, true, id);
+				return;
+			}
 			HargaBeliSupplier h;
 			if (baru) {
 				Long supplierId = optLong(request, "supplier_id");
@@ -235,32 +243,52 @@ public final class SalesInventoryHargaHelper {
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
+			boolean jalurTenant = SalesInventoryHargaTenant.aktif(ctx);
+			String kolomAnggota = jalurTenant ? "h.customer_id" : "h.anggota_koperasi";
 			StringBuilder where = new StringBuilder(" WHERE 1=1 ");
 			java.util.List<Object> params = new java.util.ArrayList<Object>();
+			if (hanyaUmum && jalurTenant && !SalesInventoryHargaTenant.dukungBarisHargaUmum()) {
+				// Mengembalikan daftar kosong akan terbaca sebagai "memang belum ada datanya",
+				// padahal model tenant memang TIDAK BISA menyimpannya (customer_id NOT NULL).
+				tolak(hasil, "Harga umum belum dapat disimpan sebagai baris tersendiri pada tenant "
+						+ "berschema; harga jual standar produk yang berlaku. Lihat catatan gap "
+						+ "customer_id pada SalesInventoryHargaTenant.");
+				return;
+			}
 			if (hanyaUmum) {
-				where.append(" AND h.anggota_koperasi IS NULL ");
+				where.append(" AND ").append(kolomAnggota).append(" IS NULL ");
 			} else if (anggotaId != null) {
-				where.append(" AND h.anggota_koperasi = ? ");
+				where.append(" AND ").append(kolomAnggota).append(" = ? ");
 				params.add(anggotaId);
 			}
 			if (produkId != null) {
-				where.append(" AND h.produk = ? ");
+				where.append(jalurTenant ? " AND h.produk_id = ? " : " AND h.produk = ? ");
 				params.add(produkId);
 			}
-			String dasar = " FROM koperasi.harga_jual_customer h "
-					+ "LEFT JOIN koperasi.anggota_koperasi a ON h.anggota_koperasi = a.id "
-					+ "JOIN koperasi.produk p ON h.produk = p.id " + where;
+			String dasar;
+			String pilih;
+			String urut;
+			if (jalurTenant) {
+				String sk = SalesInventoryHargaTenant.skema(ctx);
+				dasar = SalesInventoryHargaTenant.dasarCustomer(sk, where.toString());
+				pilih = SalesInventoryHargaTenant.selectCustomer();
+				urut = SalesInventoryHargaTenant.urutCustomer();
+			} else {
+				dasar = " FROM koperasi.harga_jual_customer h "
+						+ "LEFT JOIN koperasi.anggota_koperasi a ON h.anggota_koperasi = a.id "
+						+ "JOIN koperasi.produk p ON h.produk = p.id " + where;
+				pilih = "SELECT h.id, h.anggota_koperasi, COALESCE(a.kode,''), COALESCE(a.nama,'(Umum)'), "
+						+ "h.produk, p.kode, p.nama, h.harga, h.tanggal_efektif, COALESCE(h.keterangan,''), "
+						+ "COALESCE(h.aktif,true), COALESCE(h.oleh,'')";
+				urut = " ORDER BY p.kode ASC, h.tanggal_efektif DESC, h.id DESC LIMIT ? OFFSET ?";
+			}
 			java.sql.PreparedStatement psTotal = session.connection().prepareStatement("SELECT COUNT(*) " + dasar);
 			for (int i = 0; i < params.size(); i++) psTotal.setObject(i + 1, params.get(i));
 			java.sql.ResultSet rsTotal = psTotal.executeQuery();
 			long total = rsTotal.next() ? rsTotal.getLong(1) : 0;
 			rsTotal.close(); psTotal.close();
 
-			java.sql.PreparedStatement ps = session.connection().prepareStatement(
-					"SELECT h.id, h.anggota_koperasi, COALESCE(a.kode,''), COALESCE(a.nama,'(Umum)'), "
-							+ "h.produk, p.kode, p.nama, h.harga, h.tanggal_efektif, COALESCE(h.keterangan,''), "
-							+ "COALESCE(h.aktif,true), COALESCE(h.oleh,'') " + dasar
-							+ " ORDER BY p.kode ASC, h.tanggal_efektif DESC, h.id DESC LIMIT ? OFFSET ?");
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(pilih + dasar + urut);
 			int idx = 1;
 			for (int i = 0; i < params.size(); i++) ps.setObject(idx++, params.get(i));
 			ps.setInt(idx++, size);
@@ -306,6 +334,11 @@ public final class SalesInventoryHargaHelper {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		Transaction tx = null;
 		try {
+			if (SalesInventoryHargaTenant.aktif(ctx)) {
+				// Lihat catatan pada supplierPriceSave: entitas terkunci ke schema koperasi.
+				simpanHargaTenant(ctx, tbmuser, request, hasil, session, false, id);
+				return;
+			}
 			HargaJualCustomer h;
 			if (baru) {
 				Long anggotaId = optLong(request, "anggota_id"); // null = harga umum
@@ -399,24 +432,54 @@ public final class SalesInventoryHargaHelper {
 				String k = "%" + keyword + "%";
 				params.add(k); params.add(k);
 			}
+			boolean jalurTenant = SalesInventoryHargaTenant.aktif(ctx);
+			String skemaTenant = jalurTenant ? SalesInventoryHargaTenant.skema(ctx) : null;
 			if (tokoId != null) {
+				if (jalurTenant) {
+					// Sama seperti layar Persediaan: model tenant tidak punya produk.toko.
+					// DITOLAK, bukan dijalankan tanpa saringan lingkup.
+					tolak(hasil, "Saringan toko belum tersedia pada tenant berschema; "
+							+ "lingkup gudang menyusul bersama penegakan scope.");
+					return;
+				}
 				where.append(" AND p.toko = ? ");
 				params.add(tokoId);
 			}
-			if ("stok_ada".equals(filter)) where.append(" AND COALESCE(p.stok,0) > 0 ");
-			else if ("stok_nol".equals(filter)) where.append(" AND COALESCE(p.stok,0) <= 0 ");
-			else if ("margin_negatif".equals(filter))
-				where.append(" AND COALESCE(p.hargajual,0) < COALESCE(p.hargabeli,0) ");
+			if (jalurTenant) {
+				// Stok pada model tenant adalah turunan buku besar, bukan kolom.
+				if ("stok_ada".equals(filter)) {
+					where.append(" AND ").append(SalesInventoryHargaTenant.stokTurunan(skemaTenant))
+							.append(" > 0 ");
+				} else if ("stok_nol".equals(filter)) {
+					where.append(SalesInventoryHargaTenant.syaratStokNol(skemaTenant));
+				} else if ("margin_negatif".equals(filter)) {
+					where.append(SalesInventoryHargaTenant.syaratMarginNegatif());
+				}
+			} else {
+				if ("stok_ada".equals(filter)) where.append(" AND COALESCE(p.stok,0) > 0 ");
+				else if ("stok_nol".equals(filter)) where.append(" AND COALESCE(p.stok,0) <= 0 ");
+				else if ("margin_negatif".equals(filter))
+					where.append(" AND COALESCE(p.hargajual,0) < COALESCE(p.hargabeli,0) ");
+			}
 
-			// hargaUmumEfektif = versi aktif terbaru harga jual UMUM (anggota null) per produk.
-			String hargaUmum = "(SELECT h.harga FROM koperasi.harga_jual_customer h WHERE h.produk = p.id "
-					+ "AND h.anggota_koperasi IS NULL AND COALESCE(h.aktif,true) = true "
-					+ "AND h.tanggal_efektif <= CURRENT_DATE ORDER BY h.tanggal_efektif DESC, h.id DESC LIMIT 1)";
-			String hargaBeliSupplierTerbaru = "(SELECT h.harga FROM koperasi.harga_beli_supplier h WHERE h.produk = p.id "
-					+ "AND COALESCE(h.aktif,true) = true AND h.tanggal_efektif <= CURRENT_DATE "
-					+ "ORDER BY h.tanggal_efektif DESC, h.id DESC LIMIT 1)";
-
-			String dasar = " FROM koperasi.produk p LEFT JOIN koperasi.satuan_produk sp ON p.satuan = sp.id " + where;
+			String dasar;
+			String pilih;
+			if (jalurTenant) {
+				dasar = SalesInventoryHargaTenant.dasarAnalisa(skemaTenant, where.toString());
+				pilih = SalesInventoryHargaTenant.selectAnalisa(skemaTenant);
+			} else {
+				// hargaUmumEfektif = versi aktif terbaru harga jual UMUM (anggota null) per produk.
+				String hargaUmum = "(SELECT h.harga FROM koperasi.harga_jual_customer h WHERE h.produk = p.id "
+						+ "AND h.anggota_koperasi IS NULL AND COALESCE(h.aktif,true) = true "
+						+ "AND h.tanggal_efektif <= CURRENT_DATE ORDER BY h.tanggal_efektif DESC, h.id DESC LIMIT 1)";
+				String hargaBeliSupplierTerbaru = "(SELECT h.harga FROM koperasi.harga_beli_supplier h WHERE h.produk = p.id "
+						+ "AND COALESCE(h.aktif,true) = true AND h.tanggal_efektif <= CURRENT_DATE "
+						+ "ORDER BY h.tanggal_efektif DESC, h.id DESC LIMIT 1)";
+				dasar = " FROM koperasi.produk p LEFT JOIN koperasi.satuan_produk sp ON p.satuan = sp.id " + where;
+				pilih = "SELECT p.id, p.kode, p.nama, COALESCE(NULLIF(TRIM(sp.nama),''),'(Belum diatur)'), COALESCE(p.stok,0), "
+						+ "COALESCE(p.hargabeli,0), COALESCE(p.hargajual,0), " + hargaUmum + ", "
+						+ hargaBeliSupplierTerbaru;
+			}
 			java.sql.PreparedStatement psTotal = session.connection().prepareStatement("SELECT COUNT(*) " + dasar);
 			for (int i = 0; i < params.size(); i++) psTotal.setObject(i + 1, params.get(i));
 			java.sql.ResultSet rsTotal = psTotal.executeQuery();
@@ -424,9 +487,7 @@ public final class SalesInventoryHargaHelper {
 			rsTotal.close(); psTotal.close();
 
 			java.sql.PreparedStatement ps = session.connection().prepareStatement(
-					"SELECT p.id, p.kode, p.nama, COALESCE(NULLIF(TRIM(sp.nama),''),'(Belum diatur)'), COALESCE(p.stok,0), "
-							+ "COALESCE(p.hargabeli,0), COALESCE(p.hargajual,0), " + hargaUmum + ", "
-							+ hargaBeliSupplierTerbaru + dasar + " ORDER BY p.kode ASC LIMIT ? OFFSET ?");
+					pilih + dasar + " ORDER BY p.kode ASC LIMIT ? OFFSET ?");
 			int idx = 1;
 			for (int i = 0; i < params.size(); i++) ps.setObject(idx++, params.get(i));
 			ps.setInt(idx++, size);
@@ -460,6 +521,180 @@ public final class SalesInventoryHargaHelper {
 			hasil.put("pageSize", size);
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * Simpan versi harga pada schema tenant, lewat SQL asli.
+	 *
+	 * <p>Entitas Hibernate mematok schemanya di anotasi ({@code @Table(schema = "koperasi")});
+	 * 1.551 entitas di deployment ini melakukannya, dan pemetaan itu statis per SessionFactory.
+	 * Akibatnya {@code session.saveOrUpdate()} selalu menulis ke schema bersama, berapa pun
+	 * tenant yang sedang aktif -- yaitu kebocoran yang justru hendak dicegah. Karena itu jalur
+	 * tenant tidak memakai entitas sama sekali.</p>
+	 *
+	 * <p>Aturan bisnisnya tidak dilonggarkan: tanggal efektif ganda tetap ditolak, dan versi
+	 * yang sudah tersimpan tetap tidak boleh diubah harga/tanggal/pihak/produknya -- perubahan
+	 * harga berarti versi baru. Yang berbeda hanya {@code keterangan}, yang memang tidak ada
+	 * pada model tenant sehingga tidak dapat disimpan.</p>
+	 *
+	 * @param supplierMode {@code true} untuk harga beli supplier, {@code false} untuk harga
+	 *        jual customer.
+	 */
+	private static void simpanHargaTenant(EbisnisActorContextResolver.ActorContext ctx,
+			Tbmuser tbmuser, JSONObject request, JSONObject hasil, Session session,
+			boolean supplierMode, Long id) throws Exception {
+		String sk = SalesInventoryHargaTenant.skema(ctx);
+		String oleh = tbmuser == null || tbmuser.getUserId() == null ? "" : tbmuser.getUserId();
+		Transaction tx = null;
+		try {
+			if (id == null) {
+				Long pihakId = optLong(request, supplierMode ? "supplier_id" : "anggota_id");
+				Long produkId = optLong(request, "produk_id");
+				java.util.Date tanggal = parseTanggal(request.optString("tanggal_efektif", "").trim());
+				BigDecimal harga = request.isNull("harga") ? null
+						: new BigDecimal((request.get("harga") + "").trim().replace(',', '.'));
+				if (produkId == null || tanggal == null || harga == null
+						|| (supplierMode && pihakId == null)) {
+					tolak(hasil, supplierMode
+							? "supplier_id, produk_id, harga, dan tanggal_efektif (yyyy-MM-dd) wajib diisi."
+							: "produk_id, harga, dan tanggal_efektif (yyyy-MM-dd) wajib diisi.");
+					return;
+				}
+				if (!supplierMode && pihakId == null
+						&& !SalesInventoryHargaTenant.dukungBarisHargaUmum()) {
+					// customer_id NOT NULL: baris harga umum mustahil disimpan di sini.
+					// Menyisipkannya akan gagal di lapisan basis data dengan pesan yang tidak
+					// berarti apa-apa bagi pengguna; ditolak lebih awal dengan sebab yang jelas.
+					tolak(hasil, "Harga umum (tanpa anggota) belum dapat disimpan pada tenant "
+							+ "berschema -- kolom customer_id belum boleh kosong. Isi anggota_id, "
+							+ "atau atur harga jual standar pada master produk.");
+					return;
+				}
+				// Pihak dan produk diperiksa DI DALAM schema tenant. Memakai session.get()
+				// akan memeriksanya di schema bersama -- id yang sah di sana belum tentu
+				// ada di sini, dan sebaliknya.
+				if (!adaBaris(session, "SELECT COUNT(*) FROM " + sk + "produk WHERE id = ?", produkId)) {
+					tolak(hasil, "Produk tidak ditemukan pada tenant ini.");
+					return;
+				}
+				if (pihakId != null) {
+					String tabelPihak = supplierMode ? "supplier" : "customer";
+					if (!adaBaris(session, "SELECT COUNT(*) FROM " + sk + tabelPihak + " WHERE id = ?",
+							pihakId)) {
+						tolak(hasil, (supplierMode ? "Supplier" : "Customer")
+								+ " tidak ditemukan pada tenant ini.");
+						return;
+					}
+				}
+				java.sql.PreparedStatement cek = session.connection().prepareStatement(supplierMode
+						? SalesInventoryHargaTenant.cekDobelSupplier(sk)
+						: SalesInventoryHargaTenant.cekDobelCustomer(sk, pihakId == null));
+				int c = 1;
+				if (supplierMode) {
+					cek.setLong(c++, pihakId.longValue());
+					cek.setLong(c++, produkId.longValue());
+					cek.setDate(c++, new java.sql.Date(tanggal.getTime()));
+				} else {
+					cek.setLong(c++, produkId.longValue());
+					cek.setDate(c++, new java.sql.Date(tanggal.getTime()));
+					if (pihakId != null) {
+						cek.setLong(c++, pihakId.longValue());
+					}
+				}
+				java.sql.ResultSet rsCek = cek.executeQuery();
+				boolean dobel = rsCek.next() && rsCek.getLong(1) > 0;
+				rsCek.close();
+				cek.close();
+				if (dobel) {
+					tolak(hasil, supplierMode
+							? "Sudah ada versi harga supplier-produk ini pada tanggal efektif yang sama (overlap ditolak)."
+							: "Sudah ada versi harga untuk produk/anggota ini pada tanggal efektif yang sama (overlap ditolak).");
+					return;
+				}
+				tx = session.beginTransaction();
+				java.sql.PreparedStatement ins = session.connection().prepareStatement(
+						supplierMode ? SalesInventoryHargaTenant.sisipSupplier(sk)
+								: SalesInventoryHargaTenant.sisipCustomer(sk),
+						java.sql.Statement.RETURN_GENERATED_KEYS);
+				if (pihakId == null) {
+					ins.setNull(1, java.sql.Types.BIGINT);
+				} else {
+					ins.setLong(1, pihakId.longValue());
+				}
+				ins.setLong(2, produkId.longValue());
+				ins.setBigDecimal(3, harga);
+				ins.setDate(4, new java.sql.Date(tanggal.getTime()));
+				ins.setString(5, oleh);
+				ins.executeUpdate();
+				Long baruId = null;
+				java.sql.ResultSet gk = ins.getGeneratedKeys();
+				if (gk.next()) {
+					baruId = Long.valueOf(gk.getLong(1));
+				}
+				gk.close();
+				ins.close();
+				tx.commit();
+				hasil.put("status", "00");
+				if (baruId != null) {
+					hasil.put("id", baruId);
+				}
+				return;
+			}
+
+			// -- Pembaruan: histori TIDAK ditimpa.
+			if (!adaBaris(session, supplierMode ? SalesInventoryHargaTenant.adaSupplier(sk)
+					: SalesInventoryHargaTenant.adaCustomer(sk), id)) {
+				tolak(hasil, "Versi harga tidak ditemukan.");
+				return;
+			}
+			if (!request.isNull("harga") || !request.isNull("tanggal_efektif")
+					|| !request.isNull("supplier_id") || !request.isNull("anggota_id")
+					|| !request.isNull("produk_id")) {
+				tolak(hasil, "Versi tersimpan tidak boleh diubah harganya -- buat versi baru dengan tanggal efektif baru.");
+				return;
+			}
+			if (request.isNull("aktif")) {
+				// keterangan tidak ada pada model tenant, sehingga tanpa "aktif" tidak ada
+				// satu pun medan yang dapat diperbarui. Katakan terus terang.
+				tolak(hasil, "Tidak ada yang dapat diperbarui: pada tenant berschema hanya status aktif yang dapat diubah.");
+				return;
+			}
+			tx = session.beginTransaction();
+			java.sql.PreparedStatement upd = session.connection().prepareStatement(supplierMode
+					? SalesInventoryHargaTenant.ubahAktifSupplier(sk)
+					: SalesInventoryHargaTenant.ubahAktifCustomer(sk));
+			upd.setBoolean(1, request.optBoolean("aktif", true));
+			upd.setString(2, oleh);
+			upd.setLong(3, id.longValue());
+			upd.executeUpdate();
+			upd.close();
+			tx.commit();
+			hasil.put("status", "00");
+			hasil.put("id", id);
+		} catch (Exception e) {
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+				// rollback gagal tidak boleh menutupi galat aslinya
+			}
+			throw e;
+		}
+	}
+
+	/** Benar bila kueri COUNT berparameter satu id menghasilkan lebih dari nol. */
+	private static boolean adaBaris(Session session, String sql, Long id) throws Exception {
+		java.sql.PreparedStatement ps = session.connection().prepareStatement(sql);
+		try {
+			ps.setLong(1, id.longValue());
+			java.sql.ResultSet rs = ps.executeQuery();
+			boolean ada = rs.next() && rs.getLong(1) > 0;
+			rs.close();
+			return ada;
+		} finally {
+			ps.close();
 		}
 	}
 }
