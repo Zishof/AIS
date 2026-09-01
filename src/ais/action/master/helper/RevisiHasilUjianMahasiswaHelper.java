@@ -3,15 +3,18 @@ import ais.database.model.HasilUjianMahasiswa;
 import ais.database.model.HasilUjianMahasiswaDetail;
 import org.zkoss.zk.ui.event.EventListener;
 /**
- * Versi generic dari helper revisi lama.
+ * Subclass dari {@link ais.action.master.helper.GenericRevisiHelper} untuk entity
+ * {@link ais.database.model.HasilUjianMahasiswaDetail} (baris detail hasil ujian mahasiswa per
+ * soal/komponen penilaian) — lihat Javadoc class tersebut untuk penjelasan lengkap arsitektur
+ * window, alur Envers, dan fitur restore. Tidak ada override hook {@code afterRestoreInTransaction}.
  *
- * Semua proses baca/restore revisi dipusatkan di GenericRevisiHelper<T> agar:
- * - code lebih ringkas dan mudah dirawat;
- * - semua Hibernate Session memakai openSession();
- * - semua Session ditutup di finally melalui session.clear(), session.disconnect(), dan session.close();
- * - fitur restore satu revisi dan restore massal dari tanggal tertentu tetap tersedia.
+ * <p>Field pencarian: {@code nama}, {@code kode}, {@code keterangan}. Konstruktor menyaring lewat
+ * {@link GenericRevisiHelper.FixedPropertyFilter} pada property {@code hasilUjianMahasiswa} bila
+ * {@link HasilUjianMahasiswa} induk diberikan — dipakai untuk menampilkan riwayat detail hasil
+ * ujian milik satu rekap ujian mahasiswa tertentu; bila {@code null}, tidak ada penyaringan
+ * (seluruh riwayat detail hasil ujian tampil).
  *
- * Kompatibel Java 1.7 / source 1.6.
+ * <p>Kompatibel Java 1.7 / source 1.6.
  */
 @SuppressWarnings({ "rawtypes", "unchecked" })
 public class RevisiHasilUjianMahasiswaHelper extends GenericRevisiHelper<HasilUjianMahasiswaDetail> {
@@ -19,6 +22,11 @@ public class RevisiHasilUjianMahasiswaHelper extends GenericRevisiHelper<HasilUj
 	private static final long serialVersionUID = 6589578552710016753L;
 	private static final String[] SEARCH_PROPERTIES = new String[] { "nama", "kode", "keterangan" };
 
+	/**
+	 * Membangun daftar {@link QueryCustomizer} berdasarkan {@code hasilUjianMahasiswa}: jika
+	 * {@code null} mengembalikan array kosong (tanpa penyaringan), selain itu mengembalikan satu
+	 * {@link GenericRevisiHelper.FixedPropertyFilter} pada property {@code hasilUjianMahasiswa}.
+	 */
 	private static QueryCustomizer[] buildFilters(HasilUjianMahasiswa hasilUjianMahasiswa) {
 		java.util.List<QueryCustomizer> filters = new java.util.ArrayList<QueryCustomizer>();
 		if (hasilUjianMahasiswa != null) {
@@ -27,6 +35,15 @@ public class RevisiHasilUjianMahasiswaHelper extends GenericRevisiHelper<HasilUj
 		return filters.toArray(new QueryCustomizer[filters.size()]);
 	}
 
+	/**
+	 * Membuka jendela riwayat revisi {@link HasilUjianMahasiswaDetail} milik satu
+	 * {@link HasilUjianMahasiswa}.
+	 *
+	 * @param hasilUjianMahasiswa rekap hasil ujian yang membatasi riwayat yang ditampilkan; bila
+	 *                            {@code null} tidak ada penyaringan (seluruh riwayat detail tampil)
+	 * @param eventListener callback yang diteruskan ke {@link GenericRevisiHelper}, boleh {@code null}
+	 * @throws Exception diteruskan apa adanya dari konstruktor {@link GenericRevisiHelper}
+	 */
 	public RevisiHasilUjianMahasiswaHelper(HasilUjianMahasiswa hasilUjianMahasiswa, EventListener eventListener) throws Exception {
 		super(HasilUjianMahasiswaDetail.class, "Revisi Hasil Ujian Mahasiswa", eventListener, SEARCH_PROPERTIES, buildFilters(hasilUjianMahasiswa));
 	}
