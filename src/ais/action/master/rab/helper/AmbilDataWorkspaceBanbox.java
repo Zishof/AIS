@@ -58,24 +58,35 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data workspace banbox. Kelas ini memberi nama dan batas tanggung jawab
- * yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.rab.Workspace} —
+ * lihat {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum (constructor/display/
+ * onSearchDefault/renderer/callback). {@code Workspace} adalah item RAB (Rencana Anggaran Biaya) —
+ * baris rencana anggaran hierarkis (dapat beranak) milik satu satuan kerja/sumber dana/tahun
+ * anggaran, membawa nilai anggaran ({@code hargaTotal}) dan progres realisasi. Sama seperti
+ * {@link AmbilDataSatuanKerjaBanbox}, kelas ini MENYIMPANG dari kerangka grid+Restrictions standar:
+ * pemilihan memakai {@link Tree} ber-{@link WorkspaceTreeModel}, popup dibangun LAZY saat
+ * {@code onOpen} lewat {@code display(Radiogroup)} dijaga {@code hasDisplayed}.
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Tree tree}, {@code EventListener
- * eventListener}, {@code WorkspaceTreeModel workspaceTreeModel}, {@code Combobox tahunWorkspace}, {@code
- * AmbilDataSatuanKerjaBanbox satuanKerja}, {@code Combobox sumberDana}, {@code Integer debetCredit}, {@code
- * WorkspaceSeringDipakai workspaceSeringDipakai}; pembacaan/pencarian ({@code onRefreshRealisasi()}, {@code
- * onSearchDefault()}, {@code setEventListener()}, {@code getEventListener()}); mutasi data ({@code
- * setSatuanKerja()}); operasi domain lain ({@code display()}). Bagian lain dari kontrak tetap mengikuti kelas
- * induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p>
+ * <b>Empat constructor</b>: {@code ()}, {@code (Boolean chooseAll)}, dan
+ * {@code (Boolean chooseAll, Boolean pilinNonAktif)} membangun popup dengan kombo Satuan
+ * Kerja/Tahun/Sumber Dana yang BEBAS dipilih pengguna. Constructor 5-argumen
+ * {@code (chooseAll, tahun, satuanKerja, sumberDana, pilinNonAktif)} MENGUNCI ketiga filter itu ke
+ * nilai dari entity pemanggil (kombo terkait di-{@code setDisabled(true)}). {@code chooseAll}
+ * mengikuti semantik {@link AmbilDataSatuanKerjaBanbox}: node RAB non-leaf hanya dapat dipilih bila
+ * {@code true}. {@code pilinNonAktif} mengizinkan memilih {@code Workspace} yang {@code aktif=false}
+ * (baris tak aktif selalu ditandai kuning-merah; bila {@code pilinNonAktif=false} baris itu tampil
+ * sebagai label saja, tidak dapat dipilih).
+ * </p>
+ * <p>
+ * <b>Ketergantungan filter berjenjang</b>: kombo Sumber Dana diisi ulang otomatis
+ * ({@code Common.insertComboDanSemua}) setiap Satuan Kerja/Tahun berganti (dibatasi
+ * {@code SumberDana} aktif milik satker terpilih atau tanpa satker, tahun sama), lalu
+ * {@link #onSearchDefault(Event)} membangun {@link WorkspaceTreeModel} berdasar revisi RAB
+ * TERBARU (nilai maksimum kolom {@code revisi} yang cocok). Popup punya 2 tab: "Daftar RAB" (tree)
+ * dan "RAB Sering Dapakai" ({@link WorkspaceSeringDipakai}, grid pintasan terurut jumlah pemakaian).
+ * Tombol "Hitung Ulang Realisasi" memicu {@link #onRefreshRealisasi(Event)}.
+ * </p>
  *
  * @see Bandbox
  */
@@ -99,6 +110,11 @@ public class AmbilDataWorkspaceBanbox extends Bandbox implements GetEventListene
 
 	private Boolean chooseAll = false;
 
+	/**
+	 * Overload nyaman: {@code chooseAll=true}, {@code pilinNonAktif=false}.
+	 *
+	 * @see #AmbilDataWorkspaceBanbox(Boolean, Boolean)
+	 */
 	public AmbilDataWorkspaceBanbox() throws Exception {
 		this(true);
 	}
@@ -117,6 +133,19 @@ public class AmbilDataWorkspaceBanbox extends Bandbox implements GetEventListene
 	private SatuanKerja pendingSatuanKerja = null;
 //	private WorkspaceSeringDipakai workspaceSeringDipakaiCarryOver;
 
+	/**
+	 * Constructor terkunci: filter {@code tahun}/{@code satuanKerja}/{@code sumberDana} berasal dari
+	 * entity pemanggil dan TIDAK dapat diganti pengguna — kombo terkait di {@link #display(Radiogroup)}
+	 * langsung diisi nilainya dan di-{@code setDisabled(true)}. Nilai {@code null} untuk
+	 * {@code chooseAll}/{@code pilinNonAktif} dinormalisasi ke {@code false} karena keduanya dipakai
+	 * ter-unbox langsung di renderer (menghindari {@code NullPointerException}).
+	 *
+	 * @param chooseAll bila {@code false}, hanya item RAB daun (tanpa anak) yang dapat dipilih
+	 * @param tahun tahun anggaran yang dikunci
+	 * @param satuanKerja satuan kerja yang dikunci
+	 * @param sumberDana sumber dana yang dikunci
+	 * @param pilinNonAktif izinkan memilih item RAB yang {@code aktif=false}
+	 */
 	public AmbilDataWorkspaceBanbox(Boolean chooseAll, final Integer tahun, final SatuanKerja satuanKerja,
 			final SumberDana sumberDana, Boolean pilinNonAktif) throws Exception {
 		super();
@@ -151,6 +180,13 @@ public class AmbilDataWorkspaceBanbox extends Bandbox implements GetEventListene
 		});
 	}
 
+	/**
+	 * Constructor utama tanpa filter terkunci: kombo Satuan Kerja/Tahun/Sumber Dana dibangun bebas
+	 * dipilih pengguna di {@link #display(Radiogroup)} (dipanggil lazy saat {@code onOpen}).
+	 *
+	 * @param chooseAll bila {@code false}, hanya item RAB daun (tanpa anak) yang dapat dipilih
+	 * @param pilinNonAktif izinkan memilih item RAB yang {@code aktif=false}
+	 */
 	public AmbilDataWorkspaceBanbox(Boolean chooseAll, Boolean pilinNonAktif) throws Exception {
 		super();
 		/* Normalisasi null: lihat catatan pada konstruktor 5-argumen. */
@@ -181,10 +217,24 @@ public class AmbilDataWorkspaceBanbox extends Bandbox implements GetEventListene
 
 	}
 
+	/**
+	 * Overload nyaman: {@code pilinNonAktif=false}.
+	 *
+	 * @param chooseAll bila {@code false}, hanya item RAB daun (tanpa anak) yang dapat dipilih
+	 * @see #AmbilDataWorkspaceBanbox(Boolean, Boolean)
+	 */
 	public AmbilDataWorkspaceBanbox(Boolean chooseAll) throws Exception {
 		this(chooseAll, false);
 	}
 
+	/**
+	 * Menghitung ulang nilai realisasi (progres serapan anggaran) untuk satuan kerja/tahun yang
+	 * sedang aktif lewat {@link RealisasiBulananAction#onRefreshRealisasi}, lalu me-refresh
+	 * {@link #tree} ({@link #onSearchDefault(Event)}) lewat {@link ais.common.Common#createDefaultTimer}
+	 * agar UI ter-update aman pada siklus event ZK berikutnya.
+	 *
+	 * @param event event pemicu tombol "Hitung Ulang Realisasi"
+	 */
 	public void onRefreshRealisasi(Event event) throws Exception {
 		
 		
@@ -207,18 +257,18 @@ public class AmbilDataWorkspaceBanbox extends Bandbox implements GetEventListene
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataWorkspaceBanbox}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 * Renderer item {@link Tree} untuk hierarki {@link Workspace} pada tab "Daftar RAB". Baris diberi
+	 * warna latar/teks dari {@code JenisWorkspace} (bila ada) dan disorot kuning-merah bila
+	 * {@code aktif=false}. Radio pilihan hanya dipasang bila node BUKAN non-leaf-terlarang (leaf atau
+	 * {@link #chooseAll}) DAN (item aktif atau {@link #pilinNonAktif}); selain itu hanya label teks
+	 * yang ditampilkan (tidak dapat dipilih). Saat dicentang: menutup popup, menyimpan
+	 * {@code Workspace} terpilih ke Bandbox, MENAIKKAN counter {@code jmlDipakai} lewat query
+	 * terpisah lalu mem-persist ({@code Common.refreshUpdate}) — efek samping tulis DB — baru
+	 * meneruskan {@link Event} baru (membawa {@code workspace} sebagai data) ke
+	 * {@link #eventListener}. Kolom tambahan menampilkan {@code hargaTotal} dan
+	 * {@code realisasiProses} (keduanya diformat angka).
 	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataWorkspaceBanbox} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
-	 *
-	 * @see AmbilDataWorkspaceBanbox
+	 * @see ais.ui.util.GetEventListener
 	 */
 	class WorkspaceTreeRenderer extends ais.ui.util.MyTreeitemRenderer {
 
@@ -305,6 +355,20 @@ public class AmbilDataWorkspaceBanbox extends Bandbox implements GetEventListene
 
 	}
 
+	/**
+	 * Membangun UI popup sekali (dijaga {@link #hasDisplayed}), dipanggil dari listener
+	 * {@code onOpen} pada popup pertama dibuka. Membangun toolbar filter (sub-picker
+	 * {@link AmbilDataSatuanKerjaBanbox}, kombo Tahun Anggaran 5 tahun ke depan s.d. 20 tahun ke
+	 * belakang, kombo Sumber Dana yang otomatis diisi ulang mengikuti satuan kerja/tahun terpilih)
+	 * — kombo yang nilainya terkunci dari constructor 5-argumen langsung diisi dan dinonaktifkan.
+	 * Setiap perubahan Satuan Kerja/Tahun/Sumber Dana memicu {@link #onSearchDefault(Event)} dan
+	 * refresh {@link WorkspaceSeringDipakai}. Membangun {@link Tabbox} dua tab: tree hierarki RAB
+	 * dan {@link WorkspaceSeringDipakai}. Di akhir, menerapkan {@code pendingSatuanKerja} bila
+	 * sempat di-set eksternal lewat {@link #setSatuanKerja(SatuanKerja)} sebelum popup ini pernah
+	 * dibuka (lihat catatan pada {@link #setSatuanKerja(SatuanKerja)}).
+	 *
+	 * @param radiogroup wadah {@link Radiogroup} tempat popup dibangun (disediakan constructor)
+	 */
 	public void display(Radiogroup radiogroup) throws Exception {
 
 		if (hasDisplayed) {
@@ -492,6 +556,18 @@ public class AmbilDataWorkspaceBanbox extends Bandbox implements GetEventListene
 		}
 	}
 
+	/**
+	 * Menjalankan pencarian {@link Workspace} hierarkis untuk kombinasi Satuan Kerja/Sumber
+	 * Dana/Tahun Anggaran yang sedang terpilih di toolbar. Wajib Tahun Anggaran terisi (tampilkan
+	 * peringatan bila kosong); bila Satuan Kerja atau Sumber Dana belum terpilih, method berhenti
+	 * diam-diam (tree tidak diperbarui). Menghitung revisi RAB TERBARU (nilai maksimum kolom
+	 * {@code revisi} untuk kombinasi satker/sumber dana/tahun tsb.) lalu membangun
+	 * {@link WorkspaceTreeModel} dengan revisi itu dan memasangnya ke {@link #tree} bersama
+	 * {@link WorkspaceTreeRenderer}.
+	 *
+	 * @param event event pemicu (tidak dipakai isinya; boleh {@code null})
+	 * @see ais.ui.util.GetEventListener
+	 */
 	public void onSearchDefault(Event event) throws Exception {
 
 		if (tahunWorkspace.getSelectedItem() == null) {
@@ -529,28 +605,34 @@ public class AmbilDataWorkspaceBanbox extends Bandbox implements GetEventListene
 
 	}
 
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see ais.ui.util.GetEventListener
+	 */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see ais.ui.util.GetEventListener
+	 */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
 
 	/**
-	 * Tipe implementasi bersarang {@link WorkspaceSeringDipakai} milik {@link AmbilDataWorkspaceBanbox}. Kelas ini
-	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataWorkspaceBanbox} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
-	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code MyGrid grid}, {@code
-	 * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code boolean carryOver}, {@code Textbox kodeWorkspacean},
-	 * {@code Textbox nama}; operasi lokal: {@code display()}, {@code onSearchDefault}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
-	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
-	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 * Sub-komponen tab "RAB Sering Dapakai" pada popup {@link AmbilDataWorkspaceBanbox}: grid
+	 * pencarian datar (kode/nama RAB) atas {@link Workspace} yang cocok dengan Satuan Kerja/Sumber
+	 * Dana/Tahun Anggaran yang sedang aktif di kelas induk, diurutkan berdasar {@code jmlDipakai}
+	 * menurun (paling sering dipakai di atas) — jalan pintas selain menelusuri {@link Tree} di tab
+	 * "Daftar RAB". Flag {@code carryOver} (di-set lewat constructor) membatasi hasil hanya baris
+	 * carry-over bila {@code true}; saat ini SELALU dipanggil dengan {@code false} karena tab "RAB
+	 * Carry Over" yang memakainya sudah dikomentari/tidak aktif di {@link #display(Radiogroup)}.
+	 * Memilih baris menaikkan counter {@code jmlDipakai} pada entity dan mem-persist-nya (efek
+	 * samping tulis DB, bukan sekadar baca).
 	 *
 	 * @see AmbilDataWorkspaceBanbox
 	 */
@@ -566,6 +648,10 @@ public class AmbilDataWorkspaceBanbox extends Bandbox implements GetEventListene
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
 		private boolean carryOver;
 
+		/**
+		 * @param carryOver bila {@code true}, hasil dibatasi hanya {@code Workspace} carry-over
+		 *            (lihat Javadoc kelas — jalur ini saat ini tidak dipakai)
+		 */
 		public WorkspaceSeringDipakai(boolean carryOver) throws Exception {
 			super();
 			this.carryOver = carryOver;
@@ -576,18 +662,16 @@ public class AmbilDataWorkspaceBanbox extends Bandbox implements GetEventListene
 		private Textbox nama;
 
 		/**
-		 * Renderer lokal untuk layar/komponen {@link WorkspaceSeringDipakai}. Kelas ini menerjemahkan satu item data
-		 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+		 * Renderer baris grid "sering dipakai": kolom Kode RAB (atau radio bila item boleh dipilih —
+		 * non-leaf hanya aktif bila {@link AmbilDataWorkspaceBanbox#chooseAll}, item tak aktif hanya
+		 * bila {@link AmbilDataWorkspaceBanbox#pilinNonAktif}), Nama RAB, Anggaran, dan Realisasi
+		 * (diformat angka), dengan baris kuning-merah bila {@code aktif=false}. Saat radio dicentang:
+		 * menutup popup induk, menyimpan {@code Workspace} terpilih, MENAIKKAN counter
+		 * {@code jmlDipakai} lewat query terpisah lalu mem-persist ({@code Common.refreshUpdate}) —
+		 * efek samping tulis DB — baru meneruskan event ke
+		 * {@link AmbilDataWorkspaceBanbox#eventListener}.
 		 *
-		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link WorkspaceSeringDipakai} dan dapat mengakses
-		 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-		 * renderer/listener ini.</p>
-		 *
-		 * @see WorkspaceSeringDipakai
+		 * @see ais.ui.util.GetEventListener
 		 */
 		class WorkspaceRenderer extends ais.ui.util.MyRowRenderer {
 
@@ -648,6 +732,11 @@ public class AmbilDataWorkspaceBanbox extends Bandbox implements GetEventListene
 
 		}
 
+		/**
+		 * Membangun form pencarian (Kode RAB/Nama RAB) + tombol Cari + grid ber-paging server-side
+		 * ({@code AmbilDataPagingHelper}), lalu menjadwalkan {@link #onSearchDefault(Event)} lewat
+		 * {@link ais.common.Common#createDefaultTimer} (menunggu filter kelas induk siap terisi).
+		 */
 		public void display() throws Exception {
 
 			Center center = new Center();
@@ -755,6 +844,16 @@ public class AmbilDataWorkspaceBanbox extends Bandbox implements GetEventListene
 
 		}
 
+		/**
+		 * Menjalankan pencarian {@link Workspace}: wajib Tahun Anggaran dan Satuan Kerja kelas induk
+		 * sudah terisi (bila belum, method berhenti — tampilkan peringatan bila Tahun Anggaran
+		 * kosong, diam-diam bila Satuan Kerja kosong). Filter: {@code carryOver} (lihat Javadoc
+		 * kelas), aktif, sumber dana aktif, kode/nama ilike (opsional), satuan kerja/sumber dana/tahun
+		 * sama dengan kelas induk (sumber dana dan tahun opsional bila {@code null}). Diurutkan
+		 * berdasar {@code jmlDipakai} menurun, dibatasi {@code Common.MAX_RESULT_1000}.
+		 *
+		 * @param event event pemicu (tidak dipakai isinya; boleh {@code null})
+		 */
 		@SuppressWarnings("unchecked")
 		public void onSearchDefault(Event event) throws Exception {
 
@@ -799,6 +898,18 @@ public class AmbilDataWorkspaceBanbox extends Bandbox implements GetEventListene
 
 	}
 
+	/**
+	 * Menetapkan Satuan Kerja filter dari luar (mis. layar RAB yang sudah punya konteks satker
+	 * aktif). Bila popup BELUM PERNAH dibuka ({@link #satuanKerja} sub-picker masih {@code null}
+	 * karena baru dibangun lazy oleh {@link #display(Radiogroup)} saat {@code onOpen}), nilai
+	 * disimpan sementara di {@code pendingSatuanKerja} dan diterapkan otomatis begitu
+	 * {@code display()} selesai (lihat catatan "KE-1" pada kedua method). Bila sudah tampil dan
+	 * satuan kerja tidak berubah (id sama), method tidak melakukan apa-apa; bila berubah, kombo
+	 * Sumber Dana di-reset dan diisi ulang mengikuti satuan kerja/tahun baru, lalu memicu
+	 * {@link #onSearchDefault(Event)}.
+	 *
+	 * @param satuanKerja satuan kerja filter baru
+	 */
 	public void setSatuanKerja(SatuanKerja satuanKerja) throws Exception {
 		// KE-1 (NullPointerException): popup INI belum pernah dibuka -> this.satuanKerja/sumberDana/
 		// tahunWorkspace masih null (baru dibangun di display(), dipicu onOpen). Simpan nilainya dulu;

@@ -51,30 +51,37 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data udc item banbox. Kelas ini memberi nama dan batas tanggung jawab
- * yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.library.UdcItem} — lihat
+ * {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum (constructor/display/onSearchDefault/
+ * renderer/callback). {@code UdcItem} adalah kode klasifikasi pustaka berdasarkan skema UDC (Universal Decimal
+ * Classification) yang bersifat HIERARKIS lewat relasi {@code parent} (mis. kode induk "5" Ilmu Pengetahuan Alam
+ * punya sub-kode "51" Matematika, dst.). Sama seperti {@code AmbilDataKategoriItemBanbox}, kelas ini menampilkan
+ * data sebagai POHON ({@link Tree}, model {@link UdcItemTreeModel}) alih-alih grid datar, karena struktur UDC
+ * memang berjenjang.
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Tree tree}, {@code EventListener
- * eventListener}, {@code UdcItemTreeModel udcItemTreeModel}, {@code Boolean chooseAll}, {@code boolean
- * hasDisplayed}; pembacaan/pencarian ({@code onSearchDefault()}, {@code setEventListener()}, {@code
- * getEventListener()}); mutasi data ({@code setChooseAll()}); operasi domain lain ({@code display()});
- * konfigurasi constructor: {@code udcItemTreeModel}. Bagian lain dari kontrak tetap mengikuti kelas induk atau
- * interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p>
+ * Popup terbagi dua tab: tab "Daftar" berisi seluruh pohon kode UDC, dan tab "Sering Dipakai"
+ * ({@link UdcItemSeringDipakai}) berisi grid datar (kolom Kode UDC, Nama UDC, Parent) berisi kode
+ * {@code defaultItem = true} yang diurutkan menurun berdasarkan {@code jmlDipakai} (jumlah pemakaian), sebagai
+ * jalan pintas tanpa perlu menavigasi pohon. Setiap kali sebuah kode UDC dipilih — dari node pohon maupun dari
+ * baris grid "Sering Dipakai" — kolom {@code jmlDipakai} baris tersebut di-increment di database.
+ * </p>
+ * <p>
+ * Parameter constructor {@code chooseAll} menentukan apakah SEMUA node pohon boleh dipilih, atau HANYA node daun
+ * ({@code udcItemTreeModel.getChildCount(...) == 0}) — sama seperti pada {@code AmbilDataKategoriItemBanbox}.
+ * Constructor tanpa argumen default ke {@code chooseAll = true}. BERBEDA dari kebanyakan subclass Bandbox picker
+ * lain (yang membangun {@link Bandpopup}/{@link Radiogroup} secara lazy di dalam {@code display()} saat popup
+ * pertama dibuka): kelas ini membangun kerangka {@code Bandpopup}/{@code Radiogroup} langsung di constructor,
+ * sedangkan {@code display(Radiogroup)} hanya mengisi KONTEN popup, dijaga idempoten oleh flag
+ * {@link #hasDisplayed} (bukan {@code getChildren().isEmpty()} seperti pola umum).
+ * </p>
  *
  * @see Bandbox
  */
 public class AmbilDataUdcItemBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 *
 	 */
 	protected static final long serialVersionUID = 6452461056684904810L;
 	protected Tree tree;
@@ -83,12 +90,26 @@ public class AmbilDataUdcItemBanbox extends Bandbox implements GetEventListener 
 	protected UdcItemTreeModel udcItemTreeModel;
 
 	private Boolean chooseAll = false;
+	/** Penjaga agar {@link #display(Radiogroup)} hanya mengisi konten popup satu kali (idempoten). */
 	private boolean hasDisplayed = false;
 
+	/**
+	 * Constructor default; memilih {@code chooseAll = true} (semua node pohon boleh dipilih). Lihat
+	 * {@link #AmbilDataUdcItemBanbox(Boolean)}.
+	 */
 	public AmbilDataUdcItemBanbox() throws Exception {
 		this(true);
 	}
 
+	/**
+	 * Menyiapkan model pohon UDC serta kerangka popup ({@link Bandpopup} + {@link Radiogroup}) yang langsung
+	 * dipasang sebagai child Bandbox ini (BUKAN lazy seperti kebanyakan subclass Bandbox picker lain — lihat
+	 * catatan class-level). Konten popup baru diisi belakangan oleh {@link #display(Radiogroup)} saat event
+	 * {@code onOpen} pertama kali terpicu.
+	 *
+	 * @param chooseAll {@code true} untuk mengizinkan pemilihan semua node pohon UDC (termasuk kode induk);
+	 *                  {@code false} untuk membatasi pemilihan hanya pada node daun (kode UDC tanpa turunan).
+	 */
 	public AmbilDataUdcItemBanbox(Boolean chooseAll) throws Exception {
 		super();
 		udcItemTreeModel = new UdcItemTreeModel(false);
@@ -117,22 +138,24 @@ public class AmbilDataUdcItemBanbox extends Bandbox implements GetEventListener 
 		});
 	}
 
+	/**
+	 * Mengganti flag {@code chooseAll} setelah instance dibuat. Catatan: pemanggilan {@code display()} di sini
+	 * dikomentari (tidak aktif), sehingga pohon yang sudah terlanjur dirender TIDAK otomatis di-refresh.
+	 *
+	 * @param chooseAll nilai baru untuk mode pemilihan node (lihat {@link #AmbilDataUdcItemBanbox(Boolean)}).
+	 */
 	public void setChooseAll(Boolean chooseAll) throws Exception {
 		this.chooseAll = chooseAll;
 		// display();
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataUdcItemBanbox}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataUdcItemBanbox} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer satu node pohon kode UDC pada tab "Daftar". Menampilkan label kode UDC pada kolom pertama, dan
+	 * komponen pilihan ({@code MyRadioConfig}) pada kolom kedua — hanya DITAMPILKAN bila {@code chooseAll}
+	 * bernilai true ATAU node tersebut daun ({@code udcItemTreeModel.getChildCount(udcItem) == 0}). Saat
+	 * komponen pilihan dicentang: kolom {@code jmlDipakai} kode UDC tersebut di-increment di database, popup
+	 * ditutup, nilai/atribut Bandbox diisi, lalu {@link #eventListener} dipanggil — lihat
+	 * {@link GetEventListener} untuk pola callback umum ini.
 	 *
 	 * @see AmbilDataUdcItemBanbox
 	 */
@@ -193,6 +216,16 @@ public class AmbilDataUdcItemBanbox extends Bandbox implements GetEventListener 
 
 	}
 
+	/**
+	 * Mengisi konten popup ke dalam {@code radiogroup} yang sudah disiapkan oleh constructor: panel dua-tab —
+	 * tab "Daftar" berisi {@link Tree} kode UDC ({@link UdcItemTreeRenderer}) dan tab "Sering Dipakai" berisi
+	 * {@link UdcItemSeringDipakai}. Dijaga idempoten oleh {@link #hasDisplayed} agar konten tidak dibangun ulang
+	 * pada {@code onOpen} berikutnya (berbeda dari pola umum {@code getChildren().isEmpty()} — lihat catatan
+	 * class-level).
+	 *
+	 * @param radiogroup wadah popup yang sudah dipasang sebagai child {@link Bandpopup} di constructor;
+	 *                    dibersihkan ({@code Common.clear(radiogroup)}) sebelum diisi ulang.
+	 */
 	public void display(Radiogroup radiogroup) throws Exception {
 		if (hasDisplayed) {
 			return;
@@ -268,34 +301,34 @@ public class AmbilDataUdcItemBanbox extends Bandbox implements GetEventListener 
 
 	}
 
+	/**
+	 * Memasang model pohon ({@link #udcItemTreeModel}) dan renderer ({@link UdcItemTreeRenderer}) ke
+	 * {@link #tree}. Sama seperti pada {@code AmbilDataKategoriItemBanbox}, tidak ada query Hibernate langsung
+	 * di sini — data pohon sudah disiapkan lebih dulu oleh {@link UdcItemTreeModel} saat constructor dipanggil.
+	 */
 	public void onSearchDefault(Event event) throws Exception {
 
 		tree.setModel(udcItemTreeModel);
 		tree.setItemRenderer(new UdcItemTreeRenderer());
 	}
 
+	/** @see GetEventListener */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** @see GetEventListener */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
 
 	/**
-	 * Tipe implementasi bersarang {@link UdcItemSeringDipakai} milik {@link AmbilDataUdcItemBanbox}. Kelas ini
-	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataUdcItemBanbox} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
-	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code MyGrid grid}, {@code
-	 * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code Textbox nama}; operasi lokal: {@code display()},
-	 * {@code onSearchDefault}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
-	 * dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
-	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
-	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 * Tab kedua popup {@link AmbilDataUdcItemBanbox}, berisi jalan pintas daftar kode UDC yang paling sering
+	 * dipakai — grid datar (kolom Kode UDC, Nama UDC, Parent) berisi kode {@code defaultItem = true}, diurutkan
+	 * menurun berdasarkan {@code jmlDipakai}, sehingga pengguna tidak perlu menavigasi pohon UDC penuh untuk kode
+	 * yang biasa dipakai berulang. Field {@link #nama} disediakan pada form namun TIDAK dipakai sebagai kriteria
+	 * filter oleh {@link #onSearchDefault(Event)} saat ini — query tetap memfilter {@code defaultItem = true}
+	 * terlepas dari isi field tersebut.
 	 *
 	 * @see AmbilDataUdcItemBanbox
 	 */
@@ -317,16 +350,10 @@ public class AmbilDataUdcItemBanbox extends Bandbox implements GetEventListener 
 		private Textbox nama;
 
 		/**
-		 * Renderer lokal untuk layar/komponen {@link UdcItemSeringDipakai}. Kelas ini menerjemahkan satu item data
-		 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-		 *
-		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link UdcItemSeringDipakai} dan dapat mengakses
-		 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-		 * renderer/listener ini.</p>
+		 * Renderer satu baris grid "Sering Dipakai": menampilkan nama UDC dan nama UDC induknya
+		 * ({@code udcItem.getParent()}, kosong bila kode level teratas). Klik pada baris langsung memilih kode
+		 * UDC: kolom {@code jmlDipakai} di-increment, popup ditutup, nilai/atribut Bandbox diisi, lalu
+		 * {@link #eventListener} dipanggil — lihat {@link GetEventListener} untuk pola callback umum ini.
 		 *
 		 * @see UdcItemSeringDipakai
 		 */
@@ -370,6 +397,11 @@ public class AmbilDataUdcItemBanbox extends Bandbox implements GetEventListener 
 
 		}
 
+		/**
+		 * Membangun UI tab: form pencarian dengan field {@link #nama} (lihat catatan kelas — belum dipakai sebagai
+		 * filter), tombol "Cari", dan grid hasil (kolom Kode UDC, Nama UDC, Parent) memakai
+		 * {@link UdcItemRenderer} dengan paging mold client-side ({@code grid.setMold("paging")}, 50 baris/halaman).
+		 */
 		public void display() throws Exception {
 
 			Center center = new Center();

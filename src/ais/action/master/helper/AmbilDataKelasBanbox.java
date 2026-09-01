@@ -43,31 +43,32 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data kelas banbox. Kelas ini memberi nama dan batas tanggung jawab yang
- * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code EventListener eventListener}, {@code Textbox nama},
- * {@code Combobox searchfakultas}, {@code Combobox searchjurusan}, {@code Textbox searchtahun};
- * inisialisasi/lifecycle ({@code initCriteria()}); pembacaan/pencarian ({@code ambilTahunAngkatanFilter()},
- * {@code onSearchDefault()}, {@code setEventListener()}, {@code getEventListener()}); operasi domain lain
- * ({@code display()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
- * atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.Kelas} — lihat
+ * {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback).
+ * <p>
+ * {@code Kelas} adalah master data kelas/rombongan belajar akademik (mis. "TI-2023-A"), opsional
+ * dikaitkan ke {@code Jurusan}/{@code Fakultas} dan {@code tahunAngkatan} (tahun angkatan). Popup
+ * pencarian menyediakan field {@code nama} (ilike substring), Combobox fakultas dan prodi, serta
+ * {@code Textbox searchtahun} untuk tahun angkatan. Filter jurusan dan fakultas memakai
+ * {@code Restrictions.or(isNull(...), ...)} agar kelas lintas-jurusan/fakultas (berlaku "Semua")
+ * tetap muncul; filter fakultas bahkan mencocokkan baik kolom {@code fakultas} langsung pada
+ * {@code Kelas} maupun {@code jurusan.fakultas} (join alias {@code jurusanAlias}). Filter tahun
+ * angkatan hanya diterapkan bila {@link #ambilTahunAngkatanFilter()} berhasil mem-parse input jadi
+ * angka murni (input kosong/"semua"/non-angka diabaikan), dan baris dengan
+ * {@code tahunAngkatan == 0} (berlaku "Semua Angkatan") selalu ikut tampil apa pun tahun yang
+ * dicari. Kelas ini memakai paging SERVER-SIDE {@link ais.ui.util.AmbilDataPagingHelper} dengan
+ * ukuran halaman 50 — tiap perubahan filter (Enter di field nama, ganti combo, klik Cari) mereset
+ * halaman aktif ke 0 lewat {@code pagingHelper.getPaging().setActivePage(0)} sebelum mencari
+ * ulang. Pemilihan bersifat TUNGGAL (Radiogroup). Tidak ada constructor dengan parameter tambahan.
+ * </p>
  *
  * @see Bandbox
  */
 public class AmbilDataKelasBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 *
 	 */
 	private static final long serialVersionUID = 6452461056684904810L;
 	private MyGrid grid;
@@ -77,6 +78,12 @@ public class AmbilDataKelasBanbox extends Bandbox implements GetEventListener {
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper(50);
 	private EventListener eventListener;
 
+	/**
+	 * Konstruktor standar: memasang callback paging server-side ke {@link #pagingHelper}, lalu
+	 * listener {@code onOpen} yang mempersiapkan Combobox fakultas/prodi (termasuk opsi "Semua")
+	 * dan membangun popup pencarian secara lazy pada pembukaan pertama. Mengikuti kerangka standar
+	 * di {@link ais.ui.util.GetEventListener}, tidak ada logika tambahan khusus entity ini.
+	 */
 	public AmbilDataKelasBanbox() {
 		super();
 		setReadonly(true);
@@ -110,22 +117,22 @@ public class AmbilDataKelasBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/** Kriteria pencarian: nama kelas (ilike, substring). */
 	private Textbox nama;
+	/** Kriteria pencarian: fakultas (langsung atau lewat jurusan; termasuk opsi "Semua"). */
 	private Combobox searchfakultas = new Combobox();
+	/** Kriteria pencarian: prodi (termasuk opsi "Semua"). */
 	private Combobox searchjurusan = new Combobox();
+	/** Kriteria pencarian: tahun angkatan (bebas teks; hanya dipakai bila berupa angka murni). */
 	private Textbox searchtahun = new Textbox();
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataKelasBanbox}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataKelasBanbox} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer baris grid hasil pencarian {@link Kelas}: kolom nama, jurusan (tampil "Semua" bila
+	 * kosong), tahun angkatan (tampil "Semua" bila kosong), keterangan, dan satu radio button
+	 * pilihan. Mengikuti kerangka renderer standar di {@link ais.ui.util.GetEventListener} —
+	 * listener {@code onCheck} menutup popup, menyimpan entity terpilih ke atribut {@code "kelas"}
+	 * dan teks tampilan {@code kelas.toString()}, lalu meneruskan event ke {@link #eventListener}
+	 * bila terpasang.
 	 *
 	 * @see AmbilDataKelasBanbox
 	 */
@@ -162,6 +169,15 @@ public class AmbilDataKelasBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/**
+	 * Membangun popup pencarian {@link Kelas} sekali (dipanggil lazy dari listener
+	 * {@code onOpen}): form dengan field nama, fakultas, prodi, dan tahun angkatan (masing-masing
+	 * memanggil ulang {@link #onSearchDefault(Event)} dan mereset halaman aktif saat berubah),
+	 * tombol Cari, dan grid hasil ber-paging server-side dibungkus
+	 * {@link org.zkoss.zul.Radiogroup} (pilih tunggal). Mengikuti kerangka {@code display()}
+	 * standar — lihat {@link ais.ui.util.GetEventListener}. Memanggil
+	 * {@link #onSearchDefault(Event)} di akhir agar grid terisi saat popup pertama dibuka.
+	 */
 	public void display() {
 		setReadonly(true);
 		Bandpopup bandpopup = new ais.ui.util.MyBandpopup();

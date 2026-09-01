@@ -41,24 +41,28 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data pertemuan berdasar kelas pertemuan banbox. Kelas ini memberi nama
- * dan batas tanggung jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang
- * diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code EventListener eventListener}, {@code Combobox
- * searchfakultas}, {@code Combobox searchjurusan}, {@code AmbilDataDosenBanbox searchdosen}, {@code Decimalbox
- * searchtahun}; pembacaan/pencarian ({@code onSearchDefault()}, {@code setEventListener()}, {@code
- * getEventListener()}); operasi domain lain ({@code display()}). Bagian lain dari kontrak tetap mengikuti kelas
- * induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.Pertemuan} —
+ * lihat {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback).
+ * <p>
+ * Berbeda dari picker Pertemuan lain, kelas ini mencari Pertemuan (mis. topik/kemampuan akhir
+ * pembelajaran suatu sesi kuliah) secara TIDAK LANGSUNG lewat entity penghubung
+ * {@link ais.database.model.KelasPertemuan}: query di {@code onSearchDefault()} melakukan
+ * {@code Projections.groupProperty("pertemuan")} atas {@code KelasPertemuan} sehingga hasilnya
+ * adalah Pertemuan-Pertemuan berbeda yang sudah pernah dipakai pada minimal satu baris
+ * KelasPertemuan yang cocok kriteria — cara mengambil "daftar topik pertemuan yang sudah ada"
+ * untuk digunakan ulang, bukan pencarian langsung ke tabel Pertemuan. Kriteria pencarian: dosen
+ * pengampu ({@code AmbilDataDosenBanbox searchdosen}, dicocokkan ke salah satu dari 10 slot dosen
+ * perkuliahan {@code perkuliahan.dosen1}..{@code dosen10} lewat rangkaian OR), fakultas/prodi
+ * ({@code searchfakultas}/{@code searchjurusan}, filter opsional yang tetap meloloskan baris
+ * dengan jurusan/fakultas kosong), dan tahun angkatan ({@code Decimalbox searchtahun}, idem
+ * meloloskan baris tanpa tahun angkatan). Berbeda dari kebanyakan subclass lain, kombo
+ * fakultas/jurusan diinisialisasi lewat {@link ais.common.Common#initFakultasDanJurusanDanSemua}
+ * di listener {@code onOpen} SEBELUM {@code display()} dipanggil, bukan di dalam {@code display()}
+ * itu sendiri. Pemilihan bersifat tunggal lewat {@link org.zkoss.zul.Radiogroup}; nilai Bandbox
+ * diisi lewat {@code pertemuan.toString()}. Grid hasil memakai mold "paging" client-side dibatasi
+ * {@link ais.common.Common#MAX_RESULT}.
+ * </p>
  *
  * @see Bandbox
  */
@@ -70,10 +74,20 @@ public class AmbilDataPertemuanBerdasarKelasPertemuanBanbox extends Bandbox impl
 	private static final long serialVersionUID = 6452461056684904810L;
 	private MyGrid grid;
 
-	/* Paging server-side per 5 baris (pola AmbilDataPagingHelper). */
+	/* Catatan: field ini dideklarasikan tapi tidak dipakai secara aktif di file ini — grid hasil
+	 * pencarian di display() memakai mold "paging" client-side, bukan AmbilDataPagingHelper. */
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
 	private EventListener eventListener;
 
+	/**
+	 * Konstruktor pola Bandbox picker: kunci input jadi read-only, lalu pasang listener
+	 * {@code onOpen} yang — berbeda dari kebanyakan subclass lain — lebih dulu menginisialisasi
+	 * pilihan {@link #searchfakultas}/{@link #searchjurusan} lewat
+	 * {@link Common#initFakultasDanJurusanDanSemua} sebelum membangun popup lewat
+	 * {@link #display()} secara lazy pada pembukaan pertama, lalu membuka popup lewat
+	 * {@link Common#createDefaultTimer}. Lihat {@link ais.ui.util.GetEventListener} untuk
+	 * penjelasan lengkap kerangka ini.
+	 */
 	public AmbilDataPertemuanBerdasarKelasPertemuanBanbox() {
 		super();
 		setReadonly(true);
@@ -107,18 +121,13 @@ public class AmbilDataPertemuanBerdasarKelasPertemuanBanbox extends Bandbox impl
 	private Decimalbox searchtahun = new Decimalbox();
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataPertemuanBerdasarKelasPertemuanBanbox}. Kelas ini
-	 * menerjemahkan satu item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik
-	 * kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link
-	 * AmbilDataPertemuanBerdasarKelasPertemuanBanbox} dan dapat mengakses state kelas induk. Jangan menyimpan atau
-	 * membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer baris grid hasil pencarian: menampilkan radio button pilihan diikuti kolom jenis
+	 * (nama {@code statusPertemuan}, kosong bila tidak diisi), topik (label kolom "Kemampuan akhir
+	 * pembelajaran"), dan {@code pertemuan.info()} (label kolom "Perkuliahan"). Saat radio
+	 * dicentang ({@code onCheck}), popup ditutup, entity {@link Pertemuan} terpilih disimpan
+	 * sebagai attribute {@code "pertemuan"} pada Bandbox, teks Bandbox diisi
+	 * {@code pertemuan.toString()}, lalu {@link #eventListener} (bila terpasang) diberi tahu —
+	 * lihat pola callback selengkapnya di {@link ais.ui.util.GetEventListener}.
 	 *
 	 * @see AmbilDataPertemuanBerdasarKelasPertemuanBanbox
 	 */
@@ -154,6 +163,11 @@ public class AmbilDataPertemuanBerdasarKelasPertemuanBanbox extends Bandbox impl
 
 	}
 
+	/**
+	 * Membangun popup pencarian (form kriteria dosen/fakultas/prodi/angkatan + tombol Cari + grid
+	 * hasil berbungkus {@link org.zkoss.zul.Radiogroup}) sekali saat popup pertama kali dibuka,
+	 * lalu memanggil {@link #onSearchDefault(Event)} agar grid langsung terisi.
+	 */
 	public void display() {
 		setReadonly(true);
 		Bandpopup bandpopup = new ais.ui.util.MyBandpopup();
@@ -242,9 +256,8 @@ public class AmbilDataPertemuanBerdasarKelasPertemuanBanbox extends Bandbox impl
 
 		grid = new MyGrid();// grid.setOddRowSclass("non-odd");
 		grid.setWidth("100%");
-		/* setPageSize legacy dihapus: grid bukan mold "paging" sehingga setPageSize melempar IllegalStateException ("Available only the paging mold") dan daftar tidak pernah tampil. Paging ditangani AmbilDataPagingHelper. */
-		/* Paging server-side (AmbilDataPagingHelper) menggantikan mold "paging"
-		 * client-side yang dibatasi MAX_RESULT. */
+		/* Grid memakai mold "paging" client-side dengan setPageSize(50); dibatasi juga di query
+		 * lewat Common.MAX_RESULT (lihat onSearchDefault()). */
 		Row rowKetiga = new Row();
 		rowKetiga.setParent(rowsUtama);
 		grid.setMold("paging");
@@ -279,6 +292,19 @@ public class AmbilDataPertemuanBerdasarKelasPertemuanBanbox extends Bandbox impl
 
 	}
 
+	/**
+	 * Menjalankan pencarian {@link Pertemuan} secara tidak langsung lewat
+	 * {@link ais.database.model.KelasPertemuan}: query {@code createCriteria(KelasPertemuan.class)}
+	 * dengan {@code Projections.groupProperty("pertemuan")} sehingga hasil berupa Pertemuan unik
+	 * yang muncul di baris KelasPertemuan yang cocok kriteria dosen (salah satu dari 10 slot
+	 * {@code perkuliahan.dosen1}..{@code dosen10}), fakultas/prodi (opsional, baris tanpa
+	 * fakultas/jurusan tetap lolos), dan tahun angkatan (opsional, baris tanpa tahun angkatan
+	 * tetap lolos). Hasil dipasang ke {@link #grid} lewat {@link KelasPertemuanRenderer} dan
+	 * dibatasi {@link Common#MAX_RESULT} baris.
+	 *
+	 * @param event event pemicu (boleh {@code null}, dipakai juga sebagai pengisi awal grid saat
+	 *              popup pertama dibuka)
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -340,10 +366,20 @@ public class AmbilDataPertemuanBerdasarKelasPertemuanBanbox extends Bandbox impl
 
 	}
 
+	/**
+	 * Menetapkan listener yang dipanggil setelah pengguna memilih satu baris pertemuan.
+	 *
+	 * @param eventListener listener baru yang akan dipasang
+	 */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/**
+	 * Mengambil listener yang sedang terpasang.
+	 *
+	 * @return listener aktif saat ini, atau {@code null} bila belum diset
+	 */
 	public EventListener getEventListener() {
 		return eventListener;
 	}

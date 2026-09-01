@@ -40,29 +40,25 @@ import ais.ui.util.MyLabelConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data master asset banbox. Kelas ini memberi nama dan batas tanggung
- * jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code EventListener eventListener}, {@code String tipe},
- * {@code Textbox nama}, {@code Textbox kode}; pembacaan/pencarian ({@code onSearchDefault()}, {@code
- * setEventListener()}, {@code getEventListener()}); operasi domain lain ({@code display()}). Bagian lain dari
- * kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity
+ * {@link ais.database.model.asset.MasterAsset} — lihat {@link ais.ui.util.GetEventListener} untuk
+ * arsitektur kerangka umum (constructor/display/onSearchDefault/renderer/callback). {@code
+ * MasterAsset} adalah master data katalog jenis barang/jasa sarana-prasarana (mis. "Kursi Kuliah
+ * Merk X", "Jasa Servis AC") — berbeda dari {@link ais.database.model.asset.AssetDetail} yang
+ * merupakan satu unit fisik/barcode dari suatu {@code MasterAsset}.
+ * <p>
+ * Popup menampilkan grid pilih-tunggal (via {@link Radiogroup}/{@link Radio}) dengan filter "Kode"
+ * dan "Nama" (keduanya ILIKE ANYWHERE), ditambah filter tetap opsional {@link #tipe} yang
+ * ditentukan lewat constructor (mis. membatasi popup hanya menampilkan barang, atau hanya jasa —
+ * lihat konstanta tipe pada {@link MasterAsset}). Kolom grid menampilkan kode, nama, merk, jenis,
+ * tipe, dan kelompok asset. Tidak ada filter scoping satuan kerja (katalog master bersifat global).
  *
  * @see Bandbox
  */
 public class AmbilDataMasterAssetBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 * Serial version UID standar untuk kompatibilitas serialisasi komponen ZK.
 	 */
 	private static final long serialVersionUID = 6452461056684904810L;
 	private MyGrid grid;
@@ -73,6 +69,14 @@ public class AmbilDataMasterAssetBanbox extends Bandbox implements GetEventListe
 	private EventListener eventListener;
 	private String tipe = null;
 
+	/**
+	 * Membangun komponen: memasang mode read-only standar dan listener {@code onOpen} yang
+	 * membangun popup ({@link #display()}) hanya pada pembukaan pertama, mengikuti kerangka umum
+	 * di {@link ais.ui.util.GetEventListener}.
+	 *
+	 * @param tipe filter tetap kolom {@code tipe} pada {@link MasterAsset} (mis. barang/jasa),
+	 *             atau {@code null} untuk menampilkan semua tipe
+	 */
 	public AmbilDataMasterAssetBanbox(String tipe) {
 		super();
 		this.tipe = tipe;
@@ -103,16 +107,11 @@ public class AmbilDataMasterAssetBanbox extends Bandbox implements GetEventListe
 	private Textbox kode;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataMasterAssetBanbox}. Kelas ini menerjemahkan satu item
-	 * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataMasterAssetBanbox} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Merender satu baris grid: radio pilih berlabel kode, nama, merk, jenis, tipe, dan kelompok
+	 * asset. Memilih baris menutup popup, menyimpan entity {@link MasterAsset} terpilih ke
+	 * attribute {@code "masterAsset"} pada Bandbox, mengisi teks tampilan dengan
+	 * {@code masterAsset.toString()}, lalu memicu {@link #eventListener} bila terpasang —
+	 * mengikuti kerangka callback standar di {@link ais.ui.util.GetEventListener}.
 	 *
 	 * @see AmbilDataMasterAssetBanbox
 	 */
@@ -152,6 +151,11 @@ public class AmbilDataMasterAssetBanbox extends Bandbox implements GetEventListe
 
 	}
 
+	/**
+	 * Membangun popup pencarian (dipanggil sekali saat pertama dibuka): form filter Kode/Nama,
+	 * grid hasil bermold "paging" (kolom kode, nama, merk, jenis, tipe, kelompok), lalu memuat
+	 * data awal lewat {@link #onSearchDefault(Event)}.
+	 */
 	public void display() {
 		setReadonly(true);
 		Bandpopup bandpopup = new ais.ui.util.MyBandpopup();
@@ -271,6 +275,14 @@ public class AmbilDataMasterAssetBanbox extends Bandbox implements GetEventListe
 
 	}
 
+	/**
+	 * Menyusun dan menjalankan kriteria pencarian {@link MasterAsset}: cocok kode (ILIKE
+	 * ANYWHERE), cocok nama (ILIKE ANYWHERE), dan filter tetap {@link #tipe} bila diisi lewat
+	 * constructor; diurutkan menaik berdasarkan nama, dibatasi {@link Common#MAX_RESULT_500}
+	 * baris. Mengisi ulang grid dengan hasilnya beserta {@link MasterAssetRenderer}.
+	 *
+	 * @param event tidak dipakai, hanya mengikuti signature standar listener pencarian
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -295,10 +307,12 @@ public class AmbilDataMasterAssetBanbox extends Bandbox implements GetEventListe
 
 	}
 
+	/** @param eventListener dipanggil setiap kali user memilih satu master asset */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** @return listener pemilihan master asset yang sedang terpasang, boleh {@code null} */
 	public EventListener getEventListener() {
 		return eventListener;
 	}

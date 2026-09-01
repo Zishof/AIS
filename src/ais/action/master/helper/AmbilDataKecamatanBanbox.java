@@ -51,30 +51,35 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
 /**
- * Tipe khusus untuk ambil data kecamatan banbox. Kelas ini memberi nama dan batas tanggung jawab
- * yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code EventListener eventListener}, {@code String level},
- * {@code Textbox nama}, {@code Textbox namaKota}, {@code Textbox namaProp}; pembacaan/pencarian ({@code
- * onSearchDefault()}, {@code setEventListener()}, {@code getEventListener()}); operasi domain lain ({@code
- * tambah()}, {@code display()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang
- * disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.Wilayah} — lihat
+ * {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback).
+ * <p>
+ * {@code Wilayah} adalah model hierarki wilayah administratif Indonesia (negara &gt; propinsi &gt;
+ * kota/kabupaten &gt; kecamatan) yang menyimpan seluruh tingkatan dalam satu tabel self-referencing
+ * lewat {@code wilayahInduk}. Nama kelas ini menyiratkan "kecamatan" karena {@code level = "3"}
+ * (kecamatan) adalah default constructor tanpa argumen, TAPI kelas ini sebenarnya lebih GENERIK:
+ * constructor kedua menerima {@code level} eksplisit sehingga instance yang sama juga dipakai
+ * memilih tingkat wilayah lain (mis. level di bawah kecamatan) — perilaku {@code display()}/
+ * {@code onSearchDefault()} bercabang berdasar {@code level.equalsIgnoreCase("3")}: untuk level 3
+ * field pencarian adalah nama kecamatan + nama kota/kab + nama propinsi (join 2 tingkat ke atas via
+ * alias {@code kab}/{@code prop}), untuk level lain field {@code namaKota} berfungsi sebagai nama
+ * entity level itu sendiri dan {@code namaProp} sebagai nama satu tingkat di atasnya. Filter
+ * tambahan {@code integrasi_pmb_arkatama} (dari {@link ais.common.Common#bolehKonfigurasi}) bila
+ * aktif membatasi hasil hanya wilayah dengan {@code keterangan == "PmbArkatama"} — integrasi data
+ * wilayah dari sistem PMB pihak ketiga. Level 3 memakai daftar client-side ({@link ais.common.Common#MAX_RESULT});
+ * level lain memakai paging server-side {@link ais.ui.util.AmbilDataPagingHelper}. Pemilihan
+ * bersifat TUNGGAL (Radiogroup). Khusus level 3 dan bila konfigurasi {@code tambah_kecamatan_baru}
+ * aktif, toolbar menampilkan tombol tambah cepat dari {@link #tambah(EventListener)} — modal
+ * berjenjang untuk membuat negara/propinsi/kota/kecamatan baru langsung dari popup picker ini.
+ * </p>
  *
  * @see Bandbox
  */
 public class AmbilDataKecamatanBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 *
 	 */
 	private static final long serialVersionUID = 6452461056684904810L;
 	private MyGrid grid;
@@ -84,6 +89,11 @@ public class AmbilDataKecamatanBanbox extends Bandbox implements GetEventListene
 	private EventListener eventListener;
 	private String level = "3";
 
+	/**
+	 * Konstruktor default: menetapkan {@link #level} ke {@code "3"} (kecamatan) secara implisit
+	 * lewat inisialisasi field, lalu memasang listener {@code onOpen} standar yang membangun popup
+	 * pencarian secara lazy pada pembukaan pertama — lihat {@link ais.ui.util.GetEventListener}.
+	 */
 	public AmbilDataKecamatanBanbox() {
 		super();
 		setReadonly(true);
@@ -105,6 +115,16 @@ public class AmbilDataKecamatanBanbox extends Bandbox implements GetEventListene
 		});
 	}
 
+	/**
+	 * Konstruktor dengan {@code level} eksplisit — parameter tambahan khusus kelas ini yang
+	 * membedakannya dari kebanyakan subclass sejenis: mengubah tingkat hierarki {@link Wilayah}
+	 * yang dicari (lihat penjelasan cabang level di Javadoc class), BUKAN filter dari entity induk
+	 * biasa. Selebihnya mengikuti kerangka constructor standar.
+	 *
+	 * @param level kode tingkat wilayah yang dicari (mis. {@code "3"} untuk kecamatan); tingkat
+	 *              lain mengubah pemetaan field pencarian, lihat {@link #display()} dan
+	 *              {@link #onSearchDefault(Event)}
+	 */
 	public AmbilDataKecamatanBanbox(String level) {
 		super();
 		this.level = level;
@@ -127,22 +147,20 @@ public class AmbilDataKecamatanBanbox extends Bandbox implements GetEventListene
 		});
 	}
 
+	/** Kriteria pencarian: nama wilayah level ini sendiri (kecamatan, bila {@code level == "3"}). */
 	private Textbox nama;
+	/** Kriteria pencarian: nama wilayah satu tingkat di atas (kota/kab. bila level 3). */
 	private Textbox namaKota;
+	/** Kriteria pencarian: nama wilayah dua tingkat di atas (propinsi bila level 3). */
 	private Textbox namaProp;
 	// private Textbox kode;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataKecamatanBanbox}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataKecamatanBanbox} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer baris grid hasil pencarian {@link Wilayah}: menampilkan label wilayah induk
+	 * (kota/kab.) dan induk-dari-induk (propinsi), plus satu radio button pilihan. Mengikuti
+	 * kerangka renderer standar di {@link ais.ui.util.GetEventListener} — listener {@code onCheck}
+	 * menutup popup, menyimpan entity terpilih ke atribut {@code "wilayah"} dan teks tampilan
+	 * {@code wilayah.getNama()}, lalu meneruskan event ke {@link #eventListener} bila terpasang.
 	 *
 	 * @see AmbilDataKecamatanBanbox
 	 */
@@ -183,6 +201,21 @@ public class AmbilDataKecamatanBanbox extends Bandbox implements GetEventListene
 
 	}
 
+	/**
+	 * Method statis (BUKAN bagian kerangka standar {@link ais.ui.util.GetEventListener}) yang
+	 * membangun tombol toolbar untuk membuat {@link Wilayah} kecamatan baru langsung dari popup
+	 * picker, tanpa berpindah layar. Menampilkan {@link ais.ui.util.MyWindow} modal berjenjang:
+	 * pilih/tambah {@link Negara} → pilih/tambah {@link Propinsi} → pilih/tambah {@link Kota} →
+	 * isi kode dan nama kecamatan. Tombol "Xxx Baru" di tiap tingkat memanggil
+	 * {@code onAddExternal} action terkait ({@link NegaraAction}, {@link PropinsiAction},
+	 * {@link KotaAction}) secara inline. Saat disimpan, mencari dulu apakah {@link Wilayah}
+	 * kecamatan dengan nama sama di bawah kota/kab. terpilih sudah ada (hindari duplikat) sebelum
+	 * membuat baris baru dengan {@code level = "3"}, lalu memanggil {@code eventListener} yang
+	 * diberikan dengan wilayah hasil (baru atau yang sudah ada) sebagai data event.
+	 *
+	 * @param eventListener listener yang dipanggil dengan {@link Wilayah} hasil setelah tersimpan
+	 * @return tombol toolbar siap dipasang sebagai parent dari toolbar pemanggil
+	 */
 	public static Toolbarbutton tambah(final EventListener eventListener) {
 		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Tambah Kecamatan Baru", "/img/svg/addthis.svg");
 		button.addEventListener("onClick", new EventListener() {
@@ -487,6 +520,17 @@ public class AmbilDataKecamatanBanbox extends Bandbox implements GetEventListene
 		return button;
 	}
 
+	/**
+	 * Membangun popup pencarian {@link Wilayah} sekali (dipanggil lazy dari listener
+	 * {@code onOpen}): form pencarian yang field-nya bercabang menurut {@link #level} (lihat
+	 * Javadoc class), tombol Cari, filter toggle {@link ais.ui.util.BanboxFilterToggle}, tombol
+	 * tambah cepat {@link #tambah(EventListener)} (khusus level 3 dan konfigurasi
+	 * {@code tambah_kecamatan_baru} aktif), dan grid hasil dibungkus
+	 * {@link org.zkoss.zul.Radiogroup} (pilih tunggal) dengan paging server-side. Kolom grid dan
+	 * lebar disesuaikan untuk tampilan mobile ({@link ais.common.Common#isMobile()}). Mengikuti
+	 * kerangka {@code display()} standar — lihat {@link ais.ui.util.GetEventListener}. Memanggil
+	 * {@link #onSearchDefault(Event)} di akhir agar grid terisi saat popup pertama dibuka.
+	 */
 	@SuppressWarnings("deprecation")
 	public void display() {
 
@@ -664,6 +708,20 @@ public class AmbilDataKecamatanBanbox extends Bandbox implements GetEventListene
 
 	}
 
+	/**
+	 * Mengeksekusi pencarian {@link Wilayah} pada tingkat {@link #level}, dengan cabang query
+	 * berbeda untuk level 3 (kecamatan, filter nama+kota+propinsi lewat join alias, hasil
+	 * client-side dibatasi {@link ais.common.Common#MAX_RESULT}) vs level lain (filter
+	 * {@code namaKota}/{@code namaProp} dipetakan ke nama entity level ini dan induknya, hasil
+	 * lewat paging server-side {@link ais.ui.util.AmbilDataPagingHelper#cariDenganCriteria}).
+	 * Kedua cabang menghormati filter {@code integrasi_pmb_arkatama} bila konfigurasi terkait
+	 * aktif (membatasi ke wilayah dengan {@code keterangan == "PmbArkatama"}), lalu memasang
+	 * {@link WilayahRenderer} dan model hasil ke {@link #grid}. Mengikuti kerangka
+	 * {@code onSearchDefault} standar — lihat {@link ais.ui.util.GetEventListener}.
+	 *
+	 * @param event event pemicu (klik tombol Cari, atau tekan Enter di salah satu field); boleh
+	 *              {@code null} saat dipanggil dari {@link #display()}
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 		boolean integrasi_pmb_arkatama = Common.bolehKonfigurasi("integrasi_pmb_arkatama", Konfigurasi.TIDAK_AKTIF);
@@ -724,10 +782,12 @@ public class AmbilDataKecamatanBanbox extends Bandbox implements GetEventListene
 
 	}
 
+	/** {@inheritDoc} Implementasi setter polos standar — lihat {@link ais.ui.util.GetEventListener}. */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** {@inheritDoc} Implementasi getter polos standar — lihat {@link ais.ui.util.GetEventListener}. */
 	public EventListener getEventListener() {
 		return eventListener;
 	}

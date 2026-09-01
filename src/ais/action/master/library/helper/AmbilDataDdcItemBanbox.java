@@ -53,30 +53,35 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data ddc item banbox. Kelas ini memberi nama dan batas tanggung jawab
- * yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ * Bandbox picker AIS untuk entity {@link ais.database.model.library.DdcItem} — item klasifikasi Dewey
+ * Decimal Classification (DDC) yang dipakai modul Perpustakaan AIS untuk mengelompokkan buku secara
+ * berjenjang (mis. kelas utama 000-900, lalu divisi, lalu seksi, dst., masing-masing {@code DdcItem}
+ * menaut ke {@code parent}-nya sendiri). Kelas ini TIDAK mengikuti kerangka standar grid/renderer yang
+ * dijelaskan di {@link ais.ui.util.GetEventListener} — DDC berjenjang lebih cocok dinavigasi sebagai
+ * pohon daripada dicari lewat form kriteria flat, sehingga popup-nya berisi {@link Tree} yang datanya
+ * dipasok {@link DdcItemTreeModel} (lazy-load anak per level langsung dari DB tiap node di-expand,
+ * bukan memuat seluruh hierarki sekaligus).
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Tree tree}, {@code EventListener
- * eventListener}, {@code DdcItemTreeModel ddcItemTreeModel}, {@code Boolean chooseAll}, {@code boolean
- * hasDisplayed}; pembacaan/pencarian ({@code onSearchDefault()}, {@code setEventListener()}, {@code
- * getEventListener()}); mutasi data ({@code setChooseAll()}); operasi domain lain ({@code display()});
- * konfigurasi constructor: {@code ddcItemTreeModel}. Bagian lain dari kontrak tetap mengikuti kelas induk atau
- * interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p>Popup dibangun dalam dua tahap: {@link Radiogroup} dan {@link Bandpopup} dibuat eager di
+ * constructor, sedangkan isi (tab + {@code Tree}) baru dibangun lazy saat popup pertama dibuka, dijaga
+ * flag {@code hasDisplayed} (bukan {@code getChildren().isEmpty()} seperti pola standar) — dan tidak ada
+ * pemanggilan {@code setOpen(true)} lewat timer di constructor. Parameter constructor {@code chooseAll}
+ * (default {@code true} bila pakai constructor tanpa argumen) mengatur mode pilih: {@code true}
+ * menampilkan tombol pilih (radio) di SETIAP node tree (boleh pilih kategori DDC di level mana pun),
+ * {@code false} hanya menampilkan radio pada node daun ({@code ddcItemTreeModel.getChildCount(...) == 0}
+ * — tidak punya anak). Memilih node (radio dicentang) menutup popup, menyimpan {@code DdcItem} terpilih
+ * ke atribut {@code ddcItem}, DAN menaikkan counter {@code jmlDipakai} milik item tersebut lalu
+ * menyimpannya via {@code Common.refreshUpdate(...)} (efek samping tulis, dipakai untuk pelacakan
+ * pemakaian). Popup juga berisi tab kedua "Sering Dipakai" berisi {@link DdcItemSeringDipakai}, sub-picker
+ * terpisah dengan grid pencarian flat (bukan pohon) berdasar kode/nama, sebagai jalan pintas tanpa perlu
+ * menelusuri hierarki tree.</p>
  *
  * @see Bandbox
  */
 public class AmbilDataDdcItemBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 *
 	 */
 	protected static final long serialVersionUID = 6452461056684904810L;
 	protected Tree tree;
@@ -87,10 +92,23 @@ public class AmbilDataDdcItemBanbox extends Bandbox implements GetEventListener 
 	private Boolean chooseAll = false;
 	private boolean hasDisplayed = false;
 
+	/**
+	 * Constructor default: sama dengan {@link #AmbilDataDdcItemBanbox(Boolean)} dengan
+	 * {@code chooseAll = true} (radio pilih tampil di semua level node, bukan hanya daun).
+	 */
 	public AmbilDataDdcItemBanbox() throws Exception {
 		this(true);
 	}
 
+	/**
+	 * Membangun Bandbox, {@link DdcItemTreeModel} (root, mode {@code tampilkanSemua = false}), dan
+	 * kerangka popup ({@link Bandpopup} + {@link Radiogroup}) secara eager; isi tree baru dibangun lazy
+	 * lewat listener {@code onOpen} yang memanggil {@link #display(Radiogroup)} sekali (dijaga
+	 * {@code hasDisplayed}).
+	 *
+	 * @param chooseAll {@code true} agar radio pilih tampil di setiap node tree (level mana pun boleh
+	 *            dipilih); {@code false} agar radio pilih hanya tampil pada node daun (tanpa anak)
+	 */
 	public AmbilDataDdcItemBanbox(Boolean chooseAll) throws Exception {
 		super();
 		ddcItemTreeModel = new DdcItemTreeModel(false);
@@ -121,22 +139,25 @@ public class AmbilDataDdcItemBanbox extends Bandbox implements GetEventListener 
 
 	}
 
+	/**
+	 * Mengubah mode pilih setelah instance dibuat (lihat penjelasan parameter {@code chooseAll} di
+	 * {@link #AmbilDataDdcItemBanbox(Boolean)}). Catatan: tidak memicu render ulang tree ({@code
+	 * display()} dikomentari) — efeknya baru terlihat pada render node berikutnya.
+	 *
+	 * @param chooseAll mode pilih baru
+	 */
 	public void setChooseAll(Boolean chooseAll) throws Exception {
 		this.chooseAll = chooseAll;
 		// display();
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataDdcItemBanbox}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataDdcItemBanbox} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Merender satu {@link Treeitem} node DDC: label {@code ddcItem.toString()} pada sel pertama, dan
+	 * radio pilih pada sel kedua yang HANYA tampil bila {@code chooseAll} true atau node ini daun
+	 * (tanpa anak menurut {@link DdcItemTreeModel#getChildCount(Object)}). Saat radio dicentang, popup
+	 * ditutup, {@code DdcItem} terpilih disimpan sebagai atribut {@code ddcItem}, dan counter
+	 * {@code jmlDipakai} milik item dinaikkan lalu disimpan via {@code Common.refreshUpdate(...)}
+	 * sebelum {@link #eventListener} (bila terpasang) diberi tahu.
 	 *
 	 * @see AmbilDataDdcItemBanbox
 	 */
@@ -192,6 +213,15 @@ public class AmbilDataDdcItemBanbox extends Bandbox implements GetEventListener 
 
 	}
 
+	/**
+	 * Membangun isi popup sekali (dijaga {@code hasDisplayed}): panel judul "Daftar" berisi
+	 * {@link Tabbox} dua tab — "Daftar" berisi {@link Tree} DDC ({@link #tree}) yang dipasok
+	 * {@link #ddcItemTreeModel} dan {@link DdcItemTreeRenderer}, dan "Sering Dipakai" berisi sub-picker
+	 * {@link DdcItemSeringDipakai} untuk pencarian flat berdasar kode/nama.
+	 *
+	 * @param radiogroup kontainer pilih-tunggal yang sudah dibuat di constructor, dibersihkan dulu
+	 *            ({@code Common.clear(...)}) sebelum diisi ulang
+	 */
 	public void display(Radiogroup radiogroup) throws Exception {
 		if (hasDisplayed) {
 			return;
@@ -267,47 +297,63 @@ public class AmbilDataDdcItemBanbox extends Bandbox implements GetEventListener 
 
 	}
 
+	/**
+	 * Memasang {@link #ddcItemTreeModel} dan {@link DdcItemTreeRenderer} baru ke {@link #tree}. Berbeda
+	 * dari pola standar {@code onSearchDefault} (yang menjalankan query kriteria), method ini tidak
+	 * melakukan pencarian apa pun — pemuatan data per node ditangani lazy oleh {@link DdcItemTreeModel}
+	 * sendiri saat node di-expand.
+	 *
+	 * @param event tidak dipakai; ada agar tetap sesuai konvensi penamaan {@code onSearchDefault} di
+	 *            keluarga Bandbox picker
+	 */
 	public void onSearchDefault(Event event) throws Exception {
 
 		tree.setModel(ddcItemTreeModel);
 		tree.setItemRenderer(new DdcItemTreeRenderer());
 	}
 
+	/**
+	 * Menetapkan listener yang dipanggil setelah node DDC dipilih (dari tab tree maupun tab "Sering
+	 * Dipakai").
+	 *
+	 * @param eventListener listener baru yang akan dipasang
+	 */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/**
+	 * @return listener aktif saat ini, atau {@code null} bila belum diset
+	 */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
 
 	/**
-	 * Tipe implementasi bersarang {@link DdcItemSeringDipakai} milik {@link AmbilDataDdcItemBanbox}. Kelas ini
-	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataDdcItemBanbox} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
-	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code MyGrid grid}, {@code
-	 * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code MyTextbox nama}, {@code MyTextbox kode}; operasi
-	 * lokal: {@code display()}, {@code onSearchDefault}(). Aturan bisnis bersama tetap berada pada kelas induk
-	 * atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
-	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
-	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 * Sub-picker pada tab "Sering Dipakai" milik {@link AmbilDataDdcItemBanbox}: alternatif pencarian
+	 * flat (bukan pohon) untuk {@link DdcItem}, dengan form kriteria Kode dan Nama (ilike, digabung AND
+	 * bila diisi) diurutkan ascending berdasar kode dan dibatasi {@code Common.MAX_RESULT} baris —
+	 * mengikuti bentuk grid/renderer standar seperti keluarga {@code AmbilData*Banbox} lain (lihat
+	 * {@link ais.ui.util.GetEventListener}), kecuali pemilihan dipicu {@code onClick} pada baris
+	 * (bukan checkbox/radio terpisah) karena tidak butuh mode pilih-jamak.
 	 *
 	 * @see AmbilDataDdcItemBanbox
 	 */
 	private class DdcItemSeringDipakai extends Borderlayout {
 
 		/**
-		 * 
+		 *
 		 */
 		private static final long serialVersionUID = 6452461056684904810L;
 		private MyGrid grid;
 
 	/* Paging server-side per 5 baris (pola AmbilDataPagingHelper). */
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
+
+		/**
+		 * Membangun panel pencarian flat DDC dan langsung menampilkannya lewat {@link #display()}
+		 * (dipanggil eager dari {@link AmbilDataDdcItemBanbox#display(Radiogroup)} saat tab ini dibuat).
+		 */
 		public DdcItemSeringDipakai() throws Exception {
 			super();
 			display();
@@ -317,16 +363,12 @@ public class AmbilDataDdcItemBanbox extends Bandbox implements GetEventListener 
 		private MyTextbox kode;
 
 		/**
-		 * Renderer lokal untuk layar/komponen {@link DdcItemSeringDipakai}. Kelas ini menerjemahkan satu item data
-		 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-		 *
-		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DdcItemSeringDipakai} dan dapat mengakses
-		 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-		 * renderer/listener ini.</p>
+		 * Merender satu baris grid hasil pencarian DDC flat: label Nama DDC dan Parent (nama induk, atau
+		 * kosong bila tidak ada). Baris ini dipilih via klik ({@code onClick} pada seluruh baris, bukan
+		 * checkbox/radio): popup Bandbox induk ditutup, {@code DdcItem} terpilih disimpan sebagai atribut
+		 * {@code ddcItem}, counter {@code jmlDipakai} milik item dinaikkan dan disimpan via
+		 * {@code Common.refreshUpdate(...)}, lalu {@link AmbilDataDdcItemBanbox#eventListener} (bila
+		 * terpasang) diberi tahu.
 		 *
 		 * @see DdcItemSeringDipakai
 		 */
@@ -365,6 +407,12 @@ public class AmbilDataDdcItemBanbox extends Bandbox implements GetEventListener 
 
 		}
 
+		/**
+		 * Membangun form pencarian ({@code MyTextbox kode}, {@code MyTextbox nama}, keduanya juga
+		 * memicu pencarian lewat {@code onOk}/Enter) + tombol Cari, dan grid hasil client-side bermold
+		 * "paging" (page size 50). Diakhiri memanggil {@link #onSearchDefault(Event)} dengan {@code null}
+		 * agar grid langsung terisi.
+		 */
 		public void display() throws Exception {
 
 			Center center = new Center();
@@ -459,6 +507,14 @@ public class AmbilDataDdcItemBanbox extends Bandbox implements GetEventListener 
 
 		}
 
+		/**
+		 * Menjalankan pencarian flat {@link DdcItem} (tanpa mempedulikan hierarki parent/child),
+		 * difilter opsional lewat {@code Textbox nama} dan {@code Textbox kode} (ilike, digabung AND
+		 * bila diisi), diurutkan ascending berdasar kode dan dibatasi {@code Common.MAX_RESULT} baris.
+		 * Hasil dipasang ke {@link #grid} lewat {@link DdcItemRenderer} dan {@code SimpleListModel}.
+		 *
+		 * @param event event pemicu (boleh {@code null}, mis. saat dipanggil dari {@link #display()})
+		 */
 		@SuppressWarnings("unchecked")
 		public void onSearchDefault(Event event) {
 

@@ -51,30 +51,29 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data jenis pelatihan banbox. Kelas ini memberi nama dan batas tanggung
- * jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Tree tree}, {@code EventListener
- * eventListener}, {@code JenisPelatihanTreeModel jenisPelatihanTreeModel}, {@code Boolean chooseAll};
- * pembacaan/pencarian ({@code onSearchDefault()}, {@code setEventListener()}, {@code getEventListener()});
- * mutasi data ({@code setChooseAll()}); operasi domain lain ({@code display()}); konfigurasi constructor: {@code
- * jenisPelatihanTreeModel}. Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
- * atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity
+ * {@link ais.database.model.employ.JenisPelatihan} — lihat {@link ais.ui.util.GetEventListener}
+ * untuk arsitektur kerangka umum (constructor/display/onSearchDefault/renderer/callback). {@code
+ * JenisPelatihan} adalah master data jenis/kategori pelatihan pegawai, berbentuk hierarki
+ * pohon (punya {@code parent}) — mis. "Pelatihan Teknis" &rarr; "Pelatihan Jaringan".
+ * <p>
+ * <b>Menyimpang dari kerangka standar</b>: popup tidak memakai grid pencarian teks, melainkan dua
+ * tab: tab "Daftar" menampilkan seluruh hierarki sebagai {@link Tree} (model
+ * {@link JenisPelatihanTreeModel}, renderer {@link JenisPelatihanTreeRenderer}), dan tab "Sering
+ * Dipakai" ({@link JenisPelatihanSeringDipakai}) menampilkan grid pencarian nama biasa diurutkan
+ * berdasarkan {@code jmlDipakai} (jumlah pemakaian) menurun. Mode pilih: {@link #chooseAll}
+ * (constructor {@link #AmbilDataJenisPelatihanBanbox(Boolean)}) menentukan apakah node non-daun
+ * (punya anak) boleh dipilih ({@code true}, default) atau hanya node daun yang boleh dipilih
+ * ({@code false}, checkbox radio node non-daun disembunyikan). Setiap kali item dipilih (dari
+ * pohon maupun tab "Sering Dipakai"), counter {@code jmlDipakai} dinaikkan satu lewat
+ * {@code Common.refreshUpdate} sebelum {@code eventListener} dipanggil.
  *
  * @see Bandbox
  */
 public class AmbilDataJenisPelatihanBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 * Serial version UID standar untuk kompatibilitas serialisasi komponen ZK.
 	 */
 	protected static final long serialVersionUID = 6452461056684904810L;
 	protected Tree tree;
@@ -84,10 +83,19 @@ public class AmbilDataJenisPelatihanBanbox extends Bandbox implements GetEventLi
 
 	private Boolean chooseAll = false;
 
+	/** Constructor default: {@link #chooseAll} diaktifkan (node non-daun boleh dipilih). */
 	public AmbilDataJenisPelatihanBanbox() throws Exception {
 		this(true);
 	}
 
+	/**
+	 * Membangun komponen dan LANGSUNG memanggil {@link #display()} di constructor (berbeda dari
+	 * kerangka standar {@link ais.ui.util.GetEventListener} yang menunda pembangunan popup ke
+	 * listener {@code onOpen} pembukaan pertama).
+	 *
+	 * @param chooseAll {@code true} untuk mengizinkan pemilihan node non-daun pada pohon,
+	 *                  {@code false} untuk hanya mengizinkan node daun (tanpa anak)
+	 */
 	public AmbilDataJenisPelatihanBanbox(Boolean chooseAll) throws Exception {
 		super();
 		jenisPelatihanTreeModel = new JenisPelatihanTreeModel(false);
@@ -97,22 +105,26 @@ public class AmbilDataJenisPelatihanBanbox extends Bandbox implements GetEventLi
 
 	}
 
+	/**
+	 * Mengubah mode pilih node non-daun/daun untuk pemakaian berikutnya. Catatan: pohon yang
+	 * sudah terlanjur dirender TIDAK dibangun ulang di sini (pemanggilan {@code display()}
+	 * sengaja dikomentari) — perubahan baru terlihat efektif bila dipanggil sebelum popup pertama
+	 * dibuka.
+	 *
+	 * @param chooseAll {@code true} untuk mengizinkan pemilihan node non-daun
+	 */
 	public void setChooseAll(Boolean chooseAll) throws Exception {
 		this.chooseAll = chooseAll;
 		// display();
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataJenisPelatihanBanbox}. Kelas ini menerjemahkan satu item
-	 * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataJenisPelatihanBanbox} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Merender satu node pohon jenis pelatihan: label nama (via {@code toString()}) di kolom
+	 * pertama, dan radio pilih di kolom kedua — disembunyikan bila node masih punya anak dan
+	 * {@link #chooseAll} bernilai {@code false} (aturan "hanya daun"). Memilih radio menutup
+	 * popup, menyimpan entity {@link JenisPelatihan} terpilih ke attribute {@code "jenisPelatihan"}
+	 * pada Bandbox, mengisi teks tampilan, menaikkan counter {@code jmlDipakai} lewat
+	 * {@code Common.refreshUpdate}, lalu memicu {@link #eventListener} bila terpasang.
 	 *
 	 * @see AmbilDataJenisPelatihanBanbox
 	 */
@@ -169,6 +181,11 @@ public class AmbilDataJenisPelatihanBanbox extends Bandbox implements GetEventLi
 
 	}
 
+	/**
+	 * Membangun popup (dipanggil langsung dari constructor, bukan lewat {@code onOpen}): tab
+	 * "Daftar" berisi {@link Tree} hierarki penuh (dimuat lewat {@link #onSearchDefault(Event)}),
+	 * dan tab "Sering Dipakai" berisi {@link JenisPelatihanSeringDipakai}.
+	 */
 	public void display() throws Exception {
 		Bandpopup bandpopup = new ais.ui.util.MyBandpopup();
 		bandpopup.setParent(this);
@@ -248,42 +265,41 @@ public class AmbilDataJenisPelatihanBanbox extends Bandbox implements GetEventLi
 
 	}
 
+	/**
+	 * Memasang ulang {@link #jenisPelatihanTreeModel} dan {@link JenisPelatihanTreeRenderer} ke
+	 * {@link #tree}. Tidak melakukan query database sendiri — seluruh hierarki sudah dimuat oleh
+	 * {@link JenisPelatihanTreeModel}.
+	 *
+	 * @param event tidak dipakai, hanya mengikuti signature standar listener pencarian
+	 */
 	public void onSearchDefault(Event event) throws Exception {
 
 		tree.setModel(jenisPelatihanTreeModel);
 		tree.setItemRenderer(new JenisPelatihanTreeRenderer());
 	}
 
+	/** @param eventListener dipanggil setiap kali user memilih satu jenis pelatihan */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** @return listener pemilihan jenis pelatihan yang sedang terpasang, boleh {@code null} */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
 
 	/**
-	 * Tipe implementasi bersarang {@link JenisPelatihanSeringDipakai} milik {@link AmbilDataJenisPelatihanBanbox}.
-	 * Kelas ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok
-	 * anonim.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataJenisPelatihanBanbox} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini
-	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code MyGrid grid}, {@code
-	 * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code Textbox nama}; operasi lokal: {@code display()},
-	 * {@code onSearchDefault}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
-	 * dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
-	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
-	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 * Isi tab "Sering Dipakai" pada popup {@link AmbilDataJenisPelatihanBanbox}: grid pencarian
+	 * nama biasa (bukan pohon) atas {@link JenisPelatihan} yang ditandai {@code defaultItem=true},
+	 * diurutkan menurun berdasarkan {@code jmlDipakai} sehingga item paling sering dipilih tampil
+	 * di atas — mempercepat pemilihan jenis pelatihan umum tanpa perlu menelusuri hierarki pohon.
 	 *
 	 * @see AmbilDataJenisPelatihanBanbox
 	 */
 	private class JenisPelatihanSeringDipakai extends Borderlayout {
 
 		/**
-		 * 
+		 * Serial version UID standar untuk kompatibilitas serialisasi komponen ZK.
 		 */
 		private static final long serialVersionUID = 6452461056684904810L;
 		private MyGrid grid;
@@ -291,6 +307,7 @@ public class AmbilDataJenisPelatihanBanbox extends Bandbox implements GetEventLi
 
 	/* Paging server-side per 5 baris (pola AmbilDataPagingHelper). */
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
+		/** Membuat panel dan langsung menyusun isinya lewat {@link #display()}. */
 		public JenisPelatihanSeringDipakai() throws Exception {
 			super();
 			display();
@@ -299,16 +316,12 @@ public class AmbilDataJenisPelatihanBanbox extends Bandbox implements GetEventLi
 		private Textbox nama;
 
 		/**
-		 * Renderer lokal untuk layar/komponen {@link JenisPelatihanSeringDipakai}. Kelas ini menerjemahkan satu item
-		 * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-		 *
-		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link JenisPelatihanSeringDipakai} dan dapat
-		 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-		 * renderer/listener ini.</p>
+		 * Merender satu baris grid "Sering Dipakai": nama jenis pelatihan dan nama parent-nya
+		 * (kosong bila tanpa parent). Mengklik baris (bukan radio — seluruh baris klikabel)
+		 * menutup popup induk, menyimpan entity {@link JenisPelatihan} terpilih ke attribute
+		 * {@code "jenisPelatihan"} pada {@link AmbilDataJenisPelatihanBanbox}, mengisi teks
+		 * tampilan, menaikkan counter {@code jmlDipakai}, lalu memicu {@code eventListener} milik
+		 * kelas induk bila terpasang.
 		 *
 		 * @see JenisPelatihanSeringDipakai
 		 */
@@ -349,6 +362,11 @@ public class AmbilDataJenisPelatihanBanbox extends Bandbox implements GetEventLi
 
 		}
 
+		/**
+		 * Membangun tata letak panel "Sering Dipakai": form filter Nama, grid hasil bermold
+		 * "paging" (kolom Nama dan Parent), lalu memuat data awal lewat
+		 * {@link #onSearchDefault(Event)}.
+		 */
 		public void display() throws Exception {
 
 			Center center = new Center();
@@ -421,6 +439,15 @@ public class AmbilDataJenisPelatihanBanbox extends Bandbox implements GetEventLi
 
 		}
 
+		/**
+		 * Mengambil {@link JenisPelatihan} yang ditandai {@code defaultItem=true}, diurutkan
+		 * menurun berdasarkan {@code jmlDipakai}, dibatasi {@link Common#MAX_RESULT} baris.
+		 * Catatan: isian {@link #nama} TIDAK dipakai sebagai filter di sini — tombol "Cari"
+		 * hanya memuat ulang daftar item default yang sama, bukan pencarian bebas teks. Mengisi
+		 * ulang grid dengan hasilnya beserta {@link JenisPelatihanRenderer}.
+		 *
+		 * @param event tidak dipakai, hanya mengikuti signature standar listener pencarian
+		 */
 		@SuppressWarnings("unchecked")
 		public void onSearchDefault(Event event) throws Exception {
 

@@ -471,6 +471,15 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 
 			final Label label = new Label(Common.numberFormat.get().format(detailperkuliahan.getTotalNilai()) + " ("
 					+ detailperkuliahan.getNilaiHuruf() + ")");
+			label.setStyle("cursor:pointer;text-decoration:underline;color:#0b63ce;font-weight:bold;");
+			label.setTooltiptext("Klik untuk melihat analisis nilai huruf");
+			label.addEventListener("onClick", new EventListener() {
+
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					tampilkanAnalisisNilaiHuruf(detailperkuliahan);
+				}
+			});
 			final MyCheckboxConfig verifyAll = new MyCheckboxConfig();
 			final List<PerubahanNilaiListener> checkboxs = new ArrayList<PerubahanNilaiListener>();
 			for (FormatNilai formatNilai : formatNilais) {
@@ -1802,6 +1811,21 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 
 					@Override
 					public void onEvent(Event arg0) throws Exception {
+
+						Session nilaiHurufSession = null;
+						try {
+							nilaiHurufSession = HibernateUtil.openSession();
+							ConstantValues.realoadNilaiHuruf(nilaiHurufSession);
+						} finally {
+							if (nilaiHurufSession != null) {
+								try {
+									nilaiHurufSession.close();
+								} catch (Exception eClose) {
+									ais.common.ErrorAuditUtil.record(eClose,
+											"DetailperkuliahanForPenilaianHelper:reloadNilaiHuruf");
+								}
+							}
+						}
 
 						// MUAT ULANG DARI DATABASE lebih dulu agar cache = DB. Ini memperbaiki kelas bug
 						// "status kunci / nilai BASI di cache" (mis. perkuliahan sudah dibuka kuncinya di DB
@@ -3587,6 +3611,223 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 					"Informasi", ais.ui.util.MyMessageboxConfig.OK, ais.ui.util.MyMessageboxConfig.INFORMATION);
 		}
 		terdaftar = null;
+	}
+
+	private void tampilkanAnalisisNilaiHuruf(Detailperkuliahan detailperkuliahan) throws Exception {
+		if (detailperkuliahan == null) {
+			return;
+		}
+		MyWindow window = new MyWindow("Analisis Nilai Huruf", "normal", true);
+		window.setWidth(Common.isMobile() ? "100%" : "680px");
+		window.setHeight(Common.isMobile() ? "90%" : "620px");
+		window.setContentStyle("overflow:auto;background:#f8fafc;padding:0;");
+		window.appendChild(new Html(buatHtmlAnalisisNilaiHuruf(detailperkuliahan)));
+		window.doModal();
+	}
+
+	private String buatHtmlAnalisisNilaiHuruf(Detailperkuliahan detailperkuliahan) {
+		StringBuilder html = new StringBuilder();
+		boolean tampilSementara = perkuliahan != null && perkuliahan.getSembunyikanNilaiJikaBelumDiverifikasi()
+				&& detailperkuliahan.getVerify().equals(Detailperkuliahan.NOT_VERIFIED);
+		double total = tampilSementara ? nilaiAman(detailperkuliahan.getTotalNilaiSementara())
+				: nilaiAman(detailperkuliahan.getTotalNilai());
+		String huruf = tampilSementara ? detailperkuliahan.getNilaiHurufSementara() : detailperkuliahan.getNilaiHuruf();
+		NilaiHuruf aturanHuruf = ambilAturanNilaiHuruf(detailperkuliahan, total);
+		NilaiHuruf targetBerikut = ambilAturanNilaiHurufBerikut(detailperkuliahan, total);
+
+		html.append("<div style='font-family:Arial,sans-serif;color:#172033;font-size:13px;line-height:1.45;'>");
+		html.append("<div style='background:#0b63ce;color:white;padding:14px 18px;'>");
+		html.append("<div style='font-size:18px;font-weight:bold;'>Analisis Nilai Huruf</div>");
+		html.append("<div style='font-size:12px;opacity:.92;'>Rincian ini membaca komponen nilai, bobot, verifikasi, kehadiran, dan tabel Nilai Huruf yang sama dengan perhitungan sistem.</div>");
+		html.append("</div>");
+		html.append("<div style='padding:16px 18px;'>");
+
+		Mahasiswa mahasiswa = detailperkuliahan.getMahasiswa();
+		html.append("<div style='background:white;border:1px solid #dbe5f0;border-radius:8px;padding:12px;margin-bottom:12px;'>");
+		html.append("<div style='font-weight:bold;font-size:15px;margin-bottom:6px;'>")
+				.append(teksAmanHtml(mahasiswa == null ? "Mahasiswa" : mahasiswa.getNim() + " - " + mahasiswa.getNama()))
+				.append("</div>");
+		html.append("<div>Nilai akhir: <b>").append(Common.numberFormat.get().format(total)).append("</b></div>");
+		html.append("<div>Nilai huruf: <b>").append(teksAmanHtml(huruf == null || huruf.trim().isEmpty() ? "-" : huruf))
+				.append("</b></div>");
+		if (aturanHuruf != null) {
+			html.append("<div>Rentang huruf ini: <b>")
+					.append(Common.numberFormat.get().format(aturanHuruf.getMulai())).append(" s.d ")
+					.append(Common.numberFormat.get().format(aturanHuruf.getSampai())).append("</b>");
+			if (aturanHuruf.getNilaiDiIPK() != null) {
+				html.append(", IP: <b>").append(Common.numberFormat.get().format(aturanHuruf.getNilaiDiIPK()))
+						.append("</b>");
+			}
+			html.append("</div>");
+		}
+		if (tampilSementara) {
+			html.append("<div style='margin-top:6px;color:#a16207;'>Nilai yang dianalisis adalah nilai sementara karena nilai belum diverifikasi dan setting sembunyikan nilai belum verifikasi sedang aktif.</div>");
+		}
+		html.append("</div>");
+
+		html.append(buatHtmlKomponenNilai(detailperkuliahan, tampilSementara));
+
+		String alasanNol = "";
+		try {
+			if (total < 0.01) {
+				alasanNol = detailperkuliahan.alasanNilaiJadiNol(true, formatNilais);
+			}
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+		}
+		html.append("<div style='background:white;border:1px solid #dbe5f0;border-radius:8px;padding:12px;margin-top:12px;'>");
+		html.append("<div style='font-weight:bold;margin-bottom:6px;'>Kesimpulan</div>");
+		if (alasanNol != null && !alasanNol.trim().isEmpty()) {
+			html.append("<div style='color:#b91c1c;font-weight:bold;'>").append(teksAmanHtml(alasanNol)).append("</div>");
+		} else if (aturanHuruf != null) {
+			html.append("<div>Total <b>").append(Common.numberFormat.get().format(total)).append("</b> masuk rentang <b>")
+					.append(teksAmanHtml(aturanHuruf.getNilaiHuruf())).append("</b>, sehingga sistem menampilkan nilai huruf tersebut.</div>");
+		} else {
+			html.append("<div>Nilai huruf belum ditemukan dari tabel konfigurasi Nilai Huruf. Periksa setting rentang nilai huruf untuk prodi/fakultas/tahun akademik ini.</div>");
+		}
+		if (targetBerikut != null && targetBerikut.getMulai() != null && targetBerikut.getNilaiHuruf() != null) {
+			double kurang = targetBerikut.getMulai().doubleValue() - total;
+			if (kurang > 0.0) {
+				html.append("<div style='margin-top:6px;'>Untuk mencapai <b>")
+						.append(teksAmanHtml(targetBerikut.getNilaiHuruf())).append("</b>, kurang sekitar <b>")
+						.append(Common.numberFormat.get().format(kurang)).append("</b> poin dari batas bawah ")
+						.append(Common.numberFormat.get().format(targetBerikut.getMulai())).append(".</div>");
+			}
+		}
+		html.append("</div>");
+
+		html.append("</div></div>");
+		return html.toString();
+	}
+
+	private String buatHtmlKomponenNilai(Detailperkuliahan detailperkuliahan, boolean tampilSementara) {
+		StringBuilder html = new StringBuilder();
+		double totalBobot = 0.0;
+		List<Object[]> baris = new ArrayList<Object[]>();
+		double kontribusiMax = -1.0;
+		double kontribusiMin = 999999.0;
+		String namaMax = "";
+		String namaMin = "";
+
+		if (formatNilais != null) {
+			for (FormatNilai formatNilai : formatNilais) {
+				if (formatNilai == null || formatNilai.getPersen() == null || formatNilai.getPersen().doubleValue() < 0.01) {
+					continue;
+				}
+				double nilai = tampilSementara ? nilaiAman(detailperkuliahan.retreiveDetailNilaiBelumVerify(formatNilai))
+						: nilaiAman(detailperkuliahan.retreiveDetailNilai(formatNilai));
+				double bobot = nilaiAman(formatNilai.getPersen());
+				boolean bobotMasuk = !(perkuliahan != null
+						&& perkuliahan.getNilai_0_tidak_masuk_dalam_perhitungan_nilai_akhir() && nilai < 0.01);
+				if (bobotMasuk) {
+					totalBobot += bobot;
+				}
+				baris.add(new Object[] { formatNilai.getNama(), Double.valueOf(nilai), Double.valueOf(bobot),
+						Boolean.valueOf(bobotMasuk), Boolean.valueOf(detailperkuliahan.retreiveDetailVerifikasiNilai(formatNilai)) });
+			}
+		}
+
+		html.append("<div style='background:white;border:1px solid #dbe5f0;border-radius:8px;padding:12px;'>");
+		html.append("<div style='font-weight:bold;margin-bottom:8px;'>Komponen Pembentuk Nilai</div>");
+		html.append("<table style='width:100%;border-collapse:collapse;font-size:12px;'>");
+		html.append("<tr style='background:#eef4fb;'><th style='text-align:left;padding:6px;border:1px solid #dbe5f0;'>Komponen</th><th style='text-align:right;padding:6px;border:1px solid #dbe5f0;'>Nilai</th><th style='text-align:right;padding:6px;border:1px solid #dbe5f0;'>Bobot</th><th style='text-align:right;padding:6px;border:1px solid #dbe5f0;'>Kontribusi</th><th style='text-align:center;padding:6px;border:1px solid #dbe5f0;'>Ver.</th></tr>");
+		for (Object[] data : baris) {
+			String nama = data[0] == null ? "" : data[0].toString();
+			double nilai = nilaiAman((Double) data[1]);
+			double bobot = nilaiAman((Double) data[2]);
+			boolean bobotMasuk = ((Boolean) data[3]).booleanValue();
+			boolean verifikasi = ((Boolean) data[4]).booleanValue();
+			double kontribusi = totalBobot > 0.0 && bobotMasuk ? nilai * (bobot / totalBobot) : 0.0;
+			if (kontribusi > kontribusiMax) {
+				kontribusiMax = kontribusi;
+				namaMax = nama;
+			}
+			if (kontribusi < kontribusiMin) {
+				kontribusiMin = kontribusi;
+				namaMin = nama;
+			}
+			html.append("<tr>");
+			html.append("<td style='padding:6px;border:1px solid #dbe5f0;'>").append(teksAmanHtml(nama));
+			if (!bobotMasuk) {
+				html.append("<div style='color:#a16207;font-size:11px;'>Bobot tidak masuk pembagi karena nilai 0.</div>");
+			}
+			html.append("</td>");
+			html.append("<td style='text-align:right;padding:6px;border:1px solid #dbe5f0;'>").append(Common.numberFormat.get().format(nilai)).append("</td>");
+			html.append("<td style='text-align:right;padding:6px;border:1px solid #dbe5f0;'>").append(Common.numberFormat.get().format(bobot)).append("%</td>");
+			html.append("<td style='text-align:right;padding:6px;border:1px solid #dbe5f0;'>").append(Common.numberFormat.get().format(kontribusi)).append("</td>");
+			html.append("<td style='text-align:center;padding:6px;border:1px solid #dbe5f0;'>").append(verifikasi ? "Ya" : "Belum").append("</td>");
+			html.append("</tr>");
+		}
+		html.append("</table>");
+		if (baris.isEmpty()) {
+			html.append("<div style='color:#64748b;margin-top:8px;'>Belum ada komponen format nilai aktif yang dapat dianalisis.</div>");
+		} else {
+			html.append("<div style='margin-top:8px;color:#334155;'>Total bobot pembagi: <b>")
+					.append(Common.numberFormat.get().format(totalBobot)).append("%</b>.</div>");
+			html.append("<div style='margin-top:4px;color:#334155;'>Kontribusi terbesar berasal dari <b>")
+					.append(teksAmanHtml(namaMax)).append("</b>");
+			if (namaMin != null && !namaMin.trim().isEmpty()) {
+				html.append(", sedangkan kontribusi terkecil dari <b>").append(teksAmanHtml(namaMin)).append("</b>");
+			}
+			html.append(".</div>");
+		}
+		html.append("</div>");
+		return html.toString();
+	}
+
+	private NilaiHuruf ambilAturanNilaiHuruf(Detailperkuliahan detailperkuliahan, double total) {
+		try {
+			Matakuliah matakuliah = detailperkuliahan.getPerkuliahan() == null ? detailperkuliahan.getMatakuliahKonversi()
+					: detailperkuliahan.getPerkuliahan().getMatakuliah();
+			Mahasiswa mahasiswa = detailperkuliahan.getMahasiswa();
+			Jurusan jurusan = mahasiswa == null ? null : mahasiswa.getJurusan();
+			Fakultas fakultas = jurusan == null ? null : jurusan.getFakultas();
+			return Common.getNilaiHuruf(Double.valueOf(total), mahasiswa == null ? null : mahasiswa.getTahunangkatan(),
+					jurusan, fakultas, detailperkuliahan.getTahunAkademik(),
+					detailperkuliahan.getPerkuliahan() == null ? null : detailperkuliahan.getPerkuliahan().getGanjilGenap(),
+					matakuliah == null ? "" : matakuliah.getKode(),
+					matakuliah == null ? null : matakuliah.getJenisNilaiHuruf());
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+			return null;
+		}
+	}
+
+	private NilaiHuruf ambilAturanNilaiHurufBerikut(Detailperkuliahan detailperkuliahan, double total) {
+		NilaiHuruf kandidat = null;
+		try {
+			for (NilaiHuruf nilaiHuruf : ConstantValues.nilaiHurufs) {
+				if (nilaiHuruf == null || nilaiHuruf.getMulai() == null || nilaiHuruf.getNilaiHuruf() == null
+						|| nilaiHuruf.getMulai().doubleValue() <= total) {
+					continue;
+				}
+				NilaiHuruf cocok = ambilAturanNilaiHuruf(detailperkuliahan, nilaiHuruf.getMulai().doubleValue());
+				if (cocok == null || cocok.getNilaiHuruf() == null
+						|| !cocok.getNilaiHuruf().equalsIgnoreCase(nilaiHuruf.getNilaiHuruf())) {
+					continue;
+				}
+				if (kandidat == null || nilaiHuruf.getMulai().doubleValue() < kandidat.getMulai().doubleValue()) {
+					kandidat = nilaiHuruf;
+				}
+			}
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+		}
+		return kandidat;
+	}
+
+	private double nilaiAman(Double nilai) {
+		if (nilai == null || nilai.isNaN() || nilai.isInfinite()) {
+			return 0.0;
+		}
+		return nilai.doubleValue();
+	}
+
+	private String teksAmanHtml(String teks) {
+		if (teks == null) {
+			return "";
+		}
+		return teks.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
 	}
 
 }

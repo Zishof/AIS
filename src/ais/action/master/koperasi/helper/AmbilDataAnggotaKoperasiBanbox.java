@@ -327,6 +327,16 @@ public class AmbilDataAnggotaKoperasiBanbox extends Bandbox implements GetEventL
 
 	}
 
+	/**
+	 * Menjalankan pencarian {@link AnggotaKoperasi} berdasarkan kriteria pada popup: koperasi
+	 * terpilih (combobox {@code koperasi}), kecocokan ILIKE {@code nama} dan {@code kode} bila
+	 * diisi. Anggota selalu disaring {@code aktif = true} atau {@code aktif} null, diurutkan
+	 * berdasarkan nama, dan hasilnya dipasang ke {@link #grid} lewat {@link AnggotaKoperasiRenderer},
+	 * dibatasi {@link Common#MAX_RESULT_50} baris.
+	 *
+	 * @param event event pemicu (boleh {@code null}, tidak dipakai isinya — hanya sinyal untuk
+	 *              menjalankan ulang pencarian)
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -353,10 +363,18 @@ public class AmbilDataAnggotaKoperasiBanbox extends Bandbox implements GetEventL
 
 	}
 
+	/**
+	 * Memasang listener yang dipanggil setelah pengguna memilih satu anggota koperasi di grid.
+	 *
+	 * @param eventListener listener baru yang akan dipasang
+	 */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/**
+	 * @return listener yang saat ini terpasang, atau {@code null} bila belum diset
+	 */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
