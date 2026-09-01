@@ -8,6 +8,28 @@ ke referensi, `[lengkap]` = file berdiri sendiri sudah didokumentasikan penuh ta
 perlu referensi eksternal, `[sebagian]` = baru sebagian method, `[belum]` = belum
 disentuh (default untuk semua file yang tidak disebut di sini).
 
+## ais/ui/util/ (pola lintas-modul)
+
+- [referensi] `GetEventListener.java` — interface kecil (2 method) diperkaya jadi
+  referensi arsitektur pola "Bandbox picker" AIS: kerangka constructor/`display()`/
+  `onSearchDefault()`/renderer-batin/callback yang identik di 83 file
+  `AmbilData*Banbox` tersebar di banyak `ais.action.master.<modul>.helper`. r82818,
+  dikompilasi & di-mirror (verifikasi `cmp` byte-identik).
+- **Temuan penting (jangan diulang di sesi berikutnya)**: banyak file `AmbilData*Banbox`
+  SUDAH punya Javadoc, tapi berupa TEMPLATE GENERIK hasil pass otomatis sebelumnya
+  (ciri: frasa "Kelas ini memberi nama dan batas tanggung jawab yang eksplisit...",
+  "Batas tanggung jawab:...", "Efek samping: nama operasi di atas menunjukkan...").
+  Minimal 57 file di seluruh codebase mengandung frasa ini (`grep -rl "memberi nama
+  dan batas tanggung jawab yang eksplisit"`), dan 1946 file mengandung marker
+  `auto-audit(empty-catch)` (pass otomatis lain, urusan exception handling, mungkin
+  turut menambah Javadoc generik). ~7405/7401 file sudah punya MINIMAL SATU blok
+  `/**` — jadi skala kerja sebenarnya bukan "tulis dari nol" tapi mayoritas
+  "tingkatkan Javadoc generik/template jadi spesifik & akurat", sesuai instruksi
+  pengguna (jangan kurangi, kembangkan). Prioritaskan grep frasa template di atas
+  untuk menemukan kandidat "sudah ada tapi dangkal" secara cepat.
+- Batch penautan 83 file `AmbilData*Banbox` ke referensi ini sedang berjalan (4 agent
+  paralel @ ~20-22 file) — hasil akan dicatat sesi berikutnya begitu selesai.
+
 ## ais/action/master/helper/
 
 - [referensi] `GenericRevisiHelper.java` — Javadoc class-level ~900 kata (arsitektur
