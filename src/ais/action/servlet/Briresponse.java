@@ -23,6 +23,7 @@ import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 import org.json.JSONObject;
 
+import ais.action.master.sekolah.util.DepositHelper;
 import ais.action.master.sekolah.util.PembayaranSiswaUtil;
 import ais.action.report.CommonReportHelper;
 import ais.action.ws.util.PembayaranUtil;
@@ -488,20 +489,25 @@ public class Briresponse extends HttpServlet {
 
 						Double deposit = briRequest.getAmount() - totalSemua;
 
-						if (briRequest.getSiswa() != null) {
+						if (briRequest.getSiswa() != null && deposit != null && deposit.doubleValue() > 0.1) {
 							DepositSiswa depositSiswa = new DepositSiswa();
 							depositSiswa.setSiswa(briRequest.getSiswa());
+							depositSiswa.setCalonSiswa(briRequest.getCalonSiswa());
 							depositSiswa.setPembayaranSiswa(null);
 
-							depositSiswa.setYayasan(depositSiswa.getYayasan());
+							depositSiswa.setAkunPembayaranSiswa(akunPembayaranSiswa);
+							depositSiswa.setYayasan(sekolah == null ? null : sekolah.getYayasan());
 							depositSiswa.setSekolah(sekolah);
 							depositSiswa.setInquiryPembayaran("000000");
 							depositSiswa.setNominal(deposit);
 							depositSiswa.setTanggalBayar(ais.ui.util.WaktuUtil.getDate());
 							depositSiswa.setWaktu(ais.ui.util.WaktuUtil.getDate());
+							depositSiswa.setValidator(Common.getKonfigurasi("default_validator_bri", "BRI").getNilai());
 							depositSiswa.setKeterangan("Tabungan");
 							session.getTransaction().begin();
 							session.save(depositSiswa);
+							DepositHelper.catatTopupSiswa(session, briRequest.getSiswa(), briRequest.getCalonSiswa(),
+									deposit, depositSiswa.getWaktu(), "BRI_REQUEST", String.valueOf(briRequest.getId()));
 							session.getTransaction().commit();
 						}
 					} catch (Exception e) {

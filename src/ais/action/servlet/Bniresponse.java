@@ -27,6 +27,7 @@ import com.bni.encrypt.BNIHash;
 
 import ais.action.master.helper.PembayaranUtilHelper;
 import ais.action.master.helper.KegiatanPersistenceHelper;
+import ais.action.master.sekolah.util.DepositHelper;
 import ais.action.master.sekolah.util.PembayaranSiswaUtil;
 import ais.action.report.CommonReportHelper;
 import ais.action.ws.util.PembayaranUtil;
@@ -621,7 +622,7 @@ public class Bniresponse extends HttpServlet {
 
 						Double deposit = bniRequest.getAmount() - totalSemua;
 
-						if (bniRequest.getSiswa() != null) {
+						if (bniRequest.getSiswa() != null && deposit != null && deposit.doubleValue() > 0.1) {
 
 							DepositSiswa depositSiswa = (DepositSiswa) session.createCriteria(DepositSiswa.class)
 									.add(Restrictions.eq("bniRequest", bniRequest)).setMaxResults(1).uniqueResult();
@@ -645,6 +646,8 @@ public class Bniresponse extends HttpServlet {
 
 							session.getTransaction().begin();
 							session.saveOrUpdate(depositSiswa);
+							DepositHelper.catatTopupSiswa(session, bniRequest.getSiswa(), bniRequest.getCalonSiswa(),
+									deposit, depositSiswa.getWaktu(), "BNI_REQUEST", String.valueOf(bniRequest.getId()));
 							session.getTransaction().commit();
 
 							PembayaranSiswaUtil.cetakDeposit(depositSiswa);

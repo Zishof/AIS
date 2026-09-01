@@ -1192,6 +1192,8 @@ public class PosApi extends HttpServlet {
 				prosesDetailTransaksi(tbmuser, payload, hasil);
 			} else if ("laporan_order_list".equals(action)) {
 				prosesLaporanOrderList(tbmuser, payload, hasil);
+			} else if ("laporan_rincian_produk".equals(action)) {
+				prosesLaporanRincianProduk(tbmuser, payload, hasil);
 			} else if ("transaksi_backup_toko_list".equals(action)) {
 				prosesTransaksiBackupTokoList(tbmuser, payload, hasil);
 			} else if ("transaksi_backup_ack".equals(action)) {
@@ -4053,6 +4055,160 @@ public class PosApi extends HttpServlet {
 		}
 	}
 
+
+	/**
+	 * Rincian produk terjual sampai tingkat item (permintaan An Nahl, 1 September 2026):
+	 * laporan kasir yang selama ini hanya memuat satu baris per transaksi kini dapat diunduh
+	 * dengan rincian "produk apa saja yang terjual".
+	 *
+	 * <p>Sumber transaksinya sengaja MEMAKAI ULANG {@link #daftarOrderDenganSesi}, mesin kueri
+	 * yang sama dengan Report Order dan Report Payment. Membuat kueri transaksi sendiri akan
+	 * membuat dua laporan atas periode yang sama menampilkan himpunan transaksi berbeda begitu
+	 * salah satu filternya berubah, dan penomoran nota "Order {toko} - {sesi} - {urut}" harus
+	 * disalin ulang. Dengan cara ini nomor nota, seluruh filter, dan pembatasan hak kasir
+	 * otomatis identik.</p>
+	 *
+	 * <p>Paginasi tetap per TRANSAKSI: satu halaman memuat seluruh item milik transaksi pada
+	 * halaman itu, sehingga sebuah nota tidak pernah terpotong di tengah.</p>
+	 */
+	private void prosesLaporanRincianProduk(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
+		Long tokoId = resolveTokoId(tbmuser, payload);
+		if (tokoId == null && tbmuser.getPedagang() != null && !bolehLihatSemuaToko(tbmuser)) {
+			hasil.put("status", "error");
+			hasil.put("message", "Toko tidak diketahui utk akun ini.");
+			return;
+		}
+
+		// Pembatasan kasir: pola SAMA dgn prosesLaporanOrderList -- akun non-supervisor hanya
+		// boleh melihat transaksinya sendiri, termasuk pada rincian item.
+		JSONObject payloadAman = new JSONObject(payload.toString());
+		if (!bolehSupervisorAtauAdmin(tbmuser)) {
+			String namaKasirLogin = tbmuser == null ? "" : str(tbmuser.getUserNama()).trim();
+			if (namaKasirLogin.length() == 0 && tbmuser != null && tbmuser.getPedagang() != null)
+				namaKasirLogin = str(tbmuser.getPedagang().getNama()).trim();
+			if (namaKasirLogin.length() == 0 && tbmuser != null)
+				namaKasirLogin = str(tbmuser.getUserId()).trim();
+			payloadAman.put("kasirExact", namaKasirLogin.length() == 0
+					? "__AKUN_KASIR_TIDAK_DIKENAL__" : namaKasirLogin);
+		}
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			Toko toko = tokoId == null ? null : (Toko) session.get(Toko.class, tokoId);
+			String tokoKode = toko == null || toko.getKode() == null || toko.getKode().trim().isEmpty()
+					? (tokoId == null ? "semua" : "toko" + tokoId) : toko.getKode().trim();
+
+			JSONObject hasilQuery = daftarOrderDenganSesi(session, tokoId, tokoKode, payloadAman);
+			JSONArray orderArr = hasilQuery.getJSONArray("data");
+			JSONArray baris = new JSONArray();
+			double totalQtyItem = 0, totalNilaiItem = 0;
+
+			if (orderArr.length() > 0) {
+				java.util.Map<Long, JSONObject> petaOrder = new java.util.LinkedHashMap<Long, JSONObject>();
+				StringBuilder daftarId = new StringBuilder();
+				for (int i = 0; i < orderArr.length(); i++) {
+					JSONObject o = orderArr.getJSONObject(i);
+					long idTransaksi = o.optLong("idTransaksi", 0);
+					if (idTransaksi <= 0) continue;
+					petaOrder.put(Long.valueOf(idTransaksi), o);
+					if (daftarId.length() > 0) daftarId.append(",");
+					daftarId.append(idTransaksi); // long dari kueri sendiri, bukan input pengguna
+				}
+				if (daftarId.length() > 0) {
+					String sql = "SELECT COALESCE(a.pembelian_anggota_koperasi, a.id) AS id_transaksi,"
+							+ " COALESCE(NULLIF(TRIM(a.nama),''),NULLIF(TRIM(p.nama),''),'Produk tanpa nama'),"
+							+ " COALESCE(NULLIF(TRIM(a.kode),''),NULLIF(TRIM(p.kode),''),''),"
+							+ " COALESCE(a.qty,0), COALESCE(a.hargasatuan,0), COALESCE(a.diskon,0),"
+							+ " COALESCE(a.total,0), a.qty_input, COALESCE(sj.nama,''), COALESCE(sd.nama,''), a.id"
+							+ " FROM koperasi.pembelian a"
+							+ " LEFT JOIN koperasi.produk p ON p.id = a.produk"
+							+ " LEFT JOIN koperasi.satuan_produk sj ON sj.id = a.satuan_jual"
+							+ " LEFT JOIN koperasi.satuan_produk sd ON sd.id = p.satuan"
+							+ " WHERE COALESCE(a.aktif,true)=true"
+							+ " AND COALESCE(a.pembelian_anggota_koperasi, a.id) IN (" + daftarId + ")"
+							+ " ORDER BY 1, a.id";
+					java.sql.PreparedStatement ps = session.connection().prepareStatement(sql);
+					java.sql.ResultSet rs = null;
+					try {
+						rs = ps.executeQuery();
+						while (rs.next()) {
+							JSONObject induk = petaOrder.get(Long.valueOf(rs.getLong(1)));
+							JSONObject b = new JSONObject();
+							b.put("idTransaksi", rs.getLong(1));
+							b.put("nomorNota", induk == null ? "" : induk.opt("nomorNota"));
+							b.put("kodeNota", induk == null ? "" : induk.opt("kodeUnik"));
+							b.put("waktu", induk == null ? "" : induk.opt("waktu"));
+							b.put("kasir", induk == null ? "" : induk.opt("kasir"));
+							b.put("pembeli", induk == null ? "" : induk.opt("pembeli"));
+							b.put("metode", induk == null ? "" : induk.opt("metode"));
+							b.put("sesiKode", induk == null ? "" : induk.opt("sesiKode"));
+							b.put("produkNama", rs.getString(2));
+							b.put("produkKode", rs.getString(3));
+							double qty = rs.getDouble(4);
+							double hargaSatuan = rs.getDouble(5);
+							double diskon = rs.getDouble(6);
+							double totalItem = rs.getDouble(7);
+							double qtyInput = rs.getDouble(8);
+							boolean adaQtyInput = !rs.wasNull() && qtyInput > 0;
+							String satuanJual = str(rs.getString(9)).trim();
+							String satuanDasar = str(rs.getString(10)).trim();
+							b.put("qty", qty);
+							b.put("hargaSatuan", hargaSatuan);
+							b.put("diskon", diskon);
+							b.put("total", totalItem);
+							b.put("satuan", satuanDasar);
+							b.put("satuanJual", satuanJual);
+							b.put("qtyInput", adaQtyInput ? Double.valueOf(qtyInput) : JSONObject.NULL);
+							// Label kuantitas mengikuti satuan yang DIPILIH kasir (dok. 59): "2 Dus
+							// (12 Pcs)" jauh lebih terbaca daripada angka dasar saja. Bila kasir
+							// menjual per satuan dasar, cukup satu bentuk.
+							b.put("qtyTampil", labelQtyRincian(qty, qtyInput, adaQtyInput, satuanJual, satuanDasar));
+							baris.put(b);
+							totalQtyItem += qty;
+							totalNilaiItem += totalItem;
+						}
+					} finally {
+						if (rs != null) try { rs.close(); } catch (Exception abaikan) {
+							ais.common.ErrorAuditUtil.record(abaikan, "prosesLaporanRincianProduk-rs-close");
+						}
+						try { ps.close(); } catch (Exception abaikan) {
+							ais.common.ErrorAuditUtil.record(abaikan, "prosesLaporanRincianProduk-ps-close");
+						}
+					}
+				}
+			}
+
+			hasil.put("status", "success");
+			hasil.put("data", baris);
+			// total = jumlah TRANSAKSI (satuan paginasi), totalItem = jumlah baris rincian.
+			hasil.put("total", hasilQuery.getLong("total"));
+			hasil.put("totalItem", baris.length());
+			hasil.put("totalQtyItem", totalQtyItem);
+			hasil.put("totalNilaiItem", totalNilaiItem);
+			hasil.put("page", hasilQuery.getInt("page"));
+			hasil.put("pageSize", hasilQuery.getInt("pageSize"));
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** Label kuantitas rincian: "2 Dus (12 Pcs)" bila kasir memilih satuan besar, selain itu
+	 * "12 Pcs". Angka bulat ditulis tanpa ekor desimal supaya laporan tetap enak dibaca. */
+	private static String labelQtyRincian(double qty, double qtyInput, boolean adaQtyInput,
+			String satuanJual, String satuanDasar) {
+		String dasar = angkaRingkas(qty) + (satuanDasar.length() == 0 ? "" : " " + satuanDasar);
+		if (!adaQtyInput || satuanJual.length() == 0) return dasar;
+		if (satuanJual.equalsIgnoreCase(satuanDasar)) return dasar;
+		return angkaRingkas(qtyInput) + " " + satuanJual + " (" + dasar + ")";
+	}
+
+	/** 12.0 -> "12", 1.5 -> "1,5" (koma, mengikuti tampilan laporan lain). */
+	private static String angkaRingkas(double nilai) {
+		if (Math.abs(nilai - Math.rint(nilai)) < 0.0000001d) {
+			return String.valueOf((long) Math.rint(nilai));
+		}
+		return String.valueOf(nilai).replace('.', ',');
+	}
 	/**
 	 * Analitik keputusan utk Riwayat Penjualan. Seluruh agregasi dihitung di
 	 * database atas periode lengkap (bukan dari 15 baris halaman klien), dengan
