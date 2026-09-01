@@ -80,28 +80,39 @@ public final class SalesInventoryHargaHelper {
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
+			boolean jalurTenant = SalesInventoryHargaTenant.aktif(ctx);
 			StringBuilder where = new StringBuilder(" WHERE 1=1 ");
 			java.util.List<Object> params = new java.util.ArrayList<Object>();
 			if (supplierId != null) {
-				where.append(" AND h.supplier = ? ");
+				where.append(jalurTenant ? " AND h.supplier_id = ? " : " AND h.supplier = ? ");
 				params.add(supplierId);
 			}
 			if (produkId != null) {
-				where.append(" AND h.produk = ? ");
+				where.append(jalurTenant ? " AND h.produk_id = ? " : " AND h.produk = ? ");
 				params.add(produkId);
 			}
-			String dasar = " FROM koperasi.harga_beli_supplier h JOIN library.penyedia s ON h.supplier = s.id "
-					+ "JOIN koperasi.produk p ON h.produk = p.id " + where;
+			String dasar;
+			String pilih;
+			String urut;
+			if (jalurTenant) {
+				String sk = SalesInventoryHargaTenant.skema(ctx);
+				dasar = SalesInventoryHargaTenant.dasarSupplier(sk, where.toString());
+				pilih = SalesInventoryHargaTenant.selectSupplier();
+				urut = SalesInventoryHargaTenant.urutSupplier();
+			} else {
+				dasar = " FROM koperasi.harga_beli_supplier h JOIN library.penyedia s ON h.supplier = s.id "
+						+ "JOIN koperasi.produk p ON h.produk = p.id " + where;
+				pilih = "SELECT h.id, h.supplier, s.kode, s.nama, h.produk, p.kode, p.nama, h.harga, "
+						+ "h.tanggal_efektif, COALESCE(h.keterangan,''), COALESCE(h.aktif,true), COALESCE(h.oleh,'')";
+				urut = " ORDER BY p.kode ASC, h.tanggal_efektif DESC, h.id DESC LIMIT ? OFFSET ?";
+			}
 			java.sql.PreparedStatement psTotal = session.connection().prepareStatement("SELECT COUNT(*) " + dasar);
 			for (int i = 0; i < params.size(); i++) psTotal.setObject(i + 1, params.get(i));
 			java.sql.ResultSet rsTotal = psTotal.executeQuery();
 			long total = rsTotal.next() ? rsTotal.getLong(1) : 0;
 			rsTotal.close(); psTotal.close();
 
-			java.sql.PreparedStatement ps = session.connection().prepareStatement(
-					"SELECT h.id, h.supplier, s.kode, s.nama, h.produk, p.kode, p.nama, h.harga, "
-							+ "h.tanggal_efektif, COALESCE(h.keterangan,''), COALESCE(h.aktif,true), COALESCE(h.oleh,'') "
-							+ dasar + " ORDER BY p.kode ASC, h.tanggal_efektif DESC, h.id DESC LIMIT ? OFFSET ?");
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(pilih + dasar + urut);
 			int idx = 1;
 			for (int i = 0; i < params.size(); i++) ps.setObject(idx++, params.get(i));
 			ps.setInt(idx++, size);

@@ -1,9 +1,7 @@
 package ais.action.servlet.api;
 
-import ais.service.tenant.TenantAccessException;
 import ais.service.tenant.TenantContext;
 import ais.service.tenant.TenantMutasiStok;
-import ais.service.tenant.TenantSchemaService;
 
 /**
  * <h3>Jalur schema tenant untuk Persediaan &amp; Kartu Stok (P4, helper pertama).</h3>
@@ -41,29 +39,18 @@ final class SalesInventoryStokTenant {
 	private SalesInventoryStokTenant() {
 	}
 
-	/** Benar bila aktor ini dilayani schema tenant, bukan schema bersama {@code koperasi}. */
+	/**
+	 * Benar bila aktor ini dilayani schema tenant. Diteruskan ke
+	 * {@link SalesInventoryTenantSchema}, supaya sebelas helper tidak masing-masing
+	 * menyusun aturannya sendiri.
+	 */
 	static boolean aktif(EbisnisActorContextResolver.ActorContext aktor) {
-		return aktor != null && aktor.tenant != null
-				&& aktor.tenant.getSchemaName() != null
-				&& aktor.tenant.getSchemaName().trim().length() > 0;
+		return SalesInventoryTenantSchema.aktif(aktor);
 	}
 
-	/**
-	 * Prefiks schema berikut titiknya. Divalidasi {@link TenantSchemaService#pastikanAman} --
-	 * validator yang sama dengan jalur {@code {S}}, bukan pengutipan sendiri.
-	 */
+	/** Prefiks schema berikut titiknya. Lihat {@link SalesInventoryTenantSchema#skema}. */
 	static String skema(TenantContext tenant) {
-		String s = tenant == null ? null : tenant.getSchemaName();
-		if (s == null || s.trim().length() == 0) {
-			throw new TenantAccessException(TenantAccessException.TENANT_SCHEMA_INVALID,
-					"Tenant ini tidak memiliki schema.");
-		}
-		try {
-			return "\"" + TenantSchemaService.pastikanAman(s.trim()) + "\".";
-		} catch (IllegalArgumentException e) {
-			throw new TenantAccessException(TenantAccessException.TENANT_SCHEMA_INVALID,
-					"Konfigurasi schema tenant tidak sah.", e);
-		}
+		return SalesInventoryTenantSchema.skema(tenant);
 	}
 
 	/** Penjumlah satu ember dari buku besar, sebagai subkueri terkorelasi ke {@code p.id}. */

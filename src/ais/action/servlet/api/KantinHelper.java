@@ -1480,13 +1480,34 @@ public class KantinHelper {
 							pesanWajibBlokir.append(s);
 						}
 						hasil.put("status", "91");
-						hasil.put("description", "Stok tidak mencukupi utk produk yang dikunci admin (tidak boleh dijual minus): " + pesanWajibBlokir);
+						// Pesan menyebut SETELAN yang benar-benar menyebabkannya, berikut dua jalan
+						// keluar yang dapat dikerjakan sendiri oleh operator. Versi lama hanya
+						// berbunyi "dikunci admin" -- benar sebagai sebab, tetapi tidak memberi tahu
+						// setelan mana yang harus dibuka, sehingga pesanan menggantung tanpa siapa
+						// pun tahu langkah berikutnya.
+						hasil.put("description", "Stok tidak mencukupi untuk produk yang disetel"
+								+ " \"Wajib Diblokir Jika Stok Tidak Cukup\" pada master Produk: " + pesanWajibBlokir
+								+ ". Perbaiki stoknya dahulu (Kulakan/Stok Opname), atau ubah"
+								+ " \"Aturan Jual Saat Stok Kurang\" produk tsb ke \"Ikut Pengaturan Toko\""
+								+ " bila memang boleh dijual walau stok kurang.");
 						return;
 					}
 					// Kekurangan yang memang diizinkan oleh kebijakan toko atau override produk bukan
 					// exception. Jangan membuat RuntimeException buatan karena akan tampil sebagai ERROR
 					// produksi walaupun transaksi berhasil. Audit transaksi dan mutasi stok normal sudah
 					// cukup untuk menelusuri penjualan dengan saldo stok nol/minus.
+					//
+					// Tetapi DIAM juga bukan jawabannya: penjualan yang lolos dgn stok minus adalah
+					// satu-satunya tanda bahwa saldo stok perlu diopname. Kekurangannya dititipkan
+					// pada respons sbg PERINGATAN -- transaksi tetap sukses, kasir tetap jalan, dan
+					// yang perlu ditindaklanjuti tidak lagi hanya tersimpan di audit log yang tak
+					// pernah dibuka siapa pun.
+					if (stokKurang != null && stokKurang.semuaKurang != null
+							&& !stokKurang.semuaKurang.isEmpty()) {
+						hasil.put("peringatanStok", "Transaksi tetap dicatat, tetapi saldo stok produk"
+								+ " berikut tidak mencukupi: " + gabungkanDenganKoma(stokKurang.semuaKurang)
+								+ ". Lakukan Stok Opname agar saldo stok kembali sesuai fisik.");
+					}
 
 					TotalHitung th = hitungTotalDiskonCashback(jsonObject, transaksiRata, "bayarHitungTotal");
 					Double total = Double.valueOf(th.total);
@@ -2230,12 +2251,37 @@ public class KantinHelper {
 				double terkunciReservasi = !reservasiMengunci || row[3] == null ? 0.0
 						: ((Number) row[3]).doubleValue();
 				double stokBolehDijual = stokLive - terkunciReservasi;
-				if (stokBolehDijual < qtyDiminta && !Boolean.TRUE.equals(overridePerItem)) {
+				if (stokBolehDijual < qtyDiminta) {
 					String deskripsi = nama + " (sisa " + stokLive
 							+ (terkunciReservasi > 0 ? ", terkunci reservasi WO " + terkunciReservasi : "")
 							+ ", diminta " + qtyDiminta + ")";
 					kurang.add(deskripsi);
-					wajibBlokir.add(deskripsi);
+					// PENANDA wajibDiblokirEksplisit -- HANYA nilai FALSE yang memblokir.
+					//
+					// `izinkan_jual_minus_stok` bernilai TIGA, bukan dua (lihat combo "Aturan Jual
+					// Saat Stok Kurang" pada master Produk):
+					//   null  = "Ikut Pengaturan Toko (default)"        -> TIDAK memblokir
+					//   TRUE  = "Selalu Boleh Dijual Walau Stok Minus"  -> TIDAK memblokir
+					//   FALSE = "Wajib Diblokir Jika Stok Tidak Cukup"  -> memblokir
+					//
+					// Sejak r77493 (16-08-2026) syaratnya `!Boolean.TRUE.equals(...)`, yang
+					// menyamakan null dengan FALSE. Akibatnya SELURUH produk yang belum pernah
+					// disetel admin ikut diblokir keras, dan pesan penolakannya menyebut
+					// "produk yang dikunci admin" untuk produk yang tidak pernah dikunci siapa
+					// pun -- pesan yang menuduh pengaturan yang tidak ada membuat operator
+					// mencari sebab di tempat yang salah.
+					//
+					// Itu sekaligus membatalkan keputusan 20-07-2026 (fail-open penuh) yang
+					// diminta eksplisit karena blokir keras menolak transaksi pelanggan yang SAH
+					// di toko yang baseline stok historisnya belum bersih -- persis keadaan yang
+					// kembali terjadi pada 01-09-2026 (pesanan online e-Kantin macet "belum
+					// dibayar", poin reward member tidak terhitung).
+					//
+					// Kekurangan tetap dicatat pada `kurang` (audit + peringatan pada respons),
+					// jadi yang hilang hanya blokirnya, bukan jejaknya.
+					if (Boolean.FALSE.equals(overridePerItem)) {
+						wajibBlokir.add(deskripsi);
+					}
 				}
 			}
 			lockSession.getTransaction().commit();
