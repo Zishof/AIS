@@ -278,7 +278,7 @@ public class AuditListener extends AuditEventListener {
 	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
 	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
 	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long mahasiswaId}, {@code String
-	 * tahunAkademik}, {@code Integer semester}, {@code boolean pembayaranLunas}; operasi lokal: {@code key}().
+	 * tahunAkademik}, {@code Integer semester}; operasi lokal: {@code key}().
 	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
 	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
 	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
