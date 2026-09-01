@@ -49,6 +49,29 @@ public final class LaporanKantinUtil {
     }
 
     /** Ekspresi omzet per baris pembelian (alias p=pembelian, pr=produk). */
+    /**
+     * Identitas kasir pada nota ({@code koperasi.pembelian_anggota_koperasi}, alias {@code h}).
+     *
+     * <p>Sebelumnya laporan kasir memakai {@code h.oleh}. Kolom itu METADATA AUDIT -- berisi
+     * siapa yang terakhir menulis baris, dan pada jalur sinkronisasi dapat berisi penanda
+     * sistem seperti {@code external_update} -- sehingga laporan bisa mengelompokkan penjualan
+     * ke "kasir" yang tidak pernah melayani transaksinya. Snapshot kasir pada nota adalah
+     * satu-satunya sumber identitas, sama seperti yang dipakai laporan di aplikasi kasir
+     * ({@code PosApi.daftarOrderDenganSesi}).</p>
+     */
+    private static final String KASIR_NOTA =
+        "coalesce(nullif(trim(h.kasir_login_nama),''),'Kasir tidak tercatat')";
+
+    /**
+     * Label produk pada baris item: memakai master bila ada, dan JATUH ke nama/kode snapshot
+     * yang tersimpan di baris penjualan bila produknya sudah dihapus. Dengan {@code left join},
+     * penjualan produk terhapus tetap muncul; dengan {@code join} biasa baris itu hilang dari
+     * laporan tanpa jejak sehingga total laporan lebih kecil daripada penjualan sebenarnya.
+     */
+    private static final String LABEL_PRODUK_ITEM =
+        "(coalesce(nullif(trim(pr.kode),''), nullif(trim(p.kode),''), '') || ' - '"
+        + " || coalesce(nullif(trim(pr.nama),''), nullif(trim(p.nama),''), 'Produk tanpa nama'))";
+
     private static final String OMZET =
         "(coalesce(p.hargasatuan, pr.hargajual, 0) * coalesce(p.qty,0) - coalesce(p.diskon,0))";
 
@@ -99,6 +122,23 @@ public final class LaporanKantinUtil {
     private static boolean ada(String s) { return s != null && s.trim().length() > 0; }
 
     /** Klausa rentang tanggal pada kolom tertentu + isi parameter ke map (idempoten). */
+    /**
+     * Klausa periode untuk baris ITEM PENJUALAN ({@code koperasi.pembelian}, alias {@code p})
+     * SEKALIGUS menyingkirkan baris yang sudah tidak aktif.
+     *
+     * <p>Laporan POS di aplikasi kasir ({@code PosApi.daftarOrderDenganSesi}) menyaring
+     * {@code COALESCE(a.aktif,true)=true}; laporan web sebelumnya tidak menyaring apa pun.
+     * Akibatnya baris yang dinonaktifkan ikut terhitung di web, sehingga qty dan omzet untuk
+     * periode yang sama bisa berbeda antara dua laporan tanpa penjelasan -- selisih seperti itu
+     * merusak kepercayaan pada seluruh laporan. Dipusatkan di sini supaya setiap laporan
+     * berbasis item memakai batas yang sama; jangan memanggil {@code klausaTanggal("p.waktu",
+     * ...)} langsung lagi.</p>
+     */
+    private static String klausaPeriodeItemPenjualan(String tglMulai, String tglSampai,
+            Map<String, Object> p) {
+        return klausaTanggal("p.waktu", tglMulai, tglSampai, p) + " and coalesce(p.aktif,true)=true ";
+    }
+
     private static String klausaTanggal(String kolom, String tglMulai, String tglSampai, Map<String, Object> p) {
         StringBuilder sb = new StringBuilder();
         if (ada(tglMulai)) { sb.append(" AND cast(").append(kolom).append(" as date) >= cast(:tglMulai as date) "); p.put("tglMulai", tglMulai.trim()); }
@@ -564,7 +604,7 @@ public final class LaporanKantinUtil {
                 judul = "Penjualan per Barang";
                 StringBuilder w = new StringBuilder(" where 1=1 ");
                 if (tokoId != null) { w.append(" and p.toko = :tokoId "); prm.put("tokoId", tokoId); }
-                w.append(klausaTanggal("p.waktu", tglMulai, tglSampai, prm));
+                w.append(klausaPeriodeItemPenjualan(tglMulai, tglSampai, prm));
                 if (qp != null) { w.append(" and (lower(pr.kode) like :qp or lower(pr.nama) like :qp) "); prm.put("qp", qp); }
                 sql = "select pr.kode, pr.nama, sum(coalesce(p.qty,0)), sum(" + OMZET + ") "
                     + " from koperasi.pembelian p join koperasi.produk pr on pr.id=p.produk "
@@ -576,7 +616,7 @@ public final class LaporanKantinUtil {
                 judul = "Barang Paling Laku";
                 StringBuilder w = new StringBuilder(" where 1=1 ");
                 if (tokoId != null) { w.append(" and p.toko = :tokoId "); prm.put("tokoId", tokoId); }
-                w.append(klausaTanggal("p.waktu", tglMulai, tglSampai, prm));
+                w.append(klausaPeriodeItemPenjualan(tglMulai, tglSampai, prm));
                 if (qp != null) { w.append(" and (lower(pr.kode) like :qp or lower(pr.nama) like :qp) "); prm.put("qp", qp); }
                 sql = "select pr.kode, pr.nama, sum(coalesce(p.qty,0)), sum(" + OMZET + ") "
                     + " from koperasi.pembelian p join koperasi.produk pr on pr.id=p.produk "
@@ -588,14 +628,16 @@ public final class LaporanKantinUtil {
                 judul = "Rincian Penjualan per Barang"; grupIdx = 0;
                 StringBuilder w = new StringBuilder(" where 1=1 ");
                 if (tokoId != null) { w.append(" and p.toko = :tokoId "); prm.put("tokoId", tokoId); }
-                w.append(klausaTanggal("p.waktu", tglMulai, tglSampai, prm));
-                if (qp != null) { w.append(" and (lower(pr.kode) like :qp or lower(pr.nama) like :qp) "); prm.put("qp", qp); }
-                sql = "select (coalesce(pr.kode,'') || ' - ' || coalesce(pr.nama,'')) as produk, p.waktu, h.kode, coalesce(p.qty,0), coalesce(p.hargasatuan, pr.hargajual, 0), " + OMZET
-                    + " from koperasi.pembelian p join koperasi.produk pr on pr.id=p.produk "
+                w.append(klausaPeriodeItemPenjualan(tglMulai, tglSampai, prm));
+                if (qp != null) { w.append(" and (lower(coalesce(pr.kode,p.kode,'')) like :qp"
+                        + " or lower(coalesce(pr.nama,p.nama,'')) like :qp) "); prm.put("qp", qp); }
+                sql = "select " + LABEL_PRODUK_ITEM + " as produk, p.waktu, h.kode, " + KASIR_NOTA + ", coalesce(p.qty,0), coalesce(p.hargasatuan, pr.hargajual, 0), " + OMZET
+                    + " from koperasi.pembelian p left join koperasi.produk pr on pr.id=p.produk "
                     + " left join koperasi.pembelian_anggota_koperasi h on h.id=p.pembelian_anggota_koperasi "
-                    + w + " order by pr.nama asc, p.waktu desc ";
-                tipe = new String[]{"text","tgl","text","num","num","num"};
+                    + w + " order by 1 asc, p.waktu desc ";
+                tipe = new String[]{"text","tgl","text","text","num","num","num"};
                 kolom.add(new Kolom("Produk","text")); kolom.add(new Kolom("Tanggal","tgl")); kolom.add(new Kolom("No. Faktur","text"));
+                kolom.add(new Kolom("Kasir","text"));
                 kolom.add(new Kolom("Qty","num")); kolom.add(new Kolom("Harga","num")); kolom.add(new Kolom("Total","num"));
 
             } else if ("pnj_per_pelanggan".equals(r)) { tokoIdCol = "h.toko";
@@ -641,10 +683,10 @@ public final class LaporanKantinUtil {
                 StringBuilder w = new StringBuilder(" where 1=1 ");
                 if (tokoId != null) { w.append(" and h.toko = :tokoId "); prm.put("tokoId", tokoId); }
                 w.append(klausaTanggal("h.tanggal_pembayaran", tglMulai, tglSampai, prm));
-                sql = "select coalesce(h.oleh,'-'), count(distinct h.id), sum(coalesce(h.bayar_tunai,0)), "
+                sql = "select " + KASIR_NOTA + ", count(distinct h.id), sum(coalesce(h.bayar_tunai,0)), "
                     + " sum(coalesce(h.bayar_non_tunai,0)), sum(coalesce(h.total_biaya,0)) "
                     + " from koperasi.pembelian_anggota_koperasi h join koperasi.toko t on t.id=h.toko "
-                    + w + " group by h.oleh order by 5 desc ";
+                    + w + " group by " + KASIR_NOTA + " order by 5 desc ";
                 tipe = new String[]{"text","num","num","num","num"};
                 kolom.add(new Kolom("Kasir","text")); kolom.add(new Kolom("Jml Transaksi","num")); kolom.add(new Kolom("Tunai","num")); kolom.add(new Kolom("Non Tunai","num")); kolom.add(new Kolom("Total","num"));
 
@@ -688,7 +730,7 @@ public final class LaporanKantinUtil {
                 catatan = "Pemasok ditentukan dari pengadaan terakhir tiap produk.";
                 StringBuilder w = new StringBuilder(" where 1=1 ");
                 w.append(kondToko("p.toko", tokoId, prm));
-                w.append(klausaTanggal("p.waktu", tglMulai, tglSampai, prm));
+                w.append(klausaPeriodeItemPenjualan(tglMulai, tglSampai, prm));
                 if (qp != null) { w.append(" and (lower(pr.kode) like :qp or lower(pr.nama) like :qp) "); prm.put("qp", qp); }
                 sql = "select coalesce(ps.pemasok,'(Tanpa Pemasok)'), sum(coalesce(p.qty,0)), sum(" + OMZET + ") "
                     + " from koperasi.pembelian p join koperasi.produk pr on pr.id=p.produk "
@@ -1125,7 +1167,7 @@ public final class LaporanKantinUtil {
                     + " coalesce(p.keterangan,''), coalesce(p.oleh,'') "
                     + " from koperasi.penyesuaian_saldo_anggota p "
                     + " left join koperasi.anggota_koperasi a on a.id = p.anggota_koperasi "
-                    + " where 1=1 " + klausaTanggal("p.waktu", tglMulai, tglSampai, prm)
+                    + " where 1=1 " + klausaPeriodeItemPenjualan(tglMulai, tglSampai, prm)
                     + " order by p.waktu desc, p.id desc ";
                 tipe = new String[]{"tgl","text","text","num","num","num","text","text"};
                 kolom.add(new Kolom("Tanggal","tgl")); kolom.add(new Kolom("Kode Anggota","text"));
@@ -1144,7 +1186,7 @@ public final class LaporanKantinUtil {
                     + " coalesce(sum(p.selisih),0) "
                     + " from koperasi.penyesuaian_saldo_anggota p "
                     + " left join koperasi.anggota_koperasi a on a.id = p.anggota_koperasi "
-                    + " where 1=1 " + klausaTanggal("p.waktu", tglMulai, tglSampai, prm)
+                    + " where 1=1 " + klausaPeriodeItemPenjualan(tglMulai, tglSampai, prm)
                     + " group by a.kode, a.nama "
                     + " order by abs(coalesce(sum(p.selisih),0)) desc ";
                 tipe = new String[]{"text","text","num","num","num","num"};
@@ -1187,10 +1229,10 @@ public final class LaporanKantinUtil {
                 StringBuilder w = new StringBuilder(" where 1=1 ");
                 if (tokoId != null) { w.append(" and h.toko = :tokoId "); prm.put("tokoId", tokoId); }
                 w.append(klausaTanggal("h.tanggal_pembayaran", tglMulai, tglSampai, prm));
-                sql = "select coalesce(h.oleh,'-') as kasir, cast(h.tanggal_pembayaran as date), count(distinct h.id), "
+                sql = "select " + KASIR_NOTA + " as kasir, cast(h.tanggal_pembayaran as date), count(distinct h.id), "
                     + " sum(coalesce(h.bayar_tunai,0)), sum(coalesce(h.bayar_non_tunai,0)), sum(coalesce(h.total_biaya,0)) "
                     + " from koperasi.pembelian_anggota_koperasi h join koperasi.toko t on t.id=h.toko "
-                    + w + " group by h.oleh, cast(h.tanggal_pembayaran as date) order by h.oleh asc, 2 asc ";
+                    + w + " group by " + KASIR_NOTA + ", cast(h.tanggal_pembayaran as date) order by 1 asc, 2 asc ";
                 tipe = new String[]{"text","tgl","num","num","num","num"};
                 kolom.add(new Kolom("Kasir","text")); kolom.add(new Kolom("Tanggal","tgl")); kolom.add(new Kolom("Jml Transaksi","num"));
                 kolom.add(new Kolom("Tunai","num")); kolom.add(new Kolom("Non Tunai","num")); kolom.add(new Kolom("Total","num"));
@@ -1506,11 +1548,12 @@ public final class LaporanKantinUtil {
                 catatan = "Rincian item tiap transaksi POS (dikelompokkan per nomor faktur).";
                 StringBuilder w = new StringBuilder(" where 1=1 ");
                 if (tokoId != null) { w.append(" and p.toko = :tokoId "); prm.put("tokoId", tokoId); }
-                w.append(klausaTanggal("p.waktu", tglMulai, tglSampai, prm));
-                if (qp != null) { w.append(" and (lower(pr.kode) like :qp or lower(pr.nama) like :qp) "); prm.put("qp", qp); }
-                sql = "select coalesce(h.kode,'-') as faktur, p.waktu, coalesce(h.oleh,'-'), coalesce(a.nama,'Umum'), "
-                    + " (coalesce(pr.kode,'')||' - '||coalesce(pr.nama,'')), coalesce(p.qty,0), coalesce(p.hargasatuan, pr.hargajual, 0), coalesce(p.diskon,0), " + OMZET
-                    + " from koperasi.pembelian p join koperasi.produk pr on pr.id=p.produk "
+                w.append(klausaPeriodeItemPenjualan(tglMulai, tglSampai, prm));
+                if (qp != null) { w.append(" and (lower(coalesce(pr.kode,p.kode,'')) like :qp"
+                        + " or lower(coalesce(pr.nama,p.nama,'')) like :qp) "); prm.put("qp", qp); }
+                sql = "select coalesce(h.kode,'-') as faktur, p.waktu, " + KASIR_NOTA + ", coalesce(a.nama,'Umum'), "
+                    + " " + LABEL_PRODUK_ITEM + ", coalesce(p.qty,0), coalesce(p.hargasatuan, pr.hargajual, 0), coalesce(p.diskon,0), " + OMZET
+                    + " from koperasi.pembelian p left join koperasi.produk pr on pr.id=p.produk "
                     + " left join koperasi.pembelian_anggota_koperasi h on h.id=p.pembelian_anggota_koperasi "
                     + " left join koperasi.anggota_koperasi a on a.id=h.anggota_koperasi "
                     + w + " order by p.waktu desc, faktur asc ";
@@ -1534,7 +1577,7 @@ public final class LaporanKantinUtil {
                 judul = "Penjualan per Kategori Produk";
                 StringBuilder w = new StringBuilder(" where 1=1 ");
                 if (tokoId != null) { w.append(" and p.toko = :tokoId "); prm.put("tokoId", tokoId); }
-                w.append(klausaTanggal("p.waktu", tglMulai, tglSampai, prm));
+                w.append(klausaPeriodeItemPenjualan(tglMulai, tglSampai, prm));
                 sql = "select coalesce(k.nama,'Umum'), sum(coalesce(p.qty,0)), sum(" + OMZET + ") "
                     + " from koperasi.pembelian p join koperasi.produk pr on pr.id=p.produk "
                     + " left join koperasi.jenis_produk k on k.id=pr.jenis_produk " + w
@@ -1547,7 +1590,7 @@ public final class LaporanKantinUtil {
                 catatan = "Laba per produk = penjualan - HPP (qty x harga modal).";
                 StringBuilder w = new StringBuilder(" where 1=1 ");
                 if (tokoId != null) { w.append(" and p.toko = :tokoId "); prm.put("tokoId", tokoId); }
-                w.append(klausaTanggal("p.waktu", tglMulai, tglSampai, prm));
+                w.append(klausaPeriodeItemPenjualan(tglMulai, tglSampai, prm));
                 if (qp != null) { w.append(" and (lower(pr.kode) like :qp or lower(pr.nama) like :qp) "); prm.put("qp", qp); }
                 sql = "select pr.kode, pr.nama, sum(coalesce(p.qty,0)), sum(" + OMZET + "), sum(coalesce(p.qty,0)*coalesce(pr.hargabeli,0)), "
                     + " (sum(" + OMZET + ") - sum(coalesce(p.qty,0)*coalesce(pr.hargabeli,0))) "
@@ -1560,7 +1603,7 @@ public final class LaporanKantinUtil {
                 judul = "Margin per Kategori";
                 StringBuilder w = new StringBuilder(" where 1=1 ");
                 if (tokoId != null) { w.append(" and p.toko = :tokoId "); prm.put("tokoId", tokoId); }
-                w.append(klausaTanggal("p.waktu", tglMulai, tglSampai, prm));
+                w.append(klausaPeriodeItemPenjualan(tglMulai, tglSampai, prm));
                 sql = "select coalesce(k.nama,'Umum'), sum(" + OMZET + "), sum(coalesce(p.qty,0)*coalesce(pr.hargabeli,0)), "
                     + " (sum(" + OMZET + ") - sum(coalesce(p.qty,0)*coalesce(pr.hargabeli,0))) "
                     + " from koperasi.pembelian p join koperasi.produk pr on pr.id=p.produk "
@@ -1574,7 +1617,7 @@ public final class LaporanKantinUtil {
                 catatan = "Penjualan dikurangi HPP per hari (berbasis harga modal produk).";
                 StringBuilder w = new StringBuilder(" where 1=1 ");
                 if (tokoId != null) { w.append(" and p.toko = :tokoId "); prm.put("tokoId", tokoId); }
-                w.append(klausaTanggal("p.waktu", tglMulai, tglSampai, prm));
+                w.append(klausaPeriodeItemPenjualan(tglMulai, tglSampai, prm));
                 sql = "select cast(p.waktu as date), sum(" + OMZET + "), sum(coalesce(p.qty,0)*coalesce(pr.hargabeli,0)), "
                     + " (sum(" + OMZET + ") - sum(coalesce(p.qty,0)*coalesce(pr.hargabeli,0))) "
                     + " from koperasi.pembelian p join koperasi.produk pr on pr.id=p.produk " + w
@@ -1587,7 +1630,7 @@ public final class LaporanKantinUtil {
                 catatan = "Transaksi dengan harga jual lebih rendah dari harga modal (indikasi rugi / diskon berlebih).";
                 StringBuilder w = new StringBuilder(" where coalesce(p.hargasatuan, pr.hargajual, 0) < coalesce(pr.hargabeli,0) ");
                 if (tokoId != null) { w.append(" and p.toko = :tokoId "); prm.put("tokoId", tokoId); }
-                w.append(klausaTanggal("p.waktu", tglMulai, tglSampai, prm));
+                w.append(klausaPeriodeItemPenjualan(tglMulai, tglSampai, prm));
                 if (qp != null) { w.append(" and (lower(pr.kode) like :qp or lower(pr.nama) like :qp) "); prm.put("qp", qp); }
                 sql = "select p.waktu, coalesce(h.kode,'-'), pr.kode, pr.nama, coalesce(p.hargasatuan, pr.hargajual, 0), coalesce(pr.hargabeli,0), "
                     + " (coalesce(p.hargasatuan, pr.hargajual, 0) - coalesce(pr.hargabeli,0)) "
@@ -1603,7 +1646,7 @@ public final class LaporanKantinUtil {
                 catatan = "Produk yang tetap terjual namun paling lambat pergerakannya (qty terkecil) pada periode.";
                 StringBuilder w = new StringBuilder(" where 1=1 ");
                 if (tokoId != null) { w.append(" and p.toko = :tokoId "); prm.put("tokoId", tokoId); }
-                w.append(klausaTanggal("p.waktu", tglMulai, tglSampai, prm));
+                w.append(klausaPeriodeItemPenjualan(tglMulai, tglSampai, prm));
                 if (qp != null) { w.append(" and (lower(pr.kode) like :qp or lower(pr.nama) like :qp) "); prm.put("qp", qp); }
                 sql = "select pr.kode, pr.nama, sum(coalesce(p.qty,0)), sum(" + OMZET + ") "
                     + " from koperasi.pembelian p join koperasi.produk pr on pr.id=p.produk " + w
@@ -1947,7 +1990,7 @@ public final class LaporanKantinUtil {
                 w.append(kondToko("pr.toko", tokoId, prm));
                 if (qp != null) { w.append(" and (lower(pr.kode) like :qp or lower(pr.nama) like :qp) "); prm.put("qp", qp); }
                 String sub = " and not exists (select 1 from koperasi.pembelian p where p.produk=pr.id "
-                    + kondToko("p.toko", tokoId, prm) + klausaTanggal("p.waktu", tglMulai, tglSampai, prm) + ") ";
+                    + kondToko("p.toko", tokoId, prm) + klausaPeriodeItemPenjualan(tglMulai, tglSampai, prm) + ") ";
                 w.append(sub);
                 sql = "select pr.kode, pr.nama, coalesce(k.nama,'Umum'), coalesce(pr.stok,0), coalesce(pr.hargabeli,0), (coalesce(pr.stok,0)*coalesce(pr.hargabeli,0)) "
                     + " from koperasi.produk pr left join koperasi.jenis_produk k on k.id=pr.jenis_produk " + w + " order by 6 desc ";
@@ -1959,7 +2002,7 @@ public final class LaporanKantinUtil {
                 catatan = "Total diskon yang diberikan tiap produk (dari kolom diskon transaksi POS).";
                 StringBuilder w = new StringBuilder(" where coalesce(p.diskon,0) > 0 ");
                 w.append(kondToko("p.toko", tokoId, prm));
-                w.append(klausaTanggal("p.waktu", tglMulai, tglSampai, prm));
+                w.append(klausaPeriodeItemPenjualan(tglMulai, tglSampai, prm));
                 if (qp != null) { w.append(" and (lower(pr.kode) like :qp or lower(pr.nama) like :qp) "); prm.put("qp", qp); }
                 sql = "select pr.kode, pr.nama, sum(coalesce(p.qty,0)), sum(coalesce(p.diskon,0)), sum(coalesce(p.hargasatuan, pr.hargajual, 0)*coalesce(p.qty,0)) "
                     + " from koperasi.pembelian p join koperasi.produk pr on pr.id=p.produk " + w + " group by pr.kode, pr.nama order by 4 desc ";
@@ -1989,7 +2032,7 @@ public final class LaporanKantinUtil {
                 catatan = "Perputaran = qty terjual dibagi stok saat ini (semakin besar = semakin cepat berputar).";
                 StringBuilder w = new StringBuilder(" where 1=1 ");
                 w.append(kondToko("p.toko", tokoId, prm));
-                w.append(klausaTanggal("p.waktu", tglMulai, tglSampai, prm));
+                w.append(klausaPeriodeItemPenjualan(tglMulai, tglSampai, prm));
                 if (qp != null) { w.append(" and (lower(pr.kode) like :qp or lower(pr.nama) like :qp) "); prm.put("qp", qp); }
                 sql = "select pr.kode, pr.nama, sum(coalesce(p.qty,0)), coalesce(pr.stok,0), "
                     + " (case when coalesce(pr.stok,0) > 0 then sum(coalesce(p.qty,0))/coalesce(pr.stok,0) else 0 end) "
@@ -2002,7 +2045,7 @@ public final class LaporanKantinUtil {
                 catatan = "Persentase sumbangan tiap produk terhadap total omzet pada periode.";
                 StringBuilder w = new StringBuilder(" where 1=1 ");
                 w.append(kondToko("p.toko", tokoId, prm));
-                w.append(klausaTanggal("p.waktu", tglMulai, tglSampai, prm));
+                w.append(klausaPeriodeItemPenjualan(tglMulai, tglSampai, prm));
                 if (qp != null) { w.append(" and (lower(pr.kode) like :qp or lower(pr.nama) like :qp) "); prm.put("qp", qp); }
                 sql = "select pr.kode, pr.nama, sum(" + OMZET + "), "
                     + " cast(sum(" + OMZET + ") / nullif(sum(sum(" + OMZET + ")) over (), 0) * 100 as numeric(10,2)) "
@@ -2312,7 +2355,7 @@ public final class LaporanKantinUtil {
             } else if ("kebutuhan_bahan".equals(r)) {
                 judul = "Kebutuhan Bahan Baku (Resep x Penjualan)";
                 catatan = "Perkiraan pemakaian bahan baku yang SEHARUSNYA: komposisi resep dikalikan jumlah menu terjual pada periode.";
-                String tk = kondToko("p.toko", tokoId, prm) + klausaTanggal("p.waktu", tglMulai, tglSampai, prm);
+                String tk = kondToko("p.toko", tokoId, prm) + klausaPeriodeItemPenjualan(tglMulai, tglSampai, prm);
                 sql = "select coalesce(b->>'nama','-'), "
                     + " sum(sold.qty * cast(coalesce(nullif(b->>'qty',''),'0') as numeric)), "
                     + " sum(sold.qty * cast(coalesce(nullif(b->>'qty',''),'0') as numeric) * cast(coalesce(nullif(b->>'harga',''),'0') as numeric)) "
@@ -2330,7 +2373,7 @@ public final class LaporanKantinUtil {
                 if (!tabelAda(session, "koperasi.pemakaian_bahan_baku")) {
                     H.judul = judul; H.catatan = "Belum ada data Pemakaian Bahan Baku (input via Kulakan > Pemakaian Bahan Baku)."; H.grup = -1; H.tipe = tipe; return H;
                 }
-                String tkJual = kondToko("p.toko", tokoId, prm) + klausaTanggal("p.waktu", tglMulai, tglSampai, prm);
+                String tkJual = kondToko("p.toko", tokoId, prm) + klausaPeriodeItemPenjualan(tglMulai, tglSampai, prm);
                 String tkPakai = kondToko("x.toko", tokoId, prm) + klausaTanggal("x.waktu", tglMulai, tglSampai, prm);
 				sql = "select coalesce(pr.kode,'-'), coalesce(pr.nama,'-'), coalesce(e.expected,0), coalesce(a.actual,0), (coalesce(a.actual,0)-coalesce(e.expected,0)) "
 					+ " from ( select case when trim(coalesce(b->>'produk','')) ~ '^[0-9]+$' "

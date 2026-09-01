@@ -990,6 +990,14 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 				"Wajibkan Sesi Kas Kasir sebelum pembayaran (default MATI; aktifkan hanya untuk toko yang benar-benar memakai buka-tutup kas per shift -- bila aktif, verifikasi pesanan otomatis H+1 di halaman Pesanan ikut menuntut sesi kas terbuka)",
 				Konfigurasi.KANTIN_POS_WAJIB_SESI_KAS, Konfigurasi.TIDAK_AKTIF));
 
+		createSpan("Satuan / UOM", rows);
+		rows.appendChild(createRowActiveDefault(
+				"BATALKAN pengisian satuan dasar Pcs massal saat aplikasi dijalankan ulang (default MATI; bila diaktifkan, satuan dasar produk yang dahulu diisi otomatis dikosongkan kembali pada boot berikutnya, lalu saklar ini MEMATIKAN DIRINYA SENDIRI. Produk yang sesudah pengisian sudah dikoreksi manual -- misalnya menjadi Kilogram -- tidak ikut dikosongkan)",
+				Konfigurasi.KANTIN_UOM_BALIKKAN_PCS_MASSAL, Konfigurasi.TIDAK_AKTIF));
+		rows.appendChild(createRowActiveDefault(
+				"Pengisian satuan dasar Pcs massal SUDAH dijalankan di lingkungan ini (penanda otomatis; matikan hanya bila memang ingin pengisian diulang pada boot berikutnya)",
+				Konfigurasi.KANTIN_UOM_ISI_PCS_MASSAL_SELESAI, Konfigurasi.TIDAK_AKTIF));
+
 		createSpan("Pengadaan / Tagihan Vendor", rows);
 		rows.appendChild(createRowActiveDefault(
 				"Wajibkan anggaran pada setiap rincian tagihan rutin tanpa BAST (default MATI; bila tidak aktif, anggaran boleh dikosongkan)",
