@@ -1245,18 +1245,11 @@ public class KegiatanHelper {
 
 					KegiatanHelper.updateBatasStudiMahasiswa(mahasiswa, session, kegiatan.getSemster(),
 							checkStatusPembayaranMahasiswa);
-
-					HistoryStatusMahasiswa historyStatusMahasiswa = Common.currentStatusSp(mahasiswa,
-							kegiatan.getTahunAkademik(), kegiatan.getSemster(),
-							jenisKegiatan != null && jenisKegiatan.getUntukBayarSP() ? Perkuliahan.SEMESTER_PENDEK
-									: null);
-
-					if (historyStatusMahasiswa != null) {
-						historyStatusMahasiswa.put(String.valueOf(checkStatusPembayaranMahasiswa),
-								"checkStatusPembayaranMahasiswa");
-						historyStatusMahasiswa.setStatusMahasiswa(
-								checkStatusPembayaranMahasiswa ? ConstantValues.AKTIF : ConstantValues.TIDAK_AKTIF);
-					}
+					/*
+					 * Status tidak boleh diputuskan dari satu Kegiatan dan tidak boleh hanya
+					 * dimutasi pada object cache. AuditListener akan menghitung seluruh tagihan
+					 * bersyarat-aktif dari DB dan menyimpan HistoryStatusMahasiswa setelah commit.
+					 */
 				}
 			}
 		}

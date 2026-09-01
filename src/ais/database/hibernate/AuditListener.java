@@ -290,14 +290,11 @@ public class AuditListener extends AuditEventListener {
 		private final Long mahasiswaId;
 		private final String tahunAkademik;
 		private final Integer semester;
-		private final boolean pembayaranLunas;
 
-		private SinkronisasiStatusKegiatanRequest(Long mahasiswaId, String tahunAkademik, Integer semester,
-				boolean pembayaranLunas) {
+		private SinkronisasiStatusKegiatanRequest(Long mahasiswaId, String tahunAkademik, Integer semester) {
 			this.mahasiswaId = mahasiswaId;
 			this.tahunAkademik = tahunAkademik;
 			this.semester = semester;
-			this.pembayaranLunas = pembayaranLunas;
 		}
 
 		private String key() {
@@ -307,7 +304,7 @@ public class AuditListener extends AuditEventListener {
 	}
 
 	private static void jadwalkanSinkronisasiStatusKegiatanSetelahCommit(final Kegiatan kegiatan,
-			Session eventSession, boolean dihapus) {
+			Session eventSession) {
 		try {
 			if (kegiatan == null || kegiatan.getJenisKegiatan() == null || kegiatan.getMahasiswa() == null
 					|| kegiatan.getMahasiswa().getId() == null
@@ -315,10 +312,8 @@ public class AuditListener extends AuditEventListener {
 				return;
 			}
 
-			Double persentase = kegiatan.getPersentaseLunas();
 			final SinkronisasiStatusKegiatanRequest request = new SinkronisasiStatusKegiatanRequest(
-					kegiatan.getMahasiswa().getId(), kegiatan.getTahunAkademik(), kegiatan.getSemster(),
-					!dihapus && persentase != null && persentase.doubleValue() >= 0.1d);
+					kegiatan.getMahasiswa().getId(), kegiatan.getTahunAkademik(), kegiatan.getSemster());
 
 			Transaction transaction = eventSession == null ? null : eventSession.getTransaction();
 			if (transaction != null && transaction.isActive()) {
@@ -380,22 +375,15 @@ public class AuditListener extends AuditEventListener {
 				return;
 			}
 
-			Konfigurasi konfigurasi = Common.getKonfigurasi("mhs_all_lambat_bayar_langsung_tidak_aktif", "",
-					request.semester, mahasiswa.getTahunangkatan(), mahasiswa.getJurusan(), mahasiswa.getProgram(),
-					mahasiswa.getStatusAwalMahasiswa());
-			if (konfigurasi == null || !Konfigurasi.AKTIF.equals(konfigurasi.getNilai())) {
-				return;
-			}
-
-			KegiatanHelper.updateBatasStudiMahasiswa(mahasiswa, null, request.semester,
-					request.pembayaranLunas, false);
-			HistoryStatusMahasiswa history = ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(
-					mahasiswa, request.tahunAkademik, request.semester);
-			if (history != null) {
-				history.put(String.valueOf(request.pembayaranLunas), "checkStatusPembayaranMahasiswa");
-				history.setStatusMahasiswa(
-						request.pembayaranLunas ? ConstantValues.AKTIF : ConstantValues.TIDAK_AKTIF);
-			}
+			/*
+			 * Jangan memakai persentase dari event Kegiatan/Cicilan sebagai keputusan akhir.
+			 * Nilai tersebut dapat merupakan state sebelum DELETE atau state cache sebelum
+			 * transaksi pembayaran selesai. Paksa kalkulasi ulang dari database setelah commit;
+			 * currentStatus(..., true) menghitung seluruh tagihan bersyarat-aktif, menyimpan
+			 * HistoryStatusMahasiswa, memperbarui batas studi, dan menyegarkan cache.
+			 */
+			ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(mahasiswa,
+					request.tahunAkademik, request.semester, true);
 		} catch (Exception e) {
 			e.printStackTrace();
 			ais.common.ErrorAuditUtil.record(e, "sinkronisasi status Kegiatan setelah commit");
@@ -2111,8 +2099,11 @@ public class AuditListener extends AuditEventListener {
 				+ AuditTrailHelper.describeEntity(serializable, arg0.getId()));
 
 		String cla = this.getClass().getName() + " onPostDelete ";
-		if (serializable instanceof Kegiatan && !sedangSinkronisasiStatusKegiatan()) {
-			jadwalkanSinkronisasiStatusKegiatanSetelahCommit((Kegiatan) serializable, arg0.getSession(), true);
+		if (!sedangSinkronisasiStatusKegiatan()
+				&& (serializable instanceof Kegiatan || serializable instanceof CicilanPembayaran)) {
+			Kegiatan kegiatanStatus = serializable instanceof Kegiatan ? (Kegiatan) serializable
+					: ((CicilanPembayaran) serializable).getKegiatan();
+			jadwalkanSinkronisasiStatusKegiatanSetelahCommit(kegiatanStatus, arg0.getSession());
 		}
 
 		if (masukProses()) {
@@ -2139,8 +2130,11 @@ public class AuditListener extends AuditEventListener {
 		AuditTrailHelper.debug("AuditListener.onPostInsert proses "
 				+ AuditTrailHelper.describeEntity(serializable, arg0.getId()));
 		String cla = this.getClass().getName() + " onPostInsert ";
-		if (serializable instanceof Kegiatan && !sedangSinkronisasiStatusKegiatan()) {
-			jadwalkanSinkronisasiStatusKegiatanSetelahCommit((Kegiatan) serializable, arg0.getSession(), false);
+		if (!sedangSinkronisasiStatusKegiatan()
+				&& (serializable instanceof Kegiatan || serializable instanceof CicilanPembayaran)) {
+			Kegiatan kegiatanStatus = serializable instanceof Kegiatan ? (Kegiatan) serializable
+					: ((CicilanPembayaran) serializable).getKegiatan();
+			jadwalkanSinkronisasiStatusKegiatanSetelahCommit(kegiatanStatus, arg0.getSession());
 		}
 
 		if (masukProses()) {
@@ -2209,8 +2203,11 @@ public class AuditListener extends AuditEventListener {
 		}
 
 		String cla = this.getClass().getName() + " onPostUpdate ";
-		if (serializable instanceof Kegiatan && !sedangSinkronisasiStatusKegiatan()) {
-			jadwalkanSinkronisasiStatusKegiatanSetelahCommit((Kegiatan) serializable, arg0.getSession(), false);
+		if (!sedangSinkronisasiStatusKegiatan()
+				&& (serializable instanceof Kegiatan || serializable instanceof CicilanPembayaran)) {
+			Kegiatan kegiatanStatus = serializable instanceof Kegiatan ? (Kegiatan) serializable
+					: ((CicilanPembayaran) serializable).getKegiatan();
+			jadwalkanSinkronisasiStatusKegiatanSetelahCommit(kegiatanStatus, arg0.getSession());
 		}
 
 		if (masukProses()) {
