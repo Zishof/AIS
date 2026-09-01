@@ -167,6 +167,12 @@ public class AppStartupListener implements ServletContextListener {
 			// index selesai di thread latar.
 			InitIndex.initAturanDiskonProdukNullable();
 			InitIndex.initKebijakanReturProduk();
+			// Dok. 63: master UOM harus sah SEBELUM satuan dasar diisi, dan pembalikan
+			// (bila diminta lewat saklar) harus jalan sebelum pengisian supaya hasilnya
+			// tidak langsung diisi ulang pada boot yang sama. Ketiganya idempoten.
+			InitIndex.initMasterUomStandar();
+			InitIndex.initBalikkanSatuanPcsMassal();
+			InitIndex.initSatuanDasarPcsMassal();
 
 			ConstantValues.initNativeSesion();
 

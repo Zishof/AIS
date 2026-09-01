@@ -76,6 +76,15 @@ public class Konfigurasi extends GeneralValueObject {
 	// boleh dijual kasir (cek stok bayar membaca sum(qty_sisa) reservasi AKTIF). Default TIDAK
 	// AKTIF = reservasi murni informasi, perilaku sebelum saklar ini ada.
 	public static final String KANTIN_POS_RESERVASI_MENGUNCI = "kantin_pos_reservasi_mengunci";
+	// Dok. 63: penanda internal bahwa pengisian satuan dasar Pcs massal SUDAH dijalankan di
+	// lingkungan ini. Ditulis otomatis oleh InitIndex.initSatuanDasarPcsMassal(); pengisian
+	// hanya berjalan sekali supaya produk yang sengaja dibiarkan tanpa satuan tidak terisi
+	// diam-diam pada setiap restart.
+	public static final String KANTIN_UOM_ISI_PCS_MASSAL_SELESAI = "kantin_uom_isi_pcs_massal_selesai";
+	// Dok. 63: saklar PEMBALIKAN pengisian Pcs massal. Default TIDAK AKTIF -- bila diaktifkan,
+	// InitIndex mengembalikan satuan produk yang tercatat di koperasi.jejak_satuan_pcs menjadi
+	// kosong pada boot berikutnya, lalu MEMATIKAN DIRINYA SENDIRI supaya tidak terulang.
+	public static final String KANTIN_UOM_BALIKKAN_PCS_MASSAL = "kantin_uom_balikkan_pcs_massal";
 	// Wajibkan setiap rincian tagihan rutin tanpa BAST menunjuk anggaran/Workspace.
 	// Default TIDAK AKTIF agar tagihan utilitas tetap dapat dicatat saat anggaran belum disiapkan.
 	public static final String PENGADAAN_TAGIHAN_RUTIN_ANGGARAN_WAJIB =

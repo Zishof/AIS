@@ -2263,6 +2263,245 @@ public class InitIndex {
 		}
 	}
 
+
+	// ── Master UOM & satuan dasar produk (dok. 63) ───────────────────────────
+	// Dijalankan saat boot supaya tidak ada lagi SQL yang harus dijalankan manual
+	// per lingkungan. Seluruh langkah idempoten. Urutan pemanggilan di
+	// AppStartupListener WAJIB: master UOM -> pembalikan (bila diminta) -> pengisian,
+	// supaya hasil pembalikan tidak langsung diisi ulang pada boot yang sama.
+
+	/** Jejak pembalikan: id produk yang satuannya diisi otomatis, dicatat SEBELUM diubah. */
+	private static final String SQL_BUAT_TABEL_JEJAK_PCS =
+			"CREATE TABLE IF NOT EXISTS koperasi.jejak_satuan_pcs ("
+			+ "id bigserial PRIMARY KEY, produk bigint NOT NULL, kode varchar(255), "
+			+ "waktu timestamp without time zone NOT NULL DEFAULT now())";
+
+	/** Kemasan ber-isi khusus (Dus/Karung/Pak) SENGAJA tidak diseed: isinya berbeda per
+	 * produk sedangkan rasio di master UOM berlaku global. Pemilik membuatnya sebagai satuan
+	 * tersendiri dengan isi pada namanya ("Dus 6", "Karung 50"). */
+	private static final String SEED_SATUAN_UOM =
+			"('Pcs','UNIT','REFERENCE',1), ('Lusin','UNIT','BIGGER',12), "
+			+ "('Gross','UNIT','BIGGER',144), ('Pasang','UNIT','BIGGER',2), "
+			+ "('Gram','BERAT','REFERENCE',1), ('Miligram','BERAT','SMALLER',1000), "
+			+ "('Ons','BERAT','BIGGER',100), ('Kilogram','BERAT','BIGGER',1000), "
+			+ "('Kuintal','BERAT','BIGGER',100000), ('Ton','BERAT','BIGGER',1000000), "
+			+ "('Mililiter','VOLUME','REFERENCE',1), ('Sentiliter','VOLUME','BIGGER',10), "
+			+ "('Liter','VOLUME','BIGGER',1000), ('Kiloliter','VOLUME','BIGGER',1000000), "
+			+ "('Sentimeter','PANJANG','REFERENCE',1), ('Milimeter','PANJANG','SMALLER',10), "
+			+ "('Meter','PANJANG','BIGGER',100), ('Kilometer','PANJANG','BIGGER',100000)";
+
+	/** SELECT id satuan Pcs aktif -- dipakai pengisian maupun pembalikan. */
+	private static final String SQL_ID_PCS =
+			"SELECT u.id FROM koperasi.satuan_produk u WHERE LOWER(TRIM(u.nama)) = 'pcs' "
+			+ "AND COALESCE(u.aktif, true) ORDER BY u.id LIMIT 1";
+
+	/**
+	 * Membaca satu baris konfigurasi LANGSUNG lewat SQL.
+	 *
+	 * <p>Jalur boot ini sengaja TIDAK memakai {@code Common.bolehKonfigurasi}: lapisan
+	 * {@code KonfigurasiManager} belum tentu siap ketika {@code AppStartupListener} berjalan
+	 * (di luar container pemanggilannya terbukti menggantung), sedangkan init lain di kelas ini
+	 * juga murni SQL. Membaca tabelnya langsung membuat penjaga ini bebas dari urutan
+	 * inisialisasi cache dan dapat diuji tanpa container.</p>
+	 */
+	private static boolean konfigurasiAktifSql(java.sql.Statement ddl, String nama) throws Exception {
+		java.sql.ResultSet rs = null;
+		try {
+			rs = ddl.executeQuery("SELECT nilai FROM public.konfigurasi WHERE nama = '"
+					+ nama.replace("'", "''") + "' ORDER BY id LIMIT 1");
+			String nilai = rs.next() ? rs.getString(1) : null;
+			return nilai != null
+					&& nilai.trim().equalsIgnoreCase(ais.database.model.Konfigurasi.AKTIF);
+		} finally {
+			if (rs != null) {
+				try { rs.close(); } catch (Exception e) {
+					ErrorAuditUtil.record(e, "konfigurasiAktifSql-rs-close");
+				}
+			}
+		}
+	}
+
+	/** Upsert satu baris konfigurasi memakai statement yang sedang dipakai (satu transaksi). */
+	private static void simpanKonfigurasiSql(java.sql.Statement ddl, String nama, String nilai,
+			String keterangan) throws Exception {
+		String n = nama.replace("'", "''");
+		String v = nilai.replace("'", "''");
+		String k = keterangan == null ? null : keterangan.replace("'", "''");
+		int diubah = ddl.executeUpdate("UPDATE public.konfigurasi SET nilai = '" + v
+				+ "' WHERE nama = '" + n + "'");
+		if (diubah == 0) {
+			ddl.executeUpdate("INSERT INTO public.konfigurasi (nama, nilai, keterangan) VALUES ('"
+					+ n + "', '" + v + "', " + (k == null ? "NULL" : "'" + k + "'") + ")");
+		}
+	}
+
+	/**
+	 * Merapikan master UOM agar memenuhi syarat mesin konversi
+	 * ({@code KantinHelper.faktorUomInputKeDasar}): setiap kategori punya tepat satu satuan
+	 * acuan (REFERENCE, rasio 1) dan tidak ada kategori/rasio kosong. Titik itu MENOLAK
+	 * konversi bila kategori salah satu satuan kosong -- bukan hanya bila berbeda -- sehingga
+	 * master yang belum diisi mematikan seluruh fitur ber-UOM (satuan jual, Pack, kulakan,
+	 * PR/PO/BAST). Idempoten: hanya mengisi kolom yang kosong/tidak sah pada satuan yang
+	 * padanannya pasti, dan melewati nama satuan yang sudah dipakai pemilik.
+	 */
+	static void initMasterUomStandar() {
+		org.hibernate.Session session = null;
+		org.hibernate.Transaction tx = null;
+		java.sql.Statement ddl = null;
+		try {
+			session = ais.database.hibernate.HibernateUtil.getSessionFactory().openSession();
+			tx = session.beginTransaction();
+			ddl = session.connection().createStatement();
+			ddl.executeUpdate("UPDATE koperasi.satuan_produk SET "
+					+ "kategori = COALESCE(NULLIF(TRIM(kategori), ''), 'UNIT'), "
+					+ "tipe_konversi = COALESCE(NULLIF(TRIM(tipe_konversi), ''), 'REFERENCE'), "
+					+ "rasio = CASE WHEN rasio IS NULL OR rasio <= 0 THEN 1 ELSE rasio END "
+					+ "WHERE LOWER(TRIM(nama)) IN ('pcs', 'pc', 'buah', 'unit') AND ("
+					+ "kategori IS NULL OR TRIM(kategori) = '' OR tipe_konversi IS NULL "
+					+ "OR TRIM(tipe_konversi) = '' OR rasio IS NULL OR rasio <= 0)");
+			ddl.executeUpdate("INSERT INTO koperasi.satuan_produk "
+					+ "(nama, aktif, kategori, tipe_konversi, rasio) "
+					+ "SELECT v.nama, true, v.kategori, v.tipe, v.rasio FROM (VALUES "
+					+ SEED_SATUAN_UOM + ") AS v(nama, kategori, tipe, rasio) "
+					+ "WHERE NOT EXISTS (SELECT 1 FROM koperasi.satuan_produk u "
+					+ "WHERE LOWER(TRIM(u.nama)) = LOWER(v.nama))");
+			tx.commit();
+		} catch (Exception e) {
+			if (tx != null && tx.isActive()) try { tx.rollback(); } catch (Exception rollback) {
+				ErrorAuditUtil.record(rollback, "initMasterUomStandar-rollback");
+			}
+			ErrorAuditUtil.record(e, "auto-audit InitIndex.initMasterUomStandar");
+		} finally {
+			try { if (ddl != null) ddl.close(); } catch (Exception e) {
+				ErrorAuditUtil.record(e, "initMasterUomStandar-ddl-close");
+			}
+			if (session != null) {
+				try { session.clear(); } catch (Exception e) { ErrorAuditUtil.record(e, "initMasterUomStandar-clear"); }
+				try { session.disconnect(); } catch (Exception e) { ErrorAuditUtil.record(e, "initMasterUomStandar-disconnect"); }
+				try { session.close(); } catch (Exception e) { ErrorAuditUtil.record(e, "initMasterUomStandar-close"); }
+			}
+		}
+	}
+
+	/**
+	 * Keputusan pemilik 1 September 2026 (dok. 63): produk yang belum punya satuan dasar
+	 * diberi <b>Pcs</b> supaya satuan jual, Pack, dan ambang grosir per satuan dapat dipakai
+	 * pada seluruh katalog.
+	 *
+	 * <p>Berjalan SEKALI per lingkungan (penanda {@code kantin_uom_isi_pcs_massal_selesai}):
+	 * produk baru wajib memilih satuan di layar Produk, jadi pengisian diam-diam pada setiap
+	 * boot tidak diperlukan dan hanya menyulitkan penelusuran. Sebelum satu baris pun diubah,
+	 * seluruh id yang akan disentuh dicatat ke {@code koperasi.jejak_satuan_pcs} -- tanpa
+	 * daftar itu, pembalikan tidak dapat lagi membedakan produk yang tadinya kosong dari
+	 * produk yang memang bersatuan Pcs sejak awal.</p>
+	 */
+	static void initSatuanDasarPcsMassal() {
+		org.hibernate.Session session = null;
+		org.hibernate.Transaction tx = null;
+		java.sql.Statement ddl = null;
+		try {
+			session = ais.database.hibernate.HibernateUtil.getSessionFactory().openSession();
+			tx = session.beginTransaction();
+			ddl = session.connection().createStatement();
+			if (konfigurasiAktifSql(ddl,
+					ais.database.model.Konfigurasi.KANTIN_UOM_ISI_PCS_MASSAL_SELESAI)) {
+				tx.commit();
+				return;
+			}
+			ddl.executeUpdate(SQL_BUAT_TABEL_JEJAK_PCS);
+			ddl.executeUpdate("CREATE UNIQUE INDEX IF NOT EXISTS jejak_satuan_pcs_produk_uq "
+					+ "ON koperasi.jejak_satuan_pcs(produk)");
+			ddl.executeUpdate("INSERT INTO koperasi.jejak_satuan_pcs (produk, kode) "
+					+ "SELECT p.id, p.kode FROM koperasi.produk p WHERE p.satuan IS NULL "
+					+ "AND NOT EXISTS (SELECT 1 FROM koperasi.jejak_satuan_pcs j WHERE j.produk = p.id)");
+			// Penjaga EXISTS: jangan menunjuk baris Pcs yang sendirinya belum sah -- konversi
+			// akan ditolak dengan pesan yang membingungkan pemilik.
+			int diisi = ddl.executeUpdate("UPDATE koperasi.produk SET satuan = (" + SQL_ID_PCS + ") "
+					+ "WHERE satuan IS NULL AND EXISTS (SELECT 1 FROM koperasi.satuan_produk u "
+					+ "WHERE LOWER(TRIM(u.nama)) = 'pcs' AND COALESCE(u.aktif, true) "
+					+ "AND u.kategori IS NOT NULL AND TRIM(u.kategori) <> '' "
+					+ "AND u.rasio IS NOT NULL AND u.rasio > 0)");
+			simpanKonfigurasiSql(ddl, ais.database.model.Konfigurasi.KANTIN_UOM_ISI_PCS_MASSAL_SELESAI,
+					ais.database.model.Konfigurasi.AKTIF,
+					"Penanda otomatis dok. 63: pengisian satuan dasar Pcs massal sudah dijalankan.");
+			tx.commit();
+			if (diisi > 0) {
+				System.out.println("InitIndex.initSatuanDasarPcsMassal: " + diisi
+						+ " produk diberi satuan dasar Pcs (id tercatat di koperasi.jejak_satuan_pcs).");
+			}
+		} catch (Exception e) {
+			if (tx != null && tx.isActive()) try { tx.rollback(); } catch (Exception rollback) {
+				ErrorAuditUtil.record(rollback, "initSatuanDasarPcsMassal-rollback");
+			}
+			ErrorAuditUtil.record(e, "auto-audit InitIndex.initSatuanDasarPcsMassal");
+		} finally {
+			try { if (ddl != null) ddl.close(); } catch (Exception e) {
+				ErrorAuditUtil.record(e, "initSatuanDasarPcsMassal-ddl-close");
+			}
+			if (session != null) {
+				try { session.clear(); } catch (Exception e) { ErrorAuditUtil.record(e, "initSatuanDasarPcsMassal-clear"); }
+				try { session.disconnect(); } catch (Exception e) { ErrorAuditUtil.record(e, "initSatuanDasarPcsMassal-disconnect"); }
+				try { session.close(); } catch (Exception e) { ErrorAuditUtil.record(e, "initSatuanDasarPcsMassal-close"); }
+			}
+		}
+	}
+
+	/**
+	 * Membalikkan pengisian Pcs massal tanpa perlu menulis SQL manual berisi ribuan id.
+	 *
+	 * <p><b>TIDAK</b> berjalan otomatis: hanya bila saklar
+	 * {@code kantin_uom_balikkan_pcs_massal} disetel "aktif" (default mati). Menjalankan
+	 * pembalikan pada setiap boot akan mengosongkan lagi satuan seluruh produk di tiap restart
+	 * dan mematikan kembali fitur ber-UOM. Sesudah berhasil, saklar dimatikan sendiri supaya
+	 * restart berikutnya tidak mengulang, dan penanda pengisian ditandai selesai supaya
+	 * {@link #initSatuanDasarPcsMassal()} tidak langsung mengisi ulang pada boot yang sama.</p>
+	 *
+	 * <p>Syarat {@code satuan = Pcs} wajib: tanpa itu, produk yang sesudah pengisian dikoreksi
+	 * manual (mis. menjadi Kilogram) ikut dikosongkan dan koreksi pemilik hilang.</p>
+	 */
+	static void initBalikkanSatuanPcsMassal() {
+		org.hibernate.Session session = null;
+		org.hibernate.Transaction tx = null;
+		java.sql.Statement ddl = null;
+		try {
+			session = ais.database.hibernate.HibernateUtil.getSessionFactory().openSession();
+			tx = session.beginTransaction();
+			ddl = session.connection().createStatement();
+			if (!konfigurasiAktifSql(ddl,
+					ais.database.model.Konfigurasi.KANTIN_UOM_BALIKKAN_PCS_MASSAL)) {
+				tx.commit();
+				return;
+			}
+			ddl.executeUpdate(SQL_BUAT_TABEL_JEJAK_PCS);
+			int dibalik = ddl.executeUpdate("UPDATE koperasi.produk SET satuan = NULL "
+					+ "WHERE id IN (SELECT j.produk FROM koperasi.jejak_satuan_pcs j) "
+					+ "AND satuan = (" + SQL_ID_PCS + ")");
+			simpanKonfigurasiSql(ddl, ais.database.model.Konfigurasi.KANTIN_UOM_BALIKKAN_PCS_MASSAL,
+					ais.database.model.Konfigurasi.TIDAK_AKTIF,
+					"Saklar dok. 63 mematikan diri sesudah pembalikan dijalankan.");
+			simpanKonfigurasiSql(ddl, ais.database.model.Konfigurasi.KANTIN_UOM_ISI_PCS_MASSAL_SELESAI,
+					ais.database.model.Konfigurasi.AKTIF,
+					"Pengisian Pcs massal dibatalkan pemilik; jangan diisi ulang otomatis.");
+			tx.commit();
+			System.out.println("InitIndex.initBalikkanSatuanPcsMassal: " + dibalik
+					+ " produk dikembalikan ke tanpa satuan dasar; saklar dimatikan otomatis.");
+		} catch (Exception e) {
+			if (tx != null && tx.isActive()) try { tx.rollback(); } catch (Exception rollback) {
+				ErrorAuditUtil.record(rollback, "initBalikkanSatuanPcsMassal-rollback");
+			}
+			ErrorAuditUtil.record(e, "auto-audit InitIndex.initBalikkanSatuanPcsMassal");
+		} finally {
+			try { if (ddl != null) ddl.close(); } catch (Exception e) {
+				ErrorAuditUtil.record(e, "initBalikkanSatuanPcsMassal-ddl-close");
+			}
+			if (session != null) {
+				try { session.clear(); } catch (Exception e) { ErrorAuditUtil.record(e, "initBalikkanSatuanPcsMassal-clear"); }
+				try { session.disconnect(); } catch (Exception e) { ErrorAuditUtil.record(e, "initBalikkanSatuanPcsMassal-disconnect"); }
+				try { session.close(); } catch (Exception e) { ErrorAuditUtil.record(e, "initBalikkanSatuanPcsMassal-close"); }
+			}
+		}
+	}
+
 	/** Menambahkan penanda cara bayar hutang pada instalasi lama secara idempoten. */
 	static void initCaraPembayaranMasukSebagaiHutang() {
 		try {
