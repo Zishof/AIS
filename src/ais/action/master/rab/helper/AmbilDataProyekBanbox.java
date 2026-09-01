@@ -39,22 +39,25 @@ import ais.database.model.rab.Proyek;
 import ais.ui.util.GetEventListener;
 
 /**
- * Tipe khusus untuk ambil data proyek banbox. Kelas ini memberi nama dan batas tanggung jawab yang
- * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.rab.Proyek} — lihat
+ * {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum (constructor/display/onSearchDefault/
+ * renderer/callback).
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code EventListener
- * eventListener}, {@code Textbox nama}, {@code AmbilDataSatuanKerjaBanbox satuanKerja}; pembacaan/pencarian
- * ({@code onSearchDefault()}, {@code setEventListener()}, {@code getEventListener()}); operasi domain lain
- * ({@code display()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
- * atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p>Proyek merepresentasikan kegiatan/proyek pada modul RAB (judul panel popup: "Daftar Kegiatan")
+ * yang menaungi rencana anggaran dan terikat ke satu Satuan Kerja serta (opsional) satu Workspace
+ * sebagai sumber anggarannya. Popup pencarian menyediakan kriteria {@code nama} ({@code ilike
+ * ANYWHERE}) ditambah filter opsional lewat sub-picker {@link AmbilDataSatuanKerjaBanbox}: bila
+ * satker dipilih, hasil dibatasi persis ke satker tersebut ({@code Restrictions.eq("satuanKerja",
+ * ...)} — berbeda dari {@code AmbilDataMitraBanbox} yang menelusuri hierarki turunan satker, di sini
+ * hanya kecocokan langsung); bila tidak dipilih, filter no-op lewat
+ * {@code Restrictions.sqlRestriction("1=1")}. Baris grid menampilkan nama proyek, nama satuan kerja,
+ * workspace (sumber anggaran) dan nilai anggarannya (hargaTotal, diformat sebagai angka), serta
+ * keterangan, lewat {@code ProyekRenderer}; hasil dibungkus {@link org.zkoss.zul.Radiogroup} untuk
+ * pemilihan tunggal.</p>
+ *
+ * <p>Constructor tanpa argumen langsung memanggil {@link #display()} dalam try-catch yang menampilkan
+ * error ke admin lewat {@code Common.tampilErrorJikaAdmin(e)} (berbeda dari subclass RAB lain yang
+ * memakai {@code ErrorAuditUtil.record} pada catch kosong).</p>
  *
  * @see Bandbox
  */
@@ -68,12 +71,16 @@ public class AmbilDataProyekBanbox extends Bandbox implements GetEventListener {
 
 	private EventListener eventListener;
 
+	/**
+	 * Membangun Bandbox picker Proyek dan langsung memanggil {@link #display()}, dibungkus try-catch
+	 * yang menampilkan error ke admin lewat {@code Common.tampilErrorJikaAdmin(e)} bila gagal.
+	 */
 	public AmbilDataProyekBanbox() {
 		super();
 		try {
 			display();
 		} catch (Exception e) {
-			Common.tampilErrorJikaAdmin(e); 
+			Common.tampilErrorJikaAdmin(e);
 		}
 	}
 
@@ -81,16 +88,10 @@ public class AmbilDataProyekBanbox extends Bandbox implements GetEventListener {
 	private AmbilDataSatuanKerjaBanbox satuanKerja;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataProyekBanbox}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataProyekBanbox} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer satu baris grid hasil pencarian Proyek: menampilkan radio pilihan, nama proyek, nama
+	 * satuan kerja, workspace (sumber anggaran) beserta nilai anggarannya (hargaTotal), dan
+	 * keterangan. Listener {@code onCheck} pada radio adalah satu-satunya titik callback pola ini —
+	 * lihat penjelasan umum di {@link ais.ui.util.GetEventListener}.
 	 *
 	 * @see AmbilDataProyekBanbox
 	 */
@@ -132,6 +133,15 @@ public class AmbilDataProyekBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/**
+	 * Merakit popup pencarian Proyek: form kriteria nama plus sub-picker Satuan Kerja
+	 * ({@link AmbilDataSatuanKerjaBanbox}), tombol Cari, dan grid hasil dalam
+	 * {@link org.zkoss.zul.Radiogroup} pilih-tunggal, diakhiri memanggil
+	 * {@link #onSearchDefault(Event)} agar grid terisi saat popup pertama tampil.
+	 *
+	 * @throws Exception diteruskan dari pembangunan komponen ZK
+	 * @see ais.ui.util.GetEventListener
+	 */
 	public void display() throws Exception {
 		setReadonly(true);
 
@@ -254,6 +264,16 @@ public class AmbilDataProyekBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/**
+	 * Menjalankan pencarian Proyek berdasar {@code nama} ({@code ilike ANYWHERE}), ditambah filter
+	 * satker: bila sub-picker {@link #satuanKerja} memiliki nilai terpilih, hasil dibatasi persis ke
+	 * satker tersebut ({@code Restrictions.eq}, tanpa penelusuran turunan); bila kosong, filter ini
+	 * no-op. Maksimum {@code Common.MAX_RESULT} baris, urut nama menaik, lalu grid diisi ulang dengan
+	 * {@link ProyekRenderer}.
+	 *
+	 * @param event event pemicu; boleh {@code null} (dipanggil juga dari {@link #display()})
+	 * @see ais.ui.util.GetEventListener
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -277,10 +297,20 @@ public class AmbilDataProyekBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see ais.ui.util.GetEventListener
+	 */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see ais.ui.util.GetEventListener
+	 */
 	public EventListener getEventListener() {
 		return eventListener;
 	}

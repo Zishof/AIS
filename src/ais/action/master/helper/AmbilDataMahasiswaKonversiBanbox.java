@@ -45,31 +45,31 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data mahasiswa konversi banbox. Kelas ini memberi nama dan batas
- * tanggung jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang
- * diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code EventListener eventListener}, {@code Textbox nim},
- * {@code Textbox nama}, {@code Decimalbox tahunangkatan}, {@code Combobox searchfakultas}, {@code Combobox
- * searchjurusan}; pembacaan/pencarian ({@code getEventListener()}, {@code setEventListener()}, {@code
- * onSearchDefault()}); operasi domain lain ({@code display()}). Bagian lain dari kontrak tetap mengikuti kelas
- * induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.Mahasiswa} — lihat
+ * {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback).
+ * <p>
+ * Varian picker {@link Mahasiswa} yang di-scope KHUSUS ke mahasiswa jalur KONVERSI — filter tetap
+ * {@code Restrictions.eq("statusKonversi", 1)} SELALU dipasang di {@link #onSearchDefault(Event)}
+ * dan tidak bisa diubah pengguna, membatasi hasil hanya ke mahasiswa yang statusnya konversi
+ * (mis. mahasiswa pindahan/transfer kredit dari perguruan tinggi lain). Popup pencarian
+ * menyediakan field {@code nim}, {@code nama} (ilike substring), {@code tahunangkatan} (eq), dan
+ * Combobox fakultas/prodi. Hanya baris {@code aktif == true} atau {@code aktif} kosong yang
+ * tampil; renderer juga menonaktifkan radio button untuk mahasiswa dengan flag {@code aktif ==
+ * false} (dicek murah, bukan lewat query {@code HistoryStatusMahasiswa}). BERBEDA dari kebanyakan
+ * subclass sejenis, constructor memanggil {@link #display()} LANGSUNG (bukan lewat listener
+ * {@code onOpen} lazy standar). Pemilihan bersifat TUNGGAL (Radiogroup). Tidak ada constructor
+ * dengan parameter tambahan; field {@code pagingHelper} dideklarasikan tapi TIDAK dipakai —
+ * pencarian masih memakai {@code grid.setMold("paging")} client-side lama dibatasi
+ * {@link ais.common.Common#MAX_RESULT}.
+ * </p>
  *
  * @see Bandbox
  */
 public class AmbilDataMahasiswaKonversiBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 *
 	 */
 	private static final long serialVersionUID = 6452461056684904810L;
 	private MyGrid grid;
@@ -78,14 +78,22 @@ public class AmbilDataMahasiswaKonversiBanbox extends Bandbox implements GetEven
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
 	private EventListener eventListener;
 
+	/** {@inheritDoc} Implementasi getter polos standar — lihat {@link ais.ui.util.GetEventListener}. */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
 
+	/** {@inheritDoc} Implementasi setter polos standar — lihat {@link ais.ui.util.GetEventListener}. */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/**
+	 * Konstruktor KHUSUS (menyimpang dari kerangka standar {@link ais.ui.util.GetEventListener}):
+	 * mempersiapkan Combobox fakultas/prodi lalu memanggil {@link #display()} langsung saat
+	 * instance dibuat, TIDAK memasang listener {@code onOpen} lazy seperti kebanyakan subclass
+	 * sejenis.
+	 */
 	public AmbilDataMahasiswaKonversiBanbox() {
 		super();
 
@@ -94,24 +102,27 @@ public class AmbilDataMahasiswaKonversiBanbox extends Bandbox implements GetEven
 		display();
 	}
 
+	/** Kriteria pencarian: NIM (ilike, substring). */
 	private Textbox nim;
+	/** Kriteria pencarian: nama mahasiswa (ilike, substring). */
 	private Textbox nama;
+	/** Kriteria pencarian: tahun angkatan (eq). */
 	private Decimalbox tahunangkatan;
 
+	/** Kriteria pencarian: fakultas (lewat join ke jurusan). */
 	private Combobox searchfakultas = new Combobox();
+	/** Kriteria pencarian: prodi. */
 	private Combobox searchjurusan = new Combobox();
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataMahasiswaKonversiBanbox}. Kelas ini menerjemahkan satu
-	 * item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataMahasiswaKonversiBanbox} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer baris grid hasil pencarian {@link Mahasiswa} (sudah terbatas ke
+	 * {@code statusKonversi == 1}): kolom NIM, nama, tahun angkatan, dan satu radio button
+	 * pilihan. KHAS renderer ini: radio button dinonaktifkan untuk mahasiswa dengan flag
+	 * {@code aktif == false} (dicek murah, bukan lewat query {@code HistoryStatusMahasiswa} yang
+	 * lambat). Selebihnya mengikuti kerangka renderer standar di
+	 * {@link ais.ui.util.GetEventListener} — listener {@code onCheck} menutup popup, menyimpan
+	 * entity terpilih ke atribut {@code "mahasiswa"} dan teks tampilan {@code nim + " - " + nama},
+	 * lalu meneruskan event ke {@link #eventListener} bila terpasang.
 	 *
 	 * @see AmbilDataMahasiswaKonversiBanbox
 	 */
@@ -151,6 +162,14 @@ public class AmbilDataMahasiswaKonversiBanbox extends Bandbox implements GetEven
 
 	}
 
+	/**
+	 * Membangun popup pencarian {@link Mahasiswa} sekali (dipanggil langsung dari constructor —
+	 * lihat catatan di Javadoc class): form dengan field NIM, nama, tahun angkatan, fakultas, dan
+	 * prodi, tombol Cari, dan grid hasil dibungkus {@link org.zkoss.zul.Radiogroup} (pilih
+	 * tunggal). Mengikuti kerangka {@code display()} standar selebihnya — lihat
+	 * {@link ais.ui.util.GetEventListener}. Memanggil {@link #onSearchDefault(Event)} di akhir agar
+	 * grid langsung terisi.
+	 */
 	public void display() {
 		setReadonly(true);
 		setReadonly(true);
@@ -294,6 +313,18 @@ public class AmbilDataMahasiswaKonversiBanbox extends Bandbox implements GetEven
 
 	}
 
+	/**
+	 * Mengeksekusi pencarian {@link Mahasiswa}: hanya baris {@code aktif} (atau {@code null}),
+	 * SELALU dibatasi {@code statusKonversi == 1} (lihat catatan di Javadoc class), filter
+	 * {@code nama}/{@code nim} (ilike substring), tahun angkatan (eq), prodi (eq bila dipilih), dan
+	 * fakultas (eq bila dipilih, lewat join ke {@code jurusan}). Diurutkan menurun berdasar tahun
+	 * angkatan lalu menaik berdasar NIM, dibatasi {@link ais.common.Common#MAX_RESULT}, lalu
+	 * memasang {@link MahasiswaRenderer} dan model hasil ke {@link #grid}. Mengikuti kerangka
+	 * {@code onSearchDefault} standar — lihat {@link ais.ui.util.GetEventListener}.
+	 *
+	 * @param event event pemicu (klik tombol Cari); boleh {@code null} saat dipanggil dari
+	 *              {@link #display()} untuk mengisi grid pertama kali
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
