@@ -3916,6 +3916,21 @@ public class Perkuliahan extends VOPembelajaran {
 		this.sembunyikanNilaiJikaBelumDiverifikasi = sembunyikanNilaiJikaBelumDiverifikasi;
 	}
 
+	/**
+	 * Membaca isi mentah berkas <i>flag store</i> peserta kelas ini.
+	 *
+	 * <p>Peserta kelas tidak dibaca dari basis data setiap kali, melainkan dari satu berkas JSON
+	 * bernama {@code detail_perkuliahan_<id>} yang memetakan id {@link Detailperkuliahan} ke lokasi
+	 * berkas rincian pesertanya. Untuk kelas paralel, berkas yang dibaca adalah milik kelas INDUK,
+	 * sehingga seluruh kelas paralel berbagi satu daftar peserta.</p>
+	 *
+	 * <p>Kegagalan baca (berkas belum ada, izin, dsb) hanya dicatat; nilainya diganti JSON kosong
+	 * baku {@code VOMahasiswa.dataJSON} agar pemanggil tidak perlu menangani {@code null}.</p>
+	 *
+	 * @return isi JSON flag store peserta; tidak pernah {@code null} maupun kosong.
+	 * @see #tulisLokasiDetailPerkuliahan(String)
+	 * @see #reInitDetailperkuliahan(Session)
+	 */
 	public String ambilLokasiDetailPerkuliahan() {
 		Perkuliahan p = this.getPerkuliahan_paralel() == null ? this : this.getPerkuliahan_paralel();
 		File file = Common.getFileLocation(p, "detail_perkuliahan_" + p.getId().toString());
@@ -3928,6 +3943,24 @@ public class Perkuliahan extends VOPembelajaran {
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Memilih objek kunci untuk operasi baca-ubah-tulis atas flag store peserta.
+	 *
+	 * <p>Kunci diambil dari larik tetap 257 objek berdasarkan sisa bagi hash id kelas
+	 * (<i>lock striping</i>). Dua alasan rancangan ini: (a) beberapa listener Hibernate dapat
+	 * memanggil {@link #populateDetailperkuliahan(Detailperkuliahan)} dan
+	 * {@link #removeDetailperkuliahan(Serializable)} bersamaan untuk kelas yang sama, sehingga
+	 * tanpa kunci dua thread membaca snapshot yang sama lalu saling menimpa dan berkas bisa
+	 * berisi JSON setengah jadi; (b) jumlah kunci sengaja TETAP agar tidak ada map yang tumbuh
+	 * tanpa batas untuk setiap id perkuliahan.</p>
+	 *
+	 * <p>Seperti pembacaan berkasnya, kelas paralel memakai id kelas INDUK sehingga terkunci pada
+	 * objek yang sama. Bila id belum ada (entity baru), dipakai identitas objek sebagai
+	 * penggantinya.</p>
+	 *
+	 * @return objek kunci; dua kelas berbeda dapat berbagi kunci yang sama (benturan hash), dan itu
+	 *         aman - hanya mengurangi paralelisme.
+	 */
 	private Object ambilLockDetailPerkuliahan() {
 		Perkuliahan p = this.getPerkuliahan_paralel() == null ? this : this.getPerkuliahan_paralel();
 		Long perkuliahanId = p == null ? null : p.getId();
@@ -3935,6 +3968,16 @@ public class Perkuliahan extends VOPembelajaran {
 		return DETAIL_PERKULIAHAN_LOCKS[(hash & 0x7fffffff) % DETAIL_PERKULIAHAN_LOCKS.length];
 	}
 
+	/**
+	 * Membaca flag store peserta sebagai {@link JSONObject} dengan pemulihan otomatis bila isinya
+	 * rusak.
+	 *
+	 * <p>Bila teks berkas gagal diurai, kejadiannya dicatat dan yang dikembalikan adalah objek JSON
+	 * KOSONG - bukan exception. Konsekuensinya daftar peserta akan terbangun ulang bertahap oleh
+	 * pemanggil berikutnya alih-alih membuat seluruh layar gagal.</p>
+	 *
+	 * @return objek JSON peserta; tidak pernah {@code null}.
+	 */
 	private JSONObject ambilJsonDetailPerkuliahanAman() {
 		String data = ambilLokasiDetailPerkuliahan();
 		try {
@@ -3946,6 +3989,18 @@ public class Perkuliahan extends VOPembelajaran {
 		}
 	}
 
+	/**
+	 * Menimpa isi berkas flag store peserta kelas ini.
+	 *
+	 * <p>Sama seperti pembacaannya, untuk kelas paralel yang ditulis adalah berkas kelas INDUK.
+	 * Kegagalan tulis hanya dicatat.</p>
+	 *
+	 * <p><b>Peringatan:</b> method ini menimpa seluruh isi berkas. Pemanggilan dari luar sebaiknya
+	 * dilakukan di dalam blok tersinkronisasi {@link #ambilLockDetailPerkuliahan()} sebagaimana
+	 * dicontohkan {@link #populateDetailperkuliahan(Detailperkuliahan)}.</p>
+	 *
+	 * @param data teks JSON lengkap yang akan disimpan.
+	 */
 	public void tulisLokasiDetailPerkuliahan(String data) {
 		Perkuliahan p = this.getPerkuliahan_paralel() == null ? this : this.getPerkuliahan_paralel();
 		File file = Common.getFileLocation(p, "detail_perkuliahan_" + p.getId().toString());
@@ -3957,6 +4012,18 @@ public class Perkuliahan extends VOPembelajaran {
 		}
 	}
 
+	/**
+	 * Mengeluarkan satu peserta dari flag store kelas ini.
+	 *
+	 * <p>Entri tidak benar-benar dihapus, melainkan nilainya DIKOSONGKAN - pembaca daftar peserta
+	 * melewati entri bernilai kosong. Pola ini menjaga bentuk berkas tetap stabil dan menghindari
+	 * penulisan ulang menyeluruh.</p>
+	 *
+	 * <p>Seluruh operasi baca-ubah-tulis dilakukan di dalam kunci
+	 * {@link #ambilLockDetailPerkuliahan()}. Kegagalan hanya dicatat.</p>
+	 *
+	 * @param id id {@link Detailperkuliahan} yang dikeluarkan; {@code null} diabaikan.
+	 */
 	public void removeDetailperkuliahan(Serializable id) {
 		if (id == null) {
 			return;
@@ -3971,6 +4038,20 @@ public class Perkuliahan extends VOPembelajaran {
 		}
 	}
 
+	/**
+	 * Menambahkan atau memperbarui satu peserta pada flag store kelas ini.
+	 *
+	 * <p>Nilai yang disimpan adalah lokasi berkas rincian peserta hasil {@code write()} pada objek
+	 * {@link Detailperkuliahan}, sehingga pembaca dapat memuat rincian tanpa menyentuh basis data.
+	 * Operasi dilakukan di dalam kunci {@link #ambilLockDetailPerkuliahan()}.</p>
+	 *
+	 * <p><b>Penyaringan penting:</b> baris yang memiliki {@code ikutiPerkuliahan} (peserta yang
+	 * sebenarnya mengikuti kelas lain) TIDAK dimasukkan - konsisten dengan kriteria
+	 * {@link #reInitDetailperkuliahan(Session)}.</p>
+	 *
+	 * @param detailperkuliahan baris peserta; diabaikan bila {@code null}, belum punya id, atau
+	 *                          menunjuk kelas lain lewat {@code ikutiPerkuliahan}.
+	 */
 	public void populateDetailperkuliahan(Detailperkuliahan detailperkuliahan) {
 		if (detailperkuliahan == null || detailperkuliahan.getId() == null
 				|| detailperkuliahan.getIkutiPerkuliahan() != null) {
@@ -3986,6 +4067,16 @@ public class Perkuliahan extends VOPembelajaran {
 		}
 	}
 
+	/**
+	 * Membaca isi mentah berkas flag store daftar asisten mahasiswa
+	 * ({@code MahasiswaJadiAsisten_<id>}).
+	 *
+	 * <p>Berbeda dengan flag store peserta, daftar asisten TIDAK didelegasikan ke kelas induk -
+	 * tiap kelas paralel punya asistennya sendiri.</p>
+	 *
+	 * @return isi JSON flag store asisten; tidak pernah {@code null} maupun kosong.
+	 * @see MahasiswaJadiAsisten
+	 */
 	public String ambilLokasiMahasiswaJadiAsisten() {
 		Perkuliahan p = this;
 		File file = Common.getFileLocation(p, "MahasiswaJadiAsisten_" + p.getId().toString());
@@ -3998,6 +4089,11 @@ public class Perkuliahan extends VOPembelajaran {
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Menimpa isi berkas flag store daftar asisten mahasiswa. Kegagalan hanya dicatat.
+	 *
+	 * @param data teks JSON lengkap yang akan disimpan.
+	 */
 	public void tulisLokasiMahasiswaJadiAsisten(String data) {
 		Perkuliahan p = this;
 		File file = Common.getFileLocation(p, "MahasiswaJadiAsisten_" + p.getId().toString());
@@ -4009,6 +4105,14 @@ public class Perkuliahan extends VOPembelajaran {
 		}
 	}
 
+	/**
+	 * Mengeluarkan satu asisten dari flag store kelas ini dengan mengosongkan nilainya.
+	 *
+	 * <p>Berbeda dengan {@link #removeDetailperkuliahan(Serializable)}, jalur asisten TIDAK
+	 * memakai kunci - jumlah perubahannya jauh lebih jarang. Kegagalan hanya dicatat.</p>
+	 *
+	 * @param id id {@link MahasiswaJadiAsisten} yang dikeluarkan.
+	 */
 	public void removeMahasiswaJadiAsisten(Serializable id) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiMahasiswaJadiAsisten());
@@ -4019,6 +4123,15 @@ public class Perkuliahan extends VOPembelajaran {
 		}
 	}
 
+	/**
+	 * Menambahkan satu asisten ke flag store kelas ini.
+	 *
+	 * <p>Berbeda dengan peserta yang menyimpan lokasi berkas rincian, entri asisten hanya menyimpan
+	 * idnya sendiri sebagai nilai; rincian dimuat belakangan lewat
+	 * {@code ambilDataBanyak(MahasiswaJadiAsisten.class, ...)}.</p>
+	 *
+	 * @param mahasiswaJadiAsistenid id baris {@link MahasiswaJadiAsisten}.
+	 */
 	public void populateMahasiswaJadiAsisten(Long mahasiswaJadiAsistenid) {
 		try {
 
@@ -4029,6 +4142,22 @@ public class Perkuliahan extends VOPembelajaran {
 		}
 	}
 
+	/**
+	 * Mencari baris peserta ({@link Detailperkuliahan}) milik seorang mahasiswa pada kelas ini.
+	 *
+	 * <p>Pencarian dilakukan dari sisi MAHASISWA: menelusuri daftar {@code detailperkuliahan} milik
+	 * mahasiswa tersebut lalu mencocokkan id perkuliahannya dengan kelas ini. Arah ini dipilih
+	 * karena seorang mahasiswa mengambil jauh lebih sedikit kelas daripada jumlah peserta sebuah
+	 * kelas.</p>
+	 *
+	 * <p><b>Catatan:</b> pencocokan memakai {@code getId()} kelas ini apa adanya, TANPA
+	 * pengalihan ke kelas induk - untuk kelas paralel, hasilnya bisa {@code null} meski mahasiswa
+	 * terdaftar pada induknya.</p>
+	 *
+	 * @param mahasiswa mahasiswa yang dicari.
+	 * @return id baris peserta, atau {@code null} bila mahasiswa tidak terdaftar atau salah satu
+	 *         id belum tersedia.
+	 */
 	public Long ambilDetailperkuliahan(Mahasiswa mahasiswa) {
 
 		if (mahasiswa == null || mahasiswa.getId() == null || getId() == null) {
@@ -4049,6 +4178,15 @@ public class Perkuliahan extends VOPembelajaran {
 		return null;
 	}
 
+	/**
+	 * Jumlah peserta kelas menurut flag store, lewat jalur lengkap
+	 * {@link #ambilDetailperkuliahan()} (termasuk pembangunan ulang bila flag belum ada).
+	 *
+	 * <p>Untuk kebutuhan tampilan yang hanya ingin angka cepat tanpa memuat objek peserta, pakai
+	 * {@link #ambilJumlahDetailperkuliahanLangsung()}.</p>
+	 *
+	 * @return jumlah peserta kelas.
+	 */
 	public int ambilJumlahDetailperkuliahan() {
 		Collection<Long> detailperkuliahans = ambilDetailperkuliahan();
 		int size = detailperkuliahans.size();
@@ -4056,6 +4194,18 @@ public class Perkuliahan extends VOPembelajaran {
 		return size;
 	}
 
+	/**
+	 * Merekap peserta kelas menjadi dua angka: yang belum dinilai dan yang sudah dinilai.
+	 *
+	 * <p>Seorang peserta dianggap sudah dinilai bila total nilainya melampaui ambang {@code 0.1} -
+	 * ambang kecil ini dipakai, bukan perbandingan dengan nol, karena total nilai bertipe
+	 * {@code Double} hasil penjumlahan berbobot.</p>
+	 *
+	 * <p>Dipanggil dari {@code KrsUtilHelper}.</p>
+	 *
+	 * @return larik dua elemen: {@code [0]} jumlah belum dinilai, {@code [1]} jumlah sudah dinilai.
+	 * @see #ambilStatusKrs()
+	 */
 	public Integer[] ambilStatusPenilaian() {
 		Collection<Long> detailperkuliahans = ambilDetailperkuliahan();
 		Integer countBelumDinilaiTemp = 0;
@@ -4077,6 +4227,22 @@ public class Perkuliahan extends VOPembelajaran {
 		return new Integer[] { countBelumDinilaiTemp, countSudahDinilaiTemp };
 	}
 
+	/**
+	 * Merekap peserta kelas menjadi empat angka status KRS dan penilaian dalam SATU kali telusur.
+	 *
+	 * <p>Peserta yang KRS-nya belum disetujui hanya dihitung pada elemen pertama; peserta yang
+	 * sudah disetujui dipilah lagi menjadi sudah/belum dinilai. Seorang peserta dianggap sudah
+	 * dinilai bila total nilai ATAU total nilai sementara melampaui ambang {@code 0.1} - nilai
+	 * sementara ikut dihitung agar kelas yang penilaiannya sedang berjalan tidak terlihat kosong.
+	 * </p>
+	 *
+	 * <p>Menjadi sumber angka bagi {@link #populateInfoPersetujuan()},
+	 * {@link #populateInfoPersetujuanBiasa()}, {@code PerkuliahanAction}, {@code PenjadwalanUtil},
+	 * serta beberapa dasbor rekap.</p>
+	 *
+	 * @return larik empat elemen: {@code [0]} belum disetujui, {@code [1]} sudah disetujui,
+	 *         {@code [2]} sudah dinilai, {@code [3]} sudah disetujui tetapi belum dinilai.
+	 */
 	public Integer[] ambilStatusKrs() {
 		Collection<Long> detailperkuliahans = ambilDetailperkuliahan();
 		Integer countBelumDisetujui = 0;
@@ -4105,6 +4271,22 @@ public class Perkuliahan extends VOPembelajaran {
 		return new Integer[] { countBelumDisetujui, countSudahDisetujui, countDinilai, countBelumDinilai };
 	}
 
+	/**
+	 * Menghitung jumlah peserta LANGSUNG dari berkas flag store, tanpa memuat satu pun objek
+	 * {@link Detailperkuliahan}.
+	 *
+	 * <p>Hanya menghitung entri yang nilainya tidak kosong (entri kosong berarti peserta sudah
+	 * dikeluarkan, lihat {@link #removeDetailperkuliahan(Serializable)}). Method ini juga TIDAK
+	 * membangun ulang flag store bila belum ada - itulah harga dari kecepatannya.</p>
+	 *
+	 * <p>Dipakai di jalur-jalur yang menampilkan banyak kelas sekaligus dan hanya butuh angka:
+	 * kalender perkuliahan harian/mingguan/bulanan, daftar e-learning, API e-learning, dan angket
+	 * perkuliahan.</p>
+	 *
+	 * @return jumlah entri peserta yang masih aktif di flag store; {@code 0} bila berkas belum ada
+	 *         atau rusak.
+	 * @see #ambilJumlahDetailperkuliahan()
+	 */
 	@SuppressWarnings("unchecked")
 	public Integer ambilJumlahDetailperkuliahanLangsung() {
 		int jumlah = 0;

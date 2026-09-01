@@ -865,7 +865,7 @@ public final class SalesInventoryPayableHelper {
 
 			java.util.Date tglBg = null;
 			String sBg = request.optString("tanggal_bg", "").trim();
-			if (sBg.matches("\d{4}-\d{2}-\d{2}")) {
+			if (sBg.matches("\\d{4}-\\d{2}-\\d{2}")) {
 				tglBg = new java.text.SimpleDateFormat("yyyy-MM-dd").parse(sBg);
 			}
 			java.sql.PreparedStatement ins = session.connection().prepareStatement(

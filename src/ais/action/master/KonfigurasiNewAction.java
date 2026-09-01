@@ -6207,8 +6207,8 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 						ConstantValues.DSPACE_URL_PRIVATE = konfigurasi.getNilai();
 					}
 				}));
-		rows.appendChild(createRowNilai("Username Dspace", "dspace_username", "fauzioke2003@gmail.com"));
-		rows.appendChild(createRowNilaiPassword("Username Password", "dspace_password", "jangannakal"));
+		rows.appendChild(createRowNilai("Username Dspace", "dspace_username", ""));
+		rows.appendChild(createRowNilaiPassword("Username Password", "dspace_password", ""));
 		rows.appendChild(
 				createRowNilai("Dspace Antarmuka", "dspace_ui", ConstantValues.DSPACE_UI, 1, null, new EventListener() {
 
