@@ -25,21 +25,51 @@ import ais.database.model.Matakuliah;
 import ais.database.model.Perkuliahan;
 
 /**
- * Helper terfokus untuk krs dan skripsi. Tipe ini membungkus satu variasi kecil dari alur yang
- * lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ * Kumpulan method statis (bukan helper berstate/instance) seputar KRS (Kartu Rencana Studi) milik
+ * {@link Mahasiswa} — khususnya perhitungan/singkronisasi KRS aktif dan pengecekan syarat
+ * pengambilan mata kuliah seminar/skripsi. Entity utama yang dibaca/ditulis: {@link KrsMahasiswa}
+ * (satu baris per kombinasi mahasiswa-semester-tahapan-semesterPendek), {@link Detailperkuliahan}
+ * (riwayat pengambilan mata kuliah per semester berikut nilainya), dan {@link Matakuliah} (dicocokkan
+ * lewat kode atau nama saat mencari mata kuliah seminar/skripsi).
  *
- * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
- * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
- * implementasi paralel dengan hasil berbeda.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah pembacaan/pencarian ({@code
- * ambilKrsMahasiswaTanpaSinkronisasi()}, {@code checkApakahSudahMengambilKrsSeminarSkripsiDan()}, {@code
- * checkApakahSudahMengambilKrsSeminarSkripsi()}); operasi domain lain ({@code singkronkanKrsMahasiswa()}, {@code
- * kodeMatakuliahDanEfektif()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut
- * di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>{@link #ambilKrsMahasiswaTanpaSinkronisasi} vs {@link #singkronkanKrsMahasiswa}</b> — dua
+ * jalur yang sengaja dipisah:</p>
+ * <ul>
+ * <li><b>Baca saja</b> ({@code ambilKrsMahasiswaTanpaSinkronisasi}): tidak menghitung ulang SKS/IPK
+ * dan tidak menulis apa pun ke database, hanya mengambil baris {@link KrsMahasiswa} yang sudah ada.
+ * Dipakai untuk render layar/status (mis. membuka komentar/catatan KRS) supaya pembukaan halaman
+ * tidak ikut membuka transaksi tulis yang bisa berebut lock {@code krs_mahasiswa} dengan proses
+ * simpan KRS yang sedang berjalan (lihat r78511 di riwayat svn file ini).</li>
+ * <li><b>Hitung ulang &amp; simpan</b> ({@code singkronkanKrsMahasiswa}): menghitung ulang SKS/IPK/IPS
+ * dari {@link Detailperkuliahan} terbaru mahasiswa, lalu melakukan {@code saveOrUpdate} ke baris
+ * {@link KrsMahasiswa} yang sesuai. Dipanggil setelah ada perubahan nilai/KRS, termasuk dari worker
+ * pembayaran setelah konversi calon mahasiswa menjadi mahasiswa aktif.</li>
+ * </ul>
+ *
+ * <p><b>Cache JSON sementara:</b> {@code singkronkanKrsMahasiswa} memakai
+ * {@link CommonUtil#ambilTemporary}/{@link CommonUtil#simpanTemporary} dengan kunci
+ * {@code "KrsMahasiswa_" + idMahasiswa + "-" + semester + "-" + tahapan + "-" + semesterPendek} untuk
+ * menghindari perhitungan ulang yang mahal (query {@link Detailperkuliahan} satu per satu) pada
+ * pemanggilan berturut-turut dengan parameter yang sama; parameter {@code keDatabase=true} melewati
+ * cache ini secara paksa.</p>
+ *
+ * <p><b>Pengecekan syarat seminar/skripsi</b> — {@link #checkApakahSudahMengambilKrsSeminarSkripsiDan}
+ * (semua kode wajib ditemukan, logika AND) dan {@link #checkApakahSudahMengambilKrsSeminarSkripsi}
+ * (kode manapun cukup, logika OR, dengan fase pencarian semester spesifik lalu jatuh ke pencarian
+ * bebas semester) membaca daftar {@link Detailperkuliahan} mahasiswa dan mencocokkan kode/nama mata
+ * kuliah terhadap parameter yang berasal dari konfigurasi label seminar/skripsi (dipisah koma).
+ * {@link #kodeMatakuliahDanEfektif} adalah utilitas normalisasi murni (tanpa akses database) yang
+ * dipanggil sebelum pengecekan AND: menghapus dari daftar "DAN" (prasyarat wajib) kode apa pun yang
+ * juga muncul di daftar "ATAU" (kandidat utama), supaya satu daftar kandidat yang salah tersalin ke
+ * kedua kolom konfigurasi tidak berubah menjadi kewajiban mengambil semua mata kuliah sekaligus.</p>
+ *
+ * <p><b>Manajemen session:</b> setiap method yang mengakses database membuka
+ * {@link HibernateUtil#getSessionFactory()}{@code .openSession()} sendiri (bukan
+ * {@code currentSession()} milik thread request) dan menutupnya secara eksplisit di blok
+ * {@code finally} ({@code clear()}/{@code disconnect()}/{@code close()} berurutan, masing-masing
+ * dibungkus try-catch terpisah agar kegagalan satu langkah cleanup tidak menghalangi langkah
+ * berikutnya) — pola ini konsisten dipakai supaya helper aman dipanggil dari luar konteks request web
+ * biasa (mis. dari worker/thread background pembayaran).</p>
  */
 public class KrsDanSkripsiHelper {
 
@@ -103,6 +133,49 @@ public class KrsDanSkripsiHelper {
 		return hasil;
 	}
 
+	/**
+	 * Menghitung ulang KRS aktif seorang mahasiswa (SKS diambil, SKS konversi, IPK, IPS, dosen PA
+	 * default, kelas) dari riwayat {@link Detailperkuliahan}-nya, lalu menyimpan hasilnya sebagai
+	 * baris {@link KrsMahasiswa} (insert/update via {@link Common#refreshSaveOrUpdate}) kecuali
+	 * bila {@code jikaTidakAdaKembali} diminta secara eksplisit atau data cache JSON sementara
+	 * masih valid dan {@code keDatabase} bernilai {@code false}.
+	 *
+	 * <p>Alur ringkas: normalisasi parameter (tahapan 0 dianggap null, semester kosong diisi dari
+	 * {@link Mahasiswa#currentSemester()} lalu dibatasi tidak melebihi semester lulus bila
+	 * mahasiswa berstatus keluar) &rarr; cek cache JSON kecuali {@code keDatabase=true} &rarr; buka
+	 * transaksi baru, muat ulang {@link Mahasiswa} yang managed pada session ini dan tandai
+	 * {@code setReadOnly(true)} agar Hibernate tidak mencoba meng-UPDATE baris mahasiswa saat flush
+	 * (nilai {@code nimKey} lama kadang tidak identik dengan hasil normalisasi
+	 * {@code getNimKey()}, sehingga dirty-check bisa menabrak constraint unik) &rarr; hitung
+	 * kumpulan {@link Detailperkuliahan} yang diambil semester ini serta kumpulan "sampai semester
+	 * ini" (dari {@link KrsDetailHelper#ambilDetailperkuliahanSampai}), saring yang lulus, lalu
+	 * hitung SKS/IPK/IPS &rarr; {@code commit} transaksi &rarr; tulis hasil ke cache JSON &rarr;
+	 * panggil {@link AuditListener#prosesUntukElearning} untuk menyinkronkan data ke modul
+	 * e-learning.</p>
+	 *
+	 * <p>Efek samping: membuka dan meng-commit satu transaksi Hibernate, dapat melakukan
+	 * insert/update pada tabel {@code krs_mahasiswa}, menulis/menghapus entri cache JSON sementara
+	 * lewat {@link CommonUtil}, dan memicu proses sinkronisasi e-learning. Kegagalan di tengah
+	 * proses melakukan rollback dan mengembalikan objek {@link KrsMahasiswa} kosong sebagai
+	 * fallback (bukan melempar exception ke pemanggil).</p>
+	 *
+	 * @param mahasiswa mahasiswa target; harus punya {@code id} tersimpan, kalau tidak langsung
+	 *            mengembalikan {@link KrsMahasiswa} kosong
+	 * @param semester semester KRS yang dihitung; bila {@code null} diisi otomatis dari
+	 *            {@link Mahasiswa#currentSemester()}
+	 * @param tahapan kode tahapan studi (bernilai 0 diperlakukan sama dengan {@code null})
+	 * @param semesterPendek penanda semester pendek/reguler, diteruskan apa adanya ke query
+	 *            {@link Detailperkuliahan}
+	 * @param keDatabase {@code true} untuk memaksa hitung ulang dari database dan melewati cache
+	 *            JSON sementara
+	 * @param dosenPaDefault {@code true} agar dosen PA hasil KRS mengikuti dosen PA mahasiswa saat
+	 *            ini bila belum ada atau semester yang dihitung adalah semester berjalan
+	 * @param jikaTidakAdaKembali {@code true} untuk langsung mengembalikan {@link KrsMahasiswa}
+	 *            kosong tanpa membaca cache maupun database (dipakai saat pemanggil hanya perlu
+	 *            memaksa reset tanpa hasil baru)
+	 * @return {@link KrsMahasiswa} hasil hitung ulang yang sudah tersimpan, hasil dari cache, atau
+	 *         objek kosong sebagai fallback bila terjadi kegagalan/precondition tidak terpenuhi
+	 */
 	public static KrsMahasiswa singkronkanKrsMahasiswa(Mahasiswa mahasiswa, Integer semester, Integer tahapan,
 			Integer semesterPendek, boolean keDatabase, boolean dosenPaDefault, boolean jikaTidakAdaKembali) {
 
@@ -401,6 +474,27 @@ public class KrsDanSkripsiHelper {
 		return hasil.toString();
 	}
 
+	/**
+	 * Mengecek apakah mahasiswa sudah mengambil (dan disetujui) SEMUA kode/nama mata kuliah pada
+	 * {@code label_seminar_skripsi} (logika AND, dipisah koma) — dipakai untuk syarat gabungan
+	 * seperti "seminar proposal DAN metodologi penelitian" yang harus dipenuhi sekaligus.
+	 * Panggil {@link #kodeMatakuliahDanEfektif} terlebih dulu di sisi pemanggil bila daftar ini
+	 * perlu dinormalisasi terhadap daftar kandidat OR.
+	 *
+	 * <p>Membaca seluruh {@link Detailperkuliahan} milik mahasiswa (lewat
+	 * {@link Mahasiswa#ambilDetailperkuliahan()}, tanpa filter semester), mengabaikan baris yang
+	 * belum disetujui ({@link Detailperkuliahan#BELUM_DISETUJUI}), lalu mencocokkan kode ATAU nama
+	 * {@link Matakuliah} (memakai matakuliah konversi bila ada, kalau tidak memakai matakuliah asli
+	 * dari {@link Perkuliahan}) case-insensitive terhadap tiap parameter. Berhenti dini begitu satu
+	 * parameter dipastikan tidak ditemukan pada mata kuliah manapun (short-circuit AND).</p>
+	 *
+	 * @param mahasiswa mahasiswa yang dicek; {@code null} langsung menghasilkan {@code null}
+	 * @param label_seminar_skripsi daftar kode/nama mata kuliah dipisah koma yang SEMUANYA wajib
+	 *            ditemukan; kosong/{@code null} langsung menghasilkan {@code null}
+	 * @return {@link Detailperkuliahan} terakhir yang cocok (dari parameter manapun yang ditemukan
+	 *         terakhir) bila SEMUA parameter ditemukan, atau {@code null} bila ada satu saja yang
+	 *         tidak ditemukan atau terjadi kegagalan akses data
+	 */
 	public static Detailperkuliahan checkApakahSudahMengambilKrsSeminarSkripsiDan(Mahasiswa mahasiswa,
 			String label_seminar_skripsi) {
 		if (mahasiswa == null || label_seminar_skripsi == null || label_seminar_skripsi.trim().isEmpty()) {
@@ -489,6 +583,28 @@ public class KrsDanSkripsiHelper {
 	// 3. CEK MENGAMBIL KRS SEMINAR / SKRIPSI (OR / REGULER)
 	// =========================================================================
 
+	/**
+	 * Mengecek apakah mahasiswa sudah mengambil (dan disetujui) SALAH SATU kode/nama mata kuliah
+	 * pada {@code label_seminar_skripsi} (logika OR, dipisah koma) — dipakai untuk syarat mata
+	 * kuliah seminar/skripsi yang kandidatnya bisa lebih dari satu (mis. berbagai variasi nama mata
+	 * kuliah skripsi antar kurikulum).
+	 *
+	 * <p>Pencarian dilakukan dua fase: <b>Fase 1</b> mencocokkan hanya pada
+	 * {@link Detailperkuliahan} yang {@code semester}-nya sama persis dengan parameter (bila
+	 * {@code semester} diisi); bila tidak ada yang cocok, <b>Fase 2</b> mengulang pencarian yang
+	 * sama tanpa filter semester (bebas semester manapun). Baris yang belum disetujui
+	 * ({@link Detailperkuliahan#BELUM_DISETUJUI}) selalu diabaikan di kedua fase. Berhenti begitu
+	 * kecocokan pertama ditemukan.</p>
+	 *
+	 * @param mahasiswa mahasiswa yang dicek; {@code null} langsung menghasilkan {@code null}
+	 * @param semester semester yang diprioritaskan pada Fase 1; {@code null} berarti langsung
+	 *            mencari bebas semester
+	 * @param label_seminar_skripsi daftar kode/nama mata kuliah dipisah koma, kandidat mana pun
+	 *            yang cocok sudah dianggap memenuhi syarat; kosong/{@code null} langsung
+	 *            menghasilkan {@code null}
+	 * @return {@link Detailperkuliahan} pertama yang cocok, atau {@code null} bila tidak ada satu
+	 *         pun kandidat yang ditemukan atau terjadi kegagalan akses data
+	 */
 	public static Detailperkuliahan checkApakahSudahMengambilKrsSeminarSkripsi(Mahasiswa mahasiswa, Integer semester,
 			String label_seminar_skripsi) {
 		if (mahasiswa == null || label_seminar_skripsi == null || label_seminar_skripsi.trim().isEmpty()) {

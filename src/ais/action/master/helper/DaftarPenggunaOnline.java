@@ -45,20 +45,24 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyWindow;
 
 /**
- * Tipe khusus untuk daftar pengguna online. Kelas ini memberi nama dan batas tanggung jawab yang
- * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ * Window ZK modal "Daftar Pengguna Online" — menampilkan siapa saja yang sedang login ke AIS
+ * saat ini, dibaca langsung dari peta in-memory {@link SecurityFilter#dataOnline} (bukan tabel
+ * DB) yang diisi oleh filter keamanan setiap request. Satu baris grid dibuat per pengguna unik
+ * (di-dedup berdasarkan nama via {@code Map<String,OnlineUsers>}), dengan jenis pengguna
+ * dideteksi dari field non-null pada {@link OnlineUsers}: {@link Mahasiswa}, {@link
+ * ais.database.model.sekolah.Siswa} (siswa sekolah — modul sisdik), {@link
+ * ais.database.model.sisdes.Penduduk} (modul sisdes/desa), {@link Dosen}, {@link Guru}
+ * (turunan dari {@link Tbmuser}), atau {@link Tbmuser} biasa (staf/admin) sebagai fallback
+ * paling akhir. Kolom "Lama" dihitung dari selisih {@code WaktuUtil.getDate()} sekarang
+ * dengan waktu login tersimpan di {@code OnlineUsers.getLogin().getLogin()}.
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * MyWindow}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Toolbar toolbar}, {@code MyButtonConfig
- * batal}, {@code int tabIndex}; inisialisasi/lifecycle ({@code init()}). Bagian lain dari kontrak tetap
- * mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p>Bila pengguna saat ini admin ({@link Common#getApakahAdmin()}), window menambahkan tab
+ * kedua "Pemakaian Memori" berisi grafik dual-line (bebas vs terpakai) dari data historis
+ * {@link HeapSizeDemo#data}, serta tombol "Bersihkan Memori Tak Terpakai" yang memaksa
+ * {@code Runtime.gc()}/{@code runFinalization()} lalu memicu {@link HeapSizeDemo#check()} —
+ * dipakai admin untuk diagnosis tekanan memori server, bukan bagian dari alur bisnis normal.
+ * Setiap "Refresh" membangun ulang seluruh window ({@code init()} dipanggil ulang) alih-alih
+ * hanya me-refresh grid.</p>
  *
  * @see MyWindow
  */
@@ -72,6 +76,11 @@ public class DaftarPenggunaOnline extends MyWindow {
 	private Toolbar toolbar;
 	private MyButtonConfig batal;
 
+	/**
+	 * Bangun window dan langsung muat isinya lewat {@link #init()}. Exception saat inisialisasi
+	 * hanya ditampilkan bila pengguna adalah admin ({@link Common#tampilErrorJikaAdmin(Exception)})
+	 * agar pengguna biasa tidak melihat stack trace teknis.
+	 */
 	public DaftarPenggunaOnline() {
 		super();
 		try {
@@ -81,8 +90,18 @@ public class DaftarPenggunaOnline extends MyWindow {
 		}
 	}
 
+	/** Tab yang sedang aktif di tabbox admin (0=Pengguna Online, 1=Pemakaian Memori); dipertahankan antar Refresh. */
 	private int tabIndex = 0;
 
+	/**
+	 * Bangun ulang seluruh isi window dari nol: bersihkan komponen lama
+	 * ({@link Common#clear(org.zkoss.zk.ui.Component)}), lalu buat toolbar Refresh, tab
+	 * "Pemakaian Memori" khusus admin, dan grid daftar pengguna online yang di-scan dari
+	 * {@link SecurityFilter#dataOnline} (lihat Javadoc kelas untuk detail deteksi jenis
+	 * pengguna dan perhitungan durasi login). Dipanggil dari constructor maupun tombol
+	 * Refresh — setiap panggilan membangun ulang komponen dari awal, bukan hanya me-refresh
+	 * data grid. Di akhir memanggil {@link UserOnlineCounter#check()}.
+	 */
 	@SuppressWarnings({ "rawtypes" })
 	private void init() throws Exception {
 

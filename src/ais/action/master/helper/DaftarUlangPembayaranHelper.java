@@ -34,29 +34,51 @@ import ais.ui.util.MyLabelBoldAja;
 import ais.ui.util.MyWindow;
 
 /**
- * Helper terfokus untuk daftar ulang pembayaran. Tipe ini membungkus satu variasi kecil dari alur
- * yang lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan
- * implementasi.
+ * Kumpulan method statis (utility class, tidak bisa di-instantiate) yang dipakai BERSAMA oleh
+ * layar-layar pembayaran daftar ulang mahasiswa/calon mahasiswa (mis. action Lama dan Baru untuk
+ * pembayaran {@link Kegiatan} lewat {@link CicilanPembayaran}/{@link DetailBiaya}/
+ * {@link PengaturanPembayaranBulanan}) agar logika perhitungan nominal, anti-pembayaran-ganda,
+ * dan pemilihan {@link SettingBiaya} yang benar TIDAK digandakan berbeda-beda di tiap action.
  *
- * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
- * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
- * implementasi paralel dengan hasil berbeda.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah pembacaan/pencarian ({@code ambilNominalDariLabel()}, {@code
- * hitungJumlahYangAkanDibayarDariTampilan()}, {@code getBayarCooldownMs()}, {@code loadIframeToTabpanel()});
- * validasi/perhitungan ({@code hitungNilaiCicilanBelumTersimpanDariGrid()}); mutasi data ({@code
- * updateDetailBiayaUntukDibayar()}, {@code pilihSettingBiayaSesuai()}, {@code resolveSettingBiaya()}); operasi
- * domain lain ({@code pasangRingkasanBayar()}, {@code buildBayarSignature()}). Bagian lain dari kontrak tetap
- * mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Kelompok tanggung jawab:</b></p>
+ * <ul>
+ * <li><b>Baca nominal dari tampilan</b> — {@link #ambilNominalDariLabel}, {@link
+ * #hitungNilaiCicilanBelumTersimpanDariGrid}, {@link #hitungJumlahYangAkanDibayarDariTampilan}:
+ * dipakai karena UI kadang hanya menyimpan angka sebagai teks berformat Rupiah di {@link Label},
+ * sehingga nilai "yang benar-benar akan dibayar" harus direkonstruksi dari kombinasi label footer
+ * dan baris cicilan yang belum tersimpan di grid.</li>
+ * <li><b>Anti-pembayaran-ganda</b> — {@link #getBayarCooldownMs} (baca konfigurasi
+ * {@code cooldown_pembayaran_ganda_detik}, default 300 detik) dan {@link #buildBayarSignature}
+ * (signature kegiatan+item+nominal) dipakai bersama agar klik ganda tombol Bayar dalam rentang
+ * cooldown dengan signature yang SAMA bisa dideteksi dan diblok oleh pemanggil.</li>
+ * <li><b>Penentuan item yang masih perlu dibayar</b> — {@link #updateDetailBiayaUntukDibayar}
+ * membandingkan nilai tagihan per {@link DetailBiaya} dengan total yang sudah dicicil.</li>
+ * <li><b>Pemilihan {@link SettingBiaya} yang tepat</b> — {@link #pilihSettingBiayaSesuai} (dengan
+ * helper privat {@link #resolveSettingBiaya}) memilih SettingBiaya yang benar-benar cocok
+ * (jenis kegiatan + semester + tahun akademik, atau minimal jenis kegiatan) dari koleksi tagihan
+ * terpilih, dipakai tombol "Ubah Tagihan" agar tidak membuka setting biaya yang salah.</li>
+ * <li><b>UI bersama</b> — {@link #pasangRingkasanBayar} (kartu ringkasan Dibayar/Total Bayar
+ * dengan terbilang) dan {@link #loadIframeToTabpanel} (muat sekali saja tab lazy-load).</li>
+ * </ul>
+ * <p>Semua method murni membaca/menghitung dari state ZK atau argumen yang diberikan; tidak ada
+ * method di kelas ini yang membuka transaksi Hibernate sendiri (mutasi entitas didelegasikan ke
+ * pemanggil), kecuali baca konfigurasi ({@link #getBayarCooldownMs}) yang menyentuh DB via
+ * {@link Common#getKonfigurasi}.</p>
  */
 public final class DaftarUlangPembayaranHelper {
 
 	private DaftarUlangPembayaranHelper() {
 	}
 
+	/**
+	 * Parse nominal Rupiah dari teks sebuah {@link Label} (mis. label footer "Dibayar"/"Total").
+	 * Coba dulu dengan {@link Common#numberFormat} (format lokal standar aplikasi); bila gagal,
+	 * jatuh ke fallback manual yang membuang prefix {@code "Rp"}, spasi, titik ribuan, lalu
+	 * mengganti koma desimal dengan titik sebelum {@link Double#parseDouble}.
+	 *
+	 * @param label label sumber teks nominal; boleh {@code null} atau kosong.
+	 * @return nominal hasil parse, atau {@code 0.0} bila label kosong/tidak bisa di-parse sama sekali.
+	 */
 	public static double ambilNominalDariLabel(Label label) {
 		if (label == null || label.getValue() == null || label.getValue().trim().isEmpty()) {
 			return 0.0;
@@ -73,6 +95,17 @@ public final class DaftarUlangPembayaranHelper {
 		}
 	}
 
+	/**
+	 * Jumlahkan nominal cicilan yang SUDAH diinput di grid tapi BELUM tersimpan sebagai
+	 * {@link CicilanPembayaran} (baris tanpa atribut {@code cicilanPembayaran}, atau atributnya
+	 * ada tapi {@code getId() == null}) — dipakai untuk mengetahui berapa yang akan dibayar dari
+	 * baris-baris baru yang sedang diedit user sebelum tombol Bayar ditekan. Baris yang tidak
+	 * visible ({@code row.isVisible() == false}) dilewati.
+	 *
+	 * @param gridCicilan grid cicilan; baris diharapkan membawa attribute {@code cicilanPembayaran}
+	 *                    dan {@code jumlahCicilan} (sebuah {@link MyDoublebox}).
+	 * @return total nominal baris baru yang belum tersimpan, atau {@code 0.0} bila grid kosong/error.
+	 */
 	public static double hitungNilaiCicilanBelumTersimpanDariGrid(Grid gridCicilan) {
 		double jumlah = 0.0;
 		try {
@@ -103,6 +136,24 @@ public final class DaftarUlangPembayaranHelper {
 		return jumlah;
 	}
 
+	/**
+	 * Tentukan nominal yang AKAN dibayar sekarang, dengan urutan prioritas sumber:
+	 * <ol>
+	 * <li>label footer "Dibayar" bila user sudah mengisi angka di sana secara eksplisit
+	 * ({@link #ambilNominalDariLabel} &gt; 0.01);</li>
+	 * <li>bila kosong, jumlah cicilan baru yang belum tersimpan di grid
+	 * ({@link #hitungNilaiCicilanBelumTersimpanDariGrid} &gt; 0.01);</li>
+	 * <li>bila keduanya kosong (berarti user belum menyentuh apa pun), selisih antara total
+	 * seluruh baris tagihan ({@code footerTotal}) dengan total yang SUDAH tersimpan sebagai
+	 * {@link CicilanPembayaran} — dipakai sebagai default "bayar sisa semuanya".</li>
+	 * </ol>
+	 *
+	 * @param footerDibayar       label footer nominal yang diinput manual user.
+	 * @param footerTotal         label footer total seluruh tagihan.
+	 * @param gridCicilan         grid cicilan berisi baris baru yang belum tersimpan.
+	 * @param cicilanPembayarans  cicilan yang sudah tersimpan di DB untuk kegiatan ini.
+	 * @return nominal final yang akan dibayar menurut prioritas di atas.
+	 */
 	public static double hitungJumlahYangAkanDibayarDariTampilan(Label footerDibayar, Label footerTotal,
 			Grid gridCicilan, List<CicilanPembayaran> cicilanPembayarans) {
 		double jumlahBaru = ambilNominalDariLabel(footerDibayar);

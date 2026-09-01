@@ -71,44 +71,85 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Helper terfokus untuk file perkuliahan. Tipe ini membungkus satu variasi kecil dari alur yang
- * lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ * Helper UI e-learning untuk menampilkan dan mengelola <b>materi/berkas pertemuan</b> (entity
+ * {@link PertemuanFileContent}) pada satu {@link Pertemuan} (sesi kuliah), atau — bila {@code pertemuan} tidak
+ * diketahui — pada kombinasi {@link KurikulumPunyaMatakuliahDetail}/{@link GrupPertemuan}/
+ * {@link KurikulumPunyaMatakuliah}. Dipakai baik oleh dosen/admin (mode kelola: unggah, hapus, ubah keterangan)
+ * maupun oleh mahasiswa/calon mahasiswa/siswa/peserta kursus (mode baca saja).
  *
- * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
- * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
- * implementasi paralel dengan hasil berbeda.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Mahasiswa mahasiswa}, {@code
- * BiodataCalonMahasiswa biodataCalonMahasiswa}, {@code Pertemuan pertemuan}, {@code KurikulumPunyaMatakuliah
- * kurikulumPunyaMatakuliah}, {@code KurikulumPunyaMatakuliahDetail kurikulumPunyaMatakuliahDetail}, {@code
- * GrupPertemuan grupPertemuan}, {@code Center center}, {@code PertemuanFileContent
- * selectedPertemuanFileContent}; pembacaan/pencarian ({@code reloadPertemuanFileContent()}, {@code
- * reloadPertemuanFileContent()}, {@code tampilkanKonten()}); operasi domain lain ({@code createFile()}, {@code
- * mengandungKomponenSyarat()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut
- * di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Sumber materi yang didukung</b> (dibangun lewat {@code AmbilDataPertemuanFileContent} dan dirender oleh
+ * {@link #createFile}): unggah/scan foto, scan layar, paket SCORM, salin dari pertemuan lain ("Upload/Ambil
+ * Materi Sebelumnya"), Google Drive, Dropbox, tautan (link) bebas, buku dari Google Books, dan artikel dari
+ * Google Scholar (tombol ini disembunyikan permanen — {@code setVisible(false)}). Setiap sumber memicu
+ * {@link Pertemuan#belum(String) pertemuan.belum("pertemuan_file_content")} (menandai cache pertemuan basi) lalu
+ * {@link #reloadPertemuanFileContent()} untuk memuat ulang daftar dan mengirim email notifikasi
+ * ({@code CommonEmail.infoAdaFilePerkuliahan}).</p>
+ * <p><b>Tampilan:</b> {@link #createFile} membangun toolbar sumber materi di {@code North} dan daftar materi di
+ * {@code Center} ({@link #center}). Bila hanya satu materi, kontennya langsung dirender di center; bila lebih
+ * dari satu, setiap materi menjadi satu {@code Tab} (lazy-render kontennya baru dibangun saat tab pertama kali
+ * diklik, lewat {@link #tampilkanKonten}), memilih materi yang cocok {@link #selectedPertemuanFileContent} atau
+ * tab pertama sebagai default. {@link #tampilkanKonten} juga merender syarat/ketentuan terkait materi
+ * ({@code Tugas.tampilanSyarat}/{@code tampilanSyaratReadonly}) dan tombol Hapus (soft-unlink: kolom
+ * pertemuan/kurikulumpunyamatakuliah/kurikulumpunyamatakuliahdetail/gruppertemuan diarahkan ke id sentinel
+ * negatif via SQL langsung dengan commit eksplisit, bukan menghapus baris — lihat komentar KE-FIX di kode
+ * tentang bug rollback StreamingHibernateUtil yang pernah membuat penghapusan tidak persist).</p>
  */
 public class FilePerkuliahanHelper {
 
+	/** Mahasiswa yang sedang melihat materi (mode baca saja); {@code null} bila pemanggil adalah dosen/admin. */
 	private Mahasiswa mahasiswa;
+	/** Biodata calon mahasiswa yang sedang melihat materi (mode baca saja, jalur PMB); {@code null} bila bukan konteks ini. */
 	private BiodataCalonMahasiswa biodataCalonMahasiswa;
 
 	// private MyGrid uploadGrid;
+	/** Pertemuan (sesi kuliah) yang materinya sedang ditampilkan; boleh {@code null} bila konteksnya bukan per-pertemuan. */
 	private Pertemuan pertemuan;
+	/** Kurikulum-punya-matakuliah terkait, dipakai sebagai filter/atribusi materi bila {@link #pertemuan} kosong. */
 	private KurikulumPunyaMatakuliah kurikulumPunyaMatakuliah;
+	/** Detail kurikulum-punya-matakuliah (topik/pertemuan RPS) yang materinya ditampilkan. */
 	private KurikulumPunyaMatakuliahDetail kurikulumPunyaMatakuliahDetail;
+	/** Grup pertemuan (untuk kelas dengan beberapa grup paralel) yang materinya ditampilkan. */
 	private GrupPertemuan grupPertemuan;
+	/** Komponen ZK {@code Center} tempat daftar/konten materi dirender ulang oleh {@link #reloadPertemuanFileContent}. */
 	private Center center;
+	/** Materi yang harus otomatis terpilih/terbuka saat tab dibangun (mis. dibuka dari notifikasi tertentu). */
 	private PertemuanFileContent selectedPertemuanFileContent;
 
+	/**
+	 * Membuat helper untuk konteks mahasiswa/calon mahasiswa tertentu. Bila keduanya {@code null}, helper
+	 * berjalan dalam mode dosen/admin (toolbar unggah materi ditampilkan, tombol Hapus aktif).
+	 *
+	 * @param mahasiswa mahasiswa pemilik konteks (mode baca saja); {@code null} bila bukan mahasiswa
+	 * @param biodataCalonMahasiswa biodata calon mahasiswa pemilik konteks (mode baca saja, jalur PMB); {@code null} bila bukan konteks ini
+	 */
 	public FilePerkuliahanHelper(final Mahasiswa mahasiswa, final BiodataCalonMahasiswa biodataCalonMahasiswa) {
 		this.mahasiswa = mahasiswa;
 		this.biodataCalonMahasiswa = biodataCalonMahasiswa;
 
 	}
 
+	/**
+	 * Titik masuk utama: membangun tab "Materi &amp; Berkas Pertemuan" di {@code tabpanelFilePertemuan} —
+	 * header modul, toolbar sumber materi (scan foto/layar, SCORM, salin dari pertemuan lain, Google Drive,
+	 * Dropbox, tautan, Google Books, tombol Refresh), lalu memuat daftar materi.
+	 *
+	 * <p>Bila {@code kurikulumPunyaMatakuliahDetail} diberikan, {@code kurikulumPunyaMatakuliahTemp} DIABAIKAN
+	 * dan kurikulum-punya-matakuliah diambil dari {@code kurikulumPunyaMatakuliahDetail.getKurikulumPunyaMatakuliah()}
+	 * — parameter tersebut jadi mengikat konteksnya sendiri. Toolbar sumber materi hanya tampil untuk
+	 * dosen/admin murni (bukan mahasiswa/calon mahasiswa/peserta kursus/siswa/calon siswa) dan hanya bila
+	 * minimal satu dari {@code pertemuan}/{@code kurikulumPunyaMatakuliahDetail}/{@code grupPertemuan} tidak
+	 * {@code null}. State instance ({@link #pertemuan}, {@link #grupPertemuan}, {@link #kurikulumPunyaMatakuliah},
+	 * {@link #kurikulumPunyaMatakuliahDetail}, {@link #selectedPertemuanFileContent}, {@link #center}) diisi di
+	 * sini dan dipakai oleh method privat lain sepanjang siklus hidup helper ini.</p>
+	 *
+	 * @param pertemuan pertemuan (sesi kuliah) target; boleh {@code null}
+	 * @param grupPertemuan grup pertemuan target (kelas paralel); boleh {@code null}
+	 * @param kurikulumPunyaMatakuliahTemp kurikulum-punya-matakuliah target; diabaikan bila
+	 *            {@code kurikulumPunyaMatakuliahDetail} tidak {@code null}
+	 * @param kurikulumPunyaMatakuliahDetail detail topik RPS target; boleh {@code null}
+	 * @param tabpanelFilePertemuan komponen ZK (biasanya {@code Tabpanel}) tempat header dan layout materi ditempelkan
+	 * @param selectedPertemuanFileContent materi yang harus otomatis terpilih/terbuka saat daftar dirender
+	 */
 	public void createFile(final Pertemuan pertemuan, final GrupPertemuan grupPertemuan,
 			KurikulumPunyaMatakuliah kurikulumPunyaMatakuliahTemp,
 			final KurikulumPunyaMatakuliahDetail kurikulumPunyaMatakuliahDetail, final Component tabpanelFilePertemuan,
@@ -588,10 +629,27 @@ public class FilePerkuliahanHelper {
 		reloadPertemuanFileContent();
 	}
 
+	/** Memuat ulang daftar materi tanpa memaksa refresh cache pertemuan. Lihat {@link #reloadPertemuanFileContent(boolean)}. */
 	private void reloadPertemuanFileContent() {
 		reloadPertemuanFileContent(false);
 	}
 
+	/**
+	 * Mengosongkan {@link #center} lalu mengisinya ulang dengan daftar materi terkini dan merender kontennya.
+	 *
+	 * <p>Bila {@link #pertemuan} tidak {@code null}, daftar diambil dari cache
+	 * {@code pertemuan.ambilPertemuanFileContentTotal(refresh)} (parameter {@code refresh} memaksa cache
+	 * dibangun ulang dari DB, dipakai oleh tombol "Refresh"). Jika tidak, daftar diquery langsung ke
+	 * {@link PertemuanFileContent} dengan filter {@link #grupPertemuan}/{@link #kurikulumPunyaMatakuliahDetail}/
+	 * {@link #kurikulumPunyaMatakuliah} (masing-masing opsional), diurutkan {@code id} descending.</p>
+	 * <p>Bila hasilnya tepat satu materi, kontennya langsung dirender di {@link #center} lewat
+	 * {@link #tampilkanKonten}. Bila lebih dari satu, dibangun {@code Tabbox} dengan satu tab per materi (ikon
+	 * disesuaikan sumbernya — Google Scholar, Google Book, atau ikon file biasa via {@link FileFoto#icon});
+	 * konten tab dirender lazy saat pertama diklik. Tab yang otomatis terpilih dan langsung dirender adalah
+	 * yang cocok dengan {@link #selectedPertemuanFileContent}, atau tab pertama bila tidak ada yang cocok.</p>
+	 *
+	 * @param refresh {@code true} untuk memaksa {@code pertemuan.ambilPertemuanFileContentTotal} membaca ulang dari DB
+	 */
 	@SuppressWarnings("unchecked")
 	private void reloadPertemuanFileContent(boolean refresh) {
 		if (center != null) {
@@ -720,6 +778,26 @@ public class FilePerkuliahanHelper {
 		}
 	}
 
+	/**
+	 * Merender konten lengkap satu materi ({@code pertemuanFileContent}) ke {@code tabpanelUtama}: daftar
+	 * syarat/ketentuan terkait (bila {@link #pertemuan} ada), baris keterangan (dapat diedit langsung oleh
+	 * dosen/admin via textbox — perubahan langsung di-{@code UPDATE} ke kolom {@code keterangan} lewat SQL
+	 * native dan judul tab ikut diperbarui), tombol buka/unduh materi, tombol Hapus (disembunyikan untuk
+	 * mahasiswa/calon mahasiswa/siswa/peserta kursus), tombol "Akses Materi" ({@code TampilanELearningAction.dilihat}
+	 * mencatat aktivitas belajar), dan pratinjau konten sesuai jenisnya: iframe video (materi berbasis lokasi
+	 * fisik/streaming), iframe Google Scholar (kecuali dibatasi header X-Frame-Options SAMEORIGIN), embed
+	 * pratinjau Google Books, tampilan Google Drive, konten via URL, atau pratinjau berkas lokal
+	 * ({@code CommonMedia.preview}) — dengan opsi simpan-ke-Drive bila berkas lokal tersedia.</p>
+	 *
+	 * <p>Tombol Hapus TIDAK menghapus baris {@link PertemuanFileContent}, melainkan melepas relasinya
+	 * (pertemuan/kurikulumpunyamatakuliah/kurikulumpunyamatakuliahdetail/gruppertemuan diarahkan ke id sentinel
+	 * negatif) lewat SQL native dengan commit eksplisit di dalam {@code session.doWork(...)} — lihat komentar
+	 * KE-FIX pada kode terkait bug rollback {@code StreamingHibernateUtil} yang sebelumnya membuat perubahan
+	 * ini tidak persist.</p>
+	 *
+	 * @param tabpanelUtama komponen ZK (tab konten atau {@link #center} langsung bila hanya satu materi) tempat konten ditempelkan
+	 * @param pertemuanFileContent materi yang akan dirender
+	 */
 	private void tampilkanKonten(final Component tabpanelUtama, final PertemuanFileContent pertemuanFileContent) {
 
 		PertemuanFileContent.chekScrom(pertemuanFileContent);
