@@ -47,30 +47,40 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data matakuliah banbox. Kelas ini memberi nama dan batas tanggung jawab
- * yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code EventListener
- * eventListener}, {@code Mahasiswa selectedMahasiswa}, {@code Textbox kodeMatakuliahan}, {@code Textbox nama},
- * {@code Combobox searchfakultas}, {@code Combobox searchjurusan}; pembacaan/pencarian ({@code
- * onSearchDefault()}, {@code setEventListener()}, {@code getEventListener()}); mutasi data ({@code
- * setSelectedMahasiswa()}); operasi domain lain ({@code display()}). Bagian lain dari kontrak tetap mengikuti
- * kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.Matakuliah} —
+ * lihat {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback).
+ * <p>
+ * {@code Matakuliah} adalah master data mata kuliah akademik. Kelas ini punya DUA MODE PENCARIAN
+ * yang SANGAT BERBEDA tergantung constructor yang dipakai:
+ * </p>
+ * <ol>
+ * <li><b>Mode master biasa</b> (constructor tanpa argumen atau dengan {@link Jurusan}): mencari
+ * langsung ke tabel {@link Matakuliah} dengan field {@code kodeMatakuliahan}, {@code nama} (ilike
+ * substring), dan Combobox fakultas/prodi (dikunci bila {@link Jurusan} diberikan dan punya id).</li>
+ * <li><b>Mode "mata kuliah milik mahasiswa"</b> (constructor dengan {@link Mahasiswa}, atau
+ * dipasang belakangan via {@link #setSelectedMahasiswa(Mahasiswa)}): TIDAK mencari tabel
+ * {@code Matakuliah} langsung, melainkan mencari {@code Detailperkuliahan} (baris KRS) milik
+ * mahasiswa tersebut yang berstatus {@code persetujuan == DISETUJUI}, lalu memproyeksikan id mata
+ * kuliahnya — hasilnya digabung dari DUA sumber: mata kuliah asli yang diambil
+ * ({@code perkuliahan.matakuliah}) DAN mata kuliah hasil konversi kredit
+ * ({@code matakuliahKonversi}, dari mahasiswa pindahan/RPL). Dalam mode ini, field fakultas/prodi
+ * TIDAK ditampilkan di popup (tidak relevan — daftar sudah otomatis terbatas ke mahasiswa
+ * tersebut), hanya {@code kodeMatakuliahan}/{@code nama} yang tersisa sebagai filter tambahan.</li>
+ * </ol>
+ * <p>
+ * Mode mana yang aktif ditentukan oleh field {@link #selectedMahasiswa}: {@code null} berarti mode
+ * master biasa. Popup mode master biasa hanya menampilkan baris {@code aktif == true} atau
+ * {@code aktif} kosong; mode mahasiswa tidak menerapkan filter aktif (mengikuti apa pun yang
+ * tercatat di riwayat KRS). Pemilihan bersifat TUNGGAL (Radiogroup).
+ * </p>
  *
  * @see Bandbox
  */
 public class AmbilDataMatakuliahBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 *
 	 */
 	private static final long serialVersionUID = 6452461056684904810L;
 	private MyGrid grid;
@@ -78,14 +88,39 @@ public class AmbilDataMatakuliahBanbox extends Bandbox implements GetEventListen
 	private EventListener eventListener;
 	private Mahasiswa selectedMahasiswa = null;
 
+	/**
+	 * Konstruktor mode "mata kuliah milik mahasiswa" (lihat Javadoc class): mengaktifkan mode
+	 * pencarian riwayat KRS mahasiswa. CATATAN: hanya memanggil {@code super()} implisit (constructor
+	 * {@link Bandbox} tanpa argumen) — TIDAK menjalankan inisialisasi tambahan milik AIS seperti
+	 * {@code setReadonly}/listener {@code onOpen} lazy-build yang dipasang constructor lain di
+	 * kelas ini; pemanggil yang memakai constructor ini harus memastikan {@link #display()}
+	 * dipanggil sendiri atau instance dipakai lewat jalur yang memasang listener setelahnya.
+	 *
+	 * @param mahasiswa mahasiswa yang riwayat KRS-nya (mata kuliah diambil + hasil konversi)
+	 *                  menjadi satu-satunya sumber hasil pencarian
+	 */
 	public AmbilDataMatakuliahBanbox(Mahasiswa mahasiswa) {
 		this.selectedMahasiswa = mahasiswa;
 	}
 
+	/**
+	 * Konstruktor mode master biasa, mendelegasikan ke {@link #AmbilDataMatakuliahBanbox(Jurusan)}
+	 * dengan instance {@link Jurusan} kosong (tanpa id) — sehingga fakultas/prodi TIDAK dikunci.
+	 */
 	public AmbilDataMatakuliahBanbox() {
 		this(new Jurusan());
 	}
 
+	/**
+	 * Konstruktor mode master biasa dengan filter opsional dari entity induk {@link Jurusan}: bila
+	 * {@code jurusan} punya id (bukan instance kosong dari {@link #AmbilDataMatakuliahBanbox()}),
+	 * Combobox fakultas dan prodi di popup pencarian diprapilih dan dikunci ke fakultas/prodi
+	 * jurusan tersebut. Memasang listener {@code onOpen} standar untuk lazy-build popup — lihat
+	 * {@link ais.ui.util.GetEventListener}.
+	 *
+	 * @param jurusan prodi induk untuk mengunci pencarian (harus punya id agar aktif), atau
+	 *                instance kosong/{@code null} untuk pencarian bebas
+	 */
 	public AmbilDataMatakuliahBanbox(final Jurusan jurusan) {
 		super();
 		setReadonly(true);
@@ -123,22 +158,22 @@ public class AmbilDataMatakuliahBanbox extends Bandbox implements GetEventListen
 		});
 	}
 
+	/** Kriteria pencarian: kode mata kuliah (ilike, substring), dipakai di kedua mode. */
 	private Textbox kodeMatakuliahan;
+	/** Kriteria pencarian: nama mata kuliah (ilike, substring), dipakai di kedua mode. */
 	private Textbox nama;
+	/** Kriteria pencarian: fakultas — hanya relevan/ditampilkan pada mode master biasa. */
 	private Combobox searchfakultas = new Combobox();
+	/** Kriteria pencarian: prodi — hanya relevan/ditampilkan pada mode master biasa. */
 	private Combobox searchjurusan = new Combobox();
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataMatakuliahBanbox}. Kelas ini menerjemahkan satu item
-	 * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataMatakuliahBanbox} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer baris grid hasil pencarian {@link Matakuliah} (baik dari mode master biasa maupun
+	 * mode riwayat KRS mahasiswa — lihat Javadoc class): kolom kode+id, nama, SKS, jurusan, dan
+	 * jenis mata kuliah, plus satu radio button pilihan. Mengikuti kerangka renderer standar di
+	 * {@link ais.ui.util.GetEventListener} — listener {@code onCheck} menutup popup, menyimpan
+	 * entity terpilih ke atribut {@code "matakuliah"} dan teks tampilan {@code kode + " - " + nama},
+	 * lalu meneruskan event ke {@link #eventListener} bila terpasang.
 	 *
 	 * @see AmbilDataMatakuliahBanbox
 	 */
@@ -177,6 +212,15 @@ public class AmbilDataMatakuliahBanbox extends Bandbox implements GetEventListen
 
 	}
 
+	/**
+	 * Membangun popup pencarian {@link Matakuliah} sekali (dipanggil lazy dari listener
+	 * {@code onOpen}): form dengan field kode dan nama (Enter di keduanya langsung memicu
+	 * pencarian lewat {@code onOK}, plus tombol Cari sebaris), ditambah Combobox fakultas/prodi
+	 * HANYA bila {@link #selectedMahasiswa} {@code null} (mode master biasa — lihat Javadoc
+	 * class), dan grid hasil dibungkus {@link org.zkoss.zul.Radiogroup} (pilih tunggal). Mengikuti
+	 * kerangka {@code display()} standar — lihat {@link ais.ui.util.GetEventListener}. Memanggil
+	 * {@link #onSearchDefault(Event)} di akhir agar grid terisi saat popup pertama dibuka.
+	 */
 	public void display() {
 		setReadonly(true);
 		Bandpopup bandpopup = new ais.ui.util.MyBandpopup();
@@ -329,6 +373,28 @@ public class AmbilDataMatakuliahBanbox extends Bandbox implements GetEventListen
 
 	}
 
+	/**
+	 * Mengeksekusi pencarian {@link Matakuliah} — cabang total tergantung {@link #selectedMahasiswa}
+	 * (lihat Javadoc class untuk gambaran umum kedua mode):
+	 * <ul>
+	 * <li>{@code null} (mode master biasa): query langsung ke {@link Matakuliah}, hanya baris
+	 * {@code aktif} (atau {@code null}), filter {@code nama}/{@code kodeMatakuliahan} (ilike
+	 * substring), prodi (eq bila dipilih), dan fakultas (eq bila dipilih, lewat join ke
+	 * {@code jurusan}). Diurutkan menaik berdasar nama, dibatasi
+	 * {@link ais.common.Common#MAX_RESULT}.</li>
+	 * <li>terisi (mode riwayat KRS): DUA query terpisah ke {@code Detailperkuliahan} berstatus
+	 * {@code persetujuan == DISETUJUI} milik {@link #selectedMahasiswa} — satu memproyeksikan id
+	 * {@code perkuliahan.matakuliah} (mata kuliah asli yang diambil), satu lagi memproyeksikan id
+	 * {@code matakuliahKonversi} (hasil konversi kredit) — hasil keduanya DIGABUNG jadi satu daftar.
+	 * Filter {@code nama}/{@code kodeMatakuliahan} tetap berlaku pada masing-masing query, tanpa
+	 * filter aktif.</li>
+	 * </ul>
+	 * Kedua cabang memasang {@link MatakuliahRenderer} dan model hasil ke {@link #grid} di akhir.
+	 * Mengikuti kerangka {@code onSearchDefault} standar — lihat {@link ais.ui.util.GetEventListener}.
+	 *
+	 * @param event event pemicu (klik tombol Cari, atau tekan Enter di kode/nama); boleh
+	 *              {@code null} saat dipanggil dari {@link #display()}
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 		Session session = HibernateUtil.currentSession();
@@ -400,14 +466,26 @@ public class AmbilDataMatakuliahBanbox extends Bandbox implements GetEventListen
 		grid.setModelCheckMobile(strset);
 	}
 
+	/** {@inheritDoc} Implementasi setter polos standar — lihat {@link ais.ui.util.GetEventListener}. */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** {@inheritDoc} Implementasi getter polos standar — lihat {@link ais.ui.util.GetEventListener}. */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
 
+	/**
+	 * Mengganti (atau memasang pertama kali) mahasiswa yang membatasi pencarian ke mode riwayat
+	 * KRS-nya (lihat Javadoc class) setelah instance dibuat, lalu membersihkan state Bandbox
+	 * (nilai/atribut) via {@link Common#clear(org.zkoss.zul.Bandbox)}. Mengaktifkan mode "mata
+	 * kuliah milik mahasiswa" pada pencarian berikutnya bila sebelumnya berada di mode master
+	 * biasa.
+	 *
+	 * @param mahasiswa mahasiswa baru yang riwayat KRS-nya menjadi sumber hasil pencarian, atau
+	 *                  {@code null} untuk kembali ke mode master biasa
+	 */
 	public void setSelectedMahasiswa(Mahasiswa mahasiswa) {
 		selectedMahasiswa = mahasiswa;
 		Common.clear(AmbilDataMatakuliahBanbox.this);

@@ -34,29 +34,32 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyTreeitemConfig;
 
 /**
- * Tipe khusus untuk ambil data menu banbox. Kelas ini memberi nama dan batas tanggung jawab yang
- * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code EventListener eventListener}, {@code
- * Center center}, {@code Menu menu}; pembacaan/pencarian ({@code onSearchDefault()}, {@code setEventListener()},
- * {@code getEventListener()}); operasi domain lain ({@code display()}, {@code createTreeMenu()}, {@code
- * hasChild()}, {@code createTreerow()}, {@code createRootSubMenu()}). Bagian lain dari kontrak tetap mengikuti
- * kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.Menu} — lihat
+ * {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback), TAPI kelas ini menyimpang CUKUP JAUH
+ * dari kerangka standar sehingga layak dibaca detail sebelum dianggap mengikuti pola biasa.
+ * <p>
+ * {@code Menu} adalah master data menu navigasi aplikasi AIS, berstruktur HIERARKIS
+ * self-referencing lewat pasangan kolom {@code root}/{@code child} (menu level atas punya
+ * {@code root == 0}). Popup di kelas ini BUKAN form pencarian + grid seperti kebanyakan subclass
+ * sejenis, melainkan sebuah {@link org.zkoss.zul.Tree} yang menggambarkan seluruh hierarki menu
+ * aktif sekaligus ({@link #createTreeMenu}/{@link #createRootSubMenu} membangunnya secara
+ * rekursif) — tidak ada field pencarian teks sama sekali, hanya tombol "Refresh" yang memuat ulang
+ * tree dari database (berguna bila menu baru saja diubah admin). Tiap {@link org.zkoss.zul.Treerow}
+ * memasang satu {@link ais.ui.util.MyRadioConfig} lewat {@link #createTreerow} yang listener-nya
+ * memakai event {@code onClick} (BUKAN {@code onCheck} seperti subclass Radiogroup lain di
+ * keluarga ini). Constructor MEWAJIBKAN parameter {@link Menu} (bisa {@code null}) yang dipakai
+ * memprapilih/menandai radio button menu yang sedang aktif saat popup dibangun. Filter hanya
+ * {@code aktif == true} atau {@code aktif} kosong, diurutkan berdasar nomor urut lalu root/child.
+ * Pemilihan bersifat TUNGGAL.
+ * </p>
  *
  * @see Bandbox
  */
 public class AmbilDataMenuBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 *
 	 */
 	private static final long serialVersionUID = 6452461056684904810L;
 
@@ -66,6 +69,17 @@ public class AmbilDataMenuBanbox extends Bandbox implements GetEventListener {
 
 	private Menu menu;
 
+	/**
+	 * Konstruktor WAJIB menerima {@link Menu} yang sedang terpilih (boleh {@code null}): dipakai
+	 * {@link #createTreerow} untuk menandai radio button menu yang sesuai sebagai sudah tercentang
+	 * saat tree pertama kali dibangun. Menetapkan teks tampilan awal dari {@code menu.getLabel()},
+	 * lalu memasang listener {@code onOpen} standar yang membangun popup (tree) secara lazy pada
+	 * pembukaan pertama — lihat {@link ais.ui.util.GetEventListener}. Tidak ada constructor tanpa
+	 * argumen; kelas ini SELALU butuh nilai awal yang eksplisit.
+	 *
+	 * @param menu menu yang sedang terpilih untuk diprapilih/ditandai di tree, atau {@code null}
+	 *             bila belum ada yang terpilih
+	 */
 	public AmbilDataMenuBanbox(Menu menu) {
 		super();
 		this.menu = menu;
@@ -94,6 +108,14 @@ public class AmbilDataMenuBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/**
+	 * Membangun popup pemilihan {@link Menu} sekali (dipanggil lazy dari listener {@code onOpen}):
+	 * BUKAN form pencarian, melainkan area {@link #center} kosong tempat {@link #onSearchDefault}
+	 * akan memasang {@link org.zkoss.zul.Tree} hierarki menu, plus toolbar berisi tombol Refresh.
+	 * Mengikuti struktur bandpopup umum keluarga {@code AmbilData*Banbox} (lihat
+	 * {@link ais.ui.util.GetEventListener}) tapi TANPA field pencarian sama sekali — lihat catatan
+	 * di Javadoc class.
+	 */
 	public void display() {
 		setReadonly(true);
 		Bandpopup bandpopup = new ais.ui.util.MyBandpopup();
@@ -147,6 +169,18 @@ public class AmbilDataMenuBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/**
+	 * Memuat ULANG seluruh hierarki {@link Menu} aktif dari database dan membangun
+	 * {@link org.zkoss.zul.Tree} baru ke {@link #center} — TIDAK menyaring berdasar teks apa pun
+	 * (tidak ada field pencarian di kelas ini), hanya filter {@code aktif} dan pengurutan
+	 * (nomor urut, lalu root, lalu child). Dipanggil dari tombol "Refresh" dan sekali secara
+	 * otomatis saat popup pertama dibuka (dari listener {@code onOpen}). Menyimpang dari kerangka
+	 * {@code onSearchDefault} standar di {@link ais.ui.util.GetEventListener} (yang biasanya
+	 * memasang model+renderer ke grid) — di sini membangun tree lewat {@link #createTreeMenu}.
+	 *
+	 * @param event event pemicu (klik tombol Refresh); boleh {@code null} saat dipanggil pertama
+	 *              kali dari listener {@code onOpen}
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -161,6 +195,14 @@ public class AmbilDataMenuBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/**
+	 * Membangun kolom-kolom {@link Tree} lalu mengisi level menu TERATAS ({@code root == 0}) satu
+	 * per satu, tiap barisnya memicu {@link #createRootSubMenu} secara rekursif untuk membangun
+	 * anak-anaknya. Dipanggil sekali per pemuatan dari {@link #onSearchDefault(Event)}.
+	 *
+	 * @param tree  komponen tree kosong yang akan diisi
+	 * @param menus seluruh baris {@link Menu} aktif hasil query (datar, belum tersusun hierarki)
+	 */
 	public void createTreeMenu(Tree tree, final List<Menu> menus) {
 
 		Treecols treecols = new Treecols();
@@ -186,6 +228,15 @@ public class AmbilDataMenuBanbox extends Bandbox implements GetEventListener {
 		tc1.setParent(tree);
 	}
 
+	/**
+	 * Memeriksa apakah ada baris {@link Menu} lain di {@code menus} yang menjadikan {@code root}
+	 * sebagai induknya (dipakai {@link #createRootSubMenu} untuk menentukan apakah suatu menu
+	 * masih perlu direkursi lebih dalam).
+	 *
+	 * @param root  id menu yang dicek apakah punya anak
+	 * @param menus seluruh baris {@link Menu} aktif hasil query
+	 * @return {@code true} bila ditemukan minimal satu menu dengan {@code root} sebagai induknya
+	 */
 	private Boolean hasChild(Long root, List<Menu> menus) {
 		for (Menu menu : menus) {
 			if (menu.getRoot().equals(root)) {
@@ -195,6 +246,19 @@ public class AmbilDataMenuBanbox extends Bandbox implements GetEventListener {
 		return false;
 	}
 
+	/**
+	 * Mengisi satu {@link org.zkoss.zul.Treerow} untuk satu baris {@link Menu}: label menu, dan
+	 * satu radio button ({@link ais.ui.util.MyRadioConfig}) — INILAH satu-satunya titik "callback"
+	 * kelas ini (padanan renderer/listener {@code onCheck} pada subclass Radiogroup lain), tapi
+	 * memakai event {@code onClick} (BUKAN {@code onCheck}). Radio button otomatis tercentang bila
+	 * {@code menu} yang dirender sama dengan {@link #menu} yang diberikan lewat constructor.
+	 * Listener klik menutup popup, menyimpan {@link Menu} terpilih ke atribut {@code "menu"} dan
+	 * teks tampilan {@code menu.getLabel()}, lalu meneruskan event ke {@link #eventListener} bila
+	 * terpasang.
+	 *
+	 * @param treeitem item tree yang akan diisi baris ini
+	 * @param menu     baris {@link Menu} yang direpresentasikan
+	 */
 	private void createTreerow(MyTreeitemConfig treeitem, final Menu menu) {
 		Treerow treerow = new Treerow();
 		new Treecell(menu.getLabel()).setParent(treerow);
@@ -225,6 +289,16 @@ public class AmbilDataMenuBanbox extends Bandbox implements GetEventListener {
 		treerow.setParent(treeitem);
 	}
 
+	/**
+	 * Membangun rekursif anak-anak menu dari {@code root} ke dalam {@code componen} (item tree
+	 * induk atau tree itu sendiri): iterasi seluruh {@code menus} yang beririsan {@code root} dan
+	 * merekursi lebih dalam via {@link #hasChild} untuk menentukan apakah item itu sendiri punya
+	 * anak lagi.
+	 *
+	 * @param root    id menu induk yang anak-anaknya sedang dibangun
+	 * @param menus   seluruh baris {@link Menu} aktif hasil query
+	 * @param componen komponen ZK (Tree atau Treeitem) tempat anak-anak menu dipasang
+	 */
 	private void createRootSubMenu(Long root, List<Menu> menus, Component componen) {
 		Treechildren tc1 = new Treechildren();
 		for (Menu menu : menus) {
@@ -250,10 +324,12 @@ public class AmbilDataMenuBanbox extends Bandbox implements GetEventListener {
 		tc1.setParent(componen);
 	}
 
+	/** {@inheritDoc} Implementasi setter polos standar — lihat {@link ais.ui.util.GetEventListener}. */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** {@inheritDoc} Implementasi getter polos standar — lihat {@link ais.ui.util.GetEventListener}. */
 	public EventListener getEventListener() {
 		return eventListener;
 	}

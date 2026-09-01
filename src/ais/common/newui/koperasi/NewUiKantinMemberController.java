@@ -687,8 +687,30 @@ public final class NewUiKantinMemberController {
     }
 
     private static Object[] satu(String sql) {
-        List<Object[]> r = rows(sql);
-        return r == null || r.isEmpty() ? null : r.get(0);
+        List<?> r = rows(sql);
+        if (r == null || r.isEmpty()) return null;
+        return barisTunggal(r.get(0));
+    }
+
+    /**
+     * Seragamkan satu baris hasil SQL mentah menjadi {@code Object[]}.
+     *
+     * <p>Hibernate memulangkan {@code Object[]} hanya bila kolom yang dipilih
+     * LEBIH DARI SATU. Untuk {@code SELECT} satu kolom — misalnya
+     * {@code SELECT COALESCE(SUM(nominal),0) FROM public.deposit …} — ia
+     * memulangkan nilainya langsung, sehingga menugaskannya ke {@code Object[]}
+     * melempar {@link ClassCastException}.</p>
+     *
+     * <p>Itulah yang membuat layar Ringkasan Saya menjawab HTTP 500. Layar ZK
+     * asalnya punya cacat yang sama, tetapi {@code rows()}-nya menelan seluruh
+     * exception dan memulangkan daftar kosong — sehingga layarnya menampilkan
+     * angka nol dan kegagalannya tak pernah terlihat. Di sini kegagalan memang
+     * sengaja dibiarkan naik; yang diperbaiki adalah sebabnya, bukan
+     * gejalanya.</p>
+     */
+    public static Object[] barisTunggal(Object baris) {
+        if (baris == null) return null;
+        return baris instanceof Object[] ? (Object[]) baris : new Object[] { baris };
     }
 
     private static String gabung(List<String> pesan) {
