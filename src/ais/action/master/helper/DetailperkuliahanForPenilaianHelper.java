@@ -3622,6 +3622,11 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 		window.setHeight(Common.isMobile() ? "90%" : "620px");
 		window.setContentStyle("overflow:auto;background:#f8fafc;padding:0;");
 		window.appendChild(new Html(buatHtmlAnalisisNilaiHuruf(detailperkuliahan)));
+		if (window.getPage() == null && org.zkoss.zk.ui.Executions.getCurrent() != null
+				&& org.zkoss.zk.ui.Executions.getCurrent().getDesktop() != null
+				&& org.zkoss.zk.ui.Executions.getCurrent().getDesktop().getFirstPage() != null) {
+			window.setPage(org.zkoss.zk.ui.Executions.getCurrent().getDesktop().getFirstPage());
+		}
 		window.doModal();
 	}
 
