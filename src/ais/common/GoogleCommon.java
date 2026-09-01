@@ -35,21 +35,27 @@ import java.util.Map;
  * langsung di kode sumber sebagai nilai default (dipakai bila konfigurasi database belum diisi):</b>
  * </p>
  * <ul>
- * <li>{@code google_calendar_key} — JSON kredensial klien Calendar, memuat
- * {@code "client_secret":"FDq7IeqDt2bbGSyMEdKlKRVt"} untuk client id
+ * <li>{@code google_calendar_key} — JSON kredensial klien Calendar untuk client id
  * {@code 659282761898-oo3jg967aasck5vf8cducc4tc1ddf7ri.apps.googleusercontent.com}.</li>
- * <li>{@code google_drive_key_https} — JSON kredensial klien Drive, memuat
- * {@code "client_secret":"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"} untuk client id
+ * <li>{@code google_drive_key_https} — JSON kredensial klien Drive untuk client id
  * {@code 659282761898-4bb2jhann2npbpok88mej2f2nu4dk4a4.apps.googleusercontent.com}.</li>
- * <li>{@code google_classroom_key} — JSON kredensial klien Classroom, memuat
- * {@code "client_secret":"9AZK1c6jbn0UdLGClQN1X_-O"} untuk client id
+ * <li>{@code google_classroom_key} — JSON kredensial klien Classroom untuk client id
  * {@code 277118763031-89mjntmnhthiovptsjh2o7ldtj97bfoh.apps.googleusercontent.com}.</li>
  * </ul>
  * <p>
- * Sesuai instruksi tugas dokumentasi ini, kredensial tersebut TIDAK diubah/dihapus di sini —
- * temuan ini dilaporkan agar dapat ditindaklanjuti terpisah (mis. pemindahan ke penyimpanan
- * rahasia/vault dan rotasi client secret di Google Cloud Console, karena secret ini sudah
- * ter-commit ke riwayat kode sumber dan harus dianggap bocor).
+ * <b>DIPERBAIKI 2026-09-01:</b> nilai {@code client_secret} nyata yang sebelumnya tertulis
+ * langsung di ketiga JSON default di atas sudah DIGANTI dengan placeholder
+ * {@code "REPLACE_VIA_KONFIGURASI"} — struktur JSON (client_id, project_id, auth_uri, token_uri,
+ * redirect_uris) TETAP dipertahankan sebagai default karena bukan rahasia, hanya field
+ * {@code client_secret} yang diganti. Instalasi mana pun yang benar-benar memakai integrasi
+ * Google ini WAJIB mengisi konfigurasi {@code google_calendar_key}/{@code google_drive_key_https}/
+ * {@code google_classroom_key_baru} dengan JSON kredensial klien asli dari Google Cloud Console —
+ * placeholder di atas akan membuat autentikasi OAuth gagal dengan jelas, bukan diam-diam
+ * memakai secret lama yang sudah bocor. <b>Tindak lanjut yang TETAP diperlukan di luar
+ * perubahan kode ini:</b> ketiga client secret asli sudah lama berada di riwayat SVN dan WAJIB
+ * dianggap bocor — dirotasi di Google Cloud Console untuk masing-masing project
+ * ({@code sustained-tree-118704} untuk Calendar/Drive, {@code classroom-277617} untuk
+ * Classroom) bila kredensial tersebut masih dipakai di produksi.
  * </p>
  */
 public class GoogleCommon {
@@ -58,16 +64,16 @@ public class GoogleCommon {
 	public static final String APPLICATION_NAME = "Siakad";
 
 	private static String google_calendar_client_id = "659282761898-oo3jg967aasck5vf8cducc4tc1ddf7ri.apps.googleusercontent.com";
-	private static String google_calendar_key = "{\"web\":{\"client_id\":\"659282761898-oo3jg967aasck5vf8cducc4tc1ddf7ri.apps.googleusercontent.com\",\"project_id\":\"sustained-tree-118704\",\"auth_uri\":\"https://accounts.google.com/o/oauth2/auth\",\"token_uri\":\"https://oauth2.googleapis.com/token\",\"auth_provider_x509_cert_url\":\"https://www.googleapis.com/oauth2/v1/certs\",\"client_secret\":\"FDq7IeqDt2bbGSyMEdKlKRVt\",\"redirect_uris\":[\"http://ecampus.id/code\"],\"javascript_origins\":[\"http://ecampus.id\"]}}";
+	private static String google_calendar_key = "{\"web\":{\"client_id\":\"659282761898-oo3jg967aasck5vf8cducc4tc1ddf7ri.apps.googleusercontent.com\",\"project_id\":\"sustained-tree-118704\",\"auth_uri\":\"https://accounts.google.com/o/oauth2/auth\",\"token_uri\":\"https://oauth2.googleapis.com/token\",\"auth_provider_x509_cert_url\":\"https://www.googleapis.com/oauth2/v1/certs\",\"client_secret\":\"REPLACE_VIA_KONFIGURASI\",\"redirect_uris\":[\"http://ecampus.id/code\"],\"javascript_origins\":[\"http://ecampus.id\"]}}";
 
 	private static String google_drive_client_id_https = "659282761898-4bb2jhann2npbpok88mej2f2nu4dk4a4.apps.googleusercontent.com";
-	private static String google_drive_key_https = "{\"web\":{\"client_id\":\"659282761898-4bb2jhann2npbpok88mej2f2nu4dk4a4.apps.googleusercontent.com\",\"project_id\":\"sustained-tree-118704\",\"auth_uri\":\"https://accounts.google.com/o/oauth2/auth\",\"token_uri\":\"https://oauth2.googleapis.com/token\",\"auth_provider_x509_cert_url\":\"https://www.googleapis.com/oauth2/v1/certs\",\"client_secret\":\"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\",\"redirect_uris\":[\"https://ecampus.id/code\"],\"javascript_origins\":[\"https://ecampus.id\"]}}";
+	private static String google_drive_key_https = "{\"web\":{\"client_id\":\"659282761898-4bb2jhann2npbpok88mej2f2nu4dk4a4.apps.googleusercontent.com\",\"project_id\":\"sustained-tree-118704\",\"auth_uri\":\"https://accounts.google.com/o/oauth2/auth\",\"token_uri\":\"https://oauth2.googleapis.com/token\",\"auth_provider_x509_cert_url\":\"https://www.googleapis.com/oauth2/v1/certs\",\"client_secret\":\"REPLACE_VIA_KONFIGURASI\",\"redirect_uris\":[\"https://ecampus.id/code\"],\"javascript_origins\":[\"https://ecampus.id\"]}}";
 
 	private static String redirect_url_calendar_https = "https://ecampus.id/code";
 	private static String redirect_url_drive_https = "https://ecampus.id/code";
 
 	private static String google_classroom_client_id = "277118763031-89mjntmnhthiovptsjh2o7ldtj97bfoh.apps.googleusercontent.com";
-	private static String google_classroom_key = "{\"web\":{\"client_id\":\"277118763031-89mjntmnhthiovptsjh2o7ldtj97bfoh.apps.googleusercontent.com\",\"project_id\":\"classroom-277617\",\"auth_uri\":\"https://accounts.google.com/o/oauth2/auth\",\"token_uri\":\"https://oauth2.googleapis.com/token\",\"auth_provider_x509_cert_url\":\"https://www.googleapis.com/oauth2/v1/certs\",\"client_secret\":\"9AZK1c6jbn0UdLGClQN1X_-O\",\"redirect_uris\":[\"https://ecampus.id\",\"https://ecampus.id/code\"],\"javascript_origins\":[\"https://ecampus.id\"]}}";
+	private static String google_classroom_key = "{\"web\":{\"client_id\":\"277118763031-89mjntmnhthiovptsjh2o7ldtj97bfoh.apps.googleusercontent.com\",\"project_id\":\"classroom-277617\",\"auth_uri\":\"https://accounts.google.com/o/oauth2/auth\",\"token_uri\":\"https://oauth2.googleapis.com/token\",\"auth_provider_x509_cert_url\":\"https://www.googleapis.com/oauth2/v1/certs\",\"client_secret\":\"REPLACE_VIA_KONFIGURASI\",\"redirect_uris\":[\"https://ecampus.id\",\"https://ecampus.id/code\"],\"javascript_origins\":[\"https://ecampus.id\"]}}";
 
 	private static String redirect_url_classroom = "https://ecampus.id/code";
 
