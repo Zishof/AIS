@@ -3,6 +3,7 @@ package ais.action.master.generic.v2;
 import java.util.HashMap;
 import java.util.Map;
 
+import ais.action.master.generic.v2.adapter.AkunGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.BankSoalGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.GenericCrudScopeAdapter;
 import ais.action.master.generic.v2.adapter.KurikulumGenericCrudAdapter;
@@ -49,6 +50,7 @@ public final class GenericCrudAkademikOverrides {
     static {
         DINAIKKAN.put("root/kurikulum", KurikulumGenericCrudAdapter.class);
         DINAIKKAN.put("root/bank_soal", BankSoalGenericCrudAdapter.class);
+        DINAIKKAN.put("akunting/akun", AkunGenericCrudAdapter.class);
 
         DITAHAN.put("root/skripsi",
                 "SkripsiAction.onSave memeriksa kepemilikan (mahasiswa yang login hanya boleh "
@@ -162,6 +164,38 @@ public final class GenericCrudAkademikOverrides {
                 + "definisi eksplisit menuntut seluruh aturan simpan biodata pegawai ditulis "
                 + "ulang lebih dulu — 152 kolom, termasuk relasi golongan, status, dan satuan "
                 + "kerja; bukan pekerjaan yang boleh disisipkan diam-diam.");
+
+        /*
+         * Cabang Akuntansi & Keuangan. Yang dinaikkan HANYA bagan akun, karena
+         * ia master data: menambah kode akun tidak memindahkan uang, ia
+         * menyiapkan tempat pencatatannya. Sisanya menyentuh uang atau alur
+         * persetujuannya, dan tetap ditahan.
+         */
+        DITAHAN.put("root/seting_biaya",
+                "Setting Biaya. Entity yang terpilih Jurusan — master program studi, bukan "
+                + "besaran biayanya. CRUD generik akan membuat layar penetapan biaya menyunting "
+                + "master jurusan.");
+        DITAHAN.put("root/new_detail_biaya_excel",
+                "Pengaturan Tagihan Bulanan. Layar impor Excel yang menyusun banyak baris "
+                + "DetailBiaya sekaligus; DetailBiaya menentukan tagihan mahasiswa, sehingga "
+                + "baris yang salah menjadi tagihan yang salah. Impor massal menuntut pratinjau "
+                + "dan pembatalan, bukan formulir satu baris.");
+        DITAHAN.put("akunting/pertangungjawaban_kas_besar",
+                "Pertanggungjawaban Kas Besar: alur pertanggungjawaban uang, bukan master data. "
+                + "Transaksi keuangan berjalan L0 lewat alurnya sendiri.");
+        DITAHAN.put("akunting/posting_transaksi_harian",
+                "Posting Jurnal. Entity-nya Transaksi — baris jurnal. Posting adalah proses "
+                + "berjalan yang menyeimbangkan debet dan kredit, bukan baris yang diketik satu "
+                + "per satu.");
+        DITAHAN.put("root/posting_cicilan_mahasiswa",
+                "Posting Pembayaran. Entity-nya CicilanPembayaran, yang dihasilkan kasir dan "
+                + "gateway pembayaran. Mengarang barisnya berarti mengarang pembayaran.");
+        DITAHAN.put("akunting/reimbursement_pegawai",
+                "Reimbursement Pegawai: pengajuan penggantian biaya yang menuntut persetujuan "
+                + "bertingkat, bukan CRUD.");
+        DITAHAN.put("root/log_host_to_host",
+                "Rekonsiliasi (Host-2-Host): catatan hasil rekonsiliasi dengan bank. Baris di "
+                + "sini adalah bukti, bukan masukan — menyuntingnya menghapus jejak.");
 
         DITAHAN.put("root/mahasiswa_registrasi_wisuda",
                 "Layar ini memang layar tinjau (\"Melihat Pendaftar Wisuda\"). Pendaftaran "

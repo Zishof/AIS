@@ -1010,10 +1010,23 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return 0;
 	}
 
+	/**
+	 * Menetapkan jabatan akademik versi kodifikasi EPSBED/PDDikti untuk keperluan pelaporan.
+	 *
+	 * @param jabatanAkademik jabatan akademik EPSBED
+	 */
 	public void setJabatanAkademik(EpsbedJabatanAkademik jabatanAkademik) {
 		this.jabatanAkademik = jabatanAkademik;
 	}
 
+	/**
+	 * Jabatan akademik menurut kodifikasi EPSBED/PDDikti (relasi lazy kolom
+	 * {@code epsbed_jabatan_akademik}), dilewatkan {@code check(...)} agar proxy lazy aman dipakai.
+	 * Berbeda dari {@link #getJabatanFungsionalDosen()} yang merupakan master jabatan fungsional
+	 * internal; keduanya dipakai bersama pada layar biodata dan berkas pelaporan.
+	 *
+	 * @return jabatan akademik EPSBED, atau {@code null} bila belum diisi
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "epsbed_jabatan_akademik")
 	public EpsbedJabatanAkademik getJabatanAkademik() {
@@ -1021,10 +1034,24 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return jabatanAkademik;
 	}
 
+	/**
+	 * Menetapkan status aktivitas dosen versi kodifikasi EPSBED/PDDikti (aktif, tugas belajar,
+	 * cuti, keluar, dan sejenisnya).
+	 *
+	 * @param statusAktivitasDosen status aktivitas EPSBED
+	 */
 	public void setStatusAktivitasDosen(EpsbedStatusAktivitasDosen statusAktivitasDosen) {
 		this.statusAktivitasDosen = statusAktivitasDosen;
 	}
 
+	/**
+	 * Status aktivitas dosen menurut kodifikasi EPSBED/PDDikti (relasi lazy kolom
+	 * {@code epsbed_status_aktivitas}), dilewatkan {@code check(...)}. Dipakai pada berkas pelaporan
+	 * dan penyaringan daftar dosen yang layak mengampu.
+	 *
+	 * @return status aktivitas EPSBED, atau {@code null} bila belum diisi
+	 * @see #getStatusPegawai()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "epsbed_status_aktivitas")
 	public EpsbedStatusAktivitasDosen getStatusAktivitasDosen() {
@@ -1032,14 +1059,33 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return statusAktivitasDosen;
 	}
 
+	/**
+	 * Nomor Kartu Tanda Penduduk (NIK) dosen.
+	 *
+	 * @return nomor KTP, atau {@code null} bila belum diisi
+	 */
 	public String getKtp() {
 		return ktp;
 	}
 
+	/**
+	 * Mengisi nomor Kartu Tanda Penduduk (NIK) dosen.
+	 *
+	 * @param ktp nomor KTP
+	 */
 	public void setKtp(String ktp) {
 		this.ktp = ktp;
 	}
 
+	/**
+	 * Status kepegawaian umum dosen (relasi lazy kolom {@code status_pegawai}).
+	 *
+	 * <p>Bila kolom kosong, nilai <b>dijatuhkan ke</b> {@code ConstantValues.AKTIF_PEGAWAI} dan
+	 * ditulis balik ke field, sehingga dosen lama yang belum diisi statusnya otomatis dianggap aktif.
+	 * Jangan mengandalkan getter ini untuk membedakan "belum diisi" dari "aktif".</p>
+	 *
+	 * @return status pegawai; tidak pernah {@code null} selama master konstanta sudah dimuat
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "status_pegawai")
 	public StatusPegawai getStatusPegawai() {
@@ -1051,27 +1097,66 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return statusPegawai;
 	}
 
+	/**
+	 * Menetapkan status kepegawaian umum dosen (aktif, keluar, pensiun, dan sejenisnya).
+	 *
+	 * @param statusPegawai status pegawai
+	 */
 	public void setStatusPegawai(StatusPegawai statusPegawai) {
 		this.statusPegawai = statusPegawai;
 	}
 
+	/**
+	 * Penanda apakah dosen ini milik universitas sendiri (bukan dosen luar/tamu).
+	 *
+	 * @return {@code true} bila dosen milik universitas; dapat {@code null} bila belum diisi
+	 */
 	@Column(name = "milik_universitas")
 	public Boolean getMilikUniversitas() {
 		return milikUniversitas;
 	}
 
+	/**
+	 * Mengisi penanda kepemilikan dosen oleh universitas sendiri.
+	 *
+	 * @param milikUniversitas {@code true} bila dosen milik universitas
+	 */
 	public void setMilikUniversitas(Boolean milikUniversitas) {
 		this.milikUniversitas = milikUniversitas;
 	}
 
+	/**
+	 * Kunci sinkronisasi dosen pada layanan Feeder/PDDikti, sudah dipangkas spasi.
+	 * Nilai kosong sengaja dikembalikan sebagai {@code null} agar pemanggil cukup memeriksa null
+	 * untuk mengetahui bahwa dosen ini belum tersinkron.
+	 *
+	 * @return kunci Feeder, atau {@code null} bila belum tersinkron
+	 * @see #getIdRegPtk()
+	 */
 	public String getFeeder() {
 		return feeder == null || feeder.trim().isEmpty() ? null : feeder.trim();
 	}
 
+	/**
+	 * Mengisi kunci sinkronisasi dosen pada layanan Feeder/PDDikti.
+	 *
+	 * @param feeder kunci Feeder
+	 */
 	public void setFeeder(String feeder) {
 		this.feeder = feeder;
 	}
 
+	/**
+	 * Ikatan kerja dosen (relasi lazy kolom {@code ikatan_kerja_dosen}) — sumber kebenaran bagi
+	 * penanda {@link #getTetap()}.
+	 *
+	 * <p>Bila kolom kosong, nilai <b>dijatuhkan ke</b> master {@code ConstantValues.DOSEN_TETAP} atau
+	 * {@code ConstantValues.DOSEN_HONORER} berdasarkan nilai kolom {@code tetap} yang lama, lalu
+	 * ditulis balik ke field. Ini yang membuat data warisan (yang hanya punya kolom {@code tetap})
+	 * tetap tampil benar setelah skema berpindah ke relasi master.</p>
+	 *
+	 * @return ikatan kerja dosen; tidak pernah {@code null} selama master konstanta sudah dimuat
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "ikatan_kerja_dosen")
 	public IkatanKerjaDosen getIkatanKerjaDosen() {
@@ -1087,10 +1172,23 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return ikatanKerjaDosen;
 	}
 
+	/**
+	 * Menetapkan ikatan kerja dosen (tetap, honorer, dan sejenisnya).
+	 *
+	 * @param ikatanKerjaDosen ikatan kerja dosen
+	 * @see #getTetap()
+	 */
 	public void setIkatanKerjaDosen(IkatanKerjaDosen ikatanKerjaDosen) {
 		this.ikatanKerjaDosen = ikatanKerjaDosen;
 	}
 
+	/**
+	 * Status kepegawaian menurut master pelaporan (PNS, tetap yayasan, honorer, dan sejenisnya) pada
+	 * relasi lazy kolom {@code status_kepegawaian}, dilewatkan {@code check(...)}.
+	 *
+	 * @return status kepegawaian, atau {@code null} bila belum diisi
+	 * @see #getStatusPegawai()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "status_kepegawaian")
 	public StatusKepegawaian getStatusKepegawaian() {
@@ -1098,10 +1196,22 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return statusKepegawaian;
 	}
 
+	/**
+	 * Menetapkan status kepegawaian menurut master pelaporan.
+	 *
+	 * @param statusKepegawaian status kepegawaian
+	 */
 	public void setStatusKepegawaian(StatusKepegawaian statusKepegawaian) {
 		this.statusKepegawaian = statusKepegawaian;
 	}
 
+	/**
+	 * Jenis pendidik dan tenaga kependidikan (dosen, tenaga kependidikan, instruktur, dan sejenisnya)
+	 * pada relasi lazy kolom {@code jenis_pendidik_dan_tenaga_kependidikan}, dilewatkan
+	 * {@code check(...)}. Dipakai pada pelaporan Feeder/PDDikti.
+	 *
+	 * @return jenis pendidik dan tenaga kependidikan, atau {@code null} bila belum diisi
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_pendidik_dan_tenaga_kependidikan")
 	public JenisPendidikDanTenagaKependidikan getJenisPendidikDanTenagaKependidikan() {
@@ -1109,61 +1219,135 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return jenisPendidikDanTenagaKependidikan;
 	}
 
+	/**
+	 * Menetapkan jenis pendidik dan tenaga kependidikan.
+	 *
+	 * @param jenisPendidikDanTenagaKependidikan jenis pendidik dan tenaga kependidikan
+	 */
 	public void setJenisPendidikDanTenagaKependidikan(
 			JenisPendidikDanTenagaKependidikan jenisPendidikDanTenagaKependidikan) {
 		this.jenisPendidikDanTenagaKependidikan = jenisPendidikDanTenagaKependidikan;
 	}
 
+	/**
+	 * Nomor Induk Yayasan / Nomor Induk Guru dan Karyawan (NIY/NIGK) dosen.
+	 *
+	 * @return NIY/NIGK, atau {@code null} bila belum diisi
+	 */
 	public String getNiyNigk() {
 		return niyNigk;
 	}
 
+	/**
+	 * Mengisi Nomor Induk Yayasan / Nomor Induk Guru dan Karyawan.
+	 *
+	 * @param niyNigk NIY/NIGK dosen
+	 */
 	public void setNiyNigk(String niyNigk) {
 		this.niyNigk = niyNigk;
 	}
 
+	/**
+	 * Nomor Unik Pendidik dan Tenaga Kependidikan (NUPTK) dosen.
+	 *
+	 * @return NUPTK, atau {@code null} bila belum diisi
+	 */
 	public String getNuptk() {
 		return nuptk;
 	}
 
+	/**
+	 * Mengisi Nomor Unik Pendidik dan Tenaga Kependidikan (NUPTK).
+	 *
+	 * @param nuptk NUPTK dosen
+	 */
 	public void setNuptk(String nuptk) {
 		this.nuptk = nuptk;
 	}
 
+	/**
+	 * Nomor Surat Keputusan pengangkatan sebagai CPNS.
+	 *
+	 * @return nomor SK CPNS, atau {@code null} bila bukan/belum PNS
+	 * @see #getTglSkCpns()
+	 */
 	public String getSkCpns() {
 		return skCpns;
 	}
 
+	/**
+	 * Mengisi nomor Surat Keputusan pengangkatan CPNS.
+	 *
+	 * @param skCpns nomor SK CPNS
+	 */
 	public void setSkCpns(String skCpns) {
 		this.skCpns = skCpns;
 	}
 
+	/**
+	 * Tanggal Surat Keputusan pengangkatan CPNS (kolom bertipe {@code DATE}).
+	 *
+	 * @return tanggal SK CPNS, atau {@code null} bila belum diisi
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getTglSkCpns() {
 		return tglSkCpns;
 	}
 
+	/**
+	 * Mengisi tanggal Surat Keputusan pengangkatan CPNS.
+	 *
+	 * @param tglSkCpns tanggal SK CPNS
+	 */
 	public void setTglSkCpns(Date tglSkCpns) {
 		this.tglSkCpns = tglSkCpns;
 	}
 
+	/**
+	 * Nomor Surat Keputusan pengangkatan sebagai dosen (bukan SK CPNS).
+	 *
+	 * @return nomor SK pengangkatan, atau {@code null} bila belum diisi
+	 * @see #getTmtSkAngkat()
+	 * @see #getLembagaPengangkat()
+	 */
 	public String getSkAngkat() {
 		return skAngkat;
 	}
 
+	/**
+	 * Mengisi nomor Surat Keputusan pengangkatan sebagai dosen.
+	 *
+	 * @param skAngkat nomor SK pengangkatan
+	 */
 	public void setSkAngkat(String skAngkat) {
 		this.skAngkat = skAngkat;
 	}
 
+	/**
+	 * TMT (terhitung mulai tanggal) berlakunya Surat Keputusan pengangkatan sebagai dosen.
+	 *
+	 * @return tanggal mulai berlaku SK pengangkatan, atau {@code null} bila belum diisi
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getTmtSkAngkat() {
 		return tmtSkAngkat;
 	}
 
+	/**
+	 * Mengisi TMT berlakunya Surat Keputusan pengangkatan sebagai dosen.
+	 *
+	 * @param tmtSkAngkat tanggal mulai berlaku SK pengangkatan
+	 */
 	public void setTmtSkAngkat(Date tmtSkAngkat) {
 		this.tmtSkAngkat = tmtSkAngkat;
 	}
 
+	/**
+	 * Lembaga yang mengangkat dosen ini (kementerian, yayasan, pemerintah daerah, dan sejenisnya)
+	 * pada relasi lazy kolom {@code lembaga_pengangkat}, dilewatkan {@code check(...)}.
+	 *
+	 * @return lembaga pengangkat, atau {@code null} bila belum diisi
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "lembaga_pengangkat")
 	public LembagaPengangkat getLembagaPengangkat() {
@@ -1171,10 +1355,21 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return lembagaPengangkat;
 	}
 
+	/**
+	 * Menetapkan lembaga yang mengangkat dosen ini.
+	 *
+	 * @param lembagaPengangkat lembaga pengangkat
+	 */
 	public void setLembagaPengangkat(LembagaPengangkat lembagaPengangkat) {
 		this.lembagaPengangkat = lembagaPengangkat;
 	}
 
+	/**
+	 * Sumber gaji dosen (APBN, yayasan, mandiri, dan sejenisnya) pada relasi lazy kolom
+	 * {@code sumber_gaji}, dilewatkan {@code check(...)}. Termasuk data wajib pelaporan PDDikti.
+	 *
+	 * @return sumber gaji, atau {@code null} bila belum diisi
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "sumber_gaji")
 	public SumberGaji getSumberGaji() {
@@ -1182,19 +1377,41 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return sumberGaji;
 	}
 
+	/**
+	 * Menetapkan sumber gaji dosen.
+	 *
+	 * @param sumberGaji sumber gaji
+	 */
 	public void setSumberGaji(SumberGaji sumberGaji) {
 		this.sumberGaji = sumberGaji;
 	}
 
+	/**
+	 * TMT (terhitung mulai tanggal) status PNS dosen.
+	 *
+	 * @return tanggal mulai status PNS, atau {@code null} bila bukan PNS
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getTmtPns() {
 		return tmtPns;
 	}
 
+	/**
+	 * Mengisi TMT status PNS dosen.
+	 *
+	 * @param tmtPns tanggal mulai status PNS
+	 */
 	public void setTmtPns(Date tmtPns) {
 		this.tmtPns = tmtPns;
 	}
 
+	/**
+	 * Penanda kepemilikan lisensi kepala sekolah (kolom warisan domain sekolah/pengawas yang ikut
+	 * menumpang pada tabel dosen). Bila kolom kosong, nilai diisi {@code false} dan ditulis balik ke
+	 * field sehingga tidak pernah mengembalikan {@code null}.
+	 *
+	 * @return {@code true} bila dosen memiliki lisensi kepala sekolah
+	 */
 	public Boolean getaLisensiKepsek() {
 		if (aLisensiKepsek == null) {
 			aLisensiKepsek = false;
@@ -1202,10 +1419,21 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return aLisensiKepsek;
 	}
 
+	/**
+	 * Mengisi penanda kepemilikan lisensi kepala sekolah.
+	 *
+	 * @param aLisensiKepsek {@code true} bila memiliki lisensi kepala sekolah
+	 */
 	public void setaLisensiKepsek(Boolean aLisensiKepsek) {
 		this.aLisensiKepsek = aLisensiKepsek;
 	}
 
+	/**
+	 * Jumlah sekolah binaan (kolom warisan domain pengawas sekolah). Bila kolom kosong, nilai diisi
+	 * {@code 0} dan ditulis balik ke field sehingga tidak pernah {@code null}.
+	 *
+	 * @return jumlah sekolah binaan; minimal {@code 0}
+	 */
 	public Integer getJmlSekolahBinaan() {
 		if (jmlSekolahBinaan == null) {
 			jmlSekolahBinaan = 0;
@@ -1213,10 +1441,21 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return jmlSekolahBinaan;
 	}
 
+	/**
+	 * Mengisi jumlah sekolah binaan.
+	 *
+	 * @param jmlSekolahBinaan jumlah sekolah binaan
+	 */
 	public void setJmlSekolahBinaan(Integer jmlSekolahBinaan) {
 		this.jmlSekolahBinaan = jmlSekolahBinaan;
 	}
 
+	/**
+	 * Penanda pernah mengikuti diklat pengawas (kolom warisan domain sekolah/pengawas). Bila kolom
+	 * kosong, nilai diisi {@code false} dan ditulis balik ke field.
+	 *
+	 * @return {@code true} bila pernah mengikuti diklat pengawas
+	 */
 	public Boolean getaDiklatAwas() {
 		if (aDiklatAwas == null) {
 			aDiklatAwas = false;
@@ -1224,26 +1463,57 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return aDiklatAwas;
 	}
 
+	/**
+	 * Mengisi penanda pernah mengikuti diklat pengawas.
+	 *
+	 * @param aDiklatAwas {@code true} bila pernah mengikuti diklat pengawas
+	 */
 	public void setaDiklatAwas(Boolean aDiklatAwas) {
 		this.aDiklatAwas = aDiklatAwas;
 	}
 
+	/**
+	 * Nomor akta/izin mengajar yang dimiliki dosen.
+	 *
+	 * @return nomor akta izin mengajar, atau {@code null} bila belum diisi
+	 */
 	public String getAktaIjinAjar() {
 		return aktaIjinAjar;
 	}
 
+	/**
+	 * Mengisi nomor akta/izin mengajar.
+	 *
+	 * @param aktaIjinAjar nomor akta izin mengajar
+	 */
 	public void setAktaIjinAjar(String aktaIjinAjar) {
 		this.aktaIjinAjar = aktaIjinAjar;
 	}
 
+	/**
+	 * Nomor Induk Registrasi Asesor (NIRA) bila dosen berperan sebagai asesor.
+	 *
+	 * @return NIRA, atau {@code null} bila bukan asesor
+	 */
 	public String getNira() {
 		return nira;
 	}
 
+	/**
+	 * Mengisi Nomor Induk Registrasi Asesor (NIRA).
+	 *
+	 * @param nira NIRA dosen
+	 */
 	public void setNira(String nira) {
 		this.nira = nira;
 	}
 
+	/**
+	 * Penanda penguasaan huruf Braille (data kompetensi pendidikan inklusif). Bila kolom kosong,
+	 * nilai diisi {@code false} dan ditulis balik ke field.
+	 *
+	 * @return {@code true} bila dosen menguasai huruf Braille
+	 */
 	public Boolean getaBraille() {
 		if (aBraille == null) {
 			aBraille = false;
@@ -1251,10 +1521,21 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return aBraille;
 	}
 
+	/**
+	 * Mengisi penanda penguasaan huruf Braille.
+	 *
+	 * @param aBraille {@code true} bila menguasai huruf Braille
+	 */
 	public void setaBraille(Boolean aBraille) {
 		this.aBraille = aBraille;
 	}
 
+	/**
+	 * Penanda penguasaan bahasa isyarat (data kompetensi pendidikan inklusif). Bila kolom kosong,
+	 * nilai diisi {@code false} dan ditulis balik ke field.
+	 *
+	 * @return {@code true} bila dosen menguasai bahasa isyarat
+	 */
 	public Boolean getaBhsIsyarat() {
 		if (aBhsIsyarat == null) {
 			aBhsIsyarat = false;
@@ -1262,18 +1543,52 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return aBhsIsyarat;
 	}
 
+	/**
+	 * Mengisi penanda penguasaan bahasa isyarat.
+	 *
+	 * @param aBhsIsyarat {@code true} bila menguasai bahasa isyarat
+	 */
 	public void setaBhsIsyarat(Boolean aBhsIsyarat) {
 		this.aBhsIsyarat = aBhsIsyarat;
 	}
 
+	/**
+	 * Nomor Pokok Wajib Pajak (NPWP) dosen.
+	 *
+	 * @return NPWP, atau {@code null} bila belum diisi
+	 */
 	public String getNpwp() {
 		return npwp;
 	}
 
+	/**
+	 * Mengisi Nomor Pokok Wajib Pajak (NPWP).
+	 *
+	 * @param npwp NPWP dosen
+	 */
 	public void setNpwp(String npwp) {
 		this.npwp = npwp;
 	}
 
+	/**
+	 * Perguruan tinggi tempat dosen bernaung, dengan <b>rantai fallback berlapis</b> karena kolom ini
+	 * sering kosong pada data warisan:
+	 *
+	 * <ol>
+	 * <li>nilai kolom {@code perguruan_tinggi} (dilewatkan {@code check(...)});</li>
+	 * <li>bila kosong, perguruan tinggi aktif dari
+	 * {@link ais.action.master.helper.util.PerguruanTinggiUtil#getPerguruanTinggi()};</li>
+	 * <li>bila {@link #getFakultas()} punya perguruan tinggi, nilai itu <b>menimpa</b> hasil langkah
+	 * sebelumnya (fakultas dianggap lebih spesifik);</li>
+	 * <li>bila masih kosong, {@code PerguruanTinggiUtil} dicoba sekali lagi.</li>
+	 * </ol>
+	 *
+	 * <p>Kegagalan pada langkah util direkam ke {@code ErrorAuditUtil} dan tidak dilempar. Hasil
+	 * ditulis balik ke field; perguruan tinggi yang belum punya {@code id} dianggap tidak ada dan
+	 * dikembalikan sebagai {@code null}.</p>
+	 *
+	 * @return perguruan tinggi dosen, atau {@code null} bila tidak dapat ditentukan
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "perguruan_tinggi")
 	public PerguruanTinggi getPerguruanTinggi() {
@@ -1297,34 +1612,80 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return perguruanTinggi == null || perguruanTinggi.getId() == null ? null : perguruanTinggi;
 	}
 
+	/**
+	 * Menetapkan perguruan tinggi dosen secara eksplisit. Perhatikan bahwa
+	 * {@link #getPerguruanTinggi()} dapat menimpanya dengan perguruan tinggi milik fakultas.
+	 *
+	 * @param perguruanTinggi perguruan tinggi dosen
+	 */
 	public void setPerguruanTinggi(PerguruanTinggi perguruanTinggi) {
 		this.perguruanTinggi = perguruanTinggi;
 	}
 
+	/**
+	 * ID registrasi PTK (pendidik dan tenaga kependidikan) pada layanan pelaporan, sudah dipangkas
+	 * spasi; nilai kosong dikembalikan sebagai {@code null}.
+	 *
+	 * @return ID registrasi PTK, atau {@code null} bila belum tersinkron
+	 * @see #getFeeder()
+	 */
 	public String getIdRegPtk() {
 		return idRegPtk == null || idRegPtk.trim().isEmpty() ? null : idRegPtk.trim();
 	}
 
+	/**
+	 * Mengisi ID registrasi PTK pada layanan pelaporan.
+	 *
+	 * @param idRegPtk ID registrasi PTK
+	 */
 	public void setIdRegPtk(String idRegPtk) {
 		this.idRegPtk = idRegPtk;
 	}
 
+	/**
+	 * Gelar akademik yang ditulis di depan nama (mis. "Dr.", "Prof.").
+	 *
+	 * @return gelar depan, atau {@code null} bila tidak ada
+	 */
 	public String getGelarDepan() {
 		return gelarDepan;
 	}
 
+	/**
+	 * Mengisi gelar akademik yang ditulis di depan nama.
+	 *
+	 * @param gelarDepan gelar depan
+	 */
 	public void setGelarDepan(String gelarDepan) {
 		this.gelarDepan = gelarDepan;
 	}
 
+	/**
+	 * Gelar akademik yang ditulis di belakang nama (mis. "S.Kom., M.T.").
+	 *
+	 * @return gelar belakang, atau {@code null} bila tidak ada
+	 */
 	public String getGelarBelakang() {
 		return gelarBelakang;
 	}
 
+	/**
+	 * Mengisi gelar akademik yang ditulis di belakang nama.
+	 *
+	 * @param gelarBelakang gelar belakang
+	 */
 	public void setGelarBelakang(String gelarBelakang) {
 		this.gelarBelakang = gelarBelakang;
 	}
 
+	/**
+	 * Jabatan fungsional dosen (asisten ahli, lektor, lektor kepala, guru besar) pada relasi lazy
+	 * kolom {@code jabatan_fungsional_dosen}, dilewatkan {@code check(...)}. Master inilah yang
+	 * membawa bobot/angka kredit dan dipakai pada perhitungan kepangkatan serta pelaporan.
+	 *
+	 * @return jabatan fungsional dosen, atau {@code null} bila belum memiliki jabatan fungsional
+	 * @see #getJabatanAkademik()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jabatan_fungsional_dosen", nullable = true)
 	public JabatanFungsionalDosen getJabatanFungsionalDosen() {
@@ -1332,10 +1693,24 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return jabatanFungsionalDosen;
 	}
 
+	/**
+	 * Menetapkan jabatan fungsional dosen.
+	 *
+	 * @param jabatanFungsionalDosen jabatan fungsional dosen
+	 */
 	public void setJabatanFungsionalDosen(JabatanFungsionalDosen jabatanFungsionalDosen) {
 		this.jabatanFungsionalDosen = jabatanFungsionalDosen;
 	}
 
+	/**
+	 * Penanda dosen masih aktif dipakai sistem. Bila kolom kosong, nilai diisi {@code true} dan
+	 * ditulis balik ke field sehingga tidak pernah {@code null}.
+	 *
+	 * <p>Blok komentar di dalam method menyimpan turunan lama dari {@link #getStatusPegawai()} yang
+	 * sengaja dinonaktifkan; status kepegawaian dan penanda aktif kini dikelola terpisah.</p>
+	 *
+	 * @return {@code true} bila dosen dianggap aktif
+	 */
 	public Boolean getAktif() {
 
 		// if (statusPegawai != null && statusPegawai.getNama() != null &&
@@ -1349,24 +1724,54 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return aktif;
 	}
 
+	/**
+	 * ID baris {@link Pegawai} yang merepresentasikan dosen ini di modul kepegawaian — jembatan antar
+	 * modul yang sengaja disimpan sebagai angka, bukan relasi Hibernate, agar tidak memaksa kedua
+	 * modul saling bergantung. Dipakai antara lain oleh layar biodata dosen untuk menampilkan data
+	 * asesor pegawai yang bersangkutan.
+	 *
+	 * @return ID pegawai terkait, atau {@code null} bila dosen tidak punya padanan pegawai
+	 */
 	@Column(name = "pegawai_id")
 	public Long getPegawaiId() {
 		return pegawaiId;
 	}
 
+	/**
+	 * Mengisi ID baris {@link Pegawai} yang merepresentasikan dosen ini di modul kepegawaian.
+	 *
+	 * @param pegawaiId ID pegawai terkait
+	 */
 	public void setPegawaiId(Long pegawaiId) {
 		this.pegawaiId = pegawaiId;
 	}
 
+	/**
+	 * Mengisi penanda dosen aktif.
+	 *
+	 * @param aktif {@code true} bila dosen dianggap aktif
+	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
 
+	/**
+	 * Bahasa antarmuka pilihan dosen. Bila kolom kosong, nilai baku
+	 * {@code Tbmuser.INDONESIA} dikembalikan (tanpa ditulis balik ke field). Kolom ini
+	 * {@code @NotAudited} sehingga perubahannya tidak membanjiri tabel audit Envers.
+	 *
+	 * @return kode bahasa antarmuka; tidak pernah {@code null}
+	 */
 	@NotAudited
 	public String getBahasa() {
 		return bahasa == null ? Tbmuser.INDONESIA : bahasa;
 	}
 
+	/**
+	 * Mengisi bahasa antarmuka pilihan dosen.
+	 *
+	 * @param bahasa kode bahasa antarmuka
+	 */
 	public void setBahasa(String bahasa) {
 		this.bahasa = bahasa;
 	}

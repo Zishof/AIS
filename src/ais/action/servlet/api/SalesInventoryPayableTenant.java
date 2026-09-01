@@ -95,9 +95,9 @@ final class SalesInventoryPayableTenant {
 	}
 
 	/**
-	 * Kolom daftar hutang, berurutan sama dengan jalur legacy: fakturId, supplierId,
-	 * supplierKode, supplierNama, nomorFaktur, tanggalFaktur, jatuhTempo, jenisPembayaran,
-	 * terminHari, total, dibayarAwal, alokasi, outstanding.
+	 * Kolom daftar hutang, berurutan sama dengan jalur legacy: id, nomorFaktur, tanggal,
+	 * supplierId, supplierKode, supplierNama, alamat, jenisPembayaran, terminHari, jatuhTempo,
+	 * total, dibayarAwal, alokasi, outstanding.
 	 *
 	 * <p>{@code jenisPembayaran} dan {@code terminHari} tidak ada pada model tenant. Kolomnya
 	 * dipertahankan supaya bentuk JSON tidak berubah: jenis diisi {@code 'CREDIT'} -- itulah
@@ -131,7 +131,7 @@ final class SalesInventoryPayableTenant {
 	 * {@code a.hutang_supplier_id}.
 	 */
 	static String sqlRincianAlokasi(String skema) {
-		return "SELECT a.hutang_supplier_id, COALESCE(h.nomor_faktur,'#' || h.id), a.nilai, "
+		return "SELECT COALESCE(h.nomor_faktur,'#' || h.id), h.tanggal, a.nilai, "
 				+ total() + ", h.jatuh_tempo"
 				+ " FROM " + skema + "alokasi_pembayaran_hutang a"
 				+ " JOIN " + skema + "hutang_supplier h ON a.hutang_supplier_id = h.id"
@@ -141,49 +141,138 @@ final class SalesInventoryPayableTenant {
 	// ------------------------------------------------------------------ umur hutang
 
 	/**
-	 * Umur hutang. Saringan jenis pembayaran legacy dijatuhkan dengan sengaja -- lihat catatan
-	 * kelas: setiap baris {@code hutang_supplier} sudah pasti hutang.
+	 * Ember umur, memakai tanggal acuan {@code asOf} dan label yang <b>sama persis</b> dengan
+	 * jalur legacy (BELUM / B1_30 / B31_60 / B61_90 / B90). Label yang berbeda akan membuat
+	 * ringkasan di klien jatuh ke ember yang salah tanpa satu pun galat muncul.
 	 */
-	static String sqlAging(String skema, String bucket) {
+	static String bucketAging(String asOf) {
+		String umur = "(DATE '" + asOf + "' - h.jatuh_tempo)";
+		return "CASE WHEN h.jatuh_tempo IS NULL OR h.jatuh_tempo >= DATE '" + asOf + "' THEN 'BELUM' "
+				+ "WHEN " + umur + " <= 30 THEN 'B1_30' "
+				+ "WHEN " + umur + " <= 60 THEN 'B31_60' "
+				+ "WHEN " + umur + " <= 90 THEN 'B61_90' ELSE 'B90' END";
+	}
+
+	/**
+	 * Umur hutang. Saringan {@code jenis_pembayaran} milik legacy dijatuhkan dengan sengaja --
+	 * lihat catatan kelas: setiap baris {@code hutang_supplier} sudah pasti hutang, sehingga
+	 * saringan itu tidak punya makna di sini.
+	 *
+	 * <p>Kolom keluarannya berurutan sama dengan legacy: supplierId, kode, nama, nomorFaktur,
+	 * tanggal, jatuhTempo, outstanding, bucket.</p>
+	 */
+	static String sqlAging(String skema, String asOf) {
 		return "SELECT h.supplier_id, COALESCE(s.kode,''), COALESCE(s.nama,''), "
 				+ "COALESCE(h.nomor_faktur,'#' || h.id), h.tanggal, h.jatuh_tempo, "
-				+ outstanding(skema) + " AS outstanding, " + bucket + " AS bucket"
+				+ outstanding(skema) + " AS outstanding, " + bucketAging(asOf) + " AS bucket"
 				+ " FROM " + skema + "hutang_supplier h"
 				+ " JOIN " + skema + "supplier s ON h.supplier_id = s.id"
 				+ " WHERE " + outstanding(skema) + " > 0.009"
 				+ " ORDER BY s.kode ASC, h.jatuh_tempo ASC NULLS FIRST LIMIT 2000";
 	}
 
-	/** Ekspresi ember umur dengan nama kolom tenant. */
-	static String bucketAging() {
-		return "CASE WHEN h.jatuh_tempo IS NULL THEN 'TANPA_TEMPO'"
-				+ " WHEN CURRENT_DATE <= h.jatuh_tempo THEN 'BELUM_JATUH'"
-				+ " WHEN CURRENT_DATE - h.jatuh_tempo <= 30 THEN '1_30'"
-				+ " WHEN CURRENT_DATE - h.jatuh_tempo <= 60 THEN '31_60'"
-				+ " WHEN CURRENT_DATE - h.jatuh_tempo <= 90 THEN '61_90'"
-				+ " ELSE 'DI_ATAS_90' END";
-	}
-
 	// ------------------------------------------------------------------ laporan pembelian
 
 	/**
-	 * Laporan pembelian. Diskon berada di dokumen {@code pembelian}, bukan di hutangnya,
-	 * sehingga ditarik lewat {@code h.pembelian_id}. {@code LEFT JOIN} karena hutang hasil
-	 * impor legacy bisa saja belum tertaut ke dokumen pembelian mana pun.
+	 * <h4>Laporan pembelian bertumpu pada {@code pembelian}, BUKAN {@code hutang_supplier}</h4>
+	 *
+	 * <p>Laporan ini mencakup <b>seluruh</b> pembelian, termasuk yang tunai -- terlihat dari
+	 * {@code LEFT JOIN} dan {@code COALESCE(i.jenis_pembayaran,'CASH')} pada jalur legacy.</p>
+	 *
+	 * <p>Di model tenant, pembelian tunai <b>tidak melahirkan baris {@code hutang_supplier}</b>
+	 * sama sekali. Menyusun laporan dari tabel hutang karena itu akan menghilangkan seluruh
+	 * pembelian tunai dari laporan tanpa satu pun galat muncul -- angka yang salah, terlihat
+	 * benar. Dasarnya harus dokumen pembeliannya.</p>
+	 *
+	 * <p>Hutangnya di-{@code LEFT JOIN}: ada berarti kredit, tidak ada berarti tunai.</p>
 	 */
 	static String dasarLaporan(String skema, String where) {
-		return " FROM " + skema + "hutang_supplier h"
-				+ " LEFT JOIN " + skema + "supplier s ON h.supplier_id = s.id"
-				+ " LEFT JOIN " + skema + "pembelian b ON h.pembelian_id = b.id " + where;
+		return " FROM " + skema + "pembelian b"
+				+ " LEFT JOIN " + skema + "supplier s ON b.supplier_id = s.id"
+				+ " LEFT JOIN " + skema + "hutang_supplier h ON h.pembelian_id = b.id " + where;
 	}
 
+	/**
+	 * Kolom laporan, berurutan sama dengan legacy: id, nomorFaktur, tanggal, supplierKode,
+	 * supplierNama, total, jenisPembayaran, dibayarAwal, alokasi, diskon.
+	 *
+	 * <p>{@code dibayarAwal} pada legacy adalah {@code COALESCE(i.dibayar_awal, TOTAL)} -- yakni
+	 * seluruh nilai dianggap terbayar bila fakturnya tunai. Perilaku itu dipertahankan: tanpa
+	 * baris hutang, seluruh totalnya dianggap lunas.</p>
+	 */
 	static String selectLaporan(String skema) {
-		return "SELECT h.id, COALESCE(h.nomor_faktur,'#' || h.id), h.tanggal, "
-				+ "COALESCE(s.kode,''), COALESCE(s.nama,''), 'CREDIT', "
-				+ total() + ", 0, " + alokasi(skema) + ", COALESCE(b.diskon,0)";
+		String alokasiHutang = "COALESCE((SELECT SUM(a.nilai) FROM " + skema
+				+ "alokasi_pembayaran_hutang a WHERE a.hutang_supplier_id = h.id),0)";
+		return "SELECT b.id, COALESCE(b.nomor_faktur,'#' || b.id), b.tanggal, "
+				+ "COALESCE(s.kode,''), COALESCE(s.nama,'(tanpa supplier)'), COALESCE(b.total,0), "
+				+ "CASE WHEN h.id IS NULL THEN 'CASH' ELSE 'CREDIT' END, "
+				+ "CASE WHEN h.id IS NULL THEN COALESCE(b.total,0) ELSE 0 END, "
+				+ alokasiHutang + ", COALESCE(b.diskon,0)";
 	}
 
 	static String urutLaporan() {
-		return " ORDER BY h.tanggal ASC, h.id ASC LIMIT 3000";
+		return " ORDER BY b.tanggal ASC, b.id ASC LIMIT 3000";
+	}
+
+	/** Awal {@code WHERE} laporan, dengan nama kolom tenant. */
+	static String whereLaporan() {
+		return " WHERE b.tanggal BETWEEN CAST(? AS date) AND (CAST(? AS date) + interval '1 day') ";
+	}
+
+	// ------------------------------------------------------------------ riwayat pembayaran
+
+	static String dasarRiwayat(String skema, String where) {
+		return " FROM " + skema + "pembayaran_hutang b JOIN " + skema + "supplier s"
+				+ " ON b.supplier_id = s.id " + where;
+	}
+
+	/**
+	 * Kolom riwayat pembayaran, berurutan sama dengan legacy: id, tanggal, supplierId, kode,
+	 * nama, nominal, metode, noBg, namaBank, tanggalBg, keterangan, oleh, kodeUnik, ringkasan
+	 * alokasi, statusDok, statusBg.
+	 *
+	 * <p><b>{@code status_bg} tidak ada pada model tenant.</b> Legacy melacak status giro
+	 * terpisah dari status dokumennya; model tenant hanya punya {@code status}. Kolomnya
+	 * dikembalikan kosong agar bentuk JSON tetap, bukan diisi dengan status dokumen -- menyamakan
+	 * keduanya akan membuat giro yang belum cair tampak sudah beres.</p>
+	 */
+	static String selectRiwayat(String skema) {
+		return "SELECT b.id, b.tanggal, b.supplier_id, COALESCE(s.kode,''), COALESCE(s.nama,''), "
+				+ "COALESCE(b.nilai,0), COALESCE(b.cara_bayar,''), COALESCE(b.nomor_bg,''), "
+				+ "COALESCE(b.nama_bank,''), b.tanggal_bg, COALESCE(b.keterangan,''), "
+				+ "COALESCE(b.oleh,''), COALESCE(b.nomor_dokumen,''), "
+				+ "(SELECT COALESCE(string_agg(COALESCE(h2.nomor_faktur,'#' || h2.id)"
+				+ " || ' (' || a2.nilai || ')', ', '),'')"
+				+ " FROM " + skema + "alokasi_pembayaran_hutang a2"
+				+ " JOIN " + skema + "hutang_supplier h2 ON a2.hutang_supplier_id = h2.id"
+				+ " WHERE a2.pembayaran_hutang_id = b.id), "
+				+ "COALESCE(b.status,'AKTIF'), NULL";
+	}
+
+	static String urutRiwayat() {
+		return " ORDER BY b.tanggal DESC, b.id DESC LIMIT ? OFFSET ?";
+	}
+
+	/** Nama kolom metode pembayaran pada model tenant, untuk saringan. */
+	static String kolomMetode() {
+		return "b.cara_bayar";
+	}
+
+	// ------------------------------------------------------------------ kuitansi pembayaran
+
+	/**
+	 * Kepala kuitansi. Kolomnya berurutan sama dengan legacy: id, tanggal, supplierKode,
+	 * supplierNama, supplierAlamat, nominal, metode, noBg, namaBank, tanggalBg, keterangan,
+	 * oleh, kodeUnik.
+	 */
+	static String sqlKuitansi(String skema) {
+		return "SELECT b.id, b.tanggal, COALESCE(s.kode,''), COALESCE(s.nama,''), "
+				+ "COALESCE(sp.alamat1,''), COALESCE(b.nilai,0), COALESCE(b.cara_bayar,''), "
+				+ "COALESCE(b.nomor_bg,''), COALESCE(b.nama_bank,''), b.tanggal_bg, "
+				+ "COALESCE(b.keterangan,''), COALESCE(b.oleh,''), COALESCE(b.nomor_dokumen,'')"
+				+ " FROM " + skema + "pembayaran_hutang b"
+				+ " JOIN " + skema + "supplier s ON b.supplier_id = s.id"
+				+ " LEFT JOIN " + skema + "supplier_profile sp ON sp.supplier_id = s.id"
+				+ " WHERE b.id = ?";
 	}
 }

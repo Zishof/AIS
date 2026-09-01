@@ -3086,6 +3086,13 @@ public abstract class GeneralValueObject extends DataUtil
 		if (tbmuser.getSiswa() == null && voKunci != null) {
 
 			kunci.addEventListener("onClick", new EventListener() {
+				/**
+				 * Menampilkan dialog konfirmasi penguncian saat tombol "Kunci" ditekan. Tidak
+				 * mengubah data apa pun; keputusan pengguna ditangani listener dialog di dalamnya.
+				 *
+				 * @param event event {@code onClick} dari ZK
+				 * @throws Exception diteruskan sesuai kontrak {@link EventListener}
+				 */
 				@Override
 				public void onEvent(Event event) throws Exception {
 
@@ -3093,6 +3100,19 @@ public abstract class GeneralValueObject extends DataUtil
 							MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
 							new EventListener() {
 
+								/**
+								 * Menjalankan penguncian bila pengguna menekan OK pada dialog.
+								 *
+								 * <p>Menyetel pengunci menjadi pengguna aktif, <b>menyimpan
+								 * perubahan ke database</b> lewat {@code Common.refreshUpdate},
+								 * menyegarkan visibilitas/label/tooltip kedua tombol, lalu memicu
+								 * {@code eventListener} pemanggil melalui timer bawaan agar layar
+								 * ikut dimuat ulang. Pilihan CANCEL tidak melakukan apa pun.</p>
+								 *
+								 * @param event event dialog yang membawa kode tombol pada
+								 *              {@code getData()}
+								 * @throws Exception diteruskan sesuai kontrak {@link EventListener}
+								 */
 								@Override
 								public void onEvent(Event event) throws Exception {
 									int i = Integer.parseInt(event.getData().toString());
@@ -3123,6 +3143,13 @@ public abstract class GeneralValueObject extends DataUtil
 			kunci.setDisabled(!Common.getApakahAdminBolehKunci());
 
 			bukaKunci.addEventListener("onClick", new EventListener() {
+				/**
+				 * Menampilkan dialog konfirmasi pembukaan kunci saat tombol "Buka Kunci" ditekan.
+				 * Tidak mengubah data apa pun.
+				 *
+				 * @param event event {@code onClick} dari ZK
+				 * @throws Exception diteruskan sesuai kontrak {@link EventListener}
+				 */
 				@Override
 				public void onEvent(Event event) throws Exception {
 
@@ -3130,6 +3157,20 @@ public abstract class GeneralValueObject extends DataUtil
 							MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
 							new EventListener() {
 
+								/**
+								 * Membuka kunci bila pengguna menekan OK pada dialog.
+								 *
+								 * <p>Menyetel pengunci menjadi {@code null}, <b>menyimpan perubahan
+								 * ke database</b> lewat {@code Common.refreshUpdate}, menyegarkan
+								 * visibilitas kedua tombol, lalu memicu {@code eventListener}
+								 * pemanggil. Berbeda dari listener penguncian, label dan tooltip
+								 * "Buka Kunci" tidak disetel ulang di sini karena tombolnya memang
+								 * langsung disembunyikan. Pilihan CANCEL tidak melakukan apa pun.</p>
+								 *
+								 * @param event event dialog yang membawa kode tombol pada
+								 *              {@code getData()}
+								 * @throws Exception diteruskan sesuai kontrak {@link EventListener}
+								 */
 								@Override
 								public void onEvent(Event event) throws Exception {
 									int i = Integer.parseInt(event.getData().toString());
@@ -3259,6 +3300,46 @@ public abstract class GeneralValueObject extends DataUtil
 		return valData.toString().trim().equalsIgnoreCase(expData.toString().trim());
 	}
 
+	/**
+	 * Memilih <b>satu</b> kandidat terbaik dari sebuah daftar entity yang sudah ada di memori,
+	 * berdasarkan pasangan nama properti dan nilai yang diharapkan — tanpa menyentuh database.
+	 *
+	 * <h4>Cara mencocokkan</h4>
+	 * <p>Nilai properti dibaca lewat metadata Hibernate
+	 * ({@code ClassMetadata.getPropertyValue(..., EntityMode.POJO)}), diperoleh dari
+	 * {@code SessionFactory} dengan fallback ke {@code HibernateUtil.getClassMetadata(clazz)}.
+	 * Bila metadata tidak tersedia sama sekali, method mengembalikan {@code null}.</p>
+	 *
+	 * <p>Untuk tiap kandidat, setiap pasangan properti/nilai diperiksa berurutan:</p>
+	 * <ul>
+	 *   <li>Nama properti kosong dilewati; properti yang gagal dibaca membuat kandidat langsung
+	 *   gugur.</li>
+	 *   <li>Bila nilai <b>pada kandidat</b> kosong ({@link #isNilaiKosong(Object)}), kriteria itu
+	 *   dilewati <b>tanpa menggugurkan</b> kandidat dan tanpa menambah skor — ini yang membuat
+	 *   pencocokan bersifat toleran terhadap data yang belum lengkap.</li>
+	 *   <li>Bila nilai pada kandidat terisi tetapi nilai yang <b>diharapkan</b> kosong, kandidat
+	 *   gugur.</li>
+	 *   <li>Bila keduanya terisi: cocok ({@link #isNilaiSama(Object, Object)}) menambah skor,
+	 *   tidak cocok menggugurkan kandidat seketika.</li>
+	 * </ul>
+	 *
+	 * <p>Pemenangnya adalah kandidat yang lolos dengan <b>skor tertinggi</b>, yaitu yang paling
+	 * banyak kriterianya benar-benar cocok. Bila beberapa kandidat berskor sama, yang <b>pertama
+	 * ditemui</b> menang (perbandingannya {@code >}, bukan {@code >=}), sehingga urutan daftar
+	 * masukan menentukan hasil — sediakan daftar yang sudah terurut bila hasilnya harus
+	 * deterministik.</p>
+	 *
+	 * <p>Perhatikan bahwa kandidat yang <b>seluruh</b> kriterianya dilewati (semua nilainya kosong)
+	 * tetap "lolos" dengan skor {@code 0} dan bisa terpilih bila tidak ada yang lebih baik. Panjang
+	 * pencocokan adalah nilai terkecil dari panjang {@code properties} dan {@code datas}, jadi
+	 * kelebihan elemen pada salah satunya diabaikan diam-diam.</p>
+	 *
+	 * @param clazz               kelas entity yang metadatanya dipakai untuk membaca properti
+	 * @param generalValueObjects daftar kandidat; {@code null}/kosong menghasilkan {@code null}
+	 * @param properties          nama-nama properti yang dicocokkan
+	 * @param datas               nilai yang diharapkan, sejajar dengan {@code properties}
+	 * @return kandidat dengan kecocokan terbanyak, atau {@code null} bila tidak ada yang lolos
+	 */
 	@SuppressWarnings("rawtypes")
 	public static GeneralValueObject ambilSatuData(Class clazz, List<? extends GeneralValueObject> generalValueObjects,
 			String[] properties, Object[] datas) {

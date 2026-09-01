@@ -356,6 +356,10 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
     var activeDraftId<%=rnd%> = null;
     var activeDraftKode<%=rnd%> = "";
     var activeDraftIdToko<%=rnd%> = null;
+    // Id member draft yang sedang dibuka -- dipakai payload bayar manual supaya
+    // pemiliknya tidak hilang. Namanya saja (lblModalPemesan) tidak cukup: yang
+    // dibutuhkan server adalah id-nya.
+    var activeDraftIdMember<%=rnd%> = null;
     var activeDraftNamaToko<%=rnd%> = "";
     var isModalReadOnly<%=rnd%> = false; // Flag Monitor ReadOnly
     var cartDraftItems<%=rnd%> = [];
@@ -461,6 +465,7 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
                 let successCount = 0;
                 let failCount = 0;
                 let pesanGagalTerakhir = '';
+                const pesanPeringatan = [];
                 for (let i = 0; i < listUnpaid.length; i++) {
                     const draft = listUnpaid[i];
                     document.getElementById('autoVerifStatus<%=rnd%>').innerHTML = `<%=Common.getBahasaConfig("Memproses pesanan")%> ${i+1} / ${listUnpaid.length} <br> <span class="small fw-bold text-primary">(${draft.kode})</span>`;
@@ -485,6 +490,14 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
 							kanalCheckout: "otomatis_halaman",
                             caraBayar: caraBayar,
                             draftPembelianAnggotaKoperasi: draft.id,
+                            // Pemilik pesanan WAJIB ikut dikirim. Kueri di atas sudah lama mengambil
+                            // anggota_koperasi, tetapi nilainya tidak pernah dimasukkan ke payload;
+                            // server lalu menerima member kosong dan -- sebelum r78633 -- nilai kosong
+                            // itu MENIMPA nama pemesan pada draft maupun pada transaksi finalnya.
+                            // Sejak r78633 server menambalnya dgn mewarisi dari header draft, tetapi
+                            // tambalan itu jadi SATU-SATUNYA penahan; mengirim payload yang benar sejak
+                            // dari sini membuat perbaikan tsb tidak lagi menanggungnya sendirian.
+                            id_member: draft.anggota_koperasi || null,
                             transaksi: items.map(item => ({
                                 id: item.produk_id, kode: item.kode, nama: item.nama,
                                 harga: parseFloat(item.harga||0), jumlah: parseFloat(item.jumlah||1),
@@ -496,6 +509,13 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
                         const resBayar = await fetchDataAPI<%=rnd%>(payload);
                         if (resBayar.status === '00' || resBayar.status === 'success') {
                             successCount++;
+                            // Sukses tetapi stok minus -- server menitipkan peringatanStok.
+                            // Ditumpangkan pada pesan hasil supaya operator tahu ada saldo
+                            // stok yang perlu diopname, tanpa menggagalkan apa pun.
+                            if (resBayar.peringatanStok) {
+                                pesanPeringatan.push(draft.kode + ': ' + resBayar.peringatanStok);
+                                console.warn('Peringatan stok utk draft ' + draft.kode + ':', resBayar.peringatanStok);
+                            }
                         } else {
                             // Kegagalan TIDAK boleh diam-diam: insiden 2026-08-18, seluruh verifikasi
                             // otomatis ditolak gerbang sesi kas (status 91) tetapi layar tetap
@@ -526,7 +546,8 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
                                 </div>
                                 <h4 class="fw-bolder text-dark mb-3"><%=Common.getBahasaConfig("Penyelesaian Otomatis")%></h4>
                                 <p class="text-muted fs-6 mb-4"><%=Common.getBahasaConfig("Sistem telah otomatis memverifikasi pembayaran")%> <b class="text-primary fs-5">` + successCount + `</b> <%=Common.getBahasaConfig("pesanan dari hari sebelumnya menjadi terbayar.")%></p>` +
-                                (failCount > 0 ? `<div class="alert alert-danger text-start small rounded-3 mb-4"><i class="fas fa-triangle-exclamation me-1"></i><b>` + failCount + ` <%=Common.getBahasaConfig("pesanan GAGAL diverifikasi otomatis.")%></b><br>` + pesanGagalTerakhir + `</div>` : '') + `
+                                (failCount > 0 ? `<div class="alert alert-danger text-start small rounded-3 mb-4"><i class="fas fa-triangle-exclamation me-1"></i><b>` + failCount + ` <%=Common.getBahasaConfig("pesanan GAGAL diverifikasi otomatis.")%></b><br>` + pesanGagalTerakhir + `</div>` : '') +
+                                (pesanPeringatan.length > 0 ? `<div class="alert alert-warning text-start small rounded-3 mb-4"><i class="fas fa-boxes-stacked me-1"></i><b><%=Common.getBahasaConfig("Tercatat, tetapi saldo stoknya perlu diopname:")%></b><br>` + pesanPeringatan.join('<br>') + `</div>` : '') + `
                                 <button type="button" class="btn btn-primary px-5 rounded-pill fw-bold shadow-sm" data-bs-dismiss="modal"><i class="fas fa-check me-2"></i><%=Common.getBahasaConfig("Mengerti")%></button>
                             </div>
                         </div>
@@ -876,9 +897,9 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
                         if (isAdmin<%=rnd%>) {
                             actionBtn += '<button class="btn btn-sm btn-outline-secondary rounded-pill px-3 shadow-sm fw-bold w-100 mb-2" onclick="cetakStrukPOS<%=rnd%>(' + row.lunas + ')"><i class="fas fa-print me-1"></i><%=Common.getBahasaConfig("Cetak Struk")%></button>';
                             actionBtn += btnHitung;
-                            actionBtn += '<button class="btn btn-sm btn-light border text-secondary rounded-pill px-3 shadow-sm fw-bold w-100" onclick="bukaModalBayar<%=rnd%>(' + row.id + ', \'' + row.kode + '\', \'' + safePemesan + '\', ' + row.id_toko + ', \'' + (row.id_cara_bayar || '') + '\', \'' + (row.nama_toko || '').replace(/'/g, "\\'") + '\', true)"><i class="fas fa-eye me-1"></i><%=Common.getBahasaConfig("Monitor")%></button>';
+                            actionBtn += '<button class="btn btn-sm btn-light border text-secondary rounded-pill px-3 shadow-sm fw-bold w-100" onclick="bukaModalBayar<%=rnd%>(' + row.id + ', \'' + row.kode + '\', \'' + safePemesan + '\', ' + row.id_toko + ', \'' + (row.id_cara_bayar || '') + '\', \'' + (row.nama_toko || '').replace(/'/g, "\\'") + '\', true, ' + (row.id_member || 'null') + ')"><i class="fas fa-eye me-1"></i><%=Common.getBahasaConfig("Monitor")%></button>';
                         } else {
-                            actionBtn += '<button class="btn btn-sm btn-outline-primary rounded-pill px-3 shadow-sm fw-bold w-100 mb-2" onclick="bukaModalBayar<%=rnd%>(' + row.id + ', \'' + row.kode + '\', \'' + safePemesan + '\', ' + row.id_toko + ', \'' + (row.id_cara_bayar || '') + '\', \'' + (row.nama_toko || '').replace(/'/g, "\\'") + '\', false)"><i class="fas fa-edit me-1"></i><%=Common.getBahasaConfig("Ubah & Cetak")%></button>';
+                            actionBtn += '<button class="btn btn-sm btn-outline-primary rounded-pill px-3 shadow-sm fw-bold w-100 mb-2" onclick="bukaModalBayar<%=rnd%>(' + row.id + ', \'' + row.kode + '\', \'' + safePemesan + '\', ' + row.id_toko + ', \'' + (row.id_cara_bayar || '') + '\', \'' + (row.nama_toko || '').replace(/'/g, "\\'") + '\', false, ' + (row.id_member || 'null') + ')"><i class="fas fa-edit me-1"></i><%=Common.getBahasaConfig("Ubah & Cetak")%></button>';
                             actionBtn += btnHitung;
                         }
                     } else {
@@ -886,12 +907,12 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
                         const canVerifyPayment = isLoginPedagang<%=rnd%> || (isAdmin<%=rnd%> && adminBolehVerifikasiBayar<%=rnd%>);
 
                         if (canVerifyPayment) {
-                            let btnUtama = '<button class="btn btn-sm btn-primary rounded-pill px-3 shadow-sm fw-bold w-100 mb-2" onclick="bukaModalBayar<%=rnd%>(' + row.id + ', \'' + row.kode + '\', \'' + safePemesan + '\', ' + row.id_toko + ', \'' + (row.id_cara_bayar || '') + '\', \'' + (row.nama_toko || '').replace(/'/g, "\\'") + '\', false)"><i class="fas fa-cash-register me-1"></i><%=Common.getBahasaConfig("Bayar")%></button>';
+                            let btnUtama = '<button class="btn btn-sm btn-primary rounded-pill px-3 shadow-sm fw-bold w-100 mb-2" onclick="bukaModalBayar<%=rnd%>(' + row.id + ', \'' + row.kode + '\', \'' + safePemesan + '\', ' + row.id_toko + ', \'' + (row.id_cara_bayar || '') + '\', \'' + (row.nama_toko || '').replace(/'/g, "\\'") + '\', false, ' + (row.id_member || 'null') + ')"><i class="fas fa-cash-register me-1"></i><%=Common.getBahasaConfig("Bayar")%></button>';
                             let btnBatal = '<button class="btn btn-sm btn-danger rounded-pill px-3 shadow-sm fw-bold w-100" onclick="batalkanPesanan<%=rnd%>(' + row.id + ')"><i class="fas fa-times-circle me-1"></i><%=Common.getBahasaConfig("Batalkan")%></button>';
                             actionBtn = btnUtama + btnHitung + btnBatal;
                         } else {
                             // Admin yang tidak punya hak verifikasi bayar
-                            let btnMonitor = '<button class="btn btn-sm btn-light border text-secondary rounded-pill px-3 shadow-sm fw-bold w-100 mb-2" onclick="bukaModalBayar<%=rnd%>(' + row.id + ', \'' + row.kode + '\', \'' + safePemesan + '\', ' + row.id_toko + ', \'' + (row.id_cara_bayar || '') + '\', \'' + (row.nama_toko || '').replace(/'/g, "\\'") + '\', true)"><i class="fas fa-eye me-1"></i><%=Common.getBahasaConfig("Monitor")%></button>';
+                            let btnMonitor = '<button class="btn btn-sm btn-light border text-secondary rounded-pill px-3 shadow-sm fw-bold w-100 mb-2" onclick="bukaModalBayar<%=rnd%>(' + row.id + ', \'' + row.kode + '\', \'' + safePemesan + '\', ' + row.id_toko + ', \'' + (row.id_cara_bayar || '') + '\', \'' + (row.nama_toko || '').replace(/'/g, "\\'") + '\', true, ' + (row.id_member || 'null') + ')"><i class="fas fa-eye me-1"></i><%=Common.getBahasaConfig("Monitor")%></button>';
                             let btnBatal = '<button class="btn btn-sm btn-outline-danger rounded-pill px-3 shadow-sm fw-bold w-100" onclick="batalkanPesanan<%=rnd%>(' + row.id + ')"><i class="fas fa-times-circle me-1"></i><%=Common.getBahasaConfig("Batalkan")%></button>';
                             actionBtn = btnMonitor + btnHitung + btnBatal;
                         }
@@ -1189,10 +1210,11 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
     };
 
     // 2. Buka Modal dan Tarik Rincian Items
-    window.bukaModalBayar<%=rnd%> = async function(draftId, draftKode, pemesan, idToko, idCaraBayar, namaToko, isReadOnly = false) {
+    window.bukaModalBayar<%=rnd%> = async function(draftId, draftKode, pemesan, idToko, idCaraBayar, namaToko, isReadOnly = false, idMember = null) {
         activeDraftId<%=rnd%> = draftId;
         activeDraftKode<%=rnd%> = draftKode;
         activeDraftIdToko<%=rnd%> = idToko;
+        activeDraftIdMember<%=rnd%> = idMember;
         activeDraftNamaToko<%=rnd%> = namaToko || "";
         isModalReadOnly<%=rnd%> = isReadOnly;
 
@@ -1377,6 +1399,14 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
             log:"true",
             caraBayar: idCaraBayar,
             draftPembelianAnggotaKoperasi: activeDraftId<%=rnd%>, // INI PARAMETER KUNCI UNTUK MENUTUP / UBAH DRAFT
+            // Pemilik pesanan WAJIB ikut dikirim. Kueri di atas sudah lama mengambil
+            // anggota_koperasi, tetapi nilainya tidak pernah dimasukkan ke payload;
+            // server lalu menerima member kosong dan -- sebelum r78633 -- nilai kosong
+            // itu MENIMPA nama pemesan pada draft maupun pada transaksi finalnya.
+            // Sejak r78633 server menambalnya dgn mewarisi dari header draft, tetapi
+            // tambalan itu jadi SATU-SATUNYA penahan; mengirim payload yang benar sejak
+            // dari sini membuat perbaikan tsb tidak lagi menanggungnya sendirian.
+            id_member: activeDraftIdMember<%=rnd%>,
             transaksi: cartDraftItems<%=rnd%>.map(item => ({
                 id: item.id, // ID Produk
                 kode: item.kode,
@@ -1393,6 +1423,14 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
             const res = await fetchDataAPI<%=rnd%>(payload);
             if (res.status === '00' || res.status === 'success') {
                 
+                // Transaksi tercatat, tetapi saldo stoknya tidak mencukupi. Ini bukan
+                // kegagalan -- karena itu tidak memblokir apa pun -- tetapi juga tidak
+                // boleh diam: inilah satu-satunya tanda bahwa stok perlu diopname.
+                if (res.peringatanStok) {
+                    showToastUI<%=rnd%>(res.peringatanStok, 'bg-warning text-dark');
+                    console.warn('Peringatan stok:', res.peringatanStok);
+                }
+
                 // Tutup Modal
                 batalBayar<%=rnd%>();
                 
@@ -1568,6 +1606,13 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
 
             let successCount = 0;
             let failCount = 0;
+            // Alasan kegagalan WAJIB disimpan, bukan sekadar dihitung. Insiden
+            // 18-08-2026 (verifikasi otomatis ditolak diam-diam) sudah diperbaiki pada
+            // loop Verifikasi Otomatis, tetapi dua loop "Bayar Semua" ini terlewat:
+            // alasannya dibuang begitu saja dan spanduk hijau "berhasil" tetap tampil
+            // walau ada yang gagal. Itulah sebabnya pesanan 31-08 & 01-09 menggantung
+            // "Belum dibayar" tanpa seorang pun menyadarinya.
+            const catatanRinci = [];
 
             for (let i = 0; i < listUnpaid.length; i++) {
                 const draft = listUnpaid[i];
@@ -1594,6 +1639,14 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
                         log: "true",
                         caraBayar: caraBayar,
                         draftPembelianAnggotaKoperasi: draft.id,
+                        // Pemilik pesanan WAJIB ikut dikirim. Kueri di atas sudah lama mengambil
+                        // anggota_koperasi, tetapi nilainya tidak pernah dimasukkan ke payload;
+                        // server lalu menerima member kosong dan -- sebelum r78633 -- nilai kosong
+                        // itu MENIMPA nama pemesan pada draft maupun pada transaksi finalnya.
+                        // Sejak r78633 server menambalnya dgn mewarisi dari header draft, tetapi
+                        // tambalan itu jadi SATU-SATUNYA penahan; mengirim payload yang benar sejak
+                        // dari sini membuat perbaikan tsb tidak lagi menanggungnya sendirian.
+                        id_member: draft.anggota_koperasi || null,
                         transaksi: items.map(item => ({
                             id: item.produk_id, 
                             kode: item.kode,
@@ -1609,11 +1662,22 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
                     const resBayar = await fetchDataAPI<%=rnd%>(payload);
                     if (resBayar.status === '00' || resBayar.status === 'success') {
                         successCount++;
+                        // Transaksi sukses tetapi stoknya minus: server menitipkan
+                        // peringatanStok. Satu-satunya tanda bahwa saldo stok perlu
+                        // diopname -- membuangnya sama saja membuatnya tidak pernah ada.
+                        if (resBayar.peringatanStok) {
+                            catatanRinci.push(draft.kode + ': ' + resBayar.peringatanStok);
+                            console.warn('Peringatan stok utk draft ' + draft.kode + ':', resBayar.peringatanStok);
+                        }
                     } else {
                         failCount++;
+                        const sebab = resBayar.description || resBayar.message || ('status ' + resBayar.status);
+                        catatanRinci.push(draft.kode + ': ' + sebab);
+                        console.error('Bayar massal gagal utk draft ' + draft.kode + ':', resBayar);
                     }
                 } else {
                     failCount++;
+                    catatanRinci.push(draft.kode + ': <%=Common.getBahasaConfigJS("rincian pesanan kosong")%>');
                 }
 
                 // Update Progress Bar UI
@@ -1622,7 +1686,16 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
                 progressBar.innerHTML = percent + '%';
             }
 
-            statusText.innerHTML = '<span class="text-success fw-bold"><i class="fas fa-check-circle me-1"></i><%=Common.getBahasaConfig("Selesai diproses!")%></span><br><small class="text-muted"><%=Common.getBahasaConfig("Berhasil:")%> ' + successCount + ', <%=Common.getBahasaConfig("Gagal:")%> ' + failCount + '</small>';
+            // Spanduk mengikuti KENYATAAN, bukan fakta bahwa loopnya selesai berjalan.
+            // Versi lama selalu hijau + ikon centang walau failCount > 0, dgn angka gagal
+            // sebagai teks abu kecil di bawahnya -- operator wajar membacanya sbg sukses.
+            statusText.innerHTML = failCount > 0
+                ? '<span class="text-danger fw-bold"><i class="fas fa-exclamation-triangle me-1"></i><%=Common.getBahasaConfig("Selesai, TETAPI ada yang gagal")%></span>'
+                  + '<br><small class="fw-bold"><%=Common.getBahasaConfig("Berhasil:")%> ' + successCount + ', <span class="text-danger"><%=Common.getBahasaConfig("Gagal:")%> ' + failCount + '</span></small>'
+                  + '<br><small class="text-muted d-block mt-2 text-start">' + catatanRinci.map(function (x) { return '&bull; ' + x; }).join('<br>') + '</small>'
+                : '<span class="text-success fw-bold"><i class="fas fa-check-circle me-1"></i><%=Common.getBahasaConfig("Selesai diproses!")%></span>'
+                  + '<br><small class="text-muted"><%=Common.getBahasaConfig("Berhasil:")%> ' + successCount + '</small>'
+                  + (catatanRinci.length > 0 ? '<br><small class="text-warning d-block mt-2 text-start">' + catatanRinci.map(function (x) { return '&bull; ' + x; }).join('<br>') + '</small>' : '');
             btnBatal.style.display = 'inline-block';
             btnBatal.innerHTML = '<%=Common.getBahasaConfigJS("Selesai & Tutup")%>';
             loadDataDraft<%=rnd%>();
@@ -1683,6 +1756,13 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
 
             let successCount = 0;
             let failCount = 0;
+            // Alasan kegagalan WAJIB disimpan, bukan sekadar dihitung. Insiden
+            // 18-08-2026 (verifikasi otomatis ditolak diam-diam) sudah diperbaiki pada
+            // loop Verifikasi Otomatis, tetapi dua loop "Bayar Semua" ini terlewat:
+            // alasannya dibuang begitu saja dan spanduk hijau "berhasil" tetap tampil
+            // walau ada yang gagal. Itulah sebabnya pesanan 31-08 & 01-09 menggantung
+            // "Belum dibayar" tanpa seorang pun menyadarinya.
+            const catatanRinci = [];
 
             for (let i = 0; i < listUnpaid.length; i++) {
                 const draft = listUnpaid[i];
@@ -1709,6 +1789,14 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
                         log: "true",
                         caraBayar: caraBayar,
                         draftPembelianAnggotaKoperasi: draft.id,
+                        // Pemilik pesanan WAJIB ikut dikirim. Kueri di atas sudah lama mengambil
+                        // anggota_koperasi, tetapi nilainya tidak pernah dimasukkan ke payload;
+                        // server lalu menerima member kosong dan -- sebelum r78633 -- nilai kosong
+                        // itu MENIMPA nama pemesan pada draft maupun pada transaksi finalnya.
+                        // Sejak r78633 server menambalnya dgn mewarisi dari header draft, tetapi
+                        // tambalan itu jadi SATU-SATUNYA penahan; mengirim payload yang benar sejak
+                        // dari sini membuat perbaikan tsb tidak lagi menanggungnya sendirian.
+                        id_member: draft.anggota_koperasi || null,
                         transaksi: items.map(item => ({
                             id: item.produk_id, 
                             kode: item.kode,
@@ -1724,11 +1812,22 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
                     const resBayar = await fetchDataAPI<%=rnd%>(payload);
                     if (resBayar.status === '00' || resBayar.status === 'success') {
                         successCount++;
+                        // Transaksi sukses tetapi stoknya minus: server menitipkan
+                        // peringatanStok. Satu-satunya tanda bahwa saldo stok perlu
+                        // diopname -- membuangnya sama saja membuatnya tidak pernah ada.
+                        if (resBayar.peringatanStok) {
+                            catatanRinci.push(draft.kode + ': ' + resBayar.peringatanStok);
+                            console.warn('Peringatan stok utk draft ' + draft.kode + ':', resBayar.peringatanStok);
+                        }
                     } else {
                         failCount++;
+                        const sebab = resBayar.description || resBayar.message || ('status ' + resBayar.status);
+                        catatanRinci.push(draft.kode + ': ' + sebab);
+                        console.error('Bayar massal gagal utk draft ' + draft.kode + ':', resBayar);
                     }
                 } else {
                     failCount++;
+                    catatanRinci.push(draft.kode + ': <%=Common.getBahasaConfigJS("rincian pesanan kosong")%>');
                 }
 
                 // Update Progress Bar UI
@@ -1737,7 +1836,16 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
                 progressBar.innerHTML = percent + '%';
             }
 
-            statusText.innerHTML = '<span class="text-success fw-bold"><i class="fas fa-check-circle me-1"></i><%=Common.getBahasaConfig("Seluruh pesanan berhasil dilayani!")%></span><br><small class="text-muted"><%=Common.getBahasaConfig("Berhasil:")%> ' + successCount + ', <%=Common.getBahasaConfig("Gagal:")%> ' + failCount + '</small>';
+            // Spanduk mengikuti KENYATAAN, bukan fakta bahwa loopnya selesai berjalan.
+            // Versi lama selalu hijau + ikon centang walau failCount > 0, dgn angka gagal
+            // sebagai teks abu kecil di bawahnya -- operator wajar membacanya sbg sukses.
+            statusText.innerHTML = failCount > 0
+                ? '<span class="text-danger fw-bold"><i class="fas fa-exclamation-triangle me-1"></i><%=Common.getBahasaConfig("Selesai, TETAPI ada yang gagal")%></span>'
+                  + '<br><small class="fw-bold"><%=Common.getBahasaConfig("Berhasil:")%> ' + successCount + ', <span class="text-danger"><%=Common.getBahasaConfig("Gagal:")%> ' + failCount + '</span></small>'
+                  + '<br><small class="text-muted d-block mt-2 text-start">' + catatanRinci.map(function (x) { return '&bull; ' + x; }).join('<br>') + '</small>'
+                : '<span class="text-success fw-bold"><i class="fas fa-check-circle me-1"></i><%=Common.getBahasaConfig("Seluruh pesanan berhasil dilayani!")%></span>'
+                  + '<br><small class="text-muted"><%=Common.getBahasaConfig("Berhasil:")%> ' + successCount + '</small>'
+                  + (catatanRinci.length > 0 ? '<br><small class="text-warning d-block mt-2 text-start">' + catatanRinci.map(function (x) { return '&bull; ' + x; }).join('<br>') + '</small>' : '');
             btnBatal.style.display = 'inline-block';
             btnBatal.innerHTML = '<%=Common.getBahasaConfigJS("Selesai & Tutup")%>';
             loadDataDraft<%=rnd%>();
@@ -1855,6 +1963,7 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
                 let successCount = 0;
                 let failCount = 0;
                 let pesanGagalTerakhir = '';
+                const pesanPeringatan = [];
                 for (let i = 0; i < listUnpaid.length; i++) {
                     const draft = listUnpaid[i];
                     document.getElementById('autoVerifStatus<%=rnd%>').innerHTML = `<%=Common.getBahasaConfig("Memproses pesanan")%> ${i+1} / ${listUnpaid.length} <br> <span class="small fw-bold text-primary">(${draft.kode})</span>`;
@@ -1879,6 +1988,14 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
                             kanalCheckout: "otomatis_halaman",
                             caraBayar: caraBayar,
                             draftPembelianAnggotaKoperasi: draft.id,
+                            // Pemilik pesanan WAJIB ikut dikirim. Kueri di atas sudah lama mengambil
+                            // anggota_koperasi, tetapi nilainya tidak pernah dimasukkan ke payload;
+                            // server lalu menerima member kosong dan -- sebelum r78633 -- nilai kosong
+                            // itu MENIMPA nama pemesan pada draft maupun pada transaksi finalnya.
+                            // Sejak r78633 server menambalnya dgn mewarisi dari header draft, tetapi
+                            // tambalan itu jadi SATU-SATUNYA penahan; mengirim payload yang benar sejak
+                            // dari sini membuat perbaikan tsb tidak lagi menanggungnya sendirian.
+                            id_member: draft.anggota_koperasi || null,
                             transaksi: items.map(item => ({
                                 id: item.produk_id, kode: item.kode, nama: item.nama,
                                 harga: parseFloat(item.harga||0), jumlah: parseFloat(item.jumlah||1),
@@ -1890,6 +2007,13 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
                         const resBayar = await fetchDataAPI<%=rnd%>(payload);
                         if (resBayar.status === '00' || resBayar.status === 'success') {
                             successCount++;
+                            // Sukses tetapi stok minus -- server menitipkan peringatanStok.
+                            // Ditumpangkan pada pesan hasil supaya operator tahu ada saldo
+                            // stok yang perlu diopname, tanpa menggagalkan apa pun.
+                            if (resBayar.peringatanStok) {
+                                pesanPeringatan.push(draft.kode + ': ' + resBayar.peringatanStok);
+                                console.warn('Peringatan stok utk draft ' + draft.kode + ':', resBayar.peringatanStok);
+                            }
                         } else {
                             // Kegagalan TIDAK boleh diam-diam: insiden 2026-08-18, seluruh verifikasi
                             // otomatis ditolak gerbang sesi kas (status 91) tetapi layar tetap
@@ -1920,7 +2044,8 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
                                 </div>
                                 <h4 class="fw-bolder text-dark mb-3"><%=Common.getBahasaConfig("Penyelesaian Otomatis")%></h4>
                                 <p class="text-muted fs-6 mb-4"><%=Common.getBahasaConfig("Sistem telah otomatis memverifikasi pembayaran")%> <b class="text-primary fs-5">` + successCount + `</b> <%=Common.getBahasaConfig("pesanan dari hari sebelumnya menjadi terbayar.")%></p>` +
-                                (failCount > 0 ? `<div class="alert alert-danger text-start small rounded-3 mb-4"><i class="fas fa-triangle-exclamation me-1"></i><b>` + failCount + ` <%=Common.getBahasaConfig("pesanan GAGAL diverifikasi otomatis.")%></b><br>` + pesanGagalTerakhir + `</div>` : '') + `
+                                (failCount > 0 ? `<div class="alert alert-danger text-start small rounded-3 mb-4"><i class="fas fa-triangle-exclamation me-1"></i><b>` + failCount + ` <%=Common.getBahasaConfig("pesanan GAGAL diverifikasi otomatis.")%></b><br>` + pesanGagalTerakhir + `</div>` : '') +
+                                (pesanPeringatan.length > 0 ? `<div class="alert alert-warning text-start small rounded-3 mb-4"><i class="fas fa-boxes-stacked me-1"></i><b><%=Common.getBahasaConfig("Tercatat, tetapi saldo stoknya perlu diopname:")%></b><br>` + pesanPeringatan.join('<br>') + `</div>` : '') + `
                                 <button type="button" class="btn btn-primary px-5 rounded-pill fw-bold shadow-sm" data-bs-dismiss="modal"><i class="fas fa-check me-2"></i><%=Common.getBahasaConfig("Mengerti")%></button>
                             </div>
                         </div>

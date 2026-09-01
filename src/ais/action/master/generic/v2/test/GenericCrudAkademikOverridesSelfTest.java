@@ -95,7 +95,40 @@ public final class GenericCrudAkademikOverridesSelfTest {
         check(!bankSoal.isDeleteEnabled(),
                 "Bank Soal tanpa kolom aktif TIDAK boleh mendapat tombol hapus");
 
-        // 4. Route di luar daftar tidak boleh tersentuh sama sekali.
+        // 4. Bagan akun dinaikkan; modelnya TANPA kolom aktif, jadi hapus harus
+        //    tetap mati. Ini penjaga yang paling penting di cabang Akuntansi:
+        //    akun yang pernah dipakai masih diacu setiap baris jurnal.
+        GenericCrudDefinition akun = definisi("akunting", "akun",
+                ais.database.model.akunting.Akun.class);
+        GenericCrudAkademikOverrides.terapkan(akun);
+        check(GenericCrudDefinition.FULL_CRUD.equals(akun.getLifecycleStatus()),
+                "Setup Kode Akun harus naik menjadi FULL_CRUD");
+        check(akun.isCreateEnabled() && akun.isUpdateEnabled(),
+                "Setup Kode Akun harus bisa tambah dan ubah");
+        check(!akun.isDeleteEnabled(),
+                "Akun tanpa kolom aktif TIDAK boleh mendapat tombol hapus");
+        check(akun.getAdapter() != null, "Setup Kode Akun harus memakai adapter validasinya");
+
+        // 5. Layar keuangan yang menyentuh uang harus TETAP tertutup, meski
+        //    definisi tiruannya datang serba menyala.
+        String[][] keuangan = {
+            { "akunting", "posting_transaksi_harian" },
+            { "akunting", "pertangungjawaban_kas_besar" },
+            { "root", "posting_cicilan_mahasiswa" },
+            { "koperasi", "pembelian_anggota_koperasi" },
+        };
+        for (int i = 0; i < keuangan.length; i++) {
+            GenericCrudDefinition d = definisi(keuangan[i][0], keuangan[i][1],
+                    ais.database.model.akunting.Akun.class);
+            GenericCrudAkademikOverrides.terapkan(d);
+            String kunci = keuangan[i][0] + "/" + keuangan[i][1];
+            check(!d.isCreateEnabled() && !d.isUpdateEnabled() && !d.isDeleteEnabled(),
+                    kunci + " menyentuh uang; seluruh saklar tulisnya harus mati");
+            check(GenericCrudAkademikOverrides.alasanDitahan(keuangan[i][0], keuangan[i][1]) != null,
+                    kunci + " harus punya alasan tertulis");
+        }
+
+        // 6. Route di luar daftar tidak boleh tersentuh sama sekali.
         GenericCrudDefinition lain = definisi("sekolah", "pembayaran_siswa",
                 ais.database.model.Kurikulum.class);
         GenericCrudAkademikOverrides.terapkan(lain);

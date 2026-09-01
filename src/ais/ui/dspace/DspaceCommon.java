@@ -36,10 +36,10 @@ import ais.common.URLCommon;
  * kematangan:
  * </p>
  * <ul>
- * <li>{@link #logintest()} — jalur LAMA/uji coba: kredensial DAN alamat REST DITULIS LANGSUNG di
- * kode ({@link #USERNAME}, {@link #PASSWORD}, {@link #REST_URL}), tidak membaca konfigurasi
- * runtime, dan tidak menangani skenario proxy/Cloudflare. Dipertahankan bersama {@link
- * #main(String[])} sebagai peninggalan pengujian manual — lihat peringatan keamanan di bawah.</li>
+ * <li>{@link #logintest()} — jalur LAMA/uji coba: alamat REST tertanam di kode ({@link #REST_URL}),
+ * kredensial kini dibaca dari system property (bukan lagi tertanam — lihat riwayat keamanan di
+ * bawah), tidak membaca konfigurasi runtime, dan tidak menangani skenario proxy/Cloudflare.
+ * Dipertahankan bersama {@link #main(String[])} sebagai peninggalan pengujian manual.</li>
  * <li>{@link #login()} — jalur PRODUKSI: kredensial dibaca dari konfigurasi runtime
  * ({@code dspace_username}/{@code dspace_password} lewat {@code Common.getKonfigurasi}), dan
  * alamat REST dicoba berurutan (endpoint internal lebih dulu, baru endpoint publik) untuk mengatasi
@@ -49,6 +49,29 @@ import ais.common.URLCommon;
  * (mis. {@link #upload}) memakai endpoint yang sama dengan endpoint login yang berhasil — penting
  * karena cookie sesi {@code JSESSIONID} hanya valid untuk host yang menerbitkannya.</li>
  * </ul>
+ *
+ * <h2>Riwayat keamanan (DIPERBAIKI 2026-09-02) — kredensial pribadi tertanam sebagai default
+ * produksi</h2>
+ * <p>
+ * {@link #login()} — jalur PRODUKSI — sebelumnya memakai
+ * {@code Common.getKonfigurasi("dspace_username", "fauzioke2003@gmail.com")} dan
+ * {@code Common.getKonfigurasi("dspace_password", "jangannakal")}: alamat email dan password
+ * PRIBADI SUNGGUHAN milik salah satu pengembang AIS, bukan akun layanan/placeholder, tertanam
+ * sebagai fallback yang diam-diam dipakai di produksi bila admin belum mengisi konfigurasi terkait
+ * di database. Kedua default itu sudah dihapus (kini string kosong); {@link #login()} kini
+ * melempar {@link IllegalStateException} bila {@code dspace_username}/{@code dspace_password}
+ * belum diisi, alih-alih diam-diam login memakai akun pribadi tersebut. Kredensial identik juga
+ * sebelumnya tertanam sebagai field {@code USERNAME}/{@code PASSWORD} untuk jalur uji coba
+ * {@link #logintest()} — sudah dipindah ke system property. Baris {@code System.out.println} yang
+ * sebelumnya mencetak nilai cookie sesi hasil login (di {@link #logintest()}) juga sudah dihapus,
+ * karena cookie sesi setara dengan kredensial akun yang sedang login.
+ * </p>
+ * <p>
+ * <b>TINDAK LANJUT DI LUAR PERUBAHAN KODE INI</b>: password akun pribadi yang sebelumnya tertanam
+ * sudah lama berada di riwayat SVN dan WAJIB dianggap bocor — SANGAT disarankan pemilik akun
+ * (bila akun Gmail/DSpace ini masih dipakai) segera mengganti passwordnya, terlepas dari apakah
+ * kredensial ini juga masih dipakai di konfigurasi produksi DSpace.
+ * </p>
  *
  * <h2>Alur unggah berkas</h2>
  * <p>
@@ -83,33 +106,30 @@ public class DspaceCommon {
 	 */
 	public static String REST_URL = "http://demo.ecampus.id/rest";
 	/**
-	 * Username DSpace tertanam langsung di kode sumber, dipakai HANYA oleh jalur uji coba
-	 * {@link #logintest()}. Lihat peringatan keamanan pada javadoc kelas — nilai ini adalah
-	 * kredensial nyata (alamat email), bukan placeholder.
-	 */
-	private static String USERNAME = "fauzioke2003@gmail.com";
-	/**
-	 * Password DSpace tertanam langsung di kode sumber, dipakai HANYA oleh jalur uji coba
-	 * {@link #logintest()}. Lihat peringatan keamanan pada javadoc kelas.
-	 */
-	private static String PASSWORD = "jangannakal";
-
-	/**
-	 * Jalur login UJI COBA/PENINGGALAN ke DSpace: memakai {@link #REST_URL} dan kredensial
-	 * tertanam ({@link #USERNAME}/{@link #PASSWORD}) alih-alih konfigurasi runtime. Mem-POST
+	 * Jalur login UJI COBA/PENINGGALAN ke DSpace: memakai {@link #REST_URL} dan kredensial dari
+	 * system property ({@code -Ddspacecommon.username=...}, {@code -Ddspacecommon.password=...} —
+	 * lihat riwayat keamanan pada javadoc kelas) alih-alih konfigurasi runtime. Mem-POST
 	 * {@code email}+{@code password} ke {@code /login}, lalu mem-parsing header respons
 	 * {@code Set-Cookie} secara naif (memisah pada karakter {@code "="} pertama, mengambil bagian
 	 * sebelum {@code ";"}) untuk mendapatkan nilai cookie sesi. Untuk jalur produksi yang membaca
 	 * kredensial dari konfigurasi dan menangani multi-endpoint, gunakan {@link #login()}.
 	 *
 	 * @return nilai cookie sesi DSpace hasil login
-	 * @throws Exception bila server tidak mengembalikan cookie {@code Set-Cookie} sama sekali
-	 *                    (kredensial salah atau endpoint tidak dapat diakses), atau kegagalan
-	 *                    jaringan lain yang diteruskan dari {@link URLCommon#getPostResponseHeader}
+	 * @throws Exception bila kredensial system property belum diisi, bila server tidak
+	 *                    mengembalikan cookie {@code Set-Cookie} sama sekali (kredensial salah
+	 *                    atau endpoint tidak dapat diakses), atau kegagalan jaringan lain yang
+	 *                    diteruskan dari {@link URLCommon#getPostResponseHeader}
 	 */
 	public static String logintest() throws Exception {
 
-		String postData = "email=" + USERNAME + "&password=" + PASSWORD;
+		String username = System.getProperty("dspacecommon.username", "");
+		String password = System.getProperty("dspacecommon.password", "");
+		if (username.trim().isEmpty() || password.trim().isEmpty()) {
+			throw new IllegalStateException(
+					"Jalankan dengan -Ddspacecommon.username=... -Ddspacecommon.password=...");
+		}
+
+		String postData = "email=" + username + "&password=" + password;
 
 		String urlStr = REST_URL + "/login";
 
@@ -119,7 +139,6 @@ public class DspaceCommon {
 			String key = entry.getKey();
 			String value = entry.getValue() + "";
 			if (key != null && key.equalsIgnoreCase("Set-Cookie")) {
-				System.out.println("value = " + value);
 				String[] bagianCookie = StringUtils.split(value, "=");
 				if (bagianCookie != null && bagianCookie.length > 1 && bagianCookie[1] != null) {
 					cookie = bagianCookie[1].split(";")[0];
@@ -130,7 +149,6 @@ public class DspaceCommon {
 		if (cookie == null || cookie.trim().length() == 0) {
 			throw new Exception("Login DSpace gagal: server tidak mengirim cookie sesi. Periksa username/password dan akses DSpace.");
 		}
-		System.out.println("cookie = " + cookie);
 		return cookie;
 
 	}
@@ -299,9 +317,9 @@ public class DspaceCommon {
 
 	/**
 	 * Jalur login PRODUKSI ke DSpace: kredensial dibaca dari konfigurasi runtime
-	 * ({@code dspace_username}/{@code dspace_password}, dengan nilai default yang identik dengan
-	 * kredensial tertanam di {@link #USERNAME}/{@link #PASSWORD} — lihat peringatan keamanan pada
-	 * javadoc kelas), lalu login dicoba berurutan ke daftar alamat kandidat: alamat internal
+	 * ({@code dspace_username}/{@code dspace_password}, WAJIB diisi eksplisit — lihat riwayat
+	 * keamanan pada javadoc kelas mengenai kredensial pribadi yang sebelumnya jadi default), lalu
+	 * login dicoba berurutan ke daftar alamat kandidat: alamat internal
 	 * ({@code dspace_private_url_internal}, bila diisi) lebih dulu, baru alamat utama
 	 * ({@link ais.common.ConstantValues#DSPACE_URL_PRIVATE}). Urutan ini sengaja mengutamakan
 	 * endpoint internal karena endpoint publik dapat diblokir oleh proteksi Cloudflare/WAF terhadap
@@ -325,8 +343,12 @@ public class DspaceCommon {
 	 *                      {@link #loginKeAlamat})
 	 */
 	public static String login() throws Exception {
-		String username = Common.getKonfigurasi("dspace_username", "fauzioke2003@gmail.com").getNilai();
-		String password = Common.getKonfigurasi("dspace_password", "jangannakal").getNilai();
+		String username = Common.getKonfigurasi("dspace_username", "").getNilai();
+		String password = Common.getKonfigurasi("dspace_password", "").getNilai();
+		if (username == null || username.trim().isEmpty() || password == null || password.trim().isEmpty()) {
+			throw new IllegalStateException(
+					"Kredensial DSpace belum dikonfigurasi. Isi konfigurasi dspace_username dan dspace_password.");
+		}
 		String postData = "email=" + URLEncoder.encode(username == null ? "" : username, "UTF-8")
 				+ "&password=" + URLEncoder.encode(password == null ? "" : password, "UTF-8");
 

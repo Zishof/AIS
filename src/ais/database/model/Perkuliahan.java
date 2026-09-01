@@ -1998,19 +1998,48 @@ public class Perkuliahan extends VOPembelajaran {
 		return dikunci;
 	}
 
+	/**
+	 * Menetapkan (atau membuka) kunci kelas.
+	 *
+	 * @param dikunci pengguna pengunci; {@code null} untuk membuka kunci.
+	 */
 	public void setDikunci(Tbmuser dikunci) {
 		this.dikunci = dikunci;
 	}
 
+	/**
+	 * Kolom lama {@code semester_perkuliahan}.
+	 *
+	 * <p><b>Sudah tidak dipakai</b> — lihat catatan pada deklarasi fieldnya. Semester kelas yang
+	 * berlaku dibaca dari {@link #getSemester()}. Dipertahankan hanya agar pemetaan Hibernate dan
+	 * kolom basis data lama tetap konsisten.</p>
+	 *
+	 * @return isi kolom apa adanya.
+	 */
 	@Column(name = "semester_perkuliahan")
 	public Integer getSemesterPerkuliahan() {
 		return semesterPerkuliahan;
 	}
 
+	/**
+	 * Mengisi kolom lama {@code semester_perkuliahan} yang sudah tidak dipakai.
+	 *
+	 * @param semesterPerkuliahan nilai kolom.
+	 */
 	public void setSemesterPerkuliahan(Integer semesterPerkuliahan) {
 		this.semesterPerkuliahan = semesterPerkuliahan;
 	}
 
+	/**
+	 * Menyatakan apakah kelas ini berlangsung pada pekan ke-1 dalam pola bulanan.
+	 *
+	 * <p>Lima penanda {@code minggu1}..{@code minggu5} dipakai untuk jadwal yang tidak berulang
+	 * setiap pekan (mis. kelas yang hanya berjalan pada pekan ganjil). Semuanya default
+	 * {@code true} — artinya kelas berjalan pada semua pekan — dan nilai {@code null} ditulis
+	 * balik menjadi {@code true}.</p>
+	 *
+	 * @return {@code true} bila kelas berjalan pada pekan ke-1.
+	 */
 	public Boolean getMinggu1() {
 		if (minggu1 == null) {
 			minggu1 = true;
@@ -2018,10 +2047,20 @@ public class Perkuliahan extends VOPembelajaran {
 		return minggu1;
 	}
 
+	/**
+	 * Menetapkan apakah kelas berjalan pada pekan ke-1.
+	 *
+	 * @param minggu1 penanda pekan ke-1.
+	 */
 	public void setMinggu1(Boolean minggu1) {
 		this.minggu1 = minggu1;
 	}
 
+	/**
+	 * Penanda pekan ke-2; aturannya sama dengan {@link #getMinggu1()}.
+	 *
+	 * @return {@code true} bila kelas berjalan pada pekan ke-2.
+	 */
 	public Boolean getMinggu2() {
 		if (minggu2 == null) {
 			minggu2 = true;
@@ -2029,10 +2068,20 @@ public class Perkuliahan extends VOPembelajaran {
 		return minggu2;
 	}
 
+	/**
+	 * Menetapkan apakah kelas berjalan pada pekan ke-2.
+	 *
+	 * @param minggu2 penanda pekan ke-2.
+	 */
 	public void setMinggu2(Boolean minggu2) {
 		this.minggu2 = minggu2;
 	}
 
+	/**
+	 * Penanda pekan ke-3; aturannya sama dengan {@link #getMinggu1()}.
+	 *
+	 * @return {@code true} bila kelas berjalan pada pekan ke-3.
+	 */
 	public Boolean getMinggu3() {
 		if (minggu3 == null) {
 			minggu3 = true;
@@ -2040,10 +2089,20 @@ public class Perkuliahan extends VOPembelajaran {
 		return minggu3;
 	}
 
+	/**
+	 * Menetapkan apakah kelas berjalan pada pekan ke-3.
+	 *
+	 * @param minggu3 penanda pekan ke-3.
+	 */
 	public void setMinggu3(Boolean minggu3) {
 		this.minggu3 = minggu3;
 	}
 
+	/**
+	 * Penanda pekan ke-4; aturannya sama dengan {@link #getMinggu1()}.
+	 *
+	 * @return {@code true} bila kelas berjalan pada pekan ke-4.
+	 */
 	public Boolean getMinggu4() {
 		if (minggu4 == null) {
 			minggu4 = true;
@@ -2051,10 +2110,20 @@ public class Perkuliahan extends VOPembelajaran {
 		return minggu4;
 	}
 
+	/**
+	 * Menetapkan apakah kelas berjalan pada pekan ke-4.
+	 *
+	 * @param minggu4 penanda pekan ke-4.
+	 */
 	public void setMinggu4(Boolean minggu4) {
 		this.minggu4 = minggu4;
 	}
 
+	/**
+	 * Penanda pekan ke-5; aturannya sama dengan {@link #getMinggu1()}.
+	 *
+	 * @return {@code true} bila kelas berjalan pada pekan ke-5.
+	 */
 	public Boolean getMinggu5() {
 		if (minggu5 == null) {
 			minggu5 = true;
@@ -2062,10 +2131,25 @@ public class Perkuliahan extends VOPembelajaran {
 		return minggu5;
 	}
 
+	/**
+	 * Menetapkan apakah kelas berjalan pada pekan ke-5.
+	 *
+	 * @param minggu5 penanda pekan ke-5.
+	 */
 	public void setMinggu5(Boolean minggu5) {
 		this.minggu5 = minggu5;
 	}
 
+	/**
+	 * Dosen pengampu slot ke-3.
+	 *
+	 * <p>Seperti slot 2 dan seterusnya, field DIKOSONGKAN lebih dulu bila
+	 * {@link #getJumlahDosen()} kurang dari 3, sehingga rantai sepuluh slot tidak pernah
+	 * berlubang.</p>
+	 *
+	 * @return dosen pengampu ke-3, atau {@code null}.
+	 * @see #getDosen1()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dosen3", nullable = true)
 	public Dosen getDosen3() {
@@ -2076,10 +2160,25 @@ public class Perkuliahan extends VOPembelajaran {
 		return dosen3;
 	}
 
+	/**
+	 * Menetapkan dosen pengampu slot ke-3.
+	 *
+	 * @param dosen3 dosen pengampu ke-3, boleh {@code null}.
+	 */
 	public void setDosen3(Dosen dosen3) {
 		this.dosen3 = dosen3;
 	}
 
+	/**
+	 * Dosen pengampu slot ke-4.
+	 *
+	 * <p>Seperti slot 2 dan seterusnya, field DIKOSONGKAN lebih dulu bila
+	 * {@link #getJumlahDosen()} kurang dari 4, sehingga rantai sepuluh slot tidak pernah
+	 * berlubang.</p>
+	 *
+	 * @return dosen pengampu ke-4, atau {@code null}.
+	 * @see #getDosen1()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dosen4", nullable = true)
 	public Dosen getDosen4() {
@@ -2090,10 +2189,25 @@ public class Perkuliahan extends VOPembelajaran {
 		return dosen4;
 	}
 
+	/**
+	 * Menetapkan dosen pengampu slot ke-4.
+	 *
+	 * @param dosen4 dosen pengampu ke-4, boleh {@code null}.
+	 */
 	public void setDosen4(Dosen dosen4) {
 		this.dosen4 = dosen4;
 	}
 
+	/**
+	 * Dosen pengampu slot ke-5.
+	 *
+	 * <p>Seperti slot 2 dan seterusnya, field DIKOSONGKAN lebih dulu bila
+	 * {@link #getJumlahDosen()} kurang dari 5, sehingga rantai sepuluh slot tidak pernah
+	 * berlubang.</p>
+	 *
+	 * @return dosen pengampu ke-5, atau {@code null}.
+	 * @see #getDosen1()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dosen5", nullable = true)
 	public Dosen getDosen5() {
@@ -2104,10 +2218,25 @@ public class Perkuliahan extends VOPembelajaran {
 		return dosen5;
 	}
 
+	/**
+	 * Menetapkan dosen pengampu slot ke-5.
+	 *
+	 * @param dosen5 dosen pengampu ke-5, boleh {@code null}.
+	 */
 	public void setDosen5(Dosen dosen5) {
 		this.dosen5 = dosen5;
 	}
 
+	/**
+	 * Dosen pengampu slot ke-6.
+	 *
+	 * <p>Seperti slot 2 dan seterusnya, field DIKOSONGKAN lebih dulu bila
+	 * {@link #getJumlahDosen()} kurang dari 6, sehingga rantai sepuluh slot tidak pernah
+	 * berlubang.</p>
+	 *
+	 * @return dosen pengampu ke-6, atau {@code null}.
+	 * @see #getDosen1()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dosen6", nullable = true)
 	public Dosen getDosen6() {
@@ -2118,10 +2247,25 @@ public class Perkuliahan extends VOPembelajaran {
 		return dosen6;
 	}
 
+	/**
+	 * Menetapkan dosen pengampu slot ke-6.
+	 *
+	 * @param dosen6 dosen pengampu ke-6, boleh {@code null}.
+	 */
 	public void setDosen6(Dosen dosen6) {
 		this.dosen6 = dosen6;
 	}
 
+	/**
+	 * Dosen pengampu slot ke-7.
+	 *
+	 * <p>Seperti slot 2 dan seterusnya, field DIKOSONGKAN lebih dulu bila
+	 * {@link #getJumlahDosen()} kurang dari 7, sehingga rantai sepuluh slot tidak pernah
+	 * berlubang.</p>
+	 *
+	 * @return dosen pengampu ke-7, atau {@code null}.
+	 * @see #getDosen1()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dosen7", nullable = true)
 	public Dosen getDosen7() {
@@ -2132,10 +2276,25 @@ public class Perkuliahan extends VOPembelajaran {
 		return dosen7;
 	}
 
+	/**
+	 * Menetapkan dosen pengampu slot ke-7.
+	 *
+	 * @param dosen7 dosen pengampu ke-7, boleh {@code null}.
+	 */
 	public void setDosen7(Dosen dosen7) {
 		this.dosen7 = dosen7;
 	}
 
+	/**
+	 * Dosen pengampu slot ke-8.
+	 *
+	 * <p>Seperti slot 2 dan seterusnya, field DIKOSONGKAN lebih dulu bila
+	 * {@link #getJumlahDosen()} kurang dari 8, sehingga rantai sepuluh slot tidak pernah
+	 * berlubang.</p>
+	 *
+	 * @return dosen pengampu ke-8, atau {@code null}.
+	 * @see #getDosen1()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dosen8", nullable = true)
 	public Dosen getDosen8() {
@@ -2146,10 +2305,25 @@ public class Perkuliahan extends VOPembelajaran {
 		return dosen8;
 	}
 
+	/**
+	 * Menetapkan dosen pengampu slot ke-8.
+	 *
+	 * @param dosen8 dosen pengampu ke-8, boleh {@code null}.
+	 */
 	public void setDosen8(Dosen dosen8) {
 		this.dosen8 = dosen8;
 	}
 
+	/**
+	 * Dosen pengampu slot ke-9.
+	 *
+	 * <p>Seperti slot 2 dan seterusnya, field DIKOSONGKAN lebih dulu bila
+	 * {@link #getJumlahDosen()} kurang dari 9, sehingga rantai sepuluh slot tidak pernah
+	 * berlubang.</p>
+	 *
+	 * @return dosen pengampu ke-9, atau {@code null}.
+	 * @see #getDosen1()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dosen9", nullable = true)
 	public Dosen getDosen9() {
@@ -2160,10 +2334,25 @@ public class Perkuliahan extends VOPembelajaran {
 		return dosen9;
 	}
 
+	/**
+	 * Menetapkan dosen pengampu slot ke-9.
+	 *
+	 * @param dosen9 dosen pengampu ke-9, boleh {@code null}.
+	 */
 	public void setDosen9(Dosen dosen9) {
 		this.dosen9 = dosen9;
 	}
 
+	/**
+	 * Dosen pengampu slot ke-10.
+	 *
+	 * <p>Seperti slot 2 dan seterusnya, field DIKOSONGKAN lebih dulu bila
+	 * {@link #getJumlahDosen()} kurang dari 10, sehingga rantai sepuluh slot tidak pernah
+	 * berlubang.</p>
+	 *
+	 * @return dosen pengampu ke-10, atau {@code null}.
+	 * @see #getDosen1()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dosen10", nullable = true)
 	public Dosen getDosen10() {
@@ -2174,10 +2363,34 @@ public class Perkuliahan extends VOPembelajaran {
 		return dosen10;
 	}
 
+	/**
+	 * Menetapkan dosen pengampu slot ke-10.
+	 *
+	 * @param dosen10 dosen pengampu ke-10, boleh {@code null}.
+	 */
 	public void setDosen10(Dosen dosen10) {
 		this.dosen10 = dosen10;
 	}
 
+	/**
+	 * Menghitung berapa slot dosen yang terisi secara BERURUTAN dari slot ke-1.
+	 *
+	 * <p>Implementasinya berupa rantai {@code if/else if} menurun dari 10 ke 1 yang menuntut
+	 * SELURUH slot sebelumnya juga terisi. Akibatnya nilai ini bukan sekadar "berapa dosen ada",
+	 * melainkan panjang rantai slot yang tidak berlubang: bila {@code dosen1} kosong sementara
+	 * {@code dosen2} terisi, hasilnya tetap {@code 0}.</p>
+	 *
+	 * <p>Nilai inilah yang dipakai getter {@code getDosen2()}..{@code getDosen10()} untuk
+	 * mengosongkan slot di luar rantai, dipakai {@link #getMerupakanTeamTeaching()} untuk
+	 * menyimpulkan team teaching, dan dipakai {@link #populateInfoPersetujuan()} sebagai penyebut
+	 * persentase kehadiran dosen.</p>
+	 *
+	 * <p><b>Catatan:</b> pemeriksaan dilakukan langsung atas FIELD, bukan lewat getter, justru
+	 * untuk menghindari rekursi tak berujung dengan getter slot dosen yang memanggil method ini.
+	 * Hasilnya ditulis balik ke field {@code jumlahDosen}.</p>
+	 *
+	 * @return jumlah slot dosen terisi berurutan, {@code 0}..{@code 10}.
+	 */
 	public Integer getJumlahDosen() {
 
 		if (dosen1 != null && dosen2 != null && dosen3 != null && dosen4 != null && dosen5 != null && dosen6 != null
@@ -2212,28 +2425,67 @@ public class Perkuliahan extends VOPembelajaran {
 		return jumlahDosen;
 	}
 
+	/**
+	 * Mengisi cache jumlah dosen.
+	 *
+	 * <p>Praktis tidak berpengaruh karena {@link #getJumlahDosen()} selalu menghitung ulang; ada
+	 * agar Hibernate dan form ZK dapat memetakan property.</p>
+	 *
+	 * @param jumlahDosen jumlah slot dosen.
+	 */
 	public void setJumlahDosen(Integer jumlahDosen) {
 		this.jumlahDosen = jumlahDosen;
 	}
 
+	/**
+	 * Tanggal awal rentang penyelenggaraan kelas (batas bawah pembangkitan pertemuan).
+	 *
+	 * @return tanggal mulai, atau {@code null} bila mengikuti {@link MasaPerkuliahan}.
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getPerkuliahanDimulai() {
 		return perkuliahanDimulai;
 	}
 
+	/**
+	 * Menetapkan tanggal awal rentang penyelenggaraan kelas.
+	 *
+	 * @param perkuliahanDimulai tanggal mulai, boleh {@code null}.
+	 */
 	public void setPerkuliahanDimulai(Date perkuliahanDimulai) {
 		this.perkuliahanDimulai = perkuliahanDimulai;
 	}
 
+	/**
+	 * Tanggal akhir rentang penyelenggaraan kelas (batas atas pembangkitan pertemuan).
+	 *
+	 * @return tanggal selesai, atau {@code null} bila mengikuti {@link MasaPerkuliahan}.
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getPerkuliahanSampai() {
 		return perkuliahanSampai;
 	}
 
+	/**
+	 * Menetapkan tanggal akhir rentang penyelenggaraan kelas.
+	 *
+	 * @param perkuliahanSampai tanggal selesai, boleh {@code null}.
+	 */
 	public void setPerkuliahanSampai(Date perkuliahanSampai) {
 		this.perkuliahanSampai = perkuliahanSampai;
 	}
 
+	/**
+	 * Kode kelas pada Feeder PDDikti (kolom {@code feeder_kode}).
+	 *
+	 * <p><b>Efek samping:</b> untuk kelas paralel, kode DIAMBIL ALIH dari kelas induk dan ditulis
+	 * balik ke field — konsisten dengan kenyataan bahwa kelas paralel bukan kelas terpisah di mata
+	 * Feeder. String kosong dinormalkan menjadi {@code null}.</p>
+	 *
+	 * @return kode kelas di Feeder, atau {@code null} bila belum pernah disinkronkan.
+	 * @see #getFeeders()
+	 * @see #getIdSmt()
+	 */
 	@Column(name = "feeder_kode", unique = false)
 	public String getFeeder() {
 		if (getPerkuliahan_paralel() != null && getPerkuliahan_paralel().getFeeder() != null) {
@@ -2242,86 +2494,241 @@ public class Perkuliahan extends VOPembelajaran {
 		return feeder == null || feeder.trim().isEmpty() ? null : feeder.trim();
 	}
 
+	/**
+	 * Menetapkan kode kelas pada Feeder PDDikti.
+	 *
+	 * @param feeder kode kelas dari Feeder.
+	 */
 	public void setFeeder(String feeder) {
 		this.feeder = feeder;
 	}
 
+	/**
+	 * Id dosen pengampu slot ke-1 pada Feeder PDDikti.
+	 *
+	 * <p>Sepuluh kolom {@code feeder1}..{@code feeder10} adalah pendamping pola sepuluh slot
+	 * {@code dosen1}..{@code dosen10}: satu kolom per slot, dipakai saat mengirim penugasan dosen
+	 * ke Feeder.</p>
+	 *
+	 * @return id Feeder dosen ke-1, atau {@code null} bila belum disinkronkan.
+	 * @see #getDosen1()
+	 */
 	public String getFeeder1() {
 		return feeder1;
 	}
 
+	/**
+	 * Menetapkan id Feeder untuk dosen pengampu slot ke-1.
+	 *
+	 * @param feeder1 id Feeder dosen ke-1.
+	 */
 	public void setFeeder1(String feeder1) {
 		this.feeder1 = feeder1;
 	}
 
+	/**
+	 * Id dosen pengampu slot ke-2 pada Feeder PDDikti.
+	 *
+	 * <p>Sepuluh kolom {@code feeder1}..{@code feeder10} adalah pendamping pola sepuluh slot
+	 * {@code dosen1}..{@code dosen10}: satu kolom per slot, dipakai saat mengirim penugasan dosen
+	 * ke Feeder.</p>
+	 *
+	 * @return id Feeder dosen ke-2, atau {@code null} bila belum disinkronkan.
+	 * @see #getDosen2()
+	 */
 	public String getFeeder2() {
 		return feeder2;
 	}
 
+	/**
+	 * Menetapkan id Feeder untuk dosen pengampu slot ke-2.
+	 *
+	 * @param feeder2 id Feeder dosen ke-2.
+	 */
 	public void setFeeder2(String feeder2) {
 		this.feeder2 = feeder2;
 	}
 
+	/**
+	 * Id dosen pengampu slot ke-3 pada Feeder PDDikti.
+	 *
+	 * <p>Sepuluh kolom {@code feeder1}..{@code feeder10} adalah pendamping pola sepuluh slot
+	 * {@code dosen1}..{@code dosen10}: satu kolom per slot, dipakai saat mengirim penugasan dosen
+	 * ke Feeder.</p>
+	 *
+	 * @return id Feeder dosen ke-3, atau {@code null} bila belum disinkronkan.
+	 * @see #getDosen3()
+	 */
 	public String getFeeder3() {
 		return feeder3;
 	}
 
+	/**
+	 * Menetapkan id Feeder untuk dosen pengampu slot ke-3.
+	 *
+	 * @param feeder3 id Feeder dosen ke-3.
+	 */
 	public void setFeeder3(String feeder3) {
 		this.feeder3 = feeder3;
 	}
 
+	/**
+	 * Id dosen pengampu slot ke-4 pada Feeder PDDikti.
+	 *
+	 * <p>Sepuluh kolom {@code feeder1}..{@code feeder10} adalah pendamping pola sepuluh slot
+	 * {@code dosen1}..{@code dosen10}: satu kolom per slot, dipakai saat mengirim penugasan dosen
+	 * ke Feeder.</p>
+	 *
+	 * @return id Feeder dosen ke-4, atau {@code null} bila belum disinkronkan.
+	 * @see #getDosen4()
+	 */
 	public String getFeeder4() {
 		return feeder4;
 	}
 
+	/**
+	 * Menetapkan id Feeder untuk dosen pengampu slot ke-4.
+	 *
+	 * @param feeder4 id Feeder dosen ke-4.
+	 */
 	public void setFeeder4(String feeder4) {
 		this.feeder4 = feeder4;
 	}
 
+	/**
+	 * Id dosen pengampu slot ke-5 pada Feeder PDDikti.
+	 *
+	 * <p>Sepuluh kolom {@code feeder1}..{@code feeder10} adalah pendamping pola sepuluh slot
+	 * {@code dosen1}..{@code dosen10}: satu kolom per slot, dipakai saat mengirim penugasan dosen
+	 * ke Feeder.</p>
+	 *
+	 * @return id Feeder dosen ke-5, atau {@code null} bila belum disinkronkan.
+	 * @see #getDosen5()
+	 */
 	public String getFeeder5() {
 		return feeder5;
 	}
 
+	/**
+	 * Menetapkan id Feeder untuk dosen pengampu slot ke-5.
+	 *
+	 * @param feeder5 id Feeder dosen ke-5.
+	 */
 	public void setFeeder5(String feeder5) {
 		this.feeder5 = feeder5;
 	}
 
+	/**
+	 * Id dosen pengampu slot ke-6 pada Feeder PDDikti.
+	 *
+	 * <p>Sepuluh kolom {@code feeder1}..{@code feeder10} adalah pendamping pola sepuluh slot
+	 * {@code dosen1}..{@code dosen10}: satu kolom per slot, dipakai saat mengirim penugasan dosen
+	 * ke Feeder.</p>
+	 *
+	 * @return id Feeder dosen ke-6, atau {@code null} bila belum disinkronkan.
+	 * @see #getDosen6()
+	 */
 	public String getFeeder6() {
 		return feeder6;
 	}
 
+	/**
+	 * Menetapkan id Feeder untuk dosen pengampu slot ke-6.
+	 *
+	 * @param feeder6 id Feeder dosen ke-6.
+	 */
 	public void setFeeder6(String feeder6) {
 		this.feeder6 = feeder6;
 	}
 
+	/**
+	 * Id dosen pengampu slot ke-7 pada Feeder PDDikti.
+	 *
+	 * <p>Sepuluh kolom {@code feeder1}..{@code feeder10} adalah pendamping pola sepuluh slot
+	 * {@code dosen1}..{@code dosen10}: satu kolom per slot, dipakai saat mengirim penugasan dosen
+	 * ke Feeder.</p>
+	 *
+	 * @return id Feeder dosen ke-7, atau {@code null} bila belum disinkronkan.
+	 * @see #getDosen7()
+	 */
 	public String getFeeder7() {
 		return feeder7;
 	}
 
+	/**
+	 * Menetapkan id Feeder untuk dosen pengampu slot ke-7.
+	 *
+	 * @param feeder7 id Feeder dosen ke-7.
+	 */
 	public void setFeeder7(String feeder7) {
 		this.feeder7 = feeder7;
 	}
 
+	/**
+	 * Id dosen pengampu slot ke-8 pada Feeder PDDikti.
+	 *
+	 * <p>Sepuluh kolom {@code feeder1}..{@code feeder10} adalah pendamping pola sepuluh slot
+	 * {@code dosen1}..{@code dosen10}: satu kolom per slot, dipakai saat mengirim penugasan dosen
+	 * ke Feeder.</p>
+	 *
+	 * @return id Feeder dosen ke-8, atau {@code null} bila belum disinkronkan.
+	 * @see #getDosen8()
+	 */
 	public String getFeeder8() {
 		return feeder8;
 	}
 
+	/**
+	 * Menetapkan id Feeder untuk dosen pengampu slot ke-8.
+	 *
+	 * @param feeder8 id Feeder dosen ke-8.
+	 */
 	public void setFeeder8(String feeder8) {
 		this.feeder8 = feeder8;
 	}
 
+	/**
+	 * Id dosen pengampu slot ke-9 pada Feeder PDDikti.
+	 *
+	 * <p>Sepuluh kolom {@code feeder1}..{@code feeder10} adalah pendamping pola sepuluh slot
+	 * {@code dosen1}..{@code dosen10}: satu kolom per slot, dipakai saat mengirim penugasan dosen
+	 * ke Feeder.</p>
+	 *
+	 * @return id Feeder dosen ke-9, atau {@code null} bila belum disinkronkan.
+	 * @see #getDosen9()
+	 */
 	public String getFeeder9() {
 		return feeder9;
 	}
 
+	/**
+	 * Menetapkan id Feeder untuk dosen pengampu slot ke-9.
+	 *
+	 * @param feeder9 id Feeder dosen ke-9.
+	 */
 	public void setFeeder9(String feeder9) {
 		this.feeder9 = feeder9;
 	}
 
+	/**
+	 * Id dosen pengampu slot ke-10 pada Feeder PDDikti.
+	 *
+	 * <p>Sepuluh kolom {@code feeder1}..{@code feeder10} adalah pendamping pola sepuluh slot
+	 * {@code dosen1}..{@code dosen10}: satu kolom per slot, dipakai saat mengirim penugasan dosen
+	 * ke Feeder.</p>
+	 *
+	 * @return id Feeder dosen ke-10, atau {@code null} bila belum disinkronkan.
+	 * @see #getDosen10()
+	 */
 	public String getFeeder10() {
 		return feeder10;
 	}
 
+	/**
+	 * Menetapkan id Feeder untuk dosen pengampu slot ke-10.
+	 *
+	 * @param feeder10 id Feeder dosen ke-10.
+	 */
 	public void setFeeder10(String feeder10) {
 		this.feeder10 = feeder10;
 	}
