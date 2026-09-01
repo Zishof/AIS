@@ -553,14 +553,14 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 
 			/*
 			 * Tata letak PORTAL responsif (reuse ais.ui.util.PortalUiHelper —
-			 * komponen yang sama dengan halaman e-Learning): 2 kolom di desktop
-			 * (Data Mahasiswa | Pembayaran) lalu dasbor Analisis MEMBENTANG penuh di
-			 * bawah; otomatis menumpuk 1 kolom di HP. Logika lama tidak diubah, hanya
-			 * "tempat" konten dipindah ke panel portal.
+			 * komponen yang sama dengan halaman e-Learning). Semua bagian membentang
+			 * penuh dan tersusun vertikal. Daftar pembayaran sering masih kosong sebelum
+			 * tagihan dipilih; susunan dua kolom meninggalkan separuh layar kosong.
+			 * Logika lama tidak diubah, hanya "tempat" konten dipindah ke panel portal.
 			 */
 			MyPortallayout portal = ais.ui.util.PortalUiHelper.portal(portalHost);
-			MyPortalchildren kolMahasiswa = ais.ui.util.PortalUiHelper.kolom(portal, "50%");
-			MyPortalchildren kolPembayaran = ais.ui.util.PortalUiHelper.kolom(portal, "50%");
+			MyPortalchildren kolMahasiswa = ais.ui.util.PortalUiHelper.kolom(portal, "100%");
+			MyPortalchildren kolPembayaran = ais.ui.util.PortalUiHelper.kolom(portal, "100%");
 			MyPortalchildren kolAnalisis = ais.ui.util.PortalUiHelper.kolom(portal, "100%");
 
 			org.zkoss.zk.ui.Component bodyMahasiswa = ais.ui.util.PortalUiHelper.panel(kolMahasiswa,
@@ -1330,7 +1330,7 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 		groupbox.setStyle("min-height: 200px;"
 				+ (modeWizardRingkas ? "overflow-x:auto;-webkit-overflow-scrolling:touch;" : ""));
 		groupbox.appendChild(new MyCaptionStyled("Daftar Biaya"));
-		groupbox.setWidth(modeWizardRingkas ? "100%" : "95%"); // Wizard: tabel penuh, tanpa ruang kosong
+		groupbox.setWidth("100%");
 		groupbox.setParent(comp);
 
 		Hbox btn = new Hbox();
@@ -1555,7 +1555,7 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 		gridss.setMold("paging");
 		gridss.setPageSize(1000);
 		gridss.setParent(groupbox);
-		gridss.setWidth(modeWizardRingkas ? "100%" : "95%"); // Wizard: tabel penuh
+		gridss.setWidth("100%");
 		// HP (Wizard): tandai grid agar tabel dikonversi jadi 1 KOLOM (kartu vertikal) via CSS.
 		// Gerbang pakai isMobile ATAU isAsliMobile (UA perangkat) supaya tetap aktif walau
 		// flag sesi sedang "mode desktop" di HP.
