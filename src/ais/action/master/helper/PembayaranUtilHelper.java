@@ -114,9 +114,16 @@ public class PembayaranUtilHelper {
 		}
 		criteria.createAlias("detailSettingBiaya", "settingPrioritasRincian", Criteria.LEFT_JOIN);
 		criteria.createAlias("settingBiayaDetail", "settingPrioritasIndividual", Criteria.LEFT_JOIN);
-		criteria.add(Restrictions.or(Restrictions.eq("settingBiaya", settingBiaya),
-				Restrictions.or(Restrictions.eq("settingPrioritasRincian.settingBiaya", settingBiaya),
-						Restrictions.eq("settingPrioritasIndividual.settingBiaya", settingBiaya))));
+		criteria.add(Restrictions.or(
+				Restrictions.and(Restrictions.isNotNull("settingPrioritasIndividual.id"),
+						Restrictions.eq("settingPrioritasIndividual.settingBiaya", settingBiaya)),
+				Restrictions.or(
+						Restrictions.and(Restrictions.isNull("settingPrioritasIndividual.id"),
+								Restrictions.and(Restrictions.isNotNull("settingPrioritasRincian.id"),
+										Restrictions.eq("settingPrioritasRincian.settingBiaya", settingBiaya))),
+						Restrictions.and(Restrictions.isNull("settingPrioritasIndividual.id"),
+								Restrictions.and(Restrictions.isNull("settingPrioritasRincian.id"),
+										Restrictions.eq("settingBiaya", settingBiaya))))));
 		return criteria;
 	}
 

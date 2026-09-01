@@ -128,6 +128,32 @@ public class SetingBiayaHelper {
                 : Restrictions.eq(property, value);
     }
 
+    /**
+     * Membatasi pencarian kompatibilitas data lama ke satu induk SettingBiaya.
+     * Relasi dapat tersimpan langsung atau melalui salah satu rincian turunannya.
+     */
+    private static Criteria batasiKeSettingBiayaTerpilih(Criteria criteria, SettingBiaya settingBiaya,
+            String suffix) {
+        if (criteria == null || settingBiaya == null) {
+            return criteria;
+        }
+        String rincian = "settingPrioritasRincian" + suffix;
+        String individual = "settingPrioritasIndividual" + suffix;
+        criteria.createAlias("detailSettingBiaya", rincian, Criteria.LEFT_JOIN);
+        criteria.createAlias("settingBiayaDetail", individual, Criteria.LEFT_JOIN);
+        criteria.add(Restrictions.or(
+                Restrictions.and(Restrictions.isNotNull(individual + ".id"),
+                        Restrictions.eq(individual + ".settingBiaya", settingBiaya)),
+                Restrictions.or(
+                        Restrictions.and(Restrictions.isNull(individual + ".id"),
+                                Restrictions.and(Restrictions.isNotNull(rincian + ".id"),
+                                        Restrictions.eq(rincian + ".settingBiaya", settingBiaya))),
+                        Restrictions.and(Restrictions.isNull(individual + ".id"),
+                                Restrictions.and(Restrictions.isNull(rincian + ".id"),
+                                        Restrictions.eq("settingBiaya", settingBiaya))))));
+        return criteria;
+    }
+
     private static boolean samaId(GeneralValueObject a, GeneralValueObject b) {
         if (a == b) {
             return true;
@@ -710,6 +736,11 @@ public class SetingBiayaHelper {
                             .add(Restrictions.or(Restrictions.isNull("paket"), Restrictions.eq("paket", paket)))
                             .addOrder(Order.desc("id"))
                             .setMaxResults(1);
+
+                    // Pencarian longgar hanya untuk data lama milik SettingBiaya yang sama.
+                    // Tanpa batas ini, ItemBiaya serupa dari setting berprioritas lain dapat
+                    // dipakai ulang lalu relasinya dipindahkan ke setting terpilih.
+                    dbCriteria2 = batasiKeSettingBiayaTerpilih(dbCriteria2, settingBiaya, "Longgar");
 
                     detailBiaya = (DetailBiaya) dbCriteria2.uniqueResult();
 

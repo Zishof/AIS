@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
+import org.hibernate.Criteria;
 import org.hibernate.Session;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
@@ -110,9 +111,11 @@ public final class SettingBiayaMahasiswaSelector {
 		}
 		Number jumlah = (Number) session.createCriteria(SettingBiayaDetail.class)
 				.createAlias("settingBiaya", "settingBiaya")
-				.createAlias("mahasiswa", "mahasiswa")
+				.createAlias("mahasiswa", "mahasiswa", Criteria.LEFT_JOIN)
+				.createAlias("biodataCalonMahasiswa", "calonMahasiswa", Criteria.LEFT_JOIN)
 				.add(Restrictions.eq("settingBiaya.id", setting.getId()))
-				.add(Restrictions.eq("mahasiswa.nim", nim.trim()))
+				.add(Restrictions.or(Restrictions.eq("mahasiswa.nim", nim.trim()),
+						Restrictions.eq("calonMahasiswa.nim", nim.trim())))
 				.setProjection(Projections.rowCount()).uniqueResult();
 		return jumlah != null && jumlah.longValue() > 0L;
 	}

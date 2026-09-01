@@ -676,7 +676,11 @@ public class ChecklistPenilaianUmumAction extends GenericAutowireComposer implem
 		row = new MyFormRow();
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Nomor Urut"));
-		row.appendChild(nomorUrut = new Intbox(checklistPenilaianUmum.getNomorUrut()));
+		nomorUrut = new Intbox();
+		if (checklistPenilaianUmum.getNomorUrut() != null) {
+			nomorUrut.setValue(checklistPenilaianUmum.getNomorUrut());
+		}
+		row.appendChild(nomorUrut);
 		nomorUrut.setCols(5);
 
 		row = new MyFormRow();

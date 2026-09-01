@@ -244,9 +244,17 @@ public class TugasMandiriHelper {
 		}
 		Session sesiPerbaikan = null;
 		Transaction transaksi = null;
+		boolean formatNilaiYatim = false;
+		Long formatNilaiId = tugas.getFormatNilai() == null ? null : tugas.getFormatNilai().getId();
 		try {
 			sesiPerbaikan = HibernateUtil.openSession();
 			transaksi = sesiPerbaikan.beginTransaction();
+			if (formatNilaiId != null) {
+				Number jumlah = (Number) sesiPerbaikan
+						.createSQLQuery("select count(1) from formatnilai where id=:id")
+						.setLong("id", formatNilaiId.longValue()).uniqueResult();
+				formatNilaiYatim = jumlah == null || jumlah.longValue() == 0L;
+			}
 			if (tugas instanceof Pertemuan) {
 				sesiPerbaikan.createSQLQuery("update pertemuan p set format_nilai=null "
 						+ "where p.id=:id and p.format_nilai is not null "
@@ -260,6 +268,9 @@ public class TugasMandiriHelper {
 						.setLong("id", tugas.getId().longValue()).executeUpdate();
 			}
 			transaksi.commit();
+			if (formatNilaiYatim) {
+				tugas.setFormatNilai(null);
+			}
 		} catch (Exception e) {
 			if (transaksi != null && transaksi.isActive()) {
 				try { transaksi.rollback(); } catch (Exception abaikan) { }
@@ -267,7 +278,11 @@ public class TugasMandiriHelper {
 			ais.common.ErrorAuditUtil.record(e,
 					"TugasMandiriHelper: gagal membersihkan format_nilai yatim tugas=" + tugas.getId());
 		} finally {
-			HibernateUtil.closeSessionQuietly(sesiPerbaikan);
+			if (sesiPerbaikan != null && sesiPerbaikan.isOpen()) {
+				try { sesiPerbaikan.clear(); } catch (Exception ig) { }
+				try { sesiPerbaikan.disconnect(); } catch (Exception ig) { }
+				try { sesiPerbaikan.close(); } catch (Exception ig) { }
+			}
 		}
 	}
 
@@ -708,7 +723,12 @@ public class TugasMandiriHelper {
 						Session session = HibernateUtil.currentSession();
 						if (tugas.getId() != null) {
 							bersihkanFormatNilaiYatim(tugas);
-							session.refresh(tugas);
+							try {
+								session.refresh(tugas);
+							} catch (Exception eRefresh) {
+								ais.common.ErrorAuditUtil.record(eRefresh,
+										"TugasMandiriHelper: refresh tugas setelah bersihkan format_nilai yatim gagal");
+							}
 						}
 						FormatNilai fnAktif = ambilFormatNilaiValid(session, tugas.getFormatNilai());
 						if (tugas.getFormatNilai() != null && fnAktif == null) {

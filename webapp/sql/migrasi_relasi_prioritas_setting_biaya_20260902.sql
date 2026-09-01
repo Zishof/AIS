@@ -47,17 +47,64 @@ CREATE INDEX IF NOT EXISTS idx_detail_biaya_individual
 CREATE INDEX IF NOT EXISTS idx_pembayaran_bulanan_detail
     ON pengaturan_pembayaran_bulanan (detail_biaya);
 
+-- FK dibuat NOT VALID: semua data baru langsung dijaga konsisten, sedangkan
+-- data lama yang orphan masih dapat diaudit dan dibersihkan sebelum VALIDATE.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint
+                    WHERE conname = 'fk_dsb_setting_biaya') THEN
+        ALTER TABLE detail_setting_biaya
+            ADD CONSTRAINT fk_dsb_setting_biaya
+            FOREIGN KEY (setting_biaya) REFERENCES setting_biaya(id) NOT VALID;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint
+                    WHERE conname = 'fk_sbd_setting_biaya') THEN
+        ALTER TABLE setting_biaya_detail
+            ADD CONSTRAINT fk_sbd_setting_biaya
+            FOREIGN KEY (setting_biaya) REFERENCES setting_biaya(id) NOT VALID;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint
+                    WHERE conname = 'fk_db_setting_biaya') THEN
+        ALTER TABLE detail_biaya
+            ADD CONSTRAINT fk_db_setting_biaya
+            FOREIGN KEY (setting_biaya) REFERENCES setting_biaya(id) NOT VALID;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint
+                    WHERE conname = 'fk_db_detail_setting_biaya') THEN
+        ALTER TABLE detail_biaya
+            ADD CONSTRAINT fk_db_detail_setting_biaya
+            FOREIGN KEY (detail_setting_biaya) REFERENCES detail_setting_biaya(id) NOT VALID;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint
+                    WHERE conname = 'fk_db_setting_biaya_detail') THEN
+        ALTER TABLE detail_biaya
+            ADD CONSTRAINT fk_db_setting_biaya_detail
+            FOREIGN KEY (setting_biaya_detail) REFERENCES setting_biaya_detail(id) NOT VALID;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint
+                    WHERE conname = 'fk_ppb_detail_biaya') THEN
+        ALTER TABLE pengaturan_pembayaran_bulanan
+            ADD CONSTRAINT fk_ppb_detail_biaya
+            FOREIGN KEY (detail_biaya) REFERENCES detail_biaya(id) NOT VALID;
+    END IF;
+END $$;
+
 COMMIT;
 
--- AUDIT 1: harus 0. Dua jalur rincian menunjuk SettingBiaya yang berbeda.
+-- AUDIT 1: harus 0. Salah satu jalur relasi menunjuk SettingBiaya berbeda.
 SELECT db.id AS detail_biaya_id,
        db.setting_biaya AS setting_langsung,
        sbd.setting_biaya AS setting_individual,
        dsb.setting_biaya AS setting_rincian
   FROM detail_biaya db
-  JOIN setting_biaya_detail sbd ON sbd.id = db.setting_biaya_detail
-  JOIN detail_setting_biaya dsb ON dsb.id = db.detail_setting_biaya
- WHERE sbd.setting_biaya <> dsb.setting_biaya;
+  LEFT JOIN setting_biaya_detail sbd ON sbd.id = db.setting_biaya_detail
+  LEFT JOIN detail_setting_biaya dsb ON dsb.id = db.detail_setting_biaya
+ WHERE (sbd.setting_biaya IS NOT NULL AND dsb.setting_biaya IS NOT NULL
+        AND sbd.setting_biaya IS DISTINCT FROM dsb.setting_biaya)
+    OR (db.setting_biaya IS NOT NULL AND sbd.setting_biaya IS NOT NULL
+        AND db.setting_biaya IS DISTINCT FROM sbd.setting_biaya)
+    OR (db.setting_biaya IS NOT NULL AND dsb.setting_biaya IS NOT NULL
+        AND db.setting_biaya IS DISTINCT FROM dsb.setting_biaya);
 
 -- AUDIT 2: harus 0 untuk tagihan hasil SettingBiaya. Baris manual memang boleh
 -- tidak mempunyai ketiga relasi dan perlu dinilai berdasarkan konteks bisnisnya.
@@ -73,3 +120,12 @@ SELECT ppb.id AS pembayaran_bulanan_id
   FROM pengaturan_pembayaran_bulanan ppb
   LEFT JOIN detail_biaya db ON db.id = ppb.detail_biaya
  WHERE db.id IS NULL;
+
+-- Setelah ketiga audit di atas bersih, jalankan VALIDATE berikut pada jadwal
+-- maintenance. Sengaja tidak dijalankan otomatis oleh migrasi ini.
+-- ALTER TABLE detail_setting_biaya VALIDATE CONSTRAINT fk_dsb_setting_biaya;
+-- ALTER TABLE setting_biaya_detail VALIDATE CONSTRAINT fk_sbd_setting_biaya;
+-- ALTER TABLE detail_biaya VALIDATE CONSTRAINT fk_db_setting_biaya;
+-- ALTER TABLE detail_biaya VALIDATE CONSTRAINT fk_db_detail_setting_biaya;
+-- ALTER TABLE detail_biaya VALIDATE CONSTRAINT fk_db_setting_biaya_detail;
+-- ALTER TABLE pengaturan_pembayaran_bulanan VALIDATE CONSTRAINT fk_ppb_detail_biaya;

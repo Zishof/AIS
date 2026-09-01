@@ -2012,9 +2012,10 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 					}
 					int hapus = 0;
 					Session session = null;
+					org.hibernate.Transaction tx = null;
 					try {
 						session = HibernateUtil.openSession();
-						org.hibernate.Transaction tx = session.beginTransaction();
+						tx = session.beginTransaction();
 						for (Long id : idHapus) {
 							try {
 								ais.database.model.DetailKegiatan dkdb = (ais.database.model.DetailKegiatan) session
@@ -2027,11 +2028,26 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 								Common.tampilErrorJikaAdmin(exDel);
 							}
 						}
-						tx.commit();
+						if (tx != null && tx.isActive()) {
+							tx.commit();
+							tx = null;
+						}
 					} catch (Exception ex) {
+						if (tx != null && tx.isActive()) {
+							try {
+								tx.rollback();
+							} catch (Exception rollbackError) {
+								ais.common.ErrorAuditUtil.record(rollbackError,
+										"InformasiPembayaranMahasiswa:bersihkan-tagihan-rollback");
+							}
+						}
 						Common.tampilErrorJikaAdmin(ex);
 					} finally {
 						if (session != null && session.isOpen()) {
+							try {
+								session.clear();
+							} catch (Exception ig) { ais.common.ErrorAuditUtil.record(ig, "auto-audit(empty-catch) src/ais/action/master/InformasiPembayaranMahasiswaAction.java:1811");
+							}
 							try {
 								session.disconnect();
 							} catch (Exception ig) { ais.common.ErrorAuditUtil.record(ig, "auto-audit(empty-catch) src/ais/action/master/InformasiPembayaranMahasiswaAction.java:1815");
@@ -2149,6 +2165,7 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 							}
 							if (tx != null && tx.isActive()) {
 								tx.commit();
+								tx = null;
 							}
 							sukses.incrementAndGet();
 						} catch (Exception ex) {

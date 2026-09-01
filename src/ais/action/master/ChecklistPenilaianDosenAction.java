@@ -496,7 +496,11 @@ public class ChecklistPenilaianDosenAction extends GenericAutowireComposer imple
 		row = new MyFormRow();
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Nomor Urut"));
-		row.appendChild(nomorUrut = new Intbox(checklistPenilaianDosen.getNomorUrut()));
+		nomorUrut = new Intbox();
+		if (checklistPenilaianDosen.getNomorUrut() != null) {
+			nomorUrut.setValue(checklistPenilaianDosen.getNomorUrut());
+		}
+		row.appendChild(nomorUrut);
 		nomorUrut.setCols(5);
 
 		row = new MyFormRow();
