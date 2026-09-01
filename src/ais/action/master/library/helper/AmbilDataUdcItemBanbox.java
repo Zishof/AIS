@@ -479,6 +479,11 @@ public class AmbilDataUdcItemBanbox extends Bandbox implements GetEventListener 
 
 		}
 
+		/**
+		 * Mengambil hingga {@link Common#MAX_RESULT} kode UDC dengan {@code defaultItem = true}, diurutkan
+		 * menurun berdasarkan {@code jmlDipakai} (kode paling sering dipilih tampil paling atas). Catatan: field
+		 * {@link #nama} pada form TIDAK dipakai sebagai kriteria di sini.
+		 */
 		@SuppressWarnings("unchecked")
 		public void onSearchDefault(Event event) throws Exception {
 

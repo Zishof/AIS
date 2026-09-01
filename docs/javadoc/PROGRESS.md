@@ -116,6 +116,87 @@ disentuh (default untuk semua file yang tidak disebut di sini).
   - `ais/action/master/helper/RevisiPertemuanPunyaUjianHelper.java`
   - `ais/action/master/helper/RevisiTugasHelper.java`
 
+- [referensi] `ais/ui/util/GetEventListener.java` — Javadoc interface diperkaya jadi referensi
+  arsitektur lengkap untuk pola "Bandbox picker" AIS (subclass `AmbilData*Banbox`, 83 file
+  tersebar di banyak package `ais.action.master.<modul>.helper`): kerangka
+  constructor/`display()`/`onSearchDefault(Event)`/renderer batin/callback
+  `getEventListener()`/`setEventListener()` yang identik di semua subclass. Dikerjakan sesi
+  terpisah (bukan sesi ini) — lihat isi filenya untuk detail lengkap. Semua subclass di bawah ini
+  menaut ke sini.
+- [tautan] 22 dari 83 subclass `AmbilData*Banbox` (`ais/action/master/helper/`) sudah ditautkan ke
+  referensi di atas: Javadoc class-level diganti dari template generik/tanpa Javadoc jadi
+  penjelasan konkret (entity spesifik, field & logika pencarian, checkbox/radio, constructor
+  dengan parameter tambahan), constructor/`display()`/`onSearchDefault()`/renderer/getter-setter
+  diberi Javadoc method. Semua dikompilasi (javac 1.7, lulus) dan dikommit — SEBAGIAN besar
+  ter-*sweep* oleh commit sesi paralel lain tanpa pesan/tanpa scope path eksplisit (pola yang sama
+  seperti insiden `GenericRevisiHelper` di atas); isi diverifikasi benar via `svn diff -c <rev>`
+  sebelum dilanjutkan, tidak ada kerja yang hilang.
+
+  Daftar file + revisi commit (WC src) — file bertanda (*) landasan di revisi commit sesi paralel
+  lain (sweep), file lain dikommit langsung oleh sesi ini:
+  - `AmbilDataItemBiayaBanbox.java` r82825
+  - `AmbilDataJamPerkuliahanBanbox.java` r82827 — constructor kedua dengan filter `Jurusan` induk,
+    aksi CRUD inline admin (tambah/ubah/hapus) di renderer.
+  - `AmbilDataJurnalPenelitianBanbox.java` r82832 (*) — paging server-side
+    `AmbilDataPagingHelper` + `BanboxFilterToggle`, tombol tambah jurnal inline.
+  - `AmbilDataJurusanBanbox.java` r82832 (*) — dicatat: `pagingHelper` dideklarasikan tapi tidak
+    dipakai (masih paging client-side lama).
+  - `AmbilDataKecamatanBanbox.java` r82834 (*) — entity `Wilayah` generik multi-level (bukan
+    cuma kecamatan): constructor kedua dengan `level` eksplisit, integrasi PMB Arkatama, method
+    statis `tambah()` untuk buat negara/propinsi/kota/kecamatan baru berjenjang dari popup.
+  - `AmbilDataKelasBanbox.java` r82838 (*) — filter tahun angkatan dengan parsing input bebas
+    (`ambilTahunAngkatanFilter`), paging server-side dengan reset halaman per perubahan filter.
+  - `AmbilDataKelasPertemuanBanbox.java` r82838 (*) — field dosen berupa Bandbox nested
+    (`AmbilDataDosenBanbox`) dicocokkan ke 10 kolom `dosen1`..`dosen10`.
+  - `AmbilDataKelompokKknBanbox.java` r82838 (*) — hasil di-scope otomatis ke fakultas/jurusan
+    pengguna login, radio dinonaktifkan bila kuota kelompok penuh.
+  - `AmbilDataKelompokPklBanbox.java` r82838 (*) — padanan PKL dari `AmbilDataKelompokKknBanbox`,
+    struktur identik.
+  - `AmbilDataKonfigurasiBanbox.java` r82842 (*) — constructor memanggil `display()` langsung
+    (bukan lazy `onOpen`), field `info` dicocokkan ke 5 kolom info1..info5 sekaligus (OR).
+  - `AmbilDataKotaKabupatenBanbox.java` r82843 — entity `Wilayah` level "2" (versi sederhana dari
+    `AmbilDataKecamatanBanbox`, level dikunci hardcode, tanpa fitur tambah cepat).
+  - `AmbilDataKurikulumBanbox.java` r82848 — baris grid punya `MyDetail` yang bisa diperluas,
+    memuat `DetailSemesterKurikulumHelper` inline.
+  - `AmbilDataMahasiswaBanbox.java` r82850 — subclass paling kaya fitur (4 constructor overload,
+    scoping `PerguruanTinggi` multi-tenant, sub-query status berjalan via
+    `history_status_mahasiswa`, field nested `AmbilDataKelasBanbox`/`AmbilDataDosenBanbox`).
+    Dicatat kuirk: constructor `(Boolean hanyaYangAktif)` mengabaikan parameternya sendiri
+    (selalu memanggil `this(false, false)`).
+  - `AmbilDataMahasiswaDaftarSidangBanbox.java` r82853 — root criteria `PendaftaranSidang`
+    (BUKAN `Mahasiswa` langsung) dengan sub-criteria berjenjang `skripsi.mahasiswa`.
+  - `AmbilDataMahasiswaKonversiBanbox.java` r82854 — filter tetap `statusKonversi == 1`.
+  - `AmbilDataMahasiswaSkripsiBanbox.java` r82855 (*) — Combobox fakultas/prodi dikunci sesuai
+    kewenangan pengguna login, try-catch khusus untuk lock timeout PostgreSQL 55P03.
+  - `AmbilDataMahasiswaTanpaDosenPa.java` r82855 (*) — dicatat: nama kelas menyiratkan filter
+    "tanpa dosen PA" tapi kode saat ini TIDAK memuat filter terkait `dosenPa` sama sekali;
+    didokumentasikan apa adanya, bukan diasumsikan.
+  - `AmbilDataMasaPerkuliahanBanbox.java` r82855 (*) — mem-preselect `MasaPerkuliahan` dengan
+    `defaultData == true` langsung dari constructor, aksi CRUD inline dua lapis (config +
+    jenis pengguna), toggle "Default" meng-unset default baris lain via SQL langsung.
+  - `AmbilDataMatakuliahBanbox.java` r82857 (*) — DUA MODE: master biasa vs "mata kuliah milik
+    mahasiswa" (constructor dengan `Mahasiswa`, query riwayat KRS `Detailperkuliahan` bukan
+    tabel `Matakuliah` langsung, gabung hasil asli + konversi).
+  - `AmbilDataMenuBanbox.java` r82857 (*) — MENYIMPANG dari kerangka: popup berupa `Tree`
+    hierarkis (bukan form+grid), tanpa field pencarian, checkbox pakai event `onClick` bukan
+    `onCheck`.
+  - `AmbilDataNamaSekolahBanbox.java` r82858 (*) — field tunggal dicocokkan ke kode ATAU nama
+    (OR), tautan "Buat baru disini" inline, memanggil `NamaSekolahAsalAction.initdata()`.
+  - `AmbilDataNegaraBanbox.java` r82858 (*) — paling sederhana: satu field, tanpa penanganan
+    kosong khusus pada filter ilike.
+
+  Semua 22 file di atas tadinya SUDAH punya Javadoc class-level (bukan kosong), tapi berupa
+  template generik hasil pass otomatis sebelumnya (ciri: "Kelas ini memberi nama dan batas
+  tanggung jawab...", "Batas tanggung jawab:...", "Efek samping: nama operasi di atas
+  menunjukkan..." — kalimat abstrak tanpa detail spesifik file). Javadoc method-level (constructor,
+  renderer, `display()`, `onSearchDefault()`) sebagian besar TIDAK ada sama sekali sebelumnya,
+  ditambahkan penuh di sesi ini. Tidak ada file yang di-skip.
+
+  Sisa **61 dari 83** subclass `AmbilData*Banbox` (di `ais/action/master/helper/` dan package
+  modul lain seperti `akunting/helper`, `asset/helper`, `sekolah/helper`, dst.) masih `[belum]`
+  disentuh — kandidat lanjutan sesi berikutnya, baca dulu Javadoc lengkap
+  `ais/ui/util/GetEventListener.java` sebelum mulai.
+
 ## Catatan sesi
 
 ### 1 Sep 2026 (sesi awal inisiatif)
