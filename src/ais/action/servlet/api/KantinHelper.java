@@ -17347,6 +17347,220 @@ public class KantinHelper {
 	}
 
 	/**
+	 * Mengambil kanal pembayaran yang boleh dipakai untuk topup online member yang
+	 * dipilih petugas POS. Hak petugas dan izin topup per jenis anggota selalu
+	 * diperiksa ulang di server; daftar dari perangkat tidak pernah dipercaya.
+	 */
+	@SuppressWarnings("unchecked")
+	public static void topupOnlineCaraBayar(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!punyaHakEntryTopup(tbmuser)) {
+			hasil.put("status", "91");
+			hasil.put("description",
+					"Anda tidak memiliki hak akses untuk membuat topup online. Hubungi admin untuk mengaktifkan hak \"Boleh Entry Topup\".");
+			return;
+		}
+		String idMember = request.optString("id_member", "").trim();
+		if (!Common.isNumber(idMember)) {
+			hasil.put("status", "91");
+			hasil.put("description", "Member wajib dipilih.");
+			return;
+		}
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			AnggotaKoperasi anggota = (AnggotaKoperasi) session.get(AnggotaKoperasi.class,
+					Long.valueOf(idMember));
+			if (anggota == null || !jenisMemberBolehTopup(anggota)) {
+				hasil.put("status", "91");
+				hasil.put("description",
+						"Member tidak ditemukan atau jenis keanggotaannya tidak diizinkan menerima topup lewat petugas.");
+				return;
+			}
+			String daftarId = anggota.getJenisAnggotaKoperasi()
+					.getDaftarCaraPembayaranYangBolehDiPilih();
+			List<CaraPembayaranKoperasi> daftar = session.createCriteria(CaraPembayaranKoperasi.class)
+					.add(Restrictions.eq("aktif", Boolean.TRUE))
+					.add(Restrictions.eq("online", Boolean.TRUE))
+					.add(Restrictions.eq("manual", Boolean.FALSE))
+					.addOrder(Order.asc("nama")).list();
+			JSONArray list = new JSONArray();
+			for (CaraPembayaranKoperasi cara : daftar) {
+				if (!caraTopupDiizinkan(cara, daftarId) || cara.getKanalPembayaran() == null) {
+					continue;
+				}
+				String variable = cara.getKanalPembayaran().getVariableBiayaAdminEsmartlink();
+				boolean punyaChannel = false;
+				if (variable != null && !variable.trim().isEmpty()) {
+					String[] channels = variable.split(";");
+					for (int i = 0; i < channels.length; i++) {
+						String[] bagian = channels[i].trim().split(":", 3);
+						if (bagian.length < 1 || bagian[0].trim().isEmpty()) {
+							continue;
+						}
+						JSONObject pilihan = new JSONObject();
+						pilihan.put("id", cara.getId());
+						pilihan.put("nama", cara.getNama());
+						pilihan.put("channel", bagian[0].trim());
+						pilihan.put("nama_channel", bagian.length >= 3 && !bagian[2].trim().isEmpty()
+								? bagian[2].trim() : bagian[0].trim());
+						double biayaAdmin = bagian.length >= 2 && Common.isNumber(bagian[1].trim())
+								? Double.valueOf(bagian[1].trim()).doubleValue() : 0.0;
+						pilihan.put("biaya_admin", biayaAdmin);
+						list.put(pilihan);
+						punyaChannel = true;
+					}
+				}
+				if (!punyaChannel) {
+					JSONObject pilihan = new JSONObject();
+					pilihan.put("id", cara.getId());
+					pilihan.put("nama", cara.getNama());
+					pilihan.put("channel", "");
+					pilihan.put("nama_channel", cara.getNama());
+					double biayaAdmin = cara.getKanalPembayaran().getBiayaAdminEsmartlink() == null ? 0.0
+							: cara.getKanalPembayaran().getBiayaAdminEsmartlink().doubleValue();
+					pilihan.put("biaya_admin", biayaAdmin);
+					list.put(pilihan);
+				}
+			}
+			hasil.put("status", "00");
+			hasil.put("list", list);
+			if (list.length() == 0) {
+				hasil.put("description",
+						"Belum ada cara pembayaran online untuk jenis member ini. Periksa Cara Bayar dan Jenis Anggota Koperasi.");
+			}
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * Membuat VA/payment-link topup untuk member terpilih. Method ini sengaja tidak
+	 * membuat Deposit: saldo baru dicatat oleh callback bank/gateway setelah status
+	 * pembayaran benar-benar sukses.
+	 */
+	public static void topupOnlineBuat(Tbmuser tbmuser, JSONObject request, JSONObject hasil,
+			javax.servlet.http.HttpServletRequest httpServletRequest) throws Exception {
+		if (!punyaHakEntryTopup(tbmuser)) {
+			hasil.put("status", "91");
+			hasil.put("description", "Anda tidak memiliki hak akses untuk membuat topup online.");
+			return;
+		}
+		String idMember = request.optString("id_member", "").trim();
+		String idCara = request.optString("cara_pembayaran_id", "").trim();
+		double nominal = request.optDouble("nominal", 0.0);
+		String channel = request.optString("channel", "").trim();
+		if (!Common.isNumber(idMember) || !Common.isNumber(idCara)) {
+			hasil.put("status", "91");
+			hasil.put("description", "Member dan cara pembayaran wajib dipilih.");
+			return;
+		}
+		if (nominal <= 0.0) {
+			hasil.put("status", "91");
+			hasil.put("description", "Nominal topup harus lebih dari 0.");
+			return;
+		}
+		if (channel.length() > 80 || (!channel.isEmpty() && !channel.matches("[A-Za-z0-9_.-]+"))) {
+			hasil.put("status", "91");
+			hasil.put("description", "Kanal pembayaran tidak valid.");
+			return;
+		}
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			AnggotaKoperasi anggota = (AnggotaKoperasi) session.get(AnggotaKoperasi.class,
+					Long.valueOf(idMember));
+			CaraPembayaranKoperasi cara = (CaraPembayaranKoperasi) session.get(
+					CaraPembayaranKoperasi.class, Long.valueOf(idCara));
+			if (anggota == null || !jenisMemberBolehTopup(anggota)) {
+				hasil.put("status", "91");
+				hasil.put("description", "Member tidak ditemukan atau tidak diizinkan menerima topup lewat petugas.");
+				return;
+			}
+			String daftarId = anggota.getJenisAnggotaKoperasi()
+					.getDaftarCaraPembayaranYangBolehDiPilih();
+			if (!caraTopupDiizinkan(cara, daftarId) || cara.getKanalPembayaran() == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Cara pembayaran online tidak diizinkan untuk jenis member ini.");
+				return;
+			}
+			if (channel.isEmpty() && caraMemerlukanChannel(cara)) {
+				hasil.put("status", "91");
+				hasil.put("description", "Kanal pembayaran wajib dipilih sesuai konfigurasi server.");
+				return;
+			}
+			if (!channel.isEmpty() && !channelTerdaftar(cara, channel)) {
+				hasil.put("status", "91");
+				hasil.put("description", "Kanal pembayaran tidak terdaftar pada konfigurasi server.");
+				return;
+			}
+
+			JSONObject permintaan = new JSONObject();
+			permintaan.put("bank", "Smartlink");
+			permintaan.put("topup", String.valueOf(nominal));
+			permintaan.put("caraPembayaranKoperasi", String.valueOf(cara.getId()));
+			if (!channel.isEmpty()) {
+				permintaan.put("channel", channel);
+			}
+			JSONObject jawaban = TopupHelper.topupAnggotaKoperasi(permintaan, httpServletRequest,
+					tbmuser, anggota, cara);
+			String[] kunci = new String[] { "status", "description", "billExpired", "topup",
+					"biayaAdministrasi", "total", "va", "link", "va_bank_lain", "data" };
+			for (int i = 0; i < kunci.length; i++) {
+				if (jawaban.has(kunci[i]) && !jawaban.isNull(kunci[i])) {
+					hasil.put(kunci[i], jawaban.get(kunci[i]));
+				}
+			}
+			if (!hasil.has("status")) {
+				hasil.put("status", "90");
+				hasil.put("description", "Gateway tidak mengembalikan status pembuatan topup.");
+			}
+			hasil.put("id_member", anggota.getId());
+			hasil.put("member", anggota.getNama() == null ? "" : anggota.getNama());
+			hasil.put("channel", channel);
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	private static boolean punyaHakEntryTopup(Tbmuser tbmuser) throws Exception {
+		ais.database.model.Tbmrole role = tbmuser == null ? null : tbmuser.hakAkses();
+		return role != null && Boolean.TRUE.equals(role.getBolehEntryTopup());
+	}
+
+	private static boolean jenisMemberBolehTopup(AnggotaKoperasi anggota) {
+		return anggota != null && anggota.getJenisAnggotaKoperasi() != null
+				&& Boolean.TRUE.equals(anggota.getJenisAnggotaKoperasi().getBolehEntryTopupOlehAdmin());
+	}
+
+	private static boolean caraTopupDiizinkan(CaraPembayaranKoperasi cara, String daftarId) {
+		return cara != null && Boolean.TRUE.equals(cara.getAktif()) && Boolean.TRUE.equals(cara.getOnline())
+				&& Boolean.FALSE.equals(cara.getManual()) && daftarId != null
+				&& daftarId.indexOf("," + cara.getId() + ",") >= 0;
+	}
+
+	private static boolean channelTerdaftar(CaraPembayaranKoperasi cara, String channel) {
+		if (channel == null || channel.trim().isEmpty()) {
+			return true;
+		}
+		String variable = cara == null || cara.getKanalPembayaran() == null ? ""
+				: cara.getKanalPembayaran().getVariableBiayaAdminEsmartlink();
+		String[] channels = variable == null ? new String[0] : variable.split(";");
+		for (int i = 0; i < channels.length; i++) {
+			String[] bagian = channels[i].trim().split(":", 3);
+			if (bagian.length > 0 && channel.equalsIgnoreCase(bagian[0].trim())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static boolean caraMemerlukanChannel(CaraPembayaranKoperasi cara) {
+		String variable = cara == null || cara.getKanalPembayaran() == null ? ""
+				: cara.getKanalPembayaran().getVariableBiayaAdminEsmartlink();
+		return variable != null && !variable.trim().isEmpty();
+	}
+
+	/**
 	 * Pendaftaran member ringkas dari dialog pembayaran POS. Aksi ini sengaja tersedia bagi
 	 * kasir yang sudah login karena hanya menerima nama dan nomor telepon; pengelolaan atribut
 	 * member lainnya tetap melalui {@link #anggotaSimpan} dan tetap memerlukan hak supervisor.
