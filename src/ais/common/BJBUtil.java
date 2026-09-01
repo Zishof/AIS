@@ -48,30 +48,31 @@ import ais.database.model.BankHost;
  * ({@code client_secret}) yang sama.
  * </p>
  *
- * <h2>Peringatan keamanan — client secret tertanam sebagai nilai default</h2>
+ * <h2>Riwayat keamanan — client secret tertanam sebagai nilai default (DIPERBAIKI 2026-09-01)</h2>
  * <p>
- * <b>Seluruh pembacaan konfigurasi {@code bjb_langsung_client_secret} pada kelas ini
- * (di {@link #inquiryBillingBJB}, {@link #billingBJB}, dan {@link #ambilTokenBJB()}) memberikan
- * nilai default yang merupakan client secret nyata dalam bentuk teks polos:
- * {@code "pf-f1gKNtV58qL9mbojMiILOJ2JGg6OA6YzZ9FSGP9I"}.</b> Nilai default yang sama juga ditanam
- * ulang sebagai variabel lokal {@code originalInput} pada {@link #main(String[])}. Selama
- * konfigurasi runtime {@code bjb_langsung_client_secret} tidak diisi secara eksplisit di
- * database/tabel konfigurasi, sistem akan otomatis memakai secret bawaan ini — yang berarti
- * kredensial produksi terhadap layanan billing Bank BJB berpotensi sudah ter-commit ke riwayat
- * repositori. Selain itu, {@code kid} JWT juga memiliki default tertanam
- * ({@code "7KPDFVEA")}, dan host BJB default berupa alamat IP internal
- * ({@code "http://10.44.224.31:23808"}) yang menyingkap topologi jaringan internal. Dokumentasi
- * ini TIDAK mengubah maupun menghapus nilai-nilai tersebut dari kode — pemilik integrasi WAJIB
- * menilai apakah client secret ini masih aktif di sisi Bank BJB dan, bila iya, segera
- * memindahkannya sepenuhnya ke konfigurasi rahasia runtime (tanpa default tertanam di kode) serta
- * mempertimbangkan rotasi.
+ * Seluruh pembacaan konfigurasi {@code bjb_langsung_client_secret} pada kelas ini (di
+ * {@link #inquiryBillingBJB}, {@link #billingBJB}, dan {@link #ambilTokenBJB()}) sebelumnya
+ * memberikan nilai default berupa client secret BJB nyata dalam bentuk teks polos, dan nilai
+ * yang sama ditanam ulang sebagai variabel lokal {@code originalInput} pada
+ * {@link #main(String[])}. Default rahasia tersebut sudah DIHAPUS di ketiga pembacaan
+ * konfigurasi produksi (kini default string kosong — permintaan ke BJB akan gagal dengan jelas,
+ * bukan diam-diam memakai secret lama yang bocor, bila {@code bjb_langsung_client_secret} belum
+ * diisi), dan {@link #main(String[])} kini membaca client secret uji lewat properti sistem
+ * {@code -Dbjbutil.testsecret=...}. {@code kid} JWT (konfigurasi {@code bjb_langsung_kid}) juga
+ * tidak lagi memiliki default tertanam. Host BJB TETAP memiliki default alamat IP internal
+ * ({@code "http://10.44.224.31:23808"}) karena itu topologi jaringan, bukan rahasia otentikasi —
+ * tidak diubah pada perbaikan ini. <b>Tindak lanjut yang TETAP diperlukan di luar perubahan kode
+ * ini:</b> client secret yang sebelumnya tertanam sudah lama berada di riwayat SVN dan WAJIB
+ * dianggap bocor — pemilik integrasi WAJIB menilai apakah masih aktif di sisi Bank BJB dan, bila
+ * iya, segera dirotasi.
  * </p>
  *
  * <p>
- * Kelas ini juga mencetak banyak informasi sensitif ke {@code System.out} untuk keperluan
- * debugging (URL, signature, token akses, payload lengkap perintah {@code curl}) — pada
- * lingkungan produksi, log ini berpotensi menyingkap token/signature yang masih berlaku kepada
- * siapa pun yang memiliki akses baca log aplikasi.
+ * Kelas ini sebelumnya juga mencetak banyak informasi sensitif ke {@code System.out} untuk
+ * keperluan debugging (URL, signature, token akses, payload lengkap perintah {@code curl}) —
+ * SELURUH baris pencetakan tersebut sudah DIHAPUS dari ketiga method produksi pada perbaikan
+ * yang sama, karena sebelumnya berpotensi menyingkap token/signature yang masih berlaku ke log
+ * aplikasi pada SETIAP pemanggilan.
  * </p>
  */
 public class BJBUtil {
@@ -133,32 +134,15 @@ public class BJBUtil {
 					+ currentTimestamp + "&body=" + postData;
 
 			String client_secret = Common
-					.getKonfigurasi("bjb_langsung_client_secret", "pf-f1gKNtV58qL9mbojMiILOJ2JGg6OA6YzZ9FSGP9I")
+					.getKonfigurasi("bjb_langsung_client_secret", "")
 					.getNilai();
 
 			String signature = Hashing.hmacSha256(client_secret.getBytes()).newHasher()
 					.putString(valueToDigest, StandardCharsets.UTF_8).hash().toString();
 
-			System.out.println("strURL -> " + strURL);
-			System.out.println("valueToDigest -> " + valueToDigest);
-			System.out.println("currentTimestamp -> " + currentTimestamp);
-			System.out.println("signature -> " + signature);
-			System.out.println("postData -> " + postData);
-			System.out.println("dataToken -> " + dataToken);
-
 			String[] command = { "curl", "--header", "Content-Type: application/json", "--header",
 					"Authorization: Bearer " + dataToken, "--header", "BJB-Timestamp: " + currentTimestamp, "--header",
 					"BJB-Signature: " + signature, "--request", "GET", "--data", postData, strURL };
-
-			System.out.println("");
-			System.out.println("");
-
-			for (String c : command) {
-				System.out.print(c + " ");
-			}
-
-			System.out.println("");
-			System.out.println("");
 
 			ProcessBuilder process = new ProcessBuilder(command);
 			Process p;
@@ -171,15 +155,12 @@ public class BJBUtil {
 				builder.append(System.getProperty("line.separator"));
 			}
 			String hasil = builder.toString();
-			System.out.println(hasil);
 			jSONObject = new JSONObject(hasil);
 			JSONObject transaction = jSONObject.getJSONObject("transactions");
 
 			String amount = transaction.getString("transaction_amount");
 			String bank = "BJB";
 			String tanggalP = transaction.getString("transaction_date");
-
-			System.out.println("va -> " + va + " bankHostDefault " + bankHostDefault);
 
 			Bjb.doProcess(Double.parseDouble(amount), tanggalP, va, bank, bankHostDefault, null, jSONObject.toString(),
 					true);
@@ -228,32 +209,15 @@ public class BJBUtil {
 					+ "&body=" + postData;
 
 			String client_secret = Common
-					.getKonfigurasi("bjb_langsung_client_secret", "pf-f1gKNtV58qL9mbojMiILOJ2JGg6OA6YzZ9FSGP9I")
+					.getKonfigurasi("bjb_langsung_client_secret", "")
 					.getNilai();
 
 			String signature = Hashing.hmacSha256(client_secret.getBytes()).newHasher()
 					.putString(valueToDigest, StandardCharsets.UTF_8).hash().toString();
 
-			System.out.println("strURL -> " + strURL);
-			System.out.println("valueToDigest -> " + valueToDigest);
-			System.out.println("currentTimestamp -> " + currentTimestamp);
-			System.out.println("signature -> " + signature);
-			System.out.println("postData -> " + postData);
-			System.out.println("dataToken -> " + dataToken);
-
 			String[] command = { "curl", "--header", "Content-Type: application/json", "--header",
 					"Authorization: Bearer " + dataToken, "--header", "BJB-Timestamp: " + currentTimestamp, "--header",
 					"BJB-Signature: " + signature, "--request", "POST", "--data", postData, strURL };
-
-			System.out.println("");
-			System.out.println("");
-
-			for (String c : command) {
-				System.out.print(c + " ");
-			}
-
-			System.out.println("");
-			System.out.println("");
 
 			ProcessBuilder process = new ProcessBuilder(command);
 			Process p;
@@ -266,11 +230,9 @@ public class BJBUtil {
 				builder.append(System.getProperty("line.separator"));
 			}
 			String hasil = builder.toString();
-			System.out.println(hasil);
 
 			JSONObject jSONObject = new JSONObject(hasil);
 			String va = jSONObject.getString("va_number");
-			System.out.println("va -> " + va);
 
 			return jSONObject;
 		} catch (Exception e) {
@@ -306,7 +268,7 @@ public class BJBUtil {
 			JSONObject header = new JSONObject();
 			header.put("alg", "HS256");
 			header.put("typ", "JWT");
-			header.put("kid", Common.getKonfigurasi("bjb_langsung_kid", "7KPDFVEA").getNilai());
+			header.put("kid", Common.getKonfigurasi("bjb_langsung_kid", "").getNilai());
 
 			String currentTimestamp = Instant.now().toEpochMilli() + "";
 			currentTimestamp = currentTimestamp.substring(0, currentTimestamp.length() - 3);
@@ -321,40 +283,22 @@ public class BJBUtil {
 			String h = header.toString();
 			String payld = payload.toString();
 
-			System.out.println("header -> " + h);
-			System.out.println("payload -> " + payld);
-
 			String headerEncode = encode(h.getBytes());
 			String payloadEncode = encode(payld.getBytes());
 
-			System.out.println("headerEncode " + headerEncode);
-			System.out.println("payloadEncode " + payloadEncode);
-
 			String client_secret = Common
-					.getKonfigurasi("bjb_langsung_client_secret", "pf-f1gKNtV58qL9mbojMiILOJ2JGg6OA6YzZ9FSGP9I")
+					.getKonfigurasi("bjb_langsung_client_secret", "")
 					.getNilai();
 
 			String signature = hmacSha256(headerEncode + "." + payloadEncode, client_secret);
 
 			String encoded = headerEncode + "." + payloadEncode + "." + signature;
 
-			System.out.println("encoded " + encoded);
-
 			String strURL = Common.getKonfigurasi("bjb_langsung_host", "http://10.44.224.31:23808").getNilai()
 					+ "/oauth/client/token";
 
 			String[] command = { "curl", "--header", "Content-Type: application/json", "--request", "POST", "--data",
 					encoded, strURL };
-
-			System.out.println("");
-			System.out.println("");
-
-			for (String c : command) {
-				System.out.print(c + " ");
-			}
-
-			System.out.println("");
-			System.out.println("");
 
 			ProcessBuilder process = new ProcessBuilder(command);
 			Process p;
@@ -367,7 +311,6 @@ public class BJBUtil {
 				builder.append(System.getProperty("line.separator"));
 			}
 			String hasil = builder.toString();
-			System.out.println("hasil -> " + hasil);
 
 			JSONObject jSONObject = new JSONObject(hasil);
 			dataToken = jSONObject.getString("data");
@@ -425,10 +368,10 @@ public class BJBUtil {
 	 * BJB — hanya mencetak header, payload, dan signature yang dihasilkan ke konsol.
 	 *
 	 * <p>
-	 * <b>Catatan keamanan:</b> variabel lokal {@code originalInput} pada method ini menanam ulang
-	 * client secret BJB yang sama seperti dijelaskan pada Javadoc kelas
-	 * ({@code "pf-f1gKNtV58qL9mbojMiILOJ2JGg6OA6YzZ9FSGP9I"}), begitu pula {@code kid} JWT
-	 * ({@code "7KPDFVEA"}).
+	 * <b>DIPERBAIKI 2026-09-01:</b> {@code kid} JWT dan client secret uji yang sebelumnya
+	 * ditanam langsung di method ini sudah dihapus — keduanya kini WAJIB disuplai lewat properti
+	 * sistem {@code -Dbjbutil.testkid=... -Dbjbutil.testsecret=...} saat method ini dijalankan
+	 * manual, dan berhenti dengan pesan bila belum diisi.
 	 * </p>
 	 *
 	 * @param argv argumen baris perintah (tidak dipakai)
@@ -437,10 +380,17 @@ public class BJBUtil {
 	 */
 	public static void main(String[] argv) throws Exception {
 
+		String testKid = System.getProperty("bjbutil.testkid", "");
+		String testSecret = System.getProperty("bjbutil.testsecret", "");
+		if (testKid.trim().isEmpty() || testSecret.trim().isEmpty()) {
+			System.out.println("Jalankan dengan -Dbjbutil.testkid=... -Dbjbutil.testsecret=...");
+			return;
+		}
+
 		JSONObject header = new JSONObject();
 		header.put("alg", "HS256");
 		header.put("typ", "JWT");
-		header.put("kid", "7KPDFVEA");
+		header.put("kid", testKid);
 
 		String currentTimestamp = Instant.now().toEpochMilli() + "";
 		currentTimestamp = currentTimestamp.substring(0, currentTimestamp.length() - 3);
@@ -455,18 +405,10 @@ public class BJBUtil {
 		String h = header.toString();
 		String payld = payload.toString();
 
-		System.out.println("header " + h);
-		System.out.println("payload " + payld);
-
 		String headerEncode = encode(h.getBytes());
 		String payloadEncode = encode(payld.getBytes());
 
-		System.out.println("headerEncode " + headerEncode);
-		System.out.println("payloadEncode " + payloadEncode);
-
-		String originalInput = "pf-f1gKNtV58qL9mbojMiILOJ2JGg6OA6YzZ9FSGP9I";
-
-		String signature = hmacSha256(headerEncode + "." + payloadEncode, originalInput);
+		String signature = hmacSha256(headerEncode + "." + payloadEncode, testSecret);
 
 		System.out.println("signature " + signature);
 	}
