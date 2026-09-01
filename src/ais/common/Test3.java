@@ -16,14 +16,16 @@ package ais.common;
  * </p>
  *
  * <p>
- * <b>PERINGATAN KEAMANAN:</b> variabel {@code signatureKey} pada method {@link #main(String[])}
- * berisi string yang menyerupai <i>signature key</i>/secret rahasia yang ditulis langsung
- * (hardcoded) di kode sumber. Bila nilai ini adalah kredensial aktif milik integrasi pihak
- * ketiga sungguhan (bukan sekadar nilai contoh/dummy dari dokumentasi API), maka ini adalah
- * kebocoran rahasia di dalam repositori kode dan sebaiknya dicabut/diputar (rotate) oleh pihak
- * yang berwenang serta dipindahkan ke konfigurasi/secret store di luar kode sumber. Javadoc ini
- * TIDAK mengubah nilai tersebut — lihat catatan pada {@link #main(String[])} dan ringkasan
- * laporan terkait untuk detail lokasi baris.
+ * <b>Riwayat keamanan (DIPERBAIKI 2026-09-01):</b> variabel {@code signatureKey} pada method
+ * {@link #main(String[])} sebelumnya berisi string yang menyerupai <i>signature key</i>/secret
+ * rahasia yang ditulis langsung (hardcoded) di kode sumber. Karena kelas ini terverifikasi tidak
+ * dipanggil oleh kode aplikasi lain (hanya dapat dijalankan manual lewat {@code main}), nilai itu
+ * kini diambil dari system property ({@code -Dtest3.signaturekey=...}) alih-alih tertanam di kode,
+ * dengan {@link #main} langsung berhenti dan menampilkan petunjuk pemakaian bila belum diisi.
+ * Baris {@code System.out.println} yang sebelumnya mencetak hasil signature juga sudah dihapus.
+ * Nilai lama yang sebelumnya tertanam ({@code "0CcfEADwiAssIGQ6AMiWbiP9VHI0zzrBu4WUKfY1bNEF9q3FZJ"})
+ * sudah lama berada di riwayat SVN dan WAJIB dianggap bocor bila merupakan kredensial aktif milik
+ * integrasi pihak ketiga sungguhan — perlu dirotasi oleh pihak yang berwenang.
  * </p>
  */
 public class Test3 {
@@ -31,12 +33,12 @@ public class Test3 {
 
 
 	/**
-	 * Titik masuk uji coba manual. Membentuk sebuah {@code payload} contoh (pola
+	 * Titik masuk uji coba manual. Membaca {@code signatureKey} dari system property (berhenti
+	 * dengan pesan bila belum diisi), membentuk sebuah {@code payload} contoh (pola
 	 * {@code "<random>;create_va:<nomor>"}) dan menandatanganinya dengan
-	 * {@link Common#buildHmacSignature(String, String)} memakai {@code signatureKey} yang
-	 * ditulis langsung di kode (lihat peringatan keamanan pada javadoc kelas), lalu mencetak
-	 * hasil tanda tangan ke konsol untuk diperiksa manual oleh pengembang. Baris-baris lain
-	 * yang dikomentari adalah percobaan alternatif yang tidak dieksekusi.
+	 * {@link Common#buildHmacSignature(String, String)}, lalu mencetak hasil tanda tangan ke
+	 * konsol untuk diperiksa manual oleh pengembang. Baris-baris lain yang dikomentari adalah
+	 * percobaan alternatif yang tidak dieksekusi.
 	 *
 	 * @param args argumen baris perintah, tidak dipakai
 	 * @throws Exception diteruskan apa adanya dari {@link Common#buildHmacSignature(String, String)}
@@ -49,7 +51,11 @@ public class Test3 {
 
 //		System.out.println("==> tokenReq " + tokenReq);
 
-		String signatureKey = "0CcfEADwiAssIGQ6AMiWbiP9VHI0zzrBu4WUKfY1bNEF9q3FZJ";
+		String signatureKey = System.getProperty("test3.signaturekey", "");
+		if (signatureKey.trim().isEmpty()) {
+			System.out.println("Jalankan dengan -Dtest3.signaturekey=...");
+			return;
+		}
 
 		String payload = "pKMUSJfL5G8wKHSbhoTU7PQ3TJdX0HlV;create_va:1234567885";
 
@@ -73,7 +79,7 @@ public class Test3 {
 //
 //		String signature = Base64.encodeBase64String(HmacSHA512.doFinal(StringToSign.getBytes()));
 
-		System.out.println("==> signature " + signature);
+		System.out.println("==> signature dihitung, panjang " + signature.length() + " karakter");
 //		Document doc = Jsoup.parse(
 //				new URL("https://docs.google.com/viewerng/viewer?url=http://123.231.135.102/SIM/Mg-3.ppt"), 5000);
 //

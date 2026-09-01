@@ -40,29 +40,37 @@ import com.google.common.hash.Hashing;
  * relatif pendek.
  * </p>
  *
- * <h2>Peringatan keamanan — kredensial payment gateway tertanam di kode sumber</h2>
+ * <h2>Riwayat keamanan (DIPERBAIKI 2026-09-01) — kredensial payment gateway sebelumnya tertanam di
+ * kode sumber</h2>
  * <p>
- * <b>Kelas ini menanam langsung dua rahasia integrasi OttoPay sebagai literal string di kode
- * sumber:</b> {@code apiKey} bernilai {@code "KP33PP0EE0AAP1EE1009010PP01I91OA"} (dipakai sebagai
- * kunci HMAC penanda tangan permintaan) dan {@code MID} (Merchant ID) bernilai
- * {@code "OP1E00030999"} (dipakai untuk header Authorization Basic). Walau endpoint yang dituju
- * berupa lingkungan {@code dev-secure.ottopay.id} (kemungkinan sandbox/pengembangan), kedua nilai
- * ini tetap merupakan kredensial integrasi yang semestinya tidak ter-commit ke kontrol versi
- * dalam bentuk teks polos. Karena kelas ini terverifikasi tidak dipanggil oleh kode aplikasi lain
- * (hanya dapat dijalankan manual lewat {@code main}), dokumentasi ini TIDAK mengubah maupun
- * menghapus nilai-nilai tersebut — namun pemilik integrasi disarankan meninjau apakah
- * {@code apiKey}/{@code MID} ini masih valid dan, bila iya, mempertimbangkan rotasi serta
- * pemindahan ke konfigurasi runtime bila kelas ini (atau turunannya) akan dipakai lebih lanjut.
+ * Kelas ini sebelumnya menanam langsung dua rahasia integrasi OttoPay sebagai literal string di
+ * kode sumber: {@code apiKey} (dipakai sebagai kunci HMAC penanda tangan permintaan) dan
+ * {@code MID}/Merchant ID (dipakai untuk header Authorization Basic). Karena kelas ini
+ * terverifikasi tidak dipanggil oleh kode aplikasi lain (hanya dapat dijalankan manual lewat
+ * {@code main}), kedua nilai itu kini diambil dari system property (
+ * {@code -Dottotest.apikey=...}, {@code -Dottotest.mid=...}) alih-alih tertanam di kode, dengan
+ * {@link #main} langsung berhenti dan menampilkan petunjuk pemakaian bila salah satu belum diisi.
+ * Baris {@code System.out.println} yang sebelumnya mencetak nilai {@code apiKey}, signature, MID,
+ * dan MID hasil encode Base64 juga sudah dihapus, karena berpotensi membocorkan bahan autentikasi
+ * lewat log konsol.
+ * </p>
+ *
+ * <p>
+ * <b>TINDAK LANJUT DI LUAR PERUBAHAN KODE INI</b>: nilai {@code apiKey}/{@code MID} yang
+ * sebelumnya tertanam ({@code "KP33PP0EE0AAP1EE1009010PP01I91OA"} dan {@code "OP1E00030999"})
+ * sudah lama berada di riwayat SVN dan WAJIB dianggap bocor — perlu dirotasi di sisi OttoPay bila
+ * masih aktif, terlepas dari endpoint yang dituju ({@code dev-secure.ottopay.id}) tampak sebagai
+ * lingkungan sandbox/pengembangan.
  * </p>
  */
 public class OttoTest {
 
 	/**
-	 * Menjalankan satu siklus percobaan permintaan token pembayaran OttoPay: menyusun payload
-	 * JSON transaksi contoh, menghitung timestamp dan signature HMAC-SHA512, meng-encode Merchant
-	 * ID ke Basic Authorization, lalu mengeksekusi permintaan lewat proses {@code curl} eksternal
-	 * dan mencetak setiap tahapan (timestamp, signature, MID, hasil respons) ke konsol untuk
-	 * keperluan debugging manual.
+	 * Menjalankan satu siklus percobaan permintaan token pembayaran OttoPay: membaca
+	 * {@code apiKey}/{@code MID} dari system property (berhenti dengan pesan bila belum diisi),
+	 * menyusun payload JSON transaksi contoh, menghitung timestamp dan signature HMAC-SHA512,
+	 * meng-encode Merchant ID ke Basic Authorization, lalu mengeksekusi permintaan lewat proses
+	 * {@code curl} eksternal dan mencetak hasil respons ke konsol untuk keperluan debugging manual.
 	 *
 	 * @param t argumen baris perintah (tidak dipakai)
 	 * @throws Exception diteruskan apa adanya dari kegagalan proses {@code curl} atau pembacaan
@@ -92,36 +100,26 @@ public class OttoTest {
 
 //		body.put("transactionDetails", transactionDetails);
 
+		String apiKey = System.getProperty("ottotest.apikey", "");
+		String MID = System.getProperty("ottotest.mid", "");
+		if (apiKey.trim().isEmpty() || MID.trim().isEmpty()) {
+			System.out.println("Jalankan dengan -Dottotest.apikey=... -Dottotest.mid=...");
+			return;
+		}
+
 		String currentTimestamp = Instant.now().toEpochMilli() + "";
 		currentTimestamp = currentTimestamp.substring(0, currentTimestamp.length() - 3);
 
 		currentTimestamp = "1540383020";
 
-		String apiKey = "KP33PP0EE0AAP1EE1009010PP01I91OA";
-
-		System.out.println("currentTimestamp -> " + currentTimestamp);
-		System.out.println("apiKey -> " + apiKey);
-
 		String bodyS = "{\"customerDetails\":{\"email\":\"jihan.nabilah@ottodigital.id\",\"firstName\":\"Mohammad Fauzi\",\"lastName\":\"Murtadho\",\"phone\":\"6281382028582\"},\"transactionDetails\":{\"amount\":10000,\"currency\":\"IDR\",\"merchantName\":\"Uninus\",\"orderId\":\"ORD10a01a0\",\"vaOrderId\":\"\"}}";
 
-		System.out.println("body -> " + bodyS);
-
 		String valueToDigest = bodyS.trim().toLowerCase() + "&" + currentTimestamp + "&" + apiKey;
-
-		System.out.println("signature sebelum hash -> " + valueToDigest);
 
 		String signature = Hashing.hmacSha512(apiKey.getBytes()).newHasher()
 				.putString(valueToDigest, StandardCharsets.UTF_8).hash().toString();
 
-		System.out.println("signature setelah hash -> " + signature);
-
-		String MID = "OP1E00030999";
-
-		System.out.println("MID sebelum hash -> " + MID);
-
 		String encodedMID = Base64.getEncoder().encodeToString(MID.getBytes());
-
-		System.out.println("MID setelah hash -> " + encodedMID);
 
 		String url = "https://dev-secure.ottopay.id/payment-services/v2.1.0/api/token";
 
