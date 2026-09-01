@@ -357,204 +357,52 @@ public class DownloadNilaiTransfer extends MyWindow {
 		final Intbox sizedata = new Intbox(30);
 		final Label label = Common.displayLoadBar(this, file, center, sizedata);
 
+		final ais.action.master.feeder.integrator.ekspor.SaringanFeeder saringan = new ais.action.master.feeder.integrator.ekspor.SaringanFeeder();
+		saringan.nim = nimMahasiswa.getValue();
+		saringan.nama = namaMahasiswa.getValue();
+		saringan.jurusan = jurusan;
+		saringan.fakultas = (ais.database.model.Fakultas) (searchfakultas.getSelectedItem() == null ? null : searchfakultas.getSelectedItem().getValue());
+		saringan.program = (ais.database.model.Program) (searchprogram.getSelectedItem() == null ? null : searchprogram.getSelectedItem().getValue());
+		saringan.angkatan = searchangkatan.getValue();
+		saringan.status = selectedStatusMahasiswa;
+		saringan.kodeMatakuliah = kodeMatakuliah.getValue();
+
 		new Thread(new Runnable() {
 
 			@Override
 			public void run() {
 				try {
-
-				XSSFWorkbook workbook = new XSSFWorkbook();
-
-				XSSFSheet sheet = workbook.createSheet("NILAI Transfer");
-				sheet.setDefaultColumnWidth(18);
-
-				XSSFRow rowhead = sheet.createRow((short) 0);
-
-				rowhead.createCell(0).setCellValue("NIM");
-				rowhead.createCell(1).setCellValue("Nama Mahasiswa");
-				rowhead.createCell(2).setCellValue("Kode MK Asal");
-				rowhead.createCell(3).setCellValue("Nama Mata Kuliah Asal");
-				rowhead.createCell(4).setCellValue("SKS Asal");
-				rowhead.createCell(5).setCellValue("Nilai Huruf Asal");
-				rowhead.createCell(6).setCellValue("Kode Matakuliah Diakui");
-				rowhead.createCell(7).setCellValue("Nama Matakuliah Diakui");
-				rowhead.createCell(8).setCellValue("Nilai Huruf Diakui");
-				rowhead.createCell(9).setCellValue("Nilai Angka Diakui");
-				rowhead.createCell(10).setCellValue("Kode Prodi");
-
-				Session session = HibernateUtil.currentNativeSession();
-
-				Criterion criteriaStatus = Restrictions.sqlRestriction("true");
-				if (selectedStatusMahasiswa != null) {
-					String sql = "this_.mahasiswa in (select mahasiswa from history_status_mahasiswa where status_mahasiswa="
-							+ selectedStatusMahasiswa.getId() + " and tahunakademik = '"
-							+ Common.getCurrentTahunAkademik() + "' and semester%2="
-							+ (Common.isNowSemensterGanjil() ? 1 : 0) + ")";
-					System.out.println("sql=>" + sql);
-					criteriaStatus = Restrictions.sqlRestriction(sql);
-				}
-
-				List<Detailperkuliahan> detailperkuliahans = session.createCriteria(Detailperkuliahan.class)
-
-						.add(criteriaStatus)
-
-						.add(Restrictions.isNotNull("matakuliahKonversi"))
-
-//						.add(searchTahunAjaran.getSelectedItem() == null
-//								|| searchTahunAjaran.getSelectedItem().getValue() == null
-//										? Restrictions.sqlRestriction("1=1")
-//										: Restrictions.eq("tahunAkademik",
-//												searchTahunAjaran.getSelectedItem().getValue()))
-//
-//						.add(searchJenisSemester.getSelectedItem() == null
-//								|| searchJenisSemester.getSelectedItem().getValue() == null
-//										? Restrictions.sqlRestriction("1=1")
-//										: Restrictions.sqlRestriction("this_.semester % 2 = " + (searchJenisSemester
-//												.getSelectedItem().getValue().equals(Perkuliahan.GANJIL) ? "1" : "0")))
-
-						.createAlias("matakuliahKonversi", "matakuliahKonversi")
-
-						.add(kodeMatakuliah.getValue().trim().isEmpty() ? Restrictions.sqlRestriction("true")
-								: Restrictions.ilike("matakuliahKonversi.kode", kodeMatakuliah.getValue().trim(),
-										MatchMode.ANYWHERE))
-
-						.add(Restrictions.eq("persetujuan", Detailperkuliahan.DISETUJUI))
-
-//						.add(semester == null || semester.equals(-1) ? Restrictions.sqlRestriction("true")
-//								: Restrictions.eq("semester", semester))
-
-						.createAlias("mahasiswa", "mahasiswa")
-
-						.add(Restrictions.and(
-								nimMahasiswa.getValue().trim().isEmpty() ? Restrictions.sqlRestriction("true")
-										: Restrictions.ilike("mahasiswa.nim", nimMahasiswa.getValue().trim(),
-												MatchMode.ANYWHERE),
-
-								namaMahasiswa.getValue().trim().isEmpty() ? Restrictions.sqlRestriction("true")
-										: Restrictions.ilike("mahasiswa.nama", namaMahasiswa.getValue().trim(),
-												MatchMode.ANYWHERE)))
-
-						.add(searchjurusan.getSelectedItem() == null
-								|| searchjurusan.getSelectedItem().getValue() == null
-										? Restrictions.sqlRestriction("1=1")
-										: Restrictions.eq("mahasiswa.jurusan", jurusan))
-
-						.createAlias("mahasiswa.jurusan", "jurusan", Criteria.LEFT_JOIN)
-
-						.add(searchfakultas.getSelectedItem() == null
-								|| searchfakultas.getSelectedItem().getValue() == null
-										? Restrictions.sqlRestriction("1=1")
-										: CommonSearchFilterHelper.eqSelectedWithId("jurusan.fakultas", searchfakultas, false))
-
-						.add(searchprogram.getSelectedItem() == null
-								|| searchprogram.getSelectedItem().getValue() == null
-										? Restrictions.sqlRestriction("1=1")
-										: Restrictions.eq("mahasiswa.program",
-												searchprogram.getSelectedItem().getValue()))
-
-						.add(searchangkatan.getValue() == null ? Restrictions.sqlRestriction("1=1")
-								: Restrictions.eq("mahasiswa.tahunangkatan", searchangkatan.getValue()))
-
-						.addOrder(Order.asc("mahasiswa.nim")).addOrder(Order.asc("semester")).list();
-
-				int size = detailperkuliahans.size();
-
-				int rowIndex = 1;
-				for (Detailperkuliahan detailperkuliahanLain : detailperkuliahans) {
-
-					label.setValue("Sedang memproses data " + detailperkuliahanLain.toString() + " ("
-							+ Common.numberFormat.get().format(rowIndex * 100.0 / size) + " %)");
-
-					createData(session, sheet, rowIndex, detailperkuliahanLain);
-					rowIndex++;
-
-				}
-
-				Common.setStyled(sheet);sizedata.setValue(rowIndex + 1);
-
-				try {
-					FileOutputStream fileOut = new FileOutputStream(filename);
-					workbook.write(fileOut);
-					fileOut.close();
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
+					// Susunan berkas milik EksporNilaiTransferFeeder; layar ini hanya
+					// menyediakan saringan dan menampilkan kemajuannya. Menyalin
+					// pemetaan kolomnya ke sini akan membuat dua daftar kolom yang
+					// harus dijaga sama terhadap aturan PDDIKTI.
+					int jumlah = ais.action.master.feeder.integrator.ekspor.EksporNilaiTransferFeeder.tulis(
+							file, saringan,
+							new ais.common.newui.pekerjaan.PekerjaanRegistry.Progres() {
+								@Override
+								public void lapor(int persen, String pesan) {
+									label.setValue(pesan + " (" + persen + " %)");
+								}
+							});
+					sizedata.setValue(jumlah + 1);
+					label.setValue("");
+				} catch (Exception e) {
 					Common.tampilErrorJikaAdmin(e);
-				}
-
-				System.out.println("Your excel file has been generated! " );
-
-				HibernateUtil.closeSession();
-
-				detailperkuliahans.clear();
-				label.setValue("");
-							} catch (Exception e) {
-								// FIX "hang selamanya": sebelumnya try besar ini TIDAK punya catch di level luar,
-								// sehingga exception yang lolos akan menembus keluar Runnable.run() tanpa pernah
-								// men-set label.setValue(""), membuat popup progres macet selamanya. Sekarang
-								// ditangkap dan ditampilkan sebagai error.
-								Common.tampilErrorJikaAdmin(e);
-								label.setValue("Error: " + ais.common.PesanFormalHelper.pesanGagalException(
-										"pengambilan data Nilai Transfer dari Neo Feeder", null, e,
-										new String[] {
-												"Periksa kembali koneksi ke server Neo Feeder (Pengaturan Koneksi) dan coba ulangi.",
-												"Pastikan data Perkuliahan/Nilai Transfer terkait sudah tersinkron dengan benar.",
-												"Jika kendala berulang, hubungi Administrator Sistem atau laporkan ke Pengembang Sistem disertai tangkapan layar (screenshot) pesan ini." })
-										.replace("\n", " "));
-							} finally {
+					label.setValue("Error: " + ais.common.PesanFormalHelper.pesanGagalException(
+							"penyiapan berkas ekspor Nilai Transfer", null, e,
+							new String[] {
+									"Periksa kembali saringan yang dipilih lalu ulangi.",
+									"Pastikan data terkait sudah lengkap.",
+									"Jika kendala berulang, hubungi Administrator Sistem." })
+							.replace("\n", " "));
+				} finally {
+					/* currentNativeSession() wajib ditutup tepat sekali dan ThreadLocal dibersihkan. */
 					ais.database.hibernate.HibernateUtil.closeSession();
 				}
 			}
 		}).start();
 
+
 	}
 
-	public static void createData(Session session, XSSFSheet sheet, int rowIndex, Detailperkuliahan detailperkuliahan) {
-
-		Matakuliah matakuliah = detailperkuliahan.getMatakuliahKonversi() == null
-				? (detailperkuliahan.getPerkuliahan() == null ? null
-						: detailperkuliahan.getPerkuliahan().getMatakuliah())
-				: detailperkuliahan.getMatakuliahKonversi();
-		Mahasiswa mahasiswa = detailperkuliahan.getMahasiswa();
-		if (matakuliah != null) {
-
-			XSSFRow row = sheet.createRow(rowIndex);
-
-			XSSFCell cell = row.createCell(0);
-			cell.setCellValue(mahasiswa.getNim());
-
-			cell = row.createCell(1);
-			cell.setCellValue(mahasiswa.getNama());
-
-			cell = row.createCell(2);
-			cell.setCellValue(detailperkuliahan.getKodeMatakuliahAsal());
-
-			cell = row.createCell(3);
-			cell.setCellValue(detailperkuliahan.getNamaMatakuliahAsal());
-
-			cell = row.createCell(4);
-			cell.setCellValue(detailperkuliahan.getSksAsal());
-
-			cell = row.createCell(5);
-			cell.setCellValue(detailperkuliahan.getNilaiHurufAsal());
-
-			cell = row.createCell(6);
-			cell.setCellValue(matakuliah.getKode());
-
-			cell = row.createCell(7);
-			cell.setCellValue(matakuliah.getNama());
-
-			cell = row.createCell(8);
-			cell.setCellValue(detailperkuliahan.getNilaiHuruf());
-
-			cell = row.createCell(9);
-			cell.setCellValue(detailperkuliahan.getTotalIP());
-
-			cell = row.createCell(10);
-			cell.setCellValue(detailperkuliahan.getMatakuliahKonversi() != null
-					? detailperkuliahan.getMatakuliahKonversi().getJurusan() == null ? ""
-							: detailperkuliahan.getMatakuliahKonversi().getJurusan().getKodeEpsbed()
-					: detailperkuliahan.getPerkuliahan().getJurusan().getKodeEpsbed());
-
-		}
-	}
 }

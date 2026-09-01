@@ -4,7 +4,10 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -16,7 +19,30 @@ import org.hibernate.criterion.Restrictions;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import ais.action.master.feeder.integrator.ekspor.EksporAjarDosenFeeder;
+import ais.action.master.feeder.integrator.ekspor.EksporAkmFeeder;
+import ais.action.master.feeder.integrator.ekspor.EksporAktifitasBimbinganFeeder;
+import ais.action.master.feeder.integrator.ekspor.EksporAktifitasKknFeeder;
+import ais.action.master.feeder.integrator.ekspor.EksporAktifitasPklFeeder;
+import ais.action.master.feeder.integrator.ekspor.EksporAktifitasSkripsiFeeder;
+import ais.action.master.feeder.integrator.ekspor.EksporHistoryFeeder;
+import ais.action.master.feeder.integrator.ekspor.EksporKelasFeeder;
+import ais.action.master.feeder.integrator.ekspor.EksporKelulusanFeeder;
+import ais.action.master.feeder.integrator.ekspor.EksporKrsFeeder;
 import ais.action.master.feeder.integrator.ekspor.EksporMahasiswaFeeder;
+import ais.action.master.feeder.integrator.ekspor.EksporMatakuliahFeeder;
+import ais.action.master.feeder.integrator.ekspor.EksporNilaiFeeder;
+import ais.action.master.feeder.integrator.ekspor.EksporNilaiTransferFeeder;
+import ais.action.master.feeder.integrator.ekspor.EksporPesertaDosenBimbinganFeeder;
+import ais.action.master.feeder.integrator.ekspor.EksporPesertaDosenKknFeeder;
+import ais.action.master.feeder.integrator.ekspor.EksporPesertaDosenPklFeeder;
+import ais.action.master.feeder.integrator.ekspor.EksporPesertaDosenSkripsiFeeder;
+import ais.action.master.feeder.integrator.ekspor.EksporPesertaMahasiswaBimbinganFeeder;
+import ais.action.master.feeder.integrator.ekspor.EksporPesertaMahasiswaKknFeeder;
+import ais.action.master.feeder.integrator.ekspor.EksporPesertaMahasiswaPklFeeder;
+import ais.action.master.feeder.integrator.ekspor.EksporPesertaMahasiswaSkripsiFeeder;
+import ais.action.master.feeder.integrator.ekspor.EksporPrestasiMahasiswaFeeder;
+import ais.action.master.feeder.integrator.ekspor.SaringanFeeder;
 import ais.common.Common;
 import ais.common.newui.NewUiCsrfUtil;
 import ais.common.newui.NewUiRouteGuard;
@@ -24,6 +50,9 @@ import ais.common.newui.pekerjaan.PekerjaanRegistry;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Fakultas;
 import ais.database.model.Jurusan;
+import ais.database.model.Kurikulum;
+import ais.database.model.MasaPerkuliahan;
+import ais.database.model.Perkuliahan;
 import ais.database.model.Program;
 import ais.database.model.StatusMahasiswa;
 import ais.database.model.Tbmuser;
@@ -54,32 +83,86 @@ import ais.database.model.Tbmuser;
  * kesalahannya adalah lembaga. Karena itu badan ekspor dipindahkan ke kelas
  * tanpa ZK yang dipakai bersama panel lama — bukan disalin.</p>
  *
- * <p><b>Cakupan saat ini.</b> Baru ekspor Mahasiswa yang badannya sudah
- * dipindahkan sehingga dapat dijalankan dari sini. Panel lain diumumkan apa
- * adanya sebagai belum tersedia; klien menampilkannya, bukan menyembunyikannya,
- * supaya operator tahu pekerjaan itu masih dijalankan dari layar lama.</p>
+ * <p><b>Cakupan saat ini.</b> Kedua puluh dua panel <i>Download</i> sudah
+ * dipindahkan badannya dan dapat dijalankan dari sini. Tujuh panel
+ * <i>Upload</i> belum: membaca berkas unggahan menuntut jalur unggah pada
+ * kontrak native yang belum ada. Ketujuhnya tetap diumumkan apa adanya sebagai
+ * belum tersedia; klien menampilkannya, bukan menyembunyikannya, supaya operator
+ * tahu pekerjaan itu masih dijalankan dari layar lama.</p>
+ *
+ * <p><b>Hitungan panel pernah salah dua kali.</b> Dua layar "peserta"
+ * masing-masing punya empat tab (KKN, PKL, Skripsi, Bimbingan), bukan satu.
+ * Daftar panel sebelumnya menyebut satu per layar dan dengan begitu menyembunyikan
+ * enam tab yang ada pada layar lama. Kini seluruhnya disebut.</p>
  */
 public final class NewUiFeederIntegratorController {
 
     /** Harus sama dengan awalan folder JSP sebelum {@code /uiux/}. */
     private static final String MODULE = "feeder";
 
-    /** Panel penyiapan berkas ekspor Mahasiswa; satu-satunya yang sudah native. */
+    /** Panel penyiapan berkas ekspor Mahasiswa; panel pertama yang dipindahkan. */
     public static final String PANEL_MAHASISWA = "unduh_mahasiswa";
 
     /** Satu panel di dalam sebuah layar integrator. */
+    /**
+     * Kode saringan yang boleh muncul pada panel mana pun.
+     *
+     * <p>Daftarnya bukan karangan: tiap panel menyatakan saringannya sesuai
+     * field {@code SaringanFeeder} yang benar-benar dibaca kelas ekspornya.
+     * Menyatakan lebih banyak berarti layar menampilkan kotak yang tidak
+     * berpengaruh apa pun — bentuk kebohongan yang tidak menimbulkan galat.</p>
+     */
+    static final String S_KELAS = "kelas";
+    static final String S_NIM = "nim";
+    static final String S_NAMA = "nama";
+    static final String S_JURUSAN = "jurusan";
+    static final String S_FAKULTAS = "fakultas";
+    static final String S_PROGRAM = "program";
+    static final String S_ANGKATAN = "angkatan";
+    static final String S_STATUS = "status";
+    static final String S_MASA = "masaPerkuliahan";
+    static final String S_KURIKULUM = "kurikulum";
+    static final String S_TAHUN_AKADEMIK = "tahunAkademik";
+    static final String S_SEMESTER = "semester";
+    static final String S_SEMESTER_KE = "semesterKe";
+    static final String S_TAHUN_AJARAN = "tahunAjaran";
+    static final String S_JENIS_SEMESTER = "jenisSemester";
+    static final String S_KODE_MK = "kodeMatakuliah";
+    static final String S_MULAI = "mulai";
+    static final String S_SAMPAI = "sampai";
+    static final String S_TELAH_DINILAI = "telahDinilai";
+    static final String S_BELUM_DINILAI = "belumDinilai";
+    static final String S_HITUNG_ULANG = "hitungUlang";
+
+    /** Saringan yang dipakai seluruh panel aktifitas dan peserta. */
+    private static final String[] S_AKTIFITAS = {
+            S_FAKULTAS, S_JURUSAN, S_PROGRAM, S_TAHUN_AKADEMIK, S_SEMESTER, S_KELAS };
+
     private static final class Panel {
         final String kode;
         final String label;
         final String jenis;
         final boolean native_;
+        /** Kode saringan yang diterima panel ini; kosong untuk panel non-native. */
+        final String[] saringan;
 
-        Panel(String kode, String label, String jenis, boolean native_) {
+        Panel(String kode, String label, String jenis, boolean native_, String[] saringan) {
             this.kode = kode;
             this.label = label;
             this.jenis = jenis;
             this.native_ = native_;
+            this.saringan = saringan == null ? new String[0] : saringan;
         }
+    }
+
+    /** Panel unduh yang badan ekspornya sudah pindah, jadi dapat dijalankan di sini. */
+    private static Panel unduh(String kode, String label, String[] saringan) {
+        return new Panel(kode, label, "unduh", true, saringan);
+    }
+
+    /** Panel unggah; belum ada jalur unggah berkas pada kontrak native. */
+    private static Panel unggah(String kode, String label) {
+        return new Panel(kode, label, "unggah", false, null);
     }
 
     private NewUiFeederIntegratorController() { }
@@ -88,43 +171,74 @@ public final class NewUiFeederIntegratorController {
     private static List<Panel> panel(String mode) {
         List<Panel> p = new ArrayList<Panel>();
         if ("mahasiswa".equals(mode)) {
-            p.add(new Panel(PANEL_MAHASISWA, "Download Mahasiswa", "unduh", true));
+            p.add(unduh(PANEL_MAHASISWA, "Download Mahasiswa", new String[] {
+                    S_FAKULTAS, S_JURUSAN, S_PROGRAM, S_ANGKATAN, S_STATUS,
+                    S_KELAS, S_NIM, S_NAMA }));
         } else if ("matakuliah".equals(mode)) {
-            p.add(new Panel("unduh_matakuliah", "Download Matakuliah", "unduh", false));
+            p.add(unduh("unduh_matakuliah", "Download Matakuliah", new String[] {
+                    S_FAKULTAS, S_JURUSAN, S_PROGRAM, S_KURIKULUM, S_SEMESTER, S_NAMA }));
         } else if ("ajar_dosen".equals(mode)) {
-            p.add(new Panel("unduh_ajar_dosen", "Download Ajar Dosen", "unduh", false));
-            p.add(new Panel("unggah_ajar_dosen", "Upload Ajar Dosen", "unggah", false));
+            p.add(unduh("unduh_ajar_dosen", "Download Ajar Dosen", new String[] {
+                    S_FAKULTAS, S_JURUSAN, S_PROGRAM, S_TAHUN_AKADEMIK, S_SEMESTER,
+                    S_MASA, S_ANGKATAN, S_KELAS }));
+            p.add(unggah("unggah_ajar_dosen", "Upload Ajar Dosen"));
         } else if ("kelas".equals(mode)) {
-            p.add(new Panel("unduh_kelas", "Download Kelas", "unduh", false));
-            p.add(new Panel("unggah_kelas", "Upload Kelas", "unggah", false));
+            p.add(unduh("unduh_kelas", "Download Kelas", new String[] {
+                    S_FAKULTAS, S_JURUSAN, S_PROGRAM, S_TAHUN_AKADEMIK, S_SEMESTER,
+                    S_MASA, S_KELAS }));
+            p.add(unggah("unggah_kelas", "Upload Kelas"));
         } else if ("krs".equals(mode)) {
-            p.add(new Panel("unduh_krs", "Download KRS", "unduh", false));
-            p.add(new Panel("unggah_krs", "Upload KRS", "unggah", false));
+            p.add(unduh("unduh_krs", "Download KRS", new String[] {
+                    S_FAKULTAS, S_JURUSAN, S_PROGRAM, S_ANGKATAN, S_STATUS, S_MASA,
+                    S_SEMESTER_KE, S_TAHUN_AJARAN, S_JENIS_SEMESTER, S_KODE_MK,
+                    S_KELAS, S_NIM, S_NAMA }));
+            p.add(unggah("unggah_krs", "Upload KRS"));
         } else if ("nilai".equals(mode)) {
-            p.add(new Panel("unduh_nilai", "Download Nilai", "unduh", false));
-            p.add(new Panel("unggah_nilai", "Upload Nilai", "unggah", false));
+            p.add(unduh("unduh_nilai", "Download Nilai", new String[] {
+                    S_FAKULTAS, S_JURUSAN, S_PROGRAM, S_ANGKATAN, S_STATUS, S_MASA,
+                    S_SEMESTER_KE, S_TAHUN_AJARAN, S_JENIS_SEMESTER, S_KODE_MK,
+                    S_KELAS, S_NIM, S_NAMA, S_TELAH_DINILAI, S_BELUM_DINILAI }));
+            p.add(unggah("unggah_nilai", "Upload Nilai"));
         } else if ("akm".equals(mode)) {
-            p.add(new Panel("unduh_akm", "Download AKM", "unduh", false));
+            p.add(unduh("unduh_akm", "Download AKM", new String[] {
+                    S_FAKULTAS, S_JURUSAN, S_PROGRAM, S_ANGKATAN, S_STATUS,
+                    S_TAHUN_AKADEMIK, S_SEMESTER, S_KELAS, S_NIM, S_NAMA,
+                    S_MULAI, S_SAMPAI, S_HITUNG_ULANG }));
         } else if ("kelulusan".equals(mode)) {
-            p.add(new Panel("unduh_kelulusan", "Download Kelulusan", "unduh", false));
-            p.add(new Panel("unggah_kelulusan", "Upload Kelulusan", "unggah", false));
+            p.add(unduh("unduh_kelulusan", "Download Kelulusan", new String[] {
+                    S_FAKULTAS, S_JURUSAN, S_PROGRAM, S_TAHUN_AKADEMIK, S_SEMESTER, S_KELAS }));
+            p.add(unggah("unggah_kelulusan", "Upload Kelulusan"));
         } else if ("prestasi_mahasiswa".equals(mode)) {
-            p.add(new Panel("unduh_prestasi", "Download Prestasi", "unduh", false));
-            p.add(new Panel("unggah_prestasi", "Upload Prestasi", "unggah", false));
+            p.add(unduh("unduh_prestasi", "Download Prestasi", new String[] {
+                    S_FAKULTAS, S_JURUSAN, S_PROGRAM, S_TAHUN_AKADEMIK, S_SEMESTER, S_KELAS }));
+            p.add(unggah("unggah_prestasi", "Upload Prestasi"));
         } else if ("history".equals(mode)) {
-            p.add(new Panel("unduh_history", "Download History", "unduh", false));
+            p.add(unduh("unduh_history", "Download History", new String[] {
+                    S_FAKULTAS, S_JURUSAN, S_PROGRAM, S_ANGKATAN, S_STATUS,
+                    S_TAHUN_AKADEMIK, S_SEMESTER, S_KELAS, S_NIM, S_NAMA }));
         } else if ("nilai_transfer".equals(mode)) {
-            p.add(new Panel("unduh_nilai_transfer", "Download Nilai Transfer", "unduh", false));
-            p.add(new Panel("unggah_nilai_transfer", "Upload Nilai Transfer", "unggah", false));
+            p.add(unduh("unduh_nilai_transfer", "Download Nilai Transfer", new String[] {
+                    S_FAKULTAS, S_JURUSAN, S_PROGRAM, S_ANGKATAN, S_STATUS,
+                    S_KODE_MK, S_NIM, S_NAMA }));
+            p.add(unggah("unggah_nilai_transfer", "Upload Nilai Transfer"));
         } else if ("aktifitas_mahasiswa".equals(mode)) {
-            p.add(new Panel("unduh_kkn", "Download KKN", "unduh", false));
-            p.add(new Panel("unduh_pkl", "Download PKL", "unduh", false));
-            p.add(new Panel("unduh_skripsi", "Download Skripsi", "unduh", false));
-            p.add(new Panel("unduh_bimbingan", "Download Bimbingan", "unduh", false));
+            p.add(unduh("unduh_kkn", "Download KKN", S_AKTIFITAS));
+            p.add(unduh("unduh_pkl", "Download PKL", S_AKTIFITAS));
+            p.add(unduh("unduh_skripsi", "Download Skripsi", S_AKTIFITAS));
+            p.add(unduh("unduh_bimbingan", "Download Bimbingan", S_AKTIFITAS));
         } else if ("aktifitas_mahasiswa_peserta".equals(mode)) {
-            p.add(new Panel("unduh_peserta_mahasiswa", "Download Peserta Mahasiswa", "unduh", false));
+            // Layar ini punya empat tab, bukan satu. Daftar sebelumnya hanya
+            // menyebut satu panel dan karenanya menyembunyikan tiga tab yang ada
+            // pada layar lama.
+            p.add(unduh("unduh_peserta_mahasiswa_kkn", "Download Peserta Mahasiswa KKN", S_AKTIFITAS));
+            p.add(unduh("unduh_peserta_mahasiswa_pkl", "Download Peserta Mahasiswa PKL", S_AKTIFITAS));
+            p.add(unduh("unduh_peserta_mahasiswa_skripsi", "Download Peserta Mahasiswa Skripsi", S_AKTIFITAS));
+            p.add(unduh("unduh_peserta_mahasiswa_bimbingan", "Download Peserta Mahasiswa Bimbingan", S_AKTIFITAS));
         } else if ("aktifitas_dosen_peserta".equals(mode)) {
-            p.add(new Panel("unduh_peserta_dosen", "Download Peserta Dosen", "unduh", false));
+            p.add(unduh("unduh_peserta_dosen_kkn", "Download Peserta Dosen KKN", S_AKTIFITAS));
+            p.add(unduh("unduh_peserta_dosen_pkl", "Download Peserta Dosen PKL", S_AKTIFITAS));
+            p.add(unduh("unduh_peserta_dosen_skripsi", "Download Peserta Dosen Skripsi", S_AKTIFITAS));
+            p.add(unduh("unduh_peserta_dosen_bimbingan", "Download Peserta Dosen Bimbingan", S_AKTIFITAS));
         } else {
             throw new IllegalArgumentException("Mode integrator tidak dikenal.");
         }
@@ -223,17 +337,20 @@ public final class NewUiFeederIntegratorController {
         for (Panel p : panel(mode)) {
             JSONObject o = new JSONObject().put("kode", p.kode).put("label", p.label)
                     .put("jenis", p.jenis).put("tersediaNative", p.native_);
+            JSONArray saring = new JSONArray();
+            for (String k : p.saringan) {
+                saring.put(k);
+            }
+            o.put("saringan", saring);
             if (!p.native_) {
-                o.put("alasan", "unduh".equals(p.jenis)
-                        ? "Susunan kolom berkas ini masih menyatu dengan layar lama. Memindahkannya "
-                                + "dilakukan satu per satu agar pemetaan kolom PDDIKTI tidak berubah."
-                        : "Pembacaan berkas unggahan menuntut jalur unggah berkas yang belum ada pada "
-                                + "kontrak native.");
+                o.put("alasan", "Pembacaan berkas unggahan menuntut jalur unggah berkas yang belum "
+                        + "ada pada kontrak native.");
             }
             daftar.put(o);
         }
         j.put("panel", daftar);
-        j.put("catatanCakupan", "Panel yang belum tersedia native tetap dapat dijalankan dari layar lama.");
+        j.put("catatanCakupan", "Seluruh panel unduh sudah dapat dijalankan dari sini. Panel unggah "
+                + "masih dijalankan dari layar lama.");
         // Alur pekerjaan panjang dinyatakan supaya klien tahu harus menanyakan
         // kemajuannya, bukan menunggu satu jawaban yang tidak akan datang.
         j.put("alurPekerjaan", new JSONArray().put("export_mulai").put("detail").put("export"));
@@ -270,6 +387,37 @@ public final class NewUiFeederIntegratorController {
                     StatusMahasiswa x = (StatusMahasiswa) o;
                     arr.put(new JSONObject().put("id", x.getId()).put("nama", teks(x.getNama())));
                 }
+            } else if ("masaPerkuliahan".equals(jenis)) {
+                for (Object o : s.createCriteria(MasaPerkuliahan.class)
+                        .addOrder(Order.desc("id")).setMaxResults(300).list()) {
+                    MasaPerkuliahan x = (MasaPerkuliahan) o;
+                    arr.put(new JSONObject().put("id", x.getId()).put("nama", teks(x.getNama())));
+                }
+            } else if ("kurikulum".equals(jenis)) {
+                for (Object o : s.createCriteria(Kurikulum.class)
+                        .addOrder(Order.desc("id")).setMaxResults(300).list()) {
+                    Kurikulum x = (Kurikulum) o;
+                    arr.put(new JSONObject().put("id", x.getId()).put("nama", teks(x.getNama())));
+                }
+            } else if ("tahunAkademik".equals(jenis) || "tahunAjaran".equals(jenis)) {
+                // Sumbernya sama dengan combobox layar lama, supaya pilihan yang
+                // tersedia di kedua jalur tidak pernah berbeda.
+                for (String v : ais.common.CommonCurrentSessionHelper.tahunAngkatans) {
+                    arr.put(new JSONObject().put("id", v).put("nama", v));
+                }
+                j.put("bawaan", teks(Common.getCurrentTahunAkademik()));
+            } else if ("semester".equals(jenis) || "jenisSemester".equals(jenis)) {
+                arr.put(new JSONObject().put("id", Perkuliahan.GANJIL).put("nama", Perkuliahan.GANJIL));
+                arr.put(new JSONObject().put("id", Perkuliahan.GENAP).put("nama", Perkuliahan.GENAP));
+                // Layar lama menyediakan "Semua" bernilai null; di sini nilai
+                // kosong berarti hal yang sama.
+                arr.put(new JSONObject().put("id", "").put("nama", "Semua"));
+                j.put("bawaan", Common.isNowSemensterGanjil() ? Perkuliahan.GANJIL : Perkuliahan.GENAP);
+            } else if ("semesterKe".equals(jenis)) {
+                arr.put(new JSONObject().put("id", "").put("nama", "Semua"));
+                for (int i = 1; i < 30; i++) {
+                    arr.put(new JSONObject().put("id", String.valueOf(i)).put("nama", String.valueOf(i)));
+                }
             } else {
                 throw new IllegalArgumentException("Jenis acuan tidak dikenal.");
             }
@@ -299,36 +447,17 @@ public final class NewUiFeederIntegratorController {
             throw new IllegalArgumentException("Panel ini belum tersedia native; jalankan dari layar lama.");
         }
 
-        final EksporMahasiswaFeeder.Saringan s = new EksporMahasiswaFeeder.Saringan();
-        s.kelas = text(r.getParameter("kelas"), "");
-        s.nim = text(r.getParameter("nim"), "");
-        s.nama = text(r.getParameter("nama"), "");
-        Session sesi = HibernateUtil.openSession();
-        try {
-            s.jurusan = (Jurusan) muat(sesi, Jurusan.class, r.getParameter("jurusanId"));
-            s.fakultas = (Fakultas) muat(sesi, Fakultas.class, r.getParameter("fakultasId"));
-            s.program = (Program) muat(sesi, Program.class, r.getParameter("programId"));
-            s.status = (StatusMahasiswa) muat(sesi, StatusMahasiswa.class, r.getParameter("statusId"));
-        } finally {
-            sesi.close();
-        }
-        String angkatan = text(r.getParameter("angkatan"), "").trim();
-        if (angkatan.length() > 0) {
-            try {
-                s.angkatan = Integer.valueOf(Integer.parseInt(angkatan));
-            } catch (NumberFormatException e) {
-                throw new IllegalArgumentException("Angkatan harus berupa angka.");
-            }
-        }
+        final SaringanFeeder s = saringan(r, dipilih);
 
-        final File tujuan = File.createTempFile("feeder_mahasiswa_", ".xlsx");
-        String namaBerkas = "feeder_mahasiswa_"
+        final File tujuan = File.createTempFile("feeder_" + kode + "_", ".xlsx");
+        String namaBerkas = "feeder_" + kode + "_"
                 + Common.databaseDateFormat.get().format(ais.ui.util.WaktuUtil.getDate()) + ".xlsx";
+        final String kodePanel = kode;
         String id = PekerjaanRegistry.mulai("feeder_" + kode, dipilih.label, pemilik, namaBerkas,
                 new PekerjaanRegistry.Tugas() {
                     public File kerjakan(PekerjaanRegistry.Progres progres) throws Exception {
                         try {
-                            EksporMahasiswaFeeder.tulis(tujuan, s, progres);
+                            susun(kodePanel, tujuan, s, progres);
                         } finally {
                             // Utas latar memakai session native tersendiri; wajib
                             // ditutup tepat sekali seperti pada panel ZK.
@@ -340,6 +469,106 @@ public final class NewUiFeederIntegratorController {
         j.put("pekerjaan", id);
         j.put("panel", kode);
         j.put("pesan", "Penyiapan berkas dimulai. Tanyakan kemajuannya secara berkala.");
+    }
+
+    /**
+     * Susun saringan dari parameter permintaan, hanya untuk field yang panel ini
+     * memang menyatakannya.
+     *
+     * <p>Pembatasan itu disengaja: kalau semua field diisi tanpa memandang panel,
+     * klien yang salah kirim akan tampak "bekerja" sampai seseorang menyadari
+     * berkasnya tersaring menurut sesuatu yang tidak pernah muncul di layar.</p>
+     */
+    private static SaringanFeeder saringan(HttpServletRequest r, Panel panel) throws Exception {
+        Set<String> boleh = new HashSet<String>(Arrays.asList(panel.saringan));
+        SaringanFeeder s = new SaringanFeeder();
+        if (boleh.contains(S_KELAS)) s.kelas = text(r.getParameter(S_KELAS), "");
+        if (boleh.contains(S_NIM)) s.nim = text(r.getParameter(S_NIM), "");
+        if (boleh.contains(S_NAMA)) s.nama = text(r.getParameter(S_NAMA), "");
+        if (boleh.contains(S_TAHUN_AKADEMIK)) s.tahunAkademik = text(r.getParameter(S_TAHUN_AKADEMIK), "");
+        if (boleh.contains(S_SEMESTER)) s.semester = text(r.getParameter(S_SEMESTER), "");
+        if (boleh.contains(S_TAHUN_AJARAN)) s.tahunAjaran = text(r.getParameter(S_TAHUN_AJARAN), "");
+        if (boleh.contains(S_JENIS_SEMESTER)) s.jenisSemester = text(r.getParameter(S_JENIS_SEMESTER), "");
+        if (boleh.contains(S_KODE_MK)) s.kodeMatakuliah = text(r.getParameter(S_KODE_MK), "");
+        if (boleh.contains(S_ANGKATAN)) s.angkatan = angka(r.getParameter(S_ANGKATAN), "Angkatan");
+        if (boleh.contains(S_SEMESTER_KE)) s.semesterKe = angka(r.getParameter(S_SEMESTER_KE), "Semester");
+        if (boleh.contains(S_MULAI)) s.mulai = angka(r.getParameter(S_MULAI), "Mulai");
+        if (boleh.contains(S_SAMPAI)) s.sampai = angka(r.getParameter(S_SAMPAI), "Sampai");
+        if (boleh.contains(S_TELAH_DINILAI)) s.telahDinilai = benar(r.getParameter(S_TELAH_DINILAI));
+        if (boleh.contains(S_BELUM_DINILAI)) s.belumDinilai = benar(r.getParameter(S_BELUM_DINILAI));
+        if (boleh.contains(S_HITUNG_ULANG)) s.hitungUlang = benar(r.getParameter(S_HITUNG_ULANG));
+
+        Session sesi = HibernateUtil.openSession();
+        try {
+            if (boleh.contains(S_JURUSAN)) {
+                s.jurusan = (Jurusan) muat(sesi, Jurusan.class, r.getParameter("jurusanId"));
+            }
+            if (boleh.contains(S_FAKULTAS)) {
+                s.fakultas = (Fakultas) muat(sesi, Fakultas.class, r.getParameter("fakultasId"));
+            }
+            if (boleh.contains(S_PROGRAM)) {
+                s.program = (Program) muat(sesi, Program.class, r.getParameter("programId"));
+            }
+            if (boleh.contains(S_STATUS)) {
+                s.status = (StatusMahasiswa) muat(sesi, StatusMahasiswa.class, r.getParameter("statusId"));
+            }
+            if (boleh.contains(S_MASA)) {
+                s.masaPerkuliahan = (MasaPerkuliahan) muat(sesi, MasaPerkuliahan.class,
+                        r.getParameter("masaPerkuliahanId"));
+            }
+            if (boleh.contains(S_KURIKULUM)) {
+                s.kurikulum = (Kurikulum) muat(sesi, Kurikulum.class, r.getParameter("kurikulumId"));
+            }
+        } finally {
+            sesi.close();
+        }
+        s.rapikan();
+        return s;
+    }
+
+    /**
+     * Kirim penyusunan berkas ke kelas ekspor milik panel.
+     *
+     * <p>Pemetaan ini ditulis satu per satu dan bukan lewat refleksi nama kelas:
+     * kesalahan pemetaan di sini menghasilkan berkas dengan susunan kolom milik
+     * panel lain — diterima aplikasi, ditolak PDDIKTI. Sebutan eksplisit membuat
+     * kekeliruannya terlihat saat dibaca, dan panel yang belum terdaftar gagal
+     * dengan jelas alih-alih diam-diam memakai penyusun yang salah.</p>
+     */
+    private static void susun(String kode, File tujuan, SaringanFeeder s,
+            PekerjaanRegistry.Progres progres) throws Exception {
+        if (PANEL_MAHASISWA.equals(kode)) EksporMahasiswaFeeder.tulis(tujuan, s, progres);
+        else if ("unduh_matakuliah".equals(kode)) EksporMatakuliahFeeder.tulis(tujuan, s, progres);
+        else if ("unduh_ajar_dosen".equals(kode)) EksporAjarDosenFeeder.tulis(tujuan, s, progres);
+        else if ("unduh_kelas".equals(kode)) EksporKelasFeeder.tulis(tujuan, s, progres);
+        else if ("unduh_krs".equals(kode)) EksporKrsFeeder.tulis(tujuan, s, progres);
+        else if ("unduh_nilai".equals(kode)) EksporNilaiFeeder.tulis(tujuan, s, progres);
+        else if ("unduh_akm".equals(kode)) EksporAkmFeeder.tulis(tujuan, s, progres);
+        else if ("unduh_kelulusan".equals(kode)) EksporKelulusanFeeder.tulis(tujuan, s, progres);
+        else if ("unduh_prestasi".equals(kode)) EksporPrestasiMahasiswaFeeder.tulis(tujuan, s, progres);
+        else if ("unduh_history".equals(kode)) EksporHistoryFeeder.tulis(tujuan, s, progres);
+        else if ("unduh_nilai_transfer".equals(kode)) EksporNilaiTransferFeeder.tulis(tujuan, s, progres);
+        else if ("unduh_kkn".equals(kode)) EksporAktifitasKknFeeder.tulis(tujuan, s, progres);
+        else if ("unduh_pkl".equals(kode)) EksporAktifitasPklFeeder.tulis(tujuan, s, progres);
+        else if ("unduh_skripsi".equals(kode)) EksporAktifitasSkripsiFeeder.tulis(tujuan, s, progres);
+        else if ("unduh_bimbingan".equals(kode)) EksporAktifitasBimbinganFeeder.tulis(tujuan, s, progres);
+        else if ("unduh_peserta_mahasiswa_kkn".equals(kode))
+            EksporPesertaMahasiswaKknFeeder.tulis(tujuan, s, progres);
+        else if ("unduh_peserta_mahasiswa_pkl".equals(kode))
+            EksporPesertaMahasiswaPklFeeder.tulis(tujuan, s, progres);
+        else if ("unduh_peserta_mahasiswa_skripsi".equals(kode))
+            EksporPesertaMahasiswaSkripsiFeeder.tulis(tujuan, s, progres);
+        else if ("unduh_peserta_mahasiswa_bimbingan".equals(kode))
+            EksporPesertaMahasiswaBimbinganFeeder.tulis(tujuan, s, progres);
+        else if ("unduh_peserta_dosen_kkn".equals(kode))
+            EksporPesertaDosenKknFeeder.tulis(tujuan, s, progres);
+        else if ("unduh_peserta_dosen_pkl".equals(kode))
+            EksporPesertaDosenPklFeeder.tulis(tujuan, s, progres);
+        else if ("unduh_peserta_dosen_skripsi".equals(kode))
+            EksporPesertaDosenSkripsiFeeder.tulis(tujuan, s, progres);
+        else if ("unduh_peserta_dosen_bimbingan".equals(kode))
+            EksporPesertaDosenBimbinganFeeder.tulis(tujuan, s, progres);
+        else throw new IllegalArgumentException("Panel belum punya penyusun berkas: " + kode);
     }
 
     private static void kemajuan(JSONObject j, HttpServletRequest r, String pemilik) throws Exception {
@@ -407,6 +636,28 @@ public final class NewUiFeederIntegratorController {
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("Nilai saringan tidak sah.");
         }
+    }
+
+    /** Angka pilihan; kosong berarti tanpa saringan, bukan nol. */
+    private static Integer angka(String nilai, String label) {
+        String v = text(nilai, "").trim();
+        if (v.length() == 0) return null;
+        try {
+            return Integer.valueOf(Integer.parseInt(v));
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(label + " harus berupa angka.");
+        }
+    }
+
+    /**
+     * Saklar; hanya "true"/"1" yang berarti menyala.
+     *
+     * <p>Nilai lain diperlakukan sebagai padam, mengikuti kotak centang layar
+     * lama yang bawaannya tidak tercentang.</p>
+     */
+    private static boolean benar(String nilai) {
+        String v = text(nilai, "").trim();
+        return "true".equalsIgnoreCase(v) || "1".equals(v);
     }
 
     private static void wajibMutasi(HttpServletRequest request) {

@@ -46,22 +46,10 @@ import ais.database.model.StatusMahasiswa;
  * dan oleh pekerjaan latar yang dapat ditanya kemajuannya.</p>
  *
  * <p>Yang berubah dari versi ZK hanyalah sumber nilainya: saringan datang dari
- * {@link Saringan} alih-alih widget, dan kemajuan dilaporkan lewat
+ * {@link SaringanFeeder} alih-alih widget, dan kemajuan dilaporkan lewat
  * {@link PekerjaanRegistry.Progres} alih-alih memperbarui label.</p>
  */
 public final class EksporMahasiswaFeeder {
-
-    /** Saringan layar, sebagai nilai biasa. */
-    public static final class Saringan {
-        public String kelas = "";
-        public String nim = "";
-        public String nama = "";
-        public Jurusan jurusan;
-        public Fakultas fakultas;
-        public Program program;
-        public Integer angkatan;
-        public StatusMahasiswa status;
-    }
 
     private EksporMahasiswaFeeder() { }
 
@@ -69,12 +57,16 @@ public final class EksporMahasiswaFeeder {
      * Susun berkas ekspor ke {@code tujuan}.
      *
      * @param tujuan  berkas .xlsx yang akan ditulis
-     * @param s       saringan; tidak boleh null (pakai instance kosong untuk tanpa saringan)
+     * @param s       saringan; boleh null, diperlakukan sebagai tanpa saringan
      * @param progres kanal pelaporan kemajuan
      * @return jumlah baris data yang ditulis
      */
-    public static int tulis(File tujuan, Saringan s, PekerjaanRegistry.Progres progres) throws Exception {
-        if (s == null) s = new Saringan();
+    public static int tulis(File tujuan, SaringanFeeder s, PekerjaanRegistry.Progres progres) throws Exception {
+        // Tipe saringan yang sama dipakai kedua puluh tiga panel unduh. Semula
+        // kelas ini punya tipe sendiri; disatukan setelah panel lain menyusul,
+        // supaya pemanggilnya tidak perlu tahu panel mana memakai tipe yang mana.
+        if (s == null) s = new SaringanFeeder();
+        s.rapikan();
         if (progres == null) {
             progres = new PekerjaanRegistry.Progres() {
                 public void lapor(int persen, String pesan) { }

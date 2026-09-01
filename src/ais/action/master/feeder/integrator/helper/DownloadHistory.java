@@ -279,153 +279,53 @@ public class DownloadHistory extends MyWindow {
 		final Intbox sizedata = new Intbox(30);
 		final Label label = Common.displayLoadBar(this, file, center, sizedata);
 
+		final ais.action.master.feeder.integrator.ekspor.SaringanFeeder saringan = new ais.action.master.feeder.integrator.ekspor.SaringanFeeder();
+		saringan.kelas = kel;
+		saringan.nim = nimMahasiswa.getValue();
+		saringan.nama = namaMahasiswa.getValue();
+		saringan.jurusan = jurusan;
+		saringan.fakultas = (ais.database.model.Fakultas) (searchfakultas.getSelectedItem() == null ? null : searchfakultas.getSelectedItem().getValue());
+		saringan.program = (ais.database.model.Program) (searchprogram.getSelectedItem() == null ? null : searchprogram.getSelectedItem().getValue());
+		saringan.angkatan = searchangkatan.getValue();
+		saringan.status = selectedStatusMahasiswa;
+		saringan.tahunAkademik = tahunAkademik;
+		saringan.semester = semester;
+
 		new Thread(new Runnable() {
 
 			@Override
 			public void run() {
 				try {
-
-				XSSFWorkbook workbook = new XSSFWorkbook();
-
-				XSSFSheet sheet = workbook.createSheet("Mahasiswa");
-				sheet.setDefaultColumnWidth(18);
-
-				XSSFRow rowhead = sheet.createRow((short) 0);
-
-				rowhead.createCell(0).setCellValue("NIM");
-				rowhead.createCell(1).setCellValue("Mulai Semester");
-				rowhead.createCell(2).setCellValue("Jenis Pendaftaran");
-				rowhead.createCell(3).setCellValue("Jalur Pendaftaran");
-				rowhead.createCell(4).setCellValue("Tanggal Pendaftaran");
-				rowhead.createCell(5).setCellValue("SKS Diakui");
-				rowhead.createCell(6).setCellValue("Asal Perguruan Tinggi");
-				rowhead.createCell(7).setCellValue("Asal Program Studi");
-				rowhead.createCell(8).setCellValue("Kode Prodi");
-
-				Session session = HibernateUtil.currentNativeSession();
-
-				Criterion criteriaStatus = Restrictions.sqlRestriction("true");
-				if (selectedStatusMahasiswa != null) {
-					String sql = "this_.id in (select mahasiswa from history_status_mahasiswa where status_mahasiswa="
-							+ selectedStatusMahasiswa.getId() + " and tahunakademik = '"
-							+ Common.getCurrentTahunAkademik() + "' and semester%2="
-							+ (Common.isNowSemensterGanjil() ? 1 : 0) + ")";
-					System.out.println("sql=>" + sql);
-					criteriaStatus = Restrictions.sqlRestriction(sql);
-				}
-
-				List<Mahasiswa> mahasiswas = session.createCriteria(Mahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-
-						.add(criteriaStatus)
-
-						.add(kel != null && !kel.trim().isEmpty()
-								? Restrictions.ilike("kelas", kel.trim(), MatchMode.EXACT)
-								: Restrictions.sqlRestriction("true"))
-
-						.add(Restrictions.and(
-								nimMahasiswa.getValue().trim().isEmpty() ? Restrictions.sqlRestriction("true")
-										: Restrictions.ilike("nim", nimMahasiswa.getValue().trim(), MatchMode.ANYWHERE),
-
-								namaMahasiswa.getValue().trim().isEmpty() ? Restrictions.sqlRestriction("true")
-										: Restrictions.ilike("nama", namaMahasiswa.getValue().trim(),
-												MatchMode.ANYWHERE)))
-
-						.add(searchjurusan.getSelectedItem() == null
-								|| searchjurusan.getSelectedItem().getValue() == null
-										? Restrictions.sqlRestriction("1=1")
-										: Restrictions.eq("jurusan", jurusan))
-
-						.createAlias("jurusan", "jurusan", Criteria.LEFT_JOIN)
-
-						.add(searchfakultas.getSelectedItem() == null
-								|| searchfakultas.getSelectedItem().getValue() == null
-										? Restrictions.sqlRestriction("1=1")
-										: CommonSearchFilterHelper.eqSelectedWithId("jurusan.fakultas", searchfakultas, false))
-
-						.add(searchprogram.getSelectedItem() == null
-								|| searchprogram.getSelectedItem().getValue() == null
-										? Restrictions.sqlRestriction("1=1")
-										: Restrictions.eq("program", searchprogram.getSelectedItem().getValue()))
-
-						.add(searchangkatan.getValue() == null ? Restrictions.sqlRestriction("1=1")
-								: Restrictions.eq("tahunangkatan", searchangkatan.getValue()))
-
-						.addOrder(Order.asc("nim")).list();
-
-				int size = mahasiswas.size();
-
-				int rowIndex = 1;
-				for (Mahasiswa mahasiswa : mahasiswas) {
-
-					label.setValue("Sedang memproses data " + mahasiswa.toString() + " ("
-							+ Common.numberFormat.get().format(rowIndex * 100.0 / size) + " %)");
-
-					Integer tahun = Integer.parseInt(StringUtils.split(tahunAkademik, "/")[0]);
-
-					Integer currentSemester = Common.getSemester(mahasiswa.getTahunangkatan(), semester,
-							mahasiswa.getPindahKeKampusIniMasukSemester(), tahun, mahasiswa.getSemesterMulai());
-
-					KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa, currentSemester, null, null,
-							false);
-
-					XSSFRow row = sheet.createRow(rowIndex);
-
-					row.createCell(0).setCellValue(mahasiswa.getNim());
-					row.createCell(1).setCellValue(mahasiswa.getTahunangkatan()
-							+ (mahasiswa.getSemesterMulai().equals(Perkuliahan.GANJIL) ? "1" : "2"));
-					row.createCell(2)
-							.setCellValue(mahasiswa.getStatusAwalMahasiswa() == null
-									|| mahasiswa.getStatusAwalMahasiswa().getFeeder() == null ? ""
-											: mahasiswa.getStatusAwalMahasiswa().getFeeder().toString());
-					row.createCell(3).setCellValue(
-							mahasiswa.getJenisSeleksi() == null || mahasiswa.getJenisSeleksi().getKode() == null ? ""
-									: mahasiswa.getJenisSeleksi().getKode().trim());
-					row.createCell(4).setCellValue(mahasiswa.getTanggalMasuk() == null ? ""
-							: Common.databaseDateFormat.get().format(mahasiswa.getTanggalMasuk()));
-					row.createCell(5).setCellValue(krsMahasiswa.getSksk());
-					row.createCell(6).setCellValue(mahasiswa.getPindahanDariKampus());
-					row.createCell(7).setCellValue(mahasiswa.getNamaProdiPindah());
-					row.createCell(8).setCellValue(mahasiswa.getJurusan().getKodeEpsbed());
-
-					rowIndex++;
-
-				}
-
-				Common.setStyled(sheet);sizedata.setValue(rowIndex + 1);
-
-				try {
-					FileOutputStream fileOut = new FileOutputStream(filename);
-					workbook.write(fileOut);
-					fileOut.close();
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					Common.tampilErrorJikaAdmin(e);
-				}
-
-				System.out.println("Your excel file has been generated! " );
-
-				HibernateUtil.closeSession();
-
-				mahasiswas.clear();
-				label.setValue("");
-						} catch (Exception e) {
-					// FIX "hang selamanya": try tanpa catch sebelumnya membiarkan exception (mis. gagal
-					// query/generate Excel) menembus run() tanpa tertangkap, sehingga label progres
-					// tidak pernah diset dan popup progres macet selamanya bagi pengguna.
+					// Susunan berkas milik EksporHistoryFeeder; layar ini hanya
+					// menyediakan saringan dan menampilkan kemajuannya. Menyalin
+					// pemetaan kolomnya ke sini akan membuat dua daftar kolom yang
+					// harus dijaga sama terhadap aturan PDDIKTI.
+					int jumlah = ais.action.master.feeder.integrator.ekspor.EksporHistoryFeeder.tulis(
+							file, saringan,
+							new ais.common.newui.pekerjaan.PekerjaanRegistry.Progres() {
+								@Override
+								public void lapor(int persen, String pesan) {
+									label.setValue(pesan + " (" + persen + " %)");
+								}
+							});
+					sizedata.setValue(jumlah + 1);
+					label.setValue("");
+				} catch (Exception e) {
 					Common.tampilErrorJikaAdmin(e);
 					label.setValue("Error: " + ais.common.PesanFormalHelper.pesanGagalException(
-							"pengambilan data Riwayat Pendaftaran Mahasiswa (History) dari database untuk dikirim ke Neo Feeder",
-							null, e,
+							"penyiapan berkas ekspor History", null, e,
 							new String[] {
-									"Periksa kembali data Mahasiswa serta KRS terkait dan coba ulangi.",
-									"Pastikan data Mahasiswa dan KRS terkait sudah lengkap dan tersinkron.",
-									"Jika kendala berulang, hubungi Administrator Sistem atau laporkan ke Pengembang Sistem disertai tangkapan layar (screenshot) pesan ini." })
+									"Periksa kembali saringan yang dipilih lalu ulangi.",
+									"Pastikan data terkait sudah lengkap.",
+									"Jika kendala berulang, hubungi Administrator Sistem." })
 							.replace("\n", " "));
 				} finally {
+					/* currentNativeSession() wajib ditutup tepat sekali dan ThreadLocal dibersihkan. */
 					ais.database.hibernate.HibernateUtil.closeSession();
 				}
 			}
 		}).start();
+
 
 	}
 

@@ -247,160 +247,48 @@ public class DownloadAktifitasMahasiwaMahasiswaRequestTugasAkhirPesertaMahasiswa
 		final Intbox sizedata = new Intbox(30);
 		final Label label = Common.displayLoadBar(this, file, center, sizedata);
 
+		final ais.action.master.feeder.integrator.ekspor.SaringanFeeder saringan = new ais.action.master.feeder.integrator.ekspor.SaringanFeeder();
+		saringan.kelas = kel;
+		saringan.jurusan = jurusan;
+		saringan.fakultas = (ais.database.model.Fakultas) (searchfakultas.getSelectedItem() == null ? null : searchfakultas.getSelectedItem().getValue());
+		saringan.tahunAkademik = tahunAkademik;
+		saringan.semester = semester;
+
 		new Thread(new Runnable() {
 
 			@Override
 			public void run() {
 				try {
-
-				XSSFWorkbook workbook = new XSSFWorkbook();
-
-				XSSFSheet sheet = workbook.createSheet("Template Aktivitas");
-				sheet.setDefaultColumnWidth(18);
-
-				XSSFRow rowhead = sheet.createRow((short) 0);
-
-				rowhead.createCell(0).setCellValue("Semester");
-				rowhead.createCell(1).setCellValue("ID AKTIVITAS");
-				rowhead.createCell(2).setCellValue("NIM/NIPD");
-				rowhead.createCell(3).setCellValue("Nama Mahasiswa");
-				rowhead.createCell(4).setCellValue("Jenis Peran");
-				rowhead.createCell(5).setCellValue("Kode Prodi Aktivitas");
-				rowhead.createCell(6).setCellValue("Kode Prodi Mahasiswa");
-
-				Session session = HibernateUtil.currentNativeSession();
-
-				List<MahasiswaRequestTugasAkhir> mahasiswaRequestTugasAkhirs = ConstantValues
-						.simpleList(session.createCriteria(MahasiswaRequestTugasAkhir.class)
-
-								.add(kel != null && !kel.trim().isEmpty()
-										? Restrictions.ilike("judul", kel.trim(), MatchMode.EXACT)
-										: Restrictions.sqlRestriction("true"))
-
-								.createAlias("mahasiswa", "mahasiswa")
-
-								.add(semester == null || semester.trim().isEmpty() ? Restrictions.sqlRestriction("1=1")
-										: Restrictions.sqlRestriction(
-												"semester % 2 = " + (semester.equals(Perkuliahan.GENAP) ? "0" : "1")))
-
-								.add(tahunAkademik == null || tahunAkademik.trim().isEmpty()
-										? Restrictions.sqlRestriction("1=1")
-										: Restrictions.eq("tahunAkademik", tahunAkademik))
-
-								.add(jurusan == null ? Restrictions.sqlRestriction("1=1")
-										: Restrictions.eq("mahasiswa.jurusan", jurusan))
-
-								.createAlias("mahasiswa.jurusan", "jurusan")
-
-								.add(searchfakultas.getSelectedItem() == null
-										|| searchfakultas.getSelectedItem().getValue() == null
-										|| searchfakultas.getSelectedItem().getValue() == null
-												? Restrictions.sqlRestriction("1=1")
-												: CommonSearchFilterHelper.eqSelectedWithId("jurusan.fakultas", searchfakultas, false))
-
-								.addOrder(Order.asc("judul")), MahasiswaRequestTugasAkhir.class);
-
-				int size = mahasiswaRequestTugasAkhirs.size();
-
-				int rowIndex = 1;
-				for (MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir : mahasiswaRequestTugasAkhirs) {
-
-					String idjenis = mahasiswaRequestTugasAkhir.getFormatNilaiProposalSkripsi() == null
-							|| mahasiswaRequestTugasAkhir.getFormatNilaiProposalSkripsi()
-									.getJenisKegiatanMahasiswa() == null ? null
-											: mahasiswaRequestTugasAkhir.getFormatNilaiProposalSkripsi()
-													.getJenisKegiatanMahasiswa().getKode();
-
-
-					if (idjenis == null || idjenis.trim().isEmpty()) {
-						idjenis = FeederJSONImport.JENIS_KEGIATAN.get("Laporan akhir studi");
-						try {
-							if (mahasiswaRequestTugasAkhir.getMahasiswa().getJurusan().getJenjang().getId()
-									.equals(ConstantValues.d3.getId())) {
-								idjenis = FeederJSONImport.JENIS_KEGIATAN.get("Tugas akhir");
-							} else if (mahasiswaRequestTugasAkhir.getMahasiswa().getJurusan().getJenjang().getId()
-									.equals(ConstantValues.s2.getId())) {
-								idjenis = FeederJSONImport.JENIS_KEGIATAN.get("Tesis");
-							} else if (mahasiswaRequestTugasAkhir.getMahasiswa().getJurusan().getJenjang().getId()
-									.equals(ConstantValues.s3.getId())) {
-								idjenis = FeederJSONImport.JENIS_KEGIATAN.get("Disertasi");
-							}
-						} catch (Exception e) {
-							e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/feeder/integrator/helper/DownloadAktifitasMahasiwaMahasiswaRequestTugasAkhirPesertaMahasiswa.java:305");
-						}
-					}
-					label.setValue("Sedang memproses data " + mahasiswaRequestTugasAkhir.getNama() + " ("
-							+ Common.numberFormat.get().format(rowIndex * 100.0 / size) + " %)");
-
-					XSSFRow row = sheet.createRow(rowIndex);
-
-					String id_smt = tahunAkademik.split("/")[0]
-							+ (semester.equals(Perkuliahan.SP) ? "3" : semester.equals(Perkuliahan.GENAP) ? "2" : "1");
-
-					Mahasiswa mahasiswa = mahasiswaRequestTugasAkhir.getMahasiswa();
-
-					label.setValue("Sedang memproses data " + mahasiswaRequestTugasAkhir.getNama() + " ("
-							+ Common.numberFormat.get().format(rowIndex * 100.0 / size) + " %)");
-
-					XSSFCell cell = row.createCell(0);
-					cell.setCellValue(id_smt);
-
-					cell = row.createCell(1);
-					cell.setCellValue(mahasiswaRequestTugasAkhir.getId().toString());
-
-					cell = row.createCell(2);
-					cell.setCellValue(mahasiswa.getNim());
-
-					cell = row.createCell(3);
-					cell.setCellValue(mahasiswa.getNama());
-
-					cell = row.createCell(4);
-					cell.setCellValue(2);
-
-					cell = row.createCell(5);
-					cell.setCellValue(mahasiswa.getJurusan() == null ? "" : mahasiswa.getJurusan().getKodeEpsbed());
-					
-					cell = row.createCell(6);
-					cell.setCellValue(mahasiswa.getJurusan() == null ? "" : mahasiswa.getJurusan().getKodeEpsbed());
-					rowIndex++;
-				}
-
-				Common.setStyled(sheet);
-				sizedata.setValue(rowIndex + 1);
-
-				try {
-					FileOutputStream fileOut = new FileOutputStream(filename);
-					workbook.write(fileOut);
-					fileOut.close();
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					Common.tampilErrorJikaAdmin(e);
-				}
-
-				System.out.println("Your excel file has been generated! ");
-
-				HibernateUtil.closeSession();
-
-				mahasiswaRequestTugasAkhirs.clear();
-				label.setValue("");
+					// Susunan berkas milik EksporPesertaMahasiswaBimbinganFeeder; layar ini hanya
+					// menyediakan saringan dan menampilkan kemajuannya. Menyalin
+					// pemetaan kolomnya ke sini akan membuat dua daftar kolom yang
+					// harus dijaga sama terhadap aturan PDDIKTI.
+					int jumlah = ais.action.master.feeder.integrator.ekspor.EksporPesertaMahasiswaBimbinganFeeder.tulis(
+							file, saringan,
+							new ais.common.newui.pekerjaan.PekerjaanRegistry.Progres() {
+								@Override
+								public void lapor(int persen, String pesan) {
+									label.setValue(pesan + " (" + persen + " %)");
+								}
+							});
+					sizedata.setValue(jumlah + 1);
+					label.setValue("");
 				} catch (Exception e) {
-					// FIX "gagal diam-diam"/"hang selamanya": sebelumnya blok try ini tidak punya catch,
-					// sehingga exception (mis. gagal query/parse) menembus keluar run() tanpa pernah
-					// men-set label progres, membuat popup progres menggantung selamanya.
 					Common.tampilErrorJikaAdmin(e);
 					label.setValue("Error: " + ais.common.PesanFormalHelper.pesanGagalException(
-							"pengambilan data Aktivitas Mahasiswa (Request Tugas Akhir - Peserta Mahasiswa) untuk Neo Feeder",
-							null, e,
+							"penyiapan berkas ekspor Peserta Mahasiswa Bimbingan", null, e,
 							new String[] {
-									"Periksa kembali koneksi ke server Neo Feeder (Pengaturan Koneksi) dan coba ulangi.",
-									"Pastikan data Request Tugas Akhir dan Mahasiswa terkait sudah lengkap dan benar.",
-									"Jika kendala berulang, hubungi Administrator Sistem atau laporkan ke Pengembang Sistem disertai tangkapan layar (screenshot) pesan ini." })
+									"Periksa kembali saringan yang dipilih lalu ulangi.",
+									"Pastikan data terkait sudah lengkap.",
+									"Jika kendala berulang, hubungi Administrator Sistem." })
 							.replace("\n", " "));
-							} finally {
+				} finally {
+					/* currentNativeSession() wajib ditutup tepat sekali dan ThreadLocal dibersihkan. */
 					ais.database.hibernate.HibernateUtil.closeSession();
 				}
 			}
 		}).start();
+
 
 	}
 

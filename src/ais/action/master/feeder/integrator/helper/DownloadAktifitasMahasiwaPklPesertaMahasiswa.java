@@ -246,138 +246,48 @@ public class DownloadAktifitasMahasiwaPklPesertaMahasiswa extends MyWindow {
 		final Intbox sizedata = new Intbox(30);
 		final Label label = Common.displayLoadBar(this, file, center, sizedata);
 
+		final ais.action.master.feeder.integrator.ekspor.SaringanFeeder saringan = new ais.action.master.feeder.integrator.ekspor.SaringanFeeder();
+		saringan.kelas = kel;
+		saringan.jurusan = jurusan;
+		saringan.fakultas = (ais.database.model.Fakultas) (searchfakultas.getSelectedItem() == null ? null : searchfakultas.getSelectedItem().getValue());
+		saringan.tahunAkademik = tahunAkademik;
+		saringan.semester = semester;
+
 		new Thread(new Runnable() {
 
 			@Override
 			public void run() {
 				try {
-
-				XSSFWorkbook workbook = new XSSFWorkbook();
-
-				XSSFSheet sheet = workbook.createSheet("Template Aktivitas");
-				sheet.setDefaultColumnWidth(18);
-
-				XSSFRow rowhead = sheet.createRow((short) 0);
-
-				rowhead.createCell(0).setCellValue("Semester");
-				rowhead.createCell(1).setCellValue("ID AKTIVITAS");
-				rowhead.createCell(2).setCellValue("NIM/NIPD");
-				rowhead.createCell(3).setCellValue("Nama Mahasiswa");
-				rowhead.createCell(4).setCellValue("Jenis Peran");
-				rowhead.createCell(5).setCellValue("Kode Prodi Aktivitas");
-				rowhead.createCell(6).setCellValue("Kode Prodi Mahasiswa");
-
-				Session session = HibernateUtil.currentNativeSession();
-
-				List<MahasiswaDapatKelompokPkl> kelompokPkls = ConstantValues.simpleList(
-						session.createCriteria(MahasiswaDapatKelompokPkl.class)
-
-								.createAlias("kelompokPkl", "kelompokPkl").createAlias("mahasiswa", "mahasiswa")
-
-								.add(kel != null && !kel.trim().isEmpty()
-										? Restrictions.ilike("kelompokPkl.nama_kelompok", kel.trim(), MatchMode.EXACT)
-										: Restrictions.sqlRestriction("true"))
-
-								.createAlias("kelompokPkl.pkl", "pkl")
-
-								.add(semester == null || semester.trim().isEmpty() ? Restrictions.sqlRestriction("1=1")
-										: Restrictions.eq("pkl.semester", semester))
-
-								.add(tahunAkademik == null || tahunAkademik.trim().isEmpty()
-										? Restrictions.sqlRestriction("1=1")
-										: Restrictions.eq("pkl.tahunAkademik", tahunAkademik))
-
-								.add(jurusan == null ? Restrictions.sqlRestriction("1=1")
-										: Restrictions.eq("mahasiswa.jurusan", jurusan))
-
-								.createAlias("mahasiswa.jurusan", "jurusan")
-
-								.add(searchfakultas.getSelectedItem() == null
-										|| searchfakultas.getSelectedItem().getValue() == null
-										|| searchfakultas.getSelectedItem().getValue() == null
-												? Restrictions.sqlRestriction("1=1")
-												: CommonSearchFilterHelper.eqSelectedWithId("jurusan.fakultas", searchfakultas, false))
-
-								.addOrder(Order.asc("mahasiswa.nim")).addOrder(Order.asc("kelompokPkl.nama_kelompok")),
-						MahasiswaDapatKelompokPkl.class);
-
-				int size = kelompokPkls.size();
-
-				int rowIndex = 1;
-				for (MahasiswaDapatKelompokPkl kelompokPklDapatKelompokPkl : kelompokPkls) {
-					KelompokPkl kelompokPkl = kelompokPklDapatKelompokPkl.getKelompokPkl();
-					Mahasiswa mahasiswa = kelompokPklDapatKelompokPkl.getMahasiswa();
-					System.out.println("kelompokPkl.getNama_kelompok() -> " + kelompokPkl.getNama_kelompok());
-
-					label.setValue("Sedang memproses data " + kelompokPkl.getNama() + " ("
-							+ Common.numberFormat.get().format(rowIndex * 100.0 / size) + " %)");
-
-					XSSFRow row = sheet.createRow(rowIndex);
-
-					String id_smt = tahunAkademik.split("/")[0]
-							+ (semester.equals(Perkuliahan.SP) ? "3" : semester.equals(Perkuliahan.GENAP) ? "2" : "1");
-
-					XSSFCell cell = row.createCell(0);
-					cell.setCellValue(id_smt);
-
-					cell = row.createCell(1);
-					cell.setCellValue(kelompokPkl.getId().toString());
-
-					cell = row.createCell(2);
-					cell.setCellValue(mahasiswa.getNim());
-
-					cell = row.createCell(3);
-					cell.setCellValue(mahasiswa.getNama());
-
-					cell = row.createCell(4);
-					cell.setCellValue(2);
-
-					cell = row.createCell(5);
-					cell.setCellValue(kelompokPkl.getPkl() == null || kelompokPkl.getPkl().getJurusan() == null ? ""
-							: kelompokPkl.getPkl().getJurusan().getKodeEpsbed());
-
-					cell = row.createCell(6);
-					cell.setCellValue(mahasiswa.getJurusan() == null ? "" : mahasiswa.getJurusan().getKodeEpsbed());
-
-					rowIndex++;
-				}
-
-				Common.setStyled(sheet);
-				sizedata.setValue(rowIndex + 1);
-
-				try {
-					FileOutputStream fileOut = new FileOutputStream(filename);
-					workbook.write(fileOut);
-					fileOut.close();
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					Common.tampilErrorJikaAdmin(e);
-				}
-
-				System.out.println("Your excel file has been generated! ");
-
-				HibernateUtil.closeSession();
-
-				kelompokPkls.clear();
-				label.setValue("");
+					// Susunan berkas milik EksporPesertaMahasiswaPklFeeder; layar ini hanya
+					// menyediakan saringan dan menampilkan kemajuannya. Menyalin
+					// pemetaan kolomnya ke sini akan membuat dua daftar kolom yang
+					// harus dijaga sama terhadap aturan PDDIKTI.
+					int jumlah = ais.action.master.feeder.integrator.ekspor.EksporPesertaMahasiswaPklFeeder.tulis(
+							file, saringan,
+							new ais.common.newui.pekerjaan.PekerjaanRegistry.Progres() {
+								@Override
+								public void lapor(int persen, String pesan) {
+									label.setValue(pesan + " (" + persen + " %)");
+								}
+							});
+					sizedata.setValue(jumlah + 1);
+					label.setValue("");
 				} catch (Exception e) {
-					// FIX "gagal diam-diam"/"hang selamanya": sebelumnya blok try ini tidak punya catch,
-					// sehingga exception (mis. gagal query/parse) menembus keluar run() tanpa pernah
-					// men-set label progres, membuat popup progres menggantung selamanya.
 					Common.tampilErrorJikaAdmin(e);
 					label.setValue("Error: " + ais.common.PesanFormalHelper.pesanGagalException(
-							"pengambilan data Aktivitas Mahasiswa PKL (Peserta Mahasiswa) untuk Neo Feeder",
-							null, e,
+							"penyiapan berkas ekspor Peserta Mahasiswa PKL", null, e,
 							new String[] {
-									"Periksa kembali koneksi ke server Neo Feeder (Pengaturan Koneksi) dan coba ulangi.",
-									"Pastikan data Mahasiswa peserta Kelompok PKL terkait sudah lengkap dan benar.",
-									"Jika kendala berulang, hubungi Administrator Sistem atau laporkan ke Pengembang Sistem disertai tangkapan layar (screenshot) pesan ini." })
+									"Periksa kembali saringan yang dipilih lalu ulangi.",
+									"Pastikan data terkait sudah lengkap.",
+									"Jika kendala berulang, hubungi Administrator Sistem." })
 							.replace("\n", " "));
-							} finally {
+				} finally {
+					/* currentNativeSession() wajib ditutup tepat sekali dan ThreadLocal dibersihkan. */
 					ais.database.hibernate.HibernateUtil.closeSession();
 				}
 			}
 		}).start();
+
 
 	}
 

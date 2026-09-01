@@ -48,9 +48,13 @@ public final class EksporMatakuliahFeeder {
      *
      * @return jumlah baris data yang ditulis
      */
-    public static int tulis(File tujuan, SaringanFeeder s, PekerjaanRegistry.Progres progres)
+    public static int tulis(File tujuan, SaringanFeeder saring, PekerjaanRegistry.Progres progres)
             throws Exception {
-        if (s == null) s = new SaringanFeeder();
+        if (saring == null) saring = new SaringanFeeder();
+        // Layar lama membaca kotak isian dengan getValue().trim() untuk kelas dan
+        // apa adanya untuk sisanya. Disamakan di sini supaya pemanggil mana pun —
+        // panel ZK maupun controller native — menghasilkan saringan yang sama.
+        saring.rapikan();
         if (progres == null) {
             progres = new PekerjaanRegistry.Progres() {
                 public void lapor(int persen, String pesan) { }
@@ -85,38 +89,38 @@ public final class EksporMatakuliahFeeder {
 
 		List<KurikulumPunyaMatakuliah> matakuliahs = session.createCriteria(KurikulumPunyaMatakuliah.class)
 
-				.add(s.kurikulum == null ? Restrictions.sqlRestriction("true")
-						: Restrictions.eq("kurikulum", s.kurikulum))
+				.add(saring.kurikulum == null ? Restrictions.sqlRestriction("true")
+						: Restrictions.eq("kurikulum", saring.kurikulum))
 
 				.createAlias("matakuliah", "matakuliah").createAlias("kurikulum", "kurikulum")
 				.createAlias("kurikulum.program", "program")
 
 				.add(Restrictions
-						.or(s.nama.trim().isEmpty() ? Restrictions.sqlRestriction("true")
-								: Restrictions.ilike("matakuliah.kode", s.nama.trim(),
+						.or(saring.nama.trim().isEmpty() ? Restrictions.sqlRestriction("true")
+								: Restrictions.ilike("matakuliah.kode", saring.nama.trim(),
 										MatchMode.ANYWHERE),
 
-								s.nama.trim().isEmpty() ? Restrictions.sqlRestriction("true")
+								saring.nama.trim().isEmpty() ? Restrictions.sqlRestriction("true")
 										: Restrictions.ilike("matakuliah.nama",
-												s.nama.trim(), MatchMode.ANYWHERE)))
+												saring.nama.trim(), MatchMode.ANYWHERE)))
 
-				.add(s.jurusan == null
+				.add(saring.jurusan == null
 								? Restrictions.sqlRestriction("1=1")
-								: Restrictions.eq("kurikulum.jurusan", s.jurusan))
+								: Restrictions.eq("kurikulum.jurusan", saring.jurusan))
 
 				.createAlias("kurikulum.jurusan", "jurusan", Criteria.LEFT_JOIN)
 
-				.add(s.fakultas == null
+				.add(saring.fakultas == null
 								? Restrictions.sqlRestriction("1=1")
-								: CommonSearchFilterHelper.eqValue("jurusan.fakultas", s.fakultas, false))
+								: CommonSearchFilterHelper.eqValue("jurusan.fakultas", saring.fakultas, false))
 
-				.add(s.program == null
+				.add(saring.program == null
 								? Restrictions.sqlRestriction("1=1")
-								: Restrictions.eq("program.nama", s.program))
+								: Restrictions.eq("program.nama", saring.program))
 
-				.add(s.semester == null
+				.add(saring.semester == null
 								? Restrictions.sqlRestriction("1=1")
-								: Restrictions.eq("semester", s.semester))
+								: Restrictions.eq("semester", saring.semester))
 
 				.addOrder(Order.asc("semester")).addOrder(Order.asc("matakuliah.nama")).list();
 

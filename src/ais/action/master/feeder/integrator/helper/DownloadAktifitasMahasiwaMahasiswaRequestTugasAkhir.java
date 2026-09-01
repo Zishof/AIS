@@ -250,181 +250,48 @@ public class DownloadAktifitasMahasiwaMahasiswaRequestTugasAkhir extends MyWindo
 		final Intbox sizedata = new Intbox(30);
 		final Label label = Common.displayLoadBar(this, file, center, sizedata);
 
+		final ais.action.master.feeder.integrator.ekspor.SaringanFeeder saringan = new ais.action.master.feeder.integrator.ekspor.SaringanFeeder();
+		saringan.kelas = kel;
+		saringan.jurusan = jurusan;
+		saringan.fakultas = (ais.database.model.Fakultas) (searchfakultas.getSelectedItem() == null ? null : searchfakultas.getSelectedItem().getValue());
+		saringan.tahunAkademik = tahunAkademik;
+		saringan.semester = semester;
+
 		new Thread(new Runnable() {
 
 			@Override
 			public void run() {
 				try {
-
-				XSSFWorkbook workbook = new XSSFWorkbook();
-
-				XSSFSheet sheet = workbook.createSheet("Template Aktivitas");
-				sheet.setDefaultColumnWidth(18);
-
-				XSSFRow rowhead = sheet.createRow((short) 0);
-
-				rowhead.createCell(0).setCellValue("Semester");
-				rowhead.createCell(1).setCellValue("Jenis Aktivitas");
-				rowhead.createCell(2).setCellValue("Judul");
-				rowhead.createCell(3).setCellValue("Lokasi");
-				rowhead.createCell(4).setCellValue("Nomor SK Tugas");
-				rowhead.createCell(5).setCellValue("Tanggal SK Tugas");
-				rowhead.createCell(6).setCellValue("Jenis Anggota");
-				rowhead.createCell(7).setCellValue("ID AKTIVITAS");
-				rowhead.createCell(8).setCellValue("Kode Prodi");
-				rowhead.createCell(9).setCellValue("Program MBKM");
-				rowhead.createCell(10).setCellValue("Tanggal Mulai");
-				rowhead.createCell(11).setCellValue("Tanggal Selesai");
-
-				Session session = HibernateUtil.currentNativeSession();
-
-				List<MahasiswaRequestTugasAkhir> mahasiswaRequestTugasAkhirs = ConstantValues
-						.simpleList(session.createCriteria(MahasiswaRequestTugasAkhir.class)
-
-								.add(kel != null && !kel.trim().isEmpty()
-										? Restrictions.ilike("judul", kel.trim(), MatchMode.EXACT)
-										: Restrictions.sqlRestriction("true"))
-
-								.createAlias("mahasiswa", "mahasiswa")
-
-								.add(semester == null || semester.trim().isEmpty() ? Restrictions.sqlRestriction("1=1")
-										: Restrictions.sqlRestriction(
-												"semester % 2 = " + (semester.equals(Perkuliahan.GENAP) ? "0" : "1")))
-
-								.add(tahunAkademik == null || tahunAkademik.trim().isEmpty()
-										? Restrictions.sqlRestriction("1=1")
-										: Restrictions.eq("tahunAkademik", tahunAkademik))
-
-								.add(jurusan == null ? Restrictions.sqlRestriction("1=1")
-										: Restrictions.eq("mahasiswa.jurusan", jurusan))
-
-								.createAlias("mahasiswa.jurusan", "jurusan")
-
-								.add(searchfakultas.getSelectedItem() == null
-										|| searchfakultas.getSelectedItem().getValue() == null
-										|| searchfakultas.getSelectedItem().getValue() == null
-												? Restrictions.sqlRestriction("1=1")
-												: CommonSearchFilterHelper.eqSelectedWithId("jurusan.fakultas", searchfakultas, false))
-
-								.addOrder(Order.asc("judul")), MahasiswaRequestTugasAkhir.class);
-
-				int size = mahasiswaRequestTugasAkhirs.size();
-
-				int rowIndex = 1;
-				for (MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir : mahasiswaRequestTugasAkhirs) {
-
-					String idjenis = mahasiswaRequestTugasAkhir.getFormatNilaiProposalSkripsi() == null
-							|| mahasiswaRequestTugasAkhir.getFormatNilaiProposalSkripsi()
-									.getJenisKegiatanMahasiswa() == null ? null
-											: mahasiswaRequestTugasAkhir.getFormatNilaiProposalSkripsi()
-													.getJenisKegiatanMahasiswa().getKode();
-
-					if (idjenis == null || idjenis.trim().isEmpty()) {
-						idjenis = FeederJSONImport.JENIS_KEGIATAN.get("Laporan akhir studi");
-						try {
-							if (mahasiswaRequestTugasAkhir.getMahasiswa().getJurusan().getJenjang().getId()
-									.equals(ConstantValues.d3.getId())) {
-								idjenis = FeederJSONImport.JENIS_KEGIATAN.get("Tugas akhir");
-							} else if (mahasiswaRequestTugasAkhir.getMahasiswa().getJurusan().getJenjang().getId()
-									.equals(ConstantValues.s2.getId())) {
-								idjenis = FeederJSONImport.JENIS_KEGIATAN.get("Tesis");
-							} else if (mahasiswaRequestTugasAkhir.getMahasiswa().getJurusan().getJenjang().getId()
-									.equals(ConstantValues.s3.getId())) {
-								idjenis = FeederJSONImport.JENIS_KEGIATAN.get("Disertasi");
-							}
-						} catch (Exception e) {
-							e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/feeder/integrator/helper/DownloadAktifitasMahasiwaMahasiswaRequestTugasAkhir.java:307");
-						}
-					}
-					label.setValue("Sedang memproses data " + mahasiswaRequestTugasAkhir.getNama() + " ("
-							+ Common.numberFormat.get().format(rowIndex * 100.0 / size) + " %)");
-
-					XSSFRow row = sheet.createRow(rowIndex);
-
-					String id_smt = tahunAkademik.split("/")[0]
-							+ (semester.equals(Perkuliahan.SP) ? "3" : semester.equals(Perkuliahan.GENAP) ? "2" : "1");
-
-					XSSFCell cell = row.createCell(0);
-					cell.setCellValue(id_smt);
-
-					cell = row.createCell(1);
-					cell.setCellValue(idjenis);
-
-					cell = row.createCell(2);
-					cell.setCellValue(mahasiswaRequestTugasAkhir.getJudul());
-
-					cell = row.createCell(3);
-					cell.setCellValue(mahasiswaRequestTugasAkhir.getLokasiUjian());
-
-					cell = row.createCell(4);
-					cell.setCellValue(mahasiswaRequestTugasAkhir.getNoSk());
-
-					cell = row.createCell(5);
-					cell.setCellValue(mahasiswaRequestTugasAkhir.getTglSk() == null ? ""
-							: Common.databaseDateFormat.get().format(mahasiswaRequestTugasAkhir.getTglSk()));
-
-					cell = row.createCell(6);
-					cell.setCellValue("1");
-
-					cell = row.createCell(7);
-					cell.setCellValue(mahasiswaRequestTugasAkhir.getId().toString());
-
-					cell = row.createCell(8);
-					cell.setCellValue(mahasiswaRequestTugasAkhir.getMahasiswa() == null
-							|| mahasiswaRequestTugasAkhir.getMahasiswa().getJurusan() == null ? ""
-									: mahasiswaRequestTugasAkhir.getMahasiswa().getJurusan().getKodeEpsbed());
-
-					cell = row.createCell(9);
-					cell.setCellValue("1");
-
-					cell = row.createCell(10);
-					cell.setCellValue(mahasiswaRequestTugasAkhir.getTanggalAwalBimbingan() == null ? ""
-							: Common.databaseDateFormat.get().format(mahasiswaRequestTugasAkhir.getTanggalAwalBimbingan()));
-
-					cell = row.createCell(11);
-					cell.setCellValue(mahasiswaRequestTugasAkhir.getTanggalAkhirBimbingan() == null ? ""
-							: Common.databaseDateFormat.get().format(mahasiswaRequestTugasAkhir.getTanggalAkhirBimbingan()));
-
-					rowIndex++;
-				}
-
-				Common.setStyled(sheet);
-				sizedata.setValue(rowIndex + 1);
-
-				try {
-					FileOutputStream fileOut = new FileOutputStream(filename);
-					workbook.write(fileOut);
-					fileOut.close();
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
+					// Susunan berkas milik EksporAktifitasBimbinganFeeder; layar ini hanya
+					// menyediakan saringan dan menampilkan kemajuannya. Menyalin
+					// pemetaan kolomnya ke sini akan membuat dua daftar kolom yang
+					// harus dijaga sama terhadap aturan PDDIKTI.
+					int jumlah = ais.action.master.feeder.integrator.ekspor.EksporAktifitasBimbinganFeeder.tulis(
+							file, saringan,
+							new ais.common.newui.pekerjaan.PekerjaanRegistry.Progres() {
+								@Override
+								public void lapor(int persen, String pesan) {
+									label.setValue(pesan + " (" + persen + " %)");
+								}
+							});
+					sizedata.setValue(jumlah + 1);
+					label.setValue("");
+				} catch (Exception e) {
 					Common.tampilErrorJikaAdmin(e);
-				}
-
-				System.out.println("Your excel file has been generated! ");
-
-				HibernateUtil.closeSession();
-
-				mahasiswaRequestTugasAkhirs.clear();
-				label.setValue("");
-							} catch (Exception e) {
-					// FIX "gagal diam-diam" / hang selamanya: sebelumnya try di sini TIDAK punya catch,
-					// sehingga exception (mis. gagal query/generate Excel) menembus run() tanpa
-					// tertangani -> thread mati & label.setValue("") tak pernah tercapai, progress bar
-					// tak pernah selesai (popup menggantung selamanya di sisi user).
-					ais.common.Common.tampilErrorJikaAdmin(e);
 					label.setValue("Error: " + ais.common.PesanFormalHelper.pesanGagalException(
-							"pengambilan data Request Tugas Akhir Mahasiswa dari database untuk diekspor ke Neo Feeder",
-							null, e,
+							"penyiapan berkas ekspor Aktifitas Bimbingan Tugas Akhir", null, e,
 							new String[] {
-									"Periksa kembali data dan filter yang dipilih (Fakultas/Prodi/Judul/TA/Semester), lalu coba ulangi.",
-									"Pastikan data Request Tugas Akhir Mahasiswa terkait sudah lengkap (judul, SK, jenjang prodi).",
-									"Jika kendala berulang, hubungi Administrator Sistem atau laporkan ke Pengembang Sistem disertai tangkapan layar (screenshot) pesan ini." })
+									"Periksa kembali saringan yang dipilih lalu ulangi.",
+									"Pastikan data terkait sudah lengkap.",
+									"Jika kendala berulang, hubungi Administrator Sistem." })
 							.replace("\n", " "));
 				} finally {
+					/* currentNativeSession() wajib ditutup tepat sekali dan ThreadLocal dibersihkan. */
 					ais.database.hibernate.HibernateUtil.closeSession();
 				}
 			}
 		}).start();
+
 
 	}
 

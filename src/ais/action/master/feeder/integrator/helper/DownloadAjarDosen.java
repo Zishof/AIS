@@ -292,250 +292,51 @@ public class DownloadAjarDosen extends MyWindow {
 		final Intbox sizedata = new Intbox(30);
 		final Label label = Common.displayLoadBar(this, file, center, sizedata);
 
+		final ais.action.master.feeder.integrator.ekspor.SaringanFeeder saringan = new ais.action.master.feeder.integrator.ekspor.SaringanFeeder();
+		saringan.kelas = kel;
+		saringan.jurusan = jurusan;
+		saringan.fakultas = (ais.database.model.Fakultas) (searchfakultas.getSelectedItem() == null ? null : searchfakultas.getSelectedItem().getValue());
+		saringan.program = (ais.database.model.Program) (searchprogram.getSelectedItem() == null ? null : searchprogram.getSelectedItem().getValue());
+		saringan.angkatan = angkatan;
+		saringan.masaPerkuliahan = (ais.database.model.MasaPerkuliahan) searchmasaperkulaiahan.getAttribute("masaPerkuliahan");
+		saringan.tahunAkademik = (String) (searchtahunakademik.getSelectedItem() == null ? null : searchtahunakademik.getSelectedItem().getValue());
+		saringan.semester = (String) (searchsemester.getSelectedItem() == null ? null : searchsemester.getSelectedItem().getValue());
+
 		new Thread(new Runnable() {
 
 			@Override
 			public void run() {
 				try {
-
-				XSSFWorkbook workbook = new XSSFWorkbook();
-
-				XSSFSheet sheet = workbook.createSheet("Ajar Dosen");
-				sheet.setDefaultColumnWidth(18);
-
-				XSSFRow rowhead = sheet.createRow((short) 0);
-
-				rowhead.createCell(0).setCellValue("semester");
-				rowhead.createCell(1).setCellValue("NIDN");
-				rowhead.createCell(2).setCellValue("Nama Dosen");
-				rowhead.createCell(3).setCellValue("kode matakuliah");
-				rowhead.createCell(4).setCellValue("Nama Kelas");
-				rowhead.createCell(5).setCellValue("Tatap Muka");
-				rowhead.createCell(6).setCellValue("Tatap Realisasi");
-				rowhead.createCell(7).setCellValue("Kode Prodi");
-				rowhead.createCell(8).setCellValue("SKS Ajar");
-				rowhead.createCell(9).setCellValue("Program");
-				rowhead.createCell(10).setCellValue("Nama matakuliah");
-
-				Session session = HibernateUtil.currentNativeSession();
-
-				List<Perkuliahan> perkuliahans = session.createCriteria(Perkuliahan.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-
-						.add(searchmasaperkulaiahan.getAttribute("masaPerkuliahan") == null
-								? Restrictions.sqlRestriction("1=1")
-								: Restrictions.eq("masaPerkuliahan",
-										searchmasaperkulaiahan.getAttribute("masaPerkuliahan")))
-
-						.add(searchtahunakademik.getSelectedItem() == null
-								|| searchtahunakademik.getSelectedItem().getValue() == null
-										? Restrictions.sqlRestriction("true")
-										: Restrictions.eq("tahunAjaran",
-												searchtahunakademik.getSelectedItem().getValue()))
-
-						.add(searchsemester.getSelectedItem() == null
-								|| searchsemester.getSelectedItem().getValue() == null
-										? Restrictions.sqlRestriction("1=1")
-										: Restrictions.eq("ganjilGenap", searchsemester.getSelectedItem().getValue()))
-
-						.add(!kel.trim().isEmpty() ? Restrictions.ilike("kelas", kel.trim(), MatchMode.ANYWHERE)
-								: Restrictions.sqlRestriction("true"))
-
-						.add(semesterDariAngkatan == null || semesterDariAngkatan.intValue() <= 0
-								? Restrictions.sqlRestriction("true")
-								: Restrictions.eq("semester", semesterDariAngkatan))
-
-						.add(searchjurusan.getSelectedItem() == null
-								|| searchjurusan.getSelectedItem().getValue() == null
-										? Restrictions.sqlRestriction("1=1")
-										: Restrictions.eq("jurusan", jurusan))
-
-						.createAlias("jurusan", "jurusan", Criteria.LEFT_JOIN)
-
-						.add(searchfakultas.getSelectedItem() == null
-								|| searchfakultas.getSelectedItem().getValue() == null
-										? Restrictions.sqlRestriction("1=1")
-										: CommonSearchFilterHelper.eqSelectedWithId("jurusan.fakultas", searchfakultas, false))
-
-						.add(searchprogram.getSelectedItem() == null
-								|| searchprogram.getSelectedItem().getValue() == null
-								|| searchprogram.getSelectedItem().getValue() == null
-										? Restrictions.sqlRestriction("1=1")
-										: Restrictions.eq("program", searchprogram.getSelectedItem().getValue()))
-
-						.addOrder(Order.desc("id")).list();
-
-				XSSFCellStyle notLocked = workbook.createCellStyle();
-				notLocked.setFillPattern(XSSFCellStyle.SOLID_FOREGROUND);
-				notLocked.setFillForegroundColor(new XSSFColor(Color.LIGHT_GRAY));
-
-				int size = perkuliahans.size();
-
-				int rowIndex = 1;
-				for (Perkuliahan perkuliahan : perkuliahans) {
-
-					Map<String, Dosen> dosens = perkuliahan.populateDosen();
-
-					label.setValue("Sedang memproses data " + perkuliahan.toString() + " ("
-							+ Common.numberFormat.get().format(rowIndex * 100.0 / size) + " %)");
-
-					if (dosens.isEmpty()) {
-
-						XSSFRow row = sheet.createRow(rowIndex);
-
-						String id_smt = searchmasaperkulaiahan.getAttribute("masaPerkuliahan") != null
-								? ((MasaPerkuliahan) searchmasaperkulaiahan.getAttribute("masaPerkuliahan")).getNama()
-								: perkuliahan.getTahunAjaran().split("/")[0]
-										+ (perkuliahan.getStatusSemesterPendek() != null && perkuliahan
-												.getStatusSemesterPendek().equals(Perkuliahan.SEMESTER_PENDEK) ? "3"
-														: (perkuliahan.getSemester() % 2 == 0 ? "2" : "1"));
-
-						XSSFCell cell = row.createCell(0);
-						cell.setCellStyle(notLocked);
-						cell.setCellValue(id_smt);
-
-						cell = row.createCell(1);
-						cell.setCellValue("");
-
-						cell = row.createCell(2);
-						cell.setCellValue("");
-
-						cell = row.createCell(3);
-						cell.setCellStyle(notLocked);
-						cell.setCellValue(
-								perkuliahan.getMatakuliah() == null ? "" : perkuliahan.getMatakuliah().getKode());
-
-						cell = row.createCell(4);
-						cell.setCellStyle(notLocked);
-						cell.setCellValue(perkuliahan.getKelas());
-
-						cell = row.createCell(5);
-						cell.setCellValue(perkuliahan.getJumlahMaksimalPertemuan());
-
-						int jumlah = ((Number) session.createCriteria(Pertemuan.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-								.add(Restrictions.eq("perkuliahan", perkuliahan)).setProjection(Projections.rowCount())
-								.uniqueResult()).intValue();
-
-						cell = row.createCell(6);
-						cell.setCellValue(jumlah);
-
-						cell = row.createCell(7);
-						cell.setCellValue(perkuliahan.getJurusan().getKodeEpsbed());
-
-						cell = row.createCell(8);
-						cell.setCellValue(
-								perkuliahan.getMatakuliah() == null ? null : perkuliahan.getMatakuliah().getSks());
-
-						cell = row.createCell(9);
-						cell.setCellStyle(notLocked);
-						cell.setCellValue(perkuliahan.getProgram());
-
-						cell = row.createCell(10);
-						cell.setCellValue(
-								perkuliahan.getMatakuliah() == null ? "" : perkuliahan.getMatakuliah().getNama());
-
-						rowIndex++;
-
-					} else {
-
-						for (Dosen dosen : dosens.values()) {
-							XSSFRow row = sheet.createRow(rowIndex);
-
-							String id_smt = searchmasaperkulaiahan.getAttribute("masaPerkuliahan") != null
-									? ((MasaPerkuliahan) searchmasaperkulaiahan.getAttribute("masaPerkuliahan"))
-											.getNama()
-									: perkuliahan.getTahunAjaran().split("/")[0]
-											+ (perkuliahan.getStatusSemesterPendek() != null && perkuliahan
-													.getStatusSemesterPendek().equals(Perkuliahan.SEMESTER_PENDEK) ? "3"
-															: (perkuliahan.getSemester() % 2 == 0 ? "2" : "1"));
-
-							XSSFCell cell = row.createCell(0);
-							cell.setCellStyle(notLocked);
-							cell.setCellValue(id_smt);
-
-							cell = row.createCell(1);
-							cell.setCellStyle(notLocked);
-							cell.setCellValue(dosen.getNidn());
-
-							cell = row.createCell(2);
-							cell.setCellValue(dosen.getNama());
-
-							cell = row.createCell(3);
-							cell.setCellStyle(notLocked);
-							cell.setCellValue(
-									perkuliahan.getMatakuliah() == null ? "" : perkuliahan.getMatakuliah().getKode());
-
-							cell = row.createCell(4);
-							cell.setCellStyle(notLocked);
-							cell.setCellValue(perkuliahan.getKelas());
-
-							cell = row.createCell(5);
-							cell.setCellValue(perkuliahan.getJumlahMaksimalPertemuan());
-
-							int jumlah = ((Number) session.createCriteria(Pertemuan.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-									.add(Restrictions.eq("perkuliahan", perkuliahan))
-									.setProjection(Projections.rowCount()).uniqueResult()).intValue();
-
-							cell = row.createCell(6);
-							cell.setCellValue(jumlah);
-
-							cell = row.createCell(7);
-							cell.setCellStyle(notLocked);
-							cell.setCellValue(perkuliahan.getJurusan().getKodeEpsbed());
-
-							cell = row.createCell(8);
-							cell.setCellValue(
-									perkuliahan.getMatakuliah() == null ? null : perkuliahan.getMatakuliah().getSks());
-
-							cell = row.createCell(9);
-							cell.setCellStyle(notLocked);
-							cell.setCellValue(perkuliahan.getProgram());
-
-							cell = row.createCell(10);
-							cell.setCellValue(
-									perkuliahan.getMatakuliah() == null ? "" : perkuliahan.getMatakuliah().getNama());
-
-							rowIndex++;
-						}
-					}
-
-				}
-
-				Common.setStyled(sheet);sizedata.setValue(rowIndex + 1);
-
-				try {
-					FileOutputStream fileOut = new FileOutputStream(filename);
-					workbook.write(fileOut);
-					fileOut.close();
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
+					// Susunan berkas milik EksporAjarDosenFeeder; layar ini hanya
+					// menyediakan saringan dan menampilkan kemajuannya. Menyalin
+					// pemetaan kolomnya ke sini akan membuat dua daftar kolom yang
+					// harus dijaga sama terhadap aturan PDDIKTI.
+					int jumlah = ais.action.master.feeder.integrator.ekspor.EksporAjarDosenFeeder.tulis(
+							file, saringan,
+							new ais.common.newui.pekerjaan.PekerjaanRegistry.Progres() {
+								@Override
+								public void lapor(int persen, String pesan) {
+									label.setValue(pesan + " (" + persen + " %)");
+								}
+							});
+					sizedata.setValue(jumlah + 1);
+					label.setValue("");
+				} catch (Exception e) {
 					Common.tampilErrorJikaAdmin(e);
-				}
-
-				System.out.println("Your excel file has been generated! " );
-
-				HibernateUtil.closeSession();
-
-				perkuliahans.clear();
-				label.setValue("");
-							} catch (Exception e) {
-					// FIX "gagal diam-diam" / hang selamanya: sebelumnya try di sini TIDAK punya catch,
-					// sehingga exception (mis. gagal query/generate Excel) menembus run() tanpa
-					// tertangani -> thread mati & label.setValue("") tak pernah tercapai, progress bar
-					// tak pernah selesai (popup menggantung selamanya di sisi user).
-					ais.common.Common.tampilErrorJikaAdmin(e);
 					label.setValue("Error: " + ais.common.PesanFormalHelper.pesanGagalException(
-							"pengambilan data Ajar Dosen dari database untuk diekspor ke Neo Feeder",
-							null, e,
+							"penyiapan berkas ekspor Ajar Dosen", null, e,
 							new String[] {
-									"Periksa kembali data dan filter yang dipilih (Fakultas/Prodi/Kelas/TA-Semester/Masa), lalu coba ulangi.",
-									"Pastikan data Perkuliahan dan Dosen pengajar terkait sudah benar dan lengkap.",
-									"Jika kendala berulang, hubungi Administrator Sistem atau laporkan ke Pengembang Sistem disertai tangkapan layar (screenshot) pesan ini." })
+									"Periksa kembali saringan yang dipilih lalu ulangi.",
+									"Pastikan data terkait sudah lengkap.",
+									"Jika kendala berulang, hubungi Administrator Sistem." })
 							.replace("\n", " "));
 				} finally {
+					/* currentNativeSession() wajib ditutup tepat sekali dan ThreadLocal dibersihkan. */
 					ais.database.hibernate.HibernateUtil.closeSession();
 				}
 			}
 		}).start();
+
 
 	}
 
