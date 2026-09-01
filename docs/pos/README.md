@@ -74,6 +74,8 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [35-anggaran-id-negatif.md](35-anggaran-id-negatif.md) | Modul Anggaran: id negatif pada data warisan, ringkasan yang berlipat 3x, dan id 19 digit di kanal JSP |
 | [36-gerbang-impor-dan-kanal-jsp.md](36-gerbang-impor-dan-kanal-jsp.md) | Impor massal Kode Akun yang tak bergerbang, paritas kanal JSP, dan kompilasi Java 7 |
 | [37-angka-laporan-dapat-diklik.md](37-angka-laporan-dapat-diklik.md) | Angka subtotal & grand total Laporan-Laporan ikut dapat diklik di keempat kanal |
+| [70-panduan-membuka-laporan-keuangan.md](70-panduan-membuka-laporan-keuangan.md) | Panduan staf: dua pintu menu ke katalog laporan, tujuh kebutuhan keuangan yayasan, dan tiga sebab laporan tampil kosong |
+| [70-panduan-laporan-keuangan-an-nahl.pdf](70-panduan-laporan-keuangan-an-nahl.pdf) | Versi PDF bergambar dari panduan di atas, siap dibagikan ke staf; pembuatnya di [panduan-ilustrasi/](panduan-ilustrasi/README.md) |
 
 > Catatan penomoran: ada **dua** berkas bernomor 10 — `10-pengadaan.md` dan
 > `10-pesan-galat-dan-detail-error.md` — karena ditulis dua sesi kerja yang berjalan

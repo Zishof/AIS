@@ -102,9 +102,14 @@ Keduanya bebas nama schema, SQL, jejak tumpukan, dan kredensial.
 
 ## Yang BELUM dikerjakan
 
-- **Aksi `si_*` belum menuntut TenantContext.** Urutan dispatcher yang §10 minta —
-  resolve tenant → resolve aktor + scope → cek menu/CRUD → jalankan aksi — baru berlaku
-  untuk `tenant_*`. Menerapkannya ke 112 aksi `si_*` adalah P4.
-- **`isiTenant` belum dipanggil dari jalur `si_*`**, karena jalur itu belum ber-tenant.
-- Pemblokir Envers dan `mutasi_idempoten` tanpa skema masih berdiri; keduanya menghadang
-  P3, bukan P4 — lihat [01-tenant-context.md](01-tenant-context.md).
+- ~~**Aksi `si_*` belum menuntut TenantContext.**~~ **Sudah tidak berlaku.**
+  `SalesInventoryApiDispatcher` kini me-resolve tenant (baris 48), memasangnya ke aktor
+  lewat `isiTenant` (baris 50), dan menjalankan gerbang RBAC `TenantRbac.boleh` (baris 66)
+  sebelum aksi dijalankan. Aktor tanpa tenant lolos tanpa perubahan, sesuai §12.5.
+- ~~**`isiTenant` belum dipanggil dari jalur `si_*`**~~ — dipanggil, lihat di atas.
+- **Yang benar-benar tersisa: kuerinya, bukan gerbangnya.** Gerbang tenant sudah berdiri,
+  tetapi SQL di dalam helper masih menunjuk schema `koperasi`. Itulah P4 — dan bentuknya
+  bukan penggantian prefiks; lihat [04-refactor-si.md](04-refactor-si.md).
+- Pemblokir **Envers** masih berdiri (menghadang P3, bukan P4) — lihat
+  [01-tenant-context.md](01-tenant-context.md). Pemblokir `mutasi_idempoten`
+  **sudah ditutup**, lihat [04-refactor-si.md](04-refactor-si.md).

@@ -91,8 +91,12 @@ konstruktor.
 
 ## Yang BELUM dikerjakan P1
 
-- **Belum ada pemanggil.** Tujuh kelas ini berdiri sendiri; menyambungkannya ke
-  dispatcher `si_*` adalah P4, dan itu menuntut keputusan Envers di bawah.
+- ~~**Belum ada pemanggil.**~~ **Sudah tidak berlaku.** Lima dari tujuh kelas kini
+  dipakai di luar paketnya: `TenantAccessException`, `TenantContext`,
+  `TenantContextResolver`, `TenantMembershipResolver`, dan `TenantSchemaLocator` —
+  terutama oleh `SalesInventoryApiDispatcher` dan `TenantApiDispatcher`. Yang masih
+  menunggu P4 hanya **`TenantSqlExecutor`** dan **`TenantRequestExecutor`**, sebab
+  keduanya baru terpakai ketika kueri `si_*` benar-benar berpindah ke schema tenant.
 - **Envers masih pemblokir.** `org.hibernate.envers.default_schema=new_audit`
   bersifat statis per SessionFactory, sehingga baris audit 1.561 entitas `@Audited`
   dari semua tenant berkumpul di satu schema. `TenantContext.auditSchemaName`
