@@ -557,5 +557,64 @@ disentuh (default untuk semua file yang tidak disebut di sini).
   — diperkaya jadi penjelasan konkret per instruksi pengguna, bukan ditulis
   dari nol. Semua dikompilasi (javac 1.7, `-implicit:none`, lulus) dan
   dikommit PER FILE segera setelah lulus kompilasi; tidak ada insiden sweep
-  sesi paralel terdeteksi pada batch ini, tidak ada file yang di-skip. Belum
-  di-mirror ke `java/` sesi ini.
+  sesi paralel terdeteksi pada batch ini, tidak ada file yang di-skip.
+
+### 2 Sep 2026 — konsolidasi akhir batch "53 file berdiri sendiri"
+
+**Semua 53/53 file rampung** (rincian per file ada di 6+ sub-bagian di atas,
+ditulis langsung oleh masing-masing agent pelaksana): file-file ini TIDAK
+punya pola referensi+link seperti 2 batch sebelumnya — masing-masing action/
+helper/window/panel berdiri sendiri, jadi didokumentasikan penuh mandiri.
+Orkestrator sudah menjalankan `svn update` menyeluruh, verifikasi 53/53 file
+bersih, **mirror ke `java/` (r82916, verifikasi `cmp` byte-identik semua
+53 file)**.
+
+**Total akumulasi 3 batch sesi ini + sesi lalu: 49 (`Revisi*Helper`) + 84
+(`GetEventListener`+`AmbilData*Banbox`) + 53 (mandiri) = 186 file dari 7.401
+(~2,5%).**
+
+**Pelajaran proses tambahan (penting untuk sesi berikutnya):**
+- **Edit tool bisa diam-diam mengonversi SELURUH file dari CRLF ke LF** saat
+  edit pertama pada file itu (bukan cuma baris yang diubah) — ditemukan di
+  `KrsDanSkripsiHelper.java`, `MainHelper.java`, dan 59 baris di
+  `PertemuanPunyaUjianHelper.java`. Perbaikan: `perl -pi -e 's/\r?\n/\r\n/g'
+  <file>` SEBELUM commit, dan JANGAN asumsikan "pasti CRLF" dari kebiasaan —
+  selalu cek ulang `grep -cU $'\r$' <file>` vs `wc -l <file>` SETELAH edit,
+  bukan cuma sebelum.
+- **Sebagian file di repo ini pure-LF secara sah dari awal** (bukan bug edit):
+  `DaftarUlangPembayaranHelper.java`, `DetailPAHelper.java`,
+  `KegiatanKemahasiswaanPunyaMahasiswaHelper.java` dikonfirmasi lewat
+  `svn cat` pristine sudah LF sebelum disentuh — jangan paksa jadi CRLF.
+- **Rekursi delegasi antar-agent bisa 3-4 tingkat** (orkestrator → agent
+  batch → sub-agent per beberapa file → kadang sub-sub-agent per 1 file) —
+  normal dan biasanya tetap tuntas, tapi verifikasi progres nyata SELALU
+  lewat `svn log`/`svn status` per file, bukan cuma percaya laporan teks.
+- **2 temuan kerentanan keamanan nyata** (didokumentasikan di Javadoc,
+  DIESKALASI ke task terpisah `task_99c9a86a` untuk perbaikan, BUKAN
+  bagian dari inisiatif dokumentasi ini): `ResetPasswordGuruSiswaHelper.java`
+  (r82900) dan `ResetPasswordDosenMahasiswaHelper.java` (r82909)
+  sama-sama mengeset password baru = User ID/NIS/NIM pengguna itu sendiri
+  (predictable), ditampilkan/dicetak plaintext ke admin.
+- **Interface framework AIS yang sangat luas dipakai** (ditemukan tapi BELUM
+  digarap — kandidat sesi berikutnya, TAPI beda karakter dari
+  `GenericRevisiHelper`/`GetEventListener`): `ais.ui.util.DataCriteria`
+  (602 implementer), `DataSearchDefault` (494), `DataInitDefault` (327),
+  `ais.common.listener.DataLoader` (125) — SEMUA sudah punya Javadoc
+  interface yang BAIK (bukan template generik, tidak perlu disentuh lagi).
+  BEDA dari pola sebelumnya: implementer-nya adalah Action/screen class BESAR
+  dengan logika substantif unik per file (bukan subclass tipis) — jadi
+  "link ke referensi" saja TIDAK cukup, tetap perlu dokumentasi penuh per
+  file. Nilai dari fakta ini: saat mendokumentasikan Action manapun yang
+  implements salah satu interface ini, boleh `@see`/`{@link}` balik ke
+  interface itu untuk kontrak umum method `initCriteria`/`onSearchDefault`/
+  `init`, TAPI logika query/bisnis spesifiknya tetap wajib dijelaskan detail
+  sendiri.
+
+**Kandidat lanjutan sesi berikutnya**: lanjutkan menyapu sisa file
+`ais.action.master.helper/*.java` yang belum kategori manapun (masih ada
+banyak di luar 53 file batch ini — total paket ini ~409 file), ATAU mulai
+modul lain sepenuhnya (`ais.database.model/*` — 483 file POJO Hibernate,
+kemungkinan besar banyak template generik & getter/setter, cek dulu skala
+kerja per file sebelum estimasi), ATAU jelajahi package `ais.action.master.*`
+lain yang belum tersentuh sama sekali.</new_string>
+

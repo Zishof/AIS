@@ -121,6 +121,7 @@ public class FormatNilai extends GeneralValueObject {
 	private String feeder;
 	private CapaianPembelajaranLulusan capaianPembelajaranLulusan;
 	private String kodeSubCpmk;
+	private static final int PANJANG_STRING_STANDAR = 255;
 
 	public FormatNilai() {
 	}
@@ -241,13 +242,13 @@ public class FormatNilai extends GeneralValueObject {
 				String kode = jsonObject.isNull("kode") ? "" : (jsonObject.get("kode") + "").trim();
 				String namaFormula = jsonObject.isNull("nama") ? "" : (jsonObject.get("nama") + "").trim();
 				if (kode.length() > 0 && namaFormula.length() > 0) {
-					return kode + " - " + namaFormula;
+					return potongStringStandar(kode + " - " + namaFormula);
 				}
 				if (kode.length() > 0) {
-					return kode;
+					return potongStringStandar(kode);
 				}
 				if (namaFormula.length() > 0) {
-					return namaFormula;
+					return potongStringStandar(namaFormula);
 				}
 			}
 		} catch (Exception e) {
@@ -267,21 +268,21 @@ public class FormatNilai extends GeneralValueObject {
 		if (formatObe) {
 			String namaFormula = ambilNamaObeDariFormula();
 			if (namaFormula.length() > 0 && !hanyaAngka(namaFormula)) {
-				nama = namaFormula;
+				nama = potongStringStandar(namaFormula);
 				return nama;
 			}
 		}
 		if (perkuliahan != null && perkuliahan.getPembombotanNilai() != null && statusPertemuan != null) {
-			nama = FormatNilai.ambilNama(statusPertemuan, perkuliahan);
+			nama = potongStringStandar(FormatNilai.ambilNama(statusPertemuan, perkuliahan));
 		} else if (statusPertemuan != null) {
-			nama = statusPertemuan.getNama();
+			nama = potongStringStandar(statusPertemuan.getNama());
 		}
 
 		return nama;
 	}
 
 	public void setNama(String nama) {
-		this.nama = nama;
+		this.nama = potongStringStandar(nama);
 	}
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
@@ -378,7 +379,18 @@ public class FormatNilai extends GeneralValueObject {
 	}
 
 	public void setKodeSubCpmk(String kodeSubCpmk) {
-		this.kodeSubCpmk = kodeSubCpmk;
+		this.kodeSubCpmk = potongStringStandar(kodeSubCpmk);
+	}
+
+	private static String potongStringStandar(String value) {
+		if (value == null) {
+			return null;
+		}
+		String hasil = value.trim();
+		if (hasil.length() <= PANJANG_STRING_STANDAR) {
+			return hasil;
+		}
+		return hasil.substring(0, PANJANG_STRING_STANDAR);
 	}
 
 	public Double ambilMinimal() throws Exception {
