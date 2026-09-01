@@ -38,19 +38,19 @@ import java.text.SimpleDateFormat;
  * </p>
  *
  * <p>
- * <b>PERINGATAN KEAMANAN KRITIS:</b> konstanta {@link #PRIVATE_KEY} berisi RSA private key
- * lengkap format PKCS8/PEM yang ditulis langsung (hardcoded) di kode sumber ini (baris berisi
- * blok {@code -----BEGIN PRIVATE KEY----- ... -----END PRIVATE KEY-----}). Nilai ini dipakai
- * sebagai NILAI DEFAULT/FALLBACK oleh {@link #readPKCS8PrivateKey()} — yaitu hanya dipakai bila
- * konfigurasi database {@code BRI_PRIVATE_KEY} (lewat {@code Common.getKonfigurasi}) belum
- * diisi — namun keberadaannya di kode sumber tetap merupakan kebocoran kredensial nyata: siapa
- * pun dengan akses baca ke repositori (termasuk riwayat SVN) dapat memperoleh private key ini.
- * Bila key tersebut adalah private key produksi sungguhan milik merchant BRI AIS (bukan key
- * contoh dari dokumentasi API), maka pihak lain berpotensi menandatangani permintaan API BRI
- * atas nama merchant ini. Javadoc ini TIDAK mengubah nilai tersebut sesuai instruksi; lihat
- * ringkasan laporan terkait untuk detail lokasi baris agar dapat ditindaklanjuti (mis. rotasi
- * key di sisi BRI dan penghapusan nilai literal ini dari kode sumber, cukup mengandalkan
- * konfigurasi database/secret store).
+ * <b>Riwayat keamanan (DIPERBAIKI 2026-09-01):</b> kelas ini sebelumnya menyimpan RSA private
+ * key lengkap format PKCS8/PEM sebagai konstanta hardcoded ({@code PRIVATE_KEY}) yang dipakai
+ * sebagai nilai default/fallback oleh {@link #readPKCS8PrivateKey()} bila konfigurasi database
+ * {@code BRI_PRIVATE_KEY} belum diisi. Nilai literal itu sudah DIHAPUS dari kode sumber — kunci
+ * kini WAJIB dibaca dari konfigurasi {@code BRI_PRIVATE_KEY}, dan {@link #readPKCS8PrivateKey()}
+ * melempar {@link IllegalStateException} bila konfigurasi tersebut kosong, alih-alih diam-diam
+ * jatuh ke key tertanam. Dua baris {@code System.out.println} yang sebelumnya mencetak PEM
+ * key (setara dengan private key itu sendiri) dan bahan tanda tangan ke log juga sudah dihapus.
+ * <b>Tindak lanjut yang TETAP diperlukan di luar perubahan kode ini:</b> key yang sebelumnya
+ * tertanam sudah lama berada di riwayat SVN repositori ini dan harus dianggap bocor — bila itu
+ * key produksi sungguhan milik merchant BRI AIS (bukan key contoh dokumentasi API), WAJIB
+ * dirotasi/dicabut di sisi BRI dan diganti dengan key baru yang HANYA disimpan di konfigurasi
+ * database/secret store, tidak pernah di kode sumber.
  * </p>
  */
 public class BRIUtil {
@@ -80,52 +80,29 @@ public class BRIUtil {
 	};
 
 	/**
-	 * Nilai default/fallback RSA private key format PKCS8/PEM yang dipakai
-	 * {@link #readPKCS8PrivateKey()} apabila konfigurasi {@code BRI_PRIVATE_KEY} belum diisi
-	 * di database. <b>Kredensial tertanam di kode sumber — lihat peringatan keamanan kritis
-	 * pada javadoc kelas.</b>
-	 */
-	private final static String PRIVATE_KEY = "-----BEGIN PRIVATE KEY-----\n"
-			+ "MIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAKNwapOQ6rQJHetP\n"
-			+ "HRlJBIh1OsOsUBiXb3rXXE3xpWAxAha0MH+UPRblOko+5T2JqIb+xKf9Vi3oTM3t\n"
-			+ "KvffaOPtzKXZauscjq6NGzA3LgeiMy6q19pvkUUOlGYK6+Xfl+B7Xw6+hBMkQuGE\n"
-			+ "nUS8nkpR5mK4ne7djIyfHFfMu4ptAgMBAAECgYA+s0PPtMq1osG9oi4xoxeAGikf\n"
-			+ "JB3eMUptP+2DYW7mRibc+ueYKhB9lhcUoKhlQUhL8bUUFVZYakP8xD21thmQqnC4\n"
-			+ "f63asad0ycteJMLb3r+z26LHuCyOdPg1pyLk3oQ32lVQHBCYathRMcVznxOG16VK\n"
-			+ "I8BFfstJTaJu0lK/wQJBANYFGusBiZsJQ3utrQMVPpKmloO2++4q1v6ZR4puDQHx\n"
-			+ "TjLjAIgrkYfwTJBLBRZxec0E7TmuVQ9uJ+wMu/+7zaUCQQDDf2xMnQqYknJoKGq+\n"
-			+ "oAnyC66UqWC5xAnQS32mlnJ632JXA0pf9pb1SXAYExB1p9Dfqd3VAwQDwBsDDgP6\n"
-			+ "HD8pAkEA0lscNQZC2TaGtKZk2hXkdcH1SKru/g3vWTkRHxfCAznJUaza1fx0wzdG\n"
-			+ "GcES1Bdez0tbW4llI5By/skZc2eE3QJAFl6fOskBbGHde3Oce0F+wdZ6XIJhEgCP\n"
-			+ "iukIcKZoZQzoiMJUoVRrA5gqnmaYDI5uRRl/y57zt6YksR3KcLUIuQJAd242M/WF\n"
-			+ "6YAZat3q/wEeETeQq1wrooew+8lHl05/Nt0cCpV48RGEhJ83pzBm3mnwHf8lTBJH\n" + "x6XroMXsmbnsEw==\n"
-			+ "-----END PRIVATE KEY-----";
-
-	/**
 	 * Memuat RSA private key yang dipakai untuk menandatangani permintaan API BRI. Nilai PEM
-	 * key diambil dari konfigurasi database {@code BRI_PRIVATE_KEY} (lewat
-	 * {@code Common.getKonfigurasi}), dengan {@link #PRIVATE_KEY} sebagai nilai default/fallback
-	 * bila konfigurasi tersebut belum diisi (lihat peringatan keamanan pada javadoc kelas).
-	 * Baris header/footer PEM ({@code -----BEGIN/END PRIVATE KEY-----}) dan seluruh whitespace
-	 * dibuang, sisanya di-decode Base64 menjadi bentuk {@link PKCS8EncodedKeySpec} lalu
-	 * dikonversi menjadi objek {@link RSAPrivateKey} lewat {@link KeyFactory} algoritma RSA.
-	 *
-	 * <p>
-	 * <b>Catatan:</b> method ini mencetak PEM yang sudah dibersihkan (base64 mentah, yang
-	 * sebenarnya SETARA dengan private key itu sendiri) ke {@link System#out} lewat
-	 * {@code System.out.println("pkcs8Pem -> " + pkcs8Pem)} — ini berpotensi membocorkan
-	 * private key ke berkas log aplikasi bila level log/console ditangkap dan disimpan.
-	 * </p>
+	 * key WAJIB berasal dari konfigurasi database {@code BRI_PRIVATE_KEY} (lewat
+	 * {@code Common.getKonfigurasi}) — tidak ada nilai default/fallback tertanam di kode
+	 * (lihat riwayat keamanan pada javadoc kelas). Baris header/footer PEM
+	 * ({@code -----BEGIN/END PRIVATE KEY-----}) dan seluruh whitespace dibuang, sisanya
+	 * di-decode Base64 menjadi bentuk {@link PKCS8EncodedKeySpec} lalu dikonversi menjadi objek
+	 * {@link RSAPrivateKey} lewat {@link KeyFactory} algoritma RSA.
 	 *
 	 * @return objek {@link RSAPrivateKey} siap pakai untuk operasi {@link Signature}
+	 * @throws IllegalStateException bila konfigurasi {@code BRI_PRIVATE_KEY} kosong/belum diisi
 	 * @throws Exception diteruskan dari kegagalan decode Base64, parsing PKCS8, atau algoritma
 	 *                    RSA tidak tersedia di penyedia keamanan JVM
 	 */
 	public static RSAPrivateKey readPKCS8PrivateKey() throws Exception {
 
+		String konfigurasiKey = Common.getKonfigurasi("BRI_PRIVATE_KEY", "").getNilai();
+		if (konfigurasiKey == null || konfigurasiKey.trim().isEmpty()) {
+			throw new IllegalStateException(
+					"Private key BRI belum dikonfigurasi. Isi konfigurasi BRI_PRIVATE_KEY dengan RSA private key format PKCS8/PEM merchant BRI AIS.");
+		}
+
 		StringBuilder pkcs8Lines = new StringBuilder();
-		BufferedReader rdr = new BufferedReader(
-				new StringReader(Common.getKonfigurasi("BRI_PRIVATE_KEY", PRIVATE_KEY).getNilai()));
+		BufferedReader rdr = new BufferedReader(new StringReader(konfigurasiKey));
 		String line;
 		while ((line = rdr.readLine()) != null) {
 			pkcs8Lines.append(line);
@@ -138,7 +115,6 @@ public class BRIUtil {
 		pkcs8Pem = pkcs8Pem.replace("-----END PRIVATE KEY-----", "");
 		pkcs8Pem = pkcs8Pem.replaceAll("\\s+", "");
 
-		System.out.println("pkcs8Pem -> " + pkcs8Pem);
 		// Base64 decode the result
 
 		byte[] encoded = java.util.Base64.getDecoder().decode(pkcs8Pem);
@@ -156,12 +132,6 @@ public class BRIUtil {
 	 * {@code SHA256withRSA} memakai private key dari {@link #readPKCS8PrivateKey()}, lalu hasil
 	 * tanda tangan biner di-encode Base64 agar siap dikirim sebagai header/parameter HTTP.
 	 *
-	 * <p>
-	 * <b>Catatan:</b> method ini mencetak {@code stringToSign} (bahan mentah sebelum
-	 * ditandatangani, berisi client id) ke {@link System#out} untuk keperluan debug — tidak
-	 * membocorkan key itu sendiri, namun tetap sebaiknya tidak aktif di lingkungan produksi.
-	 * </p>
-	 *
 	 * @param clientId          client id/merchant id API BRI
 	 * @param formattedTimestamp timestamp permintaan yang sudah diformat sesuai spesifikasi API
 	 *                            BRI (lihat {@link #dateFormat}/{@link #dateFormat1})
@@ -173,8 +143,6 @@ public class BRIUtil {
 	 */
 	public static String generateSignatureToken(String clientId, String formattedTimestamp) throws Exception {
 		String stringToSign = clientId + "|" + formattedTimestamp;
-
-		System.out.println("stringToSign -> " + stringToSign);
 
 		Signature sig = Signature.getInstance("SHA256withRSA");
 		sig.initSign(readPKCS8PrivateKey());
