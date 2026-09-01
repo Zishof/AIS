@@ -253,8 +253,8 @@ public class DownloadMahasiswa extends MyWindow {
 		final Intbox sizedata = new Intbox(30);
 		final Label label = Common.displayLoadBar(this, file, center, sizedata);
 
-		final ais.action.master.feeder.integrator.ekspor.EksporMahasiswaFeeder.Saringan saringan =
-				new ais.action.master.feeder.integrator.ekspor.EksporMahasiswaFeeder.Saringan();
+		final ais.action.master.feeder.integrator.ekspor.SaringanFeeder saringan =
+				new ais.action.master.feeder.integrator.ekspor.SaringanFeeder();
 		saringan.kelas = kel;
 		saringan.nim = nimMahasiswa.getValue() == null ? "" : nimMahasiswa.getValue();
 		saringan.nama = namaMahasiswa.getValue() == null ? "" : namaMahasiswa.getValue();

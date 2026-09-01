@@ -424,7 +424,8 @@ public class UploadNilaiTransfer extends MyWindow {
 											: detailperkuliahan.getMatakuliahKonversi();
 									if (matakuliah != null) {
 
-										DownloadNilaiTransfer.createData(session, sheet, rowIndex, detailperkuliahan);
+										ais.action.master.feeder.integrator.ekspor.EksporNilaiTransferFeeder.createData(
+												session, sheet, rowIndex, detailperkuliahan);
 
 										rowIndex++;
 									report.sukses(i, nim + "/" + kodeMatakuliah, "Nilai Transfer berhasil");

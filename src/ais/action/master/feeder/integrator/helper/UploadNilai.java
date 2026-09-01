@@ -622,7 +622,8 @@ public class UploadNilai extends MyWindow {
 											: detailperkuliahan.getMatakuliahKonversi();
 									if (matakuliah != null) {
 
-										DownloadNilai.createData(session, sheet, rowIndex, detailperkuliahan, null,
+										ais.action.master.feeder.integrator.ekspor.EksporNilaiFeeder.createData(
+												session, sheet, rowIndex, detailperkuliahan, null,
 												notLocked, hapus, null);
 
 										rowIndex++;

@@ -535,7 +535,8 @@ public class UploadKrs extends MyWindow {
 											: detailperkuliahan.getMatakuliahKonversi();
 									if (matakuliah != null) {
 
-										if (DownloadKrs.createData(session, sheet, rowIndex, detailperkuliahan, null,
+										if (ais.action.master.feeder.integrator.ekspor.EksporKrsFeeder.createData(
+												session, sheet, rowIndex, detailperkuliahan, null,
 												notLocked)) {
 											rowIndex++;
 											report.sukses(i, nim + "/" + kodeMatakuliah, "KRS berhasil");
