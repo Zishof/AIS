@@ -114,7 +114,7 @@ public class CapaianPembelajaranLulusanAction extends ObeBaseAction {
         ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot()
                 .appendChild(action.addWindow);
         action.addWindow.setHeight("98%");
-        action.addWindow.setWidth("550px");
+        action.addWindow.setWidth("900px");
         // Untuk form TAMBAH BARU: dropdown kosong (default); checkbox "Khusus MK Ini" bila
         // dicentang → otomatis mengisi dengan khususMk (MK konteks saat ini).
         action.contextMkForAdd = khususMk;
@@ -215,6 +215,10 @@ public class CapaianPembelajaranLulusanAction extends ObeBaseAction {
 
     public void reloadFormula(final Row rowFormula, final JSONArray array) throws Exception {
         final MyFormRow dataRow = new MyFormRow();
+        if (rowFormula.getGrid() != null) {
+            rowFormula.getGrid().setWidth("100%");
+            rowFormula.getGrid().setStyle("border:0px;background:transparent;width:100%;");
+        }
 
         MyToolbarbuttonConfig addBtn = new MyToolbarbuttonConfig("Tambah Sub-CPMK", "/img/svg/addthis.svg");
         addBtn.setTooltiptext("Tambah Sub-CPMK");
@@ -243,6 +247,7 @@ public class CapaianPembelajaranLulusanAction extends ObeBaseAction {
         aiBtn.setParent(rowFormula);
 
         dataRow.setParent(rowFormula.getParent());
+        dataRow.setStyle("border:0px;background:transparent;width:100%;");
         reloadDataFormula(dataRow, array);
     }
 
@@ -316,27 +321,31 @@ public class CapaianPembelajaranLulusanAction extends ObeBaseAction {
     public void reloadDataFormula(final Row dataRow, final JSONArray array) throws Exception {
         Common.clear(dataRow);
 
-        Grid grid = new Grid();
-        grid.setSclass("dgrid");
-        grid.setWidth("100%");
-        grid.setParent(dataRow);
+        org.zkoss.zul.Div wrapper = new org.zkoss.zul.Div();
+        wrapper.setWidth("100%");
+        wrapper.setStyle("overflow-x:auto;overflow-y:hidden;padding-bottom:4px;");
+        wrapper.setParent(dataRow);
 
-        // Lebar kolom dijumlahkan tepat 100% (4 kolom, sesuai 4 sel per baris) agar kolom Hapus
-        // beserta tombolnya tidak terpotong. Sebelumnya kolom Hapus hanya 5% (tombol tak muat)
-        // dan ada satu kolom kosong tanpa lebar (kolom hantu) yang memicu grid meluap.
+        Grid grid = new Grid();
+        grid.setSclass("dgrid obe-sub-cpmk-editor");
+        grid.setWidth("100%");
+        grid.setStyle("min-width:720px;");
+        grid.setFixedLayout(true);
+        grid.setParent(wrapper);
+
         Columns cols = new Columns();
         cols.setParent(grid);
         MyColumnConfig cKode = new MyColumnConfig("Kode Sub-CPMK");
-        cKode.setWidth("20%");
+        cKode.setWidth("150px");
         cKode.setParent(cols);
         MyColumnConfig cNama = new MyColumnConfig("Sub-CPMK");
-        cNama.setWidth("53%");
+        cNama.setWidth("390px");
         cNama.setParent(cols);
         MyColumnConfig cBobot = new MyColumnConfig("Bobot (%)");
-        cBobot.setWidth("13%");
+        cBobot.setWidth("110px");
         cBobot.setParent(cols);
         MyColumnConfig cHps = new MyColumnConfig("Hapus");
-        cHps.setWidth("14%");
+        cHps.setWidth("70px");
         cHps.setAlign("center");
         cHps.setParent(cols);
 
@@ -358,17 +367,17 @@ public class CapaianPembelajaranLulusanAction extends ObeBaseAction {
             r.setParent(rows);
 
             final MyTextbox kodeText = new MyTextbox(kodeVal);
-            kodeText.setWidth("95%");
+            kodeText.setWidth("100%");
             kodeText.setRows(2);
             r.appendChild(kodeText);
 
             final MyTextbox namaText = new MyTextbox(namaVal);
-            namaText.setWidth("95%");
+            namaText.setWidth("100%");
             namaText.setRows(2);
             r.appendChild(namaText);
 
             final MyDoublebox bobotBox = new MyDoublebox(bobotVal > 0 ? bobotVal : null);
-            bobotBox.setWidth("90%");
+            bobotBox.setWidth("95px");
             bobotBox.setTooltiptext("Bobot Sub-CPMK ini dalam CPMK (%)");
             r.appendChild(bobotBox);
 

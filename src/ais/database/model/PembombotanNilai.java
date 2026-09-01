@@ -478,7 +478,7 @@ public class PembombotanNilai extends GeneralValueObject {
 								// kosong. Jatuhkan ke keyStr lalu nama sebagai nama StatusPertemuan pengganti
 								// supaya FormatNilai baru tidak pernah dibuat dengan statusPertemuan null.
 								String namaStatusPertemuan = !kode.trim().isEmpty() ? kode
-										: (!keyStr.trim().isEmpty() ? keyStr : nama);
+										: (!nama.trim().isEmpty() ? nama : keyStr);
 								StatusPertemuan statusPertemuan = StatusPertemuan.ambilByNama(namaStatusPertemuan);
 								FormatNilai formatNilai = null;
 								if (!keyStr.isEmpty()) {

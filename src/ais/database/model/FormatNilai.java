@@ -212,9 +212,65 @@ public class FormatNilai extends GeneralValueObject {
 		return nama;
 	}
 
+	private static boolean hanyaAngka(String value) {
+		if (value == null || value.trim().length() == 0) {
+			return false;
+		}
+		String v = value.trim();
+		for (int i = 0; i < v.length(); i++) {
+			if (!Character.isDigit(v.charAt(i))) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private String ambilNamaObeDariFormula() {
+		if (capaianPembelajaranLulusan == null || kodeSubCpmk == null
+				|| kodeSubCpmk.trim().length() == 0) {
+			return "";
+		}
+		try {
+			JSONArray array = new JSONArray(capaianPembelajaranLulusan.getFormula());
+			for (int i = 0; i < array.length(); i++) {
+				JSONObject jsonObject = array.getJSONObject(i);
+				String key = jsonObject.isNull("key") ? "" : (jsonObject.get("key") + "").trim();
+				if (!kodeSubCpmk.trim().equalsIgnoreCase(key)) {
+					continue;
+				}
+				String kode = jsonObject.isNull("kode") ? "" : (jsonObject.get("kode") + "").trim();
+				String namaFormula = jsonObject.isNull("nama") ? "" : (jsonObject.get("nama") + "").trim();
+				if (kode.length() > 0 && namaFormula.length() > 0) {
+					return kode + " - " + namaFormula;
+				}
+				if (kode.length() > 0) {
+					return kode;
+				}
+				if (namaFormula.length() > 0) {
+					return namaFormula;
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) FormatNilai:ambilNamaObeDariFormula");
+		}
+		return "";
+	}
+
 	public String getNama() {
 		perkuliahan = getPerkuliahan();
 		statusPertemuan = getStatusPertemuan();
+		boolean formatObe = getCapaianPembelajaranLulusan() != null
+				|| (kodeSubCpmk != null && kodeSubCpmk.trim().length() > 0);
+		if (formatObe && nama != null && nama.trim().length() > 0 && !hanyaAngka(nama)) {
+			return nama;
+		}
+		if (formatObe) {
+			String namaFormula = ambilNamaObeDariFormula();
+			if (namaFormula.length() > 0 && !hanyaAngka(namaFormula)) {
+				nama = namaFormula;
+				return nama;
+			}
+		}
 		if (perkuliahan != null && perkuliahan.getPembombotanNilai() != null && statusPertemuan != null) {
 			nama = FormatNilai.ambilNama(statusPertemuan, perkuliahan);
 		} else if (statusPertemuan != null) {

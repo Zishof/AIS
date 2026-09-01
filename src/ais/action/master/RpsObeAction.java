@@ -2,6 +2,8 @@ package ais.action.master;
 
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -311,6 +313,93 @@ public class RpsObeAction extends GenericAutowireComposer {
 
 	private static String safeTrim(String value) {
 		return value == null ? "" : value.trim();
+	}
+
+	private static int nomorUrutKode(String kode) {
+		if (kode == null) {
+			return Integer.MAX_VALUE;
+		}
+		StringBuilder angka = new StringBuilder();
+		boolean mulai = false;
+		for (int i = 0; i < kode.length(); i++) {
+			char c = kode.charAt(i);
+			if (Character.isDigit(c)) {
+				angka.append(c);
+				mulai = true;
+			} else if (mulai) {
+				break;
+			}
+		}
+		if (angka.length() == 0) {
+			return Integer.MAX_VALUE;
+		}
+		try {
+			return Integer.parseInt(angka.toString());
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) RpsObeAction:nomorUrutKode");
+			return Integer.MAX_VALUE;
+		}
+	}
+
+	private static int bandingKodeNatural(String kode1, String kode2) {
+		int urut1 = nomorUrutKode(kode1);
+		int urut2 = nomorUrutKode(kode2);
+		if (urut1 != urut2) {
+			return urut1 < urut2 ? -1 : 1;
+		}
+		return safeTrim(kode1).compareToIgnoreCase(safeTrim(kode2));
+	}
+
+	private static void urutkanCpmkNatural(List<CapaianPembelajaranLulusan> data) {
+		if (data == null || data.size() < 2) {
+			return;
+		}
+		Collections.sort(data, new Comparator<CapaianPembelajaranLulusan>() {
+			@Override
+			public int compare(CapaianPembelajaranLulusan o1, CapaianPembelajaranLulusan o2) {
+				int c = bandingKodeNatural(o1 == null ? null : o1.getKode(), o2 == null ? null : o2.getKode());
+				if (c != 0) {
+					return c;
+				}
+				c = safeTrim(o1 == null ? null : o1.getNama()).compareToIgnoreCase(safeTrim(o2 == null ? null : o2.getNama()));
+				if (c != 0) {
+					return c;
+				}
+				Long id1 = o1 == null ? null : o1.getId();
+				Long id2 = o2 == null ? null : o2.getId();
+				if (id1 == null && id2 == null) {
+					return 0;
+				}
+				if (id1 == null) {
+					return 1;
+				}
+				if (id2 == null) {
+					return -1;
+				}
+				return id1.compareTo(id2);
+			}
+		});
+	}
+
+	@SuppressWarnings("rawtypes")
+	private static void urutkanSubCpmkMapNatural(List<Map> data) {
+		if (data == null || data.size() < 2) {
+			return;
+		}
+		Collections.sort(data, new Comparator<Map>() {
+			@Override
+			public int compare(Map o1, Map o2) {
+				int c = bandingKodeNatural(rpsHs(o1, "capaian.kode"), rpsHs(o2, "capaian.kode"));
+				if (c != 0) {
+					return c;
+				}
+				c = bandingKodeNatural(rpsHs(o1, "kode"), rpsHs(o2, "kode"));
+				if (c != 0) {
+					return c;
+				}
+				return safeTrim(rpsHs(o1, "nama")).compareToIgnoreCase(safeTrim(rpsHs(o2, "nama")));
+			}
+		});
 	}
 
 	/** Item daftar dengan tombol hapus selalu rata kanan (tanpa lampiran). */
@@ -1023,6 +1112,7 @@ public class RpsObeAction extends GenericAutowireComposer {
 									.addOrder(Order.asc("kode")).addOrder(Order.asc("nama"))
 									.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))),
 							CapaianPembelajaranLulusan.class);
+			urutkanCpmkNatural(capaianPembelajaranLulusans);
 
 			List<Map> subCpmkD = new ArrayList<Map>();
 			List<Map> capaianPembelajaranLulusansD = new ArrayList<Map>();
@@ -1071,6 +1161,7 @@ public class RpsObeAction extends GenericAutowireComposer {
 					subCpmkD.add(map1);
 				}
 			}
+			urutkanSubCpmkMapNatural(subCpmkD);
 			parameters.put("subCpmk", subCpmkD);
 			parameters.put("capaianPembelajaranLulusans", capaianPembelajaranLulusansD);
 
@@ -5988,13 +6079,15 @@ public class RpsObeAction extends GenericAutowireComposer {
 		row = new MyFormRow();
 		row.setValign("top");
 		row.setParent(rows);
-		row.appendChild(new ais.ui.util.MyLabelConfig(Common.getBahasaConfig("Teknik & Kriteria *")));
+		row.appendChild(new ais.ui.util.MyLabelConfig(Common.getBahasaConfig("Penilaian (Teknik & Kriteria) *")));
 		final MyTextbox teknikDanKriteria = new MyTextbox(
 				jsonObject.isNull("teknikDanKriteria") ? "- Kriteria: ...\n\n- Bentuk: ..."
 						: jsonObject.getString("teknikDanKriteria"));
 		row.appendChild(teknikDanKriteria);
 		teknikDanKriteria.setWidth("95%");
 		teknikDanKriteria.setRows(5);
+		teknikDanKriteria.setTooltiptext(Common.getBahasaConfig(
+				"Isi bagian ini untuk menampilkan kolom Penilaian pada Rincian Kurikulum."));
 
 		row = new MyFormRow();
 		row.setValign("top");
@@ -7563,7 +7656,7 @@ public class RpsObeAction extends GenericAutowireComposer {
 			col3.setParent(columns);
 			MyColumnConfig col4 = new MyColumnConfig(Common.getBahasaConfig("Indikator"));
 			col4.setParent(columns);
-			MyColumnConfig col5 = new MyColumnConfig(Common.getBahasaConfig("Teknik & Kriteria"));
+			MyColumnConfig col5 = new MyColumnConfig(Common.getBahasaConfig("Penilaian / Teknik & Kriteria"));
 			col5.setParent(columns);
 			MyColumnConfig col6 = new MyColumnConfig(Common.getBahasaConfig("Metode Pembelajaran"));
 			col6.setParent(columns);
