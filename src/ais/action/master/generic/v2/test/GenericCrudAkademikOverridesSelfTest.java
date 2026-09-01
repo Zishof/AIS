@@ -140,7 +140,45 @@ public final class GenericCrudAkademikOverridesSelfTest {
         check(!checklist.isDeleteEnabled(),
                 "ChecklistLaporanDetailDefault tanpa kolom aktif TIDAK boleh mendapat hapus");
 
-        // 7. Route di luar daftar tidak boleh tersentuh sama sekali.
+        // 7. Lima panel Antar Jemput naik dan mendapat hapus lunak; empat
+        //    panel lain di cabang yang SAMA harus tetap tertutup. Keduanya
+        //    diperiksa berdampingan supaya pemisahannya tidak diam-diam bergeser.
+        String[][] ajNaik = {
+            { "panel_kendaraan", "ais.database.model.antarjemput.KendaraanAntarJemput" },
+            { "panel_rute", "ais.database.model.antarjemput.RuteAntarJemput" },
+            { "panel_jadwal", "ais.database.model.antarjemput.JadwalAntarJemput" },
+            { "panel_peserta", "ais.database.model.antarjemput.PesertaJadwalAntarJemput" },
+            { "panel_kartu", "ais.database.model.antarjemput.KartuPenjemputAntarJemput" },
+        };
+        for (int i = 0; i < ajNaik.length; i++) {
+            Class<?> ent;
+            try { ent = Class.forName(ajNaik[i][1]); }
+            catch (ClassNotFoundException e) { throw new IllegalStateException(ajNaik[i][1], e); }
+            GenericCrudDefinition d = definisi("antarjemput", ajNaik[i][0], ent);
+            d.setLifecycleStatus(GenericCrudDefinition.READ_ONLY);
+            d.setCreateEnabled(false); d.setUpdateEnabled(false); d.setDeleteEnabled(false);
+            GenericCrudAkademikOverrides.terapkan(d);
+            check(GenericCrudDefinition.FULL_CRUD.equals(d.getLifecycleStatus()),
+                    "antarjemput/" + ajNaik[i][0] + " harus naik menjadi FULL_CRUD");
+            check(d.isCreateEnabled() && d.isUpdateEnabled(),
+                    "antarjemput/" + ajNaik[i][0] + " harus bisa tambah dan ubah");
+            check(d.isDeleteEnabled(),
+                    "antarjemput/" + ajNaik[i][0] + " punya kolom aktif; hapus lunak harus menyala");
+            check(d.getAdapter() != null,
+                    "antarjemput/" + ajNaik[i][0] + " harus memakai adapter validasinya");
+        }
+        String[] ajTahan = { "panel_transaksi", "panel_detail", "panel_log", "antar_jemput" };
+        for (int i = 0; i < ajTahan.length; i++) {
+            GenericCrudDefinition d = definisi("antarjemput", ajTahan[i],
+                    ais.database.model.Kurikulum.class);
+            GenericCrudAkademikOverrides.terapkan(d);
+            check(!d.isCreateEnabled() && !d.isUpdateEnabled() && !d.isDeleteEnabled(),
+                    "antarjemput/" + ajTahan[i] + " harus tetap tertutup");
+            check(GenericCrudAkademikOverrides.alasanDitahan("antarjemput", ajTahan[i]) != null,
+                    "antarjemput/" + ajTahan[i] + " harus punya alasan tertulis");
+        }
+
+        // 8. Route di luar daftar tidak boleh tersentuh sama sekali.
         GenericCrudDefinition lain = definisi("sekolah", "pembayaran_siswa",
                 ais.database.model.Kurikulum.class);
         GenericCrudAkademikOverrides.terapkan(lain);

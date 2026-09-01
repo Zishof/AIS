@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import ais.action.master.generic.v2.adapter.AkunGenericCrudAdapter;
+import ais.action.master.generic.v2.adapter.AntarJemputGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.BankSoalGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.ChecklistLaporanDetailDefaultGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.GenericCrudScopeAdapter;
@@ -42,18 +43,46 @@ public final class GenericCrudAkademikOverrides {
 
     private GenericCrudAkademikOverrides() { }
 
-    /** Layar yang dinaikkan menjadi CRUD penuh beserta adapter validasinya. */
-    private static final Map<String, Class<?>> DINAIKKAN = new HashMap<String, Class<?>>();
+    /**
+     * Layar yang dinaikkan menjadi CRUD penuh beserta adapter validasinya.
+     *
+     * <p>Berisi INSTANCE, bukan kelas. Sebagian adapter perlu argumen konstruktor
+     * — misalnya adapter antar jemput yang satu kelasnya melayani lima entitas —
+     * dan itu tidak dapat dinyatakan lewat {@code Class}. Adapter di sini tidak
+     * menyimpan keadaan per permintaan, sehingga satu instance aman dipakai
+     * bersama.</p>
+     */
+    private static final Map<String, ais.action.master.generic.v2.adapter.GenericCrudEntityAdapter>
+            DINAIKKAN = new HashMap<String,
+                    ais.action.master.generic.v2.adapter.GenericCrudEntityAdapter>();
 
     /** Layar yang sengaja tetap READ_ONLY beserta alasannya. */
     private static final Map<String, String> DITAHAN = new HashMap<String, String>();
 
     static {
-        DINAIKKAN.put("root/kurikulum", KurikulumGenericCrudAdapter.class);
-        DINAIKKAN.put("root/bank_soal", BankSoalGenericCrudAdapter.class);
-        DINAIKKAN.put("akunting/akun", AkunGenericCrudAdapter.class);
+        DINAIKKAN.put("root/kurikulum", new KurikulumGenericCrudAdapter());
+        DINAIKKAN.put("root/bank_soal", new BankSoalGenericCrudAdapter());
+        DINAIKKAN.put("akunting/akun", new AkunGenericCrudAdapter());
         DINAIKKAN.put("rab/checklist_laporan_detail_default",
-                ChecklistLaporanDetailDefaultGenericCrudAdapter.class);
+                new ChecklistLaporanDetailDefaultGenericCrudAdapter());
+
+        /*
+         * Lima panel master Sistem Antar Jemput. Kesembilan panelnya dilayani
+         * SATU Action ZK dengan satu rutin simpan yang bercabang menurut jenis;
+         * di sini pun satu adapter melayani kelimanya, dibedakan entitasnya.
+         * Empat panel sisanya (Transaksi, Detail Panggilan, Log Notifikasi, dan
+         * dasbornya) sengaja tidak ikut — lihat DITAHAN di bawah.
+         */
+        DINAIKKAN.put("antarjemput/panel_kendaraan", new AntarJemputGenericCrudAdapter(
+                ais.database.model.antarjemput.KendaraanAntarJemput.class, false));
+        DINAIKKAN.put("antarjemput/panel_rute", new AntarJemputGenericCrudAdapter(
+                ais.database.model.antarjemput.RuteAntarJemput.class, false));
+        DINAIKKAN.put("antarjemput/panel_jadwal", new AntarJemputGenericCrudAdapter(
+                ais.database.model.antarjemput.JadwalAntarJemput.class, false));
+        DINAIKKAN.put("antarjemput/panel_peserta", new AntarJemputGenericCrudAdapter(
+                ais.database.model.antarjemput.PesertaJadwalAntarJemput.class, false));
+        DINAIKKAN.put("antarjemput/panel_kartu", new AntarJemputGenericCrudAdapter(
+                ais.database.model.antarjemput.KartuPenjemputAntarJemput.class, true));
 
         DITAHAN.put("root/skripsi",
                 "SkripsiAction.onSave memeriksa kepemilikan (mahasiswa yang login hanya boleh "
@@ -223,6 +252,25 @@ public final class GenericCrudAkademikOverrides {
                 "Realisasi. Entity yang terpilih SumberDana — master sumber dana, bukan realisasi "
                 + "belanjanya. Realisasi sendiri lahir dari transaksi, bukan diketik.");
 
+        /*
+         * Empat panel Antar Jemput yang TIDAK dinaikkan. Pembedanya bukan
+         * selera: AntarJemputAction punya onAddKendaraan/Rute/Jadwal/Peserta/
+         * Kartu, dan TIDAK punya onAddTransaksi/Detail/Log. Layar lamanya sendiri
+         * tidak menyediakan cara menambah keempat ini.
+         */
+        DITAHAN.put("antarjemput/panel_transaksi",
+                "Transaksi penjemputan lahir dari perjalanan yang benar-benar terjadi; layar "
+                + "lamanya tidak punya tombol tambah. Mengarang barisnya berarti mengarang "
+                + "penjemputan yang tidak pernah ada.");
+        DITAHAN.put("antarjemput/panel_detail",
+                "Detail Panggilan dicatat sistem saat panggilan berlangsung, bukan diketik.");
+        DITAHAN.put("antarjemput/panel_log",
+                "Log Notifikasi adalah catatan kirim-terima notifikasi. Barisnya bukti, bukan "
+                + "masukan.");
+        DITAHAN.put("antarjemput/antar_jemput",
+                "Dasbor Sistem Antar Jemput: ringkasan lintas panel, bukan tabel tersendiri. "
+                + "Entity yang terpilih KendaraanAntarJemput hanya kebetulan yang pertama.");
+
         DITAHAN.put("root/mahasiswa_registrasi_wisuda",
                 "Layar ini memang layar tinjau (\"Melihat Pendaftar Wisuda\"). Pendaftaran "
                 + "wisudanya sendiri dikerjakan layar lain; menambah tombol simpan di sini "
@@ -252,11 +300,11 @@ public final class GenericCrudAkademikOverrides {
             return;
         }
 
-        Class<?> adapterClass = DINAIKKAN.get(kunci);
-        if (adapterClass == null) return;
+        ais.action.master.generic.v2.adapter.GenericCrudEntityAdapter adapter =
+                DINAIKKAN.get(kunci);
+        if (adapter == null) return;
         try {
-            Object adapter = adapterClass.newInstance();
-            definition.setAdapter((ais.action.master.generic.v2.adapter.GenericCrudEntityAdapter) adapter);
+            definition.setAdapter(adapter);
             if (adapter instanceof GenericCrudScopeAdapter) {
                 definition.setScopeAdapter((GenericCrudScopeAdapter) adapter);
             }
