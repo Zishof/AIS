@@ -431,6 +431,47 @@ disentuh (default untuk semua file yang tidak disebut di sini).
   (banyak berisi template generik siap-diperkaya, cek dulu dengan grep frasa
   template sebelum menganggap "belum ada Javadoc").
 
+### 2 Sep 2026 (sesi ketiga, batch mandiri 4 file)
+
+- 4 file berdiri sendiri di `ais/action/master/helper/` (tidak masuk pola
+  referensi+link manapun di atas) diperkaya dari template generik ke Javadoc
+  konkret spesifik-domain, method public lengkap didokumentasikan, dikompilasi
+  (javac 1.7 `-implicit:none`, lulus), dan dikommit per file (tidak ada yang
+  tersapu commit sesi lain kali ini):
+  - `ProgramMahasiswaDetailAction.java` r82879 — window ZK kelola anggota
+    `Program` (kelompok/program mahasiswa, BUKAN prodi/jurusan); dicatat kuirk:
+    keanggotaan `Mahasiswa.program` adalah kolom teks berisi NAMA program
+    (String), bukan foreign key ke entity `Program`, sehingga dua `Program`
+    dengan nama sama akan tercampur anggotanya di query.
+  - `ProsesKehadiranDosen.java` r82892 — window rekap kehadiran & beban SKS
+    dosen dari data `Pertemuan`; dicatat kuirk: tombol "cetak laporan" pada
+    tiap tab BUKAN sekadar cetak, melainkan juga menulis/menimpa entri JSON ke
+    kolom `Dosen.formula` (dipakai modul lain, kemungkinan insentif/honor
+    dosen) dan meng-upsert `KehadiranDosenBulanan` — efek samping DB
+    tersembunyi di balik tombol yang namanya terkesan read-only.
+  - `RecoveryPertemuanHelper.java` r82904 — window generik pemulihan
+    `Pertemuan` dari histori audit Envers untuk 14+ jenis induk
+    `VOPembelajaran` (Perkuliahan/JadwalPelajaran/Skripsi/dll); DIKONFIRMASI
+    file bersih (bukan `M`) sebelum dikerjakan sesuai instruksi kewaspadaan —
+    ternyata BUKAN bagian fitur e-learning `RecoveryAktivitasPembelajaranHelper`
+    (paket terpisah, sesi lain) walau namanya sangat mirip; dicatat eksplisit
+    di Javadoc kelas agar sesi mendatang tidak menyatukan keduanya.
+  - `ResetPasswordDosenMahasiswaHelper.java` r82909 — composer ZK admin reset
+    password akun dosen (`Tbmuser`) atau mahasiswa via satu input User ID/NIM;
+    dicatat kuirk mencolok: password baru yang di-set SELALU SAMA PERSIS
+    dengan nilai User ID/NIM yang dicari (bukan password acak terpisah), dan
+    nilai itu bahkan dicetak balik ke `System.out` sebagai "konfirmasi".
+- Ditemukan & didokumentasikan **penyebab kegagalan `Edit` string-match
+  berulang** saat menyunting blok Javadoc panjang: tool `Read` kadang
+  menampilkan wrapping baris yang TIDAK identik dengan newline fisik asli file
+  (terlihat dari posisi word-wrap yang bergeser antar pemanggilan `Read` pada
+  konten yang sama, tanpa file berubah). Mengandalkan `old_string` hasil
+  salin-tempel dari tampilan `Read` untuk blok multi-baris panjang bisa gagal
+  match. **Mitigasi yang terbukti berhasil**: sebelum `Edit` pada blok
+  multi-baris, ambil teks acuan lewat `sed -n '<start>,<end>p' <file>`
+  (Bash) yang mencerminkan newline fisik sebenarnya, baru pakai itu sebagai
+  `old_string`. Tidak ditemukan masalah serupa untuk `old_string` satu baris.
+
 ### 2 Sep 2026 (batch 4 file `Kelompok*DetailAction`/`GrupKuosionerUmumDetailAction`)
 
 - [lengkap] `GrupKuosionerUmumDetailAction.java` r82866 (tersapu bersama 2 file tak

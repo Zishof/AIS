@@ -137,27 +137,42 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
 /**
- * Helper terfokus untuk absensi. Tipe ini membungkus satu variasi kecil dari alur yang lebih umum
- * agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ * Helper UI inti untuk modul KEHADIRAN &amp; ABSENSI PERTEMUAN (satu {@link Pertemuan} kuliah/kegiatan): dipakai
+ * baik oleh dosen/admin (mengisi &amp; mengoreksi kehadiran) maupun oleh mahasiswa/peserta (melihat status,
+ * mengisi kehadiran online, mengajukan izin/sakit). Satu instance dibuat per {@link Mahasiswa} atau
+ * {@link BiodataCalonMahasiswa} yang sedang login (lewat constructor), lalu {@link #mainInit} membangun seluruh
+ * tab presensi (form info pertemuan, daftar presensi peserta, riwayat absensi online, panel izin/sakit) di dalam
+ * satu {@code Component} kontainer.
  *
- * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
- * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
- * implementasi paralel dengan hasil berbeda.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Textbox metode}, {@code Combobox
- * ujian}, {@code Textbox bukuRujukan1}, {@code Textbox bukuRujukan2}, {@code Textbox dosenTamu}, {@code Textbox
- * dosenTamu2}, {@code MyDatebox tanggal}, {@code MyDatebox tanggalRealisasi}; inisialisasi/lifecycle ({@code
- * mainInit()}, {@code initKelasPertemuan()}); pembacaan/pencarian ({@code reload()}, {@code
- * createListMahasiswaAbsensi()}, {@code reloadSejarahAbsensiOnline()}, {@code tampilkanAbsensiOnline()}, {@code
- * tampilBawah()}, {@code createListMahasiswaIzin()}); validasi/perhitungan ({@code boleh()}, {@code
- * bolehKonfirmasi()}, {@code bolehKonfirmasiRps()}, {@code bolehOlehAkademik()}); mutasi data ({@code
- * ubahTerlewat()}); operasi domain lain ({@code createTombolAbsen()}, {@code createTombolAbsen()}, {@code
- * populateMahasiswaDariPertemuan()}, {@code bagianInfo()}, {@code gayaKartuPresensi()}, {@code badgeStatus()});
- * konfigurasi constructor: {@code statusabsensis}. Bagian lain dari kontrak tetap mengikuti kelas induk atau
- * interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Entity &amp; sumber data utama:</b> {@link Pertemuan} (satu sesi/pertemuan — status kehadiran tiap
+ * peserta disimpan sebagai data terserialisasi di dalamnya dan diakses lewat {@code populate}/{@code retreive*}),
+ * {@link Perkuliahan} (induk mata kuliah bila pertemuan berasal dari perkuliahan reguler), {@link Statusabsensi}
+ * (master status: Hadir/Izin/Sakit/Alpa/dll — {@code ConstantValues.MASUK}/{@code BELUM_ABSEN} dsb.),
+ * {@link KelasPertemuan}/{@link DetailKelasPertemuan} (pemisahan peserta satu pertemuan menjadi beberapa
+ * kelas/ruangan paralel, mis. saat kelas dipecah), dan {@link PengajuanIzinTidakMasukPerkuliahan} (pengajuan
+ * izin/sakit mahasiswa yang, bila disetujui, menimpa status kehadiran otomatis).</p>
+ *
+ * <p><b>Sumber peserta bervariasi per jenis pertemuan</b> — {@link #populateMahasiswaDariPertemuan} memilih
+ * strategi query yang berbeda tergantung apakah pertemuan berasal dari perkuliahan reguler, ujian PMB,
+ * kursus, kegiatan/formulir, wisuda, KKN/PKL, tugas akhir/skripsi, atau KRS — sehingga daftar peserta yang
+ * absen bisa berupa {@link Mahasiswa}, {@link BiodataCalonMahasiswa}, atau {@link PesertaKursus}.</p>
+ *
+ * <p><b>Kehadiran online:</b> pertemuan Daring dapat memakai Jitsi/Google Meet/Zoom/Big Blue Button/Skype/Grup
+ * WA/link lain (dikonfigurasi di {@link #bagianInfo}); kehadiran dapat dibuktikan lewat foto/video dan lokasi GPS
+ * (dicocokkan dengan radius {@code jarak} km dari {@link Lokasi} pertemuan) yang riwayatnya tersimpan sebagai
+ * JSON di kolom "sejarah" pada {@link Pertemuan} dan direkonstruksi oleh
+ * {@link #reloadSejarahAbsensiOnline}/ditampilkan oleh {@link #tampilkanAbsensiOnline}, termasuk aksi massal
+ * untuk menyetujui kehadiran berdasarkan bukti upload tersebut. Absensi juga bisa dilakukan lewat scan QR-Code
+ * KTM atau RFID (lihat {@link #bagianInfo}).</p>
+ *
+ * <p><b>Batas waktu pengisian:</b> {@link #ubahTerlewat} menghitung apakah pengisian kehadiran untuk pertemuan
+ * ini sudah "terlewat" dari toleransi hari yang dikonfigurasi (mis. {@code jumlah_hari_batas_waktu_dalam_hari}),
+ * yang lalu membatasi kontrol edit yang dirender oleh method-method lain di kelas ini.</p>
+ *
+ * <p>Sebagian besar method statis lain di kelas ini ({@code createStatusKehadiran*}, {@code boleh*}) adalah
+ * pembangun komponen ZK mandiri yang dipakai ulang dari layar lain (dashboard, konfirmasi dosen/akademik) untuk
+ * menampilkan/mengedit status kehadiran satu {@link Dosen} atau memutuskan apakah suatu status boleh dipilih
+ * pada momen tertentu (lihat Javadoc masing-masing method untuk aturan detail).</p>
  */
 public class AbsensiHelper {
 
@@ -227,6 +242,21 @@ public class AbsensiHelper {
 	private Combobox lokasi;
 	private MyDoublebox jarak;
 
+	/**
+	 * Membuat instance helper untuk konteks MAHASISWA/CALON MAHASISWA yang sedang melihat/mengisi kehadirannya
+	 * sendiri (dipanggil dari layar milik mahasiswa; untuk konteks dosen/admin, {@code mahasiswa} dan
+	 * {@code biodataCalonMahasiswa} boleh keduanya {@code null} — perbedaan tampilan read-only vs. editable
+	 * ditentukan berulang kali di seluruh kelas dengan mengecek kedua field ini beserta
+	 * {@code Common.getCurrentUser()}).
+	 *
+	 * <p>Memuat daftar {@link Statusabsensi} yang boleh dipilih dari kombinasi ini, MENGECUALIKAN status yang
+	 * namanya mengandung "belajar", "cuti", atau "dinas" (dicocokkan case-insensitive di mana pun dalam nama)
+	 * — status tersebut khusus dipakai untuk konteks lain (mis. kehadiran pegawai), bukan untuk pilihan
+	 * kehadiran mahasiswa pada satu pertemuan.</p>
+	 *
+	 * @param mahasiswa             mahasiswa yang sedang login, atau {@code null} bila bukan konteks mahasiswa
+	 * @param biodataCalonMahasiswa calon mahasiswa yang sedang login, atau {@code null} bila bukan konteks ini
+	 */
 	public AbsensiHelper(final Mahasiswa mahasiswa, final BiodataCalonMahasiswa biodataCalonMahasiswa) {
 		this.mahasiswa = mahasiswa;
 		this.biodataCalonMahasiswa = biodataCalonMahasiswa;
@@ -239,10 +269,35 @@ public class AbsensiHelper {
 				Statusabsensi.class);
 	}
 
+	/**
+	 * Sama seperti {@link #createTombolAbsen(Pertemuan, boolean, DataLoader)} dengan {@code vertical=true}
+	 * (label ringkasan absen, bila ada, ditumpuk di bawah tombol).
+	 *
+	 * @param pertemuan  pertemuan yang tombolnya dibuat
+	 * @param dataLoader callback yang dipanggil saat panel kehadiran (di dalam {@link PertemuanHelper}) memuat
+	 *                   ulang datanya
+	 * @return tombol "Kehadiran" (dengan label ringkasan bila ada), atau label kosong bila terjadi error
+	 */
 	public static Component createTombolAbsen(final Pertemuan pertemuan, final DataLoader dataLoader) {
 		return createTombolAbsen(pertemuan, true, dataLoader);
 	}
 
+	/**
+	 * Membuat tombol toolbar "Kehadiran" (ikon buku alamat) yang, saat diklik, membuka panel kehadiran
+	 * {@link PertemuanHelper} untuk mahasiswa yang sedang login pada {@code pertemuan} yang diberikan. Bila
+	 * ringkasan status kehadiran ({@link Pertemuan#hitungStatus()}, mis. jumlah Hadir/Izin/Alpa) atau jumlah
+	 * pengajuan izin ({@link Pertemuan#ambilJumlahPengajuanIzinTidakMasukPerkuliahan()}) tidak kosong, label
+	 * ringkasan kecil ditambahkan berdampingan/di bawah tombol (tergantung {@code vertical}) sehingga pengguna
+	 * bisa melihat sekilas status tanpa membuka panel. Kesalahan saat membangun tombol ditelan dan
+	 * dikembalikan sebagai {@link Label} kosong agar tidak merusak tampilan daftar pertemuan di sekitarnya.
+	 *
+	 * @param pertemuan  pertemuan yang tombolnya dibuat
+	 * @param vertical   {@code true} untuk menumpuk label ringkasan di bawah tombol ({@link Vbox}); {@code false}
+	 *                   untuk hanya mengembalikan tombolnya saja tanpa pembungkus vertikal
+	 * @param dataLoader callback yang dipanggil saat panel kehadiran memuat ulang datanya
+	 * @return tombol "Kehadiran" (dengan label ringkasan bila ada dan {@code vertical=true}), atau label kosong
+	 *         bila terjadi error
+	 */
 	public static Component createTombolAbsen(final Pertemuan pertemuan, boolean vertical,
 			final DataLoader dataLoader) {
 		try {
@@ -278,6 +333,33 @@ public class AbsensiHelper {
 		}
 	}
 
+	/**
+	 * Menentukan daftar PESERTA yang harus diabsen untuk satu {@link Pertemuan}, dengan strategi query yang
+	 * berbeda tergantung ASAL pertemuan tersebut (dicek berurutan, hanya cabang pertama yang cocok yang
+	 * dipakai):
+	 * <ul>
+	 * <li>{@code getKomponenDataProdukKursus()} &rarr; peserta kursus ({@link PesertaKursus}) yang produknya
+	 * mengandung komponen tersebut;</li>
+	 * <li>{@code getJadwalUjianPMB()} &rarr; calon mahasiswa peserta ujian PMB, dengan beberapa sub-aturan
+	 * tergantung apakah ujian mensyaratkan peserta sudah mengerjakan ({@link HasilUjianMahasiswa}), disaring
+	 * per ruangan ({@link RuangPaketPMB}) dan/atau harus punya nomor ujian, atau disaring per paket/gelombang
+	 * pendaftaran ({@link BiodataCalonMahasiswa});</li>
+	 * <li>{@code perkuliahan != null} &rarr; mahasiswa yang KRS-nya di {@link Perkuliahan} tersebut sudah
+	 * {@link Detailperkuliahan#DISETUJUI} (disetujui), diambil lewat
+	 * {@link Perkuliahan#ambilDetailperkuliahan};</li>
+	 * <li>{@code getFormulirKegiatan()} &rarr; peserta {@link FormulirKegiatanPeserta}; {@code getWisuda()}
+	 * &rarr; mahasiswa yang pendaftaran wisudanya {@link PendaftaranWisuda#getPersetujuanWisuda()};
+	 * {@code getMahasiswaRequestTugasAkhir()}/{@code getSkripsi()}/{@code getKrsMahasiswa()} &rarr; satu
+	 * mahasiswa tunggal pemilik data tersebut; {@code getKelompokKkn()}/{@code getKelompokPkl()} &rarr;
+	 * anggota kelompok KKN/PKL yang sudah diterima.</li>
+	 * </ul>
+	 * <p>Bila tidak ada satu pun kondisi di atas yang cocok, daftar kosong dikembalikan (bukan {@code null}).
+	 * Urutan hasil mengikuti NIM atau nama tergantung konfigurasi {@code absensi_urut_berdasarkan_nim}.</p>
+	 *
+	 * @param pertemuan pertemuan yang daftar pesertanya akan ditentukan
+	 * @return daftar peserta ({@link Mahasiswa}, {@link BiodataCalonMahasiswa}, atau {@link PesertaKursus}
+	 *         tergantung asal pertemuan), tidak pernah {@code null}
+	 */
 	@SuppressWarnings({ })
 	public static List<? extends GeneralValueObject> populateMahasiswaDariPertemuan(Pertemuan pertemuan) {
 
@@ -425,6 +507,21 @@ public class AbsensiHelper {
 		return mahasiswas;
 	}
 
+	/**
+	 * Menghitung dan menyimpan ke field {@code terlewat}/{@code terlewatInfo} apakah pengisian kehadiran untuk
+	 * {@code pertemuan} sudah berada di luar batas waktu yang diizinkan. Hanya aktif bila konfigurasi
+	 * {@code absen_harus_sesuai_waktu} menyala; selain itu {@code terlewat} selalu {@code false}.
+	 *
+	 * <p>Selisih hari dihitung dari tanggal saat ini terhadap {@code pertemuan.getTanggal()}. Batas toleransi
+	 * hari diambil dari {@link Perkuliahan#getBatasWaktuBolehAbsenKehadiran()} (default sangat longgar, 1000
+	 * hari, bila pertemuan bukan dari perkuliahan reguler), kecuali konfigurasi
+	 * {@code jumlah_hari_batas_waktu_pakai_default} mengaktifkan pemakaian nilai global
+	 * {@code jumlah_hari_batas_waktu_dalam_hari} sebagai gantinya. {@code terlewat} bernilai {@code true} hanya
+	 * bila pertemuan mensyaratkan "sesuai jadwal" ({@link Pertemuan#getPerkulaiahnOnlineHarusSesuaiJadwal()})
+	 * DAN selisihnya melebihi toleransi tersebut.</p>
+	 *
+	 * @param pertemuan pertemuan yang batas waktu pengisiannya dievaluasi
+	 */
 	private void ubahTerlewat(Pertemuan pertemuan) {
 		if (Common.bolehKonfigurasi("absen_harus_sesuai_waktu")) {
 			Date currentDate = WaktuUtil.getDate();
@@ -455,6 +552,36 @@ public class AbsensiHelper {
 		}
 	}
 
+	/**
+	 * Membangun panel "Informasi" pertemuan: grid form dua kolom yang menampilkan/mengedit seluruh atribut
+	 * deskriptif satu {@link Pertemuan} — dirender EDITABLE untuk dosen/admin dan sebagai LABEL READ-ONLY untuk
+	 * mahasiswa/calon mahasiswa/peserta kursus (dicek berulang lewat kombinasi {@code mahasiswa != null},
+	 * {@code biodataCalonMahasiswa != null}, {@code tbmuser.getPesertaKursus() != null}). Dipanggil dari
+	 * {@link #mainInit} dan hasilnya (grid) dijadikan anak panel West/atas.
+	 *
+	 * <p><b>Yang dibangun, secara garis besar:</b> info ringkas pertemuan ({@link DashboardTimelinePertemuan})
+	 * dan hari/jam perkuliahan bila berasal dari {@link Perkuliahan}; entry point absen non-login lewat
+	 * scan QR-Code KTM atau RFID (membuka jendela modal berisi iframe pemindai kamera); topik ("Kemampuan akhir
+	 * pembelajaran"), bahan kajian, daftar pustaka; jenis pertemuan ({@link StatusPertemuan}); konfigurasi media
+	 * online (Jitsi/Google Meet/Zoom/BBB/Skype/Grup WA/Lain — hanya satu blok link yang ditampilkan sesuai
+	 * pilihan combobox, lengkap dengan tautan pendaftaran akun dan tombol "Tes Online Sekarang" yang membuka
+	 * popup/redirect ke link tersebut) beserta checkbox "harus sesuai jadwal"; dosen tamu 1/2; tanggal &amp;
+	 * waktu rencana; checkbox izin absen-pakai-foto untuk dosen/mahasiswa beserta toleransi menit sebelum/sesudah
+	 * jadwal; lokasi pertemuan ({@link Lokasi}) dan radius geofencing dalam km; kartu status kehadiran tiap
+	 * dosen utama/asisten/pengganti (didelegasikan ke {@link #createStatusKehadiran}), termasuk alur mengaktifkan
+	 * dosen pengganti yang otomatis menyembunyikan kartu dosen utama dan menonaktifkan field waktu rencana;
+	 * tanggal realisasi; ruang; dan metode pembelajaran.</p>
+	 *
+	 * <p>Setiap kontrol input yang dapat diubah dosen/admin didaftarkan ke listener {@code updateLocal} bersama
+	 * yang memanggil {@link #sesuaikan(Pertemuan, boolean)} (persist perubahan) dan {@link #ubahTerlewat}, serta
+	 * memicu {@link #reload(Pertemuan)} penuh bila yang berubah adalah checkbox "harus sesuai jadwal" atau
+	 * tanggal (karena keduanya memengaruhi tampilan bagian lain, bukan hanya data form ini). Bila viewer adalah
+	 * mahasiswa/calon mahasiswa/peserta kursus, seluruh grid dibekukan ({@link Common#freeze}) setelah dibangun.
+	 *
+	 * @param pertemuan pertemuan yang info-nya ditampilkan/diedit
+	 * @return grid form yang sudah berisi seluruh baris informasi pertemuan
+	 * @throws Exception diteruskan dari akses Hibernate/komponen ZK bila terjadi kegagalan
+	 */
 	@SuppressWarnings({ "deprecation" })
 	private Component bagianInfo(final Pertemuan pertemuan) throws Exception {
 
@@ -1549,6 +1676,28 @@ public class AbsensiHelper {
 		return grid;
 	}
 
+	/**
+	 * TITIK MASUK UTAMA kelas ini: membangun seluruh tab "Kehadiran &amp; Absensi" untuk satu {@link Pertemuan}
+	 * di dalam {@code tabpanelUtama} yang diberikan (dipanggil pertama kali saat tab dibuka, dan dipanggil ulang
+	 * oleh {@link #reload(Pertemuan)} setiap kali data berubah dan tampilan perlu disegarkan sepenuhnya).
+	 *
+	 * <p>Mencatat kunjungan lewat {@code pertemuan.masukkanData("melihat_absensi")}, menentukan status kehadiran
+	 * default dari konfigurasi {@code default_status_kehadiran}, dan mengambil {@code tbmuser} yang sedang login.
+	 * Tata letak berbeda antara mobile (grid vertikal bertumpuk: info &rarr; daftar presensi &rarr; daftar izin)
+	 * dan desktop ({@link Borderlayout} tiga panel: West=info dari {@link #bagianInfo}, Center=daftar presensi
+	 * dari {@link #createListMahasiswaAbsensi}, East=daftar izin dari {@link #createListMahasiswaIzin}, panel
+	 * East ditunda lewat {@link Common#createDefaultTimer}). Panel izin/sakit disembunyikan untuk pertemuan ujian
+	 * PMB/PSB. Seluruh borderlayout dibekukan ({@link Common#freeze}) bila viewer adalah mahasiswa/calon
+	 * mahasiswa/peserta kursus. Terakhir, bila viewer adalah dosen dan perkuliahan tidak mengizinkan dosen
+	 * mengubah tanggal ({@code !getDosenBisaMerubahTanggalPerkuliahan()}), field tanggal/waktu/ruang dikunci.</p>
+	 *
+	 * @param pertemuan     pertemuan yang tab kehadirannya dibangun
+	 * @param tabpanelUtama komponen kontainer (tab) tempat seluruh UI dipasang; disimpan ke field
+	 *                      {@code this.tabpanelUtama} agar dapat dibersihkan/dibangun ulang oleh {@link #reload}
+	 * @param tampilInfo    {@code true} untuk menampilkan blok info ringkas pertemuan
+	 *                      ({@link DashboardTimelinePertemuan}) di bagian atas panel mobile
+	 * @throws Exception diteruskan dari akses Hibernate/komponen ZK bila terjadi kegagalan
+	 */
 	@SuppressWarnings("unchecked")
 	public void mainInit(final Pertemuan pertemuan, Component tabpanelUtama, boolean tampilInfo) throws Exception {
 
@@ -1656,6 +1805,28 @@ public class AbsensiHelper {
 		}
 	}
 
+	/**
+	 * Membuka jendela modal "Pendataan Kelas/Ruangan" untuk MEMISAHKAN peserta satu {@link Pertemuan} menjadi
+	 * sub-kelompok {@link KelasPertemuan} (mis. saat satu kelas besar dipecah ke beberapa ruangan/pengawas),
+	 * dipicu dari tombol "Pisahkan" pada {@link #createListMahasiswaAbsensi}.
+	 *
+	 * <p>Panel kanan menampilkan checklist mahasiswa peserta pertemuan ({@link #populateMahasiswaDariPertemuan})
+	 * yang BELUM masuk kelompok {@link KelasPertemuan} manapun untuk pertemuan ini (mahasiswa yang sudah
+	 * dikelompokkan ke {@code kelasPertemuan} lain tidak ditampilkan di sini, karena satu peserta hanya boleh
+	 * ada di satu sub-kelompok); panel kiri berisi form nama kelas, rentang tanggal, jam mulai/selesai, ruang,
+	 * hingga tiga pengawas ({@link Pegawai}), penanggung jawab {@link Dosen}, dan keterangan.</p>
+	 *
+	 * <p>Tombol Simpan memvalidasi field wajib (nama, tanggal mulai, jam mulai, jam selesai), menggabungkan
+	 * tanggal dan jam menjadi satu {@link Date} untuk kolom mulai/selesai, mempersist {@code kelasPertemuan}
+	 * lewat {@link Common#refreshSaveOrUpdate}, lalu MENGHAPUS SELURUH baris {@link DetailKelasPertemuan}
+	 * lama milik kelas ini (SQL {@code delete} langsung, bukan lewat Hibernate) sebelum menulis ulang baris
+	 * baru untuk setiap mahasiswa yang dicentang — sehingga daftar anggota kelas selalu ditulis ulang penuh,
+	 * bukan di-diff. Setelah tersimpan, memanggil {@link #reload(Pertemuan)} dan menutup jendela.</p>
+	 *
+	 * @param kelasPertemuan sub-kelompok yang sedang dibuat/diedit (baru atau sudah ada)
+	 * @param pertemuan      pertemuan induk yang pesertanya sedang dipisahkan
+	 * @throws Exception diteruskan dari akses Hibernate/komponen ZK bila terjadi kegagalan
+	 */
 	@SuppressWarnings("unchecked")
 	private void initKelasPertemuan(final KelasPertemuan kelasPertemuan, final Pertemuan pertemuan) throws Exception {
 		final MyWindow myWindow = new MyWindow("Pendataan Kelas/Ruangan", "none", true);
@@ -2062,6 +2233,15 @@ public class AbsensiHelper {
 		myWindow.onModal();
 	}
 
+	/**
+	 * Menyegarkan tampilan penuh tab kehadiran: menginvalidasi cache tren kehadiran
+	 * ({@link AbsensiTrenCache#invalidasi}, agar grafik tren yang dirender ulang memakai data terbaru — bukan
+	 * data lama yang sempat di-cache), lalu menjadwalkan (lewat {@link Common#createDefaultTimer}) pembersihan
+	 * {@code tabpanelUtama} dan pemanggilan ulang {@link #mainInit} dari awal. Dipakai sebagai titik "refresh
+	 * total" setelah operasi yang mengubah data kehadiran secara luas (bukan hanya satu baris).
+	 *
+	 * @param pertemuan pertemuan yang tabnya akan dibangun ulang
+	 */
 	private void reload(final Pertemuan pertemuan) {
 		// Absensi berubah → segarkan cache tren agar grafik yang dirender ulang memakai data baru.
 		try {
@@ -2143,6 +2323,22 @@ public class AbsensiHelper {
 	 * {@code hflex=1}, dan {@code text-align:left}; blok status ({@code hboxStatus}) serta blok
 	 * keterangan ({@code hbox1}) juga rata kiri. Pendekatan ini menghindari kesan "ter-tengah dan
 	 * berantakan" tanpa mengubah logika absensi apa pun.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Toolbar aksi (hanya untuk dosen/admin, dan bila periode belum {@code terlewat}).</b> "Semua hadir"
+	 * menandai seluruh peserta {@link ConstantValues#MASUK}; "Reset" mengembalikan semuanya
+	 * ke {@code BELUM_ABSEN}; "Download" mengekspor status/jam/keterangan seluruh peserta ke berkas Excel (xlsx)
+	 * di thread terpisah dengan progress bar; "Upload" membaca kembali berkas Excel tersebut (kolom Mahasiswa/
+	 * Status/Mulai/Sampai/Keterangan) dan menulis absensi baris per baris di thread terpisah, dengan laporan
+	 * sukses/gagal per baris ({@link ais.common.UploadReportHelper}) yang bisa diunduh; "Pisahkan" membuka
+	 * {@link #initKelasPertemuan} untuk memecah peserta menjadi sub-kelas/ruangan; combobox tersembunyi
+	 * memungkinkan menyalin pengelompokan {@link KelasPertemuan} dari pertemuan lain (menghapus pengelompokan
+	 * pertemuan ini lalu meng-clone dari yang dipilih); "Cetak" membuat berita acara
+	 * ({@link CommonReportHelper#onLaporanBeritaAcara}); dan "Refresh" menyegarkan entity dari database sebelum
+	 * merender ulang. Daftar presensi baris-per-peserta sendiri didelegasikan ke
+	 * {@link #reloadAbsensiBaru(Pertemuan, Rows)}, dan area riwayat absensi online di bawahnya ke
+	 * {@link #tampilkanAbsensiOnline(Pertemuan)}.
 	 * </p>
 	 *
 	 * @param parentrow komponen induk (umumnya region tengah border layout) tempat daftar dipasang.
@@ -2681,6 +2877,23 @@ public class AbsensiHelper {
 		tampilkanAbsensiOnline(pertemuan);
 	}
 
+	/**
+	 * Membaca dan mem-parsing riwayat absensi online {@code pertemuan} (disimpan sebagai satu blob JSON pada
+	 * {@code pertemuan.retreive("sejarah")}) menjadi peta terkelompok per entri kejadian.
+	 *
+	 * <p>Setiap key JSON asli berformat {@code "<entri>_<field>"} (mis. {@code "..._foto"},
+	 * {@code "..._lokasi"}, {@code "..._info"}, {@code "..._img"}); method ini mengelompokkan ulang berdasarkan
+	 * bagian sebelum underscore pertama ({@code key.split("_")[0]}) sehingga seluruh field satu kejadian scan
+	 * (foto/lokasi/info/video) dapat diambil sekaligus lewat satu key entri. Karena data lama dari
+	 * PostgreSQL/berkas kadang mengandung karakter NUL yang membuat JSON tidak valid, karakter tersebut diganti
+	 * spasi terlebih dulu; bila JSON tetap gagal di-parse (mis. terpotong di tengah), method mencoba memotong
+	 * mundur ke penutup {@code '}'} terakhir yang masih menghasilkan JSON valid, agar data yang masih utuh tetap
+	 * bisa dibaca alih-alih seluruh riwayat hilang karena satu entri rusak di ekornya.</p>
+	 *
+	 * @param pertemuan pertemuan yang riwayat absensi online-nya dibaca
+	 * @return peta entri &rarr; peta field mentahnya; peta kosong bila belum ada riwayat atau JSON tidak dapat
+	 *         dipulihkan sama sekali
+	 */
 	@SuppressWarnings("unchecked")
 	private TreeMap<String, Map<String, String>> reloadSejarahAbsensiOnline(Pertemuan pertemuan) {
 		String sebelumnya = pertemuan.retreive("sejarah");
@@ -2733,6 +2946,29 @@ public class AbsensiHelper {
 	private boolean terlewat = false;
 	private String terlewatInfo = "";
 
+	/**
+	 * Membangun panel "Sejarah Absensi Online" (kotak di bawah daftar presensi) yang menampilkan seluruh
+	 * riwayat scan absensi online — foto/video dan lokasi yang diunggah peserta — untuk {@code pertemuan},
+	 * beserta pencarian nama/NIM/NIDN dan aksi persetujuan massal. Tidak dirender sama sekali bila viewer
+	 * adalah siswa/calon siswa/calon mahasiswa (siswa/calon tidak memiliki riwayat absensi online di modul ini).
+	 *
+	 * <p>Data diambil ulang setiap render lewat {@link #reloadSejarahAbsensiOnline(Pertemuan)} (field
+	 * {@code maps} dipakai ulang oleh listener tombol di bawahnya). Key setiap entri riwayat berformat
+	 * {@code "<tanggalJam>:<mhsID atau dsnID>"} (prefiks {@code "mhs"} untuk {@link Mahasiswa}, {@code "dsn"}
+	 * untuk {@link Dosen}); bila viewer adalah mahasiswa, daftar disaring hanya menampilkan entri miliknya
+	 * sendiri, dan filter teks pencarian ({@code namaPencarianOnline}) mencocokkan NIM/nama atau NIDN/nama.</p>
+	 *
+	 * <p>Untuk dosen/admin (dan periode belum terlewat), dua tombol massal tersedia — "Hadir yg upld foto/video
+	 * &amp; lokasi" mensyaratkan foto/video DAN lokasi terisi, "Hadir yg upld foto/video" hanya mensyaratkan
+	 * foto/video — keduanya menandai {@link ConstantValues#MASUK} untuk setiap entri yang statusnya masih
+	 * {@code BELUM_ABSEN} atau sudah {@code MASUK} dan memenuhi syarat bukti, dengan keterangan otomatis berisi
+	 * waktu scan dan tautan bukti, lalu memicu {@link #sesuaikan}, {@link Common#refreshUpdate}, dan render ulang
+	 * penuh lewat {@link #mainInit}. Pada tabel per-baris, entri yang masih {@code BELUM_ABSEN} mendapat tombol
+	 * "Hadirkan" (aksi yang sama untuk satu entri saja, dengan dialog konfirmasi), sedangkan entri yang sudah
+	 * berstatus lain hanya menampilkan nama status sebagai teks.</p>
+	 *
+	 * @param pertemuan pertemuan yang riwayat absensi online-nya ditampilkan
+	 */
 	private void tampilkanAbsensiOnline(final Pertemuan pertemuan) {
 
 		Common.clear(rowUtamaAbsensiOnline);
@@ -3446,6 +3682,32 @@ public class AbsensiHelper {
 
 	}
 
+	/**
+	 * Membangun toolbar aksi "hadir otomatis berdasarkan aktivitas lain" untuk dosen/admin (tidak dirender untuk
+	 * mahasiswa/siswa/calon). Setiap tombol menunjukkan JUMLAH peserta yang memenuhi bukti aktivitas tertentu
+	 * pada label tombolnya, dan saat diklik menandai peserta yang memenuhi bukti tersebut sebagai hadir lewat
+	 * helper terkait, lalu memanggil {@link #sesuaikan(Pertemuan, boolean)} dan (bila berhasil) membangun ulang
+	 * seluruh tab lewat {@link #mainInit}:
+	 * <ul>
+	 * <li>"Ikut Diskusi" &rarr; {@link PertemuanPunyaDiskusiHelper#diskusiDianggapHadir};</li>
+	 * <li>"Ikut Ujian" &rarr; {@link HasilUjianMahasiswaHelper#ujianDianggapHadir} untuk setiap
+	 * {@link PertemuanPunyaUjian} terkait;</li>
+	 * <li>"Upload &lt;judul tugas&gt;" (satu untuk tugas utama pertemuan, satu per {@link TugasPertemuan}
+	 * tambahan) &rarr; {@link TugasMandiriHelper#uploadTugasDiangapHadir};</li>
+	 * <li>"Akses &lt;judul tugas&gt;" (dihitung dari log akses "tugas" per peserta, tanpa mensyaratkan upload)
+	 * dan "Video Conf."/"Login &amp; Akses" (dihitung dari log "online"/"akses") &rarr;
+	 * {@link PertemuanPunyaDiskusiHelper#aksesDianggapHadir};</li>
+	 * <li>"Belum absen jadikan Alpa" &rarr; menandai {@link ConstantValues#TIDAK_ADA_ALASAN} untuk setiap
+	 * peserta yang statusnya masih {@code BELUM_ABSEN}, dengan keterangan otomatis, setelah dialog
+	 * konfirmasi.</li>
+	 * </ul>
+	 * Jumlah pada tiap label dihitung ULANG setiap kali panel ini dibangun dengan menjumlahkan entri log
+	 * ({@code pertemuan.ambilData(...)}) milik seluruh {@code mahasiswas} dan {@code listDosen}; tombol
+	 * disembunyikan bila jumlahnya nol.
+	 *
+	 * @param pertemuan pertemuan yang aksinya ditawarkan
+	 * @param vlayout   komponen induk (baris/kolom) tempat toolbar dipasang
+	 */
 	private void tampilBawah(final Pertemuan pertemuan, Row vlayout) {
 		final Tbmuser tbmuser = Common.getCurrentUser();
 
@@ -3813,8 +4075,32 @@ public class AbsensiHelper {
 		});
 	}
 
+	/** Lampiran (file pendukung) yang baru diunggah pada form pengajuan izin/sakit yang sedang terbuka; dipakai
+	 * sebagai jembatan antara callback upload dan listener tombol Simpan karena keduanya berjalan terpisah. */
 	private LampiranLain lampiranTizakMasuk;
 
+	/**
+	 * Membangun panel "Pengajuan Izin atau Sakit" (region East pada desktop, atau blok bertumpuk pada mobile),
+	 * terdiri dari: tombol "Ajukan Izin atau Sakit" yang membuka modal pengajuan baru; grid daftar pengajuan
+	 * ({@code mahasiswaIzinGrid}, dimuat lewat {@link #reloadIzinAbsensi}) dengan kolom persetujuan; dan (khusus
+	 * pertemuan bukan dari jadwal pelajaran/ujian PMB/PSB) tiga blok konfirmasi tambahan oleh perwakilan
+	 * kelas/penjamin mutu yang didelegasikan ke {@link #createStatusKehadiranKonfirmasi},
+	 * {@link #createStatusSesuaiDenganRpsKonfirmasi}, dan {@link #createStatusSesuaiOlehAkademik}.
+	 *
+	 * <p>Modal pengajuan memilih {@link Mahasiswa} (dibatasi ke peserta pertemuan ini lewat
+	 * {@link #populateMahasiswaDariPertemuan}), status {@link ConstantValues#IZIN} atau {@link ConstantValues#SAKIT},
+	 * alasan wajib diisi, dan lampiran opsional ({@link LampiranLain#createDownloadUploadFileLain}). Saat
+	 * disimpan, mencari {@link PengajuanIzinTidakMasukPerkuliahan} yang sudah ada untuk pasangan
+	 * mahasiswa-pertemuan ini (menolak perubahan bila sudah {@code getDiizinkan()}, karena pengajuan yang sudah
+	 * disetujui tidak boleh diubah lagi), lalu menyimpannya. Penyimpanan memakai fallback session Hibernate
+	 * sendiri (buka session + transaksi lokal) bila {@code HibernateUtil.currentSession()} sedang tidak terbuka,
+	 * agar pengajuan tetap tersimpan walau dipanggil dari konteks tanpa sesi request aktif. Setelah tersimpan,
+	 * lampiran (bila ada) dikaitkan ke id pengajuan lewat {@link StreamingHibernateUtil}, notifikasi email
+	 * dikirim ({@link CommonEmail#infoAdaIzinAbsensi}), dan grid dimuat ulang.</p>
+	 *
+	 * @param parentrow komponen induk tempat panel dipasang
+	 * @param pertemuan pertemuan yang pengajuan izin/sakitnya ditampilkan
+	 */
 	private void createListMahasiswaIzin(Component parentrow, final Pertemuan pertemuan) {
 
 		Row rowUtama = Common.tampilanScroll1(parentrow);
@@ -4179,6 +4465,23 @@ public class AbsensiHelper {
 						|| tbmuser.getCalonSiswa() != null || tbmuser.getCalonPegawai() != null) ? null : tbmuser));
 	}
 
+	/**
+	 * Menyalin nilai seluruh kontrol form "Informasi" ({@link #bagianInfo}) yang tersimpan di field instance
+	 * (waktu mulai/selesai, dosen tamu, metode, topik, buku rujukan, jenis pertemuan, ruang, tanggal (rencana
+	 * dan realisasi), konfigurasi media online beserta link-nya, izin absen-pakai-foto, toleransi menit, lokasi
+	 * dan radius) ke objek {@code pertemuan} yang diberikan. Ini adalah titik PERSISTENSI bersama yang dipanggil
+	 * dari hampir seluruh listener perubahan form di kelas ini, agar logika penyalinan field tidak diduplikasi
+	 * di tiap listener.
+	 *
+	 * @param pertemuan pertemuan yang akan diperbarui dari nilai form saat ini
+	 * @param update    bila {@code true}: me-refresh {@code pertemuan} dari database terlebih dahulu (untuk
+	 *                  menghindari menimpa perubahan konkuren dari sesi lain) SEBELUM menyalin nilai form, lalu
+	 *                  mempersist hasilnya lewat {@link Common#refreshUpdate}; bila {@code false}, hanya
+	 *                  menyalin nilai ke objek di memori tanpa refresh atau simpan (dipakai saat pemanggil akan
+	 *                  menyimpan sendiri, mis. bersama perubahan lain dalam transaksi yang sama)
+	 * @return selalu {@code true} (nilai kembalian dipertahankan untuk kompatibilitas pemanggil yang mengecek
+	 *         hasilnya sebagai indikator sukses)
+	 */
 	public boolean sesuaikan(Pertemuan pertemuan, boolean update) {
 
 		if (update) {
@@ -4239,6 +4542,22 @@ public class AbsensiHelper {
 		return true;
 	}
 
+	/**
+	 * Merender daftar kartu presensi (satu kartu per peserta, lewat {@link #tampilRowAbsensi}) ke dalam
+	 * {@code rowsUtama}, didahului toolbar "hadir otomatis" dari {@link #tampilBawah}.
+	 *
+	 * <p>Bila pertemuan sudah DIPISAHKAN menjadi {@link KelasPertemuan} (lihat {@link #initKelasPertemuan}),
+	 * daftar dikelompokkan per sub-kelas — tiap grup menampilkan header info kelas (nama, tanggal, waktu,
+	 * ruang) beserta tombol cetak berita acara khusus kelas itu, ubah, dan hapus, diikuti kartu presensi
+	 * anggotanya (diurutkan NIM), lalu satu grup terpisah "Belum dimasukkan ke pemisahan kelas" untuk peserta
+	 * yang belum masuk sub-kelas manapun. Bila belum ada pemisahan kelas sama sekali, seluruh peserta
+	 * ditampilkan sebagai satu daftar datar. Tahap kurikulum dan semester (dipakai {@link #tampilRowAbsensi}
+	 * untuk aturan tampilan tertentu) dihitung sekali di awal dari {@link Perkuliahan#getKurikulumPunyaMatakuliah()}
+	 * atau, bila tidak tersedia, dari {@code mahasiswa.currentSemester()}.</p>
+	 *
+	 * @param pertemuan pertemuan yang daftar presensinya dirender
+	 * @param rowsUtama kontainer baris (di dalam grid tanpa-border) tempat kartu-kartu dipasang
+	 */
 	@SuppressWarnings("unchecked")
 	private void reloadAbsensiBaru(final Pertemuan pertemuan, final Rows rowsUtama) {
 
@@ -4419,6 +4738,13 @@ public class AbsensiHelper {
 
 	}
 
+	/**
+	 * Memuat ulang grid {@code mahasiswaIzinGrid} pada panel {@link #createListMahasiswaIzin} dengan seluruh
+	 * {@link PengajuanIzinTidakMasukPerkuliahan} milik {@code pertemuan}, menggunakan {@link MahasiswaIzinRenderer}
+	 * sebagai row renderer (satu baris per pengajuan, lengkap dengan kontrol persetujuan).
+	 *
+	 * @param pertemuan pertemuan yang daftar pengajuan izin/sakitnya dimuat
+	 */
 	private void reloadIzinAbsensi(Pertemuan pertemuan) {
 
 		List<PengajuanIzinTidakMasukPerkuliahan> pengajuanIzinTidakMasukPerkuliahans = pertemuan
@@ -4430,6 +4756,43 @@ public class AbsensiHelper {
 
 	}
 
+	/**
+	 * Merender satu KARTU PRESENSI untuk seorang peserta ({@code mahasiswa}) pada {@code pertemuan}, dipakai
+	 * oleh {@link #reloadAbsensiBaru}. Ini adalah implementasi konkret dari perilaku yang dideskripsikan di
+	 * Javadoc {@link #createListMahasiswaAbsensi} (kartu, aturan akses, sinkronisasi izin, tata letak);
+	 * detail tambahan yang tidak dibahas di sana:
+	 * <ul>
+	 * <li>Bila {@link PengajuanIzinTidakMasukPerkuliahan} milik peserta ini sudah disetujui
+	 * ({@code getDiizinkan()}) dan statusnya BERBEDA dari status kehadiran tersimpan saat ini, status kehadiran
+	 * disinkronkan paksa ke status pengajuan tersebut SAAT ITU JUGA (menulis ke database via
+	 * {@link #sesuaikan}/{@link Common#refreshUpdate}) — efek samping yang terjadi di tengah proses render,
+	 * bukan hanya baca.</li>
+	 * <li>Caption kartu menyertakan status akademik terkini mahasiswa lewat
+	 * {@link Common#singkronkanKrsMahasiswa} dan {@link ais.action.master.helper.HistoryStatusMahasiswaUtil}.</li>
+	 * <li>Keterangan mendukung mode lihat/edit inline (tombol "Ubah Keterangan" &harr; "Selesai") dan
+	 * dirender aman dari benturan format URL lewat {@link #formatTextToHtmlSafe}; URL yang terkandung di
+	 * keterangan (lewat {@link Common#getUrls}) dirender sebagai peta (iframe Maps), video (embed Google Drive),
+	 * atau tautan pop-up foto/lampiran, tergantung polanya.</li>
+	 * <li>Dua GATE pembayaran independen dapat memblokir pengubahan status: gate semester pendek
+	 * ({@link ais.action.master.helper.util.GateBayarSpUtil#alasanBlokir}, dicek saat radiogroup diklik, muncul
+	 * sebagai pesan peringatan) dan gate semester reguler (konfigurasi
+	 * {@code mahasiswa_yang_belum_membayar_tidak_bisa_absen_perkuliahan}, dicek saat kartu dirender — bila belum
+	 * lunas, kontrol status disembunyikan dan diganti label peringatan merah).</li>
+	 * </ul>
+	 *
+	 * @param rowDataAbsen   baris (kolom tunggal) tempat kartu dipasang
+	 * @param index          nomor urut tampilan (1-based)
+	 * @param mahasiswa      peserta yang kartunya dirender (biasanya {@link Mahasiswa}, bisa juga
+	 *                       {@link BiodataCalonMahasiswa}/{@link PesertaKursus} tergantung asal pertemuan)
+	 * @param statusabsensis daftar status kehadiran yang boleh dipilih di radiogroup
+	 * @param status         status default (tidak dipakai langsung di badan method; dipertahankan untuk
+	 *                       konsistensi signature pemanggil)
+	 * @param semester       semester efektif peserta, dipakai untuk sinkronisasi KRS dan gate pembayaran
+	 * @param tbmuser        pengguna yang sedang login, menentukan apakah kartu dirender editable
+	 * @param tahap          tahap kurikulum, dipakai untuk sinkronisasi KRS dan gate pembayaran
+	 * @param pertemuan      pertemuan yang kehadirannya direkam
+	 * @throws Exception diteruskan dari akses Hibernate/komponen ZK bila terjadi kegagalan
+	 */
 	private void tampilRowAbsensi(Row rowDataAbsen, Integer index, final VOMahasiswa mahasiswa,
 			List<Statusabsensi> statusabsensis, Statusabsensi status, Integer semester, Tbmuser tbmuser, Integer tahap,
 			final Pertemuan pertemuan) throws Exception {
@@ -4778,7 +5141,24 @@ public class AbsensiHelper {
 	}
 
 	/**
-	 * HELPER METHOD UNTUK MENANGANI REPLACE HTML DENGAN AMAN
+	 * Merapikan teks keterangan bebas (yang mungkin berisi beberapa URL foto/video/lokasi hasil absensi online,
+	 * digabung dalam satu baris) menjadi potongan HTML aman untuk ditampilkan, tanpa saling menimpa/bertumpuk
+	 * antar-URL:
+	 * <ol>
+	 * <li>menyisipkan spasi setelah kemunculan {@code target="_blank">} yang sudah ada, agar batas antar-tautan
+	 * yang berdempetan jelas sebelum tahap berikutnya memproses ulang;</li>
+	 * <li>mengubah baris baru menjadi {@code <br>};</li>
+	 * <li>membungkus setiap URL polos (http/https, {@code www.}, atau domain telanjang) dengan
+	 * {@code <a target="_blank" href="...">Klik di sini</a>} lewat satu regex umum (dengan negative lookahead
+	 * implisit dari batas kata agar tidak memproses ulang tag yang sudah terbentuk);</li>
+	 * <li>khusus URL yang mengandung {@code "download"}, karakter {@code _} di dalamnya diganti {@code ,}
+	 * (parameter query pada URL unduhan lampiran memakai koma, sedangkan {@code _} dipakai di tempat lain sebagai
+	 * pemisah; substitusi ini menormalkan kembali URL yang sempat ter-escape).</li>
+	 * </ol>
+	 * Mengembalikan string kosong (bukan {@code null}) bila input {@code null} atau hanya berisi spasi.
+	 *
+	 * @param input teks keterangan mentah
+	 * @return HTML aman siap tampil; string kosong bila input kosong
 	 */
 	private String formatTextToHtmlSafe(String input) {
 		if (input == null || input.trim().isEmpty()) {
@@ -4814,17 +5194,18 @@ public class AbsensiHelper {
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AbsensiHelper}. Kelas ini menerjemahkan satu item data menjadi
-	 * baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 * Row renderer untuk grid {@code mahasiswaIzinGrid} pada panel {@link #createListMahasiswaIzin}: menerjemahkan
+	 * satu {@link PengajuanIzinTidakMasukPerkuliahan} menjadi satu baris berisi checkbox persetujuan, foto+nama
+	 * mahasiswa, status yang diajukan, keterangan, lampiran, dan tombol hapus.
 	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AbsensiHelper} dan dapat mengakses state kelas
-	 * induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Tbmuser tbmuser}, {@code Pertemuan
-	 * pertemuan}; operasi lokal: {@code render}(). Aturan bisnis bersama tetap berada pada kelas induk atau
-	 * service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * <p>Checkbox "Setujui" hanya ditampilkan bila viewer bukan mahasiswa (atau adalah asisten absen berwenang,
+	 * {@code mahasiswaBolehUbahAbsen}); selain itu status persetujuan ditampilkan sebagai teks read-only
+	 * "Ya"/"Tidak". Mencentang/melepas checkbox langsung mempersist {@code pengajuanIzinTidakMasukPerkuliahan},
+	 * MENULIS status kehadiran mahasiswa pada {@code pertemuan} sesuai status yang diajukan lewat
+	 * {@link Pertemuan#populate}, memanggil {@link AbsensiHelper#sesuaikan}, lalu membangun ulang seluruh tab
+	 * lewat {@link AbsensiHelper#reload} — sehingga menyetujui satu pengajuan izin langsung mengubah status
+	 * kehadiran mahasiswa tersebut pada pertemuan ini. Tombol hapus hanya tampil untuk pengajuan yang BELUM
+	 * disetujui, dan hanya untuk pemilik pengajuan itu sendiri, admin, atau asisten absen berwenang.</p>
 	 *
 	 * @see AbsensiHelper
 	 */
@@ -4833,11 +5214,23 @@ public class AbsensiHelper {
 		private Tbmuser tbmuser;
 		private Pertemuan pertemuan;
 
+		/**
+		 * @param pertemuan pertemuan yang daftar pengajuan izinnya dirender; pengguna yang sedang login diambil
+		 *                  sekali di sini lewat {@link Common#getCurrentUser()}
+		 */
 		public MahasiswaIzinRenderer(Pertemuan pertemuan) {
 			tbmuser = Common.getCurrentUser();
 			this.pertemuan = pertemuan;
 		}
 
+		/**
+		 * Merender satu baris grid untuk {@code arg1} (harus berupa {@link PengajuanIzinTidakMasukPerkuliahan}).
+		 * Lihat dokumentasi kelas {@link MahasiswaIzinRenderer} untuk perilaku lengkap.
+		 *
+		 * @param arg0 baris ZK yang akan diisi
+		 * @param arg1 data baris, di-cast ke {@link PengajuanIzinTidakMasukPerkuliahan}
+		 * @throws Exception diteruskan dari akses Hibernate/komponen ZK bila terjadi kegagalan
+		 */
 		@Override
 		public void render(Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");
@@ -4945,6 +5338,30 @@ public class AbsensiHelper {
 		}
 	}
 
+	/**
+	 * Membangun kartu status kehadiran untuk seorang ASISTEN perkuliahan (mahasiswa yang bertindak sebagai
+	 * asisten dosen), dipakai oleh {@link #bagianInfo} pada blok "Kehadiran Asisten".
+	 *
+	 * <p>Untuk dosen/admin (dan periode belum {@code terlewat}), kartu berupa combobox status
+	 * ({@link Statusabsensi}, dengan pengecualian nama yang sama seperti di constructor {@link AbsensiHelper}),
+	 * catatan bebas, dan jam mulai/selesai — perubahan pada kontrol manapun langsung memanggil
+	 * {@link Pertemuan#populate} untuk asisten ini (kategori {@code "Asisten"}) lalu {@code sesuaikan} dan
+	 * {@link Common#refreshUpdate}. Jam mulai/selesai otomatis diisi dari jam pertemuan saat status yang dipilih
+	 * berkode {@code "M"} (Masuk), dan dikosongkan untuk status lain. Untuk viewer lain (mahasiswa/calon
+	 * mahasiswa/peserta kursus/siswa, atau periode sudah terlewat), hanya label nama status yang ditampilkan.
+	 *
+	 * @param asisten               mahasiswa asisten yang statusnya ditampilkan; bila {@code null} mengembalikan
+	 *                              label kosong tanpa melakukan apa pun
+	 * @param pertemuan             pertemuan yang kehadirannya dicatat
+	 * @param mahasiswa             mahasiswa yang sedang login (untuk menentukan mode read-only), atau
+	 *                              {@code null}
+	 * @param biodataCalonMahasiswa calon mahasiswa yang sedang login (untuk menentukan mode read-only), atau
+	 *                              {@code null}
+	 * @param sesuaikan             listener yang dipanggil setelah status/jam berubah untuk mempersist form info
+	 *                              pertemuan di sekitarnya
+	 * @param terlewat              {@code true} bila periode pengisian kehadiran sudah lewat batas toleransi
+	 * @return kartu editable (combobox+catatan+jam) atau label read-only berisi nama status
+	 */
 	public static Component createStatusKehadiran(final Mahasiswa asisten, final Pertemuan pertemuan,
 			Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa, final EventListener sesuaikan,
 			boolean terlewat) {
@@ -5065,6 +5482,38 @@ public class AbsensiHelper {
 
 	}
 
+	/**
+	 * Membangun kartu SELF-SERVICE kehadiran dosen (dipakai oleh {@link #createStatusKehadiran(Dosen, Pertemuan,
+	 * Mahasiswa, BiodataCalonMahasiswa, MyDatebox, EventListener, boolean)} untuk kartu yang boleh diedit),
+	 * dengan dua bentuk kontrol tergantung konfigurasi:
+	 * <ul>
+	 * <li><b>Mode tombol Mulai/Selesai</b> — aktif bila dosen tidak diizinkan mengubah tanggal perkuliahan
+	 * ({@code !getDosenBisaMerubahTanggalPerkuliahan()}) atau konfigurasi
+	 * {@code dosen_wajib_menggunakan_tombol_start_stop_di_absensi} menyala: dua tombol "Mulai mengajar"/"Selesai
+	 * mengajar" (gaya presensi jam kerja) yang, setelah dikonfirmasi dialog, menulis jam mulai/selesai AKTUAL
+	 * (dari {@code WaktuUtil.getDate()}) sebagai status {@link ConstantValues#MASUK}; ditambah checkbox opsional
+	 * "Selesaikan jam mengajar otomatis sesuai rencana perkuliahan" yang mengisi jam selesai dari jadwal rencana
+	 * ({@link Perkuliahan#getWaktuSelesaiD()}) alih-alih waktu klik sebenarnya.</li>
+	 * <li><b>Mode combobox</b> — selain kondisi di atas: combobox status + jam mulai/selesai manual, mirip pola
+	 * kontrol lain di kelas ini.</li>
+	 * </ul>
+	 * <p>Kedua mode memakai listener bersama {@code ubahRealisasi} yang, bila konfigurasi
+	 * {@code tanggal_realisasi_perkuliahan_harus_diisi_sesuai_pertemuan_perkuliahan} menyala, mengunci/mengisi
+	 * otomatis {@code tanggalRealisasi} berdasarkan apakah SUDAH ADA dosen yang berstatus masuk pada pertemuan
+	 * ini ({@link Pertemuan#apakahAdaDosenYangMasuk()}) dan hak dosen mengubah tanggal. Kartu DIBEKUKAN
+	 * ({@link Common#freeze}) bila dosen yang ditampilkan bukan dosen yang sedang login (mis. saat admin melihat
+	 * kartu dosen lain — kartu tetap dibangun namun read-only). URL yang ada pada keterangan (peta/lampiran)
+	 * dirender di bawah kontrol seperti pada kartu-kartu lain di kelas ini.</p>
+	 *
+	 * @param statusabsensi   status kehadiran dosen saat ini (dipakai sebagai pilihan awal combobox pada mode
+	 *                        combobox)
+	 * @param pertemuan       pertemuan yang kehadirannya dicatat
+	 * @param dosen           dosen yang kartunya dibangun
+	 * @param tanggalRealisasi field tanggal realisasi pada form induk yang disinkronkan oleh {@code ubahRealisasi}
+	 * @param sesuaikan       listener yang dipanggil setelah status/jam berubah untuk mempersist form info
+	 *                        pertemuan di sekitarnya
+	 * @return kartu kontrol kehadiran dosen (tombol start/stop atau combobox, tergantung konfigurasi)
+	 */
 	public static Component boleh(Statusabsensi statusabsensi, final Pertemuan pertemuan, final Dosen dosen,
 			final MyDatebox tanggalRealisasi, final EventListener sesuaikan) {
 		final Tbmuser tbmuser = Common.getCurrentUser();
@@ -5500,6 +5949,24 @@ public class AbsensiHelper {
 		}
 	}
 
+	/**
+	 * Membangun kartu KONFIRMASI kehadiran dosen oleh {@code mahasiswa} (perwakilan kelas), dipakai pada blok
+	 * "Konfirmasi kehadiran dosen oleh perwakilan kelas" di {@link #createListMahasiswaIzin}. Berbeda dari
+	 * {@link #boleh}, kartu ini mencatat status kehadiran dosen ke SET DATA KONFIRMASI TERPISAH (bukan status
+	 * kehadiran resmi dosen) lewat {@code retreiveAbsensiIdKonfirmasi}/{@code populateKonfirmasi} — sebagai
+	 * verifikasi independen dari sisi mahasiswa, bukan menimpa status yang diisi dosen sendiri.
+	 *
+	 * <p>Combobox status dibatasi ke {@link ConstantValues#listAbsenMahasiswa} (bukan seluruh
+	 * {@link Statusabsensi}); jam mulai/selesai hanya aktif bila status berkode {@code "M"}. Setiap perubahan
+	 * kontrol langsung mempersist lewat {@link Common#refreshUpdate} pada session saat itu juga (tanpa melalui
+	 * {@code sesuaikan} milik form induk, karena kartu ini berdiri sendiri di panel izin, bukan di form info
+	 * pertemuan).</p>
+	 *
+	 * @param dosen     dosen yang kehadirannya sedang dikonfirmasi
+	 * @param pertemuan pertemuan terkait
+	 * @param mahasiswa mahasiswa (perwakilan kelas) yang melakukan konfirmasi
+	 * @return kartu kontrol konfirmasi kehadiran dosen
+	 */
 	public static Component bolehKonfirmasi(final Dosen dosen, final Pertemuan pertemuan, final Mahasiswa mahasiswa) {
 
 		Statusabsensi statusabsensi = (Statusabsensi) ConstantValues.ambil(Statusabsensi.class.getName(),
@@ -5632,6 +6099,20 @@ public class AbsensiHelper {
 
 	}
 
+	/**
+	 * Membangun kartu KONFIRMASI KESESUAIAN DENGAN RPS (Rencana Pembelajaran Semester) oleh {@code mahasiswa}
+	 * (perwakilan kelas), dipakai pada blok "Konfirmasi kesesuaian dengan RPS oleh perwakilan kelas" di
+	 * {@link #createListMahasiswaIzin}. Sama pola dengan {@link #bolehKonfirmasi}, tetapi combobox berisi tiga
+	 * pilihan tetap (bukan dari {@link Statusabsensi}): "Belum Ditentukan" (0), "Sesuai" (1), "Tidak Sesuai" (2)
+	 * — mencatat apakah materi yang diajarkan dosen pada pertemuan ini dinilai sesuai RPS. Jam mulai/selesai
+	 * hanya aktif bila pilihan "Sesuai" dipilih. Setiap perubahan langsung mempersist lewat
+	 * {@code pertemuan.populateKonfirmasiRps} dan {@link Common#refreshUpdate}.
+	 *
+	 * @param dosen     dosen yang materinya sedang dikonfirmasi kesesuaiannya
+	 * @param pertemuan pertemuan terkait
+	 * @param mahasiswa mahasiswa (perwakilan kelas) yang melakukan konfirmasi
+	 * @return kartu kontrol konfirmasi kesesuaian RPS
+	 */
 	public static Component bolehKonfirmasiRps(final Dosen dosen, final Pertemuan pertemuan,
 			final Mahasiswa mahasiswa) {
 
@@ -5769,6 +6250,20 @@ public class AbsensiHelper {
 
 	}
 
+	/**
+	 * Membangun kartu KONFIRMASI KESESUAIAN DENGAN RPS oleh STAF PENJAMIN MUTU/AKADEMIK ({@code tbmuser}),
+	 * dipakai pada blok "Konfirmasi kesesuaian dengan RPS oleh penjamin mutu" di
+	 * {@link #createListMahasiswaIzin}. Sama persis polanya dengan {@link #bolehKonfirmasiRps} (combobox tiga
+	 * pilihan Belum Ditentukan/Sesuai/Tidak Sesuai, jam mulai/selesai aktif hanya bila "Sesuai"), tetapi
+	 * data konfirmasi disimpan terpisah per {@code tbmuser.getUserId()} lewat
+	 * {@code retreiveAbsensiIdOlehAkademik}/{@code populateOlehAkademik} — sehingga penilaian dari staf akademik
+	 * tidak bercampur dengan penilaian dari perwakilan kelas mahasiswa.
+	 *
+	 * @param dosen     dosen yang materinya sedang dikonfirmasi kesesuaiannya
+	 * @param pertemuan pertemuan terkait
+	 * @param tbmuser   pengguna staf akademik/penjamin mutu yang melakukan konfirmasi
+	 * @return kartu kontrol konfirmasi kesesuaian RPS oleh akademik
+	 */
 	public static Component bolehOlehAkademik(final Dosen dosen, final Pertemuan pertemuan, final Tbmuser tbmuser) {
 
 		Long status = pertemuan.retreiveAbsensiIdOlehAkademik(tbmuser.getUserId(), dosen);
@@ -5904,6 +6399,16 @@ public class AbsensiHelper {
 
 	}
 
+	/**
+	 * Adaptor: mengekstrak {@link Dosen} dari setiap {@link CommonVO#getValueObject()} lalu mendelegasikan ke
+	 * {@link #createStatusKehadiran(Collection, Pertemuan)}. Dipakai saat pemanggil memiliki daftar dosen
+	 * terbungkus {@link CommonVO} (mis. hasil suatu combobox/pencarian generik) alih-alih {@link Dosen} langsung.
+	 *
+	 * @param dataDosen daftar {@link CommonVO} yang value object-nya berupa {@link Dosen}
+	 * @param pertemuan pertemuan yang status kehadiran dosen-dosennya ditampilkan
+	 * @return lihat {@link #createStatusKehadiran(Collection, Pertemuan)}
+	 * @throws Exception diteruskan dari akses Hibernate/komponen ZK bila terjadi kegagalan
+	 */
 	public static Component createStatusKehadiranData(Collection<CommonVO> dataDosen, final Pertemuan pertemuan)
 			throws Exception {
 		Collection<Dosen> collection = new ArrayList<Dosen>();
@@ -5916,6 +6421,26 @@ public class AbsensiHelper {
 		return d;
 	}
 
+	/**
+	 * Membangun ringkasan READ-ONLY status kehadiran untuk SEKUMPULAN dosen sekaligus, dipakai layar lain
+	 * (mis. dashboard/rekap ujian) yang perlu menampilkan kartu kehadiran beberapa dosen tanpa kontrol edit
+	 * seperti pada {@link #boleh}/{@link #createStatusKehadiran(Dosen, Pertemuan, Mahasiswa,
+	 * BiodataCalonMahasiswa, MyDatebox, EventListener, boolean)}. Untuk masing-masing dosen ditampilkan foto,
+	 * nama, nama status kehadiran, dan rentang jam; bila lebih dari 3 dosen, kartu disusun dalam grid 3 kolom
+	 * per baris (bukan satu baris horizontal panjang) agar tetap rapi. Dosen pengganti (bila ada pada
+	 * {@code pertemuan}) selalu ditambahkan sebagai kartu terpisah di akhir.
+	 *
+	 * <p>Khusus pertemuan berjenis UTS/UAS dan viewer bukan mahasiswa/siswa/calon, ditambahkan pula kontrol
+	 * (untuk admin/staf) memilih hingga 4 {@link Pegawai} pengawas dan satu {@link Dosen} penanggung jawab —
+	 * perubahan pilihan langsung menulis field {@code petugas}/{@code petugas2}/{@code petugas3}/{@code petugas4}/
+	 * {@code pjDosen} pada {@code pertemuan} lewat {@link PertemuanChangeListener} tanpa transaksi eksplisit di
+	 * sini (memakai {@code session.update} langsung).</p>
+	 *
+	 * @param dosens    dosen-dosen yang status kehadirannya ditampilkan; label kosong dikembalikan bila kosong
+	 * @param pertemuan pertemuan yang statusnya dibaca
+	 * @return komponen ringkasan (atau label kosong bila {@code dosens} kosong)
+	 * @throws Exception diteruskan dari akses Hibernate/komponen ZK bila terjadi kegagalan
+	 */
 	public static Component createStatusKehadiran(Collection<Dosen> dosens, final Pertemuan pertemuan)
 			throws Exception {
 		if (dosens.isEmpty()) {
@@ -6071,21 +6596,26 @@ public class AbsensiHelper {
 			pjDosen.setReadonly(true);
 
 			/**
-			 * Event listener lokal milik {@link AbsensiHelper}. Kelas ini menangani event untuk komponen induk dan
-			 * meneruskan pekerjaan domain ke method/service yang sudah tersedia.
+			 * Listener lokal bersama untuk keempat kontrol pemilihan {@link Pegawai} pengawas dan kontrol
+			 * {@link Dosen} penanggung jawab pada kartu ringkasan UTS/UAS di
+			 * {@link AbsensiHelper#createStatusKehadiran(Collection, Pertemuan)}. Dipakai sebagai satu instance
+			 * bersama (bukan satu listener anonim per kontrol) karena kelimanya melakukan aksi yang identik:
+			 * membaca ulang seluruh pilihan pengawas/penanggung jawab dari atribut masing-masing kontrol dan
+			 * menuliskannya ke {@code pertemuan}.
 			 *
-			 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AbsensiHelper} dan dapat mengakses state kelas
-			 * induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-			 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code onEvent}(). Aturan bisnis bersama
-			 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-			 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-			 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-			 * renderer/listener ini.</p>
-			 *
-			 * @see AbsensiHelper
+			 * @see AbsensiHelper#createStatusKehadiran(Collection, Pertemuan)
 			 */
 			class PertemuanChangeListener implements EventListener {
 
+				/**
+				 * Menyalin pilihan pengawas 1-4 dan dosen penanggung jawab (diambil dari atribut
+				 * {@code "pegawai"}/{@code "dosen"} pada kontrol banbox terkait) ke {@code pertemuan}, lalu
+				 * langsung mempersist lewat {@code session.update} (tanpa membungkus transaksi eksplisit di
+				 * sini — mengandalkan transaksi request yang sedang berjalan).
+				 *
+				 * @param arg0 event pemicu (tidak dipakai isinya)
+				 * @throws Exception diteruskan dari akses Hibernate bila terjadi kegagalan
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					Pegawai petugas = (Pegawai) pegawai.getAttribute("pegawai");
@@ -6118,6 +6648,39 @@ public class AbsensiHelper {
 		return hbox;
 	}
 
+	/**
+	 * Membangun kartu status kehadiran untuk SATU {@link Dosen} (dosen utama/pengganti), dipakai oleh
+	 * {@link #bagianInfo}. Ini adalah titik keputusan UTAMA yang menentukan apakah kartu ditampilkan sebagai
+	 * kontrol yang bisa diedit (mendelegasikan ke {@link #boleh}) atau sebagai ringkasan read-only:
+	 *
+	 * <ol>
+	 * <li>Bila pertemuan berasal dari {@link Perkuliahan} yang mensyaratkan
+	 * {@code getKehadiranDosenHarusDiinputSesuaiJadwal()}, viewer adalah dosen itu sendiri, DAN waktu saat ini
+	 * berada DI LUAR jendela jam pertemuan (sebelum jam mulai atau setelah jam selesai) — kartu DIPAKSA
+	 * read-only walau belum "terlewat" secara harian; ini adalah pembatasan jendela waktu PER-HARI yang
+	 * terpisah dari pengecekan {@code terlewat} (yang bekerja per-hari kalender, bukan per-jam).</li>
+	 * <li>Selain itu, bila viewer bukan mahasiswa/calon mahasiswa/peserta kursus/siswa DAN (pertemuan tidak
+	 * mensyaratkan "sesuai jadwal" ATAU belum {@code terlewat}) — kartu editable dari {@link #boleh} yang
+	 * dikembalikan.</li>
+	 * <li>Selain itu (viewer adalah mahasiswa/calon/siswa, atau periode sudah terlewat) — kartu read-only:
+	 * nama status, rentang jam, keterangan (dengan URL foto/peta/lampiran dirender inline seperti kartu
+	 * lain).</li>
+	 * </ol>
+	 *
+	 * @param dosen                 dosen yang kartunya dibangun; bila {@code null} mengembalikan label kosong
+	 * @param pertemuan             pertemuan yang kehadirannya dicatat
+	 * @param mahasiswa             mahasiswa yang sedang login (untuk menentukan mode read-only), atau
+	 *                              {@code null}
+	 * @param biodataCalonMahasiswa calon mahasiswa yang sedang login (untuk menentukan mode read-only), atau
+	 *                              {@code null}
+	 * @param tanggalRealisasi      field tanggal realisasi pada form induk, diteruskan ke {@link #boleh} untuk
+	 *                              disinkronkan
+	 * @param sesuaikan             listener yang dipanggil setelah status/jam berubah untuk mempersist form info
+	 *                              pertemuan di sekitarnya
+	 * @param terlewat              {@code true} bila periode pengisian kehadiran sudah lewat batas toleransi
+	 *                              harian
+	 * @return kartu editable ({@link #boleh}) atau read-only, tergantung aturan di atas
+	 */
 	public static Component createStatusKehadiran(final Dosen dosen, final Pertemuan pertemuan, Mahasiswa mahasiswa,
 			BiodataCalonMahasiswa biodataCalonMahasiswa, final MyDatebox tanggalRealisasi,
 			final EventListener sesuaikan, boolean terlewat) {
@@ -6208,6 +6771,24 @@ public class AbsensiHelper {
 
 	}
 
+	/**
+	 * Membangun panel "Konfirmasi kehadiran dosen oleh perwakilan kelas": untuk setiap {@link Dosen} pengajar
+	 * {@code pertemuan}, mem-parsing {@code pertemuan.getKeteranganKonfirmasi()} — string tersimpan berformat
+	 * daftar entri {@code "<id>,...mahasiswa"} atau {@code "<id>,...siswa"} dipisah {@code ";"}, mencatat SIAPA
+	 * SAJA yang sudah mengonfirmasi — untuk menentukan tampilan per dosen:
+	 * <ul>
+	 * <li>bila {@code mahasiswa} yang sedang login DITEMUKAN sebagai salah satu entri, kartu EDITABLE
+	 * {@link #bolehKonfirmasi} ditampilkan (mahasiswa ini melihat/mengubah konfirmasinya sendiri);</li>
+	 * <li>entri milik mahasiswa LAIN ditampilkan sebagai ringkasan read-only (nama, status, jam, keterangan);</li>
+	 * <li>bila belum ada entri sama sekali: admin/dosen (viewer bukan mahasiswa) melihat pesan "Belum ada
+	 * konfirmasi..", sedangkan mahasiswa yang belum pernah mengonfirmasi melihat kartu editable agar bisa
+	 * menjadi yang pertama.</li>
+	 * </ul>
+	 *
+	 * @param pertemuan pertemuan yang konfirmasinya ditampilkan; label kosong dikembalikan bila {@code null}
+	 * @param mahasiswa mahasiswa yang sedang login (menentukan kartu mana yang editable), atau {@code null}
+	 * @return grid berisi satu groupbox per dosen dengan sub-baris konfirmasi
+	 */
 	public static Component createStatusKehadiranKonfirmasi(Pertemuan pertemuan, Mahasiswa mahasiswa) {
 		if (pertemuan == null) {
 			return new Label();
@@ -6355,6 +6936,17 @@ public class AbsensiHelper {
 
 	}
 
+	/**
+	 * Membangun panel "Konfirmasi kesesuaian dengan RPS oleh perwakilan kelas": mengikuti pola identik dengan
+	 * {@link #createStatusKehadiranKonfirmasi} (parsing entri tersimpan, kartu editable
+	 * {@link #bolehKonfirmasiRps} untuk mahasiswa yang login, ringkasan read-only untuk entri lain, pesan
+	 * placeholder bila kosong), tetapi berbasis {@code pertemuan.getKeteranganSesuaiDenganRps()} dan nilai
+	 * status tiga-state (Belum Ditentukan/Sesuai/Tidak Sesuai) alih-alih status kehadiran.
+	 *
+	 * @param pertemuan pertemuan yang konfirmasi RPS-nya ditampilkan; label kosong dikembalikan bila {@code null}
+	 * @param mahasiswa mahasiswa yang sedang login (menentukan kartu mana yang editable), atau {@code null}
+	 * @return grid berisi satu groupbox per dosen dengan sub-baris konfirmasi kesesuaian RPS
+	 */
 	public static Component createStatusSesuaiDenganRpsKonfirmasi(Pertemuan pertemuan, Mahasiswa mahasiswa) {
 		if (pertemuan == null) {
 			return new Label();
@@ -6497,6 +7089,24 @@ public class AbsensiHelper {
 
 	}
 
+	/**
+	 * Membangun panel "Konfirmasi kesesuaian dengan RPS oleh penjamin mutu/akademik": pola serupa
+	 * {@link #createStatusSesuaiDenganRpsKonfirmasi}, tetapi berbasis {@code pertemuan.getKeteranganSesuaiOlehAkademik()}
+	 * dan kartu {@link #bolehOlehAkademik} (dicocokkan ke {@code tbmuser.getUserId()}, bukan mahasiswa).
+	 *
+	 * <p><b>Kekecualian:</b> bila {@link Perkuliahan#getSemuaPertemuanSesuaiRps()} aktif, konfirmasi per-pertemuan
+	 * DILEWATI SAMA SEKALI — panel menampilkan satu verdict tunggal "Oleh : Penjamin Mutu" yang berlaku untuk
+	 * SELURUH pertemuan perkuliahan ini sekaligus, diambil dari {@link Perkuliahan#getSemuaNilaiSesuaiRps()} dan
+	 * {@link Perkuliahan#getCatatanSesuaiRps()} (bukan dari data konfirmasi per-pertemuan) — dipakai saat
+	 * penjamin mutu memilih menilai kesesuaian RPS sekali untuk satu mata kuliah, bukan pertemuan demi
+	 * pertemuan.</p>
+	 *
+	 * @param pertemuan pertemuan yang konfirmasinya ditampilkan; label kosong dikembalikan bila {@code null}
+	 * @param tbmuser   pengguna staf akademik/penjamin mutu yang sedang login (menentukan kartu mana yang
+	 *                  editable), atau {@code null}
+	 * @return grid berisi satu groupbox per dosen dengan sub-baris konfirmasi (atau satu verdict tunggal per
+	 *         mata kuliah bila {@code getSemuaPertemuanSesuaiRps()} aktif)
+	 */
 	public static Component createStatusSesuaiOlehAkademik(Pertemuan pertemuan, Tbmuser tbmuser) {
 		if (pertemuan == null) {
 			return new Label();

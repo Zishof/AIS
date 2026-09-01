@@ -89,28 +89,62 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
 /**
- * Tipe khusus untuk kegiatan proses heper. Kelas ini memberi nama dan batas tanggung jawab yang
- * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ * Fitur "Proses Tagihan" massal AIS: kumpulan tombol toolbar ZK yang menghitung ulang
+ * {@link Kegiatan}/tagihan untuk BANYAK mahasiswa dan calon mahasiswa sekaligus (bukan satu per
+ * satu seperti {@link KegiatanHelper#checkKegiatanMahasiswa}/{@code checkKegiatanCalonMahasiswa}
+ * yang dipanggilnya di dalam loop), lalu mengekspor hasilnya ke Excel dan/atau surat tagihan PDF
+ * ber-email. Nama file "Heper" (bukan "Helper") adalah TYPO HISTORIS pada nama kelas/file asli —
+ * dipertahankan apa adanya (mengubahnya berarti mengubah nama class publik dan memutus seluruh
+ * pemanggil di codebase), bukan kesalahan penulisan dokumentasi ini.
  *
- * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
- * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
- * implementasi paralel dengan hasil berbeda.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code int DEFAULT_THREAD_POOL_SIZE}, {@code
- * ExecutorService WORKER_EXECUTOR}; pembacaan/pencarian ({@code getSafeThreadPoolSize()}); mutasi data ({@code
- * prosesUlangTagihanCombo()}, {@code prosesUlangTagihan()}, {@code updateUI()}, {@code updateInfo()}, {@code
- * prosesUlangTagihan()}, {@code prosesUlangTagihan()}); operasi domain lain ({@code singkronkanDataCicilan()},
- * {@code nilaiDouble()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
- * atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Tiga fitur utama:</b></p>
+ * <ol>
+ * <li>{@link #prosesUlangTagihan(String, String, JenisKegiatan, boolean)} (dan 3 overload
+ * lainnya) — popup filter (Fakultas/Prodi/Mahasiswa/Tahun Akademik/Angkatan/Ganjil-Genap/Status
+ * Mahasiswa/Jenis Pembayaran/Item Biaya, opsi "Reset Tagihan Kembali ke Billing" dan "Bersihkan
+ * Item Tak Sesuai (Massal)" — irreversible, wajib konfirmasi eksplisit), lalu memanggil
+ * {@code KegiatanHelper.checkKegiatanMahasiswa}/{@code checkKegiatanCalonMahasiswa} PARALEL
+ * (lewat {@code ExecutorService} sekali-pakai berukuran {@link #getSafeThreadPoolSize}) untuk
+ * setiap kombinasi mahasiswa×tahun×semester yang cocok filter, sekaligus MEMPERBARUI
+ * {@link HistoryStatusMahasiswaUtil status keaktifan mahasiswa secara massal} — bukan hanya saat
+ * layar per-mahasiswa dibuka seperti sebelumnya (lihat komentar inline "keluhan UBT"). Hasil
+ * ditulis ke satu file Excel ringkasan tagihan per tahun/semester.</li>
+ * <li>{@link #prosesSuratTagihan} — varian yang, alih-alih hanya menghitung tagihan, MEMBUAT
+ * surat tagihan PDF ({@code Report.generateFileReport}) per mahasiswa yang sisa tagihannya
+ * {@code > 0.1} dan (opsional) MENGIRIM EMAIL lampiran PDF tsb lewat {@link MailSender}. Hasil
+ * dikemas jadi satu file ZIP (Excel ringkasan + seluruh PDF surat).</li>
+ * <li>{@link #singkronkanDataCicilan} — perbaikan data: memetakan ulang seluruh
+ * {@link CicilanPembayaran} ke {@link Kegiatan} yang sesuai lewat
+ * {@code KegiatanPersistenceHelper}, dengan progress bar modal dan laporan rinci per-kegiatan
+ * (berhasil/gagal) via {@code ais.common.LaporanUpload}.</li>
+ * </ol>
+ *
+ * <p><b>Ketahanan concurrency.</b> Ketiga fitur di atas berjalan di {@link #WORKER_EXECUTOR}
+ * (pool BERSAMA berukuran kecil, maks 3 thread daemon) — bukan {@code new Thread().start()} bebas
+ * seperti pola lama, untuk mencegah ledakan thread saat banyak admin memicu proses berat
+ * bersamaan (tiap tugas di dalamnya masih membuka {@code ExecutorService} sendiri hingga 8
+ * thread). Antrian kelebihan pekerjaan MENGANTRI (tak terbatas) alih-alih membludak.</p>
+ *
+ * <p><b>Bukan tanggung jawab kelas ini:</b> logika penghitungan tagihan itu sendiri (didelegasikan
+ * penuh ke {@link KegiatanHelper}), maupun aturan status kemahasiswaan (didelegasikan ke
+ * {@link HistoryStatusMahasiswaUtil}) — kelas ini murni orkestrasi UI + paralelisasi + ekspor
+ * untuk operasi BATCH/massal atas method-method tsb.</p>
  */
 public class KegiatanProsesHeper {
 
 	private static final int DEFAULT_THREAD_POOL_SIZE = Math.max(2,
 			Math.min(8, Runtime.getRuntime().availableProcessors()));
 
+	/**
+	 * Ukuran pool thread yang aman untuk tugas paralel per-permintaan (dipakai
+	 * {@link #prosesUlangTagihan(String, String, JenisKegiatan, boolean)}/{@link #prosesSuratTagihan}
+	 * saat membuat {@code ExecutorService} sekali-pakai internal): antara 1 dan
+	 * {@link #DEFAULT_THREAD_POOL_SIZE} (2-8, mengikuti jumlah prosesor tersedia, dipangkas ke 8),
+	 * tidak pernah melebihi {@code totalWork} agar tidak membuat thread menganggur.
+	 *
+	 * @param totalWork jumlah pekerjaan yang akan diproses; {@code <= 0} memakai default penuh
+	 * @return ukuran pool 1..{@link #DEFAULT_THREAD_POOL_SIZE}
+	 */
 	private static int getSafeThreadPoolSize(int totalWork) {
 		if (totalWork <= 0) {
 			return DEFAULT_THREAD_POOL_SIZE;
@@ -140,26 +174,33 @@ public class KegiatanProsesHeper {
 				}
 			});
 
-	// Inner class untuk menampung hasil pemrosesan paralel Surat Tagihan
 	/**
-	 * Tipe implementasi bersarang {@link SuratResult} milik {@link KegiatanProsesHeper}. Kelas ini memberi nama
-	 * pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
-	 *
-	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link KegiatanProsesHeper}.
-	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
-	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code List excelRows}, {@code List files},
-	 * {@code List fileNames}. Aturan bisnis bersama tetap berada pada kelas induk atau service yang
-	 * dipanggilnya.</p>
-	 *
-	 * @see KegiatanProsesHeper
+	 * Wadah hasil SATU TASK PARALEL di {@link #prosesSuratTagihan} (satu mahasiswa/calon
+	 * mahasiswa, bisa menghasilkan beberapa baris/surat bila diproses lintas beberapa
+	 * tahun×semester). Dipakai agar tiap {@link Callable} thread-worker bisa mengumpulkan hasilnya
+	 * secara independen (tanpa lock/race) sebelum digabung oleh thread utama setelah SEMUA task
+	 * selesai ({@code executor.invokeAll}).
 	 */
 	private static class SuratResult {
+		/** Satu baris per surat yang dibuat, untuk ditulis ke sheet Excel ringkasan (kolom NIM/nama/jenis/fakultas/jurusan/status/angkatan/email/TA/semester/sisa tagihan). */
 		public List<Object[]> excelRows = new ArrayList<Object[]>();
+		/** File PDF surat tagihan yang dihasilkan (hanya untuk baris dengan sisa tagihan {@code > 0.1}), untuk dikemas ke ZIP hasil akhir. */
 		public List<File> files = new ArrayList<File>();
+		/** Nama file dalam ZIP untuk tiap entri {@link #files} (berpasangan indeks), berisi info email/NIM/nama/jenis kegiatan/semester. */
 		public List<String> fileNames = new ArrayList<String>();
 	}
 
+	/**
+	 * Sinonim {@link #prosesUlangTagihan(String, String, JenisKegiatan)} yang mengambil jenis
+	 * kegiatan default dari combobox yang SUDAH dipilih pengguna di layar pemanggil (mis. filter
+	 * jenis pembayaran pada dasbor), bukan {@code null}/"Semua" — memudahkan popup langsung
+	 * ter-prefill sesuai konteks layar asal.
+	 *
+	 * @param buttonLabel   label tombol
+	 * @param buttonImage   path ikon tombol
+	 * @param jenisKegiatan combobox sumber default jenis kegiatan; item terpilihnya (bila ada) dipakai sebagai default popup
+	 * @return tombol toolbar siap dipasang ke UI
+	 */
 	public static MyToolbarbuttonConfig prosesUlangTagihanCombo(String buttonLabel, String buttonImage,
 			Combobox jenisKegiatan) {
 		JenisKegiatan jenisPembayaranDefault = jenisKegiatan == null || jenisKegiatan.getSelectedItem() == null ? null
@@ -167,6 +208,7 @@ public class KegiatanProsesHeper {
 		return prosesUlangTagihan(buttonLabel, buttonImage, jenisPembayaranDefault);
 	}
 
+	/** Sinonim {@code prosesUlangTagihan(buttonLabel, buttonImage, null)} — popup dengan filter Jenis Pembayaran default "Semua". */
 	public static MyToolbarbuttonConfig prosesUlangTagihan(String buttonLabel, String buttonImage) {
 		JenisKegiatan jenisPembayaranDefault = null;
 		return prosesUlangTagihan(buttonLabel, buttonImage, jenisPembayaranDefault);
@@ -177,6 +219,33 @@ public class KegiatanProsesHeper {
 		// 1. FITUR SINGKRONISASI DATA CICILAN (ANTI LEAK & NATIVE SQL)
 		// =========================================================================
 
+		/**
+		 * Tombol perbaikan data: memetakan ulang SELURUH {@link CicilanPembayaran} ke
+		 * {@link Kegiatan} yang sesuai (delegasi penuh ke
+		 * {@code KegiatanPersistenceHelper.ambilPetaCicilanPerKegiatan}/
+		 * {@code sinkronkanCicilanKegiatanLangsung}), dipakai saat data ringkasan pembayaran
+		 * kegiatan diduga tidak sinkron dengan cicilan aslinya. Setelah konfirmasi, menampilkan
+		 * window progress modal (progressmeter + label status, di-{@code doHighlighted} bukan
+		 * {@code doModal} agar tidak menyuspend event-thread ZK) dan memproses tiap kelompok
+		 * cicilan-per-kegiatan PARALEL lewat {@code ExecutorService} berukuran
+		 * {@code KegiatanPersistenceHelper.hitungThreadPoolAman}, di dalam {@link #WORKER_EXECUTOR}
+		 * agar tidak menambah beban thread di luar batas bersama.
+		 * <p>
+		 * <b>Kuirk server-push</b> (dicatat eksplisit di kode sebagai "OPTIMASI FASE 5"): ZK server
+		 * push diaktifkan untuk memperbarui progress bar real-time, tapi HANYA dimatikan lagi di
+		 * {@code finally} bila method inilah yang menyalakannya (menghormati bila desktop sudah
+		 * punya push aktif dari fitur lain) — sebelumnya push dinyalakan tapi tidak pernah
+		 * dimatikan, menyebabkan browser terus polling dan menahan thread Tomcat selama tab
+		 * terbuka.
+		 * <p>
+		 * Hasil akhir: laporan rinci per-kegiatan (berhasil/gagal beserta penyebab teknis lengkap)
+		 * lewat {@code ais.common.LaporanUpload}, diunduh otomatis sebagai file setelah window
+		 * progress ditutup.
+		 *
+		 * @param labelBtn label tombol
+		 * @param icon     path ikon tombol
+		 * @return tombol toolbar siap dipasang ke UI
+		 */
 		public static MyToolbarbuttonConfig singkronkanDataCicilan(String labelBtn, String icon) {
 		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig(labelBtn, icon);
 
@@ -385,6 +454,7 @@ public class KegiatanProsesHeper {
 		return button;
 	}
 
+	/** Menjadwalkan (via {@code Executions.schedule}, aman dipanggil dari thread worker non-ZK) pembaruan teks {@code label} dan nilai {@code progressmeter} pada thread event ZK milik {@code desktop} — dipakai {@link #singkronkanDataCicilan} untuk melaporkan progres dari thread paralel. Exception (mis. desktop sudah mati) ditelan diam-diam. */
 	private static void updateUI(Desktop desktop, final Label label, final Progressmeter progressmeter, final int value,
 			final String message) {
 		try {
@@ -403,6 +473,7 @@ public class KegiatanProsesHeper {
 		}
 	}
 
+	/** Padanan {@link #updateUI} tanpa progressmeter — menjadwalkan pembaruan teks {@code label} saja pada thread event ZK milik {@code desktop}. */
 	private static void updateInfo(Desktop desktop, final Label label, final String message) {
 		try {
 			Executions.schedule(desktop, new EventListener() {
@@ -452,11 +523,50 @@ public class KegiatanProsesHeper {
 	}
 
 
+	/** Sinonim {@code prosesUlangTagihan(buttonLabel, buttonImage, jenisPembayaranDefault, false)} — combobox Jenis Pembayaran popup TIDAK dikunci (pengguna bisa mengubahnya meski ada default). */
 	public static MyToolbarbuttonConfig prosesUlangTagihan(String buttonLabel, String buttonImage,
 			final JenisKegiatan jenisPembayaranDefault) {
 		return prosesUlangTagihan(buttonLabel, buttonImage, jenisPembayaranDefault, false);
 	}
 
+	/**
+	 * Implementasi inti fitur "Proses Tagihan" massal — lihat Javadoc kelas
+	 * {@link KegiatanProsesHeper} untuk gambaran umum. Membangun popup filter lengkap
+	 * (Fakultas/Prodi/Mahasiswa, Hitung Ulang, rentang Tahun Akademik, Jenis Pembayaran opsional
+	 * dikunci lewat {@code lockJenis}, rentang Tahun Angkatan opsional dikunci lewat attribute
+	 * {@code "defaultTahunAngkatan"} yang diset overload 5-param, Ganjil/Genap, filter Status
+	 * Mahasiswa, "Reset Tagihan Kembali ke Billing", dan "Bersihkan Item Tak Sesuai (Massal)" —
+	 * opsi terakhir MENGHAPUS PERMANEN item tagihan belum-dibayar yang tak cocok Setting Biaya
+	 * berlaku, non-aktif default, wajib konfirmasi eksplisit SAAT dicentang bukan saat Proses
+	 * diklik).
+	 * <p>
+	 * Saat "Proses Tagihan" diklik: tombol asal di-{@code setDisabled(true)} (dicegah klik ganda),
+	 * lalu di {@link #WORKER_EXECUTOR} — untuk setiap {@link JenisKegiatan} yang cocok filter (satu
+	 * bila dipilih spesifik, atau SEMUA jenis aktif bila "Semua"), untuk setiap mahasiswa/calon
+	 * mahasiswa yang cocok filter, untuk setiap kombinasi tahun×Ganjil/Genap dalam rentang: dibuat
+	 * satu {@link Callable} yang memanggil
+	 * {@code KegiatanHelper.checkKegiatanMahasiswa}/{@code checkKegiatanCalonMahasiswa}, opsional
+	 * {@code KegiatanPersistenceHelper.bersihkanItemAsing} (dihitung ulang lagi setelahnya bila ada
+	 * yang dihapus), lalu SELALU memanggil
+	 * {@link HistoryStatusMahasiswaUtil#currentStatus(Mahasiswa, String, Integer, boolean)} dengan
+	 * {@code refresh=true} — inilah yang membuat status keaktifan ikut diperbarui massal (bukan
+	 * hanya tagihan). Seluruh {@link Callable} dieksekusi PARALEL lewat
+	 * {@code executor.invokeAll} (ukuran pool dari {@link #getSafeThreadPoolSize}), lalu HASILNYA
+	 * dirakit ke satu file Excel (kolom Tag./Byr./Sisa per tahun-semester + grand total + rincian
+	 * tagihan per baris) oleh THREAD UTAMA setelah semua task selesai (menghindari race menulis
+	 * workbook POI dari banyak thread).
+	 * <p>
+	 * Progress dan hasil akhir ditampilkan lewat mekanisme timer-polling + preview
+	 * {@link Spreadsheet} yang sama dengan {@link KegiatanHelper#doDownloadTagihan}. Bila
+	 * "Bersihkan Item Tak Sesuai" dijalankan, popup ringkasan jumlah item yang terhapus ditampilkan
+	 * sebelum preview Excel.
+	 *
+	 * @param buttonLabel             label tombol
+	 * @param buttonImage             path ikon tombol
+	 * @param jenisPembayaranDefault  jenis kegiatan default terpilih di popup, atau {@code null} untuk "Semua"
+	 * @param lockJenis               {@code true} untuk mengunci combobox Jenis Pembayaran (tidak bisa diubah pengguna)
+	 * @return tombol toolbar siap dipasang ke UI
+	 */
 	public static MyToolbarbuttonConfig prosesUlangTagihan(String buttonLabel, String buttonImage,
 			final JenisKegiatan jenisPembayaranDefault, final boolean lockJenis) {
 		final MyToolbarbuttonConfig toolbarbutton = new MyToolbarbuttonConfig(buttonLabel, buttonImage);
@@ -1524,6 +1634,34 @@ public class KegiatanProsesHeper {
 		return btn;
 	}
 
+	/**
+	 * Fitur "Proses Surat Tagihan": varian dari {@link #prosesUlangTagihan} yang alih-alih hanya
+	 * merekap tagihan, MEMBUAT SURAT TAGIHAN PDF per mahasiswa/calon mahasiswa yang tagihannya
+	 * belum lunas dan (opsional, checkbox "Kirim Email Surat Tagihan") MENGIRIMKANNYA lewat email.
+	 * Popup filter mirip {@link #prosesUlangTagihan} PLUS field khusus surat: Tanggal Surat, Tanggal
+	 * Jatuh Tempo (default besok), Nomor Surat, Cara Pembayaran ({@link JenisPembayaran}, di-scope
+	 * ke {@link SatuanKerja} pengguna login bila ada), dan Prosentase Denda. Jenis Pembayaran WAJIB
+	 * dipilih (tidak boleh "Semua" — divalidasi sebelum proses dimulai).
+	 * <p>
+	 * Alur di {@link #WORKER_EXECUTOR}: untuk setiap mahasiswa/calon mahasiswa × tahun×semester
+	 * yang cocok filter, {@link Callable} paralel memanggil
+	 * {@code KegiatanHelper.checkKegiatanMahasiswa}/{@code checkKegiatanCalonMahasiswa} lalu method
+	 * lokal {@code kirim(...)} (didefinisikan sebagai method privat di dalam
+	 * {@link Runnable}/task ini): menghitung sisa tagihan lewat
+	 * {@code CommonReportHelper.populateMapTagihanMahasiswa}, menambah satu baris ke Excel
+	 * ringkasan, dan — HANYA bila sisa {@code > 0.1} — membuat PDF surat
+	 * ({@code Report.generateFileReport}, template {@code Surat_Tagihan_Mahasiswa}/
+	 * {@code Surat_Tagihan}) serta mengirim email berlampiran PDF lewat
+	 * {@link MailSender#sendMailLampiranTagihan} bila mahasiswa punya alamat email dan checkbox
+	 * kirim dicentang. Hasil tiap task dikumpulkan ke {@link SuratResult} lokal (thread-safe by
+	 * design, tanpa shared mutable state antar task), digabung oleh thread utama setelah
+	 * {@code executor.invokeAll} selesai menjadi satu Excel ringkasan + kumpulan PDF, dikemas
+	 * bersama jadi satu file ZIP ({@code Common.createZip}) untuk diunduh.
+	 *
+	 * @param buttonLabel label tombol
+	 * @param buttonImage path ikon tombol
+	 * @return tombol toolbar siap dipasang ke UI
+	 */
 	public static MyToolbarbuttonConfig prosesSuratTagihan(String buttonLabel, String buttonImage) {
 
 		MyToolbarbuttonConfig toolbarbutton = new MyToolbarbuttonConfig(buttonLabel, buttonImage);
@@ -1881,7 +2019,20 @@ public class KegiatanProsesHeper {
 
 							WORKER_EXECUTOR.execute(new Runnable() {
 
-								// Fungsi Helper untuk populating per row secara independen dan thread-safe
+								/**
+								 * Memproses SATU {@link Kegiatan} (mahasiswa ATAU calon mahasiswa, dibedakan
+								 * dari {@code kegiatan.getMahasiswa()}/{@code getCalonMahasiswa()}): menghitung
+								 * sisa tagihan &amp; menambah baris ke {@code localResult.excelRows}, dan bila
+								 * sisa {@code > 0.1} membuat PDF surat tagihan + (opsional) mengirim email
+								 * lampiran, hasilnya ditambahkan ke {@code localResult.files}/{@code fileNames}.
+								 * Method instance TANPA state bersama antar panggilan (semua parameter dioper
+								 * eksplisit) sehingga aman dipanggil dari banyak thread task paralel sekaligus.
+								 *
+								 * @param localResult          wadah hasil milik task pemanggil (dimutasi langsung)
+								 * @param kegiatan              kegiatan/tagihan yang diproses
+								 * @param cicilanPembayarans   riwayat cicilan pembayaran mahasiswa/calon mahasiswa terkait
+								 * @param threadParams          parameter report (nama, NIM, kaprodi, dst) milik task ini, dimutasi dengan data spesifik kegiatan
+								 */
 								private void kirim(SuratResult localResult, Kegiatan kegiatan,
 										List<CicilanPembayaran> cicilanPembayarans, Map<String, Object> threadParams)
 										throws Exception {

@@ -37,34 +37,69 @@ import ais.database.model.sekolah.PengaturanBiaya;
 import ais.ui.util.WaktuUtil;
 
 /**
- * Tipe khusus untuk user online counter. Kelas ini memberi nama dan batas tanggung jawab yang
- * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ * {@link TimerTask} inti "housekeeping" AIS: dijadwalkan berulang (lihat {@link #run()}, tidur
+ * ~30 detik peka-shutdown antar eksekusi) oleh Spring timer factory ("timerFactory") sejak webapp
+ * start, dan menjalankan berbagai pekerjaan latar belakang aplikasi &mdash; TIDAK khusus untuk
+ * satu domain, namanya ("penghitung user online") hanya mencerminkan tugas pertamanya
+ * ({@link #check()}); tugas lain yang ditambahkan kemudian (notifikasi tagihan sekolah,
+ * warming-up WhatsApp/Watzap, cek kuota ujian, auto-restart, cek memori/GC, proses tagihan,
+ * cek kelas les) numpang di siklus {@code run()} yang sama.
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * TimerTask}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Number count}, {@code Number
- * countOnline}, {@code boolean runningNotifikasiTagihanSekolah}, {@code long index}, {@code Map mapTanyaJawab},
- * {@code double MEGABYTE}, {@code long MEGABYTE_LONG}, {@code List ss}; validasi/perhitungan ({@code check()},
- * {@code restartCheck()}, {@code ujianCheck()}, {@code memoryCheck()}); penghapusan/pembatalan ({@code
- * hapusJsp()}); operasi domain lain ({@code closeNativeSessionQuietly()}, {@code runSafely()}, {@code
- * pesanResourceTertutup()}, {@code doRestart()}, {@code chekWarmingUp()}, {@code run()}). Bagian lain dari
- * kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Setiap eksekusi {@link #run()}</b> (dibungkus {@link #runSafely(String, Runnable)} per
+ * pekerjaan agar satu pekerjaan gagal tidak menghentikan yang lain): notifikasi tagihan sekolah
+ * ({@code PengaturanBiaya.chekNotifikasi()}, hanya tiap {@code index} genap, dijaga flag
+ * {@link #runningNotifikasiTagihanSekolah} agar tak tumpang tindih bila eksekusi sebelumnya
+ * belum selesai), warming-up nomor WhatsApp Watzap (tiap 25 siklus, lihat {@link #chekWarmingUp()}),
+ * {@link #ujianCheck()}, {@link #check()} (hitung user online), {@link #restartCheck()},
+ * {@link #memoryCheck()} (turut memicu {@link #hapusJsp(File)} dan {@link #runGc(double)}),
+ * {@code TagihanProcessor.proses()}, dan {@code PengaturanBiaya.checkKelasLes()}. Di akhir,
+ * ThreadLocal berat milik thread ini dibersihkan ({@code Common.bersihkanThreadLocalThreadIni()})
+ * agar tidak menyandera classloader webapp saat redeploy.</p>
+ *
+ * <p><b>Lifecycle/shutdown:</b> {@link #run()} dan {@link #hapusJsp(File)} memeriksa
+ * {@code Common.aplikasiSedangBerhenti} berulang kali (termasuk di tengah tidur 30 detik, per
+ * detik) agar task ini membatalkan diri ({@code cancel()}) dan keluar CEPAT (&le;1 detik) saat
+ * Tomcat/webapp berhenti &mdash; mencegah warning "failed to stop" thread Spring timerFactory dan
+ * kebocoran classloader. {@link #runSafely} juga meredam noise error "already closed"/"has been
+ * closed"/dsb. yang wajar terjadi saat shutdown karena resource (pool koneksi c3p0, cache MapDB)
+ * sudah ditutup lebih dulu oleh jalur shutdown lain (race antar listener) &mdash; lihat
+ * {@link #pesanResourceTertutup(Throwable)}.</p>
+ *
+ * <p><b>State statis:</b> {@link #count} (total {@code AccessedUsers} 23 jam terakhir) dan
+ * {@link #countOnline} (jumlah nama distinct pada {@code SecurityFilter.dataOnline}, session HTTP
+ * aktif saat ini) dibaca oleh dasbor admin untuk menampilkan jumlah pengguna online. Field
+ * {@link #mapTanyaJawab} adalah cache LRU BER-BATAS (2000 entri, bukan {@code HashMap} polos)
+ * nomor WhatsApp masuk &rarr; {@link TanyaJawab} terakhir, dipakai fitur bot tanya-jawab; nomor
+ * yang tersingkir dari cache memulai alur dari awal saat masuk lagi.</p>
+ *
+ * <p><b>Kuirk:</b> {@link #ss} (daftar nama berkas JSP yang dikecualikan dari
+ * {@link #hapusJsp(File)}) seluruhnya berisi baris ter-<i>comment-out</i> &mdash; efektif KOSONG
+ * saat ini, sehingga hanya nama berkas berawalan {@code capture}/{@code read_}/{@code jml_} yang
+ * dikecualikan dari penghapusan otomatis berkas {@code .jsp/.jspx/.zul/.html/.htm} di
+ * {@code Common.REAL_PATH} (dipicu {@link #memoryCheck()}). Method ini bukan class publik yang
+ * dimaksudkan namanya ("User Online Counter") &mdash; dokumentasikan apa adanya karena mengubah
+ * cakupan tugasnya berisiko memecah alur housekeeping lain yang sudah bergantung padanya.</p>
  *
  * @see TimerTask
  */
 public class UserOnlineCounter extends TimerTask {
 
+	/** Total {@link AccessedUsers} tercatat dalam 23 jam terakhir, dihitung ulang tiap siklus {@link #run()} lewat {@link #check()}. Dibaca dasbor admin. */
 	public static Number count = null;
+	/** Jumlah nama distinct pada {@code SecurityFilter.dataOnline} (session HTTP aktif saat ini), dihitung ulang tiap siklus {@link #run()} lewat {@link #check()}. Dibaca dasbor admin. */
 	public static Number countOnline = null;
 
+	/** Penjaga agar {@code PengaturanBiaya.chekNotifikasi()} tidak dijalankan tumpang tindih bila eksekusi sebelumnya (tiap {@code index} genap) belum selesai saat siklus timer berikutnya tiba. */
 	private static volatile boolean runningNotifikasiTagihanSekolah = false;
 
+	/**
+	 * Tutup session Hibernate native (dibuka via {@code HibernateUtil.currentNativeSession()})
+	 * secara menyeluruh &mdash; {@code clear()}, {@code disconnect()}, {@code close()} bila masih
+	 * terbuka, lalu {@code HibernateUtil.closeSession()} &mdash; dengan setiap langkah diredam bila
+	 * gagal (dicatat via {@code ErrorAuditUtil}, tak dilempar). Dipakai di {@code finally} beberapa
+	 * method statis kelas ini yang membuka session sendiri (mis. {@link #check()}, {@link #doRestart}).
+	 * No-op bila {@code session == null}.
+	 */
 	private static void closeNativeSessionQuietly(Session session) {
 		if (session != null) {
 			try {
@@ -88,6 +123,18 @@ public class UserOnlineCounter extends TimerTask {
 		}
 	}
 
+	/**
+	 * Bungkus satu pekerjaan housekeeping ({@code runnable}) dalam {@code try/catch} yang meredam
+	 * dan mencatat kegagalannya tanpa mengganggu pekerjaan lain di {@link #run()}. Tidak menjalankan
+	 * {@code runnable} sama sekali bila {@code Common.aplikasiSedangBerhenti} sudah {@code true}
+	 * (webapp sedang shutdown). Bila terjadi {@link Throwable} dan aplikasi memang sedang berhenti,
+	 * ATAU error itu dikenali sebagai "resource sudah ditutup saat shutdown" oleh
+	 * {@link #pesanResourceTertutup(Throwable)}, hanya dicatat log ringkas (tanpa stack trace
+	 * menakutkan); selain itu dicatat lengkap dengan stack trace ke {@code ErrorAuditUtil}.
+	 *
+	 * @param namaProses label pekerjaan untuk pesan log (mis. "hitung user online").
+	 * @param runnable   pekerjaan yang dijalankan; exception di dalamnya tidak menjalar ke pemanggil.
+	 */
 	private static void runSafely(String namaProses, Runnable runnable) {
 		// Jangan mulai pekerjaan baru saat aplikasi/webapp sedang berhenti.
 		if (Common.aplikasiSedangBerhenti) {
@@ -131,6 +178,15 @@ public class UserOnlineCounter extends TimerTask {
 		return false;
 	}
 
+	/**
+	 * Hitung ulang {@link #count} dan {@link #countOnline} dari dua sumber berbeda. {@link #count}:
+	 * jumlah baris {@link AccessedUsers} dengan {@code waktu} dalam 23 jam terakhir (session native
+	 * dedikasi, ditutup di {@code finally} via {@link #closeNativeSessionQuietly}). {@link #countOnline}:
+	 * jumlah NAMA distinct (bukan jumlah session) dari {@code SecurityFilter.dataOnline}
+	 * (peta session HTTP aktif in-memory) &mdash; jadi satu pengguna login di beberapa
+	 * tab/perangkat sekaligus tetap dihitung satu. Kedua penghitungan diredam terpisah bila gagal
+	 * (dicatat via {@code ErrorAuditUtil}, nilai lama dipertahankan untuk bagian yang gagal).
+	 */
 	public static void check() {
 
 		Session session = null;
@@ -166,6 +222,19 @@ public class UserOnlineCounter extends TimerTask {
 
 	}
 
+	/**
+	 * Jalankan perintah shell OS ({@code bash -l -c perintah_restart}, direktori kerja {@code /opt/})
+	 * untuk MERESTART server aplikasi (dipanggil {@link #restartCheck()} pada jam terjadwal, atau
+	 * {@link #memoryCheck()} saat memori bebas jatuh di bawah ambang konfigurasi). Output proses
+	 * dibaca penuh sebelum proses dianggap selesai, dicetak ke {@code System.out}, dan dicatat
+	 * sebagai satu baris {@link RestartLog} baru (session native dedikasi, transaksi
+	 * begin/commit/rollback manual, ditutup di {@code finally}). Kegagalan menjalankan perintah OS
+	 * tetap menghasilkan {@link RestartLog} (keterangan berisi pesan error), bukan dilempar ke
+	 * pemanggil ({@code Common.tampilErrorJikaAdmin} dipakai untuk notifikasi admin).
+	 *
+	 * @param perintah_restart perintah shell yang dijalankan untuk memicu restart (dari konfigurasi {@code perintah_restart}).
+	 * @return teks keterangan hasil eksekusi (perintah + output ATAU pesan error), juga yang disimpan ke {@link RestartLog}.
+	 */
 	public static String doRestart(String perintah_restart) {
 		String keterangan = "Perintah restart \"" + perintah_restart + "\"";
 
@@ -211,6 +280,13 @@ public class UserOnlineCounter extends TimerTask {
 		return keterangan;
 	}
 
+	/**
+	 * Bila konfigurasi {@code aktifkan_auto_restart} aktif dan jam terjadwal ({@code auto_restart},
+	 * format sama dengan {@code Common.timeFormat2}) sama persis dengan waktu sekarang, panggil
+	 * {@link #doRestart(String)} dengan perintah dari konfigurasi {@code perintah_restart}.
+	 * Dipanggil tiap siklus {@link #run()}; karena dicocokkan per-detik/menit (bukan rentang),
+	 * restart hanya terpicu pada satu siklus timer yang kebetulan jatuh tepat di menit tersebut.
+	 */
 	public static void restartCheck() {
 		if (Common.bolehKonfigurasi("aktifkan_auto_restart", Konfigurasi.TIDAK_AKTIF)) {
 			String restartTime = Common.getKonfigurasi("auto_restart", "").getNilai();
@@ -226,6 +302,14 @@ public class UserOnlineCounter extends TimerTask {
 		}
 	}
 
+	/**
+	 * Bersihkan entri kadaluarsa dari {@code ProsesUjianHelper.kuotaUjian} (tanda ujian daring
+	 * sedang berlangsung, dipakai penegakan kuota): untuk tiap kunci di sana, ambil
+	 * {@link HasilUjianMahasiswa} terkait dan hitung durasi sejak {@code mulaiPada} &mdash; bila
+	 * sudah lebih dari 3 jam, kunci dianggap basi (mahasiswa dianggap sudah tidak lagi
+	 * benar-benar mengerjakan) dan dihapus dari {@code kuotaUjian} agar slot kuota terbebas untuk
+	 * percobaan lain. Kegagalan seluruh pengecekan diredam &amp; dicatat, tidak dilempar.
+	 */
 	public static void ujianCheck() {
 		try {
 			Set<String> removedData = new HashSet<String>();
@@ -253,12 +337,15 @@ public class UserOnlineCounter extends TimerTask {
 		}
 	}
 
+	/** Penghitung siklus {@link #run()} sejak instance ini dibuat; dipakai untuk menjarangkan pekerjaan berat (mis. warming-up WhatsApp tiap 25 siklus, notifikasi tagihan tiap 2 siklus) tanpa timer terpisah. Bukan {@code static} — direset ke 0 tiap kali task ini diinstansiasi ulang (mis. redeploy). */
 	private long index = 0L;
 
-	// LRU BER-BATAS (bukan HashMap polos): key = nomor WhatsApp masuk dan entri tidak
-	// pernah dihapus — sebelumnya tumbuh monoton per nomor distinct seumur JVM
-	// (optimasi RAM Fase 1). 2000 percakapan aktif terakhir dipertahankan; nomor lama
-	// yang tersingkir memulai alur tanya-jawab dari awal.
+	/**
+	 * LRU BER-BATAS (bukan HashMap polos): key = nomor WhatsApp masuk dan entri tidak
+	 * pernah dihapus — sebelumnya tumbuh monoton per nomor distinct seumur JVM
+	 * (optimasi RAM Fase 1). 2000 percakapan aktif terakhir dipertahankan; nomor lama
+	 * yang tersingkir memulai alur tanya-jawab dari awal.
+	 */
 	public static Map<String, TanyaJawab> mapTanyaJawab = java.util.Collections
 			.synchronizedMap(new java.util.LinkedHashMap<String, TanyaJawab>(16, 0.75f, true) {
 				private static final long serialVersionUID = 1L;
@@ -269,6 +356,20 @@ public class UserOnlineCounter extends TimerTask {
 				}
 			});
 
+	/**
+	 * "Pemanasan" nomor WhatsApp terdaftar di konfigurasi {@code warming_up_code_watzap} (format
+	 * {@code nomorPengirim,apiKey,numberKey,nomorAsli} dipisah {@code ;}), dipanggil tiap 25 siklus
+	 * {@link #run()}. Untuk tiap entri, membuka THREAD BARU yang: tidur acak 1-120 detik (sebar
+	 * beban), lalu mengambil satu {@link TanyaJawab} acak dari database (session native dedikasi,
+	 * ditutup segera setelah query id) sebagai isi pesan pemanasan (fallback teks generik bila
+	 * tabel kosong atau data tak bernama), lalu mengirim pesan via API Watzap
+	 * ({@code https://api.watzap.id/v1/send_message}) memakai proses {@code curl} eksternal
+	 * (bukan HTTP client Java) dan mencatat hasilnya ke {@link #mapTanyaJawab} untuk nomor asli
+	 * terkait. Tujuannya menjaga koneksi WhatsApp Business tetap "hangat"/aktif. Setiap tingkat
+	 * kegagalan (parsing config, query DB, kirim pesan) diredam &amp; dicatat terpisah agar satu
+	 * nomor gagal tidak menggagalkan nomor lain; setiap thread selalu menutup session Hibernate-nya
+	 * di {@code finally}.
+	 */
 	private void chekWarmingUp() {
 		try {
 			for (final String s : Common.getKonfigurasi("warming_up_code_watzap", "").getNilai().trim().split(";")) {
@@ -378,6 +479,15 @@ public class UserOnlineCounter extends TimerTask {
 		}
 	}
 
+	/**
+	 * Satu siklus housekeeping terjadwal. Lihat ringkasan lengkap urutan pekerjaan di Javadoc
+	 * class-level {@link UserOnlineCounter}. Sebelum bekerja: keluar &amp; {@code cancel()} segera
+	 * bila {@code Common.aplikasiSedangBerhenti}; lalu tidur ~30 detik SAMBIL memeriksa flag itu
+	 * tiap detik (peka shutdown, keluar &le;1 detik bila berhenti di tengah tidur) sebagai jeda
+	 * antar-eksekusi task berulang ini. Setiap pekerjaan dibungkus {@link #runSafely(String, Runnable)}
+	 * agar satu pekerjaan gagal tidak menggagalkan yang lain. Menaikkan {@link #index} di akhir dan
+	 * membersihkan ThreadLocal berat thread ini.
+	 */
 	@Override
 	public void run() {
 
@@ -477,18 +587,29 @@ public class UserOnlineCounter extends TimerTask {
 		}
 	}
 
+	/** Konstanta konversi byte ke megabyte (basis 1024), versi {@code double}. */
 	private static final double MEGABYTE = 1024.0 * 1024.0;
 
+	/** Konversi byte ke megabyte (basis 1024, hasil pecahan). */
 	public static double bytesToMegabytes(double bytes) {
 		return bytes / MEGABYTE;
 	}
 
+	/** Konstanta konversi byte ke megabyte (basis 1024), versi {@code long}. */
 	private static final long MEGABYTE_LONG = 1024L * 1024L;
 
+	/** Konversi byte ke megabyte (basis 1024, hasil dibulatkan ke bawah/integer division). */
 	public static long bytesToMegabytesLong(long bytes) {
 		return bytes / MEGABYTE_LONG;
 	}
 
+	/**
+	 * Daftar nama berkas yang DIKECUALIKAN dari penghapusan otomatis oleh {@link #hapusJsp(File)}.
+	 * Kuirk: seluruh baris pengisi daftar ini ada dalam bentuk komentar ({@code //}) &mdash; daftar
+	 * ini EFEKTIF KOSONG saat ini. Dibiarkan apa adanya (bukan bug baru) sebagai riwayat konfigurasi
+	 * sebelumnya; pengecualian penghapusan yang benar-benar aktif saat ini hanya berdasar AWALAN
+	 * nama berkas ({@code capture}/{@code read_}/{@code jml_}), lihat {@link #hapusJsp(File)}.
+	 */
 	private static List<String> ss = new ArrayList<String>();
 	static {
 //		ss.add("login.jsp");
@@ -510,6 +631,17 @@ public class UserOnlineCounter extends TimerTask {
 
 	}
 
+	/**
+	 * Hapus REKURSIF berkas {@code .jsp/.jspx/.zul/.html/.htm} di bawah {@code dir} (kecuali yang
+	 * berawalan {@code capture}/{@code read_}/{@code jml_}, atau ada di daftar {@link #ss} yang
+	 * saat ini efektif kosong) &mdash; pembersihan berkas sementara/temporer yang tertinggal di
+	 * webapp (mis. hasil ekspor/print sementara). Turun ke subdirektori kecuali {@code WEB-INF}
+	 * dan {@code f}. Dipanggil dari {@link #memoryCheck()} terhadap {@code Common.REAL_PATH}.
+	 * Berhenti (tidak menelusuri) segera bila {@code Common.aplikasiSedangBerhenti} agar shutdown
+	 * tidak tertahan penelusuran filesystem yang bisa lama. No-op bila {@code dir} null/tidak ada.
+	 *
+	 * @param dir direktori yang ditelusuri &amp; dibersihkan; boleh {@code null}.
+	 */
 	private static void hapusJsp(File dir) {
 
 		// Saat shutdown, hentikan penelusuran filesystem (bisa lama) agar thread
@@ -555,6 +687,17 @@ public class UserOnlineCounter extends TimerTask {
 
 	}
 
+	/**
+	 * Ambil snapshot memori JVM ({@code Runtime.maxMemory/totalMemory/freeMemory}), simpan sebagai
+	 * satu baris {@link MemoryInfo} baru (session native dedikasi, transaksi begin/commit/rollback
+	 * manual, ditutup di {@code finally}) untuk riwayat monitoring, lalu memicu
+	 * {@link #hapusJsp(File)} pada {@code Common.REAL_PATH} bila terkonfigurasi. Menghitung persentase
+	 * memori bebas total terhadap memori teralokasi, memanggil {@link #runGc(double)} dengannya, dan
+	 * &mdash; bila persentase itu di bawah ambang konfigurasi {@code persen_auto_restart} DAN
+	 * konfigurasi restart terisi &mdash; memicu {@link #doRestart(String)} sebagai upaya pemulihan
+	 * paksa atas tekanan memori. Kegagalan simpan {@link MemoryInfo} maupun parsing ambang restart
+	 * diredam &amp; dicatat, tidak dilempar.
+	 */
 	private void memoryCheck() {
 		Runtime runtime = Runtime.getRuntime();
 
@@ -623,8 +766,18 @@ public class UserOnlineCounter extends TimerTask {
 		}
 	}
 
+	/** Penjaga re-entrancy sederhana (bukan {@code volatile}/atomik) agar {@link #runGc(double)} tidak memicu GC bertumpuk saat dipanggil beruntun. */
 	private static boolean gc = false;
 
+	/**
+	 * Bila persentase memori bebas ({@code persen}) di bawah ambang konfigurasi
+	 * {@code persen_auto_run_gc_baru} (default 10.0), paksa jalankan
+	 * {@code Runtime.getRuntime().gc()} dan {@code runFinalization()} sebagai upaya melepas memori
+	 * sebelum kondisi memori makin kritis. Dijaga flag {@link #gc} agar tidak tumpang tindih;
+	 * kegagalan parsing ambang konfigurasi dicatat &amp; diredam.
+	 *
+	 * @param persen persentase memori bebas saat ini terhadap memori teralokasi (dari {@link #memoryCheck()}).
+	 */
 	public static void runGc(double persen) {
 		if (!gc) {
 			String restartRunGc = Common.getKonfigurasi("persen_auto_run_gc_baru", "10.0").getNilai();
