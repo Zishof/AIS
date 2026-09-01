@@ -113,6 +113,40 @@ public final class GenericCrudAkademikOverrides {
                 + "oleh alur penjadwalan, bukan diketik satu per satu; CRUD generik akan "
                 + "menciptakan pertemuan lepas yang tidak tertaut jadwal mana pun.");
 
+        /*
+         * Cabang Sistem Informasi Koperasi. Ketujuh belas layar READ_ONLY-nya
+         * diperiksa satu per satu; tidak satu pun layar master data. Yang
+         * dicatat di sini adalah yang paling berbahaya bila kelak dinyalakan.
+         */
+        DITAHAN.put("koperasi/pembelian_anggota_koperasi",
+                "Kios Koperasi — SATU-SATUNYA layar koperasi yang Action-nya punya onSave(Event) "
+                + "boolean, sehingga tampak paling layak dinaikkan. Justru layar ini yang paling "
+                + "tidak boleh: entity-nya PembelianAnggotaKoperasi, yaitu transaksi pembelian. "
+                + "Tambah lewat CRUD generik berarti MENGARANG transaksi keuangan tanpa melewati "
+                + "kasir, stok, maupun potongan harga. Transaksi keuangan berjalan L0 (daring "
+                + "penuh) lewat alurnya sendiri.");
+        DITAHAN.put("koperasi/pos_kantin",
+                "Kasir (POS). Entity yang terpilih CaraPembayaranKoperasi — master cara "
+                + "pembayaran, bukan transaksi kasirnya. CRUD generik akan membuat layar kasir "
+                + "menyunting daftar cara pembayaran.");
+        DITAHAN.put("koperasi/pesanan_kantin",
+                "Pesanan Online. Entity-nya CaraPembayaranKoperasi, sama seperti layar kasir — "
+                + "bukan pesanannya.");
+        DITAHAN.put("koperasi/posting_hpp_kantin",
+                "Posting HPP Kantin. Entity yang terpilih MasterAsset, sama sekali bukan pokok "
+                + "layar ini. Posting HPP adalah proses akuntansi berjalan, bukan baris yang "
+                + "diketik.");
+        DITAHAN.put("koperasi/dashboard_kantin",
+                "Dasbor: entity-nya Toko, dipilih hanya karena dasbornya menyaring per toko. "
+                + "Dasbor tidak menyunting apa pun.");
+        DITAHAN.put("koperasi/dashboard_kepatuhan_kantin",
+                "Dasbor Kepatuhan: sama dengan Dasbor Kantin, entity-nya Toko.");
+        DITAHAN.put("koperasi/forecast_penjualan_kantin",
+                "Ramalan Penjualan: hasil hitungan, bukan data yang disimpan. Entity Toko hanya "
+                + "penyaringnya.");
+        DITAHAN.put("inventory/dashboard_stok_kantin",
+                "Dasbor Stok & Mutasi: sama dengan dasbor kantin lain, entity-nya Toko.");
+
         DITAHAN.put("root/mahasiswa_registrasi_wisuda",
                 "Layar ini memang layar tinjau (\"Melihat Pendaftar Wisuda\"). Pendaftaran "
                 + "wisudanya sendiri dikerjakan layar lain; menambah tombol simpan di sini "
