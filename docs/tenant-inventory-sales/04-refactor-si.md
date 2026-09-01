@@ -209,6 +209,82 @@ gagal di runtime lebih berbahaya daripada tidak ada kode sama sekali, sebab ia t
 Perkiraan sebelumnya — "111 literal, pekerjaan mekanis" — **terlalu rendah**. Yang benar:
 sebelas helper, masing-masing perlu kueri baru dan uji kesetaraan sendiri.
 
+## Helper pertama selesai: Persediaan &amp; Kartu Stok
+
+`SalesInventoryStokHelper` — aksi `si_inventory_balance` dan `si_inventory_ledger` — kini
+melayani dua model berdampingan. Ia menjadi contoh bentuk untuk sepuluh helper sisanya.
+
+### Jalur legacy tidak disentuh
+
+Kode lama tetap berada di tempatnya, huruf demi huruf, di dalam cabang `else`. Aktor tanpa
+tenant — yaitu seluruh pengguna hari ini — menjalankan SQL yang sama persis seperti sebelum
+perubahan ini. Tidak ada satu pun `koperasi.` yang hilang dari jalur itu.
+
+### Hanya SELECT yang berbeda
+
+`SalesInventoryStokTenant` menghasilkan `SELECT` dengan **kolom yang sama dan berurutan
+sama**: id, kode, barcode, nama, satuan, harga_beli, harga_jual, stok_minimum, awal, masuk,
+keluar, opname. Karena itu pembungkus, penghitungan total, paginasi, dan seluruh perakitan
+JSON dipakai bersama — tidak ada satu baris pun yang digandakan.
+
+Sembilan `UNION ALL` pada kartu stok legacy runtuh menjadi **satu pemindaian** di sisi
+tenant, sebab seluruh pergerakan sudah berada pada satu buku besar.
+
+### Kontrak `mutasi_stok` akhirnya ditetapkan
+
+Tabelnya berdiri sejak v3, tetapi nilai `jenis` dan `arah` **belum pernah didefinisikan di
+mana pun** — tidak di DDL, tidak di dokumen. `TenantMutasiStok` menetapkannya sekarang,
+sebelum penulis pertama diam-diam menentukannya untuk semua penulis sesudahnya.
+
+`kuantitas` selalu positif; `arah` (+1/−1) yang menentukan naik-turun. Menyimpan tanda di
+kuantitas akan membuat `SUM(kuantitas)` bermakna ganda — pada satu kueri total pergerakan,
+pada kueri lain saldo bersih.
+
+**Jebakan yang paling mudah menjatuhkan:** tabel legacy bernama `pembelian` menyimpan
+**penjualan**. Memetakannya ke `PEMBELIAN` akan membalik arah seluruh omzet.
+
+### Uji kesetaraan: `uji-kesetaraan-stok.sql`
+
+Bukan uji yang mengulang rumusnya, melainkan yang **membandingkan dua model** atas peristiwa
+bisnis yang sama. Dijalankan pada PostgreSQL 16.4:
+
+| Produk | Awal | Masuk | Keluar | Opname | Hasil |
+|---|---|---|---|---|---|
+| P-001 (delapan jenis pergerakan) | 42 = 42 | 119,5 = 119,5 | 45 = 45 | 7 = 7 | **SETARA** |
+| P-002 (tanpa pergerakan) | 0 = 0 | 0 = 0 | 0 = 0 | 0 = 0 | **SETARA** |
+
+Termasuk kasus yang mudah salah: retur penjualan yang **tidak** kembali ke stok tidak
+terhitung di kedua model, dan kuantitas pecahan (100,5) bertahan tanpa pembulatan.
+
+### Satu perbedaan yang DISENGAJA, dan sebuah cacat legacy yang tersingkap
+
+Kondisi rentang legacy adalah `BETWEEN dari AND (sampai + INTERVAL '1 day')` atas kolom
+`timestamp`. Akibatnya peristiwa tepat pukul **00:00:00 pada H+1 ikut terhitung ke rentang
+sebelumnya** — transaksi 1 Maret pukul 00:00 masuk ke laporan Februari.
+
+Uji itu memperagakannya: legacy 1.100,5 versus tenant 100,5 untuk satu baris uji.
+
+`mutasi_stok.tanggal` bertipe `date`, jadi jalur tenant **tidak dapat dan tidak boleh**
+meniru cacat itu. Meniru cacat legacy demi angka yang sama berarti mengabadikannya di model
+baru. Uji sengaja **melaporkan** selisih ini, bukan menggagalkannya.
+
+### Filter toko: gagal-tertutup
+
+Model tenant tidak punya `produk.toko`. Permintaan bersaring toko pada jalur tenant
+**ditolak**, bukan dijalankan tanpa saringan — mengabaikan saringan lingkup berarti
+menyajikan data di luar wewenang peminta. Lingkup `gudang`/`lokasi_stok` menyusul bersama
+§16.
+
+### Ketidakkonsistenan legacy yang ditemukan, dan sengaja tidak diperbaiki
+
+Kartu saldo legacy menjumlahkan tujuh tabel dan **tidak** memuat `mutasi_stok_produksi`,
+padahal kartu stok legacy menampilkannya. Untuk produk yang punya pergerakan produksi,
+kedua layar itu **tidak akan pernah cocok**.
+
+Tidak diperbaiki di sini: mengubah angka yang selama ini dilihat pengguna adalah keputusan
+Anda, bukan efek samping pekerjaan tenant. Di sisi tenant persoalan ini tidak muncul, sebab
+produksi adalah satu `jenis` pada buku besar yang sama.
+
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
 **Sebelas helper, 7.512 baris, belum satu pun kuerinya dipindah ke schema tenant.**

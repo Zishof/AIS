@@ -99,26 +99,46 @@ public final class SalesInventoryStokHelper {
 				String k = "%" + keyword + "%";
 				params.add(k); params.add(k); params.add(k);
 			}
+			boolean jalurTenant = SalesInventoryStokTenant.aktif(ctx);
 			if (tokoId != null) {
+				if (jalurTenant) {
+					// Model tenant tidak punya produk.toko; lingkupnya gudang/lokasi_stok dan
+					// penegakannya bagian 16 yang belum dikerjakan. DITOLAK, bukan dijalankan
+					// tanpa saringan -- mengabaikan saringan lingkup berarti menyajikan data
+					// di luar wewenang peminta.
+					hasil.put("status", "91");
+					hasil.put("description", "Saringan toko belum tersedia pada tenant berschema; "
+							+ "lingkup gudang menyusul bersama penegakan scope.");
+					return;
+				}
 				where.append(" AND p.toko = ? ");
 				params.add(tokoId);
 			}
 
-			String awal = "(" + ekspresiMasuk(kondisiAwal) + " + " + ekspresiOpname(kondisiAwal) + " - ("
-					+ ekspresiKeluar(kondisiAwal) + "))";
-			String masuk = "(" + ekspresiMasuk(kondisiPeriode) + ")";
-			String keluar = "(" + ekspresiKeluar(kondisiPeriode) + ")";
-			String opname = "(" + ekspresiOpname(kondisiPeriode) + ")";
+			String select;
+			if (jalurTenant) {
+				// Buku besar tunggal mutasi_stok. Kolom keluarannya sama dan berurutan sama
+				// dengan jalur legacy, sehingga seluruh pembungkus, paginasi, dan perakitan
+				// JSON di bawah dipakai bersama tanpa digandakan.
+				select = SalesInventoryStokTenant.selectSaldo(
+						SalesInventoryStokTenant.skema(ctx.tenant), dari, sampai, where.toString());
+			} else {
+				String awal = "(" + ekspresiMasuk(kondisiAwal) + " + " + ekspresiOpname(kondisiAwal) + " - ("
+						+ ekspresiKeluar(kondisiAwal) + "))";
+				String masuk = "(" + ekspresiMasuk(kondisiPeriode) + ")";
+				String keluar = "(" + ekspresiKeluar(kondisiPeriode) + ")";
+				String opname = "(" + ekspresiOpname(kondisiPeriode) + ")";
 
-			// PERHATIAN kolom: hargajual/hargabeli TANPA underscore (Produk.getHargaBeli/getHargaJual
-			// tak ber-@Column, implicit-naming deployment ini menggabung camelCase -- terbukti dari
-			// SQL produksi KantinHelper:3494); satuan = FK ke koperasi.satuan_produk.
-			String select = "SELECT p.id AS id, p.kode AS kode, COALESCE(p.barcode,'') AS barcode, "
-					+ "p.nama AS nama, COALESCE(NULLIF(TRIM(sp.nama),''),'(Belum diatur)') AS satuan, "
-					+ "COALESCE(p.hargabeli,0) AS harga_beli, COALESCE(p.hargajual,0) AS harga_jual, "
-					+ "COALESCE(p.stok_minimum,0) AS stok_minimum, "
-					+ awal + " AS awal, " + masuk + " AS masuk, " + keluar + " AS keluar, " + opname + " AS opname "
-					+ "FROM koperasi.produk p LEFT JOIN koperasi.satuan_produk sp ON p.satuan = sp.id" + where;
+				// PERHATIAN kolom: hargajual/hargabeli TANPA underscore (Produk.getHargaBeli/getHargaJual
+				// tak ber-@Column, implicit-naming deployment ini menggabung camelCase -- terbukti dari
+				// SQL produksi KantinHelper:3494); satuan = FK ke koperasi.satuan_produk.
+				select = "SELECT p.id AS id, p.kode AS kode, COALESCE(p.barcode,'') AS barcode, "
+						+ "p.nama AS nama, COALESCE(NULLIF(TRIM(sp.nama),''),'(Belum diatur)') AS satuan, "
+						+ "COALESCE(p.hargabeli,0) AS harga_beli, COALESCE(p.hargajual,0) AS harga_jual, "
+						+ "COALESCE(p.stok_minimum,0) AS stok_minimum, "
+						+ awal + " AS awal, " + masuk + " AS masuk, " + keluar + " AS keluar, " + opname + " AS opname "
+						+ "FROM koperasi.produk p LEFT JOIN koperasi.satuan_produk sp ON p.satuan = sp.id" + where;
+			}
 			String filterLuar = "";
 			if (hanyaMinimum) filterLuar = " WHERE (t.awal + t.masuk + t.opname - t.keluar) <= t.stok_minimum ";
 			else if (hanyaNegatif) filterLuar = " WHERE (t.awal + t.masuk + t.opname - t.keluar) < 0 ";
@@ -211,6 +231,19 @@ public final class SalesInventoryStokHelper {
 		try {
 			String rentang = "BETWEEN DATE '" + dari + "' AND (DATE '" + sampai + "' + INTERVAL '1 day')";
 			StringBuilder sql = new StringBuilder();
+			if (SalesInventoryStokTenant.aktif(ctx)) {
+				// Sembilan UNION legacy runtuh menjadi satu pemindaian: di sisi tenant seluruh
+				// pergerakan sudah berada pada satu buku besar. Kolom keluarannya tetap
+				// waktu/jenis/referensi/masuk/keluar + saldo berjalan, sehingga perakitan JSON
+				// di bawah tidak berubah.
+				String sk = SalesInventoryStokTenant.skema(ctx.tenant);
+				sql.append("WITH kartu AS ( ")
+						.append(SalesInventoryStokTenant.sqlKartu(sk, pid, dari, sampai))
+						.append(") SELECT waktu, jenis, referensi, masuk, keluar, "
+								+ "SUM(masuk - keluar) OVER (ORDER BY waktu ASC, jenis ASC, referensi ASC "
+								+ "ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_periode "
+								+ "FROM kartu ORDER BY waktu ASC, jenis ASC, referensi ASC LIMIT 2000");
+			} else {
 			sql.append("WITH kartu AS ( ");
 			sql.append("SELECT x.waktupengadaan AS waktu, 'Kulakan/Pengadaan' AS jenis, COALESCE(x.nomorfaktur,'') AS referensi, x.qty AS masuk, 0 AS keluar FROM koperasi.pengadaan_produk x WHERE x.produk = ").append(pid)
 					.append(" AND x.waktupengadaan ").append(rentang);
@@ -236,6 +269,7 @@ public final class SalesInventoryStokHelper {
 			sql.append(") SELECT waktu, jenis, referensi, masuk, keluar, "
 					+ "SUM(masuk - keluar) OVER (ORDER BY waktu ASC, jenis ASC, referensi ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_periode "
 					+ "FROM kartu ORDER BY waktu ASC, jenis ASC, referensi ASC LIMIT 2000");
+			}
 
 			// Saldo AWAL sebelum rentang (semua suku < dari) supaya kartu bisa menampilkan saldo absolut.
 			String kondisiAwal = "< DATE '" + dari + "'";
