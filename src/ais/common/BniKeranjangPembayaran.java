@@ -56,17 +56,18 @@ import ais.ui.util.MyMessageboxConfig;
  * ({@link BniCommon#pesanGagalDenganInfoTeknis()}) ditampilkan.</li>
  * </ol>
  *
- * <h2>Peringatan keamanan — kredensial merchant tertanam sebagai nilai default</h2>
+ * <h2>Riwayat keamanan — kredensial merchant tertanam (DIPERBAIKI 2026-09-01)</h2>
  * <p>
  * Pada {@link #onPilihBni}, password/kunci merchant BNI dibaca lewat
- * {@code Common.getKonfigurasi("bni_password", "685dedd9f045787873794ead6276f8bf")} —
- * <b>nilai kedua adalah default fallback yang ditulis langsung di kode sumber dalam bentuk teks
- * polos</b> (dipakai bila baris konfigurasi {@code bni_password} belum diisi di database). Nilai
- * ini dipakai sebagai kunci penandatanganan ({@code key}) permintaan billing ke BNI eCollection.
- * Sesuai instruksi tugas dokumentasi ini, nilai tersebut TIDAK diubah/dihapus di sini — temuan ini
- * dilaporkan agar dapat ditindaklanjuti terpisah (verifikasi apakah nilai ini masih aktif dipakai
- * merchant produksi, dan bila ya, rotasi kredensial serta pemindahan ke penyimpanan konfigurasi
- * yang tidak ter-commit ke kode sumber).
+ * {@code Common.getKonfigurasi("bni_password", ...)} sebagai kunci penandatanganan ({@code key})
+ * permintaan billing ke BNI eCollection. Default fallback yang sebelumnya ditulis langsung di
+ * kode sumber (teks polos, IDENTIK dipakai ulang sebagai default {@code bsi_password}/
+ * {@code bri_password} di banyak file lain pada codebase ini — kemungkinan besar nilai contoh/
+ * placeholder yang disalin-tempel lintas integrasi bank) sudah DIHAPUS — kini string kosong,
+ * permintaan akan gagal dengan jelas bila konfigurasi belum diisi. <b>Tindak lanjut yang TETAP
+ * diperlukan di luar perubahan kode ini:</b> nilai lama sudah lama berada di riwayat SVN dan
+ * WAJIB dianggap bocor — verifikasi apakah masih aktif dipakai merchant produksi dan, bila ya,
+ * rotasi kredensial di sisi BNI.
  * </p>
  */
 public class BniKeranjangPembayaran {
@@ -129,7 +130,7 @@ public class BniKeranjangPembayaran {
 			final Set<KegiatanTemporary> selectedKegiatanTemporary, Event event) throws Exception {
 
 		String merchant_id = Common.getKonfigurasi("bni_merchant_id", "000").getNilai().trim();
-		String Password = Common.getKonfigurasi("bni_password", "685dedd9f045787873794ead6276f8bf").getNilai().trim();
+		String Password = Common.getKonfigurasi("bni_password", "").getNilai().trim();
 
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 		calendar.set(Calendar.DATE, calendar.get(Calendar.DATE) + 1);

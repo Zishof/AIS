@@ -397,7 +397,7 @@ public class BniCommon {
 			throws Exception {
 
 		String merchant_id = Common.getKonfigurasi("bni_merchant_id", "000").getNilai().trim();
-		String Password = Common.getKonfigurasi("bni_password", "685dedd9f045787873794ead6276f8bf").getNilai().trim();
+		String Password = Common.getKonfigurasi("bni_password", "").getNilai().trim();
 
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 
@@ -1314,7 +1314,7 @@ public class BniCommon {
 		}
 
 		String merchant_id = Common.getKonfigurasi("bni_merchant_id", "000").getNilai().trim();
-		String Password = Common.getKonfigurasi("bni_password", "685dedd9f045787873794ead6276f8bf").getNilai().trim();
+		String Password = Common.getKonfigurasi("bni_password", "").getNilai().trim();
 
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 		calendar.set(Calendar.MONTH, calendar.get(Calendar.MONTH) + 1);

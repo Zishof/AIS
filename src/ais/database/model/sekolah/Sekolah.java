@@ -492,7 +492,7 @@ public class Sekolah extends VoKunci {
 		String merchant_id = sekolah != null && !sekolah.getBniMerchantId().isEmpty() ? sekolah.getBniMerchantId()
 				: Common.getKonfigurasi("bni_merchant_id", "000").getNilai().trim();
 		String Password = sekolah != null && !sekolah.getBniPassword().isEmpty() ? sekolah.getBniPassword()
-				: Common.getKonfigurasi("bni_password", "685dedd9f045787873794ead6276f8bf").getNilai().trim();
+				: Common.getKonfigurasi("bni_password", "").getNilai().trim();
 
 		if (tahun != null) {
 			try {
@@ -529,7 +529,7 @@ public class Sekolah extends VoKunci {
 			merchant_id = Common.getKonfigurasi("bni_merchant_id", "000").getNilai().trim();
 		}
 		if (Password == null || Password.trim().isEmpty()) {
-			Password = Common.getKonfigurasi("bni_password", "685dedd9f045787873794ead6276f8bf").getNilai().trim();
+			Password = Common.getKonfigurasi("bni_password", "").getNilai().trim();
 		}
 
 		return new String[] { merchant_id, Password };
@@ -549,7 +549,7 @@ public class Sekolah extends VoKunci {
 				: Common.getKonfigurasi("bni_merchant_id", "000").getNilai().trim();
 		String Password = siswa != null && sekolah != null && !sekolah.getBniPassword().isEmpty()
 				? sekolah.getBniPassword()
-				: Common.getKonfigurasi("bni_password", "685dedd9f045787873794ead6276f8bf").getNilai().trim();
+				: Common.getKonfigurasi("bni_password", "").getNilai().trim();
 
 		if (calonSiswa != null) {
 			merchant_id = calonSiswa != null && sekolah != null && !sekolah.getBniMerchantId().isEmpty()
@@ -557,7 +557,7 @@ public class Sekolah extends VoKunci {
 					: Common.getKonfigurasi("bni_merchant_id", "000").getNilai().trim();
 			Password = calonSiswa != null && sekolah != null && !sekolah.getBniPassword().isEmpty()
 					? sekolah.getBniPassword()
-					: Common.getKonfigurasi("bni_password", "685dedd9f045787873794ead6276f8bf").getNilai().trim();
+					: Common.getKonfigurasi("bni_password", "").getNilai().trim();
 		}
 
 		if (siswa != null && siswa.getTahunMasuk() != null) {
@@ -632,7 +632,7 @@ public class Sekolah extends VoKunci {
 			merchant_id = Common.getKonfigurasi("bni_merchant_id", "000").getNilai().trim();
 		}
 		if (Password == null || Password.trim().isEmpty()) {
-			Password = Common.getKonfigurasi("bni_password", "685dedd9f045787873794ead6276f8bf").getNilai().trim();
+			Password = Common.getKonfigurasi("bni_password", "").getNilai().trim();
 		}
 
 		return new String[] { merchant_id, Password };
@@ -652,7 +652,7 @@ public class Sekolah extends VoKunci {
 				: Common.getKonfigurasi("bsi_merchant_id", "000").getNilai().trim();
 		String Password = siswa != null && sekolah != null && !sekolah.getBsiPassword().isEmpty()
 				? sekolah.getBsiPassword()
-				: Common.getKonfigurasi("bsi_password", "685dedd9f045787873794ead6276f8bf").getNilai().trim();
+				: Common.getKonfigurasi("bsi_password", "").getNilai().trim();
 
 		if (calonSiswa != null) {
 			merchant_id = calonSiswa != null && sekolah != null && !sekolah.getBsiMerchantId().isEmpty()
@@ -660,7 +660,7 @@ public class Sekolah extends VoKunci {
 					: Common.getKonfigurasi("bsi_merchant_id", "000").getNilai().trim();
 			Password = calonSiswa != null && sekolah != null && !sekolah.getBsiPassword().isEmpty()
 					? sekolah.getBsiPassword()
-					: Common.getKonfigurasi("bsi_password", "685dedd9f045787873794ead6276f8bf").getNilai().trim();
+					: Common.getKonfigurasi("bsi_password", "").getNilai().trim();
 		}
 
 		if (siswa != null && siswa.getTahunMasuk() != null) {
@@ -735,7 +735,7 @@ public class Sekolah extends VoKunci {
 			merchant_id = Common.getKonfigurasi("bsi_merchant_id", "000").getNilai().trim();
 		}
 		if (Password == null || Password.trim().isEmpty()) {
-			Password = Common.getKonfigurasi("bsi_password", "685dedd9f045787873794ead6276f8bf").getNilai().trim();
+			Password = Common.getKonfigurasi("bsi_password", "").getNilai().trim();
 		}
 
 		return new String[] { merchant_id, Password };

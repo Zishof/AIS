@@ -921,7 +921,7 @@ public class Bniresponse extends HttpServlet {
 			JSONObject jsonObject = new JSONObject(data);
 			String parsedData = jsonObject.getString("data");
 			String merchant_id = jsonObject.getString("client_id");
-			String Password = Common.getKonfigurasi("bni_password", "685dedd9f045787873794ead6276f8bf").getNilai()
+			String Password = Common.getKonfigurasi("bni_password", "").getNilai()
 					.trim();
 
 			{
@@ -944,7 +944,7 @@ public class Bniresponse extends HttpServlet {
 
 				try {
 					Password = sekolah != null && !sekolah.getBniPassword().isEmpty() ? sekolah.getBniPassword().trim()
-							: Common.getKonfigurasi("bni_password", "685dedd9f045787873794ead6276f8bf").getNilai().trim();
+							: Common.getKonfigurasi("bni_password", "").getNilai().trim();
 
 					String bniPassword = sekolah != null && !sekolah.getBniPassword().isEmpty() ? sekolah.getBniPassword()
 							: null;

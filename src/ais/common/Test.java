@@ -22,16 +22,17 @@ import org.apache.commons.lang3.StringUtils;
  * — adalah kode nonaktif.
  * </p>
  *
- * <h2>Peringatan keamanan — nilai sensitif tertanam di kode yang dinonaktifkan</h2>
+ * <h2>Riwayat keamanan — nilai sensitif tertanam di kode yang dinonaktifkan (DIPERBAIKI 2026-09-01)</h2>
  * <p>
  * Meskipun dinonaktifkan (tidak pernah dieksekusi selama tetap dalam bentuk komentar), beberapa
  * blok komentar di {@link #main(String[])} dan di kelas lama pada komentar blok akhir berkas ini
- * tetap memuat nilai sensitif yang sudah tercatat permanen di riwayat kode sumber:
+ * tadinya memuat nilai sensitif yang sudah tercatat permanen di riwayat kode sumber (kedua literal
+ * di bawah sudah diganti placeholder {@code "REPLACE_VIA_KONFIGURASI"} pada blok komentar terkait,
+ * namun tetap harus dianggap bocor karena sudah lama berada di riwayat SVN):
  * </p>
  * <ul>
- * <li>Header {@code X-BRI-KEY: "b6642aad94d9861f21671cfcccfa672fc880a89d"} dan
- * {@code Authorization: "Bearer ee9d8ad39fe81ffe276bc52833108b2513eb8854"} pada blok komentar
- * percobaan panggilan API BRI VA ({@code https://developer.bri.co.id/v1/api/briva}) — keduanya
+ * <li>Header {@code X-BRI-KEY} dan {@code Authorization: Bearer} pada blok komentar percobaan
+ * panggilan API BRI VA ({@code https://developer.bri.co.id/v1/api/briva}) — keduanya sebelumnya
  * berbentuk token/API key nyata, bukan placeholder.</li>
  * <li>Sejumlah alamat email pribadi tertanam sebagai data uji coba pada blok komentar (mis.
  * {@code achtar.tuanda@gmail.com}, {@code asrofiridho@gmail.com}, dan variasi
@@ -158,9 +159,9 @@ public class Test {
 		// httppost.setHeader("Accept", "application/json");
 		// httppost.setHeader("Content-type", "application/json");
 		// httppost.setHeader("X-BRI-KEY",
-		// "b6642aad94d9861f21671cfcccfa672fc880a89d");
+		// "REPLACE_VIA_KONFIGURASI"); // DIHAPUS 2026-09-01, lihat riwayat keamanan javadoc kelas
 		// httppost.setHeader("Authorization", "Bearer
-		// ee9d8ad39fe81ffe276bc52833108b2513eb8854");
+		// REPLACE_VIA_KONFIGURASI"); // DIHAPUS 2026-09-01
 		//
 		// System.out.println("Executing request: " +
 		// httppost.getRequestLine());

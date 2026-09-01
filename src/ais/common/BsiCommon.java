@@ -397,7 +397,7 @@ public class BsiCommon {
 			throws Exception {
 
 		String merchant_id = Common.getKonfigurasi("bsi_merchant_id", "000").getNilai().trim();
-		String Password = Common.getKonfigurasi("bsi_password", "685dedd9f045787873794ead6276f8bf").getNilai().trim();
+		String Password = Common.getKonfigurasi("bsi_password", "").getNilai().trim();
 
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 

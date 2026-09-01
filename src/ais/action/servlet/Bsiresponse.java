@@ -705,7 +705,7 @@ public class Bsiresponse extends HttpServlet {
 			JSONObject jsonObject = new JSONObject(data);
 			String parsedData = jsonObject.getString("data");
 			String merchant_id = jsonObject.getString("client_id");
-			String Password = Common.getKonfigurasi("bsi_password", "685dedd9f045787873794ead6276f8bf").getNilai()
+			String Password = Common.getKonfigurasi("bsi_password", "").getNilai()
 					.trim();
 
 			{

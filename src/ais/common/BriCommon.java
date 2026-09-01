@@ -79,6 +79,21 @@ import ais.ui.util.MyMessageboxConfig;
  * <p><b>Efek samping:</b> sesuai operasi yang dipanggil, utilitas dapat mengubah komponen UI, membaca/menulis
  * persistence atau berkas, dan memanggil layanan lain. Gunakan method kanonik di kelas ini melalui konteks
  * request/transaksi yang tepat, bukan menyalin implementasinya.</p>
+ * <p>
+ * <b>Riwayat keamanan (DIPERBAIKI 2026-09-01):</b> {@link #requestToken()}, {@link #get(String)},
+ * dan {@link #post(String, String)} sebelumnya membaca {@code bri_merchant_id}/
+ * {@code bri_password}/{@code bri_auth_code}/{@code bri_api_key}/{@code bri_auth_code_barier}
+ * lewat {@code Common.getKonfigurasi(key, default)} dengan NILAI DEFAULT rahasia tertulis
+ * langsung di kode sumber. Seluruh default rahasia tersebut sudah DIHAPUS (kini string kosong);
+ * {@code bri_gateway_url_token}/{@code bri_gateway_url}/{@code bri_institution_code}/
+ * {@code bri_briva_no}/{@code bri_biaya_administrasi} TETAP memiliki default karena bersifat
+ * pengenal/URL, bukan rahasia otentikasi. Baris {@code System.out.println} yang sebelumnya
+ * mencetak {@code access_token} pada {@link #requestToken()} juga sudah dihapus. <b>Tindak lanjut
+ * yang TETAP diperlukan di luar perubahan kode ini:</b> kelima nilai rahasia yang sebelumnya
+ * tertanam sudah lama berada di riwayat SVN dan WAJIB dianggap bocor — perlu dirotasi di sisi BRI
+ * bila masih aktif di produksi (integrasi BRIVA legacy ini terpisah dari integrasi BRI SNAP di
+ * {@link BRIUtil}/{@link BRIDataUtil}, yang sudah diperbaiki terpisah).
+ * </p>
  */
 public class BriCommon {
 
@@ -505,11 +520,11 @@ public class BriCommon {
 			HttpPost httpPost = new HttpPost(strURL);
 
 			String postData = "{\"grant_type\": \"authorization_code\",  \"client_id\": \""
-					+ Common.getKonfigurasi("bri_merchant_id", "6b0c1a35a4c308fc523f8f484246c0fbafda").getNilai()
+					+ Common.getKonfigurasi("bri_merchant_id", "").getNilai()
 					+ "\",  \"client_secret\": \""
-					+ Common.getKonfigurasi("bri_password", "90eefc01993f81ea87a64e0816776f0429e9").getNilai()
+					+ Common.getKonfigurasi("bri_password", "").getNilai()
 					+ "\",  \"code\": \""
-					+ Common.getKonfigurasi("bri_auth_code", "8ab63febc16c5845f9ac1ee75a58d70bfcb99a83").getNilai()
+					+ Common.getKonfigurasi("bri_auth_code", "").getNilai()
 					+ "\"}";
 
 			StringEntity entity = new StringEntity(postData);
@@ -517,18 +532,15 @@ public class BriCommon {
 			httpPost.setHeader("Accept", "application/json");
 			httpPost.setHeader("Content-type", "application/json");
 			httpPost.setHeader("X-BRI-KEY",
-					Common.getKonfigurasi("bri_api_key", "b6642aad94d9861f21671cfcccfa672fc880a89d").getNilai());
+					Common.getKonfigurasi("bri_api_key", "").getNilai());
 
 			CloseableHttpResponse response = httpclient.execute(httpPost);
 
-			int status = response.getStatusLine().getStatusCode();
-			System.out.println("Response status code: " + status);
 			String hasil = EntityUtils.toString(response.getEntity());
 
 			JSONObject responseData = new JSONObject(hasil);
 			JSONObject data = responseData.getJSONObject("data");
 			String access_token = data.getString("access_token");
-			System.out.println("access_token => " + access_token);
 
 			Konfigurasi konfigurasi = Common.getKonfigurasi("bri_auth_code_barier", access_token);
 			konfigurasi.setNilai(access_token);
@@ -553,13 +565,13 @@ public class BriCommon {
 
 			HttpGet httpGet = new HttpGet(strURL);
 
-			String barier = Common.getKonfigurasi("bri_auth_code_barier", "43b0fa6ba16c6dcfd37130014e4ddce337b7b178")
+			String barier = Common.getKonfigurasi("bri_auth_code_barier", "")
 					.getNilai();
 
 			httpGet.setHeader("Accept", "application/json");
 			httpGet.setHeader("Content-type", "application/json");
 			httpGet.setHeader("X-BRI-KEY",
-					Common.getKonfigurasi("bri_api_key", "b6642aad94d9861f21671cfcccfa672fc880a89d").getNilai());
+					Common.getKonfigurasi("bri_api_key", "").getNilai());
 			httpGet.setHeader("Authorization", "Bearer " + barier);
 
 			CloseableHttpResponse response = httpclient.execute(httpGet);
@@ -621,7 +633,7 @@ public class BriCommon {
 
 			HttpPost httpPost = new HttpPost(strURL);
 
-			String barier = Common.getKonfigurasi("bri_auth_code_barier", "43b0fa6ba16c6dcfd37130014e4ddce337b7b178")
+			String barier = Common.getKonfigurasi("bri_auth_code_barier", "")
 					.getNilai();
 
 			StringEntity entity = new StringEntity(postData);
@@ -629,7 +641,7 @@ public class BriCommon {
 			httpPost.setHeader("Accept", "application/json");
 			httpPost.setHeader("Content-type", "application/json");
 			httpPost.setHeader("X-BRI-KEY",
-					Common.getKonfigurasi("bri_api_key", "b6642aad94d9861f21671cfcccfa672fc880a89d").getNilai());
+					Common.getKonfigurasi("bri_api_key", "").getNilai());
 			httpPost.setHeader("Authorization", "Bearer " + barier);
 
 			CloseableHttpResponse response = httpclient.execute(httpPost);

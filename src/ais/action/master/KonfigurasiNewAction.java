@@ -6485,7 +6485,7 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 				null);
 		hbox.setParent(groupbox);
 		rows.appendChild(createRowNilai("Client ID", "bni_merchant_id", "000"));
-		rows.appendChild(createRowNilaiPassword("Bni password", "bni_password", "685dedd9f045787873794ead6276f8bf"));
+		rows.appendChild(createRowNilaiPassword("Bni password", "bni_password", ""));
 
 		rows.appendChild(createRowNilai("Bni Post URL", "bni_gateway_url", "https://apibeta.bni-ecollection.com/"));
 		rows.appendChild(createRowTanggal("Tanggal Berakhir Pembayaran / Expired (Kosongkan jika berlaku 24 jam)",
@@ -6531,7 +6531,7 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 				null);
 		hbox.setParent(groupbox);
 		rows.appendChild(createRowNilai("Client ID", "bsi_merchant_id", "000"));
-		rows.appendChild(createRowNilaiPassword("Bsi password", "bsi_password", "685dedd9f045787873794ead6276f8bf"));
+		rows.appendChild(createRowNilaiPassword("Bsi password", "bsi_password", ""));
 
 		rows.appendChild(
 				createRowNilai("Bsi Post URL", "bsi_gateway_url", "https://billing-bpi.maja.id/bni/register/"));
@@ -6601,11 +6601,11 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 		rows.appendChild(createRowNilai("Briva No", "bri_briva_no", "77777"));
 
 		rows.appendChild(createRowNilai("Client ID", "bri_merchant_id", "000"));
-		rows.appendChild(createRowNilaiPassword("CLIENT SECRET", "bri_password", "685dedd9f045787873794ead6276f8bf"));
+		rows.appendChild(createRowNilaiPassword("CLIENT SECRET", "bri_password", ""));
 		rows.appendChild(createRowNilaiPassword("X-BRI-KEY / API KEY", "bri_api_key",
-				"b6642aad94d9861f21671cfcccfa672fc880a89d"));
+				""));
 		rows.appendChild(createRowNilaiPassword("Authorization / Auth Code", "bri_auth_code",
-				"8ab63febc16c5845f9ac1ee75a58d70bfcb99a83"));
+				""));
 
 		rows.appendChild(createRowNilai("Bri Post URL", "bri_gateway_url", "https://developer.bri.co.id/v1/api/briva"));
 		rows.appendChild(createRowTanggal("Tanggal Berakhir Pembayaran / Expired (Kosongkan jika berlaku 2 bulan)",
@@ -12881,7 +12881,7 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 		rows.appendChild(createRowNilai("Bjbs password — dipakai di: BJBSUtil", "bjbs_password", "004unb"));
 		rows.appendChild(createRowNilai("Bjbs username — dipakai di: BJBSUtil", "bjbs_username", "unb004"));
 		rows.appendChild(createRowActiveDefault("BolehPilihLihatSemuaAkun — dipakai di: AmbilDataBanyakAkun", "bolehPilihLihatSemuaAkun", Konfigurasi.TIDAK_AKTIF));
-		rows.appendChild(createRowNilai("Bri auth code barier — dipakai di: BriCommon", "bri_auth_code_barier", "43b0fa6ba16c6dcfd37130014e4ddce337b7b178"));
+		rows.appendChild(createRowNilai("Bri auth code barier — dipakai di: BriCommon", "bri_auth_code_barier", ""));
 		rows.appendChild(createRowNilai("Bri gateway url token — dipakai di: BriCommon", "bri_gateway_url_token", "https://developer.bri.co.id/v1/api/token"));
 		rows.appendChild(createRowNilai("Btn forward url — dipakai di: DownloadTagihanMahasiswaBankBtn", "btn_forward_url", ""));
 		rows.appendChild(createRowActiveDefault("Btn forward url aktif — dipakai di: DownloadTagihanMahasiswaBankBtn", "btn_forward_url_aktif", Konfigurasi.TIDAK_AKTIF));

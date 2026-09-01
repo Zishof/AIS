@@ -46,19 +46,20 @@ import ais.ui.util.MyMessageboxConfig;
  * error konsisten dengan kanal pembayaran lain.
  * </p>
  *
- * <h2>Peringatan keamanan — kredensial BSI tertanam sebagai nilai default</h2>
+ * <h2>Riwayat keamanan — kredensial BSI tertanam sebagai nilai default (DIPERBAIKI 2026-09-01)</h2>
  * <p>
- * <b>Konfigurasi {@code bsi_password} pada {@link #onPilihBsi} memiliki nilai default yang
- * merupakan kunci/password enkripsi nyata dalam bentuk teks polos:
- * {@code "685dedd9f045787873794ead6276f8bf"}.</b> Nilai ini dipakai langsung sebagai parameter
- * {@code key} pada {@code BNIHash.hashData}/{@code BNIHash.parseData} untuk mengenkripsi dan
- * mendekripsi payload permintaan/respons BSI — bila konfigurasi runtime
- * {@code bsi_password} tidak diisi eksplisit, sistem otomatis memakai kredensial bawaan ini.
- * Karena berkas ini berada pada working copy SVN dan berpotensi sudah ter-commit ke riwayat
- * repositori, kredensial ini WAJIB dianggap berpotensi bocor. Dokumentasi ini TIDAK mengubah
- * maupun menghapus nilai tersebut — pemilik integrasi BSI disarankan meninjau apakah kunci ini
- * masih aktif di sisi bank dan mempertimbangkan rotasi serta pemindahan penuh ke konfigurasi
- * rahasia runtime tanpa default tertanam di kode.
+ * Konfigurasi {@code bsi_password} pada {@link #onPilihBsi} sebelumnya memiliki nilai default
+ * berupa kunci/password enkripsi teks polos ({@code key} pada {@code BNIHash.hashData}/
+ * {@code BNIHash.parseData} untuk mengenkripsi/mendekripsi payload permintaan/respons BSI) yang
+ * IDENTIK dipakai ulang sebagai default {@code bni_password}/{@code bri_password} di banyak file
+ * lain pada codebase ini (lihat {@code ais.common.BniKeranjangPembayaran},
+ * {@code ais.database.model.sekolah.Sekolah}, dsb.) — kemungkinan besar nilai contoh/placeholder
+ * yang disalin-tempel lintas integrasi bank, bukan tiga kredensial bank berbeda yang kebetulan
+ * sama. Default tersebut sudah DIHAPUS (kini string kosong) — permintaan akan gagal dengan jelas
+ * bila {@code bsi_password} belum diisi, bukan diam-diam memakai nilai lama. <b>Tindak lanjut
+ * yang TETAP diperlukan di luar perubahan kode ini:</b> nilai lama sudah lama berada di riwayat
+ * SVN dan WAJIB dianggap bocor — pemilik integrasi BSI perlu meninjau apakah kunci ini masih
+ * aktif di sisi bank dan, bila iya, dirotasi.
  * </p>
  */
 public class BsiKeranjangPembayaran {
@@ -129,7 +130,7 @@ public class BsiKeranjangPembayaran {
 			final Set<KegiatanTemporary> selectedKegiatanTemporary, Event event) throws Exception {
 
 		String merchant_id = Common.getKonfigurasi("bsi_merchant_id", "000").getNilai().trim();
-		String Password = Common.getKonfigurasi("bsi_password", "685dedd9f045787873794ead6276f8bf").getNilai().trim();
+		String Password = Common.getKonfigurasi("bsi_password", "").getNilai().trim();
 
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 		calendar.set(Calendar.DATE, calendar.get(Calendar.DATE) + 1);
