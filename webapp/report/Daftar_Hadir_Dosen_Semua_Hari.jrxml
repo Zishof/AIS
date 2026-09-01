@@ -369,7 +369,7 @@ c.nama||c.id,
 				</textElement>
 				<text><![CDATA[ JADWAL PERKULIAHAN PER DOSEN]]></text>
 			</staticText>
-			<image hAlign="Center" vAlign="Middle">
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
 				<reportElement key="image-1" x="0" y="0" width="85" height="61" uuid="98a31cbf-d5ce-454f-acfb-534e0c7cebd0"/>
 				<box>
 					<bottomPen lineWidth="1.0"/>
@@ -541,7 +541,7 @@ c.nama||c.id,
 	</detail>
 	<pageFooter>
 		<band height="24">
-			<image scaleImage="FillFrame" vAlign="Middle">
+			<image scaleImage="FillFrame" vAlign="Middle" onErrorType="Blank">
 				<reportElement key="image-2" x="0" y="0" width="300" height="20" uuid="501ff695-1aa3-4b5a-a5e8-dea6d86dd0e6"/>
 				<imageExpression><![CDATA[$P{barcode}]]></imageExpression>
 			</image>
