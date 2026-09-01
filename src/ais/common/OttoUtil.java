@@ -53,27 +53,35 @@ import ais.database.model.sekolah.Siswa;
  * memanfaatkan nama header {@code Authorization: Basic} sebagai konvensi API OttoPay.</li>
  * <li>Permintaan HTTP POST dijalankan lewat proses eksternal {@code curl} (bukan pustaka HTTP
  * Java), dengan seluruh header (Signature/Timestamp/Authorization/Content-Type) dan body
- * ({@code --data-raw}) sebagai argumen baris perintah — konsekuensinya, isi permintaan (termasuk
- * signature dan MID ter-encode) tercetak ke {@code System.out} sebelum eksekusi, dan berpotensi
- * juga terlihat di daftar proses OS selama {@code curl} berjalan.</li>
+ * ({@code --data-raw}) sebagai argumen baris perintah — isi permintaan (termasuk signature dan
+ * MID ter-encode) TIDAK LAGI dicetak ke {@code System.out} (lihat riwayat keamanan di bawah), namun
+ * tetap berpotensi terlihat di daftar proses OS selama {@code curl} berjalan (keterbatasan
+ * arsitektur yang belum diperbaiki pada commit ini).</li>
  * <li>Output {@code curl} (stdout gabungan) dibaca penuh, disimpan ke
  * {@link VirtualAccountBank#setResponse(String)} untuk audit, lalu diparsing sebagai
  * {@link JSONObject} dan dikembalikan ke pemanggil.</li>
  * </ol>
  *
  * <p>
- * <b>PERINGATAN KEAMANAN — kredensial default tertanam:</b> pada baris pembacaan konfigurasi di
+ * <b>Riwayat keamanan (DIPERBAIKI 2026-09-02)</b> — pada baris pembacaan konfigurasi di
  * {@link #doPost}, nilai default yang dipakai bila kunci {@code otto_api_key} atau
- * {@code otto_mid} belum diisi di konfigurasi ditulis langsung sebagai literal string di kode
- * sumber kelas ini ({@code apiKey} default {@code "KP33PP0EE0AAP1EE1009010PP01I91OA"}, {@code MID}
- * default {@code "OP1E00030999"}). Nilai-nilai ini kemungkinan besar kredensial sandbox/uji coba
- * OttoPay (konsisten dengan default URL endpoint yang juga mengarah ke subdomain
- * {@code dev-secure.ottopay.id}), namun tetap merupakan kredensial yang ter-commit dalam bentuk
- * teks polos ke riwayat kode sumber. Sesuai lingkup pekerjaan dokumentasi ini, nilai-nilai
- * tersebut TIDAK diubah atau dihapus di sini — instalasi produksi WAJIB mengisi konfigurasi
- * {@code otto_api_key}/{@code otto_mid}/{@code otto_token_url} secara eksplisit agar tidak
- * bergantung pada default tertanam ini, dan kredensial default tersebut sebaiknya ditinjau apakah
- * perlu dirotasi di sisi OttoPay bila sempat terekspos di luar lingkungan uji coba.
+ * {@code otto_mid} belum diisi di konfigurasi SEBELUMNYA ditulis langsung sebagai literal string
+ * RAHASIA di kode sumber kelas ini ({@code apiKey} default {@code "KP33PP0EE0AAP1EE1009010PP01I91OA"},
+ * {@code MID} default {@code "OP1E00030999"}) — nilai IDENTIK dengan yang sebelumnya tertanam di
+ * {@link OttoTest} (skrip uji coba terpisah, sudah diperbaiki lebih dulu). Default itu sudah
+ * dihapus (kini string kosong); {@link #doPost} kini melempar {@link IllegalStateException} bila
+ * {@code otto_api_key}/{@code otto_mid} belum diisi di konfigurasi, alih-alih diam-diam memakai
+ * kredensial tertanam sebagai fallback produksi. Baris {@code System.out.println} yang sebelumnya
+ * mencetak seluruh argumen command-line {@code curl} (berisi signature dan MID ter-encode Base64)
+ * serta body respons OttoPay juga sudah dihapus, karena berpotensi membocorkan bahan autentikasi
+ * transaksi lewat log server.
+ * </p>
+ *
+ * <p>
+ * <b>TINDAK LANJUT DI LUAR PERUBAHAN KODE INI</b>: {@code apiKey}/{@code MID} yang sebelumnya
+ * tertanam sudah lama berada di riwayat SVN dan WAJIB dianggap bocor — perlu dirotasi di sisi
+ * OttoPay bila masih aktif di produksi, terlepas dari default URL endpoint yang mengarah ke
+ * subdomain {@code dev-secure.ottopay.id} (tampak sebagai lingkungan sandbox/uji coba).
  * </p>
  */
 public class OttoUtil {
@@ -194,8 +202,12 @@ public class OttoUtil {
 
 		String b = bodyS.replaceAll("[^a-zA-Z0-9{}:.,]", "");
 
-		String apiKey = Common.getKonfigurasi("otto_api_key", "KP33PP0EE0AAP1EE1009010PP01I91OA").getNilai();
-		String MID = Common.getKonfigurasi("otto_mid", "OP1E00030999").getNilai();
+		String apiKey = Common.getKonfigurasi("otto_api_key", "").getNilai();
+		String MID = Common.getKonfigurasi("otto_mid", "").getNilai();
+		if (apiKey == null || apiKey.trim().isEmpty() || MID == null || MID.trim().isEmpty()) {
+			throw new IllegalStateException(
+					"Kredensial OttoPay belum dikonfigurasi. Isi konfigurasi otto_api_key dan otto_mid.");
+		}
 		String currentTimestamp = Instant.now().toEpochMilli() + "";
 		currentTimestamp = currentTimestamp.substring(0, currentTimestamp.length() - 3);
 		String valueToDigest = b.trim().toLowerCase() + "&" + currentTimestamp + "&" + apiKey;
@@ -211,13 +223,6 @@ public class OttoUtil {
 				"--header", "Timestamp: " + currentTimestamp, "--header", "Authorization: Basic " + encodedMID,
 				"--header", "Content-Type: application/json", "--data-raw", bodyS };
 
-		System.out.println("Proses -> ");
-		for (String s : command) {
-			System.out.print(s);
-			System.out.print(" ");
-		}
-		System.out.println();
-
 		ProcessBuilder process = new ProcessBuilder(command);
 		Process p;
 		p = process.start();
@@ -229,8 +234,6 @@ public class OttoUtil {
 			builder.append(System.getProperty("line.separator"));
 		}
 		String hasil = builder.toString();
-		System.out.println("hasil -> ");
-		System.out.println(hasil);
 		virtualAccountBankOnline.setResponse(hasil);
 		return new JSONObject(hasil);
 	}

@@ -699,7 +699,7 @@ public class DownloadNoRegistrasiCalonMahasiswaBankOnline extends MyWindow {
 					String strURL = Common.getKonfigurasi("va_jaring_gateway_url",
 							"http://sandbox.jaring.host/api/v3/billpay/inquiry").getNilai();
 
-					String screet_key = Common.getKonfigurasi("va_jaring_screet_key", "amFyaW5nOmphcmluZw==")
+					String screet_key = Common.getKonfigurasi("va_jaring_screet_key", "")
 							.getNilai();
 
 					String sign = postData.getString("custName") + postData.getString("custID")
@@ -867,10 +867,10 @@ public class DownloadNoRegistrasiCalonMahasiswaBankOnline extends MyWindow {
 								.getNilai();
 
 						String username_va_e_smartlink = Common
-								.getKonfigurasi("username_va_e_smartlink", "api-smartlink-sbx@budi-mulia.com")
+								.getKonfigurasi("username_va_e_smartlink", "")
 								.getNilai().trim();
 						String password_va_e_smartlink = Common
-								.getKonfigurasi("password_va_e_smartlink", "sQ3f2PMbGWvNxvi").getNilai().trim();
+								.getKonfigurasi("password_va_e_smartlink", "").getNilai().trim();
 						if (virtualAccountBankOnline != null && virtualAccountBankOnline.getKanalPembayaran() != null) {
 							username_va_e_smartlink = virtualAccountBankOnline.getKanalPembayaran()
 									.getUsernameEsmartlink();

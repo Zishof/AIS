@@ -81,15 +81,22 @@ import ais.ui.util.WaktuUtil;
  * </p>
  *
  * <p>
- * <b>PERINGATAN KEAMANAN</b> — beberapa kanal memakai kredensial/kunci rahasia yang tertanam
- * langsung sebagai nilai default {@code Common.getKonfigurasi(key, defaultValue)} di kode ini
- * (dipakai bila admin belum mengisi konfigurasi terkait di database): kredensial Esmartlink
- * ({@code username_va_e_smartlink}/{@code password_va_e_smartlink}, mis. default
- * {@code "api-smartlink-sbx@budi-mulia.com"} / {@code "sQ3f2PMbGWvNxvi"}), signature key + app id
- * BankAltimtara ({@code key_bankaltimtara_baru}/{@code app_id_bankaltimtara_baru}), serta secret
- * key Basic-Auth gateway Jaring ({@code va_jaring_screet_key}, base64). Nilai-nilai ini terlihat
- * jelas di source (bukan hanya nama variabel), termasuk saat kode ini dibaca lewat kontrol versi.
- * Temuan ini dilaporkan apa adanya sesuai instruksi tugas dan TIDAK diperbaiki di sini.
+ * <b>Riwayat keamanan (DIPERBAIKI 2026-09-02)</b> — beberapa kanal sebelumnya memakai
+ * kredensial/kunci rahasia yang tertanam langsung sebagai nilai default
+ * {@code Common.getKonfigurasi(key, defaultValue)} di kode ini (dipakai bila admin belum mengisi
+ * konfigurasi terkait di database): kredensial Esmartlink ({@code username_va_e_smartlink}/
+ * {@code password_va_e_smartlink}, muncul di 2 titik), signature key + app id BankAltimtara
+ * ({@code key_bankaltimtara_baru}/{@code app_id_bankaltimtara_baru}), secret key Basic-Auth
+ * gateway VA Jaring ({@code va_jaring_screet_key}, base64, mendekode menjadi
+ * {@code "jaring:jaring"}), dan secret key Basic-Auth gateway QRIS Jaring
+ * ({@code qris_jaring_screet_key}, base64, mendekode menjadi {@code "bsn:bsn"}). Seluruh default
+ * itu sudah dihapus (kini string kosong).
+ * </p>
+ *
+ * <p>
+ * <b>TINDAK LANJUT DI LUAR PERUBAHAN KODE INI</b>: seluruh nilai yang sebelumnya tertanam sudah
+ * lama berada di riwayat SVN dan WAJIB dianggap bocor — perlu dirotasi di sisi eSmartlink,
+ * BankAltimtara, dan Jaring bila masih aktif di produksi.
  * </p>
  */
 public class DownloadTagihanMahasiswaBankOnline {
@@ -507,10 +514,10 @@ public class DownloadTagihanMahasiswaBankOnline {
 									.getNilai();
 
 							String username_va_e_smartlink = Common
-									.getKonfigurasi("username_va_e_smartlink", "api-smartlink-sbx@budi-mulia.com")
+									.getKonfigurasi("username_va_e_smartlink", "")
 									.getNilai().trim();
 							String password_va_e_smartlink = Common
-									.getKonfigurasi("password_va_e_smartlink", "sQ3f2PMbGWvNxvi").getNilai().trim();
+									.getKonfigurasi("password_va_e_smartlink", "").getNilai().trim();
 							if (virtualAccountBankOnline != null
 									&& virtualAccountBankOnline.getKanalPembayaran() != null) {
 								username_va_e_smartlink = virtualAccountBankOnline.getKanalPembayaran()
@@ -970,7 +977,7 @@ public class DownloadTagihanMahasiswaBankOnline {
 
 						String strURL = Common.getKonfigurasi("qris_jaring_gateway_url",
 								"http://api.jsa2.host/agg/api/v1/qris/generate").getNilai();
-						String screet_key = Common.getKonfigurasi("qris_jaring_screet_key", "YnNuOmJzbg==").getNilai();
+						String screet_key = Common.getKonfigurasi("qris_jaring_screet_key", "").getNilai();
 
 						String sign = postData.getString("merchantId") + postData.getString("terminalId")
 								+ postData.getString("posId") + postData.getString("trxId")
@@ -1243,9 +1250,9 @@ public class DownloadTagihanMahasiswaBankOnline {
 							String linkPost = Common.getKonfigurasi("url_create_va_bankaltimtara_baru",
 									"http://36.66.232.249:8017/ubt/create_va").getNilai().trim();
 							String signatureKey = Common.getKonfigurasi("key_bankaltimtara_baru",
-									"0CcfEADwiAssIGQ6AMiWbiP9VHI0zzrBu4WUKfY1bNEF9q3FZJ").getNilai().trim();
+									"").getNilai().trim();
 							String appId = Common
-									.getKonfigurasi("app_id_bankaltimtara_baru", "pKMUSJfL5G8wKHSbhoTU7PQ3TJdX0HlV")
+									.getKonfigurasi("app_id_bankaltimtara_baru", "")
 									.getNilai().trim();
 							String payload = appId + ";create_va:" + mahasiswa.getNim();
 							String signature = Common.buildHmacSignature(payload, signatureKey);
@@ -1338,7 +1345,7 @@ public class DownloadTagihanMahasiswaBankOnline {
 
 						String strURL = Common.getKonfigurasi("va_jaring_gateway_url",
 								"http://sandbox.jaring.host/api/v3/billpay/inquiry").getNilai();
-						String screet_key = Common.getKonfigurasi("va_jaring_screet_key", "amFyaW5nOmphcmluZw==")
+						String screet_key = Common.getKonfigurasi("va_jaring_screet_key", "")
 								.getNilai();
 
 						String sign = postData.getString("custName") + postData.getString("custID")
@@ -1501,10 +1508,10 @@ public class DownloadTagihanMahasiswaBankOnline {
 											"https://payment-service-sbx.pakar-digital.com/api/payment/create-order")
 									.getNilai();
 							String username_va_e_smartlink = Common
-									.getKonfigurasi("username_va_e_smartlink", "api-smartlink-sbx@budi-mulia.com")
+									.getKonfigurasi("username_va_e_smartlink", "")
 									.getNilai().trim();
 							String password_va_e_smartlink = Common
-									.getKonfigurasi("password_va_e_smartlink", "sQ3f2PMbGWvNxvi").getNilai().trim();
+									.getKonfigurasi("password_va_e_smartlink", "").getNilai().trim();
 
 							if (virtualAccountBankOnline != null
 									&& virtualAccountBankOnline.getKanalPembayaran() != null) {

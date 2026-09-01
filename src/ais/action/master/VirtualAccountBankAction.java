@@ -118,6 +118,26 @@ import ais.ui.util.VirtualAccountDashboardUtil;
  * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
  * serta session Hibernate milik request yang aktif.</p>
  *
+ * <p>
+ * <b>Riwayat keamanan (DIPERBAIKI 2026-09-02)</b> — beberapa titik pengecekan status VA di kelas
+ * ini sebelumnya mengambil kredensial lewat {@link Common#getKonfigurasi(String, String)} dengan
+ * nilai default RAHASIA tertanam langsung di kode sumber: kredensial eSmartlink
+ * ({@code username_va_e_smartlink} default {@code "api-smartlink-sbx@budi-mulia.com"},
+ * {@code password_va_e_smartlink} default {@code "sQ3f2PMbGWvNxvi"}, muncul di 3 titik) dan
+ * signature key + app id BankAltimtara ({@code key_bankaltimtara_baru}, {@code
+ * app_id_bankaltimtara_baru}, muncul di 2 titik). Seluruh default itu sudah dihapus (kini string
+ * kosong); nilai-nilai ini pada praktiknya juga selalu ditimpa oleh kredensial spesifik sekolah/
+ * kanal pembayaran ({@code getUsernameEsmartlink()}/{@code getPasswordEsmartlink()}) bila baris
+ * terkait tersedia, sehingga default kosong tidak mengubah perilaku jalur yang sudah
+ * dikonfigurasi dengan benar.
+ * </p>
+ *
+ * <p>
+ * <b>TINDAK LANJUT DI LUAR PERUBAHAN KODE INI</b>: seluruh nilai yang sebelumnya tertanam sudah
+ * lama berada di riwayat SVN dan WAJIB dianggap bocor — perlu dirotasi di sisi eSmartlink dan
+ * BankAltimtara bila masih aktif di produksi.
+ * </p>
+ *
  * @see GenericAutowireComposer
  */
 public class VirtualAccountBankAction extends GenericAutowireComposer implements DataCriteria {
@@ -260,8 +280,8 @@ public class VirtualAccountBankAction extends GenericAutowireComposer implements
 					+ transaction_id;
 
 			String username_va_e_smartlink = Common
-					.getKonfigurasi("username_va_e_smartlink", "api-smartlink-sbx@budi-mulia.com").getNilai().trim();
-			String password_va_e_smartlink = Common.getKonfigurasi("password_va_e_smartlink", "sQ3f2PMbGWvNxvi")
+					.getKonfigurasi("username_va_e_smartlink", "").getNilai().trim();
+			String password_va_e_smartlink = Common.getKonfigurasi("password_va_e_smartlink", "")
 					.getNilai().trim();
 
 			if (virtualAccountBankReadOnly.getSiswa() != null) {
@@ -382,9 +402,9 @@ public class VirtualAccountBankAction extends GenericAutowireComposer implements
 					.getKonfigurasi("url_status_va_bankaltimtara_baru", "http://36.66.232.249:8017/ubt/status_va")
 					.getNilai().trim();
 			String signatureKey = Common
-					.getKonfigurasi("key_bankaltimtara_baru", "0CcfEADwiAssIGQ6AMiWbiP9VHI0zzrBu4WUKfY1bNEF9q3FZJ")
+					.getKonfigurasi("key_bankaltimtara_baru", "")
 					.getNilai().trim();
-			String appId = Common.getKonfigurasi("app_id_bankaltimtara_baru", "pKMUSJfL5G8wKHSbhoTU7PQ3TJdX0HlV")
+			String appId = Common.getKonfigurasi("app_id_bankaltimtara_baru", "")
 					.getNilai().trim();
 
 			String npm = virtualAccountBankReadOnly.getBiodataCalonMahasiswa() != null
@@ -849,11 +869,11 @@ public class VirtualAccountBankAction extends GenericAutowireComposer implements
 
 															String username_va_e_smartlink = Common
 																	.getKonfigurasi("username_va_e_smartlink",
-																			"api-smartlink-sbx@budi-mulia.com")
+																			"")
 																	.getNilai().trim();
 															String password_va_e_smartlink = Common
 																	.getKonfigurasi("password_va_e_smartlink",
-																			"sQ3f2PMbGWvNxvi")
+																			"")
 																	.getNilai().trim();
 
 															if (virtualAccountBank.getSiswa() != null) {
@@ -1817,11 +1837,11 @@ public class VirtualAccountBankAction extends GenericAutowireComposer implements
 
 													String username_va_e_smartlink = Common
 															.getKonfigurasi("username_va_e_smartlink",
-																	"api-smartlink-sbx@budi-mulia.com")
+																	"")
 															.getNilai().trim();
 													String password_va_e_smartlink = Common
 															.getKonfigurasi("password_va_e_smartlink",
-																	"sQ3f2PMbGWvNxvi")
+																	"")
 															.getNilai().trim();
 
 													if (virtualAccountBankReadOnly.getSiswa() != null) {
@@ -2299,10 +2319,10 @@ public class VirtualAccountBankAction extends GenericAutowireComposer implements
 
 												String signatureKey = Common
 														.getKonfigurasi("key_bankaltimtara_baru",
-																"0CcfEADwiAssIGQ6AMiWbiP9VHI0zzrBu4WUKfY1bNEF9q3FZJ")
+																"")
 														.getNilai().trim();
 												String appId = Common.getKonfigurasi("app_id_bankaltimtara_baru",
-														"pKMUSJfL5G8wKHSbhoTU7PQ3TJdX0HlV").getNilai().trim();
+														"").getNilai().trim();
 
 												String payload = appId + ";status_va:"
 														+ (virtualAccountBankReadOnly.getBiodataCalonMahasiswa() != null
