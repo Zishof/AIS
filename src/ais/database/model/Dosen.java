@@ -1776,30 +1776,69 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		this.bahasa = bahasa;
 	}
 
+	/**
+	 * Riwayat pendidikan jenjang S1 dosen dalam bentuk teks bebas (nama program studi/perguruan
+	 * tinggi), pelengkap relasi {@link #getPendidikan()} yang hanya menyimpan jenjang tertinggi.
+	 *
+	 * @return keterangan pendidikan S1, atau {@code null} bila belum diisi
+	 */
 	public String getPendidikans1() {
 		return pendidikans1;
 	}
 
+	/**
+	 * Mengisi keterangan riwayat pendidikan jenjang S1.
+	 *
+	 * @param pendidikans1 keterangan pendidikan S1
+	 */
 	public void setPendidikans1(String pendidikans1) {
 		this.pendidikans1 = pendidikans1;
 	}
 
+	/**
+	 * Riwayat pendidikan jenjang S2 dosen dalam bentuk teks bebas.
+	 *
+	 * @return keterangan pendidikan S2, atau {@code null} bila belum diisi
+	 */
 	public String getPendidikans2() {
 		return pendidikans2;
 	}
 
+	/**
+	 * Mengisi keterangan riwayat pendidikan jenjang S2.
+	 *
+	 * @param pendidikans2 keterangan pendidikan S2
+	 */
 	public void setPendidikans2(String pendidikans2) {
 		this.pendidikans2 = pendidikans2;
 	}
 
+	/**
+	 * Riwayat pendidikan jenjang S3 dosen dalam bentuk teks bebas.
+	 *
+	 * @return keterangan pendidikan S3, atau {@code null} bila belum diisi
+	 */
 	public String getPendidikans3() {
 		return pendidikans3;
 	}
 
+	/**
+	 * Mengisi keterangan riwayat pendidikan jenjang S3.
+	 *
+	 * @param pendidikans3 keterangan pendidikan S3
+	 */
 	public void setPendidikans3(String pendidikans3) {
 		this.pendidikans3 = pendidikans3;
 	}
 
+	/**
+	 * Status kewajiban beban mengajar dosen (relasi lazy kolom {@code status_kewajiban_beban_dosen}).
+	 * Master ini yang membedakan dosen biasa dari dosen dengan tugas tambahan (rektor, dekan, ketua
+	 * program studi) yang beban wajibnya berbeda. Bila kolom kosong, {@code ConstantValues.DOSEN_BIASA}
+	 * dikembalikan sebagai nilai baku (tanpa ditulis balik ke field).
+	 *
+	 * @return status kewajiban beban dosen; tidak pernah {@code null} selama master sudah dimuat
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "status_kewajiban_beban_dosen", nullable = true)
 	public StatusKewajibanBebanDosen getStatusKewajibanBebanDosen() {
@@ -1807,26 +1846,63 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return statusKewajibanBebanDosen == null ? ConstantValues.DOSEN_BIASA : statusKewajibanBebanDosen;
 	}
 
+	/**
+	 * Menetapkan status kewajiban beban mengajar dosen.
+	 *
+	 * @param statusKewajibanBebanDosen status kewajiban beban dosen
+	 */
 	public void setStatusKewajibanBebanDosen(StatusKewajibanBebanDosen statusKewajibanBebanDosen) {
 		this.statusKewajibanBebanDosen = statusKewajibanBebanDosen;
 	}
 
+	/**
+	 * Penanda dosen sudah tersertifikasi (serdos). Nilai {@code null} dianggap {@code false} tanpa
+	 * ditulis balik ke field.
+	 *
+	 * @return {@code true} bila dosen sudah tersertifikasi
+	 * @see #getNomorSertifikasi()
+	 */
 	public Boolean getSertifikasi() {
 		return sertifikasi == null ? false : sertifikasi;
 	}
 
+	/**
+	 * Mengisi penanda sertifikasi dosen.
+	 *
+	 * @param sertifikasi {@code true} bila dosen sudah tersertifikasi
+	 */
 	public void setSertifikasi(Boolean sertifikasi) {
 		this.sertifikasi = sertifikasi;
 	}
 
+	/**
+	 * Penanda apakah penugasan mengajar dosen ini sesuai bidang keilmuannya — dipakai pada rekap
+	 * kesesuaian bidang. Nilai {@code null} dianggap {@code true} (dianggap sesuai) tanpa ditulis
+	 * balik ke field.
+	 *
+	 * @return {@code true} bila penugasan dianggap sesuai bidang keilmuan
+	 */
 	public Boolean getSesuaiBidangKeilmuan() {
 		return sesuaiBidangKeilmuan == null ? true : sesuaiBidangKeilmuan;
 	}
 
+	/**
+	 * Mengisi penanda kesesuaian penugasan dengan bidang keilmuan dosen.
+	 *
+	 * @param sesuaiBidangKeilmuan {@code true} bila sesuai bidang keilmuan
+	 */
 	public void setSesuaiBidangKeilmuan(Boolean sesuaiBidangKeilmuan) {
 		this.sesuaiBidangKeilmuan = sesuaiBidangKeilmuan;
 	}
 
+	/**
+	 * Jabatan struktural dosen di <b>perguruan tinggi lain</b> (relasi lazy kolom
+	 * {@code spesifikasi_jabatan_pt_lain}), dilewatkan {@code check(...)}. Dipakai untuk dosen yang
+	 * berhome-base di tempat lain namun mengajar di sini.
+	 *
+	 * @return jabatan di perguruan tinggi lain, atau {@code null} bila tidak ada
+	 * @see #getSpesifikasiJabatan()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "spesifikasi_jabatan_pt_lain", nullable = true)
 	public Jabatan getSpesifikasiJabatanPtLain() {
@@ -1834,10 +1910,22 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return spesifikasiJabatanPtLain;
 	}
 
+	/**
+	 * Menetapkan jabatan struktural dosen di perguruan tinggi lain.
+	 *
+	 * @param spesifikasiJabatanPtLain jabatan di perguruan tinggi lain
+	 */
 	public void setSpesifikasiJabatanPtLain(Jabatan spesifikasiJabatanPtLain) {
 		this.spesifikasiJabatanPtLain = spesifikasiJabatanPtLain;
 	}
 
+	/**
+	 * Jenjang pendidikan tertinggi dosen menurut master {@code employ} (relasi lazy kolom
+	 * {@code pendidikan}), dilewatkan {@code check(...)}. Rincian per jenjang disimpan terpisah pada
+	 * {@link #getPendidikans1()}, {@link #getPendidikans2()}, dan {@link #getPendidikans3()}.
+	 *
+	 * @return jenjang pendidikan tertinggi, atau {@code null} bila belum diisi
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pendidikan", nullable = true)
 	public Pendidikan getPendidikan() {
@@ -1845,10 +1933,21 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return pendidikan;
 	}
 
+	/**
+	 * Menetapkan jenjang pendidikan tertinggi dosen.
+	 *
+	 * @param pendidikan jenjang pendidikan tertinggi
+	 */
 	public void setPendidikan(Pendidikan pendidikan) {
 		this.pendidikan = pendidikan;
 	}
 
+	/**
+	 * Ruang kantor dosen (relasi lazy kolom {@code ruang}), dilewatkan {@code check(...)}. Perlu
+	 * dibedakan dari ruang kelas yang melekat pada {@link Perkuliahan}.
+	 *
+	 * @return ruang kantor dosen, atau {@code null} bila belum diisi
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "ruang", nullable = true)
 	public Ruang getRuang() {
@@ -1856,34 +1955,91 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return ruang;
 	}
 
+	/**
+	 * Menetapkan ruang kantor dosen.
+	 *
+	 * @param ruang ruang kantor
+	 */
 	public void setRuang(Ruang ruang) {
 		this.ruang = ruang;
 	}
 
+	/**
+	 * Penanda penguncian baris dosen (dipakai proses impor/sinkronisasi agar baris tertentu tidak
+	 * ikut ditimpa). Kolom sejenis juga ada pada {@link Mahasiswa}.
+	 *
+	 * @return nilai penanda kunci, atau {@code null} bila baris tidak dikunci
+	 */
 	public String getLockId() {
 		return lockId;
 	}
 
+	/**
+	 * Mengisi penanda penguncian baris dosen.
+	 *
+	 * @param lockId nilai penanda kunci
+	 */
 	public void setLockId(String lockId) {
 		this.lockId = lockId;
 	}
 
+	/**
+	 * Nomor sertifikat pendidik (serdos) dosen.
+	 *
+	 * @return nomor sertifikasi, atau {@code null} bila belum tersertifikasi
+	 * @see #getSertifikasi()
+	 */
 	public String getNomorSertifikasi() {
 		return nomorSertifikasi;
 	}
 
+	/**
+	 * Mengisi nomor sertifikat pendidik (serdos).
+	 *
+	 * @param nomorSertifikasi nomor sertifikasi
+	 */
 	public void setNomorSertifikasi(String nomorSertifikasi) {
 		this.nomorSertifikasi = nomorSertifikasi;
 	}
 
+	/**
+	 * ID {@code Dosen} lain yang menjadi atasan langsung dosen ini. Disimpan sebagai angka, bukan
+	 * relasi Hibernate, sehingga pemanggil harus memuatnya sendiri (pola yang dipakai
+	 * {@code ais.action.master.BiodataDosenAction}:
+	 * {@code ConstantValues.ambil(Dosen.class.getName(), dosen.getAtasanlangsung())}).
+	 *
+	 * @return ID dosen atasan langsung, atau {@code null} bila tidak ditetapkan
+	 * @see #yangLoginMerupakanAtasan()
+	 */
 	public Long getAtasanlangsung() {
 		return atasanlangsung;
 	}
 
+	/**
+	 * Menetapkan ID dosen yang menjadi atasan langsung dosen ini.
+	 *
+	 * @param atasanlangsung ID dosen atasan langsung
+	 */
 	public void setAtasanlangsung(Long atasanlangsung) {
 		this.atasanlangsung = atasanlangsung;
 	}
 
+	/**
+	 * Memeriksa apakah pengguna yang sedang login adalah atasan langsung dosen ini — dipakai sebagai
+	 * <b>gerbang otorisasi</b> pada layar persetujuan/verifikasi.
+	 *
+	 * <p>Bernilai {@code true} hanya bila keempat syarat terpenuhi: {@link #getAtasanlangsung()}
+	 * terisi, ada pengguna aktif ({@code Common.getCurrentUser()}), pengguna itu terhubung ke sebuah
+	 * dosen dan hak aksesnya berperan {@code "dosen"}, serta ID dosen pengguna sama dengan
+	 * {@code getAtasanlangsung()}. Semua kegagalan pembacaan (mis. tidak ada session ZK aktif) direkam
+	 * ke {@code ErrorAuditUtil} dan menghasilkan {@code false} — gerbang ini gagal-tertutup.</p>
+	 *
+	 * <p>Dipanggil dari helper persetujuan artikel, kegiatan kedosenan, serta pengajuan penelitian
+	 * dan pengabdian (mis. {@code ais.action.master.helper.DetailArtikelHelper},
+	 * {@code ais.action.master.helper.KegiatanKedosenanPunyaDosenHelper}).</p>
+	 *
+	 * @return {@code true} bila pengguna yang login adalah atasan langsung dosen ini
+	 */
 	public boolean yangLoginMerupakanAtasan() {
 		try {
 			if (getAtasanlangsung() != null) {
@@ -1900,6 +2056,14 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return false;
 	}
 
+	/**
+	 * Membaca isi mentah berkas indeks JSON perkuliahan milik dosen ini
+	 * ({@code dosen_punya_perkuliahan_&lt;id&gt;}).
+	 *
+	 * @return isi berkas indeks, atau {@code VOMahasiswa.dataJSON} (objek JSON kosong) bila berkas
+	 *         tidak ada, kosong, atau gagal dibaca
+	 * @see #tulisLokasiPerkuliahan(String)
+	 */
 	public String ambilLokasiPerkuliahan() {
 		File file = Common.getFileLocation(this, "dosen_punya_perkuliahan_" + getId().toString());
 		try {
@@ -1911,6 +2075,12 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Menimpa berkas indeks JSON perkuliahan milik dosen ini dengan {@code data}. Kegagalan tulis
+	 * direkam ke {@code ErrorAuditUtil} dan tidak dilempar.
+	 *
+	 * @param data isi berkas indeks yang baru (biasanya {@code JSONObject.toString()})
+	 */
 	public void tulisLokasiPerkuliahan(String data) {
 		File file = Common.getFileLocation(this, "dosen_punya_perkuliahan_" + getId().toString());
 		try {
@@ -1921,12 +2091,31 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Menghapus berkas indeks JSON perkuliahan milik dosen ini. Dipakai sebelum indeks dibangun ulang
+	 * oleh {@link #reInitPerkuliahan(Session)}.
+	 */
 	public void bersihkanLokasiPerkuliahan() {
 		File file = Common.getFileLocation(this, "dosen_punya_perkuliahan_" + getId().toString());
 		BacaTulisUtil.doHapus(file, "dosen_punya_perkuliahan");
 
 	}
 
+	/**
+	 * Membangun ulang indeks perkuliahan dosen ini dari basis data.
+	 *
+	 * <p>Mengambil seluruh {@link Perkuliahan} yang aktif (kolom {@code aktif} null atau {@code true})
+	 * dan menempatkan dosen ini pada salah satu dari sepuluh slot pengampu
+	 * ({@code dosen1} s.d. {@code dosen10}), mengurutkannya menurun, lalu <b>menghapus</b> berkas
+	 * indeks lama dan menuliskannya kembali satu per satu lewat
+	 * {@link #populatePerkuliahan(Perkuliahan, boolean)}.</p>
+	 *
+	 * <p><b>Efek samping:</b> berkas indeks di disk ditulis ulang total; operasi ini berat dan
+	 * sebaiknya hanya dipicu oleh {@link #ambilPerkuliahan(Session)} saat penanda
+	 * {@code udah("perkuliahan")} belum ada, atau saat administrator memaksa penyegaran.</p>
+	 *
+	 * @param session session Hibernate yang dipakai untuk query perkuliahan
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitPerkuliahan(Session session) {
 
@@ -1957,6 +2146,18 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		perkuliahans = null;
 	}
 
+	/**
+	 * Membangun ulang indeks e-learning untuk seluruh {@link Skripsi} yang melibatkan dosen ini
+	 * sebagai pembimbing, ketua sidang, penguji 1/2/3, atau pembimbing 3.
+	 *
+	 * <p>Berbeda dari {@link #reInitPerkuliahan(Session)} yang menulis indeks milik dosen sendiri,
+	 * method ini menyerahkan hasil query ke
+	 * {@code AuditListener.prosesUntukElearning(...)} sehingga indeks yang diperbarui adalah indeks
+	 * milik setiap {@code VOMahasiswaDosen} yang terlibat (mahasiswa maupun dosen), lalu setiap objek
+	 * tersebut menuliskan indeksnya lewat {@code tulisPutBaru(Skripsi.class.getName())}.</p>
+	 *
+	 * @param session session Hibernate yang dipakai untuk query skripsi
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitSkripsi(Session session) {
 
@@ -1983,6 +2184,14 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		skripsis = null;
 	}
 
+	/**
+	 * Membangun ulang indeks e-learning untuk seluruh {@link MahasiswaRequestTugasAkhir} (pengajuan
+	 * bimbingan tugas akhir) yang melibatkan dosen ini pada salah satu dari enam slot pembimbing
+	 * ({@code dosen1} s.d. {@code dosen6}). Pola pemrosesannya sama dengan
+	 * {@link #reInitSkripsi(Session)}.
+	 *
+	 * @param session session Hibernate yang dipakai untuk query pengajuan bimbingan
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitBimbingan(Session session) {
 
@@ -2009,6 +2218,13 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		mahasiswaRequestTugasAkhirs = null;
 	}
 
+	/**
+	 * Membangun ulang indeks e-learning untuk seluruh {@link MahasiswaDapatKelompokKkn} yang kelompok
+	 * KKN-nya dibimbing dosen ini (slot {@code dosen_pembimbing1} s.d. {@code dosen_pembimbing5} pada
+	 * {@code kelompokKkn}). Pola pemrosesannya sama dengan {@link #reInitSkripsi(Session)}.
+	 *
+	 * @param session session Hibernate yang dipakai untuk query peserta KKN
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitKkn(Session session) {
 
@@ -2035,6 +2251,13 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		mahasiswaDapatKelompokKkns = null;
 	}
 
+	/**
+	 * Membangun ulang indeks e-learning untuk seluruh {@link MahasiswaDapatKelompokPkl} yang kelompok
+	 * PKL-nya dibimbing dosen ini (slot {@code dosen_pembimbing1} s.d. {@code dosen_pembimbing5} pada
+	 * {@code kelompokPkl}). Pola pemrosesannya sama dengan {@link #reInitSkripsi(Session)}.
+	 *
+	 * @param session session Hibernate yang dipakai untuk query peserta PKL
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitPkl(Session session) {
 
@@ -2061,6 +2284,16 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		mahasiswaDapatKelompokPkls = null;
 	}
 
+	/**
+	 * Membangun ulang indeks e-learning untuk seluruh {@link KrsMahasiswa} yang dosen pembimbing
+	 * akademiknya ({@code dosenPa}) adalah dosen ini — yaitu daftar mahasiswa perwalian.
+	 *
+	 * <p>Query dibatasi pada semester 1 s.d. 14 dan hanya mahasiswa yang belum keluar
+	 * ({@code mahasiswa.statusKeluar} null), diurutkan menurut NIM. Pola pemrosesannya sama dengan
+	 * {@link #reInitSkripsi(Session)}.</p>
+	 *
+	 * @param session session Hibernate yang dipakai untuk query KRS
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitKrs(Session session) {
 		List<KrsMahasiswa> krsMahasiswas = session.createCriteria(KrsMahasiswa.class)
@@ -2079,6 +2312,12 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		krsMahasiswas = null;
 	}
 
+	/**
+	 * Membangun ulang indeks e-learning untuk seluruh {@link FormulirKegiatanPeserta} yang diikuti
+	 * dosen ini. Pola pemrosesannya sama dengan {@link #reInitSkripsi(Session)}.
+	 *
+	 * @param session session Hibernate yang dipakai untuk query peserta kegiatan
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitFormulirKegiatanPeserta(Session session) {
 		List<FormulirKegiatanPeserta> formulirKegiatanPesertas = session.createCriteria(FormulirKegiatanPeserta.class)
@@ -2096,6 +2335,13 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		formulirKegiatanPesertas = null;
 	}
 
+	/**
+	 * Membangun ulang indeks e-learning untuk seluruh {@link PertemuanPunyaGrupPertemuan} yang grup
+	 * pertemuannya (konsultasi/bimbingan lain) diampu dosen ini. Pola pemrosesannya sama dengan
+	 * {@link #reInitSkripsi(Session)}.
+	 *
+	 * @param session session Hibernate yang dipakai untuk query grup pertemuan
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitKonsultasi(Session session) {
 		List<PertemuanPunyaGrupPertemuan> pertemuanPunyaGrupPertemuans = session
@@ -2114,6 +2360,17 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		pertemuanPunyaGrupPertemuans = null;
 	}
 
+	/**
+	 * Mengeluarkan satu perkuliahan dari indeks dosen ini dengan cara menyetel nilainya menjadi string
+	 * kosong (baris indeks tetap ada, tetapi diabaikan pembaca).
+	 *
+	 * <p>Method ini <b>memulihkan diri</b> bila berkas indeks JSON rusak/terpotong: kegagalan
+	 * {@code new JSONObject(...)} tidak dilempar, melainkan dicatat ke {@code ErrorAuditUtil} dan
+	 * indeks dimulai ulang dari objek kosong — sebelumnya kondisi ini menyebabkan
+	 * {@code NullPointerException} pada {@code c.put(...)}.</p>
+	 *
+	 * @param id ID perkuliahan yang akan dikeluarkan dari indeks; {@code null} diabaikan
+	 */
 	public void removePerkuliahan(Serializable id) {
 		if (id == null) {
 			return;
@@ -2139,6 +2396,15 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Menambahkan (atau menyegarkan) satu perkuliahan pada indeks dosen ini.
+	 *
+	 * @param perkuliahan perkuliahan yang akan dicatat; {@code null} diabaikan
+	 * @param tulisUlang parameter warisan yang saat ini <b>tidak dipakai</b> — berkas indeks selalu
+	 *                   ditulis ulang. Dipertahankan agar tanda tangan method tetap sama dengan
+	 *                   pemanggil lama
+	 * @see #removePerkuliahan(Serializable)
+	 */
 	public void populatePerkuliahan(Perkuliahan perkuliahan, boolean tulisUlang) {
 		try {
 			if (perkuliahan == null) {
@@ -2152,6 +2418,13 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Varian nyaman {@link #ambilPerkuliahan(Session)} yang membuka session Hibernate native sendiri
+	 * dan menutupnya kembali (disconnect + close, masing-masing dijaga try/catch) pada blok
+	 * {@code finally}. Pakai varian bersession bila pemanggil sudah memegang session aktif.
+	 *
+	 * @return daftar ID perkuliahan yang diampu dosen ini
+	 */
 	public List<Long> ambilPerkuliahan() {
 		Session session = HibernateUtil.currentNativeSession();
 		try {
@@ -2170,6 +2443,24 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Mengembalikan daftar ID perkuliahan yang diampu dosen ini, termasuk kelas paralelnya.
+	 *
+	 * <p>Alur: bila penanda sekali-jalan {@code udah("perkuliahan")} belum ada, indeks dibangun lebih
+	 * dulu lewat {@link #reInitPerkuliahan(Session)}. Setiap kunci pada indeks dimuat lewat
+	 * {@code ConstantValues.ambil(Perkuliahan.class.getName(), id)}, lalu disaring: hanya perkuliahan
+	 * yang punya mata kuliah dan yang benar-benar masih memuat dosen ini
+	 * ({@code perkuliahan.ada(this)}) yang diambil. Untuk setiap perkuliahan yang lolos, ID jadwal
+	 * paralelnya ({@code perkuliahan.ambilParalel(this)}) ikut ditambahkan tanpa duplikat.</p>
+	 *
+	 * <p><b>Efek samping:</b> pemanggilan pertama untuk seorang dosen dapat memicu query berat dan
+	 * penulisan ulang berkas indeks. Semua kegagalan per item hanya dicatat
+	 * ({@code e.printStackTrace()} + {@code ErrorAuditUtil}) supaya satu baris indeks yang rusak tidak
+	 * menggagalkan seluruh daftar.</p>
+	 *
+	 * @param session session Hibernate yang dipakai bila indeks perlu dibangun ulang
+	 * @return daftar ID perkuliahan (termasuk paralel); kosong bila dosen tidak mengampu apa pun
+	 */
 	@SuppressWarnings("unchecked")
 	public List<Long> ambilPerkuliahan(Session session) {
 		if (!udah("perkuliahan")) {
@@ -2209,6 +2500,15 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return perkuliahansa;
 	}
 
+	/**
+	 * Varian ringkas {@link #ambilPerkuliahanDanParalel(Session, String, String, String, String,
+	 * String, boolean, Integer, boolean, boolean, boolean, boolean, boolean, boolean, boolean,
+	 * boolean, boolean, boolean, boolean, boolean, Integer, int, int, boolean, JenisFormulirKegiatan)}
+	 * dengan {@code keywordJadiPembatas = false} dan tanpa penyaringan jenis formulir kegiatan.
+	 * Seluruh parameter diteruskan apa adanya; lihat method utama untuk maknanya.
+	 *
+	 * @return larik tiga elemen: halaman data, jumlah total, dan seluruh data sebelum dipotong
+	 */
 	public Object[] ambilPerkuliahanDanParalel(Session session, String tahunAkademik, String jenisSemester, String hari,
 			String keyword, String kelas, boolean merupakanPraPerkuliahan, Integer ekstrakurikuler, boolean paralel,
 			boolean remedial, boolean paralelAja,
@@ -2225,6 +2525,17 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 				ditampilkanHanya, mulai, banyak, false, null);
 	}
 
+	/**
+	 * Varian {@link #ambilPerkuliahanDanParalel(Session, String, String, String, String, String,
+	 * boolean, Integer, boolean, boolean, boolean, boolean, boolean, boolean, boolean, boolean,
+	 * boolean, boolean, boolean, boolean, Integer, int, int, boolean, JenisFormulirKegiatan)} dengan
+	 * {@code keywordJadiPembatas = false} namun tetap menyaring menurut
+	 * {@code jenisFormulirKegiatan}. Lihat method utama untuk makna parameter.
+	 *
+	 * @param jenisFormulirKegiatan jenis formulir kegiatan yang disaring; {@code null} berarti hanya
+	 *                              kegiatan tanpa jenis yang diambil
+	 * @return larik tiga elemen: halaman data, jumlah total, dan seluruh data sebelum dipotong
+	 */
 	public Object[] ambilPerkuliahanDanParalel(Session session, String tahunAkademik, String jenisSemester, String hari,
 			String keyword, String kelas, boolean merupakanPraPerkuliahan, Integer ekstrakurikuler, boolean paralel,
 			boolean remedial, boolean paralelAja,
@@ -2241,6 +2552,17 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 				ditampilkanHanya, mulai, banyak, false, jenisFormulirKegiatan);
 	}
 
+	/**
+	 * Varian {@link #ambilPerkuliahanDanParalel(Session, String, String, String, String, String,
+	 * boolean, Integer, boolean, boolean, boolean, boolean, boolean, boolean, boolean, boolean,
+	 * boolean, boolean, boolean, boolean, Integer, int, int, boolean, JenisFormulirKegiatan)} yang
+	 * meneruskan {@code keywordJadiPembatas} apa adanya namun tanpa penyaringan jenis formulir
+	 * kegiatan. Lihat method utama untuk makna parameter.
+	 *
+	 * @param keywordJadiPembatas bila {@code true} dan kata kunci kosong, penelusuran indeks berhenti
+	 *                            setelah cukup baris terkumpul (pembatas kinerja)
+	 * @return larik tiga elemen: halaman data, jumlah total, dan seluruh data sebelum dipotong
+	 */
 	public Object[] ambilPerkuliahanDanParalel(Session session, String tahunAkademik, String jenisSemester, String hari,
 			String keyword, String kelas, boolean merupakanPraPerkuliahan, Integer ekstrakurikuler, boolean paralel,
 			boolean remedial, boolean paralelAja,
@@ -2262,6 +2584,81 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 				ditampilkanHanya, mulai, banyak, keywordJadiPembatas, jenisFormulirKegiatan);
 	}
 
+	/**
+	 * Mesin pengambilan data "aktivitas pembelajaran dosen" untuk layar e-learning dan profil dosen —
+	 * satu-satunya implementasi nyata dari empat overload {@code ambilPerkuliahanDanParalel}.
+	 *
+	 * <p>Bergantung pada {@code ditampilkanHanya}, method ini membaca <b>satu</b> jenis aktivitas dari
+	 * indeks berkas milik dosen (lihat pola indeks pada Javadoc kelas) lalu mengubahnya menjadi daftar
+	 * {@link VOPembelajaran}:</p>
+	 * <ul>
+	 * <li>{@code TampilanELearningAction.SKRIPSI} → {@link Skripsi}, disaring menurut
+	 * {@code belumStatus}/{@code setujuStatus}/{@code sidangStatus};</li>
+	 * <li>{@code BIMBINGAN} → {@link MahasiswaRequestTugasAkhir}, disaring menurut kombinasi
+	 * {@code requestStatus}, {@code aktifStatus}, {@code seminarStatus}, {@code mengulangStatus},
+	 * {@code lulusStatus}, {@code gagalStatus};</li>
+	 * <li>{@code KKN} → {@link ais.database.model.kkn.KelompokKkn} unik dari peserta KKN;</li>
+	 * <li>{@code PKL} → {@link ais.database.model.pkl.KelompokPkl} unik dari peserta PKL;</li>
+	 * <li>{@code KRS} → {@link KrsMahasiswa} milik mahasiswa perwalian. Setiap KRS <b>dimuat ulang
+	 * lewat {@code session}</b> (bukan dipakai dari cache) karena objek cache yang detached memicu
+	 * {@code LazyInitializationException} saat relasi mahasiswa dibaca. Status persetujuan diambil
+	 * lewat satu query SQL native ke {@code detailperkuliahan} sehingga tidak perlu N+1 pembacaan;</li>
+	 * <li>{@code KEGIATAN} → {@link FormulirKegiatan} unik, dicocokkan dengan
+	 * {@code jenisFormulirKegiatan};</li>
+	 * <li>{@code KONSULTASI} → {@link PertemuanPunyaGrupPertemuan};</li>
+	 * <li>{@code PERKULIAHAN} → {@link Perkuliahan} hasil {@link #ambilPerkuliahan(Session)}.</li>
+	 * </ul>
+	 *
+	 * <p>Setelah terkumpul, data diurutkan terbalik lalu disaring lagi secara seragam menurut tahun
+	 * akademik, hari, kata kunci ({@code VOPembelajaran.ambilKeyword()}), kelas, ekstrakurikuler,
+	 * status pra-perkuliahan, dan jenis semester (termasuk perlakuan khusus semester pendek
+	 * {@code Perkuliahan.SP}). Khusus item bertipe {@link Perkuliahan} berlaku saringan tambahan
+	 * {@code paralel}/{@code paralelAja}/{@code remedial}. Pemotongan halaman dilakukan manual dengan
+	 * {@code mulai} dan {@code banyak}.</p>
+	 *
+	 * <p><b>Ketahanan:</b> {@code ditampilkanHanya} yang {@code null} langsung mengembalikan hasil
+	 * kosong (dulu memicu NPE karena semua cabang memanggil {@code equals}), dan {@code keyword} yang
+	 * {@code null} dijadikan string kosong. Kegagalan per item hanya dicatat ke {@code ErrorAuditUtil}.</p>
+	 *
+	 * <p>Dipanggil antara lain dari {@code ais.action.master.TampilanELearningAction},
+	 * {@code ais.action.master.helper.profile.ProfileDosen}, {@code PertemuanAction}, dan
+	 * {@code AbsensiAction}.</p>
+	 *
+	 * @param session                 session Hibernate aktif; wajib, dipakai memuat ulang KRS dan
+	 *                                perkuliahan
+	 * @param tahunAkademik           tahun akademik yang disaring; {@code null} berarti semua
+	 * @param jenisSemester           jenis semester (ganjil/genap/{@code Perkuliahan.SP});
+	 *                                {@code null} berarti semua
+	 * @param hari                    nama hari yang disaring; kosong berarti semua
+	 * @param keyword                 kata kunci pencarian bebas; {@code null}/kosong berarti semua
+	 * @param kelas                   penggalan nama kelas; kosong berarti semua
+	 * @param merupakanPraPerkuliahan bila {@code true} hanya aktivitas pra-perkuliahan yang diambil
+	 * @param ekstrakurikuler         penanda ekstrakurikuler; {@code null} berarti semua
+	 * @param paralel                 bila {@code false}, kelas paralel disembunyikan
+	 * @param remedial                bila {@code true}, hanya perkuliahan remedial yang diambil
+	 * @param paralelAja              bila {@code true}, hanya kelas paralel yang diambil
+	 * @param requestStatus           sertakan bimbingan berstatus pengajuan
+	 * @param aktifStatus             sertakan bimbingan berstatus aktif
+	 * @param seminarStatus           sertakan bimbingan berstatus seminar
+	 * @param mengulangStatus         sertakan bimbingan berstatus mengulang
+	 * @param lulusStatus             sertakan bimbingan berstatus lulus
+	 * @param gagalStatus             sertakan bimbingan berstatus gagal
+	 * @param belumStatus             sertakan skripsi/KRS yang belum disetujui
+	 * @param setujuStatus            sertakan skripsi/KRS yang sudah disetujui
+	 * @param sidangStatus            sertakan skripsi yang sudah sidang
+	 * @param ditampilkanHanya        jenis aktivitas yang diambil (konstanta
+	 *                                {@code TampilanELearningAction}); {@code null} menghasilkan
+	 *                                hasil kosong
+	 * @param mulai                   indeks awal halaman (berbasis nol)
+	 * @param banyak                  jumlah baris per halaman
+	 * @param keywordJadiPembatas     bila {@code true} dan kata kunci kosong, penelusuran indeks
+	 *                                dihentikan lebih awal demi kinerja
+	 * @param jenisFormulirKegiatan   jenis formulir kegiatan yang disaring; {@code null} berarti hanya
+	 *                                kegiatan tanpa jenis
+	 * @return larik tiga elemen: {@code [0]} {@code List&lt;VOPembelajaran&gt;} halaman berjalan,
+	 *         {@code [1]} {@code Integer} jumlah baris yang lolos saringan, {@code [2]}
+	 *         {@code List&lt;VOPembelajaran&gt;} seluruh data sebelum dipotong halaman
+	 */
 	@SuppressWarnings("unchecked")
 	public Object[] ambilPerkuliahanDanParalel(Session session, String tahunAkademik, String jenisSemester, String hari,
 			String keyword, String kelas, boolean merupakanPraPerkuliahan, Integer ekstrakurikuler, boolean paralel,

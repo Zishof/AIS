@@ -3024,15 +3024,53 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		this.alihProdiMahasiswa = alihProdiMahasiswa;
 	}
 
+	/**
+	 * Id {@link BiodataCalonMahasiswa} asal mahasiswa ini — kolom
+	 * {@code biodata_calon_mahasiswa_long}. Disimpan sebagai {@code Long} MENTAH (bukan relasi)
+	 * supaya penulisan kolomnya sepenuhnya dikendalikan kelas ini; versi terelasinya adalah
+	 * {@link #getBiodataCalonMahasiswaData()} yang dipetakan ke kolom yang sama dengan
+	 * {@code insertable = false, updatable = false}.
+	 *
+	 * <p>Terisi bila mahasiswa dibuat dari proses penerimaan mahasiswa baru (PMB). Dipakai
+	 * {@link #getAgama()}, {@link #getKtp()} dan {@link #getKelasPmb()} sebagai sumber pengisian
+	 * susulan.</p>
+	 *
+	 * @return id biodata calon mahasiswa; {@code null} bila bukan dari PMB.
+	 */
 	@Column(name = "biodata_calon_mahasiswa_long")
 	public Long getBiodataCalonMahasiswa() {
 		return biodataCalonMahasiswa;
 	}
 
+	/**
+	 * Menetapkan id biodata calon mahasiswa asal.
+	 *
+	 * @param biodataCalonMahasiswa id {@link BiodataCalonMahasiswa}.
+	 */
 	public void setBiodataCalonMahasiswa(Long biodataCalonMahasiswa) {
 		this.biodataCalonMahasiswa = biodataCalonMahasiswa;
 	}
 
+	/**
+	 * Objek {@link BiodataCalonMahasiswa} asal mahasiswa ini — relasi {@code @ManyToOne} ke kolom
+	 * yang sama dengan {@link #getBiodataCalonMahasiswa()}, tetapi HANYA BACA
+	 * ({@code insertable = false, updatable = false}).
+	 *
+	 * <p>Getter melakukan pemulihan berlapis: proxy disambungkan ulang dengan {@code check()},
+	 * lalu "disentuh" ({@code getNoRegistrasi()}) untuk memastikan proxy benar-benar bisa
+	 * diinisialisasi. Bila sentuhan itu gagal (proxy detached/lazy tanpa sesi), objek dimuat
+	 * ULANG memakai sesi Hibernate DEDIKASI ({@code openSession}) yang ditutup tuntas di
+	 * {@code finally}.</p>
+	 *
+	 * <p><b>Catatan sejarah (jangan diulang):</b> versi lama memakai
+	 * {@code HibernateUtil.currentNativeSession()} lalu menutupnya manual di dalam getter ini.
+	 * Sesi itu BERBAGI per-thread, sehingga menutupnya di tengah request merusak persistence
+	 * context yang sedang berjalan dan memunculkan {@code TransientObjectException} pada
+	 * flush/dirty-check Mahasiswa berikutnya. Penjelasan lengkapnya ada pada komentar blok di
+	 * dalam metode ini.</p>
+	 *
+	 * @return biodata calon mahasiswa; {@code null} bila tidak ada atau gagal dimuat.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "biodata_calon_mahasiswa_long", nullable = true, insertable = false, updatable = false)
 	public BiodataCalonMahasiswa getBiodataCalonMahasiswaData() {
@@ -3095,10 +3133,22 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return biodataCalonMahasiswaData;
 	}
 
+	/**
+	 * Menetapkan objek biodata calon mahasiswa (hanya mengisi cache objek; kolomnya ditulis lewat
+	 * {@link #setBiodataCalonMahasiswa(Long)}).
+	 *
+	 * @param biodataCalonMahasiswa objek biodata calon mahasiswa.
+	 */
 	public void setBiodataCalonMahasiswaData(BiodataCalonMahasiswa biodataCalonMahasiswa) {
 		this.biodataCalonMahasiswaData = biodataCalonMahasiswa;
 	}
 
+	/**
+	 * Jenis beasiswa untuk mahasiswa kurang mampu — relasi {@code @ManyToOne} ke
+	 * {@link JenisPenerimaBeasiswa} lewat kolom {@code beasiswa_mahasiswa_miskin}.
+	 *
+	 * @return jenis beasiswa; {@code null} bila bukan penerima.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "beasiswa_mahasiswa_miskin", nullable = true)
 	public JenisPenerimaBeasiswa getBeasiswaMahasiswaMiskin() {
@@ -3106,10 +3156,21 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return beasiswaMahasiswaMiskin;
 	}
 
+	/**
+	 * Menetapkan jenis beasiswa mahasiswa kurang mampu.
+	 *
+	 * @param beasiswaMahasiswaMiskin jenis beasiswa.
+	 */
 	public void setBeasiswaMahasiswaMiskin(JenisPenerimaBeasiswa beasiswaMahasiswaMiskin) {
 		this.beasiswaMahasiswaMiskin = beasiswaMahasiswaMiskin;
 	}
 
+	/**
+	 * Jenis beasiswa Bidikmisi/KIP-Kuliah — relasi {@code @ManyToOne} ke
+	 * {@link JenisPenerimaBeasiswa} lewat kolom {@code beasiswa_bidik_misi}.
+	 *
+	 * @return jenis beasiswa; {@code null} bila bukan penerima.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "beasiswa_bidik_misi", nullable = true)
 	public JenisPenerimaBeasiswa getBeasiswaBidikMisi() {
@@ -3117,10 +3178,21 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return beasiswaBidikMisi;
 	}
 
+	/**
+	 * Menetapkan jenis beasiswa Bidikmisi/KIP-Kuliah.
+	 *
+	 * @param beasiswaBidikMisi jenis beasiswa.
+	 */
 	public void setBeasiswaBidikMisi(JenisPenerimaBeasiswa beasiswaBidikMisi) {
 		this.beasiswaBidikMisi = beasiswaBidikMisi;
 	}
 
+	/**
+	 * Jenis beasiswa lain di luar dua kategori baku — relasi {@code @ManyToOne} ke
+	 * {@link JenisPenerimaBeasiswa} lewat kolom {@code beasiswa_lain}.
+	 *
+	 * @return jenis beasiswa; {@code null} bila tidak ada.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "beasiswa_lain", nullable = true)
 	public JenisPenerimaBeasiswa getBeasiswaLain() {
@@ -3128,26 +3200,73 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return beasiswaLain;
 	}
 
+	/**
+	 * Menetapkan jenis beasiswa lain.
+	 *
+	 * @param beasiswaLain jenis beasiswa.
+	 */
 	public void setBeasiswaLain(JenisPenerimaBeasiswa beasiswaLain) {
 		this.beasiswaLain = beasiswaLain;
 	}
 
+	/**
+	 * Catatan bebas tentang beasiswa yang diterima mahasiswa.
+	 *
+	 * @return keterangan beasiswa; {@code null} bila kosong.
+	 */
 	public String getKeteranganBeasiswa() {
 		return keteranganBeasiswa;
 	}
 
+	/**
+	 * Menetapkan catatan beasiswa.
+	 *
+	 * @param keteranganBeasiswa catatan bebas.
+	 */
 	public void setKeteranganBeasiswa(String keteranganBeasiswa) {
 		this.keteranganBeasiswa = keteranganBeasiswa;
 	}
 
+	/**
+	 * Identitas mahasiswa di aplikasi Feeder PDDikti (kunci sinkronisasi ke pangkalan data
+	 * pendidikan tinggi). String kosong dinormalkan menjadi {@code null} supaya pemeriksaan
+	 * "sudah tersinkron atau belum" cukup memeriksa {@code null}.
+	 *
+	 * @return id feeder sudah di-trim; {@code null} bila belum tersinkron.
+	 */
 	public String getFeeder() {
 		return feeder == null || feeder.trim().isEmpty() ? null : feeder.trim();
 	}
 
+	/**
+	 * Menetapkan identitas mahasiswa di Feeder PDDikti.
+	 *
+	 * @param feeder id feeder.
+	 */
 	public void setFeeder(String feeder) {
 		this.feeder = feeder;
 	}
 
+	/**
+	 * Status keluar mahasiswa (lulus, mengundurkan diri, putus studi, dsb.) — relasi
+	 * {@code @ManyToOne} ke {@link StatusKeluar} lewat kolom {@code status_keluar}. Mahasiswa yang
+	 * masih aktif bernilai {@code null}.
+	 *
+	 * <p><b>Dua aturan tersembunyi yang penting:</b></p>
+	 * <ol>
+	 *   <li>Bila mahasiswa tergabung dalam {@link KelompokStatusKeluarMahasiswa} (SK kolektif),
+	 *       status kelompok MENIMPA kolom perorangan.</li>
+	 *   <li>Bila tidak tergabung kelompok, status "Lulus" (id {@code 1}) DIANULIR menjadi
+	 *       {@code null} apabila {@code semesterLulus} tersimpan masih kosong — artinya data
+	 *       kelulusan dianggap belum lengkap. Perbaikan terdahulu (lihat komentar dalam metode)
+	 *       menghapus syarat lama "semesterLulus &lt; jumlah semester jenjang" karena lulus lebih
+	 *       cepat dari nominal jenjang itu SAH; syarat lama membuat tagihan semester lanjutan
+	 *       terus tergenerate untuk mahasiswa yang sudah lulus.</li>
+	 * </ol>
+	 *
+	 * @return status keluar; {@code null} bila mahasiswa masih aktif atau data kelulusan belum
+	 *         lengkap.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "status_keluar", nullable = true)
 	public StatusKeluar getStatusKeluar() {
@@ -3178,36 +3297,83 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return statusKeluar;
 	}
 
+	/**
+	 * Menetapkan status keluar mahasiswa.
+	 *
+	 * @param statusKeluar status keluar; {@code null} berarti masih aktif.
+	 */
 	public void setStatusKeluar(StatusKeluar statusKeluar) {
 		this.statusKeluar = statusKeluar;
 	}
 
+	/**
+	 * Bulan/tanggal AWAL masa bimbingan tugas akhir (tipe DATE).
+	 *
+	 * @return tanggal awal bimbingan; {@code null} bila belum ditetapkan.
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getBlnAwalBimbingan() {
 		return blnAwalBimbingan;
 	}
 
+	/**
+	 * Menetapkan awal masa bimbingan tugas akhir.
+	 *
+	 * @param blnAwalBimbingan tanggal awal bimbingan.
+	 */
 	public void setBlnAwalBimbingan(Date blnAwalBimbingan) {
 		this.blnAwalBimbingan = blnAwalBimbingan;
 	}
 
+	/**
+	 * Bulan/tanggal AKHIR masa bimbingan tugas akhir (tipe DATE).
+	 *
+	 * @return tanggal akhir bimbingan; {@code null} bila belum ditetapkan.
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getBlnAkhirBimbingan() {
 		return blnAkhirBimbingan;
 	}
 
+	/**
+	 * Menetapkan akhir masa bimbingan tugas akhir.
+	 *
+	 * @param blnAkhirBimbingan tanggal akhir bimbingan.
+	 */
 	public void setBlnAkhirBimbingan(Date blnAkhirBimbingan) {
 		this.blnAkhirBimbingan = blnAkhirBimbingan;
 	}
 
+	/**
+	 * Id registrasi peserta didik di PDDikti ({@code id_reg_pd}) — kunci registrasi mahasiswa pada
+	 * satuan pendidikan, berbeda dari {@link #getFeeder()}. Kosong dinormalkan menjadi {@code null}.
+	 *
+	 * @return id registrasi peserta didik; {@code null} bila belum ada.
+	 */
 	public String getIdRegPd() {
 		return idRegPd == null || idRegPd.trim().isEmpty() ? null : idRegPd.trim();
 	}
 
+	/**
+	 * Menetapkan id registrasi peserta didik PDDikti.
+	 *
+	 * @param idRegPd id registrasi peserta didik.
+	 */
 	public void setIdRegPd(String idRegPd) {
 		this.idRegPd = idRegPd;
 	}
 
+	/**
+	 * Penanda baris mahasiswa masih AKTIF dipakai sistem (berbeda dari status akademik aktif per
+	 * semester yang dihitung {@code HistoryStatusMahasiswaUtil}).
+	 *
+	 * <p>Bila {@code null} dianggap {@code true}. <b>Aturan tersembunyi:</b> begitu
+	 * {@link #getNimBaruPindah()} terisi — artinya mahasiswa sudah pindah ke baris/NIM baru —
+	 * baris ini otomatis dianggap TIDAK aktif supaya tidak muncul ganda di pencarian dan
+	 * laporan.</p>
+	 *
+	 * @return {@code true} bila baris mahasiswa masih aktif.
+	 */
 	public Boolean getAktif() {
 		if (aktif == null) {
 			aktif = true;
@@ -3220,10 +3386,23 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return aktif;
 	}
 
+	/**
+	 * Menetapkan penanda aktif baris mahasiswa.
+	 *
+	 * @param aktif {@code true} bila aktif.
+	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
 
+	/**
+	 * NIM BARU mahasiswa setelah pindah (mis. alih prodi) — penanda bahwa baris ini sudah
+	 * digantikan baris lain. Bila nilainya sama persis dengan {@link #getNim()} sendiri, dianggap
+	 * salah isi dan dinormalkan menjadi {@code null} agar mahasiswa tidak menonaktifkan dirinya
+	 * sendiri lewat {@link #getAktif()}.
+	 *
+	 * @return NIM baru; {@code null} bila mahasiswa belum pindah.
+	 */
 	public String getNimBaruPindah() {
 		if (nim != null && nimBaruPindah != null && nim.trim().equalsIgnoreCase(nimBaruPindah.trim())) {
 			nimBaruPindah = null;
@@ -3231,10 +3410,21 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return nimBaruPindah;
 	}
 
+	/**
+	 * Menetapkan NIM baru tujuan kepindahan.
+	 *
+	 * @param nimBaruPindah NIM baru.
+	 */
 	public void setNimBaruPindah(String nimBaruPindah) {
 		this.nimBaruPindah = nimBaruPindah;
 	}
 
+	/**
+	 * Jumlah SKS dari kampus asal yang DIAKUI saat mahasiswa pindah antar-perguruan tinggi. Bila
+	 * {@code null} dinormalkan menjadi {@code 0}.
+	 *
+	 * @return jumlah SKS diakui (tidak pernah {@code null}).
+	 */
 	public Integer getSksYangDiakui() {
 		if (sksYangDiakui == null) {
 			sksYangDiakui = 0;
@@ -3242,10 +3432,21 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return sksYangDiakui;
 	}
 
+	/**
+	 * Menetapkan jumlah SKS yang diakui dari kampus asal.
+	 *
+	 * @param sksYangDiakui jumlah SKS.
+	 */
 	public void setSksYangDiakui(Integer sksYangDiakui) {
 		this.sksYangDiakui = sksYangDiakui;
 	}
 
+	/**
+	 * Jumlah SKS yang DIAKUI saat mahasiswa alih program studi di dalam kampus yang sama. Bila
+	 * {@code null} dinormalkan menjadi {@code 0}.
+	 *
+	 * @return jumlah SKS diakui pada alih prodi (tidak pernah {@code null}).
+	 */
 	public Integer getSksYangDiakuiPindahProdi() {
 		if (sksYangDiakuiPindahProdi == null) {
 			sksYangDiakuiPindahProdi = 0;
@@ -3253,10 +3454,27 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return sksYangDiakuiPindahProdi;
 	}
 
+	/**
+	 * Menetapkan jumlah SKS yang diakui pada alih program studi.
+	 *
+	 * @param sksYangDiakuiPindahProdi jumlah SKS.
+	 */
 	public void setSksYangDiakuiPindahProdi(Integer sksYangDiakuiPindahProdi) {
 		this.sksYangDiakuiPindahProdi = sksYangDiakuiPindahProdi;
 	}
 
+	/**
+	 * Nama program studi ASAL bagi mahasiswa alih prodi. Hanya dihitung ulang bila
+	 * {@link #getMerupakanAlihProdi()} bernilai {@code true}, dengan membaca
+	 * {@code getAlihProdiMahasiswa().getJurusan().getNama()}.
+	 *
+	 * <p><b>Jangan diubah menjadi akses field mentah.</b> Komentar FIX di dalam metode mencatat
+	 * penyebab {@code LazyInitializationException} (isu KE-13): versi lama membaca field
+	 * {@code alihProdiMahasiswa} langsung sehingga melewati {@code check()} yang menyambungkan
+	 * ulang proxy detached ke sesi aktif.</p>
+	 *
+	 * @return nama prodi asal sudah di-trim; string kosong bila bukan alih prodi atau gagal dimuat.
+	 */
 	public String getNamaProdiPindah() {
 		if (getMerupakanAlihProdi()) {
 			try {
@@ -3276,20 +3494,45 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return namaProdiPindah == null ? "" : namaProdiPindah.trim();
 	}
 
+	/**
+	 * Menetapkan nama program studi asal (akan tertimpa getter-nya bila mahasiswa alih prodi).
+	 *
+	 * @param namaProdiPindah nama prodi asal.
+	 */
 	public void setNamaProdiPindah(String namaProdiPindah) {
 		this.namaProdiPindah = namaProdiPindah;
 	}
 
+	/**
+	 * Salinan NIM pada kolom UNIK terpisah ({@code @Column(unique = true)}) — dipakai sebagai
+	 * kunci pencarian/penjagaan keunikan tambahan. SELALU disegarkan dari {@link #getNim()} saat
+	 * dibaca, sehingga tidak pernah menyimpang dari NIM sebenarnya.
+	 *
+	 * @return NIM (sama dengan {@link #getNim()}).
+	 */
 	@Column(unique = true)
 	public String getNimKey() {
 		nimKey = getNim();
 		return nimKey;
 	}
 
+	/**
+	 * Menetapkan salinan NIM (akan selalu tertimpa oleh {@link #getNimKey()}).
+	 *
+	 * @param nimKey nilai NIM.
+	 */
 	public void setNimKey(String nimKey) {
 		this.nimKey = nimKey;
 	}
 
+	/**
+	 * Id akun Facebook yang tertaut untuk login sosial. Kolom boleh berisi BEBERAPA id dipisah
+	 * koma (lihat {@link #appendFacebookId(String)}); koma ganda dirapatkan dan nilai yang hanya
+	 * berupa {@code ","} dianggap kosong.
+	 *
+	 * @return daftar id Facebook dipisah koma; string kosong bila belum ada.
+	 * @see SocialMediaCommonModel
+	 */
 	public String getFacebookId() {
 		if (facebookId != null && facebookId.contains(",,")) {
 			for (int i = 0; i < 5; i++) {
@@ -3305,15 +3548,32 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return facebookId;
 	}
 
+	/**
+	 * Mengganti seluruh daftar id Facebook yang tertaut.
+	 *
+	 * @param facebookId satu id, atau beberapa id dipisah koma.
+	 */
 	public void setFacebookId(String facebookId) {
 		this.facebookId = facebookId;
 	}
 
+	/**
+	 * Menambahkan satu id Facebook ke daftar (dipisah koma) tanpa membuang yang lama. Berbeda
+	 * dengan {@link #appendEmail(String)}, di sini TIDAK ada pemeriksaan duplikat.
+	 *
+	 * @param facebookId id akun Facebook.
+	 */
 	public void appendFacebookId(String facebookId) {
 		this.facebookId = this.facebookId == null || this.facebookId.trim().isEmpty() ? facebookId
 				: this.facebookId + "," + facebookId;
 	}
 
+	/**
+	 * Id akun Google yang tertaut untuk login sosial; boleh berisi beberapa id dipisah koma.
+	 * Pembersihan koma ganda sama seperti {@link #getFacebookId()}.
+	 *
+	 * @return daftar id Google dipisah koma; string kosong bila belum ada.
+	 */
 	public String getGoogleId() {
 		if (googleId != null && googleId.contains(",,")) {
 			for (int i = 0; i < 5; i++) {
@@ -3329,15 +3589,30 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return googleId;
 	}
 
+	/**
+	 * Mengganti seluruh daftar id Google yang tertaut.
+	 *
+	 * @param googleId satu id, atau beberapa id dipisah koma.
+	 */
 	public void setGoogleId(String googleId) {
 		this.googleId = googleId;
 	}
 
+	/**
+	 * Menambahkan satu id Google ke daftar (dipisah koma), tanpa pemeriksaan duplikat.
+	 *
+	 * @param googleId id akun Google.
+	 */
 	public void appendGoogleId(String googleId) {
 		this.googleId = this.googleId == null || this.googleId.trim().isEmpty() ? googleId
 				: this.googleId + "," + googleId;
 	}
 
+	/**
+	 * Id akun Twitter/X yang tertaut untuk login sosial; boleh berisi beberapa id dipisah koma.
+	 *
+	 * @return daftar id Twitter dipisah koma; string kosong bila belum ada.
+	 */
 	public String getTwitterId() {
 		if (twitterId != null && twitterId.contains(",,")) {
 			for (int i = 0; i < 5; i++) {
@@ -3353,15 +3628,31 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return twitterId;
 	}
 
+	/**
+	 * Mengganti seluruh daftar id Twitter/X yang tertaut.
+	 *
+	 * @param twitterId satu id, atau beberapa id dipisah koma.
+	 */
 	public void setTwitterId(String twitterId) {
 		this.twitterId = twitterId;
 	}
 
+	/**
+	 * Menambahkan satu id Twitter/X ke daftar (dipisah koma), tanpa pemeriksaan duplikat.
+	 *
+	 * @param twitterId id akun Twitter/X.
+	 */
 	public void appendTwitterId(String twitterId) {
 		this.twitterId = this.twitterId == null || this.twitterId.trim().isEmpty() ? twitterId
 				: this.twitterId + "," + twitterId;
 	}
 
+	/**
+	 * Id akun LinkedIn yang tertaut — kolom {@code linkedinid}; boleh berisi beberapa id dipisah
+	 * koma.
+	 *
+	 * @return daftar id LinkedIn dipisah koma; string kosong bila belum ada.
+	 */
 	@Column(name = "linkedinid")
 	public String getLinkedinId() {
 		if (linkedinId != null && linkedinId.contains(",,")) {
@@ -3378,15 +3669,37 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return linkedinId;
 	}
 
+	/**
+	 * Mengganti seluruh daftar id LinkedIn yang tertaut.
+	 *
+	 * @param linkedinId satu id, atau beberapa id dipisah koma.
+	 */
 	public void setLinkedinId(String linkedinId) {
 		this.linkedinId = linkedinId;
 	}
 
+	/**
+	 * Menambahkan satu id LinkedIn ke daftar (dipisah koma), tanpa pemeriksaan duplikat.
+	 *
+	 * @param linkedinId id akun LinkedIn.
+	 */
 	public void appendLinkedinId(String linkedinId) {
 		this.linkedinId = this.linkedinId == null || this.linkedinId.trim().isEmpty() ? linkedinId
 				: this.linkedinId + "," + linkedinId;
 	}
 
+	/**
+	 * Profil media sosial mahasiswa dalam satu kolom TEXT ({@code social_media_profile}), berisi
+	 * beberapa ruas yang dirangkai dengan pemisah {@code "||"}.
+	 *
+	 * <p>Karena rangkaian itu bisa menghasilkan ruas KOSONG yang tampak sebagai {@code "||||"} dan
+	 * merusak pemisahan, getter mengganti setiap {@code "||||"} menjadi {@code "||#||"} —
+	 * menyisipkan penanda {@code #} sebagai isi ruas kosong. {@code null} dinormalkan menjadi
+	 * string kosong.</p>
+	 *
+	 * @return teks profil media sosial (tidak pernah {@code null}).
+	 * @see SocialMediaCommonModel
+	 */
 	@Column(name = "social_media_profile", columnDefinition = "text")
 	public String getSocialMediaProfile() {
 		if (socialMediaProfile == null) {
@@ -3400,19 +3713,42 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return socialMediaProfile;
 	}
 
+	/**
+	 * Menetapkan teks profil media sosial.
+	 *
+	 * @param socialMediaProfile teks profil berpemisah {@code "||"}.
+	 */
 	public void setSocialMediaProfile(String socialMediaProfile) {
 		this.socialMediaProfile = socialMediaProfile;
 	}
 
+	/**
+	 * Bahasa antarmuka pilihan mahasiswa. Ditandai {@code @NotAudited} sehingga perubahannya
+	 * TIDAK direkam Envers (preferensi tampilan, bukan data akademik). Bila kosong dipakai
+	 * {@code Tbmuser.INDONESIA}.
+	 *
+	 * @return kode bahasa antarmuka (tidak pernah {@code null}).
+	 */
 	@NotAudited
 	public String getBahasa() {
 		return bahasa == null ? Tbmuser.INDONESIA : bahasa;
 	}
 
+	/**
+	 * Menetapkan bahasa antarmuka pilihan mahasiswa.
+	 *
+	 * @param bahasa kode bahasa.
+	 */
 	public void setBahasa(String bahasa) {
 		this.bahasa = bahasa;
 	}
 
+	/**
+	 * Predikat kelulusan/yudisium (mis. Cum Laude, Sangat Memuaskan) — relasi {@code @ManyToOne}
+	 * ke {@link Judisium} lewat kolom {@code predikat_kelulusan}. Dicetak di transkrip dan SKPI.
+	 *
+	 * @return predikat kelulusan; {@code null} bila belum ditetapkan.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "predikat_kelulusan", nullable = true)
 	public Judisium getPredikatKelulusan() {
@@ -3420,10 +3756,25 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return predikatKelulusan;
 	}
 
+	/**
+	 * Menetapkan predikat kelulusan.
+	 *
+	 * @param predikatKelulusan predikat kelulusan.
+	 */
 	public void setPredikatKelulusan(Judisium predikatKelulusan) {
 		this.predikatKelulusan = predikatKelulusan;
 	}
 
+	/**
+	 * Mengurutkan mahasiswa berdasarkan NIM (bukan id), sehingga daftar mahasiswa tampil urut NIM
+	 * secara alami di seluruh layar dan laporan. Bila pembandingan gagal (mis. NIM {@code null}
+	 * atau objek pembanding bukan {@code Mahasiswa}), urutan jatuh kembali ke aturan bawaan
+	 * {@link ais.database.model.GeneralValueObject#compareTo(GeneralValueObject)}.
+	 *
+	 * @param arg0 objek pembanding.
+	 * @return hasil {@code String.compareTo} atas NIM, atau hasil pembandingan induk sebagai
+	 *         cadangan.
+	 */
 	@Override
 	public int compareTo(GeneralValueObject arg0) {
 		try {
@@ -3434,6 +3785,22 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		}
 	}
 
+	/**
+	 * Id dosen pembimbing akademik (dosen PA) mahasiswa ini, disimpan sebagai {@code Long} mentah.
+	 *
+	 * <p>Dua perilaku khas:</p>
+	 * <ul>
+	 *   <li>Bila mahasiswa SUDAH KELUAR ({@code statusKeluar} terisi), dosen PA dipaksa
+	 *       {@code null} — mahasiswa yang sudah lulus tidak lagi membebani daftar bimbingan
+	 *       dosen.</li>
+	 *   <li>Bila field masih kosong/0, nilai dibaca dari penyimpanan kunci JSON
+	 *       ({@code retreive("dosen")}) milik {@link ais.database.model.GeneralValueObject},
+	 *       bukan dari kolom tabel.</li>
+	 * </ul>
+	 *
+	 * @return id dosen PA; {@code null} bila tidak ada atau mahasiswa sudah keluar.
+	 * @see #getDosenPa()
+	 */
 	public Long getDosen() {
 		if (statusKeluar != null) {
 			dosen = null;
@@ -3444,6 +3811,13 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		}
 	}
 
+	/**
+	 * Menetapkan id dosen pembimbing akademik. Nilai yang sah (bukan {@code null}/0) juga
+	 * disalin ke penyimpanan kunci JSON dengan kunci {@code "dosen"} karena {@link #getDosen()}
+	 * membacanya dari sana.
+	 *
+	 * @param dosen id dosen PA.
+	 */
 	public void setDosen(Long dosen) {
 		if (dosen != null && !dosen.equals(0L)) {
 			put(dosen.toString(), "dosen");
@@ -3453,6 +3827,12 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		}
 	}
 
+	/**
+	 * Nama kelas mahasiswa sebagai teks. Bila {@link #getKelasPmb()} terisi dan punya kelas
+	 * bernama, nama itu MENIMPA isi kolom sehingga kelas selalu mengikuti data penempatan PMB.
+	 *
+	 * @return nama kelas sudah di-trim; string kosong bila belum ditetapkan.
+	 */
 	public String getKelas() {
 		if (getKelasPmb() != null && kelasPmb.getKelas() != null && kelasPmb.getKelas().getNama() != null
 				&& !kelasPmb.getKelas().getNama().trim().isEmpty()) {
@@ -3461,19 +3841,43 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return kelas == null ? "" : kelas.trim();
 	}
 
+	/**
+	 * Menetapkan nama kelas mahasiswa.
+	 *
+	 * @param kelas nama kelas.
+	 */
 	public void setKelas(String kelas) {
 		this.kelas = kelas;
 	}
 
+	/**
+	 * Nama pengguna mahasiswa di OJS (Open Journal Systems) untuk integrasi publikasi ilmiah —
+	 * kolom UNIK. String kosong dinormalkan menjadi {@code null} agar batasan UNIQUE tidak
+	 * bentrok antar-mahasiswa yang sama-sama belum punya akun OJS.
+	 *
+	 * @return nama pengguna OJS; {@code null} bila belum ada.
+	 */
 	@Column(unique = true)
 	public String getUsernameOjs() {
 		return usernameOjs == null || usernameOjs.trim().isEmpty() ? null : usernameOjs;
 	}
 
+	/**
+	 * Menetapkan nama pengguna OJS.
+	 *
+	 * @param usernameOjs nama pengguna OJS.
+	 */
 	public void setUsernameOjs(String usernameOjs) {
 		this.usernameOjs = usernameOjs;
 	}
 
+	/**
+	 * Tanggal lahir dalam bentuk TEKS yang boleh diketik manual — dipakai untuk data lama yang
+	 * tanggal lahirnya tidak lengkap/tidak sah sebagai {@code Date}. Bila kosong, diisi otomatis
+	 * dari {@link #getTanggallahir()} memakai {@code Common.dateFormat2}.
+	 *
+	 * @return teks tanggal lahir.
+	 */
 	public String getTanggallahirManual() {
 		if ((tanggallahirManual == null || tanggallahirManual.trim().isEmpty()) && getTanggallahir() != null) {
 			tanggallahirManual = Common.dateFormat2.get().format(getTanggallahir());
@@ -3481,18 +3885,40 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return tanggallahirManual;
 	}
 
+	/**
+	 * Menetapkan teks tanggal lahir manual.
+	 *
+	 * @param tanggallahirManual teks tanggal lahir.
+	 */
 	public void setTanggallahirManual(String tanggallahirManual) {
 		this.tanggallahirManual = tanggallahirManual;
 	}
 
+	/**
+	 * Nomor SK Drop Out (putus studi) mahasiswa.
+	 *
+	 * @return nomor SK DO; {@code null} bila tidak ada.
+	 */
 	public String getSkDo() {
 		return skDo;
 	}
 
+	/**
+	 * Menetapkan nomor SK Drop Out.
+	 *
+	 * @param skDo nomor SK DO.
+	 */
 	public void setSkDo(String skDo) {
 		this.skDo = skDo;
 	}
 
+	/**
+	 * Domisili alumni setelah lulus — relasi {@code @ManyToOne} ke
+	 * {@link StatusDomisiliSetelahLulus} lewat kolom {@code status_domisili_setelah_lulus}. Diisi
+	 * lewat kuesioner penelusuran alumni (tracer study).
+	 *
+	 * @return status domisili alumni; {@code null} bila belum diisi.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "status_domisili_setelah_lulus", nullable = true)
 	public StatusDomisiliSetelahLulus getStatusDomisiliSetelahLulus() {
@@ -3500,10 +3926,22 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return statusDomisiliSetelahLulus;
 	}
 
+	/**
+	 * Menetapkan domisili alumni setelah lulus.
+	 *
+	 * @param statusDomisiliSetelahLulus status domisili.
+	 */
 	public void setStatusDomisiliSetelahLulus(StatusDomisiliSetelahLulus statusDomisiliSetelahLulus) {
 		this.statusDomisiliSetelahLulus = statusDomisiliSetelahLulus;
 	}
 
+	/**
+	 * Status pekerjaan alumni setelah lulus — relasi {@code @ManyToOne} ke
+	 * {@link StatusPekerjaanSetelahLulus} lewat kolom {@code status_pekerjaan_setelah_lulus}.
+	 * Bagian dari penelusuran alumni.
+	 *
+	 * @return status pekerjaan alumni; {@code null} bila belum diisi.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "status_pekerjaan_setelah_lulus", nullable = true)
 	public StatusPekerjaanSetelahLulus getStatusPekerjaanSetelahLulus() {
@@ -3511,10 +3949,21 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return statusPekerjaanSetelahLulus;
 	}
 
+	/**
+	 * Menetapkan status pekerjaan alumni setelah lulus.
+	 *
+	 * @param statusPekerjaanSetelahLulus status pekerjaan.
+	 */
 	public void setStatusPekerjaanSetelahLulus(StatusPekerjaanSetelahLulus statusPekerjaanSetelahLulus) {
 		this.statusPekerjaanSetelahLulus = statusPekerjaanSetelahLulus;
 	}
 
+	/**
+	 * Kegiatan utama alumni setelah lulus (bekerja, wirausaha, lanjut studi, dsb.) — relasi
+	 * {@code @ManyToOne} ke {@link StatusSetelahLulus} lewat kolom {@code status_setelah_lulus}.
+	 *
+	 * @return status setelah lulus; {@code null} bila belum diisi.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "status_setelah_lulus", nullable = true)
 	public StatusSetelahLulus getStatusSetelahLulus() {
@@ -3522,18 +3971,43 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return statusSetelahLulus;
 	}
 
+	/**
+	 * Menetapkan kegiatan utama alumni setelah lulus.
+	 *
+	 * @param statusSetelahLulus status setelah lulus.
+	 */
 	public void setStatusSetelahLulus(StatusSetelahLulus statusSetelahLulus) {
 		this.statusSetelahLulus = statusSetelahLulus;
 	}
 
+	/**
+	 * Token sekali pakai untuk verifikasi/aktivasi akun mahasiswa (mis. tautan reset kata sandi).
+	 *
+	 * @return token sudah di-trim; {@code null} bila tidak ada.
+	 */
 	public String getToken() {
 		return token == null ? null : token.trim();
 	}
 
+	/**
+	 * Menetapkan token verifikasi/aktivasi.
+	 *
+	 * @param token token.
+	 */
 	public void setToken(String token) {
 		this.token = token;
 	}
 
+	/**
+	 * Masa studi dalam JUMLAH HARI, dihitung dengan Joda-Time dari {@link #getTanggalMasuk()}
+	 * sampai {@link #getTanggalLulus()} (atau sampai hari ini bila belum lulus).
+	 *
+	 * <p>Bertanda {@code @Transient} — TIDAK disimpan sebagai kolom, selalu dihitung ulang.
+	 * Berbeda dengan {@link #ambilMasaStudi()} yang menghasilkan kalimat siap tampil dalam
+	 * satuan tahun/bulan/hari.</p>
+	 *
+	 * @return lama studi dalam hari.
+	 */
 	@Transient
 	public Integer getMasaStudi() {
 
@@ -3544,15 +4018,31 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return masaStudi;
 	}
 
+	/**
+	 * Menetapkan masa studi (akan selalu tertimpa oleh {@link #getMasaStudi()}).
+	 *
+	 * @param masaStudi lama studi dalam hari.
+	 */
 	public void setMasaStudi(Integer masaStudi) {
 		this.masaStudi = masaStudi;
 	}
 
+	/**
+	 * Tautan validasi eksternal (mis. halaman verifikasi ijazah di situs lembaga lain) — kolom
+	 * TEXT. Dicetak sebagai kode QR/tautan pada dokumen kelulusan.
+	 *
+	 * @return tautan sudah di-trim; string kosong bila belum diisi.
+	 */
 	@Column(columnDefinition = "text")
 	public String getLinkValidasiEksternal() {
 		return linkValidasiEksternal == null ? "" : linkValidasiEksternal.trim();
 	}
 
+	/**
+	 * Menetapkan tautan validasi eksternal.
+	 *
+	 * @param linkValidasiEksternal URL validasi.
+	 */
 	public void setLinkValidasiEksternal(String linkValidasiEksternal) {
 		this.linkValidasiEksternal = linkValidasiEksternal;
 	}

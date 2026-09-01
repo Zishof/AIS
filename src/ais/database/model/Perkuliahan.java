@@ -3497,6 +3497,28 @@ public class Perkuliahan extends VOPembelajaran {
 		this.adminBolehMenginputKehadiranDiluarJadwalDanIp = adminBolehMenginputKehadiranDiluarJadwalDanIp;
 	}
 
+	/**
+	 * Ringkasan status kelas dalam TEKS POLOS: persetujuan KRS, penilaian, ketuntasan pertemuan,
+	 * serta persentase kehadiran mahasiswa dan dosen.
+	 *
+	 * <p>Contoh keluaran: <i>"terdapat 3 mahasiswa belum disetujui dan 27 mahasiswa telah
+	 * disetujui, 27 mahasiswa telah dinilai, Tuntas 14/16 (87%), Kehadiran mhs 380/448 (84%),
+	 * H=380, A=68, Kehadiran dosen 15/16 (93%), H=15"</i>.</p>
+	 *
+	 * <p>Angka persetujuan/penilaian diambil dari {@link #ambilStatusKrs()}; angka pertemuan dan
+	 * kehadiran dari {@code ambilJumlahPertemuanStatistik(false, false)} milik
+	 * {@link VOPembelajaran} (diskusi dan ujian TIDAK diikutkan). Penyebut kehadiran mahasiswa
+	 * adalah jumlah peserta dikali jumlah pertemuan, dan penyebut kehadiran dosen adalah
+	 * {@link #getJumlahDosen()} dikali jumlah pertemuan - konsekuensi langsung pola sepuluh
+	 * slot.</p>
+	 *
+	 * <p>Merupakan padanan {@link #populateInfoPersetujuan()} tanpa markup HTML, dipakai bila teks
+	 * akan masuk ke berkas ekspor atau kolom biasa. Dipanggil dari {@code PerkuliahanAction}.</p>
+	 *
+	 * @return ringkasan status kelas; string kosong bila kelas belum tersimpan (id masih
+	 *         {@code null}).
+	 * @throws Exception bila pengambilan statistik pertemuan gagal.
+	 */
 	@SuppressWarnings("unchecked")
 	public String populateInfoPersetujuanBiasa() throws Exception {
 		if (id == null) {
@@ -3561,6 +3583,26 @@ public class Perkuliahan extends VOPembelajaran {
 		return info;
 	}
 
+	/**
+	 * Ringkasan status kelas dalam HTML BERWARNA untuk ditempel pada grid dan header layar ZK.
+	 *
+	 * <p>Isinya sama dengan {@link #populateInfoPersetujuanBiasa()}, tetapi tiap bagian dibungkus
+	 * {@code <font>} dengan warna bermakna: biru untuk yang sudah disetujui, merah untuk yang
+	 * belum, hijau untuk yang sudah dinilai, merah muda untuk yang belum dinilai, dan biru
+	 * kehijauan untuk blok ketuntasan/kehadiran. Bagian penilaian juga menyertakan persentase
+	 * peserta yang sudah dinilai.</p>
+	 *
+	 * <p>Berbeda dengan padanan teks polosnya, seluruh badan method dibungkus {@code try/catch}
+	 * sehingga kegagalan statistik menghasilkan ringkasan sebagian, bukan exception - layar tidak
+	 * ikut gagal dimuat karena satu kelas bermasalah.</p>
+	 *
+	 * <p>Dipanggil dari {@code PerkuliahanAction}, {@code AbsensiAction}, dan
+	 * {@code PenilaianAction}.</p>
+	 *
+	 * @return potongan HTML ringkasan status; string kosong bila kelas belum tersimpan.
+	 * @throws Exception dideklarasikan demi keseragaman tanda tangan; pada praktiknya tertangkap
+	 *                   di dalam.
+	 */
 	@SuppressWarnings("unchecked")
 	public String populateInfoPersetujuan() throws Exception {
 		if (id == null) {
@@ -3643,6 +3685,19 @@ public class Perkuliahan extends VOPembelajaran {
 		return info;
 	}
 
+	/**
+	 * Batas jumlah pertemuan yang boleh dibangkitkan untuk kelas ini.
+	 *
+	 * <p>Bila {@link #getJumlahRencanaPertemuanMengikutiKurikulum()} aktif, nilainya SELALU dibaca
+	 * ulang dari {@link KurikulumPunyaMatakuliah} - bukan dari nilai lama di basis data. Ini
+	 * disengaja: perubahan rencana pertemuan di kurikulum harus langsung berlaku bagi kelas yang
+	 * mengikutinya. Bila flag tidak aktif, kurikulum hanya dibaca ketika kolom masih kosong.</p>
+	 *
+	 * <p>Nilai kosong atau {@code 0} dinormalkan menjadi {@code 16}, jumlah pertemuan baku satu
+	 * semester.</p>
+	 *
+	 * @return batas jumlah pertemuan; tidak pernah {@code null} maupun {@code 0}.
+	 */
 	public Integer getJumlahMaksimalPertemuan() {
 		try {
 			// Bila flag "ikuti kurikulum" aktif, SELALU baca dari kurikulum (bukan nilai
@@ -3660,42 +3715,108 @@ public class Perkuliahan extends VOPembelajaran {
 		return jumlahMaksimalPertemuan == null || jumlahMaksimalPertemuan.equals(0) ? 16 : jumlahMaksimalPertemuan;
 	}
 
+	/**
+	 * Menetapkan batas jumlah pertemuan kelas.
+	 *
+	 * <p>Hanya bertahan bila {@link #getJumlahRencanaPertemuanMengikutiKurikulum()} dimatikan.</p>
+	 *
+	 * @param jumlahMaksimalPertemuan batas jumlah pertemuan.
+	 */
 	public void setJumlahMaksimalPertemuan(Integer jumlahMaksimalPertemuan) {
 		this.jumlahMaksimalPertemuan = jumlahMaksimalPertemuan;
 	}
 
+	/**
+	 * Menyatakan apakah kelas ini adalah kelas remedial (perbaikan nilai). Default {@code false}.
+	 *
+	 * @return {@code true} bila kelas remedial.
+	 */
 	public Boolean getMerupakanRemedial() {
 		return merupakanRemedial == null ? false : merupakanRemedial;
 	}
 
+	/**
+	 * Menandai kelas sebagai kelas remedial.
+	 *
+	 * @param merupakanRemedial penanda remedial.
+	 */
 	public void setMerupakanRemedial(Boolean merupakanRemedial) {
 		this.merupakanRemedial = merupakanRemedial;
 	}
 
+	/**
+	 * Menyatakan apakah batas jumlah pertemuan kelas mengikuti kurikulum.
+	 *
+	 * <p>Default {@code true}, sehingga kelas baru otomatis selaras dengan rencana kurikulum.
+	 * Matikan hanya bila kelas ini memang menyimpang.</p>
+	 *
+	 * @return {@code true} bila batas pertemuan mengikuti kurikulum.
+	 * @see #getJumlahMaksimalPertemuan()
+	 */
 	public Boolean getJumlahRencanaPertemuanMengikutiKurikulum() {
 		return jumlahRencanaPertemuanMengikutiKurikulum == null ? true : jumlahRencanaPertemuanMengikutiKurikulum;
 	}
 
+	/**
+	 * Menetapkan apakah batas jumlah pertemuan mengikuti kurikulum.
+	 *
+	 * @param jumlahRencanaPertemuanMengikutiKurikulum penanda mengikuti kurikulum.
+	 */
 	public void setJumlahRencanaPertemuanMengikutiKurikulum(Boolean jumlahRencanaPertemuanMengikutiKurikulum) {
 		this.jumlahRencanaPertemuanMengikutiKurikulum = jumlahRencanaPertemuanMengikutiKurikulum;
 	}
 
+	/**
+	 * Menyatakan apakah kelas ini adalah kegiatan pra-perkuliahan (matrikulasi, pengenalan, dsb).
+	 *
+	 * <p>Penanda ini memaksa {@link #getSemester()} bernilai {@code -1}, yaitu di luar struktur
+	 * semester kurikulum. Default {@code false}.</p>
+	 *
+	 * @return {@code true} bila kelas pra-perkuliahan.
+	 */
 	public Boolean getMerupakanPraPerkuliahan() {
 		return merupakanPraPerkuliahan == null ? false : merupakanPraPerkuliahan;
 	}
 
+	/**
+	 * Menandai kelas sebagai kegiatan pra-perkuliahan.
+	 *
+	 * @param merupakanPraPerkuliahan penanda pra-perkuliahan.
+	 */
 	public void setMerupakanPraPerkuliahan(Boolean merupakanPraPerkuliahan) {
 		this.merupakanPraPerkuliahan = merupakanPraPerkuliahan;
 	}
 
+	/**
+	 * Keterangan tambahan khusus jadwal (mis. "pekan 1-8 daring"), ditampilkan berdampingan dengan
+	 * hari dan jam.
+	 *
+	 * @return keterangan jadwal; string kosong bila belum diisi.
+	 */
 	public String getKeteranganJadwal() {
 		return keteranganJadwal == null ? "" : keteranganJadwal;
 	}
 
+	/**
+	 * Menetapkan keterangan tambahan jadwal.
+	 *
+	 * @param keteranganJadwal teks keterangan jadwal.
+	 */
 	public void setKeteranganJadwal(String keteranganJadwal) {
 		this.keteranganJadwal = keteranganJadwal;
 	}
 
+	/**
+	 * Menyatakan apakah kelas ini mengandung kegiatan praktek.
+	 *
+	 * <p><b>Efek samping:</b> bila mata kuliahnya memiliki SKS praktek lebih dari nol, penanda
+	 * DIPAKSA {@code true} dan ditulis balik ke field - jadi nilai kolom tidak bisa dipakai untuk
+	 * menyangkal adanya praktek pada mata kuliah berpraktikum. Perhatikan bahwa pemeriksaan
+	 * membaca FIELD {@code matakuliah}, bukan {@link #getMatakuliah()}, sehingga pada objek yang
+	 * relasinya belum ter-resolve pemaksaan ini bisa terlewat.</p>
+	 *
+	 * @return {@code true} bila kelas mengandung kegiatan praktek.
+	 */
 	public Boolean getTerdapatKegiatanPraktek() {
 		if (matakuliah != null && matakuliah.getSksPraktek() > 0) {
 			terdapatKegiatanPraktek = true;
@@ -3703,34 +3824,82 @@ public class Perkuliahan extends VOPembelajaran {
 		return terdapatKegiatanPraktek == null ? false : terdapatKegiatanPraktek;
 	}
 
+	/**
+	 * Menandai adanya kegiatan praktek pada kelas ini.
+	 *
+	 * @param terdapatKegiatanPraktek penanda praktek.
+	 */
 	public void setTerdapatKegiatanPraktek(Boolean terdapatKegiatanPraktek) {
 		this.terdapatKegiatanPraktek = terdapatKegiatanPraktek;
 	}
 
+	/**
+	 * Menyatakan apakah kelas ini adalah kuliah umum yang terbuka lintas program studi.
+	 * Default {@code false}.
+	 *
+	 * @return {@code true} bila kelas merupakan kuliah umum.
+	 */
 	public Boolean getMerupakanPerkuliahanUmum() {
 		return merupakanPerkuliahanUmum == null ? false : merupakanPerkuliahanUmum;
 	}
 
+	/**
+	 * Menandai kelas sebagai kuliah umum.
+	 *
+	 * @param merupakanPerkuliahanUmum penanda kuliah umum.
+	 */
 	public void setMerupakanPerkuliahanUmum(Boolean merupakanPerkuliahanUmum) {
 		this.merupakanPerkuliahanUmum = merupakanPerkuliahanUmum;
 	}
 
+	/**
+	 * Menyatakan apakah mahasiswa boleh mengambil kelas ini meski mata kuliahnya berada di semester
+	 * kurikulum yang berbeda dari semester mahasiswa. Default {@code false}.
+	 *
+	 * @return {@code true} bila pembatasan semester kurikulum dilonggarkan.
+	 */
 	public Boolean getAmbilMkDiluarSemesterKurikulum() {
 		return ambilMkDiluarSemesterKurikulum == null ? false : ambilMkDiluarSemesterKurikulum;
 	}
 
+	/**
+	 * Menetapkan kelonggaran pengambilan mata kuliah di luar semester kurikulum.
+	 *
+	 * @param ambilMkDiluarSemesterKurikulum penanda kelonggaran.
+	 */
 	public void setAmbilMkDiluarSemesterKurikulum(Boolean ambilMkDiluarSemesterKurikulum) {
 		this.ambilMkDiluarSemesterKurikulum = ambilMkDiluarSemesterKurikulum;
 	}
 
+	/**
+	 * Jenis pola penyelenggaraan kelas, mis. {@code "Mingguan"} (default) untuk kelas yang berulang
+	 * tiap pekan.
+	 *
+	 * @return jenis penyelenggaraan; tidak pernah {@code null}.
+	 */
 	public String getJenis() {
 		return jenis == null ? "Mingguan" : jenis;
 	}
 
+	/**
+	 * Menetapkan jenis pola penyelenggaraan kelas.
+	 *
+	 * @param jenis jenis penyelenggaraan; {@code null} agar kembali ke {@code "Mingguan"}.
+	 */
 	public void setJenis(String jenis) {
 		this.jenis = jenis;
 	}
 
+	/**
+	 * Menyatakan apakah nilai disembunyikan dari mahasiswa selama belum diverifikasi.
+	 *
+	 * <p><b>Efek samping:</b> bila belum ditentukan per kelas, nilainya dibaca dari konfigurasi
+	 * global {@code sembunyikanNilaiJikaBelumDiverifikasi} (default nonaktif) dan ditulis balik ke
+	 * field. Pembacaan konfigurasi dapat menuliskan nilai default ke basis data bila kuncinya belum
+	 * ada.</p>
+	 *
+	 * @return {@code true} bila nilai belum terverifikasi disembunyikan.
+	 */
 	public Boolean getSembunyikanNilaiJikaBelumDiverifikasi() {
 		if (sembunyikanNilaiJikaBelumDiverifikasi == null) {
 			sembunyikanNilaiJikaBelumDiverifikasi = Common.bolehKonfigurasi("sembunyikanNilaiJikaBelumDiverifikasi", Konfigurasi.TIDAK_AKTIF);
@@ -3738,6 +3907,11 @@ public class Perkuliahan extends VOPembelajaran {
 		return sembunyikanNilaiJikaBelumDiverifikasi == null ? false : sembunyikanNilaiJikaBelumDiverifikasi;
 	}
 
+	/**
+	 * Menetapkan penyembunyian nilai yang belum diverifikasi untuk kelas ini.
+	 *
+	 * @param sembunyikanNilaiJikaBelumDiverifikasi {@code null} agar mengikuti konfigurasi global.
+	 */
 	public void setSembunyikanNilaiJikaBelumDiverifikasi(Boolean sembunyikanNilaiJikaBelumDiverifikasi) {
 		this.sembunyikanNilaiJikaBelumDiverifikasi = sembunyikanNilaiJikaBelumDiverifikasi;
 	}

@@ -19,40 +19,52 @@ import java.util.Properties;
  * command line. Lihat dokumentasi paket {@link ais.delivery.email.sender package-info} untuk peta
  * lengkap kelas contoh serupa dan perbandingannya dengan mesin produksi {@link MailSender}.
  *
- * <h2>PERINGATAN KEAMANAN — kredensial tertanam</h2>
+ * <h2>Riwayat keamanan (DIPERBAIKI 2026-09-02) — kredensial pribadi sebelumnya tertanam</h2>
  * <p>
- * Konstanta {@link #SMTP_AUTH_USER} dan {@link #SMTP_AUTH_PWD} di bawah berisi alamat email dan
- * KATA SANDI dalam bentuk teks polos, ditulis langsung di kode sumber yang sudah ter-commit ke
- * riwayat SVN repositori ini. Dokumentasi ini SENGAJA TIDAK menghapus atau mengubah kredensial
- * tersebut — keputusan menghapus/merotasi kredensial berada di luar cakupan pekerjaan dokumentasi
- * murni dan sebaiknya ditinjau lebih dulu oleh pemilik akun {@code fauzi@zishof.com} apakah kata
- * sandi tersebut masih aktif di penyedia (bila aktif, SANGAT disarankan segera dirotasi mengingat
- * sudah lama berada di riwayat repositori dalam bentuk terbaca). JANGAN jadikan pola penyimpanan
- * kredensial pada kelas ini sebagai contoh yang benar untuk fitur baru — pola produksi yang benar
- * ada di {@link MailSender#sendMailProcess}, yang membaca kredensial SMTP dari konfigurasi runtime
- * lewat {@code Common.getKonfigurasi("default_email_username"/"default_email_password", ...)},
- * bukan dari konstanta di kode sumber.
+ * Konstanta {@code SMTP_AUTH_USER} dan {@code SMTP_AUTH_PWD} sebelumnya berisi alamat email dan
+ * KATA SANDI SUNGGUHAN akun pribadi {@code fauzi@zishof.com} dalam bentuk teks polos, ditulis
+ * langsung di kode sumber yang sudah ter-commit ke riwayat SVN repositori ini. Karena kelas ini
+ * terverifikasi tidak dipanggil oleh kode aplikasi lain (hanya dapat dijalankan manual lewat
+ * {@link #main(String[])}), kredensial itu kini diambil dari system property
+ * ({@code -Dsimplemail.smtpuser=...}, {@code -Dsimplemail.smtppwd=...}) alih-alih tertanam di
+ * kode, dengan {@link #main} langsung berhenti dan menampilkan petunjuk pemakaian bila salah satu
+ * belum diisi. JANGAN jadikan pola penyimpanan kredensial pada kelas ini sebagai contoh yang benar
+ * untuk fitur baru — pola produksi yang benar ada di {@link MailSender#sendMailProcess}, yang
+ * membaca kredensial SMTP dari konfigurasi runtime lewat
+ * {@code Common.getKonfigurasi("default_email_username"/"default_email_password", ...)}, bukan
+ * dari konstanta di kode sumber.
+ * </p>
+ * <p>
+ * <b>TINDAK LANJUT DI LUAR PERUBAHAN KODE INI</b>: password akun {@code fauzi@zishof.com} yang
+ * sebelumnya tertanam sudah lama berada di riwayat SVN dan WAJIB dianggap bocor — SANGAT
+ * disarankan pemilik akun segera mengganti passwordnya bila masih aktif di penyedia
+ * {@code mail.zishof.com}.
  * </p>
  */
 public class SimpleMail {
 
 	/** Host SMTP server lama (peninggalan) yang dipakai contoh ini — bukan host produksi AIS saat ini. */
 	private static final String SMTP_HOST_NAME = "mail.zishof.com";
-	/** Alamat akun SMTP untuk autentikasi — lihat peringatan keamanan pada javadoc kelas {@link SimpleMail}. */
-	private static final String SMTP_AUTH_USER = "fauzi@zishof.com";
-	/** Kata sandi akun SMTP dalam bentuk teks polos — lihat peringatan keamanan pada javadoc kelas {@link SimpleMail}. */
-	private static final String SMTP_AUTH_PWD = "jangannakal12";
+	/** Alamat akun SMTP untuk autentikasi, dari system property — lihat riwayat keamanan pada javadoc kelas {@link SimpleMail}. */
+	private static String SMTP_AUTH_USER = System.getProperty("simplemail.smtpuser", "");
+	/** Kata sandi akun SMTP, dari system property — lihat riwayat keamanan pada javadoc kelas {@link SimpleMail}. */
+	private static String SMTP_AUTH_PWD = System.getProperty("simplemail.smtppwd", "");
 
 	/**
 	 * Menjalankan {@link #test()} — mengirim satu email uji coba teks-polos ke alamat email
-	 * pribadi pengembang yang ditulis langsung di kode. Ini adalah satu-satunya cara kelas ini
-	 * dijalankan; tidak dipanggil dari bagian lain aplikasi.
+	 * pribadi pengembang yang ditulis langsung di kode. Berhenti dengan pesan bila
+	 * {@link #SMTP_AUTH_USER}/{@link #SMTP_AUTH_PWD} belum diisi lewat system property. Ini adalah
+	 * satu-satunya cara kelas ini dijalankan; tidak dipanggil dari bagian lain aplikasi.
 	 *
 	 * @param args tidak dipakai
 	 * @throws Exception diteruskan apa adanya dari {@link #test()} (mis. kegagalan koneksi SMTP
 	 *                    atau autentikasi ditolak)
 	 */
 	public static void main(String[] args) throws Exception {
+		if (SMTP_AUTH_USER.trim().isEmpty() || SMTP_AUTH_PWD.trim().isEmpty()) {
+			System.out.println("Jalankan dengan -Dsimplemail.smtpuser=... -Dsimplemail.smtppwd=...");
+			return;
+		}
 		new SimpleMail().test();
 	}
 
