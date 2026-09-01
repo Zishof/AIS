@@ -460,7 +460,17 @@ public class LaporanDaftarHadirDosen extends MyWindow {
 					d = new ArrayList<Long>();
 					perkuliahansData.put(dosen1.getId(), d);
 				}
-				d.add(perkuliahan.getId());
+				/*
+				 * Satu dosen dapat tersimpan pada lebih dari satu slot pengajar (dosen1..dosen10)
+				 * untuk jadwal yang sama. populateDosenBuNama() mengikuti seluruh slot tersebut,
+				 * sehingga ID perkuliahan yang sama sebelumnya ikut dimasukkan berulang dan
+				 * menghasilkan baris kembar pada Laporan Jadwal Dosen. Deduplikasi dilakukan
+				 * berdasarkan ID jadwal, bukan nama mata kuliah, agar kelas/paralel atau jadwal
+				 * pada hari dan jam yang memang berbeda tetap tampil sebagai baris tersendiri.
+				 */
+				if (perkuliahan.getId() != null && !d.contains(perkuliahan.getId())) {
+					d.add(perkuliahan.getId());
+				}
 			}
 			dosens = null;
 		}
