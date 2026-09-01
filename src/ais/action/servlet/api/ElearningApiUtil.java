@@ -61,6 +61,7 @@ import ais.database.model.Mahasiswa;
 import ais.database.model.MahasiswaRequestTugasAkhir;
 import ais.database.model.Matakuliah;
 import ais.database.model.MatakuliahPunyaBukuBahanAjar;
+import ais.database.model.NamaTugasKelompok;
 import ais.database.model.NilaiHuruf;
 import ais.database.model.PembagianKuotaPerkuliahanBerdasarkantahunAngkatan;
 import ais.database.model.Perkuliahan;
@@ -78,6 +79,7 @@ import ais.database.model.TugasPertemuan;
 import ais.database.model.VOPembelajaran;
 import ais.database.model.file.FileFotoLain;
 import ais.database.model.file.LampiranLain;
+import ais.database.model.file.TugasFileContent;
 import ais.database.model.inventory.Pedagang;
 import ais.database.model.kkn.KelompokKkn;
 import ais.database.model.koperasi.AnggotaKoperasi;
@@ -3124,6 +3126,32 @@ public class ElearningApiUtil {
 		GeneralValueObject generalValueObject = ConstantValues
 				.simpleObject(session.createCriteria(clazz).add(Restrictions.idEq(id)), clazz);
 		if (generalValueObject != null) {
+			if (generalValueObject instanceof TugasKelompok) {
+				TugasKelompok tugasKelompok = (TugasKelompok) generalValueObject;
+				Tbmuser pengguna = Common.getCurrentUser(req);
+				Pertemuan pertemuanTugas = tugasKelompok.getPertemuan() == null ? null
+						: (Pertemuan) session.get(Pertemuan.class, tugasKelompok.getPertemuan());
+				if (pengguna == null || pengguna.getUserId() == null || pertemuanTugas == null
+						|| !pertemuanTugas.bolehUbahAbsenSaja(pengguna)) {
+					jsonObject.put("status", "91");
+					jsonObject.put("description", "Anda tidak memiliki izin untuk menghapus tugas kelompok ini.");
+					return jsonObject;
+				}
+
+				long jumlahKelompok = ((Number) session.createCriteria(NamaTugasKelompok.class)
+						.add(Restrictions.eq("tugasKelompok", tugasKelompok))
+						.setProjection(Projections.rowCount()).uniqueResult()).longValue();
+				long jumlahPengumpulan = ((Number) session.createCriteria(TugasFileContent.class)
+						.add(Restrictions.eq("pertemuan", tugasKelompok.getId()))
+						.setProjection(Projections.rowCount()).uniqueResult()).longValue();
+				if (jumlahKelompok > 0 || jumlahPengumpulan > 0) {
+					jsonObject.put("status", "93");
+					jsonObject.put("description", jumlahPengumpulan > 0
+							? "Tugas kelompok tidak dapat dihapus karena sudah memiliki berkas pengumpulan."
+							: "Tugas kelompok tidak dapat dihapus karena pembagian kelompok sudah dibuat.");
+					return jsonObject;
+				}
+			}
 
 			JSONObject object = new JSONObject();
 			Common.insertProperty(clazz, generalValueObject, object, "", 1);
