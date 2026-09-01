@@ -87,30 +87,52 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
 /**
- * Helper terfokus untuk kegiatan. Tipe ini membungkus satu variasi kecil dari alur yang lebih umum
- * agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ * Utilitas statis inti untuk domain {@link Kegiatan} (tagihan/aktivitas berbayar mahasiswa &amp;
+ * calon mahasiswa) di AIS: membuat/menyinkronkan baris {@code Kegiatan} beserta rincian
+ * {@link DetailKegiatan}-nya sesuai {@link JadwalPembayaran} dan {@link SettingBiaya}/
+ * {@link DetailBiaya}/{@link PengaturanPembayaranBulanan} (tagihan bulanan), dan menyediakan
+ * fungsi ekspor/impor Excel massal untuk tagihan.
  *
- * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
- * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
- * implementasi paralel dengan hasil berbeda.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code boolean prosestagihan};
- * pembacaan/pencarian ({@code ambilKegiatanKodeunikTerisolasi()}, {@code prosesUploadTagihan()}, {@code
- * doDownloadTagihan()}, {@code prosesDownloadTagihan()}, {@code prosesDownloadTagihan()}, {@code
- * prosesDownloadTagihanUntukSettingBiayaDetail()}); validasi/perhitungan ({@code
- * lindungiKonfigurasiBulananSaatHitungUlang()}, {@code checkKegiatanCalonMahasiswa()}, {@code
- * checkKegiatanCalonMahasiswa()}, {@code checkKegiatanCalonMahasiswa()}, {@code checkKegiatanMahasiswa()},
- * {@code checkKegiatanMahasiswa()}); mutasi data ({@code saveEntitySafe()}, {@code updateEntitySafe()}, {@code
- * updateEntitySafe()}, {@code executeUpdateSafe()}, {@code updateBatasStudiMahasiswa()}, {@code
- * updateBatasStudiMahasiswa()}); operasi domain lain ({@code isUsableSession()}, {@code openIsolatedSession()},
- * {@code tandaiPengaturanBulananReadOnly()}, {@code terapkanLockTimeout()}, {@code closeOpenedSessionQuietly()},
- * {@code isLockTimeout()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
- * atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Dua sisi mahasiswa.</b> Hampir setiap operasi punya sepasang varian: satu untuk
+ * {@link Mahasiswa} (mahasiswa aktif) dan satu untuk {@link BiodataCalonMahasiswa} (calon
+ * mahasiswa, sebelum her-registrasi) — mis. {@link #checkKegiatanMahasiswa} vs.
+ * {@link #checkKegiatanCalonMahasiswa}, {@link #dataTagihanMahasiswa} vs.
+ * {@link #dataTagihanCalonMahasiswa}. Keduanya secara struktural mirip (kode nyaris duplikat)
+ * karena field entity sumbernya berbeda (Mahasiswa vs. BiodataCalonMahasiswa punya API yang
+ * berbeda meski konsep serupa) — bukan bug, tapi keterbatasan model data yang belum disatukan.</p>
+ *
+ * <p><b>Ketahanan transaksi PostgreSQL ({@code *Safe} methods).</b> Sebagian besar kompleksitas
+ * kelas ini bukan logika bisnis, melainkan lapisan ketahanan terhadap kontensi database saat
+ * banyak proses (interaktif + batch "Proses Tagihan"/{@code KegiatanProsesHeper}) menyentuh baris
+ * {@code Kegiatan}/{@code DetailKegiatan} yang sama nyaris bersamaan: lock timeout (55P03),
+ * statement timeout (57014), deadlock (40P01), transaksi ter-abort (25P02), constraint violation
+ * (23505/23503), dan koneksi c3p0 basi (kelas SQLState 08). {@link #saveEntitySafe} dan
+ * {@link #updateEntitySafe} mendeteksi pola ini ({@link #isLockTimeout}/{@link #isTransactionAborted}/
+ * {@link #isConstraintViolation}/{@link #isStaleState}), memulihkan transaksi pemanggil yang sudah
+ * mati ({@link #pulihkanTransaksiTerabort}), dan retry di sesi terisolasi baru
+ * ({@link #openIsolatedSession}) dengan backoff+jitter — lihat Javadoc masing-masing method untuk
+ * riwayat insiden produksi (diberi kode "KE-nn") yang melatarbelakangi tiap cabang penanganan.</p>
+ *
+ * <p><b>Bukan tanggung jawab kelas ini:</b> mengubah {@link HistoryStatusMahasiswa} secara
+ * langsung (didelegasikan ke {@code AuditListener}/{@link HistoryStatusMahasiswaUtil} setelah
+ * commit — komentar di {@link #checkKegiatanMahasiswa} menegaskan ini eksplisit), maupun logika
+ * pembayaran/cicilan itu sendiri (di {@code PembayaranUtil}/{@code PembayaranUtilHelper}/
+ * {@code KegiatanPersistenceHelper}). Pemanggil baru sebaiknya memakai method publik yang sudah
+ * ada (mis. {@link #checkKegiatanMahasiswa}), bukan menyalin query/transaksi manual ke Action lain
+ * — supaya penanganan lock timeout dan aturan tagihan tetap satu sumber kebenaran.</p>
  */
 public class KegiatanHelper {
+	/**
+	 * Flag global (statis, dibagi seluruh JVM/semua sesi — bukan per-request) yang dimaksudkan
+	 * sebagai penanda "sedang berlangsung proses tagihan massal" (mis. dari
+	 * {@code KegiatanProsesHeper}/{@code TagihanProcessor}, untuk digerbangi
+	 * {@code KegiatanAction}). <b>Kuirk saat ini: SEMUA titik baca/tulis field ini di codebase
+	 * (di {@code KegiatanProsesHeper}, {@code KegiatanAction}, {@code TagihanProcessor}) sudah
+	 * DIKOMENTARI/dinonaktifkan</b> — field ini efektif TIDAK PERNAH diset {@code true} oleh kode
+	 * aktif manapun saat ini, hanya dideklarasikan dan selalu bernilai default {@code false}.
+	 * Dipertahankan apa adanya (bukan dihapus — di luar lingkup tugas Javadoc ini) sebagai
+	 * dokumentasi kondisi nyata, bukan asumsi bahwa flag ini masih berfungsi.
+	 */
 	public static boolean prosestagihan = false;
 
 	// ===================================================================================
@@ -119,6 +141,7 @@ public class KegiatanHelper {
 	// ===================================================================================
 
 
+	/** {@code true} bila {@code session} non-null dan {@code isOpen()} tidak melempar/mengembalikan false — dipakai sebagai penjaga sebelum operasi Hibernate lain agar tidak melempar {@code SessionException} mentah. */
 	private static boolean isUsableSession(Session session) {
 		try {
 			return session != null && session.isOpen();
@@ -127,6 +150,7 @@ public class KegiatanHelper {
 		}
 	}
 
+	/** Membuka session Hibernate BARU yang independen dari session request/pemanggil manapun — dipakai di seluruh kelas ini untuk operasi "isolasi" (retry, cek keberadaan baris, recovery transaksi ter-abort) yang sengaja tidak boleh ikut tercemar state session lain. Pemanggil bertanggung jawab menutupnya (lihat {@link #closeOpenedSessionQuietly}/{@link #closeLocalSessionSafely}). */
 	private static Session openIsolatedSession() {
 		return HibernateUtil.getSessionFactory().openSession();
 	}
@@ -197,6 +221,7 @@ public class KegiatanHelper {
 		}
 	}
 
+	/** Penutupan session tiga-langkah ({@code clear}/{@code disconnect}/{@code close}) yang menelan exception di tiap langkah — dipakai untuk menutup session yang DIBUKA method ini sendiri (bukan session pemanggil). Fungsinya identik dengan {@link #closeLocalSessionSafely}; dua method paralel ini adalah duplikasi historis, dipertahankan apa adanya (bukan lingkup tugas Javadoc untuk konsolidasi). */
 	private static void closeOpenedSessionQuietly(Session session) {
 		if (session != null && session.isOpen()) {
 			try {
@@ -214,6 +239,23 @@ public class KegiatanHelper {
 		}
 	}
 
+	/**
+	 * {@code session.save(entity)} + {@code flush()} yang tahan kontensi: bila {@code session}
+	 * tidak usable, membuka &amp; menutup session terisolasi sendiri; bila transaksi pemanggil
+	 * belum aktif, membuka &amp; commit transaksi baru di sini (transaksi milik pemanggil
+	 * — bila sudah aktif — dibiarkan apa adanya, TIDAK di-commit oleh method ini). Saat gagal:
+	 * transaksi baru (jika dibuka di sini) di-rollback; bila memakai transaksi pemanggil dan
+	 * penyebabnya lock timeout/transaksi-ter-abort/constraint-violation (KE-19: satu statement
+	 * gagal meng-ABORT seluruh transaksi PostgreSQL), transaksi pemanggil dipulihkan lewat
+	 * {@link #pulihkanTransaksiTerabort} agar pemanggil (mis. {@code checkKegiatanCalonMahasiswa}
+	 * yang langsung query ulang di sesi yang sama) tidak jatuh ke "current transaction is
+	 * aborted". Entity di-{@code clear()}/{@code evict()} dari session sebelum exception
+	 * dilempar ulang ke pemanggil.
+	 *
+	 * @param session session Hibernate pemanggil, atau {@code null}/tidak usable untuk memakai session terisolasi baru
+	 * @param entity  entity baru yang akan disimpan
+	 * @throws Exception exception asli dari {@code save}/{@code flush} setelah upaya pemulihan di atas
+	 */
 	private static void saveEntitySafe(Session session, Object entity) throws Exception {
 		boolean closeLocalSession = false;
 		if (!isUsableSession(session)) {
@@ -261,10 +303,50 @@ public class KegiatanHelper {
 		}
 	}
 
+	/** Sinonim {@code updateEntitySafe(session, entity, 0)} — titik masuk publik dalam kelas (percobaan pertama, hingga 3x retry di dalam). */
 	private static void updateEntitySafe(Session session, Object entity) throws Exception {
 		updateEntitySafe(session, entity, 0);
 	}
 
+	/**
+	 * {@code session.saveOrUpdate(entity)} + {@code flush()} versi paling tahan-banting di kelas
+	 * ini — inti dari mayoritas penulisan {@code Kegiatan}/{@code DetailKegiatan}/
+	 * {@code CicilanPembayaran}. Menangani berlapis:
+	 * <ul>
+	 * <li>{@link org.hibernate.NonUniqueObjectException} (entity dengan id sama sudah dikenal
+	 * session lain): di-{@code merge()} di session terisolasi terpisah agar tidak memicu
+	 * auto-flush entity besar lain di session utama (mis. {@code BiodataCalonMahasiswa} 1664
+	 * kolom).</li>
+	 * <li>{@link org.hibernate.SessionException} ("Session is closed!" — bisa terjadi saat
+	 * dipanggil dari task async/thread pool terpisah yang session pemiliknya sudah ditutup):
+	 * bila {@code session} BUKAN session lokal method ini (dioper dari pemanggil), coba
+	 * {@code merge()} di session terisolasi; kegagalan merge di jalur ini SENGAJA DITELAN
+	 * (dicatat ke {@code ErrorAuditUtil}, tidak dilempar ulang) — didokumentasikan eksplisit di
+	 * kode sebagai perilaku recovery best-effort yang dipertahankan apa adanya.</li>
+	 * <li><b>Retry otomatis</b> (maksimal 3x, {@code attempt} parameter rekursi): dipicu oleh
+	 * {@link #isLockTimeout}, {@link #isTransactionAborted}, atau {@link #isStaleState}. Backoff
+	 * {@code 500ms * (attempt+1)} + jitter acak 0-250ms (mencegah dua transaksi yang sama-sama
+	 * kena deadlock retry bersamaan dan bertabrakan lagi), lalu retry di SESSION TERISOLASI BARU
+	 * (bukan session asli — session asli transaksinya sudah mati, retry di situ akan gagal
+	 * "current transaction is aborted"). Rekursi berikutnya SELALU dipanggil dengan
+	 * {@code session=null} agar percobaan baru pasti mendapat session+transaksi bersih.</li>
+	 * <li>Bila transaksi pemanggil (bukan transaksi lokal method ini) perlu dipulihkan (lock
+	 * timeout/transaksi-ter-abort/constraint-violation/stale-state-dengan-baris-sudah-hilang),
+	 * {@link #pulihkanTransaksiTerabort} dipanggil sebelum melempar/retry.</li>
+	 * <li>Kasus khusus "stale row hilang": {@link org.hibernate.StaleStateException} DAN baris
+	 * entity ternyata memang sudah tidak ada di DB ({@link #entityMasihAda} false) dianggap
+	 * idempoten (baris sudah dihapus proses paralel lain), bukan kegagalan — method kembali
+	 * tanpa exception.</li>
+	 * <li>Setelah 3x percobaan tetap gagal karena lock/koneksi, update DILEWATI (bukan
+	 * dilempar) dan dicatat sebagai info-audit — asumsinya sinkronisasi berikutnya akan
+	 * menghitung ulang entity ini, jadi lebih aman diam daripada melempar error ke UI.</li>
+	 * </ul>
+	 *
+	 * @param session session Hibernate pemanggil, atau {@code null} untuk memaksa session baru (dipakai rekursi retry)
+	 * @param entity  entity yang akan di-{@code saveOrUpdate}
+	 * @param attempt nomor percobaan saat ini (0 = pertama); rekursi berhenti retry setelah percobaan ke-3
+	 * @throws Exception exception asli bila bukan salah satu pola transien di atas, atau retry ke-3 tetap gagal dengan error non-transien
+	 */
 	private static void updateEntitySafe(Session session, Object entity, int attempt) throws Exception {
 		boolean closeLocalSession = false;
 		if (!isUsableSession(session)) {
@@ -642,6 +724,19 @@ public class KegiatanHelper {
 		}
 	}
 
+	/**
+	 * Menjalankan SQL native ({@code executeUpdate}, mis. {@code DELETE FROM detail_kegiatan ...}
+	 * dipakai {@link #checkKegiatanCalonMahasiswa}/{@link #checkKegiatanMahasiswa} saat
+	 * {@code rst=true} untuk membuang rincian tagihan lama sebelum dihitung ulang) dalam transaksi
+	 * yang aktif atau baru. Berbeda dari {@link #saveEntitySafe}/{@link #updateEntitySafe}: TIDAK
+	 * pernah melempar exception ke pemanggil (semua exception ditangkap, di-audit, dan bila
+	 * transien di-passthrough ke {@link #pulihkanTransaksiTerabort}) — dipakai untuk operasi yang
+	 * boleh gagal diam-diam karena hasil akhirnya akan disinkronkan ulang oleh proses pemanggil.
+	 *
+	 * @param session session Hibernate aktif (transaksi baru dibuka di sini bila belum ada)
+	 * @param sql     SQL native dengan named parameter (mis. {@code :kegId})
+	 * @param params  nilai named parameter, boleh {@code null}
+	 */
 	private static void executeUpdateSafe(Session session, String sql, Map<String, Object> params) {
 		Transaction tx = session.getTransaction();
 		boolean isNewTx = (tx == null || !tx.isActive());
@@ -676,6 +771,7 @@ public class KegiatanHelper {
 		}
 	}
 
+	/** Penutupan session tiga-langkah ({@code clear}/{@code disconnect}/{@code close}), masing-masing try-catch terpisah — padanan {@link #closeOpenedSessionQuietly} (lihat catatan kuirk redundansi {@code disconnect()} pada {@code closeSession} di {@code HistoryStatusMahasiswaUtil}, pola yang sama berlaku di sini). Aman dipanggil dengan {@code null}. */
 	private static void closeLocalSessionSafely(Session session) {
 		if (session != null) {
 			try {
@@ -695,6 +791,7 @@ public class KegiatanHelper {
 		}
 	}
 
+	/** Mendeteksi {@link org.hibernate.StaleStateException}/{@link org.hibernate.StaleObjectStateException} (baris berubah/hilang antara baca dan tulis versi optimistic-locking Hibernate) di sepanjang rantai {@code cause} — dipakai {@link #updateEntitySafe} untuk memutuskan retry vs. anggap idempoten lewat {@link #entityMasihAda}. */
 	private static boolean isStaleState(Throwable error) {
 		Throwable current = error;
 		while (current != null) {
@@ -705,6 +802,19 @@ public class KegiatanHelper {
 		return false;
 	}
 
+	/**
+	 * Mengecek keberadaan baris {@code clazz} ber-id {@code id} lewat session TERISOLASI baru
+	 * (bukan cache session pemanggil yang mungkin sudah basi) — dipakai {@link #updateEntitySafe}
+	 * untuk membedakan {@link org.hibernate.StaleStateException} akibat baris memang sudah DIHAPUS
+	 * proses lain (idempoten, aman diabaikan) dari stale state akibat sebab lain (perlu di-retry/
+	 * dilempar). Pada exception saat pengecekan, SENGAJA mengembalikan {@code true} ("anggap masih
+	 * ada") — sikap konservatif agar kegagalan pengecekan tidak salah menyimpulkan baris hilang
+	 * dan diam-diam melewatkan update yang sebenarnya perlu di-retry.
+	 *
+	 * @param clazz kelas entity yang dicek
+	 * @param id    id baris yang dicek
+	 * @return {@code true} bila baris ditemukan (atau pengecekan gagal — default aman); {@code false} hanya bila positif tidak ditemukan
+	 */
 	private static boolean entityMasihAda(Class clazz, Serializable id) {
 		Session cek = null;
 		try {
@@ -738,6 +848,25 @@ public class KegiatanHelper {
 	// PUBLIC BUSINESS LOGIC METHODS
 	// ===================================================================================
 
+	/**
+	 * Overload yang menyelesaikan {@link JadwalPembayaran} sendiri lewat
+	 * {@code PembayaranUtil.getJadwalPembayaranDanDendaBerdasarkanTahunAkademik} sebelum
+	 * mendelegasikan ke {@link #checkKegiatanCalonMahasiswa(Kegiatan, JenisKegiatan, BiodataCalonMahasiswa, Integer, String, Boolean, JadwalPembayaran, boolean, boolean, ItemBiaya, Session)}.
+	 * Ganjil/genap ditentukan dari paritas {@code smt}, KECUALI untuk jenis kegiatan
+	 * "Pendaftaran Calon Mahasiswa" ({@link ConstantValues#PENDAFTARAN_CALON_MAHASISWA}) yang
+	 * memakai {@code biodataCalonMahasiswa.getSemesterMulai()} sebagai acuan (calon mahasiswa
+	 * belum tentu masuk di semester sesuai paritas nomor semesternya).
+	 *
+	 * @param jenisKegiatan          jenis kegiatan/tagihan yang dicari
+	 * @param biodataCalonMahasiswa calon mahasiswa target
+	 * @param smt                   semester tagihan
+	 * @param ta                    tahun akademik
+	 * @param hitungUlang           {@code true} untuk memaksa hitung ulang tagihan dari {@code SettingBiaya}
+	 * @param rst                   {@code true} untuk reset (hapus detail lama yang belum dibayar/dikunci) sebelum hitung ulang
+	 * @param item                  batasi ke satu {@link ItemBiaya} tertentu, atau {@code null} untuk semua
+	 * @param session               session Hibernate aktif
+	 * @return {@link Kegiatan} yang sudah ada atau baru dibuat, bisa {@code null} bila jadwal tidak ditemukan dan tidak ada baris existing
+	 */
 	public static Kegiatan checkKegiatanCalonMahasiswa(JenisKegiatan jenisKegiatan,
 			BiodataCalonMahasiswa biodataCalonMahasiswa, Integer smt, String ta, Boolean hitungUlang, boolean rst,
 			ItemBiaya item, Session session) {
@@ -760,6 +889,7 @@ public class KegiatanHelper {
 				session);
 	}
 
+	/** Sinonim {@code checkKegiatanCalonMahasiswa(null, jenisKegiatan, ..., jadwal, rst, false, item, session)} dengan {@code jadwal} sudah diketahui pemanggil (tidak perlu di-resolve ulang) dan tanpa {@code Kegiatan} existing yang diketahui. */
 	public static Kegiatan checkKegiatanCalonMahasiswa(JenisKegiatan jenisKegiatan,
 			BiodataCalonMahasiswa biodataCalonMahasiswa, Integer smt, String ta, Boolean hitungUlang,
 			JadwalPembayaran jadwal, boolean rst, ItemBiaya item, Session session) {
@@ -768,6 +898,52 @@ public class KegiatanHelper {
 				rst, false, item, session);
 	}
 
+	/**
+	 * Implementasi inti "get-or-create tagihan calon mahasiswa": no-op (kembalikan {@code kegiatan}
+	 * apa adanya) bila {@code jadwal == null && !hitungUlang}. Selain itu, alur:
+	 * <ol>
+	 * <li>Jenis kegiatan "Pendaftaran Calon Mahasiswa" untuk {@code smt > 0} langsung
+	 * dikembalikan {@code null} (kegiatan ini hanya valid di semester 0 — pendaftaran awal).</li>
+	 * <li>Bila {@code kegiatan} belum diketahui, dicari lewat
+	 * {@code biodataCalonMahasiswa.ambilKegiatans(...)}, lalu fallback query {@code kodeunik}
+	 * deterministik ({@link Kegiatan#generateKodeUnik}) bila masih kosong.</li>
+	 * <li>Bila {@code rst=true} dan kegiatan ditemukan: cache {@code Kegiatan.mappingId}
+	 * dibersihkan, dan {@link DetailKegiatan} yang belum dibayar/dikunci/di-posting DIHAPUS
+	 * langsung via SQL ({@link #executeUpdateSafe}) — dibatasi ke {@code item} tertentu bila
+	 * diisi, atau (bila {@code diubahSaatpembayaran}) hanya item yang nilainya TIDAK bisa
+	 * diubah manual.</li>
+	 * <li>Bila belum ada baris sama sekali dan {@code jadwal} tersedia: {@link Kegiatan} baru
+	 * dibuat (status AKTIF, amount 0) dan disimpan ({@link #saveEntitySafe}), totalnya dihitung
+	 * lewat {@link #dataTagihanCalonMahasiswa} lalu di-update. Kegagalan simpan karena
+	 * pelanggaran unique constraint {@code kodeunik} (race dua request nyaris bersamaan) ditangani
+	 * dengan mengambil ulang baris pemenang race lewat {@link #ambilKegiatanKodeunikTerisolasi}.</li>
+	 * <li>Bila baris sudah ada dan {@code hitungUlang=true}: seluruh {@link CicilanPembayaran}
+	 * dijumlah ulang ({@code amount}/{@code denda}/tanggal bayar awal-akhir), FK
+	 * {@code kegiatan.mahasiswa} DIVALIDASI lewat SQL native langsung ke tabel (BUKAN
+	 * {@code session.get()}, untuk menghindari L2 cache yang bisa mengembalikan mahasiswa yang
+	 * sudah dihapus) dan di-null-kan bila stale (mencegah FK violation), lalu totalTagihan dihitung
+	 * ulang via {@link #dataTagihanCalonMahasiswa} dan diupdate. Kegagalan update di jalur ini
+	 * DITELAN (dicatat + ditampilkan ke admin) agar halaman sukses login calon mahasiswa tidak
+	 * menampilkan error mentah — akan disinkronkan ulang oleh proses batch.</li>
+	 * </ol>
+	 * Session lokal disinkronkan ulang ({@code HibernateUtil.ensureOpenSession}) setelah memanggil
+	 * {@link #dataTagihanCalonMahasiswa} karena method itu (lewat helper bersarangnya) dapat
+	 * mengganti native session ThreadLocal, sehingga variabel {@code session} lokal method ini bisa
+	 * menunjuk session yang sudah tertutup bila tidak disegarkan.
+	 *
+	 * @param kegiatan               baris existing bila sudah diketahui pemanggil, atau {@code null} untuk dicari
+	 * @param jenisKegiatan          jenis kegiatan/tagihan
+	 * @param biodataCalonMahasiswa calon mahasiswa target
+	 * @param smt                   semester tagihan
+	 * @param ta                    tahun akademik (dipakai saat membuat baris baru)
+	 * @param hitungUlang           {@code true} untuk memicu hitung ulang meski {@code jadwal} kosong
+	 * @param jadwal                jadwal pembayaran; {@code null} berarti baris baru tidak akan dibuat
+	 * @param rst                   {@code true} untuk menghapus detail lama yang masih bebas (belum dibayar/dikunci/diposting) sebelum hitung ulang
+	 * @param diubahSaatpembayaran  saat {@code rst=true} tanpa {@code item}, batasi penghapusan ke item yang nilainya tidak bisa diubah manual
+	 * @param item                  batasi operasi ke satu {@link ItemBiaya}, atau {@code null} untuk semua
+	 * @param session               session Hibernate aktif (bisa disinkronkan ulang secara internal — lihat catatan di atas)
+	 * @return {@link Kegiatan} yang sudah ada/baru dibuat, atau {@code null}/{@code kegiatan} apa adanya sesuai kondisi di atas
+	 */
 	public static Kegiatan checkKegiatanCalonMahasiswa(Kegiatan kegiatan, JenisKegiatan jenisKegiatan,
 			BiodataCalonMahasiswa biodataCalonMahasiswa, Integer smt, String ta, Boolean hitungUlang,
 			JadwalPembayaran jadwal, boolean rst, boolean diubahSaatpembayaran, ItemBiaya item, Session session) {
@@ -1004,6 +1180,21 @@ public class KegiatanHelper {
 		return kegiatan;
 	}
 
+	/**
+	 * Padanan {@link #checkKegiatanCalonMahasiswa(JenisKegiatan, BiodataCalonMahasiswa, Integer, String, Boolean, boolean, ItemBiaya, Session)}
+	 * untuk mahasiswa aktif: menyelesaikan {@link JadwalPembayaran} sendiri (ganjil/genap dari
+	 * paritas {@code smt}) sebelum mendelegasikan ke overload inti.
+	 *
+	 * @param j           jenis kegiatan/tagihan
+	 * @param mahasiswa   mahasiswa target
+	 * @param smt         semester tagihan
+	 * @param ta          tahun akademik
+	 * @param hitungUlang {@code true} untuk memaksa hitung ulang tagihan
+	 * @param rst         {@code true} untuk reset detail lama sebelum hitung ulang
+	 * @param item        batasi ke satu {@link ItemBiaya}, atau {@code null} untuk semua
+	 * @param session     session Hibernate aktif
+	 * @return {@link Kegiatan} yang sudah ada atau baru dibuat
+	 */
 	public static Kegiatan checkKegiatanMahasiswa(JenisKegiatan j, Mahasiswa mahasiswa, Integer smt, String ta,
 			Boolean hitungUlang, boolean rst, ItemBiaya item, Session session) {
 
@@ -1017,11 +1208,35 @@ public class KegiatanHelper {
 		return checkKegiatanMahasiswa(j, mahasiswa, smt, ta, hitungUlang, jadwalPembayaran, rst, item, session);
 	}
 
+	/** Sinonim {@code updateBatasStudiMahasiswa(mahasiswa, session, smt, checkStatusPembayaranMahasiswa, false)} — hanya memutasi field {@link Mahasiswa#getBatasStudi()} di memori, TIDAK menyimpan ke DB (lihat parameter {@code simpan} di overload lengkap). */
 	public static void updateBatasStudiMahasiswa(Mahasiswa mahasiswa, Session session, Integer smt,
 			boolean checkStatusPembayaranMahasiswa) {
 		updateBatasStudiMahasiswa(mahasiswa, session, smt, checkStatusPembayaranMahasiswa, false);
 	}
 
+	/**
+	 * Memelihara daftar {@link Mahasiswa#getBatasStudi()} (semester "batas studi", dipisah koma —
+	 * mis. "3,5,7") berdasarkan status pembayaran kegiatan bersyarat-aktif. Hanya bertindak bila
+	 * {@code checkStatusPembayaranMahasiswa} bernilai {@code true} (artinya "mahasiswa TERBUKTI
+	 * sudah bayar semester ini") — dalam kasus itu, semester {@code smt} DIHAPUS dari daftar batas
+	 * studi (bila ada) karena tidak lagi relevan sebagai batas. Bila {@code false} (belum bayar),
+	 * method ini SENGAJA tidak menambahkan semester ke daftar — penambahan batas studi ditangani
+	 * di jalur lain (mis. {@code HistoryStatusMahasiswaUtil}/proses tagihan), method ini murni
+	 * "membersihkan" entri yang sudah tidak relevan.
+	 * <p>Bila {@code simpan=true} dan ada perubahan, {@link Mahasiswa} disegarkan
+	 * ({@code session.refresh}, hanya jika sudah dikenal session) lalu diupdate lewat
+	 * {@code Common.refreshUpdate} dalam session lokal (dibuka sendiri bila {@code session}
+	 * {@code null}); bila {@code simpan=false}, perubahan HANYA di objek Java in-memory —
+	 * pemanggil bertanggung jawab menyimpannya sendiri (mis. sebagai bagian transaksi yang lebih
+	 * besar). Seluruh method dibungkus try-catch tunggal: kegagalan dicatat ke
+	 * {@code ErrorAuditUtil} dan ditelan, tidak dilempar ke pemanggil.
+	 *
+	 * @param mahasiswa                       mahasiswa yang batas studinya dievaluasi
+	 * @param session                         session Hibernate, boleh {@code null} (dibuka sendiri bila {@code simpan=true})
+	 * @param smt                             semester yang dievaluasi/dihapus dari daftar batas studi
+	 * @param checkStatusPembayaranMahasiswa  {@code true} bila mahasiswa terbukti sudah bayar (memicu penghapusan dari daftar)
+	 * @param simpan                          {@code true} untuk langsung menyimpan perubahan ke DB; {@code false} untuk hanya memutasi objek di memori
+	 */
 	public static void updateBatasStudiMahasiswa(Mahasiswa mahasiswa, Session session, Integer smt,
 			boolean checkStatusPembayaranMahasiswa, boolean simpan) {
 
@@ -1069,6 +1284,7 @@ public class KegiatanHelper {
 		}
 	}
 
+	/** Sinonim {@code checkKegiatanMahasiswa(null, jenisKegiatan, ..., jadwal, rst, false, item, session)} dengan {@code jadwal} sudah diketahui pemanggil dan tanpa {@code Kegiatan} existing yang diketahui. */
 	public static Kegiatan checkKegiatanMahasiswa(JenisKegiatan jenisKegiatan, Mahasiswa mahasiswa, Integer smt,
 			String ta, Boolean hitungUlang, JadwalPembayaran jadwal, boolean rst, ItemBiaya item, Session session) {
 
@@ -1076,6 +1292,43 @@ public class KegiatanHelper {
 				session);
 	}
 
+	/**
+	 * Implementasi inti "get-or-create tagihan mahasiswa" — padanan
+	 * {@link #checkKegiatanCalonMahasiswa(Kegiatan, JenisKegiatan, BiodataCalonMahasiswa, Integer, String, Boolean, JadwalPembayaran, boolean, boolean, ItemBiaya, Session)}
+	 * untuk mahasiswa aktif, dengan alur yang sangat mirip PLUS dua perbedaan penting:
+	 * <ul>
+	 * <li><b>Pagar alumni</b>: bila mahasiswa sudah punya {@link Mahasiswa#getSemesterLulus()}
+	 * dan {@code smt} melewatinya, {@link Kegiatan} baru TIDAK dibuat — KECUALI jenis kegiatan
+	 * memang ditandai {@code tagihanJugaUntukAlumni} (mis. tagihan Wisuda yang memang berlaku
+	 * setelah lulus).</li>
+	 * <li><b>Status mahasiswa pada Kegiatan baru</b> diambil dari {@code Common.currentStatusSp}
+	 * (bukan hardcode AKTIF seperti pada versi calon mahasiswa), memakai mode Semester Pendek
+	 * bila {@code jenisKegiatan.getUntukBayarSP()}.</li>
+	 * </ul>
+	 * Sama seperti versi calon mahasiswa: {@code rst=true} menghapus {@link DetailKegiatan} lama
+	 * yang masih bebas via SQL langsung; hitung ulang total tagihan lewat
+	 * {@link #dataTagihanMahasiswa}; kegagalan simpan karena constraint violation diselesaikan
+	 * dengan mengambil ulang baris pemenang race. SETELAH kegiatan diproses, bila
+	 * {@code jenisKegiatan.getDigunakanSyaratKeaktifan()} dan konfigurasi
+	 * {@code mhs_all_lambat_bayar_langsung_tidak_aktif} aktif, {@link #updateBatasStudiMahasiswa}
+	 * dipanggil untuk mencatat batas studi — TAPI status {@link HistoryStatusMahasiswa} itu
+	 * sendiri SENGAJA TIDAK diubah di sini (lihat komentar inline): keputusan status harus
+	 * berdasarkan SELURUH tagihan bersyarat-aktif dari DB, bukan satu {@code Kegiatan} saja,
+	 * sehingga didelegasikan ke {@code AuditListener} setelah commit.
+	 *
+	 * @param kegiatan               baris existing bila sudah diketahui, atau {@code null} untuk dicari
+	 * @param jenisKegiatan          jenis kegiatan/tagihan
+	 * @param mahasiswa              mahasiswa target
+	 * @param smt                    semester tagihan
+	 * @param ta                     tahun akademik
+	 * @param hitungUlang            {@code true} untuk memicu hitung ulang meski {@code jadwal} kosong
+	 * @param jadwal                 jadwal pembayaran; {@code null} berarti baris baru tidak akan dibuat
+	 * @param rst                    {@code true} untuk menghapus detail lama yang masih bebas sebelum hitung ulang
+	 * @param diubahSaatpembayaran   saat {@code rst=true} tanpa {@code item}, batasi penghapusan ke item yang nilainya tidak bisa diubah manual
+	 * @param item                   batasi operasi ke satu {@link ItemBiaya}, atau {@code null} untuk semua
+	 * @param session                session Hibernate aktif
+	 * @return {@link Kegiatan} yang sudah ada/baru dibuat, atau {@code kegiatan} apa adanya bila dilewati aturan alumni/jadwal kosong
+	 */
 	public static Kegiatan checkKegiatanMahasiswa(Kegiatan kegiatan, JenisKegiatan jenisKegiatan, Mahasiswa mahasiswa,
 			Integer smt, String ta, Boolean hitungUlang, JadwalPembayaran jadwal, boolean rst,
 			boolean diubahSaatpembayaran, ItemBiaya item, Session session) {
@@ -1262,6 +1515,49 @@ public class KegiatanHelper {
 		return kegiatan;
 	}
 
+	/**
+	 * Menghitung total tagihan ({@code amountTerhutang}) sebuah {@link Kegiatan} milik calon
+	 * mahasiswa, DAN sebagai efek samping menulis/memelihara rincian {@link DetailKegiatan}-nya
+	 * (satu per {@link DetailBiaya} atau per bulan {@link PengaturanPembayaranBulanan}). Sumber
+	 * item biaya: untuk jenis "Pendaftaran Ulang Mahasiswa Baru"/"Pendaftaran Calon Mahasiswa"
+	 * dipetakan dari {@code PembayaranUtilHelper.getDetailBiayaCalonMahasiswa} (prodi lulus bila
+	 * ada, jika tidak prodi pilihan pertama); jenis lain tidak menghasilkan tagihan (fungsi ini
+	 * memang khusus dua jenis kegiatan pendaftaran calon mahasiswa tsb — {@code mydetailBiayas}
+	 * tetap {@code null} untuk jenis lain). Bila ada pengaturan tagihan bulanan
+	 * ({@code countPengaturanBulanan > 0}), sumber diganti ke
+	 * {@code PembayaranUtil.getPengaturanPembayaranSemua} (pecahan per bulan, bukan nominal
+	 * gabungan). {@link #lindungiKonfigurasiBulananSaatHitungUlang} dipanggil agar entity
+	 * {@link PengaturanPembayaranBulanan} yang hanya dibaca tidak memicu Envers audit palsu.
+	 * <p>
+	 * Bila {@code cicilanPembayarans} disediakan, method ini JUGA mencocokkan cicilan yang sudah
+	 * dibayar ke {@link DetailKegiatan}/{@link DetailBiaya} yang sesuai (mengisi
+	 * {@code bayarKe}/{@code detailBiaya}/{@code tanggalTagihan} pada {@link CicilanPembayaran}
+	 * bila belum terisi atau tidak sinkron) — efek samping tulis ke DB lewat
+	 * {@link #updateEntitySafe}, ditelan diam-diam bila gagal (tidak menggagalkan penghitungan
+	 * total). Untuk tiap item biaya/pengaturan bulanan: {@link DetailKegiatan} yang belum ada
+	 * dibuat &amp; disimpan ({@link #saveEntitySafe}, gagal-simpan dilewati dengan {@code continue}
+	 * tanpa menggagalkan item lain); item bertanda {@code bukanTagihan} dilewati dari total. Bila
+	 * {@code rst=true}, diskon dihitung ({@code Kegiatan.hitungDiskon}) dan dikurangkan dari
+	 * nominal per-item sebelum dijumlahkan (nilai "hasil reset ke billing"); bila {@code false},
+	 * dipakai {@code Kegiatan.ambilJumlahTagihan} (nilai tersimpan/sudah disesuaikan).
+	 * <p>
+	 * <b>Kuirk penting</b> (lihat komentar inline "FIX Illegal attempt..."): helper bersarang di
+	 * sini (mis. {@code PembayaranUtilHelper.countBulanan}) dapat menutup lalu membuka ulang
+	 * native session ThreadLocal secara internal; karena Java pass-by-value, variabel
+	 * {@code session} LOKAL milik pemanggil ({@link #checkKegiatanCalonMahasiswa}) tidak ikut
+	 * berubah, jadi setelah memanggil method ini pemanggil WAJIB menyegarkan variabel session-nya
+	 * lewat {@code HibernateUtil.ensureOpenSession(session)} sebelum dipakai lagi.
+	 *
+	 * @param biodataCalonMahasiswa calon mahasiswa target
+	 * @param smt                   semester tagihan
+	 * @param jenisKegiatan         jenis kegiatan (menentukan sumber item biaya, lihat catatan di atas)
+	 * @param session               session Hibernate aktif (bisa berbeda dari yang dipegang pemanggil setelah return — lihat catatan kuirk)
+	 * @param kegiatan              kegiatan yang detailnya dihitung/ditulis
+	 * @param rst                   {@code true} untuk menghitung ulang dengan diskon dari billing (bukan nilai tersimpan)
+	 * @param ulang                 diteruskan ke {@code kegiatan.ambilDetailKegiatan(ulang)} — memaksa reload detail dari DB
+	 * @param cicilanPembayarans    cicilan yang sudah dibayar untuk dicocokkan-ulang ke detail (boleh {@code null})
+	 * @return total tagihan ({@code amountTerhutang}) hasil penjumlahan seluruh item/bulan yang berlaku
+	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public static Double dataTagihanCalonMahasiswa(BiodataCalonMahasiswa biodataCalonMahasiswa, int smt,
 			JenisKegiatan jenisKegiatan, Session session, Kegiatan kegiatan, boolean rst, boolean ulang,
@@ -1468,6 +1764,40 @@ public class KegiatanHelper {
 		return totalTagihan;
 	}
 
+	/**
+	 * Padanan {@link #dataTagihanCalonMahasiswa} untuk mahasiswa aktif — struktur dan efek samping
+	 * (menulis/memelihara {@link DetailKegiatan}, mencocokkan {@link CicilanPembayaran}, melindungi
+	 * {@link PengaturanPembayaranBulanan} dari Envers palsu) sama persis, dengan tiga perbedaan:
+	 * <ul>
+	 * <li><b>Pagar alumni</b>: bila {@code mahasiswa.getStatusKeluar()} terisi dan semester
+	 * melewati {@code semesterLulus} (aturan beda tipis untuk status keluar id=1 vs. lainnya —
+	 * lihat kondisi {@code alumniFilterBerlaku}), total tagihan langsung {@code 0.0} KECUALI jenis
+	 * kegiatan bertanda {@code tagihanJugaUntukAlumni}.</li>
+	 * <li>Sumber item biaya dari {@code PembayaranUtilHelper.getDetailBiayaMahasiswa} (bukan versi
+	 * calon mahasiswa), menghormati flag {@code ulang} untuk reload — komentar inline mencatat ini
+	 * PERBAIKAN dari perilaku lama yang hardcode {@code true} (memaksa
+	 * {@code singkronkanKrsMahasiswa} + tulis MapDB di setiap panggilan walau pemanggil minta
+	 * pakai cache).</li>
+	 * <li>Nominal bulanan dihitung lewat
+	 * {@code pengaturanPembayaranBulanan.ambilNominalModifikasi(mahasiswa, smt)} (bisa
+	 * dimodifikasi per-mahasiswa), bukan {@code getNominal()} polos seperti versi calon mahasiswa.</li>
+	 * </ul>
+	 * Tidak seperti versi calon mahasiswa yang cuma mem-{@code set} field pada
+	 * {@code DetailKegiatan} baru, di sini {@link DetailKegiatan} yang SUDAH ADA tapi
+	 * {@code detailBiaya}/{@code pengaturanPembayaranBulanan}-nya berbeda dari item saat ini JUGA
+	 * diupdate ({@link #updateEntitySafe}) — menjaga rincian tetap sinkron dengan
+	 * {@code SettingBiaya} terbaru, bukan hanya membuat baris baru.
+	 *
+	 * @param mahasiswa           mahasiswa target
+	 * @param smt                 semester tagihan
+	 * @param jenisKegiatan       jenis kegiatan (dipakai untuk cek {@code tagihanJugaUntukAlumni})
+	 * @param session             session Hibernate aktif
+	 * @param kegiatan            kegiatan yang detailnya dihitung/ditulis
+	 * @param rst                 {@code true} untuk menghitung ulang dengan diskon dari billing
+	 * @param ulang               diteruskan ke reload detail biaya &amp; {@code kegiatan.ambilDetailKegiatan(ulang)}
+	 * @param cicilanPembayarans  cicilan yang sudah dibayar untuk dicocokkan-ulang ke detail (boleh {@code null})
+	 * @return total tagihan, atau {@code 0.0} bila pagar alumni berlaku
+	 */
 	@SuppressWarnings("rawtypes")
 	public static Double dataTagihanMahasiswa(Mahasiswa mahasiswa, int smt, JenisKegiatan jenisKegiatan,
 			Session session, Kegiatan kegiatan, boolean rst, boolean ulang,
@@ -1693,6 +2023,31 @@ public class KegiatanHelper {
 		return totalTagihan;
 	}
 
+	/**
+	 * Membangun tombol toolbar ZK ({@link MyToolbarbuttonConfig}) ber-upload Excel untuk MENGUBAH
+	 * {@link DetailKegiatan} secara massal — pasangan sisi-impor dari
+	 * {@link #doDownloadTagihan}/{@link #prosesDownloadTagihan}: admin download tagihan ke
+	 * .xlsx (kolom "ID TAGIHAN" terkunci berisi id {@link DetailKegiatan}), mengedit kolom
+	 * "NOMINAL TAGIHAN"/"TANGGAL TAGIHAN"/"KUNCI" yang tidak terkunci, lalu upload kembali file
+	 * yang sama lewat tombol ini.
+	 * <p>
+	 * Saat file diupload (harus {@code .xlsx}, divalidasi lewat
+	 * {@code AmbilDataTugasFileContent.checkFile}): file disimpan sementara ke
+	 * {@code /temp/<namaFile>}, dibaca baris demi baris (kolom 7=id, 9=nilai, 10=tanggal,
+	 * 11=kunci) — untuk tiap {@link DetailKegiatan} yang ditemukan, {@code kunci} di-set/di-unset
+	 * (ke {@link Tbmuser} pengguna saat ini bila dikunci), {@code biaya} dan {@code tanggal}
+	 * diupdate bila diisi ({@link #updateEntitySafe}), lalu baris hasil ditulis ke workbook baru
+	 * "HASIL UPLOAD" (kolom identik + status) yang otomatis di-download balik lewat
+	 * {@link Filedownload}. Session di-{@code flush()}/{@code clear()} tiap 50 baris untuk
+	 * membatasi memory pada upload besar. {@code eventListener} yang dioper pemanggil dipanggil
+	 * di akhir (dengan {@code UploadEvent} asli) sebagai hook tambahan setelah proses selesai.
+	 * File selain {@code .xlsx} ditolak dengan pesan error, tanpa memproses apa pun.
+	 *
+	 * @param buttonLabel   label tombol
+	 * @param buttonImage   path ikon tombol
+	 * @param eventListener dipanggil di akhir proses upload sebagai hook tambahan pemanggil
+	 * @return tombol toolbar siap dipasang ke UI
+	 */
 	public static MyToolbarbuttonConfig prosesUploadTagihan(String buttonLabel, String buttonImage,
 			final EventListener eventListener) {
 
@@ -1930,6 +2285,45 @@ public class KegiatanHelper {
 		return toolbarbutton;
 	}
 
+	/**
+	 * Mesin ekspor Excel untuk sisi DOWNLOAD dari pasangan upload/download tagihan (lihat
+	 * {@link #prosesUploadTagihan} untuk format kolom yang harus tetap kompatibel). Untuk setiap
+	 * {@link Mahasiswa} dalam {@code mahasiswas}, meng-iterasi rentang tahun {@code ta}..
+	 * {@code taSampai}, menghitung nomor semester Ganjil/Genap ({@code Common.getSemester})
+	 * sesuai flag {@code GANJIL}/{@code GENAP} yang diminta, memastikan {@link Kegiatan} ada/
+	 * terhitung lewat {@link #checkKegiatanMahasiswa}, lalu menulis satu baris Excel per
+	 * {@link DetailKegiatan} yang cocok (difilter {@code item} dan opsional rentang bulan
+	 * {@code bulMul}..{@code bulSam} bila {@code bul=true}). Untuk {@code biodataCalonMahasiswas},
+	 * alur serupa tapi memakai {@link #checkKegiatanCalonMahasiswa} dan smt tetap (bukan dihitung
+	 * per tahun) — {@code smt=0} untuk jenis "Pendaftaran Calon Mahasiswa", selain itu 1 (Ganjil)
+	 * atau 2 (Genap), difilter ke tahun angkatan yang cocok ({@code mahasiswa.getTahun()}).
+	 * <p>
+	 * Progres ditulis ke {@code label} (dibaca oleh timer polling di UI pemanggil — lihat
+	 * {@link #prosesDownloadTagihan}); session Hibernate dibuka/ditutup per kombinasi mahasiswa+
+	 * semester (bukan satu session besar) agar memory/koneksi tidak menumpuk pada dataset besar,
+	 * dan di-{@code clear()} tiap kelipatan 50 baris. {@code colS}/{@code intbox} (parameter
+	 * output, dimutasi di sini) membawa balik jumlah kolom &amp; baris akhir ke pemanggil untuk
+	 * konfigurasi tampilan preview {@link Spreadsheet}. File akhirnya ditulis ke {@code filename}
+	 * (path lengkap, bukan hanya nama) sebagai .xlsx.
+	 *
+	 * @param filename              path lengkap file .xlsx tujuan
+	 * @param mahasiswas            daftar mahasiswa aktif yang diproses (boleh {@code null})
+	 * @param biodataCalonMahasiswas daftar calon mahasiswa yang diproses (boleh {@code null})
+	 * @param label                 diperbarui dengan pesan progres untuk dibaca UI pemanggil
+	 * @param ta                    tahun akademik awal rentang
+	 * @param taSampai              tahun akademik akhir rentang
+	 * @param GANJIL                proses semester ganjil
+	 * @param GENAP                 proses semester genap
+	 * @param colS                  OUTPUT: diisi jumlah kolom (selalu 12, sudah tetap)
+	 * @param intbox                OUTPUT: diisi jumlah baris data akhir
+	 * @param bul                   {@code true} untuk membatasi ke rentang bulan {@code bulMul}..{@code bulSam} pada tagihan bulanan
+	 * @param bulMul                bulan mulai (bila {@code bul})
+	 * @param bulSam                bulan sampai (bila {@code bul})
+	 * @param j                     jenis kegiatan/tagihan yang diproses
+	 * @param ulang                 diteruskan ke {@code checkKegiatan*} untuk memaksa hitung ulang
+	 * @param rst                   diteruskan ke {@code checkKegiatan*} untuk reset ke billing
+	 * @param item                  batasi ke satu {@link ItemBiaya}, atau {@code null} untuk semua
+	 */
 	@SuppressWarnings("unchecked")
 	public static void doDownloadTagihan(String filename, List<Mahasiswa> mahasiswas,
 			List<BiodataCalonMahasiswa> biodataCalonMahasiswas, Label label, String ta, String taSampai, boolean GANJIL,
@@ -2357,6 +2751,27 @@ public class KegiatanHelper {
 		}
 	}
 
+	/**
+	 * Membangun tombol toolbar ZK yang membuka popup filter (Fakultas/Prodi/Mahasiswa, rentang
+	 * Tahun Akademik, Jenis Pembayaran, Item Biaya, rentang Tahun Angkatan, Ganjil/Genap, filter
+	 * Status Mahasiswa, opsi "Tagihan Bulanan"+rentang bulan, opsi "Reset Tagihan Kembali ke
+	 * Billing") lalu menjalankan {@link #doDownloadTagihan} secara ASINKRON di {@link Thread}
+	 * terpisah (agar UI ZK tidak terblokir), dengan {@link Timer} polling 200ms yang membaca
+	 * {@code label} progres dan menampilkan hasil dalam popup {@link Spreadsheet} preview begitu
+	 * selesai (kosong=selesai sukses, {@code "-"}=gagal). Daftar mahasiswa/calon mahasiswa yang
+	 * diproses ditentukan dari kombinasi filter di popup: jenis kegiatan "Pendaftaran Calon
+	 * Mahasiswa"/"Pendaftaran Ulang Mahasiswa Baru" mengarah ke query {@link BiodataCalonMahasiswa}
+	 * (dengan pencocokan fakultas/prodi ke salah satu dari lima kolom pilihan prodi
+	 * {@code prodi1}..{@code prodi5} ATAU {@code prodiLulus}), jenis lain mengarah ke query
+	 * {@link Mahasiswa} (opsional di-scope lewat sub-query {@link HistoryStatusMahasiswa} bila
+	 * filter Status Mahasiswa diisi). Variant paling generik/manual dari tiga overload
+	 * {@code prosesDownloadTagihan*} di kelas ini — dipakai saat pemanggil tidak sudah punya
+	 * {@link DataCriteria} pencarian siap pakai (bandingkan dengan overload di bawah).
+	 *
+	 * @param buttonLabel label tombol
+	 * @param buttonImage path ikon tombol
+	 * @return tombol toolbar siap dipasang ke UI
+	 */
 	public static MyToolbarbuttonConfig prosesDownloadTagihan(String buttonLabel, String buttonImage) {
 		MyToolbarbuttonConfig toolbarbutton = new MyToolbarbuttonConfig(buttonLabel, buttonImage);
 
@@ -2873,6 +3288,27 @@ public class KegiatanHelper {
 		return toolbarbutton;
 	}
 
+	/**
+	 * Variant "sudah terkontekstualisasi" dari {@link #prosesDownloadTagihan(String, String)}:
+	 * dipakai dari layar yang SUDAH punya {@link SettingBiaya} (menentukan {@code JenisKegiatan})
+	 * dan {@link DataCriteria} pencarian siap pakai (dipanggil langsung
+	 * {@code criteria.initCriteria(true)} untuk mendapatkan {@link Criteria} ber-entitas
+	 * Mahasiswa atau BiodataCalonMahasiswa, tergantung jenis kegiatan) — TIDAK menampilkan popup
+	 * filter tambahan, hanya validasi {@code SettingBiaya.getJenisKegiatan() != null} lalu
+	 * langsung menjalankan {@link #doDownloadTagihan} asinkron dengan tahun tunggal ({@code ta}
+	 * dipakai sebagai awal MAUPUN akhir rentang — bukan rentang multi-tahun), {@code hitungUlang}
+	 * selalu {@code true} dan {@code rst} selalu {@code false}. Progress/preview popup memakai
+	 * mekanisme timer-polling yang sama dengan overload lain.
+	 *
+	 * @param buttonLabel   label tombol
+	 * @param buttonImage   path ikon tombol
+	 * @param tahunAkademik combobox tahun akademik yang sudah dipilih pengguna di layar pemanggil
+	 * @param jenisSmt      combobox Ganjil/Genap terpilih
+	 * @param settingBiaya  sumber {@link JenisKegiatan} yang diproses
+	 * @param criteria      kriteria pencarian siap pakai dari layar pemanggil (Mahasiswa atau BiodataCalonMahasiswa)
+	 * @param item          batasi ke satu {@link ItemBiaya}, atau {@code null} untuk semua
+	 * @return tombol toolbar siap dipasang ke UI
+	 */
 	public static MyToolbarbuttonConfig prosesDownloadTagihan(String buttonLabel, String buttonImage,
 			final Combobox tahunAkademik, final Combobox jenisSmt, final SettingBiaya settingBiaya,
 			final DataCriteria criteria, final ItemBiaya item) {

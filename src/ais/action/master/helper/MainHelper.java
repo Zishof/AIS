@@ -90,28 +90,75 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
 /**
- * Helper terfokus untuk main. Tipe ini membungkus satu variasi kecil dari alur yang lebih umum
- * agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ * Orkestrator utama shell aplikasi AIS setelah login — <b>BUKAN</b> helper kecil berdiri sendiri,
+ * melainkan class yang dipanggil langsung dari titik bootstrap layar utama
+ * ({@code ais.action.maintenance.MainAction}/{@code MainAction2}, controller ZK di belakang
+ * {@code main.zul}) dan dipakai bersama oleh puluhan class lain lintas modul (dikonfirmasi lewat
+ * pencarian referensi {@code grep -rl "MainHelper" --include=*.java}: ±32 file, mencakup
+ * {@code ais.common.Common}, {@code ais.common.CommonMenu}, {@code ais.common.SessionCounter},
+ * {@code ais.action.servlet.api.AngketKewajibanApi}, {@code MainMenuHelper}/{@code
+ * MainTreeMenuHelper}/{@code MainBaruMenuHelper}, serta berbagai {@code *Action} yang menampilkan QR
+ * pairing aplikasi mobile). Peran nyatanya ada empat kelompok terpisah, semuanya statis (class ini
+ * tidak pernah di-instansiasi):
  *
- * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
- * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
- * implementasi paralel dengan hasil berbeda.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code String PUBLIC_APPLICATION_RELEASE},
- * {@code Map logins}; inisialisasi/lifecycle ({@code initMain()}); pembacaan/pencarian ({@code
- * tampilkanAngketDosenMahasiswaDariJadwalUmum()}, {@code tampilkanAngketGuruSiswaDariJadwalUmum()}, {@code
- * getStringData()}, {@code tampilkanAngketSaatLogin()}, {@code tampilkanAngketSaatLoginPesan()}, {@code
- * getRememberedUsername()}); validasi/perhitungan ({@code cekAngketWajibDosen()}, {@code
- * cekAngketGuruOlehSiswa()}, {@code appendCheckForParentScript()}, {@code alreadyHasCheckForParentScript()});
- * mutasi data ({@code prosesLoginDosen()}, {@code prosesLoginMahasiswa()}, {@code prosesLoginSiswa()}, {@code
- * prosesLoginGuru()}, {@code prosesLoginAdmin()}, {@code prosesAngketSaatLogin()}); penghapusan/pembatalan
- * ({@code hapusCookieRememberMe()}, {@code hapusCookieDiPeramban()}); operasi domain lain ({@code
- * isPenggunaAdminAtauPegawai()}, {@code isKonfigurasiAktif()}, {@code gabungkanJadwalAngketUmum()}, {@code
- * tambahJadwalAngket()}, {@code isStyleOrScriptComponent()}, {@code onBantuan()}). Bagian lain dari kontrak
- * tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <ol>
+ * <li><b>Gerbang pasca-login ({@link #initMain}).</b> Dipanggil sekali setiap kali {@code /main}
+ * dimuat. Menyiapkan locale &amp; {@code Common.ROOT}, menolak sesi "alumni" yang menyamar, lalu
+ * bercabang menurut jenis akun ({@link ais.database.model.Dosen}/{@link Mahasiswa}/{@link
+ * ais.database.model.sekolah.Siswa}/{@link ais.database.model.sekolah.Guru}/admin-pegawai) untuk
+ * memvalidasi kelengkapan email/biodata (dikontrol per konfigurasi, mis.
+ * {@code apakah_mahasiswa_harus_melengkapi_biodata_nya}) dan syarat khusus role (mis. mahasiswa
+ * tidak dapat login bila {@link JenisKegiatan#apakahBoleh} menolak, atau masih ada pinjaman
+ * perpustakaan yang menahan lewat {@link PustakaUtil#checkPeminjamaBuku}). Setelah lolos per-role,
+ * SELALU memaksa pengecekan jadwal kuesioner ("angket") wajib lewat {@code prosesAngketSaatLogin} —
+ * tiga jalur berurutan dan terisolasi try/catch masing-masing (dosen/guru dari jadwal umum, grup
+ * kuesioner umum, kuesioner umum polos); begitu satu jenis angket aktif &amp; belum lengkap
+ * ditemukan, modal ZUL wajib ditampilkan dan {@code initMain} mengembalikan {@code false} (akses
+ * ditahan) — user diarahkan ulang ke {@code /main} setelah mengisi sehingga jenis angket berikutnya
+ * yang belum lengkap ikut tertangkap pada percobaan berikutnya. Servlet API
+ * {@link ais.action.servlet.api.AngketKewajibanApi} sengaja meniru ulang logika tiga jalur yang sama
+ * di luar konteks web (lihat javadoc-nya) — bila urutan/ketentuan gerbang di sini berubah, servlet
+ * itu harus disinkronkan manual.</li>
+ * <li><b>Bantuan &amp; logout ({@link #onBantuan}, {@link #onKatalogBantuan}, {@link #onKeluar}).</b>
+ * Mencatat {@link DetailLogLogin} best-effort (pola native-session yang konsisten di seluruh file:
+ * transaksi kecil, rollback di catch, tiga langkah cleanup {@code disconnect()}/{@code close()}/
+ * {@code HibernateUtil.closeSession()} masing-masing dibungkus try-catch terpisah), lalu membuka
+ * manual PDF/tautan Google Drive spesifik role ({@code onBantuan}) atau katalog panduan halaman
+ * ({@code onKatalogBantuan}, didelegasikan ke {@code BantuanHelper}). {@code onKeluar} menampilkan
+ * konfirmasi keluar; bila cookie "ingat saya" terdeteksi, alur logout menyertakan penghapusan cookie
+ * di sisi JavaScript ({@link #hapusCookieDiPeramban}) DAN redirect penuh ke servlet
+ * {@code /clear-cookie} ({@link #goBersihkanCookie}) — bukan header {@code Set-Cookie} pada respons
+ * AJAX ZK, karena terbukti tidak selalu dihormati peramban (lihat komentar historis 21-08-2026 di
+ * badan kode).</li>
+ * <li><b>Utilitas pohon menu bersama ({@link #hasChild}, {@link #parents}, field {@link #logins}).</b>
+ * {@code hasChild}/{@code logins} dipakai identik oleh {@code MainMenuHelper}, {@code
+ * MainTreeMenuHelper}, {@code MainBaruMenuHelper}, dan {@code CommonMenu} untuk membangun menu
+ * bertingkat dari {@link Menu} (kunci hierarki {@code root}/{@code child}, sama seperti
+ * {@link MenuTreeModel}) serta menghindari pencatatan {@link DetailLogLogin} "Login" berulang per
+ * sesi (map {@code logins} di-{@code remove} oleh {@link ais.common.SessionCounter} saat sesi
+ * berakhir). {@code parents} secara struktural berisi lima blok for-loop yang IDENTIK berurutan
+ * (bukan lima langkah berbeda) — tampak seperti upaya menaiki beberapa level pohon menu tanpa
+ * rekursi/loop eksplisit; perilaku dipertahankan apa adanya karena berada di luar cakupan
+ * dokumentasi.</li>
+ * <li><b>QR pairing aplikasi mobile &amp; edit biodata ({@link #onDapatkanKode}, {@link
+ * #onUbahBiodata}).</b> {@code onDapatkanKode} memanggil API eksternal lewat SUBPROSES OS
+ * ({@code ProcessBuilder} menjalankan {@code curl}, bukan HTTP client Java) untuk meminta kode
+ * pairing, lalu menghasilkan gambar QR ({@link BarcodeCommon#generateCRCode}) dan dialog unduhan
+ * Android/iOS/desktop; dipanggil dari banyak {@code *Action} biodata (mahasiswa/dosen/pegawai/siswa/
+ * pengumuman) dengan {@link Tbmuser} yang berbeda-beda. {@code onUbahBiodata} adalah dispatcher
+ * tunggal yang memilih window/Action edit biodata yang benar berdasarkan jenis akun
+ * {@link Tbmuser} (calon mahasiswa &rarr; {@code CetakRegistrasiAction}, mahasiswa/dosen &rarr; ZUL
+ * biodata dalam {@link MyWindow} modal, siswa/guru &rarr; {@code SiswaAction}/{@code GuruAction},
+ * pegawai &rarr; {@code BiodataPegawaiAction}, fallback &rarr; {@code TbmuserAction}) — dipakai baik
+ * dari gerbang login (paksa lengkapi biodata) maupun tombol "Ubah Biodata" manual di shell aplikasi.</li>
+ * </ol>
+ *
+ * <p><b>Kesimpulan untuk pemelihara:</b> class ini BUKAN kandidat "helper tipis" yang aman diubah
+ * sepihak — perubahan pada urutan gerbang login/angket, kontrak {@code hasChild}/{@code logins},
+ * atau alur logout cookie berdampak langsung ke titik masuk aplikasi (semua role) dan ke beberapa
+ * class lain yang menyalin/mereplikasi sebagian perilakunya. Method domain baru sebaiknya
+ * ditambahkan sebagai method statis baru di sini (mengikuti pola yang sudah ada) daripada
+ * menduplikasi logika gerbang di {@code Action} pemanggil.</p>
  */
 public class MainHelper {
 	/**
@@ -122,8 +169,33 @@ public class MainHelper {
 	private static final String PUBLIC_APPLICATION_RELEASE =
 			"https://github.com/Zishof/ecampus-eschool-releases/releases/latest";
 
+	/**
+	 * Cache in-memory (map ter-sinkronisasi, dibagikan seluruh JVM/webapp — bukan per-session) yang
+	 * memetakan {@code LogLogin.id} ke {@code DetailLogLogin.id} dari entri "Login" pertama sesi
+	 * tersebut. Dipakai bersama oleh {@link #onBantuan}/{@link #onKatalogBantuan}/{@code
+	 * MainMenuHelper}/{@code MainTreeMenuHelper} untuk menghindari pencatatan baris "Login" berulang
+	 * setiap kali menu dimuat ulang dalam satu sesi login yang sama. Entrinya DIHAPUS oleh
+	 * {@link ais.common.SessionCounter} saat sesi ZK berakhir (timeout/logout) — bila tidak, map ini
+	 * akan terus tumbuh selama aplikasi berjalan.
+	 */
 	public static Map<Long, Long> logins = Collections.synchronizedMap(new HashMap<Long, Long>());
 
+	/**
+	 * Gerbang tunggal yang dijalankan setiap kali layar utama ({@code /main}) selesai dimuat untuk
+	 * user yang login — lihat penjelasan lengkap alurnya di Javadoc class. Ringkas: menolak sesi
+	 * alumni yang menyamar, menyiapkan locale/konteks aplikasi, memvalidasi kelengkapan data sesuai
+	 * jenis akun ({@code prosesLogin*}), lalu memaksa pengisian kuesioner wajib yang masih aktif
+	 * ({@code prosesAngketSaatLogin}).
+	 *
+	 * @param session sesi ZK aktif; dipakai untuk membaca/menulis atribut locale, flag mobile, dsb.
+	 * @param execution eksekusi ZK aktif; dipakai untuk {@link Common#ROOT} (context path)
+	 * @param page halaman ZK yang baru selesai di-render; dipakai untuk menyisipkan
+	 *            {@link CheckForParentScript} pengaman anti-iframe-hijack
+	 * @param tbmuser user yang sedang login; {@code null} langsung memicu {@link Common#goLogoff()}
+	 * @return {@code true} bila semua gerbang lolos dan halaman utama boleh dipakai; {@code false}
+	 *         bila akses ditahan (redirect logoff atau modal wajib sedang ditampilkan) — pemanggil
+	 *         WAJIB menghentikan proses render lebih lanjut saat menerima {@code false}
+	 */
 	public static boolean initMain(final Session session, Execution execution, Page page, final Tbmuser tbmuser)
 			throws Exception {
 		if (session.getAttribute("digunakanUntukPenggunaAlumni") != null) {
@@ -205,6 +277,16 @@ public class MainHelper {
 
 
 
+	/**
+	 * Validasi khusus akun dosen saat login: memaksa pengisian angket "checklist penilaian oleh
+	 * dosen" bila dikonfigurasi aktif untuk semester ganjil/genap berjalan maupun periode semester
+	 * pendek ({@link #cekAngketWajibDosen}), lalu (opsional per konfigurasi) memvalidasi kelengkapan
+	 * email dan biodata dosen lewat {@link BiodataDosenAction}.
+	 *
+	 * @param tbmuser user login; dosen diambil dari {@code tbmuser.ambilDosen()}
+	 * @return {@code true} bila dosen null/tanpa id (tidak relevan, lolos) atau semua validasi
+	 *         terpenuhi; {@code false} bila salah satu gerbang menahan akses
+	 */
 	private static boolean prosesLoginDosen(final Tbmuser tbmuser) throws Exception {
 		final ais.database.model.Dosen dosen = tbmuser == null ? null : tbmuser.ambilDosen();
 		if (dosen == null || dosen.getId() == null) {
@@ -235,6 +317,16 @@ public class MainHelper {
 		return true;
 	}
 
+	/**
+	 * Mengecek konfigurasi {@code checklist_penilaian_oleh_dosen} (berskop fakultas/jurusan dosen)
+	 * untuk satu {@code semester}/{@code tahunAkademik}; bila aktif, delegasikan penentuan
+	 * lengkap/belumnya penilaian ke {@link Common#displayPenilaianAngket}. Kegagalan pengambilan
+	 * konfigurasi/tampilan DITELAN (dicatat lewat {@link Common#tampilErrorJikaAdmin}) dan dianggap
+	 * lolos, supaya gangguan konfigurasi tidak mengunci dosen keluar dari aplikasi.
+	 *
+	 * @return {@code false} hanya bila konfigurasi aktif DAN angket dosen ditampilkan sebagai
+	 *         gerbang wajib; {@code true} pada semua kondisi lain
+	 */
 	private static boolean cekAngketWajibDosen(Tbmuser tbmuser, ais.database.model.Dosen dosen, String semester,
 			String tahunAkademik) {
 		try {
@@ -250,6 +342,22 @@ public class MainHelper {
 		return true;
 	}
 
+	/**
+	 * Validasi khusus akun mahasiswa saat login. Alur: hitung semester berjalan mahasiswa
+	 * ({@link Common#getSemester}), lalu {@link JenisKegiatan#apakahBoleh} memutuskan boleh/tidaknya
+	 * login berdasarkan status kegiatan akademik (hasil peringatan ditampilkan dan MENAHAN akses bila
+	 * tidak kosong) &rarr; validasi email (opsional per konfigurasi) &rarr;
+	 * {@link Common#reloadNilaiCurrentNilai} menyegarkan cache nilai berjalan mahasiswa &rarr;
+	 * {@link PustakaUtil#checkPeminjamaBuku} menahan akses bila ada pinjaman perpustakaan
+	 * bermasalah &rarr; validasi biodata (opsional per konfigurasi) &rarr; validasi
+	 * {@link ParameterTambahanMahasiswaListener} (field kustom biodata tambahan) &rarr; terakhir
+	 * {@link AngketUtil#checkAngket(Mahasiswa, int)} (tidak menahan akses, hanya memicu tampilan
+	 * angket non-wajib bila relevan).
+	 *
+	 * @param tbmuser user login; mahasiswa diambil dari {@code tbmuser.getMahasiswa()}
+	 * @return {@code true} bila mahasiswa null/tanpa id (tidak relevan) atau semua gerbang
+	 *         terpenuhi; {@code false} bila salah satu gerbang menahan akses
+	 */
 	private static boolean prosesLoginMahasiswa(final Tbmuser tbmuser) throws Exception {
 		final Mahasiswa mahasiswa = tbmuser == null ? null : tbmuser.getMahasiswa();
 		if (mahasiswa == null || mahasiswa.getId() == null) {
@@ -315,6 +423,15 @@ public class MainHelper {
 		return true;
 	}
 
+	/**
+	 * Validasi khusus akun siswa saat login: paksa pengisian angket "penilaian guru oleh siswa" bila
+	 * dikonfigurasi aktif ({@link #cekAngketGuruOlehSiswa}), lalu picu (non-menahan)
+	 * {@link AngketUtil#checkAngket(Siswa)} untuk angket siswa lain yang relevan.
+	 *
+	 * @param tbmuser user login; siswa diambil dari {@code tbmuser.getSiswa()}
+	 * @return {@code true} bila siswa null/tanpa id atau gerbang wajib terpenuhi; {@code false} bila
+	 *         angket guru wajib sedang ditampilkan
+	 */
 	private static boolean prosesLoginSiswa(final Tbmuser tbmuser) throws Exception {
 		final Siswa siswa = tbmuser == null ? null : tbmuser.getSiswa();
 		if (siswa == null || siswa.getId() == null) {
@@ -328,6 +445,15 @@ public class MainHelper {
 		return true;
 	}
 
+	/**
+	 * Mengecek konfigurasi {@code checklist_penilaian_guru_oleh_siswa} (default TIDAK AKTIF); bila
+	 * aktif, delegasikan penentuan lengkap/belumnya penilaian guru untuk semester berjalan ke
+	 * {@link Common#displayPenilaianAngketGuru}. Kegagalan ditelan dan dianggap lolos, sama seperti
+	 * {@link #cekAngketWajibDosen}.
+	 *
+	 * @return {@code false} hanya bila konfigurasi aktif DAN angket guru ditampilkan sebagai
+	 *         gerbang wajib; {@code true} pada semua kondisi lain (termasuk siswa {@code null})
+	 */
 	private static boolean cekAngketGuruOlehSiswa(Siswa siswa) {
 		if (siswa == null || siswa.getId() == null) {
 			return true;
@@ -343,6 +469,17 @@ public class MainHelper {
 		return true;
 	}
 
+	/**
+	 * Validasi khusus akun guru saat login: bila email belum diisi/tidak valid dan konfigurasi
+	 * {@code guru_harus_melengkapi_email_jika_belum_diisi} aktif, tampilkan pesan wajib yang membuka
+	 * dialog ubah biodata saat ditutup ({@link #onUbahBiodata}) dan tahan akses; bila konfigurasi
+	 * {@code apakah_guru_harus_melengkapi_biodata_nya} aktif, langsung buka dialog ubah biodata dan
+	 * tahan akses tanpa syarat tambahan.
+	 *
+	 * @param tbmuser user login; guru diambil dari {@code tbmuser.ambilGuru()}
+	 * @return {@code true} bila guru null/tanpa id atau kedua gerbang tidak aktif/terpenuhi;
+	 *         {@code false} bila salah satu gerbang menahan akses
+	 */
 	private static boolean prosesLoginGuru(final Tbmuser tbmuser) throws Exception {
 		Guru guru = tbmuser == null ? null : tbmuser.ambilGuru();
 		if (guru == null || guru.getId() == null) {
@@ -371,12 +508,28 @@ public class MainHelper {
 		return true;
 	}
 
+	/**
+	 * User dianggap "admin/pegawai murni" bila TIDAK terhubung ke entity akademik/kesiswaan manapun
+	 * (dosen, mahasiswa, siswa, guru, calon mahasiswa, calon siswa) — dipakai sebagai kondisi
+	 * fallback di {@link #initMain} untuk memutuskan apakah {@link #prosesLoginAdmin} perlu
+	 * dijalankan.
+	 *
+	 * @return {@code true} bila {@code tbmuser} tidak null dan tidak terkait entity akademik manapun
+	 */
 	private static boolean isPenggunaAdminAtauPegawai(Tbmuser tbmuser) {
 		return tbmuser != null && tbmuser.ambilDosen() == null && tbmuser.getMahasiswa() == null
 				&& tbmuser.getSiswa() == null && tbmuser.ambilGuru() == null
 				&& tbmuser.getBiodataCalonMahasiswa() == null && tbmuser.getCalonSiswa() == null;
 	}
 
+	/**
+	 * Validasi khusus akun admin/pegawai saat login: bila email belum diisi/tidak valid dan
+	 * konfigurasi {@code admin_harus_melengkapi_email_jika_belum_diisi} aktif (default AKTIF),
+	 * tampilkan pesan wajib yang membuka dialog ubah biodata saat ditutup dan tahan akses.
+	 *
+	 * @return {@code true} bila email valid atau konfigurasi tidak aktif; {@code false} bila
+	 *         pesan wajib sedang ditampilkan
+	 */
 	private static boolean prosesLoginAdmin(final Tbmuser tbmuser) throws Exception {
 		if (isKonfigurasiAktif("admin_harus_melengkapi_email_jika_belum_diisi", Konfigurasi.AKTIF)) {
 			if (tbmuser == null || tbmuser.getEmail() == null || tbmuser.getEmail().trim().isEmpty()
@@ -395,6 +548,12 @@ public class MainHelper {
 		return true;
 	}
 
+	/**
+	 * Utilitas baca-cepat: mengembalikan {@code true} bila nilai {@link Konfigurasi} bernama
+	 * {@code nama} sama dengan {@link Konfigurasi#AKTIF}. Kegagalan pengambilan konfigurasi ditelan
+	 * dan fallback ke {@code nilaiDefault} (dibandingkan dengan {@code AKTIF}) supaya masalah
+	 * transien pada tabel konfigurasi tidak ikut menahan/melonggarkan gerbang secara tidak sengaja.
+	 */
 	private static boolean isKonfigurasiAktif(String nama, String nilaiDefault) {
 		try {
 			Konfigurasi konfigurasi = Common.getKonfigurasi(nama, nilaiDefault);
@@ -469,6 +628,16 @@ public class MainHelper {
 		return true;
 	}
 
+	/**
+	 * Cabang pertama gerbang angket ({@link #prosesAngketSaatLogin}): gabungkan jadwal angket umum
+	 * grup+non-grup ({@link #gabungkanJadwalAngketUmum}), lalu untuk tiap periode tahun
+	 * akademik/semester cek apakah ada jadwal angket DOSEN (untuk mahasiswa) atau GURU (untuk siswa)
+	 * yang masih aktif; bila ada, tampilkan gerbang wajibnya ({@link
+	 * #tampilkanAngketDosenMahasiswaDariJadwalUmum} / {@link #tampilkanAngketGuruSiswaDariJadwalUmum}).
+	 *
+	 * @return {@code true} begitu satu gerbang angket dosen/guru ditampilkan (akses ditahan);
+	 *         {@code false} bila tidak ada jadwal relevan yang aktif
+	 */
 	private static boolean prosesAngketDosenGuruDariJadwalUmum(final Tbmuser tbmuser) {
 		if (tbmuser == null || tbmuser.getUserId() == null) {
 			return false;
@@ -503,6 +672,14 @@ public class MainHelper {
 		return false;
 	}
 
+	/**
+	 * Menggabungkan jadwal angket umum grup ({@link ChecklistPenilaianHelper#getJadwalChecklistUmumGrup})
+	 * dan non-grup ({@link ChecklistPenilaianHelper#getJadwalChecklistUmum}) menjadi satu daftar
+	 * {@code Object[]{tahunAkademik, semester, ...}}, dengan deduplikasi berdasarkan kombinasi
+	 * tahun akademik + semester (jadwal grup diprioritaskan karena ditambahkan lebih dulu).
+	 *
+	 * @return daftar baris jadwal unik; tidak pernah {@code null}
+	 */
 	private static List<Object[]> gabungkanJadwalAngketUmum(Tbmuser tbmuser) {
 		List<Object[]> rows = new ArrayList<Object[]>();
 		Set<String> keySet = new java.util.HashSet<String>();
@@ -511,6 +688,11 @@ public class MainHelper {
 		return rows;
 	}
 
+	/**
+	 * Menambahkan baris dari {@code source} ke {@code rows}, melewati baris tanpa tahun
+	 * akademik/semester valid dan baris yang kombinasi tahun akademik+semester-nya sudah ada di
+	 * {@code keySet} (dedup helper untuk {@link #gabungkanJadwalAngketUmum}).
+	 */
 	private static void tambahJadwalAngket(List<Object[]> rows, Set<String> keySet, List<Object[]> source) {
 		if (source == null || source.isEmpty()) {
 			return;
@@ -615,6 +797,14 @@ public class MainHelper {
 		return false;
 	}
 
+	/**
+	 * Cabang kedua gerbang angket: untuk tiap jadwal grup kuesioner umum yang aktif
+	 * ({@link ChecklistPenilaianHelper#getJadwalChecklistUmumGrup}), cek kelengkapan lewat
+	 * {@link ChecklistPenilaianHelper#checkStatusChecklistUmumGrup}; bila belum lengkap, tampilkan
+	 * {@code /common/checklist_penilaian_umum_grup.zul} sebagai gerbang wajib.
+	 *
+	 * @return {@code true} begitu satu gerbang grup ditampilkan; {@code false} bila tidak ada
+	 */
 	private static boolean prosesAngketSaatLoginGrup(final Tbmuser tbmuser) {
 		List<Object[]> datas = ChecklistPenilaianHelper.getJadwalChecklistUmumGrup(tbmuser);
 		if (datas == null || datas.isEmpty()) {
@@ -637,6 +827,14 @@ public class MainHelper {
 		return false;
 	}
 
+	/**
+	 * Cabang ketiga (terakhir) gerbang angket: padanan {@link #prosesAngketSaatLoginGrup} untuk
+	 * jadwal kuesioner umum non-grup ({@link ChecklistPenilaianHelper#getJadwalChecklistUmum} /
+	 * {@link ChecklistPenilaianHelper#checkStatusChecklistUmum}); bila belum lengkap, tampilkan
+	 * {@code /common/checklist_penilaian_umum.zul} sebagai gerbang wajib.
+	 *
+	 * @return {@code true} begitu satu gerbang umum ditampilkan; {@code false} bila tidak ada
+	 */
 	private static boolean prosesAngketSaatLoginUmum(final Tbmuser tbmuser) {
 		List<Object[]> datas = ChecklistPenilaianHelper.getJadwalChecklistUmum(tbmuser);
 		if (datas == null || datas.isEmpty()) {
@@ -659,6 +857,7 @@ public class MainHelper {
 		return false;
 	}
 
+	/** Ambil elemen {@code index} dari {@code data} sebagai {@link String} ter-trim, atau {@code null} bila indeks di luar batas/nilainya kosong. */
 	private static String getStringData(Object[] data, int index) {
 		if (data == null || data.length <= index || data[index] == null) {
 			return null;
@@ -667,6 +866,11 @@ public class MainHelper {
 		return value == null || value.trim().isEmpty() ? null : value.trim();
 	}
 
+	/**
+	 * Bangun pesan standar angket umum ("Penilaian angket umum ... belum Anda lakukan") lalu
+	 * delegasikan ke {@link #tampilkanAngketSaatLoginPesan} untuk membuka {@code url} sebagai modal
+	 * wajib.
+	 */
 	private static void tampilkanAngketSaatLogin(final String url, final String tahunAkademik, final String semester) {
 		tampilkanAngketSaatLoginPesan(url,
 				"Penilaian angket umum sebagian atau semuanya untuk tahun akademik " + tahunAkademik + " dan semester "
@@ -720,6 +924,13 @@ public class MainHelper {
 	}
 
 
+	/**
+	 * Menyisipkan komponen {@link CheckForParentScript} (script anti clickjacking/anti-iframe-asing)
+	 * sekali ke root pertama halaman yang bukan komponen {@code <style>}/{@code <script>}, dan hanya
+	 * bila belum ada instance-nya ({@link #alreadyHasCheckForParentScript}) — dipanggil di awal
+	 * {@link #initMain} setiap kali {@code /main} dimuat. Kegagalan (mis. halaman belum punya root)
+	 * ditelan lewat {@link Common#tampilErrorJikaAdmin}, tidak pernah menggagalkan {@code initMain}.
+	 */
 	@SuppressWarnings("rawtypes")
 	private static void appendCheckForParentScript(Page page) {
 		if (page == null) {
@@ -761,6 +972,7 @@ public class MainHelper {
 		}
 	}
 
+	/** {@code true} bila nama class {@code component} mengandung penanda komponen {@code Style}/{@code Script} ZK — dipakai {@link #appendCheckForParentScript} agar tidak memilih root non-visual sebagai tempat sisipan. */
 	private static boolean isStyleOrScriptComponent(Component component) {
 		if (component == null || component.getClass() == null) {
 			return false;
@@ -774,6 +986,7 @@ public class MainHelper {
 						|| className.indexOf("org.zkoss.zul.Script") >= 0);
 	}
 
+	/** {@code true} bila salah satu anak langsung {@code root} sudah berupa {@link CheckForParentScript} — mencegah {@link #appendCheckForParentScript} menyisipkan duplikat pada pemuatan {@code /main} berulang. */
 	private static boolean alreadyHasCheckForParentScript(Component root) {
 		if (root == null || root.getChildren() == null) {
 			return false;
@@ -788,6 +1001,24 @@ public class MainHelper {
 		return false;
 	}
 
+	/**
+	 * Membuka <b>manual pengguna</b> (bukan katalog — lihat {@link #onKatalogBantuan} untuk daftar
+	 * panduan per halaman) yang sesuai jenis akun. Mencatat {@link DetailLogLogin} "Bantuan"
+	 * best-effort (kegagalan transaksi di-rollback &amp; native session ditutup di {@code finally},
+	 * TIDAK menghentikan proses), lalu:
+	 * <ol>
+	 * <li>Bila ada {@link LampiranLain} bernama {@code nama_usermanual_<roleId>} yang tersimpan:
+	 * tampilkan lewat Google Drive viewer bila ada tautan GDrive, atau via
+	 * {@link Common#displayWindow}/redirect tab baru bila berupa berkas biasa.</li>
+	 * <li>Bila tidak ada: tentukan nama berkas PDF dari {@link Konfigurasi} khusus role (keuangan,
+	 * mahasiswa, dosen, atau {@code nama_usermanual_<roleId>} generik), fallback ke
+	 * {@code nama_usermanual} umum, lalu unduh langsung dari folder {@code /help} lewat
+	 * {@link Filedownload#save}.</li>
+	 * </ol>
+	 *
+	 * @param login sesi login aktif untuk pencatatan; {@code null} melewati pencatatan tapi tetap
+	 *            membuka manual
+	 */
 	public static void onBantuan(LogLogin login) throws Exception {
 		if (login == null) {
 			return;
@@ -966,6 +1197,15 @@ public class MainHelper {
 		BantuanHelper.tampilkanKatalog(null);
 	}
 
+	/**
+	 * Mulai alur keluar aplikasi: catat {@link DetailLogLogin} "Keluar Aplikasi"
+	 * ({@link #simpanLogKeluar}), lalu bila cookie "ingat saya" terdeteksi
+	 * ({@link #getRememberedUsername}) tampilkan dialog konfirmasi dengan opsi tambahan "Lupakan akun
+	 * saya" ({@link #tampilkanKonfirmasiKeluarDenganRememberMe}); bila tidak, tampilkan konfirmasi
+	 * OK/Batal standar yang langsung memanggil {@link #logoutSekarang} bila disetujui.
+	 *
+	 * @param login sesi login aktif yang akan dicatat keluar
+	 */
 	public static void onKeluar(LogLogin login) throws Exception {
 		simpanLogKeluar(login);
 
@@ -993,6 +1233,12 @@ public class MainHelper {
 				});
 	}
 
+	/**
+	 * Menyimpan satu baris {@link DetailLogLogin} berketerangan "Keluar Aplikasi" lewat transaksi
+	 * native-session mandiri (rollback pada gagal, cleanup {@code disconnect}/{@code close}/
+	 * {@code HibernateUtil.closeSession()} di {@code finally}) — pola pencatatan yang sama dipakai di
+	 * seluruh file ini untuk event "Login"/"Bantuan"/"Keluar Aplikasi".
+	 */
 	private static void simpanLogKeluar(LogLogin login) {
 		DetailLogLogin detailLogLogin = new DetailLogLogin();
 		detailLogLogin.setKeterangan("Keluar Aplikasi");
@@ -1036,6 +1282,13 @@ public class MainHelper {
 		}
 	}
 
+	/**
+	 * Baca cookie {@code userinfo} (ditulis {@code login2.jsp} untuk fitur "ingat saya") dari
+	 * request HTTP asli, ter-decode URL. Selalu {@code null} bila
+	 * {@link ConstantValues#aktifkanRememeberMe} nonaktif secara global.
+	 *
+	 * @return username tersimpan, atau {@code null} bila fitur nonaktif/cookie tidak ada/gagal baca
+	 */
 	private static String getRememberedUsername() {
 		if (!ConstantValues.aktifkanRememeberMe) {
 			return null;
@@ -1058,6 +1311,15 @@ public class MainHelper {
 		return null;
 	}
 
+	/**
+	 * Dialog konfirmasi keluar khusus saat cookie "ingat saya" aktif: menambahkan checkbox
+	 * "Lupakan akun saya di browser ini" di samping tombol Keluar/Batal. Bila dicentang saat
+	 * "Keluar" ditekan, alur menghapus cookie di sisi JS ({@link #hapusCookieDiPeramban}) dan sisi
+	 * server ({@link #hapusCookieRememberMe}) lalu redirect penuh ke {@code /clear-cookie}
+	 * ({@link #goBersihkanCookie}) — bukan pola logout biasa — karena header {@code Set-Cookie} pada
+	 * respons AJAX ZK terbukti tidak selalu dihormati peramban (lihat catatan historis di badan
+	 * method pemanggil tombol "Keluar"). Bila tidak dicentang, langsung {@link #logoutSekarang}.
+	 */
 	private static void tampilkanKonfirmasiKeluarDenganRememberMe() throws Exception {
 		final MyWindow myWindow = new MyWindow("Pertanyaan", "none", true);
 		myWindow.setHeight("215px");
@@ -1129,6 +1391,13 @@ public class MainHelper {
 		myWindow.onModal();
 	}
 
+	/**
+	 * Menghapus (via {@link #expireCookie}, {@code Set-Cookie} pada respons servlet) seluruh cookie
+	 * "ingat saya" ({@link #isCookieRememberMe}) yang ditemukan pada request, baik di path root
+	 * {@code "/"} maupun context path aplikasi bila berbeda. Sisi server saja TIDAK CUKUP diandalkan
+	 * pada respons AJAX ZK — lihat {@link #hapusCookieDiPeramban} untuk penghapusan sisi JavaScript
+	 * yang dijalankan berdampingan.
+	 */
 	private static void hapusCookieRememberMe() {
 		try {
 			HttpServletRequest request = (HttpServletRequest) Executions.getCurrent().getNativeRequest();
@@ -1155,6 +1424,7 @@ public class MainHelper {
 		}
 	}
 
+	/** {@code true} bila {@code name} (case-insensitive) adalah salah satu nama cookie "ingat saya" ({@code userinfo}, {@code userid}, {@code rememberme}, {@code remember_me}). */
 	private static boolean isCookieRememberMe(String name) {
 		if (name == null) {
 			return false;
@@ -1166,6 +1436,7 @@ public class MainHelper {
 				|| "remember_me".equals(n);
 	}
 
+	/** Menulis cookie {@code name} kosong ber-{@code maxAge=0} pada {@code path} tertentu ke {@code response} — teknik standar servlet untuk menghapus cookie di peramban. */
 	private static void expireCookie(HttpServletResponse response, String name, String path) {
 		try {
 			Cookie cookie = new Cookie(name, "");
@@ -1235,6 +1506,14 @@ public class MainHelper {
 		}
 	}
 
+	/**
+	 * Redirect penuh (bukan AJAX) ke servlet {@code /clear-cookie}, yang menghapus seluruh cookie
+	 * sisi server, meng-invalidate sesi, lalu meneruskan ke {@code /logoff}. Dipilih ketimbang
+	 * {@link #logoutSekarang} biasa KHUSUS saat "Lupakan akun saya" dicentang, karena permintaan HTTP
+	 * penuh menjamin header {@code Set-Cookie} dihormati peramban (berbeda dari respons AJAX ZK).
+	 * Membersihkan atribut sesi {@code usersTemp} lebih dulu; bila timer redirect gagal dijadwalkan,
+	 * fallback ke {@link #logoutSekarang}.
+	 */
 	private static void goBersihkanCookie() {
 		try {
 			try {
@@ -1260,6 +1539,7 @@ public class MainHelper {
 		}
 	}
 
+	/** Jalur logout "biasa" (tanpa lupakan cookie): bersihkan atribut sesi {@code usersTemp} lalu delegasikan ke {@link Common#goLogoff()}. */
 	private static void logoutSekarang() {
 		try {
 			Executions.getCurrent().getSession().removeAttribute("usersTemp");
@@ -1268,6 +1548,18 @@ public class MainHelper {
 		Common.goLogoff();
 	}
 
+	/**
+	 * Menentukan apakah {@code root} punya minimal satu anak di {@code menus} — dipakai luas oleh
+	 * {@code MainMenuHelper}, {@code MainTreeMenuHelper}, {@code MainBaruMenuHelper} untuk memutuskan
+	 * apakah satu {@link Menu} harus dirender sebagai folder yang dapat dibuka (submenu) atau sebagai
+	 * item daun yang langsung membuka halaman. Sama seperti {@link MenuTreeModel}, hierarki dikunci
+	 * lewat pasangan kolom {@code root}/{@code child} pada {@link Menu}, BUKAN {@code id}/parentId.
+	 *
+	 * @param root nilai {@code child} milik menu yang diperiksa (menjadi {@code root} anak-anaknya)
+	 * @param menus daftar seluruh {@link Menu} yang tersedia (role/session-scoped) untuk dicari
+	 * @return {@code true} bila ada minimal satu {@link Menu} di {@code menus} dengan
+	 *         {@code getRoot().equals(root)}
+	 */
 	public static Boolean hasChild(Long root, List<Menu> menus) {
 		for (Menu menu : menus) {
 			if (menu.getRoot().equals(root)) {
@@ -1277,6 +1569,23 @@ public class MainHelper {
 		return false;
 	}
 
+	/**
+	 * Menelusuri rantai induk (chain of {@code root}/{@code child}) dari {@code child} ke atas,
+	 * dipakai {@code ais.common.CommonMenu} untuk menandai/expand jalur menu aktif di tree. Diawali
+	 * dengan {@code menuD.getId() -> child}, lalu mencoba mengikuti relasi induk berulang.
+	 *
+	 * <p><b>Kuirk struktural:</b> badan method berisi LIMA blok {@code for} yang identik persis
+	 * berturut-turut (bukan lima langkah logika berbeda) — tampaknya dimaksudkan sebagai
+	 * "naik beberapa level tanpa rekursi/while eksplisit", membatasi kedalaman penelusuran ke
+	 * maksimum sekitar 5 tingkat. Perilaku asli dipertahankan apa adanya (di luar cakupan
+	 * dokumentasi untuk diperbaiki di sini).</p>
+	 *
+	 * @param child nilai {@code child} node awal (biasanya menu yang sedang aktif/dipilih)
+	 * @param menuD {@link Menu} pemilik {@code child} awal, dipetakan sebagai entri pertama hasil
+	 * @param menus seluruh {@link Menu} yang tersedia untuk pencarian induk
+	 * @return map {@code Menu.id -> root induknya} untuk setiap node yang berhasil ditelusuri
+	 *         (termasuk entri awal {@code menuD.getId() -> child})
+	 */
 	public static HashMap<Long, Long> parents(Long child, Menu menuD, Collection<Menu> menus) {
 
 		HashMap<Long, Long> parents = new HashMap<Long, Long>();
@@ -1314,11 +1623,42 @@ public class MainHelper {
 		return parents;
 	}
 
+	/** Overload praktis: memakai {@link Common#getCurrentUser()} sebagai {@link Tbmuser}, lihat {@link #onDapatkanKode(Tbmuser, Component, boolean)}. */
 	public static void onDapatkanKode(Component window, boolean tampilSelesai) throws Exception {
 		Tbmuser tbmuser = Common.getCurrentUser();
 		onDapatkanKode(tbmuser, window, tampilSelesai);
 	}
 
+	/**
+	 * Menampilkan dialog <b>pairing aplikasi mobile/desktop</b> berisi kode/QR sekali-pakai untuk
+	 * login otomatis di APK Android, iOS, atau installer desktop. Dijadwalkan lewat
+	 * {@link Common#createDefaultTimer} (bukan langsung), lalu di dalam callback timer:
+	 * <ol>
+	 * <li>Cek {@code window.getPage() == null} — bila window sudah ditutup pengguna sebelum timer
+	 * fire, batalkan (mencegah NPE {@code addMoved}/{@code setParent}).</li>
+	 * <li>Kumpulkan branding (nama, motto, alamat, telepon, email, logo/banner/background) dari
+	 * {@link PerguruanTinggi} ATAU {@link Sekolah}/{@link Yayasan} milik user (skema
+	 * multi-tenant: sekolah &gt; yayasan &gt; default kampus).</li>
+	 * <li>Panggil API eksternal ({@code Konfigurasi.ambil_kode_url}, default
+	 * {@code https://dev.ecampus.id/ecampus/Api}) via <b>SUBPROSES OS</b> (
+	 * {@code new ProcessBuilder("curl", "-d", jsonPayload, ...)}, BUKAN HTTP client Java) untuk
+	 * meminta kode pairing; payload JSON memuat username (userId + host), link callback {@code /Api},
+	 * dan seluruh branding di atas.</li>
+	 * <li>Bila respons bukan JSON valid, batalkan diam-diam (log ke stderr).</li>
+	 * <li>Generate gambar QR dari kode via {@link BarcodeCommon#generateCRCode} ke folder laporan,
+	 * lalu render dialog berisi tautan unduhan Android/iOS (dari {@link Konfigurasi}, dengan varian
+	 * khusus sekolah) DAN tautan {@link #PUBLIC_APPLICATION_RELEASE} untuk APK/installer desktop
+	 * terbaru.</li>
+	 * </ol>
+	 *
+	 * @param tbmuser user yang meminta kode; menentukan branding (sekolah/yayasan/kampus) dan
+	 *            username yang dikirim ke API
+	 * @param window komponen tempat dialog di-attach; bila instance {@link org.zkoss.zul.Window}
+	 *            dibungkus layout border lengkap, bila bukan (mis. panel biasa) kontennya langsung
+	 *            ditempel
+	 * @param tampilSelesai {@code true} untuk menambahkan tombol "Selesai" (dipakai saat dialog
+	 *            berdiri sendiri sebagai window modal, bukan tab di dalam halaman lain)
+	 */
 	public static void onDapatkanKode(final Tbmuser tbmuser, final Component window, final boolean tampilSelesai)
 			throws Exception {
 
@@ -1613,6 +1953,33 @@ public class MainHelper {
 
 	}
 
+	/**
+	 * Dispatcher tunggal "Ubah Biodata": memilih window/Action edit biodata yang tepat berdasarkan
+	 * jenis akun {@code tbmuser}, dicoba berurutan (percabangan pertama yang cocok yang dipakai):
+	 * <ol>
+	 * <li>Calon mahasiswa &rarr; {@link CetakRegistrasiAction#onEdit} (form registrasi PMB).</li>
+	 * <li>Mahasiswa &rarr; buka {@code /pages/master/biodata_mahasiswa.zul} dalam {@link MyWindow}
+	 * modal 99%&times;99%, dengan listener lokal {@code FotoEventListener} yang menutup window dan
+	 * menyegarkan {@code foto} (bila diberikan) setelah selesai.</li>
+	 * <li>Siswa &rarr; {@link SiswaAction#onAddExternal}.</li>
+	 * <li>Guru aktif &rarr; {@link GuruAction#onAddExternal}.</li>
+	 * <li>Dosen aktif &rarr; window modal serupa mahasiswa, memuat
+	 * {@code /pages/master/biodata_dosen.zul}.</li>
+	 * <li>Pegawai &rarr; {@link BiodataPegawaiAction} sebagai popup modal, dengan callback yang
+	 * memperbarui {@code tbmuser.setPegawai(...)} dan atribut sesi {@code usersTemp} setelah
+	 * simpan.</li>
+	 * <li>Fallback (user umum tanpa entity di atas) &rarr; {@link TbmuserAction#onAddExternal}.</li>
+	 * </ol>
+	 * Dipanggil baik dari gerbang login ({@code prosesLogin*} saat biodata wajib dilengkapi) maupun
+	 * dari tombol "Ubah Biodata" manual di shell aplikasi ({@code MainAction}/{@code MainAction2}).
+	 * Sebagian besar cabang me-refresh entity dari session Hibernate aktif sebelum membuka form
+	 * (mis. {@code HibernateUtil.currentSession().refresh(...)}) agar data yang diedit tidak stale.
+	 *
+	 * @param tbmuser user yang biodatanya akan diubah
+	 * @param foto komponen {@link Image} foto profil yang akan disegarkan setelah biodata disimpan;
+	 *            boleh {@code null} bila pemanggil tidak menampilkan foto (mis. dipanggil dari
+	 *            gerbang login sebelum shell utama tampil)
+	 */
 	public static void onUbahBiodata(final Tbmuser tbmuser, final Image foto) throws Exception {
 
 		if (tbmuser.getBiodataCalonMahasiswa() != null && tbmuser.getBiodataCalonMahasiswa().getId() != null) {

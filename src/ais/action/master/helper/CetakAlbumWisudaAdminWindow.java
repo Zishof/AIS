@@ -51,24 +51,33 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyWindow;
 
 /**
- * Tipe khusus untuk cetak album wisuda admin window. Kelas ini memberi nama dan batas tanggung
- * jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ * Popup window ZK ("No. Registrasi Wisuda") untuk mencetak Album Wisuda versi admin — laporan PDF
+ * berisi biodata lengkap dan foto seluruh mahasiswa yang terdaftar pada satu angkatan wisuda
+ * ({@link Wisuda}). Pengguna memilih {@link #wisudaKe} dari combobox, lalu klik "Cetak" memicu
+ * {@link #onCetakAlbumWisudaAdmin(Event)} yang: (1) mengekspor foto tiap mahasiswa dari BLOB
+ * {@link FotoMahasiswa} ke folder sementara {@code webapp/tmp} via
+ * {@link #generateImageAlbumWisudaAdmin(Event)} — dibutuhkan karena mesin laporan (Jasper/iReport)
+ * membaca gambar dari file, bukan langsung dari BLOB; (2) mengumpulkan seluruh parameter laporan
+ * per mahasiswa lewat {@link #getDataAlbumWisudaAdmin()}; (3) men-generate PDF "Album_Wisuda_Admin"
+ * via {@link Report#generatePDFReport}.
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * MyWindow}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Combobox wisudaKe}, {@code Toolbar
- * toolbar}, {@code MyButtonConfig cetak}, {@code MyButtonConfig batal}; inisialisasi/lifecycle ({@code init()});
- * pembacaan/pencarian ({@code getDataAlbumWisudaAdmin()}); pelaporan/ekspor ({@code onCetakAlbumWisudaAdmin()});
- * operasi domain lain ({@code generateImageAlbumWisudaAdmin()}); konfigurasi constructor: {@code wisudaKe}.
- * Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Sumber data:</b> daftar mahasiswa diambil dari {@link PendaftaranWisuda} (pendaftaran wisuda
+ * per mahasiswa) yang terhubung ke {@link Wisuda} terpilih; untuk tiap mahasiswa dilengkapi dengan
+ * {@link Mahasiswa}, {@link ais.database.model.Jurusan}/{@link ais.database.model.Fakultas} (nama
+ * dekan/pudek1-3/kajur/kaprodi), {@link Skripsi} (judul), {@link KrsMahasiswa} (IPK/IPS/SKS,
+ * dosen PA, semester), dan {@link Judisium} (predikat kelulusan dihitung via
+ * {@code Common.hitungJudisium}). Masa studi dihitung dua cara sekaligus (java.time
+ * {@link Period} dan Joda-Time {@code Days.daysBetween}) dari tanggal masuk KBM sampai tanggal
+ * lulus (atau hari ini bila belum lulus).</p>
+ *
+ * <p><b>Kuirk:</b> baris {@code map.put("judisium", judisium.getNama())} langsung ditimpa oleh
+ * baris berikutnya {@code map.put("judisium", judisium.getNamaen())} — key "judisium" pada
+ * parameter laporan akhirnya selalu berisi nama Inggris judisium, bukan nama Indonesia; perhatikan
+ * ini bila memodifikasi template laporan terkait.</p>
  *
  * @see MyWindow
+ * @see Wisuda
+ * @see PendaftaranWisuda
  */
 public class CetakAlbumWisudaAdminWindow extends MyWindow {
 
@@ -77,12 +86,20 @@ public class CetakAlbumWisudaAdminWindow extends MyWindow {
 	 */
 	private static final long serialVersionUID = 5620991583788581962L;
 
+	/** Combobox pemilihan angkatan {@link Wisuda} yang albumnya akan dicetak. */
 	private Combobox wisudaKe;
 
 	private Toolbar toolbar;
+	/** Tombol pemicu {@link #onCetakAlbumWisudaAdmin(Event)}. */
 	private MyButtonConfig cetak;
+	/** Tombol batal; menutup window ({@code detach()}) tanpa aksi lain. */
 	private MyButtonConfig batal;
 
+	/**
+	 * Membangun window: mengisi {@link #wisudaKe} dengan seluruh data {@link Wisuda} via
+	 * {@code Common.insertCombo}, lalu memanggil {@link #init()} untuk menyusun UI popup. Kegagalan
+	 * ditangkap dan ditampilkan hanya untuk admin ({@code Common.tampilErrorJikaAdmin}).
+	 */
 	public CetakAlbumWisudaAdminWindow() {
 		super();
 		try {
@@ -93,6 +110,11 @@ public class CetakAlbumWisudaAdminWindow extends MyWindow {
 		}
 	}
 
+	/**
+	 * Menyusun tata letak popup: judul "No. Registrasi Wisuda", panel "Cetak Album Wisuda" berisi
+	 * baris combobox {@link #wisudaKe}, dan toolbar bawah dengan tombol {@link #cetak} (memanggil
+	 * {@link #onCetakAlbumWisudaAdmin(Event)}) serta {@link #batal} (menutup window).
+	 */
 	private void init() {
 
 		setClosable(true);
@@ -173,6 +195,17 @@ public class CetakAlbumWisudaAdminWindow extends MyWindow {
 
 	}
 
+	/**
+	 * Menangani klik tombol "Cetak": memvalidasi {@link #wisudaKe} terisi, mengekspor foto seluruh
+	 * mahasiswa peserta wisuda tersebut ke file sementara ({@link #generateImageAlbumWisudaAdmin}),
+	 * mengumpulkan parameter laporan per mahasiswa ({@link #getDataAlbumWisudaAdmin()}), lalu
+	 * men-generate PDF "Album_Wisuda_Admin" dengan parameter {@code wisuda_ke} (nomor angkatan
+	 * wisuda) via {@link Report#generatePDFReport}.
+	 *
+	 * @param event event klik tombol (diteruskan apa adanya ke {@link #generateImageAlbumWisudaAdmin}).
+	 * @return true bila laporan berhasil digenerate; false bila validasi awal gagal (wisuda belum dipilih).
+	 * @throws Exception diteruskan dari operasi Hibernate/report di dalamnya.
+	 */
 	@SuppressWarnings({})
 	public boolean onCetakAlbumWisudaAdmin(Event event) throws Exception {
 		if (wisudaKe.getSelectedItem() == null) {
@@ -194,6 +227,19 @@ public class CetakAlbumWisudaAdminWindow extends MyWindow {
 
 	}
 
+	/**
+	 * Mengekspor foto tiap {@link Mahasiswa} peserta {@link Wisuda} terpilih (satu {@link PendaftaranWisuda}
+	 * per mahasiswa, diurutkan id ascending) dari BLOB {@link FotoMahasiswa} (foto terbaru per mahasiswa,
+	 * {@code Order.desc("id")}) menjadi file fisik di direktori {@code webapp/tmp} (dibuat bila belum ada)
+	 * via {@code CommonMedia.getFileFotoDenganFile}. Dibutuhkan karena mesin laporan (Jasper) membaca
+	 * gambar dari path file, bukan dari BLOB Hibernate langsung. Menggunakan session Hibernate streaming
+	 * terpisah ({@link StreamingHibernateUtil}) khusus untuk baca foto agar tidak membebani session utama;
+	 * kegagalan per-mahasiswa (mis. foto tidak ada) ditangkap dan dilog tanpa menghentikan proses mahasiswa
+	 * lain, kegagalan keseluruhan melakukan rollback session streaming.
+	 *
+	 * @param event event pemicu (tidak dipakai langsung di dalam method, hanya diteruskan dari caller).
+	 * @throws Exception diteruskan dari query Hibernate.
+	 */
 	@SuppressWarnings("unchecked")
 	public void generateImageAlbumWisudaAdmin(Event event) throws Exception {
 		Session session = HibernateUtil.currentSession();
@@ -252,6 +298,26 @@ public class CetakAlbumWisudaAdminWindow extends MyWindow {
 		}
 	}
 
+	/**
+	 * Mengumpulkan satu peta parameter laporan per {@link Mahasiswa} peserta {@link Wisuda} terpilih
+	 * (satu entri per {@link PendaftaranWisuda}, urut id ascending), berisi puluhan key yang dikonsumsi
+	 * template Jasper Album Wisuda Admin: identitas (nim, nama, tempat/tanggal lahir, alamat, telp,
+	 * email, agama, kelamin), akademik (jurusan/fakultas/jenjang/gelar beserta versi Inggris, tahun
+	 * angkatan &amp; lulus, semester, IPK/IPS/SKS dari {@link KrsMahasiswa}, judul skripsi dari
+	 * {@link Skripsi}, nomor ijazah/akta), pejabat penandatangan (dekan, pudek1-3, kajur, kaprodi,
+	 * dosen PA — nama/NIP/NIDN, null-safe), judisium ({@code Common.hitungJudisium}), serta masa studi
+	 * yang dihitung dua cara (java.time {@link Period} dan Joda-Time {@code Days.daysBetween}) dari
+	 * tanggal masuk KBM sampai tanggal lulus (atau hari ini bila belum lulus) dalam beberapa format
+	 * (tahun/bulan/hari terpisah, string gabungan, dan versi terbilang via
+	 * {@link IndonesianNumberToWords}). Murni operasi baca (kegagalan per baris ditangkap dan dilog,
+	 * proses mahasiswa lain tetap berlanjut).
+	 *
+	 * <p><b>Kuirk:</b> key {@code "judisium"} diisi dua kali berturutan — nilai Indonesia
+	 * ({@code judisium.getNama()}) langsung ditimpa oleh nilai Inggris ({@code judisium.getNamaen()}),
+	 * sehingga hasil akhirnya selalu versi Inggris.</p>
+	 *
+	 * @return daftar peta parameter, satu per mahasiswa, siap dipakai sebagai data source laporan PDF.
+	 */
 	@SuppressWarnings("unchecked")
 	private List<Map<String, Serializable>> getDataAlbumWisudaAdmin() {
 

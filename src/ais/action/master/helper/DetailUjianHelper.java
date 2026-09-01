@@ -111,50 +111,98 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Helper terfokus untuk detail ujian. Tipe ini membungkus satu variasi kecil dari alur yang lebih
- * umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ * Helper UI + batch untuk layar <b>Detail Ujian</b>: mengelola satu {@link Ujian} (bank soal/template ujian)
+ * beserta relasinya ke satu pemakaian konkret pada perkuliahan, {@link PertemuanPunyaUjian} (baris penghubung
+ * {@code Pertemuan}&harr;{@code Ujian} yang menyimpan pengaturan per-pemakaian: peserta yang dikecualikan,
+ * syarat ikut ujian, dan seluruh kolom {@code ac_*} anti-curang/CBT).
  *
- * <p><b>Batas tanggung jawab:</b> tipe ini mendeklarasikan kontrak {@link DataLoader}. Implementasi konkret
- * bertanggung jawab atas transaksi, resource, error handling, dan efek samping; pemanggil sebaiknya bergantung
- * pada kontrak ini agar tidak menggandakan integrasi.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Ujian ujian}, {@code Grid grid}, {@code
- * Textbox cari}, {@code Paging paging}, {@code Tbmuser tbmuser}, {@code int countHasil}, {@code boolean
- * refreshSoal}, {@code PertemuanPunyaUjian pertemuanPunyaUjian}; inisialisasi/lifecycle ({@code
- * bukaBuatSoalAi()}); pembacaan/pencarian ({@code tampilSoalDanJawaban()}, {@code doDownload()}, {@code
- * doDownload()}, {@code doDownload()}, {@code doUpload()}, {@code doUpload()}); validasi/perhitungan ({@code
- * checkMerupakanPerkuliahan()}, {@code acCheckbox()}, {@code hitungBobotPPULain()}); mutasi data ({@code
- * simpanAntiCurang()}); operasi domain lain ({@code display()}, {@code isiTabAntiCurang()}, {@code acIntbox()},
- * {@code acDoublebox()}, {@code acTextarea()}, {@code isiTabPengaturanOBE()}); konfigurasi constructor: {@code
- * tbmuser}. Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Bagian utama kelas ini:</b></p>
+ * <ul>
+ * <li><b>Window detail ujian</b> ({@link #display(Ujian, Component, boolean, boolean)} dan overload lengkapnya)
+ * — bila ujian ini dipakai pada suatu perkuliahan ({@code pertemuanPunyaUjian} tidak {@code null}), dibangun
+ * jendela bertab: "Soal" (grid {@link UjianPunyaSoal} beserta pratinjau soal/jawaban lewat
+ * {@link #tampilSoalDanJawaban}), "Peserta yg tidak perlu ikut" (pengecualian per mahasiswa/calon mahasiswa,
+ * plus — khusus kurikulum OBE — nilai manual dan checklist Sub-CPMK yang dikerjakan per peserta untuk remedial),
+ * "Syarat Ikut Ujian", dan "Anti Curang" (form kontrol CBT yang disimpan seketika, lihat
+ * {@link #isiTabAntiCurang}). Bila bukan pemakaian pada perkuliahan, {@code detail} dipakai apa adanya sebagai
+ * kontainer soal/upload/download.</li>
+ * <li><b>Pembuatan soal via AI</b> ({@link #bukaBuatSoalAi}, {@link #bangunPromptSoalAi},
+ * {@link #bangunKonteksMkSoal}, {@link #daftarSoalExisting}, {@link #insertSoalAiDariJson},
+ * {@link #ekstrakObjekSoal}) — popup yang mengirim prompt (berisi konteks matakuliah/OBE dan soal yang sudah
+ * ada agar tidak duplikat) ke layanan AI generatif, mem-parsing hasil JSON secara tahan-banting (termasuk
+ * respons terpotong), lalu menyimpan tiap soal sebagai {@link BankSoal}+{@link BankSoalDetail} baru yang
+ * langsung ditautkan ke ujian via {@link UjianPunyaSoal}.</li>
+ * <li><b>Impor/ekspor soal Excel</b> ({@link #doDownload} dan {@link #doUpload}, masing-masing beberapa
+ * overload) — mengunduh template/berkas soal (format {@code .xlsx} via ZK POI) dan mengunggah kembali untuk
+ * membuat/memperbarui banyak {@link BankSoal} sekaligus.</li>
+ * </ul>
+ * <p>Instance {@link #tbmuser} diisi sekali di constructor dari pengguna yang sedang login. Field lain
+ * ({@link #ujian}, {@link #grid}, {@link #cari}, {@link #paging}, {@link #countHasil}, {@link #refreshSoal},
+ * {@link #pertemuanPunyaUjian}) adalah state instance yang diisi ulang setiap kali {@link #display} dipanggil,
+ * sehingga satu instance hanya aman dipakai untuk satu window pada satu saat. Kelas mengimplementasikan
+ * {@link DataLoader} agar {@link #loadData(Object)} bisa dipakai sebagai callback penyelesaian unggah file
+ * (lihat {@link #uploadSoal(Media, Ujian)}).</p>
  */
 public class DetailUjianHelper implements DataLoader {
 
+	/** Ujian (bank soal/template) yang sedang ditampilkan/diedit. */
 	private Ujian ujian;
+	/** Grid ZK daftar soal ({@link UjianPunyaSoal}) pada tab "Soal". */
 	private Grid grid;
 
 	// private boolean delete = false;
 	// private boolean edit = false;
 	// private boolean add = false;
+	/** Textbox pencarian pada grid soal/peserta. */
 	private Textbox cari;
 
+	/** Komponen paging untuk grid soal. */
 	private Paging paging;
+	/** Pengguna yang sedang login, diisi sekali di constructor. */
 	private Tbmuser tbmuser;
+	/** Jumlah total hasil pencarian/daftar soal terkini, dipakai paging. */
 	protected int countHasil = 0;
+	/** Penanda agar grid soal dimuat ulang (mis. setelah soal AI baru disisipkan). */
 	private boolean refreshSoal = false;
+	/** Baris penghubung Pertemuan&ndash;Ujian yang sedang diedit (pengecualian peserta, syarat, anti-curang). */
 	private PertemuanPunyaUjian pertemuanPunyaUjian;
 
+	/** Membuat helper baru dan mengambil pengguna yang sedang login ke {@link #tbmuser}. */
 	public DetailUjianHelper() {
 		tbmuser = Common.getCurrentUser();
 	}
 
+	/**
+	 * Varian ringkas {@link #display(Ujian, Component, Pertemuan, PertemuanPunyaUjian, boolean, boolean)} tanpa
+	 * konteks {@code pertemuan}/{@code pertemuanPunyaUjian} eksplisit (keduanya {@code null}) — dipakai saat
+	 * ujian ditampilkan lepas dari pemakaiannya pada perkuliahan tertentu (mis. dari bank soal langsung).
+	 *
+	 * @param ujian ujian yang ditampilkan
+	 * @param detail kontainer ZK tempat isi ditempelkan
+	 * @param tampilmenu {@code true} untuk menampilkan menu/toolbar tambahan
+	 * @param delete {@code true} agar tombol hapus soal ditampilkan
+	 */
 	public void display(final Ujian ujian, final Component detail, boolean tampilmenu, boolean delete) {
 		display(ujian, detail, null, null, tampilmenu, delete);
 	}
 
+	/**
+	 * Bila {@code pertemuanPunyaUjian} menunjuk ke pertemuan pada suatu perkuliahan, membangun window bertab
+	 * ("Soal", "Peserta yg tidak perlu ikut", "Syarat Ikut Ujian", "Anti Curang") lengkap dengan footer
+	 * Batal/Simpan yang selalu terlihat, lalu mengembalikan {@code Tabpanel} tab "Soal" sebagai kontainer
+	 * konten selanjutnya. Bila tidak (ujian berdiri sendiri, bukan pemakaian pada perkuliahan tertentu),
+	 * {@code detail} dikembalikan apa adanya tanpa dibungkus tab.
+	 *
+	 * <p>Struktur yang dibangun: {@code Borderlayout} dengan {@code Center} (scrollable, menampung
+	 * {@code Tabbox}) dan {@code South} (toolbar Batal/Simpan). Pola ini sengaja disamakan dengan pola reusable
+	 * lain di codebase (lih. komentar di kode) agar konsisten dan terbukti aman terhadap bug ZK5 di mana
+	 * tabpanel ber-height tetap memotong konten panjang tanpa scrollbar. Isi tiap tab (kecuali "Soal", yang
+	 * sudah ada saat method ini kembali) dibangun lazy saat tab pertama kali diklik.</p>
+	 *
+	 * @param detail kontainer asal yang akan dibungkus tab bila relevan
+	 * @param pertemuanPunyaUjian baris penghubung pertemuan&ndash;ujian; {@code null} berarti ujian berdiri sendiri
+	 * @return kontainer tempat konten soal harus ditempelkan (tab "Soal" bila dibungkus, atau {@code detail} apa adanya)
+	 */
 	private Component checkMerupakanPerkuliahan(Component detail, final PertemuanPunyaUjian pertemuanPunyaUjian) {
 		Component parent = null;
 		if (pertemuanPunyaUjian != null && pertemuanPunyaUjian.getPertemuan() != null
@@ -1591,6 +1639,22 @@ public class DetailUjianHelper implements DataLoader {
 		win.onModal();
 	}
 
+	/**
+	 * Menyusun teks prompt yang dikirim ke AI generatif untuk membuat soal ujian. Menggabungkan konteks
+	 * matakuliah/OBE ({@code konteksMk}), topik dan pembahasan pertemuan, daftar soal yang sudah ada
+	 * ({@code soalAda}, agar AI tidak membuat soal duplikat/mirip), serta instruksi format keluaran: JSON
+	 * array PG (soal + opsi berlabel huruf + penanda opsi benar) atau JSON array essay (soal + kunci jawaban).
+	 *
+	 * @param namaMk nama matakuliah untuk konteks soal
+	 * @param pembahasan ringkasan pembahasan/konten pertemuan terkait
+	 * @param topikSoal topik khusus yang diminta pengguna; boleh kosong
+	 * @param jml jumlah soal yang diminta
+	 * @param isPg {@code true} untuk soal pilihan ganda, {@code false} untuk essay
+	 * @param opsi jumlah opsi jawaban per soal PG (diabaikan bila essay)
+	 * @param konteksMk konteks matakuliah/OBE hasil {@link #bangunKonteksMkSoal(Pertemuan)}; boleh kosong
+	 * @param soalAda ringkasan soal yang sudah ada di ujian ini, hasil {@link #daftarSoalExisting()}; boleh kosong
+	 * @return teks prompt lengkap siap dikirim ke API AI
+	 */
 	private String bangunPromptSoalAi(String namaMk, String pembahasan, String topikSoal, int jml, boolean isPg,
 			int opsi, String konteksMk, String soalAda) {
 		StringBuilder p = new StringBuilder();
@@ -1623,10 +1687,20 @@ public class DetailUjianHelper implements DataLoader {
 		return p.toString();
 	}
 
+	/** Menormalkan teks soal: {@code null} menjadi string kosong, selain itu di-trim. */
 	private static String safeSoal(String s) {
 		return s == null ? "" : s.trim();
 	}
 
+	/**
+	 * Meringkas teks soal untuk ditampilkan sebagai referensi ringkas kepada AI: tag HTML dan {@code &nbsp;}
+	 * dibuang, spasi berlebih dirapikan, lalu dipotong ke maksimal {@code m} karakter (ditambah elipsis
+	 * {@code …} bila terpotong).
+	 *
+	 * @param s teks soal asli (boleh mengandung HTML)
+	 * @param m panjang maksimal hasil (tanpa menghitung elipsis)
+	 * @return teks polos yang sudah dipotong, tidak pernah {@code null}
+	 */
 	private static String potongSoal(String s, int m) {
 		if (s == null) {
 			return "";
@@ -1912,6 +1986,14 @@ public class DetailUjianHelper implements DataLoader {
 		return dibuat;
 	}
 
+	/**
+	 * Mengekstrak substring JSON array (dari {@code [} pertama sampai {@code ]} terakhir) dari respons AI
+	 * yang mungkin dibungkus teks/markdown lain. Pendekatan naif (indeks karakter, bukan parser); dipakai
+	 * sebagai jalur cepat oleh {@link #ekstrakObjekSoal(String)} sebelum jatuh ke pemindai brace-depth.
+	 *
+	 * @param s teks respons mentah; {@code null} mengembalikan {@code null}
+	 * @return substring dari {@code [} pertama sampai {@code ]} terakhir, atau {@code null} bila salah satu tidak ditemukan
+	 */
 	private static String potongJsonArray(String s) {
 		if (s == null) {
 			return null;
@@ -2009,6 +2091,29 @@ public class DetailUjianHelper implements DataLoader {
 		return hasil;
 	}
 
+	/**
+	 * Titik masuk lengkap layar Detail Ujian: menyiapkan state instance, membangun (via
+	 * {@link #checkMerupakanPerkuliahan}) window bertab bila ujian ini dipakai pada suatu perkuliahan, lalu
+	 * mengisi tab "Soal" dengan toolbar aksi dan grid daftar soal.
+	 *
+	 * <p>Toolbar tab "Soal" (sebagian besar hanya tampil untuk dosen/admin, bukan mahasiswa, dan hanya bila
+	 * {@code tampilmenu} true): "Ambil Soal" (memilih {@link BankSoal} yang sudah ada lewat
+	 * {@code AmbilDataBankSoalBanyak}, mengisi atribusi dosen/matakuliah/guru/matapelajaran yang masih kosong,
+	 * lalu menautkannya via {@link UjianPunyaSoal} bila belum ada), "Soal Baru" (membuat {@link BankSoal} baru
+	 * langsung dengan atribut default dari ujian), "Buat Soal Via AI" (membuka {@link #bukaBuatSoalAi}),
+	 * "Download"/"Download Tanpa Tag HTML" (ekspor Excel via {@link #doDownload}), "Upload" (impor Excel via
+	 * {@link #doUpload}), "Hasil Ujian", "Hapus Soal Double" (membersihkan duplikasi), "Hapus" (melepas
+	 * tautan {@link UjianPunyaSoal} terpilih — hanya bila soal belum dipakai hasil ujian, lihat
+	 * {@link #soalSudahDipakaiHasilUjian}), dan "Refresh". Grid daftar soal memakai pencarian ({@link #cari})
+	 * dan paging ({@link #paging}); tiap baris dirender lewat {@link #tampilSoalDanJawaban}.</p>
+	 *
+	 * @param ujian ujian yang ditampilkan; disimpan ke {@link #ujian}
+	 * @param detail kontainer ZK asal
+	 * @param pertemuan pertemuan konteks (untuk atribusi matakuliah/matapelajaran saat menambah soal); boleh {@code null}
+	 * @param pertemuanPunyaUjian baris penghubung pertemuan&ndash;ujian; {@code null} berarti ujian berdiri sendiri
+	 * @param tampilmenu {@code true} untuk menampilkan toolbar aksi (dosen/admin)
+	 * @param delete {@code true} agar tombol hapus soal ditampilkan
+	 */
 	public void display(final Ujian ujian, Component detail, final Pertemuan pertemuan,
 			final PertemuanPunyaUjian pertemuanPunyaUjian, boolean tampilmenu, boolean delete) {
 		this.ujian = ujian;
@@ -2441,6 +2546,31 @@ public class DetailUjianHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Merender satu {@link BankSoal} beserta pilihan/kotak jawabannya ke {@code rowParent} — dipakai baik pada
+	 * grid daftar soal Detail Ujian maupun konteks lain yang perlu menampilkan pratinjau soal. Menangani semua
+	 * jenis soal yang didukung {@code BankSoal.getJenisPilihanGanda()} (pilihan ganda biasa, jawaban
+	 * singkat/rumpang, dsb.) dengan tata letak berbeda per jenis, termasuk lampiran soal
+	 * ({@code BankSoalAction.tampilkanLampiran}), acak urutan opsi ({@code random}), dan penomoran huruf opsi
+	 * ({@code tampilanHurufDiPilihanJawaban}).
+	 *
+	 * <p>Bila {@code edit}/{@code hapus} true, baris juga mendapat toolbar aksi "Ubah" (membuka form edit
+	 * {@link BankSoal}), "Copy" (menduplikasi soal sebagai {@link BankSoal} baru), dan "Hapus" (melepas tautan
+	 * {@link UjianPunyaSoal}, ditolak dengan pesan bila soal sudah dipakai hasil ujian — lihat
+	 * {@link #soalSudahDipakaiHasilUjian}). {@code eventListenerUbah} dipanggil setelah aksi yang mengubah data
+	 * agar pemanggil bisa memuat ulang grid.</p>
+	 *
+	 * @param rowParent baris grid ZK tempat soal dirender
+	 * @param bankSoal soal yang dirender; sumber teks pertanyaan, jenis, dan opsi jawaban
+	 * @param ujianPunyaSoal tautan soal ini ke ujian tertentu; dipakai untuk aksi hapus/cek pemakaian hasil ujian
+	 * @param tbmuser pengguna yang sedang login, menentukan visibilitas aksi
+	 * @param refreshSoal {@code true} untuk memaksa data soal dibaca ulang, bukan dari cache
+	 * @param tampilanHurufDiPilihanJawaban {@code true} untuk menampilkan label huruf (A, B, ...) pada tiap opsi
+	 * @param random {@code true} untuk mengacak urutan tampil opsi jawaban
+	 * @param eventListenerUbah dipanggil setelah aksi ubah/copy/hapus berhasil, agar tampilan induk diperbarui
+	 * @param edit {@code true} untuk menampilkan tombol "Ubah"/"Copy"
+	 * @param hapus {@code true} untuk menampilkan tombol "Hapus"
+	 */
 	public static void tampilSoalDanJawaban(Row rowParent, final BankSoal bankSoal, final UjianPunyaSoal ujianPunyaSoal,
 			Tbmuser tbmuser, boolean refreshSoal, boolean tampilanHurufDiPilihanJawaban, boolean random,
 			final EventListener eventListenerUbah, boolean edit, boolean hapus) throws Exception {
@@ -3117,22 +3247,18 @@ public class DetailUjianHelper implements DataLoader {
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link DetailUjianHelper}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DetailUjianHelper} dan dapat mengakses state
-	 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code EventListener ubahEventListener};
-	 * operasi lokal: {@code render}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
-	 * dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Row renderer grid daftar soal pada tab "Soal" Detail Ujian. Setiap baris data adalah id
+	 * {@link UjianPunyaSoal} (bukan objek langsung — dimuat via {@link GeneralValueObject#ambilData}); baris
+	 * {@code null} (mis. sisa item setelah operasi hapus gagal) dilewati tanpa dirender. Sebelum merender,
+	 * atribusi {@link BankSoal} (dosen/matakuliah/matapelajaran/guru) yang masih kosong diisi dulu dari
+	 * konteks {@link DetailUjianHelper#pertemuanPunyaUjian} bila tersedia, lalu isi soal dan opsi jawabannya
+	 * ditampilkan lewat {@link DetailUjianHelper#tampilSoalDanJawaban}.
 	 *
 	 * @see DetailUjianHelper
 	 */
 	public class DetailUjianRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** Dipanggil setelah baris diubah/dihapus untuk memuat ulang grid ({@link DetailUjianHelper#loadData(Object)}). */
 		private EventListener ubahEventListener = new EventListener() {
 
 			@Override
@@ -3141,6 +3267,12 @@ public class DetailUjianHelper implements DataLoader {
 			}
 		};
 
+		/**
+		 * Merender satu baris grid untuk id {@link UjianPunyaSoal} pada {@code arg1}.
+		 *
+		 * @param arg0 baris grid target
+		 * @param arg1 id {@link UjianPunyaSoal} (sebagai {@code Long}/String); {@code null} dilewati
+		 */
 		@Override
 		public void render(Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");
@@ -3206,6 +3338,22 @@ public class DetailUjianHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Mengekspor daftar {@link BankSoal} hasil {@code criteria} ke berkas Excel {@code bank_soal__.xlsx} dan
+	 * langsung memicu unduhan browser ({@link Filedownload#save}). Kolom yang ditulis: id, teks SOAL, huruf
+	 * jawaban BENAR (untuk pilihan ganda) atau isian ESSAY, skor benar/salah/default, hingga 10 kolom
+	 * JWB_A..JWB_J (opsi jawaban), PENJELASAN, penanda tampil penjelasan saat ujian, dan JENIS soal. Bila
+	 * {@code pertemuanPunyaUjian} tidak {@code null}, setiap {@link BankSoal} yang belum punya
+	 * dosen/matakuliah/matapelajaran/guru diisi dulu dari konteks pertemuan tersebut sebelum diekspor (efek
+	 * samping: mengubah dan menyimpan data {@code BankSoal} yang diekspor, bukan hanya membaca).
+	 *
+	 * <p>Berbeda dari {@link #doDownload(Ujian, PertemuanPunyaUjian, Criteria)}: method ini mengekspor
+	 * {@link BankSoal} hasil query bebas (tidak harus tertaut ke satu {@link Ujian} tertentu via
+	 * {@link UjianPunyaSoal}), dan tidak menyertakan kolom nomor urut ujian.</p>
+	 *
+	 * @param criteria kriteria Hibernate yang menentukan {@link BankSoal} mana yang diekspor
+	 * @param pertemuanPunyaUjian konteks pertemuan untuk mengisi atribusi soal yang masih kosong; boleh {@code null}
+	 */
 	@SuppressWarnings("unchecked")
 	public static void doDownload(Criteria criteria, PertemuanPunyaUjian pertemuanPunyaUjian) throws Exception {
 
@@ -3367,10 +3515,23 @@ public class DetailUjianHelper implements DataLoader {
 				fileName);
 	}
 	
+	/** Varian {@link #doDownload(Ujian, PertemuanPunyaUjian, Criteria, boolean)} yang mempertahankan tag HTML pada teks soal ({@code tanpahtml=false}). */
 	public static void doDownload(Ujian ujian, PertemuanPunyaUjian pertemuanPunyaUjian, Criteria criteria) throws Exception {
-		doDownload(ujian, pertemuanPunyaUjian, criteria, false); 
+		doDownload(ujian, pertemuanPunyaUjian, criteria, false);
 	}
 
+	/**
+	 * Mengekspor soal yang benar-benar tertaut ke {@code ujian} (via {@link UjianPunyaSoal}, hasil
+	 * {@code ujian.ambilUjianPunyaSoal(true, pertemuanPunyaUjian, "", 0, 10000)}) ke Excel dan memicu unduhan.
+	 * Struktur kolom serupa {@link #doDownload(Criteria, PertemuanPunyaUjian)} ditambah kolom "NO." (nomor
+	 * urut soal pada ujian ini), dan sel {@code (0,0)} diisi id ujian sebagai penanda saat file ini diunggah
+	 * kembali lewat {@link #doUpload}.
+	 *
+	 * @param ujian ujian yang soal-soalnya diekspor
+	 * @param pertemuanPunyaUjian konteks pemakaian pada perkuliahan; menentukan cakupan/urutan soal yang diambil
+	 * @param criteria tidak dipakai langsung untuk mengambil data (daftar soal diambil dari {@code ujian}), disediakan untuk kompatibilitas pemanggil
+	 * @param tanpahtml {@code true} untuk menulis teks soal sebagai teks polos (tag HTML dibuang via Jsoup), {@code false} untuk mempertahankan HTML asli
+	 */
 	@SuppressWarnings("unchecked")
 	public static void doDownload(Ujian ujian, PertemuanPunyaUjian pertemuanPunyaUjian, Criteria criteria,
 			boolean tanpahtml) throws Exception {
@@ -3550,6 +3711,23 @@ public class DetailUjianHelper implements DataLoader {
 				fileName);
 	}
 
+	/**
+	 * Mengimpor {@link BankSoal} dari berkas Excel {@code .xlsx} berformat sama dengan hasil
+	 * {@link #doDownload(Criteria, PertemuanPunyaUjian)}. Baris diproses satu per satu: {@link BankSoal}
+	 * dicocokkan lebih dulu berdasarkan id (kolom pertama) atau teks soal identik (exact match); bila tidak
+	 * ditemukan, dibuat baru. Skor benar/salah/default, jenis, teks soal, penjelasan, dan penanda tampil
+	 * penjelasan diperbarui dari kolom terkait; bila {@code pertemuanPunyaUjian} tersedia, atribusi
+	 * dosen/matakuliah/matapelajaran/guru yang masih kosong ikut diisi dari konteks pertemuan. Baris header
+	 * ("soal"/"DAFTAR SOAL UJIAN") dan baris kosong dilewati. Setiap baris diproses dalam sesi Hibernate
+	 * terpisah yang dibuka ulang bila tertutup, agar satu baris gagal tidak menghentikan baris lainnya; hasil
+	 * dirangkum lewat {@code UploadReportHelper} dan ditampilkan sebagai messagebox, yang saat ditutup memicu
+	 * {@code dataLoader.loadData(true)} agar tampilan grid soal dimuat ulang. Method ini TIDAK menautkan soal
+	 * ke {@link Ujian} tertentu (bandingkan {@link #doUpload(Media, Ujian, DataLoader, PertemuanPunyaUjian)}).
+	 *
+	 * @param media berkas yang diunggah; harus berekstensi {@code .xlsx}, selain itu ditolak dengan pesan error
+	 * @param dataLoader callback yang dipanggil setelah pengguna menutup ringkasan hasil upload
+	 * @param pertemuanPunyaUjian konteks pertemuan untuk atribusi soal; boleh {@code null}
+	 */
 	public static void doUpload(Media media, final DataLoader dataLoader, PertemuanPunyaUjian pertemuanPunyaUjian)
 			throws Exception {
 		if (media.getName().toLowerCase().endsWith("xlsx")) {
@@ -3816,6 +3994,18 @@ public class DetailUjianHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Varian {@link #doUpload(Media, DataLoader, PertemuanPunyaUjian)} yang, selain meng-upsert
+	 * {@link BankSoal}, juga menautkan setiap soal ke {@code ujian} lewat {@link UjianPunyaSoal} (dibuat baru
+	 * bila tautannya belum ada) — dipakai saat pengguna mengunggah kembali template hasil
+	 * {@link #doDownload(Ujian, PertemuanPunyaUjian, Criteria, boolean)} untuk memperbarui sekaligus soal
+	 * milik satu ujian tertentu.
+	 *
+	 * @param media berkas {@code .xlsx} yang diunggah, format sama dengan hasil {@code doDownload}
+	 * @param ujian ujian tujuan; setiap soal pada berkas ditautkan ke ujian ini
+	 * @param dataLoader callback yang dipanggil setelah pengguna menutup ringkasan hasil upload
+	 * @param pertemuanPunyaUjian konteks pertemuan untuk atribusi soal; boleh {@code null}
+	 */
 	public static void doUpload(Media media, Ujian ujian, final DataLoader dataLoader,
 			PertemuanPunyaUjian pertemuanPunyaUjian) throws Exception {
 		if (media.getName().toLowerCase().endsWith("xlsx")) {
@@ -4122,6 +4312,14 @@ public class DetailUjianHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Memulihkan sesi Hibernate setelah satu baris impor Excel ({@link #doUpload}) gagal diproses: melakukan
+	 * rollback transaksi aktif (bila ada) lalu {@code session.clear()}, sehingga baris berikutnya dapat
+	 * diproses dengan sesi yang bersih tanpa entity kotor/setengah-tersimpan dari baris yang gagal. Aman
+	 * dipanggil dengan {@code session} {@code null} atau sudah tertutup (langsung kembali tanpa efek).
+	 *
+	 * @param session sesi Hibernate yang akan dipulihkan
+	 */
 	private static void pulihkanSessionUpload(Session session) {
 		if (session == null || !session.isOpen()) {
 			return;
@@ -4142,10 +4340,27 @@ public class DetailUjianHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Menjalankan impor Excel {@link #doUpload(Media, Ujian, DataLoader, PertemuanPunyaUjian)} memakai state
+	 * instance ({@code this} sebagai {@link DataLoader}, {@link #pertemuanPunyaUjian} sebagai konteks) —
+	 * pembungkus tipis yang dipanggil dari listener tombol "Upload" pada tab "Soal".
+	 *
+	 * @param media berkas {@code .xlsx} yang diunggah pengguna
+	 * @param ujian ujian tujuan tautan soal
+	 */
 	private void uploadSoal(Media media, Ujian ujian) throws Exception {
 		DetailUjianHelper.doUpload(media, ujian, this, pertemuanPunyaUjian);
 	}
 
+	/**
+	 * Implementasi {@link DataLoader}: memuat ulang grid daftar soal ({@link #grid}) sesuai kata kunci
+	 * pencarian ({@link #cari}) dan halaman aktif ({@link #paging}), lalu memperbarui total baris pada
+	 * komponen paging. Dipanggil setelah operasi yang mengubah daftar soal (tambah/hapus/upload/AI) maupun
+	 * saat window pertama kali dibuka.
+	 *
+	 * @param value bila berupa {@link Boolean} {@code true}, memaksa {@link #refreshSoal} aktif sehingga data
+	 *            dibaca ulang dari DB (bukan cache); {@code null}/lainnya berarti tidak memaksa refresh
+	 */
 	@SuppressWarnings("unchecked")
 	@Override
 	public void loadData(Object value) {

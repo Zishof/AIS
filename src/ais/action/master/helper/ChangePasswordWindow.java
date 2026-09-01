@@ -37,24 +37,37 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.WaktuUtil;
 
 /**
- * Tipe khusus untuk change password window. Kelas ini memberi nama dan batas tanggung jawab yang
- * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ * Popup window ZK "Ganti Password / Login via Media Sosial" yang dipakai lintas modul AIS untuk
+ * mengganti kata sandi akun yang sedang login, apa pun jenis akunnya: staf/dosen/admin
+ * ({@link Tbmuser}), siswa sekolah ({@link Siswa}), mahasiswa perguruan tinggi ({@link Mahasiswa}),
+ * atau penduduk desa ({@link Penduduk}, modul Sisdes). Jenis akun ditentukan dari
+ * {@link Tbmuser#getMahasiswa()}/{@code getSiswa()}/{@code getPenduduk()} milik user login di
+ * {@code Sessions.getCurrent()} ("users" atau, bila belum login penuh, "usersTemp"). Window berisi
+ * dua tab: "Password Pengguna" (form ganti password lama/baru/ulangi) dan "Login via Media Sosial"
+ * (delegasi ke {@code Common.displaySocialMedia}).
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * MyWindow}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Textbox passwordLama}, {@code Textbox
- * passwordBaru}, {@code Textbox passwordBaruRepeat}, {@code Tbmuser users}, {@code Mahasiswa mahasiswa}, {@code
- * Siswa siswa}, {@code boolean boleh_skip_password_jika_belum_diganti}, {@code Penduduk penduduk};
- * inisialisasi/lifecycle ({@code init()}); operasi domain lain ({@code onChangePassword()}). Bagian lain dari
- * kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Kuirk/fitur khusus:</b></p>
+ * <ul>
+ * <li>Untuk {@link Siswa} dan {@link Mahasiswa}, password lama yang dimasukkan dicocokkan dulu
+ * terhadap password akun itu sendiri; bila tidak cocok, dicoba lagi terhadap password orang tua
+ * ({@code getPassOrtu()}) — bila cocok, yang diganti adalah password ORANG TUA
+ * ({@code setPassOrtu}), bukan password siswa/mahasiswa itu sendiri. Ini memungkinkan orang tua
+ * mengganti passwordnya sendiri lewat form yang sama tanpa menu terpisah.</li>
+ * <li>Password disimpan terenkripsi simetris via {@code Common.desEncrypter} (dapat didekripsi
+ * kembali, dipakai juga untuk mencocokkan password lama) — bukan hash satu-arah; perlakukan sebagai
+ * kuirk keamanan lama, jangan diubah tanpa meninjau seluruh alur login yang bergantung padanya.</li>
+ * <li>Konfigurasi {@code boleh_skip_password_jika_belum_diganti} mengontrol apakah tombol
+ * "Batal"/"Selesai" ditampilkan (mengizinkan pengguna menutup window tanpa mengganti password wajib);
+ * constructor dua-parameter juga bisa memaksa tombol tutup tampil ({@code tampilkanTutup}) atau
+ * menyembunyikan field password lama ({@code hiddenOld}, dipakai saat admin mereset password orang
+ * lain tanpa perlu tahu password lamanya).</li>
+ * <li>Password baru divalidasi oleh {@link PasswordChecker#isValidPassword} (minimal 8 karakter,
+ * kombinasi huruf/angka/karakter spesial) sebelum disimpan.</li>
+ * </ul>
  *
  * @see MyWindow
+ * @see Tbmuser
+ * @see PasswordChecker
  */
 public class ChangePasswordWindow extends MyWindow {
 
@@ -63,24 +76,39 @@ public class ChangePasswordWindow extends MyWindow {
 	 */
 	private static final long serialVersionUID = -2363480108987559148L;
 
+	/** Input password lama; null bila {@link #hiddenOld} true (mis. admin mereset password orang lain). */
 	private Textbox passwordLama;
+	/** Input password baru. */
 	private Textbox passwordBaru;
+	/** Input ulangi password baru; harus sama dengan {@link #passwordBaru}. */
 	private Textbox passwordBaruRepeat;
 
+	/** User login saat ini (staf/dosen/admin), sumber field {@link #mahasiswa}/{@link #siswa}/{@link #penduduk}. */
 	private Tbmuser users = null;
 
+	/** Konteks mahasiswa bila akun login adalah mahasiswa; null bila jenis akun lain. */
 	private Mahasiswa mahasiswa;
 
+	/** Konteks siswa bila akun login adalah siswa sekolah; null bila jenis akun lain. */
 	private Siswa siswa;
 
+	/** Hasil {@code Common.bolehKonfigurasi("boleh_skip_password_jika_belum_diganti")}; mengontrol apakah window boleh ditutup tanpa mengganti password. */
 	private boolean boleh_skip_password_jika_belum_diganti;
 
+	/** Konteks penduduk (modul Sisdes) bila akun login adalah penduduk desa; null bila jenis akun lain. */
 	private Penduduk penduduk;
 
+	/** Bila true, field {@link #passwordLama} disembunyikan sepenuhnya (dipakai saat admin mereset password tanpa perlu tahu password lama). */
 	private boolean hiddenOld = false;
 
+	/** Bila true, tombol "Batal"/"Selesai" selalu ditampilkan meski {@link #boleh_skip_password_jika_belum_diganti} false. */
 	private boolean tampilkanTutup = false;
 
+	/**
+	 * Constructor default: password lama wajib diisi dan tombol tutup mengikuti konfigurasi
+	 * {@code boleh_skip_password_jika_belum_diganti}. Kegagalan saat {@link #init()} ditangkap dan
+	 * ditampilkan hanya untuk admin.
+	 */
 	public ChangePasswordWindow() {
 		super();
 
@@ -92,6 +120,13 @@ public class ChangePasswordWindow extends MyWindow {
 		}
 	}
 
+	/**
+	 * Constructor dengan kendali eksplisit atas tampilan field password lama dan tombol tutup —
+	 * dipakai mis. saat admin mereset password akun lain (password lama tidak diketahui/diperlukan).
+	 *
+	 * @param hiddenOld       true untuk menyembunyikan field password lama.
+	 * @param tampilkanTutup  true untuk selalu menampilkan tombol "Batal"/"Selesai".
+	 */
 	public ChangePasswordWindow(boolean hiddenOld, boolean tampilkanTutup) {
 		super();
 		this.hiddenOld = hiddenOld;
@@ -104,11 +139,27 @@ public class ChangePasswordWindow extends MyWindow {
 		}
 	}
 
+	/**
+	 * Constructor dengan judul/border/closable window kustom, diteruskan ke {@link MyWindow}.
+	 *
+	 * @param title    judul window.
+	 * @param border   gaya border window (diteruskan ke superclass).
+	 * @param closable true bila window boleh ditutup lewat tombol close bawaan.
+	 * @throws Exception diteruskan dari {@link #init()} atau constructor superclass.
+	 */
 	public ChangePasswordWindow(String title, String border, boolean closable) throws Exception {
 		super(title, border, closable);
 		init();
 	}
 
+	/**
+	 * Menentukan jenis akun yang sedang login (dari {@link Tbmuser} di session "users"/"usersTemp")
+	 * dan membangun UI: tab "Password Pengguna" (form password lama/baru/ulangi beserta keterangan
+	 * syarat kata sandi) dan tab "Login via Media Sosial" (delegasi ke
+	 * {@code Common.displaySocialMedia}), diakhiri toolbar tombol Batal/Ganti Password. Tombol
+	 * "Ganti Password" hanya tampil saat tab pertama aktif; label tombol Batal berubah menjadi
+	 * "Selesai" saat tab kedua aktif.
+	 */
 	private void init() {
 
 		boleh_skip_password_jika_belum_diganti = Common.bolehKonfigurasi("boleh_skip_password_jika_belum_diganti");
@@ -250,6 +301,26 @@ public class ChangePasswordWindow extends MyWindow {
 		tab2.addEventListener("onClick", evnt);
 	}
 
+	/**
+	 * Menangani klik tombol "Ganti Password": memvalidasi input (password lama tidak kosong bila
+	 * ditampilkan, password baru tidak kosong, password lama cocok dengan password akun tersimpan
+	 * — dibandingkan dalam bentuk terdekripsi via {@code Common.desEncrypter} — password baru sama
+	 * dengan ulangannya, dan password baru lolos {@link PasswordChecker#isValidPassword}). Cabang
+	 * penyimpanan mengikuti jenis akun ({@link #siswa}/{@link #mahasiswa}/{@link #penduduk}/
+	 * {@link #users} staf) dan, untuk siswa/mahasiswa, mencoba password lama terhadap akun itu
+	 * sendiri lebih dulu lalu terhadap password orang tua ({@code getPassOrtu()}) — bila yang cocok
+	 * adalah password orang tua, yang diperbarui adalah {@code passOrtu}, bukan password
+	 * siswa/mahasiswa. Setiap cabang sukses: mengenkripsi &amp; menyimpan password baru
+	 * ({@code Common.refreshUpdate}), mencatat riwayat perubahan ({@code GeneralValueObject.ubahDataHistory}
+	 * untuk staf, {@code setUbahPasword} untuk lainnya), menyinkronkan akses login
+	 * ({@code Common.saveOrUpdateUserAccess} untuk staf/mahasiswa), memperbarui {@link Tbmuser} di
+	 * session, menampilkan pesan sukses, mengosongkan field password, lalu menutup window
+	 * ({@code detach()}). Kegagalan ditangkap dan ditampilkan sebagai pesan formal beserta saran
+	 * troubleshooting via {@link PesanFormalHelper#tampilkanGagalException}.
+	 *
+	 * @param event event klik tombol (tidak dipakai langsung di dalam method).
+	 * @throws Exception dapat diteruskan dari operasi ZK/Hibernate meski sebagian besar sudah ditangani via try-catch internal.
+	 */
 	@SuppressWarnings({})
 	public void onChangePassword(Event event) throws Exception {
 

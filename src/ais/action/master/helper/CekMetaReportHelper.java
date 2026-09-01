@@ -18,27 +18,21 @@ import ais.database.model.MetaReport;
 import ais.action.master.helper.FilterLanjutHelper;
 
 /**
- * Helper terfokus untuk cek meta report. Tipe ini membungkus satu variasi kecil dari alur yang
- * lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ * Composer ZK untuk halaman verifikasi keaslian dokumen cetak (mis. transkrip/ijazah/surat) lewat
+ * kode barcode yang tercetak di dokumen. Pengguna memasukkan/scan {@link #barcode}, lalu
+ * {@link #onCari()} mencari record {@link MetaReport} (metadata dokumen yang disimpan saat dokumen
+ * tersebut pertama kali dicetak/di-generate — nama, NIM, fakultas, prodi, IPK, yudisium, jumlah
+ * matakuliah, penanda tangan, tanggal cetak, dan jenis report) dengan barcode yang cocok persis.
+ * Bila ditemukan, seluruh baris info ditampilkan sehingga pemeriksa dapat membandingkan data pada
+ * layar dengan data yang tercetak di dokumen fisik untuk mendeteksi pemalsuan/perubahan.
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * GenericAutowireComposer}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
- * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
- * tumpang tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Row rowNama}, {@code Row rowNim},
- * {@code Row rowFakultas}, {@code Row rowProdi}, {@code Row rowIpk}, {@code Row rowYudisium}, {@code Row
- * rowJumlahMk}, {@code Row rowPenandaTangan}; inisialisasi/lifecycle ({@code doBeforeCompose()}, {@code
- * doAfterCompose()}); pembacaan/pencarian ({@code onCari()}). Bagian lain dari kontrak tetap mengikuti kelas
- * induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
- * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
- * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
- * serta session Hibernate milik request yang aktif.</p>
+ * <p><b>Kuirk:</b> tombol reset password ({@code reset}, terkait field {@code barcode} yang sama)
+ * sepenuhnya dikomentari — sisa kode lama yang tidak aktif, bukan bagian dari alur cek meta report
+ * saat ini; jangan diaktifkan ulang tanpa meninjau relevansinya. Composer ini juga memanggil
+ * {@link FilterLanjutHelper#setup(Component)} untuk menyiapkan filter lanjutan standar halaman.</p>
  *
  * @see GenericAutowireComposer
+ * @see MetaReport
  */
 public class CekMetaReportHelper extends GenericAutowireComposer {
 
@@ -47,15 +41,25 @@ public class CekMetaReportHelper extends GenericAutowireComposer {
 	 */
 	private static final long serialVersionUID = 6947829244115144706L;
 
+	/** Baris nama pemilik dokumen; disembunyikan sampai hasil pencarian ditemukan. */
 	private Row rowNama;
+	/** Baris NIM pemilik dokumen; disembunyikan sampai hasil pencarian ditemukan. */
 	private Row rowNim;
+	/** Baris fakultas; disembunyikan sampai hasil pencarian ditemukan. */
 	private Row rowFakultas;
+	/** Baris program studi; disembunyikan sampai hasil pencarian ditemukan. */
 	private Row rowProdi;
+	/** Baris IPK yang tercatat pada dokumen; disembunyikan sampai hasil pencarian ditemukan. */
 	private Row rowIpk;
+	/** Baris predikat yudisium; disembunyikan sampai hasil pencarian ditemukan. */
 	private Row rowYudisium;
+	/** Baris jumlah matakuliah yang tercatat pada dokumen; disembunyikan sampai hasil pencarian ditemukan. */
 	private Row rowJumlahMk;
+	/** Baris nama penanda tangan dokumen; disembunyikan sampai hasil pencarian ditemukan. */
 	private Row rowPenandaTangan;
+	/** Baris tanggal cetak dokumen; disembunyikan sampai hasil pencarian ditemukan. */
 	private Row rowTglCetak;
+	/** Baris jenis report/dokumen (mis. transkrip, ijazah); disembunyikan sampai hasil pencarian ditemukan. */
 	private Row rowJenisReport;
 	// private Row rowButton;
 	private Label labelNama;
@@ -68,15 +72,34 @@ public class CekMetaReportHelper extends GenericAutowireComposer {
 	private Label labelPenandaTangan;
 	private Label labelTglCetak;
 	private Label labelJenisReport;
+	/** Input barcode yang di-scan/diketik dari dokumen fisik; sumber pencarian di {@link #onCari()}. */
 	private Textbox barcode;
 	// MyButtonConfig reset;
+	/** Tombol pemicu {@link #onCari()} (di-wire otomatis oleh ZK berdasarkan id komponen). */
 	MyButtonConfig cari;
+	/** Hasil pencarian {@link MetaReport} terakhir; null bila belum dicari atau barcode tidak ditemukan. */
 	private MetaReport metaReport;
 
-	// 
+	//
 
+	/**
+	 * Hook keamanan ZK: memaksa {@code Common.doCheckSecurity()} sebelum komponen di-compose,
+	 * sehingga halaman ini hanya bisa diakses oleh session yang sudah lolos pemeriksaan keamanan
+	 * standar aplikasi.
+	 */
 	@Override
-	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page, org.zkoss.zk.ui.Component parent,org.zkoss.zk.ui.metainfo.ComponentInfo compInfo) {Common.doCheckSecurity();return super.doBeforeCompose(page, parent, compInfo);}public void doAfterCompose(Component comp) throws Exception {
+	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page, org.zkoss.zk.ui.Component parent,org.zkoss.zk.ui.metainfo.ComponentInfo compInfo) {Common.doCheckSecurity();return super.doBeforeCompose(page, parent, compInfo);}
+	/**
+	 * Inisialisasi setelah komponen ZK selesai dibangun: menyiapkan bahasa UI
+	 * ({@code Common.initLaguage()}), memvalidasi session login dan privilese
+	 * {@link CommonPrivilages#READ} — bila salah satu tidak terpenuhi, session dipaksa logoff
+	 * ({@code Common.goLogoff()}) dan compose dihentikan — lalu menyiapkan filter lanjutan halaman
+	 * via {@link FilterLanjutHelper#setup(Component)}.
+	 *
+	 * @param comp root komponen halaman ini.
+	 * @throws Exception diteruskan dari {@code super.doAfterCompose}.
+	 */
+	public void doAfterCompose(Component comp) throws Exception {
 		// TODO Auto-generated method stub
 		super.doAfterCompose(comp);
 		Common.initLaguage();
@@ -118,6 +141,17 @@ public class CekMetaReportHelper extends GenericAutowireComposer {
 	        FilterLanjutHelper.setup(comp);
 }
 
+	/**
+	 * Menangani klik tombol {@link #cari}: memvalidasi bahwa {@link #barcode} tidak kosong, lalu
+	 * mencari satu {@link MetaReport} dengan barcode yang cocok persis (case-insensitive,
+	 * {@link MatchMode#EXACT}). Bila tidak ditemukan, tampilkan pesan peringatan dan hentikan. Bila
+	 * ditemukan, tampilkan (set visible) seluruh baris info dokumen dan isi label-nya dari field
+	 * {@link MetaReport} yang bersangkutan (nama, NIM, fakultas, prodi, IPK, yudisium, jumlah
+	 * matakuliah, penanda tangan, tanggal cetak, jenis report) — murni operasi baca, tidak mengubah
+	 * data di database.
+	 *
+	 * @throws Exception diteruskan dari operasi Hibernate/ZK di dalamnya.
+	 */
 	public void onCari() throws Exception {
 		if (barcode.getValue().equals("")) {
 			MyMessageboxConfig.show("Masukkan Barcode", "Peringatan", MyMessageboxConfig.OK,
