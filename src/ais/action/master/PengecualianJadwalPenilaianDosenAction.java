@@ -78,8 +78,8 @@ import ais.ui.util.WaktuUtil;
  * inisialisasi/lifecycle ({@code doBeforeCompose()}, {@code doAfterCompose()}, {@code init()}, {@code init()},
  * {@code initCriteria()}); pembacaan/pencarian ({@code tampilkanAksesDitolak()}, {@code onSearchDefault()},
  * {@code ambil()}, {@code ambilClass()}); mutasi data ({@code onSave()}, {@code setPersetujuan()});
- * pelaporan/ekspor ({@code cetakData()}); operasi domain lain ({@code penggunaDosen()}, {@code
- * milikDosenAktif()}, {@code diajukanOlehPenggunaAktif()}, {@code onAdd()}, {@code form()}, {@code istilah()}).
+ * pelaporan/ekspor ({@code cetakData()}); operasi domain lain ({@code penggunaDosen()}, {@code onAdd()},
+ * {@code form()}, {@code istilah()}).
  * Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
  * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
  * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
@@ -145,27 +145,6 @@ public class PengecualianJadwalPenilaianDosenAction extends GenericAutowireCompo
 		// dianggap sebagai admin/pemberi persetujuan.
 		return pengguna != null && pengguna.hakAkses() != null
 				&& Tbmrole.DOSEN.equalsIgnoreCase(pengguna.hakAkses().getRoleId());
-	}
-
-	private boolean milikDosenAktif(PengecualianJadwalPenilaianDosen data) {
-		Tbmuser pengguna = Common.getCurrentUser();
-		Dosen dosenAktif = pengguna == null ? null : pengguna.ambilDosen();
-		return data != null && data.getDosen() != null && data.getDosen().getId() != null
-				&& dosenAktif != null && dosenAktif.getId() != null
-				&& data.getDosen().getId().equals(dosenAktif.getId());
-	}
-
-	private boolean diajukanOlehPenggunaAktif(PengecualianJadwalPenilaianDosen data) {
-		Tbmuser pengguna = Common.getCurrentUser();
-		if (pengguna == null || data == null) {
-			return false;
-		}
-		if (data.getDibuatOleh() != null && data.getDibuatOleh().getUserId() != null
-				&& pengguna.getUserId() != null
-				&& data.getDibuatOleh().getUserId().equalsIgnoreCase(pengguna.getUserId())) {
-			return true;
-		}
-		return milikDosenAktif(data);
 	}
 
 	private void tampilkanAksesDitolak(String pesan) throws InterruptedException {

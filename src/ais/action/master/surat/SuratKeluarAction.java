@@ -1855,6 +1855,21 @@ public class SuratKeluarAction extends GenericAutowireComposer implements DataCr
 		parameters.put("sekolah.nipKepalaSekolah", mycodeKepsek);
 	}
 
+	private boolean tampilkanPeringatanAntreanLaporan(Exception e) {
+		if (!ais.action.report.ReportThrottle.isReportQueueTimeout(e)) {
+			return false;
+		}
+		ais.common.PesanFormalHelper.tampilkanGagalException("pembuatan laporan surat keluar",
+				"Server sedang memproses banyak laporan secara bersamaan. Permintaan cetak ini belum dijalankan agar server tetap stabil.",
+				e,
+				new String[] {
+						"Tunggu beberapa saat, lalu klik cetak ulang laporan.",
+						"Jika sedang mencetak banyak surat sekaligus, jalankan bertahap per beberapa data.",
+						"Admin dapat memeriksa konfigurasi report_maks_paralel, report_tunggu_antrian_detik, dan report_gagalkan_jika_antrian_penuh bila kejadian ini terlalu sering muncul."
+				});
+		return true;
+	}
+
 	private void generateReport(Map<String, Object> parameters, KlasifikasiSuratKeluar thisKlasifikasiSuratKeluar) {
 		if (template != null) {
 			Common.clear(template);
@@ -1918,10 +1933,16 @@ public class SuratKeluarAction extends GenericAutowireComposer implements DataCr
 							}
 
 						} catch (Exception e) {
+							if (tampilkanPeringatanAntreanLaporan(e)) {
+								return;
+							}
 							Common.tampilErrorJikaAdmin(e);
 						}
 					}
 				} catch (Exception e) {
+					if (tampilkanPeringatanAntreanLaporan(e)) {
+						return;
+					}
 					ais.common.Common.tampilErrorJikaAdmin(e);
 				}
 
@@ -1938,6 +1959,9 @@ public class SuratKeluarAction extends GenericAutowireComposer implements DataCr
 				}
 				CommonReport.tampilkanReportPDF(template, filePdfBaru);
 			} catch (Exception e) {
+				if (tampilkanPeringatanAntreanLaporan(e)) {
+					return;
+				}
 				Common.tampilErrorJikaAdmin(e);
 			}
 		}

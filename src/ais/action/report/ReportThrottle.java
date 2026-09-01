@@ -35,6 +35,18 @@ public final class ReportThrottle {
 
 	private static volatile Semaphore izin = null;
 
+	public static class ReportQueueTimeoutException extends Exception {
+		private static final long serialVersionUID = 2095357662797618814L;
+
+		public ReportQueueTimeoutException(String message) {
+			super(message);
+		}
+
+		public ReportQueueTimeoutException(String message, Throwable cause) {
+			super(message, cause);
+		}
+	}
+
 	private ReportThrottle() {
 	}
 
@@ -104,7 +116,7 @@ public final class ReportThrottle {
 			}
 			if (ais.common.Common.bolehKonfigurasi("report_gagalkan_jika_antrian_penuh",
 					ais.database.model.Konfigurasi.TIDAK_AKTIF)) {
-				throw new Exception("Server sedang memproses banyak laporan secara bersamaan (menunggu "
+				throw new ReportQueueTimeoutException("Server sedang memproses banyak laporan secara bersamaan (menunggu "
 						+ tungguDetik + " detik). Silakan coba cetak ulang beberapa saat lagi.");
 			}
 			System.out.println("ReportThrottle: antrean melewati " + tungguDetik
@@ -113,8 +125,23 @@ public final class ReportThrottle {
 			return true;
 		} catch (InterruptedException ie) {
 			Thread.currentThread().interrupt();
-			throw new Exception("Pembuatan laporan dibatalkan saat menunggu antrean cetak.", ie);
+			throw new ReportQueueTimeoutException("Pembuatan laporan dibatalkan saat menunggu antrean cetak.", ie);
 		}
+	}
+
+	public static boolean isReportQueueTimeout(Throwable error) {
+		Throwable t = error;
+		while (t != null) {
+			if (t instanceof ReportQueueTimeoutException) {
+				return true;
+			}
+			String pesan = t.getMessage();
+			if (pesan != null && pesan.indexOf("Server sedang memproses banyak laporan secara bersamaan") >= 0) {
+				return true;
+			}
+			t = t.getCause();
+		}
+		return false;
 	}
 
 	/** Lepas slot cetak. Aman dipanggil dari finally; no-op bila slot tidak pernah diperoleh. */

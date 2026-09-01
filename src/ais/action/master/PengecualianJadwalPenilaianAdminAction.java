@@ -78,7 +78,7 @@ import ais.ui.util.WaktuUtil;
  * {@code initCriteria()}); pembacaan/pencarian ({@code tampilkanAksesDitolak()}, {@code onSearchDefault()},
  * {@code ambil()}, {@code ambilClass()}); validasi/perhitungan ({@code bolehProsesStatus()}); mutasi data
  * ({@code onSave()}, {@code setPersetujuan()}); pelaporan/ekspor ({@code cetakData()}); operasi domain lain
- * ({@code diajukanOlehPenggunaAktif()}, {@code onAdd()}, {@code form()}, {@code istilah()}). Bagian lain dari
+ * ({@code onAdd()}, {@code form()}, {@code istilah()}). Bagian lain dari
  * kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
  * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
  * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
@@ -125,13 +125,6 @@ public class PengecualianJadwalPenilaianAdminAction extends GenericAutowireCompo
 	private Combobox semester;
 	private boolean approve = false;
 	private boolean reject = false;
-
-	private boolean diajukanOlehPenggunaAktif(PengecualianJadwalPenilaianDosen data) {
-		Tbmuser pengguna = Common.getCurrentUser();
-		return pengguna != null && pengguna.getUserId() != null && data != null && data.getDibuatOleh() != null
-				&& data.getDibuatOleh().getUserId() != null
-				&& pengguna.getUserId().equalsIgnoreCase(data.getDibuatOleh().getUserId());
-	}
 
 	private boolean bolehProsesStatus(PengecualianJadwalPenilaianDosen data) {
 		return Common.getApakahAdmin() && approve && reject;

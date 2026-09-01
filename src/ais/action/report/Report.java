@@ -2582,6 +2582,9 @@ public class Report extends GenericAutowireComposer {
 			}
 
 		} catch (Exception e) {
+				if (ReportThrottle.isReportQueueTimeout(e)) {
+					throw new ReportGenerationException(e.getMessage(), e, null);
+				}
 				if (isReportErrorLogConsoleEnabled()) e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/report/Report.java:1463");
 				try { if (myFile != null && myFile.exists() && myFile.length() == 0) myFile.delete(); } catch (Exception deleteError) { ais.common.ErrorAuditUtil.record(deleteError, "auto-audit(empty-catch) src/ais/action/report/Report.java:1464"); }
 				File detailFile = createReportErrorDetailFile(formatLaporan, fileD, namaAsli, e, parameters);
