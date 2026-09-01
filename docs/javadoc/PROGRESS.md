@@ -1,5 +1,22 @@
 # Progres Javadoc Menyeluruh
 
+## SEDANG BERJALAN (2 Sep 2026, jangan duplikasi — cek svn log dulu)
+
+4 agent paralel sedang mengerjakan (masing-masing 1 file besar, TIDAK dipecah
+antar-file agar tidak bentrok SVN pada file yang sama):
+- `ais/database/model/GeneralValueObject.java` — base class utk **1.456 subclass**
+  (leverage tertinggi yang pernah ditemukan; DAO layer `GenericHibernateDao` +
+  286 `*DaoImpl` TERNYATA SUDAH terdokumentasi baik dari sesi/inisiatif SEBELUM
+  proyek ini, tidak perlu disentuh — cek dulu sebelum menganggap suatu paket
+  "belum digarap").
+- `ais/database/model/Mahasiswa.java` (6403 baris, ~418 method, cuma 15 javadoc)
+- `ais/database/model/Dosen.java` (3742 baris, ~238 method, cuma 6 javadoc)
+- `ais/database/model/Perkuliahan.java` (3537 baris, ~300 method, cuma 4 javadoc)
+
+Hasil akan dicatat begitu masing-masing selesai (mungkin tidak 100% dalam satu
+sesi mengingat ukurannya — agent diinstruksikan commit bertahap per rentang
+method, bukan 1 commit raksasa, jadi progres SEBAGIAN pun aman tersimpan).
+
 Format tiap baris: `- [status] path/File.java — catatan singkat (revisi svn, tanggal)`
 
 Status: `[referensi]` = class induk/pola sudah didokumentasikan sangat detail (jadi
