@@ -3417,6 +3417,24 @@ public class TugasKelompokHelper implements DataLoader {
 			});
 			button.setParent(toolbar);
 
+			if (RecoveryAktivitasPembelajaranHelper.bolehTampil(tbmuser)) {
+				button = new MyToolbarbutton("fa-history", "Recovery");
+				button.setTooltiptext("Kembalikan tugas kelompok yang terhapus");
+				button.addEventListener("onClick", new EventListener() {
+					@Override
+					public void onEvent(Event event) throws Exception {
+						RecoveryAktivitasPembelajaranHelper.bukaRecoveryTugasKelompok(
+								perkuliahan != null ? perkuliahan : jadwalPelajaran, new EventListener() {
+									@Override
+									public void onEvent(Event callbackEvent) throws Exception {
+										display(perkuliahan, kelompokKkn, kelompokPkl, jadwalPelajaran, component);
+									}
+								});
+					}
+				});
+				button.setParent(toolbar);
+			}
+
 			grid = new MyGrid();// grid.setOddRowSclass("non-odd");
 			grid.setWidth("100%");
 			grid.setMold("paging");
@@ -3494,6 +3512,24 @@ public class TugasKelompokHelper implements DataLoader {
 				}
 			});
 			button.setParent(toolbar);
+
+			if (RecoveryAktivitasPembelajaranHelper.bolehTampil(tbmuser)) {
+				button = new MyToolbarbutton("fa-history", "Recovery");
+				button.setTooltiptext("Kembalikan tugas kelompok yang terhapus");
+				button.addEventListener("onClick", new EventListener() {
+					@Override
+					public void onEvent(Event event) throws Exception {
+						RecoveryAktivitasPembelajaranHelper.bukaRecoveryTugasKelompok(
+								perkuliahan != null ? perkuliahan : jadwalPelajaran, new EventListener() {
+									@Override
+									public void onEvent(Event callbackEvent) throws Exception {
+										display(perkuliahan, kelompokKkn, kelompokPkl, jadwalPelajaran, component);
+									}
+								});
+					}
+				});
+				button.setParent(toolbar);
+			}
 
 		}
 

@@ -164,38 +164,19 @@ public class RekapitulasiTugasHelper {
 		});
 		refresh.setParent(hbox);
 
-		// Tombol "Recovery" (permintaan user): buka riwayat SEMUA tugas (Envers) pada pembelajaran
-		// (VoPembelajaran) yang SAMA + tombol KEMBALIKAN untuk memulihkan tugas yang terhapus/berubah.
-		// Difilter ke perkuliahan / jadwalPelajaran sesuai VOPembelajaran. Hanya untuk pengelola
-		// (dosen/admin), bukan mahasiswa/siswa.
-		boolean bolehKelolaRec = tbmuser != null && tbmuser.getMahasiswa() == null
-				&& tbmuser.getBiodataCalonMahasiswa() == null && tbmuser.getSiswa() == null
-				&& tbmuser.getCalonSiswa() == null;
-		if (bolehKelolaRec) {
+		if (RecoveryAktivitasPembelajaranHelper.bolehTampil(tbmuser)) {
 			MyToolbarbuttonConfig recovery = new MyToolbarbuttonConfig("Recovery", "/img/jadwal.png");
-			recovery.setTooltiptext(
-					"Riwayat semua tugas pada pembelajaran ini — kembalikan/pulihkan tugas yang terhapus atau berubah.");
+			recovery.setTooltiptext("Kembalikan tugas utama maupun tugas tambahan yang terhapus.");
 			recovery.addEventListener("onClick", new EventListener() {
 				@Override
 				public void onEvent(Event event) throws Exception {
-					try {
-						String prop = null;
-						Object val = null;
-						if (perkuliahan instanceof Perkuliahan) {
-							prop = "perkuliahan";
-							val = perkuliahan;
-						} else if (perkuliahan instanceof JadwalPelajaran) {
-							prop = "jadwalPelajaran";
-							val = perkuliahan;
+					RecoveryAktivitasPembelajaranHelper.bukaRecoveryTugas(perkuliahan, new EventListener() {
+						@Override
+						public void onEvent(Event callbackEvent) throws Exception {
+							reload(tbmuser, center, mulai.getValue(), sampai.getValue(), cari.getValue().trim(),
+									true, true, perkuliahan);
 						}
-						RevisiTugasHelper rh = new RevisiTugasHelper(Pertemuan.class, prop, val, null);
-						org.zkoss.zk.ui.sys.ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot()
-								.appendChild(rh);
-						rh.setVisible(true);
-						rh.onModal();
-					} catch (Exception e) {
-						Common.tampilErrorJikaAdmin(e);
-					}
+					});
 				}
 			});
 			recovery.setParent(hbox);

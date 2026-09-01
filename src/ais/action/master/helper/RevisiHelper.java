@@ -27,18 +27,76 @@ import ais.database.model.Tbmuser;
 import ais.ui.util.MyMessageboxConfig;
 
 /**
- * Helper revisi umum. Implementasi detail dipusatkan di GenericRevisiHelper.
+ * Subclass generik-lepas dari {@link ais.action.master.helper.GenericRevisiHelper} yang berfungsi
+ * ganda sebagai (1) cara cepat membuka window riwayat revisi untuk SATU ID entity apa pun (lewat
+ * konstruktor yang membangun {@link GenericRevisiHelper.EntityIdFilter} secara otomatis dari
+ * {@code Class} + id/entity yang diberikan — tanpa perlu subclass khusus per entity), dan (2)
+ * kumpulan method static utilitas UI/data seputar fitur "lihat riwayat revisi" yang dipakai luas
+ * dari banyak Action/layar lain di codebase (tombol/link "Revisi", cek hak akses, dan update satu
+ * property data aktif langsung tanpa lewat window revisi penuh). Lihat Javadoc
+ * {@link GenericRevisiHelper} untuk penjelasan lengkap arsitektur window, alur Envers, dan fitur
+ * restore — class ini tidak menambah tab/fitur baru pada window, hanya menyediakan jalur
+ * pembuatan yang lebih generik daripada subclass {@code Revisi*Helper} lain (yang masing-masing
+ * terikat pada satu entity) serta beberapa utilitas independen.
+ *
+ * <p>Dua konstruktor tersedia: yang pertama untuk pemakaian terprogram biasa (tanpa border/closable
+ * kustom, tanpa dipasang ke komponen ZK apa pun); yang kedua dipakai oleh
+ * {@link #createNewRevisi(Class, GeneralValueObject, Long, String, String)} untuk membangun window
+ * yang otomatis muncul modal saat komponen {@link A} (link) tertentu diklik.
+ *
+ * <p><b>Utilitas static penting:</b>
+ * <ul>
+ *   <li>{@link #createNewRevisi(Class, GeneralValueObject, String)} (dan overload-nya) — membangun
+ *       {@link Vbox} berisi link "Revisi" yang membuka window {@link RevisiHelper} modal saat
+ *       diklik; bila pengguna tidak punya hak akses (lihat {@link #bolehLihatRevisi()}), yang
+ *       ditampilkan hanya {@link Label} biasa tanpa link.</li>
+ *   <li>{@link #bolehLihatRevisi()} — mengecek hak akses lihat revisi lewat konfigurasi
+ *       {@code boleh_lihat_revisi} (daftar role/user id dipisah koma, default {@code "am,amp"}).</li>
+ *   <li>{@link #updatePropertyAndSave(GeneralValueObject, ClassMetadata, String, Object)} — menulis
+ *       satu nilai property langsung ke data AKTIF (bukan riwayat revisi) dalam transaksi Hibernate
+ *       tersendiri, dipakai oleh window "Edit" pada {@link GenericRevisiHelper} untuk fitur
+ *       "Pakai"/edit manual satu kolom.</li>
+ * </ul>
  */
 @SuppressWarnings({ "rawtypes" })
 public class RevisiHelper extends GenericRevisiHelper {
 
     private static final long serialVersionUID = 6589578552710016753L;
 
+    /**
+     * Membuka window riwayat revisi untuk satu entity, tanpa kustomisasi border/closable dan tanpa
+     * dipasang otomatis ke komponen ZK manapun (pemanggil bertanggung jawab menambahkannya ke
+     * halaman, mis. lewat {@code appendChild}).
+     *
+     * @param myClass class entity Hibernate yang diaudit
+     * @param serializable id entity secara langsung, atau instance {@link GeneralValueObject} yang
+     *                     id-nya diambil otomatis lewat {@link #resolveId(Serializable)}; boleh
+     *                     {@code null} untuk menampilkan riwayat SEMUA id (tanpa
+     *                     {@link GenericRevisiHelper.EntityIdFilter})
+     * @throws Exception diteruskan apa adanya dari konstruktor {@link GenericRevisiHelper}
+     */
     public RevisiHelper(Class<?> myClass, Serializable serializable) throws Exception {
         super(myClass, buildTitle(myClass, null), null, null,
                 serializable == null ? null : new GenericRevisiHelper.EntityIdFilter(resolveId(serializable)));
     }
 
+    /**
+     * Membuka window riwayat revisi untuk satu entity dan langsung memasang listener klik pada
+     * komponen {@link A} (link) {@code a} agar window ditampilkan modal ({@link #tampilkanModal})
+     * saat link diklik. Dipakai oleh {@link #createNewRevisi(Class, GeneralValueObject, Long,
+     * String, String)}.
+     *
+     * @param a komponen link yang saat diklik akan menampilkan window ini secara modal; boleh
+     *          {@code null} (tidak ada listener yang dipasang)
+     * @param myClass class entity Hibernate yang diaudit
+     * @param serializable id entity atau {@link GeneralValueObject} sumber id, lihat
+     *                     {@link #RevisiHelper(Class, Serializable)}
+     * @param title judul tambahan yang digabung dengan nama class (lihat {@link #buildTitle});
+     *              bila kosong dipakai "Riwayat Revisi Data"
+     * @param border nilai CSS class border ZK; bila {@code null} dipakai {@code "normal"}
+     * @param closable apakah window bisa ditutup pengguna (tombol close ditampilkan)
+     * @throws Exception diteruskan apa adanya dari konstruktor {@link GenericRevisiHelper}
+     */
     public RevisiHelper(A a, Class<?> myClass, Serializable serializable, String title, String border, boolean closable)
             throws Exception {
         super(myClass, buildTitle(myClass, title), null, null,
@@ -55,6 +113,11 @@ public class RevisiHelper extends GenericRevisiHelper {
     }
 
 
+    /**
+     * Membentuk judul window: {@code title} (atau "Riwayat Revisi Data" bila kosong) digabung
+     * dengan nama lengkap {@code myClass} (mis. {@code "ais.database.model.Mahasiswa"}) bila
+     * tersedia. Kegagalan mengambil nama class ditelan dan judul dasar tetap dikembalikan.
+     */
     private static String buildTitle(Class<?> myClass, String title) {
         String base = title == null || title.trim().length() == 0 ? "Riwayat Revisi Data" : title.trim();
         try {
@@ -66,6 +129,12 @@ public class RevisiHelper extends GenericRevisiHelper {
         return base;
     }
 
+    /**
+     * Mengambil id dari {@code serializable}: bila berupa {@link GeneralValueObject}, dikembalikan
+     * {@link GeneralValueObject#getId()}-nya; selain itu {@code serializable} itu sendiri dianggap
+     * sudah berupa id dan dikembalikan apa adanya. Kegagalan ditelan dan {@code serializable}
+     * dikembalikan sebagai fallback.
+     */
     private static Serializable resolveId(Serializable serializable) {
         try {
             if (serializable instanceof GeneralValueObject) {
@@ -76,20 +145,48 @@ public class RevisiHelper extends GenericRevisiHelper {
         return serializable;
     }
 
+    /** Lihat {@link #createNewRevisi(Class, GeneralValueObject, Long, String, String)} (tanpa {@code refIdLagi}/{@code style}). */
     public static Vbox createNewRevisi(final Class class1, GeneralValueObject generalValueObject, String label) {
         return createNewRevisi(class1, generalValueObject, null, label, null);
     }
 
+    /** Lihat {@link #createNewRevisi(Class, GeneralValueObject, Long, String, String)} (tanpa {@code refIdLagi}). */
     public static Vbox createNewRevisi(final Class class1, GeneralValueObject generalValueObject, String label,
             String style) {
         return createNewRevisi(class1, generalValueObject, null, label, style);
     }
 
+    /** Lihat {@link #createNewRevisi(Class, GeneralValueObject, Long, String, String)} (tanpa {@code style} kustom). */
     public static Vbox createNewRevisi(final Class class1, GeneralValueObject generalValueObject, Long refIdLagi,
             String label) {
         return createNewRevisi(class1, generalValueObject, refIdLagi, label, null);
     }
 
+    /**
+     * Membangun {@link Vbox} berisi tombol/link "Revisi" siap tempel ke halaman ZK mana pun. Bila
+     * {@link #bolehLihatRevisi()} bernilai {@code false}, isi {@link Vbox} hanya {@link Label} teks
+     * biasa (bukan link, tidak bisa diklik) — mencegah pengguna tanpa hak akses membuka window
+     * revisi. Bila boleh, dibangun komponen {@link A} bergaya tombol kecil yang saat diklik:
+     * memvalidasi {@code generalValueObject} sudah tersimpan (punya id, jika belum menampilkan
+     * pesan lewat {@code MyMessageboxConfig}), lalu membuka {@link RevisiHelper} baru secara modal
+     * ({@link #tampilkanModal}) dengan id yang dipakai adalah {@code refIdLagi} bila diberikan,
+     * atau id {@code generalValueObject} sendiri.
+     *
+     * <p>Kegagalan tak terduga di seluruh proses ditangkap dan ditampilkan lewat
+     * {@code PesanFormalHelper.tampilkanGagalException}, dengan {@link Vbox} kosong dikembalikan
+     * sebagai fallback aman.
+     *
+     * @param class1 class entity Hibernate yang diaudit saat link diklik
+     * @param generalValueObject data yang sedang ditampilkan/diedit di layar pemanggil; sumber id
+     *                           default serta syarat "sudah tersimpan" sebelum window dibuka
+     * @param refIdLagi id alternatif untuk dipakai sebagai filter revisi, menggantikan id
+     *                  {@code generalValueObject}; boleh {@code null} untuk memakai id
+     *                  {@code generalValueObject} apa adanya (kasus umum: entity yang diaudit
+     *                  berbeda dari entity yang sedang ditampilkan, tapi berbagi id yang sama)
+     * @param label teks tombol/link; bila kosong dipakai "Revisi"
+     * @param style CSS style {@link Vbox} pembungkus; bila kosong dipakai {@code "max-width:100%;"}
+     * @return {@link Vbox} berisi link/label revisi, siap ditambahkan sebagai child komponen ZK lain
+     */
     public static Vbox createNewRevisi(final Class class1, final GeneralValueObject generalValueObject,
             final Long refIdLagi, String label, String style) {
 
@@ -177,6 +274,13 @@ public class RevisiHelper extends GenericRevisiHelper {
         return vbox;
     }
 
+    /**
+     * Mengecek apakah pengguna saat ini berhak melihat window riwayat revisi, berdasarkan
+     * konfigurasi {@code boleh_lihat_revisi} (daftar role id dan/atau user id dipisah koma,
+     * default {@code "am,amp"} bila konfigurasi belum ada/gagal dibaca). Cocok bila role ATAU
+     * user id pengguna saat ini ada dalam daftar (lihat {@link #containsToken(String, String)}).
+     * Daftar kosong berarti tidak ada yang boleh melihat revisi.
+     */
     private static boolean bolehLihatRevisi() {
         String daftar = "am,amp";
         try {
@@ -204,6 +308,11 @@ public class RevisiHelper extends GenericRevisiHelper {
         return containsToken(daftar, roleId) || containsToken(daftar, userId);
     }
 
+    /**
+     * Mengecek apakah {@code value} (setelah di-trim) muncul sebagai salah satu token dalam
+     * {@code csv} (dipisah koma), perbandingan case-insensitive. Dipakai oleh
+     * {@link #bolehLihatRevisi()} untuk mencocokkan role id/user id terhadap daftar konfigurasi.
+     */
     private static boolean containsToken(String csv, String value) {
         if (csv == null || value == null) {
             return false;
@@ -222,6 +331,13 @@ public class RevisiHelper extends GenericRevisiHelper {
         return false;
     }
 
+    /**
+     * Menampilkan {@code helper} sebagai window modal: bila belum punya parent/page, dicari root
+     * component halaman saat ini (lewat {@code ExecutionsCtrl}, atau sebagai fallback lewat
+     * {@code event.getTarget().getPage()}) untuk ditempeli window ini; bila root tidak ditemukan
+     * sama sekali, ditampilkan pesan kegagalan dan window tidak jadi tampil. Setelah terpasang,
+     * window dibuat visible dan {@code onModal()} dipanggil.
+     */
     private static void tampilkanModal(RevisiHelper helper, Event event) throws Exception {
         if (helper == null) {
             return;
@@ -260,6 +376,19 @@ public class RevisiHelper extends GenericRevisiHelper {
         helper.onModal();
     }
 
+    /**
+     * Utilitas legacy: mengosongkan {@code detail} lalu menambahkan satu baris info berisi
+     * label "Tanggal revisi: &lt;tanggal&gt; oleh &lt;olehId&gt;" ke dalam {@code rows}, kemudian
+     * memasang {@code rows} sebagai isi {@code detail}. {@code currentObj} tidak dipakai langsung
+     * di badan method saat ini (diteruskan untuk kompatibilitas signature/pemanggil lama).
+     * Kegagalan ditelan dan ditampilkan lewat {@code Common.tampilErrorJikaAdmin} bila memungkinkan.
+     *
+     * @param detail komponen {@link MyDetail} yang akan diisi ulang; no-op bila {@code null}
+     * @param rows baris ZK tujuan; no-op bila {@code null}
+     * @param tanggal tanggal revisi yang ditampilkan, boleh {@code null} (dicetak kosong)
+     * @param olehId id pengguna yang melakukan revisi, boleh {@code null} (dicetak kosong)
+     * @param currentObj data terkait, saat ini tidak dipakai di badan method
+     */
     @SuppressWarnings("deprecation")
 	public static void tampilDetail(final MyDetail detail, Rows rows, final java.util.Date tanggal, final String olehId,
             final GeneralValueObject currentObj) {
@@ -280,6 +409,27 @@ public class RevisiHelper extends GenericRevisiHelper {
         }
     }
 
+    /**
+     * Menulis satu nilai property langsung ke data AKTIF di database (BUKAN ke riwayat revisi),
+     * dalam transaksi Hibernate tersendiri yang dibuka dan ditutup sendiri oleh method ini (session
+     * lokal, pola {@code openSession()} + {@code finally clear/disconnect/close} yang sama dengan
+     * {@link GenericRevisiHelper}). Entity dimuat ulang lewat {@code session.get} berdasarkan
+     * {@code obj.getId()} sebelum property-nya diubah lewat {@link ClassMetadata#setPropertyValue}
+     * — memastikan perubahan diterapkan pada state terkini, bukan pada instance {@code obj} yang
+     * mungkin sudah detached. Dipakai oleh fitur "Pakai"/edit manual satu kolom pada window
+     * {@link GenericRevisiHelper} (lihat {@code restoreOneProperty}/{@code saveManualPropertyValue}
+     * di kelas induk).
+     *
+     * <p>Bila {@code obj}, id-nya, {@code meta}, atau {@code prop} {@code null}, method langsung
+     * kembali tanpa melakukan apa pun. Kegagalan menyebabkan transaksi di-rollback dan pesan error
+     * ditampilkan lewat {@code Common.tampilErrorJikaAdmin}; exception tidak dilempar ke pemanggil.
+     *
+     * @param obj entity yang property-nya akan diubah (dipakai untuk class dan id, bukan instance
+     *            yang langsung disimpan)
+     * @param meta metadata Hibernate entity tersebut, dipakai untuk {@code setPropertyValue}
+     * @param prop nama property yang diubah
+     * @param newVal nilai baru untuk property tersebut
+     */
     public static void updatePropertyAndSave(GeneralValueObject obj, ClassMetadata meta, String prop, Object newVal) {
         Session session = null;
         Transaction tx = null;

@@ -26,12 +26,12 @@ import ais.database.model.ipaymu.IpaymuResponse;
  * {@link IPayMuResponse#prosesResponse(IpaymuResponse)} (mis. pelunasan tagihan terkait).
  *
  * <p>
- * <b>Peringatan keamanan</b> — bila konfigurasi {@code ipaymu_key} belum diisi di database,
- * method {@link #run()} memakai API key iPaymu <b>hardcode</b> sebagai nilai default/fallback:
- * lihat literal string pada baris pemanggilan {@code Common.getKonfigurasi("ipaymu_key", ...)}.
- * Kredensial tertanam ini TIDAK diubah/dihapus di sini sesuai batasan tugas dokumentasi — namun
- * perlu ditinjau ulang oleh tim terkait (idealnya key hanya berasal dari konfigurasi/vault, tanpa
- * default tertanam di kode sumber).
+ * <b>DIPERBAIKI 2026-09-01</b> — {@link #run()} sebelumnya memakai API key iPaymu hardcoded
+ * sebagai nilai default/fallback bila konfigurasi {@code ipaymu_key} belum diisi di database
+ * (nilai yang sama dengan default lama {@code ais.common.IpaymuCommon}, sudah diperbaiki
+ * terpisah). Default itu sudah dihapus (kini string kosong). Key lama yang sebelumnya tertanam
+ * sudah lama berada di riwayat SVN dan WAJIB dianggap bocor — perlu dirotasi di sisi iPaymu bila
+ * masih aktif di produksi.
  * </p>
  */
 public class IpaymuBackandProsess extends TimerTask {
@@ -71,7 +71,7 @@ public class IpaymuBackandProsess extends TimerTask {
 
 			String sqlRes = "this_.tanggal_dirubah > '" + Common.databaseDateFormat1.get().format(kemarin) + "'";
 
-			String key = Common.getKonfigurasi("ipaymu_key", "HZ2j4j8y112OHd2UVWH60QXfT04Pf1").getNilai();
+			String key = Common.getKonfigurasi("ipaymu_key", "").getNilai();
 			String urlCheck = Common
 					.getKonfigurasi("ipaymu_cek_transaksi_url", "https://my.ipaymu.com/api/CekTransaksi.php").getNilai()
 					+ "?key=" + key + "&format=json";

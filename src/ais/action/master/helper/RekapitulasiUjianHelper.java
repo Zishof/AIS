@@ -876,6 +876,24 @@ public class RekapitulasiUjianHelper {
 		});
 		refresh.setParent(hbox);
 
+		if (RecoveryAktivitasPembelajaranHelper.bolehTampil(tbmuser)) {
+			MyToolbarbuttonConfig recovery = new MyToolbarbuttonConfig("Recovery", "/img/jadwal.png");
+			recovery.setTooltiptext("Kembalikan ujian yang terhapus, termasuk relasi soal-soalnya.");
+			recovery.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					RecoveryAktivitasPembelajaranHelper.bukaRecoveryUjian(perkuliahan, new EventListener() {
+						@Override
+						public void onEvent(Event callbackEvent) throws Exception {
+							reload(tbmuser, center, mulai.getValue(), sampai.getValue(), cari.getValue().trim(),
+									true, true, perkuliahan);
+						}
+					});
+				}
+			});
+			recovery.setParent(hbox);
+		}
+
 		center.setParent(subVboxUtama);
 
 		EventListener eventListener = new EventListener() {

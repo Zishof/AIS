@@ -6,11 +6,15 @@ import ais.action.master.helper.GenericRevisiHelper;
 import ais.database.model.Pertemuan;
 
 /**
- * Jendela riwayat revisi (Hibernate Envers) khusus entitas {@link Pertemuan}. Kelas ini
- * hanya mengonfigurasi {@link GenericRevisiHelper} generik dengan entitas
- * {@code Pertemuan} dan kolom pencarian {@code topik}, {@code keterangan}, dan
- * {@code nilaiHuruf} — seluruh logika tampil, cari, bandingkan, dan restore revisi
- * diwarisi sepenuhnya dari kelas induk.
+ * Subclass tipis dari {@link ais.action.master.helper.GenericRevisiHelper} untuk entity
+ * {@link Pertemuan} — lihat Javadoc class tersebut untuk penjelasan lengkap arsitektur window,
+ * alur Envers, dan fitur restore. Kelas ini hanya mengonfigurasi {@link GenericRevisiHelper}
+ * generik dengan entitas {@code Pertemuan} dan kolom pencarian {@code topik},
+ * {@code keterangan}, dan {@code nilaiHuruf}; tidak ada {@link GenericRevisiHelper.QueryCustomizer}
+ * dan tidak ada override hook {@code afterRestoreInTransaction}. Berbeda dari
+ * {@link RevisiPertemuanHelper} (yang menyaring per {@link Perkuliahan}), class ini SELALU
+ * menampilkan riwayat SELURUH pertemuan tanpa penyaringan — seluruh logika tampil, cari,
+ * bandingkan, dan restore revisi diwarisi sepenuhnya dari kelas induk.
  */
 @SuppressWarnings({ "rawtypes", "unchecked" })
 public class RevisiHistoryPertemuanHelper extends GenericRevisiHelper<Pertemuan> {

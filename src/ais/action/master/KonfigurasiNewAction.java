@@ -6374,7 +6374,7 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 		createSpan("Integrasi iPaymu", rows);
 		rows.appendChild(createRowActiveDefault("Aktifkan Pembayaran via iPaymu ?", "aktifkan_pembayaran_via_ipaymu",
 				Konfigurasi.TIDAK_AKTIF));
-		rows.appendChild(createRowNilaiPassword("iPaymu key", "ipaymu_key", "HZ2j4j8y112OHd2UVWH60QXfT04Pf1"));
+		rows.appendChild(createRowNilaiPassword("iPaymu key", "ipaymu_key", ""));
 		rows.appendChild(createRowNilai("Gateway URL", "ipaymu_gateway_url", "https://my.ipaymu.com/payment.htm"));
 		rows.appendChild(
 				createRowNilai("Check URL", "ipaymu_cek_transaksi_url", "https://my.ipaymu.com/api/CekTransaksi.php"));
@@ -6639,7 +6639,7 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 		createSpan("Integrasi Doku", rows);
 		rows.appendChild(createRowActiveDefault("Aktifkan Pembayaran via Doku ?", "aktifkan_pembayaran_via_doku",
 				Konfigurasi.TIDAK_AKTIF));
-		rows.appendChild(createRowNilaiPassword("Shared Key", "doku_key", "w6Z2y3F2q5j6"));
+		rows.appendChild(createRowNilaiPassword("Shared Key", "doku_key", ""));
 		rows.appendChild(createRowNilai("Gateway URL", "doku_gateway_url",
 				"https://apps.myshortcart.com/payment/request-payment/"));
 		rows.appendChild(createRowNilai("Store ID", "doku_merchant_id", "10444535"));

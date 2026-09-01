@@ -1,6 +1,18 @@
 package ais.action.master.helper;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.TreeMap;
+
+import org.hibernate.Session;
+import org.hibernate.envers.query.AuditEntity;
+import org.hibernate.envers.query.AuditQuery;
 import org.zkoss.zk.ui.event.EventListener;
+
+import ais.database.model.Pertemuan;
+import ais.database.model.TugasKelompok;
+import ais.database.model.TugasPertemuan;
+import ais.database.model.VOPembelajaran;
 
 /**
  * Recovery / Riwayat Revisi Tugas (Envers) — reuse {@link GenericRevisiHelper} yang sudah menyediakan
@@ -25,11 +37,54 @@ public class RevisiTugasHelper extends GenericRevisiHelper {
 	private static final String[] SEARCH_PROPERTIES = new String[] { "judultugas" };
 
 	private static QueryCustomizer[] buildFilters(String property, Object value) {
-		java.util.List<QueryCustomizer> filters = new java.util.ArrayList<QueryCustomizer>();
+		List<QueryCustomizer> filters = new ArrayList<QueryCustomizer>();
 		if (property != null && property.trim().length() > 0 && value != null) {
 			filters.add(new GenericRevisiHelper.FixedPropertyFilter(property, value));
 		}
 		return filters.toArray(new QueryCustomizer[filters.size()]);
+	}
+
+	private static QueryCustomizer[] buildFilters(final Class kelas, final VOPembelajaran pembelajaran) {
+		List<QueryCustomizer> filters = new ArrayList<QueryCustomizer>();
+		if (pembelajaran == null) {
+			return filters.toArray(new QueryCustomizer[filters.size()]);
+		}
+
+		if (Pertemuan.class.equals(kelas)) {
+			String property = pembelajaran instanceof ais.database.model.Perkuliahan ? "perkuliahan"
+					: "jadwalPelajaran";
+			filters.add(new GenericRevisiHelper.FixedPropertyFilter(property, pembelajaran));
+		} else if (TugasKelompok.class.equals(kelas)) {
+			String property = pembelajaran instanceof ais.database.model.Perkuliahan ? "perkuliahan"
+					: "jadwalPelajaran";
+			filters.add(new GenericRevisiHelper.FixedPropertyFilter(property, pembelajaran));
+		} else if (TugasPertemuan.class.equals(kelas)) {
+			filters.add(new QueryCustomizer() {
+				@Override
+				public void apply(Session session, AuditQuery query) throws Exception {
+					Long[] ids = ambilIdPertemuan(pembelajaran);
+					if (ids.length == 0) {
+						query.add(AuditEntity.property("pertemuan").eq(Long.valueOf(-1L)));
+					} else {
+						query.add(AuditEntity.property("pertemuan").in(ids));
+					}
+				}
+			});
+		}
+		return filters.toArray(new QueryCustomizer[filters.size()]);
+	}
+
+	private static Long[] ambilIdPertemuan(VOPembelajaran pembelajaran) {
+		TreeMap<String, Long> data = pembelajaran == null ? null : pembelajaran.ambilPertemuan();
+		List<Long> ids = new ArrayList<Long>();
+		if (data != null) {
+			for (Long id : data.values()) {
+				if (id != null) {
+					ids.add(id);
+				}
+			}
+		}
+		return ids.toArray(new Long[ids.size()]);
 	}
 
 	/**
@@ -42,5 +97,12 @@ public class RevisiTugasHelper extends GenericRevisiHelper {
 			throws Exception {
 		super(kelas, "Recovery Tugas — riwayat & kembalikan", eventListener, SEARCH_PROPERTIES,
 				buildFilters(filterProperty, filterValue));
+	}
+
+	/** Membatasi recovery ke seluruh pertemuan milik satu pembelajaran. */
+	public RevisiTugasHelper(Class kelas, VOPembelajaran pembelajaran, EventListener eventListener)
+			throws Exception {
+		super(kelas, "Recovery Tugas — riwayat & kembalikan", eventListener, SEARCH_PROPERTIES,
+				buildFilters(kelas, pembelajaran));
 	}
 }

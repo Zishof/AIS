@@ -98,17 +98,14 @@ import ais.ui.util.MyMessageboxConfig;
  * </p>
  *
  * <p>
- * <b>PERINGATAN KEAMANAN:</b> method {@link #onSaveIpaymu} membaca kredensial integrasi iPaymu
- * dari konfigurasi database dengan NILAI DEFAULT yang ditulis langsung (hardcoded) di kode
- * sumber sebagai fallback: {@code ipaymu_key} (default
- * {@code "HZ2j4j8y112OHd2UVWH60QXfT04Pf1"}) — nilai ini setara dengan API key/secret merchant
- * iPaymu dan dikirim langsung sebagai parameter {@code key} pada setiap permintaan ke API
- * iPaymu. Bila nilai tersebut adalah key produksi sungguhan (bukan sekadar contoh), siapa pun
- * dengan akses baca kode sumber dapat memakai API key tersebut untuk memanggil API iPaymu atas
- * nama merchant ini. Javadoc ini TIDAK mengubah nilai tersebut sesuai instruksi; lihat
- * ringkasan laporan terkait untuk detail lokasi baris agar dapat ditindaklanjuti (mis. hapus
- * default hardcoded, pastikan konfigurasi selalu diisi lewat database/secret store, dan rotasi
- * key di sisi iPaymu bila memang bocor).
+ * <b>Riwayat keamanan (DIPERBAIKI 2026-09-01):</b> {@link #onSaveIpaymu} sebelumnya membaca
+ * {@code ipaymu_key} (API key/secret merchant iPaymu, dikirim langsung sebagai parameter
+ * {@code key} pada setiap permintaan ke API iPaymu) dengan nilai default rahasia tertulis
+ * langsung di kode sumber — nilai yang sama juga sebelumnya ditanam ulang di
+ * {@code ais.action.master.ipaymu.IpaymuBackandProsess}, sudah diperbaiki terpisah. Default itu
+ * sudah DIHAPUS (kini string kosong). <b>Tindak lanjut yang TETAP diperlukan di luar perubahan
+ * kode ini:</b> key yang sebelumnya tertanam sudah lama berada di riwayat SVN dan WAJIB dianggap
+ * bocor — perlu dirotasi di sisi iPaymu bila masih aktif di produksi.
  * </p>
  */
 public class IpaymuCommon {
@@ -463,7 +460,7 @@ public class IpaymuCommon {
 			add_info1 = biodataCalonMahasiswa.getNama() + "-" + biodataCalonMahasiswa.getNoRegistrasi();
 		}
 
-		String key = Common.getKonfigurasi("ipaymu_key", "HZ2j4j8y112OHd2UVWH60QXfT04Pf1").getNilai();
+		String key = Common.getKonfigurasi("ipaymu_key", "").getNilai();
 		Boolean langsung = Common.bolehKonfigurasi("ipaymu_langsung_menggunakan_virtual_account");
 
 		if (langsung) {

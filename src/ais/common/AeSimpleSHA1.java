@@ -93,18 +93,18 @@ public class AeSimpleSHA1 {
 
     /**
      * Titik masuk baris perintah untuk mendemonstrasikan/menguji manual perhitungan SHA-1 kelas
-     * ini. Menggabungkan sebuah nominal uang contoh ({@code "75000.00"}), sebuah string literal
-     * ({@code "w6Z2y3F2q5j6"}), dan kode enam digit ({@code "000001"}) menjadi satu string,
-     * menghitung SHA-1-nya lewat {@link #SHA1(String)}, lalu mencetak hasilnya ke konsol.
+     * ini. Menggabungkan sebuah nominal uang contoh ({@code "75000.00"}), shared key Doku uji
+     * (disuplai lewat properti sistem, lihat catatan keamanan di bawah), dan kode enam digit
+     * ({@code "000001"}) menjadi satu string, menghitung SHA-1-nya lewat {@link #SHA1(String)},
+     * lalu mencetak hasilnya ke konsol.
      *
      * <p>
-     * <b>Catatan keamanan:</b> string literal {@code "w6Z2y3F2q5j6"} pada baris ini menyerupai
-     * pola kunci/token rahasia (mis. secret key checksum payment gateway) yang tertanam langsung
-     * di kode sumber sebagai data contoh untuk pengujian manual lewat {@code main}. Method ini
-     * tidak dipanggil oleh kode aplikasi lain (hanya dapat dijalankan manual sebagai program
-     * mandiri), namun karena berpotensi berupa kredensial/kunci nyata yang ter-commit ke
-     * repositori, hal ini WAJIB dilaporkan sebagai temuan keamanan (lihat ringkasan akhir tugas
-     * dokumentasi ini) tanpa mengubah nilainya di sini.
+     * <b>DIPERBAIKI 2026-09-01:</b> string literal yang sebelumnya ada di sini adalah shared key
+     * Doku nyata ({@code doku_key} — CONFIRMED identik dengan default yang sebelumnya tertanam di
+     * {@code ais.common.DokuCommon}, sudah diperbaiki terpisah), bukan sekadar data contoh.
+     * Literal itu sudah dihapus — kunci uji kini WAJIB disuplai lewat properti sistem
+     * {@code -Daesimplesha1.testkey=...} saat method ini dijalankan manual. Method ini tidak
+     * dipanggil oleh kode aplikasi lain (hanya dapat dijalankan manual sebagai program mandiri).
      * </p>
      *
      * @param args argumen baris perintah (tidak dipakai)
@@ -115,7 +115,12 @@ public class AeSimpleSHA1 {
      */
     public static void main(String[] args) throws IOException, NoSuchAlgorithmException {
 
-        String WORDS = "75000.00" + "w6Z2y3F2q5j6" + "000001";
+        String testKey = System.getProperty("aesimplesha1.testkey", "");
+        if (testKey.trim().isEmpty()) {
+            System.out.println("Jalankan dengan -Daesimplesha1.testkey=...");
+            return;
+        }
+        String WORDS = "75000.00" + testKey + "000001";
         System.out.println("WORDS=>" + WORDS + " -> " + AeSimpleSHA1.SHA1(WORDS));
     }
 }

@@ -6,11 +6,17 @@ import ais.action.master.helper.GenericRevisiHelper;
 import ais.database.model.Detailperkuliahan;
 
 /**
- * Helper riwayat revisi untuk entitas {@link Detailperkuliahan} (baris nilai/detail perkuliahan
- * mahasiswa per matakuliah). Mengonfigurasi {@link GenericRevisiHelper} generik dengan kolom yang
- * dipantau perubahannya: {@code tahunAkademik}, {@code nilaiHuruf}, dan {@code keterangan} — tiga
- * kolom yang paling relevan untuk menelusuri riwayat perubahan nilai. Tidak ada
- * {@code EventListener} yang diteruskan (selalu {@code null}); seluruh logika ada pada kelas induk.
+ * Subclass tipis dari {@link ais.action.master.helper.GenericRevisiHelper} untuk entity
+ * {@link Detailperkuliahan} (baris nilai/detail perkuliahan mahasiswa per matakuliah) — lihat
+ * Javadoc class tersebut untuk penjelasan lengkap arsitektur window, alur Envers, dan fitur
+ * restore. Mengonfigurasi {@link GenericRevisiHelper} generik dengan kolom yang dipantau
+ * perubahannya: {@code tahunAkademik}, {@code nilaiHuruf}, dan {@code keterangan} — tiga kolom
+ * yang paling relevan untuk menelusuri riwayat perubahan nilai. Tidak ada {@code EventListener}
+ * yang diteruskan (selalu {@code null}), tidak ada {@link GenericRevisiHelper.QueryCustomizer}
+ * (tanpa penyaringan berdasarkan mahasiswa/perkuliahan tertentu — beda dengan
+ * {@link RevisiDetailPerkuliahanHelper}/{@link RevisiDetailPerkuliahanDariMahasiswaHelper} yang
+ * menyaring), dan tidak ada override hook {@code afterRestoreInTransaction}; seluruh logika ada
+ * pada kelas induk.
  */
 @SuppressWarnings({ "rawtypes", "unchecked" })
 public class RevisiHistoryDetailPerkuliahanHelper extends GenericRevisiHelper<Detailperkuliahan> {

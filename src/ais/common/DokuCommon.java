@@ -87,18 +87,18 @@ import ais.ui.util.MyMessageboxConfig;
  * </p>
  *
  * <p>
- * <b>PERINGATAN KEAMANAN:</b> method {@link #onSaveDoku} membaca kredensial integrasi Doku
- * dari konfigurasi database ({@code Common.getKonfigurasi}) dengan NILAI DEFAULT yang ditulis
- * langsung (hardcoded) di kode sumber sebagai fallback: {@code doku_key} (default
- * {@code "w6Z2y3F2q5j6"}, dipakai sebagai bagian dari perhitungan SHA1 tanda tangan transaksi
- * {@code WORDS} — nilai ini setara dengan shared-secret Doku) dan {@code doku_merchant_id}
- * (default {@code "10444535"}, id merchant Doku). Bila nilai-nilai tersebut adalah kredensial
- * merchant produksi sungguhan (bukan sekadar contoh), siapa pun dengan akses baca kode sumber
- * dapat menghitung ulang tanda tangan {@code WORDS} yang sah dan berpotensi memalsukan/mengubah
- * parameter transaksi yang dikirim ke Doku. Javadoc ini TIDAK mengubah nilai-nilai tersebut
- * sesuai instruksi; lihat ringkasan laporan terkait untuk detail lokasi baris agar dapat
- * ditindaklanjuti (mis. hapus default hardcoded, pastikan konfigurasi selalu diisi lewat
- * database/secret store, dan rotasi shared-secret di sisi Doku bila memang bocor).
+ * <b>Riwayat keamanan (DIPERBAIKI 2026-09-01):</b> method {@link #onSaveDoku} sebelumnya membaca
+ * {@code doku_key} (dipakai sebagai bagian dari perhitungan SHA1 tanda tangan transaksi
+ * {@code WORDS} — setara dengan shared-secret Doku; nilai yang sama sebelumnya juga ditanam
+ * ulang sebagai data uji di {@code ais.common.AeSimpleSHA1.main}, sudah diperbaiki terpisah)
+ * dengan nilai default rahasia tertulis langsung di kode sumber. Default itu sudah DIHAPUS (kini
+ * string kosong) — siapa pun yang sebelumnya membaca kode sumber dapat menghitung ulang tanda
+ * tangan {@code WORDS} yang sah dan berpotensi memalsukan/mengubah parameter transaksi yang
+ * dikirim ke Doku selama kredensial lama masih aktif. {@code doku_merchant_id} TETAP memiliki
+ * default ({@code "10444535"}) karena itu pengenal merchant, bukan rahasia kriptografis — tidak
+ * diubah pada perbaikan ini. <b>Tindak lanjut yang TETAP diperlukan di luar perubahan kode
+ * ini:</b> {@code doku_key} yang sebelumnya tertanam sudah lama berada di riwayat SVN dan WAJIB
+ * dianggap bocor — perlu dirotasi di sisi Doku bila masih aktif di produksi.
  * </p>
  */
 public class DokuCommon {
@@ -468,7 +468,7 @@ public class DokuCommon {
 			}
 		}
 
-		String key = Common.getKonfigurasi("doku_key", "w6Z2y3F2q5j6").getNilai();
+		String key = Common.getKonfigurasi("doku_key", "").getNilai();
 
 		String TRANSIDMERCHANT = Common.getGeneratedBarCode();
 		String STOREID = Common.getKonfigurasi("doku_merchant_id", "10444535").getNilai();
