@@ -20,19 +20,19 @@ import java.util.Properties;
  * kelas-kelas tersebut juga terverifikasi tidak pernah dipanggil dari bagian lain aplikasi.
  * </p>
  *
- * <h2>Peringatan keamanan — kredensial SMTP tertanam di kode sumber</h2>
+ * <h2>Riwayat keamanan — kredensial SMTP tertanam (DIPERBAIKI 2026-09-01)</h2>
  * <p>
- * <b>Field lokal {@code username} dan {@code password} pada {@link #main(String[])} berisi
- * kredensial nyata dalam bentuk teks polos, tertanam langsung di kode sumber (bukan dibaca dari
- * konfigurasi runtime):</b> alamat pengirim {@code noreply@uinbukittinggi.ac.id} dan sebuah
- * <i>App Password</i> Gmail 16 digit ({@code "rrkl xmjw wktw kyml"}, format spasi-per-4-karakter
- * khas App Password akun Google). App Password memberi akses kirim email penuh atas akun
- * tersebut hingga dicabut secara manual dari pengaturan keamanan akun Google terkait. Karena
- * berkas ini berada di working copy SVN dan berpotensi sudah ter-commit ke riwayat repositori,
- * kredensial ini WAJIB dianggap bocor dan sebaiknya SEGERA dicabut/diputar (revoke App Password
- * tersebut dari pengaturan akun Google {@code noreply@uinbukittinggi.ac.id}) oleh pemilik akun,
- * di luar cakupan tugas dokumentasi ini — dokumentasi ini TIDAK mengubah maupun menghapus nilai
- * kredensial tersebut dari kode.
+ * {@link #main(String[])} sebelumnya berisi kredensial Gmail nyata dalam bentuk teks polos
+ * tertanam langsung di kode: alamat pengirim {@code noreply@uinbukittinggi.ac.id} dan sebuah
+ * <i>App Password</i> Gmail 16 digit. Nilai literal itu sudah DIHAPUS — {@code username}/
+ * {@code password} kini WAJIB disuplai lewat properti sistem ({@code -Dkirimemailgmail.username=...
+ * -Dkirimemailgmail.password=...}) saat kelas ini dijalankan manual, dan {@code main} berhenti
+ * dengan pesan kesalahan bila salah satunya kosong. <b>Tindak lanjut yang TETAP diperlukan di
+ * luar perubahan kode ini:</b> App Password yang sebelumnya tertanam sudah lama berada di
+ * riwayat SVN dan WAJIB dianggap bocor — SEGERA dicabut/diputar dari pengaturan keamanan akun
+ * Google {@code noreply@uinbukittinggi.ac.id} oleh pemilik akun, terlepas dari perbaikan kode
+ * ini (App Password lama tetap valid sampai dicabut manual di sisi Google, tidak otomatis
+ * kedaluwarsa hanya karena dihapus dari kode).
  * </p>
  */
 public class KirimEmailGmail {
@@ -53,10 +53,15 @@ public class KirimEmailGmail {
      */
     public static void main(String[] args) {
 
-        // 1. Konfigurasi Akun Pengirim
-        final String username = "noreply@uinbukittinggi.ac.id";
-        // Password ini adalah App Password 16 digit yang Anda berikan
-        final String password = "rrkl xmjw wktw kyml";
+        // 1. Konfigurasi Akun Pengirim -- WAJIB disuplai lewat properti sistem, tidak ada
+        // default tertanam (lihat riwayat keamanan pada javadoc kelas).
+        final String username = System.getProperty("kirimemailgmail.username", "");
+        final String password = System.getProperty("kirimemailgmail.password", "");
+        if (username.trim().isEmpty() || password.trim().isEmpty()) {
+            System.out.println(
+                    "Kredensial belum diisi. Jalankan dengan -Dkirimemailgmail.username=... -Dkirimemailgmail.password=...");
+            return;
+        }
 
         // 2. Konfigurasi Email Penerima
         String emailPenerima = "email_tujuan@contoh.com"; // GANTI DENGAN EMAIL TUJUAN ASLI
