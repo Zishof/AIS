@@ -4311,6 +4311,31 @@ public class Perkuliahan extends VOPembelajaran {
 		return jumlah;
 	}
 
+	/**
+	 * Daftar {@link Mahasiswa} peserta kelas ini, terurut menurut urutan alami mahasiswa.
+	 *
+	 * <p>Alur bacanya berlapis dan khas seluruh keluarga {@code ambil*} di kelas ini:</p>
+	 * <ol>
+	 * <li>Untuk kelas paralel, seluruh pekerjaan DIDELEGASIKAN ke kelas induk.</li>
+	 * <li>Bila flag {@code detailperkulaiahan} belum terbangun, flag store dibangun ulang lebih
+	 * dulu lewat {@link #reInitDetailperkuliahan(Session)} pada session yang dibuka dan ditutup
+	 * sendiri.</li>
+	 * <li>Entri flag store dibaca satu per satu; rincian yang sudah ada di cache objek dipakai
+	 * langsung, sedangkan id yang belum ada dikumpulkan dan diambil dalam SATU query
+	 * {@code in (...)} - menghindari pola N+1.</li>
+	 * </ol>
+	 *
+	 * <p>Hanya peserta yang benar-benar menunjuk sebuah kelas (atau mata kuliah konversi) yang
+	 * diikutkan. Pengurutan memakai {@code Collections.sort} dan kegagalannya dianggap tidak fatal
+	 * (hanya dicatat), sehingga daftar tetap dikembalikan meski tidak terurut.</p>
+	 *
+	 * <p><b>Catatan nama flag:</b> kunci flag yang dipakai adalah {@code "detailperkulaiahan"}
+	 * (dengan salah ketik) - nilai itu HARUS dipertahankan persis karena sudah tertulis pada data
+	 * yang ada.</p>
+	 *
+	 * @return daftar mahasiswa peserta; kosong bila kelas belum berpeserta.
+	 * @see #ambilMahasiswaId(boolean)
+	 */
 	@SuppressWarnings("unchecked")
 	public List<Mahasiswa> ambilMahasiswa() {
 
@@ -4429,6 +4454,24 @@ public class Perkuliahan extends VOPembelajaran {
 		}
 	}
 
+	/**
+	 * Himpunan id mahasiswa peserta kelas ini - versi ringan {@link #ambilMahasiswa()} yang tidak
+	 * memuat objek mahasiswa lengkap.
+	 *
+	 * <p>Alur berlapisnya sama (delegasi kelas paralel, pembangunan ulang flag store bila perlu,
+	 * pemuatan borongan untuk id yang belum ter-cache), dengan dua perbedaan penting:</p>
+	 * <ul>
+	 * <li>Hasilnya {@link java.util.Set}, jadi id ganda otomatis luruh menjadi satu.</li>
+	 * <li>Query pemuatan borongan memakai {@link FlushMode#MANUAL}. Ini bukan optimasi melainkan
+	 * PENCEGAH REKURSI: method ini dapat terpanggil dari getter property Hibernate saat flush;
+	 * tanpa {@code MANUAL}, eksekusi query memicu autoFlush, flush memanggil getter itu lagi, dan
+	 * seterusnya sampai {@code StackOverflowError}.</li>
+	 * </ul>
+	 *
+	 * @param refresh {@code true} untuk memaksa pembangunan ulang flag store meski flagnya sudah
+	 *                ada.
+	 * @return himpunan id mahasiswa peserta.
+	 */
 	@SuppressWarnings("unchecked")
 	public Collection<Long> ambilMahasiswaId(boolean refresh) {
 
@@ -4514,6 +4557,15 @@ public class Perkuliahan extends VOPembelajaran {
 		return detailperkuliahansTemp;
 	}
 
+	/**
+	 * Id baris peserta yang KRS-nya sudah DISETUJUI saja.
+	 *
+	 * <p>Menyaring hasil {@link #ambilDetailperkuliahan()} terhadap
+	 * {@code Detailperkuliahan.DISETUJUI}. Dipakai jalur-jalur yang hanya boleh memperhitungkan
+	 * peserta sah, mis. pembangkitan daftar hadir dan rekap nilai.</p>
+	 *
+	 * @return koleksi id {@link Detailperkuliahan} yang sudah disetujui.
+	 */
 	public Collection<Long> ambilDetailperkuliahanDisetujui() {
 		Collection<Long> detailperkuliahansBaru = new ArrayList<Long>();
 		Collection<Long> detailperkuliahans = ambilDetailperkuliahan();
@@ -4530,23 +4582,102 @@ public class Perkuliahan extends VOPembelajaran {
 		return detailperkuliahansBaru;
 	}
 
+	/**
+	 * Varian {@link #ambilDetailperkuliahan(String, String, String, boolean, boolean, boolean)}
+	 * tanpa penyaringan, dengan kendali penuh atas penyegaran dan penyimpanan jumlah mahasiswa.
+	 *
+	 * @param refresh       {@code true} untuk membangun ulang flag store peserta lebih dulu.
+	 * @param simpanJmlMhs  {@code true} untuk MENYIMPAN jumlah peserta hasil hitungan ke kolom
+	 *                      {@code jumlah_mahasiswa} (menulis ke basis data).
+	 * @return koleksi id peserta.
+	 */
 	public Collection<Long> ambilDetailperkuliahan(boolean refresh, boolean simpanJmlMhs) {
 		return ambilDetailperkuliahan(null, null, null, false, refresh, simpanJmlMhs);
 	}
 
+	/**
+	 * Seluruh id baris peserta kelas ini, tanpa penyaringan dan tanpa penyegaran paksa.
+	 *
+	 * <p>Bentuk terpendek dan paling sering dipakai dari keluarga {@code ambilDetailperkuliahan}.</p>
+	 *
+	 * @return koleksi id {@link Detailperkuliahan}, terurut menurut NIM.
+	 * @see #ambilDetailperkuliahan(String, String, String, boolean, boolean, boolean)
+	 */
 	public Collection<Long> ambilDetailperkuliahan() {
 		return ambilDetailperkuliahan(null, null, null, false, false);
 	}
 
+	/**
+	 * Id baris peserta yang cocok dengan kata kunci pencarian.
+	 *
+	 * @param nim       potongan NIM yang dicari; kosongkan untuk tidak menyaring.
+	 * @param nama      potongan nama yang dicari; kosongkan untuk tidak menyaring.
+	 * @param hanyaNama kata kunci tunggal yang dicocokkan ke NIM ATAU nama; bila diisi, dua
+	 *                  parameter sebelumnya diabaikan.
+	 * @return koleksi id peserta yang cocok, terurut menurut NIM.
+	 */
 	public Collection<Long> ambilDetailperkuliahan(String nim, String nama, String hanyaNama) {
 		return ambilDetailperkuliahan(nim, nama, hanyaNama, false, false);
 	}
 
+	/**
+	 * Id baris peserta dengan penyaringan, pilihan pengurutan, dan pilihan penyegaran - tanpa
+	 * menyimpan jumlah mahasiswa.
+	 *
+	 * @param nim                    potongan NIM yang dicari; kosongkan untuk tidak menyaring.
+	 * @param nama                   potongan nama yang dicari; kosongkan untuk tidak menyaring.
+	 * @param hanyaNama              kata kunci tunggal untuk NIM atau nama.
+	 * @param urutkanBerdasarkanNama {@code true} untuk mengurutkan menurut nama (lalu NIM),
+	 *                               {@code false} menurut NIM saja.
+	 * @param refresh                {@code true} untuk membangun ulang flag store lebih dulu.
+	 * @return koleksi id peserta yang cocok.
+	 */
 	public Collection<Long> ambilDetailperkuliahan(String nim, String nama, String hanyaNama,
 			boolean urutkanBerdasarkanNama, boolean refresh) {
 		return ambilDetailperkuliahan(nim, nama, hanyaNama, urutkanBerdasarkanNama, refresh, false);
 	}
 
+	/**
+	 * Implementasi utama pembacaan daftar peserta kelas - seluruh overload
+	 * {@code ambilDetailperkuliahan} bermuara ke sini.
+	 *
+	 * <p>Tahapannya:</p>
+	 * <ol>
+	 * <li><b>Delegasi paralel.</b> Bila kelas ini paralel, pekerjaan dialihkan ke kelas induk.
+	 * Perhatikan bahwa pemanggilan ulang itu TIDAK meneruskan {@code simpanJmlMhs}, sehingga kelas
+	 * paralel tidak pernah menyimpan jumlah mahasiswanya lewat jalur ini - itulah sebabnya
+	 * {@link #singkronkan(Session)} menambalnya pada langkah terpisah.</li>
+	 * <li><b>Pembangunan ulang flag store</b> bila flag {@code detailperkulaiahan} belum ada atau
+	 * {@code refresh} diminta.</li>
+	 * <li><b>Pembacaan entri flag store</b>, dengan id yang belum ter-cache dimuat borongan dalam
+	 * satu query ber-{@link FlushMode#MANUAL} (pencegah rekursi autoFlush, lihat
+	 * {@link #ambilMahasiswaId(boolean)}).</li>
+	 * <li><b>Penyaringan dan pengurutan</b> lewat {@link java.util.TreeMap} berkunci NIM, atau
+	 * nama+NIM bila {@code urutkanBerdasarkanNama} aktif; kunci map inilah yang menghasilkan urutan
+	 * sekaligus meluruhkan duplikat.</li>
+	 * <li><b>Penyimpanan/penyembuhan jumlah mahasiswa.</b> Bila {@code simpanJmlMhs} aktif, hasil
+	 * hitungan disimpan lewat {@link #reInitJumlahMhs(int)}. Bila tidak, dan hasilnya KOSONG
+	 * padahal kolom {@code jumlah_mahasiswa} mencatat ada peserta, method memanggil dirinya sendiri
+	 * SEKALI dengan {@code refresh=true, simpanJmlMhs=true} - mekanisme penyembuhan otomatis saat
+	 * flag store hilang atau rusak. Karena panggilan ulang itu selalu menyimpan jumlah, rekursinya
+	 * berhenti pada percobaan kedua.</li>
+	 * </ol>
+	 *
+	 * <p><b>Efek samping:</b> menulis berkas flag store, dapat menulis kolom
+	 * {@code jumlah_mahasiswa}, membuka/menutup session sendiri, memasukkan objek ke cache, dan
+	 * memanggil {@code detailperkuliahan.setPerkuliahan(this)} pada tiap baris agar rincian peserta
+	 * menunjuk balik ke kelas yang sedang dibaca.</p>
+	 *
+	 * @param nim                    potongan NIM yang dicari; kosongkan untuk tidak menyaring.
+	 * @param nama                   potongan nama yang dicari; kosongkan untuk tidak menyaring.
+	 * @param hanyaNama              kata kunci tunggal untuk NIM atau nama; bila diisi, dua
+	 *                               parameter sebelumnya diabaikan.
+	 * @param urutkanBerdasarkanNama {@code true} untuk mengurutkan menurut nama, {@code false}
+	 *                               menurut NIM.
+	 * @param refresh                {@code true} untuk membangun ulang flag store lebih dulu.
+	 * @param simpanJmlMhs           {@code true} untuk menyimpan jumlah peserta ke kolom.
+	 * @return koleksi id peserta yang cocok, sudah terurut.
+	 */
 	@SuppressWarnings("unchecked")
 	public Collection<Long> ambilDetailperkuliahan(String nim, String nama, String hanyaNama,
 			boolean urutkanBerdasarkanNama, boolean refresh, boolean simpanJmlMhs) {
@@ -4703,6 +4834,21 @@ public class Perkuliahan extends VOPembelajaran {
 		return maps.values();
 	}
 
+	/**
+	 * Menyimpan jumlah peserta kelas ke kolom {@code jumlah_mahasiswa}.
+	 *
+	 * <p>Baris TIDAK di-{@code refresh} langsung dari objek yang mungkin sudah lepas dari session:
+	 * cache lama masih bisa memuat id perkuliahan yang barisnya telah dihapus, dan
+	 * {@code refresh()} atas id semacam itu melempar {@code UnresolvableObjectException}. Karena
+	 * itu baris diambil ulang dengan {@code session.get(...)}; bila memang sudah tidak ada, entri
+	 * cache dibuang lewat {@code EntityIdentityMap.evict(...)} dan proses berhenti dengan
+	 * normal.</p>
+	 *
+	 * <p><b>Efek samping:</b> membuka session dan transaksi sendiri, lalu MENULIS ke basis data.
+	 * Kegagalan hanya dicatat.</p>
+	 *
+	 * @param size jumlah peserta yang akan disimpan.
+	 */
 	public void reInitJumlahMhs(int size) {
 		Session session = null;
 		try {
@@ -4734,6 +4880,16 @@ public class Perkuliahan extends VOPembelajaran {
 		}
 	}
 
+	/**
+	 * Membangun ulang flag store peserta dari koleksi baris yang SUDAH dimiliki pemanggil.
+	 *
+	 * <p>Berkas dikosongkan lebih dulu, lalu tiap baris dimasukkan kembali lewat
+	 * {@link #populateDetailperkuliahan(Detailperkuliahan)}. Varian ini menghindari query bila
+	 * pemanggil sudah memegang datanya; untuk membangun dari basis data pakai
+	 * {@link #reInitDetailperkuliahan(Session)}.</p>
+	 *
+	 * @param detailperkuliahans baris-baris peserta yang akan ditulis ke flag store.
+	 */
 	public void reInitDetailperkuliahan(Collection<Detailperkuliahan> detailperkuliahans) {
 		tulisLokasiDetailPerkuliahan(new JSONObject().toString());
 		for (Detailperkuliahan detailperkuliahan : detailperkuliahans) {
@@ -4741,6 +4897,18 @@ public class Perkuliahan extends VOPembelajaran {
 		}
 	}
 
+	/**
+	 * Menyatakan apakah seorang mahasiswa berwenang MENGISI PRESENSI kelas ini sebagai asisten.
+	 *
+	 * <p>Hanya baris {@link MahasiswaJadiAsisten} yang berstatus aktif yang diperhitungkan;
+	 * penelusuran berhenti pada baris pertama yang cocok, sehingga bila seorang mahasiswa punya
+	 * lebih dari satu baris asisten, baris pertamalah yang menentukan.</p>
+	 *
+	 * <p>Dipanggil dari {@code AbsensiHelper} dan {@link Pertemuan}.</p>
+	 *
+	 * @param mahasiswa mahasiswa yang diperiksa.
+	 * @return {@code true} bila mahasiswa adalah asisten aktif yang boleh mengisi presensi.
+	 */
 	public boolean merupakanAsistenAbsen(Mahasiswa mahasiswa) {
 		if (mahasiswa == null || mahasiswa.getId() == null) {
 			return false;
@@ -4759,6 +4927,16 @@ public class Perkuliahan extends VOPembelajaran {
 		return ada;
 	}
 
+	/**
+	 * Menyatakan apakah seorang mahasiswa berwenang MENGINPUT NILAI kelas ini sebagai asisten.
+	 *
+	 * <p>Aturannya sama dengan {@link #merupakanAsistenAbsen(Mahasiswa)}, hanya berbeda kewenangan
+	 * yang dibaca. Dipanggil dari {@code PenilaianAction} dan
+	 * {@code DetailperkuliahanForPenilaianHelper}.</p>
+	 *
+	 * @param mahasiswa mahasiswa yang diperiksa.
+	 * @return {@code true} bila mahasiswa adalah asisten aktif yang boleh menginput nilai.
+	 */
 	public boolean merupakanAsistenNilai(Mahasiswa mahasiswa) {
 		if (mahasiswa == null || mahasiswa.getId() == null) {
 			return false;
@@ -4777,6 +4955,15 @@ public class Perkuliahan extends VOPembelajaran {
 		return ada;
 	}
 
+	/**
+	 * Menyatakan apakah seorang mahasiswa terdaftar sebagai asisten aktif kelas ini, tanpa melihat
+	 * kewenangan spesifiknya.
+	 *
+	 * @param mahasiswa mahasiswa yang diperiksa.
+	 * @return {@code true} bila mahasiswa adalah asisten aktif.
+	 * @see #merupakanAsistenAbsen(Mahasiswa)
+	 * @see #merupakanAsistenNilai(Mahasiswa)
+	 */
 	public boolean merupakanAsisten(Mahasiswa mahasiswa) {
 		if (mahasiswa == null || mahasiswa.getId() == null) {
 			return false;
@@ -4793,6 +4980,12 @@ public class Perkuliahan extends VOPembelajaran {
 		return ada;
 	}
 
+	/**
+	 * Daftar mahasiswa yang menjadi asisten AKTIF pada kelas ini.
+	 *
+	 * @return daftar mahasiswa asisten; kosong bila kelas tidak berasisten.
+	 * @see MahasiswaJadiAsisten
+	 */
 	public List<Mahasiswa> ambilAsisten() {
 		List<Mahasiswa> mahasiswas = new ArrayList<Mahasiswa>();
 		List<MahasiswaJadiAsisten> mahasiswaJadiAsistensTemp = ambilMahasiswaJadiAsisten();
@@ -4805,6 +4998,18 @@ public class Perkuliahan extends VOPembelajaran {
 		return mahasiswas;
 	}
 
+	/**
+	 * Baris-baris {@link MahasiswaJadiAsisten} kelas ini, termasuk yang tidak aktif.
+	 *
+	 * <p>Dibaca dari flag store {@code MahasiswaJadiAsisten_<id>}; bila flag
+	 * {@code mahasiswaJadiAsisten} belum terbangun, flag store dibangun ulang lebih dulu pada
+	 * session yang dibuka dan ditutup sendiri. Entri bernilai kosong (asisten yang sudah
+	 * dikeluarkan) dilewati, dan sisanya dimuat borongan lewat {@code ambilDataBanyak(...)}.</p>
+	 *
+	 * <p>Berbeda dengan peserta, jalur asisten TIDAK didelegasikan ke kelas induk.</p>
+	 *
+	 * @return daftar baris asisten; kosong bila tidak ada.
+	 */
 	@SuppressWarnings("unchecked")
 	public List<MahasiswaJadiAsisten> ambilMahasiswaJadiAsisten() {
 
@@ -4846,6 +5051,13 @@ public class Perkuliahan extends VOPembelajaran {
 		return mahasiswaJadiAsistensTemp;
 	}
 
+	/**
+	 * Membangun ulang flag store asisten dari basis data.
+	 *
+	 * <p>Query hanya memproyeksikan kolom id - rinciannya dimuat belakangan saat dibutuhkan.</p>
+	 *
+	 * @param session session Hibernate aktif; tidak ditutup oleh method ini.
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitMahasiswaJadiAsisten(Session session) {
 		Collection<Long> mahasiswaJadiAsistens = session.createCriteria(MahasiswaJadiAsisten.class)
@@ -4853,6 +5065,13 @@ public class Perkuliahan extends VOPembelajaran {
 		reInitMahasiswaJadiAsisten(mahasiswaJadiAsistens);
 	}
 
+	/**
+	 * Membangun ulang flag store asisten dari daftar id yang sudah dimiliki pemanggil.
+	 *
+	 * <p>Berkas dikosongkan lebih dulu, lalu tiap id dimasukkan kembali.</p>
+	 *
+	 * @param mahasiswaJadiAsistens id baris {@link MahasiswaJadiAsisten} yang akan ditulis.
+	 */
 	public void reInitMahasiswaJadiAsisten(Collection<Long> mahasiswaJadiAsistens) {
 		tulisLokasiMahasiswaJadiAsisten(new JSONObject().toString());
 		for (Long mahasiswaJadiAsisten : mahasiswaJadiAsistens) {
@@ -4860,6 +5079,19 @@ public class Perkuliahan extends VOPembelajaran {
 		}
 	}
 
+	/**
+	 * Mencabut kelas ini dari daftar perkuliahan SELURUH dosen pengampunya.
+	 *
+	 * <p>Tiap {@link Dosen} menyimpan daftar kelas yang diampunya pada flag store-nya sendiri;
+	 * method ini menghapus id kelas ini dari daftar tersebut. Iterasi memakai
+	 * {@code populateDosenBuNama()} sehingga seluruh slot {@code dosen1}..{@code dosen10} yang
+	 * terisi ikut terbersihkan.</p>
+	 *
+	 * <p>Dipanggil dari {@code AuditListener} ketika baris perkuliahan dihapus - tanpa ini, daftar
+	 * kelas milik dosen akan menyimpan id yang barisnya sudah tidak ada.</p>
+	 *
+	 * @see #reInitPerkuliahanDosen()
+	 */
 	public void hapusPerkuliahanDosen() {
 		List<Dosen> dosens = populateDosenBuNama();
 		for (Dosen dosen : dosens) {
@@ -4868,6 +5100,13 @@ public class Perkuliahan extends VOPembelajaran {
 		dosens = null;
 	}
 
+	/**
+	 * Mendaftarkan (ulang) kelas ini ke daftar perkuliahan SELURUH dosen pengampunya.
+	 *
+	 * <p>Kebalikan {@link #hapusPerkuliahanDosen()}, dan salah satu langkah
+	 * {@link #singkronkan(Session)}. Iterasi juga lewat {@code populateDosenBuNama()} sehingga
+	 * mencakup kesepuluh slot dosen.</p>
+	 */
 	public void reInitPerkuliahanDosen() {
 		List<Dosen> dosens = populateDosenBuNama();
 		for (Dosen dosen : dosens) {
@@ -4876,6 +5115,25 @@ public class Perkuliahan extends VOPembelajaran {
 		dosens = null;
 	}
 
+	/**
+	 * Membangun ulang flag store peserta LANGSUNG dari basis data - sumber kebenaran daftar peserta
+	 * kelas ini.
+	 *
+	 * <p>Kriteria pesertanya: baris {@link Detailperkuliahan} yang menunjuk kelas ini DAN belum
+	 * punya {@code ikutiPerkuliahan} (peserta yang dialihkan mengikuti kelas lain tidak dihitung di
+	 * sini), diurutkan menurut id. Berkas flag store dikosongkan lebih dulu, lalu tiap baris
+	 * dimasukkan; id yang belum ada di cache objek dimuat borongan dalam satu query menyusul.</p>
+	 *
+	 * <p><b>{@link FlushMode#MANUAL} pada kedua query</b> bukan optimasi melainkan pencegah
+	 * rekursi: method ini dapat terpanggil dari getter property Hibernate (mis.
+	 * {@code Pertemuan.getMahasiswas}) tepat saat flush berlangsung; tanpa {@code MANUAL},
+	 * eksekusi query akan memicu autoFlush yang memanggil getter itu lagi tanpa henti.</p>
+	 *
+	 * <p><b>Efek samping:</b> menimpa berkas flag store peserta dan mengisi cache objek. Session
+	 * TIDAK ditutup oleh method ini.</p>
+	 *
+	 * @param session session Hibernate aktif.
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitDetailperkuliahan(Session session) {
 		/* FlushMode.MANUAL: cegah autoFlush saat dipanggil dari getter

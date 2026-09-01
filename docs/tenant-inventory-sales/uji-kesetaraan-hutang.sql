@@ -99,9 +99,10 @@ INSERT INTO pay.hutang_supplier (id, supplier_id, pembelian_id, nomor_faktur, ta
   (2, 10, 2, 'F-2', '2025-10-01', '2025-10-31',  500000);
 
 -- DP legacy diwakili alokasi pembayaran biasa, sesuai pemetaan.
-INSERT INTO pay.pembayaran_hutang (id, tanggal, supplier_id, cara_bayar, nilai, idempotency_key)
-  VALUES (99, '2026-01-10', 10, 'TUNAI', 200000, 'UNIK-DP'),
-         (100, '2026-01-25', 10, 'TRANSFER', 300000, 'UNIK-1');
+INSERT INTO pay.pembayaran_hutang (id, nomor_dokumen, tanggal, supplier_id, cara_bayar,
+    nilai, idempotency_key)
+  VALUES (99, 'UNIK-DP', '2026-01-10', 10, 'TUNAI', 200000, 'UNIK-DP'),
+         (100, 'UNIK-1', '2026-01-25', 10, 'TRANSFER', 300000, 'UNIK-1');
 INSERT INTO pay.alokasi_pembayaran_hutang (pembayaran_hutang_id, hutang_supplier_id, nilai)
   VALUES (99, 1, 200000), (100, 1, 300000);
 

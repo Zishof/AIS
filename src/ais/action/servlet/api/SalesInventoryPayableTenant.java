@@ -303,11 +303,21 @@ final class SalesInventoryPayableTenant {
 				+ " WHERE h.id = ? AND h.supplier_id = ? FOR UPDATE";
 	}
 
+	/**
+	 * <p>{@code nomor_dokumen} wajib pada model tenant, sedangkan jalur legacy tidak
+	 * mengenalnya -- ia hanya punya {@code kode_unik} sebagai kunci idempotensi. Sampai ada
+	 * skema penomoran dokumen per tenant, kunci unik itu dipakai sekaligus sebagai nomor
+	 * dokumen: nilainya sudah dijamin unik dan dapat ditelusuri balik ke permintaan yang
+	 * membuatnya.</p>
+	 *
+	 * <p>Ini <b>bukan</b> pengganti penomoran yang sebenarnya. Bila nanti ada skema penomoran,
+	 * ganti di sini -- bukan di pemanggilnya.</p>
+	 */
 	static String sisipPembayaran(String skema) {
 		return "INSERT INTO " + skema + "pembayaran_hutang"
-				+ " (tanggal, supplier_id, cara_bayar, nomor_bg, nama_bank, tanggal_bg, nilai,"
-				+ " keterangan, idempotency_key, status, dibuat_pada, oleh)"
-				+ " VALUES (CURRENT_DATE, ?, ?, ?, ?, ?, ?, ?, ?, 'AKTIF', now(), ?)";
+				+ " (nomor_dokumen, tanggal, supplier_id, cara_bayar, nomor_bg, nama_bank,"
+				+ " tanggal_bg, nilai, keterangan, idempotency_key, status, dibuat_pada, oleh)"
+				+ " VALUES (?, CURRENT_DATE, ?, ?, ?, ?, ?, ?, ?, ?, 'AKTIF', now(), ?)";
 	}
 
 	static String sisipAlokasi(String skema) {

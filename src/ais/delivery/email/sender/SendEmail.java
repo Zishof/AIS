@@ -87,7 +87,7 @@ public static void main(String [] args)
 
       // Send message
 //      transport.connect("mail.zishof.com", "fauzi@zishof.com",
-//				"jangannakal12");
+//				"[REDACTED 2026-09-02: password lama ada di riwayat SVN, lihat SimpleMail]");
       Transport.send(message);
       System.out.println("Sent message successfully....");
    }catch (MessagingException mex) {

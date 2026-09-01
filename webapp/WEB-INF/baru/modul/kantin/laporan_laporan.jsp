@@ -164,6 +164,10 @@ if (!lockTokoLap) {
               <label class="form-label small fw-bold mb-1"><%=Common.getBahasaConfig("Cari Pelanggan (kode / nama / member)")%></label>
               <input type="text" id="fPelanggan<%=rndLap%>" class="form-control" placeholder="<%=Common.getBahasaConfig("kode, nama, atau no. identitas")%>">
             </div>
+            <div class="col-md-3" id="wrapKasir<%=rndLap%>" style="display:none;">
+              <label class="form-label small fw-bold mb-1"><%=Common.getBahasaConfig("Cari Kasir")%></label>
+              <input type="text" id="fKasir<%=rndLap%>" class="form-control" placeholder="<%=Common.getBahasaConfig("nama kasir pada nota")%>">
+            </div>
             <div class="col-md-12" id="wrapStok<%=rndLap%>" style="display:none;">
               <div class="row g-2">
                 <div class="col-md-4">
@@ -532,6 +536,10 @@ if (!lockTokoLap) {
     if (wsk) { wsk.style.display = rep.satker ? "" : "none"; if (rep.satker) isiOpsiSatker(); }
     el("wrapProduk").style.display = rep.produk ? "" : "none";
     el("wrapPelanggan").style.display = rep.pelanggan ? "" : "none";
+    // Kolom kasir hanya tampil pada laporan yang memang menyaring per kasir; menampilkannya
+    // di semua laporan akan membuat pengguna mengisi filter yang diam-diam diabaikan.
+    var wkas = el("wrapKasir");
+    if (wkas) { wkas.style.display = rep.kasir ? "" : "none"; }
     var wpt = el("wrapPerToko");
     if (wpt) { wpt.style.display = rep.perToko ? "" : "none"; var cb = el("fPerToko"); if (cb) cb.checked = false; }
     var wstok = el("wrapStok");
@@ -569,6 +577,7 @@ if (!lockTokoLap) {
     if (current.satker && el("fSatker")) p.append("satkerId", el("fSatker").value||"");
     if (current.produk && el("fProduk")) p.append("qProduk", el("fProduk").value||"");
     if (current.pelanggan && el("fPelanggan")) p.append("qPelanggan", el("fPelanggan").value||"");
+    if (current.kasir && el("fKasir")) p.append("qKasir", el("fKasir").value||"");
     if (current.perToko && el("fPerToko") && el("fPerToko").checked) p.append("perToko", "true");
     if (current.stokPerTanggal) {
       var jp = el("fJenisProduk"), gp = el("fGrupProduk");

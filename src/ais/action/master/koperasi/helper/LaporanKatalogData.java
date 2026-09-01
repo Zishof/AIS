@@ -72,6 +72,7 @@ public final class LaporanKatalogData {
             boolean perToko, String url, boolean stokPerTanggal) throws Exception {
         JSONObject o = new JSONObject();
         o.put("id", id);
+        o.put("kasir", LAPORAN_BERFILTER_KASIR.contains(id));
         o.put("judul", Common.getBahasaConfig(judul));
         o.put("ket", Common.getBahasaConfig(ket));
         if (produk) o.put("produk", true);
@@ -174,6 +175,17 @@ public final class LaporanKatalogData {
      * @return JSONArray {@code [{kat, items:[{id,judul,ket,produk?,pelanggan?,perToko?,url?}]}]} —
      *         struktur IDENTIK dengan array {@code REPORTS} di {@code laporan_laporan.jsp}.
      */
+    /**
+     * Laporan yang menyaring per kasir. Daftarnya ditaruh di satu tempat supaya penyaji
+     * (JSP, PDF, dan API POS) menampilkan kolom isian "Cari Kasir" persis pada laporan yang
+     * benar-benar memakainya — kolom yang tampil pada laporan yang mengabaikannya membuat
+     * pengguna menyaring dan mengira hasilnya sudah terfilter.
+     */
+    private static final java.util.Set<String> LAPORAN_BERFILTER_KASIR =
+            new java.util.HashSet<String>(java.util.Arrays.asList(
+                    "pnj_per_barang", "pnj_barang_laku",
+                    "pnj_rincian_barang", "pnj_detail_transaksi"));
+
     public static JSONArray katalog() throws Exception {
         List<Kat> semua = new ArrayList<Kat>();
 

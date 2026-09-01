@@ -871,19 +871,22 @@ public final class SalesInventoryPayableHelper {
 			java.sql.PreparedStatement ins = session.connection().prepareStatement(
 					SalesInventoryPayableTenant.sisipPembayaran(sk),
 					java.sql.Statement.RETURN_GENERATED_KEYS);
-			ins.setLong(1, supplierId.longValue());
-			ins.setString(2, metode);
-			ins.setString(3, request.optString("no_bg", "").trim());
-			ins.setString(4, request.optString("nama_bank", "").trim());
+			// nomor_dokumen wajib pada model tenant; kunci unik dipakai sebagai nomornya
+			// sampai ada skema penomoran per tenant. Lihat catatan pada sisipPembayaran.
+			ins.setString(1, kodeUnik);
+			ins.setLong(2, supplierId.longValue());
+			ins.setString(3, metode);
+			ins.setString(4, request.optString("no_bg", "").trim());
+			ins.setString(5, request.optString("nama_bank", "").trim());
 			if (tglBg == null) {
-				ins.setNull(5, java.sql.Types.DATE);
+				ins.setNull(6, java.sql.Types.DATE);
 			} else {
-				ins.setDate(5, new java.sql.Date(tglBg.getTime()));
+				ins.setDate(6, new java.sql.Date(tglBg.getTime()));
 			}
-			ins.setBigDecimal(6, nominal);
-			ins.setString(7, request.optString("keterangan", "").trim());
-			ins.setString(8, kodeUnik);
-			ins.setString(9, oleh);
+			ins.setBigDecimal(7, nominal);
+			ins.setString(8, request.optString("keterangan", "").trim());
+			ins.setString(9, kodeUnik);
+			ins.setString(10, oleh);
 			ins.executeUpdate();
 			Long bayarId = null;
 			java.sql.ResultSet gk = ins.getGeneratedKeys();
