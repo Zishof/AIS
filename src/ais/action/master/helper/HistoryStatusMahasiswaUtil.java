@@ -230,6 +230,45 @@ public class HistoryStatusMahasiswaUtil {
     // CORE LOGIC: GET HISTORY STATUS MAHASISWA
     // ========================================================================
 
+    /**
+     * Method inti kelas ini: mengambil (atau menghitung ulang & menyimpan) status kemahasiswaan
+     * untuk satu {@code krsMahasiswa}. Alur:
+     * <ol>
+     * <li><b>Cache.</b> Bila {@code tetapDiprosesWalaupunSudahAda} bernilai {@code false} DAN
+     * semester ini tidak termasuk {@link Mahasiswa#getPaksaAktifSemester()}, coba ambil dari cache
+     * lewat {@link #cekDanUpdateCacheStatus} lebih dulu — bila hit, langsung kembali tanpa
+     * menyentuh aturan bisnis.</li>
+     * <li><b>Query DB</b> lewat {@link #fetchHistoryFromDb} untuk baris terbaru yang cocok
+     * mahasiswa+SP+semester/tahap.</li>
+     * <li>Bila hasil query bukan {@code null} DAN semester yang diminta BUKAN semester berjalan
+     * mahasiswa (mis. dipanggil untuk menampilkan riwayat semester lama), baris lama langsung
+     * dipakai apa adanya (di-cache lalu dikembalikan) — aturan bisnis TIDAK dievaluasi ulang untuk
+     * semester yang sudah lewat.</li>
+     * <li>Bila belum ada baris sama sekali, {@link #inisialisasiDataBaru} membuat baris baru
+     * (status awal diwariskan dari semester sebelumnya bila ada).</li>
+     * <li><b>Evaluasi aturan bisnis</b> (hanya untuk semester berjalan atau saat dipaksa
+     * refresh): tahun akademik disinkronkan; mahasiswa pindah ({@code getNimBaruPindah()} terisi)
+     * langsung dipaksa {@code TIDAK_AKTIF} tanpa melalui {@link #kalkulasiStatusLogikaLanjutan};
+     * selain itu {@link #kalkulasiStatusLogikaLanjutan} yang menentukan transisi status.</li>
+     * <li>Pengecekan retroaktif tambahan: bila status saat ini AKTIF tapi semester sudah
+     * {@code >=} {@link #getJumlahSemester}, dan ternyata SUDAH ADA baris LULUS di semester yang
+     * sama-atau-lebih-awal (query terpisah), status dipaksa LULUS — menangani kasus lulus
+     * "ditemukan belakangan" agar tidak terus tampil Aktif.</li>
+     * <li>SKS dari {@code krsMahasiswa.getSksBukanKonversi()} disinkronkan ke kolom
+     * {@code sks} bila berbeda.</li>
+     * <li>Bila baris baru dibuat atau ada perubahan, disimpan dalam transaksi
+     * ({@code saveOrUpdate}); kegagalan di-rollback diam-diam dan dicatat ke
+     * {@code ErrorAuditUtil}.</li>
+     * <li>Hasil akhir (berhasil maupun gagal di tengah jalan) selalu dicoba disimpan ke cache
+     * cepat {@link GeneralValueObject#masukkanDataLangsung}.</li>
+     * </ol>
+     * Session Hibernate dibuka dan ditutup secara lokal dalam method ini (tidak menggunakan
+     * session request-scoped) — aman dipanggil dari luar konteks web/transaksi Action.
+     *
+     * @param krsMahasiswa                     baris KRS mahasiswa yang menjadi acuan mahasiswa+semester/tahap+SP
+     * @param tetapDiprosesWalaupunSudahAda     {@code true} untuk melewati kedua lapis cache dan selalu mengevaluasi ulang dari DB
+     * @return baris {@link HistoryStatusMahasiswa} (tersimpan), atau {@code null} bila DB/inisialisasi gagal total sebelum objek sempat dibuat
+     */
     public static HistoryStatusMahasiswa getHistoryStatusMahasiswa(KrsMahasiswa krsMahasiswa, boolean tetapDiprosesWalaupunSudahAda) {
         Mahasiswa mahasiswa = krsMahasiswa.getMahasiswa();
         Integer semester = krsMahasiswa.getSemester();
@@ -336,6 +375,44 @@ public class HistoryStatusMahasiswaUtil {
         return historyStatusMahasiswa;
     }
 
+    /**
+     * Validasi UI sebelum sebuah perubahan status disimpan secara manual (dipanggil dari layar
+     * yang mengizinkan admin mengubah {@code statusMahasiswa} langsung, bukan dari mesin aturan
+     * {@link #kalkulasiStatusLogikaLanjutan}). Menampilkan {@link MyMessageboxConfig} peringatan
+     * dan mengembalikan {@code false} bila salah satu aturan berikut dilanggar (tidak melempar
+     * exception untuk kasus ini — hanya untuk kegagalan tak terduga):
+     * <ul>
+     * <li>Status CUTI harus konsisten dengan ada/tidaknya {@link PendaftaranCutiMahasiswa} yang
+     * DISETUJUI ({@code getPersetujuan() == true}) pada semester tsb — status Cuti tanpa
+     * pengajuan disetujui, atau pengajuan disetujui tanpa status Cuti, sama-sama ditolak.</li>
+     * <li>Status LULUS (untuk mahasiswa yang bukan alih jenjang/pindahan — dicek dari
+     * {@link Mahasiswa#getStatusAwalMahasiswa()}): ditolak bila masih ada
+     * {@link Detailperkuliahan} di semester setelah semester yang diusulkan, atau bila semester
+     * yang diusulkan kurang dari {@link #getJumlahSemester} (minimal semester kelulusan
+     * jenjangnya).</li>
+     * <li>Status AKTIF (bila bukan dari Cuti): digerbangi konfigurasi
+     * {@code mhs_all_lambat_bayar_langsung_tidak_aktif} dan ambang tahun mulai
+     * {@code tahun_mulai_auto_not_activating_mhs_belum_bayar} (default 2014) — bila berlaku dan
+     * mahasiswa belum melunasi kegiatan bersyarat-aktif ({@link #cekPembayaranMahasiswa}) untuk
+     * semester {@code > 1}, pengaktifan ditolak dan {@link KegiatanHelper#updateBatasStudiMahasiswa}
+     * dipanggil untuk mencatat batas studi.</li>
+     * </ul>
+     * <b>Efek samping:</b> memanggil {@code historyStatusMahasiswa.put(...)} untuk mencatat hasil
+     * cek pembayaran ke dalam objek (dipakai UI/laporan), dan bisa memicu
+     * {@code CommonHelperClass.reloadJenisKegiatans()} bila cache jenis kegiatan syarat-aktif
+     * belum dimuat. TIDAK melakukan {@code save}/{@code update} ke {@code historyStatusMahasiswa}
+     * itu sendiri — hanya memvalidasi dan menampilkan pesan; penyimpanan tetap tanggung jawab
+     * pemanggil.
+     *
+     * @param mahasiswa             mahasiswa yang statusnya akan diubah
+     * @param statusMahasiswa       status baru yang diusulkan
+     * @param semester              semester yang diusulkan
+     * @param tahap                 tahap terkait (dipakai untuk cek pembayaran)
+     * @param historyStatusMahasiswa baris history yang sedang diedit (menerima efek samping {@code put})
+     * @param sp                    {@code true} bila konteksnya Semester Pendek (memengaruhi pencarian cuti)
+     * @return {@code true} bila perubahan status boleh dilanjutkan; {@code false} bila ditolak (pesan sudah ditampilkan ke user)
+     * @throws Exception dilempar bila terjadi kegagalan tak terduga (bukan pelanggaran aturan bisnis di atas)
+     */
     public static boolean checkStatus(Mahasiswa mahasiswa, StatusMahasiswa statusMahasiswa, Integer semester, Integer tahap, HistoryStatusMahasiswa historyStatusMahasiswa, boolean sp) throws Exception {
         historyStatusMahasiswa.put("", "checkStatusPembayaranMahasiswa");
 
@@ -513,6 +590,16 @@ public class HistoryStatusMahasiswaUtil {
         }
     }
 
+    /**
+     * Menjadwalkan {@link #singkronisasiStatusMahasiswaNotTimer} untuk dijalankan ~1 detik
+     * kemudian lewat {@link Timer} ZK sekali-tembak, dipasang ke root halaman ZK aktif saat ini
+     * ({@code ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot()}). Dipakai agar
+     * sinkronisasi status (yang bisa memakan waktu — loop banyak semester + query DB) tidak
+     * memblokir response awal halaman; timer men-detach dirinya sendiri setelah sekali berjalan.
+     * HANYA valid dipanggil dari dalam konteks event/desktop ZK yang sedang aktif.
+     *
+     * @param mahasiswa mahasiswa yang akan disinkronkan statusnya secara asinkron
+     */
     public static void singkronisasiStatusMahasiswaTimer(final Mahasiswa mahasiswa) {
         final Timer timer = new Timer(1000);
         timer.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());

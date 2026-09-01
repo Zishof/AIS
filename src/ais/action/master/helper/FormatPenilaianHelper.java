@@ -878,6 +878,21 @@ public class FormatPenilaianHelper {
 
 	}
 
+	/**
+	 * Mencari dan menampilkan ulang daftar {@link PembombotanNilai} yang boleh dipakai untuk {@link #perkuliahan}
+	 * saat ini, sesuai {@link #filterKeyword}. Dipanggil saat window dibuka dan setiap kali kotak pencarian
+	 * berubah.
+	 *
+	 * <p>Daftar dosen relevan dikumpulkan dari pengguna yang sedang login (bila berperan dosen) ditambah
+	 * dosen1..dosen10 pada {@link #perkuliahan}. Query {@link PembombotanNilai} mengambil record aktif yang
+	 * dimiliki salah satu dosen tersebut ATAU tidak dimiliki siapa pun (format publik), diurutkan berdasarkan
+	 * pemilik lalu id. Bila {@link #filterKeyword} tidak kosong, ditambahkan filter {@code ilike} pada nama
+	 * atau keterangan. Hasil dipakai untuk memperbarui {@link #labelJumlah} (teks "N ditemukan"/"N format
+	 * tersedia") dan mengisi ulang {@link #grid} lewat {@link PembombotanNilaiRenderer}.</p>
+	 *
+	 * @param event event pemicu (textbox onChanging/onChange, atau {@code null} saat pemanggilan awal); tidak
+	 *            dipakai isinya, hanya menandai bahwa pencarian perlu dijalankan ulang
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

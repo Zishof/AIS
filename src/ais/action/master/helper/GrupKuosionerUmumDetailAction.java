@@ -41,9 +41,15 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Controller/action ZK untuk grup kuosioner umum detail. Tipe ini merupakan titik masuk UI yang
- * menghubungkan event layar dengan perilaku domain yang diwarisi atau dikonfigurasi khusus oleh
- * kelas ini.
+ * Baris detail ZK ({@code org.zkoss.zul.Detail}, lewat superclass {@link MyDetail}) yang dipasang
+ * pada grid master {@link GrupKuesionerUmum} — pengelompokan pengguna aplikasi ({@link Tbmuser})
+ * yang akan menerima suatu kuosioner umum (mis. survei kepuasan lintas modul). Saat baris grup pada
+ * grid induk di-expand oleh pengguna (event {@code onOpen} ZK, lihat konstruktor), kelas ini
+ * merender panel berisi grid anggota grup: daftar {@link GrupKuosionerUmumDetail} (baris pivot
+ * pengguna&harr;grup) lengkap dengan foto, id &amp; nama pengguna, keterangan bebas yang bisa diedit
+ * inline, checkbox aktif, serta tombol hapus per baris. Data baru dimuat saat detail benar-benar
+ * terbuka ({@code isOpen()}), bukan saat grid induk pertama kali dirender — pola lazy-load standar
+ * komponen {@code Detail} ZK.
  *
  * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
  * MyDetail}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
@@ -54,10 +60,20 @@ import ais.ui.util.MyToolbarbuttonConfig;
  * MyCheckboxConfig hanyaYgAktif}; pembacaan/pencarian ({@code loadData()}, {@code onSearchDefault()}); operasi
  * domain lain ({@code display()}); konfigurasi constructor: {@code add}, {@code delete}, {@code edit}. Bagian
  * lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Efek samping konkret:</b> textbox {@code keterangan} dan checkbox {@code aktif} pada tiap baris grid
+ * MENYIMPAN LANGSUNG ke database saat berubah ({@code onChange}/{@code onCheck} masing-masing memanggil {@code
+ * Common.refreshUpdate}/{@code Common.refreshSaveOrUpdate}) — tidak ada tombol "Simpan" terpisah, sel grid itu
+ * sendiri adalah form auto-save. Tombol "Ambil Pengguna" membuka picker massal {@code AmbilDataTbmuserBanyak}
+ * yang sudah diberi daftar pengguna aktif grup ini (query {@code groupProperty} pada {@code tbmuser}) sebagai
+ * baris pre-checked/terkunci; pengguna baru yang dipilih langsung dibuatkan {@code GrupKuosionerUmumDetail} baru
+ * (keterangan kosong, mengikuti nilai default aktif entity). Tombol hapus per baris memanggil {@code
+ * Common.refreshDelete} dan menangkap kegagalan constraint FK dengan pesan ramah lewat {@link
+ * PesanFormalHelper}, bukan stack trace mentah ke pengguna. Tombol upload Excel di toolbar memakai mekanisme
+ * generik {@code Common.uploadData(this, GrupKuosionerUmumDetail.class, contents)} — BERBEDA dari
+ * {@code KelompokMahasiswaDetailAction}/{@code KelompokStatusMahasiswaDetailAction}/{@code
+ * KelompokStatusKeluarMahasiswaDetailAction} di paket ini yang masing-masing menulis method
+ * {@code uploadDataMahasiswa} kustom sendiri dengan parsing xlsx manual; kelas ini tidak punya logic upload
+ * manual sendiri.</p>
  * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
  * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
  * serta session Hibernate milik request yang aktif.</p>
@@ -80,6 +96,17 @@ public class GrupKuosionerUmumDetailAction extends MyDetail implements DataSearc
 
 	private MyCheckboxConfig hanyaYgAktif;
 
+	/**
+	 * Membuat detail row untuk satu {@code grupKuesionerUmum} tertentu.
+	 *
+	 * <p>Menghitung hak akses tombol tambah/ubah/hapus dari privilese pengguna login lewat
+	 * {@link CommonPrivilages}, menyimpan referensi entity induk, dan mendaftarkan listener
+	 * {@code onOpen} yang membersihkan anak komponen lalu memanggil {@link #display()} — grid
+	 * anggota grup baru dibangun saat detail benar-benar terbuka ({@code isOpen()}), bukan saat
+	 * konstruktor dipanggil.</p>
+	 *
+	 * @param grupKuesionerUmum entity grup kuosioner umum induk yang detail anggotanya ditampilkan
+	 */
 	public GrupKuosionerUmumDetailAction(GrupKuesionerUmum grupKuesionerUmum) {
 		super();
 		add = CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE);
@@ -99,16 +126,17 @@ public class GrupKuosionerUmumDetailAction extends MyDetail implements DataSearc
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link GrupKuosionerUmumDetailAction}. Kelas ini menerjemahkan satu item
-	 * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 * Renderer baris grid anggota grup untuk {@link GrupKuosionerUmumDetailAction}. Setiap baris
+	 * grid mewakili satu {@link GrupKuosionerUmumDetail} (pivot pengguna&harr;grup): foto kecil
+	 * pengguna, id pengguna, tautan riwayat revisi Envers ({@code RevisiHelper.createNewRevisi}),
+	 * textbox {@code keterangan} yang auto-save on-change, checkbox {@code aktif} yang auto-save
+	 * on-check, dan tombol hapus dengan dialog konfirmasi + penanganan kegagalan FK constraint.
 	 *
 	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link GrupKuosionerUmumDetailAction} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * mengakses state kelas induk (flag {@code edit}/{@code delete}). Jangan menyimpan atau membagikannya
+	 * lintas desktop/session.</p>
+	 * <p><b>Efek samping:</b> perubahan pada textbox/checkbox baris langsung memicu simpan ke database
+	 * (bukan sekadar mengubah tampilan); jalankan pada event thread dengan konteks pengguna/session aktif.</p>
 	 *
 	 * @see GrupKuosionerUmumDetailAction
 	 */
@@ -118,6 +146,14 @@ public class GrupKuosionerUmumDetailAction extends MyDetail implements DataSearc
 
 		}
 
+		/**
+		 * Merender satu baris grid untuk {@code grupKuosionerUmumDetail}: foto, id pengguna,
+		 * tautan riwayat revisi, textbox keterangan (auto-save), checkbox aktif (auto-save), dan
+		 * tombol hapus (konfirmasi + penanganan FK constraint).
+		 *
+		 * @param row  baris grid ZK tujuan render
+		 * @param data instance {@link GrupKuosionerUmumDetail} untuk baris ini
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {row.setValign("top");
 			final GrupKuosionerUmumDetail grupKuosionerUmumDetail = (GrupKuosionerUmumDetail) data;
@@ -203,6 +239,16 @@ public class GrupKuosionerUmumDetailAction extends MyDetail implements DataSearc
 		}
 	}
 
+	/**
+	 * Memuat ulang daftar {@link GrupKuosionerUmumDetail} milik {@code grupKuesionerUmum} ini dari
+	 * database dan menampilkannya ke grid. Checkbox toolbar "Hanya yg aktif" (bila dicentang)
+	 * membatasi hasil ke baris dengan {@code aktif == true} atau {@code null}; bila tidak dicentang,
+	 * semua baris (termasuk yang non-aktif) ikut ditampilkan lewat filter no-op {@code
+	 * Restrictions.sqlRestriction("true")}. Hasil diurutkan menurun berdasarkan id (data terbaru di
+	 * atas).
+	 *
+	 * @param value tidak dipakai — signature mengikuti kontrak umum handler event grid AIS
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
@@ -217,6 +263,14 @@ public class GrupKuosionerUmumDetailAction extends MyDetail implements DataSearc
 
 	}
 
+	/**
+	 * Membangun seluruh UI panel detail: caption "Daftar &lt;nama grup&gt;", toolbar (tombol "Ambil
+	 * Pengguna" untuk memilih banyak {@link Tbmuser} sekaligus lewat {@code AmbilDataTbmuserBanyak},
+	 * checkbox "Hanya yg aktif", tombol cetak/export data lewat {@code Common.cetakData}, tombol
+	 * upload Excel generik), definisi kolom grid, lalu memanggil {@link #loadData(Object)} untuk
+	 * memuat baris pertama kali. Dipanggil sekali per pembukaan detail (lihat listener {@code onOpen}
+	 * di konstruktor).
+	 */
 	public void display() {
 
 		ais.ui.util.MyDiv groupbox = new ais.ui.util.MyDiv();
@@ -344,6 +398,14 @@ public class GrupKuosionerUmumDetailAction extends MyDetail implements DataSearc
 		loadData(null);
 	}
 
+	/**
+	 * Implementasi kontrak {@link DataSearchDefault}: dipicu saat pengguna memakai pencarian
+	 * default dari luar (mis. tombol cari bersama pada layar induk). Cukup memuat ulang grid tanpa
+	 * parameter tambahan karena pencarian di kelas ini hanya berbasis filter "Hanya yg aktif",
+	 * bukan kata kunci teks bebas.
+	 *
+	 * @param event event pemicu pencarian (isinya tidak dipakai)
+	 */
 	@Override
 	public void onSearchDefault(Event event) {
 		loadData(null);
