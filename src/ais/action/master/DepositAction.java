@@ -216,6 +216,32 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		return (mhs != null && mhs.getId() != null) || (sis != null && sis.getId() != null);
 	}
 
+	/**
+	 * Menentukan apakah operator boleh membuka pembayaran khusus topup siswa.
+	 * Visibilitas mengikuti konfigurasi dan hak entry topup yang sama dengan menu
+	 * Pembayaran Siswa; siswa/mahasiswa yang login sendiri tidak memperoleh tombol
+	 * administratif ini.
+	 */
+	private boolean bolehMenampilkanTopupSiswa() {
+		return ya && add != null && add.isVisible() && !isLoginPenabungTerbatas()
+				&& Common.bolehKonfigurasi("tampilkan_tabungan_siswa");
+	}
+
+	/** Membuka alur Pembayaran Siswa dalam mode topup-only. */
+	private void tampilTopupSiswa() throws Exception {
+		final MyWindow topupWindow = new MyWindow("Topup Tabungan Siswa", "none", false);
+		tabMutasiPanel.getPage().getFirstRoot().appendChild(topupWindow);
+		topupWindow.setHeight("90%");
+		topupWindow.setWidth("95%");
+
+		MyInclude include = new MyInclude(
+				"/pages/master/sekolah/pem_online.zul?lbl_siswa=true&modetopup=1");
+		include.setHeight("100%");
+		include.setWidth("100%");
+		include.setParent(topupWindow);
+		topupWindow.onModal();
+	}
+
 	private Long getLoginMahasiswaId() {
 		return mhs == null ? null : mhs.getId();
 	}
@@ -484,6 +510,18 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 			}
 		});
 		btnResetMutasi.setParent(mutasiToolbar);
+
+		MyToolbarbuttonConfig btnTopup = new MyToolbarbuttonConfig("Topup", "/img/svg/payments.svg");
+		btnTopup.setTooltiptext(
+				"Membuat pembayaran topup siswa. Saldo tabungan bertambah otomatis setelah pembayaran berhasil.");
+		btnTopup.setVisible(bolehMenampilkanTopupSiswa());
+		btnTopup.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				tampilTopupSiswa();
+			}
+		});
+		btnTopup.setParent(mutasiToolbar);
 
 		MyPortallayout portalLayout = new MyPortallayout();
 		portalLayout.setWidth("100%");

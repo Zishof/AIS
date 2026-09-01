@@ -222,6 +222,23 @@ public class DownloadTagihanSiswaBankOnline {
 			StringBuilder keteranganSimpleBuilder = new StringBuilder();
 			StringBuilder keteranganSimpleBangetBuilder = new StringBuilder();
 
+			// Topup adalah bagian dari transaksi gateway, tetapi bukan Tagihan sekolah.
+			// Masukkan ke total/payload agar provider menagih nominalnya dan simpan penanda
+			// yang stabil untuk mencegah VA topup lama dipakai ulang setelah berhasil.
+			if (topup != null && topup.doubleValue() > 0.1) {
+				JSONObject itemTopup = new JSONObject();
+				itemTopup.put("description", "Topup Tabungan Siswa");
+				itemTopup.put("unitPrice", topup.intValue());
+				itemTopup.put("qty", 1);
+				itemTopup.put("amount", topup.intValue());
+				items.put(itemTopup);
+				total += topup.doubleValue();
+				keteranganBuilder.append("Topup Tabungan Siswa Rp. ")
+						.append(Common.numberFormat.get().format(topup)).append(", ");
+				keteranganSimpleBuilder.append("Topup Tabungan Siswa, ");
+				keteranganSimpleBangetBuilder.append("TOPUP-").append(topup.longValue());
+			}
+
 			KanalPembayaran kanalPembayaran = null;
 			List<Tagihan> tagihans = null;
 			Map<Long, KanalPembayaran> kanalPembayarans = new HashMap<Long, KanalPembayaran>();
@@ -314,7 +331,10 @@ public class DownloadTagihanSiswaBankOnline {
 			VirtualAccountBank virtualAccountBankOnline = (VirtualAccountBank) session
 					.createCriteria(VirtualAccountBank.class).add(Restrictions.eq("terjadiKendala", false))
 					.add(tabungan != null && tabungan > 0.1 ? Restrictions.eq("tabungan", tabungan)
-							: Restrictions.sqlRestriction("true"))
+							: Restrictions.isNull("tabungan"))
+					.add(topup != null && topup > 0.1 ? Restrictions.eq("topup", topup)
+							: Restrictions.isNull("topup"))
+					.add(Restrictions.isNull("deposit"))
 
 					.add(bankHost == null ? Restrictions.isNull("bankHost") : Restrictions.eq("bankHost", bankHost))
 					.add(Restrictions.ge("kadaluarsaWaktu", WaktuUtil.getDate()))

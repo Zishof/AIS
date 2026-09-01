@@ -147,8 +147,6 @@ public class Esmartlink extends HttpServlet {
 						System.out.println("Callback " + BANK_NAME + " untuk VA " + va
 								+ " sudah pernah diproses. Proses pembayaran dilewati.");
 					} else {
-						VirtualAccountBank.bayarTopup(virtualAccountBankNtt, session, tanggal, bank, inquery, data);
-
 						if (virtualAccountBankNtt.getSiswa() != null || virtualAccountBankNtt.getCalonSiswa() != null) {
 
 							if (virtualAccountBankNtt.getSiswa() != null) {

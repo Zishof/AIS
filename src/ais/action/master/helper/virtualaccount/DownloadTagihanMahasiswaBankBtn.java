@@ -551,6 +551,17 @@ public class DownloadTagihanMahasiswaBankBtn {
 	public static VirtualAccountBank downloadData(Siswa siswa, CalonSiswa calonSiswa, Collection<Tagihan> tag,
 			boolean qris, Double biayaAdmin, BankHost bankHost, AkunPembayaranSiswa akunPembayaranSiswa,
 			Sekolah sekolah) throws Exception {
+		return downloadData(siswa, calonSiswa, tag, qris, biayaAdmin, bankHost, akunPembayaranSiswa, sekolah, null);
+	}
+
+	/**
+	 * Varian pembayaran siswa yang juga membawa topup tabungan. Overload lama
+	 * dipertahankan agar seluruh pemanggil yang tidak memakai topup tetap kompatibel.
+	 */
+	@SuppressWarnings({})
+	public static VirtualAccountBank downloadData(Siswa siswa, CalonSiswa calonSiswa, Collection<Tagihan> tag,
+			boolean qris, Double biayaAdmin, BankHost bankHost, AkunPembayaranSiswa akunPembayaranSiswa,
+			Sekolah sekolah, Double topup) throws Exception {
 
 		Session session = null;
 		boolean isLocalTransaction = false;
@@ -610,6 +621,18 @@ public class DownloadTagihanMahasiswaBankBtn {
 				}
 			}
 
+			if (topup != null && topup.doubleValue() > 0.1) {
+				JSONObject itemTopup = new JSONObject();
+				itemTopup.put("description", "Topup Tabungan Siswa");
+				itemTopup.put("unitPrice", topup.intValue());
+				itemTopup.put("qty", 1);
+				itemTopup.put("amount", topup.intValue());
+				items.put(itemTopup);
+				totalVal += topup.doubleValue();
+				sbKeterangan.append("Topup Tabungan Siswa Rp. ")
+						.append(Common.numberFormat.get().format(topup)).append(", ");
+			}
+
 			if (Common.bolehKonfigurasi("payment_gateway_tolak_total_nol_atau_minus") && totalVal <= 0.0) {
 				throw new IllegalArgumentException("Total tagihan bernilai nol atau minus. Item minus seperti bantuan, beasiswa, potongan, atau koreksi tidak dapat dibuatkan VA sendiri.");
 			}
@@ -652,6 +675,9 @@ public class DownloadTagihanMahasiswaBankBtn {
 			
 			virtualAccountBankOnline = (VirtualAccountBank) session.createCriteria(VirtualAccountBank.class)
 					.add(Restrictions.eq("terjadiKendala", false))
+					.add(topup != null && topup > 0.1 ? Restrictions.eq("topup", topup)
+							: Restrictions.isNull("topup"))
+					.add(Restrictions.isNull("deposit"))
 					.add(bankHost == null ? Restrictions.isNull("bankHost") : Restrictions.eq("bankHost", bankHost))
 					.add(Restrictions.ge("kadaluarsaWaktu", WaktuUtil.getDate()))
 					.add(Restrictions.eq("keterangan", sbKeterangan.toString() + (qris ? "qris:true" : "")))
@@ -736,6 +762,7 @@ public class DownloadTagihanMahasiswaBankBtn {
 					virtualAccountBankOnline.setCalonSiswa(calonSiswa);
 					virtualAccountBankOnline.setBankHost(bankHost);
 					virtualAccountBankOnline.setAkunPembayaranSiswa(akunPembayaranSiswa);
+					virtualAccountBankOnline.setTopup(topup);
 					virtualAccountBankOnline.setBank("Bank BTN");
 
 					session.saveOrUpdate(virtualAccountBankOnline);

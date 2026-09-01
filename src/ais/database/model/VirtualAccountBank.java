@@ -257,6 +257,22 @@ public class VirtualAccountBank extends GeneralValueObject {
 	public static Map<String, List<Tagihan>> bayarSiswa(VirtualAccountBank virtualAccountBankNtt, Session session,
 			Date tanggal, String bank, boolean inquery, String notif, boolean cetak) {
 
+		// Semua callback pembayaran siswa melewati method ini. Dengan menempatkan
+		// topup di satu pintu, saldo bertambah konsisten untuk BRI/BNI/BSI/BTN dan
+		// kanal online lain. bayarTopup idempotent karena menggunakan kembali id
+		// Deposit yang sudah tersimpan pada VirtualAccountBank.
+		bayarTopup(virtualAccountBankNtt, session, tanggal, bank, inquery, notif);
+
+		// Topup murni tidak mempunyai token cicilan/tagihan. Setelah saldo diproses
+		// oleh bayarTopup(), hentikan jalur pembayaran tagihan agar sistem tidak
+		// mencoba mencari akun atau membuat PembayaranSiswa kosong. Transaksi yang
+		// menggabungkan topup dan tagihan tetap diteruskan seperti biasa.
+		if (virtualAccountBankNtt.getTopup() != null && virtualAccountBankNtt.getTopup() > 0.1
+				&& (virtualAccountBankNtt.getCicilan() == null
+						|| virtualAccountBankNtt.getCicilan().trim().length() == 0)) {
+			return new HashMap<String, List<Tagihan>>();
+		}
+
 		AkunPembayaranSiswa akunPembayaranSiswa = virtualAccountBankNtt.getAkunPembayaranSiswa();
 		if (akunPembayaranSiswa == null) {
 			Sekolah sekolah = virtualAccountBankNtt.getSiswa() == null

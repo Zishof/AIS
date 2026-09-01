@@ -197,6 +197,8 @@ public class PembayaranOnline extends GenericAutowireComposer {
 	 * yang mandiri; mode ini dipertahankan untuk kompatibilitas URL lama.
 	 */
 	private boolean modeWizardSiswa = false;
+	/** Mode topup-only yang dibuka dari menu Tabungan. */
+	private boolean modeTopupSiswa = false;
 
 	private List<MyCheckboxConfig> pilihan = new ArrayList<MyCheckboxConfig>();
 	private MyCheckboxConfig pilihCustom;
@@ -435,6 +437,7 @@ public class PembayaranOnline extends GenericAutowireComposer {
 			langsungBayar = Boolean.parseBoolean(pLangsungBayar);
 
 		modeWizardSiswa = "1".equals(ExecutionsCtrl.getCurrent().getParameter("wizardsiswa"));
+		modeTopupSiswa = "1".equals(ExecutionsCtrl.getCurrent().getParameter("modetopup"));
 
 		String pSiswa = ExecutionsCtrl.getCurrent().getParameter("siswa");
 		String pCalonSiswa = ExecutionsCtrl.getCurrent().getParameter("calon_siswa");
@@ -1119,6 +1122,30 @@ public class PembayaranOnline extends GenericAutowireComposer {
 					((HtmlBasedComponent) colBawah).setWidth("100%");
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/sekolah/helper/PembayaranOnline.java:935");
 				// non-fatal: bila gagal, layar penuh tetap dapat dipakai
+			}
+		}
+
+		// Mode Topup: pemilih siswa tetap tampil, tetapi daftar riwayat/dasbor dan tab
+		// lain disembunyikan. Kolom kiri menjadi layar pembayaran topup penuh.
+		if (modeTopupSiswa) {
+			try {
+				if (tabs != null)
+					tabs.setVisible(false);
+				if (colKiri instanceof HtmlBasedComponent)
+					((HtmlBasedComponent) colKiri).setWidth("100%");
+				if (east instanceof HtmlBasedComponent) {
+					((HtmlBasedComponent) east).setWidth("0px");
+					((HtmlBasedComponent) east).setVisible(false);
+					appendStyle((HtmlBasedComponent) east, "display:none !important;");
+				}
+				if (colBawah instanceof HtmlBasedComponent) {
+					((HtmlBasedComponent) colBawah).setWidth("0px");
+					((HtmlBasedComponent) colBawah).setVisible(false);
+					appendStyle((HtmlBasedComponent) colBawah, "display:none !important;");
+				}
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e,
+						"auto-audit(empty-catch) src/ais/action/master/sekolah/helper/PembayaranOnline.java:modeTopup");
 			}
 		}
 
@@ -2172,7 +2199,7 @@ public class PembayaranOnline extends GenericAutowireComposer {
 		protected VirtualAccountBank executeDownload(Siswa s, CalonSiswa cs, double biayaAdministrasi,
 				BankHost bankHost, AkunPembayaranSiswa akun, Sekolah sek) throws Exception {
 			return DownloadTagihanSiswaBankOnline.downloadData(s, cs, tagihans.values(), param, biayaAdministrasi,
-					sisaTabungan.isChecked() ? tabungan : null, null, bankHost, akun, sek);
+					sisaTabungan.isChecked() ? tabungan : null, getNilaiTopupAktif(), bankHost, akun, sek);
 		}
 
 		protected abstract void handleSuccess(VirtualAccountBank va, Siswa s, CalonSiswa cs, double biayaAdministrasi,
@@ -2330,7 +2357,7 @@ public class PembayaranOnline extends GenericAutowireComposer {
 					protected VirtualAccountBank executeDownload(Siswa s, CalonSiswa cs, double admin, BankHost bh,
 							AkunPembayaranSiswa akun, Sekolah sek) throws Exception {
 						return DownloadTagihanMahasiswaBankBtn.downloadData(s, cs, tagihans.values(), false, admin, bh,
-								akun, sek);
+								akun, sek, getNilaiTopupAktif());
 					}
 
 					@Override
@@ -2405,7 +2432,8 @@ public class PembayaranOnline extends GenericAutowireComposer {
 						closeSessionAndDisconnect(sess);
 					}
 					VirtualAccountBank va = DownloadTagihanSiswaBankOnline.downloadData(ls, lcs, tagihans.values(),
-							paramMap, adminFee, sisaTabungan.isChecked() ? tabungan : null, null, bankHost, akun, sekL);
+							paramMap, adminFee, sisaTabungan.isChecked() ? tabungan : null, getNilaiTopupAktif(),
+							bankHost, akun, sekL);
 					showGatewayPopup(va, popupType);
 				}
 			}, "", false, 1000);
@@ -2464,7 +2492,8 @@ public class PembayaranOnline extends GenericAutowireComposer {
 										}
 										VirtualAccountBank va = DownloadTagihanSiswaBankOnline.downloadData(ls, lcs,
 												tagihans.values(), pUpd, adminFee,
-												sisaTabungan.isChecked() ? tabungan : null, null, bankHost, akun, sk);
+												sisaTabungan.isChecked() ? tabungan : null, getNilaiTopupAktif(), bankHost,
+												akun, sk);
 										showGatewayPopup(va, popupType);
 									}
 								}, "Proses pembayaran ..");
@@ -2491,6 +2520,7 @@ public class PembayaranOnline extends GenericAutowireComposer {
 		tagihans.clear();
 		akunPembayaranPreview = null;
 		pilihan.clear();
+		deposit = null;
 		Common.clear(colKiri);
 
 		final Row sub = Common.tampilanScroll1(colKiri);
@@ -2585,6 +2615,10 @@ public class PembayaranOnline extends GenericAutowireComposer {
 		labelTabungan.setVisible(tabungan > 0.1);
 		labelTabungan.setValue("Tabungan : " + Common.numberFormat.get().format(tabungan));
 		sisaTabungan.setVisible(tabungan > 0.1);
+		if (modeTopupSiswa) {
+			sisaTabungan.setChecked(false);
+			sisaTabungan.setVisible(false);
+		}
 
 		if (tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null
 				&& tbmuser.getOrangTua() == null && tbmuser.getCalonSiswa() == null && sekolah_lokal != null) {
@@ -2769,6 +2803,11 @@ public class PembayaranOnline extends GenericAutowireComposer {
 	private void prosesTampilPembayaranParalel(final Siswa s_lokal, final CalonSiswa cs_lokal, final Integer bln,
 			final Integer thn, final boolean refresh, final Row sub) {
 		if (s_lokal == null && cs_lokal == null) {
+			hitungUlangTagihan();
+			return;
+		}
+		if (modeTopupSiswa) {
+			appendFormTopupSiswa(s_lokal, true);
 			hitungUlangTagihan();
 			return;
 		}
@@ -3581,7 +3620,11 @@ public class PembayaranOnline extends GenericAutowireComposer {
 			}
 		}
 
-		Siswa s_lokal = getSiswaLokal();
+		appendFormTopupSiswa(getSiswaLokal(), false);
+	}
+
+	/** Menambahkan input topup yang sama untuk mode pembayaran normal dan topup-only. */
+	private void appendFormTopupSiswa(Siswa s_lokal, boolean otomatisAktif) {
 		if (s_lokal != null) {
 			boolean showTabungan = Common.bolehKonfigurasi("tampilkan_tabungan_siswa");
 			MyGroupConfig grp = new ais.ui.util.MyGroupConfig();
@@ -3598,9 +3641,10 @@ public class PembayaranOnline extends GenericAutowireComposer {
 			rTab.appendChild(new MyLabelBoldAja(""));
 			deposit = new MyDoublebox(0.0);
 			deposit.setWidth("90%");
-			deposit.setDisabled(true);
+			deposit.setDisabled(!otomatisAktif);
 			rTab.appendChild(deposit);
 			rTab.setAttribute("nominal", deposit);
+			cbTabungan.setChecked(otomatisAktif);
 			cbTabungan.addEventListener("onClick", new EventListener() {
 				@Override
 				public void onEvent(Event arg0) {
@@ -3615,6 +3659,15 @@ public class PembayaranOnline extends GenericAutowireComposer {
 				}
 			});
 		}
+	}
+
+	/** Nilai topup aktif untuk diteruskan ke seluruh kanal pembayaran siswa. */
+	private Double getNilaiTopupAktif() {
+		if (deposit == null || deposit.isDisabled() || deposit.getValue() == null
+				|| deposit.getValue().doubleValue() <= 0.1) {
+			return null;
+		}
+		return deposit.getValue();
 	}
 
 	private void tampilWindowAngsuran(final Tagihan tagihan) throws Exception {
