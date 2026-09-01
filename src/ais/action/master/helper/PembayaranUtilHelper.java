@@ -11,7 +11,6 @@ import java.util.Map;
 import java.util.TreeSet;
 
 import org.hibernate.Criteria;
-import org.hibernate.CriteriaSpecification;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.hibernate.criterion.MatchMode;
@@ -21,7 +20,6 @@ import org.hibernate.criterion.Restrictions;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import ais.action.master.SetingBiayaAction;
 import ais.action.ws.util.CommonUtil;
 import ais.action.ws.util.ConstantUtil;
 import ais.common.Common;
@@ -114,8 +112,8 @@ public class PembayaranUtilHelper {
 		if (criteria == null || settingBiaya == null) {
 			return criteria;
 		}
-		criteria.createAlias("detailSettingBiaya", "settingPrioritasRincian", CriteriaSpecification.LEFT_JOIN);
-		criteria.createAlias("settingBiayaDetail", "settingPrioritasIndividual", CriteriaSpecification.LEFT_JOIN);
+		criteria.createAlias("detailSettingBiaya", "settingPrioritasRincian", Criteria.LEFT_JOIN);
+		criteria.createAlias("settingBiayaDetail", "settingPrioritasIndividual", Criteria.LEFT_JOIN);
 		criteria.add(Restrictions.or(Restrictions.eq("settingBiaya", settingBiaya),
 				Restrictions.or(Restrictions.eq("settingPrioritasRincian.settingBiaya", settingBiaya),
 						Restrictions.eq("settingPrioritasIndividual.settingBiaya", settingBiaya))));
@@ -676,7 +674,7 @@ public class PembayaranUtilHelper {
 			if (detailSettingBiayas == null) {
 				return PengecualianTagihanList.kosong();
 			}
-			SettingBiaya settingBiayaTerpilih = SetingBiayaAction.getSettingBiayaTerpilih(session, angkatan,
+			SettingBiaya settingBiayaTerpilih = SetingBiayaHelper.getSettingBiayaTerpilih(session, angkatan,
 					jenjang, semester, jenisKegiatan, statusAwalMahasiswa, statusMahasiswa,
 					mahasiswa.getJenisSeleksi(), mahasiswa.getGelombangPendaftaran(), paket, jurusan, program,
 					kelamin, afiliasiCalonMahasiswa, ta, mahasiswa.getNim(), false);
@@ -1133,7 +1131,7 @@ public class PembayaranUtilHelper {
 			if (detailSettingBiayas == null) {
 				return PengecualianTagihanList.kosong();
 			}
-			SettingBiaya settingBiayaTerpilih = SetingBiayaAction.getSettingBiayaTerpilih(session, angkatan,
+			SettingBiaya settingBiayaTerpilih = SetingBiayaHelper.getSettingBiayaTerpilih(session, angkatan,
 					jenjang, semester, jenisKegiatan, biodataCalonMahasiswa.getStatusAwalMahasiswa(),
 					ConstantValues.AKTIF, jenisSeleksi, biodataCalonMahasiswa.getGelombangPendaftaran(),
 					biodataCalonMahasiswa.getPaket(), jurusan, program, kelamin, afiliasiCalonMahasiswa, ta,

@@ -128,7 +128,18 @@ public final class GenericCrudAkademikOverridesSelfTest {
                     kunci + " harus punya alasan tertulis");
         }
 
-        // 6. Route di luar daftar tidak boleh tersentuh sama sekali.
+        // 6. Default Checklist dinaikkan; modelnya juga tanpa kolom aktif.
+        GenericCrudDefinition checklist = definisi("rab", "checklist_laporan_detail_default",
+                ais.database.model.rab.ChecklistLaporanDetailDefault.class);
+        GenericCrudAkademikOverrides.terapkan(checklist);
+        check(GenericCrudDefinition.FULL_CRUD.equals(checklist.getLifecycleStatus()),
+                "Default Checklist harus naik menjadi FULL_CRUD");
+        check(checklist.isCreateEnabled() && checklist.isUpdateEnabled(),
+                "Default Checklist harus bisa tambah dan ubah");
+        check(!checklist.isDeleteEnabled(),
+                "ChecklistLaporanDetailDefault tanpa kolom aktif TIDAK boleh mendapat hapus");
+
+        // 7. Route di luar daftar tidak boleh tersentuh sama sekali.
         GenericCrudDefinition lain = definisi("sekolah", "pembayaran_siswa",
                 ais.database.model.Kurikulum.class);
         GenericCrudAkademikOverrides.terapkan(lain);

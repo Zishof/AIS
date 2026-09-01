@@ -3138,6 +3138,16 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return new Object[] { diambil, index, dataDiambil };
 	}
 
+	/**
+	 * Membaca isi mentah berkas indeks JSON pertemuan milik dosen ini
+	 * ({@code dosen_punya_pertemuan_&lt;id&gt;}).
+	 *
+	 * <p>Pemanggil sebaiknya memakai {@link #ambilLokasiPertemuanJsonAman()} yang sudah menangani
+	 * berkas terpotong dan mengunci akses; method ini mengembalikan teks apa adanya.</p>
+	 *
+	 * @return isi berkas indeks, atau {@code VOMahasiswa.dataJSON} (objek JSON kosong) bila berkas
+	 *         tidak ada, kosong, atau gagal dibaca
+	 */
 	public String ambilLokasiPertemuan() {
 		File file = Common.getFileLocation(this, "dosen_punya_pertemuan_" + getId().toString());
 		try {
@@ -3149,6 +3159,19 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Mengambil objek kunci sinkronisasi untuk indeks pertemuan dosen ini.
+	 *
+	 * <p>Kunci diambil dari peta statis {@code KUNCI_PERTEMUAN_DOSEN} berdasarkan ID dosen — bukan
+	 * {@code this} — karena satu dosen yang sama dapat diwakili beberapa instance Hibernate pada
+	 * session berbeda, sehingga mengunci {@code this} tidak mencegah dua thread menulis berkas indeks
+	 * yang sama. Dosen yang belum punya ID memakai kunci per-instance
+	 * ({@code "baru_" + identityHashCode}). Penyisipan memakai {@code putIfAbsent} agar semua
+	 * pemanggil untuk ID yang sama mendapat objek kunci yang identik.
+	 *
+	 * @return objek kunci yang harus dipakai pada blok {@code synchronized} sebelum membaca-mengubah-
+	 *         menulis berkas indeks pertemuan
+	 */
 	private Object kunciPertemuanDosen() {
 		String key = getId() == null ? "baru_" + System.identityHashCode(this) : getId().toString();
 		Object baru = new Object();
@@ -3188,6 +3211,15 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Menimpa berkas indeks JSON pertemuan milik dosen ini dengan {@code data}. Kegagalan tulis
+	 * direkam ke {@code ErrorAuditUtil} dan tidak dilempar.
+	 *
+	 * <p>Pemanggil bertanggung jawab memegang kunci {@link #kunciPertemuanDosen()} bila melakukan
+	 * siklus baca-ubah-tulis.</p>
+	 *
+	 * @param data isi berkas indeks yang baru (biasanya {@code JSONObject.toString()})
+	 */
 	public void tulisLokasiPertemuan(String data) {
 		File file = Common.getFileLocation(this, "dosen_punya_pertemuan_" + getId().toString());
 		try {
@@ -3198,16 +3230,54 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Menghapus berkas indeks JSON pertemuan milik dosen ini. Dipakai sebelum indeks dibangun ulang
+	 * oleh {@link #reInitPertemuan(Session, Label, Date, Date)}.
+	 */
 	public void bersihkanLokasiPertemuan() {
 		File file = Common.getFileLocation(this, "dosen_punya_pertemuan_" + getId().toString());
 		BacaTulisUtil.doHapus(file, "dosen_punya_pertemuan");
 
 	}
 
+	/**
+	 * Varian {@link #reInitPertemuan(Session, Label, Date, Date)} yang menerima {@link Calendar}.
+	 *
+	 * <p><b>Perhatikan urutan parameter:</b> {@code sampai} berada sebelum {@code mulai} pada tanda
+	 * tangan ini, sedangkan pemanggilan ke varian {@code Date} tetap meneruskannya dalam urutan
+	 * (mulai, sampai) yang benar. Urutan ini dipertahankan demi pemanggil lama.</p>
+	 *
+	 * @param session session Hibernate untuk query pertemuan
+	 * @param label   label ZK yang diperbarui sebagai indikator progres
+	 * @param sampai  batas akhir rentang tanggal
+	 * @param mulai   batas awal rentang tanggal
+	 */
 	public void reInitPertemuan(Session session, Label label, Calendar sampai, Calendar mulai) {
 		reInitPertemuan(session, label, mulai.getTime(), sampai.getTime());
 	}
 
+	/**
+	 * Membangun ulang indeks pertemuan dosen ini untuk rentang tanggal tertentu.
+	 *
+	 * <p>Kriteria pertemuan yang diambil: masih aktif (kolom {@code aktif} null atau {@code true}),
+	 * bukan pertemuan wisuda, terkait salah satu konteks pembelajaran (perkuliahan, bimbingan tugas
+	 * akhir, KKN, PKL, skripsi, KRS, jadwal pelajaran, atau grup pertemuan), dan tanggalnya berada di
+	 * dalam rentang {@code mulai}–{@code sampai} (dibandingkan lewat {@code sqlRestriction} pada
+	 * {@code date(this_.tanggal)}). Penyaringan keterlibatan dosen didelegasikan ke
+	 * {@code DashboardTimelinePertemuan.createCriteriaDosen(...)} dengan seluruh jenis jadwal
+	 * diaktifkan.
+	 *
+	 * <p><b>Efek samping:</b> berkas indeks lama dihapus lalu ditulis ulang dari nol; setiap pertemuan
+	 * yang belum ada di cache objek dimuat ({@code session.load}) dan dimasukkan ke cache. Selama
+	 * proses berjalan, {@code label} diperbarui dengan persentase kemajuan sehingga method ini harus
+	 * dipanggil dari konteks yang punya komponen ZK hidup (mis. tombol "segarkan" di dasbor), bukan
+	 * dari batch tanpa UI.</p>
+	 *
+	 * @param session session Hibernate untuk query dan pemuatan pertemuan
+	 * @param label   label ZK yang diperbarui sebagai indikator progres
+	 * @param mulai   batas awal rentang tanggal (inklusif)
+	 * @param sampai  batas akhir rentang tanggal (inklusif)
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitPertemuan(Session session, Label label, Date mulai, Date sampai) {
 
@@ -3249,6 +3319,15 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		pertemuans = null;
 	}
 
+	/**
+	 * Mengeluarkan satu pertemuan dari indeks dosen ini dengan menyetel nilainya menjadi string kosong.
+	 *
+	 * <p>Seluruh siklus baca-ubah-tulis dibungkus {@code synchronized} pada
+	 * {@link #kunciPertemuanDosen()} dan membaca indeks lewat {@link #ambilLokasiPertemuanJsonAman()},
+	 * sehingga aman terhadap penulisan serentak maupun berkas yang sebelumnya terpotong.</p>
+	 *
+	 * @param id ID pertemuan yang dikeluarkan dari indeks; {@code null} diabaikan
+	 */
 	public void removePertemuan(Serializable id) {
 		if (id == null) {
 			return;
@@ -3264,6 +3343,14 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Menambahkan (atau menyegarkan) satu pertemuan pada indeks dosen ini, dengan penguncian dan
+	 * pembacaan aman yang sama seperti {@link #removePertemuan(Serializable)}.
+	 *
+	 * @param pertemuan  pertemuan yang dicatat; diabaikan bila {@code null} atau belum punya ID
+	 * @param tulisUlang parameter warisan yang saat ini <b>tidak dipakai</b> — berkas indeks selalu
+	 *                   ditulis ulang. Dipertahankan agar tanda tangan tetap sama dengan pemanggil lama
+	 */
 	public void populatePertemuan(Pertemuan pertemuan, boolean tulisUlang) {
 		if (pertemuan == null || pertemuan.getId() == null) {
 			return;
@@ -3279,6 +3366,27 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Membaca indeks pertemuan dosen ini menjadi peta terurut waktu, sekaligus melengkapi cache objek
+	 * untuk pertemuan yang belum termuat.
+	 *
+	 * <p>Kunci peta dibentuk {@code yyyyMMdd_HH.mm-HH.mm_id} (tanggal, jam mulai–jam selesai, lalu ID)
+	 * sehingga {@link TreeMap} otomatis mengurutkan pertemuan secara kronologis dan pemanggil dapat
+	 * mencari posisi "hari ini" cukup dengan membandingkan awalan kunci — inilah yang dipakai
+	 * {@link #ambilPertemuan(TreeMap, boolean, boolean, boolean, boolean, boolean, boolean, boolean,
+	 * boolean, boolean, boolean, String, boolean, boolean, boolean, boolean, boolean, boolean, Date,
+	 * String, String, String, String, String, String, String, String, String, String, boolean,
+	 * Integer, boolean, boolean, boolean, StatusPertemuan, Integer, PagingApi, boolean, int,
+	 * MyToolbarbuttonConfig, Tbmuser, String)} untuk melompat ke halaman berjalan.</p>
+	 *
+	 * <p>Pertemuan yang belum ada di cache dikumpulkan lebih dulu ke {@code idsBelumAda} lalu dimuat
+	 * sekaligus dengan satu query {@code in (...)} (menghindari N+1), dan hanya yang masih aktif yang
+	 * dimasukkan ke cache serta ke hasil. Pertemuan tanpa tanggal <b>dilewati</b> di kedua jalur —
+	 * dulu kondisi ini memicu {@code NullPointerException} pada pemformatan tanggal.</p>
+	 *
+	 * @param session session Hibernate untuk memuat pertemuan yang belum ada di cache
+	 * @return peta pertemuan terurut waktu dengan nilai berupa ID pertemuan; kosong bila indeks kosong
+	 */
 	@SuppressWarnings("unchecked")
 	public TreeMap<String, Long> ambilPertemuan(Session session) {
 
@@ -3354,6 +3462,16 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return pertemuansa;
 	}
 
+	/**
+	 * Varian {@link #ambilPertemuan(TreeMap, boolean, boolean, boolean, boolean, boolean, boolean,
+	 * boolean, boolean, boolean, boolean, String, boolean, boolean, boolean, boolean, boolean,
+	 * boolean, Date, String, String, String, String, String, String, String, String, String, String,
+	 * boolean, Integer, boolean, boolean, boolean, StatusPertemuan, Integer, PagingApi, boolean, int,
+	 * MyToolbarbuttonConfig, Tbmuser, String)} dengan urutan {@code "asc"} (kronologis naik).
+	 * Seluruh parameter diteruskan apa adanya; lihat method utama untuk maknanya.
+	 *
+	 * @return daftar ID pertemuan pada halaman berjalan
+	 */
 	public List<Long> ambilPertemuan(TreeMap<String, Long> pertemuansa, boolean jadwalPerkuliahan, boolean jadwalKkn,
 			boolean jadwalPkl, boolean jadwalKegiatan, boolean jadwalRevisi, boolean jadwalKonsultasi,
 			boolean jadwalBimbingan, boolean jadwalKonsultasiLain,
@@ -3515,6 +3633,90 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		return hasil;
 	}
 
+	/**
+	 * Mesin penyaringan dan pemenggalan halaman untuk daftar pertemuan dosen — implementasi nyata dari
+	 * seluruh overload {@code ambilPertemuan(TreeMap, ...)}.
+	 *
+	 * <p>Masukannya adalah peta terurut hasil {@link #ambilPertemuan(Session)}. Setiap pertemuan
+	 * dimuat dari cache objek, lalu harus lolos berlapis-lapis syarat sebelum masuk hasil:</p>
+	 * <ol>
+	 * <li><b>Keterlibatan dosen:</b> pertemuan tanpa perkuliahan selalu lolos; pertemuan dengan
+	 * perkuliahan hanya lolos bila dosen ini tercatat sebagai dosen pengganti pertemuan tersebut atau
+	 * termasuk dalam {@code perkuliahan.populateDosenBuId()};</li>
+	 * <li><b>Kelengkapan:</b> pertemuan tanpa tanggal dilewati;</li>
+	 * <li><b>Penanda konten:</b> {@code tdpTugas}, {@code tdpCatatan}, {@code tdpDosenPengganti},
+	 * {@code tdpMateri}, {@code tdpDiskusi}, {@code tdpUjian}/{@code namaUjian}, {@code tdpAudio},
+	 * {@code tdpVideo} — masing-masing membuang pertemuan yang tidak memiliki konten bersangkutan;</li>
+	 * <li><b>Jenis jadwal:</b> minimal satu dari {@code jadwalPerkuliahan}, {@code jadwalKkn},
+	 * {@code jadwalPkl}, {@code jadwalKegiatan}, {@code jadwalRevisi} (skripsi),
+	 * {@code jadwalKonsultasi} (KRS), {@code jadwalBimbingan}, {@code jadwalKonsultasiLain} harus
+	 * cocok dengan relasi yang dimiliki pertemuan;</li>
+	 * <li><b>Pencarian teks:</b> {@code mk} dicocokkan ke kode/nama mata kuliah, {@code dsn} ke kode/
+	 * nama mata kuliah maupun nama sepuluh slot dosen pengampu, {@code topik} ke topik dan judul tugas,
+	 * {@code catatan} ke catatan, {@code cariMahasiswa} ke NIM/nama mahasiswa pada skripsi, bimbingan,
+	 * atau KRS, {@code cariKelas} ke kelas perkuliahan, {@code cariRuang} ke kode/nama ruang;</li>
+	 * <li><b>Rentang jam</b> ({@code mul}–{@code sam}), <b>hari</b> (dengan penyeragaman
+	 * {@code "Jum'at"} menjadi {@code "Jumat"}), <b>remedial</b>, <b>paralel</b>,
+	 * <b>pra-perkuliahan</b>, <b>ekstrakurikuler</b>, <b>daring</b> ({@code pertemuan.apakahSedang("online")}),
+	 * <b>status pertemuan</b>, dan <b>pertemuan ke-</b>.</li>
+	 * </ol>
+	 *
+	 * <p>Hasil yang lolos dikumpulkan ke {@link TreeMap} baru dengan urutan sesuai {@code order}.
+	 * Setelah itu {@code paging} diperbarui (total, ukuran halaman, {@code pageIncrement} 5 pada
+	 * tampilan mobile atau 10 pada desktop, mold {@code "os"}). Bila {@code refresh} bernilai
+	 * {@code true}, halaman aktif dilompatkan ke posisi tanggal hari ini sehingga pengguna langsung
+	 * melihat jadwal terkini. Atribut {@code "mulaiParam"}/{@code "sampaiParam"} pada {@code paging}
+	 * menimpa perhitungan halaman biasa (dipakai fitur "muat lebih banyak"), dan tombol {@code back}
+	 * diberi label jumlah pertemuan sebelumnya serta disembunyikan bila sudah berada di awal daftar.</p>
+	 *
+	 * <p><b>Efek samping:</b> mengubah state komponen ZK ({@code paging}, {@code back}) — jadi method
+	 * ini terikat pada konteks UI, bukan murni pengolah data.</p>
+	 *
+	 * @param pertemuansa          peta pertemuan terurut hasil {@link #ambilPertemuan(Session)}
+	 * @param jadwalPerkuliahan    sertakan pertemuan perkuliahan
+	 * @param jadwalKkn            sertakan pertemuan KKN
+	 * @param jadwalPkl            sertakan pertemuan PKL
+	 * @param jadwalKegiatan       sertakan pertemuan formulir kegiatan
+	 * @param jadwalRevisi         sertakan pertemuan revisi/skripsi
+	 * @param jadwalKonsultasi     sertakan pertemuan konsultasi KRS (perwalian)
+	 * @param jadwalBimbingan      sertakan pertemuan bimbingan tugas akhir
+	 * @param jadwalKonsultasiLain sertakan pertemuan grup konsultasi lain
+	 * @param tdpDiskusi           hanya pertemuan yang punya diskusi
+	 * @param tdpUjian             hanya pertemuan yang punya ujian
+	 * @param namaUjian            nama ujian yang dicari; kosong berarti tidak menyaring
+	 * @param tdpMateri            hanya pertemuan yang punya berkas materi
+	 * @param tdpTugas             hanya pertemuan yang punya judul tugas
+	 * @param tdpCatatan           hanya pertemuan yang punya catatan
+	 * @param tdpAudio             hanya pertemuan yang punya rekaman audio
+	 * @param tdpVideo             hanya pertemuan yang punya rekaman video
+	 * @param tdpDosenPengganti    hanya pertemuan yang diampu dosen pengganti
+	 * @param tanggal              parameter warisan yang saat ini tidak dipakai dalam penyaringan
+	 * @param mk                   penggalan kode/nama mata kuliah
+	 * @param dsn                  penggalan kode/nama mata kuliah atau nama dosen pengampu
+	 * @param mul                  batas bawah jam mulai (angka desimal sebagai teks); boleh null
+	 * @param sam                  batas atas jam selesai (angka desimal sebagai teks); boleh null
+	 * @param topik                penggalan topik atau judul tugas
+	 * @param catatan              penggalan catatan pertemuan
+	 * @param hari                 nama hari; {@code "Jum'at"} otomatis diseragamkan menjadi {@code "Jumat"}
+	 * @param cariMahasiswa        penggalan NIM atau nama mahasiswa terkait
+	 * @param cariKelas            penggalan nama kelas perkuliahan
+	 * @param cariRuang            penggalan kode atau nama ruang
+	 * @param merupakanPraPerkuliahan hanya pertemuan pra-perkuliahan
+	 * @param ekstrakurikuler      penanda ekstrakurikuler; {@code null} berarti tidak menyaring
+	 * @param remedial             hanya perkuliahan remedial
+	 * @param paralelAja           hanya kelas paralel
+	 * @param online               hanya pertemuan daring
+	 * @param statusPertemuan      status pertemuan yang disaring; {@code null} berarti semua
+	 * @param ke                   nomor pertemuan ke-; {@code null} berarti semua
+	 * @param paging               objek paging yang <b>diperbarui</b> (total, ukuran, halaman aktif)
+	 * @param refresh              bila {@code true}, halaman aktif dilompatkan ke tanggal hari ini
+	 * @param banyak               jumlah baris per halaman
+	 * @param back                 tombol "tampilkan pertemuan sebelumnya" yang label dan visibilitasnya
+	 *                             <b>diubah</b> method ini
+	 * @param tbmuser              pengguna aktif, dipakai saat memeriksa hak lihat ujian
+	 * @param order                {@code "asc"} untuk urutan kronologis naik, selain itu menurun
+	 * @return daftar ID pertemuan pada halaman berjalan
+	 */
 	public List<Long> ambilPertemuan(TreeMap<String, Long> pertemuansa, boolean jadwalPerkuliahan, boolean jadwalKkn,
 			boolean jadwalPkl, boolean jadwalKegiatan, boolean jadwalRevisi, boolean jadwalKonsultasi,
 			boolean jadwalBimbingan, boolean jadwalKonsultasiLain,
@@ -4041,11 +4243,23 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 
 	}
 
+	/**
+	 * ID dosen ini pada mesin absensi sidik jari. Bila kolom kosong, nilai dicari ke berkas cache
+	 * {@code retreive("idfinger")} sebagai cadangan, lalu dipangkas spasi.
+	 *
+	 * @return ID mesin sidik jari, atau {@code null} bila tidak ada di kolom maupun cache
+	 */
 	public String getIdfinger() {
 		String s = idfinger == null || idfinger.trim().isEmpty() ? retreive("idfinger") : idfinger;
 		return s == null ? null : s.trim();
 	}
 
+	/**
+	 * Mengisi ID mesin sidik jari sekaligus mencerminkannya ke berkas cache lewat
+	 * {@code put(nilai, "idfinger")}. Nilai null/kosong diabaikan agar ID yang sudah ada tidak hilang.
+	 *
+	 * @param idfinger ID pada mesin sidik jari; diabaikan bila null/kosong
+	 */
 	public void setIdfinger(String idfinger) {
 		if (idfinger != null && !idfinger.trim().isEmpty()) {
 			put(idfinger.trim(), "idfinger");
@@ -4053,15 +4267,37 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Implementasi {@link VOMahasiswaDosen#ambilKode()}: kode identitas dosen untuk tampilan dan
+	 * laporan — NIDN bila terisi, selain itu {@link #getMycode()}.
+	 *
+	 * @return NIDN atau kode internal sebagai identitas dosen
+	 */
 	public String ambilKode() {
 		return nidn == null || nidn.trim().isEmpty() ? getMycode() : nidn;
 	}
 
+	/**
+	 * ID atau tautan profil Google Scholar dosen. Bila kolom kosong, nilai dicari ke berkas cache
+	 * {@code retreive("googleScholar")} sebagai cadangan, lalu dipangkas spasi.
+	 *
+	 * @return ID/tautan Google Scholar, atau {@code null} bila tidak ada
+	 * @see #getKodeSinta()
+	 */
 	public String getGoogleScholar() {
 		String s = googleScholar == null || googleScholar.trim().isEmpty() ? retreive("googleScholar") : googleScholar;
 		return s == null ? null : s.trim();
 	}
 
+	/**
+	 * Mengisi ID/tautan Google Scholar dan mencerminkannya ke berkas cache bila nilainya tidak kosong.
+	 *
+	 * <p>Berbeda dari {@link #setIdfinger(String)}, baris terakhir method ini <b>tetap</b> menyalin
+	 * {@code googleScholar} ke field walaupun nilainya null/kosong — jadi setter ini memang dapat
+	 * mengosongkan kolom, hanya saja cerminan di berkas cache tidak ikut dihapus.</p>
+	 *
+	 * @param googleScholar ID/tautan Google Scholar; boleh null untuk mengosongkan kolom
+	 */
 	public void setGoogleScholar(String googleScholar) {
 		if (googleScholar != null && !googleScholar.trim().isEmpty()) {
 			put(googleScholar.trim(), "googleScholar");
@@ -4070,29 +4306,77 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		this.googleScholar = googleScholar;
 	}
 
+	/**
+	 * Tautan ruang kelas daring pribadi dosen (kolom bertipe {@code text}), sudah dipangkas spasi dan
+	 * tidak pernah {@code null}. Dipakai bersama {@link #getOnlineMenggunakan()} yang menentukan
+	 * platformnya.
+	 *
+	 * @return tautan kelas daring, atau string kosong bila belum diisi
+	 */
 	@Column(columnDefinition = "text")
 	public String getOnlineLink() {
 		return onlineLink == null ? "" : onlineLink.trim();
 	}
 
+	/**
+	 * Mengisi tautan ruang kelas daring pribadi dosen.
+	 *
+	 * @param onlineLink tautan kelas daring
+	 */
 	public void setOnlineLink(String onlineLink) {
 		this.onlineLink = onlineLink;
 	}
 
+	/**
+	 * Kode profil SINTA (Science and Technology Index) dosen, sudah dipangkas spasi dan tidak pernah
+	 * {@code null}.
+	 *
+	 * @return kode SINTA, atau string kosong bila belum diisi
+	 * @see #getGoogleScholar()
+	 */
 	public String getKodeSinta() {
 		return kodeSinta == null ? "" : kodeSinta.trim();
 	}
 
+	/**
+	 * Mengisi kode profil SINTA dosen.
+	 *
+	 * @param kodeSinta kode SINTA
+	 */
 	public void setKodeSinta(String kodeSinta) {
 		this.kodeSinta = kodeSinta;
 	}
 
+	/**
+	 * Implementasi {@link VOMahasiswaDosen#ambilMateri(TreeMap, boolean, Label)}: mengumpulkan berkas
+	 * materi dari sekumpulan pertemuan, didelegasikan sepenuhnya ke
+	 * {@link ais.database.model.file.PertemuanFileContent}. Pengguna aktif diambil sendiri lewat
+	 * {@code Common.getCurrentUser()} sehingga method ini hanya boleh dipanggil dari konteks yang
+	 * punya session pengguna.
+	 *
+	 * @param pertemuans peta pertemuan (kunci terurut waktu) yang materinya dikumpulkan
+	 * @param refresh    bila {@code true}, materi diambil ulang tanpa memakai cache
+	 * @param label      label ZK indikator progres
+	 * @return peta materi per pertemuan
+	 * @see #ambilMateri(TreeMap, boolean, Label, boolean, Tbmuser)
+	 */
 	@Override
 	public TreeMap<String, Object[]> ambilMateri(TreeMap<String, Long> pertemuans, boolean refresh, Label label) {
 		Tbmuser tbmuser = Common.getCurrentUser();
 		return PertemuanFileContent.ambilMateri(pertemuans, refresh, label, tbmuser);
 	}
 
+	/**
+	 * Varian {@link #ambilMateri(TreeMap, boolean, Label)} dengan pengguna diberikan secara eksplisit
+	 * (berguna di luar konteks session ZK) dan pilihan pengurutan menurut nama berkas.
+	 *
+	 * @param pertemuans            peta pertemuan yang materinya dikumpulkan
+	 * @param refresh               bila {@code true}, materi diambil ulang tanpa memakai cache
+	 * @param label                 label ZK indikator progres
+	 * @param urutBerdasarkanNama   bila {@code true}, materi diurutkan menurut nama berkas
+	 * @param tbmuser               pengguna yang hak aksesnya dipakai saat menyaring materi
+	 * @return peta materi per pertemuan
+	 */
 	public TreeMap<String, Object[]> ambilMateri(TreeMap<String, Long> pertemuans, boolean refresh, Label label,
 			boolean urutBerdasarkanNama, Tbmuser tbmuser) {
 		return PertemuanFileContent.ambilMateri(pertemuans, refresh, label, urutBerdasarkanNama, tbmuser);
@@ -4106,10 +4390,40 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 	 */
 	private static final ThreadLocal<Boolean> AMBIL_BIODATA_AKTIF = new ThreadLocal<Boolean>();
 
+	/**
+	 * Varian {@link #ambilBiodata(boolean)} dengan {@code jikaTidakAdaSimpan = true}: bila dosen ini
+	 * belum punya baris biodata, satu baris kosong <b>dibuat dan disimpan ke basis data</b>.
+	 *
+	 * @return biodata dosen; {@code null} hanya bila dosen belum punya ID
+	 */
 	public BiodataDosen ambilBiodata() {
 		return ambilBiodata(true);
 	}
 
+	/**
+	 * Mengambil {@link BiodataDosen} milik dosen ini — data pelengkap (agama, status perkawinan,
+	 * nomor HP/telepon rumah, dan sebagainya) yang disimpan pada tabel terpisah.
+	 *
+	 * <p>Urutan pencarian: field {@code biodataDosen} yang sudah terisi lengkap dipakai langsung;
+	 * bila belum, seluruh biodata di cache {@code ConstantValues.ambilBerdasarClass(BiodataDosen.class)}
+	 * ditelusuri untuk mencari yang dosennya cocok; bila masih belum ketemu, dijalankan query
+	 * Hibernate memakai session native (diambil baris ber-ID terbesar).</p>
+	 *
+	 * <p><b>Efek samping penting:</b> bila {@code jikaTidakAdaSimpan} bernilai {@code true} dan biodata
+	 * tetap tidak ditemukan, method ini <b>membuka transaksi sendiri lalu menyimpan baris
+	 * {@code BiodataDosen} baru</b> — sebuah operasi tulis yang tersembunyi di balik nama "ambil".
+	 * Pemanggil yang hanya ingin membaca wajib memakai {@code false}.</p>
+	 *
+	 * <p><b>Penjaga anti-rekursi:</b> {@code ThreadLocal} {@code AMBIL_BIODATA_AKTIF} memutus siklus
+	 * {@code getAgama()} → {@code ambilBiodata()} → query → auto-flush Hibernate → {@code getAgama()}
+	 * yang sebelumnya menyebabkan {@code StackOverflowError}. Saat penanda aktif, method langsung
+	 * mengembalikan nilai field apa adanya tanpa query maupun penyimpanan.</p>
+	 *
+	 * @param jikaTidakAdaSimpan bila {@code true}, baris biodata kosong dibuat dan disimpan ketika
+	 *                           belum ada; bila {@code false}, method murni membaca
+	 * @return biodata dosen, atau {@code null} bila dosen belum punya ID atau biodata tidak ada dan
+	 *         tidak diminta dibuat
+	 */
 	@SuppressWarnings("unchecked")
 	public BiodataDosen ambilBiodata(boolean jikaTidakAdaSimpan) {
 
@@ -4188,6 +4502,16 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 		}
 	}
 
+	/**
+	 * Merender alamat surel dosen sebagai tombol ZK di dalam {@code vbox}. Bila surel terisi, tombol
+	 * diberi ikon amplop dan tautan {@code mailto:} yang terbuka di tab baru; bila kosong, tombol tetap
+	 * dibuat namun tanpa tautan.
+	 *
+	 * <p><b>Efek samping:</b> membentuk dan menempelkan komponen UI — hanya untuk dipanggil dari
+	 * lapisan tampilan.</p>
+	 *
+	 * @param vbox komponen induk tempat tombol ditempelkan
+	 */
 	public void tampilkanEmail(Component vbox) {
 		String email = getEmail();
 		Toolbarbutton a;
@@ -4201,6 +4525,26 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 
 	}
 
+	/**
+	 * Merender nomor HP/telepon dosen sebagai tombol ZK bertaut WhatsApp di dalam {@code vbox}.
+	 *
+	 * <p>Nomor diambil dari {@link BiodataDosen} ({@code hp} dan {@code teleponRumah}). Nomor
+	 * "pengisi" yang lazim ditemui pada data warisan — {@code 08100000000000000000},
+	 * {@code 0000000000}, {@code 00000000000000000000}, {@code 000000000} — diperlakukan sebagai
+	 * kosong. Bila HP kosong, nomor telepon rumah dipakai sebagai gantinya. Nomor kemudian
+	 * dinormalkan ke format internasional ({@code 08...} dan {@code 0...} menjadi {@code +62...},
+	 * selain itu diberi awalan {@code +62}) sebelum dipasang pada tautan
+	 * {@code https://web.whatsapp.com/send}.
+	 *
+	 * <p>Bila pembacaan biodata gagal, blok {@code catch} membangun ulang tombol dengan nomor dari
+	 * {@link #getTelp()} memakai normalisasi yang sama — jadi tampilan tetap muncul meski biodata
+	 * tidak tersedia.</p>
+	 *
+	 * <p><b>Efek samping:</b> membentuk dan menempelkan komponen UI; pemanggilan
+	 * {@link #ambilBiodata()} di dalamnya dapat membuat baris biodata baru di basis data.</p>
+	 *
+	 * @param vbox komponen induk tempat tombol ditempelkan
+	 */
 	public void tampilkanHp(Component vbox) {
 		try {
 			BiodataDosen biodataDosen = ambilBiodata();

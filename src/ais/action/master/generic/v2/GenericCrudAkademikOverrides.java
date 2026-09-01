@@ -5,6 +5,7 @@ import java.util.Map;
 
 import ais.action.master.generic.v2.adapter.AkunGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.BankSoalGenericCrudAdapter;
+import ais.action.master.generic.v2.adapter.ChecklistLaporanDetailDefaultGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.GenericCrudScopeAdapter;
 import ais.action.master.generic.v2.adapter.KurikulumGenericCrudAdapter;
 
@@ -51,6 +52,8 @@ public final class GenericCrudAkademikOverrides {
         DINAIKKAN.put("root/kurikulum", KurikulumGenericCrudAdapter.class);
         DINAIKKAN.put("root/bank_soal", BankSoalGenericCrudAdapter.class);
         DINAIKKAN.put("akunting/akun", AkunGenericCrudAdapter.class);
+        DINAIKKAN.put("rab/checklist_laporan_detail_default",
+                ChecklistLaporanDetailDefaultGenericCrudAdapter.class);
 
         DITAHAN.put("root/skripsi",
                 "SkripsiAction.onSave memeriksa kepemilikan (mahasiswa yang login hanya boleh "
@@ -196,6 +199,20 @@ public final class GenericCrudAkademikOverrides {
         DITAHAN.put("root/log_host_to_host",
                 "Rekonsiliasi (Host-2-Host): catatan hasil rekonsiliasi dengan bank. Baris di "
                 + "sini adalah bukti, bukan masukan — menyuntingnya menghapus jejak.");
+
+        /*
+         * Cabang Anggaran Belanja dan Realisasi. Sembilan belas dari dua puluh
+         * layar READ_ONLY-nya laporan, grafik, atau workspace anggaran; hanya
+         * dua yang perlu alasan tertulis karena namanya tidak menyiratkan itu.
+         */
+        DITAHAN.put("rab/workspace",
+                "Anggaran. Workspace anggaran disusun alur perencanaan berjenjang (unit, program, "
+                + "kegiatan, sumber dana) dan diacu seluruh laporan realisasi. Menambah barisnya "
+                + "lewat formulir datar menghasilkan anggaran yang tidak tertaut struktur mana "
+                + "pun.");
+        DITAHAN.put("rab/realisasi",
+                "Realisasi. Entity yang terpilih SumberDana — master sumber dana, bukan realisasi "
+                + "belanjanya. Realisasi sendiri lahir dari transaksi, bukan diketik.");
 
         DITAHAN.put("root/mahasiswa_registrasi_wisuda",
                 "Layar ini memang layar tinjau (\"Melihat Pendaftar Wisuda\"). Pendaftaran "

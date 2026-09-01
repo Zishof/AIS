@@ -21,7 +21,6 @@ import javax.servlet.http.HttpServletRequest;
 import org.apache.axis.MessageContext;
 import org.apache.axis.transport.http.HTTPConstants;
 import org.hibernate.Criteria;
-import org.hibernate.CriteriaSpecification;
 import org.hibernate.Session;
 import org.hibernate.criterion.Criterion;
 import org.hibernate.criterion.MatchMode;
@@ -1991,8 +1990,8 @@ public class PembayaranUtil {
 		if (criteria == null || settingBiaya == null) {
 			return criteria;
 		}
-		criteria.createAlias("detailSettingBiaya", "settingPrioritasRincian", CriteriaSpecification.LEFT_JOIN);
-		criteria.createAlias("settingBiayaDetail", "settingPrioritasIndividual", CriteriaSpecification.LEFT_JOIN);
+		criteria.createAlias("detailSettingBiaya", "settingPrioritasRincian", Criteria.LEFT_JOIN);
+		criteria.createAlias("settingBiayaDetail", "settingPrioritasIndividual", Criteria.LEFT_JOIN);
 		criteria.add(Restrictions.or(Restrictions.eq("settingBiaya", settingBiaya),
 				Restrictions.or(Restrictions.eq("settingPrioritasRincian.settingBiaya", settingBiaya),
 						Restrictions.eq("settingPrioritasIndividual.settingBiaya", settingBiaya))));

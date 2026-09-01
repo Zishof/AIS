@@ -4047,6 +4047,22 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		this.linkValidasiEksternal = linkValidasiEksternal;
 	}
 
+	/**
+	 * Membaca isi BERKAS JSON tempat daftar id {@link Detailperkuliahan} milik mahasiswa ini
+	 * disimpan (berkas {@code detail_perkuliahan_<id>} di direktori data,
+	 * {@code Common.getFileLocation}).
+	 *
+	 * <p>Berkas ini adalah pengganti relasi {@code @OneToMany}: alih-alih memuat koleksi Hibernate,
+	 * AIS menyimpan peta {@code {"<idDetailperkuliahan>": "<idDetailperkuliahan>"}} sebagai JSON
+	 * per mahasiswa. Berkas yang sama juga menampung kunci non-numerik {@code "krs_mhs_..."} dari
+	 * {@link #populateDefaultKrsMahasiswa(KrsMahasiswa)} — pembaca WAJIB menyaring kunci bukan
+	 * angka (lihat {@link #ambilDetailperkuliahan(Integer)}).</p>
+	 *
+	 * <p>Kegagalan baca ditelan; dikembalikan {@code VOMahasiswa.dataJSON} (objek JSON kosong)
+	 * sehingga pemanggil selalu menerima JSON yang sah.</p>
+	 *
+	 * @return teks JSON isi berkas, atau JSON kosong bila berkas belum ada/gagal dibaca.
+	 */
 	public String ambilLokasiDetailPerkuliahan() {
 		File file = Common.getFileLocation(this, "detail_perkuliahan_" + getId().toString());
 		try {
@@ -4058,6 +4074,13 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Menimpa berkas JSON daftar {@link Detailperkuliahan} milik mahasiswa ini dengan {@code data}.
+	 * Kegagalan tulis ditelan dan hanya dicatat ke {@code ErrorAuditUtil}.
+	 *
+	 * @param data teks JSON yang hendak disimpan.
+	 * @see #ambilLokasiDetailPerkuliahan()
+	 */
 	public void tulisLokasiDetailPerkuliahan(String data) {
 		File file = Common.getFileLocation(this, "detail_perkuliahan_" + getId().toString());
 		try {
@@ -4068,12 +4091,38 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		}
 	}
 
+	/**
+	 * MENGHAPUS berkas JSON daftar {@link Detailperkuliahan} milik mahasiswa ini. Dipanggil
+	 * {@link #reInitDetailperkuliahan(Session)} sebelum membangun ulang daftar dari basis data.
+	 */
 	public void bersihkanLokasiDetailPerkuliahan() {
 		File file = Common.getFileLocation(this, "detail_perkuliahan_" + getId().toString());
 		BacaTulisUtil.doHapus(file, "detail_perkuliahan");
 
 	}
 
+	/**
+	 * Mencari baris {@link KrsMahasiswa} (kartu rencana studi) milik mahasiswa ini untuk satu
+	 * kombinasi semester/tahapan/semester pendek, memakai {@code session} yang DIBERIKAN pemanggil.
+	 *
+	 * <p>Dua tahap pencarian:</p>
+	 * <ol>
+	 *   <li>lewat kode unik {@code KrsMahasiswa.generateKodeUnik(mahasiswa, semester, tahapan,
+	 *       semesterPendek)} — jalur cepat dan paling tepat;</li>
+	 *   <li>bila belum ketemu, query kriteria berdasarkan mahasiswa + semester/tahapan +
+	 *       semesterPendek, diurutkan id menurun dan diambil satu (baris terbaru menang).</li>
+	 * </ol>
+	 *
+	 * <p>Nilai {@code tahapan} 0 dianggap sama dengan {@code null} (mode tahapan tidak dipakai);
+	 * dalam mode itu pencocokan memakai kolom {@code semester} dan {@code tahapan} harus NULL.
+	 * Metode ini hanya MEMBACA — pembuatan KRS baru bukan tanggung jawabnya.</p>
+	 *
+	 * @param semester       semester KRS yang dicari.
+	 * @param tahapan        tahapan dalam semester; {@code null}/0 berarti tanpa tahapan.
+	 * @param semesterPendek penanda semester pendek; {@code null} berarti bukan semester pendek.
+	 * @param session        sesi Hibernate aktif milik pemanggil (tidak ditutup di sini).
+	 * @return baris KRS yang cocok, atau {@code null} bila belum ada.
+	 */
 	public KrsMahasiswa ambilDefaultKrsMahasiswa(Integer semester, Integer tahapan, Integer semesterPendek,
 			Session session) {
 		tahapan = tahapan == null || tahapan.equals(0) ? null : tahapan;
@@ -4101,6 +4150,22 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		}
 	}
 
+	/**
+	 * Mencatat id {@link KrsMahasiswa} ke dalam berkas JSON detailperkuliahan mahasiswa ini
+	 * memakai kunci gabungan
+	 * <code>krs_mhs_{idMahasiswa}_{semester}_{tahapan}_{semesterPendek}</code>, sehingga KRS untuk
+	 * satu kombinasi semester dapat ditemukan kembali tanpa query.
+	 *
+	 * <p><b>Kenapa {@code null} diganti 0:</b> merangkai String dengan {@code null} menghasilkan
+	 * literal {@code "null"} di dalam kunci. Karena berkas JSON ini juga berisi id
+	 * {@link Detailperkuliahan} yang murni numerik, kunci berliteral {@code "null"} pernah lolos
+	 * ke {@code Long.parseLong} dan memicu {@code NumberFormatException} — lihat penjagaan
+	 * {@code StringUtils.isNumeric} di {@link #ambilDetailperkuliahan(Integer)}.</p>
+	 *
+	 * <p>Efek samping: MENULIS berkas JSON. Kegagalan ditelan.</p>
+	 *
+	 * @param krsMahasiswa baris KRS yang hendak dicatat.
+	 */
 	public void populateDefaultKrsMahasiswa(KrsMahasiswa krsMahasiswa) {
 		try {
 			// Root-cause: tahapan/semesterPendek null menghasilkan literal "null" di
@@ -4120,6 +4185,15 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		}
 	}
 
+	/**
+	 * Menghapus satu id {@link Detailperkuliahan} dari berkas JSON mahasiswa ini. Penghapusan
+	 * dilakukan dengan MENGOSONGKAN nilainya ({@code c.put(id, "")}), bukan membuang kuncinya —
+	 * pembaca memang melewati entri bernilai kosong.
+	 *
+	 * <p>Efek samping: MENULIS berkas JSON. Kegagalan ditelan.</p>
+	 *
+	 * @param id id detailperkuliahan yang dilepas dari daftar.
+	 */
 	public void removeDetailperkuliahan(Serializable id) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiDetailPerkuliahan());
@@ -4130,6 +4204,18 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		}
 	}
 
+	/**
+	 * Mendaftarkan satu {@link Detailperkuliahan} ke berkas JSON mahasiswa ini.
+	 *
+	 * <p>Baris yang punya {@code ikutiPerkuliahan} (baris "ikut kelas lain"/titipan) SENGAJA
+	 * dilewati agar tidak terhitung dua kali. Parameter {@code tulisUlang} saat ini tidak dipakai
+	 * di dalam badan metode — dipertahankan demi kecocokan dengan pemanggil lama.</p>
+	 *
+	 * <p>Efek samping: MENULIS berkas JSON. Kegagalan ditelan.</p>
+	 *
+	 * @param detailperkuliahan baris detail perkuliahan yang didaftarkan; {@code null} diabaikan.
+	 * @param tulisUlang        tidak dipakai (dipertahankan demi kompatibilitas).
+	 */
 	public void populateDetailperkuliahan(Detailperkuliahan detailperkuliahan, boolean tulisUlang) {
 		try {
 			if (detailperkuliahan == null || detailperkuliahan.getIkutiPerkuliahan() != null) {
@@ -4143,6 +4229,13 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		}
 	}
 
+	/**
+	 * Pintasan {@link #ambilPerkuliahanDanParalel(String, String, String, String, String, boolean,
+	 * Integer, boolean, boolean, boolean, Integer, int, int, boolean, JenisFormulirKegiatan)}
+	 * dengan {@code keywordJadiPembatas = false} dan tanpa penyaringan jenis formulir kegiatan.
+	 *
+	 * @return larik {@code [List<VOPembelajaran> halaman, int totalData, List<VOPembelajaran> semua]}.
+	 */
 	public Object[] ambilPerkuliahanDanParalel(String tahunAkademik, String jenisSemester, String hari, String keyword,
 			String kelas, boolean merupakanPraPerkuliahan, Integer ekstrakurikuler, boolean paralel, boolean remedial,
 			boolean paralelAja, Integer ditampilkanHanya, int mulai, int banyak) {
@@ -4150,6 +4243,16 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 				ekstrakurikuler, paralel, remedial, paralelAja, ditampilkanHanya, mulai, banyak, false, null);
 	}
 
+	/**
+	 * Pintasan {@link #ambilPerkuliahanDanParalel(String, String, String, String, String, boolean,
+	 * Integer, boolean, boolean, boolean, Integer, int, int, boolean, JenisFormulirKegiatan)}
+	 * dengan {@code keywordJadiPembatas = false}, tetapi MENYARING kegiatan menurut
+	 * {@code jenisFormulirKegiatan}.
+	 *
+	 * @param jenisFormulirKegiatan jenis formulir kegiatan yang ditampilkan; {@code null} berarti
+	 *        hanya kegiatan tanpa jenis.
+	 * @return larik {@code [halaman, totalData, semuaData]}.
+	 */
 	public Object[] ambilPerkuliahanDanParalel(String tahunAkademik, String jenisSemester, String hari, String keyword,
 			String kelas, boolean merupakanPraPerkuliahan, Integer ekstrakurikuler, boolean paralel, boolean remedial,
 			boolean paralelAja, Integer ditampilkanHanya, int mulai, int banyak,
@@ -4159,6 +4262,15 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 				jenisFormulirKegiatan);
 	}
 
+	/**
+	 * Pintasan {@link #ambilPerkuliahanDanParalel(String, String, String, String, String, boolean,
+	 * Integer, boolean, boolean, boolean, Integer, int, int, boolean, JenisFormulirKegiatan)}
+	 * tanpa penyaringan jenis formulir kegiatan, dengan {@code keywordJadiPembatas} dapat diatur.
+	 *
+	 * @param keywordJadiPembatas bila {@code true} dan kata kunci kosong, pemuatan id dihentikan
+	 *        setelah melebihi kebutuhan satu halaman (optimasi untuk daftar sangat panjang).
+	 * @return larik {@code [halaman, totalData, semuaData]}.
+	 */
 	public Object[] ambilPerkuliahanDanParalel(String tahunAkademik, String jenisSemester, String hari, String keyword,
 			String kelas, boolean merupakanPraPerkuliahan, Integer ekstrakurikuler, boolean paralel, boolean remedial,
 			boolean paralelAja, Integer ditampilkanHanya, int mulai, int banyak, boolean keywordJadiPembatas) {
@@ -4168,6 +4280,65 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 				jenisFormulirKegiatan);
 	}
 
+	/**
+	 * <b>Mesin utama linimasa e-learning mahasiswa.</b> Mengumpulkan seluruh "pembelajaran" yang
+	 * diikuti mahasiswa ini menurut SATU kategori tampilan, menyaringnya dengan sejumlah kriteria,
+	 * mengurutkannya menurun, lalu memotongnya menjadi satu halaman.
+	 *
+	 * <p><b>Kategori tampilan</b> ditentukan {@code ditampilkanHanya} yang berisi salah satu
+	 * konstanta {@link ais.action.master.TampilanELearningAction}: {@code SKRIPSI},
+	 * {@code BIMBINGAN} ({@link MahasiswaRequestTugasAkhir}), {@code KKN}, {@code PKL},
+	 * {@code KRS} ({@link KrsMahasiswa}), {@code KEGIATAN} ({@link FormulirKegiatan} lewat
+	 * pesertanya), {@code WISUDA} ({@link Wisuda} lewat {@link PendaftaranWisuda}),
+	 * {@code KONSULTASI} ({@link PertemuanPunyaGrupPertemuan}) dan {@code PERKULIAHAN}
+	 * ({@link Detailperkuliahan} yang sudah DISETUJUI).</p>
+	 *
+	 * <p><b>Sumber data.</b> Kecuali kategori {@code PERKULIAHAN} (yang memakai
+	 * {@link #ambilDetailperkuliahan()}), seluruh kategori membaca daftar id dari penyimpanan
+	 * kunci JSON {@code retreiveAll(<namaKelas>)} milik
+	 * {@link ais.database.model.GeneralValueObject}. Nilai yang tersimpan bisa berupa id polos
+	 * maupun nama berkas {@code ....json}; keduanya dinormalkan menjadi id numerik. Objeknya
+	 * kemudian dimuat massal ({@code ConstantValues.ambilBanyak} /
+	 * {@code GeneralValueObject.ambilDataBanyak}). Untuk KKN, PKL, kegiatan dan wisuda, entitas
+	 * INDUK-nya (kelompok/formulir/wisuda) yang dimasukkan ke daftar dan di-dedup agar tidak
+	 * muncul berulang.</p>
+	 *
+	 * <p><b>Penyaringan</b> dilakukan atas {@code VOPembelajaran} hasil
+	 * {@code ambilVOPembelajaran()}: hari, tahun akademik, kata kunci (dicocokkan ke
+	 * {@code ambilKeyword()}), kelas, penanda ekstrakurikuler, pra-perkuliahan, jenis semester
+	 * (termasuk pembedaan semester pendek), dan remedial. Bila {@code paralel} bernilai
+	 * {@code true}, jadwal paralel dari perkuliahan yang sama ikut disertakan; bila
+	 * {@code paralelAja} bernilai {@code true}, HANYA yang punya paralel yang ditampilkan.</p>
+	 *
+	 * <p><b>Ketahanan.</b> Setiap item diproses di dalam {@code try/catch(Throwable)}: satu item
+	 * yang gagal (mis. {@code LazyInitializationException} pada proxy detached saat profil
+	 * dirender di luar sesi) DILEWATI, tidak meruntuhkan seluruh daftar.</p>
+	 *
+	 * <p>Hasil akhir diurutkan {@code Collections.reverseOrder()} (terbaru di atas) lalu dipotong
+	 * memakai {@code mulai} dan {@code banyak}.</p>
+	 *
+	 * @param tahunAkademik          tahun akademik penyaring; {@code null} = semua.
+	 * @param jenisSemester          {@link Perkuliahan#GANJIL}/{@link Perkuliahan#GENAP}/
+	 *                               {@link Perkuliahan#SP}; {@code null} = semua.
+	 * @param hari                   nama hari penyaring; kosong = semua.
+	 * @param keyword                kata kunci pencarian; kosong = semua.
+	 * @param kelas                  penyaring nama kelas; kosong = semua.
+	 * @param merupakanPraPerkuliahan hanya tampilkan pra-perkuliahan (matrikulasi).
+	 * @param ekstrakurikuler        {@link Perkuliahan#EKSTRA} untuk hanya ekstrakurikuler;
+	 *                               {@code null} = tanpa penyaringan.
+	 * @param paralel                sertakan jadwal paralel dari perkuliahan yang sama.
+	 * @param remedial               hanya tampilkan yang remedial.
+	 * @param paralelAja             hanya tampilkan yang punya paralel.
+	 * @param ditampilkanHanya       kategori tampilan (konstanta {@code TampilanELearningAction}).
+	 * @param mulai                  indeks awal potongan halaman.
+	 * @param banyak                 jumlah baris per halaman.
+	 * @param keywordJadiPembatas    hentikan pemuatan id lebih awal bila kata kunci kosong.
+	 * @param jenisFormulirKegiatan  penyaring jenis formulir kegiatan; {@code null} = hanya
+	 *                               kegiatan tanpa jenis.
+	 * @return larik tiga elemen: {@code [0]} {@code List<VOPembelajaran>} satu halaman,
+	 *         {@code [1]} {@code int} jumlah seluruh data, {@code [2]} {@code List<VOPembelajaran>}
+	 *         seluruh data sebelum dipotong.
+	 */
 	@SuppressWarnings("unchecked")
 	public Object[] ambilPerkuliahanDanParalel(String tahunAkademik, String jenisSemester, String hari, String keyword,
 			String kelas, boolean merupakanPraPerkuliahan, Integer ekstrakurikuler, boolean paralel, boolean remedial,
@@ -4611,6 +4782,21 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return new Object[] { diambil, index, dataDiambil };
 	}
 
+	/**
+	 * Mengumpulkan id {@link Perkuliahan} (beserta pasangan paralelnya) yang diambil mahasiswa ini
+	 * pada satu tahun akademik dan jenis semester tertentu.
+	 *
+	 * <p>Hanya {@link Detailperkuliahan} berstatus {@code DISETUJUI} dan bersemester yang dihitung.
+	 * Jenis semester ditentukan dari PARITAS nomor semester detailperkuliahan (ganjil = semester
+	 * bernilai ganjil), bukan dari kolom di {@link Perkuliahan}. Penyaringan semester pendek
+	 * membandingkan {@code perkuliahan.getStatusSemesterPendek()}: {@code null} dicocokkan dengan
+	 * {@code null}.</p>
+	 *
+	 * @param tahunAkademik  tahun akademik penyaring; {@code null} = semua.
+	 * @param jenisSemester  {@link Perkuliahan#GANJIL}/{@link Perkuliahan#GENAP}; {@code null} = semua.
+	 * @param semesterPendek penanda semester pendek; {@code null} = bukan semester pendek.
+	 * @return daftar id perkuliahan beserta paralelnya (boleh berisi duplikat antar-kategori).
+	 */
 	public List<Long> ambilPerkuliahanDanParalel(String tahunAkademik, String jenisSemester, Integer semesterPendek) {
 		List<Long> detailperkuliahans = ambilDetailperkuliahan();
 		List<Long> perkuliahans = new ArrayList<Long>();
@@ -4649,6 +4835,17 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return perkuliahans;
 	}
 
+	/**
+	 * Mengumpulkan id SELURUH {@link Perkuliahan} yang pernah diambil mahasiswa ini (semua semester)
+	 * beserta seluruh paralelnya.
+	 *
+	 * <p>Berbeda dari varian lain, metode ini melakukan perluasan dua tahap: setelah id perkuliahan
+	 * dan pasangan {@code perkuliahan_paralel} terkumpul, tiap perkuliahan ditanya lagi
+	 * {@code ambilParalel()} untuk menyertakan seluruh anggota rumpun paralel, dengan penjagaan
+	 * anti-duplikat.</p>
+	 *
+	 * @return daftar id perkuliahan + seluruh paralelnya, tanpa duplikat.
+	 */
 	public List<Long> ambilPerkuliahanDanParalel() {
 		List<Long> detailperkuliahans = ambilDetailperkuliahan();
 		List<Long> perkuliahans = new ArrayList<Long>();
@@ -4688,6 +4885,16 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return perkuliahansSemua;
 	}
 
+	/**
+	 * Mengumpulkan id {@link Perkuliahan} beserta paralelnya untuk satu tahun ajaran dan jenis
+	 * semester. Berbeda dengan varian bersemester pendek, penyaringan di sini memakai kolom
+	 * {@code tahunAjaran} dan {@code ganjilGenap} milik {@link Perkuliahan} (bukan paritas nomor
+	 * semester mahasiswa), dan tidak mensyaratkan detailperkuliahan punya nomor semester.
+	 *
+	 * @param ta    tahun ajaran perkuliahan; {@code null} = semua.
+	 * @param jenis nilai {@code ganjilGenap} perkuliahan; {@code null} = semua.
+	 * @return daftar id perkuliahan beserta paralelnya.
+	 */
 	public List<Long> ambilPerkuliahanDanParalel(String ta, String jenis) {
 		List<Long> detailperkuliahans = ambilDetailperkuliahan();
 		List<Long> perkuliahans = new ArrayList<Long>();
@@ -4715,6 +4922,14 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return perkuliahans;
 	}
 
+	/**
+	 * Mengumpulkan id {@link Perkuliahan} beserta paralelnya untuk SATU nomor semester mahasiswa,
+	 * dengan pembedaan semester pendek.
+	 *
+	 * @param semester       nomor semester mahasiswa; {@code null} = semua semester.
+	 * @param semesterPendek penanda semester pendek; {@code null} = bukan semester pendek.
+	 * @return daftar id perkuliahan beserta paralelnya.
+	 */
 	public List<Long> ambilPerkuliahanDanParalel(Integer semester, Integer semesterPendek) {
 		List<Long> detailperkuliahans = ambilDetailperkuliahan();
 		List<Long> perkuliahans = new ArrayList<Long>();
@@ -4748,12 +4963,42 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return perkuliahans;
 	}
 
+	/**
+	 * Menyusun teks keterangan hasil pemeriksaan pengambilan KRS mahasiswa ini (mis. peringatan
+	 * SKS melebihi jatah, mata kuliah prasyarat belum lulus, tagihan belum lunas). Seluruh aturan
+	 * ada di {@link ais.action.master.helper.KrsDetailHelper#rubahKeteranganPengambilanKRS};
+	 * metode ini hanya jembatan agar dapat dipanggil langsung dari objek mahasiswa.
+	 *
+	 * <p>Dipakai sekitar 22 berkas layar/laporan KRS.</p>
+	 *
+	 * @param semester       semester KRS.
+	 * @param tahapan        tahapan dalam semester; {@code null}/0 bila tanpa tahapan.
+	 * @param semesterPendek penanda semester pendek.
+	 * @param krsMahasiswa   baris KRS yang diperiksa.
+	 * @param remedial       {@code true} bila konteksnya pengambilan remedial.
+	 * @return teks keterangan siap tampil.
+	 * @see ais.action.master.helper.KrsDetailHelper
+	 */
 	public String rubahKeteranganPengambilanKRS(Integer semester, Integer tahapan, Integer semesterPendek,
 			KrsMahasiswa krsMahasiswa, boolean remedial) {
 		return KrsDetailHelper.rubahKeteranganPengambilanKRS(this, semester, tahapan, semesterPendek, krsMahasiswa,
 				remedial);
 	}
 
+	/**
+	 * Mencari baris {@link Detailperkuliahan} milik mahasiswa ini untuk satu {@link Perkuliahan}
+	 * tertentu (mis. untuk mengetahui nilai mahasiswa pada satu kelas).
+	 *
+	 * <p>Bila {@code perkuliahan} punya pasangan {@code perkuliahan_paralel}, pencarian dialihkan
+	 * ke perkuliahan INDUK paralel itu — di AIS nilai selalu direkam pada satu sisi rumpun paralel.
+	 * Hanya baris berstatus {@code DISETUJUI} yang dipertimbangkan.</p>
+	 *
+	 * <p>Pencarian dilakukan dengan menelusuri seluruh daftar {@link #ambilDetailperkuliahan()}
+	 * secara linear, jadi hindari memanggilnya di dalam loop atas banyak perkuliahan.</p>
+	 *
+	 * @param perkuliahan kelas perkuliahan yang dicari; {@code null}/tanpa id menghasilkan {@code null}.
+	 * @return detail perkuliahan mahasiswa pada kelas itu, atau {@code null} bila tidak ada.
+	 */
 	public Detailperkuliahan ambilDetailperkuliahan(Perkuliahan perkuliahan) {
 		if (perkuliahan == null || perkuliahan.getId() == null) {
 			return null;
@@ -4776,11 +5021,47 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return d;
 	}
 
+	/**
+	 * Daftar id SELURUH {@link Detailperkuliahan} milik mahasiswa ini (semua semester), dibaca dari
+	 * berkas JSON. Setara {@code ambilDetailperkuliahan(null)}.
+	 *
+	 * @return daftar id detailperkuliahan; kosong bila belum ada.
+	 * @see #ambilDetailperkuliahan(Integer)
+	 */
 	public List<Long> ambilDetailperkuliahan() {
 		Integer sdSmt = null;
 		return ambilDetailperkuliahan(sdSmt);
 	}
 
+	/**
+	 * Membaca daftar id {@link Detailperkuliahan} milik mahasiswa ini dari BERKAS JSON, opsional
+	 * dibatasi sampai semester tertentu. Ini fondasi hampir seluruh perhitungan nilai/IPK/SKS di
+	 * kelas ini.
+	 *
+	 * <p><b>Alur.</b> Isi berkas ({@link #ambilLokasiDetailPerkuliahan()}) ditelusuri kunci demi
+	 * kunci. Kunci NON-NUMERIK dilewati diam-diam — berkas yang sama juga menampung kunci
+	 * {@code "krs_mhs_..."} dari {@link #populateDefaultKrsMahasiswa(KrsMahasiswa)}, dan tanpa
+	 * penjagaan {@code StringUtils.isNumeric} kunci itu pernah memicu
+	 * {@code NumberFormatException}. Untuk tiap kunci numerik, objeknya diambil dari cache
+	 * ({@code ambilData}); yang belum ada di cache dikumpulkan lalu dimuat SEKALI lewat satu query
+	 * {@code Restrictions.in("id", ...)} dan dimasukkan ke cache ({@code masukkanData}).</p>
+	 *
+	 * <p><b>Penyaringan.</b> Hanya baris yang punya mata kuliah — baik lewat
+	 * {@code perkuliahan.matakuliah} maupun {@code matakuliahKonversi} — yang disertakan. Tiap
+	 * baris juga di-{@code setMahasiswa(this)} agar rujukan baliknya konsisten.</p>
+	 *
+	 * <p><b>Efek samping sesi:</b> jalur pemuatan susulan memakai
+	 * {@code HibernateUtil.currentNativeSession()} dan MENUTUPNYA ({@code disconnect} +
+	 * {@code close} + {@code HibernateUtil.closeSession()}) setelah selesai. Perhatikan ini
+	 * berbeda dari pola sesi dedikasi yang dipakai {@link #getBiodataCalonMahasiswaData()};
+	 * pemanggil yang masih membutuhkan sesi thread-local sesudahnya harus mengambilnya ulang.</p>
+	 *
+	 * <p>Kegagalan per kunci maupun kegagalan menyeluruh ditelan dan dicatat ke
+	 * {@code ErrorAuditUtil}; metode tidak pernah melempar.</p>
+	 *
+	 * @param sdSmt batas semester (inklusif); {@code null} berarti semua semester.
+	 * @return daftar id detailperkuliahan; kosong bila tidak ada.
+	 */
 	@SuppressWarnings("unchecked")
 	public List<Long> ambilDetailperkuliahan(Integer sdSmt) {
 		List<Long> detailperkuliahans = new ArrayList<Long>();
@@ -4861,21 +5142,72 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return detailperkuliahans;
 	}
 
+	/**
+	 * Pintasan {@link #ambilDetailperkuliahan(Integer, Integer, Integer, boolean, Boolean, Integer)}
+	 * dengan {@code semua = false} dan tanpa penyaringan status persetujuan.
+	 *
+	 * @param semester       semester yang dicari.
+	 * @param tahapan        tahapan dalam semester.
+	 * @param semesterPendek penanda semester pendek.
+	 * @param remedial       {@code true} bila hanya yang remedial.
+	 * @return daftar id detailperkuliahan.
+	 */
 	public List<Long> ambilDetailperkuliahan(Integer semester, Integer tahapan, Integer semesterPendek,
 			boolean remedial) {
 		return ambilDetailperkuliahan(semester, tahapan, semesterPendek, remedial, false, null);
 	}
 
+	/**
+	 * Pintasan {@link #ambilDetailperkuliahan(Integer, Integer, Integer, boolean, Boolean, Integer)}
+	 * untuk satu semester, tanpa remedial dan tanpa penyaringan status persetujuan. Inilah varian
+	 * yang dipakai seluruh {@code hitung*Semester(...)} di kelas ini.
+	 *
+	 * @param semester       semester yang dicari.
+	 * @param tahapan        tahapan dalam semester; {@code null}/0 bila tanpa tahapan.
+	 * @param semesterPendek penanda semester pendek.
+	 * @return daftar id detailperkuliahan pada semester itu.
+	 */
 	public List<Long> ambilDetailperkuliahan(Integer semester, Integer tahapan, Integer semesterPendek) {
 		return ambilDetailperkuliahan(semester, tahapan, semesterPendek, false, false, null);
 	}
 
+	/**
+	 * Pintasan ke {@link #ambilDetailperkuliahan(Mahasiswa, Integer, Integer, Integer, boolean,
+	 * Boolean, Integer, boolean, boolean)} untuk mahasiswa ini, tanpa penyaringan
+	 * sudah/belum dinilai.
+	 *
+	 * @param semester       semester yang dicari.
+	 * @param tahapan        tahapan dalam semester.
+	 * @param semesterPendek penanda semester pendek.
+	 * @param remedial       {@code true} bila hanya yang remedial.
+	 * @param semua          {@code true} untuk mengabaikan penyaringan status/nilai.
+	 * @param persetujuan    status persetujuan yang dicari; {@code null} = semua.
+	 * @return daftar id detailperkuliahan.
+	 */
 	public List<Long> ambilDetailperkuliahan(Integer semester, Integer tahapan, Integer semesterPendek,
 			boolean remedial, Boolean semua, Integer persetujuan) {
 		return ambilDetailperkuliahan(this, semester, tahapan, semesterPendek, remedial, semua, persetujuan, false,
 				false);
 	}
 
+	/**
+	 * Versi STATIS pengambilan daftar {@link Detailperkuliahan} untuk seorang mahasiswa dengan
+	 * penyaringan lengkap. Seluruh aturannya ada di
+	 * {@link ais.action.master.helper.KrsDetailHelper#ambilDetailperkuliahan}; metode ini murni
+	 * penerus agar pemanggil dapat memakainya tanpa memuat helper.
+	 *
+	 * @param mahasiswa          mahasiswa yang datanya diambil.
+	 * @param semester           semester yang dicari.
+	 * @param tahapan            tahapan dalam semester.
+	 * @param semesterPendek     penanda semester pendek.
+	 * @param remedial           {@code true} bila hanya yang remedial.
+	 * @param semua              {@code true} untuk mengabaikan penyaringan status/nilai.
+	 * @param persetujuan        status persetujuan yang dicari; {@code null} = semua.
+	 * @param sudahDinilaiSaja   hanya yang sudah punya nilai.
+	 * @param belumDinilaiSaja   hanya yang belum punya nilai.
+	 * @return daftar id detailperkuliahan.
+	 * @see ais.action.master.helper.KrsDetailHelper
+	 */
 	public static List<Long> ambilDetailperkuliahan(Mahasiswa mahasiswa, Integer semester, Integer tahapan,
 			Integer semesterPendek, boolean remedial, Boolean semua, Integer persetujuan, boolean sudahDinilaiSaja,
 			boolean belumDinilaiSaja) {
@@ -4883,16 +5215,51 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 				persetujuan, sudahDinilaiSaja, belumDinilaiSaja);
 	}
 
+	/**
+	 * Mengambil daftar {@link Detailperkuliahan} mahasiswa ini secara KUMULATIF — dari semester
+	 * pertama SAMPAI semester yang diminta. Inilah masukan seluruh perhitungan berakhiran
+	 * {@code SampaiSemester} (IPK kumulatif, total SKS lulus, dsb.).
+	 *
+	 * <p>Diteruskan ke {@link ais.action.master.helper.KrsDetailHelper#ambilDetailperkuliahanSampai}
+	 * dengan {@code saring = true}, artinya hasilnya SUDAH melewati penyaringan duplikat/ekivalensi
+	 * di helper tersebut.</p>
+	 *
+	 * @param semester       batas semester (inklusif).
+	 * @param tahapan        tahapan dalam semester.
+	 * @param semesterPendek penanda semester pendek.
+	 * @param semua          {@code true} untuk mengabaikan penyaringan status/nilai.
+	 * @return koleksi id detailperkuliahan sampai semester tersebut.
+	 */
 	public Collection<Long> ambilDetailperkuliahanSampai(Integer semester, Integer tahapan, Integer semesterPendek,
 			boolean semua) {
 		boolean saring = true;
 		return KrsDetailHelper.ambilDetailperkuliahanSampai(this, semester, tahapan, semesterPendek, semua, saring);
 	}
 
+	/**
+	 * Mencari {@link Detailperkuliahan} mahasiswa ini untuk MATA KULIAH TERTENTU (dicocokkan
+	 * dengan kode ATAU nama) sampai semester yang diminta. Dipakai pemeriksaan prasyarat dan
+	 * syarat kelulusan yang mensyaratkan mata kuliah tertentu sudah ditempuh.
+	 *
+	 * @param semester      batas semester (inklusif).
+	 * @param kodeAtauNamas satu atau lebih kode/nama mata kuliah yang dicari.
+	 * @return daftar id detailperkuliahan yang cocok.
+	 * @see ais.action.master.helper.KrsDetailHelper
+	 */
 	public List<Long> ambilDetailperkuliahanMkSdSmtTertentu(Integer semester, String... kodeAtauNamas) {
 		return KrsDetailHelper.ambilDetailperkuliahanMkSdSmtTertentu(this, semester, kodeAtauNamas);
 	}
 
+	/**
+	 * Mencari {@link Detailperkuliahan} mahasiswa ini untuk MATA KULIAH TERTENTU (kode atau nama)
+	 * PADA semester yang diminta saja — berbeda dengan
+	 * {@link #ambilDetailperkuliahanMkSdSmtTertentu(Integer, String...)} yang bersifat kumulatif.
+	 *
+	 * @param semester      semester yang dicari.
+	 * @param kodeAtauNamas satu atau lebih kode/nama mata kuliah.
+	 * @return daftar id detailperkuliahan yang cocok.
+	 * @see ais.action.master.helper.KrsDetailHelper
+	 */
 	public List<Long> ambilDetailperkuliahanMkTertentu(Integer semester, String... kodeAtauNamas) {
 		return KrsDetailHelper.ambilDetailperkuliahanMkTertentu(this, semester, kodeAtauNamas);
 	}

@@ -316,6 +316,25 @@ public class SetingBiayaHelper {
     // PUBLIC METHODS
     // ===================================================================================
 
+	/** Pemilih kanonis untuk seluruh query legacy pada helper billing. */
+	public static SettingBiaya getSettingBiayaTerpilih(Session session, Integer angkatan, Jenjang jenjang,
+			Integer semester, JenisKegiatan jenisKegiatan, StatusAwalMahasiswa statusAwalMahasiswa,
+			StatusMahasiswa statusMahasiswa, JenisSeleksi jenisSeleksi,
+			GelombangPendaftaran gelombangPendaftaran, Paket paket, Jurusan jurusan, String program,
+			String kelamin, AfiliasiCalonMahasiswa afiliasiCalonMahasiswa, Integer ta,
+			String nimMahasiswa, boolean gunakanBiayaDefault) {
+		Criteria criteria = createSettingBiayaCriteria(session, ta, jenisKegiatan, semester, false,
+				Boolean.valueOf(gunakanBiayaDefault)).addOrder(Order.desc("ta")).addOrder(Order.desc("id"));
+		List<SettingBiaya> kandidat = ConstantValues.simpleList(criteria, SettingBiaya.class);
+		kandidat = SettingBiayaMahasiswaSelector.saringDanPrioritaskan(session, kandidat, nimMahasiswa);
+		String[] properties = new String[] { "statusMahasiswa", "kelamin", "afiliasiCalonMahasiswa", "program",
+				"angkatan", "jenjang", "statusAwalMahasiswa", "jenisSeleksi", "gelombangPendaftaran", "paket",
+				"jurusan" };
+		Object[] datas = new Object[] { statusMahasiswa, kelamin, afiliasiCalonMahasiswa, program, angkatan, jenjang,
+				statusAwalMahasiswa, jenisSeleksi, gelombangPendaftaran, paket, jurusan };
+		return SettingBiayaMahasiswaSelector.pilihSatuDenganPrioritas(kandidat, properties, datas);
+	}
+
     /** Seperti {@link #getItemBiaya(Session, Integer, Jenjang, Integer, JenisKegiatan, StatusAwalMahasiswa, StatusMahasiswa, JenisSeleksi, GelombangPendaftaran, Paket, Jurusan, String, String, AfiliasiCalonMahasiswa, Integer, String)} dengan {@code nimMahasiswa=null}. */
     public static List<ItemBiaya> getItemBiaya(Session session, Integer angkatan, Jenjang jenjang, Integer semester,
             JenisKegiatan jenisKegiatan, StatusAwalMahasiswa statusAwalMahasiswa, StatusMahasiswa statusMahasiswa,

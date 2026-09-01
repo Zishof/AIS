@@ -1,0 +1,75 @@
+-- Menegaskan rantai relasi tagihan:
+-- SettingBiaya -> DetailSettingBiaya -> DetailBiaya -> PengaturanPembayaranBulanan
+-- SettingBiaya -> SettingBiayaDetail -> DetailBiaya (khusus mahasiswa/calon)
+--
+-- Aman dijalankan berulang. Backfill hanya dilakukan jika kedua jalur turunan
+-- tidak konflik. Baris konflik dilaporkan pada query audit di bagian akhir.
+
+BEGIN;
+
+WITH sumber AS (
+    SELECT db.id,
+           sbd.setting_biaya AS dari_individual,
+           dsb.setting_biaya AS dari_rincian,
+           CASE
+               WHEN sbd.setting_biaya IS NOT NULL
+                    AND (dsb.setting_biaya IS NULL OR dsb.setting_biaya = sbd.setting_biaya)
+                   THEN sbd.setting_biaya
+               WHEN sbd.setting_biaya IS NULL AND dsb.setting_biaya IS NOT NULL
+                   THEN dsb.setting_biaya
+               ELSE NULL
+           END AS setting_biaya_kanonis
+      FROM detail_biaya db
+      LEFT JOIN setting_biaya_detail sbd ON sbd.id = db.setting_biaya_detail
+      LEFT JOIN detail_setting_biaya dsb ON dsb.id = db.detail_setting_biaya
+)
+UPDATE detail_biaya db
+   SET setting_biaya = sumber.setting_biaya_kanonis
+  FROM sumber
+ WHERE db.id = sumber.id
+   AND db.setting_biaya IS NULL
+   AND sumber.setting_biaya_kanonis IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_setting_biaya_pemilihan_prioritas
+    ON setting_biaya (jenis_kegiatan, ta, prioritas, id);
+CREATE INDEX IF NOT EXISTS idx_setting_biaya_detail_induk_mahasiswa
+    ON setting_biaya_detail (setting_biaya, mahasiswa);
+CREATE INDEX IF NOT EXISTS idx_setting_biaya_detail_induk_calon
+    ON setting_biaya_detail (setting_biaya, biodata_calon_mahasiswa);
+CREATE INDEX IF NOT EXISTS idx_detail_setting_biaya_induk_item
+    ON detail_setting_biaya (setting_biaya, item_biaya);
+CREATE INDEX IF NOT EXISTS idx_detail_biaya_induk_item_semester
+    ON detail_biaya (setting_biaya, item_biaya, semester);
+CREATE INDEX IF NOT EXISTS idx_detail_biaya_rincian
+    ON detail_biaya (detail_setting_biaya);
+CREATE INDEX IF NOT EXISTS idx_detail_biaya_individual
+    ON detail_biaya (setting_biaya_detail);
+CREATE INDEX IF NOT EXISTS idx_pembayaran_bulanan_detail
+    ON pengaturan_pembayaran_bulanan (detail_biaya);
+
+COMMIT;
+
+-- AUDIT 1: harus 0. Dua jalur rincian menunjuk SettingBiaya yang berbeda.
+SELECT db.id AS detail_biaya_id,
+       db.setting_biaya AS setting_langsung,
+       sbd.setting_biaya AS setting_individual,
+       dsb.setting_biaya AS setting_rincian
+  FROM detail_biaya db
+  JOIN setting_biaya_detail sbd ON sbd.id = db.setting_biaya_detail
+  JOIN detail_setting_biaya dsb ON dsb.id = db.detail_setting_biaya
+ WHERE sbd.setting_biaya <> dsb.setting_biaya;
+
+-- AUDIT 2: harus 0 untuk tagihan hasil SettingBiaya. Baris manual memang boleh
+-- tidak mempunyai ketiga relasi dan perlu dinilai berdasarkan konteks bisnisnya.
+SELECT db.id AS detail_biaya_id,
+       db.item_biaya,
+       db.semester
+  FROM detail_biaya db
+ WHERE db.setting_biaya IS NULL
+   AND (db.detail_setting_biaya IS NOT NULL OR db.setting_biaya_detail IS NOT NULL);
+
+-- AUDIT 3: harus 0. Jadwal bulanan wajib mempunyai DetailBiaya induk.
+SELECT ppb.id AS pembayaran_bulanan_id
+  FROM pengaturan_pembayaran_bulanan ppb
+  LEFT JOIN detail_biaya db ON db.id = ppb.detail_biaya
+ WHERE db.id IS NULL;
