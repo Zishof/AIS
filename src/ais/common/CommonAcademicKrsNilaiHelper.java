@@ -534,7 +534,7 @@ public class CommonAcademicKrsNilaiHelper extends Common {
 									Double nil = nilaiHuruf == null ? 0.0 : nilaiHuruf.getNilaiDiIPK();
 
 									if ((totalNilai != null
-											&& totalNilai.intValue() != detailperkuliahan.getTotalNilai().intValue())
+											&& nilaiDesimalBerbeda(totalNilai, detailperkuliahan.getTotalNilai()))
 											|| !nh.equalsIgnoreCase(detailperkuliahan.getNilaiHuruf())
 											|| !Common.numberFormat.get().format(nil).equalsIgnoreCase(
 													Common.numberFormat.get().format(detailperkuliahan.getTotalIP()))) {
@@ -766,6 +766,21 @@ public class CommonAcademicKrsNilaiHelper extends Common {
 			String daftarKode = "," + kodeSetup.replace(" ", "") + ",";
 			String kode = kodeDicari.replace(" ", "");
 			return daftarKode.contains("," + kode + ",") || kodeSetup.equals(kodeDicari);
+		}
+
+	private static String formatPembandingNilai(Double nilai) {
+			if (nilai == null) {
+				return "";
+			}
+			try {
+				return Common.numberFormat.get().format(nilai);
+			} catch (Exception e) {
+				return nilai.toString();
+			}
+		}
+
+	private static boolean nilaiDesimalBerbeda(Double nilaiBaru, Double nilaiLama) {
+			return !formatPembandingNilai(nilaiBaru).equals(formatPembandingNilai(nilaiLama));
 		}
 
 	public static NilaiHuruf getNilaiHuruf(Double nilai, Integer tahunAngkatan, Jurusan jurusan, Fakultas fakultas,

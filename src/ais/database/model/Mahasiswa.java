@@ -1280,29 +1280,18 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 	}
 
 	public void setPaksaAktifSemester(String paksaAktifSemester) {
-		if (paksaAktifSemester != null) {
-			put(paksaAktifSemester.trim().isEmpty() ? "1000" : paksaAktifSemester, "paksaAktifSemester");
-		} else {
-			put(paksaAktifSemester, "1000");
-		}
-		this.paksaAktifSemester = paksaAktifSemester;
+		this.paksaAktifSemester = paksaAktifSemester == null ? null : paksaAktifSemester.trim();
 	}
 
 	// DIAUDIT (permintaan: SEMUA kolom Mahasiswa diaudit). Karena Mahasiswa @Audited & tidak ada
 	// @NotAudited, kolom ini ikut ke tabel audit new_audit.mahasiswa__audit. hbm2ddl=update TIDAK
 	// menambah kolom audit otomatis -> WAJIB ALTER manual new_audit.mahasiswa__audit ADD COLUMN
-	// paksa_aktif_semester (lihat ALTER_*.sql), kalau tidak INSERT audit gagal -> save Mahasiswa rollback.
+	// paksa_aktif_semester (lihat docs/performance/migrations/20260901.001-paksa-aktif-semester.sql),
+	// kalau tidak INSERT audit gagal -> save Mahasiswa rollback.
 	@Column(name = "paksa_aktif_semester")
 	public String getPaksaAktifSemester() {
-		try {
-			String s = retreive("paksaAktifSemester");
-			if (s != null && !s.trim().isEmpty()) {
-				paksaAktifSemester = s.contains("1000") ? "" : s;
-			}
-		} catch (Exception e) {
-			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/Mahasiswa.java:1303");
-		}
-		return paksaAktifSemester == null || paksaAktifSemester.contains("1000") ? "" : paksaAktifSemester.trim();
+		return paksaAktifSemester == null || "1000".equals(paksaAktifSemester.trim())
+				? "" : paksaAktifSemester.trim();
 	}
 
 	public void setTanggalMasuk(Date tanggalMasuk) {

@@ -239,32 +239,34 @@ public class UploadBiodataCalonMahasiswaSPANPTKINAction extends GenericAutowireC
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 
-							Session session = StreamingHibernateUtil.getInstance().currentSession();
+							Session session = null;
+							try {
+								session = StreamingHibernateUtil.getInstance().getSessionFactory().openSession();
 
-							UploadBiodataCalonMahasiswaFileContent uploadBiodataCalonMahasiswaFileContent = (UploadBiodataCalonMahasiswaFileContent) session
-									.createCriteria(UploadBiodataCalonMahasiswaFileContent.class)
-									.addOrder(Order.desc("id"))
-									.add(Restrictions.eq("ref", uploadBiodataCalonMahasiswa.getId())).setMaxResults(1)
-									.uniqueResult();
-							if (uploadBiodataCalonMahasiswaFileContent != null) {
-								File file = new File(
-										Common.REAL_PATH + "/" + uploadBiodataCalonMahasiswaFileContent.getId() + "__"
-												+ uploadBiodataCalonMahasiswaFileContent.getClass().getName() + "_"
-												+ (uploadBiodataCalonMahasiswaFileContent.getNama() == null ? ""
-														: uploadBiodataCalonMahasiswaFileContent.getNama()
-																.replaceAll(" ", "_")));
-								Common.writeBlobToFile(uploadBiodataCalonMahasiswaFileContent.getFoto(), file);
-								// System.out.println("file => " + file);
-								String peringatan = uploadFormat1(file, uploadBiodataCalonMahasiswa);
+								UploadBiodataCalonMahasiswaFileContent uploadBiodataCalonMahasiswaFileContent = (UploadBiodataCalonMahasiswaFileContent) session
+										.createCriteria(UploadBiodataCalonMahasiswaFileContent.class)
+										.addOrder(Order.desc("id"))
+										.add(Restrictions.eq("ref", uploadBiodataCalonMahasiswa.getId())).setMaxResults(1)
+										.uniqueResult();
+								if (uploadBiodataCalonMahasiswaFileContent != null) {
+									File file = uploadBiodataCalonMahasiswaFileContent.ambilFile();
+									String peringatan = uploadFormat1(file, uploadBiodataCalonMahasiswa);
 
-								uploadBiodataCalonMahasiswa.setPeringatan(peringatan);
-								Common.refreshUpdate(uploadBiodataCalonMahasiswa);
-								Clients.clearBusy();
-							} else {
-								MyMessageboxConfig.show("File tidak ditemukan");
+									uploadBiodataCalonMahasiswa.setPeringatan(peringatan);
+									Common.refreshUpdate(uploadBiodataCalonMahasiswa);
+									Clients.clearBusy();
+								} else {
+									MyMessageboxConfig.show("File tidak ditemukan");
+								}
+							} catch (Exception e) {
+								Common.tampilErrorJikaAdmin(e);
+							} finally {
+								if (session != null) {
+									try { session.clear(); } catch (Exception eF) { ais.common.ErrorAuditUtil.record(eF, "auto-audit(empty-catch) src/ais/action/master/UploadBiodataCalonMahasiswaSPANPTKINAction.java:ulangi-clear");}
+									try { session.disconnect(); } catch (Exception eF) { ais.common.ErrorAuditUtil.record(eF, "auto-audit(empty-catch) src/ais/action/master/UploadBiodataCalonMahasiswaSPANPTKINAction.java:ulangi-disconnect");}
+									try { session.close(); } catch (Exception eF) { ais.common.ErrorAuditUtil.record(eF, "auto-audit(empty-catch) src/ais/action/master/UploadBiodataCalonMahasiswaSPANPTKINAction.java:ulangi-close");}
+								}
 							}
-
-							StreamingHibernateUtil.getInstance().closeSession();
 						}
 					}, "Harap tunggu, sedang melakukan proses upload data ..");
 

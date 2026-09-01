@@ -104,6 +104,21 @@ public class PerubahanNilaiListener implements EventListener {
 				}
 			}, new java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy());
 
+	private static String formatPembandingNilai(Double nilai) {
+		if (nilai == null) {
+			return "";
+		}
+		try {
+			return Common.numberFormat.get().format(nilai);
+		} catch (Exception e) {
+			return nilai.toString();
+		}
+	}
+
+	private static boolean nilaiDesimalBerbeda(Double nilaiBaru, Double nilaiLama) {
+		return !formatPembandingNilai(nilaiBaru).equals(formatPembandingNilai(nilaiLama));
+	}
+
 	public boolean process() throws Exception {
 		return process(null);
 	}
@@ -193,7 +208,7 @@ public class PerubahanNilaiListener implements EventListener {
 
 		Double total = detailperkuliahan.hitungTotalNilai(true, formatNilais);
 
-		boolean berubah = total.intValue() != detailperkuliahan.getTotalNilai().intValue();
+		boolean berubah = nilaiDesimalBerbeda(total, detailperkuliahan.getTotalNilai());
 
 		Matakuliah matakuliah = detailperkuliahan == null ? null
 				: detailperkuliahan.getPerkuliahan() != null ? detailperkuliahan.getPerkuliahan().getMatakuliah()

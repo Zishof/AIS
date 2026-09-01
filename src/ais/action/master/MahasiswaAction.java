@@ -5516,6 +5516,7 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 	protected FotoMahasiswaLulus fileFotoLulus = null;
 	private Criterion criteriaStatus;
 	private MyTextbox batasStudi;
+	private MyTextbox paksaAktifSemester;
 	private Textbox statusKrs;
 	private AmbilDataPerguruanTinggiLainBanbox pindahanDari;
 	private MyDatebox tanggalWisuda;
@@ -5696,6 +5697,9 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 		tanggalLulus = kelulusanKomp.tanggalLulus;
 		semesterLulus = kelulusanKomp.semesterLulus;
 		batasStudi = kelulusanKomp.batasStudi;
+		// Komponen helper tidak otomatis diterapkan oleh action ini. Pertahankan pemetaan
+		// ini bersama pemanggilan setter di onSave agar daftar semester tidak hilang saat Simpan.
+		paksaAktifSemester = kelulusanKomp.paksaAktifSemester;
 		tahunWisuda = kelulusanKomp.tahunWisuda;
 		tanggalWisuda = kelulusanKomp.tanggalWisuda;
 		tanggalYudisium = kelulusanKomp.tanggalYudisium;
@@ -7546,6 +7550,7 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 		mahasiswa.setNomorSkpi(nomorSkpi.getValue());
 		mahasiswa.setIdfinger(idfinger.getValue());
 		mahasiswa.setBatasStudi(batasStudi.getValue());
+		mahasiswa.setPaksaAktifSemester(paksaAktifSemester == null ? null : paksaAktifSemester.getValue());
 		mahasiswa.setStatusKrs(statusKrs.getValue());
 
 		mahasiswa.setPindahanDari((PerguruanTinggiLain) pindahanDari.getAttribute("perguruanTinggiLain"));
@@ -7756,6 +7761,7 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 				}
 
 				paksaRiwayatStatusTetapAktifJikaStatusAwalDariKelompok(mahasiswa);
+				paksaRiwayatStatusAktifUntukSemesterYangDipilih(mahasiswa);
 
 				if (reload) {
 
@@ -7851,6 +7857,72 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 			return satu == dua;
 		}
 		return satu.getId().equals(dua.getId());
+	}
+
+	private static void paksaRiwayatStatusAktifUntukSemesterYangDipilih(Mahasiswa mahasiswa) {
+		if (mahasiswa == null || mahasiswa.getId() == null || ConstantValues.AKTIF == null
+				|| ConstantValues.AKTIF.getId() == null) {
+			return;
+		}
+		java.util.Set<Integer> semesters = new java.util.LinkedHashSet<Integer>();
+		String daftar = mahasiswa.getPaksaAktifSemester();
+		if (daftar != null) {
+			for (String bagian : daftar.split("[,;\\s]+")) {
+				try {
+					int semester = Integer.parseInt(bagian.trim());
+					if (semester > 0) {
+						semesters.add(Integer.valueOf(semester));
+					}
+				} catch (NumberFormatException ignored) {
+					// Bagian yang bukan nomor semester diabaikan; nilai aslinya tetap tersimpan.
+				}
+			}
+		}
+		if (semesters.isEmpty()) {
+			return;
+		}
+
+		Session session = null;
+		org.hibernate.Transaction tx = null;
+		try {
+			session = HibernateUtil.getSessionFactory().openSession();
+			tx = session.beginTransaction();
+			java.util.List<Long> statusFinalIds = new ArrayList<Long>();
+			if (ConstantValues.LULUS != null && ConstantValues.LULUS.getId() != null) {
+				statusFinalIds.add(ConstantValues.LULUS.getId());
+			}
+			if (ConstantValues.DROP_OUT != null && ConstantValues.DROP_OUT.getId() != null) {
+				statusFinalIds.add(ConstantValues.DROP_OUT.getId());
+			}
+			if (ConstantValues.KELUAR != null && ConstantValues.KELUAR.getId() != null) {
+				statusFinalIds.add(ConstantValues.KELUAR.getId());
+			}
+			org.hibernate.SQLQuery query = session.createSQLQuery("update public.history_status_mahasiswa "
+					+ "set status_mahasiswa = :aktifId "
+					+ "where mahasiswa = :mahasiswaId and sp is null and semester in (:semesters) "
+					+ (statusFinalIds.isEmpty() ? ""
+							: "and (status_mahasiswa is null or status_mahasiswa not in (:statusFinalIds))"));
+			query.setParameter("aktifId", ConstantValues.AKTIF.getId());
+			query.setParameter("mahasiswaId", mahasiswa.getId());
+			query.setParameterList("semesters", semesters);
+			if (!statusFinalIds.isEmpty()) {
+				query.setParameterList("statusFinalIds", statusFinalIds);
+			}
+			query.executeUpdate();
+			tx.commit();
+		} catch (Exception e) {
+			if (tx != null) {
+				try {
+					tx.rollback();
+				} catch (Exception ignored) {
+					ais.common.ErrorAuditUtil.record(ignored,
+							"auto-audit(empty-catch) MahasiswaAction.paksaAktifSemester.rollback");
+				}
+			}
+			Common.tampilErrorJikaAdmin(e);
+		} finally {
+			ais.database.hibernate.HibernateUtil.closeSessionQuietly(session);
+		}
 	}
 
 	private void tampilkanRiwayatStatusAwalDariKrsReguler(final Rows rowsStatusAwal,

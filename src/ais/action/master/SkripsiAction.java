@@ -4074,7 +4074,7 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 			// Pemanggilan internal memakai event null hanya untuk menyegarkan tampilan
 			// penilaian. Hanya onChange nyata dari combobox yang boleh menandai bahwa
 			// pengguna memang bermaksud mengganti Jenis Pengajuan.
-			if (arg0 != null && "onChange".equals(arg0.getName())) {
+			if (arg0 != null && ("onChange".equals(arg0.getName()) || "onSelect".equals(arg0.getName()))) {
 				formatNilaiSkripsiDiubahPengguna = true;
 			}
 			FormatNilaiSkripsi f = (FormatNilaiSkripsi) (formatNilaiSkripsi.getSelectedItem() == null ? null
@@ -7011,6 +7011,7 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 		formatNilaiSkripsi.setReadonly(true);
 
 		formatNilaiSkripsi.addEventListener("onChange", hasilSidangListener);
+		formatNilaiSkripsi.addEventListener("onSelect", hasilSidangListener);
 		formatNilaiSkripsi.setWidth("90%");
 
 		mhsFormatEvent.onEvent(null);
@@ -7657,6 +7658,7 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 		};
 
 		formatNilaiSkripsi.addEventListener("onChange", eventListenerUpload);
+		formatNilaiSkripsi.addEventListener("onSelect", eventListenerUpload);
 
 		rowPembimbing1 = new MyFormRow();
 		rowPembimbing1.setParent(rows);
