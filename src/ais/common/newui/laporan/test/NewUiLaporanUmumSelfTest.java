@@ -81,6 +81,26 @@ public final class NewUiLaporanUmumSelfTest {
                         NewUiLaporanUmumController.templateUntuk("penelitian_rekap_artikel")),
                 "Rekap Publikasi/Jurnal harus tetap memakai template legacy yang tepat");
 
+        // TipePenelitianDanPengabdian berbeda dari relasi lazim: labelnya ada
+        // pada properti `isi`, bukan `nama`. Default ketika tidak dipilih juga
+        // harus sama persis dengan generateParameter() layar ZK.
+        Object penelitian = peta.get("penelitian_rekap_penelitian");
+        Field filterField = penelitian.getClass().getDeclaredField("filter");
+        filterField.setAccessible(true);
+        boolean tipeBenar = false;
+        for (Object f : (List<Object>) filterField.get(penelitian)) {
+            Field namaField = f.getClass().getDeclaredField("nama");
+            namaField.setAccessible(true);
+            if (!"tipePenelitianDanPengabdian".equals(namaField.get(f))) continue;
+            Field propertiField = f.getClass().getDeclaredField("propertiNama");
+            propertiField.setAccessible(true);
+            Field bawaanField = f.getClass().getDeclaredField("paramNamaBawaan");
+            bawaanField.setAccessible(true);
+            tipeBenar = "isi".equals(propertiField.get(f))
+                    && "Penelitian dan Pengabdian".equals(bawaanField.get(f));
+        }
+        check(tipeBenar, "filter tipe penelitian harus memakai properti isi dan default legacy");
+
         System.out.println("NewUiLaporanUmumSelfTest OK (" + kunci.length
                 + " laporan, " + relasi + " filter relasi)");
     }

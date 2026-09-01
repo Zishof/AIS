@@ -9080,6 +9080,13 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return penghargaanMahasiswas;
 	}
 
+	/**
+	 * Perguruan tinggi ASAL mahasiswa pindahan — relasi {@code @ManyToOne} ke
+	 * {@link PerguruanTinggiLain} lewat kolom {@code pindahan_dari}. Bila terisi, namanya menimpa
+	 * {@link #getPindahanPerguruanTinggi()} dan {@link #getPindahanDariKampus()}.
+	 *
+	 * @return perguruan tinggi asal; {@code null} bila bukan pindahan.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pindahan_dari")
 	public PerguruanTinggiLain getPindahanDari() {
@@ -9087,51 +9094,124 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return pindahanDari;
 	}
 
+	/**
+	 * Menetapkan perguruan tinggi asal mahasiswa pindahan.
+	 *
+	 * @param pindahanDari perguruan tinggi asal.
+	 */
 	public void setPindahanDari(PerguruanTinggiLain pindahanDari) {
 		this.pindahanDari = pindahanDari;
 	}
 
+	/**
+	 * Apakah status awal per semester SELALU mengikuti data utama mahasiswa ini, sehingga
+	 * perubahan status per semester ({@code HistoryStatusMahasiswa}) tidak dipakai. Bila
+	 * {@code null} dianggap {@code false}.
+	 *
+	 * @return {@code true} bila status awal selalu ikut data utama.
+	 */
 	public Boolean getStatusAwalSelaluIkutDataUtama() {
 		return statusAwalSelaluIkutDataUtama == null ? false : statusAwalSelaluIkutDataUtama;
 	}
 
+	/**
+	 * Menetapkan penanda "status awal selalu ikut data utama".
+	 *
+	 * @param statusAwalSelaluIkutDataUtama {@code true} bila selalu ikut data utama.
+	 */
 	public void setStatusAwalSelaluIkutDataUtama(Boolean statusAwalSelaluIkutDataUtama) {
 		this.statusAwalSelaluIkutDataUtama = statusAwalSelaluIkutDataUtama;
 	}
 
+	/**
+	 * Apakah dosen pembimbing akademik mahasiswa ini TETAP sama di semua semester (tidak boleh
+	 * berganti per semester). Bila {@code null} dianggap {@code false}.
+	 *
+	 * @return {@code true} bila dosen PA selalu sama.
+	 */
 	public Boolean getDosenPaSelaluSama() {
 		return dosenPaSelaluSama == null ? false : dosenPaSelaluSama;
 	}
 
+	/**
+	 * Menetapkan penanda "dosen PA selalu sama".
+	 *
+	 * @param dosenPaSelaluSama {@code true} bila dosen PA tidak berganti per semester.
+	 */
 	public void setDosenPaSelaluSama(Boolean dosenPaSelaluSama) {
 		this.dosenPaSelaluSama = dosenPaSelaluSama;
 	}
 
+	/**
+	 * Apakah kelas mahasiswa ini TETAP sama di semua semester. Bila {@code null} dianggap
+	 * {@code false}.
+	 *
+	 * @return {@code true} bila kelas selalu sama.
+	 */
 	public Boolean getKelasSelaluSama() {
 		return kelasSelaluSama == null ? false : kelasSelaluSama;
 	}
 
+	/**
+	 * Menetapkan penanda "kelas selalu sama".
+	 *
+	 * @param kelasSelaluSama {@code true} bila kelas tidak berganti per semester.
+	 */
 	public void setKelasSelaluSama(Boolean kelasSelaluSama) {
 		this.kelasSelaluSama = kelasSelaluSama;
 	}
 
+	/**
+	 * Judul tugas akhir/skripsi dalam bahasa Inggris — kolom {@code judul_skripsi_en} (tipe TEXT).
+	 * Dicetak pada transkrip/ijazah versi Inggris dan SKPI.
+	 *
+	 * @return judul skripsi bahasa Inggris; {@code null} bila belum diisi.
+	 */
 	@Column(name = "judul_skripsi_en", columnDefinition = "text")
 	public String getJudulSkripsiEn() {
 		return judulSkripsiEn;
 	}
 
+	/**
+	 * Menetapkan judul skripsi berbahasa Inggris.
+	 *
+	 * @param judulSkripsiEn judul skripsi bahasa Inggris.
+	 */
 	public void setJudulSkripsiEn(String judulSkripsiEn) {
 		this.judulSkripsiEn = judulSkripsiEn;
 	}
 
+	/**
+	 * Mulai semester ke-berapa status awal mahasiswa BERUBAH menjadi
+	 * {@link #getStatusAwalMahasiswaSetelahSmtTertentu()}. Bila kosong, status susulan itu
+	 * dianggap tidak berlaku.
+	 *
+	 * @return nomor semester pergantian status awal; {@code null} bila tidak ada.
+	 */
 	public Integer getSmtStatusAwal() {
 		return smtStatusAwal;
 	}
 
+	/**
+	 * Menetapkan semester pergantian status awal pertama.
+	 *
+	 * @param smtStatusAwal nomor semester pergantian.
+	 */
 	public void setSmtStatusAwal(Integer smtStatusAwal) {
 		this.smtStatusAwal = smtStatusAwal;
 	}
 
+	/**
+	 * Status awal SUSULAN yang berlaku mulai semester {@link #getSmtStatusAwal()} — relasi
+	 * {@code @ManyToOne} ke {@link StatusAwalMahasiswa} lewat kolom
+	 * {@code status_awal_mahasiswa_setelah_smt_tertentu}. Mekanisme ini dipakai mahasiswa yang
+	 * status awalnya berubah di tengah masa studi (mis. semula reguler lalu menjadi alih jalur).
+	 *
+	 * <p>Bila {@link #getSmtStatusAwal()} kosong, nilainya DIPAKSA {@code null} — status susulan
+	 * tanpa semester berlaku dianggap tidak sah.</p>
+	 *
+	 * @return status awal susulan; {@code null} bila tidak berlaku.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "status_awal_mahasiswa_setelah_smt_tertentu", nullable = true)
 	public StatusAwalMahasiswa getStatusAwalMahasiswaSetelahSmtTertentu() {
@@ -9142,18 +9222,42 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return statusAwalMahasiswaSetelahSmtTertentu;
 	}
 
+	/**
+	 * Menetapkan status awal susulan pertama.
+	 *
+	 * @param statusAwalMahasiswaSetelahSmtTertentu status awal susulan.
+	 */
 	public void setStatusAwalMahasiswaSetelahSmtTertentu(StatusAwalMahasiswa statusAwalMahasiswaSetelahSmtTertentu) {
 		this.statusAwalMahasiswaSetelahSmtTertentu = statusAwalMahasiswaSetelahSmtTertentu;
 	}
 
+	/**
+	 * Mulai semester ke-berapa status awal mahasiswa berubah untuk KEDUA kalinya, menjadi
+	 * {@link #getStatusAwalMahasiswaSetelahSmtTertentuLagi()}.
+	 *
+	 * @return nomor semester pergantian status awal kedua; {@code null} bila tidak ada.
+	 */
 	public Integer getSmtStatusAwalLagi() {
 		return smtStatusAwalLagi;
 	}
 
+	/**
+	 * Menetapkan semester pergantian status awal kedua.
+	 *
+	 * @param smtStatusAwalLagi nomor semester pergantian kedua.
+	 */
 	public void setSmtStatusAwalLagi(Integer smtStatusAwalLagi) {
 		this.smtStatusAwalLagi = smtStatusAwalLagi;
 	}
 
+	/**
+	 * Status awal SUSULAN KEDUA yang berlaku mulai semester {@link #getSmtStatusAwalLagi()} —
+	 * relasi {@code @ManyToOne} lewat kolom
+	 * {@code status_awal_mahasiswa_setelah_smt_tertentu_lagi}. Sama seperti susulan pertama,
+	 * nilainya dipaksa {@code null} bila semester berlakunya kosong.
+	 *
+	 * @return status awal susulan kedua; {@code null} bila tidak berlaku.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "status_awal_mahasiswa_setelah_smt_tertentu_lagi", nullable = true)
 	public StatusAwalMahasiswa getStatusAwalMahasiswaSetelahSmtTertentuLagi() {
@@ -9164,11 +9268,23 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return statusAwalMahasiswaSetelahSmtTertentuLagi;
 	}
 
+	/**
+	 * Menetapkan status awal susulan kedua.
+	 *
+	 * @param statusAwalMahasiswaSetelahSmtTertentuLagi status awal susulan kedua.
+	 */
 	public void setStatusAwalMahasiswaSetelahSmtTertentuLagi(
 			StatusAwalMahasiswa statusAwalMahasiswaSetelahSmtTertentuLagi) {
 		this.statusAwalMahasiswaSetelahSmtTertentuLagi = statusAwalMahasiswaSetelahSmtTertentuLagi;
 	}
 
+	/**
+	 * Kelompok/rombongan mahasiswa — relasi {@code @ManyToOne} ke {@link KelompokMahasiswa} lewat
+	 * kolom {@code kelompok_mahasiswa}. Dipakai untuk pengelompokan administratif (mis. kelompok
+	 * bimbingan atau angkatan khusus).
+	 *
+	 * @return kelompok mahasiswa; {@code null} bila tidak tergabung.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kelompok_mahasiswa", nullable = true)
 	public KelompokMahasiswa getKelompokMahasiswa() {
@@ -9176,10 +9292,28 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return kelompokMahasiswa;
 	}
 
+	/**
+	 * Menetapkan kelompok mahasiswa.
+	 *
+	 * @param kelompokMahasiswa kelompok mahasiswa.
+	 */
 	public void setKelompokMahasiswa(KelompokMahasiswa kelompokMahasiswa) {
 		this.kelompokMahasiswa = kelompokMahasiswa;
 	}
 
+	/**
+	 * Kelompok SK status keluar (SK kelulusan/keluar KOLEKTIF) — relasi {@code @ManyToOne} ke
+	 * {@link KelompokStatusKeluarMahasiswa} lewat kolom {@code kelompok_status_keluar_mahasiswa}.
+	 *
+	 * <p><b>Relasi paling berpengaruh terhadap data kelulusan.</b> Bila terisi, nilainya MENIMPA
+	 * beberapa properti perorangan sekaligus: {@link #getStatusKeluar()},
+	 * {@link #getTanggalLulus()}, {@link #getTahunLulus()} dan (lewat
+	 * {@link #hitungSmtLulus(StatusKeluar, Mahasiswa)}) {@link #getSemesterLulus()}. Yang TIDAK
+	 * ikut ditimpa adalah {@link #getTanggalSkRektor()} dan {@link #getNoAkta2()} — keduanya
+	 * pernah dicoba lalu sengaja dimatikan.</p>
+	 *
+	 * @return kelompok SK status keluar; {@code null} bila mahasiswa tidak tergabung SK kolektif.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kelompok_status_keluar_mahasiswa", nullable = true)
 	public KelompokStatusKeluarMahasiswa getKelompokStatusKeluarMahasiswa() {
@@ -9187,28 +9321,65 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return kelompokStatusKeluarMahasiswa;
 	}
 
+	/**
+	 * Menetapkan kelompok SK status keluar kolektif.
+	 *
+	 * @param kelompokStatusKeluarMahasiswa kelompok SK status keluar.
+	 */
 	public void setKelompokStatusKeluarMahasiswa(KelompokStatusKeluarMahasiswa kelompokStatusKeluarMahasiswa) {
 		this.kelompokStatusKeluarMahasiswa = kelompokStatusKeluarMahasiswa;
 	}
 
+	/**
+	 * Apakah KRS dan nilai dari baris mahasiswa LAMA ({@link #getAlihProdiMahasiswa()}) ikut
+	 * dipindahkan ke baris ini saat proses alih prodi dijalankan. Bila {@code null} dianggap
+	 * {@code false}.
+	 *
+	 * @return {@code true} bila KRS &amp; nilai ikut dipindahkan.
+	 */
 	public Boolean getPindahkanKrsDanNilaiKeMahasiswaAlihProdi() {
 		return pindahkanKrsDanNilaiKeMahasiswaAlihProdi == null ? false : pindahkanKrsDanNilaiKeMahasiswaAlihProdi;
 	}
 
+	/**
+	 * Menetapkan penanda pemindahan KRS &amp; nilai pada alih prodi.
+	 *
+	 * @param pindahkanKrsDanNilaiKeMahasiswaAlihProdi {@code true} bila ikut dipindahkan.
+	 */
 	public void setPindahkanKrsDanNilaiKeMahasiswaAlihProdi(Boolean pindahkanKrsDanNilaiKeMahasiswaAlihProdi) {
 		this.pindahkanKrsDanNilaiKeMahasiswaAlihProdi = pindahkanKrsDanNilaiKeMahasiswaAlihProdi;
 	}
 
+	/**
+	 * Semester berjalan mahasiswa ini dalam bentuk properti bean — bertanda {@code @Transient}
+	 * (tidak disimpan) dan SELALU dihitung ulang lewat {@link #currentSemester()}. Disediakan agar
+	 * dapat dipakai kerangka yang hanya mengenal pola {@code getX()} (mis. binding ZK dan
+	 * JasperReports).
+	 *
+	 * @return nomor semester berjalan.
+	 */
 	@Transient
 	public Integer getSemesterSaatIni() {
 		semesterSaatIni = currentSemester();
 		return semesterSaatIni;
 	}
 
+	/**
+	 * Menetapkan semester berjalan (akan selalu tertimpa oleh {@link #getSemesterSaatIni()}).
+	 *
+	 * @param semesterSaatIni nomor semester.
+	 */
 	public void setSemesterSaatIni(Integer semesterSaatIni) {
 		this.semesterSaatIni = semesterSaatIni;
 	}
 
+	/**
+	 * Data orang tua/wali mahasiswa — relasi {@code @ManyToOne} ke {@link OrangTua} lewat kolom
+	 * {@code orang_tua}. Terpisah dari {@link BiodataMahasiswa}; dipakai portal orang tua dan
+	 * korespondensi.
+	 *
+	 * @return data orang tua; {@code null} bila belum diisi.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "orang_tua", nullable = true)
 	public OrangTua getOrangTua() {
@@ -9216,10 +9387,36 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return orangTua;
 	}
 
+	/**
+	 * Menetapkan data orang tua/wali.
+	 *
+	 * @param orangTua data orang tua.
+	 */
 	public void setOrangTua(OrangTua orangTua) {
 		this.orangTua = orangTua;
 	}
 
+	/**
+	 * Membangun TAUTAN LOGIN OTOMATIS (login tanpa mengetik sandi) untuk mahasiswa ini, berbentuk
+	 * <code>{host}/m?q={terenkripsi}</code>.
+	 *
+	 * <p>Muatan yang dienkripsi ({@code Common.desEncrypter}) adalah
+	 * <code>{id}-Mahasiswa-abcdefghijklmnopqrstuvwxyz</code>, lalu di-{@code URLEncoder.encode}
+	 * dengan UTF-8. Host bawaannya {@code Common.getRequestHostWithProtocol()}; bila konfigurasi
+	 * {@code login_via_link_menggunakan_domain_masing_masing} AKTIF, host diganti domain
+	 * perguruan tinggi milik program studi mahasiswa
+	 * ({@code jurusan.fakultas.perguruanTinggi.getDomain()}) ditambah context path — sehingga
+	 * tautan mengarah ke domain kampus masing-masing pada instalasi multi-perguruan tinggi.
+	 * {@code HttpServletRequest} diambil dari {@code Execution} ZK bila ada, kalau tidak dari
+	 * {@code RequestContext} (jalur servlet/REST).</p>
+	 *
+	 * <p><b>Perhatian keamanan:</b> tautan hasil metode ini setara kredensial — siapa pun yang
+	 * memegangnya dapat masuk sebagai mahasiswa tersebut. Dipakai delapan berkas, umumnya untuk
+	 * pengiriman tautan lewat surel/WhatsApp.</p>
+	 *
+	 * @return URL login otomatis.
+	 * @throws Exception bila proses enkripsi atau {@code URLEncoder} gagal.
+	 */
 	public String urlLogin() throws Exception {
 		String url = Common.getRequestHostWithProtocol();
 
@@ -9241,15 +9438,38 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return code;
 	}
 
+	/**
+	 * Token perangkat untuk notifikasi push (Google Cloud Messaging/Firebase) — kolom
+	 * {@code gcp_token} (tipe TEXT). Boleh berisi beberapa token karena satu mahasiswa bisa
+	 * memakai beberapa perangkat.
+	 *
+	 * @return daftar token; {@code null} bila belum ada.
+	 */
 	@Column(name = "gcp_token", columnDefinition = "text")
 	public String getGcpToken() {
 		return gcpToken;
 	}
 
+	/**
+	 * MENAMBAHKAN token perangkat baru ke daftar token yang sudah ada — bukan mengganti. Perakitan
+	 * dan penjagaan duplikat diserahkan ke {@code Tbmuser.tambahToken(baru, lama)}.
+	 *
+	 * <p>Perhatikan penamaan {@code set...} di sini menyesatkan: perilakunya menambah, bukan
+	 * menimpa.</p>
+	 *
+	 * @param gcpToken token perangkat yang hendak ditambahkan.
+	 */
 	public void setGcpToken(String gcpToken) {
 		this.gcpToken = Tbmuser.tambahToken(gcpToken, this.gcpToken);
 	}
 
+	/**
+	 * Kepesertaan kursus yang tertaut ke mahasiswa ini — relasi {@code @ManyToOne} ke
+	 * {@link ais.database.model.kursus.PesertaKursus} lewat kolom {@code peserta_kursus}. Terisi
+	 * bila mahasiswa berasal dari (atau juga terdaftar sebagai) peserta kursus.
+	 *
+	 * @return kepesertaan kursus; {@code null} bila tidak ada.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "peserta_kursus", nullable = true)
 	public PesertaKursus getPesertaKursus() {
@@ -9257,26 +9477,60 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return pesertaKursus;
 	}
 
+	/**
+	 * Menetapkan kepesertaan kursus yang tertaut.
+	 *
+	 * @param pesertaKursus kepesertaan kursus.
+	 */
 	public void setPesertaKursus(PesertaKursus pesertaKursus) {
 		this.pesertaKursus = pesertaKursus;
 	}
 
+	/**
+	 * Nama mahasiswa dalam aksara Arab — dipakai perguruan tinggi keagamaan Islam untuk ijazah
+	 * dan sertifikat berbahasa Arab. {@code null} dinormalkan menjadi string kosong.
+	 *
+	 * @return nama Arab (tidak pernah {@code null}).
+	 */
 	public String getNamaArab() {
 		return namaArab == null ? "" : namaArab;
 	}
 
+	/**
+	 * Menetapkan nama dalam aksara Arab.
+	 *
+	 * @param namaArab nama Arab.
+	 */
 	public void setNamaArab(String namaArab) {
 		this.namaArab = namaArab;
 	}
 
+	/**
+	 * Nama mahasiswa dalam aksara Tionghoa. {@code null} dinormalkan menjadi string kosong.
+	 *
+	 * @return nama Tionghoa (tidak pernah {@code null}).
+	 */
 	public String getNamaTionghoa() {
 		return namaTionghoa == null ? "" : namaTionghoa;
 	}
 
+	/**
+	 * Menetapkan nama dalam aksara Tionghoa.
+	 *
+	 * @param namaTionghoa nama Tionghoa.
+	 */
 	public void setNamaTionghoa(String namaTionghoa) {
 		this.namaTionghoa = namaTionghoa;
 	}
 
+	/**
+	 * Program mahasiswa dalam bentuk relasi master — {@code @ManyToOne} ke
+	 * {@link ProgramMahasiswa} lewat kolom {@code program_mahasiswa}. Berbeda dari
+	 * {@link #getProgram()} yang berupa teks bebas dan {@link #getProgramBaru()} yang mencocokkan
+	 * teks itu ke master {@link Program}.
+	 *
+	 * @return program mahasiswa; {@code null} bila belum diisi.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "program_mahasiswa")
 	public ProgramMahasiswa getProgramMahasiswa() {
@@ -9284,10 +9538,23 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return programMahasiswa;
 	}
 
+	/**
+	 * Menetapkan program mahasiswa (relasi master).
+	 *
+	 * @param programMahasiswa program mahasiswa.
+	 */
 	public void setProgramMahasiswa(ProgramMahasiswa programMahasiswa) {
 		this.programMahasiswa = programMahasiswa;
 	}
 
+	/**
+	 * Kelompok SK status mahasiswa (SK KOLEKTIF untuk status non-keluar, mis. penetapan cuti atau
+	 * aktif kembali) — relasi {@code @ManyToOne} ke {@link KelompokStatusMahasiswa} lewat kolom
+	 * {@code kelompok_status_mahasiswa}. Padanan {@link #getKelompokStatusKeluarMahasiswa()} untuk
+	 * status yang bukan kelulusan/keluar.
+	 *
+	 * @return kelompok status mahasiswa; {@code null} bila tidak tergabung.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kelompok_status_mahasiswa", nullable = true)
 	public KelompokStatusMahasiswa getKelompokStatusMahasiswa() {
@@ -9295,10 +9562,22 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return kelompokStatusMahasiswa;
 	}
 
+	/**
+	 * Menetapkan kelompok SK status mahasiswa.
+	 *
+	 * @param kelompokStatusMahasiswa kelompok status mahasiswa.
+	 */
 	public void setKelompokStatusMahasiswa(KelompokStatusMahasiswa kelompokStatusMahasiswa) {
 		this.kelompokStatusMahasiswa = kelompokStatusMahasiswa;
 	}
 
+	/**
+	 * Gelombang pendaftaran saat mahasiswa diterima — relasi {@code @ManyToOne} ke
+	 * {@link GelombangPendaftaran} lewat kolom {@code gelombang_pendaftaran}. Sering menentukan
+	 * besaran biaya masuk.
+	 *
+	 * @return gelombang pendaftaran; {@code null} bila bukan dari jalur PMB.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "gelombang_pendaftaran", nullable = true)
 	public GelombangPendaftaran getGelombangPendaftaran() {
@@ -9306,10 +9585,27 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return gelombangPendaftaran;
 	}
 
+	/**
+	 * Menetapkan gelombang pendaftaran.
+	 *
+	 * @param gelombangPendaftaran gelombang pendaftaran.
+	 */
 	public void setGelombangPendaftaran(GelombangPendaftaran gelombangPendaftaran) {
 		this.gelombangPendaftaran = gelombangPendaftaran;
 	}
 
+	/**
+	 * Objek {@link Dosen} pembimbing akademik — relasi {@code @ManyToOne} ke kolom {@code dosen},
+	 * HANYA BACA ({@code insertable = false, updatable = false}); penulisan kolomnya dilakukan
+	 * lewat {@link #setDosen(Long)}.
+	 *
+	 * <p>Getter menyegarkan id lebih dahulu dengan memanggil {@link #getDosen()} — sehingga
+	 * aturan "mahasiswa yang sudah keluar tidak punya dosen PA" ikut berlaku di sini — lalu
+	 * mengambil objek dosennya dari cache {@link ConstantValues}. Bila tetap tidak ketemu, proxy
+	 * relasi disambungkan ulang dengan {@code check()} sebagai cadangan.</p>
+	 *
+	 * @return dosen pembimbing akademik; {@code null} bila tidak ada atau mahasiswa sudah keluar.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dosen", nullable = true, insertable = false, updatable = false)
 	public Dosen getDosenPa() {
@@ -9324,10 +9620,31 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return dosenPa;
 	}
 
+	/**
+	 * Menetapkan objek dosen PA (hanya mengisi cache objek; kolomnya ditulis lewat
+	 * {@link #setDosen(Long)}).
+	 *
+	 * @param dosenPa dosen pembimbing akademik.
+	 */
 	public void setDosenPa(Dosen dosenPa) {
 		this.dosenPa = dosenPa;
 	}
 
+	/**
+	 * Membangkitkan (bila belum ada) berkas gambar KODE QR identitas mahasiswa untuk ditempel
+	 * sebagai "tanda tangan digital" pada dokumen cetak, lalu mengembalikan path absolutnya.
+	 *
+	 * <p>Isi kode QR berupa teks multibaris: NIM, nama, program studi, fakultas, perguruan tinggi,
+	 * dan alamat host aplikasi ({@code Common.getRequestHostWithProtocol()}). Berkas disimpan
+	 * sebagai {@code ttd_mhs_<id>.png} di direktori laporan
+	 * ({@code Common.ambilREAL_PATH_REPORT()}) dan DIPAKAI ULANG bila sudah ada.</p>
+	 *
+	 * <p><b>Konsekuensi cache berkas:</b> karena berkas tidak pernah dibangkitkan ulang, perubahan
+	 * nama/prodi mahasiswa TIDAK tercermin pada QR lama — berkasnya harus dihapus manual bila
+	 * perlu disegarkan.</p>
+	 *
+	 * @return path absolut berkas PNG kode QR.
+	 */
 	public String ttdQr() {
 
 		File myfilebarcode = new File(Common.ambilREAL_PATH_REPORT() + "/ttd_mhs_" + getId() + ".png");
@@ -9349,6 +9666,28 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return myfilebarcode.getAbsolutePath();
 	}
 
+	/**
+	 * Mengisi peta parameter JasperReports dengan seluruh BERKAS gambar/lampiran milik mahasiswa
+	 * ini, sehingga templat laporan cukup merujuk nama parameternya. Dipakai sekitar 67 berkas
+	 * laporan/cetakan.
+	 *
+	 * <p><b>Parameter yang diisi:</b> {@code foto}, {@code foto_lulus}, {@code foto_mahasiswa}
+	 * (foto mahasiswa), {@code ttd_mhs} (berkas tanda tangan dari {@link LampiranLain} berjenis
+	 * {@code TTD_MAHASISWA}), {@code ttd_mhs_qrcode} (hasil {@link #ttdQr()}), serta
+	 * {@code dokumen_mahasiswa_<jenis>} untuk tiap id lampiran yang terdaftar di
+	 * {@link #getKarpeg()}.</p>
+	 *
+	 * <p><b>Urutan sumber foto</b> (yang pertama tersedia dipakai): berkas lokal
+	 * {@code FileFotoLain.ambilFile()} &rarr; tautan mentah Dropbox &rarr; URL ekspor Google Drive
+	 * &rarr; URI tautan yang dibuat sendiri &rarr; gambar bawaan
+	 * {@code /img/administrator-icon_default.png}. Dengan begitu laporan tidak pernah kehilangan
+	 * gambar meskipun berkas fisiknya belum tersedia.</p>
+	 *
+	 * <p>Seluruh kegagalan ditelan (dicatat ke {@code ErrorAuditUtil}) agar pencetakan laporan
+	 * tidak batal hanya karena satu berkas hilang.</p>
+	 *
+	 * @param parameters peta parameter JasperReports yang akan diisi (dimodifikasi di tempat).
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void putPhoto(Map parameters) {
 		try {
@@ -9409,11 +9748,26 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		}
 	}
 
+	/**
+	 * Daftar id {@link LampiranLain} milik mahasiswa (berkas pendukung: kartu keluarga, ijazah
+	 * SMA, dsb.), disimpan sebagai satu kolom TEXT berisi id yang dipisah koma.
+	 *
+	 * <p>Dibaca {@link #putPhoto(java.util.Map)} dan {@link #putPhotoLulus(java.util.Map)} untuk
+	 * menyuntikkan berkas-berkas itu ke parameter laporan. Meski namanya "karpeg", isinya bukan
+	 * nomor kartu pegawai melainkan daftar id lampiran.</p>
+	 *
+	 * @return daftar id lampiran dipisah koma; string kosong bila tidak ada.
+	 */
 	@Column(columnDefinition = "text")
 	public String getKarpeg() {
 		return karpeg == null ? "" : karpeg.trim();
 	}
 
+	/**
+	 * Menetapkan daftar id lampiran mahasiswa.
+	 *
+	 * @param karpeg daftar id {@link LampiranLain} dipisah koma.
+	 */
 	public void setKarpeg(String karpeg) {
 		this.karpeg = karpeg;
 	}
@@ -9428,10 +9782,30 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return atasans == null ? "" : atasans.trim();
 	}
 
+	/**
+	 * Menetapkan daftar atasan/pengguna lulusan dalam bentuk teks JSON array.
+	 *
+	 * @param atasans teks JSON array daftar atasan.
+	 * @see #getAtasans()
+	 */
 	public void setAtasans(String atasans) {
 		this.atasans = atasans;
 	}
 
+	/**
+	 * Varian {@link #putPhoto(java.util.Map)} untuk dokumen KELULUSAN (ijazah, transkrip, SKPI):
+	 * memakai {@link ais.database.model.file.FotoMahasiswaLulus} sebagai sumber utama.
+	 *
+	 * <p>Bila foto lulus ada, {@code foto} dan {@code foto_lulus} diisi darinya; foto mahasiswa
+	 * biasa — bila ada — kemudian MENIMPA parameter {@code foto} saja, sehingga templat dapat
+	 * menampilkan foto reguler dan foto lulus berdampingan. Tanda tangan, QR dan lampiran
+	 * {@link #getKarpeg()} diisi sama seperti {@link #putPhoto(java.util.Map)}.</p>
+	 *
+	 * <p>Bila foto lulus tidak ada — atau terjadi kegagalan apa pun — seluruh pengisian
+	 * didelegasikan ke {@link #putPhoto(java.util.Map)} sebagai cadangan.</p>
+	 *
+	 * @param parameters peta parameter JasperReports yang akan diisi (dimodifikasi di tempat).
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void putPhotoLulus(Map parameters) {
 		Mahasiswa mahasiswa = this;
@@ -9486,23 +9860,52 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		}
 	}
 
+	/**
+	 * Apakah program perkuliahan per semester SELALU mengikuti data utama mahasiswa ini (tidak
+	 * boleh berubah per semester). Bila {@code null} dianggap {@code false}.
+	 *
+	 * @return {@code true} bila program selalu ikut data utama.
+	 */
 	public Boolean getProgramSelaluIkutDataUtama() {
 		return programSelaluIkutDataUtama == null ? false : programSelaluIkutDataUtama;
 	}
 
+	/**
+	 * Menetapkan penanda "program selalu ikut data utama".
+	 *
+	 * @param programSelaluIkutDataUtama {@code true} bila selalu ikut data utama.
+	 */
 	public void setProgramSelaluIkutDataUtama(Boolean programSelaluIkutDataUtama) {
 		this.programSelaluIkutDataUtama = programSelaluIkutDataUtama;
 	}
 
+	/**
+	 * Waktu (TIMESTAMP) terakhir mahasiswa mengubah kata sandinya. Dipakai kebijakan pemaksaan
+	 * ganti sandi berkala.
+	 *
+	 * @return waktu ubah sandi terakhir; {@code null} bila belum pernah.
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getUbahPasword() {
 		return ubahPasword;
 	}
 
+	/**
+	 * Menetapkan waktu ubah kata sandi terakhir.
+	 *
+	 * @param ubahPasword waktu ubah sandi.
+	 */
 	public void setUbahPasword(Date ubahPasword) {
 		this.ubahPasword = ubahPasword;
 	}
 
+	/**
+	 * Pengguna ({@link Tbmuser}) yang MENGUNCI data mahasiswa ini — relasi {@code @ManyToOne}
+	 * lewat kolom {@code dikunci}. Selama terisi, layar biodata umumnya menolak perubahan oleh
+	 * pengguna lain.
+	 *
+	 * @return pengguna pengunci; {@code null} bila data tidak terkunci.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dikunci")
 	public Tbmuser getDikunci() {
@@ -9510,10 +9913,22 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return dikunci;
 	}
 
+	/**
+	 * Menetapkan pengguna pengunci data mahasiswa.
+	 *
+	 * @param dikunci pengguna pengunci; {@code null} untuk membuka kunci.
+	 */
 	public void setDikunci(Tbmuser dikunci) {
 		this.dikunci = dikunci;
 	}
 
+	/**
+	 * Disposisi SOP terakhir yang menyentuh data mahasiswa ini — relasi {@code @ManyToOne} ke
+	 * {@link ais.database.model.sop.DisposisiSop} lewat kolom {@code disposisi_sop}. Menautkan
+	 * baris mahasiswa ke alur persetujuan/disposisi dokumen.
+	 *
+	 * @return disposisi SOP; {@code null} bila tidak ada.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "disposisi_sop", nullable = true)
 	public DisposisiSop getDisposisiSop() {
@@ -9521,6 +9936,14 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return disposisiSop;
 	}
 
+	/**
+	 * Menetapkan disposisi SOP — dengan penjagaan agar disposisi yang sudah tercatat TIDAK
+	 * terhapus: nilai {@code null} atau tanpa id langsung diabaikan (metode keluar lebih awal),
+	 * sehingga proses yang menyimpan mahasiswa tanpa mengetahui disposisinya tidak menghapus
+	 * jejak yang sudah ada.
+	 *
+	 * @param disposisiSop disposisi SOP; diabaikan bila {@code null} atau belum punya id.
+	 */
 	public void setDisposisiSop(DisposisiSop disposisiSop) {
 		if (disposisiSop == null || disposisiSop.getId() == null) {
 			return;
@@ -9530,6 +9953,18 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 				: disposisiSop;
 	}
 
+	/**
+	 * Master {@link Program} yang SESUAI dengan teks {@link #getProgram()} — relasi
+	 * {@code @ManyToOne} lewat kolom {@code program_baru} dengan {@code @Fetch(FetchMode.SELECT)}.
+	 *
+	 * <p>Getter tidak sekadar membaca kolom: ia menelusuri daftar program di cache
+	 * {@code Common.programs} dan memilih yang NAMANYA sama (abaikan besar-kecil huruf) dengan
+	 * teks {@link #getProgram()}. Ini jembatan migrasi dari kolom teks lama ke relasi master —
+	 * nilai kolom {@code program_baru} akan selalu tertimpa hasil pencocokan selama teks program
+	 * cocok dengan salah satu master.</p>
+	 *
+	 * @return master program yang cocok; nilai kolom apa adanya bila tidak ada yang cocok.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "program_baru", nullable = true)
@@ -9546,10 +9981,27 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return programBaru;
 	}
 
+	/**
+	 * Menetapkan master program (akan tertimpa {@link #getProgramBaru()} bila teks
+	 * {@link #getProgram()} cocok dengan master lain).
+	 *
+	 * @param programBaru master program.
+	 */
 	public void setProgramBaru(Program programBaru) {
 		this.programBaru = programBaru;
 	}
 
+	/**
+	 * Tanggal mulai Kegiatan Belajar Mengajar (KBM) mahasiswa ini — titik nol perhitungan
+	 * {@link #ambilMasaStudi()}.
+	 *
+	 * <p>Bila kolom kosong, tanggal DITEBAK dari {@link #getTahunangkatan()} dan
+	 * {@link #getSemesterMulai()}: 1 September untuk angkatan semester GANJIL, 1 Maret untuk
+	 * GENAP. Tebakan ini disimpan ke field (bukan sekadar nilai balik), jadi ikut tersimpan bila
+	 * entitas ter-flush.</p>
+	 *
+	 * @return tanggal mulai KBM (tidak pernah {@code null}).
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getTanggalKegiatanBelajarMengajar() {
 		if (tanggalKegiatanBelajarMengajar == null) {
@@ -9566,19 +10018,48 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return tanggalKegiatanBelajarMengajar;
 	}
 
+	/**
+	 * Menetapkan tanggal mulai Kegiatan Belajar Mengajar.
+	 *
+	 * @param tanggalKegiatanBelajarMengajar tanggal mulai KBM.
+	 */
 	public void setTanggalKegiatanBelajarMengajar(Date tanggalKegiatanBelajarMengajar) {
 		this.tanggalKegiatanBelajarMengajar = tanggalKegiatanBelajarMengajar;
 	}
 
+	/**
+	 * Penanda mahasiswa ini DIKECUALIKAN dari pembangkitan tagihan — kolom
+	 * {@code tidak_ada_tagihan}. Dipakai untuk mahasiswa penerima beasiswa penuh atau kasus khusus
+	 * lain. Bila {@code null} dianggap {@code false}.
+	 *
+	 * @return {@code true} bila mahasiswa tidak ditagih.
+	 */
 	@Column(name = "tidak_ada_tagihan")
 	public Boolean getTidakAdaTagihan() {
 		return tidakAdaTagihan == null ? false : tidakAdaTagihan;
 	}
 
+	/**
+	 * Menetapkan penanda pengecualian tagihan.
+	 *
+	 * @param tidakAdaTagihan {@code true} bila mahasiswa tidak ditagih.
+	 */
 	public void setTidakAdaTagihan(Boolean tidakAdaTagihan) {
 		this.tidakAdaTagihan = tidakAdaTagihan;
 	}
 
+	/**
+	 * Kelas hasil penempatan pada proses penerimaan mahasiswa baru — relasi {@code @ManyToOne} ke
+	 * {@link KelasPmb} lewat kolom {@code kelas_pmb}. Menjadi sumber {@link #getKelas()}.
+	 *
+	 * <p><b>Pengisian susulan:</b> bila mahasiswa berasal dari PMB
+	 * ({@link #getBiodataCalonMahasiswa()} terisi) dan {@link #getBiodataCalonMahasiswaData()}
+	 * punya kelas PMB, kelas dari biodata calon itu MENIMPA nilai kolom. Karena itu getter ini
+	 * dapat memicu pemuatan {@link BiodataCalonMahasiswa} — seluruhnya dibungkus {@code try/catch}
+	 * agar kegagalan lazy-load tidak merambat.</p>
+	 *
+	 * @return kelas PMB; {@code null} bila tidak ada.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kelas_pmb")
 	public KelasPmb getKelasPmb() {
@@ -9595,6 +10076,11 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return kelasPmb;
 	}
 
+	/**
+	 * Menetapkan kelas hasil penempatan PMB.
+	 *
+	 * @param kelasPmb kelas PMB.
+	 */
 	public void setKelasPmb(KelasPmb kelasPmb) {
 		this.kelasPmb = kelasPmb;
 	}

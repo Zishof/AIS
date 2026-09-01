@@ -80,6 +80,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [73-stok-minus-tiga-nilai-dan-pemulihan-member.md](73-stok-minus-tiga-nilai-dan-pemulihan-member.md) | "STOK MINUS" pd verifikasi pesanan: `null` diperlakukan sbg "dikunci admin"; + pemulihan nama pemesan dari audit Envers |
 | [74-sql-pemulihan-member-pesanan.sql](74-sql-pemulihan-member-pesanan.sql) | Skrip hitung-dulu-baru-perbaiki utk mengembalikan member yang tertimpa NULL |
 | [75-halaman-pesanan-tiga-celah-sunyi.md](75-halaman-pesanan-tiga-celah-sunyi.md) | `id_member` yang diambil lalu dibuang, "Bayar Semua" yang bilang sukses saat gagal, dan `peringatanStok` tanpa pembaca |
+| [76-peringatan-stok-terbaca-dan-nota-terparkir.md](76-peringatan-stok-terbaca-dan-nota-terparkir.md) | `peringatanStok` yang belum dibaca klien Flutter, dan nota terparkir GAGAL oleh penolakan stok yang keliru |
 
 > Catatan penomoran: ada **dua** berkas bernomor 10 — `10-pengadaan.md` dan
 > `10-pesan-galat-dan-detail-error.md` — karena ditulis dua sesi kerja yang berjalan
