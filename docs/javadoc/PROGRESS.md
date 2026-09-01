@@ -192,10 +192,119 @@ disentuh (default untuk semua file yang tidak disebut di sini).
   renderer, `display()`, `onSearchDefault()`) sebagian besar TIDAK ada sama sekali sebelumnya,
   ditambahkan penuh di sesi ini. Tidak ada file yang di-skip.
 
-  Sisa **61 dari 83** subclass `AmbilData*Banbox` (di `ais/action/master/helper/` dan package
-  modul lain seperti `akunting/helper`, `asset/helper`, `sekolah/helper`, dst.) masih `[belum]`
-  disentuh — kandidat lanjutan sesi berikutnya, baca dulu Javadoc lengkap
-  `ais/ui/util/GetEventListener.java` sebelum mulai.
+- [tautan] **Sisa 61 dari 83** subclass `AmbilData*Banbox` — SELESAI juga (9 agent tambahan,
+  sebagian paralel bercabang dari 2 agent orkestrator lain). Total **83/83 file rampung**,
+  dikompilasi (javac 1.7), dikommit, di-mirror ke `java/`, dan diverifikasi `cmp` byte-identik
+  semua 83 file (termasuk `GetEventListener.java`). Sama seperti 22 file di atas: mayoritas
+  tadinya template generik, diganti penjelasan spesifik + link wajib ke referensi; beberapa
+  commit ter-*sweep* sesi paralel lain (pola sama, isi selalu diverifikasi benar).
+
+  Daftar file + revisi (dikelompokkan per agent yang mengerjakan; lihat pesan commit svn per
+  file untuk detail argumentasi lengkap):
+
+  *akunting/asset/employ/helper (batch 1, 21 file)*:
+  `akunting/helper/AmbilDataAkunBanbox.java` r82832 (sudah bagus, hanya ditaut) ·
+  `akunting/helper/AmbilDataKasBesarBanbox.java` r82832 ·
+  `akunting/helper/AmbilDataPegawaiBanbox.java` r82832 ·
+  `akunting/helper/AmbilDataReimbursementBanbox.java` r82832 (sudah bagus) ·
+  `akunting/helper/AmbilDataUangMukaBanbox.java` r82832 ·
+  `asset/helper/AmbilDataAssetDetailBanbox.java` r82832 ·
+  `asset/helper/AmbilDataMasterAssetBanbox.java` r82834 ·
+  `employ/helper/AmbilDataJenisPelatihanBanbox.java` r82834 ·
+  `helper/AmbilDataAfiliasiCalonMahasiswaBanbox.java` r82838 ·
+  `helper/AmbilDataBerkasBanbox.java` r82841 ·
+  `helper/AmbilDataCalonMahasiswaBanbox.java` r82841 ·
+  `helper/AmbilDataCalonMahasiswaCekKesehatanBanbox.java` r82843 (constructor panggil
+  `display()` langsung, menyimpang pola `onOpen` lazy) ·
+  `helper/AmbilDataCalonMahasiswaDaftarUlangBaruBanbox.java` r82843 ·
+  `helper/AmbilDataCalonMahasiswaGenerateNimBanbox.java` r82851 (sama, `display()` langsung) ·
+  `helper/AmbilDataAsramaBanbox.java` r82855 ·
+  `helper/AmbilDataDetailPerkuliahanBanbox.java` r82855 ·
+  `helper/AmbilDataDosenBanbox.java` r82855 (2 dari 4 constructor overload mengabaikan
+  parameternya sendiri) ·
+  `helper/AmbilDataDosenSkripsiBanbox.java` r82855 ·
+  `helper/AmbilDataFormSopBanbox.java` r82855 (sumber data `ConstantValues.treeMapFormSop`,
+  BUKAN entity Hibernate) ·
+  `helper/AmbilDataGelombangPendaftaranBanbox.java` r82855 ·
+  `helper/AmbilDataGolonganBanbox.java` r82855.
+
+  *rab/helper (8 file, 2 agent)*:
+  `AmbilDataKppnBanbox.java` r82832 ·
+  `AmbilDataMitraBanbox.java` r82846 (scoping satker hierarkis) ·
+  `AmbilDataPejabatBanbox.java` r82849 (auto-pilih & kunci dari user login) ·
+  `AmbilDataProyekBanbox.java` r82852 (filter exact-match) ·
+  `AmbilDataSasaranBanbox.java` r82823 (scoping satuan kerja + anak-cucu via
+  `SatuanKerjaTreeModel`) ·
+  `AmbilDataSatuanKerjaBanbox.java` r82832 (picker berbasis Tree, domain-lock, 3 constructor,
+  2 tab popup — non-standar) ·
+  `AmbilDataSumberDanaBanbox.java` r82832 ·
+  `AmbilDataWorkspaceBanbox.java` r82834 (Tree-based, 4 constructor termasuk mode terkunci).
+
+  *sekolah/helper (7 file, 2 agent)*:
+  `AmbilDataCalonSiswaBanbox.java` r82830 (sudah bagus, hanya ditaut) ·
+  `AmbilDataGuruBanbox.java` r82832 (filter kode/NUPTK, status kepegawaian, penugasan
+  4-sekolah, kecuali guru "milik universitas") ·
+  `AmbilDataKelasLesSiswaBanbox.java` r82832 (kelas les bukan reguler, filter guru pembina
+  bercabang 2 flag constructor) ·
+  `AmbilDataKelasSiswaBanbox.java` r82832 (kelas reguler, filter tahun akademik + cross-check
+  `JadwalPelajaran` 12 slot guru) ·
+  `AmbilDataKelasSiswaSemuaBanbox.java` r82832 ·
+  `AmbilDataMatapelajaranBanbox.java` r82838 (pencarian hanya lewat tombol Cari, tanpa
+  onOK/onChange otomatis) ·
+  `AmbilDataSiswaBanbox.java` r82839 (sudah detail — mode alumni dll — hanya ditaut +
+  Javadoc getter/setter listener yang sebelumnya kosong).
+
+  *library/lkp/surat/helper (5 file)*:
+  `library/helper/AmbilDataKategoriItemBanbox.java` r82832 (Tree hierarkis, tab "Sering
+  Dipakai", parameter `chooseAll`) ·
+  `library/helper/AmbilDataUdcItemBanbox.java` r82861 (constructor non-standar: Bandpopup/
+  Radiogroup eager + flag `hasDisplayed`, bukan lazy `getChildren().isEmpty()`) ·
+  `lkp/helper/AmbilDataKegiatanTugasJabatanTreeBanbox.java` r82837 (scoping satuan
+  kerja/role/periode/aktif, kuirk per-overload constructor) ·
+  `surat/helper/AmbilDataAlurPersetujuanSuratKeluarBanbox.java` r82840 (approval workflow
+  hierarkis, scoping multi-dimensi satker/fakultas-jurusan/yayasan-sekolah/tipe) ·
+  `surat/helper/AmbilDataAlurPersetujuanSuratMasukBanbox.java` r82844 (padanan disposisi surat
+  masuk, event `onClick` bukan `onCheck`, tanpa guard null di renderer).
+
+  *helper (Batch A, 5 file)*:
+  `AmbilDataParameterTambahanBanbox.java` r82822 ·
+  `AmbilDataPenjelasanBankSoalBanbox.java` r82831 ·
+  `AmbilDataPerguruanTinggiLainBanbox.java` r82832 ·
+  `AmbilDataPertemuanBerdasarKelasPertemuanBanbox.java` r82834 ·
+  `AmbilDataPropinsiBanbox.java` r82838.
+
+  *helper (Batch B, 5 file)*:
+  `AmbilDataRuangBanbox.java` r82821 ·
+  `AmbilDataTbmuserBanbox.java` r82832 (constructor non-standar flag `hasDisplayed`) ·
+  `AmbilDataUploadLogBanbox.java` r82832 ·
+  `AmbilJadwalSeminarTugasAkhirBanbox.java` r82834 (CRUD inline di dalam picker, gated hak
+  akses) ·
+  `AmbilJadwalSidangTugasAkhirBanbox.java` r82841 (padanan sidang).
+
+  *obe/koperasi/kpi/kursus/helper (Batch C, 5 file)*:
+  `helper/obe/AmbilDataCapaianLulusanBanbox.java` r82824 ·
+  `helper/obe/AmbilDataCapaianPembelajaranLulusanBanbox.java` r82832 ·
+  `koperasi/helper/AmbilDataAnggotaKoperasiBanbox.java` r82834 ·
+  `kpi/helper/AmbilDataPegawaiFormatKPIBanbox.java` r82838 (root query `FormatKpiDetail`
+  diproyeksikan ke `Pegawai`, filter otorisasi `usernamePenggunaRealisasi`, scoping satuan
+  kerja via `SekolahUtil` + nested picker `AmbilDataSatuanKerjaBanbox`) ·
+  `kursus/helper/AmbilDataKomponenDataProdukKursusBanbox.java` r82841.
+
+  *kursus/library/helper (Batch D, 5 file)*:
+  `kursus/helper/AmbilDataKomponenProdukKursusBanbox.java` r82826 ·
+  `kursus/helper/AmbilDataPesertaKursusBanbox.java` r82829 ·
+  `kursus/helper/AmbilDataProdukKursusBanbox.java` r82832 (renderer hitung ulang total harga
+  dari JSON `hargaKomponens`, auto-save bila beda) ·
+  `library/helper/AmbilDataDdcItemBanbox.java` r82834 (Tree `DdcItemTreeModel` lazy-load,
+  parameter `chooseAll`, tab kedua "Sering Dipakai") ·
+  `library/helper/AmbilDataDdcItemBanboxCampuran.java` r82836 (**DUPLIKAT fungsional 100%**
+  dari `AmbilDataDdcItemBanbox` — hanya beda nama kelas; Javadoc menaut ke file itu, bukan
+  mengulang).
+
+  Beberapa file (`AmbilDataJurusanBanbox`, `AmbilDataKelasPertemuanBanbox`,
+  `AmbilDataKonfigurasiBanbox`, `AmbilDataKotaKabupatenBanbox`, `AmbilDataNegaraBanbox`)
+  mendeklarasikan field `AmbilDataPagingHelper pagingHelper` yang TIDAK dipakai (masih paging
+  client-side lama) — dicatat eksplisit di Javadoc, bukan bug baru.
 
 ## Catatan sesi
 
@@ -239,3 +348,55 @@ disentuh (default untuk semua file yang tidak disebut di sini).
   sisa file `ais.action.master.helper/*.java` satu-satu (409 file, sebagian besar
   belum ada Javadoc method sama sekali). Baca bagian atas file ini dulu sebelum
   memilih target agar tidak duplikasi kerja.
+
+### 2 Sep 2026 (sesi kedua)
+
+- Ditemukan pola leverage tinggi kedua: `ais.ui.util.GetEventListener` (interface 2
+  method) = kontrak wajib 83 file `AmbilData*Banbox` (pola "Bandbox picker" ZK).
+  Diperkaya jadi referensi (r82818), lalu 4 agent orkestrator diluncurkan paralel
+  (masing-masing ~20-22 file); beberapa dari mereka mendelegasikan lagi ke sub-agent
+  sendiri (pola rekursif tak terduga tapi berhasil — total ~13 agent/sub-agent aktif
+  pada puncaknya). **Hasil akhir: 83/83 file rampung**, dikompilasi, dikommit per
+  file, di-mirror ke `java/`, dan diverifikasi `cmp` byte-identik semua file (lihat
+  daftar lengkap per file di atas).
+- **Temuan penting soal skala nyata proyek** (jangan diulang audit-nya): HAMPIR
+  SEMUA file (~7405/7401) sudah punya minimal satu blok `/**`, tapi banyak berupa
+  TEMPLATE GENERIK dari pass otomatis SEBELUM inisiatif ini (minimal 57 file
+  persis, 1946 file dengan marker `auto-audit(empty-catch)`). Pekerjaan nyata BUKAN
+  "tulis dari nol" tapi mayoritas "deteksi & ganti template dangkal dengan
+  penjelasan spesifik" — dari 83 file batch ini, HANYA 3 (`AmbilDataAkunBanbox`,
+  `AmbilDataReimbursementBanbox`, `AmbilDataCalonSiswaBanbox`, `AmbilDataSiswaBanbox`
+  — 4 sebenarnya) yang sudah punya Javadoc spesifik baik sebelumnya; sisanya semua
+  template generik atau (jarang) benar-benar kosong di level method.
+- **Insiden konkurensi berulang** (pola sama seperti sesi pertama, BUKAN kejadian
+  baru — WC ini memang dipakai bersama beberapa sesi paralel aktif terus-menerus):
+  puluhan commit sweep tanpa pesan/tanpa scope eksplisit dari sesi lain (r82832,
+  r82834, r82838, r82841, r82843, r82855, r82857, r82858, dst.) menyapu banyak file
+  batch ini bersama file-file TIDAK TERKAIT milik sesi lain (mis. r82832 menyapu 17
+  file termasuk `GenericCrudAkademikOverrides.java`, `NewUiResolverProbe.java`).
+  Setiap kali terdeteksi, isi diverifikasi benar (`svn diff -c <rev>` / `grep`
+  marker) sebelum lanjut — TIDAK ADA kerja yang hilang atau rusak sepanjang sesi
+  ini, hanya atribusi pesan commit yang kadang kosong/generik untuk porsi kita.
+  Orkestrator juga sempat menemukan 1 file (`AmbilDataUdcItemBanbox.java`) yang
+  tampak "berbeda" antara WC src dan mirror karena source WC lokal sempat tertinggal
+  1 commit (r82861) di belakang HEAD — bukan korupsi, selesai dengan `svn update`
+  biasa. Pelajaran: setelah "selesai" menurut semua agent, tetap jalankan `svn
+  update` menyeluruh + `cmp` sebelum menganggap mirror final.
+- **Masalah tooling ditemukan & diperbaiki di tengah jalan**: kompilasi verifikasi
+  dengan `-d <scratch-kosong>` + `-sourcepath .` memicu javac meng-cascade
+  kompilasi ULANG SELURUH codebase (6000+ file tak terkait) tiap kali dipanggil dari
+  direktori scratch kosong — sangat boros waktu bila diulang per-agent. Perbaikan:
+  tambahkan flag `-implicit:none` (javac tetap resolve tipe lewat sourcepath untuk
+  validasi, tapi tidak ikut menulis .class untuk file selain target eksplisit).
+  **Pakai `-implicit:none` sejak awal di sesi berikutnya**, jangan menunggu sampai
+  agent tersendat dulu baru diperbaiki.
+- **Total pencapaian sesi ini**: 84 file (`GetEventListener.java` + 83 subclass).
+  Akumulasi 2 sesi: 49 (Revisi*Helper) + 84 (AmbilData*Banbox) = **133 file** dari
+  total 7.401 (~1,8%). Skala tersisa masih sangat besar.
+- **Kandidat leverage tinggi berikutnya** (belum digarap): cari pola generic+banyak-
+  pemakai lain lewat grep (`extends Bandbox` tanpa `GetEventListener` — sisanya ~70
+  file yang mungkin pola berbeda; `implements` interface lain yang dipakai luas;
+  `extends Generic`/`extends Abstract` lain); atau lanjutkan sisa ~380 file di
+  `ais.action.master.helper/*.java` yang tak masuk kategori manapun di atas
+  (banyak berisi template generik siap-diperkaya, cek dulu dengan grep frasa
+  template sebelum menganggap "belum ada Javadoc").
