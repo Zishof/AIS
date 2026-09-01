@@ -2,6 +2,7 @@ package ais.common;
 
 
 import ais.action.master.helper.KegiatanPersistenceHelper;
+import ais.action.master.sekolah.util.DepositHelper;
 import java.util.Collection;
 import java.util.Date;
 
@@ -63,6 +64,67 @@ import ais.ui.util.MyMessageboxConfig;
  * </p>
  */
 public class TunaiSiswaCommon {
+
+	/**
+	 * Menyimpan pembayaran topup tunai tanpa mewajibkan adanya baris tagihan. Catatan operasional
+	 * sekolah dan buku besar saldo dibuat dalam satu transaksi agar tidak pernah berbeda.
+	 */
+	public static DepositSiswa onSaveTopup(Siswa siswa, CalonSiswa calonSiswa, Double nominal,
+			String validator, AkunPembayaranSiswa akunPembayaranSiswa, Date tanggalTransaksi) throws Exception {
+		if (nominal == null || nominal.doubleValue() <= 0.1) {
+			PesanFormalHelper.tampilkanGagal("topup tabungan siswa",
+					"Nominal Topup belum diisi atau masih nol.",
+					new String[] { "Isi nominal Topup lebih dari nol, lalu ulangi proses pembayaran." });
+			return null;
+		}
+		if (siswa == null && calonSiswa != null && calonSiswa.getSiswa() != null) {
+			siswa = calonSiswa.getSiswa();
+		}
+		if (siswa == null || akunPembayaranSiswa == null) {
+			PesanFormalHelper.tampilkanGagal("topup tabungan siswa",
+					"Data siswa atau cara pembayaran belum tersedia.",
+					new String[] { "Pilih siswa dan cara pembayaran yang aktif, lalu ulangi proses Topup." });
+			return null;
+		}
+
+		Date waktu = tanggalTransaksi == null ? ais.ui.util.WaktuUtil.getDate() : tanggalTransaksi;
+		DepositSiswa depositSiswa = new DepositSiswa();
+		depositSiswa.setSiswa(siswa);
+		depositSiswa.setCalonSiswa(calonSiswa);
+		depositSiswa.setAkunPembayaranSiswa(akunPembayaranSiswa);
+		depositSiswa.setSekolah(siswa.getSekolah());
+		depositSiswa.setYayasan(siswa.getSekolah() == null ? null : siswa.getSekolah().getYayasan());
+		depositSiswa.setInquiryPembayaran("000000");
+		depositSiswa.setNominal(nominal);
+		depositSiswa.setTanggalBayar(waktu);
+		depositSiswa.setWaktu(waktu);
+		depositSiswa.setValidator(validator);
+		depositSiswa.setKeterangan("Topup Tabungan");
+
+		Session session = null;
+		try {
+			session = HibernateUtil.currentNativeSession();
+			session.getTransaction().begin();
+			session.save(depositSiswa);
+			session.flush();
+			DepositHelper.catatTopupSiswa(session, siswa, calonSiswa, nominal, waktu, "TUNAI",
+					String.valueOf(depositSiswa.getId()));
+			session.getTransaction().commit();
+			return depositSiswa;
+		} catch (Exception e) {
+			try {
+				if (session != null && session.getTransaction().isActive()) {
+					session.getTransaction().rollback();
+				}
+			} catch (Exception rollbackError) {
+				ais.common.ErrorAuditUtil.record(rollbackError,
+						"auto-audit rollback topup src/ais/common/TunaiSiswaCommon.java");
+			}
+			throw e;
+		} finally {
+			KegiatanPersistenceHelper.closeNativeSession(session);
+		}
+	}
 
 	/**
 	 * Memproses satu transaksi pembayaran tunai siswa/calon siswa: memvalidasi rincian biaya yang
@@ -187,7 +249,10 @@ public class TunaiSiswaCommon {
 				depositSiswa.setWaktu(pembayaranSiswa.getTanggal());
 
 				session.getTransaction().begin();
-				session.save(depositSiswa);
+				session.saveOrUpdate(depositSiswa);
+				DepositHelper.catatTopupSiswa(session, siswa, calonSiswa, deposit,
+						pembayaranSiswa.getTanggal(), "TUNAI_PEMBAYARAN",
+						String.valueOf(pembayaranSiswa.getId()));
 				session.getTransaction().commit();
 			}
 

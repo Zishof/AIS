@@ -79,6 +79,7 @@ import ais.database.model.VirtualAccountBank;
 import ais.database.model.akunting.GrupTransaksi;
 import ais.database.model.sekolah.AkunPembayaranSiswa;
 import ais.database.model.sekolah.CalonSiswa;
+import ais.database.model.sekolah.DepositSiswa;
 import ais.database.model.sekolah.DiskonSiswa;
 import ais.database.model.sekolah.JenisBiayaSekolah;
 import ais.database.model.sekolah.NominalBiaya;
@@ -2671,15 +2672,34 @@ public class PembayaranOnline extends GenericAutowireComposer {
 										new PaymentAction() {
 											@Override
 											public void execute() throws Exception {
+												final Double nilaiTopup = getNilaiTopupAktif();
+												if (modeTopupSiswa && tagihans.isEmpty()) {
+													final DepositSiswa topup = TunaiSiswaCommon.onSaveTopup(s_lokal,
+															cs_lokal, nilaiTopup, Common.getCurrentUser().getUserNama(), akun,
+															tanggalTransaski == null ? WaktuUtil.getDate()
+																	: tanggalTransaski.getValue());
+													if (topup == null) {
+														return;
+													}
+													Common.createDefaultTimer(new EventListener() {
+														@Override
+														public void onEvent(Event arg0) throws Exception {
+															PembayaranSiswaUtil.cetakDeposit(topup);
+															reloadTagihan();
+														}
+													});
+													return;
+												}
 												final PembayaranSiswa pemb = TunaiSiswaCommon.onSave(s_lokal, cs_lokal,
 														tagihans.values(),
-														deposit == null || deposit.isDisabled()
-																|| deposit.getValue() == null ? 0.0
-																		: deposit.getValue(),
+														nilaiTopup,
 														sisaTabungan.isChecked() ? tabungan : null,
 														Common.getCurrentUser().getUserNama(), akun, rowsDetailBiaya,
 														tanggalTransaski == null ? WaktuUtil.getDate()
 																: tanggalTransaski.getValue());
+												if (pemb == null) {
+													return;
+												}
 												Common.createDefaultTimer(new EventListener() {
 													@Override
 													public void onEvent(Event arg0) throws Exception {

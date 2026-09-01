@@ -41,6 +41,49 @@ import ais.ui.util.WaktuUtil;
 public class DepositHelper {
 
     /**
+     * Mencatat topup siswa ke buku besar {@link Deposit}. Pemanggil wajib membuka transaksi
+     * Hibernate sebelum memanggil method ini. Kombinasi sumber dan referensi dipakai sebagai
+     * penanda idempoten supaya callback bank yang dikirim ulang tidak menambah saldo dua kali.
+     */
+    public static Deposit catatTopupSiswa(Session session, Siswa siswa, CalonSiswa calonSiswa,
+            Double nominal, Date waktu, String sumber, String referensi) {
+        if (session == null || nominal == null || nominal.doubleValue() <= 0.1
+                || (siswa == null && calonSiswa == null)) {
+            return null;
+        }
+
+        Date waktuTopup = waktu == null ? WaktuUtil.getDate() : waktu;
+        String sumberAman = sumber == null || sumber.trim().length() == 0 ? "LAINNYA" : sumber.trim();
+        String referensiAman = referensi == null || referensi.trim().length() == 0
+                ? String.valueOf(waktuTopup.getTime()) : referensi.trim();
+        String penanda = "TOPUP_SISWA:" + sumberAman + ":" + referensiAman;
+
+        Criteria criteria = session.createCriteria(Deposit.class)
+                .add(Restrictions.eq("keterangan", penanda));
+        if (siswa != null) {
+            criteria.add(Restrictions.eq("siswa", siswa));
+        } else {
+            criteria.add(Restrictions.eq("calonSiswa", calonSiswa));
+        }
+
+        Deposit deposit = (Deposit) criteria.setMaxResults(1).uniqueResult();
+        if (deposit != null) {
+            return deposit;
+        }
+
+        deposit = new Deposit();
+        deposit.setSiswa(siswa);
+        deposit.setCalonSiswa(calonSiswa);
+        deposit.setNominal(nominal);
+        deposit.setWaktu(waktuTopup);
+        deposit.setKeterangan(penanda);
+        deposit.setOleh("Topup Siswa - " + sumberAman);
+        deposit.setOlehId(referensiAman);
+        session.save(deposit);
+        return deposit;
+    }
+
+    /**
      * Helper untuk mencegah NullPointerException dan mempersingkat baris kode
      */
     private static Double getSafeDouble(Number number) {
