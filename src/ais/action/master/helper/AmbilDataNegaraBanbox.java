@@ -38,29 +38,29 @@ import ais.ui.util.GetEventListener;
 import ais.ui.util.MyPanel;
 
 /**
- * Tipe khusus untuk ambil data negara banbox. Kelas ini memberi nama dan batas tanggung jawab yang
- * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code EventListener eventListener}, {@code Textbox nama};
- * pembacaan/pencarian ({@code onSearchDefault()}, {@code setEventListener()}, {@code getEventListener()});
- * operasi domain lain ({@code display()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface
- * yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.Negara} — lihat
+ * {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback).
+ * <p>
+ * {@code Negara} adalah master data negara (dipakai mis. sebagai bagian hierarki wilayah
+ * administratif — lihat juga {@link AmbilDataKecamatanBanbox} yang membuat {@code Negara} baru
+ * secara inline). Popup pencarian hanya menyediakan satu field {@code nama}, dicocokkan
+ * case-insensitive ke kolom {@code namaNegara} dengan
+ * {@link org.hibernate.criterion.MatchMode#ANYWHERE} (substring di posisi mana pun; TIDAK ada
+ * penanganan khusus untuk kosong — nilai kosong tetap dikirim sebagai pola ilike, secara efektif
+ * mencocokkan semua baris). Hasil diurutkan menaik berdasar nama, tanpa pembatasan bisnis lain
+ * (tidak ada filter aktif/scoping). Pemilihan bersifat TUNGGAL (Radiogroup). Tidak ada constructor
+ * dengan parameter tambahan; field {@code pagingHelper} dideklarasikan tapi TIDAK dipakai —
+ * pencarian masih memakai {@code grid.setMold("paging")} client-side lama dibatasi
+ * {@link ais.common.Common#MAX_RESULT}.
+ * </p>
  *
  * @see Bandbox
  */
 public class AmbilDataNegaraBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 *
 	 */
 	private static final long serialVersionUID = 6452461056684904810L;
 	private MyGrid grid;
@@ -68,6 +68,11 @@ public class AmbilDataNegaraBanbox extends Bandbox implements GetEventListener {
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
 	private EventListener eventListener;
 
+	/**
+	 * Konstruktor standar: memasang listener {@code onOpen} yang membangun popup pencarian secara
+	 * lazy pada pembukaan pertama. Mengikuti kerangka standar di
+	 * {@link ais.ui.util.GetEventListener}, tidak ada logika tambahan khusus entity ini.
+	 */
 	public AmbilDataNegaraBanbox() {
 		super();
 
@@ -89,19 +94,15 @@ public class AmbilDataNegaraBanbox extends Bandbox implements GetEventListener {
 		});
 	}
 
+	/** Kriteria pencarian: nama negara (ilike, substring). */
 	private Textbox nama;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataNegaraBanbox}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataNegaraBanbox} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer baris grid hasil pencarian {@link Negara}: menampilkan kolom nama dan satu radio
+	 * button pilihan. Mengikuti kerangka renderer standar di {@link ais.ui.util.GetEventListener}
+	 * — listener {@code onCheck} menutup popup, menyimpan entity terpilih ke atribut
+	 * {@code "negara"} dan teks tampilan {@code negara.getNamaNegara()}, lalu meneruskan event ke
+	 * {@link #eventListener} bila terpasang.
 	 *
 	 * @see AmbilDataNegaraBanbox
 	 */
@@ -134,6 +135,13 @@ public class AmbilDataNegaraBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/**
+	 * Membangun popup pencarian {@link Negara} sekali (dipanggil lazy dari listener
+	 * {@code onOpen}): form dengan satu field {@code nama}, tombol Cari, dan grid hasil dibungkus
+	 * {@link org.zkoss.zul.Radiogroup} (pilih tunggal). Mengikuti kerangka {@code display()}
+	 * standar — lihat {@link ais.ui.util.GetEventListener}. Memanggil
+	 * {@link #onSearchDefault(Event)} di akhir agar grid terisi saat popup pertama dibuka.
+	 */
 	public void display() {
 		setReadonly(true);
 		Bandpopup bandpopup = new ais.ui.util.MyBandpopup();
@@ -231,6 +239,17 @@ public class AmbilDataNegaraBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/**
+	 * Mengeksekusi pencarian {@link Negara} berdasar kriteria {@code nama} (ilike, substring di
+	 * mana pun — TIDAK ada penanganan khusus input kosong, lihat catatan di Javadoc class) dengan
+	 * {@code Restrictions.ilike}, diurutkan menaik berdasar nama dan dibatasi
+	 * {@link ais.common.Common#MAX_RESULT}, lalu memasang {@link NegaraRenderer} dan model hasil ke
+	 * {@link #grid}. Mengikuti kerangka {@code onSearchDefault} standar — lihat
+	 * {@link ais.ui.util.GetEventListener}.
+	 *
+	 * @param event event pemicu (klik tombol Cari); boleh {@code null} saat dipanggil dari
+	 *              {@link #display()} untuk mengisi grid pertama kali
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -250,10 +269,12 @@ public class AmbilDataNegaraBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/** {@inheritDoc} Implementasi setter polos standar — lihat {@link ais.ui.util.GetEventListener}. */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** {@inheritDoc} Implementasi getter polos standar — lihat {@link ais.ui.util.GetEventListener}. */
 	public EventListener getEventListener() {
 		return eventListener;
 	}

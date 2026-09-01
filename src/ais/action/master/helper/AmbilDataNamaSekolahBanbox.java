@@ -41,29 +41,33 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data nama sekolah banbox. Kelas ini memberi nama dan batas tanggung
- * jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Grid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code EventListener eventListener}, {@code Textbox kode};
- * pembacaan/pencarian ({@code onSearchDefault()}, {@code setEventListener()}, {@code getEventListener()});
- * operasi domain lain ({@code display()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface
- * yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity
+ * {@link ais.database.model.NamaSekolahAsal} — lihat {@link ais.ui.util.GetEventListener} untuk
+ * arsitektur kerangka umum (constructor/display/onSearchDefault/renderer/callback).
+ * <p>
+ * {@code NamaSekolahAsal} adalah master data institusi pendidikan asal (mis. SMA/SMK asal calon
+ * mahasiswa), dipakai terutama di modul penerimaan mahasiswa baru (PMB). Popup pencarian hanya
+ * menyediakan satu field {@code kode}, yang dicocokkan ilike-substring ke DUA kolom sekaligus
+ * (kode ATAU nama institusi — digabung OR), sehingga label "Cari" pada form berfungsi sebagai
+ * pencarian bebas kode/nama. KHAS kelas ini: {@link #display()} memanggil
+ * {@link NamaSekolahAsalAction#initdata()} lebih dulu (menyiapkan/seed data pendukung sebelum
+ * form dibangun) dan, bila konfigurasi
+ * {@code bisa_membuat_institusi_pendidikan_baru_langsung_dari_pilihan} aktif, menampilkan tautan
+ * "Institusi Pendidikan Anda belum terdaftar? Buat baru disini" yang memanggil
+ * {@link NamaSekolahAsalAction#onAddExternal} untuk membuat entri baru langsung dari popup picker
+ * (umum dipakai calon mahasiswa yang sekolah asalnya belum ada di database). Constructor kedua
+ * menerima {@code String nama} yang diteruskan ke {@link Bandbox#Bandbox(String)} sebagai nilai
+ * tampilan awal Bandbox (BUKAN filter pencarian). Pemilihan bersifat TUNGGAL (Radiogroup). Field
+ * {@code pagingHelper} dideklarasikan tapi TIDAK dipakai — pencarian masih memakai
+ * {@code grid.setMold("paging")} client-side lama dibatasi {@link ais.common.Common#MAX_RESULT}.
+ * </p>
  *
  * @see Bandbox
  */
 public class AmbilDataNamaSekolahBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 *
 	 */
 	private static final long serialVersionUID = 6452461056684904810L;
 	private Grid grid;
@@ -72,6 +76,11 @@ public class AmbilDataNamaSekolahBanbox extends Bandbox implements GetEventListe
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
 	private EventListener eventListener;
 
+	/**
+	 * Konstruktor standar: memasang listener {@code onOpen} yang membangun popup pencarian secara
+	 * lazy pada pembukaan pertama. Mengikuti kerangka standar di
+	 * {@link ais.ui.util.GetEventListener}, tidak ada logika tambahan khusus entity ini.
+	 */
 	public AmbilDataNamaSekolahBanbox() {
 		super();
 		setReadonly(true);
@@ -97,6 +106,14 @@ public class AmbilDataNamaSekolahBanbox extends Bandbox implements GetEventListe
 
 	}
 
+	/**
+	 * Konstruktor dengan nilai tampilan awal: diteruskan ke {@link Bandbox#Bandbox(String)}
+	 * sebagai teks awal Bandbox (BUKAN filter/kriteria pencarian — popup pencarian tetap kosong
+	 * sampai pengguna mengisi field {@link #kode}). Selebihnya mengikuti kerangka constructor
+	 * standar di {@link ais.ui.util.GetEventListener}.
+	 *
+	 * @param nama teks tampilan awal Bandbox
+	 */
 	public AmbilDataNamaSekolahBanbox(String nama) {
 		super(nama);
 		setReadonly(true);
@@ -122,19 +139,16 @@ public class AmbilDataNamaSekolahBanbox extends Bandbox implements GetEventListe
 
 	}
 
+	/** Kriteria pencarian: kode ATAU nama institusi (ilike, substring, digabung OR). */
 	private Textbox kode;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataNamaSekolahBanbox}. Kelas ini menerjemahkan satu item
-	 * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataNamaSekolahBanbox} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer baris grid hasil pencarian {@link NamaSekolahAsal}: kolom nama, tingkat, dan
+	 * keterangan, plus satu radio button pilihan. Mengikuti kerangka renderer standar di
+	 * {@link ais.ui.util.GetEventListener} — listener {@code onCheck} menutup popup, menyimpan
+	 * entity terpilih ke atribut {@code "namaSekolahAsal"} dan teks tampilan
+	 * {@code namaSekolahAsal.getNama()}, lalu meneruskan event ke {@link #eventListener} bila
+	 * terpasang.
 	 *
 	 * @see AmbilDataNamaSekolahBanbox
 	 */
@@ -169,6 +183,15 @@ public class AmbilDataNamaSekolahBanbox extends Bandbox implements GetEventListe
 
 	}
 
+	/**
+	 * Membangun popup pencarian {@link NamaSekolahAsal} sekali (dipanggil lazy dari listener
+	 * {@code onOpen}): memanggil dulu {@link NamaSekolahAsalAction#initdata()} untuk menyiapkan
+	 * data pendukung, lalu form dengan satu field {@code kode}, tautan "Buat baru disini" (hanya
+	 * bila konfigurasi terkait aktif — lihat Javadoc class), tombol Cari, dan grid hasil dibungkus
+	 * {@link org.zkoss.zul.Radiogroup} (pilih tunggal). Mengikuti kerangka {@code display()}
+	 * standar selebihnya — lihat {@link ais.ui.util.GetEventListener}. Memanggil
+	 * {@link #onSearchDefault(Event)} di akhir agar grid terisi saat popup pertama dibuka.
+	 */
 	@SuppressWarnings("deprecation")
 	public void display() {
 		NamaSekolahAsalAction.initdata();
@@ -318,6 +341,17 @@ public class AmbilDataNamaSekolahBanbox extends Bandbox implements GetEventListe
 
 	}
 
+	/**
+	 * Mengeksekusi pencarian {@link NamaSekolahAsal} dengan filter {@code aktif} (baris nonaktif
+	 * disembunyikan kecuali kolomnya {@code null}) dan {@code kode} (ilike substring, dicocokkan
+	 * ke kolom {@code kode} ATAU {@code nama} sekaligus lewat OR). Diurutkan menaik berdasar nama,
+	 * dibatasi {@link ais.common.Common#MAX_RESULT}, lalu memasang {@link NamaSekolahAsalRenderer}
+	 * dan model hasil ke {@link #grid}. Mengikuti kerangka {@code onSearchDefault} standar — lihat
+	 * {@link ais.ui.util.GetEventListener}.
+	 *
+	 * @param event event pemicu (klik tombol Cari); boleh {@code null} saat dipanggil dari
+	 *              {@link #display()} untuk mengisi grid pertama kali
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -343,10 +377,12 @@ public class AmbilDataNamaSekolahBanbox extends Bandbox implements GetEventListe
 
 	}
 
+	/** {@inheritDoc} Implementasi setter polos standar — lihat {@link ais.ui.util.GetEventListener}. */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** {@inheritDoc} Implementasi getter polos standar — lihat {@link ais.ui.util.GetEventListener}. */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
