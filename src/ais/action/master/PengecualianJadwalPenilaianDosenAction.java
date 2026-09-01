@@ -195,8 +195,15 @@ public class PengecualianJadwalPenilaianDosenAction extends GenericAutowireCompo
 		edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 
-		approve = Common.getApakahAdmin() && CommonPrivilages.checkPrevilages(CommonPrivilages.APPROVE);
-		reject = Common.getApakahAdmin() && CommonPrivilages.checkPrevilages(CommonPrivilages.REJECT);
+		/*
+		 * Halaman ini dimuat sebagai include di tab Penilaian. Pada kondisi tersebut
+		 * CommonPrivilages membaca menu induk dan hak APPROVE/REJECT dapat terlihat
+		 * kosong meskipun pengguna adalah Admin default. Role am merupakan penyetuju
+		 * eksplisit untuk alur ini. Admin default juga boleh memproses pengajuan yang
+		 * dibuatnya saat membantu dosen, karena role ini dapat membuka penilaian global.
+		 */
+		approve = Common.getApakahAdmin();
+		reject = Common.getApakahAdmin();
 		if (penggunaDosen()) {
 			// Hak CRUD yang mungkin ikut diwariskan dari grup tidak boleh menjadikan dosen penyetuju.
 			edit = false;
@@ -391,8 +398,7 @@ public class PengecualianJadwalPenilaianDosenAction extends GenericAutowireCompo
 			status.setWidth("90%");
 			Common.selectComboItem(status, pengecualianJadwalPenilaianDosen.getStatus());
 
-			final boolean pengajuanSendiri = diajukanOlehPenggunaAktif(pengecualianJadwalPenilaianDosen);
-			if (approve && reject && !pengajuanSendiri) {
+			if (approve && reject) {
 				status.setParent(arg0);
 			} else {
 				new Label(pengecualianJadwalPenilaianDosen.getStatus()).setParent(arg0);
@@ -401,8 +407,8 @@ public class PengecualianJadwalPenilaianDosenAction extends GenericAutowireCompo
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
-					if (penggunaDosen() || pengajuanSendiri || !approve || !reject) {
-						tampilkanAksesDitolak("Status pengajuan hanya dapat diproses oleh Admin default (roleId am) dan tidak boleh disetujui oleh pengajunya sendiri.");
+					if (penggunaDosen() || !approve || !reject) {
+						tampilkanAksesDitolak("Status pengajuan hanya dapat diproses oleh Admin default (roleId am).");
 						Common.selectComboItem(status, pengecualianJadwalPenilaianDosen.getStatus());
 						return;
 					}

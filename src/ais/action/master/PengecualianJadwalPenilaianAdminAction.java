@@ -134,12 +134,12 @@ public class PengecualianJadwalPenilaianAdminAction extends GenericAutowireCompo
 	}
 
 	private boolean bolehProsesStatus(PengecualianJadwalPenilaianDosen data) {
-		return Common.getApakahAdmin() && approve && reject && !diajukanOlehPenggunaAktif(data);
+		return Common.getApakahAdmin() && approve && reject;
 	}
 
 	private void tampilkanAksesDitolak() throws InterruptedException {
 		MyMessageboxConfig.show(
-				"Status hanya dapat diproses oleh Admin default (roleId am) dan tidak boleh disetujui oleh pengajunya sendiri.",
+				"Status hanya dapat diproses oleh Admin default (roleId am).",
 				"Akses Ditolak", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
 	}
 
@@ -172,8 +172,10 @@ public class PengecualianJadwalPenilaianAdminAction extends GenericAutowireCompo
 		edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 
-		approve = Common.getApakahAdmin() && CommonPrivilages.checkPrevilages(CommonPrivilages.APPROVE);
-		reject = Common.getApakahAdmin() && CommonPrivilages.checkPrevilages(CommonPrivilages.REJECT);
+		/* Role am adalah penyetuju eksplisit; halaman include tidak selalu membawa
+		 * konteks RolePrivilage APPROVE/REJECT yang tepat dari menu induknya. */
+		approve = Common.getApakahAdmin();
+		reject = Common.getApakahAdmin();
 
 		Common.initPaging(paging, new EventListener() {
 
