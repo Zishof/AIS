@@ -46,23 +46,30 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data ruang banbox. Kelas ini memberi nama dan batas tanggung jawab yang
- * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.Ruang} — lihat
+ * {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback). {@code Ruang} adalah entity master
+ * ruangan fisik kampus (ruang kelas, laboratorium, aula, dsb.) yang dipakai antara lain sebagai
+ * lokasi penjadwalan kuliah/ujian/seminar.
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code EventListener eventListener}, {@code Textbox nama},
- * {@code Combobox gedung}, {@code Combobox fakultas}, {@code Combobox jurusan}, {@code Jurusan selectedJurusan};
- * pembacaan/pencarian ({@code onSearchDefault()}, {@code cariRuang()}, {@code setEventListener()}, {@code
- * getEventListener()}); mutasi data ({@code setJurusan()}, {@code setFakultas()}); operasi domain lain ({@code
- * display()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p>
+ * Kriteria pencarian: kode/nama ruang ({@code nama}, cocok ANYWHERE terhadap {@code nama} ATAU
+ * {@code kodeRuangan}), gedung ({@code gedung}), serta — tergantung apakah instansi berjenis
+ * perguruan tinggi atau sekolah (hasil {@link Common#chekPtAtauSekolah()}) — fakultas/program
+ * studi ({@code fakultas}, {@code jurusan}) atau yayasan/sekolah ({@code yayasan}, {@code
+ * sekolah}). Hasil selalu dibatasi ke ruang yang berstatus aktif ({@code aktif} null atau
+ * {@code true}), dan tiap filter entity induk (fakultas/jurusan/yayasan/sekolah) mengizinkan baris
+ * dengan nilai kolom NULL di database ikut tampil (pola {@code Restrictions.isNull(...) OR
+ * eq(...)}) alih-alih membatasi ketat. Mode pilih data bersifat TUNGGAL lewat {@link
+ * org.zkoss.zul.Radiogroup}; saat baris dipilih, ruang berkapasitas 0 ditolak dengan pesan
+ * peringatan (ruang semacam itu dianggap tidak layak dipakai).
+ * </p>
+ * <p>
+ * {@link #setJurusan(Jurusan)} dan {@link #setFakultas(Fakultas)} memungkinkan pemanggil membatasi
+ * pencarian ke satu jurusan/fakultas tertentu (mis. saat Bandbox ini dipasang pada form yang sudah
+ * punya konteks fakultas/jurusan) — combobox terkait otomatis dinonaktifkan (disabled) bila nilai
+ * awal ini diberikan, sehingga pengguna tidak bisa mengubahnya lagi.
+ * </p>
  *
  * @see Bandbox
  */
@@ -78,6 +85,11 @@ public class AmbilDataRuangBanbox extends Bandbox implements GetEventListener {
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
 	private EventListener eventListener;
 
+	/**
+	 * Membangun Bandbox dalam mode readonly dan memasang listener {@code onOpen} standar (lazy-build
+	 * popup pencarian ruang saat pertama kali dibuka). Mengikuti kerangka konstruktor baku — lihat
+	 * {@link ais.ui.util.GetEventListener}.
+	 */
 	public AmbilDataRuangBanbox() {
 		super();
 		setReadonly(true);
@@ -112,18 +124,13 @@ public class AmbilDataRuangBanbox extends Bandbox implements GetEventListener {
 	private Combobox sekolah;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataRuangBanbox}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataRuangBanbox} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
-	 *
-	 * @see AmbilDataRuangBanbox
+	 * Renderer baris grid hasil pencarian ruang: menampilkan kode, nama, luas, kapasitas, gedung,
+	 * "digunakan oleh" (gabungan fakultas/jurusan atau yayasan/sekolah), dan keterangan, ditambah satu
+	 * radio button pemilihan. Saat radio dicentang, ruang berkapasitas 0 ditolak (dianggap tidak layak
+	 * dipakai) dan pemilihan dibatalkan; selain itu popup ditutup, entity {@code Ruang} terpilih
+	 * disimpan sebagai attribute {@code "ruang"} pada Bandbox, teks tampilan diisi
+	 * "{kode} - {nama}", lalu {@link #eventListener} (bila terpasang) diberi tahu — lihat pola callback
+	 * di {@link ais.ui.util.GetEventListener}.
 	 */
 	class RuangRenderer extends ais.ui.util.MyRowRenderer {
 
@@ -176,6 +183,12 @@ public class AmbilDataRuangBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/**
+	 * Membangun popup pencarian ruang (form filter kode/nama, gedung, dan fakultas/jurusan atau
+	 * yayasan/sekolah sesuai jenis instansi + grid hasil dibungkus {@link
+	 * org.zkoss.zul.Radiogroup}), lalu memanggil {@link #onSearchDefault(Event)} agar grid terisi
+	 * saat popup pertama kali dibuka. Dipanggil sekali oleh listener {@code onOpen} pada konstruktor.
+	 */
 	public void display() {
 
 		boolean[] ptYa = Common.chekPtAtauSekolah();
@@ -367,6 +380,13 @@ public class AmbilDataRuangBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/**
+	 * Menjalankan pencarian ruang lewat {@link #cariRuang()} dan mengisi grid hasil. Bila pencarian
+	 * gagal, grid diisi model kosong (memicu {@code emptyMessage}) alih-alih membiarkan popup blank,
+	 * dan error dilaporkan lewat {@link Common#tampilErrorJikaAdmin(Exception)}.
+	 *
+	 * @param event event pemicu (boleh {@code null}, mis. saat dipanggil dari {@link #display()})
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 		try {
@@ -385,6 +405,12 @@ public class AmbilDataRuangBanbox extends Bandbox implements GetEventListener {
 		}
 	}
 
+	/**
+	 * Menjalankan {@code Session.createCriteria(Ruang.class)} dengan filter status aktif, kode/nama,
+	 * gedung, dan (bila diisi) fakultas/jurusan/yayasan/sekolah — masing-masing filter entity induk
+	 * juga meloloskan baris dengan kolom NULL, hasil dibatasi {@link Common#MAX_RESULT_50} lewat
+	 * {@link #pagingHelper}, lalu grid di-render ulang dengan {@link RuangRenderer}.
+	 */
 	@SuppressWarnings("unchecked")
 	private void cariRuang() {
 
@@ -429,19 +455,40 @@ public class AmbilDataRuangBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/**
+	 * {@inheritDoc}
+	 */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/**
+	 * {@inheritDoc}
+	 */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
 
+	/**
+	 * Membatasi pencarian ke satu jurusan tertentu (dipanggil pemanggil sebelum popup dibuka, mis.
+	 * saat Bandbox ini dipasang pada form yang sudah berkonteks jurusan). Combobox jurusan pada popup
+	 * akan dinonaktifkan bila nilai ini diisi. Juga memanggil {@link Common#clear(org.zkoss.zk.ui.Component)}
+	 * untuk membersihkan state Bandbox.
+	 *
+	 * @param jurusan jurusan yang membatasi hasil pencarian
+	 */
 	public void setJurusan(Jurusan jurusan) {
 		Common.clear(this);
 		this.selectedJurusan = jurusan;
 	}
 
+	/**
+	 * Membatasi pencarian ke satu fakultas tertentu (dipanggil pemanggil sebelum popup dibuka).
+	 * Combobox fakultas pada popup akan dinonaktifkan bila nilai ini diisi. Juga memanggil
+	 * {@link Common#clear(org.zkoss.zk.ui.Component)} untuk membersihkan state Bandbox.
+	 *
+	 * @param fakultas fakultas yang membatasi hasil pencarian
+	 */
 	public void setFakultas(Fakultas fakultas) {
 		Common.clear(this);
 		this.selectedFakultas = fakultas;
