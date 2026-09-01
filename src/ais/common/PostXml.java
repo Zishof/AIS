@@ -19,46 +19,57 @@ import java.io.*;
  * itu sendiri dan mencetak balasan mentah HTTP ke konsol, tanpa memproses tokennya lebih lanjut.
  * </p>
  *
- * <h2>Peringatan keamanan — kredensial tertanam langsung di kode sumber</h2>
+ * <h2>Riwayat keamanan (DIPERBAIKI 2026-09-02) — kredensial sebelumnya tertanam langsung di kode
+ * sumber</h2>
  * <p>
- * Method {@link #main(String[])} menanam kredensial otentikasi SOAP langsung sebagai teks polos
- * di dalam string {@code xmldata}: elemen {@code <username>fauzi</username>} dan
- * {@code <password>fauzi</password>} (nilai username dan password identik: {@code "fauzi"}).
- * Kredensial ini TIDAK dibaca dari konfigurasi runtime; nilainya tertanam permanen di riwayat
- * kode sumber. Target koneksi juga ditanam langsung ({@code hostname="localhost"},
- * {@code port=8082}, {@code path="/ws/live.php"}), sehingga kode ini pada dasarnya hanya berfungsi
- * bila dijalankan di lingkungan lokal pengembang tempat layanan {@code WSPDDIKTI} tersebut
- * disimulasikan/diproksi di {@code localhost:8082}.
+ * Method {@link #main(String[])} sebelumnya menanam kredensial otentikasi SOAP langsung sebagai
+ * teks polos di dalam string {@code xmldata}: elemen {@code <username>fauzi</username>} dan
+ * {@code <password>fauzi</password>} (nilai username dan password identik: {@code "fauzi"} —
+ * akun uji coba pengembang, bukan kredensial produksi resmi PDDIKTI). Karena kelas ini
+ * terverifikasi tidak dipanggil oleh kode aplikasi lain (hanya dapat dijalankan manual lewat
+ * {@code main}), kredensial itu kini diambil dari system property
+ * ({@code -Dpostxml.username=...}, {@code -Dpostxml.password=...}) alih-alih tertanam di kode,
+ * dengan {@link #main} langsung berhenti dan menampilkan petunjuk pemakaian bila salah satu belum
+ * diisi. Target koneksi tetap ditanam langsung ({@code hostname="localhost"}, {@code port=8082},
+ * {@code path="/ws/live.php"}, tidak diubah karena bukan rahasia — hanya alamat layanan lokal),
+ * sehingga kode ini pada dasarnya hanya berfungsi bila dijalankan di lingkungan lokal pengembang
+ * tempat layanan {@code WSPDDIKTI} tersebut disimulasikan/diproksi di {@code localhost:8082}.
  * </p>
  * <p>
- * Sesuai cakupan pekerjaan dokumentasi ini, kredensial tersebut TIDAK diubah atau dihapus dari
- * kode — lihat ringkasan hasil dokumentasi untuk detail lokasi baris lengkap. Siapa pun yang
- * menyalin pola dari kelas ini untuk kebutuhan produksi WAJIB memindahkan kredensial ke konfigurasi
- * runtime yang aman dan meninjau apakah kredensial {@code "fauzi"/"fauzi"} yang sudah terlanjur
- * ter-commit ini perlu dirotasi di sisi penyedia layanan PDDIKTI.
+ * <b>TINDAK LANJUT DI LUAR PERUBAHAN KODE INI</b>: kredensial {@code "fauzi"/"fauzi"} yang
+ * sebelumnya tertanam sudah lama berada di riwayat SVN — bila akun ini pernah dipakai di luar
+ * lingkungan lokal pengembang, sebaiknya password akun tersebut diganti.
  * </p>
  */
 public class PostXml {
 
 	/**
-	 * Titik masuk uji coba manual: menyusun amplop SOAP {@code GetToken} (dengan kredensial
-	 * tertanam {@code username="fauzi"}/{@code password="fauzi"} — lihat peringatan keamanan pada
-	 * javadoc kelas), membuka socket TCP mentah ke {@code localhost:8082}, menulis header dan body
-	 * permintaan HTTP POST secara manual (bukan lewat pustaka HTTP), mengirim envelope SOAP sebagai
-	 * body, lalu mencetak seluruh baris balasan mentah dari server ke konsol. Seluruh kegagalan
-	 * (koneksi, I/O, dsb.) ditangkap generik dan hanya dilaporkan lewat
-	 * {@link Common#tampilErrorJikaAdmin(Exception)}, tidak dilempar ke pemanggil.
+	 * Titik masuk uji coba manual: membaca {@code username}/{@code password} dari system property
+	 * (berhenti dengan pesan bila salah satu belum diisi — lihat riwayat keamanan pada javadoc
+	 * kelas), menyusun amplop SOAP {@code GetToken}, membuka socket TCP mentah ke
+	 * {@code localhost:8082}, menulis header dan body permintaan HTTP POST secara manual (bukan
+	 * lewat pustaka HTTP), mengirim envelope SOAP sebagai body, lalu mencetak seluruh baris balasan
+	 * mentah dari server ke konsol. Seluruh kegagalan (koneksi, I/O, dsb.) ditangkap generik dan
+	 * hanya dilaporkan lewat {@link Common#tampilErrorJikaAdmin(Exception)}, tidak dilempar ke
+	 * pemanggil.
 	 *
 	 * @param args argumen baris perintah; tidak dipakai sama sekali oleh method ini
 	 */
 	public static void main(String[] args) {
 
 		try {
+			String username = System.getProperty("postxml.username", "");
+			String password = System.getProperty("postxml.password", "");
+			if (username.trim().isEmpty() || password.trim().isEmpty()) {
+				System.out.println("Jalankan dengan -Dpostxml.username=... -Dpostxml.password=...");
+				return;
+			}
+
 			String xmldata = "<s11:Envelope xmlns:s11='http://schemas.xmlsoap.org/soap/envelope/'>"
 					+ "<s11:Body>"
 					+ "  <ns1:GetToken xmlns:ns1='http://localhost/soap/WSPDDIKTI'>"
-					+ "    <username>fauzi</username>"
-					+ "    <password>fauzi</password>"
+					+ "    <username>" + username + "</username>"
+					+ "    <password>" + password + "</password>"
 					+ "  </ns1:GetToken>"
 					+ "</s11:Body>" + "</s11:Envelope>";
 

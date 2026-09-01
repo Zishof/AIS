@@ -17,38 +17,41 @@ import ais.database.model.Konfigurasi;
  * di kelas ini disertai <b>nilai default</b> yang dipakai apabila kunci konfigurasi terkait belum
  * pernah diisi di database.
  *
- * <h2>Peringatan keamanan — kredensial Azure AD tertanam sebagai nilai default</h2>
+ * <h2>Riwayat keamanan (DIPERBAIKI 2026-09-02) — kredensial Azure AD sebelumnya tertanam sebagai
+ * nilai default</h2>
  * <p>
- * Nilai default yang ditanam di kode ini BUKAN sekadar placeholder kosong seperti biasa: tiga di
- * antaranya berbentuk seperti kredensial nyata yang berfungsi (bukan contoh generik), yaitu:
+ * Nilai default yang sebelumnya ditanam di kode ini BUKAN sekadar placeholder kosong seperti
+ * biasa: tiga di antaranya berbentuk seperti kredensial nyata yang berfungsi (bukan contoh
+ * generik), yaitu:
  * </p>
  * <ul>
- * <li>{@link #getClientId()} — default {@code "2ba2456b-5877-42b3-a15c-be27d98798b2"}, berformat
- * GUID persis seperti Application (client) ID Azure AD App Registration sungguhan.</li>
- * <li>{@link #getClientSecret()} — default {@code "BMLz8TNsbVVl1sdwgIUY7GUO3Yu@z:.:"}, berbentuk
- * string acak bercampur simbol khas nilai <i>client secret</i> Azure AD, BUKAN teks penjelas
- * seperti {@code "isi secret di sini"}.</li>
- * <li>{@link #getTenantId()} — default {@code "cc1522dd-6b7f-653f-8546-2228663419d6"}, juga
+ * <li>{@link #getClientId()} — default lama {@code "2ba2456b-5877-42b3-a15c-be27d98798b2"},
+ * berformat GUID persis seperti Application (client) ID Azure AD App Registration sungguhan.</li>
+ * <li>{@link #getClientSecret()} — default lama {@code "BMLz8TNsbVVl1sdwgIUY7GUO3Yu@z:.:"},
+ * berbentuk string acak bercampur simbol khas nilai <i>client secret</i> Azure AD, BUKAN teks
+ * penjelas seperti {@code "isi secret di sini"}.</li>
+ * <li>{@link #getTenantId()} — default lama {@code "cc1522dd-6b7f-653f-8546-2228663419d6"}, juga
  * berformat GUID khas Directory (tenant) ID Azure AD.</li>
  * </ul>
  * <p>
  * Ketiganya bersama-sama adalah triplet kredensial OAuth2 client-credentials Azure AD yang lazim
  * dipakai untuk memperoleh access token Microsoft Graph tanpa interaksi pengguna — bila ketiganya
- * valid dan masih aktif di sisi Azure, siapa pun yang membaca kode sumber ini berpotensi
- * memperoleh akses ke resource SharePoint/Graph yang diizinkan App Registration tersebut.
- * Sebaliknya, dua method lain ({@link #getUsername()} dan {@link #getPassword()}) memakai default
- * berupa teks placeholder yang jelas bukan kredensial nyata ({@code "your microsoft account
- * username"} dan {@code "your password"}).
+ * valid dan masih aktif di sisi Azure, siapa pun yang membaca kode sumber ini (termasuk lewat
+ * riwayat kontrol versi) berpotensi memperoleh akses ke resource SharePoint/Graph yang diizinkan
+ * App Registration tersebut. Ketiga default itu sudah dihapus (kini string kosong); instalasi
+ * AIS WAJIB mengisi kunci konfigurasi {@code sharepoint.client.id},
+ * {@code sharepoint.client.secret}, dan {@code sharepoint.tenant.id} secara eksplisit di
+ * database, tanpa itu integrasi SharePoint/Graph akan gagal otentikasi (bukan lagi diam-diam
+ * memakai kredensial tertanam sebagai fallback produksi). Dua method lain
+ * ({@link #getUsername()} dan {@link #getPassword()}) tetap memakai default berupa teks
+ * placeholder yang jelas bukan kredensial nyata ({@code "your microsoft account username"} dan
+ * {@code "your password"}), sehingga tidak diubah.
  * </p>
  * <p>
- * Sesuai cakupan pekerjaan dokumentasi ini, nilai-nilai default tersebut TIDAK diubah atau
- * dihapus dari kode — lihat ringkasan hasil dokumentasi untuk detail lokasi baris lengkap.
- * Direkomendasikan agar tim yang memegang akses Azure AD terkait meninjau apakah client id/secret/
- * tenant id ini masih aktif, dan bila ya, MEROTASI client secret tersebut di Azure Portal serta
- * memastikan seluruh instalasi AIS mengisi kunci konfigurasi {@code sharepoint.client.id},
- * {@code sharepoint.client.secret}, dan {@code sharepoint.tenant.id} secara eksplisit di database
- * (bukan mengandalkan nilai default kode) agar fallback ini tidak pernah benar-benar terpakai di
- * produksi.
+ * <b>TINDAK LANJUT DI LUAR PERUBAHAN KODE INI</b>: triplet client id/secret/tenant id yang
+ * sebelumnya tertanam sudah lama berada di riwayat SVN dan WAJIB dianggap bocor — tim yang
+ * memegang akses Azure AD terkait perlu meninjau apakah App Registration ini masih aktif, dan
+ * bila ya, MEROTASI client secret tersebut di Azure Portal.
  * </p>
  *
  * <p>
@@ -65,17 +68,16 @@ public class ApplicationProperties {
 
 	/**
 	 * Mengambil Application (client) ID Azure AD App Registration untuk integrasi SharePoint, dari
-	 * kunci konfigurasi {@code sharepoint.client.id}. Lihat peringatan keamanan pada javadoc kelas
-	 * terkait nilai default method ini yang berbentuk kredensial nyata, bukan placeholder.
+	 * kunci konfigurasi {@code sharepoint.client.id}. Lihat riwayat keamanan pada javadoc kelas —
+	 * method ini sebelumnya memakai nilai default berbentuk kredensial nyata, sudah dihapus.
 	 *
-	 * @return nilai client id dari konfigurasi (atau default tertanam bila kunci belum diisi)
+	 * @return nilai client id dari konfigurasi (string kosong bila kunci belum diisi)
 	 * @throws IOException dibungkus dari kegagalan apa pun saat membaca konfigurasi, dengan pesan
 	 *                      {@code "client id not found"}
 	 */
 	public static String getClientId() throws IOException {
 		try {
-			Konfigurasi konfigurasi = Common.getKonfigurasi("sharepoint.client.id",
-					"2ba2456b-5877-42b3-a15c-be27d98798b2");
+			Konfigurasi konfigurasi = Common.getKonfigurasi("sharepoint.client.id", "");
 			return konfigurasi.getNilai();
 		} catch (Exception ex) {
 			throw new IOException("client id not found");
@@ -84,18 +86,17 @@ public class ApplicationProperties {
 
 	/**
 	 * Mengambil client secret Azure AD App Registration untuk integrasi SharePoint, dari kunci
-	 * konfigurasi {@code sharepoint.client.secret}. Lihat peringatan keamanan pada javadoc kelas —
-	 * nilai default method ini berbentuk string acak khas client secret Azure AD sungguhan, bukan
-	 * teks placeholder, dan berpotensi merupakan kredensial aktif yang bocor lewat kode sumber.
+	 * konfigurasi {@code sharepoint.client.secret}. Lihat riwayat keamanan pada javadoc kelas —
+	 * method ini sebelumnya memakai nilai default berbentuk string acak khas client secret Azure
+	 * AD sungguhan (bukan teks placeholder), sudah dihapus.
 	 *
-	 * @return nilai client secret dari konfigurasi (atau default tertanam bila kunci belum diisi)
+	 * @return nilai client secret dari konfigurasi (string kosong bila kunci belum diisi)
 	 * @throws IOException dibungkus dari kegagalan apa pun saat membaca konfigurasi, dengan pesan
 	 *                      {@code "client secret value not found"}
 	 */
 	public static String getClientSecret() throws IOException {
 		try {
-			Konfigurasi konfigurasi = Common.getKonfigurasi("sharepoint.client.secret",
-					"BMLz8TNsbVVl1sdwgIUY7GUO3Yu@z:.:");
+			Konfigurasi konfigurasi = Common.getKonfigurasi("sharepoint.client.secret", "");
 			return konfigurasi.getNilai();
 		} catch (Exception ex) {
 			throw new IOException("client secret value not found");
@@ -104,18 +105,17 @@ public class ApplicationProperties {
 
 	/**
 	 * Mengambil Directory (tenant) ID Azure AD untuk integrasi SharePoint, dari kunci konfigurasi
-	 * {@code sharepoint.tenant.id}. Lihat peringatan keamanan pada javadoc kelas terkait nilai
-	 * default method ini yang berformat GUID tenant Azure AD sungguhan.
+	 * {@code sharepoint.tenant.id}. Lihat riwayat keamanan pada javadoc kelas — method ini
+	 * sebelumnya memakai nilai default berformat GUID tenant Azure AD sungguhan, sudah dihapus.
 	 *
-	 * @return nilai tenant id dari konfigurasi (atau default tertanam bila kunci belum diisi)
+	 * @return nilai tenant id dari konfigurasi (string kosong bila kunci belum diisi)
 	 * @throws IOException dibungkus dari kegagalan apa pun saat membaca konfigurasi, dengan pesan
 	 *                      {@code "tenant id value not found"}
 	 */
 	public static String getTenantId() throws IOException {
 		try {
 
-			Konfigurasi konfigurasi = Common.getKonfigurasi("sharepoint.tenant.id",
-					"cc1522dd-6b7f-653f-8546-2228663419d6");
+			Konfigurasi konfigurasi = Common.getKonfigurasi("sharepoint.tenant.id", "");
 			return konfigurasi.getNilai();
 		} catch (Exception ex) {
 			throw new IOException("tenant id value not found");

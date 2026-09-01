@@ -58,19 +58,34 @@ public class CommonFeeder {
 	public static String SERVER_URI = "http://localhost/soap/WSPDDIKTI";
 
 	/**
-	 * Titik masuk uji coba manual: memanggil {@link #login(String, String)} dengan kredensial contoh
-	 * ({@code "fauzi"}/{@code "fauzi"} — nama pengguna uji coba pengembang, bukan kredensial
-	 * produksi) dan mencetak token yang diperoleh ke konsol. Method ini tidak dipanggil dari alur
-	 * aplikasi lain.
+	 * Titik masuk uji coba manual: membaca {@code username}/{@code password} dari system property
+	 * ({@code -Dcommonfeeder.username=...}, {@code -Dcommonfeeder.password=...} — sebelumnya
+	 * kredensial uji coba pengembang {@code "fauzi"}/{@code "fauzi"} tertanam langsung di kode,
+	 * lihat riwayat keamanan di bawah), berhenti dengan pesan bila salah satu belum diisi, lalu
+	 * memanggil {@link #login(String, String)} dan mencetak panjang token yang diperoleh (bukan
+	 * nilainya) ke konsol. Method ini tidak dipanggil dari alur aplikasi lain.
+	 *
+	 * <p>
+	 * <b>Riwayat keamanan (DIPERBAIKI 2026-09-02)</b> — sebelumnya method ini memanggil
+	 * {@code login("fauzi", "fauzi")} dengan kredensial tertanam langsung di kode (akun uji coba
+	 * pengembang, bukan kredensial produksi resmi PDDIKTI), dan mencetak token hasil login mentah
+	 * ke konsol. Kredensial kini dibaca dari system property, dan token tidak lagi dicetak mentah.
+	 * </p>
 	 *
 	 * @param args argumen baris perintah, tidak dipakai
 	 * @throws Exception diteruskan dari {@link #login(String, String)}
 	 */
 	public static void main(String[] args) throws Exception {
-		// TODO Auto-generated method stub
 
-		String token = login("fauzi", "fauzi");
-		System.out.println("token = " + token);
+		String username = System.getProperty("commonfeeder.username", "");
+		String password = System.getProperty("commonfeeder.password", "");
+		if (username.trim().isEmpty() || password.trim().isEmpty()) {
+			System.out.println("Jalankan dengan -Dcommonfeeder.username=... -Dcommonfeeder.password=...");
+			return;
+		}
+
+		String token = login(username, password);
+		System.out.println("token diperoleh, panjang " + (token == null ? 0 : token.length()) + " karakter");
 	}
 
 	/**

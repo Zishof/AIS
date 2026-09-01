@@ -13043,10 +13043,10 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 	}
 
 	protected void initTabAutoLainLainTerdeteksiOtomatisBagian3(Rows rows) {
-		rows.appendChild(createRowNilai("Sharepoint client id — dipakai di: ApplicationProperties", "sharepoint.client.id", "2ba2456b-5877-42b3-a15c-be27d98798b2"));
-		rows.appendChild(createRowNilai("Sharepoint client secret — dipakai di: ApplicationProperties", "sharepoint.client.secret", "BMLz8TNsbVVl1sdwgIUY7GUO3Yu@z:.:"));
+		rows.appendChild(createRowNilaiPassword("Sharepoint client id — dipakai di: ApplicationProperties", "sharepoint.client.id", ""));
+		rows.appendChild(createRowNilaiPassword("Sharepoint client secret — dipakai di: ApplicationProperties", "sharepoint.client.secret", ""));
 		rows.appendChild(createRowNilai("Sharepoint scope — dipakai di: ApplicationProperties", "sharepoint.scope", "https://graph.microsoft.com/.default"));
-		rows.appendChild(createRowNilai("Sharepoint tenant id — dipakai di: ApplicationProperties", "sharepoint.tenant.id", "cc1522dd-6b7f-653f-8546-2228663419d6"));
+		rows.appendChild(createRowNilaiPassword("Sharepoint tenant id — dipakai di: ApplicationProperties", "sharepoint.tenant.id", ""));
 		rows.appendChild(createRowNilai("Sharepoint user name — dipakai di: ApplicationProperties", "sharepoint.user.name", "your microsoft account username"));
 		rows.appendChild(createRowNilai("Sharepoint user password — dipakai di: ApplicationProperties", "sharepoint.user.password", "your password"));
 		rows.appendChild(createRowActiveDefault("Sponsor tampil lpj — dipakai di: PertangungjawabanAction, PertangungjawabanKasBesarAction", "sponsor_tampil_lpj", Konfigurasi.AKTIF));

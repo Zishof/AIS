@@ -900,6 +900,15 @@ public class Perkuliahan extends VOPembelajaran {
 
 	private Integer batasWaktuBolehAbsenKehadiran;
 
+	/**
+	 * Teks pendahuluan/pengantar kelas yang ditampilkan pada halaman e-learning dan cetakan RPS.
+	 *
+	 * <p>Isi dilewatkan {@code filterTidakBoleh(...)} milik {@link GeneralValueObject} untuk
+	 * membuang markup berbahaya sebelum ditampilkan; hasil bersihnya DITULIS BALIK ke field,
+	 * jadi getter ini mengubah state objek.</p>
+	 *
+	 * @return teks pendahuluan yang sudah disaring dan di-trim; string kosong bila belum diisi.
+	 */
 	@Column(columnDefinition = "text")
 	public String getPendahuluan() {
 
@@ -908,26 +917,94 @@ public class Perkuliahan extends VOPembelajaran {
 		return pendahuluan == null ? "" : pendahuluan.trim();
 	}
 
+	/**
+	 * Mengisi teks pendahuluan kelas (disimpan apa adanya; penyaringan terjadi saat dibaca).
+	 *
+	 * @param pendahuluan teks pendahuluan, boleh {@code null}.
+	 */
 	public void setPendahuluan(String pendahuluan) {
 		this.pendahuluan = pendahuluan;
 	}
 
+	/**
+	 * Menyatakan apakah kelas ini diampu secara <i>team teaching</i>.
+	 *
+	 * <p>Bila belum pernah ditentukan secara eksplisit, nilainya DISIMPULKAN dari jumlah slot
+	 * dosen yang terisi: lebih dari satu pengampu berarti team teaching.</p>
+	 *
+	 * @return {@code true} bila kelas diampu lebih dari satu dosen atau ditandai demikian.
+	 * @see #getJumlahDosen()
+	 */
 	public Boolean getMerupakanTeamTeaching() {
 		return merupakanTeamTeaching == null ? getJumlahDosen() > 1 : merupakanTeamTeaching;
 	}
 
+	/**
+	 * Menetapkan penanda team teaching secara eksplisit, menimpa kesimpulan otomatis.
+	 *
+	 * @param merupakanTeamTeaching {@code null} untuk kembali mengikuti jumlah dosen.
+	 */
 	public void setMerupakanTeamTeaching(Boolean merupakanTeamTeaching) {
 		this.merupakanTeamTeaching = merupakanTeamTeaching;
 	}
 
+	/**
+	 * Konstruktor tanpa argumen yang dibutuhkan Hibernate/JPA untuk instansiasi entity.
+	 */
 	public Perkuliahan() {
 
 	}
 
+	/**
+	 * Membuat objek rujukan ringan yang hanya membawa kunci utama.
+	 *
+	 * <p>Berguna untuk kriteria query dan perbandingan berbasis id tanpa memuat seluruh baris;
+	 * kesetaraan objek mengikuti kontrak {@code equals}/{@code compareTo} di
+	 * {@link GeneralValueObject}.</p>
+	 *
+	 * @param id kunci utama kelas kuliah.
+	 */
 	public Perkuliahan(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Memeriksa apakah menambahkan satu kelas lagi akan membuat seorang dosen melampaui batas
+	 * beban mengajar pada satu tahun akademik dan semester.
+	 *
+	 * <p>Dua batas diperiksa berurutan, keduanya dibaca dari tabel konfigurasi (default 50 bila
+	 * konfigurasi tidak ada atau tidak berupa angka):</p>
+	 * <ol>
+	 * <li>{@code maksimal_dosen_mengajar_dalam_satu_semester} — batas total <b>SKS</b>; beban
+	 * berjalan dihitung sebagai jumlah {@code matakuliah.sks} seluruh kelas aktif yang diampu.</li>
+	 * <li>{@code maksimal_perkuliahan_dosen_mengajar_dalam_satu_semester} — batas <b>jumlah
+	 * kelas</b>; penambahan selalu dihitung satu kelas.</li>
+	 * </ol>
+	 *
+	 * <p>Pencarian kelas yang sudah diampu menyusun {@code OR} atas KESEPULUH kolom
+	 * {@code dosen1..dosen10} (konsekuensi pola sepuluh slot: tidak ada tabel penghubung yang bisa
+	 * di-join), dibatasi pada kelas aktif, tahun akademik dan semester yang sama, status semester
+	 * pendek yang sama, dan mengecualikan kelas {@code id} bila sedang mengedit.</p>
+	 *
+	 * <p><b>Efek samping:</b> membuka dan menutup {@link Session} Hibernate sendiri, mencetak
+	 * ringkasan ke {@code System.out}, dan — bila batas terlampaui — menampilkan
+	 * {@link MyMessageboxConfig} kepada pengguna. Karena itu method ini hanya cocok dipanggil dari
+	 * jalur UI, bukan dari batch tanpa desktop ZK.</p>
+	 *
+	 * @param dosen             dosen yang diperiksa; {@code null} berarti slot kosong dan langsung
+	 *                          lolos.
+	 * @param tahunAkademik     tahun akademik yang diperiksa, mis. {@code "2025/2026"}.
+	 * @param semester          {@link #GANJIL} atau {@link #GENAP} (isi kolom {@code ganjil_genap}).
+	 * @param tambahanMengajar  bobot SKS kelas yang hendak ditambahkan.
+	 * @param SP                {@link #SEMESTER_PENDEK} untuk kelas semester pendek, {@code null}
+	 *                          untuk semester reguler.
+	 * @param id                id kelas yang sedang diedit agar tidak ikut dihitung; {@code null}
+	 *                          untuk kelas baru.
+	 * @return {@code true} bila batas TERLAMPAUI (penambahan harus ditolak), {@code false} bila
+	 *         masih aman.
+	 * @see #checkDosen(Combobox, Combobox, Combobox, Component, Component, Component, Component,
+	 *      Component, Component, Component, Component, Component, Component, Integer, Long)
+	 */
 	public static boolean checkMaksSksDosen(Dosen dosen, String tahunAkademik, String semester,
 			Integer tambahanMengajar, Integer SP, Long id) {
 		if (dosen == null) {
@@ -1045,6 +1122,12 @@ public class Perkuliahan extends VOPembelajaran {
 		return false;
 	}
 
+	/**
+	 * Kunci utama kelas kuliah (kolom {@code id}, identity basis data).
+	 *
+	 * @return id baris, atau {@code null} bila belum pernah disimpan.
+	 * @see GeneralValueObject
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -1052,10 +1135,26 @@ public class Perkuliahan extends VOPembelajaran {
 		return this.id;
 	}
 
+	/**
+	 * Menetapkan kunci utama. Normalnya diisi Hibernate saat {@code insert}.
+	 *
+	 * @param id kunci utama.
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Mata kuliah yang ditawarkan oleh kelas ini — sumber kode, nama, dan bobot SKS.
+	 *
+	 * <p>Relasi ini WAJIB ({@code nullable = false}) karena kelas kuliah tidak berarti tanpa mata
+	 * kuliahnya. Nilainya dilewatkan {@code check(...)} agar proxy lazy yang sudah tidak sah
+	 * (mis. baris terhapus) tidak ikut dikembalikan.</p>
+	 *
+	 * @return mata kuliah yang ditawarkan.
+	 * @see Matakuliah
+	 * @see GeneralValueObject
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "matakuliah", nullable = false)
 	public Matakuliah getMatakuliah() {
@@ -1063,10 +1162,23 @@ public class Perkuliahan extends VOPembelajaran {
 		return this.matakuliah;
 	}
 
+	/**
+	 * Menetapkan mata kuliah yang ditawarkan kelas ini.
+	 *
+	 * @param matakuliah mata kuliah dari kurikulum.
+	 */
 	public void setMatakuliah(Matakuliah matakuliah) {
 		this.matakuliah = matakuliah;
 	}
 
+	/**
+	 * Dosen pengampu slot ke-1 — slot utama yang selalu tersedia.
+	 *
+	 * <p>Berbeda dengan slot 2..10, slot pertama tidak dinolkan oleh {@link #getJumlahDosen()}.</p>
+	 *
+	 * @return dosen pengampu utama, atau {@code null} bila kelas belum berdosen.
+	 * @see Dosen
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dosen1", nullable = true)
 	public Dosen getDosen1() {
@@ -1074,10 +1186,24 @@ public class Perkuliahan extends VOPembelajaran {
 		return this.dosen1;
 	}
 
+	/**
+	 * Menetapkan dosen pengampu slot ke-1.
+	 *
+	 * @param dosen1 dosen pengampu utama, boleh {@code null}.
+	 */
 	public void setDosen1(Dosen dosen1) {
 		this.dosen1 = dosen1;
 	}
 
+	/**
+	 * Dosen pengampu slot ke-2.
+	 *
+	 * <p><b>Efek samping:</b> bila {@link #getJumlahDosen()} kurang dari 2 — artinya rantai slot
+	 * terputus sebelum slot ini — field DIKOSONGKAN lebih dulu. Ini menjaga agar slot tidak
+	 * "berlubang" (mis. dosen2 terisi sementara dosen1 kosong).</p>
+	 *
+	 * @return dosen pengampu ke-2, atau {@code null}.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dosen2", nullable = true)
 	public Dosen getDosen2() {
@@ -1088,10 +1214,21 @@ public class Perkuliahan extends VOPembelajaran {
 		return this.dosen2;
 	}
 
+	/**
+	 * Menetapkan dosen pengampu slot ke-2.
+	 *
+	 * @param dosen2 dosen pengampu ke-2, boleh {@code null}.
+	 */
 	public void setDosen2(Dosen dosen2) {
 		this.dosen2 = dosen2;
 	}
 
+	/**
+	 * Ruang tempat kelas ini dijadwalkan.
+	 *
+	 * @return ruang perkuliahan, atau {@code null} untuk kelas tanpa ruang (mis. daring).
+	 * @see Ruang
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "ruang", nullable = true)
 	public Ruang getRuang() {
@@ -1099,10 +1236,24 @@ public class Perkuliahan extends VOPembelajaran {
 		return this.ruang;
 	}
 
+	/**
+	 * Menetapkan ruang perkuliahan.
+	 *
+	 * @param ruang ruang, boleh {@code null}.
+	 */
 	public void setRuang(Ruang ruang) {
 		this.ruang = ruang;
 	}
 
+	/**
+	 * Semester kurikulum tempat mata kuliah ini seharusnya diambil (1, 2, 3, ...).
+	 *
+	 * <p><b>Efek samping:</b> untuk kelas pra-perkuliahan ({@link #getMerupakanPraPerkuliahan()})
+	 * nilainya DIPAKSA menjadi {@code -1} — penanda bahwa kelas berada di luar struktur semester
+	 * kurikulum. Nilai {@code null} dinormalkan menjadi {@code 0}.</p>
+	 *
+	 * @return angka semester kurikulum; {@code -1} untuk pra-perkuliahan, {@code 0} bila kosong.
+	 */
 	@Column(name = "semester")
 	public Integer getSemester() {
 		if (getMerupakanPraPerkuliahan()) {
@@ -1111,14 +1262,35 @@ public class Perkuliahan extends VOPembelajaran {
 		return this.semester == null ? 0 : this.semester;
 	}
 
+	/**
+	 * Menetapkan semester kurikulum kelas ini.
+	 *
+	 * @param semester angka semester kurikulum.
+	 */
 	public void setSemester(Integer semester) {
 		this.semester = semester;
 	}
 
+	/**
+	 * Menetapkan jurusan/program studi penyelenggara kelas.
+	 *
+	 * @param jurusan jurusan penyelenggara, boleh {@code null} agar disimpulkan dari mata kuliah.
+	 */
 	public void setJurusan(Jurusan jurusan) {
 		this.jurusan = jurusan;
 	}
 
+	/**
+	 * Jurusan/program studi penyelenggara kelas.
+	 *
+	 * <p><b>Efek samping:</b> bila kolom belum terisi, nilainya DISIMPULKAN dari jurusan pemilik
+	 * mata kuliah dan ditulis balik ke field. Karena label "Jurusan" dapat diganti per institusi,
+	 * teks tampilannya dilewatkan {@code Common.getBahasaConfig(...)} di
+	 * {@link #info(Dosen)}.</p>
+	 *
+	 * @return jurusan penyelenggara, atau {@code null} bila mata kuliah pun belum berjurusan.
+	 * @see Jurusan
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jurusan", nullable = true)
 	public Jurusan getJurusan() {
@@ -1130,10 +1302,31 @@ public class Perkuliahan extends VOPembelajaran {
 		return jurusan;
 	}
 
+	/**
+	 * Menetapkan jam mulai perkuliahan dalam bentuk teks ("HH.mm"); string kosong dinormalkan
+	 * menjadi {@code null}.
+	 *
+	 * @param waktuMulai jam mulai, boleh {@code null}/kosong.
+	 */
 	public void setWaktuMulai(String waktuMulai) {
 		this.waktuMulai = waktuMulai == null || waktuMulai.trim().equals("") ? null : waktuMulai.trim();
 	}
 
+	/**
+	 * Jam mulai perkuliahan sebagai teks "HH.mm".
+	 *
+	 * <p><b>Efek samping / prioritas nilai:</b></p>
+	 * <ol>
+	 * <li>Bila kelas terikat master {@link JamPerkuliahan}, jam master MENIMPA teks bebas dan
+	 * ditulis balik ke field — jadi mengubah master jam otomatis mengubah jadwal semua kelas yang
+	 * memakainya.</li>
+	 * <li>Bila kelas ditandai {@link #getMerupakan_tanpa_jadwal_perkuliahan()}, nilainya
+	 * dikosongkan.</li>
+	 * </ol>
+	 *
+	 * @return jam mulai "HH.mm", atau {@code null} bila kosong/tanpa jadwal.
+	 * @see #getWaktuMulaiD()
+	 */
 	@Column(name = "waktu_mulai", length = 20)
 	public String getWaktuMulai() {
 
@@ -1153,10 +1346,26 @@ public class Perkuliahan extends VOPembelajaran {
 		return waktuMulai == null || waktuMulai.trim().equals("") ? null : waktuMulai.trim();
 	}
 
+	/**
+	 * Menetapkan jam selesai perkuliahan dalam bentuk teks ("HH.mm"); string kosong dinormalkan
+	 * menjadi {@code null}.
+	 *
+	 * @param waktuSelesai jam selesai, boleh {@code null}/kosong.
+	 */
 	public void setWaktuSelesai(String waktuSelesai) {
 		this.waktuSelesai = waktuSelesai == null || waktuSelesai.trim().equals("") ? null : waktuSelesai.trim();
 	}
 
+	/**
+	 * Jam selesai perkuliahan sebagai teks "HH.mm".
+	 *
+	 * <p>Aturan prioritasnya sama persis dengan {@link #getWaktuMulai()}: master
+	 * {@link JamPerkuliahan} menimpa teks bebas, dan kelas tanpa jadwal dikosongkan. Getter ini
+	 * juga menulis balik ke field.</p>
+	 *
+	 * @return jam selesai "HH.mm", atau {@code null} bila kosong/tanpa jadwal.
+	 * @see #getWaktuSelesaiD()
+	 */
 	@Column(name = "waktu_selesai", length = 20)
 	public String getWaktuSelesai() {
 
@@ -1175,10 +1384,27 @@ public class Perkuliahan extends VOPembelajaran {
 		return waktuSelesai == null || waktuSelesai.trim().equals("") ? null : waktuSelesai.trim();
 	}
 
+	/**
+	 * Menetapkan nama hari perkuliahan ("Senin" .. "Minggu").
+	 *
+	 * @param hari nama hari, boleh {@code null}/kosong untuk kelas tanpa jadwal.
+	 */
 	public void setHari(String hari) {
 		this.hari = hari;
 	}
 
+	/**
+	 * Nama hari perkuliahan.
+	 *
+	 * <p><b>Efek samping / normalisasi:</b> kelas tanpa jadwal dikosongkan, {@code null} menjadi
+	 * string kosong, dan ejaan {@code "Jumat"} SELALU dinormalkan menjadi {@code "Jum'at"}.
+	 * Normalisasi terakhir itu penting karena pembanding hari di seluruh sistem — termasuk
+	 * penghitungan {@link #getTanggalMulaiPerkuliahan()} — memakai keluaran
+	 * {@code Common.dateFormat4Week} yang menghasilkan {@code "Jumat"}, sehingga tanpa penyeragaman
+	 * ini jadwal hari Jumat tidak pernah cocok.</p>
+	 *
+	 * @return nama hari yang sudah dinormalkan; string kosong bila tanpa jadwal.
+	 */
 	@Column(name = "hari", length = 20)
 	public String getHari() {
 		if (getMerupakan_tanpa_jadwal_perkuliahan()) {
@@ -1196,19 +1422,47 @@ public class Perkuliahan extends VOPembelajaran {
 		return hari;
 	}
 
+	/**
+	 * Menetapkan tahun akademik kelas ini, mis. {@code "2025/2026"}.
+	 *
+	 * @param tahunAjaran tahun akademik.
+	 */
 	public void setTahunAjaran(String tahunAjaran) {
 		this.tahunAjaran = tahunAjaran;
 	}
 
+	/**
+	 * Tahun akademik penyelenggaraan kelas, mis. {@code "2025/2026"}.
+	 *
+	 * <p>Bersama {@link #getGanjilGenap()} dan {@link #getStatusSemesterPendek()}, nilai ini
+	 * membentuk periode kelas dan menjadi bahan {@link #getIdSmt()} untuk Feeder PDDikti.</p>
+	 *
+	 * @return tahun akademik.
+	 */
 	@Column(name = "tahun_ajaran", length = 20)
 	public String getTahunAjaran() {
 		return tahunAjaran;
 	}
 
+	/**
+	 * Menetapkan label kelas paralel dalam bentuk teks bebas ("A", "B", "Pagi", ...).
+	 *
+	 * @param kelas label kelas.
+	 */
 	public void setKelas(String kelas) {
 		this.kelas = kelas;
 	}
 
+	/**
+	 * Label kelas paralel ("A", "B", ...).
+	 *
+	 * <p><b>Efek samping:</b> bila kelas terikat master {@link Kelas} lewat {@code kelasref}, nama
+	 * master MENIMPA teks bebas dan ditulis balik ke field — pola yang sama dengan
+	 * {@link JamPerkuliahan} pada jam kuliah. {@code null} dinormalkan menjadi string kosong.</p>
+	 *
+	 * @return label kelas yang sudah di-trim; tidak pernah {@code null}.
+	 * @see #getKelasref()
+	 */
 	@Column(name = "kelas", length = 255)
 	public String getKelas() {
 		try {
@@ -1226,10 +1480,24 @@ public class Perkuliahan extends VOPembelajaran {
 		return kelas.trim();
 	}
 
+	/**
+	 * Menetapkan sesi waktu perkuliahan ("PAGI", "SIANG", "MALAM").
+	 *
+	 * @param waktu label sesi waktu.
+	 */
 	public void setWaktu(String waktu) {
 		this.waktu = waktu;
 	}
 
+	/**
+	 * Sesi waktu perkuliahan ("PAGI", "SIANG", "MALAM") — dipakai untuk pengelompokan jadwal dan
+	 * penyaringan laporan.
+	 *
+	 * <p><b>Efek samping:</b> nilai kosong dinormalkan menjadi {@code "PAGI"}, dan kelas tanpa
+	 * jadwal dikosongkan; keduanya ditulis balik ke field.</p>
+	 *
+	 * @return label sesi waktu; string kosong bila kelas tanpa jadwal.
+	 */
 	@Column(name = "waktu", length = 20)
 	public String getWaktu() {
 		if (waktu == null || waktu.trim().isEmpty()) {
@@ -1241,10 +1509,24 @@ public class Perkuliahan extends VOPembelajaran {
 		return waktu;
 	}
 
+	/**
+	 * Menetapkan program penyelenggaraan ("Reguler", "Karyawan", ...).
+	 *
+	 * @param program nama program.
+	 */
 	public void setProgram(String program) {
 		this.program = program;
 	}
 
+	/**
+	 * Program penyelenggaraan kelas ("Reguler", "Karyawan", ...).
+	 *
+	 * <p><b>Efek samping:</b> bila kosong, diisi otomatis dengan nama program default
+	 * {@code ConstantValues.REGULER} dan ditulis balik ke field. Nilai ini ikut menentukan
+	 * kurikulum mana yang dipakai pada {@link #ambilKurikulumPunyaMatakuliah()}.</p>
+	 *
+	 * @return nama program penyelenggaraan.
+	 */
 	@Column(name = "program", length = 20)
 	public String getProgram() {
 		if (ConstantValues.REGULER != null && program == null || program.trim().isEmpty()) {
@@ -1253,6 +1535,15 @@ public class Perkuliahan extends VOPembelajaran {
 		return program;
 	}
 
+	/**
+	 * Menetapkan skema pembobotan nilai kelas ini.
+	 *
+	 * <p><b>Perhatian:</b> argumen {@code null} DIABAIKAN diam-diam — skema lama dipertahankan.
+	 * Ini disengaja agar proses yang gagal memuat pembobotan tidak menghapus skema yang sudah
+	 * dipakai untuk menilai.</p>
+	 *
+	 * @param pembombotanNilai skema pembobotan; diabaikan bila {@code null}.
+	 */
 	public void setPembombotanNilai(PembombotanNilai pembombotanNilai) {
 		if (pembombotanNilai == null) {
 			return;
@@ -1260,6 +1551,26 @@ public class Perkuliahan extends VOPembelajaran {
 		this.pembombotanNilai = pembombotanNilai;
 	}
 
+	/**
+	 * Skema pembobotan nilai yang berlaku untuk kelas ini.
+	 *
+	 * <p>Urutan penentuannya berlapis:</p>
+	 * <ol>
+	 * <li>Bila kelas sedang <b>dikunci</b> ({@link #getDikunci()}) dan punya cadangan
+	 * ({@link #getPembombotanNilaiBackup()}), skema cadangan yang dipakai — nilai yang sudah
+	 * diproses tidak boleh berubah komposisinya di tengah jalan.</li>
+	 * <li>Selain itu, dicari skema aktif yang ditandai wajib untuk tahun akademik + semester ini;
+	 * skema semacam itu MENIMPA pilihan per kelas.</li>
+	 * <li>Bila tidak ada, dipakai skema yang tersimpan pada kolom; bila itu pun kosong, dipakai
+	 * {@code ConstantValues.DEFAULT_PEMBOBOTAN_NILAI}.</li>
+	 * </ol>
+	 *
+	 * <p><b>Efek samping:</b> membaca cache konstanta global dan menulis balik hasilnya ke field.</p>
+	 *
+	 * @return skema pembobotan yang berlaku; praktis tidak pernah {@code null}.
+	 * @see PembombotanNilai
+	 * @see #ambilFormatNilai(Session, boolean, boolean)
+	 */
 	@SuppressWarnings("unchecked")
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pembombotan_nilai", nullable = true)
@@ -1293,10 +1604,26 @@ public class Perkuliahan extends VOPembelajaran {
 
 	}
 
+	/**
+	 * Menetapkan jam selesai dalam bentuk numerik.
+	 *
+	 * @param waktuSelesaiD jam selesai sebagai desimal, mis. {@code 10.30}.
+	 */
 	public void setWaktuSelesaiD(Double waktuSelesaiD) {
 		this.waktuSelesaiD = waktuSelesaiD;
 	}
 
+	/**
+	 * Jam selesai dalam bentuk numerik ({@code 10.30} untuk pukul 10.30) — dipakai untuk
+	 * pembandingan rentang waktu, terutama deteksi bentrok jadwal, yang sulit dilakukan pada teks.
+	 *
+	 * <p><b>Efek samping:</b> nilai SELALU dihitung ulang dari {@link #getWaktuSelesai()} (dengan
+	 * pemisah {@code :} atau {@code ,} disamakan menjadi titik) dan ditulis balik ke field, jadi
+	 * kolom numerik ini adalah turunan, bukan sumber kebenaran. {@code null} dinormalkan menjadi
+	 * {@code 0.0}.</p>
+	 *
+	 * @return jam selesai sebagai desimal; {@code 0.0} bila jam tidak terbaca.
+	 */
 	@Column(name = "waktu_selesai_d", length = 15, precision = 15, scale = 2)
 	public Double getWaktuSelesaiD() {
 		waktuSelesai = getWaktuSelesai();
@@ -1314,10 +1641,21 @@ public class Perkuliahan extends VOPembelajaran {
 		return waktuSelesaiD;
 	}
 
+	/**
+	 * Menetapkan jam mulai dalam bentuk numerik.
+	 *
+	 * @param waktuMulaiD jam mulai sebagai desimal, mis. {@code 8.00}.
+	 */
 	public void setWaktuMulaiD(Double waktuMulaiD) {
 		this.waktuMulaiD = waktuMulaiD;
 	}
 
+	/**
+	 * Jam mulai dalam bentuk numerik; kembaran {@link #getWaktuSelesaiD()} dengan aturan
+	 * penghitungan ulang dan normalisasi yang sama.
+	 *
+	 * @return jam mulai sebagai desimal; {@code 0.0} bila jam tidak terbaca.
+	 */
 	@Column(name = "waktu_mulai_d", length = 15, precision = 15, scale = 2)
 	public Double getWaktuMulaiD() {
 		waktuMulai = getWaktuMulai();
@@ -1335,10 +1673,22 @@ public class Perkuliahan extends VOPembelajaran {
 		return waktuMulaiD;
 	}
 
+	/**
+	 * Menetapkan kurikulum acuan kelas ini.
+	 *
+	 * @param kurikulum kurikulum acuan, boleh {@code null}.
+	 */
 	public void setKurikulum(Kurikulum kurikulum) {
 		this.kurikulum = kurikulum;
 	}
 
+	/**
+	 * Kurikulum acuan kelas ini — menentukan baris {@link KurikulumPunyaMatakuliah} mana yang
+	 * memasok RPS, capaian pembelajaran, dan jumlah rencana pertemuan.
+	 *
+	 * @return kurikulum acuan, atau {@code null}.
+	 * @see Kurikulum
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kurikulum", nullable = true)
 	public Kurikulum getKurikulum() {
@@ -1346,19 +1696,49 @@ public class Perkuliahan extends VOPembelajaran {
 		return kurikulum;
 	}
 
+	/**
+	 * Menandai kelas sebagai kelas semester pendek.
+	 *
+	 * @param statusSemesterPendek {@link #SEMESTER_PENDEK} untuk kelas semester pendek,
+	 *                             {@code null} untuk kelas reguler.
+	 */
 	public void setStatusSemesterPendek(Integer statusSemesterPendek) {
 		this.statusSemesterPendek = statusSemesterPendek;
 	}
 
+	/**
+	 * Penanda kelas semester pendek.
+	 *
+	 * <p>Perhatikan bahwa jalur-jalur query di file ini membedakan {@code null} (reguler) dari
+	 * {@link #SEMESTER_PENDEK} dengan {@code isNull}/{@code eq}, bukan dengan angka {@code 0},
+	 * sehingga nilai selain kedua itu tidak akan terjaring.</p>
+	 *
+	 * @return {@link #SEMESTER_PENDEK} bila kelas semester pendek, {@code null} bila reguler.
+	 */
 	@Column(name = "status_semesterpendek", nullable = true)
 	public Integer getStatusSemesterPendek() {
 		return statusSemesterPendek;
 	}
 
+	/**
+	 * Menetapkan label semester secara eksplisit.
+	 *
+	 * @param ganjilGenap {@link #GANJIL}, {@link #GENAP}, atau {@link #SP}.
+	 */
 	public void setGanjilGenap(String ganjilGenap) {
 		this.ganjilGenap = ganjilGenap;
 	}
 
+	/**
+	 * Label semester penyelenggaraan: {@link #GANJIL}, {@link #GENAP}, atau {@link #SP}.
+	 *
+	 * <p><b>Efek samping:</b> bila kolom masih kosong, nilainya DISIMPULKAN lalu ditulis balik —
+	 * {@link #SP} bila kelas semester pendek, selain itu dari paritas {@link #getSemester()}
+	 * (genap untuk semester bernomor genap). Nilai inilah yang dipakai sebagai kunci pencocokan
+	 * pada query beban dosen dan pencarian {@link PembombotanNilai} yang wajib per periode.</p>
+	 *
+	 * @return label semester; tidak kosong selama semester terisi.
+	 */
 	@Column(name = "ganjil_genap", nullable = true, length = 20)
 	public String getGanjilGenap() {
 		if (ganjilGenap == null || ganjilGenap.isEmpty()) {
@@ -1371,19 +1751,56 @@ public class Perkuliahan extends VOPembelajaran {
 		return ganjilGenap;
 	}
 
+	/**
+	 * Menetapkan penanda kelas paralel.
+	 *
+	 * <p>Praktis tidak berpengaruh: {@link #getMerupakan_paralel()} selalu menghitung ulang
+	 * nilainya dari {@code perkuliahan_paralel}. Setter ini ada agar Hibernate dapat memetakan
+	 * property.</p>
+	 *
+	 * @param merupakan_paralel penanda kelas paralel.
+	 */
 	public void setMerupakan_paralel(Boolean merupakan_paralel) {
 		this.merupakan_paralel = merupakan_paralel;
 	}
 
+	/**
+	 * Menyatakan apakah kelas ini merupakan kelas paralel yang menempel pada kelas induk.
+	 *
+	 * <p>Nilainya SELALU diturunkan dari ada/tidaknya {@link #getPerkuliahan_paralel()} dan
+	 * ditulis balik ke field, sehingga nilai kolom di basis data tidak pernah menjadi sumber
+	 * kebenaran.</p>
+	 *
+	 * @return {@code true} bila kelas ini menunjuk kelas induk.
+	 */
 	public Boolean getMerupakan_paralel() {
 		merupakan_paralel = getPerkuliahan_paralel() != null;
 		return merupakan_paralel;
 	}
 
+	/**
+	 * Menjadikan kelas ini paralel dari kelas lain.
+	 *
+	 * @param perkuliahan_paralel kelas induk; {@code null} untuk kelas mandiri.
+	 */
 	public void setPerkuliahan_paralel(Perkuliahan perkuliahan_paralel) {
 		this.perkuliahan_paralel = perkuliahan_paralel;
 	}
 
+	/**
+	 * Kelas induk tempat kelas ini menempel (relasi rujuk-diri).
+	 *
+	 * <p>Ini adalah salah satu field paling berpengaruh di kelas ini: begitu terisi, hampir semua
+	 * pembacaan peserta, format nilai, dan lokasi berkas flag store DIALIHKAN ke induk — lihat
+	 * {@link #ambilMahasiswa()}, {@link #ambilMahasiswaId(boolean)},
+	 * {@link #ambilDetailperkuliahan(String, String, String, boolean, boolean, boolean)},
+	 * {@link #ambilFormatNilai(Session, boolean, boolean)}, {@link #ambilLokasiDetailPerkuliahan()},
+	 * dan {@link #getFeeder()}. Konsekuensinya, kelas paralel tidak pernah menyimpan
+	 * {@code jumlah_mahasiswa} lewat jalur biasa; {@link #singkronkan(Session)} menambalnya
+	 * secara khusus.</p>
+	 *
+	 * @return kelas induk, atau {@code null} bila kelas ini berdiri sendiri.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "perkuliahan_paralel", nullable = true)
 	public Perkuliahan getPerkuliahan_paralel() {
@@ -1391,10 +1808,27 @@ public class Perkuliahan extends VOPembelajaran {
 		return perkuliahan_paralel;
 	}
 
+	/**
+	 * Menandai kelas sebagai kelas tanpa jadwal tetap.
+	 *
+	 * @param merupakan_tanpa_jadwal_perkuliahan {@code null} agar disimpulkan otomatis dari
+	 *                                           kosongnya hari dan jam.
+	 */
 	public void setMerupakan_tanpa_jadwal_perkuliahan(Boolean merupakan_tanpa_jadwal_perkuliahan) {
 		this.merupakan_tanpa_jadwal_perkuliahan = merupakan_tanpa_jadwal_perkuliahan;
 	}
 
+	/**
+	 * Menyatakan apakah kelas ini diselenggarakan tanpa jadwal hari/jam tetap (mis. kuliah daring
+	 * mandiri, kelas blok, atau bimbingan).
+	 *
+	 * <p><b>Efek samping:</b> bila belum pernah ditentukan, nilainya DISIMPULKAN dan ditulis balik
+	 * ke field: kelas dianggap tanpa jadwal bila hari kosong DAN jam mulai/selesai kosong.
+	 * Penanda ini kemudian membuat {@link #getHari()}, {@link #getWaktuMulai()},
+	 * {@link #getWaktuSelesai()}, dan {@link #getWaktu()} mengembalikan nilai kosong.</p>
+	 *
+	 * @return {@code true} bila kelas tidak memiliki jadwal tetap.
+	 */
 	public Boolean getMerupakan_tanpa_jadwal_perkuliahan() {
 		if (merupakan_tanpa_jadwal_perkuliahan == null) {
 			if ((hari == null || hari.trim().isEmpty()) && (waktuMulai == null || waktuSelesai == null
@@ -1408,10 +1842,23 @@ public class Perkuliahan extends VOPembelajaran {
 		return merupakan_tanpa_jadwal_perkuliahan;
 	}
 
+	/**
+	 * Menandai kelas yang sengaja dijadwalkan tanpa dosen pengampu.
+	 *
+	 * @param merupakan_tanpa_dosen penanda tanpa dosen.
+	 */
 	public void setMerupakan_tanpa_dosen(Boolean merupakan_tanpa_dosen) {
 		this.merupakan_tanpa_dosen = merupakan_tanpa_dosen;
 	}
 
+	/**
+	 * Menyatakan apakah kelas ini sengaja dijadwalkan tanpa dosen pengampu, sehingga validasi
+	 * penjadwalan tidak menuntut slot dosen terisi.
+	 *
+	 * <p>Nilai {@code null} dinormalkan menjadi {@code false} dan ditulis balik ke field.</p>
+	 *
+	 * @return {@code true} bila kelas boleh tanpa dosen.
+	 */
 	public Boolean getMerupakan_tanpa_dosen() {
 		if (merupakan_tanpa_dosen == null) {
 			merupakan_tanpa_dosen = false;
@@ -1419,14 +1866,44 @@ public class Perkuliahan extends VOPembelajaran {
 		return merupakan_tanpa_dosen;
 	}
 
+	/**
+	 * Menandai kelas yang sengaja dijadwalkan tanpa ruang.
+	 *
+	 * @param merupakan_tanpa_ruangan penanda tanpa ruang.
+	 */
 	public void setMerupakan_tanpa_ruangan(Boolean merupakan_tanpa_ruangan) {
 		this.merupakan_tanpa_ruangan = merupakan_tanpa_ruangan;
 	}
 
+	/**
+	 * Menyatakan apakah kelas ini sengaja dijadwalkan tanpa ruang (mis. kuliah daring), sehingga
+	 * pemeriksaan bentrok ruang dilewati.
+	 *
+	 * <p>Berbeda dengan {@link #getMerupakan_tanpa_dosen()}, getter ini TIDAK menormalkan
+	 * {@code null}, jadi pemanggil harus siap menerima {@code null}.</p>
+	 *
+	 * @return {@code true}/{@code false}/{@code null} sesuai isi kolom.
+	 */
 	public Boolean getMerupakan_tanpa_ruangan() {
 		return merupakan_tanpa_ruangan;
 	}
 
+	/**
+	 * Kuota peserta kelas — batas jumlah mahasiswa yang boleh mengambil kelas ini lewat KRS.
+	 *
+	 * <p><b>Efek samping:</b> bila kolom kosong, diisi dengan kapasitas default global
+	 * {@code Ruang.getDefaultKapasitas()} dan ditulis balik ke field.</p>
+	 *
+	 * <p>Penegakan kuota TIDAK dilakukan di entity ini melainkan pada jalur pengambilan KRS —
+	 * lihat {@code AmbilDataIkutPerkuliahanHelper} dan
+	 * {@code AmbilDataMahasiswaForPaketPerkuliahanHelper}, yang membandingkan jumlah peserta yang
+	 * sudah masuk dengan nilai ini. Karena itu, sisa kursi dihitung sebagai
+	 * {@code getKapasitasKelas() - getJumlahMahasiswa()} oleh pemanggil, bukan oleh method di
+	 * sini.</p>
+	 *
+	 * @return kuota peserta kelas; tidak pernah {@code null}.
+	 * @see #getJumlahMahasiswa()
+	 */
 	@Column(name = "kapasitas_kelas", nullable = true)
 	public Integer getKapasitasKelas() {
 		if (kapasitasKelas == null) {
@@ -1435,10 +1912,24 @@ public class Perkuliahan extends VOPembelajaran {
 		return kapasitasKelas;
 	}
 
+	/**
+	 * Menetapkan kuota peserta kelas.
+	 *
+	 * @param kapasitasKelas kuota; {@code null} agar mengikuti kapasitas default global.
+	 */
 	public void setKapasitasKelas(Integer kapasitasKelas) {
 		this.kapasitasKelas = kapasitasKelas;
 	}
 
+	/**
+	 * Master jam perkuliahan (slot jam baku) yang dipakai kelas ini.
+	 *
+	 * <p>Bila terisi, jam master MENIMPA teks {@code waktuMulai}/{@code waktuSelesai} saat dibaca
+	 * — lihat {@link #getWaktuMulai()}.</p>
+	 *
+	 * @return master jam perkuliahan, atau {@code null} bila jam diisi bebas.
+	 * @see JamPerkuliahan
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jam_perkuliahan", nullable = true)
 	public JamPerkuliahan getJamPerkuliahan() {
@@ -1446,18 +1937,49 @@ public class Perkuliahan extends VOPembelajaran {
 		return jamPerkuliahan;
 	}
 
+	/**
+	 * Menetapkan master jam perkuliahan.
+	 *
+	 * @param jamPerkuliahan slot jam baku, boleh {@code null}.
+	 */
 	public void setJamPerkuliahan(JamPerkuliahan jamPerkuliahan) {
 		this.jamPerkuliahan = jamPerkuliahan;
 	}
 
+	/**
+	 * Menetapkan rencana jumlah tatap muka kelas ini.
+	 *
+	 * @param planning_jumlah_tatap_muka jumlah tatap muka yang direncanakan.
+	 */
 	public void setPlanning_jumlah_tatap_muka(Integer planning_jumlah_tatap_muka) {
 		this.planning_jumlah_tatap_muka = planning_jumlah_tatap_muka;
 	}
 
+	/**
+	 * Rencana jumlah tatap muka kelas ini (kolom lama; batas pertemuan yang benar-benar dipakai
+	 * pembangkit pertemuan adalah {@link #getJumlahMaksimalPertemuan()}).
+	 *
+	 * @return jumlah tatap muka yang direncanakan, atau {@code null}.
+	 */
 	public Integer getPlanning_jumlah_tatap_muka() {
 		return planning_jumlah_tatap_muka;
 	}
 
+	/**
+	 * Pengguna yang sedang <b>mengunci</b> kelas ini.
+	 *
+	 * <p>Kelas terkunci berarti nilai dan pembobotannya dibekukan: {@link #getPembombotanNilai()}
+	 * beralih ke cadangan {@link #getPembombotanNilaiBackup()} sehingga perubahan konfigurasi
+	 * global tidak lagi menggeser komposisi nilai yang sudah diproses.</p>
+	 *
+	 * <p><b>Efek samping:</b> getter ini MEMBATALKAN kunci (mengembalikan {@code null}) bila dosen
+	 * milik pengguna pengunci ternyata sudah tidak berada di antara pengampu kelas — pemeriksaan
+	 * dilakukan terhadap {@code populateDosenBuId()}. Pembatalan di sini hanya di memori;
+	 * penulisan ke basis data terjadi pada langkah terakhir {@link #singkronkan(Session)}.</p>
+	 *
+	 * @return pengguna pengunci, atau {@code null} bila kelas tidak (lagi) terkunci.
+	 * @see Tbmuser
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dikunci", nullable = true)
 	public Tbmuser getDikunci() {

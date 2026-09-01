@@ -1049,6 +1049,33 @@ public abstract class GeneralValueObject extends DataUtil
 		}
 	}
 
+	/**
+	 * Urutan alami seluruh entity AIS: <b>berjenjang menurut kunci pertama yang tersedia di kedua
+	 * belah pihak</b>.
+	 *
+	 * <p>Prioritas kunci, berhenti pada yang pertama cocok:</p>
+	 * <ol>
+	 *   <li>{@code nomorUrut} — urutan tampil yang ditentukan pengguna; menang atas segalanya.</li>
+	 *   <li>{@code nim} — nomor induk peserta didik (perbandingan String, jadi urutannya
+	 *   leksikografis; NIM dengan panjang berbeda tidak terurut secara numerik).</li>
+	 *   <li>{@code nama} — perbandingan String peka besar-kecil huruf, sehingga huruf kapital
+	 *   selalu mendahului huruf kecil.</li>
+	 *   <li>{@code keterangan} — pilihan terakhir. Perhatikan {@link #getKeterangan()} tidak pernah
+	 *   mengembalikan {@code null} (mengembalikan {@code ""}), sehingga cabang ini <b>selalu</b>
+	 *   terpakai bila ketiga kunci sebelumnya tidak memenuhi syarat.</li>
+	 * </ol>
+	 *
+	 * <p>Sebuah kunci hanya dipakai bila <b>kedua</b> object memilikinya (non-null). Bila tidak
+	 * ada satu pun kunci yang memenuhi syarat — atau terjadi exception, yang ditelan dan dicatat ke
+	 * audit — method mengembalikan {@code 0}, artinya "dianggap setara untuk keperluan pengurutan".
+	 * Nilai {@code 0} ini <b>tidak</b> berarti {@code equals}: {@code compareTo} di sini memang
+	 * tidak konsisten dengan {@link #equals(Object)}, jadi hindari {@code TreeSet}/{@code TreeMap}
+	 * berkunci entity dan gunakan comparator eksplisit bila urutan harus deterministik.</p>
+	 *
+	 * @param arg0 entity pembanding
+	 * @return negatif/nol/positif sesuai kontrak {@link Comparable}; {@code 0} bila tidak ada kunci
+	 *         pembanding yang tersedia
+	 */
 	@Override
 	public int compareTo(GeneralValueObject arg0) {
 		try {
@@ -1069,46 +1096,121 @@ public abstract class GeneralValueObject extends DataUtil
 		return 0;
 	}
 
+	/**
+	 * Mengembalikan nama entity. Dipakai {@link #toString()} dan kunci urut ketiga
+	 * {@link #compareTo(GeneralValueObject)}.
+	 *
+	 * @return nama entity, atau {@code null} bila belum diisi
+	 */
 	public String getNama() {
 		return nama;
 	}
 
+	/**
+	 * Menyetel nama entity. Tanpa validasi.
+	 *
+	 * @param nama nama baru
+	 */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
 
+	/**
+	 * Mengembalikan keterangan entity, dengan <b>normalisasi</b>: nilai {@code null} dikembalikan
+	 * sebagai string kosong sehingga pemanggil tidak perlu memeriksa {@code null}.
+	 *
+	 * <p>Sebagai akibatnya, cabang {@code keterangan} pada {@link #compareTo(GeneralValueObject)}
+	 * selalu memenuhi syarat non-null.</p>
+	 *
+	 * @return keterangan entity, atau {@code ""} bila belum diisi; tidak pernah {@code null}
+	 */
 	public String getKeterangan() {
 		return keterangan == null ? "" : keterangan;
 	}
 
+	/**
+	 * Menyetel keterangan entity. Tanpa validasi; nilai {@code null} diterima dan akan terbaca
+	 * sebagai {@code ""} lewat {@link #getKeterangan()}.
+	 *
+	 * @param keterangan keterangan baru
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
 
+	/**
+	 * Mengembalikan kode ringkas entity. Menjadi bagian pertama {@link #toString()}.
+	 *
+	 * @return kode entity, atau {@code null} bila belum diisi
+	 */
 	public String getKode() {
 		return kode;
 	}
 
+	/**
+	 * Menyetel kode ringkas entity. Tanpa validasi.
+	 *
+	 * @param kode kode baru
+	 */
 	public void setKode(String kode) {
 		this.kode = kode;
 	}
 
+	/**
+	 * Mengembalikan nomor induk (NIM/NIS) bila entity mewakili peserta didik. Kunci urut kedua
+	 * {@link #compareTo(GeneralValueObject)}.
+	 *
+	 * @return nomor induk, atau {@code null} bila tidak relevan/belum diisi
+	 */
 	public String getNim() {
 		return nim;
 	}
 
+	/**
+	 * Menyetel nomor induk (NIM/NIS). Tanpa validasi.
+	 *
+	 * @param nim nomor induk baru
+	 */
 	public void setNim(String nim) {
 		this.nim = nim;
 	}
 
+	/**
+	 * Mengembalikan nomor urut tampil. Kunci urut PERTAMA
+	 * {@link #compareTo(GeneralValueObject)}, jadi mengisinya akan menimpa pengurutan berdasarkan
+	 * NIM/nama.
+	 *
+	 * @return nomor urut, atau {@code null} bila tidak dipakai
+	 */
 	public Integer getNomorUrut() {
 		return nomorUrut;
 	}
 
+	/**
+	 * Menyetel nomor urut tampil. Tanpa validasi.
+	 *
+	 * @param nomorUrut nomor urut baru
+	 */
 	public void setNomorUrut(Integer nomorUrut) {
 		this.nomorUrut = nomorUrut;
 	}
 
+	/**
+	 * Membaca kembali data JSON sementara milik object ini dari berkas cache temp.
+	 *
+	 * <p>Pasangan baca untuk {@link #write(Integer, String...)}. Kunci berkas dipilih menurut jenis
+	 * entity — pola percabangan yang berulang di hampir semua method cache di kelas ini:
+	 * {@link Tbmrole} memakai {@code roleId}, {@link Tbmuser} memakai {@code userId}, entity lain
+	 * memakai {@link #getId()}.</p>
+	 *
+	 * <p><b>Ini BUKAN pembacaan database.</b> Isinya adalah cache berkas yang boleh hilang kapan
+	 * saja; kolom database tetap menjadi sumber kebenaran.</p>
+	 *
+	 * @return isi cache JSON milik object ini, atau {@link JSONObject} kosong bila entity belum
+	 *         punya identifier
+	 * @see #write(Integer, String...)
+	 * @see #delete()
+	 */
 	public JSONObject read() {
 		if (this instanceof Tbmrole && ((Tbmrole) this).getRoleId() != null) {
 			return Common.getJSONTemporary(this, ((Tbmrole) this).getRoleId());
@@ -1120,6 +1222,21 @@ public abstract class GeneralValueObject extends DataUtil
 		return new JSONObject();
 	}
 
+	/**
+	 * Menghapus <b>berkas cache JSON</b> milik object ini.
+	 *
+	 * <p><b>PERINGATAN — jangan tertukar:</b> method ini <b>TIDAK</b> menghapus baris database.
+	 * Yang dihapus hanyalah berkas temp hasil {@link #write(Integer, String...)}, lewat
+	 * {@code BacaTulisUtil.hapus(file)} disusul {@code File.delete()}; hasil penghapusan dicetak
+	 * ke {@code System.out}. Penghapusan baris database adalah urusan lapisan DAO/service.</p>
+	 *
+	 * <p>Kunci berkas dipilih menurut jenis entity ({@link Tbmrole} &rarr; {@code roleId},
+	 * {@link Tbmuser} &rarr; {@code userId}, selain itu {@link #getId()}). Bila entity belum punya
+	 * identifier, method tidak melakukan apa pun. Aman dipanggil walau berkasnya memang tidak ada.</p>
+	 *
+	 * @see #read()
+	 * @see #write(Integer, String...)
+	 */
 	public void delete() {
 		if (this instanceof Tbmrole && ((Tbmrole) this).getRoleId() != null) {
 			File file = Common.getFileLocation(this, ((Tbmrole) this).getRoleId());
@@ -1145,11 +1262,53 @@ public abstract class GeneralValueObject extends DataUtil
 		}
 	}
 
+	/**
+	 * Pintasan {@link #write(Integer, String...)} dengan {@code indexke = 0}.
+	 *
+	 * @param strings daftar nama properti entity yang ikut diserialkan ke cache JSON
+	 * @return berkas cache yang ditulis, atau berkas penanda lokasi bila penulisan dilewati
+	 * @see #write(Integer, String...)
+	 */
 	public File write(String... strings) {
 		Integer indexke = 0;
 		return write(indexke, strings);
 	}
 
+	/**
+	 * Menulis snapshot JSON object ini ke berkas cache sementara.
+	 *
+	 * <p>Isi JSON dibentuk {@code Common.convertToJsonObject(indexke, this, strings)} lalu disimpan
+	 * lewat {@code Common.setJSONTemporary(...)}. Parameter {@code indexke} berperan sebagai
+	 * <b>penghitung kedalaman rekursi</b> saat relasi antar entity ikut diserialkan — ia dipakai
+	 * sebagai penjaga agar penulisan tidak berputar tanpa henti.</p>
+	 *
+	 * <p>Kapan penulisan benar-benar terjadi (perhatikan, aturannya berlapis):</p>
+	 * <ul>
+	 *   <li>Untuk sekelompok entity e-learning/akademik tertentu — {@code PertemuanPunyaUjian},
+	 *   {@code Perkuliahan}, {@code Skripsi}, {@code MahasiswaRequestTugasAkhir},
+	 *   {@code JadwalUjianPMB}, {@code PengumumanAkademis}, {@code Ujian} — penulisan <b>selalu</b>
+	 *   dilakukan (asal {@code id} ada), tanpa batas {@code indexke}. Daftar ini adalah keputusan
+	 *   historis: entity-entity inilah yang cache-nya memang dibutuhkan.</li>
+	 *   <li>Untuk entity lain, penulisan hanya terjadi bila kelasnya <b>tidak</b> terdaftar di
+	 *   cache konstanta ({@code !ConstantValues.classExist(...)}) — entity yang sudah ter-cache
+	 *   penuh di memori tidak perlu cache berkas — <b>dan</b> {@code indexke < 30}, yaitu batas
+	 *   kedalaman rekursi.</li>
+	 * </ul>
+	 *
+	 * <p>Bila tidak satu pun syarat terpenuhi, tidak ada berkas yang ditulis dan method tetap
+	 * mengembalikan sebuah {@link File} — yakni penunjuk lokasi
+	 * {@code <lokasiTemp> + namaKelasLengkap} — sehingga <b>nilai balik yang tidak {@code null}
+	 * bukan jaminan bahwa penulisan terjadi</b>. Berkas itu juga belum tentu ada di disk.</p>
+	 *
+	 * <p>Kegagalan penulisan ditelan dan dicatat ke audit error; cache tidak boleh menggagalkan
+	 * alur pemanggil.</p>
+	 *
+	 * @param indexke kedalaman rekursi saat ini; {@code 0} untuk pemanggilan dari luar
+	 * @param strings daftar nama properti entity yang ikut diserialkan
+	 * @return berkas cache hasil penulisan, atau berkas penunjuk lokasi bila penulisan dilewati
+	 * @see #read()
+	 * @see #delete()
+	 */
 	public File write(Integer indexke, String... strings) {
 		if (((this instanceof PertemuanPunyaUjian) || (this instanceof Perkuliahan) || (this instanceof Skripsi)
 				|| (this instanceof MahasiswaRequestTugasAkhir) || (this instanceof JadwalUjianPMB)
@@ -1190,14 +1349,55 @@ public abstract class GeneralValueObject extends DataUtil
 		return new File(lokasiFileTemprorary + this.getClass().getName());
 	}
 
+	/**
+	 * Pintasan {@link #udah(String)} dengan sufiks kosong.
+	 *
+	 * @return {@code true} bila penanda sudah pernah dipasang sebelumnya
+	 * @see #udah(String)
+	 */
 	public boolean udah() {
 		return udah("");
 	}
 
+	/**
+	 * Pintasan {@link #belum(String)} dengan sufiks kosong.
+	 *
+	 * @see #belum(String)
+	 */
 	public void belum() {
 		belum("");
 	}
 
+	/**
+	 * Penanda "sudah pernah dikerjakan" bergaya <b>test-and-set</b> berbasis berkas.
+	 *
+	 * <p>Membaca berkas penanda milik object ini. Bila berkas kosong/belum ada, method
+	 * <b>menuliskan penanda</b> (isi {@code "true"}) lalu mengembalikan {@code false} — artinya
+	 * "belum pernah, dan sekarang sudah ditandai". Bila berkas sudah berisi, method mengembalikan
+	 * {@code true} tanpa mengubah apa pun.</p>
+	 *
+	 * <p>Karena itu pola pemakaian standarnya adalah menjalankan pekerjaan mahal sekali saja:</p>
+	 * <pre>{@code
+	 * if (refresh || !udah("IsiAngketParameterUmum")) {
+	 *     reInitIsiAngketParameterUmum(session);   // hanya sekali
+	 * }
+	 * }</pre>
+	 * <p>Pasangan penghapus penandanya adalah {@link #belum(String)}.</p>
+	 *
+	 * <p><b>Perilaku saat gagal:</b> exception apa pun (mis. berkas tidak bisa dibaca/ditulis)
+	 * dicatat ke audit lalu method mengembalikan {@code true}, yaitu "anggap sudah pernah". Sikap
+	 * ini menghindari pengulangan pekerjaan berat tanpa henti ketika I/O bermasalah, dengan
+	 * konsekuensi inisialisasi ulang bisa terlewat — pakai parameter {@code refresh} pada pemanggil
+	 * bila hasilnya harus dipaksa segar.</p>
+	 *
+	 * <p><b>Bukan penguncian antar-thread:</b> baca dan tulis di sini tidak atomik, sehingga dua
+	 * thread yang bersamaan bisa sama-sama menerima {@code false}.</p>
+	 *
+	 * @param tambahan sufiks pembeda penanda, agar satu entity bisa punya banyak penanda berbeda
+	 * @return {@code true} bila penanda sudah ada sebelumnya (atau terjadi kegagalan I/O);
+	 *         {@code false} bila penanda baru saja dipasang oleh pemanggilan ini
+	 * @see #belum(String)
+	 */
 	public boolean udah(String tambahan) {
 		try {
 
@@ -1221,6 +1421,18 @@ public abstract class GeneralValueObject extends DataUtil
 		return true;
 	}
 
+	/**
+	 * Menghapus penanda yang dipasang {@link #udah(String)}, sehingga pekerjaan bertanda tersebut
+	 * akan dikerjakan lagi pada kesempatan berikutnya (invalidasi cache).
+	 *
+	 * <p>Berkas penanda dihapus lewat {@code BacaTulisUtil.hapus(file)} disusul
+	 * {@code File.delete()}. Aman dipanggil walau penandanya memang tidak ada; kegagalan dicatat ke
+	 * audit dan tidak dilempar ke pemanggil.</p>
+	 *
+	 * @param tambahan sufiks pembeda penanda; harus sama persis dengan yang dipakai
+	 *                 {@link #udah(String)}
+	 * @see #udah(String)
+	 */
 	public void belum(String tambahan) {
 		try {
 			String id = getId() == null ? "" : getId().toString();
@@ -1239,10 +1451,43 @@ public abstract class GeneralValueObject extends DataUtil
 		}
 	}
 
+	/**
+	 * Pintasan {@link #put(String, String)} dengan sufiks kosong.
+	 *
+	 * @param data isi yang disimpan; {@code null} berarti hapus
+	 * @see #put(String, String)
+	 */
 	public void put(String data) {
 		put(data, "");
 	}
 
+	/**
+	 * Menyimpan satu nilai teks bebas milik object ini ke berkas cache, sekaligus menyegarkan cache
+	 * per-instance {@link #retreive(String)}.
+	 *
+	 * <p>Pasangan tulis untuk {@link #retreive(String)}. Nilai {@code null} diperlakukan sebagai
+	 * <b>penghapusan</b>: berkas ditulis kosong lalu dihapus, dan entri cache in-memory disetel
+	 * menjadi {@code ""}. Nilai lain ditulis apa adanya.</p>
+	 *
+	 * <p><b>Penjaga startup (jangan dihapus).</b> Bila
+	 * {@code AppStartupListener.isStartupInProgress()} bernilai {@code true}, method langsung
+	 * {@code return} tanpa menulis apa pun. Alasannya nyata dan pernah menyebabkan insiden:
+	 * Hibernate memanggil setter ter-map saat hidrasi entity
+	 * ({@code TwoPhaseLoad.initializeEntity}), mis. {@code Mahasiswa.setBatasStudi} yang di
+	 * dalamnya memanggil {@code put(...)}. Memuat satu entity berarti satu operasi tulis-berkas;
+	 * saat init memuat RIBUAN entity, jadilah ribuan tulis-berkas yang membuat startup macet di
+	 * thread {@code "main"} (terbukti lewat thread dump). Mirror berkas memang tidak perlu
+	 * diperbarui saat load karena kolom database tetap menjadi fallback getter. Setelah startup
+	 * selesai, perilaku tulis kembali normal.</p>
+	 *
+	 * <p>Kunci berkas mengikuti pola cache di kelas ini ({@link Tbmuser} &rarr; {@code userId},
+	 * {@link Tbmrole} &rarr; {@code roleId}, selain itu {@link #getId()}); entity tanpa identifier
+	 * dilewati. Kegagalan I/O ditelan dan dicatat ke audit error.</p>
+	 *
+	 * @param data     isi yang disimpan; {@code null} berarti hapus berkas dan kosongkan cache
+	 * @param tambahan sufiks pembeda, agar satu entity bisa menyimpan beberapa nilai berbeda
+	 * @see #retreive(String)
+	 */
 	public void put(String data, String tambahan) {
 		// Saat STARTUP: LEWATI tulis-file. Hibernate memanggil SETTER ter-map saat HYDRATION
 		// (TwoPhaseLoad.initializeEntity), mis. Mahasiswa.setBatasStudi -> put(...). Memuat
@@ -1276,30 +1521,71 @@ public abstract class GeneralValueObject extends DataUtil
 		}
 	}
 
-	// THREAD-SAFETY (lihat ConcurrentModificationException & "Unterminated string" audit
-	// KRS/elearning, GeneralValueObject.putBaru/tulisPutBaru dipanggil dari AuditListener.
-	// prosesUntukElearning): map ini di-share OLEH SELURUH THREAD/REQUEST dalam satu JVM
-	// (bukan per-request), sengaja — dipakai sebagai akumulator "batch" ketika satu proses
-	// sinkronisasi (mis. Dosen.singkronkanKrsMahasiswa) memanggil putBaru() berkali-kali
-	// untuk entity yang sama (dosen/mahasiswa) SEBELUM tulisPutBaru() dipanggil sekali di
-	// akhir (lihat voMahasiswaDosens di Dosen.java). Karena map & JSONObject di dalamnya
-	// bukan thread-safe (HashMap biasa), DUA request BERBEDA yang kebetulan menyentuh
-	// dosen/mahasiswa YANG SAMA secara bersamaan bisa saling mem-mutasi & men-serialize
-	// JSONObject yang SAMA di saat bersamaan, menyebabkan:
-	//  - ConcurrentModificationException saat toString() meng-iterasi HashMap yang sedang
-	//    dimutasi thread lain, ATAU
-	//  - file .json di disk tertimpa dua tulisan yang beririsan (masing-masing dari
-	//    FileUtils.writeStringToFile terpisah tanpa penguncian) sehingga isinya terpotong
-	//    di tengah string ("Unterminated string ...") saat dibaca ulang oleh putBaru().
-	// Fix: ConcurrentHashMap (agar operasi get/put/remove pada map sendiri aman) DITAMBAH
-	// synchronized(key.intern()) di kedua method supaya seluruh rangkaian get-or-create +
-	// mutasi + serialize + tulis-berkas untuk SATU key (id+kelas+tambahan) tidak pernah
-	// tumpang tindih antar-thread, sementara key BERBEDA (entity lain) tetap berjalan
-	// paralel tanpa saling menunggu. ConcurrentHashMap TIDAK mengizinkan value null,
-	// sehingga "penanda sudah ditulis" di tulisPutBaru() memakai remove(key), bukan
-	// put(key, null) seperti sebelumnya.
+	/**
+	 * Akumulator batch JSON bersama untuk {@link #putBaru(String, String)} dan
+	 * {@link #tulisPutBaru(String)}. Kunci map berbentuk
+	 * {@code "<id>_<NamaKelasSederhana>_<tambahan>"}.
+	 *
+	 * <h4>THREAD-SAFETY — riwayat bug nyata, jangan disederhanakan</h4>
+	 * <p>(Lihat audit {@code ConcurrentModificationException} &amp; "Unterminated string" pada
+	 * KRS/e-learning; {@code GeneralValueObject.putBaru}/{@code tulisPutBaru} dipanggil dari
+	 * {@code AuditListener.prosesUntukElearning}.)</p>
+	 *
+	 * <p>Map ini di-share OLEH SELURUH THREAD/REQUEST dalam satu JVM (bukan per-request), dan itu
+	 * <b>disengaja</b> — ia dipakai sebagai akumulator "batch" ketika satu proses sinkronisasi
+	 * (mis. {@code Dosen.singkronkanKrsMahasiswa}) memanggil {@code putBaru()} berkali-kali untuk
+	 * entity yang sama (dosen/mahasiswa) SEBELUM {@code tulisPutBaru()} dipanggil sekali di akhir
+	 * (lihat {@code voMahasiswaDosens} di {@code Dosen.java}).</p>
+	 *
+	 * <p>Pada implementasi lama map &amp; {@link JSONObject} di dalamnya bukan thread-safe
+	 * ({@code HashMap} biasa), sehingga DUA request BERBEDA yang kebetulan menyentuh
+	 * dosen/mahasiswa YANG SAMA secara bersamaan bisa saling mem-mutasi &amp; men-serialize
+	 * {@code JSONObject} yang SAMA di saat bersamaan. Akibatnya:</p>
+	 * <ul>
+	 *   <li>{@code ConcurrentModificationException} saat {@code toString()} meng-iterasi
+	 *   {@code HashMap} yang sedang dimutasi thread lain, ATAU</li>
+	 *   <li>berkas {@code .json} di disk tertimpa dua tulisan yang beririsan (masing-masing dari
+	 *   {@code FileUtils.writeStringToFile} terpisah tanpa penguncian) sehingga isinya terpotong di
+	 *   tengah string ("Unterminated string ...") saat dibaca ulang oleh {@code putBaru()}.</li>
+	 * </ul>
+	 *
+	 * <p><b>Perbaikannya:</b> {@code ConcurrentHashMap} (agar operasi {@code get}/{@code put}/
+	 * {@code remove} pada map sendiri aman) DITAMBAH {@code synchronized (key.intern())} di kedua
+	 * method, supaya seluruh rangkaian get-or-create + mutasi + serialize + tulis-berkas untuk SATU
+	 * key ({@code id}+kelas+{@code tambahan}) tidak pernah tumpang tindih antar-thread, sementara
+	 * key BERBEDA (entity lain) tetap berjalan paralel tanpa saling menunggu. {@code ConcurrentHashMap}
+	 * TIDAK mengizinkan value {@code null}, sehingga "penanda sudah ditulis" di
+	 * {@code tulisPutBaru()} memakai {@code remove(key)}, bukan {@code put(key, null)} seperti
+	 * sebelumnya.</p>
+	 *
+	 * @see #putBaru(String, String)
+	 * @see #tulisPutBaru(String)
+	 */
 	private static final Map<String, JSONObject> datatemporary = new java.util.concurrent.ConcurrentHashMap<String, JSONObject>();
 
+	/**
+	 * Menambahkan satu entri ke akumulator batch JSON milik object ini (belum menyentuh disk untuk
+	 * menulis hasil akhir).
+	 *
+	 * <p>Alurnya, seluruhnya di dalam {@code synchronized (key.intern())}: ambil {@link JSONObject}
+	 * milik key dari {@link #datatemporary}; bila belum ada, muat dari berkas cache yang tersimpan
+	 * (berkas rusak/kosong menghasilkan {@code JSONObject} baru dan dicatat ke audit), simpan ke
+	 * map; lalu pasang {@code data} sebagai <b>kunci</b> JSON dengan nilai string kosong. Perhatikan
+	 * itu: struktur yang dibangun adalah <b>himpunan kunci</b>, bukan pasangan kunci-nilai, sehingga
+	 * pemanggilan berulang dengan {@code data} sama bersifat idempoten.</p>
+	 *
+	 * <p>Hasil akumulasi baru ditulis ke disk oleh {@link #tulisPutBaru(String)} — biasanya sekali
+	 * di akhir proses sinkronisasi. Pembacaan kembali daftar kuncinya dilakukan
+	 * {@link #retreiveAll(String)}.</p>
+	 *
+	 * <p>Penjelasan lengkap mengapa penguncian per-key diperlukan ada di
+	 * {@link #datatemporary}.</p>
+	 *
+	 * @param data     nilai yang dicatat; menjadi kunci di dalam JSON batch
+	 * @param tambahan sufiks pembeda berkas/batch
+	 * @see #tulisPutBaru(String)
+	 * @see #retreiveAll(String)
+	 */
 	public void putBaru(String data, String tambahan) {
 		try {
 			String id = getId() == null ? "" : getId().toString();
@@ -1334,6 +1620,26 @@ public abstract class GeneralValueObject extends DataUtil
 		}
 	}
 
+	/**
+	 * Menuliskan akumulator batch {@link #putBaru(String, String)} ke berkas cache, lalu
+	 * mengosongkan entri batch tersebut dari memori.
+	 *
+	 * <p>Dijalankan di dalam {@code synchronized (key.intern())} yang sama dengan
+	 * {@code putBaru()}, sehingga serialisasi dan penulisan berkas untuk satu key tidak pernah
+	 * beririsan dengan penambahan entri dari thread lain. Setelah berhasil ditulis, entri dihapus
+	 * dari {@link #datatemporary} memakai {@code remove(key)} — bukan {@code put(key, null)},
+	 * karena {@code ConcurrentHashMap} tidak menerima nilai {@code null}.</p>
+	 *
+	 * <p>Bila tidak ada batch untuk key tersebut (belum pernah {@code putBaru()}, atau sudah
+	 * ditulis sebelumnya), method tidak melakukan apa pun. Kegagalan penulisan ditelan dan dicatat
+	 * ke audit; entri batch <b>tetap ada di memori</b> bila penulisan gagal, sehingga percobaan
+	 * berikutnya masih membawa data yang sama.</p>
+	 *
+	 * @param tambahan sufiks pembeda berkas/batch; harus sama dengan yang dipakai
+	 *                 {@link #putBaru(String, String)}
+	 * @see #putBaru(String, String)
+	 * @see #bersihkanPutBaru(String)
+	 */
 	public void tulisPutBaru(String tambahan) {
 		String id = getId() == null ? "" : getId().toString();
 		if (this instanceof Tbmuser) {
@@ -1358,6 +1664,25 @@ public abstract class GeneralValueObject extends DataUtil
 		}
 	}
 
+	/**
+	 * Mengosongkan berkas batch di disk dengan menimpanya memakai JSON kosong ({@code "{}"}).
+	 *
+	 * <p>Berbeda dari {@link #tulisPutBaru(String)}, method ini <b>tidak</b> menyentuh akumulator
+	 * di memori {@link #datatemporary} dan <b>tidak</b> memakai penguncian per-key. Jadi bila masih
+	 * ada batch yang belum ditulis untuk key yang sama, pemanggilan {@code tulisPutBaru()}
+	 * berikutnya akan menimpa berkas kosong ini kembali. Gunakan untuk memulai ulang pengumpulan
+	 * data dari nol, bukan sebagai pembatalan batch yang sedang berjalan.</p>
+	 *
+	 * <p>Entity tanpa identifier dilewati. Kegagalan penulisan tidak ditangani di sini dan menjadi
+	 * urusan {@code BacaTulisUtil.tulis}.</p>
+	 *
+	 * <p><b>Catatan:</b> per penelusuran 2 Sep 2026 tidak ditemukan pemanggil aktif method ini di
+	 * pohon sumber; tampaknya tersisa sebagai utilitas pemeliharaan/perbaikan data manual.</p>
+	 *
+	 * @param tambahan sufiks pembeda berkas/batch
+	 * @see #putBaru(String, String)
+	 * @see #tulisPutBaru(String)
+	 */
 	public void bersihkanPutBaru(String tambahan) {
 		String id = getId() == null ? "" : getId().toString();
 		if (this instanceof Tbmuser) {
@@ -1371,10 +1696,38 @@ public abstract class GeneralValueObject extends DataUtil
 		}
 	}
 
+	/**
+	 * Pintasan {@link #retreiveBaru(String)} dengan sufiks kosong.
+	 *
+	 * @return nilai yang tersimpan pada berkas batch di bawah kunci {@code id} entity ini, atau
+	 *         {@code ""}
+	 * @see #retreiveBaru(String)
+	 */
 	public String retreiveBaru() {
 		return retreiveBaru("");
 	}
 
+	/**
+	 * Membaca berkas batch {@code _put} milik object ini dan mengambil nilai yang tersimpan di
+	 * bawah kunci berupa {@code id} entity ini sendiri.
+	 *
+	 * <p>Berbeda dengan {@link #retreiveAll(String)} yang mengembalikan seluruh <b>kunci</b> pada
+	 * berkas batch, method ini mengambil satu <b>nilai</b> pada kunci {@code id}. Perlu dicatat
+	 * bahwa {@link #putBaru(String, String)} menyimpan data sebagai kunci dengan nilai string
+	 * kosong, sehingga untuk berkas yang diisi lewat {@code putBaru()} method ini secara praktis
+	 * akan mengembalikan {@code ""}. Pasangan penulis yang cocok untuknya tampaknya berasal dari
+	 * alur lama yang menyimpan pasangan kunci-nilai; perlakukan sebagai peninggalan historis dan
+	 * jangan dijadikan contoh untuk kode baru.</p>
+	 *
+	 * <p>Per penelusuran 2 Sep 2026 tidak ditemukan pemanggil aktif method ini di pohon sumber.</p>
+	 *
+	 * <p>Berkas yang kosong maupun rusak diperlakukan sebagai JSON kosong (kegagalan parsing
+	 * dicatat ke audit), dan entity tanpa identifier langsung menghasilkan {@code ""}.</p>
+	 *
+	 * @param tambahan sufiks pembeda berkas/batch
+	 * @return nilai yang tersimpan, atau {@code ""} bila tidak ada; tidak pernah {@code null}
+	 * @see #retreiveAll(String)
+	 */
 	public String retreiveBaru(String tambahan) {
 		String data = "";
 		try {
@@ -1403,10 +1756,44 @@ public abstract class GeneralValueObject extends DataUtil
 		return data;
 	}
 
+	/**
+	 * Pintasan {@link #retreive(String)} dengan sufiks kosong.
+	 *
+	 * @return isi cache milik object ini, atau {@code ""}
+	 * @see #retreive(String)
+	 */
 	public String retreive() {
 		return retreive("");
 	}
 
+	/**
+	 * Membaca kembali nilai teks yang disimpan {@link #put(String, String)}, dengan
+	 * <b>cache per-instance</b> dan penjaga startup.
+	 *
+	 * <h4>Kenapa ada cache per-instance</h4>
+	 * <p>Sebelum cache ini ada, getter Hibernate (mis. {@code Dosen.getIdfinger} yang memanggil
+	 * {@code retreive("idfinger")}) memicu I/O berkas SETIAP auto-flush untuk SETIAP entity yang
+	 * kotor, sehingga startup dan operasi normal melambat parah — thread dump menunjukkan thread
+	 * {@code "main"} macet di {@code File.exists} saat inisialisasi
+	 * {@code AppStartupListener}. Dengan cache, nilai yang dikembalikan TETAP SAMA, hanya saja
+	 * tidak dibaca ulang dari disk pada pemanggilan berikutnya. Cache-nya dipegang
+	 * {@link #retreiveCache()} dan bersifat {@code transient} (tidak ikut terserialisasi), serta
+	 * disinkronkan oleh {@link #put(String, String)} setiap kali menulis.</p>
+	 *
+	 * <h4>Penjaga startup</h4>
+	 * <p>Selama {@code AppStartupListener.isStartupInProgress()} bernilai {@code true}, method
+	 * langsung mengembalikan {@code ""} tanpa menyentuh disk (nilai berkas tidak dibutuhkan untuk
+	 * dirty-check auto-flush Hibernate). Nilai kosong itu <b>sengaja tidak disimpan ke cache</b>,
+	 * supaya setelah startup selesai nilai aslinya tetap terbaca.</p>
+	 *
+	 * <p>Entity tanpa identifier mengembalikan {@code ""}. Kegagalan membaca identifier maupun
+	 * berkas ditelan dan dicatat ke audit; nilai {@code null} dari berkas dinormalkan menjadi
+	 * {@code ""} sebelum disimpan ke cache.</p>
+	 *
+	 * @param tambahan sufiks pembeda; harus sama dengan yang dipakai {@link #put(String, String)}
+	 * @return isi yang tersimpan, atau {@code ""}; tidak pernah {@code null}
+	 * @see #put(String, String)
+	 */
 	public String retreive(String tambahan) {
 		// CACHE per-instance: hindari File.exists/baca berulang. Sebelumnya getter Hibernate
 		// (mis. Dosen.getIdfinger -> retreive("idfinger")) memicu I/O file SETIAP auto-flush
@@ -1454,6 +1841,23 @@ public abstract class GeneralValueObject extends DataUtil
 	/** Cache lazy per-instance untuk {@link #retreive(String)} (transient: tidak dipersist). */
 	private transient java.util.Map<String, String> retreiveCacheMap;
 
+	/**
+	 * Mengembalikan cache per-instance untuk {@link #retreive(String)}, membuatnya sekali secara
+	 * malas (lazy).
+	 *
+	 * <p>Memakai <i>double-checked locking</i> dengan {@code synchronized (this)}: dibaca dulu
+	 * tanpa kunci, dan hanya bila masih {@code null} barulah kunci diambil dan pemeriksaan diulang.
+	 * Map yang dibuat bertipe {@code ConcurrentHashMap} sehingga aman dipakai bersamaan setelah
+	 * terbentuk. Karena {@code retreiveCacheMap} dideklarasikan {@code transient} (tidak
+	 * {@code volatile}), pola ini secara teori masih menyisakan celah publikasi tak-aman antar
+	 * thread pada JMM; risikonya dinilai kecil dan tampaknya diterima karena isinya sekadar cache
+	 * yang bisa dibangun ulang.</p>
+	 *
+	 * <p>Cache bersifat per-object dan tidak ikut terserialisasi, jadi salinan hasil deserialisasi
+	 * akan membangun cache-nya sendiri dari berkas.</p>
+	 *
+	 * @return map cache milik instance ini; tidak pernah {@code null}
+	 */
 	private java.util.Map<String, String> retreiveCache() {
 		java.util.Map<String, String> m = retreiveCacheMap;
 		if (m == null) {
@@ -1468,6 +1872,47 @@ public abstract class GeneralValueObject extends DataUtil
 		return m;
 	}
 	
+	/**
+	 * Mengembalikan seluruh nilai yang pernah dicatat lewat {@link #putBaru(String, String)} untuk
+	 * sufiks tertentu, dengan <b>migrasi otomatis</b> dari penyimpanan gaya lama bila perlu.
+	 *
+	 * <p>Dipakai luas oleh entity besar untuk mendapatkan daftar id relasi tanpa query, misalnya
+	 * {@code Dosen.retreiveAll(Skripsi.class.getName())} dan padanannya di {@code Mahasiswa}.
+	 * Nilai balik biasanya berupa daftar id dalam bentuk String yang lalu di-{@code parse} oleh
+	 * pemanggil.</p>
+	 *
+	 * <h4>Dua jalur</h4>
+	 * <ol>
+	 *   <li><b>Jalur cepat</b> — bila berkas batch {@code _put.json} sudah berisi, atau penanda
+	 *   {@code _put_udah.json} sudah ada, seluruh <b>kunci</b> JSON dikembalikan apa adanya.</li>
+	 *   <li><b>Jalur migrasi</b> — bila belum, data dikumpulkan dari penyimpanan gaya lama
+	 *   (satu berkas per nilai), setiap nilai ditulis ulang ke batch lewat
+	 *   {@code putBaru(...)}, dan di akhir penanda {@code _put_udah.json} diisi {@code "1"} agar
+	 *   pemanggilan berikutnya memakai jalur cepat. Sumber datanya sendiri bercabang menurut flag
+	 *   {@code BacaTulisUtil.flagDataMenggunakandatabase}: bila {@code true}, dibaca lewat query
+	 *   {@code ambilSemuaValueDenganPrefixFile(...)}; bila {@code false} (bawaan), folder induk
+	 *   di-{@code listFiles()} dan setiap berkas berawalan kunci dibaca satu per satu.</li>
+	 * </ol>
+	 *
+	 * <p>Nilai yang berakhiran {@code json} dianggap berupa path berkas dan dipangkas menjadi
+	 * segmen terakhirnya tanpa ekstensi (pemisah {@code \} dan {@code /} dinormalkan menjadi
+	 * {@code _} lebih dulu).</p>
+	 *
+	 * <p><b>Penjagaan yang sudah ada di kode dan jangan dihapus:</b> kunci kosong/blank tidak
+	 * pernah diteruskan ke hasil — ini memperbaiki {@code NumberFormatException} di pemanggil yang
+	 * langsung melakukan {@code Long.parseLong(s)} (mis.
+	 * {@code Dosen.ambilPerkuliahanDanParalel}) — dan hasil {@code listFiles()} yang {@code null}
+	 * (folder tidak dapat diakses OS) ditangani agar tidak menimbulkan
+	 * {@code NullPointerException}.</p>
+	 *
+	 * <p>Seluruh kegagalan ditelan dan dicatat ke audit; method mengembalikan daftar sejauh yang
+	 * berhasil dikumpulkan.</p>
+	 *
+	 * @param tambahan sufiks pembeda berkas/batch, umumnya nama kelas relasi yang didaftar
+	 * @return daftar nilai; kosong bila entity belum punya identifier atau tidak ada data
+	 * @see #putBaru(String, String)
+	 * @see #tulisPutBaru(String)
+	 */
 	@SuppressWarnings("unchecked")
 	public List<String> retreiveAll(String tambahan) {
 		List<String> strings = new ArrayList<String>();
@@ -1584,11 +2029,48 @@ public abstract class GeneralValueObject extends DataUtil
 	}
 	
 	
+	/**
+	 * Mencatat jejak aktivitas berjenis {@code jenis} atas entity ini oleh <b>pengguna yang sedang
+	 * login</b> ({@code Common.getCurrentUser()}).
+	 *
+	 * <p><b>Jangan tertukar</b> dengan {@code DataUtil.masukkanData(Class, GeneralValueObject)}
+	 * yang statis dan mengisi cache entity — kelompok {@code masukkanData}/{@code ambilData}
+	 * di kelas ini adalah method instance untuk jejak aktivitas berbasis berkas.</p>
+	 *
+	 * @param jenis label jenis aktivitas (mis. penanda "sedang membuka"/"sedang mengerjakan")
+	 * @see #masukkanData(String, Tbmuser)
+	 * @see #ambilData(String, String)
+	 */
 	public void masukkanData(String jenis) {
 		Tbmuser tbmuser = Common.getCurrentUser();
 		masukkanData(jenis, tbmuser);
 	}
 
+	/**
+	 * Mencatat jejak aktivitas atas entity ini untuk pengguna tertentu, setelah menerjemahkan
+	 * {@link Tbmuser} menjadi label pengguna berformat {@code "<nama>-<id>-<Tipe>"}.
+	 *
+	 * <p>Tipe ditentukan menurut profil yang menempel pada akun, diperiksa berurutan:
+	 * {@code CalonSiswa}, {@code CalonMahasiswa}, {@code Mahasiswa}, {@code Dosen}, {@code Siswa},
+	 * {@code Guru}, {@code Pegawai}. Bila tidak satu pun cocok, label memakai
+	 * {@code "<userNama>-1-<hakAkses>"}. Tanda hubung di dalam nama dibuang lebih dulu agar tidak
+	 * merusak pemisahan label saat dibaca kembali oleh {@link #ambilData(String, String, String,
+	 * Date, Date, String[])}. Bila {@code tbmuser} bernilai {@code null}, dipakai label
+	 * {@code "User"}.</p>
+	 *
+	 * <p>Stempel waktu diambil dari jam server ({@code WaktuUtil.getDate()}) dan diformat memakai
+	 * {@code Common.dateFormat3}.</p>
+	 *
+	 * <p><b>Catatan pemeliharaan:</b> pada cabang {@code Guru} kondisi yang diperiksa adalah
+	 * {@code tbmuser.getSiswa() != null} (sama dengan cabang {@code Siswa} sebelumnya), sehingga
+	 * cabang itu tampaknya tidak pernah tercapai dan akun guru akan jatuh ke cabang berikutnya.
+	 * Ini terlihat seperti kekeliruan historis; jangan "dirapikan" tanpa memverifikasi dampaknya
+	 * pada data jejak yang sudah tersimpan.</p>
+	 *
+	 * @param jenis   label jenis aktivitas
+	 * @param tbmuser akun pelaku; boleh {@code null}
+	 * @see #masukkanData(String, String, String)
+	 */
 	public void masukkanData(String jenis, Tbmuser tbmuser) {
 
 		if (tbmuser != null) {
@@ -1662,6 +2144,36 @@ public abstract class GeneralValueObject extends DataUtil
 		}
 	}
 
+	/**
+	 * Inti penulisan jejak aktivitas: menyisipkan atau memperbarui satu baris pada cache teks milik
+	 * entity ini.
+	 *
+	 * <h4>Format penyimpanan</h4>
+	 * <p>Seluruh jejak disimpan sebagai satu String di cache {@link #put(String)}/
+	 * {@link #retreive()}, berupa daftar rekaman dipisah titik koma, tiap rekaman berisi tiga
+	 * bidang dipisah koma:</p>
+	 * <pre>{@code <user>,<jenis>,<jam>;<user>,<jenis>,<jam>;...}</pre>
+	 * <p>dengan {@code <user>} sendiri berbentuk {@code "<nama>-<id>-<Tipe>"}. Karena koma menjadi
+	 * pemisah bidang, setiap koma pada {@code jenis}, {@code user}, dan {@code jam} lebih dulu
+	 * diganti menjadi titik ({@code .}).</p>
+	 *
+	 * <h4>Perilaku</h4>
+	 * <p>Daftar lama dibaca lalu ditulis ulang seluruhnya: rekaman dengan pasangan
+	 * {@code user}+{@code jenis} yang sama <b>ditimpa</b> dengan waktu terbaru (jadi tiap pengguna
+	 * hanya punya satu rekaman per jenis — ini catatan "terakhir kali", bukan riwayat lengkap);
+	 * rekaman lain disalin apa adanya; bila belum ada yang cocok, rekaman baru ditambahkan di
+	 * akhir. Hasilnya disimpan lewat {@link #put(String)}, sehingga ikut tunduk pada penjaga
+	 * startup di method tersebut.</p>
+	 *
+	 * <p>Rekaman yang tidak bisa diurai dilewati (kesalahannya dilaporkan lewat
+	 * {@code Common.tampilErrorJikaAdmin}). Bila {@code user} atau {@code jam} bernilai
+	 * {@code null}, method tidak melakukan apa pun.</p>
+	 *
+	 * @param jenis label jenis aktivitas
+	 * @param user  label pelaku, umumnya {@code "<nama>-<id>-<Tipe>"}
+	 * @param jam   waktu aktivitas dalam format {@code Common.dateFormat3}
+	 * @see #ambilData(String, String, String, Date, Date, String[])
+	 */
 	public void masukkanData(String jenis, String user, String jam) {
 
 		try {
@@ -1710,6 +2222,26 @@ public abstract class GeneralValueObject extends DataUtil
 		}
 	}
 
+	/**
+	 * Memeriksa apakah ada setidaknya satu pengguna <b>berperan akademik</b> yang tercatat sedang
+	 * melakukan aktivitas berjenis {@code jenis} atas entity ini.
+	 *
+	 * <p>Mengambil seluruh jejak lewat {@link #ambilData(String, String)} (tanpa penyaringan
+	 * pengguna dan tanpa rentang waktu), lalu menghitung rekaman yang bagian tipe-nya (segmen
+	 * ketiga label {@code "<nama>-<id>-<Tipe>"}) termasuk {@code Dosen}, {@code Mahasiswa},
+	 * {@code CalonMahasiswa}, {@code CalonSiswa}, {@code Guru}, atau {@code Siswa}. Peran lain —
+	 * termasuk {@code Pegawai} dan label fallback {@code "User"} — sengaja tidak dihitung.</p>
+	 *
+	 * <p><b>Perhatian:</b> jejak yang dipakai bersifat "terakhir kali", bukan status hidup dengan
+	 * kedaluwarsa. Jadi hasil {@code true} berarti "pernah tercatat", bukan jaminan pengguna masih
+	 * aktif saat ini. Pakai varian {@code ambilData} yang menerima rentang waktu bila kesegaran
+	 * data penting.</p>
+	 *
+	 * <p>Label yang tidak bisa diurai dilewati dan dicatat ke audit.</p>
+	 *
+	 * @param jenis label jenis aktivitas yang diperiksa
+	 * @return {@code true} bila ada minimal satu pengguna berperan akademik yang tercatat
+	 */
 	public boolean apakahSedang(String jenis) {
 		int jumlah = 0;
 		TreeMap<String, String> d = ambilData(jenis, null);
@@ -1729,23 +2261,115 @@ public abstract class GeneralValueObject extends DataUtil
 		return jumlah > 0;
 	}
 
+	/**
+	 * Pintasan {@link #ambilData(String, String, String, Date, Date)} tanpa posfix dan tanpa
+	 * rentang waktu.
+	 *
+	 * @param jenis label jenis aktivitas
+	 * @param user  id pengguna yang dicari; {@code null}/kosong berarti semua pengguna
+	 * @return peta jejak aktivitas; kosong bila tidak ada yang cocok
+	 * @see #ambilData(String, String, String, Date, Date, String[])
+	 */
 	public TreeMap<String, String> ambilData(String jenis, String user) {
 		return ambilData(jenis, user, "", null, null);
 	}
 
+	/**
+	 * Pintasan {@link #ambilData(String, String, String, Date, Date)} tanpa posfix, dengan
+	 * penyaringan rentang waktu.
+	 *
+	 * @param jenis  label jenis aktivitas
+	 * @param user   id pengguna yang dicari; {@code null}/kosong berarti semua pengguna
+	 * @param mulai  batas bawah waktu (eksklusif); boleh {@code null}
+	 * @param sampai batas atas waktu (eksklusif); boleh {@code null}
+	 * @return peta jejak aktivitas; kosong bila tidak ada yang cocok
+	 * @see #ambilData(String, String, String, Date, Date, String[])
+	 */
 	public TreeMap<String, String> ambilData(String jenis, String user, Date mulai, Date sampai) {
 		return ambilData(jenis, user, "", mulai, sampai);
 	}
 
+	/**
+	 * Pintasan {@link #ambilData(String, String, String, Date, Date)} tanpa rentang waktu.
+	 *
+	 * @param jenis  label jenis aktivitas
+	 * @param user   id pengguna yang dicari; {@code null}/kosong berarti semua pengguna
+	 * @param posfix akhiran yang ditambahkan pada kunci hasil
+	 * @return peta jejak aktivitas; kosong bila tidak ada yang cocok
+	 * @see #ambilData(String, String, String, Date, Date, String[])
+	 */
 	public TreeMap<String, String> ambilData(String jenis, String user, String posfix) {
 		return ambilData(jenis, user, posfix, null, null);
 	}
 
+	/**
+	 * Pintasan {@link #ambilData(String, String, String, Date, Date, String[])} dengan daftar
+	 * peran bawaan: {@code Mahasiswa}, {@code CalonMahasiswa}, {@code Dosen}, {@code Siswa},
+	 * {@code CalonSiswa}, {@code Guru}.
+	 *
+	 * <p>Karena daftar bawaan ini tidak memuat {@code Pegawai} maupun label fallback
+	 * {@code "User"}, jejak dari peran tersebut <b>tidak</b> ikut terbaca lewat overload ini.
+	 * Panggil overload berparameter {@code jenisPengguna} bila peran lain juga dibutuhkan.</p>
+	 *
+	 * @param jenis  label jenis aktivitas
+	 * @param user   id pengguna yang dicari; {@code null}/kosong berarti semua pengguna
+	 * @param posfix akhiran yang ditambahkan pada kunci hasil
+	 * @param mulai  batas bawah waktu (eksklusif); boleh {@code null}
+	 * @param sampai batas atas waktu (eksklusif); boleh {@code null}
+	 * @return peta jejak aktivitas; kosong bila tidak ada yang cocok
+	 * @see #ambilData(String, String, String, Date, Date, String[])
+	 */
 	public TreeMap<String, String> ambilData(String jenis, String user, String posfix, Date mulai, Date sampai) {
 		return ambilData(jenis, user, posfix, mulai, sampai,
 				new String[] { "Mahasiswa", "CalonMahasiswa", "Dosen", "Siswa", "CalonSiswa", "Guru" });
 	}
 
+	/**
+	 * Membaca dan menyaring jejak aktivitas yang tersimpan oleh
+	 * {@link #masukkanData(String, String, String)}.
+	 *
+	 * <p><b>Jangan tertukar</b> dengan {@code DataUtil.ambilData(Class, String)} yang statis dan
+	 * membaca entity dari cache/DB. Method ini instance dan hanya membaca cache teks milik entity
+	 * ini.</p>
+	 *
+	 * <h4>Alur penyaringan (dievaluasi berurutan per rekaman)</h4>
+	 * <ol>
+	 *   <li>Rekaman dipecah dengan koma; rekaman dengan kurang dari tiga bidang <b>dilewati</b>
+	 *   (penjaga terhadap {@code ArrayIndexOutOfBoundsException} — jangan dihapus).</li>
+	 *   <li>Bila {@code jenisPengguna} diisi, segmen ketiga label pengguna
+	 *   ({@code "<nama>-<id>-<Tipe>"}) harus termasuk daftar itu. Label yang tidak punya segmen
+	 *   ketiga dianggap bertipe kosong sehingga tidak akan cocok dengan peran mana pun —
+	 *   sekali lagi penjaga yang disengaja, bukan pelemparan exception.</li>
+	 *   <li>Bila {@code mulai} dan/atau {@code sampai} diisi, waktu rekaman diurai dengan
+	 *   {@code Common.dateFormat3} lalu diuji: keduanya diisi &rarr; harus
+	 *   {@code mulai < waktu < sampai}; hanya {@code mulai} &rarr; harus {@code waktu > mulai};
+	 *   hanya {@code sampai} &rarr; harus {@code waktu < sampai}. Perbandingannya
+	 *   <b>eksklusif</b> di kedua ujung. Waktu yang gagal diurai membuat rekaman tetap lolos
+	 *   (exception ditelan dan dicatat).</li>
+	 *   <li>Penyaringan jenis: bila {@code user} diisi, jenis dicocokkan dengan
+	 *   {@code startsWith(jenis)} (cocok awalan) dan id pengguna — segmen kedua label — harus sama
+	 *   persis. Bila {@code user} kosong, jenis harus sama persis
+	 *   ({@code equalsIgnoreCase}).</li>
+	 * </ol>
+	 *
+	 * <h4>Bentuk hasil</h4>
+	 * <p>{@link TreeMap} (jadi terurut menurut kunci) dengan <b>nilai</b> berupa waktu aktivitas,
+	 * dan <b>kunci</b> yang bentuknya berbeda menurut jalur pencocokan: {@code userId + jenisId +
+	 * posfix} bila menyaring per pengguna, atau {@code userId + posfix} bila menyaring per jenis.
+	 * Karena berupa map, hanya satu rekaman yang bertahan untuk kunci yang sama.</p>
+	 *
+	 * <p>Kegagalan pada satu rekaman tidak menggagalkan keseluruhan: rekaman bermasalah dilewati
+	 * dan dicatat ke audit.</p>
+	 *
+	 * @param jenis         label jenis aktivitas
+	 * @param user          id pengguna yang dicari; {@code null}/kosong berarti semua pengguna
+	 * @param posfix        akhiran yang ditambahkan pada kunci hasil
+	 * @param mulai         batas bawah waktu (eksklusif); boleh {@code null}
+	 * @param sampai        batas atas waktu (eksklusif); boleh {@code null}
+	 * @param jenisPengguna daftar peran yang diizinkan; {@code null} berarti tanpa penyaringan peran
+	 * @return peta jejak aktivitas hasil penyaringan; kosong bila tidak ada yang cocok
+	 * @see #masukkanData(String, String, String)
+	 */
 	public TreeMap<String, String> ambilData(String jenis, String user, String posfix, Date mulai, Date sampai,
 			String[] jenisPengguna) {
 		TreeMap<String, String> treeMap = new TreeMap<String, String>();
@@ -1852,6 +2476,22 @@ public abstract class GeneralValueObject extends DataUtil
 		return treeMap;
 	}
 
+	/**
+	 * Membaca isi indeks JSON checklist hasil penilaian umum milik entity ini.
+	 *
+	 * <p>Berkas indeks dipisahkan per kombinasi entity + {@code userId} yang dinilai +
+	 * {@code pertemuanId}, sehingga satu entity bisa punya banyak indeks sekaligus. Kunci berkas
+	 * memakai {@code userId} untuk {@link Tbmuser} dan {@link #getId()} untuk entity lain.</p>
+	 *
+	 * <p>Isi indeks adalah JSON berbentuk peta {@code id -> id} untuk baris yang aktif, dan
+	 * {@code id -> ""} untuk baris yang sudah dibuang oleh
+	 * {@link #removeChecklistHasilPenilaianUmum(Serializable, Long, String)}.</p>
+	 *
+	 * @param pertemuanId id pertemuan; {@code null} untuk indeks yang tidak terikat pertemuan
+	 * @param userId      id pengguna yang dinilai; {@code null} untuk indeks umum
+	 * @return isi indeks JSON, atau {@code VOMahasiswa.dataJSON} (JSON kosong bawaan) bila berkas
+	 *         belum ada/kosong/gagal dibaca
+	 */
 	public String ambilLokasiChecklistHasilPenilaianUmum(Long pertemuanId, String userId) {
 		String id = getId() == null ? "" : getId().toString();
 		if (this instanceof Tbmuser) {
@@ -1868,6 +2508,20 @@ public abstract class GeneralValueObject extends DataUtil
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Menimpa isi indeks JSON checklist hasil penilaian umum untuk kombinasi entity +
+	 * {@code userId} + {@code pertemuanId} tertentu.
+	 *
+	 * <p>Penulisan bersifat menimpa penuh, bukan menggabung — pemanggil bertanggung jawab membaca
+	 * dulu lewat {@link #ambilLokasiChecklistHasilPenilaianUmum(Long, String)}, mengubah JSON-nya,
+	 * lalu menuliskannya kembali (pola yang dipakai
+	 * {@link #populateChecklistHasilPenilaianUmum(ChecklistHasilPenilaianUmum, Long, String)}).
+	 * Kegagalan I/O ditelan dan dicatat ke audit.</p>
+	 *
+	 * @param data        isi indeks JSON yang akan ditulis
+	 * @param pertemuanId id pertemuan; boleh {@code null}
+	 * @param userId      id pengguna yang dinilai; boleh {@code null}
+	 */
 	public void tulisLokasiChecklistHasilPenilaianUmum(String data, Long pertemuanId, String userId) {
 		String id = getId() == null ? "" : getId().toString();
 		if (this instanceof Tbmuser) {
@@ -1884,6 +2538,19 @@ public abstract class GeneralValueObject extends DataUtil
 		}
 	}
 
+	/**
+	 * Menghapus berkas indeks checklist hasil penilaian umum untuk kombinasi entity +
+	 * {@code userId} + {@code pertemuanId} tertentu.
+	 *
+	 * <p>Penghapusan dilakukan lewat {@code BacaTulisUtil.doHapus(file, "checklist_hasil_penilaian_umum")}.
+	 * Sekali lagi: yang dihapus adalah <b>berkas indeks</b>, bukan baris
+	 * {@code ChecklistHasilPenilaianUmum} di database. Dipakai
+	 * {@link #reInitChecklistHasilPenilaianUmum(Session, Long, String)} sebagai langkah bersih-bersih
+	 * sebelum indeks dibangun ulang.</p>
+	 *
+	 * @param pertemuanId id pertemuan; boleh {@code null}
+	 * @param userId      id pengguna yang dinilai; boleh {@code null}
+	 */
 	public void bersihkanLokasiChecklistHasilPenilaianUmum(Long pertemuanId, String userId) {
 		String id = getId() == null ? "" : getId().toString();
 		if (this instanceof Tbmuser) {
@@ -1895,6 +2562,36 @@ public abstract class GeneralValueObject extends DataUtil
 
 	}
 
+	/**
+	 * Membangun ulang indeks berkas checklist hasil penilaian umum dari database.
+	 *
+	 * <p>Kolom relasi yang dipakai sebagai filter ditentukan dari tipe entity ini:
+	 * {@link Tbmuser} &rarr; {@code tbmuser}, {@code Dosen} &rarr; {@code dosen},
+	 * {@code Mahasiswa} &rarr; {@code mahasiswa}, {@code Siswa} &rarr; {@code siswa},
+	 * {@code Guru} &rarr; {@code guru}. <b>Untuk tipe entity lain method tidak melakukan apa
+	 * pun</b> — indeks dibiarkan sebagaimana adanya.</p>
+	 *
+	 * <p>Alurnya: query {@code Criteria} mengambil daftar {@code id} yang cocok (diurut naik,
+	 * memakai {@code Projections.property("id")} sehingga hanya id yang ditarik dari database),
+	 * indeks lama dihapus dan diganti JSON kosong, lalu setiap id dimasukkan kembali. Untuk tiap
+	 * id, entity coba diambil dari cache lewat {@code ambilData(...)} milik {@link DataUtil}; bila
+	 * belum ada, baris dibaca dari {@code session} dan disimpan ke cache lewat
+	 * {@code masukkanData(...)}. Terakhir
+	 * {@link #populateChecklistHasilPenilaianUmum(ChecklistHasilPenilaianUmum, Long, String)}
+	 * mendaftarkannya ke indeks.</p>
+	 *
+	 * <p><b>Efek samping:</b> menulis dan menghapus berkas indeks, serta mengisi cache entity.
+	 * Membutuhkan {@code session} yang masih terbuka; method ini tidak membuka session sendiri dan
+	 * tidak mengelola transaksi. Biasanya dipanggil dari
+	 * {@link #ambilChecklistHasilPenilaianUmum(Session, Long, String, boolean)} hanya ketika
+	 * penanda {@link #udah(String)} belum terpasang atau saat {@code refresh} diminta.</p>
+	 *
+	 * @param session     session Hibernate aktif
+	 * @param pertemuanId id pertemuan; {@code null} berarti menyaring baris yang
+	 *                    {@code pertemuanId}-nya {@code null}
+	 * @param userId      id pengguna yang dinilai; {@code null} berarti menyaring baris yang
+	 *                    {@code tbmuserDinilai}-nya {@code null}
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitChecklistHasilPenilaianUmum(Session session, Long pertemuanId, String userId) {
 
@@ -1942,6 +2639,20 @@ public abstract class GeneralValueObject extends DataUtil
 		}
 	}
 
+	/**
+	 * Mencabut satu baris checklist hasil penilaian umum dari indeks berkas.
+	 *
+	 * <p>Yang terjadi bukan penghapusan kunci, melainkan <b>pengosongan nilainya</b>
+	 * ({@code id -> ""}). Itu cukup karena
+	 * {@link #ambilChecklistHasilPenilaianUmum(Session, Long, String, boolean)} hanya memproses
+	 * kunci yang nilainya tidak kosong. Baris di database tidak tersentuh.</p>
+	 *
+	 * <p>Kegagalan parsing/penulisan ditelan dan dicatat ke audit.</p>
+	 *
+	 * @param id          id baris yang dicabut dari indeks
+	 * @param pertemuanId id pertemuan; boleh {@code null}
+	 * @param userId      id pengguna yang dinilai; boleh {@code null}
+	 */
 	public void removeChecklistHasilPenilaianUmum(Serializable id, Long pertemuanId, String userId) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiChecklistHasilPenilaianUmum(pertemuanId, userId));
@@ -1952,6 +2663,25 @@ public abstract class GeneralValueObject extends DataUtil
 		}
 	}
 
+	/**
+	 * Mendaftarkan satu baris checklist hasil penilaian umum ke indeks berkas.
+	 *
+	 * <p>Membaca indeks, memasang entri {@code id -> id} (nilai sama dengan kunci, menandakan
+	 * "aktif"; bandingkan dengan
+	 * {@link #removeChecklistHasilPenilaianUmum(Serializable, Long, String)} yang mengosongkan
+	 * nilainya), lalu menuliskan indeks kembali. Argumen {@code null} diabaikan tanpa efek.</p>
+	 *
+	 * <p><b>Catatan bentuk data:</b> berbeda dari padanannya
+	 * {@link #populateIsiAngketParameterUmum(IsiAngketParameterUmum)} yang menyimpan <i>path
+	 * berkas</i> sebagai nilai, di sini yang disimpan hanya id — pemuatan datanya belakangan
+	 * dilakukan lewat cache/DB, bukan dari berkas.</p>
+	 *
+	 * <p>Kegagalan parsing/penulisan ditelan dan dicatat ke audit.</p>
+	 *
+	 * @param checklistHasilPenilaianUmum baris yang didaftarkan; {@code null} diabaikan
+	 * @param pertemuanId                 id pertemuan; boleh {@code null}
+	 * @param userId                      id pengguna yang dinilai; boleh {@code null}
+	 */
 	public void populateChecklistHasilPenilaianUmum(ChecklistHasilPenilaianUmum checklistHasilPenilaianUmum,
 			Long pertemuanId, String userId) {
 		try {
@@ -1966,6 +2696,35 @@ public abstract class GeneralValueObject extends DataUtil
 		}
 	}
 
+	/**
+	 * Mengembalikan koleksi checklist hasil penilaian umum milik entity ini, memakai indeks berkas
+	 * sebagai jalan pintas atas query database.
+	 *
+	 * <p>Bila {@code refresh} bernilai {@code true} <b>atau</b> penanda {@link #udah(String)} untuk
+	 * kombinasi {@code userId}+{@code pertemuanId} belum terpasang, indeks dibangun ulang lebih
+	 * dulu lewat {@link #reInitChecklistHasilPenilaianUmum(Session, Long, String)}. Sesudah itu
+	 * setiap kunci aktif pada indeks dimuat lewat {@code ambilData(...)} (cache, dengan fallback
+	 * DB) dan disaring ulang: {@code pertemuanId} harus cocok bila diminta, {@code userId} peserta
+	 * yang dinilai harus cocok bila diminta, dan {@code checklistPenilaianUmum} tidak boleh
+	 * {@code null}.</p>
+	 *
+	 * <p><b>Efek samping yang perlu disadari:</b> setiap baris yang lolos disambungkan balik ke
+	 * entity ini lewat setter yang sesuai dengan tipenya ({@code setTbmuser}/{@code setDosen}/
+	 * {@code setMahasiswa}/{@code setGuru}/{@code setSiswa}). Object yang dikembalikan karenanya
+	 * <b>dimutasi</b>; bila berasal dari cache bersama, mutasi itu terlihat pemakai lain. Method
+	 * ini juga mencetak ringkasan hasil ke {@code System.out}.</p>
+	 *
+	 * <p>Hasil dikumpulkan dalam {@code Map<Long, ...>} berkunci {@code id} — bukan {@code Set} —
+	 * karena {@code hashCode()} entity tidak konsisten dengan {@link #equals(Object)}; itulah cara
+	 * deduplikasi yang benar di codebase ini.</p>
+	 *
+	 * @param session     session Hibernate aktif (dibutuhkan bila indeks perlu dibangun ulang)
+	 * @param pertemuanId id pertemuan; {@code null} berarti tanpa penyaringan pertemuan
+	 * @param userId      id pengguna yang dinilai; {@code null} berarti tanpa penyaringan pengguna
+	 * @param refresh     {@code true} untuk memaksa pembangunan ulang indeks dari database
+	 * @return koleksi baris checklist yang lolos saringan; kosong bila tidak ada
+	 * @see #reInitChecklistHasilPenilaianUmum(Session, Long, String)
+	 */
 	@SuppressWarnings("unchecked")
 	public Collection<ChecklistHasilPenilaianUmum> ambilChecklistHasilPenilaianUmum(Session session, Long pertemuanId,
 			String userId, boolean refresh) {
@@ -2023,6 +2782,22 @@ public abstract class GeneralValueObject extends DataUtil
 		return maps.values();
 	}
 
+	/**
+	 * Membaca isi indeks JSON isian angket parameter umum milik entity ini.
+	 *
+	 * <p>Berbeda dari indeks checklist yang terpisah per pertemuan/pengguna, indeks angket hanya
+	 * satu per entity. Kunci berkas memakai {@code userId} untuk {@link Tbmuser} dan
+	 * {@link #getId()} untuk entity lain.</p>
+	 *
+	 * <p>Isinya berbentuk peta {@code id -> path berkas snapshot} untuk baris aktif, dan
+	 * {@code id -> ""} untuk baris yang dicabut oleh
+	 * {@link #removeIsiAngketParameterUmum(Serializable)}.</p>
+	 *
+	 * <p>Method ini mencetak lokasi berkas yang dibaca ke {@code System.out}.</p>
+	 *
+	 * @return isi indeks JSON, atau {@code VOMahasiswa.dataJSON} (JSON kosong bawaan) bila berkas
+	 *         belum ada/kosong/gagal dibaca
+	 */
 	public String ambilLokasiIsiAngketParameterUmum() {
 		String id = getId() == null ? "" : getId().toString();
 		if (this instanceof Tbmuser) {
@@ -2038,6 +2813,16 @@ public abstract class GeneralValueObject extends DataUtil
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Menimpa isi indeks JSON isian angket parameter umum milik entity ini.
+	 *
+	 * <p>Penulisan bersifat menimpa penuh; pemanggil bertanggung jawab membaca-ubah-tulis (lihat
+	 * {@link #populateIsiAngketParameterUmum(IsiAngketParameterUmum)}). Method ini mencetak lokasi
+	 * berkas yang ditulis ke {@code System.out}, dan kegagalan I/O ditelan serta dicatat ke
+	 * audit.</p>
+	 *
+	 * @param data isi indeks JSON yang akan ditulis
+	 */
 	public void tulisLokasiIsiAngketParameterUmum(String data) {
 		String id = getId() == null ? "" : getId().toString();
 		if (this instanceof Tbmuser) {
@@ -2053,6 +2838,14 @@ public abstract class GeneralValueObject extends DataUtil
 		}
 	}
 
+	/**
+	 * Menghapus berkas indeks isian angket parameter umum milik entity ini lewat
+	 * {@code BacaTulisUtil.doHapus(file, "isi_angket_parameter_umum")}.
+	 *
+	 * <p>Yang dihapus adalah berkas indeks, bukan baris {@code IsiAngketParameterUmum} di
+	 * database. Dipakai {@link #reInitIsiAngketParameterUmum(Session)} sebelum indeks dibangun
+	 * ulang.</p>
+	 */
 	public void bersihkanLokasiIsiAngketParameterUmum() {
 		String id = getId() == null ? "" : getId().toString();
 		if (this instanceof Tbmuser) {
@@ -2063,6 +2856,26 @@ public abstract class GeneralValueObject extends DataUtil
 
 	}
 
+	/**
+	 * Membangun ulang indeks berkas isian angket parameter umum dari database.
+	 *
+	 * <p>Kolom relasi penyaring ditentukan dari tipe entity ini: {@link Tbmuser} &rarr;
+	 * {@code tbmuser}, {@code Dosen} &rarr; {@code dosen}, {@code Mahasiswa} &rarr;
+	 * {@code mahasiswa}. Perhatikan daftarnya <b>lebih sempit</b> daripada padanan checklist
+	 * ({@link #reInitChecklistHasilPenilaianUmum(Session, Long, String)}) — {@code Siswa} dan
+	 * {@code Guru} tidak termasuk; untuk tipe lain method tidak melakukan apa pun.</p>
+	 *
+	 * <p>Berbeda pula dari padanan checklist yang hanya menarik kolom {@code id}, query di sini
+	 * menarik <b>entity penuh</b> lalu setiap baris disimpan sebagai snapshot berkas oleh
+	 * {@link #populateIsiAngketParameterUmum(IsiAngketParameterUmum)}. Indeks lama dihapus dan
+	 * diganti JSON kosong lebih dulu.</p>
+	 *
+	 * <p><b>Efek samping:</b> menghapus/menulis berkas indeks dan menulis satu berkas snapshot per
+	 * baris. Membutuhkan {@code session} yang masih terbuka; tidak membuka session atau transaksi
+	 * sendiri.</p>
+	 *
+	 * @param session session Hibernate aktif
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitIsiAngketParameterUmum(Session session) {
 
@@ -2088,6 +2901,16 @@ public abstract class GeneralValueObject extends DataUtil
 		}
 	}
 
+	/**
+	 * Mencabut satu baris isian angket parameter umum dari indeks berkas dengan mengosongkan
+	 * nilainya ({@code id -> ""}).
+	 *
+	 * <p>Kuncinya tetap ada; {@link #ambilIsiAngketParameterUmum(Session, boolean)} melewati entri
+	 * bernilai kosong. Baris di database tidak tersentuh, dan berkas snapshot yang mungkin sudah
+	 * ditulis sebelumnya <b>tidak</b> ikut dihapus. Kegagalan ditelan dan dicatat ke audit.</p>
+	 *
+	 * @param id id baris yang dicabut dari indeks
+	 */
 	public void removeIsiAngketParameterUmum(Serializable id) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiIsiAngketParameterUmum());
@@ -2098,6 +2921,22 @@ public abstract class GeneralValueObject extends DataUtil
 		}
 	}
 
+	/**
+	 * Mendaftarkan satu baris isian angket parameter umum ke indeks, sekaligus menuliskan snapshot
+	 * JSON baris tersebut ke berkas.
+	 *
+	 * <p>Nilai yang disimpan di indeks adalah <b>path absolut berkas snapshot</b> hasil
+	 * {@code isiAngketParameterUmum.write()} — inilah perbedaan penting dari padanan checklist
+	 * ({@link #populateChecklistHasilPenilaianUmum(ChecklistHasilPenilaianUmum, Long, String)})
+	 * yang hanya menyimpan id. Konsekuensinya
+	 * {@link #ambilIsiAngketParameterUmum(Session, boolean)} membaca datanya dari berkas, bukan
+	 * dari cache/DB, sehingga isi yang dikembalikan mencerminkan keadaan saat snapshot ditulis —
+	 * bukan keadaan terkini di database.</p>
+	 *
+	 * <p>Argumen {@code null} diabaikan; kegagalan ditelan dan dicatat ke audit.</p>
+	 *
+	 * @param isiAngketParameterUmum baris yang didaftarkan; {@code null} diabaikan
+	 */
 	public void populateIsiAngketParameterUmum(IsiAngketParameterUmum isiAngketParameterUmum) {
 		try {
 			if (isiAngketParameterUmum == null) {
@@ -2111,6 +2950,35 @@ public abstract class GeneralValueObject extends DataUtil
 		}
 	}
 
+	/**
+	 * Mengembalikan koleksi isian angket parameter umum milik entity ini, dibaca dari berkas
+	 * snapshot yang ditunjuk indeks.
+	 *
+	 * <p>Bila {@code refresh} bernilai {@code true} <b>atau</b> penanda
+	 * {@code udah("IsiAngketParameterUmum")} belum terpasang, indeks dibangun ulang lebih dulu
+	 * lewat {@link #reInitIsiAngketParameterUmum(Session)}. Sesudah itu setiap entri indeks yang
+	 * nilainya tidak kosong diperlakukan sebagai path berkas: berkas dibaca, JSON-nya diubah
+	 * kembali menjadi object lewat {@code Common.convertToObject(...)}, lalu disaring — baris
+	 * dibuang bila {@code jadwalChecklistPenilaianUmum}-nya {@code null}.</p>
+	 *
+	 * <p><b>Perhatian:</b> karena datanya berasal dari snapshot berkas, hasilnya adalah object
+	 * <i>detached</i> hasil rekonstruksi, bukan entity yang dikelola {@code session}, dan bisa
+	 * tertinggal dari keadaan terkini di database. Setiap baris juga <b>dimutasi</b> agar
+	 * menunjuk balik ke entity ini ({@code setTbmuser}/{@code setDosen}/{@code setMahasiswa}).</p>
+	 *
+	 * <p>Hasil dikumpulkan ke {@code Map} berkunci <b>id jadwal</b>
+	 * ({@code jadwalChecklistPenilaianUmum.getId()}) — bukan id barisnya sendiri — sehingga bila
+	 * ada lebih dari satu isian untuk jadwal yang sama, <b>hanya yang terakhir dibaca yang
+	 * bertahan</b>. Perilaku ini tampaknya disengaja sebagai "satu isian per jadwal", tetapi perlu
+	 * disadari saat menelusuri data yang seolah hilang.</p>
+	 *
+	 * <p>Kegagalan per baris ditelan dan dicatat ke audit; baris bermasalah dilewati.</p>
+	 *
+	 * @param session session Hibernate aktif (dibutuhkan bila indeks perlu dibangun ulang)
+	 * @param refresh {@code true} untuk memaksa pembangunan ulang indeks dari database
+	 * @return koleksi isian angket; kosong bila tidak ada
+	 * @see #reInitIsiAngketParameterUmum(Session)
+	 */
 	@SuppressWarnings("unchecked")
 	public Collection<IsiAngketParameterUmum> ambilIsiAngketParameterUmum(Session session, boolean refresh) {
 		if (refresh || !udah("IsiAngketParameterUmum")) {
@@ -2156,10 +3024,56 @@ public abstract class GeneralValueObject extends DataUtil
 		return maps.values();
 	}
 
+	/**
+	 * Pintasan {@link #tampilKunci(Component, VoKunci, Tbmuser, EventListener, boolean)} dengan
+	 * label tombol ditampilkan.
+	 *
+	 * @param toolbar       komponen ZK induk tempat tombol dipasang
+	 * @param voKunci       data yang dapat dikunci
+	 * @param tbmuser       akun pengguna aktif
+	 * @param eventListener listener yang dipicu setelah status kunci berubah
+	 * @see #tampilKunci(Component, VoKunci, Tbmuser, EventListener, boolean)
+	 */
 	public static void tampilKunci(Component toolbar, VoKunci voKunci, Tbmuser tbmuser, EventListener eventListener) {
 		tampilKunci(toolbar, voKunci, tbmuser, eventListener, true);
 	}
 
+	/**
+	 * Memasang sepasang tombol ZK "Kunci"/"Buka Kunci" pada toolbar sebuah baris/window, lengkap
+	 * dengan konfirmasi dan aturan hak akses.
+	 *
+	 * <p>Ini satu-satunya method di kelas ini yang membangun komponen UI; ia ada di sini karena
+	 * penguncian data adalah perilaku lintas modul yang berlaku bagi banyak entity turunan
+	 * {@link VoKunci}.</p>
+	 *
+	 * <h4>Perilaku</h4>
+	 * <ul>
+	 *   <li>Tombol hanya dipasang bila {@code voKunci} tidak {@code null} <b>dan</b> akun aktif
+	 *   bukan siswa ({@code tbmuser.getSiswa() == null}).</li>
+	 *   <li>Menekan "Kunci" memunculkan konfirmasi; bila disetujui, {@code voKunci} diberi penanda
+	 *   pengunci berupa pengguna aktif ({@code Common.getCurrentUser()}) dan disimpan lewat
+	 *   {@code Common.refreshUpdate(voKunci)} — jadi <b>ada efek tulis ke database</b> di dalam
+	 *   listener ini. Menekan "Buka Kunci" melakukan kebalikannya
+	 *   ({@code setDikunci(null)}).</li>
+	 *   <li>Sesudah perubahan, visibilitas kedua tombol disegarkan dan
+	 *   {@code Common.createDefaultTimer(eventListener)} dipanggil agar layar pemanggil ikut
+	 *   dimuat ulang.</li>
+	 *   <li>Kedua tombol dinonaktifkan bila {@code Common.getApakahAdminBolehKunci()} bernilai
+	 *   {@code false}. Tombol "Buka Kunci" juga dinonaktifkan bila data dikunci oleh pengguna
+	 *   <b>lain</b>, sehingga hanya pengunci yang sama yang boleh membukanya.</li>
+	 *   <li>Penempatan menyesuaikan tata letak: bila toolbar punya atribut
+	 *   {@code "ais_row_actions_popup"} berisi {@code Div}, tombol dimasukkan ke menu popup
+	 *   (dengan pemisah dan label penuh); bila tidak, tombol dipasang langsung di toolbar sebagai
+	 *   tombol ikon kecil.</li>
+	 * </ul>
+	 *
+	 * @param toolbar       komponen ZK induk tempat tombol dipasang
+	 * @param voKunci       data yang dapat dikunci; bila {@code null} tidak ada tombol dipasang
+	 * @param tbmuser       akun pengguna aktif, dipakai untuk menentukan kelayakan tampil
+	 * @param eventListener listener yang dipicu setelah status kunci berubah
+	 * @param tampilLabel   {@code true} untuk menampilkan teks pada tombol toolbar; label tetap
+	 *                      dipaksa tampil bila tombol masuk ke menu popup
+	 */
 	public static void tampilKunci(Component toolbar, final VoKunci voKunci, Tbmuser tbmuser,
 			final EventListener eventListener, final boolean tampilLabel) {
 		final MyToolbarbuttonConfig bukaKunci = new MyToolbarbuttonConfig(tampilLabel ? "Buka" : "",
@@ -2280,6 +3194,18 @@ public abstract class GeneralValueObject extends DataUtil
 	}
 	
 	
+	/**
+	 * Menentukan apakah sebuah nilai properti dianggap "kosong" untuk keperluan pencocokan di
+	 * {@link #ambilSatuData(Class, List, String[], Object[])}.
+	 *
+	 * <p>Aturannya sengaja berbeda per tipe: {@code null} kosong; {@link String} kosong bila hanya
+	 * berisi spasi; {@code GeneralValueObject} kosong bila {@code id}-nya {@code null} (entity
+	 * yang belum tersimpan dianggap belum menunjuk apa pun). Tipe lain — termasuk angka
+	 * {@code 0} dan {@code Boolean.FALSE} — <b>tidak</b> dianggap kosong.</p>
+	 *
+	 * @param value nilai yang diperiksa; boleh {@code null}
+	 * @return {@code true} bila nilai dianggap kosong
+	 */
 	private static boolean isNilaiKosong(Object value) {
 		if (value == null) {
 			return true;
@@ -2293,6 +3219,30 @@ public abstract class GeneralValueObject extends DataUtil
 		return false;
 	}
 
+	/**
+	 * Membandingkan dua nilai properti secara toleran untuk keperluan
+	 * {@link #ambilSatuData(Class, List, String[], Object[])}.
+	 *
+	 * <p>Aturan per tipe, diperiksa berurutan:</p>
+	 * <ul>
+	 *   <li>Dua {@code GeneralValueObject} &rarr; sama bila kedua {@code id} non-null dan
+	 *   bernilai sama. Sengaja tidak memakai {@link #equals(Object)} agar entity ber-{@code id}
+	 *   {@code null} tidak pernah dinyatakan cocok.</li>
+	 *   <li>Dua {@link Date} &rarr; dibandingkan lewat hasil format {@code Common.dateFormat3},
+	 *   sehingga perbedaan presisi di bawah satuan format itu diabaikan.</li>
+	 *   <li>Dua {@link Number} &rarr; dibandingkan sebagai {@code double}, sehingga
+	 *   {@code Integer 5}, {@code Long 5L}, dan {@code BigDecimal 5.0} dianggap sama.</li>
+	 *   <li>Selain itu &rarr; perbandingan {@code toString()} yang sudah di-{@code trim} dan tidak
+	 *   peka besar-kecil huruf.</li>
+	 * </ul>
+	 *
+	 * <p>Method mengasumsikan kedua argumen tidak {@code null} — pemanggilnya sudah menyaring
+	 * nilai kosong lebih dulu lewat {@link #isNilaiKosong(Object)}.</p>
+	 *
+	 * @param valData nilai aktual pada kandidat
+	 * @param expData nilai yang diharapkan
+	 * @return {@code true} bila kedua nilai dianggap sama
+	 */
 	private static boolean isNilaiSama(Object valData, Object expData) {
 		if (valData instanceof GeneralValueObject && expData instanceof GeneralValueObject) {
 			GeneralValueObject vObj = (GeneralValueObject) valData;
