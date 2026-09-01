@@ -262,7 +262,7 @@ public class SetingBiayaHelper {
                 || binding.getSettingBiaya() == null || binding.getSettingBiaya().getId() == null
                 || detailSettingBiaya == null || detailSettingBiaya.getId() == null
                 || binding.getSettingBiaya().getJenisKegiatan() == null
-                || !binding.getSettingBiaya().getJenisKegiatan().getHanyaBerupaAngsuran()) {
+                || !Boolean.TRUE.equals(binding.getSettingBiaya().getJenisKegiatan().getHanyaBerupaAngsuran())) {
             return;
         }
 
