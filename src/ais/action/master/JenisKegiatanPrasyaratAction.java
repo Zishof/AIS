@@ -660,20 +660,20 @@ public class JenisKegiatanPrasyaratAction extends GenericAutowireComposer
 							Kegiatan kegiatan = mahasiswa.ambilKegiatans(smt,
 									jenisKegiatanPrasyarat.getJenisKegiatanPrasyarat());
 
-							per = kegiatan == null ? 0.0 : kegiatan.getPersentaseLunas();
+							per = persentaseLunasUntukPrasyarat(kegiatan);
 
 							memenuhiSyarat = jenisKegiatanPrasyarat.getProsentaseLunas() <= per;
 							if (!memenuhiSyarat && jenisKegiatanPrasyarat.getJenisKegiatanPrasyarat2() != null) {
 								kegiatan = mahasiswa.ambilKegiatans(smt,
 										jenisKegiatanPrasyarat.getJenisKegiatanPrasyarat2());
-								per = kegiatan == null ? 0.0 : kegiatan.getPersentaseLunas();
+								per = persentaseLunasUntukPrasyarat(kegiatan);
 							}
 
 							memenuhiSyarat = jenisKegiatanPrasyarat.getProsentaseLunas() <= per;
 							if (!memenuhiSyarat && jenisKegiatanPrasyarat.getJenisKegiatanPrasyarat3() != null) {
 								kegiatan = mahasiswa.ambilKegiatans(smt,
 										jenisKegiatanPrasyarat.getJenisKegiatanPrasyarat3());
-								per = kegiatan == null ? 0.0 : kegiatan.getPersentaseLunas();
+								per = persentaseLunasUntukPrasyarat(kegiatan);
 							}
 
 							if (!memenuhiSyarat && mahasiswa.getAlihProdiMahasiswa() != null) {
@@ -681,20 +681,20 @@ public class JenisKegiatanPrasyaratAction extends GenericAutowireComposer
 								kegiatan = mahasiswaPindahan.ambilKegiatans(smt,
 										jenisKegiatanPrasyarat.getJenisKegiatanPrasyarat());
 
-								per = kegiatan == null ? 0.0 : kegiatan.getPersentaseLunas();
+								per = persentaseLunasUntukPrasyarat(kegiatan);
 
 								memenuhiSyarat = jenisKegiatanPrasyarat.getProsentaseLunas() <= per;
 								if (!memenuhiSyarat && jenisKegiatanPrasyarat.getJenisKegiatanPrasyarat2() != null) {
 									kegiatan = mahasiswaPindahan.ambilKegiatans(smt,
 											jenisKegiatanPrasyarat.getJenisKegiatanPrasyarat2());
-									per = kegiatan == null ? 0.0 : kegiatan.getPersentaseLunas();
+									per = persentaseLunasUntukPrasyarat(kegiatan);
 								}
 
 								memenuhiSyarat = jenisKegiatanPrasyarat.getProsentaseLunas() <= per;
 								if (!memenuhiSyarat && jenisKegiatanPrasyarat.getJenisKegiatanPrasyarat3() != null) {
 									kegiatan = mahasiswaPindahan.ambilKegiatans(smt,
 											jenisKegiatanPrasyarat.getJenisKegiatanPrasyarat3());
-									per = kegiatan == null ? 0.0 : kegiatan.getPersentaseLunas();
+									per = persentaseLunasUntukPrasyarat(kegiatan);
 								}
 							}
 
@@ -757,6 +757,24 @@ public class JenisKegiatanPrasyaratAction extends GenericAutowireComposer
 		}
 
 		return true;
+	}
+
+	/**
+	 * Tagihan bersih nol tidak memerlukan transaksi pembayaran. Untuk kebutuhan prasyarat
+	 * saja, kondisi tersebut diperlakukan sebagai 100% terpenuhi, termasuk bila nominal
+	 * menjadi nol karena diskon 100%. Kegiatan null tetap 0% karena itu berarti data
+	 * tagihan/prasyaratnya tidak ditemukan, bukan tagihan yang sah dengan total nol.
+	 */
+	private static Double persentaseLunasUntukPrasyarat(Kegiatan kegiatan) {
+		if (kegiatan == null) {
+			return 0.0;
+		}
+		Double totalTagihanBersih = kegiatan.hitungTagihan();
+		if (totalTagihanBersih == null || totalTagihanBersih.doubleValue() <= 0.01) {
+			return 100.0;
+		}
+		Double persentase = kegiatan.hitungPersentaseLunasAktual();
+		return persentase == null ? 0.0 : persentase;
 	}
 
 }
