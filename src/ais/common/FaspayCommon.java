@@ -297,13 +297,15 @@ public class FaspayCommon {
 	 * langsung. Parameter {@code data} berisi daftar id dipisah koma.
 	 *
 	 * <p>
-	 * <b>Catatan perilaku</b> — kondisi percabangan pada implementasi ini adalah
-	 * {@code jenis.equalsIgnoreCase(jenis)}, yaitu membandingkan variabel dengan dirinya sendiri,
-	 * yang SELALU bernilai {@code true}. Akibatnya, cabang {@link PengaturanPembayaranBulanan}
-	 * SELALU dijalankan pada implementasi saat ini, terlepas dari nilai parameter {@code jenis}
-	 * yang sesungguhnya dikirim — cabang {@link DetailBiaya} langsung (blok {@code else}) tidak
-	 * pernah tercapai. Perilaku ini tidak diubah di sini karena instruksi dokumentasi hanya
-	 * mencakup penambahan Javadoc; lihat catatan pada laporan dokumentasi.
+	 * <b>Riwayat perilaku (DIPERBAIKI 2026-09-02)</b> — kondisi percabangan pada implementasi ini
+	 * sebelumnya adalah {@code jenis.equalsIgnoreCase(jenis)}, yaitu membandingkan variabel dengan
+	 * dirinya sendiri, yang SELALU bernilai {@code true}. Akibatnya, cabang
+	 * {@link PengaturanPembayaranBulanan} SELALU dijalankan pada implementasi lama, terlepas dari
+	 * nilai parameter {@code jenis} yang sesungguhnya dikirim — cabang {@link DetailBiaya}
+	 * langsung (blok {@code else}) tidak pernah tercapai. Sudah diperbaiki menjadi
+	 * {@code jenis.equalsIgnoreCase("bulanan")} sesuai deskripsi perilaku yang dituliskan pada
+	 * paragraf pertama javadoc ini, sehingga parameter {@code jenis} kini benar-benar menentukan
+	 * cabang yang dijalankan.
 	 * </p>
 	 *
 	 * <p>
@@ -339,7 +341,7 @@ public class FaspayCommon {
 			DetailBiaya detailBiaya = null;
 			Double nilai = 0.0;
 
-			if (jenis.equalsIgnoreCase(jenis)) {
+			if (jenis.equalsIgnoreCase("bulanan")) {
 				pengaturanPembayaranBulanan = (PengaturanPembayaranBulanan) session
 						.createCriteria(PengaturanPembayaranBulanan.class)
 						.add(Restrictions.idEq(Long.parseLong(d.trim()))).uniqueResult();
