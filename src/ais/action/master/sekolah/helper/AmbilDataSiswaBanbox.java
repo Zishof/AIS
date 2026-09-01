@@ -616,10 +616,12 @@ public class AmbilDataSiswaBanbox extends Bandbox implements GetEventListener {
 		}
 	}
 
+	/** @see ais.ui.util.GetEventListener#setEventListener(EventListener) */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** @see ais.ui.util.GetEventListener#getEventListener() */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
