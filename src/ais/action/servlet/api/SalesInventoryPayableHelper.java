@@ -90,6 +90,16 @@ public final class SalesInventoryPayableHelper {
 			tolak(hasil, "Akun Anda tidak berhak mengatur termin/jenis pembayaran faktur.");
 			return;
 		}
+		if (SalesInventoryPayableTenant.aktif(ctx)
+				&& !SalesInventoryPayableTenant.dukungSimpanTermin()) {
+			// Model tenant tidak punya payable_faktur_info: jenis pembayaran dan termin per
+			// faktur tidak punya tempat. Menyimpan jatuh temponya saja lalu melaporkan sukses
+			// akan membuat pengguna mengira jenis dan termin ikut tersimpan.
+			tolak(hasil, "Termin/jenis pembayaran per faktur belum tersedia pada tenant berschema: "
+					+ "hutang dicatat langsung beserta jatuh temponya. Lihat catatan "
+					+ "payable_faktur_info pada SalesInventoryPayableTenant.");
+			return;
+		}
 		Long fakturId = optLong(request, "faktur_id");
 		if (fakturId == null) {
 			tolak(hasil, "faktur_id wajib diisi.");
@@ -300,6 +310,12 @@ public final class SalesInventoryPayableHelper {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		Transaction tx = null;
 		try {
+			if (SalesInventoryPayableTenant.aktif(ctx)) {
+				// Entitas terkunci ke schema koperasi; jalur tenant menulis lewat SQL asli.
+				buatPembayaranTenant(ctx, tbmuser, request, hasil, session, supplierId, nominal,
+						metode, kodeUnik, alokasi);
+				return;
+			}
 			// Idempoten: kode_unik sudah ada -> kembalikan pembayaran pertama, JANGAN menggandakan.
 			PembayaranHutangSupplier sudahAda = (PembayaranHutangSupplier) session
 					.createCriteria(PembayaranHutangSupplier.class)
@@ -747,6 +763,168 @@ public final class SalesInventoryPayableHelper {
 			hasil.put("ringkasan", ringkas);
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * Membuat pembayaran hutang pada schema tenant, lewat SQL asli.
+	 *
+	 * <p>Entitas Hibernate mematok schemanya di anotasi, sehingga {@code session.save()} akan
+	 * menulis ke schema bersama berapa pun tenant yang aktif. Urutan dan aturannya dipertahankan
+	 * persis: idempoten lewat kunci unik, jumlah alokasi wajib sama dengan nominal, tiap hutang
+	 * dikunci {@code FOR UPDATE} sebelum diperiksa sisanya.</p>
+	 *
+	 * <p>Satu perbedaan yang disengaja: kait ke Daftar Pengajuan Transfer tidak dipanggil --
+	 * modul itu bersama, dan menaruh pembayaran tenant di sana membocorkannya ke seluruh
+	 * instalasi. Lihat {@code SalesInventoryPayableTenant.tautkanKeDaftarTransfer}.</p>
+	 */
+	private static void buatPembayaranTenant(EbisnisActorContextResolver.ActorContext ctx,
+			Tbmuser tbmuser, JSONObject request, JSONObject hasil, Session session, Long supplierId,
+			BigDecimal nominal, String metode, String kodeUnik, JSONArray alokasi) throws Exception {
+		String sk = SalesInventoryPayableTenant.skema(ctx);
+		String oleh = tbmuser == null || tbmuser.getUserId() == null ? "" : tbmuser.getUserId();
+		Transaction tx = null;
+		try {
+			// Idempoten: kunci unik sudah ada -> kembalikan yang pertama, JANGAN menggandakan.
+			java.sql.PreparedStatement psAda = session.connection().prepareStatement(
+					SalesInventoryPayableTenant.cariPembayaranByKodeUnik(sk));
+			psAda.setString(1, kodeUnik);
+			java.sql.ResultSet rsAda = psAda.executeQuery();
+			Long sudah = rsAda.next() ? Long.valueOf(rsAda.getLong(1)) : null;
+			rsAda.close();
+			psAda.close();
+			if (sudah != null) {
+				hasil.put("status", "00");
+				hasil.put("id", sudah);
+				hasil.put("idempotentReplay", true);
+				return;
+			}
+			java.sql.PreparedStatement psSup = session.connection().prepareStatement(
+					SalesInventoryPayableTenant.adaSupplier(sk));
+			psSup.setLong(1, supplierId.longValue());
+			java.sql.ResultSet rsSup = psSup.executeQuery();
+			boolean adaSup = rsSup.next() && rsSup.getLong(1) > 0;
+			rsSup.close();
+			psSup.close();
+			if (!adaSup) {
+				tolak(hasil, "Supplier tidak ditemukan pada tenant ini.");
+				return;
+			}
+
+			double jumlahAlokasi = 0;
+			for (int i = 0; i < alokasi.length(); i++) {
+				jumlahAlokasi += alokasi.getJSONObject(i).optDouble("nominal", 0);
+			}
+			if (Math.abs(jumlahAlokasi - nominal.doubleValue()) > 0.01) {
+				tolak(hasil, "Total alokasi (" + jumlahAlokasi + ") harus sama dengan nominal pembayaran ("
+						+ nominal + ").");
+				return;
+			}
+
+			tx = session.beginTransaction();
+			for (int i = 0; i < alokasi.length(); i++) {
+				JSONObject a = alokasi.getJSONObject(i);
+				long hid = a.optLong("faktur_id", -1);
+				double n = a.optDouble("nominal", 0);
+				if (hid <= 0 || n <= 0) {
+					tx.rollback();
+					tolak(hasil, "Baris alokasi tidak valid (faktur_id/nominal).");
+					return;
+				}
+				java.sql.PreparedStatement lock = session.connection().prepareStatement(
+						SalesInventoryPayableTenant.kunciHutang(sk));
+				lock.setLong(1, hid);
+				lock.setLong(2, supplierId.longValue());
+				java.sql.ResultSet rsLock = lock.executeQuery();
+				boolean ada = rsLock.next();
+				rsLock.close();
+				lock.close();
+				if (!ada) {
+					tx.rollback();
+					tolak(hasil, "Hutang " + hid + " tidak ditemukan / bukan milik supplier ini.");
+					return;
+				}
+				java.sql.PreparedStatement cek = session.connection().prepareStatement(
+						SalesInventoryPayableTenant.outstandingSatu(sk));
+				cek.setLong(1, hid);
+				java.sql.ResultSet rsCek = cek.executeQuery();
+				double sisa = rsCek.next() ? rsCek.getDouble(1) : -1;
+				rsCek.close();
+				cek.close();
+				if (sisa < 0) {
+					tx.rollback();
+					tolak(hasil, "Hutang " + hid + " tidak dapat dibaca sisanya.");
+					return;
+				}
+				if (n > sisa + 0.01) {
+					tx.rollback();
+					tolak(hasil, "Alokasi " + n + " melebihi sisa hutang " + hid + " (" + sisa + ").");
+					return;
+				}
+			}
+
+			java.util.Date tglBg = null;
+			String sBg = request.optString("tanggal_bg", "").trim();
+			if (sBg.matches("\d{4}-\d{2}-\d{2}")) {
+				tglBg = new java.text.SimpleDateFormat("yyyy-MM-dd").parse(sBg);
+			}
+			java.sql.PreparedStatement ins = session.connection().prepareStatement(
+					SalesInventoryPayableTenant.sisipPembayaran(sk),
+					java.sql.Statement.RETURN_GENERATED_KEYS);
+			ins.setLong(1, supplierId.longValue());
+			ins.setString(2, metode);
+			ins.setString(3, request.optString("no_bg", "").trim());
+			ins.setString(4, request.optString("nama_bank", "").trim());
+			if (tglBg == null) {
+				ins.setNull(5, java.sql.Types.DATE);
+			} else {
+				ins.setDate(5, new java.sql.Date(tglBg.getTime()));
+			}
+			ins.setBigDecimal(6, nominal);
+			ins.setString(7, request.optString("keterangan", "").trim());
+			ins.setString(8, kodeUnik);
+			ins.setString(9, oleh);
+			ins.executeUpdate();
+			Long bayarId = null;
+			java.sql.ResultSet gk = ins.getGeneratedKeys();
+			if (gk.next()) {
+				bayarId = Long.valueOf(gk.getLong(1));
+			}
+			gk.close();
+			ins.close();
+			if (bayarId == null) {
+				tx.rollback();
+				tolak(hasil, "Pembayaran gagal disimpan.");
+				return;
+			}
+
+			java.sql.PreparedStatement insA = session.connection().prepareStatement(
+					SalesInventoryPayableTenant.sisipAlokasi(sk));
+			try {
+				for (int i = 0; i < alokasi.length(); i++) {
+					JSONObject a = alokasi.getJSONObject(i);
+					insA.setLong(1, bayarId.longValue());
+					insA.setLong(2, a.optLong("faktur_id"));
+					insA.setBigDecimal(3, new BigDecimal(String.valueOf(a.optDouble("nominal"))));
+					insA.setString(4, oleh);
+					insA.addBatch();
+				}
+				insA.executeBatch();
+			} finally {
+				insA.close();
+			}
+			tx.commit();
+			hasil.put("status", "00");
+			hasil.put("id", bayarId);
+		} catch (Exception e) {
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+				// rollback gagal tidak boleh menutupi galat aslinya
+			}
+			throw e;
 		}
 	}
 }

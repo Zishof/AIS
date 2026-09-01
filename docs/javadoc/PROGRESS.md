@@ -633,5 +633,66 @@ banyak di luar 53 file batch ini — total paket ini ~409 file), ATAU mulai
 modul lain sepenuhnya (`ais.database.model/*` — 483 file POJO Hibernate,
 kemungkinan besar banyak template generik & getter/setter, cek dulu skala
 kerja per file sebelum estimasi), ATAU jelajahi package `ais.action.master.*`
-lain yang belum tersentuh sama sekali.</new_string>
+lain yang belum tersentuh sama sekali.
+
+## ais/database/model/
+
+- [referensi] `GeneralValueObject.java` — **target leverage TERTINGGI sejauh ini**:
+  kelas dasar **1.456 file** (`grep -rl "extends GeneralValueObject"`), mencakup
+  hampir seluruh entity Hibernate AIS (Mahasiswa, Dosen, Perkuliahan, Tagihan,
+  Siswa, Guru, Tbmuser, Tbmrole) plus beberapa value object non-tabel. Javadoc
+  class-level r81331 (gaya template "Batas tanggung jawab/Efek samping")
+  DIPERKAYA, bukan diganti; SELURUH method public/protected/private kini punya
+  Javadoc sendiri, termasuk 4 override `onEvent` pada listener anonim di
+  `tampilKunci`. r82933, kompilasi Java 7 `-implicit:none` lulus, di-mirror ke
+  `java/` (verifikasi `cmp` byte-identik). File 1807 → 3412 baris.
+
+  Mekanisme yang didokumentasikan (rangkuman untuk sesi berikutnya):
+  - **`check(T)` / `chek(T)` / `resolveLazy(T)`** — method paling kritis, dipanggil
+    dari ribuan getter relasi (827 file di `ais.database.model` saja memuat
+    `check(`). Pola getter standar: `jurusan = check(jurusan); return this.jurusan;`
+    — hasilnya DITUGASKAN KEMBALI ke field karena bisa berupa instance LAIN.
+    Urutan resolusi: jalan pintas flag `initData` → (0) `EntityIdentityMap`
+    canonical per-JVM → (1) cache `ConstantValues.ambil(kelas, id, false)` tanpa
+    fallback DB → (2) `Hibernate.initialize` via session aktif → (3)
+    `reloadDetachedObject` yang membuka `openSession()` sendiri & menutupnya di
+    `finally`. Tidak pernah melempar exception; kegagalan SENYAP (mengembalikan
+    argumen apa adanya). `chek` = ejaan historis, `resolveLazy` = alias
+    deskriptif — ketiganya identik.
+  - **`hashCode()` TIDAK di-override** (baik di sini maupun di `ais.common.DataUtil`)
+    padahal `equals()` berbasis `id` → entity TIDAK aman jadi elemen `HashSet`
+    atau kunci `HashMap`. Pola benar di codebase ini: `Map<Long, Entity>`
+    berkunci `id`. Temuan baru sesi ini; catat bila menemui bug deduplikasi.
+  - `equals` juga tidak memeriksa kelas → `Mahasiswa#5`.equals(`Dosen#5`) = true.
+  - `compareTo` berjenjang: `nomorUrut` → `nim` → `nama` → `keterangan`; cabang
+    `keterangan` praktis SELALU terpakai karena `getKeterangan()` mengembalikan
+    `""`, bukan `null`. Tidak konsisten dengan `equals` → hindari `TreeSet`.
+  - **Cache JSON/berkas sementara** (`read`/`write`/`delete`/`put`/`retreive`/
+    `udah`/`belum`/`putBaru`/`tulisPutBaru`/`retreiveAll`, kelompok
+    `*ChecklistHasilPenilaianUmum*` & `*IsiAngketParameterUmum*`) — SEMUANYA
+    berkas temp, BUKAN tabel. `delete()` menghapus BERKAS, bukan baris DB.
+    Kunci berkas: `Tbmuser` → `userId`, `Tbmrole` → `roleId`, lainnya → `getId()`.
+    `udah(String)` bergaya test-and-set: `false` = "belum, dan sekarang ditandai".
+  - **Thread-safety `datatemporary`**: komentar blok hasil debugging nyata
+    (ConcurrentModificationException + berkas JSON terpotong "Unterminated
+    string") DIPERTAHANKAN UTUH, dipindah jadi Javadoc field tersebut.
+    `ConcurrentHashMap` + `synchronized(key.intern())`; penanda "sudah ditulis"
+    pakai `remove(key)` karena CHM tolak value null.
+  - **Penjaga startup** `AppStartupListener.isStartupInProgress()` di `put()` dan
+    `retreive()`: Hibernate memanggil setter ter-map saat hidrasi
+    (`TwoPhaseLoad.initializeEntity`) → memuat ribuan entity = ribuan I/O berkas
+    = startup macet di thread "main". Komentar aslinya tetap di tempatnya.
+
+  Ketidakpastian yang dicatat jujur di Javadoc (jangan diklaim pasti tanpa
+  verifikasi ulang): cabang `Guru` di `masukkanData(String, Tbmuser)` memeriksa
+  `tbmuser.getSiswa()` (tampak keliru, cabang tak pernah tercapai);
+  `retreiveBaru()` & `bersihkanPutBaru()` tanpa pemanggil aktif di pohon sumber;
+  `retreiveCacheMap` `transient` tapi tidak `volatile` pada double-checked
+  locking `retreiveCache()`.
+
+- [belum] **Batch penautan 1.456 subclass ke referensi di atas SENGAJA TIDAK
+  dikerjakan** — di luar scope sesi ini, jadikan proyek terpisah. Saat
+  mendokumentasikan entity turunan mana pun, cukup `{@link GeneralValueObject}`
+  untuk kontrak umum (`check`, cache berkas, `equals`/`compareTo`) dan fokuskan
+  tulisan pada relasi & logika domain khas entity itu.
 

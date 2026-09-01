@@ -336,6 +336,8 @@ public class DspaceCommon {
 	 * </p>
 	 *
 	 * @return nilai cookie sesi {@code JSESSIONID} hasil login
+	 * @throws IllegalStateException bila {@code dspace_username}/{@code dspace_password} belum
+	 *                      diisi di konfigurasi
 	 * @throws IOException bila SEMUA alamat kandidat gagal karena pemblokiran WAF (pesan mengarahkan
 	 *                      administrator mengisi {@code dspace_private_url_internal}), bila tidak ada
 	 *                      satu pun alamat DSpace terkonfigurasi, atau bila kegagalan login pada suatu

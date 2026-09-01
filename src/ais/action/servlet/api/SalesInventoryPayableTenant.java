@@ -275,4 +275,74 @@ final class SalesInventoryPayableTenant {
 				+ " LEFT JOIN " + skema + "supplier_profile sp ON sp.supplier_id = s.id"
 				+ " WHERE b.id = ?";
 	}
+
+	// ------------------------------------------------------------------ simpan (SQL asli)
+
+	/**
+	 * <h4>Mengapa jalur tulis memakai SQL asli</h4>
+	 * <p>Entitas Hibernate mematok {@code @Table(schema = "koperasi")}, dan pemetaan itu statis
+	 * per SessionFactory. {@code session.save()} karena itu selalu menulis ke schema bersama,
+	 * berapa pun tenant yang aktif. Lihat catatan yang sama pada {@code SalesInventoryHargaTenant}.</p>
+	 */
+	static String cariPembayaranByKodeUnik(String skema) {
+		return "SELECT id FROM " + skema + "pembayaran_hutang WHERE idempotency_key = ? LIMIT 1";
+	}
+
+	/** Keberadaan pemasok DI DALAM schema tenant. */
+	static String adaSupplier(String skema) {
+		return "SELECT COUNT(*) FROM " + skema + "supplier WHERE id = ?";
+	}
+
+	/**
+	 * Mengunci baris hutang milik pemasok tertentu. {@code FOR UPDATE} menahan dua pembayaran
+	 * bersamaan agar tidak sama-sama lolos pemeriksaan sisa -- tanpa ini, satu hutang bisa
+	 * terbayar dua kali.
+	 */
+	static String kunciHutang(String skema) {
+		return "SELECT h.id FROM " + skema + "hutang_supplier h"
+				+ " WHERE h.id = ? AND h.supplier_id = ? FOR UPDATE";
+	}
+
+	static String sisipPembayaran(String skema) {
+		return "INSERT INTO " + skema + "pembayaran_hutang"
+				+ " (tanggal, supplier_id, cara_bayar, nomor_bg, nama_bank, tanggal_bg, nilai,"
+				+ " keterangan, idempotency_key, status, dibuat_pada, oleh)"
+				+ " VALUES (CURRENT_DATE, ?, ?, ?, ?, ?, ?, ?, ?, 'AKTIF', now(), ?)";
+	}
+
+	static String sisipAlokasi(String skema) {
+		return "INSERT INTO " + skema + "alokasi_pembayaran_hutang"
+				+ " (pembayaran_hutang_id, hutang_supplier_id, nilai, dibuat_pada, oleh)"
+				+ " VALUES (?, ?, ?, now(), ?)";
+	}
+
+	/**
+	 * <h4>Kait ke Daftar Pengajuan Transfer sengaja TIDAK dipanggil pada jalur tenant</h4>
+	 *
+	 * <p>Jalur legacy menautkan tiap pembayaran hutang ke
+	 * {@code akunting.DaftarPengajuanTransfer} supaya muncul di layar Pembayaran Transfer.
+	 * Modul itu <b>bersama</b>, bukan per-tenant.</p>
+	 *
+	 * <p>Menautkan pembayaran milik satu tenant ke sana berarti menaruh datanya di tabel yang
+	 * dibaca seluruh instalasi -- persis kebocoran yang dicegah pekerjaan ini. Karena itu kaitnya
+	 * dilewati, dan itu <b>mengubah perilaku</b>: pembayaran hutang tenant tidak akan muncul di
+	 * layar transfer keuangan bersama.</p>
+	 *
+	 * <p>Padanan per-tenantnya belum ada dan bukan keputusan yang boleh diambil sebagai efek
+	 * samping pemindahan kueri. Ditandai di sini supaya terlihat, bukan tersembunyi.</p>
+	 */
+	static boolean tautkanKeDaftarTransfer() {
+		return false;
+	}
+
+	/**
+	 * Termin/jenis pembayaran per faktur tidak ada pada model tenant: {@code payable_faktur_info}
+	 * lenyap, dan {@code hutang_supplier} hanya menyimpan {@code jatuh_tempo} yang ditetapkan saat
+	 * hutangnya lahir. Aksi penyimpanan termin karena itu ditolak, bukan dijalankan sebagian --
+	 * menyimpan jatuh tempo saja lalu melaporkan sukses akan menyesatkan pengguna yang mengira
+	 * jenis dan terminnya ikut tersimpan.
+	 */
+	static boolean dukungSimpanTermin() {
+		return false;
+	}
 }

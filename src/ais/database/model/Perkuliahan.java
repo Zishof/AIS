@@ -2733,6 +2733,16 @@ public class Perkuliahan extends VOPembelajaran {
 		this.feeder10 = feeder10;
 	}
 
+	/**
+	 * Jenis evaluasi yang berlaku bagi kelas ini (mis. evaluasi akademik biasa vs skema khusus).
+	 *
+	 * <p><b>Efek samping:</b> bila kosong, diisi otomatis dengan
+	 * {@code ConstantValues.EvaluasiAkademik} dan ditulis balik ke field, sehingga pemanggil tidak
+	 * perlu menangani {@code null}.</p>
+	 *
+	 * @return jenis evaluasi; praktis tidak pernah {@code null}.
+	 * @see JenisEvaluasi
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_evaluasi", nullable = true)
 	public JenisEvaluasi getJenisEvaluasi() {
@@ -2743,10 +2753,23 @@ public class Perkuliahan extends VOPembelajaran {
 		return jenisEvaluasi;
 	}
 
+	/**
+	 * Menetapkan jenis evaluasi kelas.
+	 *
+	 * @param jenisEvaluasi jenis evaluasi; {@code null} agar kembali ke default.
+	 */
 	public void setJenisEvaluasi(JenisEvaluasi jenisEvaluasi) {
 		this.jenisEvaluasi = jenisEvaluasi;
 	}
 
+	/**
+	 * Catatan mentah hasil sinkronisasi Feeder (kolom {@code text}), dipakai untuk menyimpan
+	 * respons/rekam jejak pengiriman yang tidak muat pada {@link #getFeeder()}.
+	 *
+	 * <p><b>Efek samping:</b> {@code null} dinormalkan menjadi string kosong dan ditulis balik.</p>
+	 *
+	 * @return catatan Feeder; tidak pernah {@code null}.
+	 */
 	@Column(columnDefinition = "text")
 	public String getFeeders() {
 		if (feeders == null) {
@@ -2756,10 +2779,31 @@ public class Perkuliahan extends VOPembelajaran {
 		return feeders;
 	}
 
+	/**
+	 * Menetapkan catatan mentah hasil sinkronisasi Feeder.
+	 *
+	 * @param feeders catatan Feeder.
+	 */
 	public void setFeeders(String feeders) {
 		this.feeders = feeders;
 	}
 
+	/**
+	 * Kode periode (semester) dalam format Feeder PDDikti: tahun awal ditambah satu digit jenis
+	 * semester.
+	 *
+	 * <p>Contoh: tahun akademik {@code "2025/2026"} semester ganjil menghasilkan {@code "20251"},
+	 * genap {@code "20252"}, dan semester pendek {@code "20253"}. Digit ditentukan lebih dulu oleh
+	 * {@link #getStatusSemesterPendek()}, baru oleh {@link #getGanjilGenap()}.</p>
+	 *
+	 * <p>Kegagalan (mis. tahun akademik kosong sehingga pemecahan teks tidak menghasilkan bagian)
+	 * hanya dicatat, dan nilai lama field dikembalikan apa adanya - bisa {@code null}.</p>
+	 *
+	 * <p>Dipakai oleh {@code FeederExporter}, {@code FeederJSONImport}, {@code ElearningApiUtil},
+	 * beberapa laporan penilaian, dan {@link Detailperkuliahan}.</p>
+	 *
+	 * @return kode periode Feeder, atau {@code null} bila data periode belum lengkap.
+	 */
 	public String getIdSmt() {
 		try {
 			idSmt = this.getTahunAjaran().split("/")[0] + (this.getStatusSemesterPendek() != null
@@ -2771,10 +2815,24 @@ public class Perkuliahan extends VOPembelajaran {
 		return idSmt;
 	}
 
+	/**
+	 * Menetapkan kode periode Feeder secara manual (jarang dipakai; normalnya dihitung).
+	 *
+	 * @param idSmt kode periode Feeder.
+	 */
 	public void setIdSmt(String idSmt) {
 		this.idSmt = idSmt;
 	}
 
+	/**
+	 * Masa perkuliahan (rentang tanggal resmi kegiatan belajar mengajar) yang menaungi kelas ini.
+	 *
+	 * <p>Menjadi acuan utama {@link #getTanggalMulaiPerkuliahan()} saat kelas tidak boleh
+	 * menentukan tanggal mulai sendiri.</p>
+	 *
+	 * @return masa perkuliahan, atau {@code null}.
+	 * @see MasaPerkuliahan
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "masa_perkuliahan", nullable = true)
 	public MasaPerkuliahan getMasaPerkuliahan() {
@@ -2782,10 +2840,23 @@ public class Perkuliahan extends VOPembelajaran {
 		return masaPerkuliahan;
 	}
 
+	/**
+	 * Menetapkan masa perkuliahan yang menaungi kelas ini.
+	 *
+	 * @param masaPerkuliahan masa perkuliahan, boleh {@code null}.
+	 */
 	public void setMasaPerkuliahan(MasaPerkuliahan masaPerkuliahan) {
 		this.masaPerkuliahan = masaPerkuliahan;
 	}
 
+	/**
+	 * Menyatakan apakah kelas ini boleh dijadwalkan meski waktunya bentrok dengan jadwal lain.
+	 *
+	 * <p>Dipakai untuk kelas yang memang tumpang tindih secara sah (mis. praktikum bergilir atau
+	 * kelas gabungan). Nilai {@code null} dinormalkan menjadi {@code false} dan ditulis balik.</p>
+	 *
+	 * @return {@code true} bila pemeriksaan bentrok waktu dilewati.
+	 */
 	public Boolean getAbaikanWaktuBentrokDenganJadwalLain() {
 		if (abaikanWaktuBentrokDenganJadwalLain == null) {
 			abaikanWaktuBentrokDenganJadwalLain = false;
@@ -2793,10 +2864,32 @@ public class Perkuliahan extends VOPembelajaran {
 		return abaikanWaktuBentrokDenganJadwalLain;
 	}
 
+	/**
+	 * Menetapkan apakah pemeriksaan bentrok waktu boleh dilewati untuk kelas ini.
+	 *
+	 * @param abaikanWaktuBentrokDenganJadwalLain penanda pengabaian bentrok.
+	 */
 	public void setAbaikanWaktuBentrokDenganJadwalLain(Boolean abaikanWaktuBentrokDenganJadwalLain) {
 		this.abaikanWaktuBentrokDenganJadwalLain = abaikanWaktuBentrokDenganJadwalLain;
 	}
 
+	/**
+	 * Mencari baris {@link KurikulumPunyaMatakuliah} yang PERSIS cocok dengan kurikulum, semester,
+	 * dan mata kuliah kelas ini, lalu menyimpannya ke field.
+	 *
+	 * <p>Pencocokannya ketat: ketiga kriteria harus terpenuhi sekaligus, dan bila salah satu dari
+	 * kurikulum/semester/mata kuliah kosong, pencarian tidak dilakukan sama sekali. Untuk pencarian
+	 * yang lebih longgar dan berjenjang, pakai {@link #ambilKurikulumPunyaMatakuliah()}.</p>
+	 *
+	 * <p><b>Efek samping:</b> membuka dan menutup {@link Session} Hibernate sendiri, serta menimpa
+	 * field {@code kurikulumPunyaMatakuliah}. TIDAK menyimpan apa pun ke basis data.</p>
+	 *
+	 * <p>Dipanggil dari {@code PenjadwalanUtil}, {@code TemplatePerkuliahanDetailHelper},
+	 * {@code AmbilDataPaketPerkuliahanHelper}, dan {@code FeederJSONImport}.</p>
+	 *
+	 * @return baris kurikulum yang cocok, atau nilai field sebelumnya (bisa {@code null}) bila
+	 *         tidak ditemukan.
+	 */
 	public KurikulumPunyaMatakuliah populateKurikulumPunyaMatakuliah() {
 		kurikulum = getKurikulum();
 		matakuliah = getMatakuliah();
@@ -2821,6 +2914,20 @@ public class Perkuliahan extends VOPembelajaran {
 		return kurikulumPunyaMatakuliah;
 	}
 
+	/**
+	 * Baris kurikulum (pasangan kurikulum + mata kuliah) yang menjadi acuan RPS, capaian
+	 * pembelajaran, dan jumlah rencana pertemuan kelas ini.
+	 *
+	 * <p><b>Efek samping yang tidak terduga dari sebuah getter:</b> selain memvalidasi proxy,
+	 * method ini MENAMBAHKAN id seluruh dosen pengampu kelas ({@code populateDosenBuId()}) ke
+	 * daftar dosen pada baris kurikulum tersebut. Tujuannya menjaga agar daftar dosen pengampu di
+	 * tingkat kurikulum ikut mutakhir mengikuti penjadwalan, tetapi artinya membaca property ini
+	 * dapat mengubah objek {@link KurikulumPunyaMatakuliah} yang dikembalikan. Kegagalan pada
+	 * langkah ini hanya dicatat.</p>
+	 *
+	 * @return baris kurikulum acuan, atau {@code null}.
+	 * @see #ambilKurikulumPunyaMatakuliah()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kurikulum_punya_matakuliah", nullable = true)
 	public KurikulumPunyaMatakuliah getKurikulumPunyaMatakuliah() {
@@ -2847,6 +2954,34 @@ public class Perkuliahan extends VOPembelajaran {
 		return kurikulumPunyaMatakuliah;
 	}
 
+	/**
+	 * Mencari baris kurikulum acuan secara BERJENJANG, dan menyimpan temuannya ke basis data.
+	 *
+	 * <p>Berbeda dengan {@link #populateKurikulumPunyaMatakuliah()} yang menuntut kecocokan persis,
+	 * method ini dipakai ketika kelas belum tertaut ke baris kurikulum mana pun dan sistem tetap
+	 * perlu RPS/capaian pembelajaran. Urutan usahanya:</p>
+	 * <ol>
+	 * <li>Nilai yang sudah tersimpan ({@link #getKurikulumPunyaMatakuliah()}) - bila ada, langsung
+	 * dipakai.</li>
+	 * <li>Kurikulum milik jurusan kelas ini DENGAN program yang sama, mata kuliah sama; diambil
+	 * kurikulum tahun terbaru.</li>
+	 * <li>Kurikulum milik jurusan yang sama TANPA program, mata kuliah sama.</li>
+	 * <li>Kurikulum milik jurusan yang sama tanpa program, dicocokkan lewat KODE mata kuliah
+	 * (bukan objeknya) - menampung kasus mata kuliah terduplikasi antar kurikulum. Blok ini
+	 * ditulis dua kali secara identik pada kode aslinya, jadi usaha keempat efektif hanya
+	 * sekali.</li>
+	 * </ol>
+	 *
+	 * <p><b>Efek samping:</b> begitu baris ditemukan, hasilnya DITULIS ke kolom
+	 * {@code kurikulum_punya_matakuliah} lewat {@code Common.refreshUpdate(...)} pada session
+	 * berjalan - jadi method ini mengubah basis data. Ia juga mewarisi efek samping penambahan id
+	 * dosen dari {@link #getKurikulumPunyaMatakuliah()}.</p>
+	 *
+	 * <p>Dipanggil dari {@code AktifitasPerkuliahanHelper}, {@code PenjadwalanHelper},
+	 * {@code PertemuanPunyaUjianHelper}, dan helper OBE.</p>
+	 *
+	 * @return baris kurikulum acuan, atau {@code null} bila semua usaha gagal.
+	 */
 	public KurikulumPunyaMatakuliah ambilKurikulumPunyaMatakuliah() {
 		KurikulumPunyaMatakuliah kurikulumPunyaMatakuliah = getKurikulumPunyaMatakuliah();
 
@@ -2907,10 +3042,23 @@ public class Perkuliahan extends VOPembelajaran {
 		return kurikulumPunyaMatakuliah;
 	}
 
+	/**
+	 * Menetapkan baris kurikulum acuan kelas ini.
+	 *
+	 * @param kurikulumPunyaMatakuliah baris kurikulum, boleh {@code null}.
+	 */
 	public void setKurikulumPunyaMatakuliah(KurikulumPunyaMatakuliah kurikulumPunyaMatakuliah) {
 		this.kurikulumPunyaMatakuliah = kurikulumPunyaMatakuliah;
 	}
 
+	/**
+	 * Keterangan bebas mengenai kelas ini (catatan pengelola, syarat khusus, dsb).
+	 *
+	 * <p><b>Efek samping:</b> isi dilewatkan {@code filterTidakBoleh(...)} untuk membuang markup
+	 * berbahaya, dan hasil bersihnya ditulis balik ke field.</p>
+	 *
+	 * @return keterangan yang sudah disaring dan di-trim; string kosong bila belum diisi.
+	 */
 	public String getKeterangan() {
 
 		keterangan = filterTidakBoleh(keterangan);
@@ -2918,10 +3066,29 @@ public class Perkuliahan extends VOPembelajaran {
 		return keterangan == null ? "" : keterangan.trim();
 	}
 
+	/**
+	 * Menetapkan keterangan bebas kelas.
+	 *
+	 * @param keterangan teks keterangan, boleh {@code null}.
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
 
+	/**
+	 * Deskripsi pembelajaran kelas, dengan pewarisan berjenjang dari kurikulum lalu mata kuliah.
+	 *
+	 * <p>Bila kolom pada kelas ini masih kosong, isinya DIAMBIL dari
+	 * {@link KurikulumPunyaMatakuliah} terlebih dahulu; bila itu pun kosong, dari
+	 * {@link Matakuliah}. Rantai inilah yang membuat kelas baru langsung memiliki RPS tanpa
+	 * pengetikan ulang, sekaligus membiarkan dosen menimpanya per kelas.</p>
+	 *
+	 * <p><b>Efek samping:</b> hasil pewarisan dan hasil {@code filterTidakBoleh(...)} DITULIS BALIK
+	 * ke field, dan pembacaan kurikulum acuan membawa efek samping
+	 * {@link #getKurikulumPunyaMatakuliah()}.</p>
+	 *
+	 * @return deskripsi pembelajaran; string kosong bila tidak tersedia di seluruh rantai.
+	 */
 	@Column(columnDefinition = "text")
 	public String getDeskripsiPembelajaran() {
 		kurikulumPunyaMatakuliah = getKurikulumPunyaMatakuliah();
@@ -2946,10 +3113,24 @@ public class Perkuliahan extends VOPembelajaran {
 		return deskripsiPembelajaran == null ? "" : deskripsiPembelajaran.trim();
 	}
 
+	/**
+	 * Menetapkan deskripsi pembelajaran khusus kelas ini (menimpa warisan kurikulum/mata kuliah).
+	 *
+	 * @param deskripsiPembelajaran teks deskripsi; kosongkan agar kembali mewarisi.
+	 */
 	public void setDeskripsiPembelajaran(String deskripsiPembelajaran) {
 		this.deskripsiPembelajaran = deskripsiPembelajaran;
 	}
 
+	/**
+	 * Capaian pembelajaran program studi yang dibebankan pada kelas ini.
+	 *
+	 * <p>Aturan pewarisan berjenjang dan efek sampingnya identik dengan
+	 * {@link #getDeskripsiPembelajaran()}: kurikulum lebih dulu, lalu mata kuliah, dengan hasil
+	 * ditulis balik ke field dan disaring {@code filterTidakBoleh(...)}.</p>
+	 *
+	 * @return capaian pembelajaran prodi; string kosong bila tidak tersedia.
+	 */
 	@Column(columnDefinition = "text")
 	public String getCapaianPembelajaranProdi() {
 		kurikulumPunyaMatakuliah = getKurikulumPunyaMatakuliah();
@@ -2974,26 +3155,83 @@ public class Perkuliahan extends VOPembelajaran {
 		return capaianPembelajaranProdi == null ? "" : capaianPembelajaranProdi.trim();
 	}
 
+	/**
+	 * Menetapkan capaian pembelajaran prodi khusus kelas ini.
+	 *
+	 * @param capaianPembelajaranProdi teks capaian pembelajaran; kosongkan agar kembali mewarisi.
+	 */
 	public void setCapaianPembelajaranProdi(String capaianPembelajaranProdi) {
 		this.capaianPembelajaranProdi = capaianPembelajaranProdi;
 	}
 
+	/**
+	 * Penanda asrama tempat kelas diselenggarakan, untuk institusi yang memisahkan kelas per
+	 * asrama.
+	 *
+	 * @return kode/nama asrama, atau {@code null}.
+	 */
 	public String getAsrama() {
 		return asrama;
 	}
 
+	/**
+	 * Menetapkan asrama tempat kelas diselenggarakan.
+	 *
+	 * @param asrama kode/nama asrama, boleh {@code null}.
+	 */
 	public void setAsrama(String asrama) {
 		this.asrama = asrama;
 	}
 
+	/**
+	 * Menyatakan apakah kelas ini boleh dipilih mahasiswa pada layar pengambilan KRS.
+	 *
+	 * <p>Default {@code true}: kelas yang tidak sengaja disembunyikan tetap terlihat. Setel
+	 * {@code false} untuk kelas yang pesertanya ditentukan pengelola (paket, kelas khusus).</p>
+	 *
+	 * @return {@code true} bila kelas tampil di pengambilan KRS.
+	 */
 	public Boolean getTampilkanSaatPengambilanKrs() {
 		return tampilkanSaatPengambilanKrs == null ? true : tampilkanSaatPengambilanKrs;
 	}
 
+	/**
+	 * Menetapkan apakah kelas tampil pada layar pengambilan KRS.
+	 *
+	 * @param tampilkanSaatPengambilanKrs penanda tampil.
+	 */
 	public void setTampilkanSaatPengambilanKrs(Boolean tampilkanSaatPengambilanKrs) {
 		this.tampilkanSaatPengambilanKrs = tampilkanSaatPengambilanKrs;
 	}
 
+	/**
+	 * Tanggal pertemuan pertama kelas ini - titik awal seluruh penjadwalan pertemuan.
+	 *
+	 * <p>Bila kelas TIDAK diizinkan menentukan tanggal mulai sendiri
+	 * ({@link #getBolehMenentukanTanggalMulaiPerkuliahan()} bernilai {@code false}), tanggal
+	 * DIHITUNG ULANG setiap kali dibaca:</p>
+	 * <ol>
+	 * <li>Acuan pertama adalah awal {@link MasaPerkuliahan}; bila masa perkuliahan tidak tersedia,
+	 * acuannya {@link #getAwalPerkuliahan()} (tanggal mulai belajar-mengajar dari rencana tahun
+	 * akademik).</li>
+	 * <li>Bila nama hari tanggal acuan sudah sama dengan {@link #getHari()}, tanggal itulah yang
+	 * dipakai.</li>
+	 * <li>Bila belum, tanggal digeser maju satu hari demi satu hari sampai nama harinya cocok,
+	 * dengan pengaman maksimal 10 iterasi agar tidak berputar selamanya bila hari kelas berisi
+	 * teks yang tidak dikenal.</li>
+	 * </ol>
+	 *
+	 * <p>Penyeragaman ejaan {@code "Jumat"} menjadi {@code "Jum'at"} dilakukan di setiap
+	 * pembandingan - tanpa itu kelas hari Jumat tidak akan pernah cocok (lihat
+	 * {@link #getHari()}).</p>
+	 *
+	 * <p><b>Efek samping:</b> menulis balik ke field {@code tanggalMulaiPerkuliahan} dan
+	 * {@code awalPerkuliahan}; jalur {@link #getAwalPerkuliahan()} juga melakukan query rencana
+	 * tahun akademik. Karena itu getter ini relatif mahal dan tidak boleh dipanggil di dalam
+	 * perulangan ketat.</p>
+	 *
+	 * @return tanggal pertemuan pertama, atau {@code null} bila acuan tanggal belum tersedia.
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getTanggalMulaiPerkuliahan() {
 
@@ -3083,6 +3321,14 @@ public class Perkuliahan extends VOPembelajaran {
 		return tanggalMulaiPerkuliahan;
 	}
 
+	/**
+	 * Menetapkan tanggal pertemuan pertama secara manual.
+	 *
+	 * <p>Hanya bertahan bila {@link #getBolehMenentukanTanggalMulaiPerkuliahan()} bernilai
+	 * {@code true}; selain itu nilainya akan dihitung ulang saat dibaca.</p>
+	 *
+	 * @param tanggalMulaiPerkuliahan tanggal pertemuan pertama.
+	 */
 	public void setTanggalMulaiPerkuliahan(Date tanggalMulaiPerkuliahan) {
 		this.tanggalMulaiPerkuliahan = tanggalMulaiPerkuliahan;
 	}
@@ -3097,64 +3343,155 @@ public class Perkuliahan extends VOPembelajaran {
 	// this.janganAmbilSilabusDariKurikulum = janganAmbilSilabusDariKurikulum;
 	// }
 
+	/**
+	 * Menyatakan apakah dosen pengampu boleh menggeser tanggal pertemuan kelas ini.
+	 *
+	 * <p>Bila belum ditentukan per kelas, nilainya diambil dari konfigurasi global
+	 * {@code secara_default_dosen_bisa_merubah_tanggal_perkuliahan}. Perhatikan bahwa pembacaan
+	 * konfigurasi di sistem ini dapat MENULIS nilai default ke basis data bila kunci konfigurasi
+	 * belum ada.</p>
+	 *
+	 * @return {@code true} bila dosen boleh mengubah tanggal pertemuan.
+	 */
 	public Boolean getDosenBisaMerubahTanggalPerkuliahan() {
 		return dosenBisaMerubahTanggalPerkuliahan == null
 				? Common.bolehKonfigurasi("secara_default_dosen_bisa_merubah_tanggal_perkuliahan")
 				: dosenBisaMerubahTanggalPerkuliahan;
 	}
 
+	/**
+	 * Menetapkan izin dosen mengubah tanggal pertemuan untuk kelas ini.
+	 *
+	 * @param dosenBisaMerubahTanggalPerkuliahan {@code null} agar mengikuti konfigurasi global.
+	 */
 	public void setDosenBisaMerubahTanggalPerkuliahan(Boolean dosenBisaMerubahTanggalPerkuliahan) {
 		this.dosenBisaMerubahTanggalPerkuliahan = dosenBisaMerubahTanggalPerkuliahan;
 	}
 
+	/**
+	 * Menyatakan apakah pembangkitan pertemuan harus MELEWATI hari libur nasional.
+	 *
+	 * <p>Default {@code true}: pertemuan yang jatuh pada tanggal merah digeser ke jadwal berikutnya
+	 * alih-alih dijadwalkan pada hari libur.</p>
+	 *
+	 * @return {@code true} bila tanggal merah nasional dilewati.
+	 */
 	public Boolean getLewatiTanggalMerahNasional() {
 		return lewatiTanggalMerahNasional == null ? true : lewatiTanggalMerahNasional;
 	}
 
+	/**
+	 * Menetapkan apakah pembangkitan pertemuan melewati hari libur nasional.
+	 *
+	 * @param lewatiTanggalMerahNasional penanda lewati tanggal merah.
+	 */
 	public void setLewatiTanggalMerahNasional(Boolean lewatiTanggalMerahNasional) {
 		this.lewatiTanggalMerahNasional = lewatiTanggalMerahNasional;
 	}
 
+	/**
+	 * Menyatakan apakah dosen hanya boleh mengisi presensi pada rentang waktu jadwal kelas.
+	 *
+	 * <p>Salah satu dari lima penanda pengetatan presensi yang saling melengkapi:
+	 * dua untuk dosen (jadwal dan alamat IP), dua untuk mahasiswa, dan satu kelonggaran untuk
+	 * admin ({@link #getAdminBolehMenginputKehadiranDiluarJadwalDanIp()}). Default {@code false}
+	 * agar kelas lama tidak mendadak terkunci.</p>
+	 *
+	 * @return {@code true} bila presensi dosen dibatasi jadwal.
+	 */
 	public Boolean getKehadiranDosenHarusDiinputSesuaiJadwal() {
 		return kehadiranDosenHarusDiinputSesuaiJadwal == null ? false : kehadiranDosenHarusDiinputSesuaiJadwal;
 	}
 
+	/**
+	 * Menetapkan pembatasan presensi dosen menurut jadwal.
+	 *
+	 * @param kehadiranDosenHarusDiinputSesuaiJadwal penanda pembatasan.
+	 */
 	public void setKehadiranDosenHarusDiinputSesuaiJadwal(Boolean kehadiranDosenHarusDiinputSesuaiJadwal) {
 		this.kehadiranDosenHarusDiinputSesuaiJadwal = kehadiranDosenHarusDiinputSesuaiJadwal;
 	}
 
+	/**
+	 * Menyatakan apakah dosen hanya boleh mengisi presensi dari alamat IP yang telah ditentukan
+	 * (mis. jaringan kampus). Default {@code false}.
+	 *
+	 * @return {@code true} bila presensi dosen dibatasi alamat IP.
+	 */
 	public Boolean getKehadiranDosenHarusDiinputDiIpYangDitentukan() {
 		return kehadiranDosenHarusDiinputDiIpYangDitentukan == null ? false
 				: kehadiranDosenHarusDiinputDiIpYangDitentukan;
 	}
 
+	/**
+	 * Menetapkan pembatasan presensi dosen menurut alamat IP.
+	 *
+	 * @param kehadiranDosenHarusDiinputDiIpYangDitentukan penanda pembatasan.
+	 */
 	public void setKehadiranDosenHarusDiinputDiIpYangDitentukan(Boolean kehadiranDosenHarusDiinputDiIpYangDitentukan) {
 		this.kehadiranDosenHarusDiinputDiIpYangDitentukan = kehadiranDosenHarusDiinputDiIpYangDitentukan;
 	}
 
+	/**
+	 * Menyatakan apakah mahasiswa hanya boleh mengisi presensi pada rentang waktu jadwal kelas.
+	 * Default {@code false}.
+	 *
+	 * @return {@code true} bila presensi mahasiswa dibatasi jadwal.
+	 * @see #getBolehAbsenSebelumWaktuMulaiDalamMenit()
+	 */
 	public Boolean getKehadiranMahasiswaHarusDiinputSesuaiJadwal() {
 		return kehadiranMahasiswaHarusDiinputSesuaiJadwal == null ? false : kehadiranMahasiswaHarusDiinputSesuaiJadwal;
 	}
 
+	/**
+	 * Menetapkan pembatasan presensi mahasiswa menurut jadwal.
+	 *
+	 * @param kehadiranMahasiswaHarusDiinputSesuaiJadwal penanda pembatasan.
+	 */
 	public void setKehadiranMahasiswaHarusDiinputSesuaiJadwal(Boolean kehadiranMahasiswaHarusDiinputSesuaiJadwal) {
 		this.kehadiranMahasiswaHarusDiinputSesuaiJadwal = kehadiranMahasiswaHarusDiinputSesuaiJadwal;
 	}
 
+	/**
+	 * Menyatakan apakah mahasiswa hanya boleh mengisi presensi dari alamat IP yang telah
+	 * ditentukan. Default {@code false}.
+	 *
+	 * @return {@code true} bila presensi mahasiswa dibatasi alamat IP.
+	 */
 	public Boolean getKehadiranMahasiswaHarusDiinputDiIpYangDitentukan() {
 		return kehadiranMahasiswaHarusDiinputDiIpYangDitentukan == null ? false
 				: kehadiranMahasiswaHarusDiinputDiIpYangDitentukan;
 	}
 
+	/**
+	 * Menetapkan pembatasan presensi mahasiswa menurut alamat IP.
+	 *
+	 * @param kehadiranMahasiswaHarusDiinputDiIpYangDitentukan penanda pembatasan.
+	 */
 	public void setKehadiranMahasiswaHarusDiinputDiIpYangDitentukan(
 			Boolean kehadiranMahasiswaHarusDiinputDiIpYangDitentukan) {
 		this.kehadiranMahasiswaHarusDiinputDiIpYangDitentukan = kehadiranMahasiswaHarusDiinputDiIpYangDitentukan;
 	}
 
+	/**
+	 * Kelonggaran bagi admin: boleh mengisi presensi di luar jadwal maupun di luar alamat IP yang
+	 * ditentukan.
+	 *
+	 * <p>Default {@code true} - tanpa ini, pengetatan presensi akan ikut memblokir petugas yang
+	 * harus memperbaiki data presensi setelah kelas usai.</p>
+	 *
+	 * @return {@code true} bila admin dikecualikan dari pembatasan jadwal dan IP.
+	 */
 	public Boolean getAdminBolehMenginputKehadiranDiluarJadwalDanIp() {
 		return adminBolehMenginputKehadiranDiluarJadwalDanIp == null ? true
 				: adminBolehMenginputKehadiranDiluarJadwalDanIp;
 	}
 
+	/**
+	 * Menetapkan kelonggaran admin terhadap pembatasan presensi.
+	 *
+	 * @param adminBolehMenginputKehadiranDiluarJadwalDanIp penanda kelonggaran.
+	 */
 	public void setAdminBolehMenginputKehadiranDiluarJadwalDanIp(
 			Boolean adminBolehMenginputKehadiranDiluarJadwalDanIp) {
 		this.adminBolehMenginputKehadiranDiluarJadwalDanIp = adminBolehMenginputKehadiranDiluarJadwalDanIp;
