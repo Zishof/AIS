@@ -78,42 +78,63 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
 /**
- * Helper terfokus untuk kegiatan kemahasiswaan punya mahasiswa. Tipe ini membungkus satu variasi
- * kecil dari alur yang lebih umum agar pemanggil memakai nama domain yang jelas dan tidak
- * menggandakan implementasi.
+ * Layar/komponen ZK (bukan Action, dipanggil dari {@code KegiatanKemahasiswaanAction} lewat
+ * {@link #display}) yang mengelola DAFTAR PESERTA (baris {@link KegiatanKemahasiswaanPunyaMahasiswa})
+ * dari satu {@link KegiatanKemahasiswaan} (organisasi/kegiatan kemahasiswaan) — mis. mahasiswa
+ * yang mengikuti UKM/organisasi tertentu, dengan jabatan &amp; skala kegiatan masing-masing.
+ * Mengimplementasikan kontrak generik {@link DataLoader}/{@link DataCriteria}/
+ * {@link DataSearchDefault} agar bisa dipakai lewat helper cetak/upload Excel generik
+ * ({@code Common.cetakDataCustomButton}/{@code Common.uploadData}).
  *
- * <p><b>Batas tanggung jawab:</b> tipe ini mendeklarasikan kontrak {@link DataLoader}, {@link DataCriteria},
- * {@link DataSearchDefault}. Implementasi konkret bertanggung jawab atas transaksi, resource, error handling,
- * dan efek samping; pemanggil sebaiknya bergantung pada kontrak ini agar tidak menggandakan integrasi.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * KegiatanKemahasiswaan kegiatanKemahasiswaan}, {@code Textbox nama}, {@code Intbox angkatan}, {@code Combobox
- * searchfakultas}, {@code Combobox searchjurusan}, {@code Combobox searchPersetujuan}, {@code Paging paging};
- * inisialisasi/lifecycle ({@code initCriteria()}); pembacaan/pencarian ({@code loadData()}, {@code
- * getDataloader()}, {@code getDspace()}, {@code getDspaceTipeKegiatanKemahasiswaanPunyaMahasiswa()}, {@code
- * getDspaceTipeKegiatanKemahasiswaanPunyaMahasiswaJurusan()}, {@code onSearchDefault()}); mutasi data ({@code
- * persetujuanTerpilih()}); operasi domain lain ({@code display()}); konfigurasi constructor: {@code paging},
- * {@code tbmuser}. Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Alur utama:</b> grid berpaging menampilkan peserta dengan filter (nama/NIM, angkatan,
+ * fakultas, jurusan, {@link #searchmahasiswa Bandbox mahasiswa}, dan status persetujuan peserta
+ * lewat {@link #searchPersetujuan}/{@link #persetujuanTerpilih()}). Tiap baris dirender oleh
+ * {@link DetailKegiatanKemahasiswaanRenderer}: field jabatan/skala/keterangan/tanggal mulai-sampai
+ * bisa diedit inline (auto-save {@code onChange}) selama peserta belum {@code persetujuan}
+ * (disetujui); admin (bukan {@code tbmuser.getMahasiswa()}) bisa mencentang persetujuan langsung
+ * dari grid bila status {@link KegiatanKemahasiswaan} sudah {@code DISETUJUI}. Peserta yang belum
+ * disetujui bisa dihapus satu-per-satu atau massal ("Bersihkan" — DELETE SQL langsung untuk semua
+ * baris {@code persetujuan IS NULL OR FALSE} pada kegiatan ini).</p>
+ *
+ * <p><b>Integrasi repository (DSpace/OJS).</b> Bila konfigurasi
+ * {@code kegiatan_mahasiswa_terhubung_ke_dspace} aktif, peserta yang sudah disetujui (dan punya
+ * jurusan) bisa diekspor/dibatalkan-ekspor ke repository DSpace sebagai item (lewat
+ * {@link #getDspace}), di bawah hierarki community-per-jurusan
+ * ({@link #getDspaceTipeKegiatanKemahasiswaanPunyaMahasiswaJurusan}) dan collection-per-kegiatan
+ * ({@link #getDspaceTipeKegiatanKemahasiswaanPunyaMahasiswa}) yang dibuat otomatis via API DSpace
+ * bila belum ada (di-cache id-nya di {@link Konfigurasi} per kombinasi kegiatan+jurusan).</p>
+ *
+ * <p><b>Bukan tanggung jawab kelas ini:</b> pencarian/pengambilan mahasiswa BARU sebagai calon
+ * peserta (didelegasikan ke {@code AmbilDataMahasiswaForKegiatanKemahasiswaanHelper} lewat tombol
+ * "Ambil Mahasiswa"), maupun pembuatan sertifikat (didelegasikan ke
+ * {@code SertifikatAction.cetakSertifikat}).</p>
  */
 public class KegiatanKemahasiswaanPunyaMahasiswaHelper implements DataLoader, DataCriteria, DataSearchDefault {
 
+	/** Grid ZK yang menampilkan daftar peserta; baris dirender oleh {@link DetailKegiatanKemahasiswaanRenderer}, diisi ulang oleh {@link #loadData}. */
 	private MyGrid grid;
+	/** Kegiatan/organisasi kemahasiswaan yang pesertanya sedang dikelola layar ini; diset sekali di {@link #display}. */
 	private KegiatanKemahasiswaan kegiatanKemahasiswaan;
+	/** Kotak isian filter nama/NIM peserta. */
 	private Textbox nama;
+	/** Kotak isian filter tahun angkatan peserta. */
 	private Intbox angkatan;
 
+	/** Filter fakultas peserta (default "Semua" — lihat catatan di {@link #display} kenapa TIDAK dikunci ke fakultas kegiatan). */
 	private Combobox searchfakultas = new Combobox();
+	/** Filter jurusan/prodi peserta (default "Semua", diisi SELURUH jurusan bukan hanya jurusan kegiatan). */
 	private Combobox searchjurusan = new Combobox();
 	/** Filter status persetujuan PESERTA (Semua / Disetujui / Belum) — melengkapi filter status kegiatan. */
 	private Combobox searchPersetujuan = new Combobox();
 
+	/** Komponen paging grid; event pindah halaman memicu {@link #loadData}. */
 	private Paging paging;
+	/** Pengguna yang sedang login — dipakai membedakan tampilan admin (bisa menyetujui/menghapus) vs. mahasiswa sendiri. */
 	private Tbmuser tbmuser;
+	/** Bandbox pencarian satu mahasiswa spesifik sebagai filter tambahan. */
 	private AmbilDataMahasiswaBanbox searchmahasiswa;
 
+	/** Menyiapkan combobox fakultas/jurusan (opsi "Semua" + seluruh data), menentukan pengguna login, dan memasang komponen {@link #paging} beserta listener pindah halamannya (memicu {@link #loadData}). Belum memuat data apa pun — pemuatan data terjadi saat {@link #display} dipanggil. */
 	public KegiatanKemahasiswaanPunyaMahasiswaHelper() {
 
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
@@ -132,27 +153,39 @@ public class KegiatanKemahasiswaanPunyaMahasiswaHelper implements DataLoader, Da
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link KegiatanKemahasiswaanPunyaMahasiswaHelper}. Kelas ini
-	 * menerjemahkan satu item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik
-	 * kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link KegiatanKemahasiswaanPunyaMahasiswaHelper} dan
-	 * dapat mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean delete}, {@code List
-	 * jabatanKegiatanKemahasiswaans}, {@code List skalaKegiatanKemahasiswaans}; operasi lokal: {@code render}().
-	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer baris grid peserta — satu instance dibuat per pemuatan data ({@link #loadData}),
+	 * dipakai ulang untuk SEMUA baris dalam halaman tsb. Konstruktor mengambil daftar pilihan
+	 * {@link JabatanKegiatanKemahasiswaan}/{@link SkalaKegiatanKemahasiswaan} SATU KALI dari
+	 * {@link DetailKelompokKegiatanKemahasiswaan} induk kegiatan (bukan per-baris, untuk efisiensi
+	 * — combo pilihan sama untuk semua peserta kegiatan yang sama), dan mengambil hak akses hapus
+	 * ({@link CommonPrivilages#DELETE}) sekali di awal.
+	 * <p>
+	 * {@link #render} menghasilkan per baris: link "Revisi" (riwayat Envers, lewat
+	 * {@link RevisiHelper#createNewRevisi}), upload/download bukti kegiatan
+	 * ({@link LampiranLain#createDownloadUploadFileLain}), nama/angkatan/jurusan mahasiswa,
+	 * STATUS MAHASISWA TERKINI (dihitung on-the-fly via
+	 * {@link HistoryStatusMahasiswaUtil#currentStatus(Mahasiswa)} — bukan disimpan di baris
+	 * peserta), field editable (keterangan, tanggal mulai/sampai, jabatan, skala — auto-save
+	 * {@code onChange} lewat {@code Common.refreshUpdate}, DINONAKTIFKAN begitu peserta sudah
+	 * {@code persetujuan}), checkbox persetujuan (HANYA untuk pengguna non-mahasiswa/admin DAN
+	 * hanya bila status {@link KegiatanKemahasiswaan} sudah {@code DISETUJUI} — selain itu label
+	 * teks read-only "Ya"/"Belum"), tombol Sertifikat (tampil bila sudah disetujui DAN kegiatan
+	 * punya template sertifikat), dan tombol Hapus (tampil bila peserta BELUM disetujui DAN
+	 * pengguna punya hak {@code DELETE}, dengan konfirmasi dan pesan error ramah bila gagal karena
+	 * relasi data lain).
 	 *
 	 * @see KegiatanKemahasiswaanPunyaMahasiswaHelper
 	 */
 	class DetailKegiatanKemahasiswaanRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** {@code true} bila pengguna login punya hak hapus — dicek sekali di constructor, dipakai untuk visibilitas tombol Hapus di setiap baris. */
 		private boolean delete = false;
+		/** Pilihan jabatan yang berlaku untuk kelompok kegiatan induk (diurutkan), dipakai mengisi combo jabatan tiap baris. */
 		private List<JabatanKegiatanKemahasiswaan> jabatanKegiatanKemahasiswaans;
+		/** Pilihan skala kegiatan yang berlaku untuk kelompok kegiatan induk (diurutkan), dipakai mengisi combo skala tiap baris. */
 		private List<SkalaKegiatanKemahasiswaan> skalaKegiatanKemahasiswaans;
 
+		/** Memuat sekali daftar pilihan jabatan &amp; skala dari {@link DetailKelompokKegiatanKemahasiswaan} induk kegiatan, dan hak hapus pengguna login — dipanggil sekali per pemuatan grid, bukan per baris. */
 		public DetailKegiatanKemahasiswaanRenderer() {
 			DetailKelompokKegiatanKemahasiswaan detailKelompokKegiatanKemahasiswaan = (DetailKelompokKegiatanKemahasiswaan) HibernateUtil
 					.currentSession().createCriteria(DetailKelompokKegiatanKemahasiswaan.class)
@@ -168,6 +201,14 @@ public class KegiatanKemahasiswaanPunyaMahasiswaHelper implements DataLoader, Da
 			delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 		}
 
+		/**
+		 * Merender satu baris {@link KegiatanKemahasiswaanPunyaMahasiswa} sesuai deskripsi
+		 * lengkap di Javadoc kelas {@link DetailKegiatanKemahasiswaanRenderer} — lihat di sana
+		 * untuk rincian kolom dan aturan visibilitas/edit.
+		 *
+		 * @param row  baris grid ZK tujuan
+		 * @param data instance {@link KegiatanKemahasiswaanPunyaMahasiswa} yang dirender
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {row.setValign("top");
 			final KegiatanKemahasiswaanPunyaMahasiswa kegiatanKemahasiswaanPunyaMahasiswa = (KegiatanKemahasiswaanPunyaMahasiswa) data;
@@ -371,6 +412,19 @@ public class KegiatanKemahasiswaanPunyaMahasiswaHelper implements DataLoader, Da
 		return v instanceof Boolean ? (Boolean) v : null;
 	}
 
+	/**
+	 * Implementasi kontrak {@link DataCriteria}: membangun {@link Criteria} Hibernate untuk
+	 * {@link KegiatanKemahasiswaanPunyaMahasiswa} milik {@link #kegiatanKemahasiswaan} ini,
+	 * digabung filter dari toolbar (mahasiswa spesifik via {@link #searchmahasiswa}, jurusan,
+	 * fakultas, angkatan, nama/NIM {@code ilike}, dan {@link #persetujuanTerpilih()} — "Belum"
+	 * mencakup {@code NULL} maupun {@code FALSE}, lihat komentar inline). Dipakai baik untuk
+	 * hitung total ({@link #loadData}, {@code order=false}) maupun ambil data terurut NIM
+	 * ({@code order=true}), dan dipakai ulang oleh fitur cetak/upload Excel generik serta ekspor
+	 * DSpace.
+	 *
+	 * @param order {@code true} untuk menambahkan {@code ORDER BY mahasiswa.nim ASC}
+	 * @return Criteria siap dieksekusi/di-paging oleh pemanggil
+	 */
 	public Criteria initCriteria(boolean order) {
 
 		Mahasiswa mahasiswa = (Mahasiswa) searchmahasiswa.getAttribute("mahasiswa");
@@ -413,6 +467,18 @@ public class KegiatanKemahasiswaanPunyaMahasiswaHelper implements DataLoader, Da
 		return criteria;
 	}
 
+	/**
+	 * Implementasi kontrak {@link DataLoader}: menghitung ulang total baris ({@link #paging} lewat
+	 * {@code Common.initPaging}) dan memuat SATU HALAMAN peserta ({@code Common.ROWS_COUNT_ON_PAGE}
+	 * baris, offset dari {@code paging.getActivePage()}) sesuai {@link #initCriteria}, lalu
+	 * memasang {@link DetailKegiatanKemahasiswaanRenderer} baru pada {@link #grid} dan mengganti
+	 * model datanya. Dibungkus {@code Common.createDefaultTimer} agar dijalankan sebagai event ZK
+	 * terjadwal (bukan langsung inline) — pola standar AIS untuk refresh grid dari listener lain.
+	 * Dipanggil ulang dari SEMUA listener perubahan filter, tombol Cari, event pindah halaman, dan
+	 * setelah operasi hapus.
+	 *
+	 * @param value tidak dipakai (parameter kontrak {@link DataLoader}, disediakan untuk kompatibilitas signature)
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -434,10 +500,32 @@ public class KegiatanKemahasiswaanPunyaMahasiswaHelper implements DataLoader, Da
 
 	}
 
+	/** Mengembalikan {@code this} sebagai {@link DataLoader} — dipakai saat memanggil {@code AmbilDataMahasiswaForKegiatanKemahasiswaanHelper.display} (tombol "Ambil Mahasiswa") agar helper penambah peserta baru bisa memicu {@link #loadData} milik layar ini setelah selesai menambah. */
 	private DataLoader getDataloader() {
 		return this;
 	}
 
+	/**
+	 * Titik masuk utama: membangun seluruh UI layar daftar peserta (toolbar filter, grid
+	 * berpaging, tombol Cari/Ambil Mahasiswa/Bersihkan/Download/Upload, dan bila dikonfigurasi
+	 * tombol Ekspor/Batalkan Ekspor DSpace) ke dalam {@code component} yang dioper pemanggil
+	 * (dibersihkan lebih dulu lewat {@code Common.clear}). Menyimpan {@code kegiatanKemahasiswaan}
+	 * ke field instance untuk dipakai seluruh method lain (renderer, {@link #initCriteria}, dsb).
+	 * <p>
+	 * Efek samping penting yang didokumentasikan lewat komentar inline kode: filter
+	 * fakultas/jurusan SENGAJA default "Semua" (bukan dikunci ke fakultas/jurusan kegiatan) karena
+	 * peserta suatu kegiatan bisa berasal dari prodi manapun; grid dibungkus
+	 * {@code Borderlayout}+{@code Center} bertinggi tetap ({@code 60vh}) dengan {@code autoscroll}
+	 * agar kolom kanan (Persetujuan/Hapus) tidak terpotong pada tabel lebar/panjang. Tombol
+	 * "Bersihkan" menjalankan {@code DELETE} SQL langsung (bukan lewat Hibernate) untuk seluruh
+	 * peserta yang belum disetujui pada kegiatan ini. Tombol Ekspor/Batalkan Ekspor DSpace berjalan
+	 * di {@link Thread} terpisah dengan {@link Label} progres, memproses hanya peserta yang sudah
+	 * {@code persetujuan=true} dan punya jurusan.
+	 *
+	 * @param kegiatanKemahasiswaan kegiatan/organisasi yang pesertanya ditampilkan
+	 * @param component             container ZK tujuan (dibersihkan lalu diisi UI layar ini)
+	 * @param window                window induk (diteruskan ke helper "Ambil Mahasiswa" agar bisa menutup diri sendiri bila perlu)
+	 */
 	public void display(final KegiatanKemahasiswaan kegiatanKemahasiswaan, final Component component,
 			final MyWindow window) {
 		this.kegiatanKemahasiswaan = kegiatanKemahasiswaan;
@@ -634,20 +722,25 @@ public class KegiatanKemahasiswaanPunyaMahasiswaHelper implements DataLoader, Da
 				hlink_style.setFont(hlink_font);
 
 				/**
-				 * Helper implementasi bersarang milik {@link KegiatanKemahasiswaanPunyaMahasiswaHelper} untuk data adding
-				 * helper. Kelas ini mengemas langkah lokal yang dipakai kelas induk dan bukan service domain alternatif.
-				 *
-				 * <p><b>Scope:</b> setiap instance terikat pada instance {@link KegiatanKemahasiswaanPunyaMahasiswaHelper} dan
-				 * dapat mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-				 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code process}(). Aturan bisnis bersama
-				 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-				 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
-				 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
-				 * tambahkan perilaku lintas domain pada service bersama.</p>
-				 *
-				 * @see KegiatanKemahasiswaanPunyaMahasiswaHelper
+				 * Helper lokal sekali-pakai (didefinisikan di dalam listener {@code dataAdding}) untuk
+				 * menambahkan kolom EXTRA "Bukti" (di luar {@code contents} standar) ke baris Excel hasil
+				 * cetak/download data peserta ({@code Common.cetakDataCustomButton}). Menangkap
+				 * {@code hlink_style} (gaya sel: latar abu-abu, font biru bergaris bawah) dari lingkup
+				 * pemanggil untuk konsistensi tampilan link di seluruh workbook.
 				 */
 				class DataAddingHelper {
+					/**
+					 * Mengisi satu sel Excel pada kolom {@code index} dengan HYPERLINK ke lampiran
+					 * {@link LampiranLain} milik peserta (dicari via {@link LampiranLain#ambil} berdasar
+					 * id entity + nama kelas {@code jenis}) — nama file sebagai teks tampilan, URL dari
+					 * {@link LampiranLain#createLinkUri()}. Bila peserta tidak punya lampiran, sel
+					 * dibiarkan kosong tanpa gaya khusus.
+					 *
+					 * @param row                                sheet row Excel tujuan
+					 * @param index                              indeks kolom (0-based) untuk sel bukti
+					 * @param kegiatanKemahasiswaanPunyaMahasiswa peserta yang lampirannya dicari
+					 * @param jenis                               nama kelas entity pemilik lampiran (dipakai kunci pencarian {@link LampiranLain})
+					 */
 					public void process(XSSFRow row, int index,
 							KegiatanKemahasiswaanPunyaMahasiswa kegiatanKemahasiswaanPunyaMahasiswa, String jenis)
 							throws Exception {
@@ -912,6 +1005,27 @@ public class KegiatanKemahasiswaanPunyaMahasiswaHelper implements DataLoader, Da
 		});
 	}
 
+	/**
+	 * Membangun payload metadata Dublin Core (JSON, skema {@code dc.*} standar DSpace) untuk satu
+	 * peserta {@link KegiatanKemahasiswaanPunyaMahasiswa} dan mengirimkannya sebagai item repository
+	 * lewat {@link DspaceInformation#dspaceProcess} — dipetakan: {@code dc.contributor.author/editor}
+	 * = nama mahasiswa, {@code dc.date.copyright} = label universitas dari konfigurasi,
+	 * {@code dc.description.abstract} = {@code keterangan} peserta (di-strip HTML lewat
+	 * {@link Html2Text}), {@code dc.type} = nama jabatan (bila ada), {@code dc.title} = nama
+	 * kegiatan, {@code dc.subject} = nama skala kegiatan (bila ada), {@code dc.publisher} = tempat
+	 * kegiatan, {@code dc.identifier.uri} = URL kegiatan (ditimpa dengan URL lampiran bila ada
+	 * berkas bukti), {@code dc.identifier.issn} = kode kegiatan, {@code dc.language} = bahasa
+	 * mahasiswa, {@code dc.date.issued} = tanggal mulai. Item dibuat/diupdate di dalam collection
+	 * yang di-resolve lewat {@link #getDspaceTipeKegiatanKemahasiswaanPunyaMahasiswa}. Bila peserta
+	 * punya {@link LampiranLain} (berkas bukti/sertifikat), file tsb turut di-upload ke item DSpace
+	 * setelah item berhasil dibuat/diupdate.
+	 *
+	 * @param cookie                               token sesi DSpace hasil {@code DspaceCommon.login()}
+	 * @param kegiatanKemahasiswaanPunyaMahasiswa  peserta yang akan diekspor
+	 * @param update                                {@code true} untuk memperbarui item existing, {@code false} untuk membuat baru
+	 * @return {@link DspaceInformation} hasil proses (berisi uuid item DSpace, dsb.)
+	 * @throws Exception dilempar apa adanya dari kegagalan panggilan API DSpace
+	 */
 	public static DspaceInformation getDspace(String cookie,
 			KegiatanKemahasiswaanPunyaMahasiswa kegiatanKemahasiswaanPunyaMahasiswa, boolean update) throws Exception {
 
@@ -1022,6 +1136,20 @@ public class KegiatanKemahasiswaanPunyaMahasiswaHelper implements DataLoader, Da
 		return dspaceInformation;
 	}
 
+	/**
+	 * Me-resolve (atau membuat, via {@link DspaceInformation#dspaceProcess}) COLLECTION DSpace
+	 * untuk kombinasi {@link KegiatanKemahasiswaan}+{@link Jurusan} peserta — satu tingkat di
+	 * bawah community jurusan yang diambil dari
+	 * {@link #getDspaceTipeKegiatanKemahasiswaanPunyaMahasiswaJurusan}. Id collection yang sudah
+	 * pernah dibuat di-cache lewat {@link Konfigurasi} berkunci
+	 * {@code dspace_label_collection_kegiatanKemahasiswaanPunyaMahasiswa_jurusan_<idKegiatan>_<idJurusan>}
+	 * agar panggilan berikutnya untuk kombinasi yang sama tidak membuat collection duplikat.
+	 *
+	 * @param cookie                               token sesi DSpace
+	 * @param kegiatanKemahasiswaanPunyaMahasiswa  sumber kegiatan+jurusan yang collection-nya di-resolve
+	 * @return {@link DspaceInformation} collection tsb (baru dibuat atau existing)
+	 * @throws Exception dilempar apa adanya dari kegagalan panggilan API DSpace
+	 */
 	public static DspaceInformation getDspaceTipeKegiatanKemahasiswaanPunyaMahasiswa(String cookie,
 			KegiatanKemahasiswaanPunyaMahasiswa kegiatanKemahasiswaanPunyaMahasiswa) throws Exception {
 
@@ -1048,6 +1176,18 @@ public class KegiatanKemahasiswaanPunyaMahasiswaHelper implements DataLoader, Da
 						kegiatanKemahasiswaanPunyaMahasiswa) + "/collections");
 	}
 
+	/**
+	 * Me-resolve (atau membuat) COMMUNITY DSpace level "Prestasi Mahasiswa" untuk satu
+	 * {@link Jurusan} — level TERTINGGI hierarki DSpace yang dipakai kelas ini, di bawah community
+	 * jurusan itu sendiri yang di-resolve lewat {@link JurusanAction#getDspace}. Id community
+	 * di-cache lewat {@link Konfigurasi} berkunci
+	 * {@code dspace_label_collection_kegiatanKemahasiswaanPunyaMahasiswa_<idJurusan>}.
+	 *
+	 * @param cookie                               token sesi DSpace
+	 * @param kegiatanKemahasiswaanPunyaMahasiswa  sumber jurusan (lewat {@code getMahasiswa().getJurusan()}) yang community-nya di-resolve
+	 * @return {@link DspaceInformation} community tsb (baru dibuat atau existing)
+	 * @throws Exception dilempar apa adanya dari kegagalan panggilan API DSpace
+	 */
 	public static DspaceInformation getDspaceTipeKegiatanKemahasiswaanPunyaMahasiswaJurusan(String cookie,
 			KegiatanKemahasiswaanPunyaMahasiswa kegiatanKemahasiswaanPunyaMahasiswa) throws Exception {
 		Jurusan jurusan = kegiatanKemahasiswaanPunyaMahasiswa.getMahasiswa().getJurusan();
@@ -1073,6 +1213,7 @@ public class KegiatanKemahasiswaanPunyaMahasiswaHelper implements DataLoader, Da
 
 	}
 
+	/** Implementasi kontrak {@link DataSearchDefault}: memuat ulang grid dengan filter saat ini — dipanggil sebagai callback setelah operasi ekspor/batalkan-ekspor DSpace selesai untuk menyegarkan tampilan. */
 	@Override
 	public void onSearchDefault(Event event) {
 		loadData(null);

@@ -33,22 +33,78 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Helper terfokus untuk main menu. Tipe ini membungkus satu variasi kecil dari alur yang lebih
- * umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ * Pembangun UI menu utama (menubar {@link org.zkoss.zul.Menupopup}/{@link ais.ui.util.MyMenu}) untuk
+ * salah satu VARIAN tampilan shell aplikasi AIS. Dipakai oleh {@code KonfigurasiNewAction} (dan
+ * dikonfirmasi lewat grep referensi bersanding dengan dua varian sejenis di package yang sama:
+ * {@code MainTreeMenuHelper} dan {@code MainBaruMenuHelper} — ketiganya membangun menubar dari
+ * sumber data {@link Menu} yang SAMA dengan struktur kode yang nyaris identik, hanya berbeda pada
+ * gaya widget ZK yang dipakai). Class ini BUKAN helper generik lintas modul seluas
+ * {@link MainHelper} — perannya sempit: satu fungsi UI (render menubar + pencarian menu), tetapi
+ * bergantung erat pada state statis {@link MainHelper#logins} dan utilitas
+ * {@link MainHelper#hasChild} untuk konsistensi lintas ketiga varian menu tersebut.
  *
- * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
- * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
- * implementasi paralel dengan hasil berbeda.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah pembacaan/pencarian ({@code loadMenuCari()}, {@code loadTree()});
- * operasi domain lain ({@code buildMenuPathLabel()}, {@code createRootSubMenu()}, {@code createTreeMenu()}).
- * Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>{@link #loadTree}</b> — entry point utama. Memuat daftar {@link Menu} milik peran
+ * ({@link Tbmrole}) pengguna dengan strategi 3-lapis tahan-error (dijelaskan di Javadoc method):
+ * (0) baca koleksi lazy yang sudah ter-inisialisasi dari cache role tanpa membuka session baru,
+ * (1) muat ulang role via session Hibernate terisolasi, (2) fallback refresh entity role yang
+ * di-cache. Hasil non-kosong di-cache ke atribut sesi ZK {@code current_menus} (bukan
+ * {@code currentMenus} — lihat catatan penamaan di bawah). Setelah menu dimuat,
+ * {@link #createTreeMenu} merender tree-nya, lalu menambahkan menuitem "Bantuan" (opsional, per
+ * konfigurasi {@code tampilkan_menu_bantuan}) dan "Keluar Aplikasi" yang mendelegasikan ke
+ * {@link MainHelper#onKatalogBantuan}/{@link MainHelper#onKeluar}.</p>
+ *
+ * <p><b>{@link #createTreeMenu}/{@link #createRootSubMenu}</b> — rekursi membangun struktur menubar
+ * bertingkat dari {@link Menu} memakai kunci hierarki {@code root}/{@code child} (identik dengan
+ * {@link MenuTreeModel}, BUKAN {@code id}/parentId): node dengan anak (lewat
+ * {@link MainHelper#hasChild}) dirender sebagai {@link ais.ui.util.MyMenu} (folder, punya
+ * {@link Menupopup} anak, ikon folder), node daun dirender sebagai {@link ais.ui.util.MyMenuitem}
+ * yang saat diklik mencatat {@link DetailLogLogin} dan memanggil {@link Common#launchMenu} untuk
+ * membuka halaman di iframe konten. Filter {@code pt}/{@code ya} menyaring menu menurut konteks
+ * aplikasi (Perguruan Tinggi vs Yayasan/Sekolah) via {@link Menu#getTampilDiPt()}/
+ * {@link Menu#getTampilDiSekolah()}. {@code createRootSubMenu} punya guard {@code coba < 500} untuk
+ * membatasi kedalaman rekursi tak wajar (data menu yang membentuk siklus root/child).</p>
+ *
+ * <p><b>{@link #loadMenuCari}</b> — panel pencarian menu real-time: mencari di antara SEMUA menu
+ * daun yang aktif (bukan hanya level saat ini) dengan mencocokkan {@code cari} terhadap
+ * <i>jalur lengkap</i> label (label menu + seluruh label induknya, dibangun
+ * {@link #buildMenuPathLabel}), sehingga mencari nama kategori induk (mis. "Calon Mahasiswa") ikut
+ * menemukan sub-menu di bawahnya walau labelnya sendiri tidak memuat kata tersebut. Hasil dirender
+ * sebagai daftar {@link Toolbarbutton} yang perilaku kliknya menyalin logika buka-menu dari
+ * {@code createTreeMenu}/{@code createRootSubMenu} (pencatatan log + {@link Common#launchMenu}).</p>
+ *
+ * <p><b>Catatan penamaan atribut sesi (bukan bug, tapi berpotensi membingungkan):</b>
+ * {@link #loadTree} membaca/menulis {@code "current_menus"} (garis bawah), sedangkan
+ * {@link #createTreeMenu} dan {@link #loadMenuCari} membaca {@code "currentMenus"} (camelCase, dua
+ * atribut sesi BERBEDA) — {@code createTreeMenu} SENGAJA menulis ulang {@code "currentMenus"} dari
+ * parameter {@code menus} yang diterimanya sebelum merender, sehingga {@code loadMenuCari} (dipanggil
+ * belakangan dari toolbar pencarian) selalu mendapat data terbaru meski dua nama atribut ini terlihat
+ * seperti duplikasi.</p>
+ *
+ * @see MainHelper
+ * @see MenuTreeModel
  */
 public class MainMenuHelper {
 
+	/**
+	 * Merender hasil pencarian menu ke dalam {@code rowDicari}: menyaring seluruh menu DAUN aktif
+	 * (dari atribut sesi {@code currentMenus}, diisi oleh {@link #createTreeMenu}) yang jalur
+	 * labelnya (lihat {@link #buildMenuPathLabel}) memuat {@code cari} (case-insensitive, tanpa
+	 * memandang aksen/diakritik), lalu menampilkan tiap hasil sebagai {@link Toolbarbutton} yang
+	 * perilaku kliknya menyalin pencatatan {@link DetailLogLogin} + {@link Common#launchMenu} dari
+	 * {@link #createTreeMenu}. Bila tidak ada hasil, tampilkan label "Tidak ada menu yang cocok".
+	 * Sama seperti {@link #loadTree}, mencatat entri {@link DetailLogLogin} "Login" pertama sesi via
+	 * {@link MainHelper#logins} sebelum merender.
+	 *
+	 * @param tbmuser user pemilik menu (tidak dipakai langsung selain untuk konsistensi signature)
+	 * @param login sesi login aktif untuk pencatatan log klik/login
+	 * @param rowDicari baris ZK tempat grid hasil pencarian di-attach
+	 * @param clickEventListener listener tambahan yang dijalankan lebih dulu saat item hasil diklik
+	 *            (mis. menutup popup pencarian)
+	 * @param iframe tabbox konten tempat halaman menu dibuka
+	 * @param navigasi panel navigasi (west) milik shell aplikasi
+	 * @param menuService konfigurasi toolbar menu yang diteruskan ke {@link Common#launchMenu}
+	 * @param cari kata kunci pencarian; dicocokkan trim+lowercase terhadap jalur label menu
+	 */
 	@SuppressWarnings("unchecked")
 	public static void loadMenuCari(Tbmuser tbmuser, final LogLogin login, Row rowDicari,
 			final EventListener clickEventListener, final Tabbox iframe, final West navigasi,
@@ -227,6 +283,30 @@ public class MainMenuHelper {
 		return sb.toString();
 	}
 
+	/**
+	 * Entry point pembangunan menubar utama untuk satu sesi login. Mencatat {@link DetailLogLogin}
+	 * "Login" pertama sesi (best-effort, via {@link MainHelper#logins}), memuat daftar {@link Menu}
+	 * milik {@link Tbmrole} pengguna dengan strategi tahan-error 3 lapis (lihat detail di badan
+	 * method: (0) koleksi lazy yang sudah ter-inisialisasi di cache role &rarr; (1) session Hibernate
+	 * terisolasi memuat ulang role by id &rarr; (2) fallback refresh entity role yang di-cache; hasil
+	 * KOSONG sengaja TIDAK di-cache ke sesi agar gangguan sesaat tidak "mengunci" menu jadi hilang
+	 * permanen untuk sisa sesi), lalu mendelegasikan rendering ke {@link #createTreeMenu} dan
+	 * menambahkan menuitem tetap "Bantuan" (opsional per konfigurasi {@code tampilkan_menu_bantuan})
+	 * serta "Keluar Aplikasi".
+	 *
+	 * @param tbmuser user yang login; menu diambil dari {@code tbmuser.hakAkses().getMenus()}
+	 * @param login sesi login aktif untuk pencatatan log
+	 * @param menubar komponen ZK induk tempat menu level-atas di-attach
+	 * @param clickEventListener listener tambahan yang dijalankan sebelum {@link Common#launchMenu}
+	 *            saat item menu diklik
+	 * @param iframe tabbox konten tempat halaman menu dibuka
+	 * @param navigasi panel navigasi (west) milik shell aplikasi
+	 * @param menuService konfigurasi toolbar menu yang diteruskan ke {@link Common#launchMenu}
+	 * @param pt {@code true} bila konteks aplikasi Perguruan Tinggi (menyaring menu via
+	 *            {@link Menu#getTampilDiPt()})
+	 * @param ya {@code true} bila konteks aplikasi Yayasan/Sekolah (menyaring menu via
+	 *            {@link Menu#getTampilDiSekolah()})
+	 */
 	@SuppressWarnings("unchecked")
 	public static void loadTree(Tbmuser tbmuser, final LogLogin login, Component menubar,
 			EventListener clickEventListener, Tabbox iframe, West navigasi, MyToolbarbuttonConfig menuService,
@@ -395,6 +475,17 @@ public class MainMenuHelper {
 
 	}
 
+	/**
+	 * Rekursi pembentuk submenu {@link Menupopup} untuk satu {@code root} (nilai {@code child} milik
+	 * menu induk): tiap {@link Menu} dengan {@code getRoot().equals(root)} dirender sebagai
+	 * {@link ais.ui.util.MyMenu} (bila punya anak lagi, ikon folder, rekursi lebih dalam via
+	 * {@link MainHelper#hasChild}) atau {@link ais.ui.util.MyMenuitem} (daun, ikon chevron, klik
+	 * langsung mencatat {@link DetailLogLogin} + {@link Common#launchMenu}). Filter {@code pt}/
+	 * {@code ya} disaring sama seperti {@link #createTreeMenu}.
+	 *
+	 * @param coba penghitung kedalaman rekursi; rekursi dihentikan paksa saat {@code coba >= 500}
+	 *            sebagai pengaman terhadap data menu yang membentuk siklus root/child
+	 */
 	private static void createRootSubMenu(Long root, List<Menu> menus, MyMenu parenttreeitem, Tbmuser tbmuser,
 			final LogLogin login, final EventListener clickEventListener, final Tabbox iframe, final West navigasi,
 			final MyToolbarbuttonConfig menuService, int coba, boolean pt, boolean ya) {
@@ -469,6 +560,26 @@ public class MainMenuHelper {
 
 	}
 
+	/**
+	 * Merender menu level-atas (baris {@link Menu} dengan {@code root == 0}) langsung ke
+	 * {@code menubar}, mendelegasikan submenu ke {@link #createRootSubMenu} untuk tiap node yang
+	 * punya anak. Menyimpan {@code menus} ke atribut sesi {@code currentMenus} — inilah sumber data
+	 * yang kemudian dibaca {@link #loadMenuCari} (lihat catatan penamaan atribut sesi di Javadoc
+	 * class).
+	 *
+	 * @param menubar komponen ZK induk tempat menu level-atas di-attach; method langsung
+	 *            {@code return} tanpa efek bila {@code menus} {@code null}
+	 * @param job {@link Tbmrole} pengguna, dipakai untuk {@code roleId} pada label menu
+	 * @param menus daftar seluruh {@link Menu} yang tersedia untuk role ini
+	 * @param tbmuser user yang login, diteruskan ke {@link #createRootSubMenu}
+	 * @param login sesi login aktif untuk pencatatan log klik
+	 * @param clickEventListener listener tambahan sebelum {@link Common#launchMenu}
+	 * @param iframe tabbox konten tempat halaman menu dibuka
+	 * @param navigasi panel navigasi (west) milik shell aplikasi
+	 * @param menuService konfigurasi toolbar menu untuk {@link Common#launchMenu}
+	 * @param pt {@code true} bila konteks Perguruan Tinggi
+	 * @param ya {@code true} bila konteks Yayasan/Sekolah
+	 */
 	public static void createTreeMenu(Component menubar, Tbmrole job, List<Menu> menus, Tbmuser tbmuser,
 			final LogLogin login, final EventListener clickEventListener, final Tabbox iframe, final West navigasi,
 			final MyToolbarbuttonConfig menuService, boolean pt, boolean ya) {
