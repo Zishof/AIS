@@ -51,7 +51,26 @@ import ais.database.model.faspay.FaspayRequestDetailBiaya;
 import ais.database.model.faspay.FaspayResponse;
 
 /**
- * Servlet implementation class CheckISBN
+ * Servlet callback/handler untuk integrasi payment gateway <b>Faspay</b>: menerima notifikasi
+ * status transaksi dari server Faspay (parameter {@code data}/{@code querystring} berisi XML
+ * status transaksi), mencocokkannya dengan {@link FaspayRequest} lokal berdasarkan {@code trx_id}/
+ * {@code bill_no}, lalu menindaklanjuti pembayaran yang berhasil (pelunasan tagihan terkait via
+ * {@link FaspayCommon}, pencatatan {@link LogPembayaran}/{@link LogHostToHost}). Servlet ini juga
+ * menyediakan endpoint untuk memulai pembayaran Faspay langsung dari parameter request web service
+ * (lihat {@link FaspayCommon#populateFaspayRequestDetail(HttpServletRequest, Mahasiswa, String, Integer)}).
+ *
+ * <p>
+ * <b>Riwayat keamanan (DIPERBAIKI 2026-09-01)</b> — salah satu jalur pada servlet ini sebelumnya
+ * mengambil kredensial merchant Faspay lewat {@link Common#getKonfigurasi(String, String)} dengan
+ * nilai default RAHASIA tertanam langsung di kode sumber ({@code faspay_user_id} default
+ * {@code "bot31503"}, {@code faspay_password} default {@code "W4TYRmO0"} — identik dengan default
+ * lama pada {@link FaspayCommon} dan {@code ais.common.FaspayKeranjangPembayaran}, sudah diperbaiki
+ * terpisah). Default itu sudah dihapus (kini string kosong). Baris {@code System.out.println} yang
+ * sebelumnya mencetak signature transaksi (berpotensi membocorkan bahan autentikasi lewat log
+ * server) juga sudah dihapus. Kredensial lama yang sebelumnya tertanam sudah lama berada di
+ * riwayat SVN dan WAJIB dianggap bocor — perlu dirotasi di sisi Faspay bila masih aktif di
+ * produksi.
+ * </p>
  */
 public class FasPayResponse extends HttpServlet {
 	private static final long serialVersionUID = 1L;
@@ -517,10 +536,10 @@ public class FasPayResponse extends HttpServlet {
 					faspayRequestDetailBiayas.add(faspayRequestDetailBiaya);
 				}
 
-				String merchant_id = Common.getKonfigurasi("faspay_merchant_id", "31503").getNilai().trim();
+				String merchant_id = Common.getKonfigurasi("faspay_merchant_id", "").getNilai().trim();
 				String merchant = Common.getKonfigurasi("faspay_merchant_name", "eCampus").getNilai().trim();
-				String UserID = Common.getKonfigurasi("faspay_user_id", "bot31503").getNilai().trim();
-				String Password = Common.getKonfigurasi("faspay_password", "W4TYRmO0").getNilai().trim();
+				String UserID = Common.getKonfigurasi("faspay_user_id", "").getNilai().trim();
+				String Password = Common.getKonfigurasi("faspay_password", "").getNilai().trim();
 
 				String items = "";
 
@@ -572,8 +591,6 @@ public class FasPayResponse extends HttpServlet {
 				String bill_no = Common.getGeneratedBarCode();
 
 				String signature = AeSimpleSHA1.SHA1(MD5.crypt(UserID + Password + bill_no));
-
-				System.out.println("signature = " + signature);
 
 				SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 				Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();

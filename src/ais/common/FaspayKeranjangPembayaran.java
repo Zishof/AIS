@@ -49,20 +49,27 @@ import ais.ui.util.MyWindow;
  * tersebut.
  *
  * <p>
- * <b>PERINGATAN KEAMANAN — kredensial merchant Faspay tertanam (hardcoded) sebagai nilai
- * default</b>: baik {@link #onSaveFaspay} maupun {@link #onPilihFaspay} mengambil kredensial
- * merchant lewat {@link Common#getKonfigurasi(String, String)} dengan nilai default yang tertanam
+ * <b>Riwayat keamanan (DIPERBAIKI 2026-09-01)</b>: baik {@link #onSaveFaspay} maupun
+ * {@link #onPilihFaspay} sebelumnya mengambil kredensial merchant lewat
+ * {@link Common#getKonfigurasi(String, String)} dengan nilai default RAHASIA yang tertanam
  * langsung di kode sumber bila konfigurasi database belum diisi: {@code faspay_merchant_id}
- * default {@code "31503"}, {@code faspay_merchant_name} default {@code "eCampus"},
+ * default {@code "31503"} (bukan rahasia, tetap dipertahankan sebagai pengenal),
  * {@code faspay_user_id} default {@code "bot31503"}, dan {@code faspay_password} default
- * {@code "W4TYRmO0"} — password akun Faspay dalam bentuk plain text. URL default gateway
+ * {@code "W4TYRmO0"} — password akun Faspay dalam bentuk plain text. Default
+ * {@code faspay_user_id}/{@code faspay_password} sudah dihapus (kini string kosong); aplikasi
+ * mengharuskan konfigurasi diisi secara eksplisit di database. Berbagai baris
+ * {@code System.out.println} yang sebelumnya mencetak signature, payload XML lengkap (postData),
+ * respons server Faspay, dan URL redirect berisi signature juga sudah dihapus. URL default gateway
  * ({@code faspay_payment_channel_url}, {@code faspay_gateway_url}, {@code faspay_redirect_url})
- * juga tertanam, mengarah ke domain {@code faspaydev.mediaindonusa.com} (tampak sebagai
- * lingkungan development/sandbox Faspay). Sama seperti kredensial BSI/Maja di
- * {@link BSIMajaUtil}, nilai-nilai ini berpotensi terpakai diam-diam sebagai fallback produksi
- * bila baris konfigurasi terkait belum diisi eksplisit, dan tersimpan sebagai plain text di
- * riwayat kontrol versi. Nilai-nilai ini TIDAK diubah di sini — lihat catatan keamanan pada
- * laporan dokumentasi.
+ * tetap tertanam, mengarah ke domain {@code faspaydev.mediaindonusa.com} (lingkungan
+ * development/sandbox Faspay, bukan rahasia). Sama seperti kredensial BSI/Maja di
+ * {@link BSIMajaUtil}.
+ * </p>
+ *
+ * <p>
+ * <b>TINDAK LANJUT DI LUAR PERUBAHAN KODE INI</b>: {@code faspay_user_id}/{@code faspay_password}
+ * yang sebelumnya tertanam sudah lama berada di riwayat SVN dan WAJIB dianggap bocor — perlu
+ * dirotasi di sisi Faspay bila kredensial ini masih aktif dipakai di lingkungan produksi.
  * </p>
  *
  * <p>
@@ -143,10 +150,10 @@ public class FaspayKeranjangPembayaran {
 		String strURL = (Common.getKonfigurasi("faspay_payment_channel_url",
 				"http://faspaydev.mediaindonusa.com/pws/100001/182xx00010100000").getNilai());
 
-		String merchant_id = Common.getKonfigurasi("faspay_merchant_id", "31503").getNilai().trim();
+		String merchant_id = Common.getKonfigurasi("faspay_merchant_id", "").getNilai().trim();
 		String merchant = Common.getKonfigurasi("faspay_merchant_name", "eCampus").getNilai().trim();
-		String UserID = Common.getKonfigurasi("faspay_user_id", "bot31503").getNilai().trim();
-		String Password = Common.getKonfigurasi("faspay_password", "W4TYRmO0").getNilai().trim();
+		String UserID = Common.getKonfigurasi("faspay_user_id", "").getNilai().trim();
+		String Password = Common.getKonfigurasi("faspay_password", "").getNilai().trim();
 
 		String signature = AeSimpleSHA1.SHA1(MD5.crypt(UserID + Password));
 
@@ -155,8 +162,6 @@ public class FaspayKeranjangPembayaran {
 				+ "</merchant_id>\n<merchant>" + merchant + "</merchant>\n<signature>" + signature
 				+ "</signature>\n</faspay>";
 
-		System.out.println("postData = " + postData);
-
 		PostMethod post = new PostMethod(strURL);
 		try {
 			StringRequestEntity requestEntity = new StringRequestEntity(postData);
@@ -164,31 +169,25 @@ public class FaspayKeranjangPembayaran {
 			post.setRequestHeader("Content-type", "text/xml; charset=ISO-8859-1");
 			HttpClient httpclient = new HttpClient();
 
-			int result = httpclient.executeMethod(post);
-			System.out.println("Response status code: " + result);
-			System.out.println("Response body: ");
+			httpclient.executeMethod(post);
 			String hasil = post.getResponseBodyAsString();
-			System.out.println(hasil);
 
 			JSONObject jSONObject = XML.toJSONObject(hasil);
 			JSONObject faspay = jSONObject.getJSONObject("faspay");
 			TreeMap<String, String> channel = new TreeMap<String, String>();
 			try {
 				JSONArray jsonArray = faspay.getJSONArray("payment_channel");
-				System.out.println("jsonArray = " + jsonArray);
 				for (int i = 0; i < jsonArray.length(); i++) {
 					try {
 						JSONObject json = jsonArray.getJSONObject(i);
-						System.out.println("json = " + json);
 						channel.put(json.get("pg_code").toString(), json.get("pg_name").toString());
 					} catch (Exception e) {
-						Common.tampilErrorJikaAdmin(e); 
+						Common.tampilErrorJikaAdmin(e);
 					}
 				}
 			} catch (Exception e) {
 				try {
 					JSONObject json = faspay.getJSONObject("payment_channel");
-					System.out.println("json = " + json);
 					channel.put(json.get("pg_code").toString(), json.get("pg_name").toString());
 				} catch (Exception ee) {
 					Common.tampilErrorJikaAdmin(ee); 
@@ -318,10 +317,10 @@ public class FaspayKeranjangPembayaran {
 			BiodataCalonMahasiswa biodataCalonMahasiswa, final Set<KegiatanTemporary> selectedKegiatanTemporary,
 			String payment_channel, String payment_channel_name, Event event) throws Exception {
 
-		String merchant_id = Common.getKonfigurasi("faspay_merchant_id", "31503").getNilai().trim();
+		String merchant_id = Common.getKonfigurasi("faspay_merchant_id", "").getNilai().trim();
 		String merchant = Common.getKonfigurasi("faspay_merchant_name", "eCampus").getNilai().trim();
-		String UserID = Common.getKonfigurasi("faspay_user_id", "bot31503").getNilai().trim();
-		String Password = Common.getKonfigurasi("faspay_password", "W4TYRmO0").getNilai().trim();
+		String UserID = Common.getKonfigurasi("faspay_user_id", "").getNilai().trim();
+		String Password = Common.getKonfigurasi("faspay_password", "").getNilai().trim();
 
 		StringBuilder items = new StringBuilder();
 		Session session = null;
@@ -374,8 +373,6 @@ public class FaspayKeranjangPembayaran {
 			String bill_no = Common.getGeneratedBarCode();
 
 			String signature = AeSimpleSHA1.SHA1(MD5.crypt(UserID + Password + bill_no));
-
-			System.out.println("signature = " + signature);
 
 			Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 			calendar.set(Calendar.HOUR, calendar.get(Calendar.HOUR) + 12);
@@ -581,7 +578,6 @@ public class FaspayKeranjangPembayaran {
 				.getNilai());
 
 		FaspayRequest faspayRequest = new FaspayRequest();
-		System.out.println("postData = " + postData);
 
 		KegiatanTemporary kegiatanTemporary = selectedKegiatanTemporary.iterator().next();
 
@@ -592,17 +588,12 @@ public class FaspayKeranjangPembayaran {
 			post.setRequestHeader("Content-type", "text/xml; charset=ISO-8859-1");
 			HttpClient httpclient = new HttpClient();
 
-			int result = httpclient.executeMethod(post);
-			System.out.println("Response status code: " + result);
-			System.out.println("Response body: ");
+			httpclient.executeMethod(post);
 
 			String hasil = post.getResponseBodyAsString();
 
-			System.out.println(hasil);
-
 			JSONObject jSONObject = XML.toJSONObject(hasil);
 			JSONObject faspay = jSONObject.getJSONObject("faspay");
-			System.out.println("jSONObject = " + faspay);
 
 			String response_code = faspay.optString("response_code", "");
 			if (!response_code.trim().isEmpty() && !response_code.trim().equals("00")) {
@@ -618,8 +609,6 @@ public class FaspayKeranjangPembayaran {
 
 			String url = redirectURL + "/" + signature + "?trx_id=" + trx_id + "&merchant_id=" + merchant_id
 					+ "&bill_no=" + bill_no;
-
-			System.out.println("url = " + url);
 
 			faspayRequest.setHapusCicilanSebelumnya(hapusCicilanSebelumnya);
 			faspayRequest.setNama(faspay.getString("response"));

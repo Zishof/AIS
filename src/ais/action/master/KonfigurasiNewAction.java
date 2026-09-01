@@ -6400,8 +6400,8 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 		hbox.setParent(groupbox);
 		rows.appendChild(createRowNilai("Faspay merchant id", "faspay_merchant_id", "31503"));
 		rows.appendChild(createRowNilai("Faspay nama merchant", "faspay_merchant_name", "eCampus"));
-		rows.appendChild(createRowNilai("Faspay user id", "faspay_user_id", "bot31503"));
-		rows.appendChild(createRowNilaiPassword("Faspay password", "faspay_password", "W4TYRmO0"));
+		rows.appendChild(createRowNilai("Faspay user id", "faspay_user_id", ""));
+		rows.appendChild(createRowNilaiPassword("Faspay password", "faspay_password", ""));
 
 		rows.appendChild(createRowNilai("Faspay Payment Channel URL", "faspay_payment_channel_url",
 				"http://faspaydev.mediaindonusa.com/pws/100001/182xx00010100000"));
