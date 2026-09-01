@@ -43,23 +43,25 @@ import ais.database.model.rab.SatuanKerja;
 import ais.ui.util.GetEventListener;
 
 /**
- * Tipe khusus untuk ambil data sasaran banbox. Kelas ini memberi nama dan batas tanggung jawab
- * yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.rab.Sasaran} —
+ * lihat {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum (constructor/display/
+ * onSearchDefault/renderer/callback). {@code Sasaran} adalah sasaran/target dalam struktur RAB
+ * (Rencana Anggaran Biaya) yang menjadi acuan penyusunan rencana anggaran suatu satuan kerja.
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code EventListener
- * eventListener}, {@code SatuanKerjaTreeModel satuanKerjaTreeModel}, {@code Textbox kode}, {@code Textbox nama},
- * {@code AmbilDataSatuanKerjaBanbox satuanKerja}; pembacaan/pencarian ({@code onSearchDefault()}, {@code
- * setEventListener()}, {@code getEventListener()}); operasi domain lain ({@code display()}); konfigurasi
- * constructor: {@code satuanKerjaTreeModel}. Bagian lain dari kontrak tetap mengikuti kelas induk atau interface
- * yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p>
+ * Kriteria pencarian: {@code kode} dan {@code nama} (masing-masing {@code ilike} kontains, tidak
+ * peka huruf besar/kecil). Pemilihan bersifat tunggal, ditampilkan lewat {@link Radiogroup}.
+ * </p>
+ * <p>
+ * <b>Filter non-trivial — scoping per Satuan Kerja:</b> popup pencarian menyertakan sub-picker
+ * {@link AmbilDataSatuanKerjaBanbox} ({@code satuanKerja}). Bila pengguna memilih satuan kerja di
+ * sana, hasil sasaran dibatasi pada satuan kerja tersebut BESERTA seluruh anak-cucunya (dihitung
+ * lewat {@link SatuanKerjaTreeModel#getChildsSet}), dan baris {@code Sasaran} tanpa satuan kerja
+ * (global) ikut disembunyikan. Bila tidak ada satuan kerja yang dipilih, pencarian dibatasi pada
+ * scope satuan kerja pengguna saat ini ({@code SekolahUtil.ambilSatuanKerjas()}) ditambah
+ * {@code Sasaran} yang satuan kerjanya null (sasaran global tanpa pemilik satker). Memilih satuan
+ * kerja pada sub-picker memicu {@code onSearchDefault(null)} ulang lewat listener miliknya sendiri.
+ * </p>
  *
  * @see Bandbox
  */
@@ -74,6 +76,13 @@ public class AmbilDataSasaranBanbox extends Bandbox implements GetEventListener 
 	private EventListener eventListener;
 	private SatuanKerjaTreeModel satuanKerjaTreeModel;
 
+	/**
+	 * Constructor mengikuti kerangka standar (lihat {@link ais.ui.util.GetEventListener}), dengan
+	 * tambahan menyiapkan {@link SatuanKerjaTreeModel} (mode non-lazy, {@code false}) yang dipakai
+	 * {@link #onSearchDefault(Event)} untuk menghitung anak-cucu satuan kerja saat scoping filter.
+	 *
+	 * @see ais.ui.util.GetEventListener
+	 */
 	public AmbilDataSasaranBanbox() {
 		super();
 		satuanKerjaTreeModel = new SatuanKerjaTreeModel(false);
@@ -89,18 +98,13 @@ public class AmbilDataSasaranBanbox extends Bandbox implements GetEventListener 
 	private AmbilDataSatuanKerjaBanbox satuanKerja;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataSasaranBanbox}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 * Renderer baris grid hasil pencarian {@link Sasaran}, mengikuti kerangka renderer batin standar
+	 * pola Bandbox picker. Merender kolom Kode, Nama, Keterangan, plus radio pilihan yang saat
+	 * dicentang menutup popup, menyimpan entity {@code Sasaran} terpilih ke atribut
+	 * {@code "sasaran"}/{@code "myValue"} dan teks tampil {@code "kode - nama"} pada Bandbox, lalu
+	 * meneruskan event ke {@link #eventListener} bila terpasang.
 	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataSasaranBanbox} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
-	 *
-	 * @see AmbilDataSasaranBanbox
+	 * @see ais.ui.util.GetEventListener
 	 */
 	class SasaranRenderer extends ais.ui.util.MyRowRenderer {
 
@@ -135,6 +139,13 @@ public class AmbilDataSasaranBanbox extends Bandbox implements GetEventListener 
 
 	}
 
+	/**
+	 * Membangun popup pencarian (form Kode/Nama/Satuan Kerja + tombol Cari + grid hasil ber-radio)
+	 * mengikuti kerangka standar, lalu memanggil {@link #onSearchDefault(Event)} agar grid terisi
+	 * saat popup pertama dibuka.
+	 *
+	 * @see ais.ui.util.GetEventListener
+	 */
 	public void display() throws Exception {
 		setReadonly(true);
 
@@ -262,6 +273,16 @@ public class AmbilDataSasaranBanbox extends Bandbox implements GetEventListener 
 
 	}
 
+	/**
+	 * Menjalankan pencarian {@link Sasaran} berdasarkan {@code kode}/{@code nama} (ilike, opsional)
+	 * diurutkan berdasar nama, dengan filter scoping satuan kerja seperti dijelaskan di Javadoc
+	 * kelas (menyertakan anak-cucu satuan kerja terpilih via {@link SatuanKerjaTreeModel}, atau
+	 * scope satuan kerja pengguna + sasaran global bila belum ada satuan kerja dipilih). Hasil
+	 * dipasang ke {@link #grid} lewat {@link SasaranRenderer}.
+	 *
+	 * @param event event pemicu (tidak dipakai isinya; boleh {@code null} untuk pencarian awal)
+	 * @see ais.ui.util.GetEventListener
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -289,10 +310,20 @@ public class AmbilDataSasaranBanbox extends Bandbox implements GetEventListener 
 
 	}
 
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see ais.ui.util.GetEventListener
+	 */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see ais.ui.util.GetEventListener
+	 */
 	public EventListener getEventListener() {
 		return eventListener;
 	}

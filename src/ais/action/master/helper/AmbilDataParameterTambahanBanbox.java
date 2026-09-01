@@ -42,24 +42,25 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data parameter tambahan banbox. Kelas ini memberi nama dan batas
- * tanggung jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang
- * diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code EventListener eventListener}, {@code Textbox nama},
- * {@code Combobox searchgrup}, {@code Combobox searchfakultas}, {@code Combobox searchjurusan}, {@code Combobox
- * searchyayasan}; pembacaan/pencarian ({@code onSearchDefault()}, {@code setEventListener()}, {@code
- * getEventListener()}); operasi domain lain ({@code display()}). Bagian lain dari kontrak tetap mengikuti kelas
- * induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.ParameterTambahan} —
+ * lihat {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback).
+ * <p>
+ * Parameter tambahan adalah atribut/field kustom (kode, nama, tipe data inputan, nilai) yang
+ * dikelompokkan lewat {@link ais.database.model.GrupParameterTambahan}. Popup pencarian
+ * menyediakan kriteria nama (ilike sebagian, {@code Textbox nama}) dan grup
+ * ({@code Combobox searchgrup}), ditambah filter satuan institusi yang tampil kondisional
+ * berdasarkan {@link ais.common.Common#chekPtAtauSekolah()}: kombinasi fakultas/prodi
+ * ({@code searchfakultas}/{@code searchjurusan}) hanya terlihat pada konteks perguruan tinggi
+ * (dan bila pilihan fakultas tersedia), sedangkan kombinasi yayasan/sekolah
+ * ({@code searchyayasan}/{@code searchsekolah}) hanya terlihat pada konteks yayasan/sekolah.
+ * Hasil pencarian selalu dibatasi ke parameter yang aktif ({@code aktif} null atau {@code true})
+ * dan diurutkan berdasarkan nama. Pemilihan bersifat tunggal lewat
+ * {@link org.zkoss.zul.Radiogroup}; nilai teks yang disimpan ke Bandbox adalah gabungan kode dan
+ * nama ({@code kode + "-" + nama}). Grid hasil memakai mold "paging" client-side (bukan
+ * {@code AmbilDataPagingHelper} — field itu dideklarasikan tapi tidak dipakai di file ini)
+ * dibatasi {@link ais.common.Common#MAX_RESULT}.
+ * </p>
  *
  * @see Bandbox
  */
@@ -71,10 +72,17 @@ public class AmbilDataParameterTambahanBanbox extends Bandbox implements GetEven
 	private static final long serialVersionUID = 6452461056684904810L;
 	private MyGrid grid;
 
-	/* Paging server-side per 5 baris (pola AmbilDataPagingHelper). */
+	/* Catatan: field ini dideklarasikan tapi tidak dipakai secara aktif di file ini — grid hasil
+	 * pencarian di display() memakai mold "paging" client-side, bukan AmbilDataPagingHelper. */
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
 	private EventListener eventListener;
 
+	/**
+	 * Konstruktor standar pola Bandbox picker: kunci input jadi read-only dan pasang listener
+	 * {@code onOpen} yang membangun popup pencarian secara lazy pada pembukaan pertama, lalu
+	 * membuka popup lewat {@link Common#createDefaultTimer}. Lihat
+	 * {@link ais.ui.util.GetEventListener} untuk penjelasan lengkap kerangka ini.
+	 */
 	public AmbilDataParameterTambahanBanbox() {
 		super();
 
@@ -104,16 +112,12 @@ public class AmbilDataParameterTambahanBanbox extends Bandbox implements GetEven
 	private Combobox searchsekolah;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataParameterTambahanBanbox}. Kelas ini menerjemahkan satu
-	 * item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataParameterTambahanBanbox} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer baris grid hasil pencarian: menampilkan radio button pilihan diikuti kolom kode,
+	 * nama, tipe data inputan, nama grup (kosong bila tanpa grup), dan nilai. Saat radio dicentang
+	 * ({@code onCheck}), popup ditutup, entity {@link ParameterTambahan} terpilih disimpan sebagai
+	 * attribute {@code "parameterTambahan"} pada Bandbox, teks Bandbox diisi
+	 * {@code kode + "-" + nama}, lalu {@link #eventListener} (bila terpasang) diberi tahu — lihat
+	 * pola callback selengkapnya di {@link ais.ui.util.GetEventListener}.
 	 *
 	 * @see AmbilDataParameterTambahanBanbox
 	 */
@@ -155,6 +159,13 @@ public class AmbilDataParameterTambahanBanbox extends Bandbox implements GetEven
 
 	}
 
+	/**
+	 * Membangun popup pencarian (form kriteria nama/grup/fakultas-prodi/yayasan-sekolah + tombol
+	 * Cari + grid hasil berbungkus {@link org.zkoss.zul.Radiogroup}) sekali saat popup pertama kali
+	 * dibuka, lalu memanggil {@link #onSearchDefault(Event)} agar grid langsung terisi. Visibilitas
+	 * blok kriteria fakultas/prodi vs yayasan/sekolah ditentukan oleh
+	 * {@link Common#chekPtAtauSekolah()}.
+	 */
 	public void display() {
 
 		boolean[] ptYa = Common.chekPtAtauSekolah();
@@ -311,6 +322,17 @@ public class AmbilDataParameterTambahanBanbox extends Bandbox implements GetEven
 
 	}
 
+	/**
+	 * Menjalankan pencarian {@link ParameterTambahan} berdasarkan kriteria pada form: grup (eq),
+	 * jurusan/fakultas/sekolah/yayasan (eq berdasar id lewat
+	 * {@link CommonSearchFilterHelper#eqSelectedWithId}, no-op bila belum dipilih), nama (ilike
+	 * sebagian), selalu dibatasi ke parameter aktif ({@code aktif} null atau {@code true}) dan
+	 * diurutkan berdasarkan nama. Hasil dipasang ke {@link #grid} lewat
+	 * {@link ParameterTambahanRenderer} dan dibatasi {@link Common#MAX_RESULT} baris.
+	 *
+	 * @param event event pemicu (boleh {@code null}, dipakai juga sebagai pengisi awal grid saat
+	 *              popup pertama dibuka)
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -349,10 +371,20 @@ public class AmbilDataParameterTambahanBanbox extends Bandbox implements GetEven
 
 	}
 
+	/**
+	 * Menetapkan listener yang dipanggil setelah pengguna memilih satu baris parameter tambahan.
+	 *
+	 * @param eventListener listener baru yang akan dipasang
+	 */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/**
+	 * Mengambil listener yang sedang terpasang.
+	 *
+	 * @return listener aktif saat ini, atau {@code null} bila belum diset
+	 */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
