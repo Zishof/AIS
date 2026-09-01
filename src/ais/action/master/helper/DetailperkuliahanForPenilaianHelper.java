@@ -3665,6 +3665,8 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 		}
 		html.append("</div>");
 
+		html.append(buatHtmlAnalisisPintar(detailperkuliahan, total, huruf, aturanHuruf, targetBerikut,
+				tampilSementara));
 		html.append(buatHtmlKomponenNilai(detailperkuliahan, tampilSementara));
 
 		String alasanNol = "";
@@ -3697,6 +3699,76 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 		html.append("</div>");
 
 		html.append("</div></div>");
+		return html.toString();
+	}
+
+	private String buatHtmlAnalisisPintar(Detailperkuliahan detailperkuliahan, double total, String hurufTampil,
+			NilaiHuruf aturanHuruf, NilaiHuruf targetBerikut, boolean tampilSementara) {
+		StringBuilder html = new StringBuilder();
+		String hurufSeharusnya = aturanHuruf == null ? "" : aturanHuruf.getNilaiHuruf();
+		double persenHadir = 0.0;
+		try {
+			persenHadir = detailperkuliahan.hitungPersenKehadiran();
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+		}
+		double totalBobot = hitungTotalBobotEfektif(detailperkuliahan, tampilSementara);
+		FormatNilai bobotTerbesar = ambilFormatNilaiBobotTerbesar(detailperkuliahan, tampilSementara);
+
+		html.append("<div style='background:#f0f7ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px;margin-bottom:12px;'>");
+		html.append("<div style='font-weight:bold;margin-bottom:8px;color:#0b3b78;'>Analisis Pintar</div>");
+		html.append("<ol style='margin:0;padding-left:20px;'>");
+
+		if (aturanHuruf == null) {
+			html.append("<li><b>Rentang nilai huruf belum cocok.</b> Sistem tidak menemukan konfigurasi Nilai Huruf untuk total ")
+					.append(Common.numberFormat.get().format(total))
+					.append(". Ini biasanya karena setting Nilai Huruf prodi/fakultas/tahun akademik/jenis nilai belum lengkap.</li>");
+		} else if (hurufTampil == null || !hurufTampil.trim().equalsIgnoreCase(hurufSeharusnya)) {
+			html.append("<li><b>Ada indikasi huruf tersimpan tidak sinkron.</b> Berdasarkan total ")
+					.append(Common.numberFormat.get().format(total)).append(", sistem membaca rentang <b>")
+					.append(teksAmanHtml(hurufSeharusnya)).append("</b>, tetapi yang tampil <b>")
+					.append(teksAmanHtml(hurufTampil)).append("</b>. Klik Hitung Ulang/Singkronkan Nilai agar nilai huruf tersimpan mengikuti rentang terbaru.</li>");
+		} else {
+			html.append("<li><b>Huruf sudah konsisten.</b> Total ")
+					.append(Common.numberFormat.get().format(total)).append(" berada pada rentang <b>")
+					.append(teksAmanHtml(hurufSeharusnya)).append("</b> yaitu ")
+					.append(Common.numberFormat.get().format(aturanHuruf.getMulai())).append(" s.d ")
+					.append(Common.numberFormat.get().format(aturanHuruf.getSampai())).append(".</li>");
+		}
+
+		if (tampilSementara) {
+			html.append("<li><b>Nilai belum diverifikasi.</b> Analisis memakai nilai sementara, sehingga hasil akhir dapat berubah setelah verifikasi selesai.</li>");
+		}
+		if (perkuliahan != null && perkuliahan.getPersenKehadiranDinilai0() > 0.1) {
+			html.append("<li>Kehadiran mahasiswa <b>").append(Common.numberFormat.get().format(persenHadir))
+					.append("%</b>; batas minimal agar nilai tidak menjadi 0 adalah <b>")
+					.append(Common.numberFormat.get().format(perkuliahan.getPersenKehadiranDinilai0()))
+					.append("%</b>.</li>");
+		}
+		if (perkuliahan != null && perkuliahan.getJikaAdaNilai0TidakMenghitungNilaiAkhir()) {
+			html.append("<li>Aturan <b>jika ada nilai 0 maka nilai akhir tidak dihitung</b> sedang aktif. Komponen bernilai 0 wajib diperiksa.</li>");
+		} else if (perkuliahan != null && perkuliahan.getNilai_0_tidak_masuk_dalam_perhitungan_nilai_akhir()) {
+			html.append("<li>Aturan <b>nilai 0 tidak masuk pembagi</b> sedang aktif. Bobot komponen bernilai 0 tidak ikut membentuk rata-rata akhir.</li>");
+		}
+		if (totalBobot < 99.9 || totalBobot > 100.1) {
+			html.append("<li><b>Total bobot efektif ").append(Common.numberFormat.get().format(totalBobot))
+					.append("%</b>. Jika tidak sesuai harapan, cek bobot Format Nilai karena perhitungan memakai bobot efektif ini.</li>");
+		}
+		if (targetBerikut != null && targetBerikut.getMulai() != null && bobotTerbesar != null && totalBobot > 0.0) {
+			double kurangTotal = targetBerikut.getMulai().doubleValue() - total;
+			double bobot = nilaiAman(bobotTerbesar.getPersen());
+			double perluNaikKomponen = bobot <= 0.0 ? 0.0 : kurangTotal / (bobot / totalBobot);
+			if (kurangTotal > 0.0 && perluNaikKomponen > 0.0) {
+				html.append("<li>Jalur tercepat untuk naik ke <b>").append(teksAmanHtml(targetBerikut.getNilaiHuruf()))
+						.append("</b>: komponen berbobot terbesar adalah <b>")
+						.append(teksAmanHtml(bobotTerbesar.getNama())).append("</b> (")
+						.append(Common.numberFormat.get().format(bobot)).append("%). Secara kasar perlu tambahan sekitar <b>")
+						.append(Common.numberFormat.get().format(perluNaikKomponen))
+						.append("</b> poin pada komponen itu, selama nilai maksimal komponen masih memungkinkan.</li>");
+			}
+		}
+		html.append("</ol>");
+		html.append("</div>");
 		return html.toString();
 	}
 
@@ -3812,6 +3884,50 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 			}
 		} catch (Exception e) {
 			Common.tampilErrorJikaAdmin(e);
+		}
+		return kandidat;
+	}
+
+	private double hitungTotalBobotEfektif(Detailperkuliahan detailperkuliahan, boolean tampilSementara) {
+		double totalBobot = 0.0;
+		if (formatNilais == null) {
+			return totalBobot;
+		}
+		for (FormatNilai formatNilai : formatNilais) {
+			if (formatNilai == null || formatNilai.getPersen() == null || formatNilai.getPersen().doubleValue() < 0.01) {
+				continue;
+			}
+			double nilai = tampilSementara ? nilaiAman(detailperkuliahan.retreiveDetailNilaiBelumVerify(formatNilai))
+					: nilaiAman(detailperkuliahan.retreiveDetailNilai(formatNilai));
+			if (perkuliahan != null && perkuliahan.getNilai_0_tidak_masuk_dalam_perhitungan_nilai_akhir()
+					&& nilai < 0.01) {
+				continue;
+			}
+			totalBobot += nilaiAman(formatNilai.getPersen());
+		}
+		return totalBobot;
+	}
+
+	private FormatNilai ambilFormatNilaiBobotTerbesar(Detailperkuliahan detailperkuliahan, boolean tampilSementara) {
+		FormatNilai kandidat = null;
+		double bobotTerbesar = -1.0;
+		if (formatNilais == null) {
+			return null;
+		}
+		for (FormatNilai formatNilai : formatNilais) {
+			if (formatNilai == null || formatNilai.getPersen() == null || formatNilai.getPersen().doubleValue() < 0.01) {
+				continue;
+			}
+			double nilai = tampilSementara ? nilaiAman(detailperkuliahan.retreiveDetailNilaiBelumVerify(formatNilai))
+					: nilaiAman(detailperkuliahan.retreiveDetailNilai(formatNilai));
+			if (perkuliahan != null && perkuliahan.getNilai_0_tidak_masuk_dalam_perhitungan_nilai_akhir()
+					&& nilai < 0.01) {
+				continue;
+			}
+			if (formatNilai.getPersen().doubleValue() > bobotTerbesar) {
+				bobotTerbesar = formatNilai.getPersen().doubleValue();
+				kandidat = formatNilai;
+			}
 		}
 		return kandidat;
 	}
