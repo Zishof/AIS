@@ -5032,7 +5032,8 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 		boolean adaGuru = tbmuser != null && tbmuser.ambilGuru() != null;
 		boolean sekolahSaja = (adaSiswa || adaGuru) && !adaMhs && !adaDosen;
 
-		ais.ui.util.MyButtonTabbox btnBimbingan = ais.ui.util.MyButtonTabbox.buatVertikal(host, "100%", null);
+		ais.ui.util.MyButtonTabbox btnBimbingan = ais.ui.util.MyButtonTabbox.buat(host, "100%", null);
+		btnBimbingan.setTombolMembungkus(true);
 		int idx = 1;
 		if (!sekolahSaja) {
 			tambahSubBimbinganBtn(btnBimbingan, idx++, "Tugas Akhir", "/img/svg/chalkboard-user.svg", TampilanELearningAction.BIMBINGAN);
