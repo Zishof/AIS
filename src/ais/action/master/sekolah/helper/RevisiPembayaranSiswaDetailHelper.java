@@ -18,17 +18,24 @@ import ais.database.model.sekolah.PembayaranSiswaDetail;
 import ais.database.model.sekolah.Siswa;
 
 /**
- * History + Restore data audit (Envers) untuk PembayaranSiswaDetail, dibatasi
- * pada siswa/calon siswa yang sedang dipilih di layar Pembayaran Siswa.
+ * Subclass dari {@link ais.action.master.helper.GenericRevisiHelper} untuk entity
+ * {@link PembayaranSiswaDetail}, dibatasi pada siswa/calon siswa yang sedang dipilih di layar
+ * Pembayaran Siswa — lihat Javadoc class induk untuk penjelasan lengkap arsitektur window, alur
+ * Envers, dan fitur restore (satu revisi maupun massal "Restore Terbaru mulai tanggal"); class ini
+ * hanya menyuplai scope filternya lewat {@link MilikSiswaFilter}.
  *
- * Mengikuti pola RevisiCicilanPembayaranHelper (kampus): seluruh tampilan riwayat,
- * restore satu revisi, dan restore massal "Restore Terbaru mulai tanggal" sudah
- * disediakan GenericRevisiHelper — class ini hanya menyuplai scope filternya.
+ * <p>Mengikuti pola {@code RevisiCicilanPembayaranHelper} (kampus, lihat contoh di Javadoc
+ * {@link ais.action.master.helper.GenericRevisiHelper}).</p>
  *
- * Scoping: PembayaranSiswaDetail tidak punya FK langsung ke siswa (hanya lewat
- * pembayaranSiswa), sedangkan query Envers tidak bisa join dua tingkat. Maka id
- * seluruh PembayaranSiswa milik siswa/calon siswa diambil dulu dari tabel live,
- * lalu revisi difilter dengan relatedId("pembayaranSiswa") per-id (disjunction).
+ * <p><b>Scoping dua tingkat:</b> {@link PembayaranSiswaDetail} tidak punya FK langsung ke
+ * {@link Siswa}/{@link CalonSiswa} (hanya lewat {@code pembayaranSiswa}), sedangkan query Envers
+ * ({@code AuditQuery}) tidak bisa melakukan join dua tingkat layaknya HQL biasa. Maka
+ * {@link MilikSiswaFilter} mengambil dulu SELURUH id {@link PembayaranSiswa} milik siswa/calon
+ * siswa dari tabel LIVE (bukan riwayat) lewat {@code Criteria} biasa, lalu revisi
+ * {@code PembayaranSiswaDetail} disaring dengan {@code AuditEntity.relatedId("pembayaranSiswa")}
+ * per-id memakai disjunction (OR) — pola workaround ini penting dipahami karena berbeda dari
+ * {@link ais.action.master.helper.GenericRevisiHelper.FixedPropertyFilter} satu-tingkat biasa yang
+ * dipakai kebanyakan subclass lain.</p>
  */
 @SuppressWarnings({ "rawtypes", "unchecked" })
 public class RevisiPembayaranSiswaDetailHelper extends GenericRevisiHelper<PembayaranSiswaDetail> {
@@ -38,19 +45,18 @@ public class RevisiPembayaranSiswaDetailHelper extends GenericRevisiHelper<Pemba
 	private static final String[] SEARCH_PROPERTIES = new String[] { "keterangan", "ref", "oleh" };
 
 	/**
-	 * Tipe implementasi bersarang {@link MilikSiswaFilter} milik {@link RevisiPembayaranSiswaDetailHelper}. Kelas
-	 * ini memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 * Implementasi {@link QueryCustomizer} yang membatasi riwayat {@link PembayaranSiswaDetail}
+	 * hanya pada baris milik {@link PembayaranSiswa} kepunyaan satu {@link Siswa} dan/atau
+	 * {@link CalonSiswa} tertentu. Lihat penjelasan workaround "scoping dua tingkat" pada Javadoc
+	 * class {@link RevisiPembayaranSiswaDetailHelper} — filter inilah yang mengimplementasikan
+	 * workaround tersebut: query id {@code PembayaranSiswa} milik siswa/calon siswa lewat
+	 * {@code Criteria} pada tabel live, lalu menambahkan disjungsi {@code relatedId} per-id ke
+	 * {@code AuditQuery} Envers.
 	 *
-	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
-	 * RevisiPembayaranSiswaDetailHelper}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman
-	 * digunakan dan diuji.</p> Tipe ini merupakan detail implementasi privat; pemanggil luar harus memakai API
-	 * kelas induk.
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Siswa siswa}, {@code CalonSiswa
-	 * calonSiswa}; operasi lokal: {@code apply}(). Aturan bisnis bersama tetap berada pada kelas induk atau
-	 * service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
-	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
-	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 * <p>Tipe ini {@code static} dan tidak menangkap instance {@link RevisiPembayaranSiswaDetailHelper}
+	 * — seluruh dependensi ({@code siswa}, {@code calonSiswa}) diberikan eksplisit lewat
+	 * konstruktor, sehingga aman dipakai berulang oleh {@link GenericRevisiHelper#buildAuditQuery}
+	 * tanpa keterikatan pada state window.</p>
 	 *
 	 * @see RevisiPembayaranSiswaDetailHelper
 	 */
@@ -58,11 +64,33 @@ public class RevisiPembayaranSiswaDetailHelper extends GenericRevisiHelper<Pemba
 		private final Siswa siswa;
 		private final CalonSiswa calonSiswa;
 
+		/**
+		 * @param siswa      siswa pemilik transaksi pembayaran yang riwayatnya ingin ditampilkan;
+		 *                   boleh {@code null}.
+		 * @param calonSiswa calon siswa pemilik transaksi pembayaran; boleh {@code null}. Bila
+		 *                   {@code siswa} dan {@code calonSiswa} keduanya {@code null}, filter
+		 *                   tidak melakukan apa-apa ({@link #apply} kembali tanpa menyaring apa
+		 *                   pun — seluruh riwayat ditampilkan).
+		 */
 		MilikSiswaFilter(Siswa siswa, CalonSiswa calonSiswa) {
 			this.siswa = siswa;
 			this.calonSiswa = calonSiswa;
 		}
 
+		/**
+		 * Menambahkan kriteria pembatas kepemilikan ke {@code query} Envers: (1) cari seluruh ID
+		 * {@link PembayaranSiswa} milik {@code siswa} dan/atau {@code calonSiswa} dari tabel LIVE
+		 * (transaksi bisa tercatat atas nama siswa ATAU calon siswa — mis. calon yang kemudian
+		 * dikonversi menjadi siswa — sehingga keduanya dicakup sekaligus lewat OR bila kedua
+		 * parameter diisi); (2) bila tidak ada ID yang cocok, paksa hasil kosong (bukan tampil
+		 * semua) dengan filter ID yang mustahil ({@code -1}); (3) bila ada, tambahkan disjungsi
+		 * {@code AuditEntity.relatedId("pembayaranSiswa")} untuk tiap ID ke {@code query}.
+		 *
+		 * @param session Session Hibernate lokal (dipakai untuk query {@code Criteria} tabel live).
+		 * @param query   AuditQuery Envers yang sedang dibangun oleh kelas induk; dimodifikasi
+		 *                in-place lewat {@code query.add(...)}.
+		 * @throws Exception diteruskan bila query database gagal.
+		 */
 		public void apply(Session session, AuditQuery query) throws Exception {
 			if (siswa == null && calonSiswa == null) {
 				return;
@@ -93,10 +121,20 @@ public class RevisiPembayaranSiswaDetailHelper extends GenericRevisiHelper<Pemba
 		}
 	}
 
+	/** Membungkus satu {@link MilikSiswaFilter} sebagai array {@link QueryCustomizer} tunggal untuk konstruktor induk. */
 	private static QueryCustomizer[] buildFilters(Siswa siswa, CalonSiswa calonSiswa) {
 		return new QueryCustomizer[] { new MilikSiswaFilter(siswa, calonSiswa) };
 	}
 
+	/**
+	 * Membuka window riwayat revisi Pembayaran Siswa Detail, dibatasi pada satu siswa dan/atau
+	 * calon siswa (lihat {@link MilikSiswaFilter}). Judul window disisipi identitas siswa/calon
+	 * siswa bila salah satunya diberikan.
+	 *
+	 * @param eventListener callback yang diteruskan ke {@link ais.action.master.helper.GenericRevisiHelper}.
+	 * @param siswa         siswa pemilik transaksi yang riwayatnya ingin dilihat; boleh {@code null}.
+	 * @param calonSiswa    calon siswa pemilik transaksi; boleh {@code null}.
+	 */
 	public RevisiPembayaranSiswaDetailHelper(EventListener eventListener, Siswa siswa, CalonSiswa calonSiswa)
 			throws Exception {
 		super(PembayaranSiswaDetail.class,
@@ -107,7 +145,9 @@ public class RevisiPembayaranSiswaDetailHelper extends GenericRevisiHelper<Pemba
 
 	/**
 	 * Buka langsung tab "Seluruh Data Revisi" (tempat tombol Restore per-revisi dan
-	 * "Restore Terbaru mulai tanggal" berada) — dipakai tombol Restore di toolbar.
+	 * "Restore Terbaru mulai tanggal" berada) — dipakai tombol Restore di toolbar. Kegagalan
+	 * (mis. {@code mainTabbox} belum terbentuk) dicatat lewat {@code ErrorAuditUtil} dan tidak
+	 * dilempar ulang, karena ini hanya kenyamanan UI, bukan operasi kritikal.
 	 */
 	public void bukaTabSeluruhData() {
 		try {
