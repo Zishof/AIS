@@ -89,7 +89,9 @@ public class DetailAbsensiHelper implements DataLoader {
 			Double totalNilai = detailperkuliahan.getTotalNilai();
 			System.out.println("totalNilai = " + totalNilai);
 			try {
-				new Label(detailperkuliahan.getTotalNilai() + "(" + detailperkuliahan.getNilaiHuruf() + ")")
+				ais.ui.util.NilaiHurufAnalisisPopupHelper
+						.buatLabel(detailperkuliahan.getTotalNilai() + "(" + detailperkuliahan.getNilaiHuruf() + ")",
+								detailperkuliahan)
 						.setParent(row);
 			} catch (Exception e1) {
 				e1.printStackTrace(); ais.common.ErrorAuditUtil.record(e1, "auto-audit src/ais/action/master/helper/DetailAbsensiHelper.java:66");

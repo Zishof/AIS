@@ -183,7 +183,10 @@ public class PenilaianKknHelper implements DataLoader {
 				new Label(mahasiswaDapatKelompokKkn.getTotalNilai() == null ? ""
 						: Common.numberFormat.get().format(mahasiswaDapatKelompokKkn.getTotalNilai())).setParent(row);
 
-				new Label(mahasiswaDapatKelompokKkn.getNilaiHuruf()).setParent(row);
+				ais.ui.util.NilaiHurufAnalisisPopupHelper
+						.buatLabel(mahasiswaDapatKelompokKkn.getNilaiHuruf(),
+								mahasiswaDapatKelompokKkn.getDetailperkuliahan())
+						.setParent(row);
 
 				Hbox toolbar = new Hbox();
 				MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Penilaian", "/img/svg/edit-box-line.svg");

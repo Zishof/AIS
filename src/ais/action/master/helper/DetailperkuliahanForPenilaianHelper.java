@@ -471,15 +471,7 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 
 			final Label label = new Label(Common.numberFormat.get().format(detailperkuliahan.getTotalNilai()) + " ("
 					+ detailperkuliahan.getNilaiHuruf() + ")");
-			label.setStyle("cursor:pointer;text-decoration:underline;color:#0b63ce;font-weight:bold;");
-			label.setTooltiptext("Klik untuk melihat analisis nilai huruf");
-			label.addEventListener("onClick", new EventListener() {
-
-				@Override
-				public void onEvent(Event arg0) throws Exception {
-					tampilkanAnalisisNilaiHuruf(detailperkuliahan);
-				}
-			});
+			ais.ui.util.NilaiHurufAnalisisPopupHelper.pasangLink(label, detailperkuliahan, perkuliahan, formatNilais);
 			final MyCheckboxConfig verifyAll = new MyCheckboxConfig();
 			final List<PerubahanNilaiListener> checkboxs = new ArrayList<PerubahanNilaiListener>();
 			for (FormatNilai formatNilai : formatNilais) {
@@ -685,7 +677,8 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 						(!aktifPenilaian && (konfigurasi.getNilai() == null
 								|| !konfigurasi.getNilai().equals(Konfigurasi.AKTIF)))) {
 
-					new Label(detailperkuliahan.getNilaiHuruf()).setParent(row);
+					ais.ui.util.NilaiHurufAnalisisPopupHelper.buatLabel(detailperkuliahan.getNilaiHuruf(), detailperkuliahan)
+							.setParent(row);
 
 				} else {
 

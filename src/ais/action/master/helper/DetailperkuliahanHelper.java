@@ -362,12 +362,12 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 					: detailperkuliahan.getMahasiswa().getStatusAwalMahasiswa().getNama()) + " / "
 					+ (statusMahasiswa == null ? "" : statusMahasiswa.getNama())).setParent(row);
 
-			new Label(detailperkuliahan.getTotalNilai() == null ? "0.0 (Belum dinilai)"
+			ais.ui.util.NilaiHurufAnalisisPopupHelper.buatLabel(detailperkuliahan.getTotalNilai() == null ? "0.0 (Belum dinilai)"
 					: Common.numberFormat.get().format(detailperkuliahan.getTotalNilai()) + " ("
 							+ (detailperkuliahan.getNilaiHuruf() == null
 									|| detailperkuliahan.getNilaiHuruf().trim().equals("") ? "Belum dinilai"
 											: detailperkuliahan.getNilaiHuruf())
-							+ ")")
+							+ ")", detailperkuliahan)
 					.setParent(row);
 
 			final Label label;

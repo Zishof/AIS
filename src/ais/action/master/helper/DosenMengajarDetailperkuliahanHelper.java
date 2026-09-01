@@ -103,12 +103,12 @@ public class DosenMengajarDetailperkuliahanHelper implements DataLoader, DataCri
 			new Label(detailperkuliahan.getMahasiswa().getTahunangkatan() + " / "
 					+ detailperkuliahan.getMahasiswa().getSemesterMulai()).setParent(row);
 
-			new Label(detailperkuliahan.getTotalNilai() == null ? "0.0 (Belum dinilai)"
+			ais.ui.util.NilaiHurufAnalisisPopupHelper.buatLabel(detailperkuliahan.getTotalNilai() == null ? "0.0 (Belum dinilai)"
 					: Common.numberFormat.get().format(detailperkuliahan.getTotalNilai()) + " ("
 							+ (detailperkuliahan.getNilaiHuruf() == null
 									|| detailperkuliahan.getNilaiHuruf().trim().equals("") ? "Belum dinilai"
 											: detailperkuliahan.getNilaiHuruf())
-							+ ")").setParent(row);
+							+ ")", detailperkuliahan).setParent(row);
 
 			final Label semester = new Label(
 					detailperkuliahan.getSemester() == null ? "" : detailperkuliahan.getSemester().toString());

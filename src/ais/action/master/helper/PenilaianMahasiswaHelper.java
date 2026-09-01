@@ -187,7 +187,8 @@ public class PenilaianMahasiswaHelper implements DataLoader {
 			if (detailperkuliahan.getTotalNilai() != null && detailperkuliahan.getTotalNilai() > 1.0) {
 				new Label(Common.numberFormat.get().format(detailperkuliahan.getTotalNilai())).setParent(row);
 
-				new Label((detailperkuliahan.getNilaiHuruf())).setParent(row);
+				ais.ui.util.NilaiHurufAnalisisPopupHelper
+						.buatLabel(detailperkuliahan.getNilaiHuruf(), detailperkuliahan).setParent(row);
 			} else {
 				new Label().setParent(row);
 				new Label().setParent(row);

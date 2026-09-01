@@ -338,6 +338,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 			final Label labelNilaiHuruf = new Label(detailperkuliahan.getNilaiHuruf());
 			rapikanLabelNilaiHuruf(labelNilaiHuruf);
 			ais.action.master.helper.util.WarnaStatusLulusUtil.warnai(labelNilaiHuruf, detailperkuliahan);
+			ais.ui.util.NilaiHurufAnalisisPopupHelper.pasangLink(labelNilaiHuruf, detailperkuliahan);
 			final MyDoublebox totalNilaiLabel = new MyDoublebox(detailperkuliahan.getTotalNilai());
 			totalNilaiLabel.setDisabled(!update);
 

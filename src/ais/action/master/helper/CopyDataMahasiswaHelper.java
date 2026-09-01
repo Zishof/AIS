@@ -128,12 +128,12 @@ public class CopyDataMahasiswaHelper {
 			new Label(mahasiswa.getTahunangkatan() + "").setParent(arg0);
 			new Label(mahasiswa.getProgram()).setParent(arg0);
 
-			new Label(detailperkuliahan.getTotalNilai() == null ? "0.0 (Belum dinilai)"
+			ais.ui.util.NilaiHurufAnalisisPopupHelper.buatLabel(detailperkuliahan.getTotalNilai() == null ? "0.0 (Belum dinilai)"
 					: Common.numberFormat.get().format(detailperkuliahan.getTotalNilai()) + " ("
 							+ (detailperkuliahan.getNilaiHuruf() == null
 									|| detailperkuliahan.getNilaiHuruf().trim().equals("") ? "Belum dinilai"
 											: detailperkuliahan.getNilaiHuruf())
-							+ ")")
+							+ ")", detailperkuliahan)
 					.setParent(arg0);
 
 			Label label;
