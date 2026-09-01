@@ -52,38 +52,73 @@ import org.hibernate.envers.query.AuditEntity;
 import org.hibernate.envers.query.criteria.AuditCriterion;
 
 /**
- * Helper terfokus untuk recovery pertemuan. Tipe ini membungkus satu variasi kecil dari alur yang
- * lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ * Window popup generik untuk memulihkan (recovery) data {@link Pertemuan} yang terhapus atau
+ * berubah secara tak diinginkan, dengan membaca histori audit Hibernate Envers (bukan trash/soft
+ * delete) dan menimpa ulang baris di tabel utama. Dipakai lintas modul: {@link Pertemuan} bisa
+ * menjadi "anak" dari berbagai jenis induk ({@link VOPembelajaran} -- interface yang diimplementasi
+ * oleh {@code Perkuliahan}, {@code JadwalPelajaran}, {@code Skripsi}, {@code KelompokKkn},
+ * {@code KelompokPkl}, dan +9 tipe lain, lihat {@link #getPropertyRelasiName(VOPembelajaran)}),
+ * sehingga satu window ini melayani recovery pertemuan untuk semua modul tersebut tanpa duplikasi
+ * per modul.
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * MyWindow}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code VOPembelajaran voPembelajaran}, {@code
- * MyGrid grid}, {@code Datebox tglMulai}, {@code Datebox tglSelesai}, {@code Label labelLoading}, {@code
- * EventListener onSuccessListener}, {@code List dataTerbaruToRecover}; inisialisasi/lifecycle ({@code
- * initUI()}); pembacaan/pencarian ({@code getPropertyRelasiName()}, {@code onSearchDataAudit()}, {@code
- * getRecoveryEventListener()}); operasi domain lain ({@code button()}, {@code createColumn()}, {@code
- * restoreDependenciesRecursively()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang
- * disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Catatan penamaan:</b> kelas ini BUKAN bagian dari fitur e-learning "Recovery Aktivitas
+ * Pembelajaran" ({@code RecoveryAktivitasPembelajaranHelper}, paket terpisah) walau namanya mirip
+ * dan sama-sama memulihkan data dari histori Envers -- jangan disatukan atau ditautkan ke sana.</p>
+ *
+ * <p>Alur: {@link #button(VOPembelajaran, EventListener)} adalah factory tombol toolbar "Recovery
+ * Data" yang dipasang oleh layar induk (disembunyikan untuk pengguna mahasiswa/siswa/calon
+ * siswa/biodata calon mahasiswa -- hanya staf yang boleh recovery). Saat diklik dan
+ * {@code voPembelajaran} valid, window ini dibuka modal: {@link #onSearchDataAudit()} menanyakan
+ * {@link AuditReader} untuk seluruh revisi {@link Pertemuan} milik induk tersebut dalam rentang
+ * tanggal revisi terpilih (default 5 tahun terakhir), lalu menyaring hanya revisi TERBARU per
+ * {@code pertemuanKe} ke {@link #grid}. Tombol "Recovery Data" ({@link #getRecoveryEventListener()})
+ * menjalankan proses pemulihan pada thread background (lewat
+ * {@link ais.common.AsyncTaskManager#jalankanDenganPush}, dengan progres server-push ke
+ * {@link #labelLoading}): tiap {@link Pertemuan} terpilih di-{@code session.replicate(...,
+ * OVERWRITE)} ke tabel utama, didahului {@link #restoreDependenciesRecursively} yang memulihkan
+ * lebih dulu relasi {@link GeneralValueObject} (mis. Ruang, Dosen) yang ternyata juga hilang dari
+ * master, secara rekursif.</p>
+ *
+ * <p><b>Efek samping:</b> recovery TIMPA data utama secara permanen (replicate/OVERWRITE, dalam
+ * satu transaksi Hibernate native mencakup seluruh baris terpilih) -- tidak ada tahap
+ * pratinjau/diff sebelum commit selain grid histori yang ditampilkan. {@link #onSearchDataAudit()}
+ * murni baca. Setelah sukses, {@code onSuccessListener} dipanggil (untuk refresh layar induk) dan
+ * window ini {@code detach()} sendiri.</p>
  *
  * @see MyWindow
+ * @see VOPembelajaran
  */
 public class RecoveryPertemuanHelper extends MyWindow {
 
 	private static final long serialVersionUID = 1L;
 
+	/** Entity induk (Perkuliahan/JadwalPelajaran/Skripsi/dll) yang pertemuannya sedang dipulihkan. */
 	private VOPembelajaran voPembelajaran;
+	/** Grid histori audit hasil {@link #onSearchDataAudit()}, sumber baris yang bisa dipulihkan. */
 	private MyGrid grid;
+	/** Awal rentang tanggal REVISI (bukan tanggal pertemuan) yang dicari di histori Envers. */
 	private Datebox tglMulai;
+	/** Akhir rentang tanggal revisi; disesuaikan ke 23:59:59 saat query oleh {@link #onSearchDataAudit()}. */
 	private Datebox tglSelesai;
+	/** Label indikator progres proses recovery background, diperbarui via server push. */
 	private Label labelLoading;
+	/** Callback dari pemanggil {@link #button}, dijalankan setelah recovery sukses untuk refresh layar induk. */
 	private EventListener onSuccessListener;
 
+	/**
+	 * Membuat tombol toolbar "Recovery Data" siap-pasang untuk layar induk mana pun yang mengelola
+	 * {@link Pertemuan} lewat satu {@link VOPembelajaran}. Tombol disembunyikan bila pengguna login
+	 * adalah mahasiswa/siswa/calon siswa/pemilik biodata calon mahasiswa (recovery hanya untuk staf).
+	 * Saat diklik: menolak bila {@code voPembelajaran} belum dipilih/tersimpan (menampilkan
+	 * peringatan), jika valid membuka {@link RecoveryPertemuanHelper} baru secara modal.
+	 *
+	 * @param voPembelajaran entity induk yang pertemuannya akan dipulihkan; boleh berubah nilai
+	 *                       antar klik karena dibaca ulang di dalam listener (bukan di-capture saat
+	 *                       tombol dibuat)
+	 * @param eventListener  diteruskan sebagai {@code onSuccessListener} ke window recovery, dipanggil
+	 *                       setelah recovery selesai untuk menyegarkan layar induk
+	 * @return tombol toolbar siap ditambahkan ke {@link Toolbar} pemanggil
+	 */
 	public static MyToolbarbuttonConfig button(final VOPembelajaran voPembelajaran, final EventListener eventListener) {
 		Tbmuser tbmuser = Common.getCurrentUser();
 
@@ -140,15 +175,25 @@ public class RecoveryPertemuanHelper extends MyWindow {
 	}
 
 	// Menampung data terbaru yang disaring berdasarkan rentang tanggal
+	/**
+	 * Hasil {@link #onSearchDataAudit()}: satu {@link Pertemuan} per {@code pertemuanKe} yang punya
+	 * histori revisi pada rentang tanggal terpilih (hanya revisi PALING BARU tiap
+	 * {@code pertemuanKe} yang disimpan). Inilah data yang akan ditimpakan ke tabel utama oleh
+	 * {@link #getRecoveryEventListener()}.
+	 */
 	private List<Pertemuan> dataTerbaruToRecover = new ArrayList<Pertemuan>();
 
 	/**
-	 * Constructor
-	 * 
-	 * @param voPembelajaran    Parameter induk (Bisa Perkuliahan, JadwalPelajaran,
-	 *                          Skripsi, dll)
-	 * @param onSuccessListener Event yang akan dipanggil ketika recovery selesai
-	 *                          (untuk refresh tabel utama)
+	 * Membuat window recovery untuk satu {@code voPembelajaran} dan langsung membangun UI-nya lewat
+	 * {@link #initUI()} (termasuk memuat data audit awal).
+	 *
+	 * @param voPembelajaran    entity induk pertemuan yang akan dipulihkan (bisa Perkuliahan,
+	 *                          JadwalPelajaran, Skripsi, dll -- lihat
+	 *                          {@link #getPropertyRelasiName(VOPembelajaran)})
+	 * @param onSuccessListener listener yang dipanggil ketika recovery selesai (untuk refresh tabel
+	 *                          utama di layar pemanggil)
+	 * @throws Exception diteruskan dari {@link #initUI()} bila gagal membangun UI atau memuat data
+	 *                    audit awal
 	 */
 	public RecoveryPertemuanHelper(VOPembelajaran voPembelajaran, EventListener onSuccessListener) throws Exception {
 		super();
@@ -206,6 +251,15 @@ public class RecoveryPertemuanHelper extends MyWindow {
 		return className.substring(0, 1).toLowerCase() + className.substring(1);
 	}
 
+	/**
+	 * Membangun layout window (Borderlayout North/Center/South): panel filter rentang tanggal revisi
+	 * (default 5 tahun terakhir) dengan tombol "Tampilkan Data Audit" di North, {@link #grid} hasil
+	 * pencarian audit di Center (kolom sesuai {@link #createColumn}), serta tombol "Recovery Data"
+	 * (hanya untuk staf, lihat {@link #button}) dan "Tutup" di South. Diakhiri memanggil
+	 * {@link #onSearchDataAudit()} agar grid terisi otomatis saat window pertama dibuka.
+	 *
+	 * @throws Exception diteruskan dari komponen ZK/{@link #onSearchDataAudit()} bila gagal
+	 */
 	@SuppressWarnings("deprecation")
 	private void initUI() throws Exception {
 		setTitle("Recovery Data Pertemuan - " + voPembelajaran.getClass().getSimpleName());
@@ -328,6 +382,7 @@ public class RecoveryPertemuanHelper extends MyWindow {
 		onSearchDataAudit();
 	}
 
+	/** Helper trivial: membuat satu {@link MyColumnConfig} berlabel dan berlebar tertentu di {@code parent}. */
 	private void createColumn(Columns parent, String label, String width) {
 		MyColumnConfig col = new MyColumnConfig();
 		col.setLabel(label);
@@ -335,6 +390,17 @@ public class RecoveryPertemuanHelper extends MyWindow {
 		col.setParent(parent);
 	}
 
+	/**
+	 * Mencari histori revisi {@link Pertemuan} milik {@link #voPembelajaran} pada rentang
+	 * {@link #tglMulai}..{@link #tglSelesai} (tanggal REVISI, bukan tanggal pertemuan; akhir rentang
+	 * digenapkan ke 23:59:59) lewat {@link AuditReader#createQuery()}. Nama properti relasi ke induk
+	 * ditentukan dinamis oleh {@link #getPropertyRelasiName(VOPembelajaran)}. Hasil diurutkan
+	 * berdasarkan nomor revisi descending, lalu disaring agar {@link #dataTerbaruToRecover} hanya
+	 * menyimpan REVISI PALING BARU untuk tiap {@code pertemuanKe} (dedup lewat map sementara
+	 * ber-key {@code pertemuanKe}), sebelum dirender ke {@link #grid} lewat {@link DataRenderer}.
+	 * Menampilkan pesan info bila tidak ada histori pada rentang tersebut, atau pesan error standar
+	 * bila query gagal. Murni operasi baca -- tidak mengubah data.
+	 */
 	@SuppressWarnings("rawtypes")
 	private void onSearchDataAudit() {
 		Session session = null;
@@ -421,16 +487,17 @@ public class RecoveryPertemuanHelper extends MyWindow {
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link RecoveryPertemuanHelper}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 * Row renderer grid histori audit di {@link RecoveryPertemuanHelper}. Untuk tiap
+	 * {@link Pertemuan} kandidat pemulihan, menggambar id, pertemuan ke-, tanggal (format
+	 * {@link Common#dateFormat5}, dengan fallback ke {@code toString()} bila format gagal), topik,
+	 * catatan, indikator, waktu/pengalaman/metode pembelajaran, waktu mulai-selesai, dan nama ruang.
+	 * Pembacaan {@code getRuang().getNama()} dibungkus try-catch untuk mengantisipasi proxy
+	 * Hibernate yang putus akibat master {@code Ruang} sudah terhapus fisik di database -- bila
+	 * gagal, kolom ruang ditampilkan kosong daripada melempar exception yang menghentikan render
+	 * baris lain.
 	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link RecoveryPertemuanHelper} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * <p><b>Scope:</b> instance terikat pada instance {@link RecoveryPertemuanHelper} pemilik grid;
+	 * jangan disimpan atau dibagikan lintas desktop/session.</p>
 	 *
 	 * @see RecoveryPertemuanHelper
 	 */
@@ -480,6 +547,22 @@ public class RecoveryPertemuanHelper extends MyWindow {
 	// =========================================================================
 	// ENGINE RECOVERY LATAR BELAKANG (THREADED & SERVER PUSH)
 	// =========================================================================
+	/**
+	 * Membangun listener tombol "Recovery Data": menolak bila {@link #dataTerbaruToRecover} kosong,
+	 * lalu meminta konfirmasi jumlah data yang akan dipulihkan. Setelah dikonfirmasi, menjalankan
+	 * proses pemulihan pada thread background terkelola
+	 * ({@link ais.common.AsyncTaskManager#jalankanDenganPush}, server push aktif selama proses
+	 * berjalan dan otomatis dilepas di {@code finally} -- lihat komentar inline OPTIMASI FASE 5):
+	 * untuk tiap {@link Pertemuan} di {@link #dataTerbaruToRecover}, memulihkan dulu dependensinya
+	 * lewat {@link #restoreDependenciesRecursively}, lalu {@code session.replicate(p, OVERWRITE)}
+	 * dalam satu transaksi Hibernate native yang mencakup seluruh baris. Progres persentase
+	 * ditulis ke {@link #labelLoading} lewat {@link Executions#schedule} (server push) tiap baris.
+	 * Saat sukses: {@link #onSuccessListener} dipanggil dan window {@code detach()}. Saat gagal
+	 * sebagian/seluruhnya: transaksi di-rollback dan pesan peringatan berisi seluruh error
+	 * ditampilkan, window TETAP terbuka.
+	 *
+	 * @return listener siap dipasang ke tombol "Recovery Data" pada {@code onClick}
+	 */
 	private EventListener getRecoveryEventListener() {
 		return new EventListener() {
 			@Override

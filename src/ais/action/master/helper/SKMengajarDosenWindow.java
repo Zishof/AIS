@@ -51,60 +51,101 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
 /**
- * Tipe khusus untuk sk mengajar dosen window. Kelas ini memberi nama dan batas tanggung jawab yang
- * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ * Jendela ZK ({@code MyWindow}) akademik untuk menu <b>"SK Mengajar Dosen"</b>: alat bantu admin
+ * mengunggah satu berkas Surat Keputusan (SK) penugasan mengajar gabungan lalu menyalinnya menjadi
+ * SK per dosen untuk sekelompok {@link Perkuliahan} (mata kuliah yang diampu) pada satu Tahun
+ * Akademik &amp; Jenis Semester. Bukan mesin approval/workflow SK &mdash; murni utilitas
+ * salin-lampiran + rekap SKS mengajar per dosen.
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * MyWindow}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Combobox fakultas}, {@code Combobox
- * jurusan}, {@code Combobox searchTahunAjaran}, {@code Combobox jenis_semester}, {@code Center center}, {@code
- * String tahunAjaran}, {@code String jenisSemester}, {@code Jurusan jurusanDosen}; inisialisasi/lifecycle
- * ({@code init()}, {@code initSpreadsheet()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau
- * interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Alur:</b> {@link #init()} membangun toolbar filter (Fakultas, Prodi/Jurusan, Tahun
+ * Akademik, Jenis Semester, Program, nama Dosen) yang tiap perubahannya memicu
+ * {@link #initSpreadsheet()} lewat {@code Common.createDefaultTimer}; kotak upload/download SK
+ * gabungan ({@link LampiranLain#createDownloadUploadFileLain}, jenis lampiran
+ * {@code "sk_penugasan_pengajaran_dosen_gabungan"}); dan tombol "Masukkan ke SK Dosen" yang, untuk
+ * setiap dosen tercentang di grid ({@link #dipilihs}), menghitung kode {@link LampiranLain} unik
+ * (gabungan id dosen + tahun ajaran + kode jenis semester) lalu men-<i>copy</i> SK gabungan yang
+ * baru diupload ({@link #suratsk}) menjadi lampiran milik dosen tersebut
+ * ({@code LampiranLain.setCopyDari}), masing-masing dalam transaksi Hibernate tersendiri (kegagalan
+ * satu dosen tidak menggagalkan dosen lain &mdash; hanya dicatat lewat {@code ErrorAuditUtil}).</p>
+ *
+ * <p><b>{@link #initSpreadsheet()}</b> (dipanggil ulang tiap filter berubah): query
+ * {@link Perkuliahan} aktif (bukan perkuliahan paralel) yang salah satu dari 10 slot dosennya
+ * ({@code dosen1}..{@code dosen10}) cocok filter Dosen/Fakultas/Prodi/Tahun Ajaran/Jenis Semester/
+ * Program; hasil dikelompokkan per {@link Dosen} ({@code perkuliahan.populateDosen()}) ke dalam
+ * {@link java.util.TreeMap} (terurut alami by Dosen) sehingga tiap baris grid = satu dosen dengan
+ * daftar mata kuliah yang diampu, total SKS (dibagi rata sesuai {@code jumlahDosen} pengampu
+ * matakuliah tsb.), checkbox pilih, dan tombol lihat/upload SK individu miliknya.</p>
+ *
+ * <p><b>Constructor:</b> constructor kosong membungkus {@link #init()} dengan penanganan error
+ * ramah pengguna ({@link PesanFormalHelper#tampilkanGagalException}); constructor
+ * {@code (title, border, closable)} dan
+ * {@code (title, border, closable, tahunAjaran, jenisSemester, jurusanDosen, fakultas, program, dosen)}
+ * membiarkan exception {@link #init()} menjalar ke pemanggil. Varian terakhir dipakai saat jendela
+ * dibuka dari konteks yang SUDAH tahu filter awal (mis. dari halaman detail dosen/jurusan) &mdash;
+ * combo terkait langsung diisi &amp; DINONAKTIFKAN (tak bisa diubah) di {@link #init()}.</p>
+ *
+ * <p><b>Kuirk:</b> pencarian nama dosen ({@link #searchdosen}) membuat LEFT JOIN alias ke SEMUA 10
+ * slot {@code dosen1}..{@code dosen10} sekaligus (bukan hanya slot yang terisi), lalu OR
+ * {@code ilike} nama pada tiap alias &mdash; pola query yang sama dipakai berulang di beberapa
+ * class helper AIS lain yang berurusan dengan model co-dosen 10-slot {@link Perkuliahan}.</p>
  *
  * @see MyWindow
  */
 public class SKMengajarDosenWindow extends MyWindow {
 
-	/**
-	 * 
-	 */
+	/** UID serialisasi standar (komponen ZK bisa dipasivasi antar-request); tidak dipakai untuk logika versi. */
 	private static final long serialVersionUID = 790038368339375113L;
 
+	/** Filter Fakultas; dikunci nonaktif bila jendela dibuka dengan {@link #fakultasDosen} sudah ditentukan. */
 	private Combobox fakultas;
+	/** Filter Prodi/Jurusan; dikunci nonaktif bila jendela dibuka dengan {@link #jurusanDosen} sudah ditentukan. */
 	private Combobox jurusan;
+	/** Filter Tahun Akademik; dikunci nonaktif bila jendela dibuka dengan {@link #tahunAjaran} sudah ditentukan. */
 	private Combobox searchTahunAjaran;
+	/** Filter Jenis Semester (Ganjil/Genap/SP); default mengikuti semester berjalan, dikunci bila {@link #jenisSemester} sudah ditentukan. */
 	private Combobox jenis_semester;
 
+	/** Area tengah borderlayout tempat grid rekap dosen dirender ulang tiap {@link #initSpreadsheet()}. */
 	private Center center = new Center();
 
+	/** Tahun ajaran awal (bila diisi lewat constructor filter-tetap) yang mengunci {@link #searchTahunAjaran}. */
 	private String tahunAjaran;
 
+	/** Jenis semester awal (bila diisi lewat constructor filter-tetap) yang mengunci {@link #jenis_semester}. */
 	private String jenisSemester;
 
+	/** Prodi/Jurusan awal (bila diisi lewat constructor filter-tetap) yang mengunci {@link #jurusan}. */
 	private Jurusan jurusanDosen;
 
+	/** Program awal (bila diisi lewat constructor filter-tetap) yang mengunci {@link #searchprogram}. */
 	private String program;
 
+	/** Filter Program (mis. S1/S2); dikunci nonaktif bila jendela dibuka dengan {@link #program} sudah ditentukan. */
 	private Combobox searchprogram;
 
+	/** Dosen awal (bila diisi lewat constructor filter-tetap) dipakai sebagai kriteria pencarian perkuliahan; tidak mengunci field UI (tidak ada combo dosen). */
 	private Dosen dosen;
 
+	/** Fakultas awal (bila diisi lewat constructor filter-tetap) yang mengunci {@link #fakultas}. */
 	private Fakultas fakultasDosen;
 
+	/** ID dosen yang checkbox-nya sedang tercentang di grid; sumber daftar penerima saat tombol "Masukkan ke SK Dosen" diklik. */
 	private Set<Long> dipilihs = new HashSet<Long>();
+	/** Peta id dosen -> checkbox baris grid terkait; dipakai tombol "pilih semua" untuk menyinkronkan status semua checkbox sekaligus. */
 	private Map<Long, MyCheckboxConfig> semuas = new HashMap<Long, MyCheckboxConfig>();
 
+	/** SK gabungan yang baru diupload lewat kotak upload di {@link #init()}; sumber salinan untuk tombol "Masukkan ke SK Dosen". {@code null} berarti belum ada berkas diupload pada sesi jendela ini. */
 	protected LampiranLain suratsk = null;
 
+	/** Kotak pencarian nama dosen (ilike, dicocokkan ke ke-10 slot {@code dosen1}..{@code dosen10}); lihat {@link #initSpreadsheet()}. */
 	private Textbox searchdosen;
 
+	/**
+	 * Constructor default: panggil {@link #init()} tanpa filter awal apa pun (semua combo kosong,
+	 * grid baru terisi setelah pengguna memilih filter). Kegagalan {@link #init()} ditangkap dan
+	 * ditampilkan sebagai pesan error ramah pengguna ({@link PesanFormalHelper}), bukan dilempar ke
+	 * pemanggil.
+	 */
 	public SKMengajarDosenWindow() {
 		super();
 		try {
@@ -121,11 +162,25 @@ public class SKMengajarDosenWindow extends MyWindow {
 		}
 	}
 
+	/** Constructor dasar {@link MyWindow} tanpa filter awal; {@link #init()} dijalankan langsung (exception diteruskan ke pemanggil, tidak ditangkap seperti pada constructor default). */
 	public SKMengajarDosenWindow(String title, String border, boolean closable) {
 		super(title, border, closable);
 		init();
 	}
 
+	/**
+	 * Constructor dengan filter awal terkunci: semua parameter non-null yang diisi akan mengunci
+	 * (disabled) combo terkaitnya di {@link #init()} sehingga pengguna tidak bisa mengubahnya —
+	 * dipakai saat jendela dibuka dari konteks yang sudah menentukan konteksnya sendiri (mis. dari
+	 * halaman profil dosen/jurusan tertentu).
+	 *
+	 * @param tahunAjaran   tahun ajaran yang dikunci pada {@link #searchTahunAjaran}; {@code null} = bebas dipilih.
+	 * @param jenisSemester jenis semester yang dikunci pada {@link #jenis_semester}; {@code null} = bebas dipilih.
+	 * @param jurusanDosen  prodi/jurusan yang dikunci pada {@link #jurusan}; {@code null} = bebas dipilih.
+	 * @param fakultas      fakultas yang dikunci pada {@link #fakultas}; {@code null} = bebas dipilih.
+	 * @param program       program yang dikunci pada {@link #searchprogram}; {@code null} = bebas dipilih.
+	 * @param dosen         dosen tunggal sebagai kriteria filter perkuliahan (tidak mengunci field UI apa pun).
+	 */
 	public SKMengajarDosenWindow(String title, String border, boolean closable, String tahunAjaran,
 			String jenisSemester, Jurusan jurusanDosen, Fakultas fakultas, String program, Dosen dosen) {
 		super(title, border, closable);
@@ -138,6 +193,17 @@ public class SKMengajarDosenWindow extends MyWindow {
 		init();
 	}
 
+	/**
+	 * Bangun seluruh UI jendela: borderlayout dengan toolbar filter di North (Fakultas, Prodi,
+	 * Tahun Akademik, Jenis Semester, Program, nama Dosen — tiap {@code onChange} memicu
+	 * {@link #initSpreadsheet()} via timer default) dan kotak upload SK gabungan + tombol
+	 * "Masukkan ke SK Dosen" (menyalin {@link #suratsk} ke tiap dosen tercentang di
+	 * {@link #dipilihs}, kode lampiran dibentuk dari id dosen + tahun ajaran + kode jenis semester,
+	 * masing-masing dalam transaksi Hibernate tersendiri). Combo yang filter awalnya sudah diisi
+	 * lewat constructor filter-tetap langsung dipilih &amp; dikunci ({@code setDisabled(true)}).
+	 * Area {@link #center} (grid rekap) dipasang dan langsung dipicu render pertama via timer.
+	 * Tombol "Tutup" men-detach jendela.
+	 */
 	@SuppressWarnings("deprecation")
 	private void init() {
 
@@ -400,6 +466,21 @@ public class SKMengajarDosenWindow extends MyWindow {
 
 	// private void
 
+	/**
+	 * Bangun ulang grid rekap dosen di {@link #center} sesuai filter aktif. Query
+	 * {@link Perkuliahan} aktif, bukan perkuliahan paralel, dengan salah satu slot
+	 * {@code dosen1}..{@code dosen10} cocok filter {@link #dosen}/{@link #searchdosen} (ilike
+	 * nama, LEFT JOIN ke semua 10 alias sekaligus), serta filter Tahun Ajaran, Jenis Semester
+	 * (SP dicek via {@code statusSemesterPendek}; Ganjil/Genap via kombinasi
+	 * {@code statusSemesterPendek} null + {@code ganjilGenap}), Program, dan Prodi/Fakultas.
+	 * Hasil dikelompokkan per {@link Dosen} ({@code perkuliahan.populateDosen()}) ke
+	 * {@link java.util.TreeMap} terurut, lalu dirender sebagai grid dengan: checkbox pilih per
+	 * dosen (disinkronkan ke {@link #dipilihs}/{@link #semuas}), nama dosen, total SKS (SKS
+	 * matakuliah dibagi {@code jumlahDosen} pengampu, dijumlah semua matakuliah dosen tsb.),
+	 * rincian tekstual matakuliah yang diampu, dan kotak unduh/unggah SK individu dosen
+	 * (kode lampiran dari id dosen + tahun ajaran + kode jenis semester). Baris ringkasan "SKS
+	 * Total" ditambahkan di akhir. No-op (grid tidak dibangun) bila hasil query kosong.
+	 */
 	@SuppressWarnings("unchecked")
 	private void initSpreadsheet() throws Exception {
 		Common.clear(center);

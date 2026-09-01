@@ -430,3 +430,45 @@ disentuh (default untuk semua file yang tidak disebut di sini).
   `ais.action.master.helper/*.java` yang tak masuk kategori manapun di atas
   (banyak berisi template generik siap-diperkaya, cek dulu dengan grep frasa
   template sebelum menganggap "belum ada Javadoc").
+
+### 2 Sep 2026 (batch 4 file `Kelompok*DetailAction`/`GrupKuosionerUmumDetailAction`)
+
+- [lengkap] `GrupKuosionerUmumDetailAction.java` r82866 (tersapu bersama 2 file tak
+  terkait sesi lain, `FormatPenilaianHelper.java` + `HistoryStatusMahasiswaUtil.java`,
+  di commit tanpa pesan — isi diverifikasi benar via `svn diff -c 82866`) — baris
+  detail ZK untuk grid `GrupKuesionerUmum`, tombol upload Excel-nya memakai
+  `Common.uploadData` generik (BUKAN method kustom `uploadDataMahasiswa` seperti 3
+  file sekeluarga lain di batch ini).
+- [lengkap] `KelompokMahasiswaDetailAction.java` r82877.
+- [lengkap] `KelompokStatusKeluarMahasiswaDetailAction.java` r82890 — file paling
+  kompleks di batch: 9 kolom dokumen kelulusan/keluar berbagi 1 `onChange` listener
+  (simpan gabungan bukan per-field), toolbar cetak massal ijazah/transkrip PDF
+  (gabung via PDFBox `PDFMergerUtility`), `uploadDataMahasiswa` reload entity lewat
+  `session.get()` sebelum simpan (hindari entity detached lintas-thread).
+- [lengkap] `KelompokStatusMahasiswaDetailAction.java` r82902 — struktur identik
+  `KelompokMahasiswaDetailAction` (nama field/method/kolom grid sama persis, beda
+  entity saja); dicatat kuirk `uploadDataMahasiswa`-nya memakai
+  `HibernateUtil.currentNativeSession()` (bukan `openSession()` eksplisit seperti 2
+  file lain) + try/finally berlapis dengan `closeSession()` dipanggil dua kali —
+  redundan tapi tidak berbahaya, dibiarkan apa adanya.
+- **Konfirmasi pola kekerabatan**: keempat file SEMUANYA `extends MyDetail` (baris
+  detail ZK lazy-load, `org.zkoss.zul.Detail`) dan mengikuti kerangka identik
+  (constructor+listener `onOpen`, inner `*Renderer extends MyRowRenderer`,
+  `loadData(Object)`, `display()`, `initCriteria(boolean)` via `DataCriteria` —
+  kecuali `GrupKuosionerUmumDetailAction` yang implements `DataSearchDefault` bukan
+  `DataCriteria`). Bukan pewarisan lewat superclass generic (semua langsung `extends
+  MyDetail`), jadi pola leverage-nya bukan "1 referensi + link" seperti
+  `GenericRevisiHelper`/`GetEventListener`, melainkan kemiripan struktural antar
+  subclass sejenis — didokumentasikan penuh di tiap file (bukan ditaut ke satu
+  referensi) karena `MyDetail` sendiri terlalu tipis (cuma alias `Detail` ZK) untuk
+  jadi target referensi bermakna.
+- Semua 4 file sudah punya Javadoc SEBELUMNYA (hasil pass 1 Sep 2026, revisi
+  r81708/r81715/r81716/r81717 + r79995/r80000/r80001/r80002) tapi berupa template
+  generik ("Kelas ini memberi nama dan batas tanggung jawab...", dst) — diperkaya
+  sesuai instruksi (tidak dihapus, diganti jadi penjelasan domain konkret + Javadoc
+  method lengkap untuk semua method yang sebelumnya belum punya). Tidak ada file
+  yang di-skip; tidak ada insiden konkurensi selain sweep r82866 di atas (isi
+  terverifikasi utuh).
+- Semua 4 file dikompilasi (`javac -source 1.7 -target 1.7 -implicit:none`, lulus
+  tanpa error) sebelum commit; CRLF diverifikasi (`grep -cU`/`wc -l` sama) tiap
+  file. Belum di-mirror ke `java/` sesi ini (mirror menyusul).

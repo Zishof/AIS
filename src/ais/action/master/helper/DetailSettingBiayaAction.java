@@ -94,36 +94,66 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Controller/action ZK untuk detail setting biaya. Tipe ini merupakan titik masuk UI yang
- * menghubungkan event layar dengan perilaku domain yang diwarisi atau dikonfigurasi khusus oleh
- * kelas ini.
+ * Layar keuangan "Detail Setting Biaya": menampilkan dan mengelola tagihan seluruh mahasiswa
+ * atau calon mahasiswa yang terkena satu {@link SettingBiaya} (aturan biaya per jenis kegiatan,
+ * mis. SPP semester, pendaftaran ulang, uang gedung). Dibuka dari layar Setting Biaya via
+ * constructor {@link #DetailSettingBiayaAction(SettingBiaya)}. Untuk setiap
+ * mahasiswa/calon-mahasiswa dalam cakupan, layar menampilkan nominal "Tagihan Aktif" per
+ * {@link ItemBiaya} — yaitu {@link DetailKegiatan} milik {@link Kegiatan} yang SUDAH berjalan —
+ * dan (bila {@code nilaiBisaDiubah} pada ItemBiaya-nya) mengizinkan admin mengubah nominal
+ * tersebut satu-satu langsung dari grid, contoh nyata: tagihan "Sumbangan Bangunan Tahap II"
+ * diturunkan dari plafon Rp4.000.000 menjadi sesuai kesanggupan mahasiswa (mis. Rp1.000.000),
+ * yang otomatis membuat kekurangan tagihan tersebut dianggap Lunas.
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * MyDetail}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code SettingBiaya settingBiaya}, {@code
- * MyGrid grid}, {@code Textbox pencarian}, {@code Combobox searchtahun}, {@code Combobox searchtahunsd}, {@code
- * Combobox searchfakultas}, {@code Combobox searchjurusan}, {@code List selectedItemBiaya};
- * inisialisasi/lifecycle ({@code initCriteria()}); pembacaan/pencarian ({@code ambilTanggalTagihanEfektif()},
- * {@code loadData()}, {@code loadData()}, {@code uploadDataMahasiswa()}, {@code uploadDataCalonMahasiswa()});
- * validasi/perhitungan ({@code bolehHapusSettingBiayaDetail()}); mutasi data ({@code
- * saringMapUntukSettingIni()}); pelaporan/ekspor ({@code renderSatuItemTagihanAktif()}, {@code
- * renderTanggalTagihan()}); operasi domain lain ({@code modeDaftarMahasiswa()}, {@code
- * resolveKegiatanMahasiswa()}, {@code resolveKegiatanCalonMahasiswa()}, {@code display()}); konfigurasi
- * constructor: {@code mhs}, {@code paging}, {@code tbmuser}. Bagian lain dari kontrak tetap mengikuti kelas
- * induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
- * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
- * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
- * serta session Hibernate milik request yang aktif.</p>
+ * <p><b>Empat mode tampilan grid</b> (ditentukan {@link #modeDaftarMahasiswa()} dan jenis
+ * {@link JenisKegiatan} dari {@link #settingBiaya}, lihat percabangan di {@link #initCriteria}
+ * dan {@link #loadData(Object, boolean)}):</p>
+ * <ul>
+ * <li><b>Khusus per calon mahasiswa</b> ({@link CalonMahasiswaSettingRenderer}) — dipakai bila
+ * SettingBiaya untuk jenis kegiatan Pendaftaran Calon Mahasiswa/Pendaftaran Ulang Mahasiswa Baru
+ * dan ditandai khusus/dibatasi mahasiswa tertentu; sumber baris {@link SettingBiayaDetail}
+ * (template kuota custom per orang, kolom JSON {@code biayas} berisi nilai per
+ * {@code itemBiaya.id}) plus tampilan tagihan aktif yang sama seperti mode reguler.</li>
+ * <li><b>Khusus per mahasiswa</b> ({@link MahasiswaSettingRenderer}) — padanan untuk mahasiswa
+ * aktif (bukan calon).</li>
+ * <li><b>Daftar mahasiswa reguler</b> ({@link MahasiswaRenderer}) — sumber baris langsung
+ * {@link Mahasiswa} disaring kriteria SettingBiaya (program, status awal, jenjang, jenis
+ * seleksi, gelombang pendaftaran, fakultas/jurusan, angkatan, pencarian nama/NIM).</li>
+ * <li><b>Daftar calon mahasiswa reguler</b> ({@link CalonMahasiswaRenderer}) — padanan untuk
+ * {@link BiodataCalonMahasiswa}, dengan filter tambahan replikasi mesin pencocokan tagihan
+ * (lihat komentar "PERBAIKAN" di {@link #initCriteria} soal jenjang jenisSeleksi
+ * dipilih/mentah/gelombang) agar daftar di layar ini konsisten dengan siapa yang benar-benar
+ * kena tagihan.</li>
+ * </ul>
+ *
+ * <p><b>Resolusi tagihan aktif</b> ({@link #resolveKegiatanMahasiswa}/
+ * {@link #resolveKegiatanCalonMahasiswa}) memanggil {@code KegiatanHelper.checkKegiatanMahasiswa}/
+ * {@code checkKegiatanCalonMahasiswa} yang MEMBUAT {@link Kegiatan} bila belum ada (sama seperti
+ * perilaku grid pembayaran lain), lalu daftar {@link DetailBiaya}/{@link PengaturanPembayaranBulanan}
+ * dipetakan per {@code itemBiaya.id} untuk dirender oleh {@link #renderSatuItemTagihanAktif}.
+ * Kolom "Tanggal Tagihan" ({@link #renderTanggalTagihan}/{@link #ambilTanggalTagihanEfektif})
+ * menampilkan tanggal efektif tiap item, dengan fallback ke tanggal default DetailKegiatan
+ * placeholder lalu {@code DetailBiaya.getDefaultTanggalTagihan()}.</p>
+ *
+ * <p><b>Fitur lain:</b> upload/download Excel massal tagihan dan template SettingBiayaDetail
+ * ({@link #uploadDataMahasiswa}, {@link #uploadDataCalonMahasiswa}), tombol Reset (kembalikan
+ * tagihan ke default billing, {@code rst=true}) dan Refresh (hitung ulang tanpa reset), serta
+ * — untuk item biaya yang jenis kegiatannya wajib bulanan ({@link #wajibBulanan()}) — panel akses
+ * cepat ke editor "Pengaturan Pembayaran Bulanan" ({@link #tampilkanAksesPengaturanBulanan}).
+ * Penghapusan binding SettingBiayaDetail ({@link #bolehHapusSettingBiayaDetail}) tidak pernah
+ * menghapus {@link DetailBiaya} yang sudah dipakai sebagai transaksi/tagihan historis — baris
+ * di-null-kan referensinya (mahasiswa/calon mahasiswa dilepas) alih-alih dihapus, demi menjaga
+ * integritas riwayat.</p>
  *
  * @see MyDetail
  */
 public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
+	/**
+	 * @return {@code true} bila {@link #settingBiaya} ditandai khusus untuk mahasiswa
+	 *         tertentu atau dibatasi mahasiswa tertentu — menentukan apakah grid memakai
+	 *         sumber baris {@link SettingBiayaDetail} (mode "khusus per mahasiswa/calon")
+	 *         alih-alih daftar {@link Mahasiswa}/{@link BiodataCalonMahasiswa} reguler.
+	 */
 	private boolean modeDaftarMahasiswa() {
 		return settingBiaya != null && (settingBiaya.getKhususBuatMahasiswaTertentu()
 				|| settingBiaya.getBatasiMahasiswaTertentu());
@@ -154,11 +184,25 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 
 	private Tbmuser tbmuser;
 
+	/**
+	 * @return {@code true} bila {@link JenisKegiatan} milik {@link #settingBiaya} ditandai
+	 *         "hanya berupa angsuran" (wajib dibayar bulanan) — mengontrol apakah panel akses
+	 *         cepat "Pengaturan Pembayaran Bulanan" ({@link #tampilkanAksesPengaturanBulanan})
+	 *         ditampilkan.
+	 */
 	private boolean wajibBulanan() {
 		return settingBiaya != null && settingBiaya.getJenisKegiatan() != null
 				&& Boolean.TRUE.equals(settingBiaya.getJenisKegiatan().getHanyaBerupaAngsuran());
 	}
 
+	/**
+	 * Ambil id sebagai string dari sebuah {@link ais.database.model.GeneralValueObject}, dipakai
+	 * membangun query string parameter filter di {@link #urlEditorBulananSettingBiaya}.
+	 *
+	 * @param nilai objek referensi (mis. Jenjang, Jurusan, StatusMahasiswa); boleh tipe lain/null.
+	 * @return id sebagai string, atau {@code "-1"} bila bukan GeneralValueObject atau id-nya null
+	 *         (konvensi "semua/tidak difilter" pada layar tujuan).
+	 */
 	private String idAtauSemua(Object nilai) {
 		if (nilai instanceof ais.database.model.GeneralValueObject) {
 			Long id = ((ais.database.model.GeneralValueObject) nilai).getId();
@@ -167,6 +211,11 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		return "-1";
 	}
 
+	/**
+	 * @param combo        combobox sumber nilai.
+	 * @param nilaiDefault nilai fallback bila combo/selection/value kosong.
+	 * @return nilai terpilih combo sebagai string, atau {@code nilaiDefault}.
+	 */
 	private String nilaiCombo(Combobox combo, String nilaiDefault) {
 		if (combo != null && combo.getSelectedItem() != null && combo.getSelectedItem().getValue() != null) {
 			return combo.getSelectedItem().getValue().toString();
@@ -174,6 +223,16 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		return nilaiDefault;
 	}
 
+	/**
+	 * Bangun URL layar {@code detail_biaya_excel.zul} dengan seluruh parameter filter yang
+	 * meniru kriteria {@link #settingBiaya} ini (semester, tahun ajaran, program, angkatan,
+	 * jenjang, jurusan, status mahasiswa/awal, jenis kegiatan, paket, jenis seleksi, gelombang
+	 * pendaftaran) plus flag {@code autoBukaRencanaAngsuran=1}, sehingga saat dibuka dari
+	 * {@link #tampilkanAksesPengaturanBulanan} layar tujuan langsung menampilkan editor rencana
+	 * angsuran untuk SettingBiaya ini tanpa perlu filter ulang manual.
+	 *
+	 * @return URL relatif lengkap dengan query string ter-encode UTF-8.
+	 */
 	private String urlEditorBulananSettingBiaya() throws Exception {
 		Integer semester = settingBiaya.getMinSmt() == null ? Integer.valueOf(1) : settingBiaya.getMinSmt();
 		String tahunAjaran = nilaiCombo(tahunAkademik, settingBiaya.getTahunAkademik() == null
@@ -202,6 +261,14 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 				+ "&autoBukaRencanaAngsuran=1";
 	}
 
+	/**
+	 * Bila {@link #wajibBulanan()}, pasang panel info + tombol "Atur Pembayaran Bulanan" ke
+	 * {@code parent}; tombol membuka {@link #urlEditorBulananSettingBiaya()} dalam window modal,
+	 * dan memuat ulang grid ({@link #loadData(Object)}) setelah window ditutup. Tidak melakukan
+	 * apa pun bila SettingBiaya ini bukan jenis wajib bulanan.
+	 *
+	 * @param parent komponen tujuan pemasangan panel (biasanya groupbox di {@link #display()}).
+	 */
 	private void tampilkanAksesPengaturanBulanan(ais.ui.util.MyDiv parent) {
 		if (!wajibBulanan()) {
 			return;
@@ -241,6 +308,17 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		}
 	};
 
+	/**
+	 * Simpan {@link SettingBiaya} sumber data dan tentukan mode mahasiswa-aktif vs
+	 * calon-mahasiswa ({@link #mhs}) dari {@link JenisKegiatan}-nya (Pendaftaran Calon Mahasiswa
+	 * atau Pendaftaran Ulang Mahasiswa Baru berarti mode calon mahasiswa). Menyiapkan
+	 * {@link Paging} yang memuat ulang grid ({@link #loadData(Object)}) tiap ganti halaman, dan
+	 * mendaftarkan listener {@code onOpen} yang membangun UI ({@link #display()}) tepat saat
+	 * layar dibuka pertama kali oleh ZK (bukan langsung di constructor) sambil membersihkan
+	 * komponen lama ({@link Common#clear}).
+	 *
+	 * @param settingBiaya aturan biaya yang tagihan-tagihannya ingin dikelola di layar ini.
+	 */
 	public DetailSettingBiayaAction(SettingBiaya settingBiaya) {
 		super();
 		tbmuser = Common.getCurrentUser();
@@ -468,6 +546,17 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		}
 	}
 
+	/**
+	 * Saring peta tagihan aktif ({@code map}, hasil {@link #resolveKegiatanMahasiswa}) agar
+	 * hanya menyisakan entri yang {@link DetailBiaya}-nya benar-benar berasal dari
+	 * {@link #settingBiaya} INI — perlu karena satu {@link ItemBiaya} bisa punya tagihan dari
+	 * beberapa SettingBiaya berbeda (mis. tagihan lama dari setting sebelumnya), sehingga grid
+	 * layar ini tidak menampilkan/mengizinkan ubah nominal tagihan milik SettingBiaya lain.
+	 *
+	 * @param map peta {@code idDetailBiayaAtauPpb -> Object[]{DetailBiaya atau PengaturanPembayaranBulanan}}.
+	 * @return sub-peta yang hanya berisi entri milik {@link #settingBiaya}, atau {@code null}
+	 *         bila {@code map} null atau tidak ada entri yang cocok.
+	 */
 	private Map<Long, Object[]> saringMapUntukSettingIni(Map<Long, Object[]> map) {
 		if (map == null) {
 			return null;
@@ -490,6 +579,20 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		return mapUntukSettingIni;
 	}
 
+	/**
+	 * Tentukan tanggal tagihan efektif satu item ({@code data}), dengan urutan prioritas:
+	 * (1) tanggal {@link DetailKegiatan} yang benar-benar sudah tersimpan untuk item ini, bila
+	 * ada; (2) bila belum ada Kegiatan/DetailKegiatan tersimpan, tanggal default yang dihitung
+	 * dari sebuah {@link DetailKegiatan} placeholder (tidak disimpan, hanya untuk memanggil
+	 * getter tanggal defaultnya); (3) fallback terakhir {@code DetailBiaya.getDefaultTanggalTagihan()}.
+	 *
+	 * @param data             elemen {@code Object[]{DetailBiaya atau PengaturanPembayaranBulanan}}.
+	 * @param kegiatan         Kegiatan aktif mahasiswa/calon (boleh null bila belum ada).
+	 * @param detailKegiatans  daftar DetailKegiatan milik Kegiatan tsb (boleh null).
+	 * @param refresh          diteruskan ke {@link Kegiatan#ambilSatuDetailKegiatan} untuk
+	 *                         memaksa baca ulang dari DB bila perlu.
+	 * @return tanggal efektif, atau {@code null} bila {@code data} kosong/tidak dikenali.
+	 */
 	private Date ambilTanggalTagihanEfektif(Object[] data, Kegiatan kegiatan,
 			Collection<DetailKegiatan> detailKegiatans, boolean refresh) {
 		if (data == null || data.length == 0 || data[0] == null) {
@@ -528,6 +631,22 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		return detailBiaya.getDefaultTanggalTagihan();
 	}
 
+	/**
+	 * Render kolom "Tanggal Tagihan" satu baris: kumpulkan tanggal efektif
+	 * ({@link #ambilTanggalTagihanEfektif}) tiap {@link ItemBiaya} yang dipilih layar
+	 * ({@link #selectedItemBiaya}), di-dedup lewat {@link LinkedHashSet} agar tanggal yang sama
+	 * tidak diulang. Bila lebih dari satu ItemBiaya dipilih, tiap baris tanggal diberi prefix
+	 * nama item agar jelas tanggal mana milik item mana. Tampilkan "-" bila tidak ada tanggal
+	 * sama sekali.
+	 *
+	 * @param row            baris grid tujuan.
+	 * @param kegiatan       Kegiatan aktif mahasiswa/calon (boleh null).
+	 * @param detailKegiatans daftar DetailKegiatan milik Kegiatan tsb (boleh null).
+	 * @param datas          peta {@code idItemBiaya -> (idDetailBiayaAtauPpb -> Object[])} hasil resolusi.
+	 * @param refresh        diteruskan ke {@link #ambilTanggalTagihanEfektif}.
+	 * @param saringSetting  bila {@code true}, saring dulu tiap map lewat {@link #saringMapUntukSettingIni}
+	 *                       agar hanya tanggal tagihan milik {@link #settingBiaya} ini yang ditampilkan.
+	 */
 	private void renderTanggalTagihan(Row row, Kegiatan kegiatan, Collection<DetailKegiatan> detailKegiatans,
 			Map<Long, Map<Long, Object[]>> datas, boolean refresh, boolean saringSetting) {
 		Vbox vbox = new Vbox();
@@ -563,23 +682,24 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link DetailSettingBiayaAction}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DetailSettingBiayaAction} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean refresh}, {@code boolean
-	 * rst}; operasi lokal: {@code render}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
-	 * dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer baris grid mode "daftar mahasiswa reguler": untuk tiap {@link Mahasiswa}, hitung
+	 * semester berjalan lalu resolusi Kegiatan+tagihan aktifnya via
+	 * {@link #resolveKegiatanMahasiswa}, tampilkan biodata ringkas (foto, NIM/nama, HP, email,
+	 * angkatan, jurusan, program, semester), kolom tanggal tagihan
+	 * ({@link #renderTanggalTagihan}), lalu satu kolom per {@link ItemBiaya} terpilih berisi
+	 * nominal tagihan aktif (disaring khusus milik {@link #settingBiaya} ini lewat
+	 * {@link #saringMapUntukSettingIni}) atau label "Tidak/belum ada" bila item tsb tidak
+	 * relevan untuk mahasiswa ini. Native Hibernate session dibuka per baris dan
+	 * di-disconnect/close di akhir render agar tidak menumpuk koneksi saat grid berisi banyak
+	 * baris.
 	 *
 	 * @see DetailSettingBiayaAction
 	 */
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** Bila true, paksa resolusi Kegiatan/tagihan baca ulang dari DB (bukan cache). */
 		private boolean refresh;
+		/** Bila true, reset tagihan ke default billing saat resolusi (dipakai tombol Reset). */
 		private boolean rst;
 
 		public MahasiswaRenderer(boolean refresh, boolean rst) {
@@ -587,6 +707,13 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 			this.rst = rst;
 		}
 
+		/**
+		 * Render satu baris mahasiswa — lihat Javadoc kelas {@link MahasiswaRenderer} untuk
+		 * detail kolom dan pengelolaan session.
+		 *
+		 * @param arg0 baris grid tujuan.
+		 * @param data data baris, di-cast ke {@link Mahasiswa}.
+		 */
 		@SuppressWarnings("rawtypes")
 		@Override
 		public void render(final Row arg0, Object data) throws Exception {
@@ -650,23 +777,26 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link DetailSettingBiayaAction}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DetailSettingBiayaAction} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean refresh}, {@code boolean
-	 * rst}; operasi lokal: {@code render}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
-	 * dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer baris grid mode "khusus per mahasiswa": sumber baris adalah
+	 * {@link SettingBiayaDetail} (binding SettingBiaya-mahasiswa dengan template kuota custom
+	 * per orang, kolom JSON {@code biayas}). Untuk tiap baris ditampilkan: biodata ringkas,
+	 * editor semester berlaku ({@code minSmt}/{@code maxSmt}, disimpan langsung
+	 * {@link Common#refreshUpdate} tiap kali diubah — bukan menunggu tombol Simpan), kolom
+	 * tanggal tagihan, lalu PER item biaya terpilih DUA baris: "Kuota Custom (Template)" — nilai
+	 * default JSON yang dipakai HANYA saat tagihan pertama kali diterbitkan — dan "Tagihan Aktif"
+	 * — nominal {@link DetailKegiatan} yang SUDAH berjalan (resolusi sekali di awal render lewat
+	 * {@link #resolveKegiatanMahasiswa}), tempat admin bisa menurunkan nominal tagihan manual
+	 * per mahasiswa (lihat Javadoc kelas {@link DetailSettingBiayaAction} untuk contoh kasus
+	 * Sumbangan Bangunan). Tombol Hapus baris memanggil {@link #bolehHapusSettingBiayaDetail}
+	 * sebelum {@link Common#refreshDelete}.
 	 *
 	 * @see DetailSettingBiayaAction
 	 */
 	class MahasiswaSettingRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** Bila true, paksa resolusi Kegiatan/tagihan aktif baca ulang dari DB. */
 		private boolean refresh;
+		/** Bila true, reset tagihan ke default billing saat resolusi. */
 		private boolean rst;
 
 		public MahasiswaSettingRenderer(boolean refresh, boolean rst) {
@@ -674,6 +804,13 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 			this.rst = rst;
 		}
 
+		/**
+		 * Render satu baris {@link SettingBiayaDetail} — lihat Javadoc kelas
+		 * {@link MahasiswaSettingRenderer} untuk detail kolom Kuota Custom vs Tagihan Aktif.
+		 *
+		 * @param arg0 baris grid tujuan.
+		 * @param data data baris, di-cast ke {@link SettingBiayaDetail}.
+		 */
 		@Override
 		public void render(final Row arg0, Object data) throws Exception {
 			// TODO Auto-generated method stub
@@ -848,23 +985,20 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link DetailSettingBiayaAction}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DetailSettingBiayaAction} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean refresh}, {@code boolean
-	 * rst}; operasi lokal: {@code render}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
-	 * dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Padanan {@link MahasiswaSettingRenderer} untuk {@link BiodataCalonMahasiswa} — sumber
+	 * baris tetap {@link SettingBiayaDetail}, tapi relasinya ke
+	 * {@code settingBiayaDetail.getBiodataCalonMahasiswa()} dan resolusi tagihan aktif lewat
+	 * {@link #resolveKegiatanCalonMahasiswa}. Lihat Javadoc {@link MahasiswaSettingRenderer}
+	 * untuk penjelasan lengkap kolom Kuota Custom vs Tagihan Aktif dan alasan penurunan nominal
+	 * manual per orang.
 	 *
 	 * @see DetailSettingBiayaAction
 	 */
 	class CalonMahasiswaSettingRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** Bila true, paksa resolusi Kegiatan/tagihan aktif baca ulang dari DB. */
 		private boolean refresh;
+		/** Bila true, reset tagihan ke default billing saat resolusi. */
 		private boolean rst;
 
 		public CalonMahasiswaSettingRenderer(boolean refresh, boolean rst) {
@@ -872,6 +1006,13 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 			this.rst = rst;
 		}
 
+		/**
+		 * Render satu baris {@link SettingBiayaDetail} milik calon mahasiswa — lihat Javadoc
+		 * kelas {@link CalonMahasiswaSettingRenderer}/{@link MahasiswaSettingRenderer}.
+		 *
+		 * @param arg0 baris grid tujuan.
+		 * @param data data baris, di-cast ke {@link SettingBiayaDetail}.
+		 */
 		@Override
 		public void render(final Row arg0, Object data) throws Exception {
 			// TODO Auto-generated method stub
@@ -1134,23 +1275,19 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link DetailSettingBiayaAction}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link DetailSettingBiayaAction} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean refresh}, {@code boolean
-	 * rst}; operasi lokal: {@code render}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
-	 * dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Padanan {@link MahasiswaRenderer} untuk daftar calon mahasiswa reguler (bukan mode
+	 * "khusus per mahasiswa"): sumber baris {@link BiodataCalonMahasiswa} langsung, resolusi
+	 * tagihan aktif lewat {@link #resolveKegiatanCalonMahasiswa}, kolom sama (biodata ringkas,
+	 * tanggal tagihan, nominal per item biaya). Jurusan yang ditampilkan diprioritaskan dari
+	 * {@code prodiLulus}, fallback ke {@code prodi1}.
 	 *
 	 * @see DetailSettingBiayaAction
 	 */
 	class CalonMahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** Bila true, paksa resolusi Kegiatan/tagihan aktif baca ulang dari DB. */
 		private boolean refresh;
+		/** Bila true, reset tagihan ke default billing saat resolusi. */
 		private boolean rst;
 
 		public CalonMahasiswaRenderer(boolean refresh, boolean rst) {
@@ -1158,6 +1295,12 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 			this.rst = rst;
 		}
 
+		/**
+		 * Render satu baris calon mahasiswa — lihat Javadoc kelas {@link CalonMahasiswaRenderer}.
+		 *
+		 * @param arg0 baris grid tujuan.
+		 * @param data data baris, di-cast ke {@link BiodataCalonMahasiswa}.
+		 */
 		@SuppressWarnings("rawtypes")
 		@Override
 		public void render(final Row arg0, Object data) throws Exception {
@@ -1225,6 +1368,14 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		}
 	}
 
+	/**
+	 * Muat ulang grid tanpa reset tagihan ke default.
+	 *
+	 * @param value bila instance {@link Boolean} {@code true}, paksa refresh resolusi tagihan
+	 *              aktif dari DB (diteruskan sebagai parameter {@code refresh}); selain itu
+	 *              dianggap {@code false}.
+	 * @see #loadData(Object, boolean)
+	 */
 	public void loadData(Object value) {
 		loadData(value, false);
 	}
@@ -1301,6 +1452,20 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		}
 	}
 
+	/**
+	 * Muat ulang isi grid sesuai halaman paging dan filter toolbar saat ini, memilih sumber data
+	 * dan row renderer berdasarkan mode layar (lihat "Empat mode tampilan grid" di Javadoc kelas
+	 * {@link DetailSettingBiayaAction}): {@link SettingBiayaDetail} (khusus calon/mahasiswa) via
+	 * {@link CalonMahasiswaSettingRenderer}/{@link MahasiswaSettingRenderer}, atau
+	 * {@link Mahasiswa}/{@link BiodataCalonMahasiswa} reguler via
+	 * {@link MahasiswaRenderer}/{@link CalonMahasiswaRenderer}. Dijalankan lewat
+	 * {@link Common#createDefaultTimer} (async, dengan indikator loading).
+	 *
+	 * @param value nilai instance {@link Boolean} menentukan flag {@code refresh} yang
+	 *              diteruskan ke renderer (paksa baca ulang resolusi tagihan dari DB).
+	 * @param reset flag {@code rst} yang diteruskan ke renderer — bila {@code true}, tagihan
+	 *              aktif dikembalikan ke default billing saat resolusi (dipakai tombol Reset).
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value, final boolean reset) {
 		final boolean refresh = value != null && value instanceof Boolean ? ((Boolean) value) : false;
@@ -1374,6 +1539,18 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		});
 	}
 
+	/**
+	 * Bangun seluruh UI layar: toolbar filter (rentang angkatan/tahun, fakultas, jurusan,
+	 * pencarian nama/NIM, TA/semester acuan untuk resolusi tagihan aktif), tombol khusus per
+	 * mode (Ambil Mahasiswa/Calon Mahasiswa, Download/Upload template, Upload/Download Tagihan
+	 * Aktif, Hapus Semua untuk mode "khusus"; Upload Tagihan + Refresh + Reset untuk mode
+	 * reguler), kolom grid dinamis satu per {@link ItemBiaya} terpilih (di-load dari
+	 * {@link DetailSettingBiaya} aktif milik {@link #settingBiaya}), panel akses cepat
+	 * Pengaturan Pembayaran Bulanan ({@link #tampilkanAksesPengaturanBulanan}), lalu memanggil
+	 * {@link #loadData(Object)} untuk mengisi baris pertama kali. Dipanggil dari listener
+	 * {@code onOpen} di constructor, bukan langsung — memastikan layar sudah benar-benar
+	 * ditampilkan sebelum UI berat ini dibangun.
+	 */
 	@SuppressWarnings("unchecked")
 	public void display() {
 
@@ -2192,6 +2369,22 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		loadData(null);
 	}
 
+	/**
+	 * Proses upload Excel massal template {@link SettingBiayaDetail} (kuota custom per
+	 * mahasiswa) — BUKAN tagihan aktif (untuk itu lihat {@code KegiatanHelper.prosesUploadTagihan}).
+	 * Tiap baris: cari {@link Mahasiswa} (objek Excel, fallback nama+angkatan bila kolom NIM
+	 * tak terbaca), validasi angkatan cocok dengan {@code settingBiaya.getAngkatan()} bila
+	 * diisi, lalu simpan/update {@link SettingBiayaDetail} dengan nilai kuota tiap
+	 * {@link ItemBiaya} terpilih dari kolom Excel ke-6 dst. (ditulis ke JSON {@code biayas}) dan
+	 * {@code minSmt}/{@code maxSmt}. Dijalankan di background thread dengan transaksi per baris
+	 * dan rollback eksplisit bila gagal; hasil dilaporkan lewat {@link ais.common.LaporanUpload}
+	 * dan {@link ais.common.UploadReportHelper} (yang filenya otomatis di-download ke klien via
+	 * {@link org.zkoss.zul.Filedownload#save} setelah proses selesai).
+	 *
+	 * @param file          file Excel (xlsx) hasil upload; kolom 0=NIM, 1=nama, 4=minSmt, 5=maxSmt,
+	 *                      6+ = nilai kuota tiap item biaya sesuai urutan {@link #selectedItemBiaya}.
+	 * @param eventListener dipanggil setelah proses selesai (lewat {@link ais.common.LaporanUpload#selesaikan}).
+	 */
 	public void uploadDataMahasiswa(final File file, final EventListener eventListener) throws Exception {
 
 		final ais.common.LaporanUpload laporan = new ais.common.LaporanUpload(
@@ -2346,6 +2539,17 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		}).start();
 	}
 
+	/**
+	 * Padanan {@link #uploadDataMahasiswa} untuk {@link BiodataCalonMahasiswa}: cari calon
+	 * mahasiswa lewat nomor registrasi (fallback nama), validasi tahun cocok dengan
+	 * {@code settingBiaya.getAngkatan()} bila diisi, lalu simpan/update
+	 * {@link SettingBiayaDetail} dengan kuota custom per item biaya dan rentang semester —
+	 * lihat Javadoc {@link #uploadDataMahasiswa} untuk detail alur transaksi dan pelaporan.
+	 *
+	 * @param file          file Excel (xlsx) hasil upload; kolom 0=noRegistrasi, 1=nama, 4=minSmt,
+	 *                      5=maxSmt, 6+ = nilai kuota tiap item biaya.
+	 * @param eventListener dipanggil setelah proses selesai.
+	 */
 	public void uploadDataCalonMahasiswa(final File file, final EventListener eventListener) throws Exception {
 
 		final ais.common.LaporanUpload laporan = new ais.common.LaporanUpload(
@@ -2508,6 +2712,31 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		}).start();
 	}
 
+	/**
+	 * Bangun query Hibernate sumber baris grid, bercabang empat menurut mode layar (lihat
+	 * Javadoc kelas {@link DetailSettingBiayaAction}):
+	 * <ol>
+	 * <li>khusus calon mahasiswa: {@link SettingBiayaDetail} milik {@link #settingBiaya}
+	 * dengan alias jurusan dari {@code prodi1} (jenis Pendaftaran Calon Mahasiswa) atau
+	 * {@code prodiLulus} (jenis Pendaftaran Ulang), disaring jurusan/fakultas/rentang tahun/
+	 * pencarian;</li>
+	 * <li>khusus mahasiswa: {@link SettingBiayaDetail} beralias {@code mahasiswa.jurusan},
+	 * disaring serupa;</li>
+	 * <li>mode reguler mahasiswa ({@link #mhs}): {@link Mahasiswa} aktif disaring program,
+	 * status awal, jenjang (via jurusan), jenis seleksi, gelombang pendaftaran dari
+	 * {@link #settingBiaya}, plus filter toolbar (jurusan/fakultas/rentang angkatan/pencarian);</li>
+	 * <li>mode reguler calon mahasiswa: {@link BiodataCalonMahasiswa} aktif dengan replikasi
+	 * lengkap mesin pencocokan tagihan sesungguhnya ({@code GeneralValueObject.ambilSatuData},
+	 * dipakai {@code PembayaranUtilHelper.getDetailBiayaCalonMahasiswa}) untuk jenis seleksi
+	 * berjenjang (jenisSeleksiDipilih → jenisSeleksi → gelombangPendaftaran.jenisSeleksi), paket,
+	 * dan gelombang pendaftaran — lihat komentar "PERBAIKAN" pada cabang ini untuk kronologi bug
+	 * yang diperbaiki (daftar calon mahasiswa sebelumnya bisa menampilkan orang yang sebenarnya
+	 * tidak memenuhi kriteria SettingBiaya yang sedang dilihat).</li>
+	 * </ol>
+	 *
+	 * @param order bila {@code true}, tambahkan pengurutan (angkatan/tahun desc, NIM/no.registrasi asc).
+	 * @return Criteria Hibernate siap dieksekusi/di-count untuk paging.
+	 */
 	@Override
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();

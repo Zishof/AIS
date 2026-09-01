@@ -47,9 +47,21 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Controller/action ZK untuk kelompok status mahasiswa detail. Tipe ini merupakan titik masuk UI
- * yang menghubungkan event layar dengan perilaku domain yang diwarisi atau dikonfigurasi khusus
- * oleh kelas ini.
+ * Baris detail ZK ({@code org.zkoss.zul.Detail}, lewat superclass {@link MyDetail}) yang dipasang
+ * pada grid master {@link KelompokStatusMahasiswa} — pengelompokan mahasiswa berdasarkan status
+ * (mis. kategori status keaktifan/administratif tertentu di luar status keluar formal yang punya
+ * kelas sendiri, {@code KelompokStatusKeluarMahasiswa}). Sama seperti
+ * {@code KelompokMahasiswaDetailAction}, keanggotaan disimpan langsung sebagai FK
+ * {@code kelompokStatusMahasiswa} pada baris {@link Mahasiswa} (bukan tabel pivot terpisah) — satu
+ * mahasiswa hanya bisa berada di SATU {@code KelompokStatusMahasiswa} pada satu waktu (assign baru
+ * menimpa assign lama). Saat baris kelompok pada grid induk di-expand ({@code onOpen}, lihat
+ * konstruktor), kelas ini merender grid anggota berisi seluruh {@code Mahasiswa} yang FK-nya
+ * menunjuk ke entity induk ini. Strukturnya SAMA PERSIS dengan
+ * {@code KelompokMahasiswaDetailAction} (nama field, urutan method, kolom grid identik) —
+ * satu-satunya perbedaan substansial adalah entity {@code KelompokStatusMahasiswa} vs
+ * {@code KelompokMahasiswa} dan sedikit variasi di {@link #uploadDataMahasiswa} (di sini memakai
+ * {@code HibernateUtil.currentNativeSession()} alih-alih {@code openSession()} eksplisit — lihat
+ * catatan pada method tersebut).
  *
  * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
  * MyDetail}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
@@ -60,10 +72,16 @@ import ais.ui.util.MyToolbarbuttonConfig;
  * initCriteria()}); pembacaan/pencarian ({@code loadData()}, {@code uploadDataMahasiswa()}); operasi domain lain
  * ({@code display()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
  * atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Efek samping konkret:</b> tombol "Ambil Data Mahasiswa" membuka picker massal
+ * {@code AmbilDataMahasiswaBanyak}, diberi daftar anggota kelompok ini SAAT INI (hasil
+ * {@code initCriteria(false).list()}) agar picker menandai baris tersebut sebagai sudah
+ * terpilih/terkunci; memilih baris baru langsung meng-assign {@code kelompokStatusMahasiswa} pada
+ * mahasiswa terpilih dan menyimpannya lewat {@code Common.refreshUpdate}. Upload Excel
+ * ({@link #uploadDataMahasiswa}) berjalan di background thread dengan transaksi manual per baris +
+ * rollback-on-failure. Tombol "Hapus Semua" melepas ({@code null}-kan) field
+ * {@code kelompokStatusMahasiswa} pada hingga 5000 mahasiswa yang cocok filter aktif saat ini —
+ * bukan hapus baris {@code Mahasiswa}. Pemanggil baru sebaiknya menggunakan method yang sudah ada
+ * atau service bersama, bukan membuat salinan query dan validasi di action lain.</p>
  * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
  * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
  * serta session Hibernate milik request yang aktif.</p>
@@ -82,6 +100,17 @@ public class KelompokStatusMahasiswaDetailAction extends MyDetail implements Dat
 
 	private Textbox pencarian;
 
+	/**
+	 * Membuat detail row untuk satu {@code kelompokStatusMahasiswa} tertentu.
+	 *
+	 * <p>Menyimpan referensi entity induk dan mendaftarkan listener {@code onOpen} yang
+	 * membersihkan anak komponen lalu memanggil {@link #display()} — grid anggota kelompok baru
+	 * dibangun saat detail benar-benar terbuka ({@code isOpen()}), bukan saat konstruktor
+	 * dipanggil.</p>
+	 *
+	 * @param kelompokStatusMahasiswa entity kelompok status mahasiswa induk yang anggotanya
+	 *                                 ditampilkan
+	 */
 	public KelompokStatusMahasiswaDetailAction(KelompokStatusMahasiswa kelompokStatusMahasiswa) {
 		super();
 		this.kelompokStatusMahasiswa = kelompokStatusMahasiswa;
@@ -98,16 +127,18 @@ public class KelompokStatusMahasiswaDetailAction extends MyDetail implements Dat
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link KelompokStatusMahasiswaDetailAction}. Kelas ini menerjemahkan
-	 * satu item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 * Renderer baris grid anggota kelompok untuk {@link KelompokStatusMahasiswaDetailAction}. Setiap
+	 * baris mewakili satu {@link Mahasiswa} yang FK {@code kelompokStatusMahasiswa}-nya menunjuk ke
+	 * entity induk: foto kecil, NIM, tautan riwayat revisi Envers ({@code
+	 * RevisiHelper.createNewRevisi}), tahun angkatan, nama jurusan/prodi, dan tombol hapus (hanya
+	 * tampil bila mahasiswa memang masih anggota kelompok ini).
 	 *
 	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link KelompokStatusMahasiswaDetailAction} dan dapat
 	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * <p><b>Efek samping:</b> tombol hapus baris tidak menghapus entity {@code Mahasiswa}, melainkan
+	 * meng-null-kan FK {@code kelompokStatusMahasiswa} lalu menyimpannya
+	 * ({@code Common.refreshSaveOrUpdate}) — efeknya baris tersebut hilang dari grid ini pada
+	 * refresh berikutnya.</p>
 	 *
 	 * @see KelompokStatusMahasiswaDetailAction
 	 */
@@ -117,6 +148,14 @@ public class KelompokStatusMahasiswaDetailAction extends MyDetail implements Dat
 
 		}
 
+		/**
+		 * Merender satu baris grid untuk {@code mahasiswa}: foto, NIM, tautan riwayat revisi, tahun
+		 * angkatan, nama jurusan, dan tombol hapus (melepas keanggotaan kelompok, bukan menghapus
+		 * data mahasiswa).
+		 *
+		 * @param arg0 baris grid ZK tujuan render
+		 * @param data instance {@link Mahasiswa} untuk baris ini
+		 */
 		@Override
 		public void render(final Row arg0, Object data) throws Exception {
 			// TODO Auto-generated method stub
@@ -172,6 +211,13 @@ public class KelompokStatusMahasiswaDetailAction extends MyDetail implements Dat
 		}
 	}
 
+	/**
+	 * Memuat ulang (maks. 500 baris) daftar {@link Mahasiswa} yang menjadi anggota
+	 * {@code kelompokStatusMahasiswa} ini, sesuai filter {@link #initCriteria(boolean)}
+	 * (mahasiswa aktif, cocok kata kunci {@code pencarian} bila diisi), lalu menampilkannya ke grid.
+	 *
+	 * @param value tidak dipakai — signature mengikuti kontrak umum handler event grid AIS
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -183,6 +229,15 @@ public class KelompokStatusMahasiswaDetailAction extends MyDetail implements Dat
 
 	}
 
+	/**
+	 * Membangun seluruh UI panel detail: caption "Daftar mahasiswa yang masuk kelompok &lt;nama&gt;",
+	 * toolbar (tombol "Ambil Data Mahasiswa" untuk assign massal lewat
+	 * {@code AmbilDataMahasiswaBanyak}, textbox pencarian nama/NIM, tombol refresh, tombol
+	 * cetak/export lewat {@code Common.cetakData}, tombol upload Excel kustom lewat
+	 * {@link #uploadDataMahasiswa}, tombol "Hapus Semua"), definisi kolom grid, lalu memanggil
+	 * {@link #loadData(Object)} untuk memuat baris pertama kali. Dipanggil sekali per pembukaan
+	 * detail (lihat listener {@code onOpen} di konstruktor).
+	 */
 	public void display() {
 
 		ais.ui.util.MyDiv groupbox = new ais.ui.util.MyDiv();
@@ -401,6 +456,19 @@ public class KelompokStatusMahasiswaDetailAction extends MyDetail implements Dat
 		loadData(null);
 	}
 
+	/**
+	 * Implementasi kontrak {@link DataCriteria}: membangun {@link Criteria} Hibernate atas
+	 * {@link Mahasiswa} yang (1) aktif ({@code aktif} null atau {@code true}), (2) bila textbox
+	 * {@code pencarian} diisi, namanya atau NIM-nya cocok {@code ilike} di mana saja
+	 * ({@link MatchMode#ANYWHERE}), dan (3) FK {@code kelompokStatusMahasiswa}-nya sama dengan
+	 * entity induk ini, diurutkan menurun berdasarkan id. Dipakai bersama oleh
+	 * {@link #loadData(Object)}, tombol "Ambil Data Mahasiswa", "Hapus Semua", dan tombol
+	 * cetak/export toolbar ({@code Common.cetakData(this, contents)}).
+	 *
+	 * @param order parameter kontrak {@link DataCriteria}; TIDAK dipakai pada override ini — urutan
+	 *              selalu menurun berdasarkan id terlepas dari nilai parameter ini
+	 * @return criteria Hibernate siap dieksekusi ({@code .list()}/{@code .setMaxResults(...)})
+	 */
 	@Override
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
@@ -413,6 +481,40 @@ public class KelompokStatusMahasiswaDetailAction extends MyDetail implements Dat
 				.addOrder(Order.desc("id")).add(Restrictions.eq("kelompokStatusMahasiswa", kelompokStatusMahasiswa));
 	}
 
+	/**
+	 * Meng-assign {@code kelompokStatusMahasiswa} ini ke sekumpulan {@link Mahasiswa} berdasarkan
+	 * berkas Excel (.xlsx) hasil upload, dijalankan di background {@link Thread} agar UI tidak
+	 * terkunci.
+	 *
+	 * <p>Kolom 0 tiap baris (mulai baris ke-2, indeks 1) dibaca sebagai NIM/NPM. Mahasiswa dicari
+	 * lewat {@code Common.getSheetContentAsObject} (match otomatis by NIM ke entity), fallback
+	 * {@code ConstantValues.ambilByNim} bila kosong. Bila ditemukan, FK
+	 * {@code kelompokStatusMahasiswa} di-set dan disimpan dalam transaksi manual per baris;
+	 * kegagalan satu baris di-rollback secara eksplisit agar TIDAK menyisakan transaksi aktif yang
+	 * akan membuat {@code begin()} pada baris berikutnya gagal dengan "Transaction already active"
+	 * (lihat komentar inline) — tanpa rollback ini, satu baris NIM tidak valid akan menggagalkan
+	 * SEMUA baris sesudahnya secara diam-diam.</p>
+	 *
+	 * <p><b>Kuirk dicatat apa adanya (bukan diperbaiki di sini):</b> berbeda dari
+	 * {@code KelompokMahasiswaDetailAction}/{@code KelompokStatusKeluarMahasiswaDetailAction} yang
+	 * memakai {@code HibernateUtil.openSession()} eksplisit di background thread, method ini memakai
+	 * {@code HibernateUtil.currentNativeSession()}; struktur try/finally-nya juga berlapis dengan
+	 * dua pemanggilan {@code HibernateUtil.closeSession()} (satu di akhir blok try, satu lagi di
+	 * blok {@code finally} terluar) — redundan namun tidak berbahaya karena {@code closeSession()}
+	 * aman dipanggil berulang pada ThreadLocal yang sudah kosong.</p>
+	 *
+	 * <p>Progres ditampilkan lewat {@link Label} yang di-poll oleh {@link Timer} setiap 200ms;
+	 * hasil akhir (berhasil/gagal/dilewati per baris) dirangkum lewat {@code ais.common.LaporanUpload}
+	 * dan diserahkan ke {@code eventListener} saat proses selesai (label kosong menandakan thread
+	 * sudah beres).</p>
+	 *
+	 * @param file          berkas .xlsx sementara hasil upload (sudah divalidasi ekstensinya oleh
+	 *                      pemanggil di {@link #display()})
+	 * @param eventListener dipanggil ({@code laporan.selesaikan(eventListener)}) setelah seluruh
+	 *                      baris diproses dan laporan siap ditampilkan/diunduh
+	 * @throws Exception diteruskan dari inisialisasi awal (parsing workbook terjadi di thread
+	 *                    terpisah dan errornya ditangani/dicatat di sana, bukan dilempar ke sini)
+	 */
 	public void uploadDataMahasiswa(final File file, final EventListener eventListener) throws Exception {
 
 		// Laporan hasil per baris. Menggantikan Label "peringatan" yang disiapkan untuk
