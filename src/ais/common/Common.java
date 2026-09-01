@@ -703,6 +703,14 @@ public class Common {
 	public static int ROWS_COUNT_ON_PAGE_10 = 10;
 	public static int ROWS_COUNT_ON_PAGE_15 = 15;
 
+	/**
+	 * Passphrase DES LEGACY (DIPERBAIKI 2026-09-02 — lihat riwayat keamanan pada javadoc
+	 * {@link DesEncrypter}): sejak perbaikan tersebut, {@link DesEncrypter#encrypt(String)} tidak
+	 * lagi memakai nilai ini sama sekali — seluruh enkripsi baru memakai AES-256-GCM dengan kunci
+	 * acak per-instalasi. Konstanta ini DIPERTAHANKAN hanya agar {@link DesEncrypter#decrypt(String)}
+	 * masih bisa membaca ciphertext DES lama yang ditulis SEBELUM perbaikan tersebut (password akun,
+	 * cookie, link lama). JANGAN dipakai untuk enkripsi baru di kode mana pun.
+	 */
 	public static final String DES_PASS_PHRASE = "AIS_UIN";
 
 	// Ubah menjadi ThreadLocal
