@@ -6,6 +6,7 @@ import ais.common.CommonSearchFilterHelper;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
@@ -152,6 +153,85 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 	private Combobox tahunAkademik;
 
 	private Tbmuser tbmuser;
+
+	private boolean wajibBulanan() {
+		return settingBiaya != null && settingBiaya.getJenisKegiatan() != null
+				&& Boolean.TRUE.equals(settingBiaya.getJenisKegiatan().getHanyaBerupaAngsuran());
+	}
+
+	private String idAtauSemua(Object nilai) {
+		if (nilai instanceof ais.database.model.GeneralValueObject) {
+			Long id = ((ais.database.model.GeneralValueObject) nilai).getId();
+			return id == null ? "-1" : id.toString();
+		}
+		return "-1";
+	}
+
+	private String nilaiCombo(Combobox combo, String nilaiDefault) {
+		if (combo != null && combo.getSelectedItem() != null && combo.getSelectedItem().getValue() != null) {
+			return combo.getSelectedItem().getValue().toString();
+		}
+		return nilaiDefault;
+	}
+
+	private String urlEditorBulananSettingBiaya() throws Exception {
+		Integer semester = settingBiaya.getMinSmt() == null ? Integer.valueOf(1) : settingBiaya.getMinSmt();
+		String tahunAjaran = nilaiCombo(tahunAkademik, settingBiaya.getTahunAkademik() == null
+				? "" : settingBiaya.getTahunAkademik());
+		String semesterMulai = settingBiaya.getSemester() == null
+				? nilaiCombo(genapGanjil, "") : settingBiaya.getSemester();
+		String program = settingBiaya.getProgram() == null || settingBiaya.getProgram().trim().length() == 0
+				? "Reguler" : settingBiaya.getProgram();
+		Integer angkatan = settingBiaya.getAngkatan() == null
+				? Integer.valueOf(Calendar.getInstance().get(Calendar.YEAR)) : settingBiaya.getAngkatan();
+		return "/pages/master/detail_biaya_excel.zul?settingBiayaBulanan=" + settingBiaya.getId()
+				+ "&searchSemester=" + semester
+				+ "&searchTahunAjaran=" + URLEncoder.encode(tahunAjaran, "UTF-8")
+				+ "&labelAngkatan=" + angkatan
+				+ "&searchMulaiBelajarDiSemester=" + URLEncoder.encode(semesterMulai, "UTF-8")
+				+ "&searchProgram=" + URLEncoder.encode(program, "UTF-8")
+				+ "&searchWargaNegara=WNI"
+				+ "&searchJenjang=" + idAtauSemua(settingBiaya.getJenjang())
+				+ "&searchJurusan=" + idAtauSemua(settingBiaya.getJurusan())
+				+ "&searchStatusMahasiswa=" + idAtauSemua(settingBiaya.getStatusMahasiswa())
+				+ "&searchStatusAwalMahasiswa=" + idAtauSemua(settingBiaya.getStatusAwalMahasiswa())
+				+ "&searchJenisKegiatan=" + idAtauSemua(settingBiaya.getJenisKegiatan())
+				+ "&searchPaket=" + idAtauSemua(settingBiaya.getPaket())
+				+ "&searchJenisSeleksi=" + idAtauSemua(settingBiaya.getJenisSeleksi())
+				+ "&searchGelombangPendaftaran=" + idAtauSemua(settingBiaya.getGelombangPendaftaran())
+				+ "&autoBukaRencanaAngsuran=1";
+	}
+
+	private void tampilkanAksesPengaturanBulanan(ais.ui.util.MyDiv parent) {
+		if (!wajibBulanan()) {
+			return;
+		}
+		Vbox panel = new Vbox();
+		panel.setWidth("98%");
+		panel.setStyle("margin:8px 1%;padding:10px;border:1px solid #9ccbd8;background:#f2fbfd;");
+		panel.setParent(parent);
+		Label judul = new Label("Pengaturan Pembayaran Bulanan");
+		judul.setStyle("font-weight:bold;color:#075985;");
+		judul.setParent(panel);
+		Label petunjuk = new Label("Jenis pembayaran ini ditandai wajib bulanan. Atur nominal/persentase, bulan, deadline, dan aturan tampilan per bulan melalui tombol berikut. Pengaturan disimpan khusus untuk Setting Biaya ini dan diterapkan ke tagihan mahasiswa yang sesuai.");
+		petunjuk.setWidth("100%");
+		petunjuk.setMultiline(true);
+		petunjuk.setParent(panel);
+		MyToolbarbuttonConfig buka = new MyToolbarbuttonConfig("Atur Pembayaran Bulanan", "/img/Money-Calculator-icon.png");
+		buka.setTooltiptext("Buka editor Pengaturan Pembayaran Bulanan untuk Setting Biaya ini");
+		buka.setParent(panel);
+		buka.addEventListener(Events.ON_CLICK, new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				Common.displayWindow(urlEditorBulananSettingBiaya(), true, "95%", "98%", new EventListener() {
+					@Override
+					public void onEvent(Event event) throws Exception {
+						loadData(null);
+					}
+				}, "Pengaturan Pembayaran Bulanan - Setting Biaya");
+			}
+		});
+	}
 
 	private EventListener refrsh = new EventListener() {
 
@@ -2106,6 +2186,8 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 			column.setParent(columns);
 			column.setWidth("8%");
 		}
+
+		tampilkanAksesPengaturanBulanan(groupbox);
 
 		loadData(null);
 	}
