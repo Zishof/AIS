@@ -52,15 +52,25 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Komponen picker ZK ({@link Bandbox}) untuk memilih satu {@link Siswa} lewat popup pencarian
- * bergrid. Mendukung beberapa mode: pencarian siswa aktif biasa (default, filter status aktif
- * diterapkan), atau <b>mode alumni</b> (aktif bila {@code sekolahDari}/{@code tingkatDariAlumni}/
- * {@code kelasDariAlumni}/{@code tahunAkademikAlumni} diisi — lihat {@link #modeAlumni()} — filter
- * status aktif dilewati karena alumni umumnya sudah tidak aktif, difilter berdasarkan riwayat
- * kelas/tingkat/tahun ajaran via {@link KelasSiswaPunyaSiswa}), atau dibatasi ke daftar id
- * tertentu ({@code indsMhsPerkuliahan}). Bila user yang login adalah siswa itu sendiri, komponen
- * otomatis terisi dan terkunci ke datanya sendiri. Memilih satu baris pada popup (via radio
- * button) menutup popup, mengisi nilai komponen, dan memicu {@link #eventListener} pemanggil.
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.sekolah.Siswa} —
+ * lihat {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum (constructor/display/
+ * onSearchDefault/renderer/callback). {@code Siswa} adalah entity murid pada modul sekolah.
+ *
+ * <p>
+ * Berbeda dari picker sejenis yang hanya memakai constructor default, kelas ini punya beberapa
+ * constructor dengan parameter tambahan yang mengubah scope pencarian: mendukung pencarian siswa
+ * aktif biasa (default, filter status aktif diterapkan), atau <b>mode alumni</b> (aktif bila
+ * {@code sekolahDari}/{@code tingkatDariAlumni}/{@code kelasDariAlumni}/{@code tahunAkademikAlumni}
+ * diisi — lihat {@link #modeAlumni()} — filter status aktif dilewati karena alumni umumnya sudah
+ * tidak aktif, difilter berdasarkan riwayat kelas/tingkat/tahun ajaran via
+ * {@link KelasSiswaPunyaSiswa}), atau dibatasi ke daftar id tertentu ({@code
+ * indsMhsPerkuliahan}). Bila user yang login adalah siswa itu sendiri, komponen otomatis terisi
+ * dan terkunci ke datanya sendiri. Popup memakai paging server-side kustom 5 baris/halaman
+ * ({@link Paging}, bukan {@code AmbilDataPagingHelper} seperti picker lain di modul ini) dan
+ * membuka sesi Hibernate sendiri per pencarian ({@link #onSearchDefault(Event)}). Memilih satu
+ * baris pada popup (via radio button) menutup popup, mengisi nilai komponen, dan memicu
+ * {@link #eventListener} pemanggil.
+ * </p>
  */
 public class AmbilDataSiswaBanbox extends Bandbox implements GetEventListener {
 

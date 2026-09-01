@@ -42,30 +42,34 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data matapelajaran banbox. Kelas ini memberi nama dan batas tanggung
- * jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.sekolah.Matapelajaran}
+ * — lihat {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum (constructor/display/
+ * onSearchDefault/renderer/callback).
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code EventListener eventListener}, {@code Textbox
- * kodeMatapelajaranan}, {@code Textbox nama}, {@code Combobox searchyayasan}, {@code Combobox searchsekolah};
- * pembacaan/pencarian ({@code onSearchDefault()}, {@code setEventListener()}, {@code getEventListener()});
- * operasi domain lain ({@code display()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface
- * yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p>
+ * {@code Matapelajaran} adalah entity master mata pelajaran pada modul sekolah (mis. "Matematika",
+ * "Bahasa Inggris"), masing-masing memiliki kode, nama, KKM (Kriteria Ketuntasan Minimal), dan
+ * terikat ke satu {@link ais.database.model.sekolah.Sekolah}. Constructor terlebih dulu mengisi
+ * combo {@code searchyayasan}/{@code searchsekolah} dengan seluruh yayasan/sekolah plus opsi
+ * "Semua" lewat {@link ais.common.Common#initYayasanDanSekolahDanSemua} sebelum memasang listener
+ * {@code onOpen} standar. Popup pencarian menyediakan empat kriteria: {@code kodeMatapelajaranan}
+ * (kode, ilike), {@code nama} (ilike), {@code searchyayasan}, dan {@code searchsekolah} (keduanya
+ * filter {@code eq} id, no-op bila "Semua" dipilih) — berbeda dari sebagian besar picker sejenis,
+ * di sini pencarian HANYA dipicu lewat tombol "Cari" (tidak ada listener onOK/onChange otomatis per
+ * field). Query dasar menyaring mata pelajaran berstatus aktif ({@code aktif} null atau true),
+ * diurutkan berdasar nama. Hasil ditampilkan sebagai grid dengan pilihan TUNGGAL via radio button
+ * (dibungkus {@link org.zkoss.zul.Radiogroup}, komponen pilihan per baris
+ * {@link ais.ui.util.MyRadioConfig}). Memilih satu baris menutup popup, mengisi atribut
+ * {@code matapelajaran} pada instance Bandbox ini dengan entity terpilih, dan menampilkan teks
+ * gabungan {@code kode - nama} sebagai nilai Bandbox.
+ * </p>
  *
  * @see Bandbox
  */
 public class AmbilDataMatapelajaranBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 *
 	 */
 	private static final long serialVersionUID = 6452461056684904810L;
 	private MyGrid grid;
@@ -75,6 +79,14 @@ public class AmbilDataMatapelajaranBanbox extends Bandbox implements GetEventLis
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
 	private EventListener eventListener;
 
+	/**
+	 * Mengisi combo yayasan/sekolah (plus opsi "Semua") lewat
+	 * {@link ais.common.Common#initYayasanDanSekolahDanSemua}, lalu memasang constructor standar
+	 * pola Bandbox picker: {@code readonly}, popup dibangun lazy pada {@code onOpen} pertama via
+	 * {@link #display()}.
+	 *
+	 * @see ais.ui.util.GetEventListener
+	 */
 	public AmbilDataMatapelajaranBanbox() {
 		super();
 		setReadonly(true);
@@ -104,16 +116,11 @@ public class AmbilDataMatapelajaranBanbox extends Bandbox implements GetEventLis
 	private Combobox searchsekolah = new Combobox();
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataMatapelajaranBanbox}. Kelas ini menerjemahkan satu item
-	 * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataMatapelajaranBanbox} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer baris grid popup untuk {@link ais.database.model.sekolah.Matapelajaran}: menampilkan
+	 * kode (dengan id), nama, KKM, dan sekolah pemilik. Memilih radio pada suatu baris menutup
+	 * popup, menyimpan entity terpilih ke atribut {@code matapelajaran} serta teks tampilan
+	 * {@code kode - nama} pada Bandbox induk, lalu memicu {@link #eventListener} pemanggil — lihat
+	 * {@link ais.ui.util.GetEventListener} untuk pola callback ini.
 	 *
 	 * @see AmbilDataMatapelajaranBanbox
 	 */
@@ -152,6 +159,13 @@ public class AmbilDataMatapelajaranBanbox extends Bandbox implements GetEventLis
 
 	}
 
+	/**
+	 * Membangun popup pencarian (form kode/nama/yayasan/sekolah + grid hasil dibungkus
+	 * {@link org.zkoss.zul.Radiogroup}, pencarian dipicu tombol "Cari") sekali saat pertama
+	 * dibuka, lalu memanggil {@link #onSearchDefault(Event)} agar grid langsung terisi.
+	 *
+	 * @see ais.ui.util.GetEventListener
+	 */
 	public void display() {
 		setReadonly(true);
 		Bandpopup bandpopup = new ais.ui.util.MyBandpopup();
@@ -282,6 +296,14 @@ public class AmbilDataMatapelajaranBanbox extends Bandbox implements GetEventLis
 
 	}
 
+	/**
+	 * Menjalankan pencarian {@link ais.database.model.sekolah.Matapelajaran} aktif berdasarkan
+	 * {@code kodeMatapelajaranan} (ilike), {@code nama} (ilike), {@code searchsekolah}, dan
+	 * {@code searchyayasan} (keduanya eq id, opsional bila "Semua" dipilih), diurutkan nama, lalu
+	 * memasang {@link MatapelajaranRenderer} ke {@link #grid}.
+	 *
+	 * @see ais.ui.util.GetEventListener
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 		Session session = HibernateUtil.currentSession();
@@ -302,10 +324,12 @@ public class AmbilDataMatapelajaranBanbox extends Bandbox implements GetEventLis
 		grid.setModelCheckMobile(strset);
 	}
 
+	/** @see ais.ui.util.GetEventListener#setEventListener(EventListener) */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** @see ais.ui.util.GetEventListener#getEventListener() */
 	public EventListener getEventListener() {
 		return eventListener;
 	}

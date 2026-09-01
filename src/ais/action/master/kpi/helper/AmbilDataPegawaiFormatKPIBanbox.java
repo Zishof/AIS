@@ -49,24 +49,35 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data pegawai format kpi banbox. Kelas ini memberi nama dan batas
- * tanggung jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang
- * diimplementasikannya.
+ * Implementasi pola "Bandbox picker" AIS — dengan variasi query non-trivial — untuk memilih
+ * {@link ais.database.model.Pegawai} dalam konteks modul KPI (Key Performance Indicator) pegawai.
+ * Lihat {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback).
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code EventListener
- * eventListener}, {@code List punyaBawahan}, {@code Textbox kodePegawaian}, {@code Textbox nama}, {@code
- * Combobox searchstatus}, {@code AmbilDataSatuanKerjaBanbox searchparent}, {@code SatuanKerjaTreeModel
- * satuanKerjaTreeModel}; pembacaan/pencarian ({@code onSearchDefault()}, {@code setEventListener()}, {@code
- * getEventListener()}); operasi domain lain ({@code display()}). Bagian lain dari kontrak tetap mengikuti kelas
- * induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p>
+ * Berbeda dari kebanyakan subclass {@code AmbilData*Banbox}, query akar {@code onSearchDefault()}
+ * BUKAN {@code Criteria(Pegawai.class)} langsung, melainkan {@code Criteria(FormatKpiDetail.class)}
+ * dengan {@link org.hibernate.criterion.Projections#property(String) Projections.property("pegawai")}
+ * — hasilnya tetap berupa daftar {@code Pegawai}, tapi hanya pegawai yang punya baris
+ * {@link ais.database.model.kpi.FormatKpiDetail} pada format KPI yang boleh direalisasikan oleh
+ * pengguna yang sedang login (kolom {@code formatKpi.usernamePenggunaRealisasi} memuat userId
+ * pengguna dalam daftar dipisah koma, atau kosong/null berarti terbuka untuk semua). Hasil lebih
+ * lanjut disaring berdasarkan satuan kerja (satker/unit): defaultnya dibatasi ke satker yang
+ * menjadi wewenang pengguna ({@code SekolahUtil.ambilSatuanKerjas()}); bila pengguna memilih satker
+ * tertentu lewat {@code searchparent} (sendiri berupa instance
+ * {@link ais.action.master.rab.helper.AmbilDataSatuanKerjaBanbox} — Bandbox picker bersarang di
+ * dalam popup Bandbox ini), cakupan berpindah ke satker itu beserta seluruh anak-satkernya (lewat
+ * {@code SatuanKerjaTreeModel}). Field publik {@code punyaBawahan} (diisi pemanggil sebelum popup
+ * dibuka) bila tidak kosong membatasi hasil hanya ke id pegawai dalam daftar tersebut (mis. daftar
+ * bawahan langsung). Kriteria tambahan pada popup: {@code kodePegawaian} (cocok ke {@code code} atau
+ * {@code mycode}), {@code nama} (ILIKE), dan {@code searchstatus} (status kepegawaian aktif). Hanya
+ * pegawai dengan {@code aktif = true} atau {@code aktif} null yang ditampilkan.
+ * </p>
+ * <p>
+ * Pemilihan bersifat tunggal: tiap baris memakai {@code MyRadioConfig}, namun — variasi sah dari
+ * kerangka referensi — TIDAK dibungkus dalam {@link org.zkoss.zul.Radiogroup} pada
+ * {@link #display()}.
+ * </p>
  *
  * @see Bandbox
  */
@@ -80,8 +91,19 @@ public class AmbilDataPegawaiFormatKPIBanbox extends Bandbox implements GetEvent
 
 	private EventListener eventListener;
 
+	/**
+	 * Filter opsional berisi daftar id {@link Pegawai}, diisi pemanggil SEBELUM popup dibuka (lewat
+	 * konstruksi lalu akses langsung ke field publik ini). Bila tidak kosong, hasil pencarian
+	 * dibatasi hanya ke pegawai dengan id dalam daftar ini (mis. daftar bawahan langsung suatu
+	 * atasan) — lihat pemakaiannya di {@link #onSearchDefault(Event)}.
+	 */
 	public List<Long> punyaBawahan = null;
 
+	/**
+	 * Mengikuti kerangka standar {@link ais.ui.util.GetEventListener}: {@code setReadonly(true)},
+	 * lalu memasang listener {@code onOpen} yang lazy-build popup ({@link #display()}) pada
+	 * pembukaan pertama.
+	 */
 	public AmbilDataPegawaiFormatKPIBanbox() {
 		super();
 		setReadonly(true);
@@ -110,21 +132,21 @@ public class AmbilDataPegawaiFormatKPIBanbox extends Bandbox implements GetEvent
 	private Combobox searchstatus;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataPegawaiFormatKPIBanbox}. Kelas ini menerjemahkan satu
-	 * item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataPegawaiFormatKPIBanbox} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer baris grid hasil pencarian pegawai. Mengikuti pola standar
+	 * {@link ais.ui.util.GetEventListener}: tiap baris menampilkan foto kecil, kode/mycode/NPWP,
+	 * nama pegawai, dan nama satuan kerjanya, plus satu {@code MyRadioConfig} pilihan; memilih baris
+	 * menutup popup, menyimpan {@link Pegawai} terpilih ke atribut {@code "pegawai"} dan
+	 * {@code "myValue"} pada Bandbox, mengisi teks tampilan Bandbox dengan nama pegawai, lalu
+	 * meneruskan event ke {@link #eventListener} bila terpasang.
 	 *
 	 * @see AmbilDataPegawaiFormatKPIBanbox
 	 */
 	class PegawaiRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Merender satu baris grid untuk satu {@link Pegawai}: kolom pilihan, foto kecil,
+		 * kode/mycode/NPWP, nama pegawai, dan nama satuan kerja.
+		 */
 		@Override
 		public void render(Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");
@@ -165,6 +187,15 @@ public class AmbilDataPegawaiFormatKPIBanbox extends Bandbox implements GetEvent
 	private AmbilDataSatuanKerjaBanbox searchparent;
 	private SatuanKerjaTreeModel satuanKerjaTreeModel;
 
+	/**
+	 * Membangun popup pencarian (form kriteria kode/nama/status/satker + tombol Cari + grid hasil,
+	 * TANPA pembungkus {@link org.zkoss.zul.Radiogroup}) sekali saat pertama dibuka. Berbeda dari
+	 * kerangka standar, pengisian awal grid dijadwalkan lewat {@link Common#createDefaultTimer}
+	 * (bukan pemanggilan langsung {@link #onSearchDefault(Event)}) agar {@code searchparent} (Bandbox
+	 * bersarang) sempat selesai dirender lebih dulu.
+	 *
+	 * @throws Exception diteruskan apa adanya dari inisialisasi komponen ZK
+	 */
 	public void display() throws Exception {
 		satuanKerjaTreeModel = new SatuanKerjaTreeModel(false);
 		Bandpopup bandpopup = new ais.ui.util.MyBandpopup();
@@ -321,6 +352,18 @@ public class AmbilDataPegawaiFormatKPIBanbox extends Bandbox implements GetEvent
 		});
 	}
 
+	/**
+	 * Menjalankan pencarian {@link Pegawai} lewat query akar {@link FormatKpiDetail} (lihat
+	 * penjelasan lengkap di Javadoc kelas): menyaring ke format KPI yang boleh direalisasikan
+	 * pengguna login, satuan kerja (default wewenang pengguna, atau satker terpilih di
+	 * {@code searchparent} beserta anak-satkernya), daftar id {@link #punyaBawahan} bila diisi,
+	 * status aktif, serta kecocokan {@code kodePegawaian}/{@code nama}/{@code searchstatus} pada
+	 * form. Hasil dipasang ke {@link #grid} lewat {@link PegawaiRenderer}, dibatasi
+	 * {@link Common#MAX_RESULT_1000} baris.
+	 *
+	 * @param event event pemicu (boleh {@code null}, tidak dipakai isinya — hanya sinyal untuk
+	 *              menjalankan ulang pencarian)
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -372,10 +415,18 @@ public class AmbilDataPegawaiFormatKPIBanbox extends Bandbox implements GetEvent
 
 	}
 
+	/**
+	 * Memasang listener yang dipanggil setelah pengguna memilih satu pegawai di grid.
+	 *
+	 * @param eventListener listener baru yang akan dipasang
+	 */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/**
+	 * @return listener yang saat ini terpasang, atau {@code null} bila belum diset
+	 */
 	public EventListener getEventListener() {
 		return eventListener;
 	}

@@ -60,32 +60,47 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data kegiatan tugas jabatan tree banbox. Kelas ini memberi nama dan
- * batas tanggung jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang
- * diimplementasikannya.
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.lkp.KegiatanTugasJabatan} —
+ * lihat {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum (constructor/display/
+ * onSearchDefault/renderer/callback). {@code KegiatanTugasJabatan} adalah butir kegiatan tugas jabatan
+ * fungsional (dipakai untuk perhitungan angka kredit/DUPAK-SKP) — setiap butir membawa nilai default
+ * {@code angkaKredit}, {@code kuantitas}, {@code kualitas}, dan {@code waktu} — yang bersifat HIERARKIS lewat
+ * relasi {@code induk} (satu kegiatan bisa punya sub-kegiatan). Sama seperti
+ * {@code AmbilDataKategoriItemBanbox}/{@code AmbilDataUdcItemBanbox}, popup utama menampilkan data sebagai
+ * POHON ({@link Tree}, model {@link KegiatanTugasJabatanTreeModel}).
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Tree tree}, {@code EventListener
- * eventListener}, {@code KegiatanTugasJabatanTreeModel kegiatanTugasJabatanTreeModel}, {@code Boolean
- * chooseAll}, {@code boolean hasDisplayed}, {@code SatuanKerja satuanKerja}, {@code String periode}, {@code List
- * tbmroles}; pembacaan/pencarian ({@code onSearchDefault()}, {@code setEventListener()}, {@code
- * getEventListener()}); mutasi data ({@code setSatuanKerja()}, {@code setChooseAll()}); operasi domain lain
- * ({@code display()}); konfigurasi constructor: {@code kegiatanTugasJabatanTreeModel}. Bagian lain dari kontrak
- * tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p>
+ * <b>Filter bisnis non-trivial</b> (diterapkan baik di {@link KegiatanTugasJabatanTreeModel} pohon maupun di
+ * query grid tab "Sering Dipakai" di bawah): hanya kegiatan {@code aktif} (null dianggap aktif) yang tampil;
+ * kegiatan difilter berdasarkan {@code periode} ({@code BULANAN} mencakup baris {@code periode} null maupun
+ * {@code BULANAN}, periode lain harus cocok persis); dan yang PALING PENTING — scoping akses: kegiatan tampil
+ * bila cocok {@code satuanKerja} (satuan/unit kerja) YANG SEDANG DIPILIH, ATAU kegiatan tersebut mempunyai
+ * {@code userRole} yang termasuk dalam {@link #tbmroles} (daftar role pengguna saat ini) — sehingga kegiatan
+ * yang "milik" suatu role tertentu tetap terlihat lintas satuan kerja, sementara kegiatan umum tetap dibatasi
+ * per satuan kerja.
+ * </p>
+ * <p>
+ * <b>Constructor dengan parameter tambahan</b> (BEBERAPA overload, masing-masing hanya mengisi SEBAGIAN state —
+ * perhatikan urutan efektifnya): {@code (KegiatanTugasJabatan induk)} membangun pohon yang di-ROOT-kan pada
+ * kegiatan induk tersebut (menampilkan sub-kegiatannya saja, bukan seluruh pohon) — diteruskan sebagai root
+ * {@link KegiatanTugasJabatanTreeModel}. {@code (String periode)} MENGGANTI field {@link #periode} SETELAH
+ * {@link #kegiatanTugasJabatanTreeModel} sudah dibangun (lewat pemanggilan {@code this(true, null)} yang
+ * memakai nilai default {@code BULANAN} field {@code periode} saat itu) — akibatnya periode kustom hanya
+ * berlaku untuk tab "Sering Dipakai" (yang membaca field {@link #periode} langsung saat query), TIDAK
+ * memengaruhi model pohon tab "Daftar" yang tetap terikat {@code BULANAN}. {@code (SatuanKerja satuanKerja)}
+ * demikian pula hanya mengisi field {@link #satuanKerja} milik Bandbox ini, TANPA memanggil
+ * {@code kegiatanTugasJabatanTreeModel.setSatuanKerja(...)} — pohon tab "Daftar" tetap kosong sampai
+ * {@link #setSatuanKerja(SatuanKerja, List)} dipanggil terpisah oleh pemanggil (method inilah yang benar-benar
+ * menyinkronkan satuan kerja + daftar role ke tree model dan me-refresh tampilan bila popup sudah pernah
+ * dibuka).
+ * </p>
  *
  * @see Bandbox
  */
 public class AmbilDataKegiatanTugasJabatanTreeBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 *
 	 */
 	protected static final long serialVersionUID = 6452461056684904810L;
 	protected Tree tree;
@@ -94,11 +109,22 @@ public class AmbilDataKegiatanTugasJabatanTreeBanbox extends Bandbox implements 
 	protected KegiatanTugasJabatanTreeModel kegiatanTugasJabatanTreeModel;
 
 	private Boolean chooseAll = false;
+	/** Penjaga agar {@link #display(Radiogroup)} hanya mengisi konten popup satu kali (idempoten). */
 	private boolean hasDisplayed = false;
 	private SatuanKerja satuanKerja;
 	private String periode = KegiatanTugasJabatan.BULANAN;
 	private List<Tbmrole> tbmroles = null;
 
+	/**
+	 * Satu-satunya jalur resmi untuk menyinkronkan scoping satuan kerja + daftar role pengguna ke
+	 * {@link #kegiatanTugasJabatanTreeModel} (lihat filter bisnis di Javadoc class-level). Bila popup sudah
+	 * pernah ditampilkan ({@link #hasDisplayed}), tab "Daftar" langsung di-refresh via
+	 * {@link #onSearchDefault(Event)}.
+	 *
+	 * @param satuanKerja satuan/unit kerja yang membatasi kegiatan mana yang boleh dipilih
+	 * @param tbmroles    daftar role pengguna saat ini; kegiatan dengan {@code userRole} yang termasuk daftar
+	 *                    ini tetap terlihat lintas satuan kerja
+	 */
 	public void setSatuanKerja(SatuanKerja satuanKerja, List<Tbmrole> tbmroles) throws Exception {
 		this.satuanKerja = satuanKerja;
 		this.tbmroles = tbmroles;
@@ -108,25 +134,61 @@ public class AmbilDataKegiatanTugasJabatanTreeBanbox extends Bandbox implements 
 		}
 	}
 
+	/**
+	 * Constructor default; {@code chooseAll = true}, tanpa kegiatan induk (pohon penuh dari akar), periode
+	 * {@code BULANAN}.
+	 */
 	public AmbilDataKegiatanTugasJabatanTreeBanbox() throws Exception {
 		this(true, null);
 	}
 
+	/**
+	 * Lihat catatan class-level: periode baru diset SETELAH {@link #kegiatanTugasJabatanTreeModel} dibangun
+	 * dengan periode default {@code BULANAN}, sehingga hanya tab "Sering Dipakai" yang mengikuti {@code periode}
+	 * ini — pohon tab "Daftar" tetap memakai {@code BULANAN}.
+	 *
+	 * @param periode kode periode kegiatan (mis. {@link KegiatanTugasJabatan#BULANAN} atau periode lain)
+	 */
 	public AmbilDataKegiatanTugasJabatanTreeBanbox(String periode) throws Exception {
 		this(true, null);
 		this.periode = periode;
 	}
 
+	/**
+	 * Lihat catatan class-level: hanya mengisi field {@link #satuanKerja} milik Bandbox ini; TIDAK memanggil
+	 * {@code kegiatanTugasJabatanTreeModel.setSatuanKerja(...)}. Pemanggil tetap wajib memanggil
+	 * {@link #setSatuanKerja(SatuanKerja, List)} agar pohon tab "Daftar" terisi.
+	 *
+	 * @param satuanKerja satuan/unit kerja awal
+	 */
 	public AmbilDataKegiatanTugasJabatanTreeBanbox(SatuanKerja satuanKerja) throws Exception {
 		this(true, null);
 		this.satuanKerja = satuanKerja;
 	}
 
+	/**
+	 * Membangun pohon yang di-ROOT-kan pada {@code induk} — hanya sub-kegiatan dari {@code induk} yang tampil,
+	 * bukan seluruh pohon kegiatan. Berguna saat pemanggil sudah berada dalam konteks satu kegiatan induk dan
+	 * hanya perlu memilih di antara turunannya.
+	 *
+	 * @param induk kegiatan tugas jabatan yang menjadi akar pohon yang ditampilkan
+	 */
 	public AmbilDataKegiatanTugasJabatanTreeBanbox(KegiatanTugasJabatan induk) throws Exception {
 		this(true, induk);
 
 	}
 
+	/**
+	 * Constructor utama yang dipanggil seluruh overload lain. Menyiapkan {@link #kegiatanTugasJabatanTreeModel}
+	 * (di-root-kan pada {@code induk}, atau akar penuh bila {@code null}) serta kerangka popup
+	 * ({@link Bandpopup} + {@link Radiogroup}) yang langsung dipasang sebagai child Bandbox ini (BUKAN lazy
+	 * seperti kebanyakan subclass Bandbox picker lain). Konten popup baru diisi belakangan oleh
+	 * {@link #display(Radiogroup)} saat event {@code onOpen} pertama kali terpicu.
+	 *
+	 * @param chooseAll {@code true} untuk mengizinkan pemilihan semua node pohon (termasuk kegiatan yang punya
+	 *                  sub-kegiatan); {@code false} untuk membatasi pemilihan hanya pada node daun.
+	 * @param induk     akar pohon yang ditampilkan, atau {@code null} untuk pohon penuh dari level teratas.
+	 */
 	public AmbilDataKegiatanTugasJabatanTreeBanbox(Boolean chooseAll, KegiatanTugasJabatan induk) throws Exception {
 		super();
 		kegiatanTugasJabatanTreeModel = new KegiatanTugasJabatanTreeModel(induk, false, periode);
@@ -156,22 +218,25 @@ public class AmbilDataKegiatanTugasJabatanTreeBanbox extends Bandbox implements 
 
 	}
 
+	/**
+	 * Mengganti flag {@code chooseAll} setelah instance dibuat. Catatan: pemanggilan {@code display()} di sini
+	 * dikomentari (tidak aktif), sehingga pohon yang sudah terlanjur dirender TIDAK otomatis di-refresh.
+	 *
+	 * @param chooseAll nilai baru untuk mode pemilihan node (lihat constructor utama).
+	 */
 	public void setChooseAll(Boolean chooseAll) throws Exception {
 		this.chooseAll = chooseAll;
 		// display();
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataKegiatanTugasJabatanTreeBanbox}. Kelas ini menerjemahkan
-	 * satu item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataKegiatanTugasJabatanTreeBanbox} dan
-	 * dapat mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer satu node pohon kegiatan tugas jabatan pada tab "Daftar". Menampilkan nama kegiatan pada kolom
+	 * pertama, dan komponen pilihan ({@code MyRadioConfig}) pada kolom kedua — hanya DITAMPILKAN bila
+	 * {@code chooseAll} bernilai true ATAU node tersebut daun
+	 * ({@code kegiatanTugasJabatanTreeModel.getChildCount(kegiatanTugasJabatan) == 0}). Saat komponen pilihan
+	 * dicentang: kegiatan difilter ulang harus aktif ({@code aktif} null atau true), kolom {@code jmlDipakai}
+	 * di-increment di database, popup ditutup, nilai/atribut Bandbox diisi, lalu {@link #eventListener} dipanggil
+	 * — lihat {@link GetEventListener} untuk pola callback umum ini.
 	 *
 	 * @see AmbilDataKegiatanTugasJabatanTreeBanbox
 	 */
@@ -231,6 +296,15 @@ public class AmbilDataKegiatanTugasJabatanTreeBanbox extends Bandbox implements 
 
 	}
 
+	/**
+	 * Mengisi konten popup ke dalam {@code radiogroup} yang sudah disiapkan oleh constructor: panel dua-tab —
+	 * tab "Daftar" berisi {@link Tree} kegiatan ({@link KegiatanTugasJabatanTreeRenderer}) dan tab
+	 * "Sering Dipakai" berisi {@link KegiatanTugasJabatanSeringDipakai}. Dijaga idempoten oleh
+	 * {@link #hasDisplayed} agar konten tidak dibangun ulang pada {@code onOpen} berikutnya.
+	 *
+	 * @param radiogroup wadah popup yang sudah dipasang sebagai child {@link Bandpopup} di constructor;
+	 *                    dibersihkan ({@code Common.clear(radiogroup)}) sebelum diisi ulang.
+	 */
 	public void display(Radiogroup radiogroup) throws Exception {
 
 		if (hasDisplayed) {
@@ -307,35 +381,39 @@ public class AmbilDataKegiatanTugasJabatanTreeBanbox extends Bandbox implements 
 
 	}
 
+	/**
+	 * Memasang model pohon ({@link #kegiatanTugasJabatanTreeModel}) dan renderer
+	 * ({@link KegiatanTugasJabatanTreeRenderer}) ke {@link #tree}. Tidak ada query Hibernate langsung di sini —
+	 * filter satuan kerja/role/periode/aktif diterapkan di dalam {@link KegiatanTugasJabatanTreeModel} setiap
+	 * kali node pohon diminta ({@code getChildren}/{@code getChildCount}), bukan dieksekusi sekali di sini.
+	 */
 	public void onSearchDefault(Event event) throws Exception {
 
 		tree.setModel(kegiatanTugasJabatanTreeModel);
 		tree.setItemRenderer(new KegiatanTugasJabatanTreeRenderer());
 	}
 
+	/** @see GetEventListener */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** @see GetEventListener */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
 
 	/**
-	 * Tipe implementasi bersarang {@link KegiatanTugasJabatanSeringDipakai} milik {@link
-	 * AmbilDataKegiatanTugasJabatanTreeBanbox}. Kelas ini memberi nama pada state atau perilaku lokal agar
-	 * tanggung jawabnya tidak tersebar sebagai blok anonim.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataKegiatanTugasJabatanTreeBanbox} dan
-	 * dapat mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini
-	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code MyGrid grid}, {@code
-	 * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code Textbox nama}; operasi lokal: {@code display()},
-	 * {@code onSearchDefault}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
-	 * dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
-	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
-	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 * Tab kedua popup {@link AmbilDataKegiatanTugasJabatanTreeBanbox}, berisi jalan pintas pencarian kegiatan
+	 * tugas jabatan tanpa menavigasi pohon. BERBEDA dari tab "Sering Dipakai" pada
+	 * {@code AmbilDataKategoriItemBanbox}/{@code AmbilDataUdcItemBanbox} (yang sekadar menampilkan top-N
+	 * berdasarkan {@code jmlDipakai} tanpa filter nama aktif): grid di sini benar-benar memakai field pencarian
+	 * {@link #nama} (filter {@code ilike} substring pada kolom {@code nama}) DAN filter bisnis lengkap yang sama
+	 * dengan tab pohon (aktif, periode, scoping satuan kerja/role — lihat Javadoc class-level), hasil tetap
+	 * diurutkan menurun berdasarkan {@code jmlDipakai}. Kolom grid: Satuan/Unit Kerja, Nama Kegiatan (dengan
+	 * kontrol riwayat revisi dari {@link RevisiHelper}), Angka Kredit, Kuantitas (+satuan), Kualitas, dan Waktu
+	 * (+satuan). Catatan: memilih baris di grid ini TIDAK meng-increment {@code jmlDipakai} (berbeda dari
+	 * memilih node di tab pohon, yang menaikkannya).
 	 *
 	 * @see AmbilDataKegiatanTugasJabatanTreeBanbox
 	 */
@@ -358,16 +436,11 @@ public class AmbilDataKegiatanTugasJabatanTreeBanbox extends Bandbox implements 
 		private Textbox nama;
 
 		/**
-		 * Renderer lokal untuk layar/komponen {@link KegiatanTugasJabatanSeringDipakai}. Kelas ini menerjemahkan satu
-		 * item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-		 *
-		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link KegiatanTugasJabatanSeringDipakai} dan dapat
-		 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-		 * renderer/listener ini.</p>
+		 * Renderer satu baris grid "Sering Dipakai": menampilkan nama satuan/unit kerja, nama kegiatan (dengan
+		 * kontrol riwayat revisi {@link RevisiHelper#createNewRevisi}), angka kredit, kuantitas+satuan,
+		 * kualitas, dan waktu+satuan. Klik pada baris langsung memilih kegiatan: popup ditutup, atribut
+		 * {@code kegiatanTugasJabatan}/{@code myValue} serta nilai tampilan Bandbox diisi, lalu
+		 * {@link #eventListener} dipanggil — TIDAK ada increment {@code jmlDipakai} di sini (lihat catatan kelas).
 		 *
 		 * @see KegiatanTugasJabatanSeringDipakai
 		 */
@@ -419,6 +492,12 @@ public class AmbilDataKegiatanTugasJabatanTreeBanbox extends Bandbox implements 
 
 		}
 
+		/**
+		 * Membangun UI tab: form pencarian dengan field {@link #nama} (filter substring aktif, lihat catatan
+		 * kelas), tombol "Cari", dan grid hasil (kolom Satuan/Unit Kerja, Nama Kegiatan, Angka Kredit, Kuantitas,
+		 * Kualitas, Waktu) memakai {@link KegiatanTugasJabatanRenderer} dengan paging mold client-side
+		 * ({@code grid.setMold("paging")}, 50 baris/halaman).
+		 */
 		public void display() throws Exception {
 
 			Center center = new Center();
@@ -511,6 +590,14 @@ public class AmbilDataKegiatanTugasJabatanTreeBanbox extends Bandbox implements 
 
 		}
 
+		/**
+		 * Mengambil hingga {@link Common#MAX_RESULT} kegiatan tugas jabatan yang: aktif, cocok {@code periode},
+		 * cocok scoping satuan kerja/role (sama seperti filter di {@link KegiatanTugasJabatanTreeModel} — lihat
+		 * Javadoc class-level), dan (bila field {@link #nama} diisi) namanya mengandung teks pencarian
+		 * ({@code ilike} {@link MatchMode#ANYWHERE}). Bila {@link #tbmroles} belum diisi dari luar dan
+		 * pengguna saat ini memiliki data pegawai, role pengguna saat ini dipakai sebagai fallback
+		 * ({@code tbmuser.hakAkses()}). Hasil diurutkan menurun berdasarkan {@code jmlDipakai}.
+		 */
 		@SuppressWarnings("unchecked")
 		public void onSearchDefault(Event event) throws Exception {
 

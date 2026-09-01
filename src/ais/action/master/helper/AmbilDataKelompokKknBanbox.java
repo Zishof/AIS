@@ -43,28 +43,33 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data kelompok kkn banbox. Kelas ini memberi nama dan batas tanggung
- * jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code EventListener
- * eventListener}, {@code Textbox alamat}, {@code Textbox nama}; pembacaan/pencarian ({@code onSearchDefault()},
- * {@code setEventListener()}, {@code getEventListener()}); operasi domain lain ({@code display()}). Bagian lain
- * dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity
+ * {@link ais.database.model.kkn.KelompokKkn} — lihat {@link ais.ui.util.GetEventListener} untuk
+ * arsitektur kerangka umum (constructor/display/onSearchDefault/renderer/callback).
+ * <p>
+ * {@code KelompokKkn} adalah kelompok mahasiswa untuk program KKN (Kuliah Kerja Nyata), masing-
+ * masing dinaungi satu periode/kegiatan {@code Kkn} (diakses lewat alias {@code kkn}) yang boleh
+ * dibatasi fakultas/jurusan tertentu. Popup pencarian menyediakan field {@code nama} dan
+ * {@code alamat} (keduanya ilike substring). BERBEDA dari kebanyakan subclass sejenis, hasil
+ * SELALU di-scope otomatis (tanpa kontrol pengguna) ke fakultas/jurusan mahasiswa/pengguna yang
+ * sedang login ({@link ais.common.Common#getCurrentUser()} — lewat {@code Tbmuser.getMahasiswa()}
+ * bila pengguna adalah mahasiswa, atau {@code Tbmuser.ambilFakultas()/ambilJurusan()} untuk
+ * pengguna staf), digabung {@code Restrictions.or(eq(...), isNull(...))} sehingga kelompok KKN
+ * lintas-fakultas/jurusan tetap ikut tampil; hanya kelompok dengan {@code mahasiswaBisaMemilih ==
+ * true} yang muncul. Renderer juga menghitung jumlah anggota terdaftar
+ * ({@link ais.database.model.MahasiswaDapatKelompokKkn}) dan menonaktifkan radio button bila
+ * kuota kelompok sudah penuh — mencegah mahasiswa memilih kelompok yang sudah tidak menerima
+ * anggota baru. Pemilihan bersifat TUNGGAL (Radio biasa dalam Radiogroup, bukan
+ * {@code MyRadioConfig}). Constructor tanpa argumen mendelegasikan ke constructor boolean (nilai
+ * argumennya {@code notDeafault} sebenarnya tidak dipakai — kedua constructor berperilaku sama).
+ * </p>
  *
  * @see Bandbox
  */
 public class AmbilDataKelompokKknBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 *
 	 */
 	private static final long serialVersionUID = 6452451056684904810L;
 	private MyGrid grid;
@@ -73,10 +78,22 @@ public class AmbilDataKelompokKknBanbox extends Bandbox implements GetEventListe
 
 	// private Mahasiswa mahasiswa = null;
 
+	/**
+	 * Konstruktor default, mendelegasikan ke {@link #AmbilDataKelompokKknBanbox(Boolean)}.
+	 * Parameter delegasi tidak memengaruhi perilaku (lihat catatan di Javadoc class).
+	 */
 	public AmbilDataKelompokKknBanbox() {
 		this(true);
 	}
 
+	/**
+	 * Konstruktor standar: memasang listener {@code onOpen} yang membangun popup pencarian secara
+	 * lazy pada pembukaan pertama. Mengikuti kerangka standar di
+	 * {@link ais.ui.util.GetEventListener}. Parameter {@code notDeafault} (typo historis pada nama
+	 * parameter, dipertahankan apa adanya) TIDAK dipakai di badan constructor.
+	 *
+	 * @param notDeafault tidak dipakai; ada untuk membedakan signature dari constructor default
+	 */
 	public AmbilDataKelompokKknBanbox(Boolean notDeafault) {
 		super();
 		setReadonly(true);
@@ -102,20 +119,22 @@ public class AmbilDataKelompokKknBanbox extends Bandbox implements GetEventListe
 
 	}
 
+	/** Kriteria pencarian: alamat lokasi kelompok KKN (ilike, substring). */
 	private Textbox alamat;
+	/** Kriteria pencarian: nama kelompok KKN (ilike, substring). */
 	private Textbox nama;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataKelompokKknBanbox}. Kelas ini menerjemahkan satu item
-	 * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataKelompokKknBanbox} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer baris grid hasil pencarian {@link KelompokKkn}: menampilkan info dosen pembimbing
+	 * lewat {@link KelompokKknAction#tampilkanInfoDosen}, alamat, dan rasio kuota terisi
+	 * ({@code kuota / jumlahAnggotaTerdaftar}) dihitung langsung dari
+	 * {@link ais.database.model.MahasiswaDapatKelompokKkn}. KHUSUS renderer ini: radio button
+	 * pilihan dinonaktifkan ({@code setDisabled}) bila jumlah anggota terdaftar sudah mencapai
+	 * kuota, mencegah mahasiswa memilih kelompok yang penuh. Selebihnya mengikuti kerangka
+	 * renderer standar di {@link ais.ui.util.GetEventListener} — listener {@code onCheck} menutup
+	 * popup, menyimpan entity terpilih ke atribut {@code "kelompokKkn"}/{@code "myValue"} dan teks
+	 * tampilan {@code kelompokKkn.getNama()}, lalu meneruskan event ke {@link #eventListener} bila
+	 * terpasang.
 	 *
 	 * @see AmbilDataKelompokKknBanbox
 	 */
@@ -158,6 +177,13 @@ public class AmbilDataKelompokKknBanbox extends Bandbox implements GetEventListe
 
 	}
 
+	/**
+	 * Membangun popup pencarian {@link KelompokKkn} sekali (dipanggil lazy dari listener
+	 * {@code onOpen}): form dengan field nama dan alamat, tombol Cari, dan grid hasil dibungkus
+	 * {@link org.zkoss.zul.Radiogroup} (pilih tunggal). Mengikuti kerangka {@code display()}
+	 * standar — lihat {@link ais.ui.util.GetEventListener}. Memanggil
+	 * {@link #onSearchDefault(Event)} di akhir agar grid terisi saat popup pertama dibuka.
+	 */
 	public void display() {
 
 		setReadonly(true);
@@ -263,6 +289,19 @@ public class AmbilDataKelompokKknBanbox extends Bandbox implements GetEventListe
 
 	}
 
+	/**
+	 * Mengeksekusi pencarian {@link KelompokKkn}: menentukan dulu fakultas/jurusan pengguna login
+	 * (mahasiswa atau staf), lalu memfilter kelompok yang periode KKN-nya cocok dengan
+	 * fakultas/jurusan tersebut (digabung {@code or(eq, isNull)} agar kelompok lintas-fakultas/
+	 * jurusan tetap tampil) dan {@code mahasiswaBisaMemilih == true}, ditambah filter {@code nama}
+	 * dan {@code alamat} (ilike substring). Diurutkan menaik berdasar nama, dibatasi
+	 * {@link ais.common.Common#MAX_RESULT}, lalu memasang {@link KelompokKknRenderer} dan model
+	 * hasil ke {@link #grid}. Mengikuti kerangka {@code onSearchDefault} standar — lihat
+	 * {@link ais.ui.util.GetEventListener}.
+	 *
+	 * @param event event pemicu (klik tombol Cari); boleh {@code null} saat dipanggil dari
+	 *              {@link #display()} untuk mengisi grid pertama kali
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -304,10 +343,12 @@ public class AmbilDataKelompokKknBanbox extends Bandbox implements GetEventListe
 
 	}
 
+	/** {@inheritDoc} Implementasi setter polos standar — lihat {@link ais.ui.util.GetEventListener}. */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** {@inheritDoc} Implementasi getter polos standar — lihat {@link ais.ui.util.GetEventListener}. */
 	public EventListener getEventListener() {
 		return eventListener;
 	}

@@ -333,6 +333,22 @@ public class AmbilDataKelasBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/**
+	 * Membangun {@link Criteria} pencarian {@link Kelas}: hanya baris {@code aktif} (atau
+	 * {@code null}), {@code nama} (ilike substring), jurusan (eq bila dipilih, digabung
+	 * {@code or(isNull, ...)}), tahun angkatan (dari {@link #ambilTahunAngkatanFilter()}, digabung
+	 * {@code or(eq(0), eq(tahun))} sehingga kelas "Semua Angkatan" selalu tampil), dan fakultas (eq
+	 * bila dipilih, mencocokkan kolom {@code fakultas} langsung ATAU {@code jurusanAlias.fakultas},
+	 * digabung {@code or} dengan kasus keduanya null). Dipanggil oleh
+	 * {@link ais.ui.util.AmbilDataPagingHelper} baik untuk menghitung total baris maupun mengambil
+	 * satu halaman data — parameter {@code order} mengontrol apakah pengurutan (jurusan, tahun
+	 * angkatan, nama) ikut dipasang.
+	 *
+	 * @param session sesi Hibernate aktif
+	 * @param order   {@code true} untuk memasang {@code ORDER BY}, {@code false} bila criteria
+	 *                hanya dipakai menghitung jumlah baris
+	 * @return criteria siap dieksekusi oleh {@link ais.ui.util.AmbilDataPagingHelper}
+	 */
 	public Criteria initCriteria(Session session, boolean order) {
 		Integer tahunAngkatan = ambilTahunAngkatanFilter();
 		Criteria criteria = session.createCriteria(Kelas.class)
@@ -363,6 +379,14 @@ public class AmbilDataKelasBanbox extends Bandbox implements GetEventListener {
 		return criteria;
 	}
 
+	/**
+	 * Mem-parse input {@link #searchtahun} menjadi tahun angkatan numerik untuk filter pencarian.
+	 * Mengembalikan {@code null} (artinya "tidak difilter") bila input kosong, secara eksplisit
+	 * berisi "all"/"semua" (case-insensitive), bukan berupa digit murni, atau gagal di-parse —
+	 * mencegah input bebas pengguna menimbulkan exception atau filter yang tidak diinginkan.
+	 *
+	 * @return tahun angkatan hasil parse, atau {@code null} bila tidak ada filter tahun yang valid
+	 */
 	private Integer ambilTahunAngkatanFilter() {
 		String value = searchtahun == null ? null : searchtahun.getValue();
 		if (value == null) {
@@ -382,6 +406,17 @@ public class AmbilDataKelasBanbox extends Bandbox implements GetEventListener {
 		}
 	}
 
+	/**
+	 * Mengeksekusi pencarian {@link Kelas} lewat {@link ais.ui.util.AmbilDataPagingHelper#cari},
+	 * yang memanggil balik {@link #initCriteria(Session, boolean)} untuk membangun query per
+	 * halaman. Callback {@code Inisialisasi} memaksa lazy-load {@code jurusan} dan {@code fakultas}
+	 * tiap baris hasil (agar aman diakses renderer di luar sesi Hibernate saat itu), lalu memasang
+	 * {@link KelasRenderer} dan model hasil ke {@link #grid}. Mengikuti kerangka
+	 * {@code onSearchDefault} standar — lihat {@link ais.ui.util.GetEventListener}.
+	 *
+	 * @param event event pemicu (klik tombol Cari, tekan Enter, atau ganti combo); boleh
+	 *              {@code null} saat dipanggil dari {@link #display()}
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -407,10 +442,12 @@ public class AmbilDataKelasBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/** {@inheritDoc} Implementasi setter polos standar — lihat {@link ais.ui.util.GetEventListener}. */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** {@inheritDoc} Implementasi getter polos standar — lihat {@link ais.ui.util.GetEventListener}. */
 	public EventListener getEventListener() {
 		return eventListener;
 	}

@@ -38,22 +38,19 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data propinsi banbox. Kelas ini memberi nama dan batas tanggung jawab
- * yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code EventListener eventListener}, {@code Textbox nama};
- * pembacaan/pencarian ({@code onSearchDefault()}, {@code setEventListener()}, {@code getEventListener()});
- * operasi domain lain ({@code display()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface
- * yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.Wilayah} — lihat
+ * {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback).
+ * <p>
+ * {@code Wilayah} adalah entity wilayah administratif berjenjang (level 1 = propinsi, level di
+ * bawahnya dipakai picker lain seperti {@code AmbilDataKecamatanBanbox}); kelas ini secara khusus
+ * membatasi pencarian ke {@code Restrictions.eq("level", "1")} sehingga hanya menampilkan
+ * propinsi. Kriteria pencarian hanya nama ({@code Textbox nama}, ilike sebagian), hasil diurutkan
+ * nama menaik dan dibatasi {@link ais.common.Common#MAX_RESULT} baris. Lebar popup menyesuaikan
+ * perangkat lewat {@link ais.common.Common#isMobile()} (97% pada mobile, 400px pada desktop).
+ * Pemilihan bersifat tunggal lewat {@link org.zkoss.zul.Radiogroup}; nilai Bandbox diisi langsung
+ * dari nama propinsi.
+ * </p>
  *
  * @see Bandbox
  */
@@ -65,10 +62,17 @@ public class AmbilDataPropinsiBanbox extends Bandbox implements GetEventListener
 	private static final long serialVersionUID = 6452461056684904810L;
 	private MyGrid grid;
 
-	/* Paging server-side per 5 baris (pola AmbilDataPagingHelper). */
+	/* Catatan: field ini dideklarasikan tapi tidak dipakai secara aktif di file ini — grid hasil
+	 * pencarian di display() memakai mold "paging" client-side, bukan AmbilDataPagingHelper. */
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
 	private EventListener eventListener;
 
+	/**
+	 * Konstruktor standar pola Bandbox picker: kunci input jadi read-only dan pasang listener
+	 * {@code onOpen} yang membangun popup pencarian secara lazy pada pembukaan pertama, lalu
+	 * membuka popup lewat {@link Common#createDefaultTimer}. Lihat
+	 * {@link ais.ui.util.GetEventListener} untuk penjelasan lengkap kerangka ini.
+	 */
 	public AmbilDataPropinsiBanbox() {
 		super();
 		setReadonly(true);
@@ -93,16 +97,11 @@ public class AmbilDataPropinsiBanbox extends Bandbox implements GetEventListener
 	private Textbox nama;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataPropinsiBanbox}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataPropinsiBanbox} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer baris grid hasil pencarian: menampilkan radio button pilihan diikuti label nama
+	 * propinsi. Saat radio dicentang ({@code onCheck}), popup ditutup, entity {@link Wilayah}
+	 * terpilih disimpan sebagai attribute {@code "wilayah"} pada Bandbox, teks Bandbox diisi
+	 * namanya, lalu {@link #eventListener} (bila terpasang) diberi tahu — lihat pola callback
+	 * selengkapnya di {@link ais.ui.util.GetEventListener}.
 	 *
 	 * @see AmbilDataPropinsiBanbox
 	 */
@@ -137,6 +136,12 @@ public class AmbilDataPropinsiBanbox extends Bandbox implements GetEventListener
 
 	}
 
+	/**
+	 * Membangun popup pencarian (form kriteria nama + tombol Cari + grid hasil berbungkus
+	 * {@link org.zkoss.zul.Radiogroup}) sekali saat popup pertama kali dibuka, lalu memanggil
+	 * {@link #onSearchDefault(Event)} agar grid langsung terisi. Lebar popup menyesuaikan
+	 * perangkat lewat {@link Common#isMobile()}.
+	 */
 	public void display() {
 
 		boolean mobile = Common.isMobile();
@@ -237,6 +242,15 @@ public class AmbilDataPropinsiBanbox extends Bandbox implements GetEventListener
 
 	}
 
+	/**
+	 * Menjalankan pencarian {@link Wilayah} yang dibatasi ke {@code level == "1"} (propinsi),
+	 * ditambah kriteria nama (ilike sebagian terhadap teks pada form, kosong berarti cocok ke
+	 * semua), diurutkan nama menaik. Hasil dipasang ke {@link #grid} lewat
+	 * {@link WilayahRenderer} dan dibatasi {@link Common#MAX_RESULT} baris.
+	 *
+	 * @param event event pemicu (boleh {@code null}, dipakai juga sebagai pengisi awal grid saat
+	 *              popup pertama dibuka)
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -257,10 +271,20 @@ public class AmbilDataPropinsiBanbox extends Bandbox implements GetEventListener
 
 	}
 
+	/**
+	 * Menetapkan listener yang dipanggil setelah pengguna memilih satu baris propinsi.
+	 *
+	 * @param eventListener listener baru yang akan dipasang
+	 */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/**
+	 * Mengambil listener yang sedang terpasang.
+	 *
+	 * @return listener aktif saat ini, atau {@code null} bila belum diset
+	 */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
