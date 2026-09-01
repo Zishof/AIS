@@ -49,25 +49,33 @@ import ais.ui.util.GetEventListener;
 import ais.ui.util.MyPanel;
 
 /**
- * Tipe khusus untuk ambil jadwal sidang tugas akhir banbox. Kelas ini memberi nama dan batas
- * tanggung jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang
- * diimplementasikannya.
+ * Implementasi pola "Bandbox picker" AIS untuk entity
+ * {@link ais.database.model.JadwalSidangTugasAkhir} — lihat {@link ais.ui.util.GetEventListener}
+ * untuk arsitektur kerangka umum (constructor/display/onSearchDefault/renderer/callback).
+ * {@code JadwalSidangTugasAkhir} adalah entity JADWAL (bukan entity master biasa): satu baris
+ * mewakili satu periode/jadwal penyelenggaraan sidang tugas akhir (nama, rentang tanggal
+ * mulai-sampai, tahun akademik, serta jurusan/fakultas pemilik jadwal). Struktur kelas ini
+ * IDENTIK dengan {@link AmbilJadwalSeminarTugasAkhirBanbox}, hanya beda entity target (sidang,
+ * bukan seminar, tugas akhir).
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code EventListener
- * eventListener}, {@code Jurusan jurusan}, {@code boolean edit}, {@code boolean delete}, {@code Textbox nama},
- * {@code Combobox searchfakultas}, {@code Combobox searchjurusan}; pembacaan/pencarian ({@code
- * onSearchDefault()}, {@code setEventListener()}, {@code getEventListener()}); mutasi data ({@code
- * setJurusan()}, {@code setJurusanSelected()}, {@code setFakultasSelected()}); operasi domain lain ({@code
- * display()}); konfigurasi constructor: {@code delete}, {@code edit}. Bagian lain dari kontrak tetap mengikuti
- * kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p>
+ * Kriteria pencarian: nama jadwal ({@code nama}, ANYWHERE), tahun akademik ({@code
+ * searchtahunakademik}), dan fakultas/prodi ({@code searchfakultas}/{@code searchjurusan}) — hasil
+ * filter fakultas/jurusan meloloskan juga baris dengan kolom terkait NULL. Mode pilih data
+ * bersifat TUNGGAL lewat {@link org.zkoss.zul.Radiogroup}.
+ * </p>
+ * <p>
+ * <b>Kekhasan di luar kerangka baku</b> (bukan bug — layar ini menggabungkan picker DENGAN
+ * manajemen data jadwal): constructor {@link #AmbilJadwalSidangTugasAkhirBanbox(Jurusan)} dapat
+ * membatasi + mengunci filter fakultas/prodi ke satu {@code Jurusan} induk (combobox terkait
+ * otomatis disabled), dan {@link #setJurusan(Jurusan)} mengganti jurusan pembatas ini lalu
+ * membangun ulang popup. Hak {@code edit}/{@code delete} dicek sekali di konstruktor lewat
+ * {@link CommonPrivilages#checkPrevilages(int)} dan mengendalikan visibilitas tombol tambah/ubah/
+ * hapus pada toolbar dan tiap baris grid — tombol-tombol ini memanggil langsung
+ * {@link JadwalSidangTugasAkhirAction#onAddExternal} / {@code onDelete}, sehingga Bandbox ini
+ * juga berfungsi sebagai pintasan CRUD ringkas untuk data jadwal, tidak murni memilih data yang
+ * sudah ada.
+ * </p>
  *
  * @see Bandbox
  */
@@ -84,10 +92,22 @@ public class AmbilJadwalSidangTugasAkhirBanbox extends Bandbox implements GetEve
 	private boolean edit = false;
 	private boolean delete = false;
 
+	/**
+	 * Membangun Bandbox tanpa pembatasan jurusan — semua jadwal sidang tugas akhir dapat dicari.
+	 */
 	public AmbilJadwalSidangTugasAkhirBanbox() {
 		this(null);
 	}
 
+	/**
+	 * Membangun Bandbox dalam mode readonly, mengecek hak {@code edit}/{@code delete} pengguna saat
+	 * ini lewat {@link CommonPrivilages#checkPrevilages(int)} (mengendalikan visibilitas tombol
+	 * tambah/ubah/hapus), opsional mengunci pencarian ke satu jurusan induk, lalu memasang listener
+	 * {@code onOpen} standar (lazy-build popup — lihat {@link ais.ui.util.GetEventListener}).
+	 *
+	 * @param jurusan jurusan yang mengunci filter fakultas/prodi pada popup, atau {@code null} untuk
+	 *            tidak membatasi
+	 */
 	public AmbilJadwalSidangTugasAkhirBanbox(Jurusan jurusan) {
 		super();
 		edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
@@ -113,6 +133,14 @@ public class AmbilJadwalSidangTugasAkhirBanbox extends Bandbox implements GetEve
 		});
 	}
 
+	/**
+	 * Mengganti jurusan pembatas pencarian setelah Bandbox dibuat: mengosongkan pilihan saat ini
+	 * (memicu {@link #eventListener} dengan data {@code null}), lalu membangun ulang popup dari awal
+	 * dengan combobox fakultas/prodi terkunci ke {@code jurusan} baru.
+	 *
+	 * @param jurusan jurusan baru yang mengunci filter fakultas/prodi
+	 * @throws Exception diteruskan dari operasi ZK di dalamnya, termasuk dari {@link #eventListener}
+	 */
 	public void setJurusan(Jurusan jurusan) throws Exception {
 
 		setValue("");
@@ -136,18 +164,17 @@ public class AmbilJadwalSidangTugasAkhirBanbox extends Bandbox implements GetEve
 	private Combobox searchtahunakademik;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilJadwalSidangTugasAkhirBanbox}. Kelas ini menerjemahkan satu
-	 * item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilJadwalSidangTugasAkhirBanbox} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
-	 *
-	 * @see AmbilJadwalSidangTugasAkhirBanbox
+	 * Renderer baris grid hasil pencarian jadwal: nama, tanggal mulai/sampai, tahun akademik,
+	 * jurusan, fakultas, ditambah satu radio button pemilihan DAN — bila hak {@code edit}/
+	 * {@code delete} dimiliki pengguna — tombol ubah dan hapus per baris (lihat catatan "Kekhasan"
+	 * pada Javadoc kelas). Saat radio dicentang: popup ditutup, entity
+	 * {@code JadwalSidangTugasAkhir} terpilih disimpan sebagai attribute {@code
+	 * "jadwalSidangTugasAkhir"}/{@code "myValue"} pada Bandbox, teks tampilan diisi nama jadwal,
+	 * lalu {@link #eventListener} (bila terpasang) diberi tahu. Tombol ubah membuka layar edit lewat
+	 * {@link JadwalSidangTugasAkhirAction#onAddExternal}, lalu memperbarui pilihan Bandbox dengan
+	 * hasil edit. Tombol hapus meminta konfirmasi, memanggil
+	 * {@link JadwalSidangTugasAkhirAction#onDelete}, mengosongkan pilihan Bandbox bila jadwal yang
+	 * dihapus sedang terpilih, lalu memuat ulang grid.
 	 */
 	class JadwalSidangTugasAkhirRenderer extends ais.ui.util.MyRowRenderer {
 
@@ -268,6 +295,14 @@ public class AmbilJadwalSidangTugasAkhirBanbox extends Bandbox implements GetEve
 
 	}
 
+	/**
+	 * Membangun popup pencarian jadwal sidang tugas akhir (form filter nama/tahun akademik/
+	 * fakultas/prodi + tombol "Cari" + grid hasil paging client-side dibungkus
+	 * {@link org.zkoss.zul.Radiogroup}), termasuk tombol "Tambah Jadwal Sidang" pada toolbar bila
+	 * hak {@code edit} dimiliki, lalu memanggil {@link #onSearchDefault(Event)} agar grid terisi.
+	 * Dipanggil sekali oleh listener {@code onOpen} pada konstruktor, dan ulang oleh
+	 * {@link #setJurusan(Jurusan)}.
+	 */
 	public void display() {
 		setReadonly(true);
 
@@ -462,6 +497,15 @@ public class AmbilJadwalSidangTugasAkhirBanbox extends Bandbox implements GetEve
 
 	}
 
+	/**
+	 * Menjalankan {@code Session.createCriteria(JadwalSidangTugasAkhir.class)} dengan filter tahun
+	 * akademik (bila dipilih), nama (ANYWHERE), dan fakultas/jurusan (bila dipilih — masing-masing
+	 * meloloskan juga baris dengan kolom terkait NULL), diurutkan turun berdasar tanggal
+	 * mulai/sampai, dibatasi {@link Common#MAX_RESULT}, lalu grid di-render ulang dengan
+	 * {@link JadwalSidangTugasAkhirRenderer}.
+	 *
+	 * @param event tidak dipakai isinya, sekadar menandai method ini adalah event handler
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -490,19 +534,40 @@ public class AmbilJadwalSidangTugasAkhirBanbox extends Bandbox implements GetEve
 
 	}
 
+	/**
+	 * {@inheritDoc}
+	 */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/**
+	 * {@inheritDoc}
+	 */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
 
+	/**
+	 * Menetapkan prodi yang sudah terpilih pada combobox prodi popup (berbeda dari
+	 * {@link #setJurusan(Jurusan)}: hanya mengisi nilai awal combobox, tidak mengunci/disable-nya
+	 * dan tidak membangun ulang popup di sini — diterapkan saat {@link #display()} berikutnya
+	 * dipanggil). Juga memanggil {@link Common#clear(org.zkoss.zk.ui.Component)}.
+	 *
+	 * @param jurusan prodi yang ingin ditampilkan sebagai pilihan awal
+	 */
 	public void setJurusanSelected(Jurusan jurusan) {
 		Common.clear(this);
 		this.selectedJurusan = jurusan;
 	}
 
+	/**
+	 * Menetapkan fakultas yang sudah terpilih pada combobox fakultas popup (lihat catatan pada
+	 * {@link #setJurusanSelected(Jurusan)}). Juga memanggil
+	 * {@link Common#clear(org.zkoss.zk.ui.Component)}.
+	 *
+	 * @param fakultas fakultas yang ingin ditampilkan sebagai pilihan awal
+	 */
 	public void setFakultasSelected(Fakultas fakultas) {
 		Common.clear(this);
 		this.selectedFakultas = fakultas;

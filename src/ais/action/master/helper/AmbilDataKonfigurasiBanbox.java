@@ -41,29 +41,32 @@ import ais.database.model.Konfigurasi;
 import ais.ui.util.GetEventListener;
 
 /**
- * Tipe khusus untuk ambil data konfigurasi banbox. Kelas ini memberi nama dan batas tanggung jawab
- * yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code EventListener eventListener}, {@code Textbox nilai},
- * {@code Textbox nama}, {@code Combobox ta}, {@code Textbox info}; pembacaan/pencarian ({@code
- * onSearchDefault()}, {@code setEventListener()}, {@code getEventListener()}); operasi domain lain ({@code
- * display()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.Konfigurasi} —
+ * lihat {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback).
+ * <p>
+ * {@code Konfigurasi} adalah model key-value generik yang menyimpan seluruh parameter konfigurasi
+ * sistem AIS (lihat memory proyek terkait auto-seed konfigurasi) — satu baris berisi
+ * {@code nama}/{@code nilai} (key/value), opsional {@code tahunAkademik} untuk konfigurasi yang
+ * berlaku per tahun ajaran, dan lima kolom info bebas ({@code info1}..{@code info5}). Popup
+ * pencarian menyediakan field {@code nama}, {@code nilai} (keduanya ilike substring), Combobox
+ * {@code ta} (tahun akademik, termasuk opsi "Semua"), dan {@code info} yang dicocokkan ilike ke
+ * KELIMA kolom info sekaligus (OR) — cocok dipakai untuk menelusuri konfigurasi tanpa tahu persis
+ * kolom info mana yang relevan. BERBEDA dari kebanyakan subclass sejenis: constructor memanggil
+ * {@link #display()} LANGSUNG (bukan lewat listener {@code onOpen} lazy standar), sehingga popup
+ * dibangun segera saat instance dibuat, bukan saat Bandbox pertama kali diklik. Teks tampilan hasil
+ * pilihan berupa gabungan {@code nama-nilai[-tahunAkademik]}. Pemilihan bersifat TUNGGAL
+ * (Radiogroup). Tidak ada constructor dengan parameter tambahan; field {@code pagingHelper}
+ * dideklarasikan tapi TIDAK dipakai — pencarian masih memakai {@code grid.setMold("paging")}
+ * client-side lama dibatasi {@link ais.common.Common#MAX_RESULT}.
+ * </p>
  *
  * @see Bandbox
  */
 public class AmbilDataKonfigurasiBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 *
 	 */
 	private static final long serialVersionUID = 6452451056684904810L;
 	private MyGrid grid;
@@ -73,28 +76,35 @@ public class AmbilDataKonfigurasiBanbox extends Bandbox implements GetEventListe
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
 	private EventListener eventListener;
 
+	/**
+	 * Konstruktor KHUSUS (menyimpang dari kerangka standar {@link ais.ui.util.GetEventListener}):
+	 * memanggil {@link #display()} langsung saat instance dibuat, TIDAK memasang listener
+	 * {@code onOpen} lazy seperti kebanyakan subclass sejenis. Popup dan hasil pencarian awal
+	 * dengan demikian sudah terbentuk sebelum Bandbox pertama kali dibuka pengguna.
+	 */
 	public AmbilDataKonfigurasiBanbox() {
 		super();
 
 		display();
 	}
 
+	/** Kriteria pencarian: nilai konfigurasi (ilike, substring). */
 	private Textbox nilai;
+	/** Kriteria pencarian: nama/key konfigurasi (ilike, substring). */
 	private Textbox nama;
+	/** Kriteria pencarian: tahun akademik (termasuk opsi "Semua"). */
 	private Combobox ta;
+	/** Kriteria pencarian: dicocokkan ilike ke info1..info5 sekaligus (OR). */
 	private Textbox info;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataKonfigurasiBanbox}. Kelas ini menerjemahkan satu item
-	 * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataKonfigurasiBanbox} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer baris grid hasil pencarian {@link Konfigurasi}: menampilkan seluruh kolom
+	 * (nama, nilai, tahun akademik, info1..info5, keterangan) dan satu radio button pilihan.
+	 * Mengikuti kerangka renderer standar di {@link ais.ui.util.GetEventListener} — listener
+	 * {@code onCheck} menutup popup, menyimpan entity terpilih ke atribut
+	 * {@code "konfigurasi"}/{@code "myValue"} dan teks tampilan gabungan
+	 * {@code nama-nilai[-tahunAkademik]}, lalu meneruskan event ke {@link #eventListener} bila
+	 * terpasang.
 	 *
 	 * @see AmbilDataKonfigurasiBanbox
 	 */
@@ -139,6 +149,14 @@ public class AmbilDataKonfigurasiBanbox extends Bandbox implements GetEventListe
 
 	}
 
+	/**
+	 * Membangun popup pencarian {@link Konfigurasi}: form dengan field nama, nilai, info, dan tahun
+	 * akademik, tombol Cari, dan grid hasil dibungkus {@link org.zkoss.zul.Radiogroup} (pilih
+	 * tunggal). BERBEDA dari kebanyakan subclass sejenis, dipanggil LANGSUNG dari constructor
+	 * (bukan lazy dari listener {@code onOpen}) — lihat catatan di Javadoc class. Mengikuti
+	 * kerangka {@code display()} standar selebihnya — lihat {@link ais.ui.util.GetEventListener}.
+	 * Memanggil {@link #onSearchDefault(Event)} di akhir agar grid langsung terisi.
+	 */
 	public void display() {
 		setReadonly(true);
 
@@ -287,6 +305,17 @@ public class AmbilDataKonfigurasiBanbox extends Bandbox implements GetEventListe
 
 	}
 
+	/**
+	 * Mengeksekusi pencarian {@link Konfigurasi} dengan filter {@code nama} dan {@code nilai}
+	 * (ilike substring), {@code info} (ilike substring, dicocokkan ke info1..info5 sekaligus lewat
+	 * OR berjenjang), dan tahun akademik (eq bila dipilih selain "Semua"). Diurutkan menurun
+	 * berdasar id lalu menaik berdasar nama, dibatasi {@link ais.common.Common#MAX_RESULT}, lalu
+	 * memasang {@link KonfigurasiRenderer} dan model hasil ke {@link #grid}. Mengikuti kerangka
+	 * {@code onSearchDefault} standar — lihat {@link ais.ui.util.GetEventListener}.
+	 *
+	 * @param event event pemicu (klik tombol Cari); boleh {@code null} saat dipanggil dari
+	 *              {@link #display()} untuk mengisi grid pertama kali
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -325,10 +354,12 @@ public class AmbilDataKonfigurasiBanbox extends Bandbox implements GetEventListe
 
 	}
 
+	/** {@inheritDoc} Implementasi setter polos standar — lihat {@link ais.ui.util.GetEventListener}. */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** {@inheritDoc} Implementasi getter polos standar — lihat {@link ais.ui.util.GetEventListener}. */
 	public EventListener getEventListener() {
 		return eventListener;
 	}

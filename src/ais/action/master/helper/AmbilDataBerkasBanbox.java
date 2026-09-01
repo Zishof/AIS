@@ -52,29 +52,32 @@ import ais.ui.util.MyTabConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data berkas banbox. Kelas ini memberi nama dan batas tanggung jawab yang
- * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Tree tree}, {@code EventListener
- * eventListener}, {@code BerkasTreeModel berkasTreeModel}, {@code Boolean bisaDipilihSemua}; pembacaan/pencarian
- * ({@code onSearchDefault()}, {@code setEventListener()}, {@code getEventListener()}); operasi domain lain
- * ({@code display()}); konfigurasi constructor: {@code count}. Bagian lain dari kontrak tetap mengikuti kelas
- * induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.Berkas} — lihat
+ * {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback). {@code Berkas} adalah master data
+ * jenis berkas/dokumen (mis. "KTP", "Ijazah", "Kartu Keluarga") yang dipakai sebagai referensi
+ * kelengkapan dokumen di berbagai alur AIS (PMB, kepegawaian, dsb.), berbentuk hierarki pohon
+ * (punya {@code parent}, mis. kategori berkas &rarr; jenis berkas spesifik).
+ * <p>
+ * <b>Menyimpang dari kerangka standar</b>: popup tidak memakai grid pencarian teks, melainkan dua
+ * tab: tab "Daftar Berkas" menampilkan seluruh hierarki sebagai {@link Tree} (model
+ * {@link BerkasTreeModel}, renderer {@link BerkasTreeRenderer}), dan tab "Berkas Sering Dapakai"
+ * ({@link BerkasSeringDipakai}) menampilkan grid pencarian nama biasa diurutkan berdasarkan
+ * {@code jmlDipakai} menurun. Mode pilih: {@link #bisaDipilihSemua} (constructor
+ * {@link #AmbilDataBerkasBanbox(Boolean)}) menentukan apakah node non-daun boleh dipilih
+ * ({@code true}) atau hanya node daun ({@code false}, default — checkbox radio node non-daun
+ * disembunyikan). Selain lewat pohon/grid, komponen juga mendukung entri manual: mengetik nama
+ * berkas persis lalu Enter ({@code onOK}) mencari berkas dengan nama sama persis dan langsung
+ * memilihnya bila ditemukan (menampilkan peringatan bila tidak). Setiap kali berkas dipilih
+ * (lewat cara mana pun), counter {@code jmlDipakai} dinaikkan satu lewat
+ * {@code Common.refreshUpdate} sebelum {@code eventListener} dipanggil.
  *
  * @see Bandbox
  */
 public class AmbilDataBerkasBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 * Serial version UID standar untuk kompatibilitas serialisasi komponen ZK.
 	 */
 	protected static final long serialVersionUID = 6452461056684904810L;
 	protected Tree tree;
@@ -84,10 +87,19 @@ public class AmbilDataBerkasBanbox extends Bandbox implements GetEventListener {
 
 	private Boolean bisaDipilihSemua = false;
 
+	/** Constructor default: {@link #bisaDipilihSemua} dinonaktifkan (hanya node daun yang boleh dipilih). */
 	public AmbilDataBerkasBanbox() {
 		this(false);
 	}
 
+	/**
+	 * Membangun komponen: memasang listener {@code onOK} (Enter setelah mengetik nama berkas
+	 * persis) untuk pemilihan manual, dan listener {@code onOpen} yang, pada pembukaan pertama,
+	 * membangun popup ({@link #display()}), mengikuti kerangka umum di
+	 * {@link ais.ui.util.GetEventListener}.
+	 *
+	 * @param bisaDipilihSemua {@code true} untuk mengizinkan pemilihan node non-daun pada pohon
+	 */
 	public AmbilDataBerkasBanbox(Boolean bisaDipilihSemua) {
 		super();
 		this.bisaDipilihSemua = bisaDipilihSemua;
@@ -141,16 +153,12 @@ public class AmbilDataBerkasBanbox extends Bandbox implements GetEventListener {
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataBerkasBanbox}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataBerkasBanbox} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Merender satu node pohon berkas: label nama pada kolom pertama, dan radio pilih pada kolom
+	 * ketiga — disembunyikan bila node masih punya anak dan {@link #bisaDipilihSemua} bernilai
+	 * {@code false} (aturan "hanya daun"). Memilih radio menutup popup, menyimpan entity
+	 * {@link Berkas} terpilih ke attribute {@code "berkas"} pada Bandbox, mengisi teks tampilan
+	 * dengan {@code berkas.toString()}, menaikkan counter {@code jmlDipakai}, lalu memicu
+	 * {@link #eventListener} bila terpasang.
 	 *
 	 * @see AmbilDataBerkasBanbox
 	 */
@@ -210,6 +218,11 @@ public class AmbilDataBerkasBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/**
+	 * Membangun popup (dipanggil sekali saat pertama dibuka): tab "Daftar Berkas" berisi
+	 * {@link Tree} hierarki penuh (dimuat lewat {@link #onSearchDefault(Event)}), dan tab "Berkas
+	 * Sering Dapakai" berisi {@link BerkasSeringDipakai}.
+	 */
 	public void display() {
 		Bandpopup bandpopup = new ais.ui.util.MyBandpopup();
 		bandpopup.setParent(this);
@@ -284,47 +297,48 @@ public class AmbilDataBerkasBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/**
+	 * Membuat ulang {@link #berkasTreeModel} dan memasang ulang {@link BerkasTreeRenderer} ke
+	 * {@link #tree}.
+	 *
+	 * @param event tidak dipakai, hanya mengikuti signature standar listener pencarian
+	 */
 	public void onSearchDefault(Event event) {
 		berkasTreeModel = new BerkasTreeModel();
 		tree.setModel(berkasTreeModel);
 		tree.setItemRenderer(new BerkasTreeRenderer());
 	}
 
+	/** @param eventListener dipanggil setiap kali user memilih satu berkas */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** @return listener pemilihan berkas yang sedang terpasang, boleh {@code null} */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
 
 	/**
-	 * Tipe implementasi bersarang {@link BerkasSeringDipakai} milik {@link AmbilDataBerkasBanbox}. Kelas ini
-	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataBerkasBanbox} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p> Tipe ini merupakan detail
-	 * implementasi privat; pemanggil luar harus memakai API kelas induk.
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code MyGrid grid}, {@code
-	 * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code Textbox nama}; operasi lokal: {@code display()},
-	 * {@code onSearchDefault}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
-	 * dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
-	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
-	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 * Isi tab "Berkas Sering Dapakai" pada popup {@link AmbilDataBerkasBanbox}: grid pencarian
+	 * nama biasa (bukan pohon) atas {@link Berkas} yang pernah dipakai ({@code jmlDipakai} tidak
+	 * null), diurutkan menurun berdasarkan {@code jmlDipakai} sehingga berkas paling sering
+	 * dipilih tampil di atas — mempercepat pemilihan berkas umum tanpa perlu menelusuri hierarki
+	 * pohon.
 	 *
 	 * @see AmbilDataBerkasBanbox
 	 */
 	private class BerkasSeringDipakai extends Borderlayout {
 
 		/**
-		 * 
+		 * Serial version UID standar untuk kompatibilitas serialisasi komponen ZK.
 		 */
 		private static final long serialVersionUID = 6452461056684904810L;
 		private MyGrid grid;
 
 	/* Paging server-side per 5 baris (pola AmbilDataPagingHelper). */
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
+		/** Membuat panel dan langsung menyusun isinya lewat {@link #display()}. */
 		public BerkasSeringDipakai() {
 			super();
 			display();
@@ -333,16 +347,11 @@ public class AmbilDataBerkasBanbox extends Bandbox implements GetEventListener {
 		private Textbox nama;
 
 		/**
-		 * Renderer lokal untuk layar/komponen {@link BerkasSeringDipakai}. Kelas ini menerjemahkan satu item data
-		 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-		 *
-		 * <p><b>Scope:</b> setiap instance terikat pada instance {@link BerkasSeringDipakai} dan dapat mengakses state
-		 * kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-		 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-		 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-		 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-		 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-		 * renderer/listener ini.</p>
+		 * Merender satu baris grid "Berkas Sering Dapakai": nama berkas. Mengklik baris (bukan
+		 * radio — seluruh baris klikabel) menutup popup induk, menyimpan entity {@link Berkas}
+		 * terpilih ke attribute {@code "berkas"} pada {@link AmbilDataBerkasBanbox}, mengisi teks
+		 * tampilan, menaikkan counter {@code jmlDipakai}, lalu memicu {@code eventListener} milik
+		 * kelas induk bila terpasang.
 		 *
 		 * @see BerkasSeringDipakai
 		 */
@@ -380,6 +389,10 @@ public class AmbilDataBerkasBanbox extends Bandbox implements GetEventListener {
 
 		}
 
+		/**
+		 * Membangun tata letak panel "Berkas Sering Dapakai": form filter Nama Berkas, grid hasil
+		 * bermold "paging", lalu memuat data awal lewat {@link #onSearchDefault(Event)}.
+		 */
 		public void display() {
 
 			Center center = new Center();
@@ -450,6 +463,14 @@ public class AmbilDataBerkasBanbox extends Bandbox implements GetEventListener {
 
 		}
 
+		/**
+		 * Mengambil {@link Berkas} yang pernah dipakai ({@code jmlDipakai} tidak null) dan cocok
+		 * filter nama (ILIKE ANYWHERE, kosong berarti semua), diurutkan menurun berdasarkan
+		 * {@code jmlDipakai}, dibatasi {@link Common#MAX_RESULT} baris. Mengisi ulang grid dengan
+		 * hasilnya beserta {@link BerkasRenderer}.
+		 *
+		 * @param event tidak dipakai, hanya mengikuti signature standar listener pencarian
+		 */
 		@SuppressWarnings("unchecked")
 		public void onSearchDefault(Event event) {
 
