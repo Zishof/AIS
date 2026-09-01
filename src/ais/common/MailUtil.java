@@ -33,16 +33,17 @@ import javax.mail.internet.MimeMultipart;
  * </p>
  *
  * <p>
- * <b>PERINGATAN KEAMANAN:</b> konstanta {@link #USER} dan {@link #PASSWORD} berisi kredensial
- * akun email (alamat {@code zishof@mail.eakademik.id} beserta kata sandinya) yang ditulis
- * langsung dan tetap (hardcoded) di kode sumber ini, bukan dibaca dari berkas konfigurasi atau
- * secret store. Bila akun tersebut masih aktif di server produksi ({@code mail.eakademik.id}),
- * ini merupakan kebocoran kredensial nyata di dalam repositori — siapa pun dengan akses baca ke
- * kode sumber dapat memakai akun email tersebut. Method {@link #sendMail()} juga mengirim email
- * uji ke alamat penerima yang ditulis tetap di kode. Javadoc ini TIDAK mengubah nilai-nilai
- * tersebut sesuai instruksi; lihat ringkasan laporan terkait untuk detail lokasi baris agar
- * dapat ditindaklanjuti (mis. pencabutan/penggantian kata sandi serta pemindahan kredensial ke
- * luar kode sumber).
+ * <b>Riwayat keamanan (DIPERBAIKI 2026-09-01):</b> konstanta {@code USER}/{@code PASSWORD}
+ * sebelumnya berisi kredensial akun email ({@code zishof@mail.eakademik.id} beserta kata
+ * sandinya) yang ditulis langsung dan tetap (hardcoded) di kode sumber. Kelas ini terkonfirmasi
+ * kode mati (tidak dipanggil dari bagian lain aplikasi AIS), tetapi kata sandi tetap tereskpos
+ * di riwayat repositori selama bertahun-tahun. Kredensial literal itu sudah DIHAPUS — {@link
+ * #USER}/{@link #PASSWORD} kini dibaca dari properti sistem JVM ({@code -Dmailutil.user=...
+ * -Dmailutil.password=...}) saat class dimuat, dan {@link #sendMail()} melempar
+ * {@link IllegalStateException} bila salah satunya belum diisi lewat flag tersebut ketika kelas
+ * ini dijalankan manual. <b>Tindak lanjut yang TETAP diperlukan di luar perubahan kode ini:</b>
+ * kata sandi yang sebelumnya tertanam harus dianggap bocor dan SEBAIKNYA dirotasi di sisi
+ * penyedia email {@code mail.eakademik.id} bila akun tersebut masih aktif.
  * </p>
  */
 public class MailUtil {
@@ -50,15 +51,17 @@ public class MailUtil {
     /** Nama host server SMTP keluar yang dipakai untuk uji coba pengiriman. */
     public static final String SMTP_OUT_SERVER = "mail.eakademik.id";
     /**
-     * Alamat email/username autentikasi SMTP yang ditulis tetap di kode sumber.
-     * <b>Kredensial tertanam — lihat peringatan keamanan pada javadoc kelas.</b>
+     * Alamat email/username autentikasi SMTP, WAJIB disuplai lewat properti sistem
+     * {@code -Dmailutil.user=...} saat menjalankan kelas ini secara manual — tidak ada nilai
+     * default tertanam (lihat riwayat keamanan pada javadoc kelas).
      */
-    public static final String USER = "zishof@mail.eakademik.id"; // godaddy domain
+    public static final String USER = System.getProperty("mailutil.user", "");
     /**
-     * Kata sandi akun {@link #USER} yang ditulis tetap di kode sumber.
-     * <b>Kredensial tertanam — lihat peringatan keamanan pada javadoc kelas.</b>
+     * Kata sandi akun {@link #USER}, WAJIB disuplai lewat properti sistem
+     * {@code -Dmailutil.password=...} — tidak ada nilai default tertanam (lihat riwayat
+     * keamanan pada javadoc kelas).
      */
-    public static final String PASSWORD = "zishof";
+    public static final String PASSWORD = System.getProperty("mailutil.password", "");
 
     /**
      * Titik masuk uji coba manual: memanggil {@link #sendMail()} untuk mengirim satu email
@@ -87,10 +90,16 @@ public class MailUtil {
      * dibuat dan ditutup sepenuhnya di dalam method ini (connect → kirim → close), tanpa
      * penanganan retry maupun pencatatan hasil pengiriman ke mana pun.
      *
+     * @throws IllegalStateException bila {@link #USER}/{@link #PASSWORD} belum diisi lewat
+     *                    properti sistem {@code -Dmailutil.user}/{@code -Dmailutil.password}
      * @throws Exception diteruskan apa adanya dari kegagalan JavaMail (mis. autentikasi SMTP
      *                    gagal, host tidak terjangkau, atau alamat email tidak valid)
      */
     public static void sendMail() throws Exception {
+        if (USER.trim().isEmpty() || PASSWORD.trim().isEmpty()) {
+            throw new IllegalStateException(
+                    "Kredensial SMTP belum diisi. Jalankan dengan -Dmailutil.user=... -Dmailutil.password=...");
+        }
         Properties props = System.getProperties();
         props.setProperty("mail.transport.protocol", "smtp");
         props.setProperty("mail.host", SMTP_OUT_SERVER);
