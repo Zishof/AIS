@@ -234,12 +234,12 @@ import ais.ui.util.WaktuUtil;
 public class TugasMandiriHelper {
 
 	/**
-	 * Membersihkan referensi format nilai yatim sebelum Pertemuan dimasukkan ke
-	 * persistence-context milik request. Perbaikan memakai session terisolasi agar
-	 * query pembersihan tidak memicu auto-flush entity Pertemuan yang sudah kotor.
+	 * Membersihkan referensi format nilai yatim sebelum Tugas/Pertemuan dimasukkan
+	 * ke persistence-context milik request. Perbaikan memakai session terisolasi
+	 * agar query pembersihan tidak memicu auto-flush entity yang sudah kotor.
 	 */
 	private static void bersihkanFormatNilaiYatim(Tugas tugas) {
-		if (!(tugas instanceof Pertemuan) || tugas.getId() == null) {
+		if (tugas == null || tugas.getId() == null) {
 			return;
 		}
 		Session sesiPerbaikan = null;
@@ -247,19 +247,46 @@ public class TugasMandiriHelper {
 		try {
 			sesiPerbaikan = HibernateUtil.openSession();
 			transaksi = sesiPerbaikan.beginTransaction();
-			sesiPerbaikan.createSQLQuery("update pertemuan p set format_nilai=null "
-					+ "where p.id=:id and p.format_nilai is not null "
-					+ "and not exists (select 1 from formatnilai f where f.id=p.format_nilai)")
-					.setLong("id", tugas.getId().longValue()).executeUpdate();
+			if (tugas instanceof Pertemuan) {
+				sesiPerbaikan.createSQLQuery("update pertemuan p set format_nilai=null "
+						+ "where p.id=:id and p.format_nilai is not null "
+						+ "and not exists (select 1 from formatnilai f where f.id=p.format_nilai)")
+						.setLong("id", tugas.getId().longValue()).executeUpdate();
+			}
+			if (tugas instanceof TugasPertemuan) {
+				sesiPerbaikan.createSQLQuery("update tugas_pertemuan tp set format_nilai=null "
+						+ "where tp.id=:id and tp.format_nilai is not null "
+						+ "and not exists (select 1 from formatnilai f where f.id=tp.format_nilai)")
+						.setLong("id", tugas.getId().longValue()).executeUpdate();
+			}
 			transaksi.commit();
 		} catch (Exception e) {
 			if (transaksi != null && transaksi.isActive()) {
 				try { transaksi.rollback(); } catch (Exception abaikan) { }
 			}
-			throw new IllegalStateException("Gagal memperbaiki referensi format nilai Pertemuan " + tugas.getId(), e);
+			ais.common.ErrorAuditUtil.record(e,
+					"TugasMandiriHelper: gagal membersihkan format_nilai yatim tugas=" + tugas.getId());
 		} finally {
 			HibernateUtil.closeSessionQuietly(sesiPerbaikan);
 		}
+	}
+
+	private static FormatNilai ambilFormatNilaiValid(Session session, FormatNilai formatNilai) {
+		if (formatNilai == null) {
+			return null;
+		}
+		if (formatNilai.getId() == null) {
+			return formatNilai;
+		}
+		return (FormatNilai) session.get(FormatNilai.class, formatNilai.getId());
+	}
+
+	private static void tampilkanPeringatanFormatNilaiTidakValid(FormatNilai formatNilai) {
+		String label = formatNilai == null ? "" : (" (" + formatNilai.getNama() + ")");
+		MyMessageboxConfig.show("Format nilai yang dipilih" + label
+				+ " sudah tidak ditemukan di database. Sistem mengosongkan pilihan tersebut agar Tugas/UTS/UAS tetap dapat disimpan. "
+				+ "Silakan pilih format nilai yang masih aktif, lalu simpan kembali.",
+				"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
 	}
 
 	private MyGrid uploadTugasGrid;
@@ -630,7 +657,7 @@ public class TugasMandiriHelper {
 				formatNilaiPerkuliahanRef[0] = formatNilai;
 
 				formatNilai.setWidth("92px");
-				MyComboitemConfig comboitemTidakAda = new MyComboitemConfig("Tidak Ada");
+				final MyComboitemConfig comboitemTidakAda = new MyComboitemConfig("Tidak Ada");
 				comboitemTidakAda.setValue(null);
 				formatNilai.appendChild(comboitemTidakAda);
 
@@ -692,10 +719,21 @@ public class TugasMandiriHelper {
 					public void onEvent(Event arg0) throws Exception {
 						Session session = HibernateUtil.currentSession();
 						if (tugas.getId() != null) {
+							bersihkanFormatNilaiYatim(tugas);
 							session.refresh(tugas);
 						}
-						final FormatNilai fn = (FormatNilai) (formatNilai.getSelectedItem() == null ? null
+						FormatNilai fnPilihan = (FormatNilai) (formatNilai.getSelectedItem() == null ? null
 								: formatNilai.getSelectedItem().getValue());
+						FormatNilai fn = ambilFormatNilaiValid(session, fnPilihan);
+						if (fnPilihan != null && fn == null) {
+							tugas.setFormatNilai(null);
+							Common.refreshUpdate(session, (tugas));
+							formatNilai.setSelectedItem(comboitemTidakAda);
+							prosentase.setVisible(false);
+							bobotLabel.setVisible(false);
+							tampilkanPeringatanFormatNilaiTidakValid(fnPilihan);
+							return;
+						}
 
 						tugas.setFormatNilai(fn);
 						Common.refreshUpdate(session, (tugas));
@@ -1106,11 +1144,14 @@ public class TugasMandiriHelper {
 				tugas.setSyaratMengumpulkanTugas((SyaratUjian) (syaratMengumpulkanTugas.getSelectedItem() == null ? null
 						: syaratMengumpulkanTugas.getSelectedItem().getValue()));
 				if (formatNilaiPerkuliahanRef[0] != null) {
-					FormatNilai fn = (FormatNilai) (formatNilaiPerkuliahanRef[0].getSelectedItem() == null ? null
+					FormatNilai fnPilihan = (FormatNilai) (formatNilaiPerkuliahanRef[0].getSelectedItem() == null ? null
 							: formatNilaiPerkuliahanRef[0].getSelectedItem().getValue());
 					// Jangan memasang kembali object Comboitem yang sudah tidak ada di DB.
-					if (fn != null && fn.getId() != null) {
-						fn = (FormatNilai) session.get(FormatNilai.class, fn.getId());
+					FormatNilai fn = ambilFormatNilaiValid(session, fnPilihan);
+					if (fnPilihan != null && fn == null) {
+						tugas.setFormatNilai(null);
+						tampilkanPeringatanFormatNilaiTidakValid(fnPilihan);
+						return;
 					}
 					tugas.setFormatNilai(fn);
 					tugas.setProsentase(prosentaseFormatNilaiRef[0] == null ? tugas.getProsentase()

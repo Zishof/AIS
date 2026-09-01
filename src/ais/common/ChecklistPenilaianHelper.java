@@ -413,7 +413,8 @@ public class ChecklistPenilaianHelper {
                .append("  or (d.id is not null) ")
                .append("  or (gd.id is not null and (gd.aktif=true or gd.aktif is null)) ")
                .append("  or (gg.id is not null and (gg.aktif=true or gg.aktif is null)) ")
-               .append(") ");
+               .append(") ")
+               .append("order by a.tahunakademik, a.semester, b.id, coalesce(c.nomor_urut,999999), c.isi, c.id, d.id ");
 
             org.hibernate.SQLQuery query = session.createSQLQuery(sql.toString());
             query.setParameter("user", tbmuser.getUserId());
@@ -601,7 +602,8 @@ public class ChecklistPenilaianHelper {
             
             sql.append(" and b.aktif and (c.aktif or d.id is not null) and a.grup_kuesioner_umum is null and sampai >= date('")
                .append(Common.databaseDateFormat.get().format(ais.ui.util.WaktuUtil.getDate())).append("') and mulai <= date('")
-               .append(Common.databaseDateFormat.get().format(ais.ui.util.WaktuUtil.getDate())).append("') and ").append(sqlTambahan);
+               .append(Common.databaseDateFormat.get().format(ais.ui.util.WaktuUtil.getDate())).append("') and ").append(sqlTambahan)
+               .append(" order by a.tahunakademik, a.semester, b.id, coalesce(c.nomor_urut,999999), c.isi, c.id, d.id ");
 
             List<Object[]> datas = session.createSQLQuery(sql.toString()).list();
 

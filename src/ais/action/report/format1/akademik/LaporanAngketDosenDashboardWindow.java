@@ -672,6 +672,7 @@ public class LaporanAngketDosenDashboardWindow extends MyWindow {
 		if (onlyActive) {
 			hql += " and (c.aktif is null or c.aktif = true) and (g.id is null or g.aktif is null or g.aktif = true)";
 		}
+		hql += " order by g.id, c.nomorUrut, c.isi, c.id";
 		List rows = session.createQuery(hql).list();
 		for (int i = 0; i < rows.size(); i++) {
 			ChecklistPenilaianDosen c = (ChecklistPenilaianDosen) rows.get(i);

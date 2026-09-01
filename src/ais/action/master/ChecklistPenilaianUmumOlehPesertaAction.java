@@ -944,7 +944,8 @@ public class ChecklistPenilaianUmumOlehPesertaAction extends GenericAutowireComp
 								session.createCriteria(ChecklistPenilaianUmum.class)
 										.createAlias("subGrupChecklistPenilaianUmum", "subGrupChecklistPenilaianUmum", Criteria.LEFT_JOIN)
 										.addOrder(Order.asc("subGrupChecklistPenilaianUmum.nama"))
-										.addOrder(Order.asc("isi"))
+										.addOrder(Order.asc("nomorUrut")).addOrder(Order.asc("isi"))
+										.addOrder(Order.asc("id"))
 										.add(Restrictions.or(Restrictions.eq("aktif", true), Restrictions.isNull("aktif")))
 										.add(Restrictions.eq("grupChecklistPenilaianUmum", g)),
 								ChecklistPenilaianUmum.class);

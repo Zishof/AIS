@@ -566,9 +566,10 @@ public class MatakuliahKurikulumHelper implements DataLoader {
 				}
 
 			});
-			aksiButtons.add(deleteButton);
 			editButton.setVisible(edit);
+			editButton.setTooltiptext("Ubah Data");
 			aksiButtons.add(editButton);
+			aksiButtons.add(deleteButton);
 			// Susun semua tombol: max 3 per baris, rata tengah
 			Vbox aksiBox = ais.ui.util.UIHelper.buatBarisAksi(row, 3, aksiButtons);
 			aksiBox.setVisible(
@@ -1034,8 +1035,8 @@ public class MatakuliahKurikulumHelper implements DataLoader {
 
 				column = new MyColumnConfig();
 				column.setParent(columns);
-				column.setLabel("");
-				column.setWidth("8%");
+				column.setLabel("Aksi");
+				column.setWidth("6%");
 
 				loadData(null);
 			}

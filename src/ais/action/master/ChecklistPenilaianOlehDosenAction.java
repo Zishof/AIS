@@ -577,7 +577,8 @@ public class ChecklistPenilaianOlehDosenAction extends GenericAutowireComposer {
 		for (GrupChecklistPenilaianDosen g : grupChecklistPenilaianDosens) {
 
 			List<ChecklistPenilaianDosen> checklistPenilaianDosens = session
-					.createCriteria(ChecklistPenilaianDosen.class).addOrder(Order.asc("isi"))
+					.createCriteria(ChecklistPenilaianDosen.class).addOrder(Order.asc("nomorUrut"))
+					.addOrder(Order.asc("isi")).addOrder(Order.asc("id"))
 					.add(Restrictions.or(Restrictions.eq("aktif", true), Restrictions.isNull("aktif")))
 					.add(Restrictions.eq("grupChecklistPenilaianDosen", g)).list();
 

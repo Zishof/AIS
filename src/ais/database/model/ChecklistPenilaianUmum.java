@@ -81,6 +81,7 @@ public class ChecklistPenilaianUmum extends GeneralValueObject {
 	}
 
 	private String isi;
+	private Integer nomorUrut;
 	private String keterangan;
 	private GrupChecklistPenilaianUmum grupChecklistPenilaianUmum;
 	private SubGrupChecklistPenilaianUmum subGrupChecklistPenilaianUmum;
@@ -108,6 +109,24 @@ public class ChecklistPenilaianUmum extends GeneralValueObject {
 
 	public void setIsi(String isi) {
 		this.isi = isi;
+	}
+
+	@Column(name = "nomor_urut")
+	public Integer getNomorUrut() {
+		return nomorUrut;
+	}
+
+	public void setNomorUrut(Integer nomorUrut) {
+		this.nomorUrut = nomorUrut;
+	}
+
+	public Long ambilNomorUrutLaporanKey() {
+		long nomor = getNomorUrut() == null ? 99999L : getNomorUrut().longValue();
+		long idChecklist = getId() == null ? 0L : getId().longValue();
+		if (nomor < 0L) {
+			nomor = 0L;
+		}
+		return Long.valueOf((nomor * 1000000000L) + (idChecklist % 1000000000L));
 	}
 
 	@Column(name = "keterangan", nullable = true, columnDefinition = "text")

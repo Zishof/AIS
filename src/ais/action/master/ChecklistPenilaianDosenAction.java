@@ -30,6 +30,7 @@ import org.zkoss.zul.Columns;
 import org.zkoss.zul.Combobox;
 import org.zkoss.zul.Hbox;
 import ais.ui.util.MyInclude;
+import org.zkoss.zul.Intbox;
 import org.zkoss.zul.Label;
 import org.zkoss.zul.ListModel;
 import org.zkoss.zul.Paging;
@@ -108,6 +109,7 @@ public class ChecklistPenilaianDosenAction extends GenericAutowireComposer imple
 	private Combobox searchfakultas;
 
 	private Textbox nama;
+	private Intbox nomorUrut;
 	private MyDoublebox bobot;
 	private Combobox grupChecklistPenilaianDosen;
 	private Combobox searchGrup;
@@ -155,8 +157,8 @@ public class ChecklistPenilaianDosenAction extends GenericAutowireComposer imple
 		}
 	}
 
-	public static String[] contents = new String[] { "id", "isi", "grupChecklistPenilaianDosen", "bobot", "aktif",
-			"keterangan", "pilihan" };
+	public static String[] contents = new String[] { "id", "isi", "nomorUrut", "grupChecklistPenilaianDosen",
+			"bobot", "aktif", "keterangan", "pilihan" };
 
 	@Override
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page,
@@ -398,6 +400,8 @@ public class ChecklistPenilaianDosenAction extends GenericAutowireComposer imple
 
 			RevisiHelper.createNewRevisi(ChecklistPenilaianDosen.class, checklistPenilaianDosen,
 					checklistPenilaianDosen.getIsi()).setParent(arg0);
+			new Label(checklistPenilaianDosen.getNomorUrut() == null ? ""
+					: checklistPenilaianDosen.getNomorUrut().toString()).setParent(arg0);
 			new Label(checklistPenilaianDosen.getGrupChecklistPenilaianDosen() == null ? ""
 					: checklistPenilaianDosen.getGrupChecklistPenilaianDosen().getIsi()).setParent(arg0);
 			new Label(Common.numberFormat.get().format(checklistPenilaianDosen.getBobot())).setParent(arg0);
@@ -488,6 +492,12 @@ public class ChecklistPenilaianDosenAction extends GenericAutowireComposer imple
 				nama = new Textbox(checklistPenilaianDosen.getIsi() == null ? "" : checklistPenilaianDosen.getIsi()));
 		nama.setWidth("90%");
 		nama.setRows(2);
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Nomor Urut"));
+		row.appendChild(nomorUrut = new Intbox(checklistPenilaianDosen.getNomorUrut()));
+		nomorUrut.setCols(5);
 
 		row = new MyFormRow();
 		row.setParent(rows);
@@ -608,6 +618,7 @@ public class ChecklistPenilaianDosenAction extends GenericAutowireComposer imple
 
 		checklistPenilaianDosen.setBobot(bobot.getValue());
 		checklistPenilaianDosen.setIsi(nama.getValue());
+		checklistPenilaianDosen.setNomorUrut(nomorUrut.getValue());
 		checklistPenilaianDosen.setGrupChecklistPenilaianDosen(
 				(GrupChecklistPenilaianDosen) (grupChecklistPenilaianDosen.getSelectedItem() == null ? null
 						: grupChecklistPenilaianDosen.getSelectedItem().getValue()));
@@ -625,8 +636,11 @@ public class ChecklistPenilaianDosenAction extends GenericAutowireComposer imple
 				? Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))
 				: Restrictions.sqlRestriction("true"));
 
-		if (order)
+		if (order) {
+			criteria.addOrder(Order.asc("nomorUrut"));
 			criteria.addOrder(Order.asc("isi"));
+			criteria.addOrder(Order.asc("id"));
+		}
 		criteria.add(searchnama.getValue().trim().isEmpty() ? Restrictions.sqlRestriction("1=1")
 				: Restrictions.ilike("isi", searchnama.getValue(), MatchMode.ANYWHERE));
 		criteria.add(searchGrup.getSelectedItem() == null || searchGrup.getSelectedItem().getValue() == null

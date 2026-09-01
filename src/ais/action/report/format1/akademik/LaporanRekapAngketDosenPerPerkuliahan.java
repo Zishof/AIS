@@ -340,7 +340,7 @@ public class LaporanRekapAngketDosenPerPerkuliahan extends MyWindow {
 													checklistPenilaianDosens.put(grupChecklistPenilaianDosen.getId(),
 															subchecklistPenilaianDosens);
 												}
-												subchecklistPenilaianDosens.put(checklistPenilaianDosen.getId(),
+												subchecklistPenilaianDosens.put(checklistPenilaianDosen.ambilNomorUrutLaporanKey(),
 														checklistPenilaianDosen);
 											}
 										}

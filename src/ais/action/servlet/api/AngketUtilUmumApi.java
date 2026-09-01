@@ -393,7 +393,9 @@ public class AngketUtilUmumApi {
 				for (JadwalChecklistPenilaianUmum jadwalChecklistPenilaianUmum : jadwalChecklistPenilaianUmums) {
 					List<ChecklistPenilaianUmum> checklistPenilaianUmums = ConstantValues
 							.simpleList(
-									session.createCriteria(ChecklistPenilaianUmum.class).addOrder(Order.asc("isi"))
+									session.createCriteria(ChecklistPenilaianUmum.class)
+											.addOrder(Order.asc("nomorUrut")).addOrder(Order.asc("isi"))
+											.addOrder(Order.asc("id"))
 											.add(Restrictions.or(Restrictions.eq("aktif", true),
 													Restrictions.isNull("aktif")))
 											.add(Restrictions.eq("grupChecklistPenilaianUmum",

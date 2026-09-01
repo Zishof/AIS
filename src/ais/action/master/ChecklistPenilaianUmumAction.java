@@ -32,6 +32,7 @@ import org.zkoss.zul.Checkbox;
 import org.zkoss.zul.Columns;
 import org.zkoss.zul.Combobox;
 import org.zkoss.zul.Hbox;
+import org.zkoss.zul.Intbox;
 import org.zkoss.zul.Label;
 import org.zkoss.zul.ListModel;
 import org.zkoss.zul.Paging;
@@ -116,6 +117,7 @@ public class ChecklistPenilaianUmumAction extends GenericAutowireComposer implem
 	private Row hbYayasan;
 
 	private Textbox nama;
+	private Intbox nomorUrut;
 	private Combobox grupChecklistPenilaianUmum;
 	private Combobox searchGrup;
 	private Combobox searchDiperuntukkan;
@@ -146,7 +148,7 @@ public class ChecklistPenilaianUmumAction extends GenericAutowireComposer implem
 		}
 	}
 
-	public static String[] contents = new String[] { "id", "isi", "grupChecklistPenilaianUmum",
+	public static String[] contents = new String[] { "id", "isi", "nomorUrut", "grupChecklistPenilaianUmum",
 			"subGrupChecklistPenilaianUmum", "aktif", "keterangan", "pilihan" };
 
 	@Override
@@ -511,6 +513,8 @@ public class ChecklistPenilaianUmumAction extends GenericAutowireComposer implem
 
 			RevisiHelper.createNewRevisi(ChecklistPenilaianUmum.class, checklistPenilaianUmum,
 					checklistPenilaianUmum.getIsi()).setParent(arg0);
+			new Label(checklistPenilaianUmum.getNomorUrut() == null ? ""
+					: checklistPenilaianUmum.getNomorUrut().toString()).setParent(arg0);
 
 			Vbox vbox = new Vbox();
 			vbox.setParent(arg0);
@@ -671,6 +675,12 @@ public class ChecklistPenilaianUmumAction extends GenericAutowireComposer implem
 
 		row = new MyFormRow();
 		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Nomor Urut"));
+		row.appendChild(nomorUrut = new Intbox(checklistPenilaianUmum.getNomorUrut()));
+		nomorUrut.setCols(5);
+
+		row = new MyFormRow();
+		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Grup Angket Umum *"));
 		row.appendChild(grupChecklistPenilaianUmum);
 		Common.selectComboItem(grupChecklistPenilaianUmum,
@@ -801,6 +811,7 @@ public class ChecklistPenilaianUmumAction extends GenericAutowireComposer implem
 		}
 
 		checklistPenilaianUmum.setIsi(nama.getValue());
+		checklistPenilaianUmum.setNomorUrut(nomorUrut.getValue());
 		checklistPenilaianUmum.setGrupChecklistPenilaianUmum(
 				(GrupChecklistPenilaianUmum) (grupChecklistPenilaianUmum.getSelectedItem() == null ? null
 						: grupChecklistPenilaianUmum.getSelectedItem().getValue()));
@@ -828,8 +839,11 @@ public class ChecklistPenilaianUmumAction extends GenericAutowireComposer implem
 						? Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))
 						: Restrictions.sqlRestriction("true"));
 
-		if (order)
+		if (order) {
+			criteria.addOrder(Order.asc("nomorUrut"));
 			criteria.addOrder(Order.asc("isi"));
+			criteria.addOrder(Order.asc("id"));
+		}
 		criteria.add(searchnama.getValue().trim().isEmpty() ? Restrictions.sqlRestriction("1=1")
 				: Restrictions.ilike("isi", searchnama.getValue(), MatchMode.ANYWHERE));
 		criteria.add(searchGrup.getSelectedItem() == null || searchGrup.getSelectedItem().getValue() == null

@@ -146,6 +146,9 @@
 									use="ais.ui.util.MyColumnConfig" label="Isi"
 									sort="auto(nama)" />
 									<column
+									use="ais.ui.util.MyColumnConfig" width="8%"
+									label="Nomor Urut" />
+									<column
 									use="ais.ui.util.MyColumnConfig" label="Grup" />
 									<column
 									use="ais.ui.util.MyColumnConfig" width="8%" label="Unit" />

@@ -315,7 +315,7 @@ public class LaporanChecklistHasilPenilaianUmumPerDosen extends MyWindow {
 										checklistPenilaianUmums.put(grupChecklistPenilaianUmum.getId(),
 												subchecklistPenilaianUmums);
 									}
-									subchecklistPenilaianUmums.put(checklistPenilaianUmum.getId(),
+									subchecklistPenilaianUmums.put(checklistPenilaianUmum.ambilNomorUrutLaporanKey(),
 											checklistPenilaianUmum);
 								}
 							}

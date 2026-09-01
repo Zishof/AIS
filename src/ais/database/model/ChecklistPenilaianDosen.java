@@ -57,6 +57,7 @@ public class ChecklistPenilaianDosen extends GeneralValueObject {
 
 	/** Teks pertanyaan/pernyataan butir checklist penilaian. */
 	private String isi;
+	private Integer nomorUrut;
 	private String keterangan;
 	/** Grup/kategori tempat butir checklist ini berada. */
 	private GrupChecklistPenilaianDosen grupChecklistPenilaianDosen;
@@ -121,7 +122,21 @@ public class ChecklistPenilaianDosen extends GeneralValueObject {
 		Long idGrup = getGrupChecklistPenilaianDosen() == null || getGrupChecklistPenilaianDosen().getId() == null
 				? Long.valueOf(0L)
 				: getGrupChecklistPenilaianDosen().getId();
-		return NF.get().format(idGrup) + "_" + prefix + "_" + NF.get().format(idChecklist);
+		return NF.get().format(idGrup) + "_" + NF.get().format(Long.valueOf(nomorUrutUrutkan())) + "_" + prefix
+				+ "_" + NF.get().format(idChecklist);
+	}
+
+	private long nomorUrutUrutkan() {
+		return getNomorUrut() == null ? 99999L : getNomorUrut().longValue();
+	}
+
+	public Long ambilNomorUrutLaporanKey() {
+		long nomor = nomorUrutUrutkan();
+		long idChecklist = getId() == null ? 0L : getId().longValue();
+		if (nomor < 0L) {
+			nomor = 0L;
+		}
+		return Long.valueOf((nomor * 1000000000L) + (idChecklist % 1000000000L));
 	}
 
 	@Id
@@ -142,6 +157,15 @@ public class ChecklistPenilaianDosen extends GeneralValueObject {
 
 	public void setIsi(String isi) {
 		this.isi = isi;
+	}
+
+	@Column(name = "nomor_urut")
+	public Integer getNomorUrut() {
+		return nomorUrut;
+	}
+
+	public void setNomorUrut(Integer nomorUrut) {
+		this.nomorUrut = nomorUrut;
 	}
 
 	@Column(name = "keterangan", nullable = true, columnDefinition = "text")

@@ -494,7 +494,9 @@ public class AngketUtilApi {
 					Map<Long, List<ChecklistPenilaianDosen>> dataAngket = new HashMap<Long, List<ChecklistPenilaianDosen>>();
 					for (GrupChecklistPenilaianDosen g : grupChecklistPenilaianDosens) {
 						List<ChecklistPenilaianDosen> checklistPenilaianDosens = ConstantValues.simpleList(
-								session.createCriteria(ChecklistPenilaianDosen.class).addOrder(Order.asc("isi"))
+								session.createCriteria(ChecklistPenilaianDosen.class)
+										.addOrder(Order.asc("nomorUrut")).addOrder(Order.asc("isi"))
+										.addOrder(Order.asc("id"))
 										.add(Restrictions.or(Restrictions.eq("aktif", true),
 												Restrictions.isNull("aktif")))
 										.add(Restrictions.eq("grupChecklistPenilaianDosen", g)),

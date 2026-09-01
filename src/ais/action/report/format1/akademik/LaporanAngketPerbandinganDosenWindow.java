@@ -346,7 +346,8 @@ public class LaporanAngketPerbandinganDosenWindow extends MyWindow {
 				+ "and c.ganjil_genap = '" + genapGanjil.replace("'", "''") + "' "
 				+ "and (a.aktif or a.aktif is null) and (b.aktif or b.aktif is null)  and a.aktif=true "
 				+ "and b.aktif=true " + (f.equals(-1L) ? "" : " and d.fakultas=" + f)
-				+ (j.equals(-1L) ? "" : " and c.jurusan=" + j) + "    GROUP BY b.id,a.id  order by b.id,a.id";
+				+ (j.equals(-1L) ? "" : " and c.jurusan=" + j)
+				+ "    GROUP BY b.id,a.nomor_urut,a.isi,a.id  order by b.id,coalesce(a.nomor_urut,999999),a.isi,a.id";
 
 		Session session = HibernateUtil.currentSession();
 		List<Object[]> objs = session.createSQLQuery(sqlRata).list();

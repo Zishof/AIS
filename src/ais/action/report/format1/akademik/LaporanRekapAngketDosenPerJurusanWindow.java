@@ -18,8 +18,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.hibernate.Criteria;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 import org.zkoss.zk.ui.event.Event;
@@ -483,7 +485,10 @@ public class LaporanRekapAngketDosenPerJurusanWindow extends MyWindow {
 		Map<Long, ChecklistDosenInfo> map = new HashMap<Long, ChecklistDosenInfo>();
 		try {
 			session = ais.action.report.Report.openNativeSession();
-			List<ChecklistPenilaianDosen> rows = session.createCriteria(ChecklistPenilaianDosen.class).list();
+			List<ChecklistPenilaianDosen> rows = session.createCriteria(ChecklistPenilaianDosen.class)
+					.createAlias("grupChecklistPenilaianDosen", "grupChecklistPenilaianDosen", Criteria.LEFT_JOIN)
+					.addOrder(Order.asc("grupChecklistPenilaianDosen.id"))
+					.addOrder(Order.asc("nomorUrut")).addOrder(Order.asc("isi")).addOrder(Order.asc("id")).list();
 			if (rows == null) {
 				return map;
 			}
