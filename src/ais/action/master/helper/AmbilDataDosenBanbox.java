@@ -51,31 +51,40 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data dosen banbox. Kelas ini memberi nama dan batas tanggung jawab yang
- * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code EventListener eventListener}, {@code Tbmuser tbmuser},
- * {@code PerguruanTinggi perguruanTinggi}, {@code Boolean tanpaLihatPt}, {@code boolean hanyaDosenTetap}, {@code
- * Textbox kode}; pembacaan/pencarian ({@code onSearchDefault()}, {@code setEventListener()}, {@code
- * getEventListener()}); mutasi data ({@code setHanyaDosenTetap()}); operasi domain lain ({@code display()},
- * {@code isHanyaDosenTetap()}); konfigurasi constructor: {@code perguruanTinggi}, {@code tbmuser}. Bagian lain
- * dari kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.Dosen} — lihat
+ * {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback). {@code Dosen} adalah master data
+ * pengajar/dosen kampus, boleh terikat ke satu fakultas/jurusan (home-base) atau ditandai
+ * {@code milikUniversitas} (dosen "lintas prodi" yang tidak terikat satu jurusan saja, mis. dosen
+ * mata kuliah umum/MKU).
+ * <p>
+ * Popup menampilkan grid pilih-tunggal (via {@link Radiogroup}) dengan filter "NIDN/Kode" (cocok
+ * {@code mycode}, {@code nidn}, atau {@code code}), "Nama", "Fakultas" dan "Prodi" (combobox
+ * berjenjang, diinisialisasi lewat {@code Common.initFakultasDanJurusanDanSemua}), ditambah
+ * toggle "Lintas prodi" (default AKTIF) yang bila dicentang menampilkan dosen
+ * {@code milikUniversitas=true} SEBAGAI PENGGANTI filter fakultas/jurusan biasa (union logika:
+ * cocok jurusan ATAU milik universitas). Hasil selalu dibatasi ke dosen berstatus kepegawaian
+ * "aktif" (prefiks nama status, atau tanpa status) dan {@code aktif=true}/null; bila
+ * {@link #hanyaDosenTetap} diaktifkan lewat {@link #setHanyaDosenTetap(boolean)}, ditambah syarat
+ * punya {@code ikatanKerjaDosen.tetap=true} (dosen tetap, bukan honorer/luar biasa). Bila komponen
+ * dibuat dalam konteks satu {@link PerguruanTinggi}, hasil juga dibatasi ke dosen milik perguruan
+ * tinggi tersebut (atau tanpa perguruan tinggi).
+ * <p>
+ * <b>Empat constructor dengan perilaku tidak simetris</b> (catat sebagai kekhasan, bukan
+ * dianggap error dokumentasi): hanya constructor 4-parameter
+ * {@link #AmbilDataDosenBanbox(Boolean, Boolean, Boolean)} yang benar-benar memakai nilai
+ * parameter yang diberikan; constructor 1 dan 2 parameter mendelegasikan ke overload lain dengan
+ * nilai HARDCODE, mengabaikan sebagian argumen yang diterima dari pemanggil — perilaku ini sudah
+ * ada di kode asli dan TIDAK diubah di sini. Bila {@code semua=false} dan user login adalah dosen
+ * itu sendiri, constructor otomatis memasang dosen tersebut sebagai nilai default dan
+ * menonaktifkan komponen ({@code setDisabled(true)}).
  *
  * @see Bandbox
  */
 public class AmbilDataDosenBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 * Serial version UID standar untuk kompatibilitas serialisasi komponen ZK.
 	 */
 	private static final long serialVersionUID = 6452451056684904810L;
 	private MyGrid grid;
@@ -89,18 +98,49 @@ public class AmbilDataDosenBanbox extends Bandbox implements GetEventListener {
 	private Boolean tanpaLihatPt;
 	private boolean hanyaDosenTetap;
 
+	/** Constructor default: mendelegasikan ke {@link #AmbilDataDosenBanbox(Boolean)} dengan {@code notDeafault=true}. */
 	public AmbilDataDosenBanbox() {
 		this(true);
 	}
 
+	/**
+	 * Catatan: parameter {@code notDeafault} TIDAK dipakai — constructor ini selalu
+	 * mendelegasikan ke {@link #AmbilDataDosenBanbox(Boolean, Boolean)} dengan
+	 * {@code (true, false)}, mengabaikan nilai argumen yang diberikan pemanggil. Perilaku ini
+	 * sudah ada di kode asli.
+	 *
+	 * @param notDeafault diabaikan, lihat catatan di atas
+	 */
 	public AmbilDataDosenBanbox(Boolean notDeafault) {
 		this(true, false);
 	}
 
+	/**
+	 * Catatan: KEDUA parameter TIDAK dipakai — constructor ini selalu mendelegasikan ke
+	 * {@link #AmbilDataDosenBanbox(Boolean, Boolean, Boolean)} dengan {@code (false, true, false)},
+	 * mengabaikan nilai argumen yang diberikan pemanggil. Perilaku ini sudah ada di kode asli.
+	 *
+	 * @param notDeafault diabaikan, lihat catatan di atas
+	 * @param tanpaLihatPt diabaikan, lihat catatan di atas
+	 */
 	public AmbilDataDosenBanbox(Boolean notDeafault, Boolean tanpaLihatPt) {
 		this(false, true, false);
 	}
 
+	/**
+	 * Membangun komponen (satu-satunya constructor yang benar-benar memakai seluruh
+	 * parameternya): menginisialisasi filter fakultas/prodi mengikuti fakultas user login (bila
+	 * user bukan mahasiswa/siswa), memasang dosen milik user login sebagai nilai default dan
+	 * menonaktifkan komponen bila {@code semua=false} dan user adalah dosen, lalu memasang
+	 * listener {@code onOpen} yang membangun popup ({@link #display()}) pada pembukaan pertama.
+	 *
+	 * @param semua        {@code false} untuk otomatis memilih dosen milik user login sendiri
+	 *                     (bila user adalah dosen) dan menonaktifkan komponen
+	 * @param notDeafault  disimpan tapi tidak dipakai langsung di sini (dipakai lewat kombinasi
+	 *                     parameter lain pada overload di atas)
+	 * @param tanpaLihatPt {@code true} untuk mengabaikan scoping {@link PerguruanTinggi} pada
+	 *                     pencarian
+	 */
 	public AmbilDataDosenBanbox(Boolean semua, Boolean notDeafault, Boolean tanpaLihatPt) {
 		super();
 		this.tanpaLihatPt = tanpaLihatPt;
@@ -164,16 +204,11 @@ public class AmbilDataDosenBanbox extends Bandbox implements GetEventListener {
 	private MyCheckboxConfig milikUniversitas;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataDosenBanbox}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataDosenBanbox} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Merender satu baris grid: radio pilih, foto kecil ({@link CommonMedia}), kode+NIDN
+	 * (digabung {@link Vbox}), nama, dan nama jurusan. Memilih baris menutup popup, menyimpan
+	 * entity {@link Dosen} terpilih ke attribute {@code "dosen"}/{@code "myValue"} pada Bandbox,
+	 * mengisi teks tampilan dengan namanya, lalu memicu {@link #eventListener} bila terpasang —
+	 * mengikuti kerangka callback standar di {@link ais.ui.util.GetEventListener}.
 	 *
 	 * @see AmbilDataDosenBanbox
 	 */
@@ -214,6 +249,13 @@ public class AmbilDataDosenBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/**
+	 * Membangun popup pencarian (dipanggil sekali saat pertama dibuka): form filter NIDN/Kode,
+	 * Nama, Fakultas, Prodi, toggle "Lintas prodi", grid hasil bermold "paging", lalu memuat
+	 * data awal lewat {@link #onSearchDefault(Event)}. Setelah render, filter fakultas/prodi
+	 * dikunci/dibuka tergantung apakah user login adalah mahasiswa dan konfigurasi
+	 * {@code bisa_pilih_prodi_lain_saat_pilih_dosen_pa}.
+	 */
 	public void display() {
 
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
@@ -401,6 +443,18 @@ public class AmbilDataDosenBanbox extends Bandbox implements GetEventListener {
 		});
 	}
 
+	/**
+	 * Menyusun dan menjalankan kriteria pencarian {@link Dosen}: status kepegawaian aktif, (bila
+	 * {@link #hanyaDosenTetap}) punya ikatan kerja tetap, cocok nama dan kode/NIDN (ILIKE
+	 * ANYWHERE), cocok jurusan ATAU {@code milikUniversitas} (toggle "Lintas prodi"), cocok
+	 * fakultas ATAU {@code milikUniversitas} (dilewati sepenuhnya bila
+	 * {@link #tanpaLihatPt} — nama parameter menyesatkan, sebenarnya berarti "tanpa filter
+	 * fakultas", bukan terkait {@link PerguruanTinggi}), dan scoping {@link #perguruanTinggi}
+	 * bila diset. Dibatasi {@link Common#MAX_RESULT_50} baris. Mengisi ulang grid dengan hasilnya
+	 * beserta {@link DosenRenderer}.
+	 *
+	 * @param event tidak dipakai, hanya mengikuti signature standar listener pencarian
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -460,18 +514,28 @@ public class AmbilDataDosenBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/** @param eventListener dipanggil setiap kali user memilih satu dosen */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** @return listener pemilihan dosen yang sedang terpasang, boleh {@code null} */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
 
+	/** @return {@code true} bila pencarian dibatasi hanya ke dosen dengan ikatan kerja tetap */
 	public boolean isHanyaDosenTetap() {
 		return hanyaDosenTetap;
 	}
 
+	/**
+	 * Mengaktifkan/menonaktifkan pembatasan hasil pencarian hanya ke dosen dengan
+	 * {@code ikatanKerjaDosen.tetap=true}. Tidak memuat ulang grid secara otomatis — panggil
+	 * {@link #onSearchDefault(Event)} setelahnya bila popup sudah terbuka.
+	 *
+	 * @param hanyaDosenTetap {@code true} untuk membatasi hanya ke dosen tetap
+	 */
 	public void setHanyaDosenTetap(boolean hanyaDosenTetap) {
 		this.hanyaDosenTetap = hanyaDosenTetap;
 	}

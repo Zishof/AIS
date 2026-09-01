@@ -43,31 +43,25 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data gelombang pendaftaran banbox. Kelas ini memberi nama dan batas
- * tanggung jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang
- * diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code PerguruanTinggi perguruanTinggi}, {@code Textbox
- * nama}, {@code Combobox ta}, {@code EventListener eventListener}; pembacaan/pencarian ({@code
- * getEventListener()}, {@code setEventListener()}, {@code onSearchDefault()}); operasi domain lain ({@code
- * display()}); konfigurasi constructor: {@code perguruanTinggi}. Bagian lain dari kontrak tetap mengikuti kelas
- * induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity
+ * {@link ais.database.model.GelombangPendaftaran} — lihat {@link ais.ui.util.GetEventListener}
+ * untuk arsitektur kerangka umum (constructor/display/onSearchDefault/renderer/callback). {@code
+ * GelombangPendaftaran} adalah gelombang/periode pendaftaran mahasiswa baru (PMB) — mis.
+ * "Gelombang 1", "Gelombang 2" — masing-masing terikat ke satu tahun akademik dan jenis semester.
+ * <p>
+ * Popup menampilkan grid pilih-tunggal (via {@link Radiogroup}/{@link Radio}) dengan filter "Nama"
+ * (ILIKE ANYWHERE) dan "TA" (combobox tahun akademik, diisi lewat {@code Common.generateTahunAjaran}
+ * dan otomatis dipraseleksi ke konfigurasi {@code tahunAkademikPenerimaanMahasiswaBaru} atau tahun
+ * akademik berjalan bila konfigurasi kosong). Bila komponen dibuat dalam konteks satu
+ * {@link PerguruanTinggi}, hasil dibatasi ke gelombang milik perguruan tinggi tersebut (atau tanpa
+ * perguruan tinggi). Diurutkan menurun berdasarkan id, dibatasi {@link Common#MAX_RESULT_50} baris.
  *
  * @see Bandbox
  */
 public class AmbilDataGelombangPendaftaranBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 * Serial version UID standar untuk kompatibilitas serialisasi komponen ZK.
 	 */
 	private static final long serialVersionUID = 6452461056684904810L;
 	private MyGrid grid;
@@ -76,6 +70,11 @@ public class AmbilDataGelombangPendaftaranBanbox extends Bandbox implements GetE
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
 	private PerguruanTinggi perguruanTinggi;
 
+	/**
+	 * Membangun komponen: mendeteksi {@link PerguruanTinggi} aktif untuk scoping hasil, lalu
+	 * memasang listener {@code onOpen} yang, pada pembukaan pertama, membangun popup
+	 * ({@link #display()}), mengikuti kerangka umum di {@link ais.ui.util.GetEventListener}.
+	 */
 	public AmbilDataGelombangPendaftaranBanbox() {
 		super();
 
@@ -107,25 +106,22 @@ public class AmbilDataGelombangPendaftaranBanbox extends Bandbox implements GetE
 	private Combobox ta;
 	private EventListener eventListener;
 
+	/** @return listener pemilihan gelombang pendaftaran yang sedang terpasang, boleh {@code null} */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
 
+	/** @param eventListener dipanggil setiap kali user memilih satu gelombang pendaftaran */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataGelombangPendaftaranBanbox}. Kelas ini menerjemahkan
-	 * satu item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataGelombangPendaftaranBanbox} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Merender satu baris grid: radio pilih berlabel nama gelombang, tahun akademik, dan jenis
+	 * semester. Memilih baris menutup popup, menyimpan entity {@link GelombangPendaftaran}
+	 * terpilih ke attribute {@code "gelombangPendaftaran"}/{@code "myValue"} pada Bandbox,
+	 * mengisi teks tampilan dengan namanya, lalu memicu {@link #eventListener} bila terpasang —
+	 * mengikuti kerangka callback standar di {@link ais.ui.util.GetEventListener}.
 	 *
 	 * @see AmbilDataGelombangPendaftaranBanbox
 	 */
@@ -163,6 +159,11 @@ public class AmbilDataGelombangPendaftaranBanbox extends Bandbox implements GetE
 
 	}
 
+	/**
+	 * Membangun popup pencarian (dipanggil sekali saat pertama dibuka): form filter Nama/TA
+	 * (dengan TA otomatis dipraseleksi ke konfigurasi tahun akademik PMB), grid hasil bermold
+	 * "paging", lalu memuat data awal lewat {@link #onSearchDefault(Event)}.
+	 */
 	public void display() {
 		setReadonly(true);
 
@@ -290,6 +291,15 @@ public class AmbilDataGelombangPendaftaranBanbox extends Bandbox implements GetE
 
 	}
 
+	/**
+	 * Menyusun dan menjalankan kriteria pencarian {@link GelombangPendaftaran}: cocok nama (ILIKE
+	 * ANYWHERE), cocok tahun akademik terpilih, dan (bila {@link #perguruanTinggi} diset)
+	 * dibatasi ke gelombang milik perguruan tinggi tersebut atau tanpa perguruan tinggi;
+	 * diurutkan menurun berdasarkan id, dibatasi {@link Common#MAX_RESULT_50} baris. Mengisi
+	 * ulang grid dengan hasilnya beserta {@link CalonMahasiswaRenderer}.
+	 *
+	 * @param event tidak dipakai, hanya mengikuti signature standar listener pencarian
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

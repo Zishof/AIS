@@ -42,35 +42,39 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data dosen skripsi banbox. Kelas ini memberi nama dan batas tanggung
- * jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code EventListener
- * eventListener}, {@code Textbox kode}, {@code Textbox nama}, {@code Combobox searchfakultas}, {@code Combobox
- * searchjurusan}; pembacaan/pencarian ({@code onSearchDefault()}, {@code setEventListener()}, {@code
- * getEventListener()}); operasi domain lain ({@code display()}). Bagian lain dari kontrak tetap mengikuti kelas
- * induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.Dosen} — lihat
+ * {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback). Varian {@link AmbilDataDosenBanbox}
+ * yang disederhanakan khusus untuk pemilihan dosen pembimbing/penguji skripsi: tanpa auto-default
+ * dosen milik user login, tanpa parameter {@code hanyaDosenTetap}/{@code tanpaLihatPt}/
+ * {@code perguruanTinggi}.
+ * <p>
+ * Popup menampilkan grid pilih-tunggal (via {@link Radiogroup}) dengan filter "NIP" (cocok kolom
+ * {@code code}), "Nama", "Fakultas", dan "Prodi" (combobox berjenjang, diinisialisasi lewat
+ * {@code Common.initFakultasDanJurusanDanSemua} pada listener {@code onOpen} — beda dari
+ * {@link AmbilDataDosenBanbox} yang menginisialisasinya di {@link #display()}). Hasil selalu
+ * dibatasi ke dosen aktif; filter jurusan dan fakultas masing-masing dilewati (OR) bila dosen
+ * {@code milikUniversitas=true}, sehingga dosen lintas-prodi selalu muncul di hasil apa pun
+ * filter fakultas/prodi yang dipilih.
  *
  * @see Bandbox
  */
 public class AmbilDataDosenSkripsiBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 * Serial version UID standar untuk kompatibilitas serialisasi komponen ZK.
 	 */
 	private static final long serialVersionUID = 6452451056684904810L;
 	private MyGrid grid;
 
 	private EventListener eventListener;
 
+	/**
+	 * Membangun komponen: memasang mode read-only standar dan listener {@code onOpen} yang, pada
+	 * pembukaan pertama, menginisialisasi combobox Fakultas/Jurusan lewat
+	 * {@code Common.initFakultasDanJurusanDanSemua} lalu membangun popup ({@link #display()}) —
+	 * mengikuti kerangka umum di {@link ais.ui.util.GetEventListener}.
+	 */
 	public AmbilDataDosenSkripsiBanbox() {
 		super();
 		setReadonly(true);
@@ -101,16 +105,12 @@ public class AmbilDataDosenSkripsiBanbox extends Bandbox implements GetEventList
 	private Combobox searchjurusan = new Combobox();
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataDosenSkripsiBanbox}. Kelas ini menerjemahkan satu item
-	 * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataDosenSkripsiBanbox} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Merender satu baris grid: radio pilih, kode, NIDN, nama, alamat, dan kepemilikan
+	 * ("Milik Universitas" bila {@code milikUniversitas=true}, atau nama
+	 * jurusan/fakultas pemilik). Memilih baris menutup popup, menyimpan entity {@link Dosen}
+	 * terpilih ke attribute {@code "dosen"}/{@code "myValue"} pada Bandbox, mengisi teks
+	 * tampilan dengan namanya, lalu memicu {@link #eventListener} bila terpasang — mengikuti
+	 * kerangka callback standar di {@link ais.ui.util.GetEventListener}.
 	 *
 	 * @see AmbilDataDosenSkripsiBanbox
 	 */
@@ -167,6 +167,12 @@ public class AmbilDataDosenSkripsiBanbox extends Bandbox implements GetEventList
 
 	}
 
+	/**
+	 * Membangun popup pencarian (dipanggil sekali saat pertama dibuka): form filter NIP/Nama/
+	 * Fakultas/Prodi, grid hasil bermold "paging", lalu memuat data awal lewat
+	 * {@link #onSearchDefault(Event)}. Setelah render, filter fakultas/prodi dipastikan aktif
+	 * (tidak terkunci) lewat timer default.
+	 */
 	public void display() {
 		setReadonly(true);
 
@@ -321,6 +327,15 @@ public class AmbilDataDosenSkripsiBanbox extends Bandbox implements GetEventList
 		});
 	}
 
+	/**
+	 * Menyusun dan menjalankan kriteria pencarian {@link Dosen}: aktif, cocok nama dan kode
+	 * (ILIKE ANYWHERE), cocok jurusan ATAU {@code milikUniversitas=true}, cocok fakultas ATAU
+	 * {@code milikUniversitas=true} — dosen lintas-prodi selalu lolos filter fakultas/jurusan.
+	 * Dibatasi {@link Common#MAX_RESULT} baris. Mengisi ulang grid dengan hasilnya beserta
+	 * {@link DosenRenderer}.
+	 *
+	 * @param event tidak dipakai, hanya mengikuti signature standar listener pencarian
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -354,10 +369,12 @@ public class AmbilDataDosenSkripsiBanbox extends Bandbox implements GetEventList
 
 	}
 
+	/** @param eventListener dipanggil setiap kali user memilih satu dosen */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** @return listener pemilihan dosen yang sedang terpasang, boleh {@code null} */
 	public EventListener getEventListener() {
 		return eventListener;
 	}

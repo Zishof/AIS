@@ -53,32 +53,35 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data masa perkuliahan banbox. Kelas ini memberi nama dan batas tanggung
- * jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code EventListener
- * eventListener}, {@code Jurusan jurusan}, {@code Tbmuser tbmuser}, {@code boolean
- * masaPerkuliahanHanyaBolehDiubahOlheAdmin}, {@code Textbox nama}, {@code Combobox searchfakultas}, {@code
- * Combobox searchjurusan}; pembacaan/pencarian ({@code onSearchDefault()}, {@code setEventListener()}, {@code
- * getEventListener()}); mutasi data ({@code setJurusan()}, {@code setJurusanSelected()}, {@code
- * setFakultasSelected()}); operasi domain lain ({@code display()}); konfigurasi constructor: {@code
- * masaPerkuliahanHanyaBolehDiubahOlheAdmin}. Bagian lain dari kontrak tetap mengikuti kelas induk atau interface
- * yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.MasaPerkuliahan}
+ * — lihat {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback).
+ * <p>
+ * {@code MasaPerkuliahan} adalah master data periode akademik (mis. rentang tanggal "Semester
+ * Ganjil 2024/2025"), opsional dikaitkan ke {@code Jurusan}/{@code Fakultas}/program tertentu
+ * (kosong berarti "Semua"), dan bisa ditandai {@code defaultData} sebagai periode aktif sistem
+ * saat ini. KHAS kelas ini: constructor LANGSUNG mem-preselect {@link MasaPerkuliahan} yang
+ * {@code defaultData == true} (query terpisah dari popup, dieksekusi sebelum popup pernah dibuka)
+ * — Bandbox sudah terisi nilai default begitu instance dibuat, sebelum pengguna membuka apa pun.
+ * Popup pencarian menyediakan field {@code nama}, Combobox fakultas/tahun akademik/program/prodi,
+ * dan checkbox {@code tampilkanHanyaYgAktif} (default tercentang). Filter jurusan/program/fakultas
+ * SELALU digabung {@code Restrictions.or(isNull(...), ...)} agar entri "Semua" tetap tampil.
+ * Constructor menerima {@link Jurusan} induk opsional yang mengunci Combobox fakultas dan prodi
+ * (sama seperti pola {@link AmbilDataJamPerkuliahanBanbox}). Sama seperti
+ * {@link AmbilDataJamPerkuliahanBanbox}, popup ini juga menyediakan aksi CRUD langsung (tombol
+ * Tambah/Ubah/Hapus, checkbox Aktif/Default) — tapi di sini akses diatur dua lapis: konfigurasi
+ * {@code masa_perkuliahan_hanya_boleh_diubah_oleh_admin} (bila aktif, hanya admin yang bisa ubah)
+ * DAN jenis pengguna (mahasiswa/siswa/dosen selalu TIDAK bisa ubah, terlepas dari privilese lain).
+ * Toggle checkbox "Default" pada satu baris otomatis meng-unset flag default pada SEMUA baris lain
+ * lewat SQL langsung. Pemilihan bersifat TUNGGAL (Radiogroup).
+ * </p>
  *
  * @see Bandbox
  */
 public class AmbilDataMasaPerkuliahanBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 *
 	 */
 	private static final long serialVersionUID = 6452451056684904810L;
 	private MyGrid grid;
@@ -89,10 +92,25 @@ public class AmbilDataMasaPerkuliahanBanbox extends Bandbox implements GetEventL
 	private Tbmuser tbmuser = Common.getCurrentUser();
 	private boolean masaPerkuliahanHanyaBolehDiubahOlheAdmin = false;
 
+	/**
+	 * Konstruktor default, mendelegasikan ke {@link #AmbilDataMasaPerkuliahanBanbox(Jurusan)}
+	 * dengan {@code jurusan = null} (tidak dikunci ke prodi tertentu).
+	 */
 	public AmbilDataMasaPerkuliahanBanbox() {
 		this(null);
 	}
 
+	/**
+	 * Konstruktor dengan filter opsional dari entity induk {@link Jurusan}: bila diisi, Combobox
+	 * fakultas dan prodi di popup pencarian dikunci ke fakultas/prodi jurusan tersebut. Membaca
+	 * konfigurasi {@code masa_perkuliahan_hanya_boleh_diubah_oleh_admin} untuk menentukan hak edit
+	 * di {@link #display()}/{@link MasaPerkuliahanRenderer}, memasang listener {@code onOpen}
+	 * standar, lalu — KHAS constructor ini — LANGSUNG mengeksekusi query terpisah untuk mencari
+	 * {@link MasaPerkuliahan} dengan {@code defaultData == true} dan mem-preselect-nya ke Bandbox
+	 * (tanpa menunggu popup dibuka).
+	 *
+	 * @param jurusan prodi induk untuk mengunci pencarian, atau {@code null} untuk pencarian bebas
+	 */
 	public AmbilDataMasaPerkuliahanBanbox(Jurusan jurusan) {
 		super();
 		masaPerkuliahanHanyaBolehDiubahOlheAdmin = Common.bolehKonfigurasi("masa_perkuliahan_hanya_boleh_diubah_oleh_admin", Konfigurasi.TIDAK_AKTIF);
@@ -128,6 +146,17 @@ public class AmbilDataMasaPerkuliahanBanbox extends Bandbox implements GetEventL
 		}
 	}
 
+	/**
+	 * Mengganti prodi induk yang mengunci pencarian setelah instance dibuat: mengosongkan nilai
+	 * dan atribut Bandbox saat ini, memberi tahu {@link #eventListener} tentang pengosongan
+	 * tersebut, mereset Combobox fakultas/prodi, lalu membangun ulang popup lewat
+	 * {@link #display()} dengan {@link Jurusan} baru. Bukan bagian kerangka standar — method
+	 * spesifik entity ini untuk kasus form yang mengganti prodi pilihan setelah Bandbox terpasang.
+	 *
+	 * @param jurusan prodi induk baru untuk mengunci pencarian
+	 * @throws Exception diteruskan dari {@link EventListener#onEvent(Event)} milik
+	 *                    {@link #eventListener}
+	 */
 	public void setJurusan(Jurusan jurusan) throws Exception {
 
 		setValue("");
@@ -142,27 +171,32 @@ public class AmbilDataMasaPerkuliahanBanbox extends Bandbox implements GetEventL
 		display();
 	}
 
+	/** Kriteria pencarian: nama masa perkuliahan (ilike, substring). */
 	private Textbox nama;
 
+	/** Kriteria pencarian: fakultas (termasuk cakupan "Semua"). */
 	private Combobox searchfakultas = new Combobox();
+	/** Kriteria pencarian: prodi (termasuk cakupan "Semua"). */
 	private Combobox searchjurusan = new Combobox();
+	/** Kriteria pencarian: program/jenjang (termasuk cakupan "Semua"). */
 	private Combobox searchprogram = new Combobox();
 	private Jurusan selectedJurusan;
 	private Fakultas selectedFakultas;
+	/** Kriteria pencarian: tahun akademik. */
 	private Combobox searchtahunakademik;
+	/** Kriteria pencarian: hanya tampilkan baris aktif (default tercentang). */
 	private MyCheckboxConfig tampilkanHanyaYgAktif;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataMasaPerkuliahanBanbox}. Kelas ini menerjemahkan satu
-	 * item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataMasaPerkuliahanBanbox} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer baris grid hasil pencarian {@link MasaPerkuliahan}: rentang tanggal mulai/sampai,
+	 * tahun akademik, program/jurusan/fakultas (tampil "Semua" bila kosong), dan radio button
+	 * pilihan mengikuti kerangka standar (lihat {@link ais.ui.util.GetEventListener}). KHUSUS
+	 * entity ini, bila pengguna diizinkan mengubah (lihat aturan dua lapis di Javadoc class), baris
+	 * juga menampilkan checkbox Aktif dan Default (toggle "Default" pada satu baris meng-unset
+	 * default di SEMUA baris lain lewat SQL langsung) serta tombol Ubah/Hapus (memanggil
+	 * {@link MasaPerkuliahanAction#onAddExternal}/{@code onDelete}); bila tidak diizinkan, hanya
+	 * label status Aktif/Tidak Aktif yang tampil. Penghapusan yang gagal karena constraint FK
+	 * ditangani dengan pesan ramah lewat {@link ais.common.PesanFormalHelper}.
 	 *
 	 * @see AmbilDataMasaPerkuliahanBanbox
 	 */
@@ -330,6 +364,17 @@ public class AmbilDataMasaPerkuliahanBanbox extends Bandbox implements GetEventL
 
 	}
 
+	/**
+	 * Membangun popup pencarian {@link MasaPerkuliahan} sekali (dipanggil lazy dari listener
+	 * {@code onOpen} atau ulang dari {@link #setJurusan(Jurusan)}): form dengan field nama,
+	 * fakultas, tahun akademik, program, prodi, dan checkbox "Hanya yg aktif", tombol Cari, dan
+	 * grid hasil dibungkus {@link org.zkoss.zul.Radiogroup} (pilih tunggal). Combobox
+	 * fakultas/prodi dikunci bila {@link #jurusan} sudah ditentukan lewat constructor. Bila
+	 * pengguna diizinkan mengubah (lihat aturan dua lapis di Javadoc class), toolbar juga
+	 * menampilkan tombol Tambah Masa Perkuliahan. Mengikuti kerangka {@code display()} standar —
+	 * lihat {@link ais.ui.util.GetEventListener}. Memanggil {@link #onSearchDefault(Event)} di
+	 * akhir agar grid terisi saat popup pertama dibuka.
+	 */
 	public void display() {
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 		setReadonly(true);
@@ -528,6 +573,19 @@ public class AmbilDataMasaPerkuliahanBanbox extends Bandbox implements GetEventL
 
 	}
 
+	/**
+	 * Mengeksekusi pencarian {@link MasaPerkuliahan} dengan filter {@code aktif} (hanya bila
+	 * checkbox {@link #tampilkanHanyaYgAktif} tercentang), tahun akademik (eq bila dipilih),
+	 * {@code nama} (ilike substring), dan jurusan/program/fakultas — SEMUA digabung
+	 * {@code Restrictions.or(isNull(...), ...)} sehingga masa perkuliahan berlaku "Semua" selalu
+	 * ikut tampil terlepas dari kombinasi filter. Diurutkan menurun berdasar tanggal mulai lalu
+	 * sampai, dibatasi {@link ais.common.Common#MAX_RESULT}, lalu memasang
+	 * {@link MasaPerkuliahanRenderer} dan model hasil ke {@link #grid}. Mengikuti kerangka
+	 * {@code onSearchDefault} standar — lihat {@link ais.ui.util.GetEventListener}.
+	 *
+	 * @param event event pemicu (klik tombol Cari, atau efek samping dari aksi tambah/hapus
+	 *              inline); boleh {@code null} saat dipanggil dari {@link #display()}
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -565,19 +623,36 @@ public class AmbilDataMasaPerkuliahanBanbox extends Bandbox implements GetEventL
 
 	}
 
+	/** {@inheritDoc} Implementasi setter polos standar — lihat {@link ais.ui.util.GetEventListener}. */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** {@inheritDoc} Implementasi getter polos standar — lihat {@link ais.ui.util.GetEventListener}. */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
 
+	/**
+	 * Menetapkan prodi yang akan diprapilih (bukan dikunci) pada Combobox prodi saat popup
+	 * berikutnya dibangun, dan membersihkan state Bandbox (nilai/atribut) via
+	 * {@link Common#clear(org.zkoss.zul.Bandbox)}. Berbeda dari {@link #setJurusan(Jurusan)}: ini
+	 * hanya mengubah default pilihan combo, bukan mengunci/membatasi hasil pencarian.
+	 *
+	 * @param jurusan prodi yang akan diprapilih
+	 */
 	public void setJurusanSelected(Jurusan jurusan) {
 		Common.clear(this);
 		this.selectedJurusan = jurusan;
 	}
 
+	/**
+	 * Menetapkan fakultas yang akan diprapilih pada Combobox fakultas saat popup berikutnya
+	 * dibangun, dan membersihkan state Bandbox (nilai/atribut). Lihat catatan
+	 * {@link #setJurusanSelected(Jurusan)} — hanya mengubah default pilihan, bukan mengunci hasil.
+	 *
+	 * @param fakultas fakultas yang akan diprapilih
+	 */
 	public void setFakultasSelected(Fakultas fakultas) {
 		Common.clear(this);
 		this.selectedFakultas = fakultas;

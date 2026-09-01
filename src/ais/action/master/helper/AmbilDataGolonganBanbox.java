@@ -38,29 +38,23 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data golongan banbox. Kelas ini memberi nama dan batas tanggung jawab
- * yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code EventListener eventListener}, {@code Textbox nama};
- * pembacaan/pencarian ({@code onSearchDefault()}, {@code setEventListener()}, {@code getEventListener()});
- * operasi domain lain ({@code display()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface
- * yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity
+ * {@link ais.database.model.employ.Golongan} — lihat {@link ais.ui.util.GetEventListener} untuk
+ * arsitektur kerangka umum (constructor/display/onSearchDefault/renderer/callback). {@code
+ * Golongan} adalah master data golongan/pangkat kepegawaian (mis. "III/a", "IV/b" ala golongan
+ * PNS, atau skema golongan internal kampus) yang dipakai untuk mengklasifikasikan
+ * {@link ais.database.model.Pegawai} pada modul kepegawaian.
+ * <p>
+ * Popup menampilkan grid pilih-tunggal (via {@link Radiogroup}) dengan satu filter teks "Nama"
+ * (ILIKE ANYWHERE), dibatasi ke golongan yang aktif ({@code aktif} null dianggap aktif), diurutkan
+ * menaik berdasarkan nama. Kolom grid menampilkan kode, nama, dan keterangan golongan.
  *
  * @see Bandbox
  */
 public class AmbilDataGolonganBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 * Serial version UID standar untuk kompatibilitas serialisasi komponen ZK.
 	 */
 	private static final long serialVersionUID = 6452461056684904810L;
 	private MyGrid grid;
@@ -69,6 +63,11 @@ public class AmbilDataGolonganBanbox extends Bandbox implements GetEventListener
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
 	private EventListener eventListener;
 
+	/**
+	 * Membangun komponen dan memasang listener {@code onOpen} yang, pada pembukaan pertama,
+	 * membangun popup ({@link #display()}), mengikuti kerangka umum di
+	 * {@link ais.ui.util.GetEventListener}.
+	 */
 	public AmbilDataGolonganBanbox() {
 		super();
 
@@ -93,16 +92,10 @@ public class AmbilDataGolonganBanbox extends Bandbox implements GetEventListener
 	private Textbox nama;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataGolonganBanbox}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataGolonganBanbox} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Merender satu baris grid: radio pilih, kode, nama, dan keterangan golongan. Memilih baris
+	 * menutup popup, menyimpan entity {@link Golongan} terpilih ke attribute {@code "golongan"}
+	 * pada Bandbox, mengisi teks tampilan dengan namanya, lalu memicu {@link #eventListener} bila
+	 * terpasang — mengikuti kerangka callback standar di {@link ais.ui.util.GetEventListener}.
 	 *
 	 * @see AmbilDataGolonganBanbox
 	 */
@@ -138,6 +131,10 @@ public class AmbilDataGolonganBanbox extends Bandbox implements GetEventListener
 
 	}
 
+	/**
+	 * Membangun popup pencarian (dipanggil sekali saat pertama dibuka): form filter Nama, grid
+	 * hasil bermold "paging", lalu memuat data awal lewat {@link #onSearchDefault(Event)}.
+	 */
 	public void display() {
 		setReadonly(true);
 		Bandpopup bandpopup = new ais.ui.util.MyBandpopup();
@@ -245,6 +242,13 @@ public class AmbilDataGolonganBanbox extends Bandbox implements GetEventListener
 
 	}
 
+	/**
+	 * Menyusun dan menjalankan kriteria pencarian {@link Golongan}: aktif, cocok nama (ILIKE
+	 * ANYWHERE), diurutkan menaik berdasarkan nama, dibatasi {@link Common#MAX_RESULT} baris.
+	 * Mengisi ulang grid dengan hasilnya beserta {@link GolonganRenderer}.
+	 *
+	 * @param event tidak dipakai, hanya mengikuti signature standar listener pencarian
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -262,10 +266,12 @@ public class AmbilDataGolonganBanbox extends Bandbox implements GetEventListener
 
 	}
 
+	/** @param eventListener dipanggil setiap kali user memilih satu golongan */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** @return listener pemilihan golongan yang sedang terpasang, boleh {@code null} */
 	public EventListener getEventListener() {
 		return eventListener;
 	}

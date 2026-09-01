@@ -51,31 +51,36 @@ import ais.ui.util.MyGrid;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data mahasiswa tanpa dosen pa. Kelas ini memberi nama dan batas tanggung
- * jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code EventListener eventListener}, {@code Boolean
- * hanyaYangAktif}, {@code List indsMhsPerkuliahan}, {@code PerguruanTinggi perguruanTinggi}, {@code Textbox
- * nim}, {@code Textbox nama}; inisialisasi/lifecycle ({@code initCriteria()}); pembacaan/pencarian ({@code
- * onSearchDefault()}, {@code setEventListener()}, {@code getEventListener()}); operasi domain lain ({@code
- * display()}); konfigurasi constructor: {@code perguruanTinggi}. Bagian lain dari kontrak tetap mengikuti kelas
- * induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.Mahasiswa} — lihat
+ * {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback).
+ * <p>
+ * Varian picker {@link Mahasiswa} lain yang strukturnya sangat mirip
+ * {@link AmbilDataMahasiswaBanbox} (field pencarian, scoping {@link PerguruanTinggi}, penguncian
+ * ke data diri sendiri bila pengguna login adalah mahasiswa, paging server-side
+ * {@link ais.ui.util.AmbilDataPagingHelper}), tapi LEBIH SEDERHANA: tanpa field pencarian status
+ * mahasiswa berjalan maupun dosen PA, dan tanpa opsi {@code hanyaAlumni}. CATATAN PENTING: nama
+ * kelas ini menyiratkan "mahasiswa tanpa dosen PA", namun {@link #initCriteria(Session, boolean)}
+ * TIDAK memuat filter apa pun terkait kolom {@code dosenPa} — query yang berjalan saat ini
+ * berperilaku sama seperti pencarian mahasiswa biasa (dibatasi {@code aktif}, opsional
+ * {@link #indsMhsPerkuliahan}, kelas, status awal, nama, NIM, tahun angkatan, program, prodi,
+ * fakultas, dan scoping {@link PerguruanTinggi}); filter "tanpa dosen PA" yang tersirat dari nama
+ * kelas TIDAK ditemukan di kode saat ini — dokumentasikan apa adanya, jangan diasumsikan ada.
+ * Popup pencarian menyediakan field {@code nim}, {@code nama} (ilike substring),
+ * {@code searchprogram}, {@code tahunangkatan} (eq), {@code searchstatusawal}, {@code kelas}
+ * (Bandbox nested {@link AmbilDataKelasBanbox}, exact match ke kolom denormalisasi
+ * {@code kelas}), dan Combobox fakultas/prodi. Constructor dengan {@code hanyaYangAktif} DIPAKAI
+ * dengan benar di sini (berbeda dari kuirk yang ada di {@link AmbilDataMahasiswaBanbox}) — renderer
+ * menonaktifkan radio button mahasiswa nonaktif bila flag ini true. Pemilihan bersifat TUNGGAL
+ * (Radio dalam Radiogroup).
+ * </p>
  *
  * @see Bandbox
  */
 public class AmbilDataMahasiswaTanpaDosenPa extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 *
 	 */
 	private static final long serialVersionUID = 6452461056684904810L;
 	private MyGrid grid;
@@ -87,16 +92,38 @@ public class AmbilDataMahasiswaTanpaDosenPa extends Bandbox implements GetEventL
 	private List<Long> indsMhsPerkuliahan;
 	private PerguruanTinggi perguruanTinggi;
 
+	/**
+	 * Konstruktor default: mendelegasikan ke {@link #AmbilDataMahasiswaTanpaDosenPa(Boolean)}
+	 * dengan {@code hanyaYangAktif = false} — pencarian tidak dibatasi status aktif.
+	 */
 	public AmbilDataMahasiswaTanpaDosenPa() {
 
 		this(false);
 	}
 
+	/**
+	 * Konstruktor dengan filter tambahan khusus kelas ini: membatasi hasil HANYA ke mahasiswa yang
+	 * id-nya ada dalam {@code indsMhsPerkuliahan}. Mendelegasikan ke
+	 * {@link #AmbilDataMahasiswaTanpaDosenPa(Boolean)} untuk sisa inisialisasi standar.
+	 *
+	 * @param indsMhsPerkuliahan daftar id {@link Mahasiswa} yang menjadi satu-satunya hasil yang
+	 *                           mungkin muncul; {@code null}/kosong berarti tidak membatasi
+	 */
 	public AmbilDataMahasiswaTanpaDosenPa(List<Long> indsMhsPerkuliahan) {
 		this(false);
 		this.indsMhsPerkuliahan = indsMhsPerkuliahan;
 	}
 
+	/**
+	 * Konstruktor utama dengan filter tambahan khusus kelas ini: bila {@code true}, radio button
+	 * mahasiswa nonaktif dinonaktifkan di {@link MahasiswaRenderer} (dicek murah lewat flag
+	 * {@code aktif}, bukan query riwayat status). Menentukan {@link #perguruanTinggi} scoping dari
+	 * {@link PerguruanTinggiUtil#getPerguruanTinggi()}, mengunci Bandbox ke data mahasiswa yang
+	 * sedang login (bila pengguna adalah mahasiswa), lalu memasang listener {@code onOpen} standar
+	 * yang membangun popup pencarian secara lazy pada pembukaan pertama.
+	 *
+	 * @param hanyaYangAktif nonaktifkan pilihan mahasiswa berstatus tidak aktif di grid hasil
+	 */
 	public AmbilDataMahasiswaTanpaDosenPa(Boolean hanyaYangAktif) {
 		super();
 		this.hanyaYangAktif = hanyaYangAktif;
@@ -132,26 +159,31 @@ public class AmbilDataMahasiswaTanpaDosenPa extends Bandbox implements GetEventL
 		});
 	}
 
+	/** Kriteria pencarian: NIM (ilike, substring). */
 	private Textbox nim;
+	/** Kriteria pencarian: nama mahasiswa (ilike, substring). */
 	private Textbox nama;
+	/** Kriteria pencarian: kelas — Bandbox nested, dicocokkan exact ke kolom {@code kelas}. */
 	private AmbilDataKelasBanbox kelas;
+	/** Kriteria pencarian: tahun angkatan (eq). */
 	private Decimalbox tahunangkatan;
+	/** Kriteria pencarian: program studi/jenjang (eq). */
 	private Combobox searchprogram = new Combobox();
+	/** Kriteria pencarian: status awal masuk mahasiswa (eq). */
 	private Combobox searchstatusawal = new Combobox();
+	/** Kriteria pencarian: fakultas (lewat join ke jurusan). */
 	private Combobox searchfakultas = new Combobox();
+	/** Kriteria pencarian: prodi. */
 	private Combobox searchjurusan = new Combobox();
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataMahasiswaTanpaDosenPa}. Kelas ini menerjemahkan satu
-	 * item data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataMahasiswaTanpaDosenPa} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer baris grid hasil pencarian {@link Mahasiswa}: foto kecil
+	 * ({@link ais.common.CommonMedia#tampilkanGambarKecil}), NIM sebagai label radio, nama, tahun
+	 * angkatan, jurusan, dan program. Bila {@link #hanyaYangAktif} true, radio button dinonaktifkan
+	 * untuk mahasiswa dengan flag {@code aktif == false}. Mengikuti kerangka renderer standar di
+	 * {@link ais.ui.util.GetEventListener} — listener {@code onCheck} menutup popup, menyimpan
+	 * entity terpilih ke atribut {@code "mahasiswa"}/{@code "myValue"} dan teks tampilan
+	 * {@code nim + " - " + nama}, lalu meneruskan event ke {@link #eventListener} bila terpasang.
 	 *
 	 * @see AmbilDataMahasiswaTanpaDosenPa
 	 */
@@ -198,6 +230,15 @@ public class AmbilDataMahasiswaTanpaDosenPa extends Bandbox implements GetEventL
 
 	}
 
+	/**
+	 * Membangun popup pencarian {@link Mahasiswa} sekali (dipanggil lazy dari listener
+	 * {@code onOpen}): form dengan field NIM, nama, program, tahun angkatan, status awal, kelas
+	 * (Bandbox nested), fakultas, dan prodi — sebagian besar field memanggil ulang
+	 * {@link #onSearchDefault(Event)} langsung saat berubah. Grid hasil dibungkus
+	 * {@link org.zkoss.zul.Radiogroup} (pilih tunggal) dengan paging server-side. Mengikuti
+	 * kerangka {@code display()} standar — lihat {@link ais.ui.util.GetEventListener}. Memanggil
+	 * {@link #onSearchDefault(Event)} di akhir agar grid terisi saat popup pertama dibuka.
+	 */
 	public void display() {
 		setReadonly(true);
 		Bandpopup bandpopup = new ais.ui.util.MyBandpopup();
@@ -405,6 +446,22 @@ public class AmbilDataMahasiswaTanpaDosenPa extends Bandbox implements GetEventL
 
 	}
 
+	/**
+	 * Membangun {@link Criteria} pencarian {@link Mahasiswa}: hanya baris {@code aktif} (atau
+	 * {@code null}), filter daftar id {@link #indsMhsPerkuliahan} (bila diisi), filter kelas
+	 * (exact match ke kolom denormalisasi {@code kelas}), status awal, nama, NIM, tahun angkatan,
+	 * program, prodi, dan fakultas (join alias {@code jurusan}). Bila {@link #perguruanTinggi}
+	 * terisi (scoping multi-tenant), ditambah join ke {@code jurusan.fakultas.perguruanTinggi}.
+	 * TIDAK memuat filter terkait {@code dosenPa} meski nama kelas menyiratkan demikian — lihat
+	 * catatan di Javadoc class. Dipanggil oleh {@link ais.ui.util.AmbilDataPagingHelper} baik untuk
+	 * menghitung total baris maupun mengambil satu halaman data — parameter {@code isOrder}
+	 * mengontrol apakah pengurutan (tahun angkatan menurun, NIM menaik) ikut dipasang.
+	 *
+	 * @param session  sesi Hibernate aktif
+	 * @param isOrder  {@code true} untuk memasang {@code ORDER BY}, {@code false} bila criteria
+	 *                 hanya dipakai menghitung jumlah baris
+	 * @return criteria siap dieksekusi oleh {@link ais.ui.util.AmbilDataPagingHelper}
+	 */
 	public Criteria initCriteria(Session session, boolean isOrder) {
 
 		String kel = kelas.getValue();
@@ -453,6 +510,19 @@ public class AmbilDataMahasiswaTanpaDosenPa extends Bandbox implements GetEventL
 		return criteria;
 	}
 
+	/**
+	 * Mengeksekusi pencarian {@link Mahasiswa} lewat {@link ais.ui.util.AmbilDataPagingHelper#cari},
+	 * yang memanggil balik {@link #initCriteria(Session, boolean)} untuk membangun query per
+	 * halaman. Callback {@code Inisialisasi} memaksa lazy-load {@code jurusan}, {@code
+	 * statusKeluar}, dan {@code statusAwalMahasiswa} tiap baris hasil (dengan try-catch audit
+	 * terpisah dari inisiatif Javadoc ini — lihat marker {@code auto-audit(empty-catch)}, JANGAN
+	 * disentuh di sini) agar aman diakses {@link MahasiswaRenderer} di luar sesi Hibernate saat
+	 * itu, lalu memasang renderer dan model hasil ke {@link #grid}. Mengikuti kerangka
+	 * {@code onSearchDefault} standar — lihat {@link ais.ui.util.GetEventListener}.
+	 *
+	 * @param event event pemicu (klik tombol Cari, tekan Enter, atau ganti salah satu field);
+	 *              boleh {@code null} saat dipanggil dari {@link #display()}
+	 */
 	public void onSearchDefault(Event event) {
 		List<Mahasiswa> mahasiswa = pagingHelper.cari(new ais.ui.util.AmbilDataPagingHelper.CriteriaFactory() {
 			@Override
@@ -483,10 +553,12 @@ public class AmbilDataMahasiswaTanpaDosenPa extends Bandbox implements GetEventL
 
 	}
 
+	/** {@inheritDoc} Implementasi setter polos standar — lihat {@link ais.ui.util.GetEventListener}. */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** {@inheritDoc} Implementasi getter polos standar — lihat {@link ais.ui.util.GetEventListener}. */
 	public EventListener getEventListener() {
 		return eventListener;
 	}

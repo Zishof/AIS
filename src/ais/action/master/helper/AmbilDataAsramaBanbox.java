@@ -42,30 +42,28 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data asrama banbox. Kelas ini memberi nama dan batas tanggung jawab yang
- * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code EventListener eventListener}, {@code Textbox nama},
- * {@code Combobox searchfakultas}, {@code Combobox searchjurusan}, {@code Decimalbox searchtahun};
- * pembacaan/pencarian ({@code onSearchDefault()}, {@code setEventListener()}, {@code getEventListener()});
- * operasi domain lain ({@code display()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface
- * yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.Asrama} — lihat
+ * {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback). {@code Asrama} adalah master data
+ * asrama mahasiswa/tempat tinggal kampus, dikaitkan opsional dengan fakultas/jurusan dan tahun
+ * angkatan tertentu (asrama bisa umum untuk semua fakultas/jurusan/angkatan bila field-field
+ * tersebut kosong).
+ * <p>
+ * Popup menampilkan grid pilih-tunggal (via {@link Radiogroup}) dengan filter "Nama" (ILIKE
+ * ANYWHERE), "Fakultas" dan "Prodi" (combobox, diinisialisasi lewat
+ * {@code Common.initFakultasDanJurusanDanSemua} sehingga pilihan Jurusan mengikuti Fakultas yang
+ * dipilih), dan "Angkatan" ({@link org.zkoss.zul.Decimalbox}). Hasil selalu dibatasi ke asrama
+ * aktif ({@code aktif} null dianggap aktif); filter fakultas/jurusan/tahun angkatan bersifat
+ * inklusif-OR terhadap NULL — asrama yang fakultas/jurusan/tahun-nya kosong (asrama umum) tetap
+ * muncul di hasil pencarian apa pun nilai filternya, selain asrama yang cocok persis. Diurutkan
+ * menaik berdasarkan jurusan, tahun angkatan, lalu nama.
  *
  * @see Bandbox
  */
 public class AmbilDataAsramaBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 * Serial version UID standar untuk kompatibilitas serialisasi komponen ZK.
 	 */
 	private static final long serialVersionUID = 6452461056684904810L;
 	private MyGrid grid;
@@ -74,6 +72,12 @@ public class AmbilDataAsramaBanbox extends Bandbox implements GetEventListener {
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
 	private EventListener eventListener;
 
+	/**
+	 * Membangun komponen dan memasang listener {@code onOpen} yang, pada pembukaan pertama,
+	 * menginisialisasi combobox Fakultas/Jurusan lewat
+	 * {@code Common.initFakultasDanJurusanDanSemua}, membangun popup ({@link #display()}), lalu
+	 * membukanya — mengikuti kerangka umum di {@link ais.ui.util.GetEventListener}.
+	 */
 	public AmbilDataAsramaBanbox() {
 		super();
 		setReadonly(true);
@@ -107,16 +111,11 @@ public class AmbilDataAsramaBanbox extends Bandbox implements GetEventListener {
 	private Decimalbox searchtahun = new Decimalbox();
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataAsramaBanbox}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataAsramaBanbox} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Merender satu baris grid: radio pilih, nama asrama, nama jurusan ("Semua" bila kosong),
+	 * tahun angkatan ("Semua" bila kosong), dan keterangan. Memilih baris menutup popup,
+	 * menyimpan entity {@link Asrama} terpilih ke attribute {@code "asrama"} pada Bandbox,
+	 * mengisi teks tampilan dengan {@code asrama.toString()}, lalu memicu {@link #eventListener}
+	 * bila terpasang — mengikuti kerangka callback standar di {@link ais.ui.util.GetEventListener}.
 	 *
 	 * @see AmbilDataAsramaBanbox
 	 */
@@ -154,6 +153,11 @@ public class AmbilDataAsramaBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/**
+	 * Membangun popup pencarian (dipanggil sekali saat pertama dibuka): form filter Nama/
+	 * Fakultas/Prodi/Angkatan, grid hasil bermold "paging", lalu memuat data awal lewat
+	 * {@link #onSearchDefault(Event)}.
+	 */
 	public void display() {
 		setReadonly(true);
 		Bandpopup bandpopup = new ais.ui.util.MyBandpopup();
@@ -281,6 +285,16 @@ public class AmbilDataAsramaBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/**
+	 * Menyusun dan menjalankan kriteria pencarian {@link Asrama}: aktif, cocok nama (ILIKE
+	 * ANYWHERE), dan filter fakultas/jurusan/tahun angkatan yang inklusif-OR terhadap NULL
+	 * (asrama umum tanpa fakultas/jurusan/tahun tetap muncul selain yang cocok persis dengan
+	 * filter), diurutkan menaik berdasarkan jurusan, tahun angkatan, lalu nama, dibatasi
+	 * {@link Common#MAX_RESULT} baris. Mengisi ulang grid dengan hasilnya beserta
+	 * {@link AsramaRenderer}.
+	 *
+	 * @param event tidak dipakai, hanya mengikuti signature standar listener pencarian
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -318,10 +332,12 @@ public class AmbilDataAsramaBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/** @param eventListener dipanggil setiap kali user memilih satu asrama */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** @return listener pemilihan asrama yang sedang terpasang, boleh {@code null} */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
