@@ -613,10 +613,27 @@ public class HistoryStatusMahasiswaUtil {
         timer.start();
     }
 
+    /**
+     * Wrapper sinkron (tanpa {@link Timer}) dari {@link #singkronisasiStatusMahasiswa}: memakai
+     * tahun akademik berjalan ({@code Common.getCurrentTahunAkademik()}) dan jenis semester
+     * berjalan (Ganjil/Genap dari {@code Common.isNowSemensterGanjil()}), tanpa label progres,
+     * dan {@code nonAktifkan=false} (tidak memicu proses batas-studi otomatis).
+     *
+     * @param mahasiswa mahasiswa yang statusnya disinkronkan untuk tahun akademik berjalan
+     */
     public static void singkronisasiStatusMahasiswaNotTimer(final Mahasiswa mahasiswa) {
         HistoryStatusMahasiswaUtil.singkronisasiStatusMahasiswa(null, mahasiswa, Common.getCurrentTahunAkademik(), Common.isNowSemensterGanjil() ? Perkuliahan.GANJIL : Perkuliahan.GENAP, false);
     }
 
+    /**
+     * Seeding/upsert lima baris {@link StatusMahasiswa} kanonik (Aktif/Cuti/Nonaktif/Lulus/Out)
+     * lewat {@link #initStatusHelper}, satu transaksi untuk seluruh operasi. Dipanggil saat
+     * inisialisasi data master (mis. setup instalasi baru atau perbaikan data) — aman dipanggil
+     * berulang karena {@link #initStatusHelper} melakukan {@code saveOrUpdate} berbasis
+     * pencarian nama, bukan insert buta. Kegagalan di tengah jalan (mis. satu status gagal
+     * dicari/disimpan) membatalkan seluruh transaksi (rollback) dan dicatat ke
+     * {@code ErrorAuditUtil} — bukan sebagian tersimpan.
+     */
     public static void initDataStatusMahasiswa() {
         Session session = null;
         Transaction tx = null;
@@ -643,6 +660,18 @@ public class HistoryStatusMahasiswaUtil {
     // PRIVATE HELPER METHODS (DIBUAT UNTUK MEMAKSIMALKAN REUSE & CLEAN CODE)
     // ========================================================================
 
+    /**
+     * Membuat objek {@link HistoryStatusMahasiswa} TRANSIENT (tidak disimpan ke DB) berstatus
+     * AKTIF, dipakai sebagai fallback ketika mahasiswa belum tersimpan (id {@code null}) atau
+     * ketika query DB tidak menemukan baris apa pun — memastikan pemanggil {@link #currentStatus}
+     * selalu menerima objek non-null yang aman dipakai UI tanpa cek null tambahan.
+     *
+     * @param krsMahasiswa sumber flag Semester Pendek (boleh {@code null})
+     * @param mahasiswa    mahasiswa terkait (boleh belum tersimpan/{@code null})
+     * @param semester     semester yang diminta
+     * @param tahap        tahap yang diminta
+     * @return objek {@link HistoryStatusMahasiswa} baru, status AKTIF, belum pernah di-persist
+     */
     private static HistoryStatusMahasiswa createDefaultStatus(KrsMahasiswa krsMahasiswa, Mahasiswa mahasiswa, Integer semester, Integer tahap) {
         HistoryStatusMahasiswa history = new HistoryStatusMahasiswa(krsMahasiswa == null ? null : krsMahasiswa.getSemesterPendek());
         history.setStatusMahasiswa(ConstantValues.AKTIF);
@@ -652,10 +681,33 @@ public class HistoryStatusMahasiswaUtil {
         return history;
     }
 
+    /**
+     * Perbandingan status null-safe berbasis id entity (bukan {@code equals()} default/referensi
+     * objek) — dipakai di seluruh kelas ini karena instance {@link StatusMahasiswa} yang
+     * dibandingkan sering berasal dari sumber berbeda (cache JSON hasil deserialisasi vs. konstanta
+     * {@link ConstantValues} vs. hasil query DB) sehingga identitas objek Java tidak bisa
+     * diandalkan, hanya id barisnya.
+     *
+     * @param current  status yang sedang diperiksa (boleh {@code null})
+     * @param constant status pembanding, biasanya salah satu konstanta {@link ConstantValues}
+     * @return {@code true} hanya bila keduanya non-null dan id-nya sama
+     */
     private static boolean isStatusEqual(StatusMahasiswa current, StatusMahasiswa constant) {
         return current != null && constant != null && current.getId() != null && current.getId().equals(constant.getId());
     }
 
+    /**
+     * Menyinkronkan kolom {@code sks} sebuah {@link HistoryStatusMahasiswa} yang SUDAH TERSIMPAN
+     * bila nilainya berbeda dari {@code newSks} — dipanggil dari jalur cache
+     * ({@link #cekDanUpdateCacheStatus}) supaya SKS yang ditampilkan tetap akurat walau status
+     * itu sendiri dibaca dari cache (bukan dihitung ulang penuh). Membuka session &amp; transaksi
+     * sendiri; memanggil {@code session.refresh(s)} lebih dulu untuk memastikan entity yang
+     * dimutasi adalah versi terbaru dari DB (menghindari overwrite field lain yang mungkin sudah
+     * berubah). Kegagalan di-rollback diam-diam tanpa dilempar ke pemanggil.
+     *
+     * @param s      baris history yang sudah tersimpan (harus punya id)
+     * @param newSks nilai SKS baru; tidak melakukan apa pun bila {@code null} atau sama dengan nilai lama
+     */
     private static void updateSksBukanKonversi(HistoryStatusMahasiswa s, Integer newSks) {
         if (newSks != null && !newSks.equals(s.getSks())) {
             Session session = null;
@@ -675,6 +727,25 @@ public class HistoryStatusMahasiswaUtil {
         }
     }
 
+    /**
+     * Implementasi dua lapis cache baca yang dijelaskan di Javadoc class-level: lapis 1 (paling
+     * cepat) {@link GeneralValueObject#ambilDataLangsung} — bila hit dan valid (punya id), SKS-nya
+     * disinkronkan lewat {@link #updateSksBukanKonversi} lalu langsung dikembalikan. Bila lapis 1
+     * kosong, coba lapis 2: cache JSON per-mahasiswa (parameter {@code jsonObject}, sumbernya
+     * {@code Common.getJSONTemporary}) — hasil deserialisasi HANYA dipercaya bila punya id DAN
+     * statusnya BUKAN {@code TIDAK_AKTIF} (status Nonaktif dari cache lama sengaja tidak dipercaya
+     * mentah-mentah, sebab kasus nyata: cache bisa basi sementara pembayaran sudah lunas — lebih
+     * aman memaksa evaluasi ulang untuk kasus Nonaktif daripada terus menampilkan Nonaktif basi).
+     * Bila lapis 2 valid, mahasiswa &amp; SKS disegarkan pada objek hasil deserialisasi lalu
+     * ditulis balik ke lapis 1 sebelum dikembalikan. Exception saat deserialisasi JSON ditelan
+     * (dicatat ke {@code ErrorAuditUtil}) dan dianggap cache-miss.
+     *
+     * @param krsMahasiswa sumber SKS terbaru untuk disinkronkan bila cache hit
+     * @param mahasiswa    mahasiswa pemilik cache; bila {@code null}/belum tersimpan, lapis 2 dilewati
+     * @param key          kunci cache gabungan kelas+id mahasiswa+semester/tahap
+     * @param jsonObject   objek JSON cache mahasiswa (lapis 2), dimutasi bila terjadi refresh dari lapis 1
+     * @return baris {@link HistoryStatusMahasiswa} dari cache bila valid dan dipercaya, atau {@code null} bila cache-miss (pemanggil wajib lanjut ke DB)
+     */
     private static HistoryStatusMahasiswa cekDanUpdateCacheStatus(KrsMahasiswa krsMahasiswa, Mahasiswa mahasiswa, String key, JSONObject jsonObject) {
         HistoryStatusMahasiswa s = (HistoryStatusMahasiswa) GeneralValueObject.ambilDataLangsung(HistoryStatusMahasiswa.class, key);
         if (s != null && s.getId() != null) {
@@ -698,6 +769,23 @@ public class HistoryStatusMahasiswaUtil {
         return null;
     }
 
+    /**
+     * Query Hibernate Criteria yang mengambil baris {@link HistoryStatusMahasiswa} TERBARU
+     * (diurutkan {@code id} descending, {@code setMaxResults(1)}) yang cocok mahasiswa, flag SP,
+     * dan semester-atau-tahap. Filter SP: bila {@code krsMahasiswa} bertanda
+     * {@code Perkuliahan.SEMESTER_PENDEK}, dicari baris dengan {@code sp} yang sama persis;
+     * selain itu dicari baris dengan {@code sp IS NULL} (status reguler) — inilah mekanisme
+     * pemisahan status reguler vs. SP yang dijelaskan di Javadoc class-level. Filter
+     * semester/tahap: bila {@code tahap} kosong/0, dicocokkan ke kolom {@code semester}; selain
+     * itu ke kolom {@code tahap} (mode {@link ConstantValues#aktifkanTahapan}).
+     *
+     * @param session      session Hibernate aktif untuk menjalankan query
+     * @param mahasiswa    mahasiswa yang dicari
+     * @param krsMahasiswa sumber flag Semester Pendek (boleh {@code null} — diperlakukan sebagai reguler)
+     * @param semester     nilai pencocokan bila tahap tidak dipakai
+     * @param tahap        nilai pencocokan bila diisi &amp; bukan 0
+     * @return baris terbaru yang cocok, atau {@code null} bila belum ada
+     */
     private static HistoryStatusMahasiswa fetchHistoryFromDb(Session session, Mahasiswa mahasiswa, KrsMahasiswa krsMahasiswa, Integer semester, Integer tahap) {
         return (HistoryStatusMahasiswa) session.createCriteria(HistoryStatusMahasiswa.class)
                 .add(Restrictions.eq("mahasiswa", mahasiswa))
@@ -707,6 +795,26 @@ public class HistoryStatusMahasiswaUtil {
                 .addOrder(Order.desc("id")).setMaxResults(1).uniqueResult();
     }
 
+    /**
+     * Membuat baris {@link HistoryStatusMahasiswa} BARU (belum disimpan — {@code saveOrUpdate}
+     * dilakukan oleh pemanggil {@link #getHistoryStatusMahasiswa(KrsMahasiswa, boolean)}) untuk
+     * kombinasi mahasiswa+semester/tahap+SP yang belum pernah punya baris. Status awal default
+     * AKTIF, TAPI bila {@code semester > 1}, status DIWARISKAN dari baris semester sebelumnya
+     * ({@code semester - 1}) jika ditemukan — query proyeksi khusus (hanya mengambil kolom
+     * {@code statusMahasiswa}, bukan entity penuh) dengan filter {@code tahap} yang lebih longgar
+     * (mencocokkan tahap ATAU {@code tahap IS NULL}, karena baris semester sebelumnya mungkin
+     * dibuat sebelum mode tahap diaktifkan). Ini penting agar mahasiswa yang statusnya sudah
+     * Nonaktif/Cuti di semester lalu tidak "direset" jadi Aktif begitu saja saat baris semester
+     * barunya pertama kali dibuat.
+     *
+     * @param session      session Hibernate aktif
+     * @param mahasiswa    pemilik baris baru
+     * @param krsMahasiswa sumber SKS awal dan flag SP
+     * @param semester     semester baris baru
+     * @param tahap        tahap baris baru (boleh {@code null})
+     * @param tahunAjaran  tahun akademik yang dicatat pada baris baru
+     * @return objek {@link HistoryStatusMahasiswa} baru, TRANSIENT (belum di-persist)
+     */
     private static HistoryStatusMahasiswa inisialisasiDataBaru(Session session, Mahasiswa mahasiswa, KrsMahasiswa krsMahasiswa, Integer semester, Integer tahap, String tahunAjaran) {
         StatusMahasiswa statusMahasiswa = ConstantValues.AKTIF;
         if (semester != null && semester > 1) {
@@ -729,6 +837,46 @@ public class HistoryStatusMahasiswaUtil {
         return history;
     }
 
+    /**
+     * Mesin aturan bisnis status kemahasiswaan — dipanggil hanya untuk semester berjalan/saat
+     * refresh dipaksa dari {@link #getHistoryStatusMahasiswa(KrsMahasiswa, boolean)}. Menerapkan
+     * berurutan (tiap aturan bisa saling menimpa hasil aturan sebelumnya dalam satu pemanggilan):
+     * <ol>
+     * <li><b>Keterlambatan bayar konfigurasi</b> ({@code mhs_all_lambat_bayar_langsung_tidak_aktif}):
+     * hanya berlaku bila tahun akademik mulai semester ini SAMA DENGAN atau SATU TAHUN SEBELUM
+     * tahun kalender berjalan (mencegah aturan ini menghukum retroaktif data semester lampau) dan
+     * {@code semester > 1}. Bila berlaku, {@link #cekPembayaranMahasiswa} menentukan Aktif↔Nonaktif
+     * dua arah, dan {@link KegiatanHelper#updateBatasStudiMahasiswa} dipanggil untuk mencatat
+     * status batas studi.</li>
+     * <li><b>Semester 1 selalu Aktif</b>: bila status saat ini Nonaktif tapi semester adalah 1,
+     * dipaksa Aktif (mahasiswa baru tidak boleh langsung Nonaktif tanpa proses tagihan berjalan).</li>
+     * <li><b>Aturan syarat-aktif kegiatan</b> (permintaan user 2026-08-02 &amp; 2026-08-05, kasus
+     * KIP-K/UKT UBT dan UIN Mahmud Yunus Batusangkar): berlaku independen dari konfigurasi di atas
+     * (checkbox per-{@code JenisKegiatan} sudah jadi opt-in eksplisit admin) untuk {@code semester >
+     * 1}. Aktif→Nonaktif via {@link #cekPembayaranMahasiswa}; Nonaktif→Aktif via
+     * {@link #adaKegiatanSyaratAktifLunasSemua} — method BERBEDA sengaja dipakai untuk tiap arah
+     * karena semantik "belum ada kegiatan sama sekali" harus dibaca berbeda (lihat Javadoc kedua
+     * method itu).</li>
+     * <li><b>Status terminal retroaktif</b>: begitu {@code semester >= }{@link #getJumlahSemester},
+     * {@link Mahasiswa#getStatusKeluar()} dicocokkan (case-insensitive, substring) ke
+     * "lulus"→LULUS, "keluar"→DROP_OUT, "mengundurkan"/"putus"→KELUAR. Sebaliknya, status LULUS
+     * yang semesternya ternyata masih di bawah {@link #getJumlahSemester} dikembalikan ke AKTIF
+     * (data kelulusan yang salah/prematur dikoreksi otomatis).</li>
+     * <li><b>Paksa Aktif admin</b> ({@link Mahasiswa#getPaksaAktifSemester()}, lihat
+     * {@link #semesterAdaDalamDaftar}): menang atas semua aturan di atas KECUALI status sudah
+     * terminal (Lulus/Drop Out/Keluar) — tidak pernah membatalkan status kelulusan/DO/keluar.</li>
+     * </ol>
+     * Setiap blok dibungkus try-catch tersendiri (exception dicatat ke {@code ErrorAuditUtil},
+     * tidak menghentikan blok berikutnya) sehingga satu aturan yang gagal tidak menggagalkan
+     * seluruh evaluasi status.
+     *
+     * @param session   session Hibernate aktif (diteruskan ke {@link KegiatanHelper#updateBatasStudiMahasiswa})
+     * @param mahasiswa mahasiswa yang dievaluasi
+     * @param history   baris {@link HistoryStatusMahasiswa} yang DIMUTASI langsung oleh method ini bila status berubah
+     * @param semester  semester yang dievaluasi
+     * @param tahap     tahap terkait (diteruskan ke pengecekan pembayaran)
+     * @return {@code true} bila status pada {@code history} berubah (pemanggil perlu menyimpan), {@code false} bila tidak ada perubahan
+     */
     private static boolean kalkulasiStatusLogikaLanjutan(Session session, Mahasiswa mahasiswa, HistoryStatusMahasiswa history, Integer semester, Integer tahap) {
         boolean isDataModified = false;
         Integer tahunAngkatanMhs = mahasiswa.getTahunangkatan();
@@ -857,6 +1005,25 @@ public class HistoryStatusMahasiswaUtil {
         return false;
     }
 
+    /**
+     * Menentukan apakah mahasiswa "boleh dianggap sudah bayar" untuk tetap/menjadi Aktif pada
+     * semester tsb. Default {@code true} (aman untuk arah Aktif→Nonaktif: tak ada kegiatan
+     * bersyarat-aktif berarti tidak ada yang menghukum) — <b>lihat kebalikannya</b>
+     * {@link #adaKegiatanSyaratAktifLunasSemua} yang punya semantik default berbeda untuk arah
+     * sebaliknya. Bila {@code Common.checkBaypassStatusPembayaranMahasiswa(...)} mengizinkan
+     * bypass (mis. mahasiswa dikecualikan lewat konfigurasi lain), langsung {@code true} tanpa
+     * query lebih lanjut. Selain itu, mengambil semua {@link Kegiatan} yang harus dibayar
+     * ({@code Mahasiswa.ambilKegiatans(..., refresh=true)} — SENGAJA refresh agar tidak membaca
+     * entity {@code Kegiatan} basi dari cache JVM, lihat komentar inline "GERBANG STATUS WAJIB
+     * DATA SEGAR"), menyaring yang benar-benar berlaku untuk semester ini lewat
+     * {@link #kegiatanSyaratAktifBerlaku}, lalu mensyaratkan SEMUA kegiatan berlaku sudah
+     * lunas {@code >= 10%} ({@link Kegiatan#hitungPersentaseLunasAktual()}).
+     *
+     * @param semester  semester yang dicek
+     * @param tahap     tahap terkait (diteruskan ke pengecekan bypass)
+     * @param mahasiswa mahasiswa yang dicek
+     * @return {@code true} bila tidak ada kegiatan bersyarat-aktif berlaku yang belum dibayar sama sekali (atau bypass aktif)
+     */
     private static boolean cekPembayaranMahasiswa(Integer semester, Integer tahap, Mahasiswa mahasiswa) {
         boolean check = true;
         if (!Common.checkBaypassStatusPembayaranMahasiswa(semester, tahap, mahasiswa, CommonHelperClass.jenisKegiatansUntukSyaratAktif)) {
@@ -936,11 +1103,44 @@ public class HistoryStatusMahasiswaUtil {
         return true;
     }
 
+    /**
+     * Ambang semester minimal untuk dianggap "sudah waktunya lulus" bagi seorang mahasiswa:
+     * memakai {@link Mahasiswa#getSemesterLulus()} bila diisi manual (override per-mahasiswa),
+     * jika tidak jatuh ke {@code Jurusan.getJenjang().getJumlahSemester()} (standar jenjang), atau
+     * {@code 99} (efektif "tidak pernah otomatis lulus/DO berdasarkan semester") bila jurusan/
+     * jenjang tidak diketahui.
+     *
+     * @param mahasiswa mahasiswa yang dicek
+     * @return jumlah semester minimal sebelum status terminal (Lulus/DO/Keluar) dievaluasi
+     */
     private static Integer getJumlahSemester(Mahasiswa mahasiswa) {
         return mahasiswa.getSemesterLulus() != null ? mahasiswa.getSemesterLulus() :
                 (mahasiswa.getJurusan() != null && mahasiswa.getJurusan().getJenjang() != null ? mahasiswa.getJurusan().getJenjang().getJumlahSemester() : 99);
     }
 
+    /**
+     * Dipanggil dari {@link #singkronisasiStatusMahasiswa} (jalur {@code nonAktifkan=true}) untuk
+     * menyinkronkan status Nonaktif berbasis SKS yang benar-benar diambil pada satu semester,
+     * sekaligus memelihara daftar {@link Mahasiswa#getBatasStudi()} (daftar semester "batas
+     * studi" dipisah koma). Dua cabang: bila SKS yang diambil {@code <= 0} (mahasiswa tidak
+     * mengambil KRS sama sekali semester itu), semester ditambahkan ke {@code batasStudi} (bila
+     * belum ada) dan status history dipaksa {@code TIDAK_AKTIF}; sebaliknya bila SKS diambil
+     * {@code > 0}, semester tsb DIHAPUS dari {@code batasStudi} (mahasiswa aktif kembali) dan
+     * status history dipaksa {@code AKTIF} — tanpa melalui {@link #kalkulasiStatusLogikaLanjutan}
+     * (jalur ini murni berbasis kehadiran SKS, bukan status pembayaran).
+     * <p><b>Kuirk:</b> parameter {@code tx} dideklarasikan lokal ({@code Transaction tx = null;})
+     * dan diteruskan ke {@link #updateViaTransactionQuietly}, tapi method itu SELALU membuat
+     * transaksi barunya sendiri ({@code tx = session.beginTransaction()} pada parameter lokalnya)
+     * — variabel {@code tx} di sini tidak pernah benar-benar dipakai/dibaca ulang. Bukan bug yang
+     * mempengaruhi hasil (tiap update tetap dalam transaksi commit-nya sendiri), hanya kode mati/
+     * membingungkan yang dipertahankan apa adanya (bukan diubah — lingkup tugas ini Javadoc saja).</p>
+     *
+     * @param session                 session Hibernate aktif dari loop pemanggil
+     * @param mahasiswa               mahasiswa yang batas studinya dimutasi
+     * @param semester                semester yang dievaluasi
+     * @param krsMahasiswa            baris KRS semester tsb (sumber {@code getSksYangDiambil()})
+     * @param historyStatusMahasiswa  baris history semester tsb yang statusnya dimutasi
+     */
     private static void prosesNonAktifkanStatusSingkronisasi(Session session, Mahasiswa mahasiswa, int semester, KrsMahasiswa krsMahasiswa, HistoryStatusMahasiswa historyStatusMahasiswa) {
         Transaction tx = null;
         if (krsMahasiswa != null && krsMahasiswa.getSksYangDiambil() != null && krsMahasiswa.getSksYangDiambil() <= 0) {
@@ -976,6 +1176,18 @@ public class HistoryStatusMahasiswaUtil {
         }
     }
 
+    /**
+     * Update satu entity dalam transaksi mandiri, menelan (bukan melempar) exception dan
+     * melakukan rollback diam-diam bila gagal — dipakai untuk mutasi "best-effort" yang tidak
+     * boleh menggagalkan proses pemanggil yang lebih besar (mis. loop sinkronisasi banyak
+     * semester di {@link #singkronisasiStatusMahasiswa}). Parameter {@code tx} yang diterima dari
+     * pemanggil DIABAIKAN isinya dan ditimpa dengan transaksi baru milik method ini sendiri —
+     * lihat catatan kuirk di {@link #prosesNonAktifkanStatusSingkronisasi}.
+     *
+     * @param session session Hibernate aktif
+     * @param tx      diterima tapi selalu ditimpa transaksi baru lokal (lihat catatan kuirk di atas)
+     * @param entity  entity yang akan di-refresh lalu diupdate ({@code Common.refreshUpdate})
+     */
     private static void updateViaTransactionQuietly(Session session, Transaction tx, GeneralValueObject entity) {
         try {
             tx = session.beginTransaction();
@@ -986,6 +1198,21 @@ public class HistoryStatusMahasiswaUtil {
         }
     }
 
+    /**
+     * Sisi TULIS dari cache JSON lapis-2 yang dijelaskan di Javadoc class-level: menyerialisasi
+     * {@code history} ke JSON (mengecualikan properti bertipe {@link Mahasiswa} dan
+     * {@link StatusMahasiswa} dari deep-serialization — lihat parameter exclude
+     * {@code Common.convertToJsonObject}, mencegah cache membengkak dengan graph entity penuh),
+     * menyimpannya ke {@code jsonObject} di bawah {@code key}, lalu mempersistenkannya per-
+     * mahasiswa lewat {@code Common.setJSONTemporary}. Kegagalan (mis. properti tak bisa
+     * diserialisasi) ditelan dan dicatat ke {@code ErrorAuditUtil} — cache yang gagal ditulis
+     * tidak menggagalkan alur utama pemanggil.
+     *
+     * @param mahasiswa  pemilik cache
+     * @param key        kunci entri dalam {@code jsonObject}
+     * @param jsonObject objek JSON cache milik mahasiswa ini, dimutasi langsung
+     * @param history    baris status yang akan diserialisasi ke cache
+     */
     private static void simpanKeCache(Mahasiswa mahasiswa, String key, JSONObject jsonObject, HistoryStatusMahasiswa history) {
         try {
             jsonObject.put(key, Common.convertToJsonObject(history, Mahasiswa.class.getName(), StatusMahasiswa.class.getName()));
@@ -993,6 +1220,20 @@ public class HistoryStatusMahasiswaUtil {
         } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/HistoryStatusMahasiswaUtil.java:599");}
     }
 
+    /**
+     * Upsert satu baris {@link StatusMahasiswa} kanonik berdasarkan pencarian nama (bukan id
+     * tetap) — dicari dengan {@code ilike} awalan ({@link MatchMode#START}) pada {@code
+     * namaLengkap}, opsional di-OR dengan {@code orNames[0]} (dipakai untuk "Nonaktif" yang juga
+     * harus mencocokkan data lama berlabel "NON-AKTIF"), diambil satu yang id-nya terkecil
+     * ({@code Order.asc("id")}). Bila tidak ditemukan, baris baru dibuat. {@code kodeEpsbed} HANYA
+     * ditulis bila berbeda dari nilai saat ini (menghindari dirty-update tanpa perubahan nyata);
+     * {@code nama} selalu ditimpa ke {@code namaLengkap} kanonik.
+     *
+     * @param session    session Hibernate aktif (dan transaksi dari pemanggil {@link #initDataStatusMahasiswa})
+     * @param namaLengkap nama kanonik yang disimpan/dicari (mis. "Aktif")
+     * @param kodeEpsbed  kode EPSBED satu huruf (mis. "A") yang disinkronkan bila berbeda
+     * @param orNames     nama alternatif opsional untuk turut dicocokkan saat pencarian (hanya elemen pertama dipakai)
+     */
     private static void initStatusHelper(Session session, String namaLengkap, String kodeEpsbed, String... orNames) {
         org.hibernate.criterion.Criterion nameCrit = Restrictions.ilike("nama", namaLengkap, MatchMode.START);
         if (orNames.length > 0) {
@@ -1008,12 +1249,25 @@ public class HistoryStatusMahasiswaUtil {
         session.saveOrUpdate(status);
     }
 
+    /** Rollback aman: hanya rollback bila transaksi non-null dan masih aktif; kegagalan rollback itu sendiri ditelan dan dicatat, tidak dilempar ulang. */
     private static void rollbackQuietly(Transaction tx) {
         if (tx != null && tx.isActive()) {
             try { tx.rollback(); } catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/master/helper/HistoryStatusMahasiswaUtil.java:619");}
         }
     }
 
+    /**
+     * Penutupan session Hibernate tiga langkah, masing-masing dibungkus try-catch terpisah
+     * (kegagalan satu langkah tidak menghalangi langkah berikutnya): {@code clear()} lalu
+     * {@code disconnect()} lalu {@code close()}, masing-masing dijaga cek {@code isOpen()} bila
+     * relevan. Urutan {@code disconnect()} sebelum {@code close()} adalah pola lama untuk
+     * melepaskan koneksi JDBC ke connection pool lebih awal; pada versi Hibernate yang dipakai di
+     * sini {@code close()} sendiri sudah cukup, jadi {@code disconnect()} eksplisit sedikit
+     * redundan tapi tidak berbahaya — dipertahankan apa adanya (bukan bagian tugas Javadoc ini
+     * untuk mengubah perilaku).
+     *
+     * @param session session yang akan ditutup; aman dipanggil dengan {@code null}
+     */
     private static void closeSession(Session session) {
         if (session != null) {
             try { if (session.isOpen()) session.clear(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/HistoryStatusMahasiswaUtil.java:625");}
