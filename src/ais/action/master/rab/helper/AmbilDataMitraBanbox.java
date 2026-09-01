@@ -43,23 +43,27 @@ import ais.database.model.rab.SatuanKerja;
 import ais.ui.util.GetEventListener;
 
 /**
- * Tipe khusus untuk ambil data mitra banbox. Kelas ini memberi nama dan batas tanggung jawab yang
- * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.rab.Mitra} — lihat
+ * {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum (constructor/display/onSearchDefault/
+ * renderer/callback).
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code EventListener
- * eventListener}, {@code SatuanKerjaTreeModel satuanKerjaTreeModel}, {@code Textbox kode}, {@code Textbox nama},
- * {@code AmbilDataSatuanKerjaBanbox satuanKerja}; pembacaan/pencarian ({@code onSearchDefault()}, {@code
- * setEventListener()}, {@code getEventListener()}); operasi domain lain ({@code display()}); konfigurasi
- * constructor: {@code satuanKerjaTreeModel}. Bagian lain dari kontrak tetap mengikuti kelas induk atau interface
- * yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p>Mitra adalah rekanan/vendor yang menjadi pihak ketiga dalam transaksi pengadaan pada modul RAB
+ * (mis. penerima pembayaran/rekening tujuan). Popup pencarian menyediakan kriteria {@code kode} dan
+ * {@code nama} ({@code ilike ANYWHERE}) ditambah filter non-trivial berupa {@link
+ * AmbilDataSatuanKerjaBanbox} bertindak sebagai sub-picker Satuan Kerja: bila satker dipilih,
+ * {@code onSearchDefault(Event)} memakai {@link SatuanKerjaTreeModel#getChildsSet} untuk mengumpulkan
+ * satker terpilih beserta seluruh unit turunannya, lalu membatasi hasil Mitra dengan
+ * {@code Restrictions.in("satuanKerja", satuanKerjas)}; bila tidak ada satker terpilih, filter ini
+ * no-op lewat idiom {@code Restrictions.sqlRestriction("1=1")}. Baris grid menampilkan kode, nama,
+ * alamat, dan nomor rekening lewat {@code MitraRenderer}; hasil dibungkus {@link
+ * org.zkoss.zul.Radiogroup} sehingga pemilihan bersifat tunggal.</p>
+ *
+ * <p><b>Constructor:</b> {@code AmbilDataMitraBanbox()} mendelegasikan ke
+ * {@code AmbilDataMitraBanbox(String value)} dengan nilai awal kosong; overload ini meneruskan
+ * {@code value} ke {@code super(Bandbox)} sebagai teks tampilan awal (bukan filter dari entity induk)
+ * dan menginisialisasi {@code satuanKerjaTreeModel}. Pemanggilan {@link #display()} dibungkus
+ * try-catch dengan audit otomatis ({@code ErrorAuditUtil.record}) pada catch kosong, bukan bagian dari
+ * kerangka standar (kebanyakan subclass lain tidak membungkus {@code display()} sama sekali).</p>
  *
  * @see Bandbox
  */
@@ -74,10 +78,20 @@ public class AmbilDataMitraBanbox extends Bandbox implements GetEventListener {
 	private EventListener eventListener;
 	private SatuanKerjaTreeModel satuanKerjaTreeModel;
 
+	/**
+	 * Delegasi ke {@link #AmbilDataMitraBanbox(String)} dengan teks tampilan awal kosong.
+	 */
 	public AmbilDataMitraBanbox() {
 		this("");
 	}
 
+	/**
+	 * Membangun Bandbox picker Mitra dengan teks tampilan awal {@code value}, menyiapkan
+	 * {@code satuanKerjaTreeModel} untuk penelusuran hierarki satker, lalu memanggil
+	 * {@link #display()} (dibungkus try-catch beraudit — lihat Javadoc kelas).
+	 *
+	 * @param value teks awal yang ditampilkan pada Bandbox sebelum pengguna memilih Mitra
+	 */
 	public AmbilDataMitraBanbox(String value) {
 		super(value);
 		satuanKerjaTreeModel = new SatuanKerjaTreeModel(false);
@@ -92,16 +106,9 @@ public class AmbilDataMitraBanbox extends Bandbox implements GetEventListener {
 	private AmbilDataSatuanKerjaBanbox satuanKerja;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataMitraBanbox}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataMitraBanbox} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer satu baris grid hasil pencarian Mitra: menampilkan radio pilihan, kode, nama, alamat,
+	 * dan nomor rekening. Listener {@code onCheck} pada radio adalah satu-satunya titik callback pola
+	 * ini — lihat penjelasan umum di {@link ais.ui.util.GetEventListener}.
 	 *
 	 * @see AmbilDataMitraBanbox
 	 */
@@ -136,6 +143,16 @@ public class AmbilDataMitraBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/**
+	 * Merakit popup pencarian Mitra: form kriteria kode/nama plus sub-picker Satuan Kerja
+	 * ({@link AmbilDataSatuanKerjaBanbox}, dengan listener yang memicu {@link #onSearchDefault(Event)}
+	 * ulang saat satker dipilih), tombol Cari, dan grid hasil dalam {@link org.zkoss.zul.Radiogroup}
+	 * pilih-tunggal; diakhiri memanggil {@link #onSearchDefault(Event)} agar grid terisi saat popup
+	 * pertama tampil.
+	 *
+	 * @throws Exception diteruskan dari pembangunan komponen ZK
+	 * @see ais.ui.util.GetEventListener
+	 */
 	public void display() throws Exception {
 		setReadonly(true);
 
@@ -264,6 +281,18 @@ public class AmbilDataMitraBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/**
+	 * Menjalankan pencarian Mitra berdasar {@code kode} dan {@code nama} ({@code ilike ANYWHERE}),
+	 * ditambah filter scoping satker: bila sub-picker {@link #satuanKerja} memiliki nilai terpilih,
+	 * hasil dibatasi ke satker tersebut beserta seluruh unit turunannya (lewat
+	 * {@link SatuanKerjaTreeModel#getChildsSet}); bila kosong, filter satker no-op. Maksimum
+	 * {@code Common.MAX_RESULT} baris, urut nama menaik, lalu grid diisi ulang dengan
+	 * {@link MitraRenderer}.
+	 *
+	 * @param event event pemicu; boleh {@code null} (dipanggil juga dari {@link #display()} dan dari
+	 *     listener sub-picker satker)
+	 * @see ais.ui.util.GetEventListener
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -298,10 +327,20 @@ public class AmbilDataMitraBanbox extends Bandbox implements GetEventListener {
 
 	}
 
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see ais.ui.util.GetEventListener
+	 */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see ais.ui.util.GetEventListener
+	 */
 	public EventListener getEventListener() {
 		return eventListener;
 	}

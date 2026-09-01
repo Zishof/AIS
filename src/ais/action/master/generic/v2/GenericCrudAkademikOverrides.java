@@ -8,8 +8,13 @@ import ais.action.master.generic.v2.adapter.GenericCrudScopeAdapter;
 import ais.action.master.generic.v2.adapter.KurikulumGenericCrudAdapter;
 
 /**
- * Keputusan tertulis untuk layar cabang Sistem Informasi Akademik yang
- * pendaftaran otomatisnya menghasilkan READ_ONLY.
+ * Keputusan tertulis untuk layar yang pendaftaran otomatisnya menghasilkan
+ * READ_ONLY.
+ *
+ * <p>Namanya menyebut Akademik karena cabang itulah yang pertama ditangani;
+ * isinya kini mencakup cabang Sistem Sekolah juga. Nama kelasnya perlu diperluas
+ * pada kesempatan berikutnya — dibiarkan dulu agar penggantian nama tidak
+ * bertabrakan dengan sesi lain yang sedang menyunting berkas yang sama.</p>
  *
  * <h3>Mengapa berupa lapisan penimpa, bukan definisi utuh</h3>
  * <p>Definisi hasil {@link GenericCrudAutoDefinitionFactory} sudah menurunkan
@@ -87,6 +92,26 @@ public final class GenericCrudAkademikOverrides {
                 "Layar Penjadwalan Ruangan, entity-nya Perkuliahan — baris penawaran mata kuliah. "
                 + "Alasan yang sama dengan root/penjadwalan_ujian: tambah lewat CRUD generik akan "
                 + "membuat penawaran mata kuliah baru dari layar penjadwalan.");
+
+        /*
+         * Cabang Sistem Sekolah. Ketiganya juga sudah READ_ONLY sejak pabrik
+         * definisi; yang ditambahkan hanya alasannya.
+         */
+        DITAHAN.put("sekolah/absensi",
+                "Layar Absensi/Aktivitas Pelajaran, entity-nya KelasSiswa — master penempatan "
+                + "siswa pada kelas, bukan catatan kehadirannya. Menyalakan CRUD akan membuat "
+                + "layar absensi memindahkan siswa antar kelas.");
+        DITAHAN.put("sekolah/aktiftas_harian_siswa",
+                "AktiftasHarianSiswaAction.onSave menyusun dua kolom komposit (`aktifitas` dan "
+                + "`materi`) menjadi JSON dari petak radio pada layarnya, menurunkan `kode` dari "
+                + "nomor induk dan tanggal, serta menolak baris kembar untuk siswa dan tanggal "
+                + "yang sama. Formulir CRUD generik akan menampilkan kedua kolom komposit itu "
+                + "sebagai teks bebas dan membuat baris tanpa keduanya — yaitu baris kosong pada "
+                + "layar yang justru ada untuk mengisinya.");
+        DITAHAN.put("root/pertemuan",
+                "Layar Aktifitas Pelajaran/Perkuliahan, entity-nya Pertemuan. Pertemuan dibuat "
+                + "oleh alur penjadwalan, bukan diketik satu per satu; CRUD generik akan "
+                + "menciptakan pertemuan lepas yang tidak tertaut jadwal mana pun.");
 
         DITAHAN.put("root/mahasiswa_registrasi_wisuda",
                 "Layar ini memang layar tinjau (\"Melihat Pendaftar Wisuda\"). Pendaftaran "

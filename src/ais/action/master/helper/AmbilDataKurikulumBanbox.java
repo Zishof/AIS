@@ -46,30 +46,29 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
 /**
- * Tipe khusus untuk ambil data kurikulum banbox. Kelas ini memberi nama dan batas tanggung jawab
- * yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
- *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code EventListener eventListener}, {@code Textbox nama},
- * {@code Combobox searchfakultas}, {@code Combobox searchjurusan}, {@code Intbox tahun}; pembacaan/pencarian
- * ({@code onSearchDefault()}, {@code setEventListener()}, {@code getEventListener()}); operasi domain lain
- * ({@code display()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
- * atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.Kurikulum} — lihat
+ * {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum
+ * (constructor/display/onSearchDefault/renderer/callback).
+ * <p>
+ * {@code Kurikulum} adalah master data kurikulum akademik (kumpulan struktur mata kuliah per
+ * semester yang berlaku untuk suatu prodi/program pada tahun tertentu). Popup pencarian
+ * menyediakan field {@code nama} (ilike substring), {@code tahun} (Intbox, eq), dan Combobox
+ * fakultas/prodi. KHAS di antara subclass sejenis: setiap baris grid punya
+ * {@link ais.ui.util.MyDetail} yang bisa diperluas (expand) — saat dibuka, memuat
+ * {@code DetailSemesterKurikulumHelper} untuk menampilkan rincian struktur kurikulum per semester
+ * langsung di dalam popup pencarian, tanpa perlu membuka layar terpisah. Hanya baris
+ * {@code aktif == true} atau {@code aktif} kosong yang tampil, diurutkan menurun berdasar tahun.
+ * Pemilihan bersifat TUNGGAL (Radiogroup). Tidak ada constructor dengan parameter tambahan; field
+ * {@code pagingHelper} dideklarasikan tapi TIDAK dipakai — pencarian masih memakai
+ * {@code grid.setMold("paging")} client-side lama dibatasi {@link ais.common.Common#MAX_RESULT}.
+ * </p>
  *
  * @see Bandbox
  */
 public class AmbilDataKurikulumBanbox extends Bandbox implements GetEventListener {
 
 	/**
-	 * 
+	 *
 	 */
 	private static final long serialVersionUID = 6452461056684904810L;
 	private MyGrid grid;
@@ -79,6 +78,13 @@ public class AmbilDataKurikulumBanbox extends Bandbox implements GetEventListene
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
 	private EventListener eventListener;
 
+	/**
+	 * Konstruktor standar: mempersiapkan Combobox fakultas/prodi (termasuk opsi "Semua") lewat
+	 * {@link ais.common.Common#initFakultasDanJurusanDanSemua} dan memasang listener
+	 * {@code onOpen} yang membangun popup pencarian secara lazy pada pembukaan pertama. Mengikuti
+	 * kerangka standar di {@link ais.ui.util.GetEventListener}, tidak ada logika tambahan khusus
+	 * entity ini.
+	 */
 	public AmbilDataKurikulumBanbox() {
 		super();
 		setReadonly(true);
@@ -102,22 +108,24 @@ public class AmbilDataKurikulumBanbox extends Bandbox implements GetEventListene
 		});
 	}
 
+	/** Kriteria pencarian: nama kurikulum (ilike, substring). */
 	private Textbox nama;
+	/** Kriteria pencarian: fakultas (termasuk opsi "Semua"). */
 	private Combobox searchfakultas = new Combobox();
+	/** Kriteria pencarian: prodi (termasuk opsi "Semua"). */
 	private Combobox searchjurusan = new Combobox();
+	/** Kriteria pencarian: tahun berlaku kurikulum (eq). */
 	private Intbox tahun;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataKurikulumBanbox}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataKurikulumBanbox} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer baris grid hasil pencarian {@link Kurikulum}: kolom nama, program, jurusan, tahun,
+	 * dan tahun akademik/jenis semester mulai berlaku, plus satu radio button pilihan. KHAS
+	 * renderer ini: setiap baris memasang {@link ais.ui.util.MyDetail} yang bisa diperluas — saat
+	 * dibuka, memuat {@code DetailSemesterKurikulumHelper} untuk menampilkan rincian struktur
+	 * kurikulum per semester langsung di baris tersebut. Selebihnya mengikuti kerangka renderer
+	 * standar di {@link ais.ui.util.GetEventListener} — listener {@code onCheck} pada radio button
+	 * menutup popup, menyimpan entity terpilih ke atribut {@code "kurikulum"} dan teks tampilan
+	 * {@code kurikulum.toString()}, lalu meneruskan event ke {@link #eventListener} bila terpasang.
 	 *
 	 * @see AmbilDataKurikulumBanbox
 	 */
@@ -172,6 +180,13 @@ public class AmbilDataKurikulumBanbox extends Bandbox implements GetEventListene
 
 	}
 
+	/**
+	 * Membangun popup pencarian {@link Kurikulum} sekali (dipanggil lazy dari listener
+	 * {@code onOpen}): form dengan field nama, tahun, fakultas, dan prodi, tombol Cari, dan grid
+	 * hasil dibungkus {@link org.zkoss.zul.Radiogroup} (pilih tunggal). Mengikuti kerangka
+	 * {@code display()} standar — lihat {@link ais.ui.util.GetEventListener}. Memanggil
+	 * {@link #onSearchDefault(Event)} di akhir agar grid terisi saat popup pertama dibuka.
+	 */
 	public void display() {
 		setReadonly(true);
 		Bandpopup bandpopup = new ais.ui.util.MyBandpopup();
@@ -312,6 +327,18 @@ public class AmbilDataKurikulumBanbox extends Bandbox implements GetEventListene
 
 	}
 
+	/**
+	 * Mengeksekusi pencarian {@link Kurikulum} dengan filter {@code aktif} (baris nonaktif
+	 * disembunyikan kecuali kolomnya {@code null}), {@code nama} (ilike substring), {@code tahun}
+	 * (eq bila diisi), prodi (eq bila dipilih), dan fakultas (eq bila dipilih, lewat join ke
+	 * {@code jurusan}). Diurutkan menurun berdasar tahun, dibatasi
+	 * {@link ais.common.Common#MAX_RESULT}, lalu memasang {@link KurikulumRenderer} dan model hasil
+	 * ke {@link #grid}. Mengikuti kerangka {@code onSearchDefault} standar — lihat
+	 * {@link ais.ui.util.GetEventListener}.
+	 *
+	 * @param event event pemicu (klik tombol Cari); boleh {@code null} saat dipanggil dari
+	 *              {@link #display()} untuk mengisi grid pertama kali
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -344,10 +371,12 @@ public class AmbilDataKurikulumBanbox extends Bandbox implements GetEventListene
 
 	}
 
+	/** {@inheritDoc} Implementasi setter polos standar — lihat {@link ais.ui.util.GetEventListener}. */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/** {@inheritDoc} Implementasi getter polos standar — lihat {@link ais.ui.util.GetEventListener}. */
 	public EventListener getEventListener() {
 		return eventListener;
 	}

@@ -5114,23 +5114,9 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 		filterCard.setStyle(
 				"background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px;");
 
-		Grid fgrid = new Grid();
-		fgrid.setParent(filterCard);
-		fgrid.setWidth("100%");
-		fgrid.setStyle("border:none;background:transparent;");
-		Columns fcols = new Columns();
-		fcols.setParent(fgrid);
-		// Panel kiri e-Learning sempit. Susun satu field per baris agar label dan
-		// kontrol tetap terbaca pada layar 1080p tanpa perlu zoom-out.
-		for (int i = 0; i < 2; i++) {
-			org.zkoss.zul.Column c = new org.zkoss.zul.Column();
-			if (i == 0) {
-				c.setWidth("118px");
-			}
-			c.setParent(fcols);
-		}
-		Rows frows = new Rows();
-		frows.setParent(fgrid);
+		org.zkoss.zul.Div filterFields = new org.zkoss.zul.Div();
+		filterFields.setSclass("elearning-bimbingan-filter-fields");
+		filterFields.setParent(filterCard);
 
 		final Combobox ta = new Combobox();
 		ta.setWidth("100%");
@@ -5167,41 +5153,12 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 		final ais.action.master.helper.AmbilDataDosenBanbox dosenBox = new ais.action.master.helper.AmbilDataDosenBanbox();
 		dosenBox.setWidth("100%");
 
-		MyFormRow r1 = new MyFormRow();
-		r1.setValign("middle");
-		r1.setParent(frows);
-		r1.appendChild(new ais.ui.util.MyLabelConfig("Tahun Akademik"));
-		r1.appendChild(ta);
-
-		MyFormRow r2 = new MyFormRow();
-		r2.setValign("middle");
-		r2.setParent(frows);
-		r2.appendChild(new ais.ui.util.MyLabelConfig("Semester"));
-		r2.appendChild(smt);
-
-		MyFormRow rFakultas = new MyFormRow();
-		rFakultas.setValign("middle");
-		rFakultas.setParent(frows);
-		rFakultas.appendChild(new ais.ui.util.MyLabelConfig("Fakultas"));
-		rFakultas.appendChild(fak);
-
-		MyFormRow rProdi = new MyFormRow();
-		rProdi.setValign("middle");
-		rProdi.setParent(frows);
-		rProdi.appendChild(new ais.ui.util.MyLabelConfig("Program Studi"));
-		rProdi.appendChild(jur);
-
-		MyFormRow rCari = new MyFormRow();
-		rCari.setValign("middle");
-		rCari.setParent(frows);
-		rCari.appendChild(new ais.ui.util.MyLabelConfig("Cari NIM/NIS/Nama / Judul"));
-		rCari.appendChild(cariMhs);
-
-		MyFormRow rDosen = new MyFormRow();
-		rDosen.setValign("middle");
-		rDosen.setParent(frows);
-		rDosen.appendChild(new ais.ui.util.MyLabelConfig("Dosen"));
-		rDosen.appendChild(dosenBox);
+		tambahFieldFilterBimbingan(filterFields, "Tahun Akademik", ta, "elearning-filter-ta");
+		tambahFieldFilterBimbingan(filterFields, "Semester", smt, "elearning-filter-semester");
+		tambahFieldFilterBimbingan(filterFields, "Fakultas", fak, "elearning-filter-fakultas");
+		tambahFieldFilterBimbingan(filterFields, "Program Studi", jur, "elearning-filter-prodi");
+		tambahFieldFilterBimbingan(filterFields, "Cari NIM/NIS/Nama / Judul", cariMhs, "elearning-filter-cari");
+		tambahFieldFilterBimbingan(filterFields, "Dosen", dosenBox, "elearning-filter-dosen");
 
 		container.setParent(wrap);
 
@@ -5213,24 +5170,32 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 			}
 		};
 
-		MyFormRow r3 = new MyFormRow();
-		r3.setParent(frows);
-		r3.appendChild(new ais.ui.util.MyLabelConfig(""));
+		org.zkoss.zul.Div filterActions = new org.zkoss.zul.Div();
+		filterActions.setSclass("elearning-bimbingan-filter-actions");
+		filterActions.setParent(filterCard);
 		MyToolbarbuttonConfig btnTampil = new MyToolbarbuttonConfig("Tampilkan", "/img/svg/search.svg");
 		btnTampil.setTooltiptext("Muat ulang tabel sesuai filter");
 		btnTampil.addEventListener("onClick", tampilListener);
-		r3.appendChild(btnTampil);
+		filterActions.appendChild(btnTampil);
 		if (bolehPengajuan) {
-			MyFormRow rPengajuan = new MyFormRow();
-			rPengajuan.setParent(frows);
-			rPengajuan.appendChild(new ais.ui.util.MyLabelConfig(""));
-			rPengajuan.appendChild(buatTombolPengajuan(host, jenis));
+			filterActions.appendChild(buatTombolPengajuan(host, jenis));
 		}
 
 		cariMhs.addEventListener("onOK", tampilListener);
 		dosenBox.addEventListener("onChange", tampilListener);
 
 		muatIsiTabelBimbingan(container, jenis, ta, smt, fak, jur, cariMhs, dosenBox);
+	}
+
+	private void tambahFieldFilterBimbingan(org.zkoss.zul.Div parent, String label, Component input,
+			String sclassTambahan) {
+		org.zkoss.zul.Div field = new org.zkoss.zul.Div();
+		field.setSclass("elearning-bimbingan-filter-field " + sclassTambahan);
+		field.setParent(parent);
+		ais.ui.util.MyLabelConfig fieldLabel = new ais.ui.util.MyLabelConfig(label);
+		fieldLabel.setSclass("elearning-bimbingan-filter-label");
+		fieldLabel.setParent(field);
+		input.setParent(field);
 	}
 
 	/**

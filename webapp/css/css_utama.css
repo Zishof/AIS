@@ -10561,12 +10561,31 @@ html body .ais-crud-filter-grid .z-cell input[type="search"] {
     }
 }
 
-/* ── Desktop (≥ 1000px): 1-kolom penuh — semua baris filter tumpuk vertikal ── */
-@media (min-width: 1000px) {
+/* ── Tablet lebar + Desktop (≥ 760px): baris sederhana mengalir horizontal ──
+   Banyak halaman lama menaruh hanya satu pasangan label+input pada tiap <row>.
+   Bila tbody dipaksa satu kolom, seluruh filter menjadi daftar vertikal panjang.
+   Auto-fit berikut mengisi ruang dari kiri ke kanan dan baru membungkus saat penuh.
+   Baris padat (lebih dari satu pasangan) serta row ber-colspan tetap selebar kartu
+   agar kontrolnya tidak dipaksa masuk ke kolom yang terlalu sempit. */
+@media (min-width: 760px) {
     html body .ais-crud-filter-grid .z-rows,
     html body .ais-crud-filter-grid tbody {
         display: grid !important;
-        grid-template-columns: 1fr !important;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)) !important;
+        align-items: start !important;
+        gap: 1px 12px !important;
+        width: 100% !important;
+    }
+    html body .ais-crud-filter-grid tr.z-row {
+        width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+    }
+    html body .ais-crud-filter-grid tr.z-row:has(> td:nth-child(3)),
+    html body .ais-crud-filter-grid tr.z-row:has(> .z-cell:nth-child(3)),
+    html body .ais-crud-filter-grid tr.z-row:has(> td[colspan]),
+    html body .ais-crud-filter-grid tr.z-row:has(> .z-cell[colspan]) {
+        grid-column: 1 / -1 !important;
     }
 }
 
@@ -13848,3 +13867,131 @@ span.z-toolbarbutton.ais-upload-opt-file:hover > a,
 span.z-toolbarbutton.ais-upload-opt-drive:hover > a,
 span.z-toolbarbutton.ais-upload-opt-dropbox:hover > a,
 span.z-toolbarbutton.ais-upload-opt-link:hover > a { opacity: .8; }
+
+/* Filter tab Bimbingan: isi horizontal terlebih dahulu, lalu wrap sesuai ruang. */
+html body .elearning-bimbingan-filter-fields {
+    display: flex !important;
+    flex-flow: row wrap !important;
+    align-items: flex-end !important;
+    gap: 10px 12px !important;
+    width: 100% !important;
+}
+
+html body .elearning-bimbingan-filter-field {
+    display: flex !important;
+    flex: 1 1 220px !important;
+    min-width: 180px !important;
+    max-width: 360px !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+    box-sizing: border-box !important;
+}
+
+html body .elearning-bimbingan-filter-field.elearning-filter-semester {
+    flex-basis: 150px !important;
+    min-width: 140px !important;
+    max-width: 190px !important;
+}
+
+html body .elearning-bimbingan-filter-field.elearning-filter-ta {
+    flex-basis: 180px !important;
+    max-width: 220px !important;
+}
+
+html body .elearning-bimbingan-filter-field.elearning-filter-cari,
+html body .elearning-bimbingan-filter-field.elearning-filter-dosen {
+    flex-grow: 2 !important;
+    flex-basis: 280px !important;
+    max-width: 520px !important;
+}
+
+html body .elearning-bimbingan-filter-label {
+    display: block !important;
+    font-weight: 600 !important;
+    line-height: 1.25 !important;
+}
+
+html body .elearning-bimbingan-filter-field > .z-combobox,
+html body .elearning-bimbingan-filter-field > .z-bandbox,
+html body .elearning-bimbingan-filter-field > .z-textbox {
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+html body .elearning-bimbingan-filter-actions {
+    display: flex !important;
+    flex-flow: row wrap !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin-top: 12px !important;
+}
+
+@media (max-width: 700px) {
+    html body .elearning-bimbingan-filter-field,
+    html body .elearning-bimbingan-filter-field.elearning-filter-ta,
+    html body .elearning-bimbingan-filter-field.elearning-filter-semester,
+    html body .elearning-bimbingan-filter-field.elearning-filter-cari,
+    html body .elearning-bimbingan-filter-field.elearning-filter-dosen {
+        flex: 1 1 100% !important;
+        min-width: 0 !important;
+        max-width: none !important;
+    }
+}
+
+/* Pola filter field modern yang dipakai halaman ZUL baru. Dibuat generik agar
+   halaman berikutnya cukup memakai class ini tanpa membuat CSS per modul. */
+html body .ecampus-zul-filter-fields {
+    display: flex !important;
+    flex-flow: row wrap !important;
+    align-items: flex-end !important;
+    gap: 10px 12px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+html body .ecampus-zul-filter-field {
+    display: flex !important;
+    flex: 1 1 220px !important;
+    min-width: 180px !important;
+    max-width: 420px !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+    box-sizing: border-box !important;
+}
+
+html body .ecampus-zul-filter-field-label {
+    display: block !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    line-height: 1.3 !important;
+    color: #475569 !important;
+}
+
+html body .ecampus-zul-filter-field-control,
+html body .ecampus-zul-filter-field > .z-textbox,
+html body .ecampus-zul-filter-field > .z-combobox,
+html body .ecampus-zul-filter-field > .z-bandbox,
+html body .ecampus-zul-filter-field > .z-datebox {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+html body .ecampus-zul-filter-primary-actions {
+    display: flex !important;
+    flex-flow: row wrap !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin-top: 10px !important;
+}
+
+@media (max-width: 700px) {
+    html body .ecampus-zul-filter-field {
+        flex: 1 1 100% !important;
+        min-width: 0 !important;
+        max-width: none !important;
+    }
+}
