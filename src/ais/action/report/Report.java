@@ -1921,6 +1921,10 @@ public class Report extends GenericAutowireComposer {
 
 			File lastFileJasper = null;
 			JasperPrint jasperPrint = null;
+			boolean izinReportDiperoleh = ReportThrottle.ambilIzin();
+			net.sf.jasperreports.engine.fill.JRSwapFileVirtualizer virtualizerReport = ReportThrottle
+					.pasangVirtualizer(parameters);
+			try {
 			try {
 				updateProgress(progress, 50, "Membaca template Jasper", "Membuka file desain laporan");
 				File fileJasper = CommonReport.generateFileJasper(fileD, namaAsli);
@@ -1953,6 +1957,10 @@ public class Report extends GenericAutowireComposer {
 			}
 			updateProgress(progress, 96, "Menyimpan riwayat laporan", "Mencatat riwayat file laporan yang dibuat");
 			saveReportHistory(bar, formatLaporan, myFile.getName());
+			} finally {
+				ReportThrottle.bersihkanVirtualizer(virtualizerReport, parameters);
+				ReportThrottle.lepasIzin(izinReportDiperoleh);
+			}
 
 		} catch (Exception e) {
 				if (isReportErrorLogConsoleEnabled()) e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/report/Report.java:1463");
@@ -2513,8 +2521,13 @@ public class Report extends GenericAutowireComposer {
 		File finalJpg = new File(myFile.getAbsolutePath().replace(".pdf", ".jpg"));
 		FileOutputStream out = null;
 		Connection conn = null;
-		Session session = openNativeSession();
+		Session session = null;
+		boolean izinReportDiperoleh = false;
 		try {
+			izinReportDiperoleh = ReportThrottle.ambilIzin();
+			// Pembukaan session harus berada di dalam try. Jika pembukaan session gagal,
+			// finally tetap melepas permit antrean laporan yang sudah diperoleh.
+			session = openNativeSession();
 			File fileJasper = CommonReport.generateFileJasper(fileD, fileD);
 
 			conn = session.connection();
@@ -2580,8 +2593,11 @@ public class Report extends GenericAutowireComposer {
 				}
 			}
 
-			closeNativeSession(session);
+			if (session != null) {
+				closeNativeSession(session);
+			}
 			parameters.remove("REPORT_CONNECTION");
+			ReportThrottle.lepasIzin(izinReportDiperoleh);
 		}
 		return finalJpg;
 	}
