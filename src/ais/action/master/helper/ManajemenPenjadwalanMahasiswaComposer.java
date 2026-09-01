@@ -79,34 +79,64 @@ import ais.ui.util.MyTimebox;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk manajemen penjadwalan mahasiswa composer. Kelas ini memberi nama dan batas
- * tanggung jawab yang eksplisit pada perilaku yang diwarisi atau kontrak yang
- * diimplementasikannya.
+ * Composer ZK ({@link GenericForwardComposer}) untuk layar <b>"Manajemen Penjadwalan Mahasiswa"</b>
+ * — satu halaman dengan DUA region yang saling terhubung lewat filter yang sama (tahun ajaran,
+ * fakultas, jurusan, program, semester, kelas):
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * GenericForwardComposer}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
- * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
- * tumpang tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code SimpleCalendarModel cm}, {@code
- * Calendars calendars}, {@code List dateTime}, {@code Combobox tahunAjaran}, {@code Combobox semester}, {@code
- * AmbilDataKelasBanbox kelas}, {@code Combobox fakultas}, {@code Combobox jurusan}; inisialisasi/lifecycle
- * ({@code init()}, {@code doBeforeCompose()}, {@code doAfterCompose()}, {@code initTimeDropdown()}, {@code
- * initCalendarModel()}, {@code initDataMahasiswa()}); pembacaan/pencarian ({@code onRefresh()}, {@code
- * bangunKunciRefresh()}, {@code onSearchDefault()}, {@code ambilKonteksKelasTervalidasi()}, {@code
- * loadDataMahasiswa()}); validasi/perhitungan ({@code checkMahasiswaBentrok()}); mutasi data ({@code
- * onEventUpdate$calendars()}, {@code onUpdateFirstDayOfWeek()}, {@code onUpdateView()}); operasi domain lain
- * ({@code generatePerkulihaanParalel()}, {@code nilaiTerpilih()}, {@code onEventCreate$calendars()}, {@code
- * onEventEdit$calendars()}, {@code onMoveDate()}, {@code onToday()}). Bagian lain dari kontrak tetap mengikuti
- * kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
- * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK dan menyimpan state layar; jangan digunakan
- * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
- * serta session Hibernate milik request yang aktif.</p>
+ * <ol>
+ * <li><b>Kalender jadwal perkuliahan (kiri/tengah).</b> Komponen {@link Calendars} (widget ZK
+ * calendar/scheduler) menampilkan setiap {@link Perkuliahan} yang cocok filter sebagai satu event
+ * kalender (dibangun oleh {@code CalendarPerkuliahanMahasiswa.initModel}, lihat
+ * {@link #initCalendarModel()}). Admin dapat men-<i>drag</i> membuat slot baru
+ * ({@link #onEventCreate$calendars}) atau membuka slot yang ada ({@link #onEventEdit$calendars})
+ * untuk mengedit hari/jam/dosen/ruang — keduanya memvalidasi filter lengkap dan status aktif
+ * penjadwalan ({@link CommonPenjadwalan#apakahPenjadwalanTidakAktif}) sebelum mendelegasikan ke
+ * {@link #init(Perkuliahan)}, yang membuka dialog detail lewat {@link PenjadwalanUtil} (dengan
+ * field filter dikunci/disabled karena konteksnya sudah ditentukan dari layar ini). Navigasi
+ * kalender (hari/minggu/bulan, maju/mundur, "hari ini", switch timezone) ditangani method
+ * {@code onMoveDate}/{@code onToday}/{@code onUpdateView}/{@code onSwitchTimeZone}/
+ * {@code onUpdateFirstDayOfWeek} yang murni delegasi ke API {@link Calendars}.</li>
+ * <li><b>Panel roster mahasiswa (kanan, {@link #initDataMahasiswa()}).</b> Dibangun murni via kode
+ * Java (bukan dari ZUL), menampilkan {@link PenjadwalanMahasiswa} (paket "mahasiswa terjadwal ke
+ * kelas ini") dengan empat aksi: <i>Ambil data Mahasiswa</i> (menambah lewat picker), <i>
+ * Singkronisasikan</i> (bentuk {@link Detailperkuliahan}/KRS otomatis untuk SETIAP mahasiswa
+ * &times; SETIAP {@link Perkuliahan} yang match filter kelas — divalidasi lagi per mahasiswa
+ * lewat batas SKS ({@link Common#checkPembatasanSKSBerdasarkanIP}), status pembayaran
+ * ({@link Common#checkStatusPembayaranMahasiswa}), dan bentrok jadwal matakuliah yang sama
+ * ({@link #checkMahasiswaBentrok}), dengan ringkasan BERHASIL/GAGAL/DILEWATI per mahasiswa),
+ * <i>Batalkan Singkronisasi</i> (hapus {@link Detailperkuliahan} yang belum dinilai,
+ * {@code totalNilai <= 0.1}, beserta baris {@code nilai} terkait lewat SQL langsung), dan
+ * <i>Bersihkan Daftar</i> (hapus seluruh baris {@code penjadwalan_mahasiswa} kelas+semester ini via
+ * SQL langsung). Keempat aksi berbagi satu validasi konteks terpusat
+ * ({@link #ambilKonteksKelasTervalidasi()}) yang menggantikan blok validasi yang sebelumnya
+ * disalin-tempel di empat tempat.</li>
+ * </ol>
+ *
+ * <p><b>Field ZK yang di-wire</b> (injeksi otomatis {@link GenericForwardComposer} dari ZUL, nama
+ * variabel harus cocok {@code id} komponen): {@code calendars} (kalender utama), {@code tahunAjaran}/
+ * {@code semester}/{@code fakultas}/{@code jurusan}/{@code program}/{@code kelas} (filter bersama
+ * kalender &amp; roster), {@code panelDaftarMahasiswa} (region {@link Center} tempat
+ * {@link #initDataMahasiswa()} menyuntikkan UI-nya secara terprogram), serta satu set field terkait
+ * DIALOG DETAIL slot perkuliahan ({@code dosen1}..{@code dosen10} untuk tim pengajar hingga 10 orang,
+ * {@code ruang}, {@code jamPerkuliahan}, {@code hari}, {@code minggu1}..{@code minggu5}, dsb.) yang
+ * dipakai/disiapkan oleh {@link PenjadwalanUtil} yang dipanggil dari {@link #init(Perkuliahan)}.</p>
+ *
+ * <p><b>Debounce refresh:</b> {@link #onRefresh(Event)} membangun "kunci" dari kombinasi nilai
+ * filter terpilih ({@link #bangunKunciRefresh()}) dan mengabaikan panggilan berturut-turut dengan
+ * kunci identik dalam jendela 500ms — mencegah kalender di-render ulang berkali-kali saat beberapa
+ * event {@code onChange} filter terpicu nyaris bersamaan (mis. saat {@code FakultasEventListener}
+ * mengosongkan &amp; mengisi ulang combobox jurusan). Flag {@code sedangSinkronFilter} menahan
+ * refresh sepenuhnya selama sinkronisasi combobox fakultas&rarr;jurusan berlangsung.</p>
+ *
+ * <p><b>Lifecycle:</b> instance mengikuti lifecycle komponen ZK (satu instance per halaman per
+ * desktop) dan menyimpan state layar (filter terpilih, model kalender, cache debounce) sebagai field
+ * instance — jangan dipakai sebagai singleton atau dibagikan antar desktop/session. Event handler
+ * harus tetap memakai konteks pengguna serta session Hibernate milik request yang aktif.</p>
  *
  * @see GenericForwardComposer
+ * @see PenjadwalanUtil
+ * @see Perkuliahan
+ * @see PenjadwalanMahasiswa
  */
 public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardComposer implements OnSearchDefaultListener {
 
@@ -194,6 +224,18 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 	protected Center panelDaftarMahasiswa;
 	protected Paging paging;
 
+	/**
+	 * Membuka dialog detail satu slot jadwal perkuliahan (buat baru atau edit) lewat
+	 * {@link PenjadwalanUtil}, dengan field filter konteks (kelas/program/semester/tahun ajaran/
+	 * fakultas/jurusan) DIKUNCI (disabled) karena nilainya sudah ditentukan dari layar kalender ini,
+	 * serta opsi "tanpa jadwal perkuliahan" disembunyikan (tidak relevan di alur ini). Refresh
+	 * kalender otomatis dipicu ({@link #onRefresh}) lewat callback {@link OnSearchDefaultListener}
+	 * saat dialog ditutup dengan perubahan.
+	 *
+	 * @param perkuliahan data awal dialog: {@link Perkuliahan} kosong berisi hari/jam/kelas terisi
+	 *            dari drag kalender ({@link #onEventCreate$calendars}), atau entity lengkap hasil
+	 *            query saat mengedit slot yang sudah ada ({@link #onEventEdit$calendars})
+	 */
 	@SuppressWarnings({})
 	protected void init(final Perkuliahan perkuliahan) throws Exception {
 
@@ -215,6 +257,15 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 
 	}
 
+	/**
+	 * Mengisi combobox {@code perkuliahan_paralel} dengan kandidat {@link Perkuliahan} yang bisa
+	 * dijadikan "kelas paralel" (matakuliah/program/jurusan/tahun ajaran/semester sama, belum
+	 * berstatus paralel sendiri, bukan slot ini sendiri) — dipakai saat sebuah kelas ingin dibuat
+	 * sebagai paralel dari kelas lain (berbagi kapasitas/mahasiswa). Memvalidasi lebih dulu bahwa
+	 * tahun ajaran, program, jurusan, semester, dan matakuliah sudah dipilih di dialog; menampilkan
+	 * pesan peringatan &amp; berhenti bila ada yang kosong. Label combobox menampilkan nama dosen +
+	 * matakuliah + id; deskripsi (tooltip) menampilkan ringkasan dosen/semester/kelas/ruang/hari/jam.
+	 */
 	@SuppressWarnings("unchecked")
 	protected void generatePerkulihaanParalel() throws Exception {
 		Common.clear(perkuliahan_paralel);
@@ -287,6 +338,18 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 		}
 	}
 
+	/**
+	 * Titik refresh bersama kalender &amp; roster mahasiswa, dipanggil dari seluruh listener
+	 * perubahan filter (fakultas/jurusan/dst.) maupun {@link #onSearchDefault}. Di-debounce via
+	 * {@link #bangunKunciRefresh()}: dilewati bila flag {@code sedangSinkronFilter} aktif (combobox
+	 * fakultas&rarr;jurusan sedang disinkronkan) ATAU bila kombinasi filter identik dengan panggilan
+	 * terakhir dalam jendela 500ms (mencegah render kalender berulang saat beberapa event
+	 * {@code onChange} terpicu nyaris bersamaan). Efek: membangun ulang model kalender
+	 * ({@link #initCalendarModel()}), memaksa {@link Calendars#invalidate()}, dan memuat ulang tabel
+	 * roster mahasiswa ({@link #loadDataMahasiswa(Object)}).
+	 *
+	 * @param event event pemicu (tidak dipakai isinya, hanya penanda ada perubahan)
+	 */
 	public void onRefresh(Event event) {
 		if (sedangSinkronFilter) {
 			return;
@@ -303,12 +366,14 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 		loadDataMahasiswa(null);
 	}
 
+	/** Menggabungkan nilai semua combobox filter + kelas menjadi satu kunci string untuk deteksi "tidak ada perubahan" di {@link #onRefresh}. */
 	private String bangunKunciRefresh() {
 		return nilaiTerpilih(tahunAjaran) + "|" + nilaiTerpilih(fakultas) + "|" + nilaiTerpilih(jurusan) + "|"
 				+ nilaiTerpilih(program) + "|" + nilaiTerpilih(semester) + "|"
 				+ (kelas == null || kelas.getValue() == null ? "" : kelas.getValue().trim());
 	}
 
+	/** Nilai combobox terpilih sebagai string stabil untuk perbandingan kunci (ID untuk {@link Fakultas}/{@link Jurusan}, {@code String.valueOf} untuk tipe lain, {@code ""} bila tidak ada pilihan). */
 	private String nilaiTerpilih(Combobox combo) {
 		if (combo == null || combo.getSelectedItem() == null || combo.getSelectedItem().getValue() == null) {
 			return "";
@@ -323,6 +388,7 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 		return String.valueOf(value);
 	}
 
+	/** Pengaman keamanan halaman ({@link Common#doCheckSecurity()}) dan penyiapan slot dropdown waktu ({@link #initTimeDropdown(Page)}) sebelum ZUL di-compose. */
 	@Override
 	public ComponentInfo doBeforeCompose(Page page, Component parent, ComponentInfo compInfo) {
 		Common.doCheckSecurity();
@@ -336,6 +402,18 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 	private Textbox nama;
 	private Intbox angkatan;
 
+	/**
+	 * Inisialisasi lengkap layar setelah ZUL selesai di-compose: pengecekan sesi/hak akses baca
+	 * ({@link CommonPrivilages#checkPrevilages}, logoff paksa bila gagal), baca konfigurasi tampilan
+	 * minggu perkuliahan, wiring listener refresh untuk {@code kelas}/{@code ruang}, pengisian
+	 * combobox {@code semester} (1..23) dengan default sesuai ganjil/genap berjalan, pengisian
+	 * {@code tahunAjaran}, konfigurasi jam/timezone kalender dari {@link Konfigurasi}
+	 * ({@code penjadwalan_jam_mulai}/{@code penjadwalan_jam_selesai}/{@code penjadwalan_timezone}),
+	 * pengisian combobox {@code hari}/{@code waktu}/{@code program}, penguncian
+	 * {@code fakultas}/{@code jurusan} bila user hanya berwenang pada fakultas/jurusan tertentu
+	 * (scoping otorisasi), inisialisasi paging &amp; panel roster ({@link #initDataMahasiswa()}),
+	 * dan render awal ({@link #onRefresh(Event)}).
+	 */
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
 
@@ -529,6 +607,7 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 
 	}
 
+	/** Mengisi {@link #dateTime} dengan 288 slot waktu berformat {@code HH:mm} berjarak 5 menit (00:00..23:55), sumber pilihan waktu untuk dialog detail jadwal. */
 	protected void initTimeDropdown(Page page) {
 
 		Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
@@ -543,6 +622,16 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 		}
 	}
 
+	/**
+	 * Membangun ulang model kalender dari filter terpilih: query id {@link Perkuliahan} aktif,
+	 * bukan bagian dari kelas paralel lain, sesuai semester (pendek/reguler),
+	 * {@code kelas}/{@code tahunAjaran}/{@code semester} persis, disaring lagi oleh
+	 * jurusan (bila dipilih) atau fakultas (fallback bila jurusan kosong), dan program (bila
+	 * dipilih). Tidak melakukan apa pun (return dini) bila tahun ajaran/semester belum dipilih atau
+	 * nama kelas kosong. Hasil id disimpan ke {@link #perkuliahans} (dipakai ulang oleh proses
+	 * sinkronisasi roster) lalu diterjemahkan ke {@link SimpleCalendarModel} oleh
+	 * {@code CalendarPerkuliahanMahasiswa.initModel} dan dipasang ke {@link #calendars}.
+	 */
 	@SuppressWarnings("unchecked")
 	protected void initCalendarModel() {
 
@@ -593,6 +682,18 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 		calendars.onInitRender();
 	}
 
+	/**
+	 * Handler ZK untuk drag-membuat slot baru pada {@link #calendars} (naming convention
+	 * {@code on<Event>$<componentId>}). Memvalidasi filter lengkap (fakultas/prodi/jurusan/tahun
+	 * ajaran/semester/kelas) dan status aktif penjadwalan periode terkait
+	 * ({@link CommonPenjadwalan#apakahPenjadwalanTidakAktif}); bila lolos, membentuk
+	 * {@link Perkuliahan} baru berisi hari (dari tanggal drag) dan jam mulai/selesai (dari rentang
+	 * drag) lalu membuka dialog detail ({@link #init(Perkuliahan)}). {@code evt.stopClearGhost()}
+	 * mencegah widget kalender menghapus "bayangan" slot yang baru digambar sebelum dialog selesai.
+	 *
+	 * @param event event ZK asli dari widget calendar ({@link CalendarsEvent} via
+	 *            {@code event.getOrigin()})
+	 */
 	public void onEventCreate$calendars(ForwardEvent event) throws Exception {
 
 		String tahunAkademik = tahunAjaran.getSelectedItem() == null ? null
@@ -646,6 +747,19 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 		evt.stopClearGhost();
 	}
 
+	/**
+	 * Handler ZK untuk membuka slot {@link Perkuliahan} yang sudah ada (klik pada event kalender).
+	 * Memvalidasi filter lengkap, memuat ulang {@link Perkuliahan} by id (id disimpan sebagai
+	 * {@code ce.getTitle()} pada event kalender), lalu menegakkan SCOPING OTORISASI: pengguna yang
+	 * dibatasi ke fakultas/jurusan tertentu TIDAK BOLEH mengubah jadwal milik
+	 * fakultas/jurusan lain (ditolak dengan pesan spesifik menyebut nama fakultas/jurusannya) —
+	 * pengecekan ini terpisah dari (dan lebih ketat dari) filter combobox layar. Setelah lolos
+	 * otorisasi dan status penjadwalan aktif ({@link CommonPenjadwalan#apakahPenjadwalanTidakAktif}),
+	 * membuka dialog detail ({@link #init(Perkuliahan)}) untuk diedit.
+	 *
+	 * @param event event ZK asli dari widget calendar; {@code getCalendarEvent().getTitle()} berisi
+	 *            id {@link Perkuliahan} sebagai string
+	 */
 	public void onEventEdit$calendars(ForwardEvent event) throws Exception {
 
 		String tahunAkademik = tahunAjaran.getSelectedItem() == null ? null
@@ -706,6 +820,12 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 
 	}
 
+	/**
+	 * Handler ZK saat pengguna men-drag/resize event kalender yang sudah ada (perubahan
+	 * visual/interaktif SAJA, bukan simpan permanen — tidak menyentuh database): menyalin tanggal
+	 * mulai/selesai baru dari event drag ke {@link SimpleCalendarEvent} lalu memperbarui
+	 * {@link SimpleCalendarModel} agar tampilan kalender konsisten dengan posisi hasil drag.
+	 */
 	public void onEventUpdate$calendars(ForwardEvent event) {
 		CalendarsEvent evt = (CalendarsEvent) event.getOrigin();
 		// SimpleDateFormat sdf1 = new SimpleDateFormat("yyyy/MM/d");
@@ -731,6 +851,7 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 		m.update(sce);
 	}
 
+	/** Navigasi kalender mundur/maju satu halaman periode (hari/minggu/bulan sesuai mold aktif); {@code event.getData()=="arrow-left"} berarti mundur, selain itu maju. */
 	public void onMoveDate(ForwardEvent event) {
 		if ("arrow-left".equals(event.getData()))
 			calendars.previousPage();
@@ -739,11 +860,13 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 
 	}
 
+	/** Melompat kalender ke tanggal hari ini (timezone default JVM). */
 	public void onToday(ForwardEvent event) {
 		calendars.setCurrentDate(Calendar.getInstance(TimeZone.getDefault()).getTime());
 
 	}
 
+	/** Menukar timezone kalender aktif ke timezone berikutnya dalam {@link Calendars#getTimeZones()} (siklus sederhana: hapus timezone pertama, tambahkan kembali dengan label yang sama). */
 	@SuppressWarnings("rawtypes")
 	public void onSwitchTimeZone(ForwardEvent event) {
 		Map<?, ?> zone = calendars.getTimeZones();
@@ -755,12 +878,18 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 
 	}
 
+	/** Mengatur hari pertama minggu tampilan kalender dari label item {@link Listbox} yang dipilih pengguna. */
 	public void onUpdateFirstDayOfWeek(ForwardEvent event) {
 		Listbox listbox = (Listbox) event.getOrigin().getTarget();
 		calendars.setFirstDayOfWeek(listbox.getSelectedItem().getLabel());
 
 	}
 
+	/**
+	 * Mengganti mode tampilan kalender berdasarkan {@code event.getData()}: {@code "Day"} (1 hari),
+	 * {@code "5 Days"}, {@code "Week"} (7 hari) memakai mold {@code "default"} dengan jumlah hari
+	 * sesuai; nilai lain (mis. {@code "Month"}) memakai mold {@code "month"}.
+	 */
 	public void onUpdateView(ForwardEvent event) {
 		String text = String.valueOf(event.getData());
 		int days = "Day".equals(text) ? 1 : "5 Days".equals(text) ? 5 : "Week".equals(text) ? 7 : 0;
@@ -775,6 +904,12 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 		// || calendars.getDays() == 7);
 	}
 
+	/**
+	 * Implementasi {@link OnSearchDefaultListener}: dipanggil sebagai callback saat dialog detail
+	 * jadwal yang dibuka {@link #init(Perkuliahan)} (via {@link PenjadwalanUtil}) ditutup dengan
+	 * perubahan — cukup memicu {@link #onRefresh(Event)} agar kalender &amp; roster menampilkan data
+	 * terbaru.
+	 */
 	@Override
 	public void onSearchDefault(Event event) {
 		onRefresh(event);
@@ -1413,6 +1548,13 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 		grid.setModelCheckMobile(strset);
 	}
 
+	/**
+	 * Pengecekan cepat sebelum {@link #loadDataMahasiswa(Object)} melakukan query berat: tahun
+	 * ajaran dan semester harus terpilih, nama kelas tidak boleh kosong, dan nama kelas tersebut
+	 * harus benar-benar ada sebagai baris {@link Kelas} di database.
+	 *
+	 * @return {@code true} bila semua syarat minimum terpenuhi
+	 */
 	private boolean filterMinimumDaftarMahasiswaTerisi() {
 		if (tahunAjaran.getSelectedItem() == null || tahunAjaran.getSelectedItem().getValue() == null) {
 			return false;

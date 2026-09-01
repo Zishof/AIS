@@ -81,39 +81,67 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
 /**
- * Helper terfokus untuk nama tugas kelompok. Tipe ini membungkus satu variasi kecil dari alur yang
- * lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ * Layar/komponen ZK (dipanggil dari {@code TugasKelompokAction} lewat {@link #display}) yang
+ * mengelola DAFTAR KELOMPOK ({@link NamaTugasKelompok}, mis. "Kelompok 1", "Kelompok 2") di bawah
+ * satu {@link TugasKelompok} (tugas kuliah berkelompok — bisa berbasis perkuliahan, KKN, atau PKL)
+ * beserta ANGGOTA tiap kelompok ({@link NamaTugasKelompokPunyaMahasiswa}). Dua sisi pengguna:
+ * dosen/admin ({@link #bolehKelolaKelompok()} true) bisa menambah/mengedit/menghapus kelompok,
+ * mengelola anggota, serta mengunduh/mengunggah data massal via Excel; mahasiswa hanya melihat
+ * daftar kelompok dan bisa "Gabung Kelompok" sendiri (bila kuota belum penuh dan belum tergabung
+ * di kelompok lain pada tugas yang sama) serta mengunggah berkas tugas kelompoknya.
  *
- * <p><b>Batas tanggung jawab:</b> tipe ini mendeklarasikan kontrak {@link DataLoader}. Implementasi konkret
- * bertanggung jawab atas transaksi, resource, error handling, dan efek samping; pemanggil sebaiknya bergantung
- * pada kontrak ini agar tidak menggandakan integrasi.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyWindow addWindow}, {@code MyGrid
- * grid}, {@code TugasKelompok tugasKelompok}, {@code NamaTugasKelompok namaTugasKelompok}, {@code Textbox nama},
- * {@code boolean edit}, {@code Tbmuser tbmuser}, {@code Mahasiswa mahasiswa}; inisialisasi/lifecycle ({@code
- * init()}); pembacaan/pencarian ({@code loadData()}, {@code uploadDataNamaTugasKelompokPunyaMahasiswa()}, {@code
- * ambilObeFormatNilais()}, {@code downloadDataKelompokObe()}, {@code uploadDataKelompokObe()});
- * validasi/perhitungan ({@code bolehKelolaKelompok()}); mutasi data ({@code onSave()}); operasi domain lain
- * ({@code display()}, {@code onAdd()}, {@code normalisasiNamaKelompok()}). Bagian lain dari kontrak tetap
- * mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Kuis "siapa boleh kelola" ({@link #bolehKelolaKelompok()}).</b> Diperkaya menjadi
+ * pemeriksaan terpusat: HANYA {@code true} bila pengguna login BUKAN mahasiswa, BUKAN siswa, BUKAN
+ * calon siswa, BUKAN calon mahasiswa (biodata), dan BUKAN peserta kursus — sebelumnya hanya
+ * memeriksa "bukan mahasiswa" sehingga peran pelajar lain (siswa/calon siswa/dst.) keliru masih
+ * melihat kontrol kelola. Dipakai konsisten baik di modul kuliah maupun sekolah.</p>
+ *
+ * <p><b>Dua mode data (Excel biasa vs. OBE).</b> Bila {@link TugasKelompok} berasal dari kurikulum
+ * OBE (Outcome-Based Education — dicek via {@link #ambilObeFormatNilais()}: kurikulum
+ * {@code apakahObe()} DAN {@code tugasKelompok.getFormatNilais()} bukan format lama {@code JSON}
+ * biasa), tombol Download/Upload Data Kelompok diganti dari format standar
+ * ({@link #uploadDataNamaTugasKelompokPunyaMahasiswa}, kolom nama/NIM/nilai/keterangan/nama-mhs)
+ * ke format khusus OBE ({@link #downloadDataKelompokObe}/{@link #uploadDataKelompokObe}, nilai
+ * per-{@link FormatNilai} disimpan sebagai JSON di kolom {@code TugasKelompok.keteranganNilai},
+ * BUKAN sebagai baris {@link NamaTugasKelompokPunyaMahasiswa} terpisah per komponen nilai).</p>
+ *
+ * <p><b>Bukan tanggung jawab kelas ini:</b> merender daftar ANGGOTA per kelompok secara detail
+ * (didelegasikan ke {@code NamaTugasKelompokPunyaMahasiswaHelper}, satu instance BARU per baris
+ * grid — lihat catatan "PERBAIKAN cross-talk antar kelompok" di
+ * {@link DetailTugasKelompokRenderer#render}), maupun validasi syarat pengumpulan tugas
+ * (didelegasikan ke {@code SyaratUjianAction.checkSyaratSyaratUjian}).</p>
  */
 public class NamaTugasKelompokHelper implements DataLoader {
 
+	/** Popup form tambah/edit satu {@link NamaTugasKelompok}, dibangun oleh {@link #init}. */
 	private MyWindow addWindow;
+	/** Grid daftar kelompok, diisi ulang oleh {@link #loadData}. */
 	private MyGrid grid;
+	/** Tugas kelompok induk yang daftar kelompoknya sedang dikelola; diset di {@link #display}. */
 	private TugasKelompok tugasKelompok;
 	// private boolean delete = false;
 	// private boolean add = false;
+	/** Kelompok yang sedang diedit di {@link #addWindow} (baru atau existing); diset oleh {@link #init}, dipakai {@link #onSave}. */
 	private NamaTugasKelompok namaTugasKelompok;
+	/** Kotak isian nama kelompok pada popup tambah/edit. */
 	private Textbox nama;
+	/** Selalu {@code true} pada instance ini (tidak pernah diset {@code false} di kelas ini) — menggerbangi visibilitas tombol edit bersama {@link #bolehKelolaKelompok()}. */
 	private boolean edit = true;
+	/** Pengguna yang sedang login, diset di {@link #display}. */
 	private Tbmuser tbmuser;
+	/** Mahasiswa konteks (bila layar dibuka dari sisi mahasiswa kuliah), diteruskan ke {@code NamaTugasKelompokPunyaMahasiswaHelper}. */
 	private Mahasiswa mahasiswa;
+	/** Calon mahasiswa konteks (bila layar dibuka dari sisi biodata calon mahasiswa), diteruskan ke {@code NamaTugasKelompokPunyaMahasiswaHelper}. */
 	private BiodataCalonMahasiswa biodataCalonMahasiswa;
 
+	/**
+	 * Menyimpan konteks pemilik tampilan (untuk membedakan sudut pandang mahasiswa aktif vs.
+	 * calon mahasiswa saat merender status keanggotaan/tombol gabung di
+	 * {@link DetailTugasKelompokRenderer}) — belum memuat data apa pun.
+	 *
+	 * @param mahasiswa              mahasiswa konteks, atau {@code null} bila tidak relevan
+	 * @param biodataCalonMahasiswa  calon mahasiswa konteks, atau {@code null} bila tidak relevan
+	 */
 	public NamaTugasKelompokHelper(Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa) {
 		this.mahasiswa = mahasiswa;
 		this.biodataCalonMahasiswa = biodataCalonMahasiswa;
@@ -145,22 +173,37 @@ public class NamaTugasKelompokHelper implements DataLoader {
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link NamaTugasKelompokHelper}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link NamaTugasKelompokHelper} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render()}, {@code
-	 * ambilSessionAktif}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang
-	 * dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer baris grid daftar kelompok — instance BARU dipasang tiap {@link #loadData}
+	 * (bukan dipakai ulang lintas pemuatan). Per baris {@link #render} menampilkan: link "Revisi"
+	 * (riwayat Envers), nama kelompok, jumlah peserta saat ini, kuota (editable inline oleh
+	 * pengelola via {@link ais.ui.util.MyIntbox}, read-only sebagai angka bagi mahasiswa),
+	 * kontrol upload/download berkas tugas kelompok (bila masih dalam rentang waktu tugas dan
+	 * pengguna berhak — anggota kelompok terkait, atau pengelola), dan tombol aksi (Kelola
+	 * Anggota/Edit/Hapus untuk pengelola; Gabung Kelompok untuk mahasiswa yang belum tergabung di
+	 * kelompok manapun pada tugas ini).
+	 * <p>
+	 * Setiap baris membuat instance BARU {@code NamaTugasKelompokPunyaMahasiswaHelper}
+	 * (bukan berbagi satu instance untuk semua baris) — dicatat eksplisit di kode sebagai
+	 * "PERBAIKAN cross-talk antar kelompok": helper anggota menyimpan state per-kelompok
+	 * (grid &amp; kelompok aktif) di field instance, sehingga satu instance bersama akan
+	 * saling menimpa antar baris saat detail beberapa kelompok dibuka, membuat refresh anggota
+	 * salah sasaran ke kelompok lain.
 	 *
 	 * @see NamaTugasKelompokHelper
 	 */
 	class DetailTugasKelompokRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Merender satu baris {@link NamaTugasKelompok} sesuai deskripsi lengkap di Javadoc kelas
+		 * {@link DetailTugasKelompokRenderer}. Detail anggota ({@link MyDetail}) sengaja dibuat
+		 * TERTUTUP secara default ({@code setOpen(false)}) — membuka detail semua kelompok
+		 * sekaligus pada grid besar (10+ kelompok) bisa membuat render berat menahan event paging
+		 * sehingga halaman berikutnya tampak tidak bisa dibuka; pengguna membuka anggota per
+		 * kelompok lewat ikon panah Detail atau tombol "Kelola Anggota".
+		 *
+		 * @param row  baris grid ZK tujuan
+		 * @param data instance {@link NamaTugasKelompok} yang dirender
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {row.setValign("top");
 			Session session = ambilSessionAktif();
@@ -488,6 +531,16 @@ public class NamaTugasKelompokHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Implementasi kontrak {@link DataLoader}: memuat SELURUH {@link NamaTugasKelompok} milik
+	 * {@link #tugasKelompok} ini (diurutkan id, tanpa paging server-side — grid ber-paging
+	 * client-side lewat {@code MyGrid}), memasang {@link DetailTugasKelompokRenderer} baru, dan
+	 * mengganti model grid. Mempertahankan halaman aktif ({@code paging.getActivePage()}) sebelum
+	 * &amp; sesudah {@code setModel} — {@code setModel} milik ZK secara default mengembalikan
+	 * paging ke halaman pertama, yang akan mengganggu alur mengedit kelompok di halaman 2+.
+	 *
+	 * @param value tidak dipakai (parameter kontrak {@link DataLoader})
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
@@ -510,10 +563,33 @@ public class NamaTugasKelompokHelper implements DataLoader {
 
 	}
 
+	/** Urutan kolom format Excel standar (non-OBE) untuk download/upload data kelompok: nama kelompok, NIM, nilai, keterangan, nama mahasiswa. */
 	private String[] contents = new String[] { "namaTugasKelompok", "mahasiswa.nim", "nilai", "keterangan",
 			"mahasiswa.nama" };
+	/** Kumpulan pesan peringatan syarat pengumpulan tugas yang berlaku (diisi pemanggil {@link #display}), ditampilkan bila upload berkas belum diizinkan. */
 	private Set<String> syaratAlert;
 
+	/**
+	 * Titik masuk utama: membangun UI daftar kelompok (toolbar Tambah/Download/Upload —
+	 * disembunyikan bagi non-pengelola, grid berpaging) ke dalam {@code groupbox} (dibersihkan
+	 * lebih dulu). Bila mahasiswa login termasuk dalam {@code tugasKelompok.getMhsYgTidakIkut()}
+	 * (daftar id dipisah koma, format {@code ",id,id,"}), tampilkan pesan "tidak perlu ikut" saja
+	 * tanpa grid apa pun.
+	 * <p>
+	 * Tombol Download/Upload otomatis memilih format standar atau OBE (lihat Javadoc kelas) sesuai
+	 * hasil {@link #ambilObeFormatNilais()}. Tombol cetak standar memakai
+	 * {@link DataCriteria} inline yang punya efek samping PENTING: bila belum ada SATU PUN baris
+	 * {@link NamaTugasKelompokPunyaMahasiswa} untuk tugas ini, method itu MEMBUAT baris SEMENTARA
+	 * (kode barcode unik) untuk seluruh mahasiswa yang berhak (dari perkuliahan/kelompok KKN/PKL
+	 * terkait, maksimal {@code Common.MAX_RESULT_500}), lalu dijadwalkan DIHAPUS lagi via
+	 * {@code Common.createDefaultTimer} setelah 3 detik — trik agar template Excel unduhan
+	 * langsung memuat baris kosong siap isi per mahasiswa yang berhak, tanpa benar-benar
+	 * menyimpan data kelompok apa pun.
+	 *
+	 * @param tugasKelompok tugas kelompok yang daftar kelompoknya ditampilkan/dikelola
+	 * @param groupbox      container ZK tujuan (dibersihkan lalu diisi UI layar ini)
+	 * @param syaratAlert   pesan peringatan syarat pengumpulan tugas yang berlaku saat ini (diteruskan ke renderer)
+	 */
 	public void display(final TugasKelompok tugasKelompok, final Component groupbox, Set<String> syaratAlert) {
 		this.tugasKelompok = tugasKelompok;
 		this.syaratAlert = syaratAlert;
@@ -759,6 +835,15 @@ public class NamaTugasKelompokHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Membuka popup {@link #addWindow} untuk menambah ({@code namaTugasKelompok} baru, id
+	 * {@code null}) atau mengedit ({@code namaTugasKelompok} existing) satu kelompok — ukuran
+	 * popup menyesuaikan {@code Common.isMobile()}. Mendelegasikan pembangunan form ke
+	 * {@link #init}.
+	 *
+	 * @param event            event pemicu (tidak dipakai isinya, hanya untuk signature listener)
+	 * @param namaTugasKelompok kelompok yang diedit, atau instance baru kosong untuk tambah
+	 */
 	public void onAdd(Event event, NamaTugasKelompok namaTugasKelompok) throws Exception {
 		addWindow = new MyWindow();
 		if (Common.isMobile()) {
@@ -774,6 +859,27 @@ public class NamaTugasKelompokHelper implements DataLoader {
 		addWindow.onModal();
 	}
 
+	/**
+	 * Sisi impor format Excel STANDAR (non-OBE): membaca baris demi baris (kolom 0=nama kelompok
+	 * dengan prefix id opsional "{@code <id>-}" dari template download — dibuang bila prefix murni
+	 * angka, TANPA merusak nama kelompok yang memang mengandung tanda minus; kolom 1=mahasiswa
+	 * via NIM; kolom 2=nilai; kolom 3=keterangan) di {@link Thread} terpisah dengan progres
+	 * ditampilkan lewat {@link Timer} polling. Untuk tiap baris valid: {@link NamaTugasKelompok}
+	 * dicari berdasar nama+{@code tugasKelompok} ini, DIBUAT bila belum ada (transaksi tersendiri);
+	 * lalu {@link NamaTugasKelompokPunyaMahasiswa} untuk pasangan kelompok+mahasiswa dicari/dibuat
+	 * dan nilainya diupdate (transaksi tersendiri per baris — bukan satu transaksi besar, agar
+	 * kegagalan satu baris tidak membatalkan baris lain).
+	 * <p>
+	 * Baris tanpa mahasiswa valid (NIM tak ditemukan) atau nama kelompok kosong DILEWATI (dicatat
+	 * ke {@code catatanGagal}, dibatasi 1500 karakter agar pesan ringkasan tidak membengkak) —
+	 * tidak menghentikan proses baris lain. Ringkasan akhir (jumlah tersimpan/dilewati + rincian
+	 * kegagalan) ditampilkan lewat messagebox setelah proses selesai, lalu {@code eventListener}
+	 * dipanggil sebagai callback (mis. me-refresh grid).
+	 *
+	 * @param file          file .xlsx yang sudah diupload &amp; disimpan sementara di server
+	 * @param eventListener dipanggil setelah messagebox ringkasan ditutup pengguna
+	 * @param contents      TIDAK dipakai isinya di method ini (parameter dipertahankan untuk kompatibilitas signature/pemanggil)
+	 */
 	public void uploadDataNamaTugasKelompokPunyaMahasiswa(final File file, final EventListener eventListener,
 			final String[] contents) throws Exception {
 
@@ -917,6 +1023,13 @@ public class NamaTugasKelompokHelper implements DataLoader {
 		}).start();
 	}
 
+	/**
+	 * Membangun form popup tambah/edit satu kelompok (satu field: Nama Kelompok) ke dalam
+	 * {@link #addWindow}, dengan tombol Batal (tutup tanpa simpan) dan Simpan (memanggil
+	 * {@link #onSave}, lalu {@link #loadData} dan menutup popup bila berhasil).
+	 *
+	 * @param namaTugasKelompok kelompok yang diedit (nilainya di-set ke field {@link #namaTugasKelompok}), nama awal mengisi {@link #nama}
+	 */
 	private void init(NamaTugasKelompok namaTugasKelompok) {
 		this.namaTugasKelompok = namaTugasKelompok;
 
@@ -984,6 +1097,15 @@ public class NamaTugasKelompokHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Validasi (nama kelompok wajib diisi) dan simpan {@link #namaTugasKelompok} lewat
+	 * {@link NamaTugasKelompokDao} — bila id sudah ada, entity di-{@code load} ulang dari DAO
+	 * lebih dulu (memastikan versi terbaru) sebelum field-nya ditimpa dan di-{@code update};
+	 * bila belum punya id, dibuat baru via {@code save}.
+	 *
+	 * @param event tidak dipakai isinya, hanya untuk signature listener
+	 * @return {@code true} bila berhasil disimpan (popup boleh ditutup); {@code false} bila validasi nama gagal (popup tetap terbuka)
+	 */
 	public boolean onSave(Event event) throws Exception {
 		if (nama.getValue().trim().equals("")) {
 			MyMessageboxConfig.show(
@@ -1010,6 +1132,19 @@ public class NamaTugasKelompokHelper implements DataLoader {
 		return true;
 	}
 
+	/**
+	 * Menentukan apakah {@link #tugasKelompok} ini memakai mode penilaian OBE (Outcome-Based
+	 * Education), dan bila ya, daftar {@link FormatNilai} (komponen capaian pembelajaran) yang
+	 * relevan. Syarat OBE: {@code tugasKelompok.getPerkuliahan().getKurikulum().apakahObe(...)}
+	 * true UNTUK tahun ajaran+ganjil/genap perkuliahan ini, DAN
+	 * {@code tugasKelompok.getFormatNilais()} terisi dan BUKAN literal {@code Tugas.JSON} (penanda
+	 * format lama non-OBE). Bila OBE, hasil disaring dari {@code Common.getFormatNilais(...)}
+	 * hanya yang id-nya termuat dalam JSON {@code formatNilais} (kunci = id FormatNilai) DAN
+	 * punya {@code getStatusPertemuan() != null}. Exception apa pun (mis. JSON tidak valid)
+	 * ditangkap dan menghasilkan list kosong (dianggap non-OBE, fallback aman ke format standar).
+	 *
+	 * @return daftar {@link FormatNilai} berlaku bila mode OBE aktif; list kosong bila non-OBE atau {@link #tugasKelompok} belum diset
+	 */
 	private List<FormatNilai> ambilObeFormatNilais() {
 		List<FormatNilai> result = new ArrayList<FormatNilai>();
 		try {
@@ -1034,6 +1169,18 @@ public class NamaTugasKelompokHelper implements DataLoader {
 		return result;
 	}
 
+	/**
+	 * Sisi ekspor mode OBE: menulis satu file Excel berisi seluruh anggota
+	 * {@link NamaTugasKelompokPunyaMahasiswa} tugas ini (kolom NAMATUGASKELOMPOK/NIM/NAMA/
+	 * KETERANGAN + satu kolom PER {@link FormatNilai} di {@code obeFormatNilais}). Nilai tiap
+	 * komponen dibaca dari JSON {@code tugasKelompok.getKeteranganNilai()} dengan kunci
+	 * {@code "<idMahasiswa>_mhs_nilai_<idFormatNilai>"} (default {@code 0.0} bila belum ada) —
+	 * BUKAN dari kolom {@code nilai} standar {@link NamaTugasKelompokPunyaMahasiswa}, sesuai
+	 * penyimpanan khusus mode OBE yang dijelaskan di Javadoc kelas. File langsung diunduh
+	 * ({@link Filedownload#save}) ke browser setelah ditulis ke direktori temp server.
+	 *
+	 * @param obeFormatNilais daftar komponen nilai OBE yang jadi kolom (dari {@link #ambilObeFormatNilais()})
+	 */
 	@SuppressWarnings("unchecked")
 	private void downloadDataKelompokObe(final List<FormatNilai> obeFormatNilais) {
 		try {
@@ -1092,6 +1239,29 @@ public class NamaTugasKelompokHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Sisi impor mode OBE, padanan {@link #uploadDataNamaTugasKelompokPunyaMahasiswa} untuk format
+	 * khusus OBE. Kolom nilai OBE dicari FLEKSIBEL: default mengikuti urutan
+	 * {@code obeFormatNilais} mulai kolom 4, tapi bila header baris pertama ditemukan cocok NAMA
+	 * (case-insensitive) dengan salah satu {@link FormatNilai}, indeks kolom sebenarnya dipakai —
+	 * toleran terhadap kolom yang diurutkan ulang manual oleh pengguna di Excel.
+	 * <p>
+	 * <b>Perbaikan yang didokumentasikan eksplisit di kode:</b> importer OBE versi sebelumnya
+	 * HANYA menulis nilai ke JSON {@code keteranganNilai} tanpa pernah membuat baris
+	 * {@link NamaTugasKelompokPunyaMahasiswa}, sehingga jumlah peserta kelompok tetap tampil 0
+	 * meski upload "berhasil". Kini kolom 0 (nama kelompok, lewat {@link #normalisasiNamaKelompok})
+	 * JUGA disinkronkan seperti importer standar: kelompok dicari by nama, anggota
+	 * dicari/dibuat/DIPINDAHKAN ke kelompok baru bila mahasiswa sebelumnya ada di kelompok lain
+	 * pada tugas yang sama (mencegah anggota ganda). Baris tanpa mahasiswa valid atau kelompok
+	 * tak ditemukan dilewati (dicatat, dibatasi 1500 karakter). Nilai JSON per komponen diakumulasi
+	 * di memori lalu ditulis SEKALI ke {@code tugasKelompok.getKeteranganNilai()} di akhir (satu
+	 * transaksi terpisah dari transaksi per-baris anggota) agar tidak berulang kali menimpa kolom
+	 * besar itu per baris.
+	 *
+	 * @param file             file .xlsx yang sudah diupload &amp; disimpan sementara di server
+	 * @param obeFormatNilais  daftar komponen nilai OBE yang kolomnya dibaca (dari {@link #ambilObeFormatNilais()})
+	 * @param eventListener    dipanggil setelah messagebox ringkasan ditutup pengguna
+	 */
 	private void uploadDataKelompokObe(final File file, final List<FormatNilai> obeFormatNilais,
 			final EventListener eventListener) throws Exception {
 		final Label peringatan = new Label("");
