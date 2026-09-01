@@ -42,22 +42,30 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Tipe khusus untuk ambil data pejabat banbox. Kelas ini memberi nama dan batas tanggung jawab
- * yang eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ * Implementasi pola "Bandbox picker" AIS untuk entity {@link ais.database.model.rab.Pejabat} — lihat
+ * {@link ais.ui.util.GetEventListener} untuk arsitektur kerangka umum (constructor/display/onSearchDefault/
+ * renderer/callback).
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * Bandbox}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code
- * ais.ui.util.AmbilDataPagingHelper pagingHelper}, {@code EventListener eventListener}, {@code JenisJabatan
- * jenisJabatan}, {@code Textbox nama}; pembacaan/pencarian ({@code onSearchDefault()}, {@code
- * setEventListener()}, {@code getEventListener()}); operasi domain lain ({@code display()}). Bagian lain dari
- * kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p>Pejabat merepresentasikan pihak yang berwenang menandatangani/menyetujui dokumen pada alur RAB
+ * (mis. KPA, PPK, bendahara), terikat ke {@code JenisJabatan} (jenis jabatan) dan ke salah satu dari
+ * tiga entity orang: Pegawai, Dosen, atau Guru — dari sanalah kode, nama, dan foto diambil. Popup
+ * pencarian hanya menyediakan satu kriteria teks: {@code nama} ({@code ilike ANYWHERE}, no-op bila
+ * kosong), digabung dua filter bisnis tetap: hanya pejabat dengan {@code aktif} bernilai null/true
+ * (menyembunyikan pejabat nonaktif) dan, bila instance dibangun lewat konstruktor
+ * {@link #AmbilDataPejabatBanbox(JenisJabatan)}, dibatasi ke {@code jenisJabatan} tersebut saja
+ * (no-op bila konstruktor lain yang dipakai). Baris grid menampilkan foto kecil, kode/NIP, nama,
+ * jenis pengguna, username, dan jabatan lewat {@code PejabatRenderer}; hasil dibungkus
+ * {@link org.zkoss.zul.Radiogroup} untuk pemilihan tunggal.</p>
+ *
+ * <p><b>Logika non-standar penting — auto-pilih dari user login:</b> SEBELUM merakit popup, kedua
+ * constructor ({@code String}) dan ({@code JenisJabatan}) mengecek {@code Common.getCurrentUser()}:
+ * bila user yang sedang login punya {@code hakAkses().getJenisJabatan()}, Bandbox langsung diisi
+ * dengan jabatan tersebut dan di-{@code setDisabled(true)} (popup TIDAK dibangun, pengguna tidak bisa
+ * memilih pejabat lain); bila tidak, dicoba {@code Common.getCurrentPejabat(true)} — bila user punya
+ * data Pejabat terkait, Bandbox diisi otomatis dengan Pejabat pertama dan juga dikunci. Popup pencarian
+ * (dan {@link #display()}) hanya dibangun ketika kedua pengecekan itu tidak menghasilkan nilai. Field
+ * {@code pagingHelper} (paging server-side) dideklarasikan tapi {@link #display()} di file ini masih
+ * memakai mold "paging" client-side dengan {@code pageSize(50)}, bukan lewat pagingHelper.</p>
  *
  * @see Bandbox
  */
@@ -76,10 +84,21 @@ public class AmbilDataPejabatBanbox extends Bandbox implements GetEventListener 
 	// private SatuanKerjaTreeModel satuanKerjaTreeModel;
 	private JenisJabatan jenisJabatan;
 
+	/**
+	 * Delegasi ke {@link #AmbilDataPejabatBanbox(String)} dengan teks tampilan awal kosong.
+	 */
 	public AmbilDataPejabatBanbox() {
 		this("");
 	}
 
+	/**
+	 * Membangun Bandbox picker Pejabat tanpa filter jenis jabatan. Sebelum merakit popup, mencoba
+	 * auto-pilih dan mengunci Bandbox dari jabatan/pejabat milik user yang sedang login (lihat
+	 * Javadoc kelas — bagian "auto-pilih dari user login"); popup baru dirakit lewat
+	 * {@link #display()} (dibungkus try-catch beraudit) bila auto-pilih tidak menghasilkan nilai.
+	 *
+	 * @param value teks awal yang ditampilkan pada Bandbox sebelum auto-pilih/pemilihan pengguna
+	 */
 	public AmbilDataPejabatBanbox(String value) {
 		super(value);
 		Tbmuser tbmuser = Common.getCurrentUser();
@@ -104,6 +123,17 @@ public class AmbilDataPejabatBanbox extends Bandbox implements GetEventListener 
 		}
 	}
 
+	/**
+	 * Membangun Bandbox picker Pejabat yang dibatasi ke {@code jenisJabatan} tertentu (filter dari
+	 * pemanggil, diterapkan di {@link #onSearchDefault(Event)} lewat
+	 * {@code Restrictions.eq("jenisJabatan", jenisJabatan)}). Sebelum merakit popup, tetap mencoba
+	 * auto-pilih dan mengunci Bandbox dari jabatan/pejabat milik user yang sedang login terlebih
+	 * dahulu (lihat Javadoc kelas), TANPA mempertimbangkan parameter {@code jenisJabatan} pada langkah
+	 * auto-pilih itu.
+	 *
+	 * @param jenisJabatan jenis jabatan yang membatasi hasil pencarian; menentukan filter di
+	 *     {@link #onSearchDefault(Event)}
+	 */
 	public AmbilDataPejabatBanbox(JenisJabatan jenisJabatan) {
 		super();
 		this.jenisJabatan = jenisJabatan;
@@ -137,16 +167,11 @@ public class AmbilDataPejabatBanbox extends Bandbox implements GetEventListener 
 	// private AmbilDataSatuanKerjaBanbox satuanKerja;
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link AmbilDataPejabatBanbox}. Kelas ini menerjemahkan satu item data
-	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link AmbilDataPejabatBanbox} dan dapat mengakses
-	 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi operasi lokal: {@code render}(). Aturan bisnis bersama
-	 * tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * Renderer satu baris grid hasil pencarian Pejabat: menampilkan radio pilihan, foto kecil (diambil
+	 * dari Pegawai/Dosen/Guru yang terpasang pada Pejabat, cascading ke label kosong bila tak satu pun
+	 * terisi), kode/NIP, nama, jenis pengguna, username, dan jabatan. Listener {@code onCheck} pada
+	 * radio adalah satu-satunya titik callback pola ini — lihat penjelasan umum di
+	 * {@link ais.ui.util.GetEventListener}.
 	 *
 	 * @see AmbilDataPejabatBanbox
 	 */
@@ -207,6 +232,15 @@ public class AmbilDataPejabatBanbox extends Bandbox implements GetEventListener 
 
 	}
 
+	/**
+	 * Merakit popup pencarian Pejabat (form kriteria nama, tombol Cari, grid hasil dalam
+	 * {@link org.zkoss.zul.Radiogroup} pilih-tunggal) lalu memanggil {@link #onSearchDefault(Event)}
+	 * agar grid terisi saat popup pertama tampil. Hanya dipanggil dari constructor bila langkah
+	 * auto-pilih dari user login (lihat Javadoc kelas) tidak menghasilkan nilai.
+	 *
+	 * @throws Exception diteruskan dari pembangunan komponen ZK
+	 * @see ais.ui.util.GetEventListener
+	 */
 	public void display() throws Exception {
 		setReadonly(true);
 
@@ -336,6 +370,16 @@ public class AmbilDataPejabatBanbox extends Bandbox implements GetEventListener 
 
 	}
 
+	/**
+	 * Menjalankan pencarian Pejabat berdasar {@code nama} ({@code ilike ANYWHERE}, no-op bila kosong),
+	 * dibatasi ke {@link #jenisJabatan} bila constructor {@link #AmbilDataPejabatBanbox(JenisJabatan)}
+	 * dipakai (no-op bila tidak), dan selalu menyaring pejabat yang {@code aktif} bernilai null/true
+	 * (menyembunyikan pejabat nonaktif). Maksimum {@code Common.MAX_RESULT} baris, lalu grid diisi
+	 * ulang dengan {@link PejabatRenderer}.
+	 *
+	 * @param event event pemicu; boleh {@code null} (dipanggil juga dari {@link #display()})
+	 * @see ais.ui.util.GetEventListener
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
@@ -356,10 +400,20 @@ public class AmbilDataPejabatBanbox extends Bandbox implements GetEventListener 
 
 	}
 
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see ais.ui.util.GetEventListener
+	 */
 	public void setEventListener(EventListener eventListener) {
 		this.eventListener = eventListener;
 	}
 
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @see ais.ui.util.GetEventListener
+	 */
 	public EventListener getEventListener() {
 		return eventListener;
 	}
