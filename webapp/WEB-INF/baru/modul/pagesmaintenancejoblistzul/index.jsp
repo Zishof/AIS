@@ -10,6 +10,18 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8"
 	pageEncoding="UTF-8"%>
 <%
+	/* Snapshot lama membuat menu id=4 ("Ubah Password") menunjuk URL halaman
+	   role ini. Flutter sudah mengarahkannya menurut ID ke endpoint password
+	   milik sendiri; permintaan API generik tetap harus ditolak agar pemilik
+	   menu Ubah Password tidak memperoleh CRUD Grup Pengguna. */
+	String actionNative = request.getParameter("action");
+	String menuIdNative = request.getParameter("menuId");
+	if (actionNative != null && "4".equals(menuIdNative)) {
+		response.setStatus(409);
+		out.print("{\"success\":false,\"code\":\"PASSWORD_ROUTE_MISMATCH\","
+				+ "\"message\":\"Menu Ubah Password wajib memakai endpoint kredensial milik sendiri.\"}");
+		return;
+	}
 
 
 String[] cols = { "kode", "roleName", "satuanKerjas", "program", "jurusan", "fakultas", "yayasan", "sekolah", "aktif" };
