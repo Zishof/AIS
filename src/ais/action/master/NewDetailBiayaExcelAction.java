@@ -2786,8 +2786,10 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 			column.setWidth("25px");
 		}
 
-		boolean bolehmencicil = Common.bolehKonfigurasi("mahasiswa_boleh_mencicil_pembayaran_daftar_ulang", Konfigurasi.TIDAK_AKTIF);
-		boolean pembayaranBulanan = Common.bolehKonfigurasi("aktifkan_rencana_pembayaran_bulanan");
+		boolean bolehmencicil = settingBiayaBulanan != null
+				|| Common.bolehKonfigurasi("mahasiswa_boleh_mencicil_pembayaran_daftar_ulang", Konfigurasi.TIDAK_AKTIF);
+		boolean pembayaranBulanan = settingBiayaBulanan != null
+				|| Common.bolehKonfigurasi("aktifkan_rencana_pembayaran_bulanan");
 
 		column = new MyColumnConfig("Rencana Angsuran");
 		column.setVisible(bolehmencicil && pembayaranBulanan);
@@ -2958,7 +2960,7 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 				.createAlias("itemBiaya", "itemBiayaEditor")
 				.add(Restrictions.eq("settingBiayaEditor.id", settingBiayaBulanan.getId()))
 				.add(Restrictions.eq("itemBiayaEditor.aktif", true))
-				.setProjection(Projections.groupProperty("itemBiaya.id"));
+				.setProjection(Projections.groupProperty("itemBiayaEditor.id"));
 		return ConstantValues.simpleList(criteria, ItemBiaya.class, false);
 	}
 

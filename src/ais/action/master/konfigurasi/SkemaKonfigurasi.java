@@ -198,6 +198,28 @@ public final class SkemaKonfigurasi {
 
     private SkemaKonfigurasi() { }
 
+    /**
+     * Simpan nilai satu butir konfigurasi.
+     *
+     * <p>Meniru persis langkah yang dilakukan pendengar {@code onChange} pada
+     * layar ZK: perbarui barisnya lewat session native, lalu <b>segarkan
+     * cache</b>. Langkah kedua itu yang mudah terlupa dan diam-diam merusak:
+     * seluruh pembacaan konfigurasi melewati cache, sehingga tanpa penyegaran
+     * nilai baru tersimpan di basis data namun tidak pernah terbaca sampai
+     * aplikasi dimuat ulang — persoalan yang tampak seperti "simpan tidak
+     * berfungsi" padahal datanya benar.</p>
+     */
+    public static void simpan(Butir butir, String nilai) {
+        Konfigurasi konfigurasi = Common.getKonfigurasi(butir.kunci, butir.bawaan());
+        konfigurasi.setNilai(nilai == null ? "" : nilai.trim());
+        org.hibernate.Session session = ais.database.hibernate.HibernateUtil.currentNativeSession();
+        session.getTransaction().begin();
+        session.update(konfigurasi);
+        session.getTransaction().commit();
+        ais.common.KarirConfigUtil.closeNativeSession(session);
+        ais.common.MemoryDbUtil.getKonfigurasi().put(konfigurasi.getNama(), konfigurasi);
+    }
+
     /** Butir dengan kunci tertentu, atau null bila tidak dideklarasikan. */
     public static Butir cari(List<Butir> skema, String kunci) {
         if (kunci == null) {
