@@ -369,6 +369,7 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 		ais.ui.util.ZkCompat.setFlex(center, true);
 
 		btnAktivitas = ais.ui.util.MyButtonTabbox.buat(center, tinggiMinimal + "px", null);
+		btnAktivitas.setTombolMembungkus(true);
 
 		pasangAutoFitTinggiPortal(tinggiMinimal);
 		return borderlayout;
@@ -432,6 +433,7 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 		bodyTengah.setParent(isiTengah);
 
 		btnAktivitas = ais.ui.util.MyButtonTabbox.buat(bodyTengah, tinggiPanel, null);
+		btnAktivitas.setTombolMembungkus(true);
 
 		/* Kolom kanan: pencarian + tugas/ujian/materi + diskusi. */
 		Panelchildren isiKanan = buatPanelPortal(kolomKanan, "Tugas, Ujian, Materi & Diskusi");
@@ -1114,6 +1116,7 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 
 	private void buildInfoMateriContent(org.zkoss.zk.ui.Component panel) throws Exception {
 		ais.ui.util.MyButtonTabbox btnInfoMateri = ais.ui.util.MyButtonTabbox.buat(panel, "100%", null);
+		btnInfoMateri.setTombolMembungkus(true);
 
 		btnInfoMateri.tambahTabLazy(1, "Dasbor", "/img/svg/dashboard-speed.svg",
 				new ais.ui.util.MyButtonTabbox.PemuatTab() {
@@ -1174,6 +1177,7 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 
 	private void renderMateriReferensiSubTabs(Div host) throws Exception {
 		ais.ui.util.MyButtonTabbox btnMateri = ais.ui.util.MyButtonTabbox.buat(host, "100%", null);
+		btnMateri.setTombolMembungkus(true);
 
 		// Tab 1: Materi — auto-load sebagai tab pertama
 		btnMateri.tambahTabLazy(1, "Materi", "/img/svg/file-lines.svg",

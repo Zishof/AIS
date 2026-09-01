@@ -103,6 +103,7 @@ public class ElearningSekolah extends MyWindow {
 		tabHost.setParent(wrapper);
 
 		final MyButtonTabbox buttonTabbox = MyButtonTabbox.buat(tabHost, "100%", new int[] { 1 });
+		buttonTabbox.setTombolMembungkus(true);
 		final Div panelRingkasan = buttonTabbox.tambahTab(1, "Ringkasan", "/img/svg/table-report.svg");
 		aturPanelUtama(panelRingkasan);
 
