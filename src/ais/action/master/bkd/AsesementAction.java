@@ -52,6 +52,41 @@ public class AsesementAction extends GenericAutowireComposer {
 	 */
 	private static final long serialVersionUID = -5779730267402400328L;
 
+	/**
+	 * Isi layar Asesemen Kinerja: {kelompok, label, rute ZUL}.
+	 *
+	 * <p>Sengaja publik dan tunggal: kontrak native menyajikan daftar yang SAMA
+	 * agar tab pada layar native tidak menyimpang dari layar ZK. Rute kosong
+	 * berarti panel itu dibangun langsung oleh helper (bukan memuat sebuah
+	 * halaman), sehingga tidak punya menu yang bisa dibuka tersendiri.</p>
+	 */
+	public static final String[][] TABS = {
+			{ "Ringkasan", "Penilaian Asesor", "/pages/master/bkd/asesor_memberikan_penilaian.zul" },
+			{ "Bidang Pendidikan", "Pengajaran", "/pages/master/bkd/penugasan_dosen_mengajar.zul" },
+			{ "Bidang Pendidikan", "Pembimbing", "/pages/master/bkd/bimbingan_skripsi.zul" },
+			{ "Bidang Pendidikan", "Penguji", "/pages/master/bkd/penguji_skripsi.zul" },
+			{ "Bidang Pendidikan", "Pembimbing KKN", "/pages/master/kkn/kelompok_kkn.zul" },
+			{ "Bidang Pendidikan", "Pembimbing PKL", "/pages/master/pkl/kelompok_pkl.zul" },
+			{ "Bidang Pendidikan", "Penulis Buku", "/pages/master/buku_bahan_ajar.zul" },
+			{ "Bidang Pendidikan", "Bidang Pendidikan lain-nya", "/pages/master/penunjang_kinerja_dosen.zul" },
+			{ "Bidang Penelitian", "Penelitian", "" },
+			{ "Bidang Penelitian", "Publikasi Ilmiah", "" },
+			{ "Bidang Penelitian", "Bidang Penelitian lain-nya", "/pages/master/penunjang_kinerja_dosen.zul" },
+			{ "Bidang Pengabdian", "Pengabdian", "" },
+			{ "Bidang Pengabdian", "Bidang Pengabdian lain-nya", "/pages/master/penunjang_kinerja_dosen.zul" },
+			{ "Bidang Penunjang", "Penunjang Kinerja Dosen", "/pages/master/penunjang_kinerja_dosen.zul" },
+	};
+
+	/** Rute tab tertentu dari {@link #TABS}, dicari menurut kelompok dan label. */
+	public static String rute(String kelompok, String label) {
+		for (int i = 0; i < TABS.length; i++) {
+			if (TABS[i][0].equals(kelompok) && TABS[i][1].equals(label)) {
+				return TABS[i][2];
+			}
+		}
+		return "";
+	}
+
 	private Tabpanel ringkasan;
 	private Tabpanel bidangPendidikan;
 	private Tabpanel bidangPenelitian;
@@ -62,7 +97,7 @@ public class AsesementAction extends GenericAutowireComposer {
 		if (bidangPenunjang.getChildren().isEmpty()) {
 
 			bidangPenunjang.setHeight("9000px");
-			MyInclude iframe = new MyInclude("/pages/master/penunjang_kinerja_dosen.zul");
+			MyInclude iframe = new MyInclude(rute("Bidang Penunjang", "Penunjang Kinerja Dosen"));
 			iframe.setParent(bidangPenunjang);
 		}
 
@@ -74,36 +109,36 @@ public class AsesementAction extends GenericAutowireComposer {
 			ais.ui.util.MyButtonTabbox btnTabPendidikan = ais.ui.util.MyButtonTabbox.buat(bidangPendidikan, "100%", new int[] { 0 });
 
 			// Tab 0: Pengajaran - load immediately
-			new MyInclude("/pages/master/bkd/penugasan_dosen_mengajar.zul").setParent(
+			new MyInclude(rute("Bidang Pendidikan", "Pengajaran")).setParent(
 					btnTabPendidikan.tambahTab(0, "Pengajaran", "/img/svg/chalkboard-teacher-light.svg"));
 			btnTabPendidikan.tambahTabLazy(1, "Pembimbing", "/img/svg/chalkboard-user.svg", new ais.ui.util.MyButtonTabbox.PemuatTab() {
 				@Override public void muat(org.zkoss.zul.Div panel) throws Exception {
-					new MyInclude("/pages/master/bkd/bimbingan_skripsi.zul").setParent(panel);
+					new MyInclude(rute("Bidang Pendidikan", "Pembimbing")).setParent(panel);
 				}
 			});
 			btnTabPendidikan.tambahTabLazy(2, "Penguji", "/img/svg/pencil-square.svg", new ais.ui.util.MyButtonTabbox.PemuatTab() {
 				@Override public void muat(org.zkoss.zul.Div panel) throws Exception {
-					new MyInclude("/pages/master/bkd/penguji_skripsi.zul").setParent(panel);
+					new MyInclude(rute("Bidang Pendidikan", "Penguji")).setParent(panel);
 				}
 			});
 			btnTabPendidikan.tambahTabLazy(3, "Pembimbing KKN", "/img/svg/users.svg", new ais.ui.util.MyButtonTabbox.PemuatTab() {
 				@Override public void muat(org.zkoss.zul.Div panel) throws Exception {
-					new MyInclude("/pages/master/kkn/kelompok_kkn.zul").setParent(panel);
+					new MyInclude(rute("Bidang Pendidikan", "Pembimbing KKN")).setParent(panel);
 				}
 			});
 			btnTabPendidikan.tambahTabLazy(4, "Pembimbing PKL", "/img/svg/user-business.svg", new ais.ui.util.MyButtonTabbox.PemuatTab() {
 				@Override public void muat(org.zkoss.zul.Div panel) throws Exception {
-					new MyInclude("/pages/master/pkl/kelompok_pkl.zul").setParent(panel);
+					new MyInclude(rute("Bidang Pendidikan", "Pembimbing PKL")).setParent(panel);
 				}
 			});
 			btnTabPendidikan.tambahTabLazy(5, "Penulis Buku", "/img/svg/book.svg", new ais.ui.util.MyButtonTabbox.PemuatTab() {
 				@Override public void muat(org.zkoss.zul.Div panel) throws Exception {
-					new MyInclude("/pages/master/buku_bahan_ajar.zul").setParent(panel);
+					new MyInclude(rute("Bidang Pendidikan", "Penulis Buku")).setParent(panel);
 				}
 			});
 			btnTabPendidikan.tambahTabLazy(6, "Bidang Pendidikan lain-nya", "/img/svg/three-dots.svg", new ais.ui.util.MyButtonTabbox.PemuatTab() {
 				@Override public void muat(org.zkoss.zul.Div panel) throws Exception {
-					new MyInclude("/pages/master/penunjang_kinerja_dosen.zul?jenis=" + PenunjangKinerjaDosen.PENDIDIKAN).setParent(panel);
+					new MyInclude(rute("Bidang Pendidikan", "Bidang Pendidikan lain-nya") + "?jenis=" + PenunjangKinerjaDosen.PENDIDIKAN).setParent(panel);
 				}
 			});
 		}
@@ -132,7 +167,7 @@ public class AsesementAction extends GenericAutowireComposer {
 			});
 			btnTabPenelitian.tambahTabLazy(2, "Bidang Penelitian lain-nya", "/img/svg/three-dots.svg", new ais.ui.util.MyButtonTabbox.PemuatTab() {
 				@Override public void muat(org.zkoss.zul.Div panel) throws Exception {
-					new MyInclude("/pages/master/penunjang_kinerja_dosen.zul?jenis=" + PenunjangKinerjaDosen.PENELITIAN).setParent(panel);
+					new MyInclude(rute("Bidang Penelitian", "Bidang Penelitian lain-nya") + "?jenis=" + PenunjangKinerjaDosen.PENELITIAN).setParent(panel);
 				}
 			});
 		}
@@ -153,7 +188,7 @@ public class AsesementAction extends GenericAutowireComposer {
 			}
 			btnTabPengabdian.tambahTabLazy(1, "Bidang Pengabdian lain-nya", "/img/svg/three-dots.svg", new ais.ui.util.MyButtonTabbox.PemuatTab() {
 				@Override public void muat(org.zkoss.zul.Div panel) throws Exception {
-					new MyInclude("/pages/master/penunjang_kinerja_dosen.zul?jenis=" + PenunjangKinerjaDosen.PENGABDIAN).setParent(panel);
+					new MyInclude(rute("Bidang Pengabdian", "Bidang Pengabdian lain-nya") + "?jenis=" + PenunjangKinerjaDosen.PENGABDIAN).setParent(panel);
 				}
 			});
 		}
@@ -169,7 +204,7 @@ public class AsesementAction extends GenericAutowireComposer {
 			return;
 		}
 
-		MyInclude iframe = new MyInclude("/pages/master/bkd/asesor_memberikan_penilaian.zul");
+		MyInclude iframe = new MyInclude(rute("Ringkasan", "Penilaian Asesor"));
 		if (iframe != null) { iframe.setParent(ringkasan); }
 
 	}
