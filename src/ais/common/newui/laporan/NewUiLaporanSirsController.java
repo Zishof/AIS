@@ -153,7 +153,7 @@ public final class NewUiLaporanSirsController {
             }
             Jenis j = jenis(kode);
             if ("meta".equals(action)) meta(json, request, j);
-            else if ("lookup".equals(action)) lookup(json, request);
+            else if ("lookup".equals(action)) lookup(json, request, j);
             else if ("export".equals(action)) cetak(json, request, j);
             else throw new IllegalArgumentException("Aksi tidak dikenal.");
             json.put("ok", true);
@@ -262,62 +262,68 @@ public final class NewUiLaporanSirsController {
      * satu kata kunci pendek tidak menarik seluruh tabel.</p>
      */
     @SuppressWarnings("unchecked")
-    private static void lookup(JSONObject j, HttpServletRequest r) throws Exception {
-        String jenis = text(r.getParameter("jenis"), "");
-        String kata = text(r.getParameter("kata"), "").trim();
+    private static void lookup(JSONObject j, HttpServletRequest r, Jenis jenis) throws Exception {
+        String nama = text(r.getParameter("filter"), "");
+        // Dibatasi pada filter yang laporan INI deklarasikan, mengikuti kontrak
+        // laporan generik. Tanpa batas itu, satu endpoint laporan menjadi jalan
+        // membaca tabel pasien dari menu mana pun yang punya kontrak ini.
+        boolean diakui = false;
+        for (String f : jenis.saringan) {
+            if (f.equals(nama)) diakui = true;
+        }
+        if (!diakui) throw new IllegalArgumentException("Filter tidak dikenal pada laporan ini.");
+
+        String q = text(r.getParameter("q"), "").trim();
         Session s = HibernateUtil.openSession();
         try {
             JSONArray arr = new JSONArray();
-            if (S_PENDAFTARAN.equals(jenis)) {
+            if (S_PENDAFTARAN.equals(nama)) {
                 Criteria c = s.createCriteria(Pendaftaran.class)
                         .createAlias("pasien", "pasien", Criteria.LEFT_JOIN);
-                // Tracer hanya berlaku untuk pendaftaran rawat jalan, persis
-                // seperti banbox yang dipakai layar lama.
-                if ("rawat_jalan".equals(text(r.getParameter("lingkup"), ""))) {
+                // Tracer hanya berlaku untuk pendaftaran rawat jalan, sama
+                // dengan banbox yang dipakai layar lama. Lingkupnya ditentukan
+                // jenis laporannya, bukan diminta dari klien: batas yang dikirim
+                // klien bukan batas.
+                if ("tracer_pasien".equals(jenis.kode)) {
                     c.add(Restrictions.eq("jenis", Pendaftaran.RAWAT_JALAN));
                 }
-                cocok(c, kata, "kode", "pasien.nama");
+                cocok(c, q, "kode", "pasien.nama");
                 for (Object o : c.addOrder(Order.desc("id")).setMaxResults(BATAS_CARI).list()) {
                     Pendaftaran x = (Pendaftaran) o;
-                    arr.put(new JSONObject().put("id", x.getId())
-                            .put("kode", teks(x.getKode()))
-                            .put("nama", x.getPasien() == null ? "" : teks(x.getPasien().getNama()))
-                            .put("tanggal", tanggal(x.getTanggalPendaftaran())));
+                    arr.put(pilihan(x.getId(), x.getKode(),
+                            x.getPasien() == null ? "" : x.getPasien().getNama(),
+                            x.getTanggalPendaftaran()));
                 }
-            } else if (S_PASIEN.equals(jenis)) {
+            } else if (S_PASIEN.equals(nama)) {
                 Criteria c = s.createCriteria(Pasien.class);
-                cocok(c, kata, "kode", "nama");
+                cocok(c, q, "kode", "nama");
                 for (Object o : c.addOrder(Order.desc("id")).setMaxResults(BATAS_CARI).list()) {
                     Pasien x = (Pasien) o;
-                    arr.put(new JSONObject().put("id", x.getId())
-                            .put("kode", teks(x.getKode())).put("nama", teks(x.getNama())));
+                    arr.put(pilihan(x.getId(), x.getKode(), x.getNama(), null));
                 }
-            } else if (S_TRANSAKSI.equals(jenis)) {
+            } else if (S_TRANSAKSI.equals(nama)) {
                 Criteria c = s.createCriteria(TransaksiMedis.class)
                         .createAlias("pasien", "pasien", Criteria.LEFT_JOIN);
                 // Kolom `nama` dicari SEKALIGUS `pasien.nama`: getNama() pada
                 // TransaksiMedis mengembalikan nama pasien bila transaksinya
                 // tertaut pasien, sehingga mencari kolomnya saja akan gagal
                 // menemukan transaksi menurut nama yang justru ditampilkan.
-                cocok(c, kata, "kode", "nama", "pasien.nama");
+                cocok(c, q, "kode", "nama", "pasien.nama");
                 for (Object o : c.addOrder(Order.desc("id")).setMaxResults(BATAS_CARI).list()) {
                     TransaksiMedis x = (TransaksiMedis) o;
-                    arr.put(new JSONObject().put("id", x.getId())
-                            .put("kode", teks(x.getKode())).put("nama", teks(x.getNama()))
-                            .put("tanggal", tanggal(x.getTanggalTransaksi())));
+                    arr.put(pilihan(x.getId(), x.getKode(), x.getNama(), x.getTanggalTransaksi()));
                 }
-            } else if (S_PEMBAYARAN.equals(jenis)) {
+            } else if (S_PEMBAYARAN.equals(nama)) {
                 Criteria c = s.createCriteria(Pembayaran.class)
                         .createAlias("pasien", "pasien", Criteria.LEFT_JOIN);
-                cocok(c, kata, "kode", "pasien.nama");
+                cocok(c, q, "kode", "pasien.nama");
                 for (Object o : c.addOrder(Order.desc("id")).setMaxResults(BATAS_CARI).list()) {
                     Pembayaran x = (Pembayaran) o;
-                    arr.put(new JSONObject().put("id", x.getId())
-                            .put("kode", teks(x.getKode()))
-                            .put("nama", x.getPasien() == null ? "" : teks(x.getPasien().getNama()))
-                            .put("tanggal", tanggal(x.getTanggalPembayaran())));
+                    arr.put(pilihan(x.getId(), x.getKode(),
+                            x.getPasien() == null ? "" : x.getPasien().getNama(),
+                            x.getTanggalPembayaran()));
                 }
-            } else if (S_STATUS.equals(jenis)) {
+            } else if (S_STATUS.equals(nama)) {
                 // Ketiga pilihan ini datang dari konstanta Pendaftaran, bukan
                 // ditulis ulang: teksnya masuk ke parameter laporan apa adanya,
                 // sehingga salah ketik satu huruf menghasilkan laporan kosong.
@@ -325,28 +331,38 @@ public final class NewUiLaporanSirsController {
                         Pendaftaran.MENINGGAL }) {
                     arr.put(new JSONObject().put("id", v).put("nama", v));
                 }
-                j.put("bawaan", Pendaftaran.TERDAFTAR);
-            } else if (S_BULAN.equals(jenis)) {
-                for (int i = 1; i <= 12; i++) {
-                    arr.put(new JSONObject().put("id", String.valueOf(i))
-                            .put("nama", namaBulan(i)));
-                }
-            } else if (S_TAHUN.equals(jenis)) {
-                java.util.Calendar kal = java.util.Calendar.getInstance();
-                kal.setTime(ais.ui.util.WaktuUtil.getDate());
-                int kini = kal.get(java.util.Calendar.YEAR);
-                for (int t = kini + 1; t >= kini - 10; t--) {
-                    arr.put(new JSONObject().put("id", String.valueOf(t)).put("nama", String.valueOf(t)));
-                }
-                j.put("bawaan", String.valueOf(kini));
             } else {
-                throw new IllegalArgumentException("Jenis acuan tidak dikenal.");
+                throw new IllegalArgumentException("Filter ini bukan filter relasi.");
             }
-            j.put("jenis", jenis);
+            j.put("filter", nama);
             j.put("pilihan", arr);
+            j.put("total", arr.length());
+            j.put("batas", BATAS_CARI);
         } finally {
             s.close();
         }
+    }
+
+    /**
+     * Satu baris pilihan.
+     *
+     * <p>Labelnya menggabungkan kode, nama, dan tanggal karena ketiganya
+     * bersama-sama yang membedakan satu baris dari baris lain — nama saja
+     * berulang, dan kode saja tidak dikenali operator.</p>
+     */
+    private static JSONObject pilihan(Long id, String kode, String nama, Date tanggal)
+            throws Exception {
+        StringBuilder label = new StringBuilder();
+        if (teks(kode).length() > 0) label.append(kode);
+        if (teks(nama).length() > 0) {
+            if (label.length() > 0) label.append(" — ");
+            label.append(nama);
+        }
+        String t = tanggal(tanggal);
+        if (t.length() > 0) label.append(" (").append(t).append(')');
+        if (label.length() == 0) label.append('#').append(id);
+        return new JSONObject().put("id", id).put("kode", teks(kode))
+                .put("nama", label.toString());
     }
 
     /** Tambahkan pencocokan kata kunci pada beberapa kolom sekaligus. */
@@ -411,10 +427,10 @@ public final class NewUiLaporanSirsController {
      */
     @SuppressWarnings({ "rawtypes", "unchecked" })
     private static void tagihan(Map parameters, HttpServletRequest r, Session s) {
-        Pendaftaran pendaftaran = (Pendaftaran) muat(s, Pendaftaran.class, r.getParameter("pendaftaranId"));
-        Pasien pasien = (Pasien) muat(s, Pasien.class, r.getParameter("pasienId"));
+        Pendaftaran pendaftaran = (Pendaftaran) muat(s, Pendaftaran.class, r.getParameter(S_PENDAFTARAN));
+        Pasien pasien = (Pasien) muat(s, Pasien.class, r.getParameter(S_PASIEN));
         TransaksiMedis transaksi = (TransaksiMedis) muat(s, TransaksiMedis.class,
-                r.getParameter("transaksiId"));
+                r.getParameter(S_TRANSAKSI));
         if (pasien == null && transaksi == null) {
             throw new IllegalArgumentException(
                     "Pilih pasien atau transaksi lebih dulu; laporan ini menyebut nama pasien.");
@@ -428,7 +444,7 @@ public final class NewUiLaporanSirsController {
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
     private static void buktiPembayaran(Map parameters, HttpServletRequest r, Session s) {
-        Pembayaran pembayaran = (Pembayaran) muat(s, Pembayaran.class, r.getParameter("pembayaranId"));
+        Pembayaran pembayaran = (Pembayaran) muat(s, Pembayaran.class, r.getParameter(S_PEMBAYARAN));
         if (pembayaran == null) {
             throw new IllegalArgumentException("Pembayaran belum dipilih.");
         }
@@ -453,7 +469,7 @@ public final class NewUiLaporanSirsController {
      */
     @SuppressWarnings({ "rawtypes", "unchecked" })
     private static void tracer(Map parameters, HttpServletRequest r, Session s) throws Exception {
-        Pendaftaran pendaftaran = (Pendaftaran) muat(s, Pendaftaran.class, r.getParameter("pendaftaranId"));
+        Pendaftaran pendaftaran = (Pendaftaran) muat(s, Pendaftaran.class, r.getParameter(S_PENDAFTARAN));
         if (pendaftaran == null) {
             throw new IllegalArgumentException("Pendaftaran pasien belum dipilih.");
         }
