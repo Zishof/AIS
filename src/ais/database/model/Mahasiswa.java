@@ -6962,6 +6962,27 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return sksMk;
 	}
 
+	/**
+	 * MEMBANGUN ULANG dari basis data berkas JSON daftar {@link Detailperkuliahan} milik mahasiswa
+	 * ini. Ini operasi pemulihan bila daftar di berkas basi/rusak — dipanggil dari sekitar 33
+	 * berkas, umumnya lewat tombol "muat ulang data" atau setelah perubahan KRS massal.
+	 *
+	 * <p>Alur: query id seluruh {@code Detailperkuliahan} milik mahasiswa ini yang
+	 * {@code ikutiPerkuliahan} NULL (baris asli, bukan titipan kelas lain), urut semester &rarr;
+	 * {@link #bersihkanLokasiDetailPerkuliahan()} (hapus berkas) &rarr; tulis JSON kosong &rarr;
+	 * daftarkan ulang satu per satu lewat
+	 * {@link #populateDetailperkuliahan(Detailperkuliahan, boolean)}. Objek yang belum ada di
+	 * cache dikumpulkan lalu dimuat sekali lewat satu query {@code IN}.</p>
+	 *
+	 * <p><b>Ketahanan sesi:</b> bila {@code session} yang dikirim pemanggil bernilai {@code null}
+	 * atau sudah tertutup ("Session is closed!" — lazim terjadi bila callee lain sudah menutupnya),
+	 * sesi diambil ulang dari {@code HibernateUtil.currentNativeSession()}.</p>
+	 *
+	 * <p>Operasi ini idempoten (hasil akhirnya sama berapa kali pun dijalankan) tetapi MAHAL:
+	 * menghapus dan menulis ulang berkas per baris. Hindari memanggilnya di dalam loop.</p>
+	 *
+	 * @param session sesi Hibernate; boleh {@code null}/tertutup (akan diambil ulang).
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitDetailperkuliahan(Session session) {
 		/* Pemanggil bisa mengirim session yang sudah ditutup callee lain
@@ -7006,6 +7027,19 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		}
 	}
 
+	/**
+	 * Membangun ulang cache VO terdenormalisasi untuk {@link Skripsi} milik mahasiswa ini.
+	 *
+	 * <p>Mengikuti idiom {@code reInit*} linimasa e-learning: query entitas milik mahasiswa &rarr;
+	 * {@code AuditListener.prosesUntukElearning(...)} yang mengumpulkan pasangan
+	 * mahasiswa/dosen terkait &rarr; satu kali {@code tulisPutBaru(Skripsi.class.getName())} per
+	 * objek terkumpul. Hasilnya dibaca kembali oleh
+	 * {@link #ambilPerkuliahanDanParalel(String, String, String, String, String, boolean, Integer,
+	 * boolean, boolean, boolean, Integer, int, int, boolean, JenisFormulirKegiatan)} kategori
+	 * {@code SKRIPSI}.</p>
+	 *
+	 * @param session sesi Hibernate aktif milik pemanggil.
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitSkripsi(Session session) {
 		List<Skripsi> skripsis = session.createCriteria(Skripsi.class).add(Restrictions.eq("mahasiswa", this))
@@ -7022,6 +7056,13 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		skripsis = null;
 	}
 
+	/**
+	 * Membangun ulang cache VO terdenormalisasi untuk {@link MahasiswaRequestTugasAkhir}
+	 * (pengajuan bimbingan tugas akhir) milik mahasiswa ini. Idiom sama dengan
+	 * {@link #reInitSkripsi(Session)}; hasilnya dipakai linimasa kategori {@code BIMBINGAN}.
+	 *
+	 * @param session sesi Hibernate aktif milik pemanggil.
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitBimbingan(Session session) {
 		List<MahasiswaRequestTugasAkhir> mahasiswaRequestTugasAkhirs = session
@@ -7040,6 +7081,13 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		mahasiswaRequestTugasAkhirs = null;
 	}
 
+	/**
+	 * Membangun ulang cache VO terdenormalisasi untuk {@link MahasiswaDapatKelompokKkn}
+	 * (penempatan KKN) milik mahasiswa ini. Idiom sama dengan {@link #reInitSkripsi(Session)};
+	 * hasilnya dipakai linimasa kategori {@code KKN}.
+	 *
+	 * @param session sesi Hibernate aktif milik pemanggil.
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitKkn(Session session) {
 		List<MahasiswaDapatKelompokKkn> mahasiswaDapatKelompokKkns = session
@@ -7058,6 +7106,13 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		mahasiswaDapatKelompokKkns = null;
 	}
 
+	/**
+	 * Membangun ulang cache VO terdenormalisasi untuk {@link MahasiswaDapatKelompokPkl}
+	 * (penempatan PKL/magang) milik mahasiswa ini. Idiom sama dengan
+	 * {@link #reInitSkripsi(Session)}; hasilnya dipakai linimasa kategori {@code PKL}.
+	 *
+	 * @param session sesi Hibernate aktif milik pemanggil.
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitPkl(Session session) {
 		List<MahasiswaDapatKelompokPkl> mahasiswaDapatKelompokPkls = session
@@ -7076,6 +7131,13 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		mahasiswaDapatKelompokPkls = null;
 	}
 
+	/**
+	 * Membangun ulang cache VO terdenormalisasi untuk {@link KrsMahasiswa} milik mahasiswa ini.
+	 * Idiom sama dengan {@link #reInitSkripsi(Session)}; hasilnya dipakai linimasa kategori
+	 * {@code KRS}.
+	 *
+	 * @param session sesi Hibernate aktif milik pemanggil.
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitKrs(Session session) {
 		List<KrsMahasiswa> krsMahasiswas = session.createCriteria(KrsMahasiswa.class)
@@ -7092,6 +7154,13 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		krsMahasiswas = null;
 	}
 
+	/**
+	 * Membangun ulang cache VO terdenormalisasi untuk {@link FormulirKegiatanPeserta}
+	 * (keikutsertaan mahasiswa pada kegiatan) milik mahasiswa ini. Idiom sama dengan
+	 * {@link #reInitSkripsi(Session)}; hasilnya dipakai linimasa kategori {@code KEGIATAN}.
+	 *
+	 * @param session sesi Hibernate aktif milik pemanggil.
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitFormulirKegiatanPeserta(Session session) {
 		List<FormulirKegiatanPeserta> formulirKegiatanPesertas = session.createCriteria(FormulirKegiatanPeserta.class)
@@ -7109,6 +7178,14 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		formulirKegiatanPesertas = null;
 	}
 
+	/**
+	 * Membangun ulang cache VO terdenormalisasi untuk {@link PendaftaranWisuda} milik mahasiswa
+	 * ini. Berbeda dari {@code reInit*} lain, query di sini DISARING
+	 * {@code persetujuanWisuda = true} — pendaftaran wisuda yang belum disetujui tidak masuk
+	 * linimasa. Hasilnya dipakai linimasa kategori {@code WISUDA}.
+	 *
+	 * @param session sesi Hibernate aktif milik pemanggil.
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitPendaftaranWisuda(Session session) {
 		List<PendaftaranWisuda> pendaftaranWisudas = session.createCriteria(PendaftaranWisuda.class)
@@ -7126,6 +7203,13 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		pendaftaranWisudas = null;
 	}
 
+	/**
+	 * Membangun ulang cache VO terdenormalisasi untuk {@link PertemuanPunyaGrupPertemuan}
+	 * (konsultasi/pertemuan grup) milik mahasiswa ini. Idiom sama dengan
+	 * {@link #reInitSkripsi(Session)}; hasilnya dipakai linimasa kategori {@code KONSULTASI}.
+	 *
+	 * @param session sesi Hibernate aktif milik pemanggil.
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitKonsultasi(Session session) {
 		List<PertemuanPunyaGrupPertemuan> pertemuanPunyaGrupPertemuans = session
@@ -7234,6 +7318,18 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		detailKegiatans = null;
 	}
 
+	/**
+	 * Pintasan pemulihan cache yang paling sering dipakai: membangun ulang daftar
+	 * {@link Detailperkuliahan} mahasiswa ini memakai sesi thread-local
+	 * ({@code HibernateUtil.currentNativeSession()}).
+	 *
+	 * <p><b>Efek samping sesi:</b> setelah selesai, sesi tersebut DITUTUP
+	 * ({@code disconnect} + {@code close} + {@code HibernateUtil.closeSession()}). Pemanggil yang
+	 * masih membutuhkan sesi thread-local sesudahnya harus mengambilnya ulang. Kegagalan dicatat
+	 * ke {@code ErrorAuditUtil}, tidak dilempar.</p>
+	 *
+	 * @see #reInitDetailperkuliahan(Session)
+	 */
 	public void reInit() {
 		Session session = HibernateUtil.currentNativeSession();
 		try {
@@ -7248,6 +7344,16 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		HibernateUtil.closeSession();
 	}
 
+	/**
+	 * Tanggal SK Rektor terkait kelulusan/status mahasiswa (tipe DATE).
+	 *
+	 * <p>Catatan: pernah ada percobaan mengambil tanggal SK dari
+	 * {@link KelompokStatusKeluarMahasiswa} secara otomatis (kode masih ada sebagai komentar di
+	 * dalam metode). Perilaku itu SENGAJA dimatikan — tanggal SK tetap milik baris mahasiswa,
+	 * berbeda dari {@link #getTanggalLulus()} yang memang ditimpa kelompok.</p>
+	 *
+	 * @return tanggal SK Rektor; {@code null} bila belum ada.
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getTanggalSkRektor() {
 
@@ -7258,23 +7364,52 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return tanggalSkRektor;
 	}
 
+	/**
+	 * Menetapkan tanggal SK Rektor.
+	 *
+	 * @param tanggalSkRektor tanggal SK.
+	 */
 	public void setTanggalSkRektor(Date tanggalSkRektor) {
 		this.tanggalSkRektor = tanggalSkRektor;
 	}
 
+	/**
+	 * Nomor SKPI (Surat Keterangan Pendamping Ijazah) mahasiswa.
+	 *
+	 * @return nomor SKPI sudah di-trim; string kosong bila belum diterbitkan.
+	 */
 	public String getNomorSkpi() {
 		return nomorSkpi == null ? "" : nomorSkpi.trim();
 	}
 
+	/**
+	 * Menetapkan nomor SKPI.
+	 *
+	 * @param nomorSkpi nomor SKPI.
+	 */
 	public void setNomorSkpi(String nomorSkpi) {
 		this.nomorSkpi = nomorSkpi;
 	}
 
+	/**
+	 * Id mahasiswa pada mesin sidik jari (fingerprint) untuk presensi. Bila field masih kosong,
+	 * nilai dibaca dari penyimpanan kunci JSON ({@code retreive("idfinger")}) milik
+	 * {@link ais.database.model.GeneralValueObject}, bukan dari kolom tabel.
+	 *
+	 * @return id fingerprint sudah di-trim; {@code null} bila belum ada.
+	 */
 	public String getIdfinger() {
 		String s = idfinger == null || idfinger.trim().isEmpty() ? retreive("idfinger") : idfinger;
 		return s == null ? null : s.trim();
 	}
 
+	/**
+	 * Menetapkan id mesin sidik jari. Nilai kosong/{@code null} DIABAIKAN; nilai yang sah juga
+	 * disalin ke penyimpanan kunci JSON dengan kunci {@code "idfinger"} karena
+	 * {@link #getIdfinger()} membacanya dari sana.
+	 *
+	 * @param idfinger id fingerprint; diabaikan bila kosong.
+	 */
 	public void setIdfinger(String idfinger) {
 		if (idfinger != null && !idfinger.trim().isEmpty()) {
 			put(idfinger.trim(), "idfinger");
@@ -7282,6 +7417,14 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		}
 	}
 
+	/**
+	 * Membaca isi berkas JSON daftar id {@link Pertemuan} yang diikuti mahasiswa ini (berkas
+	 * {@code mahasiswa_punya_pertemuan_<id>}). Pola yang sama dengan
+	 * {@link #ambilLokasiDetailPerkuliahan()}: berkas berperan sebagai pengganti relasi
+	 * {@code @OneToMany}.
+	 *
+	 * @return teks JSON isi berkas, atau JSON kosong bila belum ada/gagal dibaca.
+	 */
 	public String ambilLokasiPertemuan() {
 		File file = Common.getFileLocation(this, "mahasiswa_punya_pertemuan_" + getId().toString());
 		try {
@@ -7293,6 +7436,11 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Menimpa berkas JSON daftar {@link Pertemuan} milik mahasiswa ini. Kegagalan ditelan.
+	 *
+	 * @param data teks JSON yang hendak disimpan.
+	 */
 	public void tulisLokasiPertemuan(String data) {
 		File file = Common.getFileLocation(this, "mahasiswa_punya_pertemuan_" + getId().toString());
 		try {
@@ -7303,20 +7451,68 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		}
 	}
 
+	/**
+	 * MENGHAPUS berkas JSON daftar {@link Pertemuan} milik mahasiswa ini. Dipanggil
+	 * {@link #reInitPertemuan(Session, Label, Date, Date)} sebelum membangun ulang daftar.
+	 */
 	public void bersihkanLokasiPertemuan() {
 		File file = Common.getFileLocation(this, "mahasiswa_punya_pertemuan_" + getId().toString());
 		BacaTulisUtil.doHapus(file, "mahasiswa_punya_pertemuan");
 
 	}
 
+	/**
+	 * Pintasan {@link #reInitPertemuan(Session, Label, Date, Date)} tanpa label kemajuan (dibuatkan
+	 * {@code Label} kosong).
+	 *
+	 * <p>PERHATIKAN URUTAN PARAMETER: di sini {@code sampai} datang SEBELUM {@code mulai} —
+	 * kebalikan dari varian {@code (Session, Label, Date, Date)}.</p>
+	 *
+	 * @param session sesi Hibernate aktif.
+	 * @param sampai  batas akhir rentang tanggal.
+	 * @param mulai   batas awal rentang tanggal.
+	 */
 	public void reInitPertemuan(Session session, Calendar sampai, Calendar mulai) {
 		reInitPertemuan(session, new Label(), sampai, mulai);
 	}
 
+	/**
+	 * Varian {@link #reInitPertemuan(Session, Label, Date, Date)} yang menerima {@link Calendar}.
+	 *
+	 * <p>PERHATIKAN URUTAN PARAMETER: {@code sampai} datang SEBELUM {@code mulai}, lalu
+	 * diteruskan sebagai {@code (mulai.getTime(), sampai.getTime())}.</p>
+	 *
+	 * @param session sesi Hibernate aktif.
+	 * @param label   label ZK untuk menampilkan kemajuan proses.
+	 * @param sampai  batas akhir rentang tanggal.
+	 * @param mulai   batas awal rentang tanggal.
+	 */
 	public void reInitPertemuan(Session session, Label label, Calendar sampai, Calendar mulai) {
 		reInitPertemuan(session, label, mulai.getTime(), sampai.getTime());
 	}
 
+	/**
+	 * MEMBANGUN ULANG dari basis data berkas JSON daftar {@link Pertemuan} yang diikuti mahasiswa
+	 * ini dalam satu rentang tanggal. Inilah sumber data linimasa jadwal/pertemuan mahasiswa
+	 * (dipakai sekitar 27 berkas).
+	 *
+	 * <p><b>Kriteria pertemuan yang diambil:</b> aktif (kolom {@code aktif} NULL atau
+	 * {@code true}); tertaut ke setidaknya satu induk — perkuliahan, wisuda, formulir kegiatan,
+	 * pengajuan tugas akhir, kelompok KKN, kelompok PKL, skripsi, KRS, jadwal pelajaran, atau
+	 * pertemuan grup; dan tanggalnya berada dalam rentang {@code mulai}..{@code sampai}
+	 * (dibandingkan sebagai DATE lewat {@code sqlRestriction}). Penyaringan "pertemuan ini milik
+	 * mahasiswa tersebut" ditambahkan
+	 * {@code DashboardTimelinePertemuan.createCriteriaMahasiswa(...)}.</p>
+	 *
+	 * <p><b>Efek samping:</b> berkas JSON lama DIHAPUS lalu ditulis ulang dari nol; objek
+	 * {@link Pertemuan} yang belum ada di cache dimuat ({@code session.load}) dan dimasukkan ke
+	 * cache. Bila {@code label} terpasang di layar, teksnya diperbarui dengan persentase kemajuan.</p>
+	 *
+	 * @param session sesi Hibernate aktif milik pemanggil.
+	 * @param label   label ZK penampil kemajuan.
+	 * @param mulai   batas awal rentang tanggal.
+	 * @param sampai  batas akhir rentang tanggal.
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitPertemuan(Session session, Label label, Date mulai, Date sampai) {
 
@@ -7360,6 +7556,12 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		pertemuans = null;
 	}
 
+	/**
+	 * Melepas satu id {@link Pertemuan} dari berkas JSON mahasiswa ini dengan mengosongkan
+	 * nilainya (kunci tetap ada). Kegagalan ditelan.
+	 *
+	 * @param id id pertemuan yang dilepas.
+	 */
 	public void removePertemuan(Serializable id) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiPertemuan());
@@ -7370,6 +7572,14 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		}
 	}
 
+	/**
+	 * Mendaftarkan satu {@link Pertemuan} ke berkas JSON mahasiswa ini. Parameter
+	 * {@code tulisUlang} tidak dipakai di dalam badan metode (dipertahankan demi kecocokan dengan
+	 * pemanggil lama). Efek samping: MENULIS berkas JSON; kegagalan ditelan.
+	 *
+	 * @param pertemuan  pertemuan yang didaftarkan; {@code null} diabaikan.
+	 * @param tulisUlang tidak dipakai.
+	 */
 	public void populatePertemuan(Pertemuan pertemuan, boolean tulisUlang) {
 		try {
 			if (pertemuan == null) {
@@ -7383,6 +7593,25 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		}
 	}
 
+	/**
+	 * Membaca daftar {@link Pertemuan} mahasiswa ini dari berkas JSON menjadi peta TERURUT WAKTU.
+	 *
+	 * <p>Kuncinya dirakit sebagai <code>{tanggal}_{waktuMulai}-{waktuSelesai}_{idPertemuan}</code>
+	 * ({@code Common.dateFormat8} untuk tanggal; waktu kosong diganti {@code "00.00"}), sehingga
+	 * urutan alfabet {@link TreeMap} otomatis sama dengan urutan kronologis. Peta inilah yang
+	 * kemudian disaring oleh keluarga
+	 * {@link #ambilPertemuan(TreeMap, boolean, boolean, boolean, boolean, boolean, boolean,
+	 * boolean, boolean, boolean, boolean, boolean, String, boolean, boolean, boolean, boolean,
+	 * boolean, boolean, Date, String, String, String, String, String, String, String, String,
+	 * String, boolean, Integer, boolean, boolean, boolean, StatusPertemuan, Integer, PagingApi,
+	 * boolean, int, MyToolbarbuttonConfig, Tbmuser, String)}.</p>
+	 *
+	 * <p>Id yang belum ada di cache dikumpulkan lalu dimuat SEKALI lewat satu query {@code IN}
+	 * (hanya yang {@code aktif}). Kegagalan per entri maupun menyeluruh ditelan dan dicatat.</p>
+	 *
+	 * @param session sesi Hibernate aktif untuk memuat pertemuan yang belum ter-cache.
+	 * @return peta {@code kunciWaktu -> idPertemuan}, terurut kronologis; kosong bila tidak ada.
+	 */
 	@SuppressWarnings("unchecked")
 	public TreeMap<String, Long> ambilPertemuan(Session session) {
 
@@ -7450,6 +7679,12 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return pertemuansa;
 	}
 
+	/**
+	 * Pintasan varian lengkap {@code ambilPertemuan(...)} dengan urutan {@code "asc"} (kronologis
+	 * menaik). Seluruh parameter diteruskan apa adanya.
+	 *
+	 * @return daftar id pertemuan satu halaman.
+	 */
 	public List<Long> ambilPertemuan(TreeMap<String, Long> pertemuansa, boolean jadwalPerkuliahan, boolean jadwalKkn,
 			boolean jadwalPkl, boolean jadwalKegiatan, boolean wisuda, boolean jadwalRevisi, boolean jadwalKonsultasi,
 			boolean jadwalBimbingan, boolean jadwalKonsultasiLain,
@@ -7627,6 +7862,58 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return hasil;
 	}
 
+	/**
+	 * <b>Mesin penyaring &amp; pemaginasi linimasa pertemuan mahasiswa.</b> Menerima peta
+	 * pertemuan terurut waktu dari {@link #ambilPertemuan(org.hibernate.Session)}, menyaringnya
+	 * dengan puluhan kriteria, lalu mengembalikan satu halaman id pertemuan.
+	 *
+	 * <p><b>Kelompok kriteria:</b></p>
+	 * <ul>
+	 *   <li><i>Jenis jadwal</i> — {@code jadwalPerkuliahan}, {@code jadwalKkn}, {@code jadwalPkl},
+	 *       {@code jadwalKegiatan}, {@code wisuda}, {@code jadwalRevisi} (skripsi),
+	 *       {@code jadwalKonsultasi} (KRS), {@code jadwalBimbingan}, {@code jadwalKonsultasiLain};
+	 *       pertemuan lolos bila SALAH SATU jenis yang dinyalakan cocok dengan induknya.</li>
+	 *   <li><i>Isi pertemuan</i> — {@code tdpTugas}, {@code tdpCatatan}, {@code tdpDosenPengganti},
+	 *       {@code tdpDiskusi}, {@code tdpMateri}, {@code tdpUjian}/{@code namaUjian},
+	 *       {@code tdpAudio}, {@code tdpVideo}: bila dinyalakan, pertemuan tanpa unsur itu dibuang.</li>
+	 *   <li><i>Pencarian teks</i> — {@code mk} (kode/nama mata kuliah), {@code dsn} (kode/nama mata
+	 *       kuliah ATAU nama dosen 1..10), {@code topik}/{@code catatan}, {@code cariKelas},
+	 *       {@code cariRuang} (kode maupun nama ruangan).</li>
+	 *   <li><i>Waktu</i> — {@code mul}/{@code sam} (rentang jam sebagai angka), {@code hari} (nilai
+	 *       {@code "Jum'at"} dinormalkan menjadi {@code "Jumat"}), {@code ke} (pertemuan ke-).</li>
+	 *   <li><i>Sifat perkuliahan</i> — {@code remedial}, {@code paralelAja},
+	 *       {@code merupakanPraPerkuliahan}, {@code ekstrakurikuler}, {@code online},
+	 *       {@code statusPertemuan}.</li>
+	 * </ul>
+	 *
+	 * <p><b>Paginasi tanpa komponen ZK.</b> Objek {@code paging} di sini dipakai MURNI sebagai
+	 * kalkulator offset yang bisa di-cache lintas request (mis. oleh {@code LinimasaApi}); ia tidak
+	 * pernah dipasang ke Desktop/Page ZK. Karena {@code Paging.setPageSize/setActivePage} milik ZK
+	 * selalu memposting event dan mensyaratkan {@code Execution} yang hidup — sehingga selalu gagal
+	 * bila dipanggil dari servlet REST atau loop async — perhitungan halaman dilakukan dengan
+	 * aritmetika biasa yang meniru clamping ZK ({@code pageCount = ceil(total/size)},
+	 * {@code activePage} di-clamp ke {@code [0, pageCount-1]}), dan halaman aktif disimpan lewat
+	 * {@code setAttribute("activePageDipakai", ...)} yang aman dari event ZK. Atribut
+	 * {@code "mulaiParam"}/{@code "sampaiParam"} bila ada akan MENIMPA offset hasil hitungan
+	 * (dipakai fitur "muat lebih banyak").</p>
+	 *
+	 * <p>Bila {@code refresh} bernilai {@code true}, halaman aktif diarahkan otomatis ke sekitar
+	 * TANGGAL HARI INI dengan mencacah pertemuan yang tanggalnya sudah lewat.</p>
+	 *
+	 * <p>Tombol {@code back} ("Tampilkan pertemuan sebelumnya") diperbarui labelnya; pembaruan
+	 * dilewati bila komponen sudah terlepas dari desktop ZK, karena memanggil
+	 * {@code setVisible}/{@code setLabel} pada komponen tanpa desktop memicu
+	 * {@code NullPointerException} di dalam ZK.</p>
+	 *
+	 * @param pertemuansa peta pertemuan terurut waktu dari {@link #ambilPertemuan(org.hibernate.Session)}.
+	 * @param paging      kalkulator paginasi (BUKAN komponen ZK yang terpasang).
+	 * @param refresh     arahkan halaman aktif ke sekitar hari ini.
+	 * @param banyak      jumlah baris per halaman.
+	 * @param back        tombol "muat sebelumnya" yang labelnya diperbarui.
+	 * @param tbmuser     pengguna aktif (dipakai penyaringan hak akses ujian).
+	 * @param order       {@code "asc"} untuk kronologis menaik, selain itu menurun.
+	 * @return daftar id pertemuan satu halaman, sudah terurut.
+	 */
 	public List<Long> ambilPertemuan(TreeMap<String, Long> pertemuansa, boolean jadwalPerkuliahan, boolean jadwalKkn,
 			boolean jadwalPkl, boolean jadwalKegiatan, boolean wisuda, boolean jadwalRevisi, boolean jadwalKonsultasi,
 			boolean jadwalBimbingan, boolean jadwalKonsultasiLain,
@@ -8052,12 +8339,27 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return diambil;
 	}
 
+	/**
+	 * Kode identitas mahasiswa dalam kontrak {@link ais.database.model.GeneralValueObject}/
+	 * {@link VOMahasiswaDosen} — untuk mahasiswa, kodenya adalah NIM.
+	 *
+	 * @return NIM mahasiswa (dibaca dari field mentah, tanpa pembersihan spasi
+	 *         {@link #getNim()}).
+	 */
 	@Override
 	public String ambilKode() {
 		// TODO Auto-generated method stub
 		return nim;
 	}
 
+	/**
+	 * Membaca berkas JSON daftar id {@link ChecklistBaruPenilaianDosenOlehMahasiswa} (angket
+	 * penilaian dosen oleh mahasiswa) milik mahasiswa ini. Pola sama dengan
+	 * {@link #ambilLokasiDetailPerkuliahan()}. Berbeda dari berkas lain, nama berkasnya tetap
+	 * dibentuk meski id mahasiswa {@code null} (bagian id menjadi string kosong).
+	 *
+	 * @return teks JSON isi berkas, atau JSON kosong bila belum ada/gagal dibaca.
+	 */
 	public String ambilLokasiChecklistBaruPenilaianDosenOlehMahasiswa() {
 		String id = getId() == null ? "" : getId().toString();
 		File file = Common.getFileLocation(this, "checklist_baru_penilaian_dosen_oleh_mahasiswa_" + id);
@@ -8070,6 +8372,11 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Menimpa berkas JSON daftar angket penilaian dosen milik mahasiswa ini. Kegagalan ditelan.
+	 *
+	 * @param data teks JSON yang hendak disimpan.
+	 */
 	public void tulisLokasiChecklistBaruPenilaianDosenOlehMahasiswa(String data) {
 		String id = getId() == null ? "" : getId().toString();
 		File file = Common.getFileLocation(this, "checklist_baru_penilaian_dosen_oleh_mahasiswa_" + id);
@@ -8082,6 +8389,10 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		}
 	}
 
+	/**
+	 * MENGHAPUS berkas JSON daftar angket penilaian dosen milik mahasiswa ini. Dipanggil
+	 * {@link #reInitChecklistBaruPenilaianDosenOlehMahasiswa(Session)} sebelum membangun ulang.
+	 */
 	public void bersihkanLokasiChecklistBaruPenilaianDosenOlehMahasiswa() {
 		String id = getId() == null ? "" : getId().toString();
 		File file = Common.getFileLocation(this, "checklist_baru_penilaian_dosen_oleh_mahasiswa_" + id);
@@ -8089,6 +8400,13 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 
 	}
 
+	/**
+	 * Membangun ulang dari basis data berkas JSON daftar
+	 * {@link ChecklistBaruPenilaianDosenOlehMahasiswa} milik mahasiswa ini: query id (urut id),
+	 * hapus berkas lama, tulis JSON kosong, lalu daftarkan ulang satu per satu.
+	 *
+	 * @param session sesi Hibernate aktif milik pemanggil.
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitChecklistBaruPenilaianDosenOlehMahasiswa(Session session) {
 		List<Long> checklistBaruPenilaianDosenOlehMahasiswas = session
@@ -8102,6 +8420,11 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		checklistBaruPenilaianDosenOlehMahasiswas = null;
 	}
 
+	/**
+	 * Melepas satu id angket penilaian dosen dari berkas JSON dengan mengosongkan nilainya.
+	 *
+	 * @param id id angket yang dilepas.
+	 */
 	public void removeChecklistBaruPenilaianDosenOlehMahasiswa(Serializable id) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiChecklistBaruPenilaianDosenOlehMahasiswa());
@@ -8112,6 +8435,12 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		}
 	}
 
+	/**
+	 * Mendaftarkan satu id angket penilaian dosen ke berkas JSON mahasiswa ini. Efek samping:
+	 * MENULIS berkas JSON; kegagalan ditelan.
+	 *
+	 * @param checklistBaruPenilaianDosenOlehMahasiswa id angket; {@code null} diabaikan.
+	 */
 	public void populateChecklistBaruPenilaianDosenOlehMahasiswa(Long checklistBaruPenilaianDosenOlehMahasiswa) {
 		try {
 			if (checklistBaruPenilaianDosenOlehMahasiswa == null) {
@@ -8125,6 +8454,24 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		}
 	}
 
+	/**
+	 * Mengambil seluruh angket penilaian dosen ({@link ChecklistBaruPenilaianDosenOlehMahasiswa})
+	 * yang sudah diisi mahasiswa ini, dipetakan dengan kunci
+	 * <code>{idDosen}-{idPerkuliahan}</code> sehingga layar angket dapat langsung memeriksa
+	 * "dosen X pada kelas Y sudah dinilai atau belum".
+	 *
+	 * <p>Bila {@code refresh} bernilai {@code true} ATAU berkas JSON belum pernah dibangun
+	 * ({@code !udah("ChecklistBaruPenilaianDosenOlehMahasiswa")}), daftar dibangun ulang lebih
+	 * dahulu lewat {@link #reInitChecklistBaruPenilaianDosenOlehMahasiswa(Session)} — jadi metode
+	 * ini BISA menulis berkas, bukan sekadar membaca. Objeknya kemudian dimuat massal lewat
+	 * {@code ambilDataBanyak}. Entri tanpa dosen atau tanpa perkuliahan dilewati.</p>
+	 *
+	 * <p>Dipakai {@code ais.common.AngketUtil}.</p>
+	 *
+	 * @param session sesi Hibernate aktif milik pemanggil.
+	 * @param refresh {@code true} untuk memaksa pembangunan ulang daftar.
+	 * @return peta {@code "idDosen-idPerkuliahan" -> angket}; kosong bila belum ada.
+	 */
 	@SuppressWarnings("unchecked")
 	public Map<String, ChecklistBaruPenilaianDosenOlehMahasiswa> ambilChecklistBaruPenilaianDosenOlehMahasiswa(
 			Session session, boolean refresh) {
@@ -8166,6 +8513,16 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return maps;
 	}
 
+	/**
+	 * Varian {@link #ambilChecklistBaruPenilaianDosenOlehMahasiswa(Session, boolean)} dengan kunci
+	 * yang LEBIH LENGKAP: <code>{idMahasiswa}_{idPerkuliahan}_{idDosen}</code>. Dipakai pemanggil
+	 * yang menggabungkan angket beberapa mahasiswa dalam satu peta sehingga id mahasiswa perlu
+	 * ikut menjadi bagian kunci.
+	 *
+	 * @param session sesi Hibernate aktif milik pemanggil.
+	 * @param refresh {@code true} untuk memaksa pembangunan ulang daftar.
+	 * @return peta {@code "idMhs_idPerkuliahan_idDosen" -> angket}.
+	 */
 	public Map<String, ChecklistBaruPenilaianDosenOlehMahasiswa> byKey(Session session, boolean refresh) {
 		Map<String, ChecklistBaruPenilaianDosenOlehMahasiswa> maps = ambilChecklistBaruPenilaianDosenOlehMahasiswa(
 				session, refresh);
@@ -8181,12 +8538,35 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return mapsKey;
 	}
 
+	/**
+	 * Mengumpulkan MATERI ({@link PertemuanFileContent}) dari sekumpulan pertemuan, memakai
+	 * pengguna yang sedang login ({@code Common.getCurrentUser()}) sebagai penentu hak akses.
+	 * Implementasi kontrak {@link VOMahasiswaDosen}; seluruh logikanya ada di
+	 * {@code PertemuanFileContent.ambilMateri}.
+	 *
+	 * @param pertemuans peta pertemuan (biasanya dari {@link #ambilPertemuan(org.hibernate.Session)}).
+	 * @param refresh    {@code true} untuk memaksa pembacaan ulang.
+	 * @param label      label ZK penampil kemajuan.
+	 * @return peta materi terurut.
+	 */
 	@Override
 	public TreeMap<String, Object[]> ambilMateri(TreeMap<String, Long> pertemuans, boolean refresh, Label label) {
 		Tbmuser tbmuser = Common.getCurrentUser();
 		return PertemuanFileContent.ambilMateri(pertemuans, refresh, label, tbmuser);
 	}
 
+	/**
+	 * Varian {@link #ambilMateri(TreeMap, boolean, Label)} yang memungkinkan pengurutan berdasarkan
+	 * NAMA berkas dan penentuan pengguna secara eksplisit (bukan dari sesi login) — dipakai jalur
+	 * non-UI seperti servlet API dan proses batch.
+	 *
+	 * @param pertemuans            peta pertemuan.
+	 * @param refresh               {@code true} untuk memaksa pembacaan ulang.
+	 * @param label                 label ZK penampil kemajuan.
+	 * @param urutBerdasarkanNama   urutkan materi berdasarkan nama berkas.
+	 * @param tbmuser               pengguna penentu hak akses.
+	 * @return peta materi terurut.
+	 */
 	public TreeMap<String, Object[]> ambilMateri(TreeMap<String, Long> pertemuans, boolean refresh, Label label,
 			boolean urutBerdasarkanNama, Tbmuser tbmuser) {
 		return PertemuanFileContent.ambilMateri(pertemuans, refresh, label, urutBerdasarkanNama, tbmuser);
@@ -8194,6 +8574,12 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 
 	// KEGIATAN KEMAHASISWAAN
 
+	/**
+	 * Membaca berkas JSON daftar id {@code KegiatanKemahasiswaanPunyaMahasiswa} milik mahasiswa
+	 * ini. Pola sama dengan {@link #ambilLokasiDetailPerkuliahan()}.
+	 *
+	 * @return teks JSON isi berkas, atau JSON kosong bila belum ada/gagal dibaca.
+	 */
 	public String ambilLokasiKegiatanKemahasiswaanPunyaMahasiswa() {
 		File file = Common.getFileLocation(this, "kegiatanKemahasiswaanPunyaMahasiswa_" + getId().toString());
 		try {
@@ -8205,6 +8591,11 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Menimpa berkas JSON daftar kegiatan kemahasiswaan milik mahasiswa ini. Kegagalan ditelan.
+	 *
+	 * @param data teks JSON yang hendak disimpan.
+	 */
 	public void tulisLokasiKegiatanKemahasiswaanPunyaMahasiswa(String data) {
 		File file = Common.getFileLocation(this, "kegiatanKemahasiswaanPunyaMahasiswa_" + getId().toString());
 		try {
@@ -8213,6 +8604,15 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		}
 	}
 
+	/**
+	 * Mendaftarkan satu {@code KegiatanKemahasiswaanPunyaMahasiswa} ke berkas JSON mahasiswa ini.
+	 *
+	 * <p>Berbeda dari {@code populate*} lain, metode ini juga memanggil {@code write()} pada
+	 * entitasnya sehingga cache JSON milik entitas itu sendiri ikut ditulis. Efek samping: dua
+	 * penulisan berkas. Kegagalan ditelan.</p>
+	 *
+	 * @param kegiatanKemahasiswaanPunyaMahasiswa kegiatan yang didaftarkan.
+	 */
 	public void populateKegiatanKemahasiswaanPunyaMahasiswa(
 			KegiatanKemahasiswaanPunyaMahasiswa kegiatanKemahasiswaanPunyaMahasiswa) {
 		try {
@@ -8225,6 +8625,15 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		}
 	}
 
+	/**
+	 * Membangun ulang dari basis data berkas JSON daftar kegiatan kemahasiswaan milik mahasiswa
+	 * ini: query entitas (urut id), tulis JSON kosong, lalu daftarkan ulang satu per satu.
+	 *
+	 * <p>Catatan: berbeda dari {@link #reInitDetailperkuliahan(Session)}, di sini berkas TIDAK
+	 * dihapus lebih dulu — cukup ditimpa JSON kosong.</p>
+	 *
+	 * @param session sesi Hibernate aktif milik pemanggil.
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitKegiatanKemahasiswaanPunyaMahasiswa(Session session) {
 
@@ -8238,6 +8647,11 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		kegiatanKemahasiswaanPunyaMahasiswas = null;
 	}
 
+	/**
+	 * Melepas satu id kegiatan kemahasiswaan dari berkas JSON dengan mengosongkan nilainya.
+	 *
+	 * @param id id kegiatan yang dilepas.
+	 */
 	public void removeKegiatanKemahasiswaanPunyaMahasiswa(Serializable id) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiKegiatanKemahasiswaanPunyaMahasiswa());
@@ -8248,6 +8662,18 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		}
 	}
 
+	/**
+	 * Daftar id kegiatan kemahasiswaan yang diikuti mahasiswa ini.
+	 *
+	 * <p><b>Efek samping:</b> bila berkas JSON belum pernah dibangun
+	 * ({@code !udah("KegiatanKemahasiswaanPunyaMahasiswa")}), daftar dibangun ulang lebih dahulu
+	 * memakai sesi thread-local yang KEMUDIAN DITUTUP ({@code HibernateUtil.closeSession()}).
+	 * Jadi metode ini bisa menulis berkas dan menutup sesi, bukan sekadar membaca.</p>
+	 *
+	 * <p>Dipakai {@code ais.action.master.helper.profile.ProfileMahasiswa}.</p>
+	 *
+	 * @return daftar id kegiatan kemahasiswaan; kosong bila tidak ada.
+	 */
 	@SuppressWarnings("unchecked")
 	public List<Long> ambilKegiatanKemahasiswaanPunyaMahasiswa() {
 
@@ -8285,6 +8711,12 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 
 	// ORGANISASI MAHASISWA
 
+	/**
+	 * Membaca berkas JSON daftar id {@code OrganisasiIntraKampusPunyaMahasiswa} milik mahasiswa
+	 * ini. Pola sama dengan {@link #ambilLokasiDetailPerkuliahan()}.
+	 *
+	 * @return teks JSON isi berkas, atau JSON kosong bila belum ada/gagal dibaca.
+	 */
 	public String ambilLokasiOrganisasiIntraKampusPunyaMahasiswa() {
 		File file = Common.getFileLocation(this, "organisasiIntraKampusPunyaMahasiswa_" + getId().toString());
 		try {
@@ -8296,6 +8728,11 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Menimpa berkas JSON daftar keanggotaan organisasi intra kampus. Kegagalan ditelan.
+	 *
+	 * @param data teks JSON yang hendak disimpan.
+	 */
 	public void tulisLokasiOrganisasiIntraKampusPunyaMahasiswa(String data) {
 		File file = Common.getFileLocation(this, "organisasiIntraKampusPunyaMahasiswa_" + getId().toString());
 		try {
@@ -8304,6 +8741,12 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		}
 	}
 
+	/**
+	 * Mendaftarkan satu {@code OrganisasiIntraKampusPunyaMahasiswa} ke berkas JSON mahasiswa ini,
+	 * sekaligus memanggil {@code write()} pada entitasnya. Kegagalan ditelan.
+	 *
+	 * @param organisasiIntraKampusPunyaMahasiswa keanggotaan organisasi yang didaftarkan.
+	 */
 	public void populateOrganisasiIntraKampusPunyaMahasiswa(
 			OrganisasiIntraKampusPunyaMahasiswa organisasiIntraKampusPunyaMahasiswa) {
 		try {
@@ -8316,6 +8759,12 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		}
 	}
 
+	/**
+	 * Membangun ulang dari basis data berkas JSON daftar keanggotaan organisasi intra kampus milik
+	 * mahasiswa ini (berkas ditimpa JSON kosong, lalu didaftarkan ulang satu per satu).
+	 *
+	 * @param session sesi Hibernate aktif milik pemanggil.
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitOrganisasiIntraKampusPunyaMahasiswa(Session session) {
 
@@ -8329,6 +8778,11 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		organisasiIntraKampusPunyaMahasiswas = null;
 	}
 
+	/**
+	 * Melepas satu id keanggotaan organisasi dari berkas JSON dengan mengosongkan nilainya.
+	 *
+	 * @param id id keanggotaan yang dilepas.
+	 */
 	public void removeOrganisasiIntraKampusPunyaMahasiswa(Serializable id) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiOrganisasiIntraKampusPunyaMahasiswa());
@@ -8339,6 +8793,15 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		}
 	}
 
+	/**
+	 * Daftar id keanggotaan organisasi intra kampus milik mahasiswa ini.
+	 *
+	 * <p><b>Efek samping</b> sama dengan {@link #ambilKegiatanKemahasiswaanPunyaMahasiswa()}: bila
+	 * berkas belum pernah dibangun, daftar dibangun ulang memakai sesi thread-local yang kemudian
+	 * ditutup. Dipakai {@code ProfileMahasiswa}.</p>
+	 *
+	 * @return daftar id keanggotaan organisasi; kosong bila tidak ada.
+	 */
 	@SuppressWarnings("unchecked")
 	public List<Long> ambilOrganisasiIntraKampusPunyaMahasiswa() {
 
@@ -8376,6 +8839,12 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 
 	// PRESTASI MAHASISWA
 
+	/**
+	 * Membaca berkas JSON daftar id {@code PrestasiMahasiswa} milik mahasiswa ini. Pola sama
+	 * dengan {@link #ambilLokasiDetailPerkuliahan()}.
+	 *
+	 * @return teks JSON isi berkas, atau JSON kosong bila belum ada/gagal dibaca.
+	 */
 	public String ambilLokasiPrestasiMahasiswa() {
 		File file = Common.getFileLocation(this, "prestasiMahasiswa_" + getId().toString());
 		try {
@@ -8387,6 +8856,11 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Menimpa berkas JSON daftar prestasi mahasiswa. Kegagalan ditelan.
+	 *
+	 * @param data teks JSON yang hendak disimpan.
+	 */
 	public void tulisLokasiPrestasiMahasiswa(String data) {
 		File file = Common.getFileLocation(this, "prestasiMahasiswa_" + getId().toString());
 		try {
@@ -8395,6 +8869,12 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		}
 	}
 
+	/**
+	 * Mendaftarkan satu {@link PrestasiMahasiswa} ke berkas JSON mahasiswa ini, sekaligus
+	 * memanggil {@code write()} pada entitasnya. Kegagalan ditelan.
+	 *
+	 * @param prestasiMahasiswa prestasi yang didaftarkan.
+	 */
 	public void populatePrestasiMahasiswa(PrestasiMahasiswa prestasiMahasiswa) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiPrestasiMahasiswa());
@@ -8405,6 +8885,11 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		}
 	}
 
+	/**
+	 * Membangun ulang dari basis data berkas JSON daftar prestasi milik mahasiswa ini.
+	 *
+	 * @param session sesi Hibernate aktif milik pemanggil.
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitPrestasiMahasiswa(Session session) {
 
@@ -8417,6 +8902,11 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		prestasiMahasiswas = null;
 	}
 
+	/**
+	 * Melepas satu id prestasi dari berkas JSON dengan mengosongkan nilainya.
+	 *
+	 * @param id id prestasi yang dilepas.
+	 */
 	public void removePrestasiMahasiswa(Serializable id) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiPrestasiMahasiswa());
@@ -8427,6 +8917,13 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		}
 	}
 
+	/**
+	 * Daftar id {@link PrestasiMahasiswa} milik mahasiswa ini. Efek sampingnya sama dengan
+	 * {@link #ambilKegiatanKemahasiswaanPunyaMahasiswa()} (bisa membangun ulang berkas dan menutup
+	 * sesi thread-local). Dipakai {@code ProfileMahasiswa}.
+	 *
+	 * @return daftar id prestasi; kosong bila tidak ada.
+	 */
 	@SuppressWarnings("unchecked")
 	public List<Long> ambilPrestasiMahasiswa() {
 
@@ -8464,6 +8961,12 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 
 	// KARYA MAHASISWA
 
+	/**
+	 * Membaca berkas JSON daftar id {@code PenghargaanMahasiswa} milik mahasiswa ini. Pola sama
+	 * dengan {@link #ambilLokasiDetailPerkuliahan()}.
+	 *
+	 * @return teks JSON isi berkas, atau JSON kosong bila belum ada/gagal dibaca.
+	 */
 	public String ambilLokasiPenghargaanMahasiswa() {
 		File file = Common.getFileLocation(this, "penghargaanMahasiswa_" + getId().toString());
 		try {
@@ -8475,6 +8978,11 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Menimpa berkas JSON daftar penghargaan mahasiswa. Kegagalan ditelan.
+	 *
+	 * @param data teks JSON yang hendak disimpan.
+	 */
 	public void tulisLokasiPenghargaanMahasiswa(String data) {
 		File file = Common.getFileLocation(this, "penghargaanMahasiswa_" + getId().toString());
 		try {
@@ -8483,6 +8991,12 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		}
 	}
 
+	/**
+	 * Mendaftarkan satu {@link PenghargaanMahasiswa} ke berkas JSON mahasiswa ini, sekaligus
+	 * memanggil {@code write()} pada entitasnya. Kegagalan ditelan.
+	 *
+	 * @param penghargaanMahasiswa penghargaan yang didaftarkan.
+	 */
 	public void populatePenghargaanMahasiswa(PenghargaanMahasiswa penghargaanMahasiswa) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiPenghargaanMahasiswa());
@@ -8493,6 +9007,11 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		}
 	}
 
+	/**
+	 * Membangun ulang dari basis data berkas JSON daftar penghargaan milik mahasiswa ini.
+	 *
+	 * @param session sesi Hibernate aktif milik pemanggil.
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitPenghargaanMahasiswa(Session session) {
 
@@ -8505,6 +9024,11 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		penghargaanMahasiswas = null;
 	}
 
+	/**
+	 * Melepas satu id penghargaan dari berkas JSON dengan mengosongkan nilainya.
+	 *
+	 * @param id id penghargaan yang dilepas.
+	 */
 	public void removePenghargaanMahasiswa(Serializable id) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiPenghargaanMahasiswa());
@@ -8515,6 +9039,12 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		}
 	}
 
+	/**
+	 * Daftar id {@link PenghargaanMahasiswa} milik mahasiswa ini. Efek sampingnya sama dengan
+	 * {@link #ambilKegiatanKemahasiswaanPunyaMahasiswa()}. Dipakai {@code ProfileMahasiswa}.
+	 *
+	 * @return daftar id penghargaan; kosong bila tidak ada.
+	 */
 	@SuppressWarnings("unchecked")
 	public List<Long> ambilPenghargaanMahasiswa() {
 
