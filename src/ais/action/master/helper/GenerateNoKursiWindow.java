@@ -34,25 +34,52 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyWindow;
 
 /**
- * Tipe khusus untuk generate no kursi window. Kelas ini memberi nama dan batas tanggung jawab yang
- * eksplisit pada perilaku yang diwarisi atau kontrak yang diimplementasikannya.
+ * Window ZK (dialog) modul wisuda untuk men-generate NOMOR KURSI WISUDA seorang mahasiswa (setelah
+ * No. Registrasi Wisuda-nya sudah ada) dan mencetak laporannya. Padanan yang lebih sempit dari
+ * {@link GenerateNoKursiDanNoRegistrasiWindow} (yang men-generate kedua nomor sekaligus); bandingkan
+ * juga dengan {@link LaporanRegistrasiWisudaWindow} (khusus No. Registrasi) dan
+ * {@link GenerateUndanganWisudaWindow} (cetak undangan, tidak men-generate nomor apa pun).
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * MyWindow}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Textbox nim}, {@code Textbox nama},
- * {@code Textbox fakultas}, {@code Textbox jurusan}, {@code Combobox reportType}, {@code Textbox noKursiWisuda},
- * {@code Mahasiswa mahasiswa}, {@code PendaftaranWisuda pendaftaranWisuda}; inisialisasi/lifecycle ({@code
- * init()}); pelaporan/ekspor ({@code onCetakLaporanNoKursiWisuda()}); operasi domain lain ({@code
- * onGenerateLaporanRegistrasiWisuda()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface
- * yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Kuirk penamaan method:</b> handler tombol "Generate" di kelas ini bernama
+ * {@code onGenerateLaporanRegistrasiWisuda()} — namanya menyiratkan "generate laporan registrasi",
+ * tapi isinya justru men-generate DAN MENYIMPAN No. Kursi Wisuda (bukan No. Registrasi). Ini
+ * kemungkinan besar sisa copy-paste dari {@link LaporanRegistrasiWisudaWindow}/
+ * {@link GenerateNoKursiDanNoRegistrasiWindow} yang namanya tidak diperbarui; nama method
+ * dipertahankan apa adanya (bukan bug baru untuk didokumentasikan sebagai fitur) sesuai tugas ini
+ * yang hanya memperkaya Javadoc, tidak mengubah kode.</p>
+ *
+ * <p><b>Alur data:</b> mahasiswa hanya bisa diambil dari user yang sedang login (constructor
+ * tanpa argumen) atau dipilih lewat {@link AmbilDataMahasiswaBanbox} — kelas ini TIDAK punya
+ * constructor dengan parameter {@link Mahasiswa} eksplisit seperti
+ * {@link GenerateNoKursiDanNoRegistrasiWindow}. {@link PendaftaranWisuda} dimuat via
+ * {@code Restrictions.eq("mahasiswa", mahasiswa)} dengan {@code setMaxResults(1)}; bila tidak
+ * ditemukan, window menampilkan peringatan dan berhenti dibangun.</p>
+ *
+ * <p><b>Kuirk generate nomor:</b> sama seperti window sejenis lain di paket ini, No. Kursi bukan
+ * hasil counter/sequence terpisah — nilainya adalah {@code pendaftaranWisuda.getId().toString()}
+ * yang di-pad nol jadi 8 digit, formula yang PERSIS SAMA dengan No. Registrasi Wisuda di
+ * {@link LaporanRegistrasiWisudaWindow} dan {@link GenerateNoKursiDanNoRegistrasiWindow} — untuk
+ * mahasiswa yang sama, kedua nomor akan bernilai string identik. Ada juga blok kode mati (dikomentari,
+ * di dalam {@code onGenerateLaporanRegistrasiWisuda()}) yang menyimpan implementasi lama: nomor
+ * kursi dihitung dari {@code Projections.rowCount()} atas baris {@code PendaftaranWisuda} yang
+ * sudah disetujui penuh, dipad jadi 4 digit, dan disimpan lewat
+ * {@code PendaftaranWisudaDao.beginTransaction()/commitTransaction()} eksplisit — pendekatan itu
+ * sudah ditinggalkan demi skema id-8-digit yang dipakai sekarang, tapi kodenya belum dibersihkan.</p>
+ *
+ * <p><b>Efek samping:</b> {@code onGenerateLaporanRegistrasiWisuda()} menyimpan lewat
+ * {@code PendaftaranWisudaDao.getInstance()... .update(pendaftaranWisuda)} TANPA membungkus
+ * {@code beginTransaction()}/{@code commitTransaction()} eksplisit (baris-baris itu dikomentari) —
+ * update berjalan mengandalkan transaksi ambien/konteks request, berbeda dari
+ * {@link GenerateNoKursiDanNoRegistrasiWindow} yang memakai {@link Common#refreshSaveOrUpdate(Object)}.
+ * Method cetak memakai format dari {@code Combobox reportType} (hasil
+ * {@link ais.action.report.helper.CommonReport#generateReportType()}), fallback ke PDF bila belum
+ * dipilih. Validasi lima status persetujuan wisuda diduplikasi persis dari window sejenis lain di
+ * paket ini — tidak ada helper validasi bersama.</p>
  *
  * @see MyWindow
+ * @see GenerateNoKursiDanNoRegistrasiWindow
+ * @see LaporanRegistrasiWisudaWindow
+ * @see GenerateUndanganWisudaWindow
  */
 public class GenerateNoKursiWindow extends MyWindow {
 
@@ -76,6 +103,14 @@ public class GenerateNoKursiWindow extends MyWindow {
 
 	private AmbilDataMahasiswaBanbox bandboxMahasiswa;
 
+	/**
+	 * Membuka window untuk mahasiswa yang sedang login, diambil dari
+	 * {@link Common#getCurrentUser()}.{@code getMahasiswa()}. Ini satu-satunya cara masuk ke window
+	 * ini secara langsung dengan mahasiswa spesifik — pemilihan mahasiswa lain (mis. oleh admin)
+	 * dilakukan lewat Bandbox {@link #bandboxMahasiswa} setelah window terbuka, bukan lewat
+	 * constructor lain. Exception saat inisialisasi ditelan dan hanya ditampilkan bila user yang
+	 * login adalah admin (lihat {@link Common#tampilErrorJikaAdmin(Exception)}).
+	 */
 	public GenerateNoKursiWindow() {
 		super();
 		try {
@@ -87,6 +122,22 @@ public class GenerateNoKursiWindow extends MyWindow {
 		}
 	}
 
+	/**
+	 * Membangun ulang seluruh isi window (form data mahasiswa, No. Kursi saat ini, pilihan format
+	 * laporan, dan toolbar) untuk {@code mahasiswa} yang diberikan. Dipanggil dari constructor dan
+	 * dari listener Bandbox mahasiswa setiap kali pilihan mahasiswa berubah.
+	 *
+	 * <p>Langkah: (1) {@link Common#clear(org.zkoss.zk.ui.Component)} membuang child lama; (2)
+	 * membangun ulang layout Borderlayout; (3) memuat {@link PendaftaranWisuda} milik mahasiswa
+	 * (query {@code setMaxResults(1)}); bila tidak ditemukan, tampilkan peringatan dan window
+	 * berhenti dibangun; (4) mengisi textbox readonly NIM/Nama/Fakultas/Prodi/No. Kursi serta
+	 * {@code Combobox reportType} untuk format cetak; (5) menghitung status enable/disable tombol
+	 * "Generate" dan "Cetak" berdasarkan apakah No. Kursi sudah terisi.</p>
+	 *
+	 * @param mahasiswa mahasiswa yang datanya wisuda-nya ditampilkan
+	 * @throws Exception diteruskan dari operasi Hibernate/ZK; ditangkap oleh pemanggil dan hanya
+	 *         ditampilkan ke admin
+	 */
 	private void init(Mahasiswa mahasiswa) throws Exception {
 
 		Common.clear(this);
@@ -266,6 +317,22 @@ public class GenerateNoKursiWindow extends MyWindow {
 		batal.setParent(toolbar);
 	}
 
+	/**
+	 * Handler tombol "Generate". Meski namanya {@code onGenerateLaporanRegistrasiWisuda} (sisa
+	 * copy-paste, lihat Javadoc kelas), method ini men-generate NO. KURSI, bukan No. Registrasi.
+	 * Memvalidasi bahwa No. Registrasi Wisuda sudah ada dan kelima status persetujuan
+	 * (Administrasi, Administrasi Fakultas, Keuangan, Perpustakaan, Perpustakaan Fakultas) sudah
+	 * bernilai 1; bila ada yang belum, tampilkan pesan peringatan berisi daftar penyebab dan
+	 * batalkan proses. Bila lolos, hasilkan No. Kursi = {@code pendaftaranWisuda.getId()} di-pad
+	 * nol jadi 8 digit (lihat blok kode mati di Javadoc kelas untuk skema lama berbasis
+	 * {@code rowCount()}), set ke textbox dan ke {@link PendaftaranWisuda#setNoKursi(String)}, lalu
+	 * simpan lewat {@code PendaftaranWisudaDao.update(pendaftaranWisuda)} (transaksi eksplisit
+	 * dikomentari, mengandalkan transaksi ambien). Menonaktifkan tombol "Generate" dan mengaktifkan
+	 * "Cetak" setelah berhasil.
+	 *
+	 * @param event event {@code onClick} dari tombol "Generate" (tidak dipakai isinya)
+	 * @throws Exception diteruskan dari operasi Hibernate/ZK
+	 */
 	@SuppressWarnings({})
 	public void onGenerateLaporanRegistrasiWisuda(Event event) throws Exception {
 
@@ -346,6 +413,17 @@ public class GenerateNoKursiWindow extends MyWindow {
 
 	}
 
+	/**
+	 * Handler tombol "Cetak". Mencetak laporan No. Kursi Wisuda dengan format dari
+	 * {@link #reportType} bila sudah dipilih pengguna, atau fallback {@link Report#PDF} bila belum
+	 * ada pilihan (Combobox {@code null} atau belum ada item terpilih); memakai template report
+	 * dengan basis nama {@code "Kursi_Wisuda"} dan parameter {@code mahasiswa} = id mahasiswa
+	 * terpilih. Tidak melakukan validasi ulang di method ini (validasi kelengkapan No. Kursi sudah
+	 * dilakukan lewat status disabled tombol di {@code init()}).
+	 *
+	 * @param event event {@code onClick} dari tombol "Cetak" (tidak dipakai isinya)
+	 * @throws Exception diteruskan dari {@link Report#generatePDFReport}
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void onCetakLaporanNoKursiWisuda(Event event) throws Exception {
 		final Map parameters = ais.common.HashMapGenerator.getRand();

@@ -37,24 +37,33 @@ import ais.ui.util.MyRadioConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
- * Helper terfokus untuk absensi kehadiran dosen harian. Tipe ini membungkus satu variasi kecil
- * dari alur yang lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan
- * implementasi.
+ * Panel detail (baris ekspansi ZK) yang menampilkan rekap absensi harian seorang {@link Dosen} untuk satu
+ * bulan-tahun yang dipilih di toolbar. Untuk setiap tanggal dalam bulan tersebut, kelas ini mencari baris
+ * {@link StatuskehadiranKaryawanHarian} milik dosen yang bersangkutan; bila belum ada, baris baru langsung
+ * dibuat dan disimpan ({@code session.save}) dengan status default {@link ConstantValues#BELUM_ABSEN} — sehingga
+ * membuka panel ini untuk satu bulan akan mengisi penuh 28-31 baris kehadiran dosen tersebut di database,
+ * bukan hanya menampilkan data yang sudah ada (efek samping non-obvious yang perlu diperhatikan pemanggil).
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * MyDetail}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Combobox bulan}, {@code Combobox
- * tahun}, {@code MyGrid grid}, {@code Dosen dosen}, {@code boolean edit}; pembacaan/pencarian ({@code
- * loadData()}); operasi domain lain ({@code display()}); konfigurasi constructor: {@code edit}. Bagian lain dari
- * kontrak tetap mengikuti kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p>Mode tampilan mengikuti hak akses: bila {@link CommonPrivilages#checkPrevilages} mengizinkan UPDATE dan
+ * pengguna yang sedang login BUKAN dosen itu sendiri ({@code tbmuser.ambilDosen() == null}, mis. login sebagai
+ * admin/HRD), grid dirender dalam mode edit — status absensi dipilih lewat {@link Radiogroup} dari daftar
+ * {@link Statusabsensi}, jam masuk/pulang lewat {@link Timebox}, dan keterangan lewat {@link Textbox}; setiap
+ * perubahan langsung memicu {@code session.update(statuskehadiranKaryawanHarian)} (auto-save per field, tanpa
+ * tombol simpan terpisah). Bila konfigurasi {@link ConstantValues#aktifkanFingerPrintOtomatisDariKeterangan}
+ * aktif, jam masuk/pulang otomatis diambil dan dikunci ({@code setDisabled(true)}) dari pola yang tertulis di
+ * kolom keterangan (mis. hasil impor mesin fingerprint), lewat
+ * {@link StatuskehadiranKaryawanHarian#mulaiOtomatisUlangAbsenDariKeterangan()} dan
+ * {@code #sampaiOtomatisUlangAbsenDariKeterangan()}. Selain kondisi itu (mis. dosen melihat rekapnya sendiri,
+ * atau pengguna tanpa hak UPDATE), grid dirender sebagai label baca-saja.</p>
+ *
+ * <p>Baris Sabtu/Minggu ditandai latar merah. Setiap baris juga menyisipkan
+ * {@link AbsensiKehadiranDosenHarianDetailHelper} sebagai sub-detail yang dapat diekspansi untuk melihat jadwal
+ * perkuliahan dosen pada tanggal tersebut.</p>
  *
  * @see MyDetail
+ * @see StatuskehadiranKaryawanHarian
+ * @see AbsensiKehadiranDosenHarianDetailHelper
+ * @see Statusabsensi
  */
 public class AbsensiKehadiranDosenHarianHelper extends MyDetail {
 
@@ -69,6 +78,15 @@ public class AbsensiKehadiranDosenHarianHelper extends MyDetail {
 
 	private boolean edit = false;
 
+	/**
+	 * Membuat panel rekap absensi harian untuk satu {@link Dosen}. Menentukan mode edit dari
+	 * {@link CommonPrivilages#checkPrevilages(String)} dengan hak {@link CommonPrivilages#UPDATE} (dievaluasi
+	 * sekali di sini dan dipakai bersama pengecekan identitas pengguna saat {@link #loadData(Object)} merender
+	 * baris), dan mendaftarkan listener {@code onOpen} yang membersihkan komponen anak lalu memanggil
+	 * {@link #display()} setiap kali panel ini dibuka (lazy render, mengikuti pola siklus hidup {@link MyDetail}).
+	 *
+	 * @param dosen dosen yang rekap absensinya akan ditampilkan
+	 */
 	public AbsensiKehadiranDosenHarianHelper(Dosen dosen) {
 		this.dosen = dosen;
 		edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
@@ -83,6 +101,14 @@ public class AbsensiKehadiranDosenHarianHelper extends MyDetail {
 		});
 	}
 
+	/**
+	 * Membangun UI panel: groupbox berjudul "Daftar absensi dosen", toolbar dengan combobox Bulan (1-12, label
+	 * dari {@link Common#BULAN}, default bulan berjalan) dan Tahun (rentang tahun berjalan &minus;10 s.d.
+	 * +10, default tahun berjalan) beserta tombol "Cari", serta grid berpaging (100 baris/halaman) dengan kolom
+	 * Tanggal, Status, Masuk, Pulang, dan Keterangan. Perubahan combobox atau klik tombol Cari memicu
+	 * {@link #loadData(Object)} ulang. Data awal langsung dimuat; kegagalan pada pemuatan pertama ditelan dan
+	 * hanya ditampilkan ke admin lewat {@link Common#tampilErrorJikaAdmin(Exception)}.
+	 */
 	public void display() {
 		ais.ui.util.MyDiv groupbox = new ais.ui.util.MyDiv();
 		groupbox.setStyle("min-height: 200px;");
@@ -185,6 +211,30 @@ public class AbsensiKehadiranDosenHarianHelper extends MyDetail {
 		}
 	}
 
+	/**
+	 * Memuat/merender ulang grid absensi dosen untuk bulan dan tahun yang sedang dipilih di combobox. Menampilkan
+	 * pesan peringatan lewat {@link MyMessageboxConfig#show} dan kembali tanpa efek bila bulan atau tahun belum
+	 * dipilih.
+	 *
+	 * <p><b>Efek samping penting:</b> untuk setiap tanggal dari 1 sampai jumlah hari dalam bulan tersebut,
+	 * method ini mencari baris {@link StatuskehadiranKaryawanHarian} milik {@code dosen} pada tanggal itu; bila
+	 * tidak ditemukan, baris baru dibuat dengan status {@link ConstantValues#BELUM_ABSEN}, jam masuk/pulang
+	 * kosong, dan langsung disimpan ke database ({@code session.save}) — sehingga pembukaan panel ini
+	 * "meratakan" (backfill) data kehadiran dosen untuk seluruh bulan, bukan sekadar membaca yang sudah ada.</p>
+	 *
+	 * <p>Setiap baris hari Sabtu/Minggu diberi latar merah. Bila {@code edit} bernilai true DAN pengguna yang
+	 * login bukan dosen ({@code tbmuser.ambilDosen() == null}), kolom Status/Masuk/Pulang/Keterangan dirender
+	 * sebagai kontrol input ({@link Radiogroup} dari daftar {@link Statusabsensi} yang diurutkan berdasarkan
+	 * nama, {@link Timebox}, {@link Textbox}) yang masing-masing memicu {@code session.update(...)} langsung saat
+	 * berubah (auto-save per field). Bila tidak, kolom-kolom tersebut dirender sebagai label baca-saja, dengan
+	 * keterangan memakai {@link StatuskehadiranKaryawanHarian#renderKeteranganLink(Row)}. Setiap baris juga
+	 * menyisipkan {@link AbsensiKehadiranDosenHarianDetailHelper} sebagai sub-detail jadwal perkuliahan dosen
+	 * pada tanggal tersebut.</p>
+	 *
+	 * @param object tidak digunakan; parameter dipertahankan agar cocok dengan signature listener pemanggil
+	 *               ({@code onChange} combobox / {@code onClick} tombol Cari)
+	 * @throws Exception diteruskan dari akses Hibernate/komponen ZK bila terjadi kegagalan
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object object) throws Exception {
 		Integer bulan = (Integer) (this.bulan.getSelectedItem() == null ? null
