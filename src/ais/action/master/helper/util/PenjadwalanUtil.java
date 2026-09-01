@@ -2892,9 +2892,12 @@ public class PenjadwalanUtil {
 									row.setAttribute("kurikulumPunyaMatakuliah", kurikulumPunyaMatakuliah);
 									row.setParent(rowsSubGrid);
 
-									final Checkbox checkboxConfig = new Checkbox(
-											kurikulumPunyaMatakuliah.getMatakuliah().getKode() + "-"
-													+ kurikulumPunyaMatakuliah.getMatakuliah().getNama());
+									Matakuliah matakuliahKurikulum = kurikulumPunyaMatakuliah.getMatakuliah();
+									String keteranganSks = matakuliahKurikulum.getSks().intValue() == 0
+											? " (0 SKS - non-kredit, tetap dapat dijadwalkan)"
+											: " (" + matakuliahKurikulum.getSks() + " SKS)";
+									final Checkbox checkboxConfig = new Checkbox(matakuliahKurikulum.getKode() + "-"
+											+ matakuliahKurikulum.getNama() + keteranganSks);
 									checkboxConfig.setChecked(perkuliahan != null);
 									checkboxConfig.setDisabled(perkuliahan != null);
 									row.appendChild(checkboxConfig);
@@ -3615,6 +3618,39 @@ public class PenjadwalanUtil {
 								Common.tampilErrorJikaAdmin(e);
 							}
 						}
+					}
+
+					/*
+					 * Jangan menutup dialog seolah-olah seluruh data berhasil ketika sebagian jadwal
+					 * dilewati oleh pemeriksaan bentrok. Hal ini terutama membingungkan untuk mata
+					 * kuliah 0 SKS karena data kurikulumnya terlihat, tetapi jumlah jadwal tetap nol.
+					 * SKS bukan syarat penjadwalan; yang diperiksa di sini adalah hasil penyimpanannya.
+					 */
+					int jumlahDipilih = 0;
+					int jumlahTersedia = 0;
+					String belumTersimpan = "";
+					for (Row row : rows) {
+						Checkbox checkboxConfig = (Checkbox) row.getAttribute("checkboxConfig");
+						if (checkboxConfig != null && checkboxConfig.isChecked()) {
+							jumlahDipilih++;
+							if (row.getAttribute("perkuliahan") != null) {
+								jumlahTersedia++;
+							} else {
+								belumTersimpan += (belumTersimpan.isEmpty() ? "" : "\n") + "- "
+										+ checkboxConfig.getLabel();
+							}
+						}
+					}
+					if (jumlahDipilih > jumlahTersedia) {
+						MyMessageboxConfig.show(
+								"Sebagian jadwal belum tersimpan. Mata kuliah 0 SKS tetap diperbolehkan "
+										+ "untuk dijadwalkan; data di bawah ini dilewati karena bentrok jadwal, "
+										+ "data wajib belum lengkap, atau terjadi kegagalan penyimpanan:\n\n"
+										+ belumTersimpan
+										+ "\n\nPeriksa hari, waktu, ruang, dosen, kelas, dan Masa Perkuliahan, "
+										+ "kemudian simpan kembali. Gunakan pilihan abaikan bentrok hanya jika "
+										+ "jadwal tersebut memang telah dipastikan tidak bermasalah.",
+								"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
 					}
 
 				}
