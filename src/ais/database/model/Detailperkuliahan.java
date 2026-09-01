@@ -1303,6 +1303,27 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return kuliah != null && kuliah.getDikunci() != null;
 	}
 
+	private NilaiHuruf ambilNilaiHurufSesuaiTotal(Double total) {
+		if (total == null || total.doubleValue() <= 0.1 || getMahasiswa() == null) {
+			return null;
+		}
+		try {
+			Detailperkuliahan detailperkuliahan = this;
+			Matakuliah matakuliah = detailperkuliahan.getPerkuliahan() != null
+					? detailperkuliahan.getPerkuliahan().getMatakuliah()
+					: detailperkuliahan.getMatakuliahKonversi();
+			Jurusan jurusanMahasiswa = getMahasiswa().getJurusan();
+			Fakultas fakultasMahasiswa = jurusanMahasiswa == null ? null : jurusanMahasiswa.getFakultas();
+			return Common.getNilaiHuruf(total, getMahasiswa().getTahunangkatan(), jurusanMahasiswa,
+					fakultasMahasiswa, tahunAkademik,
+					getSemester() % 2 == 0 ? Perkuliahan.GENAP : Perkuliahan.GANJIL,
+					matakuliah == null ? "" : matakuliah.getKode(),
+					matakuliah == null ? null : matakuliah.getJenisNilaiHuruf());
+		} catch (Exception exLazy) { ais.common.ErrorAuditUtil.record(exLazy, "Detailperkuliahan.ambilNilaiHurufSesuaiTotal id=" + getId());
+			return null;
+		}
+	}
+
 	public void setTotalNilai(Double totalNilai) {
 		if (kunciGlobalNilaiAktif() && totalNilaiKunci != null) {
 			this.totalNilai = totalNilaiKunci;
@@ -1397,6 +1418,10 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 	@Column(name = "nilai_huruf", nullable = true, length = 2)
 	public String getNilaiHuruf() {
 		if (kunciGlobalNilaiAktif() && nilaiHurufKunci != null) {
+			NilaiHuruf hurufSesuaiTotal = ambilNilaiHurufSesuaiTotal(totalNilaiKunci == null ? totalNilai : totalNilaiKunci);
+			if (hurufSesuaiTotal != null && hurufSesuaiTotal.getNilaiHuruf() != null) {
+				return hurufSesuaiTotal.getNilaiHuruf().trim();
+			}
 			return nilaiHurufKunci.trim();
 		}
 		perkuliahan = getPerkuliahan();
@@ -1469,6 +1494,10 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 	@Column(name = "nilai_ip", nullable = true, precision = 15)
 	public Double getTotalIP() {
 		if (kunciGlobalNilaiAktif() && totalIPKunci != null) {
+			NilaiHuruf hurufSesuaiTotal = ambilNilaiHurufSesuaiTotal(totalNilaiKunci == null ? totalNilai : totalNilaiKunci);
+			if (hurufSesuaiTotal != null && hurufSesuaiTotal.getNilaiDiIPK() != null) {
+				return hurufSesuaiTotal.getNilaiDiIPK();
+			}
 			return totalIPKunci;
 		}
 		perkuliahan = getPerkuliahan();

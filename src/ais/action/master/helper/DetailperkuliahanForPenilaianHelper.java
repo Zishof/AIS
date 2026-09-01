@@ -3636,6 +3636,7 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 				&& detailperkuliahan.getVerify().equals(Detailperkuliahan.NOT_VERIFIED);
 		double total = tampilSementara ? nilaiAman(detailperkuliahan.getTotalNilaiSementara())
 				: nilaiAman(detailperkuliahan.getTotalNilai());
+		String hurufKunci = detailperkuliahan.getNilaiHurufKunci();
 		String huruf = tampilSementara ? detailperkuliahan.getNilaiHurufSementara() : detailperkuliahan.getNilaiHuruf();
 		NilaiHuruf aturanHuruf = ambilAturanNilaiHuruf(detailperkuliahan, total);
 		NilaiHuruf targetBerikut = ambilAturanNilaiHurufBerikut(detailperkuliahan, total);
@@ -3655,6 +3656,12 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 		html.append("<div>Nilai akhir: <b>").append(Common.numberFormat.get().format(total)).append("</b></div>");
 		html.append("<div>Nilai huruf: <b>").append(teksAmanHtml(huruf == null || huruf.trim().isEmpty() ? "-" : huruf))
 				.append("</b></div>");
+		if (apakahPerkuliahanTerkunci(detailperkuliahan) && hurufKunci != null && !hurufKunci.trim().isEmpty()
+				&& huruf != null && !hurufKunci.trim().equalsIgnoreCase(huruf.trim())) {
+			html.append("<div style='color:#a16207;'>Snapshot huruf saat dikunci: <b>")
+					.append(teksAmanHtml(hurufKunci)).append("</b>; tampilan dikoreksi mengikuti total menjadi <b>")
+					.append(teksAmanHtml(huruf)).append("</b>.</div>");
+		}
 		if (aturanHuruf != null) {
 			html.append("<div>Rentang huruf ini: <b>")
 					.append(Common.numberFormat.get().format(aturanHuruf.getMulai())).append(" s.d ")
@@ -3670,7 +3677,7 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 		}
 		html.append("</div>");
 
-		html.append(buatHtmlAnalisisPintar(detailperkuliahan, total, huruf, aturanHuruf, targetBerikut,
+		html.append(buatHtmlAnalisisPintar(detailperkuliahan, total, huruf, hurufKunci, aturanHuruf, targetBerikut,
 				tampilSementara));
 		html.append(buatHtmlKomponenNilai(detailperkuliahan, tampilSementara));
 
@@ -3708,7 +3715,7 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 	}
 
 	private String buatHtmlAnalisisPintar(Detailperkuliahan detailperkuliahan, double total, String hurufTampil,
-			NilaiHuruf aturanHuruf, NilaiHuruf targetBerikut, boolean tampilSementara) {
+			String hurufKunci, NilaiHuruf aturanHuruf, NilaiHuruf targetBerikut, boolean tampilSementara) {
 		StringBuilder html = new StringBuilder();
 		String hurufSeharusnya = aturanHuruf == null ? "" : aturanHuruf.getNilaiHuruf();
 		double persenHadir = 0.0;
@@ -3724,10 +3731,18 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 		html.append("<div style='font-weight:bold;margin-bottom:8px;color:#0b3b78;'>Analisis Pintar</div>");
 		html.append("<ol style='margin:0;padding-left:20px;'>");
 
+		boolean terkunci = apakahPerkuliahanTerkunci(detailperkuliahan);
 		if (aturanHuruf == null) {
 			html.append("<li><b>Rentang nilai huruf belum cocok.</b> Sistem tidak menemukan konfigurasi Nilai Huruf untuk total ")
 					.append(Common.numberFormat.get().format(total))
 					.append(". Ini biasanya karena setting Nilai Huruf prodi/fakultas/tahun akademik/jenis nilai belum lengkap.</li>");
+		} else if (terkunci && hurufKunci != null && !hurufKunci.trim().isEmpty()
+				&& !hurufKunci.trim().equalsIgnoreCase(hurufSeharusnya)) {
+			html.append("<li><b>Nilai terkunci, tetapi snapshot huruf kunci sudah tidak sesuai.</b> Saat dikunci tersimpan <b>")
+					.append(teksAmanHtml(hurufKunci)).append("</b>, sementara total ")
+					.append(Common.numberFormat.get().format(total)).append(" sekarang masuk rentang <b>")
+					.append(teksAmanHtml(hurufSeharusnya))
+					.append("</b>. Karena itu sistem mengutamakan huruf sesuai total/rentang, bukan huruf kunci yang basi.</li>");
 		} else if (hurufTampil == null || !hurufTampil.trim().equalsIgnoreCase(hurufSeharusnya)) {
 			html.append("<li><b>Ada indikasi huruf tersimpan tidak sinkron.</b> Berdasarkan total ")
 					.append(Common.numberFormat.get().format(total)).append(", sistem membaca rentang <b>")
@@ -3775,6 +3790,16 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 		html.append("</ol>");
 		html.append("</div>");
 		return html.toString();
+	}
+
+	private boolean apakahPerkuliahanTerkunci(Detailperkuliahan detailperkuliahan) {
+		try {
+			Perkuliahan kuliah = detailperkuliahan == null ? null : detailperkuliahan.getPerkuliahan();
+			return kuliah != null && kuliah.getDikunci() != null;
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+			return false;
+		}
 	}
 
 	private String buatHtmlKomponenNilai(Detailperkuliahan detailperkuliahan, boolean tampilSementara) {
