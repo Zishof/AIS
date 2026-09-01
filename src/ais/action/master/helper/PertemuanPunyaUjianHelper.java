@@ -2852,7 +2852,7 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 
 				int kuota = 120;
 				try {
-					kuota = Integer.parseInt(Common.getKonfigurasi("kuota_ujian", kuota + "").getNilai().trim());
+					kuota = parseIntegerDefault(Common.getKonfigurasi("kuota_ujian", kuota + "").getNilai(), kuota);
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/PertemuanPunyaUjianHelper.java:2643");
 					// TODO: handle exception
 				}
@@ -3644,6 +3644,21 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 	 * @param tbmuser pengguna aktif (untuk menentukan identitas peserta)
 	 * @param refresh listener untuk memuat ulang daftar setelah selesai/ubah ujian
 	 */
+	private static int parseIntegerDefault(String nilai, int defaultValue) {
+		if (nilai == null) {
+			return defaultValue;
+		}
+		String teks = nilai.trim();
+		if (teks.length() == 0 || "null".equalsIgnoreCase(teks) || "-".equals(teks)) {
+			return defaultValue;
+		}
+		try {
+			return Integer.parseInt(teks);
+		} catch (Exception e) {
+			return defaultValue;
+		}
+	}
+
 	private void buatKartuUjianPeserta(final PertemuanPunyaUjian ppu, final Tbmuser tbmuser,
 			final EventListener refresh) {
 		final Ujian ujian = ppu.getUjian();
@@ -3676,7 +3691,7 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 		if (hasil != null) {
 			int kuota = 120;
 			try {
-				kuota = Integer.parseInt(Common.getKonfigurasi("kuota_ujian", kuota + "").getNilai().trim());
+				kuota = parseIntegerDefault(Common.getKonfigurasi("kuota_ujian", kuota + "").getNilai(), kuota);
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/PertemuanPunyaUjianHelper.java:3466");
 			}
 			if (kuota <= ProsesUjianHelper.kuotaUjian.size()

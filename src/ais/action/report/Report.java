@@ -42,6 +42,7 @@ import org.zkoss.zul.Borderlayout;
 import org.zkoss.zul.Center;
 import org.zkoss.zul.Filedownload;
 import org.zkoss.zul.Iframe;
+import org.zkoss.zul.Label;
 import org.zkoss.zul.Radiogroup;
 import org.zkoss.zul.Tabbox;
 import org.zkoss.zul.Tabpanel;
@@ -4227,7 +4228,8 @@ public class Report extends GenericAutowireComposer {
 			throws Exception {
 		if ((pdfPratinjau == null || pdfPratinjau.length == 0)
 				&& (myfile == null || !myfile.isFile() || myfile.length() <= 0L)) {
-			throw new java.io.FileNotFoundException("Berkas PDF pratinjau tidak ditemukan atau kosong");
+			tampilkanPratinjauPdfTidakTersedia(center);
+			return;
 		}
 		Iframe include;
 		if (center instanceof Iframe) {
@@ -4257,7 +4259,7 @@ public class Report extends GenericAutowireComposer {
 			// desktop-scoped sehingga tidak ada pencarian ulang berdasarkan nama file.
 			include.setSrc(null);
 			if (pdfPratinjau != null && pdfPratinjau.length > 0) {
-				include.setContent(new AMedia(myfile.getName(), "pdf", "application/pdf", pdfPratinjau));
+				include.setContent(new AMedia(namaBerkasPratinjau(myfile), "pdf", "application/pdf", pdfPratinjau));
 			} else {
 				include.setContent(new AMedia(myfile.getName(), "pdf", "application/pdf", myfile, true));
 			}
@@ -4265,6 +4267,28 @@ public class Report extends GenericAutowireComposer {
 		// Tampilkan progress bar "Memuat dokumen PDF" sampai iframe selesai memuat (async sisi klien).
 		pasangScrollWadahPdf(include);
 		pasangOverlayMuatPdf(include);
+	}
+
+	private static String namaBerkasPratinjau(File myfile) {
+		return myfile == null || myfile.getName() == null || myfile.getName().trim().length() == 0
+				? "preview.pdf" : myfile.getName();
+	}
+
+	private static void tampilkanPratinjauPdfTidakTersedia(Component center) {
+		if (center == null) {
+			return;
+		}
+		try {
+			Common.clear(center);
+			Label label = new Label("Pratinjau laporan belum tersedia atau file sementara sudah dibersihkan. "
+					+ "Silakan ulangi cetak/refresh laporan.");
+			label.setStyle("display:block;margin:16px;padding:14px 16px;border:1px solid #f0c36d;"
+					+ "background:#fff8e5;color:#6f4d00;border-radius:6px;font-weight:bold;");
+			label.setParent(center);
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit(empty-catch) src/ais/action/report/Report.java:tampilkanPratinjauPdfTidakTersedia");
+		}
 	}
 
 	private static void pasangScrollWadahPdf(final Iframe include) {

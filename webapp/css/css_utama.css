@@ -8180,6 +8180,27 @@ html body .ais-tugas-jawaban-column > .ais-tugas-jawaban-layout {
         padding: 0 4px !important;
     }
 }
+
+/* Pembayaran mahasiswa: desktop mempertahankan tampilan lama dua kolom
+   (tagihan di kiri, pembayaran di kanan). Susunan bertumpuk hanya untuk HP. */
+@media (min-width: 761px) {
+    html body .ais-pembayaran-mahasiswa-layout.ais-ce-portallayout
+        > .ais-ce-portalchildren:nth-child(1),
+    html body .ais-pembayaran-mahasiswa-layout.ais-ce-portallayout
+        > .ais-ce-portalchildren:nth-child(2) {
+        flex: 0 0 50% !important;
+        width: 50% !important;
+        min-width: 0 !important;
+        max-width: 50% !important;
+    }
+    html body .ais-pembayaran-mahasiswa-layout.ais-ce-portallayout
+        > .ais-ce-portalchildren:nth-child(n+3) {
+        flex: 0 0 100% !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+}
 /* ----------------------------------------------------------------------
    POS KOPERASI (Pembayaran Siswa & Mahasiswa, kelas PembayaranKoperasiOnline)
    2 kolom kiri 60% / kanan 40% WAJIB mengisi penuh baris. Default portal CE

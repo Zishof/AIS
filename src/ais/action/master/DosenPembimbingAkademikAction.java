@@ -194,42 +194,56 @@ public class DosenPembimbingAkademikAction extends GenericAutowireComposer imple
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						// TODO Auto-generated method stub
-						Session session = HibernateUtil.currentSession();
-						@SuppressWarnings("unchecked")
-						List<Mahasiswa> mahasiswas = session.createCriteria(Mahasiswa.class)
-								.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-								.add(Restrictions.isNull("dosen")).createAlias("jurusan", "jurusan")
-								.add(Restrictions.isNotNull("jurusan.kaprodi")).list();
-						System.out.println("mahasiswas => " + mahasiswas.size());
-						for (Mahasiswa mahasiswa : mahasiswas) {
-							Dosen prodi = mahasiswa.getJurusan().getKaprodi();
-							if (prodi != null) {
-								mahasiswa.setDosen(prodi.getId());
-								session.update(mahasiswa);
+						Session session = null;
+						try {
+							session = HibernateUtil.openSession();
+							@SuppressWarnings("unchecked")
+							List<Mahasiswa> mahasiswas = session.createCriteria(Mahasiswa.class)
+									.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+									.add(Restrictions.isNull("dosen")).createAlias("jurusan", "jurusan")
+									.add(Restrictions.isNotNull("jurusan.kaprodi")).list();
+							System.out.println("mahasiswas => " + mahasiswas.size());
+							for (Mahasiswa mahasiswa : mahasiswas) {
+								Dosen prodi = mahasiswa.getJurusan().getKaprodi();
+								if (prodi != null) {
+									org.hibernate.Transaction txMhs = null;
+									try {
+										txMhs = session.beginTransaction();
+										mahasiswa.setDosen(prodi.getId());
+										session.update(mahasiswa);
+										txMhs.commit();
+									} catch (Exception exMhs) {
+										if (txMhs != null && txMhs.isActive()) {
+											try { txMhs.rollback(); } catch (Exception exRollback) { ais.common.ErrorAuditUtil.record(exRollback, "auto-audit(empty-catch) src/ais/action/master/DosenPembimbingAkademikAction.java:bulk-dosenpa-rollback-mahasiswa"); }
+										}
+										ais.common.ErrorAuditUtil.record(exMhs,
+												"auto-audit src/ais/action/master/DosenPembimbingAkademikAction.java:bulk-dosenpa-update-mahasiswa");
+										continue;
+									}
 
-								KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa);
-								krsMahasiswa.setDosenPa(prodi);
-								// KE-FIX (SessionException: Session is closed!): loop bulk ini memutar BANYAK
-								// mahasiswa berturutan, membuka+menutup session native SATU per iterasi. Cek
-								// "session1 == null/!isOpen()" sebelumnya tidak cukup -- currentNativeSession()
-								// sendiri sudah menangani itu, sedangkan yang benar-benar terjadi adalah
-								// session bisa tertutup DI ANTARA begin() dan commit() (mis. race pada thread
-								// latar timer ZK). Bungkus satu baris ini dalam try/catch supaya SATU
-								// mahasiswa yang gagal tidak menghentikan seluruh proses bulk untuk mahasiswa
-								// lain -- konsisten dgn pola pemulihan yang sudah dipakai di RepositorySyncService.
-								try {
-									Session session1 = HibernateUtil.currentNativeSession();
-									session1.getTransaction().begin();
-									Common.refreshSaveOrUpdate(session1, krsMahasiswa);
-									session1.getTransaction().commit();
-								} catch (Exception exBulk) {
-									ais.common.ErrorAuditUtil.record(exBulk,
-											"auto-audit src/ais/action/master/DosenPembimbingAkademikAction.java:bulk-dosenpa-satu-mahasiswa");
-								} finally {
-									HibernateUtil.closeSession();
+									KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa);
+									krsMahasiswa.setDosenPa(prodi);
+									Session session1 = null;
+									org.hibernate.Transaction txKrs = null;
+									try {
+										session1 = HibernateUtil.openSession();
+										txKrs = session1.beginTransaction();
+										Common.refreshSaveOrUpdate(session1, krsMahasiswa);
+										txKrs.commit();
+									} catch (Exception exBulk) {
+										if (txKrs != null && txKrs.isActive()) {
+											try { txKrs.rollback(); } catch (Exception exRollback) { ais.common.ErrorAuditUtil.record(exRollback, "auto-audit(empty-catch) src/ais/action/master/DosenPembimbingAkademikAction.java:bulk-dosenpa-rollback-krs"); }
+										}
+										ais.common.ErrorAuditUtil.record(exBulk,
+												"auto-audit src/ais/action/master/DosenPembimbingAkademikAction.java:bulk-dosenpa-satu-mahasiswa");
+									} finally {
+										HibernateUtil.closeSessionQuietly(session1);
+									}
+
 								}
-
 							}
+						} finally {
+							HibernateUtil.closeSessionQuietly(session);
 						}
 
 						MyMessageboxConfig.show(

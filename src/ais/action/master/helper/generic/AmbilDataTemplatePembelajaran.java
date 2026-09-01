@@ -101,6 +101,7 @@ public class AmbilDataTemplatePembelajaran extends MyWindow {
 	private Wisuda wisuda;
 	private MyTextbox searchnamadsn;
 	private final Map<Long, String> labelTugasAkhir = new HashMap<Long, String>();
+	private final Map<Long, String> labelTemplatePembelajaran = new HashMap<Long, String>();
 
 	public AmbilDataTemplatePembelajaran(final Perkuliahan perkuliahan, final KelompokKkn kelompokKkn,
 			final KelompokPkl kelompokPkl, final MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir,
@@ -297,11 +298,11 @@ public class AmbilDataTemplatePembelajaran extends MyWindow {
 			}
 
 			if (templatePembelajaran instanceof KelompokKkn) {
-				checkbox.setLabel(safeText(((KelompokKkn) templatePembelajaran).getNama_kelompok()));
+				checkbox.setLabel(labelTemplatePembelajaran(templatePembelajaran));
 			}
 
 			if (templatePembelajaran instanceof KelompokPkl) {
-				checkbox.setLabel(safeText(((KelompokPkl) templatePembelajaran).getNama_kelompok()));
+				checkbox.setLabel(labelTemplatePembelajaran(templatePembelajaran));
 			}
 
 			if (templatePembelajaran instanceof FormulirKegiatan) {
@@ -328,6 +329,11 @@ public class AmbilDataTemplatePembelajaran extends MyWindow {
 
 	private String labelTemplatePembelajaran(GeneralValueObject templatePembelajaran) {
 		if (templatePembelajaran == null) return "";
+		String label = templatePembelajaran.getId() == null ? null
+				: labelTemplatePembelajaran.get(templatePembelajaran.getId());
+		if (label != null) {
+			return label;
+		}
 		try {
 			return safeText(templatePembelajaran.getNama());
 		} catch (Exception e) {
@@ -797,7 +803,26 @@ public class AmbilDataTemplatePembelajaran extends MyWindow {
 		// akhir dan mahasiswa selagi currentSession masih aktif agar renderer tidak mencoba
 		// membuka relasi LAZY dari proxy yang sudah terlepas.
 		labelTugasAkhir.clear();
+		labelTemplatePembelajaran.clear();
 		for (GeneralValueObject value : myTemplatePembelajaran) {
+			if (value instanceof KelompokKkn) {
+				try {
+					KelompokKkn kkn = (KelompokKkn) value;
+					labelTemplatePembelajaran.put(kkn.getId(), safeText(kkn.getNama_kelompok()));
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e,
+							"AmbilDataTemplatePembelajaran.initKelompokKknLabel");
+				}
+			}
+			if (value instanceof KelompokPkl) {
+				try {
+					KelompokPkl pkl = (KelompokPkl) value;
+					labelTemplatePembelajaran.put(pkl.getId(), safeText(pkl.getNama_kelompok()));
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e,
+							"AmbilDataTemplatePembelajaran.initKelompokPklLabel");
+				}
+			}
 			if (value instanceof MahasiswaRequestTugasAkhir) {
 				try {
 					MahasiswaRequestTugasAkhir requestTugasAkhir = (MahasiswaRequestTugasAkhir) value;

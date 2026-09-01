@@ -103,6 +103,10 @@ public class IkutPertemuanAction extends GenericAutowireComposer implements Data
 		// TODO Auto-generated method stub
 		super.doAfterCompose(comp);
 		Common.initLaguage();
+		if (searchmatakuliah == null || searchdosen == null || tahunAjaran == null
+				|| jenisSemester == null || grid == null || paging == null) {
+			return;
+		}
 		searchmatakuliah.setEventListener(new EventListener() {
 
 			@Override

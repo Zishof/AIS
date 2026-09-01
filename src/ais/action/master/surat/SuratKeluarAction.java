@@ -2546,6 +2546,36 @@ public class SuratKeluarAction extends GenericAutowireComposer implements DataCr
 	}
 
 	@SuppressWarnings("unchecked")
+	private Integer parseIntegerParameterSurat(String nilai) {
+		if (nilai == null) {
+			return Integer.valueOf(0);
+		}
+		nilai = nilai.trim();
+		if (nilai.length() == 0 || !nilai.matches("-?\\d+")) {
+			return Integer.valueOf(0);
+		}
+		try {
+			return Integer.valueOf(nilai);
+		} catch (Exception e) {
+			return Integer.valueOf(0);
+		}
+	}
+
+	private Double parseDoubleParameterSurat(String nilai) {
+		if (nilai == null) {
+			return Double.valueOf(0.0);
+		}
+		nilai = nilai.trim().replace(",", ".");
+		if (nilai.length() == 0 || !nilai.matches("-?\\d+(\\.\\d+)?")) {
+			return Double.valueOf(0.0);
+		}
+		try {
+			return Double.valueOf(nilai);
+		} catch (Exception e) {
+			return Double.valueOf(0.0);
+		}
+	}
+
 	public void initParameter(Rows rows, KlasifikasiSuratKeluar klasifikasiSuratKeluar) {
 		List<Row> myRows = rows.getChildren();
 		Session session = HibernateUtil.currentSession();
@@ -2671,15 +2701,9 @@ public class SuratKeluarAction extends GenericAutowireComposer implements DataCr
 					}
 				});
 			} else if (klasifikasiSuratKeluarParemeter.getTipe().equals(Integer.class.getName())) {
-				Integer nilai = 0;
-				try {
-					nilai = Integer.parseInt(klasifikasiSuratKeluarParemeterValue == null
-							? klasifikasiSuratKeluarParemeter.getNilai().trim()
-							: klasifikasiSuratKeluarParemeterValue.getNama().trim());
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/surat/SuratKeluarAction.java:2414");
-					/* Nilai default parameter bisa berupa placeholder ("-", dst);
-					 * itu bukan error - cukup pakai 0 tanpa membanjiri log admin. */
-				}
+				Integer nilai = parseIntegerParameterSurat(klasifikasiSuratKeluarParemeterValue == null
+						? klasifikasiSuratKeluarParemeter.getNilai()
+						: klasifikasiSuratKeluarParemeterValue.getNama());
 				final Intbox isi;
 				row.appendChild(isi = new Intbox(nilai));
 				row.setValign("top");
@@ -2711,14 +2735,9 @@ public class SuratKeluarAction extends GenericAutowireComposer implements DataCr
 					}
 				});
 			} else if (klasifikasiSuratKeluarParemeter.getTipe().equals(Double.class.getName())) {
-				Double nilai = 0.0;
-				try {
-					nilai = Double.parseDouble(klasifikasiSuratKeluarParemeterValue == null
-							? klasifikasiSuratKeluarParemeter.getNilai().trim()
-							: klasifikasiSuratKeluarParemeterValue.getNama().trim());
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/surat/SuratKeluarAction.java:2454");
-					/* Placeholder ("-", dst) bukan error - pakai 0.0 senyap. */
-				}
+				Double nilai = parseDoubleParameterSurat(klasifikasiSuratKeluarParemeterValue == null
+						? klasifikasiSuratKeluarParemeter.getNilai()
+						: klasifikasiSuratKeluarParemeterValue.getNama());
 				final Doublebox isi;
 				row.appendChild(isi = new Doublebox(nilai));
 				row.setValign("top");

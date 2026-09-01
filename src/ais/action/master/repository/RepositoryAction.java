@@ -211,9 +211,10 @@ public class RepositoryAction extends GenericAutowireComposer {
     }
 
     private void refreshDashboard() {
-        if (dashboardContainer == null) return;
+        if (dashboardContainer == null || dashboardContainer.getDesktop() == null || dashboardContainer.getPage() == null) return;
         try {
             Common.clear(dashboardContainer);
+            if (dashboardContainer.getDesktop() == null || dashboardContainer.getPage() == null) return;
             new DasboardRepository().setParent(dashboardContainer);
         } catch (Exception e) {
             Common.tampilErrorJikaAdmin(e);

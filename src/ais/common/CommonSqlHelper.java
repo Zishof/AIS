@@ -688,6 +688,9 @@ public class CommonSqlHelper extends Common {
 					System.err.println("Gagal melakukan rollback: " + rollbackEx.getMessage());
 				}
 			}
+			if (isIgnorableMigrationSqlError(e)) {
+				return hasil;
+			}
 
 			// tampilErrorJikaAdmin(e);
 			// Exception ASLINYA sebelumnya TIDAK PERNAH dicatat di sini (baris di atas sengaja
@@ -719,6 +722,30 @@ public class CommonSqlHelper extends Common {
 		}
 
 		return hasil;
+	}
+
+	private static boolean isIgnorableMigrationSqlError(Throwable t) {
+		int guard = 0;
+		while (t != null && guard < 30) {
+			if (t instanceof java.sql.SQLException) {
+				String state = ((java.sql.SQLException) t).getSQLState();
+				if ("42710".equalsIgnoreCase(state) || "42P07".equalsIgnoreCase(state)) {
+					return true;
+				}
+			}
+			String msg = t.getMessage();
+			if (msg != null) {
+				String low = msg.toLowerCase();
+				if (low.indexOf("already exists") >= 0
+						|| low.indexOf("duplicate_object") >= 0
+						|| low.indexOf("relation") >= 0 && low.indexOf("already exists") >= 0) {
+					return true;
+				}
+			}
+			t = t.getCause();
+			guard++;
+		}
+		return false;
 	}
 
 

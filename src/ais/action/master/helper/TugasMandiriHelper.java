@@ -707,7 +707,14 @@ public class TugasMandiriHelper {
 					public void onEvent(Event arg0) throws Exception {
 						Session session = HibernateUtil.currentSession();
 						if (tugas.getId() != null) {
+							bersihkanFormatNilaiYatim(tugas);
 							session.refresh(tugas);
+						}
+						FormatNilai fnAktif = ambilFormatNilaiValid(session, tugas.getFormatNilai());
+						if (tugas.getFormatNilai() != null && fnAktif == null) {
+							tugas.setFormatNilai(null);
+						} else if (fnAktif != tugas.getFormatNilai()) {
+							tugas.setFormatNilai(fnAktif);
 						}
 						tugas.setProsentase(prosentase.getValue());
 						Common.refreshUpdate(session, tugas);

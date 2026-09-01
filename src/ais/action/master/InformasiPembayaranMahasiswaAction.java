@@ -2147,7 +2147,9 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 										kegiatan.getTahunAkademik(), true, kegiatan.getJadwalPembayaran(), true,
 										false, null, session);
 							}
-							tx.commit();
+							if (tx != null && tx.isActive()) {
+								tx.commit();
+							}
 							sukses.incrementAndGet();
 						} catch (Exception ex) {
 							try {

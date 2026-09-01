@@ -8184,7 +8184,13 @@ public class CommonReportHelper {
 							&& statusPertemuans.contains(pertemuan.getStatusPertemuan().getId())) {
 
 						Perkuliahan perkuliahan = pertemuan.getPerkuliahan();
+						if (perkuliahan == null) {
+							continue;
+						}
 						List<Dosen> dosens = perkuliahan.populateDosenBuNama();
+						if (dosens == null) {
+							dosens = new ArrayList<Dosen>();
+						}
 						Dosen dosenPengganti = null;
 						if (pertemuan.getDosenPengganti() != null) {
 							dosenPengganti = (Dosen) ConstantValues.ambil(Dosen.class.getName(),
@@ -12684,25 +12690,30 @@ public class CommonReportHelper {
 					parameters.put("ruang", kelasPertemuan != null
 							? (kelasPertemuan.getRuang() == null ? "" : kelasPertemuan.getRuang().getKodeRuangan())
 							: pertemuan == null
-									? (jadwalPelajaran.getKelas().getRuang() == null ? ""
+									? (jadwalPelajaran == null || jadwalPelajaran.getKelas() == null
+											|| jadwalPelajaran.getKelas().getRuang() == null ? ""
 											: jadwalPelajaran.getKelas().getRuang().getKodeRuangan())
 									: (pertemuan.getRuang() == null ? "" : pertemuan.getRuang().getKodeRuangan()));
 
 					Map<String, Integer> statuses = pertemuan == null ? null : pertemuan.hitungStatus();
-					int teraftar = (kelasPertemuan != null
-							? ((Number) session.createCriteria(DetailKelasPertemuan.class)
+					Number jumlahTerdaftar = null;
+					if (jadwalPelajaran != null) {
+						jumlahTerdaftar = (kelasPertemuan != null
+							? (Number) session.createCriteria(DetailKelasPertemuan.class)
 									.add(Restrictions.eq("kelasPertemuan", kelasPertemuan))
 									.createCriteria("kelasSiswaPunyaSiswa")
 									.add(Restrictions.eq("jadwalPelajaran", jadwalPelajaran))
 									.setProjection(Projections.rowCount())
 									.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-									.uniqueResult()).intValue()
-							: ((Number) session.createCriteria(KelasSiswaPunyaSiswa.class)
+									.uniqueResult()
+							: (Number) session.createCriteria(KelasSiswaPunyaSiswa.class)
 									.add(Restrictions.eq("jadwalPelajaran", jadwalPelajaran))
 									.setProjection(Projections.rowCount())
 									.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-									.uniqueResult()).intValue());
-					int masuk = pertemuan == null || statuses.get("M") == null ? 0 : statuses.get("M");
+									.uniqueResult());
+					}
+					int teraftar = jumlahTerdaftar == null ? 0 : jumlahTerdaftar.intValue();
+					int masuk = pertemuan == null || statuses == null || statuses.get("M") == null ? 0 : statuses.get("M");
 					int tidakmasuk = teraftar - masuk;
 					parameters.put("Terdaftar", teraftar);
 					parameters.put("Masuk", masuk);

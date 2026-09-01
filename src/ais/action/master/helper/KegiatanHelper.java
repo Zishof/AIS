@@ -445,6 +445,12 @@ public class KegiatanHelper {
 					}
 				}
 			}
+			if (transaksiMati) {
+				ais.common.ErrorAuditUtil.record(e,
+						"info-audit KegiatanHelper.updateEntitySafe: update dilewati setelah retry karena lock/koneksi masih sibuk; proses sinkron berikutnya akan menghitung ulang entity="
+								+ (entity == null ? "null" : entity.getClass().getName()));
+				return;
+			}
 			throw e;
 		} finally {
 			if (closeLocalSession && isUsableSession(session)) {

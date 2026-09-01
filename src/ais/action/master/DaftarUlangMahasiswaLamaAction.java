@@ -558,6 +558,7 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 			 * menjadi satu kolom pada layar mobile.
 			 */
 			MyPortallayout portal = ais.ui.util.PortalUiHelper.portal(portalHost);
+			portal.setSclass("ais-pembayaran-mahasiswa-layout");
 			MyPortalchildren kolMahasiswa = ais.ui.util.PortalUiHelper.kolom(portal, "50%");
 			MyPortalchildren kolPembayaran = ais.ui.util.PortalUiHelper.kolom(portal, "50%");
 			MyPortalchildren kolAnalisis = ais.ui.util.PortalUiHelper.kolom(portal, "100%");

@@ -323,7 +323,17 @@ public class WisudaAction extends GenericAutowireComposer {
 			wisuda = wisudaDao.load(wisuda.getId());
 		}
 
-		wisuda.setWisudaKe(Integer.parseInt(wisudaKe.getValue()));
+		Integer nomorWisuda = parseNomorWisuda(wisudaKe.getValue());
+		if (nomorWisuda == null) {
+			PesanFormalHelper.tampilkanGagal("penyimpanan data Wisuda Ke",
+					"Kolom Wisuda Ke belum dapat dibaca sebagai nomor urut. Gunakan angka biasa, misalnya 5, atau angka romawi seperti V.",
+					new String[] {
+							"Periksa kembali isian Wisuda Ke.",
+							"Gunakan format angka agar sistem dapat menyimpan data tanpa gagal."
+					});
+			return false;
+		}
+		wisuda.setWisudaKe(nomorWisuda);
 		wisuda.setMaksimalQuota(maksimalQuota.getValue());
 		wisuda.setHanyaGunakanKuotaPerguruanTinggi(hanyaGunakanKuotaPerguruanTinggi.isChecked());
 		wisuda.setTanggal(tanggal.getValue());
@@ -338,6 +348,67 @@ public class WisudaAction extends GenericAutowireComposer {
 		}
 		// wisudaDao.commitTransaction();
 		return true;
+	}
+
+	private Integer parseNomorWisuda(String value) {
+		if (value == null) {
+			return null;
+		}
+		String text = value.trim();
+		if (text.length() == 0) {
+			return null;
+		}
+		int spasi = text.indexOf(' ');
+		if (spasi > 0) {
+			text = text.substring(0, spasi).trim();
+		}
+		int kurung = text.indexOf('(');
+		if (kurung > 0) {
+			text = text.substring(0, kurung).trim();
+		}
+		try {
+			return Integer.valueOf(text);
+		} catch (Exception ignored) {
+			// Lanjut coba format romawi.
+		}
+		int roman = romanToInt(text);
+		return roman > 0 ? Integer.valueOf(roman) : null;
+	}
+
+	private int romanToInt(String value) {
+		if (value == null) {
+			return 0;
+		}
+		String text = value.trim().toUpperCase();
+		if (!text.matches("[IVXLCDM]+")) {
+			return 0;
+		}
+		int total = 0;
+		int prev = 0;
+		for (int i = text.length() - 1; i >= 0; i--) {
+			int current = romanValue(text.charAt(i));
+			if (current <= 0) {
+				return 0;
+			}
+			if (current < prev) {
+				total -= current;
+			} else {
+				total += current;
+				prev = current;
+			}
+		}
+		return total;
+	}
+
+	private int romanValue(char c) {
+		if (c == 'I') return 1;
+		if (c == 'V') return 5;
+		if (c == 'X') return 10;
+		if (c == 'L') return 50;
+		if (c == 'C') return 100;
+		if (c == 'D') return 500;
+		if (c == 'M') return 1000;
+		return 0;
 	}
 
 	/**

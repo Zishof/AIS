@@ -1992,6 +1992,9 @@ public class Kegiatan extends GeneralValueObject {
 			for (String s : dataLama.split(",")) {
 				if (!s.trim().isEmpty()) {
 					String[] parts = s.split(":");
+					if (parts.length == 0 || !isTokenIdKegiatanValid(parts[0])) {
+						continue;
+					}
 					try {
 						Long id = Long.parseLong(parts[0].trim());
 						boolean aktif = parts.length > 1 ? Boolean.parseBoolean(parts[1].trim()) : true;
@@ -2008,6 +2011,9 @@ public class Kegiatan extends GeneralValueObject {
 			for (String s : dataBaru.split(",")) {
 				if (!s.trim().isEmpty()) {
 					String[] parts = s.split(":");
+					if (parts.length == 0 || !isTokenIdKegiatanValid(parts[0])) {
+						continue;
+					}
 					try {
 						Long id = Long.parseLong(parts[0].trim());
 						boolean aktif = parts.length > 1 ? Boolean.parseBoolean(parts[1].trim()) : true;
@@ -2053,6 +2059,10 @@ public class Kegiatan extends GeneralValueObject {
 			return "";
 		}
 		return hasil;
+	}
+
+	private boolean isTokenIdKegiatanValid(String token) {
+		return token != null && token.trim().matches("[0-9]+");
 	}
 
 	// ========================================================================

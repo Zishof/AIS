@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import javax.imageio.ImageIO;
+
 import org.apache.commons.lang.StringUtils;
 import org.hibernate.Criteria;
 import org.hibernate.Session;
@@ -341,13 +343,35 @@ public class SertifikatAction extends GenericAutowireComposer {
 		int index = 0;
 		for (LampiranLain pendukung : lampiranLains) {
 			try {
-				parameters.put("pendukung_" + index, pendukung.getGdrive() != null ? pendukung.exportGDriveUrl()
-						: pendukung.ambilFile().getAbsolutePath());
+				String sumber = pendukung.getGdrive() != null ? pendukung.exportGDriveUrl()
+						: ambilPathGambarPendukungValid(pendukung);
+				if (sumber == null || sumber.trim().length() == 0) {
+					continue;
+				}
+				parameters.put("pendukung_" + index, sumber);
 				index++;
 			} catch (Exception e) {
 				ais.common.ErrorAuditUtil.record(e,
 						"auto-audit(empty-catch) src/ais/action/master/SertifikatAction.java:ambilGambarPendukungSertifikat");
 			}
+		}
+	}
+
+	private static String ambilPathGambarPendukungValid(LampiranLain pendukung) {
+		try {
+			if (pendukung == null || pendukung.ambilFile() == null || !pendukung.ambilFile().exists()
+					|| pendukung.ambilFile().length() <= 0) {
+				return null;
+			}
+			if (ImageIO.read(pendukung.ambilFile()) == null) {
+				ais.common.ErrorAuditUtil.record(new IllegalArgumentException("Lampiran sertifikat bukan format gambar yang didukung: "
+						+ pendukung.ambilFile().getAbsolutePath()), "SertifikatAction.skipInvalidImage");
+				return null;
+			}
+			return pendukung.ambilFile().getAbsolutePath();
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "SertifikatAction.ambilPathGambarPendukungValid");
+			return null;
 		}
 	}
 

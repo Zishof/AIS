@@ -601,9 +601,27 @@ public abstract class FileFoto extends GeneralValueObject {
 				}
 			}
 		} catch (Exception e) {
-			ais.common.ErrorAuditUtil.record(e, "migrasi-berkas-folder-kelas src/ais/database/model/file/FileFoto.java");
+			if (!isSourceFileMissing(e)) {
+				ais.common.ErrorAuditUtil.record(e, "migrasi-berkas-folder-kelas src/ais/database/model/file/FileFoto.java");
+			}
 		}
 		return baru;
+	}
+
+	private boolean isSourceFileMissing(Throwable error) {
+		Throwable t = error;
+		int guard = 0;
+		while (t != null && guard < 20) {
+			if (t instanceof java.io.FileNotFoundException) {
+				String pesan = t.getMessage() == null ? "" : t.getMessage().toLowerCase();
+				if (pesan.indexOf("source") >= 0 && pesan.indexOf("does not exist") >= 0) {
+					return true;
+				}
+			}
+			t = t.getCause();
+			guard++;
+		}
+		return false;
 	}
 
 	private File berkasCadanganUnik(String extension) {

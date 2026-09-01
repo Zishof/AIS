@@ -1,5 +1,6 @@
 package ais.action.master;
 
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -888,13 +889,13 @@ public class KegiatanTemporaryAction extends GenericAutowireComposer implements 
 								Restrictions.ilike("calonMahasiswa.nama", searchnamamhs.getValue().trim(),
 										MatchMode.ANYWHERE)))
 
-				.add((start == null) ? org.hibernate.criterion.Restrictions.sqlRestriction("1=1") : (start.getValue() == null ? Restrictions.sqlRestriction("1=1")
+				.add((start == null) ? org.hibernate.criterion.Restrictions.sqlRestriction("1=1") : (nilaiTanggalAman(start) == null ? Restrictions.sqlRestriction("1=1")
 						: Restrictions.sqlRestriction("(this_.tanggal) >= ('"
-								+ Common.databaseDateFormat.get().format(start.getValue()) + " 00:00:00')")))
+								+ Common.databaseDateFormat.get().format(nilaiTanggalAman(start)) + " 00:00:00')")))
 
-				.add((end == null) ? org.hibernate.criterion.Restrictions.sqlRestriction("1=1") : (end.getValue() == null ? Restrictions.sqlRestriction("1=1")
+				.add((end == null) ? org.hibernate.criterion.Restrictions.sqlRestriction("1=1") : (nilaiTanggalAman(end) == null ? Restrictions.sqlRestriction("1=1")
 						: Restrictions.sqlRestriction("(this_.tanggal) <= ('"
-								+ Common.databaseDateFormat.get().format(end.getValue()) + " 23:59:59')")))
+								+ Common.databaseDateFormat.get().format(nilaiTanggalAman(end)) + " 23:59:59')")))
 
 				.add(fakultas == null ? Restrictions.sqlRestriction("1=1")
 						: Restrictions.or(Restrictions.eq("jurusan.fakultas", fakultas),
@@ -909,6 +910,17 @@ public class KegiatanTemporaryAction extends GenericAutowireComposer implements 
 										MatchMode.ANYWHERE)),
 						Restrictions.ilike("calonMahasiswa.noUjian", searchnama.getValue().trim())));
 		return criteria;
+	}
+
+	private Date nilaiTanggalAman(MyDatebox datebox) {
+		if (datebox == null) {
+			return null;
+		}
+		try {
+			return datebox.getValue();
+		} catch (Exception e) {
+			return null;
+		}
 	}
 
 	@SuppressWarnings("unchecked")

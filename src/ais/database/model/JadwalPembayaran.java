@@ -219,8 +219,8 @@ public class JadwalPembayaran extends GeneralValueObject {
 
 	@Column(columnDefinition = "text")
 	public String getKhususUntukNim() {
-		khususUntukNim = JadwalPembayaran.formatNim(khususUntukNim);
-		return khususUntukNim == null || khususUntukNim.trim().isEmpty() ? null : khususUntukNim.trim();
+		String hasil = JadwalPembayaran.formatNim(khususUntukNim);
+		return hasil == null || hasil.trim().isEmpty() ? null : hasil.trim();
 	}
 
 	public void setKhususUntukNim(String khususUntukNim) {

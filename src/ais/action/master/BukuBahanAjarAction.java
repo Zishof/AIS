@@ -795,7 +795,17 @@ public class BukuBahanAjarAction extends GenericAutowireComposer {
 		bukuBahanAjarAction.eventListener = eventListener;
 		bukuBahanAjarAction.addWindow = new MyWindow();
 
-		ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(bukuBahanAjarAction.addWindow);
+		Component root = ExecutionsCtrl.getCurrentCtrl() == null || ExecutionsCtrl.getCurrentCtrl().getCurrentPage() == null
+				? null : ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot();
+		if (root == null) {
+			MyMessageboxConfig.show("Form buku bahan ajar belum dapat dibuka karena halaman aktif tidak ditemukan. Silakan refresh halaman profil dosen lalu coba kembali.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+			return;
+		}
+		if (bukuBahanAjar == null) {
+			bukuBahanAjar = new BukuBahanAjar();
+		}
+		root.appendChild(bukuBahanAjarAction.addWindow);
 		bukuBahanAjarAction.addWindow.setHeight("98%");
 		bukuBahanAjarAction.addWindow.setWidth("750px");
 

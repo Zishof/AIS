@@ -66,6 +66,25 @@ public final class CommonTimerHelper {
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/CommonTimerHelper.java:decrefServerPush"); }
 	}
 
+	private static void safeDetachTimer(Timer timer) {
+		if (timer == null) {
+			return;
+		}
+		try {
+			timer.stop();
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "info-audit src/ais/common/CommonTimerHelper.java:safeDetachTimer-stop");
+		}
+		try {
+			timer.detach();
+		} catch (Exception e) {
+			String pesan = e.getMessage() == null ? "" : e.getMessage().toLowerCase();
+			if (pesan.indexOf("other desktop") < 0 && pesan.indexOf("desktop") < 0) {
+				ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/CommonTimerHelper.java:safeDetachTimer-detach");
+			}
+		}
+	}
+
 	public static void createDefaultTimerNoBusy(EventListener eventListener) {
 		createDefaultTimerNoBusy(eventListener, "", false, 50);
 	}
@@ -114,7 +133,7 @@ public final class CommonTimerHelper {
 					} finally {
 						safeClearBusy();
 						if (repeat == null || !repeat.booleanValue()) {
-							timer.detach();
+							safeDetachTimer(timer);
 						}
 					}
 				}
@@ -157,8 +176,7 @@ public final class CommonTimerHelper {
 				@Override
 				public void onEvent(final Event event) throws Exception {
 					try {
-					timerStart.stop();
-					timerStart.detach();
+					safeDetachTimer(timerStart);
 
 					final java.util.concurrent.atomic.AtomicBoolean finished = new java.util.concurrent.atomic.AtomicBoolean(
 							false);
@@ -176,8 +194,7 @@ public final class CommonTimerHelper {
 										Common.getBahasaConfig("Informasi"), MyMessageboxConfig.OK,
 										MyMessageboxConfig.INFORMATION);
 							}
-							timerWatcher.stop();
-							timerWatcher.detach();
+							safeDetachTimer(timerWatcher);
 						}
 					});
 					timerWatcher.start();
@@ -263,7 +280,7 @@ public final class CommonTimerHelper {
 						Common.tampilErrorJikaAdmin(e);
 					} finally {
 						if (repeat == null || !repeat.booleanValue()) {
-							timer.detach();
+							safeDetachTimer(timer);
 						}
 					}
 				}

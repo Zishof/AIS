@@ -128,12 +128,18 @@ public class AmbilFile extends HttpServlet {
 
 		ServletContext sc = getServletContext();
 
-		String clazzData = request.getParameter("clazz");
+		String clazzData = sanitasiNamaClassFile(request.getParameter("clazz"));
 		Class clazz = LampiranLain.class;
-		try {
-			clazz = Class.forName(clazzData);
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/AmbilFile.java:118");
-			// TODO: handle exception
+		if (clazzData != null && clazzData.length() > 0) {
+			try {
+				clazz = Class.forName(clazzData);
+				if (!FileFoto.class.isAssignableFrom(clazz)) {
+					clazz = LampiranLain.class;
+				}
+			} catch (Exception e) {
+				clazz = LampiranLain.class;
+				ais.common.ErrorAuditUtil.record(e, "AmbilFile: parameter clazz tidak valid: " + clazzData);
+			}
 		}
 		File file = new File(sc.getRealPath("/img/" + FileFotoLain.iconNggakAda(clazz)));
 
@@ -162,6 +168,24 @@ public class AmbilFile extends HttpServlet {
 		System.out.println("data -> " + data + " -> strid " + strid + ", clazz => " + clazz + ", file " + file);
 
 		return file;
+	}
+
+	private String sanitasiNamaClassFile(String value) {
+		if (value == null) {
+			return "";
+		}
+		String text = value.trim();
+		int spasi = text.indexOf(' ');
+		if (spasi > 0) {
+			text = text.substring(0, spasi);
+		}
+		if (!text.matches("[A-Za-z0-9_.$]+")) {
+			return "";
+		}
+		if (!text.startsWith("ais.database.model.file.")) {
+			return "";
+		}
+		return text;
 	}
 
 	public void fastChannelCopy(final ReadableByteChannel src, final WritableByteChannel dest) throws IOException {

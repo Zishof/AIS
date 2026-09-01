@@ -159,7 +159,17 @@ public class MySpreadsheet extends Spreadsheet {
 		 * child.setParent(wadah) pada ZK lama dapat meninggalkan child tercatat
 		 * sementara di region, sehingga wadah ditolak sebagai anak kedua. */
 		for (int i = 0; i < isi.size(); i++) {
-			((Component) isi.get(i)).setParent(null);
+			try {
+				((Component) isi.get(i)).detach();
+			} catch (Exception e) {
+				((Component) isi.get(i)).setParent(null);
+			}
+		}
+		try {
+			region.getChildren().clear();
+		} catch (Exception ignored) {
+			ais.common.ErrorAuditUtil.record(ignored,
+					"auto-audit(empty-catch) src/ais/ui/util/MySpreadsheet.java:bersihkan-region");
 		}
 		wadah.setParent(region);
 		for (int i = 0; i < isi.size(); i++) {

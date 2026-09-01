@@ -229,7 +229,7 @@ public final class AuditTrailHelper {
             // Kegagalan akibat thread latar DI-INTERUPSI (mis. shutdown / c3p0 statement reaping)
             // bersifat transient dan bukan bug aplikasi -> jangan dicatat sebagai error admin agar
             // Error Log tidak terpolusi. Audit tetap fail-open (return true).
-            if (!disebabkanInterupsi(e)) {
+            if (!disebabkanInterupsi(e) && !disebabkanKoneksiTertutup(e)) {
                 Common.tampilErrorJikaAdmin(e);
             }
             return true;
@@ -255,6 +255,37 @@ public final class AuditTrailHelper {
             if (msg != null && msg.indexOf("InterruptedException") >= 0) {
                 return true;
             }
+            t = t.getCause();
+            guard++;
+        }
+        return false;
+    }
+
+    private static boolean disebabkanKoneksiTertutup(Throwable t) {
+        int guard = 0;
+        while (t != null && guard < 30) {
+            if (t instanceof org.hibernate.exception.JDBCConnectionException) {
+                return true;
+            }
+            if (t instanceof java.sql.SQLException) {
+                String state = ((java.sql.SQLException) t).getSQLState();
+                if ("08000".equalsIgnoreCase(state) || "08003".equalsIgnoreCase(state)
+                        || "08006".equalsIgnoreCase(state)) {
+                    return true;
+                }
+            }
+            String msg = t.getMessage();
+			if (msg != null) {
+				String low = msg.toLowerCase();
+				if (low.indexOf("connection has been closed") >= 0
+						|| low.indexOf("connection is closed") >= 0
+						|| low.indexOf("this connection has been closed") >= 0
+						|| low.indexOf("socket closed") >= 0
+						|| low.indexOf("statement has been closed") >= 0
+						|| low.indexOf("session is closed") >= 0) {
+					return true;
+				}
+			}
             t = t.getCause();
             guard++;
         }

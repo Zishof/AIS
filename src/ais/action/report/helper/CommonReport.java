@@ -1666,6 +1666,7 @@ public class CommonReport {
 	                } else if (namaDasar.toLowerCase(Locale.ENGLISH).endsWith(".jrxml")) {
 	                    namaDasar = namaDasar.substring(0, namaDasar.length() - 6);
 	                }
+	                namaDasar = hapusSuffixHashReport(namaDasar);
 	                File templateDasarJasper = new File(Common.ambilREAL_PATH_REPORT(), namaDasar + ".jasper");
 	                if (templateDasarJasper.exists()) {
 	                    return templateDasarJasper;
@@ -1686,10 +1687,10 @@ public class CommonReport {
             return fileJasperExt;
         }
 
-        String baseFile = fileTrim;
-        if (baseFile.toLowerCase(Locale.ENGLISH).endsWith(".jrxml")) {
-            baseFile = baseFile.substring(0, baseFile.length() - 6);
-        }
+	        String baseFile = fileTrim;
+	        if (baseFile.toLowerCase(Locale.ENGLISH).endsWith(".jrxml")) {
+	            baseFile = baseFile.substring(0, baseFile.length() - 6);
+	        }
 
         boolean isAbsolutePath = new File(baseFile).isAbsolute();
         File fileJasper = buatFileReport(baseFile, ".jasper", isAbsolutePath);
@@ -1698,8 +1699,30 @@ public class CommonReport {
         buatFolderJikaPerlu(fileJrxml);
 
         pulihkanJasperJikaHilang(fileJasper, fileJrxml, namaAsli);
-        return fileJasper;
-    }
+	        return fileJasper;
+	    }
+
+	private static String hapusSuffixHashReport(String nama) {
+		if (nama == null) {
+			return null;
+		}
+		int pos = nama.lastIndexOf('_');
+		if (pos <= 0 || pos >= nama.length() - 1) {
+			return nama;
+		}
+		String suffix = nama.substring(pos + 1);
+		if (suffix.length() < 8 || suffix.length() > 40) {
+			return nama;
+		}
+		for (int i = 0; i < suffix.length(); i++) {
+			char c = suffix.charAt(i);
+			boolean hex = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+			if (!hex) {
+				return nama;
+			}
+		}
+		return nama.substring(0, pos);
+	}
 
     /**
      * FIX (root cause ERROR A): dipisah dari {@link #generateFileJasper(String, String)}
