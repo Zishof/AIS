@@ -6,6 +6,7 @@ import javax.servlet.http.HttpServletRequest;
 
 import org.hibernate.Session;
 import org.hibernate.criterion.Criterion;
+import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -19,6 +20,7 @@ import ais.database.model.Tbmuser;
 import ais.database.model.inventory.Pedagang;
 import ais.database.model.inventory.Toko;
 import ais.database.model.koperasi.AnggotaKoperasi;
+import ais.database.model.koperasi.CaraPembayaranKoperasi;
 import ais.database.model.koperasi.DraftPembelianAnggotaKoperasi;
 
 /**
@@ -370,8 +372,12 @@ public final class KantinMemberApi {
     /**
      * Metode pembayaran yang diizinkan untuk jenis anggota ini.
      * Request: { token, topup_only:"true"|"false" (opsional) }
-     * Response: { status:"00", list:[{ id, nama, manual }] }
+     * Response biasa: { status:"00", list:[{ id, nama, manual }] }.
+     * Untuk topup_only, satu cara bayar dapat dipecah menjadi beberapa kanal:
+     * [{ id, nama, manual, channel, nama_channel, biaya_admin }]. Biaya admin
+     * berasal dari konfigurasi server dan tidak pernah dipercaya dari klien.
      */
+    @SuppressWarnings("unchecked")
     public static JSONObject caraBayar(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception {
         Tbmuser user = ApiUtil.currentUser(json, req);
         if (user == null) return noAuth();
@@ -384,27 +390,129 @@ public final class KantinMemberApi {
             // getJenisAnggotaKoperasi() aman: lazy load dalam session yang sama
             if (anggota.getJenisAnggotaKoperasi() == null)
                 return ApiHelperSupport.status("99", "Jenis anggota tidak diketahui");
-            Long idJenis = anggota.getJenisAnggotaKoperasi().getId();
-
-            String sql = "SELECT cpk.id, cpk.nama, cpk.manual FROM koperasi.cara_pembayaran_koperasi cpk " +
-                "WHERE cpk.aktif=true AND cpk.online=true " +
-                (topupOnly ? "AND cpk.manual=false " : "") +
-                "AND (SELECT jak.daftar_cara_pembayaran_yang_boleh_di_pilih " +
-                "     FROM koperasi.jenis_anggota_koperasi jak WHERE jak.id=:jenis) LIKE '%,'||cpk.id||',%' " +
-                "ORDER BY cpk.nama ASC";
-            @SuppressWarnings("unchecked")
-            List<Object[]> rows = s.createSQLQuery(sql).setParameter("jenis", idJenis).list();
+            String daftarId = anggota.getJenisAnggotaKoperasi()
+                .getDaftarCaraPembayaranYangBolehDiPilih();
+            org.hibernate.Criteria criteria = s.createCriteria(CaraPembayaranKoperasi.class)
+                .add(Restrictions.eq("aktif", Boolean.TRUE))
+                .add(Restrictions.eq("online", Boolean.TRUE))
+                .addOrder(Order.asc("nama"));
+            if (topupOnly) criteria.add(Restrictions.eq("manual", Boolean.FALSE));
+            List<CaraPembayaranKoperasi> rows = criteria.list();
             JSONArray arr = new JSONArray();
-            for (Object[] r : rows) {
-                JSONObject o = new JSONObject();
-                o.put("id",     r[0]);
-                o.put("nama",   r[1]);
-                o.put("manual", r[2]);
-                arr.put(o);
+            for (CaraPembayaranKoperasi cara : rows) {
+                if (daftarId == null || daftarId.indexOf("," + cara.getId() + ",") < 0) continue;
+                if (!topupOnly) {
+                    JSONObject o = new JSONObject();
+                    o.put("id", cara.getId());
+                    o.put("nama", cara.getNama());
+                    o.put("manual", cara.getManual());
+                    arr.put(o);
+                    continue;
+                }
+                if (cara.getKanalPembayaran() == null) continue;
+                String variable = cara.getKanalPembayaran().getVariableBiayaAdminEsmartlink();
+                boolean punyaChannel = false;
+                if (variable != null && !variable.trim().isEmpty()) {
+                    String[] channels = variable.split(";");
+                    for (int i = 0; i < channels.length; i++) {
+                        String[] bagian = channels[i].trim().split(":", 3);
+                        if (bagian.length == 0 || bagian[0].trim().isEmpty()) continue;
+                        JSONObject o = new JSONObject();
+                        o.put("id", cara.getId());
+                        o.put("nama", cara.getNama());
+                        o.put("manual", cara.getManual());
+                        o.put("channel", bagian[0].trim());
+                        o.put("nama_channel", bagian.length >= 3 && !bagian[2].trim().isEmpty()
+                            ? bagian[2].trim() : bagian[0].trim());
+                        o.put("biaya_admin", bagian.length >= 2 && Common.isNumber(bagian[1].trim())
+                            ? Double.valueOf(bagian[1].trim()) : Double.valueOf(0.0));
+                        arr.put(o);
+                        punyaChannel = true;
+                    }
+                }
+                if (!punyaChannel) {
+                    JSONObject o = new JSONObject();
+                    o.put("id", cara.getId());
+                    o.put("nama", cara.getNama());
+                    o.put("manual", cara.getManual());
+                    o.put("channel", "");
+                    o.put("nama_channel", cara.getNama());
+                    o.put("biaya_admin", cara.getKanalPembayaran().getBiayaAdminEsmartlink());
+                    arr.put(o);
+                }
             }
             JSONObject hasil = new JSONObject();
             hasil.put("list",   arr);
             hasil.put("status", "00");
+            return hasil;
+        } finally { closeSession(s); }
+    }
+
+    // ── 4B. BUAT TAGIHAN TOPUP ───────────────────────────────────────────────
+    /**
+     * Membuat VA/payment-link topup milik anggota yang sedang login. Aksi ini
+     * online-only: saldo tidak ditambah di sini, melainkan oleh callback resmi
+     * bank/gateway setelah pembayaran sukses.
+     */
+    public static JSONObject topupBuat(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception {
+        Tbmuser user = ApiUtil.currentUser(json, req);
+        if (user == null) return noAuth();
+        if (!isKonfigAktif("aktifkan_topup_di_anggota"))
+            return ApiHelperSupport.status("99", "Fitur topup belum diaktifkan.");
+
+        double nominal = json.optDouble("nominal", 0.0);
+        String idCara = safeStr(json, "cara_pembayaran_id");
+        String channel = safeStr(json, "channel");
+        if (nominal < 10000.0)
+            return ApiHelperSupport.status("99", "Nominal pengisian saldo minimal Rp 10.000.");
+        if (idCara.isEmpty() || !Common.isNumber(idCara))
+            return ApiHelperSupport.status("99", "Cara pembayaran wajib dipilih.");
+
+        Session s = HibernateUtil.getSessionFactory().openSession();
+        try {
+            AnggotaKoperasi anggota = resolveAnggotaDb(s, user, true);
+            if (anggota == null) return noMember();
+            if (anggota.getJenisAnggotaKoperasi() == null)
+                return ApiHelperSupport.status("99", "Jenis anggota tidak diketahui.");
+
+            CaraPembayaranKoperasi cara = (CaraPembayaranKoperasi) s.get(
+                CaraPembayaranKoperasi.class, Long.valueOf(idCara));
+            String daftarId = anggota.getJenisAnggotaKoperasi()
+                .getDaftarCaraPembayaranYangBolehDiPilih();
+            if (cara == null || !Boolean.TRUE.equals(cara.getAktif())
+                    || !Boolean.TRUE.equals(cara.getOnline())
+                    || !Boolean.FALSE.equals(cara.getManual())
+                    || daftarId == null || daftarId.indexOf("," + cara.getId() + ",") < 0
+                    || cara.getKanalPembayaran() == null)
+                return ApiHelperSupport.status("99", "Cara pembayaran online tidak diizinkan untuk jenis anggota ini.");
+
+            String variable = cara.getKanalPembayaran().getVariableBiayaAdminEsmartlink();
+            if (variable != null && !variable.trim().isEmpty()) {
+                if (channel.isEmpty())
+                    return ApiHelperSupport.status("99", "Saluran pembayaran wajib dipilih.");
+                boolean channelDitemukan = false;
+                String[] channels = variable.split(";");
+                for (int i = 0; i < channels.length; i++) {
+                    String[] bagian = channels[i].trim().split(":", 3);
+                    if (bagian.length > 0 && channel.equalsIgnoreCase(bagian[0].trim())) {
+                        channelDitemukan = true;
+                        break;
+                    }
+                }
+                if (!channelDitemukan)
+                    return ApiHelperSupport.status("99", "Saluran pembayaran tidak terdaftar pada konfigurasi server.");
+            }
+
+            JSONObject payload = new JSONObject();
+            payload.put("bank", cara.getNama() == null ? "Online" : cara.getNama());
+            payload.put("topup", String.valueOf(nominal));
+            payload.put("caraPembayaranKoperasi", String.valueOf(cara.getId()));
+            if (!channel.isEmpty()) payload.put("channel", channel);
+
+            JSONObject hasil = TopupHelper.topupAnggotaKoperasi(payload, req, user, anggota, cara);
+            hasil.put("id_member", anggota.getId());
+            hasil.put("member", anggota.getNama() == null ? "" : anggota.getNama());
+            hasil.put("channel", channel);
             return hasil;
         } finally { closeSession(s); }
     }

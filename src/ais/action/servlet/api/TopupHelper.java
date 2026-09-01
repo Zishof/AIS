@@ -831,9 +831,9 @@ public class TopupHelper {
 
 			String topupStr = request.has("topup") && !request.isNull("topup") ? request.getString("topup") : null;
 			Double topupNumber = parseDoubleSafe(topupStr, 0.0);
-			if (topupNumber == null || topupNumber.doubleValue() <= 0.0) {
+			if (topupNumber == null || topupNumber.doubleValue() < 10000.0) {
 				jsonObject.put("status", "03");
-				jsonObject.put("description", "Nominal topup harus lebih dari 0");
+				jsonObject.put("description", "Nominal topup minimal Rp 10.000");
 				return jsonObject;
 			}
 
@@ -1058,9 +1058,9 @@ public class TopupHelper {
 					&& !request.isNull("caraPembayaranKoperasi") ? request.getString("caraPembayaranKoperasi") : null;
 			String topupStr = request.has("topup") && !request.isNull("topup") ? request.getString("topup") : null;
 			Double topupNumber = parseDoubleSafe(topupStr, 0.0);
-			if (topupNumber == null || topupNumber.doubleValue() <= 0.0) {
+			if (topupNumber == null || topupNumber.doubleValue() < 10000.0) {
 				jsonObject.put("status", "03");
-				jsonObject.put("description", "Nominal topup harus lebih besar dari nol");
+				jsonObject.put("description", "Nominal topup minimal Rp 10.000");
 				return jsonObject;
 			}
 
@@ -1243,6 +1243,11 @@ public class TopupHelper {
 
 			String topupStr = request.has("topup") && !request.isNull("topup") ? request.getString("topup") : null;
 			Double topupNumber = parseDoubleSafe(topupStr, 0.0);
+			if (topupNumber == null || topupNumber.doubleValue() < 10000.0) {
+				jsonObject.put("status", "03");
+				jsonObject.put("description", "Nominal topup minimal Rp 10.000");
+				return jsonObject;
+			}
 
 			BiodataCalonMahasiswa calonMahasiswa = mahasiswa.getBiodataCalonMahasiswaData();
 

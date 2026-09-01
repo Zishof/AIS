@@ -231,7 +231,10 @@ public class DownloadTagihanAnggotaKoperasiBankOnline {
 					.add(bankHost == null ? Restrictions.isNull("bankHost") : Restrictions.eq("bankHost", bankHost))
 					.add(Restrictions.ge("kadaluarsaWaktu", WaktuUtil.getDate()))
 					.add(Restrictions.eq("keterangan", keterangan + (qris ? "qris:true" : "")))
-					.add(Restrictions.eq("anggotaKoperasi", anggotaKoperasi)).add(Restrictions.isNull("pembayaran"))
+					.add(Restrictions.eq("anggotaKoperasi", anggotaKoperasi))
+					.add(Restrictions.isNull("deposit"))
+					.add(Restrictions.isNull("kegiatan"))
+					.add(Restrictions.isNull("pembayaran"))
 					.setMaxResults(1).addOrder(Order.desc("id")).uniqueResult();
 			if (virtualAccountBankOnline == null || update) {
 
@@ -749,7 +752,10 @@ public class DownloadTagihanAnggotaKoperasiBankOnline {
 					.add(bankHost == null ? Restrictions.isNull("bankHost") : Restrictions.eq("bankHost", bankHost))
 					.add(Restrictions.ge("kadaluarsaWaktu", WaktuUtil.getDate()))
 					.add(Restrictions.eq("keterangan", keterangan + (qris ? "qris:true" : "")))
-					.add(Restrictions.eq("anggotaKoperasi", anggotaKoperasi)).add(Restrictions.isNull("pembayaran"))
+					.add(Restrictions.eq("anggotaKoperasi", anggotaKoperasi))
+					.add(Restrictions.isNull("deposit"))
+					.add(Restrictions.isNull("kegiatan"))
+					.add(Restrictions.isNull("pembayaran"))
 					.setMaxResults(1).addOrder(Order.desc("id")).uniqueResult();
 			if (virtualAccountBankOnline == null || update) {
 

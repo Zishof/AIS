@@ -120,42 +120,141 @@ import ais.ui.util.MyWindow;
 import ais.ui.util.SmartDateTimeUtil;
 
 /**
- * Helper terfokus untuk pertemuan punya ujian. Tipe ini membungkus satu variasi kecil dari alur
- * yang lebih umum agar pemanggil memakai nama domain yang jelas dan tidak menggandakan
- * implementasi.
+ * Helper ZK yang menampilkan dan mengelola seluruh {@link PertemuanPunyaUjian} (ujian/kuis yang
+ * dijadwalkan) milik satu {@link Pertemuan} akademik (sesi perkuliahan/KKN/PKL — <b>bukan</b>
+ * jadwal sekolah, yang punya helper sekolah tersendiri: {@code PertemuanPunyaUjianSiswaHelper}).
+ * Dipanggil dari tab "Ujian" milik {@link PertemuanHelper} lewat {@link #display(Pertemuan,
+ * Component)}, dan didaftarkan sebagai {@link DataLoader} sehingga sub-window (mis. modal
+ * "Pengaturan Data Ujian") bisa memicu {@link #loadData(Object)} untuk memuat ulang daftar dari
+ * DB setelah selesai.
  *
- * <p><b>Batas tanggung jawab:</b> tipe ini mendeklarasikan kontrak {@link DataLoader}. Implementasi konkret
- * bertanggung jawab atas transaksi, resource, error handling, dan efek samping; pemanggil sebaiknya bergantung
- * pada kontrak ini agar tidak menggandakan integrasi.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code MyGrid grid}, {@code Div kartuWrap},
- * {@code Pertemuan pertemuan}, {@code Mahasiswa mahasiswa}, {@code BiodataCalonMahasiswa biodataCalonMahasiswa},
- * {@code String GAYA_KARTU_UJIAN}; inisialisasi/lifecycle ({@code buatKartuUjianPeserta()}, {@code
- * buatKartuUjianRingkas()}, {@code buatKetentuanUjianHtml()}, {@code buatPenilaianUjianHtml()}, {@code
- * buatKolomUjian()}); pembacaan/pencarian ({@code tampilBolekIkutUjianAtauTidak()}, {@code loadData()});
- * validasi/perhitungan ({@code hitungJumlahNomor()}); mutasi data ({@code prosesUlangSoal()}); pelaporan/ekspor
- * ({@code cetak()}); operasi domain lain ({@code parameter()}, {@code kepalaKartuPeserta()}, {@code chip()},
- * {@code ketItem()}, {@code penilaianBlok()}, {@code fmtPersen()}). Bagian lain dari kontrak tetap mengikuti
- * kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p><b>Dua identitas pemakai (pola sama dengan {@link PertemuanHelper}).</b> Konstruktor
+ * {@link #PertemuanPunyaUjianHelper(Mahasiswa, BiodataCalonMahasiswa)} menyimpan siapa yang
+ * melihat: bila keduanya {@code null} dan {@code Common.getCurrentUser()} juga bukan
+ * peserta kursus/siswa/calon siswa, tampilan dianggap milik <b>pengelola/dosen</b> (kartu
+ * ringkas + tombol Pengaturan/Ubah/Hapus/Hasil/Preview/Sertifikat/Rekap); selain itu tampilan
+ * dianggap milik <b>peserta</b> (kartu "Ikut Ujian" tanpa kontrol pengaturan apa pun). Banyak
+ * blok kode memeriksa kombinasi {@code mahasiswa}/{@code biodataCalonMahasiswa}/
+ * {@code tbmuser.getPesertaKursus()}/{@code getSiswa()}/{@code getCalonSiswa()} berulang-ulang
+ * untuk membedakan kedua peran ini di titik yang berbeda-beda.
+ *
+ * <p><b>Tampilan utama: kartu responsif, BUKAN grid tabel.</b> {@link #display(Pertemuan,
+ * Component)} membangun {@code kartuWrap} (grid CSS 1 kolom di HP, 2 kolom di layar lebar,
+ * gaya {@link #GAYA_KARTU_UJIAN}) lalu memanggil {@link #loadData(Object)}, yang mengisi kartu
+ * lewat {@link #buatKartuUjianRingkas(PertemuanPunyaUjian, Tbmuser, EventListener)} (pengelola)
+ * atau {@link #buatKartuUjianPeserta(PertemuanPunyaUjian, Tbmuser, EventListener)} (peserta).
+ * Detail pengaturan tiap ujian (jumlah soal, batas ikut, dibatasi waktu, jadwal, Sub-CPMK/OBE,
+ * dsb.) TIDAK ada di kartu — semuanya dibuka lewat modal
+ * {@link #bukaPengaturanUjian(PertemuanPunyaUjian, EventListener)}, yang me-reuse
+ * {@link DetailPertemuanRenderer} (renderer grid lama) pada sebuah {@code MyGrid} 1-baris LOKAL
+ * bernama {@code gridModal} agar seluruh kontrol edit inline lama tetap berfungsi tanpa
+ * ditulis ulang.
+ *
+ * <p><b>Kuirk: field instance {@code grid} sudah tidak pernah diisi grid sungguhan.</b>
+ * Satu-satunya penulisan ke field ini adalah {@code grid = null;} di akhir
+ * {@link #display(Pertemuan, Component)}. Akibatnya cabang lama di {@link #loadData(Object)}
+ * yang memakai {@code MyGrid} tabel penuh ({@code if (grid == null) return;} lalu
+ * {@code grid.setRowRenderer(...)}) sekarang TIDAK PERNAH tereksekusi lewat alur normal —
+ * satu-satunya {@code MyGrid} yang benar-benar dipakai adalah variabel lokal {@code gridModal}
+ * di {@link #bukaPengaturanUjian}. Kode grid lama dibiarkan apa adanya (bukan dihapus) karena
+ * sejalan dengan gaya migrasi UI di file ini: mengganti kemasan visual tanpa mengubah logika.
+ *
+ * <p><b>Kelompok operasi:</b></p>
+ * <ul>
+ * <li><b>Kelayakan ikut ujian</b> — {@link #tampilBolekIkutUjianAtauTidak} menentukan status
+ * peserta (belum waktunya, sudah lewat, kuota habis, sisa percobaan, dibatasi jurusan/fakultas
+ * untuk ujian PMB) dan merender tombol "Ikut Ujian"/"Lihat Hasil"/"Ubah Jawaban" yang
+ * mendelegasikan aksi ke {@code ProsesUjianHelper}; dipanggil baik dari kartu peserta maupun
+ * dari {@link DetailPertemuanRenderer}.</li>
+ * <li><b>Renderer detail/edit</b> — {@link DetailPertemuanRenderer#render} membangun SEMUA
+ * kontrol pengaturan satu {@link PertemuanPunyaUjian} (checkbox, datebox, timebox, kombo
+ * pindah pertemuan, bulk assignment Sub-CPMK, tombol Kelola Soal/Cetak/Sinkronkan Nilai/
+ * Hasil/Ubah/Hapus/Preview/Sertifikat); setiap perubahan field langsung
+ * {@code Common.refreshUpdate(session, ppu)} tanpa tombol simpan terpisah (autosave per
+ * field), kecuali footer modal "Simpan/Batal" yang sebetulnya hanya memuat ulang &amp; menutup
+ * (karena datanya sudah tersimpan saat itu juga).</li>
+ * <li><b>Pelaporan OBE</b> — {@link #cetak(PertemuanPunyaUjian)} dan {@link #parameter}
+ * menyusun parameter template "TemplateObe" (capaian Sub-CPMK, bobot per ujian, tanda tangan
+ * petugas/kaprodi/pudek) untuk dicetak lewat {@code Report.generatePDFReport}.</li>
+ * <li><b>Sinkronisasi soal massal</b> — {@link #prosesUlangSoal} membuka dialog filter
+ * (fakultas/prodi/dosen/rentang tanggal), lalu di background thread meng-generate file Excel
+ * berisi soal &amp; jawaban tiap peserta ujian yang cocok filter — SEKALIGUS, sebagai efek
+ * samping, membuat baris {@link HasilUjianMahasiswaDetail} baru (assignment soal ke peserta)
+ * bila belum ada, agar file Excel dan data penilaian konsisten.</li>
+ * </ul>
+ *
+ * <p><b>Entity Hibernate utama:</b> {@link PertemuanPunyaUjian} (jadwal satu {@link Ujian} pada
+ * satu {@link Pertemuan}), {@link Ujian}/{@link UjianPunyaSoal}/{@link BankSoal} (bank soal),
+ * {@link HasilUjianMahasiswa}/{@link HasilUjianMahasiswaDetail} (progres &amp; jawaban per
+ * peserta), {@link FormatNilai} (komponen penilaian biasa maupun Sub-CPMK bila kurikulum OBE),
+ * {@link Mahasiswa}/{@link BiodataCalonMahasiswa}/{@link Tbmuser} (identitas peserta/pengguna).
  */
 public class PertemuanPunyaUjianHelper implements DataLoader {
 
+	/**
+	 * Grid tabel lama untuk daftar ujian. Lihat kuirk pada Javadoc kelas: field ini hanya pernah
+	 * di-{@code null}-kan (di {@link #display(Pertemuan, Component)}), tidak pernah diisi grid
+	 * sungguhan lagi, sehingga cabang grid di {@link #loadData(Object)} kini efektif tak terpakai.
+	 */
 	private MyGrid grid;
+	/** Wadah kartu ujian responsif yang diisi ulang oleh {@link #loadData(Object)}; ini yang sungguhan dipakai tampilan saat ini. */
 	private Div kartuWrap;
+	/** Pertemuan yang sedang ditampilkan, diisi oleh {@link #display(Pertemuan, Component)}. */
 	private Pertemuan pertemuan;
 
+	/** Identitas peserta bila yang login adalah mahasiswa; {@code null} untuk pengelola/dosen atau jenis peserta lain. */
 	private Mahasiswa mahasiswa = null;
 
+	/** Identitas peserta bila yang login adalah calon mahasiswa (ujian PMB); {@code null} untuk pengelola/dosen atau jenis peserta lain. */
 	private BiodataCalonMahasiswa biodataCalonMahasiswa = null;
 
+	/**
+	 * Membuat helper untuk konteks peserta ujian tertentu. Isi kedua parameter dengan {@code null}
+	 * untuk konteks pengelola/dosen (izin edit penuh); isi salah satunya untuk konteks peserta
+	 * (mahasiswa reguler atau calon mahasiswa ujian PMB), yang membatasi tampilan hanya pada kartu
+	 * "Ikut Ujian" tanpa kontrol pengaturan. Lihat juga penentuan peran berbasis
+	 * {@code Tbmuser} (siswa/calon siswa/peserta kursus) yang dilakukan on-the-fly di banyak
+	 * method lain lewat {@code Common.getCurrentUser()}.
+	 *
+	 * @param mahasiswa               peserta mahasiswa aktif, atau {@code null}.
+	 * @param biodataCalonMahasiswa   peserta calon mahasiswa (ujian PMB), atau {@code null}.
+	 */
 	public PertemuanPunyaUjianHelper(Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa) {
 		this.mahasiswa = mahasiswa;
 		this.biodataCalonMahasiswa = biodataCalonMahasiswa;
 	}
 
+	/**
+	 * Membangun tombol toolbar "Singkronkan Soal Peserta" yang dipasang di {@link #display}.
+	 * Saat diklik, membuka dialog filter (fakultas, prodi, dosen pengampu, rentang tanggal
+	 * "Mulai"/"Sampai", checkbox "Hanya ujian di pertemuan ini") untuk memilih cakupan
+	 * {@link PertemuanPunyaUjian} yang akan diproses — otomatis mendeteksi konteks ujian PMB
+	 * ({@code jadwalUjianPMB}) atau ujian PSB ({@code jadwalUjianPSB}) pada {@code pertemuan}
+	 * dan membatasi filter sesuai jadwal tersebut bila ada.
+	 *
+	 * <p>Setelah "Proses" diklik, pekerjaan berat berjalan di {@link Thread} terpisah (dengan
+	 * {@link Timer} pemoll status tiap 200ms yang menampilkan progres lewat {@code Clients.showBusy}):
+	 * untuk setiap {@link PertemuanPunyaUjian} yang cocok filter dan setiap peserta (mahasiswa,
+	 * atau {@link BiodataCalonMahasiswa} hasil query ruang/gelombang PMB), method ini menentukan
+	 * urutan soal yang seharusnya tampil untuk peserta tersebut (memakai
+	 * {@code ProsesUjianHelper.randomPosisiton}/{@code chekPosisitonJikaKurang} bila belum ada),
+	 * lalu — <b>efek samping penting</b> — MEMBUAT baris {@link HasilUjianMahasiswaDetail} baru
+	 * (assignment soal↔peserta, dengan {@code nilai} awal = skor default bank soal) untuk setiap
+	 * soal yang belum punya assignment, disimpan lewat transaksi {@link Session} terpisah per
+	 * baris. Hasil akhirnya ditulis ke satu berkas {@code .xlsx} (kolom NIM/nama, fakultas/prodi,
+	 * status awal, angkatan, ujian, teks soal (di-strip HTML lewat Jsoup), jawaban huruf/teks,
+	 * dan status "BETUL") yang ditawarkan untuk diunduh lewat {@link Filedownload}.
+	 *
+	 * <p>Karena itu, nama method ini ("proses ULANG soal") lebih tepat dibaca sebagai
+	 * "pastikan assignment soal-ke-peserta lengkap, lalu ekspor rekapnya ke Excel" — bukan
+	 * sekadar laporan baca-saja.
+	 *
+	 * @param pertemuan   pertemuan konteks; dipakai untuk deteksi ujian PMB/PSB dan sebagai
+	 *                    default filter "hanya ujian di pertemuan ini".
+	 * @param buttonLabel label tombol toolbar yang ditampilkan.
+	 * @param buttonImage path ikon tombol toolbar.
+	 * @return konfigurasi tombol toolbar siap dipasang ke {@link Toolbar} pemanggil.
+	 */
 	public MyToolbarbuttonConfig prosesUlangSoal(final Pertemuan pertemuan, String buttonLabel, String buttonImage) {
 
 		MyToolbarbuttonConfig toolbarbutton = new MyToolbarbuttonConfig(buttonLabel, buttonImage);
@@ -1068,6 +1167,48 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 		return toolbarbutton;
 	}
 
+	/**
+	 * Menentukan status kelayakan seorang peserta untuk mengikuti satu {@link PertemuanPunyaUjian},
+	 * lalu merender tombol aksi ("Ikut Ujian" / "Lihat Hasil" / "Ubah/Perbaiki Jawaban") beserta
+	 * label status ke dalam {@code arg0} (dipakai baik oleh kartu peserta maupun oleh
+	 * {@link DetailPertemuanRenderer}). Nama method (typo lama "Bolek" untuk "Boleh") sengaja
+	 * dipertahankan agar tidak memecah pemanggil yang sudah ada.
+	 *
+	 * <p>Urutan pemeriksaan (masing-masing menghentikan evaluasi lebih lanjut bila cocok):</p>
+	 * <ol>
+	 * <li>Untuk ujian PMB ({@code pertemuan.getJadwalUjianPMB() != null}): peserta harus berada
+	 * pada jurusan/fakultas yang sesuai dengan {@code pertemuanPunyaUjian.getJurusan()}/
+	 * {@code getFakultas()} — dicek lewat pilihan jurusan/fakultas {@link BiodataCalonMahasiswa}
+	 * atau jurusan/fakultas {@link Mahasiswa} langsung. Tidak sesuai → tombol tidak dirender,
+	 * hanya label penolakan (dan pesan popup ditambahkan ke {@code eventListeners} bila diisi).</li>
+	 * <li>Selain itu, bila jendela waktu ujian sedang berlaku ATAU peserta berstatus "lengkapi
+	 * jawaban" (melanjutkan sesi yang belum selesai): tombol "Ikut Ujian"/"Lihat Hasil" dirender,
+	 * dengan sub-kasus tambahan untuk kuota habis, sisa waktu pengerjaan habis, dan status
+	 * "tidak perlu ikut ujian" ({@code pertemuanPunyaUjian.getMhsYgTidakIkut()}). Klik tombol
+	 * mendelegasikan ke {@code ProsesUjianHelper.ikut(...)} atau {@code ProsesUjianHelper.tampil(...)}.</li>
+	 * <li>Selain itu (ujian belum mulai atau sudah lewat): hanya label status yang dirender,
+	 * tanpa tombol aksi.</li>
+	 * </ol>
+	 *
+	 * <p><b>Efek samping:</b> tidak melakukan mutasi database — murni membangun komponen ZK dan,
+	 * bila {@code eventListeners} diisi, menambahkan {@link EventListener} popup peringatan yang
+	 * BELUM dijalankan (pemanggil yang memutuskan kapan menjalankannya, mis. saat klik baris grid).
+	 * Klik tombol aksi sendiri mendelegasikan mutasi (mulai/lanjut ujian) ke {@code ProsesUjianHelper}.
+	 *
+	 * @param arg0                  komponen ZK tujuan tempat tombol/label dirender (anak ditambahkan langsung).
+	 * @param pertemuanPunyaUjian   ujian pada pertemuan yang sedang dievaluasi.
+	 * @param mahasiswa             peserta mahasiswa, atau {@code null} bila peserta jenis lain.
+	 * @param biodataCalonMahasiswa peserta calon mahasiswa (ujian PMB), atau {@code null}.
+	 * @param hasilUjianMahasiswa   progres ujian peserta ini ({@code null} berarti belum pernah dimulai —
+	 *                              method langsung mengembalikan {@link Label} kosong).
+	 * @param eventListener         listener yang diteruskan ke {@code ProsesUjianHelper} untuk memberi
+	 *                              tahu pemanggil agar memuat ulang tampilan setelah ujian selesai/ditutup.
+	 * @param eventListeners        daftar (boleh {@code null}) yang diisi dengan listener popup peringatan
+	 *                              yang harus dipicu pemanggil bila ingin menampilkan alasan penolakan.
+	 * @return {@link Label} status yang dirender pada kasus TIDAK BOLEH ikut ujian; {@code null}
+	 *         (variabel lokal tidak pernah diisi) pada kasus BOLEH ikut ujian karena yang dirender
+	 *         di sana adalah tombol, bukan label.
+	 */
 	public static Label tampilBolekIkutUjianAtauTidak(Component arg0, final PertemuanPunyaUjian pertemuanPunyaUjian,
 			final Mahasiswa mahasiswa, final BiodataCalonMahasiswa biodataCalonMahasiswa,
 			final HasilUjianMahasiswa hasilUjianMahasiswa, final EventListener eventListener,
@@ -1474,19 +1615,31 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link PertemuanPunyaUjianHelper}. Kelas ini menerjemahkan satu item
-	 * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
+	 * Renderer {@code MyGrid} yang menerjemahkan satu {@link PertemuanPunyaUjian} menjadi satu
+	 * baris berisi SEMUA kontrol tampilan/pengaturan ujian tersebut. Ini adalah renderer "lama"
+	 * (sebelum tampilan kartu {@link PertemuanPunyaUjianHelper#buatKartuUjianRingkas} ditambahkan)
+	 * yang tetap dipertahankan dan dipakai ulang dari dua tempat: grid tabel penuh di
+	 * {@link PertemuanPunyaUjianHelper#loadData(Object)} (jalur yang kini efektif tidak
+	 * tereksekusi — lihat kuirk field {@code grid} pada Javadoc kelas induk) dan, yang aktif
+	 * dipakai sekarang, grid 1-baris di dalam modal
+	 * {@link PertemuanPunyaUjianHelper#bukaPengaturanUjian(PertemuanPunyaUjian, EventListener)}.
 	 *
-	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link
-	 * PertemuanPunyaUjianHelper}. Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan
-	 * dan diuji.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code DetailUjianHelper detailUjianHelper},
-	 * {@code Mahasiswa mahasiswa}, {@code BiodataCalonMahasiswa biodataCalonMahasiswa}, {@code EventListener
-	 * eventListener}, {@code boolean tampilInfo}; operasi lokal: {@code render}(). Aturan bisnis bersama tetap
-	 * berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
+	 * <p><b>Scope:</b> tipe {@code static} — tidak menangkap instance
+	 * {@link PertemuanPunyaUjianHelper}; identitas peserta/pengelola diberikan lewat konstruktor.
+	 *
+	 * <p><b>State:</b> {@code detailUjianHelper} (dibuat baru per renderer, dipakai untuk membuka
+	 * window "Kelola Soal Ujian"), {@code mahasiswa}/{@code biodataCalonMahasiswa} (identitas
+	 * peserta, {@code null} untuk pengelola), {@code eventListener} (dipanggil setelah aksi yang
+	 * mengubah data agar pemanggil me-refresh), {@code tampilInfo} (saklar tampilan: {@code true}
+	 * merender blok info ringkas pertemuan/dosen/jadwal read-only untuk peserta,
+	 * {@code false} — satu-satunya nilai yang dipakai kedua pemanggil di file ini saat ini —
+	 * merender kontrol admin penuh: checkbox dibatasi waktu/acak/anti-curang/dsb., datebox/timebox
+	 * jadwal, kombo pindah pertemuan, bulk assignment Sub-CPMK, dan baris tombol aksi).
+	 *
+	 * <p><b>Efek samping:</b> {@link #render(Row, Object)} adalah satu-satunya operasi lokal, dan
+	 * BANYAK kontrol di dalamnya menyimpan perubahan langsung ke DB saat {@code onChange}/
+	 * {@code onCheck} lewat {@code Common.refreshUpdate(session, ppu)} (autosave per field) —
+	 * lihat Javadoc {@link #render(Row, Object)} untuk rinciannya.
 	 *
 	 * @see PertemuanPunyaUjianHelper
 	 */
@@ -1498,6 +1651,14 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 		private EventListener eventListener;
 		private boolean tampilInfo;
 
+		/**
+		 * @param mahasiswa             peserta mahasiswa, atau {@code null} untuk pengelola/peserta lain.
+		 * @param biodataCalonMahasiswa peserta calon mahasiswa (ujian PMB), atau {@code null}.
+		 * @param eventListener         dipanggil setelah aksi yang mengubah data (pindah pertemuan, hapus,
+		 *                              tutup window "Kelola Soal Ujian", dsb.) agar pemanggil me-refresh.
+		 * @param tampilInfo            {@code true} untuk blok info ringkas read-only (peserta),
+		 *                              {@code false} untuk kontrol pengaturan admin penuh.
+		 */
 		public DetailPertemuanRenderer(Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa,
 				EventListener eventListener, boolean tampilInfo) {
 			this.mahasiswa = mahasiswa;
@@ -1506,6 +1667,45 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 			this.tampilInfo = tampilInfo;
 		}
 
+		/**
+		 * Merender satu baris grid untuk satu {@link PertemuanPunyaUjian} ({@code data}). Method ini
+		 * adalah jantung tampilan/pengaturan detail ujian, membangun (tergantung peran pemanggil dan
+		 * {@code tampilInfo}):
+		 * <ul>
+		 * <li>Tombol "Kelola Soal Ujian" (membuka {@code detailUjianHelper} dalam {@link MyWindow}
+		 * tersendiri; hanya untuk pengelola) dan riwayat revisi lewat
+		 * {@code RevisiHelper.createNewRevisi(PertemuanPunyaUjian.class, ...)}.</li>
+		 * <li>Kombo "Pindahkan ke pertemuan" (hanya pengelola) yang memindahkan
+		 * {@code pertemuanPunyaUjian.setPertemuan(...)} ke pertemuan lain pada VOPembelajaran yang
+		 * sama, setelah konfirmasi dialog.</li>
+		 * <li>Bila {@code tampilInfo=false} &amp; pengelola: checkbox pengaturan (lanjut otomatis
+		 * saat koneksi putus, larang tombol kembali, sembunyikan bila waktu lewat), field jumlah
+		 * soal ditampilkan/boleh ikut/dibatasi waktu/durasi/mulai-sampai/acak/anti-tangkap-layar/
+		 * lihat jawaban-nilai setelah ujian — SEMUA tersimpan otomatis ke DB saat diubah.</li>
+		 * <li>Bila kurikulum perkuliahan berstatus OBE: editor bobot Sub-CPMK (per soal, format
+		 * cepat rentang nomor "1-10 sub cpmk 2", info bobot gabungan antar-ujian lewat
+		 * {@link PertemuanPunyaUjianHelper#buildInfoBobotInline}) plus tombol
+		 * Cetak/Sinkronkan Nilai/Refresh.</li>
+		 * <li>Baris tombol aksi (Sertifikat, Hasil, Preview, Ubah, Hapus) lewat
+		 * {@code ais.ui.util.UIHelper.buatBarisAksi}; tombol Hapus menghapus
+		 * {@link HasilUjianMahasiswaDetail}+{@link HasilUjianMahasiswa} terkait via SQL mentah lalu
+		 * {@code Common.refreshDelete} pada {@code pertemuanPunyaUjian} sendiri, dibungkus konfirmasi.</li>
+		 * <li>Untuk peserta: memanggil
+		 * {@link PertemuanPunyaUjianHelper#tampilBolekIkutUjianAtauTidak} untuk tombol ikut/lihat hasil,
+		 * dan penjagaan kuota ujian penuh / larangan ikut yang membekukan baris ({@code Common.freeze}).</li>
+		 * </ul>
+		 *
+		 * <p><b>Efek samping:</b> banyak titik menulis ke DB langsung via {@code Common.refreshUpdate}/
+		 * {@code refreshDelete} tanpa transaksi eksplisit terpisah (mengandalkan sesi Hibernate
+		 * per-request), memicu {@code eventListener} setelah operasi yang mengubah relasi
+		 * (pindah pertemuan, tutup window Kelola Soal), dan pada checkbox "Random" memanggil
+		 * ulang {@code render(arg0, pertemuanPunyaUjian)} sendiri setelah {@code Common.clear(arg0)}
+		 * untuk menyegarkan seluruh baris.
+		 *
+		 * @param arg0 baris grid tujuan yang akan diisi komponen.
+		 * @param data instance {@link PertemuanPunyaUjian} yang akan dirender (di-cast langsung, NPE
+		 *             bila tipe lain).
+		 */
 		@SuppressWarnings("deprecation")
 		@Override
 		public void render(final Row arg0, Object data) throws Exception {
@@ -2906,6 +3106,18 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Mencetak laporan PDF "TemplateObe" (rincian capaian Sub-CPMK/CPMK &amp; soal) untuk satu
+	 * {@link PertemuanPunyaUjian}, dipanggil dari tombol "Cetak" di
+	 * {@link DetailPertemuanRenderer#render(Row, Object)}. Menolak (menampilkan info, tanpa
+	 * exception) bila {@link Perkuliahan#ambilKurikulumPunyaMatakuliah()} tidak ditemukan, karena
+	 * template memerlukan data kurikulum-matakuliah yang valid. Parameter laporan disusun oleh
+	 * {@link #parameter(PertemuanPunyaUjian, KurikulumPunyaMatakuliah)} lalu dicetak lewat
+	 * {@code Report.generatePDFReport}, memakai {@code pertemuanPunyaUjian.getTanggal_dirubah()}
+	 * sebagai kunci cache/versi laporan.
+	 *
+	 * @param pertemuanPunyaUjian ujian pada pertemuan yang akan dicetak laporannya.
+	 */
 	public static void cetak(PertemuanPunyaUjian pertemuanPunyaUjian) throws Exception {
 		Perkuliahan perkuliahan = pertemuanPunyaUjian.getPertemuan().getPerkuliahan();
 		KurikulumPunyaMatakuliah kurikulumPunyaMatakuliah = perkuliahan.ambilKurikulumPunyaMatakuliah();
@@ -2921,6 +3133,32 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 				pertemuanPunyaUjian.getTanggal_dirubah());
 	}
 
+	/**
+	 * Menyusun {@link Map} parameter untuk template laporan PDF "TemplateObe", dipakai oleh
+	 * {@link #cetak(PertemuanPunyaUjian)}. Mengumpulkan (murni baca, tanpa mutasi DB):
+	 * <ul>
+	 * <li>Daftar {@code maps}: satu entri per Sub-CPMK yang di-assign ke ujian ini lewat
+	 * {@code pertemuanPunyaUjian.getFormatNilais()} (JSON), berisi nomor soal yang diujikan,
+	 * kode/nama Sub-CPMK &amp; CPMK induknya (dicari dari {@code formula} JSON milik
+	 * {@link CapaianLulusan}), bobot per-ujian (kunci {@code "<fnId>_bobot"}, default 100 — bukan
+	 * {@code FormatNilai.getPersen()}, agar konsisten dengan editor bobot di modal pengaturan),
+	 * serta kode/nama Capaian Pembelajaran Lulusan dan Profil Lulusan terkait.</li>
+	 * <li>Daftar {@code mapsSoals}: seluruh {@link UjianPunyaSoal} ujian ini (teks soal di-strip
+	 * HTML lewat Jsoup, plus bobot skor dari {@link BankSoal}).</li>
+	 * <li>Data identitas perkuliahan (kelas, program, jurusan, semester, sks, tahun ajaran,
+	 * matakuliah), dosen pengampu (tunggal atau gabungan bila lebih dari satu), serta path berkas
+	 * tanda tangan (petugas 1-4, penanggung jawab dosen, pudek2/pudek3, kaprodi) yang dicari lewat
+	 * {@link LampiranLain} bila formatnya berupa gambar (jpg/png/jpeg/gif/tif/bmp).</li>
+	 * </ul>
+	 * Properti entity {@link PertemuanPunyaUjian} dan {@link Perkuliahan} turut disalin otomatis
+	 * lewat {@code Common.insertProperty(...)} agar field lain di template tetap terisi tanpa
+	 * perlu didaftarkan satu per satu di sini.
+	 *
+	 * @param pertemuanPunyaUjian       ujian pada pertemuan yang akan dicetak.
+	 * @param kurikulumPunyaMatakuliah  kurikulum-matakuliah terkait (sudah divalidasi tidak
+	 *                                  {@code null} oleh {@link #cetak(PertemuanPunyaUjian)}).
+	 * @return {@link Map} parameter siap diteruskan ke {@code Report.generatePDFReport}.
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private static Map parameter(PertemuanPunyaUjian pertemuanPunyaUjian,
 			KurikulumPunyaMatakuliah kurikulumPunyaMatakuliah) throws Exception {
@@ -3552,6 +3790,34 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 		return parameters;
 	}
 
+	/**
+	 * Implementasi {@link DataLoader}: memuat ulang seluruh {@link PertemuanPunyaUjian} milik
+	 * {@link #pertemuan} dari {@code pertemuan.ambilPertemuanPunyaUjianTotal(tbmuser)} lalu
+	 * merender ulang tampilan. Dipanggil pertama kali oleh {@link #display(Pertemuan, Component)}
+	 * dan berulang kali setelahnya sebagai callback refresh dari berbagai aksi (tutup modal
+	 * pengaturan, tutup window Kelola Soal, simpan/hapus, tombol Refresh, dsb.).
+	 *
+	 * <p>Menentukan target render berdasarkan field mana yang terisi:</p>
+	 * <ul>
+	 * <li>Bila {@link #kartuWrap} != {@code null} (jalur AKTIF saat ini — lihat kuirk field
+	 * {@link #grid} pada Javadoc kelas): {@code kartuWrap} dikosongkan lalu diisi ulang kartu per
+	 * ujian — {@link #buatKartuUjianRingkas} untuk pengelola/dosen, {@link #buatKartuUjianPeserta}
+	 * untuk peserta (mahasiswa/biodataCalonMahasiswa/siswa/calon siswa/peserta kursus); bila daftar
+	 * kosong, ditampilkan pesan kosong yang beda teks untuk pengelola vs peserta. Method
+	 * mengembalikan (return) segera setelah cabang ini, TIDAK sampai ke cabang {@code grid} di
+	 * bawahnya.</li>
+	 * <li>Bila {@link #kartuWrap} {@code null} DAN {@link #grid} != {@code null}: jalur grid tabel
+	 * lama — memasang {@link DetailPertemuanRenderer} pada {@link #grid}. Karena {@link #grid}
+	 * sekarang tidak pernah diisi grid sungguhan (selalu {@code null} dari
+	 * {@link #display(Pertemuan, Component)}), cabang ini praktis tidak pernah tereksekusi lewat
+	 * alur normal aplikasi.</li>
+	 * </ul>
+	 *
+	 * @param value {@code Boolean.TRUE} untuk memaksa {@code pertemuan.belum("pertemuan_punya_Ujian")}
+	 *              (menghapus cache lokal koleksi ini di entity {@link Pertemuan} sehingga data
+	 *              benar-benar dimuat ulang dari DB, bukan dari cache); nilai lain (termasuk
+	 *              {@code null} atau {@code false}) memakai cache bila masih ada.
+	 */
 	public void loadData(Object value) {
 
 		if (value != null && value.equals(true)) {
@@ -3613,6 +3879,31 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 	}
 
 	/**
+	 * Mem-parse {@code nilai} sebagai {@link Integer}, mengembalikan {@code defaultValue} bila
+	 * {@code null}, kosong setelah di-trim, literal {@code "null"}/{@code "-"}, atau gagal
+	 * di-parse. Dipakai untuk membaca nilai konfigurasi teks (mis. {@code "kuota_ujian"}) yang
+	 * kadang tersimpan sebagai placeholder non-angka.
+	 *
+	 * @param nilai        teks yang akan di-parse, boleh {@code null}.
+	 * @param defaultValue nilai fallback bila {@code nilai} tidak bisa di-parse sebagai angka valid.
+	 * @return hasil parse, atau {@code defaultValue}.
+	 */
+	private static int parseIntegerDefault(String nilai, int defaultValue) {
+		if (nilai == null) {
+			return defaultValue;
+		}
+		String teks = nilai.trim();
+		if (teks.length() == 0 || "null".equalsIgnoreCase(teks) || "-".equals(teks)) {
+			return defaultValue;
+		}
+		try {
+			return Integer.parseInt(teks);
+		} catch (Exception e) {
+			return defaultValue;
+		}
+	}
+
+	/**
 	 * Membangun satu KARTU "Ikut Ujian" untuk peserta ujian, yaitu ketika pengguna login
 	 * sebagai <b>Mahasiswa</b>, <b>Siswa</b>, <b>Calon Siswa</b>, atau
 	 * <b>Biodata Calon Mahasiswa</b> (termasuk peserta kursus). Kartu ini menampilkan
@@ -3644,21 +3935,6 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 	 * @param tbmuser pengguna aktif (untuk menentukan identitas peserta)
 	 * @param refresh listener untuk memuat ulang daftar setelah selesai/ubah ujian
 	 */
-	private static int parseIntegerDefault(String nilai, int defaultValue) {
-		if (nilai == null) {
-			return defaultValue;
-		}
-		String teks = nilai.trim();
-		if (teks.length() == 0 || "null".equalsIgnoreCase(teks) || "-".equals(teks)) {
-			return defaultValue;
-		}
-		try {
-			return Integer.parseInt(teks);
-		} catch (Exception e) {
-			return defaultValue;
-		}
-	}
-
 	private void buatKartuUjianPeserta(final PertemuanPunyaUjian ppu, final Tbmuser tbmuser,
 			final EventListener refresh) {
 		final Ujian ujian = ppu.getUjian();
@@ -4808,6 +5084,44 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 			+ "display:table-cell!important;width:auto!important;border-bottom:0!important;padding:4px 6px!important;"
 			+ "vertical-align:top;}" + "</style>";
 
+	/**
+	 * Titik masuk utama: membangun tab "Ujian" untuk satu {@link Pertemuan} ke dalam
+	 * {@code component} (dipanggil dari {@link PertemuanHelper}). Mengosongkan {@code component},
+	 * lalu memasang toolbar aksi dan wadah kartu ({@link #kartuWrap}) sebelum memanggil
+	 * {@link #loadData(Object)} untuk mengisi datanya.
+	 *
+	 * <p><b>Toolbar yang dibangun</b> (visibilitas sebagian besar tombol dibatasi hanya untuk
+	 * pengelola/dosen, bukan peserta):</p>
+	 * <ul>
+	 * <li><b>Ambil Bahan Ujian</b> — membuka {@link AmbilDataUjianBanyak} untuk memilih
+	 * {@link Ujian} yang sudah ada dan menautkannya ke pertemuan ini sebagai
+	 * {@link PertemuanPunyaUjian} baru (durasi default 30 menit, mulai sekarang, berakhir besok);
+	 * mengirim email/notifikasi lewat {@code CommonEmail.infoAdaUjianPerkuliahan}/
+	 * {@code CommonNotifikasi.infoUjianBaru} untuk tiap ujian yang ditautkan.</li>
+	 * <li><b>Buat Ujian</b> — sama seperti di atas tetapi membuat {@link Ujian} baru lewat
+	 * {@code UjianAction.onAddExternal} lebih dulu.</li>
+	 * <li><b>Format Nilai</b> (hanya bila perkuliahan tidak dikunci &amp; bukan kurikulum OBE) —
+	 * membuka {@code FormatPenilaianHelper} untuk mengatur komponen penilaian perkuliahan.</li>
+	 * <li><b>Rekap Hasil Ujian</b> / <b>Rekap Semua Hasil Ujian</b> — membuka
+	 * {@link RekapHasilUjian}/{@link RekapHasilUjianPerVoPertemuan}.</li>
+	 * <li><b>Singkronkan Soal Peserta</b> — tombol hasil {@link #prosesUlangSoal}.</li>
+	 * <li><b>Rekap</b> — rekap pengawasan anti-curang lewat {@code RekapPengawasanUjianHelper}
+	 * untuk {@link PertemuanPunyaUjian} pertama pada pertemuan ini.</li>
+	 * <li><b>History</b> — riwayat revisi lewat {@code RevisiPertemuanPunyaUjianHelper}.</li>
+	 * <li><b>Lihat Peserta Ujian</b> — membuka {@code /pages/master/hasil_ujian_mahasiswa.zul}.</li>
+	 * <li><b>Refresh</b> — {@link #loadData(Object)} dengan {@code true} lalu memanggil ulang
+	 * {@link #display(Pertemuan, Component)} sendiri (re-render toolbar &amp; kartu dari awal).</li>
+	 * </ul>
+	 *
+	 * <p><b>Efek pada state instance:</b> meng-set {@link #pertemuan}, membuat {@link #kartuWrap}
+	 * baru, dan meng-set {@link #grid} ke {@code null} secara eksplisit di akhir method (lihat
+	 * kuirk pada Javadoc kelas: field {@link #grid} sekarang tidak pernah diisi selain {@code null}
+	 * di sini, sehingga jalur grid tabel lama di {@link #loadData(Object)} tidak lagi tereksekusi).
+	 *
+	 * @param pertemuan pertemuan yang tab Ujian-nya akan ditampilkan.
+	 * @param component komponen ZK tujuan (dikosongkan lebih dulu via {@code Common.clear}, boleh
+	 *                  {@code null} untuk melewati langkah pengosongan itu).
+	 */
 	@SuppressWarnings("unchecked")
 	public void display(final Pertemuan pertemuan, final Component component) {
 		this.pertemuan = pertemuan;

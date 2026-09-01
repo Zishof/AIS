@@ -513,3 +513,49 @@ disentuh (default untuk semua file yang tidak disebut di sini).
 - Semua 4 file dikompilasi (`javac -source 1.7 -target 1.7 -implicit:none`, lulus
   tanpa error) sebelum commit; CRLF diverifikasi (`grep -cU`/`wc -l` sama) tiap
   file. Belum di-mirror ke `java/` sesi ini (mirror menyusul).
+
+### 2 Sep 2026 (batch 5 file berdiri sendiri di `ais/action/master/helper/`)
+
+- [lengkap] `HistoryStatusMahasiswaUtil.java` r82869 — utilitas status
+  kemahasiswaan per semester (entity `HistoryStatusMahasiswa`): caching dua
+  lapis (RAM + JSON temporary), mesin aturan status (lambat bayar, syarat-aktif
+  kegiatan dua arah, status terminal retroaktif, paksa aktif admin). Kuirk
+  dicatat: parameter `tx` tak terpakai di `updateViaTransactionQuietly`/
+  `prosesNonAktifkanStatusSingkronisasi` (tiap panggilan selalu buka transaksi
+  baru sendiri, bukan bug berdampak, hanya kode membingungkan).
+- [lengkap] `KegiatanHelper.java` r82895 (3677 baris) — inti domain `Kegiatan`
+  (tagihan mahasiswa/calon mahasiswa): dua sisi Mahasiswa/BiodataCalonMahasiswa,
+  lapisan ketahanan transaksi PostgreSQL (`saveEntitySafe`/`updateEntitySafe`/
+  `executeUpdateSafe` menangani lock timeout 55P03/57014, deadlock 40P01,
+  transaksi ter-abort 25P02, constraint violation 23505/23503, retry+backoff+
+  jitter di sesi terisolasi), ekspor/impor Excel tagihan massal. Kuirk dicatat:
+  field publik `prosestagihan` — SEMUA titik pakainya di codebase
+  (`KegiatanAction`, `KegiatanProsesHeper`, `TagihanProcessor`) sudah
+  dikomentari, efektif dead code.
+- [lengkap] `KegiatanKemahasiswaanPunyaMahasiswaHelper.java` r82906 (file
+  LF-only, bukan CRLF — dikonfirmasi sudah begitu di pristine sebelum
+  disentuh via `svn cat`, bukan hasil edit sesi ini) — layar peserta
+  organisasi/UKM kemahasiswaan, alur persetujuan peserta, integrasi ekspor
+  repository DSpace/OJS berhierarki community(jurusan) → collection(kegiatan)
+  → item(peserta).
+- [lengkap] `KegiatanProsesHeper.java` r82910 (2593 baris; nama file "Heper"
+  bukan "Helper" — TYPO HISTORIS pada nama class publik, dikonfirmasi BUKAN
+  salah ketik dokumentasi sesi ini, dipertahankan apa adanya) — fitur "Proses
+  Tagihan"/"Proses Surat Tagihan"/"Sinkronisasi Data Cicilan" massal, paralel
+  via `WORKER_EXECUTOR` bersama (pool kecil, daemon) untuk mencegah ledakan
+  thread saat banyak admin memicu proses berat bersamaan.
+- [lengkap] `NamaTugasKelompokHelper.java` r82914 — layar daftar kelompok
+  tugas kuliah (perkuliahan/KKN/PKL), alur gabung-kelompok mandiri oleh
+  mahasiswa, dua mode ekspor/impor Excel (standar vs OBE — nilai per
+  `FormatNilai` disimpan sebagai JSON di `TugasKelompok.keteranganNilai`,
+  bukan baris terpisah). Bug historis yang sudah diperbaiki dicatat di
+  Javadoc: importer OBE lama tidak pernah membuat baris keanggotaan kelompok
+  (jumlah peserta tampil 0 walau upload "berhasil").
+
+  Kelima file SUDAH punya Javadoc dari pass otomatis sebelumnya (template
+  generik "Kelas ini memberi nama dan batas tanggung jawab..." atau serupa)
+  — diperkaya jadi penjelasan konkret per instruksi pengguna, bukan ditulis
+  dari nol. Semua dikompilasi (javac 1.7, `-implicit:none`, lulus) dan
+  dikommit PER FILE segera setelah lulus kompilasi; tidak ada insiden sweep
+  sesi paralel terdeteksi pada batch ini, tidak ada file yang di-skip. Belum
+  di-mirror ke `java/` sesi ini.
