@@ -63,6 +63,19 @@ import ais.ui.util.WaktuUtil;
  * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
  * membuat salinan query dan validasi di action lain.</p>
  *
+ * <p>
+ * <b>Riwayat keamanan (DIPERBAIKI 2026-09-02)</b> — beberapa kanal pembuatan VA di kelas ini
+ * sebelumnya mengambil kredensial lewat {@code Common.getKonfigurasi(key, defaultValue)} dengan
+ * nilai default RAHASIA tertanam langsung di kode sumber: kredensial Esmartlink
+ * ({@code username_va_e_smartlink}/{@code password_va_e_smartlink}), secret key Basic-Auth
+ * gateway VA Jaring ({@code va_jaring_screet_key}, base64, mendekode menjadi
+ * {@code "jaring:jaring"}), dan secret key Basic-Auth gateway QRIS Jaring
+ * ({@code qris_jaring_screet_key}, base64, mendekode menjadi {@code "bsn:bsn"}). Seluruh default
+ * itu sudah dihapus (kini string kosong). Nilai lama yang sebelumnya tertanam sudah lama berada
+ * di riwayat SVN dan WAJIB dianggap bocor — perlu dirotasi di sisi masing-masing penyedia
+ * (eSmartlink, Jaring) bila masih aktif di produksi.
+ * </p>
+ *
  * @see MyWindow
  */
 public class DownloadNoRegistrasiCalonMahasiswaBankOnline extends MyWindow {
@@ -306,7 +319,7 @@ public class DownloadNoRegistrasiCalonMahasiswaBankOnline extends MyWindow {
 							.getKonfigurasi("qris_jaring_gateway_url", "http://api.jsa2.host/agg/api/v1/qris/generate")
 							.getNilai();
 
-					String screet_key = Common.getKonfigurasi("qris_jaring_screet_key", "YnNuOmJzbg==").getNilai();
+					String screet_key = Common.getKonfigurasi("qris_jaring_screet_key", "").getNilai();
 
 					String sign = postData.getString("merchantId") + postData.getString("terminalId")
 							+ postData.getString("posId") + postData.getString("trxId") + postData.getString("amount")

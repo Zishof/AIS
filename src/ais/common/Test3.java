@@ -16,16 +16,22 @@ package ais.common;
  * </p>
  *
  * <p>
- * <b>Riwayat keamanan (DIPERBAIKI 2026-09-01):</b> variabel {@code signatureKey} pada method
- * {@link #main(String[])} sebelumnya berisi string yang menyerupai <i>signature key</i>/secret
- * rahasia yang ditulis langsung (hardcoded) di kode sumber. Karena kelas ini terverifikasi tidak
- * dipanggil oleh kode aplikasi lain (hanya dapat dijalankan manual lewat {@code main}), nilai itu
- * kini diambil dari system property ({@code -Dtest3.signaturekey=...}) alih-alih tertanam di kode,
+ * <b>Riwayat keamanan (DIPERBAIKI 2026-09-01, diperluas 2026-09-02):</b> variabel
+ * {@code signatureKey} pada method {@link #main(String[])} sebelumnya berisi string yang
+ * menyerupai <i>signature key</i>/secret rahasia yang ditulis langsung (hardcoded) di kode
+ * sumber, dan variabel {@code payload} sebelumnya juga menanam ID aplikasi asli secara langsung.
+ * Belakangan dikonfirmasi kedua nilai ini BUKAN sekadar contoh — keduanya IDENTIK dengan
+ * {@code key_bankaltimtara_baru}/{@code app_id_bankaltimtara_baru}, kredensial signature
+ * BankAltimtara sungguhan yang dipakai di jalur produksi
+ * {@code ais.action.master.VirtualAccountBankAction} dan kelas-kelas
+ * {@code Download*CalonMahasiswaBankOnline} (sudah diperbaiki terpisah). Karena kelas ini
+ * terverifikasi tidak dipanggil oleh kode aplikasi lain (hanya dapat dijalankan manual lewat
+ * {@code main}), kedua nilai kini diambil dari system property
+ * ({@code -Dtest3.signaturekey=...}, {@code -Dtest3.appid=...}) alih-alih tertanam di kode,
  * dengan {@link #main} langsung berhenti dan menampilkan petunjuk pemakaian bila belum diisi.
  * Baris {@code System.out.println} yang sebelumnya mencetak hasil signature juga sudah dihapus.
- * Nilai lama yang sebelumnya tertanam ({@code "0CcfEADwiAssIGQ6AMiWbiP9VHI0zzrBu4WUKfY1bNEF9q3FZJ"})
- * sudah lama berada di riwayat SVN dan WAJIB dianggap bocor bila merupakan kredensial aktif milik
- * integrasi pihak ketiga sungguhan — perlu dirotasi oleh pihak yang berwenang.
+ * Nilai lama yang sebelumnya tertanam sudah lama berada di riwayat SVN dan WAJIB dianggap bocor —
+ * perlu dirotasi di sisi BankAltimtara bila masih aktif di produksi.
  * </p>
  */
 public class Test3 {
@@ -33,9 +39,9 @@ public class Test3 {
 
 
 	/**
-	 * Titik masuk uji coba manual. Membaca {@code signatureKey} dari system property (berhenti
-	 * dengan pesan bila belum diisi), membentuk sebuah {@code payload} contoh (pola
-	 * {@code "<random>;create_va:<nomor>"}) dan menandatanganinya dengan
+	 * Titik masuk uji coba manual. Membaca {@code signatureKey} dan {@code appId} dari system
+	 * property (berhenti dengan pesan bila salah satu belum diisi), membentuk {@code payload}
+	 * (pola {@code "<appId>;create_va:<nomor>"}) dan menandatanganinya dengan
 	 * {@link Common#buildHmacSignature(String, String)}, lalu mencetak hasil tanda tangan ke
 	 * konsol untuk diperiksa manual oleh pengembang. Baris-baris lain yang dikomentari adalah
 	 * percobaan alternatif yang tidak dieksekusi.
@@ -52,12 +58,13 @@ public class Test3 {
 //		System.out.println("==> tokenReq " + tokenReq);
 
 		String signatureKey = System.getProperty("test3.signaturekey", "");
-		if (signatureKey.trim().isEmpty()) {
-			System.out.println("Jalankan dengan -Dtest3.signaturekey=...");
+		String appId = System.getProperty("test3.appid", "");
+		if (signatureKey.trim().isEmpty() || appId.trim().isEmpty()) {
+			System.out.println("Jalankan dengan -Dtest3.signaturekey=... -Dtest3.appid=...");
 			return;
 		}
 
-		String payload = "pKMUSJfL5G8wKHSbhoTU7PQ3TJdX0HlV;create_va:1234567885";
+		String payload = appId + ";create_va:1234567885";
 
 //		String signature = Hashing.hmacSha512(strClientScret_bca.getBytes()).newHasher()
 //				.putString(StringToSign, StandardCharsets.UTF_8).hash().toString();

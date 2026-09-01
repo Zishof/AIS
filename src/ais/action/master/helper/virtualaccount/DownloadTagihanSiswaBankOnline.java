@@ -55,24 +55,26 @@ import ais.ui.util.WaktuUtil;
  * </p>
  *
  * <p>
- * <b>CATATAN KEAMANAN PENTING</b>: beberapa integrasi gateway di kelas ini memakai
- * {@link Common#getKonfigurasi(String, String)} dengan NILAI DEFAULT berupa kredensial/rahasia
- * yang tertanam langsung di kode sebagai fallback bila konfigurasi database belum diisi:
+ * <b>Riwayat keamanan (DIPERBAIKI 2026-09-02)</b>: beberapa integrasi gateway di kelas ini
+ * sebelumnya memakai {@link Common#getKonfigurasi(String, String)} dengan NILAI DEFAULT berupa
+ * kredensial/rahasia yang tertanam langsung di kode sebagai fallback bila konfigurasi database
+ * belum diisi:
  * <ul>
- * <li>QRIS Jaring: {@code qris_jaring_merchantId} default {@code "3200124010015"},
- * {@code qris_jaring_terminalId} default {@code "10010005"}, dan yang paling signifikan
- * {@code qris_jaring_screet_key} default {@code "YnNuOmJzbg=="} — string Base64 yang mendekode
- * menjadi {@code "bsn:bsn"} dan dipakai LANGSUNG sebagai secret key untuk menandatangani (SHA-256)
- * permintaan ke gateway QRIS DAN sebagai header {@code Authorization: Basic}.</li>
- * <li>VA Jaring: {@code va_jaring_screet_key} default {@code "amFyaW5nOmphcmluZw=="} — Base64 yang
- * mendekode menjadi {@code "jaring:jaring"}, dipakai dengan cara yang sama (tanda tangan SHA-256 +
- * header Basic Auth).</li>
+ * <li>QRIS Jaring: {@code qris_jaring_merchantId} default {@code "3200124010015"} dan
+ * {@code qris_jaring_terminalId} default {@code "10010005"} tetap dipertahankan (pengenal
+ * merchant/terminal, bukan rahasia); yang paling signifikan, {@code qris_jaring_screet_key}
+ * (sebelumnya default {@code "YnNuOmJzbg=="} — string Base64 yang mendekode menjadi
+ * {@code "bsn:bsn"}, dipakai LANGSUNG sebagai secret key untuk menandatangani (SHA-256)
+ * permintaan ke gateway QRIS DAN sebagai header {@code Authorization: Basic}) defaultnya sudah
+ * dihapus (kini string kosong).</li>
+ * <li>VA Jaring: {@code va_jaring_screet_key} (sebelumnya default {@code "amFyaW5nOmphcmluZw=="}
+ * — Base64 yang mendekode menjadi {@code "jaring:jaring"}, dipakai dengan cara yang sama —
+ * tanda tangan SHA-256 + header Basic Auth) defaultnya juga sudah dihapus.</li>
  * </ul>
  * Kredensial ini tetap berfungsi sebagai secret sungguhan yang dikirim ke endpoint eksternal
  * kapan pun baris konfigurasi terkait di database kosong/belum di-override — bukan sekadar contoh
- * dokumentasi. Disarankan memindahkan nilai-nilai ini keluar dari kode sumber (mis. wajib diisi
- * lewat konfigurasi, tanpa default tertanam) dan merotasi kredensial bila pernah dipakai di
- * lingkungan produksi. Sesuai instruksi tugas, TIDAK diperbaiki di sini — hanya dilaporkan.
+ * dokumentasi. Nilai lama yang sebelumnya tertanam sudah lama berada di riwayat SVN dan WAJIB
+ * dianggap bocor — perlu dirotasi di sisi Jaring bila masih aktif di produksi.
  * </p>
  */
 public class DownloadTagihanSiswaBankOnline {
@@ -613,7 +615,7 @@ public class DownloadTagihanSiswaBankOnline {
 
 						String strURL = Common.getKonfigurasi("qris_jaring_gateway_url",
 								"http://api.jsa2.host/agg/api/v1/qris/generate").getNilai();
-						String screet_key = Common.getKonfigurasi("qris_jaring_screet_key", "YnNuOmJzbg==").getNilai();
+						String screet_key = Common.getKonfigurasi("qris_jaring_screet_key", "").getNilai();
 
 						String sign = postData.getString("merchantId") + postData.getString("terminalId")
 								+ postData.getString("posId") + postData.getString("trxId")
@@ -712,7 +714,7 @@ public class DownloadTagihanSiswaBankOnline {
 
 						String strURL = Common.getKonfigurasi("va_jaring_gateway_url",
 								"http://sandbox.jaring.host/api/v3/billpay/inquiry").getNilai();
-						String screet_key = Common.getKonfigurasi("va_jaring_screet_key", "amFyaW5nOmphcmluZw==")
+						String screet_key = Common.getKonfigurasi("va_jaring_screet_key", "")
 								.getNilai();
 
 						String sign = postData.getString("custName") + postData.getString("custID")

@@ -12352,7 +12352,7 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 		rows.appendChild(createRowActiveDefault("Otomatis verifikasi bayar setelah jam 24 — dipakai di: _draft_pesanan_anggota", "otomatis_verifikasi_bayar_setelah_jam_24", Konfigurasi.TIDAK_AKTIF));
 		rows.appendChild(createRowNilai("Otto biaya administrasi — dipakai di: TampilanPaymentGateway", "otto_biaya_administrasi", "0.0"));
 		rows.appendChild(createRowActiveDefault("Otto va sleep — dipakai di: Briva, Otto", "otto_va_sleep", Konfigurasi.TIDAK_AKTIF));
-		rows.appendChild(createRowNilai("Password va e smartlink — dipakai di: DownloadNoRegistrasiCalonMahasiswaBankOnline, DownloadNoUjianCalonMahasiswaBankOnline, DownloadTagihanMahasiswaBankOnline, VirtualAccountBankAction, dll", "password_va_e_smartlink", "sQ3f2PMbGWvNxvi"));
+		rows.appendChild(createRowNilaiPassword("Password va e smartlink — dipakai di: DownloadNoRegistrasiCalonMahasiswaBankOnline, DownloadNoUjianCalonMahasiswaBankOnline, DownloadTagihanMahasiswaBankOnline, VirtualAccountBankAction, dll", "password_va_e_smartlink", ""));
 		rows.appendChild(createRowActiveDefault("Pembayaran siswa yang sudah dibayar tidak bisa dihapus — dipakai di: ItemBiayaSekolahAction, JenisBiayaSekolahAction, PengaturanBiayaAction", "pembayaran_siswa_yang_sudah_dibayar_tidak_bisa_dihapus", Konfigurasi.AKTIF));
 		rows.appendChild(createRowActiveDefault("Pembayaran via bank online harus via va — dipakai di: PembayaranAction", "pembayaran_via_bank_online_harus_via_va", Konfigurasi.AKTIF));
 		rows.appendChild(createRowActiveDefault("Pembayaran via va bisa berdasarkan nim — dipakai di: Va", "pembayaran_via_va_bisa_berdasarkan_nim", Konfigurasi.TIDAK_AKTIF));
@@ -12397,12 +12397,12 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 		rows.appendChild(createRowNilai("Url status va bankaltimtara — dipakai di: Bankaltimtara", "url_status_va_bankaltimtara", "https://api-dev.bankaltimtara.co.id:8081/api-service/api/va/paid/nova"));
 		rows.appendChild(createRowNilai("Url status va bankaltimtara baru — dipakai di: VirtualAccountBankAction", "url_status_va_bankaltimtara_baru", "http://36.66.232.249:8017/ubt/status_va"));
 		rows.appendChild(createRowNilai("Url status va smartlink — dipakai di: VirtualAccountBankAction, _check_ulang_pembayaran", "url_status_va_smartlink", "https://payment-service.pakar-digital.com/api/payment/inquiry-order/"));
-		rows.appendChild(createRowNilai("Username va e smartlink — dipakai di: DownloadNoRegistrasiCalonMahasiswaBankOnline, DownloadNoUjianCalonMahasiswaBankOnline, DownloadTagihanMahasiswaBankOnline, VirtualAccountBankAction, dll", "username_va_e_smartlink", "api-smartlink-sbx@budi-mulia.com"));
+		rows.appendChild(createRowNilai("Username va e smartlink — dipakai di: DownloadNoRegistrasiCalonMahasiswaBankOnline, DownloadNoUjianCalonMahasiswaBankOnline, DownloadTagihanMahasiswaBankOnline, VirtualAccountBankAction, dll", "username_va_e_smartlink", ""));
 		rows.appendChild(createRowNilai("Va jaring expire — dipakai di: DownloadNoRegistrasiCalonMahasiswaBankOnline, DownloadNoUjianCalonMahasiswaBankOnline, DownloadTagihanMahasiswaBankOnline, DownloadTagihanSiswaBankOnline", "va_jaring_expire", "1440"));
 		rows.appendChild(createRowNilai("Va jaring gateway url — dipakai di: DownloadNoRegistrasiCalonMahasiswaBankOnline, DownloadNoUjianCalonMahasiswaBankOnline, DownloadTagihanMahasiswaBankOnline, DownloadTagihanSiswaBankOnline", "va_jaring_gateway_url", "http://sandbox.jaring.host/api/v3/billpay/inquiry"));
 		rows.appendChild(createRowNilai("Va jaring payment type — dipakai di: DownloadNoRegistrasiCalonMahasiswaBankOnline, DownloadNoUjianCalonMahasiswaBankOnline, DownloadTagihanMahasiswaBankOnline, DownloadTagihanSiswaBankOnline", "va_jaring_payment_type", "04"));
 		rows.appendChild(createRowNilai("Va jaring produk id — dipakai di: DownloadNoRegistrasiCalonMahasiswaBankOnline, DownloadNoUjianCalonMahasiswaBankOnline, DownloadTagihanMahasiswaBankOnline, DownloadTagihanSiswaBankOnline", "va_jaring_produk_id", "207"));
-		rows.appendChild(createRowNilai("Va jaring screet key — dipakai di: DownloadNoRegistrasiCalonMahasiswaBankOnline, DownloadNoUjianCalonMahasiswaBankOnline, DownloadTagihanMahasiswaBankOnline, DownloadTagihanSiswaBankOnline", "va_jaring_screet_key", "amFyaW5nOmphcmluZw=="));
+		rows.appendChild(createRowNilaiPassword("Va jaring screet key — dipakai di: DownloadNoRegistrasiCalonMahasiswaBankOnline, DownloadNoUjianCalonMahasiswaBankOnline, DownloadTagihanMahasiswaBankOnline, DownloadTagihanSiswaBankOnline", "va_jaring_screet_key", ""));
 		rows.appendChild(createRowActiveDefault("Va tampil semua di pt — dipakai di: VirtualAccountBankAction", "va_tampil_semua_di_pt", Konfigurasi.AKTIF));
 		rows.appendChild(createRowNilai("Virtual account angka digit bni — dipakai di: BniCommon, BniKeranjangPembayaran", "virtual_account_angka_digit_bni", "16"));
 		rows.appendChild(createRowNilai("Virtual account angka digit bsi — dipakai di: BsiCommon, BsiKeranjangPembayaran", "virtual_account_angka_digit_bsi", "16"));
@@ -12544,7 +12544,7 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 		rows.appendChild(createRowActiveDefault("Kelas digabung dengan semester saat export feeder tanpa spasi — dipakai di: FeederExporter, FeederExporterGenerator", "kelas_digabung_dengan_semester_saat_export_feeder_tanpa_spasi", Konfigurasi.TIDAK_AKTIF));
 		rows.appendChild(createRowNilai("Lokasi penyimpanan upload feeder — dipakai di: ImportFromFeederAction", "lokasi_penyimpanan_upload_feeder", ""));
 		rows.appendChild(createRowActiveDefault("Masing masing pt koneksi langsung ke feeder — dipakai di: EksporFromFeederAction", "masing_masing_pt_koneksi_langsung_ke_feeder", Konfigurasi.TIDAK_AKTIF));
-		rows.appendChild(createRowNilai("Otto api key — dipakai di: OttoUtil", "otto_api_key", "KP33PP0EE0AAP1EE1009010PP01I91OA"));
+		rows.appendChild(createRowNilaiPassword("Otto api key — dipakai di: OttoUtil", "otto_api_key", ""));
 		rows.appendChild(createRowActiveDefault("SemuaProdiDimasukkanSaatImportFeeder — dipakai di: FeederJSONImport", "semuaProdiDimasukkanSaatImportFeeder", Konfigurasi.TIDAK_AKTIF));
 		rows.appendChild(createRowActiveDefault("Setiap kali menyimpan item check dengan google — dipakai di: ItemAction", "setiap_kali_menyimpan_item_check_dengan_google", Konfigurasi.AKTIF));
 		rows.appendChild(createRowNilai("Sister host url — dipakai di: DataSisterAction, DataSisterApi", "sister_host_url", "https://sister-api.kemdikbud.go.id/ws.php/1.0"));
@@ -12851,7 +12851,7 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 		rows.appendChild(createRowActiveDefault("Ambil code local — dipakai di: ApiUtil", "ambil_code_local", Konfigurasi.TIDAK_AKTIF));
 		rows.appendChild(createRowNilai("Ambil kode url — dipakai di: DosenAction, GuruAction, MahasiswaAction, MainHelper, dll", "ambil_kode_url", "https://dev.ecampus.id/ecampus/Api"));
 		rows.appendChild(createRowActiveDefault("Apakah lampiran pr wajib — dipakai di: PermintaanPengadaanMasterAssetAction", "apakah_lampiran_pr_wajib", Konfigurasi.TIDAK_AKTIF));
-		rows.appendChild(createRowNilai("App id bankaltimtara baru — dipakai di: DownloadNoUjianCalonMahasiswaBankOnline, DownloadTagihanMahasiswaBankOnline, VirtualAccountBankAction", "app_id_bankaltimtara_baru", "pKMUSJfL5G8wKHSbhoTU7PQ3TJdX0HlV"));
+		rows.appendChild(createRowNilai("App id bankaltimtara baru — dipakai di: DownloadNoUjianCalonMahasiswaBankOnline, DownloadTagihanMahasiswaBankOnline, VirtualAccountBankAction", "app_id_bankaltimtara_baru", ""));
 		rows.appendChild(createRowActiveDefault("Author importer processor — dipakai di: AuthorImporterProcessor", "author_importer_processor", Konfigurasi.AKTIF));
 		rows.appendChild(createRowActiveDefault("Auto proses tunggakan — dipakai di: TunggakanMahasiswaDaftarUlangProcessor", "auto_proses_tunggakan", Konfigurasi.AKTIF));
 		rows.appendChild(createRowActiveDefault("Auto proses tunggakan mhs b — dipakai di: TunggakanMahasiswaBaruProcessor", "auto_proses_tunggakan_mhs_b", Konfigurasi.AKTIF));
@@ -12954,7 +12954,7 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 		rows.appendChild(createRowNilai("Karir tampilkan lowongan terlewat — dipakai di: _karir_service", "karir_tampilkan_lowongan_terlewat", "TAMPIL_DISABLED"));
 		rows.appendChild(createRowNilai("Kas kecil dimulai — dipakai di: KasKecilAction", "kas_kecil_dimulai", ""));
 		rows.appendChild(createRowNilai("Keterangan nisn di biodata calon mhs — dipakai di: BiodataCalonMahasiswaAction", "keterangan_nisn_di_biodata_calon_mhs", ""));
-		rows.appendChild(createRowNilai("Key bankaltimtara baru — dipakai di: DownloadNoUjianCalonMahasiswaBankOnline, DownloadTagihanMahasiswaBankOnline, VirtualAccountBankAction", "key_bankaltimtara_baru", "0CcfEADwiAssIGQ6AMiWbiP9VHI0zzrBu4WUKfY1bNEF9q3FZJ"));
+		rows.appendChild(createRowNilaiPassword("Key bankaltimtara baru — dipakai di: DownloadNoUjianCalonMahasiswaBankOnline, DownloadTagihanMahasiswaBankOnline, VirtualAccountBankAction", "key_bankaltimtara_baru", ""));
 		rows.appendChild(createRowActiveDefault("Kirim file via watzap — dipakai di: WaApi", "kirim_file_via_watzap", Konfigurasi.TIDAK_AKTIF));
 		rows.appendChild(createRowNilai("Kode institusi bankaltimtara baru — dipakai di: DownloadNoUjianCalonMahasiswaBankOnline, DownloadTagihanMahasiswaBankOnline", "kode_institusi_bankaltimtara_baru", "6001"));
 		rows.appendChild(createRowNilai("Kode profesi default — dipakai di: JENJANG_PROFESI_PRODI_URUT_YYYY_NimGenerator", "kode_profesi_default", ""));
@@ -12995,7 +12995,7 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 		rows.appendChild(createRowNilai("Online bank host ip — dipakai di: BiodataCalonMahasiswaAction, KegiatanTemporaryAction, PembayaranKoperasiOnline, PembayaranOnline, dll", "online_bank_host_ip", ""));
 		rows.appendChild(createRowActiveDefault("Otomatis terposting — dipakai di: InitDataHelper", "otomatis_terposting", Konfigurasi.AKTIF));
 		rows.appendChild(createRowNilai("Otto bank host ip — dipakai di: TampilanPaymentGateway", "otto_bank_host_ip", ""));
-		rows.appendChild(createRowNilai("Otto mid — dipakai di: OttoUtil", "otto_mid", "OP1E00030999"));
+		rows.appendChild(createRowNilaiPassword("Otto mid — dipakai di: OttoUtil", "otto_mid", ""));
 		rows.appendChild(createRowNilai("Otto token url — dipakai di: OttoUtil", "otto_token_url", "https://dev-secure.ottopay.id/payment-services/v2.1.0/api/token"));
 		rows.appendChild(createRowActiveDefault("Pakai include saat menu — dipakai di: CommonMenuAccessHelper", "pakai_include_saat_menu", Konfigurasi.AKTIF));
 		rows.appendChild(createRowNilai("Partner id bca — dipakai di: BCA", "partner_id_bca", "14275"));
@@ -13016,7 +13016,7 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 		rows.appendChild(createRowNilai("Qris jaring expire — dipakai di: DownloadNoRegistrasiCalonMahasiswaBankOnline, DownloadNoUjianCalonMahasiswaBankOnline, DownloadTagihanMahasiswaBankOnline, DownloadTagihanSiswaBankOnline", "qris_jaring_expire", "7200"));
 		rows.appendChild(createRowNilai("Qris jaring gateway url — dipakai di: DownloadNoRegistrasiCalonMahasiswaBankOnline, DownloadNoUjianCalonMahasiswaBankOnline, DownloadTagihanMahasiswaBankOnline, DownloadTagihanSiswaBankOnline", "qris_jaring_gateway_url", "http://api.jsa2.host/agg/api/v1/qris/generate"));
 		rows.appendChild(createRowNilai("Qris jaring merchantId — dipakai di: DownloadNoRegistrasiCalonMahasiswaBankOnline, DownloadNoUjianCalonMahasiswaBankOnline, DownloadTagihanMahasiswaBankOnline, DownloadTagihanSiswaBankOnline", "qris_jaring_merchantId", "3200124010015"));
-		rows.appendChild(createRowNilai("Qris jaring screet key — dipakai di: DownloadNoRegistrasiCalonMahasiswaBankOnline, DownloadNoUjianCalonMahasiswaBankOnline, DownloadTagihanMahasiswaBankOnline, DownloadTagihanSiswaBankOnline", "qris_jaring_screet_key", "YnNuOmJzbg=="));
+		rows.appendChild(createRowNilaiPassword("Qris jaring screet key — dipakai di: DownloadNoRegistrasiCalonMahasiswaBankOnline, DownloadNoUjianCalonMahasiswaBankOnline, DownloadTagihanMahasiswaBankOnline, DownloadTagihanSiswaBankOnline", "qris_jaring_screet_key", ""));
 		rows.appendChild(createRowNilai("Qris jaring terminalId — dipakai di: DownloadNoRegistrasiCalonMahasiswaBankOnline, DownloadNoUjianCalonMahasiswaBankOnline, DownloadTagihanMahasiswaBankOnline, DownloadTagihanSiswaBankOnline", "qris_jaring_terminalId", "10010005"));
 		rows.appendChild(createRowActiveDefault("Radius syncrhonizer — dipakai di: RadiusProcessor", "radius_syncrhonizer", Konfigurasi.AKTIF));
 		rows.appendChild(createRowNilai("Redirect url classroom — dipakai di: GoogleCommon", "redirect_url_classroom", ""));
