@@ -76,6 +76,8 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [37-angka-laporan-dapat-diklik.md](37-angka-laporan-dapat-diklik.md) | Angka subtotal & grand total Laporan-Laporan ikut dapat diklik di keempat kanal |
 | [70-panduan-membuka-laporan-keuangan.md](70-panduan-membuka-laporan-keuangan.md) | Panduan staf: dua pintu menu ke katalog laporan, tujuh kebutuhan keuangan yayasan, dan tiga sebab laporan tampil kosong |
 | [70-panduan-laporan-keuangan-an-nahl.pdf](70-panduan-laporan-keuangan-an-nahl.pdf) | Versi PDF bergambar dari panduan di atas, siap dibagikan ke staf; pembuatnya di [panduan-ilustrasi/](panduan-ilustrasi/README.md) |
+| [73-stok-minus-tiga-nilai-dan-pemulihan-member.md](73-stok-minus-tiga-nilai-dan-pemulihan-member.md) | "STOK MINUS" pd verifikasi pesanan: `null` diperlakukan sbg "dikunci admin"; + pemulihan nama pemesan dari audit Envers |
+| [74-sql-pemulihan-member-pesanan.sql](74-sql-pemulihan-member-pesanan.sql) | Skrip hitung-dulu-baru-perbaiki utk mengembalikan member yang tertimpa NULL |
 
 > Catatan penomoran: ada **dua** berkas bernomor 10 — `10-pengadaan.md` dan
 > `10-pesan-galat-dan-detail-error.md` — karena ditulis dua sesi kerja yang berjalan

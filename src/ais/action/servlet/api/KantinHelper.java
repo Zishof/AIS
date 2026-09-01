@@ -2187,6 +2187,40 @@ public class KantinHelper {
 				"Stok batch yang aktif dan belum kedaluwarsa tidak cukup untuk ditransfer (kurang " + sisa + ").");
 	}
 
+	/**
+	 * Apakah kekurangan stok satu produk WAJIB memblokir transaksi.
+	 *
+	 * <p>{@code izinkan_jual_minus_stok} bernilai TIGA, bukan dua — persis seperti combo
+	 * "Aturan Jual Saat Stok Kurang" pada master Produk yang mengisinya:</p>
+	 *
+	 * <table border="1">
+	 * <tr><th>Nilai</th><th>Label di master Produk</th><th>Kekurangan stok</th></tr>
+	 * <tr><td>{@code null}</td><td>Ikut Pengaturan Toko (default)</td><td>TIDAK memblokir</td></tr>
+	 * <tr><td>{@code TRUE}</td><td>Selalu Boleh Dijual Walau Stok Minus</td><td>TIDAK memblokir</td></tr>
+	 * <tr><td>{@code FALSE}</td><td>Wajib Diblokir Jika Stok Tidak Cukup</td><td>MEMBLOKIR</td></tr>
+	 * </table>
+	 *
+	 * <p><b>Kenapa dipisah jadi method sendiri.</b> Sejak r77493 (16-08-2026) syaratnya ditulis
+	 * inline sebagai {@code !Boolean.TRUE.equals(override)} — yang menyamakan {@code null} dengan
+	 * {@code FALSE}. Akibatnya SELURUH produk yang belum pernah disetel admin ikut diblokir keras,
+	 * dan penolakannya berbunyi "produk yang dikunci admin" untuk produk yang tidak pernah dikunci
+	 * siapa pun; operator mencari sebabnya pada pengaturan yang memang tidak ada. Perubahan itu
+	 * sekaligus membatalkan keputusan 20-07-2026 (fail-open penuh) yang diminta eksplisit karena
+	 * blokir keras menolak transaksi pelanggan yang SAH di toko yang baseline stok historisnya
+	 * belum bersih.</p>
+	 *
+	 * <p>Akibat nyatanya muncul lagi pada 01-09-2026 di e-Kantin: pesanan online yang sudah
+	 * diterima pembeli tidak dapat diverifikasi, macet "belum dibayar", dan poin reward membernya
+	 * tidak terhitung. Menolak MENCATAT pesanan yang barangnya sudah diserahkan tidak menarik
+	 * kembali stok yang sudah keluar — ia hanya menghapus jejaknya.</p>
+	 *
+	 * <p>Aturan sesederhana ini pantas berdiri sendiri supaya dapat diuji tanpa basis data: yang
+	 * regresi kemarin bukan kuerinya, melainkan satu perbandingan boolean di tengah kueri itu.</p>
+	 */
+	static boolean wajibDiblokirKarenaStok(Boolean izinkanJualMinusStok) {
+		return Boolean.FALSE.equals(izinkanJualMinusStok);
+	}
+
 	private static HasilValidasiStok validasiStokCukupDenganLock(JSONArray transaksi, Long tokoId,
 			boolean bolehStokHabisToko) {
 		// §6 no.4 (saklar, default MATI): reservasi WO AKTIF ikut mengunci stok yang boleh dijual.
@@ -2256,30 +2290,7 @@ public class KantinHelper {
 							+ (terkunciReservasi > 0 ? ", terkunci reservasi WO " + terkunciReservasi : "")
 							+ ", diminta " + qtyDiminta + ")";
 					kurang.add(deskripsi);
-					// PENANDA wajibDiblokirEksplisit -- HANYA nilai FALSE yang memblokir.
-					//
-					// `izinkan_jual_minus_stok` bernilai TIGA, bukan dua (lihat combo "Aturan Jual
-					// Saat Stok Kurang" pada master Produk):
-					//   null  = "Ikut Pengaturan Toko (default)"        -> TIDAK memblokir
-					//   TRUE  = "Selalu Boleh Dijual Walau Stok Minus"  -> TIDAK memblokir
-					//   FALSE = "Wajib Diblokir Jika Stok Tidak Cukup"  -> memblokir
-					//
-					// Sejak r77493 (16-08-2026) syaratnya `!Boolean.TRUE.equals(...)`, yang
-					// menyamakan null dengan FALSE. Akibatnya SELURUH produk yang belum pernah
-					// disetel admin ikut diblokir keras, dan pesan penolakannya menyebut
-					// "produk yang dikunci admin" untuk produk yang tidak pernah dikunci siapa
-					// pun -- pesan yang menuduh pengaturan yang tidak ada membuat operator
-					// mencari sebab di tempat yang salah.
-					//
-					// Itu sekaligus membatalkan keputusan 20-07-2026 (fail-open penuh) yang
-					// diminta eksplisit karena blokir keras menolak transaksi pelanggan yang SAH
-					// di toko yang baseline stok historisnya belum bersih -- persis keadaan yang
-					// kembali terjadi pada 01-09-2026 (pesanan online e-Kantin macet "belum
-					// dibayar", poin reward member tidak terhitung).
-					//
-					// Kekurangan tetap dicatat pada `kurang` (audit + peringatan pada respons),
-					// jadi yang hilang hanya blokirnya, bukan jejaknya.
-					if (Boolean.FALSE.equals(overridePerItem)) {
+					if (wajibDiblokirKarenaStok(overridePerItem)) {
 						wajibBlokir.add(deskripsi);
 					}
 				}
