@@ -89,18 +89,16 @@ import ais.database.model.sekolah.Siswa;
  * </p>
  *
  * <p>
- * <b>CATATAN KEAMANAN — potensi SQL injection pada penyusunan query native:</b> sebagian besar
- * method membangun SQL native lewat konkatenasi {@link StringBuilder} dan mengikat nilai lewat
- * parameter bind (aman), NAMUN pada {@link #getJumlahStatusChecklistUmum(String, String,
- * Tbmuser, boolean)} nilai parameter {@code tahunAkademik} dan {@code semester} DISISIPKAN
- * LANGSUNG ke dalam string SQL lewat konkatenasi ({@code
- * sql.append("...='").append(tahunAkademik).append("'")}), TANPA melalui parameter bind maupun
- * fungsi {@link #escapeSql(String)} yang tersedia di kelas ini dan dipakai konsisten di method
- * {@link #buildSqlTambahanUmum}. Bila kedua parameter tersebut pernah berasal dari input yang
- * dapat dipengaruhi pengguna (bukan hanya nilai tetap dari kode pemanggil), ini berpotensi
- * menjadi celah SQL injection. Javadoc ini TIDAK mengubah kode tersebut sesuai instruksi; lihat
- * ringkasan laporan terkait untuk detail lokasi baris agar dapat ditindaklanjuti (mis. beralih
- * ke parameter bind seperti pada method-method lain di kelas ini).
+ * <b>Riwayat keamanan (DIPERBAIKI 2026-09-01) — celah SQL injection pada penyusunan query
+ * native:</b> sebagian besar method membangun SQL native lewat konkatenasi {@link StringBuilder}
+ * dan mengikat nilai lewat parameter bind (aman). Sebelumnya, pada
+ * {@link #getJumlahStatusChecklistUmum(String, String, Tbmuser, boolean)} nilai parameter
+ * {@code tahunAkademik} dan {@code semester} DISISIPKAN LANGSUNG ke dalam string SQL lewat
+ * konkatenasi ({@code sql.append("...='").append(tahunAkademik).append("'")}), tanpa melalui
+ * parameter bind maupun fungsi {@link #escapeSql(String)}. Sudah diperbaiki dengan mengganti
+ * konkatenasi tersebut menjadi placeholder bind Hibernate ({@code :tahunAkademik}/
+ * {@code :semester}) yang diisi lewat {@code setParameter}, konsisten dengan pola parameter bind
+ * yang sudah dipakai method-method lain di kelas ini (mis. {@link #checkStatusChecklist}).
  * </p>
  */
 public class ChecklistPenilaianHelper {
@@ -597,15 +595,18 @@ public class ChecklistPenilaianHelper {
                .append(" left join parameter_tambahan_angket_umum d on (b.id=d.grup_checklist_penilaian_umum)   ")
                .append(" left join parameter_tambahan e on (e.id=d.parameter_tambahan) where (e.wajibdiisi=true or e.wajibdiisi is null) ");
                
-            if (tahunAkademik != null) sql.append(" and a.tahunakademik='").append(tahunAkademik).append("' ");
-            if (semester != null) sql.append(" and a.semester='").append(semester).append("' ");
-            
+            if (tahunAkademik != null) sql.append(" and a.tahunakademik=:tahunAkademik ");
+            if (semester != null) sql.append(" and a.semester=:semester ");
+
             sql.append(" and b.aktif and (c.aktif or d.id is not null) and a.grup_kuesioner_umum is null and sampai >= date('")
                .append(Common.databaseDateFormat.get().format(ais.ui.util.WaktuUtil.getDate())).append("') and mulai <= date('")
                .append(Common.databaseDateFormat.get().format(ais.ui.util.WaktuUtil.getDate())).append("') and ").append(sqlTambahan)
                .append(" order by a.tahunakademik, a.semester, b.id, coalesce(c.nomor_urut,999999), c.isi, c.id, d.id ");
 
-            List<Object[]> datas = session.createSQLQuery(sql.toString()).list();
+            org.hibernate.SQLQuery jumlahStatusQuery = session.createSQLQuery(sql.toString());
+            if (tahunAkademik != null) jumlahStatusQuery.setParameter("tahunAkademik", tahunAkademik);
+            if (semester != null) jumlahStatusQuery.setParameter("semester", semester);
+            List<Object[]> datas = jumlahStatusQuery.list();
 
             for (Object[] obj : datas) {
                 if (obj[0] != null) checklistPenilaianUmumTerjadwal.add(((Number) obj[0]).longValue());
@@ -1234,9 +1235,10 @@ public class ChecklistPenilaianHelper {
     /**
      * Meng-escape karakter kutip tunggal ({@code '} → {@code ''}) pada {@code value} agar aman
      * disisipkan ke literal string SQL yang dibangun lewat konkatenasi manual, sebagai
-     * pencegahan SQL injection sederhana. Lihat catatan keamanan pada javadoc kelas terkait
-     * satu method ({@link #getJumlahStatusChecklistUmum}) yang TIDAK memakai fungsi ini secara
-     * konsisten.
+     * pencegahan SQL injection sederhana. {@link #getJumlahStatusChecklistUmum} sendiri sudah
+     * tidak memakai pola konkatenasi untuk {@code tahunAkademik}/{@code semester} (memakai
+     * parameter bind Hibernate langsung), sehingga tidak lagi bergantung pada fungsi ini untuk
+     * kedua nilai tersebut — lihat riwayat keamanan pada javadoc kelas.
      *
      * @param value nilai mentah, boleh {@code null}
      * @return {@code value} dengan kutip tunggal di-escape, atau string kosong bila
