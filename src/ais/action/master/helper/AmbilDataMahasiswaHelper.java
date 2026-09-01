@@ -621,6 +621,16 @@ public class AmbilDataMahasiswaHelper {
 		}
 	}
 
+	/**
+	 * Membangun kriteria Hibernate untuk {@link Mahasiswa} aktif sesuai seluruh filter form (NIM,
+	 * rentang NIM, nama, tahun angkatan, jurusan, fakultas, kelas, status mahasiswa semester
+	 * berjalan via subquery {@code history_status_mahasiswa}).
+	 *
+	 * @param order bila {@code true}, hasil diurutkan berdasarkan tahun angkatan menurun lalu NIM
+	 *              menaik
+	 * @return criteria siap dieksekusi, dipakai untuk memuat data, paging, maupun cabang "pilih
+	 *         semua" pada {@link #save()}
+	 */
 	public Criteria initCriteria(boolean order) {
 		StatusMahasiswa statusMahasiswa = (StatusMahasiswa) (searchstatusmahasiswa.getSelectedItem() == null ? null
 				: searchstatusmahasiswa.getSelectedItem().getValue());
@@ -663,6 +673,12 @@ public class AmbilDataMahasiswaHelper {
 		return criteria;
 	}
 
+	/**
+	 * Memuat satu halaman hasil {@link #initCriteria(boolean)} ke grid sesuai halaman aktif pada
+	 * {@link #paging}.
+	 *
+	 * @param event tidak dipakai
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

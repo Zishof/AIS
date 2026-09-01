@@ -245,6 +245,34 @@ public class GoogleScholarCrawler extends HtmlDataExtractor {
 		return false;
 	}
 
+	/**
+	 * Menjalankan satu iterasi crawl pencarian Google Scholar untuk {@code keywords} pada halaman
+	 * hasil ke-{@code iter} (parameter {@code start} pada URL pencarian, biasanya kelipatan 10).
+	 * Alurnya: (1) bangun/muat dari cache berkas gzip HTML mentah hasil pencarian; bila belum ada
+	 * cache, unduh dari Google Scholar memakai cookie sesi yang berlaku; (2) parse HTML dengan Jsoup
+	 * dan iterasi tiap entri hasil ({@code div.gs_r.gs_or.gs_scl}) untuk mengekstrak judul, tautan,
+	 * deskripsi, jumlah sitasi, dan daftar penulis (lihat catatan selektor CSS di Javadoc kelas); (3)
+	 * untuk tiap penulis dan artikel yang ditemukan, cari record {@link ScholarAuthor}/
+	 * {@link ScholarArticle} existing (berdasarkan userid/nama penulis atau tautan artikel) dan
+	 * simpan/perbarui (saveOrUpdate) dalam transaksi Hibernate native tersendiri per entitas; (4)
+	 * setelah seluruh entri diproses, panggil {@code GoogleScholarCrawlerByUser#updateDataAuthor}
+	 * untuk memperbarui data detail setiap penulis unik yang ditemukan pada iterasi ini.
+	 *
+	 * <p>
+	 * Pada kegagalan HTTP, method ini menangani dua skenario secara otomatis dengan rekursi diri:
+	 * status 503 memicu alur penyelesaian CAPTCHA ({@link #handleCaptchaRequest}) lalu mengulang
+	 * crawl bila berhasil; status 403 memicu permintaan cookie baru lalu mengulang crawl (maksimal
+	 * satu kali pengulangan, dijaga {@link #triedNewCookie}). Kegagalan lain per-entri (mis.
+	 * exception saat parsing satu artikel) ditangkap dan dicatat, tidak menghentikan pemrosesan
+	 * entri lain di halaman yang sama.
+	 * </p>
+	 *
+	 * @param iter     indeks halaman hasil pencarian (nilai parameter {@code start})
+	 * @param keywords kata kunci pencarian
+	 * @return daftar {@link ScholarArticle} yang berhasil diekstrak dan disimpan/diperbarui pada
+	 *         iterasi ini
+	 * @throws Exception diteruskan dari kegagalan IO/parsing yang tidak tertangani secara internal
+	 */
 	@SuppressWarnings({})
 	public List<ScholarArticle> startCrawl(int iter, String keywords) throws Exception {
 
@@ -429,12 +457,27 @@ public class GoogleScholarCrawler extends HtmlDataExtractor {
 		return articleList;
 	}
 
+	/**
+	 * Implementasi kontrak {@code HtmlDataExtractor#search(String)} milik pustaka docear. Tidak
+	 * diimplementasikan (selalu mengembalikan {@code null}) — pencarian sesungguhnya dilakukan lewat
+	 * {@link #startCrawl(int, String)}, bukan lewat method ini.
+	 *
+	 * @param arg0 kata kunci pencarian (tidak dipakai)
+	 * @return selalu {@code null}
+	 */
 	@Override
 	public Collection<MetaData> search(String arg0) {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
+	/**
+	 * Implementasi kontrak {@link java.util.concurrent.Callable#call()} yang diwarisi lewat
+	 * {@code HtmlDataExtractor}. Tidak diimplementasikan (selalu mengembalikan {@code null}).
+	 *
+	 * @return selalu {@code null}
+	 * @throws Exception tidak pernah dilempar oleh implementasi saat ini
+	 */
 	@Override
 	public Collection<MetaData> call() throws Exception {
 		// TODO Auto-generated method stub

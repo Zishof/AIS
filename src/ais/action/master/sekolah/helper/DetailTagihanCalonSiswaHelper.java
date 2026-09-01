@@ -2345,6 +2345,19 @@ public class DetailTagihanCalonSiswaHelper implements DataLoader, DataCriteria {
 		loadData(null);
 	}
 
+	/**
+	 * Memproses berkas Excel (.xlsx) berisi status pembayaran calon siswa untuk periode bulan
+	 * terpilih (dari dropdown {@link #bulans}), dijalankan dengan indikator sibuk dan timer
+	 * polling progres. Untuk setiap tanggal dalam bulan terpilih, kolom terkait dibaca dan status
+	 * pembayaran/tagihan calon siswa diperbarui sesuai isian; ringkasan hasil dan peringatan
+	 * (bila ada) ditampilkan lewat dialog, lalu {@code eventListener} dipanggil dan grid dimuat
+	 * ulang.
+	 *
+	 * @param file            berkas Excel sementara yang sudah tersimpan di server
+	 * @param pengaturanBiaya konfigurasi paket biaya konteks unggahan
+	 * @param eventListener   callback yang dipanggil setelah proses dan dialog ringkasan selesai
+	 * @throws Exception diteruskan dari kegagalan pembangunan komponen UI progres
+	 */
 	public void uploadDataCalonSiswa(final File file, final PengaturanBiaya pengaturanBiaya,
 			final EventListener eventListener) throws Exception {
 

@@ -612,10 +612,12 @@ public class RiwayatPendidikanDosenHelper {
 
 	}
 
+	/** Menyembunyikan baris propinsi (dipakai saat negara terpilih bukan Indonesia). */
 	public void removePropinsi() {
 		rowPropinsi.setVisible(false);
 	}
 
+	/** Menyisipkan combobox kota (disaring berdasarkan {@code propinsi}) ke {@link #rowKota}. */
 	public void insertKota(Rows rows, Propinsi propinsi) {
 		Common.clear(rowKota);
 		rowKota.appendChild(new Label(ais.common.Common.getBahasaConfig("Kota")));
