@@ -111,15 +111,20 @@ public final class ObeRelationMatrixTransferHelper {
 		});
 	}
 
-	private static void pastikanAdaData(MatrixAdapter adapter) throws Exception {
+	private static boolean pastikanAdaData(MatrixAdapter adapter) throws Exception {
 		if (adapter.getRowCount() == 0 || adapter.getColumnCount() == 0) {
-			throw new IllegalStateException("Data matriks belum tersedia. Pilih fakultas/prodi lalu klik Refresh.");
+			MyMessageboxConfig.show("Data matriks belum tersedia. Pilih fakultas/prodi lalu klik Refresh.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			return false;
 		}
+		return true;
 	}
 
 	private static void downloadExcel(MatrixAdapter adapter) {
 		try {
-			pastikanAdaData(adapter);
+			if (!pastikanAdaData(adapter)) {
+				return;
+			}
 			XSSFWorkbook wb = new XSSFWorkbook();
 			Sheet sheet = wb.createSheet("Matriks OBE");
 			Row title = sheet.createRow(0);
@@ -161,7 +166,9 @@ public final class ObeRelationMatrixTransferHelper {
 
 	private static void importExcel(InputStream in, MatrixAdapter adapter) {
 		try {
-			pastikanAdaData(adapter);
+			if (!pastikanAdaData(adapter)) {
+				return;
+			}
 			XSSFWorkbook wb = new XSSFWorkbook(in);
 			Sheet sheet = wb.getSheetAt(0);
 			Row header = sheet.getRow(2);
@@ -207,7 +214,9 @@ public final class ObeRelationMatrixTransferHelper {
 
 	private static void cetakPdf(MatrixAdapter adapter) {
 		try {
-			pastikanAdaData(adapter);
+			if (!pastikanAdaData(adapter)) {
+				return;
+			}
 			ByteArrayOutputStream out = new ByteArrayOutputStream();
 			Document document = new Document((adapter.getColumnCount() > 12 ? PageSize.A3 : PageSize.A4).rotate(), 18, 18, 22, 22);
 			PdfWriter.getInstance(document, out);

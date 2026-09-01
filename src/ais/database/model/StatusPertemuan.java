@@ -117,6 +117,9 @@ public class StatusPertemuan extends GeneralValueObject {
 	}
 
 	public void setNama(String nama) {
+		if (nama != null && nama.length() > 255) {
+			nama = nama.substring(0, 255);
+		}
 		this.nama = nama;
 	}
 
