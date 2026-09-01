@@ -2173,9 +2173,8 @@ public class TampilanPengumumanAkademisAction extends GenericAutowireComposer {
 									boolean harusBayarSebelumLogin = biodataCalonMahasiswa.getGelombangPendaftaran()
 											.getHarusBayarSebelumBisaLogin();
 									if (harusBayarSebelumLogin) {
-										if (biodataCalonMahasiswa.getPembayaranRegistrasi() == null
-												|| biodataCalonMahasiswa.getPembayaranRegistrasi()
-														.getPersentaseLunas() < 0.01) {
+									if (!CommonPMB.isPembayaranRegistrasiTerpenuhi(
+											biodataCalonMahasiswa.getPembayaranRegistrasi())) {
 											MyMessageboxConfig.show(
 										"Mohon maaf, Anda belum dapat mengikuti ujian karena pembayaran registrasi belum dilakukan. Pembayaran registrasi wajib diselesaikan terlebih dahulu sebelum mengikuti ujian. Langkah yang dapat dilakukan: (1) lakukan pembayaran registrasi sesuai ketentuan; (2) tunggu proses verifikasi pembayaran; (3) setelah pembayaran terverifikasi, silakan mengikuti ujian kembali.",
 										"Informasi", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);

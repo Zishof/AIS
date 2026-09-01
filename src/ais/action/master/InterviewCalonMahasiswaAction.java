@@ -667,9 +667,9 @@ public class InterviewCalonMahasiswaAction extends GenericAutowireComposer
         GelombangPendaftaran myGelombangPendaftaran = biodataCalonMahasiswa.getGelombangPendaftaran();
 
         // Gate 1: Pembayaran registrasi
-        if (harusBayarSebelumLogin) {
-            if (biodataCalonMahasiswa.getPembayaranRegistrasi() == null
-                    || biodataCalonMahasiswa.getPembayaranRegistrasi().getPersentaseLunas() < 0.01) {
+		if (harusBayarSebelumLogin) {
+			if (!ais.common.CommonPMB.isPembayaranRegistrasiTerpenuhi(
+					biodataCalonMahasiswa.getPembayaranRegistrasi())) {
                 MyMessageboxConfig.show(
                         "Mohon maaf, calon mahasiswa terlebih dahulu wajib menyelesaikan pembayaran registrasi sebelum dapat mengikuti proses interview. Langkah yang dapat dilakukan: (1) selesaikan pembayaran biaya registrasi; (2) pastikan status pembayaran telah terkonfirmasi lunas; (3) ulangi kembali proses interview.",
                         "Informasi", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);

@@ -176,9 +176,8 @@
 
             // Gate 1: Pembayaran
             if (Boolean.TRUE.equals(gelombang.getHarusBayarSebelumBisaLogin())) {
-                double persen = (cama.getPembayaranRegistrasi() == null)
-                    ? 0.0 : cama.getPembayaranRegistrasi().getPersentaseLunas();
-                if (persen < 0.01) {
+                if (!ais.common.CommonPMB.isPembayaranRegistrasiTerpenuhi(
+                        cama.getPembayaranRegistrasi())) {
                     out.print(new JSONObject()
                         .put("status", "forbidden")
                         .put("message", Common.getBahasaConfig(

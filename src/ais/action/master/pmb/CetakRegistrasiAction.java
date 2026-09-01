@@ -831,8 +831,8 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 					.getHarusBayarSebelumBisaLogin();
 
 			if (harusBayarSebelumLogin) {
-				if (biodataCalonMahasiswa.getPembayaranRegistrasi() == null
-						|| biodataCalonMahasiswa.getPembayaranRegistrasi().getPersentaseLunas() < 0.01) {
+				if (!CommonPMB.isPembayaranRegistrasiTerpenuhi(
+						biodataCalonMahasiswa.getPembayaranRegistrasi())) {
 
 					MyMessageboxConfig.show(
 							"Calon mahasiswa harus melakukan pembayaran registrasi sebelum dapat melengkapi biodata dan berkas.",

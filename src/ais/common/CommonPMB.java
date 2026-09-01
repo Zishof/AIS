@@ -179,7 +179,7 @@ public class CommonPMB {
 		if (calonMahasiswa.getGelombangPendaftaran().getHarusBayarSebelumBisaLogin()) {
 			Kegiatan kegiatan = calonMahasiswa.getPembayaranRegistrasi();
 
-			if (kegiatan == null || kegiatan.getId() == null || !kegiatan.getLunas()) {
+			if (!isPembayaranRegistrasiTerpenuhi(kegiatan)) {
 				String infoBelumbayarSaatLogincalonMahasiswa = Common.getKonfigurasi(
 						"infoBelumbayarSaatProsescalonMahasiswa",
 						"Calon Mahasiswa dengan nomor pendaftaran [noreg] belum dapat diproses karena belum melakukan proses pembayaran.")
@@ -256,6 +256,26 @@ public class CommonPMB {
 		}
 		String value = nim.trim();
 		return value.indexOf("--") < 0 && value.indexOf('_') < 0 && value.indexOf('-') < 0;
+	}
+
+	/**
+	 * Menentukan apakah syarat pembayaran registrasi telah terpenuhi.
+	 * Tagihan netto Rp0 (misalnya karena diskon/potongan 100%) tidak memerlukan
+	 * transaksi pembayaran dan harus tetap dapat melanjutkan proses PMB.
+	 * Data kegiatan tetap wajib tersedia agar kondisi data tagihan yang belum
+	 * terbentuk tidak keliru dianggap gratis.
+	 */
+	public static boolean isPembayaranRegistrasiTerpenuhi(Kegiatan kegiatan) {
+		if (kegiatan == null || kegiatan.getId() == null) {
+			return false;
+		}
+		Double tagihan = kegiatan.getTagihan();
+		if (tagihan != null && Math.abs(tagihan.doubleValue()) < 0.01) {
+			return true;
+		}
+		Double persentaseLunas = kegiatan.getPersentaseLunas();
+		return Boolean.TRUE.equals(kegiatan.getLunas())
+				|| (persentaseLunas != null && persentaseLunas.doubleValue() >= 99.0);
 	}
 
 	public static boolean isNimPmbMengandungTandaHubung(String nim) {

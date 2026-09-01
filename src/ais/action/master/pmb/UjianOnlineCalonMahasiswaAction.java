@@ -311,7 +311,7 @@ public class UjianOnlineCalonMahasiswaAction extends GenericAutowireComposer {
 					kegiatan = KegiatanHelper.checkKegiatanCalonMahasiswa(jenisKegiatan, biodataCalonMahasiswa, smt,
 							biodataCalonMahasiswa.getTahunAkademik(), true, false, null, session);
 				}
-				if (kegiatan != null && kegiatan.getId() != null && kegiatan.getPersentaseLunas() < 1.0) {
+				if (!ais.common.CommonPMB.isPembayaranRegistrasiTerpenuhi(kegiatan)) {
 					String infoBelumbayarSaatLogincalonMahasiswa = Common.getKonfigurasi(
 							"infoBelumbayarSaatLogincalonMahasiswa",
 							"Calon Mahasiswa dengan nomor pendaftaran [noreg] belum dapat menlanjutkan proses ini karena belum melakukan proses pembayaran.")

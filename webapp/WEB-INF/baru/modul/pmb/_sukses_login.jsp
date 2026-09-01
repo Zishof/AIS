@@ -22,6 +22,7 @@
 <%@page import="ais.database.model.RuangPaketPMB"%>
 <%@page import="ais.database.model.file.LampiranLain"%>
 <%@page import="ais.common.Common"%>
+<%@page import="ais.common.CommonPMB"%>
 <%@page import="ais.common.CommonMedia"%>
 <%@page import="ais.ui.util.WaktuUtil"%>
 <%@page import="ais.common.VerifikasiPMBHtmlHelper"%>
@@ -161,7 +162,8 @@ try {
 		        
 		        if (harusBayarSblmLogin) {
 		            Kegiatan reg = cama.getPembayaranRegistrasi();
-		            if (!isPendaftaranGratisPmbPortal(cama) && (reg == null || reg.getPersentaseLunas() < 0.01)) {
+		            if (!isPendaftaranGratisPmbPortal(cama)
+		                    && !CommonPMB.isPembayaranRegistrasiTerpenuhi(reg)) {
 		                allowEditBiodata = false;
 		                denyEditMessage = Common.getBahasaConfig("Calon mahasiswa harus melakukan pembayaran registrasi terlebih dahulu sebelum dapat melengkapi biodata dan berkas.");
 		            }
