@@ -12975,11 +12975,11 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 		rows.appendChild(createRowNilai("Lokasi file temprorary lain — dipakai di: ConstantValues", "lokasi_file_temprorary_lain", ""));
 		rows.appendChild(createRowNilai("Lokasi penyimpanan file data — dipakai di: Common", "lokasi_penyimpanan_file_data", "/backup2/backup_file"));
 		rows.appendChild(createRowNilai("Maja BILLING HOST — dipakai di: BSIMajaUtil", "maja_BILLING_HOST", "https://billing-bpi-dev.maja.id"));
-		rows.appendChild(createRowNilai("Maja CLIENT ID — dipakai di: BSIMajaUtil", "maja_CLIENT_ID", "BPI7512"));
-		rows.appendChild(createRowNilai("Maja CLIENT SECRET — dipakai di: BSIMajaUtil", "maja_CLIENT_SECRET", "JRs0EtuebD0XpC0JVXQOc6kUPZ7o24rG"));
-		rows.appendChild(createRowNilai("Maja PASSWORD — dipakai di: BSIMajaUtil", "maja_PASSWORD", "7512"));
+		rows.appendChild(createRowNilai("Maja CLIENT ID — dipakai di: BSIMajaUtil", "maja_CLIENT_ID", ""));
+		rows.appendChild(createRowNilai("Maja CLIENT SECRET — dipakai di: BSIMajaUtil", "maja_CLIENT_SECRET", ""));
+		rows.appendChild(createRowNilai("Maja PASSWORD — dipakai di: BSIMajaUtil", "maja_PASSWORD", ""));
 		rows.appendChild(createRowNilai("Maja TOKEN URL — dipakai di: BSIMajaUtil", "maja_TOKEN_URL", "https://account.makaramas.com/auth/realms/bpi-dev/protocol/openid-connect/token"));
-		rows.appendChild(createRowNilai("Maja USERNAME — dipakai di: BSIMajaUtil", "maja_USERNAME", "7512"));
+		rows.appendChild(createRowNilai("Maja USERNAME — dipakai di: BSIMajaUtil", "maja_USERNAME", ""));
 		rows.appendChild(createRowNilai("Maja bank host ip — dipakai di: TampilanPaymentGateway", "maja_bank_host_ip", ""));
 		rows.appendChild(createRowActiveDefault("Maja pakai tanpa amount — dipakai di: DownloadTagihanAnggotaKoperasiBankOnline, DownloadTagihanSiswaBankOnline", "maja_pakai_tanpa_amount", Konfigurasi.AKTIF));
 		rows.appendChild(createRowNilai("Max upload via drive baru — dipakai di: AmbilDataAudioPertemuan, AmbilDataLampiranFileLain, AmbilDataPertemuanFileContent, AmbilDataTugasFileContent, dll", "max_upload_via_drive_baru", "300"));

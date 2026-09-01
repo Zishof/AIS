@@ -38,20 +38,18 @@ import ais.database.model.sekolah.Sekolah;
  * (bandingkan dengan util Faspay untuk penyedia pembayaran lain).
  *
  * <p>
- * <b>PERINGATAN KEAMANAN — kredensial tertanam (hardcoded) sebagai nilai default</b>: method
- * {@link #sendRequestToken(Sekolah, KanalPembayaran)} memakai
- * {@link Common#getKonfigurasi(String, String)} dengan nilai default literal yang tertanam
- * langsung di kode sumber untuk kredensial klien BSI/Maja bila konfigurasi database belum diisi
- * ataupun objek {@link Sekolah}/{@link KanalPembayaran} tidak menyediakannya: {@code CLIENT_ID}
- * default {@code "BPI7512"}, {@code CLIENT_SECRET} default
- * {@code "JRs0EtuebD0XpC0JVXQOc6kUPZ7o24rG"}, {@code USERNAME} default {@code "7512"}, dan
- * {@code PASSWORD} default {@code "7512"}. Kredensial ini tampak seperti kredensial akun
- * lingkungan pengujian/development (URL token default juga mengarah ke realm
- * {@code bpi-dev} pada {@code account.makaramas.com}), namun tetap merupakan rahasia yang
- * tersimpan sebagai plain text di riwayat kontrol versi dan dapat dipakai sebagai fallback diam-diam
- * pada lingkungan produksi bila baris konfigurasi terkait belum pernah diisi eksplisit di
- * database. Nilai-nilai ini TIDAK diubah sebagai bagian dari penambahan Javadoc ini — lihat
- * catatan keamanan pada laporan dokumentasi.
+ * <b>Riwayat keamanan (DIPERBAIKI 2026-09-01):</b> method
+ * {@link #sendRequestToken(Sekolah, KanalPembayaran)} sebelumnya memakai
+ * {@link Common#getKonfigurasi(String, String)} dengan nilai default literal (kredensial klien
+ * BSI/Maja lingkungan pengujian/development, mengingat URL token default mengarah ke realm
+ * {@code bpi-dev} pada {@code account.makaramas.com}) yang tertanam langsung di kode sumber untuk
+ * {@code CLIENT_ID}/{@code CLIENT_SECRET}/{@code USERNAME}/{@code PASSWORD} bila konfigurasi
+ * database belum diisi ataupun objek {@link Sekolah}/{@link KanalPembayaran} tidak
+ * menyediakannya. Seluruh default rahasia tersebut sudah DIHAPUS (kini string kosong). Baris
+ * {@code System.out.println} yang sebelumnya mencetak isi respons token OAuth mentah (setara
+ * access token itu sendiri) juga sudah dihapus. <b>Tindak lanjut yang TETAP diperlukan di luar
+ * perubahan kode ini:</b> kredensial yang sebelumnya tertanam sudah lama berada di riwayat SVN
+ * dan WAJIB dianggap bocor — perlu ditinjau/dirotasi di sisi BSI/Maja bila masih aktif.
  * </p>
  *
  * <p>
@@ -193,18 +191,18 @@ public class BSIMajaUtil {
 
 		String CLIENT_ID = sekolah != null && sekolah.getId() != null && !sekolah.getBsiMerchantId().isEmpty()
 				? sekolah.getBsiMerchantId()
-				: Common.getKonfigurasi("maja_CLIENT_ID", "BPI7512").getNilai();
+				: Common.getKonfigurasi("maja_CLIENT_ID", "").getNilai();
 		String CLIENT_SECRET = sekolah != null && sekolah.getId() != null && !sekolah.getBsiScretId().isEmpty()
 				? sekolah.getBsiScretId()
-				: Common.getKonfigurasi("maja_CLIENT_SECRET", "JRs0EtuebD0XpC0JVXQOc6kUPZ7o24rG").getNilai();
+				: Common.getKonfigurasi("maja_CLIENT_SECRET", "").getNilai();
 		String TOKEN_URL = Common.getKonfigurasi("maja_TOKEN_URL",
 				"https://account.makaramas.com/auth/realms/bpi-dev/protocol/openid-connect/token").getNilai();
 		String USERNAME = sekolah != null && sekolah.getId() != null && !sekolah.getBsiUsername().isEmpty()
 				? sekolah.getBsiUsername()
-				: Common.getKonfigurasi("maja_USERNAME", "7512").getNilai();
+				: Common.getKonfigurasi("maja_USERNAME", "").getNilai();
 		String PASSWORD = sekolah != null && sekolah.getId() != null && !sekolah.getBsiPassword().isEmpty()
 				? sekolah.getBsiPassword()
-				: Common.getKonfigurasi("maja_PASSWORD", "7512").getNilai();
+				: Common.getKonfigurasi("maja_PASSWORD", "").getNilai();
 
 		if (kanalPembayaran != null && !kanalPembayaran.getBsiMerchantId().isEmpty()) {
 			CLIENT_ID = kanalPembayaran.getBsiMerchantId();
@@ -252,11 +250,8 @@ public class BSIMajaUtil {
 			};
 
 			String responseBody = httpclient.execute(httpPost, responseHandler);
-			System.out.println("----------------------------------------");
-			System.out.println(responseBody);
 
 			JSONObject token = new JSONObject(responseBody);
-			System.out.println("token = " + token);
 
 			CLIENT_TOKEN = token.getString("access_token");
 //			Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();

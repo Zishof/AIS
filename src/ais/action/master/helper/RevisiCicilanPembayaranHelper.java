@@ -16,15 +16,21 @@ import ais.database.model.Kegiatan;
 import ais.database.model.PengaturanPembayaranBulanan;
 
 /**
- * Versi generic dari helper revisi lama.
+ * Subclass dari {@link ais.action.master.helper.GenericRevisiHelper} untuk entity
+ * {@link ais.database.model.CicilanPembayaran} (rencana/jadwal cicilan pembayaran siswa/mahasiswa)
+ * — lihat Javadoc class tersebut untuk penjelasan lengkap arsitektur window, alur Envers, dan
+ * fitur restore. Berbeda dari kebanyakan subclass lain di package ini, class ini punya logika
+ * tambahan nyata: dua konstruktor (dengan/tanpa filter {@link Kegiatan} lewat
+ * {@link GenericRevisiHelper.FixedPropertyFilter}) serta override hook
+ * {@code afterRestoreInTransaction} untuk memperbaiki data turunan pasca-restore.
  *
- * Semua proses baca/restore revisi dipusatkan di GenericRevisiHelper<T> agar:
- * - code lebih ringkas dan mudah dirawat;
- * - semua Hibernate Session memakai openSession();
- * - semua Session ditutup di finally melalui session.clear(), session.disconnect(), dan session.close();
- * - fitur restore satu revisi dan restore massal dari tanggal tertentu tetap tersedia.
+ * <p>Field pencarian: {@code nama}, {@code kode}, {@code keterangan}. Konstruktor kedua
+ * ({@link #RevisiCicilanPembayaranHelper(EventListener, Kegiatan)}) menyaring riwayat hanya untuk
+ * satu {@link Kegiatan} — dipakai saat window revisi dibuka dari konteks satu kegiatan spesifik
+ * (mis. dari layar cicilan pembayaran suatu kegiatan), sementara konstruktor pertama menampilkan
+ * riwayat seluruh cicilan tanpa penyaringan kegiatan.
  *
- * Kompatibel Java 1.7 / source 1.6.
+ * <p>Kompatibel Java 1.7 / source 1.6.
  */
 @SuppressWarnings({ "rawtypes", "unchecked" })
 public class RevisiCicilanPembayaranHelper extends GenericRevisiHelper<CicilanPembayaran> {
@@ -32,6 +38,11 @@ public class RevisiCicilanPembayaranHelper extends GenericRevisiHelper<CicilanPe
 	private static final long serialVersionUID = 6589578552710016753L;
 	private static final String[] SEARCH_PROPERTIES = new String[] { "nama", "kode", "keterangan" };
 
+	/**
+	 * Membangun daftar {@link QueryCustomizer} berdasarkan {@code kegiatan}: jika {@code null}
+	 * mengembalikan array kosong (tanpa penyaringan), selain itu mengembalikan satu
+	 * {@link GenericRevisiHelper.FixedPropertyFilter} pada property {@code kegiatan}.
+	 */
 	private static QueryCustomizer[] buildFilters(Kegiatan kegiatan) {
 		java.util.List<QueryCustomizer> filters = new java.util.ArrayList<QueryCustomizer>();
 		if (kegiatan != null) {
@@ -40,18 +51,48 @@ public class RevisiCicilanPembayaranHelper extends GenericRevisiHelper<CicilanPe
 		return filters.toArray(new QueryCustomizer[filters.size()]);
 	}
 
+	/**
+	 * Membuka jendela riwayat revisi {@link CicilanPembayaran} tanpa penyaringan kegiatan
+	 * (menampilkan riwayat seluruh cicilan pembayaran).
+	 *
+	 * @param eventListener callback yang diteruskan ke {@link GenericRevisiHelper}, boleh {@code null}
+	 * @throws Exception diteruskan apa adanya dari konstruktor {@link GenericRevisiHelper}
+	 */
 	public RevisiCicilanPembayaranHelper(EventListener eventListener) throws Exception {
 		super(CicilanPembayaran.class, "Revisi Cicilan Pembayaran", eventListener, SEARCH_PROPERTIES, buildFilters(null));
 	}
 
+	/**
+	 * Membuka jendela riwayat revisi {@link CicilanPembayaran} yang disaring hanya untuk satu
+	 * {@link Kegiatan}.
+	 *
+	 * @param eventListener callback yang diteruskan ke {@link GenericRevisiHelper}, boleh {@code null}
+	 * @param kegiatan kegiatan yang membatasi riwayat yang ditampilkan; bila {@code null} perilaku
+	 *                 sama seperti {@link #RevisiCicilanPembayaranHelper(EventListener)} (tanpa filter)
+	 * @throws Exception diteruskan apa adanya dari konstruktor {@link GenericRevisiHelper}
+	 */
 	public RevisiCicilanPembayaranHelper(EventListener eventListener, Kegiatan kegiatan) throws Exception {
 		super(CicilanPembayaran.class, "Revisi Cicilan Pembayaran", eventListener, SEARCH_PROPERTIES, buildFilters(kegiatan));
 	}
 
 	/**
-	 * Setelah restore generik selesai (tapi sebelum commit), pastikan
-	 * pengaturanPembayaranBulanan tidak null jika jenisKegiatan wajib angsuran
-	 * atau ada riwayat PPB non-null di Envers.
+	 * Override hook restore milik induk: setelah restore generik selesai (tapi sebelum commit),
+	 * pastikan field {@code pengaturanPembayaranBulanan} pada {@link CicilanPembayaran} yang
+	 * direstore tetap terisi bila memang seharusnya wajib ada. Diperlukan karena field ini punya
+	 * aturan bisnis turunan (dicari dari {@link JenisKegiatan#getHanyaBerupaAngsuran()} atau dari
+	 * riwayat Envers terakhir yang punya PPB non-null) yang tidak selalu tersimpan apa adanya pada
+	 * snapshot revisi lama — tanpa perbaikan ini, restore murni dari snapshot Envers bisa
+	 * menghasilkan {@link CicilanPembayaran} tanpa pengaturan pembayaran bulanan padahal
+	 * seharusnya wajib angsuran.
+	 *
+	 * <p>Langkah: (1) muat ulang entity dari {@code session} agar state terkini pasca-merge; (2)
+	 * bila sudah punya PPB, tidak ada yang perlu diperbaiki; (3) tentukan apakah kegiatan terkait
+	 * wajib angsuran lewat {@link JenisKegiatan}; (4) cari revisi Envers terakhir (bukan hasil
+	 * hapus) yang punya {@code pengaturanPembayaranBulanan} non-null lewat
+	 * {@link #findLastNonNullPpb(AuditReader, Serializable)}; (5) bila wajib angsuran atau ada
+	 * riwayat PPB, terapkan PPB tersebut (dimuat ulang dari session bila memungkinkan) dan simpan.
+	 *
+	 * @see ais.action.master.helper.GenericRevisiHelper#afterRestoreInTransaction(org.hibernate.Session, org.hibernate.envers.AuditReader, java.lang.Object)
 	 */
 	@Override
 	protected void afterRestoreInTransaction(Session session, AuditReader reader, Object entity) throws Exception {
@@ -119,6 +160,19 @@ public class RevisiCicilanPembayaranHelper extends GenericRevisiHelper<CicilanPe
 		session.flush();
 	}
 
+	/**
+	 * Mencari {@link PengaturanPembayaranBulanan} non-null terakhir dari riwayat revisi Envers
+	 * {@link CicilanPembayaran} dengan {@code cicilanId} tertentu, dengan mengabaikan revisi
+	 * bertipe {@link RevisionType#DEL} (hapus). Dipakai oleh {@link #afterRestoreInTransaction}
+	 * untuk menebak nilai PPB yang seharusnya berlaku ketika snapshot revisi yang direstore
+	 * sendiri tidak membawa nilai tersebut.
+	 *
+	 * @param reader {@link AuditReader} Envers aktif pada session/transaksi restore
+	 * @param cicilanId id {@link CicilanPembayaran} yang riwayatnya ditelusuri
+	 * @return PPB non-null terakhir yang ditemukan, atau {@code null} bila tidak ada riwayat
+	 *         yang cocok atau terjadi kegagalan saat query (kegagalan ditelan, dicatat lewat
+	 *         {@code ErrorAuditUtil} bila relevan)
+	 */
 	private PengaturanPembayaranBulanan findLastNonNullPpb(AuditReader reader, Serializable cicilanId) {
 		try {
 			AuditQuery q = reader.createQuery()

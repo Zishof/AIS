@@ -15,14 +15,19 @@ import org.hibernate.envers.query.AuditEntity;
 import org.hibernate.envers.query.criteria.AuditCriterion;
 
 /**
- * Helper riwayat revisi (Envers audit trail) untuk entitas {@link CicilanPembayaran} yang terkait
- * dengan Kegiatan Temporary (mis. kegiatan PPDB/Temporary sebelum data resmi dipindah). Kelas ini
- * murni memasang parameter konstruksi ke {@link GenericRevisiHelper} — judul jendela, daftar kolom
- * yang ditampilkan ({@code keterangan}, {@code kode}, {@code nama}), dan opsional
+ * Subclass dari {@link ais.action.master.helper.GenericRevisiHelper} untuk entity
+ * {@link ais.database.model.CicilanPembayaran} yang terkait dengan Kegiatan Temporary (mis.
+ * kegiatan PPDB/Temporary sebelum data resmi dipindah) — lihat Javadoc class tersebut untuk
+ * penjelasan lengkap arsitektur window, alur Envers, dan fitur restore. Kelas ini murni memasang
+ * parameter konstruksi ke {@link GenericRevisiHelper} — judul jendela, daftar kolom pencarian
+ * ({@code keterangan}, {@code kode}, {@code nama}), dan opsional
  * {@link GenericRevisiHelper.QueryCustomizer} untuk membatasi hasil audit hanya pada satu atau
- * beberapa {@link KegiatanTemporary}. Tidak ada logika query/agregasi tambahan di luar itu; seluruh
- * mekanisme baca-audit (Hibernate Envers {@link AuditReader}/{@link AuditQuery}) ditangani oleh
- * kelas induk.
+ * beberapa {@link KegiatanTemporary}. Tidak ada logika query/agregasi tambahan di luar itu, dan
+ * tidak ada override hook {@code afterRestoreInTransaction}; seluruh mekanisme baca-audit
+ * (Hibernate Envers {@link AuditReader}/{@link AuditQuery}) ditangani oleh kelas induk.
+ *
+ * <p>Tiga konstruktor tersedia sesuai kebutuhan penyaringan: tanpa filter (semua riwayat), disaring
+ * satu {@link KegiatanTemporary}, atau disaring sekumpulan {@link KegiatanTemporary} (kondisi OR).
  */
 @SuppressWarnings({ "rawtypes", "unchecked" })
 public class RevisiCicilanPembayaranTemporaryHelper extends GenericRevisiHelper<CicilanPembayaran> {
