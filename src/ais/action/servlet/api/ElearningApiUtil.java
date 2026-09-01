@@ -3085,6 +3085,23 @@ public class ElearningApiUtil {
 				+ "coba hapus kembali. Jangan menghapus atau mengubah relasi langsung di database.";
 	}
 
+	private static long jumlahPengumpulanTugasKelompok(Long tugasKelompokId) {
+		Session streamingSession = null;
+		try {
+			streamingSession = StreamingHibernateUtil.getInstance().openSession();
+			Object jumlah = streamingSession.createCriteria(TugasFileContent.class)
+					.add(Restrictions.eq("pertemuan", tugasKelompokId))
+					.add(Restrictions.or(Restrictions.isNull("classFrom"),
+							Restrictions.ilike("classFrom", TugasKelompok.class.getName(), MatchMode.START)))
+					.setProjection(Projections.rowCount()).uniqueResult();
+			return jumlah instanceof Number ? ((Number) jumlah).longValue() : 0L;
+		} finally {
+			if (streamingSession != null && streamingSession.isOpen()) {
+				streamingSession.close();
+			}
+		}
+	}
+
 	@SuppressWarnings("rawtypes")
 	public static JSONObject prosesHapus(HttpServletRequest req, JSONObject request) throws Exception {
 		JSONObject jsonObject = new JSONObject();
@@ -3141,9 +3158,7 @@ public class ElearningApiUtil {
 				long jumlahKelompok = ((Number) session.createCriteria(NamaTugasKelompok.class)
 						.add(Restrictions.eq("tugasKelompok", tugasKelompok))
 						.setProjection(Projections.rowCount()).uniqueResult()).longValue();
-				long jumlahPengumpulan = ((Number) session.createCriteria(TugasFileContent.class)
-						.add(Restrictions.eq("pertemuan", tugasKelompok.getId()))
-						.setProjection(Projections.rowCount()).uniqueResult()).longValue();
+				long jumlahPengumpulan = jumlahPengumpulanTugasKelompok(tugasKelompok.getId());
 				if (jumlahKelompok > 0 || jumlahPengumpulan > 0) {
 					jsonObject.put("status", "93");
 					jsonObject.put("description", jumlahPengumpulan > 0

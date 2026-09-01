@@ -59,6 +59,7 @@ x.id_dosen as dosen,
 x.id_dosen,
 mahasiswa,
 max(bobot) as bobot,
+max(nomor_urut) as nomor_urut,
 max(x.nilai) as nilai,
 x.perkuliahan,
 max(nama_perkuliahan) as nama_perkuliahan
@@ -70,6 +71,7 @@ from(
 	b.id,
 	b.isi,
 	b.bobot,
+	b.nomor_urut,
 	nama_dosen as nama_dosen,
 	mahasiswa,
 	dosen as id_dosen,
@@ -124,6 +126,7 @@ from(
 ) x
 GROUP BY x.id_dosen,x.grup_id,x.perkuliahan,mahasiswa,x.id
 order by x.id_dosen,x.grup_id,x.perkuliahan,mahasiswa,
+coalesce(max(x.nomor_urut), 2147483647),
 case
 when trim(max(x.isi)) ~ '^[0-9]+' then substring(trim(max(x.isi)) from '^[0-9]+')::integer
 else 2147483647

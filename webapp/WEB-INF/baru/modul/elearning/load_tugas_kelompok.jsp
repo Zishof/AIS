@@ -273,18 +273,16 @@
                             <i class="fas fa-eye me-1"></i> <%=Common.getBahasaConfig("Detail Tugas") %>
                         </button>
                         <% } %>
-	                        <% if (pertemuanKlp != null && pertemuanKlp.bolehUbahAbsenSaja(tbmuser)) { %>
-	                        <button class="btn btn-outline-dark btn-sm rounded-pill fw-bold"
-	                                onclick="window.open('<%=Common.ROOT%>/baru?hanya_tampil_jsp=true&p=elearning%2Ftugas&s=download_semua&idTugas=<%=tugas.getId()%>&jenis=TugasKelompok', '_blank');">
-	                            <i class="fas fa-download me-1"></i> <%=Common.getBahasaConfig("Download Semua") %>
-	                        </button>
-	                        <% if (namaTugasKelompoks == null || namaTugasKelompoks.isEmpty()) { %>
-	                        <button class="btn btn-outline-danger btn-sm rounded-pill fw-bold"
-	                                onclick="prosesDeleteData('<%=TugasKelompok.class.getName()%>', '<%=tugas.getId()%>', function(){ var kartu=document.querySelector('[data-id=&quot;<%=tugas.getId()%>&quot;]'); if(kartu){kartu.remove();} });">
-	                            <i class="fas fa-trash-alt me-1"></i> <%=Common.getBahasaConfig("Hapus Tugas Kelompok") %>
-	                        </button>
-	                        <% } %>
-	                        <% } %>
+                        <% if (pertemuanKlp != null && pertemuanKlp.bolehUbahAbsenSaja(tbmuser)) { %>
+                        <button class="btn btn-outline-dark btn-sm rounded-pill fw-bold"
+                                onclick="window.open('<%=Common.ROOT%>/baru?hanya_tampil_jsp=true&p=elearning%2Ftugas&s=download_semua&idTugas=<%=tugas.getId()%>&jenis=TugasKelompok', '_blank');">
+                            <i class="fas fa-download me-1"></i> <%=Common.getBahasaConfig("Download Semua") %>
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm rounded-pill fw-bold"
+                                onclick="prosesDeleteData('<%=TugasKelompok.class.getName()%>', '<%=tugas.getId()%>', function(){ var kartu=document.querySelector('[data-id=&quot;<%=tugas.getId()%>&quot;]'); if(kartu){kartu.remove();} });">
+                            <i class="fas fa-trash-alt me-1"></i> <%=Common.getBahasaConfig("Hapus Tugas Kelompok") %>
+                        </button>
+                        <% } %>
                     </div>
                 </div>
             </div>

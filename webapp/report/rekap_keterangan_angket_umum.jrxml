@@ -59,6 +59,7 @@ x.id_dosen as dosen,
 x.id_dosen,
 mahasiswa,
 max(bobot) as bobot,
+max(nomor_urut) as nomor_urut,
 max(x.nilai) as nilai,
 x.perkuliahan,
 max(nama_perkuliahan) as nama_perkuliahan
@@ -70,6 +71,7 @@ from(
 	b.id,
 	b.isi,
 	b.bobot,
+	b.nomor_urut,
 	nama_dosen as nama_dosen,
 	mahasiswa,
 	dosen as id_dosen,
@@ -123,7 +125,7 @@ from(
 	and (b.aktif or b.aktif is null) and (b1.aktif or b1.aktif is null)
 ) x
 GROUP BY x.id_dosen,x.grup_id,x.perkuliahan,mahasiswa,x.id
-order by x.id_dosen,x.grup_id,x.perkuliahan,mahasiswa,x.id]]>
+order by x.id_dosen,x.grup_id,x.perkuliahan,mahasiswa,coalesce(max(x.nomor_urut), 2147483647),x.id]]>
 	</queryString>
 	<field name="grup_id" class="java.lang.Long"/>
 	<field name="grup" class="java.lang.String"/>

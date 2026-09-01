@@ -57,6 +57,7 @@ from (
 select
 e.nama as dosen,
 e.id as id_dosen,
+min(coalesce(a.nomor_urut, 2147483647)) as urut_checklist,
 (((sum(x.nilai1)*1)+(sum(x.nilai2)*2)+(sum(x.nilai3)*3)+(sum(x.nilai4)*4)+(sum(x.nilai5)*5))*100)/(sum(x.total)*max(b1.jumlahPilihan)*1.00) as "total"
 from rekap_angket_dosen x
 inner join checklist_penilaian_dosen a on (a.id=x.checklist_penilaian_dosen)
@@ -72,10 +73,11 @@ and case when $P{fakultas}=-1 then true else d.fakultas=$P{fakultas} end
 and case when $P{program}='-1' then true else c.program=$P{program} end
 and (a.aktif or a.aktif is null) and (b.aktif or b.aktif is null)
 GROUP BY e.id
-) xx order by total desc]]>
+) xx order by total desc,urut_checklist,id_dosen]]>
 	</queryString>
 	<field name="dosen" class="java.lang.String"/>
 	<field name="id_dosen" class="java.lang.Long"/>
+	<field name="urut_checklist" class="java.lang.Integer"/>
 	<field name="total" class="java.math.BigDecimal"/>
 	<background>
 		<band splitType="Stretch"/>

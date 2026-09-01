@@ -2267,9 +2267,11 @@ public class RpsObeAction extends GenericAutowireComposer {
 
 		nilaiMenggunakanCpmk = new MyCheckboxConfig(Common.getBahasaConfig("Ya"));
 		nilaiMenggunakanCpmk.setChecked(kurikulumPunyaMatakuliah.getNilaiMenggunakanCpmk());
+		nilaiMenggunakanCpmk.setTooltiptext(Common.getBahasaConfig(
+				"Aktif: rincian menggunakan CPMK. Nonaktif: rincian menggunakan Sub-CPMK."));
 		nilaiMenggunakanCpmk.addEventListener("onClick", eventListener);
 		createRowLabelAndValue(rowsUtama,
-				Common.getBahasaConfig("Bobot Penilaian Menggunakan CPMK (Tidak ada Sub-CPMK)"),
+				Common.getBahasaConfig("Gunakan CPMK Langsung (nonaktifkan untuk memakai Sub-CPMK)"),
 				bolehUbahObe ? nilaiMenggunakanCpmk
 						: new Label(kurikulumPunyaMatakuliah.getNilaiMenggunakanCpmk() ? Common.getBahasaConfig("Ya")
 								: Common.getBahasaConfig("Tidak")));

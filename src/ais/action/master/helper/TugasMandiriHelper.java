@@ -283,10 +283,14 @@ public class TugasMandiriHelper {
 
 	private static void tampilkanPeringatanFormatNilaiTidakValid(FormatNilai formatNilai) {
 		String label = formatNilai == null ? "" : (" (" + formatNilai.getNama() + ")");
-		MyMessageboxConfig.show("Format nilai yang dipilih" + label
-				+ " sudah tidak ditemukan di database. Sistem mengosongkan pilihan tersebut agar Tugas/UTS/UAS tetap dapat disimpan. "
-				+ "Silakan pilih format nilai yang masih aktif, lalu simpan kembali.",
-				"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+		try {
+			MyMessageboxConfig.show("Format nilai yang dipilih" + label
+					+ " sudah tidak ditemukan di database. Sistem mengosongkan pilihan tersebut agar Tugas/UTS/UAS tetap dapat disimpan. "
+					+ "Silakan pilih format nilai yang masih aktif, lalu simpan kembali.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+		}
 	}
 
 	private MyGrid uploadTugasGrid;

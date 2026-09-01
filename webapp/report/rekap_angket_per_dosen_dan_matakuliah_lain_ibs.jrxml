@@ -77,7 +77,7 @@ and case when $P{dosen}=-1 then true else x.dosen=$P{dosen} end
 and (a.aktif=true or a.aktif is null)
 and (b.aktif=true or b.aktif is null)
 GROUP BY e.id,c.id,c1.id
-order by e.id,c.id,c1.id]]>
+order by e.id,c.id,c1.id,min(coalesce(a.nomor_urut, 2147483647))]]>
 	</queryString>
 	<field name="dosen" class="java.lang.String"/>
 	<field name="id_dosen" class="java.lang.Long"/>

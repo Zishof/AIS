@@ -62,7 +62,8 @@ max(j.nama) as nama_jurusan,
 max(f.nama) as nama_fakultas,
 max(case when m.nama is not null then m.nama else  m2.usernama end) as pengguna,
 min(x.tanggal_dirubah) as mulai,
-max(x.tanggal_dirubah) as sampai
+max(x.tanggal_dirubah) as sampai,
+min(coalesce(b.nomor_urut, 2147483647)) as urut_checklist
 
 from checklist_hasil_penilaian_umum x
 inner JOIN checklist_penilaian_umum b on x.checklist_penilaian_umum=b.id
@@ -83,7 +84,7 @@ and (bb.aktif or bb.aktif is null)
 and case when $P{diperuntukkan}='Semua' then true else bb.diperuntukkan=$P{diperuntukkan} end
 and x.tbmuser_dinilai is null
 GROUP BY (case when m.nim is not null then m.nim else  m2.userid end)
-order by max(f.id),max(j.id),max(case when m.nama is not null then m.nama else  m2.usernama end)]]>
+order by max(f.id),max(j.id),max(case when m.nama is not null then m.nama else  m2.usernama end),urut_checklist]]>
 	</queryString>
 	<field name="jurusan" class="java.lang.Long"/>
 	<field name="fakultas" class="java.lang.Long"/>
@@ -92,6 +93,7 @@ order by max(f.id),max(j.id),max(case when m.nama is not null then m.nama else  
 	<field name="pengguna" class="java.lang.String"/>
 	<field name="mulai" class="java.sql.Timestamp"/>
 	<field name="sampai" class="java.sql.Timestamp"/>
+	<field name="urut_checklist" class="java.lang.Integer"/>
 	<group name="fakultas" isStartNewPage="true">
 		<groupExpression><![CDATA[$F{fakultas}]]></groupExpression>
 		<groupHeader>

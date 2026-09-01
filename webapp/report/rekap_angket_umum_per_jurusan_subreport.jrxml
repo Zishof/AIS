@@ -58,7 +58,7 @@ and (bb.aktif or bb.aktif is null)
 and x.tbmuser_dinilai is null
 and case when $P{diperuntukkan}='Semua' then true else bb.diperuntukkan=$P{diperuntukkan} end
 GROUP BY bb.id,b.id,j.id,f.id
-order by f.id,j.id,b.isi]]>
+order by f.id,j.id,coalesce(b.nomor_urut, 2147483647),b.isi,b.id]]>
 	</queryString>
 	<field name="isi" class="java.lang.String"/>
 	<field name="nilai 1" class="java.lang.Long"/>

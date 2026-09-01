@@ -98,6 +98,7 @@ and case $P{semester_pendek} when -1 then c.status_semesterpendek is null else c
 
 GROUP BY e.id,b.id,a.id
 order by e.id,b.id,
+coalesce(max(a.nomor_urut), 2147483647),
 case
 when trim(max(a.isi)) ~ '^[0-9]+' then substring(trim(max(a.isi)) from '^[0-9]+')::integer
 else 2147483647
