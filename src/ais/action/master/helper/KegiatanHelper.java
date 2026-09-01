@@ -61,6 +61,7 @@ import ais.database.model.CicilanPembayaran;
 import ais.database.model.DetailBiaya;
 import ais.database.model.DetailKegiatan;
 import ais.database.model.Fakultas;
+import ais.database.model.GeneralValueObject;
 import ais.database.model.HistoryStatusMahasiswa;
 import ais.database.model.ItemBiaya;
 import ais.database.model.JadwalPembayaran;
@@ -85,6 +86,30 @@ import ais.ui.util.MyTextbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
+/**
+ * Helper terfokus untuk kegiatan. Tipe ini membungkus satu variasi kecil dari alur yang lebih umum
+ * agar pemanggil memakai nama domain yang jelas dan tidak menggandakan implementasi.
+ *
+ * <p><b>Batas tanggung jawab:</b> gunakan tipe ini hanya untuk state dan operasi yang sesuai dengan nama
+ * domainnya. Logika lintas domain harus didelegasikan ke service atau helper bersama supaya tidak muncul
+ * implementasi paralel dengan hasil berbeda.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code boolean prosestagihan};
+ * pembacaan/pencarian ({@code ambilKegiatanKodeunikTerisolasi()}, {@code prosesUploadTagihan()}, {@code
+ * doDownloadTagihan()}, {@code prosesDownloadTagihan()}, {@code prosesDownloadTagihan()}, {@code
+ * prosesDownloadTagihanUntukSettingBiayaDetail()}); validasi/perhitungan ({@code
+ * lindungiKonfigurasiBulananSaatHitungUlang()}, {@code checkKegiatanCalonMahasiswa()}, {@code
+ * checkKegiatanCalonMahasiswa()}, {@code checkKegiatanCalonMahasiswa()}, {@code checkKegiatanMahasiswa()},
+ * {@code checkKegiatanMahasiswa()}); mutasi data ({@code saveEntitySafe()}, {@code updateEntitySafe()}, {@code
+ * updateEntitySafe()}, {@code executeUpdateSafe()}, {@code updateBatasStudiMahasiswa()}, {@code
+ * updateBatasStudiMahasiswa()}); operasi domain lain ({@code isUsableSession()}, {@code openIsolatedSession()},
+ * {@code tandaiPengaturanBulananReadOnly()}, {@code terapkanLockTimeout()}, {@code closeOpenedSessionQuietly()},
+ * {@code isLockTimeout()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
+ * atas.</p>
+ * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
+ * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
+ * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
+ * membuat salinan query dan validasi di action lain.</p>
+ */
 public class KegiatanHelper {
 	public static boolean prosestagihan = false;
 
@@ -106,6 +131,56 @@ public class KegiatanHelper {
 		return HibernateUtil.getSessionFactory().openSession();
 	}
 
+	/**
+	 * Konfigurasi pembayaran bulanan hanya menjadi referensi saat tagihan dihitung ulang.
+	 * Beberapa getter model tersebut menghitung ulang kolom turunannya (real bulan/nama bulan),
+	 * sehingga Hibernate dapat menganggap konfigurasi ikut berubah ketika sesi di-flush. Akibatnya
+	 * Envers mencoba menulis PengaturanPembayaranBulanan__aud walaupun pengguna tidak mengubah
+	 * konfigurasi, dan seluruh transaksi hitung ulang gagal bila skema audit tenant tertinggal.
+	 *
+	 * Tandai instance yang dikelola sesi sebagai read-only. DetailKegiatan, CicilanPembayaran, dan
+	 * Kegiatan tetap writable; hanya master konfigurasi yang dilindungi dari dirty-check semu.
+	 */
+	private static void tandaiPengaturanBulananReadOnly(Session session,
+			PengaturanPembayaranBulanan pengaturanPembayaranBulanan) {
+		if (!isUsableSession(session) || pengaturanPembayaranBulanan == null) {
+			return;
+		}
+		try {
+			PengaturanPembayaranBulanan managed = pengaturanPembayaranBulanan;
+			if (!session.contains(managed) && managed.getId() != null) {
+				managed = (PengaturanPembayaranBulanan) session.get(PengaturanPembayaranBulanan.class,
+						managed.getId());
+			}
+			if (managed != null && session.contains(managed)) {
+				session.setReadOnly(managed, true);
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"KegiatanHelper:tandai-pengaturan-pembayaran-bulanan-read-only");
+		}
+	}
+
+	@SuppressWarnings("rawtypes")
+	private static void lindungiKonfigurasiBulananSaatHitungUlang(Session session, Collection detailKegiatans,
+			Collection detailBiayas) {
+		if (detailKegiatans != null) {
+			for (Object value : detailKegiatans) {
+				if (value instanceof DetailKegiatan) {
+					tandaiPengaturanBulananReadOnly(session,
+							((DetailKegiatan) value).getPengaturanPembayaranBulanan());
+				}
+			}
+		}
+		if (detailBiayas != null) {
+			for (Object value : detailBiayas) {
+				if (value instanceof PengaturanPembayaranBulanan) {
+					tandaiPengaturanBulananReadOnly(session, (PengaturanPembayaranBulanan) value);
+				}
+			}
+		}
+	}
+
 	private static void terapkanLockTimeout(Session session) {
 		// Batasi WAKTU TUNGGU LOCK (bukan durasi query) pada transaksi berjalan. Tanpa ini, UPDATE
 		// yang menunggu baris "kegiatan" terkunci transaksi lain akan MENGGANTUNG sampai
@@ -116,7 +191,9 @@ public class KegiatanHelper {
 		// untuk transaksi ini. Best-effort (diam bila bukan PostgreSQL / tanpa transaksi aktif).
 		try {
 			session.createSQLQuery("SET LOCAL lock_timeout = '5000ms'").executeUpdate();
-		} catch (Exception ignore) { ais.common.ErrorAuditUtil.record(ignore, "auto-audit(empty-catch) src/ais/action/master/helper/KegiatanHelper.java:118");
+		} catch (Exception ignore) {
+			// Best-effort saja. Jika koneksi sudah ditutup atau database bukan PostgreSQL,
+			// jangan jadikan SET LOCAL lock_timeout sebagai error aplikasi.
 		}
 	}
 
@@ -228,21 +305,16 @@ public class KegiatanHelper {
 				}
 			} catch (org.hibernate.SessionException e) {
 				if (!closeLocalSession) {
-					try { if (isNewTx && tx != null && tx.isActive()) tx.rollback(); } catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/master/helper/KegiatanHelper.java:217");}
-					try { if (isUsableSession(session)) session.clear(); } catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/master/helper/KegiatanHelper.java:218");}
-					try { if (isUsableSession(session)) session.close(); } catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/master/helper/KegiatanHelper.java:219");}
-					session = openIsolatedSession();
-					closeLocalSession = true;
-					tx = session.beginTransaction();
-					isNewTx = true;
 					Session isoSession2 = null;
 					Transaction isoTx2 = null;
 					try {
 						isoSession2 = openIsolatedSession();
 						isoTx2 = isoSession2.beginTransaction();
+						terapkanLockTimeout(isoSession2);
 						isoSession2.merge(entity);
 						isoSession2.flush();
 						isoTx2.commit();
+						return;
 					} catch (Exception mergeEx) {
 						if (isoTx2 != null && isoTx2.isActive()) {
 							try { isoTx2.rollback(); } catch (Exception ex2) { ais.common.ErrorAuditUtil.record(ex2, "auto-audit(empty-catch) src/ais/action/master/helper/KegiatanHelper.java:234");}
@@ -257,7 +329,8 @@ public class KegiatanHelper {
 						// SessionException, method boleh lanjut idempoten pada pemanggilan berikutnya).
 						ais.common.ErrorAuditUtil.record(mergeEx,
 								"KegiatanHelper.updateEntitySafe: gagal merge entity pada sesi isolasi recovery (SessionException) - entity="
-										+ (entity == null ? "null" : entity.getClass().getName()));
+								+ (entity == null ? "null" : entity.getClass().getName()));
+						return;
 					} finally {
 						if (isoSession2 != null && isoSession2.isOpen()) {
 							closeOpenedSessionQuietly(isoSession2);
@@ -272,6 +345,10 @@ public class KegiatanHelper {
 				tx.commit();
 			}
 		} catch (Exception e) {
+			boolean staleState = isStaleState(e);
+			boolean staleRowHilang = staleState && entity instanceof GeneralValueObject
+					&& ((GeneralValueObject) entity).getId() != null
+					&& !entityMasihAda(entity.getClass(), ((GeneralValueObject) entity).getId());
 			// KE-19 ("current transaction is aborted, commands ignored until end of transaction
 			// block" / SQLState 25P02): begitu sebuah statement GAGAL di PostgreSQL (di sini
 			// flush() kena 55P03 "canceling statement due to lock timeout" saat update baris
@@ -284,13 +361,13 @@ public class KegiatanHelper {
 			// transaksi yang sudah dipastikan mati SELALU di-rollback lalu dibuka ulang agar sesi
 			// pemanggil kembali bisa dipakai (data yang belum commit memang sudah hilang saat
 			// PostgreSQL meng-abort transaksi -- rollback tidak menambah kehilangan apa pun).
-			boolean transaksiMati = isLockTimeout(e) || isTransactionAborted(e);
+			boolean transaksiMati = isLockTimeout(e) || isTransactionAborted(e) || staleState;
 			// isConstraintViolation() (unique/FK, mis. Mahasiswa.nimkey) JUGA meng-ABORT transaksi
 			// PostgreSQL persis seperti lock timeout, jadi transaksi milik pemanggil tetap harus
 			// dipulihkan -- tapi TIDAK ikut transaksiMati (dipisah dari kondisi retry di bawah): retry
 			// merge 3x pada pelanggaran unique constraint yang genuinely permanen (bukan kontensi
 			// sesaat) hanya membuang waktu karena akan gagal identik setiap kali.
-			boolean transaksiPerluDipulihkan = transaksiMati || isConstraintViolation(e);
+			boolean transaksiPerluDipulihkan = transaksiMati || isConstraintViolation(e) || staleRowHilang;
 			if (isNewTx) {
 				if (tx != null && tx.isActive()) {
 					try { tx.rollback(); } catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/master/helper/KegiatanHelper.java:251");}
@@ -299,6 +376,13 @@ public class KegiatanHelper {
 				pulihkanTransaksiTerabort(session, tx);
 			}
 			try { if (isUsableSession(session)) session.clear(); } catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/master/helper/KegiatanHelper.java:253");}
+			// Recalculation dan reversal dapat beradu: bila baris yang sedang disinkronkan
+			// memang sudah dihapus transaksi lain, row-count 0 adalah hasil idempoten,
+			// bukan kegagalan. Ini tidak hanya terjadi pada Kegiatan, tetapi juga pada
+			// DetailKegiatan/CicilanPembayaran yang dibangun ulang saat hitung tagihan.
+			if (staleRowHilang) {
+				return;
+			}
 			// Lock timeout (PostgreSQL 55P03: "canceling statement due to lock timeout") = kontensi
 			// sesaat pada baris. Statement timeout (57014) sering muncul ketika update menunggu
 			// lock lebih lama dari batas database. Deadlock (40P01: "deadlock detected") terjadi saat
@@ -340,7 +424,7 @@ public class KegiatanHelper {
 					if (retryTx != null && retryTx.isActive()) {
 						try { retryTx.rollback(); } catch (Exception ex2) { ais.common.ErrorAuditUtil.record(ex2, "auto-audit(empty-catch) src/ais/action/master/helper/KegiatanHelper.java:281");}
 					}
-					if (isLockTimeout(retryEx) || isTransactionAborted(retryEx)) {
+					if (isLockTimeout(retryEx) || isTransactionAborted(retryEx) || isStaleState(retryEx)) {
 						// KE-19 (PENYEBAB UTAMA error yang dilaporkan): percobaan berikutnya JANGAN
 						// memakai `sessionAsli` lagi. Sesi itu transaksinya SUDAH ter-abort oleh lock
 						// timeout pada percobaan pertama, dan isUsableSession() cuma memeriksa
@@ -411,6 +495,7 @@ public class KegiatanHelper {
 						|| low.indexOf("canceling statement due to lock") >= 0
 						|| low.indexOf("statement timeout") >= 0
 						|| low.indexOf("canceling statement due to statement timeout") >= 0
+						|| low.indexOf("canceling statement due to user request") >= 0
 						|| low.indexOf("deadlock detected") >= 0
 						|| low.indexOf("55p03") >= 0
 						|| low.indexOf("57014") >= 0
@@ -421,6 +506,18 @@ public class KegiatanHelper {
 						|| low.indexOf("i/o error") >= 0
 						|| low.indexOf("connection is closed") >= 0
 						|| low.indexOf("connection has been closed") >= 0
+						// KE-FIX (GenericJDBCException "could not update: [Kegiatan#...]" <-
+						// PSQLException "This statement has been closed."): terjadi pada isoSession
+						// TERISOLASI yang BARU dibuka (lihat cabang recovery NonUniqueObjectException/
+						// SessionException di updateEntitySafe) -- bukan error data, melainkan resource
+						// JDBC (PreparedStatement/koneksi) yang sudah tak berlaku begitu dipakai (mis.
+						// koneksi dari pool c3p0 yang sudah basi/di-reclaim). Tanpa dikenali di sini,
+						// exception ini LOLOS dari cabang retry (attempt<3 && transaksiMati) dan langsung
+						// dilempar ke checkKegiatanCalonMahasiswa alih-alih dicoba ulang di sesi bersih
+						// seperti pola "connection is closed" di atas.
+						|| low.indexOf("statement has been closed") >= 0
+						|| low.indexOf("statement is closed") >= 0
+						|| low.indexOf("statement already closed") >= 0
 						|| low.indexOf("08006") >= 0 || low.indexOf("08003") >= 0
 						|| low.indexOf("08000") >= 0) {
 					return true;
@@ -511,8 +608,10 @@ public class KegiatanHelper {
 				tx.rollback();
 			}
 		} catch (Exception ex) {
-			ais.common.ErrorAuditUtil.record(ex,
-					"KegiatanHelper.pulihkanTransaksiTerabort: gagal rollback transaksi ter-abort milik pemanggil");
+			if (!ais.common.Common.isTransientKoneksiError(ex)) {
+				ais.common.ErrorAuditUtil.record(ex,
+						"KegiatanHelper.pulihkanTransaksiTerabort: gagal rollback transaksi ter-abort milik pemanggil");
+			}
 		}
 		try {
 			if (isUsableSession(session)) {
@@ -530,8 +629,10 @@ public class KegiatanHelper {
 				}
 			}
 		} catch (Exception ex) {
-			ais.common.ErrorAuditUtil.record(ex,
-					"KegiatanHelper.pulihkanTransaksiTerabort: gagal membuka transaksi baru di sesi pemanggil");
+			if (!ais.common.Common.isTransientKoneksiError(ex)) {
+				ais.common.ErrorAuditUtil.record(ex,
+						"KegiatanHelper.pulihkanTransaksiTerabort: gagal membuka transaksi baru di sesi pemanggil");
+			}
 		}
 	}
 
@@ -585,6 +686,45 @@ public class KegiatanHelper {
 				}
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/KegiatanHelper.java:369");
 			}
+		}
+	}
+
+	private static boolean isStaleState(Throwable error) {
+		Throwable current = error;
+		while (current != null) {
+			if (current instanceof org.hibernate.StaleStateException
+					|| current instanceof org.hibernate.StaleObjectStateException) return true;
+			current = current.getCause();
+		}
+		return false;
+	}
+
+	private static boolean entityMasihAda(Class clazz, Serializable id) {
+		Session cek = null;
+		try {
+			cek = openIsolatedSession();
+			return cek.get(clazz, id) != null;
+		} catch (Exception e) {
+			return true;
+		} finally {
+			closeOpenedSessionQuietly(cek);
+		}
+	}
+
+	/**
+	 * Membaca pemenang race kodeunik melalui sesi baru. Sesi pemanggil dapat sudah berada
+	 * dalam transaksi PostgreSQL yang abort setelah pelanggaran unique constraint.
+	 */
+	private static Kegiatan ambilKegiatanKodeunikTerisolasi(String kodeunik) {
+		if (kodeunik == null || kodeunik.trim().isEmpty()) return null;
+		Session localSession = null;
+		try {
+			localSession = openIsolatedSession();
+			return (Kegiatan) localSession.createCriteria(Kegiatan.class)
+					.add(Restrictions.eq("kodeunik", kodeunik)).setMaxResults(1)
+					.addOrder(Order.asc("id")).uniqueResult();
+		} finally {
+			closeLocalSessionSafely(localSession);
 		}
 	}
 
@@ -696,6 +836,23 @@ public class KegiatanHelper {
 							jenisKegiatan, session, kegiatan, rst, hitungUlang, null);
 					kegiatan.setAmountTerhutang(totalTagihan);
 
+					// FIX "Illegal attempt to associate a collection with two open sessions":
+					// dataTagihanCalonMahasiswa() bisa menutup LALU membuka ulang native session
+					// ThreadLocal secara internal (helper bersarang di dalamnya, mis.
+					// PembayaranUtilHelper.getDetailBiayaCalonMahasiswa/countBulanan, kadang menutup
+					// currentNativeSession() sebelum selesai) -- reassignment `session` di dalam method
+					// itu HANYA lokal (Java pass-by-value), jadi variabel `session` DI SINI tetap
+					// menunjuk sesi LAMA yang sudah tertutup, padahal koleksi kegiatan
+					// (kegiatan.ambilDetailKegiatan()/DetailKegiatan) yang disentuh di dalam
+					// dataTagihanCalonMahasiswa sudah terikat ke sesi BARU. Kalau updateEntitySafe di
+					// bawah lalu membuka sesi KETIGA (openIsolatedSession, karena `session` lokal ini
+					// closed), entity & koleksinya jadi "dimiliki" dua sesi terbuka sekaligus ->
+					// HibernateException dari WrapVisitor. Samakan `session` dengan sesi yang benar-benar
+					// aktif sekarang sebelum dipakai lagi -- no-op bila `session` masih usable (mis.
+					// konteks ZK yang mengoper currentSession()), fallback ke currentNativeSession() bila
+					// sudah closed (konteks JSP/native thread yang ditutup nested helper di atas).
+					session = HibernateUtil.ensureOpenSession(session);
+
 					updateEntitySafe(session, kegiatan);
 				} catch (Exception e) {
 					// FIX (23505 kegiatan_kodeunik_key): kodeunik dihasilkan deterministik dari
@@ -710,9 +867,7 @@ public class KegiatanHelper {
 					try {
 						String kodeunikRetry = Kegiatan.generateKodeUnik(null, biodataCalonMahasiswa, jenisKegiatan,
 								smt, "", null);
-						Kegiatan kegiatanSudahAda = (Kegiatan) session.createCriteria(Kegiatan.class)
-								.add(Restrictions.eq("kodeunik", kodeunikRetry)).setMaxResults(1)
-								.addOrder(Order.asc("id")).uniqueResult();
+						Kegiatan kegiatanSudahAda = ambilKegiatanKodeunikTerisolasi(kodeunikRetry);
 						if (kegiatanSudahAda != null) {
 							kegiatan = kegiatanSudahAda;
 						} else {
@@ -778,6 +933,14 @@ public class KegiatanHelper {
 					Double totalTagihan = dataTagihanCalonMahasiswa(biodataCalonMahasiswa, kegiatan.getSemster(),
 							jenisKegiatan, session, kegiatan, rst, hitungUlang, cicilanPembayarans);
 					kegiatan.setAmountTerhutang(totalTagihan - amountTotal);
+
+					// FIX "Illegal attempt to associate a collection with two open sessions": lihat
+					// catatan sama di cabang (kegiatan==null) di atas -- dataTagihanCalonMahasiswa() bisa
+					// mengganti native session ThreadLocal secara internal; sinkronkan kembali `session`
+					// lokal di sini (no-op bila masih usable) sebelum dipakai lagi di bawah
+					// (updateEntitySafe(session, kegiatan)), supaya tidak berujung entity yang koleksinya
+					// sudah terikat sesi lain diserahkan ke sesi ketiga yang berbeda lagi.
+					session = HibernateUtil.ensureOpenSession(session);
 
 					// KE-17/18: cegah FK violation "kegiatan.mahasiswa not present". Bila FK mahasiswa menunjuk
 					// baris yang sudah tidak ada (calon yang mahasiswanya stale/dihapus), null-kan agar update tak
@@ -988,14 +1151,23 @@ public class KegiatanHelper {
 
 					updateEntitySafe(session, kegiatan);
 				} catch (Exception e) {
-					// FIX (KE-32): sebelumnya ditelan tanpa audit -- constraint violation (mis.
-					// mahasiswa_nimkey_key dobel akibat entity Mahasiswa ter-cascade save/update
-					// bersamaan dari proses lain) tak pernah tercatat, hanya tampil ke admin bila
-					// sedang online. Catat agar terlacak, konsisten dgn pola di seluruh file ini.
-					Common.tampilErrorJikaAdmin(e);
-					ais.common.ErrorAuditUtil.record(e,
-							"checkKegiatanMahasiswa: gagal simpan Kegiatan baru untuk mahasiswa="
-									+ (mahasiswa == null ? "null" : mahasiswa.getId()));
+					try {
+						String kodeunikRetry = Kegiatan.generateKodeUnik(mahasiswa, null, jenisKegiatan, smt, "",
+								null);
+						Kegiatan kegiatanSudahAda = ambilKegiatanKodeunikTerisolasi(kodeunikRetry);
+						if (kegiatanSudahAda != null) {
+							kegiatan = kegiatanSudahAda;
+						} else {
+							Common.tampilErrorJikaAdmin(e);
+							ais.common.ErrorAuditUtil.record(e,
+									"checkKegiatanMahasiswa: gagal simpan Kegiatan baru untuk mahasiswa="
+											+ (mahasiswa == null ? "null" : mahasiswa.getId()));
+						}
+					} catch (Exception eRetry) {
+						Common.tampilErrorJikaAdmin(e);
+						ais.common.ErrorAuditUtil.record(eRetry,
+								"checkKegiatanMahasiswa: gagal ambil ulang Kegiatan setelah constraint violation");
+					}
 				}
 
 			} else if (kegiatan != null && hitungUlang) {
@@ -1073,18 +1245,11 @@ public class KegiatanHelper {
 
 					KegiatanHelper.updateBatasStudiMahasiswa(mahasiswa, session, kegiatan.getSemster(),
 							checkStatusPembayaranMahasiswa);
-
-					HistoryStatusMahasiswa historyStatusMahasiswa = Common.currentStatusSp(mahasiswa,
-							kegiatan.getTahunAkademik(), kegiatan.getSemster(),
-							jenisKegiatan != null && jenisKegiatan.getUntukBayarSP() ? Perkuliahan.SEMESTER_PENDEK
-									: null);
-
-					if (historyStatusMahasiswa != null) {
-						historyStatusMahasiswa.put(String.valueOf(checkStatusPembayaranMahasiswa),
-								"checkStatusPembayaranMahasiswa");
-						historyStatusMahasiswa.setStatusMahasiswa(
-								checkStatusPembayaranMahasiswa ? ConstantValues.AKTIF : ConstantValues.TIDAK_AKTIF);
-					}
+					/*
+					 * Status tidak boleh diputuskan dari satu Kegiatan dan tidak boleh hanya
+					 * dimutasi pada object cache. AuditListener akan menghitung seluruh tagihan
+					 * bersyarat-aktif dari DB dan menyimpan HistoryStatusMahasiswa setelah commit.
+					 */
 				}
 			}
 		}
@@ -1126,6 +1291,7 @@ public class KegiatanHelper {
 
 		if (mydetailBiayas != null) {
 			Collection<DetailKegiatan> detailKegiatans = kegiatan.ambilDetailKegiatan(ulang);
+			lindungiKonfigurasiBulananSaatHitungUlang(session, detailKegiatans, mydetailBiayas);
 
 			if (cicilanPembayarans != null) {
 				for (DetailKegiatan detailKegiatan : detailKegiatans) {
@@ -1328,6 +1494,7 @@ public class KegiatanHelper {
 			}
 
 			Collection<DetailKegiatan> detailKegiatans = kegiatan.ambilDetailKegiatan(ulang);
+			lindungiKonfigurasiBulananSaatHitungUlang(session, detailKegiatans, mydetailBiayas);
 
 			if (cicilanPembayarans != null) {
 				for (DetailKegiatan detailKegiatan : detailKegiatans) {

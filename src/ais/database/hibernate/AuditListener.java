@@ -2,20 +2,32 @@ package ais.database.hibernate;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.Serializable;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.net.URLEncoder;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+
+import javax.transaction.Status;
+import javax.transaction.Synchronization;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.envers.event.AuditEventListener;
+import org.hibernate.Session;
+import org.hibernate.Transaction;
 import org.hibernate.event.PostDeleteEvent;
 import org.hibernate.event.PostInsertEvent;
 import org.hibernate.event.PostUpdateEvent;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import ais.action.master.PengumumanAkademisAction;
@@ -98,6 +110,32 @@ import ais.database.model.sisdes.Penduduk;
 import ais.database.model.streaming.AudioPertemuan;
 import ais.database.model.streaming.VideoPertemuan;
 
+/**
+ * Komponen lifecycle audit Hibernate untuk audit listener. Tipe ini mengisi atau merekam metadata
+ * perubahan entity pada event persistence tanpa memindahkan transaksi bisnis ke listener.
+ *
+ * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
+ * AuditEventListener}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini;
+ * perubahan yang berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau
+ * tumpang tindih.</p>
+ * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code
+ * java.util.concurrent.ScheduledExecutorService AUDIT_SCHEDULER}, {@code int AUDIT_POOL_SIZE}, {@code
+ * java.util.concurrent.ExecutorService AUDIT_POOL}, {@code ThreadLocal PROSES_AKTIF}, {@code
+ * java.util.concurrent.ConcurrentHashMap PENDING_SINKRONISASI_STATUS}, {@code Object LOCK_SINKRONISASI_STATUS},
+ * {@code ThreadLocal SINKRONISASI_STATUS_AKTIF}; inisialisasi/lifecycle ({@code buatJsonAuditAman()});
+ * pembacaan/pencarian ({@code safeList()}); mutasi data ({@code masukProses()}, {@code keluarProses()}, {@code
+ * jadwalkanSinkronisasiStatusKegiatanSetelahCommit()}, {@code prosesSinkronisasiStatusKegiatan()}, {@code
+ * prosesUntukElearning()}, {@code prosesUntukElearning()}); penghapusan/pembatalan ({@code onPostDelete()});
+ * operasi domain lain ({@code jalankanAudit()}, {@code antrekanSinkronisasiStatusKegiatan()}, {@code
+ * sedangSinkronisasiStatusKegiatan()}, {@code safeString()}, {@code nilaiJsonAuditAman()}, {@code
+ * postJsonAudit()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut di
+ * atas.</p>
+ * <p><b>Efek samping:</b> callback berjalan di sekitar lifecycle persistence dan dapat mengantrekan pekerjaan
+ * audit/sinkronisasi asinkron, memakai state ThreadLocal, serta membaca atau menulis data. Jangan memanggil
+ * listener sebagai service biasa atau menggandakan orkestrasi audit di entity.</p>
+ *
+ * @see AuditEventListener
+ */
 public class AuditListener extends AuditEventListener {
 
 	// Scheduler TUNGGAL (daemon) untuk tugas tertunda audit (mis. checkGenNim +5 dtk). DULU dipanggil
@@ -209,6 +247,158 @@ public class AuditListener extends AuditEventListener {
 		} catch (Exception e) {
 			PROSES_AKTIF.set(null);
 		}
+	}
+
+	/*
+	 * Sinkronisasi status mahasiswa akibat perubahan Kegiatan tidak boleh dijalankan
+	 * dari onPostInsert/onPostUpdate/onPostDelete. Callback Hibernate tersebut masih
+	 * berada di dalam transaksi yang mengubah baris kegiatan. currentStatus() dapat
+	 * membuka transaksi lain dan menyinkronkan KRS; transaksi kedua kemudian menunggu
+	 * lock kegiatan milik transaksi pertama, sementara transaksi pertama menunggu
+	 * listener selesai (self-lock).
+	 *
+	 * Permintaan ditunda sampai AFTER_COMMIT. Map mempertahankan permintaan terbaru
+	 * untuk mahasiswa/semester yang sama, sedangkan striped lock mencegah dua worker
+	 * memperbarui status yang sama secara paralel.
+	 */
+	private static final java.util.concurrent.ConcurrentHashMap<String, SinkronisasiStatusKegiatanRequest> PENDING_SINKRONISASI_STATUS = new java.util.concurrent.ConcurrentHashMap<String, SinkronisasiStatusKegiatanRequest>();
+	private static final Object[] LOCK_SINKRONISASI_STATUS = new Object[64];
+	private static final ThreadLocal<Boolean> SINKRONISASI_STATUS_AKTIF = new ThreadLocal<Boolean>();
+	static {
+		for (int i = 0; i < LOCK_SINKRONISASI_STATUS.length; i++) {
+			LOCK_SINKRONISASI_STATUS[i] = new Object();
+		}
+	}
+
+	/**
+	 * Tipe implementasi bersarang {@link SinkronisasiStatusKegiatanRequest} milik {@link AuditListener}. Kelas ini
+	 * memberi nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+	 *
+	 * <p><b>Scope:</b> tipe bersifat {@code static}; instance tidak menangkap object {@link AuditListener}.
+	 * Dependensi yang diperlukan harus diberikan secara eksplisit agar aman digunakan dan diuji.</p> Tipe ini
+	 * merupakan detail implementasi privat; pemanggil luar harus memakai API kelas induk.
+	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code Long mahasiswaId}, {@code String
+	 * tahunAkademik}, {@code Integer semester}; operasi lokal: {@code key}().
+	 * Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
+	 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
+	 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
+	 * tambahkan perilaku lintas domain pada service bersama.</p>
+	 *
+	 * @see AuditListener
+	 */
+	private static final class SinkronisasiStatusKegiatanRequest {
+		private final Long mahasiswaId;
+		private final String tahunAkademik;
+		private final Integer semester;
+
+		private SinkronisasiStatusKegiatanRequest(Long mahasiswaId, String tahunAkademik, Integer semester) {
+			this.mahasiswaId = mahasiswaId;
+			this.tahunAkademik = tahunAkademik;
+			this.semester = semester;
+		}
+
+		private String key() {
+			return String.valueOf(mahasiswaId) + "-" + String.valueOf(tahunAkademik) + "-"
+					+ String.valueOf(semester);
+		}
+	}
+
+	private static void jadwalkanSinkronisasiStatusKegiatanSetelahCommit(final Kegiatan kegiatan,
+			Session eventSession) {
+		try {
+			if (kegiatan == null || kegiatan.getJenisKegiatan() == null || kegiatan.getMahasiswa() == null
+					|| kegiatan.getMahasiswa().getId() == null
+					|| !Boolean.TRUE.equals(kegiatan.getJenisKegiatan().getDigunakanSyaratKeaktifan())) {
+				return;
+			}
+
+			final SinkronisasiStatusKegiatanRequest request = new SinkronisasiStatusKegiatanRequest(
+					kegiatan.getMahasiswa().getId(), kegiatan.getTahunAkademik(), kegiatan.getSemster());
+
+			Transaction transaction = eventSession == null ? null : eventSession.getTransaction();
+			if (transaction != null && transaction.isActive()) {
+				transaction.registerSynchronization(new Synchronization() {
+					@Override
+					public void beforeCompletion() {
+					}
+
+					@Override
+					public void afterCompletion(int status) {
+						if (status == Status.STATUS_COMMITTED) {
+							antrekanSinkronisasiStatusKegiatan(request);
+						}
+					}
+				});
+				return;
+			}
+
+			// Jalur defensif untuk event tanpa transaksi aktif. Tunda agar flush/callback
+			// saat ini selesai sebelum transaksi sinkronisasi baru dibuka.
+			AUDIT_SCHEDULER.schedule(new Runnable() {
+				@Override
+				public void run() {
+					antrekanSinkronisasiStatusKegiatan(request);
+				}
+			}, 1L, java.util.concurrent.TimeUnit.SECONDS);
+		} catch (Exception e) {
+			e.printStackTrace();
+			ais.common.ErrorAuditUtil.record(e,
+					"gagal mendaftarkan sinkronisasi status Kegiatan setelah commit");
+		}
+	}
+
+	private static void antrekanSinkronisasiStatusKegiatan(final SinkronisasiStatusKegiatanRequest request) {
+		final String key = request.key();
+		PENDING_SINKRONISASI_STATUS.put(key, request);
+		AUDIT_SCHEDULER.schedule(new Runnable() {
+			@Override
+			public void run() {
+				Object lock = LOCK_SINKRONISASI_STATUS[(key.hashCode() & 0x7fffffff)
+						% LOCK_SINKRONISASI_STATUS.length];
+				synchronized (lock) {
+					SinkronisasiStatusKegiatanRequest terbaru = PENDING_SINKRONISASI_STATUS.remove(key);
+					if (terbaru != null) {
+						prosesSinkronisasiStatusKegiatan(terbaru);
+					}
+				}
+			}
+		}, 100L, java.util.concurrent.TimeUnit.MILLISECONDS);
+	}
+
+	private static void prosesSinkronisasiStatusKegiatan(SinkronisasiStatusKegiatanRequest request) {
+		Session session = null;
+		try {
+			SINKRONISASI_STATUS_AKTIF.set(Boolean.TRUE);
+			session = HibernateUtil.openSession();
+			Mahasiswa mahasiswa = (Mahasiswa) session.get(Mahasiswa.class, request.mahasiswaId);
+			if (mahasiswa == null) {
+				return;
+			}
+
+			/*
+			 * Jangan memakai persentase dari event Kegiatan/Cicilan sebagai keputusan akhir.
+			 * Nilai tersebut dapat merupakan state sebelum DELETE atau state cache sebelum
+			 * transaksi pembayaran selesai. Paksa kalkulasi ulang dari database setelah commit;
+			 * currentStatus(..., true) menghitung seluruh tagihan bersyarat-aktif, menyimpan
+			 * HistoryStatusMahasiswa, memperbarui batas studi, dan menyegarkan cache.
+			 */
+			ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(mahasiswa,
+					request.tahunAkademik, request.semester, true);
+		} catch (Exception e) {
+			e.printStackTrace();
+			ais.common.ErrorAuditUtil.record(e, "sinkronisasi status Kegiatan setelah commit");
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+			try {
+				SINKRONISASI_STATUS_AKTIF.remove();
+			} catch (Exception e) {
+				SINKRONISASI_STATUS_AKTIF.set(null);
+			}
+		}
+	}
+
+	private static boolean sedangSinkronisasiStatusKegiatan() {
+		return Boolean.TRUE.equals(SINKRONISASI_STATUS_AKTIF.get());
 	}
 
 	public static void prosesUntukElearning(Serializable serializable, String cla, Serializable id) {
@@ -375,9 +565,105 @@ public class AuditListener extends AuditEventListener {
 		return (obj != null) ? obj.toString() : "";
 	}
 
+	@SuppressWarnings("rawtypes")
+	private static JSONObject buatJsonAuditAman(Map data) throws org.json.JSONException {
+		JSONObject hasil = new JSONObject();
+		IdentityHashMap<Object, Boolean> dikunjungi = new IdentityHashMap<Object, Boolean>();
+		for (Object key : data.keySet()) {
+			hasil.put(String.valueOf(key), nilaiJsonAuditAman(data.get(key), dikunjungi, 0));
+		}
+		return hasil;
+	}
+
+	@SuppressWarnings("rawtypes")
+	private static Object nilaiJsonAuditAman(Object nilai, IdentityHashMap<Object, Boolean> dikunjungi, int kedalaman)
+			throws org.json.JSONException {
+		if (nilai == null || nilai == JSONObject.NULL || nilai instanceof String || nilai instanceof Number
+				|| nilai instanceof Boolean || nilai instanceof JSONObject || nilai instanceof JSONArray) {
+			return nilai;
+		}
+		if (nilai instanceof java.util.Date || nilai instanceof Character || nilai instanceof Enum) {
+			return nilai.toString();
+		}
+		if (dikunjungi.containsKey(nilai)) {
+			return "[referensi-siklus]";
+		}
+		if (kedalaman >= 8) {
+			return "[data-terlalu-dalam]";
+		}
+		dikunjungi.put(nilai, Boolean.TRUE);
+		try {
+			if (nilai instanceof Map) {
+				JSONObject object = new JSONObject();
+				Map map = (Map) nilai;
+				for (Object key : map.keySet()) {
+					object.put(String.valueOf(key), nilaiJsonAuditAman(map.get(key), dikunjungi, kedalaman + 1));
+				}
+				return object;
+			}
+			if (nilai instanceof Collection) {
+				JSONArray array = new JSONArray();
+				for (Object item : (Collection) nilai) {
+					array.put(nilaiJsonAuditAman(item, dikunjungi, kedalaman + 1));
+				}
+				return array;
+			}
+			if (nilai.getClass().isArray()) {
+				JSONArray array = new JSONArray();
+				int panjang = java.lang.reflect.Array.getLength(nilai);
+				for (int i = 0; i < panjang; i++) {
+					array.put(nilaiJsonAuditAman(java.lang.reflect.Array.get(nilai, i), dikunjungi, kedalaman + 1));
+				}
+				return array;
+			}
+			if (nilai instanceof GeneralValueObject) {
+				GeneralValueObject entity = (GeneralValueObject) nilai;
+				return entity.getId() == null ? String.valueOf(entity) : entity.getId();
+			}
+			return String.valueOf(nilai);
+		} finally {
+			dikunjungi.remove(nilai);
+		}
+	}
+
 // Mencegah NullPointerException jika method populate mengembalikan null
 	private static <T> List<T> safeList(List<T> list) {
 		return (list != null) ? list : new ArrayList<T>();
+	}
+
+	/** Kirim JSON tanpa menaruh payload pada argument command OS.
+	 * Payload audit dapat berukuran ratusan KB; ProcessBuilder/curl gagal dengan
+	 * "Argument list too long" sebelum proses sempat dijalankan. */
+	private static String postJsonAudit(String alamat, JSONObject data) throws Exception {
+		HttpURLConnection koneksi = null;
+		OutputStream keluaran = null;
+		BufferedReader pembaca = null;
+		try {
+			koneksi = (HttpURLConnection) new URL(alamat).openConnection();
+			koneksi.setRequestMethod("POST");
+			koneksi.setRequestProperty("Accept", "application/json");
+			koneksi.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+			koneksi.setConnectTimeout(15000);
+			koneksi.setReadTimeout(30000);
+			koneksi.setDoOutput(true);
+			byte[] isi = data.toString().getBytes("UTF-8");
+			koneksi.setFixedLengthStreamingMode(isi.length);
+			keluaran = koneksi.getOutputStream();
+			keluaran.write(isi);
+			keluaran.flush();
+			int status = koneksi.getResponseCode();
+			InputStream masukan = status >= 400 ? koneksi.getErrorStream() : koneksi.getInputStream();
+			if (masukan == null) return "HTTP " + status;
+			pembaca = new BufferedReader(new InputStreamReader(masukan, "UTF-8"));
+			StringBuilder hasil = new StringBuilder();
+			String baris;
+			while ((baris = pembaca.readLine()) != null) hasil.append(baris).append('\n');
+			return hasil.toString();
+		} finally {
+			if (pembaca != null) try { pembaca.close(); } catch (Exception abaikan) { }
+			if (keluaran != null) try { keluaran.close(); } catch (Exception abaikan) { }
+			if (koneksi != null) koneksi.disconnect();
+		}
 	}
 
 	private void proses(Serializable serializable, String cla, Serializable id) {
@@ -408,26 +694,12 @@ public class AuditListener extends AuditEventListener {
 									e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/hibernate/AuditListener.java:408");
 								}
 
-								JSONObject postData = new JSONObject(parameters);
+								JSONObject postData = buatJsonAuditAman(parameters);
 
 								System.out.println("linkPost -> " + ConstantValues.ketikaUbahDataPenggunaKirimkeLink);
 //								System.out.println("postData -> " + postData);
 
-								String[] command = { "curl", "-k", "-H", "Accept: application/json", "-X", "POST",
-										ConstantValues.ketikaUbahDataPenggunaKirimkeLink, "--data",
-										postData.toString() };
-
-								ProcessBuilder process = new ProcessBuilder(command);
-								Process p;
-								p = process.start();
-								BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
-								StringBuilder builder = new StringBuilder();
-								String line = null;
-								while ((line = reader.readLine()) != null) {
-									builder.append(line);
-									builder.append(System.getProperty("line.separator"));
-								}
-								hasil = builder.toString();
+								hasil = postJsonAudit(ConstantValues.ketikaUbahDataPenggunaKirimkeLink, postData);
 
 							} catch (Exception e) {
 								e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/hibernate/AuditListener.java:433");
@@ -464,26 +736,12 @@ public class AuditListener extends AuditEventListener {
 									e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/hibernate/AuditListener.java:464");
 								}
 
-								JSONObject postData = new JSONObject(parameters);
+								JSONObject postData = buatJsonAuditAman(parameters);
 
 								System.out.println("linkPost -> " + ConstantValues.ketikaUbahDataPenggunaKirimkeLink);
 //								System.out.println("postData -> " + postData);
 
-								String[] command = { "curl", "-k", "-H", "Accept: application/json", "-X", "POST",
-										ConstantValues.ketikaUbahDataPenggunaKirimkeLink, "--data",
-										postData.toString() };
-
-								ProcessBuilder process = new ProcessBuilder(command);
-								Process p;
-								p = process.start();
-								BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
-								StringBuilder builder = new StringBuilder();
-								String line = null;
-								while ((line = reader.readLine()) != null) {
-									builder.append(line);
-									builder.append(System.getProperty("line.separator"));
-								}
-								hasil = builder.toString();
+								hasil = postJsonAudit(ConstantValues.ketikaUbahDataPenggunaKirimkeLink, postData);
 
 							} catch (Exception e) {
 								e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/hibernate/AuditListener.java:489");
@@ -517,26 +775,12 @@ public class AuditListener extends AuditEventListener {
 									e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/hibernate/AuditListener.java:517");
 								}
 
-								JSONObject postData = new JSONObject(parameters);
+								JSONObject postData = buatJsonAuditAman(parameters);
 
 								System.out.println("linkPost -> " + ConstantValues.ketikaUbahDataPenggunaKirimkeLink);
 //								System.out.println("postData -> " + postData);
 
-								String[] command = { "curl", "-k", "-H", "Accept: application/json", "-X", "POST",
-										ConstantValues.ketikaUbahDataPenggunaKirimkeLink, "--data",
-										postData.toString() };
-
-								ProcessBuilder process = new ProcessBuilder(command);
-								Process p;
-								p = process.start();
-								BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
-								StringBuilder builder = new StringBuilder();
-								String line = null;
-								while ((line = reader.readLine()) != null) {
-									builder.append(line);
-									builder.append(System.getProperty("line.separator"));
-								}
-								hasil = builder.toString();
+								hasil = postJsonAudit(ConstantValues.ketikaUbahDataPenggunaKirimkeLink, postData);
 
 							} catch (Exception e) {
 								e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/hibernate/AuditListener.java:542");
@@ -573,25 +817,12 @@ public class AuditListener extends AuditEventListener {
 								Common.insertProperty(generalValueObject.getClass(), generalValueObject, parameters,
 										"");
 
-								JSONObject postData = new JSONObject(parameters);
+								JSONObject postData = buatJsonAuditAman(parameters);
 
 								System.out.println("linkPost -> " + ConstantValues.ketikaUbahSemuaDataKirimkeLink);
 //								System.out.println("postData -> " + postData);
 
-								String[] command = { "curl", "-k", "-H", "Accept: application/json", "-X", "POST",
-										ConstantValues.ketikaUbahSemuaDataKirimkeLink, "--data", postData.toString() };
-
-								ProcessBuilder process = new ProcessBuilder(command);
-								Process p;
-								p = process.start();
-								BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
-								StringBuilder builder = new StringBuilder();
-								String line = null;
-								while ((line = reader.readLine()) != null) {
-									builder.append(line);
-									builder.append(System.getProperty("line.separator"));
-								}
-								hasil = builder.toString();
+								hasil = postJsonAudit(ConstantValues.ketikaUbahSemuaDataKirimkeLink, postData);
 
 							} catch (Exception e) {
 								e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/hibernate/AuditListener.java:591");
@@ -723,6 +954,21 @@ public class AuditListener extends AuditEventListener {
 				Tagihan tagihan = (Tagihan) serializable;
 				String kodeUnik = Tagihan.genCode(tagihan.getItemBiayaSekolah(), tagihan.getPengaturanBiaya(),
 						tagihan.getTahunbulan(), tagihan.getSiswa(), tagihan.getCalonSiswa(), tagihan.getBayarKe());
+				// Hapus alias cache lama untuk entity yang sama ketika bayarKe/kodeUnik
+				// berubah. Tanpa ini satu Tagihan dapat terbaca sebagai dua angsuran.
+				if (tagihan.getId() != null) {
+					List<String> kunciLama = new ArrayList<String>();
+					for (Map.Entry<String, Tagihan> entry : MemoryDbUtil.getAllTagihan().entrySet()) {
+						Tagihan cached = entry.getValue();
+						if (!kodeUnik.equals(entry.getKey()) && cached != null && cached.getId() != null
+								&& tagihan.getId().equals(cached.getId())) {
+							kunciLama.add(entry.getKey());
+						}
+					}
+					for (String kunci : kunciLama) {
+						MemoryDbUtil.getAllTagihan().remove(kunci);
+					}
+				}
 				MemoryDbUtil.getAllTagihan().put(kodeUnik, tagihan);
 			} catch (Exception e) {
 				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/hibernate/AuditListener.java:722");
@@ -755,68 +1001,8 @@ public class AuditListener extends AuditEventListener {
 					}
 				}
 
-				if (kegiatan != null && kegiatan.getId() != null && kegiatan.getJenisKegiatan() != null
-						&& kegiatan.getMahasiswa() != null
-						&& kegiatan.getJenisKegiatan().getDigunakanSyaratKeaktifan()) {
-					boolean terlambarLangsungTidakAktif = Common
-							.getKonfigurasi("mhs_all_lambat_bayar_langsung_tidak_aktif", "", kegiatan.getSemster(),
-									kegiatan.getMahasiswa().getTahunangkatan(), kegiatan.getMahasiswa().getJurusan(),
-									kegiatan.getMahasiswa().getProgram(),
-									kegiatan.getMahasiswa().getStatusAwalMahasiswa())
-							.getNilai().equals(Konfigurasi.AKTIF);
-					if (terlambarLangsungTidakAktif) {
-						double harusLunas = 0.1;
-						boolean checkStatusPembayaranMahasiswa = (kegiatan != null
-								&& kegiatan.getPersentaseLunas() >= harusLunas);
-
-						if (kegiatan.getMahasiswa() != null) {
-							KegiatanHelper.updateBatasStudiMahasiswa(kegiatan.getMahasiswa(), null,
-									kegiatan.getSemster(), checkStatusPembayaranMahasiswa, false);
-						}
-
-						HistoryStatusMahasiswa historyStatusMahasiswa = ais.action.master.helper.HistoryStatusMahasiswaUtil
-								.currentStatus(kegiatan.getMahasiswa(), kegiatan.getTahunAkademik(),
-										kegiatan.getSemster());
-						historyStatusMahasiswa.put(checkStatusPembayaranMahasiswa + "",
-								"checkStatusPembayaranMahasiswa");
-						historyStatusMahasiswa.setStatusMahasiswa(
-								checkStatusPembayaranMahasiswa ? ConstantValues.AKTIF : ConstantValues.TIDAK_AKTIF);
-						System.out.println("mahasiswa " + kegiatan.getMahasiswa() + ", checkStatusPembayaranMahasiswa "
-								+ checkStatusPembayaranMahasiswa);
-					}
-				}
 			} catch (Exception e) {
 				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/hibernate/AuditListener.java:783");
-			}
-		} else if (serializable instanceof Kegiatan && cla.trim().contains("onPostDelete")) {
-			Kegiatan kegiatan = (Kegiatan) serializable;
-			try {
-				if (kegiatan != null && kegiatan.getId() != null && kegiatan.getJenisKegiatan() != null
-						&& kegiatan.getMahasiswa() != null
-						&& kegiatan.getJenisKegiatan().getDigunakanSyaratKeaktifan()) {
-					boolean terlambarLangsungTidakAktif = Common
-							.getKonfigurasi("mhs_all_lambat_bayar_langsung_tidak_aktif", "", kegiatan.getSemster(),
-									kegiatan.getMahasiswa().getTahunangkatan(), kegiatan.getMahasiswa().getJurusan(),
-									kegiatan.getMahasiswa().getProgram(),
-									kegiatan.getMahasiswa().getStatusAwalMahasiswa())
-							.getNilai().equals(Konfigurasi.AKTIF);
-					if (terlambarLangsungTidakAktif) {
-						boolean checkStatusPembayaranMahasiswa = false;
-						if (kegiatan.getMahasiswa() != null) {
-							KegiatanHelper.updateBatasStudiMahasiswa(kegiatan.getMahasiswa(), null,
-									kegiatan.getSemster(), checkStatusPembayaranMahasiswa, false);
-						}
-
-						HistoryStatusMahasiswa historyStatusMahasiswa = ais.action.master.helper.HistoryStatusMahasiswaUtil
-								.currentStatus(kegiatan.getMahasiswa(), kegiatan.getTahunAkademik(),
-										kegiatan.getSemster());
-						historyStatusMahasiswa.put(checkStatusPembayaranMahasiswa + "",
-								"checkStatusPembayaranMahasiswa");
-						historyStatusMahasiswa.setStatusMahasiswa(ConstantValues.TIDAK_AKTIF);
-					}
-				}
-			} catch (Exception e) {
-				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/hibernate/AuditListener.java:813");
 			}
 		}
 
@@ -1020,7 +1206,7 @@ public class AuditListener extends AuditEventListener {
 
 			} else if (serializable instanceof Pertemuan) {
 				Pertemuan p = (Pertemuan) serializable;
-				p.hapusPertemuan(id);
+				p.hapusPertemuan();
 				p.delete();
 			} else if (serializable instanceof PertemuanPunyaDiskusi) {
 				PertemuanPunyaDiskusi p = (PertemuanPunyaDiskusi) serializable;
@@ -1250,7 +1436,7 @@ public class AuditListener extends AuditEventListener {
 
 			} else if (serializable instanceof Pertemuan) {
 				Pertemuan p = (Pertemuan) serializable;
-				p.hapusPertemuan(id);
+				p.hapusPertemuan();
 				p.tambahPertemuan();
 				p.write();
 			} else if (serializable instanceof PertemuanPunyaDiskusi) {
@@ -1913,6 +2099,12 @@ public class AuditListener extends AuditEventListener {
 				+ AuditTrailHelper.describeEntity(serializable, arg0.getId()));
 
 		String cla = this.getClass().getName() + " onPostDelete ";
+		if (!sedangSinkronisasiStatusKegiatan()
+				&& (serializable instanceof Kegiatan || serializable instanceof CicilanPembayaran)) {
+			Kegiatan kegiatanStatus = serializable instanceof Kegiatan ? (Kegiatan) serializable
+					: ((CicilanPembayaran) serializable).getKegiatan();
+			jadwalkanSinkronisasiStatusKegiatanSetelahCommit(kegiatanStatus, arg0.getSession());
+		}
 
 		if (masukProses()) {
 			try {
@@ -1938,6 +2130,12 @@ public class AuditListener extends AuditEventListener {
 		AuditTrailHelper.debug("AuditListener.onPostInsert proses "
 				+ AuditTrailHelper.describeEntity(serializable, arg0.getId()));
 		String cla = this.getClass().getName() + " onPostInsert ";
+		if (!sedangSinkronisasiStatusKegiatan()
+				&& (serializable instanceof Kegiatan || serializable instanceof CicilanPembayaran)) {
+			Kegiatan kegiatanStatus = serializable instanceof Kegiatan ? (Kegiatan) serializable
+					: ((CicilanPembayaran) serializable).getKegiatan();
+			jadwalkanSinkronisasiStatusKegiatanSetelahCommit(kegiatanStatus, arg0.getSession());
+		}
 
 		if (masukProses()) {
 			try {
@@ -2005,6 +2203,12 @@ public class AuditListener extends AuditEventListener {
 		}
 
 		String cla = this.getClass().getName() + " onPostUpdate ";
+		if (!sedangSinkronisasiStatusKegiatan()
+				&& (serializable instanceof Kegiatan || serializable instanceof CicilanPembayaran)) {
+			Kegiatan kegiatanStatus = serializable instanceof Kegiatan ? (Kegiatan) serializable
+					: ((CicilanPembayaran) serializable).getKegiatan();
+			jadwalkanSinkronisasiStatusKegiatanSetelahCommit(kegiatanStatus, arg0.getSession());
+		}
 
 		if (masukProses()) {
 			try {
