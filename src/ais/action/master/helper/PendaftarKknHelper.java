@@ -646,6 +646,16 @@ public class PendaftarKknHelper implements DataLoader, DataCriteria {
 		return toolbarbutton;
 	}
 
+	/**
+	 * Membangun seluruh UI layar pendaftar KKN (toolbar pencarian/filter, tombol cetak
+	 * pendaftar/penerima/rekap, hitung skor, ambil pendaftar baru, unggah/unduh Excel) di dalam
+	 * {@code component} yang diberikan, lalu memuat data awal.
+	 *
+	 * @param kkn        KKN yang pendaftarnya ditampilkan
+	 * @param component  container ZK yang akan diisi (dibersihkan lebih dulu)
+	 * @param window     window pemanggil (dipakai sebagai parent dialog "Ambil Data" baru)
+	 * @param approve    bila {@code true}, checkbox "Terima" pada tiap baris dapat diedit
+	 */
 	public void displayPrasyaratKkn(final Kkn kkn, final Component component, final MyWindow window, boolean approve) {
 		this.kkn = kkn;
 		this.approve = approve;
@@ -1067,6 +1077,15 @@ public class PendaftarKknHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/**
+	 * Mengubah status penerimaan ({@code terima}) baris pendaftaran mahasiswa pada KKN tertentu
+	 * (mengambil baris terbaru bila ada lebih dari satu) dan menampilkan pesan konfirmasi.
+	 *
+	 * @param mahasiswa mahasiswa yang statusnya diubah
+	 * @param kkn       KKN terkait
+	 * @param checked   {@code true} untuk menandai diterima, {@code false} untuk ditolak
+	 * @throws Exception bila baris pendaftaran tidak ditemukan atau penyimpanan gagal
+	 */
 	public void terimaKkn(Mahasiswa mahasiswa, Kkn kkn, boolean checked) throws Exception {
 		Session session = HibernateUtil.currentSession();
 		MahasiswaDaftarKkn mahasiswaDiterimaKknIni = (MahasiswaDaftarKkn) session

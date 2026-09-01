@@ -427,6 +427,20 @@ public class DetailAsramaSiswaHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/**
+	 * Memproses berkas Excel (.xlsx) berisi daftar siswa untuk ditambahkan sebagai penghuni asrama
+	 * ini, dijalankan di thread terpisah dengan indikator sibuk dan timer polling progres (setiap
+	 * 200ms). Untuk tiap baris, siswa diresolusi dari kolom pertama ({@code Common.getSheetContentAsObject}
+	 * dengan tipe {@link Siswa}); baris yang siswanya tidak ditemukan atau kolom kosong dilewati/
+	 * dicatat gagal, baris valid membuat/memperbarui {@link AsramaSiswaPunyaSiswa} dan menyetel
+	 * {@code siswa.asrama}, masing-masing dalam transaksi terpisah. Setelah selesai, laporan rinci
+	 * (jumlah berhasil/gagal per baris) diunduh sebagai berkas teks dan ringkasan ditampilkan lewat
+	 * dialog, lalu {@code eventListener} dipanggil.
+	 *
+	 * @param file          berkas Excel sementara yang sudah tersimpan di server
+	 * @param eventListener callback yang dipanggil setelah proses dan dialog ringkasan selesai
+	 * @throws Exception diteruskan dari kegagalan pembangunan komponen UI progres
+	 */
 	public void uploadDataSiswa(final File file, final EventListener eventListener) throws Exception {
 
 		final Label peringatan = new Label("");

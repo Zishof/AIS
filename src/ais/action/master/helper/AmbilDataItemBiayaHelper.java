@@ -282,6 +282,12 @@ public class AmbilDataItemBiayaHelper {
 		}
 	}
 
+	/**
+	 * Menjalankan pencarian {@link ItemBiaya} berdasarkan teks pada kotak {@code nama} (dicocokkan
+	 * ilike terhadap kolom {@code nama} maupun {@code deskripsi}) dan memuat ulang grid dengan hasilnya.
+	 *
+	 * @param event event pemicu (paging/pencarian), tidak dipakai langsung
+	 */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 

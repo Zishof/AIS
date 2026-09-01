@@ -135,6 +135,7 @@ public class KonfigurasiTampilanSiswaAction extends KonfigurasiNewAction {
 		return strings;
 	}
 
+	/** Merender baris konfigurasi (combo aktif/tidak aktif/wajib) untuk setiap field {@link SiswaAction#DATA} ke tab "Form Siswa", dengan default berbeda sesuai {@link #apakahAdaTidakWajib}/{@link #apakahAdaTidakAktif}. Kegagalan per-field dicatat ke audit dan tidak menghentikan field lain. */
 	public void onTampil() {
 		Rows rows = (createSpan("Form Calon Siswa"));
 		int index = 0;

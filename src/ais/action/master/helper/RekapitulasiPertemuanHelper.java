@@ -286,6 +286,12 @@ public class RekapitulasiPertemuanHelper {
 
 	}
 
+	/**
+	 * Perender baris grid yang memuat ulang satu {@link Pertemuan} berdasarkan id (data model
+	 * grid hanya menyimpan id, bukan entitas penuh) lalu mendelegasikan tampilan baris ke
+	 * {@link DashboardTimelinePertemuan#displayRow}. Baris disembunyikan bila pertemuan sudah
+	 * tidak ditemukan (mis. terhapus setelah id dimuat ke grid).
+	 */
 	public static class DetailPertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
 		private boolean mobile = false;

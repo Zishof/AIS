@@ -323,6 +323,7 @@ public class AmbilDataMahasiswaSeleksiPklHelper {
 		}
 	}
 
+	/** Memuat ulang grid kandidat mahasiswa (maks {@link Common#MAX_RESULT} baris) sesuai filter aktif. */
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
