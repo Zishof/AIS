@@ -908,13 +908,19 @@ public class PendaftarPklHelper implements DataLoader, DataCriteria {
 		button.setParent(toolbar);
 
 		button = new MyToolbarbuttonConfig("Baru", "/img/new.gif");
-		final AmbilDataMahasiswaSeleksiPklHelper ambilDataMahasiswaSeleksiPklHelper = new AmbilDataMahasiswaSeleksiPklHelper();
 		button.addEventListener(Events.ON_CLICK, new EventListener() {
 
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				// TODO Auto-generated method stub
-				ambilDataMahasiswaSeleksiPklHelper.display(pkl, getDataloader(), window);
+				try {
+					new AmbilDataMahasiswaSeleksiPklHelper().display(pkl, getDataloader(), window);
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "PendaftarPklHelper membuka dialog tambah pendaftar PKL");
+					Common.tampilErrorJikaAdmin(e);
+					MyMessageboxConfig.show("Form tambah pendaftar PKL belum dapat dibuka. Silakan coba kembali.",
+							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+				}
 			}
 		});
 		button.setParent(toolbar);

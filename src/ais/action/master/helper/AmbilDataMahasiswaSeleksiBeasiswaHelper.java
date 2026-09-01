@@ -69,15 +69,13 @@ public class AmbilDataMahasiswaSeleksiBeasiswaHelper {
 	private Textbox nama;
 	private Decimalbox tahunangkatan;
 
-	private Combobox searchfakultas = new Combobox();
-	private Combobox searchjurusan = new Combobox();
+	private Combobox searchfakultas;
+	private Combobox searchjurusan;
 
 	private Textbox dariNim;
 	private Textbox sampaiNim;
 
 	public AmbilDataMahasiswaSeleksiBeasiswaHelper() {
-		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
-
 	}
 
 	/** Row renderer grid pencarian: checkbox pilih (tercentang bila mahasiswa sudah diterima pada beasiswa ini), NIM, nama, dan tahun angkatan. */
@@ -177,8 +175,11 @@ public class AmbilDataMahasiswaSeleksiBeasiswaHelper {
 	 * @param dataLoader callback yang dipanggil ulang setelah "Simpan" berhasil
 	 * @param window     window yang dipakai sebagai kanvas dialog (dibersihkan lebih dulu)
 	 */
-	public void display(final Beasiswa beasiswa, final DataLoader dataLoader, final MyWindow window) {
+	public void display(final Beasiswa beasiswa, final DataLoader dataLoader, final MyWindow window) throws Exception {
 		this.beasiswa = beasiswa;
+		searchfakultas = new Combobox();
+		searchjurusan = new Combobox();
+		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 		Common.clear(window);
 		window.setTitle("Ambil Data Mahasiswa");
 		window.setWidth("750px");
@@ -356,12 +357,7 @@ public class AmbilDataMahasiswaSeleksiBeasiswaHelper {
 		onSearchDefault(null);
 
 		window.setVisible(true);
-		try {
-			window.onModal();
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			Common.tampilErrorJikaAdmin(e);
-		}
+		window.onModal();
 	}
 
 	/** Mencari mahasiswa aktif sesuai filter (dibatasi {@link Common#MAX_RESULT} baris) dan me-render ulang grid. */

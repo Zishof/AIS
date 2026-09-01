@@ -70,13 +70,11 @@ public class AmbilDataMahasiswaPklHelper {
 	private Textbox nama;
 	private Decimalbox tahunangkatan;
 
-	private Combobox searchfakultas = new Combobox();
-	private Combobox searchjurusan = new Combobox();
+	private Combobox searchfakultas;
+	private Combobox searchjurusan;
 
 	/** Membuat helper dan menginisialisasi combobox pencarian fakultas/jurusan (termasuk opsi "Semua"). */
 	public AmbilDataMahasiswaPklHelper() {
-		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
-
 	}
 
 	/** Perender baris grid: checkbox status tertaut (dicentang bila relasi {@link MahasiswaDapatPkl} sudah ada) plus label NIM, nama, dan tahun angkatan mahasiswa. */
@@ -158,8 +156,11 @@ public class AmbilDataMahasiswaPklHelper {
 	 * @param dataLoader callback penyegar tampilan pemanggil setelah simpan
 	 * @param window     jendela modal yang akan dibangun isinya (dibersihkan lebih dulu)
 	 */
-	public void display(final Pkl pkl, final DataLoader dataLoader, final MyWindow window) {
+	public void display(final Pkl pkl, final DataLoader dataLoader, final MyWindow window) throws Exception {
 		this.pkl = pkl;
+		searchfakultas = new Combobox();
+		searchjurusan = new Combobox();
+		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 		Common.clear(window);
 		window.setTitle("Ambil Data Mahasiswa");
 		window.setWidth("750px");
@@ -319,12 +320,7 @@ public class AmbilDataMahasiswaPklHelper {
 		onSearchDefault(null);
 
 		window.setVisible(true);
-		try {
-			window.onModal();
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			Common.tampilErrorJikaAdmin(e);
-		}
+		window.onModal();
 	}
 
 	/**

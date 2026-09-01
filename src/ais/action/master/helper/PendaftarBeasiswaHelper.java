@@ -969,13 +969,21 @@ public class PendaftarBeasiswaHelper implements DataLoader, DataCriteria {
 		button.setParent(toolbar);
 
 		button = new MyToolbarbuttonConfig("Baru", "/img/new.gif");
-		final AmbilDataMahasiswaSeleksiBeasiswaHelper ambilDataMahasiswaSeleksiBeasiswaHelper = new AmbilDataMahasiswaSeleksiBeasiswaHelper();
 		button.addEventListener(Events.ON_CLICK, new EventListener() {
 
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				// TODO Auto-generated method stub
-				ambilDataMahasiswaSeleksiBeasiswaHelper.display(beasiswa, getDataloader(), window);
+				try {
+					new AmbilDataMahasiswaSeleksiBeasiswaHelper().display(beasiswa, getDataloader(), window);
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e,
+							"PendaftarBeasiswaHelper membuka dialog tambah pendaftar beasiswa");
+					Common.tampilErrorJikaAdmin(e);
+					MyMessageboxConfig.show(
+							"Form tambah pendaftar beasiswa belum dapat dibuka. Silakan coba kembali.",
+							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+				}
 			}
 		});
 		button.setParent(toolbar);

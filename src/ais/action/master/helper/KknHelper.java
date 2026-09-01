@@ -163,12 +163,16 @@ public class KknHelper implements DataLoader {
 		toolbar.setParent(panel);
 		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Tambah Data", "/img/new.gif");
 		button.addEventListener("onClick", new EventListener() {
-
-			private AmbilDataMahasiswaKknHelper ambilDataKknHelper = new AmbilDataMahasiswaKknHelper();
-
 			@Override
 			public void onEvent(Event event) throws Exception {
-				ambilDataKknHelper.display(kkn, getDataloader(), window);
+				try {
+					new AmbilDataMahasiswaKknHelper().display(kkn, getDataloader(), window);
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "KknHelper membuka dialog tambah peserta KKN");
+					Common.tampilErrorJikaAdmin(e);
+					MyMessageboxConfig.show("Form tambah peserta KKN belum dapat dibuka. Silakan coba kembali.",
+							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+				}
 			}
 
 		});

@@ -171,12 +171,16 @@ public class PklHelper implements DataLoader {
 		toolbar.setParent(panel);
 		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Tambah Data", "/img/new.gif");
 		button.addEventListener("onClick", new EventListener() {
-
-			private AmbilDataMahasiswaPklHelper ambilDataPklHelper = new AmbilDataMahasiswaPklHelper();
-
 			@Override
 			public void onEvent(Event event) throws Exception {
-				ambilDataPklHelper.display(pkl, getDataloader(), window);
+				try {
+					new AmbilDataMahasiswaPklHelper().display(pkl, getDataloader(), window);
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "PklHelper membuka dialog tambah peserta PKL");
+					Common.tampilErrorJikaAdmin(e);
+					MyMessageboxConfig.show("Form tambah peserta PKL belum dapat dibuka. Silakan coba kembali.",
+							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+				}
 			}
 
 		});

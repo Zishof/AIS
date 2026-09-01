@@ -188,12 +188,17 @@ public class BeasiswaHelper implements DataLoader {
 		button.setParent(toolbar);
 		button = new MyToolbarbuttonConfig("Tambah Data", "/img/new.gif");
 		button.addEventListener("onClick", new EventListener() {
-
-			private AmbilDataMahasiswaBeasiswaHelper ambilDataBeasiswaHelper = new AmbilDataMahasiswaBeasiswaHelper();
-
 			@Override
 			public void onEvent(Event event) throws Exception {
-				ambilDataBeasiswaHelper.display(beasiswa, getDataloader(), window);
+				try {
+					new AmbilDataMahasiswaBeasiswaHelper().display(beasiswa, getDataloader(), window);
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "BeasiswaHelper membuka dialog tambah penerima beasiswa");
+					Common.tampilErrorJikaAdmin(e);
+					MyMessageboxConfig.show(
+							"Form tambah penerima beasiswa belum dapat dibuka. Silakan coba kembali.",
+							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+				}
 			}
 
 		});

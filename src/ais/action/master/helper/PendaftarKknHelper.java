@@ -902,13 +902,19 @@ public class PendaftarKknHelper implements DataLoader, DataCriteria {
 		button.setParent(toolbar);
 
 		button = new MyToolbarbuttonConfig("Baru", "/img/new.gif");
-		final AmbilDataMahasiswaSeleksiKknHelper ambilDataMahasiswaSeleksiKknHelper = new AmbilDataMahasiswaSeleksiKknHelper();
 		button.addEventListener(Events.ON_CLICK, new EventListener() {
 
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				// TODO Auto-generated method stub
-				ambilDataMahasiswaSeleksiKknHelper.display(kkn, getDataloader(), window);
+				try {
+					new AmbilDataMahasiswaSeleksiKknHelper().display(kkn, getDataloader(), window);
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "PendaftarKknHelper membuka dialog tambah pendaftar KKN");
+					Common.tampilErrorJikaAdmin(e);
+					MyMessageboxConfig.show("Form tambah pendaftar KKN belum dapat dibuka. Silakan coba kembali.",
+							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+				}
 			}
 		});
 		button.setParent(toolbar);
