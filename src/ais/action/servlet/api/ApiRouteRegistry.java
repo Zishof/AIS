@@ -239,7 +239,8 @@ public final class ApiRouteRegistry {
      * Action tersedia: kantin_info, kantin_saldo, kantin_toko_list, kantin_cara_bayar,
      * kantin_produk_list, kantin_aturan_diskon, kantin_bayar, kantin_draft_bayar,
      * kantin_pesanan_list, kantin_pesanan_batal, kantin_transaksi_list,
-     * kantin_transaksi_detail, kantin_barang_list, kantin_va_list, kantin_dashboard.
+     * kantin_transaksi_detail, kantin_barang_list, kantin_topup_buat,
+     * kantin_va_list, kantin_dashboard.
      */
     private static void registerKantin(Map<String, ApiRoute> routes) {
         register(routes, "kantin_info",             new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return KantinMemberApi.info(req, json, pt); } });
@@ -256,6 +257,7 @@ public final class ApiRouteRegistry {
         register(routes, "kantin_transaksi_list",   new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return KantinMemberApi.transaksiList(req, json, pt); } });
         register(routes, "kantin_transaksi_detail", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return KantinMemberApi.transaksiDetail(req, json, pt); } });
         register(routes, "kantin_barang_list",      new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return KantinMemberApi.barangList(req, json, pt); } });
+        register(routes, "kantin_topup_buat",       new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return KantinMemberApi.topupBuat(req, json, pt); } });
         register(routes, "kantin_va_list",          new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return KantinMemberApi.vaList(req, json, pt); } });
         register(routes, "kantin_dashboard",               new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return KantinMemberApi.dashboard(req, json, pt); } });
         register(routes, "kantin_pedagang_info",            new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return KantinMemberApi.pedagangInfo(req, json, pt); } });
