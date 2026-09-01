@@ -322,12 +322,18 @@ public class KelompokPklHelper implements DataLoader, DataCriteria {
 		button.setVisible(tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null
 				&& tbmuser.ambilDosen() == null);
 		button.addEventListener("onClick", new EventListener() {
-
-			private AmbilDataMahasiswaKelompokPklHelper ambilDataKelompokPklHelper = new AmbilDataMahasiswaKelompokPklHelper();
-
 			@Override
 			public void onEvent(Event event) throws Exception {
-				ambilDataKelompokPklHelper.display(kelompokPkl, getDataloader());
+				try {
+					new AmbilDataMahasiswaKelompokPklHelper().display(kelompokPkl, getDataloader());
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e,
+							"KelompokPklHelper membuka dialog tambah anggota kelompok PKL");
+					Common.tampilErrorJikaAdmin(e);
+					MyMessageboxConfig.show(
+							"Form tambah anggota kelompok PKL belum dapat dibuka. Silakan muat ulang halaman dan coba kembali.",
+							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+				}
 			}
 
 		});

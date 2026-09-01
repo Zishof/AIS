@@ -69,13 +69,11 @@ public class AmbilDataMahasiswaKelompokKknHelper {
 	private Textbox nama;
 	private Decimalbox tahunangkatan;
 
-	private Combobox searchfakultas = new Combobox();
-	private Combobox searchjurusan = new Combobox();
+	private Combobox searchfakultas;
+	private Combobox searchjurusan;
 
 	/** Menyiapkan combobox filter fakultas/jurusan (diisi opsi "Semua" + seluruh data aktif). */
 	public AmbilDataMahasiswaKelompokKknHelper() {
-		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
-
 	}
 
 	/**
@@ -105,7 +103,7 @@ public class AmbilDataMahasiswaKelompokKknHelper {
 
 			new Label(mahasiswa.getNama()).setParent(arg0);
 			new Label(mahasiswa.getTahunangkatan() + "").setParent(arg0);
-			new Label(mahasiswa.getJurusan().getNama()).setParent(arg0);
+			new Label(mahasiswa.getJurusan() == null ? "" : mahasiswa.getJurusan().getNama()).setParent(arg0);
 		}
 
 	}
@@ -120,7 +118,7 @@ public class AmbilDataMahasiswaKelompokKknHelper {
 	 * @throws Exception diteruskan dari kegagalan Hibernate yang tidak tertangkap di loop internal
 	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	public void save() throws Exception {
+	public boolean save() throws Exception {
 
 		Session session = HibernateUtil.currentSession();
 
@@ -134,44 +132,52 @@ public class AmbilDataMahasiswaKelompokKknHelper {
 			// child pertama Row SELALU Checkbox, padahal urutan child bisa berbeda (mis. baris tanpa
 			// data mahasiswa). Renderer sudah menyimpan referensi Checkbox lewat setAttribute("checkbox",
 			// ...) (lihat baris ~75) -- pakai itu, sama seperti loop simpan di bawah, bukan asumsi posisi.
-			Checkbox checkbox = (Checkbox) row.getAttribute("checkbox");
-			if (checkbox != null && checkbox.isChecked()) {
-				count++;
+			Object checkboxObject = row.getAttribute("checkbox");
+			if (!(checkboxObject instanceof Checkbox)) {
+				continue;
+			}
+			Checkbox checkbox = (Checkbox) checkboxObject;
+			if (checkbox.isChecked()) {
+				Mahasiswa mahasiswa = (Mahasiswa) checkbox.getAttribute("mahasiswa");
+				Integer sudahAda = ((Number) session.createCriteria(MahasiswaDapatKelompokKkn.class)
+						.setProjection(Projections.rowCount()).add(Restrictions.eq("mahasiswa", mahasiswa))
+						.add(Restrictions.eq("kelompokKkn", kelompokKkn)).uniqueResult()).intValue();
+				if (sudahAda.equals(0)) {
+					count++;
+				}
 			}
 		}
 
-		if (count > kelompokKkn.getKuota()) {
+		if (kelompokKkn.getKuota() != null && count > kelompokKkn.getKuota().intValue()) {
 			MyMessageboxConfig.show("Jumlah mahasiswa tidak boleh melebihi kuota yang ditentukan", "Peringatan",
 					MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
-			return;
+			return false;
 		}
 
 		for (Row row : list) {
 
-			try {
-				Checkbox checkbox = (Checkbox) row.getAttribute("checkbox");
-				if (checkbox.isChecked()) {
-					Mahasiswa mahasiswa = (Mahasiswa) checkbox.getAttribute("mahasiswa");
-
-					Integer jml = ((Number) session.createCriteria(MahasiswaDapatKelompokKkn.class)
-							.add(Restrictions.eq("diterima", true)).setProjection(Projections.rowCount())
-							.add(Restrictions.eq("mahasiswa", mahasiswa))
-							.add(Restrictions.eq("kelompokKkn", kelompokKkn)).uniqueResult()).intValue();
-
-					if (jml.equals(0)) {
-						MahasiswaDapatKelompokKkn mahasiswaDapatKelompokKkn = new MahasiswaDapatKelompokKkn();
-						mahasiswaDapatKelompokKkn.setKelompokKkn(kelompokKkn);
-						mahasiswaDapatKelompokKkn.setKeterangan("");
-						mahasiswaDapatKelompokKkn.setMahasiswa(mahasiswa);
-						mahasiswaDapatKelompokKkn.setDiterima(true);
-						session.save(mahasiswaDapatKelompokKkn);
-					}
+			Object checkboxObject = row.getAttribute("checkbox");
+			if (!(checkboxObject instanceof Checkbox)) {
+				continue;
+			}
+			Checkbox checkbox = (Checkbox) checkboxObject;
+			if (checkbox.isChecked()) {
+				Mahasiswa mahasiswa = (Mahasiswa) checkbox.getAttribute("mahasiswa");
+				MahasiswaDapatKelompokKkn dataLama = (MahasiswaDapatKelompokKkn) session
+						.createCriteria(MahasiswaDapatKelompokKkn.class)
+						.add(Restrictions.eq("mahasiswa", mahasiswa))
+						.add(Restrictions.eq("kelompokKkn", kelompokKkn)).setMaxResults(1).uniqueResult();
+				if (dataLama == null) {
+					dataLama = new MahasiswaDapatKelompokKkn();
+					dataLama.setKelompokKkn(kelompokKkn);
+					dataLama.setKeterangan("");
+					dataLama.setMahasiswa(mahasiswa);
 				}
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/AmbilDataMahasiswaKelompokKknHelper.java:137");
-				// TODO: handle exception
+				dataLama.setDiterima(true);
+				session.saveOrUpdate(dataLama);
 			}
 		}
-
+		return true;
 	}
 
 	/**
@@ -184,8 +190,11 @@ public class AmbilDataMahasiswaKelompokKknHelper {
 	 * @param kelompokKkn kelompok KKN tujuan penempatan mahasiswa
 	 * @param dataLoader  callback muat-ulang data pemanggil setelah simpan
 	 */
-	public void display(final KelompokKkn kelompokKkn, final DataLoader dataLoader) {
+	public void display(final KelompokKkn kelompokKkn, final DataLoader dataLoader) throws Exception {
 		this.kelompokKkn = kelompokKkn;
+		searchfakultas = new Combobox();
+		searchjurusan = new Combobox();
+		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 
 		final MyWindow window = new MyWindow();
 		window.setTitle("Ambil Data Mahasiswa");
@@ -264,9 +273,10 @@ public class AmbilDataMahasiswaKelompokKknHelper {
 		button.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
-				save();
-				dataLoader.loadData(null);
-				window.detach();
+				if (save()) {
+					dataLoader.loadData(null);
+					window.detach();
+				}
 			}
 		});
 		button.setParent(toolbar);
@@ -344,12 +354,7 @@ public class AmbilDataMahasiswaKelompokKknHelper {
 		onSearchDefault(null);
 
 		window.setVisible(true);
-		try {
-			window.onModal();
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			Common.tampilErrorJikaAdmin(e);
-		}
+		window.onModal();
 	}
 
 	/**

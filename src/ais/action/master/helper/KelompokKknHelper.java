@@ -321,12 +321,18 @@ public class KelompokKknHelper implements DataLoader, DataCriteria {
 		button.setVisible(tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null
 				&& tbmuser.ambilDosen() == null);
 		button.addEventListener("onClick", new EventListener() {
-
-			private AmbilDataMahasiswaKelompokKknHelper ambilDataKelompokKknHelper = new AmbilDataMahasiswaKelompokKknHelper();
-
 			@Override
 			public void onEvent(Event event) throws Exception {
-				ambilDataKelompokKknHelper.display(kelompokKkn, getDataloader());
+				try {
+					new AmbilDataMahasiswaKelompokKknHelper().display(kelompokKkn, getDataloader());
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e,
+							"KelompokKknHelper membuka dialog tambah anggota kelompok KKN");
+					Common.tampilErrorJikaAdmin(e);
+					MyMessageboxConfig.show(
+							"Form tambah anggota kelompok KKN belum dapat dibuka. Silakan muat ulang halaman dan coba kembali.",
+							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+				}
 			}
 
 		});

@@ -71,12 +71,10 @@ public class AmbilDataMahasiswaKelompokPklHelper {
 	private Textbox nama;
 	private Decimalbox tahunangkatan;
 
-	private Combobox searchfakultas = new Combobox();
-	private Combobox searchjurusan = new Combobox();
+	private Combobox searchfakultas;
+	private Combobox searchjurusan;
 
 	public AmbilDataMahasiswaKelompokPklHelper() {
-		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
-
 	}
 
 	/** Perender baris grid: checkbox (label NIM, tercentang bila mahasiswa sudah diterima di {@link #kelompokPkl}), nama, tahun angkatan, dan jurusan mahasiswa. */
@@ -102,7 +100,7 @@ public class AmbilDataMahasiswaKelompokPklHelper {
 
 			new Label(mahasiswa.getNama()).setParent(arg0);
 			new Label(mahasiswa.getTahunangkatan() + "").setParent(arg0);
-			new Label(mahasiswa.getJurusan().getNama()).setParent(arg0);
+			new Label(mahasiswa.getJurusan() == null ? "" : mahasiswa.getJurusan().getNama()).setParent(arg0);
 		}
 
 	}
@@ -115,7 +113,7 @@ public class AmbilDataMahasiswaKelompokPklHelper {
 	 * belum terdaftar sebelumnya di {@code kelompokPkl} — idempoten terhadap baris yang sudah ada.
 	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	public void save() throws Exception {
+	public boolean save() throws Exception {
 
 		Session session = HibernateUtil.currentSession();
 
@@ -125,56 +123,52 @@ public class AmbilDataMahasiswaKelompokPklHelper {
 		Rows rows = grid.getRows();
 		List<Row> list = rows.getChildren();
 		for (Row row : list) {
-			try {
-				Object checkboxObject = row.getAttribute("checkbox");
-				if (!(checkboxObject instanceof Checkbox)) {
-					continue;
-				}
-				Checkbox checkbox = (Checkbox) checkboxObject;
-				if (checkbox != null && checkbox.isChecked()) {
+			Object checkboxObject = row.getAttribute("checkbox");
+			if (!(checkboxObject instanceof Checkbox)) {
+				continue;
+			}
+			Checkbox checkbox = (Checkbox) checkboxObject;
+			if (checkbox.isChecked()) {
+				Mahasiswa mahasiswa = (Mahasiswa) checkbox.getAttribute("mahasiswa");
+				Integer sudahAda = ((Number) session.createCriteria(MahasiswaDapatKelompokPkl.class)
+						.setProjection(Projections.rowCount()).add(Restrictions.eq("mahasiswa", mahasiswa))
+						.add(Restrictions.eq("kelompokPkl", kelompokPkl)).uniqueResult()).intValue();
+				if (sudahAda.equals(0)) {
 					count++;
 				}
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/AmbilDataMahasiswaKelompokPklHelper.java:110");
-				// TODO: handle exception
 			}
 		}
 
-		if (count > kelompokPkl.getKuota()) {
+		if (kelompokPkl.getKuota() != null && count > kelompokPkl.getKuota().intValue()) {
 			MyMessageboxConfig.show("Jumlah mahasiswa tidak boleh melebihi kuota yang ditentukan", "Peringatan",
 					MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
-			return;
+			return false;
 		}
 
 		for (Row row : list) {
 
-			try {
-				Object checkboxObject = row.getAttribute("checkbox");
-				if (!(checkboxObject instanceof Checkbox)) {
-					continue;
+			Object checkboxObject = row.getAttribute("checkbox");
+			if (!(checkboxObject instanceof Checkbox)) {
+				continue;
+			}
+			Checkbox checkbox = (Checkbox) checkboxObject;
+			if (checkbox.isChecked()) {
+				Mahasiswa mahasiswa = (Mahasiswa) checkbox.getAttribute("mahasiswa");
+				MahasiswaDapatKelompokPkl dataLama = (MahasiswaDapatKelompokPkl) session
+						.createCriteria(MahasiswaDapatKelompokPkl.class)
+						.add(Restrictions.eq("mahasiswa", mahasiswa))
+						.add(Restrictions.eq("kelompokPkl", kelompokPkl)).setMaxResults(1).uniqueResult();
+				if (dataLama == null) {
+					dataLama = new MahasiswaDapatKelompokPkl();
+					dataLama.setKelompokPkl(kelompokPkl);
+					dataLama.setKeterangan("");
+					dataLama.setMahasiswa(mahasiswa);
 				}
-				Checkbox checkbox = (Checkbox) checkboxObject;
-				if (checkbox != null && checkbox.isChecked()) {
-					Mahasiswa mahasiswa = (Mahasiswa) checkbox.getAttribute("mahasiswa");
-
-					Integer jml = ((Number) session.createCriteria(MahasiswaDapatKelompokPkl.class)
-							.add(Restrictions.eq("diterima", true)).setProjection(Projections.rowCount())
-							.add(Restrictions.eq("mahasiswa", mahasiswa))
-							.add(Restrictions.eq("kelompokPkl", kelompokPkl)).uniqueResult()).intValue();
-
-					if (jml.equals(0)) {
-						MahasiswaDapatKelompokPkl mahasiswaDapatKelompokPkl = new MahasiswaDapatKelompokPkl();
-						mahasiswaDapatKelompokPkl.setKelompokPkl(kelompokPkl);
-						mahasiswaDapatKelompokPkl.setKeterangan("");
-						mahasiswaDapatKelompokPkl.setMahasiswa(mahasiswa);
-						mahasiswaDapatKelompokPkl.setDiterima(true);
-						session.save(mahasiswaDapatKelompokPkl);
-					}
-				}
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/AmbilDataMahasiswaKelompokPklHelper.java:142");
-				// TODO: handle exception
+				dataLama.setDiterima(true);
+				session.saveOrUpdate(dataLama);
 			}
 		}
-
+		return true;
 	}
 
 	/**
@@ -186,8 +180,11 @@ public class AmbilDataMahasiswaKelompokPklHelper {
 	 * @param kelompokPkl kelompok PKL tujuan pemasukan mahasiswa
 	 * @param dataLoader  komponen pemanggil yang disegarkan setelah data berhasil disimpan
 	 */
-	public void display(final KelompokPkl kelompokPkl, final DataLoader dataLoader) {
+	public void display(final KelompokPkl kelompokPkl, final DataLoader dataLoader) throws Exception {
 		this.kelompokPkl = kelompokPkl;
+		searchfakultas = new Combobox();
+		searchjurusan = new Combobox();
+		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 
 		final MyWindow window = new MyWindow();
 		window.setTitle("Ambil Data Mahasiswa");
@@ -266,9 +263,10 @@ public class AmbilDataMahasiswaKelompokPklHelper {
 		button.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
-				save();
-				dataLoader.loadData(null);
-				window.detach();
+				if (save()) {
+					dataLoader.loadData(null);
+					window.detach();
+				}
 			}
 		});
 		button.setParent(toolbar);
@@ -348,12 +346,7 @@ public class AmbilDataMahasiswaKelompokPklHelper {
 		onSearchDefault(null);
 
 		window.setVisible(true);
-		try {
-			window.onModal();
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			Common.tampilErrorJikaAdmin(e);
-		}
+		window.onModal();
 	}
 
 	/** Memuat ulang grid kandidat mahasiswa (terdaftar & diterima pada PKL terkait, sesuai filter aktif), dibatasi {@link Common#MAX_RESULT_1000} baris. {@code event} tidak dipakai. */
