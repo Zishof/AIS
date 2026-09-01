@@ -13,6 +13,7 @@ import ais.ui.util.MyFormRow;
 import org.zkoss.zul.Rows;
 
 import ais.action.master.sekolah.util.SekolahUtil;
+import ais.action.master.konfigurasi.SkemaKonfigurasi;
 import ais.common.Common;
 import ais.common.CommonPrivilages;
 import ais.database.model.Konfigurasi;
@@ -110,21 +111,18 @@ public class KonfigurasiSekolahAction extends KonfigurasiNewAction {
 
 		Rows rows = buatPanelRows(1, "Konfigurasi Sekolah");
 
-		rows.appendChild(createRowActiveDefault("Apakah modul sekolah / pesanren diaktifkan ?",
-				"apakah_aktifkan_modul_sekolah", Konfigurasi.TIDAK_AKTIF));
+		rows.appendChild(baris(SkemaKonfigurasi.SEKOLAH, "apakah_aktifkan_modul_sekolah"));
 
-		rows.appendChild(createRowActiveDefault("Apakah modul perguruan tinggi diaktifkan ?",
-				"apakah_aktifkan_modul_perguruan_tinggi", Konfigurasi.AKTIF));
+		rows.appendChild(baris(SkemaKonfigurasi.SEKOLAH, "apakah_aktifkan_modul_perguruan_tinggi"));
 
-		rows.appendChild(createRowNilai("Label Instansi / Yayasan", "label_instansi_sekolah", "Instansi / Yayasan"));
-		rows.appendChild(createRowNilai("Label Alamat Instansi / Yayasan", "alamat_instansi_sekolah",
-				"Alamat Instansi / Yayasan"));
-		rows.appendChild(createRowNilai("Telp. Instansi / Yayasan", "label_telp_instansi_sekolah", "Telp. "));
+		rows.appendChild(baris(SkemaKonfigurasi.SEKOLAH, "label_instansi_sekolah"));
+		rows.appendChild(baris(SkemaKonfigurasi.SEKOLAH, "alamat_instansi_sekolah"));
+		rows.appendChild(baris(SkemaKonfigurasi.SEKOLAH, "label_telp_instansi_sekolah"));
 
 		rows.appendChild(
-				createRowActive("Siswa boleh mengganti foto profile sendiri", "siswa_boleh_mengubah_foto_profile"));
+				baris(SkemaKonfigurasi.SEKOLAH, "siswa_boleh_mengubah_foto_profile"));
 		rows.appendChild(
-				createRowActive("Guru boleh mengganti foto profile sendiri", "guru_boleh_mengubah_foto_profile"));
+				baris(SkemaKonfigurasi.SEKOLAH, "guru_boleh_mengubah_foto_profile"));
 
 		// ---- Tab 2: PSB ----
 		rows = buatPanelRows(2, "PSB");
@@ -142,8 +140,7 @@ public class KonfigurasiSekolahAction extends KonfigurasiNewAction {
 				LampiranLain.ALUR_REGISTRASI_PSB, "Alur", true, null);
 		hbox.setParent(groupbox);
 
-		rows.appendChild(createRowNilai("Apa saja info pertanyaan yang ditampilkan ?", "info_dari_mana_ppdb",
-				"Website,Teman,Radio,Koran,Lain-lain"));
+		rows.appendChild(baris(SkemaKonfigurasi.SEKOLAH, "info_dari_mana_ppdb"));
 
 		row = new MyFormRow();
 		row.setParent(rows);
@@ -207,51 +204,32 @@ public class KonfigurasiSekolahAction extends KonfigurasiNewAction {
 				});
 		hbox.setParent(groupbox);
 
-		rows.appendChild(createRowNilai("Nomor Whatsapp yang bisa dihubungi", "no_whatsapp_operator", ""));
+		rows.appendChild(baris(SkemaKonfigurasi.SEKOLAH, "no_whatsapp_operator"));
 
 		rows.appendChild(
-				createRowNilai("Tanya Whatsapp", "tanya_whatsapp_psb", "Salamat Datang, apa yang bisa kami bantu?"));
+				baris(SkemaKonfigurasi.SEKOLAH, "tanya_whatsapp_psb"));
 
-		rows.appendChild(createRowNilai("Jawab Whatsapp", "jawab_whatsapp_psb",
-				"Saya ingin menanyakan tentang informasi penerimaan siswa baru, apakah Anda bisa membantu?"));
-
-		rows.appendChild(
-				createRowActive("Tampilkan Tulisan Teks penerimaan siswa baru di banner", "tampilkan_psb_di_banner"));
-
-		String defaultValue = "Kegiatan seleksi penerimaan siswa baru merupakan kegiatan yang bertujuan mendapatkan calon siswa yang berkualitas dan memiliki kompetensi dasar yang baik sesuai dengan standar yang ditetapkan. Kegiatan ini merupaka kegiatan rutin bagi "
-				+ ais.common.Common.getKonfigurasi("label_universitas", "").getNilai()
-				+ ", karena itu penyelenggaraannya harus profesional, terjamin, terukur dan efesien.";
-
-		rows.appendChild(createRowNilai("Informasi yang muncul di banner penerimaan siswa baru", "info_banner_psb",
-				defaultValue, 5, null));
-
-		rows.appendChild(createRowNilai("Tinggi banner penerimaan siswa baru", "tinggi_banner_psb", ""));
+		rows.appendChild(baris(SkemaKonfigurasi.SEKOLAH, "jawab_whatsapp_psb"));
 
 		rows.appendChild(
-				createRowNilai("Tinggi halaman utama penerimaan siswa baru", "tinggi_halaman_utama_psb", "850"));
+				baris(SkemaKonfigurasi.SEKOLAH, "tampilkan_psb_di_banner"));
 
-		rows.appendChild(createRowNilai("Informasi header", "label_psb_sekolah",
-				"Penerimaan Peserta Didik Baru (PPDB) Tahun Pelajaran 2022-2023", 5, null));
+		rows.appendChild(baris(SkemaKonfigurasi.SEKOLAH, "info_banner_psb"));
 
-		rows.appendChild(createRowNilai("Informasi yang muncul di kelulusan siswa baru", "informasi_kelulusan_sekolah",
-				"NIS Anda [nis], nis ini bisa Anda gunakan untuk login ke http://ecampus dengan username NIS password NIS.",
-				5, null));
-		rows.appendChild(createRowNilai("Informasi tambahan yang muncul di kelulusan siswa baru",
-				"informasi_kelulusan_tambahan_sekolah",
-				"Jika Anda belum melakukan pembayaran, silahkan lakukan pembayaran di ....(tanya ke akademik);Kode pembayaran dapat dilihat di ....(tanya ke akademik)",
-				5, null));
+		rows.appendChild(baris(SkemaKonfigurasi.SEKOLAH, "tinggi_banner_psb"));
+
+		rows.appendChild(
+				baris(SkemaKonfigurasi.SEKOLAH, "tinggi_halaman_utama_psb"));
+
+		rows.appendChild(baris(SkemaKonfigurasi.SEKOLAH, "label_psb_sekolah"));
+
+		rows.appendChild(baris(SkemaKonfigurasi.SEKOLAH, "informasi_kelulusan_sekolah"));
+		rows.appendChild(baris(SkemaKonfigurasi.SEKOLAH, "informasi_kelulusan_tambahan_sekolah"));
 
 		// ---- Tab 3: Kartu Siswa ----
 		rows = buatPanelRows(3, "Kartu Siswa");
 
-		defaultValue = "1. Kartu ini ditertibkan oleh ....... Segala penggunaan kartu oleh ....... sesuai ketentuan dan syarat yang berlaku.\n"
-				+ "2. Kartu ini harus dibawa sebagai identitas siswa.\n"
-				+ "3. Kartu ini hanya berlaku bagi pemilik dan tidak untuk orang lain.\n"
-				+ "4. Siswa harus mematuhi semua tata tertib .......\n"
-				+ "5. Bila menemukan kartu ini mohon mengembalikan ke .......\n" + "\n\n\n" + " .......\n"
-				+ "website : " + Common.getRequestHostWithProtocol();
-
-		rows.appendChild(createRowNilai("Tata Tertib Kartu Siswa", "tata_tertib_kartu_siswa", defaultValue, 15, null));
+		rows.appendChild(baris(SkemaKonfigurasi.SEKOLAH, "tata_tertib_kartu_siswa"));
 
 		row = new MyFormRow();
 		groupbox = new Groupbox();
@@ -273,10 +251,10 @@ public class KonfigurasiSekolahAction extends KonfigurasiNewAction {
 				LampiranLain.STEMPEL_KARTU_SISWA_PERPUSTAKAAN_STR, "Stempel", false, null);
 		hbox.setParent(groupbox);
 
-		rows.appendChild(createRowNilai("Label Jabatan Kartu Siswa", "label_jabatan_kartu_siswa", "Rektor"));
-		rows.appendChild(createRowNilai("Label TTD Kartu Siswa", "label_ttd_kartu_siswa", "...................."));
+		rows.appendChild(baris(SkemaKonfigurasi.SEKOLAH, "label_jabatan_kartu_siswa"));
+		rows.appendChild(baris(SkemaKonfigurasi.SEKOLAH, "label_ttd_kartu_siswa"));
 
-		rows.appendChild(createRowNilai("NIP Kartu Siswa", "nip_ttd_kartu_siswa", "...................."));
+		rows.appendChild(baris(SkemaKonfigurasi.SEKOLAH, "nip_ttd_kartu_siswa"));
 
 		row = new MyFormRow();
 		groupbox = new Groupbox();
@@ -300,9 +278,31 @@ public class KonfigurasiSekolahAction extends KonfigurasiNewAction {
 				null);
 		hbox.setParent(groupbox);
 
-		rows.appendChild(createRowNilai("Masa berlaku kartu siswa", "masa_berlaku_kartu_siswa", "4"));
+		rows.appendChild(baris(SkemaKonfigurasi.SEKOLAH, "masa_berlaku_kartu_siswa"));
 
-		rows.appendChild(createRowActiveDefault("Tamilkan CR Code di belakang kartu", "apakah_tampilan_cr_code",
-				Konfigurasi.AKTIF));
+		rows.appendChild(baris(SkemaKonfigurasi.SEKOLAH, "apakah_tampilan_cr_code"));
+	}
+
+	/**
+	 * Bangun satu baris konfigurasi dari skema bersama.
+	 *
+	 * <p>Label dan nilai bawaannya TIDAK ditulis di sini melainkan dibaca dari
+	 * {@link SkemaKonfigurasi}, karena {@code Common.getKonfigurasi} menyimpan
+	 * bawaan yang disebut pemanggil ketika barisnya belum ada — bila layar ini
+	 * dan kontrak native menyebut bawaan berbeda, yang dibuka lebih dulu akan
+	 * menetapkannya secara permanen.</p>
+	 */
+	private Row baris(java.util.List<SkemaKonfigurasi.Butir> skema, String kunci) {
+		SkemaKonfigurasi.Butir b = SkemaKonfigurasi.cari(skema, kunci);
+		if (b == null) {
+			throw new IllegalStateException("Kunci konfigurasi tidak ada di skema: " + kunci);
+		}
+		if (SkemaKonfigurasi.SAKLAR.equals(b.tipe)) {
+			return createRowActiveDefault(b.label, b.kunci, b.bawaan());
+		}
+		if (SkemaKonfigurasi.TEKS_PANJANG.equals(b.tipe)) {
+			return createRowNilai(b.label, b.kunci, b.bawaan(), b.baris, null);
+		}
+		return createRowNilai(b.label, b.kunci, b.bawaan());
 	}
 }

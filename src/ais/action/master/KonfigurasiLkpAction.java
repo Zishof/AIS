@@ -1,8 +1,10 @@
 package ais.action.master;
 
 import org.zkoss.zk.ui.Component;
+import org.zkoss.zul.Row;
 import org.zkoss.zul.Rows;
 
+import ais.action.master.konfigurasi.SkemaKonfigurasi;
 import ais.common.Common;
 import ais.common.CommonPrivilages;
 
@@ -52,14 +54,32 @@ public class KonfigurasiLkpAction extends KonfigurasiNewAction {
 	}
 
 	public void onTampil() {
+		Rows rows = createSpan("Pengaturan Sasaran Kerja Pegawai");
+		for (SkemaKonfigurasi.Butir butir : SkemaKonfigurasi.SKP) {
+			rows.appendChild(baris(SkemaKonfigurasi.SKP, butir.kunci));
+		}
+	}
 
-		Rows rows = (createSpan("Pengaturan Sasaran Kerja Pegawai"));
-
-		rows.appendChild(createRowNilai("Prosentasi nilai Sasaran Kerja Pegawai pada bidang kuantitas",
-				"prosentasi_nilai_skp_kuantitas", "70"));
-		rows.appendChild(createRowNilai("Prosentasi nilai Sasaran Kerja Pegawai pada bidang kualitas",
-				"prosentasi_nilai_skp_kualitas", "10"));
-		rows.appendChild(createRowNilai("Prosentasi nilai Sasaran Kerja Pegawai pada bidang waktu",
-				"prosentasi_nilai_skp_waktu", "20"));
+	/**
+	 * Bangun satu baris konfigurasi dari skema bersama.
+	 *
+	 * <p>Label dan nilai bawaannya TIDAK ditulis di sini melainkan dibaca dari
+	 * {@link SkemaKonfigurasi}, karena {@code Common.getKonfigurasi} menyimpan
+	 * bawaan yang disebut pemanggil ketika barisnya belum ada — bila layar ini
+	 * dan kontrak native menyebut bawaan berbeda, yang dibuka lebih dulu akan
+	 * menetapkannya secara permanen.</p>
+	 */
+	private Row baris(java.util.List<SkemaKonfigurasi.Butir> skema, String kunci) {
+		SkemaKonfigurasi.Butir b = SkemaKonfigurasi.cari(skema, kunci);
+		if (b == null) {
+			throw new IllegalStateException("Kunci konfigurasi tidak ada di skema: " + kunci);
+		}
+		if (SkemaKonfigurasi.SAKLAR.equals(b.tipe)) {
+			return createRowActiveDefault(b.label, b.kunci, b.bawaan());
+		}
+		if (SkemaKonfigurasi.TEKS_PANJANG.equals(b.tipe)) {
+			return createRowNilai(b.label, b.kunci, b.bawaan(), b.baris, null);
+		}
+		return createRowNilai(b.label, b.kunci, b.bawaan());
 	}
 }
