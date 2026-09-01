@@ -61,6 +61,7 @@ public final class ApiRouteRegistry {
         register(routes, "simpanPengguna", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PenggunaApi.simpan(req, json); } });
         register(routes, "hapusPengguna", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PenggunaApi.hapus(req, json); } });
         register(routes, "simpanProfilSaya", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PenggunaApi.simpanProfilSaya(req, json); } });
+        register(routes, "ubahPasswordPengguna", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PasswordSayaApi.ubahPengguna(req, json); } });
         register(routes, "ubahPasswordMahasiswa", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PasswordSayaApi.ubahMahasiswa(req, json); } });
         register(routes, "repositoryMahasiswa", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return RepositoryMahasiswaApi.daftar(req, json); } });
         // PUSTAKA & REPOSITORY publik (baca-saja, isi disajikan per halaman

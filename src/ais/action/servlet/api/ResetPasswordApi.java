@@ -58,6 +58,10 @@ public class ResetPasswordApi {
 
 	/** `menu.id` untuk "Reset Password User". */
 	public static final long MENU_RESET_PASSWORD = 1000000272L;
+	/** `menu.id` untuk reset akun Dosen/Mahasiswa. */
+	public static final long MENU_RESET_DOSEN_MAHASISWA = 11860L;
+	/** `menu.id` untuk reset akun Guru/Siswa. */
+	public static final long MENU_RESET_GURU_SISWA = 11861L;
 
 	private ResetPasswordApi() {
 	}
@@ -70,7 +74,8 @@ public class ResetPasswordApi {
 			Tbmuser pemanggil = ApiUtil.currentUser(request, req);
 			session = HibernateUtil.getSessionFactory().openSession();
 
-			JSONObject tolak = tolakBilaTidakBerhak(session, pemanggil);
+			long menuId = menuId(request);
+			JSONObject tolak = tolakBilaTidakBerhak(session, pemanggil, menuId);
 			if (tolak != null) {
 				return tolak;
 			}
@@ -81,7 +86,7 @@ public class ResetPasswordApi {
 			}
 			id = id.trim();
 
-			Object[] ketemu = cariPengguna(session, id);
+			Object[] ketemu = cariPengguna(session, id, menuId);
 			if (ketemu == null) {
 				return ApiHelperSupport.status("91", "User ID tidak valid");
 			}
@@ -108,7 +113,8 @@ public class ResetPasswordApi {
 			Tbmuser pemanggil = ApiUtil.currentUser(request, req);
 			session = HibernateUtil.getSessionFactory().openSession();
 
-			JSONObject tolak = tolakBilaTidakBerhak(session, pemanggil);
+			long menuId = menuId(request);
+			JSONObject tolak = tolakBilaTidakBerhak(session, pemanggil, menuId);
 			if (tolak != null) {
 				return tolak;
 			}
@@ -119,7 +125,7 @@ public class ResetPasswordApi {
 			}
 			id = id.trim();
 
-			Object[] ketemu = cariPengguna(session, id);
+			Object[] ketemu = cariPengguna(session, id, menuId);
 			if (ketemu == null) {
 				return ApiHelperSupport.status("91",
 						"Data pengguna (User ID " + id + ") tidak ditemukan pada sistem, "
@@ -162,9 +168,12 @@ public class ResetPasswordApi {
 	 * Mengembalikan respons penolakan bila pemanggil tidak berhak, atau
 	 * {@code null} bila boleh lanjut.
 	 */
-	private static JSONObject tolakBilaTidakBerhak(Session session, Tbmuser pemanggil) {
+	private static JSONObject tolakBilaTidakBerhak(Session session, Tbmuser pemanggil, long menuId) {
 		if (pemanggil == null || pemanggil.getUserId() == null) {
 			return ApiHelperSupport.status("97", "Token tidak sesuai");
+		}
+		if (!menuDikenal(menuId)) {
+			return ApiHelperSupport.status("93", "Jenis menu reset password tidak dikenal");
 		}
 
 		Tbmrole role = null;
@@ -174,14 +183,39 @@ public class ResetPasswordApi {
 			ais.common.ErrorAuditUtil.record(e,
 					"auto-audit(empty-catch) src/ais/action/servlet/api/ResetPasswordApi.java:hakAkses");
 		}
-		if (role == null || role.getRoleId() == null
-				|| !Tbmrole.ADMINISTRATOR.equalsIgnoreCase(role.getRoleId())) {
+		if (role == null || role.getRoleId() == null) {
 			return ApiHelperSupport.status("93", "Anda tidak berhak mengakses fitur ini");
 		}
-		if (!punyaMenu(session, role, MENU_RESET_PASSWORD)) {
-			return ApiHelperSupport.status("93", "Menu Reset Password User tidak tersedia untuk role Anda");
+		// Reset umum mempertahankan syarat lama: hanya Administrator. Dua menu
+		// khusus Dosen/Mahasiswa dan Guru/Siswa mengikuti layar ZK-nya: role yang
+		// memperoleh menu tersebut boleh menjalankannya, tetapi cakupan targetnya
+		// dikunci oleh cariPengguna(..., menuId).
+		if (menuId == MENU_RESET_PASSWORD
+				&& !Tbmrole.ADMINISTRATOR.equalsIgnoreCase(role.getRoleId())) {
+			return ApiHelperSupport.status("93", "Reset Password User hanya tersedia untuk Administrator");
+		}
+		if (!punyaMenu(session, role, menuId)) {
+			return ApiHelperSupport.status("93", "Menu reset password tidak tersedia untuk role Anda");
 		}
 		return null;
+	}
+
+	private static long menuId(JSONObject request) {
+		String value = ApiHelperSupport.optString(request, "menuId").trim();
+		if (!ApiHelperSupport.hasText(value)) {
+			// Klien lama hanya mengenal menu Reset Password User.
+			return MENU_RESET_PASSWORD;
+		}
+		try {
+			return Long.parseLong(value);
+		} catch (Exception e) {
+			return -1L;
+		}
+	}
+
+	private static boolean menuDikenal(long menuId) {
+		return menuId == MENU_RESET_PASSWORD || menuId == MENU_RESET_DOSEN_MAHASISWA
+				|| menuId == MENU_RESET_GURU_SISWA;
 	}
 
 	private static boolean punyaMenu(Session session, Tbmrole role, long idMenu) {
@@ -217,31 +251,41 @@ public class ResetPasswordApi {
 	 * @return {@code {entity, jenis, email, nama}} atau {@code null} bila tidak
 	 *         ditemukan.
 	 */
-	private static Object[] cariPengguna(Session session, String id) {
-		Tbmuser tbmuser = (Tbmuser) ConstantValues.simpleObject(session.createCriteria(Tbmuser.class)
+	private static Object[] cariPengguna(Session session, String id, long menuId) {
+		org.hibernate.Criteria userCriteria = session.createCriteria(Tbmuser.class)
 				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-				.add(Restrictions.eq("userId", id)).setMaxResults(1), Tbmuser.class);
+				.add(Restrictions.eq("userId", id)).setMaxResults(1);
+		if (menuId == MENU_RESET_DOSEN_MAHASISWA) {
+			userCriteria.add(Restrictions.isNotNull("dosen"));
+		} else if (menuId == MENU_RESET_GURU_SISWA) {
+			userCriteria.add(Restrictions.isNotNull("guru"));
+		}
+		Tbmuser tbmuser = (Tbmuser) ConstantValues.simpleObject(userCriteria, Tbmuser.class);
 		if (tbmuser != null && tbmuser.getUserId() != null) {
 			return new Object[] { tbmuser, "user", amanEmail(tbmuser.getEmail()), amanTeks(tbmuser.getUserNama()) };
 		}
 
-		Mahasiswa mahasiswa = (Mahasiswa) ConstantValues.simpleObject(session.createCriteria(Mahasiswa.class)
-				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
-				.add(Restrictions.eq("nim", id)).setMaxResults(1), Mahasiswa.class);
-		if (mahasiswa != null) {
-			return new Object[] { mahasiswa, "mahasiswa", amanEmail(mahasiswa.getEmail()),
-					amanTeks(mahasiswa.getNama()) };
+		if (menuId != MENU_RESET_GURU_SISWA) {
+			Mahasiswa mahasiswa = (Mahasiswa) ConstantValues.simpleObject(session.createCriteria(Mahasiswa.class)
+					.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+					.add(Restrictions.eq("nim", id)).setMaxResults(1), Mahasiswa.class);
+			if (mahasiswa != null) {
+				return new Object[] { mahasiswa, "mahasiswa", amanEmail(mahasiswa.getEmail()),
+						amanTeks(mahasiswa.getNama()) };
+			}
 		}
 
-		Siswa siswa = (Siswa) ConstantValues.simpleObject(session.createCriteria(Siswa.class)
-				.add(Restrictions.isNotNull("namaSiswa")).add(Restrictions.ne("namaSiswa", ""))
-				.add(Restrictions.isNotNull("sekolah"))
-				.add(Restrictions.or(Restrictions.eq("nomorInduk", id),
-						Restrictions.eq("nomorIndukNasional", id)))
-				.setMaxResults(1), Siswa.class);
-		if (siswa != null) {
-			// Siswa tidak punya kolom email, sama seperti catatan di helper web.
-			return new Object[] { siswa, "siswa", "", amanTeks(siswa.getNama()) };
+		if (menuId != MENU_RESET_DOSEN_MAHASISWA) {
+			Siswa siswa = (Siswa) ConstantValues.simpleObject(session.createCriteria(Siswa.class)
+					.add(Restrictions.isNotNull("namaSiswa")).add(Restrictions.ne("namaSiswa", ""))
+					.add(Restrictions.isNotNull("sekolah"))
+					.add(Restrictions.or(Restrictions.eq("nomorInduk", id),
+							Restrictions.eq("nomorIndukNasional", id)))
+					.setMaxResults(1), Siswa.class);
+			if (siswa != null) {
+				// Siswa tidak punya kolom email, sama seperti catatan di helper web.
+				return new Object[] { siswa, "siswa", "", amanTeks(siswa.getNama()) };
+			}
 		}
 
 		return null;
