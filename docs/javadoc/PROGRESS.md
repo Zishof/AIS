@@ -1,25 +1,48 @@
 # Progres Javadoc Menyeluruh
 
-## SEDANG BERJALAN (2 Sep 2026, jangan duplikasi — cek svn log dulu)
+## Batch "4 file besar" — SELESAI 100% (2 Sep 2026)
 
-4 agent paralel sedang mengerjakan (masing-masing 1 file besar, TIDAK dipecah
-antar-file agar tidak bentrok SVN pada file yang sama):
-- `ais/database/model/GeneralValueObject.java` — base class utk **1.456 subclass**
-  (leverage tertinggi yang pernah ditemukan; DAO layer `GenericHibernateDao` +
-  286 `*DaoImpl` TERNYATA SUDAH terdokumentasi baik dari sesi/inisiatif SEBELUM
-  proyek ini, tidak perlu disentuh — cek dulu sebelum menganggap suatu paket
-  "belum digarap").
-- `ais/database/model/Mahasiswa.java` (6403 baris, ~418 method, cuma 15 javadoc)
-- ~~`ais/database/model/Dosen.java` (3742 baris, ~238 method, cuma 6 javadoc)~~
-  **SELESAI 100%** (r82927/82929/82935/82939/82946/82951/82953) - lihat entri
-  `ais/database/model/` di bawah.
-- ~~`ais/database/model/Perkuliahan.java` (3537 baris, ~300 method, cuma 4 javadoc)~~
-  **SELESAI 100%** (r82926/82932/82941/82945) - lihat entri `ais/database/model/`
-  di bawah.
+Semua 4 file rampung TUNTAS 100% method, dikompilasi, dikommit bertahap,
+di-mirror ke `java/` (verifikasi `cmp` byte-identik oleh orkestrator setelah
+`svn update` menyeluruh):
 
-Hasil akan dicatat begitu masing-masing selesai (mungkin tidak 100% dalam satu
-sesi mengingat ukurannya — agent diinstruksikan commit bertahap per rentang
-method, bukan 1 commit raksasa, jadi progres SEBAGIAN pun aman tersimpan).
+- `ais/database/model/GeneralValueObject.java` — base class utk **1.456
+  subclass** (leverage tertinggi yang pernah ditemukan). 1807→3412 baris,
+  SEMUA method ber-Javadoc. r82933 (+ r82936 tracker). Detail mekanisme
+  `check()`/cache/thread-safety di entri `ais/database/model/` di bawah.
+  **Bug arsitektur ditemukan**: `equals()` di-override berbasis `id` tapi
+  `hashCode()` TIDAK di-override (di class ini maupun induk `DataUtil`) —
+  dieskalasi ke task terpisah `task_9d2ca4da` (investigasi dampak, BUKAN
+  bagian inisiatif dokumentasi ini, blast radius 1456 subclass jadi butuh
+  kajian risiko dulu sebelum diperbaiki).
+- `ais/database/model/Dosen.java` — 249/249 method (100%). 3742→5744 baris.
+  r82927/82929/82935/82939/82946/82951/82953 (+ r82957 tracker).
+- `ais/database/model/Perkuliahan.java` — 300/300 method (100%).
+  3537→6346 baris. r82926/82932/82941/82945 (+ r82949 tracker).
+- `ais/database/model/Mahasiswa.java` — 445/445 method (100%, file
+  TERBESAR). 6403→10087 baris. r82928/82934/82939/82950/82952/82958/82963
+  (+ r82966 tracker).
+
+**Temuan penting lintas-file**: DAO layer (`ais/database/dao/GenericHibernateDao.java`
++ 286 `*DaoImpl`) TERNYATA SUDAH terdokumentasi baik dari sesi/inisiatif
+SEBELUM proyek dokumentasi ini dimulai — jangan dianggap "belum digarap",
+cek dulu kualitas Javadoc yang ADA sebelum menugaskan agent ke suatu paket
+(bisa hemat banyak waktu, seperti kasus ini).
+
+**Total akumulasi seluruh sesi (3 sesi kerja)**: 49 (`Revisi*Helper`) + 84
+(`GetEventListener`+`AmbilData*Banbox`) + 53 (mandiri) + 4 (file besar,
+tapi mewakili ~1450+ method individual di 4 file MASSIVE) = **190 file
+langsung disentuh**, dari 7.401 total (~2,6%). Namun dampak *kualitas*
+jauh lebih besar dari angka file: `GeneralValueObject.java` sendiri adalah
+fondasi 1.456 entity lain, jadi nilai referensinya menyebar luas begitu
+subclass-nya mulai ditautkan di sesi mendatang.
+
+Format tiap baris: `- [status] path/File.java — catatan singkat (revisi svn, tanggal)`
+
+Status: `[referensi]` = class induk/pola sudah didokumentasikan sangat detail (jadi
+target link dari class lain), `[tautan]` = subclass/pemanggil tipis sudah ditautkan
+ke referensi, `[lengkap]` = file berdiri sendiri sudah didokumentasikan penuh tanpa
+perlu referensi eksternal, `[sebagian]` = baru sebagian method, `[belum]` = belum
 
 Format tiap baris: `- [status] path/File.java — catatan singkat (revisi svn, tanggal)`
 
