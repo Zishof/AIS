@@ -203,9 +203,11 @@ public class AmbilDataMahasiswaPklHelper {
 
 		row = new MyFormRow();
 		row.setParent(rows);
-		row.appendChild(new ais.ui.util.MyLabelConfig("Tahun Angkatan"));
+		row.appendChild(new ais.ui.util.MyLabelConfig("Angkatan Mahasiswa (kosong = semua)"));
 		row.appendChild(tahunangkatan = new Decimalbox());
 		tahunangkatan.setWidth("90%");
+		tahunangkatan.setTooltiptext(
+				"Isi dengan tahun masuk mahasiswa, bukan tahun pelaksanaan PKL. Kosongkan untuk menampilkan semua angkatan.");
 
 		row = new MyFormRow();
 		row.setParent(rows);
@@ -247,6 +249,7 @@ public class AmbilDataMahasiswaPklHelper {
 		});
 		button.setParent(toolbar);
 		button = new MyToolbarbuttonConfig("Cari", "/img/svg/search.svg");
+		button.setTooltiptext("Cari kandidat mahasiswa sesuai filter");
 		button.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
@@ -355,6 +358,9 @@ public class AmbilDataMahasiswaPklHelper {
 				.setMaxResults(Common.MAX_RESULT).list();
 		ListModel strset = new SimpleListModel(mahasiswa);
 		grid.setRowRenderer(new MahasiswaRenderer());
+		grid.setEmptyMessage(mahasiswa.isEmpty()
+				? "Tidak ada kandidat mahasiswa yang sesuai. Kosongkan Angkatan Mahasiswa atau sesuaikan NIM, Nama, Fakultas, dan Prodi."
+				: "Tidak ada kandidat mahasiswa yang cocok dengan filter.");
 		grid.setModelCheckMobile(strset);
 
 	}

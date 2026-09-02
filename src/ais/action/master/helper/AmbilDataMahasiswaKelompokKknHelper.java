@@ -237,9 +237,11 @@ public class AmbilDataMahasiswaKelompokKknHelper {
 		nama.setWidth("90%");
 
 		row.setParent(rows);
-		row.appendChild(new ais.ui.util.MyLabelConfig("Tahun Angkatan"));
+		row.appendChild(new ais.ui.util.MyLabelConfig("Angkatan Mahasiswa (kosong = semua)"));
 		row.appendChild(tahunangkatan = new Decimalbox());
 		tahunangkatan.setWidth("90%");
+		tahunangkatan.setTooltiptext(
+				"Isi dengan tahun masuk mahasiswa, bukan tahun pelaksanaan KKN. Kosongkan untuk menampilkan semua angkatan.");
 
 		row = new MyFormRow();
 		row.setParent(rows);
@@ -281,6 +283,7 @@ public class AmbilDataMahasiswaKelompokKknHelper {
 		});
 		button.setParent(toolbar);
 		button = new MyToolbarbuttonConfig("Cari", "/img/svg/search.svg");
+		button.setTooltiptext("Cari mahasiswa diterima sesuai filter");
 		button.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
@@ -369,6 +372,10 @@ public class AmbilDataMahasiswaKelompokKknHelper {
 	public void onSearchDefault(Event event) {
 
 		Session session = HibernateUtil.currentSession();
+		Number jumlahDiterima = (Number) session.createCriteria(MahasiswaDaftarKkn.class)
+				.setProjection(Projections.rowCount())
+				.add(Restrictions.eq("kkn", kelompokKkn.getKkn()))
+				.add(Restrictions.eq("terima", MahasiswaDaftarKkn.DITERIMA)).uniqueResult();
 		List<Mahasiswa> mahasiswa = ConstantValues.simpleList(session.createCriteria(MahasiswaDaftarKkn.class)
 
 //				.add(Restrictions.sqlRestriction(
@@ -401,6 +408,17 @@ public class AmbilDataMahasiswaKelompokKknHelper {
 				.setMaxResults(Common.MAX_RESULT_1000), Mahasiswa.class, false);
 		ListModel strset = new SimpleListModel(mahasiswa);
 		grid.setRowRenderer(new MahasiswaRenderer());
+		if (mahasiswa.isEmpty()) {
+			if (jumlahDiterima == null || jumlahDiterima.intValue() == 0) {
+				grid.setEmptyMessage(
+						"Belum ada pendaftar yang berstatus DITERIMA pada kegiatan KKN ini. Terima mahasiswa terlebih dahulu melalui menu Seleksi Penerima KKN.");
+			} else {
+				grid.setEmptyMessage(
+						"Ada mahasiswa yang sudah diterima, tetapi tidak cocok dengan filter. Kosongkan Angkatan Mahasiswa atau pilih Fakultas/Prodi yang sesuai.");
+			}
+		} else {
+			grid.setEmptyMessage("Tidak ada mahasiswa yang cocok dengan filter.");
+		}
 		grid.setModelCheckMobile(strset);
 
 	}
