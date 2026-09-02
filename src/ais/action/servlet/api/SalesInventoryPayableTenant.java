@@ -352,7 +352,35 @@ final class SalesInventoryPayableTenant {
 	 * menyimpan jatuh tempo saja lalu melaporkan sukses akan menyesatkan pengguna yang mengira
 	 * jenis dan terminnya ikut tersimpan.
 	 */
+	/**
+	 * Benar bila jenis pembayaran dan termin per hutang dapat disimpan. Sejak migrasi v18: bisa.
+	 *
+	 * <p>Sebelumnya keduanya tidak punya tempat pada model tenant, dan menyimpan jatuh temponya
+	 * saja lalu melaporkan sukses akan membuat pengguna mengira jenis dan termin ikut
+	 * tersimpan.</p>
+	 */
 	static boolean dukungSimpanTermin() {
-		return false;
+		return true;
+	}
+
+	// ------------------------------------------------------------------ termin hutang (v18)
+
+	/** DUA kolom: tanggal hutang dan nilainya. */
+	static String hutangUntukTermin(String skema) {
+		return "SELECT h.tanggal, COALESCE(h.nilai,0) FROM " + skema
+				+ "hutang_supplier h WHERE h.id = ?";
+	}
+
+	/**
+	 * LIMA parameter: jenisPembayaran, terminHari, jatuhTempo, oleh, id.
+	 *
+	 * <p>Jatuh tempo ikut ditulis dalam pernyataan yang sama. Ia memang dapat dihitung dari
+	 * {@code tanggal + termin_hari}, tetapi seluruh kueri umur hutang membacanya langsung —
+	 * memperbaruinya terpisah dari terminnya akan membuka jendela ketika keduanya tidak
+	 * cocok.</p>
+	 */
+	static String simpanTerminHutang(String skema) {
+		return "UPDATE " + skema + "hutang_supplier SET jenis_pembayaran = ?, termin_hari = ?,"
+				+ " jatuh_tempo = ?, oleh = ?, tanggal_dirubah = now() WHERE id = ?";
 	}
 }

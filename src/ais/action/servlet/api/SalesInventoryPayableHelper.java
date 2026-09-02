@@ -90,16 +90,6 @@ public final class SalesInventoryPayableHelper {
 			tolak(hasil, "Akun Anda tidak berhak mengatur termin/jenis pembayaran faktur.");
 			return;
 		}
-		if (SalesInventoryPayableTenant.aktif(ctx)
-				&& !SalesInventoryPayableTenant.dukungSimpanTermin()) {
-			// Model tenant tidak punya payable_faktur_info: jenis pembayaran dan termin per
-			// faktur tidak punya tempat. Menyimpan jatuh temponya saja lalu melaporkan sukses
-			// akan membuat pengguna mengira jenis dan termin ikut tersimpan.
-			tolak(hasil, "Termin/jenis pembayaran per faktur belum tersedia pada tenant berschema: "
-					+ "hutang dicatat langsung beserta jatuh temponya. Lihat catatan "
-					+ "payable_faktur_info pada SalesInventoryPayableTenant.");
-			return;
-		}
 		Long fakturId = optLong(request, "faktur_id");
 		if (fakturId == null) {
 			tolak(hasil, "faktur_id wajib diisi.");
@@ -115,6 +105,10 @@ public final class SalesInventoryPayableHelper {
 		BigDecimal dibayarAwal = optBigDecimal(request, "dibayar_awal");
 		if (PayableFakturInfo.JENIS_DP.equals(jenis) && (dibayarAwal == null || dibayarAwal.signum() <= 0)) {
 			tolak(hasil, "Jenis DP wajib menyertakan dibayar_awal > 0.");
+			return;
+		}
+		if (SalesInventoryPayableTenant.aktif(ctx)) {
+			purchaseTermsSaveTenant(ctx, tbmuser, hasil, fakturId, jenis, terminHari, dibayarAwal);
 			return;
 		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
@@ -928,6 +922,96 @@ public final class SalesInventoryPayableHelper {
 				// rollback gagal tidak boleh menutupi galat aslinya
 			}
 			throw e;
+		}
+	}
+	/**
+	 * Menyimpan jenis pembayaran dan termin satu hutang pada schema tenant.
+	 *
+	 * <p>Pada jalur tenant {@code faktur_id} berarti id {@code hutang_supplier} — sama seperti
+	 * pada pencatatan pembayaran, yang juga mengunci hutangnya lewat id itu.</p>
+	 *
+	 * <p><b>{@code dibayar_awal} ditolak, dan itu bukan kekurangan.</b> Sisa hutang pada model
+	 * tenant dihitung {@code nilai − Σalokasi} — satu sumber, dan setiap pembayaran adalah
+	 * dokumen dengan alokasinya sendiri. Menerima uang muka di sini berarti memperkenalkan
+	 * pengurang kedua yang tidak berasal dari dokumen mana pun: sisa hutang berkurang tanpa ada
+	 * pembayaran yang dapat ditunjuk, dan rekonsiliasi terhadap kas kehilangan pasangannya.</p>
+	 * <p>Uang muka pada model tenant <b>adalah pembayaran</b>, dan dicatat lewat aksi pembayaran
+	 * hutang. Penolakannya menunjuk ke sana.</p>
+	 *
+	 * <p>Untuk jenis CASH, jalur legacy diam-diam menyetel uang muka sebesar total fakturnya —
+	 * artinya faktur dianggap lunas seketika. Di sini pelunasannya juga harus berupa dokumen,
+	 * sehingga terminnya disimpan dan pemanggil diberi tahu lewat medan {@code peringatan} bahwa
+	 * pembayarannya masih perlu dicatat. Medan itu aditif; klien lama mengabaikannya.</p>
+	 */
+	private static void purchaseTermsSaveTenant(EbisnisActorContextResolver.ActorContext ctx,
+			Tbmuser tbmuser, JSONObject hasil, Long hutangId, String jenis, int terminHari,
+			BigDecimal dibayarAwal) throws Exception {
+		String skema = SalesInventoryPayableTenant.skema(ctx);
+		String oleh = tbmuser == null || tbmuser.getUserId() == null ? "" : tbmuser.getUserId();
+		if (dibayarAwal != null && dibayarAwal.signum() > 0) {
+			tolak(hasil, "dibayar_awal tidak disimpan di sini pada schema tenant: uang muka"
+					+ " adalah pembayaran, dan dicatat lewat aksi pembayaran hutang supaya sisa"
+					+ " hutangnya tetap bersumber pada alokasi.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		Transaction tx = null;
+		try {
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(
+					SalesInventoryPayableTenant.hutangUntukTermin(skema));
+			java.sql.Date tanggal = null;
+			boolean ada;
+			try {
+				ps.setLong(1, hutangId.longValue());
+				java.sql.ResultSet rs = ps.executeQuery();
+				ada = rs.next();
+				if (ada) {
+					tanggal = rs.getDate(1);
+				}
+				rs.close();
+			} finally {
+				ps.close();
+			}
+			if (!ada) {
+				tolak(hasil, "Faktur kulakan tidak ditemukan.");
+				return;
+			}
+			java.util.Calendar cal = java.util.Calendar.getInstance();
+			cal.setTime(tanggal != null ? tanggal : ais.ui.util.WaktuUtil.getDate());
+			cal.add(java.util.Calendar.DAY_OF_MONTH, terminHari);
+			java.sql.Date jatuhTempo = new java.sql.Date(cal.getTimeInMillis());
+
+			tx = session.beginTransaction();
+			java.sql.PreparedStatement upd = session.connection().prepareStatement(
+					SalesInventoryPayableTenant.simpanTerminHutang(skema));
+			try {
+				upd.setString(1, jenis);
+				upd.setInt(2, terminHari);
+				upd.setDate(3, jatuhTempo);
+				upd.setString(4, oleh);
+				upd.setLong(5, hutangId.longValue());
+				upd.executeUpdate();
+			} finally {
+				upd.close();
+			}
+			tx.commit();
+			hasil.put("status", "00");
+			hasil.put("id", hutangId);
+			hasil.put("jatuhTempo", str(jatuhTempo));
+			if (PayableFakturInfo.JENIS_CASH.equals(jenis)) {
+				hasil.put("peringatan", "Jenis CASH tersimpan, tetapi pelunasannya belum dicatat:"
+						+ " pada schema tenant pembayaran selalu berupa dokumen tersendiri.");
+			}
+		} catch (Exception e) {
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
 		}
 	}
 }
