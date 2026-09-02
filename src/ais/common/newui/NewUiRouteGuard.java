@@ -80,6 +80,7 @@ public final class NewUiRouteGuard {
     private static boolean isReadAction(String value) {
         return "meta".equals(value) || "health".equals(value) || "read".equals(value)
                 || "list".equals(value) || "detail".equals(value) || "get".equals(value)
+                || "ringkasan".equals(value)
                 || "options".equals(value) || "lookup".equals(value)
                 // ringkasan read-only (mis. Informasi Pembayaran Mahasiswa)
                 || "informasi".equals(value)

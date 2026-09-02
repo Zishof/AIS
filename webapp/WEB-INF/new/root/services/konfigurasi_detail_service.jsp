@@ -2,5 +2,5 @@
 <%@ page import="ais.common.newui.konfigurasi.NewUiKonfigurasiController" %>
 <%
 NewUiKonfigurasiController.handle(request, response,
-        NewUiKonfigurasiController.PAGE_UTAMA);
+        NewUiKonfigurasiController.PAGE_DETAIL);
 %>
