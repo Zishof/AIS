@@ -41,8 +41,52 @@ public class InitIndex {
 		String[] ddl = new String[] {
 				"ALTER TABLE sekolah.sekolah ADD COLUMN IF NOT EXISTS aktfkan_pembayaran_via_online_bmt boolean NOT NULL DEFAULT false",
 				"ALTER TABLE IF EXISTS sekolah.sekolah_aud ADD COLUMN IF NOT EXISTS aktfkan_pembayaran_via_online_bmt boolean",
+				"ALTER TABLE sekolah.sekolah "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_prefix_invoice varchar(8), "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_biaya_administrasi numeric(20,2), "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_kode_mitra varchar(255), "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_nama_mitra varchar(255), "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_kode_merchant varchar(255), "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_nama_merchant varchar(255), "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_api_key text, "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_encryption_key text, "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_hmac_key text, "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_request_time_tolerance integer",
+				"ALTER TABLE IF EXISTS sekolah.sekolah_aud "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_prefix_invoice varchar(8), "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_biaya_administrasi numeric(20,2), "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_kode_mitra varchar(255), "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_nama_mitra varchar(255), "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_kode_merchant varchar(255), "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_nama_merchant varchar(255), "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_api_key text, "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_encryption_key text, "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_hmac_key text, "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_request_time_tolerance integer",
 				"ALTER TABLE sekolah.kanal_pembayaran ADD COLUMN IF NOT EXISTS aktfkan_pembayaran_via_online_bmt boolean NOT NULL DEFAULT false",
 				"ALTER TABLE IF EXISTS sekolah.kanal_pembayaran_aud ADD COLUMN IF NOT EXISTS aktfkan_pembayaran_via_online_bmt boolean",
+				"ALTER TABLE sekolah.kanal_pembayaran "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_prefix_invoice varchar(8), "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_biaya_administrasi numeric(20,2), "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_kode_mitra varchar(255), "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_nama_mitra varchar(255), "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_kode_merchant varchar(255), "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_nama_merchant varchar(255), "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_api_key text, "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_encryption_key text, "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_hmac_key text, "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_request_time_tolerance integer",
+				"ALTER TABLE IF EXISTS sekolah.kanal_pembayaran_aud "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_prefix_invoice varchar(8), "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_biaya_administrasi numeric(20,2), "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_kode_mitra varchar(255), "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_nama_mitra varchar(255), "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_kode_merchant varchar(255), "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_nama_merchant varchar(255), "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_api_key text, "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_encryption_key text, "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_hmac_key text, "
+						+ "ADD COLUMN IF NOT EXISTS online_bmt_request_time_tolerance integer",
 				"CREATE TABLE IF NOT EXISTS public.online_bmt_nonce ("
 						+ "nonce varchar(200) PRIMARY KEY, request_type varchar(30) NOT NULL, "
 						+ "created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP)",

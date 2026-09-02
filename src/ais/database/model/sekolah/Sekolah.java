@@ -173,6 +173,16 @@ public class Sekolah extends VoKunci {
 	private Boolean aktfkanPembayaranViaEsmartlink;
 	/** Sakelar tenant Online BMT; null pada instalasi lama berarti OFF. */
 	private Boolean aktfkanPembayaranViaOnlineBmt;
+	private String onlineBmtPrefixInvoice;
+	private Double onlineBmtBiayaAdministrasi;
+	private String onlineBmtKodeMitra;
+	private String onlineBmtNamaMitra;
+	private String onlineBmtKodeMerchant;
+	private String onlineBmtNamaMerchant;
+	private String onlineBmtApiKey;
+	private String onlineBmtEncryptionKey;
+	private String onlineBmtHmacKey;
+	private Integer onlineBmtRequestTimeTolerance;
 	private String usernameEsmartlink;
 	private String passwordEsmartlink;
 	private Double biayaAdminEsmartlink;
@@ -1090,6 +1100,57 @@ public class Sekolah extends VoKunci {
 	public void setAktfkanPembayaranViaOnlineBmt(Boolean aktfkanPembayaranViaOnlineBmt) {
 		this.aktfkanPembayaranViaOnlineBmt = aktfkanPembayaranViaOnlineBmt;
 	}
+
+	/**
+	 * Override prefix invoice Online BMT untuk sekolah ini. Kosong berarti memakai
+	 * konfigurasi global. Nilai tidak dinormalisasi di entity supaya perbedaan antara
+	 * "belum diatur" dan nilai efektif tetap dapat dianalisis oleh resolver.
+	 */
+	@Column(name = "online_bmt_prefix_invoice", length = 8)
+	public String getOnlineBmtPrefixInvoice() { return onlineBmtPrefixInvoice; }
+	public void setOnlineBmtPrefixInvoice(String value) { this.onlineBmtPrefixInvoice = value; }
+
+	/** Biaya admin sekolah; null mewarisi global, sedangkan 0 adalah override sah. */
+	@Column(name = "online_bmt_biaya_administrasi")
+	public Double getOnlineBmtBiayaAdministrasi() { return onlineBmtBiayaAdministrasi; }
+	public void setOnlineBmtBiayaAdministrasi(Double value) { this.onlineBmtBiayaAdministrasi = value; }
+
+	@Column(name = "online_bmt_kode_mitra")
+	public String getOnlineBmtKodeMitra() { return onlineBmtKodeMitra; }
+	public void setOnlineBmtKodeMitra(String value) { this.onlineBmtKodeMitra = value; }
+
+	@Column(name = "online_bmt_nama_mitra")
+	public String getOnlineBmtNamaMitra() { return onlineBmtNamaMitra; }
+	public void setOnlineBmtNamaMitra(String value) { this.onlineBmtNamaMitra = value; }
+
+	@Column(name = "online_bmt_kode_merchant")
+	public String getOnlineBmtKodeMerchant() { return onlineBmtKodeMerchant; }
+	public void setOnlineBmtKodeMerchant(String value) { this.onlineBmtKodeMerchant = value; }
+
+	@Column(name = "online_bmt_nama_merchant")
+	public String getOnlineBmtNamaMerchant() { return onlineBmtNamaMerchant; }
+	public void setOnlineBmtNamaMerchant(String value) { this.onlineBmtNamaMerchant = value; }
+
+	/**
+	 * Credential sekolah merupakan satu paket atomik. Ketiganya kosong berarti
+	 * mewarisi credential global; override parsial ditolak pada form dan callback.
+	 */
+	@Column(name = "online_bmt_api_key", columnDefinition = "text")
+	public String getOnlineBmtApiKey() { return onlineBmtApiKey; }
+	public void setOnlineBmtApiKey(String value) { this.onlineBmtApiKey = value; }
+
+	@Column(name = "online_bmt_encryption_key", columnDefinition = "text")
+	public String getOnlineBmtEncryptionKey() { return onlineBmtEncryptionKey; }
+	public void setOnlineBmtEncryptionKey(String value) { this.onlineBmtEncryptionKey = value; }
+
+	@Column(name = "online_bmt_hmac_key", columnDefinition = "text")
+	public String getOnlineBmtHmacKey() { return onlineBmtHmacKey; }
+	public void setOnlineBmtHmacKey(String value) { this.onlineBmtHmacKey = value; }
+
+	/** Toleransi detik; null mewarisi global. Nilai efektif dibatasi 30 sampai 3600. */
+	@Column(name = "online_bmt_request_time_tolerance")
+	public Integer getOnlineBmtRequestTimeTolerance() { return onlineBmtRequestTimeTolerance; }
+	public void setOnlineBmtRequestTimeTolerance(Integer value) { this.onlineBmtRequestTimeTolerance = value; }
 
 	public String getUsernameEsmartlink() {
 		return usernameEsmartlink;

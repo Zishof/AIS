@@ -99,6 +99,16 @@ public class KanalPembayaran extends GeneralValueObject {
 	private Boolean aktfkanPembayaranViaEsmartlink;
 	/** Sakelar Online BMT khusus kanal; null berarti OFF. */
 	private Boolean aktfkanPembayaranViaOnlineBmt;
+	private String onlineBmtPrefixInvoice;
+	private Double onlineBmtBiayaAdministrasi;
+	private String onlineBmtKodeMitra;
+	private String onlineBmtNamaMitra;
+	private String onlineBmtKodeMerchant;
+	private String onlineBmtNamaMerchant;
+	private String onlineBmtApiKey;
+	private String onlineBmtEncryptionKey;
+	private String onlineBmtHmacKey;
+	private Integer onlineBmtRequestTimeTolerance;
 	private String usernameEsmartlink;
 	private String passwordEsmartlink;
 	private Double biayaAdminEsmartlink;
@@ -341,6 +351,69 @@ public class KanalPembayaran extends GeneralValueObject {
 	public void setAktfkanPembayaranViaOnlineBmt(Boolean aktfkanPembayaranViaOnlineBmt) {
 		this.aktfkanPembayaranViaOnlineBmt = aktfkanPembayaranViaOnlineBmt;
 	}
+
+	/**
+	 * Override prefix invoice Online BMT pada kanal ini. Nilai kosong berarti
+	 * mengikuti sekolah pemilik kanal, lalu konfigurasi global. Getter tidak
+	 * memberikan nilai default agar resolver dapat membedakan "tidak diatur"
+	 * dengan override yang sengaja diberikan administrator.
+	 */
+	@Column(name = "online_bmt_prefix_invoice", length = 8)
+	public String getOnlineBmtPrefixInvoice() {
+		return onlineBmtPrefixInvoice;
+	}
+
+	public void setOnlineBmtPrefixInvoice(String onlineBmtPrefixInvoice) {
+		this.onlineBmtPrefixInvoice = onlineBmtPrefixInvoice;
+	}
+
+	/** Biaya admin kanal; null mewarisi sekolah/global, sedangkan 0 adalah override sah. */
+	@Column(name = "online_bmt_biaya_administrasi")
+	public Double getOnlineBmtBiayaAdministrasi() {
+		return onlineBmtBiayaAdministrasi;
+	}
+
+	public void setOnlineBmtBiayaAdministrasi(Double onlineBmtBiayaAdministrasi) {
+		this.onlineBmtBiayaAdministrasi = onlineBmtBiayaAdministrasi;
+	}
+
+	@Column(name = "online_bmt_kode_mitra")
+	public String getOnlineBmtKodeMitra() { return onlineBmtKodeMitra; }
+	public void setOnlineBmtKodeMitra(String value) { this.onlineBmtKodeMitra = value; }
+
+	@Column(name = "online_bmt_nama_mitra")
+	public String getOnlineBmtNamaMitra() { return onlineBmtNamaMitra; }
+	public void setOnlineBmtNamaMitra(String value) { this.onlineBmtNamaMitra = value; }
+
+	@Column(name = "online_bmt_kode_merchant")
+	public String getOnlineBmtKodeMerchant() { return onlineBmtKodeMerchant; }
+	public void setOnlineBmtKodeMerchant(String value) { this.onlineBmtKodeMerchant = value; }
+
+	@Column(name = "online_bmt_nama_merchant")
+	public String getOnlineBmtNamaMerchant() { return onlineBmtNamaMerchant; }
+	public void setOnlineBmtNamaMerchant(String value) { this.onlineBmtNamaMerchant = value; }
+
+	/**
+	 * Tiga credential berikut merupakan satu paket keamanan. Semuanya kosong berarti
+	 * mewarisi parent; bila melakukan override, API key, AES key, dan HMAC key wajib
+	 * diisi bersama agar request tidak dapat didekripsi dengan profil yang ambigu.
+	 */
+	@Column(name = "online_bmt_api_key", columnDefinition = "text")
+	public String getOnlineBmtApiKey() { return onlineBmtApiKey; }
+	public void setOnlineBmtApiKey(String value) { this.onlineBmtApiKey = value; }
+
+	@Column(name = "online_bmt_encryption_key", columnDefinition = "text")
+	public String getOnlineBmtEncryptionKey() { return onlineBmtEncryptionKey; }
+	public void setOnlineBmtEncryptionKey(String value) { this.onlineBmtEncryptionKey = value; }
+
+	@Column(name = "online_bmt_hmac_key", columnDefinition = "text")
+	public String getOnlineBmtHmacKey() { return onlineBmtHmacKey; }
+	public void setOnlineBmtHmacKey(String value) { this.onlineBmtHmacKey = value; }
+
+	/** Toleransi detik; null mewarisi sekolah/global. Rentang valid 30 sampai 3600. */
+	@Column(name = "online_bmt_request_time_tolerance")
+	public Integer getOnlineBmtRequestTimeTolerance() { return onlineBmtRequestTimeTolerance; }
+	public void setOnlineBmtRequestTimeTolerance(Integer value) { this.onlineBmtRequestTimeTolerance = value; }
 
 	public String getUsernameEsmartlink() {
 		return usernameEsmartlink;

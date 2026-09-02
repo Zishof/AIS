@@ -33,6 +33,55 @@ public final class OnlineBmtUtil {
 	private OnlineBmtUtil() {
 	}
 
+	/** Mengubah input form kosong menjadi null agar mekanisme pewarisan tetap bekerja. */
+	public static String emptyToNull(String value) {
+		if (value == null || value.trim().length() == 0) {
+			return null;
+		}
+		return value.trim();
+	}
+
+	/**
+	 * Memvalidasi satu lapis override Online BMT (Sekolah atau Kanal Pembayaran).
+	 * Credential diperlakukan atomik: semuanya kosong berarti mewarisi parent,
+	 * sedangkan override wajib mengisi API key, AES key, dan HMAC key sekaligus.
+	 * Aturan ini mencegah API key suatu tenant dipasangkan tanpa sengaja dengan
+	 * encryption key tenant lain saat callback mencoba membuka DATA terenkripsi.
+	 */
+	public static void validateOverrides(String prefix, Double administrationFee, String apiKey,
+			String encryptionKey, String hmacKey, Integer requestTimeTolerance) {
+		String normalizedPrefix = emptyToNull(prefix);
+		if (normalizedPrefix != null && !normalizedPrefix.matches("[A-Za-z0-9]{1,8}")) {
+			throw new IllegalArgumentException("Prefix invoice Online BMT harus berupa 1-8 huruf/angka tanpa spasi.");
+		}
+		if (administrationFee != null && administrationFee.doubleValue() < 0.0) {
+			throw new IllegalArgumentException("Biaya administrasi Online BMT tidak boleh negatif.");
+		}
+		int securityValues = (emptyToNull(apiKey) == null ? 0 : 1)
+				+ (emptyToNull(encryptionKey) == null ? 0 : 1)
+				+ (emptyToNull(hmacKey) == null ? 0 : 1);
+		if (securityValues != 0 && securityValues != 3) {
+			throw new IllegalArgumentException("API key, encryption key AES, dan HMAC key Online BMT harus diisi bersama-sama, atau dikosongkan seluruhnya untuk mengikuti konfigurasi induk.");
+		}
+		if (requestTimeTolerance != null
+				&& (requestTimeTolerance.intValue() < 30 || requestTimeTolerance.intValue() > 3600)) {
+			throw new IllegalArgumentException("Toleransi waktu request Online BMT harus antara 30 sampai 3600 detik.");
+		}
+	}
+
+	/** Membaca toleransi opsional dari form; string kosong berarti mewarisi parent. */
+	public static Integer parseOptionalTolerance(String value) {
+		String normalized = emptyToNull(value);
+		if (normalized == null) {
+			return null;
+		}
+		try {
+			return Integer.valueOf(normalized);
+		} catch (NumberFormatException e) {
+			throw new IllegalArgumentException("Toleransi waktu request Online BMT harus berupa angka bulat.");
+		}
+	}
+
 	public static boolean isGlobalEnabled() {
 		return Common.bolehKonfigurasi(Konfigurasi.ONLINE_BMT_AKTIF, Konfigurasi.TIDAK_AKTIF);
 	}
