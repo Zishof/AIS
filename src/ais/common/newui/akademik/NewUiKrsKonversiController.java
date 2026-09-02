@@ -69,11 +69,11 @@ public final class NewUiKrsKonversiController {
                 throw new SecurityException("Layar ini hanya untuk akun mahasiswa.");
             }
 
-            if ("meta".equals(action)) meta(json, request, mahasiswa);
+            if ("meta".equals(action)) meta(json, request, mahasiswa, pageKey);
             else if ("list".equals(action)) daftar(json, request, mahasiswa, false);
             else if ("update".equals(action)) daftar(json, request, mahasiswa, true);
             else hapus(json, request, mahasiswa);
-            json.put("ok", true);
+            json = sukses(json);
         } catch (SecurityException e) {
             response.setStatus(403); fail(json, "FORBIDDEN", e.getMessage());
         } catch (IllegalArgumentException e) {
@@ -111,13 +111,22 @@ public final class NewUiKrsKonversiController {
                         ? " (Mengulang)" : " (Menabung)");
     }
 
-    private static void meta(JSONObject j, HttpServletRequest request, Mahasiswa mahasiswa)
-            throws JSONException {
+    private static void meta(JSONObject j, HttpServletRequest request, Mahasiswa mahasiswa,
+            String pageKey) throws JSONException {
         int batas = NewUiKrsPaketController.batasSemester(mahasiswa.getSemesterLulus());
         int[] bawaan = semesterBawaan(mahasiswa);
         JSONArray pilihan = new JSONArray();
         for (int i = 1; i <= batas; i++) pilihan.put(i);
-        j.put("judul", "Isi KRS Konversi")
+        j.put("title", "Isi KRS Konversi")
+                .put("displayName", "KRS Konversi")
+                .put("identifierProperty", "id")
+                .put("pageSize", 25)
+                .put("canCreate", false)
+                .put("canUpdate", false)
+                .put("canDelete", NewUiRouteGuard.isActionAuthorized(
+                        request, MODULE, pageKey, "delete"))
+                .put("rowAudit", false)
+                .put("fields", fields())
                 .put("mahasiswa", new JSONObject().put("id", mahasiswa.getId())
                         .put("nim", nz(mahasiswa.getNim())).put("nama", nz(mahasiswa.getNama())))
                 .put("pilihanSemester", pilihan)
@@ -125,6 +134,7 @@ public final class NewUiKrsKonversiController {
                 .put("semesterSampaiBawaan", bawaan[1])
                 .put("csrfHeader", NewUiCsrfUtil.HEADER)
                 .put("csrfToken", NewUiCsrfUtil.getToken(request.getSession(true)))
+                .put("csrf", NewUiCsrfUtil.getToken(request.getSession(true)))
                 .put("ambilKonversiTersedia", false)
                 .put("ambilKonversiAlasan", "Pemilih konversi mengganti seluruh pilihan belum disetujui "
                         + "dan memerlukan pemeriksaan paket kurikulum serta prasyarat. Gunakan tampilan lama "
@@ -145,15 +155,29 @@ public final class NewUiKrsKonversiController {
         List<String[]> periods = Common.generateSemestersForGrid(mahasiswa,
                 Integer.valueOf(mulai), Integer.valueOf(sampai), semesterPendek);
         JSONArray groups = new JSONArray();
+        JSONArray rows = new JSONArray();
         for (String[] period : periods) {
             int semester = parseSemester(period);
             if (semester <= 0 || semester == 1000) continue;
             int tahapan = parseTahapan(period);
             String tahunAkademik = period == null || period.length == 0 ? "" : nz(period[0]);
-            groups.put(grup(mahasiswa, tahunAkademik, semester, tahapan,
-                    semesterPendek, keDatabase));
+            JSONObject group = grup(mahasiswa, tahunAkademik, semester, tahapan,
+                    semesterPendek, keDatabase);
+            groups.put(group);
+            JSONArray groupRows = group.optJSONArray("baris");
+            if (groupRows != null) {
+                for (int i = 0; i < groupRows.length(); i++) {
+                    JSONObject row = groupRows.getJSONObject(i);
+                    row.put("tahunAkademik", tahunAkademik)
+                            .put("semesterKelompok", semester)
+                            .put("tahapanKelompok", tahapan);
+                    rows.put(row);
+                }
+            }
         }
         j.put("kelompok", groups).put("totalKelompok", groups.length())
+                .put("rows", rows).put("total", rows.length())
+                .put("page", 1).put("pageSize", Math.max(1, rows.length()))
                 .put("mulai", mulai).put("sampai", sampai)
                 .put("ditulisKeBasisData", keDatabase);
     }
@@ -310,8 +334,36 @@ public final class NewUiKrsKonversiController {
     private static String nz(String value) { return value == null ? "" : value; }
     private static String aman(String value) { return value == null ? "" : value; }
 
+    static JSONObject sukses(JSONObject data) throws JSONException {
+        return new JSONObject().put("success", true).put("data", data);
+    }
+
+    private static JSONArray fields() throws JSONException {
+        return new JSONArray()
+                .put(field("tahunAkademik", "Tahun Akademik", "java.lang.String"))
+                .put(field("semesterKelompok", "Semester", "java.lang.Integer"))
+                .put(field("kode", "Kode", "java.lang.String"))
+                .put(field("nama", "Mata Kuliah", "java.lang.String"))
+                .put(field("sks", "SKS", "java.lang.String"))
+                .put(field("jenis", "Jenis", "java.lang.String"))
+                .put(field("dosen", "Dosen", "java.lang.String"))
+                .put(field("jadwal", "Jadwal", "java.lang.String"))
+                .put(field("kelas", "Kelas", "java.lang.String"))
+                .put(field("persetujuan", "Persetujuan", "java.lang.String"))
+                .put(field("nilaiHuruf", "Nilai Huruf", "java.lang.String"))
+                .put(field("totalNilai", "Nilai", "java.lang.Double"));
+    }
+
+    private static JSONObject field(String property, String label, String javaType)
+            throws JSONException {
+        return new JSONObject().put("property", property).put("label", label)
+                .put("javaType", javaType).put("tableVisible", true)
+                .put("readable", true).put("createable", false)
+                .put("updateable", false);
+    }
+
     private static void fail(JSONObject j, String code, String message) throws JSONException {
-        j.put("ok", false).put("code", code).put("message", nz(message));
+        j.put("success", false).put("code", code).put("message", nz(message));
     }
 
     private static void write(HttpServletResponse response, JSONObject j) throws Exception {

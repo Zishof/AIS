@@ -1,5 +1,7 @@
 package ais.common.newui.akademik;
 
+import org.json.JSONObject;
+
 import ais.database.model.Detailperkuliahan;
 
 /** Regression test aturan khusus KRS konversi. */
@@ -12,6 +14,16 @@ public final class NewUiKrsKonversiSelfTest {
         check(NewUiKrsKonversiController.mengubah("update"), "update harus menulis");
         check(NewUiKrsKonversiController.mengubah("delete"), "delete harus menulis");
         check(!NewUiKrsKonversiController.aksiDikenal("create"), "create setengah jadi diterima");
+        try {
+            JSONObject envelope = NewUiKrsKonversiController.sukses(
+                    new JSONObject().put("rows", "uji"));
+            check(envelope.optBoolean("success"), "amplop Generic CRUD tidak sukses");
+            check("uji".equals(envelope.getJSONObject("data").optString("rows")),
+                    "payload Generic CRUD tidak berada di data");
+            check(!envelope.has("ok"), "amplop lama ok masih terkirim");
+        } catch (Exception e) {
+            throw new AssertionError("kontrak JSON gagal diuji", e);
+        }
 
         Detailperkuliahan kosong = new Detailperkuliahan();
         kosong.setTotalNilai(Double.valueOf(0));
