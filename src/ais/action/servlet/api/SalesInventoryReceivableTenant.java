@@ -441,11 +441,75 @@ final class SalesInventoryReceivableTenant {
 				+ " VALUES ('', ?, ?, ?, ?, 0, ?, ?, 'DRAF', now(), ?)";
 	}
 
-	/** TUJUH parameter: orderId, barisKe, produkId, kuantitas, hargaSatuan, total, oleh. */
+	/**
+	 * SEPULUH parameter: orderId, barisKe, produkId, kuantitas, hargaSatuan, total,
+	 * satuanJualId, qtyInput, faktorKeDasar, oleh.
+	 *
+	 * <p>Tiga yang terakhir sebelum {@code oleh} adalah <b>cuplikan</b> satuan jual dan boleh
+	 * {@code NULL} (baris yang dikirim dalam satuan dasar). {@code kuantitas} tetap yang
+	 * berwenang: ia sudah dalam satuan dasar, dihitung sekali, dan tidak pernah dihitung ulang
+	 * dari {@code faktor_ke_dasar} — lihat {@link #catatanSatuanJual()}.</p>
+	 */
 	static String sisipOrderBaris(String skema) {
 		return "INSERT INTO " + skema + "sales_order_detail (sales_order_id, baris_ke, produk_id,"
-				+ " kuantitas, harga_satuan, total, dibuat_pada, oleh)"
-				+ " VALUES (?, ?, ?, ?, ?, ?, now(), ?)";
+				+ " kuantitas, harga_satuan, total, satuan_jual_id, qty_input, faktor_ke_dasar,"
+				+ " dibuat_pada, oleh)"
+				+ " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, now(), ?)";
+	}
+
+	// ------------------------------------------------------------------ satuan jual (v19)
+
+	/** Kategori UOM bawaan untuk satuan yang belum dikategorikan, sama dengan jalur legacy. */
+	static final String KATEGORI_UOM_BAWAAN = "UNIT";
+
+	/** Arah konversi "satuan ini LEBIH KECIL dari acuan", sama dengan sandi legacy. */
+	static final String KONVERSI_LEBIH_KECIL = "SMALLER";
+
+	/**
+	 * TIGA kolom: kategori (ternormalkan), rasio, tipe_konversi — untuk satu satuan.
+	 *
+	 * <p>Kategori kosong menjadi {@code UNIT}, persis seperti jalur legacy memperlakukan katalog
+	 * lama yang belum punya kolomnya. Rasio kosong menjadi 1: satuan yang belum pernah
+	 * dikonversi berperilaku sebagai dirinya sendiri, bukan sebagai galat.</p>
+	 */
+	static String satuanKonversi(String skema) {
+		return "SELECT UPPER(COALESCE(NULLIF(TRIM(s.kategori),''),'" + KATEGORI_UOM_BAWAAN + "')),"
+				+ " COALESCE(s.rasio,1), UPPER(COALESCE(s.tipe_konversi,''))"
+				+ " FROM " + skema + "satuan s WHERE s.id = ?";
+	}
+
+	/** SATU kolom: satuan dasar produk, atau {@code NULL} bila produk belum bersatuan. */
+	static String satuanDasarProduk(String skema) {
+		return "SELECT p.satuan_id FROM " + skema + "produk p WHERE p.id = ?";
+	}
+
+	/**
+	 * <h4>Mengapa rasio dan arahnya disimpan terpisah, bukan sebagai satu faktor</h4>
+	 *
+	 * <p>Faktor pecahan tidak selalu dapat disimpan tepat. 1/12 pada {@code numeric(18,6)}
+	 * menjadi {@code 0.083333}, dan {@code 12 × 0.083333 = 0.999996}: dua belas PCS berubah
+	 * menjadi 0,999996 DUS. Selisih itu tidak pernah cukup besar untuk terlihat, dan tidak pernah
+	 * hilang.</p>
+	 * <p>Karena itu tiap satuan disimpan sebagai <b>rasio bulat berikut arahnya</b>, lalu
+	 * konversinya dihitung sebagai satu pecahan:</p>
+	 * <pre>
+	 * faktor(jual —&gt; dasar) = (pembilangJual × penyebutDasar)
+	 *                        / (penyebutJual × pembilangDasar)
+	 * kuantitas               = qtyInput × pembilang / penyebut
+	 * </pre>
+	 * <p>Pembagiannya dilakukan <b>sekali</b>, atas pembilang yang sudah dikalikan — bukan atas
+	 * faktor yang sudah dibulatkan lebih dulu. Pada kasus yang lazim (dasar PCS, jual DUS, rasio
+	 * 12) penyebutnya 1 dan hasilnya bulat betulan.</p>
+	 * <p>{@code faktor_ke_dasar} pada barisnya adalah <b>catatan</b>, bukan masukan hitungan
+	 * ulang. Kuantitas dasarnya sudah dihitung sekali ke {@code kuantitas}, sehingga pembulatan
+	 * pada kolom cuplikan tidak pernah bisa merusak angka yang mengikat.</p>
+	 *
+	 * <h4>Konversi antar-kategori DITOLAK</h4>
+	 * <p>Kilogram tidak boleh menjadi liter. Penolakan itu satu-satunya hal yang mencegah rasio
+	 * asal-asalan menghasilkan kuantitas yang tampak wajar, dan jalur legacy pun menolaknya.</p>
+	 */
+	static String catatanSatuanJual() {
+		return "rasio + arah, bukan satu faktor desimal";
 	}
 
 	/** Menimpa nomor dan total setelah seluruh barisnya tersisip. */

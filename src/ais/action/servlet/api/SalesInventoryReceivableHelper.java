@@ -1752,6 +1752,115 @@ public final class SalesInventoryReceivableHelper {
 	}
 
 	/**
+	 * Satu satuan sebagai pecahan menuju acuan kategorinya: {@code [pembilang, penyebut]}.
+	 *
+	 * <p>Disimpan sebagai pecahan, bukan desimal, supaya rasio kebalikan tetap tepat — lihat
+	 * {@link SalesInventoryReceivableTenant#catatanSatuanJual()}. Baris pertama kategorinya.</p>
+	 */
+	private static Object[] pecahanSatuan(Session session, String skema, Long satuanId)
+			throws Exception {
+		java.sql.PreparedStatement ps = session.connection().prepareStatement(
+				SalesInventoryReceivableTenant.satuanKonversi(skema));
+		try {
+			ps.setLong(1, satuanId.longValue());
+			java.sql.ResultSet rs = ps.executeQuery();
+			if (!rs.next()) {
+				rs.close();
+				return null;
+			}
+			String kategori = rs.getString(1);
+			BigDecimal rasio = rs.getBigDecimal(2);
+			String arah = rs.getString(3);
+			rs.close();
+			if (rasio == null || rasio.signum() <= 0) {
+				return null;
+			}
+			boolean lebihKecil = SalesInventoryReceivableTenant.KONVERSI_LEBIH_KECIL.equals(arah);
+			BigDecimal pembilang = lebihKecil ? BigDecimal.ONE : rasio;
+			BigDecimal penyebut = lebihKecil ? rasio : BigDecimal.ONE;
+			return new Object[] { kategori, pembilang, penyebut };
+		} finally {
+			ps.close();
+		}
+	}
+
+	/**
+	 * Menurunkan kuantitas dasar dari {@code qtyInput} pada satuan jual.
+	 *
+	 * <p>Mengembalikan {@code [kuantitasDasar, faktorCuplikan]}, atau {@code null} bila ditolak
+	 * (pesannya sudah ditaruh pada {@code hasil}).</p>
+	 *
+	 * <p>Pembagiannya dilakukan <b>sekali</b>, atas pembilang yang sudah dikalikan {@code qtyInput}
+	 * — bukan atas faktor yang dibulatkan lebih dulu. Pada kasus yang lazim penyebutnya 1 dan
+	 * hasilnya bulat betulan; kalau tidak, pembulatannya terjadi satu kali saja, pada angka
+	 * terbesar yang tersedia.</p>
+	 */
+	private static BigDecimal[] konversiSatuanTenant(Session session, String skema, Long produkId,
+			Long satuanJualId, BigDecimal qtyInput, int nomorBaris, JSONObject hasil)
+			throws Exception {
+		Long dasarId = null;
+		java.sql.PreparedStatement psD = session.connection().prepareStatement(
+				SalesInventoryReceivableTenant.satuanDasarProduk(skema));
+		try {
+			psD.setLong(1, produkId.longValue());
+			java.sql.ResultSet rs = psD.executeQuery();
+			if (rs.next()) {
+				long v = rs.getLong(1);
+				if (!rs.wasNull()) {
+					dasarId = Long.valueOf(v);
+				}
+			}
+			rs.close();
+		} finally {
+			psD.close();
+		}
+		if (dasarId == null) {
+			// Produk tanpa satuan dasar: jalur legacy mengembalikan faktor 1 demi katalog lama.
+			// Di sini itu berarti menerima qty_input apa adanya sebagai kuantitas dasar, dan
+			// diam-diam menganggap DUS sama dengan PCS. Ditolak: yang kurang datanya, bukan
+			// permintaannya.
+			tolak(hasil, "Item ke-" + nomorBaris + ": produk " + produkId + " belum punya satuan"
+					+ " dasar, sehingga satuan jual tidak dapat dikonversi. Lengkapi satuan produk"
+					+ " lebih dulu, atau kirim jumlah dalam satuan dasar.");
+			return null;
+		}
+		Object[] jual = pecahanSatuan(session, skema, satuanJualId);
+		if (jual == null) {
+			tolak(hasil, "Item ke-" + nomorBaris + ": satuan jual tidak ditemukan atau rasionya"
+					+ " tidak sah (harus lebih dari 0).");
+			return null;
+		}
+		Object[] dasar = pecahanSatuan(session, skema, dasarId);
+		if (dasar == null) {
+			tolak(hasil, "Item ke-" + nomorBaris + ": satuan dasar produk " + produkId
+					+ " rasionya tidak sah (harus lebih dari 0).");
+			return null;
+		}
+		if (!((String) jual[0]).equals((String) dasar[0])) {
+			tolak(hasil, "Item ke-" + nomorBaris + ": satuan jual berkategori " + jual[0]
+					+ " tidak dapat dikonversi ke satuan dasar berkategori " + dasar[0]
+					+ ". Perbaiki kategori satuan pada master satuan, lalu coba kembali.");
+			return null;
+		}
+		// faktor(jual -> dasar) = (pembilangJual * penyebutDasar) / (penyebutJual * pembilangDasar)
+		BigDecimal pembilang = ((BigDecimal) jual[1]).multiply((BigDecimal) dasar[2]);
+		BigDecimal penyebut = ((BigDecimal) jual[2]).multiply((BigDecimal) dasar[1]);
+		if (penyebut.signum() <= 0) {
+			tolak(hasil, "Item ke-" + nomorBaris + ": konversi satuan tidak sah.");
+			return null;
+		}
+		BigDecimal kuantitas = qtyInput.multiply(pembilang).divide(penyebut, 4,
+				BigDecimal.ROUND_HALF_UP);
+		if (kuantitas.signum() <= 0) {
+			tolak(hasil, "Item ke-" + nomorBaris + ": konversi satuan menghasilkan kuantitas nol."
+					+ " Periksa rasio satuan jual terhadap satuan dasarnya.");
+			return null;
+		}
+		BigDecimal faktorCuplikan = pembilang.divide(penyebut, 6, BigDecimal.ROUND_HALF_UP);
+		return new BigDecimal[] { kuantitas, faktorCuplikan };
+	}
+
+	/**
 	 * Menyisipkan seluruh baris order dan mengembalikan totalnya; {@code null} bila ada baris
 	 * yang ditolak (pesannya sudah ditaruh pada {@code hasil}).
 	 */
@@ -1768,18 +1877,29 @@ public final class SalesInventoryReceivableHelper {
 				tolak(hasil, "Item ke-" + (i + 1) + " tidak valid (produk_id/jumlah>0/harga>=0).");
 				return null;
 			}
-			// Satuan jual: jalur legacy MENURUNKAN jumlah dasar dari qty_input x faktor dan
-			// memperlakukan jumlah kiriman klien sebagai pratinjau belaka. Model tenant tidak
-			// punya tabel satuan produk maupun kolom penampungnya, sehingga menerima permintaan
-			// ini berarti menjadikan angka pratinjau klien sebagai angka resmi.
-			if (optLong(it, "satuan_jual_id") != null) {
-				tolak(hasil, "Item ke-" + (i + 1) + ": satuan jual belum tersedia pada schema"
-						+ " tenant; kirim jumlah dalam satuan dasar.");
-				return null;
-			}
 			if (!adaTenant(session, skema, "produk", produkId)) {
 				tolak(hasil, "Produk " + produkId + " tidak ditemukan.");
 				return null;
+			}
+			// Satuan jual: jumlah dasar DITURUNKAN server dari qty_input × faktor, sama seperti
+			// jalur legacy; jumlah kiriman klien hanya pratinjau. Sejak bundel v19 satuan tenant
+			// membawa metadata konversinya, sehingga penurunannya bisa dilakukan di sini.
+			Long satuanJualId = optLong(it, "satuan_jual_id");
+			BigDecimal qtyInput = null;
+			BigDecimal faktorCuplikan = null;
+			if (satuanJualId != null) {
+				qtyInput = optBigDecimal(it, "qty_input");
+				if (qtyInput == null || qtyInput.signum() <= 0) {
+					tolak(hasil, "Item ke-" + (i + 1) + ": qty_input wajib > 0 untuk satuan jual.");
+					return null;
+				}
+				BigDecimal[] hitung = konversiSatuanTenant(session, skema, produkId, satuanJualId,
+						qtyInput, i + 1, hasil);
+				if (hitung == null) {
+					return null; // pesannya sudah ditaruh pada hasil
+				}
+				jumlah = hitung[0];
+				faktorCuplikan = hitung[1];
 			}
 			BigDecimal sub = harga.multiply(jumlah);
 			java.sql.PreparedStatement ins = session.connection().prepareStatement(
@@ -1790,7 +1910,14 @@ public final class SalesInventoryReceivableHelper {
 			ins.setBigDecimal(4, jumlah);
 			ins.setBigDecimal(5, harga);
 			ins.setBigDecimal(6, sub);
-			ins.setString(7, oleh);
+			if (satuanJualId == null) {
+				ins.setNull(7, java.sql.Types.BIGINT);
+			} else {
+				ins.setLong(7, satuanJualId.longValue());
+			}
+			ins.setBigDecimal(8, qtyInput);
+			ins.setBigDecimal(9, faktorCuplikan);
+			ins.setString(10, oleh);
 			ins.executeUpdate();
 			ins.close();
 			total = total.add(sub);
