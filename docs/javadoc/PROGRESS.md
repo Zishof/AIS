@@ -1,5 +1,71 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 36 — SELESAI 100% (3 Sep 2026) — RANTAI MASTER KEGIATAN DOSEN/MAHASISWA TERPETAKAN LENGKAP
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
+`-implicit:none` bersih, mirror `java/` diverifikasi `cmp` byte-identik, nol
+perubahan logika:
+
+- **`ais/database/model/BerkasHasilAkreditasiPunyaNama.java`** (r83580) —
+  186→662 baris, 100% (37 anggota). Kedua dugaan sesi 35 TERKONFIRMASI:
+  metadata bibliografi + lampiran fisik di `LampiranLain`, pola
+  `DspaceInformation.linksForClass` hanya mendaftarkan entity anak.
+  Bug fungsional konkret: ekspor Excel — kolom hyperlink lampiran SELALU
+  ketimpa nomor urut karena urutan penulisan sel yang salah (perbaikan
+  1 karakter, di luar cakupan).
+- **`ais/database/model/KelompokKegiatanKedosenan.java`** (r83582) —
+  193→667 baris, 100% (41 anggota). Puncak rantai master Kegiatan Dosen.
+  Bug write-back BARU: `getJenis()` menurunkan bidang Tridharma dari 12
+  nama harfiah lalu MENYIMPAN tebakan itu ke DB (+ revisi Envers palsu)
+  saat baris kebetulan dibaca dalam sesi aktif. Nama kolom FK salah
+  salin-tempel: `jenisKelompokKegiatanKedosenan` dipetakan ke kolom
+  `skala_kegiatan_kedosenan`.
+- **`ais/database/model/DetailKelompokKegiatanKedosenan.java`** (r83583)
+  — 178→561 baris, 100% (36 anggota). Premis brief soal bobot SEBAGIAN
+  KELIRU: bobot TIDAK ada di entity manapun dalam rantai, melainkan di
+  `ParameterUmum` (tabel key-value) lewat kunci string rakitan dari 4 id.
+  **BUG SERIUS ditemukan**: layar "Konfigurasi BKD" menulis ke
+  `Konfigurasi` dengan urutan segmen kunci TERTUKAR (jabatan/skala
+  terbalik), sedangkan pembaca sesungguhnya (`BkdKegiatanDosenHelper`)
+  membaca dari `ParameterUmum` — DUA TABEL BERBEDA SAMA SEKALI. Input
+  admin di layar itu tidak pernah terbaca; satu-satunya jalur yang
+  berfungsi adalah layar "Nilai Kegiatan Kedosenan" terpisah. Plus bug
+  `TreeSet` penciutan senyap yang membuat sebagian sel matriks bobot
+  MUSTAHIL diisi via UI (selalu 0.0).
+- **`ais/database/model/KelompokKegiatanKemahasiswaan.java`** (r83584) —
+  169→640 baris, 100% (40 anggota). Padanan sisi mahasiswa, hierarki
+  TERNYATA 3 tingkat (bukan 2 seperti dugaan awal). Bug kolom FK salah
+  salin-tempel YANG SAMA PERSIS dengan versi dosen: kolom
+  `skala_kegiatan_kemahasiswaan` dipakai untuk relasi ke
+  `JenisKelompokKegiatanKemahasiswaan` — bug kembar lintas modul
+  terverifikasi 2x independen di batch yang sama.
+- **`ais/database/model/DetailKelompokKegiatanKemahasiswaan.java`**
+  (r83585) — 184→672 baris, 100% (36 anggota). **Asimetri struktural
+  penting vs sisi dosen**: bobot mahasiswa TIDAK di `ParameterUmum`,
+  melainkan di entity KHUSUS `NilaiKegiatanKemahasiswaan` (sudah selesai
+  batch sebelumnya) dengan kunci gabungan bertanda `unique=true` — jauh
+  lebih rapi dari mekanisme sisi dosen. `getBisaDipilihMahasiswa()`
+  destruktif (kembaran `getBisaDipilihDosen()` file saudara di batch
+  ini) — satu arah, tidak self-healing, DAN non-deterministik (bergantung
+  urutan pemanggilan getter lain akibat guard `Hibernate.isInitialized`).
+
+**Pola "getKeterangan() membalik kontrak base class"**: 3 dari 5 file
+batch ini punya pola ini (`BerkasHasilAkreditasiPunyaNama`,
+`KelompokKegiatanKedosenan`, `KelompokKegiatanKemahasiswaan` — TIDAK ada
+di kedua entity "Detail*"). Sesuai perbaikan proses dari batch 35, agent
+hanya melaporkan ada/tidak (bukan nomor urut) — total kumulatif
+sebenarnya: 10 (akhir b35) + 3 = **13 instance**.
+
+**Keluarga getter destruktif via property access terus bertambah**:
+`getJenis()` (KelompokKegiatanKedosenan), `getBisaDipilihDosen()`
+(DetailKelompokKegiatanKedosenan), `getBisaDipilihMahasiswa()`
+(DetailKelompokKegiatanKemahasiswaan) — semuanya varian pola yang sudah
+tercakup `task_15f5001e`, memperkuat kesimpulan bahwa pola ini SANGAT
+tersebar luas di seluruh `GeneralValueObject` subclass manapun yang
+extends dengan property-access + `dynamicUpdate=true`.
+
+Total akumulasi 36 sesi: **358 file** dari 7.401 (~4,8%).
+
 ## Batch 35 — SELESAI 100% (3 Sep 2026)
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
