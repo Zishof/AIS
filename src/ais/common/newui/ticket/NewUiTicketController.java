@@ -4,7 +4,10 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.math.BigDecimal;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -37,6 +40,14 @@ import ais.common.newui.NewUiUnggahRequest;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Konfigurasi;
 import ais.database.model.Tbmuser;
+import ais.database.model.crm.CrmActivity;
+import ais.database.model.crm.CrmCatatan;
+import ais.database.model.crm.CrmLead;
+import ais.database.model.crm.CrmLostReason;
+import ais.database.model.crm.CrmPipelineType;
+import ais.database.model.crm.CrmSalesTeam;
+import ais.database.model.crm.CrmSalesTeamMember;
+import ais.database.model.crm.CrmStage;
 import ais.database.model.file.FileFotoLain;
 import ais.database.model.file.LampiranLain;
 import ais.database.model.rab.SatuanKerja;
@@ -173,9 +184,10 @@ public final class NewUiTicketController {
         j.put("csrfHeader", NewUiCsrfUtil.HEADER);
         j.put("csrfToken", NewUiCsrfUtil.getToken(request.getSession(true)));
 
-        // CRM mempunyai lifecycle sendiri dan tetap dinyatakan eksplisit agar
-        // klien tidak membuat tombol palsu. Lampiran/PDF sudah memiliki kontrak.
-        j.put("crmNative", false);
+        // CRM mempunyai lifecycle sendiri; pilihan ini hanya lookup. Semua
+        // mutasi tetap lewat kind CRM, privilege menu, CSRF, dan validasi relasi.
+        j.put("crmNative", true);
+        j.put("crmPilihan", crmPilihan());
         j.put("lampiranNative", true);
         j.put("cetakPdfNative", true);
         j.put("maxUploadBytes", maxUploadBytes());
@@ -193,13 +205,17 @@ public final class NewUiTicketController {
 
     private static void operasional(JSONObject j, HttpServletRequest r,
             String action, Tbmuser user) throws Exception {
+        String kind = text(r.getParameter("kind"), "ticket");
+        if (kind.startsWith("crm")) {
+            crmOperasional(j, r, action, kind, user);
+            return;
+        }
         if ("list".equals(action)) {
             daftar(j, r, user);
         } else if ("detail".equals(action)) {
             detail(j, r, user);
         } else if ("create".equals(action)) {
             wajibCsrf(r);
-            String kind = text(r.getParameter("kind"), "ticket");
             if ("comment".equals(kind)) {
                 tambahKomentar(j, r, user);
             } else if ("ticket".equals(kind)) {
@@ -731,8 +747,590 @@ public final class NewUiTicketController {
         }
     }
 
+    // ==================================================================================
+    // Pipeline CRM native
+    // ==================================================================================
+
+    private static void crmOperasional(JSONObject j, HttpServletRequest r,
+            String action, String kind, Tbmuser user) throws Exception {
+        if ("list".equals(action) && "crm".equals(kind)) {
+            crmDaftar(j, r);
+        } else if ("detail".equals(action) && "crm".equals(kind)) {
+            crmDetail(j, r);
+        } else if ("create".equals(action) && "crm_lead".equals(kind)) {
+            wajibCsrf(r);
+            crmTambahLead(j, r);
+        } else if ("update".equals(action) && "crm_lead".equals(kind)) {
+            wajibCsrf(r);
+            crmUbahLead(j, r);
+        } else if ("update".equals(action) && "crm_move".equals(kind)) {
+            wajibCsrf(r);
+            crmPindahTahap(j, r);
+        } else if ("update".equals(action) && "crm_convert".equals(kind)) {
+            wajibCsrf(r);
+            crmKonversi(j, r);
+        } else if ("create".equals(action) && "crm_activity".equals(kind)) {
+            wajibCsrf(r);
+            crmTambahAktivitas(j, r);
+        } else if ("update".equals(action) && "crm_activity".equals(kind)) {
+            wajibCsrf(r);
+            crmSelesaikanAktivitas(j, r);
+        } else if ("create".equals(action) && "crm_note".equals(kind)) {
+            wajibCsrf(r);
+            crmTambahCatatan(j, r, user);
+        } else {
+            throw new IllegalArgumentException("Aksi Pipeline CRM tidak dikenal.");
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void crmDaftar(JSONObject j, HttpServletRequest r) throws Exception {
+        Session s = HibernateUtil.openSession();
+        try {
+            Criteria c = s.createCriteria(CrmLead.class)
+                    .add(Restrictions.or(Restrictions.isNull("aktif"),
+                            Restrictions.eq("aktif", Boolean.TRUE)));
+            Long pipelineId = idOpsional(r.getParameter("pipelineId"));
+            Long teamId = idOpsional(r.getParameter("teamId"));
+            if (pipelineId != null) {
+                c.add(Restrictions.eq("pipelineType.id", pipelineId));
+            }
+            if (teamId != null) {
+                c.add(Restrictions.eq("salesTeam.id", teamId));
+            }
+            String q = text(r.getParameter("q"), "").trim();
+            if (q.length() > 0) {
+                c.add(Restrictions.or(
+                        Restrictions.ilike("judul", q, MatchMode.ANYWHERE),
+                        Restrictions.or(
+                                Restrictions.ilike("kontakNama", q, MatchMode.ANYWHERE),
+                                Restrictions.ilike("kontakInstansi", q, MatchMode.ANYWHERE))));
+            }
+            List<CrmLead> rows = c.addOrder(Order.desc("id"))
+                    .setMaxResults(500).list();
+
+            Map<Long, Integer> overdue = new HashMap<Long, Integer>();
+            List<CrmActivity> activities = s.createCriteria(CrmActivity.class)
+                    .add(Restrictions.eq("status", CrmActivity.STATUS_BELUM_DIMULAI))
+                    .add(Restrictions.lt("targetDate", new Date()))
+                    .setMaxResults(5000).list();
+            for (CrmActivity activity : activities) {
+                if (activity.getLead() == null || activity.getLead().getId() == null) {
+                    continue;
+                }
+                Long key = activity.getLead().getId();
+                Integer count = overdue.get(key);
+                overdue.put(key, Integer.valueOf(count == null ? 1 : count.intValue() + 1));
+            }
+
+            JSONArray array = new JSONArray();
+            for (CrmLead lead : rows) {
+                JSONObject item = crmLeadJson(lead);
+                Integer count = overdue.get(lead.getId());
+                item.put("aktivitasTerlambat", count == null ? 0 : count.intValue());
+                array.put(item);
+            }
+            j.put("rows", array);
+            j.put("dibatasi", rows.size() >= 500);
+            j.put("pilihan", crmPilihan(s, true));
+        } finally {
+            s.close();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void crmDetail(JSONObject j, HttpServletRequest r) throws Exception {
+        Session s = HibernateUtil.openSession();
+        try {
+            CrmLead lead = crmLead(s, id(r));
+            JSONObject data = crmLeadJson(lead);
+            JSONArray activities = new JSONArray();
+            List<CrmActivity> activityRows = s.createCriteria(CrmActivity.class)
+                    .add(Restrictions.eq("lead", lead))
+                    .addOrder(Order.asc("targetDate")).addOrder(Order.asc("id")).list();
+            for (CrmActivity activity : activityRows) {
+                activities.put(new JSONObject()
+                        .put("id", activity.getId())
+                        .put("jenis", nz(activity.getJenis()))
+                        .put("jenisLabel", nz(CrmActivity.JENIS_DATA.get(activity.getJenis())))
+                        .put("catatan", nz(activity.getCatatan()))
+                        .put("targetDate", crmDate(activity.getTargetDate()))
+                        .put("tanggalSelesai", crmDate(activity.getTanggalSelesai()))
+                        .put("status", nz(activity.getStatus()))
+                        .put("terlambat", !CrmActivity.STATUS_SELESAI.equals(activity.getStatus())
+                                && activity.getTargetDate() != null
+                                && activity.getTargetDate().before(new Date()))
+                        .put("picUserId", activity.getPicUser() == null ? ""
+                                : nz(activity.getPicUser().getUserId()))
+                        .put("pic", activity.getPicUser() == null ? ""
+                                : nz(activity.getPicUser().getUserNama())));
+            }
+            JSONArray notes = new JSONArray();
+            List<CrmCatatan> noteRows = s.createCriteria(CrmCatatan.class)
+                    .add(Restrictions.eq("lead", lead)).addOrder(Order.asc("id")).list();
+            for (CrmCatatan note : noteRows) {
+                notes.put(new JSONObject().put("id", note.getId())
+                        .put("isi", nz(note.getIsi())).put("nama", nz(note.getNama()))
+                        .put("userId", nz(note.getUserId()))
+                        .put("tanggal", crmDateTime(note.getTanggal())));
+            }
+            data.put("aktivitas", activities);
+            data.put("catatan", notes);
+            data.put("pilihan", crmPilihan(s, true));
+            j.put("data", data);
+        } finally {
+            s.close();
+        }
+    }
+
+    private static void crmTambahLead(JSONObject j, HttpServletRequest r) throws Exception {
+        String judul = text(r.getParameter("judul"), "").trim();
+        String kontakNama = text(r.getParameter("kontakNama"), "").trim();
+        String instansi = text(r.getParameter("kontakInstansi"), "").trim();
+        if (judul.length() == 0) {
+            judul = (kontakNama + (instansi.length() == 0 ? "" : " - " + instansi)).trim();
+        }
+        if (judul.length() == 0) {
+            throw new IllegalArgumentException("Isi judul atau minimal nama kontak.");
+        }
+        Session s = HibernateUtil.openSession();
+        Transaction tx = null;
+        CrmLead lead = new CrmLead();
+        try {
+            tx = s.beginTransaction();
+            CrmPipelineType pipeline = crmPipeline(s, idWajib(r, "pipelineId",
+                    "Jenis pipeline wajib dipilih."));
+            CrmSalesTeam team = crmTeamOpsional(s, idOpsional(r.getParameter("teamId")));
+            Tbmuser pic = crmPic(s, team, text(r.getParameter("picUserId"), ""));
+            lead.setTipe(CrmLead.TIPE_LEAD);
+            lead.setPipelineType(pipeline);
+            lead.setJudul(judul);
+            lead.setKontakNama(kontakNama);
+            lead.setKontakInstansi(instansi);
+            lead.setKontakEmail(text(r.getParameter("kontakEmail"), "").trim());
+            lead.setKontakTelepon(text(r.getParameter("kontakTelepon"), "").trim());
+            lead.setSumber(text(r.getParameter("sumber"), "").trim());
+            lead.setSalesTeam(team);
+            lead.setDitugaskanUser(pic);
+            lead.setNilaiEstimasi(desimalOpsional(r.getParameter("nilaiEstimasi")));
+            lead.setTanggalTutupDiharapkan(tanggalOpsional(r.getParameter("tanggalTutup")));
+            lead.setStatusMenangKalah(CrmLead.STATUS_OPEN);
+            lead.setTanggalDibuat(new Date());
+            lead.setAktif(Boolean.TRUE);
+            s.save(lead);
+            tx.commit();
+            j.put("id", lead.getId());
+            if (lead.getDitugaskanUser() != null) {
+                try { ais.action.master.ticket.CrmNotifikasi.leadDitugaskan(lead); }
+                catch (Exception notifyError) {
+                    ais.common.ErrorAuditUtil.record(notifyError, "NewUiTicketController.crmLead.notify");
+                }
+            }
+        } catch (Exception e) {
+            rollback(tx);
+            throw e;
+        } finally {
+            s.close();
+        }
+        j.put("message", "Lead baru tersimpan.");
+    }
+
+    private static void crmUbahLead(JSONObject j, HttpServletRequest r) throws Exception {
+        Session s = HibernateUtil.openSession();
+        Transaction tx = null;
+        CrmLead lead = null;
+        Tbmuser picLama = null;
+        try {
+            tx = s.beginTransaction();
+            lead = crmLead(s, id(r));
+            picLama = lead.getDitugaskanUser();
+            CrmSalesTeam team = crmTeamOpsional(s, idOpsional(r.getParameter("teamId")));
+            Tbmuser pic = crmPic(s, team, text(r.getParameter("picUserId"), ""));
+            lead.setKontakNama(text(r.getParameter("kontakNama"), "").trim());
+            lead.setKontakInstansi(text(r.getParameter("kontakInstansi"), "").trim());
+            lead.setKontakEmail(text(r.getParameter("kontakEmail"), "").trim());
+            lead.setKontakTelepon(text(r.getParameter("kontakTelepon"), "").trim());
+            lead.setSalesTeam(team);
+            lead.setDitugaskanUser(pic);
+            lead.setNilaiEstimasi(desimalOpsional(r.getParameter("nilaiEstimasi")));
+            lead.setProbabilitas(Integer.valueOf(angka(
+                    text(r.getParameter("probabilitas"), "0"), 0, 100,
+                    "Probabilitas harus 0 sampai 100.")));
+            lead.setTanggalTutupDiharapkan(tanggalOpsional(r.getParameter("tanggalTutup")));
+            s.update(lead);
+            tx.commit();
+            if (lead.getDitugaskanUser() != null
+                    && (picLama == null || !lead.getDitugaskanUser().getUserId().equals(picLama.getUserId()))) {
+                try { ais.action.master.ticket.CrmNotifikasi.leadDitugaskan(lead); }
+                catch (Exception notifyError) {
+                    ais.common.ErrorAuditUtil.record(notifyError, "NewUiTicketController.crmLead.update.notify");
+                }
+            }
+        } catch (Exception e) {
+            rollback(tx);
+            throw e;
+        } finally {
+            s.close();
+        }
+        j.put("message", "Perubahan prospek tersimpan.");
+    }
+
+    private static void crmPindahTahap(JSONObject j, HttpServletRequest r) throws Exception {
+        Session s = HibernateUtil.openSession();
+        Transaction tx = null;
+        try {
+            tx = s.beginTransaction();
+            CrmLead lead = crmLead(s, id(r));
+            if (!CrmLead.TIPE_PELUANG.equals(lead.getTipe())) {
+                throw new IllegalArgumentException("Lead harus dikonversi sebelum dipindahkan ke tahap peluang.");
+            }
+            CrmStage stage = crmStageUntukPipeline(s,
+                    idWajib(r, "stageId", "Tahap wajib dipilih."), lead.getPipelineType());
+            lead.setStage(stage);
+            if (Boolean.TRUE.equals(stage.getIsLost())) {
+                Long reasonId = idOpsional(r.getParameter("lostReasonId"));
+                if (reasonId == null) {
+                    throw new IllegalArgumentException("Alasan kalah wajib dipilih.");
+                }
+                CrmLostReason reason = (CrmLostReason) s.get(CrmLostReason.class, reasonId);
+                if (reason == null || Boolean.FALSE.equals(reason.getAktif())) {
+                    throw new IllegalArgumentException("Alasan kalah tidak ditemukan.");
+                }
+                lead.setStatusMenangKalah(CrmLead.STATUS_LOST);
+                lead.setLostReason(reason);
+                lead.setCatatanKalah(text(r.getParameter("catatanKalah"), "").trim());
+                lead.setTanggalDitutup(new Date());
+            } else if (Boolean.TRUE.equals(stage.getIsWon())) {
+                lead.setStatusMenangKalah(CrmLead.STATUS_WON);
+                lead.setLostReason(null);
+                lead.setCatatanKalah(null);
+                lead.setTanggalDitutup(new Date());
+            } else {
+                lead.setStatusMenangKalah(CrmLead.STATUS_OPEN);
+                lead.setLostReason(null);
+                lead.setCatatanKalah(null);
+                lead.setTanggalDitutup(null);
+            }
+            if ((lead.getProbabilitas() == null || lead.getProbabilitas().intValue() == 0)
+                    && stage.getProbabilitasDefault() != null) {
+                lead.setProbabilitas(stage.getProbabilitasDefault());
+            }
+            s.update(lead);
+            tx.commit();
+        } catch (Exception e) {
+            rollback(tx);
+            throw e;
+        } finally {
+            s.close();
+        }
+        j.put("message", "Tahap peluang diperbarui.");
+    }
+
+    private static void crmKonversi(JSONObject j, HttpServletRequest r) throws Exception {
+        Session s = HibernateUtil.openSession();
+        Transaction tx = null;
+        try {
+            tx = s.beginTransaction();
+            CrmLead lead = crmLead(s, id(r));
+            if (!CrmLead.TIPE_LEAD.equals(lead.getTipe())) {
+                throw new IllegalArgumentException("Data ini sudah menjadi peluang.");
+            }
+            CrmStage stage = crmStageUntukPipeline(s,
+                    idWajib(r, "stageId", "Tahap awal wajib dipilih."), lead.getPipelineType());
+            if (Boolean.TRUE.equals(stage.getIsLost())) {
+                throw new IllegalArgumentException("Tahap awal tidak boleh berupa tahap kalah.");
+            }
+            lead.setTipe(CrmLead.TIPE_PELUANG);
+            lead.setStage(stage);
+            lead.setStatusMenangKalah(Boolean.TRUE.equals(stage.getIsWon())
+                    ? CrmLead.STATUS_WON : CrmLead.STATUS_OPEN);
+            lead.setTanggalDikonversiPeluang(new Date());
+            if (Boolean.TRUE.equals(stage.getIsWon())) {
+                lead.setTanggalDitutup(new Date());
+            }
+            if ((lead.getProbabilitas() == null || lead.getProbabilitas().intValue() == 0)
+                    && stage.getProbabilitasDefault() != null) {
+                lead.setProbabilitas(stage.getProbabilitasDefault());
+            }
+            s.update(lead);
+            tx.commit();
+        } catch (Exception e) {
+            rollback(tx);
+            throw e;
+        } finally {
+            s.close();
+        }
+        j.put("message", "Lead dikonversi menjadi peluang.");
+    }
+
+    private static void crmTambahAktivitas(JSONObject j, HttpServletRequest r) throws Exception {
+        String jenis = wajib(r, "jenis", "Jenis aktivitas wajib dipilih.");
+        if (!CrmActivity.JENIS_DATA.containsKey(jenis)) {
+            throw new IllegalArgumentException("Jenis aktivitas tidak sah.");
+        }
+        Session s = HibernateUtil.openSession();
+        Transaction tx = null;
+        CrmActivity activity = null;
+        try {
+            tx = s.beginTransaction();
+            CrmLead lead = crmLead(s, id(r));
+            activity = new CrmActivity(lead);
+            activity.setJenis(jenis);
+            activity.setCatatan(text(r.getParameter("catatan"), "").trim());
+            Date target = tanggalOpsional(r.getParameter("targetDate"));
+            activity.setTargetDate(target == null ? new Date() : target);
+            activity.setStatus(CrmActivity.STATUS_BELUM_DIMULAI);
+            activity.setPicUser(lead.getDitugaskanUser());
+            activity.setAktif(Boolean.TRUE);
+            s.save(activity);
+            tx.commit();
+            j.put("id", activity.getId());
+            if (activity.getPicUser() != null) {
+                try { ais.action.master.ticket.CrmNotifikasi.aktivitasDitugaskan(activity); }
+                catch (Exception notifyError) {
+                    ais.common.ErrorAuditUtil.record(notifyError, "NewUiTicketController.crmActivity.notify");
+                }
+            }
+        } catch (Exception e) {
+            rollback(tx);
+            throw e;
+        } finally {
+            s.close();
+        }
+        j.put("message", "Aktivitas ditambahkan.");
+    }
+
+    private static void crmSelesaikanAktivitas(JSONObject j, HttpServletRequest r) throws Exception {
+        Session s = HibernateUtil.openSession();
+        Transaction tx = null;
+        try {
+            tx = s.beginTransaction();
+            Long activityId = idWajib(r, "activityId", "Aktivitas wajib dipilih.");
+            CrmActivity activity = (CrmActivity) s.get(CrmActivity.class, activityId);
+            if (activity == null || activity.getLead() == null
+                    || !activity.getLead().getId().equals(id(r))) {
+                throw new IllegalArgumentException("Aktivitas tidak ditemukan pada prospek ini.");
+            }
+            activity.setStatus(CrmActivity.STATUS_SELESAI);
+            activity.setTanggalSelesai(new Date());
+            s.update(activity);
+            tx.commit();
+        } catch (Exception e) {
+            rollback(tx);
+            throw e;
+        } finally {
+            s.close();
+        }
+        j.put("message", "Aktivitas ditandai selesai.");
+    }
+
+    private static void crmTambahCatatan(JSONObject j, HttpServletRequest r,
+            Tbmuser user) throws Exception {
+        String isi = wajib(r, "isi", "Catatan wajib diisi.");
+        Session s = HibernateUtil.openSession();
+        Transaction tx = null;
+        try {
+            tx = s.beginTransaction();
+            CrmLead lead = crmLead(s, id(r));
+            CrmCatatan note = new CrmCatatan(lead);
+            note.setIsi(isi);
+            note.setTanggal(new Date());
+            note.setUserId(user.getUserId());
+            note.setNama(user.getUserNama());
+            s.save(note);
+            tx.commit();
+            j.put("id", note.getId());
+        } catch (Exception e) {
+            rollback(tx);
+            throw e;
+        } finally {
+            s.close();
+        }
+        j.put("message", "Catatan ditambahkan.");
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void crmDashboard(JSONObject j, String action) throws Exception {
+        if (!"ringkasan".equals(action) && !"list".equals(action)) {
+            throw new IllegalArgumentException("Aksi dashboard CRM tidak dikenal.");
+        }
+        Session s = HibernateUtil.openSession();
+        try {
+            List<CrmLead> leads = s.createCriteria(CrmLead.class)
+                    .add(Restrictions.or(Restrictions.isNull("aktif"),
+                            Restrictions.eq("aktif", Boolean.TRUE)))
+                    .addOrder(Order.desc("id")).setMaxResults(BATAS_DASHBOARD).list();
+            if ("list".equals(action)) {
+                JSONArray rows = new JSONArray();
+                for (CrmLead lead : leads) rows.put(crmLeadJson(lead));
+                j.put("rows", rows);
+                j.put("dibatasi", leads.size() >= BATAS_DASHBOARD);
+                return;
+            }
+            int open = 0, won = 0, lost = 0, wonMonth = 0;
+            BigDecimal openValue = BigDecimal.ZERO;
+            BigDecimal wonMonthValue = BigDecimal.ZERO;
+            Map<String, Integer> perType = new LinkedHashMap<String, Integer>();
+            perType.put("Lead", Integer.valueOf(0));
+            perType.put("Peluang", Integer.valueOf(0));
+            Map<String, Integer> perPipeline = new LinkedHashMap<String, Integer>();
+            Map<String, Integer> perTeam = new LinkedHashMap<String, Integer>();
+            Calendar start = Calendar.getInstance();
+            start.set(Calendar.DAY_OF_MONTH, 1);
+            start.set(Calendar.HOUR_OF_DAY, 0);
+            start.set(Calendar.MINUTE, 0);
+            start.set(Calendar.SECOND, 0);
+            start.set(Calendar.MILLISECOND, 0);
+            for (CrmLead lead : leads) {
+                tambah(perType, CrmLead.TIPE_PELUANG.equals(lead.getTipe()) ? "Peluang" : "Lead");
+                if (lead.getPipelineType() != null) tambah(perPipeline, nz(lead.getPipelineType().getNama()));
+                if (lead.getSalesTeam() != null) tambah(perTeam, nz(lead.getSalesTeam().getNama()));
+                if (CrmLead.STATUS_WON.equals(lead.getStatusMenangKalah())) {
+                    won++;
+                    if (lead.getTanggalDitutup() != null && !lead.getTanggalDitutup().before(start.getTime())) {
+                        wonMonth++;
+                        if (lead.getNilaiEstimasi() != null) wonMonthValue = wonMonthValue.add(lead.getNilaiEstimasi());
+                    }
+                } else if (CrmLead.STATUS_LOST.equals(lead.getStatusMenangKalah())) {
+                    lost++;
+                } else {
+                    open++;
+                    if (lead.getNilaiEstimasi() != null) openValue = openValue.add(lead.getNilaiEstimasi());
+                }
+            }
+            int closed = won + lost;
+            j.put("total", leads.size()).put("open", open).put("won", won).put("lost", lost)
+                    .put("winRate", closed == 0 ? 0 : won * 100 / closed)
+                    .put("estimasiOpen", openValue.toPlainString())
+                    .put("wonBulanIni", wonMonth)
+                    .put("nilaiWonBulanIni", wonMonthValue.toPlainString())
+                    .put("perTipe", peta(perType)).put("perPipeline", peta(perPipeline))
+                    .put("perTim", peta(perTeam)).put("dibatasi", leads.size() >= BATAS_DASHBOARD);
+        } finally {
+            s.close();
+        }
+    }
+
+    private static JSONObject crmLeadJson(CrmLead lead) throws Exception {
+        return new JSONObject().put("id", lead.getId()).put("tipe", nz(lead.getTipe()))
+                .put("pipelineId", lead.getPipelineType() == null ? JSONObject.NULL : lead.getPipelineType().getId())
+                .put("pipeline", lead.getPipelineType() == null ? "" : nz(lead.getPipelineType().getNama()))
+                .put("stageId", lead.getStage() == null ? JSONObject.NULL : lead.getStage().getId())
+                .put("stage", lead.getStage() == null ? "" : nz(lead.getStage().getNama()))
+                .put("stageColor", lead.getStage() == null ? "" : nz(lead.getStage().getWarna()))
+                .put("judul", nz(lead.getJudul())).put("kontakNama", nz(lead.getKontakNama()))
+                .put("kontakEmail", nz(lead.getKontakEmail()))
+                .put("kontakTelepon", nz(lead.getKontakTelepon()))
+                .put("kontakInstansi", nz(lead.getKontakInstansi()))
+                .put("sumber", nz(lead.getSumber()))
+                .put("teamId", lead.getSalesTeam() == null ? JSONObject.NULL : lead.getSalesTeam().getId())
+                .put("team", lead.getSalesTeam() == null ? "" : nz(lead.getSalesTeam().getNama()))
+                .put("picUserId", lead.getDitugaskanUser() == null ? "" : nz(lead.getDitugaskanUser().getUserId()))
+                .put("pic", lead.getDitugaskanUser() == null ? "" : nz(lead.getDitugaskanUser().getUserNama()))
+                .put("nilaiEstimasi", lead.getNilaiEstimasi() == null ? "0"
+                        : lead.getNilaiEstimasi().stripTrailingZeros().toPlainString())
+                .put("probabilitas", lead.getProbabilitas() == null ? 0 : lead.getProbabilitas())
+                .put("tanggalTutup", crmDate(lead.getTanggalTutupDiharapkan()))
+                .put("status", nz(lead.getStatusMenangKalah()))
+                .put("lostReasonId", lead.getLostReason() == null ? JSONObject.NULL : lead.getLostReason().getId())
+                .put("lostReason", lead.getLostReason() == null ? "" : nz(lead.getLostReason().getNama()))
+                .put("catatanKalah", nz(lead.getCatatanKalah()))
+                .put("tanggalDibuat", crmDateTime(lead.getTanggalDibuat()))
+                .put("tanggalDikonversi", crmDateTime(lead.getTanggalDikonversiPeluang()))
+                .put("tanggalDitutup", crmDateTime(lead.getTanggalDitutup()));
+    }
+
+    private static JSONObject crmPilihan() throws Exception {
+        Session s = HibernateUtil.openSession();
+        try { return crmPilihan(s, true); }
+        finally { s.close(); }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static JSONObject crmPilihan(Session s, boolean hanyaAktif) throws Exception {
+        JSONObject result = new JSONObject();
+        Criteria pipelineCriteria = s.createCriteria(CrmPipelineType.class);
+        if (hanyaAktif) pipelineCriteria.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)));
+        List<CrmPipelineType> pipelines = pipelineCriteria.addOrder(Order.asc("nomorUrut"))
+                .addOrder(Order.asc("id")).list();
+        JSONArray pipelineArray = new JSONArray();
+        for (CrmPipelineType pipeline : pipelines) {
+            JSONObject item = new JSONObject().put("id", pipeline.getId()).put("nama", nz(pipeline.getNama()))
+                    .put("keterangan", nz(pipeline.getKeterangan()))
+                    .put("nomorUrut", pipeline.getNomorUrut() == null ? 0 : pipeline.getNomorUrut())
+                    .put("aktif", !Boolean.FALSE.equals(pipeline.getAktif()));
+            Criteria stageCriteria = s.createCriteria(CrmStage.class).add(Restrictions.eq("pipelineType", pipeline));
+            if (hanyaAktif) stageCriteria.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)));
+            List<CrmStage> stages = stageCriteria.addOrder(Order.asc("nomorUrut")).addOrder(Order.asc("id")).list();
+            JSONArray stageArray = new JSONArray();
+            for (CrmStage stage : stages) {
+                stageArray.put(new JSONObject().put("id", stage.getId()).put("pipelineId", pipeline.getId())
+                        .put("nama", nz(stage.getNama()))
+                        .put("nomorUrut", stage.getNomorUrut() == null ? 0 : stage.getNomorUrut())
+                        .put("probabilitas", stage.getProbabilitasDefault() == null ? 0 : stage.getProbabilitasDefault())
+                        .put("isWon", Boolean.TRUE.equals(stage.getIsWon()))
+                        .put("isLost", Boolean.TRUE.equals(stage.getIsLost()))
+                        .put("warna", text(stage.getWarna(), "#0ea5e9"))
+                        .put("aktif", !Boolean.FALSE.equals(stage.getAktif())));
+            }
+            item.put("stages", stageArray);
+            pipelineArray.put(item);
+        }
+        result.put("pipelines", pipelineArray);
+
+        Criteria teamCriteria = s.createCriteria(CrmSalesTeam.class);
+        if (hanyaAktif) teamCriteria.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)));
+        List<CrmSalesTeam> teams = teamCriteria.addOrder(Order.asc("nama")).addOrder(Order.asc("id")).list();
+        JSONArray teamArray = new JSONArray();
+        for (CrmSalesTeam team : teams) {
+            JSONObject item = new JSONObject().put("id", team.getId()).put("nama", nz(team.getNama()))
+                    .put("keterangan", nz(team.getKeterangan())).put("aktif", !Boolean.FALSE.equals(team.getAktif()));
+            Criteria memberCriteria = s.createCriteria(CrmSalesTeamMember.class)
+                    .add(Restrictions.eq("salesTeam", team));
+            if (hanyaAktif) memberCriteria.add(Restrictions.or(
+                    Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)));
+            List<CrmSalesTeamMember> members = memberCriteria
+                    .addOrder(Order.asc("id")).list();
+            JSONArray memberArray = new JSONArray();
+            for (CrmSalesTeamMember member : members) {
+                if (member.getAnggota() == null) continue;
+                memberArray.put(new JSONObject().put("id", member.getId()).put("teamId", team.getId())
+                        .put("userId", nz(member.getAnggota().getUserId()))
+                        .put("nama", nz(member.getAnggota().getUserNama()))
+                        .put("peran", nz(member.getPeranTim()))
+                        .put("peranLabel", nz(member.getPeranTimLabel()))
+                        .put("aktif", !Boolean.FALSE.equals(member.getAktif())));
+            }
+            item.put("members", memberArray);
+            teamArray.put(item);
+        }
+        result.put("teams", teamArray);
+
+        Criteria reasonCriteria = s.createCriteria(CrmLostReason.class);
+        if (hanyaAktif) reasonCriteria.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)));
+        List<CrmLostReason> reasons = reasonCriteria.addOrder(Order.asc("nomorUrut")).addOrder(Order.asc("id")).list();
+        JSONArray reasonArray = new JSONArray();
+        for (CrmLostReason reason : reasons) {
+            reasonArray.put(new JSONObject().put("id", reason.getId()).put("nama", nz(reason.getNama()))
+                    .put("keterangan", nz(reason.getKeterangan()))
+                    .put("nomorUrut", reason.getNomorUrut() == null ? 0 : reason.getNomorUrut())
+                    .put("aktif", !Boolean.FALSE.equals(reason.getAktif())));
+        }
+        result.put("lostReasons", reasonArray);
+        JSONObject activityTypes = new JSONObject();
+        for (Map.Entry<String, String> entry : CrmActivity.JENIS_DATA.entrySet()) {
+            activityTypes.put(entry.getKey(), entry.getValue());
+        }
+        result.put("activityTypes", activityTypes);
+        return result;
+    }
+
     private static void dashboard(JSONObject j, HttpServletRequest r,
             String action, Tbmuser user) throws Exception {
+        if ("crm".equals(text(r.getParameter("kind"), ""))) {
+            crmDashboard(j, action);
+            return;
+        }
         if ("list".equals(action)) {
             daftar(j, r, user);
             return;
@@ -779,12 +1377,16 @@ public final class NewUiTicketController {
 
     private static void konfigurasi(JSONObject j, HttpServletRequest r,
             String action, Tbmuser user) throws Exception {
+        String kind = text(r.getParameter("kind"), "config");
+        if (kind.startsWith("crm")) {
+            crmKonfigurasi(j, r, action, kind);
+            return;
+        }
         if ("list".equals(action)) {
             j.put("kategori", kategori());
             return;
         }
         wajibCsrf(r);
-        String kind = text(r.getParameter("kind"), "config");
         if ("update".equals(action) && "config".equals(kind)) {
             simpanKonfigurasi(j, r);
         } else if (("create".equals(action) || "update".equals(action))
@@ -897,6 +1499,263 @@ public final class NewUiTicketController {
             s.close();
         }
         j.put("message", "Kategori dihapus.");
+    }
+
+    private static void crmKonfigurasi(JSONObject j, HttpServletRequest r,
+            String action, String kind) throws Exception {
+        if ("list".equals(action) && "crm_config".equals(kind)) {
+            Session s = HibernateUtil.openSession();
+            try { j.put("config", crmPilihan(s, false)); }
+            finally { s.close(); }
+            return;
+        }
+        if ("search".equals(action) && "crm_user".equals(kind)) {
+            crmCariPengguna(j, r);
+            return;
+        }
+        wajibCsrf(r);
+        if (("create".equals(action) || "update".equals(action))
+                && "crm_pipeline".equals(kind)) {
+            crmSimpanPipeline(j, r, "update".equals(action));
+        } else if ("delete".equals(action) && "crm_pipeline".equals(kind)) {
+            crmHapusKonfigurasi(j, r, kind);
+        } else if (("create".equals(action) || "update".equals(action))
+                && "crm_stage".equals(kind)) {
+            crmSimpanStage(j, r, "update".equals(action));
+        } else if ("delete".equals(action) && "crm_stage".equals(kind)) {
+            crmHapusKonfigurasi(j, r, kind);
+        } else if (("create".equals(action) || "update".equals(action))
+                && "crm_lost_reason".equals(kind)) {
+            crmSimpanLostReason(j, r, "update".equals(action));
+        } else if ("delete".equals(action) && "crm_lost_reason".equals(kind)) {
+            crmHapusKonfigurasi(j, r, kind);
+        } else if (("create".equals(action) || "update".equals(action))
+                && "crm_team".equals(kind)) {
+            crmSimpanTeam(j, r, "update".equals(action));
+        } else if ("delete".equals(action) && "crm_team".equals(kind)) {
+            crmHapusKonfigurasi(j, r, kind);
+        } else if (("create".equals(action) || "update".equals(action))
+                && "crm_member".equals(kind)) {
+            crmSimpanMember(j, r, "update".equals(action));
+        } else if ("delete".equals(action) && "crm_member".equals(kind)) {
+            crmHapusKonfigurasi(j, r, kind);
+        } else {
+            throw new IllegalArgumentException("Aksi konfigurasi CRM tidak dikenal.");
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void crmCariPengguna(JSONObject j, HttpServletRequest r)
+            throws Exception {
+        String q = wajib(r, "q", "Nama atau user ID wajib diisi.");
+        Session s = HibernateUtil.openSession();
+        try {
+            List<Tbmuser> users = s.createCriteria(Tbmuser.class)
+                    .add(Restrictions.or(
+                            Restrictions.ilike("userNama", q, MatchMode.ANYWHERE),
+                            Restrictions.ilike("userId", q, MatchMode.ANYWHERE)))
+                    .addOrder(Order.asc("userNama")).setMaxResults(20).list();
+            JSONArray rows = new JSONArray();
+            for (Tbmuser user : users) {
+                rows.put(new JSONObject().put("userId", nz(user.getUserId()))
+                        .put("nama", nz(user.getUserNama())));
+            }
+            j.put("rows", rows);
+        } finally {
+            s.close();
+        }
+    }
+
+    private static void crmSimpanPipeline(JSONObject j, HttpServletRequest r,
+            boolean update) throws Exception {
+        Session s = HibernateUtil.openSession();
+        Transaction tx = null;
+        try {
+            tx = s.beginTransaction();
+            CrmPipelineType item = update
+                    ? (CrmPipelineType) s.get(CrmPipelineType.class, id(r))
+                    : new CrmPipelineType();
+            if (item == null) throw new IllegalArgumentException("Jenis pipeline tidak ditemukan.");
+            item.setNama(wajib(r, "nama", "Nama jenis pipeline wajib diisi."));
+            item.setKeterangan(text(r.getParameter("keterangan"), "").trim());
+            item.setNomorUrut(Integer.valueOf(angka(text(r.getParameter("nomorUrut"), "0"),
+                    0, 100000, "Nomor urut tidak sah.")));
+            item.setAktif(Boolean.valueOf(!"false".equalsIgnoreCase(text(r.getParameter("aktif"), "true"))));
+            if (update) s.update(item); else s.save(item);
+            tx.commit();
+            j.put("id", item.getId()).put("message", "Jenis pipeline tersimpan.");
+        } catch (Exception e) { rollback(tx); throw e; }
+        finally { s.close(); }
+    }
+
+    private static void crmSimpanStage(JSONObject j, HttpServletRequest r,
+            boolean update) throws Exception {
+        Session s = HibernateUtil.openSession();
+        Transaction tx = null;
+        try {
+            tx = s.beginTransaction();
+            CrmStage item = update ? (CrmStage) s.get(CrmStage.class, id(r)) : new CrmStage();
+            if (item == null) throw new IllegalArgumentException("Tahap pipeline tidak ditemukan.");
+            CrmPipelineType pipeline = crmPipeline(s,
+                    idWajib(r, "pipelineId", "Jenis pipeline wajib dipilih."));
+            boolean won = bool(r.getParameter("isWon"));
+            boolean lost = bool(r.getParameter("isLost"));
+            if (won && lost) throw new IllegalArgumentException("Tahap tidak dapat sekaligus Menang dan Kalah.");
+            item.setPipelineType(pipeline);
+            item.setNama(wajib(r, "nama", "Nama tahap wajib diisi."));
+            item.setNomorUrut(Integer.valueOf(angka(text(r.getParameter("nomorUrut"), "0"),
+                    0, 100000, "Nomor urut tidak sah.")));
+            item.setProbabilitasDefault(Integer.valueOf(angka(
+                    text(r.getParameter("probabilitas"), "0"), 0, 100,
+                    "Probabilitas harus 0 sampai 100.")));
+            item.setWarna(warnaHex(text(r.getParameter("warna"), "#0ea5e9")));
+            item.setIsWon(Boolean.valueOf(won));
+            item.setIsLost(Boolean.valueOf(lost));
+            item.setAktif(Boolean.valueOf(!"false".equalsIgnoreCase(text(r.getParameter("aktif"), "true"))));
+            if (update) s.update(item); else s.save(item);
+            tx.commit();
+            j.put("id", item.getId()).put("message", "Tahap pipeline tersimpan.");
+        } catch (Exception e) { rollback(tx); throw e; }
+        finally { s.close(); }
+    }
+
+    private static void crmSimpanLostReason(JSONObject j, HttpServletRequest r,
+            boolean update) throws Exception {
+        Session s = HibernateUtil.openSession();
+        Transaction tx = null;
+        try {
+            tx = s.beginTransaction();
+            CrmLostReason item = update
+                    ? (CrmLostReason) s.get(CrmLostReason.class, id(r))
+                    : new CrmLostReason();
+            if (item == null) throw new IllegalArgumentException("Alasan kalah tidak ditemukan.");
+            item.setNama(wajib(r, "nama", "Nama alasan kalah wajib diisi."));
+            item.setKeterangan(text(r.getParameter("keterangan"), "").trim());
+            item.setNomorUrut(Integer.valueOf(angka(text(r.getParameter("nomorUrut"), "0"),
+                    0, 100000, "Nomor urut tidak sah.")));
+            item.setAktif(Boolean.valueOf(!"false".equalsIgnoreCase(text(r.getParameter("aktif"), "true"))));
+            if (update) s.update(item); else s.save(item);
+            tx.commit();
+            j.put("id", item.getId()).put("message", "Alasan kalah tersimpan.");
+        } catch (Exception e) { rollback(tx); throw e; }
+        finally { s.close(); }
+    }
+
+    private static void crmSimpanTeam(JSONObject j, HttpServletRequest r,
+            boolean update) throws Exception {
+        Session s = HibernateUtil.openSession();
+        Transaction tx = null;
+        try {
+            tx = s.beginTransaction();
+            CrmSalesTeam item = update
+                    ? (CrmSalesTeam) s.get(CrmSalesTeam.class, id(r))
+                    : new CrmSalesTeam();
+            if (item == null) throw new IllegalArgumentException("Tim penjualan tidak ditemukan.");
+            item.setNama(wajib(r, "nama", "Nama tim wajib diisi."));
+            item.setKeterangan(text(r.getParameter("keterangan"), "").trim());
+            item.setAktif(Boolean.valueOf(!"false".equalsIgnoreCase(text(r.getParameter("aktif"), "true"))));
+            if (update) s.update(item); else s.save(item);
+            tx.commit();
+            j.put("id", item.getId()).put("message", "Tim penjualan tersimpan.");
+        } catch (Exception e) { rollback(tx); throw e; }
+        finally { s.close(); }
+    }
+
+    private static void crmSimpanMember(JSONObject j, HttpServletRequest r,
+            boolean update) throws Exception {
+        Session s = HibernateUtil.openSession();
+        Transaction tx = null;
+        try {
+            tx = s.beginTransaction();
+            CrmSalesTeamMember item = update
+                    ? (CrmSalesTeamMember) s.get(CrmSalesTeamMember.class, id(r))
+                    : new CrmSalesTeamMember();
+            if (item == null) throw new IllegalArgumentException("Anggota tim tidak ditemukan.");
+            CrmSalesTeam team = crmTeamOpsional(s,
+                    idWajib(r, "teamId", "Tim penjualan wajib dipilih."));
+            String userId = wajib(r, "userId", "Pengguna wajib dipilih.");
+            Tbmuser user = (Tbmuser) s.createCriteria(Tbmuser.class)
+                    .add(Restrictions.eq("userId", userId)).setMaxResults(1).uniqueResult();
+            if (user == null) throw new IllegalArgumentException("Pengguna tidak ditemukan.");
+            String role = text(r.getParameter("peran"), CrmSalesTeamMember.ANGGOTA_TIM);
+            if (!CrmSalesTeamMember.PERAN_TIM_DATA.containsKey(role)) {
+                throw new IllegalArgumentException("Peran anggota tidak sah.");
+            }
+            Criteria duplicate = s.createCriteria(CrmSalesTeamMember.class)
+                    .add(Restrictions.eq("salesTeam", team)).add(Restrictions.eq("anggota", user));
+            if (update) duplicate.add(Restrictions.ne("id", item.getId()));
+            if (duplicate.setMaxResults(1).uniqueResult() != null) {
+                throw new IllegalArgumentException("Pengguna sudah menjadi anggota tim ini.");
+            }
+            item.setSalesTeam(team);
+            item.setAnggota(user);
+            item.setPeranTim(role);
+            item.setAktif(Boolean.valueOf(!"false".equalsIgnoreCase(text(r.getParameter("aktif"), "true"))));
+            if (update) s.update(item); else s.save(item);
+            tx.commit();
+            j.put("id", item.getId()).put("message", "Anggota tim tersimpan.");
+        } catch (Exception e) { rollback(tx); throw e; }
+        finally { s.close(); }
+    }
+
+    private static void crmHapusKonfigurasi(JSONObject j, HttpServletRequest r,
+            String kind) throws Exception {
+        Session s = HibernateUtil.openSession();
+        Transaction tx = null;
+        try {
+            Long itemId = id(r);
+            Object item;
+            Number used = null;
+            if ("crm_pipeline".equals(kind)) {
+                item = s.get(CrmPipelineType.class, itemId);
+                used = count(s, CrmLead.class, "pipelineType.id", itemId);
+                if (used.longValue() == 0) used = count(s, CrmStage.class, "pipelineType.id", itemId);
+            } else if ("crm_stage".equals(kind)) {
+                item = s.get(CrmStage.class, itemId);
+                used = count(s, CrmLead.class, "stage.id", itemId);
+            } else if ("crm_lost_reason".equals(kind)) {
+                item = s.get(CrmLostReason.class, itemId);
+                used = count(s, CrmLead.class, "lostReason.id", itemId);
+            } else if ("crm_team".equals(kind)) {
+                item = s.get(CrmSalesTeam.class, itemId);
+                used = count(s, CrmLead.class, "salesTeam.id", itemId);
+                if (used.longValue() == 0) used = count(s, CrmSalesTeamMember.class, "salesTeam.id", itemId);
+            } else if ("crm_member".equals(kind)) {
+                CrmSalesTeamMember member = (CrmSalesTeamMember) s.get(
+                        CrmSalesTeamMember.class, itemId);
+                item = member;
+                if (member == null || member.getSalesTeam() == null
+                        || member.getAnggota() == null) {
+                    used = Long.valueOf(0);
+                } else {
+                    used = (Number) s.createCriteria(CrmLead.class)
+                            .add(Restrictions.eq("salesTeam", member.getSalesTeam()))
+                            .add(Restrictions.eq("ditugaskanUser", member.getAnggota()))
+                            .setProjection(org.hibernate.criterion.Projections.rowCount())
+                            .uniqueResult();
+                }
+            } else {
+                throw new IllegalArgumentException("Jenis konfigurasi tidak dikenal.");
+            }
+            if (item == null) throw new IllegalArgumentException("Data konfigurasi tidak ditemukan.");
+            if (used != null && used.longValue() > 0) {
+                throw new IllegalArgumentException("Data masih dipakai dan tidak dapat dihapus. Nonaktifkan bila perlu.");
+            }
+            tx = s.beginTransaction();
+            s.delete(item);
+            tx.commit();
+        } catch (Exception e) { rollback(tx); throw e; }
+        finally { s.close(); }
+        j.put("message", "Data konfigurasi CRM dihapus.");
+    }
+
+    private static Number count(Session s, Class<?> type, String property,
+            Long value) {
+        Number result = (Number) s.createCriteria(type)
+                .add(Restrictions.eq(property, value))
+                .setProjection(org.hibernate.criterion.Projections.rowCount())
+                .uniqueResult();
+        return result == null ? Long.valueOf(0) : result;
     }
 
     private static Ticket ticketDalamScope(Session s, Tbmuser user, Long id)
@@ -1032,6 +1891,13 @@ public final class NewUiTicketController {
         return id;
     }
 
+    private static Long idWajib(HttpServletRequest r, String nama,
+            String pesan) {
+        Long value = idOpsional(r.getParameter(nama));
+        if (value == null) throw new IllegalArgumentException(pesan);
+        return value;
+    }
+
     private static Long idOpsional(String raw) {
         if (raw == null || raw.trim().length() == 0) {
             return null;
@@ -1041,6 +1907,102 @@ public final class NewUiTicketController {
         } catch (Exception e) {
             throw new IllegalArgumentException("Id tidak sah.");
         }
+    }
+
+    private static CrmLead crmLead(Session s, Long id) {
+        CrmLead item = (CrmLead) s.get(CrmLead.class, id);
+        if (item == null || Boolean.FALSE.equals(item.getAktif())) {
+            throw new IllegalArgumentException("Prospek CRM tidak ditemukan.");
+        }
+        return item;
+    }
+
+    private static CrmPipelineType crmPipeline(Session s, Long id) {
+        CrmPipelineType item = (CrmPipelineType) s.get(CrmPipelineType.class, id);
+        if (item == null || Boolean.FALSE.equals(item.getAktif())) {
+            throw new IllegalArgumentException("Jenis pipeline tidak ditemukan atau tidak aktif.");
+        }
+        return item;
+    }
+
+    private static CrmSalesTeam crmTeamOpsional(Session s, Long id) {
+        if (id == null) return null;
+        CrmSalesTeam item = (CrmSalesTeam) s.get(CrmSalesTeam.class, id);
+        if (item == null || Boolean.FALSE.equals(item.getAktif())) {
+            throw new IllegalArgumentException("Tim penjualan tidak ditemukan atau tidak aktif.");
+        }
+        return item;
+    }
+
+    private static CrmStage crmStageUntukPipeline(Session s, Long id,
+            CrmPipelineType pipeline) {
+        CrmStage item = (CrmStage) s.get(CrmStage.class, id);
+        if (item == null || Boolean.FALSE.equals(item.getAktif())
+                || item.getPipelineType() == null || pipeline == null
+                || !pipeline.getId().equals(item.getPipelineType().getId())) {
+            throw new IllegalArgumentException("Tahap tidak ditemukan pada pipeline ini.");
+        }
+        return item;
+    }
+
+    private static Tbmuser crmPic(Session s, CrmSalesTeam team, String userId) {
+        String value = text(userId, "").trim();
+        if (value.length() == 0) return null;
+        if (team == null) {
+            throw new IllegalArgumentException("Pilih tim sebelum memilih PIC.");
+        }
+        CrmSalesTeamMember member = (CrmSalesTeamMember) s
+                .createCriteria(CrmSalesTeamMember.class)
+                .createAlias("anggota", "anggota")
+                .add(Restrictions.eq("salesTeam", team))
+                .add(Restrictions.eq("anggota.userId", value))
+                .add(Restrictions.or(Restrictions.isNull("aktif"),
+                        Restrictions.eq("aktif", Boolean.TRUE)))
+                .setMaxResults(1).uniqueResult();
+        if (member == null || member.getAnggota() == null) {
+            throw new IllegalArgumentException("PIC bukan anggota aktif dari tim yang dipilih.");
+        }
+        return member.getAnggota();
+    }
+
+    private static BigDecimal desimalOpsional(String raw) {
+        String value = text(raw, "").trim().replace(".", "").replace(',', '.');
+        if (value.length() == 0) return null;
+        try {
+            BigDecimal result = new BigDecimal(value);
+            if (result.signum() < 0) throw new NumberFormatException();
+            return result;
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Nilai estimasi tidak sah.");
+        }
+    }
+
+    private static Date tanggalOpsional(String raw) {
+        String value = text(raw, "").trim();
+        if (value.length() == 0) return null;
+        try {
+            SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
+            format.setLenient(false);
+            return format.parse(value);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Tanggal harus berformat yyyy-MM-dd.");
+        }
+    }
+
+    private static String crmDate(Date value) {
+        return value == null ? "" : new SimpleDateFormat("yyyy-MM-dd").format(value);
+    }
+
+    private static String crmDateTime(Date value) {
+        return value == null ? "" : new SimpleDateFormat("dd-MM-yyyy HH:mm").format(value);
+    }
+
+    private static String warnaHex(String raw) {
+        String value = text(raw, "#0ea5e9").trim();
+        if (!value.matches("#[0-9a-fA-F]{6}")) {
+            throw new IllegalArgumentException("Warna harus berformat #RRGGBB.");
+        }
+        return value;
     }
 
     private static String wajib(HttpServletRequest r, String nama, String pesan) {
