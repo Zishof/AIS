@@ -60,7 +60,7 @@ public final class LaporanRincianTransaksiUtil {
 		 */
 		public boolean pelangganKosong;
 
-		/** Hanya nota yang nilai bayarnya kurang dari total (dipakai laporan piutang). */
+		/** Filter legacy untuk laporan pembayaran sebagian; laporan piutang memakai {@link #hanyaPiutang}. */
 		public boolean hanyaBelumLunas;
 
 		/** Hanya transaksi dengan slot pembayaran Kasbon yang efektif sebagai piutang. */
