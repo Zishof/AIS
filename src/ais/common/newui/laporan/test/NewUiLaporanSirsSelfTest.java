@@ -42,6 +42,10 @@ public final class NewUiLaporanSirsSelfTest {
         laporan.put("inventory_harga_jual", "sirs/daftar_harga_jual_item");
         laporan.put("inventory_hpp", "sirs/hpp");
         laporan.put("inventory_stok", "sirs/laporan_stok");
+        laporan.put("inventory_kadaluarsa", "sirs/laporan_kadaluarsa");
+        laporan.put("inventory_koreksi", "sirs/koreksi_item_periode");
+        laporan.put("inventory_pemakaian", "sirs/pemakaian_item_periode");
+        laporan.put("inventory_penerimaan_order", "sirs/delivery_order_per_periode");
 
         Method jenis = NewUiLaporanSirsController.class.getDeclaredMethod("jenis", String.class);
         jenis.setAccessible(true);

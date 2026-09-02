@@ -38,7 +38,7 @@ import ais.database.model.sirs.TransaksiMedis;
 import ais.action.report.helper.CommonReport;
 
 /**
- * Kontrak native dua puluh satu laporan SIRS.
+ * Kontrak native dua puluh lima laporan SIRS.
  *
  * <h3>Koreksi atas anggapan sebelumnya</h3>
  * <p>Enam laporan awal pernah dinyatakan tidak dapat dikonversi karena
@@ -121,7 +121,7 @@ public final class NewUiLaporanSirsController {
     static final String S_JENIS_ITEM_MEDIS = "jenis_item_medis";
 
     /**
-     * Dua puluh satu laporan yang dilayani kontrak ini.
+     * Dua puluh lima laporan yang dilayani kontrak ini.
      *
      * <p>Kode laporan sengaja sama dengan nama template Jasper-nya supaya
      * hubungan keduanya tidak perlu ditelusuri lewat tabel lain.</p>
@@ -221,6 +221,22 @@ public final class NewUiLaporanSirsController {
             return new Jenis(kode, "Laporan Stok", "sirs/laporan_stok",
                     new String[] { S_LOKASI, S_TANGGAL }, ais.action.report.Report.XLS);
         }
+        if ("inventory_kadaluarsa".equals(kode)) {
+            return new Jenis(kode, "Laporan Kadaluarsa", "sirs/laporan_kadaluarsa",
+                    new String[] { S_LOKASI }, ais.action.report.Report.XLS);
+        }
+        if ("inventory_koreksi".equals(kode)) {
+            return new Jenis(kode, "Laporan Koreksi Item", "sirs/koreksi_item_periode",
+                    new String[] { S_LOKASI, S_MULAI, S_SAMPAI }, ais.action.report.Report.XLS);
+        }
+        if ("inventory_pemakaian".equals(kode)) {
+            return new Jenis(kode, "Laporan Pemakaian Item", "sirs/pemakaian_item_periode",
+                    new String[] { S_LOKASI, S_MULAI, S_SAMPAI }, ais.action.report.Report.XLS);
+        }
+        if ("inventory_penerimaan_order".equals(kode)) {
+            return new Jenis(kode, "Laporan Penerimaan Order", "sirs/delivery_order_per_periode",
+                    new String[] { S_LOKASI, S_MULAI, S_SAMPAI }, ais.action.report.Report.XLS);
+        }
         throw new IllegalArgumentException("Jenis laporan SIRS tidak dikenal.");
     }
 
@@ -298,7 +314,7 @@ public final class NewUiLaporanSirsController {
                 Lokasi lokasi = Common.getCurrentLokasi();
                 if (lokasi != null && lokasi.getId() != null) {
                     definisi.put("nilaiBawaan", lokasi.getId());
-                    if (jenis.kode.startsWith("laporan_kasir_")) {
+                    if (lokasiTerkunci(jenis)) {
                         definisi.put("terkunci", true);
                     }
                 }
@@ -322,6 +338,9 @@ public final class NewUiLaporanSirsController {
         java.util.Calendar mulai = (java.util.Calendar) kal.clone();
         if ("laporan_kasir_harian".equals(jenis.kode)
                 || "laporan_kasir_per_shift".equals(jenis.kode)
+                || "inventory_koreksi".equals(jenis.kode)
+                || "inventory_pemakaian".equals(jenis.kode)
+                || "inventory_penerimaan_order".equals(jenis.kode)
                 || "ranap_laporan_perruangan_periode".equals(jenis.kode)) {
             mulai.add(java.util.Calendar.MONTH, -1);
         }
@@ -450,7 +469,7 @@ public final class NewUiLaporanSirsController {
                 Criteria c = s.createCriteria(Lokasi.class)
                         .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
                 Lokasi current = Common.getCurrentLokasi();
-                if (jenis.kode.startsWith("laporan_kasir_")
+                if (lokasiTerkunci(jenis)
                         && current != null && current.getId() != null) {
                     c.add(Restrictions.eq("id", current.getId()));
                 }
@@ -636,6 +655,17 @@ public final class NewUiLaporanSirsController {
     /** Parameter empat laporan inventori SIRS, termasuk delapan supplier harga beli. */
     @SuppressWarnings({ "rawtypes", "unchecked" })
     private static void inventory(Map parameters, HttpServletRequest r, Session s, Jenis jenis) {
+        if ("inventory_koreksi".equals(jenis.kode)
+                || "inventory_pemakaian".equals(jenis.kode)
+                || "inventory_penerimaan_order".equals(jenis.kode)) {
+            kasir(parameters, r, s);
+            return;
+        }
+        if ("inventory_kadaluarsa".equals(jenis.kode)) {
+            Lokasi lokasi = lokasiAktif(s, r.getParameter(S_LOKASI));
+            parameters.put("lokasi", lokasi == null ? Long.valueOf(-1L) : lokasi.getId());
+            return;
+        }
         if ("inventory_harga_beli".equals(jenis.kode)) {
             List<Long> supplier = idsEntitas(r.getParameter(S_PENYEDIA), s, Penyedia.class, 8, "supplier");
             for (int i = 1; i <= 8; i++) {
@@ -653,10 +683,7 @@ public final class NewUiLaporanSirsController {
             return;
         }
 
-        Lokasi lokasi = (Lokasi) muat(s, Lokasi.class, r.getParameter(S_LOKASI));
-        if (lokasi != null && Boolean.FALSE.equals(lokasi.getAktif())) {
-            throw new IllegalArgumentException("Lokasi tidak aktif.");
-        }
+        Lokasi lokasi = lokasiAktif(s, r.getParameter(S_LOKASI));
         Date tanggal = tanggalWajib(r.getParameter(S_TANGGAL), "Per tanggal");
         parameters.put("lokasi", lokasi == null ? Long.valueOf(-1L) : lokasi.getId());
         if ("inventory_hpp".equals(jenis.kode)) {
@@ -695,10 +722,27 @@ public final class NewUiLaporanSirsController {
         // memungkinkan request buatan tangan membaca lokasi lain.
         Lokasi lokasi = Common.getCurrentLokasi();
         if (lokasi == null) {
-            lokasi = (Lokasi) muat(s, Lokasi.class, r.getParameter(S_LOKASI));
+            lokasi = lokasiAktif(s, r.getParameter(S_LOKASI));
         }
         parameters.put("lokasi1", lokasi == null ? Long.valueOf(-1L) : lokasi.getId());
         rentang(parameters, r);
+    }
+
+    /** Lokasi dapat dipilih operator, tetapi lokasi nonaktif selalu ditolak. */
+    private static Lokasi lokasiAktif(Session s, String nilai) {
+        Lokasi lokasi = (Lokasi) muat(s, Lokasi.class, nilai);
+        if (lokasi != null && Boolean.FALSE.equals(lokasi.getAktif())) {
+            throw new IllegalArgumentException("Lokasi tidak aktif.");
+        }
+        return lokasi;
+    }
+
+    /** Layar legacy mengunci lokasi sesi pada laporan-laporan ini. */
+    private static boolean lokasiTerkunci(Jenis jenis) {
+        return jenis.kode.startsWith("laporan_kasir_")
+                || "inventory_koreksi".equals(jenis.kode)
+                || "inventory_pemakaian".equals(jenis.kode)
+                || "inventory_penerimaan_order".equals(jenis.kode);
     }
 
     /** Parameter rentang tanggal bertipe teks yyyy-MM-dd seperti layar ZK. */

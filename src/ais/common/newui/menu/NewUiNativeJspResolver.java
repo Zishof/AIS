@@ -63,6 +63,25 @@ public final class NewUiNativeJspResolver {
     public static Result resolve(ServletContext context, String existingRoute, boolean service) {
         if (context == null) return null;
         Set<String> paths = cachedUiPaths(context);
+        // Keputusan eksplisit didahulukan: ia dipakai justru pada route yang
+        // pencarian nama tidak dapat pecahkan -- seri antara dua halaman
+        // bernama sama, atau nama halaman yang memang berbeda dari URL-nya.
+        // Membiarkan penskoran nama mengalahkannya akan mengembalikan keadaan
+        // semula tanpa gejala.
+        NewUiRuteEksplisitRegistry.Tujuan eksplisit =
+                NewUiRuteEksplisitRegistry.cari(existingRoute);
+        if (eksplisit != null) {
+            String target = ROOT + eksplisit.getModule()
+                    + (service ? "/services/" : "/uiux/") + eksplisit.getPage()
+                    + (service ? "_service.jsp" : ".jsp");
+            try {
+                if (context.getResource(target) != null) {
+                    return new Result(target, eksplisit.getModule(), eksplisit.getPage());
+                }
+            } catch (Exception diabaikan) { }
+            // Bila halamannya ternyata tidak ada, jatuh ke pencarian biasa
+            // daripada memaksa 404 -- entri usang tetap ditangkap uji mandiri.
+        }
         Result result = resolveFromPaths(existingRoute, service, paths);
         if (result == null) {
             String composer = composerRoute(context, existingRoute);

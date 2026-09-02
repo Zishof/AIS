@@ -86,6 +86,18 @@ public final class ApotikApiHelper {
 
 	/** Aksi granular menu apotik -- fail-closed: crud kunci apotik default FALSE (lihat
 	 *  EbisnisMenuKatalog.defaultObj + KUNCI_DEFAULT_NONAKTIF). Admin global (tanpa role) boleh. */
+	/**
+	 * Pintu paket untuk {@link #bolehAksi(Tbmuser, String, String)} -- dipakai
+	 * {@code ApotikApiDispatcher} menyusun peta hak yang dikirim ke klien.
+	 *
+	 * <p>Sengaja package-private, bukan public: pemeriksaan ini tetap urusan internal
+	 * paket {@code api}, dan membukanya lebih lebar hanya mengundang pemanggil yang
+	 * memakainya sebagai gerbang -- padahal gerbang sebenarnya ada di tiap metode.</p>
+	 */
+	static boolean bolehAksiMenu(Tbmuser tbmuser, String kunciMenu, String aksi) {
+		return bolehAksi(tbmuser, kunciMenu, aksi);
+	}
+
 	private static boolean bolehAksi(Tbmuser tbmuser, String kunciMenu, String aksi) {
 		if (Common.getApakahAdminLain(tbmuser)) {
 			return true;

@@ -18,6 +18,37 @@ public final class ApotikApiDispatcher {
 	private ApotikApiDispatcher() {
 	}
 
+	/**
+	 * Kunci menu Apotik yang punya gerbang CRUD sungguhan di peladen. Dikirim ke klien
+	 * supaya tombol Simpan pada tiap formulir dapat dipadamkan sebelum ditekan.
+	 */
+	private static final String[] KUNCI_HAK = {
+		"apotik_pengadaan", "apotik_stok_opname", "apotik_retur", "apotik_formularium"
+	};
+
+	/**
+	 * Hak per menu Apotik: {@code hak: {apotik_retur: {create, update, delete}, ...}}.
+	 *
+	 * <p>Bentuknya bersarang per menu -- berbeda dari modul lain yang satu layarnya satu
+	 * menu -- karena SATU layar Persediaan memuat tiga formulir dengan tiga kunci
+	 * berbeda. Mengirim satu peta datar akan memaksa klien menebak kunci mana yang
+	 * berlaku untuk formulir mana.</p>
+	 *
+	 * <p>Ini bukan gerbang: gerbang sebenarnya tetap pemeriksaan di tiap metode helper.</p>
+	 */
+	private static JSONObject hakAksesJson(Tbmuser tbmuser) throws Exception {
+		JSONObject semua = new JSONObject();
+		for (int i = 0; i < KUNCI_HAK.length; i++) {
+			String kunci = KUNCI_HAK[i];
+			JSONObject j = new JSONObject();
+			j.put("create", ApotikApiHelper.bolehAksiMenu(tbmuser, kunci, "create"));
+			j.put("update", ApotikApiHelper.bolehAksiMenu(tbmuser, kunci, "update"));
+			j.put("delete", ApotikApiHelper.bolehAksiMenu(tbmuser, kunci, "delete"));
+			semua.put(kunci, j);
+		}
+		return semua;
+	}
+
 	public static boolean dispatch(String action, Tbmuser tbmuser, JSONObject payload, JSONObject hasil)
 			throws Exception {
 		if (action == null || !action.startsWith("apotik_")) {
@@ -25,6 +56,10 @@ public final class ApotikApiDispatcher {
 		}
 		if ("apotik_item_cari".equals(action)) {
 			ApotikApiHelper.itemCari(payload, hasil);
+			// Daftar ini SELALU dimuat layar Persediaan saat dibuka, sebelum formulir
+			// mana pun disentuh -- tempat paling awal memberi tahu tombol mana yang
+			// akan ditolak.
+			hasil.put("hak", hakAksesJson(tbmuser));
 		} else if ("apotik_item_batch".equals(action)) {
 			ApotikApiHelper.itemBatch(payload, hasil);
 		} else if ("apotik_resep_list".equals(action)) {

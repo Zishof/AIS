@@ -46,8 +46,19 @@ public final class SapuScaffoldProbe {
             String id = k[0], label = k[3], url = k[4];
             if (url == null || url.trim().length() == 0) continue;   // cabang, bukan daun
             total++;
-            NewUiNativeJspResolver.Result r =
-                    NewUiNativeJspResolver.resolveFromPaths(url, true, paths);
+            NewUiNativeJspResolver.Result r = null;
+            // Lapisan pertama resolve(): keputusan pemetaan eksplisit.
+            ais.common.newui.menu.NewUiRuteEksplisitRegistry.Tujuan eksplisit =
+                    ais.common.newui.menu.NewUiRuteEksplisitRegistry.cari(url);
+            if (eksplisit != null) {
+                String t = "/WEB-INF/new/" + eksplisit.getModule()
+                        + "/services/" + eksplisit.getPage() + "_service.jsp";
+                if (paths.contains(t)) {
+                    r = new NewUiNativeJspResolver.Result(
+                            t, eksplisit.getModule(), eksplisit.getPage());
+                }
+            }
+            if (r == null) r = NewUiNativeJspResolver.resolveFromPaths(url, true, paths);
             if (r == null) {
                 // resolve() yang sebenarnya tidak berhenti di nama URL. Bila
                 // gagal ia membaca ZUL-nya, mengambil kelas composer dari
