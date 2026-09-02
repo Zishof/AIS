@@ -39,6 +39,14 @@ public final class TicketPdf {
 
 	/** Bangun PDF tiket ke berkas sementara dan kembalikan {@link File}-nya. */
 	public static File cetak(Ticket t) throws Exception {
+		return cetak(t, true);
+	}
+
+	/**
+	 * Bangun PDF dengan kebijakan visibilitas catatan internal yang diputuskan
+	 * pemanggil setelah memeriksa scope pengguna.
+	 */
+	public static File cetak(Ticket t, boolean sertakanInternal) throws Exception {
 		if (t == null) {
 			return null;
 		}
@@ -92,7 +100,7 @@ public final class TicketPdf {
 				doc.add(new Paragraph(t.getDeskripsi(), fIsi));
 			}
 
-			List<TicketKomentar> komentars = muatKomentar(t);
+			List<TicketKomentar> komentars = muatKomentar(t, sertakanInternal);
 			if (komentars != null && !komentars.isEmpty()) {
 				Paragraph h = new Paragraph("Riwayat Diskusi", fH2);
 				h.setSpacingBefore(12);
@@ -126,14 +134,22 @@ public final class TicketPdf {
 	}
 
 	@SuppressWarnings("unchecked")
-	private static List<TicketKomentar> muatKomentar(Ticket t) {
+	private static List<TicketKomentar> muatKomentar(Ticket t, boolean sertakanInternal) {
+		Session session = null;
 		try {
-			Session session = HibernateUtil.currentSession();
-			return session.createCriteria(TicketKomentar.class).add(Restrictions.eq("ticket", t))
-					.addOrder(Order.asc("id")).list();
+			session = HibernateUtil.openSession();
+			org.hibernate.Criteria criteria = session.createCriteria(TicketKomentar.class)
+					.add(Restrictions.eq("ticket", t));
+			if (!sertakanInternal) {
+				criteria.add(Restrictions.or(Restrictions.isNull("internal"),
+						Restrictions.eq("internal", Boolean.FALSE)));
+			}
+			return criteria.addOrder(Order.asc("id")).list();
 		} catch (Exception e) {
 			ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) TicketPdf.muatKomentar");
 			return null;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
 		}
 	}
 

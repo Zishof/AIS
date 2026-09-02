@@ -1,6 +1,12 @@
 package ais.common.newui.ticket;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,18 +22,23 @@ import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.apache.commons.io.IOUtils;
 
 import ais.action.master.ticket.TicketKonfigurasiAction;
 import ais.action.master.ticket.TicketNotifikasi;
+import ais.action.master.ticket.TicketPdf;
 import ais.action.master.ticket.TicketingAction;
 import ais.common.Common;
 import ais.common.MemoryDbUtil;
 import ais.common.newui.NewUiCsrfUtil;
 import ais.common.newui.NewUiPermission;
 import ais.common.newui.NewUiRouteGuard;
+import ais.common.newui.NewUiUnggahRequest;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Konfigurasi;
 import ais.database.model.Tbmuser;
+import ais.database.model.file.FileFotoLain;
+import ais.database.model.file.LampiranLain;
 import ais.database.model.rab.SatuanKerja;
 import ais.database.model.ticket.Ticket;
 import ais.database.model.ticket.TicketKategori;
@@ -55,6 +66,7 @@ public final class NewUiTicketController {
     public static final String MODE_KONFIGURASI = "ticket_konfigurasi";
     private static final int BATAS_DAFTAR = 300;
     private static final int BATAS_DASHBOARD = 5000;
+    private static final long REF_LAMPIRAN_DIHAPUS = -111111119L;
 
     private static final String[] STATUS = {
         Ticket.STATUS_BARU, Ticket.STATUS_DITINJAU, Ticket.STATUS_DIPROSES,
@@ -92,6 +104,15 @@ public final class NewUiTicketController {
             Tbmuser user = Common.getCurrentUser(request);
             if (user == null || user.getUserId() == null) {
                 throw new SecurityException("Sesi pengguna tidak dikenal.");
+            }
+
+            if (MODE_TICKETING.equals(mode) && "export_attachment".equals(action)) {
+                unduhLampiran(request, response, user);
+                return;
+            }
+            if (MODE_TICKETING.equals(mode) && "export_pdf".equals(action)) {
+                cetakPdf(request, response, user);
+                return;
             }
 
             if ("meta".equals(action)) {
@@ -152,11 +173,12 @@ public final class NewUiTicketController {
         j.put("csrfHeader", NewUiCsrfUtil.HEADER);
         j.put("csrfToken", NewUiCsrfUtil.getToken(request.getSession(true)));
 
-        // CRM, lampiran, dan cetak PDF mempunyai lifecycle sendiri. Kontrak ini
-        // menyatakannya eksplisit agar klien tidak membuat tombol palsu.
+        // CRM mempunyai lifecycle sendiri dan tetap dinyatakan eksplisit agar
+        // klien tidak membuat tombol palsu. Lampiran/PDF sudah memiliki kontrak.
         j.put("crmNative", false);
-        j.put("lampiranNative", false);
-        j.put("cetakPdfNative", false);
+        j.put("lampiranNative", true);
+        j.put("cetakPdfNative", true);
+        j.put("maxUploadBytes", maxUploadBytes());
     }
 
     private static String judul(String mode) {
@@ -188,6 +210,13 @@ public final class NewUiTicketController {
         } else if ("update".equals(action)) {
             wajibCsrf(r);
             ubahTicket(j, r, user);
+        } else if ("upload".equals(action)) {
+            wajibCsrf(r);
+            unggahLampiran(j, r, user);
+        } else if ("delete".equals(action)
+                && "attachment".equals(text(r.getParameter("kind"), ""))) {
+            wajibCsrf(r);
+            hapusLampiran(j, r, user);
         } else {
             throw new IllegalArgumentException("Aksi Ticketing tidak dikenal.");
         }
@@ -253,6 +282,11 @@ public final class NewUiTicketController {
             @SuppressWarnings("unchecked")
             List<TicketKomentar> comments = s.createCriteria(TicketKomentar.class)
                     .add(Restrictions.eq("ticket", t)).addOrder(Order.asc("id")).list();
+            List<Long> commentIds = new ArrayList<Long>();
+            for (TicketKomentar k : comments) {
+                if (!Boolean.TRUE.equals(k.getInternal()) || kelola) commentIds.add(k.getId());
+            }
+            Map<Long, LampiranLain> commentAttachments = lampiranKomentar(s, commentIds);
             JSONArray komentar = new JSONArray();
             for (TicketKomentar k : comments) {
                 if (Boolean.TRUE.equals(k.getInternal()) && !kelola) {
@@ -264,8 +298,11 @@ public final class NewUiTicketController {
                         .put("nama", nz(k.getNama()))
                         .put("tipePengguna", nz(k.getTipePengguna()))
                         .put("internal", Boolean.TRUE.equals(k.getInternal()))
-                        .put("tanggal", tanggal(k.getTanggal())));
+                        .put("tanggal", tanggal(k.getTanggal()))
+                        .put("attachment", lampiranJson(commentAttachments.get(k.getId()))));
             }
+            data.put("attachment", lampiranJson(lampiran(
+                    s, t.getId(), TicketingAction.LAMPIRAN_TIKET)));
             data.put("komentar", komentar);
             j.put("data", data);
         } finally {
@@ -429,6 +466,269 @@ public final class NewUiTicketController {
             TicketNotifikasi.statusBerubah(t, statusLama);
         }
         j.put("message", "Perubahan tiket tersimpan.");
+    }
+
+    /** Unggah satu lampiran aktif, mengikuti lifecycle LampiranLain halaman ZK. */
+    private static void unggahLampiran(JSONObject j, HttpServletRequest r,
+            Tbmuser user) throws Exception {
+        if (!(r instanceof NewUiUnggahRequest)) {
+            throw new IllegalArgumentException("Permintaan upload tidak membawa berkas.");
+        }
+        NewUiUnggahRequest upload = (NewUiUnggahRequest) r;
+        File file = upload.getBerkas();
+        try {
+            if (file == null || !file.exists() || file.length() <= 0L) {
+                throw new IllegalArgumentException("Berkas kosong atau tidak dapat dibaca.");
+            }
+            if (file.length() > maxUploadBytes()) {
+                throw new IllegalArgumentException(
+                        "Ukuran berkas melampaui batas upload institusi.");
+            }
+            AttachmentTarget target = attachmentTarget(r, user);
+            Session helperSession = HibernateUtil.openSession();
+            LampiranLain dibuat;
+            try {
+                dibuat = (LampiranLain) FileFotoLain.createFileFotoLain(
+                        user, helperSession, LampiranLain.class, Boolean.FALSE,
+                        target.ref, target.jenis, null, file,
+                        safeFileName(upload.getNamaBerkas()));
+            } finally {
+                HibernateUtil.closeSessionQuietly(helperSession);
+            }
+            if (dibuat == null || dibuat.getId() == null) {
+                throw new IllegalArgumentException("Lampiran gagal disimpan.");
+            }
+
+            // Helper legacy memakai nama File temporary. Pulihkan nama asli
+            // setelah BLOB berhasil ditulis pada koneksi streaming yang aman.
+            Session s = HibernateUtil.openSession();
+            Transaction tx = null;
+            try {
+                tx = s.beginTransaction();
+                LampiranLain item = (LampiranLain) s.get(LampiranLain.class, dibuat.getId());
+                if (item == null) throw new IllegalArgumentException("Lampiran gagal dimuat kembali.");
+                item.setNama(safeFileName(upload.getNamaBerkas()));
+                item.setKeterangan(limited(r.getParameter("keterangan"), 1000));
+                s.update(item);
+                s.flush();
+                tx.commit();
+                j.put("attachment", lampiranJson(item));
+            } catch (Exception e) {
+                rollback(tx);
+                throw e;
+            } finally {
+                HibernateUtil.closeSessionQuietly(s);
+            }
+            j.put("message", "Lampiran berhasil diunggah.");
+        } finally {
+            try { if (file != null && file.exists()) file.delete(); }
+            catch (Exception ignored) { }
+        }
+    }
+
+    private static void hapusLampiran(JSONObject j, HttpServletRequest r,
+            Tbmuser user) throws Exception {
+        AttachmentTarget target = attachmentTarget(r, user);
+        Long attachmentId = idOpsional(r.getParameter("attachmentId"));
+        if (attachmentId == null) throw new IllegalArgumentException("Id lampiran wajib dikirim.");
+        Session s = HibernateUtil.openSession();
+        Transaction tx = null;
+        try {
+            LampiranLain item = lampiranMilik(s, attachmentId, target);
+            tx = s.beginTransaction();
+            item.setRef(REF_LAMPIRAN_DIHAPUS);
+            s.update(item);
+            s.flush();
+            tx.commit();
+        } catch (Exception e) {
+            rollback(tx);
+            throw e;
+        } finally {
+            HibernateUtil.closeSessionQuietly(s);
+        }
+        try { LampiranLain.resetLokasi(Boolean.FALSE, target.ref, target.jenis); }
+        catch (Exception ignored) { }
+        j.put("message", "Lampiran berhasil dihapus.");
+    }
+
+    private static void unduhLampiran(HttpServletRequest r,
+            HttpServletResponse response, Tbmuser user) throws Exception {
+        AttachmentTarget target = attachmentTarget(r, user);
+        Long attachmentId = idOpsional(r.getParameter("attachmentId"));
+        if (attachmentId == null) throw new IllegalArgumentException("Id lampiran wajib dikirim.");
+        Session s = HibernateUtil.openSession();
+        LampiranLain item;
+        String nama;
+        try {
+            item = lampiranMilik(s, attachmentId, target);
+            nama = attachmentName(item);
+        } finally {
+            HibernateUtil.closeSessionQuietly(s);
+        }
+        byte[] isi = FileFotoLain.ambilIsiBlob(item);
+        if (isi == null || isi.length == 0) {
+            throw new IllegalArgumentException("Isi lampiran tidak tersedia di penyimpanan.");
+        }
+        response.setContentType(mime(nama));
+        response.setHeader("Content-Disposition",
+                "attachment; filename=\"" + headerFileName(nama) + "\"");
+        response.setContentLength(isi.length);
+        OutputStream out = response.getOutputStream();
+        out.write(isi);
+        out.flush();
+    }
+
+    private static void cetakPdf(HttpServletRequest r,
+            HttpServletResponse response, Tbmuser user) throws Exception {
+        Session s = HibernateUtil.openSession();
+        File pdf = null;
+        try {
+            Ticket t = ticketDalamScope(s, user, id(r));
+            pdf = TicketPdf.cetak(t, bolehKelola(t, user));
+            if (pdf == null || !pdf.exists() || pdf.length() <= 0L) {
+                throw new IllegalArgumentException("PDF tiket gagal dibuat.");
+            }
+            response.setContentType("application/pdf");
+            response.setHeader("Content-Disposition", "attachment; filename=\""
+                    + headerFileName("tiket_" + nz(t.getNomorTiket()) + ".pdf") + "\"");
+            if (pdf.length() <= Integer.MAX_VALUE) response.setContentLength((int) pdf.length());
+            InputStream in = new FileInputStream(pdf);
+            try {
+                IOUtils.copy(in, response.getOutputStream());
+                response.getOutputStream().flush();
+            } finally {
+                in.close();
+            }
+        } finally {
+            HibernateUtil.closeSessionQuietly(s);
+            try { if (pdf != null && pdf.exists()) pdf.delete(); }
+            catch (Exception ignored) { }
+        }
+    }
+
+    private static AttachmentTarget attachmentTarget(HttpServletRequest r,
+            Tbmuser user) throws Exception {
+        Session s = HibernateUtil.openSession();
+        try {
+            Ticket ticket = ticketDalamScope(s, user, id(r));
+            Long commentId = idOpsional(r.getParameter("commentId"));
+            if (commentId == null) {
+                return new AttachmentTarget(ticket.getId(),
+                        TicketingAction.LAMPIRAN_TIKET);
+            }
+            TicketKomentar comment = (TicketKomentar) s.createCriteria(TicketKomentar.class)
+                    .add(Restrictions.idEq(commentId))
+                    .add(Restrictions.eq("ticket", ticket)).setMaxResults(1).uniqueResult();
+            if (comment == null) throw new IllegalArgumentException(
+                    "Komentar tidak ditemukan pada tiket ini.");
+            if (Boolean.TRUE.equals(comment.getInternal()) && !bolehKelola(ticket, user)) {
+                throw new SecurityException("Lampiran catatan internal hanya untuk pengelola.");
+            }
+            return new AttachmentTarget(comment.getId(),
+                    TicketingAction.LAMPIRAN_KOMENTAR);
+        } finally {
+            HibernateUtil.closeSessionQuietly(s);
+        }
+    }
+
+    private static LampiranLain lampiranMilik(Session s, Long id,
+            AttachmentTarget target) {
+        LampiranLain item = (LampiranLain) s.createCriteria(LampiranLain.class)
+                .add(Restrictions.idEq(id)).add(Restrictions.eq("ref", target.ref))
+                .add(Restrictions.eq("jenis", target.jenis))
+                .setMaxResults(1).uniqueResult();
+        if (item == null) throw new IllegalArgumentException(
+                "Lampiran tidak ditemukan pada tiket atau komentar ini.");
+        return item;
+    }
+
+    private static LampiranLain lampiran(Session s, Long ref, String jenis) {
+        return (LampiranLain) s.createCriteria(LampiranLain.class)
+                .add(Restrictions.eq("ref", ref)).add(Restrictions.eq("jenis", jenis))
+                .addOrder(Order.desc("id")).setMaxResults(1).uniqueResult();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<Long, LampiranLain> lampiranKomentar(Session s,
+            List<Long> ids) {
+        Map<Long, LampiranLain> hasil = new HashMap<Long, LampiranLain>();
+        if (ids == null || ids.isEmpty()) return hasil;
+        List<LampiranLain> rows = s.createCriteria(LampiranLain.class)
+                .add(Restrictions.in("ref", ids))
+                .add(Restrictions.eq("jenis", TicketingAction.LAMPIRAN_KOMENTAR))
+                .addOrder(Order.desc("id")).list();
+        for (LampiranLain item : rows) {
+            if (!hasil.containsKey(item.getRef())) hasil.put(item.getRef(), item);
+        }
+        return hasil;
+    }
+
+    private static Object lampiranJson(LampiranLain item) throws Exception {
+        if (item == null) return JSONObject.NULL;
+        return new JSONObject().put("id", item.getId())
+                .put("name", attachmentName(item))
+                .put("description", nz(item.getKeterangan()))
+                .put("uploadedAt", tanggal(item.getTanggal_dirubah()))
+                .put("uploadedBy", nz(item.getOleh()));
+    }
+
+    private static String attachmentName(LampiranLain item) {
+        String nama = safeFileName(item == null ? null : item.getNama());
+        String prefix = item != null && item.getId() != null ? item.getId() + "_" : "";
+        return prefix.length() > 0 && nama.startsWith(prefix)
+                ? nama.substring(prefix.length()) : nama;
+    }
+
+    private static long maxUploadBytes() {
+        long kb = 1024L;
+        try {
+            kb = Long.parseLong(Common.getKonfigurasi(
+                    "ukuran_maksimal_file_diupload", "1024").getNilai());
+        } catch (Exception ignored) { }
+        if (kb < 1L) kb = 1024L;
+        return Math.min(NewUiUnggahRequest.BATAS_UKURAN, kb * 1024L);
+    }
+
+    private static String safeFileName(String value) {
+        String name = text(value, "lampiran").replace('\\', '/');
+        int slash = name.lastIndexOf('/');
+        if (slash >= 0) name = name.substring(slash + 1);
+        name = name.replace('\r', '_').replace('\n', '_').replace('"', '_').trim();
+        if (name.length() > 255) name = name.substring(name.length() - 255);
+        return name.length() == 0 ? "lampiran" : name;
+    }
+
+    private static String headerFileName(String value) {
+        return safeFileName(value).replaceAll("[^A-Za-z0-9._ -]", "_");
+    }
+
+    private static String mime(String name) {
+        String n = safeFileName(name).toLowerCase();
+        if (n.endsWith(".pdf")) return "application/pdf";
+        if (n.endsWith(".png")) return "image/png";
+        if (n.endsWith(".jpg") || n.endsWith(".jpeg")) return "image/jpeg";
+        if (n.endsWith(".gif")) return "image/gif";
+        if (n.endsWith(".txt")) return "text/plain; charset=UTF-8";
+        if (n.endsWith(".doc")) return "application/msword";
+        if (n.endsWith(".docx")) return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+        if (n.endsWith(".xls")) return "application/vnd.ms-excel";
+        if (n.endsWith(".xlsx")) return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        return "application/octet-stream";
+    }
+
+    private static String limited(String value, int max) {
+        String result = value == null ? "" : value.trim();
+        return result.length() <= max ? result : result.substring(0, max);
+    }
+
+    private static final class AttachmentTarget {
+        final Long ref;
+        final String jenis;
+
+        AttachmentTarget(Long ref, String jenis) {
+            this.ref = ref;
+            this.jenis = jenis;
+        }
     }
 
     private static void dashboard(JSONObject j, HttpServletRequest r,
