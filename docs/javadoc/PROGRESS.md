@@ -1,5 +1,66 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 35 — SELESAI 100% (3 Sep 2026)
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
+`-implicit:none` bersih, mirror `java/` diverifikasi `cmp` byte-identik, nol
+perubahan logika:
+
+- **`ais/database/model/OrganisasiIntraKampusPunyaMahasiswa.java`** (r83571)
+  — 204→839 baris, 100% (46 anggota). **Kedua dugaan kuirk sesi 34
+  TERKONFIRMASI PENUH**: `getTbmuser()` destruktif (menulis `null` ke DB
+  saat pengaju adalah mahasiswa — kasus NORMAL di entity ini, jadi
+  dampaknya lebih luas dari kembaran dosennya) DAN `getTahun()` mutatif
+  (tapi TERNYATA justru satu-satunya penulis kolom itu, bersifat
+  self-healing kecuali `mulai` di-null-kan). **Temuan amplifier baru**:
+  jalur `DataUtil.CLASS_IZINKAN` + `BeanUtilsBean.copyProperties` merusak
+  **instance kanonik bersama lintas-JVM** (bukan cuma nilai kembalian) —
+  detail penting baru untuk `task_15f5001e`.
+- **`ais/database/model/DokumenAkreditasi.java`** (r83569) — 203→594
+  baris, 100% (39 anggota). Premis awal KELIRU (bukan sumber angka
+  borang, melainkan pohon arsip dokumen). Ditemukan pola dual-jalur
+  unduh identik `LampiranLain` (servlet `/document` bergerbang 401,
+  tapi `document.zul` merender tautan `/al` tanpa gerbang) — memperkuat
+  `task_b82b25d2`.
+- **`ais/database/model/BerkasHasilAkreditasi.java`** (r83568) — 176→666
+  baris, 100% (39 anggota). Premis awal juga KELIRU (bukan entity
+  sertifikat/nilai, melainkan wadah/kategori borang tanpa kolom hasil).
+  Bug fungsional nyata: impor Excel tidak memetakan relasi pemilik →
+  baris hasil impor yatim, hilang permanen dari SEMUA tab UI (nol
+  filter yang cocok).
+- **`ais/database/model/SkripsiPunyaKomponenPenilaianSkripsi.java`**
+  (r83570) — 199→689 baris, 100% (23 anggota). Premis awal KELIRU (bukan
+  sisi transaksi nilai — murni tabel penghubung master, nilai
+  sesungguhnya CSV di `Skripsi.detail_nilai`). Bug slot-swap dosen/nilai
+  TIDAK menyeberang ke sini (kosakata nama menular tapi kode mati total).
+  Bug integritas audit baru: `simpan()` hapus via SQL MENTAH melewati
+  Envers, id baris berganti total tiap kali format disimpan.
+- **`ais/database/model/KegiatanKedosenanPunyaDosen.java`** (r83572-73)
+  — 210→743 baris, 100% (46 anggota). Pola "banyak nama Kegiatan* tak
+  berkerabat" TERKONFIRMASI berlaku (nol relasi ke `Kegiatan`/
+  `DetailKegiatan` billing), TAPI nama class ini SENDIRI **tidak
+  menyesatkan** (cocok label UI). `getTbmuser()` destruktif — KEMBARAN
+  KATA-PER-KATA bug `OrganisasiDosenPunyaDosen` (b30). `getPersetujuan()`
+  JUGA destruktif: menarik persetujuan kegiatan induk mengosongkan
+  persetujuan SETIAP peserta satu-per-satu saat baris kebetulan dibaca.
+  NPE dijamin di ekspor DSpace untuk baris tanpa keterangan.
+
+**KOREKSI PENTING — tabrakan penghitungan paralel**: brief batch ini
+memberi baseline "pola getKeterangan() 6 instance" ke SEMUA 5 agent
+sekaligus (tanpa tahu sesama agent paralel). 4 dari 5 file batch ini
+TERNYATA punya pola yang sama (`BerkasHasilAkreditasi`,
+`SkripsiPunyaKomponenPenilaianSkripsi`, `OrganisasiIntraKampusPunyaMahasiswa`,
+`KegiatanKedosenanPunyaDosen` — HANYA `DokumenAkreditasi` yang TIDAK),
+dan masing-masing MELAPORKAN DIRI SENDIRI sebagai "instance ke-7" secara
+independen tanpa sadar 3 lainnya juga demikian. **Total sebenarnya: 6 + 4
+= 10 instance.** Pelajaran proses: saat memberi angka baseline count ke
+banyak agent PARALEL di brief yang sama, ingatkan bahwa file lain di
+batch yang sama BISA JADI juga menambah — jangan biarkan tiap agent
+melaporkan nomor urut mutlak, cukup laporkan "ada/tidak" dan biarkan
+orkestrator yang menjumlahkan di akhir.
+
+Total akumulasi 35 sesi: **353 file** dari 7.401 (~4,8%).
+
 ## Batch 34 — SELESAI 100% (3 Sep 2026) — ENUMERASI TANPA AUTENTIKASI DITEMUKAN
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
