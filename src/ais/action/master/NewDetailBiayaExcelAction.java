@@ -18,6 +18,7 @@ import java.util.TreeSet;
 
 import org.apache.commons.lang.StringUtils;
 import org.hibernate.Criteria;
+import org.hibernate.LockMode;
 import org.hibernate.Session;
 import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
@@ -3184,10 +3185,10 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 						: Restrictions.ilike("nilaiTambahan1", nilaiTambahan1, MatchMode.EXACT))
 
 				.add(nilaiTambahan2 == null ? Restrictions.isNull("nilaiTambahan2")
-						: Restrictions.ilike("nilaiTambahan2", nilaiTambahan1, MatchMode.EXACT))
+						: Restrictions.ilike("nilaiTambahan2", nilaiTambahan2, MatchMode.EXACT))
 
 				.add(nilaiTambahan3 == null ? Restrictions.isNull("nilaiTambahan3")
-						: Restrictions.ilike("nilaiTambahan3", nilaiTambahan1, MatchMode.EXACT))
+						: Restrictions.ilike("nilaiTambahan3", nilaiTambahan3, MatchMode.EXACT))
 
 				.add(Restrictions.or(Restrictions.isNull("paket"), Restrictions.eq("paket", paket)))
 
@@ -3328,26 +3329,74 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 				.list();
 
 		System.out.println("mau dihapus -> " + myBiayas.size());
+		List<Object[]> foreignKeysDetailBiaya = ambilForeignKeyDetailBiaya(session);
 
 		for (DetailBiaya detailBiaya : myBiayas) {
 			System.out.println("hapus -> " + detailBiaya);
-			// Jangan hapus jika DetailKegiatan-nya sudah berelasi dengan
-			// GrupTransaksi (posted) ATAU PostingHistory (sudah di-posting)
-			Number refCount = (Number) session.createSQLQuery(
-				"SELECT COUNT(*) FROM public.detail_kegiatan dk" +
-				" WHERE dk.detail_biaya = :dbId" +
-				" AND (dk.posting_history IS NOT NULL" +
-				"      OR EXISTS (SELECT 1 FROM akunting.grup_transaksi gt WHERE gt.detail_kegiatan = dk.id))")
-				.setLong("dbId", detailBiaya.getId()).uniqueResult();
-			if (refCount != null && refCount.longValue() > 0) {
+			// Kunci induk agar transaksi lain tidak dapat menambah FK di antara
+			// pemeriksaan referensi dan DELETE.
+			session.lock(detailBiaya, LockMode.UPGRADE);
+			String tabelReferensi = cariTabelReferensiDetailBiaya(session, detailBiaya.getId(),
+					foreignKeysDetailBiaya);
+			if (tabelReferensi != null) {
 				System.out.println("skip hapus DetailBiaya " + detailBiaya.getId()
-					+ " (ada " + refCount + " DetailKegiatan berelasi GrupTransaksi/PostingHistory)");
+						+ " (masih direferensikan oleh " + tabelReferensi + ")");
 				continue;
 			}
 			session.delete(detailBiaya);
 			session.flush();
 		}
 		myBiayas = null;
+	}
+
+	/**
+	 * Mengambil seluruh foreign key yang menunjuk ke {@code public.detail_biaya(id)}.
+	 * Daftar dibaca dari katalog agar proteksi penghapusan otomatis mencakup cicilan,
+	 * kegiatan, pengaturan bulanan, dan tabel gateway yang ditambahkan kemudian.
+	 */
+	@SuppressWarnings("unchecked")
+	private List<Object[]> ambilForeignKeyDetailBiaya(Session session) {
+		return session.createSQLQuery(
+				"SELECT child_ns.nspname, child.relname, child_col.attname "
+						+ "FROM pg_constraint fk "
+						+ "JOIN pg_class child ON child.oid = fk.conrelid "
+						+ "JOIN pg_namespace child_ns ON child_ns.oid = child.relnamespace "
+						+ "JOIN pg_class parent ON parent.oid = fk.confrelid "
+						+ "JOIN pg_namespace parent_ns ON parent_ns.oid = parent.relnamespace "
+						+ "JOIN unnest(fk.conkey) WITH ORDINALITY child_key(attnum, ord) ON true "
+						+ "JOIN unnest(fk.confkey) WITH ORDINALITY parent_key(attnum, ord) "
+						+ "  ON parent_key.ord = child_key.ord "
+						+ "JOIN pg_attribute child_col ON child_col.attrelid = child.oid "
+						+ "  AND child_col.attnum = child_key.attnum "
+						+ "JOIN pg_attribute parent_col ON parent_col.attrelid = parent.oid "
+						+ "  AND parent_col.attnum = parent_key.attnum "
+						+ "WHERE fk.contype = 'f' AND parent_ns.nspname = 'public' "
+						+ "  AND parent.relname = 'detail_biaya' AND parent_col.attname = 'id'")
+				.list();
+	}
+
+	private String cariTabelReferensiDetailBiaya(Session session, Long detailBiayaId,
+			List<Object[]> foreignKeys) {
+		for (Object[] foreignKey : foreignKeys) {
+			String schema = foreignKey[0] == null ? null : foreignKey[0].toString();
+			String tabel = foreignKey[1] == null ? null : foreignKey[1].toString();
+			String kolom = foreignKey[2] == null ? null : foreignKey[2].toString();
+			if (!namaSqlAman(schema) || !namaSqlAman(tabel) || !namaSqlAman(kolom)) {
+				throw new IllegalStateException("Metadata foreign key DetailBiaya tidak valid");
+			}
+
+			Object ada = session.createSQLQuery("SELECT 1 FROM \"" + schema + "\".\"" + tabel
+					+ "\" WHERE \"" + kolom + "\" = :detailBiayaId LIMIT 1")
+					.setLong("detailBiayaId", detailBiayaId).uniqueResult();
+			if (ada != null) {
+				return schema + "." + tabel;
+			}
+		}
+		return null;
+	}
+
+	private boolean namaSqlAman(String nama) {
+		return nama != null && nama.matches("[A-Za-z_][A-Za-z0-9_]*");
 	}
 
 	public void onAdd(Event event) throws Exception {
