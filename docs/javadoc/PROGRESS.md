@@ -1,5 +1,69 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 34 — SELESAI 100% (3 Sep 2026) — ENUMERASI TANPA AUTENTIKASI DITEMUKAN
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
+`-implicit:none` bersih, mirror `java/` diverifikasi `cmp` byte-identik, nol
+perubahan logika:
+
+- **`ais/database/model/ScholarArticle.java`** (r83546) — 170→811 baris,
+  100% (36 anggota). Konfirmasi arah relasi `@ManyToMany` dengan
+  `ScholarAuthor`: UNIDIRECTIONAL, satu-satunya arah baca artikel→penulis.
+  Dugaan sesi 31 terkonfirmasi: `getNama()` menulis balik hasil pembersihan
+  `[PDF]`/`[BUKU]` ke field — rantai write-back berlapis lintas tabel
+  (memicu UPDATE di `scholar_article` DAN `penelitiandanpengabdian.artikel`
+  sekaligus). Pengecualian KELIMA kontrak base class (`getKeterangan()`).
+  Koreksi status sesi 33: tombol pencarian kata kunci Scholar TERNYATA
+  masih hidup (toolbar kedua non-mahasiswa tidak `setVisible(false)`).
+- **`ais/database/model/DiskusiKomentar.java`** (r83548) — 196→848 baris,
+  100% (43 anggota). **TEMUAN TERBESAR BATCH INI**: anonimitas peer-review
+  dikonfirmasi ulang fiktif (nol kolom anonimitas), DAN ditemukan jalur baca
+  KEDUA yang lebih parah dari IDOR sesi 30 — `POST /Data` dengan
+  `tanpaLogin=true` + `action=daftar` mengeluarkan badan pesan peer-review
+  rahasia TANPA LOGIN SAMA SEKALI (aksi baca tidak diblokir seperti aksi
+  tulis), plus `where1..10` diteruskan mentah ke `sqlRestriction` di jalur
+  yang sama. Menaikkan severity `task_493423ef` dari "IDOR terautentikasi"
+  ke "enumerasi tanpa autentikasi". Importer OJS ternyata tidak pernah
+  memindahkan isi komentar historis (tabel `notes` tidak diimpor) — seluruh
+  utas hasil migrasi adalah cangkang kosong.
+- **`ais/database/model/MetaReport.java`** (r83547) — 196→642 baris,
+  100% (42 anggota). Premis awal (definisi laporan Jasper) KELIRU —
+  ternyata jejak cetak dokumen akademik untuk verifikasi keaslian, dan
+  fiturnya MATI TOTAL: nol baris pernah dibuat di codebase manapun, layar
+  verifikasi dijamin NPE seandainya ada baris (id komponen ZK hilang dari
+  `.zul`), dan modul "baru" merujuk nama kelas yang tidak ada. Nol query
+  SQL mentah — tidak menambah bukti `task_493423ef`.
+- **`ais/database/model/RekapAngketUntukDosen.java`** (r83549) — 198→587
+  baris, 100% (48 anggota). Entity sendiri BERSIH (contoh positif, agregat
+  murni tanpa kolom pemilih). Tapi investigasi anonimitas angket
+  menemukan **pelanggaran konkret di sekitarnya**: satu guard `setVisible`
+  yang hilang di `LaporanAngketDosenPerDosenWindow.java` (tab "Data Angket
+  Dosen"/"Data Angket Umum") membuat dosen bisa melihat matriks NIM+nama
+  mahasiswa × nilai angket individual yang mereka berikan. **Task baru
+  dibuat: `task_72336ffe`.** Tabel kembar `rekap_angket_dosen`/
+  `RekapAngketUntukDosen` punya query jrxml identik kata-per-kata kecuali
+  nama tabel — laporan versi dosen kemungkinan selalu kosong.
+- **`ais/database/model/OrganisasiIntraKampus.java`** (r83550) — 183→880
+  baris, 100% (43 anggota). Perbandingan dengan `OrganisasiDosen` (b32):
+  TIDAK ada field level (bug pelaporan A-4.5.5 tidak punya padanan), tapi
+  `minimal*` (IPK/SKS/SKKM) BENAR-BENAR ditegakkan (kebalikan pola
+  write-only). SQL injection BARU (`initCriteria`, kembaran sesi 32).
+  Inversi hak akses dengan BUKTI KUAT: kelas saudara persis
+  (`JabatanOrganisasiIntraKampusAction`, tab layar yang sama) memasang
+  guard CREATE/UPDATE/DELETE lengkap, kelas ini nol — anomali terisolasi,
+  bukan gaya arsitektur. Impor Excel bypass total kontrol bisnis
+  (persetujuan borongan langsung dari sel berkas).
+
+**Pola "getKeterangan() membalik kontrak base class" kini 6 instance**
+(`Bank` b29, `SintaArticle` b31, `PendaftaranSidang` b33, `ScholarAuthor`
+b33, `ScholarArticle` b34, `DiskusiKomentar`/`Diskusi` b34) — pola
+arsitektural mapan, konsisten di seluruh entity `hbm2java`-turunan.
+
+**Task keamanan baru batch ini**: `task_72336ffe` (guard anonimitas angket
+dosen hilang, perbaikan spesifik dan bisa langsung dieksekusi).
+
+Total akumulasi 34 sesi: **348 file** dari 7.401 (~4,7%).
+
 ## Batch 33 — SELESAI 100% (3 Sep 2026) — AKAR PENYEBAB POLA FAIL-OPEN DITEMUKAN
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
