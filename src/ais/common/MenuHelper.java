@@ -1680,7 +1680,10 @@ public class MenuHelper {
      * tabrakan dengan data menu lama.</p>
      *
      * <p>Idempoten: aman dipanggil berkali-kali (menggunakan {@code saveOrUpdate}).</p>
-     * <p>Hak akses diberikan ke role {@code am} (administrator) dan {@code Akademik}.</p>
+	 * <p>Hak akses diberikan kepada administrator, Akademik, dan seluruh role yang saklar
+	 * {@link Tbmrole#getTampilkanSpmi()}-nya aktif. Pemeriksaan saklar SPMI penting karena nama/id role
+	 * penjamin mutu berbeda antar tenant; membatasi menu hanya ke dua id role baku membuat akun SPMI
+	 * dapat membuka modul SPMI tetapi kehilangan pintu ke layar review akademik ini.</p>
      */
     public static void ensurePenjaminanMutuAnalisisMenu() {
         Session session = null;
@@ -1749,17 +1752,22 @@ public class MenuHelper {
 
             tx.commit();
 
-            // Hak akses ke role "am" (administrator) dan "Akademik"
-            session = HibernateUtil.currentNativeSession();
-            tx = session.beginTransaction();
-            Tbmrole roleAm = (Tbmrole) session.get(Tbmrole.class, Tbmrole.ADMINISTRATOR);
-            Tbmrole roleAkademik = (Tbmrole) session.get(Tbmrole.class, Tbmrole.AKADEMIK);
-            if (roleAm != null) {
-                attachMenu(roleAm, m01);
-            }
-            if (roleAkademik != null) {
-                attachMenu(roleAkademik, m01);
-            }
+			// Hak akses mengikuti kapabilitas modul SPMI, bukan nama role tenant.
+			session = HibernateUtil.currentNativeSession();
+			tx = session.beginTransaction();
+			Menu managedMenu = (Menu) session.get(Menu.class, m01.getId());
+			@SuppressWarnings("unchecked")
+			List<Tbmrole> roles = session.createCriteria(Tbmrole.class).list();
+			for (Tbmrole role : roles) {
+				if (role == null) {
+					continue;
+				}
+				boolean roleBaku = Tbmrole.ADMINISTRATOR.equals(role.getRoleId())
+						|| Tbmrole.AKADEMIK.equals(role.getRoleId());
+				if (roleBaku || Boolean.TRUE.equals(role.getTampilkanSpmi())) {
+					attachMenu(role, managedMenu);
+				}
+			}
             tx.commit();
             System.out.println("[MenuHelper] ensurePenjaminanMutuAnalisisMenu selesai.");
         } catch (Exception e) {

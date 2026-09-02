@@ -294,7 +294,8 @@ public class WebGradingHelper {
                             if (!joPpu.isNull(fn.getId().toString())) {
                                 Double bobot = joPpu.isNull(fn.getId().toString() + "_bobot") ? 100.0 : joPpu.getDouble(fn.getId().toString() + "_bobot");
                                 String nilaiObeStr = (String) session.createCriteria(HasilUjianMahasiswa.class)
-                                        .add(Restrictions.isNotNull("keyhasil")).setMaxResults(1).setProjection(Projections.property("nilaiObe"))
+                                        .add(Restrictions.or(Restrictions.isNotNull("keyhasil"), Restrictions.isNotNull("nilaiObe")))
+                                        .setMaxResults(1).setProjection(Projections.property("nilaiObe"))
                                         .add(Restrictions.eq("pertemuanPunyaUjian", ppu)).add(Restrictions.eq("mahasiswa", dp.getMahasiswa())).uniqueResult();
                                 
                                 if (nilaiObeStr != null && !nilaiObeStr.trim().isEmpty()) {

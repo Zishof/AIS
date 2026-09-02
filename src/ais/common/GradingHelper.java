@@ -991,7 +991,8 @@ public class GradingHelper {
 																idSiswa)) {
 															Number nilaiUjian = (Number) session
 																	.createCriteria(HasilUjianMahasiswa.class)
-																	.add(Restrictions.isNotNull("keyhasil"))
+															.add(Restrictions.or(Restrictions.isNotNull("keyhasil"),
+																	Restrictions.isNotNull("nilaiObe")))
 																	.setMaxResults(1)
 																	.setProjection(Projections.property("nilai"))
 																	.add(Restrictions.eq("pertemuanPunyaUjian",

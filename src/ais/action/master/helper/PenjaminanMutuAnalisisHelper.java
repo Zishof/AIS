@@ -168,7 +168,233 @@ public class PenjaminanMutuAnalisisHelper extends Div {
             + "<div style='font-size:12px;margin-top:4px;opacity:.85;'>"
             + "Pantau, beri catatan, dan setujui analisis butir soal dosen dari satu tempat.</div>"
             + "</div>");
+
+		Div rpsCard = new Div();
+		rpsCard.setStyle("background:#fff;border:1px solid #bfdbfe;border-left:4px solid #2563eb;"
+				+ "border-radius:8px;padding:10px 14px;margin-bottom:12px;");
+		rpsCard.setParent(this);
+		Hbox rpsActions = new Hbox();
+		rpsActions.setAlign("center");
+		rpsActions.setSpacing("12px");
+		rpsActions.setParent(rpsCard);
+		appendHtml(rpsActions,
+				"<div style='font-size:12px;line-height:1.5;color:#334155;'>"
+				+ "<b>Review kesesuaian RPS</b><br>Nilai pelaksanaan pertemuan terhadap RPS tanpa harus masuk melalui akun dosen atau kelas."
+				+ "</div>");
+		MyToolbarbuttonConfig btnRps = new MyToolbarbuttonConfig("Buka Review RPS", "/img/search.gif");
+		btnRps.setTooltiptext("Buka daftar pertemuan dan isi penilaian kesesuaian RPS");
+		btnRps.setParent(rpsActions);
+		btnRps.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				bukaReviewKesesuaianRps();
+			}
+		});
     }
+
+	/**
+	 * Membuka daftar pertemuan yang dapat direview oleh staf SPMI. Jalur ini sengaja ditempatkan
+	 * pada dasbor Penjaminan Mutu karena panel asli berada di halaman aktivitas kelas; akun SPMI
+	 * umumnya tidak menjadi dosen pengampu sehingga secara navigasi tidak pernah mencapai panel
+	 * tersebut. Data dan penyimpanannya tidak diduplikasi: tombol pada setiap baris memanggil
+	 * {@link AbsensiHelper#createStatusSesuaiOlehAkademik(Pertemuan, Tbmuser)}, yaitu komponen yang
+	 * sama dengan halaman perkuliahan. Dengan demikian format lama pada
+	 * {@code Pertemuan.keteranganSesuaiOlehAkademik}, identitas reviewer, status, waktu, dan catatan
+	 * tetap kompatibel dengan rekap yang sudah ada.
+	 *
+	 * <p>Filter tahun akademik dan semester mengikuti pilihan pada dasbor. Batas 500 baris menjaga
+	 * halaman ZK lama tetap responsif; pengguna dapat mempersempit periode bila data mencapai batas.
+	 * Perubahan pada kontrol detail disimpan otomatis oleh helper bersama saat kontrol diubah.</p>
+	 */
+	private void bukaReviewKesesuaianRps() throws Exception {
+		final MyWindow win = new MyWindow("Review Kesesuaian RPS", "none", true);
+		win.setWidth("95%");
+		win.setHeight("92%");
+		Component root = ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot();
+		win.setParent(root);
+
+		Borderlayout layout = new MyBorderlayout();
+		layout.setParent(win);
+		North north = new North();
+		north.setParent(layout);
+		Toolbar toolbar = new Toolbar();
+		toolbar.setParent(north);
+
+		MyToolbarbuttonConfig btnTutup = new MyToolbarbuttonConfig("Tutup", "/img/cancel.gif");
+		btnTutup.setParent(toolbar);
+		btnTutup.addEventListener("onClick", new EventListener() {
+			@Override public void onEvent(Event event) throws Exception { win.detach(); }
+		});
+
+		MyToolbarbuttonConfig btnMuatUlang = new MyToolbarbuttonConfig("Muat Ulang", "/img/refresh.gif");
+		btnMuatUlang.setTooltiptext("Muat ulang status review setelah melakukan penilaian");
+		btnMuatUlang.setParent(toolbar);
+		btnMuatUlang.addEventListener("onClick", new EventListener() {
+			@Override public void onEvent(Event event) throws Exception {
+				win.detach();
+				bukaReviewKesesuaianRps();
+			}
+		});
+
+		Center center = new Center();
+		ZkCompat.setFlex(center, true);
+		center.setStyle("overflow:auto;background:#f8fafc;padding:12px;");
+		center.setParent(layout);
+
+		Vbox body = new Vbox();
+		body.setWidth("100%");
+		body.setParent(center);
+		appendHtml(body, "<div style='padding:10px 12px;margin-bottom:10px;background:#eff6ff;"
+				+ "border:1px solid #bfdbfe;border-radius:8px;font-size:12px;line-height:1.55;color:#1e3a8a;'>"
+				+ "Periode: <b>" + esc(filterTa == null || filterTa.isEmpty() ? "Semua TA" : filterTa)
+				+ "</b> / <b>" + esc(filterSemester == null || filterSemester.isEmpty() ? "Semua semester" : filterSemester)
+				+ "</b>. Klik <b>Nilai / Detail</b> untuk mengisi status dan catatan. Perubahan tersimpan saat kontrol diubah."
+				+ "</div>");
+
+		List<Pertemuan> pertemuans = loadPertemuanRps();
+		if (pertemuans.isEmpty()) {
+			appendHtml(body, "<div style='padding:40px;text-align:center;color:#64748b;'>"
+					+ "Tidak ada pertemuan perkuliahan pada periode yang dipilih.</div>");
+			win.doModal();
+			return;
+		}
+
+		Grid grid = new Grid();
+		grid.setWidth("100%");
+		grid.setSclass("fgrid");
+		grid.setParent(body);
+		Columns columns = new Columns();
+		columns.setSizable(true);
+		columns.setParent(grid);
+		String[] labels = { "Mata Kuliah", "Dosen", "Pertemuan", "Topik", "TA / Semester", "Status Saya", "" };
+		String[] widths = { "21%", "16%", "8%", "23%", "13%", "10%", "9%" };
+		for (int i = 0; i < labels.length; i++) {
+			Column column = new Column(labels[i]);
+			column.setWidth(widths[i]);
+			column.setParent(columns);
+		}
+		Rows rows = new Rows();
+		rows.setParent(grid);
+		final Tbmuser reviewer = Common.getCurrentUser();
+		for (final Pertemuan pertemuan : pertemuans) {
+			Row row = new Row();
+			row.setParent(rows);
+			Perkuliahan pkl = pertemuan.getPerkuliahan();
+			String mk = pkl != null && pkl.getMatakuliah() != null ? pkl.getMatakuliah().getNama() : "-";
+			new Label(mk == null ? "-" : mk).setParent(row);
+			new Label(namaDosen(pertemuan)).setParent(row);
+			new Label("ke-" + (pertemuan.getPertemuanKe() == null ? "-" : pertemuan.getPertemuanKe())).setParent(row);
+			new Label(pertemuan.getTopik() == null ? "-" : pertemuan.getTopik()).setParent(row);
+			new Label(pkl == null ? "-" : (pkl.getTahunAjaran() + " / " + pkl.getGanjilGenap())).setParent(row);
+			appendHtmlCell(row, buildStatusRpsBadge(pertemuan, reviewer));
+			MyToolbarbuttonConfig btnDetail = new MyToolbarbuttonConfig("Nilai / Detail", "/img/edit.gif");
+			btnDetail.setParent(row);
+			btnDetail.addEventListener("onClick", new EventListener() {
+				@Override public void onEvent(Event event) throws Exception {
+					bukaDetailReviewRps(pertemuan, reviewer);
+				}
+			});
+		}
+		if (pertemuans.size() >= 500) {
+			appendHtml(body, "<div style='padding:8px;color:#92400e;font-size:11px;'>"
+					+ "Daftar dibatasi 500 pertemuan. Pilih tahun akademik/semester yang lebih spesifik.</div>");
+		}
+		win.doModal();
+	}
+
+	@SuppressWarnings("unchecked")
+	private List<Pertemuan> loadPertemuanRps() {
+		try {
+			Criteria crit = HibernateUtil.currentSession().createCriteria(Pertemuan.class, "prt");
+			crit.createAlias("prt.perkuliahan", "pkl");
+			crit.add(Restrictions.eq("prt.aktif", true));
+			if (filterTa != null && !filterTa.trim().isEmpty())
+				crit.add(Restrictions.eq("pkl.tahunAjaran", filterTa));
+			if (filterSemester != null && !filterSemester.trim().isEmpty())
+				crit.add(Restrictions.ilike("pkl.ganjilGenap", filterSemester));
+			crit.addOrder(Order.asc("pkl.id"));
+			crit.addOrder(Order.asc("prt.pertemuanKe"));
+			crit.setMaxResults(500);
+			return (List<Pertemuan>) crit.list();
+		} catch (Exception ex) {
+			ErrorAuditUtil.record(ex, "PenjaminanMutuAnalisisHelper.loadPertemuanRps");
+			return new ArrayList<Pertemuan>();
+		}
+	}
+
+	private String namaDosen(Pertemuan pertemuan) {
+		StringBuilder result = new StringBuilder();
+		try {
+			for (Dosen dosen : pertemuan.ambilDosen()) {
+				if (dosen == null || dosen.getNama() == null) continue;
+				if (result.length() > 0) result.append(", ");
+				result.append(dosen.getNama());
+			}
+		} catch (Exception ex) {
+			ErrorAuditUtil.record(ex, "PenjaminanMutuAnalisisHelper.namaDosen");
+		}
+		return result.length() == 0 ? "-" : result.toString();
+	}
+
+	private String buildStatusRpsBadge(Pertemuan pertemuan, Tbmuser reviewer) {
+		if (pertemuan == null || reviewer == null) return buildSimpleBadge("Belum", "#64748b", "#f1f5f9");
+		try {
+			Perkuliahan pkl = pertemuan.getPerkuliahan();
+			if (pkl != null && pkl.getSemuaPertemuanSesuaiRps()) {
+				Long status = pkl.getSemuaNilaiSesuaiRps();
+				return status.equals(1L) ? buildSimpleBadge("Sesuai", "#166534", "#dcfce7")
+						: status.equals(2L) ? buildSimpleBadge("Tidak Sesuai", "#991b1b", "#fee2e2")
+						: buildSimpleBadge("Belum", "#64748b", "#f1f5f9");
+			}
+			boolean sesuai = false, tidakSesuai = false;
+			for (Dosen dosen : pertemuan.ambilDosen()) {
+				Long status = pertemuan.retreiveAbsensiIdOlehAkademik(reviewer.getUserId(), dosen);
+				if (Long.valueOf(1L).equals(status)) sesuai = true;
+				if (Long.valueOf(2L).equals(status)) tidakSesuai = true;
+			}
+			if (tidakSesuai) return buildSimpleBadge("Tidak Sesuai", "#991b1b", "#fee2e2");
+			if (sesuai) return buildSimpleBadge("Sesuai", "#166534", "#dcfce7");
+		} catch (Exception ex) {
+			ErrorAuditUtil.record(ex, "PenjaminanMutuAnalisisHelper.buildStatusRpsBadge");
+		}
+		return buildSimpleBadge("Belum", "#64748b", "#f1f5f9");
+	}
+
+	private String buildSimpleBadge(String text, String color, String background) {
+		return "<span style='display:inline-block;padding:3px 8px;border-radius:10px;font-size:10px;"
+				+ "font-weight:700;color:" + color + ";background:" + background + ";'>" + esc(text) + "</span>";
+	}
+
+	private void bukaDetailReviewRps(Pertemuan pertemuan, Tbmuser reviewer) throws Exception {
+		final MyWindow detail = new MyWindow("Penilaian Kesesuaian RPS", "none", true);
+		detail.setWidth("760px");
+		detail.setHeight("82%");
+		detail.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
+		Borderlayout layout = new MyBorderlayout();
+		layout.setParent(detail);
+		Center center = new Center();
+		ZkCompat.setFlex(center, true);
+		center.setStyle("overflow:auto;padding:14px;background:#f8fafc;");
+		center.setParent(layout);
+		Vbox body = new Vbox();
+		body.setWidth("100%");
+		body.setParent(center);
+		appendHtml(body, "<div style='padding:10px 12px;margin-bottom:10px;background:#fff;border:1px solid #e2e8f0;"
+				+ "border-radius:8px;font-size:12px;color:#334155;'>Pertemuan ke-"
+				+ (pertemuan.getPertemuanKe() == null ? "-" : pertemuan.getPertemuanKe()) + " &mdash; "
+				+ esc(pertemuan.getTopik() == null ? "Tanpa topik" : pertemuan.getTopik()) + "</div>");
+		AbsensiHelper.createStatusSesuaiOlehAkademik(pertemuan, reviewer).setParent(body);
+		South south = new South();
+		south.setParent(layout);
+		Toolbar toolbar = new Toolbar();
+		toolbar.setParent(south);
+		MyToolbarbuttonConfig close = new MyToolbarbuttonConfig("Selesai", "/img/check.gif");
+		close.setParent(toolbar);
+		close.addEventListener("onClick", new EventListener() {
+			@Override public void onEvent(Event event) throws Exception { detail.detach(); }
+		});
+		detail.doModal();
+	}
 
     // ── Filter bar ────────────────────────────────────────────────────────────
 
