@@ -1756,6 +1756,16 @@ public class DaftarPengajuanTransfer extends DataSop {
 		this.aktif = aktif;
 	}
 
+	/**
+	 * Mengembalikan detail pembayaran pengadaan aset yang menjadi dokumen sumber baris ini.
+	 *
+	 * <p>Getter relasi polos (tanpa {@code check(...)} maupun logika turunan).
+	 * {@code @NotFound(IGNORE)} membuat referensi yatim — baris tujuan sudah terhapus —
+	 * menghasilkan {@code null} alih-alih melempar exception; {@code FetchMode.SELECT}
+	 * memuatnya lewat query terpisah.</p>
+	 *
+	 * @return detail pembayaran pengadaan, atau {@code null} bila baris ini bertipe lain
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@NotFound(action = NotFoundAction.IGNORE)
 	@Fetch(FetchMode.SELECT)
@@ -1764,11 +1774,22 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return pembayaranPengadaanMasterAssetDetail;
 	}
 
+	/**
+	 * Menautkan baris ini ke sebuah detail pembayaran pengadaan aset.
+	 *
+	 * @param pembayaranPengadaanMasterAssetDetail dokumen sumber; boleh {@code null}
+	 */
 	public void setPembayaranPengadaanMasterAssetDetail(
 			PembayaranPengadaanMasterAssetDetail pembayaranPengadaanMasterAssetDetail) {
 		this.pembayaranPengadaanMasterAssetDetail = pembayaranPengadaanMasterAssetDetail;
 	}
 
+	/**
+	 * Mengembalikan dokumen pertanggungjawaban uang muka yang menjadi sumber baris ini
+	 * (baris tersebut mewakili pengembalian sisa dana). Getter relasi polos.
+	 *
+	 * @return dokumen pertanggungjawaban, atau {@code null} bila baris ini bertipe lain
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@NotFound(action = NotFoundAction.IGNORE)
 	@Fetch(FetchMode.SELECT)
@@ -1777,10 +1798,20 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return pertangungjawaban;
 	}
 
+	/**
+	 * Menautkan baris ini ke sebuah dokumen pertanggungjawaban uang muka.
+	 *
+	 * @param pertangungjawaban dokumen sumber; boleh {@code null}
+	 */
 	public void setPertangungjawaban(Pertangungjawaban pertangungjawaban) {
 		this.pertangungjawaban = pertangungjawaban;
 	}
 
+	/**
+	 * Mengembalikan dokumen uang muka yang menjadi sumber baris ini. Getter relasi polos.
+	 *
+	 * @return dokumen uang muka, atau {@code null} bila baris ini bertipe lain
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@NotFound(action = NotFoundAction.IGNORE)
 	@Fetch(FetchMode.SELECT)
@@ -1789,6 +1820,11 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return uangMuka;
 	}
 
+	/**
+	 * Menautkan baris ini ke sebuah dokumen uang muka.
+	 *
+	 * @param uangMuka dokumen sumber; boleh {@code null}
+	 */
 	public void setUangMuka(UangMuka uangMuka) {
 		this.uangMuka = uangMuka;
 	}
@@ -1797,6 +1833,18 @@ public class DaftarPengajuanTransfer extends DataSop {
 	// entity ini @Audited -- tanpa anotasi ini Envers GAGAL init listeners saat build
 	// SessionFactory ("An audited relation ... to a not audited entity") dan SELURUH
 	// aplikasi mati di startup (terbukti di UAT 2026-08-19; pola insiden hotel.Kamar).
+	/**
+	 * Mengembalikan dokumen reimbursement pegawai yang menjadi sumber baris ini. Getter relasi
+	 * polos.
+	 *
+	 * <p><b>Jangan hapus anotasi {@code @Audited(NOT_AUDITED)} di atas</b> — alasannya sudah
+	 * dijelaskan pada komentar tepat sebelumnya: {@code ReimbursementPegawai} bukan entity
+	 * ber-{@code @Audited}, sedangkan class ini {@code @Audited}. Tanpa penanda itu Envers
+	 * gagal menginisialisasi listener saat membangun {@code SessionFactory} dan
+	 * <b>seluruh aplikasi mati di startup</b> (terbukti di UAT 2026-08-19).</p>
+	 *
+	 * @return dokumen reimbursement, atau {@code null} bila baris ini bertipe lain
+	 */
 	@Audited(targetAuditMode = org.hibernate.envers.RelationTargetAuditMode.NOT_AUDITED)
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@NotFound(action = NotFoundAction.IGNORE)
@@ -1806,10 +1854,21 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return reimbursementPegawai;
 	}
 
+	/**
+	 * Menautkan baris ini ke sebuah dokumen reimbursement pegawai.
+	 *
+	 * @param reimbursementPegawai dokumen sumber; boleh {@code null}
+	 */
 	public void setReimbursementPegawai(ReimbursementPegawai reimbursementPegawai) {
 		this.reimbursementPegawai = reimbursementPegawai;
 	}
 
+	/**
+	 * Mengembalikan dokumen penggantian kas kecil yang menjadi sumber baris ini. Getter relasi
+	 * polos.
+	 *
+	 * @return dokumen penggantian kas kecil, atau {@code null} bila baris ini bertipe lain
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@NotFound(action = NotFoundAction.IGNORE)
 	@Fetch(FetchMode.SELECT)
@@ -1818,10 +1877,23 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return penggantianKasKecil;
 	}
 
+	/**
+	 * Menautkan baris ini ke sebuah dokumen penggantian kas kecil.
+	 *
+	 * @param penggantianKasKecil dokumen sumber; boleh {@code null}
+	 */
 	public void setPenggantianKasKecil(PenggantianKasKecil penggantianKasKecil) {
 		this.penggantianKasKecil = penggantianKasKecil;
 	}
 
+	/**
+	 * Membaca {@code Double} yang boleh {@code null} sebagai {@code double} primitif, dengan
+	 * {@code null} dianggap nol. Pembantu aritmetika agar rantai perhitungan nominal/PPh tidak
+	 * perlu memeriksa {@code null} berulang kali.
+	 *
+	 * @param d nilai yang mungkin {@code null}
+	 * @return nilai {@code double}-nya, atau {@code 0.0} bila {@code d} {@code null}
+	 */
 	private static double nilai(Double d) {
 		return d == null ? 0.0 : d.doubleValue();
 	}
@@ -1832,6 +1904,36 @@ public class DaftarPengajuanTransfer extends DataSop {
 	 * tertaut ke detail pengadaan ini — sehingga PERSIS sama dengan total nominal
 	 * baris-baris DaftarPengajuanTransfer pajak (dibuat oleh {@link #simpanPajak}).
 	 * Maka: netto(vendor) + Σ(baris pajak) = bruto.
+	 *
+	 * <p>Dua mode perhitungan:</p>
+	 * <ul>
+	 *   <li><b>Mode BREAKDOWN</b> ({@code saldoAwal.getBreakdownAktif()} bernilai
+	 *   {@code TRUE}) — PPh diambil dari satu nilai manual "Bukti Potong"
+	 *   ({@code getBreakdownBuktiPotong()}), <b>bukan</b> penjumlahan baris Pajak per detail
+	 *   PO. Dipakai bila bukti potong dari vendor berbeda dari hitungan sistem.</li>
+	 *   <li><b>Mode normal</b> — seluruh entitas {@link Pajak} yang tertaut ke detail
+	 *   pengadaan ini dijumlahkan nilainya.</li>
+	 * </ul>
+	 *
+	 * <p><b>Jebakan rekursi (sudah terjadi, jangan diulang):</b> method ini dipanggil dari
+	 * {@link #getNominal()}, yang juga dipanggil Hibernate saat mengambil snapshot properti
+	 * ketika melakukan <i>auto-flush</i>. Query di sini, secara baku, memicu auto-flush lagi →
+	 * {@code flushEntities} → {@code getNominal()} → query → auto-flush → seterusnya, berujung
+	 * {@code StackOverflowError}. Karena {@code StackOverflowError} adalah {@code Error} dan
+	 * bukan {@code Exception}, {@code catch} di bawah pun tidak menangkapnya. Pemasangan
+	 * {@code FlushMode.MANUAL} pada query itulah yang memutus rantai rekursi; konsekuensinya
+	 * data Pajak yang terbaca adalah yang sudah tersimpan (cukup untuk menghitung total PPh).
+	 * <b>Jangan lepas {@code setFlushMode(FlushMode.MANUAL)}.</b></p>
+	 *
+	 * <p>Seluruh badan method dibungkus {@code catch (Throwable)} yang mengembalikan
+	 * {@code 0.0} — kegagalan apa pun berarti "tidak ada PPh", sehingga nominal vendor jatuh
+	 * ke nilai bruto. Kegagalan bersifat senyap dan tidak dicatat.</p>
+	 *
+	 * @param saldoAwal tagihan pengadaan yang PPh-nya dijumlahkan; {@code null} menghasilkan
+	 *                  {@code 0.0}
+	 * @return total PPh yang dipotong, atau {@code 0.0} bila tidak ada/gagal dihitung
+	 * @see #getNominal()
+	 * @see #simpanPajak(Pajak)
 	 */
 	@SuppressWarnings("unchecked")
 	private double hitungTotalPphSaldoAwal(SaldoAwalMasterAsset saldoAwal) {
@@ -1864,6 +1966,35 @@ public class DaftarPengajuanTransfer extends DataSop {
 		}
 	}
 
+	/**
+	 * Mengembalikan <b>nominal rupiah yang akan ditransfer</b> untuk baris ini — angka yang
+	 * dijumlahkan menjadi total sebuah {@link ProsesTransfer}.
+	 *
+	 * <p><b>Getter turunan yang menulis balik</b> (lihat Javadoc class): nilainya dihitung
+	 * ulang setiap pembacaan dari dokumen sumber, ditugaskan ke field {@code nominal}, dan
+	 * karenanya ikut tersimpan ke database pada flush berikutnya. Rantai
+	 * {@code if / else if} memeriksa 17 tipe dokumen sumber dan mengambil field nominal yang
+	 * sesuai untuk masing-masing (nilai tagihan, nilai kas besar, dikembalikan, dibayar, saldo
+	 * awal, dan seterusnya).</p>
+	 *
+	 * <p><b>Dua cabang memotong PPh</b> sehingga menghasilkan nilai <i>netto</i>, bukan
+	 * bruto:</p>
+	 * <ul>
+	 *   <li><b>tagihan pengadaan vendor</b> — {@code bruto - }
+	 *   {@link #hitungTotalPphSaldoAwal(SaldoAwalMasterAsset)};</li>
+	 *   <li><b>pembayaran termin</b> — {@code dibayar (DPP+PPN+pinalti) - nilaiPphTermin}.</li>
+	 * </ul>
+	 * <p>PPh yang dipotong itu dibayarkan lewat baris DPT terpisah bertipe {@link Pajak},
+	 * sehingga tetap berlaku {@code netto(vendor) + Σ(baris pajak) = bruto}. Cabang lain
+	 * meneruskan nilai dokumen sumber apa adanya.</p>
+	 *
+	 * <p><b>Perhatian:</b> method ini juga dipanggil Hibernate saat mengambil snapshot properti
+	 * pada auto-flush — itulah asal-usul jebakan rekursi yang dijelaskan di
+	 * {@link #hitungTotalPphSaldoAwal(SaldoAwalMasterAsset)}.</p>
+	 *
+	 * @return nominal yang akan ditransfer; {@code 0.0} bila tidak ada dokumen sumber yang
+	 *         cocok atau nilainya belum terisi (tidak pernah {@code null})
+	 */
 	public Double getNominal() {
 
 		if (getSaldoAwalMasterAsset() != null) {
@@ -1949,6 +2080,15 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return nominal == null ? 0.0 : nominal;
 	}
 
+	/**
+	 * Menyetel nominal secara manual.
+	 *
+	 * <p><b>Perhatikan:</b> nilai yang disetel akan <b>ditimpa</b> pada pemanggilan
+	 * {@link #getNominal()} berikutnya bila ada dokumen sumber yang terisi. Nominal baris DPT
+	 * selalu bersumber dari dokumennya, bukan dari masukan manual.</p>
+	 *
+	 * @param nominal nilai rupiah
+	 */
 	public void setNominal(Double nominal) {
 		this.nominal = nominal;
 	}
