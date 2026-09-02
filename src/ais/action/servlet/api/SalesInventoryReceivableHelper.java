@@ -1116,13 +1116,26 @@ public final class SalesInventoryReceivableHelper {
 		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
+			boolean jalurTenant = SalesInventoryReceivableTenant.aktif(ctx);
 			StringBuilder where = new StringBuilder(" WHERE 1=1");
-			if (customerId != null) where.append(" AND p.customer = ?");
-			if (salesId != null) where.append(" AND p.sales = ?");
+			if (customerId != null) {
+				where.append(" AND ").append(jalurTenant
+						? SalesInventoryReceivableTenant.kolomCustomerPenagihan() : "p.customer").append(" = ?");
+			}
+			if (salesId != null) {
+				where.append(" AND ").append(jalurTenant
+						? SalesInventoryReceivableTenant.kolomSalesPenagihan() : "p.sales").append(" = ?");
+			}
 			if (dari != null) where.append(" AND p.tanggal >= ?");
 			if (sampai != null) where.append(" AND p.tanggal < (CAST(? AS date) + 1)");
-			java.sql.PreparedStatement ps = session.connection().prepareStatement(
-					"SELECT p.id, p.nomor, p.tanggal, p.nominal, p.metode, p.no_bg, p.nama_bank,"
+			String sqlRiwayat;
+			if (jalurTenant) {
+				String sk = SalesInventoryReceivableTenant.skema(ctx);
+				sqlRiwayat = SalesInventoryReceivableTenant.selectPenagihan(sk)
+						+ SalesInventoryReceivableTenant.dasarPenagihan(sk, where.toString())
+						+ " ORDER BY p.tanggal DESC, p.id DESC LIMIT 500";
+			} else {
+				sqlRiwayat = "SELECT p.id, p.nomor, p.tanggal, p.nominal, p.metode, p.no_bg, p.nama_bank,"
 							+ " p.keterangan, c.id, c.nama, s.nama,"
 							+ " (SELECT COALESCE(string_agg(d.nomor, ', '), '') FROM"
 							+ "   koperasi.alokasi_penerimaan_piutang_customer a"
@@ -1132,7 +1145,9 @@ public final class SalesInventoryReceivableHelper {
 							+ " FROM koperasi.penerimaan_piutang_customer p"
 							+ " JOIN koperasi.anggota_koperasi c ON p.customer = c.id"
 							+ " LEFT JOIN koperasi.sales_inventory s ON p.sales = s.id" + where
-							+ " ORDER BY p.tanggal DESC, p.id DESC LIMIT 500");
+							+ " ORDER BY p.tanggal DESC, p.id DESC LIMIT 500";
+			}
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(sqlRiwayat);
 			int ix = 1;
 			if (customerId != null) ps.setLong(ix++, customerId.longValue());
 			if (salesId != null) ps.setLong(ix++, salesId.longValue());
@@ -1260,14 +1275,31 @@ public final class SalesInventoryReceivableHelper {
 		try {
 			StringBuilder where = new StringBuilder(" WHERE o.status IN ('SIAP_TAGIH','LUNAS')"
 					+ " AND o.tanggal >= " + dari + " AND o.tanggal < (" + sampai + " + 1)");
-			if (!q.isEmpty()) where.append(" AND LOWER(i.nama_produk) LIKE ?");
-			if (salesId != null) where.append(" AND o.sales = ?");
-			if (ctx.tokoId != null && !ctx.admin) where.append(" AND o.toko = ?");
-			java.sql.PreparedStatement ps = session.connection().prepareStatement(
-					"SELECT i.produk, i.nama_produk, SUM(i.jumlah), SUM(i.subtotal)"
-							+ " FROM koperasi.sales_order_lapangan_item i"
-							+ " JOIN koperasi.sales_order_lapangan o ON i.sales_order = o.id" + where
-							+ " GROUP BY i.produk, i.nama_produk ORDER BY " + urut + " LIMIT 500");
+			boolean jalurTenant = SalesInventoryReceivableTenant.aktif(ctx);
+			// Baris order tenant tidak menyimpan salinan nama produk; saringannya ke master.
+			if (!q.isEmpty()) {
+				where.append(jalurTenant ? " AND LOWER(pr.nama) LIKE ?"
+						: " AND LOWER(i.nama_produk) LIKE ?");
+			}
+			if (salesId != null) {
+				where.append(jalurTenant ? " AND o.salesperson_id = ?" : " AND o.sales = ?");
+			}
+			if (ctx.tokoId != null && !ctx.admin) {
+				where.append(jalurTenant ? " AND o.toko_id = ?" : " AND o.toko = ?");
+			}
+			String sqlLap;
+			if (jalurTenant) {
+				String urutTenant = urut.replace("i.nama_produk", "pr.nama")
+						.replace("SUM(i.jumlah)", "SUM(COALESCE(i.kuantitas,0))")
+						.replace("SUM(i.subtotal)", "SUM(COALESCE(i.total,0))");
+				sqlLap = SalesInventoryReceivableTenant.sqlLaporan(SalesInventoryReceivableTenant.skema(ctx), where.toString(), urutTenant);
+			} else {
+				sqlLap = "SELECT i.produk, i.nama_produk, SUM(i.jumlah), SUM(i.subtotal)"
+						+ " FROM koperasi.sales_order_lapangan_item i"
+						+ " JOIN koperasi.sales_order_lapangan o ON i.sales_order = o.id" + where
+						+ " GROUP BY i.produk, i.nama_produk ORDER BY " + urut + " LIMIT 500";
+			}
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(sqlLap);
 			int ix = 1;
 			if (!q.isEmpty()) ps.setString(ix++, "%" + q + "%");
 			if (salesId != null) ps.setLong(ix++, salesId.longValue());
@@ -1322,16 +1354,35 @@ public final class SalesInventoryReceivableHelper {
 		Long salesId = aktorSales(ctx) ? ctx.salesId : optLong(request, "sales_id");
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
+			boolean jalurTenant = SalesInventoryReceivableTenant.aktif(ctx);
+			String asOf = asOfRaw.matches("\\d{4}-\\d{2}-\\d{2}") ? asOfRaw
+					: new java.text.SimpleDateFormat("yyyy-MM-dd").format(new java.util.Date());
 			StringBuilder where = new StringBuilder(" WHERE d.status = 'AKTIF' AND "
-					+ EXPR_OUTSTANDING + " > 0.009");
-			if (salesId != null) where.append(" AND d.sales = ?");
-			if (ctx.tokoId != null && !ctx.admin) where.append(" AND d.toko = ?");
-			String bucket = exprBucket(asOfSql);
-			java.sql.PreparedStatement ps = session.connection().prepareStatement(
-					"SELECT c.id, c.nama, " + bucket + " AS bucket, SUM(" + EXPR_OUTSTANDING + ")"
-							+ " FROM koperasi.piutang_customer_doc d"
-							+ " JOIN koperasi.anggota_koperasi c ON d.customer = c.id" + where
-							+ " GROUP BY c.id, c.nama, bucket ORDER BY c.nama");
+					+ (jalurTenant
+							? SalesInventoryReceivableTenant.outstanding(
+									SalesInventoryReceivableTenant.skema(ctx))
+							: EXPR_OUTSTANDING)
+					+ " > 0.009");
+			if (salesId != null) {
+				where.append(" AND ").append(jalurTenant
+						? SalesInventoryReceivableTenant.kolomSalesPiutang() : "d.sales").append(" = ?");
+			}
+			if (ctx.tokoId != null && !ctx.admin) {
+				where.append(" AND ").append(jalurTenant
+						? SalesInventoryReceivableTenant.kolomTokoPiutang() : "d.toko").append(" = ?");
+			}
+			String sqlAgingC;
+			if (jalurTenant) {
+				String sk = SalesInventoryReceivableTenant.skema(ctx);
+				sqlAgingC = SalesInventoryReceivableTenant.sqlAgingCustomer(sk, SalesInventoryReceivableTenant.bucketAging(asOf), where.toString());
+			} else {
+				String bucket = exprBucket(asOfSql);
+				sqlAgingC = "SELECT c.id, c.nama, " + bucket + " AS bucket, SUM(" + EXPR_OUTSTANDING + ")"
+						+ " FROM koperasi.piutang_customer_doc d"
+						+ " JOIN koperasi.anggota_koperasi c ON d.customer = c.id" + where
+						+ " GROUP BY c.id, c.nama, bucket ORDER BY c.nama";
+			}
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(sqlAgingC);
 			int ix = 1;
 			if (salesId != null) ps.setLong(ix++, salesId.longValue());
 			if (ctx.tokoId != null && !ctx.admin) ps.setLong(ix++, ctx.tokoId.longValue());

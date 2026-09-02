@@ -46,6 +46,10 @@ public final class NewUiLaporanSirsSelfTest {
         laporan.put("inventory_koreksi", "sirs/koreksi_item_periode");
         laporan.put("inventory_pemakaian", "sirs/pemakaian_item_periode");
         laporan.put("inventory_penerimaan_order", "sirs/delivery_order_per_periode");
+        laporan.put("inventory_pemakaian_retur", "sirs/pemakaian_retur_item_periode");
+        laporan.put("inventory_transfer", "sirs/transfer_item_per_periode");
+        laporan.put("inventory_tracking_stok", "sirs/tracking_stok_barang");
+        laporan.put("apotik_penggunaan_item", "sirs/penggunaan_obat");
 
         Method jenis = NewUiLaporanSirsController.class.getDeclaredMethod("jenis", String.class);
         jenis.setAccessible(true);
@@ -55,6 +59,7 @@ public final class NewUiLaporanSirsSelfTest {
         Object lima = null;
         Object poliBaruLama = null;
         Object hargaBeli = null;
+        Object penggunaanApotik = null;
         for (Map.Entry<String, String> e : laporan.entrySet()) {
             check(NewUiLaporanSirsController.jenisDikenal(e.getKey()),
                     "laporan tidak dikenal: " + e.getKey());
@@ -74,12 +79,14 @@ public final class NewUiLaporanSirsSelfTest {
             check(((String[]) saringan.get(nilai)).length > 0,
                     "laporan tanpa filter: " + e.getKey());
             boolean xls = e.getKey().startsWith("laporan_kasir_")
-                    || e.getKey().startsWith("inventory_");
+                    || e.getKey().startsWith("inventory_")
+                    || e.getKey().startsWith("apotik_");
             check((xls ? "xls" : "pdf").equals(format.get(nilai)),
                     "format keluaran keliru untuk " + e.getKey() + ": " + format.get(nilai));
             if ("rajal_umum_5".equals(e.getKey())) lima = nilai;
             if ("rajal_poli_baru_lama".equals(e.getKey())) poliBaruLama = nilai;
             if ("inventory_harga_beli".equals(e.getKey())) hargaBeli = nilai;
+            if ("apotik_penggunaan_item".equals(e.getKey())) penggunaanApotik = nilai;
         }
         check(!NewUiLaporanSirsController.jenisDikenal("laporan_karangan"),
                 "laporan tak terdaftar harus ditolak");
@@ -102,6 +109,13 @@ public final class NewUiLaporanSirsSelfTest {
                         && penyedia.getInt("maksimal") == 8
                         && penyedia.getJSONArray("indeksBawaan").length() == 8,
                 "harga beli harus mempertahankan delapan pilihan supplier layar ZK");
+        JSONObject pasienApotik = (JSONObject) filter.invoke(null, penggunaanApotik,
+                "jenis_pasien");
+        check(!pasienApotik.getBoolean("wajib") && !pasienApotik.getBoolean("pilihPertama"),
+                "jenis pasien pada penggunaan item apotek harus opsional seperti layar ZK");
+        JSONObject satker = (JSONObject) filter.invoke(null, penggunaanApotik, "satker");
+        check("relasi".equals(satker.getString("tipe")) && satker.getBoolean("cari"),
+                "satker apotek harus dapat dicari dan tetap opsional");
 
         System.out.println("NewUiLaporanSirsSelfTest OK (" + laporan.size() + " laporan)");
     }
