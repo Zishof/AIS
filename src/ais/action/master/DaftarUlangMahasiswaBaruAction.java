@@ -57,6 +57,7 @@ import org.zkoss.zul.Vbox;
 
 import ais.action.master.helper.AmbilDataCalonMahasiswaDaftarUlangBaruBanbox;
 import ais.action.master.helper.DaftarUlangPembayaranHelper;
+import ais.action.master.helper.DaftarUlangTagihanAnalisisHelper;
 import ais.action.master.helper.KegiatanHelper;
 import ais.action.master.helper.KegiatanPersistenceHelper;
 import ais.action.master.helper.PembayaranUtilHelper;
@@ -3646,14 +3647,6 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 		return buka + "\nPerbaiki kriteria " + nama + " agar sesuai dengan '" + nilai + "'.\nJangan mengubah data PMB bila data calon sudah benar.";
 	}
 
-	private String htmlLangkahTagihanBaru(String langkah) {
-		StringBuffer html = new StringBuffer("<ol style='margin:6px 0 0 20px;padding:0'>");
-		for (String s : (langkah == null ? new String[0] : langkah.split("\\n")))
-			if (s != null && !s.trim().isEmpty()) html.append("<li style='margin-bottom:4px'>")
-					.append(escHtmlTagihan(s.trim())).append("</li>");
-		return html.append("</ol>").toString();
-	}
-
 	/** Penjelasan kontekstual per baris agar hasil audit dapat dibaca tanpa memahami query. */
 	private String keteranganPintarTahapBaru(TahapAnalisisTagihanBaru t, int kandidatAkhir) {
 		String arti = artiKriteriaTagihanBaru(t.nama);
@@ -3755,6 +3748,8 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 				+ "overflow-y:scroll;overflow-x:auto;padding:12px 12px 64px 12px;box-sizing:border-box;position:relative;");
 		isi.setParent(window);
 		String tindakan = tindakanUtamaTagihanBaru(tahap, khusus, kandidat, detail, bulanan, smt, hilir);
+		DaftarUlangTagihanAnalisisHelper.Data ringkasan = buatDataRingkasanAnalisisTagihanBaru(
+				kesimpulan, tindakan, khusus, kandidat, detail, bulanan, smt, hilir, kandidatSumber);
 		StringBuffer html = new StringBuffer();
 		html.append("<div style='font-family:Segoe UI,Arial,sans-serif;color:#1f2937'>")
 				.append("<div style='padding:10px 12px;background:#eff6ff;border-left:4px solid #2563eb;margin-bottom:10px'>")
@@ -3764,6 +3759,7 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 				.append(" &nbsp;|&nbsp; Semester: ").append(smt)
 				.append(" &nbsp;|&nbsp; Angkatan: ").append(calonMahasiswa.getTahun())
 				.append(" &nbsp;|&nbsp; Prodi: ").append(escHtmlTagihan(namaObjekAnalisisBaru(jurusan))).append("</div>")
+				.append(DaftarUlangTagihanAnalisisHelper.htmlRingkasan(ringkasan))
 				.append("<p>Query diuji dua arah: dimasukkan berurutan dan dilewati satu per satu. Kolom <b>Jika dilewati</b> yang berubah menjadi lebih dari nol membuktikan penyebab utama.</p>")
 				.append("<table style='width:100%;min-width:1240px;border-collapse:collapse;font-size:12px'>")
 				.append("<tr style='background:#e5e7eb'><th title='Urutan pemeriksaan query' style='padding:7px;border:1px solid #d1d5db'>No.</th>")
@@ -3800,10 +3796,6 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 				.append("</b> &nbsp;|&nbsp; Pengaturan bulanan: <b>").append(bulanan)
 				.append("</b> &nbsp;|&nbsp; Baris di layar: <b>").append(hilir == null ? 0 : hilir.barisLayar)
 				.append("</b></div>")
-				.append("<div style='margin-top:10px;padding:11px;background:#fff7ed;border-left:4px solid #f97316'><b>Kesimpulan:</b><br>")
-				.append(escHtmlTagihan(kesimpulan)).append("</div>")
-				.append("<div style='margin-top:10px;padding:11px;background:#eff6ff;border-left:4px solid #2563eb'><b>Yang perlu diisi atau dilakukan:</b>")
-				.append(htmlLangkahTagihanBaru(tindakan)).append("</div>")
 				.append("<div style='margin-top:10px;padding:11px;background:#f0fdf4;border-left:4px solid #16a34a'><b>Verifikasi setelah diperbaiki:</b>")
 				.append("<ol style='margin:6px 0 0 20px;padding:0'><li>Simpan konfigurasi dan pastikan Item Biaya serta nominal telah terisi.</li>")
 				.append("<li>Kembali ke Pembayaran Mahasiswa Baru lalu klik Refresh atau Proses Tagihan.</li>")
@@ -3817,6 +3809,42 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 		 * (AnalisisTagihanSekolahHelper) sudah benar karena diakhiri onModal(). */
 		window.setVisible(true);
 		window.onModal();
+	}
+
+	/**
+	 * Adapter fakta calon mahasiswa menuju mesin keputusan bersama. Cabang mahasiswa baru
+	 * belum mempunyai query produksi kedua yang terpisah dari daftar layar, sehingga
+	 * {@code hasilProduksi} diisi dari jumlah baris yang telah dihasilkan oleh alur produksi
+	 * utama. Fakta transaksi tetap dibaca dari CicilanPembayaran committed oleh audit hilir.
+	 */
+	private DaftarUlangTagihanAnalisisHelper.Data buatDataRingkasanAnalisisTagihanBaru(
+			String kesimpulan, String tindakan, int khusus, int kandidat, int detail, int bulanan,
+			int smt, AnalisisHilirTagihanBaru hilir, List<SettingBiaya> kandidatSumber) {
+		DaftarUlangTagihanAnalisisHelper.Data data = new DaftarUlangTagihanAnalisisHelper.Data();
+		data.identitas = calonMahasiswa == null ? "-"
+				: calonMahasiswa.getNoUjian() + " - " + calonMahasiswa.getNama();
+		data.jenisPembayaran = namaObjekAnalisisBaru(jenisKegiatan);
+		data.statusAkademik = namaObjekAnalisisBaru(ConstantValues.AKTIF);
+		data.semester = smt;
+		data.settingKhusus = khusus;
+		data.kandidatSetting = kandidat;
+		data.itemBiayaAktif = detail;
+		data.pengaturanBulanan = bulanan;
+		data.kesimpulanTeknis = kesimpulan;
+		data.tindakanTeknis = tindakan;
+		data.nominalTagihanTampil = DaftarUlangTagihanAnalisisHelper
+				.hitungNominalTagihanTampil(dataTagihanData);
+		if (hilir != null) {
+			data.mode = hilir.mode;
+			data.templateAkhir = hilir.templateAkhir;
+			data.hasilProduksi = hilir.barisLayar;
+			data.kegiatan = hilir.kegiatan;
+			data.cicilan = hilir.cicilan;
+			data.barisLayar = hilir.barisLayar;
+			data.nilaiDibayarCommitted = hilir.nilaiDibayar;
+		}
+		DaftarUlangTagihanAnalisisHelper.hitungModeSetting(data, kandidatSumber);
+		return data;
 	}
 
 	/** Membentuk Setting Biaya baru yang sudah dipraisi sesuai data calon hasil analisis. */

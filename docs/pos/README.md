@@ -98,6 +98,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [85-bukti-verifikasi-yang-dibuang.md](85-bukti-verifikasi-yang-dibuang.md) | Sidik jari terverifikasi lalu idnya dibuang, pembayaran ditolak "ulangi PIN"; uji lama hijau selama cacatnya hidup |
 | [86-jalan-keluar-yang-tidak-ada.md](86-jalan-keluar-yang-tidak-ada.md) | Server menyuruh "simpan ulang dengan persetujuan", padahal tak ada klien yang bisa memberikannya; arah keempat diukur |
 | [87-janji-yang-kini-dijaga.md](87-janji-yang-kini-dijaga.md) | Pintu darurat yang penandanya tak bisa dikirim klien mana pun kini dijaga; himpunannya tiga, jadi boleh jadi gerbang |
+| [88-kedekatan-bukan-sebab-akibat.md](88-kedekatan-bukan-sebab-akibat.md) | Pintu bernilai ikut dijaga; kedekatan diganti pencocokan blok, dan isi himpunan dok. 87 dikoreksi |
 
 | [35-lampiran-gambar.md](35-lampiran-gambar.md) | Lampiran gambar — blob, maksimum 500 KB, dikecilkan di klien |
 | [52-fase-b-satuan-jual.md](52-fase-b-satuan-jual.md) | 52. Fase B — Satuan Jual per Baris Transaksi |

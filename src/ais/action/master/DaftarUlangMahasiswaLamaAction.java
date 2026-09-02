@@ -59,6 +59,7 @@ import org.zkoss.zul.Vbox;
 
 import ais.action.master.helper.AmbilDataMahasiswaBanbox;
 import ais.action.master.helper.DaftarUlangPembayaranHelper;
+import ais.action.master.helper.DaftarUlangTagihanAnalisisHelper;
 import ais.action.master.helper.KegiatanHelper;
 import ais.action.master.helper.KegiatanPersistenceHelper;
 import ais.action.master.helper.PembayaranUtilHelper;
@@ -2668,16 +2669,6 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 				+ "\nPeriksa riwayat pembayaran karena tagihan yang sudah lunas memang tidak ditampilkan sebagai tunggakan.";
 	}
 
-	private String htmlDaftarLangkahAnalisis(String langkah) {
-		StringBuffer html = new StringBuffer("<ol style='margin:6px 0 0 20px;padding:0'>");
-		String[] baris = langkah == null ? new String[0] : langkah.split("\\n");
-		for (String s : baris) {
-			if (s != null && !s.trim().isEmpty()) html.append("<li style='margin-bottom:4px'>")
-					.append(escHtmlTagihan(s.trim())).append("</li>");
-		}
-		return html.append("</ol>").toString();
-	}
-
 	/** Penjelasan kontekstual per baris agar petugas memahami arti dan tindak lanjut audit. */
 	private String keteranganPintarTahapLama(TahapAnalisisTagihan t, int kandidatAkhir) {
 		String arti = artiKriteriaTagihanLama(t.nama);
@@ -2780,6 +2771,9 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 		StringBuffer html = new StringBuffer();
 		String tindakanUtama = tindakanUtamaAnalisisTagihan(tahap, settingKhususMahasiswa,
 				kandidatAkhir, detailSetting, pengaturanBulanan, smt);
+		DaftarUlangTagihanAnalisisHelper.Data ringkasan = buatDataRingkasanAnalisisTagihan(
+				rekomendasi, tindakanUtama, settingKhususMahasiswa, kandidatAkhir, detailSetting,
+				pengaturanBulanan, smt, hilir, kandidatSumber);
 		html.append("<div style='font-family:Segoe UI,Arial,sans-serif;color:#1f2937'>")
 				.append("<div style='padding:10px 12px;background:#eff6ff;border-left:4px solid #2563eb;margin-bottom:10px'>")
 				.append("<b>").append(escHtmlTagihan(mahasiswa.getNim())).append(" - ")
@@ -2787,6 +2781,7 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 				.append("Jenis pembayaran: ").append(escHtmlTagihan(namaObjekAnalisis(jenisKegiatan)))
 				.append(" &nbsp;|&nbsp; Semester: ").append(smt)
 				.append(" &nbsp;|&nbsp; Angkatan: ").append(mahasiswa.getTahunangkatan()).append("</div>")
+				.append(DaftarUlangTagihanAnalisisHelper.htmlRingkasan(ringkasan))
 				.append("<p>Query diuji dua arah: dimasukkan berurutan dan dilewati satu per satu. Nilai pada kolom <b>Jika dilewati</b> yang berubah menjadi lebih dari nol membuktikan kriteria tersebut sebagai penyebab utama.</p>")
 				.append("<table style='width:100%;min-width:1240px;border-collapse:collapse;font-size:12px'>")
 				.append("<tr style='background:#e5e7eb'><th title='Urutan pemeriksaan query' style='padding:7px;border:1px solid #d1d5db'>No.</th>")
@@ -2822,10 +2817,6 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 				.append("Setting akhir cocok: <b>").append(kandidatAkhir).append("</b> &nbsp;|&nbsp; ")
 				.append("Item biaya aktif: <b>").append(detailSetting).append("</b> &nbsp;|&nbsp; ")
 				.append("Pengaturan bulanan: <b>").append(pengaturanBulanan).append("</b></div>")
-				.append("<div style='margin-top:10px;padding:11px;background:#fff7ed;border-left:4px solid #f97316'><b>Kesimpulan dan tindakan:</b><br>")
-				.append(escHtmlTagihan(rekomendasi)).append("</div>")
-				.append("<div style='margin-top:10px;padding:11px;background:#eff6ff;border-left:4px solid #2563eb'><b>Yang perlu diisi atau dilakukan:</b>")
-				.append(htmlDaftarLangkahAnalisis(tindakanUtama)).append("</div>")
 				.append("<div style='margin-top:10px;padding:11px;background:#f0fdf4;border-left:4px solid #16a34a'><b>Setelah diperbaiki, lakukan verifikasi:</b>")
 				.append("<ol style='margin:6px 0 0 20px;padding:0'><li>Simpan konfigurasi dan pastikan tidak ada kolom wajib yang kosong.</li>")
 				.append("<li>Kembali ke Pembayaran Mahasiswa, lalu klik Refresh atau Proses Tagihan.</li>")
@@ -2839,6 +2830,42 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 		 * (AnalisisTagihanSekolahHelper) sudah benar karena diakhiri onModal(). */
 		window.setVisible(true);
 		window.onModal();
+	}
+
+	/**
+	 * Menormalisasi hasil audit khusus mahasiswa lama ke kontrak keputusan bersama. Nilai
+	 * pembayaran sengaja memakai agregat CicilanPembayaran dari database pada {@code hilir},
+	 * sedangkan nominal sumber dihitung dari baris yang benar-benar sedang ditampilkan. Dengan
+	 * pemisahan ini popup dapat menjelaskan pembayaran sebagian, lunas, atau selisih tanpa
+	 * menganggap nilai yang baru diketik tetapi belum disimpan sebagai transaksi sah.
+	 */
+	private DaftarUlangTagihanAnalisisHelper.Data buatDataRingkasanAnalisisTagihan(
+			String rekomendasi, String tindakan, int khusus, int kandidat, int detail, int bulanan,
+			int smt, AnalisisHilirTagihanLama hilir, List<SettingBiaya> kandidatSumber) {
+		DaftarUlangTagihanAnalisisHelper.Data data = new DaftarUlangTagihanAnalisisHelper.Data();
+		data.identitas = mahasiswa == null ? "-" : mahasiswa.getNim() + " - " + mahasiswa.getNama();
+		data.jenisPembayaran = namaObjekAnalisis(jenisKegiatan);
+		data.statusAkademik = namaObjekAnalisis(statusmahasiswa);
+		data.semester = smt;
+		data.settingKhusus = khusus;
+		data.kandidatSetting = kandidat;
+		data.itemBiayaAktif = detail;
+		data.pengaturanBulanan = bulanan;
+		data.kesimpulanTeknis = rekomendasi;
+		data.tindakanTeknis = tindakan;
+		data.nominalTagihanTampil = DaftarUlangTagihanAnalisisHelper
+				.hitungNominalTagihanTampil(dataTagihanData);
+		if (hilir != null) {
+			data.mode = hilir.mode;
+			data.templateAkhir = hilir.templateAkhir;
+			data.hasilProduksi = hilir.hasilQueryProduksi;
+			data.kegiatan = hilir.kegiatan;
+			data.cicilan = hilir.cicilan;
+			data.barisLayar = hilir.barisLayar;
+			data.nilaiDibayarCommitted = hilir.nilaiDibayar;
+		}
+		DaftarUlangTagihanAnalisisHelper.hitungModeSetting(data, kandidatSumber);
+		return data;
 	}
 
 	/** Membentuk Setting Biaya baru yang sudah dipraisi sesuai mahasiswa hasil analisis. */
