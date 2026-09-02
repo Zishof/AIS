@@ -62,6 +62,14 @@ public final class SapuScaffoldProbe {
                 }
             }
             if (r == null) {
+                // Lapisan ketiga resolve(): menu laporan yang kolom url-nya
+                // berisi nama laporan, dipetakan ke kelas *Window-nya.
+                String window = NewUiLaporanAliasRegistry.windowUntuk(url);
+                if (window != null) {
+                    r = NewUiNativeJspResolver.resolveFromPaths(window, true, paths);
+                }
+            }
+            if (r == null) {
                 tanpaAdaptor++;
                 catat(perModul, "(tanpa adaptor)", id + "\t" + label + "\t" + url);
                 continue;

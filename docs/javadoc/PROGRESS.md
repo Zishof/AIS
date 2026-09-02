@@ -1,5 +1,85 @@
 # Progres Javadoc Menyeluruh
 
+## `ais/database/model/Pertemuan.java` — SELESAI 100% (2 Sep 2026)
+
+Entity **terbesar** di `ais.database.model` setelah `Mahasiswa.java`: 6529 → 11100
+baris, **395/395 method ber-Javadoc (100%)** (diaudit dengan skrip, 0 tersisa).
+Revisi: r83006, r83015, r83024, r83026, r83045, ditambah potongan yang tersapu ke
+revisi gabungan sesi paralel r83029/r83033 (chunk 5) dan r83046/r83049 (chunk 7) —
+pesan kosong, normal di WC ini, isi sudah diverifikasi lewat `svn diff -c` dan
+pemeriksaan penanda teks di HEAD.
+
+**Temuan struktural terpenting** (mengoreksi asumsi awal penugasan): `Pertemuan`
+BUKAN sekadar "satu tatap muka dari satu `Perkuliahan`". Tabel `public.pertemuan`
+dipakai bersama oleh **16 jenis induk** (perkuliahan, jadwal pelajaran, kelas les,
+bimbingan TA, skripsi, KRS/konsultasi PA, kelompok KKN, kelompok PKL, ujian PMB,
+ujian PSB, pertemuan PSB, ujian pegawai, formulir kegiatan, grup pertemuan, produk
+kursus, wisuda) — tepat satu kolom relasi terisi per baris. Akibatnya hampir setiap
+method non-sepele berbentuk rantai `if/else if` panjang yang harus ditambah di ~24
+tempat sekaligus bila ada jenis induk baru. Dua titik pusatnya: `untuk()` (nama
+jenis induk) dan `ambilVOPembelajaran()` (induk sebagai `VOPembelajaran`).
+Selain itu kelas ini `extends Tugas` (bukan langsung `GeneralValueObject`), jadi
+satu Pertemuan sekaligus dapat berperan sebagai tugas.
+
+**Dua pola yang didokumentasikan sebagai rujukan** (ditautkan dari method sejenis,
+jangan diulang penjelasannya):
+
+1. **Kolom teks 9 slot** — seluruh daftar hadir satu pertemuan ada di SATU kolom
+   `absensi` (baris dipisah `;`, slot dipisah `,`). Tiga kolom sepupu memakai tata
+   letak sama tetapi slot 4 berubah arti menjadi `dosen.id`: `keteranganKonfirmasi`,
+   `keteranganSesuaiDenganRps`, `keteranganSesuaiOlehAkademik`. Rujukan:
+   `populate(...)` dan `retreiveAbsensiId(...)`.
+2. **"Peta lokasi" berkas JSON** — koleksi anak TIDAK dipetakan `@OneToMany`;
+   tiap jenis anak punya berkas indeks JSON di disk plus kuintet
+   `ambilLokasiXxx/tulisLokasiXxx/bersihkanLokasiXxx/reInitXxx/populateXxx/removeXxx`
+   dan pembaca `ambilXxxTotal/ambilJumlahXxx/ambilXxx(map,mulai,banyak)`. Penanda
+   "sudah dibangun" adalah `udah(nama)`/`belum(nama)` dari `GeneralValueObject`, dan
+   NAMA-nya tidak selalu sama dengan nama method (mis. `"pertemuan_tugas"`,
+   `"kelompok_tugas"`, `"pertemuan_punya_Ujian"` dengan U besar). Rujukan: kuintet
+   `PengajuanIzinTidakMasukPerkuliahan`.
+
+**Bug/kuirk yang DICATAT di Javadoc, sengaja TIDAK diperbaiki** (perlu keputusan
+terpisah karena menyentuh perilaku produksi):
+
+- `removePertemuanFileContent`, `removeVideoPertemuan`, `removeAudioPertemuan`
+  memakai id **anak** sebagai id **pertemuan** saat membaca/menulis peta lokasi →
+  menyentuh peta yang salah. (`populateXxx` padanannya benar.)
+- `retreivePengajuanIzinIdKonfirmasi/...KonfirmasiRps/...OlehAkademik` bernama
+  salah: slot 4 di kolom-kolom itu berisi `dosen.id`, bukan id pengajuan izin, dan
+  slot itu pula yang dicocokkan → hasilnya selalu `dosen.getId()` atau `-1L`.
+- `ambilTugasTotalSemua()` menggabungkan `TugasPertemuan` dan `TugasKelompok`
+  dengan `putAll` berkunci id dari DUA tabel berbeda → tabrakan id membuat tugas
+  perorangan hilang diam-diam. **Risiko nyata, bukan teoretis.**
+- `hitungStatus()` menggabungkan dengan `putAll` (menimpa, bukan menjumlah).
+- `reInitTugasKelompok` menyaring properti `"judul"` sedangkan pembacanya menyaring
+  `getJudultugas()` — nama properti tidak selaras.
+- `getOnlineMenggunakan()` menebak `JITSI` sebagai bawaan (bukan `TIDAK_AKTIF`).
+- `generateJitsiLink`: cabang `jadwalUjianPSB` ganda (`I_`/`L_`, yang kedua mati);
+  cabang perkuliahan tanpa awalan konteks → dua tenant bisa berbagi ruang Jitsi.
+- Getter tautan daring MENIMPA teks undangan yang ditempel pengguna dengan URL
+  pertama hasil pungutan; teks aslinya hilang pada penyimpanan berikutnya.
+- `getMahasiswas()` punya penjaga anti-rekursi (autoflush Hibernate memanggil ulang
+  getter di tengah query → StackOverflow) tetapi `getGurus()`/`getSiswas()` yang
+  sama-sama menjalankan query TIDAK punya penjaga serupa.
+- `getKurikulumPunyaMatakuliahDetail()` adalah getter yang dapat MEMBUAT baris
+  template format bimbingan baru di basis data.
+- `getIndikator/getWaktupembelajaran/getPengalamanBelajar/getTugasDanPenilaian`
+  membaca `Common.getKonfigurasi(...)` yang menulis default ke DB bila kunci belum
+  ada (lihat catatan auto-seed konfigurasi di memori proyek).
+- `populateParameterTambahan` menyisakan `System.out.println("ket => "...)` yang
+  jalan untuk setiap baris pada setiap penyimpanan.
+- `getJurusan` vs `getJurusanId` dan `getSekolah` vs `getSekolahId` menempuh rantai
+  induk BERBEDA → hasilnya dapat tidak selaras dalam satu laporan.
+- `getYayasanId()` tidak menjaga proxy (dapat melempar `LazyInitializationException`)
+  padahal `getSekolahId()` yang bersebelahan menjaganya.
+- Parameter `tulisUlang` pada beberapa `populateXxx` sama sekali tidak dipakai.
+- `removeXxx` tidak membuang entri melainkan mengosongkan nilainya → berkas peta
+  terus membesar sampai `reInit` berikutnya.
+
+Catatan EOL: berkas ini sebelumnya bercampur (93 baris LF di tengah berkas CRLF);
+sekalian dinormalkan menjadi CRLF penuh pada commit pertama. Diff dengan
+`--ignore-eol-style` hanya berisi penambahan Javadoc.
+
 ## `ais/database/model/Pegawai.java` — SELESAI 100% (2 Sep 2026)
 
 Saudara `Dosen.java` (keduanya `extends Karyawan extends GeneralValueObject`).

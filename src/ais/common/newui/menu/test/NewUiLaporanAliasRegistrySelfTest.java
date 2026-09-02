@@ -25,8 +25,8 @@ import ais.common.newui.menu.NewUiLaporanAliasRegistry;
 public final class NewUiLaporanAliasRegistrySelfTest {
 
     private static final Pattern POLA = Pattern.compile(
-            "equals\(\"([A-Za-z0-9_]+)\"\)\s*\)\s*\{\s*(?:final\s+)?"
-            + "([A-Za-z0-9_]+Window)\s+\w+\s*=\s*new\s+\2\s*\(");
+            "equals\\(\"([A-Za-z0-9_]+)\"\\)\\s*\\)\\s*\\{\\s*(?:final\\s+)?"
+            + "([A-Za-z0-9_]+Window)\\s+\\w+\\s*=\\s*new\\s+\\2\\s*\\(");
 
     /** Lokasi sumber yang dicoba berurutan; relatif terhadap direktori kerja. */
     private static final String[] KANDIDAT = {
