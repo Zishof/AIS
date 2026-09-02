@@ -114,6 +114,8 @@ public class PostingTokoKantinAction extends GenericAutowireComposer {
 		});
 		filter.appendChild(btnDraf);
 
+		PostingAkunCrudNavigator.tambahkan(filter, jenis);
+
 		MyToolbarbuttonConfig btnSemua = new MyToolbarbuttonConfig(
 				Common.getBahasaConfig("Posting Semua yang Siap"));
 		btnSemua.addEventListener("onClick", new EventListener() {
@@ -292,7 +294,7 @@ public class PostingTokoKantinAction extends GenericAutowireComposer {
 				});
 				row.appendChild(btn);
 			} else {
-				row.appendChild(new Label(""));
+				row.appendChild(PostingAkunCrudNavigator.panel(jenis));
 			}
 			rows.appendChild(row);
 		}

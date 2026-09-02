@@ -51,6 +51,12 @@ public final class GenericCrudHttpController {
                 new GenericCrudImportService().writeErrors(context, request.getParameter("jobKey"), response);
                 return;
             }
+            // Deduplikasi mutasi yang dikirim ulang dari antrean offline.
+            // Kuncinya null untuk permintaan biasa dari layar, sehingga jalur
+            // itu tidak berubah sama sekali.
+            String kunciUlang = GenericCrudIdempotency.kunci(request, context);
+            Object hasilUlang = GenericCrudIdempotency.hasilSebelumnya(kunciUlang);
+
             Object payload;
             if ("meta".equals(action)) {
                 Map meta = facade.metadata(context);
@@ -64,14 +70,17 @@ public final class GenericCrudHttpController {
                 payload = GenericCrudResult.ok("Data berhasil dimuat.", facade.get(context, identifier(context, request.getParameter("id"))));
             } else if ("create".equals(action)) {
                 GenericCrudCsrf.requireMutation(request);
-                payload = facade.create(context, submitted(context, request, true));
+                payload = hasilUlang != null ? hasilUlang : GenericCrudIdempotency.simpan(
+                        kunciUlang, facade.create(context, submitted(context, request, true)));
             } else if ("update".equals(action)) {
                 GenericCrudCsrf.requireMutation(request);
-                payload = facade.update(context, identifier(context, request.getParameter("id")),
-                        submitted(context, request, false), request.getParameter("version"));
+                payload = hasilUlang != null ? hasilUlang : GenericCrudIdempotency.simpan(
+                        kunciUlang, facade.update(context, identifier(context, request.getParameter("id")),
+                        submitted(context, request, false), request.getParameter("version")));
             } else if ("delete".equals(action)) {
                 GenericCrudCsrf.requireMutation(request);
-                payload = facade.delete(context, identifier(context, request.getParameter("id")));
+                payload = hasilUlang != null ? hasilUlang : GenericCrudIdempotency.simpan(
+                        kunciUlang, facade.delete(context, identifier(context, request.getParameter("id"))));
             } else if ("photo_upload".equals(action)) {
                 GenericCrudCsrf.requireMutation(request);
                 FileItem part = photoPart(request);

@@ -131,6 +131,7 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 			}
 		});
 		filter.appendChild(btnTampil);
+		PostingAkunCrudNavigator.tambahkan(filter, "hpp");
 
 		lblStatus = new Label();
 		lblStatus.setMultiline(true);
@@ -892,7 +893,7 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 				});
 				row.appendChild(tombol);
 			} else {
-				row.appendChild(new Label("-"));
+				row.appendChild(PostingAkunCrudNavigator.panel("hpp"));
 			}
 			rows.appendChild(row);
 		}

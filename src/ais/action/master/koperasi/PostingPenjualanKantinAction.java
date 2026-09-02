@@ -145,6 +145,9 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 			}
 		});
 		filter.appendChild(btnTampil);
+		// Pemetaan jurnal diperbaiki pada master sumber, bukan dengan mengubah
+		// angka/baris draf. Tombol yang sama tersedia di POS Desktop/Android.
+		PostingAkunCrudNavigator.tambahkan(filter, "penjualan");
 
 		lblStatus = new Label();
 		lblStatus.setMultiline(true);
@@ -950,7 +953,7 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 				});
 				row.appendChild(tombol);
 			} else {
-				row.appendChild(new Label("-"));
+				row.appendChild(PostingAkunCrudNavigator.panel("penjualan"));
 			}
 			rows.appendChild(row);
 		}
