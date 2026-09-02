@@ -29,7 +29,8 @@ Alat ini MELAPORKAN saja, tidak menyunting apa pun.
 Keluar dengan kode 1 bila ada yatim BARU atau ada utang yang sudah lunas tetapi
 masih terdaftar -- sehingga bisa dipakai langsung sebagai gerbang.
 
-Pakai:  python field-tanpa-pembaca.py
+Pakai:  python field-tanpa-pembaca.py           (gerbang: 2 berkas sumber)
+        python field-tanpa-pembaca.py --luas   (laporan: 295 berkas, selalu rc=0)
 """
 import os
 import re
@@ -130,6 +131,52 @@ def kumpulkan(akar):
     return '\n'.join(potongan)
 
 
+def sumber_luas():
+    """Seluruh berkas .java lapisan servlet sebagai PENGIRIM, bukan hanya dua.
+
+    Gerbang berkas ini sengaja tetap sempit: dua berkas yang setiap yatimnya
+    sudah ditelusuri dan beralasan. Mode --luas menjangkau 295 berkas dan 733
+    field, tetapi 57 yatim yang dihasilkannya BELUM ditelusuri satu per satu.
+    Membekukannya sebagai "utang" akan mengencerkan daftar utang yang selama ini
+    tiap barisnya punya sebab -- persis kesalahan yang dihindari docs/pos/84.
+
+    Karena itu --luas MELAPOR dan selalu keluar dengan kode 0.
+    """
+    hasil = []
+    for dirpath, dirnames, filenames in os.walk(akar_repo.AIS_SERVLET):
+        dirnames[:] = [d for d in dirnames if d.lower() not in DILEWATI]
+        for nama in filenames:
+            if nama.endswith('.java'):
+                hasil.append(os.path.join(dirpath, nama))
+    return hasil
+
+
+def laporan_luas(semua):
+    """Kandidat yatim dari seluruh lapisan servlet -- laporan, bukan vonis."""
+    per_berkas, dikirim = {}, []
+    berkas = sumber_luas()
+    for jalur in berkas:
+        for nama in POLA_KIRIM.findall(akar_repo.baca(jalur)):
+            if nama not in dikirim:
+                dikirim.append(nama)
+            per_berkas.setdefault(nama, set()).add(os.path.basename(jalur))
+
+    yatim = [f for f in dikirim if f not in DIIZINKAN and f not in semua]
+    baru = sorted(f for f in yatim if f not in UTANG)
+    print('')
+    print('== MODE LUAS: seluruh lapisan servlet ==')
+    print('   berkas pengirim  : %d' % len(berkas))
+    print('   field dikirim    : %d' % len(dikirim))
+    print('   kandidat yatim   : %d (%d di luar daftar utang)' % (len(yatim), len(baru)))
+    print('')
+    print('   Ini KANDIDAT, bukan vonis: belum ditelusuri satu per satu, dan')
+    print('   sebagiannya mungkin rincian diagnostik yang memang tak dipakai')
+    print('   klien -- biaya tanpa manfaat, bukan cacat yang merugikan pengguna.')
+    print('')
+    for f in baru:
+        print('   %-32s %s' % (f, ','.join(sorted(per_berkas[f]))[:52]))
+
+
 def main():
     akar_repo.pastikan_lengkap(perlu_pos=True)
     dikirim = []
@@ -153,6 +200,9 @@ def main():
     semua = POLA_KIRIM.sub('', semua)
 
     akar_repo.pastikan_terbaca()
+    if '--luas' in sys.argv:
+        laporan_luas(semua)
+        return 0
     print('field yang dikirim server : %d' % len(dikirim))
     print('sumber pembaca terbaca    : %d karakter' % len(semua))
 

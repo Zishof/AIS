@@ -80,7 +80,8 @@ final class SalesInventoryTripTenant {
 				|| "tripCashSale".equals(aksi) || "spjNotaAssign".equals(aksi)
 				|| "tripNotaResult".equals(aksi) || "tripClose".equals(aksi)
 				|| "expenseCategoryList".equals(aksi) || "expenseCategorySave".equals(aksi)
-				|| "expenseCreate".equals(aksi) || "tripPurchaseLink".equals(aksi);
+				|| "expenseCreate".equals(aksi) || "tripPurchaseLink".equals(aksi)
+				|| "tripDetail".equals(aksi);
 	}
 
 	/**
@@ -351,7 +352,8 @@ final class SalesInventoryTripTenant {
 		return "SELECT j.id, COALESCE(j.nomor_dokumen,''), COALESCE(j.status,''), j.tanggal, '', "
 				+ "COALESCE((SELECT t.kendaraan FROM " + skema + "sales_trip t"
 				+ " WHERE t.surat_perintah_sales_id = j.id ORDER BY t.id DESC LIMIT 1),''), "
-				+ "NULL, COALESCE(j.keterangan,''), j.salesperson_id, COALESCE(s.nama,''), "
+				+ "COALESCE(j.uang_muka_operasional,0), COALESCE(j.keterangan,''),"
+				+ " j.salesperson_id, COALESCE(s.nama,''), "
 				+ "COALESCE((SELECT g.toko_id FROM " + skema + "gudang g WHERE g.id = j.gudang_id),0), "
 				+ "(SELECT t2.id FROM " + skema + "sales_trip t2"
 				+ " WHERE t2.surat_perintah_sales_id = j.id ORDER BY t2.id DESC LIMIT 1)"
@@ -953,5 +955,131 @@ final class SalesInventoryTripTenant {
 	/** Keberadaan satu baris induk pada schema tenant; dipakai memvalidasi kaitan opsional. */
 	static String adaBarisTenant(String skema, String tabel) {
 		return "SELECT 1 FROM " + skema + tabel + " WHERE id = ?";
+	}
+	// ------------------------------------------------------------------ rincian trip (v16)
+
+	/**
+	 * <h4>Rincian sesi: satu layar yang menghimpun seluruh bundel</h4>
+	 *
+	 * <p>Aksi ini membaca hasil enam bundel sekaligus — buku kas (v12), nota bawaan (v13), kas
+	 * fisik penutupan (v14), kategori biaya (v15), dan pembelian trip (v16) — di samping tabel
+	 * yang sudah ada sejak awal. Ia aksi terakhir helper Trip justru karena itu.</p>
+	 *
+	 * <p>SEPULUH kolom: id, nomor, statusSesi, waktuMulai, waktuKembali, waktuTutup,
+	 * catatanPenutupan, kasFisikAktual, selisihKas, suratPerintahSalesId.</p>
+	 *
+	 * <p>Empat medan penutupan datang dari {@code sales_trip_rekonsiliasi}; {@code LEFT JOIN}
+	 * sebab sesi yang belum ditutup memang belum punya barisnya, dan legacy pun mengembalikan
+	 * {@code null} untuk keduanya.</p>
+	 */
+	static String tripRinci(String skema) {
+		return "SELECT t.id, COALESCE(t.nomor_dokumen,''), COALESCE(t.status,''),"
+				+ " t.tanggal_berangkat, t.tanggal_kembali, r.disetujui_pada,"
+				+ " COALESCE(r.keterangan,''), r.kas_fisik_aktual, r.selisih,"
+				+ " t.surat_perintah_sales_id"
+				+ " FROM " + skema + "sales_trip t"
+				+ " LEFT JOIN " + skema + "sales_trip_rekonsiliasi r ON r.sales_trip_id = t.id"
+				+ " WHERE t.id = ?";
+	}
+
+	/**
+	 * Blok SPJ pada rincian sesi, berbentuk sama dengan {@code jsonSpj} legacy.
+	 *
+	 * <p>EMPAT BELAS kolom: id, nomor, status, tanggalBerangkat, tanggalMulaiAktual,
+	 * tanggalKembaliAktual, rute, kendaraan, uangMuka, catatan, alasanBatal, salesId, salesNama,
+	 * disetujuiOleh.</p>
+	 *
+	 * <p>Dua medan dikembalikan kosong dan itu dicatat, bukan disamarkan. {@code rute} tidak ada
+	 * pada model tenant — {@code wilayah} bukan padanannya, sebab rute adalah urutan kunjungan
+	 * sedangkan wilayah adalah cakupan. {@code disetujuiOleh} juga tidak ada; SPJ tenant mencatat
+	 * statusnya berubah menjadi APPROVED tetapi tidak menyimpan siapa yang menyetujui.</p>
+	 *
+	 * <p>{@code kendaraan} dan kedua tanggal aktual melekat pada <b>tripnya</b>, bukan SPJ —
+	 * itulah sebabnya kueri ini menerima id trip, bukan id SPJ.</p>
+	 */
+	static String spjRinciUntukTrip(String skema) {
+		return "SELECT j.id, COALESCE(j.nomor_dokumen,''), COALESCE(j.status,''), j.tanggal,"
+				+ " t.tanggal_berangkat, t.tanggal_kembali, '', COALESCE(t.kendaraan,''),"
+				+ " COALESCE(j.uang_muka_operasional,0), COALESCE(j.keterangan,''),"
+				+ " COALESCE(j.alasan_batal,''), j.salesperson_id, COALESCE(s.nama,''), ''"
+				+ " FROM " + skema + "sales_trip t"
+				+ " JOIN " + skema + "surat_perintah_sales j"
+				+ " ON t.surat_perintah_sales_id = j.id"
+				+ " LEFT JOIN " + skema + "salesperson s ON j.salesperson_id = s.id"
+				+ " WHERE t.id = ?";
+	}
+
+	/**
+	 * Barang pada blok SPJ. DUA BELAS kolom: id, produkId, namaProduk, qtyRencana, qtyDimuat,
+	 * qtyTerjual, qtyKembali, qtyRusak, qtyHilang, masihDibawa, hargaJual, status.
+	 *
+	 * <p>Legacy menyimpan rencana dan hasil pada satu baris; model tenant memecahnya menjadi
+	 * tiga tabel. Rencananya di {@code surat_perintah_sales_detail}, yang dibawa di
+	 * {@code sales_trip_barang}, hasilnya di {@code sales_trip_hasil} — dan kueri ini menyatukan
+	 * ketiganya kembali menjadi bentuk yang dikenali klien.</p>
+	 *
+	 * <p>Basisnya rencana SPJ dengan {@code LEFT JOIN} ke dua sisanya: barang yang direncanakan
+	 * tetapi tidak jadi dimuat harus tetap muncul dengan qtyDimuat nol, bukan menghilang.</p>
+	 *
+	 * <p>{@code status} per baris barang dikembalikan kosong: model tenant tidak menyimpannya,
+	 * sebab kefinalan barang sudah dinyatakan status tripnya — lihat catatan v14.</p>
+	 */
+	static String barangSpjRinci(String skema) {
+		String masih = "(COALESCE(b.kuantitas_bawa,0) - COALESCE(h.kuantitas_terjual,0)"
+				+ " - COALESCE(h.kuantitas_kembali,0) - COALESCE(h.kuantitas_rusak,0)"
+				+ " - COALESCE(h.selisih,0))";
+		return "SELECT COALESCE(b.id, d.id), d.produk_id, COALESCE(pr.nama,''),"
+				+ " COALESCE(d.kuantitas,0), COALESCE(b.kuantitas_bawa,0),"
+				+ " COALESCE(h.kuantitas_terjual,0), COALESCE(h.kuantitas_kembali,0),"
+				+ " COALESCE(h.kuantitas_rusak,0), COALESCE(h.selisih,0), " + masih + ","
+				+ " COALESCE(b.harga_satuan,0), ''"
+				+ " FROM " + skema + "surat_perintah_sales_detail d"
+				+ " JOIN " + skema + "produk pr ON d.produk_id = pr.id"
+				+ " LEFT JOIN " + skema + "sales_trip_barang b"
+				+ " ON b.sales_trip_id = ? AND b.produk_id = d.produk_id"
+				+ " LEFT JOIN " + skema + "sales_trip_hasil h"
+				+ " ON h.sales_trip_id = ? AND h.produk_id = d.produk_id"
+				+ " WHERE d.surat_perintah_sales_id = ? ORDER BY d.id ASC";
+	}
+
+	/**
+	 * Biaya sesi. DELAPAN kolom: id, kategori, tanggal, uraian, nilai, metode, penerima,
+	 * statusDok.
+	 *
+	 * <p>{@code kategori} memakai {@code COALESCE(k.nama, b.kategori)}: baris baru menjawab
+	 * lewat masternya (v15), baris hasil impor legacy lewat teksnya.</p>
+	 */
+	static String daftarBiayaTrip(String skema) {
+		return "SELECT b.id, COALESCE(k.nama, b.kategori, ''), b.tanggal,"
+				+ " COALESCE(b.keterangan,''), COALESCE(b.nilai,0), COALESCE(b.cara_bayar,''),"
+				+ " COALESCE(b.penerima,''), COALESCE(b.status,'AKTIF')"
+				+ " FROM " + skema + "sales_trip_biaya b"
+				+ " LEFT JOIN " + skema + "kategori_biaya_sales k ON b.kategori_biaya_id = k.id"
+				+ " WHERE b.sales_trip_id = ? ORDER BY b.id ASC";
+	}
+
+	/** Buku kas sesi. ENAM kolom: id, jenis, nominal, referensi, keterangan, waktu. */
+	static String daftarKasTrip(String skema) {
+		return "SELECT k.id, COALESCE(k.jenis,''), COALESCE(k.nominal,0),"
+				+ " COALESCE(k.referensi,''), COALESCE(k.keterangan,''), k.waktu"
+				+ " FROM " + skema + "sales_trip_kas k"
+				+ " WHERE k.sales_trip_id = ? ORDER BY k.id ASC";
+	}
+
+	/**
+	 * Nota piutang yang dibawa satu SPJ. DELAPAN kolom: id, piutangId, nomorFaktur, jatuhTempo,
+	 * saldoSaatAssign, nilaiTertagih (turunan), status, customerNama.
+	 *
+	 * <p>Dipakai blok {@code nota} pada rincian SPJ, yang sebelum bundel v13 selalu dikembalikan
+	 * kosong sebab tabelnya memang belum ada.</p>
+	 */
+	static String daftarNotaSpj(String skema) {
+		return "SELECT n.id, n.piutang_customer_id, COALESCE(d.nomor_faktur,''), d.jatuh_tempo,"
+				+ " COALESCE(n.saldo_saat_assign,0), " + nilaiTertagihNota(skema, "n") + ","
+				+ " COALESCE(n.status,''), COALESCE(c.nama,'')"
+				+ " FROM " + skema + "surat_perintah_sales_nota n"
+				+ " JOIN " + skema + "piutang_customer d ON n.piutang_customer_id = d.id"
+				+ " LEFT JOIN " + skema + "customer c ON d.customer_id = c.id"
+				+ " WHERE n.surat_perintah_sales_id = ? ORDER BY n.id ASC";
 	}
 }

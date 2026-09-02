@@ -790,18 +790,15 @@ public final class SalesInventoryTripHelper {
 	/** Detail sesi = SPJ + ledger biaya/pembelian/kas + ringkasan rumus LIVE (SCR-41). */
 	public static void tripDetail(EbisnisActorContextResolver.ActorContext ctx, JSONObject request,
 			JSONObject hasil) throws Exception {
-		if (SalesInventoryTripTenant.aktif(ctx)) {
-			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
-			// aksi bermuatan uang, MENULIS -- ke schema BERSAMA. Ditolak sampai jalur
-			// tenantnya ditulis beserta uji kesetaraannya; lihat SalesInventoryTripTenant.
-			tolak(hasil, "Sales Lapangan belum tersedia pada tenant berschema.");
-			return;
-		}
 		if (!ctx.bolehMenu("nota_sales")) {
 			tolak(hasil, "Menu Nota Sales tidak aktif untuk akun Anda.");
 			return;
 		}
 		Long id = optLong(request, "session_id");
+		if (SalesInventoryTripTenant.aktif(ctx)) {
+			tripDetailTenant(ctx, id, hasil);
+			return;
+		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			NotaSalesSession sesi = id == null ? null
@@ -1857,7 +1854,8 @@ public final class SalesInventoryTripHelper {
 				j.put("tanggalBerangkatRencana", str(rs.getDate(4)));
 				j.put("rute", str(rs.getString(5)));
 				j.put("kendaraan", str(rs.getString(6)));
-				j.put("uangMukaOperasional", JSONObject.NULL);
+				// Sejak bundel v12 kolomnya ada; sebelumnya medan ini selalu null.
+				j.put("uangMukaOperasional", rs.getDouble(7));
 				j.put("catatan", str(rs.getString(8)));
 				j.put("salesId", rs.getLong(9));
 				j.put("salesNama", str(rs.getString(10)));
@@ -1892,8 +1890,9 @@ public final class SalesInventoryTripHelper {
 			psB.close();
 		}
 		j.put("barang", arrBarang);
-		// Kosong dan sengaja: konsep penugasan piutang ke SPJ tidak ada pada model tenant.
-		j.put("nota", new JSONArray());
+		// Sejak bundel v13 tabelnya ada; sebelumnya larik ini selalu kosong sebab konsep
+		// penugasan piutang ke SPJ memang belum punya tempat pada model tenant.
+		j.put("nota", notaSpjTenant(session, sk, id));
 		hasil.put("status", "00");
 		hasil.put("data", j);
 	}
@@ -3281,5 +3280,337 @@ public final class SalesInventoryTripHelper {
 		} finally {
 			ps.close();
 		}
+	}
+	/**
+	 * Rincian sesi trip pada schema tenant.
+	 *
+	 * <p>Aksi terakhir helper Trip, dan yang paling banyak menghimpun: ia membaca hasil enam
+	 * bundel sekaligus — buku kas (v12), nota bawaan (v13), kas fisik penutupan (v14), kategori
+	 * biaya (v15), dan pembelian trip (v16) — di samping tabel yang sudah ada sejak awal.</p>
+	 *
+	 * <p>Rumusnya dihitung dari buku kas dengan cara yang sama persis dengan jalur legacy:
+	 * satu kali lintasan atas barisnya, memilah per jenis. Menghitungnya lewat SQL agregat
+	 * terpisah akan menggoda untuk melupakan satu jenis — dan itu kelupaan yang sudah dua kali
+	 * menghasilkan angka uang salah pada pemindahan ini.</p>
+	 */
+	private static void tripDetailTenant(EbisnisActorContextResolver.ActorContext ctx, Long tripId,
+			JSONObject hasil) throws Exception {
+		String skema = SalesInventoryTripTenant.skema(ctx);
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			if (tripId == null) {
+				tolak(hasil, "Sesi tidak ditemukan.");
+				return;
+			}
+			JSONObject j = new JSONObject();
+			Long spjId = null;
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(
+					SalesInventoryTripTenant.tripRinci(skema));
+			try {
+				ps.setLong(1, tripId.longValue());
+				java.sql.ResultSet rs = ps.executeQuery();
+				if (!rs.next()) {
+					rs.close();
+					tolak(hasil, "Sesi tidak ditemukan.");
+					return;
+				}
+				j.put("id", rs.getLong(1));
+				j.put("nomor", str(rs.getString(2)));
+				j.put("statusSesi", str(rs.getString(3)));
+				j.put("waktuMulai", rs.getDate(4) == null ? "" : str(rs.getDate(4)));
+				j.put("waktuKembali", rs.getDate(5) == null ? "" : str(rs.getDate(5)));
+				j.put("waktuTutup", rs.getTimestamp(6) == null ? "" : str(rs.getTimestamp(6)));
+				j.put("catatanPenutupan", str(rs.getString(7)));
+				j.put("kasFisikAktual", rs.getObject(8) == null ? JSONObject.NULL
+						: Double.valueOf(rs.getDouble(8)));
+				j.put("selisihKas", rs.getObject(9) == null ? JSONObject.NULL
+						: Double.valueOf(rs.getDouble(9)));
+				if (rs.getObject(10) != null) {
+					spjId = Long.valueOf(rs.getLong(10));
+				}
+				rs.close();
+			} finally {
+				ps.close();
+			}
+			// Penjaga lingkup sales ditegakkan lewat SPJ-nya, sama seperti jalur legacy.
+			if (aktorSales(ctx)) {
+				Long salesId = salesPemilikTrip(session, skema, tripId);
+				if (salesId == null || ctx.salesId == null || !ctx.salesId.equals(salesId)) {
+					tolak(hasil, "Sesi ini bukan milik sales Anda.");
+					return;
+				}
+			}
+			j.put("spj", spjRinciTenant(session, skema, tripId, spjId));
+
+			// ---------- biaya ----------
+			JSONArray arrBiaya = new JSONArray();
+			double totalBiaya = 0;
+			java.sql.PreparedStatement psB = session.connection().prepareStatement(
+					SalesInventoryTripTenant.daftarBiayaTrip(skema));
+			try {
+				psB.setLong(1, tripId.longValue());
+				java.sql.ResultSet rsB = psB.executeQuery();
+				while (rsB.next()) {
+					JSONObject r = new JSONObject();
+					r.put("id", rsB.getLong(1));
+					r.put("kategori", str(rsB.getString(2)));
+					r.put("tanggal", rsB.getDate(3) == null ? "" : str(rsB.getDate(3)));
+					r.put("uraian", str(rsB.getString(4)));
+					r.put("nilai", rsB.getDouble(5));
+					r.put("metode", str(rsB.getString(6)));
+					r.put("penerima", str(rsB.getString(7)));
+					r.put("statusDok", str(rsB.getString(8)));
+					arrBiaya.put(r);
+					totalBiaya += rsB.getDouble(5);
+				}
+				rsB.close();
+			} finally {
+				psB.close();
+			}
+			j.put("biaya", arrBiaya);
+
+			// ---------- pembelian ----------
+			JSONArray arrBeli = new JSONArray();
+			double totalBeliDibayar = 0, totalBeliFaktur = 0, totalBeliSisa = 0;
+			java.sql.PreparedStatement psP = session.connection().prepareStatement(
+					SalesInventoryTripTenant.daftarPembelianTrip(skema));
+			try {
+				psP.setLong(1, tripId.longValue());
+				java.sql.ResultSet rsP = psP.executeQuery();
+				while (rsP.next()) {
+					JSONObject r = new JSONObject();
+					r.put("id", rsP.getLong(1));
+					r.put("supplierNama", str(rsP.getString(2)));
+					r.put("fakturId", rsP.getObject(3) == null ? JSONObject.NULL
+							: Long.valueOf(rsP.getLong(3)));
+					r.put("totalFaktur", rsP.getDouble(4));
+					r.put("dibayarSesi", rsP.getDouble(5));
+					r.put("sisaHutang", rsP.getDouble(6));
+					r.put("tujuanStok", str(rsP.getString(7)));
+					arrBeli.put(r);
+					totalBeliFaktur += rsP.getDouble(4);
+					totalBeliDibayar += rsP.getDouble(5);
+					totalBeliSisa += rsP.getDouble(6);
+				}
+				rsP.close();
+			} finally {
+				psP.close();
+			}
+			j.put("pembelian", arrBeli);
+
+			// ---------- buku kas ----------
+			JSONArray arrKas = new JSONArray();
+			double saldoKas = 0, penjualanTunai = 0, biayaTunai = 0, pembayaranBeliTunai = 0,
+					setoran = 0, refund = 0;
+			java.sql.PreparedStatement psK = session.connection().prepareStatement(
+					SalesInventoryTripTenant.daftarKasTrip(skema));
+			try {
+				psK.setLong(1, tripId.longValue());
+				java.sql.ResultSet rsK = psK.executeQuery();
+				while (rsK.next()) {
+					String jenis = str(rsK.getString(2));
+					double nom = rsK.getDouble(3);
+					JSONObject r = new JSONObject();
+					r.put("id", rsK.getLong(1));
+					r.put("jenis", jenis);
+					r.put("nominal", nom);
+					r.put("referensi", str(rsK.getString(4)));
+					r.put("keterangan", str(rsK.getString(5)));
+					r.put("waktu", str(rsK.getTimestamp(6)));
+					arrKas.put(r);
+					saldoKas += nom;
+					if (ais.service.tenant.TenantKasTrip.CASH_SALE.equals(jenis)) {
+						penjualanTunai += nom;
+					} else if (ais.service.tenant.TenantKasTrip.EXPENSE_CASH.equals(jenis)) {
+						biayaTunai += -nom;
+					} else if (ais.service.tenant.TenantKasTrip.PURCHASE_PAYMENT.equals(jenis)) {
+						pembayaranBeliTunai += -nom;
+					} else if (ais.service.tenant.TenantKasTrip.OWNER_DEPOSIT.equals(jenis)) {
+						setoran += -nom;
+					} else if (ais.service.tenant.TenantKasTrip.REFUND.equals(jenis)) {
+						refund += nom;
+					}
+				}
+				rsK.close();
+			} finally {
+				psK.close();
+			}
+			j.put("kas", arrKas);
+
+			// ---------- penagihan piutang ber-trip ----------
+			double totalTertagih = 0, tertagihTunai = 0;
+			java.sql.PreparedStatement psT = session.connection().prepareStatement(
+					SalesInventoryTripTenant.ringkasanTagihTrip(skema));
+			try {
+				psT.setLong(1, tripId.longValue());
+				java.sql.ResultSet rsT = psT.executeQuery();
+				if (rsT.next()) {
+					totalTertagih = rsT.getDouble(1);
+					tertagihTunai = rsT.getDouble(2);
+				}
+				rsT.close();
+			} finally {
+				psT.close();
+			}
+
+			// ---------- dua rumus, keduanya SELALU ditampilkan ----------
+			JSONObject rumus = new JSONObject();
+			rumus.put("totalPiutangTertagih", totalTertagih);
+			rumus.put("tertagihTunai", tertagihTunai);
+			rumus.put("tertagihNonTunai", totalTertagih - tertagihTunai);
+			rumus.put("totalBiaya", totalBiaya);
+			rumus.put("totalNilaiPembelian", totalBeliFaktur);
+			rumus.put("pembelianDibayarDp", totalBeliDibayar);
+			rumus.put("pembelianSisaHutang", totalBeliSisa);
+			rumus.put("hasilBersih", totalTertagih - totalBiaya - totalBeliDibayar);
+			// Uang muka awal DITURUNKAN dari bukunya; legacy membacanya dari kolom salinan.
+			rumus.put("uangMukaAwal", uangMukaAwalTenant(session, skema, tripId));
+			rumus.put("penjualanTunai", penjualanTunai);
+			rumus.put("refundTunai", refund);
+			rumus.put("biayaTunai", biayaTunai);
+			rumus.put("pembayaranPembelianTunai", pembayaranBeliTunai);
+			rumus.put("setoranKePemilik", setoran);
+			rumus.put("kasFisikSeharusnya", saldoKas);
+			j.put("rumus", rumus);
+
+			hasil.put("status", "00");
+			hasil.put("data", j);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** Sales pemilik satu trip, untuk penjaga lingkup. */
+	private static Long salesPemilikTrip(Session session, String skema, Long tripId)
+			throws Exception {
+		java.sql.PreparedStatement ps = session.connection().prepareStatement(
+				SalesInventoryTripTenant.tripUntukStatus(skema));
+		try {
+			ps.setLong(1, tripId.longValue());
+			java.sql.ResultSet rs = ps.executeQuery();
+			Long id = null;
+			if (rs.next() && rs.getObject(2) != null) {
+				id = Long.valueOf(rs.getLong(2));
+			}
+			rs.close();
+			return id;
+		} finally {
+			ps.close();
+		}
+	}
+
+	/** Uang muka awal yang benar-benar dibukukan; diturunkan dari buku kas. */
+	private static double uangMukaAwalTenant(Session session, String skema, Long tripId)
+			throws Exception {
+		java.sql.PreparedStatement ps = session.connection().prepareStatement(
+				"SELECT " + SalesInventoryTripTenant.uangMukaAwal(skema) + " FROM " + skema
+						+ "sales_trip ns WHERE ns.id = ?");
+		try {
+			ps.setLong(1, tripId.longValue());
+			java.sql.ResultSet rs = ps.executeQuery();
+			double v = rs.next() ? rs.getDouble(1) : 0;
+			rs.close();
+			return v;
+		} finally {
+			ps.close();
+		}
+	}
+
+	/** Blok SPJ pada rincian sesi; bentuknya sama dengan {@code jsonSpj} jalur legacy. */
+	private static JSONObject spjRinciTenant(Session session, String skema, Long tripId,
+			Long spjId) throws Exception {
+		JSONObject j = new JSONObject();
+		java.sql.PreparedStatement ps = session.connection().prepareStatement(
+				SalesInventoryTripTenant.spjRinciUntukTrip(skema));
+		try {
+			ps.setLong(1, tripId.longValue());
+			java.sql.ResultSet rs = ps.executeQuery();
+			if (rs.next()) {
+				j.put("id", rs.getLong(1));
+				j.put("nomor", str(rs.getString(2)));
+				j.put("status", str(rs.getString(3)));
+				j.put("tanggalBerangkat", str(rs.getDate(4)));
+				j.put("tanggalMulaiAktual", rs.getDate(5) == null ? "" : str(rs.getDate(5)));
+				j.put("tanggalKembaliAktual", rs.getDate(6) == null ? "" : str(rs.getDate(6)));
+				j.put("rute", str(rs.getString(7)));
+				j.put("kendaraan", str(rs.getString(8)));
+				j.put("uangMuka", rs.getDouble(9));
+				j.put("catatan", str(rs.getString(10)));
+				j.put("alasanBatal", str(rs.getString(11)));
+				j.put("salesId", rs.getLong(12));
+				j.put("salesNama", str(rs.getString(13)));
+				j.put("disetujuiOleh", str(rs.getString(14)));
+			}
+			rs.close();
+		} finally {
+			ps.close();
+		}
+		JSONArray arrB = new JSONArray();
+		if (spjId != null) {
+			java.sql.PreparedStatement psB = session.connection().prepareStatement(
+					SalesInventoryTripTenant.barangSpjRinci(skema));
+			try {
+				psB.setLong(1, tripId.longValue());
+				psB.setLong(2, tripId.longValue());
+				psB.setLong(3, spjId.longValue());
+				java.sql.ResultSet rsB = psB.executeQuery();
+				while (rsB.next()) {
+					JSONObject r = new JSONObject();
+					r.put("id", rsB.getLong(1));
+					r.put("produkId", rsB.getLong(2));
+					r.put("namaProduk", str(rsB.getString(3)));
+					r.put("qtyRencana", rsB.getDouble(4));
+					r.put("qtyDimuat", rsB.getDouble(5));
+					r.put("qtyTerjual", rsB.getDouble(6));
+					r.put("qtyKembali", rsB.getDouble(7));
+					r.put("qtyRusak", rsB.getDouble(8));
+					r.put("qtyHilang", rsB.getDouble(9));
+					r.put("masihDibawa", rsB.getDouble(10));
+					r.put("hargaJual", rsB.getDouble(11));
+					r.put("status", str(rsB.getString(12)));
+					arrB.put(r);
+				}
+				rsB.close();
+			} finally {
+				psB.close();
+			}
+		}
+		j.put("barang", arrB);
+		j.put("nota", spjId == null ? new JSONArray() : notaSpjTenant(session, skema, spjId));
+		return j;
+	}
+
+	/**
+	 * Nota piutang yang dibawa satu SPJ. Nilai tertagihnya DITURUNKAN dari alokasi penerimaan —
+	 * lihat bundel v13.
+	 */
+	private static JSONArray notaSpjTenant(Session session, String skema, Long spjId)
+			throws Exception {
+		JSONArray arr = new JSONArray();
+		if (spjId == null) {
+			return arr;
+		}
+		java.sql.PreparedStatement ps = session.connection().prepareStatement(
+				SalesInventoryTripTenant.daftarNotaSpj(skema));
+		try {
+			ps.setLong(1, spjId.longValue());
+			java.sql.ResultSet rs = ps.executeQuery();
+			while (rs.next()) {
+				JSONObject r = new JSONObject();
+				r.put("id", rs.getLong(1));
+				r.put("piutangId", rs.getLong(2));
+				r.put("nomorFaktur", str(rs.getString(3)));
+				r.put("jatuhTempo", rs.getDate(4) == null ? "" : str(rs.getDate(4)));
+				r.put("saldoSaatAssign", rs.getDouble(5));
+				r.put("nilaiTertagih", rs.getDouble(6));
+				r.put("status", str(rs.getString(7)));
+				r.put("customerNama", str(rs.getString(8)));
+				arr.put(r);
+			}
+			rs.close();
+		} finally {
+			ps.close();
+		}
+		return arr;
 	}
 }

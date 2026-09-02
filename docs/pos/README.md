@@ -102,6 +102,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [89-gerbang-yang-tidak-pernah-menutup.md](89-gerbang-yang-tidak-pernah-menutup.md) | Empat endpoint yang gerbangnya meloloskan setiap peran; kunci menu tak terdaftar membuat bolehAksi selalu true |
 | [90-angka-cakupan-yang-salah.md](90-angka-cakupan-yang-salah.md) | Batas "113 di luar jangkauan" ternyata 30; 68 gerbang berkonstanta kini terresolusi dan terbukti benar |
 | [91-terbuka-di-satu-layar-bukan-di-semua.md](91-terbuka-di-satu-layar-bukan-di-semua.md) | "ADA klien yang mengirim" vs "SETIAP jalur bisa mengirim"; satu utang nyata, dua tuduhan salah |
+| [92-dua-dari-295-berkas.md](92-dua-dari-295-berkas.md) | Penjaga yang hijau sejak dok. 77 ternyata memindai 2 dari 295 berkas pengirim; mode --luas melapor 57 kandidat |
 
 | [35-lampiran-gambar.md](35-lampiran-gambar.md) | Lampiran gambar — blob, maksimum 500 KB, dikecilkan di klien |
 | [52-fase-b-satuan-jual.md](52-fase-b-satuan-jual.md) | 52. Fase B — Satuan Jual per Baris Transaksi |

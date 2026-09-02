@@ -1764,6 +1764,79 @@ larik (biaya, pembelian, kas), dan lima belas medan rumus. Menggabungkannya ke b
 banyak kode dengan verifikasi tipis, dan pencocokan jumlah kolom adalah justru tempat kesalahan
 paling sering terjadi pada pemindahan ini.
 
+## `tripDetail`: Trip TUNTAS 19 dari 19
+
+Aksi terakhir helper Trip, dan yang paling banyak menghimpun: satu layar yang membaca hasil
+**enam bundel sekaligus** — buku kas (v12), nota bawaan (v13), kas fisik penutupan (v14),
+kategori biaya (v15), dan pembelian trip (v16) — di samping tabel yang sudah ada sejak awal.
+Itu sebabnya ia dikerjakan terakhir.
+
+Keluarannya: header sembilan medan, blok SPJ empat belas medan berikut barangnya, tiga larik
+(biaya, pembelian, buku kas), dan lima belas medan rumus.
+
+### Rumus dihitung satu lintasan, bukan agregat terpisah
+
+Jalur legacy melintasi baris buku kas sekali dan memilah per jenis. Jalur tenant melakukan hal
+yang sama, dan itu disengaja: menghitungnya lewat beberapa SQL agregat terpisah menggoda untuk
+melupakan satu jenis — dan kelupaan persis itu sudah **dua kali** menghasilkan angka uang salah
+pada pemindahan ini.
+
+### Satu `LEFT JOIN` yang menentukan, lagi
+
+Legacy menyimpan rencana dan hasil pada satu baris; model tenant memecahnya menjadi tiga tabel:
+rencana di `surat_perintah_sales_detail`, yang dibawa di `sales_trip_barang`, hasilnya di
+`sales_trip_hasil`. Blok barang menyatukan ketiganya kembali.
+
+Basisnya **rencana**, dengan `LEFT JOIN` ke dua sisanya. Barang yang direncanakan tetapi tidak
+jadi dimuat harus tetap muncul dengan qtyDimuat nol — kalau ia menghilang, layar rincian akan
+menyatakan sales membawa sesuatu yang tidak pernah direncanakan hilang. Blok 4 dan 5 ujinya
+sepasang: `LEFT JOIN` menemukan dua baris (satu belum dimuat), `INNER JOIN` hanya satu.
+
+### Dua medan dikembalikan kosong, dan itu dicatat
+
+`rute` tidak ada pada model tenant — `wilayah` bukan padanannya, sebab rute adalah urutan
+kunjungan sedangkan wilayah adalah cakupan. `disetujuiOleh` juga tidak ada: SPJ tenant mencatat
+statusnya berubah menjadi APPROVED tetapi tidak menyimpan siapa yang menyetujui.
+
+Keduanya dikembalikan kosong, bukan diisi tebakan.
+
+### Dua titik usang pada `spjDetail` ikut diperbaiki
+
+`detailSpjTenant` dipindahkan jauh sebelum v12 dan v13 ada, dan sejak itu menyimpan dua
+pernyataan yang **berhenti benar** ketika bundel-bundel itu mendarat:
+
+| medan | dahulu | sekarang |
+|---|---|---|
+| `uangMukaOperasional` | selalu `null` | dibaca dari kolomnya (v12) |
+| `nota` | selalu larik kosong | diisi dari `surat_perintah_sales_nota` (v13) |
+
+Komentar lamanya bahkan menyatakan "konsep penugasan piutang ke SPJ tidak ada pada model tenant"
+— pernyataan yang benar saat ditulis dan salah sejak v13. Ini jenis kebusukan yang tidak pernah
+gagal, hanya diam-diam berhenti melaporkan data yang sudah ada.
+
+### Verifikasi
+
+Seluruh kueri yang **benar-benar dikeluarkan Java** dijalankan ke basis data v1–v16 atas skenario
+lengkap. Jumlah kolomnya dihitung langsung dari keluaran: 10, 14, 12, 8, 7, 6, 8 — sesuai
+rancangan.
+
+| angka | hasil |
+|---|---|
+| saldo kas | **300.000** (500+300+200−100−200−400) |
+| uang muka awal (turunan) | 500.000 |
+| nilai tertagih nota (turunan) | 200.000 |
+| sisa hutang pembelian (turunan) | 300.000 |
+| barang | Gula dimuat 10, **Kopi muncul dengan dimuat 0** |
+
+`uji-kesetaraan-rincian-trip.sql` — enam blok LULUS, dua di antaranya penjaga: rumus tanpa panjar
+menghasilkan −200.000 (jadi contohnya membedakan), dan `INNER JOIN` menghilangkan barang yang
+belum dimuat.
+
+### Helper Trip tuntas
+
+Sembilan belas dari sembilan belas aksi berjalan pada schema tenant. Tidak ada lagi aksi Trip yang
+gagal-tertutup.
+
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
 **Sebelas helper, 7.512 baris, belum satu pun kuerinya dipindah ke schema tenant.**
