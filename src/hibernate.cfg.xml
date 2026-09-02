@@ -1965,6 +1965,8 @@
 		<!-- IR-05: jejak pemeriksaan kedua & konseling dispensing -->
 		<mapping class="ais.database.model.sirs.ApotikDispensingLog"></mapping>
 		<mapping class="ais.database.model.sirs.ApotikSesiKas"></mapping>
+		<!-- IR-09 (sebagian): bukti suhu penerimaan rantai dingin -->
+		<mapping class="ais.database.model.sirs.ApotikPenerimaanSuhu"></mapping>
 		<mapping class="ais.database.model.sirs.ApotikBatchKonsumsi" />
 		<mapping class="ais.database.model.sirs.ApotikNarkotikaLog" />
 		<mapping class="ais.database.model.sirs.TindakanLabDetail" />

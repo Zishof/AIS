@@ -118,6 +118,11 @@ public final class ApotikPersediaanHelper {
 			java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat("yyyy-MM-dd");
 			tx = session.beginTransaction();
 			int barisBatch = 0;
+			// IR-09 (sebagian): apakah faktur ini memuat barang rantai dingin.
+			// Ditentukan SERVER dari profil item, bukan dari klaim klien --
+			// klien yang lupa/salah menandai tidak boleh membuat bukti suhu
+			// jadi tidak wajib.
+			boolean adaColdChain = false;
 			for (int i = 0; i < items.length(); i++) {
 				JSONObject baris = items.getJSONObject(i);
 				Long itemId = optLong(baris, "item_id");
@@ -132,6 +137,16 @@ public final class ApotikPersediaanHelper {
 				}
 				session.save(barisLedger(ConstantValues.beliMasuk, item, qty, hargaBeli, lokasi,
 						catatan + " " + str(baris.optString("keterangan", "")).trim(), tbmuser));
+				if (!adaColdChain) {
+					java.util.List<?> profil = session
+							.createCriteria(ais.database.model.sirs.ApotikItemProfile.class)
+							.add(org.hibernate.criterion.Restrictions.eq("item", item))
+							.setMaxResults(1).list();
+					if (!profil.isEmpty() && Boolean.TRUE.equals(
+							((ais.database.model.sirs.ApotikItemProfile) profil.get(0)).getColdChain())) {
+						adaColdChain = true;
+					}
+				}
 				String tglEd = baris.optString("tanggal_kadaluarsa", "").trim();
 				if (!tglEd.isEmpty()) {
 					Kadaluarsa k = new Kadaluarsa();
@@ -148,10 +163,39 @@ public final class ApotikPersediaanHelper {
 					barisBatch++;
 				}
 			}
+			// Bukti suhu penerimaan (IR-09 sebagian). Server MENYIMPAN, tidak
+			// menolak: keputusan menerima/menolak barang rantai dingin adalah
+			// wewenang apoteker penanggung jawab dan bergantung SOP tiap
+			// apotek. Yang dijamin di sini hanyalah jejaknya tercatat.
+			Double suhu = null;
+			if (request != null && !request.isNull("suhu_terima")) {
+				suhu = Double.valueOf(request.optDouble("suhu_terima", 0));
+			}
+			String suhuKeterangan = request == null ? ""
+					: request.optString("suhu_keterangan", "").trim();
+			if (suhu != null || adaColdChain || suhuKeterangan.length() > 0) {
+				ais.database.model.sirs.ApotikPenerimaanSuhu bukti =
+						new ais.database.model.sirs.ApotikPenerimaanSuhu();
+				bukti.setNoFaktur(noFaktur);
+				bukti.setPenyedia(penyedia);
+				bukti.setSuhuCelsius(suhu);
+				bukti.setAdaColdChain(Boolean.valueOf(adaColdChain));
+				bukti.setKeterangan(suhuKeterangan);
+				bukti.setWaktu(new java.util.Date());
+				bukti.setOleh(tbmuser.getUserId());
+				bukti.setOlehId(tbmuser.getUserId());
+				session.save(bukti);
+			}
 			tx.commit();
 			hasil.put("status", "00");
 			hasil.put("jumlahBaris", items.length());
 			hasil.put("jumlahBatch", barisBatch);
+			hasil.put("adaColdChain", adaColdChain);
+			hasil.put("suhuTercatat", suhu != null);
+			if (suhu != null) {
+				hasil.put("suhuDiLuarRentang",
+						ais.database.model.sirs.ApotikPenerimaanSuhu.diLuarRentang(suhu));
+			}
 		} catch (IllegalArgumentException e) {
 			try { if (tx != null && tx.isActive()) tx.rollback(); } catch (Exception ignore) { }
 			tolak(hasil, e.getMessage());
