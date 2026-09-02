@@ -1332,6 +1332,82 @@ SQL yang **benar-benar dikeluarkan Java** juga dijalankan berurutan ke basis dat
 trip, periksa barang belum habis, sisip setoran, hitung saldo kas, ubah status trip dan SPJ, isi
 hasil, periksa ulang, lalu transisi kedua — dan `tanggal_kembali` terbukti bertahan.
 
+## Audit penjaga tenant: satu lubang gagal-terbuka dari 75 aksi
+
+Batch ini tidak memindahkan aksi. Ia memeriksa apakah ada aksi yang **terlewat sama sekali** —
+dan menemukan satu.
+
+### `si_import_legacy` berjalan tanpa penjaga apa pun
+
+`SalesInventoryDbfImportHelper.importLegacy` dirutekan dispatcher pada baris 130, dan tidak punya
+penjaga maupun cabang tenant di mana pun. Seluruh penyimpanannya memakai entitas Hibernate —
+`Produk`, `AnggotaKoperasi`, `Penyedia`, `SalesInventory`, `HargaJualCustomer`,
+`HargaBeliSupplier`, `StokOpname`, `Pembelian`, `PengadaanProduk`, `SatuanProduk`, dan ketiga
+profilnya — dan entitas menyematkan schema-nya pada anotasi.
+
+Dijalankan oleh pemilik usaha pada tenant berschema, akibatnya dua-duanya buruk sekaligus:
+
+| | akibat |
+|---|---|
+| ke luar | master miliknya mendarat di schema **bersama**, terlihat instalasi lain |
+| ke dalam | schema tenantnya sendiri tetap **kosong** |
+
+Yang kedua itu yang paling menipu: impornya melapor sukses, jumlah barisnya benar, lalu seluruh
+layar tenant tidak menampilkan apa-apa. Tidak ada galat yang bisa ditelusuri.
+
+Ditutup dengan gagal-tertutup. Memindahkannya menuntut jalur tulis SQL tersendiri untuk ketiga
+belas jenis itu berikut pemetaan ulang ke model tenant — stok sebagai turunan mutasi, pembelian
+ber-header/detail, harga umum tanpa customer. Itu pekerjaan P5 utuh, bukan tambalan.
+
+### Mengapa lubang semacam ini tidak pernah terlihat sendiri
+
+Aksi yang lupa diberi penjaga **tidak gagal dan tidak berisik**. Kompilator tidak melihatnya, uji
+fungsional satu-tenant tidak melihatnya, dan responsnya `status=00`. Satu-satunya cara menemukannya
+adalah memeriksa daftar aksi terhadap daftar penjaga — dan itu pemeriksaan yang harus diulang tiap
+kali aksi baru ditambahkan.
+
+Karena itu auditnya dijadikan artefak: `audit-penjaga-tenant.py`, di folder yang sama dengan
+berkas uji kesetaraan. Ia membaca dispatcher, menelusuri tiap aksi ke metode helpernya, dan keluar
+dengan kode 1 bila ada yang tanpa penjaga.
+
+Bahwa ia benar-benar menggigit sudah dibuktikan, bukan diasumsikan: penjaga yang baru dipasang
+dilepas sementara, audit melaporkan lubangnya dan keluar 1; penjaga dipulihkan, audit lulus dan
+keluar 0.
+
+### Versi pertama audit ini salah, dan itu dicatat di dalamnya
+
+Versi pertama tidak menelusuri delegasi sama sekali dan melaporkan **tujuh positif palsu** —
+`tripDeposit`, `tripReturn`, `tripCashSale`, `tripReconcile`, kedua aksi status giro, dan
+`si_actor_context` — sebab penjaganya berada di metode privat yang dipanggil, bukan di badan
+aksinya sendiri.
+
+Batas itu ditulis di kepala berkasnya, berikut dua batas lain yang masih ada: pemeriksaannya
+tekstual belaka, dan ia hanya memastikan penjaga **ada**, bukan bahwa letaknya benar. Penjaga yang
+berdiri sebelum pemeriksaan hak akses — persis yang harus dipindahkan pada dua batch sebelumnya —
+tetap lolos di sini.
+
+`si_actor_context` dikecualikan dengan sengaja: ia hanya mengembalikan konteks aktor pemanggil dan
+tidak menyentuh schema mana pun.
+
+### Sisa P4: tidak ada lagi aksi yang bebas hambatan
+
+Penyisiran seluruh helper menunjukkan setiap aksi yang masih tertutup menunggu sesuatu yang nyata,
+bukan menunggu ditulis:
+
+| penghalang | aksi yang menunggu |
+|---|---|
+| buku kas trip (C-11) | `tripCashSale`, `tripDetail`, `tripClose`, `expenseCreate`, `collectionCreate`, `collectionReverse`, `expenseReverse` |
+| nota bawaan bernilai tertagih | `spjNotaAssign`, `tripNotaResult` |
+| master kategori biaya | `expenseCategoryList`, `expenseCategorySave` |
+| tabel pembelian dalam trip | `tripPurchaseLink` |
+| `payable_faktur_info` | `purchaseTermsSave` |
+| status giro | `payableBgStatus`, `collectionBgStatus` |
+| Envers ber-schema statis | `auditHistory` |
+| §16 lingkup toko&rarr;gudang | saringan toko pada `priceAnalysis` dan `inventoryBalance` |
+| P5 | `importLegacy` |
+
+Empat penghalang teratas bermuara pada keputusan katalog; sisanya pada pekerjaan yang memang belum
+dijadwalkan. Tidak ada satu pun yang tinggal ditulis.
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
 **Sebelas helper, 7.512 baris, belum satu pun kuerinya dipindah ke schema tenant.**

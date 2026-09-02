@@ -71,6 +71,27 @@ public final class SalesInventoryDbfImportHelper {
 			hasil.put("description", "Impor DBF hanya untuk Pemilik Usaha Sales/Inventory.");
 			return;
 		}
+		if (SalesInventoryTenantSchema.aktif(ctx)) {
+			// GAGAL-TERTUTUP. Seluruh penyimpanan di bawah memakai entitas Hibernate, dan
+			// entitas-entitas itu menyematkan schema-nya pada anotasi -- Produk, AnggotaKoperasi,
+			// Penyedia, SalesInventory, HargaJualCustomer, HargaBeliSupplier, StokOpname,
+			// Pembelian, PengadaanProduk, SatuanProduk, beserta ketiga profilnya.
+			//
+			// Dijalankan untuk pemakai tenant, akibatnya dua-duanya buruk sekaligus: master
+			// miliknya mendarat di schema BERSAMA (terlihat instalasi lain), sementara schema
+			// tenantnya sendiri tetap kosong -- impor melapor sukses, lalu layarnya tidak
+			// menampilkan apa pun.
+			//
+			// Impor ke schema tenant menuntut jalur tulis SQL tersendiri untuk ketiga belas
+			// jenis itu, berikut pemetaan ulangnya ke model tenant (stok = turunan mutasi,
+			// pembelian ber-header/detail, harga umum tanpa customer). Itu pekerjaan P5, bukan
+			// tambalan di sini.
+			hasil.put("status", "91");
+			hasil.put("description", "Impor DBF belum tersedia pada schema tenant: seluruh"
+					+ " penyimpanannya lewat entitas yang schema-nya tersemat, sehingga datanya"
+					+ " akan mendarat di schema bersama, bukan milik tenant ini.");
+			return;
+		}
 		String jenis = request.optString("jenis", "").trim();
 		JSONArray rows = request.optJSONArray("rows");
 		if (rows == null || rows.length() == 0) {
