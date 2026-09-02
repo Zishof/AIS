@@ -1,5 +1,50 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 33 — SELESAI 100% (3 Sep 2026) — AKAR PENYEBAB POLA FAIL-OPEN DITEMUKAN
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
+`-implicit:none` bersih, mirror `java/` diverifikasi `cmp` byte-identik, nol
+perubahan logika:
+
+- **`ais/database/model/SatuanKerjaPegawai.java`** (r83540) — 149→457
+  baris, 100% (29 anggota). **TEMUAN TERBESAR BATCH INI**: investigasi akar
+  penyebab pola fail-open (`satuanKerjas.size()==0 → "1=1"`) menemukan
+  sumber sesungguhnya di `SekolahUtil.ambilSatuanKerjas()` (BUKAN entity
+  ini) — 4 kondisi presisi penyebab himpunan kosong, termasuk temuan
+  mengejutkan: admin yang SALAH KETIK kode satuan kerja saat MEMBATASI
+  role justru MEMPERLUAS akses ke seluruh data lintas unit (inversi).
+  Skala jauh lebih besar dari dugaan: **153 file** mengandung pola ini,
+  bukan segelintir Action. Bahkan layar master entity ini sendiri juga
+  fail-open. Memperkuat `task_1214dd58`/`task_9b7ff647` secara drastis.
+- **`ais/database/model/AsramaPunyaMahasiswa.java`** (r83539) — 150→521
+  baris, 100% (30 anggota). Bug `KelasPunyaMahasiswaTemporary` (b28)
+  TIDAK terulang di sini. Tapi ditemukan bug data nyata: `syncAsrama`
+  cuma memangkas (anggota manual lenyap senyap), dan `save()` di
+  helper penambah lupa filter asrama — menambahkan mahasiswa ke asrama
+  B bisa diam-diam MEMINDAHKANNYA dari asrama A.
+- **`ais/database/model/PendaftaranSidang.java`** (r83542) — 145→535
+  baris, 100% (30 anggota). Fitur PRAKTIS MATI TOTAL — bahkan wiring
+  ZUL rusak (klik tombol dijamin NPE, class Action yang dirujuk tidak
+  ada di codebase). Alur sidang sungguhan lewat `Skripsi`/
+  `GelombangPendaftaranSidangTugasAkhir`. Pengecualian KETIGA kontrak
+  base class (`getKeterangan()` bisa `null`). **Saran agent untuk batch
+  berikutnya: `PendaftaranWisuda.java`** (modul aktif, banyak bendera
+  persetujuan finansial — permukaan audit menarik).
+- **`ais/database/model/BeasiswaPunyaItemBiayaTambahan.java`** (r83541)
+  — 143→573 baris, 100% (19 anggota). Seluruh jalur UI+keuangan DORMAN
+  (dead code) — tidak menambah risiko `task_51f767ec`.
+- **`ais/database/model/ScholarAuthor.java`** (r83544) — 155→644 baris,
+  100% (29 anggota). Pengecualian KEEMPAT kontrak base class. Ditemukan
+  potensi JS injection + path traversal terbatas di jalur crawler
+  (severity rendah-menengah, mayoritas jalur dorman).
+
+**Pola "getKeterangan() membalik kontrak base class" kini 4 instance**
+(`Bank` b29, `SintaArticle` b31, `PendaftaranSidang` b33, `ScholarAuthor`
+b33) — cukup sering untuk dicatat sebagai variasi arsitektural yang
+dikenal, bukan anomali terisolasi.
+
+Total akumulasi 33 sesi: **343 file** dari 7.401 (~4,6%).
+
 ## Batch 32 — SELESAI 100% (3 Sep 2026)
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
