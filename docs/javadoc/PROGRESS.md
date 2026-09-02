@@ -1,5 +1,58 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 25 — SELESAI 100% (3 Sep 2026)
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
+`-implicit:none` bersih, mirror `java/` diverifikasi `cmp` byte-identik, nol
+perubahan logika:
+
+- **`ais/database/model/BlokirMahasiswa.java`** (r83474) — 160→698 baris,
+  100% (35 anggota). Mekanisme blokir SENDIRI fail-open: baris tanpa
+  `keterangan` terisi tidak memblokir apa pun meski semua flag aktif
+  (setiap query penegakan mensyaratkan `keterangan` non-kosong, tapi hanya
+  UI yang memvalidasinya, jalur non-ZK bisa lolos). Blokir login pakai
+  cache in-memory yang tidak pernah diinvalidasi Action-nya — baru
+  berlaku setelah restart aplikasi. Blokir KRS cuma menjaga dialog
+  pembuka, bukan jalur penulisan KRS sesungguhnya. Semua cocok task yang
+  ada, tidak ada task baru.
+- **`ais/database/model/ItemBiayaPunyaAkun.java`** (r83470) — 161→415
+  baris, 100% (21 anggota). CONTOH POSITIF keamanan. Bug finansial nyata:
+  `getFakultas()` menimpa field otomatis dari `jurusan` → baris yang
+  dimaksudkan khusus 1 jurusan malah jadi fallback se-fakultas, salah
+  atribusi akun pendapatan. Juga 2 mekanisme resolusi akun paralel yang
+  bisa berbeda hasil (cascade 8-tahap vs SQL native `ORDER BY id DESC
+  LIMIT 1`).
+- **`ais/database/model/UploadBiodataCalonMahasiswa.java`** (r83473) —
+  166→604 baris, 100% (36 anggota). **TEMUAN SANGAT SIGNIFIKAN, perluas
+  `task_b82b25d2`**: analisis statis `applicationContext-security.xml`
+  menunjukkan catch-all `/**` = `IS_AUTHENTICATED_ANONYMOUSLY` (baris 62)
+  — berpotensi SELURUH `/pages/**` (bukan cuma 1 layar) reachable tanpa
+  login sama sekali, karena `FilterJSP` juga tak memaksa cek login untuk
+  `.zul` generik. Repo SENDIRI sudah punya komentar internal mengakui
+  risiko serupa untuk `/al` (dibuka publik 19-08-2026, mitigasi belum
+  dikerjakan). Langkah verifikasi konkret diusulkan: curl anonim ke layar
+  ini, cek HTML ZK vs redirect `/login`. Data-loss bug terpisah: `getNama()`
+  fallback nama gelombang ikut TERSIMPAN permanen saat batch lama disunting
+  ulang tanpa upload baru.
+- **`ais/database/model/DendaPembayaran.java`** (r83472) — 157→624 baris,
+  100% (25 anggota). Fitur MATI: persentase denda yang diisi di layar ini
+  TIDAK PERNAH dipakai menghitung tagihan (parameter diteruskan tapi tak
+  pernah dibaca isinya) — tapi keberadaan barisnya tetap mempengaruhi
+  pemilihan `JadwalPembayaran`, efek tak terduga. Bug validasi rentang
+  tumpang-tindih sekelas `PesanRuangan` (b22). Contoh positif keamanan.
+- **`ais/database/model/SettingBiayaDetail.java`** (r83471) — 161→537
+  baris, 100% (34 anggota). Klarifikasi penting: BUKAN `DetailBiaya` —
+  4 entity berbeda dalam keluarga `SettingBiaya`. Contoh positif (halaman
+  induk ADA di whitelist `MUST_CHECKED`), tapi layar detail turunannya
+  sendiri nol pemeriksaan hak akses (menempel sepenuhnya ke induk).
+
+**Pola menarik batch ini**: 3 dari 5 file (`ItemBiayaPunyaAkun`,
+`DendaPembayaran`, `SettingBiayaDetail`) adalah CONTOH POSITIF keamanan —
+menyeimbangkan rentetan temuan negatif batch 20-24. Menunjukkan proteksi
+di AIS TIDAK seragam buruk — tergantung Action mana yang menuliskannya.
+
+Total akumulasi 25 sesi: **303 file** dari 7.401 (~4,1%).
+
 ## Batch 24 — SELESAI 100% (3 Sep 2026) — BATCH DENGAN TEMUAN KEAMANAN TERPADAT
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
