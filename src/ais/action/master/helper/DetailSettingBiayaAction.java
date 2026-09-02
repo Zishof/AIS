@@ -46,7 +46,6 @@ import org.zkoss.zul.Caption;
 import org.zkoss.zul.Groupbox;
 import ais.ui.util.MyDetail;
 import org.zkoss.zul.Hbox;
-import org.zkoss.zul.Intbox;
 import org.zkoss.zul.Label;
 import org.zkoss.zul.ListModel;
 import org.zkoss.zul.Paging;
@@ -152,6 +151,9 @@ import ais.ui.util.MyToolbarbuttonConfig;
  * @see MyDetail
  */
 public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
+	private static final int SEMESTER_MINIMAL = 1;
+	private static final int SEMESTER_MAKSIMAL = 25;
+
 	/**
 	 * @return {@code true} bila {@link #settingBiaya} ditandai khusus untuk mahasiswa
 	 *         tertentu atau dibatasi mahasiswa tertentu — menentukan apakah grid memakai
@@ -612,6 +614,122 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		}
 	}
 
+	private Integer batasiSemester(Integer semester, Integer semesterSaatIni) {
+		Integer hasil = semester;
+		if (hasil == null || hasil < SEMESTER_MINIMAL || hasil > SEMESTER_MAKSIMAL) {
+			hasil = semesterSaatIni;
+		}
+		if (hasil == null || hasil < SEMESTER_MINIMAL) {
+			hasil = SEMESTER_MINIMAL;
+		}
+		return Math.min(hasil, SEMESTER_MAKSIMAL);
+	}
+
+	private Integer semesterSaatIni(BiodataCalonMahasiswa mahasiswa) {
+		try {
+			String jenisSemester = Common.isNowSemensterGanjil() ? Perkuliahan.GANJIL : Perkuliahan.GENAP;
+			return batasiSemester(Common.getSemester(mahasiswa.getTahun(), jenisSemester,
+					mahasiswa.getPindahDariKampusLamaDiSemester(), mahasiswa.getSemesterMulai()),
+					SEMESTER_MINIMAL);
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"DetailSettingBiayaAction.semesterSaatIni: gagal menghitung semester calon mahasiswa");
+			return SEMESTER_MINIMAL;
+		}
+	}
+
+	private Combobox buatPilihanSemester(Integer semesterTerpilih) {
+		Combobox pilihan = new Combobox();
+		pilihan.setReadonly(true);
+		pilihan.setWidth("64px");
+		for (int semester = SEMESTER_MINIMAL; semester <= SEMESTER_MAKSIMAL; semester++) {
+			Comboitem item = new MyComboitemConfig(String.valueOf(semester));
+			item.setValue(Integer.valueOf(semester));
+			pilihan.appendChild(item);
+		}
+		Common.selectComboItem(pilihan, semesterTerpilih);
+		return pilihan;
+	}
+
+	private Integer ambilSemester(Combobox pilihan) {
+		if (pilihan.getSelectedItem() == null || pilihan.getSelectedItem().getValue() == null) {
+			return null;
+		}
+		Object nilai = pilihan.getSelectedItem().getValue();
+		return nilai instanceof Integer ? (Integer) nilai : Integer.valueOf(nilai.toString());
+	}
+
+	private void perbaruiTahunAkademik(Label label, Combobox pilihan, Integer tahunAngkatan,
+			Integer semesterPindahan, String semesterMulai) {
+		Integer semester = ambilSemester(pilihan);
+		if (semester == null || tahunAngkatan == null) {
+			label.setValue("TA -");
+			return;
+		}
+		try {
+			Integer tahun = Common.getTahunAkademik(semester, tahunAngkatan,
+					semesterPindahan == null ? 0 : semesterPindahan,
+					semesterMulai == null ? Perkuliahan.GANJIL : semesterMulai);
+			label.setValue("TA " + tahun + "/" + (tahun + 1));
+		} catch (Exception e) {
+			label.setValue("TA -");
+			ais.common.ErrorAuditUtil.record(e,
+					"DetailSettingBiayaAction.perbaruiTahunAkademik: gagal menghitung tahun akademik");
+		}
+	}
+
+	private Vbox bungkusPilihanSemester(final Combobox pilihan, final Label tahunAkademik,
+			final Integer tahunAngkatan, final Integer semesterPindahan, final String semesterMulai) {
+		Vbox bungkus = new Vbox();
+		bungkus.setSpacing("2px");
+		pilihan.setParent(bungkus);
+		tahunAkademik.setStyle("font-size: 11px; color: #64748b; white-space: nowrap;");
+		tahunAkademik.setParent(bungkus);
+		perbaruiTahunAkademik(tahunAkademik, pilihan, tahunAngkatan, semesterPindahan, semesterMulai);
+		return bungkus;
+	}
+
+	private void renderRentangSemester(Vbox parent, final SettingBiayaDetail detail, Integer semesterSaatIni,
+			final Integer tahunAngkatan, final Integer semesterPindahan, final String semesterMulai) {
+		final Combobox minSmt = buatPilihanSemester(batasiSemester(detail.getMinSmt(), semesterSaatIni));
+		final Combobox maxSmt = buatPilihanSemester(batasiSemester(detail.getMaxSmt(), semesterSaatIni));
+		final Label taMin = new Label();
+		final Label taMax = new Label();
+
+		new Label(Common.getBahasaConfig("Semester berlaku:")).setParent(parent);
+		Hbox rentang = new Hbox();
+		rentang.setSpacing("6px");
+		rentang.setParent(parent);
+		bungkusPilihanSemester(minSmt, taMin, tahunAngkatan, semesterPindahan, semesterMulai).setParent(rentang);
+		Label sampai = new Label(Common.getBahasaConfig("s.d."));
+		sampai.setStyle("padding-top: 6px; white-space: nowrap;");
+		sampai.setParent(rentang);
+		bungkusPilihanSemester(maxSmt, taMax, tahunAngkatan, semesterPindahan, semesterMulai).setParent(rentang);
+
+		minSmt.addEventListener(Events.ON_SELECT, new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				detail.setMinSmt(ambilSemester(minSmt));
+				Common.refreshUpdate(detail);
+				perbaruiTahunAkademik(taMin, minSmt, tahunAngkatan, semesterPindahan, semesterMulai);
+			}
+		});
+		maxSmt.addEventListener(Events.ON_SELECT, new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				detail.setMaxSmt(ambilSemester(maxSmt));
+				Common.refreshUpdate(detail);
+				perbaruiTahunAkademik(taMax, maxSmt, tahunAngkatan, semesterPindahan, semesterMulai);
+			}
+		});
+	}
+
+	private void isiSemesterDefault(SettingBiayaDetail detail, Integer semesterSaatIni) {
+		Integer semester = batasiSemester(semesterSaatIni, SEMESTER_MINIMAL);
+		detail.setMinSmt(semester);
+		detail.setMaxSmt(semester);
+	}
+
 	/**
 	 * Renderer baris grid mode "daftar mahasiswa reguler": untuk tiap {@link Mahasiswa}, hitung
 	 * semester berjalan lalu resolusi Kegiatan+tagihan aktifnya via
@@ -797,32 +915,9 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 				new Label(mahasiswa.getJurusan() == null ? "" : mahasiswa.getJurusan().getNama()).setParent(a);
 				new Label(mahasiswa.getProgram()).setParent(a);
 
-				final Intbox minSmt = new Intbox(settingBiayaDetail.getMinSmt());
-				final Intbox maxSmt = new Intbox(settingBiayaDetail.getMaxSmt());
-				minSmt.setCols(2);
-				maxSmt.setCols(2);
-				Hbox hbox = new Hbox();
-				hbox.setParent(a);
-				new Label(ais.common.Common.getBahasaConfig("Semester :")).setParent(hbox);
-				minSmt.setParent(hbox);
-				minSmt.addEventListener("onChange", new EventListener() {
-
-					@Override
-					public void onEvent(Event arg0) throws Exception {
-						settingBiayaDetail.setMinSmt(minSmt.getValue());
-						Common.refreshUpdate(settingBiayaDetail);
-					}
-				});
-				new Label(ais.common.Common.getBahasaConfig("sd")).setParent(hbox);
-				maxSmt.setParent(hbox);
-				maxSmt.addEventListener("onChange", new EventListener() {
-
-					@Override
-					public void onEvent(Event arg0) throws Exception {
-						settingBiayaDetail.setMaxSmt(maxSmt.getValue());
-						Common.refreshUpdate(settingBiayaDetail);
-					}
-				});
+				renderRentangSemester(a, settingBiayaDetail, mahasiswa.currentSemester(),
+						mahasiswa.getTahunangkatan(), mahasiswa.getPindahKeKampusIniMasukSemester(),
+						mahasiswa.getSemesterMulai());
 
 				final JSONObject jsonObject = new JSONObject(settingBiayaDetail.getBiayas());
 
@@ -993,36 +1088,12 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 				a = new Vbox();
 				a.setParent(ahbox);
 
-				final Intbox minSmt = new Intbox(settingBiayaDetail.getMinSmt());
-				final Intbox maxSmt = new Intbox(settingBiayaDetail.getMaxSmt());
-				minSmt.setCols(2);
-				maxSmt.setCols(2);
 				new Label("Angkatan:" + mahasiswa.getTahun() + "").setParent(a);
 				new Label(mahasiswa.getGelombangPendaftaran() == null ? ""
 						: mahasiswa.getGelombangPendaftaran().getNama()).setParent(a);
 				new Label(mahasiswa.getProgram()).setParent(a);
-				Hbox hbox = new Hbox();
-				hbox.setParent(a);
-				new Label(ais.common.Common.getBahasaConfig("Semester :")).setParent(hbox);
-				minSmt.setParent(hbox);
-				minSmt.addEventListener("onChange", new EventListener() {
-
-					@Override
-					public void onEvent(Event arg0) throws Exception {
-						settingBiayaDetail.setMinSmt(minSmt.getValue());
-						Common.refreshUpdate(settingBiayaDetail);
-					}
-				});
-				new Label(ais.common.Common.getBahasaConfig("sd")).setParent(hbox);
-				maxSmt.setParent(hbox);
-				maxSmt.addEventListener("onChange", new EventListener() {
-
-					@Override
-					public void onEvent(Event arg0) throws Exception {
-						settingBiayaDetail.setMaxSmt(maxSmt.getValue());
-						Common.refreshUpdate(settingBiayaDetail);
-					}
-				});
+				renderRentangSemester(a, settingBiayaDetail, semesterSaatIni(mahasiswa), mahasiswa.getTahun(),
+						mahasiswa.getPindahDariKampusLamaDiSemester(), mahasiswa.getSemesterMulai());
 
 				final JSONObject jsonObject = new JSONObject(settingBiayaDetail.getBiayas());
 
@@ -1695,6 +1766,7 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 										settingBiayaDetail = new SettingBiayaDetail();
 										settingBiayaDetail.setSettingBiaya(settingBiaya);
 										settingBiayaDetail.setBiodataCalonMahasiswa(biodataCalonMahasiswa);
+										isiSemesterDefault(settingBiayaDetail, semesterSaatIni(biodataCalonMahasiswa));
 
 										session.getTransaction().begin();
 										session.save(settingBiayaDetail);
@@ -1898,6 +1970,7 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 										settingBiayaDetail = new SettingBiayaDetail();
 										settingBiayaDetail.setSettingBiaya(settingBiaya);
 										settingBiayaDetail.setMahasiswa(mahasiswa);
+										isiSemesterDefault(settingBiayaDetail, mahasiswa.currentSemester());
 
 										session.getTransaction().begin();
 										session.save(settingBiayaDetail);
@@ -2405,6 +2478,7 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 									settingBiayaDetail = new SettingBiayaDetail();
 									settingBiayaDetail.setSettingBiaya(settingBiaya);
 									settingBiayaDetail.setMahasiswa(mahasiswa);
+									isiSemesterDefault(settingBiayaDetail, mahasiswa.currentSemester());
 								}
 								JSONObject jsonObject = new JSONObject(settingBiayaDetail.getBiayas());
 								int index = 6;
@@ -2576,6 +2650,7 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 									settingBiayaDetail = new SettingBiayaDetail();
 									settingBiayaDetail.setSettingBiaya(settingBiaya);
 									settingBiayaDetail.setBiodataCalonMahasiswa(biodataCalonMahasiswa);
+									isiSemesterDefault(settingBiayaDetail, semesterSaatIni(biodataCalonMahasiswa));
 								}
 								JSONObject jsonObject = new JSONObject(settingBiayaDetail.getBiayas());
 								int index = 6;
