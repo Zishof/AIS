@@ -62,6 +62,12 @@ private static boolean bolehHapusRiwayat(Session s, PostingHistory p) {
 }
 ```
 
+> **Menyusul (doc 80):** melepas cap tanpa menghapus riwayat memang menghentikan
+> kegagalan FK, tetapi membuat pembatalan BERHASIL separuh -- jurnalnya batal sementara
+> dokumen sumbernya tetap mengaku terposting. Sejak r83096 `unpost` menolak riwayat
+> non-UMUM sama sekali. Lihat
+> [80-layar-jurnal-menyentuh-dokumen-modul.md](80-layar-jurnal-menyentuh-dokumen-modul.md).
+
 Untuk riwayat berjenis lain, capnya tetap dilepas — hanya penghapusan barisnya yang tidak
 dilakukan. Membiarkan satu baris riwayat yatim jauh lebih murah daripada menggagalkan
 pembatalan yang sah.

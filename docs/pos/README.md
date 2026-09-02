@@ -82,6 +82,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [77-kompilasi-penuh-dan-javadoc-dikembalikan.md](77-kompilasi-penuh-dan-javadoc-dikembalikan.md) | Kompilasi seluruh pohon (7.430 berkas, 40.949 kelas, nol galat); dua JavaDoc dikembalikan ke metode yang dijelaskannya |
 | [78-javadoc-yatim-tiga-remedi.md](78-javadoc-yatim-tiga-remedi.md) | Tiga belas blok yatim diselesaikan; remedi ketiga (HAPUS) muncul: boilerplate yang menyebut kelas induk keliru |
 | [79-penjaga-hapus-riwayat-kurang-lengkap.md](79-penjaga-hapus-riwayat-kurang-lengkap.md) | Penjaga doc 74 hanya menghitung 2 dari 64 entitas perujuk posting_history; dipertegas dgn jenis riwayat |
+| [80-layar-jurnal-menyentuh-dokumen-modul.md](80-layar-jurnal-menyentuh-dokumen-modul.md) | unpost menolak jurnal bikinan modul; deleteAll menyisakan baris yatim; tiga pertanyaan terbuka soal cleanDuplicates |
 | [73-stok-minus-tiga-nilai-dan-pemulihan-member.md](73-stok-minus-tiga-nilai-dan-pemulihan-member.md) | "STOK MINUS" pd verifikasi pesanan: `null` diperlakukan sbg "dikunci admin"; + pemulihan nama pemesan dari audit Envers |
 | [74-sql-pemulihan-member-pesanan.sql](74-sql-pemulihan-member-pesanan.sql) | Skrip hitung-dulu-baru-perbaiki utk mengembalikan member yang tertimpa NULL |
 | [75-halaman-pesanan-tiga-celah-sunyi.md](75-halaman-pesanan-tiga-celah-sunyi.md) | `id_member` yang diambil lalu dibuang, "Bayar Semua" yang bilang sukses saat gagal, dan `peringatanStok` tanpa pembaca |
