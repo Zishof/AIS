@@ -161,7 +161,6 @@ public class OnlineBmt extends HttpServlet {
 		value.put("NM_MITRA_BMT", merchantIdentity.namaMitra);
 		value.put("KD_MERCHANT", merchantIdentity.kodeMerchant);
 		value.put("NM_MERCHANT", merchantIdentity.namaMerchant);
-		value.put("STATUS_TRANSAKSI", VirtualAccountBank.isSudahTerbayar(invoice) ? "00" : "01");
 		return success("Request berhasil.", value);
 	}
 
@@ -195,9 +194,10 @@ public class OnlineBmt extends HttpServlet {
 			ledgerTx = lockSession.beginTransaction();
 			Ledger ledger = findLedger(lockSession, input.transactionNo);
 			if (ledger != null && (!ledger.invoiceNo.equals(input.invoiceNo)
-					|| !sameAmount(ledger.amount, input.amount))) {
+					|| !sameAmount(ledger.amount, input.amount)
+					|| !input.channel.equals(ledger.channel))) {
 				throw new ApiException(409, "01",
-						"NO_TRANSAKSI_BMT sudah digunakan untuk invoice atau nominal lain.");
+						"NO_TRANSAKSI_BMT sudah digunakan untuk invoice, nominal, atau channel lain.");
 			}
 
 			VirtualAccountBank invoice = findInvoice(input.invoiceNo);
@@ -283,17 +283,18 @@ public class OnlineBmt extends HttpServlet {
 			tx = session.beginTransaction();
 			Ledger ledger = findLedger(session, input.transactionNo);
 			boolean pairMatches = ledger != null && ledger.invoiceNo.equals(input.invoiceNo)
-					&& sameAmount(ledger.amount, input.amount);
+					&& sameAmount(ledger.amount, input.amount)
+					&& input.channel.equals(ledger.channel);
 			boolean invoicePaid = VirtualAccountBank.isSudahTerbayar(invoice);
 
 			/* Bila proses sebelumnya berhenti sesudah bukti pembayaran tersimpan tetapi
 			 * sebelum ledger SUCCESS, CHECK_STATUS harus dapat menyelesaikan rekonsiliasi.
-			 * Hanya PROCESSING dengan pasangan transaksi-invoice-nominal identik yang
+			 * Hanya PROCESSING dengan pasangan transaksi-invoice-nominal-channel identik yang
 			 * boleh dipulihkan; FAILED tetap memerlukan audit/retry PAYMENT kanonik. */
 			if (pairMatches && invoicePaid && "PROCESSING".equals(ledger.status)) {
 				updateLedger(session, input.transactionNo, "SUCCESS", "00",
 						"Transaksi Berhasil (dipulihkan oleh pemeriksaan status)");
-				ledger = new Ledger(ledger.invoiceNo, ledger.amount, "SUCCESS");
+				ledger = new Ledger(ledger.invoiceNo, ledger.amount, ledger.channel, "SUCCESS");
 			}
 			boolean paid = pairMatches && invoicePaid && "SUCCESS".equals(ledger.status);
 			tx.commit();
@@ -459,9 +460,9 @@ public class OnlineBmt extends HttpServlet {
 		PreparedStatement ps = null; ResultSet rs = null;
 		try {
 			ps = session.connection().prepareStatement(
-					"SELECT no_invoice, nominal, status FROM public.online_bmt_request_guard WHERE no_transaksi_bmt=? ORDER BY id DESC LIMIT 1");
+					"SELECT no_invoice, nominal, channel_bmt, status FROM public.online_bmt_request_guard WHERE no_transaksi_bmt=? ORDER BY id DESC LIMIT 1");
 			ps.setString(1, transactionNo); rs = ps.executeQuery();
-			return rs.next() ? new Ledger(rs.getString(1), rs.getBigDecimal(2), rs.getString(3)) : null;
+			return rs.next() ? new Ledger(rs.getString(1), rs.getBigDecimal(2), rs.getString(3), rs.getString(4)) : null;
 		} finally { close(rs); close(ps); }
 	}
 
@@ -469,11 +470,12 @@ public class OnlineBmt extends HttpServlet {
 		PreparedStatement ps = null;
 		try {
 			ps = session.connection().prepareStatement(
-					"INSERT INTO public.online_bmt_request_guard(nonce,request_type,no_invoice,no_transaksi_bmt,nominal,status) "
-					+ "VALUES (?,?,?,?,?,'PROCESSING') ON CONFLICT (no_transaksi_bmt) DO UPDATE SET "
+					"INSERT INTO public.online_bmt_request_guard(nonce,request_type,no_invoice,no_transaksi_bmt,nominal,channel_bmt,status) "
+					+ "VALUES (?,?,?,?,?,?,'PROCESSING') ON CONFLICT (no_transaksi_bmt) DO UPDATE SET "
 					+ "status='PROCESSING', updated_at=CURRENT_TIMESTAMP");
 			ps.setString(1, input.nonce); ps.setString(2, "PAYMENT"); ps.setString(3, input.invoiceNo);
-			ps.setString(4, input.transactionNo); ps.setBigDecimal(5, input.amount); ps.executeUpdate();
+			ps.setString(4, input.transactionNo); ps.setBigDecimal(5, input.amount);
+			ps.setString(6, input.channel); ps.executeUpdate();
 		} finally { close(ps); }
 	}
 
@@ -666,8 +668,10 @@ public class OnlineBmt extends HttpServlet {
 	}
 
 	private static final class Ledger {
-		final String invoiceNo, status; final BigDecimal amount;
-		Ledger(String invoiceNo, BigDecimal amount, String status) { this.invoiceNo=invoiceNo; this.amount=amount; this.status=status; }
+		final String invoiceNo, channel, status; final BigDecimal amount;
+		Ledger(String invoiceNo, BigDecimal amount, String channel, String status) {
+			this.invoiceNo=invoiceNo; this.amount=amount; this.channel=channel; this.status=status;
+		}
 	}
 
 	private static final class ApiException extends Exception {

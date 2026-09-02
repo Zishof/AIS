@@ -48,10 +48,11 @@ public class InitIndex {
 						+ "created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP)",
 				"CREATE TABLE IF NOT EXISTS public.online_bmt_request_guard ("
 						+ "id bigserial PRIMARY KEY, nonce varchar(200) NOT NULL, request_type varchar(30) NOT NULL, "
-						+ "no_invoice varchar(255), no_transaksi_bmt varchar(255), nominal numeric(20,2), "
+						+ "no_invoice varchar(255), no_transaksi_bmt varchar(255), nominal numeric(20,2), channel_bmt varchar(30), "
 						+ "status varchar(20) NOT NULL DEFAULT 'PROCESSING', response_code varchar(10), "
 						+ "response_message text, created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, "
 						+ "updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP)",
+				"ALTER TABLE public.online_bmt_request_guard ADD COLUMN IF NOT EXISTS channel_bmt varchar(30)",
 				/* NONCE sudah unik melalui PRIMARY KEY public.online_bmt_nonce. Index lama
 				 * pada ledger adalah salinan constraint yang tidak membantu pola query. */
 				"DROP INDEX IF EXISTS public.uq_online_bmt_guard_nonce",

@@ -1588,52 +1588,6 @@ public class KegiatanPersistenceHelper {
 		return kegiatan.hitungPersentaseLunasAktual();
 	}
 
-	/**
-	 * Menghitung persentase pembayaran dari baris CicilanPembayaran yang sudah
-	 * committed di database. Method ini sengaja tidak bergantung pada field rekap
-	 * {@code Kegiatan.bulans}: rekap tersebut diperbarui asynchronous dan dapat
-	 * tertinggal beberapa detik setelah cicilan ditambah atau dihapus.
-	 *
-	 * <p>Dipakai oleh mesin status mahasiswa pada proses refresh/mutasi pembayaran.
-	 * Operasi ini read-only dan tidak mengubah rekap Kegiatan.</p>
-	 */
-	@SuppressWarnings("unchecked")
-	public static Double hitungPersentaseLunasAktualDariDatabase(Kegiatan kegiatan) {
-		if (kegiatan == null || kegiatan.getId() == null) {
-			return kegiatan == null ? Double.valueOf(0.0) : kegiatan.hitungPersentaseLunasAktual();
-		}
-
-		Session session = null;
-		try {
-			session = HibernateUtil.getSessionFactory().openSession();
-			Kegiatan kegiatanDb = (Kegiatan) session.get(Kegiatan.class, kegiatan.getId());
-			if (kegiatanDb == null) {
-				return Double.valueOf(0.0);
-			}
-
-			List<CicilanPembayaran> cicilans = session.createCriteria(CicilanPembayaran.class)
-					.add(Restrictions.eq("kegiatan", kegiatanDb)).addOrder(Order.asc("id")).list();
-			RekapPembayaran rekap = bangunRekapPembayaran(cicilans);
-			Double tagihanHitung = kegiatanDb.hitungTagihan();
-			double totalTagihan = tagihanHitung == null ? 0.0 : tagihanHitung.doubleValue();
-			double totalDibayar = rekap.dibayar == null ? 0.0 : rekap.dibayar.doubleValue();
-
-			if (totalTagihan < 0.01) {
-				return Double.valueOf(totalDibayar > 0.01 ? 100.0 : 0.0);
-			}
-			if (totalDibayar + 0.01 >= totalTagihan) {
-				return Double.valueOf(100.0);
-			}
-			return Double.valueOf((totalDibayar * 100.0) / totalTagihan);
-		} catch (Exception e) {
-			ais.common.ErrorAuditUtil.record(e,
-					"auto-audit hitungPersentaseLunasAktualDariDatabase kegiatan=" + kegiatan.getId());
-			return kegiatan.hitungPersentaseLunasAktual();
-		} finally {
-			closeOpenedSession(session);
-		}
-	}
-
 	private static String bangunRekapTagihan(Kegiatan kegiatan, List<DetailKegiatan> listDetail, boolean live,
 			boolean validasiItemAsing) throws JSONException {
 		JSONObject jsonTagihan = new JSONObject();

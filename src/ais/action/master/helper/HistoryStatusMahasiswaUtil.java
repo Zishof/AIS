@@ -1020,9 +1020,8 @@ public class HistoryStatusMahasiswaUtil {
      * entity {@code Kegiatan} basi dari cache JVM, lihat komentar inline "GERBANG STATUS WAJIB
      * DATA SEGAR"), menyaring yang benar-benar berlaku untuk semester ini lewat
      * {@link #kegiatanSyaratAktifBerlaku}, lalu mensyaratkan SEMUA kegiatan berlaku sudah
-     * lunas {@code >= 10%}. Nilai pembayaran dibaca langsung dari database lewat
-     * {@link KegiatanPersistenceHelper#hitungPersentaseLunasAktualDariDatabase(Kegiatan)}
-     * agar tidak menunggu rekap asynchronous pada {@code Kegiatan.bulans}.
+     * lunas {@code >= 10%}. Nilai pembayaran dihitung dari rekap
+     * {@code Kegiatan.bulans} dan {@code Kegiatan.tagihans} yang sudah dimuat.
      *
      * @param semester  semester yang dicek
      * @param tahap     tahap terkait (diteruskan ke pengecekan bypass)
@@ -1043,8 +1042,7 @@ public class HistoryStatusMahasiswaUtil {
                     if (!kegiatanSyaratAktifBerlaku(keg, semester)) {
                         continue;
                     }
-                    check &= (keg != null && KegiatanPersistenceHelper
-                            .hitungPersentaseLunasAktualDariDatabase(keg) >= 0.1);
+                    check &= (keg != null && keg.hitungPersentaseLunasAktual() >= 0.1);
                 }
             }
         }
@@ -1075,8 +1073,7 @@ public class HistoryStatusMahasiswaUtil {
                     continue;
                 }
                 adaTagihanYangBerlaku = true;
-                if (keg == null || KegiatanPersistenceHelper
-                        .hitungPersentaseLunasAktualDariDatabase(keg) < 0.1) {
+                if (keg == null || keg.hitungPersentaseLunasAktual() < 0.1) {
                     return false;
                 }
             }
@@ -1268,8 +1265,7 @@ public class HistoryStatusMahasiswaUtil {
                         continue;
                     }
                     adaTagihanSyaratAktif = true;
-                    double persen = KegiatanPersistenceHelper
-                            .hitungPersentaseLunasAktualDariDatabase(kegiatan).doubleValue();
+                    double persen = kegiatan.hitungPersentaseLunasAktual().doubleValue();
                     String nama = kegiatan.getJenisKegiatan().getNamaKegiatan();
                     if (nama == null || nama.trim().isEmpty()) nama = "Tagihan syarat aktif";
                     boolean memenuhi = persen >= 0.1;
