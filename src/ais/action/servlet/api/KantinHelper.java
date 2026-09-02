@@ -2017,17 +2017,17 @@ public class KantinHelper {
 	 * kanonik yang sama dengan {@link ais.action.master.inventory.StokKantinUtil} (bukan field
 	 * {@code Produk.stok} yang bisa saja basi) sebelum membandingkannya dengan qty yang diminta.</p>
 	 *
-	 * <p><b>Gerbang konfigurasi:</b> hanya aktif bila {@code Konfigurasi.KANTIN_POS_CEGAH_OVERSELL}
-	 * AKTIF -- default TIDAK_AKTIF (OFF). Berbeda dari {@code KANTIN_POS_WAJIB_SESI_KAS}
-	 * yang default-nya AKTIF. Sebab: rumus
-	 * stok LIVE di sini hanya mengakui item masuk lewat {@code koperasi.pengadaan_produk}/{@code
-	 * stok_opname}; banyak toko existing tidak pernah mencatat stok masuk lewat modul Pengadaan (form
-	 * Produk kantin tidak punya kolom stok yang bisa diisi manual) sehingga stok LIVE hasil hitungan
-	 * sudah negatif dari riwayat penjualan lama, jauh sebelum gerbang ini ada. Mengaktifkan gerbang ini
-	 * secara default per 2026-07-20 sempat memblokir SELURUH penjualan produk semacam itu di toko yang
-	 * belum pernah opname (termasuk "Layani Semua Pesanan" utk draft lama). Toko yang datanya sudah
-	 * bersih (rutin Pengadaan/Stok Opname) dapat mengaktifkan gerbang ini secara eksplisit lewat
-	 * Konfigurasi &gt; Kasir (POS).</p>
+	 * <p><b>Gerbang konfigurasi (sejak 02-09-2026 benar-benar dibaca).</b> Sakelar
+	 * {@code Konfigurasi.KANTIN_POS_CEGAH_OVERSELL} (default MATI) menentukan perlakuan produk
+	 * yang aturannya masih bawaan ({@code izinkan_jual_minus_stok == null}). MATI = tidak
+	 * memblokir; AKTIF = seluruh produk yang stoknya kurang ikut diblokir. Override per-produk
+	 * tetap menang atas sakelar ini pada KEDUA arah: {@code FALSE} selalu memblokir walau sakelar
+	 * mati, {@code TRUE} tidak pernah memblokir walau sakelar aktif.
+	 *
+	 * <p>Sebelumnya JavaDoc ini sudah menyebut gerbang tersebut padahal badan method TIDAK PERNAH
+	 * membacanya — dokumentasi yang menjanjikan lebih daripada kodenya. Akibatnya menyalakan atau
+	 * mematikan "Cegah Oversell Kasir" tidak berpengaruh apa pun pada jalur API (JSP/Desktop/
+	 * Android); hanya POS ZK yang menghormatinya.</p>
 	 *
 	 * <p><b>Batas cakupan (diketahui, bukan bug):</b> lock ini hanya dipegang selama pengecekan itu
 	 * sendiri (transaksi pendek tersendiri), BUKAN sepanjang seluruh proses simpan baris penjualan --
@@ -2236,8 +2236,20 @@ public class KantinHelper {
 	 * <p>Aturan sesederhana ini pantas berdiri sendiri supaya dapat diuji tanpa basis data: yang
 	 * regresi kemarin bukan kuerinya, melainkan satu perbandingan boolean di tengah kueri itu.</p>
 	 */
-	static boolean wajibDiblokirKarenaStok(Boolean izinkanJualMinusStok) {
-		return Boolean.FALSE.equals(izinkanJualMinusStok);
+	static boolean wajibDiblokirKarenaStok(Boolean izinkanJualMinusStok,
+			boolean cegahOversellAktif) {
+		// Dikunci admin: SELALU memblokir, terlepas dari sakelar global. Itulah gunanya
+		// override per-produk -- barang mahal/gampang basi tidak boleh ikut terbuka
+		// hanya karena kebijakan umum toko dilonggarkan.
+		if (Boolean.FALSE.equals(izinkanJualMinusStok)) {
+			return true;
+		}
+		// Selalu boleh dijual minus: tidak pernah memblokir.
+		if (Boolean.TRUE.equals(izinkanJualMinusStok)) {
+			return false;
+		}
+		// null = "Ikut Pengaturan Toko" -- dan INILAH pengaturan yang diikutinya.
+		return cegahOversellAktif;
 	}
 
 	private static HasilValidasiStok validasiStokCukupDenganLock(JSONArray transaksi, Long tokoId,
@@ -2246,13 +2258,19 @@ public class KantinHelper {
 		return validasiStokCukupDenganLock(transaksi, tokoId, bolehStokHabisToko,
 				ais.common.Common.bolehKonfigurasi(
 						ais.database.model.Konfigurasi.KANTIN_POS_RESERVASI_MENGUNCI,
+						ais.database.model.Konfigurasi.TIDAK_AKTIF),
+				// Default MATI -- bunyi yang sama dengan label layar Konfigurasi
+				// ("Cegah Oversell Kasir ... default MATI"). Lihat catatan pada
+				// wajibDiblokirKarenaStok kenapa nilai ini dulu tidak pernah dibaca.
+				ais.common.Common.bolehKonfigurasi(
+						ais.database.model.Konfigurasi.KANTIN_POS_CEGAH_OVERSELL,
 						ais.database.model.Konfigurasi.TIDAK_AKTIF));
 	}
 
 	/** Varian ber-flag eksplisit -- dipisah supaya inti logika teruji tanpa lapisan cache
 	 * konfigurasi (pola dok. 44). */
 	static HasilValidasiStok validasiStokCukupDenganLock(JSONArray transaksi, Long tokoId,
-			boolean bolehStokHabisToko, boolean reservasiMengunci) {
+			boolean bolehStokHabisToko, boolean reservasiMengunci, boolean cegahOversellAktif) {
 		if (transaksi == null || transaksi.length() == 0) {
 			return null;
 		}
@@ -2309,7 +2327,7 @@ public class KantinHelper {
 							+ (terkunciReservasi > 0 ? ", terkunci reservasi WO " + terkunciReservasi : "")
 							+ ", diminta " + qtyDiminta + ")";
 					kurang.add(deskripsi);
-					if (wajibDiblokirKarenaStok(overridePerItem)) {
+					if (wajibDiblokirKarenaStok(overridePerItem, cegahOversellAktif)) {
 						wajibBlokir.add(deskripsi);
 					}
 				}

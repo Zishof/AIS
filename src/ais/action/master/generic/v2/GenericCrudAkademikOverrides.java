@@ -303,6 +303,26 @@ public final class GenericCrudAkademikOverrides {
         ais.action.master.generic.v2.adapter.GenericCrudEntityAdapter adapter =
                 DINAIKKAN.get(kunci);
         if (adapter == null) return;
+        if (entitasSensitif(definition.getEntityClass())) {
+            /*
+             * Penjaga berlapis. GenericCrudAutoDefinitionFactory sudah menolak
+             * entitas ber-token sensitif lewat isBlockedClass(), sehingga
+             * definisinya tiba di sini dalam keadaan READ_ONLY. Lapisan ini
+             * menyalakan tambah/ubah TANPA memeriksa hal itu — artinya satu
+             * baris keliru pada DINAIKKAN cukup untuk membatalkan penjaga di
+             * bawahnya, dan yang terbuka adalah tabel pengguna, peran, atau
+             * menu. Penjaga ini membuat kekeliruan seperti itu mustahil, bukan
+             * sekadar tidak mungkin terjadi.
+             */
+            try {
+                ais.common.ErrorAuditUtil.record(new IllegalStateException(
+                        "Route " + kunci + " menunjuk entitas sensitif ("
+                        + definition.getEntityClass().getName()
+                        + "); penaikan CRUD ditolak."),
+                        "GenericCrudAkademikOverrides");
+            } catch (Exception diabaikan) { }
+            return;
+        }
         try {
             definition.setAdapter(adapter);
             if (adapter instanceof GenericCrudScopeAdapter) {
@@ -347,6 +367,29 @@ public final class GenericCrudAkademikOverrides {
         } catch (NoSuchMethodException tidakAda) {
             return false;
         }
+    }
+
+    /**
+     * Token nama entitas yang tidak boleh dinaikkan lapisan ini.
+     *
+     * <p>Cerminan dari {@code BLOCKED_CLASS_TOKENS} milik pabrik definisi —
+     * disalin sebagian, sengaja hanya yang paling berbahaya. Menyalinnya memang
+     * duplikasi, tetapi alternatifnya membuka {@code isBlockedClass()} yang
+     * privat, dan sebuah penjaga keamanan lebih baik berlebihan daripada
+     * bergantung pada satu tempat saja.</p>
+     */
+    private static final String[] TOKEN_SENSITIF = {
+        "user", "role", "privilege", "permission", "hakakses", "menu",
+        "password", "credential", "token", "secret", "session", "login",
+    };
+
+    private static boolean entitasSensitif(Class<?> entityClass) {
+        if (entityClass == null) return false;
+        String nama = entityClass.getName().toLowerCase();
+        for (int i = 0; i < TOKEN_SENSITIF.length; i++) {
+            if (nama.indexOf(TOKEN_SENSITIF[i]) >= 0) return true;
+        }
+        return false;
     }
 
     /** Alasan sebuah route sengaja ditahan sebagai READ_ONLY; null bila tidak ditahan. */

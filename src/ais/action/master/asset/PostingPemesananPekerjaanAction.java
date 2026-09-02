@@ -761,6 +761,16 @@ public class PostingPemesananPekerjaanAction extends GenericAutowireComposer {
 																					satuanKerja, key, session);
 																			session.getTransaction().commit();
 
+																			// Penanda dipasang di cabang ini JUGA. Sebelumnya hanya cabang tanpa
+																			// pajak yang menandainya, sehingga termin berpajak jurnalnya tersimpan
+																			// tetapi dokumennya tetap tampil sbg draft: pengguna menekan posting
+																			// berulang kali dan penjaga anti-jurnal-ganda (ref = kunci termin sudah
+																			// ada) menolaknya diam-diam. Jalur API sudah menandai kedua cabang.
+																			saldoAwalMasterAsset.setPostingHistory(postingHistory);
+																			session.getTransaction().begin();
+																			session.update(saldoAwalMasterAsset);
+																			session.getTransaction().commit();
+
 																		} else {
 
 																			if (akunDebet != null

@@ -1667,8 +1667,8 @@ public class PosKantinAction extends GenericAutowireComposer {
 
     /**
      * Cegah penambahan item melebihi stok yang tersedia (mencegah oversell/stok negatif). Penegakan
-     * dikendalikan konfigurasi {@link Konfigurasi#KANTIN_POS_CEGAH_OVERSELL} (default AKTIF); admin
-     * dapat mematikannya bila koperasi menjual jasa/produk tanpa pelacakan stok. Mengembalikan
+     * dikendalikan konfigurasi {@link Konfigurasi#KANTIN_POS_CEGAH_OVERSELL} (default MATI); admin
+     * dapat menyalakannya setelah toko rutin mencatat stok masuk. Mengembalikan
      * {@code true} bila boleh ditambah; bila tidak, menampilkan peringatan dan mengembalikan
      * {@code false}.
      */
@@ -1676,7 +1676,11 @@ public class PosKantinAction extends GenericAutowireComposer {
         if (bolehTransaksiStokHabis || izinkanJualMinusStok) {
             return true;
         }
-        if (!Common.bolehKonfigurasi(Konfigurasi.KANTIN_POS_CEGAH_OVERSELL, Konfigurasi.AKTIF)) {
+        // Default MATI -- bunyi yang sama dengan label layar Konfigurasi ("Cegah Oversell
+        // Kasir ... default MATI") dan sama dengan jalur API. Sebelumnya di sini defaultnya
+        // AKTIF: satu sakelar dengan dua arti, sehingga instalasi yang belum pernah
+        // menyimpan barisnya memblokir di POS ZK tetapi meloloskan di JSP/Desktop/Android.
+        if (!Common.bolehKonfigurasi(Konfigurasi.KANTIN_POS_CEGAH_OVERSELL, Konfigurasi.TIDAK_AKTIF)) {
             return true;
         }
         if (qtyBaru > stok) {

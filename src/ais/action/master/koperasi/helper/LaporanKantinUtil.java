@@ -120,6 +120,18 @@ public final class LaporanKantinUtil {
     }
 
     /** Hasil pembentukan satu laporan. */
+    /**
+     * Batas jumlah baris satu laporan.
+     *
+     * <p>Seluruh baris laporan ditahan di memori sebagai {@code Object[]} lalu dirender ke
+     * halaman. Tanpa batas, satu permintaan "Rincian Penjualan per Barang" untuk rentang
+     * setahun pada toko ramai dapat menarik ratusan ribu baris sekaligus — membebani memori
+     * server (bukan hanya laporan itu; seluruh aplikasi ikut terdampak) dan menghasilkan
+     * halaman yang tidak mungkin dibaca. Batas ini memilih gagal-terkendali dengan
+     * pemberitahuan, bukan gagal-total tanpa penjelasan.</p>
+     */
+    private static final int BATAS_BARIS_LAPORAN = 20000;
+
     public static final class Hasil {
         public String status = "00";       // 00 ok | soon | 01 sesi habis | 99 error
         public String message = "";
@@ -131,6 +143,8 @@ public final class LaporanKantinUtil {
         public final List<Kolom> kolom = new ArrayList<Kolom>();
         public final List<Object[]> baris = new ArrayList<Object[]>();
         public String[] tipe = new String[0];
+        /** true bila baris dipotong pada BATAS_BARIS_LAPORAN; isi laporan TIDAK lengkap. */
+        public boolean terpotong = false;
     }
 
     /**
@@ -3819,10 +3833,17 @@ public final class LaporanKantinUtil {
                     java.sql.PreparedStatement ps = conn.prepareStatement(jdbcSql);
                     try {
                         for (int i = 0; i < pVals.size(); i++) { ps.setObject(i + 1, pVals.get(i)); }
+                        // Satu baris lebih dari batas sengaja diminta: kelebihannya dipakai
+                        // untuk MENGETAHUI bahwa hasilnya terpotong, bukan untuk ditampilkan.
+                        ps.setMaxRows(BATAS_BARIS_LAPORAN + 1);
                         java.sql.ResultSet rs = ps.executeQuery();
                         try {
                             int nc = rs.getMetaData().getColumnCount();
                             while (rs.next()) {
+                                if (HF.baris.size() >= BATAS_BARIS_LAPORAN) {
+                                    HF.terpotong = true;
+                                    break;
+                                }
                                 Object[] out = new Object[tipeF.length];
                                 for (int i = 0; i < tipeF.length; i++) {
                                     if (i >= nc) { out[i] = "num".equals(tipeF[i]) ? Double.valueOf(0d) : ("tgl".equals(tipeF[i]) ? null : ""); continue; }
@@ -3849,6 +3870,15 @@ public final class LaporanKantinUtil {
                 }
             });
 
+            if (H.terpotong) {
+                // Laporan yang diam-diam terpotong lebih berbahaya daripada laporan yang gagal:
+                // angkanya terlihat wajar dan tetap dipakai untuk mengambil keputusan.
+                String peringatan = "PERHATIAN: hanya " + BATAS_BARIS_LAPORAN
+                        + " baris pertama yang ditampilkan. Angka di bawah TIDAK lengkap —"
+                        + " persempit rentang tanggal atau pakai filter produk/kasir.";
+                catatan = (catatan == null || catatan.trim().length() == 0)
+                        ? peringatan : (peringatan + " " + catatan);
+            }
             H.judul = judul; H.catatan = catatan; H.grup = grupIdx; H.tipe = tipe;
         } catch (Exception e) {
             e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/koperasi/helper/LaporanKantinUtil.java:2386");

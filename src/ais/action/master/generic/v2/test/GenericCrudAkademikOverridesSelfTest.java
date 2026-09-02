@@ -178,7 +178,28 @@ public final class GenericCrudAkademikOverridesSelfTest {
                     "antarjemput/" + ajTahan[i] + " harus punya alasan tertulis");
         }
 
-        // 8. Route di luar daftar tidak boleh tersentuh sama sekali.
+        // 8. Penjaga entitas sensitif. Kalau suatu saat ada baris DINAIKKAN yang
+        //    menunjuk tabel pengguna/peran/menu — entah keliru entah disengaja —
+        //    lapisan ini HARUS menolak, bukan membatalkan penjaga pabrik
+        //    definisi di bawahnya. Diuji dengan meminjam route yang memang ada
+        //    di DINAIKKAN lalu menukar entitasnya dengan Tbmuser.
+        GenericCrudDefinition sensitif = definisi("root", "kurikulum",
+                ais.database.model.Tbmuser.class);
+        sensitif.setLifecycleStatus(GenericCrudDefinition.READ_ONLY);
+        sensitif.setCreateEnabled(false);
+        sensitif.setUpdateEnabled(false);
+        sensitif.setDeleteEnabled(false);
+        sensitif.setAdminDeleteEnabled(false);
+        GenericCrudAkademikOverrides.terapkan(sensitif);
+        check(GenericCrudDefinition.READ_ONLY.equals(sensitif.getLifecycleStatus()),
+                "entitas sensitif tidak boleh dinaikkan menjadi FULL_CRUD");
+        check(!sensitif.isCreateEnabled() && !sensitif.isUpdateEnabled()
+                && !sensitif.isDeleteEnabled(),
+                "entitas sensitif harus tetap tertutup meski route-nya terdaftar DINAIKKAN");
+        check(sensitif.getAdapter() == null,
+                "entitas sensitif tidak boleh dipasangi adapter penaik");
+
+        // 9. Route di luar daftar tidak boleh tersentuh sama sekali.
         GenericCrudDefinition lain = definisi("sekolah", "pembayaran_siswa",
                 ais.database.model.Kurikulum.class);
         GenericCrudAkademikOverrides.terapkan(lain);

@@ -16,7 +16,43 @@ import org.apache.log4j.Logger;
 /**
  * This class is use to encrypt and decrypt URL that is to be send to subscriber
  * it's used by delivery module when resend process.
- * 
+ *
+ * <h2>Riwayat — migrasi ke AES-256-GCM dicoba lalu DIBATALKAN (2026-09-02)</h2>
+ * <p>
+ * Kelas ini dipakai lewat {@link Common#desEncrypter} di puluhan titik seluruh AIS, termasuk
+ * enkripsi password akun ({@code Tbmuser.userPassword} dan kolom {@code pass}/{@code passOrtu}
+ * sejenis) dengan cipher DES dan passphrase TETAP {@link Common#DES_PASS_PHRASE} yang sama di
+ * semua instalasi — lihat catatan keamanan pada javadoc {@link Common#DES_PASS_PHRASE} untuk
+ * detail risikonya.
+ * </p>
+ * <p>
+ * Pada 2026-09-02 sempat dicoba mengganti {@link #encrypt(String)} ke AES-256-GCM (kunci acak
+ * per-instalasi, tidak lagi tertanam di kode) dengan {@link #decrypt(String)} tetap membaca
+ * ciphertext DES lama sebagai fallback. Perubahan ini di-<i>revert</i> segera setelah diketahui
+ * MEMATIKAN LOGIN — penyebabnya: sebagian pemanggil (mis. jalur login
+ * {@code ais.database.model.Mahasiswa} di
+ * {@code ais.common.CommonSecurityLoginHelper#checkLogin}, juga beberapa titik di
+ * {@code ais.action.servlet.api.ApiUtil}, {@code ais.action.servlet.api.KantinHelper},
+ * {@code ais.action.servlet.api.ResetPasswordApi}, {@code ais.action.master.resources.MahasiswaResource},
+ * dan resource API lain) memverifikasi password dengan meng-enkripsi input lalu membandingkan
+ * CIPHERTEXT-KE-CIPHERTEXT langsung pada query database
+ * ({@code Restrictions.eq("pass", encrypt(password))}), BUKAN mendekripsi nilai tersimpan lalu
+ * membandingkan plaintext. Pola ini hanya berfungsi bila {@link #encrypt(String)} DETERMINISTIK
+ * (plaintext sama selalu menghasilkan ciphertext sama) — DES pada kelas ini bersifat begitu
+ * (parameter salt/iterationCount tetap), sedangkan AES-GCM yang benar SELALU memakai IV acak per
+ * panggilan sehingga ciphertext-nya berbeda setiap kali meski plaintext-nya sama, membuat seluruh
+ * perbandingan ciphertext-ke-ciphertext di atas gagal total.
+ * </p>
+ * <p>
+ * <b>Implikasi bagi upaya perbaikan berikutnya</b>: mengganti cipher ini ke skema yang tidak
+ * deterministik (termasuk AES-GCM yang benar) TIDAK BOLEH dilakukan hanya di kelas ini — seluruh
+ * pemanggil yang memakai pola "enkripsi lalu bandingkan ciphertext" harus DIUBAH LEBIH DULU
+ * menjadi pola "dekripsi nilai tersimpan lalu bandingkan plaintext" (seperti jalur
+ * {@code ais.database.model.Tbmuser} di {@code ais.common.CommonSecurityLoginHelper#checkLogin},
+ * yang TIDAK terdampak revert ini). Kelas ini untuk saat ini TETAP memakai DES kunci tetap sampai
+ * pekerjaan migrasi pemanggil tersebut dilakukan secara terpisah.
+ * </p>
+ *
  * @author Wildan Rizaluddin
  */
 public class DesEncrypter {
