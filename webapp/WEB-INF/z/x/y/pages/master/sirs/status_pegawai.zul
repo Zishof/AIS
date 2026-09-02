@@ -7,7 +7,7 @@
 	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
 
 	<window use="ais.ui.util.MyWindow" border="none" id="window"
-		apply="ais.action.master.sirs.StatusPegawaiAction" width="100%" height="100%">
+		apply="ais.action.master.StatusPegawaiAction" width="100%" height="100%">
 
 		<div sclass="ais-crud-portal">
 

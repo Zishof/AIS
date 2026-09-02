@@ -1133,6 +1133,22 @@ public class DaftarPengajuanTransfer extends DataSop {
 	 * Pembayaran hutang supplier TOKO (modul Inventory &amp; Sales). Ditambahkan 2026-08-20 supaya
 	 * pembayaran ke pemasok toko ikut muncul di menu Pembayaran Transfer, sejajar dengan pembayaran
 	 * pengadaan aset yang sudah lebih dulu tertaut. Idempoten seperti simpanXxx lainnya.
+	 *
+	 * <p>Resep {@code simpanXxx} standar (dua transaksi terpisah), dengan gerbang masuk yang
+	 * <b>juga menolak {@code null}</b> — berbeda dari beberapa saudaranya yang meloloskan
+	 * argumen {@code null} lalu meledak. Nama baris memuat nama supplier bila ada.</p>
+	 *
+	 * <p><i>Catatan konsistensi:</i> tipe dokumen ini dikenali oleh {@link #getKode()} dan
+	 * {@link #getNominal()}, tetapi <b>tidak</b> punya cabang di {@link #getBankSumber()},
+	 * {@link #getAtasNamaSumber()}, {@link #getNoRekSumber()}, {@link #getAkun()},
+	 * {@link #getWaktu()}, maupun {@link #ambilSatuanKerja()}. Akibatnya kolom-kolom itu tidak
+	 * pernah diturunkan otomatis untuk baris hutang supplier dan tetap bernilai apa pun yang
+	 * tersimpan (biasanya {@code null}).</p>
+	 *
+	 * @param pembayaranHutangSupplier dokumen pembayaran hutang supplier toko; {@code null}
+	 *                                 atau yang sudah punya baris DPT diabaikan
+	 * @see #simpanPembayaranDpMasterAssetDetail(PembayaranDpMasterAssetDetail) untuk penjelasan
+	 *      lengkap resep {@code simpanXxx}
 	 */
 	public static void simpanPembayaranHutangSupplier(
 			ais.database.model.koperasi.PembayaranHutangSupplier pembayaranHutangSupplier) {
@@ -1167,8 +1183,21 @@ public class DaftarPengajuanTransfer extends DataSop {
 		closeNativeSessionSafely(session);
 	}
 
+	/**
+	 * Dokumen sumber: pembayaran hutang supplier modul toko/koperasi. Dideklarasikan terpisah
+	 * dari blok field lain karena ditambahkan belakangan (2026-08-20).
+	 */
 	private ais.database.model.koperasi.PembayaranHutangSupplier pembayaranHutangSupplier;
 
+	/**
+	 * Mengembalikan dokumen pembayaran hutang supplier toko yang menjadi sumber baris ini.
+	 *
+	 * <p>Memanggil {@code check(...)} lebih dulu untuk meresolusi proxy lazy — pola getter
+	 * relasi standar di seluruh entity AIS.</p>
+	 *
+	 * @return dokumen pembayaran hutang supplier, atau {@code null} bila baris ini bertipe lain
+	 * @see ais.database.model.GeneralValueObject#check(Object)
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pembayaran_hutang_supplier", nullable = true)
 	public ais.database.model.koperasi.PembayaranHutangSupplier getPembayaranHutangSupplier() {
@@ -1176,6 +1205,11 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return pembayaranHutangSupplier;
 	}
 
+	/**
+	 * Menautkan baris ini ke sebuah dokumen pembayaran hutang supplier toko.
+	 *
+	 * @param pembayaranHutangSupplier dokumen sumber; boleh {@code null}
+	 */
 	public void setPembayaranHutangSupplier(
 			ais.database.model.koperasi.PembayaranHutangSupplier pembayaranHutangSupplier) {
 		this.pembayaranHutangSupplier = pembayaranHutangSupplier;
@@ -1186,6 +1220,20 @@ public class DaftarPengajuanTransfer extends DataSop {
 	 * Idempoten: hanya membuat satu baris DaftarPengajuanTransfer per dokumen dan
 	 * menautkan balik lewat {@code daftar_pengajuan_transfer}. Klon
 	 * {@link #simpanUangMuka} untuk pola yang identik.
+	 *
+	 * <p>Nama baris memakai {@code nama} reimbursement, dengan {@code kode} sebagai cadangan
+	 * bila namanya kosong, ditambah nama pegawai penerima.</p>
+	 *
+	 * <p><b>Kekhasan tipe ini:</b> reimbursement adalah satu-satunya tipe dokumen yang tujuan
+	 * transfernya adalah <b>rekening pribadi pegawai</b>, bukan rekening vendor atau akun kas
+	 * lembaga. Karena itu {@link #getBankSumber()}, {@link #getAtasNamaSumber()}, dan
+	 * {@link #getNoRekSumber()} punya cabang khusus yang mengambil data bank/rekening dari
+	 * profil pegawai (dengan rekening penerima manual sebagai prioritas pertama).</p>
+	 *
+	 * @param reimbursementPegawai dokumen reimbursement yang sudah disetujui; diabaikan bila
+	 *                             sudah punya baris DPT
+	 * @see #simpanPembayaranDpMasterAssetDetail(PembayaranDpMasterAssetDetail) untuk penjelasan
+	 *      lengkap resep {@code simpanXxx}
 	 */
 	public static void simpanReimbursement(ReimbursementPegawai reimbursementPegawai) {
 
@@ -1221,6 +1269,21 @@ public class DaftarPengajuanTransfer extends DataSop {
 		closeNativeSessionSafely(session);
 	}
 
+	/**
+	 * Mendaftarkan penyerahan <b>saldo awal kas kecil</b> ke kolam antrean pembayaran.
+	 *
+	 * <p>Berbeda dari saudara-saudaranya, dokumen sumber di sini bukan sebuah transaksi
+	 * melainkan <b>data master</b> {@link JenisKasKecil}: saat sebuah jenis kas kecil dibentuk,
+	 * dana pertamanya harus ditransfer ke pemegang kas. Nama baris disusun "Saldo awal
+	 * &lt;nama jenis kas kecil&gt;", nominalnya diambil dari
+	 * {@code JenisKasKecil#getSaldoAwal()}, dan {@link #getKode()} menyusun kode buatan
+	 * berbentuk {@code "SKK-<id>"} karena data master ini tidak punya kode dokumen sendiri.</p>
+	 *
+	 * @param jenisKasKecil data master jenis kas kecil yang saldo awalnya hendak diantrekan;
+	 *                      diabaikan bila sudah punya baris DPT
+	 * @see #simpanPembayaranDpMasterAssetDetail(PembayaranDpMasterAssetDetail) untuk penjelasan
+	 *      lengkap resep {@code simpanXxx}
+	 */
 	public static void simpanJenisKasKecil(JenisKasKecil jenisKasKecil) {
 
 		if (jenisKasKecil != null && jenisKasKecil.getDaftarPengajuanTransfer() != null) {
@@ -1251,6 +1314,34 @@ public class DaftarPengajuanTransfer extends DataSop {
 		closeNativeSessionSafely(session);
 	}
 
+	/**
+	 * Mendaftarkan <b>pengembalian sisa uang muka</b> ke kolam antrean pembayaran, berdasarkan
+	 * dokumen pertanggungjawaban.
+	 *
+	 * <p>Arah uangnya berlawanan dengan {@link #simpanUangMuka(UangMuka)}: di sini lembaga
+	 * membayarkan kembali kelebihan biaya yang sudah ditalangi pelaksana kegiatan
+	 * (field {@code dikembalikan} pada pertanggungjawaban).</p>
+	 *
+	 * <p><b>Gerbang masuk berlapis</b> (method ini sengaja <i>self-gating</i> agar aman
+	 * dipanggil dari mana pun; dulu dinonaktifkan total lewat {@code if (true) return}):</p>
+	 * <ul>
+	 *   <li>argumen tidak {@code null} dan belum punya baris DPT;</li>
+	 *   <li>pertanggungjawaban <b>sudah disetujui</b> ({@code getDisetujuiOleh() != null});</li>
+	 *   <li>ada dana yang benar-benar harus dikembalikan — {@code dikembalikan > 0.1}. Ambang
+	 *   {@code 0.1} (bukan {@code 0}) dipakai untuk menghindari baris pembayaran senilai nol
+	 *   koma sekian akibat pembulatan {@code double}.</li>
+	 * </ul>
+	 *
+	 * <p>Seperti {@link #simpanDanaTalangan(DanaTalangan)}, tautan balik dipasang sebelum
+	 * penyimpanan dan hanya baris DPT yang di-{@code saveOrUpdate} (satu transaksi).
+	 * {@code getUangMuka()} dipanggil tanpa pemeriksaan {@code null} saat menyusun nama.</p>
+	 *
+	 * @param pertangungjawaban dokumen pertanggungjawaban uang muka; diabaikan bila belum
+	 *                          disetujui, tidak ada dana dikembalikan, atau sudah punya baris
+	 *                          DPT
+	 * @see #simpanPembayaranDpMasterAssetDetail(PembayaranDpMasterAssetDetail) untuk penjelasan
+	 *      lengkap resep {@code simpanXxx}
+	 */
 	public static void simpanPertangungjawaban(Pertangungjawaban pertangungjawaban) {
 
 		// DIAKTIFKAN (dulu di-nonaktif via if(true)return). Self-gating agar aman dipanggil dari
@@ -1287,6 +1378,21 @@ public class DaftarPengajuanTransfer extends DataSop {
 
 	}
 
+	/**
+	 * Mendaftarkan <b>pengembalian sisa kas besar</b> ke kolam antrean pembayaran, berdasarkan
+	 * dokumen pertanggungjawaban kas besar.
+	 *
+	 * <p>Kembaran {@link #simpanPertangungjawaban(Pertangungjawaban)} untuk jalur kas besar:
+	 * gerbang berlapis yang sama (sudah disetujui, {@code dikembalikan > 0.1}, belum punya
+	 * baris DPT), tautan balik dipasang sebelum penyimpanan, satu transaksi. Nama baris memuat
+	 * nama pertanggungjawaban dan nama kas besar induknya bila ada.</p>
+	 *
+	 * @param pertangungjawabanKasBesar dokumen pertanggungjawaban kas besar; diabaikan bila
+	 *                                  belum disetujui, tidak ada dana dikembalikan, atau sudah
+	 *                                  punya baris DPT
+	 * @see #simpanPembayaranDpMasterAssetDetail(PembayaranDpMasterAssetDetail) untuk penjelasan
+	 *      lengkap resep {@code simpanXxx}
+	 */
 	public static void simpanPertangungjawabanKasBesar(PertangungjawabanKasBesar pertangungjawabanKasBesar) {
 
 		// DIAKTIFKAN (dulu di-nonaktif via if(true)return). Self-gating: hanya buat DPT bila
@@ -1324,6 +1430,35 @@ public class DaftarPengajuanTransfer extends DataSop {
 
 	}
 
+	/**
+	 * Mendaftarkan <b>diskon siswa yang dibayarkan tunai</b> ke kolam antrean pembayaran.
+	 *
+	 * <p>Modul sekolah mengenal dua bentuk diskon. Diskon yang <i>memotong tagihan</i> cukup
+	 * mengurangi nilai tagihan dan tidak melibatkan aliran uang keluar. Sebaliknya diskon
+	 * <b>tidak langsung</b> — beasiswa/subsidi yang tetap ditagihkan penuh kepada siswa lalu
+	 * dananya ditalangi/diserahkan pihak lain — harus benar-benar dibayarkan, dan itulah yang
+	 * diantrekan di sini. Karena itu gerbang masuknya menuntut ketiganya sekaligus: tagihan
+	 * sudah tersimpan, punya {@code diskonSiswa} yang {@code memotongTagihan == false}, dan
+	 * {@code diskonTidakLangsung > 0.1}.</p>
+	 *
+	 * <p>Nama baris merangkai nama dan nomor induk siswa — atau, bila belum menjadi siswa,
+	 * nama dan nomor registrasi calon siswa — ditambah nama item biaya sekolahnya.</p>
+	 *
+	 * <p><b>Menyimpang dari resep standar:</b> hanya <b>satu</b> transaksi (baris DPT saja);
+	 * tidak ada tautan balik yang disimpan di {@link Tagihan}, sehingga gerbang idempotensi
+	 * bergantung sepenuhnya pada langkah "cari-atau-buat" lewat {@code Criteria}. Seluruh
+	 * badan method juga dibungkus {@code try/catch} yang menelan exception (hanya dicetak dan
+	 * dicatat {@code ErrorAuditUtil}) — kegagalan pembuatan baris diskon <b>tidak</b> akan
+	 * menggagalkan penyimpanan tagihan yang memanggilnya. Konsekuensinya kegagalan bersifat
+	 * senyap; bila baris diskon tidak muncul di daftar pembayaran, periksa log audit.</p>
+	 *
+	 * <p><i>Kuirk:</i> {@code diskonTagihan} dipakai tanpa pemeriksaan {@code null}, tetapi
+	 * {@code NullPointerException}-nya tertelan oleh {@code catch} di atas.</p>
+	 *
+	 * @param diskonTagihan tagihan siswa yang memuat diskon tidak langsung
+	 * @see #simpanPembayaranDpMasterAssetDetail(PembayaranDpMasterAssetDetail) untuk penjelasan
+	 *      lengkap resep {@code simpanXxx}
+	 */
 	public static void simpanDiskonPembayaran(Tagihan diskonTagihan) {
 
 		try {
