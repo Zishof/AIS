@@ -1015,6 +1015,30 @@ public class DaftarPengajuanTransfer extends DataSop {
 		closeNativeSessionSafely(session);
 	}
 
+	/**
+	 * Mendaftarkan <b>tagihan pengadaan aset dari penyedia/vendor</b> ke kolam antrean
+	 * pembayaran. Ini jalur DPT yang paling ramai dipakai modul aset.
+	 *
+	 * <p><b>Gerbang masuk lebih ketat</b> dari resep standar — semua syarat berikut wajib
+	 * terpenuhi: argumen tidak {@code null}, sudah tersimpan ({@code getId() != null}), belum
+	 * punya baris DPT, dan <b>sudah disetujui</b> ({@code getDisetujuiOleh() != null}). Syarat
+	 * terakhir itulah yang mencegah tagihan yang masih draf ikut masuk daftar pembayaran.</p>
+	 *
+	 * <p><b>Langkah tambahan setelah penyimpanan</b>: bila tagihan ini berasal dari sebuah
+	 * pemesanan (PO), akumulasi nilai terbayar PO tersebut dihitung ulang lewat
+	 * {@code PemesananPengadaanMasterAsset#hitungDibayar(Session)} dan disimpan ke kolom
+	 * {@code dibayar}. Tanpa langkah ini, progres pembayaran PO di layar pengadaan akan
+	 * tertinggal.</p>
+	 *
+	 * <p>Perhatikan tautan balik di sini disimpan dengan {@code Common.refreshUpdate}
+	 * (bukan {@code refreshSaveOrUpdate}) karena dokumen sumber dipastikan sudah ber-ID.</p>
+	 *
+	 * @param saldoAwalMasterAsset tagihan pengadaan yang hendak diantrekan; diabaikan bila
+	 *                             {@code null}, belum tersimpan, belum disetujui, atau sudah
+	 *                             punya baris DPT
+	 * @see #simpanPembayaranDpMasterAssetDetail(PembayaranDpMasterAssetDetail) untuk penjelasan
+	 *      lengkap resep {@code simpanXxx}
+	 */
 	public static void simpanSaldoAwalMasterAsset(SaldoAwalMasterAsset saldoAwalMasterAsset) {
 
 		if (saldoAwalMasterAsset == null || saldoAwalMasterAsset.getId() == null
@@ -1060,6 +1084,19 @@ public class DaftarPengajuanTransfer extends DataSop {
 		closeNativeSessionSafely(session);
 	}
 
+	/**
+	 * Mendaftarkan pencairan <b>uang muka</b> kegiatan/kerja ke kolam antrean pembayaran.
+	 * Nama baris memuat nama uang muka dan nama workspace/kegiatan terkait bila ada.
+	 *
+	 * <p>Resep {@code simpanXxx} standar (dua transaksi terpisah, tautan balik disimpan
+	 * eksplisit). Pasangannya di sisi pengembalian sisa dana adalah
+	 * {@link #simpanPertangungjawaban(Pertangungjawaban)}.</p>
+	 *
+	 * @param uangMuka dokumen uang muka yang hendak diantrekan; diabaikan bila sudah punya
+	 *                 baris DPT
+	 * @see #simpanPembayaranDpMasterAssetDetail(PembayaranDpMasterAssetDetail) untuk penjelasan
+	 *      lengkap resep {@code simpanXxx}
+	 */
 	public static void simpanUangMuka(UangMuka uangMuka) {
 
 		if (uangMuka != null && uangMuka.getDaftarPengajuanTransfer() != null) {
