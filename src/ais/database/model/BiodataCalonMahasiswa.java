@@ -1557,10 +1557,21 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return this.kewarganegaraan;
 	}
 
+	/**
+	 * Menetapkan kewarganegaraan.
+	 *
+	 * @param kewarganegaraan kode kewarganegaraan (mis. {@link Mahasiswa#WNI}).
+	 */
 	public void setKewarganegaraan(String kewarganegaraan) {
 		this.kewarganegaraan = kewarganegaraan;
 	}
 
+	/**
+	 * Agama pendaftar (master {@link Agama}). Memakai pola <i>fallback alumni</i>: bila belum
+	 * dipilih, diambil dari biodata mahasiswa alumni bila ada.
+	 *
+	 * @return master agama; {@code null} bila belum dipilih dan tidak ada sumber alumni.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "agama", nullable = true)
 	public Agama getAgama() {
@@ -1577,14 +1588,34 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return this.agama;
 	}
 
+	/**
+	 * Menetapkan agama pendaftar.
+	 *
+	 * @param agama master agama.
+	 */
 	public void setAgama(Agama agama) {
 		this.agama = agama;
 	}
 
+	/**
+	 * Menetapkan nomor RT alamat pendaftar (pemotongan panjang dilakukan di {@link #getRt()}).
+	 *
+	 * @param rt nomor RT.
+	 */
 	public void setRt(String rt) {
 		this.rt = rt;
 	}
 
+	/**
+	 * Nomor RT alamat pendaftar, DIPOTONG maksimal 3 karakter (kolom database hanya menampung
+	 * format RT tiga digit; data impor kerap membawa teks panjang). Bila kosong, dipakai pola
+	 * <i>fallback alumni</i>.
+	 *
+	 * <p><b>Efek samping:</b> pemotongan ditulis balik ke field, jadi tersimpan permanen pada
+	 * flush berikutnya.</p>
+	 *
+	 * @return nomor RT (maksimal 3 karakter); {@code null} bila belum diisi.
+	 */
 	@Column(name = "rt", length = 20)
 	public String getRt() {
 		if (rt != null && rt.length() > 3) {
@@ -1604,10 +1635,21 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return rt;
 	}
 
+	/**
+	 * Menetapkan nomor RW alamat pendaftar (pemotongan panjang dilakukan di {@link #getRw()}).
+	 *
+	 * @param rw nomor RW.
+	 */
 	public void setRw(String rw) {
 		this.rw = rw;
 	}
 
+	/**
+	 * Nomor RW alamat pendaftar. Perlakuannya identik dengan {@link #getRt()}: dipotong maksimal 3
+	 * karakter, memakai pola <i>fallback alumni</i>, dan hasil pemotongan tersimpan permanen.
+	 *
+	 * @return nomor RW (maksimal 3 karakter); {@code null} bila belum diisi.
+	 */
 	@Column(name = "rw", length = 20)
 	public String getRw() {
 		if (rw != null && rw.length() > 3) {
@@ -1627,10 +1669,22 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return rw;
 	}
 
+	/**
+	 * Menetapkan tempat lahir.
+	 *
+	 * @param tempatLahir kota/tempat lahir.
+	 */
 	public void setTempatLahir(String tempatLahir) {
 		this.tempatLahir = tempatLahir;
 	}
 
+	/**
+	 * Tempat lahir pendaftar. Bila kosong, diambil dari {@code mahasiswaAlumni.getTempatlahir()}
+	 * — perhatikan bahwa sumbernya di sini adalah entity {@link Mahasiswa} langsung, bukan
+	 * {@link BiodataMahasiswa}-nya seperti kebanyakan fallback lain di kelas ini.
+	 *
+	 * @return tempat lahir; {@code null} bila belum diisi dan tidak ada sumber alumni.
+	 */
 	@Column(name = "tempat_lahir", columnDefinition = "text")
 	public String getTempatLahir() {
 
@@ -1645,10 +1699,24 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return tempatLahir;
 	}
 
+	/**
+	 * Menetapkan tanggal lahir.
+	 *
+	 * @param tanggalLahir tanggal lahir.
+	 */
 	public void setTanggalLahir(Date tanggalLahir) {
 		this.tanggalLahir = tanggalLahir;
 	}
 
+	/**
+	 * Tanggal lahir pendaftar; bila kosong diambil dari {@code mahasiswaAlumni.getTanggallahir()}.
+	 *
+	 * <p>Ikut disalin ke {@link Mahasiswa} saat konversi PMB, dan dipakai
+	 * {@code CommonPMB.saveMahasiswa} sebagai salah satu kunci pencocokan mahasiswa yang mungkin
+	 * sudah ada (nama + tanggal lahir + tahun angkatan + prodi).</p>
+	 *
+	 * @return tanggal lahir; {@code null} bila belum diisi dan tidak ada sumber alumni.
+	 */
 	@Temporal(TemporalType.DATE)
 	@Column(name = "tanggal_lahir")
 	public Date getTanggalLahir() {
@@ -1664,10 +1732,20 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return tanggalLahir;
 	}
 
+	/**
+	 * Menetapkan jenis kelamin.
+	 *
+	 * @param jenisKelamin kode jenis kelamin.
+	 */
 	public void setJenisKelamin(String jenisKelamin) {
 		this.jenisKelamin = jenisKelamin;
 	}
 
+	/**
+	 * Jenis kelamin pendaftar; bila kosong diambil dari {@code mahasiswaAlumni.getKelamin()}.
+	 *
+	 * @return kode jenis kelamin; {@code null} bila belum diisi dan tidak ada sumber alumni.
+	 */
 	@Column(name = "jenis_kelamin", length = 20)
 	public String getJenisKelamin() {
 
@@ -1683,10 +1761,25 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return jenisKelamin;
 	}
 
+	/**
+	 * Menetapkan negara asal.
+	 *
+	 * @param asalNegara master negara.
+	 */
 	public void setAsalNegara(Negara asalNegara) {
 		this.asalNegara = asalNegara;
 	}
 
+	/**
+	 * Negara asal pendaftar. Urutan penentuan: field lokal, lalu fallback ke
+	 * {@code mahasiswaAlumni.getNegara()}, dan terakhir bawaan {@code ConstantValues.INDONESIA}.
+	 *
+	 * <p><b>Efek samping:</b> bawaan Indonesia ikut TERTULIS ke kolom saat flush — jadi baris yang
+	 * sebelumnya {@code NULL} akan permanen menjadi Indonesia begitu getter ini pernah
+	 * dipanggil.</p>
+	 *
+	 * @return master negara; tidak pernah {@code null} selama master Indonesia tersedia.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "asal_negara", nullable = true)
 	public Negara getAsalNegara() {
@@ -1707,10 +1800,22 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return asalNegara;
 	}
 
+	/**
+	 * Menetapkan kode pos alamat pendaftar (pemotongan panjang dilakukan di
+	 * {@link #getKodePos()}).
+	 *
+	 * @param kodePos kode pos.
+	 */
 	public void setKodePos(String kodePos) {
 		this.kodePos = kodePos;
 	}
 
+	/**
+	 * Kode pos alamat pendaftar; memakai pola <i>fallback alumni</i> lalu DIPOTONG maksimal 8
+	 * karakter (dan pemotongan itu tersimpan permanen pada flush berikutnya).
+	 *
+	 * @return kode pos; {@code null} bila belum diisi dan tidak ada sumber alumni.
+	 */
 	@Column(name = "kode_pos", length = 20)
 	public String getKodePos() {
 
@@ -1730,46 +1835,114 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return kodePos;
 	}
 
+	/**
+	 * Menetapkan nama dosen/karyawan yang merekomendasikan atau memperkenalkan kampus kepada
+	 * pendaftar.
+	 *
+	 * @param dariNamaDosenKaryawan nama dosen/karyawan perujuk.
+	 */
 	public void setDariNamaDosenKaryawan(String dariNamaDosenKaryawan) {
 		this.dariNamaDosenKaryawan = dariNamaDosenKaryawan;
 	}
 
+	/**
+	 * Nama dosen/karyawan perujuk — dipakai bersama {@link #getInfoKampusDariMana()} untuk
+	 * menelusuri efektivitas promosi PMB.
+	 *
+	 * @return nama perujuk; {@code null} bila belum diisi.
+	 */
 	@Column(name = "dari_nama_dosen_karyawan", columnDefinition = "text")
 	public String getDariNamaDosenKaryawan() {
 		return dariNamaDosenKaryawan;
 	}
 
+	/**
+	 * Menetapkan pendidikan terakhir ayah (teks bebas).
+	 *
+	 * @param pendidikanAyah keterangan pendidikan.
+	 */
 	public void setPendidikanAyah(String pendidikanAyah) {
 		this.pendidikanAyah = pendidikanAyah;
 	}
 
+	/**
+	 * Pendidikan terakhir ayah sebagai teks bebas (versi bermaster ada di
+	 * {@link #getPendidikanOrtu()}).
+	 *
+	 * @return keterangan pendidikan ayah; {@code null} bila belum diisi.
+	 */
 	@Column(name = "pendidikan_ayah", length = 20)
 	public String getPendidikanAyah() {
 		return pendidikanAyah;
 	}
 
+	/**
+	 * Menetapkan pendidikan terakhir ibu (teks bebas).
+	 *
+	 * @param pendidikanIbu keterangan pendidikan.
+	 */
 	public void setPendidikanIbu(String pendidikanIbu) {
 		this.pendidikanIbu = pendidikanIbu;
 	}
 
+	/**
+	 * Pendidikan terakhir ibu sebagai teks bebas (versi bermaster ada di
+	 * {@link #getPendidikanOrtuIbu()}).
+	 *
+	 * @return keterangan pendidikan ibu; {@code null} bila belum diisi.
+	 */
 	@Column(name = "pendidikan_ibu", length = 20)
 	public String getPendidikanIbu() {
 		return pendidikanIbu;
 	}
 
+	/**
+	 * Menetapkan nomor kwitansi pembayaran pendaftaran.
+	 *
+	 * @param no_kwitansi nomor kwitansi.
+	 */
 	public void setNo_kwitansi(String no_kwitansi) {
 		this.no_kwitansi = no_kwitansi;
 	}
 
+	/**
+	 * Nomor kwitansi pembayaran biaya pendaftaran (catatan manual loket; pencatatan resminya lewat
+	 * {@link #getPembayaranRegistrasi()}).
+	 *
+	 * @return nomor kwitansi; {@code null} bila belum diisi.
+	 */
 	@Column(name = "no_kwitansi", columnDefinition = "text")
 	public String getNo_kwitansi() {
 		return no_kwitansi;
 	}
 
+	/**
+	 * Menetapkan nama pendaftar (normalisasi dan penimpaan dilakukan di {@link #getNama()}).
+	 *
+	 * @param nama nama pendaftar.
+	 */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
 
+	/**
+	 * Nama pendaftar — salah satu getter paling "bermuatan" di kelas ini. Urutan yang dijalankan:
+	 * <ol>
+	 * <li>spasi ganda dirapatkan (tiga lintasan) lalu dipangkas;</li>
+	 * <li>bila sudah ada {@link Mahasiswa} resmi hasil konversi PMB, nama DITIMPA dengan
+	 * {@code mahasiswa.getNama()} — mahasiswa resmi adalah sumber kebenaran setelah konversi;</li>
+	 * <li>bila pendaftar adalah alumni, nama ditimpa lagi dengan {@code mahasiswaAlumni.getNama()};</li>
+	 * <li>nilai kembali di-{@code trim()} dan di-HURUF BESAR-kan.</li>
+	 * </ol>
+	 *
+	 * <p><b>Perhatikan dua hal.</b> (1) Yang dikembalikan adalah versi huruf besar, tetapi yang
+	 * TERSIMPAN ke kolom adalah nilai field (hasil langkah 1-3) yang belum tentu huruf besar —
+	 * jadi hasil getter tidak sama persis dengan isi kolom. (2) Langkah 2 dan 3 membuat perubahan
+	 * nama di sisi mahasiswa resmi/alumni ikut merambat ke baris calon ini pada flush
+	 * berikutnya.</p>
+	 *
+	 * @return nama pendaftar dalam huruf besar; {@code null} bila belum ada nama sama sekali.
+	 */
 	@Column(name = "nama", columnDefinition = "text")
 	public String getNama() {
 		if (nama != null) {
@@ -1791,19 +1964,49 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return this.nama == null ? null : this.nama.trim().toUpperCase();
 	}
 
+	/**
+	 * Menetapkan nomor registrasi pendaftar.
+	 *
+	 * @param noRegistrasi nomor registrasi.
+	 */
 	public void setNoRegistrasi(String noRegistrasi) {
 		this.noRegistrasi = noRegistrasi;
 	}
 
+	/**
+	 * Nomor registrasi pendaftar — identitas alami baris ini (kolom {@code no_registrasi}, UNIQUE)
+	 * dan kunci pengurutan pada {@link #compareTo(GeneralValueObject)}.
+	 *
+	 * <p>String kosong dinormalkan menjadi {@code null} supaya batasan UNIQUE tidak dilanggar oleh
+	 * banyak baris yang sama-sama berisi {@code ""}. Properti hanya-baca untuk nilai yang sama ada
+	 * di {@link #getKode()}.</p>
+	 *
+	 * @return nomor registrasi terpangkas; {@code null} bila kosong.
+	 */
 	@Column(name = "no_registrasi", unique = true, length = 20)
 	public String getNoRegistrasi() {
 		return noRegistrasi == null || noRegistrasi.trim().isEmpty() ? null : noRegistrasi.trim();
 	}
 
+	/**
+	 * Menetapkan nomor ujian seleksi.
+	 *
+	 * @param noUjian nomor ujian.
+	 */
 	public void setNoUjian(String noUjian) {
 		this.noUjian = noUjian;
 	}
 
+	/**
+	 * Nomor ujian seleksi (nomor peserta tes masuk).
+	 *
+	 * <p>Bila konfigurasi {@code nomor_ujian_calon_mahasiswa_sama_dengan_no_reg} aktif, nomor ujian
+	 * DIPAKSA sama dengan {@link #getNoRegistrasi()} — institusi yang tidak memakai penomoran ujian
+	 * terpisah. String kosong dinormalkan menjadi {@code null}. Keduanya ditulis balik ke field
+	 * sehingga tersimpan pada flush berikutnya.</p>
+	 *
+	 * @return nomor ujian; {@code null} bila kosong.
+	 */
 	@Column(name = "no_ujian", length = 255)
 	public String getNoUjian() {
 
@@ -1817,24 +2020,55 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return noUjian;
 	}
 
+	/**
+	 * Menetapkan PIN pendaftaran.
+	 *
+	 * @param pin nomor PIN.
+	 */
 	public void setPin(Integer pin) {
 		this.pin = pin;
 	}
 
+	/**
+	 * PIN pendaftaran — nomor yang dibeli/diberikan kepada pendaftar untuk mengakses formulir PMB
+	 * daring. Kata sandinya ada di {@link #getPinPassword()}.
+	 *
+	 * @return nomor PIN; {@code null} bila tidak memakai mekanisme PIN.
+	 */
 	@Column(name = "pin")
 	public Integer getPin() {
 		return pin;
 	}
 
+	/**
+	 * Menetapkan penanda status pembayaran ringkas.
+	 *
+	 * @param statusPembayaran penanda status pembayaran.
+	 */
 	public void setStatusPembayaran(Integer statusPembayaran) {
 		this.statusPembayaran = statusPembayaran;
 	}
 
+	/**
+	 * Penanda ringkas status pembayaran pendaftaran (kolom {@code status_pembayaran}, 1 digit).
+	 *
+	 * <p>Ini hanya penanda datar warisan; keadaan pembayaran yang sesungguhnya ditentukan oleh
+	 * entity {@link Kegiatan} pada {@link #getPembayaranRegistrasi()} dan
+	 * {@link #getPembayaranDaftarUlang()}.</p>
+	 *
+	 * @return penanda status pembayaran; {@code null} bila belum diisi.
+	 */
 	@Column(name = "status_pembayaran", length = 1)
 	public Integer getStatusPembayaran() {
 		return statusPembayaran;
 	}
 
+	/**
+	 * Jenis kartu identitas yang dipakai pendaftar (KTP/KK/paspor, master
+	 * {@link JenisKartuIdentitasMahasiswaBaru}); nomornya ada di {@link #getNoIdentitas()}.
+	 *
+	 * @return master jenis kartu identitas; {@code null} bila belum dipilih.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_kartu_identitas_mahasiswa_baru", nullable = true)
 	public JenisKartuIdentitasMahasiswaBaru getJenisKartuIdentitas() {
@@ -1842,10 +2076,21 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return jenisKartuIdentitas;
 	}
 
+	/**
+	 * Menetapkan jenis kartu identitas.
+	 *
+	 * @param jenisKartuIdentitas master jenis kartu identitas.
+	 */
 	public void setJenisKartuIdentitas(JenisKartuIdentitasMahasiswaBaru jenisKartuIdentitas) {
 		this.jenisKartuIdentitas = jenisKartuIdentitas;
 	}
 
+	/**
+	 * Nomor kartu identitas pendaftar (NIK KTP dan sejenisnya, sesuai
+	 * {@link #getJenisKartuIdentitas()}). Memakai pola <i>fallback alumni</i>.
+	 *
+	 * @return nomor identitas terpangkas; {@code ""} bila belum diisi.
+	 */
 	@Column(name = "no_identitas", length = 255)
 	public String getNoIdentitas() {
 
@@ -1862,10 +2107,31 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return noIdentitas == null ? "" : noIdentitas.trim();
 	}
 
+	/**
+	 * Menetapkan nomor kartu identitas.
+	 *
+	 * @param noIdentitas nomor identitas.
+	 */
 	public void setNoIdentitas(String noIdentitas) {
 		this.noIdentitas = noIdentitas;
 	}
 
+	/**
+	 * Alamat surel pendaftar. Kolom ini bisa memuat LEBIH DARI SATU alamat, dipisahkan koma (lihat
+	 * {@link #appendEmail(String)}), karena itu getter melakukan pembersihan berlapis:
+	 * <ol>
+	 * <li>koma ganda ({@code ,,}) dirapatkan sampai lima lintasan;</li>
+	 * <li>{@code null} dan nilai yang hanya berisi {@code ","} dianggap kosong;</li>
+	 * <li>bila masih kosong, diambil dari {@code mahasiswa.ambilEmail()} (mahasiswa resmi hasil
+	 * konversi), lalu dari {@code mahasiswaAlumni.getEmail()};</li>
+	 * <li>tanda petik ({@code '}) di depan dibuang berulang — konvensi teks Excel.</li>
+	 * </ol>
+	 *
+	 * <p>Seluruh badan method dibungkus {@code try/catch} karena dipanggil dari jalur render dan
+	 * flush yang tidak boleh gagal hanya gara-gara data surel rusak.</p>
+	 *
+	 * @return alamat surel (bisa berupa daftar dipisah koma); {@code ""} bila tidak ada.
+	 */
 	@Column(name = "email", length = 255)
 	public String getEmail() {
 		try {
@@ -1907,10 +2173,29 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return this.email == null ? "" : email.trim();
 	}
 
+	/**
+	 * Menetapkan (MENIMPA) alamat surel. Untuk menambah alamat baru tanpa menghapus yang lama,
+	 * pakai {@link #appendEmail(String)}.
+	 *
+	 * @param email alamat surel.
+	 */
 	public void setEmail(String email) {
 		this.email = email;
 	}
 
+	/**
+	 * MENAMBAHKAN satu alamat surel ke daftar surel pendaftar (dipisahkan koma), bukan menimpanya.
+	 *
+	 * <p>Penambahan dilewati bila: alamat sudah termuat di dalam nilai sekarang (uji substring
+	 * {@code StringUtils.contains}), alamatnya kosong, formatnya tidak valid menurut
+	 * {@code Common.isValidEmailAddress}, atau diawali {@code @}. Bila nilai sekarang kosong,
+	 * alamat baru menjadi satu-satunya isi (tanpa koma di depan).</p>
+	 *
+	 * <p><b>Kuirk:</b> uji duplikat memakai substring, jadi {@code "budi@x.com"} dianggap sudah ada
+	 * ketika daftar berisi {@code "pak.budi@x.com"}.</p>
+	 *
+	 * @param email alamat surel yang hendak ditambahkan; diabaikan bila tidak lolos syarat di atas.
+	 */
 	public void appendEmail(String email) {
 		if (this.email != null && email != null && !email.trim().isEmpty() && StringUtils.contains(this.email, email)) {
 			return;
@@ -1920,6 +2205,19 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		}
 	}
 
+	/**
+	 * Kelurahan/desa alamat pendaftar (kolom {@code keluarahan_calon} — salah eja bawaan skema,
+	 * jangan "diperbaiki" tanpa migrasi).
+	 *
+	 * <p><b>BUG yang ditemukan saat pendokumentasian (TIDAK diperbaiki di sini):</b> cabang
+	 * fallback alumni MENGUJI {@code ambilBiodata().getKelurahan()} tetapi MENGAMBIL
+	 * {@code ambilBiodata().getNoIdentitas()}. Akibatnya, ketika kelurahan calon masih kosong dan
+	 * yang bersangkutan adalah alumni, kolom kelurahan bisa terisi NOMOR IDENTITAS — dan karena
+	 * getter ini properti Hibernate, nilai salah itu ikut tersimpan saat flush. Perlu ditangani
+	 * pada task perbaikan tersendiri (butuh pembersihan data lama juga).</p>
+	 *
+	 * @return nama kelurahan/desa; {@code null} bila belum diisi.
+	 */
 	@Column(name = "keluarahan_calon", length = 255)
 	public String getKelurahanCalon() {
 
@@ -1936,10 +2234,33 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return kelurahanCalon;
 	}
 
+	/**
+	 * Menetapkan kelurahan/desa alamat pendaftar.
+	 *
+	 * @param kelurahanCalon nama kelurahan/desa.
+	 */
 	public void setKelurahanCalon(String kelurahanCalon) {
 		this.kelurahanCalon = kelurahanCalon;
 	}
 
+	/**
+	 * Kecamatan alamat pendaftar sebagai {@link Wilayah} (pohon wilayah berkode Feeder/PDDikti,
+	 * berbeda dari pasangan master {@link Kota}/{@link Propinsi} lama).
+	 *
+	 * <p>Dua perbaikan otomatis dijalankan di sini:</p>
+	 * <ol>
+	 * <li><b>Fallback alumni</b> dari {@code mahasiswaAlumni.ambilBiodata().getKecamatan()};</li>
+	 * <li><b>Perbaikan wilayah yatim.</b> Bila wilayah tersimpan tidak punya
+	 * {@code wilayahInduk} tetapi punya kode {@code feeder}, seluruh cache wilayah
+	 * ({@code ConstantValues.ambilBerdasarClass(Wilayah.class)}) ditelusuri untuk mencari baris
+	 * berkode Feeder SAMA yang induknya lengkap, lalu baris itulah yang dipakai. Ini menambal data
+	 * hasil impor yang kehilangan rantai kecamatan &rarr; kota &rarr; propinsi.</li>
+	 * </ol>
+	 *
+	 * @return wilayah kecamatan; {@code null} bila belum dipilih dan tidak ada sumber alumni.
+	 * @see #getKotaCalon()
+	 * @see #getPropinsiCalon()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kecamatan_calon_wilayah", nullable = true)
 	public Wilayah getKecamatanCalon() {
@@ -1973,10 +2294,36 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return kecamatanCalon;
 	}
 
+	/**
+	 * Menetapkan kecamatan alamat pendaftar.
+	 *
+	 * @param kecamatan wilayah kecamatan.
+	 */
 	public void setKecamatanCalon(Wilayah kecamatan) {
 		this.kecamatanCalon = kecamatan;
 	}
 
+	/**
+	 * Propinsi alamat pendaftar (master {@link Propinsi}), diisi otomatis berjenjang bila masih
+	 * kosong. Urutan usaha:
+	 * <ol>
+	 * <li>fallback alumni dari {@code mahasiswaAlumni.ambilBiodata().getPropinsi()};</li>
+	 * <li>propinsi milik {@link #getKotaCalon()} bila kota sudah terisi;</li>
+	 * <li>menyusuri pohon {@link Wilayah}: kecamatan &rarr; induk pertama (kabupaten/kota) &rarr;
+	 * induk kedua (propinsi), lalu mencocokkan NAMA propinsi itu ke master {@link Propinsi} lewat
+	 * {@code findOrCreatePropinsi} — <b>yang akan MEMBUAT baris master baru bila tidak ada yang
+	 * mirip</b>.</li>
+	 * </ol>
+	 *
+	 * <p><b>Efek samping berat, sengaja:</b> langkah 3 membuka session Hibernate TERSENDIRI
+	 * ({@code openSession}, bukan session thread-local) dan bisa menulis ke tabel master. Alasannya
+	 * ada pada komentar di dalam method: getter ini dipanggil Hibernate DI TENGAH proses INSERT
+	 * entity lain, sehingga memakai lalu menutup session thread-local akan membuat penyimpanan
+	 * berikutnya gagal dengan "Session is closed!". Session khusus itu ditutup rapi lewat
+	 * {@link #closeSessionSafe(Session)}.</p>
+	 *
+	 * @return master propinsi; {@code null} bila tidak ada satu pun sumber yang bisa dipakai.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "propinsi_calon", nullable = true)
 	public Propinsi getPropinsiCalon() {
@@ -2023,10 +2370,30 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return propinsiCalon;
 	}
 
+	/**
+	 * Menetapkan propinsi alamat pendaftar.
+	 *
+	 * @param propinsiCalon master propinsi.
+	 */
 	public void setPropinsiCalon(Propinsi propinsiCalon) {
 		this.propinsiCalon = propinsiCalon;
 	}
 
+	/**
+	 * Kota/kabupaten alamat pendaftar (master {@link Kota}), diisi otomatis bila masih kosong:
+	 * <ol>
+	 * <li>fallback alumni dari {@code mahasiswaAlumni.ambilBiodata().getKota()};</li>
+	 * <li>menyusuri pohon {@link Wilayah}: kecamatan &rarr; induk pertama (kabupaten/kota), lalu
+	 * mencocokkan namanya ke master {@link Kota} DALAM propinsi hasil {@link #getPropinsiCalon()}
+	 * memakai {@code findBestMatchKota}.</li>
+	 * </ol>
+	 *
+	 * <p>Sama seperti {@link #getPropinsiCalon()}, langkah 2 memakai session Hibernate tersendiri
+	 * (lihat alasannya di sana). Bedanya: bila tidak ada kota yang cukup mirip, method ini TIDAK
+	 * membuat master baru — hasilnya tetap {@code null}.</p>
+	 *
+	 * @return master kota/kabupaten; {@code null} bila tidak ditemukan.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kota_calon", nullable = true)
 	public Kota getKotaCalon() {
@@ -2069,6 +2436,11 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return kotaCalon;
 	}
 
+	/**
+	 * Menetapkan kota/kabupaten alamat pendaftar.
+	 *
+	 * @param kotaCalon master kota.
+	 */
 	public void setKotaCalon(Kota kotaCalon) {
 		this.kotaCalon = kotaCalon;
 	}
@@ -2082,6 +2454,15 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 	 * proses simpan berikutnya meledak "Session is closed!" (ElearningApiUtil
 	 * simpanProperty dkk). Transaksi implisit di-rollback dulu agar koneksi
 	 * tidak kembali ke pool berstatus "idle in transaction".
+	 *
+	 * <p>Urutan penutupan: {@code rollback} transaksi implisit (lewat {@code doWork} pada koneksi
+	 * JDBC, hanya bila autocommit mati), {@code clear()}, {@code disconnect()}, lalu
+	 * {@code close()}. Tiap langkah dibungkus {@code try/catch} sendiri agar kegagalan satu langkah
+	 * tidak menghalangi langkah berikutnya — session WAJIB berakhir tertutup.</p>
+	 *
+	 * @param session session khusus yang hendak ditutup; {@code null} diabaikan.
+	 * @see #getPropinsiCalon()
+	 * @see #getKotaCalon()
 	 */
 	private void closeSessionSafe(Session session) {
 		if (session == null) {
@@ -2111,6 +2492,23 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		}
 	}
 
+	/**
+	 * Mencari master {@link Propinsi} yang paling mirip dengan {@code namaProp}, dan MEMBUATNYA
+	 * bila tidak ada yang cukup mirip.
+	 *
+	 * <p>Pencocokan: awalan {@code "Prop."} dibuang dan nama di-huruf-kecil-kan pada kedua sisi,
+	 * lalu dicari jarak Levenshtein terkecil terhadap seluruh master propinsi yang namanya tidak
+	 * kosong. Ambang penerimaan adalah jarak &lt; 2 (toleransi satu salah ketik). Bila tidak ada
+	 * yang lolos, propinsi BARU disimpan dengan negara {@code ConstantValues.INDONESIA}.</p>
+	 *
+	 * <p><b>Efek samping:</b> menulis baris master baru. Transaksi dimulai sendiri HANYA bila
+	 * session belum punya transaksi aktif, dan hanya transaksi yang dimulai sendiri itu yang
+	 * di-{@code commit} — supaya tidak merusak transaksi milik pemanggil.</p>
+	 *
+	 * @param session  session Hibernate khusus milik pemanggil (lihat {@link #getPropinsiCalon()}).
+	 * @param namaProp nama propinsi yang dicari; {@code null}/kosong menghasilkan {@code null}.
+	 * @return master propinsi yang cocok atau yang baru dibuat.
+	 */
 	private Propinsi findOrCreatePropinsi(Session session, String namaProp) {
 		if (namaProp == null || namaProp.trim().isEmpty())
 			return null;
@@ -2151,6 +2549,20 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return newProp;
 	}
 
+	/**
+	 * Mencari master {@link Kota} DI DALAM propinsi {@code p} yang namanya paling mirip dengan
+	 * {@code namaKab}.
+	 *
+	 * <p>Awalan {@code "Kab."} dan kata {@code "Kota"} dibuang pada kedua sisi sebelum dibandingkan
+	 * dengan jarak Levenshtein; ambangnya sama dengan {@link #findOrCreatePropinsi(Session, String)},
+	 * yaitu jarak &lt; 2. <b>Berbeda dari propinsi, kota TIDAK pernah dibuat otomatis</b> — bila
+	 * tidak ada yang cukup mirip, hasilnya {@code null}.</p>
+	 *
+	 * @param session session Hibernate khusus milik pemanggil.
+	 * @param p       propinsi pembatas pencarian; {@code null} menghasilkan {@code null}.
+	 * @param namaKab nama kabupaten/kota yang dicari; {@code null} menghasilkan {@code null}.
+	 * @return master kota yang paling mirip, atau {@code null} bila tidak ada yang lolos ambang.
+	 */
 	private Kota findBestMatchKota(Session session, Propinsi p, String namaKab) {
 		if (namaKab == null || p == null)
 			return null;

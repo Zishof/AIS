@@ -2978,6 +2978,25 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		this.apakahPernahTk = apakahPernahTk;
 	}
 
+	/**
+	 * Isi kolom {@code text} "parameter tambahan" versi BERLABEL — data isian tambahan buatan
+	 * masing-masing perguruan tinggi, diserialkan menjadi satu string.
+	 *
+	 * <p>Format: satu baris per isian (pemisah {@code "\n"}), tiap baris berisi delapan ruas yang
+	 * dipisah literal <code>&lt;=&gt;</code>:
+	 * {@code namaKelompok->labelInputan <=> nilai <=> urlLampiran <=> nomorUrut <=> idParameter <=>
+	 * idKelompok <=> indexKe <=> keterangan}. Versi ini dipakai untuk menampilkan dan mencetak
+	 * (labelnya sudah manusiawi); untuk mengisi ulang formulir dipakai
+	 * {@link #getParameterTambahanInds()}.</p>
+	 *
+	 * <p><b>Efek samping ringan:</b> nilai {@code null} diganti string kosong dan ditulis ke field.
+	 * Blok kondisi yang sebagian dikomentari di badan method adalah sisa rencana migrasi ke format
+	 * JSON yang tidak jadi dipakai.</p>
+	 *
+	 * @return string terenkode; string kosong bila belum ada isian, tidak pernah {@code null}
+	 * @see #populateParameterTambahan(List)
+	 * @see #ambilDataParameterTambahan()
+	 */
 	@Column(columnDefinition = "text")
 	public String getParameterTambahan() {
 		if (parameterTambahan == null) {
@@ -2993,10 +3012,50 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return parameterTambahan;
 	}
 
+	/**
+	 * Menyetel isi kolom parameter tambahan versi berlabel secara mentah.
+	 *
+	 * <p>Umumnya tidak dipanggil langsung — pakai {@link #populateParameterTambahan(List)} yang
+	 * menyusun format terenkodenya dengan benar.</p>
+	 *
+	 * @param parameterTambahan string terenkode
+	 */
 	public void setParameterTambahan(String parameterTambahan) {
 		this.parameterTambahan = parameterTambahan;
 	}
 
+	/**
+	 * Membongkar string {@link #getParameterTambahan()} menjadi daftar {@link CommonVO} siap tampil.
+	 *
+	 * <p>Kebalikan dari {@link #populateParameterTambahan(List)}. Tiap baris dipecah pada
+	 * <code>&lt;=&gt;</code> dan dipetakan ke {@link CommonVO}:</p>
+	 * <ul>
+	 * <li>ruas ke-0 &rarr; {@code name} (label gabungan {@code namaKelompok->labelInputan}),</li>
+	 * <li>ruas ke-1 &rarr; {@code name1} (nilai isian),</li>
+	 * <li>ruas ke-2 &rarr; {@code name2} (URL lampiran),</li>
+	 * <li>ruas ke-3 &rarr; {@code nomorUrut} (default 1 bila gagal di-parse),</li>
+	 * <li>ruas ke-4 &rarr; {@code id} (ID {@link ParameterTambahan}, default 1 bila gagal).</li>
+	 * </ul>
+	 * <p>Hasilnya diurutkan memakai {@link Collections#sort(List)} yang bersandar pada
+	 * {@code CommonVO.compareTo} — urut menurut {@code nomorUrut} lalu {@code id}.</p>
+	 *
+	 * <p><b>Asimetri yang perlu diketahui:</b> {@link #populateParameterTambahan(List)} menulis
+	 * DELAPAN ruas, tetapi method ini hanya membaca lima yang pertama — {@code idKelompok},
+	 * {@code indexKe}, dan {@code keterangan} diabaikan. Kembarannya untuk alumni,
+	 * {@link #ambilDataParameterTambahanAlumni()}, membaca sampai ruas ke-6. Kegagalan
+	 * {@code parseInt}/{@code parseLong} ditelan dan nilai default dipakai.</p>
+	 *
+	 * <p><b>Kuirk:</b> pada string kosong, {@code split} tetap menghasilkan satu elemen kosong,
+	 * sehingga method mengembalikan satu {@link CommonVO} "hampa" (label dan nilai kosong,
+	 * {@code id} = 1) — bukan daftar kosong. Pemanggil yang menampilkan hasilnya langsung perlu
+	 * menyaring baris tanpa label.</p>
+	 *
+	 * <p>Dipakai luas oleh layar dan laporan, antara lain {@code MahasiswaAction},
+	 * {@code CommonReportHelper}, {@code CetakRegistrasiAction}, dan berbagai dasbor rekap parameter
+	 * tambahan.</p>
+	 *
+	 * @return daftar {@link CommonVO} terurut; tidak pernah {@code null}
+	 */
 	public List<CommonVO> ambilDataParameterTambahan() {
 		List<CommonVO> commonVOs = new ArrayList<CommonVO>();
 		String[] splNama = getParameterTambahan().split("\n");
@@ -3031,6 +3090,42 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return commonVOs;
 	}
 
+	/**
+	 * Memanen nilai seluruh baris formulir parameter tambahan di layar ZK, lalu menyimpannya ke dua
+	 * kolom {@code text}: {@link #setParameterTambahan(String)} (versi berlabel) dan
+	 * {@link #setParameterTambahanInds(String)} (versi ber-ID).
+	 *
+	 * <p>Dipanggil dari {@code ais.action.master.helper.ParameterTambahanMahasiswaListener} — baik
+	 * dari {@code onSave(BiodataMahasiswa)} maupun dari {@code EventListener} internalnya — dengan
+	 * daftar {@link Row} yang dibangun listener tersebut. Tiap baris membawa atribut:
+	 * {@code "parameterTambahan"} ({@link ParameterTambahan}),
+	 * {@code "kelompokParameterTambahanMahasiswa"} ({@link KelompokParameterTambahanMahasiswa}),
+	 * {@code "indexKe"} ({@link Long}), dan {@code "keterangan"} (sebuah {@code Textbox}).</p>
+	 *
+	 * <p>Untuk tiap baris yang lengkap:</p>
+	 * <ol>
+	 * <li>nilai isian diambil lewat {@code ParameterTambahan.ambilVal(row, parameterTambahan)} yang
+	 * tahu cara membaca komponen ZK sesuai tipe inputan;</li>
+	 * <li>bila parameter mewajibkan lampiran, berkas dicari dengan
+	 * {@code LampiranLain.ambil(getId(), idKelompok + "->" + idParameter)} dan URL unduhnya
+	 * disertakan — perhatikan bahwa pemilik lampiran adalah ID BIODATA, bukan ID mahasiswa;</li>
+	 * <li>baris versi berlabel (8 ruas) dan versi ber-ID (4 ruas) dirangkai dan digabung dengan
+	 * pemisah {@code "\n"}.</li>
+	 * </ol>
+	 *
+	 * <p><b>Perilaku MENIMPA.</b> Kedua kolom ditulis ulang seluruhnya, bukan ditambahkan. Berbeda
+	 * dengan {@link #populateParameterTambahanAlumni(List)} yang bisa menyambung. Karena itu
+	 * memanggil method ini dengan daftar baris yang tidak lengkap akan MENGHAPUS isian yang tidak
+	 * ikut ditampilkan.</p>
+	 *
+	 * <p><b>Catatan lain:</b> masih ada {@code System.out.println("ket => " + ket)} yang tertinggal
+	 * dari proses debug dan mencetak keterangan tiap baris ke log server. Kegagalan per baris ditelan
+	 * lewat {@code Common.tampilErrorJikaAdmin} sehingga satu baris rusak tidak membatalkan
+	 * sisanya.</p>
+	 *
+	 * @param parameterRows daftar baris formulir ZK; bila {@code null} atau kosong method langsung
+	 *         kembali tanpa mengubah apa pun (isian lama tetap aman)
+	 */
 	public void populateParameterTambahan(List<Row> parameterRows) {
 		if (parameterRows == null || parameterRows.isEmpty()) {
 			return;
@@ -3089,6 +3184,20 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		setParameterTambahan(parameterTambahanStr);
 	}
 
+	/**
+	 * Isi kolom {@code text} parameter tambahan versi BER-ID.
+	 *
+	 * <p>Format: satu baris per isian, empat ruas dipisah <code>&lt;=&gt;</code>:
+	 * {@code idKelompok->idParameter <=> nilai <=> urlLampiran <=> keterangan}. Versi ini dipakai
+	 * untuk MENGISI ULANG formulir (mencocokkan nilai ke komponen berdasarkan ID, bukan berdasarkan
+	 * label yang bisa berubah), sedangkan versi berlabel dipakai untuk tampilan dan cetak.</p>
+	 *
+	 * <p><b>Efek samping ringan:</b> nilai {@code null} diganti string kosong dan ditulis ke
+	 * field.</p>
+	 *
+	 * @return string terenkode; string kosong bila belum ada isian, tidak pernah {@code null}
+	 * @see #getParameterTambahan()
+	 */
 	@Column(columnDefinition = "text")
 	public String getParameterTambahanInds() {
 		if (parameterTambahanInds == null) {
@@ -3097,14 +3206,37 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return parameterTambahanInds;
 	}
 
+	/**
+	 * Menyetel isi kolom parameter tambahan versi ber-ID secara mentah.
+	 *
+	 * <p>Umumnya diisi oleh {@link #populateParameterTambahan(List)}, bukan dipanggil langsung.</p>
+	 *
+	 * @param parameterTambahanInds string terenkode
+	 */
 	public void setParameterTambahanInds(String parameterTambahanInds) {
 		this.parameterTambahanInds = parameterTambahanInds;
 	}
 
+	/**
+	 * Menyetel NIRM (Nomor Induk Registrasi Mahasiswa) apa adanya; normalisasi terjadi saat dibaca.
+	 *
+	 * @param nirm NIRM
+	 */
 	public void setNirm(String nirm) {
 		this.nirm = nirm;
 	}
 
+	/**
+	 * NIRM (Nomor Induk Registrasi Mahasiswa) — nomor induk versi Kopertais/lembaga keagamaan yang
+	 * berdampingan dengan NIM biasa — sudah dinormalisasi.
+	 *
+	 * <p>{@code null} diganti string kosong, karakter selain digit dan titik dibuang bila isinya bukan
+	 * angka murni, lalu dipotong maksimal 20 karakter.</p>
+	 *
+	 * <p><b>Efek samping:</b> field {@code nirm} ditimpa hasil normalisasi.</p>
+	 *
+	 * @return NIRM hasil normalisasi yang sudah di-{@code trim}; string kosong bila belum diisi
+	 */
 	public String getNirm() {
 		if (nirm == null) {
 			nirm = "";
@@ -3120,6 +3252,22 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return nirm.trim();
 	}
 
+	/**
+	 * NISN (Nomor Induk Siswa Nasional) dari jenjang sekolah sebelumnya, dengan fallback ke data
+	 * pendaftaran dan normalisasi.
+	 *
+	 * <p>Bila kolom kosong dan mahasiswa punya rujukan {@link BiodataCalonMahasiswa}, NISN dari
+	 * formulir PMB disalin. Setelah itu: {@code null} menjadi string kosong, karakter non angka
+	 * dibuang, dan hasilnya dipotong maksimal 10 karakter (panjang baku NISN).</p>
+	 *
+	 * <p><b>Kuirk:</b> berbeda dengan {@link #getHp()} atau {@link #getTinggiBadan()}, blok fallback
+	 * di sini memakai field {@code mahasiswa} langsung tanpa memanggil {@link #getMahasiswa()} lebih
+	 * dulu. Pada instance yang baru dimuat Hibernate dan belum pernah menyentuh getter relasi,
+	 * fallback ke data PMB diam-diam tidak berjalan. Kegagalan pembacaan PMB ditelan dan dicatat
+	 * lewat {@code ErrorAuditUtil}.</p>
+	 *
+	 * @return NISN hasil normalisasi yang sudah di-{@code trim}; string kosong bila tidak ada
+	 */
 	public String getNisn() {
 
 		try {
@@ -3150,10 +3298,26 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return nisn.trim();
 	}
 
+	/**
+	 * Menyetel NISN apa adanya; normalisasi terjadi saat dibaca.
+	 *
+	 * @param nisn NISN
+	 */
 	public void setNisn(String nisn) {
 		this.nisn = nisn;
 	}
 
+	/**
+	 * NPWP (Nomor Pokok Wajib Pajak) mahasiswa, sudah dinormalisasi.
+	 *
+	 * <p>{@code null} diganti string kosong, karakter selain digit dan titik dibuang, lalu dipotong
+	 * maksimal 15 karakter (panjang NPWP tanpa pemisah).</p>
+	 *
+	 * <p>Berbeda dengan kebanyakan getter penormal lain di kelas ini, hasil akhirnya TIDAK
+	 * di-{@code trim} sebelum dikembalikan.</p>
+	 *
+	 * @return NPWP hasil normalisasi; string kosong bila belum diisi, tidak pernah {@code null}
+	 */
 	public String getNpwp() {
 
 		if (npwp == null) {
@@ -3170,10 +3334,28 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return npwp;
 	}
 
+	/**
+	 * Menyetel NPWP apa adanya; normalisasi terjadi saat dibaca.
+	 *
+	 * @param npwp NPWP
+	 */
 	public void setNpwp(String npwp) {
 		this.npwp = npwp;
 	}
 
+	/**
+	 * NIK (Nomor Induk Kependudukan) ayah, sudah dinormalisasi.
+	 *
+	 * <p>Karakter selain digit dan titik dibuang bila isinya bukan angka murni, tanda hubung
+	 * dihilangkan, lalu nilai sentinel lama {@code "00000"} dianggap "tidak ada" dan dikosongkan.
+	 * Pemanggilan {@code StringUtils.replace} aman terhadap {@code null} sehingga urutan
+	 * pemeriksaannya tidak menimbulkan {@code NullPointerException}.</p>
+	 *
+	 * <p><b>Efek samping:</b> field {@code nikAyah} ditimpa hasil normalisasi. Berbeda dengan
+	 * {@link #getNoIdentitas()}, tidak ada pemotongan panjang maupun fallback ke data PMB di sini.</p>
+	 *
+	 * @return NIK ayah hasil normalisasi; string kosong bila tidak ada
+	 */
 	public String getNikAyah() {
 		if (nikAyah != null && !Common.isNumber(nikAyah)) {
 			nikAyah = nikAyah.replaceAll("[^\\d.]", "");
@@ -3187,10 +3369,23 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return nikAyah;
 	}
 
+	/**
+	 * Menyetel NIK ayah apa adanya; normalisasi terjadi saat dibaca.
+	 *
+	 * @param nikAyah NIK ayah
+	 */
 	public void setNikAyah(String nikAyah) {
 		this.nikAyah = nikAyah;
 	}
 
+	/**
+	 * NIK (Nomor Induk Kependudukan) ibu, dinormalisasi dengan aturan yang sama persis dengan
+	 * {@link #getNikAyah()}.
+	 *
+	 * <p>Perlu dicatat bahwa NIK wali TIDAK punya kolom sendiri — hanya ayah dan ibu.</p>
+	 *
+	 * @return NIK ibu hasil normalisasi; string kosong bila tidak ada
+	 */
 	public String getNikIbu() {
 		if (nikIbu != null && !Common.isNumber(nikIbu)) {
 			nikIbu = nikIbu.replaceAll("[^\\d.]", "");
@@ -3204,10 +3399,25 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return nikIbu;
 	}
 
+	/**
+	 * Menyetel NIK ibu apa adanya; normalisasi terjadi saat dibaca.
+	 *
+	 * @param nikIbu NIK ibu
+	 */
 	public void setNikIbu(String nikIbu) {
 		this.nikIbu = nikIbu;
 	}
 
+	/**
+	 * Isi kolom {@code text} parameter tambahan ALUMNI versi berlabel — jawaban kuesioner alumni
+	 * (tracer study) yang formatnya sama persis dengan {@link #getParameterTambahan()}, hanya saja
+	 * kelompoknya memakai {@link KelompokParameterTambahanAlumni}.
+	 *
+	 * <p><b>Efek samping ringan:</b> {@code null} diganti string kosong dan ditulis ke field.</p>
+	 *
+	 * @return string terenkode; string kosong bila belum ada isian, tidak pernah {@code null}
+	 * @see #populateParameterTambahanAlumni(List)
+	 */
 	@Column(columnDefinition = "text")
 	public String getParameterTambahanAlumni() {
 		if (parameterTambahanAlumni == null) {
@@ -3216,10 +3426,42 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return parameterTambahanAlumni;
 	}
 
+	/**
+	 * Menyetel isi kolom parameter tambahan alumni versi berlabel secara mentah.
+	 *
+	 * @param parameterTambahanAlumni string terenkode
+	 */
 	public void setParameterTambahanAlumni(String parameterTambahanAlumni) {
 		this.parameterTambahanAlumni = parameterTambahanAlumni;
 	}
 
+	/**
+	 * Kembaran {@link #populateParameterTambahan(List)} untuk kuesioner ALUMNI: memanen nilai baris
+	 * formulir ZK ke {@link #setParameterTambahanAlumni(String)} dan
+	 * {@link #setParameterTambahanIndsAlumni(String)}.
+	 *
+	 * <p>Dipanggil dari {@code ais.action.master.helper.ParameterTambahanAlumniListener}. Perbedaan
+	 * dengan versi mahasiswa:</p>
+	 * <ul>
+	 * <li>atribut kelompok pada {@link Row} bernama {@code "kelompokParameterTambahanAlumni"} dan
+	 * bertipe {@link KelompokParameterTambahanAlumni};</li>
+	 * <li><b>mode sambung.</b> Bila baris terakhir yang diproses punya atribut {@code "indexKe"} yang
+	 * tidak {@code null}, hasil rangkaian DITAMBAHKAN di belakang isi kolom yang sudah ada, bukan
+	 * menimpanya. Ini melayani kuesioner yang boleh diisi berulang (mis. satu blok pertanyaan per
+	 * riwayat pekerjaan). Bila {@code null}, kolom ditimpa seperti biasa;</li>
+	 * <li>tidak ada {@code System.out.println} sisa debug.</li>
+	 * </ul>
+	 *
+	 * <p><b>Kuirk mode sambung.</b> Keputusan menyambung atau menimpa ditentukan oleh nilai
+	 * {@code indexKe} baris TERAKHIR (variabel dideklarasikan di luar perulangan dan terus ditimpa),
+	 * bukan oleh keseluruhan daftar. Bila daftar bercampur — sebagian baris ber-{@code indexKe} dan
+	 * sebagian tidak — perilakunya bergantung urutan baris. Selain itu penyambungan dilakukan tanpa
+	 * menyisipkan {@code "\n"} pemisah, sehingga baris terakhir isian lama dan baris pertama isian
+	 * baru bisa menempel jadi satu baris.</p>
+	 *
+	 * @param parameterRows daftar baris formulir ZK; bila {@code null} atau kosong method langsung
+	 *         kembali tanpa mengubah apa pun
+	 */
 	public void populateParameterTambahanAlumni(List<Row> parameterRows) {
 		if (parameterRows == null || parameterRows.isEmpty()) {
 			return;
@@ -3279,6 +3521,23 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Membongkar string {@link #getParameterTambahanAlumni()} menjadi daftar {@link CommonVO} siap
+	 * tampil — kembaran {@link #ambilDataParameterTambahan()} untuk kuesioner alumni.
+	 *
+	 * <p>Membaca lebih banyak ruas daripada versi mahasiswa: selain label (ruas 0), nilai (1), URL
+	 * lampiran (2), {@code nomorUrut} (3), dan ID parameter (4), method ini juga mengambil ID
+	 * kelompok (ruas 5) ke {@code name3} dan {@code indexKe} (ruas 6) ke {@code name4}. Dua ruas
+	 * terakhir itulah yang memungkinkan pengelompokan ulang isian berulang di layar dan laporan
+	 * tracer study. Semua {@code parse} gagal ditelan diam-diam dan diganti nilai default.</p>
+	 *
+	 * <p>Hasil diurutkan lewat {@code CommonVO.compareTo}. Seperti versi mahasiswa, string kosong
+	 * tetap menghasilkan satu {@link CommonVO} "hampa".</p>
+	 *
+	 * <p>Dipakai oleh {@code MahasiswaAction} dan {@code CommonReportHelper}.</p>
+	 *
+	 * @return daftar {@link CommonVO} terurut; tidak pernah {@code null}
+	 */
 	public List<CommonVO> ambilDataParameterTambahanAlumni() {
 		List<CommonVO> commonVOs = new ArrayList<CommonVO>();
 		String[] splNama = getParameterTambahanAlumni().split("\n");
@@ -3327,6 +3586,15 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return commonVOs;
 	}
 
+	/**
+	 * Isi kolom {@code text} parameter tambahan ALUMNI versi ber-ID (empat ruas per baris), dipakai
+	 * untuk mengisi ulang formulir kuesioner alumni.
+	 *
+	 * <p><b>Efek samping ringan:</b> {@code null} diganti string kosong dan ditulis ke field.</p>
+	 *
+	 * @return string terenkode; string kosong bila belum ada isian, tidak pernah {@code null}
+	 * @see #getParameterTambahanInds()
+	 */
 	@Column(columnDefinition = "text")
 	public String getParameterTambahanIndsAlumni() {
 		if (parameterTambahanIndsAlumni == null) {
@@ -3335,10 +3603,26 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return parameterTambahanIndsAlumni;
 	}
 
+	/**
+	 * Menyetel isi kolom parameter tambahan alumni versi ber-ID secara mentah.
+	 *
+	 * @param parameterTambahanIndsAlumni string terenkode
+	 */
 	public void setParameterTambahanIndsAlumni(String parameterTambahanIndsAlumni) {
 		this.parameterTambahanIndsAlumni = parameterTambahanIndsAlumni;
 	}
 
+	/**
+	 * NPSN (Nomor Pokok Sekolah Nasional) sekolah asal, diturunkan dari relasi bila ada.
+	 *
+	 * <p>Bila {@link #getNamaSekolahAsal()} terisi dan kodenya tidak kosong, kode dari daftar acuan
+	 * {@link NamaSekolahAsal} MENIMPA nilai kolom — pola yang sama dengan {@link #getAsalSma()} untuk
+	 * nama sekolahnya. Tidak ada normalisasi angka di sini.</p>
+	 *
+	 * <p><b>Efek samping:</b> field {@code npsn} dan {@code namaSekolahAsal} ditulis ulang.</p>
+	 *
+	 * @return NPSN, atau {@code null} bila kolom kosong dan relasi tidak punya kode
+	 */
 	public String getNpsn() {
 		namaSekolahAsal = getNamaSekolahAsal();
 		if (namaSekolahAsal != null && namaSekolahAsal.getKode() != null
@@ -3348,10 +3632,27 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return npsn;
 	}
 
+	/**
+	 * Menyetel NPSN sekolah asal.
+	 *
+	 * <p>Nilai dapat ditimpa saat dibaca bila {@link #getNamaSekolahAsal()} punya kode.</p>
+	 *
+	 * @param npsn NPSN
+	 */
 	public void setNpsn(String npsn) {
 		this.npsn = npsn;
 	}
 
+	/**
+	 * Sekolah asal menurut daftar acuan baku {@link NamaSekolahAsal} (kolom
+	 * {@code nama_sekolah_asal}).
+	 *
+	 * <p>Relasi ini adalah sumber kebenaran bagi dua kolom teks turunan: {@link #getAsalSma()} (nama)
+	 * dan {@link #getNpsn()} (kode NPSN). Kolom teks tetap dipertahankan untuk data lama yang
+	 * diinput sebelum daftar sekolah baku tersedia.</p>
+	 *
+	 * @return sekolah asal, atau {@code null} bila belum dipilih dari daftar
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "nama_sekolah_asal", nullable = true)
 	public NamaSekolahAsal getNamaSekolahAsal() {
@@ -3359,58 +3660,157 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return namaSekolahAsal;
 	}
 
+	/**
+	 * Menyetel sekolah asal dari daftar acuan.
+	 *
+	 * <p>Perhatikan bahwa menyetel relasi ini akan menimpa {@link #getAsalSma()} dan
+	 * {@link #getNpsn()} pada pembacaan berikutnya.</p>
+	 *
+	 * @param namaSekolahAsal acuan {@link NamaSekolahAsal}
+	 */
 	public void setNamaSekolahAsal(NamaSekolahAsal namaSekolahAsal) {
 		this.namaSekolahAsal = namaSekolahAsal;
 	}
 
+	/**
+	 * Penanda apakah mahasiswa/alumni memiliki SKPI (Surat Keterangan Pendamping Ijazah).
+	 *
+	 * <p>{@code null} dibaca sebagai {@code false}. Berbeda dengan {@link #getApakahPernahPaud()},
+	 * di sini field TIDAK ditulis ulang — hanya nilai kembaliannya yang disesuaikan, sehingga tidak
+	 * ada efek samping penyimpanan.</p>
+	 *
+	 * @return {@code true} bila punya SKPI, {@code false} bila tidak/belum diisi; tidak pernah
+	 *         {@code null}
+	 */
 	public Boolean getPunyaSkpi() {
 		return punyaSkpi == null ? false : punyaSkpi;
 	}
 
+	/**
+	 * Menyetel penanda kepemilikan SKPI.
+	 *
+	 * @param punyaSkpi {@code true} bila punya
+	 */
 	public void setPunyaSkpi(Boolean punyaSkpi) {
 		this.punyaSkpi = punyaSkpi;
 	}
 
+	/**
+	 * Penanda kepemilikan sertifikat kemampuan bahasa Inggris (mis. TOEFL/IELTS), sering menjadi
+	 * syarat kelulusan atau pendaftaran wisuda.
+	 *
+	 * <p>{@code null} dibaca sebagai {@code false} tanpa menulis ke field.</p>
+	 *
+	 * @return {@code true} bila punya, {@code false} bila tidak/belum diisi; tidak pernah {@code null}
+	 */
 	public Boolean getPunyaSertifikatBahasaInggris() {
 		return punyaSertifikatBahasaInggris == null ? false : punyaSertifikatBahasaInggris;
 	}
 
+	/**
+	 * Menyetel penanda kepemilikan sertifikat bahasa Inggris.
+	 *
+	 * @param punyaSertifikatBahasaInggris {@code true} bila punya
+	 */
 	public void setPunyaSertifikatBahasaInggris(Boolean punyaSertifikatBahasaInggris) {
 		this.punyaSertifikatBahasaInggris = punyaSertifikatBahasaInggris;
 	}
 
+	/**
+	 * Penanda kepemilikan sertifikat kemampuan bahasa Arab — pasangan
+	 * {@link #getPunyaSertifikatBahasaInggris()}, relevan pada perguruan tinggi keagamaan Islam.
+	 *
+	 * <p>{@code null} dibaca sebagai {@code false} tanpa menulis ke field.</p>
+	 *
+	 * @return {@code true} bila punya, {@code false} bila tidak/belum diisi; tidak pernah {@code null}
+	 */
 	public Boolean getPunyaSertifikatBahasaArab() {
 		return punyaSertifikatBahasaArab == null ? false : punyaSertifikatBahasaArab;
 	}
 
+	/**
+	 * Menyetel penanda kepemilikan sertifikat bahasa Arab.
+	 *
+	 * @param punyaSertifikatBahasaArab {@code true} bila punya
+	 */
 	public void setPunyaSertifikatBahasaArab(Boolean punyaSertifikatBahasaArab) {
 		this.punyaSertifikatBahasaArab = punyaSertifikatBahasaArab;
 	}
 
+	/**
+	 * Nomor telepon ayah.
+	 *
+	 * <p>Ketiga nomor telepon orang tua/wali ({@code telpAyah}, {@code telpIbu}, {@code telpWali})
+	 * dideklarasikan pada satu baris field dan dikembalikan apa adanya — TIDAK dinormalisasi seperti
+	 * {@link #getTeleponRumah()}. Nilainya bisa mengandung spasi, tanda hubung, awalan {@code "+62"},
+	 * atau bahkan beberapa nomor sekaligus.</p>
+	 *
+	 * @return nomor telepon ayah, atau {@code null} bila belum diisi
+	 */
 	public String getTelpAyah() {
 		return telpAyah;
 	}
 
+	/**
+	 * Menyetel nomor telepon ayah.
+	 *
+	 * @param telpAyah nomor telepon (tidak dinormalisasi)
+	 */
 	public void setTelpAyah(String telpAyah) {
 		this.telpAyah = telpAyah;
 	}
 
+	/**
+	 * Nomor telepon ibu, dikembalikan apa adanya tanpa normalisasi.
+	 *
+	 * @return nomor telepon ibu, atau {@code null} bila belum diisi
+	 * @see #getTelpAyah()
+	 */
 	public String getTelpIbu() {
 		return telpIbu;
 	}
 
+	/**
+	 * Menyetel nomor telepon ibu.
+	 *
+	 * @param telpIbu nomor telepon (tidak dinormalisasi)
+	 */
 	public void setTelpIbu(String telpIbu) {
 		this.telpIbu = telpIbu;
 	}
 
+	/**
+	 * Nomor telepon wali, dikembalikan apa adanya tanpa normalisasi.
+	 *
+	 * @return nomor telepon wali, atau {@code null} bila belum diisi
+	 * @see #getTelpAyah()
+	 */
 	public String getTelpWali() {
 		return telpWali;
 	}
 
+	/**
+	 * Menyetel nomor telepon wali.
+	 *
+	 * @param telpWali nomor telepon (tidak dinormalisasi)
+	 */
 	public void setTelpWali(String telpWali) {
 		this.telpWali = telpWali;
 	}
 
+	/**
+	 * Nama operator seluler nomor {@link #getHp()}, dalam bentuk teks.
+	 *
+	 * <p>Bila relasi {@link #getOperatorSeluler()} terisi, namanya MENIMPA teks yang tersimpan.
+	 * Bersama-sama keduanya membentuk pasangan dua arah yang tidak lazim: teks bebas ini dipakai
+	 * {@link #getOperatorSeluler()} untuk MENEBAK relasi ketika relasi masih kosong, dan sebaliknya
+	 * relasi dipakai di sini untuk menimpa teks. Yang mana yang "menang" bergantung pada mana yang
+	 * lebih dulu terisi.</p>
+	 *
+	 * <p><b>Efek samping:</b> field {@code hpProvider} dan {@code operatorSeluler} ditulis ulang.</p>
+	 *
+	 * @return nama operator seluler, atau {@code null} bila keduanya kosong
+	 */
 	public String getHpProvider() {
 		operatorSeluler = getOperatorSeluler();
 		if (operatorSeluler != null) {
@@ -3419,10 +3819,36 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return hpProvider;
 	}
 
+	/**
+	 * Menyetel nama operator seluler sebagai teks bebas.
+	 *
+	 * @param hpProvider nama operator, mis. {@code "Telkomsel"}
+	 */
 	public void setHpProvider(String hpProvider) {
 		this.hpProvider = hpProvider;
 	}
 
+	/**
+	 * Operator seluler nomor HP mahasiswa menurut daftar acuan {@link OperatorSeluler} (kolom
+	 * {@code operator_seluler}), dengan penebakan dari teks bebas.
+	 *
+	 * <p>Bila relasi masih kosong sementara {@link #getHpProvider()} berisi teks, seluruh daftar
+	 * {@link OperatorSeluler} diambil dari cache {@code ConstantValues.ambilBerdasarClass(...)} dan
+	 * dicocokkan dua arah tanpa memedulikan besar-kecil huruf: nama operator memuat teks, ATAU teks
+	 * memuat nama operator. Kandidat pertama yang cocok langsung dipakai.</p>
+	 *
+	 * <p><b>Kelemahan pencocokan:</b> aturan "saling memuat" ini longgar — teks pendek atau nama
+	 * operator yang merupakan bagian dari nama operator lain bisa menghasilkan kecocokan yang keliru,
+	 * dan karena perulangan berhenti pada kandidat pertama, hasilnya bergantung urutan isi cache
+	 * (tidak deterministik antar-restart). Selain itu {@code m.getNama()} diasumsikan tidak
+	 * {@code null}; baris acuan tanpa nama akan melempar {@code NullPointerException} yang tidak
+	 * ditangkap di sini.</p>
+	 *
+	 * <p><b>Efek samping:</b> field {@code operatorSeluler} ditulis ulang sehingga hasil tebakan bisa
+	 * ikut tersimpan ke basis data pada flush berikutnya.</p>
+	 *
+	 * @return operator seluler, atau {@code null} bila relasi kosong dan tidak ada yang cocok
+	 */
 	@SuppressWarnings("unchecked")
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "operator_seluler", nullable = true)
@@ -3443,10 +3869,45 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return operatorSeluler;
 	}
 
+	/**
+	 * Menyetel operator seluler dari daftar acuan.
+	 *
+	 * <p>Menyetel relasi ini membuat {@link #getHpProvider()} menimpa teks operator dengan nama dari
+	 * acuan.</p>
+	 *
+	 * @param operatorSeluler acuan {@link OperatorSeluler}
+	 */
 	public void setOperatorSeluler(OperatorSeluler operatorSeluler) {
 		this.operatorSeluler = operatorSeluler;
 	}
 
+	/**
+	 * Menghitung total SKOR yang tersimpan pada jawaban parameter tambahan untuk satu butir
+	 * {@link ParameterTambahan} tertentu.
+	 *
+	 * <p>Mekanisme ini memungkinkan sebuah pertanyaan isian tambahan berfungsi sebagai penentu
+	 * NOMINAL: pilihan jawaban bertipe {@code PILIHAN_CUSTOM} boleh ditulis dalam bentuk
+	 * {@code "label:angka"}, dan angka itulah skornya. Dipakai untuk menghitung biaya yang bergantung
+	 * jawaban mahasiswa — lihat {@code Kegiatan} (biaya kegiatan/pendaftaran, lewat
+	 * {@code mahasiswa.ambilBiodata().ambilSkor(...)}) dan {@code sekolah.NominalBiaya}.</p>
+	 *
+	 * <p>Alurnya: string {@link #getParameterTambahan()} dipecah per baris; tiap baris diambil ruas
+	 * ke-1 (nilai) dan ruas ke-4 (ID parameter), lalu objek {@link ParameterTambahan} dimuat dari
+	 * cache {@code ConstantValues}. Bila ID-nya sama dengan {@code parameterTambahanData} DAN tipe
+	 * inputannya {@code PILIHAN_CUSTOM}, nilainya di-parse: bila memuat titik dua, bagian SESUDAH
+	 * titik dua yang diambil; bila tidak, seluruh nilai diparse sebagai angka. Hasil tiap baris
+	 * dijumlahkan.</p>
+	 *
+	 * <p><b>Catatan.</b> Semua kegagalan {@code parse} ditelan (dicatat {@code ErrorAuditUtil}) dan
+	 * menghasilkan skor 0 untuk baris itu, sehingga jawaban yang formatnya keliru diam-diam bernilai
+	 * nol alih-alih memunculkan kesalahan. Bila butir yang sama muncul lebih dari sekali (isian
+	 * berulang), skornya BERTAMBAH — perilaku yang diinginkan untuk biaya per-item, tetapi bisa
+	 * mengejutkan bila baris ganda muncul karena data kotor.</p>
+	 *
+	 * @param parameterTambahanData butir parameter tambahan yang skornya ingin dijumlahkan; bila
+	 *         {@code null} hasilnya 0
+	 * @return total skor, {@code 0} bila tidak ada jawaban yang cocok; tidak pernah {@code null}
+	 */
 	public Integer ambilSkor(ParameterTambahan parameterTambahanData) {
 		Integer totalSkor = 0;
 		if (!getParameterTambahan().isEmpty() && parameterTambahanData != null) {
@@ -3490,14 +3951,42 @@ public class BiodataMahasiswa extends GeneralValueObject {
 		return totalSkor;
 	}
 
+	/**
+	 * Alamat surel atasan mahasiswa di tempat kerja — dipakai pada program kelas karyawan dan
+	 * pascasarjana, mis. untuk mengirim permintaan izin atau rekomendasi.
+	 *
+	 * @return alamat surel atasan yang sudah di-{@code trim}; string kosong bila belum diisi, tidak
+	 *         pernah {@code null}
+	 */
 	public String getEmailAtasan() {
 		return emailAtasan == null ? "" : emailAtasan.trim();
 	}
 
+	/**
+	 * Menyetel alamat surel atasan di tempat kerja.
+	 *
+	 * @param emailAtasan alamat surel (tidak divalidasi)
+	 */
 	public void setEmailAtasan(String emailAtasan) {
 		this.emailAtasan = emailAtasan;
 	}
 
+	/**
+	 * Menaruh foto mahasiswa ke dalam peta parameter laporan.
+	 *
+	 * <p>Sekadar delegasi: {@code getMahasiswa().putPhoto(parameters)} — foto memang milik entity
+	 * {@link Mahasiswa}, bukan biodata. Method ini ada agar pemanggil yang sudah memegang objek
+	 * biodata tidak perlu menelusuri relasi sendiri; dipakai antara lain oleh
+	 * {@code ais.action.report.CommonReportHelper} saat menyiapkan parameter cetak JasperReports.</p>
+	 *
+	 * <p><b>Efek samping:</b> {@code parameters} diubah di tempat (entri foto ditambahkan). Bila
+	 * biodata belum tertaut mahasiswa, {@code NullPointerException} yang timbul DITELAN di sini
+	 * (hanya dicetak ke {@code stderr} dan dicatat {@code ErrorAuditUtil}) sehingga laporan tetap
+	 * tercetak tanpa foto, tanpa peringatan bagi pengguna.</p>
+	 *
+	 * @param parameters peta parameter laporan yang akan diisi; tipe mentah ({@code raw}) mengikuti
+	 *         API JasperReports
+	 */
 	@SuppressWarnings({ "rawtypes" })
 	public void putPhoto(Map parameters) {
 		try {

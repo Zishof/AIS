@@ -233,7 +233,7 @@ public class DashboardStokKantinAction extends GenericAutowireComposer {
                 double masukNilai = m == null ? 0 : num(m[1]);
 
                 Object[] k = first(q("ringkasankeluar", "SELECT COALESCE(SUM(a.qty),0), "
-                        + "COALESCE(SUM(a.qty*COALESCE(a.hargajual,0)),0) FROM koperasi.pembelian a "
+                        + "COALESCE(SUM(" + NILAI_KELUAR + "),0) FROM koperasi.pembelian a "
                         + "WHERE a.aktif = true AND a.waktu >= (" + since + ")" + andToko("a")));
                 double keluarUnit = k == null ? 0 : num(k[0]);
                 double keluarNilai = k == null ? 0 : num(k[1]);
@@ -319,7 +319,7 @@ public class DashboardStokKantinAction extends GenericAutowireComposer {
                     + "FROM koperasi.pengadaan_produk a LEFT JOIN koperasi.toko t ON t.id = a.toko "
                     + "WHERE a.waktupengadaan >= (" + since + ") GROUP BY t.nama", TIPE_SDD);
             List<Object[]> keluarPerToko = q("keluar_pertoko", "SELECT COALESCE(t.nama,'-') AS c0, "
-                    + "COALESCE(SUM(a.qty),0) AS c1, COALESCE(SUM(a.qty*COALESCE(a.hargajual,0)),0) AS c2 "
+                    + "COALESCE(SUM(a.qty),0) AS c1, COALESCE(SUM(" + NILAI_KELUAR + "),0) AS c2 "
                     + "FROM koperasi.pembelian a LEFT JOIN koperasi.toko t ON t.id = a.toko "
                     + "WHERE a.aktif = true AND a.waktu >= (" + since + ") GROUP BY t.nama", TIPE_SDD);
 
@@ -404,10 +404,23 @@ public class DashboardStokKantinAction extends GenericAutowireComposer {
                 + " ORDER BY a.waktupengadaan DESC LIMIT 300", TIPE_SSSSSDD);
     }
 
+    /**
+     * Nilai barang keluar = nilai penjualan FINAL baris (kolom {@code total}), sama seperti
+     * laporan penjualan (lihat {@code LaporanKantinUtil.OMZET}, dok. 67).
+     *
+     * <p>Sebelumnya dashboard memakai {@code qty * hargajual}, yaitu harga jual master pada
+     * baris — mengabaikan diskon, harga grosir, dan harga Pack. Akibatnya kartu "Barang Keluar"
+     * menyebut angka yang lebih besar daripada laporan penjualan untuk periode yang sama, dan
+     * pemilik tidak punya cara menebak mana yang benar. Baris lama yang belum menyimpan
+     * {@code total} tetap memakai perhitungan lama sebagai cadangan.</p>
+     */
+    private static final String NILAI_KELUAR =
+            "COALESCE(a.total, a.qty*COALESCE(a.hargasatuan, a.hargajual, 0), 0)";
+
     private List<Object[]> qKeluar() {
         return q("keluarlist", "SELECT COALESCE(t.nama,'-') AS c0, COALESCE(a.kode,'') AS c1, "
                 + "TO_CHAR(a.waktu,'dd-MM-yyyy HH24:MI') AS c2, COALESCE(p.nama,'') AS c3, COALESCE(a.qty,0) AS c4, "
-                + "COALESCE(a.qty*COALESCE(a.hargajual,0),0) AS c5 "
+                + NILAI_KELUAR + " AS c5 "
                 + "FROM koperasi.pembelian a LEFT JOIN koperasi.produk p ON p.id = a.produk "
                 + "LEFT JOIN koperasi.toko t ON t.id = a.toko "
                 + "WHERE a.aktif = true AND a.waktu >= (" + periodeSinceCache + ")" + andToko("a")

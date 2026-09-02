@@ -8,7 +8,7 @@ import org.json.JSONObject;
 import ais.common.Common;
 
 /**
- * Penyaji laporan Jasper sebagai PDF ber-base64 di dalam amplop JSON.
+ * Penyaji laporan Jasper sebagai PDF/XLS ber-base64 di dalam amplop JSON.
  *
  * <p>Tiga kontrak laporan native — laporan generik, laporan kinerja BKD/LKP,
  * dan laporan BKD ringkas/peringkat — sama-sama berakhir pada langkah yang
@@ -45,6 +45,26 @@ public final class JasperPdfUtil {
         kirim(json, pdf, kunci, judul);
     }
 
+    /**
+     * Render template sebagai Excel lama ({@code .xls}) untuk laporan yang pada
+     * layar ZK memang disajikan sebagai lembar kerja, bukan sebagai PDF.
+     */
+    @SuppressWarnings("rawtypes")
+    public static void tulisXls(JSONObject json, String template, Map parameters,
+            String kunci, String judul) throws Exception {
+        java.io.File xls = ais.action.report.Report.generateFileReportSimple(
+                ais.action.report.Report.XLS, parameters, template);
+        if (xls == null || !xls.exists()) {
+            throw new IllegalStateException("Berkas Excel laporan gagal dibuat.");
+        }
+        byte[] isi = java.nio.file.Files.readAllBytes(xls.toPath());
+        json.put("namaFile", kunci + "_" + Common.databaseDateFormat.get().format(new Date()) + ".xls");
+        json.put("varianNama", judul);
+        json.put("format", "xls");
+        json.put("mimeType", "application/vnd.ms-excel");
+        json.put("fileBase64", java.util.Base64.getEncoder().encodeToString(isi));
+    }
+
     /** Render JRXML yang lokasinya berasal dari lampiran terverifikasi. */
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public static void tulisFile(JSONObject json, String jrxml, Map parameters,
@@ -69,6 +89,8 @@ public final class JasperPdfUtil {
         byte[] isi = java.nio.file.Files.readAllBytes(pdf.toPath());
         json.put("namaFile", kunci + "_" + Common.databaseDateFormat.get().format(new Date()) + ".pdf");
         json.put("varianNama", judul);
+        json.put("format", "pdf");
+        json.put("mimeType", "application/pdf");
         json.put("pdfBase64", java.util.Base64.getEncoder().encodeToString(isi));
     }
 }

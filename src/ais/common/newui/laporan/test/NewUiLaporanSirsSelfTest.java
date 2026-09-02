@@ -34,11 +34,16 @@ public final class NewUiLaporanSirsSelfTest {
         laporan.put("rajal_umum_21", "sirs/rajal_laporan_kunjungan_pasien_umum_21");
         laporan.put("rajal_umum_5", "sirs/rajal_laporan_kunjungan_pasien_umum_5");
         laporan.put("rajal_poli_baru_lama", "sirs/laporan_kunjungan_pasien_baru_lama");
+        laporan.put("laporan_kasir_harian", "sirs/laporan_kasir_harian");
+        laporan.put("laporan_kasir_per_shift", "sirs/laporan_kasir_per_shift");
+        laporan.put("laporan_ranap_pasien_dinas", "sirs/laporan_ranap_pasien_dinas");
+        laporan.put("ranap_laporan_perruangan_periode", "sirs/ranap_laporan_perruangan_periode");
 
         Method jenis = NewUiLaporanSirsController.class.getDeclaredMethod("jenis", String.class);
         jenis.setAccessible(true);
         Field template = null;
         Field saringan = null;
+        Field format = null;
         Object lima = null;
         Object poliBaruLama = null;
         for (Map.Entry<String, String> e : laporan.entrySet()) {
@@ -50,6 +55,8 @@ public final class NewUiLaporanSirsSelfTest {
                 template.setAccessible(true);
                 saringan = nilai.getClass().getDeclaredField("saringan");
                 saringan.setAccessible(true);
+                format = nilai.getClass().getDeclaredField("format");
+                format.setAccessible(true);
             }
             check(e.getValue().equals(template.get(nilai)),
                     "template keliru untuk " + e.getKey() + ": " + template.get(nilai));
@@ -57,6 +64,9 @@ public final class NewUiLaporanSirsSelfTest {
             check(jasper.exists(), "template Jasper tidak ada: " + jasper.getPath());
             check(((String[]) saringan.get(nilai)).length > 0,
                     "laporan tanpa filter: " + e.getKey());
+            boolean kasir = e.getKey().startsWith("laporan_kasir_");
+            check((kasir ? "xls" : "pdf").equals(format.get(nilai)),
+                    "format keluaran keliru untuk " + e.getKey() + ": " + format.get(nilai));
             if ("rajal_umum_5".equals(e.getKey())) lima = nilai;
             if ("rajal_poli_baru_lama".equals(e.getKey())) poliBaruLama = nilai;
         }

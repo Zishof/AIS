@@ -126,7 +126,21 @@ public final class SalesInventoryMasterHelper {
 			if ("nama".equals(sort)) orderBy = "p.nama ASC";
 			else if ("wilayah".equals(sort)) orderBy = "COALESCE(sp.wilayah,'') ASC, p.nama ASC";
 
-			String dasar = " FROM library.penyedia p LEFT JOIN koperasi.supplier_inventory_profile sp ON sp.penyedia = p.id " + where;
+			boolean jalurTenant = SalesInventoryMasterTenant.aktif(ctx);
+			String dasar;
+			String pilih;
+			if (jalurTenant) {
+				String sk = SalesInventoryMasterTenant.skema(ctx);
+				dasar = SalesInventoryMasterTenant.dasarSupplier(sk, where.toString());
+				pilih = SalesInventoryMasterTenant.selectSupplier(sk);
+				orderBy = SalesInventoryMasterTenant.urutSupplier(sort);
+			} else {
+				dasar = " FROM library.penyedia p LEFT JOIN koperasi.supplier_inventory_profile sp ON sp.penyedia = p.id " + where;
+				pilih = "SELECT p.id, p.kode, p.nama, p.alamat, p.telp, p.kontak, p.email, p.keterangan, "
+						+ "sp.id, sp.termin_hari, sp.wilayah, sp.no_rekening, sp.atas_nama, sp.bank, sp.alamat_bank, "
+						+ "COALESCE(sp.aktif, true), p.akun_utang, "
+						+ "(SELECT ak.kode || ' ' || ak.nama FROM akunting.akun ak WHERE ak.id = p.akun_utang) ";
+			}
 			java.sql.PreparedStatement psTotal = session.connection()
 					.prepareStatement("SELECT COUNT(*) " + dasar);
 			for (int i = 0; i < params.size(); i++) psTotal.setObject(i + 1, params.get(i));
@@ -135,11 +149,7 @@ public final class SalesInventoryMasterHelper {
 			rsTotal.close(); psTotal.close();
 
 			java.sql.PreparedStatement ps = session.connection().prepareStatement(
-					"SELECT p.id, p.kode, p.nama, p.alamat, p.telp, p.kontak, p.email, p.keterangan, "
-							+ "sp.id, sp.termin_hari, sp.wilayah, sp.no_rekening, sp.atas_nama, sp.bank, sp.alamat_bank, "
-							+ "COALESCE(sp.aktif, true), p.akun_utang, "
-							+ "(SELECT ak.kode || ' ' || ak.nama FROM akunting.akun ak WHERE ak.id = p.akun_utang) "
-							+ dasar + " ORDER BY " + orderBy + " LIMIT ? OFFSET ?");
+					pilih + dasar + " ORDER BY " + orderBy + " LIMIT ? OFFSET ?");
 			int idx = 1;
 			for (int i = 0; i < params.size(); i++) ps.setObject(idx++, params.get(i));
 			ps.setInt(idx++, h[1]);
@@ -185,6 +195,13 @@ public final class SalesInventoryMasterHelper {
 
 	public static void supplierDetail(EbisnisActorContextResolver.ActorContext ctx, JSONObject request,
 			JSONObject hasil) throws Exception {
+		if (SalesInventoryMasterTenant.aktif(ctx)) {
+			// BELUM dipindahkan ke schema tenant. Menjalankan SQL legacy di sini akan
+			// membaca schema BERSAMA -- data tenant lain. Ditolak sampai jalur tenantnya
+			// ditulis; lihat catatan pada SalesInventoryMasterTenant.
+			tolak(hasil, "Layar ini belum tersedia pada tenant berschema.");
+			return;
+		}
 		Long id = optLong(request, "id");
 		if (id == null) {
 			tolak(hasil, "ID supplier wajib diisi.");
@@ -267,6 +284,12 @@ public final class SalesInventoryMasterHelper {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		Transaction tx = null;
 		try {
+			if (SalesInventoryMasterTenant.aktif(ctx)) {
+				// Entitas Penyedia/SupplierInventoryProfile mematok schema-nya; jalur tenant
+				// menulis lewat SQL asli agar tidak mendarat di schema bersama.
+				simpanMitraTenant(ctx, tbmuser, request, hasil, session, true, id, kode, nama);
+				return;
+			}
 			Penyedia p;
 			if (baru) {
 				Penyedia dobel = (Penyedia) session.createCriteria(Penyedia.class)
@@ -365,6 +388,10 @@ public final class SalesInventoryMasterHelper {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		Transaction tx = null;
 		try {
+			if (SalesInventoryMasterTenant.aktif(ctx)) {
+				nonaktifkanTenant(ctx, tbmuser, hasil, session, "supplier", id, aktifBaru);
+				return;
+			}
 			Penyedia p = (Penyedia) session.get(Penyedia.class, id);
 			if (p == null) {
 				tolak(hasil, "Supplier tidak ditemukan.");
@@ -432,19 +459,33 @@ public final class SalesInventoryMasterHelper {
 			if ("nama".equals(sort)) orderBy = "a.nama ASC";
 			else if ("wilayah".equals(sort)) orderBy = "COALESCE(cp.wilayah,'') ASC, a.nama ASC";
 
-			String dasar = " FROM koperasi.anggota_koperasi a "
-					+ "LEFT JOIN koperasi.customer_inventory_profile cp ON cp.anggota_koperasi = a.id "
-					+ "LEFT JOIN koperasi.sales_inventory s ON cp.sales_owner = s.id " + where;
-			java.sql.PreparedStatement psTotal = session.connection().prepareStatement("SELECT COUNT(*) " + dasar);
+			boolean jalurTenant = SalesInventoryMasterTenant.aktif(ctx);
+			String dasar;
+			String pilihCust;
+			String urutCust = " ORDER BY a.kode ASC LIMIT ? OFFSET ?";
+			if (jalurTenant) {
+				String sk = SalesInventoryMasterTenant.skema(ctx);
+				dasar = SalesInventoryMasterTenant.dasarCustomer(sk, where.toString());
+				pilihCust = SalesInventoryMasterTenant.selectCustomer(sk);
+				urutCust = " ORDER BY " + orderBy + " LIMIT ? OFFSET ?";
+			} else {
+				dasar = " FROM koperasi.anggota_koperasi a "
+						+ "LEFT JOIN koperasi.customer_inventory_profile cp ON cp.anggota_koperasi = a.id "
+						+ "LEFT JOIN koperasi.sales_inventory s ON cp.sales_owner = s.id " + where;
+				pilihCust = "SELECT a.id, a.kode, a.nama, a.alamat, a.telp, a.hp, a.limit_kredit, "
+						+ "cp.id, cp.termin_hari, cp.diskon_default_persen, cp.wilayah, cp.sales_owner, s.nama, "
+						+ "COALESCE(cp.aktif, true) ";
+				urutCust = " ORDER BY " + orderBy + " LIMIT ? OFFSET ?";
+			}
+			java.sql.PreparedStatement psTotal = session.connection()
+					.prepareStatement("SELECT COUNT(*) " + dasar);
 			for (int i = 0; i < params.size(); i++) psTotal.setObject(i + 1, params.get(i));
 			java.sql.ResultSet rsTotal = psTotal.executeQuery();
 			long total = rsTotal.next() ? rsTotal.getLong(1) : 0;
 			rsTotal.close(); psTotal.close();
 
 			java.sql.PreparedStatement ps = session.connection().prepareStatement(
-					"SELECT a.id, a.kode, a.nama, a.alamat, a.telp, a.hp, a.limit_kredit, "
-							+ "cp.id, cp.termin_hari, cp.diskon_default_persen, cp.wilayah, cp.sales_owner, s.nama, "
-							+ "COALESCE(cp.aktif, true) " + dasar + " ORDER BY " + orderBy + " LIMIT ? OFFSET ?");
+					pilihCust + dasar + urutCust);
 			int idx = 1;
 			for (int i = 0; i < params.size(); i++) ps.setObject(idx++, params.get(i));
 			ps.setInt(idx++, h[1]);
@@ -519,6 +560,13 @@ public final class SalesInventoryMasterHelper {
 
 	public static void customerDetail(EbisnisActorContextResolver.ActorContext ctx, JSONObject request,
 			JSONObject hasil) throws Exception {
+		if (SalesInventoryMasterTenant.aktif(ctx)) {
+			// BELUM dipindahkan ke schema tenant. Menjalankan SQL legacy di sini akan
+			// membaca schema BERSAMA -- data tenant lain. Ditolak sampai jalur tenantnya
+			// ditulis; lihat catatan pada SalesInventoryMasterTenant.
+			tolak(hasil, "Layar ini belum tersedia pada tenant berschema.");
+			return;
+		}
 		Long anggotaId = optLong(request, "anggota_id");
 		if (anggotaId == null) {
 			tolak(hasil, "ID customer (anggota) wajib diisi.");
@@ -598,6 +646,10 @@ public final class SalesInventoryMasterHelper {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		Transaction tx = null;
 		try {
+			if (SalesInventoryMasterTenant.aktif(ctx)) {
+				simpanMitraTenant(ctx, tbmuser, request, hasil, session, false, anggotaId, kode, nama);
+				return;
+			}
 			AnggotaKoperasi a;
 			if (baru) {
 				AnggotaKoperasi dobel = (AnggotaKoperasi) session.createCriteria(AnggotaKoperasi.class)
@@ -683,6 +735,10 @@ public final class SalesInventoryMasterHelper {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		Transaction tx = null;
 		try {
+			if (SalesInventoryMasterTenant.aktif(ctx)) {
+				nonaktifkanTenant(ctx, tbmuser, hasil, session, "customer", anggotaId, aktifBaru);
+				return;
+			}
 			AnggotaKoperasi a = (AnggotaKoperasi) session.get(AnggotaKoperasi.class, anggotaId);
 			if (a == null) {
 				tolak(hasil, "Customer tidak ditemukan.");
@@ -717,6 +773,13 @@ public final class SalesInventoryMasterHelper {
 
 	public static void salesList(EbisnisActorContextResolver.ActorContext ctx, JSONObject request,
 			JSONObject hasil) throws Exception {
+		if (SalesInventoryMasterTenant.aktif(ctx)) {
+			// BELUM dipindahkan ke schema tenant. Menjalankan SQL legacy di sini akan
+			// membaca schema BERSAMA -- data tenant lain. Ditolak sampai jalur tenantnya
+			// ditulis; lihat catatan pada SalesInventoryMasterTenant.
+			tolak(hasil, "Layar ini belum tersedia pada tenant berschema.");
+			return;
+		}
 		int[] h = halaman(request);
 		String keyword = opt(request, "keyword");
 		String filterAktif = opt(request, "aktif");
@@ -815,6 +878,13 @@ public final class SalesInventoryMasterHelper {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		Transaction tx = null;
 		try {
+			if (SalesInventoryMasterTenant.aktif(ctx)) {
+				// salesperson + sales_assignment ditulis terpisah pada model tenant.
+				// Toko dihitung di sini karena deklarasinya di jalur legacy berada di bawah.
+				simpanSalesTenant(ctx, tbmuser, request, hasil, session, id, kode, nama,
+						ctx.admin ? optLong(request, "toko_id") : ctx.tokoId);
+				return;
+			}
 			Long tokoId = ctx.admin ? optLong(request, "toko_id") : ctx.tokoId;
 			SalesInventory s;
 			if (baru) {
@@ -924,6 +994,10 @@ public final class SalesInventoryMasterHelper {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		Transaction tx = null;
 		try {
+			if (SalesInventoryMasterTenant.aktif(ctx)) {
+				nonaktifkanTenant(ctx, tbmuser, hasil, session, "salesperson", id, aktifBaru);
+				return;
+			}
 			SalesInventory s = (SalesInventory) session.get(SalesInventory.class, id);
 			if (s == null) {
 				tolak(hasil, "Sales tidak ditemukan.");
@@ -947,6 +1021,389 @@ public final class SalesInventoryMasterHelper {
 			throw e;
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	// =============================================================================================
+	// Jalur schema tenant -- SQL asli, sebab entitas mematok @Table(schema = ...)
+	// =============================================================================================
+
+	/** Benar bila kueri COUNT berparameter satu nilai menghasilkan lebih dari nol. */
+	private static boolean adaSatu(Session session, String sql, Object... args) throws Exception {
+		java.sql.PreparedStatement ps = session.connection().prepareStatement(sql);
+		try {
+			for (int i = 0; i < args.length; i++) {
+				ps.setObject(i + 1, args[i]);
+			}
+			java.sql.ResultSet rs = ps.executeQuery();
+			boolean ada = rs.next() && rs.getLong(1) > 0;
+			rs.close();
+			return ada;
+		} finally {
+			ps.close();
+		}
+	}
+
+	/**
+	 * Menonaktifkan/mengaktifkan mitra pada schema tenant.
+	 *
+	 * <p><b>Alasan nonaktif tidak tersimpan pada jalur tenant.</b> Jalur legacy mewajibkannya
+	 * "untuk audit" dan menaruhnya pada profil; model tenant tidak menyediakan kolom untuk itu.
+	 * Alasannya tetap <b>diwajibkan dan divalidasi</b> di sini supaya perilaku antarmuka tidak
+	 * berubah, tetapi setelah itu tidak ke mana-mana.</p>
+	 *
+	 * <p>Inilah kebutuhan konkret pertama bagi {@code TenantAuditWriter}, yang sudah berdiri
+	 * sejak P4 awal tetapi belum punya satu pun pemanggil. Menyambungkannya di sini akan memberi
+	 * alasan itu tempat yang benar; sampai saat itu, keterbatasannya dicatat alih-alih
+	 * disembunyikan.</p>
+	 */
+	private static void nonaktifkanTenant(EbisnisActorContextResolver.ActorContext ctx,
+			Tbmuser tbmuser, JSONObject hasil, Session session, String tabel, Long id,
+			boolean aktifBaru) throws Exception {
+		String sk = SalesInventoryMasterTenant.skema(ctx);
+		String oleh = tbmuser == null || tbmuser.getUserId() == null ? "" : tbmuser.getUserId();
+		if (!adaSatu(session, SalesInventoryMasterTenant.adaBaris(sk, tabel), id)) {
+			tolak(hasil, "Data tidak ditemukan pada tenant ini.");
+			return;
+		}
+		Transaction tx = null;
+		try {
+			tx = session.beginTransaction();
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(
+					SalesInventoryMasterTenant.nonaktifkan(sk, tabel));
+			try {
+				ps.setBoolean(1, aktifBaru);
+				ps.setString(2, oleh);
+				ps.setLong(3, id.longValue());
+				ps.executeUpdate();
+			} finally {
+				ps.close();
+			}
+			tx.commit();
+			hasil.put("status", "00");
+			hasil.put("id", id);
+			hasil.put("aktif", aktifBaru);
+		} catch (Exception e) {
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+				// rollback gagal tidak boleh menutupi galat aslinya
+			}
+			throw e;
+		}
+	}
+
+	/**
+	 * Menyimpan supplier atau customer pada schema tenant: induk dan profilnya sekaligus.
+	 *
+	 * <p>Aturan legacy dipertahankan: kode wajib untuk data baru, dan kode ganda ditolak.
+	 * Pembandingannya tidak peka huruf besar-kecil, sama seperti {@code ignoreCase()} pada
+	 * jalur lama -- kalau tidak, KODE-1 dan kode-1 akan lolos sebagai dua mitra berbeda.</p>
+	 */
+	private static void simpanMitraTenant(EbisnisActorContextResolver.ActorContext ctx,
+			Tbmuser tbmuser, JSONObject request, JSONObject hasil, Session session,
+			boolean supplierMode, Long id, String kode, String nama) throws Exception {
+		String sk = SalesInventoryMasterTenant.skema(ctx);
+		String tabel = supplierMode ? "supplier" : "customer";
+		String oleh = tbmuser == null || tbmuser.getUserId() == null ? "" : tbmuser.getUserId();
+		if (kode != null && !kode.isEmpty()) {
+			java.sql.PreparedStatement cek = session.connection().prepareStatement(
+					"SELECT COUNT(*) FROM " + sk + tabel + " WHERE LOWER(kode) = LOWER(?)"
+							+ " AND id <> COALESCE(?, -1)");
+			boolean dobel;
+			try {
+				cek.setString(1, kode);
+				if (id == null) {
+					cek.setNull(2, java.sql.Types.BIGINT);
+				} else {
+					cek.setLong(2, id.longValue());
+				}
+				java.sql.ResultSet rs = cek.executeQuery();
+				dobel = rs.next() && rs.getLong(1) > 0;
+				rs.close();
+			} finally {
+				cek.close();
+			}
+			if (dobel) {
+				tolak(hasil, "Kode " + kode + " sudah dipakai pada tenant ini. Duplikasi ditolak"
+						+ " -- gunakan record yang ada atau kode lain.");
+				return;
+			}
+		}
+		if (id != null && !adaSatu(session, SalesInventoryMasterTenant.adaBaris(sk, tabel), id)) {
+			tolak(hasil, "Data tidak ditemukan pada tenant ini.");
+			return;
+		}
+		Transaction tx = null;
+		try {
+			tx = session.beginTransaction();
+			Long idAkhir = id;
+			if (id == null) {
+				java.sql.PreparedStatement ins = session.connection().prepareStatement(
+						SalesInventoryMasterTenant.sisipMitra(sk, tabel),
+						java.sql.Statement.RETURN_GENERATED_KEYS);
+				try {
+					ins.setString(1, kode);
+					ins.setString(2, nama);
+					ins.setString(3, oleh);
+					ins.executeUpdate();
+					java.sql.ResultSet gk = ins.getGeneratedKeys();
+					if (gk.next()) {
+						idAkhir = Long.valueOf(gk.getLong(1));
+					}
+					gk.close();
+				} finally {
+					ins.close();
+				}
+			} else {
+				java.sql.PreparedStatement upd = session.connection().prepareStatement(
+						SalesInventoryMasterTenant.ubahMitra(sk, tabel));
+				try {
+					upd.setString(1, kode);
+					upd.setString(2, nama);
+					upd.setString(3, oleh);
+					upd.setLong(4, id.longValue());
+					upd.executeUpdate();
+				} finally {
+					upd.close();
+				}
+			}
+			if (idAkhir == null) {
+				tx.rollback();
+				tolak(hasil, "Penyimpanan gagal: id tidak terbentuk.");
+				return;
+			}
+			simpanProfilTenant(session, sk, request, supplierMode, idAkhir, oleh);
+			tx.commit();
+			hasil.put("status", "00");
+			hasil.put("id", idAkhir);
+		} catch (Exception e) {
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+				// rollback gagal tidak boleh menutupi galat aslinya
+			}
+			throw e;
+		}
+	}
+
+	/** Upsert profil mitra: model tenant memisahkannya dari induk, jadi ditulis terpisah. */
+	private static void simpanProfilTenant(Session session, String sk, JSONObject request,
+			boolean supplierMode, Long indukId, String oleh) throws Exception {
+		String tabel = supplierMode ? "supplier_profile" : "customer_profile";
+		String kolomInduk = supplierMode ? "supplier_id" : "customer_id";
+		boolean adaProfil;
+		java.sql.PreparedStatement cari = session.connection().prepareStatement(
+				SalesInventoryMasterTenant.adaProfil(sk, tabel, kolomInduk));
+		try {
+			cari.setLong(1, indukId.longValue());
+			java.sql.ResultSet rs = cari.executeQuery();
+			adaProfil = rs.next();
+			rs.close();
+		} finally {
+			cari.close();
+		}
+		java.sql.PreparedStatement ps;
+		if (supplierMode) {
+			ps = session.connection().prepareStatement(adaProfil
+					? SalesInventoryMasterTenant.ubahProfilSupplier(sk)
+					: SalesInventoryMasterTenant.sisipProfilSupplier(sk));
+		} else {
+			ps = session.connection().prepareStatement(adaProfil
+					? SalesInventoryMasterTenant.ubahProfilCustomer(sk)
+					: SalesInventoryMasterTenant.sisipProfilCustomer(sk));
+		}
+		try {
+			int i = 1;
+			if (!adaProfil) {
+				ps.setLong(i++, indukId.longValue());
+			}
+			if (supplierMode) {
+				ps.setString(i++, opt(request, "alamat"));
+				ps.setString(i++, opt(request, "telp"));
+				ps.setString(i++, opt(request, "kontak"));
+				ps.setString(i++, opt(request, "email"));
+				ps.setInt(i++, request == null ? 0 : request.optInt("termin_hari", 0));
+			} else {
+				ps.setString(i++, opt(request, "alamat"));
+				ps.setString(i++, opt(request, "telp"));
+				ps.setInt(i++, request == null ? 0 : request.optInt("termin_hari", 0));
+				ps.setBigDecimal(i++, new java.math.BigDecimal(String.valueOf(
+						request == null ? 0 : request.optDouble("diskon_default_persen", 0))));
+				ps.setBigDecimal(i++, new java.math.BigDecimal(String.valueOf(
+						request == null ? 0 : request.optDouble("limit_kredit", 0))));
+			}
+			ps.setString(i++, oleh);
+			if (adaProfil) {
+				ps.setLong(i++, indukId.longValue());
+			}
+			ps.executeUpdate();
+		} finally {
+			ps.close();
+		}
+	}
+
+	/**
+	 * Menyimpan sales pada schema tenant.
+	 *
+	 * <p>Model tenant memecah data sales menjadi {@code salesperson} (identitas, akun perkiraan,
+	 * telepon) dan {@code sales_assignment} (toko dan wilayah, berjangka waktu). Legacy menaruh
+	 * semuanya pada satu tabel.</p>
+	 *
+	 * <p><b>Dua medan tidak punya padanan:</b> {@code alamat} dan {@code target_bulanan}. Keduanya
+	 * diterima permintaan tetapi tidak disimpan. Menaruh target bulanan pada kolom lain akan
+	 * membuat laporan pencapaian membandingkan angka terhadap sesuatu yang bukan targetnya.</p>
+	 *
+	 * <p>Penugasan toko/wilayah ditulis sebagai baris {@code sales_assignment} baru bila belum ada
+	 * yang aktif, atau memperbarui yang aktif. Riwayat penugasan lama tidak ditimpa -- itu
+	 * gunanya tabel berjangka waktu.</p>
+	 */
+	private static void simpanSalesTenant(EbisnisActorContextResolver.ActorContext ctx,
+			Tbmuser tbmuser, JSONObject request, JSONObject hasil, Session session, Long id,
+			String kode, String nama, Long tokoId) throws Exception {
+		String sk = SalesInventoryMasterTenant.skema(ctx);
+		String oleh = tbmuser == null || tbmuser.getUserId() == null ? "" : tbmuser.getUserId();
+		if (kode != null && !kode.isEmpty()) {
+			java.sql.PreparedStatement cek = session.connection().prepareStatement(
+					"SELECT COUNT(*) FROM " + sk + "salesperson WHERE LOWER(kode) = LOWER(?)"
+							+ " AND id <> COALESCE(?, -1)");
+			boolean dobel;
+			try {
+				cek.setString(1, kode);
+				if (id == null) {
+					cek.setNull(2, java.sql.Types.BIGINT);
+				} else {
+					cek.setLong(2, id.longValue());
+				}
+				java.sql.ResultSet rs = cek.executeQuery();
+				dobel = rs.next() && rs.getLong(1) > 0;
+				rs.close();
+			} finally {
+				cek.close();
+			}
+			if (dobel) {
+				tolak(hasil, "Kode sales " + kode + " sudah dipakai pada tenant ini.");
+				return;
+			}
+		}
+		if (id != null
+				&& !adaSatu(session, SalesInventoryMasterTenant.adaBaris(sk, "salesperson"), id)) {
+			tolak(hasil, "Sales tidak ditemukan pada tenant ini.");
+			return;
+		}
+		Transaction tx = null;
+		try {
+			tx = session.beginTransaction();
+			Long idAkhir = id;
+			if (id == null) {
+				java.sql.PreparedStatement ins = session.connection().prepareStatement(
+						SalesInventoryMasterTenant.sisipSales(sk),
+						java.sql.Statement.RETURN_GENERATED_KEYS);
+				try {
+					ins.setString(1, kode);
+					ins.setString(2, nama);
+					ins.setString(3, opt(request, "nomor_perkiraan"));
+					ins.setString(4, opt(request, "telepon"));
+					ins.setString(5, oleh);
+					ins.executeUpdate();
+					java.sql.ResultSet gk = ins.getGeneratedKeys();
+					if (gk.next()) {
+						idAkhir = Long.valueOf(gk.getLong(1));
+					}
+					gk.close();
+				} finally {
+					ins.close();
+				}
+			} else {
+				java.sql.PreparedStatement upd = session.connection().prepareStatement(
+						SalesInventoryMasterTenant.ubahSales(sk));
+				try {
+					upd.setString(1, kode);
+					upd.setString(2, nama);
+					upd.setString(3, opt(request, "nomor_perkiraan"));
+					upd.setString(4, opt(request, "telepon"));
+					upd.setString(5, oleh);
+					upd.setLong(6, id.longValue());
+					upd.executeUpdate();
+				} finally {
+					upd.close();
+				}
+			}
+			if (idAkhir == null) {
+				tx.rollback();
+				tolak(hasil, "Penyimpanan gagal: id tidak terbentuk.");
+				return;
+			}
+			simpanPenugasanTenant(session, sk, idAkhir, tokoId, opt(request, "area"), oleh);
+			tx.commit();
+			hasil.put("status", "00");
+			hasil.put("id", idAkhir);
+		} catch (Exception e) {
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+				// rollback gagal tidak boleh menutupi galat aslinya
+			}
+			throw e;
+		}
+	}
+
+	/**
+	 * Penugasan toko/wilayah sales. Memperbarui penugasan aktif bila ada, atau membuat yang baru.
+	 * Riwayat penugasan lama tidak disentuh.
+	 */
+	private static void simpanPenugasanTenant(Session session, String sk, Long salesId,
+			Long tokoId, String wilayah, String oleh) throws Exception {
+		if (tokoId == null && (wilayah == null || wilayah.isEmpty())) {
+			return;
+		}
+		Long penugasanId = null;
+		java.sql.PreparedStatement cari = session.connection().prepareStatement(
+				"SELECT id FROM " + sk + "sales_assignment WHERE salesperson_id = ?"
+						+ " AND COALESCE(aktif,true) = true ORDER BY id DESC LIMIT 1");
+		try {
+			cari.setLong(1, salesId.longValue());
+			java.sql.ResultSet rs = cari.executeQuery();
+			if (rs.next()) {
+				penugasanId = Long.valueOf(rs.getLong(1));
+			}
+			rs.close();
+		} finally {
+			cari.close();
+		}
+		java.sql.PreparedStatement ps;
+		if (penugasanId == null) {
+			ps = session.connection().prepareStatement("INSERT INTO " + sk + "sales_assignment"
+					+ " (salesperson_id, toko_id, wilayah, aktif, dibuat_pada, oleh)"
+					+ " VALUES (?, ?, ?, true, now(), ?)");
+		} else {
+			ps = session.connection().prepareStatement("UPDATE " + sk + "sales_assignment"
+					+ " SET toko_id = ?, wilayah = ?, tanggal_dirubah = now(), oleh = ? WHERE id = ?");
+		}
+		try {
+			int i = 1;
+			if (penugasanId == null) {
+				ps.setLong(i++, salesId.longValue());
+			}
+			if (tokoId == null) {
+				ps.setNull(i++, java.sql.Types.BIGINT);
+			} else {
+				ps.setLong(i++, tokoId.longValue());
+			}
+			ps.setString(i++, wilayah);
+			ps.setString(i++, oleh);
+			if (penugasanId != null) {
+				ps.setLong(i++, penugasanId.longValue());
+			}
+			ps.executeUpdate();
+		} finally {
+			ps.close();
 		}
 	}
 }

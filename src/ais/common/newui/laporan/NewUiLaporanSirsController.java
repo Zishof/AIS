@@ -24,6 +24,7 @@ import ais.common.newui.NewUiCsrfUtil;
 import ais.common.newui.NewUiRouteGuard;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmuser;
+import ais.database.model.asset.Lokasi;
 import ais.database.model.sirs.Dokter;
 import ais.database.model.sirs.JenisPasien;
 import ais.database.model.sirs.Pasien;
@@ -34,7 +35,7 @@ import ais.database.model.sirs.TransaksiMedis;
 import ais.action.report.helper.CommonReport;
 
 /**
- * Kontrak native tiga belas laporan SIRS.
+ * Kontrak native tujuh belas laporan SIRS.
  *
  * <h3>Koreksi atas anggapan sebelumnya</h3>
  * <p>Enam laporan awal pernah dinyatakan tidak dapat dikonversi karena
@@ -83,12 +84,18 @@ public final class NewUiLaporanSirsController {
         final String judul;
         final String template;
         final String[] saringan;
+        final String format;
 
         Jenis(String kode, String judul, String template, String[] saringan) {
+            this(kode, judul, template, saringan, ais.action.report.Report.PDF);
+        }
+
+        Jenis(String kode, String judul, String template, String[] saringan, String format) {
             this.kode = kode;
             this.judul = judul;
             this.template = template;
             this.saringan = saringan;
+            this.format = format;
         }
     }
 
@@ -104,9 +111,10 @@ public final class NewUiLaporanSirsController {
     static final String S_JENIS_PASIEN = "jenis_pasien";
     static final String S_DOKTER = "dokter";
     static final String S_POLI = "poli";
+    static final String S_LOKASI = "lokasi";
 
     /**
-     * Tiga belas laporan yang dilayani kontrak ini.
+     * Tujuh belas laporan yang dilayani kontrak ini.
      *
      * <p>Kode laporan sengaja sama dengan nama template Jasper-nya supaya
      * hubungan keduanya tidak perlu ditelusuri lewat tabel lain.</p>
@@ -171,6 +179,24 @@ public final class NewUiLaporanSirsController {
             return new Jenis(kode, "Laporan Kunjungan per Poli Baru/Lama",
                     "sirs/laporan_kunjungan_pasien_baru_lama",
                     new String[] { S_MULAI, S_SAMPAI, S_JENIS_PASIEN });
+        }
+        if ("laporan_kasir_harian".equals(kode)) {
+            return new Jenis(kode, "Laporan Pendapatan Kasir Harian",
+                    "sirs/laporan_kasir_harian",
+                    new String[] { S_LOKASI, S_MULAI, S_SAMPAI }, ais.action.report.Report.XLS);
+        }
+        if ("laporan_kasir_per_shift".equals(kode)) {
+            return new Jenis(kode, "Laporan Pendapatan Kasir Per Shift",
+                    "sirs/laporan_kasir_per_shift",
+                    new String[] { S_LOKASI, S_MULAI, S_SAMPAI }, ais.action.report.Report.XLS);
+        }
+        if ("laporan_ranap_pasien_dinas".equals(kode)) {
+            return new Jenis(kode, "Laporan Ranap Dinas Per Ruangan",
+                    "sirs/laporan_ranap_pasien_dinas", new String[] { S_TAHUN, S_BULAN });
+        }
+        if ("ranap_laporan_perruangan_periode".equals(kode)) {
+            return new Jenis(kode, "Laporan Ranap Per Ruangan Periode",
+                    "sirs/ranap_laporan_perruangan_periode", new String[] { S_MULAI, S_SAMPAI });
         }
         throw new IllegalArgumentException("Jenis laporan SIRS tidak dikenal.");
     }
@@ -238,12 +264,20 @@ public final class NewUiLaporanSirsController {
         j.put("judul", jenis.judul);
         j.put("kode", jenis.kode);
         j.put("template", jenis.template);
+        j.put("format", jenis.format);
         j.put("csrfHeader", NewUiCsrfUtil.HEADER);
         j.put("csrfToken", NewUiCsrfUtil.getToken(request.getSession(true)));
 
         JSONArray arr = new JSONArray();
         for (String s : jenis.saringan) {
-            arr.put(filter(jenis, s));
+            JSONObject definisi = filter(jenis, s);
+            if (S_LOKASI.equals(s)) {
+                Lokasi lokasi = Common.getCurrentLokasi();
+                if (lokasi != null && lokasi.getId() != null) {
+                    definisi.put("nilaiBawaan", lokasi.getId()).put("terkunci", true);
+                }
+            }
+            arr.put(definisi);
         }
         j.put("filter", arr);
 
@@ -259,13 +293,19 @@ public final class NewUiLaporanSirsController {
         for (int i = 1; i <= 12; i++) {
             bulan.put(new JSONObject().put("nilai", i).put("nama", namaBulan(i)));
         }
+        java.util.Calendar mulai = (java.util.Calendar) kal.clone();
+        if ("laporan_kasir_harian".equals(jenis.kode)
+                || "laporan_kasir_per_shift".equals(jenis.kode)
+                || "ranap_laporan_perruangan_periode".equals(jenis.kode)) {
+            mulai.add(java.util.Calendar.MONTH, -1);
+        }
         j.put("pilihanBulan", bulan)
                 .put("tahunBawaan", kal.get(java.util.Calendar.YEAR))
                 .put("bulanBawaan", kal.get(java.util.Calendar.MONTH) + 1)
-                .put("mulaiBawaan", Common.databaseDateFormat.get().format(kal.getTime()))
+                .put("mulaiBawaan", Common.databaseDateFormat.get().format(mulai.getTime()))
                 .put("sampaiBawaan", Common.databaseDateFormat.get().format(kal.getTime()));
         j.put("bolehUbah", false);
-        j.put("catatan", "Kontrak ini hanya membaca; keluarannya berkas PDF.");
+        j.put("catatan", "Kontrak ini hanya membaca; keluarannya mengikuti format PDF/XLS layar lama.");
     }
 
     /**
@@ -331,6 +371,9 @@ public final class NewUiLaporanSirsController {
                     .put("wajib", false).put("cari", true)
                     .put("maksimal", maksimal).put("indeksBawaan", indeks);
         }
+        if (S_LOKASI.equals(nama)) {
+            return d.put("label", "Lokasi").put("tipe", "relasi").put("wajib", false);
+        }
         throw new IllegalArgumentException("Filter tidak dikenal: " + nama);
     }
 
@@ -359,7 +402,19 @@ public final class NewUiLaporanSirsController {
         Session s = HibernateUtil.openSession();
         try {
             JSONArray arr = new JSONArray();
-            if (S_PENDAFTARAN.equals(nama)) {
+            if (S_LOKASI.equals(nama)) {
+                Criteria c = s.createCriteria(Lokasi.class)
+                        .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
+                Lokasi current = Common.getCurrentLokasi();
+                if (current != null && current.getId() != null) {
+                    c.add(Restrictions.eq("id", current.getId()));
+                }
+                cocok(c, q, "nama");
+                for (Object o : c.addOrder(Order.asc("nama")).setMaxResults(BATAS_CARI).list()) {
+                    Lokasi x = (Lokasi) o;
+                    arr.put(pilihan(x.getId(), "", x.getNama(), null));
+                }
+            } else if (S_PENDAFTARAN.equals(nama)) {
                 Criteria c = s.createCriteria(Pendaftaran.class)
                         .createAlias("pasien", "pasien", Criteria.LEFT_JOIN);
                 // Tracer hanya berlaku untuk pendaftaran rawat jalan, sama
@@ -487,6 +542,10 @@ public final class NewUiLaporanSirsController {
         try {
             if (jenis.kode.startsWith("rajal_")) {
                 rajal(parameters, r, s, jenis);
+            } else if (jenis.kode.startsWith("laporan_kasir_")) {
+                kasir(parameters, r, s);
+            } else if ("ranap_laporan_perruangan_periode".equals(jenis.kode)) {
+                rentang(parameters, r);
             } else if (S_TAHUN.equals(jenis.saringan[0])) {
                 periode(parameters, r, jenis);
             } else if (S_PEMBAYARAN.equals(jenis.saringan[0])) {
@@ -499,7 +558,37 @@ public final class NewUiLaporanSirsController {
         } finally {
             s.close();
         }
-        JasperPdfUtil.tulis(j, jenis.template, parameters, jenis.kode, jenis.judul);
+        if (ais.action.report.Report.XLS.equals(jenis.format)) {
+            JasperPdfUtil.tulisXls(j, jenis.template, parameters, jenis.kode, jenis.judul);
+        } else {
+            JasperPdfUtil.tulis(j, jenis.template, parameters, jenis.kode, jenis.judul);
+        }
+    }
+
+    /** Parameter dua laporan kasir: lokasi aktif dan rentang tanggal. */
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    private static void kasir(Map parameters, HttpServletRequest r, Session s) {
+        // Lokasi milik sesi adalah batas otorisasi, bukan sekadar nilai awal UI.
+        // Combobox ZK menguncinya; mengandalkan atribut `terkunci` di klien saja
+        // memungkinkan request buatan tangan membaca lokasi lain.
+        Lokasi lokasi = Common.getCurrentLokasi();
+        if (lokasi == null) {
+            lokasi = (Lokasi) muat(s, Lokasi.class, r.getParameter(S_LOKASI));
+        }
+        parameters.put("lokasi1", lokasi == null ? Long.valueOf(-1L) : lokasi.getId());
+        rentang(parameters, r);
+    }
+
+    /** Parameter rentang tanggal bertipe teks yyyy-MM-dd seperti layar ZK. */
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    private static void rentang(Map parameters, HttpServletRequest r) {
+        Date mulai = tanggalWajib(r.getParameter(S_MULAI), "Tanggal mulai");
+        Date sampai = tanggalWajib(r.getParameter(S_SAMPAI), "Tanggal sampai");
+        if (mulai.after(sampai)) {
+            throw new IllegalArgumentException("Tanggal mulai tidak boleh melewati tanggal sampai.");
+        }
+        parameters.put("tgl1", Common.databaseDateFormat.get().format(mulai));
+        parameters.put("tgl2", Common.databaseDateFormat.get().format(sampai));
     }
 
     /**
