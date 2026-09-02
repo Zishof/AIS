@@ -1,5 +1,47 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 32 — SELESAI 100% (3 Sep 2026)
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
+`-implicit:none` bersih, mirror `java/` diverifikasi `cmp` byte-identik, nol
+perubahan logika:
+
+- **`ais/database/model/OrganisasiDosen.java`** (r83533) — 171→637 baris,
+  100% (37 anggota). Konfirmasi PENUH bug pelaporan sesi 30: borang
+  akreditasi BAN-PT A-4.5.5 salah baca level organisasi dari nama JABATAN
+  (bukan `levelOrganisasiDosen`) — SETIAP baris terlapor "Lokal". Field
+  `levelOrganisasiDosen` sendiri wajib-isi tapi praktis write-only (hanya
+  dibaca 2 tempat, keduanya di Action-nya sendiri). Instance SQL injection
+  BARU (`initCriteria`, parameter pencarian nama/NIDN mentah) — masuk
+  `task_493423ef`. Pola inversi hak akses lagi (gerbang UPDATE/DELETE
+  sengaja dikomentari).
+- **`ais/database/model/DendaPembayaranNominal.java`** (r83536) — 159→745
+  baris, 100% (34 anggota). Kembaran `DendaPembayaran` (b25) — JUGA fitur
+  mati, tapi dengan 3 perbedaan perilaku halus dari kembarannya (guard
+  null asimetris, entity ini "menang" saat kedua blok berjalan). Contoh
+  positif keamanan.
+- **`ais/database/model/AsesorPenunjangKinerjaDosen.java`** (r83536) —
+  158→589 baris, 100% (35 anggota). Premis salah — ini master PERAN
+  asesor (Asesor I/II/III), bukan kategori "penunjang". Jalur ZK sendiri
+  contoh positif. Detail baru untuk `PenilaianAsesor` (b28): parameter URL
+  4 dimensi (`pegawai`/`ta`/`smt`/`asesor`) semua dikendalikan klien. Bug
+  fungsional: menonaktifkan 1 peran mengubah persentase kinerja SEMUA
+  dosen secara surut, bisa hasilkan `NaN`/`Infinity` di laporan tanpa
+  exception.
+- **`ais/database/model/Staff.java`** (r83536) — 164→644 baris, 100% (31
+  anggota). Klarifikasi: BUKAN modul ebisnis.id — master pejabat penanda
+  tangan dokumen akademik (dekan/rektor/kaprodi). Konfirmasi independen:
+  TIDAK ADA kredensial sama sekali. Bug nyata: pencarian kunci `staff`
+  sebagian besar `eq` case-sensitive huruf kecil vs data yang ditulis
+  berkapital ("Dekan") — banyak jenis laporan gagal SENYAP, blok tanda
+  tangan tercetak kosong tanpa error.
+- **`ais/database/model/Asrama.java`** (r83536) — 156→558 baris, 100%
+  (34 anggota). Premis dikoreksi — asrama di AIS hanya label bercakupan
+  (fakultas/jurusan/angkatan), TANPA kapasitas/kamar/alamat sama sekali.
+  Sinkronisasi penghuni otomatis bersifat replace-all destruktif.
+
+Total akumulasi 32 sesi: **338 file** dari 7.401 (~4,6%).
+
 ## Batch 31 — SELESAI 100% (3 Sep 2026)
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
