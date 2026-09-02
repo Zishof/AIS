@@ -83,6 +83,12 @@ public final class NewUiLaporanUmumSelfTest {
         check("library/tracking_stok_item".equals(
                         NewUiLaporanUmumController.templateUntuk("library_tracking_stok_item")),
                 "Tracking Stok Item harus memakai template perpustakaan, bukan template SIRS");
+        check("rab/Realisasi_Program_Bulanan".equals(
+                        NewUiLaporanUmumController.templateUntuk("rab_evaluasi_penetapan_kinerja")),
+                "Evaluasi Penetapan Kinerja harus memakai template legacy yang tepat");
+        check("rab/RKA-KL_1".equals(
+                        NewUiLaporanUmumController.templateUntuk("rab_rkakl1")),
+                "RKAKL 1 harus memakai template legacy yang tepat");
 
         Object tracking = peta.get("library_tracking_stok_item");
         Field trackingFilterField = tracking.getClass().getDeclaredField("filter");
@@ -108,6 +114,30 @@ public final class NewUiLaporanUmumSelfTest {
         check(((Number) mundurField.get(tracking)).intValue() == 3,
                 "Periode awal Tracking Stok Item harus tiga bulan ke belakang");
 
+        Object evaluasi = peta.get("rab_evaluasi_penetapan_kinerja");
+        Field hariIniField = evaluasi.getClass().getDeclaredField("mulaiHariIni");
+        hariIniField.setAccessible(true);
+        check(Boolean.TRUE.equals(hariIniField.get(evaluasi)),
+                "Tanggal mulai Evaluasi Penetapan Kinerja harus hari ini");
+        check(punyaFilter(evaluasi, "satuanKerja", "relasi", true, false, null),
+                "Evaluasi Penetapan Kinerja wajib memilih Satuan Kerja");
+        check(punyaFilter(evaluasi, "mulai", "tanggal", true, false, null)
+                        && punyaFilter(evaluasi, "selesai", "tanggal", true, false, null),
+                "Evaluasi Penetapan Kinerja wajib mempunyai rentang tanggal");
+
+        Object rkakl = peta.get("rab_rkakl1");
+        Field depanField = rkakl.getClass().getDeclaredField("tahunKeDepan");
+        Field belakangField = rkakl.getClass().getDeclaredField("tahunKeBelakang");
+        depanField.setAccessible(true);
+        belakangField.setAccessible(true);
+        check(((Number) depanField.get(rkakl)).intValue() == 5
+                        && ((Number) belakangField.get(rkakl)).intValue() == 19,
+                "Rentang tahun RKAKL 1 harus sama dengan layar ZK (+5 sampai -19)");
+        check(punyaFilter(rkakl, "satuanKerja", "relasi", true, false, null),
+                "RKAKL 1 wajib memilih Satuan Kerja");
+        check(punyaFilter(rkakl, "parent", "relasi", false, true, "satuanKerja"),
+                "Root RKAKL 1 harus dapat dicari dan mengikuti Satuan Kerja");
+
         // TipePenelitianDanPengabdian berbeda dari relasi lazim: labelnya ada
         // pada properti `isi`, bukan `nama`. Default ketika tidak dipilih juga
         // harus sama persis dengan generateParameter() layar ZK.
@@ -130,5 +160,28 @@ public final class NewUiLaporanUmumSelfTest {
 
         System.out.println("NewUiLaporanUmumSelfTest OK (" + kunci.length
                 + " laporan, " + relasi + " filter relasi)");
+    }
+
+    @SuppressWarnings("unchecked")
+    private static boolean punyaFilter(Object laporan, String nama, String tipe,
+            boolean wajib, boolean cari, String tergantung) throws Exception {
+        Field filterField = laporan.getClass().getDeclaredField("filter");
+        filterField.setAccessible(true);
+        for (Object filter : (List<Object>) filterField.get(laporan)) {
+            if (!nama.equals(field(filter, "nama"))) continue;
+            return tipe.equals(field(filter, "tipe"))
+                    && Boolean.valueOf(wajib).equals(field(filter, "wajib"))
+                    && Boolean.valueOf(cari).equals(field(filter, "cari"))
+                    && (tergantung == null
+                            ? field(filter, "tergantungPada") == null
+                            : tergantung.equals(field(filter, "tergantungPada")));
+        }
+        return false;
+    }
+
+    private static Object field(Object target, String nama) throws Exception {
+        Field field = target.getClass().getDeclaredField(nama);
+        field.setAccessible(true);
+        return field.get(target);
     }
 }

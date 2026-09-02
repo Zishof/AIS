@@ -3,9 +3,11 @@ package ais.common.newui.laporan;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -21,9 +23,13 @@ import ais.common.Common;
 import ais.common.newui.NewUiRouteGuard;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmuser;
+import ais.database.model.rab.SatuanKerja;
+import ais.database.model.rab.Workspace;
 
 /**
- * Kontrak native untuk laporan Jasper yang parameternya sederhana.
+ * Kontrak native untuk laporan Jasper. Parameter turunan yang tidak dapat
+ * direpresentasikan langsung oleh filter (misalnya cakupan daun Satuan Kerja
+ * pada laporan RAB) disiapkan secara eksplisit sebelum Jasper dijalankan.
  *
  * <p><b>Mengapa satu controller untuk banyak laporan.</b> Puluhan menu laporan
  * hanya membuka jendela ZK yang menyusun beberapa parameter (periode, tahun,
@@ -66,6 +72,7 @@ public final class NewUiLaporanUmumController {
     static final class Filter {
         final String nama, label, tipe, entity, propertiNama, paramNamaBawaan;
         String tergantungPada;
+        boolean cari;
         final boolean wajib;
         /**
          * Bila diisi, controller ikut mengirim parameter bernama ini berisi
@@ -106,6 +113,7 @@ public final class NewUiLaporanUmumController {
             return new Filter(nama, label, TIPE_RELASI_BANYAK, wajib, entity);
         }
         Filter tergantung(String namaFilter) { tergantungPada = namaFilter; return this; }
+        Filter cari() { cari = true; return this; }
         static Filter teks(String nama, String label) { return new Filter(nama, label, TIPE_TEKS, false, null); }
     }
 
@@ -121,6 +129,8 @@ public final class NewUiLaporanUmumController {
          */
         final Map<String, String> tetap = new LinkedHashMap<String, String>();
         int mulaiBulanMundur;
+        int tahunKeDepan = 1, tahunKeBelakang = 5;
+        boolean mulaiHariIni;
         Laporan(String judul, String template, Filter... filter) {
             this.judul = judul; this.template = template;
             this.filter = new ArrayList<Filter>();
@@ -128,6 +138,10 @@ public final class NewUiLaporanUmumController {
         }
         Laporan tetap(String nama, String nilai) { tetap.put(nama, nilai); return this; }
         Laporan mulaiBulanMundur(int bulan) { mulaiBulanMundur = bulan; return this; }
+        Laporan rentangTahun(int keDepan, int keBelakang) {
+            tahunKeDepan = keDepan; tahunKeBelakang = keBelakang; return this;
+        }
+        Laporan mulaiHariIni() { mulaiHariIni = true; return this; }
     }
 
     private static final Map<String, Laporan> REGISTRI = new LinkedHashMap<String, Laporan>();
@@ -246,6 +260,21 @@ public final class NewUiLaporanUmumController {
                         Filter.tahun(true), Filter.bulan(true),
                         new Filter("tanggal_mulai", "Tanggal Mulai", TIPE_TANGGAL, false, null),
                         new Filter("tanggal_selesai", "Tanggal Selesai", TIPE_TANGGAL, false, null)));
+        REGISTRI.put("rab_evaluasi_penetapan_kinerja",
+                new Laporan("Evaluasi Penetapan Kinerja", "rab/Realisasi_Program_Bulanan",
+                        Filter.relasi("satuanKerja", "Satuan Kerja",
+                                "ais.database.model.rab.SatuanKerja", true),
+                        Filter.mulai(),
+                        new Filter("selesai", "Tanggal Selesai", TIPE_TANGGAL, true, null))
+                        .mulaiHariIni());
+        REGISTRI.put("rab_rkakl1",
+                new Laporan("RKAKL 1", "rab/RKA-KL_1",
+                        Filter.tahun(true),
+                        Filter.relasi("satuanKerja", "Satuan Kerja",
+                                "ais.database.model.rab.SatuanKerja", true),
+                        Filter.relasi("parent", "Root RKA-KL", "ais.database.model.rab.Workspace", false)
+                                .cari().tergantung("satuanKerja"))
+                        .rentangTahun(5, 19));
     }
 
     private static Filter perpustakaan() {
@@ -309,22 +338,24 @@ public final class NewUiLaporanUmumController {
             d.put("nama", f.nama).put("label", f.label).put("tipe", f.tipe).put("wajib", f.wajib);
             if (f.entity != null) d.put("entity", f.entity);
             if (f.tergantungPada != null) d.put("tergantungPada", f.tergantungPada);
-            if (TIPE_RELASI_BANYAK.equals(f.tipe)) d.put("cari", true);
+            if (TIPE_RELASI_BANYAK.equals(f.tipe) || f.cari) d.put("cari", true);
             arr.put(d);
         }
         j.put("filter", arr);
 
         Calendar c = Calendar.getInstance();
         JSONArray tahun = new JSONArray();
-        for (int t = c.get(Calendar.YEAR) + 1; t >= c.get(Calendar.YEAR) - 5; t--) tahun.put(t);
+        for (int t = c.get(Calendar.YEAR) + laporan.tahunKeDepan;
+                t >= c.get(Calendar.YEAR) - laporan.tahunKeBelakang; t--) tahun.put(t);
         j.put("pilihanTahun", tahun);
+        j.put("tahunBawaan", c.get(Calendar.YEAR));
         JSONArray bulan = new JSONArray();
         for (int i = 0; i < Common.BULAN.length; i++) {
             bulan.put(new JSONObject().put("nilai", i + 1).put("nama", Common.BULAN[i]));
         }
         j.put("pilihanBulan", bulan);
         j.put("mulaiBawaan", Common.databaseDateFormat.get().format(
-                laporan.mulaiBulanMundur > 0
+                laporan.mulaiHariIni ? new Date() : laporan.mulaiBulanMundur > 0
                         ? bulanSebelumnya(laporan.mulaiBulanMundur)
                         : awalBulan()));
         j.put("sampaiBawaan", Common.databaseDateFormat.get().format(new Date()));
@@ -351,6 +382,14 @@ public final class NewUiLaporanUmumController {
 
         if ("library_tracking_stok_item".equals(kunci) && "items".equals(dipilih.nama)) {
             lookupItemPerpustakaan(j, r, dipilih);
+            return;
+        }
+        if (kunci.startsWith("rab_") && SatuanKerja.class.getName().equals(dipilih.entity)) {
+            lookupSatuanKerja(j, r, dipilih);
+            return;
+        }
+        if ("rab_rkakl1".equals(kunci) && Workspace.class.getName().equals(dipilih.entity)) {
+            lookupWorkspace(j, r, dipilih);
             return;
         }
 
@@ -409,6 +448,58 @@ public final class NewUiLaporanUmumController {
                         .put("nama", isbn.length() == 0 ? nama : isbn + " — " + nama));
             }
         } finally { s.close(); }
+        j.put("pilihan", arr).put("filter", filter.nama).put("total", arr.length()).put("batas", 50);
+    }
+
+    /** Satuan kerja laporan RAB selalu dibatasi ke scope tenant/pengguna aktif. */
+    @SuppressWarnings("unchecked")
+    private static void lookupSatuanKerja(JSONObject j, HttpServletRequest r,
+            Filter filter) throws Exception {
+        Set<Long> ids = satuanKerjaTerizin();
+        JSONArray arr = new JSONArray();
+        if (!ids.isEmpty()) {
+            String q = text(r.getParameter("q"), "");
+            Session s = HibernateUtil.openSession();
+            try {
+                Criteria c = s.createCriteria(SatuanKerja.class)
+                        .add(Restrictions.in("id", ids));
+                if (q.length() > 0) c.add(Restrictions.or(
+                        Restrictions.ilike("kode", "%" + q + "%"),
+                        Restrictions.ilike("nama", "%" + q + "%")));
+                c.addOrder(Order.asc("kode")).addOrder(Order.asc("nama")).setMaxResults(50);
+                for (SatuanKerja unit : (List<SatuanKerja>) c.list()) {
+                    arr.put(new JSONObject().put("id", unit.getId()).put("nama", unit.toString()));
+                }
+            } finally { s.close(); }
+        }
+        j.put("pilihan", arr).put("filter", filter.nama).put("total", arr.length()).put("batas", 50);
+    }
+
+    /** Root RKAKL dibatasi ke workspace aktif milik satuan kerja yang terizin. */
+    @SuppressWarnings("unchecked")
+    private static void lookupWorkspace(JSONObject j, HttpServletRequest r,
+            Filter filter) throws Exception {
+        Set<Long> ids = satuanKerjaTerizin();
+        Long selectedUnit = id(text(r.getParameter("satuanKerja"), ""));
+        if (selectedUnit != null) ids = unitScope(selectedUnit).laporanIds;
+        JSONArray arr = new JSONArray();
+        if (!ids.isEmpty()) {
+            String q = text(r.getParameter("q"), "");
+            Session s = HibernateUtil.openSession();
+            try {
+                Criteria c = s.createCriteria(Workspace.class)
+                        .createAlias("satuanKerja", "unit")
+                        .add(Restrictions.in("unit.id", ids))
+                        .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
+                if (q.length() > 0) c.add(Restrictions.or(
+                        Restrictions.ilike("kode", "%" + q + "%"),
+                        Restrictions.ilike("nama", "%" + q + "%")));
+                c.addOrder(Order.desc("jmlDipakai")).setMaxResults(50);
+                for (Workspace w : (List<Workspace>) c.list()) {
+                    arr.put(new JSONObject().put("id", w.getId()).put("nama", w.toString()));
+                }
+            } finally { s.close(); }
+        }
         j.put("pilihan", arr).put("filter", filter.nama).put("total", arr.length()).put("batas", 50);
     }
 
@@ -493,7 +584,100 @@ public final class NewUiLaporanUmumController {
             parameters.put(e.getKey(), e.getValue());
         }
 
+        siapkanParameterRab(kunci, parameters);
+
         JasperPdfUtil.tulis(j, laporan.template, parameters, kunci, laporan.judul);
+    }
+
+    /** Turunan parameter dua laporan RAB, disalin dari kelas ZK sumbernya. */
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    private static void siapkanParameterRab(String kunci, Map parameters) throws Exception {
+        if (!"rab_evaluasi_penetapan_kinerja".equals(kunci) && !"rab_rkakl1".equals(kunci)) return;
+        Long unitId = (Long) parameters.remove("satuanKerja");
+        UnitScope scope = unitScope(unitId);
+        parameters.put("satuanKerjas", scope.laporanIds);
+
+        if ("rab_evaluasi_penetapan_kinerja".equals(kunci)) {
+            Date mulai = tanggal(String.valueOf(parameters.get("mulai")));
+            Calendar c = Calendar.getInstance();
+            if (mulai != null) c.setTime(mulai);
+            parameters.put("keterangan", "EVALUASI PENETAPAN KINERJA "
+                    + c.get(Calendar.YEAR) + "\n" + scope.unit.toString() + "\nPer "
+                    + parameters.get("mulai") + " s.d " + parameters.get("selesai"));
+        } else {
+            Long parent = (Long) parameters.get("parent");
+            if (parent != null && parent.longValue() > 0L) validasiWorkspace(parent, scope.laporanIds);
+            parameters.put("keterangan", "RKA-KL " + parameters.get("tahun")
+                    + "\n" + scope.unit.toString());
+        }
+    }
+
+    /** Semua satuan kerja default yang dapat dilihat dalam request aktif. */
+    private static Set<Long> satuanKerjaTerizin() {
+        Set<Long> ids = new HashSet<Long>();
+        Set<SatuanKerja> units = ais.action.master.sekolah.util.SekolahUtil.ambilSatuanKerjas();
+        if (units != null) for (SatuanKerja unit : units) {
+            if (unit != null && unit.getId() != null) ids.add(unit.getId());
+        }
+        return ids;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static UnitScope unitScope(Long selectedId) {
+        if (selectedId == null) throw new IllegalArgumentException("Satuan Kerja wajib diisi.");
+        Set<Long> allowed = satuanKerjaTerizin();
+        if (!allowed.contains(selectedId)) throw new SecurityException("Satuan Kerja berada di luar akses.");
+        Session s = HibernateUtil.openSession();
+        try {
+            List<SatuanKerja> units = s.createCriteria(SatuanKerja.class)
+                    .add(Restrictions.in("id", allowed)).list();
+            SatuanKerja selected = null;
+            for (SatuanKerja unit : units) if (selectedId.equals(unit.getId())) selected = unit;
+            if (selected == null) throw new IllegalArgumentException("Satuan Kerja tidak ditemukan.");
+            Set<Long> reportIds = new HashSet<Long>();
+            reportIds.add(selectedId);
+            kumpulkanDaun(selectedId, units, reportIds, new HashSet<Long>());
+            return new UnitScope(selected, reportIds);
+        } finally { s.close(); }
+    }
+
+    private static void kumpulkanDaun(Long parent, List<SatuanKerja> units,
+            Set<Long> result, Set<Long> visiting) {
+        if (!visiting.add(parent)) return;
+        List<SatuanKerja> children = new ArrayList<SatuanKerja>();
+        for (SatuanKerja unit : units) {
+            if (unit.getParent() != null && parent.equals(unit.getParent().getId())) children.add(unit);
+        }
+        for (SatuanKerja child : children) {
+            boolean punyaAnak = false;
+            for (SatuanKerja kandidat : units) {
+                if (kandidat.getParent() != null && child.getId().equals(kandidat.getParent().getId())) {
+                    punyaAnak = true; break;
+                }
+            }
+            if (punyaAnak) kumpulkanDaun(child.getId(), units, result, visiting);
+            else result.add(child.getId());
+        }
+        visiting.remove(parent);
+    }
+
+    private static void validasiWorkspace(Long id, Set<Long> allowed) {
+        Session s = HibernateUtil.openSession();
+        try {
+            Workspace w = (Workspace) s.get(Workspace.class, id);
+            if (w == null) throw new IllegalArgumentException("Root RKA-KL tidak ditemukan.");
+            if (w.getSatuanKerja() == null || !allowed.contains(w.getSatuanKerja().getId())) {
+                throw new SecurityException("Root RKA-KL berada di luar akses satuan kerja.");
+            }
+        } finally { s.close(); }
+    }
+
+    private static final class UnitScope {
+        final SatuanKerja unit;
+        final Set<Long> laporanIds;
+        UnitScope(SatuanKerja unit, Set<Long> laporanIds) {
+            this.unit = unit; this.laporanIds = laporanIds;
+        }
     }
 
     // ------------------------------------------------------------------ util
