@@ -22,6 +22,7 @@ import ais.action.master.helper.util.SmartlinkChannelWindow;
 import ais.common.BJBUtil;
 import ais.common.BSIMajaUtil;
 import ais.common.Common;
+import ais.common.OnlineBmtUtil;
 import ais.common.URLBuilder;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BankHost;
@@ -190,6 +191,7 @@ public class DownloadTagihanSiswaBankOnline {
 			boolean qris = param.get("qris") != null && (Boolean) param.get("qris");
 			boolean flip = param.get("flip") != null && (Boolean) param.get("flip");
 			boolean esmartlink = param.get("esmartlink") != null && (Boolean) param.get("esmartlink");
+			boolean onlineBmt = Boolean.TRUE.equals(param.get(OnlineBmtUtil.PARAM_KEY));
 			String esmartlinkBayarVia = param.get("esmartlinkBayarVia") != null
 					? (String) param.get("esmartlinkBayarVia")
 					: null;
@@ -340,7 +342,8 @@ public class DownloadTagihanSiswaBankOnline {
 
 					.add(bankHost == null ? Restrictions.isNull("bankHost") : Restrictions.eq("bankHost", bankHost))
 					.add(Restrictions.ge("kadaluarsaWaktu", WaktuUtil.getDate()))
-					.add(Restrictions.eq("keterangan", keterangan + (qris ? "qris:true" : "")))
+					.add(Restrictions.eq("keterangan", keterangan + (qris ? "qris:true" : "")
+							+ (onlineBmt ? OnlineBmtUtil.MARKER : "")))
 					.add(Restrictions.or(Restrictions.eq("calonSiswa", calonSiswa), Restrictions.eq("siswa", siswa)))
 					.add(Restrictions.isNull("pembayaran")).setMaxResults(1).addOrder(Order.desc("id")).uniqueResult();
 
@@ -394,7 +397,13 @@ public class DownloadTagihanSiswaBankOnline {
 				}
 				// ------------------------------------------------------------
 
-				if (flip && sekolah != null) {
+				if (onlineBmt) {
+					if (!OnlineBmtUtil.isSekolahEnabled(sekolah, kanalPembayaran)) {
+						tampilkanPeringatan("Kanal Online BMT belum diaktifkan untuk sekolah/kanal pembayaran ini.", warnings);
+						return null;
+					}
+					OnlineBmtUtil.prepareInvoice(virtualAccountBankOnline);
+				} else if (flip && sekolah != null) {
 					String strURL = Common.getKonfigurasi("flip_gateway_url_v2", "https://bigflip.id/api/v2/pwf/bill")
 							.getNilai();
 
@@ -820,7 +829,8 @@ public class DownloadTagihanSiswaBankOnline {
 				virtualAccountBankOnline.setKadaluarsa(expired_date);
 				virtualAccountBankOnline.setOtomatis(false);
 				virtualAccountBankOnline.setCicilan(cicilan);
-				virtualAccountBankOnline.setKeterangan(keterangan + (qris ? "qris:true" : ""));
+				virtualAccountBankOnline.setKeterangan(keterangan + (qris ? "qris:true" : "")
+						+ (onlineBmt ? OnlineBmtUtil.MARKER : ""));
 				virtualAccountBankOnline.setTotal(total);
 				virtualAccountBankOnline.setBulanan("");
 				virtualAccountBankOnline.setBiayaAdmin(biayaAdmin);

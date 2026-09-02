@@ -220,6 +220,18 @@ import ais.ui.util.WaktuUtil;
 @Audited
 @Table(schema = "public", name = "konfigurasi")
 public class Konfigurasi extends GeneralValueObject {
+	/** Sakelar global Online BMT. Selalu dibaca dengan default OFF. */
+	public static final String ONLINE_BMT_AKTIF = "aktifkan_pembayaran_via_online_bmt";
+	/** Sakelar per perguruan tinggi: tambahkan id PT pada akhir kunci. */
+	public static final String ONLINE_BMT_AKTIF_PT_PREFIX = "aktifkan_pembayaran_via_online_bmt_pt_";
+	/** Prefix nomor invoice lokal Online BMT; bukan secret. */
+	public static final String ONLINE_BMT_PREFIX_INVOICE = "online_bmt_prefix_invoice";
+	/** API key inbound dari BMT. Nilai default wajib kosong. */
+	public static final String ONLINE_BMT_API_KEY = "online_bmt_api_key";
+	/** Material kunci AES inbound dari BMT. Nilai default wajib kosong. */
+	public static final String ONLINE_BMT_ENCRYPTION_KEY = "online_bmt_encryption_key";
+	/** Material kunci HMAC inbound dari BMT. Nilai default wajib kosong. */
+	public static final String ONLINE_BMT_HMAC_KEY = "online_bmt_hmac_key";
 
 	// ==== Kunci konfigurasi akademik inti. Nilainya lazim berupa AKTIF/TIDAK_AKTIF ("gerbang
 	//      dibuka/ditutup"), sering dipadukan dengan relasi KalenderAkademik supaya buka-tutupnya

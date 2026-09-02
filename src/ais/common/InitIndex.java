@@ -26,6 +26,37 @@ package ais.common;
  * request/transaksi yang tepat, bukan menyalin implementasinya.</p>
  */
 public class InitIndex {
+	/**
+	 * Menyiapkan ledger idempotensi callback Online BMT.
+	 *
+	 * <p>Nonce dan nomor transaksi diberi unique index terpisah. Nonce menahan replay
+	 * payload identik, sedangkan nomor transaksi menjamin retry PAYMENT dengan nonce
+	 * baru tetap merujuk hasil yang sama. Tabel ini tidak menyimpan secret atau data
+	 * kartu/nasabah. DDL idempoten sehingga aman dijalankan pada setiap startup dan
+	 * pada beberapa node aplikasi secara bersamaan.</p>
+	 */
+	static void initOnlineBmtRequestGuard() {
+		String[] ddl = new String[] {
+				"CREATE TABLE IF NOT EXISTS public.online_bmt_nonce ("
+						+ "nonce varchar(200) PRIMARY KEY, request_type varchar(30) NOT NULL, "
+						+ "created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP)",
+				"CREATE TABLE IF NOT EXISTS public.online_bmt_request_guard ("
+						+ "id bigserial PRIMARY KEY, nonce varchar(200) NOT NULL, request_type varchar(30) NOT NULL, "
+						+ "no_invoice varchar(255), no_transaksi_bmt varchar(255), nominal numeric(20,2), "
+						+ "status varchar(20) NOT NULL DEFAULT 'PROCESSING', response_code varchar(10), "
+						+ "response_message text, created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, "
+						+ "updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP)",
+				"CREATE UNIQUE INDEX IF NOT EXISTS uq_online_bmt_guard_nonce ON public.online_bmt_request_guard (nonce)",
+				"CREATE UNIQUE INDEX IF NOT EXISTS uq_online_bmt_guard_transaction ON public.online_bmt_request_guard (no_transaksi_bmt) WHERE no_transaksi_bmt IS NOT NULL AND no_transaksi_bmt <> ''",
+				"CREATE INDEX IF NOT EXISTS idx_online_bmt_guard_invoice_status ON public.online_bmt_request_guard (no_invoice, status, id DESC)" };
+		for (int i = 0; i < ddl.length; i++) {
+			try {
+				Common.updateSql(ddl[i]);
+			} catch (Exception e) {
+				ErrorAuditUtil.record(e, "InitIndex.initOnlineBmtRequestGuard DDL ke-" + (i + 1));
+			}
+		}
+	}
 
 	private static final java.util.Set<String> NAMA_INDEX_SUDAH_DIPROSES = java.util.Collections
 			.synchronizedSet(new java.util.HashSet<String>());

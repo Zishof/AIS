@@ -28,6 +28,7 @@ import ais.common.BRIDataUtil;
 import ais.common.BSIMajaUtil;
 import ais.common.Common;
 import ais.common.OttoUtil;
+import ais.common.OnlineBmtUtil;
 import ais.common.URLBuilder;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BankHost;
@@ -158,6 +159,7 @@ public class DownloadTagihanMahasiswaBankOnline {
 		boolean update = (Boolean) (param.get("update") == null ? false : param.get("update"));
 		List<String> warnings = (param.get("warnings") == null ? null : (List<String>) param.get("warnings"));
 		Boolean smartlink = (Boolean) (param.get("smartlink") == null ? false : param.get("smartlink"));
+		Boolean onlineBmt = Boolean.TRUE.equals(param.get(OnlineBmtUtil.PARAM_KEY));
 
 		VirtualAccountBank virtualAccountBankOnline = null;
 		Session session = null;
@@ -340,7 +342,10 @@ public class DownloadTagihanMahasiswaBankOnline {
 				String subva = Common.bolehKonfigurasi("subva_paka_nim", Konfigurasi.TIDAK_AKTIF) ? mahasiswa.getNim()
 								: Common.getGeneratedAngkaDigit(jml_digit_prefix_va_bank_online);
 
-				if (Common.bolehKonfigurasi("aktifkan_va_e_smartlink", Konfigurasi.TIDAK_AKTIF) || smartlink) {
+				if (onlineBmt) {
+					if (!OnlineBmtUtil.isPerguruanTinggiEnabled(perguruanTinggi.getId())) return null;
+					OnlineBmtUtil.prepareInvoice(virtualAccountBankOnline);
+				} else if (Common.bolehKonfigurasi("aktifkan_va_e_smartlink", Konfigurasi.TIDAK_AKTIF) || smartlink) {
 					virtualAccountBankOnline.setLink("");
 					String variableSmartlink = Common.getKonfigurasi("channel_biaya_e_smartlink",
 							"VA_BNI:2500:BNI;VA_BRI:2500:BRI;VA_BCA:3500:BCA;VA_BNC:3500:BNC(Bank Neo Commerce);VA_CIMB:2500:CIMB Niaga;VA_MANDIRI:3500:Bank Mandiri;VA_PERMATA:2500:Bank Permata;VA_BSI:3000:BSI;VA_DANAMON:3000:Danamon;OTC_ALFAMART:3000:Alfamart;OTC_INDOMARET:3000:Indomart")
@@ -684,6 +689,7 @@ public class DownloadTagihanMahasiswaBankOnline {
 			Boolean flip = Boolean.TRUE.equals(param.get("flip"));
 			Boolean maja = Boolean.TRUE.equals(param.get("maja"));
 			Boolean smartlink = Boolean.TRUE.equals(param.get("smartlink"));
+			Boolean onlineBmt = Boolean.TRUE.equals(param.get(OnlineBmtUtil.PARAM_KEY));
 			boolean update = Boolean.TRUE.equals(param.get("update"));
 
 			List<String> warnings = (param.get("warnings") == null ? null : (List<String>) param.get("warnings"));
@@ -924,8 +930,8 @@ public class DownloadTagihanMahasiswaBankOnline {
 					.add(topup != null && topup > 0.1 ? Restrictions.eq("topup", topup)
 							: Restrictions.sqlRestriction("true"))
 					.add(Restrictions.ge("kadaluarsaWaktu", WaktuUtil.getDate()))
-					.add(Restrictions.eq("keterangan",
-							pemb.toString() + (qris ? "qris:true" : "") + (finpay ? "finpay:true" : "")))
+					.add(Restrictions.eq("keterangan", pemb.toString() + (qris ? "qris:true" : "")
+							+ (finpay ? "finpay:true" : "") + (onlineBmt ? OnlineBmtUtil.MARKER : "")))
 					.add(mahasiswa == null || mahasiswa.getId() == null ? Restrictions.sqlRestriction("false")
 							: Restrictions.eq("mahasiswa.id", mahasiswa.getId()))
 					.add(Restrictions.eq("semester", smt))
@@ -936,7 +942,8 @@ public class DownloadTagihanMahasiswaBankOnline {
 
 			MahasiswaVirtualAccountHelper.pastikanTagihanBelumDibayar(session, mahasiswa, null, smt,
 					myjadwalPembayaran == null ? null : myjadwalPembayaran.getJenisKegiatan(), myjadwalPembayaran,
-					pemb.toString() + (qris ? "qris:true" : "") + (finpay ? "finpay:true" : ""),
+					pemb.toString() + (qris ? "qris:true" : "") + (finpay ? "finpay:true" : "")
+							+ (onlineBmt ? OnlineBmtUtil.MARKER : ""),
 					cicilan.toString(), detailbiaya.toString(), total);
 
 			if (virtualAccountBankOnline != null && virtualAccountBankOnline.getChannel() != null
@@ -960,7 +967,17 @@ public class DownloadTagihanMahasiswaBankOnline {
 						myjadwalPembayaran == null || myjadwalPembayaran.getJenisKegiatan() == null ? null
 								: myjadwalPembayaran.getJenisKegiatan().getKanalPembayaran());
 
-				if (qris) {
+				if (onlineBmt) {
+					Long ptId = mahasiswa == null || mahasiswa.getJurusan() == null
+							|| mahasiswa.getJurusan().getFakultas() == null
+							|| mahasiswa.getJurusan().getFakultas().getPerguruanTinggi() == null ? null
+									: mahasiswa.getJurusan().getFakultas().getPerguruanTinggi().getId();
+					if (!OnlineBmtUtil.isPerguruanTinggiEnabled(ptId)) {
+						if (warnings != null) warnings.add("Kanal Online BMT belum diaktifkan untuk perguruan tinggi ini.");
+						return null;
+					}
+					OnlineBmtUtil.prepareInvoice(virtualAccountBankOnline);
+				} else if (qris) {
 					try {
 						int mytotal = total.intValue() + biayaAdmin.intValue();
 						JSONObject postData = new JSONObject();
@@ -1641,8 +1658,8 @@ public class DownloadTagihanMahasiswaBankOnline {
 				virtualAccountBankOnline.setCicilan(cicilan.toString());
 				virtualAccountBankOnline
 						.setJenisKegiatan(myjadwalPembayaran == null ? null : myjadwalPembayaran.getJenisKegiatan());
-				virtualAccountBankOnline
-						.setKeterangan(pemb.toString() + (qris ? "qris:true" : "") + (finpay ? "finpay:true" : ""));
+				virtualAccountBankOnline.setKeterangan(pemb.toString() + (qris ? "qris:true" : "")
+						+ (finpay ? "finpay:true" : "") + (onlineBmt ? OnlineBmtUtil.MARKER : ""));
 				virtualAccountBankOnline.setTotal(total);
 				virtualAccountBankOnline.setBulanan("");
 				virtualAccountBankOnline.setDetailbiaya(detailbiaya.toString());

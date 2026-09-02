@@ -112,6 +112,7 @@ public class KanalPembayaranAction extends GenericAutowireComposer
 	private Textbox tokenFlip;
 	private MyDoublebox biayaAdminFlip;
 	private MyCheckboxConfig aktfkanPembayaranViaEsmartlink;
+	private MyCheckboxConfig aktfkanPembayaranViaOnlineBmt;
 	private Textbox usernameEsmartlink;
 	private Textbox passwordEsmartlink;
 	private MyDoublebox biayaAdminEsmartlink;
@@ -405,6 +406,17 @@ public class KanalPembayaranAction extends GenericAutowireComposer
 		row = new MyFormRow();
 		row.setParent(rows);
 		ais.ui.util.ZkCompat.setSpans(row, "2");
+		row.appendChild(new MyLabelStyled("Online BMT"));
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig(""));
+		row.appendChild(aktfkanPembayaranViaOnlineBmt = new MyCheckboxConfig("Aktifkan Pembayaran Via Online BMT"));
+		aktfkanPembayaranViaOnlineBmt.setChecked(kanalPembayaran.getAktfkanPembayaranViaOnlineBmt());
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		ais.ui.util.ZkCompat.setSpans(row, "2");
 		row.appendChild(new MyLabelStyled("Finpay"));
 
 		row = new MyFormRow();
@@ -543,6 +555,7 @@ public class KanalPembayaranAction extends GenericAutowireComposer
 		kanalPembayaran.setPasswordEsmartlink(passwordEsmartlink.getValue().trim());
 		kanalPembayaran.setBiayaAdminEsmartlink(biayaAdminEsmartlink.getValue());
 		kanalPembayaran.setVariableBiayaAdminEsmartlink(variableBiayaAdminEsmartlink.getValue());
+		kanalPembayaran.setAktfkanPembayaranViaOnlineBmt(aktfkanPembayaranViaOnlineBmt.isChecked());
 
 		kanalPembayaran.setAktfkanPembayaranViaFinpay(aktfkanPembayaranViaFinpay.isChecked());
 		kanalPembayaran.setApiKeyFinpay(apiKeyFinpay.getValue().trim());

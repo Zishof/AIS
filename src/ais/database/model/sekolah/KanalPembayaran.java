@@ -97,6 +97,8 @@ public class KanalPembayaran extends GeneralValueObject {
 	private Double biayaAdminFinpay;
 
 	private Boolean aktfkanPembayaranViaEsmartlink;
+	/** Sakelar Online BMT khusus kanal; null berarti OFF. */
+	private Boolean aktfkanPembayaranViaOnlineBmt;
 	private String usernameEsmartlink;
 	private String passwordEsmartlink;
 	private Double biayaAdminEsmartlink;
@@ -325,6 +327,18 @@ public class KanalPembayaran extends GeneralValueObject {
 
 	public void setAktfkanPembayaranViaEsmartlink(Boolean aktfkanPembayaranViaEsmartlink) {
 		this.aktfkanPembayaranViaEsmartlink = aktfkanPembayaranViaEsmartlink;
+	}
+
+	/**
+	 * Sakelar lapis kanal untuk Online BMT. Nilai null dari database lama selalu
+	 * diperlakukan OFF sehingga aktivasi harus merupakan keputusan admin eksplisit.
+	 */
+	public Boolean getAktfkanPembayaranViaOnlineBmt() {
+		return aktfkanPembayaranViaOnlineBmt == null ? false : aktfkanPembayaranViaOnlineBmt;
+	}
+
+	public void setAktfkanPembayaranViaOnlineBmt(Boolean aktfkanPembayaranViaOnlineBmt) {
+		this.aktfkanPembayaranViaOnlineBmt = aktfkanPembayaranViaOnlineBmt;
 	}
 
 	public String getUsernameEsmartlink() {

@@ -171,6 +171,8 @@ public class Sekolah extends VoKunci {
 	private Double biayaAdminBjbSyariah;
 
 	private Boolean aktfkanPembayaranViaEsmartlink;
+	/** Sakelar tenant Online BMT; null pada instalasi lama berarti OFF. */
+	private Boolean aktfkanPembayaranViaOnlineBmt;
 	private String usernameEsmartlink;
 	private String passwordEsmartlink;
 	private Double biayaAdminEsmartlink;
@@ -1072,6 +1074,20 @@ public class Sekolah extends VoKunci {
 
 	public void setAktfkanPembayaranViaEsmartlink(Boolean aktfkanPembayaranViaEsmartlink) {
 		this.aktfkanPembayaranViaEsmartlink = aktfkanPembayaranViaEsmartlink;
+	}
+
+	/**
+	 * Mengaktifkan penerbitan invoice Online BMT pada sekolah ini. Sakelar global
+	 * {@code aktifkan_pembayaran_via_online_bmt} tetap harus aktif; getter sengaja
+	 * menormalkan null menjadi false agar penambahan kolom tidak menyalakan kanal
+	 * pada sekolah lama secara tidak sengaja.
+	 */
+	public Boolean getAktfkanPembayaranViaOnlineBmt() {
+		return aktfkanPembayaranViaOnlineBmt == null ? false : aktfkanPembayaranViaOnlineBmt;
+	}
+
+	public void setAktfkanPembayaranViaOnlineBmt(Boolean aktfkanPembayaranViaOnlineBmt) {
+		this.aktfkanPembayaranViaOnlineBmt = aktfkanPembayaranViaOnlineBmt;
 	}
 
 	public String getUsernameEsmartlink() {

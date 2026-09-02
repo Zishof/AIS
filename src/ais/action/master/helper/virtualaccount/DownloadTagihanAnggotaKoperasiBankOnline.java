@@ -24,6 +24,7 @@ import ais.action.master.helper.util.PerguruanTinggiUtil;
 import ais.action.master.helper.util.SmartlinkChannelWindow;
 import ais.common.BSIMajaUtil;
 import ais.common.Common;
+import ais.common.OnlineBmtUtil;
 import ais.common.URLBuilder;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BankHost;
@@ -125,6 +126,7 @@ public class DownloadTagihanAnggotaKoperasiBankOnline {
 			boolean qris = (Boolean) (param.get("qris") == null ? false : param.get("qris"));
 			boolean flip = (Boolean) (param.get("flip") == null ? false : param.get("flip"));
 			boolean esmartlink = (Boolean) (param.get("esmartlink") == null ? false : param.get("esmartlink"));
+			boolean onlineBmt = Boolean.TRUE.equals(param.get(OnlineBmtUtil.PARAM_KEY));
 			String esmartlinkBayarVia = (String) (param.get("esmartlinkBayarVia") == null ? null
 					: param.get("esmartlinkBayarVia"));
 			boolean maja = (Boolean) (param.get("maja") == null ? false : param.get("maja"));
@@ -230,7 +232,8 @@ public class DownloadTagihanAnggotaKoperasiBankOnline {
 					.createCriteria(VirtualAccountBank.class).add(Restrictions.eq("terjadiKendala", false))
 					.add(bankHost == null ? Restrictions.isNull("bankHost") : Restrictions.eq("bankHost", bankHost))
 					.add(Restrictions.ge("kadaluarsaWaktu", WaktuUtil.getDate()))
-					.add(Restrictions.eq("keterangan", keterangan + (qris ? "qris:true" : "")))
+					.add(Restrictions.eq("keterangan", keterangan + (qris ? "qris:true" : "")
+							+ (onlineBmt ? OnlineBmtUtil.MARKER : "")))
 					.add(Restrictions.eq("anggotaKoperasi", anggotaKoperasi))
 					.add(Restrictions.isNull("deposit"))
 					.add(Restrictions.isNull("kegiatan"))
@@ -248,7 +251,11 @@ public class DownloadTagihanAnggotaKoperasiBankOnline {
 
 				virtualAccountBankOnline.setKanalPembayaran(kanalPembayaran);
 
-				if (flip) {
+				if (onlineBmt) {
+					if (!OnlineBmtUtil.isGlobalEnabled() || kanalPembayaran == null
+							|| !Boolean.TRUE.equals(kanalPembayaran.getAktfkanPembayaranViaOnlineBmt())) return null;
+					OnlineBmtUtil.prepareInvoice(virtualAccountBankOnline);
+				} else if (flip) {
 
 					if (expired_date == null) {
 						try {
@@ -594,7 +601,8 @@ public class DownloadTagihanAnggotaKoperasiBankOnline {
 				virtualAccountBankOnline.setOtomatis(false);
 
 				virtualAccountBankOnline.setCicilan(cicilan);
-				virtualAccountBankOnline.setKeterangan(keterangan + (qris ? "qris:true" : ""));
+				virtualAccountBankOnline.setKeterangan(keterangan + (qris ? "qris:true" : "")
+						+ (onlineBmt ? OnlineBmtUtil.MARKER : ""));
 				virtualAccountBankOnline.setTotal(total);
 				virtualAccountBankOnline.setBulanan("");
 				virtualAccountBankOnline.setBiayaAdmin(biayaAdmin);
@@ -665,6 +673,7 @@ public class DownloadTagihanAnggotaKoperasiBankOnline {
 			boolean qris = (Boolean) (param.get("qris") == null ? false : param.get("qris"));
 			boolean flip = (Boolean) (param.get("flip") == null ? false : param.get("flip"));
 			boolean esmartlink = (Boolean) (param.get("esmartlink") == null ? false : param.get("esmartlink"));
+			boolean onlineBmt = Boolean.TRUE.equals(param.get(OnlineBmtUtil.PARAM_KEY));
 			String esmartlinkBayarVia = (String) (param.get("esmartlinkBayarVia") == null ? null
 					: param.get("esmartlinkBayarVia"));
 			boolean maja = (Boolean) (param.get("maja") == null ? false : param.get("maja"));
@@ -751,7 +760,8 @@ public class DownloadTagihanAnggotaKoperasiBankOnline {
 					.createCriteria(VirtualAccountBank.class).add(Restrictions.eq("terjadiKendala", false))
 					.add(bankHost == null ? Restrictions.isNull("bankHost") : Restrictions.eq("bankHost", bankHost))
 					.add(Restrictions.ge("kadaluarsaWaktu", WaktuUtil.getDate()))
-					.add(Restrictions.eq("keterangan", keterangan + (qris ? "qris:true" : "")))
+					.add(Restrictions.eq("keterangan", keterangan + (qris ? "qris:true" : "")
+							+ (onlineBmt ? OnlineBmtUtil.MARKER : "")))
 					.add(Restrictions.eq("anggotaKoperasi", anggotaKoperasi))
 					.add(Restrictions.isNull("deposit"))
 					.add(Restrictions.isNull("kegiatan"))
@@ -769,7 +779,11 @@ public class DownloadTagihanAnggotaKoperasiBankOnline {
 
 				virtualAccountBankOnline.setKanalPembayaran(kanalPembayaran);
 
-				if (flip) {
+				if (onlineBmt) {
+					if (!OnlineBmtUtil.isGlobalEnabled() || kanalPembayaran == null
+							|| !Boolean.TRUE.equals(kanalPembayaran.getAktfkanPembayaranViaOnlineBmt())) return null;
+					OnlineBmtUtil.prepareInvoice(virtualAccountBankOnline);
+				} else if (flip) {
 
 					if (expired_date == null) {
 						try {
@@ -1117,7 +1131,8 @@ public class DownloadTagihanAnggotaKoperasiBankOnline {
 				virtualAccountBankOnline.setOtomatis(false);
 
 				virtualAccountBankOnline.setCicilan(cicilan);
-				virtualAccountBankOnline.setKeterangan(keterangan + (qris ? "qris:true" : ""));
+				virtualAccountBankOnline.setKeterangan(keterangan + (qris ? "qris:true" : "")
+						+ (onlineBmt ? OnlineBmtUtil.MARKER : ""));
 				virtualAccountBankOnline.setTotal(total);
 				virtualAccountBankOnline.setBulanan("");
 				virtualAccountBankOnline.setBiayaAdmin(biayaAdmin);

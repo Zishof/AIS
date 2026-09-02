@@ -161,6 +161,7 @@ public class AppStartupListener implements ServletContextListener {
 			// checkout mulai menerima request. Method idempoten dan tidak membuat
 			// index baru/redundan.
 			InitIndex.initRetailRequestIdempotencyColumns();
+			InitIndex.initOnlineBmtRequestGuard();
 			// Migrasi kecil dan idempoten ini harus dijalankan segera setelah
 			// SessionFactory tersedia, sebelum init data/menu yang berat. Dengan
 			// demikian promo "Semua Produk" tidak perlu menunggu seluruh maintenance

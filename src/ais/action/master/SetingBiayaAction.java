@@ -34,6 +34,7 @@ import org.zkoss.zk.ui.event.UploadEvent;
 import org.zkoss.zk.ui.sys.ExecutionsCtrl;
 import org.zkoss.zk.ui.util.GenericAutowireComposer;
 import org.zkoss.zul.Borderlayout;
+import org.zkoss.zul.A;
 import org.zkoss.zul.Caption;
 import org.zkoss.zul.Center;
 import org.zkoss.zul.Checkbox;
@@ -325,6 +326,23 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 				+ "&autoBukaRencanaAngsuran=1";
 	}
 
+	/** Membuka editor Billing yang sama dari aksi baris maupun dari form Setting Biaya. */
+	private void bukaEditorBilling(SettingBiaya settingBiaya) {
+		try {
+			Common.displayWindow(urlBuatBilling(settingBiaya), true, "95%", "98%",
+					new EventListener() {
+						@Override
+						public void onEvent(Event event) throws Exception {
+							onSearchDefault(null);
+						}
+					}, "Buat Billing - Setting Biaya");
+		} catch (Exception e) {
+			PesanFormalHelper.tampilkanGagalException("Membuka editor Billing", e,
+					new String[] { "Simpan Setting Biaya terlebih dahulu sebelum membuka Billing.",
+							"Periksa kembali periode, semester, prodi, program, dan item biaya pada Setting Biaya." });
+		}
+	}
+
 	/**
 	 * Renderer lokal untuk layar/komponen {@link SetingBiayaAction}. Kelas ini menerjemahkan satu item data
 	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
@@ -465,19 +483,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 				billing.addEventListener("onClick", new EventListener() {
 					@Override
 					public void onEvent(Event event) throws Exception {
-						try {
-							Common.displayWindow(urlBuatBilling(settingBiaya), true, "95%", "98%",
-									new EventListener() {
-										@Override
-										public void onEvent(Event event) throws Exception {
-											onSearchDefault(null);
-										}
-									}, "Buat Billing - Setting Biaya");
-						} catch (Exception e) {
-							PesanFormalHelper.tampilkanGagalException("Membuka editor Billing", e,
-									new String[] { "Pastikan Setting Biaya sudah tersimpan.",
-											"Periksa kembali periode, semester, prodi, program, dan item biaya pada Setting Biaya." });
-						}
+						bukaEditorBilling(settingBiaya);
 					}
 				});
 				aksiButtons.add(billing);
@@ -913,6 +919,20 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 				"Gunakan Nilai Tagihan Default, jika dipilih, maka tagihan ini tidak perlu diinputkan di menu billing/angsuran"));
 		gunakanBiayaDefault.setChecked(settingBiaya.getGunakanBiayaDefault());
 
+		final MyFormRow rowBukaBilling = new MyFormRow();
+		rowBukaBilling.setParent(rows);
+		rowBukaBilling.appendChild(new ais.ui.util.MyLabelConfig());
+		final A bukaBilling = new A("Atur Billing / Angsuran");
+		bukaBilling.setTooltiptext("Buka pengaturan Billing untuk Setting Biaya ini");
+		bukaBilling.setStyle("font-weight:700;text-decoration:underline;cursor:pointer;");
+		bukaBilling.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				bukaEditorBilling(SetingBiayaAction.this.settingBiaya);
+			}
+		});
+		rowBukaBilling.appendChild(bukaBilling);
+
 		row = new MyFormRow();
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Jumlah Pembayaran"));
@@ -941,6 +961,8 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 				paket.getParent().setVisible(!khususBuatMahasiswaTertentu.isChecked());
 				jurusan.getParent().setVisible(!khususBuatMahasiswaTertentu.isChecked());
 				gunakanBiayaDefault.getParent().setVisible(!khususBuatMahasiswaTertentu.isChecked());
+				rowBukaBilling.setVisible(!khususBuatMahasiswaTertentu.isChecked()
+						&& !gunakanBiayaDefault.isChecked());
 			}
 		};
 
@@ -962,6 +984,8 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 			public void onEvent(Event arg0) throws Exception {
 				jumlahPembayaran.getParent().setVisible(gunakanBiayaDefault.isChecked());
 				tampilkanPerProdi.getParent().setVisible(gunakanBiayaDefault.isChecked());
+				rowBukaBilling.setVisible(!khususBuatMahasiswaTertentu.isChecked()
+						&& !gunakanBiayaDefault.isChecked());
 			}
 		};
 
@@ -1166,6 +1190,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 
 					final org.zkoss.zul.Hbox hboxCariPagingTab = new org.zkoss.zul.Hbox();
 					hboxCariPagingTab.setWidth("100%");
+					hboxCariPagingTab.setSclass("ais-item-biaya-searchbar");
 
 					final org.zkoss.zul.Label labelCariTab = new org.zkoss.zul.Label("Cari:");
 					labelCariTab.setParent(hboxCariPagingTab);
@@ -1174,7 +1199,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 							kataCariItemBiayaPerTab.containsKey(index) ? kataCariItemBiayaPerTab.get(index) : "");
 					cariTab.setWidth("200px");
 					cariTab.setParent(hboxCariPagingTab);
-					cariTab.addEventListener("onChange", new EventListener() {
+					final EventListener jalankanPencarianItemBiaya = new EventListener() {
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 							kataCariItemBiayaPerTab.put(index,
@@ -1183,7 +1208,15 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 							halamanItemBiayaPerTab.put(index, 0);
 							getThis().onEvent(arg0);
 						}
-					});
+					};
+					cariTab.addEventListener("onChange", jalankanPencarianItemBiaya);
+					cariTab.addEventListener("onOK", jalankanPencarianItemBiaya);
+
+					MyToolbarbuttonConfig tombolCariItemBiaya = new MyToolbarbuttonConfig("Cari",
+							"/img/svg/search.svg");
+					tombolCariItemBiaya.setTooltiptext("Cari item biaya pada angsuran ke-" + index);
+					tombolCariItemBiaya.addEventListener("onClick", jalankanPencarianItemBiaya);
+					tombolCariItemBiaya.setParent(hboxCariPagingTab);
 
 					final org.zkoss.zul.Checkbox hanyaTerpilihCheckbox = new org.zkoss.zul.Checkbox(
 							"Tampilkan hanya yg dipilih");

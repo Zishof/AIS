@@ -1070,6 +1070,12 @@
 		<servlet-class>ais.action.servlet.Esmartlink</servlet-class>
 	</servlet>
 	<servlet>
+		<description>Endpoint inquiry, payment, dan status Online BMT</description>
+		<display-name>OnlineBmt</display-name>
+		<servlet-name>OnlineBmt</servlet-name>
+		<servlet-class>ais.action.servlet.OnlineBmt</servlet-class>
+	</servlet>
+	<servlet>
 		<description>
 		</description>
 		<display-name>PembayaranSukses</display-name>
@@ -1957,6 +1963,10 @@
 	<servlet-mapping>
 		<servlet-name>Esmartlink</servlet-name>
 		<url-pattern>/Esmartlink</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>OnlineBmt</servlet-name>
+		<url-pattern>/OnlineBmt</url-pattern>
 	</servlet-mapping>
 	<servlet-mapping>
 		<servlet-name>PembayaranGagal</servlet-name>

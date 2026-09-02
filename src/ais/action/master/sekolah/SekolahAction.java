@@ -182,6 +182,7 @@ public class SekolahAction extends GenericAutowireComposer implements DataCriter
 	private MyDoublebox biayaAdminFlip;
 
 	private MyCheckboxConfig aktfkanPembayaranViaEsmartlink;
+	private MyCheckboxConfig aktfkanPembayaranViaOnlineBmt;
 	private Textbox usernameEsmartlink;
 	private Textbox passwordEsmartlink;
 	private MyDoublebox biayaAdminEsmartlink;
@@ -1209,6 +1210,17 @@ public class SekolahAction extends GenericAutowireComposer implements DataCriter
 		row = new MyFormRow();
 		row.setParent(rows);
 		ais.ui.util.ZkCompat.setSpans(row, "2");
+		row.appendChild(new MyLabelStyled("Online BMT"));
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig(""));
+		row.appendChild(aktfkanPembayaranViaOnlineBmt = new MyCheckboxConfig("Aktifkan Pembayaran Via Online BMT"));
+		aktfkanPembayaranViaOnlineBmt.setChecked(sekolah.getAktfkanPembayaranViaOnlineBmt());
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		ais.ui.util.ZkCompat.setSpans(row, "2");
 		row.appendChild(new MyLabelStyled("Finpay"));
 
 		row = new MyFormRow();
@@ -1556,6 +1568,7 @@ public class SekolahAction extends GenericAutowireComposer implements DataCriter
 			sekolah.setPasswordEsmartlink(passwordEsmartlink.getValue().trim());
 			sekolah.setBiayaAdminEsmartlink(biayaAdminEsmartlink.getValue());
 			sekolah.setVariableBiayaAdminEsmartlink(variableBiayaAdminEsmartlink.getValue());
+			sekolah.setAktfkanPembayaranViaOnlineBmt(aktfkanPembayaranViaOnlineBmt.isChecked());
 
 			sekolah.setAktfkanPembayaranViaFinpay(aktfkanPembayaranViaFinpay.isChecked());
 			sekolah.setApiKeyFinpay(apiKeyFinpay.getValue().trim());
