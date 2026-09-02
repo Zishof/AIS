@@ -2327,8 +2327,14 @@ public class PosApi extends HttpServlet {
 		if (action.startsWith("stok_") || action.startsWith("so_")) {
 			return menu.optBoolean("stokopname", true);
 		}
+		// satuan_kerja_* ikut kunci "anggota": layarnya adalah TAB di dalam layar
+		// Anggota, persis seperti jenis_anggota_/tipe_anggota_. Sebelumnya prefiks
+		// ini tidak dipetakan sama sekali sehingga jatuh ke `return true` di ujung
+		// metode -- dan dua handler-nya (satuanKerjaHapus, satuanKerjaAnggotaSimpan)
+		// bahkan tidak menerima Tbmuser, jadi tidak ada lapis kedua yang menjaga.
 		if (action.startsWith("anggota_") || action.startsWith("jenis_anggota_")
 				|| action.startsWith("tipe_anggota_") || action.startsWith("deposit_")
+				|| action.startsWith("satuan_kerja_")
 				|| action.startsWith("notifikasi_") || action.startsWith("sinkron_")) {
 			return menu.optBoolean("anggota", true);
 		}

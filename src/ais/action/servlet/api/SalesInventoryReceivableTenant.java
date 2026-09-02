@@ -512,6 +512,55 @@ final class SalesInventoryReceivableTenant {
 		return "rasio + arah, bukan satu faktor desimal";
 	}
 
+	/**
+	 * Satu satuan sebagai pecahan menuju acuan kategorinya: {@code [pembilang, penyebut]}.
+	 *
+	 * <p>{@code SMALLER} berarti satuan ini lebih kecil dari acuannya, sehingga pecahannya
+	 * {@code 1/rasio}; selain itu {@code rasio/1}. Disimpan sebagai pecahan, bukan desimal, supaya
+	 * rasio kebalikan tetap tepat.</p>
+	 */
+	static java.math.BigDecimal[] pecahanSatuan(java.math.BigDecimal rasio, String tipeKonversi) {
+		if (rasio == null || rasio.signum() <= 0) {
+			return null;
+		}
+		boolean lebihKecil = KONVERSI_LEBIH_KECIL.equals(tipeKonversi);
+		return new java.math.BigDecimal[] {
+				lebihKecil ? java.math.BigDecimal.ONE : rasio,
+				lebihKecil ? rasio : java.math.BigDecimal.ONE };
+	}
+
+	/**
+	 * Kuantitas dasar dari {@code qtyInput} pada satuan jual, berikut faktor cuplikannya:
+	 * {@code [kuantitas, faktorKeDasar]}. {@code null} bila konversinya tidak sah.
+	 *
+	 * <pre>
+	 * faktor(jual —&gt; dasar) = (pembilangJual × penyebutDasar)
+	 *                        / (penyebutJual × pembilangDasar)
+	 * </pre>
+	 *
+	 * <p>Pembagiannya dilakukan <b>sekali</b>, atas pembilang yang sudah dikalikan
+	 * {@code qtyInput} — bukan atas faktor yang dibulatkan lebih dulu. Itulah yang menjaga
+	 * {@code 12 PCS} tetap menjadi tepat {@code 12}, bukan {@code 11.999952}.</p>
+	 * <p>Skala 4 mengikuti {@code sales_order_detail.kuantitas numeric(18,4)}; skala 6 pada
+	 * faktornya mengikuti kolom cuplikannya, yang memang hanya catatan.</p>
+	 */
+	static java.math.BigDecimal[] kuantitasDasar(java.math.BigDecimal[] jual,
+			java.math.BigDecimal[] dasar, java.math.BigDecimal qtyInput) {
+		if (jual == null || dasar == null || qtyInput == null) {
+			return null;
+		}
+		java.math.BigDecimal pembilang = jual[0].multiply(dasar[1]);
+		java.math.BigDecimal penyebut = jual[1].multiply(dasar[0]);
+		if (penyebut.signum() <= 0) {
+			return null;
+		}
+		java.math.BigDecimal kuantitas = qtyInput.multiply(pembilang)
+				.divide(penyebut, 4, java.math.BigDecimal.ROUND_HALF_UP);
+		java.math.BigDecimal faktor = pembilang.divide(penyebut, 6,
+				java.math.BigDecimal.ROUND_HALF_UP);
+		return new java.math.BigDecimal[] { kuantitas, faktor };
+	}
+
 	/** Menimpa nomor dan total setelah seluruh barisnya tersisip. */
 	static String finalisasiOrder(String skema) {
 		return "UPDATE " + skema + "sales_order SET nomor_dokumen = ?, total = ?,"

@@ -1752,10 +1752,9 @@ public final class SalesInventoryReceivableHelper {
 	}
 
 	/**
-	 * Satu satuan sebagai pecahan menuju acuan kategorinya: {@code [pembilang, penyebut]}.
-	 *
-	 * <p>Disimpan sebagai pecahan, bukan desimal, supaya rasio kebalikan tetap tepat — lihat
-	 * {@link SalesInventoryReceivableTenant#catatanSatuanJual()}. Baris pertama kategorinya.</p>
+	 * Satu satuan sebagai {@code [kategori, pecahan]}, dengan pecahannya berasal dari
+	 * {@link SalesInventoryReceivableTenant#pecahanSatuan}. {@code null} bila satuannya tidak ada
+	 * atau rasionya tidak sah.
 	 */
 	private static Object[] pecahanSatuan(Session session, String skema, Long satuanId)
 			throws Exception {
@@ -1772,13 +1771,11 @@ public final class SalesInventoryReceivableHelper {
 			BigDecimal rasio = rs.getBigDecimal(2);
 			String arah = rs.getString(3);
 			rs.close();
-			if (rasio == null || rasio.signum() <= 0) {
+			BigDecimal[] pecahan = SalesInventoryReceivableTenant.pecahanSatuan(rasio, arah);
+			if (pecahan == null) {
 				return null;
 			}
-			boolean lebihKecil = SalesInventoryReceivableTenant.KONVERSI_LEBIH_KECIL.equals(arah);
-			BigDecimal pembilang = lebihKecil ? BigDecimal.ONE : rasio;
-			BigDecimal penyebut = lebihKecil ? rasio : BigDecimal.ONE;
-			return new Object[] { kategori, pembilang, penyebut };
+			return new Object[] { kategori, pecahan };
 		} finally {
 			ps.close();
 		}
@@ -1842,22 +1839,18 @@ public final class SalesInventoryReceivableHelper {
 					+ ". Perbaiki kategori satuan pada master satuan, lalu coba kembali.");
 			return null;
 		}
-		// faktor(jual -> dasar) = (pembilangJual * penyebutDasar) / (penyebutJual * pembilangDasar)
-		BigDecimal pembilang = ((BigDecimal) jual[1]).multiply((BigDecimal) dasar[2]);
-		BigDecimal penyebut = ((BigDecimal) jual[2]).multiply((BigDecimal) dasar[1]);
-		if (penyebut.signum() <= 0) {
+		BigDecimal[] hasilKonversi = SalesInventoryReceivableTenant.kuantitasDasar(
+				(BigDecimal[]) jual[1], (BigDecimal[]) dasar[1], qtyInput);
+		if (hasilKonversi == null) {
 			tolak(hasil, "Item ke-" + nomorBaris + ": konversi satuan tidak sah.");
 			return null;
 		}
-		BigDecimal kuantitas = qtyInput.multiply(pembilang).divide(penyebut, 4,
-				BigDecimal.ROUND_HALF_UP);
-		if (kuantitas.signum() <= 0) {
+		if (hasilKonversi[0].signum() <= 0) {
 			tolak(hasil, "Item ke-" + nomorBaris + ": konversi satuan menghasilkan kuantitas nol."
 					+ " Periksa rasio satuan jual terhadap satuan dasarnya.");
 			return null;
 		}
-		BigDecimal faktorCuplikan = pembilang.divide(penyebut, 6, BigDecimal.ROUND_HALF_UP);
-		return new BigDecimal[] { kuantitas, faktorCuplikan };
+		return hasilKonversi;
 	}
 
 	/**

@@ -10931,15 +10931,18 @@ public class KantinHelper {
 	 * #produkDuplikatHapus}).</p>
 	 */
 	public static void ebisnisRoleList(Tbmuser tbmuser, JSONObject hasil) throws Exception {
-		// Gerbangnya menolak akun yang TERIKAT ke sebuah toko, karena supervisor satu
-		// toko tidak boleh mengubah definisi grup yang dipakai toko lain (eskalasi hak
-		// lintas-toko). Namun sebelumnya pemeriksaannya TIDAK PERNAH menanyakan apakah
-		// penggunanya administrator sistem, sehingga admin sungguhan yang kebetulan
-		// terikat ke satu toko ikut tertolak -- padahal pesannya sendiri berbunyi
-		// "Hanya admin sistem". Kini kode dan pesannya sepakat: admin sistem lolos,
-		// supervisor toko tetap tertutup.
-		if (tbmuser != null && tbmuser.getPedagang() != null
-			&& !Common.getApakahAdminLain(tbmuser)) {
+		// WAJIB admin sistem, tanpa syarat lain -- sesuai bunyi pesannya sendiri.
+		//
+		// Dua bentuk sebelumnya sama-sama bertumpu pada `getPedagang() != null`, yaitu
+		// hanya menolak akun yang TERIKAT ke sebuah toko (supervisor toko tidak boleh
+		// mengubah definisi grup yang dipakai toko lain). Syarat itu tidak pernah
+		// menyaring siapa pun yang berbahaya: setiap akun AIS yang TIDAK terikat
+		// Pedagang -- pegawai, guru, dosen -- lolos begitu saja, lalu dapat menulis
+		// ulang hak akses peran mana pun, termasuk menjadikan dirinya supervisor.
+		// Token POS pun diterbitkan kepada akun AIS mana pun yang kredensialnya sah
+		// (PosDeviceAuthApi.terbitkanToken -> doAutoLogin, tanpa batasan peran), jadi
+		// tidak ada lapis lain di belakangnya. Lihat docs/pos/97.
+		if (!Common.getApakahAdminLain(tbmuser)) {
 			hasil.put("status", "91");
 			hasil.put("description", "Hanya admin sistem yang dapat mengelola Grup Pengguna & Hak Akses.");
 			return;
@@ -10974,15 +10977,18 @@ public class KantinHelper {
 	 * Gerbang admin SAMA dgn {@link #ebisnisRoleList}.
 	 */
 	public static void ebisnisRoleMenuAmbil(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
-		// Gerbangnya menolak akun yang TERIKAT ke sebuah toko, karena supervisor satu
-		// toko tidak boleh mengubah definisi grup yang dipakai toko lain (eskalasi hak
-		// lintas-toko). Namun sebelumnya pemeriksaannya TIDAK PERNAH menanyakan apakah
-		// penggunanya administrator sistem, sehingga admin sungguhan yang kebetulan
-		// terikat ke satu toko ikut tertolak -- padahal pesannya sendiri berbunyi
-		// "Hanya admin sistem". Kini kode dan pesannya sepakat: admin sistem lolos,
-		// supervisor toko tetap tertutup.
-		if (tbmuser != null && tbmuser.getPedagang() != null
-			&& !Common.getApakahAdminLain(tbmuser)) {
+		// WAJIB admin sistem, tanpa syarat lain -- sesuai bunyi pesannya sendiri.
+		//
+		// Dua bentuk sebelumnya sama-sama bertumpu pada `getPedagang() != null`, yaitu
+		// hanya menolak akun yang TERIKAT ke sebuah toko (supervisor toko tidak boleh
+		// mengubah definisi grup yang dipakai toko lain). Syarat itu tidak pernah
+		// menyaring siapa pun yang berbahaya: setiap akun AIS yang TIDAK terikat
+		// Pedagang -- pegawai, guru, dosen -- lolos begitu saja, lalu dapat menulis
+		// ulang hak akses peran mana pun, termasuk menjadikan dirinya supervisor.
+		// Token POS pun diterbitkan kepada akun AIS mana pun yang kredensialnya sah
+		// (PosDeviceAuthApi.terbitkanToken -> doAutoLogin, tanpa batasan peran), jadi
+		// tidak ada lapis lain di belakangnya. Lihat docs/pos/97.
+		if (!Common.getApakahAdminLain(tbmuser)) {
 			hasil.put("status", "91");
 			hasil.put("description", "Hanya admin sistem yang dapat mengelola Grup Pengguna & Hak Akses.");
 			return;
@@ -11046,15 +11052,18 @@ public class KantinHelper {
 	 * hanya kunci yg dikirim yg diubah).
 	 */
 	public static void ebisnisRoleMenuSimpan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
-		// Gerbangnya menolak akun yang TERIKAT ke sebuah toko, karena supervisor satu
-		// toko tidak boleh mengubah definisi grup yang dipakai toko lain (eskalasi hak
-		// lintas-toko). Namun sebelumnya pemeriksaannya TIDAK PERNAH menanyakan apakah
-		// penggunanya administrator sistem, sehingga admin sungguhan yang kebetulan
-		// terikat ke satu toko ikut tertolak -- padahal pesannya sendiri berbunyi
-		// "Hanya admin sistem". Kini kode dan pesannya sepakat: admin sistem lolos,
-		// supervisor toko tetap tertutup.
-		if (tbmuser != null && tbmuser.getPedagang() != null
-			&& !Common.getApakahAdminLain(tbmuser)) {
+		// WAJIB admin sistem, tanpa syarat lain -- sesuai bunyi pesannya sendiri.
+		//
+		// Dua bentuk sebelumnya sama-sama bertumpu pada `getPedagang() != null`, yaitu
+		// hanya menolak akun yang TERIKAT ke sebuah toko (supervisor toko tidak boleh
+		// mengubah definisi grup yang dipakai toko lain). Syarat itu tidak pernah
+		// menyaring siapa pun yang berbahaya: setiap akun AIS yang TIDAK terikat
+		// Pedagang -- pegawai, guru, dosen -- lolos begitu saja, lalu dapat menulis
+		// ulang hak akses peran mana pun, termasuk menjadikan dirinya supervisor.
+		// Token POS pun diterbitkan kepada akun AIS mana pun yang kredensialnya sah
+		// (PosDeviceAuthApi.terbitkanToken -> doAutoLogin, tanpa batasan peran), jadi
+		// tidak ada lapis lain di belakangnya. Lihat docs/pos/97.
+		if (!Common.getApakahAdminLain(tbmuser)) {
 			hasil.put("status", "91");
 			hasil.put("description", "Hanya admin sistem yang dapat mengelola Grup Pengguna & Hak Akses.");
 			return;
