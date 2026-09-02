@@ -1,5 +1,73 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 21 — SELESAI 100% (3 Sep 2026)
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
+`-implicit:none` bersih, mirror `java/` diverifikasi `cmp` byte-identik, nol
+perubahan logika. Batch ini menyapu SELURUH keluarga entity "Pengecualian"
+(dispensasi per-mahasiswa/dosen) untuk memeriksa apakah pola bypass tanpa
+kontrol dari `BaypassPembayaranMahasiswa` (batch 20, `task_1214dd58`)
+terulang — hasilnya: **YA, berulang kali, dengan variasi baru tiap
+instance**:
+
+- **`ais/database/model/PengecualianJadwalPengisianKRSMahasiswa.java`**
+  (r83425) — 154→458 baris, 100% (34 anggota). **TEMUAN PALING SERIUS
+  batch ini**: entity ini SECARA FUNGSIONAL adalah bypass syarat
+  pembayaran (dipakai persis sama seperti `BaypassPembayaranMahasiswa` di
+  `CommonPaymentHelper.checkStatusPembayaranMahasiswa`), tapi MENYAMAR di
+  bawah nama administratif "pengecualian jadwal". Tanpa approval, tanpa
+  scope, unggah massal tanpa gerbang server-side — pola `task_1214dd58`
+  penuh, DIPERBERAT oleh penyamaran nama. Bukti tim tahu cara membangun
+  approval (lihat poin berikutnya) tapi tidak menerapkannya di sini.
+  Direkomendasikan masuk lingkup `task_1214dd58`.
+- **`ais/database/model/PengecualianJadwalPenilaianDosen.java`** (r83428)
+  — 315→929 baris, 100% (48 anggota). KONTRAS: entity ini justru PUNYA
+  alur persetujuan matang (state machine PENGAJUAN→DISETUJU/DITOLAK +
+  integrasi SOP + scope per-dosen). Tapi ditemukan pola BARU: **penjagaan
+  tidak merata antar 3 Action/Helper berbeda** yang mengelola tabel sama —
+  helper py CommonPrivilages+anti-self-approval lengkap, tapi 2 Action lain
+  cuma `Common.getApakahAdmin()` tanpa re-cek tanggal/status di server,
+  sehingga rentang izin yang SUDAH disetujui bisa diperpanjang tanpa
+  persetujuan ulang. Dieskalasi sebagai **`task_5b47d41b`** (dibuat agent).
+- **`ais/database/model/PengecualianKknMahasiswa.java`** (r83429) —
+  125→546 baris, 100% (25 anggota). "Versi akademik" `Baypass
+  PembayaranMahasiswa` — pola penuh terulang (tanpa approval/scope/gerbang
+  massal). Diklarifikasi: bug syarat SKS/IPK `Kkn.java` (sesi 14) dan
+  mekanisme dispensasi resmi ini adalah 2 MEKANISME TERPISAH yang
+  kebetulan menghasilkan gejala sama ("mahasiswa tak memenuhi syarat tapi
+  lolos") — audit insiden wajib periksa keduanya.
+- **`ais/database/model/PengecualianPklMahasiswa.java`** (r83430) —
+  125→604 baris, 100% (13 anggota). Pola sama + temuan BARU: **inversi hak
+  akses** — pada layar YANG SAMA, checkbox terima/tolak pendaftar dijaga
+  `CommonPrivilages.APPROVE`, tapi tombol "Pengecualian" (yang membebaskan
+  DARI SELURUH syarat sekaligus, dampak lebih besar) TIDAK dijaga apa pun.
+  Plus jejak audit kosong (tanpa `@PrePersist`, pembuat dispensasi tak
+  tercatat). Dieskalasi sebagai **`task_7b77e368`** (dibuat agent).
+- **`ais/database/model/PembatasanNilaiIPKUntukPengambilanKRS.java`**
+  (r83431) — 211→772 baris, 100% (32 method + 14 field). BUKAN anggota
+  keluarga "Pengecualian" tapi berelasi: aturan UMUM (bukan dispensasi
+  individu) pembatasan SKS berdasar IP. Temuan struktural: baris
+  per-mahasiswa di sini MENGGANTIKAN seluruh kebijakan umum bagi orang itu
+  (bukan menambah), bisa MELONGGARKAN batas SKS tak sengaja. Nama kolom
+  `batasMaksimumIPKYangBolehDiambil` menyesatkan — sebenarnya batas SKS,
+  bukan IPK. Broken access control: tanpa scope fakultas/prodi + unggah
+  massal UI-only + fail-open filter kosong. Direkomendasikan masuk lingkup
+  `task_1214dd58` sebagai instance akademik non-finansial pertama.
+
+**REKAP keluarga "surat sakti tanpa approval+scope" setelah batch 20-21**:
+sekarang **5 entity** menunjukkan pola penuh atau sebagian (`Baypass
+PembayaranMahasiswa`, `PengecualianJadwalPengisianKRSMahasiswa`,
+`PengecualianKknMahasiswa`, `PengecualianPklMahasiswa`,
+`PembatasanNilaiIPKUntukPengambilanKRS`), plus 1 entity yang justru jadi
+CONTOH POSITIF sebagian (`PengecualianJadwalPenilaianDosen` — punya
+approval tapi penjagaan tak merata). **3 task eskalasi baru** dari
+investigasi ini: `task_1214dd58` (diperluas cakupannya secara konseptual),
+`task_5b47d41b` (penjagaan tak merata), `task_7b77e368` (inversi hak
+akses PKL). Total kini **6 task keamanan aktif** kategori broken-access-
+control/otorisasi finansial-akademik dari inisiatif ini.
+
+Total akumulasi 21 sesi: **283 file** dari 7.401 (~3,8%).
+
 ## Batch 20 — SELESAI 100% (2 Sep 2026)
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi

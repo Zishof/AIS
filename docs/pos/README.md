@@ -85,6 +85,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [80-layar-jurnal-menyentuh-dokumen-modul.md](80-layar-jurnal-menyentuh-dokumen-modul.md) | unpost menolak jurnal bikinan modul; deleteAll menyisakan baris yatim; tiga pertanyaan terbuka soal cleanDuplicates |
 | [73-stok-minus-tiga-nilai-dan-pemulihan-member.md](73-stok-minus-tiga-nilai-dan-pemulihan-member.md) | "STOK MINUS" pd verifikasi pesanan: `null` diperlakukan sbg "dikunci admin"; + pemulihan nama pemesan dari audit Envers |
 | [74-sql-pemulihan-member-pesanan.sql](74-sql-pemulihan-member-pesanan.sql) | Skrip hitung-dulu-baru-perbaiki utk mengembalikan member yang tertimpa NULL |
+| [77-grup-item-biaya-sekolah.md](77-grup-item-biaya-sekolah.md) | Grup OneToMany item biaya, tab konfigurasi, kepala ZK Group, kontrak API, migrasi, dan UAT |
 | [75-halaman-pesanan-tiga-celah-sunyi.md](75-halaman-pesanan-tiga-celah-sunyi.md) | `id_member` yang diambil lalu dibuang, "Bayar Semua" yang bilang sukses saat gagal, dan `peringatanStok` tanpa pembaca |
 | [76-peringatan-stok-terbaca-dan-nota-terparkir.md](76-peringatan-stok-terbaca-dan-nota-terparkir.md) | `peringatanStok` yang belum dibaca klien Flutter, dan nota terparkir GAGAL oleh penolakan stok yang keliru |
 | [77-gerbang-oversell-dan-penjaga-field-yatim.md](77-gerbang-oversell-dan-penjaga-field-yatim.md) | Sakelar "Cegah Oversell" yang tak pernah dibaca jalur API + penjaga otomatis field yang dikirim server tanpa pembaca |

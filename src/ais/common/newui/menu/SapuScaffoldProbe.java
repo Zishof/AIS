@@ -65,6 +65,8 @@ public final class SapuScaffoldProbe {
 
         int total = 0, tanpaAdaptor = 0, tidakTersedia = 0, masihScaffold = 0, siap = 0;
         int berentitas = 0, berongga = 0, takTerpetakan = 0;
+        int perluKontrakKhusus = 0;
+        Map<String, Integer> perTipeLayanan = new TreeMap<String, Integer>();
         Map<String, List<String>> perModul = new TreeMap<String, List<String>>();
         for (int i = 0; i < ais.common.MenuSnapshotData.DATA.length; i++) {
             String[] k = ais.common.MenuSnapshotData.DATA[i].split("[|]", -1);
@@ -121,6 +123,8 @@ public final class SapuScaffoldProbe {
             }
             if (scaffold.contains(r.getTarget())) {
                 masihScaffold++;
+                String tipeLayanan = tipeLayanan(WEBAPP + r.getTarget());
+                tambah(perTipeLayanan, tipeLayanan);
                 // Dispatcher mencoba Generic CRUD lebih dulu; ia jatuh ke stub
                 // SCAFFOLD hanya bila tryAutoRegister mengembalikan null.
                 // Entitas yang dideklarasikan scaffold adalah masukan utama
@@ -137,7 +141,15 @@ public final class SapuScaffoldProbe {
                 String tanda;
                 if (!adaEntitas) { berongga++; tanda = "[RONGGA] "; }
                 else if (!terpetakan) { takTerpetakan++; tanda = "[ENTITAS-TAK-DIKENAL] "; }
-                else { berentitas++; tanda = "[crud?] "; }
+                else {
+                    berentitas++;
+                    if (perluKontrakKhusus(tipeLayanan)) {
+                        perluKontrakKhusus++;
+                        tanda = "[review:" + tipeLayanan + "] ";
+                    } else {
+                        tanda = "[crud?:" + tipeLayanan + "] ";
+                    }
+                }
                 catat(perModul, tanda + r.getModule(),
                         id + "\t" + label + "\t" + r.getPage());
             } else {
@@ -153,6 +165,8 @@ public final class SapuScaffoldProbe {
         System.out.println("  scaffold + entitas (mungkin Generic CRUD) : " + berentitas);
         System.out.println("  scaffold TANPA entitas (pasti berongga)   : " + berongga);
         System.out.println("  scaffold dgn entitas TAK TERPETAKAN       : " + takTerpetakan);
+        System.out.println("  tipe semantik yang perlu kontrak khusus   : " + perluKontrakKhusus);
+        System.out.println("  distribusi tipe layanan                   : " + perTipeLayanan);
         System.out.println();
         for (Map.Entry<String, List<String>> e : perModul.entrySet()) {
             System.out.println("=== " + e.getKey() + " (" + e.getValue().size() + ") ===");
@@ -164,6 +178,46 @@ public final class SapuScaffoldProbe {
         List<String> l = m.get(kunci);
         if (l == null) { l = new ArrayList<String>(); m.put(kunci, l); }
         l.add(baris);
+    }
+
+    private static void tambah(Map<String, Integer> hitungan, String kunci) {
+        Integer lama = hitungan.get(kunci);
+        hitungan.put(kunci, Integer.valueOf(lama == null ? 1 : lama.intValue() + 1));
+    }
+
+    /**
+     * Tipe yang secara semantik bukan tabel data induk biasa.
+     *
+     * <p>Ini penanda audit, bukan keputusan routing. Mempunyai entity Hibernate
+     * tidak membuktikan bahwa dashboard, laporan, integrasi, atau workflow
+     * boleh dirender sebagai tabel entity mentah.</p>
+     */
+    public static boolean perluKontrakKhusus(String tipe) {
+        return "dashboard".equals(tipe) || "report".equals(tipe)
+                || "integration".equals(tipe) || "workflow".equals(tipe);
+    }
+
+    /** Ambil nilai literal atribut {@code nuiServiceType} dari sumber JSP. */
+    public static String tipeLayananDariIsi(String sumber) {
+        if (sumber == null) return "tidak_diketahui";
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile(
+                "nuiServiceType\\\"\\s*,\\s*\\\"([^\\\"]+)\\\"").matcher(sumber);
+        return m.find() ? m.group(1).trim().toLowerCase() : "tidak_diketahui";
+    }
+
+    private static String tipeLayanan(String path) {
+        BufferedReader r = null;
+        try {
+            r = new BufferedReader(new InputStreamReader(new FileInputStream(path), "UTF-8"));
+            StringBuilder sumber = new StringBuilder();
+            String baris;
+            while ((baris = r.readLine()) != null) sumber.append(baris).append((char) 10);
+            return tipeLayananDariIsi(sumber.toString());
+        } catch (Exception e) {
+            return "tidak_diketahui";
+        } finally {
+            try { if (r != null) r.close(); } catch (Exception ignored) { }
+        }
     }
 
     private static void kumpulkan(File dir, String prefix, Set<String> out) {
