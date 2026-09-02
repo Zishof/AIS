@@ -87,18 +87,13 @@ KUNCI_DART = re.compile(r"'([A-Za-z_][A-Za-z0-9_]*)'\s*:")
 KUNCI_JS = re.compile(r'(?m)^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:')
 
 
-def baca(path):
-    with open(path, 'rb') as f:
-        return f.read().decode('utf-8', 'replace')
-
-
 def kumpulkan(akar, ekstensi):
     potongan = []
     for dirpath, dirnames, filenames in os.walk(akar):
         dirnames[:] = [d for d in dirnames if d.lower() not in DILEWATI]
         for nama in filenames:
             if nama.lower().endswith(ekstensi):
-                potongan.append(baca(os.path.join(dirpath, nama)))
+                potongan.append(akar_repo.baca(os.path.join(dirpath, nama)))
     return '\n'.join(potongan)
 
 
@@ -151,6 +146,7 @@ def main():
         if nama not in dikirim:
             dikirim.append(nama)
 
+    akar_repo.pastikan_terbaca()
     print('kunci payload yang dikirim klien : %d' % len(dikirim))
     print('sumber server terbaca            : %d karakter' % len(server))
 

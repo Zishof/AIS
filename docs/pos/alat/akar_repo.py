@@ -108,3 +108,47 @@ def pastikan_lengkap(perlu_pos=False):
             'Akar AIS yang dipakai: ' + AIS_MAIN,
         ]
         raise SystemExit(os.linesep.join(pesan))
+
+
+# Kegagalan membaca berkas DICATAT, tidak ditelan dan tidak pula meledak mentah.
+#
+# Ditemukan lewat uji checkout di jalur lain (docs/pos/83): satu JSP bernama
+# panjang di dalam jalur yang dalam melewati batas 260 karakter Windows, dan
+# alatnya berhenti dengan traceback FileNotFoundError -- padahal berkasnya ada,
+# hanya jalurnya terlalu panjang untuk dibuka.
+#
+# Godaannya adalah membungkus pembacaan dengan try/except lalu melanjutkan. Itu
+# JUSTRU cacat yang dijaga alat-alat ini: korpus pembaca menyusut diam-diam, dan
+# field yang pembacanya kebetulan ada di berkas yang gagal dibaca akan dituduh
+# yatim. Karena itu kegagalan dikumpulkan, lalu pastikan_terbaca() menolak
+# melaporkan angka apa pun selama masih ada yang belum terbaca.
+_GAGAL_BACA = []
+
+
+def baca(path):
+    """Isi berkas sebagai teks. Gagal baca dicatat, bukan diabaikan."""
+    try:
+        f = open(path, 'rb')
+    except (IOError, OSError) as e:
+        _GAGAL_BACA.append((path, str(e)))
+        return ''
+    try:
+        return f.read().decode('utf-8', 'replace')
+    finally:
+        f.close()
+
+
+def pastikan_terbaca():
+    """Berhenti bila ada berkas yang gagal dibaca -- korpusnya tidak utuh."""
+    if not _GAGAL_BACA:
+        return
+    pesan = ['%d berkas GAGAL DIBACA -- korpusnya bolong, angkanya tidak sah.'
+             % len(_GAGAL_BACA)]
+    for path, sebab in _GAGAL_BACA[:10]:
+        pesan.append('   ' + ringkas(path))
+        pesan.append('      ' + sebab)
+    if len(_GAGAL_BACA) > 10:
+        pesan.append('   ... dan %d lagi' % (len(_GAGAL_BACA) - 10))
+    pesan.append('Pada Windows sebab tersering adalah jalur > 260 karakter:')
+    pesan.append('checkout ke direktori yang lebih dangkal, atau aktifkan LongPathsEnabled.')
+    raise SystemExit(os.linesep.join(pesan))

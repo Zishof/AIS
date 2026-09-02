@@ -120,18 +120,13 @@ UTANG = {
 POLA_KIRIM = re.compile(r'hasil\.put\("([A-Za-z0-9_]+)"')
 
 
-def baca(path):
-    with open(path, 'rb') as f:
-        return f.read().decode('utf-8', 'replace')
-
-
 def kumpulkan(akar):
     potongan = []
     for dirpath, dirnames, filenames in os.walk(akar):
         dirnames[:] = [d for d in dirnames if d.lower() not in DILEWATI]
         for nama in filenames:
             if nama.lower().endswith(EKSTENSI):
-                potongan.append(baca(os.path.join(dirpath, nama)))
+                potongan.append(akar_repo.baca(os.path.join(dirpath, nama)))
     return '\n'.join(potongan)
 
 
@@ -142,7 +137,7 @@ def main():
         if not os.path.isfile(jalur):
             print('SUMBER TIDAK KETEMU: ' + jalur)
             return 1
-        for nama in POLA_KIRIM.findall(baca(jalur)):
+        for nama in POLA_KIRIM.findall(akar_repo.baca(jalur)):
             if nama not in dikirim:
                 dikirim.append(nama)
 
@@ -157,6 +152,7 @@ def main():
     # pembacaan atas "x".
     semua = POLA_KIRIM.sub('', semua)
 
+    akar_repo.pastikan_terbaca()
     print('field yang dikirim server : %d' % len(dikirim))
     print('sumber pembaca terbaca    : %d karakter' % len(semua))
 

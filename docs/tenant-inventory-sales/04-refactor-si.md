@@ -1004,6 +1004,115 @@ Enam blok, seluruhnya LULUS pada klaster v1–v11:
 Berkasnya dapat dijalankan berulang: data jalan uji sebelumnya dibersihkan lebih dulu menurut
 urutan kunci asing.
 
+## Helper ketujuh, lanjutan: Piutang &amp; Sales Order — 9 dari 12 aksi
+
+Batch ini menambah tiga aksi: `salesOrderDetail`, `salesOrderStatus`, `collectionReceipt`.
+Tersisa tiga, dan ketiganya menulis dokumen.
+
+| aksi | jalur tenant |
+|---|---|
+| `salesOrderDetail` | **dipindahkan** |
+| `salesOrderStatus` | **dipindahkan** |
+| `collectionReceipt` | **dipindahkan** |
+| `salesOrderSimpan` | belum ditulis |
+| `salesOrderInvoice` | belum ditulis |
+| `collectionCreate` | **terhalang C-11** — bukan sekadar belum ditulis |
+
+### Kosakata status: katalog menyingkat DRAFT, jalur `si_*` tidak
+
+`SalesOrderLapangan.STATUS_DRAFT` bernilai `"DRAFT"`. Bawaan kolom `sales_order.status` pada
+katalog tenant adalah **`'DRAF'`** — begitu pula dua belas tabel lain. Itu kosakata katalog,
+bukan salah ketik satu tempat.
+
+Akibatnya bukan kosmetik. Penjaga transisi membandingkan `"DRAFT".equals(lama)`, sehingga setiap
+order yang statusnya berasal dari bawaan kolom akan **menolak seluruh transisi keluar dari
+draf**: tidak bisa dikonfirmasi, tidak bisa dibatalkan. Ordernya macet tanpa pesan yang
+menjelaskan sebabnya.
+
+Diterjemahkan di batas, bukan dilawan: basis data tetap berbicara kosakata katalog, API tetap
+berbicara kosakata legacy (`statusOrder()`). Nilai lain — `PESAN`, `SIAP_KIRIM`, `TERKIRIM`,
+`BATAL` — sudah sama persis di kedua sisi, jadi hanya draf yang perlu diterjemahkan.
+
+**Ini juga memperbaiki jalur yang sudah terkirim.** `salesOrderList` mengembalikan kolom status
+apa adanya, sehingga klien tenant menerima `DRAF` di tempat klien legacy menerima `DRAFT`.
+Bukan cacat uang, tetapi tetap dua klien yang melihat kata berbeda untuk keadaan yang sama, dan
+setiap penyaringan sisi klien atas `"DRAFT"` akan meleset. Sekarang keduanya dinormalkan lewat
+satu fungsi.
+
+### MTO tidak dilewati — memang tidak ada yang bisa dipicu
+
+Jalur legacy menjalankan `terapkanMto` pada transisi DRAFT → PESAN: baris ber-produk rute
+`MTO_PRODUKSI` menerbitkan draf Work Order, rute `MTO_BELI` menerbitkan pengajuan pembelian
+gudang. Komentarnya tegas — SO yang mengaku terkonfirmasi tetapi pemicunya gagal adalah
+kebohongan data.
+
+Katalog tenant **tidak punya kolom `produk.rute`**, dan tidak punya tabel work order maupun
+pengajuan pembelian. Tidak ada produk tenant yang dapat berute MTO, sehingga pemicunya kosong
+menurut definisi. Konfirmasi order karena itu setara, bukan disederhanakan.
+
+Penjaganya (`mtoMungkin()`) tetap dipasang dan mengembalikan `false`. Kalau suatu bundel kelak
+menambahkan `produk.rute`, penjaga itu diubah menjadi `true` dan konfirmasi order akan
+**berhenti berisik** alih-alih diam-diam melewatkan pemicunya.
+
+### Deep-link piutang: legacy menunjuk order, tenant lewat faktur
+
+Legacy menyimpan `PiutangCustomerDoc.salesOrder`. Model tenant tidak punya kolom itu; kaitannya
+melewati `piutang_customer` → `faktur_penjualan` → `sales_order`.
+
+Kedua subkueri (id dan nomor) memakai `ORDER BY d.id LIMIT 1` yang sama supaya keduanya pasti
+berasal dari baris yang sama. Jalur legacy memakai `setMaxResults(1)` tanpa urutan — hasilnya
+sewenang-wenang bila satu order punya lebih dari satu dokumen piutang. Di sini hasilnya menjadi
+tentu; itu perbedaan yang memperbaiki, dan dicatat sebagai perbedaan.
+
+Blok 5 ujinya menguji sisi negatifnya: faktur milik order lain tidak boleh ikut tertaut.
+
+### Nama produk: salinan beku lawan nama sekarang
+
+Baris order legacy menyimpan salinan `namaProduk` yang membeku saat order dibuat; baris order
+tenant tidak punya kolom itu, sehingga namanya ditarik lewat join ke `produk`.
+
+Produk yang berganti nama karena itu tampil dengan nama lama pada jalur legacy dan nama sekarang
+pada jalur tenant. Blok 4 ujinya sengaja memakai produk yang sudah berganti nama, dan
+**mensyaratkan** perbedaan itu muncul — kalau namanya kebetulan sama, ujinya tidak membuktikan
+apa pun tentang perilaku ini.
+
+### `collectionCreate`: pesan penolakannya dijujurkan
+
+Sebelumnya ketiga aksi tersisa memakai pesan yang sama, "belum tersedia... sampai jalur tenantnya
+ditulis". Untuk `collectionCreate` itu menyesatkan: aksinya membukukan penerimaan tunai ke kas
+sesi (`NotaSalesKas`) dan memundurkan nota bawaan (`SpjSalesNota`), dan model tenant tidak punya
+keduanya. Ia **terhalang C-11**, bukan menunggu giliran ditulis. Pesannya kini mengatakan itu.
+
+### Penempatan cabang tenant: sesudah hak akses, bukan sebelumnya
+
+Penjaga tenant yang lama berdiri di **baris pertama** tiap aksi, sebelum `ctx.bolehMenu(...)`.
+Selama penjaganya menolak, urutan itu tidak berakibat. Begitu penjaganya berubah menjadi
+pengalihan ke jalur tenant, urutan itu menjadi lubang: pemakai tenant akan melewati pemeriksaan
+hak menu sama sekali.
+
+Cabangnya karena itu dipindah ke **sesudah** seluruh pemeriksaan hak dan validasi argumen —
+sama seperti yang sudah dilakukan pada helper Reversal. Penjaga lingkup sales (order/kwitansi ini
+milik sales yang mana) ditegakkan di dalam metode tenantnya, memakai `salesperson_id`, bukan
+nama.
+
+### Uji kesetaraan: `uji-kesetaraan-order-kwitansi.sql`
+
+Tujuh blok, seluruhnya LULUS pada klaster v1–v11:
+
+| blok | yang dibuktikan |
+|---|---|
+| 1 | **penjaga** — katalog memang menyimpan `DRAF`, jadi ada yang perlu dinormalkan |
+| 2 | setelah dinormalkan, status tenant setara legacy |
+| 3 | header rincian order setara |
+| 4 | angka baris order setara **dan** perbedaan nama produk benar-benar terjadi |
+| 5 | deep-link piutang menemukan tepat satu, dan bukan milik order lain |
+| 6 | kwitansi setara |
+| 7 | rincian alokasi kwitansi setara |
+
+Selain itu SQL yang **benar-benar dikeluarkan Java** dijalankan apa adanya ke basis data lewat
+alat sekali-pakai, bukan hanya salinan tangannya di berkas uji. Itu yang memastikan jumlah dan
+urutan kolomnya benar pada string yang dipakai program — bukan pada versi yang saya tulis ulang.
+
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
 **Sebelas helper, 7.512 baris, belum satu pun kuerinya dipindah ke schema tenant.**

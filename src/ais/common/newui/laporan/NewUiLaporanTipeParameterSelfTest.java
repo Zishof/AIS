@@ -129,6 +129,7 @@ public final class NewUiLaporanTipeParameterSelfTest {
         if ("relasi".equals(t)) return f.idSebagaiTeks ? "java.lang.String" : "java.lang.Long";
         if ("relasi_banyak".equals(t)) return "java.util.List";
         if ("teks".equals(t)) return "java.lang.String";
+        if ("pilihan".equals(t)) return "java.lang.String";
         return null;
     }
 

@@ -416,13 +416,6 @@ public final class SalesInventoryReceivableHelper {
 
 	public static void salesOrderDetail(EbisnisActorContextResolver.ActorContext ctx, JSONObject request,
 			JSONObject hasil) throws Exception {
-		if (SalesInventoryReceivableTenant.aktif(ctx)) {
-			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
-			// collectionCreate, MENULIS penerimaan uang -- ke schema BERSAMA. Ditolak sampai
-			// jalur tenantnya ditulis beserta uji kesetaraannya.
-			tolak(hasil, "Aksi ini belum tersedia pada tenant berschema.");
-			return;
-		}
 		if (!ctx.bolehMenu("penjualan_sales")) {
 			tolak(hasil, "Menu Penjualan Sales tidak aktif untuk akun Anda.");
 			return;
@@ -430,6 +423,10 @@ public final class SalesInventoryReceivableHelper {
 		Long orderId = optLong(request, "order_id");
 		if (orderId == null) {
 			tolak(hasil, "order_id wajib diisi.");
+			return;
+		}
+		if (SalesInventoryReceivableTenant.aktif(ctx)) {
+			salesOrderDetailTenant(ctx, orderId, hasil);
 			return;
 		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
@@ -486,13 +483,6 @@ public final class SalesInventoryReceivableHelper {
 	/** Transisi status manual (selain SIAP_TAGIH -- itu lewat {@link #salesOrderInvoice}). */
 	public static void salesOrderStatus(EbisnisActorContextResolver.ActorContext ctx, Tbmuser tbmuser,
 			JSONObject request, JSONObject hasil) throws Exception {
-		if (SalesInventoryReceivableTenant.aktif(ctx)) {
-			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
-			// collectionCreate, MENULIS penerimaan uang -- ke schema BERSAMA. Ditolak sampai
-			// jalur tenantnya ditulis beserta uji kesetaraannya.
-			tolak(hasil, "Aksi ini belum tersedia pada tenant berschema.");
-			return;
-		}
 		if (!ctx.bolehAksi("penjualan_sales", "update")) {
 			tolak(hasil, "Akun Anda tidak berhak mengubah status sales order.");
 			return;
@@ -506,6 +496,10 @@ public final class SalesInventoryReceivableHelper {
 		}
 		if (SalesOrderLapangan.STATUS_SIAP_TAGIH.equals(baru)) {
 			tolak(hasil, "SIAP_TAGIH lewat aksi si_sales_order_invoice (menerbitkan faktur piutang).");
+			return;
+		}
+		if (SalesInventoryReceivableTenant.aktif(ctx)) {
+			salesOrderStatusTenant(ctx, tbmuser, orderId, baru, alasan, hasil);
 			return;
 		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
@@ -877,10 +871,12 @@ public final class SalesInventoryReceivableHelper {
 	public static void collectionCreate(EbisnisActorContextResolver.ActorContext ctx, Tbmuser tbmuser,
 			JSONObject request, JSONObject hasil) throws Exception {
 		if (SalesInventoryReceivableTenant.aktif(ctx)) {
-			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
-			// collectionCreate, MENULIS penerimaan uang -- ke schema BERSAMA. Ditolak sampai
-			// jalur tenantnya ditulis beserta uji kesetaraannya.
-			tolak(hasil, "Aksi ini belum tersedia pada tenant berschema.");
+			// TERHALANG, bukan sekadar belum ditulis. Aksi ini mencatat penerimaan tunai ke
+			// buku kas sesi (NotaSalesKas) dan memundurkan nota bawaan (SpjSalesNota); model
+			// tenant tidak punya keduanya -- celah C-11. Memindahkan sisanya saja berarti
+			// mencatat uang masuk tanpa menaikkan kas yang dipegang sales.
+			tolak(hasil, "Pencatatan penagihan belum tersedia pada schema tenant: penerimaan"
+					+ " tunainya tidak dapat dibukukan ke kas trip.");
 			return;
 		}
 		if (!ctx.bolehAksi("piutang", "create")) {
@@ -1186,13 +1182,6 @@ public final class SalesInventoryReceivableHelper {
 
 	public static void collectionReceipt(EbisnisActorContextResolver.ActorContext ctx, JSONObject request,
 			JSONObject hasil) throws Exception {
-		if (SalesInventoryReceivableTenant.aktif(ctx)) {
-			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
-			// collectionCreate, MENULIS penerimaan uang -- ke schema BERSAMA. Ditolak sampai
-			// jalur tenantnya ditulis beserta uji kesetaraannya.
-			tolak(hasil, "Aksi ini belum tersedia pada tenant berschema.");
-			return;
-		}
 		if (!ctx.bolehMenu("piutang")) {
 			tolak(hasil, "Menu Piutang tidak aktif untuk akun Anda.");
 			return;
@@ -1200,6 +1189,10 @@ public final class SalesInventoryReceivableHelper {
 		Long id = optLong(request, "penerimaan_id");
 		if (id == null) {
 			tolak(hasil, "penerimaan_id wajib diisi.");
+			return;
+		}
+		if (SalesInventoryReceivableTenant.aktif(ctx)) {
+			collectionReceiptTenant(ctx, id, hasil);
 			return;
 		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
@@ -1501,6 +1494,244 @@ public final class SalesInventoryReceivableHelper {
 			hasil.put("status", "00");
 			hasil.put("rows", rows);
 			hasil.put("ringkasan", ringkas);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+	// =============================================================================================
+	// Jalur schema tenant -- rincian order, transisi status, kwitansi
+	// =============================================================================================
+
+	/**
+	 * Rincian sales order pada schema tenant.
+	 *
+	 * <p>Penjaga lingkup sales ditegakkan di sini, sama seperti jalur legacy: sales lapangan
+	 * hanya boleh membuka ordernya sendiri. Melewatkannya berarti satu sales dapat membaca
+	 * order sales lain hanya dengan menebak id.</p>
+	 */
+	private static void salesOrderDetailTenant(EbisnisActorContextResolver.ActorContext ctx,
+			Long orderId, JSONObject hasil) throws Exception {
+		String skema = SalesInventoryReceivableTenant.skema(ctx);
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(
+					SalesInventoryReceivableTenant.selectOrderRinci(skema));
+			ps.setLong(1, orderId.longValue());
+			java.sql.ResultSet rs = ps.executeQuery();
+			if (!rs.next()) {
+				rs.close();
+				ps.close();
+				tolak(hasil, "Sales order tidak ditemukan.");
+				return;
+			}
+			Long salesId = rs.getObject(10) == null ? null : Long.valueOf(rs.getLong(10));
+			if (aktorSales(ctx) && (salesId == null || ctx.salesId == null
+					|| !ctx.salesId.equals(salesId))) {
+				rs.close();
+				ps.close();
+				tolak(hasil, "Order ini bukan milik sales Anda.");
+				return;
+			}
+			JSONObject j = new JSONObject();
+			j.put("id", rs.getLong(1));
+			j.put("nomor", str(rs.getString(2)));
+			j.put("tanggal", str(rs.getDate(3)));
+			j.put("status", str(rs.getString(4)));
+			j.put("total", rs.getDouble(5));
+			j.put("keterangan", str(rs.getString(6)));
+			j.put("alasanBatal", str(rs.getString(7)));
+			j.put("customerId", rs.getLong(8));
+			j.put("customerNama", str(rs.getString(9)));
+			j.put("salesId", salesId == null ? JSONObject.NULL : salesId);
+			j.put("salesNama", str(rs.getString(11)));
+			Object docId = rs.getObject(12);
+			j.put("piutangDocId", docId == null ? JSONObject.NULL : Long.valueOf(rs.getLong(12)));
+			j.put("piutangDocNomor", docId == null ? "" : str(rs.getString(13)));
+			rs.close();
+			ps.close();
+
+			java.sql.PreparedStatement psI = session.connection().prepareStatement(
+					SalesInventoryReceivableTenant.selectOrderBaris(skema));
+			psI.setLong(1, orderId.longValue());
+			java.sql.ResultSet rsI = psI.executeQuery();
+			JSONArray arr = new JSONArray();
+			while (rsI.next()) {
+				JSONObject r = new JSONObject();
+				r.put("id", rsI.getLong(1));
+				r.put("produkId", rsI.getLong(2));
+				r.put("namaProduk", str(rsI.getString(3)));
+				r.put("hargaSatuan", rsI.getDouble(4));
+				r.put("jumlah", rsI.getDouble(5));
+				r.put("subtotal", rsI.getDouble(6));
+				arr.put(r);
+			}
+			rsI.close();
+			psI.close();
+			j.put("items", arr);
+			hasil.put("status", "00");
+			hasil.put("data", j);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * Transisi status sales order pada schema tenant.
+	 *
+	 * <p>Matriks transisinya disalin apa adanya dari jalur legacy — bukan disederhanakan.
+	 * Pembatalan tetap hanya boleh sebelum barang keluar, dan tetap wajib beralasan.</p>
+	 *
+	 * <p>Pemicu MTO pada DRAFT &rarr; PESAN tidak dijalankan karena model tenant tidak punya
+	 * rute produk maupun tabel work order; lihat {@code mtoMungkin()}. Penjaganya tetap
+	 * dipasang supaya keadaan itu berhenti berisik bila kelak berubah.</p>
+	 */
+	private static void salesOrderStatusTenant(EbisnisActorContextResolver.ActorContext ctx,
+			Tbmuser tbmuser, Long orderId, String baru, String alasan, JSONObject hasil)
+			throws Exception {
+		String skema = SalesInventoryReceivableTenant.skema(ctx);
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		Transaction tx = null;
+		try {
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(
+					SalesInventoryReceivableTenant.selectOrderUntukStatus(skema));
+			ps.setLong(1, orderId.longValue());
+			java.sql.ResultSet rs = ps.executeQuery();
+			if (!rs.next()) {
+				rs.close();
+				ps.close();
+				tolak(hasil, "Sales order tidak ditemukan.");
+				return;
+			}
+			String lama = str(rs.getString(1));
+			Long salesId = rs.getObject(2) == null ? null : Long.valueOf(rs.getLong(2));
+			rs.close();
+			ps.close();
+			if (aktorSales(ctx) && (salesId == null || ctx.salesId == null
+					|| !ctx.salesId.equals(salesId))) {
+				tolak(hasil, "Order ini bukan milik sales Anda.");
+				return;
+			}
+			boolean boleh;
+			if (SalesOrderLapangan.STATUS_BATAL.equals(baru)) {
+				boleh = SalesOrderLapangan.STATUS_DRAFT.equals(lama)
+						|| SalesOrderLapangan.STATUS_PESAN.equals(lama)
+						|| SalesOrderLapangan.STATUS_SIAP_KIRIM.equals(lama);
+				if (boleh && alasan.isEmpty()) {
+					tolak(hasil, "Pembatalan wajib menyertakan alasan.");
+					return;
+				}
+			} else if (SalesOrderLapangan.STATUS_PESAN.equals(baru)) {
+				boleh = SalesOrderLapangan.STATUS_DRAFT.equals(lama);
+			} else if (SalesOrderLapangan.STATUS_SIAP_KIRIM.equals(baru)) {
+				boleh = SalesOrderLapangan.STATUS_PESAN.equals(lama);
+			} else if (SalesOrderLapangan.STATUS_TERKIRIM.equals(baru)) {
+				boleh = SalesOrderLapangan.STATUS_SIAP_KIRIM.equals(lama);
+			} else {
+				boleh = false;
+			}
+			if (!boleh) {
+				tolak(hasil, "Transisi " + lama + " -> " + baru + " tidak diizinkan.");
+				return;
+			}
+			if (SalesOrderLapangan.STATUS_PESAN.equals(baru)
+					&& SalesInventoryReceivableTenant.mtoMungkin()) {
+				tolak(hasil, "Konfirmasi order menuntut pemicu MTO yang belum ada pada schema"
+						+ " tenant; order tidak dikonfirmasi supaya datanya tidak berbohong.");
+				return;
+			}
+			tx = session.beginTransaction();
+			java.sql.PreparedStatement psU = session.connection().prepareStatement(
+					SalesInventoryReceivableTenant.updateStatusOrder(skema));
+			psU.setString(1, baru);
+			if (SalesOrderLapangan.STATUS_BATAL.equals(baru)) {
+				psU.setString(2, alasan);
+			} else {
+				psU.setNull(2, java.sql.Types.VARCHAR);
+			}
+			psU.setString(3, tbmuser.getUserId());
+			psU.setLong(4, orderId.longValue());
+			int kena = psU.executeUpdate();
+			psU.close();
+			if (kena != 1) {
+				tx.rollback();
+				tolak(hasil, "Status sales order gagal disimpan.");
+				return;
+			}
+			tx.commit();
+			hasil.put("status", "00");
+			hasil.put("id", orderId);
+			hasil.put("statusBaru", baru);
+		} catch (Exception e) {
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** Kwitansi penerimaan piutang pada schema tenant: 12 medan + rincian alokasinya. */
+	private static void collectionReceiptTenant(EbisnisActorContextResolver.ActorContext ctx,
+			Long id, JSONObject hasil) throws Exception {
+		String skema = SalesInventoryReceivableTenant.skema(ctx);
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(
+					SalesInventoryReceivableTenant.selectKwitansi(skema));
+			ps.setLong(1, id.longValue());
+			java.sql.ResultSet rs = ps.executeQuery();
+			if (!rs.next()) {
+				rs.close();
+				ps.close();
+				tolak(hasil, "Penerimaan tidak ditemukan.");
+				return;
+			}
+			Long salesId = rs.getObject(13) == null ? null : Long.valueOf(rs.getLong(13));
+			if (aktorSales(ctx) && (salesId == null || ctx.salesId == null
+					|| !ctx.salesId.equals(salesId))) {
+				rs.close();
+				ps.close();
+				tolak(hasil, "Kwitansi ini bukan milik sales Anda.");
+				return;
+			}
+			JSONObject j = new JSONObject();
+			j.put("id", rs.getLong(1));
+			j.put("nomor", str(rs.getString(2)));
+			j.put("tanggal", str(rs.getDate(3)));
+			j.put("nominal", rs.getDouble(4));
+			j.put("metode", str(rs.getString(5)));
+			j.put("noBg", str(rs.getString(6)));
+			j.put("namaBank", str(rs.getString(7)));
+			j.put("keterangan", str(rs.getString(8)));
+			j.put("customerNama", str(rs.getString(9)));
+			j.put("customerKode", str(rs.getString(10)));
+			j.put("salesNama", str(rs.getString(11)));
+			j.put("dibuatOleh", str(rs.getString(12)));
+			rs.close();
+			ps.close();
+
+			java.sql.PreparedStatement psA = session.connection().prepareStatement(
+					SalesInventoryReceivableTenant.selectAlokasiKwitansi(skema));
+			psA.setLong(1, id.longValue());
+			java.sql.ResultSet rsA = psA.executeQuery();
+			JSONArray arr = new JSONArray();
+			while (rsA.next()) {
+				JSONObject r = new JSONObject();
+				r.put("fakturNomor", str(rsA.getString(1)));
+				r.put("fakturTanggal", str(rsA.getDate(2)));
+				r.put("totalFaktur", rsA.getDouble(3));
+				r.put("nominal", rsA.getDouble(4));
+				arr.put(r);
+			}
+			rsA.close();
+			psA.close();
+			j.put("alokasi", arr);
+			hasil.put("status", "00");
+			hasil.put("data", j);
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}

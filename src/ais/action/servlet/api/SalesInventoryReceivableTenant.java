@@ -47,7 +47,31 @@ final class SalesInventoryReceivableTenant {
 		return "salesOrderList".equals(aksi) || "receivableList".equals(aksi)
 				|| "collectionHistory".equals(aksi) || "receivableReport".equals(aksi)
 				|| "receivableAgingCustomer".equals(aksi)
-				|| "receivableAgingSales".equals(aksi);
+				|| "receivableAgingSales".equals(aksi)
+				|| "salesOrderDetail".equals(aksi) || "salesOrderStatus".equals(aksi)
+				|| "collectionReceipt".equals(aksi);
+	}
+
+	// ------------------------------------------------------------------ kosakata status
+
+	/**
+	 * <h4>Katalog tenant menyingkat DRAFT menjadi DRAF, jalur {@code si_*} tidak.</h4>
+	 *
+	 * <p>{@code SalesOrderLapangan.STATUS_DRAFT} bernilai {@code "DRAFT"}, sedangkan bawaan
+	 * kolom {@code sales_order.status} pada katalog tenant adalah {@code 'DRAF'} — begitu pula
+	 * pada dua belas tabel lain. Itu kosakata katalog, bukan salah ketik satu tempat.</p>
+	 *
+	 * <p>Akibatnya nyata: penjaga transisi membandingkan {@code "DRAFT".equals(lama)}, sehingga
+	 * setiap order yang statusnya berasal dari bawaan kolom akan <b>menolak seluruh transisi
+	 * keluar dari draf</b> — tidak dapat dikonfirmasi dan tidak dapat dibatalkan.</p>
+	 *
+	 * <p>Diterjemahkan di batas, bukan dilawan: basis data tetap berbicara kosakata katalog,
+	 * API tetap berbicara kosakata legacy. Nilai lain ({@code PESAN}, {@code SIAP_KIRIM},
+	 * {@code TERKIRIM}, {@code BATAL}) sudah sama persis di kedua sisi.</p>
+	 */
+	static String statusOrder(String alias) {
+		return "CASE WHEN " + alias + ".status = 'DRAF' THEN 'DRAFT'"
+				+ " ELSE COALESCE(" + alias + ".status,'') END";
 	}
 
 	// ------------------------------------------------------------------ ekspresi bersama
@@ -65,9 +89,16 @@ final class SalesInventoryReceivableTenant {
 
 	// ------------------------------------------------------------------ daftar sales order
 
-	/** SEPULUH kolom: id, nomor, tanggal, status, total, keterangan, custId, custNama, salesId, salesNama. */
+	/**
+	 * SEPULUH kolom: id, nomor, tanggal, status, total, keterangan, custId, custNama, salesId,
+	 * salesNama.
+	 *
+	 * <p>Statusnya dinormalkan lewat {@link #statusOrder(String)}. Sebelumnya kolom ini
+	 * dikembalikan apa adanya, sehingga klien tenant menerima {@code DRAF} di tempat klien
+	 * legacy menerima {@code DRAFT}.</p>
+	 */
 	static String selectSalesOrder() {
-		return "SELECT o.id, COALESCE(o.nomor_dokumen,''), o.tanggal, COALESCE(o.status,''), "
+		return "SELECT o.id, COALESCE(o.nomor_dokumen,''), o.tanggal, " + statusOrder("o") + ", "
 				+ "COALESCE(o.total,0), COALESCE(o.keterangan,''), "
 				+ "c.id, COALESCE(c.nama,''), s.id, COALESCE(s.nama,'')";
 	}
@@ -224,5 +255,120 @@ final class SalesInventoryReceivableTenant {
 				+ "WHEN " + umur + " <= 30 THEN 'B1_30' "
 				+ "WHEN " + umur + " <= 60 THEN 'B31_60' "
 				+ "WHEN " + umur + " <= 90 THEN 'B61_90' ELSE 'B90' END";
+	}
+	// ------------------------------------------------------------------ rincian sales order
+
+	/**
+	 * TIGA BELAS kolom: id, nomor, tanggal, status, total, keterangan, alasanBatal, custId,
+	 * custNama, salesId, salesNama, piutangDocId, piutangDocNomor.
+	 *
+	 * <p><b>Piutang tenant tidak menunjuk order secara langsung.</b> Legacy menyimpan
+	 * {@code PiutangCustomerDoc.salesOrder}; pada model tenant kaitannya melewati fakturnya
+	 * ({@code piutang_customer} &rarr; {@code faktur_penjualan} &rarr; {@code sales_order}).</p>
+	 *
+	 * <p>Kedua subkueri sengaja memakai {@code ORDER BY d.id LIMIT 1} yang sama supaya id dan
+	 * nomornya pasti berasal dari baris yang sama. Jalur legacy memakai {@code setMaxResults(1)}
+	 * tanpa urutan — hasilnya sewenang-wenang bila satu order punya lebih dari satu dokumen
+	 * piutang. Di sini hasilnya menjadi tentu, dan itu perbedaan yang memperbaiki.</p>
+	 */
+	static String selectOrderRinci(String skema) {
+		String piutang = " FROM " + skema + "piutang_customer d"
+				+ " JOIN " + skema + "faktur_penjualan f ON d.faktur_penjualan_id = f.id"
+				+ " WHERE f.sales_order_id = o.id ORDER BY d.id LIMIT 1";
+		return "SELECT o.id, COALESCE(o.nomor_dokumen,''), o.tanggal, " + statusOrder("o") + ","
+				+ " COALESCE(o.total,0), COALESCE(o.keterangan,''), COALESCE(o.alasan_batal,''),"
+				+ " c.id, COALESCE(c.nama,''), s.id, COALESCE(s.nama,''),"
+				+ " (SELECT d.id" + piutang + "),"
+				+ " (SELECT COALESCE(d.nomor_faktur,'')" + piutang + ")"
+				+ " FROM " + skema + "sales_order o"
+				+ " JOIN " + skema + "customer c ON o.customer_id = c.id"
+				+ " LEFT JOIN " + skema + "salesperson s ON o.salesperson_id = s.id"
+				+ " WHERE o.id = ?";
+	}
+
+	/**
+	 * ENAM kolom: id, produkId, namaProduk, hargaSatuan, jumlah, subtotal.
+	 *
+	 * <p>{@code namaProduk} ditarik lewat join. Jalur legacy menyimpan salinan nama yang membeku
+	 * saat order dibuat, sehingga produk yang berganti nama tampil dengan nama lama di sana dan
+	 * nama sekarang di sini.</p>
+	 */
+	static String selectOrderBaris(String skema) {
+		return "SELECT i.id, i.produk_id, COALESCE(pr.nama,''), COALESCE(i.harga_satuan,0),"
+				+ " COALESCE(i.kuantitas,0), COALESCE(i.total,0)"
+				+ " FROM " + skema + "sales_order_detail i"
+				+ " JOIN " + skema + "produk pr ON i.produk_id = pr.id"
+				+ " WHERE i.sales_order_id = ? ORDER BY i.id ASC";
+	}
+
+	// ------------------------------------------------------------------ transisi status order
+
+	/** DUA kolom: status (ternormalkan) dan salesperson_id, untuk penjaga transisi dan lingkup. */
+	static String selectOrderUntukStatus(String skema) {
+		return "SELECT " + statusOrder("o") + ", o.salesperson_id"
+				+ " FROM " + skema + "sales_order o WHERE o.id = ?";
+	}
+
+	/**
+	 * Menulis status baru berikut alasan pembatalannya.
+	 *
+	 * <p>{@code alasan_batal} diisi hanya saat status barunya BATAL; pada transisi lain
+	 * parameternya bernilai {@code NULL} dan kolomnya dibiarkan seperti semula — sama seperti
+	 * jalur legacy yang hanya memanggil {@code setAlasanBatal} pada cabang pembatalan.</p>
+	 */
+	static String updateStatusOrder(String skema) {
+		return "UPDATE " + skema + "sales_order SET status = ?,"
+				+ " alasan_batal = COALESCE(?, alasan_batal),"
+				+ " oleh = ?, tanggal_dirubah = now() WHERE id = ?";
+	}
+
+	/**
+	 * <h4>MTO tidak punya apa pun untuk dipicu pada model tenant</h4>
+	 *
+	 * <p>Jalur legacy menjalankan {@code terapkanMto} pada transisi DRAFT &rarr; PESAN: baris
+	 * ber-produk rute {@code MTO_PRODUKSI} menerbitkan draf Work Order, rute {@code MTO_BELI}
+	 * menerbitkan pengajuan pembelian gudang.</p>
+	 *
+	 * <p>Katalog tenant <b>tidak punya kolom {@code produk.rute}</b>, dan tidak punya tabel
+	 * work order maupun pengajuan pembelian. Tidak ada produk tenant yang dapat berute MTO,
+	 * sehingga pemicunya kosong menurut definisi — bukan dilewati diam-diam.</p>
+	 *
+	 * <p>Penjaga ini ada supaya keadaan itu berhenti benar dengan berisik bila suatu bundel
+	 * kelak menambahkan {@code produk.rute}: konfirmasi order yang seharusnya menerbitkan Work
+	 * Order tetapi tidak, adalah data yang berbohong.</p>
+	 */
+	static boolean mtoMungkin() {
+		return false;
+	}
+
+	// ------------------------------------------------------------------ kwitansi penerimaan
+
+	/**
+	 * TIGA BELAS kolom. Dua belas pertama masuk JSON, berurutan sama dengan jalur legacy: id,
+	 * nomor, tanggal, nominal, metode, noBg, namaBank, keterangan, custNama, custKode,
+	 * salesNama, dibuatOleh.
+	 *
+	 * <p>Kolom ke-13, {@code salesperson_id}, <b>tidak ikut JSON</b>. Ia hanya dipakai penjaga
+	 * lingkup: sales lapangan hanya boleh membuka kwitansinya sendiri, dan penjaga itu perlu id
+	 * — bukan nama, yang bisa sama antar dua orang.</p>
+	 */
+	static String selectKwitansi(String skema) {
+		return "SELECT p.id, COALESCE(p.nomor_dokumen,''), p.tanggal, COALESCE(p.nilai,0),"
+				+ " COALESCE(p.cara_bayar,''), COALESCE(p.nomor_bg,''), COALESCE(p.nama_bank,''),"
+				+ " COALESCE(p.keterangan,''), COALESCE(c.nama,''), COALESCE(c.kode,''),"
+				+ " COALESCE(s.nama,''), COALESCE(p.oleh,''), p.salesperson_id"
+				+ " FROM " + skema + "penerimaan_piutang p"
+				+ " JOIN " + skema + "customer c ON p.customer_id = c.id"
+				+ " LEFT JOIN " + skema + "salesperson s ON p.salesperson_id = s.id"
+				+ " WHERE p.id = ?";
+	}
+
+	/** EMPAT kolom: fakturNomor, fakturTanggal, totalFaktur, nominal. */
+	static String selectAlokasiKwitansi(String skema) {
+		return "SELECT COALESCE(d.nomor_faktur,''), d.tanggal, COALESCE(d.nilai,0),"
+				+ " COALESCE(a.nilai,0)"
+				+ " FROM " + skema + "alokasi_penerimaan_piutang a"
+				+ " JOIN " + skema + "piutang_customer d ON a.piutang_customer_id = d.id"
+				+ " WHERE a.penerimaan_piutang_id = ? ORDER BY a.id ASC";
 	}
 }

@@ -67,6 +67,17 @@ public final class NewUiLaporanUmumController {
     static final String TIPE_RELASI = "relasi";
     static final String TIPE_RELASI_BANYAK = "relasi_banyak";
     static final String TIPE_TEKS = "teks";
+    /**
+     * Pilihan tertutup dari daftar yang disediakan server.
+     *
+     * <p>Dipakai untuk nilai yang bukan entitas namun juga bukan teks bebas —
+     * tahun akademik, misalnya, yang pada ZK adalah combobox
+     * {@code setReadonly(true)} berisi {@code Common.tahunAngkatans}. Klien lama
+     * yang belum mengenal tipe ini menampilkannya sebagai kolom teks biasa
+     * (cabang {@code default} pada halaman laporan), jadi menambahkannya tidak
+     * merusak apa pun.</p>
+     */
+    static final String TIPE_PILIHAN = "pilihan";
 
     /** Satu filter laporan: nama parameter Jasper + cara klien memintanya. */
     static final class Filter {
@@ -115,6 +126,22 @@ public final class NewUiLaporanUmumController {
          * semua orang demi dua laporan.</p>
          */
         boolean diolahUlang;
+        /** Pilihan tertutup statis untuk TIPE_PILIHAN; null bila diambil saat request. */
+        String[] opsi;
+        /** Nilai bawaan statis untuk TIPE_PILIHAN. */
+        String opsiBawaan;
+        /**
+         * Pilihannya adalah daftar tahun akademik, diambil saat permintaan
+         * datang — bukan saat registri dibangun.
+         *
+         * <p>REGISTRI diisi di blok {@code static}, yang berjalan sekali ketika
+         * kelas dimuat. {@code Common.tahunAngkatans} baru terisi setelah
+         * aplikasi memuat data, dan {@code getCurrentTahunAkademik()} membaca
+         * keadaan runtime — memanggilnya dari blok static membuat pemuatan
+         * kelas menggantung menunggu sesuatu yang belum ada. Karena itu yang
+         * disimpan hanya penanda; daftarnya dibaca ketika sudah pasti tersedia.</p>
+         */
+        boolean opsiTahunAkademik;
         final boolean wajib;
         /**
          * Bila diisi, controller ikut mengirim parameter bernama ini berisi
@@ -165,6 +192,21 @@ public final class NewUiLaporanUmumController {
         Filter diolahUlang() { diolahUlang = true; return this; }
         Filter cari() { cari = true; return this; }
         static Filter teks(String nama, String label) { return new Filter(nama, label, TIPE_TEKS, false, null); }
+        /**
+         * Tahun akademik: pilihan tertutup dari daftar yang sama dengan ZK.
+         *
+         * <p>Daftarnya {@code Common.tahunAngkatans} dan bawaannya
+         * {@code Common.getCurrentTahunAkademik()} — disalin dari
+         * {@code CommonCurrentSessionHelper.generateTahunAjaran}, bukan
+         * dibangkitkan ulang dari rentang tahun. Membangkitkan sendiri akan
+         * menghasilkan daftar yang mirip tetapi tidak sama, dan laporan yang
+         * memakai tahun di luar daftar institusi akan kosong tanpa penjelasan.</p>
+         */
+        static Filter tahunAkademik(String nama, String label, boolean wajib) {
+            Filter f = new Filter(nama, label, TIPE_PILIHAN, wajib, null);
+            f.opsiTahunAkademik = true;
+            return f;
+        }
     }
 
     /** Satu laporan: judul, template Jasper, filter, dan parameter tetapnya. */
@@ -344,6 +386,13 @@ public final class NewUiLaporanUmumController {
                         Filter.relasi("program", "Program",
                                 "ais.database.model.Program", false).idTeks()));
 
+        REGISTRI.put("keuangan_rekap_validasi",
+                new Laporan("Laporan Rekapitulasi Validasi Keuangan",
+                        "Rekapitulasi_validasi_keuangan",
+                        Filter.relasi("jurusan", "Jurusan",
+                                "ais.database.model.Jurusan", false),
+                        Filter.tahunAkademik("tahun_akademik", "Tahun Akademik", true)));
+
         // --- Anggaran (RAB) --------------------------------------------------
         REGISTRI.put("rab_realisasi_per_jenis",
                 new Laporan("Realisasi Anggaran Per Jenis Item",
@@ -368,6 +417,23 @@ public final class NewUiLaporanUmumController {
                         Filter.relasi("parent", "Root RKA-KL", "ais.database.model.rab.Workspace", false)
                                 .cari().tergantung("satuanKerja"))
                         .rentangTahun(5, 19));
+    }
+
+    /** Pilihan sebuah filter, diselesaikan saat permintaan datang. */
+    private static String[] opsiUntuk(Filter f) {
+        if (f.opsiTahunAkademik) {
+            return ais.common.Common.tahunAngkatans.toArray(new String[0]);
+        }
+        return f.opsi == null ? new String[0] : f.opsi;
+    }
+
+    /** Nilai bawaan sebuah filter pilihan, diselesaikan saat permintaan datang. */
+    private static String bawaanUntuk(Filter f) {
+        if (f.opsiTahunAkademik) {
+            try { return ais.common.Common.getCurrentTahunAkademik(); }
+            catch (Exception e) { return null; }
+        }
+        return f.opsiBawaan;
     }
 
     private static Filter perpustakaan() {
@@ -444,6 +510,14 @@ public final class NewUiLaporanUmumController {
             if (f.entity != null) d.put("entity", f.entity);
             if (f.tergantungPada != null) d.put("tergantungPada", f.tergantungPada);
             if (TIPE_RELASI_BANYAK.equals(f.tipe) || f.cari) d.put("cari", true);
+            if (TIPE_PILIHAN.equals(f.tipe)) {
+                JSONArray opsi = new JSONArray();
+                String[] daftar = opsiUntuk(f);
+                for (int o = 0; o < daftar.length; o++) opsi.put(daftar[o]);
+                d.put("opsi", opsi);
+                String bawaan = bawaanUntuk(f);
+                if (bawaan != null) d.put("bawaan", bawaan);
+            }
             arr.put(d);
         }
         j.put("filter", arr);
@@ -686,6 +760,20 @@ public final class NewUiLaporanUmumController {
                 List<Long> ids = daftarId(mentah, f.label);
                 if (ids.size() == 0) throw new IllegalArgumentException(f.label + " wajib dipilih.");
                 parameters.put(f.nama, ids);
+            } else if (TIPE_PILIHAN.equals(f.tipe)) {
+                // Tertutup, seperti combobox ZK yang setReadonly(true): hanya
+                // nilai dari daftar yang diterima. Menerima teks bebas di sini
+                // menghasilkan laporan kosong tanpa penjelasan ketika nilainya
+                // salah ketik -- gagal yang tidak terlihat, bukan yang berisik.
+                boolean cocok = false;
+                String[] daftar = opsiUntuk(f);
+                for (int o = 0; o < daftar.length; o++) {
+                    if (daftar[o].equals(mentah)) { cocok = true; break; }
+                }
+                if (!cocok) {
+                    throw new IllegalArgumentException(f.label + " tidak ada dalam daftar pilihan.");
+                }
+                parameters.put(f.nama, mentah);
             } else {
                 parameters.put(f.nama, mentah);
             }
