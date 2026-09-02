@@ -129,8 +129,15 @@ public class SetingBiayaHelper {
     }
 
     /**
-     * Membatasi pencarian kompatibilitas data lama ke satu induk SettingBiaya.
+     * Membatasi kandidat yang akan dipakai ulang/diubah ke satu induk {@link SettingBiaya}.
      * Relasi dapat tersimpan langsung atau melalui salah satu rincian turunannya.
+     *
+     * <p>Helper ini sengaja ketat: baris {@link DetailBiaya} yang seluruh relasi sumbernya
+     * {@code null} tidak boleh lolos. Query ini berada pada jalur tulis/reuse; menerima baris
+     * tanpa induk dapat membuat tagihan legacy diam-diam menjadi milik setting lain. Untuk query
+     * baca layar pembayaran dan H2H, gunakan
+     * {@link PembayaranUtilHelper#batasiPembacaanDetailBiayaKeSettingTerpilih(Criteria, SettingBiaya)}
+     * yang mempunyai aturan kompatibilitas legacy tersendiri.</p>
      */
     private static Criteria batasiKeSettingBiayaTerpilih(Criteria criteria, SettingBiaya settingBiaya,
             String suffix) {
