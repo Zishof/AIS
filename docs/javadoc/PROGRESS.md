@@ -1,5 +1,59 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 37 — SELESAI 100% (3 Sep 2026)
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
+`-implicit:none` bersih, mirror `java/` diverifikasi `cmp` byte-identik, nol
+perubahan logika:
+
+- **`ais/database/model/KelompokParameterTambahanAlumni.java`** (r83587)
+  — 204→636 baris, 100% (37 anggota). Bug fungsional nyata: DUA mekanisme
+  auto-seed (`checkCreateDefault()` vs `KelompokParameterTambahanAlumniAction
+  .doAfterCompose`) dengan syarat pembuatan BERBEDA dan tidak sadar satu
+  sama lain — instalasi kosong bisa berakhir dengan 2 kategori bawaan
+  berbeda tergantung urutan klik admin. `getNim()` di `compareTo()`
+  terkonfirmasi kode mati aman (didefinisikan di `GeneralValueObject`
+  sendiri, selalu null karena base bukan `@MappedSuperclass`).
+- **`ais/database/model/KelompokParameterTambahanMahasiswa.java`**
+  (r83588) — 187→522 baris, 100% (24 anggota). Struktur IDENTIK
+  `KelompokParameterTambahanAlumni` (dikonfirmasi kata-per-kata). Temuan
+  broken access control: komponen nomor urut TANPA guard sama sekali di
+  renderer grid (checkbox Aktif & tombol lain dijaga, Intbox nomor urut
+  tidak) — pengguna READ-saja bisa mengubah&simpan urutan seksi
+  formulir biodata.
+- **`ais/database/model/ItemBiayaPunyaPiutang.java`** (r83589) —
+  160→511 baris, 100% (semua anggota). `getFakultas()` write-back
+  TERKONFIRMASI PENUH: cukup buka tab "Akun Piutang" tanpa edit apa pun
+  untuk memicu `UPDATE`+revisi Envers palsu. Broken access control:
+  cek `CommonPrivilages.UPDATE` dikomentari mati di helper — siapa pun
+  yang bisa buka layar Item Biaya bisa mengubah pemetaan akun piutang
+  (mempengaruhi jurnal akuntansi) tanpa hak UPDATE.
+- **`ais/database/model/ItemBiayaPunyaDiskon.java`** (r83590) —
+  160→449 baris, 100% (31 anggota). Struktur IDENTIK KATA-PER-KATA
+  dengan `ItemBiayaPunyaPiutang` (diverifikasi via `sed`+`diff` otomatis
+  terhadap versi pristine). **TEMUAN PALING SIGNIFIKAN BATCH INI**:
+  `ItemBiaya.ambilDiskon()` TIDAK ADA (beda dari 3 saudaranya yang semua
+  punya resolver 8-tahap) — seluruh data pemetaan diskon di modul ini
+  YATIM/WRITE-ONLY, tidak pernah dibaca mesin akuntansi sama sekali.
+  Diskon sesungguhnya dibukukan lewat jalur `ItemBiaya.DIKALI_NILAI_MINUS`
+  terpisah yang tetap memakai `ItemBiayaPunyaAkun`.
+- **`ais/database/model/KelompokParameterTambahanCalonMahasiswa.java`**
+  (r83591) — 186→703 baris, 100% (38 anggota). Struktur IDENTIK
+  `KelompokParameterTambahanAlumni`. Kuirk: kelompok default lahir
+  dengan `tampilDiFormPendaftaran=false` — field tambahan yatim yang
+  diadopsi ke situ TIDAK MUNCUL di form publik sampai admin mencentang
+  manual (asimetri "aman secara bawaan" yang tampak disengaja). SQL
+  migrasi mentah di `ParameterTambahanPaketAction` dijalankan ULANG
+  setiap layar dibuka, melewati Envers. **Contoh keamanan POSITIF**
+  (guard lengkap READ/CREATE/UPDATE/DELETE, nol SQL injection).
+
+**Pola "getKeterangan() membalik kontrak base class"**: 3 dari 5 file
+batch ini (kedua entity `ItemBiayaPunya*` TIDAK punya field
+`keterangan` sama sekali). Total kumulatif: 13 (akhir b36) + 3 =
+**16 instance**.
+
+Total akumulasi 37 sesi: **363 file** dari 7.401 (~4,9%).
+
 ## Batch 36 — SELESAI 100% (3 Sep 2026) — RANTAI MASTER KEGIATAN DOSEN/MAHASISWA TERPETAKAN LENGKAP
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
