@@ -298,6 +298,76 @@ tr.z-group,td.z-group-inner{background:var(--ais-theme-primary-bg)!important;bor
 html body .z-row .z-cell .z-textbox,html body .z-row .z-cell .z-decimalbox,html body .z-row .z-cell .z-intbox,html body .z-row .z-cell .z-longbox,html body .z-row .z-cell .z-doublebox,html body .z-row .z-cell .z-combobox-inp,html body .z-row .z-cell .z-bandbox-inp,html body .z-row .z-cell .z-datebox-inp,html body .z-row .z-cell .z-timebox-inp,html body .z-row .z-cell .z-spinner-inp,html body .z-row .z-cell .z-doublespinner-inp,html body .z-listcell .z-textbox,html body .z-listcell .z-decimalbox,html body .z-listcell .z-intbox,html body .z-listcell .z-doublebox,html body .z-listcell .z-combobox-inp,html body .z-listcell .z-datebox-inp{box-sizing:border-box!important;max-width:100%!important;min-width:0!important;}
 /* Sel data yang isinya HANYA satu input (parent = sel Row, bukan Hbox campuran) → 85% */
 html body .z-row > .z-cell > .z-textbox:only-child,html body .z-row > .z-cell > .z-decimalbox:only-child,html body .z-row > .z-cell > .z-intbox:only-child,html body .z-row > .z-cell > .z-longbox:only-child,html body .z-row > .z-cell > .z-doublebox:only-child,html body .z-row > .z-cell > .z-datebox:only-child,html body .z-row > .z-cell > .z-combobox:only-child{width:85%!important;}
+/* ZK 5 memakai td.z-row-inner/.z-row-cnt pada sebagian besar Grid yang dibangun
+   dari Java, bukan .z-cell. Batasi juga markup lama ini agar wrapper komponen
+   (bukan hanya elemen input di dalamnya) tidak pernah melewati lebar sel. */
+html body td.z-row-inner,
+html body td.z-row-inner > .z-row-cnt,
+html body td.z-listcell-inner,
+html body td.z-listcell-inner > .z-listcell-cnt {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+html body td.z-row-inner .z-textbox,
+html body td.z-row-inner .z-decimalbox,
+html body td.z-row-inner .z-intbox,
+html body td.z-row-inner .z-longbox,
+html body td.z-row-inner .z-doublebox,
+html body td.z-row-inner .z-combobox,
+html body td.z-row-inner .z-bandbox,
+html body td.z-row-inner .z-datebox,
+html body td.z-row-inner .z-timebox,
+html body td.z-row-inner .z-spinner,
+html body td.z-row-inner .z-doublespinner,
+html body td.z-listcell-inner .z-textbox,
+html body td.z-listcell-inner .z-combobox,
+html body td.z-listcell-inner .z-bandbox,
+html body td.z-listcell-inner .z-datebox {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+/* Riwayat KRS memiliki banyak editor inline. Di desktop tabel harus memakai
+   pembagian kolom yang sudah dihitung Action-side, dan setiap lapisan Vbox/
+   wrapper input wajib tetap berada di dalam selnya. Mobile tetap ditangani
+   oleh MyGrid.setModelCheckMobile(), jadi fixed-layout hanya untuk desktop. */
+@media (min-width: 769px) {
+    html body .krs-history-contained-fields > .z-grid-header > table,
+    html body .krs-history-contained-fields > .z-grid-body > table {
+        width: 100% !important;
+        max-width: 100% !important;
+        table-layout: fixed !important;
+    }
+}
+html body .krs-history-contained-fields td.z-row-inner,
+html body .krs-history-contained-fields td.z-row-inner > .z-row-cnt,
+html body .krs-history-contained-fields .krs-inline-field-cell,
+html body .krs-history-contained-fields .krs-inline-field-cell > tbody,
+html body .krs-history-contained-fields .krs-inline-field-cell > tbody > tr,
+html body .krs-history-contained-fields .krs-inline-field-cell > tbody > tr > td {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+html body .krs-history-contained-fields .krs-inline-field-cell .z-textbox,
+html body .krs-history-contained-fields .krs-inline-field-cell .z-combobox,
+html body .krs-history-contained-fields .krs-inline-field-cell .z-bandbox,
+html body .krs-history-contained-fields .krs-inline-field-cell .z-datebox,
+html body .krs-history-contained-fields .krs-inline-field-cell .z-timebox {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+html body .krs-history-contained-fields .z-column-cnt,
+html body .krs-history-contained-fields td.z-row-inner .z-label {
+    max-width: 100% !important;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
 /* Combobox ranah/jenis evaluasi di HEADER kolom komponen nilai (Penilaian): font kecil +
    padding rapat agar nama panjang (mis. "Kognitif/ Pengetahuan") muat dalam kolom sempit.
    Lebih spesifik dari aturan .z-combobox-inp dasar sehingga menang atas font-size:12px. */

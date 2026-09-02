@@ -59,6 +59,17 @@ public final class NewUiLayarLainnyaController {
     public static final String MODE_TERIMA_TAGIHAN = "terima_tagihan";
     public static final String MODE_DASBOR_KEMAHASISWAAN = "dasbor_kemahasiswaan";
     public static final String MODE_DASBOR_KEDOSENAN = "dasbor_kedosenan";
+    /**
+     * Dasbor kegiatan milik mahasiswa yang sedang masuk.
+     *
+     * <p>Berbeda dari {@link #MODE_DASBOR_KEMAHASISWAAN}, yang melayani varian
+     * Admin: di sana petugas memilih mahasiswanya di dalam tiap layar, di sini
+     * seluruh tab terikat pada mahasiswa pemilik sesi. Daftar tabnya pun
+     * berbeda -- varian ini punya "Form Kegiatan" yang tidak ada pada varian
+     * Admin, jadi memakai ulang daftar tab Admin akan menghilangkan satu tab
+     * tanpa gejala.</p>
+     */
+    public static final String MODE_DASBOR_KEMAHASISWAAN_SAYA = "dasbor_kemahasiswaan_saya";
 
     private static final int BATAS_BARIS = 200;
 
@@ -71,6 +82,35 @@ public final class NewUiLayarLainnyaController {
             { "Karya Mahasiswa", "/pages/master/penghargaan_mahasiswa.zul" },
             { "Catatan Mahasiswa", "/pages/master/catatan_mahasiswa.zul" },
     };
+
+    /**
+     * Tab dasbor kegiatan milik mahasiswa sendiri.
+     *
+     * <p>Disalin dari {@code DashboardKegiatanKemahasiswaan}, bukan dari varian
+     * Admin: label dan susunannya berbeda, dan varian ini punya tab "Form
+     * Kegiatan" yang tidak ada di sana. Dua tab pertama dibangun langsung oleh
+     * helper ZK ({@code MahasiswaPunyaKegiatanKemahasiswaanHelper} dan
+     * {@code MahasiswaPunyaOrganisasiIntraKampusHelper}) sehingga tidak punya
+     * ZUL tersendiri yang dapat ditunjuk; keduanya ditandai tanpa rute, sama
+     * seperti tab "Dasbor" pada varian Admin.</p>
+     */
+    private static final String[][] TAB_KEMAHASISWAAN_SAYA = {
+            { "Kegiatan Kemahasiswaan", "" },
+            { "Organisasi", "" },
+            { "Prestasi", "/pages/master/prestasi_mahasiswa.zul" },
+            { "Karya", "/pages/master/penghargaan_mahasiswa.zul" },
+            { "Form Kegiatan", "/pages/master/formulir_kegiatan_peserta.zul" },
+            { "Catatan Mahasiswa", "/pages/master/catatan_mahasiswa.zul" },
+    };
+
+    /** Label tab varian pemilik sesi; dipakai uji mandiri agar tidak menyimpang. */
+    static String[] labelTabKemahasiswaanSaya() {
+        String[] label = new String[TAB_KEMAHASISWAAN_SAYA.length];
+        for (int i = 0; i < TAB_KEMAHASISWAAN_SAYA.length; i++) {
+            label[i] = TAB_KEMAHASISWAAN_SAYA[i][0];
+        }
+        return label;
+    }
 
     /** Tab dasbor kegiatan kedosenan. */
     private static final String[][] TAB_KEDOSENAN = {
@@ -99,7 +139,9 @@ public final class NewUiLayarLainnyaController {
             Tbmuser user = Common.getCurrentUser(request);
             if (user == null) throw new SecurityException("Sesi tidak dikenal.");
 
-            if (MODE_DASBOR_KEMAHASISWAAN.equals(mode) || MODE_DASBOR_KEDOSENAN.equals(mode)) {
+            if (MODE_DASBOR_KEMAHASISWAAN_SAYA.equals(mode)) {
+                dasborSaya(json, user, action);
+            } else if (MODE_DASBOR_KEMAHASISWAAN.equals(mode) || MODE_DASBOR_KEDOSENAN.equals(mode)) {
                 dasbor(json, mode, action);
             } else if (MODE_ARTIKEL.equals(mode)) {
                 artikel(json, request, action);
@@ -126,7 +168,8 @@ public final class NewUiLayarLainnyaController {
     public static boolean modeDikenal(String mode) {
         return MODE_ARTIKEL.equals(mode) || MODE_ALUMNI_SISWA.equals(mode)
                 || MODE_TERIMA_TAGIHAN.equals(mode) || MODE_DASBOR_KEMAHASISWAAN.equals(mode)
-                || MODE_DASBOR_KEDOSENAN.equals(mode);
+                || MODE_DASBOR_KEDOSENAN.equals(mode)
+                || MODE_DASBOR_KEMAHASISWAAN_SAYA.equals(mode);
     }
 
     /** Modul penjaga rute; harus sama dengan awalan folder JSP sebelum {@code /uiux/}. */
@@ -142,6 +185,7 @@ public final class NewUiLayarLainnyaController {
         if (MODE_ALUMNI_SISWA.equals(mode)) return "Alumni Siswa";
         if (MODE_TERIMA_TAGIHAN.equals(mode)) return "Terima Tagihan";
         if (MODE_DASBOR_KEMAHASISWAAN.equals(mode)) return "Kegiatan Kemahasiswaan";
+        if (MODE_DASBOR_KEMAHASISWAAN_SAYA.equals(mode)) return "Kegiatan Kemahasiswaan Saya";
         return "Kegiatan Kedosenan";
     }
 
@@ -167,6 +211,50 @@ public final class NewUiLayarLainnyaController {
         j.put("tab", daftar);
         j.put("catatanCakupan", "Tiap panel adalah layar tersendiri. Yang tidak berrute atau di luar "
                 + "hak akses peran Anda ditandai tidak tersedia.");
+    }
+
+    /**
+     * Dasbor kegiatan milik mahasiswa pemilik sesi.
+     *
+     * <p>Seluruh tab terikat pada satu mahasiswa, dan id-nya diambil dari sesi
+     * — bukan dari parameter. Layar lama pun menyusunnya begitu
+     * ({@code Common.getCurrentUser().getMahasiswa()}), dan menerimanya dari
+     * permintaan akan mengubah dasbor pribadi menjadi jalan membaca kegiatan
+     * mahasiswa lain.</p>
+     *
+     * <p>Akun yang tidak terhubung ke data mahasiswa ditolak, bukan diberi
+     * dasbor kosong: layar ini memang bukan untuknya, dan pesan yang jelas
+     * lebih menolong daripada halaman yang tampak rusak.</p>
+     */
+    private static void dasborSaya(JSONObject j, Tbmuser user, String action) throws Exception {
+        if (!"meta".equals(action)) throw new IllegalArgumentException("Aksi tidak dikenal.");
+        ais.database.model.Mahasiswa mahasiswa = user == null ? null : user.getMahasiswa();
+        if (mahasiswa == null || mahasiswa.getId() == null) {
+            throw new SecurityException(
+                    "Layar ini hanya untuk akun yang terhubung dengan data mahasiswa.");
+        }
+        j.put("judul", judul(MODE_DASBOR_KEMAHASISWAAN_SAYA));
+        j.put("mode", MODE_DASBOR_KEMAHASISWAAN_SAYA);
+        j.put("mahasiswaId", mahasiswa.getId());
+        j.put("mahasiswa", mahasiswa.getNama() == null ? "" : mahasiswa.getNama());
+        JSONArray daftar = new JSONArray();
+        for (int i = 0; i < TAB_KEMAHASISWAAN_SAYA.length; i++) {
+            JSONObject o = new JSONObject().put("label", TAB_KEMAHASISWAAN_SAYA[i][0]);
+            if (TAB_KEMAHASISWAAN_SAYA[i][1].length() == 0) {
+                o.put("route", JSONObject.NULL);
+                o.put("alasan", "Panel ini dibangun langsung oleh layar lama dan belum punya "
+                        + "halaman tersendiri yang dapat dibuka native.");
+            } else {
+                o.put("route", TAB_KEMAHASISWAAN_SAYA[i][1]);
+                // Layar lama membuka tiap tab dengan ?mahasiswa=<id>; parameternya
+                // ikut diumumkan supaya klien tidak perlu menebak namanya.
+                o.put("param", new JSONObject().put("mahasiswa", mahasiswa.getId()));
+            }
+            daftar.put(o);
+        }
+        j.put("tab", daftar);
+        j.put("catatanCakupan", "Tiap panel adalah layar tersendiri, terikat pada data Anda. "
+                + "Yang tidak berrute atau di luar hak akses peran Anda ditandai tidak tersedia.");
     }
 
     // --------------------------------------------------------------- artikel

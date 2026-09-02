@@ -3151,6 +3151,7 @@ public class TampilStudiMahasiswaHelper {
 
 		grid = new MyGrid();
 		grid.setWidth("100%");
+		grid.setSclass("dgrid krs-history-contained-fields");
 		grid.setMold("paging");
 		grid.setPageSize(50);
 		grid.getPagingChild().setMold("os");
@@ -3158,27 +3159,28 @@ public class TampilStudiMahasiswaHelper {
 		Columns columns = new Columns();
 		columns.setParent(grid);
 
-		createGridColumn(columns, "", "50px");
-		createGridColumn(columns, "T/A", "8%");
-		createGridColumn(columns, "Smt", "5%");
+		createGridColumn(columns, "", "3%");
+		createGridColumn(columns, "T/A", "7%");
+		createGridColumn(columns, "Smt", "4%");
 
 		if (ConstantValues.jumlahTahapan.isEmpty()) {
 			ConstantValues.initJumlahTahapan();
 		}
 
-		String tahapWidth = (ConstantValues.aktifkanTahapan
-				&& ConstantValues.getJumlahTahapan(mahasiswa.getProgram(), mahasiswa.getJurusan()) > 2) ? "6%" : "0%";
+		boolean tampilkanTahap = ConstantValues.aktifkanTahapan
+				&& ConstantValues.getJumlahTahapan(mahasiswa.getProgram(), mahasiswa.getJurusan()) > 2;
+		String tahapWidth = tampilkanTahap ? "4%" : "0%";
 		createGridColumn(columns, "Tahap", tahapWidth);
-		createGridColumn(columns, "Keterangan", "18%");
-		createGridColumn(columns, "Komentar", "9%");
-		createGridColumn(columns, "Catatan", "18%");
-		createGridColumn(columns, "IP/IPK", "8%");
-		createGridColumn(columns, "SKS/SKSK", "8%");
-		createGridColumn(columns, "Kelas", "8%");
-		createGridColumn(columns, "Dosen PA", "9%");
-		createGridColumn(columns, "Status", "9%");
+		createGridColumn(columns, "Keterangan", tampilkanTahap ? "14%" : "16%");
+		createGridColumn(columns, "Komentar", "6%");
+		createGridColumn(columns, "Catatan", tampilkanTahap ? "12%" : "14%");
+		createGridColumn(columns, "IP/IPK", "6%");
+		createGridColumn(columns, "SKS/SKSK", "7%");
+		createGridColumn(columns, "Kelas", "6%");
+		createGridColumn(columns, "Dosen PA", "8%");
+		createGridColumn(columns, "Status", "8%");
 		createGridColumn(columns, "Tanggal Status", "7%");
-		createGridColumn(columns, "Keterangan", "14%");
+		createGridColumn(columns, "Keterangan", "8%");
 
 		onSearchDefault(null, false);
 
@@ -3851,6 +3853,7 @@ public class TampilStudiMahasiswaHelper {
 					Vbox vbox2 = new Vbox();
 					vbox2.setParent(arg0);
 					vbox2.setWidth("100%");
+					vbox2.setSclass("krs-inline-field-cell");
 					vbox2.setSpacing("2px");
 					vbox2.setStyle("padding:1px 2px;");
 					tambahCaptionKecil(vbox2, "Status");
@@ -4065,6 +4068,7 @@ public class TampilStudiMahasiswaHelper {
 					vbox2 = new Vbox();
 					vbox2.setParent(arg0);
 					vbox2.setWidth("100%");
+					vbox2.setSclass("krs-inline-field-cell");
 					vbox2.setSpacing("2px");
 					vbox2.setStyle("padding:1px 2px;");
 					tambahCaptionKecil(vbox2, "Tanggal Status");
