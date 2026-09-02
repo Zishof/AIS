@@ -15,6 +15,28 @@ ke menu aksi `...`. Ketika kartu ringkas dan panel **Pengaturan Tugas Kelompok**
 ditambahkan, tiga aksi lain dipasang ke panel tersebut tetapi aksi hapus
 tertinggal. Data dan hak akses bukan penyebabnya.
 
+## Analisis revisi dan timeline
+
+- Revisi SVN `r78057` (22 Agustus 2026) menerapkan pola menu aksi baris
+  `...`. `MenuAksiBaris` memindahkan tombol toolbar ke `Menupopup`, tetapi
+  tetap meneruskan klik ke handler tombol aslinya.
+- Revisi `r78678` (31 Agustus 2026 pukul 21:49 WIB) memperkenalkan kartu detail
+  dan panel hijau **Pengaturan Tugas Kelompok**. Panel baru hanya memasang
+  **Ubah Judul & Instruksi**, **Tambah Kelompok**, serta **Kelola Kelompok &
+  Anggota**. Aksi hapus tidak ikut dipindahkan dan tetap berada di menu `...`
+  lama pada bagian bawah detail.
+- Akun pada tangkapan layar sudah menampilkan panel pengaturan. Panel tersebut
+  hanya dibuat bila `bolehKelola(Common.getCurrentUser())` bernilai benar;
+  karena itu masalah bukan berasal dari peran atau hak akses akun.
+- Laporan/tangkapan layar diterima 2 September 2026 pukul 21:13 WIB. Perbaikan
+  baru masuk pada `r83340` pukul 22:09 WIB, sehingga tangkapan layar memang
+  berasal dari build sebelum perbaikan.
+
+Secara teknis aksi hapus sebelumnya masih dapat dicapai melalui menu `...`,
+tetapi penempatannya tidak mudah ditemukan dan tidak konsisten dengan tiga
+aksi pengelolaan lain pada panel utama. Karena itu keluhan pengguna bahwa tombol
+hapus tidak tersedia adalah masalah discoverability antarmuka yang valid.
+
 ## Perbaikan
 
 `TugasKelompokHelper.DetailPerkuliahanRenderer` sekarang menampilkan tombol
@@ -54,3 +76,18 @@ Perubahan membutuhkan rebuild/deploy aplikasi web ECAMPUS. Sesudah deploy,
 UAT dilakukan dengan login dosen/admin: buka pertemuan, tab Tugas, pilih tugas
 kelompok, pastikan tombol terlihat, tekan Hapus, lalu uji **Batal** dan **OK**.
 Jangan menguji OK pada data produksi yang masih diperlukan.
+
+## Draf balasan WhatsApp
+
+> Waalaikumsalam Pak Catur. Sudah kami cek sampai ke source code. Penyebabnya
+> bukan hak akses Bapak dan bukan data tugasnya. Saat tampilan Tugas Kelompok
+> diperbarui, tombol Ubah, Tambah Kelompok, dan Kelola Anggota dipindahkan ke
+> panel Pengaturan yang baru, sedangkan tombol Hapus masih tertinggal di menu
+> lama bertanda `...` pada bagian bawah. Karena itu tombolnya terlihat seperti
+> tidak tersedia. Perbaikannya sudah kami masukkan: tombol **Hapus Tugas
+> Kelompok** sekarang ditampilkan langsung pada panel Pengaturan, berwarna merah
+> dan dilengkapi konfirmasi agar tidak terhapus tanpa sengaja. Perubahan akan
+> terlihat setelah versi ECAMPUS terbaru selesai di-build dan di-deploy. Untuk
+> sementara, opsi hapus masih dapat dibuka melalui menu `...` di bagian bawah
+> detail tugas. Setelah deploy, mohon muat ulang halaman atau login kembali lalu
+> dicek. Terima kasih atas laporannya, Pak.
