@@ -172,7 +172,7 @@ public class SqlSecurityGuard {
         return MODE_ENFORCE.equals(mode) ? v : OK;
     }
 
-    private static Result evaluateRead(String sql) {
+    static Result evaluateRead(String sql) {
         if (sql == null || sql.trim().isEmpty()) {
             return new Result(false, "SQL kosong.");
         }
@@ -196,7 +196,7 @@ public class SqlSecurityGuard {
         return checkSensitive(core);
     }
 
-    private static Result evaluateWrite(String sql) {
+    static Result evaluateWrite(String sql) {
         if (sql == null || sql.trim().isEmpty()) {
             return new Result(false, "SQL kosong.");
         }

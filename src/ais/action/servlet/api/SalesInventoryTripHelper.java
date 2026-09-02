@@ -137,6 +137,13 @@ public final class SalesInventoryTripHelper {
 
 	public static void spjSimpan(EbisnisActorContextResolver.ActorContext ctx, Tbmuser tbmuser,
 			JSONObject request, JSONObject hasil, boolean update) throws Exception {
+		if (SalesInventoryTripTenant.aktif(ctx)) {
+			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
+			// aksi bermuatan uang, MENULIS -- ke schema BERSAMA. Ditolak sampai jalur
+			// tenantnya ditulis beserta uji kesetaraannya; lihat SalesInventoryTripTenant.
+			tolak(hasil, "Sales Lapangan belum tersedia pada tenant berschema.");
+			return;
+		}
 		if (!ctx.bolehAksi("surat_perintah_sales", update ? "update" : "create")) {
 			tolak(hasil, "Akun Anda tidak berhak " + (update ? "mengubah" : "membuat") + " SPJ.");
 			return;
@@ -338,6 +345,13 @@ public final class SalesInventoryTripHelper {
 
 	public static void spjDetail(EbisnisActorContextResolver.ActorContext ctx, JSONObject request,
 			JSONObject hasil) throws Exception {
+		if (SalesInventoryTripTenant.aktif(ctx)) {
+			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
+			// aksi bermuatan uang, MENULIS -- ke schema BERSAMA. Ditolak sampai jalur
+			// tenantnya ditulis beserta uji kesetaraannya; lihat SalesInventoryTripTenant.
+			tolak(hasil, "Sales Lapangan belum tersedia pada tenant berschema.");
+			return;
+		}
 		if (!ctx.bolehMenu("surat_perintah_sales") && !ctx.bolehMenu("nota_sales")) {
 			tolak(hasil, "Menu SPJ/Nota Sales tidak aktif untuk akun Anda.");
 			return;
@@ -433,6 +447,13 @@ public final class SalesInventoryTripHelper {
 
 	public static void spjStatus(EbisnisActorContextResolver.ActorContext ctx, Tbmuser tbmuser,
 			JSONObject request, JSONObject hasil) throws Exception {
+		if (SalesInventoryTripTenant.aktif(ctx)) {
+			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
+			// aksi bermuatan uang, MENULIS -- ke schema BERSAMA. Ditolak sampai jalur
+			// tenantnya ditulis beserta uji kesetaraannya; lihat SalesInventoryTripTenant.
+			tolak(hasil, "Sales Lapangan belum tersedia pada tenant berschema.");
+			return;
+		}
 		if (!ctx.bolehAksi("surat_perintah_sales", "update")) {
 			tolak(hasil, "Akun Anda tidak berhak mengubah status SPJ.");
 			return;
@@ -503,6 +524,13 @@ public final class SalesInventoryTripHelper {
 	/** Bulk assign nota/invoice piutang ke SPJ -- satu invoice tidak boleh dibawa dua SPJ aktif. */
 	public static void spjNotaAssign(EbisnisActorContextResolver.ActorContext ctx, Tbmuser tbmuser,
 			JSONObject request, JSONObject hasil) throws Exception {
+		if (SalesInventoryTripTenant.aktif(ctx)) {
+			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
+			// aksi bermuatan uang, MENULIS -- ke schema BERSAMA. Ditolak sampai jalur
+			// tenantnya ditulis beserta uji kesetaraannya; lihat SalesInventoryTripTenant.
+			tolak(hasil, "Sales Lapangan belum tersedia pada tenant berschema.");
+			return;
+		}
 		if (!ctx.bolehAksi("surat_perintah_sales", "update")) {
 			tolak(hasil, "Akun Anda tidak berhak mengatur nota dibawa.");
 			return;
@@ -602,6 +630,13 @@ public final class SalesInventoryTripHelper {
 
 	public static void tripStart(EbisnisActorContextResolver.ActorContext ctx, Tbmuser tbmuser,
 			JSONObject request, JSONObject hasil) throws Exception {
+		if (SalesInventoryTripTenant.aktif(ctx)) {
+			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
+			// aksi bermuatan uang, MENULIS -- ke schema BERSAMA. Ditolak sampai jalur
+			// tenantnya ditulis beserta uji kesetaraannya; lihat SalesInventoryTripTenant.
+			tolak(hasil, "Sales Lapangan belum tersedia pada tenant berschema.");
+			return;
+		}
 		if (!ctx.bolehAksi("nota_sales", "create") && !ctx.bolehAksi("surat_perintah_sales", "update")) {
 			tolak(hasil, "Akun Anda tidak berhak memulai sesi.");
 			return;
@@ -737,6 +772,13 @@ public final class SalesInventoryTripHelper {
 	/** Detail sesi = SPJ + ledger biaya/pembelian/kas + ringkasan rumus LIVE (SCR-41). */
 	public static void tripDetail(EbisnisActorContextResolver.ActorContext ctx, JSONObject request,
 			JSONObject hasil) throws Exception {
+		if (SalesInventoryTripTenant.aktif(ctx)) {
+			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
+			// aksi bermuatan uang, MENULIS -- ke schema BERSAMA. Ditolak sampai jalur
+			// tenantnya ditulis beserta uji kesetaraannya; lihat SalesInventoryTripTenant.
+			tolak(hasil, "Sales Lapangan belum tersedia pada tenant berschema.");
+			return;
+		}
 		if (!ctx.bolehMenu("nota_sales")) {
 			tolak(hasil, "Menu Nota Sales tidak aktif untuk akun Anda.");
 			return;
@@ -883,6 +925,13 @@ public final class SalesInventoryTripHelper {
 	/** Update hasil kunjungan per nota dibawa (SCR-40). */
 	public static void tripNotaResult(EbisnisActorContextResolver.ActorContext ctx, Tbmuser tbmuser,
 			JSONObject request, JSONObject hasil) throws Exception {
+		if (SalesInventoryTripTenant.aktif(ctx)) {
+			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
+			// aksi bermuatan uang, MENULIS -- ke schema BERSAMA. Ditolak sampai jalur
+			// tenantnya ditulis beserta uji kesetaraannya; lihat SalesInventoryTripTenant.
+			tolak(hasil, "Sales Lapangan belum tersedia pada tenant berschema.");
+			return;
+		}
 		if (!ctx.bolehAksi("nota_sales", "update")) {
 			tolak(hasil, "Akun Anda tidak berhak mengubah hasil kunjungan.");
 			return;
@@ -931,6 +980,13 @@ public final class SalesInventoryTripHelper {
 	/** Update kuantitas barang (terjual/kembali/rusak/hilang) -- invariant <= dimuat. */
 	public static void tripBarangUpdate(EbisnisActorContextResolver.ActorContext ctx, Tbmuser tbmuser,
 			JSONObject request, JSONObject hasil) throws Exception {
+		if (SalesInventoryTripTenant.aktif(ctx)) {
+			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
+			// aksi bermuatan uang, MENULIS -- ke schema BERSAMA. Ditolak sampai jalur
+			// tenantnya ditulis beserta uji kesetaraannya; lihat SalesInventoryTripTenant.
+			tolak(hasil, "Sales Lapangan belum tersedia pada tenant berschema.");
+			return;
+		}
 		if (!ctx.bolehAksi("nota_sales", "update")) {
 			tolak(hasil, "Akun Anda tidak berhak mengubah barang dibawa.");
 			return;
@@ -997,12 +1053,26 @@ public final class SalesInventoryTripHelper {
 	 *  dipaksa -- ledger append-only; klien memakai outbox P7 dgn satu tembakan). */
 	public static void tripCashSale(EbisnisActorContextResolver.ActorContext ctx, Tbmuser tbmuser,
 			JSONObject request, JSONObject hasil) throws Exception {
+		if (SalesInventoryTripTenant.aktif(ctx)) {
+			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
+			// aksi bermuatan uang, MENULIS -- ke schema BERSAMA. Ditolak sampai jalur
+			// tenantnya ditulis beserta uji kesetaraannya; lihat SalesInventoryTripTenant.
+			tolak(hasil, "Sales Lapangan belum tersedia pada tenant berschema.");
+			return;
+		}
 		catatKasSederhana(ctx, request, hasil, NotaSalesKas.JENIS_CASH_SALE, false);
 	}
 
 	/** Setoran kas ke pemilik di tengah/akhir sesi -> kas OWNER_DEPOSIT (negatif). */
 	public static void tripDeposit(EbisnisActorContextResolver.ActorContext ctx, Tbmuser tbmuser,
 			JSONObject request, JSONObject hasil) throws Exception {
+		if (SalesInventoryTripTenant.aktif(ctx)) {
+			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
+			// aksi bermuatan uang, MENULIS -- ke schema BERSAMA. Ditolak sampai jalur
+			// tenantnya ditulis beserta uji kesetaraannya; lihat SalesInventoryTripTenant.
+			tolak(hasil, "Sales Lapangan belum tersedia pada tenant berschema.");
+			return;
+		}
 		catatKasSederhana(ctx, request, hasil, NotaSalesKas.JENIS_OWNER_DEPOSIT, true);
 	}
 
@@ -1049,6 +1119,13 @@ public final class SalesInventoryTripHelper {
 
 	public static void expenseCategoryList(EbisnisActorContextResolver.ActorContext ctx,
 			JSONObject request, JSONObject hasil) throws Exception {
+		if (SalesInventoryTripTenant.aktif(ctx)) {
+			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
+			// aksi bermuatan uang, MENULIS -- ke schema BERSAMA. Ditolak sampai jalur
+			// tenantnya ditulis beserta uji kesetaraannya; lihat SalesInventoryTripTenant.
+			tolak(hasil, "Sales Lapangan belum tersedia pada tenant berschema.");
+			return;
+		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			List rows = session.createCriteria(KategoriBiayaSales.class)
@@ -1086,6 +1163,13 @@ public final class SalesInventoryTripHelper {
 
 	public static void expenseCategorySave(EbisnisActorContextResolver.ActorContext ctx,
 			Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (SalesInventoryTripTenant.aktif(ctx)) {
+			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
+			// aksi bermuatan uang, MENULIS -- ke schema BERSAMA. Ditolak sampai jalur
+			// tenantnya ditulis beserta uji kesetaraannya; lihat SalesInventoryTripTenant.
+			tolak(hasil, "Sales Lapangan belum tersedia pada tenant berschema.");
+			return;
+		}
 		if (!pemilikAtauAdmin(ctx)) {
 			tolak(hasil, "Kategori biaya hanya dikelola Pemilik/Admin.");
 			return;
@@ -1130,6 +1214,13 @@ public final class SalesInventoryTripHelper {
 
 	public static void expenseCreate(EbisnisActorContextResolver.ActorContext ctx, Tbmuser tbmuser,
 			JSONObject request, JSONObject hasil) throws Exception {
+		if (SalesInventoryTripTenant.aktif(ctx)) {
+			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
+			// aksi bermuatan uang, MENULIS -- ke schema BERSAMA. Ditolak sampai jalur
+			// tenantnya ditulis beserta uji kesetaraannya; lihat SalesInventoryTripTenant.
+			tolak(hasil, "Sales Lapangan belum tersedia pada tenant berschema.");
+			return;
+		}
 		if (!ctx.bolehAksi("biaya_sales", "create") && !ctx.bolehAksi("nota_sales", "update")) {
 			tolak(hasil, "Akun Anda tidak berhak mencatat biaya sesi.");
 			return;
@@ -1206,6 +1297,13 @@ public final class SalesInventoryTripHelper {
 
 	public static void tripPurchaseLink(EbisnisActorContextResolver.ActorContext ctx, Tbmuser tbmuser,
 			JSONObject request, JSONObject hasil) throws Exception {
+		if (SalesInventoryTripTenant.aktif(ctx)) {
+			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
+			// aksi bermuatan uang, MENULIS -- ke schema BERSAMA. Ditolak sampai jalur
+			// tenantnya ditulis beserta uji kesetaraannya; lihat SalesInventoryTripTenant.
+			tolak(hasil, "Sales Lapangan belum tersedia pada tenant berschema.");
+			return;
+		}
 		if (!ctx.bolehAksi("pembelian_sales", "create") && !ctx.bolehAksi("nota_sales", "update")) {
 			tolak(hasil, "Akun Anda tidak berhak mencatat pembelian sesi.");
 			return;
@@ -1288,12 +1386,26 @@ public final class SalesInventoryTripHelper {
 
 	public static void tripReturn(EbisnisActorContextResolver.ActorContext ctx, Tbmuser tbmuser,
 			JSONObject request, JSONObject hasil) throws Exception {
+		if (SalesInventoryTripTenant.aktif(ctx)) {
+			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
+			// aksi bermuatan uang, MENULIS -- ke schema BERSAMA. Ditolak sampai jalur
+			// tenantnya ditulis beserta uji kesetaraannya; lihat SalesInventoryTripTenant.
+			tolak(hasil, "Sales Lapangan belum tersedia pada tenant berschema.");
+			return;
+		}
 		ubahStatusSesi(ctx, tbmuser, request, hasil, NotaSalesSession.STATUS_ACTIVE,
 				NotaSalesSession.STATUS_RETURNED, false);
 	}
 
 	public static void tripReconcile(EbisnisActorContextResolver.ActorContext ctx, Tbmuser tbmuser,
 			JSONObject request, JSONObject hasil) throws Exception {
+		if (SalesInventoryTripTenant.aktif(ctx)) {
+			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
+			// aksi bermuatan uang, MENULIS -- ke schema BERSAMA. Ditolak sampai jalur
+			// tenantnya ditulis beserta uji kesetaraannya; lihat SalesInventoryTripTenant.
+			tolak(hasil, "Sales Lapangan belum tersedia pada tenant berschema.");
+			return;
+		}
 		ubahStatusSesi(ctx, tbmuser, request, hasil, NotaSalesSession.STATUS_RETURNED,
 				NotaSalesSession.STATUS_RECONCILING, true);
 	}
@@ -1374,6 +1486,13 @@ public final class SalesInventoryTripHelper {
 	/** Tutup sesi (RECONCILING -> CLOSED) -- WAJIB Pemilik/Admin; snapshot dua rumus. */
 	public static void tripClose(EbisnisActorContextResolver.ActorContext ctx, Tbmuser tbmuser,
 			JSONObject request, JSONObject hasil) throws Exception {
+		if (SalesInventoryTripTenant.aktif(ctx)) {
+			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
+			// aksi bermuatan uang, MENULIS -- ke schema BERSAMA. Ditolak sampai jalur
+			// tenantnya ditulis beserta uji kesetaraannya; lihat SalesInventoryTripTenant.
+			tolak(hasil, "Sales Lapangan belum tersedia pada tenant berschema.");
+			return;
+		}
 		if (!pemilikAtauAdmin(ctx)) {
 			tolak(hasil, "Penutupan sesi hanya oleh Pemilik/Admin (approval eksplisit).");
 			return;

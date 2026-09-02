@@ -19,6 +19,11 @@ import java.util.*;
  */
 public final class SapuScaffoldProbe {
 
+    private static final char BACKSLASH = (char) 92;
+    private static final java.util.regex.Pattern COMPOSER =
+            java.util.regex.Pattern.compile("(?:apply|use)\\s*=\\s*[\"']([^\"']+)[\"']",
+                    java.util.regex.Pattern.CASE_INSENSITIVE);
+
     private static final String WEBAPP = "C:/opt/AIS/ais/src/main/webapp";
 
     public static void main(String[] args) throws Exception {
@@ -43,6 +48,19 @@ public final class SapuScaffoldProbe {
             total++;
             NewUiNativeJspResolver.Result r =
                     NewUiNativeJspResolver.resolveFromPaths(url, true, paths);
+            if (r == null) {
+                // resolve() yang sebenarnya tidak berhenti di nama URL. Bila
+                // gagal ia membaca ZUL-nya, mengambil kelas composer dari
+                // apply=, lalu mencoba lagi dengan nama kelas itu -- dan JSP
+                // memang dinamai menurut kelas aksi, bukan menurut ZUL
+                // (mis. jenis_penghapusan_barang.zul -> PenghapusanMasterAsset).
+                // Tanpa langkah ini ratusan menu dilaporkan tak teresolusi
+                // padahal server melayaninya dengan baik.
+                String composer = composerRoute(url);
+                if (composer.length() > 0) {
+                    r = NewUiNativeJspResolver.resolveFromPaths(composer, true, paths);
+                }
+            }
             if (r == null) {
                 tanpaAdaptor++;
                 catat(perModul, "(tanpa adaptor)", id + "\t" + label + "\t" + url);
@@ -111,6 +129,45 @@ public final class SapuScaffoldProbe {
             return false;
         } finally {
             try { if (r != null) r.close(); } catch (Exception ignored) { }
+        }
+    }
+
+    /**
+     * Tiruan luring {@code NewUiNativeJspResolver.composerRoute}: ambil nama
+     * kelas composer dari atribut {@code apply=} pada ZUL, buang akhiran
+     * "Action".
+     */
+    private static String composerRoute(String existingRoute) {
+        if (existingRoute == null) return "";
+        String route = existingRoute.trim().replace(BACKSLASH, '/');
+        int q = route.indexOf('?');
+        if (q >= 0) route = route.substring(0, q);
+        if (!route.startsWith("/") || route.indexOf("..") >= 0
+                || !route.toLowerCase().endsWith(".zul")) return "";
+        BufferedReader reader = null;
+        try {
+            File f = new File(WEBAPP + "/WEB-INF/z/x/y" + route);
+            if (!f.isFile()) return "";
+            reader = new BufferedReader(new InputStreamReader(new FileInputStream(f), "UTF-8"));
+            StringBuilder sumber = new StringBuilder();
+            String baris; int n = 0;
+            while ((baris = reader.readLine()) != null && n++ < 160) sumber.append(baris).append((char) 10);
+            java.util.regex.Matcher m = COMPOSER.matcher(sumber.toString());
+            while (m.find()) {
+                String kelas = m.group(1);
+                if (kelas == null || kelas.indexOf(".action.") < 0) continue;
+                int dot = kelas.lastIndexOf('.');
+                String simple = dot < 0 ? kelas : kelas.substring(dot + 1);
+                if (simple.endsWith("Action") && simple.length() > 6) {
+                    simple = simple.substring(0, simple.length() - 6);
+                }
+                return simple;
+            }
+            return "";
+        } catch (Exception e) {
+            return "";
+        } finally {
+            try { if (reader != null) reader.close(); } catch (Exception ignored) { }
         }
     }
 

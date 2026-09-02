@@ -68,10 +68,25 @@ public final class TutupBukuHelper {
 	private TutupBukuHelper() {
 	}
 
+	/**
+	 * Hak menu Tutup Buku, dikirim bersama PRATINJAU (draft) -- di layar itulah tombol
+	 * Posting berada, jadi di situ pula tempat paling tepat memberi tahu bahwa
+	 * tombolnya akan ditolak. Menutup buku hanya mengenal satu wewenang: memposting.
+	 *
+	 * <p>Bukan gerbang: gerbang sebenarnya tetap pemeriksaan pada cabang
+	 * {@code tutup_buku_posting} di bawah.</p>
+	 */
+	private static JSONObject hakAksesJson(Tbmuser tbmuser) throws Exception {
+		JSONObject j = new JSONObject();
+		j.put("create", bolehAksiMenu(tbmuser, "tutup_buku", "create"));
+		return j;
+	}
+
 	public static void proses(String action, Tbmuser tbmuser, JSONObject payload, JSONObject hasil)
 			throws Exception {
 		if ("tutup_buku_draft".equals(action)) {
 			jalankan(tbmuser, payload, hasil, false);
+			hasil.put("hak", hakAksesJson(tbmuser));
 		} else if ("tutup_buku_posting".equals(action)) {
 			if (!bolehAksiMenu(tbmuser, "tutup_buku", "create")) {
 				tolakHak(hasil, "memposting tutup buku");

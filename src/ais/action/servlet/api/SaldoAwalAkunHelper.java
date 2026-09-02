@@ -73,10 +73,28 @@ public final class SaldoAwalAkunHelper {
 	private SaldoAwalAkunHelper() {
 	}
 
+
+	/**
+	 * Hak per aksi untuk menu ini, dikirim bersama balasan daftar/pratinjau supaya
+	 * layar dapat MEMADAMKAN tombol yang sudah pasti ditolak.
+	 *
+	 * <p>Bentuknya mengikuti modul Keuangan ({@code hak: {create, update, delete}}).
+	 * Ini bukan gerbang -- gerbang sebenarnya tetap pemeriksaan di tiap cabang aksi
+	 * di bawah. Tanpa ini pengguna baru tahu ditolak setelah menekan tombol.</p>
+	 */
+	private static JSONObject hakAksesJson(Tbmuser tbmuser, String kunci) throws Exception {
+		JSONObject j = new JSONObject();
+		j.put("create", bolehAksiMenu(tbmuser, kunci, "create"));
+		j.put("update", bolehAksiMenu(tbmuser, kunci, "update"));
+		j.put("delete", bolehAksiMenu(tbmuser, kunci, "delete"));
+		return j;
+	}
+
 	public static void proses(String action, Tbmuser tbmuser, JSONObject payload, JSONObject hasil)
 			throws Exception {
 		if ("saldo_awal_daftar".equals(action)) {
 			daftar(payload, hasil);
+			hasil.put("hak", hakAksesJson(tbmuser, "saldo_awal_akun"));
 		} else if ("saldo_awal_simpan".equals(action)) {
 			boolean ubah = payload != null && payload.optLong("id", 0) > 0;
 			if (!bolehAksiMenu(tbmuser, "saldo_awal_akun", ubah ? "update" : "create")) {

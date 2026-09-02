@@ -8829,11 +8829,58 @@ public class Pertemuan extends Tugas {
 		this.keteranganKonfirmasi = keteranganKonfirmasi;
 	}
 
+	/**
+	 * Catat konfirmasi kehadiran seorang peserta oleh dosen — bentuk ringkas tanpa keterangan.
+	 *
+	 * @param ref           id peserta yang dikonfirmasi
+	 * @param statusabsensi status kehadiran hasil konfirmasi
+	 * @param mulai         jam mulai kehadiran
+	 * @param sampai        jam selesai kehadiran
+	 * @param jenis         jenis peserta
+	 * @param dosen         dosen yang mengonfirmasi; tidak boleh {@code null}
+	 * @see #populateKonfirmasi(Long, Statusabsensi, String, String, String, String, Dosen)
+	 */
 	public void populateKonfirmasi(Long ref, Statusabsensi statusabsensi, String mulai, String sampai, String jenis,
 			Dosen dosen) {
 		populateKonfirmasi(ref, statusabsensi, null, mulai, sampai, jenis, dosen);
 	}
 
+	/**
+	 * Catat/ubah konfirmasi kehadiran seorang peserta oleh dosen tertentu.
+	 *
+	 * <p>Kembaran {@link #populate(Long, Statusabsensi, String,
+	 * PengajuanIzinTidakMasukPerkuliahan, String, String, String)} untuk kolom
+	 * {@link #getKeteranganKonfirmasi()}, dengan tiga perbedaan pokok:</p>
+	 * <ul>
+	 *   <li><b>Kunci pencarian barisnya PASANGAN (ref, dosen)</b>, bukan {@code ref} saja —
+	 *       slot 4 diisi {@code dosen.getId()}. Karena itu beberapa dosen dapat mengonfirmasi
+	 *       peserta yang sama secara terpisah, masing-masing punya barisnya sendiri.</li>
+	 *   <li>Tidak ada notifikasi; tidak ada thread yang dijalankan.</li>
+	 *   <li>Kegagalan per baris ditangani {@code Common.tampilErrorJikaAdmin(e)} sehingga hanya
+	 *       tampak oleh admin.</li>
+	 * </ul>
+	 *
+	 * <p>Perilaku lain identik: {@code ref}/{@code statusabsensi} {@code null} membatalkan seluruh
+	 * operasi; status selain {@code "M"} mengosongkan jam; {@code ';'} dan {@code ','} pada
+	 * keterangan diganti; dan nilai {@code null} pada parameter opsional berarti
+	 * <b>"pertahankan nilai lama"</b> (dibaca kembali lewat keluarga
+	 * {@code retreiveAbsensiXxxKonfirmasi(Long, Dosen)}), bukan "kosongkan".</p>
+	 *
+	 * <p>Hasilnya ditulis langsung ke field {@code keteranganKonfirmasi}.</p>
+	 *
+	 * <p><b>Perhatian:</b> {@code dosen} di-dereference tanpa penjagaan {@code null}, sehingga
+	 * memanggilnya dengan {@code null} melempar {@link NullPointerException} — yang, di dalam
+	 * perulangan, akan tertangkap dan hanya dilaporkan kepada admin.</p>
+	 *
+	 * @param ref           id peserta yang dikonfirmasi
+	 * @param statusabsensi status kehadiran hasil konfirmasi; {@code null} membatalkan operasi
+	 * @param keterangan    keterangan bebas; {@code null} berarti pertahankan nilai lama
+	 * @param mulai         jam mulai kehadiran; {@code null} berarti pertahankan nilai lama
+	 * @param sampai        jam selesai kehadiran; {@code null} berarti pertahankan nilai lama
+	 * @param jenis         jenis peserta; {@code null} berarti pertahankan nilai lama
+	 * @param dosen         dosen yang mengonfirmasi; tidak boleh {@code null}
+	 * @see #getKeteranganKonfirmasi()
+	 */
 	public void populateKonfirmasi(Long ref, Statusabsensi statusabsensi, String keterangan, String mulai,
 			String sampai, String jenis, Dosen dosen) {
 		if (ref != null && statusabsensi != null) {
@@ -8892,6 +8939,26 @@ public class Pertemuan extends Tugas {
 		}
 	}
 
+	/**
+	 * Ambil {@code statusabsensi.id} (slot 1) dari baris konfirmasi milik pasangan (ref, dosen).
+	 *
+	 * <p><b>Method rujukan untuk seluruh keluarga {@code retreiveAbsensiXxxKonfirmasi(Long,
+	 * Dosen)}.</b> Polanya sama dengan keluarga {@code retreiveAbsensiXxx(Long)} pada kolom
+	 * {@code absensi}, hanya saja barisnya dicocokkan dengan DUA syarat: slot 0 sama dengan
+	 * {@code ref} DAN slot 4 sama dengan id dosen.</p>
+	 *
+	 * <p>Varian ini punya penjagaan paling lengkap di keluarganya (memeriksa panjang array dan
+	 * slot kosong sebelum {@code parseLong}), hasil perbaikan {@link NumberFormatException} pada
+	 * data konfirmasi lama yang tidak lengkap. Sisa keluarganya masih memakai
+	 * {@code s[4].isEmpty()} secara langsung, yang dapat melempar
+	 * {@link ArrayIndexOutOfBoundsException} pada baris pendek — exception itu tertangkap dan
+	 * barisnya dilewati, jadi akibatnya hanya baris rusak yang terlewat.</p>
+	 *
+	 * @param ref   id peserta yang dicari
+	 * @param dosen dosen yang mengonfirmasi
+	 * @return id status absensi, atau {@code -1L} bila tidak ada baris yang cocok
+	 * @see #retreiveAbsensiId(Long)
+	 */
 	public Long retreiveAbsensiIdKonfirmasi(Long ref, Dosen dosen) {
 
 		if (ref != null) {
@@ -8925,6 +8992,23 @@ public class Pertemuan extends Tugas {
 		return -1L;
 	}
 
+	/**
+	 * Ambil isi slot 4 dari baris konfirmasi milik pasangan (ref, dosen).
+	 *
+	 * <p><b>Nama method ini menyesatkan</b> (dicatat, tidak diperbaiki). Pada kolom
+	 * {@code absensi}, slot 4 memang berisi id pengajuan izin — lihat
+	 * {@link #retreivePengajuanIzinId(Long)}. Namun pada kolom {@code keteranganKonfirmasi},
+	 * slot 4 berisi <b>id DOSEN yang mengonfirmasi</b>. Karena method ini mencocokkan slot 4
+	 * dengan {@code dosen.getId()} lalu mengembalikan slot 4 itu juga, hasilnya SELALU sama
+	 * dengan {@code dosen.getId()} bila barisnya ketemu, dan {@code -1L} bila tidak.</p>
+	 *
+	 * <p>Dengan kata lain method ini praktis hanya berguna sebagai pemeriksaan "adakah baris
+	 * konfirmasi dari dosen ini untuk peserta ini"; nilainya bukan id pengajuan izin.</p>
+	 *
+	 * @param ref   id peserta yang dicari
+	 * @param dosen dosen yang mengonfirmasi
+	 * @return id dosen bila barisnya ada, atau {@code -1L}
+	 */
 	public Long retreivePengajuanIzinIdKonfirmasi(Long ref, Dosen dosen) {
 
 		if (ref != null) {
@@ -8949,6 +9033,15 @@ public class Pertemuan extends Tugas {
 		return -1L;
 	}
 
+	/**
+	 * Ambil KODE status kehadiran hasil konfirmasi (slot 2) untuk pasangan (ref, dosen).
+	 *
+	 * @param ref   id peserta yang dicari
+	 * @param dosen dosen yang mengonfirmasi
+	 * @return kode status, atau {@code "-"} bila belum dikonfirmasi dosen itu
+	 * @see #retreiveAbsensiIdKonfirmasi(Long, Dosen)
+	 * @see #retreiveAbsensiKode(Long)
+	 */
 	public String retreiveAbsensiKodeKonfirmasi(Long ref, Dosen dosen) {
 
 		if (ref != null) {
@@ -8973,6 +9066,14 @@ public class Pertemuan extends Tugas {
 		return "-";
 	}
 
+	/**
+	 * Ambil NAMA status kehadiran hasil konfirmasi (slot 3) untuk pasangan (ref, dosen).
+	 *
+	 * @param ref   id peserta yang dicari
+	 * @param dosen dosen yang mengonfirmasi
+	 * @return nama status, atau {@code "-"} bila belum dikonfirmasi dosen itu
+	 * @see #retreiveAbsensiIdKonfirmasi(Long, Dosen)
+	 */
 	public String retreiveAbsensiNamaKonfirmasi(Long ref, Dosen dosen) {
 
 		if (ref != null) {
@@ -8997,6 +9098,14 @@ public class Pertemuan extends Tugas {
 		return "-";
 	}
 
+	/**
+	 * Ambil KETERANGAN konfirmasi (slot 5) untuk pasangan (ref, dosen).
+	 *
+	 * @param ref   id peserta yang dicari
+	 * @param dosen dosen yang mengonfirmasi
+	 * @return keterangan, atau string kosong
+	 * @see #retreiveAbsensiIdKonfirmasi(Long, Dosen)
+	 */
 	public String retreiveAbsensiKeteranganKonfirmasi(Long ref, Dosen dosen) {
 
 		if (ref != null) {
@@ -9021,6 +9130,14 @@ public class Pertemuan extends Tugas {
 		return "";
 	}
 
+	/**
+	 * Ambil JAM MULAI kehadiran hasil konfirmasi (slot 6) untuk pasangan (ref, dosen).
+	 *
+	 * @param ref   id peserta yang dicari
+	 * @param dosen dosen yang mengonfirmasi
+	 * @return jam mulai, atau string kosong
+	 * @see #retreiveAbsensiIdKonfirmasi(Long, Dosen)
+	 */
 	public String retreiveAbsensiMulaiKonfirmasi(Long ref, Dosen dosen) {
 
 		if (ref != null) {
@@ -9045,6 +9162,14 @@ public class Pertemuan extends Tugas {
 		return "";
 	}
 
+	/**
+	 * Ambil JAM SELESAI kehadiran hasil konfirmasi (slot 7) untuk pasangan (ref, dosen).
+	 *
+	 * @param ref   id peserta yang dicari
+	 * @param dosen dosen yang mengonfirmasi
+	 * @return jam selesai, atau string kosong
+	 * @see #retreiveAbsensiIdKonfirmasi(Long, Dosen)
+	 */
 	public String retreiveAbsensiSampaiKonfirmasi(Long ref, Dosen dosen) {
 
 		if (ref != null) {
@@ -9069,6 +9194,14 @@ public class Pertemuan extends Tugas {
 		return "";
 	}
 
+	/**
+	 * Ambil JENIS peserta pada baris konfirmasi (slot 8) untuk pasangan (ref, dosen).
+	 *
+	 * @param ref   id peserta yang dicari
+	 * @param dosen dosen yang mengonfirmasi
+	 * @return jenis peserta, atau string kosong
+	 * @see #retreiveAbsensiIdKonfirmasi(Long, Dosen)
+	 */
 	public String retreiveAbsensiJenisKonfirmasi(Long ref, Dosen dosen) {
 
 		if (ref != null) {
@@ -9093,6 +9226,23 @@ public class Pertemuan extends Tugas {
 		return "";
 	}
 
+	/**
+	 * Id dosen penanggung jawab pertemuan ini.
+	 *
+	 * <p><b>Getter ini mengubah keadaan objek dan dapat menjalankan query.</b> Bila belum diisi,
+	 * nilainya diambil dari dosen PERTAMA hasil {@link #ambilDosenId()} lalu ditulis ke field
+	 * sehingga ikut tersimpan. Karena {@link #ambilDosenId()} menempuh rantai induk dan
+	 * menjalankan query, membaca properti ini pada pertemuan yang belum punya penanggung jawab
+	 * tidaklah murah.</p>
+	 *
+	 * <p>Berbeda dari {@link #dosenUtama()} yang mengembalikan objek {@link Dosen} dan TIDAK
+	 * menyimpan apa pun, nilai di sini menjadi permanen begitu terhitung — pergantian dosen
+	 * pengampu di kemudian hari tidak lagi mengubahnya.</p>
+	 *
+	 * @return id dosen penanggung jawab, atau {@code null} bila tidak ada dosen sama sekali
+	 * @see #dosenUtama()
+	 * @see #ambilDosenId()
+	 */
 	public Long getPjDosen() {
 		if (pjDosen == null) {
 			List<Long> dosens = ambilDosenId();
@@ -9103,10 +9253,22 @@ public class Pertemuan extends Tugas {
 		return pjDosen;
 	}
 
+	/**
+	 * Setel id dosen penanggung jawab pertemuan ini.
+	 *
+	 * @param pjDosen id dosen penanggung jawab
+	 * @see #getPjDosen()
+	 */
 	public void setPjDosen(Long pjDosen) {
 		this.pjDosen = pjDosen;
 	}
 
+	/**
+	 * Jadwal ujian penerimaan pegawai yang menjadi induk pertemuan ini.
+	 *
+	 * @return {@link JadwalUjianPegawai} induk, atau {@code null}
+	 * @see #untuk()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "jadwal_ujian_pegawai", nullable = true)
@@ -9114,10 +9276,21 @@ public class Pertemuan extends Tugas {
 		return jadwalUjianPegawai;
 	}
 
+	/**
+	 * Tetapkan jadwal ujian pegawai sebagai induk pertemuan ini.
+	 *
+	 * @param jadwalUjianPegawai jadwal ujian pegawai; boleh {@code null}
+	 */
 	public void setJadwalUjianPegawai(JadwalUjianPegawai jadwalUjianPegawai) {
 		this.jadwalUjianPegawai = jadwalUjianPegawai;
 	}
 
+	/**
+	 * Komponen produk kursus yang menjadi induk pertemuan ini.
+	 *
+	 * @return {@link KomponenDataProdukKursus} induk, atau {@code null}
+	 * @see #untuk()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "komponen_data_produk_kursus", nullable = true)
 	public KomponenDataProdukKursus getKomponenDataProdukKursus() {
@@ -9125,10 +9298,23 @@ public class Pertemuan extends Tugas {
 		return komponenDataProdukKursus;
 	}
 
+	/**
+	 * Tetapkan komponen produk kursus sebagai induk pertemuan ini.
+	 *
+	 * @param komponenDataProdukKursus komponen produk kursus; boleh {@code null}
+	 */
 	public void setKomponenDataProdukKursus(KomponenDataProdukKursus komponenDataProdukKursus) {
 		this.komponenDataProdukKursus = komponenDataProdukKursus;
 	}
 
+	/**
+	 * Jadwal pertemuan penerimaan siswa baru yang menjadi induk pertemuan ini.
+	 *
+	 * <p>Salah satu jenis induk yang dipakai {@link #info()}, {@link #getSekolahId()}, dan
+	 * {@link #ambilVOPembelajaran()} tetapi TIDAK punya cabang di {@link #untuk()}.</p>
+	 *
+	 * @return {@link JadwalPertemuanPSB} induk, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "jadwal_pertemuan_psb", nullable = true)
@@ -9136,10 +9322,25 @@ public class Pertemuan extends Tugas {
 		return jadwalPertemuanPSB;
 	}
 
+	/**
+	 * Tetapkan jadwal pertemuan PSB sebagai induk pertemuan ini.
+	 *
+	 * @param jadwalPertemuanPSB jadwal pertemuan PSB; boleh {@code null}
+	 */
 	public void setJadwalPertemuanPSB(JadwalPertemuanPSB jadwalPertemuanPSB) {
 		this.jadwalPertemuanPSB = jadwalPertemuanPSB;
 	}
 
+	/**
+	 * Titik lokasi geografis tempat pertemuan berlangsung.
+	 *
+	 * <p>Berbeda dari {@link #getRuang()} yang menunjuk ruang kelas, ini koordinat yang dipakai
+	 * untuk memverifikasi absensi berbasis lokasi: peserta harus berada dalam radius
+	 * {@link #getJarak()} dari titik ini.</p>
+	 *
+	 * @return lokasi pertemuan, atau {@code null} bila tanpa pembatasan lokasi
+	 * @see #getJarak()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "lokasi", nullable = true)
 	public Lokasi getLokasi() {
@@ -9147,18 +9348,48 @@ public class Pertemuan extends Tugas {
 		return lokasi;
 	}
 
+	/**
+	 * Setel titik lokasi geografis pertemuan.
+	 *
+	 * @param lokasi lokasi; boleh {@code null}
+	 * @see #getLokasi()
+	 */
 	public void setLokasi(Lokasi lokasi) {
 		this.lokasi = lokasi;
 	}
 
+	/**
+	 * Radius toleransi absensi berbasis lokasi, di sekitar {@link #getLokasi()}.
+	 *
+	 * <p>Nilai bawaannya {@code 1.0}. Satuannya tidak dinyatakan di kelas ini — pemakai
+	 * ({@code AbsensiHelper} dan sejenisnya) yang menetapkan artinya, jadi periksa di sana sebelum
+	 * mengandalkan angkanya.</p>
+	 *
+	 * @return radius toleransi; tidak pernah {@code null}
+	 * @see #getLokasi()
+	 */
 	public Double getJarak() {
 		return jarak == null ? 1.0 : jarak;
 	}
 
+	/**
+	 * Setel radius toleransi absensi berbasis lokasi.
+	 *
+	 * @param jarak radius toleransi; {@code null} berarti kembali ke bawaan {@code 1.0}
+	 * @see #getJarak()
+	 */
 	public void setJarak(Double jarak) {
 		this.jarak = jarak;
 	}
 
+	/**
+	 * Jenis item penilaian siswa yang dikaitkan dengan pertemuan ini (jalur sekolah).
+	 *
+	 * <p>Bersama {@link #getGrupKategoriItemPenilaianSiswa()} dan {@link #getGrupPenilaian()}
+	 * menempatkan pertemuan ini di dalam struktur penilaian rapor sekolah.</p>
+	 *
+	 * @return jenis item penilaian, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_item_penilaian_siswa", nullable = true)
 	public JenisItemPenilaianSiswa getJenisItemPenilaianSiswa() {
@@ -9166,18 +9397,44 @@ public class Pertemuan extends Tugas {
 		return jenisItemPenilaianSiswa;
 	}
 
+	/**
+	 * Setel jenis item penilaian siswa pertemuan ini.
+	 *
+	 * @param jenisItemPenilaianSiswa jenis item penilaian; boleh {@code null}
+	 */
 	public void setJenisItemPenilaianSiswa(JenisItemPenilaianSiswa jenisItemPenilaianSiswa) {
 		this.jenisItemPenilaianSiswa = jenisItemPenilaianSiswa;
 	}
 
+	/**
+	 * Apakah pertemuan ini masih aktif?
+	 *
+	 * <p>Penanda penghapusan lunak: pertemuan yang tidak aktif biasanya disembunyikan dari daftar
+	 * alih-alih dihapus dari basis data. Nilai bawaannya {@code true}, sehingga data lama yang
+	 * belum pernah diisi tetap dianggap aktif.</p>
+	 *
+	 * @return {@code true} bila pertemuan aktif; tidak pernah {@code null}
+	 */
 	public Boolean getAktif() {
 		return aktif == null ? true : aktif;
 	}
 
+	/**
+	 * Setel status aktif pertemuan ini.
+	 *
+	 * @param aktif {@code false} untuk menyembunyikan pertemuan
+	 * @see #getAktif()
+	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
 
+	/**
+	 * Grup kategori item penilaian siswa yang dikaitkan dengan pertemuan ini (jalur sekolah).
+	 *
+	 * @return grup kategori item penilaian, atau {@code null}
+	 * @see #getJenisItemPenilaianSiswa()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "grup_kategori_item_penilaian_siswa", nullable = true)
 	public GrupKategoriItemPenilaianSiswa getGrupKategoriItemPenilaianSiswa() {
@@ -9185,10 +9442,21 @@ public class Pertemuan extends Tugas {
 		return grupKategoriItemPenilaianSiswa;
 	}
 
+	/**
+	 * Setel grup kategori item penilaian siswa pertemuan ini.
+	 *
+	 * @param grupKategoriItemPenilaianSiswa grup kategori; boleh {@code null}
+	 */
 	public void setGrupKategoriItemPenilaianSiswa(GrupKategoriItemPenilaianSiswa grupKategoriItemPenilaianSiswa) {
 		this.grupKategoriItemPenilaianSiswa = grupKategoriItemPenilaianSiswa;
 	}
 
+	/**
+	 * Grup penilaian yang dikaitkan dengan pertemuan ini (jalur sekolah).
+	 *
+	 * @return grup penilaian, atau {@code null}
+	 * @see #getJenisItemPenilaianSiswa()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "grup_penilaian", nullable = true)
 	public GrupPenilaian getGrupPenilaian() {
@@ -9196,18 +9464,47 @@ public class Pertemuan extends Tugas {
 		return grupPenilaian;
 	}
 
+	/**
+	 * Setel grup penilaian pertemuan ini.
+	 *
+	 * @param grupPenilaian grup penilaian; boleh {@code null}
+	 */
 	public void setGrupPenilaian(GrupPenilaian grupPenilaian) {
 		this.grupPenilaian = grupPenilaian;
 	}
 
+	/**
+	 * Id petugas keempat yang ditugaskan pada pertemuan ini.
+	 *
+	 * <p>Terpisah jauh dari {@link #getPetugas()}..{@link #getPetugas3()} di dalam berkas karena
+	 * ditambahkan belakangan, tetapi perannya sama.</p>
+	 *
+	 * @return id petugas keempat, atau {@code null}
+	 * @see #getPetugas()
+	 */
 	public Long getPetugas4() {
 		return petugas4;
 	}
 
+	/**
+	 * Setel id petugas keempat.
+	 *
+	 * @param petugas4 id petugas keempat
+	 */
 	public void setPetugas4(Long petugas4) {
 		this.petugas4 = petugas4;
 	}
 
+	/**
+	 * Kelas les siswa yang menjadi induk pertemuan ini.
+	 *
+	 * <p>Salah satu jenis induk yang dikenali {@link #untuk()}, {@link #toString()}, dan
+	 * {@link #ambilVOPembelajaran()}, tetapi TIDAK punya cabang di {@link #warna()} maupun
+	 * {@link #info()} — sehingga pertemuan les tampil dengan warna cadangan dan keterangan
+	 * {@code "Konsultasi lain"}.</p>
+	 *
+	 * @return {@link KelasLesSiswa} induk, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kelas_les_siswa", nullable = true)
 	public KelasLesSiswa getKelasLesSiswa() {
