@@ -9,6 +9,8 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -40,6 +42,8 @@ import org.zkoss.zk.ui.util.Clients;
 import org.zkoss.zul.Columns;
 import org.zkoss.zul.Combobox;
 import org.zkoss.zul.Comboitem;
+import org.zkoss.zul.Caption;
+import org.zkoss.zul.Groupbox;
 import ais.ui.util.MyDetail;
 import org.zkoss.zul.Hbox;
 import org.zkoss.zul.Intbox;
@@ -346,7 +350,50 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 	 */
 	private void renderSatuItemTagihanAktif(final Vbox vbox, final Kegiatan kegiatan,
 			final Collection<DetailKegiatan> detailKegiatans, Map<Long, Object[]> map, final boolean refresh) {
-		for (Object[] d : map.values()) {
+		if (map == null || map.isEmpty()) {
+			return;
+		}
+
+		List<Object[]> rincianTagihan = new ArrayList<Object[]>(map.values());
+		Collections.sort(rincianTagihan, new Comparator<Object[]>() {
+			@Override
+			public int compare(Object[] kiri, Object[] kanan) {
+				Object nilaiKiri = kiri == null || kiri.length == 0 ? null : kiri[0];
+				Object nilaiKanan = kanan == null || kanan.length == 0 ? null : kanan[0];
+				if (nilaiKiri instanceof PengaturanPembayaranBulanan
+						&& nilaiKanan instanceof PengaturanPembayaranBulanan) {
+					Integer bulanKiri = ((PengaturanPembayaranBulanan) nilaiKiri).getBulan();
+					Integer bulanKanan = ((PengaturanPembayaranBulanan) nilaiKanan).getBulan();
+					if (bulanKiri == null) {
+						return bulanKanan == null ? 0 : 1;
+					}
+					return bulanKanan == null ? -1 : bulanKiri.compareTo(bulanKanan);
+				}
+				if (nilaiKiri instanceof PengaturanPembayaranBulanan) {
+					return 1;
+				}
+				if (nilaiKanan instanceof PengaturanPembayaranBulanan) {
+					return -1;
+				}
+				return 0;
+			}
+		});
+
+		Vbox tempatRincian = vbox;
+		if (rincianTagihan.size() > 1) {
+			Groupbox detailTagihan = new Groupbox();
+			detailTagihan.setWidth("100%");
+			detailTagihan.setClosable(true);
+			detailTagihan.setOpen(false);
+			detailTagihan.appendChild(new Caption("Lihat Detail (" + rincianTagihan.size() + " periode)"));
+			detailTagihan.setParent(vbox);
+
+			tempatRincian = new Vbox();
+			tempatRincian.setWidth("100%");
+			tempatRincian.setParent(detailTagihan);
+		}
+
+		for (Object[] d : rincianTagihan) {
 			DetailBiaya detailBiaya = null;
 			PengaturanPembayaranBulanan pengaturanPembayaranBulanan = null;
 
@@ -358,7 +405,7 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 			}
 
 			if (pengaturanPembayaranBulanan != null) {
-				vbox.appendChild(new Label("Bulan " + pengaturanPembayaranBulanan.getNamaBulan()));
+				tempatRincian.appendChild(new Label("Bulan " + pengaturanPembayaranBulanan.getNamaBulan()));
 			}
 			final DetailBiaya detailBiayaFinal = detailBiaya;
 			final PengaturanPembayaranBulanan pengaturanPembayaranBulanan1 = pengaturanPembayaranBulanan;
@@ -374,7 +421,7 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 				} else {
 					doublebox = new MyDoublebox(detailKegiatan == null ? 0.0 : detailKegiatan.getBiaya());
 				}
-				doublebox.setParent(vbox);
+				doublebox.setParent(tempatRincian);
 
 				doublebox.addEventListener("onChange", new EventListener() {
 
@@ -408,7 +455,7 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 					final DetailKegiatan dkUntukToggle = detailKegiatan;
 					final MyCheckboxConfig aktifkan = new MyCheckboxConfig("Aktif");
 					aktifkan.setChecked(!Boolean.TRUE.equals(dkUntukToggle.getBukanTagihan()));
-					aktifkan.setParent(vbox);
+					aktifkan.setParent(tempatRincian);
 					aktifkan.addEventListener("onCheck", new EventListener() {
 						@Override
 						public void onEvent(Event arg0) throws Exception {
@@ -423,10 +470,10 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 			} else {
 				new Label(Common.numberFormat.get()
 						.format(detailKegiatan == null ? 0.0 : detailKegiatan.getBiaya()))
-						.setParent(vbox);
+						.setParent(tempatRincian);
 			}
 
-			DetailPembayaranMahasiswaRenderer.tampilkanKunci(vbox, detailKegiatan, refrsh, tbmuser);
+			DetailPembayaranMahasiswaRenderer.tampilkanKunci(tempatRincian, detailKegiatan, refrsh, tbmuser);
 		}
 	}
 
