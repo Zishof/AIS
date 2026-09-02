@@ -8658,7 +8658,11 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 		if (combo == null || statusDiminta == null) {
 			return;
 		}
-		for (Comboitem item : combo.getItems()) {
+		for (Object itemData : combo.getItems()) {
+			if (!(itemData instanceof Comboitem)) {
+				continue;
+			}
+			Comboitem item = (Comboitem) itemData;
 			Object nilai = item.getValue();
 			if (nilai instanceof StatusMahasiswa
 					&& statusMahasiswaFilterSama((StatusMahasiswa) nilai, statusDiminta)) {
