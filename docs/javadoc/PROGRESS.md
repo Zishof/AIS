@@ -1,5 +1,44 @@
 # Progres Javadoc Menyeluruh
 
+## Batch "5 entity moderat" — SELESAI 100% (2 Sep 2026, dikonsolidasi orkestrator)
+
+Lanjutan langsung batch 4-entity-besar sebelumnya. Semua 5 file TUNTAS 100%
+method, dikompilasi, dikommit bertahap, di-mirror ke `java/` (verifikasi `cmp`
+byte-identik setelah `svn update` menyeluruh):
+- `Matakuliah.java` — 120/120 method. 976→2284 baris. r83072/83085/83087.
+- `KrsMahasiswa.java` — 87/87 method. 748→1695 baris. r83076/83080/83082.
+  **Koreksi asumsi**: bukan "pendaftaran ke 1 Perkuliahan" tapi rekap KRS per
+  semester + catatan bimbingan dosen PA (approval sebenarnya di
+  `Detailperkuliahan`, entity terpisah belum digarap).
+- `Jurusan.java` — 97/97 method. 619→1668 baris. r83076/83077. Dirujuk 130
+  entity lain — paling sentral dari batch ini.
+- `BiodataPegawai.java` — 94/94 method. 707→1633 baris. r83069/83073.
+- `Skripsi.java` — 187/187 method. 1803→3703 baris. r83076/83080/83088/83089.
+
+**Bug penamaan kolom SERIUS ditemukan** (`Skripsi.java`, TIDAK diperbaiki,
+hanya didokumentasikan detail di Javadoc method terkait): slot dosen 1/2
+tertukar antara kolom "orang" (`pembimbing`) dan kolom "nilai"
+(`nilai_ketua_sidang`) — konsisten dipakai di SELURUH aplikasi jadi tampilan
+UI tetap benar, TAPI query SQL langsung/laporan ad-hoc atas tabel `skripsi`
+akan salah baca kalau mengasumsikan nama kolom sesuai isinya.
+
+**Verifikasi pola berulang lintas batch ini** (lihat memory untuk detail):
+field audit shadow — ADA di SEMUA 5 file (100% konsisten sejauh ini di semua
+entity yang sudah digarap). Pola getter-menulis-master-DB — variannya
+BERBEDA-BEDA per file (BiodataPegawai lewat `Dosen.ambilBiodata()`,
+KrsMahasiswa lewat `singkronkanKrsMahasiswa`, Skripsi lewat
+`MahasiswaRequestTugasAkhir.setSkr()`, Jurusan/Matakuliah/KrsMahasiswa TIDAK
+punya varian `findOrCreateX`+Levenshtein seperti entity biodata mahasiswa) —
+KESIMPULAN: pola "getter berefek samping ke DB" itu sendiri UNIVERSAL di
+codebase ini (ditemukan di semua entity sejauh ini dalam SATU bentuk atau
+lain), tapi bentuk konkretnya harus diverifikasi per file, jangan asumsikan
+sama persis.
+
+**Total akumulasi 5 sesi kerja**: 198 (sesi 1-4) + 5 = **203 file** dari 7.401
+(~2,7%), mencakup hampir semua entity model paling sentral dalam sistem
+akademik (Mahasiswa, Dosen, Pegawai, Perkuliahan, Pertemuan, KrsMahasiswa,
+Matakuliah, Jurusan, Skripsi, + biodata masing-masing).
+
 ## `ais/database/model/Skripsi.java` — SELESAI 100% (2 Sep 2026)
 
 Entity tugas akhir/skripsi satu mahasiswa. 1803 → 3703 baris, **187/187 method
