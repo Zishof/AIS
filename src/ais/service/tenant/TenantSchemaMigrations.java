@@ -141,10 +141,11 @@ public final class TenantSchemaMigrations {
 			new Migrasi("v9-pos-ebisnis-erp", TARGET_ERP, TenantSchemaMigrationsV9.ERP),
 			new Migrasi("v10-celah-p4-erp", TARGET_ERP, TenantSchemaMigrationsV10.ERP),
 			new Migrasi("v11-idempotensi-erp", TARGET_ERP, TenantSchemaMigrationsV11.ERP),
+			new Migrasi("v12-kas-trip-erp", TARGET_ERP, TenantSchemaMigrationsV12.ERP),
 	};
 
 	/** Versi schema efektif setelah seluruh migrasi terpasang (dicatat ke registry.schemaVersion). */
-	public static final String VERSI_TERKINI = "v11-idempotensi";
+	public static final String VERSI_TERKINI = "v12-kas-trip";
 
 	/** Tabel yang WAJIB ada pasca-migrasi (dipakai VERIFY_SCHEMA). */
 	public static final String[] TABEL_WAJIB_ERP = {

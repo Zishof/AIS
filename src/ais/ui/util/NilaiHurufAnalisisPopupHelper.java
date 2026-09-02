@@ -35,12 +35,16 @@ public class NilaiHurufAnalisisPopupHelper {
 		if (label == null || detailperkuliahan == null) {
 			return;
 		}
+		String sclass = label.getSclass() == null ? "" : label.getSclass().trim();
+		if (!(" " + sclass + " ").contains(" ais-clickable-analysis-value ")) {
+			label.setSclass((sclass.length() == 0 ? "" : sclass + " ") + "ais-clickable-analysis-value");
+		}
 		String style = label.getStyle() == null ? "" : label.getStyle();
 		if (style.indexOf("cursor:pointer") < 0) {
 			label.setStyle(style + (style.trim().length() == 0 || style.trim().endsWith(";") ? "" : ";")
-					+ "cursor:pointer;text-decoration:underline;color:#0b63ce;font-weight:bold;");
+					+ "cursor:pointer;");
 		}
-		label.setTooltiptext("Klik untuk melihat analisis nilai huruf");
+		label.setTooltiptext("Klik untuk membuka detail analisis nilai huruf");
 		label.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event arg0) throws Exception {

@@ -354,6 +354,101 @@ membuktikan indeksnya yang menolak.
 Tidak ada penghapusan atau penggabungan baris kembar secara otomatis. Menebak mana di antara dua
 dokumen uang yang "asli" bukan pekerjaan migrasi.
 
+## Bundel v12 — buku kas trip (celah C-11)
+
+Bundel ini menambah satu tabel, satu kolom sumber, dan tiga kolom pada tabel biaya. Ia menutup
+celah C-11: model tenant tidak punya tempat untuk mencatat uang tunai yang berpindah selama satu
+perjalanan sales.
+
+### Mengapa ketiadaannya berakibat, bukan sekadar kurang lengkap
+
+Jalur legacy menyimpan satu buku kas per sesi, `nota_sales_kas`: baris bertanda dengan sembilan
+jenis, dan saldo kas adalah **penjumlahan bertandanya**. Rumus itu dipakai daftar trip, layar
+rinci, dan penutupan sesi.
+
+Tanpa tabel itu, kueri tenant yang **sudah terkirim** menghitung saldo kas sebagai
+`Σ nota.tunai − Σ setoran`. Untuk trip dengan panjar 500.000, penjualan tunai 300.000, penagihan
+tunai 200.000, biaya 100.000, dan setoran 400.000:
+
+| | hasil |
+|---|---|
+| buku kas legacy | **500.000** |
+| rumus tanpa buku kas | **−100.000** |
+
+Bukan selisih kecil — beda tanda. Angka itu diverifikasi, bukan diperkirakan: blok 2
+`uji-kesetaraan-kas-trip.sql` menjalankan kedua rumus atas data yang sama dan mensyaratkan
+selisihnya muncul.
+
+### Yang TIDAK ditambahkan: kolom saldo kas awal
+
+Entitas legacy punya `NotaSalesSession.saldoKasAwal`, disalin dari `spj.uangMukaOperasional` saat
+trip dimulai. Godaannya adalah menirunya sebagai kolom `sales_trip.saldo_kas_awal`.
+
+Sengaja tidak. Pada jalur legacy uang muka itu **juga** dibukukan sebagai baris `OPENING_ADVANCE`,
+dan saldo kasnya menjumlahkan baris — sehingga kolomnya hanyalah salinan yang kebetulan sama. Dua
+sumber untuk satu angka adalah bentuk cacat yang sudah berkali-kali ditemukan pada pemindahan ini.
+Di sini uang muka awal **diturunkan** dari bukunya sendiri, dan tidak ada yang bisa berselisih.
+
+Yang memang perlu ditambahkan adalah **sumbernya**: `surat_perintah_sales.uang_muka_operasional`.
+Tanpa itu tidak ada angka yang bisa dibukukan sebagai baris pembuka.
+
+### Nominal BERTANDA, menyimpang dari pola `mutasi_stok`
+
+Katalog memakai pola "kuantitas selalu positif + kolom arah" pada `mutasi_stok`. Buku kas sengaja
+tidak mengikutinya.
+
+Seluruh makna buku kas legacy adalah penjumlahan bertanda, dan setiap pembacanya menjumlahkan
+langsung. Menyimpan besaran positif berikut arah terpisah memaksa **setiap** pembaca menyusun ulang
+tandanya, dan satu pembaca yang lupa menghasilkan angka uang yang salah tanpa gagal. Kekeliruan
+persis jenis itu sudah pernah terkirim sekali pada rumus saldo kas; tandanya disimpan sekali di
+sisi penulis supaya tidak ada yang perlu menyusunnya ulang.
+
+Kontrak jenis dan tandanya hidup pada `TenantKasTrip`, bukan sebagai batasan `CHECK`. Batasan itu
+akan menolak baris yang jalur legacy terima saat impor, dan menjadikan penambahan jenis kesepuluh
+sebagai migrasi tersendiri.
+
+### Biaya trip: tiga kolom supaya kas dan pembalikannya utuh
+
+`sales_trip_biaya` tidak punya cara membedakan biaya tunai dari non-tunai, sehingga tidak ada dasar
+memutuskan apakah suatu biaya menyentuh kas — `cara_bayar` menutup itu. Ia juga satu-satunya tabel
+dokumen tanpa `pembalik_dari_id` dan tanpa `status`; keduanya ditambahkan, sehingga baris pembalik
+dapat dipasangkan kembali dengan aslinya.
+
+### Koreksi klaim: bundel ini TIDAK membuka tujuh aksi
+
+Catatan sebelumnya menyebut bundel kas "membuka tujuh aksi". Setelah ditelusuri satu per satu,
+angka itu **terlalu optimistis** — beberapa aksi menunggu lebih dari satu hal:
+
+| | aksi |
+|---|---|
+| **terbuka oleh v12** | `tripCashSale`, `expenseReverse`, penuntasan `saldoKas` pada `tripList` |
+| masih menunggu tabel nota bawaan | `collectionCreate`, `collectionReverse`, `tripClose`, `spjNotaAssign`, `tripNotaResult` |
+| masih menunggu master kategori biaya | `expenseCreate` |
+| masih menunggu tabel pembelian trip | `tripPurchaseLink`, sisi pembelian `tripDetail` |
+
+Ketiga penghalang sisa itu bundel tersendiri dan tidak dicampurkan ke sini: masing-masing
+menyangkut konsep berbeda, dan menggabungkannya membuat satu bundel yang gagal seluruhnya bila satu
+bagiannya keliru.
+
+### Diverifikasi pada PostgreSQL 16
+
+| pemeriksaan | hasil |
+|---|---|
+| katalog v1–v12 dijalankan utuh | bersih, `psql -v ON_ERROR_STOP=1` keluar 0 |
+| tabel terbentuk | 80 (74 sebelumnya + `sales_trip_kas`, berikut tabel schema audit) |
+| kolom `sales_trip_kas` | 19 |
+| kolom baru `sales_trip_biaya` | `cara_bayar`, `status`, `pembalik_dari_id` (+`idempotency_key` dari v10) |
+| `surat_perintah_sales.uang_muka_operasional` | ada |
+| indeks unik parsial idempotensi | 14 |
+| `TenantSchemaMigrasiSelfTest` | LULUS — 14 migrasi, versi terkini `v12-kas-trip` |
+| checksum bundel v12 | `01b490764581`, dipatok di `PATOKAN` |
+
+### Yang TIDAK dilakukan bundel ini
+
+Tidak ada pengisian data. Trip yang sudah berjalan tidak memperoleh baris pembuka secara surut, dan
+biaya lama tetap `NULL` pada `cara_bayar`. Menebak berapa uang muka yang dulu dibawa, atau biaya
+mana yang dulu tunai, hanya melahirkan angka uang yang tampak sahih tanpa dasar.
+
 ## Yang BELUM dikerjakan
 
 - **Belum ada satu pun kueri yang memakai tabel ini.** Menyambungkan `si_*` ke schema
