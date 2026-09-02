@@ -1393,6 +1393,7 @@ public class KegiatanHelper {
 				StatusMahasiswa statusMahasiswa = Common.currentStatusSp(mahasiswa,
 						jenisKegiatan != null && jenisKegiatan.getUntukBayarSP() ? Perkuliahan.SEMESTER_PENDEK : null)
 						.getStatusMahasiswa();
+				statusMahasiswa = PembayaranUtilHelper.statusMahasiswaPembayaranEfektif(statusMahasiswa);
 
 				kegiatan.setTanggal(jadwal.getStartDate());
 				kegiatan.setValidated(1);

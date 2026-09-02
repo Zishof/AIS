@@ -182,7 +182,7 @@ if (toko != null) {
             "c.nama AS nama_produk, " +
             "SUM(a.qty) AS total_qty, " +
             "SUM(a.total) AS total_rp " +
-            "FROM koperasi.pembelian a " +
+            "FROM (SELECT * FROM (SELECT * FROM koperasi.pembelian WHERE COALESCE(aktif,true)=true) a WHERE COALESCE(aktif,true)=true) a " +
             "INNER JOIN koperasi.toko b ON a.toko = b.id " +
             "INNER JOIN koperasi.produk c ON a.produk = c.id " +
             "WHERE " + filterWaktuSQL + filterPencarianSQL + filterTokoSQLProduk<%=rnd%> +

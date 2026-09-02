@@ -1518,36 +1518,7 @@ public class PembayaranUtil {
 			statusMahasiswa = ConstantValues.CUTI;
 		}
 
-		try {
-			if (Common.bolehKonfigurasi("mahasiswa_dengan_status_non_aktif_bisa_melakukan_pembayaran_seperti_status_aktif")) {
-				if (statusMahasiswa == null || statusMahasiswa.getId().equals(ConstantValues.TIDAK_AKTIF.getId())) {
-					statusMahasiswa = ConstantValues.AKTIF;
-				}
-			}
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/ws/util/PembayaranUtil.java:1243");
-//			Common.tampilErrorJikaAdmin(e);
-		}
-
-		try {
-			if (Common.bolehKonfigurasi("mahasiswa_dengan_status_non_lulus_bisa_melakukan_pembayaran_seperti_status_aktif", Konfigurasi.TIDAK_AKTIF)) {
-				if (statusMahasiswa == null || statusMahasiswa.getId().equals(ConstantValues.LULUS.getId())) {
-					statusMahasiswa = ConstantValues.AKTIF;
-				}
-			}
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/ws/util/PembayaranUtil.java:1253");
-//			Common.tampilErrorJikaAdmin(e);
-		}
-
-		try {
-			if (Common.bolehKonfigurasi("mahasiswa_dengan_status_kampus_merdeka_bisa_melakukan_pembayaran_seperti_status_aktif")) {
-				if (ConstantValues.KAMPUS_MERDEKA != null && (statusMahasiswa == null
-						|| statusMahasiswa.getId().equals(ConstantValues.KAMPUS_MERDEKA.getId()))) {
-					statusMahasiswa = ConstantValues.AKTIF;
-				}
-			}
-		} catch (Exception e) {
-			Common.tampilErrorJikaAdmin(e);
-		}
+		statusMahasiswa = PembayaranUtilHelper.statusMahasiswaPembayaranEfektif(statusMahasiswa);
 
 		System.out.println("statusMahasiswa = " + statusMahasiswa);
 //		System.out
@@ -2652,6 +2623,7 @@ public class PembayaranUtil {
 			KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa, semester, null, null);
 
 			StatusMahasiswa statusMahasiswa = Common.currentStatus(krsMahasiswa).getStatusMahasiswa();
+			statusMahasiswa = PembayaranUtilHelper.statusMahasiswaPembayaranEfektif(statusMahasiswa);
 
 			kegiatan.setStatusMahasiswa(statusMahasiswa);
 			kegiatan.setJadwalPembayaran(jadwalPembayaran);

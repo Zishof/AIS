@@ -38,6 +38,7 @@ import org.zkoss.zul.North;
 import org.zkoss.zul.Timer;
 import org.zkoss.zul.Toolbar;
 
+import ais.action.master.helper.PembayaranUtilHelper;
 import ais.action.ws.util.PembayaranUtil;
 import ais.common.Common;
 import ais.common.CommonPrivilages;
@@ -529,6 +530,7 @@ public class UploadCicilanMahasiswa extends MyWindow {
 								if (!lewatiBaris && (kegiatan == null || kegiatan.getId() == null)) {
 									StatusMahasiswa statusMahasiswa = Common
 											.currentStatus(mahasiswa, tahunAkademik, semester).getStatusMahasiswa();
+									statusMahasiswa = PembayaranUtilHelper.statusMahasiswaPembayaranEfektif(statusMahasiswa);
 
 									kegiatan = new Kegiatan();
 									kegiatan.setStatusMahasiswa(statusMahasiswa);

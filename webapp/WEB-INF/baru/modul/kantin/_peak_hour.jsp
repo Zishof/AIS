@@ -125,7 +125,7 @@ if (toko != null) {
 
         // Query: Ekstrak JAM dari waktu transaksi, lalu hitung jumlahnya, disisipi filter toko
         const sqlQuery = "SELECT EXTRACT(HOUR FROM a.waktu) AS jam_transaksi, COUNT(a.id) AS jumlah_transaksi " +
-                         "FROM koperasi.pembelian a " +
+                         "FROM (SELECT * FROM (SELECT * FROM koperasi.pembelian WHERE COALESCE(aktif,true)=true) a WHERE COALESCE(aktif,true)=true) a " +
                          "WHERE DATE(a.waktu) >= CURRENT_DATE - INTERVAL '1 month' " + filterTokoSQL<%=rnd%> +
                          "GROUP BY EXTRACT(HOUR FROM a.waktu) " +
                          "ORDER BY jam_transaksi ASC;";
@@ -229,7 +229,7 @@ if (toko != null) {
         const sqlQuery = "SELECT b.nama AS nama_pembeli, " +
                          "COUNT(a.id) AS frekuensi_belanja, " +
                          "SUM(a.total) AS total_rp " +
-                         "FROM koperasi.pembelian a " +
+                         "FROM (SELECT * FROM (SELECT * FROM koperasi.pembelian WHERE COALESCE(aktif,true)=true) a WHERE COALESCE(aktif,true)=true) a " +
                          "INNER JOIN koperasi.anggota_koperasi b on (a.anggota_koperasi = b.id) " +
                          "WHERE DATE(a.waktu) >= CURRENT_DATE - INTERVAL '1 month' " +
                          "AND a.anggota_koperasi IS NOT NULL " + filterTokoSQL<%=rnd%> +

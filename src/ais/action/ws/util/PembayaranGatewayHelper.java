@@ -551,7 +551,8 @@ public class PembayaranGatewayHelper {
 			kegiatan.setJadwalPembayaran(kegiatanTemporary.getJadwalPembayaran());
 			kegiatan.setMahasiswa(mahasiswa);
 			kegiatan.setSemster(smt);
-			kegiatan.setStatusMahasiswa(kegiatanTemporary.getStatusMahasiswa());
+			kegiatan.setStatusMahasiswa(PembayaranUtilHelper
+					.statusMahasiswaPembayaranEfektif(kegiatanTemporary.getStatusMahasiswa()));
 			kegiatan.setTahunAkademik(kegiatanTemporary.getTahunAkademik());
 			kegiatan.setTanggal(tanggal);
 			kegiatan.setValidated(1);

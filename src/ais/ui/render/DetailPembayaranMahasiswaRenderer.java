@@ -2359,6 +2359,7 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 					kegiatan.setSemster(semester);
 					kegiatan.setProgram(mahasiswa.getProgram());
 					StatusMahasiswa statusMahasiswa = Common.currentStatus(mahasiswa).getStatusMahasiswa();
+					statusMahasiswa = PembayaranUtilHelper.statusMahasiswaPembayaranEfektif(statusMahasiswa);
 					// FIX NPE rutin: jadwalPembayaran nullable, sama seperti cabang
 					// biodataCalonMahasiswa di atas. Fallback tanggal ke tanggalValidasi
 					// (selalu terisi via konstruktor, lihat baris ~2088 utk cabang lain).

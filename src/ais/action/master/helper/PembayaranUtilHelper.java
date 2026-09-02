@@ -127,6 +127,53 @@ public class PembayaranUtilHelper {
 		return criteria;
 	}
 
+	public static StatusMahasiswa statusMahasiswaPembayaranEfektif(StatusMahasiswa statusMahasiswa) {
+		StatusMahasiswa hasil = statusMahasiswa;
+		try {
+			Konfigurasi k1 = Common.getKonfigurasi(
+					"mahasiswa_dengan_status_non_aktif_bisa_melakukan_pembayaran_seperti_status_aktif",
+					Konfigurasi.AKTIF);
+			if (k1 != null && Konfigurasi.AKTIF.equals(k1.getNilai())) {
+				if (hasil == null || (ConstantValues.TIDAK_AKTIF != null && hasil.getId() != null
+						&& hasil.getId().equals(ConstantValues.TIDAK_AKTIF.getId()))) {
+					hasil = ConstantValues.AKTIF;
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"PembayaranUtilHelper.statusMahasiswaPembayaranEfektif nonaktif");
+		}
+		try {
+			Konfigurasi k2 = Common.getKonfigurasi(
+					"mahasiswa_dengan_status_non_lulus_bisa_melakukan_pembayaran_seperti_status_aktif",
+					Konfigurasi.TIDAK_AKTIF);
+			if (k2 != null && Konfigurasi.AKTIF.equals(k2.getNilai())) {
+				if (hasil == null || (ConstantValues.LULUS != null && hasil.getId() != null
+						&& hasil.getId().equals(ConstantValues.LULUS.getId()))) {
+					hasil = ConstantValues.AKTIF;
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"PembayaranUtilHelper.statusMahasiswaPembayaranEfektif lulus");
+		}
+		try {
+			Konfigurasi k3 = Common.getKonfigurasi(
+					"mahasiswa_dengan_status_kampus_merdeka_bisa_melakukan_pembayaran_seperti_status_aktif",
+					Konfigurasi.AKTIF);
+			if (k3 != null && Konfigurasi.AKTIF.equals(k3.getNilai())) {
+				if (hasil == null || (ConstantValues.KAMPUS_MERDEKA != null && hasil.getId() != null
+						&& hasil.getId().equals(ConstantValues.KAMPUS_MERDEKA.getId()))) {
+					hasil = ConstantValues.AKTIF;
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"PembayaranUtilHelper.statusMahasiswaPembayaranEfektif kampus_merdeka");
+		}
+		return hasil;
+	}
+
 	/**
 	 * Mengecek apakah {@link Jenjang} mahasiswa/calon mahasiswa termasuk daftar id jenjang yang
 	 * tersimpan pada array JSON {@code jenjangAngsuranJson[key]} (format setting angsuran per
@@ -494,32 +541,7 @@ public class PembayaranUtilHelper {
 			statusMahasiswa = ConstantValues.CUTI;
 		}
 
-		try {
-			Konfigurasi k1 = Common.getKonfigurasi("mahasiswa_dengan_status_non_aktif_bisa_melakukan_pembayaran_seperti_status_aktif", Konfigurasi.AKTIF);
-			if (k1 != null && Konfigurasi.AKTIF.equals(k1.getNilai())) {
-				if (statusMahasiswa == null || statusMahasiswa.getId().equals(ConstantValues.TIDAK_AKTIF.getId())) {
-					statusMahasiswa = ConstantValues.AKTIF;
-				}
-			}
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/PembayaranUtilHelper.java:292");}
-
-		try {
-			Konfigurasi k2 = Common.getKonfigurasi("mahasiswa_dengan_status_non_lulus_bisa_melakukan_pembayaran_seperti_status_aktif", Konfigurasi.TIDAK_AKTIF);
-			if (k2 != null && Konfigurasi.AKTIF.equals(k2.getNilai())) {
-				if (statusMahasiswa == null || statusMahasiswa.getId().equals(ConstantValues.LULUS.getId())) {
-					statusMahasiswa = ConstantValues.AKTIF;
-				}
-			}
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/PembayaranUtilHelper.java:301");}
-
-		try {
-			Konfigurasi k3 = Common.getKonfigurasi("mahasiswa_dengan_status_kampus_merdeka_bisa_melakukan_pembayaran_seperti_status_aktif", Konfigurasi.AKTIF);
-			if (k3 != null && Konfigurasi.AKTIF.equals(k3.getNilai())) {
-				if (ConstantValues.KAMPUS_MERDEKA != null && (statusMahasiswa == null || statusMahasiswa.getId().equals(ConstantValues.KAMPUS_MERDEKA.getId()))) {
-					statusMahasiswa = ConstantValues.AKTIF;
-				}
-			}
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/PembayaranUtilHelper.java:310");}
+		statusMahasiswa = statusMahasiswaPembayaranEfektif(statusMahasiswa);
 
 		String filterKelas = "TIDAK AKTIF";
 		try {

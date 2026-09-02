@@ -102,7 +102,7 @@ if (toko != null) {
 
         // Query: Ambil 10 produk dengan total kuantitas terbanyak dalam 1 bulan terakhir, disisipi filter toko
         const sqlQuery = "SELECT c.nama AS namabarang, SUM(a.qty) AS total_qty " +
-                         "FROM koperasi.pembelian a " +
+                         "FROM (SELECT * FROM (SELECT * FROM koperasi.pembelian WHERE COALESCE(aktif,true)=true) a WHERE COALESCE(aktif,true)=true) a " +
                          "INNER JOIN koperasi.produk c ON a.produk = c.id " +
                          "WHERE DATE(a.waktu) >= CURRENT_DATE - INTERVAL '1 month' " + filterTokoSQL<%=rnd%> +
                          "GROUP BY c.id, c.nama " +
@@ -202,7 +202,7 @@ if (toko != null) {
         // Menggunakan filter 'WHERE a.toko =' pada tabel utama, perhatikan ALIAS 'a.' pada Query!
         // Modifikasi query untuk memastikan alias tabel digunakan jika filter memerlukan
         const sqlQuery = "SELECT a.carabayar, SUM(a.total) AS total_rp " +
-                         "FROM koperasi.pembelian a " +
+                         "FROM (SELECT * FROM (SELECT * FROM koperasi.pembelian WHERE COALESCE(aktif,true)=true) a WHERE COALESCE(aktif,true)=true) a " +
                          "WHERE DATE(a.waktu) >= CURRENT_DATE - INTERVAL '1 month' " + filterTokoSQL<%=rnd%> +
                          "GROUP BY a.carabayar " +
                          "ORDER BY total_rp DESC;";

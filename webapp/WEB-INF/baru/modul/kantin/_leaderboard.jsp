@@ -182,7 +182,7 @@ if (toko != null) {
             "COUNT(DISTINCT CASE WHEN DATE(a.waktu) BETWEEN CURRENT_DATE - INTERVAL '1 month' AND CURRENT_DATE THEN a.anggota_koperasi END) AS bulan_pembeli, " +
             "COALESCE(SUM(CASE WHEN DATE(a.waktu) BETWEEN CURRENT_DATE - INTERVAL '1 month' AND CURRENT_DATE THEN a.total ELSE 0 END), 0) AS bulan_total " +
             
-            "FROM koperasi.pembelian a " +
+            "FROM (SELECT * FROM (SELECT * FROM koperasi.pembelian WHERE COALESCE(aktif,true)=true) a WHERE COALESCE(aktif,true)=true) a " +
             "INNER JOIN koperasi.toko b ON (a.toko = b.id and b.aktif) " +
             "WHERE DATE(a.waktu) >= CURRENT_DATE - INTERVAL '1 month' " +
             filterTokoSQL<%=rnd%> + filterNamaSQL + 

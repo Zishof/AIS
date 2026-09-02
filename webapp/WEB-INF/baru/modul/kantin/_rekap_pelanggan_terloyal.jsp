@@ -182,7 +182,7 @@ if (toko != null) {
             "ak.nama AS nama_pelanggan, " +
             "COUNT(a.id) AS frekuensi_belanja, " +
             "SUM(a.total) AS total_rp " +
-            "FROM koperasi.pembelian a " +
+            "FROM (SELECT * FROM (SELECT * FROM koperasi.pembelian WHERE COALESCE(aktif,true)=true) a WHERE COALESCE(aktif,true)=true) a " +
             "INNER JOIN koperasi.toko t ON a.toko = t.id " +
             "INNER JOIN koperasi.anggota_koperasi ak ON a.anggota_koperasi = ak.id " +
             "WHERE " + filterWaktuSQL + filterPencarianSQL + filterTokoSQLPelanggan<%=rnd%> +

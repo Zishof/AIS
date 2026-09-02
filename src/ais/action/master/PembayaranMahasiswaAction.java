@@ -34,6 +34,7 @@ import org.zkoss.zul.Textbox;
 import org.zkoss.zul.Toolbar;
 
 import ais.action.master.helper.AmbilDataMahasiswaBanbox;
+import ais.action.master.helper.PembayaranUtilHelper;
 import ais.action.master.helper.TunggakanMahasiswaHelper;
 import ais.action.master.helper.generic.AmbilDataItemBiayaBanyak;
 import ais.action.master.helper.virtualaccount.DownloadTagihanMahasiswaBankNtt;
@@ -879,6 +880,7 @@ public class PembayaranMahasiswaAction extends GenericAutowireComposer {
 
 			this.mahasiswa = mahasiswa;
 			StatusMahasiswa statusMahasiswa = ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(mahasiswa).getStatusMahasiswa();
+			statusMahasiswa = PembayaranUtilHelper.statusMahasiswaPembayaranEfektif(statusMahasiswa);
 
 			kegiatan.setStatusMahasiswa(statusMahasiswa);
 			kegiatan.setJenisKegiatan(jenisKegiatan);

@@ -826,47 +826,7 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 	}
 
 	private StatusMahasiswa statusMahasiswaPembayaranEfektif(StatusMahasiswa status) {
-		StatusMahasiswa hasil = status;
-		try {
-			if (Common.bolehKonfigurasi(
-					"mahasiswa_dengan_status_non_aktif_bisa_melakukan_pembayaran_seperti_status_aktif",
-					Konfigurasi.AKTIF)) {
-				if (hasil == null || (ConstantValues.TIDAK_AKTIF != null && hasil.getId() != null
-						&& hasil.getId().equals(ConstantValues.TIDAK_AKTIF.getId()))) {
-					hasil = ConstantValues.AKTIF;
-				}
-			}
-		} catch (Exception e) {
-			ais.common.ErrorAuditUtil.record(e,
-					"DaftarUlangMahasiswaLamaAction: normalisasi status nonaktif untuk pembayaran");
-		}
-		try {
-			if (Common.bolehKonfigurasi(
-					"mahasiswa_dengan_status_non_lulus_bisa_melakukan_pembayaran_seperti_status_aktif",
-					Konfigurasi.TIDAK_AKTIF)) {
-				if (hasil == null || (ConstantValues.LULUS != null && hasil.getId() != null
-						&& hasil.getId().equals(ConstantValues.LULUS.getId()))) {
-					hasil = ConstantValues.AKTIF;
-				}
-			}
-		} catch (Exception e) {
-			ais.common.ErrorAuditUtil.record(e,
-					"DaftarUlangMahasiswaLamaAction: normalisasi status lulus untuk pembayaran");
-		}
-		try {
-			if (Common.bolehKonfigurasi(
-					"mahasiswa_dengan_status_kampus_merdeka_bisa_melakukan_pembayaran_seperti_status_aktif",
-					Konfigurasi.AKTIF)) {
-				if (hasil == null || (ConstantValues.KAMPUS_MERDEKA != null && hasil.getId() != null
-						&& hasil.getId().equals(ConstantValues.KAMPUS_MERDEKA.getId()))) {
-					hasil = ConstantValues.AKTIF;
-				}
-			}
-		} catch (Exception e) {
-			ais.common.ErrorAuditUtil.record(e,
-					"DaftarUlangMahasiswaLamaAction: normalisasi status kampus merdeka untuk pembayaran");
-		}
-		return hasil;
+		return PembayaranUtilHelper.statusMahasiswaPembayaranEfektif(status);
 	}
 
 	private EventListener eventListener = new EventListener() {

@@ -81,19 +81,19 @@ if (toko != null) {
         // Penentuan Query berdasarkan Tab yang dipilih (Disisipkan filter toko)
         if (periode === 'harian') {
             sqlQuery = "SELECT TO_CHAR(DATE(waktu), 'DD Mon YYYY') AS label_periode, COUNT(*) AS jumlah " +
-                       "FROM koperasi.pembelian " +
+                       "FROM (SELECT * FROM koperasi.pembelian WHERE COALESCE(aktif,true)=true) a " +
                        "WHERE waktu >= CURRENT_DATE - INTERVAL '14 days' " + filterTokoSQL<%=rnd%> +
                        "GROUP BY DATE(waktu) " +
                        "ORDER BY DATE(waktu) ASC;";
         } else if (periode === 'mingguan') {
             sqlQuery = "SELECT TO_CHAR(DATE_TRUNC('week', waktu), 'DD Mon YYYY') AS label_periode, COUNT(*) AS jumlah " +
-                       "FROM koperasi.pembelian " +
+                       "FROM (SELECT * FROM koperasi.pembelian WHERE COALESCE(aktif,true)=true) a " +
                        "WHERE waktu >= CURRENT_DATE - INTERVAL '8 weeks' " + filterTokoSQL<%=rnd%> +
                        "GROUP BY DATE_TRUNC('week', waktu) " +
                        "ORDER BY DATE_TRUNC('week', waktu) ASC;";
         } else if (periode === 'bulanan') {
             sqlQuery = "SELECT TO_CHAR(DATE_TRUNC('month', waktu), 'Mon YYYY') AS label_periode, COUNT(*) AS jumlah " +
-                       "FROM koperasi.pembelian " +
+                       "FROM (SELECT * FROM koperasi.pembelian WHERE COALESCE(aktif,true)=true) a " +
                        "WHERE waktu >= CURRENT_DATE - INTERVAL '12 months' " + filterTokoSQL<%=rnd%> +
                        "GROUP BY DATE_TRUNC('month', waktu) " +
                        "ORDER BY DATE_TRUNC('month', waktu) ASC;";

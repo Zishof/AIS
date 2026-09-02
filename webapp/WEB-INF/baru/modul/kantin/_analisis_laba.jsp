@@ -240,7 +240,7 @@ if (toko != null) {
         // per total -- satu kueri melayani kartu ringkasan DAN grafik tren (tak perlu dua kueri terpisah).
         const sqlDetail = "SELECT DATE(a.waktu) AS tgl, TO_CHAR(DATE(a.waktu), 'DD Mon') AS tanggal, " +
             "a.produk AS produk_id, COALESCE(SUM(a.total), 0) AS omzet, COALESCE(SUM(a.qty), 0) AS qty " +
-            "FROM koperasi.pembelian a " +
+            "FROM (SELECT * FROM (SELECT * FROM koperasi.pembelian WHERE COALESCE(aktif,true)=true) a WHERE COALESCE(aktif,true)=true) a " +
             "INNER JOIN koperasi.produk c ON a.produk = c.id " +
             "INNER JOIN koperasi.toko b ON a.toko = b.id " +
             "WHERE DATE(a.waktu) >= CURRENT_DATE - INTERVAL '" + periodeInterval + "' " +
