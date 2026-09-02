@@ -238,6 +238,34 @@ final class SalesInventoryMasterTenant {
 				+ " VALUES (?, ?, true, now(), ?)";
 	}
 
+	/**
+	 * Cuplikan satu baris master untuk jejak audit.
+	 *
+	 * <p>Kolomnya <b>disebut satu per satu</b>, bukan {@code SELECT *}. Dua sebabnya. Pertama,
+	 * jejak audit tidak boleh memuat rahasia (§11.6), dan {@code SELECT *} akan menyeret kolom
+	 * apa pun yang ditambahkan bundel berikutnya — termasuk yang tidak boleh ikut. Kedua,
+	 * muatan audit yang isinya berubah-ubah mengikuti skema membuat riwayat lama dan baru tidak
+	 * lagi dapat dibandingkan.</p>
+	 *
+	 * <p>Kolom jejak ({@code oleh}, {@code tanggal_dirubah}) sengaja tidak ikut: "siapa dan
+	 * kapan" sudah ada pada {@code revinfo}, dan menyalinnya ke muatan hanya membuat setiap
+	 * perubahan tampak berbeda pada kolom yang bukan isi datanya.</p>
+	 *
+	 * <p>{@code tabel} selalu literal dari kode pemanggil, sama seperti {@link #nonaktifkan} dan
+	 * {@link #adaBaris} — tidak pernah berasal dari permintaan.</p>
+	 */
+	static String cuplikanAudit(String skema, String tabel) {
+		String kolom;
+		if ("salesperson".equals(tabel)) {
+			kolom = "kode, nama, aktif, akun_perkiraan, telp";
+		} else if ("supplier".equals(tabel)) {
+			kolom = "kode, nama, aktif, status";
+		} else {
+			kolom = "kode, nama, aktif";
+		}
+		return "SELECT " + kolom + " FROM " + skema + tabel + " WHERE id = ?";
+	}
+
 	static String ubahMitra(String skema, String tabel) {
 		return "UPDATE " + skema + tabel + " SET kode = ?, nama = ?, tanggal_dirubah = now(),"
 				+ " oleh = ? WHERE id = ?";

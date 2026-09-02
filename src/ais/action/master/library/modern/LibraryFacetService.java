@@ -22,6 +22,9 @@ public final class LibraryFacetService {
     private static final long CACHE_MILLIS = 30000L;
     private static final ConcurrentHashMap<String, CacheEntry> CACHE = new ConcurrentHashMap<String, CacheEntry>();
 
+    /** Invalidasi setelah petugas mengubah status penerbitan koleksi. */
+    public static void clearCache() { CACHE.clear(); }
+
     public JSONObject facets(Session session, LibraryCatalogSearchRequest request) {
         try {
             String cacheKey=cacheKey(request);CacheEntry cached=CACHE.get(cacheKey);long now=System.currentTimeMillis();

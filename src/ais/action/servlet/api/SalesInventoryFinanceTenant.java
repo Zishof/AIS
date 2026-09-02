@@ -504,6 +504,83 @@ final class SalesInventoryFinanceTenant {
 	 * sudah berdiri tetapi belum punya pemanggil (P3, opsi audit tulis-tangan).</p>
 	 */
 	static boolean dukungRiwayatAudit() {
-		return false;
+		return true;
+	}
+
+	// ------------------------------------------------------------------ riwayat audit tenant
+
+	/** Prefiks schema audit tenant, berikut titiknya. */
+	static String skemaAudit(EbisnisActorContextResolver.ActorContext aktor) {
+		return SalesInventoryTenantSchema.skemaAudit(aktor.tenant);
+	}
+
+	/**
+	 * Entitas yang jejak auditnya BENAR-BENAR ditulis pada jalur tenant, dipetakan dari nama
+	 * yang dipakai permintaan ke nama tabel tenantnya.
+	 *
+	 * <p><b>Daftar ini adalah cakupan, bukan terjemahan.</b> Entitas di luar daftar ditolak
+	 * dengan pesan yang menyebut namanya, BUKAN dijawab dengan daftar kosong. Daftar kosong
+	 * tidak dapat dibedakan dari "tidak pernah berubah", dan itu pernyataan yang keliru tentang
+	 * record yang jelas pernah berubah — persis kekeliruan yang penolakan lama justru hindari.
+	 * Menambah entitas ke daftar ini hanya sah bersamaan dengan memasang penulisnya.</p>
+	 */
+	private static final String[][] ENTITAS_TERAUDIT = {
+			{ "supplier", "supplier" },
+			{ "customer", "customer" },
+			{ "sales", "salesperson" } };
+
+	/** Nama tabel tenant untuk entitas yang jejaknya sudah ditulis, atau {@code null}. */
+	static String tabelTeraudit(String jenis) {
+		for (int i = 0; i < ENTITAS_TERAUDIT.length; i++) {
+			if (ENTITAS_TERAUDIT[i][0].equals(jenis)) {
+				return ENTITAS_TERAUDIT[i][1];
+			}
+		}
+		return null;
+	}
+
+	/** Daftar entitas terliput, untuk pesan penolakan. */
+	static String daftarEntitasTeraudit() {
+		StringBuilder sb = new StringBuilder();
+		for (int i = 0; i < ENTITAS_TERAUDIT.length; i++) {
+			if (i > 0) {
+				sb.append(", ");
+			}
+			sb.append(ENTITAS_TERAUDIT[i][0]);
+		}
+		return sb.toString();
+	}
+
+	/**
+	 * Riwayat satu baris data. SEPULUH kolom: rev, waktu, revtype, sebelum, sesudah, userId,
+	 * peran, aksi, alasan, requestId.
+	 *
+	 * <p>Bacanya dari {@code audit_baris} yang digabung ke {@code revinfo}: satu revisi membawa
+	 * konteksnya sekali, dan barisnya menunjuk ke revisi itu. Karena itu "siapa dan mengapa"
+	 * tidak diulang pada tiap baris — menyimpan satu faktur berisi lima puluh item tetap satu
+	 * revisi.</p>
+	 *
+	 * <p>{@code entity_id} bertipe teks pada tabelnya supaya kunci non-numerik pun tertampung;
+	 * parameternya karena itu diikat sebagai teks, bukan bigint.</p>
+	 */
+	static String selectRiwayatAudit(String audit) {
+		return "SELECT b.rev, r.waktu, b.revtype, b.sebelum, b.sesudah,"
+				+ " COALESCE(r.user_id,''), COALESCE(r.role,''), COALESCE(r.action,''),"
+				+ " COALESCE(r.reason,''), COALESCE(r.request_id,'')"
+				+ " FROM " + audit + "audit_baris b JOIN " + audit + "revinfo r ON b.rev = r.rev"
+				+ " WHERE b.entity = ? AND b.entity_id = ?"
+				+ " ORDER BY b.rev DESC LIMIT 25";
+	}
+
+	/**
+	 * Cacah seluruh revisi baris tersebut — bukan hanya 25 yang ditampilkan.
+	 *
+	 * <p>Jalur legacy melaporkan {@code totalRevisi} dari daftar penuh lalu memotongnya menjadi
+	 * 25 terakhir. Menyamakan angka itu dengan jumlah baris yang ditampilkan akan membuat riwayat
+	 * panjang tampak pendek.</p>
+	 */
+	static String cacahRiwayatAudit(String audit) {
+		return "SELECT COUNT(*) FROM " + audit + "audit_baris b"
+				+ " WHERE b.entity = ? AND b.entity_id = ?";
 	}
 }

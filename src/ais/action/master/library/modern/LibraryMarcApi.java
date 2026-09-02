@@ -9,8 +9,12 @@ import javax.servlet.http.HttpServletRequest;
 import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.hibernate.Query;
+import org.hibernate.Criteria;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.hibernate.criterion.MatchMode;
+import org.hibernate.criterion.Projections;
+import org.hibernate.criterion.Restrictions;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.w3c.dom.Document;
@@ -25,6 +29,8 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmuser;
 import ais.database.model.library.Item;
 import ais.database.model.library.Penerbit;
+import ais.database.model.library.Perpustakaan;
+import ais.database.model.library.StatusTerbitItem;
 
 /** Typed MARCXML preview/import/export endpoint for catalogers. */
 public final class LibraryMarcApi {
@@ -38,8 +44,10 @@ public final class LibraryMarcApi {
         String action = text(request.getParameter("action"), 40);
         if ("status".equals(action)) return ok(request).put("maxRecords", MAX_RECORDS).put("maxBytes", MAX_XML);
         if ("export".equals(action)) return exportRecord(positiveLong(request.getParameter("itemId")));
+        if ("publication_status".equals(action)) return publicationStatus(request);
         if (!"POST".equalsIgnoreCase(request.getMethod())) return error("Preview dan import hanya melalui POST.");
         if (!NewUiCsrfUtil.isValid(request)) return error("Token keamanan tidak valid.");
+        if ("publish_all".equals(action)) return publishAll(request);
         String xml = request.getParameter("xml");
         if (xml == null || xml.trim().length() == 0 || xml.length() > MAX_XML) return error("MARCXML wajib diisi dan maksimal 2 MB.");
         List<MarcRecord> records = parse(xml);
@@ -47,6 +55,55 @@ public final class LibraryMarcApi {
         if ("import".equals(action)) return importRecords(records, user, "true".equalsIgnoreCase(request.getParameter("allowDuplicates")), request);
         return error("Operasi MARC tidak dikenal.");
     }
+
+    private static JSONObject publicationStatus(HttpServletRequest request) throws Exception {
+        if (!hasLibraryScope()) return error("Perpustakaan aktif belum dipilih.");
+        Session session=null;
+        try {
+            session=HibernateUtil.openSession();
+            long total=count(publicationCriteria(session,false));
+            long published=count(publicationCriteria(session,true));
+            return ok(request).put("total",total).put("published",published)
+                    .put("pending",Math.max(0L,total-published));
+        } finally { HibernateUtil.closeSessionQuietly(session); }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static JSONObject publishAll(HttpServletRequest request) throws Exception {
+        if (!hasLibraryScope()) return error("Perpustakaan aktif belum dipilih.");
+        Session session=null;Transaction tx=null;
+        try {
+            session=HibernateUtil.openSession();tx=session.beginTransaction();
+            StatusTerbitItem publishedStatus=(StatusTerbitItem)session.createCriteria(StatusTerbitItem.class)
+                    .add(Restrictions.ilike("nama","Terbit",MatchMode.EXACT)).setMaxResults(1).uniqueResult();
+            if(publishedStatus==null){publishedStatus=new StatusTerbitItem();publishedStatus.setNama("Terbit");publishedStatus.setKeterangan("Terbit");session.save(publishedStatus);session.flush();}
+            Criteria pendingCriteria=publicationCriteria(session,false).setProjection(Projections.id());
+            pendingCriteria.add(Restrictions.sqlRestriction(
+                    "({alias}.status_terbit_item is null or {alias}.status_terbit_item not in "
+                    + "(select id from library.status_terbit_item where lower(trim(nama)) in ('terbit','publish','published')))"));
+            List<Long> ids=(List<Long>)pendingCriteria.list();
+            int changed=0;final int batchSize=500;
+            for(int start=0;start<ids.size();start+=batchSize){int end=Math.min(start+batchSize,ids.size());changed+=session.createQuery(
+                    "update Item set statusTerbitItem=:status where id in (:ids)")
+                    .setParameter("status",publishedStatus).setParameterList("ids",ids.subList(start,end)).executeUpdate();}
+            tx.commit();LibraryFacetService.clearCache();
+            return ok(request).put("message",changed+" koleksi berhasil diterbitkan ke katalog publik.")
+                    .put("publishedNow",changed);
+        }catch(Exception e){rollback(tx);throw e;}finally{HibernateUtil.closeSessionQuietly(session);}
+    }
+
+    private static Criteria publicationCriteria(Session session,boolean onlyPublished){
+        Criteria criteria=session.createCriteria(Item.class,"publicationItem")
+                .add(Restrictions.or(Restrictions.isNull("aktif"),Restrictions.eq("aktif",Boolean.TRUE)))
+                .add(Restrictions.isNull("defaultSatuanKerja"));
+        LibraryScopeResolver.restrict(criteria);
+        if(onlyPublished)criteria.add(Restrictions.sqlRestriction(
+                "{alias}.status_terbit_item in (select id from library.status_terbit_item where lower(trim(nama)) in ('terbit','publish','published'))"));
+        return criteria;
+    }
+
+    private static long count(Criteria criteria){Object value=criteria.setProjection(Projections.rowCount()).uniqueResult();return number(value);}
+    private static boolean hasLibraryScope(){Perpustakaan p=Common.getCurrentPerpustakaan();return p!=null&&p.getId()!=null;}
 
     private static JSONObject preview(List<MarcRecord> records, HttpServletRequest request) throws Exception {
         Session session=null; try{session=HibernateUtil.openSession();JSONArray data=new JSONArray();int duplicates=0;

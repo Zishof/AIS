@@ -1056,6 +1056,55 @@ public final class SalesInventoryMasterHelper {
 	 * alasan itu tempat yang benar; sampai saat itu, keterbatasannya dicatat alih-alih
 	 * disembunyikan.</p>
 	 */
+	/**
+	 * Cuplikan satu baris master sebagai teks JSON, atau {@code null} bila barisnya belum/tidak
+	 * ada. Nama kolomnya diambil dari metadata hasilnya, sehingga kuerinya yang menentukan isi
+	 * muatan — bukan daftar kedua di sini yang bisa berselisih dengannya.
+	 */
+	private static String cuplikanAudit(Session session, String skema, String tabel, Long id)
+			throws Exception {
+		if (id == null) {
+			return null;
+		}
+		java.sql.PreparedStatement ps = session.connection().prepareStatement(
+				SalesInventoryMasterTenant.cuplikanAudit(skema, tabel));
+		try {
+			ps.setLong(1, id.longValue());
+			java.sql.ResultSet rs = ps.executeQuery();
+			String muatan = null;
+			if (rs.next()) {
+				java.sql.ResultSetMetaData md = rs.getMetaData();
+				JSONObject o = new JSONObject();
+				for (int i = 1; i <= md.getColumnCount(); i++) {
+					Object v = rs.getObject(i);
+					o.put(md.getColumnLabel(i), v == null ? JSONObject.NULL : String.valueOf(v));
+				}
+				muatan = o.toString();
+			}
+			rs.close();
+			return muatan;
+		} finally {
+			ps.close();
+		}
+	}
+
+	/**
+	 * Tulis satu revisi audit tenant untuk satu baris master.
+	 *
+	 * <p>Berjalan pada Session dan transaksi pemanggil — tidak pernah membuka sendiri. Baris
+	 * audit <b>wajib</b> berada di transaksi yang sama dengan perubahan datanya: audit yang
+	 * commit terpisah dapat bertahan padahal perubahannya dibatalkan, atau hilang padahal
+	 * perubahannya jadi.</p>
+	 */
+	private static void catatAuditMaster(Session session,
+			EbisnisActorContextResolver.ActorContext ctx, String aksi, String tabel, Long id,
+			int revtype, String sebelum, String sesudah) {
+		ais.service.tenant.TenantAuditWriter.Jejak jejak =
+				new ais.service.tenant.TenantAuditWriter.Jejak(aksi);
+		ais.service.tenant.TenantAuditWriter.catatTunggal(session, ctx.tenant, jejak, tabel, id,
+				revtype, sebelum, sesudah);
+	}
+
 	private static void nonaktifkanTenant(EbisnisActorContextResolver.ActorContext ctx,
 			Tbmuser tbmuser, JSONObject hasil, Session session, String tabel, Long id,
 			boolean aktifBaru) throws Exception {
@@ -1068,6 +1117,7 @@ public final class SalesInventoryMasterHelper {
 		Transaction tx = null;
 		try {
 			tx = session.beginTransaction();
+			String sebelum = cuplikanAudit(session, sk, tabel, id);
 			java.sql.PreparedStatement ps = session.connection().prepareStatement(
 					SalesInventoryMasterTenant.nonaktifkan(sk, tabel));
 			try {
@@ -1078,6 +1128,15 @@ public final class SalesInventoryMasterHelper {
 			} finally {
 				ps.close();
 			}
+			// Penonaktifan dicatat REVTYPE_DEL, bukan MOD: barisnya memang masih ada, tetapi
+			// bagi pemakai data inilah "penghapusan"-nya — dan riwayat yang menyebutnya sekadar
+			// perubahan satu kolom menyembunyikan peristiwa yang justru paling ingin ditelusuri.
+			// Pengaktifan kembali tetap MOD.
+			catatAuditMaster(session, ctx, aktifBaru ? "master_aktifkan" : "master_nonaktifkan",
+					tabel, id,
+					aktifBaru ? ais.service.tenant.TenantAuditWriter.REVTYPE_MOD
+							: ais.service.tenant.TenantAuditWriter.REVTYPE_DEL,
+					sebelum, cuplikanAudit(session, sk, tabel, id));
 			tx.commit();
 			hasil.put("status", "00");
 			hasil.put("id", id);
@@ -1138,6 +1197,7 @@ public final class SalesInventoryMasterHelper {
 		Transaction tx = null;
 		try {
 			tx = session.beginTransaction();
+			String sebelum = cuplikanAudit(session, sk, tabel, id);
 			Long idAkhir = id;
 			if (id == null) {
 				java.sql.PreparedStatement ins = session.connection().prepareStatement(
@@ -1175,6 +1235,11 @@ public final class SalesInventoryMasterHelper {
 				return;
 			}
 			simpanProfilTenant(session, sk, request, supplierMode, idAkhir, oleh);
+			catatAuditMaster(session, ctx, supplierMode ? "master_supplier_simpan"
+					: "master_customer_simpan", tabel, idAkhir,
+					id == null ? ais.service.tenant.TenantAuditWriter.REVTYPE_ADD
+							: ais.service.tenant.TenantAuditWriter.REVTYPE_MOD,
+					sebelum, cuplikanAudit(session, sk, tabel, idAkhir));
 			tx.commit();
 			hasil.put("status", "00");
 			hasil.put("id", idAkhir);
@@ -1297,6 +1362,7 @@ public final class SalesInventoryMasterHelper {
 		Transaction tx = null;
 		try {
 			tx = session.beginTransaction();
+			String sebelum = cuplikanAudit(session, sk, "salesperson", id);
 			Long idAkhir = id;
 			if (id == null) {
 				java.sql.PreparedStatement ins = session.connection().prepareStatement(
@@ -1338,6 +1404,10 @@ public final class SalesInventoryMasterHelper {
 				return;
 			}
 			simpanPenugasanTenant(session, sk, idAkhir, tokoId, opt(request, "area"), oleh);
+			catatAuditMaster(session, ctx, "master_sales_simpan", "salesperson", idAkhir,
+					id == null ? ais.service.tenant.TenantAuditWriter.REVTYPE_ADD
+							: ais.service.tenant.TenantAuditWriter.REVTYPE_MOD,
+					sebelum, cuplikanAudit(session, sk, "salesperson", idAkhir));
 			tx.commit();
 			hasil.put("status", "00");
 			hasil.put("id", idAkhir);

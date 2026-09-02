@@ -532,14 +532,12 @@ public final class SalesInventoryFinanceHelper {
 			tolak(hasil, "Menu terkait tidak aktif untuk akun Anda.");
 			return;
 		}
-		if (SalesInventoryFinanceTenant.aktif(ctx)
-				&& !SalesInventoryFinanceTenant.dukungRiwayatAudit()) {
+		if (SalesInventoryFinanceTenant.aktif(ctx)) {
 			// Envers menaruh seluruh barisnya pada satu schema yang ditetapkan statis per
-			// SessionFactory (default_schema=new_audit). Membiarkannya berjalan berarti
-			// menyajikan riwayat perubahan SELURUH instalasi kepada satu tenant -- kebocoran,
-			// bukan sekadar hasil yang salah.
-			tolak(hasil, "Riwayat audit belum tersedia pada tenant berschema: Envers menulis ke "
-					+ "satu schema audit bersama. Penggantinya menyusul lewat TenantAuditWriter.");
+			// SessionFactory (default_schema=new_audit): membiarkannya berjalan akan menyajikan
+			// riwayat perubahan SELURUH instalasi kepada satu tenant. Jalur tenant karena itu
+			// membaca jejaknya sendiri, yang ditulis TenantAuditWriter ke schema audit tenant.
+			auditHistoryTenant(ctx, hasil, jenis, id);
 			return;
 		}
 		Class<?> kelas = (Class<?>) peta[0];
@@ -591,6 +589,113 @@ public final class SalesInventoryFinanceHelper {
 			hasil.put("totalRevisi", revs.size());
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * Riwayat audit satu baris data pada schema tenant.
+	 *
+	 * <h4>Mengapa bukan Envers</h4>
+	 * <p>{@code org.hibernate.envers.default_schema} bersifat <b>statis per SessionFactory</b>,
+	 * sehingga baris audit seluruh tenant berkumpul di satu schema. Membacanya untuk satu tenant
+	 * berarti menyajikan riwayat perubahan seluruh instalasi kepadanya — kebocoran, bukan sekadar
+	 * hasil yang salah. Jalur tenant karena itu membaca {@code audit_baris} miliknya sendiri.</p>
+	 *
+	 * <h4>Entitas di luar cakupan DITOLAK, bukan dijawab kosong</h4>
+	 * <p>Jejak audit hanya ada untuk entitas yang penulisnya sudah terpasang. Menjawab entitas
+	 * lain dengan daftar kosong berarti mengatakan "tidak pernah berubah" tentang record yang
+	 * jelas pernah berubah — persis kekeliruan yang penolakan lama justru hindari. Penolakannya
+	 * menyebut entitas mana yang sudah terliput.</p>
+	 *
+	 * <h4>Riwayat dimulai saat pencatatannya dipasang</h4>
+	 * <p>Tidak ada pengisian surut: perubahan yang terjadi sebelum penulisnya terpasang memang
+	 * tidak terekam, dan tidak dapat direkayasa belakangan. Karena itu jawaban yang kosong
+	 * disertai {@code peringatan} yang mengatakan begitu, alih-alih membiarkannya terbaca sebagai
+	 * "record ini tidak pernah disentuh".</p>
+	 */
+	private static void auditHistoryTenant(EbisnisActorContextResolver.ActorContext ctx,
+			JSONObject hasil, String jenis, Long id) throws Exception {
+		String tabel = SalesInventoryFinanceTenant.tabelTeraudit(jenis);
+		if (tabel == null) {
+			tolak(hasil, "Riwayat audit untuk \"" + jenis + "\" belum dicatat pada tenant"
+					+ " berschema. Yang sudah terliput: "
+					+ SalesInventoryFinanceTenant.daftarEntitasTeraudit() + ".");
+			return;
+		}
+		String audit = SalesInventoryFinanceTenant.skemaAudit(ctx);
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			long total = 0;
+			java.sql.PreparedStatement psC = session.connection().prepareStatement(
+					SalesInventoryFinanceTenant.cacahRiwayatAudit(audit));
+			try {
+				psC.setString(1, tabel);
+				psC.setString(2, String.valueOf(id));
+				java.sql.ResultSet rsC = psC.executeQuery();
+				if (rsC.next()) {
+					total = rsC.getLong(1);
+				}
+				rsC.close();
+			} finally {
+				psC.close();
+			}
+			JSONArray rows = new JSONArray();
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(
+					SalesInventoryFinanceTenant.selectRiwayatAudit(audit));
+			try {
+				ps.setString(1, tabel);
+				ps.setString(2, String.valueOf(id));
+				java.sql.ResultSet rs = ps.executeQuery();
+				while (rs.next()) {
+					JSONObject r = new JSONObject();
+					r.put("revisi", rs.getLong(1));
+					r.put("waktu", str(rs.getTimestamp(2)));
+					r.put("revtype", rs.getInt(3));
+					// "nilai" mengikuti bentuk jalur legacy: keadaan SESUDAH perubahan. Pada
+					// penghapusan ia memang kosong, sama seperti Envers mengembalikan null.
+					r.put("nilai", muatanAudit(rs.getString(5)));
+					r.put("sebelum", muatanAudit(rs.getString(4)));
+					r.put("oleh", str(rs.getString(6)));
+					r.put("peran", str(rs.getString(7)));
+					r.put("aksi", str(rs.getString(8)));
+					r.put("alasan", str(rs.getString(9)));
+					r.put("requestId", str(rs.getString(10)));
+					rows.put(r);
+				}
+				rs.close();
+			} finally {
+				ps.close();
+			}
+			hasil.put("status", "00");
+			hasil.put("rows", rows);
+			hasil.put("totalRevisi", total);
+			if (total == 0) {
+				hasil.put("peringatan", "Belum ada jejak audit untuk data ini pada tenant"
+						+ " berschema. Pencatatannya dimulai sejak penulis audit dipasang;"
+						+ " perubahan sebelum itu tidak terekam dan tidak dapat direkayasa"
+						+ " belakangan.");
+			}
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * Muatan {@code sebelum}/{@code sesudah} sebagai objek JSON. Muatannya memang disimpan
+	 * sebagai teks JSON oleh penulisnya; bila suatu baris ternyata bukan JSON yang sah —
+	 * misalnya ditulis alat lain — isinya dikembalikan apa adanya pada medan {@code teks},
+	 * bukan dibuang diam-diam.
+	 */
+	private static JSONObject muatanAudit(String teks) throws Exception {
+		JSONObject kosong = new JSONObject();
+		if (teks == null || teks.trim().length() == 0) {
+			return kosong;
+		}
+		try {
+			return new JSONObject(teks);
+		} catch (Exception bukanJson) {
+			kosong.put("teks", teks);
+			return kosong;
 		}
 	}
 

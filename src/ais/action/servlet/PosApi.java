@@ -2327,14 +2327,27 @@ public class PosApi extends HttpServlet {
 		if (action.startsWith("stok_") || action.startsWith("so_")) {
 			return menu.optBoolean("stokopname", true);
 		}
-		// satuan_kerja_* ikut kunci "anggota": layarnya adalah TAB di dalam layar
-		// Anggota, persis seperti jenis_anggota_/tipe_anggota_. Sebelumnya prefiks
-		// ini tidak dipetakan sama sekali sehingga jatuh ke `return true` di ujung
-		// metode -- dan dua handler-nya (satuanKerjaHapus, satuanKerjaAnggotaSimpan)
-		// bahkan tidak menerima Tbmuser, jadi tidak ada lapis kedua yang menjaga.
+		// Beberapa prefiks/nama di bawah ini dulunya TIDAK dipetakan sama sekali,
+		// sehingga jatuh ke `return true` di ujung metode ini:
+		//
+		//   satuan_kerja_*  -- dua handler-nya (satuanKerjaHapus,
+		//                     satuanKerjaAnggotaSimpan) bahkan tidak menerima
+		//                     Tbmuser, jadi tidak ada lapis kedua yang menjaga.
+		//   mutasi_tabungan_list, mutasi_hutang_list, pembantu_piutang_list
+		//                  -- daftar MUTASI KEUANGAN ANGGOTA. Dua yang pertama
+		//                     tidak menerima Tbmuser, dan ketiganya tidak
+		//                     menyaring toko sama sekali: tanpa filter id_anggota
+		//                     mereka mengembalikan mutasi tabungan/hutang/piutang
+		//                     SELURUH anggota lintas toko. Lihat docs/pos/98.
+		//
+		// Semuanya layar di dalam menu Anggota, jadi kuncinya mengikuti
+		// saudara-saudaranya (jenis_anggota_/tipe_anggota_).
 		if (action.startsWith("anggota_") || action.startsWith("jenis_anggota_")
 				|| action.startsWith("tipe_anggota_") || action.startsWith("deposit_")
 				|| action.startsWith("satuan_kerja_")
+				|| "mutasi_tabungan_list".equals(action)
+				|| "mutasi_hutang_list".equals(action)
+				|| "pembantu_piutang_list".equals(action)
 				|| action.startsWith("notifikasi_") || action.startsWith("sinkron_")) {
 			return menu.optBoolean("anggota", true);
 		}
