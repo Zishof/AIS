@@ -1360,6 +1360,37 @@ public class PembayaranUtil {
 		return d;
 	}
 
+	/**
+	 * Menghitung rincian tagihan mahasiswa untuk jalur layanan pembayaran dan host-to-host.
+	 * Hasil method ini harus konsisten dengan layar Pembayaran Mahasiswa karena inquiry bank,
+	 * pembuatan virtual account, dan validasi nominal memakai sumber data yang sama.
+	 *
+	 * <p><b>Urutan penting:</b> status akademik asli terlebih dahulu diubah menjadi status
+	 * pembayaran efektif melalui
+	 * {@link PembayaranUtilHelper#statusMahasiswaPembayaranEfektif}. Mesin kemudian memilih daftar
+	 * item dan satu {@code SettingBiaya} berdasarkan profil mahasiswa. Sesudah root criteria
+	 * {@code DetailBiaya} terbentuk, method wajib memanggil
+	 * {@link PembayaranUtilHelper#batasiPembacaanDetailBiayaKeSettingTerpilih}. Helper tersebut
+	 * menerima tiga bentuk relasi modern serta baris Pengaturan Tagihan legacy yang seluruh relasi
+	 * setting-nya kosong. Filter item, semester, periode, angkatan, jenjang, prodi, program, status,
+	 * status awal, semester mulai, kewarganegaraan, kelas, tempat tinggal, dan parameter tambahan
+	 * tetap diterapkan sesudahnya.</p>
+	 *
+	 * <p>Jangan membuat implementasi pembatas setting tersendiri di kelas H2H. Perbedaan sekecil
+	 * apa pun dapat membuat nominal pada layar admin benar tetapi inquiry bank bernilai nol. Jangan
+	 * pula memakai status pembayaran efektif sebagai nilai display atau menyimpannya ke riwayat
+	 * akademik; nilai tersebut hanya untuk pencocokan billing. Parameter {@code reload} mengatur
+	 * cache tagihan, bukan mengubah aturan pemilihan sumber.</p>
+	 *
+	 * @param mahasiswa mahasiswa yang tagihannya dibaca
+	 * @param semester semester pembayaran yang sedang diinquiry
+	 * @param jenisKegiatan jenis pembayaran/tagihan
+	 * @param bulan bulan khusus jalur tagihan bulanan; kosong untuk tagihan reguler
+	 * @param untukBulananTampilkanMeskipunSudahDibayar apakah bulan lunas tetap ikut dibaca
+	 * @param reload apakah cache dilewati dan data dibaca ulang
+	 * @return detail biaya yang cocok dan aman dipakai menghitung nominal layanan pembayaran
+	 * @see PembayaranUtilHelper#batasiPembacaanDetailBiayaKeSettingTerpilih
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public Collection getDetailBiayaMahasiswadariDatabase(Mahasiswa mahasiswa, Integer semester,
 			JenisKegiatan jenisKegiatan, String bulan, boolean untukBulananTampilkanMeskipunSudahDibayar,

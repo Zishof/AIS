@@ -132,12 +132,34 @@ public class SetingBiayaHelper {
      * Membatasi kandidat yang akan dipakai ulang/diubah ke satu induk {@link SettingBiaya}.
      * Relasi dapat tersimpan langsung atau melalui salah satu rincian turunannya.
      *
-     * <p>Helper ini sengaja ketat: baris {@link DetailBiaya} yang seluruh relasi sumbernya
-     * {@code null} tidak boleh lolos. Query ini berada pada jalur tulis/reuse; menerima baris
-     * tanpa induk dapat membuat tagihan legacy diam-diam menjadi milik setting lain. Untuk query
-     * baca layar pembayaran dan H2H, gunakan
+     * <p><b>Mengapa helper ini berbeda dari helper query baca:</b> method ini dipakai ketika mesin
+     * mencari baris yang akan dipakai ulang, diperbarui, atau dipasangkan kembali saat membentuk
+     * setting. Karena operasi sesudah query dapat menulis data, asal-usul setiap kandidat harus
+     * dapat dibuktikan. Baris {@link DetailBiaya} yang seluruh relasi sumbernya {@code null}
+     * sengaja tidak boleh lolos. Menerimanya dapat membuat tagihan legacy milik cohort lama
+     * diam-diam menjadi milik setting baru hanya karena item, semester, dan beberapa atributnya
+     * kebetulan sama.</p>
+     *
+     * <p><b>Urutan relasi:</b> bila {@code settingBiayaDetail} ada, relasi individual tersebut
+     * harus menunjuk setting yang diminta. Bila relasi individual kosong tetapi
+     * {@code detailSettingBiaya} ada, relasi rincian itu harus menunjuk setting yang diminta.
+     * Hanya ketika keduanya kosong, relasi langsung {@code DetailBiaya.settingBiaya} diperiksa dan
+     * wajib terisi dengan setting yang sama. Tidak ada cabang keempat untuk ketiga relasi kosong.
+     * Urutan ini mencegah relasi langsung yang usang menutupi relasi individual/rincian yang lebih
+     * spesifik.</p>
+     *
+     * <p><b>Jangan disatukan secara mekanis.</b> Query baca layar pembayaran perlu menerima baris
+     * legacy tanpa relasi karena seluruh filter profil masih memvalidasi kecocokannya. Query
+     * tulis/reuse ini mempunyai konsekuensi kepemilikan data, sehingga harus tetap ketat. Untuk
+     * query baca layar pembayaran admin, calon mahasiswa, dan H2H, gunakan
      * {@link PembayaranUtilHelper#batasiPembacaanDetailBiayaKeSettingTerpilih(Criteria, SettingBiaya)}
-     * yang mempunyai aturan kompatibilitas legacy tersendiri.</p>
+     * yang mempunyai aturan kompatibilitas legacy tersendiri. Perbedaan ini merupakan invariant,
+     * bukan duplikasi yang perlu dirapikan.</p>
+     *
+     * @param criteria criteria {@link DetailBiaya} pada jalur pembentukan atau reuse
+     * @param settingBiaya induk yang wajib dimiliki kandidat
+     * @param suffix akhiran alias agar helper dapat dipanggil pada lebih dari satu criteria
+     * @return criteria yang sama setelah batas kepemilikan sumber ditambahkan
      */
     private static Criteria batasiKeSettingBiayaTerpilih(Criteria criteria, SettingBiaya settingBiaya,
             String suffix) {

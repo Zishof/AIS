@@ -109,19 +109,66 @@ public class PembayaranUtilHelper {
 	private static final String SQL_FALSE = "1=0";
 
 	/**
-	 * Membatasi query baca {@link DetailBiaya} ke {@link SettingBiaya} yang sudah dipilih oleh
-	 * mesin prioritas, tanpa memutus kompatibilitas dengan data tagihan legacy.
+	 * Menambahkan batas sumber pada query baca {@link DetailBiaya} berdasarkan
+	 * {@link SettingBiaya} yang sudah dipilih oleh mesin prioritas. Method ini adalah satu-satunya
+	 * kontrak yang boleh dipakai oleh layar pembayaran admin dan layanan pembayaran/H2H untuk
+	 * membatasi sumber template biaya. Tujuannya bukan memilih setting; pemilihan tersebut harus
+	 * sudah selesai melalui {@link SetingBiayaHelper#getSettingBiayaTerpilih}. Tugas method ini
+	 * hanya memastikan baris biaya yang dibaca berasal dari setting terpilih atau merupakan data
+	 * legacy sah yang belum mempunyai jejak induk.
 	 *
-	 * <p>Ada empat bentuk sumber yang sah: relasi individual melalui
-	 * {@code SettingBiayaDetail}, relasi rincian melalui {@code DetailSettingBiaya}, relasi
-	 * langsung {@code DetailBiaya.settingBiaya}, dan baris legacy yang ketiga relasinya masih
-	 * {@code null}. Jika salah satu relasi tersedia, relasi itu wajib menunjuk setting terpilih;
-	 * baris yang menunjuk setting lain tetap ditolak.</p>
+	 * <p><b>Latar belakang kompatibilitas.</b> ECAMPUS mempunyai lebih dari satu generasi pembentuk
+	 * tagihan. Data modern menyimpan hubungan ke setting melalui {@code SettingBiayaDetail},
+	 * {@code DetailSettingBiaya}, atau langsung melalui {@code DetailBiaya.settingBiaya}. Layar
+	 * Pengaturan Tagihan lama dapat membuat {@code DetailBiaya} secara langsung sehingga ketiga
+	 * hubungan itu seluruhnya {@code null}. Baris legacy tersebut tetap membawa atribut profil
+	 * lengkap, misalnya jenis kegiatan, tahun akademik, semester, angkatan, jenjang, prodi,
+	 * program, status mahasiswa, status awal, dan semester mulai. Karena itu ketiadaan relasi
+	 * sumber tidak berarti baris tidak sah. Regresi 2026-09-02 terjadi ketika pembatas setting
+	 * hanya menerima tiga bentuk modern: nominal telah tersimpan, tetapi dibuang oleh query baca
+	 * dan layar keliru menampilkan pesan "Belum ada tagihan".</p>
 	 *
-	 * <p>Method ini khusus query <b>baca</b>. Query lanjutan wajib tetap menambahkan kriteria
-	 * profil (periode, semester, prodi, program, status, angkatan, dan parameter lain). Jangan
-	 * memakai kelonggaran baris legacy ini pada query tulis/reuse di {@link SetingBiayaHelper},
-	 * karena baris tanpa induk tidak boleh diam-diam dipindahkan ke setting lain.</p>
+	 * <p><b>Urutan otoritas relasi.</b> Relasi yang lebih spesifik selalu menang dan tidak boleh
+	 * dilewati hanya karena relasi yang kurang spesifik kebetulan cocok:</p>
+	 * <ol>
+	 * <li>Jika {@code settingBiayaDetail} terisi, induknya wajib sama dengan setting terpilih.</li>
+	 * <li>Jika relasi pertama kosong dan {@code detailSettingBiaya} terisi, induknya wajib sama
+	 * dengan setting terpilih.</li>
+	 * <li>Jika dua relasi pertama kosong dan {@code settingBiaya} terisi, nilainya wajib sama
+	 * dengan setting terpilih.</li>
+	 * <li>Jika ketiganya kosong, baris diterima sebagai kandidat legacy. Penerimaan akhir tetap
+	 * ditentukan oleh semua filter profil pada query pemanggil.</li>
+	 * </ol>
+	 * Dengan aturan tersebut, baris yang secara eksplisit menunjuk setting lain tetap ditolak.
+	 * Cabang legacy hanya berlaku saat tidak ada satu pun relasi yang dapat menjadi sumber
+	 * kebenaran; cabang itu bukan fallback untuk mengabaikan relasi yang salah.
+	 *
+	 * <p><b>Prasyarat keamanan.</b> Method ini tidak cukup untuk dijalankan sendirian. Pemanggil
+	 * wajib membatasi {@code itemBiaya} dengan daftar item dari setting terpilih dan menerapkan
+	 * seluruh atribut profil yang tersedia: jenis pembayaran, periode, semester, angkatan,
+	 * jenjang, prodi, program, status awal, status pembayaran efektif, semester mulai,
+	 * kewarganegaraan, kelas, tempat tinggal, paket, gelombang, jenis seleksi, afiliasi, serta
+	 * parameter tambahan aktif. Jangan melonggarkan salah satu filter tersebut untuk membuat
+	 * baris legacy tampil. Pembatas sumber dan pembatas profil memecahkan masalah yang berbeda dan
+	 * keduanya wajib dipertahankan.</p>
+	 *
+	 * <p><b>Batas pemakaian.</b> Method ini hanya untuk operasi baca. Query yang akan membuat,
+	 * memperbarui, memakai ulang, atau memasangkan {@code DetailBiaya} ke setting harus memakai
+	 * pembatas ketat milik {@link SetingBiayaHelper}. Query tulis tidak boleh menerima baris dengan
+	 * seluruh relasi {@code null}, sebab tindakan tersebut dapat mengubah kepemilikan tagihan lama
+	 * secara diam-diam. Jangan menyalin susunan {@link Restrictions} ini ke kelas lain; panggil
+	 * helper ini agar UI admin, calon mahasiswa, dan H2H selalu mempunyai perilaku identik.</p>
+	 *
+	 * <p><b>Semantik nilai {@code null}.</b> Bila {@code criteria} atau {@code settingBiaya}
+	 * {@code null}, method mengembalikan criteria tanpa perubahan. Kondisi ini mempertahankan
+	 * perilaku alur pengecualian/default yang memang tidak memperoleh setting terpilih. Pemanggil
+	 * tidak boleh menafsirkan hasil tanpa perubahan sebagai izin menghapus filter profil.</p>
+	 *
+	 * @param criteria criteria yang posisi root aktifnya adalah {@link DetailBiaya}; root tersebut
+	 * dapat berasal langsung dari {@code createCriteria(DetailBiaya.class)} atau dari navigasi
+	 * {@code PengaturanPembayaranBulanan.detailBiaya}
+	 * @param settingBiaya hasil akhir mesin prioritas untuk profil dan periode yang sedang diproses
+	 * @return instance criteria yang sama, setelah dua {@code LEFT JOIN} dan batas sumber ditambahkan
 	 */
 	public static Criteria batasiPembacaanDetailBiayaKeSettingTerpilih(Criteria criteria,
 			SettingBiaya settingBiaya) {
@@ -147,6 +194,32 @@ public class PembayaranUtilHelper {
 		return criteria;
 	}
 
+	/**
+	 * Menghasilkan status yang khusus dipakai untuk pencocokan template dan tagihan pembayaran,
+	 * tanpa mengubah status akademik asli mahasiswa.
+	 *
+	 * <p>Sistem membedakan dua konsep yang tidak boleh dicampur. Status asli berasal dari riwayat
+	 * akademik dan harus tetap dipakai untuk display, laporan, serta proses akademik. Status
+	 * pembayaran efektif hanya merupakan nilai pencarian sementara. Contohnya, ketika konfigurasi
+	 * {@code mahasiswa_dengan_status_non_aktif_bisa_melakukan_pembayaran_seperti_status_aktif}
+	 * aktif, mahasiswa berstatus Nonaktif dicocokkan dengan template biaya berstatus Aktif, tetapi
+	 * layar identitas tetap menampilkan Nonaktif. Method ini tidak menyimpan perubahan ke
+	 * {@code Mahasiswa} maupun {@code HistoryStatusMahasiswa}.</p>
+	 *
+	 * <p>Seluruh jalur yang mencari tagihan berdasarkan status wajib memanggil method ini, termasuk
+	 * UI admin, proses pembentukan kegiatan, upload cicilan, renderer rincian, payment gateway, dan
+	 * layanan H2H. Jangan menulis ulang kondisi {@code Nonaktif -> Aktif} secara lokal karena helper
+	 * ini juga menangani konfigurasi status Lulus dan Kampus Merdeka. Menyalin sebagian aturan akan
+	 * membuat nominal yang terlihat di admin berbeda dengan nominal inquiry bank.</p>
+	 *
+	 * <p>Parameter {@code null} dikembalikan sebagai {@code null}. Jika konfigurasi tidak aktif atau
+	 * status tidak termasuk yang diberi perlakuan khusus, instance status asli dikembalikan apa
+	 * adanya. Kesalahan saat membaca konfigurasi dicatat dan tidak boleh menggagalkan proses utama;
+	 * dalam kondisi tersebut status asli menjadi fallback yang aman.</p>
+	 *
+	 * @param statusMahasiswa status akademik asli pada periode yang sedang dihitung
+	 * @return status sementara untuk pencarian tagihan; tidak pernah dimaksudkan sebagai status UI
+	 */
 	public static StatusMahasiswa statusMahasiswaPembayaranEfektif(StatusMahasiswa statusMahasiswa) {
 		StatusMahasiswa hasil = statusMahasiswa;
 		try {
@@ -430,6 +503,14 @@ public class PembayaranUtilHelper {
 	 * {@link TreeSet}, dilengkapi keterangan via {@code DetailBiaya.updateKeterangan(...)}, ditulis
 	 * ke cache, lalu dikembalikan.</li>
 	 * </ol>
+	 *
+	 * <p><b>Kontrak sumber:</b> setelah satu {@link SettingBiaya} terpilih, query selalu memanggil
+	 * {@link #batasiPembacaanDetailBiayaKeSettingTerpilih}. Langkah ini menerima bentuk relasi
+	 * modern dan bentuk legacy tanpa relasi, tetapi tidak menggantikan filter profil rinci yang
+	 * diterapkan sesudahnya. Jangan mengganti helper tersebut dengan
+	 * {@code Restrictions.eq("settingBiaya", settingBiayaTerpilih)} karena pola itu menghilangkan
+	 * tagihan dari Pengaturan Tagihan lama walaupun nominal dan profilnya benar.</p>
+	 *
 	 * Membuka {@link Session} sendiri dan selalu menutupnya di {@code finally}; error tak terduga
 	 * dicatat lewat {@code ErrorAuditUtil}/{@code printStackTrace} dan mengembalikan koleksi kosong
 	 * (bukan melempar exception ke pemanggil).
@@ -1026,6 +1107,9 @@ public class PembayaranUtilHelper {
 	 * {@link Criteria} ke {@link PengaturanPembayaranBulanan} atau {@link DetailBiaya} tergantung
 	 * hasil (4), disaring lewat paket, gelombang pendaftaran, status awal, jenis seleksi, jenjang,
 	 * jurusan, angkatan, dsb; (6) dedup per {@code itemBiaya}, simpan ke cache, kembalikan.
+	 * Pembatas sumber modern/legacy selalu diterapkan melalui
+	 * {@link #batasiPembacaanDetailBiayaKeSettingTerpilih}; seluruh filter profil calon mahasiswa
+	 * tetap wajib berjalan setelah pembatas tersebut.
 	 *
 	 * @param biodataCalonMahasiswa calon mahasiswa subjek tagihan; {@code null} atau
 	 *        {@code jenisKegiatan == null} langsung mengembalikan koleksi kosong

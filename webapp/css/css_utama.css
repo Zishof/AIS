@@ -13939,6 +13939,38 @@ html body .elearning-bimbingan-filter-actions {
     }
 }
 
+/* Halaman CPL memakai MyButtonTabbox di dalam frame utama yang tingginya terbatas.
+   Scroll hanya dimiliki panel aktif. Konten CRUD harus bertinggi alami agar seluruh
+   baris memperbesar scrollHeight panel, bukan membuat scrollbar bersarang yang
+   ujungnya terpotong pada viewport pendek. */
+html body .ais-obe-cpl-tab-host {
+    min-height: 0 !important;
+    max-height: 100% !important;
+    overflow: hidden !important;
+}
+
+html body .ais-obe-cpl-scroll-panel {
+    height: 100% !important;
+    min-height: 0 !important;
+    overflow-x: auto !important;
+    overflow-y: auto !important;
+    box-sizing: border-box !important;
+    -webkit-overflow-scrolling: touch;
+}
+
+html body .ais-obe-cpl-scroll-panel > .ais-obe-cpl-scroll-content {
+    height: auto !important;
+    min-height: 100% !important;
+    overflow: visible !important;
+}
+
+html body .ais-obe-cpl-scroll-content > .ais-crud-data-card .dgrid.z-grid,
+html body .ais-obe-cpl-scroll-content > .ais-crud-data-card .z-grid-body {
+    height: auto !important;
+    max-height: none !important;
+    overflow-y: visible !important;
+}
+
 /* Pola filter field modern yang dipakai halaman ZUL baru. Dibuat generik agar
    halaman berikutnya cukup memakai class ini tanpa membuat CSS per modul. */
 html body .ecampus-zul-filter-fields {

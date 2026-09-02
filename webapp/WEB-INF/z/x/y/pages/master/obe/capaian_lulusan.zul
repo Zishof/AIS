@@ -22,7 +22,7 @@
 			<tabpanels>
 
 				<tabpanel use="ais.ui.util.MyTabpanel">
-					<div sclass="ais-crud-portal">
+					<div sclass="ais-crud-portal ais-obe-cpl-scroll-content">
 
 						<!-- ═══ KARTU FILTER ═══ -->
 						<div sclass="ais-crud-filter-card">

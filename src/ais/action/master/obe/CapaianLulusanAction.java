@@ -154,15 +154,19 @@ public class CapaianLulusanAction extends ObeBaseAction {
 
         Component parent = tabboxUtama.getParent();
         Div host = new Div();
+        host.setSclass("ais-obe-cpl-tab-host");
         host.setWidth("100%");
         host.setHeight("calc(100vh - 150px)");
-        host.setStyle("min-height:620px;overflow:hidden;box-sizing:border-box;");
+        // Jangan memakai min-height piksel tetap. Pada viewport pendek, parent utama
+        // memotong kelebihan tinggi dengan overflow:hidden sehingga ujung daftar CPL
+        // tidak pernah dapat dijangkau walaupun panel anak mempunyai scrollbar.
+        host.setStyle("min-height:0;max-height:100%;overflow:hidden;box-sizing:border-box;");
         parent.insertBefore(host, tabboxUtama);
 
         buttonTabboxUtama = MyButtonTabbox.buat(host, "100%", new int[] { 1 });
         buttonTabboxUtama.setTombolMembungkus(true);
         Div panelDaftar = buttonTabboxUtama.tambahTab(1, "Capaian Lulusan (CPL)");
-        panelDaftar.setStyle("overflow:auto;min-height:560px;padding-bottom:12px;box-sizing:border-box;");
+        siapkanPanelScrollable(panelDaftar);
         tambahPenjelasanTab(panelDaftar, "Capaian Lulusan (CPL)",
                 "Daftar kemampuan yang wajib dimiliki lulusan program studi. Isi satu baris untuk "
                 + "setiap capaian, lengkap dengan kode, uraian CPL, kategori, dan program studi.");
@@ -226,9 +230,14 @@ public class CapaianLulusanAction extends ObeBaseAction {
     }
 
     private void siapkanPanelRelasi(Div panel) {
-        // Penjelasan berada di atas matriks; izinkan scroll agar matriks tidak
-        // terpotong ketika tinggi layar pengguna terbatas.
-        panel.setStyle("overflow:auto;min-height:560px;box-sizing:border-box;");
+        siapkanPanelScrollable(panel);
+    }
+
+    /** Satu panel aktif menjadi pemilik scroll, tanpa tinggi minimum yang melampaui viewport. */
+    private void siapkanPanelScrollable(Div panel) {
+        panel.setSclass("ais-obe-cpl-scroll-panel");
+        panel.setHeight("100%");
+        panel.setStyle("min-height:0;overflow:auto;padding-bottom:12px;box-sizing:border-box;");
     }
 
     /** Menampilkan petunjuk singkat yang konsisten di bagian atas setiap tab CPL. */
