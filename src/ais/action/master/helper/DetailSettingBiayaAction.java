@@ -6,7 +6,6 @@ import ais.common.CommonSearchFilterHelper;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
@@ -137,9 +136,10 @@ import ais.ui.util.MyToolbarbuttonConfig;
  *
  * <p><b>Fitur lain:</b> upload/download Excel massal tagihan dan template SettingBiayaDetail
  * ({@link #uploadDataMahasiswa}, {@link #uploadDataCalonMahasiswa}), tombol Reset (kembalikan
- * tagihan ke default billing, {@code rst=true}) dan Refresh (hitung ulang tanpa reset), serta
- * — untuk item biaya yang jenis kegiatannya wajib bulanan ({@link #wajibBulanan()}) — panel akses
- * cepat ke editor "Pengaturan Pembayaran Bulanan" ({@link #tampilkanAksesPengaturanBulanan}).
+	 * tagihan ke default billing, {@code rst=true}) dan Refresh (hitung ulang tanpa reset).
+	 * Akses membuat/mengatur Billing sengaja tidak diletakkan di layar detail ini; akses tersebut
+	 * berada pada menu Action setiap baris Setting Biaya dengan Tagihan Default = Tidak agar jalur
+	 * navigasinya tunggal dan dapat ditemukan tanpa membuka detail lebih dulu.
  * Penghapusan binding SettingBiayaDetail ({@link #bolehHapusSettingBiayaDetail}) tidak pernah
  * menghapus {@link DetailBiaya} yang sudah dipakai sebagai transaksi/tagihan historis — baris
  * di-null-kan referensinya (mahasiswa/calon mahasiswa dilepas) alih-alih dihapus, demi menjaga
@@ -183,122 +183,6 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 	private Combobox tahunAkademik;
 
 	private Tbmuser tbmuser;
-
-	/**
-	 * @return {@code true} bila {@link JenisKegiatan} milik {@link #settingBiaya} ditandai
-	 *         "hanya berupa angsuran" (wajib dibayar bulanan) — mengontrol apakah panel akses
-	 *         cepat "Pengaturan Pembayaran Bulanan" ({@link #tampilkanAksesPengaturanBulanan})
-	 *         ditampilkan.
-	 */
-	private boolean wajibBulanan() {
-		return settingBiaya != null && settingBiaya.getJenisKegiatan() != null
-				&& Boolean.TRUE.equals(settingBiaya.getJenisKegiatan().getHanyaBerupaAngsuran());
-	}
-
-	/**
-	 * Ambil id sebagai string dari sebuah {@link ais.database.model.GeneralValueObject}, dipakai
-	 * membangun query string parameter filter di {@link #urlEditorBulananSettingBiaya}.
-	 *
-	 * @param nilai objek referensi (mis. Jenjang, Jurusan, StatusMahasiswa); boleh tipe lain/null.
-	 * @return id sebagai string, atau {@code "-1"} bila bukan GeneralValueObject atau id-nya null
-	 *         (konvensi "semua/tidak difilter" pada layar tujuan).
-	 */
-	private String idAtauSemua(Object nilai) {
-		if (nilai instanceof ais.database.model.GeneralValueObject) {
-			Long id = ((ais.database.model.GeneralValueObject) nilai).getId();
-			return id == null ? "-1" : id.toString();
-		}
-		return "-1";
-	}
-
-	/**
-	 * @param combo        combobox sumber nilai.
-	 * @param nilaiDefault nilai fallback bila combo/selection/value kosong.
-	 * @return nilai terpilih combo sebagai string, atau {@code nilaiDefault}.
-	 */
-	private String nilaiCombo(Combobox combo, String nilaiDefault) {
-		if (combo != null && combo.getSelectedItem() != null && combo.getSelectedItem().getValue() != null) {
-			return combo.getSelectedItem().getValue().toString();
-		}
-		return nilaiDefault;
-	}
-
-	/**
-	 * Bangun URL layar {@code detail_biaya_excel.zul} dengan seluruh parameter filter yang
-	 * meniru kriteria {@link #settingBiaya} ini (semester, tahun ajaran, program, angkatan,
-	 * jenjang, jurusan, status mahasiswa/awal, jenis kegiatan, paket, jenis seleksi, gelombang
-	 * pendaftaran) plus flag {@code autoBukaRencanaAngsuran=1}, sehingga saat dibuka dari
-	 * {@link #tampilkanAksesPengaturanBulanan} layar tujuan langsung menampilkan editor rencana
-	 * angsuran untuk SettingBiaya ini tanpa perlu filter ulang manual.
-	 *
-	 * @return URL relatif lengkap dengan query string ter-encode UTF-8.
-	 */
-	private String urlEditorBulananSettingBiaya() throws Exception {
-		Integer semester = settingBiaya.getMinSmt() == null ? Integer.valueOf(1) : settingBiaya.getMinSmt();
-		String tahunAjaran = nilaiCombo(tahunAkademik, settingBiaya.getTahunAkademik() == null
-				? "" : settingBiaya.getTahunAkademik());
-		String semesterMulai = settingBiaya.getSemester() == null
-				? nilaiCombo(genapGanjil, "") : settingBiaya.getSemester();
-		String program = settingBiaya.getProgram() == null || settingBiaya.getProgram().trim().length() == 0
-				? "Reguler" : settingBiaya.getProgram();
-		Integer angkatan = settingBiaya.getAngkatan() == null
-				? Integer.valueOf(Calendar.getInstance().get(Calendar.YEAR)) : settingBiaya.getAngkatan();
-		return "/pages/master/detail_biaya_excel.zul?settingBiayaBulanan=" + settingBiaya.getId()
-				+ "&searchSemester=" + semester
-				+ "&searchTahunAjaran=" + URLEncoder.encode(tahunAjaran, "UTF-8")
-				+ "&labelAngkatan=" + angkatan
-				+ "&searchMulaiBelajarDiSemester=" + URLEncoder.encode(semesterMulai, "UTF-8")
-				+ "&searchProgram=" + URLEncoder.encode(program, "UTF-8")
-				+ "&searchWargaNegara=WNI"
-				+ "&searchJenjang=" + idAtauSemua(settingBiaya.getJenjang())
-				+ "&searchJurusan=" + idAtauSemua(settingBiaya.getJurusan())
-				+ "&searchStatusMahasiswa=" + idAtauSemua(settingBiaya.getStatusMahasiswa())
-				+ "&searchStatusAwalMahasiswa=" + idAtauSemua(settingBiaya.getStatusAwalMahasiswa())
-				+ "&searchJenisKegiatan=" + idAtauSemua(settingBiaya.getJenisKegiatan())
-				+ "&searchPaket=" + idAtauSemua(settingBiaya.getPaket())
-				+ "&searchJenisSeleksi=" + idAtauSemua(settingBiaya.getJenisSeleksi())
-				+ "&searchGelombangPendaftaran=" + idAtauSemua(settingBiaya.getGelombangPendaftaran())
-				+ "&autoBukaRencanaAngsuran=1";
-	}
-
-	/**
-	 * Bila {@link #wajibBulanan()}, pasang panel info + tombol "Atur Pembayaran Bulanan" ke
-	 * {@code parent}; tombol membuka {@link #urlEditorBulananSettingBiaya()} dalam window modal,
-	 * dan memuat ulang grid ({@link #loadData(Object)}) setelah window ditutup. Tidak melakukan
-	 * apa pun bila SettingBiaya ini bukan jenis wajib bulanan.
-	 *
-	 * @param parent komponen tujuan pemasangan panel (biasanya groupbox di {@link #display()}).
-	 */
-	private void tampilkanAksesPengaturanBulanan(ais.ui.util.MyDiv parent) {
-		if (!wajibBulanan()) {
-			return;
-		}
-		Vbox panel = new Vbox();
-		panel.setWidth("98%");
-		panel.setStyle("margin:8px 1%;padding:10px;border:1px solid #9ccbd8;background:#f2fbfd;");
-		panel.setParent(parent);
-		Label judul = new Label("Pengaturan Pembayaran Bulanan");
-		judul.setStyle("font-weight:bold;color:#075985;");
-		judul.setParent(panel);
-		Label petunjuk = new Label("Jenis pembayaran ini ditandai wajib bulanan. Atur nominal/persentase, bulan, deadline, dan aturan tampilan per bulan melalui tombol berikut. Pengaturan disimpan khusus untuk Setting Biaya ini dan diterapkan ke tagihan mahasiswa yang sesuai.");
-		petunjuk.setWidth("100%");
-		petunjuk.setMultiline(true);
-		petunjuk.setParent(panel);
-		MyToolbarbuttonConfig buka = new MyToolbarbuttonConfig("Atur Pembayaran Bulanan", "/img/Money-Calculator-icon.png");
-		buka.setTooltiptext("Buka editor Pengaturan Pembayaran Bulanan untuk Setting Biaya ini");
-		buka.setParent(panel);
-		buka.addEventListener(Events.ON_CLICK, new EventListener() {
-			@Override
-			public void onEvent(Event event) throws Exception {
-				Common.displayWindow(urlEditorBulananSettingBiaya(), true, "95%", "98%", new EventListener() {
-					@Override
-					public void onEvent(Event event) throws Exception {
-						loadData(null);
-					}
-				}, "Pengaturan Pembayaran Bulanan - Setting Biaya");
-			}
-		});
-	}
 
 	private EventListener refrsh = new EventListener() {
 
@@ -1545,9 +1429,9 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 	 * mode (Ambil Mahasiswa/Calon Mahasiswa, Download/Upload template, Upload/Download Tagihan
 	 * Aktif, Hapus Semua untuk mode "khusus"; Upload Tagihan + Refresh + Reset untuk mode
 	 * reguler), kolom grid dinamis satu per {@link ItemBiaya} terpilih (di-load dari
-	 * {@link DetailSettingBiaya} aktif milik {@link #settingBiaya}), panel akses cepat
-	 * Pengaturan Pembayaran Bulanan ({@link #tampilkanAksesPengaturanBulanan}), lalu memanggil
-	 * {@link #loadData(Object)} untuk mengisi baris pertama kali. Dipanggil dari listener
+	 * {@link DetailSettingBiaya} aktif milik {@link #settingBiaya}), lalu memanggil
+	 * {@link #loadData(Object)} untuk mengisi baris pertama kali. Akses pembuatan Billing berada
+	 * pada menu Action di baris induk Setting Biaya, bukan pada detail ini. Dipanggil dari listener
 	 * {@code onOpen} di constructor, bukan langsung — memastikan layar sudah benar-benar
 	 * ditampilkan sebelum UI berat ini dibangun.
 	 */
@@ -2363,8 +2247,6 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 			column.setParent(columns);
 			column.setWidth("8%");
 		}
-
-		tampilkanAksesPengaturanBulanan(groupbox);
 
 		loadData(null);
 	}

@@ -595,3 +595,28 @@ halaman lain tetap konsisten. Saat menambahkan aturan status baru, pengembang
 harus memperbarui klasifikasi snapshot, contoh regresi, dan dokumentasi ini pada
 saat yang sama. Dengan kontrak tersebut, analisis tetap dapat digunakan ulang
 tanpa tiap layar menciptakan versi penyebab statusnya sendiri.
+
+### Akses pembuatan Billing dari Setting Biaya
+
+Pada daftar Setting Biaya, nilai kolom `Tagihan Default` menentukan lokasi
+pengisian nominal. Nilai `Ya` berarti nominal berasal langsung dari
+`DetailSettingBiaya` dan tidak perlu dibuat lagi melalui editor Billing. Nilai
+`Tidak` berarti template hanya menentukan cakupan serta item biaya; nominal dan
+rencana pembayarannya harus dibuat melalui Billing. Karena itu menu Action pada
+setiap baris hanya menampilkan `Buat Billing` ketika
+`SettingBiaya.getGunakanBiayaDefault()` bernilai `false`.
+
+Aksi tersebut membuka `detail_biaya_excel.zul` dengan parameter
+`settingBiayaBulanan=<id>` dan seluruh filter baris sumber: semester, tahun
+akademik, angkatan, semester mulai, program, jenjang, prodi, status mahasiswa,
+status awal, jenis kegiatan, paket, seleksi, dan gelombang. Parameter
+`autoBukaRencanaAngsuran=1` membuat editor Billing langsung terbuka setelah
+prodi tujuan ditemukan. Nilai wildcard diteruskan sebagai `-1`; periode berjalan
+digunakan sebagai titik awal bila tahun akademik atau semester tidak dibatasi.
+
+Jangan menambahkan kembali tombol Billing ke dalam
+`DetailSettingBiayaAction`. Detail tetap bertanggung jawab menampilkan mahasiswa,
+tagihan aktif, tanggal tagihan, dan operasi rinci. Pembuatan Billing berada pada
+menu Action baris induk supaya dapat ditemukan tanpa membuka detail, tidak muncul
+ganda, dan syarat tampilnya selalu identik dengan nilai `Tagihan Default` yang
+terlihat oleh operator.

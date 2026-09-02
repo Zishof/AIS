@@ -260,6 +260,72 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 }
 
 	/**
+	 * Mengambil id entity sebagai nilai parameter filter layar Billing. Nilai {@code -1}
+	 * adalah kontrak layar {@code detail_biaya_excel.zul} untuk "Semua/tidak dibatasi".
+	 */
+	private static String idFilterBilling(Object nilai) {
+		if (nilai instanceof ais.database.model.GeneralValueObject) {
+			Long id = ((ais.database.model.GeneralValueObject) nilai).getId();
+			return id == null ? "-1" : id.toString();
+		}
+		return "-1";
+	}
+
+	/**
+	 * Membangun deep-link editor Billing untuk tepat satu {@link SettingBiaya}. Semua kriteria
+	 * penting dari baris sumber diteruskan sebagai filter agar operator tidak perlu memilih ulang
+	 * semester, periode, angkatan, program, jenjang, prodi, status, jenis kegiatan, paket, seleksi,
+	 * dan gelombang. Parameter {@code settingBiayaBulanan} mengikat template Billing yang dibuat
+	 * oleh layar tujuan ke SettingBiaya ini; {@code autoBukaRencanaAngsuran=1} langsung membuka
+	 * editor pembuatan Billing setelah data prodi ditemukan.
+	 *
+	 * <p>Method ini hanya digunakan untuk baris dengan "Tagihan Default = Tidak". Pada mode itu
+	 * nominal tagihan tidak boleh dianggap otomatis berasal dari nilai default
+	 * {@link DetailSettingBiaya}; operator memang harus membuat/mengatur Billing. Bila tahun
+	 * akademik, semester masuk, program, atau angkatan tidak dibatasi oleh setting, nilai periode
+	 * berjalan dipakai sebagai titik awal yang tetap dapat disesuaikan pada layar Billing.</p>
+	 */
+	private static String urlBuatBilling(SettingBiaya settingBiaya) throws Exception {
+		if (settingBiaya == null || settingBiaya.getId() == null) {
+			throw new IllegalArgumentException("Setting Biaya harus sudah disimpan sebelum Billing dibuat.");
+		}
+		Integer semester = settingBiaya.getMinSmt() == null ? Integer.valueOf(1) : settingBiaya.getMinSmt();
+		String tahunAjaran = settingBiaya.getTahunAkademik();
+		if (tahunAjaran == null || tahunAjaran.trim().length() == 0) {
+			tahunAjaran = Common.getCurrentTahunAkademik();
+		}
+		if (tahunAjaran == null) {
+			tahunAjaran = "";
+		}
+		String semesterMulai = settingBiaya.getSemester();
+		if (semesterMulai == null || semesterMulai.trim().length() == 0) {
+			semesterMulai = Common.isNowSemensterGanjil() ? Perkuliahan.GANJIL : Perkuliahan.GENAP;
+		}
+		String program = settingBiaya.getProgram() == null || settingBiaya.getProgram().trim().length() == 0
+				? "Reguler" : settingBiaya.getProgram();
+		Integer angkatan = settingBiaya.getAngkatan() == null
+				? Integer.valueOf(ais.ui.util.WaktuUtil.getCalendar().get(Calendar.YEAR))
+				: settingBiaya.getAngkatan();
+
+		return "/pages/master/detail_biaya_excel.zul?settingBiayaBulanan=" + settingBiaya.getId()
+				+ "&searchSemester=" + semester
+				+ "&searchTahunAjaran=" + URLEncoder.encode(tahunAjaran, "UTF-8")
+				+ "&labelAngkatan=" + angkatan
+				+ "&searchMulaiBelajarDiSemester=" + URLEncoder.encode(semesterMulai, "UTF-8")
+				+ "&searchProgram=" + URLEncoder.encode(program, "UTF-8")
+				+ "&searchWargaNegara=WNI"
+				+ "&searchJenjang=" + idFilterBilling(settingBiaya.getJenjang())
+				+ "&searchJurusan=" + idFilterBilling(settingBiaya.getJurusan())
+				+ "&searchStatusMahasiswa=" + idFilterBilling(settingBiaya.getStatusMahasiswa())
+				+ "&searchStatusAwalMahasiswa=" + idFilterBilling(settingBiaya.getStatusAwalMahasiswa())
+				+ "&searchJenisKegiatan=" + idFilterBilling(settingBiaya.getJenisKegiatan())
+				+ "&searchPaket=" + idFilterBilling(settingBiaya.getPaket())
+				+ "&searchJenisSeleksi=" + idFilterBilling(settingBiaya.getJenisSeleksi())
+				+ "&searchGelombangPendaftaran=" + idFilterBilling(settingBiaya.getGelombangPendaftaran())
+				+ "&autoBukaRencanaAngsuran=1";
+	}
+
+	/**
 	 * Renderer lokal untuk layar/komponen {@link SetingBiayaAction}. Kelas ini menerjemahkan satu item data
 	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
 	 *
@@ -392,6 +458,31 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 			// via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten antar layar.
 			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
 					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
+			if (!Boolean.TRUE.equals(settingBiaya.getGunakanBiayaDefault())) {
+				MyToolbarbuttonConfig billing = new MyToolbarbuttonConfig("", "/img/svg/money-bills.svg");
+				billing.setTooltiptext("Buat Billing");
+				billing.setVisible(edit);
+				billing.addEventListener("onClick", new EventListener() {
+					@Override
+					public void onEvent(Event event) throws Exception {
+						try {
+							Common.displayWindow(urlBuatBilling(settingBiaya), true, "95%", "98%",
+									new EventListener() {
+										@Override
+										public void onEvent(Event event) throws Exception {
+											onSearchDefault(null);
+										}
+									}, "Buat Billing - Setting Biaya");
+						} catch (Exception e) {
+							PesanFormalHelper.tampilkanGagalException("Membuka editor Billing", e,
+									new String[] { "Pastikan Setting Biaya sudah tersimpan.",
+											"Periksa kembali periode, semester, prodi, program, dan item biaya pada Setting Biaya." });
+						}
+					}
+				});
+				aksiButtons.add(billing);
+			}
+
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/svg/edit-box-line.svg");
 			button.setTooltiptext("Ubah Data");
 			button.setVisible(edit);
