@@ -130,7 +130,7 @@
                     </div>
                     <div>
                         <h6 class="text-muted small text-uppercase mb-0" style="font-size:.7rem">NIP / NIDN</h6>
-                        <div class="fw-bold text-dark"><%=dosen.getNip() != null && !dosen.getNip().isEmpty() ? dosen.getNip() : "-"%></div>
+                        <div class="fw-bold text-dark"><%=dosen.getNidn() != null && !dosen.getNidn().isEmpty() ? dosen.getNidn() : "-"%></div>
                     </div>
                 </div>
             </div>

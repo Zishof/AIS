@@ -8,6 +8,8 @@
 try {
 	//Tbmrole tbmrole = (Tbmrole) request.getAttribute("tbmrole");
 	Set<Menu> menus = (Set<Menu>) request.getAttribute("menus");
+	java.util.List<Menu> menusList = menus == null
+			? new java.util.ArrayList<Menu>() : new java.util.ArrayList<Menu>(menus);
 	Menu root = (Menu) request.getAttribute("menu");
 
 	for (Menu menu : menus) {
@@ -17,7 +19,7 @@ try {
 
 		if ((root == null && menu.getRoot().equals(0L)) || (root != null && menu.getRoot().equals(root.getChild()))) {
 	String icon = FileFotoLain.iconAwesome(menu.getLabel());
-	Boolean ada = MainHelper.hasChild(menu.getChild(), menus);
+	Boolean ada = MainHelper.hasChild(menu.getChild(), menusList);
 
 	String subjudul = URLEncoder.encode(menu.getLabel(), "UTF-8");
 	String judul = URLEncoder.encode(menu.getLabel(), "UTF-8");
