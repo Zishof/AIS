@@ -177,7 +177,11 @@ import ais.database.model.obe.CapaianPembelajaranLulusan;
 public class PembombotanNilai extends GeneralValueObject {
 
 
-	/** Kondisi bisnis yang wajar ketika rancangan OBE belum siap diterbitkan sebagai FormatNilai. */
+	/**
+	 * Penanda internal bahwa data sumber OBE secara bisnis belum layak diterbitkan sebagai
+	 * {@link FormatNilai}. Kondisi ini berbeda dari gangguan teknis: misalnya total bobot baru 80%
+	 * karena dosen masih menyusun RPS bukanlah error aplikasi yang perlu memenuhi ErrorLog.
+	 */
 	private static final class FormatPenggantiBelumSiapException extends IllegalStateException {
 		private static final long serialVersionUID = 1L;
 
@@ -186,7 +190,12 @@ public class PembombotanNilai extends GeneralValueObject {
 		}
 	}
 
-	/** Mengambil kembali format produksi lama tanpa mengubah bobot atau state Hibernate-nya. */
+	/**
+	 * Mengambil kembali format produksi lama berdasarkan snapshot bobot sebelum sinkronisasi.
+	 * Daftar ini menjadi hasil fail-safe supaya pembaca nilai tetap memakai format sah terakhir
+	 * ketika rancangan pengganti belum lengkap. Method tidak menebak, menormalkan, atau membagi
+	 * ulang bobot akademik.
+	 */
 	private static List<FormatNilai> ambilFormatLamaAktif(List<FormatNilai> formatNilais,
 			Map<Long, Double> persenFormatNilaiLama) {
 		List<FormatNilai> hasil = new ArrayList<FormatNilai>();
@@ -210,6 +219,10 @@ public class PembombotanNilai extends GeneralValueObject {
 		int jumlahKomponen = 0;
 		int jumlahCpmkTanpaKode = 0;
 		double totalBobot = 0.0;
+
+		if (capaianPembelajaranLulusans == null) {
+			return "Rancangan OBE belum siap: daftar CPMK tidak tersedia.";
+		}
 
 		for (CapaianPembelajaranLulusan cpl : capaianPembelajaranLulusans) {
 			if (cpl == null) {
@@ -245,21 +258,21 @@ public class PembombotanNilai extends GeneralValueObject {
 				}
 			} else if (formula != null) {
 				for (int i = 0; i < formula.length(); i++) {
-					JSONObject subCpmk = formula.getJSONObject(i);
-					if (subCpmk.isNull("key")) {
-						continue;
-					}
-					double bobot = 0.0;
-					if (!subCpmk.isNull("bobot")) {
-						try {
-							bobot = Double.parseDouble(subCpmk.get("bobot") + "");
-						} catch (Exception bobotTidakValid) {
-							bobot = 0.0;
+					try {
+						JSONObject subCpmk = formula.getJSONObject(i);
+						if (subCpmk.isNull("key")) {
+							continue;
 						}
-					}
-					if (bobot > 0.01) {
-						jumlahKomponen++;
-						totalBobot += bobot;
+						double bobot = 0.0;
+						if (!subCpmk.isNull("bobot")) {
+							bobot = Double.parseDouble(subCpmk.get("bobot") + "");
+						}
+						if (bobot > 0.01) {
+							jumlahKomponen++;
+							totalBobot += bobot;
+						}
+					} catch (Exception entriSubCpmkTidakValid) {
+						// Entri rusak tidak dihitung; validasi total di bawah akan menahan publikasi.
 					}
 				}
 			}
@@ -931,9 +944,19 @@ public class PembombotanNilai extends GeneralValueObject {
 	 * {@code statusPertemuan}-nya terlanjur {@code null} akibat bug sesi-tertutup ikut
 	 * diperbaiki di sini.</p>
 	 *
-	 * <p>Jalur OBE memiliki pencatatan exception lokal, tetapi hasil akhirnya tetap wajib melewati
-	 * validasi jumlah bobot. Daftar kosong, komponen tanpa status aktif, atau total bobot di luar
-	 * rentang 99-101% dibatalkan dan snapshot lama dipulihkan.</p>
+	 * <p>Sebelum menulis satu pun baris, jalur OBE melakukan <i>preflight</i> terhadap sumber yang
+	 * benar-benar akan digunakan: CPMK bila flag {@code nilaiMenggunakanCpmk} aktif atau CPMK tidak
+	 * mempunyai Sub-CPMK; selain itu Sub-CPMK di dalam formula JSON. Sumber hanya boleh diterbitkan
+	 * jika mempunyai komponen berbobot positif, total bobot berada pada rentang 99-101%, dan CPMK
+	 * langsung mempunyai kode. Bobot tidak pernah dinormalisasi otomatis karena itu akan mengubah
+	 * keputusan akademik pembuat RPS.</p>
+	 *
+	 * <p>Rancangan yang belum memenuhi syarat adalah kondisi bisnis normal selama pengisian RPS,
+	 * bukan kerusakan Java. Dalam keadaan tersebut method berhenti sebelum {@code INSERT/UPDATE},
+	 * mengembalikan format produksi lama, dan tidak memenuhi ErrorLog dengan stack trace yang sama
+	 * setiap halaman dibuka. Bila kegagalan baru diketahui setelah relasi dibangun, perubahan
+	 * percobaan dipulihkan dari snapshot. Hanya exception teknis yang tidak termasuk kondisi
+	 * "rancangan belum siap" yang dicatat ke {@code ErrorAuditUtil}.</p>
 	 *
 	 * <h3>Langkah 2b &mdash; jalur konvensional</h3>
 	 * Untuk kelas non-OBE, skema diambil dari {@code perkuliahan.getPembombotanNilai()} dan tiap

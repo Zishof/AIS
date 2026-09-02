@@ -1778,28 +1778,63 @@ public class TampilStudiMahasiswaHelper {
 	}
 
 	/**
-	 * Hitung jumlah {@link Detailperkuliahan} mahasiswa pada semester akademik non-negatif tertentu.
-	 * Semester {@code 0} adalah KRS konversi dan tetap merupakan data akademik yang sah
-	 * dengan {@code ikutiPerkuliahan} kosong dan status
-	 * {@code persetujuan} tertentu (dipakai untuk menghitung MK "Disetujui" vs "Belum Disetujui" di
-	 * panel Rekap KRS per Semester). Query {@code rowCount()}; 0 bila gagal.
+	 * Ambil ID MK yang benar-benar dirangkum oleh satu header KRS. Jangan memakai jumlah SKS sebagai
+	 * penanda keberadaan MK karena MK dengan bobot 0 SKS tetap sah.
 	 */
-	private static int hitungDetailPerkuliahan(org.hibernate.Session session, Mahasiswa mahasiswa, Integer semester,
-			Integer persetujuan) {
-		if (session == null || mahasiswa == null || semester == null || semester.intValue() < 0) {
-			return 0;
+	private static List<Long> idDetailPerkuliahanKrs(KrsMahasiswa krs) {
+		List<Long> hasil = new ArrayList<Long>();
+		if (krs == null || krs.getSksYangDiambilS() == null || krs.getSksYangDiambilS().trim().isEmpty()) {
+			return hasil;
+		}
+		Set<Long> unik = new HashSet<Long>();
+		for (String nilai : krs.getSksYangDiambilS().split(",")) {
+			try {
+				Long id = Long.valueOf(nilai.trim());
+				if (id.longValue() > 0L && unik.add(id)) {
+					hasil.add(id);
+				}
+			} catch (Exception e) {
+				// Abaikan token lama/rusak; keberadaan MK tetap diverifikasi kembali ke Detailperkuliahan.
+			}
+		}
+		return hasil;
+	}
+
+	/** Hasil: {jumlah MK valid, disetujui, belum disetujui}. */
+	private static int[] ringkasanDetailPerkuliahanKrs(org.hibernate.Session session, Mahasiswa mahasiswa,
+			KrsMahasiswa krs) {
+		int[] hasil = new int[] { 0, 0, 0 };
+		List<Long> ids = idDetailPerkuliahanKrs(krs);
+		if (session == null || mahasiswa == null || ids.isEmpty()) {
+			return hasil;
 		}
 		try {
-			Object c = session.createCriteria(ais.database.model.Detailperkuliahan.class)
+			Criteria criteria = session.createCriteria(ais.database.model.Detailperkuliahan.class)
 					.add(Restrictions.eq("mahasiswa", mahasiswa))
-					.add(Restrictions.eq("semester", semester))
-					.add(Restrictions.isNull("ikutiPerkuliahan"))
-					.add(Restrictions.eq("persetujuan", persetujuan))
-					.setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult();
-			return c == null ? 0 : ((Number) c).intValue();
+					.add(Restrictions.in("id", ids));
+			if (Integer.valueOf(0).equals(krs.getSemester())) {
+				criteria.add(Restrictions.eq("semester", Integer.valueOf(0)))
+						.add(Restrictions.isNotNull("matakuliahKonversi"));
+			} else {
+				criteria.add(Restrictions.or(Restrictions.isNotNull("perkuliahan"),
+						Restrictions.isNotNull("matakuliahKonversi")));
+			}
+			@SuppressWarnings("unchecked")
+			List<Integer> persetujuans = criteria
+					.setProjection(org.hibernate.criterion.Projections.property("persetujuan")).list();
+			for (Integer persetujuan : persetujuans) {
+				hasil[0]++;
+				if (ais.database.model.Detailperkuliahan.DISETUJUI.equals(persetujuan)) {
+					hasil[1]++;
+				} else if (ais.database.model.Detailperkuliahan.BELUM_DISETUJUI.equals(persetujuan)) {
+					hasil[2]++;
+				}
+			}
 		} catch (Exception e) {
-			return 0;
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit TampilStudiMahasiswaHelper.ringkasanDetailPerkuliahanKrs");
 		}
+		return hasil;
 	}
 
 	/**
@@ -1870,14 +1905,14 @@ public class TampilStudiMahasiswaHelper {
 					if (!semesterAkademikValid(sem, semesterMaksimal)) {
 						continue;
 					}
-					int setuju = hitungDetailPerkuliahan(session, mahasiswa, sem,
-							ais.database.model.Detailperkuliahan.DISETUJUI);
-					int belum = hitungDetailPerkuliahan(session, mahasiswa, sem,
-							ais.database.model.Detailperkuliahan.BELUM_DISETUJUI);
+					int[] ringkasanMk = ringkasanDetailPerkuliahanKrs(session, mahasiswa, krs);
+					if (ringkasanMk[0] == 0) {
+						continue;
+					}
 					res.add(new String[] { sem == null ? "-" : String.valueOf(sem),
 							krs.getSemesterPendek() != null ? "Semester Pendek" : "Reguler",
 							krs.getSksYangDiambil() == null ? "0" : String.valueOf(krs.getSksYangDiambil()),
-							String.valueOf(setuju), String.valueOf(belum),
+							String.valueOf(ringkasanMk[1]), String.valueOf(ringkasanMk[2]),
 							krs.getIps() == null ? "-" : formatNumber(krs.getIps().doubleValue()),
 							krs.getIpk() == null ? "-" : formatNumber(krs.getIpk().doubleValue()),
 							tahunAkademikKrs.containsKey(sem) ? nzTrim(tahunAkademikKrs.get(sem))
