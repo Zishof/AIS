@@ -178,7 +178,7 @@
 												visible="false">
 												<label
 													use="ais.ui.util.MyLabelConfig" value="Jenis Kuliah" />
-											<label id="jenisKuliah" />
+											<vbox id="jenisKuliah" width="100%" spacing="2px" />
 										</row>
 										<row id="rowJenjang" visible="false">
 											<label use="ais.ui.util.MyLabelConfig" value="Jenjang" />

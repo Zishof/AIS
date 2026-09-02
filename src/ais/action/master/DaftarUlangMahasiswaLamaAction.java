@@ -216,7 +216,7 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 	private Row rowListBiaya;
 
 	private AmbilDataMahasiswaBanbox nim;
-	private Label jenisKuliah;
+	private Vbox jenisKuliah;
 	private Label labelJenjang;
 	private Label prodi;
 	private Vbox labelFotoMahasiswa;
@@ -829,6 +829,40 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 		return PembayaranUtilHelper.statusMahasiswaPembayaranEfektif(status);
 	}
 
+	/**
+	 * Merender identitas akademik dan link analisis status. Ringkasan selalu muncul untuk status
+	 * apa pun, sedangkan klik pada teks dalam tanda kurung membuka popup dari helper reusable.
+	 * Snapshot analisis dibuat sebelum method ini dipanggil sehingga teks dan popup memakai bukti
+	 * yang persis sama dalam satu render layar.
+	 */
+	private void tampilkanIdentitasJenisKuliah(String program, String status, String statusAwal,
+			String jenisSeleksi, String gelombang, String semesterMasuk, String kelas,
+			final ais.action.master.helper.HistoryStatusMahasiswaUtil.AnalisisStatusMahasiswa analisis) {
+		Common.clear(jenisKuliah);
+		jenisKuliah.setWidth("100%");
+		jenisKuliah.setSpacing("2px");
+		new Label("Jenis Kuliah : " + nilaiTampil(program)).setParent(jenisKuliah);
+
+		org.zkoss.zul.Div barisStatus = new org.zkoss.zul.Div();
+		barisStatus.setWidth("100%");
+		barisStatus.setStyle("white-space:normal;line-height:1.45;");
+		barisStatus.setParent(jenisKuliah);
+		new Label("Status : " + nilaiTampil(status) + " ").setParent(barisStatus);
+		A linkAnalisis = new A();
+		linkAnalisis.setParent(barisStatus);
+		ais.ui.util.StatusMahasiswaAnalisisPopupHelper.pasangLink(linkAnalisis, analisis);
+
+		new Label("Status Awal : " + nilaiTampil(statusAwal)).setParent(jenisKuliah);
+		new Label("Jenis Seleksi : " + nilaiTampil(jenisSeleksi)).setParent(jenisKuliah);
+		new Label("Gelombang : " + nilaiTampil(gelombang)).setParent(jenisKuliah);
+		new Label("Semester Masuk : " + nilaiTampil(semesterMasuk)).setParent(jenisKuliah);
+		new Label("Kelas : " + nilaiTampil(kelas)).setParent(jenisKuliah);
+	}
+
+	private String nilaiTampil(String value) {
+		return value == null || value.trim().isEmpty() ? "-" : value.trim();
+	}
+
 	private EventListener eventListener = new EventListener() {
 		@Override
 		public void onEvent(Event event) throws Exception {
@@ -874,15 +908,9 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 			statusmahasiswa = statusMahasiswaPembayaranEfektif(statusmahasiswa);
 
 			String statusNama = statusMahasiswaTampil != null ? statusMahasiswaTampil.getNama() : "-";
-			if (statusMahasiswaTampil != null && statusMahasiswaTampil.getId() != null
-					&& ConstantValues.TIDAK_AKTIF != null && ConstantValues.TIDAK_AKTIF.getId() != null
-					&& ConstantValues.TIDAK_AKTIF.getId().equals(statusMahasiswaTampil.getId())) {
-				String penyebabNonaktif = ais.action.master.helper.HistoryStatusMahasiswaUtil
-						.analisisPenyebabNonaktif(krsMahasiswa);
-				if (penyebabNonaktif != null && !penyebabNonaktif.trim().isEmpty()) {
-					statusNama += " (" + penyebabNonaktif.trim() + ")";
-				}
-			}
+			final ais.action.master.helper.HistoryStatusMahasiswaUtil.AnalisisStatusMahasiswa analisisStatus =
+					ais.action.master.helper.HistoryStatusMahasiswaUtil.analisisStatus(krsMahasiswa,
+							tempHistoryStatusMahasiswa, statusMahasiswaTampil);
 			String statusAwalNama = (tempHistoryStatusMahasiswa != null
 					&& tempHistoryStatusMahasiswa.getStatusAwalMahasiswa() != null)
 							? tempHistoryStatusMahasiswa.getStatusAwalMahasiswa().getNama()
@@ -898,14 +926,8 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 					: (mahasiswa.getSemesterMulai() + "");
 			String kelasNama = mahasiswa.getKelas() == null || mahasiswa.getKelas().trim().isEmpty() ? "-"
 					: mahasiswa.getKelas();
-			jenisKuliah.setMultiline(true);
-			jenisKuliah.setValue("Jenis Kuliah : " + (progNama == null ? "-" : progNama)
-					+ "\nStatus : " + (statusNama == null ? "-" : statusNama)
-					+ "\nStatus Awal : " + (statusAwalNama == null ? "-" : statusAwalNama)
-					+ "\nJenis Seleksi : " + jenisSeleksiNama
-					+ "\nGelombang : " + gelombangNama
-					+ "\nSemester Masuk : " + semesterMasukNama
-					+ "\nKelas : " + kelasNama);
+			tampilkanIdentitasJenisKuliah(progNama, statusNama, statusAwalNama, jenisSeleksiNama,
+					gelombangNama, semesterMasukNama, kelasNama, analisisStatus);
 
 			Serializable[] serializables = pembayaranUtil.getJadwalPembayaranDanDendaBerdasarkanTahunAkademik(tanggal,
 					jenisKegiatan, mahasiswa.getJenjang(), tahunAkademik, smt.intValue() % 2 != 0,

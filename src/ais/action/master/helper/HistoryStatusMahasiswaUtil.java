@@ -2,7 +2,9 @@ package ais.action.master.helper;
 
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.hibernate.Session;
 import org.hibernate.Transaction;
@@ -1151,23 +1153,102 @@ public class HistoryStatusMahasiswaUtil {
      * @return alasan singkat tanpa tanda kurung; selalu aman ditampilkan setelah teks status
      */
     public static String analisisPenyebabNonaktif(KrsMahasiswa krsMahasiswa) {
+        HistoryStatusMahasiswa history = krsMahasiswa == null || krsMahasiswa.getMahasiswa() == null
+                ? null : currentStatus(krsMahasiswa, false);
+        StatusMahasiswa status = history == null ? ConstantValues.TIDAK_AKTIF : history.getStatusMahasiswa();
+        return analisisStatus(krsMahasiswa, history, status).getRingkasan();
+    }
+
+    /**
+     * Membangun snapshot analisis untuk STATUS APA PUN yang ditampilkan sistem. Snapshot sengaja
+     * berisi data polos dan tidak mengetahui komponen ZK, sehingga satu hasil dapat dipakai oleh
+     * teks singkat, tooltip, profil mahasiswa, dan popup rinci tanpa menduplikasi algoritma.
+     * Pembayaran dibaca dari cicilan committed, sedangkan status yang dianalisis diberikan oleh
+     * pemanggil agar override UI yang sah (khususnya Cuti yang telah disetujui) ikut dijelaskan.
+     *
+     * @param krsMahasiswa konteks semester/tahap mahasiswa
+     * @param history      history hasil kalkulasi yang sama dengan layar, boleh {@code null}
+     * @param statusTampil status final yang benar-benar ditampilkan, termasuk override Cuti
+     * @return snapshot lengkap; tidak pernah {@code null}
+     */
+    public static AnalisisStatusMahasiswa analisisStatus(KrsMahasiswa krsMahasiswa,
+            HistoryStatusMahasiswa history, StatusMahasiswa statusTampil) {
+        AnalisisStatusMahasiswa hasil = new AnalisisStatusMahasiswa();
+        hasil.statusNama = namaStatus(statusTampil);
         if (krsMahasiswa == null || krsMahasiswa.getMahasiswa() == null) {
-            return "data mahasiswa atau semester belum lengkap";
+            hasil.ringkasan = "konteks mahasiswa atau semester belum lengkap";
+            hasil.temuan.add("Sistem belum menerima KRS mahasiswa yang dapat dijadikan dasar analisis.");
+            hasil.saran.add("Pilih ulang mahasiswa dan semester, kemudian jalankan Refresh.");
+            return hasil;
         }
 
         Mahasiswa mahasiswa = krsMahasiswa.getMahasiswa();
         Integer semester = krsMahasiswa.getSemester();
+        Integer tahap = krsMahasiswa.getTahapan();
+        hasil.fakta.put("Mahasiswa", nilaiAman(mahasiswa.getNim()) + " - " + nilaiAman(mahasiswa.getNama()));
+        hasil.fakta.put("Semester / tahap", nilaiAman(semester) + " / " + nilaiAman(tahap));
+        hasil.fakta.put("Tahun akademik", history == null ? "-" : nilaiAman(history.getTahunAkademik()));
+        hasil.fakta.put("Status ditampilkan", hasil.statusNama);
+        hasil.fakta.put("Status tersimpan/history",
+                history == null ? "Belum ditemukan" : namaStatus(history.getStatusMahasiswa()));
+        hasil.fakta.put("Status awal", history == null || history.getStatusAwalMahasiswa() == null ? "-"
+                : nilaiAman(history.getStatusAwalMahasiswa().getNama()));
+        hasil.fakta.put("SKS bukan konversi", String.valueOf(krsMahasiswa.getSksBukanKonversi()));
+
         try {
             String nimBaru = mahasiswa.getNimBaruPindah();
-            if (nimBaru != null && !nimBaru.trim().isEmpty()) {
-                return "data telah dipindahkan ke NIM baru " + nimBaru.trim();
+            boolean dipindahkan = nimBaru != null && !nimBaru.trim().isEmpty();
+            boolean paksaAktif = semesterAdaDalamDaftar(mahasiswa.getPaksaAktifSemester(), semester);
+            boolean belumAdaKrs = krsMahasiswa.getSksBukanKonversi() == null
+                    || krsMahasiswa.getSksBukanKonversi().intValue() <= 0;
+            int semesterMinimalLulus = getJumlahSemester(mahasiswa);
+            String statusKeluar = mahasiswa.getStatusKeluar() == null ? "-"
+                    : nilaiAman(mahasiswa.getStatusKeluar().getNama());
+            PendaftaranCutiMahasiswa cuti = mahasiswa.ambilCuti(semester, tahap, false);
+            boolean cutiDisetujui = cuti != null && Boolean.TRUE.equals(cuti.getPersetujuan());
+
+            hasil.fakta.put("Pengajuan cuti disetujui", cutiDisetujui ? "Ya" : "Tidak");
+            hasil.fakta.put("Paksa aktif semester", paksaAktif ? "Ya" : "Tidak");
+            hasil.fakta.put("Status keluar", statusKeluar);
+            hasil.fakta.put("Semester minimal status terminal", String.valueOf(semesterMinimalLulus));
+            hasil.fakta.put("NIM baru pindahan", dipindahkan ? nimBaru.trim() : "Tidak ada");
+            hasil.fakta.put("Penanda batas studi", nilaiAman(mahasiswa.getBatasStudi()));
+
+            String kondisiKonfigurasiLambat = "Tidak aktif/tidak berlaku pada periode ini";
+            try {
+                Konfigurasi konfigurasiLambat = Common.getKonfigurasi(
+                        "mhs_all_lambat_bayar_langsung_tidak_aktif", "", semester,
+                        mahasiswa.getTahunangkatan(), mahasiswa.getJurusan(), mahasiswa.getProgram(),
+                        mahasiswa.getStatusAwalMahasiswa());
+                int tahunAkademikMulai = Common.getTahunAkademik(semester,
+                        mahasiswa.getTahunangkatan(), mahasiswa.getSemesterMulai());
+                int tahunSekarang = ais.ui.util.WaktuUtil.getCalendar().get(Calendar.YEAR);
+                boolean konfigurasiAktif = konfigurasiLambat != null
+                        && Konfigurasi.AKTIF.equals(konfigurasiLambat.getNilai());
+                boolean periodeBerlaku = tahunAkademikMulai == tahunSekarang
+                        || tahunAkademikMulai + 1 == tahunSekarang;
+                if (konfigurasiAktif) {
+                    kondisiKonfigurasiLambat = periodeBerlaku
+                            ? "Aktif dan berlaku pada periode ini"
+                            : "Aktif, tetapi tidak berlaku retroaktif pada periode ini";
+                }
+            } catch (Exception eKonfigurasi) {
+                kondisiKonfigurasiLambat = "Tidak dapat dievaluasi dari konfigurasi";
+                ais.common.ErrorAuditUtil.record(eKonfigurasi,
+                        "auto-audit analisisStatus konfigurasi keterlambatan mahasiswa=" + mahasiswa.getId());
             }
+            hasil.fakta.put("Aturan terlambat bayar otomatis Nonaktif", kondisiKonfigurasiLambat);
 
             if (CommonHelperClass.jenisKegiatansUntukSyaratAktif == null) {
                 CommonHelperClass.reloadJenisKegiatans();
             }
+            boolean bypassPembayaran = CommonHelperClass.jenisKegiatansUntukSyaratAktif != null
+                    && Common.checkBaypassStatusPembayaranMahasiswa(semester, tahap, mahasiswa,
+                            CommonHelperClass.jenisKegiatansUntukSyaratAktif);
+            hasil.fakta.put("Bypass syarat pembayaran", bypassPembayaran ? "Berlaku" : "Tidak berlaku");
 
             boolean adaTagihanSyaratAktif = false;
+            boolean semuaTagihanMemenuhi = true;
             List<String> tagihanBelumMemenuhi = new ArrayList<String>();
             List<Kegiatan> kegiatans = CommonHelperClass.jenisKegiatansUntukSyaratAktif == null
                     || CommonHelperClass.jenisKegiatansUntukSyaratAktif.isEmpty()
@@ -1182,39 +1263,116 @@ public class HistoryStatusMahasiswaUtil {
                     adaTagihanSyaratAktif = true;
                     double persen = KegiatanPersistenceHelper
                             .hitungPersentaseLunasAktualDariDatabase(kegiatan).doubleValue();
-                    if (persen < 0.1) {
-                        String nama = kegiatan.getJenisKegiatan().getNamaKegiatan();
-                        if (nama == null || nama.trim().isEmpty()) {
-                            nama = "tagihan syarat aktif";
-                        }
-                        if (!tagihanBelumMemenuhi.contains(nama)) {
-                            tagihanBelumMemenuhi.add(nama);
-                        }
+                    String nama = kegiatan.getJenisKegiatan().getNamaKegiatan();
+                    if (nama == null || nama.trim().isEmpty()) nama = "Tagihan syarat aktif";
+                    boolean memenuhi = persen >= 0.1;
+                    hasil.rincianPembayaran.add(nama + ": " + formatPersen(persen) + "% - "
+                            + (memenuhi ? "memenuhi bukti pembayaran" : "belum ada pembayaran yang diakui"));
+                    if (!memenuhi) {
+                        semuaTagihanMemenuhi = false;
+                        if (!tagihanBelumMemenuhi.contains(nama)) tagihanBelumMemenuhi.add(nama);
                     }
                 }
             }
+            if (!adaTagihanSyaratAktif) semuaTagihanMemenuhi = false;
 
-            if (!tagihanBelumMemenuhi.isEmpty()) {
-                return "belum ada pembayaran yang diakui untuk " + gabungkanAlasan(tagihanBelumMemenuhi);
-            }
+            hasil.jejakAturan.add("Status dasar dibaca dari HistoryStatusMahasiswa untuk semester dan tahap yang dipilih.");
+            hasil.jejakAturan.add("Pengajuan cuti yang disetujui mengubah status tampilan menjadi Cuti.");
+            hasil.jejakAturan.add("Jenis kegiatan hanya menjadi syarat aktif bila flag domainnya true; data legacy NULL biasa tidak dihitung.");
+            hasil.jejakAturan.add("Pembayaran diperiksa dari CicilanPembayaran yang sudah committed, bukan rekap asynchronous Kegiatan.bulans.");
+            hasil.jejakAturan.add("Semester dalam daftar Paksa Aktif mengalahkan status pembayaran, kecuali status terminal Lulus/DO/Keluar.");
+            hasil.jejakAturan.add("Lulus/DO/Keluar dievaluasi dari status keluar setelah mencapai semester minimal jenjang.");
 
-            boolean belumAdaKrs = krsMahasiswa.getSksBukanKonversi() == null
-                    || krsMahasiswa.getSksBukanKonversi().intValue() <= 0;
-            if (!adaTagihanSyaratAktif) {
-                return belumAdaKrs
-                        ? "belum ada tagihan syarat aktif dan belum ada pengambilan KRS/SKS semester ini"
-                        : "belum ada tagihan syarat aktif yang dapat menjadi bukti aktivasi semester ini";
+            if (statusSama(statusTampil, ConstantValues.CUTI)) {
+                hasil.ringkasan = cutiDisetujui
+                        ? "pengajuan cuti semester ini telah disetujui"
+                        : "status Cuti berasal dari history/penetapan akademik; pengajuan cuti disetujui tidak ditemukan";
+                hasil.temuan.add(cutiDisetujui
+                        ? "Ditemukan pengajuan cuti yang sudah disetujui pada semester ini."
+                        : "Tidak ditemukan pengajuan cuti berstatus disetujui pada konteks semester ini.");
+                hasil.saran.add("Pastikan periode dan persetujuan cuti benar bila status ini tidak sesuai.");
+            } else if (statusSama(statusTampil, ConstantValues.LULUS)) {
+                hasil.ringkasan = "status kelulusan berlaku pada semester " + nilaiAman(semester)
+                        + " dengan status keluar " + statusKeluar;
+                hasil.temuan.add("Semester mahasiswa dibandingkan dengan batas minimal " + semesterMinimalLulus
+                        + " semester dan data status keluar.");
+                hasil.saran.add("Periksa semester lulus dan status keluar bila hasil kelulusan tidak sesuai.");
+            } else if (statusSama(statusTampil, ConstantValues.DROP_OUT)) {
+                hasil.ringkasan = "status keluar mengandung keterangan keluar pada semester yang telah memenuhi batas evaluasi";
+                hasil.temuan.add("Data status keluar saat ini: " + statusKeluar + ".");
+                hasil.saran.add("Validasi status keluar dan semester efektifnya pada data mahasiswa.");
+            } else if (statusSama(statusTampil, ConstantValues.KELUAR)) {
+                hasil.ringkasan = "status keluar menunjukkan mengundurkan diri atau putus studi";
+                hasil.temuan.add("Data status keluar saat ini: " + statusKeluar + ".");
+                hasil.saran.add("Validasi status keluar dan dokumen akademik pendukungnya.");
+            } else if (statusSama(statusTampil, ConstantValues.TIDAK_AKTIF)) {
+                if (dipindahkan) {
+                    hasil.ringkasan = "data telah dipindahkan ke NIM baru " + nimBaru.trim();
+                } else if (!tagihanBelumMemenuhi.isEmpty() && !bypassPembayaran) {
+                    hasil.ringkasan = "belum ada pembayaran yang diakui untuk "
+                            + gabungkanAlasan(tagihanBelumMemenuhi);
+                } else if (!adaTagihanSyaratAktif && belumAdaKrs) {
+                    hasil.ringkasan = "belum ada tagihan syarat aktif dan belum ada pengambilan KRS/SKS semester ini";
+                } else if (!adaTagihanSyaratAktif) {
+                    hasil.ringkasan = "belum ada tagihan syarat aktif yang dapat menjadi bukti aktivasi semester ini";
+                } else if (belumAdaKrs) {
+                    hasil.ringkasan = "pembayaran wajib sudah memenuhi ketentuan, tetapi belum ada pengambilan KRS/SKS semester ini";
+                } else {
+                    hasil.ringkasan = "pembayaran wajib dan KRS sudah memenuhi ketentuan; status history belum tersinkron atau ditetapkan secara akademik/manual";
+                }
+                hasil.temuan.add("Status Nonaktif hanya dijelaskan sebagai kendala pembayaran bila ditemukan tagihan syarat aktif yang benar-benar belum mempunyai pembayaran.");
+                if (belumAdaKrs) hasil.temuan.add("KRS menunjukkan 0 SKS bukan konversi pada semester ini.");
+                if (bypassPembayaran) hasil.temuan.add("Mahasiswa memperoleh bypass pembayaran, sehingga tunggakan tidak boleh menjadi penyebab status.");
+                hasil.saran.add("Perbaiki penyebab yang disebut pada ringkasan, lalu klik Refresh untuk menghitung dan menyimpan status terbaru.");
+            } else if (statusSama(statusTampil, ConstantValues.AKTIF)) {
+                if (paksaAktif) {
+                    hasil.ringkasan = "semester ini tercantum pada konfigurasi Paksa Aktif";
+                } else if (semester != null && semester.intValue() == 1) {
+                    hasil.ringkasan = "semester pertama menggunakan aturan status Aktif awal";
+                } else if (bypassPembayaran) {
+                    hasil.ringkasan = "status akademik Aktif dan bypass pembayaran berlaku";
+                } else if (adaTagihanSyaratAktif && semuaTagihanMemenuhi) {
+                    hasil.ringkasan = "seluruh tagihan syarat aktif telah memiliki pembayaran yang diakui";
+                } else if (!belumAdaKrs) {
+                    hasil.ringkasan = "history akademik Aktif dengan pengambilan "
+                            + krsMahasiswa.getSksBukanKonversi() + " SKS";
+                } else {
+                    hasil.ringkasan = "status Aktif berasal dari history akademik; belum ditemukan aturan yang menurunkannya";
+                }
+                hasil.temuan.add("Tidak ditemukan aturan berprioritas lebih tinggi yang mengubah status akhir menjadi status lain.");
+                hasil.saran.add("Tidak diperlukan tindakan bila status, pembayaran, dan KRS pada rincian sudah sesuai.");
+            } else {
+                hasil.ringkasan = "status berasal dari history atau penetapan akademik khusus";
+                hasil.temuan.add("Status ini tidak termasuk aturan otomatis Aktif, Nonaktif, Cuti, Lulus, DO, atau Keluar yang dikenali analyzer.");
+                hasil.saran.add("Periksa riwayat perubahan status dan konfigurasi akademik bila status tidak diharapkan.");
             }
-            if (belumAdaKrs) {
-                return "pembayaran wajib sudah memenuhi ketentuan, tetapi belum ada pengambilan KRS/SKS semester ini";
-            }
-            return "pembayaran wajib dan KRS sudah memenuhi ketentuan; status history belum tersinkron atau ditetapkan dari proses akademik/manual";
         } catch (Exception e) {
-            ais.common.ErrorAuditUtil.record(e,
-                    "auto-audit HistoryStatusMahasiswaUtil.analisisPenyebabNonaktif mahasiswa="
-                            + mahasiswa.getId() + ", semester=" + semester);
-            return "penyebab rinci belum dapat dibaca; periksa history status dan gunakan Refresh";
+            ais.common.ErrorAuditUtil.record(e, "auto-audit HistoryStatusMahasiswaUtil.analisisStatus mahasiswa="
+                    + mahasiswa.getId() + ", semester=" + semester);
+            hasil.ringkasan = "sebagian bukti tidak dapat dibaca; status berasal dari history yang tersedia";
+            hasil.temuan.add("Terjadi kendala saat membaca salah satu sumber bukti. Detail teknis telah dicatat pada audit error.");
+            hasil.saran.add("Klik Refresh dan periksa audit error bila rincian tetap tidak lengkap.");
         }
+        return hasil;
+    }
+
+    private static boolean statusSama(StatusMahasiswa kiri, StatusMahasiswa kanan) {
+        return kiri != null && kanan != null && kiri.getId() != null && kiri.getId().equals(kanan.getId());
+    }
+
+    private static String namaStatus(StatusMahasiswa status) {
+        return status == null || status.getNama() == null || status.getNama().trim().isEmpty()
+                ? "Belum ditentukan" : status.getNama().trim();
+    }
+
+    private static String nilaiAman(Object value) {
+        return value == null || value.toString().trim().isEmpty() ? "-" : value.toString().trim();
+    }
+
+    private static String formatPersen(double value) {
+        double satuDesimal = Math.round(value * 10.0) / 10.0;
+        return satuDesimal == Math.rint(satuDesimal) ? String.valueOf((long) satuDesimal)
+                : String.valueOf(satuDesimal);
     }
 
     private static String gabungkanAlasan(List<String> values) {
@@ -1226,6 +1384,25 @@ public class HistoryStatusMahasiswaUtil {
             result.append(value);
         }
         return result.toString();
+    }
+
+    /** Data read-only untuk teks ringkas dan popup analisis status. */
+    public static final class AnalisisStatusMahasiswa {
+        private String statusNama = "Belum ditentukan";
+        private String ringkasan = "status belum dapat dianalisis";
+        private final Map<String, String> fakta = new LinkedHashMap<String, String>();
+        private final List<String> temuan = new ArrayList<String>();
+        private final List<String> rincianPembayaran = new ArrayList<String>();
+        private final List<String> jejakAturan = new ArrayList<String>();
+        private final List<String> saran = new ArrayList<String>();
+
+        public String getStatusNama() { return statusNama; }
+        public String getRingkasan() { return ringkasan; }
+        public Map<String, String> getFakta() { return fakta; }
+        public List<String> getTemuan() { return temuan; }
+        public List<String> getRincianPembayaran() { return rincianPembayaran; }
+        public List<String> getJejakAturan() { return jejakAturan; }
+        public List<String> getSaran() { return saran; }
     }
 
     /**

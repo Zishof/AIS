@@ -501,3 +501,28 @@ yang sudah dipindahkan, dan status history yang belum sinkron atau ditetapkan
 secara akademik. Analyzer bersifat read-only dan hanya dijalankan untuk satu
 mahasiswa berstatus Nonaktif yang sedang dibuka, sehingga tidak menambah query
 pada daftar massal.
+
+Implementasi UI terbaru memperluas mekanisme ini untuk semua status. Baris
+`Status` selalu diikuti ringkasan dalam tanda kurung, baik hasil akhirnya Aktif,
+Nonaktif, Cuti, Lulus, Drop Out, Keluar, maupun status khusus lain. Teks dalam
+tanda kurung adalah komponen link, bukan dekorasi. Klik link membuka popup
+`StatusMahasiswaAnalisisPopupHelper` yang menampilkan satu snapshot bukti yang
+sama dengan ringkasan. Dengan demikian teks singkat dan isi popup tidak boleh
+dihitung oleh dua algoritma berbeda.
+
+Snapshot dibangun oleh `HistoryStatusMahasiswaUtil.analisisStatus` dan mencakup:
+
+1. identitas mahasiswa, semester, tahap, tahun akademik, status tampilan,
+   status history, status awal, dan SKS bukan konversi;
+2. keberadaan pengajuan cuti yang disetujui, Paksa Aktif, status keluar, batas
+   semester status terminal, NIM baru pindahan, dan bypass pembayaran;
+3. setiap tagihan yang benar-benar berflag syarat aktif beserta persentase
+   pembayaran dari cicilan committed;
+4. jejak urutan aturan yang menjelaskan prioritas keputusan; dan
+5. rekomendasi yang sesuai dengan hasil, tanpa menyatakan pembayaran sebagai
+   penyebab bila bukti justru menunjukkan pembayaran telah memenuhi aturan.
+
+Popup hanya merender snapshot melalui HTML yang seluruh nilainya sudah di-escape.
+Jangan menambahkan query atau aturan bisnis ke popup. Bila aturan status baru
+ditambahkan, perluas `analisisStatus` dan ujinya; renderer popup cukup membaca
+fakta, temuan, rincian pembayaran, jejak aturan, serta saran dari snapshot.

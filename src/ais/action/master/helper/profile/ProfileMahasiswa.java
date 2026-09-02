@@ -436,8 +436,10 @@ public class ProfileMahasiswa {
 					&& ais.common.ConstantValues.AKTIF.getId().equals(statusSaatIni.getStatusMahasiswa().getId());
 
 			if (!statusAktif) {
-				String alasanNonaktif = ais.action.master.helper.HistoryStatusMahasiswaUtil
-						.analisisPenyebabNonaktif(krsMahasiswa);
+				ais.action.master.helper.HistoryStatusMahasiswaUtil.AnalisisStatusMahasiswa analisisStatus =
+						ais.action.master.helper.HistoryStatusMahasiswaUtil.analisisStatus(krsMahasiswa,
+								statusSaatIni, statusSaatIni == null ? null : statusSaatIni.getStatusMahasiswa());
+				String alasanNonaktif = analisisStatus.getRingkasan();
 				if (alasanNonaktif != null && !alasanNonaktif.trim().isEmpty()) {
 					String pesanNonaktif = "<div style=\"padding:10px;background-color:#fef9c3;border-radius:8px;"
 							+ "border:1px solid #fde68a;color:#854d0e;margin-top:5px;line-height:1.5;\">"
