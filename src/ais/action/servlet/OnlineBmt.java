@@ -193,7 +193,8 @@ public class OnlineBmt extends HttpServlet {
 			lockTransaction(lockSession, input.transactionNo, true);
 			ledgerTx = lockSession.beginTransaction();
 			Ledger ledger = findLedger(lockSession, input.transactionNo);
-			if (ledger != null && (!ledger.invoiceNo.equals(input.invoiceNo)
+			ledger = bindLegacyChannel(lockSession, ledger, input);
+			if (ledger != null && (!input.invoiceNo.equals(ledger.invoiceNo)
 					|| !sameAmount(ledger.amount, input.amount)
 					|| !input.channel.equals(ledger.channel))) {
 				throw new ApiException(409, "01",
@@ -204,12 +205,20 @@ public class OnlineBmt extends HttpServlet {
 			validateInvoiceChannel(invoice);
 			validateNotExpired(invoice);
 			validateAmount(invoice, input.amount);
+			boolean invoicePaid = VirtualAccountBank.isSudahTerbayar(invoice);
 			if (ledger != null && "SUCCESS".equals(ledger.status)) {
+				if (!invoicePaid) {
+					updateLedger(lockSession, input.transactionNo, "FAILED", "96",
+							"Ledger SUCCESS tidak lagi mempunyai bukti pembayaran pada invoice");
+					ledgerTx.commit();
+					throw new ApiException(409, "96",
+							"Status transaksi memerlukan rekonsiliasi karena bukti pembayaran tidak ditemukan.");
+				}
 				ledgerTx.commit();
 				return transactionResult("00", "Transaksi Berhasil (idempoten).");
 			}
-			if (VirtualAccountBank.isSudahTerbayar(invoice)) {
-				if (ledger != null) {
+			if (invoicePaid) {
+				if (ledger != null && "PROCESSING".equals(ledger.status)) {
 					updateLedger(lockSession, input.transactionNo, "SUCCESS", "00",
 							"Transaksi Berhasil (dipulihkan dari hasil posting invoice)");
 					ledgerTx.commit();
@@ -282,7 +291,8 @@ public class OnlineBmt extends HttpServlet {
 			lockTransaction(session, input.transactionNo, true);
 			tx = session.beginTransaction();
 			Ledger ledger = findLedger(session, input.transactionNo);
-			boolean pairMatches = ledger != null && ledger.invoiceNo.equals(input.invoiceNo)
+			ledger = bindLegacyChannel(session, ledger, input);
+			boolean pairMatches = ledger != null && input.invoiceNo.equals(ledger.invoiceNo)
 					&& sameAmount(ledger.amount, input.amount)
 					&& input.channel.equals(ledger.channel);
 			boolean invoicePaid = VirtualAccountBank.isSudahTerbayar(invoice);
@@ -477,6 +487,33 @@ public class OnlineBmt extends HttpServlet {
 			ps.setString(4, input.transactionNo); ps.setBigDecimal(5, input.amount);
 			ps.setString(6, input.channel); ps.executeUpdate();
 		} finally { close(ps); }
+	}
+
+	/**
+	 * Mengikat channel pada ledger yang dibuat oleh versi aplikasi sebelum kolom
+	 * {@code channel_bmt} tersedia. Pengikatan hanya boleh terjadi di bawah advisory
+	 * lock dan setelah invoice serta nominal cocok; request telah lolos API key, HMAC,
+	 * timestamp, nonce, dan whitelist channel. Setelah sekali terisi, channel tidak
+	 * dapat diganti oleh retry berikutnya.
+	 */
+	private static Ledger bindLegacyChannel(Session session, Ledger ledger, PaymentInput input)
+			throws SQLException {
+		if (ledger == null || ledger.channel != null || !input.invoiceNo.equals(ledger.invoiceNo)
+				|| !sameAmount(ledger.amount, input.amount)) {
+			return ledger;
+		}
+		PreparedStatement ps = null;
+		try {
+			ps = session.connection().prepareStatement(
+					"UPDATE public.online_bmt_request_guard SET channel_bmt=?,updated_at=CURRENT_TIMESTAMP "
+					+ "WHERE no_transaksi_bmt=? AND channel_bmt IS NULL");
+			ps.setString(1, input.channel);
+			ps.setString(2, input.transactionNo);
+			ps.executeUpdate();
+			return new Ledger(ledger.invoiceNo, ledger.amount, input.channel, ledger.status);
+		} finally {
+			close(ps);
+		}
 	}
 
 	private static void updateLedger(Session session, String transactionNo, String status, String code,

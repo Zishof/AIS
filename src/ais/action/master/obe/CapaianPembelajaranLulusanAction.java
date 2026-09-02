@@ -220,6 +220,14 @@ public class CapaianPembelajaranLulusanAction extends ObeBaseAction {
             rowFormula.getGrid().setStyle("border:0px;background:transparent;width:100%;");
         }
 
+        // Kedua tombol harus berada dalam satu cell. Jika langsung ditempelkan ke
+        // Row, ZK membentuk dua kolom dan baris editor di bawahnya hanya memakai
+        // kolom pertama, sehingga tabel Sub-CPMK tampak setengah lebar.
+        org.zkoss.zul.Div formulaToolbar = new org.zkoss.zul.Div();
+        formulaToolbar.setWidth("100%");
+        formulaToolbar.setStyle("display:flex;align-items:center;gap:6px;flex-wrap:wrap;");
+        formulaToolbar.setParent(rowFormula);
+
         MyToolbarbuttonConfig addBtn = new MyToolbarbuttonConfig("Tambah Sub-CPMK", "/img/svg/addthis.svg");
         addBtn.setTooltiptext("Tambah Sub-CPMK");
         addBtn.addEventListener("onClick", new EventListener() {
@@ -233,18 +241,18 @@ public class CapaianPembelajaranLulusanAction extends ObeBaseAction {
                 reloadDataFormula(dataRow, array);
             }
         });
-        addBtn.setParent(rowFormula);
+        addBtn.setParent(formulaToolbar);
 
         MyToolbarbuttonConfig aiBtn = new MyToolbarbuttonConfig("Tambah via AI", "/img/svg/sparkles.svg");
         aiBtn.setTooltiptext("Tambah Sub-CPMK via AI");
-        aiBtn.setStyle("color:#ffffff;background-color:#7c3aed;border-radius:6px;margin-left:6px;");
+        aiBtn.setStyle("color:#ffffff;background-color:#7c3aed;border-radius:6px;");
         aiBtn.addEventListener("onClick", new EventListener() {
             @Override
             public void onEvent(Event event) throws Exception {
                 tambahSubCpmkViaAi(dataRow, array);
             }
         });
-        aiBtn.setParent(rowFormula);
+        aiBtn.setParent(formulaToolbar);
 
         dataRow.setParent(rowFormula.getParent());
         dataRow.setStyle("border:0px;background:transparent;width:100%;");
@@ -323,7 +331,7 @@ public class CapaianPembelajaranLulusanAction extends ObeBaseAction {
 
         org.zkoss.zul.Div wrapper = new org.zkoss.zul.Div();
         wrapper.setWidth("100%");
-        wrapper.setStyle("overflow-x:auto;overflow-y:hidden;padding-bottom:4px;");
+        wrapper.setStyle("width:100%;max-width:100%;box-sizing:border-box;overflow-x:auto;overflow-y:hidden;padding-bottom:4px;");
         wrapper.setParent(dataRow);
 
         Grid grid = new Grid();

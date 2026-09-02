@@ -14,7 +14,6 @@ import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 import org.zkoss.zk.ui.sys.ExecutionsCtrl;
 import org.zkoss.zul.Html;
-import org.zkoss.zul.Vbox;
 
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.sekolah.CalonSiswa;
@@ -375,14 +374,11 @@ public final class AnalisisTagihanSekolahHelper {
 			Integer tahun, List<Tahap> tahap, int kandidat, int item, int khusus, Hilir hilir) throws InterruptedException {
 		MyWindow w = new MyWindow("Analisis Data Tagihan Siswa", "none", true);
 		w.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
-		w.setWidth("950px");
-		w.setHeight("84%");
+		w.setWidth(Common.isMobile() ? "100%" : "950px");
+		w.setHeight(Common.isMobile() ? "92%" : "84%");
 		w.setSizable(true);
-		Vbox isi = new Vbox();
-		isi.setWidth("100%");
-		isi.setHeight("100%");
-		isi.setStyle("overflow:auto;padding:12px;box-sizing:border-box");
-		isi.setParent(w);
+		w.setContentStyle("overflow-y:auto;overflow-x:auto;padding:12px;box-sizing:border-box;"
+				+ "background:#ffffff;-webkit-overflow-scrolling:touch;");
 		StringBuffer h = new StringBuffer();
 		String identitas = siswa != null ? siswa.getNomorInduk() + " - " + siswa.getNamaSiswa()
 				: calon.getNomorInduk() + " - " + calon.getNamaSiswa();
@@ -426,7 +422,7 @@ public final class AnalisisTagihanSekolahHelper {
 				.append("<li>Buka menu Pembayaran &gt; Pengaturan Biaya.</li><li>Buat atau ubah setting sesuai jenis biaya, sekolah, angkatan, kelas, jurusan, status awal, asrama, dan gelombang yang ditandai gagal.</li>")
 				.append("<li>Tambahkan Item Biaya beserta nominalnya jika jumlah item masih nol.</li><li>Simpan, lalu jalankan Proses/Sinkronkan Tagihan dan klik Refresh.</li><li>Jalankan Analisis Data kembali sampai semua tahap cocok dan tagihan terbentuk.</li></ol></div>")
 				.append("<div style='margin-top:8px;color:#7c2d12;font-size:11px'><b>Penting:</b> jangan mengubah data siswa hanya supaya cocok dengan pengaturan. Perbaiki data siswa hanya jika data induknya memang salah; selain itu buat varian Pengaturan Biaya yang sesuai.</div></div>");
-		new Html(h.toString()).setParent(isi);
+		new Html(h.toString()).setParent(w);
 		w.onModal();
 	}
 
