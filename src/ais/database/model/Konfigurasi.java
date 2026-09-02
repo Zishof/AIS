@@ -221,62 +221,117 @@ import ais.ui.util.WaktuUtil;
 @Table(schema = "public", name = "konfigurasi")
 public class Konfigurasi extends GeneralValueObject {
 
+	// ==== Kunci konfigurasi akademik inti. Nilainya lazim berupa AKTIF/TIDAK_AKTIF ("gerbang
+	//      dibuka/ditutup"), sering dipadukan dengan relasi KalenderAkademik supaya buka-tutupnya
+	//      mengikuti tanggal, bukan diklik manual tiap semester. ====
+	/** Kunci gerbang pengisian nilai perkuliahan reguler; {@link #getInfo1()} menyimpan ganjil/genap. */
 	public static final String PENILAIAN = "penilaian";
+	/** Sama seperti {@link #PENILAIAN} tetapi untuk Semester Pendek (SP). */
 	public static final String PENILAIAN_SP = "penilaian_sp";
+	/** Kunci gerbang penjadwalan kuliah reguler. */
 	public static final String PENJADWALAN = "penjadwalan";
+	/** Kunci gerbang penjadwalan Semester Pendek. */
 	public static final String PENJADWALAN_SP = "penjadwalan_sp";
+	/** Kunci sakelar penyediaan rincian biaya dalam bentuk berkas Excel. */
 	public static final String DETAIL_BIAYA_EXCEL = "detail_biaya_excel";
+	/** Kunci gerbang pengisian KRS reguler. */
 	public static final String KRS = "krs";
+	/** Kunci gerbang perbaikan/revisi KRS reguler setelah KRS ditutup. */
 	public static final String PERBAIKAN_KRS = "perbaikan_krs";
+	/** Kunci gerbang pengisian KRS Semester Pendek. */
 	public static final String KRS_SP = "krs_sp";
+	/** Kunci gerbang pengisian KRS remedial. */
 	public static final String KRS_REMEDIAL = "krs_remedial";
+	/** Kunci gerbang perbaikan KRS Semester Pendek. */
 	public static final String PERBAIKAN_KRS_SP = "perbaikan_krs_sp";
+	/** Kunci gerbang perbaikan KRS remedial. */
 	public static final String PERBAIKAN_KRS_REMEDIAL = "perbaikan_krs_remedial";
+	/** Kunci gerbang pendaftaran calon mahasiswa jenjang S1. */
 	public static final String DAFTAR_S1 = "daftar_s1";
+	/** Kunci gerbang pendaftaran calon mahasiswa jenjang S2. */
 	public static final String DAFTAR_S2 = "daftar_s2";
+	/** Kunci gerbang pendaftaran calon mahasiswa jenjang S3. */
 	public static final String DAFTAR_S3 = "daftar_s3";
+	/** Kunci teks informasi yang tampil di halaman depan PMB (Penerimaan Mahasiswa Baru). */
 	public static final String PMB_HOME_INFO = "pmb_home_info";
+	/** Kunci teks kontak sekretariat yang tampil di halaman depan PMB. */
 	public static final String PMB_HOME_SEKRETARIAT = "pmb_home_sekretariat";
+	/** Kunci gerbang buka/tutup pengisian angket (kuesioner) dosen oleh mahasiswa. */
 	public static final String ANGKET = "angket";
 
 	// Tampil/sembunyi akun-akun pada form Kelompok Barang/Jasa (KelompokAsset). Default AKTIF (tampil).
+	/** Tampil/sembunyi baris akun <i>Fixed Asset</i> pada form Kelompok Barang/Jasa. Default AKTIF. */
 	public static final String KELOMPOK_ASET_AKUN_FIX_ASET = "kelompok_aset_akun_fix_aset";
+	/** Tampil/sembunyi baris akun Akumulasi Penyusutan pada form Kelompok Barang/Jasa. Default AKTIF. */
 	public static final String KELOMPOK_ASET_AKUN_AKUMULASI_PENYUSUTAN = "kelompok_aset_akun_akumulasi_penyusutan";
+	/** Tampil/sembunyi baris akun Biaya Penyusutan pada form Kelompok Barang/Jasa. Default AKTIF. */
 	public static final String KELOMPOK_ASET_AKUN_BIAYA_PENYUSUTAN = "kelompok_aset_akun_biaya_penyusutan";
+	/** Tampil/sembunyi baris akun Beban Pokok Penjualan pada form Kelompok Barang/Jasa. Default AKTIF. */
 	public static final String KELOMPOK_ASET_AKUN_BEBAN_POKOK_PENJUALAN = "kelompok_aset_akun_beban_pokok_penjualan";
 	// Tampil/sembunyi field "Kategori" pada form Barang/Jasa (MasterAsset). Default AKTIF (tampil).
+	/**
+	 * Tampil/sembunyi field "Kategori" pada form Barang/Jasa ({@code MasterAssetAction}).
+	 * Default AKTIF (tampil); dibaca lewat {@code Common.bolehKonfigurasi(MASTER_ASET_KATEGORI,
+	 * Konfigurasi.AKTIF)} dan disunting admin di {@code KonfigurasiNewAction}.
+	 */
 	public static final String MASTER_ASET_KATEGORI = "master_aset_kategori";
 
 	// ==== On/Off tiap menu e-Kantin (submenu sidebar). Kunci konfigurasi = KANTIN_MENU_PREFIX + "<id>"
 	//      (mis. "kantin_menu_kas"). Semua DEFAULT AKTIF (tampil). Diatur admin di KonfigurasiNewAction
 	//      tab "Menu e-Kantin". Dibaca di nav.jsp/menu.jsp via Common.bolehKonfigurasi(prefix+id). ====
+	/**
+	 * Awalan kunci sakelar per-menu e-Kantin. Kunci lengkapnya {@code KANTIN_MENU_PREFIX + "<id>"}
+	 * (mis. {@code "kantin_menu_kas"}) — lihat komentar blok di atas untuk tempat pengaturan dan
+	 * pembacaannya. Bukan kunci utuh: jangan dipakai sendirian sebagai argumen
+	 * {@code Common.bolehKonfigurasi}.
+	 */
 	public static final String KANTIN_MENU_PREFIX = "kantin_menu_";
-	// Cegah oversell pada Kasir e-Kantin (POS): blokir penambahan item melebihi stok. Default AKTIF.
-	// Matikan bila koperasi menjual jasa/produk tanpa pelacakan stok (mencegah blokir salah).
+	/**
+	 * Cegah <i>oversell</i> pada Kasir e-Kantin (POS): blokir penambahan item melebihi stok.
+	 * Default AKTIF. Matikan bila koperasi menjual jasa/produk tanpa pelacakan stok (mencegah
+	 * blokir salah).
+	 */
 	public static final String KANTIN_POS_CEGAH_OVERSELL = "kantin_pos_cegah_oversell";
-	// Wajibkan Sesi Kas Kasir (buka kas) terbuka sebelum kasir bisa memproses pembayaran di POS.
-	// Default AKTIF (ON). Unit yang secara operasional tidak memakai laci/shift kas dapat memilih
-	// "tidak aktif" secara eksplisit. Semua kanal membaca sakelar server yang sama.
+	/**
+	 * Wajibkan Sesi Kas Kasir (buka kas) terbuka sebelum kasir bisa memproses pembayaran di POS.
+	 * Default AKTIF (ON). Unit yang secara operasional tidak memakai laci/shift kas dapat memilih
+	 * "tidak aktif" secara eksplisit. Semua kanal membaca sakelar server yang sama.
+	 */
 	public static final String KANTIN_POS_WAJIB_SESI_KAS = "kantin_pos_wajib_sesi_kas";
-	// Dok. 48 §6 no.4 (Fase D): stok yang DIKUNCI reservasi Work Order ikut mengurangi stok yang
-	// boleh dijual kasir (cek stok bayar membaca sum(qty_sisa) reservasi AKTIF). Default TIDAK
-	// AKTIF = reservasi murni informasi, perilaku sebelum saklar ini ada.
+	/**
+	 * Dok. 48 &sect;6 no.4 (Fase D): stok yang DIKUNCI reservasi Work Order ikut mengurangi stok
+	 * yang boleh dijual kasir (cek stok bayar membaca {@code sum(qty_sisa)} reservasi AKTIF).
+	 * Default TIDAK AKTIF = reservasi murni informasi, perilaku sebelum sakelar ini ada.
+	 */
 	public static final String KANTIN_POS_RESERVASI_MENGUNCI = "kantin_pos_reservasi_mengunci";
-	// Dok. 63: penanda internal bahwa pengisian satuan dasar Pcs massal SUDAH dijalankan di
-	// lingkungan ini. Ditulis otomatis oleh InitIndex.initSatuanDasarPcsMassal(); pengisian
-	// hanya berjalan sekali supaya produk yang sengaja dibiarkan tanpa satuan tidak terisi
-	// diam-diam pada setiap restart.
+	/**
+	 * Dok. 63: penanda internal bahwa pengisian satuan dasar Pcs massal SUDAH dijalankan di
+	 * lingkungan ini. Ditulis otomatis oleh {@code InitIndex.initSatuanDasarPcsMassal()};
+	 * pengisian hanya berjalan sekali supaya produk yang sengaja dibiarkan tanpa satuan tidak
+	 * terisi diam-diam pada setiap restart. Kunci ini bukan preferensi pengguna — jangan disunting
+	 * manual kecuali memang ingin mengulang pengisian.
+	 */
 	public static final String KANTIN_UOM_ISI_PCS_MASSAL_SELESAI = "kantin_uom_isi_pcs_massal_selesai";
-	// Dok. 63: saklar PEMBALIKAN pengisian Pcs massal. Default TIDAK AKTIF -- bila diaktifkan,
-	// InitIndex mengembalikan satuan produk yang tercatat di koperasi.jejak_satuan_pcs menjadi
-	// kosong pada boot berikutnya, lalu MEMATIKAN DIRINYA SENDIRI supaya tidak terulang.
+	/**
+	 * Dok. 63: sakelar PEMBALIKAN pengisian Pcs massal. Default TIDAK AKTIF — bila diaktifkan,
+	 * {@code InitIndex} mengembalikan satuan produk yang tercatat di
+	 * {@code koperasi.jejak_satuan_pcs} menjadi kosong pada boot berikutnya, lalu MEMATIKAN
+	 * DIRINYA SENDIRI supaya tidak terulang.
+	 */
 	public static final String KANTIN_UOM_BALIKKAN_PCS_MASSAL = "kantin_uom_balikkan_pcs_massal";
-	// Wajibkan setiap rincian tagihan rutin tanpa BAST menunjuk anggaran/Workspace.
-	// Default TIDAK AKTIF agar tagihan utilitas tetap dapat dicatat saat anggaran belum disiapkan.
+	/**
+	 * Wajibkan setiap rincian tagihan rutin tanpa BAST menunjuk anggaran/Workspace.
+	 * Default TIDAK AKTIF agar tagihan utilitas tetap dapat dicatat saat anggaran belum disiapkan.
+	 */
 	public static final String PENGADAAN_TAGIHAN_RUTIN_ANGGARAN_WAJIB =
 			"pengadaan_tagihan_rutin_anggaran_wajib";
-	// Izinkan provisioning data contoh eBisnis. Fail-closed: tanpa baris konfigurasi
-	// atau bila nilainya bukan "aktif", seluruh seed data contoh harus ditolak.
+	/**
+	 * Izinkan <i>provisioning</i> data contoh eBisnis. <b>Fail-closed</b>: tanpa baris konfigurasi
+	 * atau bila nilainya bukan {@code "aktif"}, seluruh seed data contoh harus ditolak. Karena itu
+	 * pembacaannya memakai default {@link #TIDAK_AKTIF} secara eksplisit — kunci ini contoh baik
+	 * mengapa nilai default sebuah sakelar berbahaya harus "mati", mengingat default akan ter-seed
+	 * permanen ke basis data pada pembacaan pertama.
+	 */
 	public static final String DATA_SAMPLE_EBISNIS = "data_sample_ebisnis";
 
 	// ==== On/Off tiap tab halaman "Posting Jurnal" (mis. "posting_jurnal_tab_pajak"). Kunci konfigurasi
@@ -284,10 +339,45 @@ public class Konfigurasi extends GeneralValueObject {
 	//      KonfigurasiNewAction tab "Posting Jurnal". Dibaca di PostingJurnalAction via
 	//      Common.bolehKonfigurasi(prefix+slug); tab "Posting HPP" yang OFF juga menyembunyikan
 	//      barisnya di ringkasan kesiapan posting jurnal (DrafJurnalAction). ====
+	/**
+	 * Awalan kunci sakelar per-tab halaman "Posting Jurnal". Kunci lengkap =
+	 * {@code POSTING_JURNAL_TAB_PREFIX + "<slug>"} (mis. {@code "posting_jurnal_tab_pajak"}).
+	 * Lihat komentar blok di atas. Bukan kunci utuh.
+	 */
 	public static final String POSTING_JURNAL_TAB_PREFIX = "posting_jurnal_tab_";
 
+	/**
+	 * Peta statis <i>label tampilan</i> untuk sebagian kecil jenis konfigurasi:
+	 * <code>kunci konfigurasi &rarr; teks judul</code>. Dipakai satu tempat saja, yaitu
+	 * {@code ais.common.CommonHelperClass} yang mengisi {@code Combobox} pemilih jenis
+	 * konfigurasi (setiap {@code keySet()} menjadi satu {@code Comboitem} berlabel
+	 * {@code get(kunci)}).
+	 *
+	 * <p><b>Bukan</b> cache nilai konfigurasi dan tidak ada hubungannya dengan peta
+	 * {@code MemoryDbUtil.getKonfigurasi()} yang kebetulan bernama mirip — yang itu berisi
+	 * {@code Map<String, Konfigurasi>} hasil pembacaan basis data. Peta di sini murni
+	 * {@code Map<String, String>} berisi teks antarmuka dan tidak pernah menyentuh basis data.</p>
+	 *
+	 * <p><b>Catatan pemeliharaan.</b> Isinya jauh lebih sedikit daripada daftar konstanta di atas
+	 * (hanya 6 dari belasan kunci yang terdaftar; {@link #KRS} sengaja dikomentari karena
+	 * labelnya perlu {@code Common.getBahasa("label_krs")} yang belum tentu siap saat kelas ini
+	 * dimuat). Jadi jangan menganggap peta ini sebagai daftar lengkap jenis konfigurasi.
+	 * {@code HashMap} biasa tanpa sinkronisasi: aman karena hanya diisi sekali di penginisialisasi
+	 * statis dan sesudah itu murni dibaca — jangan menambahkan penulisan saat <i>runtime</i>.</p>
+	 */
 	public static final Map<String, String> konfigurasi = new HashMap<String, String>();
 
+	/**
+	 * Penginisialisasi statis pengisi peta label {@link #konfigurasi}.
+	 *
+	 * <p>Dibungkus {@code try/catch} yang menelan seluruh {@code Exception} (dicatat ke
+	 * {@code ErrorAuditUtil} oleh audit otomatis). Pembungkusan itu bermakna: blok statis yang
+	 * melempar akan membuat kelas gagal dimuat dengan {@code ExceptionInInitializerError} dan
+	 * meruntuhkan hampir seluruh aplikasi, karena {@code Konfigurasi} disentuh di mana-mana.
+	 * Baris {@link #KRS} sengaja dinonaktifkan (lihat komentar di dalam) justru karena
+	 * memanggil {@code Common.getBahasa(...)} dari sini berisiko memicu pemuatan berantai
+	 * saat kelas belum siap.</p>
+	 */
 	static {
 		try {
 			konfigurasi.put(Konfigurasi.PENILAIAN, "Konfigurasi Penilaian");
@@ -303,25 +393,59 @@ public class Konfigurasi extends GeneralValueObject {
 		}
 	}
 
+	// ==== Kosakata NILAI standar (isi kolom "nilai"), bukan nama kunci. ====
+	/**
+	 * Penanda "field wajib diisi" pada konfigurasi tampilan form biodata. <b>Nilainya sama persis
+	 * dengan {@link #AKTIF}</b> ({@code "aktif"}) — dua konstanta berbeda untuk satu literal, agar
+	 * kode pemanggil terbaca sesuai maksud domainnya (sakelar aktif vs. field wajib). Karena
+	 * identik, keduanya <b>tidak dapat dibedakan</b> saat pembandingan; pembedaan "wajib" vs
+	 * "tidak wajib" dilakukan lewat {@link #AKTIF_TIDAK_WAJIB}.
+	 */
 	public static final String WAJIB_DIISI = "aktif";
+	/** Nilai sakelar menyala. Nilai bawaan mayoritas konfigurasi dan hasil normalisasi {@link #getNilai()}. */
 	public static final String AKTIF = "aktif";
+	/** Nilai sakelar padam. Perhatikan ada spasi di tengah ({@code "tidak aktif"}), bukan garis bawah. */
 	public static final String TIDAK_AKTIF = "tidak aktif";
+	/** Nilai "boleh dilihat, tidak boleh disunting" untuk konfigurasi tampilan form. */
 	public static final String READ_ONLY = "read only";
+	/** Seperti {@link #READ_ONLY}, tetapi pengguna ber-role administrator tetap boleh menyunting. */
 	public static final String READ_ONLY_KECUALI_ADMIN = "read only kecuali admin";
+	/**
+	 * Nilai "tampil tetapi boleh dikosongkan" — dipakai konfigurasi tampilan biodata untuk
+	 * membedakannya dari {@link #AKTIF}/{@link #WAJIB_DIISI} yang berarti tampil <i>dan</i> wajib.
+	 * Diperiksa lewat {@link #checkAktifDanTidakWajib()} / {@link #checkTidakAktifDanTidakWajib()}.
+	 */
 	public static final String AKTIF_TIDAK_WAJIB = "aktif tidak wajib";
 
 	/**
-	 * 
+	 *
 	 */
 	private static final long serialVersionUID = 2463821577548439808L;
+	/** Kunci utama tabel {@code public.konfigurasi}; dideklarasikan ulang karena induk tidak dipetakan. */
 	private Long id;
+	/** Nama pengguna terakhir yang mengubah baris ini (jejak audit ringan). */
 	private String oleh;
+	/** Id/username pengguna terakhir yang mengubah baris ini. */
 	private String olehId;
 
+	/**
+	 * Mengembalikan id pengguna terakhir yang mengubah baris ini. Getter sederhana tanpa efek samping.
+	 *
+	 * @return id/username pengubah terakhir; boleh {@code null} bila baris belum pernah disunting
+	 *         lewat jalur yang mengisi jejak audit
+	 */
 	public String getOlehId() {
 		return olehId;
 	}
 
+	/**
+	 * Menyetel id pengguna pengubah. <b>Menolak nilai kosong</b>: bila {@code olehId} {@code null}
+	 * atau hanya berisi spasi, method langsung keluar dan jejak lama <b>dipertahankan</b>. Ini pola
+	 * "sekali terisi jangan dihapus" yang dipakai seluruh entity AIS agar proses batch/impor yang
+	 * tidak membawa identitas pengguna tidak menghapus jejak audit yang sudah benar.
+	 *
+	 * @param olehId id/username pengubah; diabaikan bila null/kosong
+	 */
 	public void setOlehId(String olehId) {
 		if (olehId == null || olehId.trim().isEmpty()) {
 			return;
@@ -329,6 +453,12 @@ public class Konfigurasi extends GeneralValueObject {
 		this.olehId = olehId;
 	}
 
+	/**
+	 * Menyetel nama pengguna pengubah. Sama seperti {@link #setOlehId(String)}, nilai null/kosong
+	 * <b>diabaikan</b> sehingga jejak lama tidak tertimpa nilai hampa.
+	 *
+	 * @param oleh nama pengubah; diabaikan bila null/kosong
+	 */
 	public void setOleh(String oleh) {
 		if (oleh == null || oleh.trim().isEmpty()) {
 			return;
@@ -336,64 +466,192 @@ public class Konfigurasi extends GeneralValueObject {
 		this.oleh = oleh;
 	}
 
+	/**
+	 * Mengembalikan nama pengguna terakhir yang mengubah baris ini. Getter sederhana tanpa efek samping.
+	 *
+	 * @return nama pengubah terakhir; boleh {@code null}
+	 */
 	public String getOleh() {
 		return oleh;
 	}
 
+	/**
+	 * Kait JPA {@code @PreUpdate}: dipanggil <b>Hibernate</b>, bukan kode aplikasi, tepat sebelum
+	 * setiap {@code UPDATE} baris konfigurasi. Mendelegasikan ke
+	 * {@code ais.database.hibernate.AuditTimestampInterceptor.ubah(this)} yang mengisi
+	 * {@code tanggal_dirubah} serta {@code oleh}/{@code olehId} dari pengguna sesi aktif.
+	 *
+	 * <p>Ini satu-satunya method {@code abstract} yang diwarikan {@link GeneralValueObject} dan
+	 * karenanya <b>wajib</b> diimplementasikan setiap entity. Jangan memanggilnya manual.</p>
+	 *
+	 * @see ais.database.model.GeneralValueObject
+	 */
 	@javax.persistence.PreUpdate
 	protected void onUpdate() {
 		ais.database.hibernate.AuditTimestampInterceptor.ubah(this);
 	}
 
+	/**
+	 * Waktu perubahan terakhir. Diinisialisasi ke waktu server saat object dibuat sehingga baris
+	 * baru tidak pernah punya stempel kosong; sesudah itu diperbarui {@link #onUpdate()}.
+	 */
 	private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/**
+	 * Menyetel stempel waktu perubahan terakhir. Berbeda dari {@link #setOleh(String)}, setter ini
+	 * <b>tidak</b> menolak {@code null} — pemanggil dapat mengosongkannya.
+	 *
+	 * @param tanggal_dirubah waktu perubahan; boleh {@code null}
+	 */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/**
+	 * Mengembalikan stempel waktu perubahan terakhir (kolom {@code timestamp}).
+	 *
+	 * @return waktu perubahan terakhir; tidak pernah {@code null} pada object yang baru dibuat
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
 	}
 
+	/**
+	 * Representasi teks {@code "<nama>-<nilai>"}, dipakai untuk log dan penelusuran.
+	 *
+	 * <p>Sengaja <b>meng-override</b> {@link GeneralValueObject#toString()} yang berformat
+	 * {@code "kode - nama"} (entity ini tidak punya {@code kode}). Perhatikan dua hal:
+	 * (1) ia membaca <b>field</b> {@code nama}/{@code nilai} langsung, bukan getter, sehingga
+	 * <b>tidak</b> memicu normalisasi/penulisan {@link #getNilai()} — aman dipanggil dari
+	 * <i>debugger</i> maupun dari dalam blok penanganan galat; (2) karena itu pula hasilnya dapat
+	 * menampilkan {@code "null"} untuk baris yang nilainya belum dinormalkan.</p>
+	 *
+	 * @return gabungan nama dan nilai mentah dipisah tanda hubung
+	 */
 	public String toString() {
 		return nama + "-" + nilai;
 	}
 
+	/** Kunci konfigurasi (kolom {@code nama}). <b>Tidak dijamin unik</b> di tingkat basis data. */
 	private String nama;
+	/** Nilai konfigurasi (kolom {@code nilai}, bertipe {@code text} sehingga panjangnya bebas). */
 	private String nilai;
+	/** Penjelasan bebas untuk administrator (kolom {@code keterangan}). */
 	private String keterangan;
+	/** Pembatas tahun ajaran, mis. {@code "2025/2026"}; diisi otomatis dari kalender akademik bila ada. */
 	private String tahunAkademik;
+	/** Slot konteks 1 — makna berbeda per kunci; pada konfigurasi penilaian berisi ganjil/genap. */
 	private String info1;
+	/** Slot konteks 2 — makna berbeda per kunci. */
 	private String info2;
+	/** Slot konteks 3 — makna berbeda per kunci. */
 	private String info3;
+	/** Slot konteks 4 — makna berbeda per kunci. */
 	private String info4;
+	/** Slot konteks 5 — makna berbeda per kunci. */
 	private String info5;
+	/** Pengguna yang membekukan baris ini; bila terisi, {@link #getNilai()} mengembalikan {@link #nilaiDikunci}. */
 	private Tbmuser dikunci;
+	/** Kalender akademik penentu aktif/tidaknya konfigurasi ini berdasarkan rentang tanggal. */
 	private KalenderAkademik kalenderAkademik;
 
+	/**
+	 * Salinan beku nilai konfigurasi saat baris dikunci. Selama {@link #dikunci} masih
+	 * {@code null}, {@link #getNilaiDikunci()} terus menyalin nilai berjalan ke sini; begitu
+	 * dikunci, penyalinan berhenti dan nilai inilah yang dikembalikan {@link #getNilai()}.
+	 */
 	private String nilaiDikunci;
 
+	/**
+	 * Apakah konfigurasi ini bernilai persis {@link #AKTIF}.
+	 *
+	 * <p><b>Efek samping:</b> memanggil {@link #getNilai()} — yang dapat <b>menulis</b> field
+	 * {@code nilai}/{@code info1}/{@code tahunAkademik} (normalisasi null, evaluasi kalender,
+	 * substitusi nilai terkunci). Lihat peringatan pada {@link #getNilai()}. Perbandingan
+	 * bersifat <i>case-sensitive</i> dan tanpa {@code trim()}, jadi nilai {@code "Aktif"} atau
+	 * {@code " aktif"} akan dianggap TIDAK aktif; pembungkus {@code Common.bolehKonfigurasi(kunci)}
+	 * lebih longgar (memakai {@code trim().equalsIgnoreCase(...)}) dan umumnya lebih tepat dipakai
+	 * di kode baru.</p>
+	 *
+	 * <p>Dipanggil antara lain dari {@code DetailperkuliahanAction} dan {@code StudiMahasiswaHelper}
+	 * untuk memeriksa sakelar persetujuan KRS oleh dosen.</p>
+	 *
+	 * @return {@code true} bila nilai efektif sama persis dengan {@code "aktif"}
+	 */
 	public boolean checkAktif() {
 		return getNilai() != null && getNilai().equals(AKTIF);
 	}
 
+	/**
+	 * Apakah konfigurasi ini "tampil" — yaitu bernilai {@link #AKTIF} <i>atau</i>
+	 * {@link #AKTIF_TIDAK_WAJIB}. Dipakai form biodata untuk memutuskan apakah sebuah field
+	 * ditampilkan, tanpa peduli wajib atau tidaknya.
+	 *
+	 * <p>Efek samping dan kepekaan huruf besar/kecil sama dengan {@link #checkAktif()}.
+	 * Pemanggil utama: {@code BiodataMahasiswaAction} (belasan pemanggilan berpasangan dengan
+	 * {@link #info1AndCheckWajibDanTidakWajib()} untuk menyusun label field).</p>
+	 *
+	 * @return {@code true} bila nilai efektif {@code "aktif"} atau {@code "aktif tidak wajib"}
+	 */
 	public boolean checkAktifDanTidakWajib() {
 		return getNilai() != null && (getNilai().equals(AKTIF) || getNilai().equals(AKTIF_TIDAK_WAJIB));
 	}
 
+	/**
+	 * Apakah konfigurasi ini "tidak wajib diisi" — yaitu bernilai {@link #TIDAK_AKTIF}
+	 * <i>atau</i> {@link #AKTIF_TIDAK_WAJIB}.
+	 *
+	 * <p><b>Jangan tertukar</b> dengan lawan dari {@link #checkAktifDanTidakWajib()}: kedua method
+	 * sama-sama mengembalikan {@code true} untuk {@link #AKTIF_TIDAK_WAJIB}, karena yang satu
+	 * bertanya "apakah tampil?" dan yang lain bertanya "apakah boleh kosong?".
+	 * {@code BiodataMahasiswaAction} memakainya untuk melewati validasi kelengkapan sebuah field.</p>
+	 *
+	 * <p>Efek samping sama dengan {@link #checkAktif()}.</p>
+	 *
+	 * @return {@code true} bila nilai efektif {@code "tidak aktif"} atau {@code "aktif tidak wajib"}
+	 */
 	public boolean checkTidakAktifDanTidakWajib() {
 		return getNilai() != null && (getNilai().equals(TIDAK_AKTIF) || getNilai().equals(AKTIF_TIDAK_WAJIB));
 	}
 
+	/**
+	 * Konstruktor tanpa argumen yang diwajibkan Hibernate/JPA. Seluruh field dibiarkan kosong
+	 * kecuali {@link #tanggal_dirubah} yang terisi waktu server. Dipakai juga oleh
+	 * {@code KonfigurasiManager} saat menyisipkan baris baru pada mekanisme auto-seed.
+	 */
 	public Konfigurasi() {
 	}
 
+	/**
+	 * Konstruktor pintas untuk membuat pasangan kunci–nilai secara langsung.
+	 *
+	 * <p>Menulis ke <b>field</b>, bukan lewat setter, jadi tidak ada normalisasi apa pun. Selain
+	 * dipakai kode aplikasi, konstruktor ini membentuk singleton
+	 * {@code KonfigurasiManager.konfigurasiKosong} ({@code new Konfigurasi("", "")}) yang
+	 * dikembalikan saat kunci kosong atau pembacaan gagal — object itu <b>dibagi seluruh JVM</b>
+	 * dan tidak punya {@code id}, jadi jangan pernah menyetel apa pun pada hasil
+	 * {@code Common.getKonfigurasi(...)} tanpa memeriksa {@code getId() != null} lebih dulu.</p>
+	 *
+	 * @param nama  kunci konfigurasi
+	 * @param nilai nilai konfigurasi
+	 */
 	public Konfigurasi(String nama, String nilai) {
 		this.nama = nama;
 		this.nilai = nilai;
 	}
 
+	/**
+	 * Kunci utama baris konfigurasi ({@code IDENTITY}/sequence PostgreSQL,
+	 * {@code insertable = false} karena nilainya dihasilkan basis data).
+	 *
+	 * <p>Sequence kolom inilah yang bisa tertinggal di belakang {@code max(id)} sesudah
+	 * restore/impor data dan memicu jalur perbaikan otomatis
+	 * {@code KonfigurasiManager.perbaikiSequenceDanSimpan(...)} — lihat Javadoc kelas.</p>
+	 *
+	 * @return id baris; {@code null} bila object belum tersimpan (termasuk pada singleton
+	 *         {@code konfigurasiKosong})
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -401,32 +659,152 @@ public class Konfigurasi extends GeneralValueObject {
 		return this.id;
 	}
 
+	/**
+	 * Menyetel kunci utama. Hanya dipakai Hibernate dan kode salin/pindah data; jangan disetel
+	 * manual pada baris yang sudah tersimpan.
+	 *
+	 * @param id kunci utama baris
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Mengembalikan kunci konfigurasi, sudah di-{@code trim()}.
+	 *
+	 * <p><b>Non-obvious.</b> {@code trim()} dilakukan hanya di getter dan <b>tidak</b> ditulis balik
+	 * ke field, sehingga nilai bertepi spasi tetap tersimpan apa adanya di basis data. Akibatnya
+	 * pencarian {@code Restrictions.eq("nama", ...)} di {@code KonfigurasiManager} — yang
+	 * membandingkan kolom mentah, bukan hasil getter — <b>tidak</b> akan menemukan baris yang
+	 * namanya tersimpan dengan spasi tambahan, sehingga kunci itu akan di-seed ulang sebagai baris
+	 * duplikat. Karena {@code unique = false} (kolom sengaja tidak unik), basis data tidak
+	 * mencegahnya; pembacaan berikutnya memilih id terbesar.</p>
+	 *
+	 * <p>Perhatikan pula bahwa {@link #getNilai()} membandingkan {@code nama} lewat <b>field</b>
+	 * langsung (tanpa trim) untuk kunci {@code ISTILAH_*}, tetapi lewat {@code trim()} untuk
+	 * {@code "recapcha_home"} — perbedaan yang tidak disengaja tetapi nyata.</p>
+	 *
+	 * @return kunci konfigurasi tanpa spasi tepi; {@code null} bila belum diisi
+	 */
 	@Column(name = "nama", nullable = true, unique = false, length = 250)
 	public String getNama() {
 		return this.nama == null ? null : this.nama.trim();
 	}
 
+	/**
+	 * Menyetel kunci konfigurasi apa adanya (tanpa normalisasi/trim).
+	 *
+	 * @param nama kunci konfigurasi; maksimum 250 karakter
+	 */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
 
+	/**
+	 * Mengembalikan penjelasan bebas untuk administrator. Getter sederhana tanpa efek samping;
+	 * berbeda dari {@link #getNama()}, nilainya <b>tidak</b> di-{@code trim()}.
+	 *
+	 * @return keterangan; boleh {@code null}
+	 */
 	@Column(name = "keterangan", nullable = true)
 	public String getKeterangan() {
 		return this.keterangan;
 	}
 
+	/**
+	 * Menyetel penjelasan bebas untuk administrator.
+	 *
+	 * @param keterangan teks keterangan; boleh {@code null}
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
 
+	/**
+	 * Menyetel nilai konfigurasi mentah, tanpa validasi maupun normalisasi.
+	 *
+	 * <p>Dipanggil {@code KonfigurasiManager} saat auto-seed (mengisi {@code defaultValue}) dan
+	 * saat {@code simpanKonfigurasi(nama, nilai)}, serta oleh layar admin
+	 * {@code KonfigurasiNewAction}. Ingat bahwa nilai yang disetel di sini <b>bisa ditimpa lagi</b>
+	 * oleh {@link #getNilai()} pada pembacaan berikutnya bila baris terkunci, terikat kalender
+	 * akademik, atau namanya termasuk kunci {@code ISTILAH_*}/{@code recapcha_home}.</p>
+	 *
+	 * @param nilai nilai baru; boleh {@code null} (akan dinormalkan menjadi {@link #AKTIF} oleh
+	 *              {@link #getNilai()})
+	 */
 	public void setNilai(String nilai) {
 		this.nilai = nilai;
 	}
 
+	/**
+	 * <h3>Nilai efektif konfigurasi — getter paling berat dan paling berefek samping di kelas ini</h3>
+	 *
+	 * <p><b>Tujuan.</b> Mengembalikan nilai yang benar-benar berlaku untuk kunci ini, bukan sekadar
+	 * isi kolom {@code nilai}. Nilai efektif dapat berasal dari empat sumber berbeda yang
+	 * diterapkan <b>berurutan</b>, dan setiap sumber menimpa hasil sebelumnya.</p>
+	 *
+	 * <p><b>PERINGATAN UTAMA — getter ini MENULIS.</b> Seluruh penyesuaian di bawah dilakukan dengan
+	 * menugaskan nilai baru ke field {@code nilai} (dan pada jalur kalender juga ke
+	 * {@code tahunAkademik} serta {@code info1}). Karena {@code nilai} adalah properti yang
+	 * dipetakan Hibernate dan entity ini {@code dynamicUpdate}, perubahan tersebut akan
+	 * <b>ikut ter-{@code UPDATE} ke basis data</b> pada <i>flush</i> berikutnya bila object dalam
+	 * keadaan <i>attached</i> — tanpa ada satu baris kode pun yang secara sadar menyimpan. Efeknya
+	 * <b>merusak</b> pada dua jalur: (a) baris berkalender kehilangan nilai aslinya, tergantikan
+	 * "aktif"/"tidak aktif" hasil evaluasi tanggal saat itu; (b) baris terkunci kehilangan nilai
+	 * aslinya, tergantikan salinan beku {@link #getNilaiDikunci()}. Sebaliknya, instance yang
+	 * berasal dari cache MapDB bersifat <i>detached</i> sehingga penulisan yang sama hanya hidup di
+	 * memori — dari sinilah gejala "kadang tersimpan, kadang tidak" berasal.</p>
+	 *
+	 * <p><b>Langkah 1 — substitusi istilah pendaftaran.</b> Untuk lima kunci teks
+	 * ({@code ISTILAH_PENDAFTARAN_CALON_MAHASISWA}, {@code ISTILAH_PENDAFTARAN_MAHASISWA_LAMA},
+	 * {@code PENDAFTARAN_ULANG_MAHASISWA_BARU}, {@code ISTILAH_PENDAFTARAN_WISUDA},
+	 * {@code ISTILAH_PEMBAYARAN_SP}), bila nilai tersimpan kosong <i>atau</i> kebetulan berisi
+	 * {@link #AKTIF}/{@link #TIDAK_AKTIF}, nilainya diganti dengan istilah berjalan dari
+	 * {@code ais.action.ws.util.ConstantUtil}. Alasannya: kunci-kunci ini menyimpan <b>label</b>
+	 * (mis. "Daftar Ulang"), bukan sakelar, sehingga nilai "aktif" pasti sisa salah isi dan harus
+	 * dipulihkan. Rantainya melingkar tetapi konvergen: {@code ConstantUtil.initIstilahPendaftaran}
+	 * mengisi konstanta itu justru dari {@code Common.getKonfigurasi(...).getNilai()}, dan
+	 * {@code AuditListener} memperbaruinya lagi setiap baris {@code ISTILAH_*} disimpan.
+	 * <b>Konsekuensi bagi admin:</b> istilah tidak dapat disetel menjadi kata "aktif"/"tidak aktif"
+	 * — masukan itu akan diam-diam ditolak.</p>
+	 *
+	 * <p><b>Langkah 2 — normalisasi null.</b> {@code nilai == null} menjadi {@link #AKTIF}. Artinya
+	 * <b>default implisit seluruh konfigurasi adalah menyala</b> bila kolomnya kosong. Konfigurasi
+	 * yang berbahaya bila menyala harus disimpan eksplisit sebagai {@link #TIDAK_AKTIF} dan dibaca
+	 * dengan default {@code TIDAK_AKTIF} (contoh: {@link #DATA_SAMPLE_EBISNIS}).</p>
+	 *
+	 * <p><b>Langkah 3 — evaluasi kalender akademik.</b> Bila {@link #getKalenderAkademik()} terisi
+	 * dan kedua batas tanggalnya ada, nilai <b>dipaksa</b> {@link #AKTIF} saat hari ini berada di
+	 * dalam rentang (batas inklusif — perbandingan tanggal memakai {@code Common.dateFormat1}
+	 * sehingga jam diabaikan) dan {@link #TIDAK_AKTIF} bila di luar. Bersamaan dengan itu
+	 * {@link #setTahunAkademik(String)} dan {@link #setInfo1(String)} dipanggil untuk menyalin
+	 * tahun ajaran dan ganjil/genap dari kalender; {@code setTahunAkademik} sendiri menolak menimpa
+	 * nilai yang sudah terisi, sedangkan {@code setInfo1} <b>tidak</b> — jadi {@code info1} dapat
+	 * tertimpa. Inilah mekanisme "gerbang KRS/penilaian buka-tutup otomatis mengikuti kalender".</p>
+	 *
+	 * <p><b>Langkah 4 — substitusi nilai terkunci.</b> Bila {@link #getDikunci()} tidak
+	 * {@code null}, hasil akhirnya adalah {@link #nilaiDikunci} — salinan beku yang dibuat
+	 * {@link #getNilaiDikunci()} selagi baris belum terkunci. Ini yang membuat tombol "Kunci" di
+	 * {@code ais.action.master.KonfigurasiAction#tampilKunci} membekukan konfigurasi: siapa pun
+	 * boleh mengubah kolom {@code nilai}, tetapi yang dibaca aplikasi tetap nilai saat dikunci,
+	 * termasuk mengalahkan hasil evaluasi kalender pada langkah 3. <b>Jebakan:</b> bila baris
+	 * dikunci sebelum {@code nilaiDikunci} pernah terisi, method ini mengembalikan {@code null} —
+	 * pemanggil seperti {@link #checkAktif()} sudah menjaganya, tetapi kode yang langsung
+	 * memanggil {@code getNilai().trim()} akan {@code NullPointerException}.</p>
+	 *
+	 * <p><b>Langkah 5 — kekhususan {@code recapcha_home}.</b> Untuk kunci itu nilai
+	 * <b>selalu</b> dipaksa menjadi {@code "login"}, mengabaikan apa pun yang tersimpan. Kunci ini
+	 * menentukan halaman tujuan pengalihan saat captcha/login gagal ({@code ConstantValues.recapchaHome},
+	 * yang mengalir ke {@code sendRedirect}/{@code getRequestDispatcher}), sehingga pemaksaan ini
+	 * berfungsi sebagai pagar terhadap pengalihan ke alamat sembarang. Efek sampingnya: baris
+	 * konfigurasi bernama {@code recapcha_home} yang tetap disediakan di layar admin
+	 * ({@code KonfigurasiNewAction}) praktis <b>tidak berpengaruh</b> lewat jalur ini.</p>
+	 *
+	 * @return nilai efektif konfigurasi; umumnya tidak {@code null} berkat langkah 2, kecuali pada
+	 *         baris terkunci yang {@code nilaiDikunci}-nya belum pernah terisi
+	 * @see #getNilaiDikunci()
+	 * @see #getKalenderAkademik()
+	 */
 	@Column(name = "nilai", nullable = true, columnDefinition = "text")
 	public String getNilai() {
 
@@ -480,6 +858,29 @@ public class Konfigurasi extends GeneralValueObject {
 		return nilai;
 	}
 
+	/**
+	 * Membaca nilai konfigurasi sebagai bilangan bulat, secara defensif.
+	 *
+	 * <p><b>Nama method salah eja</b> — seharusnya {@code nilaiInteger}. Salah eja yang sama ada di
+	 * {@link ParameterUmum#niliaInteger()}; jangan "diperbaiki" tanpa menyapu seluruh pemanggil.</p>
+	 *
+	 * <p><b>Cara kerja.</b> {@code Integer.parseInt(getNilai().trim())} dibungkus {@code try/catch}
+	 * yang menelan <b>segala</b> {@code Exception} (termasuk {@code NullPointerException} bila
+	 * {@link #getNilai()} mengembalikan {@code null}, dan {@code NumberFormatException} untuk nilai
+	 * sakelar seperti {@code "aktif"}), lalu mengembalikan {@code 0}. Karena itu {@code 0} bersifat
+	 * <b>ambigu</b>: bisa berarti "memang nol", "bukan angka", atau "belum diisi". Pemanggil yang
+	 * perlu membedakannya harus memeriksa {@link #getNilai()} sendiri.</p>
+	 *
+	 * <p><b>Efek samping:</b> memanggil {@link #getNilai()} sehingga seluruh penulisan yang
+	 * dijelaskan di sana ikut terjadi.</p>
+	 *
+	 * <p>Pemanggil khas: {@code KrsAction}, {@code KonsultasiAction}, {@code NilaiMahasiswaAction},
+	 * {@code KrsKurikulumAction}, dan {@code TampilStudiMahasiswaHelper} untuk kunci
+	 * {@code default_pemilihan_semester_mulai}/{@code ..._sampai}.</p>
+	 *
+	 * @return nilai konfigurasi sebagai {@code int}; {@code 0} bila kosong, bukan angka, atau gagal
+	 *         diurai
+	 */
 	public int niliaInteger() {
 		try {
 			return Integer.parseInt(getNilai().trim());
@@ -489,6 +890,19 @@ public class Konfigurasi extends GeneralValueObject {
 		return 0;
 	}
 
+	/**
+	 * Menyetel tahun akademik pembatas — <b>hanya sekali</b>.
+	 *
+	 * <p><b>Non-obvious dan penting:</b> setter ini <b>menolak menimpa</b> nilai yang sudah terisi.
+	 * Bila {@code this.tahunAkademik} sudah berisi teks non-kosong, argumen diabaikan diam-diam.
+	 * Perilaku "sekali tulis" ini disengaja agar {@link #getNilai()} — yang memanggil setter ini
+	 * setiap kali mengevaluasi {@link KalenderAkademik} — tidak terus-menerus menimpa tahun ajaran
+	 * yang sudah ditetapkan administrator. Konsekuensinya: <b>mengubah tahun akademik lewat setter
+	 * ini tidak mungkin</b>; untuk benar-benar menggantinya, kosongkan dulu (setel {@code null}
+	 * atau string kosong) baru setel nilai baru.</p>
+	 *
+	 * @param tahunAkademik tahun ajaran, mis. {@code "2025/2026"}; diabaikan bila field sudah terisi
+	 */
 	public void setTahunAkademik(String tahunAkademik) {
 		if (this.tahunAkademik != null && !this.tahunAkademik.trim().isEmpty()) {
 			return;
@@ -496,15 +910,48 @@ public class Konfigurasi extends GeneralValueObject {
 		this.tahunAkademik = tahunAkademik;
 	}
 
+	/**
+	 * Mengembalikan tahun akademik pembatas, dengan string kosong dinormalkan menjadi {@code null}
+	 * (memudahkan pemeriksaan {@code != null} di pemanggil). Tidak ada efek samping — nilai kosong
+	 * <b>tidak</b> ditulis balik ke field, jadi kolom di basis data tetap berisi string kosong.
+	 *
+	 * @return tahun ajaran; {@code null} bila belum diisi atau hanya berisi spasi
+	 */
 	@Column(name = "tahun_akademik", nullable = true)
 	public String getTahunAkademik() {
 		return tahunAkademik == null || tahunAkademik.trim().isEmpty() ? null : tahunAkademik;
 	}
 
+	/**
+	 * Menyetel slot konteks 1 apa adanya, tanpa penjagaan. Berbeda dari
+	 * {@link #setTahunAkademik(String)}, setter ini <b>selalu menimpa</b> — termasuk saat dipanggil
+	 * {@link #getNilai()} untuk menyalin ganjil/genap dari kalender akademik, sehingga isi
+	 * {@code info1} pada baris berkalender dapat berubah tanpa tindakan pengguna.
+	 *
+	 * @param info1 isi slot konteks 1; maknanya bergantung pada kunci konfigurasi
+	 */
 	public void setInfo1(String info1) {
 		this.info1 = info1;
 	}
 
+	/**
+	 * Mengembalikan slot konteks 1, dengan dua penulisan balik.
+	 *
+	 * <p><b>Efek samping (getter menulis):</b> (1) {@code null} dinormalkan menjadi string kosong
+	 * dan <b>ditulis ke field</b>; (2) khusus kunci {@link #PENILAIAN} dan {@link #PENILAIAN_SP},
+	 * bila slot masih kosong ia <b>diisi otomatis</b> dengan {@link Perkuliahan#GANJIL} atau
+	 * {@link Perkuliahan#GENAP} sesuai {@code Common.isNowSemensterGanjil()}. Karena {@code info1}
+	 * adalah properti yang dipetakan Hibernate, pengisian otomatis itu ikut tersimpan pada
+	 * <i>flush</i> berikutnya untuk object yang <i>attached</i>.</p>
+	 *
+	 * <p><b>Kuirk:</b> pemeriksaan {@code info1 == null || info1.trim().isEmpty()} di dalam kedua
+	 * cabang tidak pernah bernilai {@code null} lagi karena baris pertama sudah menormalkannya —
+	 * cabang {@code null} itu kode mati, tetapi tidak berbahaya. Nilai kembali selalu
+	 * di-{@code trim()} dan <b>tidak pernah {@code null}</b>, sehingga pemanggil boleh langsung
+	 * memanggil {@code equals}/{@code isEmpty} tanpa penjagaan.</p>
+	 *
+	 * @return isi slot konteks 1 tanpa spasi tepi; string kosong bila belum diisi
+	 */
 	public String getInfo1() {
 		if (info1 == null) {
 			info1 = "";
@@ -523,42 +970,134 @@ public class Konfigurasi extends GeneralValueObject {
 		return info1.trim();
 	}
 
+	/**
+	 * Label slot konteks 1 yang diberi penanda bintang bila konfigurasinya wajib.
+	 *
+	 * <p>Dipakai form biodata ({@code BiodataMahasiswaAction}) untuk menyusun caption field:
+	 * teks {@code info1} ditambah {@code " (*) "} bila nilai efektifnya persis {@link #AKTIF}
+	 * (yang secara domain berarti {@link #WAJIB_DIISI}), dan tanpa bintang bila nilainya
+	 * {@link #AKTIF_TIDAK_WAJIB}. Biasanya dipanggil di dalam cabang
+	 * {@link #checkAktifDanTidakWajib()}.</p>
+	 *
+	 * <p><b>Kuirk:</b> method ini membaca <b>field</b> {@code info1} langsung (bukan
+	 * {@link #getInfo1()}), sehingga tidak mendapat normalisasi null — bila slot belum pernah
+	 * dinormalkan, hasilnya diawali teks {@code "null"}. Sebaliknya {@link #getNilai()} tetap
+	 * dipanggil, jadi seluruh efek samping penulisannya berlaku; bila {@code getNilai()}
+	 * mengembalikan {@code null} (baris terkunci tanpa salinan beku) method ini melempar
+	 * {@code NullPointerException}.</p>
+	 *
+	 * @return teks slot konteks 1, diakhiri {@code " (*) "} bila konfigurasi bernilai "aktif"
+	 */
 	public String info1AndCheckWajibDanTidakWajib() {
 		return info1 + (getNilai().equals(AKTIF) ? " (*) " : "");
 	}
 
+	/**
+	 * Menyetel slot konteks 2 apa adanya. Setter sederhana tanpa penjagaan.
+	 *
+	 * @param info2 isi slot konteks 2; maknanya bergantung pada kunci konfigurasi
+	 */
 	public void setInfo2(String info2) {
 		this.info2 = info2;
 	}
 
+	/**
+	 * Mengembalikan slot konteks 2, di-{@code trim()} dan dengan {@code null} dinormalkan menjadi
+	 * string kosong. <b>Tanpa</b> penulisan balik ke field (berbeda dari {@link #getInfo1()}),
+	 * sehingga tidak berefek pada basis data.
+	 *
+	 * @return isi slot konteks 2; string kosong bila belum diisi, tidak pernah {@code null}
+	 */
 	public String getInfo2() {
 		return info2 == null ? "" : info2.trim();
 	}
 
+	/**
+	 * Menyetel slot konteks 3 apa adanya. Setter sederhana tanpa penjagaan.
+	 *
+	 * @param info3 isi slot konteks 3; maknanya bergantung pada kunci konfigurasi
+	 */
 	public void setInfo3(String info3) {
 		this.info3 = info3;
 	}
 
+	/**
+	 * Mengembalikan slot konteks 3, di-{@code trim()} dan dengan {@code null} dinormalkan menjadi
+	 * string kosong. Tanpa efek samping.
+	 *
+	 * @return isi slot konteks 3; string kosong bila belum diisi, tidak pernah {@code null}
+	 */
 	public String getInfo3() {
 		return info3 == null ? "" : info3.trim();
 	}
 
+	/**
+	 * Menyetel slot konteks 5 apa adanya. Setter sederhana tanpa penjagaan.
+	 *
+	 * @param info5 isi slot konteks 5; maknanya bergantung pada kunci konfigurasi
+	 */
 	public void setInfo5(String info5) {
 		this.info5 = info5;
 	}
 
+	/**
+	 * Mengembalikan slot konteks 5 <b>mentah</b>.
+	 *
+	 * <p><b>Tidak konsisten</b> dengan {@link #getInfo1()}/{@link #getInfo2()}/{@link #getInfo3()}:
+	 * di sini tidak ada {@code trim()} maupun normalisasi {@code null}, sehingga pemanggil
+	 * <b>wajib</b> menjaga sendiri kemungkinan {@code null}. Berlaku sama untuk
+	 * {@link #getInfo4()}.</p>
+	 *
+	 * @return isi slot konteks 5 apa adanya; boleh {@code null}
+	 */
 	public String getInfo5() {
 		return info5;
 	}
 
+	/**
+	 * Menyetel slot konteks 4 apa adanya. Setter sederhana tanpa penjagaan.
+	 *
+	 * <p>Urutan deklarasi di berkas ini memang meletakkan pasangan {@code info5} sebelum
+	 * {@code info4}; itu hanya kerapian, tanpa makna teknis.</p>
+	 *
+	 * @param info4 isi slot konteks 4; maknanya bergantung pada kunci konfigurasi
+	 */
 	public void setInfo4(String info4) {
 		this.info4 = info4;
 	}
 
+	/**
+	 * Mengembalikan slot konteks 4 <b>mentah</b>, tanpa {@code trim()} maupun normalisasi
+	 * {@code null} — lihat catatan ketidakkonsistenan pada {@link #getInfo5()}.
+	 *
+	 * @return isi slot konteks 4 apa adanya; boleh {@code null}
+	 */
 	public String getInfo4() {
 		return info4;
 	}
 
+	/**
+	 * Pengguna yang <b>membekukan</b> baris konfigurasi ini (kolom {@code dikunci}).
+	 *
+	 * <p>Selama tidak {@code null}, {@link #getNilai()} berhenti memakai kolom {@code nilai} dan
+	 * mengembalikan salinan beku {@link #getNilaiDikunci()} — nilai konfigurasi menjadi kebal
+	 * terhadap penyuntingan maupun terhadap evaluasi {@link KalenderAkademik}. Penguncian dan
+	 * pembukaannya dilakukan lewat sepasang tombol di
+	 * {@code ais.action.master.KonfigurasiAction#tampilKunci(...)} (dan pasangannya di
+	 * {@code DetailPenilaianSiswaHelper}), yang menyetel/mengosongkan field ini, memanggil
+	 * {@code Common.refreshUpdate}, lalu <b>menyegarkan cache</b>
+	 * {@code MemoryDbUtil.getKonfigurasi().put(nama, konfigurasi)} — langkah terakhir itu wajib,
+	 * karena tanpa pembaruan cache status kunci baru tidak akan terlihat oleh pembaca lain.
+	 * Tombol "Kunci" sendiri dibatasi {@code Common.getApakahAdminBolehKunci()}.</p>
+	 *
+	 * <p><b>Efek samping:</b> memanggil {@code check(...)} milik {@link GeneralValueObject} yang
+	 * meresolusi proxy lazy dan <b>menulis balik</b> hasilnya ke field. Ini pola getter relasi
+	 * standar seluruh entity AIS, bukan kekhususan kelas ini.</p>
+	 *
+	 * @return pengguna pengunci; {@code null} bila baris tidak terkunci
+	 * @see #getNilaiDikunci()
+	 * @see ais.database.model.GeneralValueObject
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dikunci")
 	public Tbmuser getDikunci() {
@@ -566,10 +1105,36 @@ public class Konfigurasi extends GeneralValueObject {
 		return dikunci;
 	}
 
+	/**
+	 * Mengunci ({@code != null}) atau membuka kunci ({@code null}) baris konfigurasi ini.
+	 *
+	 * <p>Perubahan ini mengubah <b>arti</b> {@link #getNilai()} secara drastis (lihat
+	 * {@link #getDikunci()}). Pemanggil bertanggung jawab menyimpan entity <i>dan</i> memperbarui
+	 * cache {@code MemoryDbUtil.getKonfigurasi()} — lihat pola lengkapnya di
+	 * {@code KonfigurasiAction#tampilKunci}.</p>
+	 *
+	 * @param dikunci pengguna pengunci, atau {@code null} untuk membuka kunci
+	 */
 	public void setDikunci(Tbmuser dikunci) {
 		this.dikunci = dikunci;
 	}
 
+	/**
+	 * Kalender akademik yang menentukan aktif/tidaknya konfigurasi ini berdasarkan tanggal
+	 * (kolom {@code kalender_akademik}, boleh kosong).
+	 *
+	 * <p>Bila terisi dan kedua batas tanggalnya ada, {@link #getNilai()} <b>mengabaikan</b> kolom
+	 * {@code nilai} dan menghitung sendiri {@link #AKTIF}/{@link #TIDAK_AKTIF} dari rentang
+	 * tanggal, sekaligus menyalin tahun ajaran dan ganjil/genap ke {@code tahunAkademik} dan
+	 * {@code info1}. Dengan begitu gerbang seperti KRS atau penilaian buka-tutup sendiri tanpa
+	 * admin harus mengubah sakelar tiap semester. Kunci yang terkunci ({@link #getDikunci()}
+	 * tidak {@code null}) mengalahkan mekanisme ini.</p>
+	 *
+	 * <p><b>Efek samping:</b> {@code check(...)} meresolusi proxy lazy dan menulis balik ke field,
+	 * seperti pada {@link #getDikunci()}.</p>
+	 *
+	 * @return kalender akademik terkait; {@code null} bila konfigurasi ini tidak terikat tanggal
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kalender_akademik", nullable = true)
 	public KalenderAkademik getKalenderAkademik() {
@@ -577,10 +1142,43 @@ public class Konfigurasi extends GeneralValueObject {
 		return kalenderAkademik;
 	}
 
+	/**
+	 * Mengikat (atau melepas, dengan {@code null}) konfigurasi ini pada sebuah kalender akademik.
+	 * Setelah diikat, kolom {@code nilai} tidak lagi menentukan aktif/tidaknya konfigurasi — lihat
+	 * {@link #getKalenderAkademik()} dan langkah 3 pada {@link #getNilai()}.
+	 *
+	 * @param kalenderAkademik kalender penentu rentang aktif; {@code null} untuk melepas ikatan
+	 */
 	public void setKalenderAkademik(KalenderAkademik kalenderAkademik) {
 		this.kalenderAkademik = kalenderAkademik;
 	}
 
+	/**
+	 * Salinan <b>beku</b> nilai konfigurasi — separuh lain dari mekanisme penguncian.
+	 *
+	 * <p><b>Cara kerja yang menentukan seluruh mekanisme kunci:</b> selama baris <i>belum</i>
+	 * terkunci ({@link #getDikunci()} {@code == null}), getter ini <b>menulis</b>
+	 * {@code nilaiDikunci = getNilai()} pada setiap pemanggilan — jadi salinan beku terus
+	 * mengikuti nilai berjalan. Karena getter ini adalah properti yang dipetakan Hibernate
+	 * (tanpa {@link Column} eksplisit, kolomnya bernama {@code nilaiDikunci}), penyalinan itu ikut
+	 * tersimpan setiap kali baris di-<i>flush</i>. Begitu administrator menekan "Kunci",
+	 * {@code dikunci} terisi, penyalinan berhenti, dan nilai terakhir yang tersalin itulah yang
+	 * dikembalikan {@link #getNilai()} selamanya sampai kunci dibuka.</p>
+	 *
+	 * <p><b>Konsekuensi yang harus disadari.</b> (1) Getter ini memanggil {@link #getNilai()},
+	 * sehingga seluruh efek samping penulisan di sana ikut terjadi — termasuk saat Hibernate
+	 * memanggilnya sendiri ketika membaca properti untuk <i>dirty checking</i>. Tidak ada rekursi
+	 * tak berujung karena kedua arah dijaga cabang {@code getDikunci()} yang berlawanan.
+	 * (2) Saat baris terkunci, {@link #getNilai()} menugaskan {@code nilai = nilaiDikunci}, jadi
+	 * pada <i>flush</i> berikutnya kolom {@code nilai} <b>ditimpa</b> salinan beku dan nilai
+	 * aslinya hilang permanen — membuka kunci tidak mengembalikannya. (3) Bila sebuah baris
+	 * dikunci tanpa pernah melewati satu pun pembacaan dalam keadaan terbuka, {@code nilaiDikunci}
+	 * tetap {@code null} dan konfigurasi itu efektif "tidak bernilai".</p>
+	 *
+	 * @return salinan beku nilai; sama dengan nilai berjalan selama baris belum terkunci
+	 * @see #getDikunci()
+	 * @see #getNilai()
+	 */
 	public String getNilaiDikunci() {
 		if (getDikunci() == null) {
 			nilaiDikunci = getNilai();
@@ -588,6 +1186,14 @@ public class Konfigurasi extends GeneralValueObject {
 		return nilaiDikunci;
 	}
 
+	/**
+	 * Menyetel salinan beku secara manual. Jarang dipakai kode aplikasi — nilainya biasanya
+	 * dihasilkan sendiri oleh {@link #getNilaiDikunci()} dan dimuat Hibernate dari kolom
+	 * {@code nilaiDikunci}. Menyetelnya pada baris yang <b>sudah</b> terkunci sama artinya dengan
+	 * mengubah nilai efektif konfigurasi tersebut.
+	 *
+	 * @param nilaiDikunci salinan beku nilai konfigurasi
+	 */
 	public void setNilaiDikunci(String nilaiDikunci) {
 		this.nilaiDikunci = nilaiDikunci;
 	}

@@ -260,6 +260,13 @@ public final class ApotikApiHelper {
 				j.put("kode", str(cb.getKode()));
 				j.put("nama", str(cb.getNama()));
 				j.put("manual", Boolean.TRUE.equals(cb.getManual()));
+				// Penentu kembalian: kasir apotik hanya boleh menampilkan kolom
+				// "uang diterima" + kembalian bila metode ini MEMANG memberi
+				// kembalian. Tanpa flag ini klien terpaksa menebak dari nama
+				// (ilike "tunai") -- tebakan yg salah utk metode tunai bernama
+				// lain. Dikirim apa adanya dari entitas, bukan dihitung ulang.
+				j.put("adaKembalian", Boolean.TRUE.equals(cb.getAdaKembalian()));
+				j.put("online", Boolean.TRUE.equals(cb.getOnline()));
 				arr.put(j);
 			}
 			hasil.put("status", "00");
