@@ -377,6 +377,14 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 				if (nilaiKanan instanceof PengaturanPembayaranBulanan) {
 					return -1;
 				}
+				if (nilaiKiri instanceof DetailBiaya && nilaiKanan instanceof DetailBiaya) {
+					Integer bayarKeKiri = ((DetailBiaya) nilaiKiri).getBayarKe();
+					Integer bayarKeKanan = ((DetailBiaya) nilaiKanan).getBayarKe();
+					if (bayarKeKiri == null) {
+						return bayarKeKanan == null ? 0 : 1;
+					}
+					return bayarKeKanan == null ? -1 : bayarKeKiri.compareTo(bayarKeKanan);
+				}
 				return 0;
 			}
 		});
@@ -408,6 +416,8 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 
 			if (pengaturanPembayaranBulanan != null) {
 				tempatRincian.appendChild(new Label("Bulan " + pengaturanPembayaranBulanan.getNamaBulan()));
+			} else if (detailBiaya != null && detailBiaya.getBayarKe() != null) {
+				tempatRincian.appendChild(new Label("Pembayaran ke-" + detailBiaya.getBayarKe()));
 			}
 			final DetailBiaya detailBiayaFinal = detailBiaya;
 			final PengaturanPembayaranBulanan pengaturanPembayaranBulanan1 = pengaturanPembayaranBulanan;
@@ -415,13 +425,18 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 					: (pengaturanPembayaranBulanan1 != null
 							? kegiatan.ambilSatuDetailKegiatan(pengaturanPembayaranBulanan1, detailKegiatans)
 							: kegiatan.ambilSatuDetailKegiatan(detailBiayaFinal, refresh));
+			if (detailBiayaFinal == null || detailBiayaFinal.getItemBiaya() == null) {
+				continue;
+			}
+			final Double nominalTampilan = ambilNominalTagihanTampilan(detailKegiatan, detailBiayaFinal,
+					pengaturanPembayaranBulanan1, kegiatan);
 			if (kegiatan != null && (detailBiayaFinal.getItemBiaya().getNilaiBisaDiubah()
 					&& (detailKegiatan == null || detailKegiatan.getKunci() == null))) {
 				final MyDoublebox doublebox;
 				if (detailBiayaFinal.getItemBiaya().getPenghitungan().equals(ItemBiaya.DIKALI_NILAI_MINUS)) {
-					doublebox = new MyDoubleboxMin(-Math.abs(detailKegiatan == null ? 0.0 : detailKegiatan.getBiaya()));
+					doublebox = new MyDoubleboxMin(-Math.abs(nominalTampilan));
 				} else {
-					doublebox = new MyDoublebox(detailKegiatan == null ? 0.0 : detailKegiatan.getBiaya());
+					doublebox = new MyDoublebox(nominalTampilan);
 				}
 				doublebox.setParent(tempatRincian);
 
@@ -470,13 +485,60 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 				}
 
 			} else {
-				new Label(Common.numberFormat.get()
-						.format(detailKegiatan == null ? 0.0 : detailKegiatan.getBiaya()))
+				new Label(Common.numberFormat.get().format(nominalTampilan))
 						.setParent(tempatRincian);
 			}
 
 			DetailPembayaranMahasiswaRenderer.tampilkanKunci(tempatRincian, detailKegiatan, refrsh, tbmuser);
 		}
+	}
+
+	private Double ambilNominalTagihanTampilan(DetailKegiatan detailKegiatan, DetailBiaya detailBiaya,
+			PengaturanPembayaranBulanan pengaturanPembayaranBulanan, Kegiatan kegiatan) {
+		if (pengaturanPembayaranBulanan != null) {
+			Double nominalTemplate;
+			if (kegiatan != null && kegiatan.getMahasiswa() != null && kegiatan.getSemster() != null) {
+				nominalTemplate = pengaturanPembayaranBulanan.ambilNominalModifikasi(kegiatan.getMahasiswa(),
+						kegiatan.getSemster());
+			} else {
+				nominalTemplate = pengaturanPembayaranBulanan.getNominal();
+			}
+			return pilihNominalAktifAtauTemplate(detailKegiatan, nominalTemplate);
+		}
+		if (detailBiaya == null) {
+			return 0.0;
+		}
+		if (kegiatan != null && kegiatan.getMahasiswa() != null && kegiatan.getSemster() != null
+				&& detailBiaya.getItemBiaya() != null
+				&& !ItemBiaya.TIDAK_ADA_PENGHITUNGAN.equals(detailBiaya.getItemBiaya().getPenghitungan())) {
+			try {
+				detailBiaya.updateKeterangan(kegiatan.getMahasiswa(), kegiatan.getSemster());
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e,
+						"DetailSettingBiayaAction.ambilNominalTagihanTampilan: gagal menghitung nominal modifikasi");
+			}
+		}
+		Double nominalTemplate = detailBiaya.getNilaiBiayaBaru() == null ? detailBiaya.getNilaiBiaya()
+				: detailBiaya.getNilaiBiayaBaru();
+		return pilihNominalAktifAtauTemplate(detailKegiatan, nominalTemplate);
+	}
+
+	private Double pilihNominalAktifAtauTemplate(DetailKegiatan detailKegiatan, Double nominalTemplate) {
+		Double nominalAman = nominalTemplate == null ? 0.0 : nominalTemplate;
+		if (detailKegiatan == null) {
+			return nominalAman;
+		}
+		if (Boolean.TRUE.equals(detailKegiatan.getBukanTagihan())) {
+			return 0.0;
+		}
+
+		Double nominalAktif = detailKegiatan.getBiaya();
+		// Konsisten dengan Kegiatan.ambilJumlahTagihan: nilai aktif 0 yang terbentuk dari
+		// template lama tidak boleh menutupi template terbaru yang sudah bernominal.
+		if ((nominalAktif == null || nominalAktif.intValue() == 0) && nominalAman.intValue() != 0) {
+			return nominalAman;
+		}
+		return nominalAktif == null ? 0.0 : nominalAktif;
 	}
 
 	/**

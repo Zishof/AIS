@@ -1,6 +1,7 @@
 package ais.action.master.helper;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import org.hibernate.Criteria;
@@ -303,6 +304,41 @@ public class SetingBiayaHelper {
                 }
             }
             throw new RuntimeException(e);
+        }
+    }
+
+    private static boolean samaNilai(Object kiri, Object kanan) {
+        return kiri == kanan || (kiri != null && kiri.equals(kanan));
+    }
+
+    /**
+     * Menyalin nilai efektif template ke DetailBiaya dan memastikan perubahan benar-benar
+     * tersimpan. Sebelumnya assignment dilakukan setelah transaksi pembuatan/update selesai,
+     * sehingga DetailBiaya lama tetap menyimpan nominal 0 walaupun DetailSettingBiaya sudah diubah.
+     */
+    public static void sinkronkanNilaiTemplateDetailBiaya(Session session, DetailBiaya detailBiaya,
+            DetailSettingBiaya detailSettingBiaya) {
+        if (session == null || detailBiaya == null || detailSettingBiaya == null) {
+            return;
+        }
+
+        Double nominal = detailSettingBiaya.ambilDefaultBiaya(detailBiaya.getJurusan());
+        Date tanggalTagihan = detailSettingBiaya.ambilDefaultTanggalTagihan(detailBiaya.getJurusan());
+        Date tanggalDeadline = detailSettingBiaya.ambilDefaultTanggalDeadline(detailBiaya.getJurusan());
+        String keterangan = detailSettingBiaya.ambilDefaultKeteranganTagihan(detailBiaya.getJurusan());
+
+        boolean berubah = !samaNilai(detailBiaya.getNilaiBiaya(), nominal)
+                || !samaNilai(detailBiaya.getDefaultTanggalTagihan(), tanggalTagihan)
+                || !samaNilai(detailBiaya.getDefaultTanggalDeadline(), tanggalDeadline)
+                || !samaNilai(detailBiaya.getKeterangan(), keterangan);
+
+        detailBiaya.setNilaiBiaya(nominal);
+        detailBiaya.setDefaultTanggalTagihan(tanggalTagihan);
+        detailBiaya.setDefaultTanggalDeadline(tanggalDeadline);
+        detailBiaya.setKeterangan(keterangan);
+
+        if (berubah && detailBiaya.getId() != null) {
+            saveOrUpdateEntity(session, detailBiaya, true);
         }
     }
 
@@ -871,9 +907,7 @@ public class SetingBiayaHelper {
                 }
 
                 detailBiaya.setSettingBiaya(settingBiaya);
-                detailBiaya.setDefaultTanggalTagihan(detailSettingBiaya.getDefaultTanggalTagihan());
-                detailBiaya.setNilaiBiaya(detailSettingBiaya.getDefaultBiaya());
-                detailBiaya.setKeterangan(detailSettingBiaya.getDefaultKeterangan());
+                sinkronkanNilaiTemplateDetailBiaya(session, detailBiaya, detailSettingBiaya);
                 detailBiayas.add(detailBiaya);
                 System.out.println("[TAGIHAN-DEBUG]     => FINAL: DetailBiaya id=" + detailBiaya.getId()
                         + " (settingBiayaId=" + settingBiaya.getId() + ") ditambahkan ke hasil tagihan.");
@@ -978,9 +1012,7 @@ public class SetingBiayaHelper {
                 detailBiaya.setJurusan(jurusan);
                 detailBiaya.setDetailSettingBiaya(detailSettingBiaya);
                 detailBiaya.setSettingBiayaDetail(settingBiayaDetail);
-                detailBiaya.setDefaultTanggalTagihan(detailSettingBiaya.getDefaultTanggalTagihan());
-                detailBiaya.setKeterangan(detailSettingBiaya.getDefaultKeterangan());
-                detailBiaya.setNilaiBiaya(detailSettingBiaya.getDefaultBiaya());
+                sinkronkanNilaiTemplateDetailBiaya(session, detailBiaya, detailSettingBiaya);
                 sinkronkanPengaturanBulananDariTemplate(session, detailBiaya, settingBiayaDetail,
                         detailSettingBiaya, semester);
                 detailBiayas.add(detailBiaya);
@@ -1073,9 +1105,7 @@ public class SetingBiayaHelper {
                 detailBiaya.setJurusan(biodataCalonMahasiswa.getProdiLulus() == null ? biodataCalonMahasiswa.getProdi1() : biodataCalonMahasiswa.getProdiLulus());
                 detailBiaya.setDetailSettingBiaya(detailSettingBiaya);
                 detailBiaya.setSettingBiayaDetail(settingBiayaDetail);
-                detailBiaya.setDefaultTanggalTagihan(detailSettingBiaya.getDefaultTanggalTagihan());
-                detailBiaya.setKeterangan(detailSettingBiaya.getDefaultKeterangan());
-                detailBiaya.setNilaiBiaya(detailSettingBiaya.getDefaultBiaya());
+                sinkronkanNilaiTemplateDetailBiaya(session, detailBiaya, detailSettingBiaya);
                 sinkronkanPengaturanBulananDariTemplate(session, detailBiaya, settingBiayaDetail,
                         detailSettingBiaya, semester);
                 detailBiayas.add(detailBiaya);
@@ -1191,9 +1221,7 @@ public class SetingBiayaHelper {
                 
                 if (semester != null) detailBiaya.setSemester(semester);
                 detailBiaya.setSettingBiaya(settingBiaya);
-                detailBiaya.setDefaultTanggalTagihan(detailSettingBiaya.getDefaultTanggalTagihan());
-                detailBiaya.setKeterangan(detailSettingBiaya.getDefaultKeterangan());
-                detailBiaya.setNilaiBiaya(detailSettingBiaya.getDefaultBiaya());
+                sinkronkanNilaiTemplateDetailBiaya(session, detailBiaya, detailSettingBiaya);
                 detailBiayas.add(detailBiaya);
             }
 

@@ -61,6 +61,7 @@ import ais.action.master.helper.DetailSettingBiayaAction;
 import ais.action.master.helper.PengecualianTagihanList;
 import ais.action.master.helper.RevisiHelper;
 import ais.action.master.helper.SettingBiayaMahasiswaSelector;
+import ais.action.master.helper.SetingBiayaHelper;
 import ais.action.master.helper.util.PerguruanTinggiUtil;
 import ais.common.Common;
 import ais.common.PesanFormalHelper;
@@ -2594,9 +2595,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 				session.getTransaction().commit();
 			}
 			detailBiaya.setSettingBiaya(settingBiaya);
-			detailBiaya.setDefaultTanggalTagihan(detailSettingBiaya.getDefaultTanggalTagihan());
-			detailBiaya.setNilaiBiaya(detailSettingBiaya.getDefaultBiaya());
-			detailBiaya.setKeterangan(detailSettingBiaya.getDefaultKeterangan());
+			SetingBiayaHelper.sinkronkanNilaiTemplateDetailBiaya(session, detailBiaya, detailSettingBiaya);
 			detailBiayas.add(detailBiaya);
 		}
 
@@ -2715,9 +2714,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 			detailBiaya.setSettingBiaya(settingBiayaDetail.getSettingBiaya());
 			detailBiaya.setDetailSettingBiaya(detailSettingBiaya);
 			detailBiaya.setSettingBiayaDetail(settingBiayaDetail);
-			detailBiaya.setDefaultTanggalTagihan(detailSettingBiaya.getDefaultTanggalTagihan());
-			detailBiaya.setKeterangan(detailSettingBiaya.getDefaultKeterangan());
-			detailBiaya.setNilaiBiaya(detailSettingBiaya.getDefaultBiaya());
+			SetingBiayaHelper.sinkronkanNilaiTemplateDetailBiaya(session, detailBiaya, detailSettingBiaya);
 			detailBiayas.add(detailBiaya);
 		}
 
@@ -2807,9 +2804,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 					: biodataCalonMahasiswa.getProdiLulus());
 			detailBiaya.setDetailSettingBiaya(detailSettingBiaya);
 			detailBiaya.setSettingBiayaDetail(settingBiayaDetail);
-			detailBiaya.setDefaultTanggalTagihan(detailSettingBiaya.getDefaultTanggalTagihan());
-			detailBiaya.setKeterangan(detailSettingBiaya.getDefaultKeterangan());
-			detailBiaya.setNilaiBiaya(detailSettingBiaya.getDefaultBiaya());
+			SetingBiayaHelper.sinkronkanNilaiTemplateDetailBiaya(session, detailBiaya, detailSettingBiaya);
 			detailBiayas.add(detailBiaya);
 		}
 
@@ -2935,9 +2930,7 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 			if (semester != null)
 				detailBiaya.setSemester(semester);
 			detailBiaya.setSettingBiaya(settingBiaya);
-			detailBiaya.setDefaultTanggalTagihan(detailSettingBiaya.getDefaultTanggalTagihan());
-			detailBiaya.setKeterangan(detailSettingBiaya.getDefaultKeterangan());
-			detailBiaya.setNilaiBiaya(detailSettingBiaya.getDefaultBiaya());
+			SetingBiayaHelper.sinkronkanNilaiTemplateDetailBiaya(session, detailBiaya, detailSettingBiaya);
 			detailBiayas.add(detailBiaya);
 		}
 
