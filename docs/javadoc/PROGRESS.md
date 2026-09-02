@@ -1,5 +1,75 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 20 — SELESAI 100% (2 Sep 2026)
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
+`-implicit:none` bersih, mirror `java/` diverifikasi `cmp` byte-identik, nol
+perubahan logika. Batch ini SENGAJA menargetkan file bertema
+keamanan/finansial untuk melanjutkan investigasi pola berulang dari batch
+17-19 — strategi ini menghasilkan 3 temuan keamanan besar:
+
+- **`ais/database/model/Gedung.java`** (r83416) — 218→840 baris, 100%
+  (51 anggota, 34 file merujuk). **Konfirmasi mendalam pola "kontrol
+  keamanan semu"**: fitur pembatasan kehadiran-berbasis-IP
+  (`Perkuliahan.kehadiranDosenHarusDiinputDiIpYangDitentukan` dkk) punya
+  checkbox UI + tersimpan ke DB, tapi TIDAK ADA satu pun jalur presensi
+  yang benar-benar membandingkan IP klien — fiturnya tidak pernah
+  diimplementasikan di manapun. Juga: mengosongkan IP gedung berpotensi
+  menghapus permanen IP semua ruangan di bawahnya (`Ruang.getIp()` menyalin
+  `""` bukan `null`).
+- **`ais/database/model/BaypassPembayaranMahasiswa.java`** (r83417) —
+  202→761 baris, 100% (36 anggota). **TEMUAN FINANSIAL SIGNIFIKAN —
+  dieskalasi terpisah sebagai `task_1214dd58`**: mekanisme bypass syarat
+  pembayaran TANPA alur persetujuan sama sekali, TANPA batasan lingkup
+  operator (siapa pun ber-hak CREATE bisa membebaskan mahasiswa manapun di
+  SELURUH institusi), fitur unggah massal bisa membuat ribuan baris bypass
+  tanpa gerbang otorisasi server-side (hanya `setVisible()` UI), dan
+  fail-open tambahan di `CommonPaymentHelper.checkBaypassStatusPembayaran
+  Mahasiswa` (rentang semester salah konfigurasi → bypass otomatis untuk
+  SEMUA mahasiswa).
+- **`ais/database/model/UserAccess.java`** (r83419) — 220→808 baris, 100%
+  (49 anggota). Temuan: tabel `_user_access` HANYA DITULIS, tidak pernah
+  dibaca untuk autentikasi/otorisasi nyata (Spring Security pakai
+  `UserDetailsServiceImpl` yang tak menyentuh tabel ini) — gudang
+  kredensial bayangan (MD5 tanpa salt, `@Audited` permanen) tanpa fungsi,
+  murni risiko laten. Flag `enabled`/`accountLocked`/dst = kontrol semu
+  instance ke-3.
+- **`ais/database/model/RolePrivilage.java`** (r83418) — 202→674 baris,
+  100% (41 anggota). **TEMUAN SISTEMIK — dieskalasi terpisah sebagai
+  `task_44ea51dd`**: jantung sistem hak akses dibaca oleh 5 jalur berbeda
+  (`CommonPrivilages`, `NewUiPermission`, `GenericCrudRoutePrivilegeResolver`,
+  `HakAksesApi`, `GrupPenggunaAksesApi`) dengan semantik BERBEDA-BEDA untuk
+  baris kosong/duplikat/flag `Menu.aktif`. `HakAksesApi` fail-open (baris
+  kosong → baca diizinkan, instance ke-4 pola fail-open, PERTAMA di API
+  hak akses langsung). Perluasan bug substring-URL sesi 18: hasil resolver
+  ternyata MENIMPA (bukan meng-AND) nilai dasar — bisa MENAIKKAN hak akses,
+  bukan cuma bocor baca.
+- **`ais/database/model/KegiatanKemahasiswaanPunyaMahasiswa.java`**
+  (r83420) — 210→916 baris, 100% (20 method + 12 field). Entity penghubung
+  `KegiatanKemahasiswaan`×`Mahasiswa`. `getPersetujuan()` destruktif:
+  status kegiatan non-DISETUJUI menimpa `persetujuan=false` PERMANEN,
+  tidak pulih meski status kegiatan dikembalikan. Persetujuan peserta
+  tanpa gerbang hak akses server-side (varian kontrol-semu lagi).
+
+**Pola keamanan — REKAP setelah 4 batch (17-20), 2 task sistemik baru
+dibuat**:
+1. Fail-open: sekarang **4 instance** (+`HakAksesApi.privilegeJson`,
+   PERTAMA di jalur API langsung, bukan cuma filter pencarian UI).
+2. Kontrol keamanan semu: sekarang **5-6 instance** (+`Gedung`/IP presensi
+   dikonfirmasi tak pernah diimplementasikan, +`UserAccess` flag akun,
+   +`KegiatanKemahasiswaanPunyaMahasiswa` persetujuan peserta).
+3. Penjagaan terbalik: masih 1 instance (`AmbilDataMasaPerkuliahanBanbox`,
+   batch 19) — belum ada instance kedua.
+4. IDOR `AmbilLampiran`: relevan lagi (lampiran kegiatan kemahasiswaan).
+5. **BARU — "surat sakti" finansial tanpa approval+scope**: baru 1
+   instance (`BaypassPembayaranMahasiswa`) tapi dampak finansial tertinggi
+   sejauh ini di seluruh inisiatif — `task_1214dd58`.
+
+Total 2 task eskalasi BARU dari batch ini: `task_1214dd58` (bypass
+pembayaran) dan `task_44ea51dd` (semantik RolePrivilage sistemik).
+
+Total akumulasi 20 sesi: **278 file** dari 7.401 (~3,8%).
+
 ## Batch 19 — SELESAI 100% (2 Sep 2026)
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi

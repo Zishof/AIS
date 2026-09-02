@@ -102,6 +102,7 @@ public class ItemBiayaSekolah extends GeneralValueObject {
 	private Boolean terhubungKeNilaiTambahan;
 	private String kelamin;
 	private Integer khususBulan;
+	private GrupItemBiayaSekolah grupItemBiayaSekolah;
 
 	public String toString() {
 		return id + "-" + kode + "-" + nama;
@@ -371,5 +372,17 @@ public class ItemBiayaSekolah extends GeneralValueObject {
 
 	public void setKelamin(String kelamin) {
 		this.kelamin = kelamin;
+	}
+
+	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
+	@JoinColumn(name = "grup_item_biaya_sekolah_id")
+	public GrupItemBiayaSekolah getGrupItemBiayaSekolah() {
+		grupItemBiayaSekolah = check(grupItemBiayaSekolah);
+		return grupItemBiayaSekolah;
+	}
+
+	public void setGrupItemBiayaSekolah(GrupItemBiayaSekolah grupItemBiayaSekolah) {
+		this.grupItemBiayaSekolah = grupItemBiayaSekolah == null || grupItemBiayaSekolah.getId() == null
+				? null : grupItemBiayaSekolah;
 	}
 }

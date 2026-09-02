@@ -44,6 +44,7 @@ import ais.database.model.Konfigurasi;
 import ais.database.model.ParameterTambahan;
 import ais.database.model.akunting.Akun;
 import ais.database.model.sekolah.ItemBiayaSekolah;
+import ais.database.model.sekolah.GrupItemBiayaSekolah;
 import ais.database.model.sekolah.Sekolah;
 import ais.database.model.sekolah.Tagihan;
 import ais.database.model.sekolah.Yayasan;
@@ -123,6 +124,7 @@ public class ItemBiayaSekolahAction extends GenericAutowireComposer
 	private Combobox induk;
 	private AmbilDataAkunBanbox akunUtangDiskon;
 	private Combobox kelamin;
+	private Combobox grupItemBiayaSekolah;
 
 	@Override
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page,
@@ -163,7 +165,7 @@ public class ItemBiayaSekolahAction extends GenericAutowireComposer
 
 		String[] contents = new String[] { "id", "nama", "akun", "akunPiutang", "akunDibayarDimuka", "akunDenda",
 				"akunDiskon", "nilaiBiayaBisaDiubahSaatPembayaran", "sekolah", "khususBulan", "harusBayar", "induk",
-				"keterangan", "aktif" };
+				"grupItemBiayaSekolah", "keterangan", "aktif" };
 		MyToolbarbuttonConfig cetakToolbarbutton = Common.cetakData(this, contents);
 		Common.appendKeToolbar(cetakToolbarbutton, add, comp);
 
@@ -207,6 +209,8 @@ public class ItemBiayaSekolahAction extends GenericAutowireComposer
 
 			a.appendChild(new MyLabelKecil(
 					itemBiayaSekolah.getSekolah() == null ? "" : itemBiayaSekolah.getSekolah().getNama()));
+			a.appendChild(new MyLabelKecil(itemBiayaSekolah.getGrupItemBiayaSekolah() == null ? ""
+					: "Grup: " + itemBiayaSekolah.getGrupItemBiayaSekolah().getLabelTampilan()));
 
 			Vbox vbox = new Vbox();
 			vbox.setParent(arg0);
@@ -510,6 +514,13 @@ public class ItemBiayaSekolahAction extends GenericAutowireComposer
 		sekolah.setWidth("90%");
 		sekolah.setReadonly(true);
 
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Grup Item Biaya"));
+		row.appendChild(grupItemBiayaSekolah = new Combobox());
+		grupItemBiayaSekolah.setWidth("90%");
+		grupItemBiayaSekolah.setReadonly(true);
+
 		kelamin = new Combobox();
 		MyComboitemConfig comboitem = new MyComboitemConfig();
 		comboitem.setLabel("Laki-laki");
@@ -563,6 +574,12 @@ public class ItemBiayaSekolahAction extends GenericAutowireComposer
 						Restrictions.and(Restrictions.or(Restrictions.isNull("sekolah"), Restrictions.eq("sekolah", s)),
 								Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))));
 				Common.selectComboItem(induk, itemBiayaSekolah.getInduk());
+
+				Common.insertComboDanSemua(grupItemBiayaSekolah, new String[] { "kode", "nama" }, "keterangan",
+						GrupItemBiayaSekolah.class, "Tanpa Grup",
+						Restrictions.and(Restrictions.eq("sekolah", s),
+								Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))));
+				Common.selectComboItem(grupItemBiayaSekolah, itemBiayaSekolah.getGrupItemBiayaSekolah());
 			}
 		};
 		sekolah.addEventListener("onChange", eventListenerSyarat);
@@ -650,6 +667,8 @@ public class ItemBiayaSekolahAction extends GenericAutowireComposer
 		itemBiayaSekolah.setSekolah((Sekolah) sekolah.getSelectedItem().getValue());
 		itemBiayaSekolah.setYayasan((Yayasan) yayasan.getSelectedItem().getValue());
 		itemBiayaSekolah.setKeterangan(keterangan.getValue());
+		itemBiayaSekolah.setGrupItemBiayaSekolah((GrupItemBiayaSekolah)
+				(grupItemBiayaSekolah.getSelectedItem() == null ? null : grupItemBiayaSekolah.getSelectedItem().getValue()));
 
 		itemBiayaSekolah.setHarusBayar((ItemBiayaSekolah) (harusBayar.getSelectedItem() == null ? null
 				: harusBayar.getSelectedItem().getValue()));

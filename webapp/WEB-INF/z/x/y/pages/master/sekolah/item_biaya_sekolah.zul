@@ -8,6 +8,13 @@
 
 	<window use="ais.ui.util.MyWindow" border="none" id="window"
 		apply="ais.action.master.sekolah.ItemBiayaSekolahAction" width="100%" height="100%">
+		<tabbox width="100%" height="100%">
+			<tabs>
+				<tab label="Item Biaya Sekolah"/>
+				<tab label="Grup Item Biaya Sekolah"/>
+			</tabs>
+			<tabpanels>
+				<tabpanel style="padding:0;">
 
 		<div sclass="ais-crud-portal">
 
@@ -103,6 +110,12 @@
 		<zscript><![CDATA[
 	addWindow.setVisible(false);
 ]]></zscript>
+				</tabpanel>
+				<tabpanel style="padding:0;">
+					<include src="/pages/master/sekolah/grup_item_biaya_sekolah.zul"/>
+				</tabpanel>
+			</tabpanels>
+		</tabbox>
 
 	</window>
 

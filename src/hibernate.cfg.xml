@@ -2285,6 +2285,7 @@
 			class="ais.database.model.sekolah.KelompokPendaftaranPsb"></mapping>
 		<mapping class="ais.database.model.sekolah.CalonSiswa"></mapping>
 		<mapping class="ais.database.model.sekolah.ItemBiayaSekolah"></mapping>
+		<mapping class="ais.database.model.sekolah.GrupItemBiayaSekolah"></mapping>
 		<mapping class="ais.database.model.sekolah.JenisBiayaSekolah"></mapping>
 		<mapping class="ais.database.model.sekolah.PengaturanBiaya"></mapping>
 		<mapping

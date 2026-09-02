@@ -1,0 +1,54 @@
+<?page id="grupItemBiayaSekolahZul" title="Grup Item Biaya Sekolah" cacheable="false"
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+<zk xmlns="http://www.zkoss.org/2005/zul">
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.sekolah.GrupItemBiayaSekolahAction" width="100%" height="100%">
+		<div sclass="ais-crud-portal">
+			<div sclass="ais-crud-filter-card">
+				<div sclass="ais-crud-filter-head">
+					<span sclass="ais-crud-filter-title">Pencarian &amp; Filter Grup</span>
+					<div sclass="ais-crud-filter-actions">
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="add" label="Tambah" image="/img/new.gif" forward="onClick=onAdd"/>
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Cari" image="/img/search.gif" forward="onClick=onSearchDefault"/>
+					</div>
+				</div>
+				<div sclass="ais-crud-filter-body">
+					<grid use="ais.ui.util.MyGrid" fixedLayout="true" sclass="ais-crud-filter-grid">
+						<columns>
+							<column use="ais.ui.util.MyColumnConfig" width="90px"/><column use="ais.ui.util.MyColumnConfig"/>
+							<column use="ais.ui.util.MyColumnConfig" width="70px"/><column use="ais.ui.util.MyColumnConfig"/>
+							<column use="ais.ui.util.MyColumnConfig" width="70px"/><column use="ais.ui.util.MyColumnConfig"/>
+							<column use="ais.ui.util.MyColumnConfig" width="180px"/>
+						</columns>
+						<rows><row>
+							<label use="ais.ui.util.MyLabelConfig" value="Kode/Nama"/>
+							<textbox id="searchnama" width="95%" forward="onOK=onSearchDefault"/>
+							<label use="ais.ui.util.MyLabelConfig" value="Yayasan"/>
+							<combobox id="searchyayasan" width="95%" forward="onChange=onSearchDefault"/>
+							<label use="ais.ui.util.MyLabelConfig" value="Sekolah"/>
+							<combobox id="searchsekolah" width="95%" forward="onChange=onSearchDefault"/>
+							<checkbox id="searchaktif" label="Hanya grup aktif" checked="true" forward="onClick=onSearchDefault"/>
+						</row></rows>
+					</grid>
+				</div>
+			</div>
+			<div sclass="ais-crud-data-card">
+				<paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging" detailed="true"/>
+				<grid use="ais.ui.util.MyGrid" sclass="dgrid" fixedLayout="true" id="grid">
+					<columns>
+						<column use="ais.ui.util.MyColumnConfig" label="Kode Grup" width="12%"/>
+						<column use="ais.ui.util.MyColumnConfig" label="Nama Grup"/>
+						<column use="ais.ui.util.MyColumnConfig" label="Sekolah"/>
+						<column use="ais.ui.util.MyColumnConfig" label="Jumlah Item" width="10%"/>
+						<column use="ais.ui.util.MyColumnConfig" label="Aktif" width="10%"/>
+						<column use="ais.ui.util.MyColumnConfig" label="" width="56px" align="center"/>
+					</columns>
+				</grid>
+				<paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging2" detailed="true"/>
+			</div>
+		</div>
+		<window use="ais.ui.util.MyWindow" id="addWindow" title="Grup Item Biaya Sekolah"
+			visible="false" mode="popup" position="center,center" border="normal" width="620px" height="540px"/>
+		<zscript><![CDATA[ addWindow.setVisible(false); ]]></zscript>
+	</window>
+</zk>
