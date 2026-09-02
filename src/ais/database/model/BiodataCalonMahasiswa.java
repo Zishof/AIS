@@ -5588,6 +5588,26 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 
 	}
 
+	/**
+	 * Merender nomor kontak pendaftar sebagai tombol ZK berikon WhatsApp di dalam {@code vbox},
+	 * dengan tautan langsung ke {@code web.whatsapp.com} beserta pesan sapaan bawaan.
+	 *
+	 * <p>Label tombol menggabungkan {@link #getHp()} dan {@link #getTeleponRumah()} dipisah
+	 * {@code " / "}, dengan penyaringan nomor semu yang sering muncul di data lama
+	 * ({@code 08100000000000000000}, {@code 0000000000}, {@code 00000000000000000000},
+	 * {@code 000000000}) — nomor semacam itu diperlakukan sebagai kosong. Bila HP dan telepon
+	 * rumah persis sama, hanya satu yang ditampilkan.</p>
+	 *
+	 * <p>Nomor dinormalkan ke format internasional sebelum dipasang pada tautan: awalan
+	 * {@code 08}/{@code 0} diganti {@code +62}, dan nomor tanpa {@code +} diberi awalan
+	 * {@code +62}.</p>
+	 *
+	 * <p>Blok {@code catch} membangun ulang tautan memakai {@link A} biasa sebagai jaring pengaman
+	 * bila pembuatan komponen tombol gagal, sehingga baris grid tetap tampil.</p>
+	 *
+	 * @param vbox komponen induk tempat tombol dipasang.
+	 * @see #ambilHp()
+	 */
 	public void tampilkanHp(Component vbox) {
 		try {
 
@@ -5647,6 +5667,13 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		}
 	}
 
+	/**
+	 * Perguruan tinggi asal pendaftar pindahan versi BERMASTER
+	 * ({@link PerguruanTinggiLain}) — menjadi sumber penimpaan bagi teks bebas
+	 * {@link #getPindahanDariKampus()}, dan ikut disalin ke {@link Mahasiswa} saat konversi.
+	 *
+	 * @return master perguruan tinggi asal; {@code null} bila bukan pindahan atau belum dipilih.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pindahan_dari")
 	public PerguruanTinggiLain getPindahanDari() {
@@ -5654,18 +5681,39 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return pindahanDari;
 	}
 
+	/**
+	 * Menetapkan perguruan tinggi asal (bermaster).
+	 *
+	 * @param pindahanDari master perguruan tinggi lain.
+	 */
 	public void setPindahanDari(PerguruanTinggiLain pindahanDari) {
 		this.pindahanDari = pindahanDari;
 	}
 
+	/**
+	 * Nama instansi tempat pendaftar bekerja — diisi pada jalur kelas karyawan/kerja sama instansi.
+	 *
+	 * @return nama instansi terpangkas; {@code ""} bila tidak relevan.
+	 */
 	public String getInstansiAsal() {
 		return instansiAsal == null ? "" : instansiAsal.trim();
 	}
 
+	/**
+	 * Menetapkan nama instansi tempat pendaftar bekerja.
+	 *
+	 * @param instansiAsal nama instansi.
+	 */
 	public void setInstansiAsal(String instansiAsal) {
 		this.instansiAsal = instansiAsal;
 	}
 
+	/**
+	 * Kota lokasi instansi tempat pendaftar bekerja ({@link Wilayah}).
+	 *
+	 * @return wilayah kota instansi; {@code null} bila tidak relevan.
+	 * @see #getInstansiAsal()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kota_instansi", nullable = true)
 	public Wilayah getKotaInstansi() {
@@ -5673,18 +5721,39 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return kotaInstansi;
 	}
 
+	/**
+	 * Menetapkan kota lokasi instansi.
+	 *
+	 * @param kotaInstansi wilayah kota.
+	 */
 	public void setKotaInstansi(Wilayah kotaInstansi) {
 		this.kotaInstansi = kotaInstansi;
 	}
 
+	/**
+	 * Jabatan pendaftar di instansi tempatnya bekerja.
+	 *
+	 * @return jabatan terpangkas; {@code ""} bila tidak relevan.
+	 */
 	public String getJabatanDiInstansiAsal() {
 		return jabatanDiInstansiAsal == null ? "" : jabatanDiInstansiAsal.trim();
 	}
 
+	/**
+	 * Menetapkan jabatan pendaftar di instansi.
+	 *
+	 * @param jabatanDiInstansiAsal jabatan.
+	 */
 	public void setJabatanDiInstansiAsal(String jabatanDiInstansiAsal) {
 		this.jabatanDiInstansiAsal = jabatanDiInstansiAsal;
 	}
 
+	/**
+	 * Rentang pendapatan IBU (master {@link PendapatanOrangTua}); pasangan ayahnya ada di
+	 * {@link #getPendapatanOrtu()}.
+	 *
+	 * @return master pendapatan; {@code null} bila belum dipilih.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pendapatan_ortu_ibu", nullable = true)
 	public PendapatanOrangTua getPendapatanOrtuIbu() {
@@ -5692,10 +5761,21 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return pendapatanOrtuIbu;
 	}
 
+	/**
+	 * Menetapkan rentang pendapatan ibu.
+	 *
+	 * @param pendapatanOrtuIbu master pendapatan.
+	 */
 	public void setPendapatanOrtuIbu(PendapatanOrangTua pendapatanOrtuIbu) {
 		this.pendapatanOrtuIbu = pendapatanOrtuIbu;
 	}
 
+	/**
+	 * Pendidikan terakhir IBU versi bermaster ({@link PendidikanOrangTua}); versi teks bebasnya
+	 * ada di {@link #getPendidikanIbu()}.
+	 *
+	 * @return master pendidikan; {@code null} bila belum dipilih.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pendidikan_orang_tua_ibu", nullable = true)
 	public PendidikanOrangTua getPendidikanOrtuIbu() {
@@ -5703,10 +5783,26 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return pendidikanOrtuIbu;
 	}
 
+	/**
+	 * Menetapkan pendidikan terakhir ibu (bermaster).
+	 *
+	 * @param pendidikanOrtuIbu master pendidikan.
+	 */
 	public void setPendidikanOrtuIbu(PendidikanOrangTua pendidikanOrtuIbu) {
 		this.pendidikanOrtuIbu = pendidikanOrtuIbu;
 	}
 
+	/**
+	 * Pekerjaan IBU versi bermaster ({@link PekerjaanOrangTua}); versi teks bebasnya ada di
+	 * {@link #getPekerjaanIbu()}.
+	 *
+	 * <p><b>Penamaan menyesatkan (warisan):</b> nama propertinya {@code pekerjaanAyahIbu} dan
+	 * kolomnya {@code pekerjaan_orang_tua_ibu}, tetapi maknanya "pekerjaan orang tua &mdash;
+	 * IBU", bukan gabungan ayah dan ibu. Pola yang sama berlaku pada
+	 * {@link #getPekerjaanAyahWali()}.</p>
+	 *
+	 * @return master pekerjaan; {@code null} bila belum dipilih.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pekerjaan_orang_tua_ibu", nullable = true)
 	public PekerjaanOrangTua getPekerjaanAyahIbu() {
@@ -5714,10 +5810,20 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return pekerjaanAyahIbu;
 	}
 
+	/**
+	 * Menetapkan pekerjaan ibu (bermaster).
+	 *
+	 * @param pekerjaanAyahIbu master pekerjaan orang tua.
+	 */
 	public void setPekerjaanAyahIbu(PekerjaanOrangTua pekerjaanAyahIbu) {
 		this.pekerjaanAyahIbu = pekerjaanAyahIbu;
 	}
 
+	/**
+	 * Rentang pendapatan WALI (master {@link PendapatanOrangTua}).
+	 *
+	 * @return master pendapatan; {@code null} bila belum dipilih.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pendapatan_ortu_wali", nullable = true)
 	public PendapatanOrangTua getPendapatanOrtuWali() {
@@ -5725,10 +5831,20 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return pendapatanOrtuWali;
 	}
 
+	/**
+	 * Menetapkan rentang pendapatan wali.
+	 *
+	 * @param pendapatanOrtuWali master pendapatan.
+	 */
 	public void setPendapatanOrtuWali(PendapatanOrangTua pendapatanOrtuWali) {
 		this.pendapatanOrtuWali = pendapatanOrtuWali;
 	}
 
+	/**
+	 * Pendidikan terakhir WALI (master {@link PendidikanOrangTua}).
+	 *
+	 * @return master pendidikan; {@code null} bila belum dipilih.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pendidikan_orang_tua_wali", nullable = true)
 	public PendidikanOrangTua getPendidikanOrtuWali() {
@@ -5736,10 +5852,22 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return pendidikanOrtuWali;
 	}
 
+	/**
+	 * Menetapkan pendidikan terakhir wali.
+	 *
+	 * @param pendidikanOrtuWali master pendidikan.
+	 */
 	public void setPendidikanOrtuWali(PendidikanOrangTua pendidikanOrtuWali) {
 		this.pendidikanOrtuWali = pendidikanOrtuWali;
 	}
 
+	/**
+	 * Pekerjaan WALI (master {@link PekerjaanOrangTua}). Sama seperti
+	 * {@link #getPekerjaanAyahIbu()}, awalan {@code pekerjaanAyah} pada namanya adalah warisan
+	 * penamaan, bukan berarti data ayah.
+	 *
+	 * @return master pekerjaan; {@code null} bila belum dipilih.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pekerjaan_orang_tua_wali", nullable = true)
 	public PekerjaanOrangTua getPekerjaanAyahWali() {
@@ -5747,10 +5875,26 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return pekerjaanAyahWali;
 	}
 
+	/**
+	 * Menetapkan pekerjaan wali.
+	 *
+	 * @param pekerjaanAyahWali master pekerjaan orang tua.
+	 */
 	public void setPekerjaanAyahWali(PekerjaanOrangTua pekerjaanAyahWali) {
 		this.pekerjaanAyahWali = pekerjaanAyahWali;
 	}
 
+	/**
+	 * Afiliasi pendaftar dengan kampus (master {@link AfiliasiCalonMahasiswa}), mis. anak
+	 * dosen/karyawan, saudara mahasiswa aktif, atau alumni — biasanya berkonsekuensi potongan biaya
+	 * atau status awal khusus.
+	 *
+	 * <p>Menjadi prioritas KETIGA pada {@link #getStatusAwalMahasiswa()}, di bawah kelompok
+	 * eksplisit. Pihak yang dirujuk afiliasi itu dicatat pada {@link #getAfiliasiMahasiswa()} atau
+	 * {@link #getAfiliasiPegawai()}.</p>
+	 *
+	 * @return master afiliasi; {@code null} bila tanpa afiliasi.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "afiliasi_calon_mahasiswa", nullable = true)
 	public AfiliasiCalonMahasiswa getAfiliasiCalonMahasiswa() {
@@ -5758,10 +5902,33 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return afiliasiCalonMahasiswa;
 	}
 
+	/**
+	 * Menetapkan afiliasi pendaftar dengan kampus.
+	 *
+	 * @param afiliasiCalonMahasiswa master afiliasi.
+	 */
 	public void setAfiliasiCalonMahasiswa(AfiliasiCalonMahasiswa afiliasiCalonMahasiswa) {
 		this.afiliasiCalonMahasiswa = afiliasiCalonMahasiswa;
 	}
 
+	/**
+	 * RINCIAN skor seleksi per pertanyaan, dalam bentuk teks {@code label,skor} yang dipisah titik
+	 * koma — versi terurai dari {@link #getTotalSkor()}, dipakai untuk menampilkan asal-usul skor
+	 * kepada operator.
+	 *
+	 * <p>Seperti {@link #getTotalSkor()}, nilainya DIHITUNG ULANG dari
+	 * {@link #getParameterTambahan()} setiap kali dibaca (field {@code rincianSkor} dan
+	 * {@code totalSkor} direset lebih dulu), dan hasilnya ikut tersimpan ke kolom pada flush
+	 * berikutnya.</p>
+	 *
+	 * <p><b>Perbedaan halus yang penting dari {@link #getTotalSkor()}:</b> di sini nilai yang tidak
+	 * murni angka TIDAK diproses lewat {@link #ekstrakSkorDariTeks(String)}, melainkan langsung
+	 * dianggap 0. Akibatnya jawaban seperti {@code "1. 450 Watt"} menyumbang 1 pada
+	 * {@link #getTotalSkor()} tetapi 0 pada rincian ini, sehingga jumlah rincian dapat berbeda dari
+	 * total. Dicatat apa adanya, tidak diperbaiki di sini.</p>
+	 *
+	 * @return teks rincian skor; {@code ""} bila tidak ada jawaban berskor.
+	 */
 	@Column(columnDefinition = "text")
 	public String getRincianSkor() {
 		rincianSkor = "";
@@ -5825,10 +5992,25 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return rincianSkor;
 	}
 
+	/**
+	 * Menetapkan teks rincian skor (akan ditimpa oleh hasil hitung ulang getternya).
+	 *
+	 * @param rincianSkor teks rincian skor.
+	 */
 	public void setRincianSkor(String rincianSkor) {
 		this.rincianSkor = rincianSkor;
 	}
 
+	/**
+	 * Tanggal pendaftar dinyatakan DITERIMA.
+	 *
+	 * <p>Terikat pada {@link #getProdiLulus()}: bila prodi lulus kosong (belum diterima, ditolak,
+	 * atau mundur), tanggal ini dikosongkan; bila prodi lulus ada tetapi tanggalnya belum pernah
+	 * diisi, dipakai {@link #getTanggal_dirubah()} sebagai perkiraan — karena penetapan kelulusan
+	 * memang perubahan terakhir pada baris tersebut. Keduanya tersimpan pada flush berikutnya.</p>
+	 *
+	 * @return waktu diterima; {@code null} bila belum diterima.
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggalDiterima() {
 		if (getProdiLulus() == null) {
@@ -5839,10 +6021,24 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return tanggalDiterima;
 	}
 
+	/**
+	 * Menetapkan tanggal diterima.
+	 *
+	 * @param tanggalDiterima waktu diterima.
+	 */
 	public void setTanggalDiterima(Date tanggalDiterima) {
 		this.tanggalDiterima = tanggalDiterima;
 	}
 
+	/**
+	 * Kelompok jenis seleksi (payung di atas {@link JenisSeleksi}, mis. "Ujian Tulis" yang
+	 * menaungi beberapa gelombang tes).
+	 *
+	 * <p>Bila {@link #getJenisSeleksi()} sudah punya kelompok, nilainya DITIMPA dari sana —
+	 * kelompok mengikuti jenis seleksi, bukan sebaliknya.</p>
+	 *
+	 * @return master kelompok jenis seleksi; {@code null} bila tidak dapat ditentukan.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kelompok_jenis_seleksi", nullable = true)
 	public KelompokJenisSeleksi getKelompokJenisSeleksi() {
@@ -5855,10 +6051,40 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return kelompokJenisSeleksi;
 	}
 
+	/**
+	 * Menetapkan kelompok jenis seleksi (akan ditimpa mengikuti jenis seleksi).
+	 *
+	 * @param kelompokJenisSeleksi master kelompok jenis seleksi.
+	 */
 	public void setKelompokJenisSeleksi(KelompokJenisSeleksi kelompokJenisSeleksi) {
 		this.kelompokJenisSeleksi = kelompokJenisSeleksi;
 	}
 
+	/**
+	 * Membangun TAUTAN LOGIN LANGSUNG (magic link) bagi pendaftar ini — URL yang bila dibuka
+	 * langsung memasukkannya ke portal PMB tanpa mengetik kredensial. Dipakai pada surel/pesan
+	 * WhatsApp pemberitahuan PMB.
+	 *
+	 * <p>Bentuknya {@code <host>/m?q=<token terenkripsi>}, dengan token berisi
+	 * {@code <id>-BiodataCalonMahasiswa-abcdefghijklmnopqrstuvwxyz} yang dienkripsi
+	 * {@code Common.desEncrypter} lalu di-URL-encode UTF-8. Sufiks huruf itu adalah pengisi tetap
+	 * bawaan skema token, bukan rahasia per pendaftar.</p>
+	 *
+	 * <p>Basis host biasanya diambil dari {@code Common.getRequestHostWithProtocol()}. Namun bila
+	 * konfigurasi {@code login_via_link_menggunakan_domain_masing_masing} aktif, host disusun dari
+	 * DOMAIN perguruan tinggi pemilik prodi pendaftar (prodi lulus, atau prodi pilihan pertama)
+	 * ditambah {@code contextPath} request — untuk pemasangan multi-institusi dalam satu aplikasi.
+	 * Request diambil dari eksekusi ZK bila ada, atau dari {@code RequestContext} untuk pemanggilan
+	 * di luar konteks ZK (mis. pengiriman surel dari thread latar).</p>
+	 *
+	 * <p><b>Perhatian keamanan:</b> tautan hasil method ini setara kredensial — siapa pun yang
+	 * memilikinya bisa masuk sebagai pendaftar tersebut.</p>
+	 *
+	 * @return URL login langsung untuk pendaftar ini.
+	 * @throws Exception bila enkripsi atau penyusunan URL gagal; juga
+	 *                   {@code NullPointerException} bila mode domain-per-institusi aktif tetapi
+	 *                   pendaftar belum punya prodi sama sekali.
+	 */
 	public String urlLogin() throws Exception {
 		String url = Common.getRequestHostWithProtocol();
 
@@ -5885,6 +6111,19 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return code;
 	}
 
+	/**
+	 * Versi TEKS dari {@link #tampilkanHp(Component)}: mengembalikan nomor kontak pendaftar yang
+	 * sudah dinormalkan, tanpa membentuk komponen UI. Dipakai pengiriman pesan WhatsApp/SMS massal
+	 * dan ekspor data.
+	 *
+	 * <p>Aturan penyaringan nomor semu dan penggabungan HP dengan telepon rumah sama persis dengan
+	 * {@link #tampilkanHp(Component)}. Perbedaannya pada awalan: di sini dipakai {@code 62} (tanpa
+	 * tanda {@code +}), format yang diminta gerbang pesan.</p>
+	 *
+	 * @return nomor kontak berformat {@code 62...}; bisa berupa gabungan {@code "hp / telepon"}
+	 *         bila hanya salah satunya yang bisa dinormalkan, atau {@code ""} bila tidak ada nomor
+	 *         yang layak.
+	 */
 	public String ambilHp() {
 		try {
 			String hp = getHp();
@@ -5935,6 +6174,16 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		}
 	}
 
+	/**
+	 * Jenis seleksi yang ditetapkan saat pendaftar DITERIMA (kolom {@code jenis_seleksi_pilih}) —
+	 * prioritas tertinggi pada {@link #getJenisSeleksi()}.
+	 *
+	 * <p>Terikat pada {@link #getProdiLulus()}: selama pendaftar belum diterima, nilainya
+	 * dikosongkan (dan pengosongan itu tersimpan pada flush berikutnya). Jadi properti ini hanya
+	 * bermakna setelah keputusan penerimaan diambil.</p>
+	 *
+	 * @return master jenis seleksi saat diterima; {@code null} bila belum diterima.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_seleksi_pilih", nullable = true)
 	public JenisSeleksi getJenisSeleksiDipilih() {
@@ -5946,10 +6195,27 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return jenisSeleksiDipilih;
 	}
 
+	/**
+	 * Menetapkan jenis seleksi saat diterima.
+	 *
+	 * @param jenisSeleksiDipilih master jenis seleksi.
+	 */
 	public void setJenisSeleksiDipilih(JenisSeleksi jenisSeleksiDipilih) {
 		this.jenisSeleksiDipilih = jenisSeleksiDipilih;
 	}
 
+	/**
+	 * Gelombang pendaftaran yang ditetapkan saat pendaftar DITERIMA — prioritas tertinggi pada
+	 * {@link #getGelombangPendaftaran()}, dan seperti {@link #getJenisSeleksiDipilih()} hanya
+	 * bermakna setelah {@link #getProdiLulus()} terisi (bila belum, nilainya dikosongkan).
+	 *
+	 * <p>Kolom ini menangani kasus nyata: pendaftar mendaftar pada gelombang 1 tetapi baru
+	 * diterima pada gelombang 2 (mis. karena kuota atau pengulangan seleksi), sehingga tahun
+	 * akademik, program, dan tarif yang berlaku baginya harus mengikuti gelombang penerimaan, bukan
+	 * gelombang pendaftaran.</p>
+	 *
+	 * @return master gelombang saat diterima; {@code null} bila belum diterima.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "gelombang_pendaftaran_diterima", nullable = true)
 	public GelombangPendaftaran getGelombangPendaftaranDiterima() {
@@ -5961,10 +6227,32 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return gelombangPendaftaranDiterima;
 	}
 
+	/**
+	 * Menetapkan gelombang pendaftaran saat diterima.
+	 *
+	 * @param gelombangPendaftaranDiterima master gelombang.
+	 */
 	public void setGelombangPendaftaranDiterima(GelombangPendaftaran gelombangPendaftaranDiterima) {
 		this.gelombangPendaftaranDiterima = gelombangPendaftaranDiterima;
 	}
 
+	/**
+	 * Menyisipkan lokasi FOTO pendaftar ke dalam peta parameter laporan (JasperReports), pada kunci
+	 * {@code "foto"} — dipakai saat mencetak kartu peserta ujian, formulir registrasi, dan surat
+	 * penerimaan.
+	 *
+	 * <p>Sumber foto dicoba berurutan: berkas fisik {@link ais.database.model.file.FileFotoLain}
+	 * berjenis {@code FotoBiodataCalonMahasiswa} (jalur absolutnya dipakai), tautan Dropbox mentah,
+	 * URL ekspor Google Drive, URL tautan biasa, dan terakhir gambar bawaan
+	 * {@code /img/administrator-icon_default.png} dari direktori aplikasi — sehingga peta parameter
+	 * SELALU terisi dan laporan tidak pernah gagal karena foto kosong.</p>
+	 *
+	 * <p>Kegagalan apa pun hanya dicatat ke {@code ErrorAuditUtil} (dan jejak tumpukan dicetak);
+	 * dalam kondisi itu kunci {@code "foto"} bisa saja tidak terisi.</p>
+	 *
+	 * @param parameters peta parameter laporan yang akan DIUBAH langsung oleh method ini (tipe
+	 *                   mentah {@code Map} mengikuti API JasperReports).
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void putPhoto(Map parameters) {
 		try {
@@ -5992,6 +6280,16 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		}
 	}
 
+	/**
+	 * MAHASISWA yang menjadi dasar afiliasi pendaftar ini (mis. kakak kandung yang sedang kuliah di
+	 * kampus ini). Melengkapi {@link #getAfiliasiCalonMahasiswa()} yang menyatakan JENIS
+	 * afiliasinya.
+	 *
+	 * <p>Jangan tertukar dengan {@link #getMahasiswa()} (dirinya sendiri setelah menjadi mahasiswa)
+	 * maupun {@link #getMahasiswaAlumni()} (dirinya sendiri sebagai alumni).</p>
+	 *
+	 * @return mahasiswa acuan afiliasi; {@code null} bila tidak relevan.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "afiliasi_mahasiswa", nullable = true)
 	public Mahasiswa getAfiliasiMahasiswa() {
@@ -5999,10 +6297,21 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return afiliasiMahasiswa;
 	}
 
+	/**
+	 * Menetapkan mahasiswa acuan afiliasi.
+	 *
+	 * @param afiliasiMahasiswa mahasiswa acuan.
+	 */
 	public void setAfiliasiMahasiswa(Mahasiswa afiliasiMahasiswa) {
 		this.afiliasiMahasiswa = afiliasiMahasiswa;
 	}
 
+	/**
+	 * PEGAWAI (dosen/karyawan) yang menjadi dasar afiliasi pendaftar ini, mis. orang tua pendaftar
+	 * yang bekerja di kampus. Melengkapi {@link #getAfiliasiCalonMahasiswa()}.
+	 *
+	 * @return pegawai acuan afiliasi; {@code null} bila tidak relevan.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "afiliasi_pegawai", nullable = true)
 	public Pegawai getAfiliasiPegawai() {
@@ -6010,10 +6319,25 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return afiliasiPegawai;
 	}
 
+	/**
+	 * Menetapkan pegawai acuan afiliasi.
+	 *
+	 * @param afiliasiPegawai pegawai acuan.
+	 */
 	public void setAfiliasiPegawai(Pegawai afiliasiPegawai) {
 		this.afiliasiPegawai = afiliasiPegawai;
 	}
 
+	/**
+	 * Tanggal pembayaran biaya pendaftaran — properti TURUNAN MURNI dari
+	 * {@link #getPembayaranRegistrasi()}: diisi {@code tanggalBayarAwal} kegiatan tersebut, atau
+	 * dikosongkan bila kegiatannya belum ada. Nilai yang disetel manual selalu ditimpa.
+	 *
+	 * <p>Field {@code pembayaranRegistrasi} dibaca LANGSUNG (bukan lewat getternya), jadi properti
+	 * ini tidak memicu pemuatan relasi yang belum diinisialisasi.</p>
+	 *
+	 * @return waktu pembayaran pertama; {@code null} bila belum ada kegiatan pembayaran.
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggalPembayaranRegistrasi() {
 		if (pembayaranRegistrasi != null) {
@@ -6024,10 +6348,22 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return tanggalPembayaranRegistrasi;
 	}
 
+	/**
+	 * Menetapkan tanggal pembayaran registrasi (akan ditimpa oleh getternya).
+	 *
+	 * @param tanggalPembayaranRegistrasi waktu pembayaran.
+	 */
 	public void setTanggalPembayaranRegistrasi(Date tanggalPembayaranRegistrasi) {
 		this.tanggalPembayaranRegistrasi = tanggalPembayaranRegistrasi;
 	}
 
+	/**
+	 * Tanggal pembayaran daftar ulang — properti turunan murni dari
+	 * {@link #getPembayaranDaftarUlang()}, dengan perlakuan sama seperti
+	 * {@link #getTanggalPembayaranRegistrasi()}.
+	 *
+	 * @return waktu pembayaran daftar ulang; {@code null} bila belum ada kegiatannya.
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggalPembayaranDaftarUlang() {
 		if (pembayaranDaftarUlang != null) {
@@ -6038,14 +6374,35 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return tanggalPembayaranDaftarUlang;
 	}
 
+	/**
+	 * Menetapkan tanggal pembayaran daftar ulang (akan ditimpa oleh getternya).
+	 *
+	 * @param tanggalPembayaranDaftarUlang waktu pembayaran.
+	 */
 	public void setTanggalPembayaranDaftarUlang(Date tanggalPembayaranDaftarUlang) {
 		this.tanggalPembayaranDaftarUlang = tanggalPembayaranDaftarUlang;
 	}
 
+	/**
+	 * Menetapkan tanggal masuk. Akan ditimpa oleh {@link #getTanggalMasuk()} begitu mahasiswa resmi
+	 * ada.
+	 *
+	 * @param tanggalMasuk waktu masuk.
+	 */
 	public void setTanggalMasuk(Date tanggalMasuk) {
 		this.tanggalMasuk = tanggalMasuk;
 	}
 
+	/**
+	 * Tanggal resmi pendaftar mulai berstatus mahasiswa — cermin dari
+	 * {@code getMahasiswa().getTanggalMasuk()} bila mahasiswa resminya sudah ada. Nilai itu diisi
+	 * {@code CommonPMB.saveMahasiswa} dengan waktu server saat konversi dijalankan.
+	 *
+	 * <p>Bila mahasiswa resmi belum ada, nilai lokal dikembalikan apa adanya (berbeda dari
+	 * {@link #getNim()} yang justru mengosongkan diri dalam keadaan itu).</p>
+	 *
+	 * @return waktu masuk; {@code null} bila belum ditetapkan.
+	 */
 	@Column(name = "tanggal_masuk")
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggalMasuk() {
@@ -6055,6 +6412,12 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return tanggalMasuk;
 	}
 
+	/**
+	 * Konsentrasi/peminatan dalam program studi yang dipilih (master {@link Konsentrasi}); ikut
+	 * disalin ke {@link Mahasiswa} saat konversi PMB.
+	 *
+	 * @return master konsentrasi; {@code null} bila prodi tidak berkonsentrasi atau belum dipilih.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "konsentrasi", nullable = true)
 	public Konsentrasi getKonsentrasi() {
@@ -6062,10 +6425,25 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return konsentrasi;
 	}
 
+	/**
+	 * Menetapkan konsentrasi/peminatan.
+	 *
+	 * @param konsentrasi master konsentrasi.
+	 */
 	public void setKonsentrasi(Konsentrasi konsentrasi) {
 		this.konsentrasi = konsentrasi;
 	}
 
+	/**
+	 * Rekaman {@link Mahasiswa} LAMA milik pendaftar ini bila ia ALUMNI kampus yang sama (mis.
+	 * lulusan D3 yang mendaftar ke S1) — sumber pola <i>fallback alumni</i> yang dipakai puluhan
+	 * getter biodata di kelas ini agar pendaftar tidak perlu mengetik ulang datanya.
+	 *
+	 * <p>Berbeda dari {@link #getMahasiswa()} (rekaman mahasiswa BARU hasil konversi PMB kali ini)
+	 * dan {@link #getAfiliasiMahasiswa()} (mahasiswa ORANG LAIN yang menjadi dasar afiliasi).</p>
+	 *
+	 * @return mahasiswa alumni; {@code null} bila pendaftar bukan alumni.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "mahasiswa_alumni", nullable = true)
 	public Mahasiswa getMahasiswaAlumni() {
@@ -6073,26 +6451,63 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return mahasiswaAlumni;
 	}
 
+	/**
+	 * Menetapkan rekaman mahasiswa alumni milik pendaftar ini.
+	 *
+	 * @param mahasiswaAlumni mahasiswa alumni.
+	 */
 	public void setMahasiswaAlumni(Mahasiswa mahasiswaAlumni) {
 		this.mahasiswaAlumni = mahasiswaAlumni;
 	}
 
+	/**
+	 * Bahasa antarmuka/korespondensi yang dipilih pendaftar (dipakai pemasangan dwibahasa).
+	 *
+	 * @return kode bahasa; {@code null} bila memakai bawaan.
+	 */
 	public String getBahasa() {
 		return bahasa;
 	}
 
+	/**
+	 * Menetapkan bahasa antarmuka/korespondensi.
+	 *
+	 * @param bahasa kode bahasa.
+	 */
 	public void setBahasa(String bahasa) {
 		this.bahasa = bahasa;
 	}
 
+	/**
+	 * Apakah baris pendaftar ini masih AKTIF (belum diarsipkan/dihapus secara logis)?
+	 *
+	 * <p><b>Perhatikan bawaannya:</b> {@code null} diperlakukan sebagai {@code true}, bukan
+	 * {@code false} — data lama yang ada sebelum kolom ini ditambahkan tetap dianggap aktif. Query
+	 * kuota pada
+	 * {@link #hitungJumlahPendaftarKuota(Session, PaketJurusanPmb, GelombangPendaftaran, String,
+	 * Long)} mengikuti aturan yang sama ({@code aktif IS NULL OR aktif = true}).</p>
+	 *
+	 * @return {@code true} bila aktif; tidak pernah {@code null}.
+	 */
 	public Boolean getAktif() {
 		return aktif == null ? true : aktif;
 	}
 
+	/**
+	 * Menetapkan penanda aktif.
+	 *
+	 * @param aktif {@code false} untuk menonaktifkan baris.
+	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
 
+	/**
+	 * Pengguna ({@link Tbmuser}) yang MENGUNCI baris ini, sehingga tidak boleh disunting pengguna
+	 * lain. Kolom {@code dikunci} kosong berarti data terbuka untuk disunting.
+	 *
+	 * @return pengguna pengunci; {@code null} bila tidak terkunci.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dikunci")
 	public Tbmuser getDikunci() {
@@ -6100,10 +6515,21 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return dikunci;
 	}
 
+	/**
+	 * Menetapkan pengguna pengunci baris.
+	 *
+	 * @param dikunci pengguna pengunci; {@code null} untuk membuka kunci.
+	 */
 	public void setDikunci(Tbmuser dikunci) {
 		this.dikunci = dikunci;
 	}
 
+	/**
+	 * Disposisi SOP yang melekat pada berkas pendaftar ini (alur persetujuan/disposisi dokumen,
+	 * {@link DisposisiSop}).
+	 *
+	 * @return disposisi SOP; {@code null} bila tidak ada.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "disposisi_sop", nullable = true)
 	public DisposisiSop getDisposisiSop() {
@@ -6111,6 +6537,17 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 		return disposisiSop;
 	}
 
+	/**
+	 * Menetapkan disposisi SOP — setter BERSYARAT, bukan penetapan biasa.
+	 *
+	 * <p>Nilai {@code null} atau disposisi yang belum punya id DIABAIKAN sepenuhnya (langsung
+	 * keluar), sehingga disposisi yang sudah melekat tidak bisa terhapus oleh pemanggil yang
+	 * mengirim objek kosong. Ekspresi ternary setelah penjagaan itu efektif selalu memilih argumen
+	 * yang masuk, karena kondisi "argumen null atau tanpa id" sudah tidak mungkin terjadi di
+	 * titik tersebut — sisa penulisan defensif berlapis, dicatat apa adanya.</p>
+	 *
+	 * @param disposisiSop disposisi SOP; diabaikan bila {@code null} atau belum punya id.
+	 */
 	public void setDisposisiSop(DisposisiSop disposisiSop) {
 		if (disposisiSop == null || disposisiSop.getId() == null) {
 			return;

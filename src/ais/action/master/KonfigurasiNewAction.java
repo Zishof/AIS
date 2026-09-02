@@ -1605,7 +1605,7 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 
 		createSpan("Absensi Fingerprint dan Online", rows);
 		rows.appendChild(createRowNilaiPassword("Password header p untuk servlet /Absen",
-				"password_absen", "4GUb3KPArA78B9AOmKj3pLivo49IEPfQDFHbeCLFpsAG6fgWQZ"));
+				"password_absen", ""));
 		rows.appendChild(createRowActiveDefault("Servlet /Absen mengembalikan JSON gagal, bukan melempar NotFoundException",
 				"absen_fingerprint_return_json_on_error", Konfigurasi.AKTIF));
 		rows.appendChild(createRowActiveDefault("Catat error absensi fingerprint ke ErrorLog jika bukan client abort",

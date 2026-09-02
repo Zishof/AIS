@@ -6135,6 +6135,31 @@ public class Pegawai extends Karyawan {
 		}
 	}
 
+	/**
+	 * Mengumpulkan seluruh {@link Tbmrole} (peran/hak akses) yang dimiliki pegawai ini melalui
+	 * akun-akun {@link Tbmuser} yang tertaut padanya. Dipakai modul LKP/target kerja untuk
+	 * menentukan satuan kerja mana yang boleh dilihat seorang pegawai.
+	 *
+	 * <p>Dua jalur, dengan jalan pintas lebih dulu:</p>
+	 * <ol>
+	 * <li><b>Jalan pintas.</b> Bila pengguna yang <i>sedang login</i> adalah pegawai ini sendiri
+	 * dan perannya <b>tidak</b> boleh melihat data satker lain
+	 * ({@code !hakAkses().getMelihatDataSatkerLain()}), cukup kembalikan peran aktif pengguna itu —
+	 * tanpa query sama sekali.</li>
+	 * <li><b>Jalur lengkap.</b> Bila daftar masih kosong, buka
+	 * {@code HibernateUtil.currentNativeSession()} dan cari semua {@code Tbmuser} aktif yang
+	 * {@code pegawai.id}-nya sama, lalu gabungkan seluruh {@code ambilRoles()}-nya.</li>
+	 * </ol>
+	 *
+	 * <p><b>Efek samping:</b> jalur kedua membuka sesi native tersendiri dan menutupnya kembali
+	 * ({@code disconnect} + {@code close} + {@code HibernateUtil.closeSession()}) — mahal, jadi
+	 * hindari memanggilnya di dalam loop per baris tabel. Kegagalan di kedua jalur dicatat lewat
+	 * {@code ErrorAuditUtil} dan tidak dilempar ke pemanggil.</p>
+	 *
+	 * <p>Entity tanpa ID langsung menghasilkan daftar kosong.</p>
+	 *
+	 * @return daftar peran; boleh kosong, tidak pernah {@code null}
+	 */
 	public List<Tbmrole> ambilHakAkses() {
 		List<Tbmrole> tbmroles = new ArrayList<Tbmrole>();
 
@@ -6175,16 +6200,37 @@ public class Pegawai extends Karyawan {
 	}
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
+	/**
+	 * Data orang tua pegawai (dipakai berkas personalia dan tunjangan keluarga).
+	 *
+	 * @return data orang tua, atau {@code null}
+	 */
+	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "orang_tua", nullable = true)
 	public OrangTua getOrangTua() {
 		orangTua = check(orangTua);
 		return orangTua;
 	}
 
+	/**
+	 * Mengisi data orang tua.
+	 *
+	 * @param orangTua data orang tua
+	 */
 	public void setOrangTua(OrangTua orangTua) {
 		this.orangTua = orangTua;
 	}
 
+	/**
+	 * Bagian pada struktur rumah sakit (modul SIRS,
+	 * {@code ais.database.model.sirs.Bagian}) tempat pegawai bertugas.
+	 *
+	 * <p><b>Perhatikan:</b> kolomnya ditandai {@code unique = true} — kemungkinan besar tidak
+	 * disengaja, karena artinya satu bagian rumah sakit hanya boleh punya <b>satu</b> pegawai.
+	 * Dicatat sebagai temuan, tidak diubah.</p>
+	 *
+	 * @return bagian SIRS, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "bagian", unique = true, nullable = true)
 	public Bagian getBagian() {
@@ -6192,10 +6238,21 @@ public class Pegawai extends Karyawan {
 		return bagian;
 	}
 
+	/**
+	 * Mengisi bagian SIRS.
+	 *
+	 * @param bagian bagian rumah sakit
+	 */
 	public void setBagian(Bagian bagian) {
 		this.bagian = bagian;
 	}
 
+	/**
+	 * Bank tujuan transfer untuk slot pembayaran kedua.
+	 *
+	 * @return bank slot 2, atau {@code null}
+	 * @see #ambilBank(FormatItemGaji)
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "bank2", nullable = true)
 	public Bank getBank2() {
@@ -6203,18 +6260,38 @@ public class Pegawai extends Karyawan {
 		return bank2;
 	}
 
+	/**
+	 * Mengisi bank slot 2.
+	 *
+	 * @param bank2 bank tujuan transfer
+	 */
 	public void setBank2(Bank bank2) {
 		this.bank2 = bank2;
 	}
 
+	/**
+	 * Nomor rekening untuk slot pembayaran kedua.
+	 *
+	 * @return nomor rekening slot 2, atau {@code null}
+	 */
 	public String getNorek2() {
 		return norek2;
 	}
 
+	/**
+	 * Mengisi nomor rekening slot 2.
+	 *
+	 * @param norek2 nomor rekening
+	 */
 	public void setNorek2(String norek2) {
 		this.norek2 = norek2;
 	}
 
+	/**
+	 * Bank tujuan transfer untuk slot pembayaran ketiga.
+	 *
+	 * @return bank slot 3, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "bank3", nullable = true)
 	public Bank getBank3() {
@@ -6222,36 +6299,87 @@ public class Pegawai extends Karyawan {
 		return bank3;
 	}
 
+	/**
+	 * Mengisi bank slot 3.
+	 *
+	 * @param bank3 bank tujuan transfer
+	 */
 	public void setBank3(Bank bank3) {
 		this.bank3 = bank3;
 	}
 
+	/**
+	 * Nomor rekening untuk slot pembayaran ketiga.
+	 *
+	 * @return nomor rekening slot 3, atau {@code null}
+	 */
 	public String getNorek3() {
 		return norek3;
 	}
 
+	/**
+	 * Mengisi nomor rekening slot 3.
+	 *
+	 * @param norek3 nomor rekening
+	 */
 	public void setNorek3(String norek3) {
 		this.norek3 = norek3;
 	}
 
+	/**
+	 * Nama pemilik rekening slot 2.
+	 *
+	 * <p>Berbeda dari {@link #getDitransferAtasNama()}, getter ini mengembalikan {@code null} bila
+	 * {@link #getBank2()} belum diisi — slot yang tidak dipakai memang tidak perlu nama pemilik.
+	 * Bila banknya ada tapi namanya kosong, dipakai nama pegawai (dari <b>field</b> {@code nama},
+	 * dengan kaveat yang sama seperti {@link #getDitransferAtasNama()}).</p>
+	 *
+	 * @return nama pemilik rekening slot 2, atau {@code null} bila slot 2 tidak dipakai
+	 */
 	public String getDitransferAtasNama2() {
 		return getBank2() == null ? null
 				: ditransferAtasNama2 == null || ditransferAtasNama2.trim().isEmpty() ? nama : ditransferAtasNama2;
 	}
 
+	/**
+	 * Mengisi nama pemilik rekening slot 2.
+	 *
+	 * @param ditransferAtasNama2 nama pemilik rekening
+	 */
 	public void setDitransferAtasNama2(String ditransferAtasNama2) {
 		this.ditransferAtasNama2 = ditransferAtasNama2;
 	}
 
+	/**
+	 * Nama pemilik rekening slot 3, dengan aturan yang sama seperti
+	 * {@link #getDitransferAtasNama2()} (null bila {@link #getBank3()} kosong).
+	 *
+	 * @return nama pemilik rekening slot 3, atau {@code null}
+	 */
 	public String getDitransferAtasNama3() {
 		return getBank3() == null ? null
 				: ditransferAtasNama3 == null || ditransferAtasNama3.trim().isEmpty() ? nama : ditransferAtasNama3;
 	}
 
+	/**
+	 * Mengisi nama pemilik rekening slot 3.
+	 *
+	 * @param ditransferAtasNama3 nama pemilik rekening
+	 */
 	public void setDitransferAtasNama3(String ditransferAtasNama3) {
 		this.ditransferAtasNama3 = ditransferAtasNama3;
 	}
 
+	/**
+	 * Format item gaji untuk slot pembayaran keempat.
+	 *
+	 * <p><b>Catatan penamaan:</b> kolomnya {@code format_item_gaji_4} memakai garis bawah sebelum
+	 * angka, sedangkan slot 2 dan 3 memakai {@code format_item_gaji2}/{@code format_item_gaji3}
+	 * tanpa garis bawah. Tidak konsisten, tetapi sudah terlanjur ada di basis data.</p>
+	 *
+	 * @return format item gaji slot 4, atau {@code null}
+	 * @see #getFormatItemGaji()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "format_item_gaji_4", nullable = true)
 	public FormatItemGaji getFormatItemGaji4() {
@@ -6259,10 +6387,21 @@ public class Pegawai extends Karyawan {
 		return formatItemGaji4;
 	}
 
+	/**
+	 * Mengisi format item gaji slot 4.
+	 *
+	 * @param formatItemGaji4 format item gaji
+	 */
 	public void setFormatItemGaji4(FormatItemGaji formatItemGaji4) {
 		this.formatItemGaji4 = formatItemGaji4;
 	}
 
+	/**
+	 * Format item gaji untuk slot pembayaran kelima (kolom {@code format_item_gaji_5}).
+	 *
+	 * @return format item gaji slot 5, atau {@code null}
+	 * @see #getFormatItemGaji4()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "format_item_gaji_5", nullable = true)
 	public FormatItemGaji getFormatItemGaji5() {
@@ -6270,10 +6409,20 @@ public class Pegawai extends Karyawan {
 		return formatItemGaji5;
 	}
 
+	/**
+	 * Mengisi format item gaji slot 5.
+	 *
+	 * @param formatItemGaji5 format item gaji
+	 */
 	public void setFormatItemGaji5(FormatItemGaji formatItemGaji5) {
 		this.formatItemGaji5 = formatItemGaji5;
 	}
 
+	/**
+	 * Bank tujuan transfer untuk slot pembayaran keempat.
+	 *
+	 * @return bank slot 4, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "bank4", nullable = true)
 	public Bank getBank4() {
@@ -6281,18 +6430,38 @@ public class Pegawai extends Karyawan {
 		return bank4;
 	}
 
+	/**
+	 * Mengisi bank slot 4.
+	 *
+	 * @param bank4 bank tujuan transfer
+	 */
 	public void setBank4(Bank bank4) {
 		this.bank4 = bank4;
 	}
 
+	/**
+	 * Nomor rekening untuk slot pembayaran keempat.
+	 *
+	 * @return nomor rekening slot 4, atau {@code null}
+	 */
 	public String getNorek4() {
 		return norek4;
 	}
 
+	/**
+	 * Mengisi nomor rekening slot 4.
+	 *
+	 * @param norek4 nomor rekening
+	 */
 	public void setNorek4(String norek4) {
 		this.norek4 = norek4;
 	}
 
+	/**
+	 * Bank tujuan transfer untuk slot pembayaran kelima (slot terakhir).
+	 *
+	 * @return bank slot 5, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "bank5", nullable = true)
 	public Bank getBank5() {
@@ -6300,86 +6469,192 @@ public class Pegawai extends Karyawan {
 		return bank5;
 	}
 
+	/**
+	 * Mengisi bank slot 5.
+	 *
+	 * @param bank5 bank tujuan transfer
+	 */
 	public void setBank5(Bank bank5) {
 		this.bank5 = bank5;
 	}
 
+	/**
+	 * Nomor rekening untuk slot pembayaran kelima.
+	 *
+	 * @return nomor rekening slot 5, atau {@code null}
+	 */
 	public String getNorek5() {
 		return norek5;
 	}
 
+	/**
+	 * Mengisi nomor rekening slot 5.
+	 *
+	 * @param norek5 nomor rekening
+	 */
 	public void setNorek5(String norek5) {
 		this.norek5 = norek5;
 	}
 
+	/**
+	 * Nama pemilik rekening slot 4, dengan aturan yang sama seperti
+	 * {@link #getDitransferAtasNama2()} (null bila {@link #getBank4()} kosong).
+	 *
+	 * @return nama pemilik rekening slot 4, atau {@code null}
+	 */
 	public String getDitransferAtasNama4() {
 		return getBank4() == null ? null
 				: ditransferAtasNama4 == null || ditransferAtasNama4.trim().isEmpty() ? nama : ditransferAtasNama4;
 	}
 
+	/**
+	 * Mengisi nama pemilik rekening slot 4.
+	 *
+	 * @param ditransferAtasNama4 nama pemilik rekening
+	 */
 	public void setDitransferAtasNama4(String ditransferAtasNama4) {
 		this.ditransferAtasNama4 = ditransferAtasNama4;
 	}
 
+	/**
+	 * Nama pemilik rekening slot 5, dengan aturan yang sama seperti
+	 * {@link #getDitransferAtasNama2()} (null bila {@link #getBank5()} kosong).
+	 *
+	 * @return nama pemilik rekening slot 5, atau {@code null}
+	 */
 	public String getDitransferAtasNama5() {
 		return getBank5() == null ? null
 				: ditransferAtasNama5 == null || ditransferAtasNama5.trim().isEmpty() ? nama : ditransferAtasNama5;
 	}
 
+	/**
+	 * Mengisi nama pemilik rekening slot 5.
+	 *
+	 * @param ditransferAtasNama5 nama pemilik rekening
+	 */
 	public void setDitransferAtasNama5(String ditransferAtasNama5) {
 		this.ditransferAtasNama5 = ditransferAtasNama5;
 	}
 
+	/**
+	 * Cara pembayaran slot 4, default {@link #CARA_BAYAR_LAINNYA} bila kolom kosong.
+	 *
+	 * @return salah satu konstanta {@code CARA_BAYAR_*}; tidak pernah {@code null}
+	 * @see #getCaraPembayaran()
+	 */
 	public String getCaraPembayaran4() {
 		return caraPembayaran4 == null || caraPembayaran4.trim().isEmpty() ? Pegawai.CARA_BAYAR_LAINNYA
 				: caraPembayaran4;
 	}
 
+	/**
+	 * Mengisi cara pembayaran slot 4.
+	 *
+	 * @param caraPembayaran4 salah satu konstanta {@code CARA_BAYAR_*}
+	 */
 	public void setCaraPembayaran4(String caraPembayaran4) {
 		this.caraPembayaran4 = caraPembayaran4;
 	}
 
+	/**
+	 * Cara pembayaran slot 5, default {@link #CARA_BAYAR_LAINNYA} bila kolom kosong.
+	 *
+	 * @return salah satu konstanta {@code CARA_BAYAR_*}; tidak pernah {@code null}
+	 * @see #getCaraPembayaran()
+	 */
 	public String getCaraPembayaran5() {
 		return caraPembayaran5 == null || caraPembayaran5.trim().isEmpty() ? Pegawai.CARA_BAYAR_LAINNYA
 				: caraPembayaran5;
 	}
 
+	/**
+	 * Mengisi cara pembayaran slot 5.
+	 *
+	 * @param caraPembayaran5 salah satu konstanta {@code CARA_BAYAR_*}
+	 */
 	public void setCaraPembayaran5(String caraPembayaran5) {
 		this.caraPembayaran5 = caraPembayaran5;
 	}
 
+	/**
+	 * Nomor polis/kepesertaan untuk program asuransi slot 1.
+	 *
+	 * @return nomor asuransi slot 1, atau {@code null}
+	 * @see #getAsuransiPegawai1()
+	 */
 	public String getNomorAsuransiPegawai1() {
 		return nomorAsuransiPegawai1;
 	}
 
+	/**
+	 * Mengisi nomor asuransi slot 1.
+	 *
+	 * @param nomorAsuransiPegawai1 nomor polis/kepesertaan
+	 */
 	public void setNomorAsuransiPegawai1(String nomorAsuransiPegawai1) {
 		this.nomorAsuransiPegawai1 = nomorAsuransiPegawai1;
 	}
 
+	/**
+	 * Nomor polis/kepesertaan untuk program asuransi slot 2.
+	 *
+	 * @return nomor asuransi slot 2, atau {@code null}
+	 */
 	public String getNomorAsuransiPegawai2() {
 		return nomorAsuransiPegawai2;
 	}
 
+	/**
+	 * Mengisi nomor asuransi slot 2.
+	 *
+	 * @param nomorAsuransiPegawai2 nomor polis/kepesertaan
+	 */
 	public void setNomorAsuransiPegawai2(String nomorAsuransiPegawai2) {
 		this.nomorAsuransiPegawai2 = nomorAsuransiPegawai2;
 	}
 
+	/**
+	 * Nomor polis/kepesertaan untuk program asuransi slot 3.
+	 *
+	 * @return nomor asuransi slot 3, atau {@code null}
+	 */
 	public String getNomorAsuransiPegawai3() {
 		return nomorAsuransiPegawai3;
 	}
 
+	/**
+	 * Mengisi nomor asuransi slot 3.
+	 *
+	 * @param nomorAsuransiPegawai3 nomor polis/kepesertaan
+	 */
 	public void setNomorAsuransiPegawai3(String nomorAsuransiPegawai3) {
 		this.nomorAsuransiPegawai3 = nomorAsuransiPegawai3;
 	}
 
+	/**
+	 * Nomor polis/kepesertaan untuk program asuransi slot 4.
+	 *
+	 * @return nomor asuransi slot 4, atau {@code null}
+	 */
 	public String getNomorAsuransiPegawai4() {
 		return nomorAsuransiPegawai4;
 	}
 
+	/**
+	 * Mengisi nomor asuransi slot 4.
+	 *
+	 * @param nomorAsuransiPegawai4 nomor polis/kepesertaan
+	 */
 	public void setNomorAsuransiPegawai4(String nomorAsuransiPegawai4) {
 		this.nomorAsuransiPegawai4 = nomorAsuransiPegawai4;
 	}
 
+	/**
+	 * Atasan pendukung berbasis {@link JenisJabatan} — jalur persetujuan kedua di samping
+	 * {@link #getAtasan()}, dipakai bila proses membutuhkan tanda tangan/rekomendasi tambahan.
+	 *
+	 * @return jenis jabatan atasan pendukung, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "atasan_pendukung", nullable = true)
 	public JenisJabatan getAtasanPendukung() {
@@ -6387,10 +6662,21 @@ public class Pegawai extends Karyawan {
 		return atasanPendukung;
 	}
 
+	/**
+	 * Mengisi jenis jabatan atasan pendukung.
+	 *
+	 * @param atasanPendukung jenis jabatan atasan pendukung
+	 */
 	public void setAtasanPendukung(JenisJabatan atasanPendukung) {
 		this.atasanPendukung = atasanPendukung;
 	}
 
+	/**
+	 * Cadangan {@link #getAtasanPendukung()} — dipakai bila jabatan atasan pendukung sedang kosong
+	 * atau pejabatnya berhalangan, agar alur persetujuan tidak macet.
+	 *
+	 * @return jenis jabatan atasan pendukung cadangan, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "atasan_pendukung_cadangan", nullable = true)
 	public JenisJabatan getAtasanPendukungCadangan() {
@@ -6398,33 +6684,74 @@ public class Pegawai extends Karyawan {
 		return atasanPendukungCadangan;
 	}
 
+	/**
+	 * Mengisi jenis jabatan atasan pendukung cadangan.
+	 *
+	 * @param atasanPendukungCadangan jenis jabatan cadangan
+	 */
 	public void setAtasanPendukungCadangan(JenisJabatan atasanPendukungCadangan) {
 		this.atasanPendukungCadangan = atasanPendukungCadangan;
 	}
 
+	/**
+	 * Riwayat kedinasan/penugasan pegawai sebagai teks bebas panjang (kolom {@code text}).
+	 * Salah satu dari tiga kolom riwayat naratif yang tidak dinormalisasi menjadi tabel tersendiri
+	 * — bersama {@link #getPenghargaan()} dan {@link #getSangsi()} — sehingga isinya tidak bisa
+	 * diquery per entri.
+	 *
+	 * @return riwayat kedinasan, atau {@code null}
+	 */
 	@Column(columnDefinition = "text")
 	public String getKedinasan() {
 		return kedinasan;
 	}
 
+	/**
+	 * Mengisi riwayat kedinasan.
+	 *
+	 * @param kedinasan teks riwayat kedinasan
+	 */
 	public void setKedinasan(String kedinasan) {
 		this.kedinasan = kedinasan;
 	}
 
+	/**
+	 * Riwayat penghargaan yang pernah diterima pegawai, teks bebas panjang.
+	 *
+	 * @return riwayat penghargaan, atau {@code null}
+	 * @see #getKedinasan()
+	 */
 	@Column(columnDefinition = "text")
 	public String getPenghargaan() {
 		return penghargaan;
 	}
 
+	/**
+	 * Mengisi riwayat penghargaan.
+	 *
+	 * @param penghargaan teks riwayat penghargaan
+	 */
 	public void setPenghargaan(String penghargaan) {
 		this.penghargaan = penghargaan;
 	}
 
+	/**
+	 * Riwayat sanksi/hukuman disiplin pegawai, teks bebas panjang. Ejaan properti memang "sangsi"
+	 * (bukan "sanksi") dan sudah terlanjur menjadi nama kolom.
+	 *
+	 * @return riwayat sanksi, atau {@code null}
+	 * @see #getKedinasan()
+	 */
 	@Column(columnDefinition = "text")
 	public String getSangsi() {
 		return sangsi;
 	}
 
+	/**
+	 * Mengisi riwayat sanksi.
+	 *
+	 * @param sangsi teks riwayat sanksi
+	 */
 	public void setSangsi(String sangsi) {
 		this.sangsi = sangsi;
 	}

@@ -5214,6 +5214,15 @@ public class KantinHelper {
 			hasil.put("description", "File Excel tidak dikirim.");
 			return;
 		}
+		// Panjang diperiksa selagi MASIH berupa teks: mendekode dulu berarti
+		// mengalokasikan salinan biner sebesar 3/4 muatan sebelum sempat ditolak.
+		String tolakUkuran = ais.common.PenjagaLampiranGambar.periksaPanjangBase64(fileBase64,
+				ais.common.PenjagaLampiranGambar.MAKS_LAMPIRAN_BYTES);
+		if (tolakUkuran != null) {
+			hasil.put("status", "91");
+			hasil.put("description", tolakUkuran);
+			return;
+		}
 		byte[] bytes;
 		try {
 			bytes = java.util.Base64.getDecoder().decode(fileBase64);
@@ -11787,6 +11796,15 @@ public class KantinHelper {
 			hasil.put("description", "File Excel SO Harian belum dipilih.");
 			return null;
 		}
+		// Panjang diperiksa selagi MASIH berupa teks: mendekode dulu berarti
+		// mengalokasikan salinan biner sebesar 3/4 muatan sebelum sempat ditolak.
+		String tolakUkuran = ais.common.PenjagaLampiranGambar.periksaPanjangBase64(fileBase64,
+				ais.common.PenjagaLampiranGambar.MAKS_LAMPIRAN_BYTES);
+		if (tolakUkuran != null) {
+			hasil.put("status", "91");
+			hasil.put("description", tolakUkuran);
+			return null;
+		}
 		try {
 			byte[] bytes = java.util.Base64.getDecoder().decode(fileBase64);
 			if (bytes.length == 0 || bytes.length > 10 * 1024 * 1024) {
@@ -12070,6 +12088,15 @@ public class KantinHelper {
 		if (fileBase64.trim().isEmpty()) {
 			hasil.put("status", "91");
 			hasil.put("description", "File Excel tidak dikirim.");
+			return;
+		}
+		// Panjang diperiksa selagi MASIH berupa teks: mendekode dulu berarti
+		// mengalokasikan salinan biner sebesar 3/4 muatan sebelum sempat ditolak.
+		String tolakUkuran = ais.common.PenjagaLampiranGambar.periksaPanjangBase64(fileBase64,
+				ais.common.PenjagaLampiranGambar.MAKS_LAMPIRAN_BYTES);
+		if (tolakUkuran != null) {
+			hasil.put("status", "91");
+			hasil.put("description", tolakUkuran);
 			return;
 		}
 		byte[] bytes;

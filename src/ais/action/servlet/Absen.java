@@ -27,13 +27,22 @@ import ais.ui.util.WaktuUtil;
  * "90"-"92" berbagai kegagalan).
  *
  * <p>
- * <b>Perhatian keamanan:</b> {@link #isValidPassword(HttpServletRequest)} membaca konfigurasi
- * {@code password_absen} lewat {@link Common#getKonfigurasi(String, String)} dengan NILAI DEFAULT
- * hardcoded {@code "4GUb3KPArA78B9AOmKj3pLivo49IEPfQDFHbeCLFpsAG6fgWQZ"} — bila baris konfigurasi
- * {@code password_absen} belum pernah diisi/disimpan di database, string ini menjadi password API
- * yang berlaku secara diam-diam. Nilai ini ditulis langsung di kode sumber (bukan dibaca dari
- * environment/secret store) sehingga tersebar ke siapa pun yang memiliki akses baca ke source
- * code; sesuai instruksi tugas, temuan ini dilaporkan di sini TANPA diperbaiki.
+ * <b>Riwayat keamanan (DIPERBAIKI 2026-09-02)</b> — {@link #isValidPassword(HttpServletRequest)}
+ * sebelumnya membaca konfigurasi {@code password_absen} lewat
+ * {@link Common#getKonfigurasi(String, String)} dengan NILAI DEFAULT RAHASIA tertanam langsung di
+ * kode sumber ({@code "4GUb3KPArA78B9AOmKj3pLivo49IEPfQDFHbeCLFpsAG6fgWQZ"}) — bila baris
+ * konfigurasi {@code password_absen} belum pernah diisi/disimpan di database, string ini diam-diam
+ * menjadi password API yang berlaku, tersebar ke siapa pun yang memiliki akses baca ke source code
+ * (termasuk lewat riwayat kontrol versi). Default itu sudah dihapus (kini string kosong); endpoint
+ * ini sekarang fail-closed — bila {@code password_absen} belum diisi eksplisit di database, TIDAK
+ * ADA header {@code p} apa pun yang bisa lolos validasi (dibanding sebelumnya, saat baris
+ * konfigurasi kosong secara diam-diam berarti "pakai password bawaan").
+ * </p>
+ * <p>
+ * <b>TINDAK LANJUT DI LUAR PERUBAHAN KODE INI</b>: nilai yang sebelumnya tertanam sudah lama
+ * berada di riwayat SVN dan WAJIB dianggap bocor — perlu dirotasi (ganti nilai
+ * {@code password_absen} di database, lalu perbarui perangkat fingerprint/POS dan klien absensi
+ * online yang mengirim header {@code p}) bila kredensial ini masih aktif dipakai di produksi.
  * </p>
  */
 public class Absen extends HttpServlet {
@@ -126,9 +135,10 @@ public class Absen extends HttpServlet {
 	}
 
 	/**
-	 * Memvalidasi header {@code p} terhadap konfigurasi {@code password_absen} (lihat catatan
-	 * keamanan pada javadoc kelas mengenai nilai default hardcoded-nya). Mengembalikan {@code false}
-	 * bila header tidak ada/kosong atau tidak cocok (perbandingan case-insensitive).
+	 * Memvalidasi header {@code p} terhadap konfigurasi {@code password_absen} (lihat riwayat
+	 * keamanan pada javadoc kelas). Mengembalikan {@code false} bila header tidak ada/kosong,
+	 * {@code password_absen} belum dikonfigurasi (fail-closed), atau nilainya tidak cocok
+	 * (perbandingan case-insensitive).
 	 */
 	private boolean isValidPassword(HttpServletRequest request) {
 		try {
@@ -136,9 +146,9 @@ public class Absen extends HttpServlet {
 			if (headerPassword == null || headerPassword.trim().length() == 0) {
 				return false;
 			}
-			String password = Common.getKonfigurasi("password_absen",
-					"4GUb3KPArA78B9AOmKj3pLivo49IEPfQDFHbeCLFpsAG6fgWQZ").getNilai();
-			return password != null && password.trim().equalsIgnoreCase(headerPassword.trim());
+			String password = Common.getKonfigurasi("password_absen", "").getNilai();
+			return password != null && password.trim().length() > 0
+					&& password.trim().equalsIgnoreCase(headerPassword.trim());
 		} catch (Exception e) {
 			try {
 				Common.tampilErrorJikaAdmin(e);

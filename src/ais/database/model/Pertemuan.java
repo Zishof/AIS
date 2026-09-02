@@ -6793,10 +6793,31 @@ public class Pertemuan extends Tugas {
 		}
 	}
 
+	/**
+	 * Seluruh tugas kelompok pada pertemuan ini, memakai peta lokasi yang sudah ada.
+	 *
+	 * @return peta {@code id -> tugas kelompok}, terurut menaik menurut id
+	 * @see #ambilTugasKelompokTotal(boolean)
+	 */
 	public TreeMap<Long, TugasKelompok> ambilTugasKelompokTotal() {
 		return ambilTugasKelompokTotal(false);
 	}
 
+	/**
+	 * Seluruh tugas kelompok pada pertemuan ini.
+	 *
+	 * <p>Sejajar {@link #ambilTugasPertemuanTotal()}: hanya membaca dari cache, tanpa jalur
+	 * cadangan berkas maupun query susulan, dan menyaring tugas yang judulnya kosong.</p>
+	 *
+	 * <p><b>Berbeda dari padanan perorangannya</b>, method ini TIDAK menjaga terhadap
+	 * {@code getId()} bernilai {@code null}, dan session yang dibuka untuk membangun ulang peta
+	 * ditutup lewat {@code HibernateUtil.closeSession()} biasa — bukan di dalam blok
+	 * {@code finally}. Bila {@link #reInitTugasKelompok(Session)} melempar, session itu tidak
+	 * tertutup.</p>
+	 *
+	 * @param refresh {@code true} untuk memaksa peta dibangun ulang dari basis data lebih dahulu
+	 * @return peta {@code id -> tugas kelompok}, terurut menaik menurut id
+	 */
 	@SuppressWarnings("unchecked")
 	public TreeMap<Long, TugasKelompok> ambilTugasKelompokTotal(boolean refresh) {
 		if (!udah("kelompok_tugas") || refresh) {
@@ -6834,6 +6855,15 @@ public class Pertemuan extends Tugas {
 		return tugasKelompoksa;
 	}
 
+	/**
+	 * Potong satu halaman dari peta tugas kelompok yang sudah dikumpulkan.
+	 *
+	 * @param tugasKelompoksa peta hasil {@link #ambilTugasKelompokTotal(boolean)}
+	 * @param mulai           indeks awal halaman (berbasis nol)
+	 * @param banyak          banyaknya entri per halaman
+	 * @return daftar tugas kelompok pada halaman yang diminta
+	 * @see #ambilPertemuanPunyaUjian(TreeMap, int, int)
+	 */
 	public List<TugasKelompok> ambilTugasKelompok(TreeMap<Long, TugasKelompok> tugasKelompoksa, int mulai, int banyak) {
 
 		int index = 0;
@@ -6851,6 +6881,25 @@ public class Pertemuan extends Tugas {
 		return tugasKelompoks;
 	}
 
+	/**
+	 * Baca peta lokasi kelompok parameter tambahan
+	 * ({@link KelompokParameterTambahanPertemuan}) yang berlaku untuk pertemuan ini.
+	 *
+	 * <p>"Parameter tambahan" adalah isian dinamis per tenant: administrator mendefinisikan
+	 * sendiri kolom-kolom yang harus diisi pada formulir pertemuan, dan
+	 * {@link KelompokParameterTambahanPertemuan} mengelompokkannya. Berbeda dari koleksi anak lain,
+	 * kelompok ini BUKAN milik pertemuan — ia master data yang berlaku bagi banyak pertemuan
+	 * sekaligus; peta lokasi di sini hanya meng-cache "kelompok mana saja yang berlaku untuk
+	 * pertemuan berjenis induk seperti ini".</p>
+	 *
+	 * <p>Nama berkas dan penanda cache-nya {@code "KelompokParameterTambahanPertemuan"} — satu-
+	 * satunya di kelas ini yang memakai gaya penulisan kelas (huruf besar campur), bukan
+	 * huruf kecil bergaris bawah.</p>
+	 *
+	 * @return isi peta lokasi sebagai teks JSON; JSON kosong bila belum ada
+	 * @see #ambilLokasiPengajuanIzinTidakMasukPerkuliahan()
+	 * @see #getParameterTambahan()
+	 */
 	public String ambilLokasiKelompokParameterTambahanPertemuan() {
 		File file = Common.getFileLocation(this, "KelompokParameterTambahanPertemuan_" + getId().toString());
 		try {
@@ -6862,6 +6911,12 @@ public class Pertemuan extends Tugas {
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Tulis ulang seluruh isi peta lokasi kelompok parameter tambahan milik pertemuan ini.
+	 *
+	 * @param data isi peta lokasi baru sebagai teks JSON
+	 * @see #ambilLokasiKelompokParameterTambahanPertemuan()
+	 */
 	public void tulisLokasiKelompokParameterTambahanPertemuan(String data) {
 		File file = Common.getFileLocation(this, "KelompokParameterTambahanPertemuan_" + getId().toString());
 		try {
@@ -6872,12 +6927,52 @@ public class Pertemuan extends Tugas {
 		}
 	}
 
+	/**
+	 * Hapus berkas peta lokasi kelompok parameter tambahan milik pertemuan ini.
+	 *
+	 * @see #bersihkanLokasiPengajuanIzinTidakMasukPerkuliahan()
+	 */
 	public void bersihkanLokasiKelompokParameterTambahanPertemuan() {
 		File file = Common.getFileLocation(this, "KelompokParameterTambahanPertemuan_" + getId().toString());
 		BacaTulisUtil.doHapus(file, "KelompokParameterTambahanPertemuan");
 
 	}
 
+	/**
+	 * Bangun ulang peta lokasi kelompok parameter tambahan yang berlaku bagi pertemuan ini.
+	 *
+	 * <p>Ini {@code reInitXxx(...)} yang paling berbeda dari lainnya karena TIDAK mencari anak
+	 * milik pertemuan ini, melainkan mencari <b>master data yang cocok dengan JENIS INDUK</b>
+	 * pertemuan ini:</p>
+	 * <ol>
+	 *   <li>Sebuah {@link Criterion} dipilih berdasarkan induk mana yang terisi. Setiap jenis induk
+	 *       punya kolom penanda boolean sendiri di {@code ParameterTambahanPertemuan} (mis.
+	 *       {@code perkuliahan}, {@code jadwalPelajaran}, {@code skripsi}), dan penyaringnya
+	 *       menjadi {@code eq(namaKolom, true)}.</li>
+	 *   <li>Bila TIDAK ada induk yang dikenali, penyaringnya adalah
+	 *       {@code Restrictions.sqlRestriction("false")} — sengaja tidak pernah cocok, sehingga
+	 *       hasilnya kosong alih-alih mengambil semua. Nilai awal inilah yang membuat method aman
+	 *       untuk jenis induk yang belum didukung.</li>
+	 *   <li>Query menggabungkan {@code parameterTambahan} dan
+	 *       {@code kelompokParameterTambahanPertemuan}, menyaring keduanya harus {@code aktif},
+	 *       lalu mengelompokkan menurut kelompoknya sehingga yang keluar adalah daftar kelompok
+	 *       unik.</li>
+	 *   <li>Tiap kelompok dimasukkan ke cache dan didaftarkan ke peta lewat
+	 *       {@link #populateKelompokParameterTambahanPertemuan(KelompokParameterTambahanPertemuan,
+	 *       boolean)}.</li>
+	 * </ol>
+	 *
+	 * <p><b>Perhatikan:</b> {@code kelasLesSiswa}, {@code jadwalUjianPegawai},
+	 * {@code komponenDataProdukKursus}, dan {@code wisuda} tidak punya cabang di sini, sehingga
+	 * pertemuan dengan induk itu tidak pernah mendapat parameter tambahan apa pun.</p>
+	 *
+	 * <p>Karena hasilnya bergantung pada JENIS induk (bukan pertemuan tertentu), peta yang sama
+	 * praktis berisi hal yang sama untuk semua pertemuan sejenis — namun tetap disimpan per
+	 * pertemuan.</p>
+	 *
+	 * @param session session Hibernate yang sudah terbuka; tidak ditutup oleh method ini
+	 * @see #ambilKelompokParameterTambahanPertemuanTotal()
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitKelompokParameterTambahanPertemuan(Session session) {
 		Pertemuan pertemuan = this;
@@ -6925,6 +7020,12 @@ public class Pertemuan extends Tugas {
 		kelompokParameterTambahanPertemuans = null;
 	}
 
+	/**
+	 * Keluarkan satu kelompok parameter tambahan dari peta lokasi pertemuan ini.
+	 *
+	 * @param id id kelompok yang dikeluarkan
+	 * @see #removePengajuanIzinTidakMasukPerkuliahan(Serializable)
+	 */
 	public void removeKelompokParameterTambahanPertemuan(Serializable id) {
 		try {
 			JSONObject c = jsonObjekUntukTulis(ambilLokasiKelompokParameterTambahanPertemuan());
@@ -6935,6 +7036,19 @@ public class Pertemuan extends Tugas {
 		}
 	}
 
+	/**
+	 * Daftarkan satu kelompok parameter tambahan ke peta lokasi pertemuan ini.
+	 *
+	 * <p>Seperti kelompok lampiran/video/audio, nilai yang disimpan adalah PATH berkas hasil
+	 * {@code write()}, sehingga isinya dapat dibaca kembali walau cache objek sudah kosong.</p>
+	 *
+	 * <p>Parameter {@code tulisUlang} sama sekali tidak berpengaruh: kedua cabang ekspresi
+	 * kondisionalnya memanggil {@code write().getAbsolutePath()} yang sama persis.</p>
+	 *
+	 * @param kelompokParameterTambahanPertemuan kelompok yang didaftarkan; {@code null} diabaikan
+	 * @param tulisUlang                         tidak berpengaruh
+	 * @see #populatePertemuanFileContent(PertemuanFileContent, boolean)
+	 */
 	public void populateKelompokParameterTambahanPertemuan(
 			KelompokParameterTambahanPertemuan kelompokParameterTambahanPertemuan, boolean tulisUlang) {
 		try {
@@ -6950,6 +7064,16 @@ public class Pertemuan extends Tugas {
 		}
 	}
 
+	/**
+	 * Banyaknya kelompok parameter tambahan yang berlaku bagi pertemuan ini.
+	 *
+	 * <p>Berbeda dari {@link #ambilJumlahPertemuanFileContent()} yang menghitung entri peta begitu
+	 * saja, method ini MEMUAT tiap kelompok (dari cache, atau dari berkas cache sebagai cadangan)
+	 * dan hanya menghitung yang namanya tidak kosong. Jadi biayanya setara dengan
+	 * {@link #ambilKelompokParameterTambahanPertemuanTotal()}, bukan lebih murah.</p>
+	 *
+	 * @return banyaknya kelompok parameter tambahan yang berlaku
+	 */
 	@SuppressWarnings("unchecked")
 	public int ambilJumlahKelompokParameterTambahanPertemuan() {
 		if (!udah("KelompokParameterTambahanPertemuan")) {
@@ -7006,6 +7130,19 @@ public class Pertemuan extends Tugas {
 		return jumlah;
 	}
 
+	/**
+	 * Seluruh kelompok parameter tambahan yang berlaku bagi pertemuan ini.
+	 *
+	 * <p>Membaca peta lokasi dengan dua sumber seperti kelompok lampiran: cache lebih dulu, lalu
+	 * berkas cache sebagai cadangan. Kelompok yang namanya kosong disaring keluar.</p>
+	 *
+	 * <p>Inilah daftar yang dipakai UI untuk membentuk baris-baris isian dinamis, yang kemudian
+	 * dikembalikan ke model lewat {@link #populateParameterTambahan(java.util.List)}.</p>
+	 *
+	 * @return peta {@code id -> kelompok parameter tambahan}, terurut menaik menurut id
+	 * @see #populateParameterTambahan(java.util.List)
+	 * @see #ambilDataParameterTambahan()
+	 */
 	@SuppressWarnings("unchecked")
 	public TreeMap<Long, KelompokParameterTambahanPertemuan> ambilKelompokParameterTambahanPertemuanTotal() {
 		if (!udah("KelompokParameterTambahanPertemuan")) {
@@ -7063,22 +7200,54 @@ public class Pertemuan extends Tugas {
 		return kelompokParameterTambahanPertemuansa;
 	}
 
+	/**
+	 * Apakah kolom komentar/diskusi pertemuan ini sudah ditutup?
+	 *
+	 * @return {@code true} bila komentar ditutup; {@code false} bila belum pernah diisi
+	 * @see #punyaDiskusi()
+	 */
 	public Boolean getKomentarDitutup() {
 		return komentarDitutup == null ? false : komentarDitutup;
 	}
 
+	/**
+	 * Setel penutupan kolom komentar/diskusi pertemuan ini.
+	 *
+	 * @param komentarDitutup {@code true} untuk menutup komentar
+	 */
 	public void setKomentarDitutup(Boolean komentarDitutup) {
 		this.komentarDitutup = komentarDitutup;
 	}
 
+	/**
+	 * Bolehkah peserta melampirkan berkas ketika menulis komentar/diskusi?
+	 *
+	 * @return {@code true} bila lampiran diizinkan; {@code false} bila belum pernah diisi
+	 * @see #getIzinkanUploadLampiranDiGrive()
+	 */
 	public Boolean getIzinkanUploadLampiranDiKomentar() {
 		return izinkanUploadLampiranDiKomentar == null ? false : izinkanUploadLampiranDiKomentar;
 	}
 
+	/**
+	 * Setel izin melampirkan berkas pada komentar/diskusi.
+	 *
+	 * @param izinkanUploadLampiranDiKomentar {@code true} bila lampiran diizinkan
+	 */
 	public void setIzinkanUploadLampiranDiKomentar(Boolean izinkanUploadLampiranDiKomentar) {
 		this.izinkanUploadLampiranDiKomentar = izinkanUploadLampiranDiKomentar;
 	}
 
+	/**
+	 * Formulir kegiatan yang menjadi induk pertemuan ini.
+	 *
+	 * <p>Dipakai untuk kegiatan berbasis pendaftaran (seminar, pelatihan, lomba) yang pesertanya
+	 * datang dari {@code FormulirKegiatanPeserta}, bukan dari kelas kuliah — lihat cabang
+	 * bersangkutan pada {@link #ambilMahasiswa()}.</p>
+	 *
+	 * @return {@link FormulirKegiatan} induk, atau {@code null}
+	 * @see #untuk()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "formulir_kegiatan", nullable = true)
 	public FormulirKegiatan getFormulirKegiatan() {
@@ -7086,10 +7255,41 @@ public class Pertemuan extends Tugas {
 		return formulirKegiatan;
 	}
 
+	/**
+	 * Tetapkan formulir kegiatan sebagai induk pertemuan ini.
+	 *
+	 * @param formulirKegiatan formulir kegiatan; boleh {@code null}
+	 */
 	public void setFormulirKegiatan(FormulirKegiatan formulirKegiatan) {
 		this.formulirKegiatan = formulirKegiatan;
 	}
 
+	/**
+	 * Bentuk komponen ZK berisi ringkasan mata kuliah/pelajaran pertemuan ini ke dalam
+	 * {@code vbox}.
+	 *
+	 * <p><b>Method UI di dalam kelas entity</b> — tidak lazim, tetapi memang begitu adanya di
+	 * codebase ini. Yang ditambahkan ke {@code vbox}, menurut jenis induk:</p>
+	 * <ul>
+	 *   <li>selalu: satu {@link Label} berisi {@link #getTopik()};</li>
+	 *   <li><b>perkuliahan</b>: daftar dosen pengampu, kotak revisi ({@code RevisiHelper}) berisi
+	 *       kode/nama/SKS mata kuliah dan tahun kurikulum, daftar mata kuliah prasyarat, lalu
+	 *       hari/jam/ruang perkuliahan;</li>
+	 *   <li><b>jadwal pelajaran</b>: daftar guru, kotak revisi berisi kode/nama mata pelajaran,
+	 *       lalu hari/jam/ruang;</li>
+	 *   <li>jenis induk lain: tidak ada tambahan apa pun selain label topik.</li>
+	 * </ul>
+	 *
+	 * <p>Hanya aman dipanggil dari thread yang memegang desktop ZK. Berbeda dari kebanyakan method
+	 * lain di kelas ini, exception TIDAK ditelan melainkan dilempar ke pemanggil.</p>
+	 *
+	 * <p><b>Catatan:</b> variabel lokal {@code pertemuan} di dalamnya diisi {@code this} lalu
+	 * berulang kali diuji {@code != null} — pemeriksaan yang tidak pernah bisa gagal.</p>
+	 *
+	 * @param vbox wadah ZK tempat komponen ditambahkan
+	 * @throws Exception bila penyusunan komponen atau pembacaan data gagal
+	 * @see #populateParameterTambahan(java.util.List)
+	 */
 	public void tampilMk(Box vbox) throws Exception {
 		Pertemuan pertemuan = this;
 		new Label(pertemuan == null ? "" : pertemuan.getTopik()).setParent(vbox);
