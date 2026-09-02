@@ -992,6 +992,24 @@ public final class SopService {
             data.put("nextOptions", buildNextOptions(alurSop));
             data.put("parameterDefinisi", buildParameterDefinisi(session, alurSop));
             data.put("dokumenDefinisi", buildDokumenDefinisi(alurSop));
+            data.put("parameterTambahan", decodeParameterTambahanInds(langkah.getParameterTambahanInds()));
+            data.put("dokumen", mapDokumenLampiran(langkah));
+            data.put("lampiranCatatanAda",
+                    LampiranLain.ambil(langkah.getId(), LAMPIRAN_CATATAN_DISPOSISI_KEY) != null);
+            data.put("lampiranCatatanWajib",
+                    Boolean.TRUE.equals(alurSop.getLampiranCatatanWajibDiisi())
+                            && Common.bolehKonfigurasi("tampilkan_lampiran_catatan_disposisi"));
+            JSONArray selectedAlurSopIds = new JSONArray();
+            @SuppressWarnings("unchecked")
+            List<DisposisiAlurSop> penerus = session.createCriteria(DisposisiAlurSop.class)
+                    .add(Restrictions.eq("sebelumnya", langkah))
+                    .add(Restrictions.isNotNull("alurSop")).list();
+            for (DisposisiAlurSop anak : penerus) {
+                if (anak != null && anak.getAlurSop() != null && anak.getAlurSop().getId() != null) {
+                    selectedAlurSopIds.put(anak.getAlurSop().getId());
+                }
+            }
+            data.put("selectedAlurSopIds", selectedAlurSopIds);
             // Rute hanya boleh diubah selama belum ada penerus (editPilihan di ZKoss).
             data.put("bisaUbahPilihan", langkah.getSetelahnya() == null);
             // Penanda bahwa pengubah adalah admin atas langkah milik orang lain: di
