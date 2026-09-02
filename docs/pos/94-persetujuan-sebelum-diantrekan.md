@@ -128,3 +128,17 @@ bukan dijawab, melainkan tidak lagi perlu ditanyakan.
 **Menunda dua kali membuat saya melihat kodenya lebih teliti.** Baru pada
 penundaan ketiga saya membaca `if (!e.offline) rethrow;` dan menyadari seluruh
 posting mati. Catatan dok. 86 tentang layar ini terlalu ringan selama dua batch.
+
+## 8. Koreksi atas paragraf 6: ujinya sudah dijalankan
+
+Paragraf 6 menyatakan `dart analyze` dan `flutter test` tidak dapat dijalankan
+karena mesin ini tidak punya toolchain-nya. **Itu salah** — lihat docs/pos/98.
+
+Sesudah dijalankan: analisis bersih, dan kedelapan uji di
+`harga_modal_persetujuan_test.dart` lulus, termasuk uji urutan yang menuntut
+konfirmasi mendahului `MasterOffline.antreLokal`.
+
+Ujinya juga dibuktikan **dapat merah**: baris penanda dicabut dari sumber,
+suntingannya diverifikasi lebih dulu (`pola tersisa = 0`), hasilnya `+7 -1`
+dengan pesan yang menyebut pola yang hilang. Dipulihkan, `git status` kosong,
+kembali `+8 All tests passed`.

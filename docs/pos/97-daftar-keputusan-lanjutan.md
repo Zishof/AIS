@@ -163,3 +163,15 @@ Ringkas, karena tiap barisnya punya dokumennya sendiri.
 | Persetujuan harga modal tinggi (layar Produk) | barang promo rugi dapat disimpan | 86 |
 | `returpembelian` & `pencairandiskon` didaftarkan | izin keempat endpoint kini dapat dicabut | 89 |
 | Persetujuan harga modal tinggi (entri massal) | satu baris tidak lagi membunuh seluruh posting | 94 |
+
+## F. Koreksi atas B.2
+
+Butir B.2 menyatakan tidak ada toolchain Dart/Flutter di mesin ini, sehingga
+perbaikan klien dok. 85/86/94 "sudah di-push tetapi belum pernah dijalankan".
+
+**Butir itu sudah tidak berlaku** (docs/pos/98). Flutter ada di `C:\opt\flutter`,
+tidak di PATH. Seluruh suite dijalankan: **710 uji lulus**, analisis statis
+bersih. B.2 dicoret dari daftar tindakan lingkungan.
+
+Letaknya kini direkam di `alat/akar_repo.py` (`flutter_bin()` / `dart_bin()`) dan
+dipakai `alat/uji-klien.py`, sehingga tidak perlu lagi bergantung pada PATH.

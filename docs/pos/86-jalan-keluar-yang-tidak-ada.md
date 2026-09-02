@@ -160,3 +160,12 @@ berlaku.
 Pembebasan `kasir_screen` kini tercatat di `alat/pintu-darurat-tanpa-kunci.py`
 lengkap dengan alasannya, sehingga penjaga per-jalur (dok. 91) tidak menuduhnya
 lagi — dan alasannya dapat diperiksa ulang siapa pun.
+
+## 8. Koreksi atas paragraf 5: toolchain-nya ada
+
+Paragraf 5 menyatakan sisi Dart "tidak dapat diuji: mesin ini tidak punya
+toolchain Dart/Flutter". **Itu salah.** Flutter ada di `C:\opt\flutter`, hanya
+tidak berada di PATH.
+
+Sesudah dijalankan (docs/pos/98): `dart analyze` atas berkas yang disunting —
+`No issues found!`; seluruh suite `flutter test` — **710 uji lulus**.

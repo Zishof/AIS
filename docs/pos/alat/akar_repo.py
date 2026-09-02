@@ -175,3 +175,46 @@ def node():
         if os.path.isfile(kandidat):
             return kandidat
     return 'node'
+
+
+# Letak Flutter/Dart, dengan pola yang sama seperti repo_pos() dan node().
+#
+# Ditulis setelah kesalahan yang mahal (docs/pos/98): `command -v dart` dan
+# `command -v flutter` sama-sama kosong, dan dari situ disimpulkan "mesin ini
+# tidak punya toolchain Dart/Flutter". Kesimpulan itu diulang tiga kali di
+# dokumen dan pesan commit, dan tiga perbaikan sisi klien dikirim tanpa pernah
+# dianalisis maupun diuji.
+#
+# Flutter ADA di mesin ini, di C:\opt\flutter -- hanya tidak berada di PATH.
+# PATH kosong berarti "tidak dapat dipanggil begitu saja", bukan "tidak ada".
+KANDIDAT_FLUTTER = [
+    os.path.join('C:' + os.sep, 'opt', 'flutter'),
+    os.path.join(os.path.expanduser('~'), 'flutter'),
+    os.path.join('C:' + os.sep, 'src', 'flutter'),
+]
+
+
+def flutter_bin(wajib=True):
+    """Direktori bin Flutter (berisi flutter.bat dan dart lewat cache/dart-sdk)."""
+    dari_env = os.environ.get('FLUTTER_ROOT')
+    kandidat = ([dari_env] if dari_env else []) + KANDIDAT_FLUTTER
+    for akar in kandidat:
+        if not akar:
+            continue
+        b = os.path.join(akar, 'bin')
+        if os.path.isfile(os.path.join(b, 'flutter.bat')) or \
+                os.path.isfile(os.path.join(b, 'flutter')):
+            return b
+    if not wajib:
+        return None
+    raise SystemExit(
+        'Flutter tidak ketemu. Tentukan lewat FLUTTER_ROOT, atau pasang di '
+        'salah satu: ' + ', '.join(KANDIDAT_FLUTTER))
+
+
+def dart_bin(wajib=True):
+    """Direktori bin Dart SDK yang dibundel Flutter."""
+    b = flutter_bin(wajib=wajib)
+    if b is None:
+        return None
+    return os.path.join(b, 'cache', 'dart-sdk', 'bin')
