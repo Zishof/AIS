@@ -82,6 +82,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [74-sql-pemulihan-member-pesanan.sql](74-sql-pemulihan-member-pesanan.sql) | Skrip hitung-dulu-baru-perbaiki utk mengembalikan member yang tertimpa NULL |
 | [75-halaman-pesanan-tiga-celah-sunyi.md](75-halaman-pesanan-tiga-celah-sunyi.md) | `id_member` yang diambil lalu dibuang, "Bayar Semua" yang bilang sukses saat gagal, dan `peringatanStok` tanpa pembaca |
 | [76-peringatan-stok-terbaca-dan-nota-terparkir.md](76-peringatan-stok-terbaca-dan-nota-terparkir.md) | `peringatanStok` yang belum dibaca klien Flutter, dan nota terparkir GAGAL oleh penolakan stok yang keliru |
+| [77-gerbang-oversell-dan-penjaga-field-yatim.md](77-gerbang-oversell-dan-penjaga-field-yatim.md) | Sakelar "Cegah Oversell" yang tak pernah dibaca jalur API + penjaga otomatis field yang dikirim server tanpa pembaca |
 
 > Catatan penomoran: ada **dua** berkas bernomor 10 — `10-pengadaan.md` dan
 > `10-pesan-galat-dan-detail-error.md` — karena ditulis dua sesi kerja yang berjalan

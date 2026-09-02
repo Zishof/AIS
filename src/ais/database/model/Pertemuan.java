@@ -1867,10 +1867,102 @@ public class Pertemuan extends Tugas {
 		return status == null || status.getNama() == null ? "" : status.getNama();
 	}
 
+	/**
+	 * Catat/ubah kehadiran satu orang pada pertemuan ini — bentuk ringkas tanpa keterangan dan
+	 * tanpa tautan pengajuan izin.
+	 *
+	 * <p>Meneruskan ke {@link #populate(Long, Statusabsensi, String,
+	 * PengajuanIzinTidakMasukPerkuliahan, String, String, String)} dengan {@code keterangan} dan
+	 * {@code pengajuanIzinTidakMasukPerkuliahan} bernilai {@code null}. Perhatikan bahwa
+	 * {@code null} di sana TIDAK berarti "kosongkan", melainkan "pertahankan nilai yang sudah ada"
+	 * — lihat Javadoc method lengkapnya.</p>
+	 *
+	 * @param ref           id orang yang kehadirannya dicatat (Mahasiswa/Siswa/Dosen/Guru/Pegawai)
+	 * @param statusabsensi status kehadiran yang ditetapkan
+	 * @param mulai         jam mulai kehadiran (hanya berarti bila kode status {@code "M"})
+	 * @param sampai        jam selesai kehadiran (hanya berarti bila kode status {@code "M"})
+	 * @param jenis         jenis orang: {@code "Mahasiswa"}, {@code "Siswa"}, {@code "Dosen"},
+	 *                      {@code "Guru"}, atau {@code "Pegawai"}
+	 * @see #populate(Long, Statusabsensi, String, PengajuanIzinTidakMasukPerkuliahan, String,
+	 *      String, String)
+	 */
 	public void populate(Long ref, Statusabsensi statusabsensi, String mulai, String sampai, String jenis) {
 		populate(ref, statusabsensi, null, null, mulai, sampai, jenis);
 	}
 
+	/**
+	 * Catat/ubah kehadiran satu orang pada pertemuan ini, dan (bila hadir) kirim notifikasi
+	 * ucapan selamat kepadanya.
+	 *
+	 * <p>Ini adalah <b>satu-satunya</b> jalan yang benar untuk menyentuh daftar hadir: method ini
+	 * merakit ulang seluruh string {@code absensi} sambil menjaga baris peserta lain tetap utuh.
+	 * Jangan memanggil {@link #setAbsensi(String)} langsung.</p>
+	 *
+	 * <h4>Apa yang dilakukan</h4>
+	 * <ol>
+	 *   <li>Bila {@code ref} atau {@code statusabsensi} {@code null}, method langsung berhenti
+	 *       tanpa mengubah apa pun dan tanpa memberi tahu pemanggil.</li>
+	 *   <li>Bila kode status BUKAN {@code "M"} (tidak hadir), {@code mulai} dan {@code sampai}
+	 *       dipaksa menjadi string kosong — jam kehadiran hanya berarti untuk orang yang hadir.</li>
+	 *   <li>Bila kode status {@code "M"}, satu <b>thread baru</b> dijalankan untuk menyusun dan
+	 *       menyimpan notifikasi (lihat bagian di bawah).</li>
+	 *   <li>Karakter {@code ';'} pada {@code keterangan} diganti {@code "..\n"} dan {@code ','}
+	 *       diganti {@code '_'}, karena keduanya adalah pemisah pada format penyimpanan. Teks
+	 *       aslinya TIDAK dapat dipulihkan.</li>
+	 *   <li>String {@code absensi} lama dipecah per baris. Baris milik {@code ref} ditulis ulang
+	 *       dengan nilai baru; baris lain disalin apa adanya. Bila {@code ref} belum punya baris,
+	 *       satu baris baru ditambahkan di akhir.</li>
+	 *   <li>Hasil rakitan ditulis ke field {@code absensi} secara LANGSUNG (bukan lewat setter),
+	 *       sehingga tersimpan pada flush berikutnya.</li>
+	 * </ol>
+	 *
+	 * <h4>Arti {@code null} pada parameter opsional</h4>
+	 * <p>Untuk {@code keterangan}, {@code pengajuanIzinTidakMasukPerkuliahan}, {@code mulai},
+	 * {@code sampai}, dan {@code jenis}, nilai {@code null} berarti <b>"pertahankan nilai yang
+	 * sudah tersimpan"</b> — nilai lamanya dibaca kembali lewat
+	 * {@link #retreiveAbsensiKeterangan(Long)}, {@link #retreivePengajuanIzinId(Long)},
+	 * {@link #retreiveAbsensiMulai(Long)}, {@link #retreiveAbsensiSampai(Long)}, dan
+	 * {@link #retreiveAbsensiJenis(Long)}. Untuk benar-benar mengosongkan sebuah slot, kirim string
+	 * kosong, bukan {@code null}.</p>
+	 *
+	 * <h4>Notifikasi berjalan di thread terpisah</h4>
+	 * <p>Ketika kehadiran dicatat sebagai hadir, sebuah {@link Thread} baru merangkai kalimat
+	 * ucapan selamat yang berbeda-beda untuk Siswa, Mahasiswa, Guru, Dosen, dan Pegawai (lengkap
+	 * dengan sapaan "Pagi/Siang/Sore/Malam" menurut jam server), lalu menyimpannya lewat
+	 * {@code MailSender.simpanNotif(...)}. Thread ini membuka session Hibernate sendiri dan
+	 * menutupnya di blok {@code finally}. Konsekuensi yang perlu disadari:</p>
+	 * <ul>
+	 *   <li>kegagalan notifikasi TIDAK memengaruhi pencatatan kehadiran, dan sebaliknya pemanggil
+	 *       tidak akan pernah tahu bila notifikasi gagal;</li>
+	 *   <li>thread dibuat langsung ({@code new Thread(...).start()}), tanpa kolam thread — pencatatan
+	 *       kehadiran massal berarti membuat sangat banyak thread sekaligus;</li>
+	 *   <li>thread mengakses {@code Pertemuan.this} dari luar session pemanggil, sehingga nilai
+	 *       yang dibacanya bisa berbeda dari yang dilihat pemanggil;</li>
+	 *   <li>bila {@code jenis} kosong, thread langsung berhenti sehingga tidak ada notifikasi.</li>
+	 * </ul>
+	 *
+	 * <p><b>Kejanggalan yang ditemukan (tidak diperbaiki, hanya dicatat):</b> pada cabang Dosen,
+	 * nama kelas ditulis sebagai teks tetap {@code " kelas B1-HK"} alih-alih memakai variabel
+	 * {@code kls} yang sudah dihitung tepat di atasnya — tampaknya sisa data uji coba yang
+	 * tertinggal.</p>
+	 *
+	 * @param ref                                 id orang yang kehadirannya dicatat
+	 * @param statusabsensi                       status kehadiran yang ditetapkan; {@code null}
+	 *                                            membatalkan seluruh operasi
+	 * @param keterangan                          keterangan bebas; {@code null} berarti pertahankan
+	 *                                            nilai lama
+	 * @param pengajuanIzinTidakMasukPerkuliahan  pengajuan izin terkait; {@code null} berarti
+	 *                                            pertahankan nilai lama
+	 * @param mulai                               jam mulai kehadiran; {@code null} berarti
+	 *                                            pertahankan nilai lama
+	 * @param sampai                              jam selesai kehadiran; {@code null} berarti
+	 *                                            pertahankan nilai lama
+	 * @param jenis                               {@code "Mahasiswa"}/{@code "Siswa"}/{@code "Dosen"}/
+	 *                                            {@code "Guru"}/{@code "Pegawai"}; {@code null}
+	 *                                            berarti pertahankan nilai lama
+	 * @see #getAbsensi()
+	 * @see ais.action.master.helper.AbsensiHelper
+	 */
 	public void populate(final Long ref, Statusabsensi statusabsensi, String keterangan,
 			PengajuanIzinTidakMasukPerkuliahan pengajuanIzinTidakMasukPerkuliahan, String mulai, String sampai,
 			final String jenis) {
@@ -2149,6 +2241,19 @@ public class Pertemuan extends Tugas {
 
 	}
 
+	/**
+	 * Ambil {@code statusabsensi.id} (slot 1) dari baris absensi milik {@code ref}.
+	 *
+	 * <p>Salah satu dari keluarga pembaca {@code retreiveAbsensiXxx(Long)} yang semuanya bekerja
+	 * dengan pola sama: pecah {@link #getAbsensi()} per {@code ';'}, pecah tiap baris per
+	 * {@code ','}, cocokkan slot 0 dengan {@code ref}, lalu kembalikan slot yang diminta. Baris
+	 * yang rusak/tidak lengkap dilewati diam-diam (exception ditangkap dan dicatat, bukan
+	 * dilempar), sehingga satu baris rusak tidak menggagalkan pembacaan baris lain.</p>
+	 *
+	 * @param ref id orang yang dicari; {@code null} langsung menghasilkan nilai "tidak ditemukan"
+	 * @return id status absensi, atau {@code -1L} bila tidak ada baris yang cocok
+	 * @see #retreiveAbsensiKode(Long)
+	 */
 	public Long retreiveAbsensiId(Long ref) {
 
 		if (ref != null) {
@@ -2169,6 +2274,16 @@ public class Pertemuan extends Tugas {
 		return -1L;
 	}
 
+	/**
+	 * Ambil id {@link PengajuanIzinTidakMasukPerkuliahan} (slot 4) dari baris absensi milik
+	 * {@code ref}.
+	 *
+	 * <p>Menghubungkan satu baris ketidakhadiran dengan surat izin yang mendasarinya.</p>
+	 *
+	 * @param ref id orang yang dicari
+	 * @return id pengajuan izin, atau {@code -1L} bila tidak ada/baris tidak ditemukan
+	 * @see #retreiveAbsensiId(Long)
+	 */
 	public Long retreivePengajuanIzinId(Long ref) {
 
 		if (ref != null) {
@@ -2192,6 +2307,20 @@ public class Pertemuan extends Tugas {
 		return -1L;
 	}
 
+	/**
+	 * Apakah ada MINIMAL SATU dosen yang tercatat hadir pada pertemuan ini?
+	 *
+	 * <p>Menelusuri baris absensi yang berakhiran {@code "dosen"} (slot 8 = jenis) dan memeriksa
+	 * apakah kode statusnya (slot 2) sama dengan {@code "M"}.</p>
+	 *
+	 * <p>Ini adalah penanda de-facto bahwa pertemuan benar-benar TERLAKSANA, dan dipakai persis
+	 * begitu oleh {@link #getTanggalRealisasi()}: tanggal realisasi hanya ada bila ada dosen yang
+	 * masuk, dan dikosongkan kembali bila tidak.</p>
+	 *
+	 * @return {@code true} bila setidaknya satu dosen berstatus hadir
+	 * @see #apakahAdaGuruYangMasuk()
+	 * @see #getTanggalRealisasi()
+	 */
 	public Boolean apakahAdaDosenYangMasuk() {
 
 		String[] nilais = getAbsensi().split(";");
@@ -2211,6 +2340,19 @@ public class Pertemuan extends Tugas {
 		return false;
 	}
 
+	/**
+	 * Apakah ada MINIMAL SATU guru yang tercatat hadir pada pertemuan ini?
+	 *
+	 * <p>Padanan {@link #apakahAdaDosenYangMasuk()} untuk jenjang sekolah: menelusuri baris
+	 * berakhiran {@code "guru"} dan memeriksa kode status {@code "M"}.</p>
+	 *
+	 * <p><b>Catatan:</b> berbeda dari padanan dosennya, hasil method ini TIDAK ikut menentukan
+	 * {@link #getTanggalRealisasi()} — tanggal realisasi pertemuan sekolah karenanya tidak pernah
+	 * terisi otomatis oleh kehadiran guru.</p>
+	 *
+	 * @return {@code true} bila setidaknya satu guru berstatus hadir
+	 * @see #apakahAdaDosenYangMasuk()
+	 */
 	public Boolean apakahAdaGuruYangMasuk() {
 
 		String[] nilais = getAbsensi().split(";");
@@ -2230,6 +2372,20 @@ public class Pertemuan extends Tugas {
 		return false;
 	}
 
+	/**
+	 * Ambil KODE status kehadiran (slot 2) dari baris absensi milik {@code ref}.
+	 *
+	 * <p>Ini pembaca yang paling sering dipakai UI: kodenya pendek ({@code "M"} = masuk/hadir,
+	 * selain itu bergantung data {@link Statusabsensi} tenant, mis. izin/sakit/alpa).</p>
+	 *
+	 * <p>Varian ini punya penjagaan paling lengkap di antara keluarganya — panjang array, slot
+	 * kosong, dan {@link NumberFormatException} ditangani terpisah sehingga baris rusak dilewati
+	 * tanpa mengganggu baris berikutnya.</p>
+	 *
+	 * @param ref id orang yang dicari
+	 * @return kode status, atau {@code "-"} bila belum ada catatan kehadiran untuk orang itu
+	 * @see #retreiveAbsensiNama(Long)
+	 */
 	public String retreiveAbsensiKode(Long ref) {
 
 		if (ref != null) {
@@ -2259,6 +2415,17 @@ public class Pertemuan extends Tugas {
 		return "-";
 	}
 
+	/**
+	 * Ambil NAMA status kehadiran (slot 3) dari baris absensi milik {@code ref}.
+	 *
+	 * <p>Nama panjang yang siap ditampilkan, mis. {@code "Masuk"}, {@code "Izin"}, {@code "Sakit"}.
+	 * Nilainya adalah salinan {@link Statusabsensi#getNama()} pada saat kehadiran dicatat, jadi
+	 * mengganti nama status di master data TIDAK mengubah baris absensi lama.</p>
+	 *
+	 * @param ref id orang yang dicari
+	 * @return nama status, atau {@code "-"} bila tidak ditemukan
+	 * @see #retreiveAbsensiKode(Long)
+	 */
 	public String retreiveAbsensiNama(Long ref) {
 
 		if (ref != null) {
@@ -2282,6 +2449,18 @@ public class Pertemuan extends Tugas {
 		return "-";
 	}
 
+	/**
+	 * Ambil KETERANGAN kehadiran (slot 5) dari baris absensi milik {@code ref}.
+	 *
+	 * <p>Memakai {@code split(",", 9)} — batas sembilan bagian — sehingga koma yang tersisa di
+	 * dalam slot terakhir tidak memecah baris lebih jauh. Ingat bahwa koma pada keterangan asli
+	 * sudah diganti {@code '_'} saat ditulis oleh {@link #populate(Long, Statusabsensi, String,
+	 * PengajuanIzinTidakMasukPerkuliahan, String, String, String)}, jadi teks yang dikembalikan
+	 * bukan teks yang persis diketik pengguna.</p>
+	 *
+	 * @param ref id orang yang dicari
+	 * @return keterangan, atau string kosong bila tidak ditemukan
+	 */
 	public String retreiveAbsensiKeterangan(Long ref) {
 
 		if (ref != null) {
@@ -2305,6 +2484,21 @@ public class Pertemuan extends Tugas {
 		return "";
 	}
 
+	/**
+	 * Ambil JAM MULAI kehadiran (slot 6) dari baris absensi milik {@code ref}.
+	 *
+	 * <p>Hanya terisi untuk orang yang berstatus hadir ({@code "M"}); untuk status lain
+	 * {@link #populate(Long, Statusabsensi, String, PengajuanIzinTidakMasukPerkuliahan, String,
+	 * String, String)} sengaja mengosongkannya.</p>
+	 *
+	 * <p>Di dalam badan method terdapat penjagaan baris kosong yang tertulis DUA KALI persis sama
+	 * (sisa perbaikan {@link NumberFormatException} yang tumpang tindih). Duplikasi itu tidak
+	 * berbahaya, hanya mubazir.</p>
+	 *
+	 * @param ref id orang yang dicari
+	 * @return jam mulai kehadiran, atau string kosong
+	 * @see #retreiveAbsensiSampai(Long)
+	 */
 	public String retreiveAbsensiMulai(Long ref) {
 
 		if (ref != null) {
@@ -2334,6 +2528,13 @@ public class Pertemuan extends Tugas {
 		return "";
 	}
 
+	/**
+	 * Ambil JAM SELESAI kehadiran (slot 7) dari baris absensi milik {@code ref}.
+	 *
+	 * @param ref id orang yang dicari
+	 * @return jam selesai kehadiran, atau string kosong
+	 * @see #retreiveAbsensiMulai(Long)
+	 */
 	public String retreiveAbsensiSampai(Long ref) {
 
 		if (ref != null) {
@@ -2357,6 +2558,20 @@ public class Pertemuan extends Tugas {
 		return "";
 	}
 
+	/**
+	 * Ambil JENIS orang (slot 8) dari baris absensi milik {@code ref}.
+	 *
+	 * <p>Nilainya salah satu dari {@code "Mahasiswa"}, {@code "Siswa"}, {@code "Dosen"},
+	 * {@code "Guru"}, atau {@code "Pegawai"}. Karena berada di ujung baris, slot inilah yang
+	 * dipakai keluarga {@code hitungStatusXxx(...)} untuk memisahkan baris peserta dari baris
+	 * pengajar dengan {@code endsWith} yang murah.</p>
+	 *
+	 * <p>Perhatikan bahwa {@code "Mahasiswa"} juga berakhiran {@code "siswa"}, sehingga
+	 * {@link #hitungStatus(Mahasiswa)} sengaja menerima keduanya sekaligus.</p>
+	 *
+	 * @param ref id orang yang dicari
+	 * @return jenis orang, atau string kosong bila tidak ditemukan
+	 */
 	public String retreiveAbsensiJenis(Long ref) {
 
 		if (ref != null) {
@@ -2381,6 +2596,24 @@ public class Pertemuan extends Tugas {
 	}
 
 	
+	/**
+	 * Hitung berapa kali tiap kode status kehadiran muncul pada baris-baris bertanda
+	 * {@code "Siswa"}.
+	 *
+	 * <p>Hasilnya berupa peta {@code kode -> jumlah}, mis. {@code {"M": 1, "S": 0}}. Kode
+	 * {@code "-"} (belum diisi) TIDAK ikut dihitung, sehingga peta yang kosong berarti "belum ada
+	 * kehadiran yang tercatat".</p>
+	 *
+	 * <p>Pada satu objek Pertemuan, satu siswa hanya punya satu baris, jadi nilai hitungannya
+	 * paling banyak 1. Method ini menjadi berguna justru ketika hasilnya digabungkan untuk banyak
+	 * pertemuan sekaligus (rekap kehadiran satu semester) — di situlah angka lebih dari satu
+	 * muncul.</p>
+	 *
+	 * @param siswa siswa yang dihitung; {@code null} berarti hitung SEMUA siswa pada pertemuan ini
+	 * @return peta kode status ke jumlah kemunculan; kosong bila tidak ada yang cocok
+	 * @see #hitungStatus(Mahasiswa)
+	 * @see #hitungStatus()
+	 */
 	public Map<String, Integer> hitungStatusSiswa(Siswa siswa) {
 
 		Map<String, Integer> jumlah = new HashMap<String, Integer>();
@@ -2414,6 +2647,20 @@ public class Pertemuan extends Tugas {
 		return jumlah;
 	}
 
+	/**
+	 * Hitung kemunculan tiap kode status kehadiran pada baris peserta didik.
+	 *
+	 * <p>Penyaringnya menerima baris berakhiran {@code "mahasiswa"} <b>maupun</b> {@code "siswa"}.
+	 * Karena kata "mahasiswa" sendiri berakhiran "siswa", syarat kedua sebenarnya sudah mencakup
+	 * yang pertama — jadi method ini menghitung mahasiswa DAN siswa sekaligus, bukan hanya
+	 * mahasiswa seperti yang mungkin disangka dari namanya.</p>
+	 *
+	 * <p>Sama seperti {@link #hitungStatusSiswa(Siswa)}, kode {@code "-"} diabaikan.</p>
+	 *
+	 * @param mahasiswa mahasiswa yang dihitung; {@code null} berarti hitung semua peserta
+	 * @return peta kode status ke jumlah kemunculan
+	 * @see #hitungStatusSiswa(Siswa)
+	 */
 	public Map<String, Integer> hitungStatus(Mahasiswa mahasiswa) {
 
 		Map<String, Integer> jumlah = new HashMap<String, Integer>();
@@ -2447,16 +2694,45 @@ public class Pertemuan extends Tugas {
 		return jumlah;
 	}
 
+	/**
+	 * Rekap status kehadiran SELURUH peserta didik pada pertemuan ini.
+	 *
+	 * <p><b>Hati-hati dengan cara penggabungannya:</b> hasil {@link #hitungStatusSiswa(Siswa)}
+	 * dimasukkan dengan {@code putAll}, yang berarti MENIMPA — bukan menjumlahkan — nilai kode yang
+	 * sama dari {@link #hitungStatus(Mahasiswa)}. Karena {@link #hitungStatus(Mahasiswa)} sudah
+	 * ikut menghitung baris siswa (lihat Javadoc-nya), penimpaan itu tidak menyebabkan penggandaan,
+	 * tetapi pada pertemuan yang bercampur mahasiswa dan siswa angkanya menjadi angka siswa saja
+	 * untuk kode yang muncul di keduanya. Untuk rekap yang tepat pada kasus campuran, panggil kedua
+	 * method itu terpisah.</p>
+	 *
+	 * @return peta kode status ke jumlah kemunculan
+	 */
 	public Map<String, Integer> hitungStatus() {
 		Map<String, Integer> map = hitungStatus(null);
 		map.putAll(hitungStatusSiswa(null));
 		return map;
 	}
 
+	/**
+	 * Rekap status kehadiran SELURUH dosen pada pertemuan ini.
+	 *
+	 * @return peta kode status ke jumlah kemunculan
+	 * @see #hitungStatusDosen(Dosen)
+	 */
 	public Map<String, Integer> hitungStatusDosen() {
 		return hitungStatusDosen(null);
 	}
 
+	/**
+	 * Hitung kemunculan tiap kode status kehadiran pada baris bertanda {@code "Dosen"}.
+	 *
+	 * <p>Berbeda dari versi peserta didik, penyaring {@code endsWith("dosen")} di sini tidak
+	 * bertabrakan dengan jenis lain, sehingga hitungannya bersih.</p>
+	 *
+	 * @param dosen dosen yang dihitung; {@code null} berarti hitung semua dosen
+	 * @return peta kode status ke jumlah kemunculan
+	 * @see #apakahAdaDosenYangMasuk()
+	 */
 	public Map<String, Integer> hitungStatusDosen(Dosen dosen) {
 
 		Map<String, Integer> jumlah = new HashMap<String, Integer>();
@@ -2491,10 +2767,24 @@ public class Pertemuan extends Tugas {
 		return jumlah;
 	}
 
+	/**
+	 * Rekap status kehadiran SELURUH guru pada pertemuan ini.
+	 *
+	 * @return peta kode status ke jumlah kemunculan
+	 * @see #hitungStatusGuru(Guru)
+	 */
 	public Map<String, Integer> hitungStatusGuru() {
 		return hitungStatusGuru(null);
 	}
 
+	/**
+	 * Hitung kemunculan tiap kode status kehadiran pada baris bertanda {@code "Guru"}.
+	 *
+	 * <p>Padanan {@link #hitungStatusDosen(Dosen)} untuk jenjang sekolah.</p>
+	 *
+	 * @param guru guru yang dihitung; {@code null} berarti hitung semua guru
+	 * @return peta kode status ke jumlah kemunculan
+	 */
 	public Map<String, Integer> hitungStatusGuru(Guru guru) {
 
 		Map<String, Integer> jumlah = new HashMap<String, Integer>();
@@ -2529,30 +2819,85 @@ public class Pertemuan extends Tugas {
 		return jumlah;
 	}
 
+	/**
+	 * Id petugas pertama yang ditugaskan pada pertemuan ini (mis. pengawas ujian).
+	 *
+	 * <p>Disimpan sebagai id mentah, bukan relasi. Ada empat slot petugas
+	 * ({@code petugas}..{@code petugas4}) yang dipakai berbeda-beda tergantung jenis induk
+	 * pertemuan.</p>
+	 *
+	 * @return id petugas, atau {@code null}
+	 * @see #getPetugas2()
+	 * @see #getPetugas3()
+	 * @see #getPetugas4()
+	 */
 	public Long getPetugas() {
 		return petugas;
 	}
 
+	/**
+	 * Setel id petugas pertama.
+	 *
+	 * @param petugas id petugas
+	 */
 	public void setPetugas(Long petugas) {
 		this.petugas = petugas;
 	}
 
+	/**
+	 * Id petugas kedua yang ditugaskan pada pertemuan ini.
+	 *
+	 * @return id petugas kedua, atau {@code null}
+	 * @see #getPetugas()
+	 */
 	public Long getPetugas2() {
 		return petugas2;
 	}
 
+	/**
+	 * Setel id petugas kedua.
+	 *
+	 * @param petugas2 id petugas kedua
+	 */
 	public void setPetugas2(Long petugas2) {
 		this.petugas2 = petugas2;
 	}
 
+	/**
+	 * Id petugas ketiga yang ditugaskan pada pertemuan ini.
+	 *
+	 * @return id petugas ketiga, atau {@code null}
+	 * @see #getPetugas()
+	 */
 	public Long getPetugas3() {
 		return petugas3;
 	}
 
+	/**
+	 * Setel id petugas ketiga.
+	 *
+	 * @param petugas3 id petugas ketiga
+	 */
 	public void setPetugas3(Long petugas3) {
 		this.petugas3 = petugas3;
 	}
 
+	/**
+	 * Id detail kurikulum/template format bimbingan yang dipakai pertemuan ini.
+	 *
+	 * <p><b>Getter ini dapat MENULIS BARIS BARU ke basis data.</b> Untuk pertemuan bimbingan tugas
+	 * akhir yang merupakan pertemuan PERTAMA ({@link #getPertemuanKe()} bernilai 1), belum punya
+	 * nilai, dan induknya punya format nilai proposal, method ini memanggil
+	 * {@code TemplateFormatBimbingan.createDefaultTemplateFormatBimbingan(...)} yang MEMBUAT
+	 * template bawaan, lalu menyimpan id-nya ke field. Jadi sekadar membaca properti ini bisa
+	 * menimbulkan data baru — perilaku yang sangat tidak lazim untuk sebuah getter dan patut
+	 * diingat saat menelusuri "dari mana template ini muncul".</p>
+	 *
+	 * <p>Seluruh kegagalan ditelan (dicetak dan dicatat), sehingga nilai tetap {@code null} bila
+	 * pembuatan template gagal.</p>
+	 *
+	 * @return id detail kurikulum/template, atau {@code null}
+	 */
 	@Column(name = "kurikulum_punya_matakuliahDetail")
 	public Long getKurikulumPunyaMatakuliahDetail() {
 
@@ -2571,10 +2916,25 @@ public class Pertemuan extends Tugas {
 		return kurikulumPunyaMatakuliahDetail;
 	}
 
+	/**
+	 * Setel id detail kurikulum/template format bimbingan.
+	 *
+	 * @param kurikulumPunyaMatakuliahDetail id template
+	 * @see #getKurikulumPunyaMatakuliahDetail()
+	 */
 	public void setKurikulumPunyaMatakuliahDetail(Long kurikulumPunyaMatakuliahDetail) {
 		this.kurikulumPunyaMatakuliahDetail = kurikulumPunyaMatakuliahDetail;
 	}
 
+	/**
+	 * KRS mahasiswa yang menjadi induk pertemuan ini (sesi konsultasi Pembimbing Akademik).
+	 *
+	 * <p>Berbeda dari kebanyakan relasi induk lain, getter ini TIDAK memanggil {@code check(...)},
+	 * sehingga proxy yang basi dikembalikan apa adanya.</p>
+	 *
+	 * @return {@link KrsMahasiswa} induk, atau {@code null}
+	 * @see #untuk()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "krs_mahasiswa", nullable = true)
@@ -2582,18 +2942,60 @@ public class Pertemuan extends Tugas {
 		return krsMahasiswa;
 	}
 
+	/**
+	 * Tetapkan KRS mahasiswa sebagai induk pertemuan ini.
+	 *
+	 * @param krsMahasiswa KRS mahasiswa; boleh {@code null}
+	 */
 	public void setKrsMahasiswa(KrsMahasiswa krsMahasiswa) {
 		this.krsMahasiswa = krsMahasiswa;
 	}
 
+	/**
+	 * Id dosen pengganti yang mengisi pertemuan ini menggantikan dosen pengampu.
+	 *
+	 * <p>Disimpan sebagai id mentah, bukan relasi ke {@link Dosen}.</p>
+	 *
+	 * @return id dosen pengganti, atau {@code null} bila pertemuan diisi dosen pengampu sendiri
+	 * @see #getGuruPengganti()
+	 */
 	public Long getDosenPengganti() {
 		return dosenPengganti;
 	}
 
+	/**
+	 * Setel id dosen pengganti.
+	 *
+	 * @param dosenPengganti id dosen pengganti
+	 */
 	public void setDosenPengganti(Long dosenPengganti) {
 		this.dosenPengganti = dosenPengganti;
 	}
 
+	/**
+	 * Tanggal pertemuan benar-benar TERLAKSANA (berbeda dari tanggal terjadwal).
+	 *
+	 * <p><b>Getter ini menghitung ulang dan mengubah keadaan objek setiap kali dipanggil.</b>
+	 * Aturannya bergantung sepenuhnya pada {@link #apakahAdaDosenYangMasuk()}:</p>
+	 * <ul>
+	 *   <li><b>Ada dosen hadir</b> — bila tanggal realisasi masih kosong, diisi dari
+	 *       {@link #getTanggal()}; bila itu pun kosong, diisi waktu sekarang. Selain itu, tanggal
+	 *       realisasi yang jatuh di tahun 1970 (sisa nilai epoch yang rusak) diganti kembali dengan
+	 *       {@link #getTanggal()}.</li>
+	 *   <li><b>Tidak ada dosen hadir</b> — tanggal realisasi DIKOSONGKAN ({@code null}).</li>
+	 * </ul>
+	 *
+	 * <p>Akibat penting: menghapus/mengubah kehadiran dosen sehingga tidak ada lagi yang berstatus
+	 * hadir akan MENGHAPUS tanggal realisasi yang sudah tersimpan pada flush berikutnya. Nilai yang
+	 * diisi manual lewat {@link #setTanggalRealisasi(Date)} juga tidak akan bertahan bila syarat di
+	 * atas tidak terpenuhi.</p>
+	 *
+	 * <p>Hasil akhir tetap dilewatkan {@link #bersihkanTanggalRusak(Date)}.</p>
+	 *
+	 * @return tanggal realisasi, atau {@code null} bila pertemuan belum terlaksana
+	 * @see #getTanggal()
+	 * @see #apakahAdaDosenYangMasuk()
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getTanggalRealisasi() {
 
@@ -2618,10 +3020,39 @@ public class Pertemuan extends Tugas {
 		return bersihkanTanggalRusak(tanggalRealisasi);
 	}
 
+	/**
+	 * Setel tanggal realisasi pertemuan.
+	 *
+	 * <p>Ingat bahwa {@link #getTanggalRealisasi()} menghitung ulang nilai ini setiap kali
+	 * dipanggil, sehingga nilai yang diisi di sini dapat ditimpa atau dikosongkan kembali.</p>
+	 *
+	 * @param tanggalRealisasi tanggal realisasi; nilai sebelum tahun 2000 dibuang
+	 */
 	public void setTanggalRealisasi(Date tanggalRealisasi) {
 		this.tanggalRealisasi = bersihkanTanggalRusak(tanggalRealisasi);
 	}
 
+	/**
+	 * Kode program studi/jenjang pertemuan ini, hasil denormalisasi dari induk.
+	 *
+	 * <p>Salah satu dari sekelompok properti "denormalisasi untuk pencarian": nilainya dihitung
+	 * ulang dari induk SETIAP KALI getter dipanggil lalu disimpan ke kolomnya sendiri, supaya
+	 * laporan dan pencarian dapat menyaring langsung di tingkat SQL tanpa menempuh join berlapis
+	 * ke induk yang berbeda-beda jenisnya.</p>
+	 *
+	 * <p>Sumber nilainya, menurut urutan pemeriksaan: {@link Perkuliahan}, KKN, PKL, {@link Skripsi},
+	 * bimbingan tugas akhir, lalu {@link KrsMahasiswa}. Jenis induk lain tidak menetapkan program,
+	 * sehingga nilai lama dipertahankan.</p>
+	 *
+	 * <p><b>Perhatian:</b> cabang KKN membaca field {@code kelompokKkn} secara langsung, bukan
+	 * hasil {@link #getKelompokKkn()} yang baru saja disegarkan di baris sebelumnya — pola yang
+	 * juga muncul pada {@link #getFakultasId()} dan {@link #getJurusanId()}. Seluruh exception
+	 * ditelan, sehingga kegagalan menempuh rantai induk hanya berarti nilai tidak berubah.</p>
+	 *
+	 * @return kode program, atau {@code null}
+	 * @see #getFakultasId()
+	 * @see #getJurusanId()
+	 */
 	public String getProgram() {
 		try {
 			perkuliahan = getPerkuliahan();
@@ -2650,10 +3081,32 @@ public class Pertemuan extends Tugas {
 		return program;
 	}
 
+	/**
+	 * Setel kode program hasil denormalisasi.
+	 *
+	 * <p>Nilai ini dihitung ulang oleh {@link #getProgram()}, jadi pengisian manual jarang
+	 * bertahan.</p>
+	 *
+	 * @param program kode program
+	 */
 	public void setProgram(String program) {
 		this.program = program;
 	}
 
+	/**
+	 * Id fakultas pertemuan ini, hasil denormalisasi dari induk.
+	 *
+	 * <p>Bagian dari kelompok properti denormalisasi (lihat {@link #getProgram()}). Nilainya
+	 * ditelusuri dari induk: perkuliahan &rarr; jurusan &rarr; fakultas; KKN/PKL &rarr; fakultas
+	 * kegiatan; skripsi/bimbingan/KRS &rarr; jurusan mahasiswa &rarr; fakultas.</p>
+	 *
+	 * <p><b>Perhatian:</b> semua cabang membaca field induk secara LANGSUNG tanpa menyegarkannya
+	 * lebih dulu lewat getter. Bila proxy belum terinisialisasi atau objek sedang lepas dari
+	 * session, rantai penelusuran gagal, exception ditelan, dan nilai lama dipertahankan.</p>
+	 *
+	 * @return id fakultas, atau {@code null}
+	 * @see #getJurusanId()
+	 */
 	public Long getFakultasId() {
 		try {
 			if (perkuliahan != null && perkuliahan.getJurusan() != null) {
@@ -2677,10 +3130,30 @@ public class Pertemuan extends Tugas {
 		return fakultasId;
 	}
 
+	/**
+	 * Setel id fakultas hasil denormalisasi.
+	 *
+	 * @param fakultasId id fakultas
+	 * @see #getFakultasId()
+	 */
 	public void setFakultasId(Long fakultasId) {
 		this.fakultasId = fakultasId;
 	}
 
+	/**
+	 * Id jurusan/program studi pertemuan ini, hasil denormalisasi dari induk.
+	 *
+	 * <p>Kembarannya {@link #getFakultasId()}, satu tingkat lebih rendah dalam hierarki organisasi,
+	 * dengan pola penelusuran dan keterbatasan yang sama persis.</p>
+	 *
+	 * <p>Jangan tertukar dengan {@link #getJurusan()} yang mengembalikan objek {@link Jurusan}
+	 * penuh: keduanya menempuh rantai induk yang BERBEDA (mis. untuk pertemuan formulir kegiatan,
+	 * hanya {@link #getJurusan()} yang punya cabangnya), sehingga hasil keduanya dapat tidak
+	 * selaras.</p>
+	 *
+	 * @return id jurusan, atau {@code null}
+	 * @see #getJurusan()
+	 */
 	public Long getJurusanId() {
 		try {
 			if (perkuliahan != null && perkuliahan.getJurusan() != null) {
@@ -2704,10 +3177,25 @@ public class Pertemuan extends Tugas {
 		return jurusanId;
 	}
 
+	/**
+	 * Setel id jurusan hasil denormalisasi.
+	 *
+	 * @param jurusanId id jurusan
+	 * @see #getJurusanId()
+	 */
 	public void setJurusanId(Long jurusanId) {
 		this.jurusanId = jurusanId;
 	}
 
+	/**
+	 * Format penilaian yang dipakai bila pertemuan ini berperan sebagai tugas.
+	 *
+	 * <p>Implementasi properti abstrak milik {@link Tugas}.</p>
+	 *
+	 * @return format nilai, atau {@code null}
+	 * @see Tugas
+	 * @see #getFormatNilais()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "format_nilai", nullable = true)
@@ -2715,18 +3203,46 @@ public class Pertemuan extends Tugas {
 		return formatNilai;
 	}
 
+	/**
+	 * Setel format penilaian tugas pertemuan ini.
+	 *
+	 * @param formatNilai format nilai; boleh {@code null}
+	 */
 	public void setFormatNilai(FormatNilai formatNilai) {
 		this.formatNilai = formatNilai;
 	}
 
+	/**
+	 * Bobot pertemuan/tugas ini dalam persen terhadap komponen nilai induknya.
+	 *
+	 * <p>Nilai kosong dilaporkan sebagai {@code 100.0}, artinya "menanggung seluruh bobot".
+	 * Implementasi properti abstrak milik {@link Tugas}.</p>
+	 *
+	 * @return bobot dalam persen; tidak pernah {@code null}
+	 */
 	public Double getProsentase() {
 		return prosentase == null ? 100.0 : prosentase;
 	}
 
+	/**
+	 * Setel bobot pertemuan/tugas ini dalam persen.
+	 *
+	 * @param prosentase bobot dalam persen; {@code null} berarti 100
+	 */
 	public void setProsentase(Double prosentase) {
 		this.prosentase = prosentase;
 	}
 
+	/**
+	 * Daftar pasangan warna ({@code "warnaGelap,warnaTerang"}) untuk membedakan jenis pertemuan
+	 * di tampilan kalender.
+	 *
+	 * <p>Diisi sekali lewat blok inisialisasi statis di bawahnya, dan dipetakan ke jenis induk oleh
+	 * {@link #warna()}. Karena bertipe {@code public static} dan bukan koleksi tak-terubah, isinya
+	 * DAPAT diubah dari mana saja — jangan diandalkan sebagai konstanta.</p>
+	 *
+	 * @see #warna()
+	 */
 	public static List<String> warnas = new ArrayList<String>();
 
 	static {
@@ -2742,6 +3258,27 @@ public class Pertemuan extends Tugas {
 		warnas.add("#960008,#072c63");
 	}
 
+	/**
+	 * Daftar dosen yang berkaitan dengan pertemuan ini, diurutkan menurut nama.
+	 *
+	 * <p>Karena pertemuan bisa bertaut ke banyak jenis induk, "dosen" di sini berarti hal yang
+	 * berbeda-beda: dosen pengampu untuk {@link Perkuliahan}, dosen pembimbing untuk KKN/PKL,
+	 * pembimbing tugas akhir/skripsi, dosen PA untuk {@link KrsMahasiswa}, atau dosen pemilik grup
+	 * pertemuan. Yang dipakai adalah induk PERTAMA yang tidak {@code null}.</p>
+	 *
+	 * <p>Seluruh asosiasi induk disegarkan lebih dulu lewat getter-nya masing-masing. Ini bukan
+	 * kebiasaan kosmetik: komentar KE-20 di dalam method mencatat bahwa {@code kelompokKkn} dahulu
+	 * TIDAK disegarkan, sehingga proxy lama dipakai tanpa session aktif dan
+	 * {@code populateDosenBuNama()} melempar {@code LazyInitializationException}.</p>
+	 *
+	 * <p><b>Mahal.</b> Setiap cabang memanggil {@code populateDosenBuNama()} milik induk yang
+	 * menjalankan query. Jangan dipanggil di dalam perulangan render.</p>
+	 *
+	 * @return daftar dosen; kosong bila jenis induk pertemuan ini tidak mengenal dosen (mis.
+	 *         jadwal pelajaran sekolah — pakai {@link #ambilGuru()} untuk itu)
+	 * @see #ambilDosenId()
+	 * @see #dosenUtama()
+	 */
 	public List<Dosen> ambilDosen() {
 		perkuliahan = getPerkuliahan();
 		// KE-20: kelompokKkn TIDAK di-refresh via getter (beda dgn asosiasi lain di method
@@ -2774,6 +3311,18 @@ public class Pertemuan extends Tugas {
 		return dosens;
 	}
 
+	/**
+	 * Versi hemat {@link #ambilDosen()} yang hanya mengembalikan id dosen.
+	 *
+	 * <p>Rantai {@code if/else if}-nya sama persis, tetapi memanggil {@code populateDosenBuId()}
+	 * sehingga hanya kolom id yang diambil — jauh lebih murah bila yang dibutuhkan sekadar
+	 * pemeriksaan keanggotaan atau perakitan kolom denormalisasi
+	 * {@link #getDosens()}.</p>
+	 *
+	 * @return daftar id dosen; kosong bila jenis induk tidak mengenal dosen
+	 * @see #ambilDosen()
+	 * @see #getPjDosen()
+	 */
 	public List<Long> ambilDosenId() {
 		perkuliahan = getPerkuliahan();
 		// KE-20 (pola sama dgn ambilDosen()): refresh kelompokKkn via getter sebelum dipakai.
@@ -2803,6 +3352,16 @@ public class Pertemuan extends Tugas {
 		return dosens;
 	}
 
+	/**
+	 * Daftar guru yang mengajar pada pertemuan ini, diurutkan menurut nama.
+	 *
+	 * <p>Padanan {@link #ambilDosen()} untuk jenjang sekolah, tetapi jauh lebih sederhana: hanya
+	 * induk {@link ais.database.model.sekolah.JadwalPelajaran} yang punya guru. Untuk jenis induk
+	 * lain hasilnya selalu kosong.</p>
+	 *
+	 * @return daftar guru; kosong bila pertemuan ini bukan pertemuan jadwal pelajaran
+	 * @see #ambilDosen()
+	 */
 	public List<Guru> ambilGuru() {
 		jadwalPelajaran = getJadwalPelajaran();
 		List<Guru> gurus = new ArrayList<Guru>();
@@ -2812,6 +3371,20 @@ public class Pertemuan extends Tugas {
 		return gurus;
 	}
 
+	/**
+	 * Satu dosen penanggung jawab utama pertemuan ini.
+	 *
+	 * <p>Mengikuti rantai induk yang sama dengan {@link #ambilDosen()}, tetapi mengambil satu dosen
+	 * "yang pertama" menurut arti masing-masing induk: dosen pengampu pertama untuk
+	 * {@link Perkuliahan}, pembimbing pertama untuk KKN/PKL, pembimbing skripsi, dosen PA untuk
+	 * {@link KrsMahasiswa}, atau dosen pemilik grup pertemuan.</p>
+	 *
+	 * <p>Lebih murah daripada {@link #ambilDosen()} karena tidak menjalankan
+	 * {@code populateDosenBuNama()}, cukup membaca satu relasi.</p>
+	 *
+	 * @return dosen utama, atau {@code null} bila jenis induk tidak mengenalnya
+	 * @see #getPjDosen()
+	 */
 	public Dosen dosenUtama() {
 		perkuliahan = getPerkuliahan();
 		// KE-20 (pola sama dgn ambilDosen()): refresh kelompokKkn via getter sebelum dipakai.
@@ -2841,6 +3414,28 @@ public class Pertemuan extends Tugas {
 		return dosen;
 	}
 
+	/**
+	 * Pasangan warna kalender untuk pertemuan ini, sesuai jenis induknya.
+	 *
+	 * <p>Mengembalikan satu entri {@link #warnas} berbentuk {@code "warnaGelap,warnaTerang"} agar
+	 * tampilan kalender dapat membedakan sekilas antara kuliah, KKN, PKL, bimbingan, skripsi,
+	 * konsultasi PA, pelajaran sekolah, kegiatan, dan wisuda. Jenis induk yang tidak punya
+	 * pemetaan sendiri memakai warna cadangan (indeks 6).</p>
+	 *
+	 * <p><b>Dua kejanggalan yang memang ada di kode</b> (dicatat, tidak diperbaiki):</p>
+	 * <ul>
+	 *   <li>{@code kelompokKkn}, {@code jadwalPelajaran}, dan {@code wisuda} diuji lewat FIELD
+	 *       tanpa disegarkan lebih dahulu — berbeda dari asosiasi lain di method yang sama yang
+	 *       memang dipanggil lewat getter. Akibatnya cabang-cabang itu bisa terlewat.</li>
+	 *   <li>Indeks 1 dan 5 pada {@link #warnas} berisi pasangan warna yang IDENTIK
+	 *       ({@code "#88880E,#BFBF4D"}), sehingga pertemuan KKN dan konsultasi PA tampil berwarna
+	 *       sama.</li>
+	 * </ul>
+	 *
+	 * @return pasangan warna berformat {@code "warnaGelap,warnaTerang"}
+	 * @see #warnas
+	 * @see #info()
+	 */
 	public String warna() {
 		perkuliahan = getPerkuliahan();
 		kelompokPkl = getKelompokPkl();
@@ -2875,6 +3470,32 @@ public class Pertemuan extends Tugas {
 		return warna;
 	}
 
+	/**
+	 * Keterangan singkat pertemuan yang SIAP DITAMPILKAN kepada pengguna.
+	 *
+	 * <p>Inilah padanan "ramah pengguna" dari {@link #toString()}. Kalimatnya disusun sesuai jenis
+	 * induk, mis. {@code "Matakuliah Basis Data semester 3 kelas A - Tatap Muka"},
+	 * {@code "KKN (Kelompok 7) - Tatap Muka"}, {@code "Bimbingan (Proposal) (Status : ...)"},
+	 * {@code "Konsultasi Pembimbing Akademik"}, {@code "Ujian PPDB Gelombang 1"},
+	 * {@code "Wisuda <moto>"}, atau {@code "Konsultasi lain"} sebagai cadangan. Nama jenis sesi
+	 * ({@link #getStatusPertemuan()}) ditempelkan di ujung pada sebagian besar cabang.</p>
+	 *
+	 * <p>Hasil akhirnya dilewatkan {@code Common.getBahasaConfig(...)} sehingga istilah dapat
+	 * disesuaikan per tenant (mis. "Matakuliah" menjadi istilah lain).</p>
+	 *
+	 * <p>Dipakai antara lain sebagai judul/isi notifikasi kehadiran yang dirakit
+	 * {@link #populate(Long, Statusabsensi, String, PengajuanIzinTidakMasukPerkuliahan, String,
+	 * String, String)}.</p>
+	 *
+	 * <p><b>Catatan:</b> {@code jadwalUjianPMB}, {@code jadwalUjianPSB},
+	 * {@code jadwalPertemuanPSB}, dan {@code jadwalUjianPegawai} diuji lewat FIELD tanpa
+	 * disegarkan, sehingga cabangnya bisa terlewat bila proxy belum terinisialisasi. Seluruh
+	 * exception ditelan dan menghasilkan keterangan kosong.</p>
+	 *
+	 * @return keterangan siap tampil; string kosong bila penyusunan gagal
+	 * @see #toString()
+	 * @see #untuk()
+	 */
 	public String info() {
 		perkuliahan = getPerkuliahan();
 		kelompokKkn = getKelompokKkn();
@@ -2945,14 +3566,31 @@ public class Pertemuan extends Tugas {
 		return Common.getBahasaConfig(warna);
 	}
 
+	/**
+	 * Bolehkah rekaman pertemuan ini dipublikasikan lewat modul streaming?
+	 *
+	 * @return {@code true} bila boleh dipublikasikan; {@code false} bila belum pernah diisi
+	 * @see #ambilVideoPertemuanTotal()
+	 */
 	public Boolean getPublikasikanStreaming() {
 		return publikasikanStreaming == null ? false : publikasikanStreaming;
 	}
 
+	/**
+	 * Setel izin publikasi rekaman pertemuan lewat modul streaming.
+	 *
+	 * @param publikasikanStreaming {@code true} bila boleh dipublikasikan
+	 */
 	public void setPublikasikanStreaming(Boolean publikasikanStreaming) {
 		this.publikasikanStreaming = publikasikanStreaming;
 	}
 
+	/**
+	 * Jadwal ujian penerimaan siswa baru yang menjadi induk pertemuan ini.
+	 *
+	 * @return {@link JadwalUjianPSB} induk, atau {@code null}
+	 * @see #untuk()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "jadwal_ujian_psb", nullable = true)
@@ -2960,10 +3598,25 @@ public class Pertemuan extends Tugas {
 		return jadwalUjianPSB;
 	}
 
+	/**
+	 * Tetapkan jadwal ujian PSB sebagai induk pertemuan ini.
+	 *
+	 * @param jadwalUjianPSB jadwal ujian PSB; boleh {@code null}
+	 */
 	public void setJadwalUjianPSB(JadwalUjianPSB jadwalUjianPSB) {
 		this.jadwalUjianPSB = jadwalUjianPSB;
 	}
 
+	/**
+	 * Jadwal pelajaran sekolah yang menjadi induk pertemuan ini.
+	 *
+	 * <p>Induk terpenting kedua setelah {@link Perkuliahan}: keberadaannya mengubah pertemuan dari
+	 * konteks perguruan tinggi (dosen/mahasiswa) menjadi konteks sekolah (guru/siswa), dan ikut
+	 * memengaruhi peristilahan pada {@link #getIndikator()} serta pemilihan sumber data pada
+	 * {@link #ambilGuru()}, {@link #ambilSiswa()}, {@link #getGurus()}, dan {@link #getSiswas()}.</p>
+	 *
+	 * @return {@link ais.database.model.sekolah.JadwalPelajaran} induk, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jadwal_pelajaran", nullable = true)
 	public JadwalPelajaran getJadwalPelajaran() {
@@ -2971,34 +3624,91 @@ public class Pertemuan extends Tugas {
 		return jadwalPelajaran;
 	}
 
+	/**
+	 * Tetapkan jadwal pelajaran sekolah sebagai induk pertemuan ini.
+	 *
+	 * @param jadwalPelajaran jadwal pelajaran; boleh {@code null}
+	 */
 	public void setJadwalPelajaran(JadwalPelajaran jadwalPelajaran) {
 		this.jadwalPelajaran = jadwalPelajaran;
 	}
 
+	/**
+	 * Nama guru tamu pertama (teks bebas, bukan relasi ke {@link Guru}).
+	 *
+	 * <p>Padanan sekolah dari {@link #getDosenTamu()}.</p>
+	 *
+	 * @return nama guru tamu, atau {@code null}
+	 */
 	public String getGuruTamu() {
 		return guruTamu;
 	}
 
+	/**
+	 * Setel nama guru tamu pertama.
+	 *
+	 * @param guruTamu nama guru tamu
+	 */
 	public void setGuruTamu(String guruTamu) {
 		this.guruTamu = guruTamu;
 	}
 
+	/**
+	 * Nama guru tamu kedua (teks bebas, bukan relasi ke {@link Guru}).
+	 *
+	 * @return nama guru tamu kedua, atau {@code null}
+	 * @see #getGuruTamu()
+	 */
 	public String getGuruTamu2() {
 		return guruTamu2;
 	}
 
+	/**
+	 * Setel nama guru tamu kedua.
+	 *
+	 * @param guruTamu2 nama guru tamu kedua
+	 */
 	public void setGuruTamu2(String guruTamu2) {
 		this.guruTamu2 = guruTamu2;
 	}
 
+	/**
+	 * Id guru pengganti yang mengisi pertemuan ini menggantikan guru pengampu.
+	 *
+	 * <p>Padanan sekolah dari {@link #getDosenPengganti()}; disimpan sebagai id mentah, bukan
+	 * relasi.</p>
+	 *
+	 * @return id guru pengganti, atau {@code null}
+	 */
 	public Long getGuruPengganti() {
 		return guruPengganti;
 	}
 
+	/**
+	 * Setel id guru pengganti.
+	 *
+	 * @param guruPengganti id guru pengganti
+	 */
 	public void setGuruPengganti(Long guruPengganti) {
 		this.guruPengganti = guruPengganti;
 	}
 
+	/**
+	 * Id sekolah pertemuan ini, hasil denormalisasi dari induk.
+	 *
+	 * <p>Ditelusuri dari jadwal pelajaran, atau dari gelombang pendaftaran pada jadwal ujian/
+	 * pertemuan PSB. Untuk pertemuan perguruan tinggi nilainya tetap {@code null}.</p>
+	 *
+	 * <p>Satu-satunya getter denormalisasi di kelas ini yang secara tegas <b>menjaga terhadap proxy
+	 * yang belum terinisialisasi</b>: setiap cabang memeriksa {@code Hibernate.isInitialized(...)}
+	 * lebih dulu, dan {@code RuntimeException} ditangkap dengan komentar eksplisit bahwa getter ini
+	 * juga dipanggil saat objek sedang lepas dari session (audit), sehingga nilai snapshot yang
+	 * sudah ada harus dipertahankan alih-alih dihitung ulang.</p>
+	 *
+	 * @return id sekolah, atau {@code null}
+	 * @see #getSekolah()
+	 * @see #getYayasanId()
+	 */
 	public Long getSekolahId() {
 		try {
 			if (jadwalPelajaran != null && Hibernate.isInitialized(jadwalPelajaran)
@@ -3019,10 +3729,29 @@ public class Pertemuan extends Tugas {
 		return sekolahId;
 	}
 
+	/**
+	 * Setel id sekolah hasil denormalisasi.
+	 *
+	 * @param sekolahId id sekolah
+	 * @see #getSekolahId()
+	 */
 	public void setSekolahId(Long sekolahId) {
 		this.sekolahId = sekolahId;
 	}
 
+	/**
+	 * Id yayasan pertemuan ini, hasil denormalisasi dari induk.
+	 *
+	 * <p>Satu tingkat di atas {@link #getSekolahId()} dalam hierarki organisasi sekolah, dengan
+	 * rantai penelusuran yang sama (jadwal pelajaran atau gelombang pendaftaran PSB).</p>
+	 *
+	 * <p><b>Berbeda dari {@link #getSekolahId()}</b>, method ini TIDAK memeriksa
+	 * {@code Hibernate.isInitialized(...)} dan TIDAK punya {@code try/catch}. Pada objek yang
+	 * sedang lepas dari session, pemanggilannya dapat melempar
+	 * {@code LazyInitializationException} keluar — ketidakselarasan yang layak diingat.</p>
+	 *
+	 * @return id yayasan, atau {@code null}
+	 */
 	public Long getYayasanId() {
 		if (jadwalPelajaran != null && jadwalPelajaran.getYayasan() != null) {
 			yayasanId = jadwalPelajaran.getYayasan().getId();
@@ -3036,14 +3765,33 @@ public class Pertemuan extends Tugas {
 		return yayasanId;
 	}
 
+	/**
+	 * Setel id yayasan hasil denormalisasi.
+	 *
+	 * @param yayasanId id yayasan
+	 * @see #getYayasanId()
+	 */
 	public void setYayasanId(Long yayasanId) {
 		this.yayasanId = yayasanId;
 	}
 
+	/**
+	 * Bolehkah jam kehadiran (slot mulai/sampai) diperlihatkan kepada peserta didik?
+	 *
+	 * <p>Saklar tampilan saja; tidak memengaruhi apa yang tersimpan pada string absensi.</p>
+	 *
+	 * @return {@code true} bila jam absensi boleh ditampilkan; {@code false} bila belum diisi
+	 * @see #retreiveAbsensiMulai(Long)
+	 */
 	public Boolean getTampilkanJamAbsensiBagiMahasiswa() {
 		return tampilkanJamAbsensiBagiMahasiswa == null ? false : tampilkanJamAbsensiBagiMahasiswa;
 	}
 
+	/**
+	 * Setel saklar penampilan jam kehadiran bagi peserta didik.
+	 *
+	 * @param tampilkanJamAbsensiBagiMahasiswa {@code true} bila jam absensi boleh ditampilkan
+	 */
 	public void setTampilkanJamAbsensiBagiMahasiswa(Boolean tampilkanJamAbsensiBagiMahasiswa) {
 		this.tampilkanJamAbsensiBagiMahasiswa = tampilkanJamAbsensiBagiMahasiswa;
 	}

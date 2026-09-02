@@ -332,18 +332,19 @@ public class PenghargaanMahasiswaAction extends GenericAutowireComposer implemen
 		Common.appendKeToolbar(exportKeOjs, add, comp);
 		exportKeOjs.setVisible(Common.bolehKonfigurasi("terhubung_ke_dspace", Konfigurasi.TIDAK_AKTIF)
 				&& Common.bolehKonfigurasi("karya_mahasiswa_terhubung_ke_dspace"));
-		exportKeOjs.addEventListener("onClick", new EventListener() {
+			exportKeOjs.addEventListener("onClick", new EventListener() {
 
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				final Intbox intbox = new Intbox(0);
+				final String[] alasanTidakDiekspor = new String[] {
+						"Tidak ada karya mahasiswa yang dapat diekspor sesuai filter saat ini." };
 				final Label label = Common.displayLoadBar(new EventListener() {
 
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						if (intbox.getValue() == 0) {
-							MyMessageboxConfig.show(
-									"Data tidak ditemukan, khusus untuk penghargaan mahasiswa, mahasiswa harus mempunya HOMEBASE PRODI terlebih dahulu sebelum bisa mempublikasikan ke dalam repository",
+							MyMessageboxConfig.show(alasanTidakDiekspor[0],
 									"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
 							return;
 						}
@@ -358,10 +359,46 @@ public class PenghargaanMahasiswaAction extends GenericAutowireComposer implemen
 					@Override
 					public void run() {
 						try {
-							String cookie = DspaceCommon.login();
-							List<PenghargaanMahasiswa> penghargaanMahasiswas = initCriteria(true)
-									.add(Restrictions.eq("status", PenghargaanMahasiswa.DISETUJUI)).list();
+							List<PenghargaanMahasiswa> hasilFilter = initCriteria(true).list();
+							List<PenghargaanMahasiswa> penghargaanMahasiswas = new ArrayList<PenghargaanMahasiswa>();
+							int belumDiproses = 0;
+							int sedangDiproses = 0;
+							int ditolak = 0;
+							int tanpaHomebase = 0;
+							for (PenghargaanMahasiswa data : hasilFilter) {
+								if (PenghargaanMahasiswa.DISETUJUI.equals(data.getStatus())) {
+									if (data.getMahasiswa() != null && data.getMahasiswa().getJurusan() != null) {
+										penghargaanMahasiswas.add(data);
+									} else {
+										tanpaHomebase++;
+									}
+								} else if (PenghargaanMahasiswa.SEDANG_DIPROSES.equals(data.getStatus())) {
+									sedangDiproses++;
+								} else if (PenghargaanMahasiswa.DITOLAK.equals(data.getStatus())) {
+									ditolak++;
+								} else {
+									belumDiproses++;
+								}
+							}
+
 							intbox.setValue(penghargaanMahasiswas.size());
+							if (penghargaanMahasiswas.isEmpty()) {
+								if (hasilFilter.isEmpty()) {
+									alasanTidakDiekspor[0] = "Tidak ada karya mahasiswa yang sesuai dengan filter saat ini. Periksa kembali filter pencarian, tahun akademik, prodi, dan status.";
+								} else if (tanpaHomebase > 0 && belumDiproses == 0 && sedangDiproses == 0
+										&& ditolak == 0) {
+									alasanTidakDiekspor[0] = "Ditemukan " + tanpaHomebase
+											+ " karya berstatus Disetujui, tetapi homebase prodi pada data mahasiswa belum terisi. Lengkapi prodi mahasiswa, lalu ulangi ekspor.";
+								} else {
+									alasanTidakDiekspor[0] = "Belum ada karya berstatus Disetujui yang dapat diekspor pada filter saat ini. Rinciannya: Belum diproses "
+											+ belumDiproses + ", Sedang diproses " + sedangDiproses + ", Ditolak "
+											+ ditolak + ", dan Disetujui tanpa homebase prodi " + tanpaHomebase
+											+ ". Verifikasi pengajuan terlebih dahulu; khusus data tanpa homebase, lengkapi prodi mahasiswa.";
+								}
+								return;
+							}
+
+							String cookie = DspaceCommon.login();
 
 							int rowIndex = 1;
 							for (PenghargaanMahasiswa penghargaanMahasiswa : penghargaanMahasiswas) {
@@ -492,9 +529,11 @@ public class PenghargaanMahasiswaAction extends GenericAutowireComposer implemen
 											public void run() {
 												double persenVeridikasi = 0.0;
 												@SuppressWarnings("unchecked")
-												List<PenghargaanMahasiswa> penghargaanMahasiswas = initCriteria(true)
-														.add(Restrictions.ne("status", PenghargaanMahasiswa.DITOLAK))
-														.list();
+							List<PenghargaanMahasiswa> penghargaanMahasiswas = initCriteria(true)
+									.add(Restrictions.or(Restrictions.isNull("status"),
+											Restrictions.or(Restrictions.eq("status", ""),
+													Restrictions.ne("status", PenghargaanMahasiswa.DITOLAK))))
+									.list();
 												int size = penghargaanMahasiswas.size();
 												int iverifikasi = 0;
 												for (PenghargaanMahasiswa penghargaanMahasiswa : penghargaanMahasiswas) {
@@ -556,6 +595,11 @@ public class PenghargaanMahasiswaAction extends GenericAutowireComposer implemen
 
 	public static DspaceInformation getDspace(String cookie, PenghargaanMahasiswa penghargaanMahasiswa, boolean update)
 			throws Exception {
+		if (penghargaanMahasiswa == null || penghargaanMahasiswa.getMahasiswa() == null
+				|| penghargaanMahasiswa.getMahasiswa().getJurusan() == null) {
+			throw new IllegalStateException(
+					"Karya mahasiswa tidak dapat diekspor karena homebase prodi pada data mahasiswa belum terisi.");
+		}
 
 		JSONArray jsonArray = new JSONArray();
 
@@ -802,9 +846,13 @@ public class PenghargaanMahasiswaAction extends GenericAutowireComposer implemen
 
 					@Override
 					public void onEvent(Event arg0) throws Exception {
-						penghargaanMahasiswa.setStatus((String) (status.getSelectedItem() == null
+						String statusBaru = (String) (status.getSelectedItem() == null
 								|| status.getSelectedItem().getValue() == null ? null
-										: status.getSelectedItem().getValue()));
+										: status.getSelectedItem().getValue());
+						if (statusBaru == null || statusBaru.equals(penghargaanMahasiswa.getStatus())) {
+							return;
+						}
+						penghargaanMahasiswa.setStatus(statusBaru);
 						Common.refreshUpdate(penghargaanMahasiswa);
 						if (aksiBoxRef[0] != null) {
 							aksiBoxRef[0]
@@ -820,6 +868,7 @@ public class PenghargaanMahasiswaAction extends GenericAutowireComposer implemen
 						myHbox.setVisible(penghargaanMahasiswa.getStatus().equals(PenghargaanMahasiswa.DISETUJUI));
 					}
 				};
+				status.addEventListener("onSelect", eventListener);
 				status.addEventListener("onChange", eventListener);
 			} else {
 				new Label(penghargaanMahasiswa.getStatus()).setParent(arg0);
@@ -1506,6 +1555,10 @@ public class PenghargaanMahasiswaAction extends GenericAutowireComposer implemen
 		penghargaanMahasiswa.setAlamat(alamat.getValue());
 		penghargaanMahasiswa.setNoSk(noSk.getValue());
 		penghargaanMahasiswa.setTglSk(tglSk.getValue());
+		// Status lama boleh NULL di database, tetapi di UI selalu terbaca sebagai
+		// "Belum diproses". Simpan nilai eksplisit agar filter dan persetujuan massal
+		// mempunyai semantik yang sama dengan tampilan.
+		penghargaanMahasiswa.setStatus(penghargaanMahasiswa.getStatus());
 
 		Common.refreshSaveOrUpdate(session, penghargaanMahasiswa);
 
@@ -1531,12 +1584,27 @@ public class PenghargaanMahasiswaAction extends GenericAutowireComposer implemen
 		return true;
 	}
 
+	/** Menyamakan status NULL data lama dengan label "Belum diproses" yang tampil di UI. */
+	private org.hibernate.criterion.Criterion kriteriaStatusPencarian() {
+		if (searchstatus == null || searchstatus.getSelectedItem() == null
+				|| searchstatus.getSelectedItem().getValue() == null) {
+			return Restrictions.sqlRestriction("1=1");
+		}
+		String statusTerpilih = String.valueOf(searchstatus.getSelectedItem().getValue());
+		if (PenghargaanMahasiswa.BELUM_DIPROSES.equals(statusTerpilih)) {
+			return Restrictions.or(Restrictions.isNull("status"),
+					Restrictions.or(Restrictions.eq("status", ""), Restrictions.eq("status", statusTerpilih)));
+		}
+		return Restrictions.eq("status", statusTerpilih);
+	}
+
 	public Criteria initCriteria(boolean order) {
 
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(PenghargaanMahasiswa.class)
 
-				.createAlias("mahasiswa", "mahasiswa").createAlias("mahasiswa.jurusan", "jurusan")
+				.createAlias("mahasiswa", "mahasiswa")
+				.createAlias("mahasiswa.jurusan", "jurusan", Criteria.LEFT_JOIN)
 
 				.add((searchmahasiswa == null) ? org.hibernate.criterion.Restrictions.sqlRestriction("1=1") : (searchmahasiswa.getAttribute("mahasiswa") == null ? Restrictions.sqlRestriction("true")
 						: Restrictions.eq("mahasiswa", searchmahasiswa.getAttribute("mahasiswa"))))
@@ -1553,9 +1621,7 @@ public class PenghargaanMahasiswaAction extends GenericAutowireComposer implemen
 		criteria.add(searchnama.getValue().trim().isEmpty() ? Restrictions.sqlRestriction("true")
 				: Restrictions.ilike("nama", searchnama.getValue().trim(), MatchMode.ANYWHERE))
 
-				.add(searchstatus.getSelectedItem() == null || searchstatus.getSelectedItem().getValue() == null
-						|| searchstatus.getSelectedItem().getValue() == null ? Restrictions.sqlRestriction("1=1")
-								: Restrictions.eq("status", searchstatus.getSelectedItem().getValue()))
+				.add(kriteriaStatusPencarian())
 
 				.add(searchkategoriPenghargaan.getSelectedItem() == null
 						|| searchkategoriPenghargaan.getSelectedItem().getValue() == null
