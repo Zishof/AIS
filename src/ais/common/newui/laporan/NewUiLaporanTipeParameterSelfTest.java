@@ -126,10 +126,14 @@ public final class NewUiLaporanTipeParameterSelfTest {
         if ("tanggal".equals(t)) {
             return f.tanggalSebagaiObjek ? "java.util.Date" : "java.lang.String";
         }
-        if ("relasi".equals(t)) return f.idSebagaiTeks ? "java.lang.String" : "java.lang.Long";
+        if ("relasi".equals(t)) {
+            if (f.nilaiNamaEntity) return "java.lang.String";
+            return f.idSebagaiTeks ? "java.lang.String" : "java.lang.Long";
+        }
         if ("relasi_banyak".equals(t)) return "java.util.List";
         if ("teks".equals(t)) return "java.lang.String";
         if ("pilihan".equals(t)) return "java.lang.String";
+        if ("bendera".equals(t)) return "java.lang.Long";
         return null;
     }
 

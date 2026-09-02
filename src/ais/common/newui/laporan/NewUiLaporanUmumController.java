@@ -78,6 +78,15 @@ public final class NewUiLaporanUmumController {
      * merusak apa pun.</p>
      */
     static final String TIPE_PILIHAN = "pilihan";
+    /**
+     * Penanda hidup/mati yang dikirim sebagai angka penanda, bukan boolean.
+     *
+     * <p>Layar ZK memakai checkbox lalu mengirim konstanta penanda ketika
+     * dicentang dan {@code -1} ketika tidak — mis. {@code Perkuliahan.EKSTRA}.
+     * Templatenya menyaring dengan membandingkan angka itu, jadi yang dikirim
+     * harus angka, bukan {@code true}/{@code false}.</p>
+     */
+    static final String TIPE_BENDERA = "bendera";
 
     /** Satu filter laporan: nama parameter Jasper + cara klien memintanya. */
     static final class Filter {
@@ -142,6 +151,28 @@ public final class NewUiLaporanUmumController {
          * disimpan hanya penanda; daftarnya dibaca ketika sudah pasti tersedia.</p>
          */
         boolean opsiTahunAkademik;
+        /** Pilihannya adalah Ganjil/Genap; bawaannya semester berjalan. */
+        boolean opsiSemester;
+        /**
+         * Nilai yang dikirim ketika filter opsional ini tidak diisi.
+         *
+         * <p>Sebagian template tidak memperlakukan parameter yang hilang sama
+         * dengan parameter bernilai "semua". Layar ZK selalu mengirim
+         * {@code -1} untuk pilihan kosong, jadi melewatkannya begitu saja
+         * mengubah arti penyaringan tanpa gejala apa pun.</p>
+         */
+        String kosongJadi;
+        /** Nilai penanda yang dikirim ketika bendera dicentang. */
+        long benderaAktif = 1L;
+        /**
+         * Kirim NAMA entity sebagai nilai parameter, bukan id-nya.
+         *
+         * <p>Berbeda dari {@code paramNama} yang mengirim nama pada parameter
+         * <em>lain</em> untuk kop laporan: di sini parameter penyaringnya
+         * sendiri memang berisi nama — {@code kelas} pada jadwal perkuliahan
+         * dideklarasikan String dan layar ZK mengirim {@code kelas.getNama()}.</p>
+         */
+        boolean nilaiNamaEntity;
         final boolean wajib;
         /**
          * Bila diisi, controller ikut mengirim parameter bernama ini berisi
@@ -190,6 +221,22 @@ public final class NewUiLaporanUmumController {
         Filter tanggalObjek() { tanggalSebagaiObjek = true; return this; }
         /** Tandai filter yang namanya diolah ulang sebelum sampai ke template. */
         Filter diolahUlang() { diolahUlang = true; return this; }
+        /** Nilai yang dikirim bila filter opsional ini dibiarkan kosong. */
+        Filter kosongJadi(String nilai) { kosongJadi = nilai; return this; }
+        /** Kirim nama entity sebagai nilai parameter, bukan id. */
+        Filter nilaiNama() { nilaiNamaEntity = true; return this; }
+        /** Penanda hidup/mati yang mengirim {@code aktif} saat dicentang, -1 saat tidak. */
+        static Filter bendera(String nama, String label, long aktif) {
+            Filter f = new Filter(nama, label, TIPE_BENDERA, false, null);
+            f.benderaAktif = aktif;
+            return f;
+        }
+        /** Semester Ganjil/Genap; bawaannya semester yang sedang berjalan. */
+        static Filter semester(String nama, String label) {
+            Filter f = new Filter(nama, label, TIPE_PILIHAN, false, null);
+            f.opsiSemester = true;
+            return f;
+        }
         Filter cari() { cari = true; return this; }
         static Filter teks(String nama, String label) { return new Filter(nama, label, TIPE_TEKS, false, null); }
         /**
@@ -393,6 +440,34 @@ public final class NewUiLaporanUmumController {
                                 "ais.database.model.Jurusan", false),
                         Filter.tahunAkademik("tahun_akademik", "Tahun Akademik", true)));
 
+        // Jadwal Perkuliahan. Delapan filter, dan tiga di antaranya bentuknya
+        // tidak lazim: dua checkbox yang mengirim angka penanda, dan kelas yang
+        // parameternya berisi NAMA kelas, bukan id. Semuanya disalin dari
+        // generateParameter() layar ZK-nya, dan tipenya dicocokkan dengan
+        // deklarasi <parameter> pada jrxml.
+        //
+        // Parameter "jumat" pada template sengaja tidak dikirim: layar ZK pun
+        // tidak mengirimnya, jadi nilainya berasal dari bawaan di dalam jrxml.
+        REGISTRI.put("akademik_jadwal_perkuliahan",
+                new Laporan("Laporan Jadwal Perkuliahan",
+                        "format1/laporan_jadwal_perkuliahan",
+                        Filter.tahunAkademik("tahun_akademik", "Tahun Akademik", false)
+                                .kosongJadi("-1"),
+                        Filter.semester("semester", "Semester").kosongJadi("-1"),
+                        Filter.relasi("fakultas", "Fakultas",
+                                "ais.database.model.Fakultas", false),
+                        Filter.relasi("jurusan", "Jurusan",
+                                "ais.database.model.Jurusan", false)
+                                .tergantung("fakultas"),
+                        Filter.relasi("masa_perkuliahan", "Masa Perkuliahan",
+                                "ais.database.model.MasaPerkuliahan", false),
+                        Filter.relasi("kelas", "Kelas", "ais.database.model.Kelas", false)
+                                .cari().nilaiNama().kosongJadi("-1"),
+                        Filter.bendera("semester_pendek", "Semester Pendek",
+                                ais.database.model.Perkuliahan.SEMESTER_PENDEK.longValue()),
+                        Filter.bendera("ekstrakurikuler", "Ekstrakurikuler",
+                                ais.database.model.Perkuliahan.EKSTRA.longValue())));
+
         // --- Anggaran (RAB) --------------------------------------------------
         REGISTRI.put("rab_realisasi_per_jenis",
                 new Laporan("Realisasi Anggaran Per Jenis Item",
@@ -424,6 +499,12 @@ public final class NewUiLaporanUmumController {
         if (f.opsiTahunAkademik) {
             return ais.common.Common.tahunAngkatans.toArray(new String[0]);
         }
+        if (f.opsiSemester) {
+            return new String[] {
+                ais.database.model.Perkuliahan.GANJIL,
+                ais.database.model.Perkuliahan.GENAP,
+            };
+        }
         return f.opsi == null ? new String[0] : f.opsi;
     }
 
@@ -432,6 +513,13 @@ public final class NewUiLaporanUmumController {
         if (f.opsiTahunAkademik) {
             try { return ais.common.Common.getCurrentTahunAkademik(); }
             catch (Exception e) { return null; }
+        }
+        if (f.opsiSemester) {
+            try {
+                return ais.common.Common.isNowSemensterGanjil()
+                        ? ais.database.model.Perkuliahan.GANJIL
+                        : ais.database.model.Perkuliahan.GENAP;
+            } catch (Exception e) { return null; }
         }
         return f.opsiBawaan;
     }
@@ -510,6 +598,7 @@ public final class NewUiLaporanUmumController {
             if (f.entity != null) d.put("entity", f.entity);
             if (f.tergantungPada != null) d.put("tergantungPada", f.tergantungPada);
             if (TIPE_RELASI_BANYAK.equals(f.tipe) || f.cari) d.put("cari", true);
+            if (TIPE_BENDERA.equals(f.tipe)) d.put("bawaan", "0");
             if (TIPE_PILIHAN.equals(f.tipe)) {
                 JSONArray opsi = new JSONArray();
                 String[] daftar = opsiUntuk(f);
@@ -715,6 +804,14 @@ public final class NewUiLaporanUmumController {
             String mentah = text(r.getParameter(f.nama), "");
             if (mentah.length() == 0) {
                 if (f.wajib) throw new IllegalArgumentException(f.label + " wajib diisi.");
+                if (TIPE_BENDERA.equals(f.tipe)) {
+                    parameters.put(f.nama, Long.valueOf(-1L));
+                    continue;
+                }
+                if (f.kosongJadi != null) {
+                    parameters.put(f.nama, f.kosongJadi);
+                    continue;
+                }
                 // Tidak dipilih: id relasi dikirim -1 seperti ZK; filter lain dilewati.
                 if (TIPE_RELASI.equals(f.tipe)) {
                     parameters.put(f.nama,
@@ -727,7 +824,11 @@ public final class NewUiLaporanUmumController {
                 }
                 continue;
             }
-            if (TIPE_TAHUN.equals(f.tipe) || TIPE_BULAN.equals(f.tipe)) {
+            if (TIPE_BENDERA.equals(f.tipe)) {
+                boolean aktif = "1".equals(mentah) || "true".equalsIgnoreCase(mentah)
+                        || "ya".equalsIgnoreCase(mentah);
+                parameters.put(f.nama, Long.valueOf(aktif ? f.benderaAktif : -1L));
+            } else if (TIPE_TAHUN.equals(f.tipe) || TIPE_BULAN.equals(f.tipe)) {
                 Integer angka = angka(mentah);
                 if (angka == null) throw new IllegalArgumentException(f.label + " harus berupa angka.");
                 parameters.put(f.nama, angka);
@@ -750,7 +851,12 @@ public final class NewUiLaporanUmumController {
             } else if (TIPE_RELASI.equals(f.tipe)) {
                 Long id = id(mentah);
                 if (id == null) throw new IllegalArgumentException(f.label + " tidak sah.");
-                parameters.put(f.nama, f.idSebagaiTeks ? (Object) String.valueOf(id) : (Object) id);
+                if (f.nilaiNamaEntity) {
+                    parameters.put(f.nama, namaEntity(f.entity, id, f.propertiNama));
+                } else {
+                    parameters.put(f.nama,
+                            f.idSebagaiTeks ? (Object) String.valueOf(id) : (Object) id);
+                }
                 if (f.paramNama != null) {
                     // Nama diambil dari basis data, bukan dari klien, supaya
                     // kop laporan tidak dapat dipalsukan lewat parameter.
