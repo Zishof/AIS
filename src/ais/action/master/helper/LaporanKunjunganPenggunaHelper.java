@@ -329,6 +329,23 @@ public final class LaporanKunjunganPenggunaHelper {
 	 * Rentang &amp; filter sama dengan {@link #tampilkanLaporan}.
 	 */
 	public static void eksporExcel(Date mulai, Date sampai, Long fakId, Long jurId, Long yayId, Long sekId) {
+		try {
+			Filedownload.save(buatExcel(mulai, sampai, fakId, jurId, yayId, sekId),
+					"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+					namaBerkasExcel());
+		} catch (Exception e) {
+			try { Common.tampilErrorJikaAdmin(e); } catch (Exception ignore) { ais.common.ErrorAuditUtil.record(ignore, "auto-audit(empty-catch) src/ais/action/master/helper/LaporanKunjunganPenggunaHelper.java:eksporExcel");}
+		}
+	}
+
+	/**
+	 * Menyusun isi workbook yang sama dengan ekspor layar ZK tanpa mengikatnya
+	 * pada {@link Filedownload}. Kontrak native memakai method ini agar Android
+	 * dan desktop memperoleh byte .xlsx yang identik, bukan implementasi laporan
+	 * kedua yang perlahan menyimpang dari layar lama.
+	 */
+	public static byte[] buatExcel(Date mulai, Date sampai, Long fakId, Long jurId, Long yayId, Long sekId)
+			throws Exception {
 		if (sampai == null) {
 			sampai = ais.ui.util.WaktuUtil.getDate();
 		}
@@ -448,16 +465,15 @@ public final class LaporanKunjunganPenggunaHelper {
 		}
 		autoSize(sp, 9);
 
-		try {
-			ByteArrayOutputStream baos = new ByteArrayOutputStream();
-			wb.write(baos);
-			String fn = "Laporan_Kunjungan_Pengguna_"
-					+ new SimpleDateFormat("yyyyMMdd_HHmm").format(ais.ui.util.WaktuUtil.getDate()) + ".xlsx";
-			Filedownload.save(baos.toByteArray(),
-					"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fn);
-		} catch (Exception e) {
-			try { Common.tampilErrorJikaAdmin(e); } catch (Exception ignore) { ais.common.ErrorAuditUtil.record(ignore, "auto-audit(empty-catch) src/ais/action/master/helper/LaporanKunjunganPenggunaHelper.java:459");}
-		}
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		wb.write(baos);
+		return baos.toByteArray();
+	}
+
+	/** Nama aman dan stabil untuk hasil ekspor laporan kunjungan. */
+	public static String namaBerkasExcel() {
+		return "Laporan_Kunjungan_Pengguna_"
+				+ new SimpleDateFormat("yyyyMMdd_HHmm").format(ais.ui.util.WaktuUtil.getDate()) + ".xlsx";
 	}
 
 	/**

@@ -110,7 +110,7 @@ public final class NewUiKonfigurasiController {
     }
 
     private static void meta(JSONObject j, HttpServletRequest request,
-            String page) {
+            String page) throws Exception {
         NewUiPermission izin = NewUiRouteGuard.permissionFor(request,
                 MODULE, page);
         j.put("judul", PAGE_DETAIL.equals(page)
@@ -176,7 +176,8 @@ public final class NewUiKonfigurasiController {
         }
     }
 
-    private static JSONObject baris(Konfigurasi k, boolean lengkap) {
+    private static JSONObject baris(Konfigurasi k, boolean lengkap)
+            throws Exception {
         boolean rahasia = isSensitiveName(k.getNama());
         JSONObject row = new JSONObject()
                 .put("id", k.getId())
@@ -368,7 +369,8 @@ public final class NewUiKonfigurasiController {
         }
     }
 
-    private static void fail(JSONObject j, String code, String message) {
+    private static void fail(JSONObject j, String code, String message)
+            throws Exception {
         j.put("ok", false);
         j.put("code", code);
         j.put("message", message == null ? "Permintaan gagal." : message);
