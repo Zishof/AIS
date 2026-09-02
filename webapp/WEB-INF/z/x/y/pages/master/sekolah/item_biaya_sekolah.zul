@@ -112,7 +112,7 @@
 ]]></zscript>
 				</tabpanel>
 				<tabpanel style="padding:0;">
-					<include src="/pages/master/sekolah/grup_item_biaya_sekolah.zul"/>
+					<include src="/WEB-INF/z/x/y/pages/master/sekolah/grup_item_biaya_sekolah.zul"/>
 				</tabpanel>
 			</tabpanels>
 		</tabbox>
