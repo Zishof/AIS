@@ -27,17 +27,13 @@ import subprocess
 import sys
 import tempfile
 
-KANDIDAT_NODE = [
-    r'C:\Program Files\nodejs\node.exe',
-    'node',
-]
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import akar_repo  # noqa: E402  -- perlu sys.path di atas
 
 
 def cari_node():
-    for kandidat in KANDIDAT_NODE:
-        if os.path.isfile(kandidat):
-            return kandidat
-    return 'node'
+    """Resolusi bersama -- daftar kandidatnya ada di akar_repo."""
+    return akar_repo.node()
 
 
 def periksa(path, node):

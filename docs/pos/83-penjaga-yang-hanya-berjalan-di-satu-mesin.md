@@ -128,3 +128,26 @@ sama: mengubah "salah tanpa suara" menjadi "berhenti sambil menjelaskan".
 * Tiga harness bersandar-DB belum pernah berjalan (kredensial UAT ditolak).
 * `hanya_perubahan` masih utang sadar di `payload-tanpa-pembaca.py`; membayarnya
   menuntut keputusan "apa artinya tidak berubah" (dok. 79).
+
+## 7. Koreksi atas §2: yang dicari cuma jalur repositori
+
+Pass pertama memburu jalur repositori dan berhenti di situ. Menyapu ulang
+sesudahnya menemukan dependensi mesin yang lain: `banding-payload-jsp.py`
+menyebut satu jalur pemasangan `node.exe` **tanpa cadangan**. Di mesin yang
+node-nya ada di PATH tetapi bukan di jalur itu, alatnya berhenti — kegagalan yang
+persis sama, hanya bukan pada jalur repositori.
+
+`cek-sintaks-jsp.py` sudah menanganinya benar (daftar kandidat, lalu PATH), yang
+justru membuat kelalaian di alat satunya lebih mudah terlewat: satu alat sudah
+melakukannya dengan benar, sehingga polanya tampak sudah beres.
+
+`akar_repo.node()` sekarang menampungnya di satu tempat: `NODE_EXE`, lalu
+kandidat, lalu PATH. Salinan kedua daftar kandidat di `cek-sintaks-jsp.py`
+dihapus.
+
+Sesudah sapuan itu, satu-satunya jalur mesin yang tersisa di alat-alat ini ada
+di `akar_repo.py`, dan semuanya **kandidat dengan cadangan**, bukan keharusan.
+
+Pelajarannya menempel pada §5: memeriksa satu bentuk masalah tidak sama dengan
+memeriksa satu kelas masalah. Yang dicari "jalur repositori yang ditanam";
+yang seharusnya dicari "apa pun yang mengikat alat ini ke satu mesin".

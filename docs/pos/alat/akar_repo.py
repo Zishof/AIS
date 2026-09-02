@@ -152,3 +152,26 @@ def pastikan_terbaca():
     pesan.append('Pada Windows sebab tersering adalah jalur > 260 karakter:')
     pesan.append('checkout ke direktori yang lebih dangkal, atau aktifkan LongPathsEnabled.')
     raise SystemExit(os.linesep.join(pesan))
+
+
+# Letak node juga tidak boleh ditanam.
+#
+# docs/pos/83 mengurus jalur repositori, tetapi melewatkan ini: dua alat
+# menjalankan node, dan salah satunya menyebut satu jalur pemasangan tanpa
+# cadangan. Di mesin yang node-nya ada di PATH tetapi bukan di jalur itu, alatnya
+# berhenti -- persis kegagalan yang sama, hanya pada berkas yang berbeda.
+KANDIDAT_NODE = [
+    r"C:\Program Files\nodejs\node.exe",
+    r"C:\Program Files (x86)\nodejs\node.exe",
+]
+
+
+def node():
+    """Perintah node yang dapat dijalankan; jatuh ke PATH bila tak ada kandidat."""
+    dari_env = os.environ.get('NODE_EXE')
+    if dari_env and os.path.isfile(dari_env):
+        return dari_env
+    for kandidat in KANDIDAT_NODE:
+        if os.path.isfile(kandidat):
+            return kandidat
+    return 'node'

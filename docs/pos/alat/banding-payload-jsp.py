@@ -35,7 +35,7 @@ if len(sys.argv) < 2:
     sys.exit(2)
 LAMA = sys.argv[1]
 BARU = sys.argv[2] if len(sys.argv) > 2 else DEFAULT_BARU
-NODE = r'C:\Program Files\nodejs\node.exe'
+NODE = akar_repo.node()
 TMP = os.path.join(os.path.dirname(os.path.abspath(LAMA)), '_banding_payload_tmp.js')
 
 
