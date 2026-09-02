@@ -532,19 +532,16 @@ public final class SalesInventoryTripHelper {
 	/** Bulk assign nota/invoice piutang ke SPJ -- satu invoice tidak boleh dibawa dua SPJ aktif. */
 	public static void spjNotaAssign(EbisnisActorContextResolver.ActorContext ctx, Tbmuser tbmuser,
 			JSONObject request, JSONObject hasil) throws Exception {
-		if (SalesInventoryTripTenant.aktif(ctx)) {
-			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
-			// aksi bermuatan uang, MENULIS -- ke schema BERSAMA. Ditolak sampai jalur
-			// tenantnya ditulis beserta uji kesetaraannya; lihat SalesInventoryTripTenant.
-			tolak(hasil, "Sales Lapangan belum tersedia pada tenant berschema.");
-			return;
-		}
 		if (!ctx.bolehAksi("surat_perintah_sales", "update")) {
 			tolak(hasil, "Akun Anda tidak berhak mengatur nota dibawa.");
 			return;
 		}
 		Long id = optLong(request, "spj_id");
 		JSONArray ids = request.optJSONArray("piutang_doc_ids");
+		if (SalesInventoryTripTenant.aktif(ctx)) {
+			spjNotaAssignTenant(ctx, tbmuser, id, ids, hasil);
+			return;
+		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		Transaction tx = null;
 		try {
@@ -946,13 +943,6 @@ public final class SalesInventoryTripHelper {
 	/** Update hasil kunjungan per nota dibawa (SCR-40). */
 	public static void tripNotaResult(EbisnisActorContextResolver.ActorContext ctx, Tbmuser tbmuser,
 			JSONObject request, JSONObject hasil) throws Exception {
-		if (SalesInventoryTripTenant.aktif(ctx)) {
-			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
-			// aksi bermuatan uang, MENULIS -- ke schema BERSAMA. Ditolak sampai jalur
-			// tenantnya ditulis beserta uji kesetaraannya; lihat SalesInventoryTripTenant.
-			tolak(hasil, "Sales Lapangan belum tersedia pada tenant berschema.");
-			return;
-		}
 		if (!ctx.bolehAksi("nota_sales", "update")) {
 			tolak(hasil, "Akun Anda tidak berhak mengubah hasil kunjungan.");
 			return;
@@ -964,6 +954,10 @@ public final class SalesInventoryTripHelper {
 				SpjSalesNota.STATUS_RETURNED, SpjSalesNota.STATUS_DISPUTED, SpjSalesNota.STATUS_LOST);
 		if (id == null || !sah.contains(baru)) {
 			tolak(hasil, "nota_id dan status hasil kunjungan yang sah wajib diisi.");
+			return;
+		}
+		if (SalesInventoryTripTenant.aktif(ctx)) {
+			tripNotaResultTenant(ctx, tbmuser, id, baru, request, hasil);
 			return;
 		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
@@ -2452,6 +2446,195 @@ public final class SalesInventoryTripHelper {
 			tx.commit();
 			hasil.put("status", "00");
 			hasil.put("statusBaru", ke);
+		} catch (Exception e) {
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+	// =============================================================================================
+	// Jalur schema tenant -- nota piutang yang dibawa (v13)
+	// =============================================================================================
+
+	/**
+	 * Menugaskan dokumen piutang kepada satu SPJ untuk ditagih di lapangan.
+	 *
+	 * <p>Penggantian menyeluruh, sama seperti jalur legacy: dokumen belum jalan sehingga daftar
+	 * notanya aman ditulis ulang utuh. Penjaga statusnya juga sama — begitu SPJ meninggalkan
+	 * DRAFT/SUBMITTED/APPROVED, daftar bawaannya tidak boleh berubah lagi.</p>
+	 *
+	 * <p>{@code saldo_saat_assign} dihitung dari alokasi, bukan dibaca dari kolom ringkasan.
+	 * Angka ini dibekukan selamanya, dan justru karena itu ia harus benar saat dibekukan.</p>
+	 */
+	private static void spjNotaAssignTenant(EbisnisActorContextResolver.ActorContext ctx,
+			Tbmuser tbmuser, Long spjId, JSONArray ids, JSONObject hasil) throws Exception {
+		String skema = SalesInventoryTripTenant.skema(ctx);
+		String oleh = tbmuser == null || tbmuser.getUserId() == null ? "" : tbmuser.getUserId();
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		Transaction tx = null;
+		try {
+			if (spjId == null) {
+				tolak(hasil, "SPJ tidak ditemukan.");
+				return;
+			}
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(
+					SalesInventoryTripTenant.spjUntukNota(skema));
+			ps.setLong(1, spjId.longValue());
+			java.sql.ResultSet rs = ps.executeQuery();
+			if (!rs.next()) {
+				rs.close();
+				ps.close();
+				tolak(hasil, "SPJ tidak ditemukan.");
+				return;
+			}
+			String st = str(rs.getString(1));
+			Long salesId = rs.getObject(2) == null ? null : Long.valueOf(rs.getLong(2));
+			rs.close();
+			ps.close();
+			if (!SuratPerintahSalesJalan.STATUS_DRAFT.equals(st)
+					&& !SuratPerintahSalesJalan.STATUS_SUBMITTED.equals(st)
+					&& !SuratPerintahSalesJalan.STATUS_APPROVED.equals(st)) {
+				tolak(hasil, "Nota hanya bisa diatur sebelum berangkat (status sekarang " + st
+						+ ").");
+				return;
+			}
+			if (aktorSales(ctx) && (salesId == null || ctx.salesId == null
+					|| !ctx.salesId.equals(salesId))) {
+				tolak(hasil, "SPJ ini bukan milik sales Anda.");
+				return;
+			}
+
+			tx = session.beginTransaction();
+			java.sql.PreparedStatement del = session.connection().prepareStatement(
+					SalesInventoryTripTenant.hapusNotaSpj(skema));
+			try {
+				del.setLong(1, spjId.longValue());
+				del.executeUpdate();
+			} finally {
+				del.close();
+			}
+			int dibuat = 0;
+			if (ids != null) {
+				for (int i = 0; i < ids.length(); i++) {
+					long did = ids.optLong(i, -1);
+					if (did <= 0) {
+						continue;
+					}
+					java.sql.PreparedStatement sisa = session.connection().prepareStatement(
+							SalesInventoryTripTenant.sisaPiutangSekarang(skema));
+					BigDecimal saldo = null;
+					try {
+						sisa.setLong(1, did);
+						java.sql.ResultSet rsS = sisa.executeQuery();
+						if (rsS.next()) {
+							saldo = rsS.getBigDecimal(1);
+						}
+						rsS.close();
+					} finally {
+						sisa.close();
+					}
+					if (saldo == null) {
+						// Dokumen piutang tidak ada pada tenant ini: dilewati, sama seperti jalur
+						// legacy melewati id yang tidak ditemukan.
+						continue;
+					}
+					java.sql.PreparedStatement ins = session.connection().prepareStatement(
+							SalesInventoryTripTenant.sisipNotaSpj(skema));
+					try {
+						ins.setLong(1, spjId.longValue());
+						ins.setLong(2, did);
+						ins.setBigDecimal(3, saldo);
+						ins.setString(4, oleh);
+						ins.executeUpdate();
+					} finally {
+						ins.close();
+					}
+					dibuat++;
+				}
+			}
+			tx.commit();
+			hasil.put("status", "00");
+			hasil.put("jumlahNota", dibuat);
+		} catch (Exception e) {
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * Mencatat hasil kunjungan atas satu nota bawaan.
+	 *
+	 * <p>Nota yang sudah direkonsiliasi tetap ditolak — hasil kunjungan yang berubah sesudah
+	 * penutupan akan membuat rekap yang sudah disetujui tidak lagi cocok dengan rinciannya.</p>
+	 *
+	 * <p>Aksi ini <b>tidak</b> menyentuh nilai tertagih, sama seperti jalur legacy. Bedanya, di
+	 * sini angka itu memang tidak ada untuk disentuh: ia diturunkan dari alokasi penerimaan.</p>
+	 */
+	private static void tripNotaResultTenant(EbisnisActorContextResolver.ActorContext ctx,
+			Tbmuser tbmuser, Long notaId, String baru, JSONObject request, JSONObject hasil)
+			throws Exception {
+		String skema = SalesInventoryTripTenant.skema(ctx);
+		String oleh = tbmuser == null || tbmuser.getUserId() == null ? "" : tbmuser.getUserId();
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		Transaction tx = null;
+		try {
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(
+					SalesInventoryTripTenant.notaUntukHasil(skema));
+			ps.setLong(1, notaId.longValue());
+			java.sql.ResultSet rs = ps.executeQuery();
+			if (!rs.next()) {
+				rs.close();
+				ps.close();
+				tolak(hasil, "Nota dibawa tidak ditemukan.");
+				return;
+			}
+			String status = str(rs.getString(1));
+			Long salesId = rs.getObject(2) == null ? null : Long.valueOf(rs.getLong(2));
+			rs.close();
+			ps.close();
+			if (aktorSales(ctx) && (salesId == null || ctx.salesId == null
+					|| !ctx.salesId.equals(salesId))) {
+				tolak(hasil, "Nota ini bukan milik sales Anda.");
+				return;
+			}
+			if (SpjSalesNota.STATUS_RECONCILED.equals(status)) {
+				tolak(hasil, "Nota sudah direkonsiliasi -- tidak bisa diubah.");
+				return;
+			}
+			java.util.Date janji = optTanggal(request, "janji_bayar");
+			tx = session.beginTransaction();
+			java.sql.PreparedStatement upd = session.connection().prepareStatement(
+					SalesInventoryTripTenant.ubahHasilNota(skema));
+			try {
+				upd.setString(1, baru);
+				upd.setString(2, request.optString("hasil_kunjungan", "").trim());
+				if (janji == null) {
+					upd.setNull(3, java.sql.Types.DATE);
+				} else {
+					upd.setDate(3, new java.sql.Date(janji.getTime()));
+				}
+				upd.setString(4, request.optString("alasan_gagal", "").trim());
+				upd.setString(5, oleh);
+				upd.setLong(6, notaId.longValue());
+				upd.executeUpdate();
+			} finally {
+				upd.close();
+			}
+			tx.commit();
+			hasil.put("status", "00");
 		} catch (Exception e) {
 			try {
 				if (tx != null && tx.isActive()) {

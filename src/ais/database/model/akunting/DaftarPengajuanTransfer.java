@@ -451,6 +451,51 @@ public class DaftarPengajuanTransfer extends DataSop {
 		}
 	}
 
+	/**
+	 * Merender ringkasan <b>status alur</b> sebuah baris DPT sebagai deretan komponen ZK di
+	 * dalam {@code vbox1}. Dipakai kolom "Status" pada grid Pembayaran Transfer dan pada
+	 * berbagai dasbor monitor akunting.
+	 *
+	 * <p>Keluarannya sampai tiga baris teks, dirakit dalam dua tahap:</p>
+	 * <ol>
+	 *   <li><b>Riwayat SOP</b> (hanya bila {@code prosesTransfer.disposisiSop} ada). Dua query
+	 *   {@code DisposisiAlurSop} terurut {@code id} menurun diambil masing-masing satu baris:
+	 *   <ul>
+	 *     <li>langkah terakhir yang <b>sudah dikerjakan</b> ({@code diajukanOleh} tidak
+	 *     {@code null}) → label "<i>&lt;nama alur&gt; &lt;waktu&gt; oleh &lt;aktor&gt;
+	 *     (&lt;user&gt;)</i>";</li>
+	 *     <li>langkah yang <b>masih menggantung</b> ({@code diajukanOleh} {@code null}) →
+	 *     bila alurnya ditandai {@code penolakanAdaDiSini} maka dirender sebagai
+	 *     "<i>Ditolak : ...</i>" berikut identitas pengaju langkah sebelumnya (user, atau
+	 *     mahasiswa, atau siswa — mana yang terisi); selain itu dirender
+	 *     "<i>Menunggu : &lt;aktor&gt; &lt;nama alur&gt;</i>".</li>
+	 *   </ul>
+	 *   </li>
+	 *   <li><b>Status transfer</b>, tiga kemungkinan yang saling eksklusif:
+	 *   <ul>
+	 *     <li>sudah masuk batch transfer bank → tautan (<code>&lt;a&gt;</code>) "Status :
+	 *     Transfer via ..." yang saat diklik membuka layar
+	 *     {@code ProsesTransferAction.onAddExternal(...)} untuk batch tersebut;</li>
+	 *     <li>diselesaikan lewat transitori → tautan "Status : Transitori ..." dengan aksi
+	 *     klik yang sama;</li>
+	 *     <li>belum tertaut batch apa pun → label statis "Status DPC : Belum diproses".</li>
+	 *   </ul>
+	 *   </li>
+	 * </ol>
+	 *
+	 * <p><b>Efek samping:</b> menempelkan komponen baru ke {@code vbox1} (tidak pernah
+	 * membersihkan isi lama — pemanggil yang bertanggung jawab), dan menjalankan dua query
+	 * pada {@code HibernateUtil.currentSession()}. Karena dipanggil per baris grid, method ini
+	 * berpotensi menjadi sumber N+1 query pada daftar yang panjang.</p>
+	 *
+	 * <p><i>Kuirk:</i> query kedua memasang {@code Restrictions.isNotNull("alurSop")}
+	 * <b>dua kali</b> (sisa salin-tempel); duplikasi itu tidak mengubah hasil.</p>
+	 *
+	 * @param daftarPengajuanTransfer baris DPT yang statusnya dirender; {@code null} aman —
+	 *                                tidak ada komponen yang ditambahkan
+	 * @param vbox1                   wadah ZK tempat label/tautan status ditempelkan
+	 * @see ProsesTransferAction#onAddExternal(EventListener, ProsesTransfer)
+	 */
 	public static void tampilStatus(final DaftarPengajuanTransfer daftarPengajuanTransfer, Vbox vbox1) {
 		if (daftarPengajuanTransfer != null && daftarPengajuanTransfer.getProsesTransfer() != null
 				&& daftarPengajuanTransfer.getProsesTransfer().getDisposisiSop() != null) {
@@ -556,6 +601,43 @@ public class DaftarPengajuanTransfer extends DataSop {
 
 	}
 
+	/**
+	 * Mendaftarkan pembayaran <b>DP pemesanan barang/jasa</b> ke kolam antrean pembayaran.
+	 *
+	 * <p>Ini adalah <b>anggota pertama dari keluarga 14 method {@code simpanXxx(...)}</b> yang
+	 * semuanya mengikuti resep identik berikut — penjelasan detail resep ini berlaku juga bagi
+	 * saudara-saudaranya, yang Javadoc-nya hanya menyorot kekhasan masing-masing:</p>
+	 * <ol>
+	 *   <li><b>Gerbang idempotensi</b>: bila dokumen sumber sudah punya tautan balik
+	 *   {@code getDaftarPengajuanTransfer() != null}, method berhenti tanpa efek apa pun.
+	 *   Aman dipanggil berulang dari {@code onSave}, dari penjadwal latar, maupun dari helper
+	 *   sinkronisasi.</li>
+	 *   <li><b>Buka session native</b> {@code HibernateUtil.currentNativeSession()} —
+	 *   <i>bukan</i> session request, karena method ini sering dipanggil dari luar konteks
+	 *   request ZK.</li>
+	 *   <li><b>Cari-atau-buat</b>: query {@code Criteria} mencari baris DPT lama yang sudah
+	 *   menunjuk dokumen ini (menangani kasus tautan balik hilang tetapi barisnya masih ada);
+	 *   bila tidak ada, instance baru dibuat.</li>
+	 *   <li><b>Isi relasi + nama</b> yang akan tampil di daftar pembayaran. Seluruh atribut
+	 *   lain (nominal, rekening, akun, waktu, satuan kerja) <b>sengaja tidak diisi</b> karena
+	 *   diturunkan otomatis oleh getter — lihat Javadoc class.</li>
+	 *   <li><b>Dua transaksi terpisah</b>: pertama menyimpan baris DPT (agar dapat ID), kedua
+	 *   menyimpan tautan balik di dokumen sumber. Dipisah karena tautan balik butuh ID yang
+	 *   baru ada setelah commit pertama.</li>
+	 *   <li><b>Tutup session</b> lewat {@link #closeNativeSessionSafely(Session)}.</li>
+	 * </ol>
+	 *
+	 * <p><b>Efek samping:</b> menulis satu baris di {@code akunting.daftar_pengajuan_transfer}
+	 * dan meng-{@code UPDATE} satu kolom di tabel dokumen sumber; menutup session native
+	 * thread-local (lihat peringatan pada {@link #closeNativeSessionSafely(Session)}).</p>
+	 *
+	 * @param pembayaranDpMasterAssetDetail detail pembayaran DP yang hendak diantrekan;
+	 *                                      diabaikan bila sudah punya baris DPT. Perhatikan
+	 *                                      argumen {@code null} <b>tidak</b> aman di sini —
+	 *                                      gerbang idempotensi meloloskannya dan
+	 *                                      {@code setNama(...)} akan melempar
+	 *                                      {@code NullPointerException}
+	 */
 	public static void simpanPembayaranDpMasterAssetDetail(
 			PembayaranDpMasterAssetDetail pembayaranDpMasterAssetDetail) {
 
@@ -591,6 +673,25 @@ public class DaftarPengajuanTransfer extends DataSop {
 		closeNativeSessionSafely(session);
 	}
 
+	/**
+	 * Mendaftarkan pembayaran <b>termin perjanjian kerja sama</b> ke kolam antrean pembayaran,
+	 * memakai session native miliknya sendiri.
+	 *
+	 * <p>Method ini hanya pembungkus tipis: ia membuka
+	 * {@code HibernateUtil.currentNativeSession()}, mendelegasikan seluruh pekerjaan ke
+	 * {@link #simpanPembayaranTerminMasterAssetDetail(PembayaranTerminMasterAssetDetail, Session)},
+	 * lalu <b>menutup session itu</b>.</p>
+	 *
+	 * <p><b>Pilih varian yang benar.</b> Karena session native bersifat thread-local, pemanggil
+	 * yang masih akan memakai session yang sama setelah pemanggilan ini <b>wajib</b> memakai
+	 * varian dua-argumen; kalau tidak, operasi berikutnya gagal dengan "Session is closed"
+	 * (kasus nyata: loop {@code onSave} PembayaranTermin).</p>
+	 *
+	 * @param pembayaranTerminMasterAssetDetail detail termin yang hendak diantrekan
+	 * @see #simpanPembayaranTerminMasterAssetDetail(PembayaranTerminMasterAssetDetail, Session)
+	 * @see #simpanPembayaranDpMasterAssetDetail(PembayaranDpMasterAssetDetail) untuk penjelasan
+	 *      lengkap resep {@code simpanXxx}
+	 */
 	public static void simpanPembayaranTerminMasterAssetDetail(
 			PembayaranTerminMasterAssetDetail pembayaranTerminMasterAssetDetail) {
 
@@ -610,6 +711,24 @@ public class DaftarPengajuanTransfer extends DataSop {
 	 * Varian yang memakai session milik pemanggil dan TIDAK pernah
 	 * menutupnya. Gunakan ini bila pemanggil masih melanjutkan operasi
 	 * pada session yang sama setelah method ini selesai.
+	 *
+	 * <p>Di sinilah logika sesungguhnya berada: gerbang idempotensi (berhenti bila detail
+	 * termin sudah punya baris DPT), cari-atau-buat baris DPT lewat {@code Criteria}, isi
+	 * relasi dan nama ("Pembayaran termin perjanjian kerjasama &lt;kode invoice&gt;"), lalu
+	 * simpan dalam dua transaksi terpisah — baris DPT dulu supaya mendapat ID, baru tautan
+	 * balik di detail termin.</p>
+	 *
+	 * <p><b>Efek samping:</b> membuka dan me-{@code commit} dua transaksi pada session milik
+	 * pemanggil. Bila pemanggil sudah punya transaksi aktif sendiri, transaksi itu akan
+	 * ter-{@code commit} lebih awal oleh method ini — perlu diperhatikan saat memanggilnya di
+	 * tengah unit kerja yang lebih besar.</p>
+	 *
+	 * @param pembayaranTerminMasterAssetDetail detail termin yang hendak diantrekan; diabaikan
+	 *                                          bila sudah punya baris DPT
+	 * @param session                           session Hibernate milik pemanggil; <b>tidak</b>
+	 *                                          ditutup oleh method ini
+	 * @see #simpanPembayaranDpMasterAssetDetail(PembayaranDpMasterAssetDetail) untuk penjelasan
+	 *      lengkap resep {@code simpanXxx}
 	 */
 	public static void simpanPembayaranTerminMasterAssetDetail(
 			PembayaranTerminMasterAssetDetail pembayaranTerminMasterAssetDetail, Session session) {
@@ -642,6 +761,20 @@ public class DaftarPengajuanTransfer extends DataSop {
 		session.getTransaction().commit();
 	}
 
+	/**
+	 * Mendaftarkan pembayaran <b>pengadaan barang/jasa</b> ke kolam antrean pembayaran.
+	 *
+	 * <p>Mengikuti resep {@code simpanXxx} standar. Kekhasannya ada pada penyusunan nama:
+	 * nomor dokumen diambil dari {@code penerimaanPengadaanMasterAsset.kodeTagihan}, dan bila
+	 * penerimaan belum ada — kasus barang yang masuk lewat saldo awal — dipakai
+	 * {@code saldoAwalMasterAsset.kode} sebagai gantinya.</p>
+	 *
+	 * @param pembayaranPengadaanMasterAssetDetail detail pembayaran pengadaan yang hendak
+	 *                                             diantrekan; diabaikan bila sudah punya baris
+	 *                                             DPT
+	 * @see #simpanPembayaranDpMasterAssetDetail(PembayaranDpMasterAssetDetail) untuk penjelasan
+	 *      lengkap resep {@code simpanXxx}
+	 */
 	public static void simpanPembayaranPengadaanMasterAssetDetail(
 			PembayaranPengadaanMasterAssetDetail pembayaranPengadaanMasterAssetDetail) {
 

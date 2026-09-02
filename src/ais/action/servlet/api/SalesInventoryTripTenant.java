@@ -76,7 +76,9 @@ final class SalesInventoryTripTenant {
 				|| "spjSimpan".equals(aksi) || "spjDetail".equals(aksi)
 				|| "spjStatus".equals(aksi) || "tripStart".equals(aksi)
 				|| "tripBarangUpdate".equals(aksi) || "tripDeposit".equals(aksi)
-				|| "tripReturn".equals(aksi) || "tripReconcile".equals(aksi);
+				|| "tripReturn".equals(aksi) || "tripReconcile".equals(aksi)
+				|| "tripCashSale".equals(aksi) || "spjNotaAssign".equals(aksi)
+				|| "tripNotaResult".equals(aksi);
 	}
 
 	/**
@@ -621,5 +623,83 @@ final class SalesInventoryTripTenant {
 	static String catatReversalBiaya(String skema) {
 		return "INSERT INTO " + skema + "reversal_log (dokumen_tipe, dokumen_id, alasan,"
 				+ " user_id, waktu) VALUES ('SALES_TRIP_BIAYA', ?, ?, ?, now())";
+	}
+	// ------------------------------------------------------------------ nota bawaan (v13)
+
+	/**
+	 * <h4>Nota bawaan: piutang lama yang dititipkan untuk ditagih</h4>
+	 *
+	 * <p>Tabel {@code surat_perintah_sales_nota} lahir bersama migrasi v13. Ia menggantung pada
+	 * SPJ, bukan pada trip, sebab penugasannya terjadi sebelum berangkat.</p>
+	 *
+	 * <p>Empat medan legacy tidak punya kolom di sini dan ditarik lewat join atau diturunkan:
+	 * {@code nilaiAwal}, {@code jatuhTempo}, {@code customer} — salinan dari piutangnya — serta
+	 * {@code nilaiTertagih}, yang dihitung dari alokasi penerimaan. Lihat
+	 * {@link ais.service.tenant.TenantSchemaMigrationsV13}.</p>
+	 */
+	static String spjUntukNota(String skema) {
+		return "SELECT COALESCE(j.status,''), j.salesperson_id"
+				+ " FROM " + skema + "surat_perintah_sales j WHERE j.id = ?";
+	}
+
+	/**
+	 * Sisa tagihan satu dokumen piutang PADA SAAT INI — dipakai sebagai potret
+	 * {@code saldo_saat_assign}.
+	 *
+	 * <p>Dihitung dari alokasi, bukan dibaca dari kolom {@code sisa}: kolom ringkasan itu bisa
+	 * basi, dan potret yang salah akan terus salah selamanya sebab tidak pernah dihitung ulang.
+	 * Justru karena angkanya dibekukan, angka yang dibekukan harus benar.</p>
+	 */
+	static String sisaPiutangSekarang(String skema) {
+		return "SELECT COALESCE(p.nilai,0) - COALESCE((SELECT SUM(a.nilai)"
+				+ " FROM " + skema + "alokasi_penerimaan_piutang a"
+				+ " WHERE a.piutang_customer_id = p.id),0)"
+				+ " FROM " + skema + "piutang_customer p WHERE p.id = ?";
+	}
+
+	/** Penggantian menyeluruh: dokumen belum jalan, jadi aman diganti utuh. */
+	static String hapusNotaSpj(String skema) {
+		return "DELETE FROM " + skema + "surat_perintah_sales_nota"
+				+ " WHERE surat_perintah_sales_id = ?";
+	}
+
+	/** EMPAT parameter: spjId, piutangId, saldoSaatAssign, oleh. */
+	static String sisipNotaSpj(String skema) {
+		return "INSERT INTO " + skema + "surat_perintah_sales_nota (surat_perintah_sales_id,"
+				+ " piutang_customer_id, saldo_saat_assign, status, dibuat_pada, oleh)"
+				+ " VALUES (?, ?, ?, 'ASSIGNED', now(), ?)";
+	}
+
+	/** DUA kolom: status nota dan salesperson pemilik SPJ-nya, untuk penjaga lingkup. */
+	static String notaUntukHasil(String skema) {
+		return "SELECT COALESCE(n.status,''), j.salesperson_id"
+				+ " FROM " + skema + "surat_perintah_sales_nota n"
+				+ " JOIN " + skema + "surat_perintah_sales j"
+				+ " ON n.surat_perintah_sales_id = j.id WHERE n.id = ?";
+	}
+
+	/** LIMA parameter: status, hasilKunjungan, janjiBayar (boleh NULL), alasanGagal, oleh, id. */
+	static String ubahHasilNota(String skema) {
+		return "UPDATE " + skema + "surat_perintah_sales_nota SET status = ?,"
+				+ " hasil_kunjungan = ?, janji_bayar = ?, alasan_gagal = ?, oleh = ?,"
+				+ " tanggal_dirubah = now() WHERE id = ?";
+	}
+
+	/**
+	 * Nilai yang tertagih atas satu nota bawaan selama perjalanannya. DITURUNKAN, tidak
+	 * disimpan.
+	 *
+	 * <p>Penerimaan yang menunjuk trip milik SPJ nota ini, teralokasi ke dokumen piutangnya.
+	 * Alokasi pembalik bernilai negatif, sehingga pembatalan penagihan menurunkan angka ini
+	 * dengan sendirinya — tidak ada pengurang yang bisa terlupa.</p>
+	 */
+	static String nilaiTertagihNota(String skema, String aliasNota) {
+		return "COALESCE((SELECT SUM(a.nilai)"
+				+ " FROM " + skema + "alokasi_penerimaan_piutang a"
+				+ " JOIN " + skema + "penerimaan_piutang r ON a.penerimaan_piutang_id = r.id"
+				+ " JOIN " + skema + "sales_trip t ON r.sales_trip_id = t.id"
+				+ " WHERE a.piutang_customer_id = " + aliasNota + ".piutang_customer_id"
+				+ " AND t.surat_perintah_sales_id = " + aliasNota
+				+ ".surat_perintah_sales_id),0)";
 	}
 }

@@ -1498,6 +1498,52 @@ Naik dari 10. Yang masih tertutup dan penghalangnya:
 `collectionReverse` di helper Reversal kini tinggal menunggu **satu** hal saja — nota bawaan —
 sebab sisi kasnya sudah dibuka v12.
 
+## Memakai nota bawaan v13: `spjNotaAssign` dan `tripNotaResult`
+
+Trip naik ke **14 dari 19 aksi**. Dua aksi yang murni tentang tabel baru ini dipindahkan; tiga
+aksi uang yang juga memakainya (`tripClose`, `collectionCreate`, `collectionReverse`) menyusul.
+
+### `spjNotaAssign`: penggantian menyeluruh, dan potret yang harus benar
+
+Bentuknya sama dengan legacy — daftar nota ditulis ulang utuh, dan hanya boleh selama SPJ masih
+DRAFT/SUBMITTED/APPROVED. Sesudah berangkat, daftar bawaannya beku.
+
+Satu hal yang layak disebut: `saldo_saat_assign` dihitung dari alokasi, **bukan** dibaca dari kolom
+ringkasan `piutang_customer.sisa`. Kolom ringkasan itu bisa basi, dan potret yang salah akan terus
+salah selamanya sebab tidak pernah dihitung ulang. Justru karena angkanya dibekukan, angka yang
+dibekukan harus benar.
+
+### `tripNotaResult`: mencatat hasil kunjungan, bukan uang
+
+Status, hasil kunjungan, janji bayar, dan alasan gagal. Nota yang sudah direkonsiliasi tetap
+ditolak — hasil kunjungan yang berubah sesudah penutupan membuat rekap yang sudah disetujui tidak
+lagi cocok dengan rinciannya.
+
+Aksi ini tidak menyentuh nilai tertagih, sama seperti legacy. Bedanya, di sini angka itu memang
+tidak ada untuk disentuh.
+
+### Verifikasi
+
+SQL yang **benar-benar dikeluarkan Java** dijalankan berurutan ke basis data v1–v13: baca SPJ →
+hitung sisa piutang → hapus daftar lama → sisipkan nota → baca untuk hasil kunjungan → simpan
+hasilnya → baca nilai tertagih turunan.
+
+Hasilnya: sisa piutang **800.000** (1.000.000 dikurangi 200.000 yang sudah dibayar), nota tersimpan
+berstatus ASSIGNED, hasil kunjungan tersimpan sebagai PROMISE_TO_PAY dengan janji bayar
+2026-07-20, `saldo_saat_assign` bertahan 800.000, dan **nilai tertagih turunan 0** — benar, sebab
+penagihan 300.000 di skenario itu sudah dibalik. Tidak ada kolom yang perlu diingat untuk
+diturunkan.
+
+### Sisa Trip: 5 dari 19 aksi masih tertutup
+
+| penghalang | aksi |
+|---|---|
+| master kategori biaya | `expenseCategoryList`, `expenseCategorySave`, `expenseCreate` |
+| tabel pembelian dalam trip | `tripPurchaseLink`, sisi pembelian `tripDetail` |
+| (v13 tersedia, tinggal ditulis) | `tripClose` |
+
+Dan pada helper Piutang, `collectionCreate` serta `collectionReverse` kini **tidak lagi terhalang
+apa pun** — keduanya tinggal ditulis.
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
 **Sebelas helper, 7.512 baris, belum satu pun kuerinya dipindah ke schema tenant.**
