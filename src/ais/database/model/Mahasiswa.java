@@ -2671,7 +2671,7 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Mahasiswa.java:1530");
 //			Common.tampilErrorJikaAdmin(e);
 		}
-		if (currentSemester == null) {
+		if (currentSemester == null || currentSemester.intValue() <= 0) {
 			currentSemester = 1;
 		}
 		return currentSemester;

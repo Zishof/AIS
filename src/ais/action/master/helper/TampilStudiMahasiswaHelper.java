@@ -1824,29 +1824,19 @@ public class TampilStudiMahasiswaHelper {
 				&& semester.intValue() <= semesterMaksimal;
 	}
 
-	/** Ambil pasangan semester-TA dari generator periode yang juga dipakai tab KRS. */
+	/** Ambil pasangan semester-TA memakai rumus yang sama dengan {@link KrsMahasiswa#getTahunAkademik()}. */
 	private static Map<Integer, String> tahunAkademikPerSemesterKrs(Mahasiswa mahasiswa,
 			int semesterMaksimal) {
 		Map<Integer, String> hasil = new HashMap<Integer, String>();
-		if (mahasiswa == null || semesterMaksimal <= 0) {
+		if (mahasiswa == null || semesterMaksimal <= 0 || mahasiswa.getTahunangkatan() == null
+				|| mahasiswa.getSemesterMulai() == null) {
 			return hasil;
 		}
-		List<String[]> periode = Common.generateSemestersForGrid(mahasiswa, 1, semesterMaksimal,
-				Perkuliahan.SEMESTER_PENDEK);
-		for (String[] data : periode) {
-			if (data == null || data.length < 2 || data[0] == null || data[1] == null) {
-				continue;
-			}
-			String[] semesterDalamBaris = data[1].split(",");
-			for (String nilaiSemester : semesterDalamBaris) {
-				try {
-					Integer semester = Integer.valueOf(nilaiSemester.trim());
-					if (semesterAkademikValid(semester, semesterMaksimal)) {
-						hasil.put(semester, data[0]);
-					}
-				} catch (NumberFormatException ignored) {
-					// Baris khusus seperti "Tanpa Tahap" bukan periode akademik.
-				}
+		for (int semester = 1; semester <= semesterMaksimal; semester++) {
+			Integer tahun = Common.getTahunAkademik(Integer.valueOf(semester), mahasiswa.getTahunangkatan(),
+					mahasiswa.getPindahKeKampusIniMasukSemester(), mahasiswa.getSemesterMulai());
+			if (tahun != null && tahun.intValue() > 0) {
+				hasil.put(Integer.valueOf(semester), tahun + "/" + (tahun.intValue() + 1));
 			}
 		}
 		return hasil;
