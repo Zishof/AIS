@@ -915,6 +915,13 @@ public class Pegawai extends Karyawan {
 		this.tanggallahir = tanggallahir;
 	}
 
+	/**
+	 * Primary key baris {@code pegawai}, dibangkitkan oleh basis data ({@code IDENTITY}/sequence).
+	 * Kolomnya {@code insertable = false} sehingga nilai yang di-set manual diabaikan saat INSERT.
+	 *
+	 * @return PK pegawai, atau {@code null} bila entity belum pernah disimpan
+	 * @see GeneralValueObject
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -922,10 +929,29 @@ public class Pegawai extends Karyawan {
 		return this.id;
 	}
 
+	/**
+	 * Mengisi PK. Praktis hanya dipakai Hibernate dan konstruktor kerangka
+	 * {@link #Pegawai(Long)}.
+	 *
+	 * @param id PK pegawai
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Nama lengkap pegawai — <b>getter cermin</b>: bila pegawai ini berasal dari {@link Dosen} atau
+	 * {@link Guru}, nama diambil dari sana dan menimpa field lokal (guru menang atas dosen). Nilai
+	 * {@code null} dinormalkan menjadi string kosong, dan hasil akhirnya di-{@code trim()}.
+	 *
+	 * <p>Berbeda dengan {@code Karyawan.getNama()} yang mengembalikan {@code code + "-" + nama},
+	 * versi ini mengembalikan nama saja.</p>
+	 *
+	 * <p><b>Efek samping:</b> memicu resolusi proxy {@code dosen}/{@code guru} dan menulis ke field
+	 * {@code nama}, {@code dosen}, {@code guru}.</p>
+	 *
+	 * @return nama pegawai tanpa spasi tepi; string kosong bila tidak ada data
+	 */
 	@Column(name = "nama", length = 150)
 	public String getNama() {
 
@@ -945,10 +971,24 @@ public class Pegawai extends Karyawan {
 		return this.nama == null ? null : this.nama.trim();
 	}
 
+	/**
+	 * Mengisi nama pada field lokal saja. Untuk pegawai turunan dosen/guru nilai ini akan tertimpa
+	 * lagi pada pemanggilan {@link #getNama()} berikutnya — ubah nama di {@link Dosen}/{@link Guru}
+	 * bila ingin permanen.
+	 *
+	 * @param nama nama lengkap
+	 */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
 
+	/**
+	 * Alamat bebas-teks — <b>getter cermin</b> ke {@code Dosen.getAlamat()} /
+	 * {@code Guru.getAlamatGuru()}.
+	 *
+	 * @return alamat pegawai, atau {@code null} bila belum diisi
+	 * @see #getAlamatJalan()
+	 */
 	@Column(name = "alamat")
 	public String getAlamat() {
 		dosen = getDosen();
@@ -964,6 +1004,16 @@ public class Pegawai extends Karyawan {
 		return this.alamat;
 	}
 
+	/**
+	 * Mengisi alamat. <b>Salah satu dari sedikit setter yang menulis balik ke sumber</b>: bila
+	 * pegawai ini turunan dosen/guru, alamat ikut di-set pada {@link Dosen} dan/atau {@link Guru}
+	 * sehingga perubahan tidak hilang saat {@link #getAlamat()} dipanggil lagi.
+	 *
+	 * <p><b>Efek samping:</b> memutasi entity {@code Dosen}/{@code Guru} yang terkait; bila
+	 * keduanya <i>managed</i>, perubahan itu akan ikut tersimpan pada flush berikutnya.</p>
+	 *
+	 * @param alamat alamat bebas-teks
+	 */
 	public void setAlamat(String alamat) {
 		dosen = getDosen();
 		if (dosen != null) {
@@ -977,6 +1027,17 @@ public class Pegawai extends Karyawan {
 		this.alamat = alamat;
 	}
 
+	/**
+	 * Alamat surel pegawai. Kolom ini boleh berisi <b>beberapa alamat sekaligus, dipisah koma</b>
+	 * (lihat {@link #appendEmail(String)}), sehingga getter membersihkan koma ganda dan nilai yang
+	 * hanya berisi koma menjadi string kosong.
+	 *
+	 * <p><b>Kuirk:</b> setelah pembersihan itu, nilai tetap ditimpa dari {@link Dosen}/{@link Guru}
+	 * bila ada — jadi untuk pegawai turunan, hasil normalisasi di awal method terbuang percuma dan
+	 * yang dikembalikan adalah surel mentah milik dosen/guru.</p>
+	 *
+	 * @return daftar surel dipisah koma; string kosong bila tidak ada
+	 */
 	@Column(name = "email", length = 255)
 	public String getEmail() {
 		if (email != null && email.contains(",,")) {
@@ -1003,10 +1064,28 @@ public class Pegawai extends Karyawan {
 		return this.email;
 	}
 
+	/**
+	 * Mengganti seluruh daftar surel dengan nilai baru (tanpa validasi). Untuk <i>menambah</i> satu
+	 * alamat pakai {@link #appendEmail(String)}.
+	 *
+	 * @param email daftar surel dipisah koma
+	 */
 	public void setEmail(String email) {
 		this.email = email;
 	}
 
+	/**
+	 * Menambahkan satu alamat surel ke daftar, dipisah koma, dengan tiga penjagaan: alamat yang
+	 * <b>sudah ada</b> (uji substring) dilewati, alamat yang tidak lolos
+	 * {@code Common.isValidEmailAddress()} ditolak, dan alamat yang diawali {@code "@"} (domain
+	 * saja) ditolak.
+	 *
+	 * <p>Meng-override {@code Karyawan.appendEmail(String)} dengan badan yang sama, tetapi bekerja
+	 * pada field {@code email} milik kelas ini (lihat catatan "field bayangan" di Javadoc kelas).
+	 * Bekerja langsung pada field, jadi normalisasi {@link #getEmail()} tidak ikut dijalankan.</p>
+	 *
+	 * @param email satu alamat surel yang ingin ditambahkan; null/kosong/tidak valid diabaikan
+	 */
 	public void appendEmail(String email) {
 		if (this.email != null && email != null && !email.trim().isEmpty() && StringUtils.contains(this.email, email)) {
 			return;
@@ -1016,6 +1095,14 @@ public class Pegawai extends Karyawan {
 		}
 	}
 
+	/**
+	 * Nomor telepon (rumah/kantor) — <b>getter cermin</b> ke {@code Dosen.getTelp()} /
+	 * {@code Guru.getTeleponGuru()}.
+	 *
+	 * @return nomor telepon apa adanya, atau {@code null}
+	 * @see #getHp()
+	 * @see #ambilNoHp()
+	 */
 	@Column(name = "telp", length = 100)
 	public String getTelp() {
 		dosen = getDosen();
@@ -1029,10 +1116,30 @@ public class Pegawai extends Karyawan {
 		return this.telp;
 	}
 
+	/**
+	 * Mengisi nomor telepon pada field lokal saja.
+	 *
+	 * @param telp nomor telepon
+	 */
 	public void setTelp(String telp) {
 		this.telp = telp;
 	}
 
+	/**
+	 * Jenis kelamin dalam bentuk <b>kanonik</b> {@code "Laki-laki"} atau {@code "Perempuan"}.
+	 *
+	 * <p>Getter ini melakukan pembersihan data warisan yang cukup agresif: nilai {@code null}
+	 * dianggap {@code "Laki-laki"}, singkatan {@code "L"}/{@code "P"} dan variasi kapitalisasi
+	 * ({@code "Laki-Laki"}) dinormalkan, lalu sebagai jaring terakhir setiap nilai yang
+	 * <i>mengandung</i> "laki" atau "puan" dipetakan ke bentuk kanoniknya. Nilai dari
+	 * {@link Dosen}/{@link Guru} diambil lebih dulu bila ada, sehingga normalisasi juga berlaku
+	 * untuk data mereka.</p>
+	 *
+	 * <p><b>Catatan:</b> default ke {@code "Laki-laki"} untuk data kosong berarti getter ini tidak
+	 * pernah mengembalikan {@code null} — jangan dipakai untuk mendeteksi "belum diisi".</p>
+	 *
+	 * @return {@code "Laki-laki"} atau {@code "Perempuan"} (string kosong hanya pada kasus tepi)
+	 */
 	@Column(name = "kelamin", length = 20)
 	public String getKelamin() {
 		if (kelamin == null) {
@@ -1064,10 +1171,23 @@ public class Pegawai extends Karyawan {
 		return this.kelamin == null ? "" : kelamin.trim();
 	}
 
+	/**
+	 * Mengisi jenis kelamin mentah (tanpa normalisasi — normalisasi dilakukan
+	 * {@link #getKelamin()}).
+	 *
+	 * @param kelamin jenis kelamin
+	 */
 	public void setKelamin(String kelamin) {
 		this.kelamin = kelamin;
 	}
 
+	/**
+	 * Kota/tempat kelahiran — <b>getter cermin</b> ke {@code Dosen.getTempatlahir()} /
+	 * {@code Guru.getTempatLahir()}. Nilai {@code null} dinormalkan menjadi string kosong sebelum
+	 * pencerminan.
+	 *
+	 * @return tempat lahir; string kosong bila tidak ada data
+	 */
 	@Column(name = "tempatlahir", length = 100)
 	public String getTempatlahir() {
 		if (tempatlahir == null) {
@@ -1084,10 +1204,22 @@ public class Pegawai extends Karyawan {
 		return this.tempatlahir;
 	}
 
+	/**
+	 * Mengisi tempat lahir pada field lokal saja.
+	 *
+	 * @param tempatlahir kota/tempat kelahiran
+	 */
 	public void setTempatlahir(String tempatlahir) {
 		this.tempatlahir = tempatlahir;
 	}
 
+	/**
+	 * Tanggal lahir — <b>getter cermin</b> ke {@code Dosen.getTanggallahir()} /
+	 * {@code Guru.getTanggalLahir()}. Dipakai antara lain untuk menghitung usia pensiun
+	 * (bandingkan {@link #getUsiaPensiun()}).
+	 *
+	 * @return tanggal lahir, atau {@code null} bila belum diisi
+	 */
 	@Temporal(TemporalType.DATE)
 	@Column(name = "tanggallahir", length = 0)
 	public Date getTanggallahir() {
@@ -1102,23 +1234,55 @@ public class Pegawai extends Karyawan {
 		return this.tanggallahir;
 	}
 
+	/**
+	 * Mengisi tanggal lahir pada field lokal saja.
+	 *
+	 * @param tanggallahir tanggal lahir
+	 */
 	public void setTanggallahir(Date tanggallahir) {
 		this.tanggallahir = tanggallahir;
 	}
 
+	/**
+	 * Mengisi pangkat kepegawaian (teks bebas, mis. "Penata Muda Tk. I").
+	 *
+	 * @param pangkat nama pangkat
+	 */
 	public void setPangkat(String pangkat) {
 		this.pangkat = pangkat;
 	}
 
+	/**
+	 * Pangkat kepegawaian sebagai teks bebas. Berbeda dari {@link Golongan} pada
+	 * {@link KenaikanPangkat} yang merupakan master terstruktur; field ini hanya keterangan.
+	 *
+	 * @return nama pangkat, atau {@code null}
+	 */
 	@Column(name = "pangkat", length = 255)
 	public String getPangkat() {
 		return pangkat;
 	}
 
+	/**
+	 * Mengisi nomor induk utama pegawai (NIP/NIK internal).
+	 *
+	 * @param code nomor induk
+	 */
 	public void setCode(String code) {
 		this.code = code;
 	}
 
+	/**
+	 * Nomor induk utama pegawai (NIP/NIK internal).
+	 *
+	 * <p>Berbeda dengan getter cermin lain, di sini pencerminan bersifat <b>fallback</b>: nilai
+	 * dari {@code Dosen.getCode()} lalu {@code Guru.getNip()} hanya dipakai bila kolom lokal masih
+	 * kosong. Jadi nomor induk yang sudah diisi khusus untuk baris kepegawaian tetap menang.</p>
+	 *
+	 * @return nomor induk; string kosong (bukan {@code null}) bila tidak ada data
+	 * @see #getMycode()
+	 * @see #getNipLama()
+	 */
 	@Column(name = "code", length = 50)
 	public String getCode() {
 		if (code == null || code.trim().isEmpty()) {
@@ -1136,10 +1300,25 @@ public class Pegawai extends Karyawan {
 		return code == null ? "" : code;
 	}
 
+	/**
+	 * Mengisi bendera pegawai tetap.
+	 *
+	 * @param tetap {@code 1} untuk tetap, {@code 0} untuk tidak tetap
+	 */
 	public void setTetap(Integer tetap) {
 		this.tetap = tetap;
 	}
 
+	/**
+	 * Bendera pegawai tetap dalam bentuk angka ({@code 1} = tetap, {@code 0} = tidak). Dipakai
+	 * {@link #getIkatanKerjaDosen()} untuk menyimpulkan ikatan kerja default.
+	 *
+	 * <p><b>Cermin sebagian:</b> nilai ditimpa dari {@code Dosen.getTetap()} bila ada, tetapi
+	 * <b>tidak</b> dari {@link Guru} — jadi untuk pegawai turunan guru nilainya tetap dari kolom
+	 * lokal.</p>
+	 *
+	 * @return {@code 1}/{@code 0}, atau {@code null} bila kolom kosong dan tidak ada dosen
+	 */
 	@Column(name = "tetap", length = 1)
 	public Integer getTetap() {
 		dosen = getDosen();
@@ -1150,10 +1329,22 @@ public class Pegawai extends Karyawan {
 		return tetap;
 	}
 
+	/**
+	 * Mengisi nomor induk alternatif/lokal.
+	 *
+	 * @param mycode nomor induk alternatif
+	 */
 	public void setMycode(String mycode) {
 		this.mycode = mycode;
 	}
 
+	/**
+	 * Nomor induk alternatif (kode internal institusi, di samping {@link #getCode()}).
+	 * Dicerminkan dari {@code Dosen.getMycode()} / {@code Guru.getKode()}, tetapi hanya bila nilai
+	 * sumbernya <b>tidak kosong</b> — sehingga kode lokal tidak terhapus oleh data sumber kosong.
+	 *
+	 * @return nomor induk alternatif tanpa spasi tepi; string kosong bila tidak ada
+	 */
 	public String getMycode() {
 		dosen = getDosen();
 		if (dosen != null && dosen.getMycode() != null && !dosen.getMycode().trim().isEmpty()) {
@@ -1166,10 +1357,34 @@ public class Pegawai extends Karyawan {
 		return mycode == null ? "" : mycode.trim();
 	}
 
+	/**
+	 * Mengisi nama jabatan bebas-teks. Umumnya tidak perlu, karena {@link #getJabatan()} menghitung
+	 * ulang nilainya dari relasi jabatan yang berlaku.
+	 *
+	 * @param jabatan nama jabatan
+	 */
 	public void setJabatan(String jabatan) {
 		this.jabatan = jabatan;
 	}
 
+	/**
+	 * Nama jabatan sebagai teks siap tampil. Nilainya <b>diturunkan</b>, bukan sekadar dibaca dari
+	 * kolom, dengan urutan prioritas:
+	 *
+	 * <ol>
+	 * <li>{@code Dosen.getJabatan()} bila pegawai ini turunan dosen;</li>
+	 * <li>{@link JabatanStruktural} yang berlaku — dan ini <b>menimpa</b> nilai dari dosen;</li>
+	 * <li>{@link JabatanFungsional} yang berlaku;</li>
+	 * <li>{@link LevelJabatan};</li>
+	 * <li>kolom {@code jabatan} apa adanya bila semua di atas kosong.</li>
+	 * </ol>
+	 *
+	 * <p><b>Efek samping berat:</b> {@link #getJabatanStruktural()} dan
+	 * {@link #getJabatanFungsional()} masing-masing memindai seluruh cache {@link KenaikanPangkat},
+	 * jadi getter ini jauh dari murah — hindari memanggilnya berulang di dalam loop render.</p>
+	 *
+	 * @return nama jabatan siap tampil, atau {@code null} bila tidak ada sama sekali
+	 */
 	public String getJabatan() {
 		dosen = getDosen();
 		if (dosen != null) {
@@ -1186,34 +1401,79 @@ public class Pegawai extends Karyawan {
 		return jabatan;
 	}
 
+	/**
+	 * Mengisi bidang keahlian utama.
+	 *
+	 * @param spesialisasi1 bidang keahlian pertama
+	 */
 	public void setSpesialisasi1(String spesialisasi1) {
 		this.spesialisasi1 = spesialisasi1;
 	}
 
+	/**
+	 * Bidang keahlian utama pegawai (teks bebas).
+	 *
+	 * @return bidang keahlian pertama, atau {@code null}
+	 */
 	public String getSpesialisasi1() {
 		return spesialisasi1;
 	}
 
+	/**
+	 * Mengisi bidang keahlian kedua.
+	 *
+	 * @param spesialisasi2 bidang keahlian kedua
+	 */
 	public void setSpesialisasi2(String spesialisasi2) {
 		this.spesialisasi2 = spesialisasi2;
 	}
 
+	/**
+	 * Bidang keahlian kedua pegawai (teks bebas).
+	 *
+	 * @return bidang keahlian kedua, atau {@code null}
+	 */
 	public String getSpesialisasi2() {
 		return spesialisasi2;
 	}
 
+	/**
+	 * Mengisi bidang keahlian ketiga.
+	 *
+	 * @param spesialisasi3 bidang keahlian ketiga
+	 */
 	public void setSpesialisasi3(String spesialisasi3) {
 		this.spesialisasi3 = spesialisasi3;
 	}
 
+	/**
+	 * Bidang keahlian ketiga pegawai (teks bebas).
+	 *
+	 * @return bidang keahlian ketiga, atau {@code null}
+	 */
 	public String getSpesialisasi3() {
 		return spesialisasi3;
 	}
 
+	/**
+	 * Mengisi golongan kepegawaian bebas-teks.
+	 *
+	 * @param golongan nama golongan (mis. "III/b")
+	 */
 	public void setGolongan(String golongan) {
 		this.golongan = golongan;
 	}
 
+	/**
+	 * Golongan kepegawaian sebagai teks bebas — <b>getter cermin</b> ke {@code Dosen.getGolongan()}
+	 * (tanpa jalur guru).
+	 *
+	 * <p>Jangan tertukar dengan {@link Golongan} terstruktur yang melekat pada
+	 * {@link KenaikanPangkat}; yang dipakai untuk menghitung gaji adalah yang terstruktur, bukan
+	 * teks ini.</p>
+	 *
+	 * @return nama golongan, atau {@code null}
+	 */
 	public String getGolongan() {
 		dosen = getDosen();
 		if (dosen != null) {
@@ -1222,6 +1482,13 @@ public class Pegawai extends Karyawan {
 		return golongan;
 	}
 
+	/**
+	 * Nomor KTP/NIK kependudukan. Dicerminkan dari {@code Dosen.getKtp()} / {@code Guru.getNik()},
+	 * tetapi hanya bila nilai sumbernya tidak kosong sehingga NIK yang sudah diisi di baris
+	 * kepegawaian tidak terhapus.
+	 *
+	 * @return nomor KTP/NIK, atau {@code null}
+	 */
 	public String getKtp() {
 		dosen = getDosen();
 		if (dosen != null && dosen.getKtp() != null && !dosen.getKtp().trim().isEmpty()) {
@@ -1235,6 +1502,14 @@ public class Pegawai extends Karyawan {
 		return ktp;
 	}
 
+	/**
+	 * Mengisi nomor KTP/NIK. Bersama {@link #setAlamat(String)}, ini setter yang <b>menulis balik
+	 * ke sumber</b>: NIK ikut di-set pada {@link Guru} ({@code setNik}) dan {@link Dosen}
+	 * ({@code setKtp}) bila nilai barunya tidak kosong, supaya tidak hilang saat
+	 * {@link #getKtp()} dipanggil lagi.
+	 *
+	 * @param ktp nomor KTP/NIK; nilai kosong tetap disimpan lokal tapi tidak diteruskan ke sumber
+	 */
 	public void setKtp(String ktp) {
 		guru = getGuru();
 		if (guru != null && ktp != null && !ktp.trim().isEmpty()) {
@@ -1247,6 +1522,19 @@ public class Pegawai extends Karyawan {
 		this.ktp = ktp;
 	}
 
+	/**
+	 * Status pegawai (aktif, cuti di luar tanggungan, pensiun, dan seterusnya) —
+	 * <b>getter cermin</b> ke {@link Dosen}/{@link Guru}, lalu di-{@code check()} agar proxy yang
+	 * sudah lepas dari sesi digantikan instance dari cache.
+	 *
+	 * <p><b>Tidak pernah mengembalikan {@code null}</b>: bila semua sumber kosong, nilainya
+	 * dipaksa ke {@code ConstantValues.AKTIF_PEGAWAI}. Konsekuensinya, data yang statusnya belum
+	 * pernah diisi otomatis terbaca sebagai aktif.</p>
+	 *
+	 * @return status pegawai; default aktif
+	 * @see #getAktif()
+	 * @see GeneralValueObject
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "status_pegawai")
 	public StatusPegawai getStatusPegawai() {
@@ -1268,10 +1556,25 @@ public class Pegawai extends Karyawan {
 		return statusPegawai;
 	}
 
+	/**
+	 * Mengisi status pegawai.
+	 *
+	 * @param statusPegawai status pegawai; {@code null} akan berubah menjadi "aktif" pada
+	 *                      pembacaan berikutnya
+	 */
 	public void setStatusPegawai(StatusPegawai statusPegawai) {
 		this.statusPegawai = statusPegawai;
 	}
 
+	/**
+	 * Status kepegawaian (mis. PNS, tetap yayasan, kontrak) — <b>getter cermin</b> ke
+	 * {@link Dosen}/{@link Guru} lalu di-{@code check()}.
+	 *
+	 * <p>Berbeda dengan {@link #getStatusPegawai()}, getter ini <b>boleh</b> mengembalikan
+	 * {@code null} bila memang belum diisi.</p>
+	 *
+	 * @return status kepegawaian, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "status_kepegawaian")
 	public StatusKepegawaian getStatusKepegawaian() {
@@ -1287,10 +1590,21 @@ public class Pegawai extends Karyawan {
 		return statusKepegawaian;
 	}
 
+	/**
+	 * Mengisi status kepegawaian.
+	 *
+	 * @param statusKepegawaian status kepegawaian
+	 */
 	public void setStatusKepegawaian(StatusKepegawaian statusKepegawaian) {
 		this.statusKepegawaian = statusKepegawaian;
 	}
 
+	/**
+	 * Unit kerja tempat pegawai ditempatkan (struktur organisasi kepegawaian). Berbeda dari
+	 * {@link #getSatuanKerja()} yang merupakan unit <i>anggaran</i>.
+	 *
+	 * @return unit kerja, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "unit_kerja", nullable = true)
 	public UnitKerja getUnitKerja() {
@@ -1298,10 +1612,42 @@ public class Pegawai extends Karyawan {
 		return unitKerja;
 	}
 
+	/**
+	 * Mengisi unit kerja.
+	 *
+	 * @param unitKerja unit kerja
+	 */
 	public void setUnitKerja(UnitKerja unitKerja) {
 		this.unitKerja = unitKerja;
 	}
 
+	/**
+	 * Satuan kerja (unit anggaran/RAB) pegawai. Ini <b>salah satu getter paling berefek samping</b>
+	 * di kelas ini karena satuan kerja jarang diisi langsung dan harus disimpulkan dari konteks.
+	 *
+	 * <p>Urutan penentuannya:</p>
+	 * <ol>
+	 * <li><b>Penugasan eksplisit.</b> {@code SatuanKerjaPegawai.ambilSatuanKerja(this)} — bila
+	 * pegawai punya penugasan satuan kerja tersendiri, itu yang menang dan method langsung
+	 * selesai.</li>
+	 * <li>Nilai kolom sendiri, setelah {@code check()}.</li>
+	 * <li><b>Warisan struktur akademik, hanya bila unit tersebut mewajibkan</b> (bendera
+	 * {@code getDosenHarusPakaiSatuanKerja()} / {@code getGuruHarusPakaiSatuanKerja()}):
+	 * jurusan dosen, lalu fakultas dosen, lalu perguruan tinggi dosen, lalu sekolah guru.</li>
+	 * <li>Bila masih kosong: sekolah guru atau perguruan tinggi dosen <i>tanpa</i> syarat bendera.</li>
+	 * <li>Bila masih kosong <b>dan entity ini belum tersimpan</b> ({@code id == null}): satuan
+	 * kerja milik pengguna yang sedang login ({@code Common.getCurrentUser().ambilSatuanKerja()}),
+	 * lalu satuan kerja {@link Perpustakaan} yang sedang aktif. Inilah yang membuat pegawai baru
+	 * otomatis masuk ke satuan kerja operator yang menginput.</li>
+	 * </ol>
+	 *
+	 * <p><b>Efek samping:</b> menulis ke field {@code satuanKerja}, {@code dosen}, {@code guru};
+	 * dapat membaca sesi pengguna yang sedang berjalan; dapat memicu beberapa inisialisasi proxy
+	 * lazy. Beberapa langkah dibungkus {@code try/catch} agar data tidak lengkap tidak
+	 * menggagalkan pembacaan.</p>
+	 *
+	 * @return satuan kerja hasil penyimpulan, atau {@code null} bila semua jalur gagal
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "satuan_kerja", nullable = true)
 	public SatuanKerja getSatuanKerja() {
@@ -1369,10 +1715,27 @@ public class Pegawai extends Karyawan {
 		return satuanKerja;
 	}
 
+	/**
+	 * Mengisi satuan kerja secara eksplisit. Perhatikan bahwa {@link #getSatuanKerja()} tetap dapat
+	 * menimpanya bila ada penugasan {@code SatuanKerjaPegawai} atau bila unit akademik mewajibkan
+	 * satuan kerja tertentu.
+	 *
+	 * @param satuanKerja satuan kerja
+	 */
 	public void setSatuanKerja(SatuanKerja satuanKerja) {
 		this.satuanKerja = satuanKerja;
 	}
 
+	/**
+	 * Agama pegawai — <b>getter cermin</b>, dengan sumber yang berbeda per jalur: untuk dosen
+	 * diambil dari {@code Dosen.ambilBiodata().getAgama()} (entity biodata terpisah), untuk guru
+	 * langsung dari {@code Guru.getAgama()}.
+	 *
+	 * <p>Perhatikan urutannya: {@code check()} dijalankan lebih dulu, baru pencerminan, sehingga
+	 * nilai dari dosen/guru selalu menang.</p>
+	 *
+	 * @return agama, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "agama", nullable = true)
 	public Agama getAgama() {
@@ -1392,10 +1755,29 @@ public class Pegawai extends Karyawan {
 		return agama;
 	}
 
+	/**
+	 * Mengisi agama.
+	 *
+	 * @param agama agama pegawai
+	 */
 	public void setAgama(Agama agama) {
 		this.agama = agama;
 	}
 
+	/**
+	 * Status perkawinan sebagai teks siap tampil.
+	 *
+	 * <p>Untuk jalur dosen nilainya <b>diterjemahkan</b> dari kode angka
+	 * {@code BiodataDosen.getStatusNikah()}: {@code 0} = "Belum Nikah", {@code 1} = "Nikah",
+	 * {@code 2} = "Janda", {@code 3} = "Duda", nilai lain menjadi string kosong. Untuk jalur guru
+	 * nilainya sudah berupa teks dan dipakai apa adanya.</p>
+	 *
+	 * <p><b>Catatan ketahanan:</b> penerjemahan memanggil {@code .equals()} pada hasil
+	 * {@code getStatusNikah()} tanpa penjagaan null — biodata dosen yang kolom status nikahnya
+	 * kosong dapat memicu {@link NullPointerException} di sini.</p>
+	 *
+	 * @return status perkawinan siap tampil, atau {@code null} bila tidak ada data
+	 */
 	public String getStatusPerkawinan() {
 		dosen = getDosen();
 		if (dosen != null) {
@@ -1415,10 +1797,22 @@ public class Pegawai extends Karyawan {
 		return statusPerkawinan;
 	}
 
+	/**
+	 * Mengisi status perkawinan (teks bebas).
+	 *
+	 * @param statusPerkawinan status perkawinan
+	 */
 	public void setStatusPerkawinan(String statusPerkawinan) {
 		this.statusPerkawinan = statusPerkawinan;
 	}
 
+	/**
+	 * Bagian "jalan" dari alamat berjenjang — dicerminkan dari {@code BiodataDosen.getAlamat()}
+	 * atau {@code Guru.getAlamatGuru()}.
+	 *
+	 * @return alamat jalan, atau {@code null}
+	 * @see #getAlamat()
+	 */
 	public String getAlamatJalan() {
 		dosen = getDosen();
 		if (dosen != null) {
@@ -1434,10 +1828,21 @@ public class Pegawai extends Karyawan {
 		return alamatJalan;
 	}
 
+	/**
+	 * Mengisi bagian jalan dari alamat.
+	 *
+	 * @param alamatJalan nama jalan/nomor rumah
+	 */
 	public void setAlamatJalan(String alamatJalan) {
 		this.alamatJalan = alamatJalan;
 	}
 
+	/**
+	 * Kelurahan/desa domisili — dicerminkan dari {@code BiodataDosen.getKelurahan()} atau
+	 * {@code Guru.getKelurahan()}.
+	 *
+	 * @return nama kelurahan, atau {@code null}
+	 */
 	public String getAlamatKelurahan() {
 		dosen = getDosen();
 		if (dosen != null) {
@@ -1453,10 +1858,26 @@ public class Pegawai extends Karyawan {
 		return alamatKelurahan;
 	}
 
+	/**
+	 * Mengisi kelurahan/desa domisili.
+	 *
+	 * @param alamatKelurahan nama kelurahan
+	 */
 	public void setAlamatKelurahan(String alamatKelurahan) {
 		this.alamatKelurahan = alamatKelurahan;
 	}
 
+	/**
+	 * Kabupaten/kota domisili. Untuk dosen diambil dari {@code BiodataDosen.getKota().getNama()}.
+	 *
+	 * <p><b>Kuirk (dicatat, tidak diperbaiki):</b> pada jalur {@link Guru} nilai yang dihitung
+	 * (nama wilayah induk kecamatan) justru ditulis ke field {@code alamatPropinsi}, bukan
+	 * {@code alamatKabupaten} — tampak seperti salah salin. Akibatnya untuk pegawai turunan guru,
+	 * getter ini mengembalikan nilai kolom lama dan {@link #getAlamatPropinsi()} sempat tertimpa
+	 * nama kabupaten sebelum dihitung ulang oleh getter-nya sendiri.</p>
+	 *
+	 * @return nama kabupaten/kota, atau {@code null}
+	 */
 	public String getAlamatKabupaten() {
 		dosen = getDosen();
 		if (dosen != null) {
@@ -1473,10 +1894,24 @@ public class Pegawai extends Karyawan {
 		return alamatKabupaten;
 	}
 
+	/**
+	 * Mengisi kabupaten/kota domisili.
+	 *
+	 * @param alamatKabupaten nama kabupaten/kota
+	 */
 	public void setAlamatKabupaten(String alamatKabupaten) {
 		this.alamatKabupaten = alamatKabupaten;
 	}
 
+	/**
+	 * Provinsi domisili. Untuk dosen diambil dari {@code BiodataDosen.getPropinsi().getNama()};
+	 * untuk guru ditelusuri dua tingkat ke atas dari kecamatan
+	 * ({@code kecamatan → wilayahInduk (kabupaten) → wilayahInduk (provinsi)}), dengan penjagaan
+	 * null di setiap tingkat.
+	 *
+	 * @return nama provinsi, atau {@code null}/string kosong bila rantai wilayah tidak lengkap
+	 * @see #getPropinsi()
+	 */
 	public String getAlamatPropinsi() {
 		dosen = getDosen();
 		if (dosen != null) {
@@ -1494,78 +1929,178 @@ public class Pegawai extends Karyawan {
 		return alamatPropinsi;
 	}
 
+	/**
+	 * Mengisi provinsi domisili.
+	 *
+	 * @param alamatPropinsi nama provinsi
+	 */
 	public void setAlamatPropinsi(String alamatPropinsi) {
 		this.alamatPropinsi = alamatPropinsi;
 	}
 
+	/**
+	 * Tinggi badan (teks bebas, satuan tidak dipaksakan) — bagian dari blok "ciri fisik" untuk
+	 * berkas personalia/kartu pegawai.
+	 *
+	 * @return keterangan tinggi badan, atau {@code null}
+	 */
 	public String getKeteranganBadanTinggi() {
 		return keteranganBadanTinggi;
 	}
 
+	/**
+	 * Mengisi keterangan tinggi badan.
+	 *
+	 * @param keteranganBadanTinggi keterangan tinggi badan
+	 */
 	public void setKeteranganBadanTinggi(String keteranganBadanTinggi) {
 		this.keteranganBadanTinggi = keteranganBadanTinggi;
 	}
 
+	/**
+	 * Berat badan (teks bebas) — bagian dari blok ciri fisik.
+	 *
+	 * @return keterangan berat badan, atau {@code null}
+	 */
 	public String getKeteranganBadanBerat() {
 		return keteranganBadanBerat;
 	}
 
+	/**
+	 * Mengisi keterangan berat badan.
+	 *
+	 * @param keteranganBadanBerat keterangan berat badan
+	 */
 	public void setKeteranganBadanBerat(String keteranganBadanBerat) {
 		this.keteranganBadanBerat = keteranganBadanBerat;
 	}
 
+	/**
+	 * Ciri rambut — bagian dari blok ciri fisik.
+	 *
+	 * @return keterangan rambut, atau {@code null}
+	 */
 	public String getKeteranganBadanRambut() {
 		return keteranganBadanRambut;
 	}
 
+	/**
+	 * Mengisi keterangan rambut.
+	 *
+	 * @param keteranganBadanRambut keterangan rambut
+	 */
 	public void setKeteranganBadanRambut(String keteranganBadanRambut) {
 		this.keteranganBadanRambut = keteranganBadanRambut;
 	}
 
+	/**
+	 * Bentuk muka — bagian dari blok ciri fisik.
+	 *
+	 * @return keterangan bentuk muka, atau {@code null}
+	 */
 	public String getKeteranganBadanBentukMuka() {
 		return keteranganBadanBentukMuka;
 	}
 
+	/**
+	 * Mengisi keterangan bentuk muka.
+	 *
+	 * @param keteranganBadanBentukMuka keterangan bentuk muka
+	 */
 	public void setKeteranganBadanBentukMuka(String keteranganBadanBentukMuka) {
 		this.keteranganBadanBentukMuka = keteranganBadanBentukMuka;
 	}
 
+	/**
+	 * Warna kulit — bagian dari blok ciri fisik.
+	 *
+	 * @return keterangan warna kulit, atau {@code null}
+	 */
 	public String getKeteranganBadanWarnaKulit() {
 		return keteranganBadanWarnaKulit;
 	}
 
+	/**
+	 * Mengisi keterangan warna kulit.
+	 *
+	 * @param keteranganBadanWarnaKulit keterangan warna kulit
+	 */
 	public void setKeteranganBadanWarnaKulit(String keteranganBadanWarnaKulit) {
 		this.keteranganBadanWarnaKulit = keteranganBadanWarnaKulit;
 	}
 
+	/**
+	 * Ciri khas/tanda pengenal fisik lain (tahi lalat, bekas luka, dan sebagainya).
+	 *
+	 * @return keterangan ciri khas, atau {@code null}
+	 */
 	public String getKeteranganBadanCiriKhas() {
 		return keteranganBadanCiriKhas;
 	}
 
+	/**
+	 * Mengisi keterangan ciri khas fisik.
+	 *
+	 * @param keteranganBadanCiriKhas keterangan ciri khas
+	 */
 	public void setKeteranganBadanCiriKhas(String keteranganBadanCiriKhas) {
 		this.keteranganBadanCiriKhas = keteranganBadanCiriKhas;
 	}
 
+	/**
+	 * Keterangan disabilitas/cacat tubuh, dipakai antara lain untuk pelaporan pegawai
+	 * berkebutuhan khusus.
+	 *
+	 * @return keterangan cacat, atau {@code null}
+	 */
 	public String getKeteranganBadanCacat() {
 		return keteranganBadanCacat;
 	}
 
+	/**
+	 * Mengisi keterangan disabilitas/cacat tubuh.
+	 *
+	 * @param keteranganBadanCacat keterangan cacat
+	 */
 	public void setKeteranganBadanCacat(String keteranganBadanCacat) {
 		this.keteranganBadanCacat = keteranganBadanCacat;
 	}
 
+	/**
+	 * Hobi/minat pegawai (teks bebas, informasi personalia).
+	 *
+	 * @return hobi, atau {@code null}
+	 */
 	public String getHobi() {
 		return hobi;
 	}
 
+	/**
+	 * Mengisi hobi.
+	 *
+	 * @param hobi hobi/minat
+	 */
 	public void setHobi(String hobi) {
 		this.hobi = hobi;
 	}
 
+	/**
+	 * Jenis kepegawaian sebagai teks bebas. Nilai yang dikenali ada pada konstanta
+	 * {@link #JENIS_FUNGSIONAL}, {@link #JENIS_STRUKTURAL}, {@link #JENIS_HONORER}, dan
+	 * {@link #JENIS_OUTSOURCHING}, tetapi kolomnya tidak divalidasi sehingga nilai lain juga
+	 * mungkin tersimpan.
+	 *
+	 * @return jenis kepegawaian, atau {@code null}
+	 */
 	public String getJenis() {
 		return jenis;
 	}
 
+	/**
+	 * Mengisi jenis kepegawaian.
+	 *
+	 * @param jenis salah satu konstanta {@code JENIS_*}, atau teks bebas
+	 */
 	public void setJenis(String jenis) {
 		this.jenis = jenis;
 	}
