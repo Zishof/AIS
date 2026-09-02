@@ -93,7 +93,7 @@ mengubah tanpa dapat menguji.
 Tiga harness bersandar-basis-data belum pernah berjalan sekali pun. Ini juga
 yang membuat A.1 dan A.5 tidak dapat dinilai risikonya.
 
-### 2. Tidak ada toolchain Dart/Flutter di mesin ini — dok. 86, 94
+### 2. ~~Tidak ada toolchain Dart/Flutter di mesin ini~~ — GUGUR, lihat F
 
 Perbaikan sisi klien pada dok. 85, 86, dan 94 **sudah di-push tetapi belum
 pernah dijalankan**. Yang diperiksa hanya: keseimbangan kurung, penyisipan di

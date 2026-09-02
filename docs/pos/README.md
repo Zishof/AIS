@@ -110,6 +110,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [96-alasan-yang-wajib-diketik-dan-tak-pernah-dibaca.md](96-alasan-yang-wajib-diketik-dan-tak-pernah-dibaca.md) | Alasan reversal wajib diketik Pemilik lalu tak pernah ditampilkan; 18 kolom hanya-ditulis |
 | [97-daftar-keputusan-lanjutan.md](97-daftar-keputusan-lanjutan.md) | Penerus dok. 78: seluruh keputusan yang menunggu dari dok. 79-96, terkumpul di satu halaman |
 | [98-path-kosong-bukan-berarti-tidak-ada.md](98-path-kosong-bukan-berarti-tidak-ada.md) | "Tidak ada toolchain Dart" ternyata salah; 710 uji dijalankan dan lulus, letaknya kini direkam |
+| [99-kontrol-kas-yang-dijaga-komentar.md](99-kontrol-kas-yang-dijaga-komentar.md) | Sepuluh suite dijalankan (semua hijau); laci kasir dijaga komentar saja, kini ada ujinya |
 
 | [35-lampiran-gambar.md](35-lampiran-gambar.md) | Lampiran gambar — blob, maksimum 500 KB, dikecilkan di klien |
 | [52-fase-b-satuan-jual.md](52-fase-b-satuan-jual.md) | 52. Fase B — Satuan Jual per Baris Transaksi |
@@ -173,6 +174,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [95-snapshot-menu-parsial-dan-larangan-yang-saya-langgar.md](95-snapshot-menu-parsial-dan-larangan-yang-saya-langgar.md) | Skema snapshot dibaca salah; snapshot parsial (155 induk hilang); dan larangan sunting manual yang terlanggar |
 | [96-dua-pohon-cermin-yang-terus-bergeser.md](96-dua-pohon-cermin-yang-terus-bergeser.md) | java/ dan src/ wajib identik; 5 berkas menyimpang, 4 disamakan, 1 milik sesi lain |
 | [97-katalog-laporan-akuntansi-yang-belum-ada.md](97-katalog-laporan-akuntansi-yang-belum-ada.md) | 11 laporan akuntansi terdaftar di katalog POS tetapi jatuh ke "sedang disiapkan"; panduan staf tidak terpengaruh |
+| [98-empat-sapuan-keuangan-yang-bersih.md](98-empat-sapuan-keuangan-yang-bersih.md) | Empat sapuan keuangan tanpa cacat, satu di antaranya dicatat "tidak terjawab"; angka panduan staf diverifikasi |
 | [ATURAN-NATIVE-SQL-CAST.md](ATURAN-NATIVE-SQL-CAST.md) | Aturan wajib cast pada native SQL |
 | [BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md](BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md) | Pengamanan Pembayaran Kedaluwarsa Bankaltimtara |
 | [PERBAIKAN_ERROR_2026-08-24_1936.md](PERBAIKAN_ERROR_2026-08-24_1936.md) | Perbaikan Error POS/eBisnis 24 Agustus 2026 19:36 |
