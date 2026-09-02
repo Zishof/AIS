@@ -2,7 +2,10 @@ package ais.action.master.helper;
 
 
 import ais.common.CommonSearchFilterHelper;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.hibernate.Criteria;
 import org.hibernate.Session;
@@ -35,6 +38,8 @@ import ais.common.ConstantValues;
 import ais.common.listener.DataLoader;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Dosen;
+import ais.database.model.Fakultas;
+import ais.database.model.Jurusan;
 import ais.database.model.Kelas;
 import ais.database.model.KrsMahasiswa;
 import ais.database.model.Mahasiswa;
@@ -70,6 +75,7 @@ public class AmbilDataMahasiswaForDosenPAHelper {
 	private Decimalbox tahunangkatan;
 	private Textbox dariNim;
 	private Textbox sampaiNim;
+	private Label ringkasanPencarian;
 
 	private Combobox searchfakultas = new Combobox();
 	private Combobox searchjurusan = new Combobox();
@@ -287,14 +293,39 @@ public class AmbilDataMahasiswaForDosenPAHelper {
 		toolbar.setParent(div);
 		Label petunjuk = new Label(
 				"Mahasiswa yang sudah memiliki Dosen PA tetap dapat dicari dan dipilih untuk dipindahkan. "
-						+ "Periksa kolom Dosen PA sebelum menyimpan.");
+						+ "Periksa kolom Dosen PA sebelum menyimpan. Homebase dosen tujuan tidak membatasi hasil; "
+						+ "gunakan filter Fakultas/Prodi bila pembatasan memang diperlukan.");
 		petunjuk.setStyle("display:block;color:#475569;background:#f8fafc;border:1px solid #cbd5e1;"
 				+ "border-radius:6px;padding:7px 10px;margin:4px 0;");
 		petunjuk.setParent(div);
+		ringkasanPencarian = new Label();
+		ringkasanPencarian.setStyle("display:block;color:#1e3a5f;background:#eff6ff;border:1px solid #bfdbfe;"
+				+ "border-radius:6px;padding:7px 10px;margin:4px 0;white-space:normal;");
+		ringkasanPencarian.setParent(div);
 
 		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Cari", "/img/svg/search.svg");
 		button.setTooltiptext("Cari kandidat mahasiswa sesuai filter");
 		button.addEventListener("onClick", eventCariDariAwal);
+		button.setParent(toolbar);
+
+		button = new MyToolbarbuttonConfig("Reset Filter", "/img/svg/refresh.svg");
+		button.setTooltiptext("Kosongkan seluruh filter dan tampilkan kembali semua kandidat mahasiswa");
+		button.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				nim.setValue("");
+				nama.setValue("");
+				dariNim.setValue("");
+				sampaiNim.setValue("");
+				tahunangkatan.setValue(null);
+				searchkelas.setAttribute("kelas", null);
+				searchkelas.setValue("");
+				if (searchfakultas.getItemCount() > 0) searchfakultas.setSelectedIndex(0);
+				if (searchjurusan.getItemCount() > 0) searchjurusan.setSelectedIndex(0);
+				pagingHelper.getPaging().setActivePage(0);
+				onSearchDefault(null);
+			}
+		});
 		button.setParent(toolbar);
 
 		grid = new MyGrid();// grid.setOddRowSclass("non-odd");
@@ -491,6 +522,93 @@ public class AmbilDataMahasiswaForDosenPAHelper {
 		return criteria;
 	}
 
+	private String teks(Textbox textbox) {
+		return textbox == null || textbox.getValue() == null ? "" : textbox.getValue().trim();
+	}
+
+	private boolean idSama(Object kiri, Object kanan) {
+		if (kiri == kanan) return true;
+		if (kiri == null || kanan == null) return false;
+		try {
+			Object idKiri = kiri.getClass().getMethod("getId").invoke(kiri);
+			Object idKanan = kanan.getClass().getMethod("getId").invoke(kanan);
+			return idKiri != null && idKiri.equals(idKanan);
+		} catch (Exception e) {
+			return kiri.equals(kanan);
+		}
+	}
+
+	/**
+	 * Menjelaskan mengapa pencarian NIM menghasilkan nol baris. Audit tambahan ini hanya
+	 * dijalankan ketika hasil kosong dan field NIM diisi, sehingga tidak menambah query pada
+	 * pemuatan normal. Pencarian audit sengaja mengabaikan seluruh filter kandidat terlebih
+	 * dahulu; setelah baris master ditemukan, setiap filter yang terlihat di layar dibandingkan
+	 * satu per satu. Dengan demikian operator dapat membedakan NIM yang memang tidak ada,
+	 * baris master yang sudah dinonaktifkan, dan kombinasi filter yang saling bertentangan.
+	 */
+	@SuppressWarnings("unchecked")
+	private String analisisNimTidakDitemukan() {
+		String kataNim = teks(nim);
+		if (kataNim.isEmpty()) {
+			if (!teks(dariNim).isEmpty() || !teks(sampaiNim).isEmpty()) {
+				return "Rentang NIM tidak menghasilkan kandidat. Pastikan batas awal/akhir benar dan "
+						+ "kosongkan filter Nama, Angkatan, Fakultas, Prodi, atau Kelas yang tidak diperlukan.";
+			}
+			return "Tidak ada kandidat yang cocok. Gunakan Reset Filter untuk menghapus pembatas yang masih terisi.";
+		}
+
+		List<Mahasiswa> semuaDenganNim = HibernateUtil.currentSession().createCriteria(Mahasiswa.class)
+				.add(Restrictions.ilike("nim", kataNim, MatchMode.ANYWHERE))
+				.addOrder(Order.asc("nim")).setMaxResults(25).list();
+		if (semuaDenganNim.isEmpty()) {
+			return "NIM '" + kataNim + "' tidak ditemukan pada master Mahasiswa. Periksa penulisan NIM "
+					+ "atau pastikan data mahasiswa sudah dibuat/sinkron.";
+		}
+
+		Object prodiDipilih = CommonSearchFilterHelper.selectedValueWithId(searchjurusan);
+		Object fakultasDipilih = CommonSearchFilterHelper.selectedValueWithId(searchfakultas);
+		Kelas kelasDipilih = searchkelas == null ? null : (Kelas) searchkelas.getAttribute("kelas");
+		Set<String> alasan = new LinkedHashSet<String>();
+		for (Mahasiswa mahasiswa : semuaDenganNim) {
+			if (Boolean.FALSE.equals(mahasiswa.getAktif())) {
+				alasan.add("baris master mahasiswa sudah nonaktif atau merupakan NIM lama setelah pindah");
+			}
+			if (!teks(nama).isEmpty() && (mahasiswa.getNama() == null
+					|| !mahasiswa.getNama().toLowerCase().contains(teks(nama).toLowerCase()))) {
+				alasan.add("Nama tidak cocok dengan filter Nama Mahasiswa");
+			}
+			if (tahunangkatan.getValue() != null
+					&& !Integer.valueOf(tahunangkatan.getValue().intValue()).equals(mahasiswa.getTahunangkatan())) {
+				alasan.add("tahun angkatan berbeda dari filter Angkatan Mahasiswa");
+			}
+			if (prodiDipilih instanceof Jurusan && !idSama(mahasiswa.getJurusan(), prodiDipilih)) {
+				alasan.add("prodi mahasiswa berbeda dari filter Prodi");
+			}
+			Fakultas fakultasMahasiswa = mahasiswa.getJurusan() == null ? null : mahasiswa.getJurusan().getFakultas();
+			if (fakultasDipilih instanceof Fakultas && !idSama(fakultasMahasiswa, fakultasDipilih)) {
+				alasan.add("fakultas mahasiswa berbeda dari filter Fakultas");
+			}
+			if (kelasDipilih != null && (mahasiswa.getKelas() == null
+					|| !mahasiswa.getKelas().trim().equalsIgnoreCase(kelasDipilih.getNama().trim()))) {
+				alasan.add("kelas mahasiswa berbeda dari filter Kelas");
+			}
+			String nimMahasiswa = mahasiswa.getNim() == null ? "" : mahasiswa.getNim().trim();
+			if (!teks(dariNim).isEmpty() && nimMahasiswa.compareToIgnoreCase(teks(dariNim)) < 0) {
+				alasan.add("NIM berada di bawah batas Dari NIM");
+			}
+			if (!teks(sampaiNim).isEmpty() && nimMahasiswa.compareToIgnoreCase(teks(sampaiNim)) > 0) {
+				alasan.add("NIM berada di atas batas Sampai NIM");
+			}
+		}
+
+		if (alasan.isEmpty()) {
+			return "NIM ditemukan pada master, tetapi tidak lolos kombinasi filter kandidat. Klik Reset Filter "
+					+ "lalu cari kembali; bila tetap kosong, periksa flag aktif pada data master mahasiswa.";
+		}
+		return "NIM ditemukan pada master, tetapi tidak tampil karena: "
+				+ new ArrayList<String>(alasan).toString().replace("[", "").replace("]", "") + ".";
+	}
+
 	/**
 	 * Memuat ulang grid mahasiswa sesuai {@link #initCriteria(boolean)} memakai paging
 	 * server-side.
@@ -501,13 +619,26 @@ public class AmbilDataMahasiswaForDosenPAHelper {
 	public void onSearchDefault(Event event) {
 
 		List<Mahasiswa> mahasiswa = pagingHelper.cariDenganCriteria(initCriteria(true), Mahasiswa.class);
+		String analisisKosong = mahasiswa.isEmpty() ? analisisNimTidakDitemukan() : null;
 
 		ListModel strset = new SimpleListModel(mahasiswa);
 		grid.setRowRenderer(new MahasiswaRenderer());
 		grid.setEmptyMessage(mahasiswa.isEmpty()
-				? "Tidak ada kandidat mahasiswa yang sesuai. Kosongkan Angkatan Mahasiswa atau sesuaikan filter pencarian."
+				? analisisKosong
 				: "Tidak ada kandidat mahasiswa yang cocok dengan filter.");
 		grid.setModelCheckMobile(strset);
+		if (ringkasanPencarian != null) {
+			int total = pagingHelper.getPaging().getTotalSize();
+			ringkasanPencarian.setValue(total > 0
+					? "Ditemukan " + Common.numberFormat.get().format(total)
+							+ " kandidat. Ditampilkan maksimal " + pagingHelper.getPageSize()
+							+ " mahasiswa per halaman; gunakan paging untuk halaman berikutnya."
+					: analisisKosong);
+			ringkasanPencarian.setStyle("display:block;color:" + (total > 0 ? "#1e3a5f" : "#9a3412")
+					+ ";background:" + (total > 0 ? "#eff6ff" : "#fff7ed")
+					+ ";border:1px solid " + (total > 0 ? "#bfdbfe" : "#fdba74")
+					+ ";border-radius:6px;padding:7px 10px;margin:4px 0;white-space:normal;");
+		}
 
 	}
 }
