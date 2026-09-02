@@ -74,23 +74,58 @@ DIIZINKAN = {
     'statusAsli': 'idem',
 }
 
+# Seluruhnya sudah DITELUSURI satu per satu (docs/pos/79). Nilainya adalah vonis
+# penelusuran itu -- bukan sekadar penanda "belum diperiksa".
+#
+# Tiga kelompok, dan hanya kelompok pertama yang benar-benar merugikan.
 UTANG = {
-    # Peringatan pasca-transaksi yang lahir tanpa pembaca -- bentuk yang sama
-    # dengan peringatanStok sebelum dok. 76. Belum dibayar: kejadiannya jarang,
-    # isinya sudah tercatat permanen di Error Log server lewat ErrorAuditUtil
-    # berikut jejak tumpukannya, dan yang perlu menindaklanjuti adalah
-    # administrator/keuangan, bukan kasir di depan layar.
-    'peringatanPengajuanLimit',
-    # Sesi kas -- penanda diagnostik rekonsiliasi sesi.
-    'sesi_kas_tidak_dikenal', 'sesi_kas_direkonsiliasi', 'sesi_kas_sudah_tutup',
-    'sesi_kas_asal', 'idSesiKas',
-    # Id/angka pendamping yang klien memilih memakai jalur lain.
-    # versiStok sempat dicurigai penjaga lost-update karena namanya; diperiksa,
-    # isinya hanya so.getId() yang juga sudah dikirim sbg "id".
-    'pengajuanLimitId', 'satuanDasarId', 'waktuHargaBeliTerakhir', 'versiStok',
-    # Ringkasan hasil proses massal.
-    'draftDiperbarui', 'ringkasanBerjalan', 'siapDisimpan', 'totalGrup',
-    'totalTerjualBersih', 'statusRincian',
+    # --- KELOMPOK 1: peringatan pasca-transaksi yang TIDAK sampai ke siapa pun.
+    # Bentuknya sama persis dgn peringatanStok sebelum dok. 76: transaksi diterima,
+    # tetapi ada yang perlu direkonsiliasi dan kliennya diberi tahu -- lalu tidak ada
+    # yang membaca. Keempatnya lahir dari insiden Toko Al Bahjah yang dicatat di
+    # komentar kodenya sendiri.
+    'sesi_kas_sudah_tutup':
+        'transaksi masuk ke sesi kas yang SUDAH DITUTUP. Komentar kodenya menyatakan '
+        'niatnya sendiri: "dikembalikan ke klien supaya bagian keuangan punya jejaknya" '
+        '-- dan tidak ada klien yang membacanya. TEMUAN TERKUAT dari 16.',
+    'sesi_kas_asal':
+        'kode sesi kas asal transaksi terlambat; pendamping sesi_kas_sudah_tutup, '
+        'tanpa nilai ini jejaknya tidak dapat ditelusuri ke sesi mana pun.',
+    'sesi_kas_tidak_dikenal':
+        'kode sesi dari payload tidak dikenal server; transaksinya tetap diterima dan '
+        'diikat ke sesi yang sedang terbuka. Kasir tidak pernah tahu transaksinya '
+        'berpindah sesi (insiden 61 transaksi, 21-08-2026).',
+    'sesi_kas_direkonsiliasi':
+        'server menemukan sesi yang benar-benar terbuka pada waktu transaksi lalu '
+        'mengikat ulang ke sana. Perpindahan yang tidak pernah diberitahukan.',
+    'peringatanPengajuanLimit':
+        'penandaan "persetujuan limit sudah dipakai" GAGAL sesudah transaksi final. '
+        'Belum dibayar: jarang, dan sudah tercatat permanen di Error Log server lewat '
+        'ErrorAuditUtil berikut jejak tumpukannya.',
+
+    # --- KELOMPOK 2: pendamping yang saudaranya MEMANG dibaca klien.
+    # Diverifikasi satu per satu; klien memakai saudaranya, bukan nilai ini.
+    'idSesiKas': 'klien memakai kodeSesiKas (terbaca 2 Dart + 1 JSP)',
+    'satuanDasarId': 'klien memakai satuanDasarNama (terbaca 1 Dart)',
+    'waktuHargaBeliTerakhir': 'klien memakai hargaBeliTerakhir (terbaca 2 Dart)',
+    'versiStok': 'isinya hanya so.getId(), yang juga sudah dikirim sbg "id" '
+                 '(stokAkhir terbaca 2 Dart). Nama menyesatkan, bukan penjaga '
+                 'lost-update seperti yang terbaca sekilas.',
+    'pengajuanLimitId': 'klien memakai kode unik nota, bukan id pengajuan '
+                        '(lihat keranjang_screen.dart _kodePengajuanLimitTertunda)',
+
+    # --- KELOMPOK 3: angka turunan/gema yang klien dapat hitung sendiri.
+    'draftDiperbarui': 'boolean !draftBaru; klien sudah tahu ia mengirim draft atau tidak',
+    'ringkasanBerjalan': 'objek bersarang; klien membaca totalTunai/totalNonTunai/'
+                         'kasSaatIni yang sudah diratakan di sebelahnya',
+    'siapDisimpan': 'boolean turunan dari validasi yang isinya sudah dikirim terpisah',
+    'totalGrup': 'sama dengan grup.length(); klien menghitung arraynya sendiri',
+    'statusRincian': 'gema parameter status dari permintaannya sendiri',
+    'totalTerjualBersih':
+        'totalTerjual - totalRetur. CATATAN BATAS ALAT: kedua saudaranya juga TIDAK '
+        'dibaca klien mana pun (0 Dart, 0 JSP) -- keduanya lolos dari daftar ini hanya '
+        'karena namanya kebetulan muncul di sumber server untuk keperluan lain. '
+        'Kelonggaran "pembaca sisi server" bisa menutupi field yang sebenarnya yatim.',
 }
 
 POLA_KIRIM = re.compile(r'hasil\.put\("([A-Za-z0-9_]+)"')
@@ -137,7 +172,7 @@ def main():
 
     yatim = [f for f in dikirim if f not in DIIZINKAN and f not in semua]
     baru = [f for f in yatim if f not in UTANG]
-    basi = sorted(u for u in UTANG if u not in yatim)
+    basi = sorted(u for u in UTANG.keys() if u not in yatim)
 
     print('')
     print('== Utang lama (dibekukan): %d ==' % (len(yatim) - len(baru)))

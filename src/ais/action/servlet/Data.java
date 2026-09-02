@@ -422,17 +422,37 @@ public class Data extends HttpServlet {
 			log = jsonObject.optString("log_response", "");
 			Tbmuser tbmuser = Common.getCurrentUser(request);
 			String tanpaLogin = jsonObject.optString("tanpaLogin", "");
+			String action = jsonObject.optString("action", "");
+			boolean belumLogin = tbmuser == null || tbmuser.getUserId() == null;
+
+			// Aksi yang menjalankan SQL TULIS bebas dari klien TIDAK PERNAH boleh anonim.
+			//
+			// "tanpaLogin" adalah penanda yang dikirim halaman itu sendiri, jadi pemanggil mana
+			// pun dapat menyetelnya -- termasuk yang tidak pernah membuka halaman kita. Untuk
+			// aksi baca, penanda itu memang dipakai halaman publik yang sah (landing page,
+			// pendaftaran calon anggota, toko online). Untuk aksi TULIS tidak ada satu pun
+			// halaman yang memakainya (diperiksa atas seluruh JSP), sehingga menutupnya tidak
+			// memutus fungsi apa pun -- sementara membiarkannya berarti siapa saja yang dapat
+			// menjangkau endpoint ini bisa menjalankan UPDATE/DELETE tanpa pernah masuk.
+			//
+			// Ini pertahanan LAPIS PERTAMA yang tidak bergantung pada konfigurasi; lapis
+			// keduanya, SqlSecurityGuard, hanya berlaku bila pemilik menyalakannya (dok. 70).
+			boolean aksiSqlTulis = "update_data".equals(action) || "update_file_data".equals(action);
+			if (aksiSqlTulis && belumLogin) {
+				JSONObject jerr = new JSONObject();
+				jerr.put("status", "90");
+				jerr.put("description", "Perintah tulis memerlukan pengguna yang sudah masuk.");
+				return jerr;
+			}
 
 			if (tanpaLogin.trim().isEmpty() || !tanpaLogin.equalsIgnoreCase("true")) {
-				if (tbmuser == null || tbmuser.getUserId() == null) {
+				if (belumLogin) {
 					JSONObject jerr = new JSONObject();
 					jerr.put("status", "90");
 					jerr.put("description", "Pengguna tidak boleh akses");
 					return jerr;
 				}
 			}
-
-			String action = jsonObject.optString("action", "");
 
 			if ("file".equals(action)) {
 				processFile(jsonObject, hasil);
