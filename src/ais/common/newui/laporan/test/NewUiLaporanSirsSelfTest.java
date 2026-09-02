@@ -55,6 +55,7 @@ public final class NewUiLaporanSirsSelfTest {
         laporan.put("umum_kartu_pasien", "sirs/kartu_pasien");
         laporan.put("umum_status_pasien", "sirs/data_identitas_pasien");
         laporan.put("umum_biaya_tindakan", "sirs/daftar_biaya_tindakan");
+        laporan.put("umum_biaya_alat_medis", "sirs/daftar_biaya_alat_medis");
         laporan.put("umum_pendaftaran_pasien", "sirs/laporan_pendaftaran_pasien");
         laporan.put("umum_10_icd", "sirs/laporan_10_jenis_penyakit_terbesar");
         laporan.put("umum_10_penyakit", "sirs/laporan_10_jenis_penyakit_terbesar");
@@ -74,6 +75,7 @@ public final class NewUiLaporanSirsSelfTest {
         Object hargaBeli = null;
         Object penggunaanApotik = null;
         Object kartuPasien = null;
+        Object biayaAlatMedis = null;
         Object sepuluhIcd = null;
         Object sepuluhPenyakit = null;
         Object kemhanBulanan = null;
@@ -102,6 +104,7 @@ public final class NewUiLaporanSirsSelfTest {
                     || e.getKey().startsWith("inventory_")
                     || e.getKey().startsWith("apotik_")
                     || "umum_biaya_tindakan".equals(e.getKey())
+                    || "umum_biaya_alat_medis".equals(e.getKey())
                     || e.getKey().startsWith("umum_kiup")
                     || "umum_data_pasien_periode".equals(e.getKey());
             check((xls ? "xls" : "pdf").equals(format.get(nilai)),
@@ -111,6 +114,7 @@ public final class NewUiLaporanSirsSelfTest {
             if ("inventory_harga_beli".equals(e.getKey())) hargaBeli = nilai;
             if ("apotik_penggunaan_item".equals(e.getKey())) penggunaanApotik = nilai;
             if ("umum_kartu_pasien".equals(e.getKey())) kartuPasien = nilai;
+            if ("umum_biaya_alat_medis".equals(e.getKey())) biayaAlatMedis = nilai;
             if ("umum_10_icd".equals(e.getKey())) sepuluhIcd = nilai;
             if ("umum_10_penyakit".equals(e.getKey())) sepuluhPenyakit = nilai;
             if ("umum_kemhan_bulanan".equals(e.getKey())) kemhanBulanan = nilai;
@@ -149,6 +153,11 @@ public final class NewUiLaporanSirsSelfTest {
         JSONObject pasienKartu = (JSONObject) filter.invoke(null, kartuPasien, "pasien");
         check(pasienKartu.getBoolean("wajib") && pasienKartu.getBoolean("cari"),
                 "cetak kartu pasien harus mewajibkan satu pasien yang dapat dicari");
+        JSONObject jenisAlat = (JSONObject) filter.invoke(null, biayaAlatMedis,
+                "jenis_alat_medis");
+        check("relasi".equals(jenisAlat.getString("tipe"))
+                        && !jenisAlat.getBoolean("wajib"),
+                "jenis alat medis harus opsional seperti combobox layar ZK");
         JSONObject pasienIcd = (JSONObject) filter.invoke(null, sepuluhIcd, "jenis_pasien");
         check(!pasienIcd.getBoolean("wajib") && !pasienIcd.getBoolean("pilihPertama"),
                 "jenis pasien pada 10 ICD harus tetap opsional");

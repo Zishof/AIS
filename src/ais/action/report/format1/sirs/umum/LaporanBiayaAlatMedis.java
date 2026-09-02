@@ -130,7 +130,7 @@ public class LaporanBiayaAlatMedis extends Window {
 				Map parameters = generateParameter();
 				return parameters;
 			}
-		}, "daftar_biaya_alatMedis"));
+		}, "sirs/daftar_biaya_alat_medis"));
 
 		onCetak(null);
 	}
@@ -154,8 +154,8 @@ public class LaporanBiayaAlatMedis extends Window {
 			if (parameters == null) {
 				return;
 			}
-			File file = Report.generateFileReportWithProgress("daftar_biaya_alat_medis", Report.XLS, parameters,
-					"daftar_biaya_alat_medis", new Date());
+			File file = Report.generateFileReportWithProgress("sirs/daftar_biaya_alat_medis", Report.XLS, parameters,
+					"sirs/daftar_biaya_alat_medis", new Date());
 			CommonReport.tampilkanReportXLS(center, file);
 
 		} catch (Exception e) {

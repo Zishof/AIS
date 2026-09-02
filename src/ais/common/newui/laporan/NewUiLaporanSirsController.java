@@ -36,6 +36,7 @@ import ais.database.model.sirs.Asuransi;
 import ais.database.model.sirs.Dokter;
 import ais.database.model.sirs.DiagnosaPenyakit;
 import ais.database.model.sirs.Instalasi;
+import ais.database.model.sirs.JenisAlatMedis;
 import ais.database.model.sirs.JenisPasien;
 import ais.database.model.sirs.JenisItemMedis;
 import ais.database.model.sirs.JenisTindakan;
@@ -51,7 +52,7 @@ import ais.database.model.sirs.TempatTidur;
 import ais.action.report.helper.CommonReport;
 
 /**
- * Kontrak native empat puluh dua laporan SIRS.
+ * Kontrak native empat puluh tiga laporan SIRS.
  *
  * <h3>Koreksi atas anggapan sebelumnya</h3>
  * <p>Enam laporan awal pernah dinyatakan tidak dapat dikonversi karena
@@ -139,6 +140,7 @@ public final class NewUiLaporanSirsController {
     static final String S_SATKER = "satker";
     static final String S_MENULAR = "menular";
     static final String S_INSTALASI = "instalasi";
+    static final String S_JENIS_ALAT_MEDIS = "jenis_alat_medis";
     static final String S_JENIS_TINDAKAN = "jenis_tindakan";
     static final String S_PENDIDIKAN = "pendidikan";
     static final String S_JENIS_KELAMIN = "jenis_kelamin";
@@ -157,7 +159,7 @@ public final class NewUiLaporanSirsController {
     static final String S_TEMPAT_TIDUR = "tempat_tidur";
 
     /**
-     * Empat puluh dua laporan yang dilayani kontrak ini.
+     * Empat puluh tiga laporan yang dilayani kontrak ini.
      *
      * <p>Kode laporan sengaja sama dengan nama template Jasper-nya supaya
      * hubungan keduanya tidak perlu ditelusuri lewat tabel lain.</p>
@@ -312,6 +314,11 @@ public final class NewUiLaporanSirsController {
         if ("umum_biaya_tindakan".equals(kode)) {
             return new Jenis(kode, "Laporan Biaya Tindakan", "sirs/daftar_biaya_tindakan",
                     new String[] { S_JENIS_TINDAKAN }, ais.action.report.Report.XLS);
+        }
+        if ("umum_biaya_alat_medis".equals(kode)) {
+            return new Jenis(kode, "Laporan Biaya Alat Medis",
+                    "sirs/daftar_biaya_alat_medis",
+                    new String[] { S_JENIS_ALAT_MEDIS }, ais.action.report.Report.XLS);
         }
         if ("umum_pendaftaran_pasien".equals(kode)) {
             return new Jenis(kode, "Laporan Pendaftaran Pasien",
@@ -612,6 +619,10 @@ public final class NewUiLaporanSirsController {
         if (S_INSTALASI.equals(nama)) {
             return d.put("label", "Instalasi").put("tipe", "relasi")
                     .put("wajib", true).put("pilihPertama", true);
+        }
+        if (S_JENIS_ALAT_MEDIS.equals(nama)) {
+            return d.put("label", "Jenis Alat Medis").put("tipe", "relasi")
+                    .put("wajib", false);
         }
         if (S_JENIS_TINDAKAN.equals(nama)) {
             return d.put("label", "Jenis Tindakan").put("tipe", "relasi")
@@ -918,6 +929,13 @@ public final class NewUiLaporanSirsController {
                 cocok(c, q, "nama");
                 for (Object o : c.addOrder(Order.asc("nama")).setMaxResults(BATAS_CARI).list()) {
                     Instalasi x = (Instalasi) o;
+                    arr.put(pilihan(x.getId(), "", x.getNama(), null));
+                }
+            } else if (S_JENIS_ALAT_MEDIS.equals(nama)) {
+                Criteria c = s.createCriteria(JenisAlatMedis.class);
+                cocok(c, q, "nama");
+                for (Object o : c.addOrder(Order.asc("nama")).setMaxResults(BATAS_CARI).list()) {
+                    JenisAlatMedis x = (JenisAlatMedis) o;
                     arr.put(pilihan(x.getId(), "", x.getNama(), null));
                 }
             } else if (S_JENIS_TINDAKAN.equals(nama)) {
@@ -1269,6 +1287,13 @@ public final class NewUiLaporanSirsController {
                     r.getParameter(S_JENIS_TINDAKAN));
             parameters.put("jenisTindakan",
                     tindakan == null ? Long.valueOf(-1L) : tindakan.getId());
+            return;
+        }
+        if ("umum_biaya_alat_medis".equals(jenis.kode)) {
+            JenisAlatMedis alatMedis = (JenisAlatMedis) muat(s, JenisAlatMedis.class,
+                    r.getParameter(S_JENIS_ALAT_MEDIS));
+            parameters.put("jenisAlatMedis",
+                    alatMedis == null ? Long.valueOf(-1L) : alatMedis.getId());
             return;
         }
         if ("umum_pendaftaran_pasien".equals(jenis.kode)) {

@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd"
+	name="daftar_biaya_alat_medis" language="groovy" pageWidth="842" pageHeight="595"
+	orientation="Landscape" whenNoDataType="AllSectionsNoDetail" columnWidth="802"
+	leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20">
+	<style name="Header" fontName="Arial" fontSize="9" isBold="true"/>
+	<style name="Detail" fontName="Arial" fontSize="8"/>
+	<parameter name="jenisAlatMedis" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[
+select
+    a.kode,
+    a.nama as alat_medis,
+    c.nama as jenis_alat_medis,
+    a.per,
+    max(case when b.kelas_perawatan = 0 then coalesce(b.biaya, 0) else 0 end) as harga_normal,
+    max(case when b.kelas_perawatan = 9 then coalesce(b.biaya, 0) else 0 end) as svip,
+    max(case when b.kelas_perawatan = 10 then coalesce(b.biaya, 0) else 0 end) as vip,
+    max(case when b.kelas_perawatan = 11 then coalesce(b.biaya, 0) else 0 end) as kelas1,
+    max(case when b.kelas_perawatan = 12 then coalesce(b.biaya, 0) else 0 end) as kelas2,
+    max(case when b.kelas_perawatan = 13 then coalesce(b.biaya, 0) else 0 end) as kelas3,
+    max(case when b.kelas_perawatan = 14 then coalesce(b.biaya, 0) else 0 end) as intermediate
+from alat_medis a
+left join jenis_alat_medis c on c.id = a.jenis_alat_medis
+left join biaya_alat_medis_per_kelas b on b.alat_medis = a.id
+where ($P{jenisAlatMedis} = -1 or a.jenis_alat_medis = $P{jenisAlatMedis})
+group by a.id, a.kode, a.nama, c.nama, a.per
+order by a.nama
+		]]>
+	</queryString>
+	<field name="kode" class="java.lang.String"/>
+	<field name="alat_medis" class="java.lang.String"/>
+	<field name="jenis_alat_medis" class="java.lang.String"/>
+	<field name="per" class="java.lang.String"/>
+	<field name="harga_normal" class="java.lang.Double"/>
+	<field name="svip" class="java.lang.Double"/>
+	<field name="vip" class="java.lang.Double"/>
+	<field name="kelas1" class="java.lang.Double"/>
+	<field name="kelas2" class="java.lang.Double"/>
+	<field name="kelas3" class="java.lang.Double"/>
+	<field name="intermediate" class="java.lang.Double"/>
+	<title>
+		<band height="54">
+			<staticText>
+				<reportElement x="0" y="0" width="802" height="25"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="Arial" size="16" isBold="true"/></textElement>
+				<text><![CDATA[DAFTAR BIAYA ALAT MEDIS]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="0" y="28" width="802" height="18"/>
+				<textElement textAlignment="Center"><font fontName="Arial" size="9"/></textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$P{jenisAlatMedis}.equals(-1L) ? "Semua jenis alat medis" : "Jenis alat medis terpilih"]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<columnHeader>
+		<band height="30">
+			<staticText><reportElement style="Header" x="0" y="0" width="45" height="30"/><box><pen lineWidth="0.5"/></box><textElement textAlignment="Center" verticalAlignment="Middle"/><text><![CDATA[Kode]]></text></staticText>
+			<staticText><reportElement style="Header" x="45" y="0" width="165" height="30"/><box><pen lineWidth="0.5"/></box><textElement textAlignment="Center" verticalAlignment="Middle"/><text><![CDATA[Alat Medis]]></text></staticText>
+			<staticText><reportElement style="Header" x="210" y="0" width="75" height="30"/><box><pen lineWidth="0.5"/></box><textElement textAlignment="Center" verticalAlignment="Middle"/><text><![CDATA[Jenis]]></text></staticText>
+			<staticText><reportElement style="Header" x="285" y="0" width="60" height="30"/><box><pen lineWidth="0.5"/></box><textElement textAlignment="Center" verticalAlignment="Middle"/><text><![CDATA[Per]]></text></staticText>
+			<staticText><reportElement style="Header" x="345" y="0" width="65" height="30"/><box><pen lineWidth="0.5"/></box><textElement textAlignment="Center" verticalAlignment="Middle"/><text><![CDATA[Normal]]></text></staticText>
+			<staticText><reportElement style="Header" x="410" y="0" width="65" height="30"/><box><pen lineWidth="0.5"/></box><textElement textAlignment="Center" verticalAlignment="Middle"/><text><![CDATA[SVIP]]></text></staticText>
+			<staticText><reportElement style="Header" x="475" y="0" width="65" height="30"/><box><pen lineWidth="0.5"/></box><textElement textAlignment="Center" verticalAlignment="Middle"/><text><![CDATA[VIP]]></text></staticText>
+			<staticText><reportElement style="Header" x="540" y="0" width="65" height="30"/><box><pen lineWidth="0.5"/></box><textElement textAlignment="Center" verticalAlignment="Middle"/><text><![CDATA[K1]]></text></staticText>
+			<staticText><reportElement style="Header" x="605" y="0" width="65" height="30"/><box><pen lineWidth="0.5"/></box><textElement textAlignment="Center" verticalAlignment="Middle"/><text><![CDATA[K2]]></text></staticText>
+			<staticText><reportElement style="Header" x="670" y="0" width="65" height="30"/><box><pen lineWidth="0.5"/></box><textElement textAlignment="Center" verticalAlignment="Middle"/><text><![CDATA[K3]]></text></staticText>
+			<staticText><reportElement style="Header" x="735" y="0" width="65" height="30"/><box><pen lineWidth="0.5"/></box><textElement textAlignment="Center" verticalAlignment="Middle"/><text><![CDATA[Intermediate]]></text></staticText>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="24" splitType="Stretch">
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true"><reportElement style="Detail" x="0" y="0" width="45" height="24"/><box leftPadding="2" rightPadding="2"><pen lineWidth="0.5"/></box><textElement verticalAlignment="Middle"/><textFieldExpression class="java.lang.String"><![CDATA[$F{kode}]]></textFieldExpression></textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true"><reportElement style="Detail" x="45" y="0" width="165" height="24"/><box leftPadding="2" rightPadding="2"><pen lineWidth="0.5"/></box><textElement verticalAlignment="Middle"/><textFieldExpression class="java.lang.String"><![CDATA[$F{alat_medis}]]></textFieldExpression></textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true"><reportElement style="Detail" x="210" y="0" width="75" height="24"/><box leftPadding="2" rightPadding="2"><pen lineWidth="0.5"/></box><textElement verticalAlignment="Middle"/><textFieldExpression class="java.lang.String"><![CDATA[$F{jenis_alat_medis}]]></textFieldExpression></textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true"><reportElement style="Detail" x="285" y="0" width="60" height="24"/><box leftPadding="2" rightPadding="2"><pen lineWidth="0.5"/></box><textElement textAlignment="Center" verticalAlignment="Middle"/><textFieldExpression class="java.lang.String"><![CDATA[$F{per}]]></textFieldExpression></textField>
+			<textField pattern="#,##0;-#,##0" isBlankWhenNull="true"><reportElement style="Detail" x="345" y="0" width="65" height="24"/><box leftPadding="2" rightPadding="2"><pen lineWidth="0.5"/></box><textElement textAlignment="Right" verticalAlignment="Middle"/><textFieldExpression class="java.lang.Double"><![CDATA[$F{harga_normal}]]></textFieldExpression></textField>
+			<textField pattern="#,##0;-#,##0" isBlankWhenNull="true"><reportElement style="Detail" x="410" y="0" width="65" height="24"/><box leftPadding="2" rightPadding="2"><pen lineWidth="0.5"/></box><textElement textAlignment="Right" verticalAlignment="Middle"/><textFieldExpression class="java.lang.Double"><![CDATA[$F{svip}]]></textFieldExpression></textField>
+			<textField pattern="#,##0;-#,##0" isBlankWhenNull="true"><reportElement style="Detail" x="475" y="0" width="65" height="24"/><box leftPadding="2" rightPadding="2"><pen lineWidth="0.5"/></box><textElement textAlignment="Right" verticalAlignment="Middle"/><textFieldExpression class="java.lang.Double"><![CDATA[$F{vip}]]></textFieldExpression></textField>
+			<textField pattern="#,##0;-#,##0" isBlankWhenNull="true"><reportElement style="Detail" x="540" y="0" width="65" height="24"/><box leftPadding="2" rightPadding="2"><pen lineWidth="0.5"/></box><textElement textAlignment="Right" verticalAlignment="Middle"/><textFieldExpression class="java.lang.Double"><![CDATA[$F{kelas1}]]></textFieldExpression></textField>
+			<textField pattern="#,##0;-#,##0" isBlankWhenNull="true"><reportElement style="Detail" x="605" y="0" width="65" height="24"/><box leftPadding="2" rightPadding="2"><pen lineWidth="0.5"/></box><textElement textAlignment="Right" verticalAlignment="Middle"/><textFieldExpression class="java.lang.Double"><![CDATA[$F{kelas2}]]></textFieldExpression></textField>
+			<textField pattern="#,##0;-#,##0" isBlankWhenNull="true"><reportElement style="Detail" x="670" y="0" width="65" height="24"/><box leftPadding="2" rightPadding="2"><pen lineWidth="0.5"/></box><textElement textAlignment="Right" verticalAlignment="Middle"/><textFieldExpression class="java.lang.Double"><![CDATA[$F{kelas3}]]></textFieldExpression></textField>
+			<textField pattern="#,##0;-#,##0" isBlankWhenNull="true"><reportElement style="Detail" x="735" y="0" width="65" height="24"/><box leftPadding="2" rightPadding="2"><pen lineWidth="0.5"/></box><textElement textAlignment="Right" verticalAlignment="Middle"/><textFieldExpression class="java.lang.Double"><![CDATA[$F{intermediate}]]></textFieldExpression></textField>
+		</band>
+	</detail>
+</jasperReport>
