@@ -12301,9 +12301,9 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 		rows.appendChild(createRowNilai("Nama mitra BMT untuk response inquiry (wajib diisi sebelum aktivasi)", Konfigurasi.ONLINE_BMT_NAMA_MITRA, ""));
 		rows.appendChild(createRowNilai("Kode merchant Online BMT untuk response inquiry (wajib diisi sebelum aktivasi)", Konfigurasi.ONLINE_BMT_KODE_MERCHANT, ""));
 		rows.appendChild(createRowNilai("Nama merchant Online BMT untuk response inquiry (wajib diisi sebelum aktivasi)", Konfigurasi.ONLINE_BMT_NAMA_MERCHANT, ""));
-		rows.appendChild(createRowNilai("Online BMT API key (secret; wajib diisi sebelum aktivasi)", Konfigurasi.ONLINE_BMT_API_KEY, ""));
-		rows.appendChild(createRowNilai("Online BMT encryption key (secret AES; wajib diisi sebelum aktivasi)", Konfigurasi.ONLINE_BMT_ENCRYPTION_KEY, ""));
-		rows.appendChild(createRowNilai("Online BMT HMAC key (secret; wajib diisi sebelum aktivasi)", Konfigurasi.ONLINE_BMT_HMAC_KEY, ""));
+		rows.appendChild(createRowNilaiPassword("Online BMT API key (secret; wajib diisi sebelum aktivasi)", Konfigurasi.ONLINE_BMT_API_KEY, ""));
+		rows.appendChild(createRowNilaiPassword("Online BMT encryption key (secret AES; wajib diisi sebelum aktivasi)", Konfigurasi.ONLINE_BMT_ENCRYPTION_KEY, ""));
+		rows.appendChild(createRowNilaiPassword("Online BMT HMAC key (secret; wajib diisi sebelum aktivasi)", Konfigurasi.ONLINE_BMT_HMAC_KEY, ""));
 		rows.appendChild(createRowNilai("Toleransi waktu request Online BMT dalam detik (30-3600)", Konfigurasi.ONLINE_BMT_REQUEST_TIME_TOLERANCE, "300"));
 		/* DATA respons Online BMT wajib selalu terenkripsi sesuai konfirmasi BMT.
 		 * Toggle legacy sengaja tidak ditampilkan agar operator tidak dapat membuat
