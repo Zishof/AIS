@@ -6748,7 +6748,7 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 				"smartlink", "online_bank_host_ip", "online_smartlink_biaya_administrasi", "/common/online/no_va.zul",
 				"prefix_kode_bank_lain_online");
 		setupBankOnlineGateway(spaceBayar, Konfigurasi.ONLINE_BMT_AKTIF, "_pt_", "BAYAR VIA ONLINE BMT",
-				OnlineBmtUtil.PARAM_KEY, "online_bank_host_ip", "online_bmt_biaya_administrasi",
+				OnlineBmtUtil.PARAM_KEY, "online_bank_host_ip", Konfigurasi.ONLINE_BMT_BIAYA_ADMINISTRASI,
 				"/common/online/no_va.zul", null);
 		setupBankOnlineGateway(spaceBayar, "aktifkan_pembayaran_via_bank_maja", "_pt_", "BAYAR VIA BSI", "maja",
 				"maja_bank_host_ip", "maja_biaya_administrasi", "/common/online/no_va.zul",

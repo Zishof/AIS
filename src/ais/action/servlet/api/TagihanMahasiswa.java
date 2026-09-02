@@ -42,6 +42,7 @@ import ais.database.model.JadwalPembayaran;
 import ais.database.model.JenisKegiatan;
 import ais.database.model.Jurusan;
 import ais.database.model.Kegiatan;
+import ais.database.model.Konfigurasi;
 import ais.database.model.Mahasiswa;
 import ais.database.model.PengaturanPembayaranBulanan;
 import ais.database.model.Perkuliahan;
@@ -742,7 +743,7 @@ public class TagihanMahasiswa {
 						}
 						if (bank.equalsIgnoreCase(OnlineBmtUtil.BANK_NAME)) {
 							biayaAdministrasi = parseDoubleSafe(
-									Common.getKonfigurasi("online_bmt_biaya_administrasi", "0.0").getNilai(), 0.0);
+									Common.getKonfigurasi(Konfigurasi.ONLINE_BMT_BIAYA_ADMINISTRASI, "0.0").getNilai(), 0.0);
 						}
 
 						String ket = "";

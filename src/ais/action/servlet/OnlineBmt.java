@@ -14,6 +14,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -116,7 +117,7 @@ public class OnlineBmt extends HttpServlet {
 			throw new ApiException(503, "503", "Konfigurasi keamanan Online BMT belum lengkap.");
 		}
 
-		JSONObject envelope = new JSONObject(readBody(request));
+		JSONObject envelope = parseEnvelope(readBody(request));
 		String receivedApiKey = envelope.optString("API_KEY", "");
 		if (!constantTimeEquals(apiKey, receivedApiKey)) {
 			throw new ApiException(401, "401", "API_KEY tidak valid.");
@@ -127,7 +128,7 @@ public class OnlineBmt extends HttpServlet {
 		}
 		JSONObject data = decrypt(encrypted, encryptionKey, hmacKey);
 		validateFreshness(data);
-		String type = required(data, "JENIS_REQUEST").toUpperCase();
+		String type = required(data, "JENIS_REQUEST").toUpperCase(Locale.ENGLISH);
 		reserveNonce(required(data, "NONCE"), type);
 
 		if ("INQUIRY".equals(type)) {
@@ -147,6 +148,7 @@ public class OnlineBmt extends HttpServlet {
 		VirtualAccountBank invoice = findInvoice(invoiceNo);
 		validateInvoiceChannel(invoice);
 		validateNotExpired(invoice);
+		MerchantIdentity merchantIdentity = requireMerchantIdentity();
 
 		JSONObject value = new JSONObject();
 		value.put("NO_INVOICE", invoiceNo);
@@ -155,12 +157,30 @@ public class OnlineBmt extends HttpServlet {
 		value.put("TGL", Common.databaseDateFormat.get().format(invoiceDate));
 		value.put("DESKRIPSI", invoice.getKeterangan() == null ? "Pembayaran eCampus" : invoice.getKeterangan());
 		value.put("NOMINAL", OnlineBmtUtil.payableAmount(invoice));
-		value.put("KD_MITRA_BMT", config("online_bmt_kode_mitra"));
-		value.put("NM_MITRA_BMT", config("online_bmt_nama_mitra"));
-		value.put("KD_MERCHANT", config("online_bmt_kode_merchant"));
-		value.put("NM_MERCHANT", config("online_bmt_nama_merchant"));
+		value.put("KD_MITRA_BMT", merchantIdentity.kodeMitra);
+		value.put("NM_MITRA_BMT", merchantIdentity.namaMitra);
+		value.put("KD_MERCHANT", merchantIdentity.kodeMerchant);
+		value.put("NM_MERCHANT", merchantIdentity.namaMerchant);
 		value.put("STATUS_TRANSAKSI", VirtualAccountBank.isSudahTerbayar(invoice) ? "00" : "01");
 		return success("Request berhasil.", value);
+	}
+
+	/**
+	 * Membaca identitas kontraktual yang dikembalikan kepada BMT saat inquiry.
+	 * Keempat nilai sengaja diwajibkan bersama-sama: respons sukses dengan kode atau
+	 * nama kosong akan membuat invoice tidak dapat dipetakan dengan andal di sisi
+	 * BMT, walaupun autentikasi dan nominalnya benar. Karena itu konfigurasi setengah
+	 * lengkap diperlakukan sebagai layanan belum siap, bukan sebagai inquiry sukses.
+	 */
+	private static MerchantIdentity requireMerchantIdentity() throws ApiException {
+		MerchantIdentity identity = new MerchantIdentity(config(Konfigurasi.ONLINE_BMT_KODE_MITRA),
+				config(Konfigurasi.ONLINE_BMT_NAMA_MITRA), config(Konfigurasi.ONLINE_BMT_KODE_MERCHANT),
+				config(Konfigurasi.ONLINE_BMT_NAMA_MERCHANT));
+		if (!identity.isComplete()) {
+			throw new ApiException(503, "503",
+					"Konfigurasi identitas mitra dan merchant Online BMT belum lengkap.");
+		}
+		return identity;
 	}
 
 	private JSONObject payment(JSONObject data) throws Exception {
@@ -541,7 +561,17 @@ public class OnlineBmt extends HttpServlet {
 	}
 
 	private static String config(String key) {
-		return Common.getKonfigurasi(key, "").getNilai().trim();
+		Konfigurasi konfigurasi = Common.getKonfigurasi(key, "");
+		String value = konfigurasi == null ? null : konfigurasi.getNilai();
+		return value == null ? "" : value.trim();
+	}
+
+	private static JSONObject parseEnvelope(String body) throws ApiException {
+		try {
+			return new JSONObject(body);
+		} catch (Exception e) {
+			throw new ApiException(400, "400", "Format JSON request tidak valid.");
+		}
 	}
 
 	private static boolean sameAmount(BigDecimal a, BigDecimal b) {
@@ -576,6 +606,22 @@ public class OnlineBmt extends HttpServlet {
 		if (value != null) try { value.close(); } catch (Exception e) { ErrorAuditUtil.record(e, "OnlineBmt.close"); }
 	}
 
+	private static final class MerchantIdentity {
+		final String kodeMitra, namaMitra, kodeMerchant, namaMerchant;
+
+		MerchantIdentity(String kodeMitra, String namaMitra, String kodeMerchant, String namaMerchant) {
+			this.kodeMitra = kodeMitra;
+			this.namaMitra = namaMitra;
+			this.kodeMerchant = kodeMerchant;
+			this.namaMerchant = namaMerchant;
+		}
+
+		boolean isComplete() {
+			return kodeMitra.length() > 0 && namaMitra.length() > 0
+					&& kodeMerchant.length() > 0 && namaMerchant.length() > 0;
+		}
+	}
+
 	private static final class PaymentInput {
 		final String invoiceNo, transactionNo, channel, nonce; final BigDecimal amount;
 		private PaymentInput(String invoiceNo, String transactionNo, String channel, String nonce, BigDecimal amount) {
@@ -587,7 +633,7 @@ public class OnlineBmt extends HttpServlet {
 				if (amount.signum() <= 0) throw new ApiException(400, "400", "NOMINAL harus lebih besar dari nol.");
 				return new PaymentInput(requiredMax(data,"NO_INVOICE",255),
 						requiredMax(data,"NO_TRANSAKSI_BMT",255),
-						requiredMax(data,"CHANNEL_BMT",30).toUpperCase(), required(data,"NONCE"), amount);
+						requiredMax(data,"CHANNEL_BMT",30).toUpperCase(Locale.ENGLISH), required(data,"NONCE"), amount);
 			} catch (ApiException e) { throw e; }
 			catch (Exception e) { throw new ApiException(400,"400","NOMINAL tidak valid."); }
 		}

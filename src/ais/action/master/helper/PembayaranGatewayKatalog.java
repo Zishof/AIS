@@ -204,7 +204,7 @@ public class PembayaranGatewayKatalog {
 				"online_smartlink_biaya_administrasi", "prefix_kode_bank_lain_online", "fas fa-link"));
 		SEMUA.add(new Gateway("online_bmt", "BAYAR VIA ONLINE BMT", Konfigurasi.ONLINE_BMT_AKTIF,
 				true, "online_bmt", KATEGORI_BANK_ONLINE, "online_bank_host_ip",
-				"online_bmt_biaya_administrasi", null, "fas fa-university"));
+				Konfigurasi.ONLINE_BMT_BIAYA_ADMINISTRASI, null, "fas fa-university"));
 		SEMUA.add(new Gateway("maja", "BAYAR VIA BSI", "aktifkan_pembayaran_via_bank_maja", true, "maja",
 				KATEGORI_BANK_ONLINE, "maja_bank_host_ip", "maja_biaya_administrasi",
 				"prefix_kode_bank_lain_maja", "fas fa-university"));

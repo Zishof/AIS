@@ -238,6 +238,14 @@ public class Konfigurasi extends GeneralValueObject {
 	public static final String ONLINE_BMT_ENKRIPSI_RESPONSE = "online_bmt_enkripsi_response";
 	/** Biaya administrasi yang ditambahkan pada invoice Online BMT. */
 	public static final String ONLINE_BMT_BIAYA_ADMINISTRASI = "online_bmt_biaya_administrasi";
+	/** Kode mitra BMT yang wajib dikembalikan pada respons INQUIRY. */
+	public static final String ONLINE_BMT_KODE_MITRA = "online_bmt_kode_mitra";
+	/** Nama mitra BMT yang wajib dikembalikan pada respons INQUIRY. */
+	public static final String ONLINE_BMT_NAMA_MITRA = "online_bmt_nama_mitra";
+	/** Kode merchant eCampus yang wajib dikembalikan pada respons INQUIRY. */
+	public static final String ONLINE_BMT_KODE_MERCHANT = "online_bmt_kode_merchant";
+	/** Nama merchant eCampus yang wajib dikembalikan pada respons INQUIRY. */
+	public static final String ONLINE_BMT_NAMA_MERCHANT = "online_bmt_nama_merchant";
 
 	// ==== Kunci konfigurasi akademik inti. Nilainya lazim berupa AKTIF/TIDAK_AKTIF ("gerbang
 	//      dibuka/ditutup"), sering dipadukan dengan relasi KalenderAkademik supaya buka-tutupnya

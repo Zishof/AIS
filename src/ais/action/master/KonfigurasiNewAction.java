@@ -12283,6 +12283,10 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 		rows.appendChild(createRowActiveDefault("Aktifkan pembayaran via Online BMT — gerbang global; wajib dipadukan dengan sakelar tenant PT/sekolah/kanal", Konfigurasi.ONLINE_BMT_AKTIF, Konfigurasi.TIDAK_AKTIF));
 		rows.appendChild(createRowNilai("Prefix invoice Online BMT (huruf/angka, maksimum 8 karakter)", Konfigurasi.ONLINE_BMT_PREFIX_INVOICE, "BMT"));
 		rows.appendChild(createRowNilai("Biaya administrasi Online BMT", Konfigurasi.ONLINE_BMT_BIAYA_ADMINISTRASI, "0.0"));
+		rows.appendChild(createRowNilai("Kode mitra BMT untuk response inquiry (wajib diisi sebelum aktivasi)", Konfigurasi.ONLINE_BMT_KODE_MITRA, ""));
+		rows.appendChild(createRowNilai("Nama mitra BMT untuk response inquiry (wajib diisi sebelum aktivasi)", Konfigurasi.ONLINE_BMT_NAMA_MITRA, ""));
+		rows.appendChild(createRowNilai("Kode merchant Online BMT untuk response inquiry (wajib diisi sebelum aktivasi)", Konfigurasi.ONLINE_BMT_KODE_MERCHANT, ""));
+		rows.appendChild(createRowNilai("Nama merchant Online BMT untuk response inquiry (wajib diisi sebelum aktivasi)", Konfigurasi.ONLINE_BMT_NAMA_MERCHANT, ""));
 		rows.appendChild(createRowNilai("Online BMT API key (secret; wajib diisi sebelum aktivasi)", Konfigurasi.ONLINE_BMT_API_KEY, ""));
 		rows.appendChild(createRowNilai("Online BMT encryption key (secret AES; wajib diisi sebelum aktivasi)", Konfigurasi.ONLINE_BMT_ENCRYPTION_KEY, ""));
 		rows.appendChild(createRowNilai("Online BMT HMAC key (secret; wajib diisi sebelum aktivasi)", Konfigurasi.ONLINE_BMT_HMAC_KEY, ""));

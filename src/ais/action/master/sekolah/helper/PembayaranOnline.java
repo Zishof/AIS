@@ -2733,7 +2733,8 @@ public class PembayaranOnline extends GenericAutowireComposer {
 				Map<String, Object> paramOnlineBmt = new HashMap<String, Object>();
 				paramOnlineBmt.put(OnlineBmtUtil.PARAM_KEY, true);
 				createStandardPopupGatewayAction(spaceBayar, "BAYAR VIA ONLINE BMT", "online_bank_host_ip",
-						paramOnlineBmt, false, null, "/common/online/no_va.zul", "online_bmt_biaya_administrasi");
+						paramOnlineBmt, false, null, "/common/online/no_va.zul",
+						Konfigurasi.ONLINE_BMT_BIAYA_ADMINISTRASI);
 				if (tabOnline != null) {
 					tabOnline.setVisible(true);
 					tabpanelOnline.setVisible(true);

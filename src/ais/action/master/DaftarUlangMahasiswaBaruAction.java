@@ -5313,7 +5313,7 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 						|| jenisKegiatan.getNamaBankPembayaran().toLowerCase().contains(";online_bmt;")))
 					spaceBayar.appendChild(btnOnlineBmt);
 				btnOnlineBmt.addEventListener("onClick",
-						createOnlineBankListener("online_bmt_biaya_administrasi", "online_bank_host_ip",
+						createOnlineBankListener(Konfigurasi.ONLINE_BMT_BIAYA_ADMINISTRASI, "online_bank_host_ip",
 								null, false, false, false, false, false, false, true));
 			}
 

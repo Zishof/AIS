@@ -959,7 +959,7 @@ public class TopupHelper {
 						return jsonObject;
 					}
 					biayaAdministrasi = parseDoubleSafe(
-							Common.getKonfigurasi("online_bmt_biaya_administrasi", "0.0").getNilai(), 0.0);
+							Common.getKonfigurasi(Konfigurasi.ONLINE_BMT_BIAYA_ADMINISTRASI, "0.0").getNilai(), 0.0);
 					param.put(OnlineBmtUtil.PARAM_KEY, true);
 					virtualAccountBank = DownloadTagihanSiswaBankOnline.downloadData(siswa, calonSiswa, null, param,
 							biayaAdministrasi, null, topupNumber, bankHost, akunPembayaranSiswa, sekolah, warnings);
@@ -1163,7 +1163,7 @@ public class TopupHelper {
 				return jsonObject;
 			}
 			double biayaAdministrasi = onlineBmt
-					? parseDoubleSafe(Common.getKonfigurasi("online_bmt_biaya_administrasi", "0.0").getNilai(), 0.0)
+					? parseDoubleSafe(Common.getKonfigurasi(Konfigurasi.ONLINE_BMT_BIAYA_ADMINISTRASI, "0.0").getNilai(), 0.0)
 					: caraPembayaranKoperasi.getKanalPembayaran() == null
 					|| caraPembayaranKoperasi.getKanalPembayaran().getBiayaAdminEsmartlink() == null ? 0.0
 							: caraPembayaranKoperasi.getKanalPembayaran().getBiayaAdminEsmartlink().doubleValue();
@@ -1349,7 +1349,7 @@ public class TopupHelper {
 
 				Double biayaAdministrasi = parseDoubleSafe(
 						Common.getKonfigurasi(bank.equalsIgnoreCase(OnlineBmtUtil.BANK_NAME)
-								? "online_bmt_biaya_administrasi" : "online_biaya_administrasi", "0.0").getNilai(), 0.0);
+								? Konfigurasi.ONLINE_BMT_BIAYA_ADMINISTRASI : "online_biaya_administrasi", "0.0").getNilai(), 0.0);
 				String ket = "";
 				String pemb = "";
 				String cicilan = "";
