@@ -28,6 +28,7 @@ import ais.action.master.helper.virtualaccount.DownloadTagihanMahasiswaBankOnlin
 import ais.action.ws.util.PembayaranUtil;
 import ais.common.BniCommon;
 import ais.common.Common;
+import ais.common.OnlineBmtUtil;
 import ais.common.ConstantValues;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BankHost;
@@ -485,11 +486,11 @@ public class TagihanMahasiswa {
 						jsonObject.put("data", jsonArray);
 						jsonObject.put("status", "00");
 						jsonObject.put("description", "Pengambilan data berhasil");
-						jsonObject
-								.put("bank_va_mobile",
-										Common.getKonfigurasi("bank_va_mobile_pt_"
-												+ mahasiswa.getJurusan().getFakultas().getPerguruanTinggi().getId(),
-												"BNI,MANDIRI").getNilai());
+						Long ptId = mahasiswa.getJurusan().getFakultas().getPerguruanTinggi().getId();
+						String configuredBanks = Common.getKonfigurasi("bank_va_mobile_pt_" + ptId,
+								"BNI,MANDIRI").getNilai();
+						jsonObject.put("bank_va_mobile", OnlineBmtUtil.appendToConfiguredBanks(configuredBanks,
+								OnlineBmtUtil.isPerguruanTinggiEnabled(ptId)));
 					} else {
 
 						String w = "";
@@ -558,7 +559,7 @@ public class TagihanMahasiswa {
 				if (bank.isEmpty() || bank.equalsIgnoreCase("MANDIRI") || bank.equalsIgnoreCase("Online")
 						|| bank.equalsIgnoreCase("Smartlink") || bank.equalsIgnoreCase("BCA")
 						|| bank.equalsIgnoreCase("MNC Bank") || bank.equalsIgnoreCase("BSI")
-						|| bank.equalsIgnoreCase("BTN")) {
+						|| bank.equalsIgnoreCase("BTN") || bank.equalsIgnoreCase(OnlineBmtUtil.BANK_NAME)) {
 					Session session = HibernateUtil.openSession();
 					try {
 					List<Object[]> objects = session.createCriteria(VirtualAccountBank.class)
@@ -695,7 +696,15 @@ public class TagihanMahasiswa {
 							|| bank.equalsIgnoreCase("Smartlink") || bank.equalsIgnoreCase("BSI")
 							|| bank.equalsIgnoreCase("BCA") || bank.equalsIgnoreCase("MNC Bank")
 							|| bank.equalsIgnoreCase("Finpay") || bank.equalsIgnoreCase("Flip")
-							|| bank.equalsIgnoreCase("BTN")) {
+							|| bank.equalsIgnoreCase("BTN") || bank.equalsIgnoreCase(OnlineBmtUtil.BANK_NAME)) {
+
+					if (bank.equalsIgnoreCase(OnlineBmtUtil.BANK_NAME)
+							&& !OnlineBmtUtil.isPerguruanTinggiEnabled(
+									mahasiswa.getJurusan().getFakultas().getPerguruanTinggi().getId())) {
+						jsonObject.put("status", "05");
+						jsonObject.put("description", "Kanal Online BMT belum diaktifkan untuk perguruan tinggi ini");
+						return jsonObject;
+					}
 
 						Session session = HibernateUtil.openSession();
 						try {
@@ -730,6 +739,10 @@ public class TagihanMahasiswa {
 							} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/api/TagihanMahasiswa.java:655");
 
 							}
+						}
+						if (bank.equalsIgnoreCase(OnlineBmtUtil.BANK_NAME)) {
+							biayaAdministrasi = parseDoubleSafe(
+									Common.getKonfigurasi("online_bmt_biaya_administrasi", "0.0").getNilai(), 0.0);
 						}
 
 						String ket = "";
@@ -917,6 +930,7 @@ public class TagihanMahasiswa {
 							param.put("finpay", finpay);
 							param.put("flip", flip);
 							param.put("smartlink", smartlink);
+							param.put(OnlineBmtUtil.PARAM_KEY, bank.equalsIgnoreCase(OnlineBmtUtil.BANK_NAME));
 							if (smartlink) {
 								param.put("smartlink_direct", smartlink);
 

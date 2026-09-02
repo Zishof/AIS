@@ -12,6 +12,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import ais.common.Common;
+import ais.common.OnlineBmtUtil;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.GeneralValueObject;
 import ais.database.model.Konfigurasi;
@@ -426,6 +427,7 @@ public final class KantinMemberApi {
                             ? bagian[2].trim() : bagian[0].trim());
                         o.put("biaya_admin", bagian.length >= 2 && Common.isNumber(bagian[1].trim())
                             ? Double.valueOf(bagian[1].trim()) : Double.valueOf(0.0));
+                        o.put("gateway", "smartlink");
                         arr.put(o);
                         punyaChannel = true;
                     }
@@ -438,6 +440,19 @@ public final class KantinMemberApi {
                     o.put("channel", "");
                     o.put("nama_channel", cara.getNama());
                     o.put("biaya_admin", cara.getKanalPembayaran().getBiayaAdminEsmartlink());
+                    o.put("gateway", "smartlink");
+                    arr.put(o);
+                }
+                if (OnlineBmtUtil.isGlobalEnabled()
+                        && Boolean.TRUE.equals(cara.getKanalPembayaran().getAktfkanPembayaranViaOnlineBmt())) {
+                    JSONObject o = new JSONObject();
+                    o.put("id", cara.getId());
+                    o.put("nama", OnlineBmtUtil.BANK_NAME);
+                    o.put("manual", cara.getManual());
+                    o.put("channel", "");
+                    o.put("nama_channel", OnlineBmtUtil.BANK_NAME);
+                    o.put("biaya_admin", Common.getKonfigurasi("online_bmt_biaya_administrasi", "0.0").getNilai());
+                    o.put("gateway", OnlineBmtUtil.PARAM_KEY);
                     arr.put(o);
                 }
             }
@@ -463,6 +478,9 @@ public final class KantinMemberApi {
         double nominal = json.optDouble("nominal", 0.0);
         String idCara = safeStr(json, "cara_pembayaran_id");
         String channel = safeStr(json, "channel");
+        String gateway = safeStr(json, "gateway");
+        boolean onlineBmt = OnlineBmtUtil.PARAM_KEY.equalsIgnoreCase(gateway)
+            || OnlineBmtUtil.BANK_NAME.equalsIgnoreCase(gateway);
         if (nominal < 10000.0)
             return ApiHelperSupport.status("99", "Nominal pengisian saldo minimal Rp 10.000.");
         if (idCara.isEmpty() || !Common.isNumber(idCara))
@@ -486,8 +504,12 @@ public final class KantinMemberApi {
                     || cara.getKanalPembayaran() == null)
                 return ApiHelperSupport.status("99", "Cara pembayaran online tidak diizinkan untuk jenis anggota ini.");
 
+            if (onlineBmt && (!OnlineBmtUtil.isGlobalEnabled()
+                    || !Boolean.TRUE.equals(cara.getKanalPembayaran().getAktfkanPembayaranViaOnlineBmt())))
+                return ApiHelperSupport.status("99", "Kanal Online BMT belum diaktifkan untuk cara pembayaran ini.");
+
             String variable = cara.getKanalPembayaran().getVariableBiayaAdminEsmartlink();
-            if (variable != null && !variable.trim().isEmpty()) {
+            if (!onlineBmt && variable != null && !variable.trim().isEmpty()) {
                 if (channel.isEmpty())
                     return ApiHelperSupport.status("99", "Saluran pembayaran wajib dipilih.");
                 boolean channelDitemukan = false;
@@ -504,7 +526,8 @@ public final class KantinMemberApi {
             }
 
             JSONObject payload = new JSONObject();
-            payload.put("bank", cara.getNama() == null ? "Online" : cara.getNama());
+            payload.put("bank", onlineBmt ? OnlineBmtUtil.BANK_NAME
+                : (cara.getNama() == null ? "Online" : cara.getNama()));
             payload.put("topup", String.valueOf(nominal));
             payload.put("caraPembayaranKoperasi", String.valueOf(cara.getId()));
             if (!channel.isEmpty()) payload.put("channel", channel);
@@ -513,6 +536,7 @@ public final class KantinMemberApi {
             hasil.put("id_member", anggota.getId());
             hasil.put("member", anggota.getNama() == null ? "" : anggota.getNama());
             hasil.put("channel", channel);
+            hasil.put("gateway", onlineBmt ? OnlineBmtUtil.PARAM_KEY : "smartlink");
             return hasil;
         } finally { closeSession(s); }
     }

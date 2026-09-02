@@ -112,10 +112,9 @@ AKSI_DISPATCH = re.compile(
 # Jalur klien yang SUDAH ditelusuri dan sengaja dibiarkan buntu, beserta sebabnya.
 # Daftar ini hanya boleh MENYUSUT.
 UTANG_JALUR = {
-    ('izin_harga_modal_tinggi', 'kulakan_bulk_entry_screen.dart'):
-        'entri massal -- satu persetujuan untuk seluruh batch atau per baris '
-        'adalah keputusan tersendiri; menebaknya di jalur yang menulis banyak '
-        'baris sekaligus lebih berbahaya daripada membiarkannya (dok. 86 par.5)',
+    # (kosong) -- entri kulakan_bulk_entry_screen.dart LUNAS di docs/pos/94:
+    # persetujuannya kini diminta PRA-KIRIM, sebelum satu baris pun
+    # diantrekan. Alat ini yang melaporkan bahwa entrinya sudah basi.
 }
 
 

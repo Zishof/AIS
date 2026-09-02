@@ -70,6 +70,7 @@ import ais.common.BsiCommon;
 import ais.common.Common;
 import ais.common.ConstantValues;
 import ais.common.IndonesianNumberToWords;
+import ais.common.OnlineBmtUtil;
 import ais.common.TunaiSiswaCommon;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BankHost;
@@ -2728,6 +2729,16 @@ public class PembayaranOnline extends GenericAutowireComposer {
 		createDirectBankButton(spaceBayar, 4, "BAYAR VIA BTN", "bank_btn");
 
 		if (sekolah_lokal != null) {
+			if (OnlineBmtUtil.isSekolahEnabled(sekolah_lokal, sekolah_lokal.getKanalPembayaran())) {
+				Map<String, Object> paramOnlineBmt = new HashMap<String, Object>();
+				paramOnlineBmt.put(OnlineBmtUtil.PARAM_KEY, true);
+				createStandardPopupGatewayAction(spaceBayar, "BAYAR VIA ONLINE BMT", "online_bank_host_ip",
+						paramOnlineBmt, false, null, "/common/online/no_va.zul", "online_bmt_biaya_administrasi");
+				if (tabOnline != null) {
+					tabOnline.setVisible(true);
+					tabpanelOnline.setVisible(true);
+				}
+			}
 			if (sekolah_lokal.getAktfkanPembayaranViaFlip()) {
 				if (tabOnline != null) {
 					tabOnline.setVisible(true);

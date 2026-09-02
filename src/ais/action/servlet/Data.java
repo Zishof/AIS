@@ -603,6 +603,8 @@ public class Data extends HttpServlet {
 				KantinHelper.pesananOnlineBaru(jsonObject, hasil);
 			} else if ("topup".equals(action)) {
 				hasil = TopupHelper.topup(jsonObject, request, tbmuser);
+			} else if ("topupCaraBayar".equals(action)) {
+				hasil = TopupHelper.caraBayar(jsonObject, request);
 			} else if ("bayarOnline".equals(action)) {
 				hasil = TopupHelper.bayarOnline(jsonObject, request, tbmuser);
 			} else if ("laporan".equals(action)) {

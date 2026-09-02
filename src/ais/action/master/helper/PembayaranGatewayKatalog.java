@@ -202,6 +202,9 @@ public class PembayaranGatewayKatalog {
 		SEMUA.add(new Gateway("smartlink", "BAYAR VIA ONLINE", "aktifkan_pembayaran_via_bank_online_smartlink",
 				true, "smartlink", KATEGORI_BANK_ONLINE, "online_bank_host_ip",
 				"online_smartlink_biaya_administrasi", "prefix_kode_bank_lain_online", "fas fa-link"));
+		SEMUA.add(new Gateway("online_bmt", "BAYAR VIA ONLINE BMT", Konfigurasi.ONLINE_BMT_AKTIF,
+				true, "online_bmt", KATEGORI_BANK_ONLINE, "online_bank_host_ip",
+				"online_bmt_biaya_administrasi", null, "fas fa-university"));
 		SEMUA.add(new Gateway("maja", "BAYAR VIA BSI", "aktifkan_pembayaran_via_bank_maja", true, "maja",
 				KATEGORI_BANK_ONLINE, "maja_bank_host_ip", "maja_biaya_administrasi",
 				"prefix_kode_bank_lain_maja", "fas fa-university"));
@@ -234,7 +237,7 @@ public class PembayaranGatewayKatalog {
 	 */
 	public static final Set<String> KAPABILITAS_WIZARD_ZK = new LinkedHashSet<String>(Arrays.asList(
 			"doku", "ipaymu", "faspay", "jatelindo", "cimb", "bni", "bsi", "bri", "finpay",
-			"online", "online_2", "smartlink", "maja", "qris", "bank_finpay", "flip", "otto", "briva",
+			"online", "online_2", "smartlink", "online_bmt", "maja", "qris", "bank_finpay", "flip", "otto", "briva",
 			"btn", "ntt", "bjb", "bankaltimtara"));
 
 	/**
@@ -244,7 +247,7 @@ public class PembayaranGatewayKatalog {
 	 * salah), sehingga sengaja tidak masuk set ini.
 	 */
 	public static final Set<String> KAPABILITAS_CHECKOUT_JSP = new LinkedHashSet<String>(Arrays.asList(
-			"online", "online_2", "smartlink", "maja", "qris", "bank_finpay", "flip", "otto", "briva",
+			"online", "online_2", "smartlink", "online_bmt", "maja", "qris", "bank_finpay", "flip", "otto", "briva",
 			"bankaltimtara", "bsi"));
 
 	/** @return salinan daftar seluruh gateway yang dikenal, berurutan tampilan. */
@@ -280,8 +283,10 @@ public class PembayaranGatewayKatalog {
 			try {
 				PerguruanTinggi pt = PerguruanTinggiUtil.getPerguruanTinggi();
 				if (pt != null && pt.getId() != null) {
+					String tenantDefault = "online_bmt".equals(g.id)
+							? Konfigurasi.TIDAK_AKTIF : Konfigurasi.AKTIF;
 					isActive = Konfigurasi.AKTIF.equals(Common
-							.getKonfigurasi(g.configKey + "_pt_" + pt.getId(), Konfigurasi.AKTIF).getNilai());
+							.getKonfigurasi(g.configKey + "_pt_" + pt.getId(), tenantDefault).getNilai());
 				}
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/PembayaranGatewayKatalog.java:280");
 				// gagal resolve PT → pakai hasil cek global saja (perilaku toleran DaftarUlang)

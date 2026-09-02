@@ -33,6 +33,7 @@ import ais.common.BJBUtil;
 import ais.common.BRIDataUtil;
 import ais.common.BSIMajaUtil;
 import ais.common.Common;
+import ais.common.OnlineBmtUtil;
 import ais.common.OttoUtil;
 import ais.common.URLBuilder;
 import ais.database.hibernate.HibernateUtil;
@@ -127,6 +128,7 @@ public class DownloadNoUjianCalonMahasiswaBankOnline extends MyWindow {
 		Boolean flip = (Boolean) (param.get("flip") == null ? false : param.get("flip"));
 		Boolean maja = (Boolean) (param.get("maja") == null ? false : param.get("maja"));
 		Boolean smartlink = (Boolean) (param.get("smartlink") == null ? false : param.get("smartlink"));
+		Boolean onlineBmt = Boolean.TRUE.equals(param.get(OnlineBmtUtil.PARAM_KEY));
 		List<String> warnings = (param.get("warnings") == null ? null : (List<String>) param.get("warnings"));
 		boolean update = (Boolean) (param.get("update") == null ? false : param.get("update"));
 
@@ -331,7 +333,8 @@ public class DownloadNoUjianCalonMahasiswaBankOnline extends MyWindow {
 				.createCriteria(VirtualAccountBank.class).add(Restrictions.eq("terjadiKendala", false))
 				.add(bankHost == null ? Restrictions.isNull("bankHost") : Restrictions.eq("bankHost", bankHost))
 				.add(Restrictions.ge("kadaluarsaWaktu", WaktuUtil.getDate()))
-				.add(Restrictions.eq("keterangan", pemb + (qris ? "qris:true" : "") + (finpay ? "finpay:true" : "")))
+				.add(Restrictions.eq("keterangan", pemb + (qris ? "qris:true" : "") + (finpay ? "finpay:true" : "")
+						+ (onlineBmt ? OnlineBmtUtil.MARKER : "")))
 				.add(Restrictions.eq("biodataCalonMahasiswa", biodataCalonMahasiswa))
 				.add(Restrictions.eq("jenisKegiatan", myjadwalPembayaran.getJenisKegiatan()))
 				.add(Restrictions.isNull("kegiatan")).setMaxResults(1).addOrder(Order.desc("id")).uniqueResult();
@@ -343,7 +346,13 @@ public class DownloadNoUjianCalonMahasiswaBankOnline extends MyWindow {
 					myjadwalPembayaran == null || myjadwalPembayaran.getJenisKegiatan() == null ? null
 							: myjadwalPembayaran.getJenisKegiatan().getKanalPembayaran());
 
-			if (qris) {
+			if (onlineBmt) {
+				Long ptId = PerguruanTinggiUtil.getPerguruanTinggi().getId();
+				if (!OnlineBmtUtil.isPerguruanTinggiEnabled(ptId)) return null;
+				OnlineBmtUtil.prepareInvoice(virtualAccountBankOnline);
+			}
+
+			else if (qris) {
 
 				String hasil = "";
 				try {
@@ -1152,7 +1161,8 @@ public class DownloadNoUjianCalonMahasiswaBankOnline extends MyWindow {
 			virtualAccountBankOnline.setBiayaAdmin(biayaAdmin);
 			virtualAccountBankOnline.setCicilan(cicilan);
 			virtualAccountBankOnline.setJenisKegiatan(myjadwalPembayaran.getJenisKegiatan());
-			virtualAccountBankOnline.setKeterangan(pemb + (qris ? "qris:true" : "") + (finpay ? "finpay:true" : ""));
+			virtualAccountBankOnline.setKeterangan(pemb + (qris ? "qris:true" : "") + (finpay ? "finpay:true" : "")
+					+ (onlineBmt ? OnlineBmtUtil.MARKER : ""));
 			virtualAccountBankOnline.setTotal(total);
 			virtualAccountBankOnline.setBulanan("");
 			virtualAccountBankOnline.setDetailbiaya(detailbiaya);

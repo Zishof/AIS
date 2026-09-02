@@ -92,6 +92,7 @@ import ais.common.FinpayCommon;
 import ais.common.IndonesianNumberToWords;
 import ais.common.IpaymuCommon;
 import ais.common.JatelindoCommon;
+import ais.common.OnlineBmtUtil;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BankHost;
 import ais.database.model.BiodataCalonMahasiswa;
@@ -5275,7 +5276,7 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 					spaceBayar.appendChild(bayarBankOnline);
 				bayarBankOnline.addEventListener("onClick",
 						createOnlineBankListener("online_biaya_administrasi", "online_bank_host_ip",
-								"prefix_kode_bank_lain_online", false, false, false, false, false, false));
+								"prefix_kode_bank_lain_online", false, false, false, false, false, false, false));
 			}
 
 			if (Common.bolehKonfigurasi("aktifkan_pembayaran_via_bank_online_2", Konfigurasi.TIDAK_AKTIF)
@@ -5288,7 +5289,7 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 					spaceBayar.appendChild(bayarBankOnline2);
 				bayarBankOnline2.addEventListener("onClick",
 						createOnlineBankListener("online_biaya_administrasi_2", "online_2_bank_host_ip",
-								"prefix_kode_bank_lain_online_2", false, false, false, false, false, false));
+								"prefix_kode_bank_lain_online_2", false, false, false, false, false, false, false));
 			}
 
 			if (Common.bolehKonfigurasi("aktifkan_pembayaran_via_bank_online_smartlink", Konfigurasi.TIDAK_AKTIF)
@@ -5301,7 +5302,19 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 					spaceBayar.appendChild(btnSmartlink);
 				btnSmartlink.addEventListener("onClick",
 						createOnlineBankListener("online_smartlink_biaya_administrasi", "online_bank_host_ip",
-								"prefix_kode_bank_lain_online", true, false, false, false, false, false));
+								"prefix_kode_bank_lain_online", true, false, false, false, false, false, false));
+			}
+
+			if (OnlineBmtUtil.isPerguruanTinggiEnabled(perguruanTinggi.getId())) {
+				final MyButtonConfig btnOnlineBmt = new MyButtonConfig("BAYAR VIA ONLINE BMT");
+				btnOnlineBmt.setWidth("150px");
+				btnOnlineBmt.setHeight("55px");
+				if (jenisKegiatan != null && (jenisKegiatan.getNamaBankPembayaran().isEmpty()
+						|| jenisKegiatan.getNamaBankPembayaran().toLowerCase().contains(";online_bmt;")))
+					spaceBayar.appendChild(btnOnlineBmt);
+				btnOnlineBmt.addEventListener("onClick",
+						createOnlineBankListener("online_bmt_biaya_administrasi", "online_bank_host_ip",
+								null, false, false, false, false, false, false, true));
 			}
 
 			if (Common.bolehKonfigurasi("aktifkan_pembayaran_via_bank_maja", Konfigurasi.TIDAK_AKTIF)
@@ -5313,7 +5326,7 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 						|| jenisKegiatan.getNamaBankPembayaran().toLowerCase().contains(";bsi;")))
 					spaceBayar.appendChild(btnMaja);
 				btnMaja.addEventListener("onClick", createOnlineBankListener("maja_biaya_administrasi",
-						"maja_bank_host_ip", null, false, true, false, false, false, false));
+						"maja_bank_host_ip", null, false, true, false, false, false, false, false));
 			}
 
 			if (Common.bolehKonfigurasi("aktifkan_pembayaran_via_bank_qris", Konfigurasi.TIDAK_AKTIF)) {
@@ -5324,7 +5337,7 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 						|| jenisKegiatan.getNamaBankPembayaran().toLowerCase().contains(";qris;")))
 					spaceBayar.appendChild(btnQris);
 				btnQris.addEventListener("onClick", createOnlineBankListener("qris_biaya_administrasi",
-						"qris_bank_host_ip", null, false, false, true, false, false, false));
+						"qris_bank_host_ip", null, false, false, true, false, false, false, false));
 			}
 
 			if (Common.bolehKonfigurasi("aktifkan_pembayaran_via_bank_finpay", Konfigurasi.TIDAK_AKTIF)) {
@@ -5335,7 +5348,7 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 						|| jenisKegiatan.getNamaBankPembayaran().toLowerCase().contains(";finpay;")))
 					spaceBayar.appendChild(btnFinpay);
 				btnFinpay.addEventListener("onClick", createOnlineBankListener("finpay_biaya_administrasi",
-						"finpay_bank_host_ip", null, false, false, false, true, false, false));
+						"finpay_bank_host_ip", null, false, false, false, true, false, false, false));
 			}
 
 			if (Common.bolehKonfigurasi("aktifkan_pembayaran_via_bank_flip", Konfigurasi.TIDAK_AKTIF)) {
@@ -5346,7 +5359,7 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 						|| jenisKegiatan.getNamaBankPembayaran().toLowerCase().contains(";flip;")))
 					spaceBayar.appendChild(btnFlip);
 				btnFlip.addEventListener("onClick", createOnlineBankListener("flip_biaya_administrasi",
-						"flip_bank_host_ip", null, false, false, false, false, true, false));
+						"flip_bank_host_ip", null, false, false, false, false, true, false, false));
 			}
 
 			if (Common.bolehKonfigurasi("aktifkan_pembayaran_via_bank_otto", Konfigurasi.TIDAK_AKTIF)) {
@@ -5357,7 +5370,7 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 						|| jenisKegiatan.getNamaBankPembayaran().toLowerCase().contains(";otto;")))
 					spaceBayar.appendChild(btnOtto);
 				btnOtto.addEventListener("onClick", createOnlineBankListener("otto_biaya_administrasi",
-						"otto_bank_host_ip", null, false, false, false, false, false, true));
+						"otto_bank_host_ip", null, false, false, false, false, false, true, false));
 			}
 
 		}
@@ -5589,7 +5602,7 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 	// Helper method untuk mendelegasikan Online bank URLs dengan variasi parameter
 	private EventListener createOnlineBankListener(final String adminConfig, final String hostConfig,
 			final String prefixConfig, final boolean isSmartlink, final boolean isMaja, final boolean isQris,
-			final boolean isFinpay, final boolean isFlip, final boolean isOtto) {
+			final boolean isFinpay, final boolean isFlip, final boolean isOtto, final boolean isOnlineBmt) {
 		return new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
@@ -5625,6 +5638,8 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 								param.put("flip", true);
 							if (isOtto)
 								param.put("otto", true);
+							if (isOnlineBmt)
+								param.put(OnlineBmtUtil.PARAM_KEY, true);
 
 							VirtualAccountBank virtualAccountBank = DownloadNoUjianCalonMahasiswaBankOnline
 									.downloadData(calonMahasiswa, jadwalPembayaran, detailBiayas, gridCicilan, smt,

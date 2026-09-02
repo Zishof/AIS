@@ -216,6 +216,7 @@ public final class ApiRouteRegistry {
         register(routes, "daftar_tabungan_siswa", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return TabunganSiswa.daftar_tabungan_siswa(req, json); } });
 
         register(routes, "topup", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return TopupHelper.topup(json, req); } });
+        register(routes, "topupCaraBayar", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return TopupHelper.caraBayar(json, req); } });
         register(routes, "bayarOnline", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return TopupHelper.bayarOnline(json, req); } });
         register(routes, "checkBayar", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return TopupHelper.checkBayar(json, req); } });
         register(routes, "riwayatPembelian", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return TopupHelper.riwayatPembelian(json, req); } });

@@ -29,6 +29,8 @@ import ais.action.ws.util.PembayaranUtil;
 import ais.common.BniCommon;
 import ais.common.Common;
 import ais.common.ConstantValues;
+import ais.common.OnlineBmtUtil;
+import ais.action.master.helper.util.PerguruanTinggiUtil;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BankHost;
 import ais.database.model.BiodataCalonMahasiswa;
@@ -74,6 +76,54 @@ import ais.ui.util.WaktuUtil;
  * </p>
  */
 public class TopupHelper {
+
+	/**
+	 * Mengembalikan kanal topup yang benar-benar aktif bagi pemilik token. Daftar
+	 * dibentuk server-side supaya klien tidak dapat menyalakan Online BMT hanya
+	 * dengan mengirim nama bank. Sakelar global dan tenant diperiksa kembali saat
+	 * pembuatan invoice, sehingga respons ini bukan pengganti validasi transaksi.
+	 */
+	public static JSONObject caraBayar(JSONObject request, HttpServletRequest httpServletRequest) {
+		JSONObject result = new JSONObject();
+		try {
+			Tbmuser user = ApiUtil.currentUser(request, httpServletRequest);
+			if (user == null || user.getUserId() == null) {
+				result.put("status", "97");
+				result.put("description", "Token tidak sesuai");
+				return result;
+			}
+			String configured = "Smartlink";
+			boolean onlineBmt = false;
+			if (user.getSiswa() != null || user.getCalonSiswa() != null) {
+				Sekolah sekolah = user.getSiswa() != null ? user.getSiswa().getSekolah()
+						: user.getCalonSiswa().getSekolah();
+				configured = Common.getKonfigurasi("bank_va_mobile_" + sekolah.getId(), "Smartlink").getNilai();
+				onlineBmt = OnlineBmtUtil.isSekolahEnabled(sekolah, sekolah.getKanalPembayaran());
+			} else if (user.getMahasiswa() != null) {
+				Long ptId = user.getMahasiswa().getJurusan().getFakultas().getPerguruanTinggi().getId();
+				configured = Common.getKonfigurasi("bank_va_mobile_pt_" + ptId, "Smartlink").getNilai();
+				onlineBmt = OnlineBmtUtil.isPerguruanTinggiEnabled(ptId);
+			}
+			configured = OnlineBmtUtil.appendToConfiguredBanks(configured, onlineBmt);
+			JSONArray data = new JSONArray();
+			String[] banks = configured.split(",");
+			for (int i = 0; i < banks.length; i++) {
+				String bank = banks[i].trim();
+				if (bank.length() == 0) continue;
+				JSONObject item = new JSONObject();
+				item.put("bank", bank);
+				item.put("nama", bank);
+				data.put(item);
+			}
+			result.put("data", data);
+			result.put("status", "00");
+			result.put("description", "Daftar kanal topup aktif berhasil diambil");
+		} catch (Exception e) {
+			result.put("status", "90");
+			result.put("description", Common.tampilErrorJikaAdmin(e));
+		}
+		return result;
+	}
 
 	// Fungsi pembantu agar tidak ada try-catch berulang yang kosong
 	/** Mem-parsing {@code value} menjadi {@link Double}, mengembalikan {@code fallback} bila {@code null}/kosong/tidak valid — pengganti try-catch berulang untuk parsing nominal dari JSON. */
@@ -898,6 +948,18 @@ public class TopupHelper {
 					virtualAccountBank = DownloadTagihanSiswaBankOnline.downloadData(siswa, calonSiswa, null, param,
 							biayaAdministrasi, null, topupNumber, bankHost, akunPembayaranSiswa, sekolah, warnings);
 
+				} else if (bank.equalsIgnoreCase(OnlineBmtUtil.BANK_NAME)) {
+					if (!OnlineBmtUtil.isSekolahEnabled(sekolah, sekolah.getKanalPembayaran())) {
+						jsonObject.put("status", "03");
+						jsonObject.put("description", "Kanal Online BMT belum diaktifkan untuk sekolah ini");
+						return jsonObject;
+					}
+					biayaAdministrasi = parseDoubleSafe(
+							Common.getKonfigurasi("online_bmt_biaya_administrasi", "0.0").getNilai(), 0.0);
+					param.put(OnlineBmtUtil.PARAM_KEY, true);
+					virtualAccountBank = DownloadTagihanSiswaBankOnline.downloadData(siswa, calonSiswa, null, param,
+							biayaAdministrasi, null, topupNumber, bankHost, akunPembayaranSiswa, sekolah, warnings);
+
 				} else if (bank.equalsIgnoreCase("Smartlink")) {
 					biayaAdministrasi = sekolah.getBiayaAdminEsmartlink();
 					if (sekolah.getVariableBiayaAdminEsmartlink() == null
@@ -1087,7 +1149,18 @@ public class TopupHelper {
 			try {
 
 			List<String> warnings = new ArrayList<String>();
-			double biayaAdministrasi = caraPembayaranKoperasi.getKanalPembayaran() == null
+			boolean onlineBmt = bank.equalsIgnoreCase(OnlineBmtUtil.BANK_NAME);
+			if (onlineBmt && (!OnlineBmtUtil.isGlobalEnabled()
+					|| caraPembayaranKoperasi.getKanalPembayaran() == null
+					|| !Boolean.TRUE.equals(caraPembayaranKoperasi.getKanalPembayaran()
+							.getAktfkanPembayaranViaOnlineBmt()))) {
+				jsonObject.put("status", "03");
+				jsonObject.put("description", "Kanal Online BMT belum diaktifkan untuk kanal pembayaran ini");
+				return jsonObject;
+			}
+			double biayaAdministrasi = onlineBmt
+					? parseDoubleSafe(Common.getKonfigurasi("online_bmt_biaya_administrasi", "0.0").getNilai(), 0.0)
+					: caraPembayaranKoperasi.getKanalPembayaran() == null
 					|| caraPembayaranKoperasi.getKanalPembayaran().getBiayaAdminEsmartlink() == null ? 0.0
 							: caraPembayaranKoperasi.getKanalPembayaran().getBiayaAdminEsmartlink().doubleValue();
 			String billExpired = "";
@@ -1097,14 +1170,14 @@ public class TopupHelper {
 
 			Map param = new HashMap();
 
-			param.put("esmartlink", true);
+			param.put(onlineBmt ? OnlineBmtUtil.PARAM_KEY : "esmartlink", true);
 			String channel = request.has("channel") && !request.isNull("channel")
 					? request.optString("channel", "").trim() : "";
 			String variableChannel = caraPembayaranKoperasi.getKanalPembayaran() == null ? ""
 					: caraPembayaranKoperasi.getKanalPembayaran().getVariableBiayaAdminEsmartlink();
 			// Pemanggil lama tidak mengirim channel dan tetap memakai biaya admin dasar.
 			// Endpoint POS selalu mengharuskan channel bila konfigurasi variabel tersedia.
-			if (!channel.isEmpty() && variableChannel != null && !variableChannel.trim().isEmpty()) {
+			if (!onlineBmt && !channel.isEmpty() && variableChannel != null && !variableChannel.trim().isEmpty()) {
 				boolean channelDitemukan = false;
 				String[] channels = variableChannel.split(";");
 				for (int i = 0; i < channels.length; i++) {
@@ -1124,7 +1197,7 @@ public class TopupHelper {
 				}
 			}
 			Double amn = Double.valueOf(topupNumber.doubleValue() + biayaAdministrasi);
-			if (!channel.isEmpty()) {
+			if (!onlineBmt && !channel.isEmpty()) {
 				param.put("esmartlinkBayarVia", channel);
 			}
 			virtualAccountBank = DownloadTagihanAnggotaKoperasiBankOnline.downloadData(anggotaKoperasi, topupNumber,
@@ -1254,7 +1327,15 @@ public class TopupHelper {
 			if (bank.equalsIgnoreCase("MANDIRI") || bank.equalsIgnoreCase("Online")
 					|| bank.equalsIgnoreCase("Smartlink") || bank.equalsIgnoreCase("BSI")
 					|| bank.equalsIgnoreCase("BCA") || bank.equalsIgnoreCase("MNC Bank")
-					|| bank.equalsIgnoreCase("Finpay") || bank.equalsIgnoreCase("Flip")) {
+					|| bank.equalsIgnoreCase("Finpay") || bank.equalsIgnoreCase("Flip")
+					|| bank.equalsIgnoreCase(OnlineBmtUtil.BANK_NAME)) {
+
+				if (bank.equalsIgnoreCase(OnlineBmtUtil.BANK_NAME)
+						&& !OnlineBmtUtil.isPerguruanTinggiEnabled(PerguruanTinggiUtil.getPerguruanTinggi().getId())) {
+					jsonObject.put("status", "03");
+					jsonObject.put("description", "Kanal Online BMT belum diaktifkan untuk perguruan tinggi ini");
+					return jsonObject;
+				}
 
 				Integer smt = 0;
 				List detailBiayas = new ArrayList();
@@ -1263,7 +1344,8 @@ public class TopupHelper {
 				rows.setParent(gridCicilan);
 
 				Double biayaAdministrasi = parseDoubleSafe(
-						Common.getKonfigurasi("online_biaya_administrasi", "0.0").getNilai(), 0.0);
+						Common.getKonfigurasi(bank.equalsIgnoreCase(OnlineBmtUtil.BANK_NAME)
+								? "online_bmt_biaya_administrasi" : "online_biaya_administrasi", "0.0").getNilai(), 0.0);
 				String ket = "";
 				String pemb = "";
 				String cicilan = "";
@@ -1288,6 +1370,7 @@ public class TopupHelper {
 				param.put("finpay", bank.equalsIgnoreCase("Finpay"));
 				param.put("flip", bank.equalsIgnoreCase("Flip"));
 				param.put("smartlink", bank.equalsIgnoreCase("Smartlink"));
+				param.put(OnlineBmtUtil.PARAM_KEY, bank.equalsIgnoreCase(OnlineBmtUtil.BANK_NAME));
 
 				if (bank.equalsIgnoreCase("Smartlink")) {
 					param.put("smartlink_direct", true);

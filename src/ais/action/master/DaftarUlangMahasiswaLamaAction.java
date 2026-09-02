@@ -98,6 +98,7 @@ import ais.common.FinpayCommon;
 import ais.common.IndonesianNumberToWords;
 import ais.common.IpaymuCommon;
 import ais.common.JatelindoCommon;
+import ais.common.OnlineBmtUtil;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BankHost;
 import ais.database.model.BiodataCalonMahasiswa;
@@ -6131,8 +6132,10 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 				.equals(Common.getKonfigurasi(configKey, Konfigurasi.TIDAK_AKTIF).getNilai());
 		if (ptConfigSuffix != null && isActive) {
 			PerguruanTinggi pt = PerguruanTinggiUtil.getPerguruanTinggi();
+			String tenantDefault = OnlineBmtUtil.PARAM_KEY.equals(bankGatewayId)
+					? Konfigurasi.TIDAK_AKTIF : Konfigurasi.AKTIF;
 			isActive = Konfigurasi.AKTIF.equals(
-					Common.getKonfigurasi(configKey + ptConfigSuffix + pt.getId(), Konfigurasi.AKTIF).getNilai());
+					Common.getKonfigurasi(configKey + ptConfigSuffix + pt.getId(), tenantDefault).getNilai());
 		}
 
 		if (tab != null && tabpanel != null) {
@@ -6281,6 +6284,8 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 										labelTahunAkademik.getValue() == null ? "" : labelTahunAkademik.getValue());
 								if ("smartlink".equals(bankGatewayId))
 									param.put("smartlink", true);
+								else if (OnlineBmtUtil.PARAM_KEY.equals(bankGatewayId))
+									param.put(OnlineBmtUtil.PARAM_KEY, true);
 								else if ("maja".equals(bankGatewayId))
 									param.put("maja", true);
 								else if ("qris".equals(bankGatewayId))
@@ -6742,6 +6747,9 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 		setupBankOnlineGateway(spaceBayar, "aktifkan_pembayaran_via_bank_online_smartlink", "_pt_", "BAYAR VIA ONLINE",
 				"smartlink", "online_bank_host_ip", "online_smartlink_biaya_administrasi", "/common/online/no_va.zul",
 				"prefix_kode_bank_lain_online");
+		setupBankOnlineGateway(spaceBayar, Konfigurasi.ONLINE_BMT_AKTIF, "_pt_", "BAYAR VIA ONLINE BMT",
+				OnlineBmtUtil.PARAM_KEY, "online_bank_host_ip", "online_bmt_biaya_administrasi",
+				"/common/online/no_va.zul", null);
 		setupBankOnlineGateway(spaceBayar, "aktifkan_pembayaran_via_bank_maja", "_pt_", "BAYAR VIA BSI", "maja",
 				"maja_bank_host_ip", "maja_biaya_administrasi", "/common/online/no_va.zul",
 				"prefix_kode_bank_lain_maja");

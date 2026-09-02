@@ -261,7 +261,18 @@ public class OnlineBmt extends HttpServlet {
 		if (invoice == null || !OnlineBmtUtil.BANK_NAME.equalsIgnoreCase(invoice.getBank())) {
 			throw new ApiException(404, "01", "Invoice bukan tagihan Online BMT.");
 		}
-		if (!OnlineBmtUtil.isPerguruanTinggiEnabled(invoice.getPt())) {
+		boolean enabled;
+		if (invoice.getSiswa() != null || invoice.getCalonSiswa() != null) {
+			ais.database.model.sekolah.Sekolah sekolah = invoice.getSiswa() != null
+					? invoice.getSiswa().getSekolah() : invoice.getCalonSiswa().getSekolah();
+			enabled = OnlineBmtUtil.isSekolahEnabled(sekolah, invoice.getKanalPembayaran());
+		} else if (invoice.getAnggotaKoperasi() != null) {
+			enabled = OnlineBmtUtil.isGlobalEnabled() && invoice.getKanalPembayaran() != null
+					&& Boolean.TRUE.equals(invoice.getKanalPembayaran().getAktfkanPembayaranViaOnlineBmt());
+		} else {
+			enabled = OnlineBmtUtil.isPerguruanTinggiEnabled(invoice.getPt());
+		}
+		if (!enabled) {
 			throw new ApiException(403, "01", "Kanal Online BMT untuk pemilik invoice sedang dinonaktifkan.");
 		}
 	}

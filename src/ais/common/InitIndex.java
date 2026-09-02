@@ -47,7 +47,9 @@ public class InitIndex {
 						+ "response_message text, created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, "
 						+ "updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP)",
 				"CREATE UNIQUE INDEX IF NOT EXISTS uq_online_bmt_guard_nonce ON public.online_bmt_request_guard (nonce)",
-				"CREATE UNIQUE INDEX IF NOT EXISTS uq_online_bmt_guard_transaction ON public.online_bmt_request_guard (no_transaksi_bmt) WHERE no_transaksi_bmt IS NOT NULL AND no_transaksi_bmt <> ''",
+				/* PostgreSQL mengizinkan banyak NULL pada UNIQUE index. Index sengaja tidak
+				 * partial agar dapat diinferensikan secara tepat oleh ON CONFLICT(column). */
+				"CREATE UNIQUE INDEX IF NOT EXISTS uq_online_bmt_guard_transaction ON public.online_bmt_request_guard (no_transaksi_bmt)",
 				"CREATE INDEX IF NOT EXISTS idx_online_bmt_guard_invoice_status ON public.online_bmt_request_guard (no_invoice, status, id DESC)" };
 		for (int i = 0; i < ddl.length; i++) {
 			try {

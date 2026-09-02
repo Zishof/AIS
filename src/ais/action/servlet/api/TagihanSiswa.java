@@ -25,6 +25,7 @@ import ais.action.master.sekolah.helper.TagihanUtilCalonSiswa;
 import ais.action.ws.util.PembayaranUtil;
 import ais.common.BniCommon;
 import ais.common.Common;
+import ais.common.OnlineBmtUtil;
 import ais.common.CommonHelperClass;
 import ais.common.ConstantValues;
 import ais.database.hibernate.HibernateUtil;
@@ -818,8 +819,9 @@ public class TagihanSiswa {
 						jsonObject.put("data", jsonArray);
 						jsonObject.put("status", "00");
 						jsonObject.put("description", "Data piutang dan rincian tagihan siswa berhasil diambil dari sistem. Respons mencakup: total piutang keseluruhan yang masih menjadi kewajiban siswa atau calon siswa, jumlah total yang telah dibayarkan sebelumnya, biaya administrasi yang berlaku sesuai konfigurasi bank (khususnya BNI), total nominal bersih yang perlu diselesaikan, serta daftar lengkap seluruh tagihan yang masih belum dibayar beserta rincian masing-masing item tagihan. Gunakan data kanal pembayaran (bank_va_mobile) yang tersedia untuk mengarahkan pengguna ke metode pembayaran yang sesuai dengan konfigurasi sekolah.");
-						jsonObject.put("bank_va_mobile",
-								Common.getKonfigurasi("bank_va_mobile_" + sekolah.getId(), "BNI").getNilai());
+						String configuredBanks = Common.getKonfigurasi("bank_va_mobile_" + sekolah.getId(), "BNI").getNilai();
+						jsonObject.put("bank_va_mobile", OnlineBmtUtil.appendToConfiguredBanks(configuredBanks,
+								OnlineBmtUtil.isSekolahEnabled(sekolah, sekolah.getKanalPembayaran())));
 
 					}
 					} finally {
@@ -936,8 +938,9 @@ public class TagihanSiswa {
 					jsonObject.put("data", jsonArray);
 					jsonObject.put("status", "00");
 					jsonObject.put("description", "Daftar tagihan siswa untuk periode yang diminta berhasil diambil dari sistem. Respons mencakup: daftar lengkap tagihan yang belum dibayar beserta rincian masing-masing item biaya, nominal yang harus dibayarkan, denda yang berlaku, total kewajiban keseluruhan, biaya administrasi yang berlaku sesuai konfigurasi bank, dan informasi kanal pembayaran digital (bank_va_mobile) yang telah dikonfigurasikan untuk sekolah ini. Gunakan data tagihan ini sebagai dasar untuk proses pembuatan Virtual Account (VA) atau pembayaran langsung via tabungan/deposit.");
-					jsonObject.put("bank_va_mobile",
-							Common.getKonfigurasi("bank_va_mobile_" + sekolah.getId(), "BNI").getNilai());
+					String configuredBanks = Common.getKonfigurasi("bank_va_mobile_" + sekolah.getId(), "BNI").getNilai();
+					jsonObject.put("bank_va_mobile", OnlineBmtUtil.appendToConfiguredBanks(configuredBanks,
+							OnlineBmtUtil.isSekolahEnabled(sekolah, sekolah.getKanalPembayaran())));
 				} else {
 					jsonObject.put("status", "01");
 					jsonObject.put("description", "Akses ditolak: endpoint API ini secara eksklusif dirancang untuk melayani permintaan dari akun pengguna yang terdaftar sebagai siswa aktif atau calon siswa dalam sistem. Token autentikasi yang digunakan pada permintaan ini tidak terkait dengan entitas siswa (tabel siswa) maupun calon siswa (tabel calon_siswa) mana pun dalam database. Kemungkinan penyebab: (1) pengguna masuk menggunakan akun orang tua (orangTua), pengajar, tenaga administrasi, atau administrator yang tidak memiliki hak akses pada fitur pembayaran siswa; (2) asosiasi antara akun pengguna dan data siswa atau calon siswa belum dikonfigurasi oleh administrator sekolah; (3) data siswa yang sebelumnya terhubung dengan akun ini telah dihapus, dinonaktifkan, atau dipindahkan ke akun lain. Tindakan: pastikan Anda masuk menggunakan akun yang secara langsung ditetapkan sebagai siswa atau calon siswa, atau hubungi administrator sekolah untuk memverifikasi dan memperbaiki tautan antara akun pengguna dengan data siswa yang bersangkutan.");
@@ -1370,6 +1373,23 @@ public class TagihanSiswa {
 											|| virtualAccountBank.getKadaluarsa() == null ? ""
 													: Common.dateFormat5.get()
 															.format(virtualAccountBank.getKadaluarsaWaktu());
+								} else if (bank.equalsIgnoreCase(OnlineBmtUtil.BANK_NAME)) {
+									if (!OnlineBmtUtil.isSekolahEnabled(sekolah, sekolah.getKanalPembayaran())) {
+										warnings.add("Kanal Online BMT belum diaktifkan untuk sekolah ini");
+									} else {
+										biayaAdministrasi = Double.parseDouble(Common
+												.getKonfigurasi("online_bmt_biaya_administrasi", "0.0").getNilai());
+										BankHost bankHost = PembayaranUtil.getInstance().getBankHost(
+												Common.getKonfigurasi("online_bank_host_ip", "").getNilai(), "Bank Host");
+										Map param = new HashMap();
+										param.put(OnlineBmtUtil.PARAM_KEY, true);
+										virtualAccountBank = DownloadTagihanSiswaBankOnline.downloadData(siswa,
+												calonSiswa, tagihans, param, biayaAdministrasi, tabunganNumber,
+												bankHost, akunPembayaranSiswa, sekolah, warnings);
+										va = virtualAccountBank == null ? "" : virtualAccountBank.getKode();
+										billExpired = virtualAccountBank == null || virtualAccountBank.getKadaluarsa() == null
+												? "" : Common.dateFormat5.get().format(virtualAccountBank.getKadaluarsaWaktu());
+									}
 								} else if (bank.equalsIgnoreCase("Smartlink")) {
 
 									biayaAdministrasi = sekolah.getBiayaAdminEsmartlink();

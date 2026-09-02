@@ -83,6 +83,18 @@ public final class OnlineBmtUtil {
 		if (invoice == null) {
 			return 0.0;
 		}
-		return invoice.getTotal().doubleValue() + invoice.getBiayaAdmin().doubleValue();
+		return (invoice.getTotal() == null ? 0.0 : invoice.getTotal().doubleValue())
+				+ (invoice.getBiayaAdmin() == null ? 0.0 : invoice.getBiayaAdmin().doubleValue());
+	}
+
+	/** Menambahkan nama kanal pada daftar CSV tanpa duplikasi; OFF tidak mengubah konfigurasi lama. */
+	public static String appendToConfiguredBanks(String configured, boolean enabled) {
+		String value = configured == null ? "" : configured.trim();
+		if (!enabled) return value;
+		String[] banks = value.split(",");
+		for (int i = 0; i < banks.length; i++) {
+			if (BANK_NAME.equalsIgnoreCase(banks[i].trim())) return value;
+		}
+		return value.length() == 0 ? BANK_NAME : value + "," + BANK_NAME;
 	}
 }

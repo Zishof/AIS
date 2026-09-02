@@ -1383,6 +1383,7 @@ public class WizardPembayaranMhsHelper {
 
             Map param = new HashMap();
             if ("smartlink".equals(g.id)) param.put("smartlink", Boolean.TRUE);
+			else if ("online_bmt".equals(g.id)) param.put("online_bmt", Boolean.TRUE);
             else if ("maja".equals(g.id)) param.put("maja", Boolean.TRUE);
 
             VirtualAccountBank va = DownloadTagihanMahasiswaBankOnline.sendRequest(mahasiswa, null, set, fee,
@@ -2083,7 +2084,7 @@ public class WizardPembayaranMhsHelper {
             param.put("tahunAkademik", getTahunAkademik());
             // flag kanal — id katalog "bank_finpay" memakai flag legacy "finpay"
             String flag = "bank_finpay".equals(g.id) ? "finpay" : g.id;
-            if ("smartlink".equals(flag) || "maja".equals(flag) || "qris".equals(flag)
+            if ("smartlink".equals(flag) || "online_bmt".equals(flag) || "maja".equals(flag) || "qris".equals(flag)
                     || "finpay".equals(flag) || "flip".equals(flag) || "otto".equals(flag)
                     || "briva".equals(flag)) {
                 param.put(flag, Boolean.TRUE);

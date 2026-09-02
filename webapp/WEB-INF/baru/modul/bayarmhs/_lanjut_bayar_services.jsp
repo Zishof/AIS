@@ -447,7 +447,10 @@
         String prefixKodeLainConfig = "";
         String basePathVA = "/baru?hanya_tampil_jsp=true&p=bayarmhs&s=_tampil_va";
 
-        if ("smartlink".equals(bankGatewayId)) {
+        if ("online_bmt".equals(bankGatewayId)) {
+            bankHostConfig = "online_bank_host_ip";
+            adminFeeConfig = "online_bmt_biaya_administrasi"; popupUrlPrefix = basePathVA; prefixKodeLainConfig = null;
+        } else if ("smartlink".equals(bankGatewayId)) {
             bankHostConfig = "online_bank_host_ip"; adminFeeConfig = "online_smartlink_biaya_administrasi";
             popupUrlPrefix = basePathVA; prefixKodeLainConfig = "prefix_kode_bank_lain_online";
         } else if ("maja".equals(bankGatewayId)) {
@@ -517,7 +520,8 @@
            sekadar dicek dari aplikasi bank lain/mobile. (cicilanStr tetap dihitung
            di atas hanya untuk kebutuhan log/diagnosa.) */
         
-        if ("smartlink".equals(bankGatewayId)) param.put("smartlink", true);
+        if ("online_bmt".equals(bankGatewayId)) param.put("online_bmt", true);
+        else if ("smartlink".equals(bankGatewayId)) param.put("smartlink", true);
         else if ("maja".equals(bankGatewayId)) param.put("maja", true);
         else if ("qris".equals(bankGatewayId)) param.put("qris", true);
         else if ("finpay".equals(bankGatewayId)) param.put("finpay", true);
