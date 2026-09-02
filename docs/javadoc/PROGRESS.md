@@ -1,5 +1,212 @@
 # Progres Javadoc Menyeluruh
 
+## `ais/database/model/KegiatanKemahasiswaan.java` — SELESAI 100% (2 Sep 2026)
+
+Entity **master kegiatan kemahasiswaan** (tabel `public.kegiatan_kemahasiswaan`,
+`@Audited`, `dynamicInsert/dynamicUpdate`, turunan langsung `GeneralValueObject`).
+**65 anggota** (1 konstruktor + 62 getter/setter + `toString()` + kait
+`@PreUpdate`) + 31 field + 4 konstanta status terdokumentasi (100%),
+411 → 1447 baris. Revisi **r83369**, mirror `java/` verifikasi `cmp` identik
+byte. Hanya Javadoc/komentar; **nol perubahan logika** (dibuktikan dengan
+membandingkan sumber tanpa komentar/spasi terhadap HEAD r77530 — identik
+persis, 9.418 byte).
+
+**Kali ini nama class TIDAK menyesatkan** (kebalikan dari `PenghargaanDosen`/
+`PenghargaanMahasiswa`/`BukuBahanAjar`). Menu `NewUiLayarLainnyaController`
+baris 79 (tab `TAB_KEMAHASISWAAN`) berlabel "Kegiatan Mahasiswa" →
+`/pages/master/kegiatan_kemahasiswaan.zul`; judul jendela tambah/ubah
+"Tambah/Ubah Kegiatan Kemahasiswaan" (`KegiatanKemahasiswaanAction:1145`).
+Yang **menyesatkan adalah nama PROPERTI vs label layar**:
+`kelompokKegiatanKemahasiswaan` = **"Aspek Kegiatan"**,
+`detailKelompokKegiatanKemahasiswaan` = **"Rincian Aspek Kegiatan"** / kolom
+grid "Aspek Rinci". Tidak ada kata "kelompok" di layar mana pun.
+
+**Jawaban pertanyaan sesi ini (diverifikasi dari kode, bukan tebakan):**
+
+- vs **`Kegiatan`/`DetailKegiatan`** → **TIDAK BERHUBUNGAN SAMA SEKALI**, hanya
+  berbagi kata "kegiatan". Keduanya entity **billing**: `Kegiatan` (2.125
+  baris) = wadah tagihan per mahasiswa per semester (`amount`, `denda`,
+  `pengurangan`, `lunas`, `amountTerhutang`, `jadwalPembayaran`,
+  `JenisKegiatan`); `DetailKegiatan` (2.096 baris) = baris tagihan di dalamnya
+  (`biaya`, `diskon`, `detailBiaya`, `itemBiaya`, `postingHistory`). Class ini
+  (411 baris) **tidak punya satu pun properti nominal/denda/cicilan/posting**,
+  tidak ada `@JoinColumn` ke `kegiatan`/`detail_kegiatan`, dan tidak ada
+  properti bertipe class ini di kedua entity billing itu. Master pendukungnya
+  pun berbeda total.
+- **Kerabat sebenarnya** = **`KegiatanKedosenan`** (tabel `kegiatan_kedosenan`,
+  338 baris) dan **`sekolah/KegiatanKesiswaan`** — tiga varian sebentuk untuk
+  mahasiswa/dosen/siswa. Beda: `diajukanOleh` di sini bertipe `Mahasiswa` (di
+  sisi kedosenan `Dosen`), dan hanya versi mahasiswa yang punya dua dosen
+  pembina, `jenisAktfitasMahasiswa`, `feeder`, `noSk`/`tglSk`, dan `tempat`.
+- **Peserta kegiatan** ada di **`KegiatanKemahasiswaanPunyaMahasiswa`**
+  (`nullable=false`), bukan di `diajukanOleh` (itu hanya pengusul, dan
+  opsional). Hanya DUA entity di `ais.database.model` yang menunjuk class ini:
+  entity kepesertaan tsb + `FormulirKegiatan` (`nullable=true`).
+  **`NilaiKegiatanKemahasiswaan` TIDAK menunjuk class ini** — ia tabel rubrik
+  `DetailKelompok × Jabatan × Skala → nilai`.
+
+**Verifikasi pola berulang (menyeluruh atas 65 anggota):**
+
+- **Getter yang menulis field TERPETAKAN: 4** — `getKode()` (kode 5 digit
+  dari id), `getTahun()` (**selalu** menimpa dari potongan pertama tahun
+  akademik), `getTahunAkademik()` (isi periode berjalan bila null),
+  `getJenisSemester()` (idem). Dengan `dynamicUpdate=true`, membaca keempatnya
+  pada instance managed bisa meng-`flush` perubahan ke DB tanpa aksi simpan.
+- **Getter relasi yang menulis balik referensi (`check()`): 11** — semua
+  relasi tanpa kecuali.
+- **Getter yang menutup sesi Hibernate: 0** — file tidak menyentuh `Session`/
+  `HibernateUtil`/`Criteria` sama sekali, dan **tidak punya satu pun method
+  query statis**. Jalur tak langsung: `check()` (buka+tutup sesi sendiri) dan
+  `Common` (cache tahun akademik).
+- **Getter destruktif (mengosongkan data): 0.**
+- **Getter yang mengembalikan default TANPA menulis balik: 5** —
+  `getStatus()` (`BELUM_DIPROSES`), `getBolehDipilih()` (`true`),
+  `getJenisAktfitasMahasiswa()` (konstanta global), `getNama()` (trim),
+  `getFeeder()` (kosong→null). Karena `@Id` di getter (property access),
+  Hibernate tetap membaca nilai hasil getter saat dirty-check → default itu
+  bisa tetap tertulis ke DB.
+
+**Temuan/kuirk (dicatat, TIDAK diperbaiki):**
+
+1. **`feeder` bukan satu id, melainkan dokumen JSON** peta
+   `idJurusan → id_aktivitas` Feeder (`FeederExporter.aktivitasKegiatanMahasiswa`,
+   `:1305-1337`) — satu kegiatan bisa berpadanan BANYAK aktivitas Neo Feeder
+   karena Feeder mencatat per program studi. Menimpanya dengan skalar akan
+   menghapus jejak sinkronisasi seluruh jurusan lain.
+2. **Kolom FK dosen pembina salah eja di skema DB**: `dosen_pmbina1` /
+   `dosen_pmbina2` ("pmbina", bukan "pembina").
+3. **`nama` unik GLOBAL** (`@Column(unique=true)`, tidak per tahun akademik)
+   berpadu dengan **pemotongan diam-diam 255 karakter** di `setNama()`
+   (KE-FIX `DataException`) → dua nama panjang berbeda bisa bertabrakan
+   constraint unik, dan kegiatan tahunan berulang hanya boleh muncul sekali.
+4. **`getKode()` berputar setelah id > 99999** (ambil 5 karakter terakhir dari
+   id yang di-prefiks nol) — id 7 dan 100007 sama-sama `"00007"`. Bukan
+   pengenal unik.
+5. **`getJenisAktfitasMahasiswa()` bisa mengembalikan object yang tidak ada di
+   field** (`ConstantValues.KEGIATAN_KEMAHASISWAAN`, diisi `InitDataHelper`
+   dari referensi Feeder bernama persis "Aktivitas kemahasiswaan"). Karena
+   property access + `cascade=PERSIST,MERGE`, FK bawaan itu bisa ikut
+   tersimpan walau pengguna tak pernah memilihnya.
+6. **Kopling salah class**: `KegiatanKemahasiswaanAction` baris 891/894/898/911
+   membandingkan status kegiatan dengan **`PrestasiMahasiswa.DISETUJUI`**,
+   bukan `KegiatanKemahasiswaan.DISETUJUI`. Nilai stringnya kebetulan sama
+   sehingga tak pernah ketahuan.
+7. **Nomor baris usang** di penanda `auto-audit(empty-catch)` `getTahun()`
+   (menyebut `:307`, posisi sebenarnya `:313` sebelum sesi ini).
+8. **Titik buta urutan panggil**: `getTahun()` memeriksa **field**
+   `tahunAkademik`, bukan `getTahunAkademik()` — memanggil getter tahun
+   akademik lebih dulu memberi hasil berbeda.
+9. `serialVersionUID` `2463821577548439808L` dipakai bersama **315 class** di
+   paket ini (salin-tempel; tidak berbahaya, tapi bukan petunjuk kekerabatan).
+10. Empat syarat tersembunyi agar kegiatan muncul di daftar pilih mahasiswa:
+    `bolehDipilih ≠ false` **DAN** `kelompok.bisaDipilihMahasiswa` **DAN**
+    `kelompok.aktif` **DAN** `status = Disetujui`
+    (`AmbilDataKegiatanForKegiatanKemahasiswaanHelper:381`).
+
+**Keamanan:** tidak ditemukan kerentanan baru. Kontrol akses tampak wajar:
+combobox ubah status hanya dirender untuk non-mahasiswa, pejabat fakultas/prodi
+dibuat baca-saja untuk kegiatan lintas unit. Catatan ringan (bukan kerentanan
+di class ini): `getUrl()` tidak memvalidasi/membersihkan skema URL — penyaringan
+harus dilakukan lapisan tampilan.
+
+
+## `ais/database/model/PengajuanPegawai.java` — SELESAI 100% (2 Sep 2026)
+
+Entity **pengajuan pegawai** (tabel `public.pengajuan_pegawai`, `@Audited`,
+`dynamicInsert/dynamicUpdate`, turunan `DataSop` → `GeneralValueObject`).
+**49 anggota** (1 konstruktor + 44 getter/setter + `toString()` + kait
+`@PreUpdate` + 2 method bisnis) + 26 field + konstanta `DEFAULT_FORMULA`
+terdokumentasi (100%), 481 → 1267 baris. Revisi **r83365**, mirror `java/`
+verifikasi `cmp` identik byte. Hanya Javadoc/komentar; **nol perubahan logika**
+(sumber tanpa komentar/spasi dibandingkan dengan HEAD r75894 — identik persis,
+12.872 byte).
+
+**Nama class menyesatkan lagi.** Menu aplikasi menyebut modul ini **"Pengajuan
+Lembur & Masuk Hari Libur Pegawai"** (`MenuSnapshotData.java:361` →
+`/pages/master/pengajuan_pegawai.zul`), di bawah grup "Pengajuan", bersebelahan
+dengan "Pengajuan Izin & Cuti Pegawai" yang ditangani modul **berbeda**
+(`CutiDanIzinAction`). Jadi izin/cuti BUKAN urusan class ini. Nama lama masih
+tersisa di judul jendela ("Tambah/Ubah Pengajuan Pegawai") dan `istilah()`.
+
+**Temuan struktural utama — dua mode persetujuan saling eksklusif:**
+ada/tidaknya `disposisiSop` menentukan jalurnya. Tanpa disposisi → centang
+manual atasan (`setujui`/`setujuiTanggal`/`disetujuiOleh`). Dengan disposisi →
+`setujui` dan `aktif` **berhenti jadi kolom dan menjadi nilai turunan**
+disposisi, dan centang manual tidak dirender. Semua modul payroll hilir
+(absensi, lembur, konsumsi, rekap kehadiran) menyaring lewat SQL
+`setujui = true`, jadi mereka bergantung pada kolom yang baru sinkron setelah
+getter dipanggil pada instance managed.
+
+**Verifikasi pola berulang (menyeluruh atas 49 anggota):**
+
+- **Getter yang menulis field TERPETAKAN: 15** — `getNama()` (salin nama jenis
+  bila kosong), `getTahun()`/`getBulan()` (isi periode berjalan), `getSatuanKerja()`
+  (**selalu** menimpa dari `pegawai.getSatuanKerja()`), `getSatuanKerjaPengaju()`,
+  `getJumlahHari()` (**selalu** hitung ulang), `getSetujui()`, `getAktif()`
+  (menulis `aktif` **dan** `disposisiSop`), `getParameterTambahan()` dan
+  `getParameterTambahanInds()` (normalisasi null → ""), plus 6 getter relasi
+  ber-`check()`.
+- **Getter relasi yang menulis balik referensi (`check()`): 6** —
+  `jenisPengajuanPegawai`, `pegawai`, `satuanKerja` (cabang else),
+  `disposisiSop`, `diajukanOleh`, `disetujuiOleh`. **`getSatuanKerjaPengaju()`
+  TIDAK memakai `check()`** — nilai tersimpan dikembalikan apa adanya, bisa
+  masih berupa proxy lazy.
+- **Getter yang TIDAK menulis: 11** — `getKode()`, `getKeterangan()`,
+  `getWaktu()`, `getWaktuSampai()`, `getKeteranganBanyak()`, `getIndex()`,
+  `getSetujuiTanggal()`, `getId()`, dan trio jejak audit. Nilai default hanya
+  dikembalikan, tidak disimpan.
+- **Getter destruktif: 0.** **Getter yang menutup sesi Hibernate: 0** — file
+  tidak menyentuh `Session`/`Criteria`/`HibernateUtil`. Jalur tak langsung:
+  `check()` dan `LampiranLain.ambil(...)` di `populateParameterTambahan`.
+- **Flag `aktif` SATU ARAH** (hanya pernah turun ke `false`; `null` dibaca
+  `true`, itulah sebabnya filter layar harus `isNull OR eq(true)`) vs
+  **`setujui` DUA ARAH** (menyalin status disposisi apa adanya).
+- **Setter yang menolak pengosongan: 3** — `setOleh`, `setOlehId`,
+  `setDisposisiSop` (sekali tertaut tidak bisa dilepas).
+
+**Kuirk/bug yang dicatat, tidak diperbaiki:**
+
+1. **Ternary mati di `setDisposisiSop`** — penjaga di baris pertama sudah
+   memastikan argumen non-null dan ber-ID, sehingga syarat ternary selalu
+   `false`; penugasan selalu memakai argumen baru.
+2. **Pengurutan leksikografis di `ambilDataParameterTambahan()`** — karena
+   `name5` **diisi** (nama kelompok), `CommonVO.compareTo` mengambil cabang
+   perbandingan string `"namaKelompok nomorUrut"`, bukan cabang numerik yang
+   dipakai `BiodataMahasiswa` (yang membiarkan `name5` kosong). Akibatnya
+   nomor urut 10 muncul sebelum 2.
+3. **Asimetri 7 ruas ditulis vs 5 ruas dibaca** — `populateParameterTambahan`
+   menulis `idKelompok` dan `keterangan` yang tidak pernah dibaca kembali oleh
+   `ambilDataParameterTambahan`.
+4. **`getJumlahHari()` menghitung atas stempel waktu, bukan tanggal kalender** —
+   dua stempel di hari sama beda jam sudah menghasilkan 2. Karena
+   `getWaktuSampai()` bawaannya "besok", pengajuan baru yang belum disunting pun
+   sudah terbaca 2 hari.
+5. **Ejaan field `disetujiOleh`** (kurang huruf "u") vs properti/method
+   `disetujuiOleh` vs kolom `disetuji_oleh` — tiga ejaan berbeda, sengaja
+   dibiarkan.
+6. **`toString()` memakai field `id`/`nama` langsung, bukan getter** — bagian
+   nama bisa tampil `null` selama `getNama()` belum pernah dipanggil.
+7. **`DEFAULT_FORMULA` `public static` tanpa `final`** (pola sama seperti
+   `KasBesar`/`KasKecil`, tapi di sini objek `{}` bukan array `[]`).
+8. **`serialVersionUID` identik dengan `JenisPengajuanPegawai`** — sisa
+   penggandaan berkas.
+9. **Renderer daftar menulis ke DB** — backfill `kode` lewat `Common.refreshUpdate`
+   dan `NomorSurat.tambahIndexNomorSurat`, jadi sekadar membuka layar daftar
+   dapat menaikkan penghitung nomor surat (di `PengajuanPegawaiAction`, bukan
+   di entity).
+
+**Catatan otorisasi (bukan IDOR klasik, tapi perlu ditindaklanjuti terpisah):**
+`PengajuanPegawaiAction.java:221-223` membaca `execution.getParameter("jenis")`
+mentah dari query-string tanpa mencocokkannya ke `jenisPengajuanPegawai
+.getJenisPengguna()`/`getUsernamePengguna()`, padahal pengecekan hak-akses per
+jenis itu ADA dan dipakai untuk menyusun filter listing (`:1284-1297`). Di jalur
+tulis, `form(...)` memaksa jenis tersebut (`:790-792`, `:952-954`), kombonya
+di-disable (`:966`), dan `onSave` menerimanya (`:1143-1145`). Sisi persetujuan
+justru terjaga (guard atasan di `:531-552`), dan field pegawai dikunci ke
+pegawai pengguna login (`:700-706`), jadi tidak ada eskalasi ke data orang lain.
+Terkait: flag `Tbmrole.getMengajukanPengajuanPegawaiLain()` dihormati
+`CutiDanIzinAction:819` tapi **tidak pernah dibaca** `PengajuanPegawaiAction`.
+
 ## `ais/database/model/FormatNilai.java` — SELESAI 100% (2 Sep 2026)
 
 Entity **komponen (butir) penilaian perkuliahan reguler** (tabel
