@@ -435,6 +435,11 @@ public class ChecklistPenilaianUmumAction extends GenericAutowireComposer implem
 
 												Common.setObjectValues(classMetadata, checklistPenilaianUmum, contents,
 														1, sheet, i);
+												Integer nomorUrutUpload = bacaNomorUrutUpload(sheet, i,
+														checklistPenilaianUmum.getIsi());
+												if (nomorUrutUpload != null) {
+													checklistPenilaianUmum.setNomorUrut(nomorUrutUpload);
+												}
 
 												session.getTransaction().begin();
 												session.saveOrUpdate(checklistPenilaianUmum);
@@ -488,6 +493,42 @@ public class ChecklistPenilaianUmumAction extends GenericAutowireComposer implem
 		});
 	        FilterLanjutHelper.setup(comp);
 }
+
+	private static Integer bacaNomorUrutUpload(XSSFSheet sheet, int row, String isi) {
+		Integer nomorUrut = Common.getSheetContentAsInteger(sheet, Integer.valueOf(2), Integer.valueOf(row));
+		if (nomorUrut != null) {
+			return nomorUrut;
+		}
+		return ambilNomorAwal(isi);
+	}
+
+	private static Integer ambilNomorAwal(String isi) {
+		if (isi == null) {
+			return null;
+		}
+		String teks = isi.trim();
+		if (teks.length() == 0 || !Character.isDigit(teks.charAt(0))) {
+			return null;
+		}
+		int posisi = 0;
+		while (posisi < teks.length() && Character.isDigit(teks.charAt(posisi))) {
+			posisi++;
+		}
+		if (posisi == 0) {
+			return null;
+		}
+		if (posisi < teks.length()) {
+			char pemisah = teks.charAt(posisi);
+			if (pemisah != '.' && pemisah != ')' && pemisah != '-' && !Character.isWhitespace(pemisah)) {
+				return null;
+			}
+		}
+		try {
+			return Integer.valueOf(teks.substring(0, posisi));
+		} catch (Exception e) {
+			return null;
+		}
+	}
 
 	/**
 	 * Renderer lokal untuk layar/komponen {@link ChecklistPenilaianUmumAction}. Kelas ini menerjemahkan satu item

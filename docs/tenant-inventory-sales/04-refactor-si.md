@@ -502,10 +502,31 @@ Sepuluh pernyataan SQL yang **benar-benar dihasilkan kodenya** dijalankan pada s
 PostgreSQL 16.4: **seluruhnya berjalan tanpa galat**. Itu membuktikan tidak ada tabel atau
 kolom yang keliru — kesalahan yang tidak akan ditangkap compiler.
 
-**Uji kesetaraan angka belum ditulis untuk helper ini.** Ketiga helper sebelumnya punya
-`uji-kesetaraan-*.sql` yang membandingkan hasil kedua model atas data yang sama; Finance
-belum. Sampai itu ada, yang terbukti barulah kuerinya sah, **bukan** bahwa angkanya sama
-dengan jalur legacy. Ini pekerjaan berikutnya yang paling mendesak pada helper ini.
+### Uji kesetaraan: `uji-kesetaraan-finance.sql`
+
+Enam blok, seluruhnya **SETARA** pada PostgreSQL 16.4:
+
+| Blok | Legacy = Tenant |
+|---|---|
+| Bagan akun (nama + induk) | **SETARA** |
+| Kas/Jurnal | 2 baris, debet 500.000, kredit 500.000 — **SETARA** |
+| Laba kotor per produk | qty 13 dan 5; omzet 52.000 dan 5.000; HPP 32.500 dan 6.000 — **SETARA** |
+| Laba-Rugi | kredit 45.000, tunai 12.000, HPP 38.500, beban 225.000 — **SETARA** |
+| Beban per kategori | BBM 150.000, Makan 75.000 — **SETARA** |
+| Rincian per baris | laba 15.000 dan **−1.000**, sisa piutang 25.000 — **SETARA** |
+
+Yang dibuktikan tiap blok, bukan sekadar "angkanya cocok":
+
+- **Blok 2** membuktikan pemisahan kepala/baris jurnal tersusun kembali dengan benar —
+  dua baris legacy menjadi satu `jurnal` berisi dua `jurnal_detail`, dan totalnya utuh.
+- **Blok 3** membuktikan HPP dari baris **faktur** menghasilkan angka yang sama dengan
+  snapshot pada baris **order**. Inilah pemetaan yang paling mudah menghasilkan nol
+  harga pokok tanpa ketahuan.
+- **Blok 4** membuktikan penanda penjualan tunai — faktur tanpa baris piutang — menghasilkan
+  omzet tunai yang sama dengan ledger kas ber-`CASH_SALE`.
+- **Blok 6** sengaja memuat satu baris **rugi** (harga jual 1.000 di bawah harga pokok 1.200).
+  Tanda negatifnya bertahan di kedua model; pemetaan yang membalik tanda akan tertangkap di
+  sini.
 
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
