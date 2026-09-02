@@ -310,10 +310,7 @@ public final class SalesInventoryReversalHelper {
 			return;
 		}
 		if (SalesInventoryReversalTenant.aktif(ctx)) {
-			// sales_trip_biaya tidak punya pembalik_dari_id, status, maupun metode pembayaran.
-			tolak(hasil, "Reversal biaya trip belum tersedia pada schema tenant: tabel biaya"
-					+ " belum punya penunjuk dokumen pembalik, sehingga baris pembalik tidak"
-					+ " dapat dipasangkan dengan baris aslinya.");
+			expenseReverseTenant(ctx, tbmuser, id, alasan, hasil);
 			return;
 		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
@@ -805,6 +802,158 @@ public final class SalesInventoryReversalHelper {
 			ps.close();
 			hasil.put("status", "00");
 			hasil.put("rows", arr);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+	/**
+	 * Pembalikan biaya trip pada schema tenant.
+	 *
+	 * <p>Bentuknya sama dengan jalur legacy: dokumen cermin bernilai negatif, berstatus REVERSAL,
+	 * menunjuk asalnya, dan asalnya ditandai DIBATALKAN. Bila biayanya dibayar tunai, kas yang
+	 * dipegang sales <b>kembali naik</b> lewat satu baris buku kas bertanda positif — itu sebabnya
+	 * pembalikan biaya menunggu bundel v12, bukan sekadar kolom penunjuk.</p>
+	 *
+	 * <p>Sesi yang sudah ditutup tetap ditolak. Snapshot penutupan tidak boleh berubah diam-diam;
+	 * koreksinya lewat dokumen penyesuaian kantor, sama seperti jalur legacy.</p>
+	 *
+	 * <p>Dua medan legacy tidak punya kolom di sini. {@code penerima} memang tidak ada pada
+	 * {@code sales_trip_biaya}; {@code alasanReversal} ditampung {@code reversal_log}, yang
+	 * justru menyimpan lebih banyak daripada legacy — pelaku dan waktunya ikut tercatat.</p>
+	 */
+	private static void expenseReverseTenant(EbisnisActorContextResolver.ActorContext ctx,
+			Tbmuser tbmuser, Long id, String alasan, JSONObject hasil) throws Exception {
+		String skema = SalesInventoryReversalTenant.skema(ctx);
+		String kodeRev = "REV-BIAYA-" + id;
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		Transaction tx = null;
+		try {
+			java.sql.PreparedStatement psCek = session.connection().prepareStatement(
+					SalesInventoryTripTenant.cariBiayaPembalik(skema));
+			psCek.setString(1, kodeRev);
+			java.sql.ResultSet rsCek = psCek.executeQuery();
+			boolean sudah = rsCek.next();
+			long idSudah = sudah ? rsCek.getLong(1) : 0;
+			rsCek.close();
+			psCek.close();
+			if (sudah) {
+				hasil.put("status", "00");
+				hasil.put("id", idSudah);
+				hasil.put("idempotentReplay", true);
+				return;
+			}
+
+			java.sql.PreparedStatement psAsal = session.connection().prepareStatement(
+					SalesInventoryTripTenant.biayaUntukBalik(skema));
+			psAsal.setLong(1, id.longValue());
+			java.sql.ResultSet rsAsal = psAsal.executeQuery();
+			if (!rsAsal.next()) {
+				rsAsal.close();
+				psAsal.close();
+				tolak(hasil, "Biaya tidak ditemukan.");
+				return;
+			}
+			long tripId = rsAsal.getLong(1);
+			String kategori = str(rsAsal.getString(2));
+			BigDecimal nilai = rsAsal.getBigDecimal(4);
+			String caraBayar = str(rsAsal.getString(5));
+			String statusAsal = str(rsAsal.getString(6));
+			String statusTrip = str(rsAsal.getString(7));
+			rsAsal.close();
+			psAsal.close();
+			if (!"AKTIF".equals(statusAsal)) {
+				tolak(hasil, "Dokumen berstatus " + statusAsal + " tidak bisa direversal.");
+				return;
+			}
+			if (NotaSalesSession.STATUS_CLOSED.equals(statusTrip)) {
+				tolak(hasil, "Biaya bagian sesi yang SUDAH DITUTUP -- snapshot penutupan tidak"
+						+ " boleh berubah. Koreksi lewat dokumen penyesuaian kantor.");
+				return;
+			}
+
+			tx = session.beginTransaction();
+			java.sql.PreparedStatement ins = session.connection().prepareStatement(
+					SalesInventoryTripTenant.sisipBiayaPembalik(skema),
+					java.sql.Statement.RETURN_GENERATED_KEYS);
+			ins.setLong(1, tripId);
+			ins.setString(2, kategori);
+			ins.setString(3, "REVERSAL biaya #" + id + ": " + alasan);
+			ins.setBigDecimal(4, nilai.negate());
+			ins.setString(5, caraBayar);
+			ins.setString(6, kodeRev);
+			ins.setLong(7, id.longValue());
+			ins.setString(8, tbmuser.getUserId());
+			ins.executeUpdate();
+			long idRev = 0;
+			java.sql.ResultSet gk = ins.getGeneratedKeys();
+			if (gk.next()) {
+				idRev = gk.getLong(1);
+			}
+			gk.close();
+			ins.close();
+			if (idRev <= 0) {
+				tx.rollback();
+				tolak(hasil, "Biaya pembalik gagal disimpan.");
+				return;
+			}
+
+			if ("TUNAI".equals(caraBayar)) {
+				// Kas kembali: bertanda POSITIF, sebagaimana jalur legacy menyisipkan baris
+				// REVERSAL bernilai asal.getNilai() yang memang positif.
+				java.sql.PreparedStatement kas = session.connection().prepareStatement(
+						SalesInventoryTripTenant.sisipKas(skema));
+				try {
+					kas.setLong(1, tripId);
+					kas.setString(2, ais.service.tenant.TenantKasTrip.REVERSAL);
+					kas.setBigDecimal(3, nilai);
+					kas.setString(4, kodeRev);
+					kas.setString(5, "Reversal biaya tunai: " + alasan);
+					kas.setString(6, kodeRev);
+					kas.setString(7, tbmuser.getUserId());
+					kas.executeUpdate();
+				} finally {
+					kas.close();
+				}
+			}
+
+			java.sql.PreparedStatement psBatal = session.connection().prepareStatement(
+					SalesInventoryTripTenant.batalkanBiaya(skema));
+			psBatal.setLong(1, id.longValue());
+			psBatal.executeUpdate();
+			psBatal.close();
+
+			java.sql.PreparedStatement psLog = session.connection().prepareStatement(
+					SalesInventoryTripTenant.catatReversalBiaya(skema));
+			psLog.setLong(1, id.longValue());
+			psLog.setString(2, alasan);
+			psLog.setString(3, tbmuser.getUserId());
+			psLog.executeUpdate();
+			psLog.close();
+
+			tx.commit();
+			hasil.put("status", "00");
+			hasil.put("id", idRev);
+		} catch (java.sql.SQLException dup) {
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+			}
+			if (dup.getSQLState() != null && dup.getSQLState().startsWith("23")) {
+				hasil.put("status", "00");
+				hasil.put("idempotentReplay", true);
+			} else {
+				throw dup;
+			}
+		} catch (Exception e) {
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+			}
+			throw e;
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}

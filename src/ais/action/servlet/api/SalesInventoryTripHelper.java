@@ -1093,14 +1093,10 @@ public final class SalesInventoryTripHelper {
 			return;
 		}
 		if (SalesInventoryTripTenant.aktif(ctx)) {
-			if (!NotaSalesKas.JENIS_OWNER_DEPOSIT.equals(jenis)) {
-				// Penjualan tunai tidak punya rumah setara pada model tenant; menyisipkan nota
-				// sintetis akan menambah jumlah nota yang tidak bertambah pada jalur legacy.
-				tolak(hasil, "Penjualan tunai belum tersedia pada schema tenant: model tenant"
-						+ " belum punya buku kas trip, dan nota penjualan bukan padanannya.");
-				return;
-			}
-			tripDepositTenant(ctx, id, nominal, request.optString("referensi", "").trim(),
+			// Sejak migrasi v12 keduanya punya rumah: buku kas trip. Setoran tetap juga
+			// menerbitkan dokumen setorannya sendiri; penjualan tunai cukup barisnya.
+			catatKasTenant(ctx, id, nominal, jenis, keluar,
+					request.optString("referensi", "").trim(),
 					request.optString("keterangan", "").trim(), hasil);
 			return;
 		}
@@ -1750,7 +1746,11 @@ public final class SalesInventoryTripHelper {
 					ins.setLong(3, salesId.longValue());
 					ins.setLong(4, gudangId.longValue());
 					ins.setString(5, request.optString("catatan", "").trim());
-					ins.setString(6, oleh);
+					// Sumber baris pembuka buku kas; kolomnya ada sejak migrasi v12.
+					java.math.BigDecimal uangMukaBaru = optBigDecimal(request,
+							"uang_muka_operasional");
+					ins.setBigDecimal(6, uangMukaBaru == null ? BigDecimal.ZERO : uangMukaBaru);
+					ins.setString(7, oleh);
 					ins.executeUpdate();
 					java.sql.ResultSet gk = ins.getGeneratedKeys();
 					if (gk.next()) {
@@ -1786,8 +1786,11 @@ public final class SalesInventoryTripHelper {
 					upd.setLong(2, salesId.longValue());
 					upd.setLong(3, gudangId.longValue());
 					upd.setString(4, request.optString("catatan", "").trim());
-					upd.setString(5, oleh);
-					upd.setLong(6, spjId.longValue());
+					java.math.BigDecimal uangMukaUbah = optBigDecimal(request,
+							"uang_muka_operasional");
+					upd.setBigDecimal(5, uangMukaUbah == null ? BigDecimal.ZERO : uangMukaUbah);
+					upd.setString(6, oleh);
+					upd.setLong(7, spjId.longValue());
 					upd.executeUpdate();
 				} finally {
 					upd.close();
@@ -2004,6 +2007,7 @@ public final class SalesInventoryTripHelper {
 		Long salesId;
 		Long gudangId;
 		java.sql.Date tanggal;
+		BigDecimal uangMuka;
 		java.sql.PreparedStatement cek = session.connection().prepareStatement(
 				SalesInventoryTripTenant.spjUntukMulai(sk));
 		try {
@@ -2019,6 +2023,7 @@ public final class SalesInventoryTripHelper {
 				long g = rs.getLong(3);
 				gudangId = rs.wasNull() ? null : Long.valueOf(g);
 				tanggal = rs.getDate(4);
+				uangMuka = rs.getBigDecimal(5);
 			} finally {
 				rs.close();
 			}
@@ -2088,6 +2093,14 @@ public final class SalesInventoryTripHelper {
 				salin.executeUpdate();
 			} finally {
 				salin.close();
+			}
+			// Uang muka operasional dibukukan sebagai baris pembuka, sama seperti jalur legacy
+			// memanggil catatKas(JENIS_OPENING). Angka ini TIDAK disalin ke kolom saldo
+			// tersendiri: saldo kas selalu dibaca dari bukunya.
+			if (uangMuka != null && uangMuka.signum() > 0) {
+				bukukanKas(session, sk, tripId, ais.service.tenant.TenantKasTrip.OPENING_ADVANCE,
+						uangMuka, "SPJ:" + spjId, "Uang muka operasional keberangkatan",
+						"KAS-OPEN-" + tripId, oleh);
 			}
 			java.sql.PreparedStatement st = session.connection().prepareStatement(
 					SalesInventoryTripTenant.ubahStatusSpjJadiAktif(sk));
@@ -2231,20 +2244,27 @@ public final class SalesInventoryTripHelper {
 	// =============================================================================================
 
 	/**
-	 * Setoran kas ke pemilik pada schema tenant.
+	 * Mencatat satu peristiwa kas trip pada schema tenant.
 	 *
-	 * <p>Legacy mencatatnya sebagai baris buku kas {@code OWNER_DEPOSIT} bernilai negatif; model
-	 * tenant menyediakan dokumen tersendiri, {@code sales_trip_setoran}. Arahnya terhadap saldo
-	 * kas tetap sama — rumus {@code saldoKas} mengurangkan setoran.</p>
+	 * <p>Sejak migrasi v12 model tenant punya buku kasnya sendiri, sehingga penjualan tunai dan
+	 * setoran ke pemilik sama-sama dapat dibukukan — persis seperti jalur legacy membukukan
+	 * keduanya ke {@code nota_sales_kas}.</p>
 	 *
-	 * <p>{@code keterangan} tidak punya kolom pada tabel setoran. Isian itu tidak disimpan, dan
-	 * karena menyembunyikan hal itu sama saja dengan membuangnya diam-diam, faktanya
-	 * dikembalikan pada medan {@code peringatan}. Medan itu aditif; klien lama mengabaikannya.</p>
+	 * <p>Setoran memperoleh perlakuan tambahan: selain baris buku kas, ia juga menerbitkan
+	 * dokumen {@code sales_trip_setoran} berisi nomor buktinya. Dokumen itu tidak ikut dihitung
+	 * saldo kas — <b>hanya bukunya yang dihitung</b> — sehingga tidak ada penggandaan.</p>
+	 *
+	 * <p>Tandanya ditentukan di sini dan disimpan apa adanya. Uang keluar disimpan negatif;
+	 * tidak ada kolom arah yang akan memperbaikinya belakangan.</p>
 	 */
-	private static void tripDepositTenant(EbisnisActorContextResolver.ActorContext ctx, Long tripId,
-			BigDecimal nominal, String referensi, String keterangan, JSONObject hasil)
-			throws Exception {
+	private static void catatKasTenant(EbisnisActorContextResolver.ActorContext ctx, Long tripId,
+			BigDecimal nominal, String jenis, boolean keluar, String referensi, String keterangan,
+			JSONObject hasil) throws Exception {
 		String skema = SalesInventoryTripTenant.skema(ctx);
+		if (!ais.service.tenant.TenantKasTrip.sah(jenis)) {
+			tolak(hasil, "Jenis kas tidak dikenal: " + jenis);
+			return;
+		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		Transaction tx = null;
 		try {
@@ -2273,23 +2293,28 @@ public final class SalesInventoryTripHelper {
 				tolak(hasil, "Sesi ini bukan milik sales Anda.");
 				return;
 			}
+			BigDecimal bertanda = keluar ? nominal.negate() : nominal;
 			tx = session.beginTransaction();
-			java.sql.PreparedStatement ins = session.connection().prepareStatement(
-					SalesInventoryTripTenant.sisipSetoran(skema));
-			ins.setLong(1, tripId.longValue());
-			ins.setDate(2, new java.sql.Date(ais.ui.util.WaktuUtil.getDate().getTime()));
-			ins.setString(3, "TUNAI");
-			ins.setString(4, referensi);
-			ins.setBigDecimal(5, nominal);
-			ins.setString(6, ctx.userId);
-			ins.executeUpdate();
-			ins.close();
+			bukukanKas(session, skema, tripId, jenis, bertanda, referensi, keterangan, null,
+					ctx.userId);
+			if (ais.service.tenant.TenantKasTrip.OWNER_DEPOSIT.equals(jenis)) {
+				// Dokumen setorannya sendiri; nomor buktinya hidup di sini, bukan di buku kas.
+				java.sql.PreparedStatement ins = session.connection().prepareStatement(
+						SalesInventoryTripTenant.sisipSetoran(skema));
+				try {
+					ins.setLong(1, tripId.longValue());
+					ins.setDate(2, new java.sql.Date(ais.ui.util.WaktuUtil.getDate().getTime()));
+					ins.setString(3, "TUNAI");
+					ins.setString(4, referensi);
+					ins.setBigDecimal(5, nominal);
+					ins.setString(6, ctx.userId);
+					ins.executeUpdate();
+				} finally {
+					ins.close();
+				}
+			}
 			tx.commit();
 			hasil.put("status", "00");
-			if (!keterangan.isEmpty()) {
-				hasil.put("peringatan", "Keterangan setoran tidak disimpan: tabel setoran pada"
-						+ " schema tenant hanya menyediakan nomor bukti.");
-			}
 		} catch (Exception e) {
 			try {
 				if (tx != null && tx.isActive()) {
@@ -2300,6 +2325,35 @@ public final class SalesInventoryTripHelper {
 			throw e;
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * Menulis satu baris buku kas trip. {@code nominal} harus SUDAH bertanda.
+	 *
+	 * <p>Dipakai bersama oleh pembukuan uang muka keberangkatan, penjualan tunai, setoran, dan
+	 * pembalikan biaya — supaya hanya ada satu tempat yang tahu bentuk barisnya.</p>
+	 */
+	private static void bukukanKas(Session session, String skema, Long tripId, String jenis,
+			BigDecimal nominal, String referensi, String keterangan, String kunci, String oleh)
+			throws Exception {
+		java.sql.PreparedStatement ins = session.connection().prepareStatement(
+				SalesInventoryTripTenant.sisipKas(skema));
+		try {
+			ins.setLong(1, tripId.longValue());
+			ins.setString(2, jenis);
+			ins.setBigDecimal(3, nominal);
+			ins.setString(4, referensi);
+			ins.setString(5, keterangan);
+			if (kunci == null || kunci.length() == 0) {
+				ins.setNull(6, java.sql.Types.VARCHAR);
+			} else {
+				ins.setString(6, kunci);
+			}
+			ins.setString(7, oleh);
+			ins.executeUpdate();
+		} finally {
+			ins.close();
 		}
 	}
 

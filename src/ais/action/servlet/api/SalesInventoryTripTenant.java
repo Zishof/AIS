@@ -94,7 +94,7 @@ final class SalesInventoryTripTenant {
 	 * sebab di sana yang bertambah hanya baris buku kas.</p>
 	 */
 	static boolean dukungPenjualanTunai() {
-		return false;
+		return true;
 	}
 
 	// ------------------------------------------------------------------ status trip & setoran
@@ -246,11 +246,22 @@ final class SalesInventoryTripTenant {
 	 * 200.000 (yang masih dipegang), bukan 800.000 (yang sudah disetor). Rumus di bawah
 	 * mengurangkan keduanya, sebagaimana penjumlahan bertanda pada jalur legacy.</p>
 	 */
+	/**
+	 * <h4>Saldo kas dibaca dari BUKUNYA, sejak migrasi v12</h4>
+	 *
+	 * <p>Rumus sebelumnya, {@code Σ nota.tunai − Σ setoran}, adalah tambalan atas ketiadaan buku
+	 * kas — dan tambalan yang <b>salah</b>. Ia mengabaikan uang muka operasional, penagihan tunai
+	 * piutang lama, dan biaya tunai. Untuk trip berpanjar 500.000 dengan penjualan tunai 300.000,
+	 * penagihan tunai 200.000, biaya 100.000, dan setoran 400.000, ia menghasilkan
+	 * <b>−100.000</b> di tempat jalur legacy menghasilkan <b>500.000</b>: bukan selisih kecil,
+	 * melainkan beda tanda.</p>
+	 *
+	 * <p>Sekarang angkanya adalah penjumlahan bertanda {@code sales_trip_kas}, sama persis dengan
+	 * jalur legacy menjumlahkan {@code nota_sales_kas}. Tidak ada {@code CASE}, tidak ada daftar
+	 * jenis yang harus diingat pembaca — lihat {@link ais.service.tenant.TenantKasTrip}.</p>
+	 */
 	static String saldoKas(String skema) {
-		return "(COALESCE((SELECT SUM(n.tunai) FROM " + skema + "sales_trip_nota n"
-				+ " WHERE n.sales_trip_id = ns.id),0)"
-				+ " - COALESCE((SELECT SUM(k.nilai) FROM " + skema + "sales_trip_setoran k"
-				+ " WHERE k.sales_trip_id = ns.id),0))";
+		return ais.service.tenant.TenantKasTrip.sqlSaldoKas(skema, "ns.id");
 	}
 
 	static String dasarTrip(String skema, String where) {
@@ -356,15 +367,26 @@ final class SalesInventoryTripTenant {
 
 	// ---------- tulis ----------
 
+	/**
+	 * TUJUH parameter: nomor, tanggal, salespersonId, gudangId, keterangan,
+	 * uangMukaOperasional, oleh.
+	 *
+	 * <p>{@code uang_muka_operasional} ada sejak migrasi v12. Ia sumber baris pembuka buku kas:
+	 * tanpa disimpan di sini, trip yang dimulai tidak punya angka apa pun untuk dibukukan sebagai
+	 * {@code OPENING_ADVANCE}, dan saldo kasnya berangkat dari nol padahal sales membawa uang.</p>
+	 */
 	static String sisipSpj(String skema) {
 		return "INSERT INTO " + skema + "surat_perintah_sales"
-				+ " (nomor_dokumen, tanggal, salesperson_id, gudang_id, keterangan, status,"
-				+ " dibuat_pada, oleh) VALUES (?, ?, ?, ?, ?, 'DRAFT', now(), ?)";
+				+ " (nomor_dokumen, tanggal, salesperson_id, gudang_id, keterangan,"
+				+ " uang_muka_operasional, status, dibuat_pada, oleh)"
+				+ " VALUES (?, ?, ?, ?, ?, ?, 'DRAFT', now(), ?)";
 	}
 
+	/** TUJUH parameter: tanggal, salespersonId, gudangId, keterangan, uangMuka, oleh, id. */
 	static String ubahSpj(String skema) {
 		return "UPDATE " + skema + "surat_perintah_sales SET tanggal = ?, salesperson_id = ?,"
-				+ " gudang_id = ?, keterangan = ?, tanggal_dirubah = now(), oleh = ? WHERE id = ?";
+				+ " gudang_id = ?, keterangan = ?, uang_muka_operasional = ?,"
+				+ " tanggal_dirubah = now(), oleh = ? WHERE id = ?";
 	}
 
 	/** Nomor dokumen final, disusun sesudah id terbentuk -- sama pola dengan jalur legacy. */
@@ -441,8 +463,10 @@ final class SalesInventoryTripTenant {
 	}
 
 	/** Status dan kepemilikan SPJ beserta gudangnya, untuk memulai trip. */
+	/** LIMA kolom: status, salespersonId, gudangId, tanggal, uangMukaOperasional. */
 	static String spjUntukMulai(String skema) {
-		return "SELECT COALESCE(j.status,''), j.salesperson_id, j.gudang_id, j.tanggal"
+		return "SELECT COALESCE(j.status,''), j.salesperson_id, j.gudang_id, j.tanggal,"
+				+ " COALESCE(j.uang_muka_operasional,0)"
 				+ " FROM " + skema + "surat_perintah_sales j WHERE j.id = ?";
 	}
 
@@ -511,5 +535,91 @@ final class SalesInventoryTripTenant {
 		return "UPDATE " + skema + "sales_trip_hasil SET kuantitas_terjual = ?,"
 				+ " kuantitas_kembali = ?, kuantitas_rusak = ?, selisih = ?,"
 				+ " tanggal_dirubah = now(), oleh = ? WHERE id = ?";
+	}
+	// ------------------------------------------------------------------ buku kas trip (v12)
+
+	/**
+	 * Menulis satu baris buku kas. TUJUH parameter: tripId, jenis, nominal, referensi,
+	 * keterangan, idempotencyKey, oleh.
+	 *
+	 * <p><b>{@code nominal} harus sudah bertanda saat sampai di sini.</b> Pemanggil yang
+	 * mencatat uang keluar wajib mengirim nilai negatif; tidak ada kolom arah yang akan
+	 * memperbaikinya belakangan. Kontraknya pada
+	 * {@link ais.service.tenant.TenantKasTrip}.</p>
+	 */
+	static String sisipKas(String skema) {
+		return "INSERT INTO " + skema + "sales_trip_kas (sales_trip_id, jenis, nominal,"
+				+ " referensi, keterangan, idempotency_key, waktu, dibuat_pada, oleh)"
+				+ " VALUES (?, ?, ?, ?, ?, ?, now(), now(), ?)";
+	}
+
+	/** Uang muka yang benar-benar sudah dibukukan; padanan saldoKasAwal legacy. */
+	static String uangMukaAwal(String skema) {
+		return ais.service.tenant.TenantKasTrip.sqlUangMukaAwal(skema, "ns.id");
+	}
+
+	// ------------------------------------------------------------------ pembalikan biaya (v12)
+
+	/**
+	 * Benar bila biaya trip dapat dibalik. Sejak v12: bisa.
+	 *
+	 * <p>Sebelumnya {@code sales_trip_biaya} adalah satu-satunya tabel dokumen tanpa
+	 * {@code pembalik_dari_id}, tanpa {@code status}, dan tanpa cara membedakan biaya tunai.
+	 * Ketiganya ditambahkan bundel v12.</p>
+	 */
+	static boolean dukungPembalikanBiaya() {
+		return true;
+	}
+
+	/** Biaya pembalik yang sudah ada, dikenali dari kunci idempotensinya. */
+	static String cariBiayaPembalik(String skema) {
+		return "SELECT id FROM " + skema + "sales_trip_biaya WHERE idempotency_key = ? LIMIT 1";
+	}
+
+	/**
+	 * ENAM kolom biaya asal: tripId, kategori, keterangan, nilai, caraBayar, status —
+	 * ditambah status tripnya sebagai kolom KETUJUH.
+	 *
+	 * <p>Status trip ikut dibaca di sini supaya penjaga "sesi sudah ditutup" dapat ditegakkan
+	 * tanpa kueri kedua. Jalur legacy menolak pembalikan biaya pada sesi CLOSED, sebab snapshot
+	 * penutupan tidak boleh berubah diam-diam.</p>
+	 */
+	static String biayaUntukBalik(String skema) {
+		return "SELECT b.sales_trip_id, COALESCE(b.kategori,''), COALESCE(b.keterangan,''),"
+				+ " COALESCE(b.nilai,0), COALESCE(b.cara_bayar,''), COALESCE(b.status,'AKTIF'),"
+				+ " COALESCE(t.status,'')"
+				+ " FROM " + skema + "sales_trip_biaya b"
+				+ " JOIN " + skema + "sales_trip t ON b.sales_trip_id = t.id"
+				+ " WHERE b.id = ?";
+	}
+
+	/**
+	 * Biaya pembalik: nilainya negatif, berstatus REVERSAL, menunjuk asalnya.
+	 *
+	 * <p>DELAPAN parameter: tripId, kategori, keterangan, nilai, caraBayar, idempotencyKey,
+	 * pembalikDariId, oleh.</p>
+	 */
+	static String sisipBiayaPembalik(String skema) {
+		return "INSERT INTO " + skema + "sales_trip_biaya (sales_trip_id, kategori, keterangan,"
+				+ " nilai, tanggal, cara_bayar, idempotency_key, pembalik_dari_id, status,"
+				+ " dibuat_pada, oleh)"
+				+ " VALUES (?, ?, ?, ?, CURRENT_DATE, ?, ?, ?, 'REVERSAL', now(), ?)";
+	}
+
+	/** Menandai biaya asal DIBATALKAN; barisnya tetap ada dan tetap terbaca di riwayat. */
+	static String batalkanBiaya(String skema) {
+		return "UPDATE " + skema + "sales_trip_biaya SET status = 'DIBATALKAN' WHERE id = ?";
+	}
+
+	/**
+	 * Jejak pembalikan. Tabel {@code reversal_log} bersifat umum, sehingga biaya trip memakai
+	 * tabel yang sama dengan pembalikan pembayaran hutang.
+	 *
+	 * <p>Ini juga menampung {@code alasanReversal} legacy, yang tidak punya kolom sendiri pada
+	 * {@code sales_trip_biaya}.</p>
+	 */
+	static String catatReversalBiaya(String skema) {
+		return "INSERT INTO " + skema + "reversal_log (dokumen_tipe, dokumen_id, alasan,"
+				+ " user_id, waktu) VALUES ('SALES_TRIP_BIAYA', ?, ?, ?, now())";
 	}
 }

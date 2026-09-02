@@ -1408,6 +1408,96 @@ bukan menunggu ditulis:
 
 Empat penghalang teratas bermuara pada keputusan katalog; sisanya pada pekerjaan yang memang belum
 dijadwalkan. Tidak ada satu pun yang tinggal ditulis.
+## Memakai buku kas v12: saldo yang benar, penjualan tunai, dan pembalikan biaya
+
+Bundel v12 hanya menyediakan tempatnya. Batch ini yang mengisinya — dan yang paling penting,
+**memindahkan sumber kebenaran saldo kas** dari tambalan lama ke bukunya.
+
+### `saldoKas` kini dibaca dari bukunya
+
+Rumus lama, `Σ nota.tunai − Σ setoran`, diganti penjumlahan bertanda `sales_trip_kas`. Ini
+menuntaskan koreksi yang dua kali sebelumnya hanya separuh: r83075 memperbaiki cacat yang lebih
+besar (waktu itu rumusnya menjumlahkan setoran saja), tetapi tetap mengabaikan uang muka
+operasional, penagihan tunai piutang lama, dan biaya tunai.
+
+Bentuk barunya satu baris, tanpa `CASE` dan tanpa daftar jenis yang harus diingat pembaca. Itu
+disengaja: setiap `CASE` yang ditambahkan di sana adalah kesempatan baru untuk melupakan satu
+jenis, dan justru kelupaan semacam itu yang sudah dua kali menghasilkan angka uang salah.
+
+### Setiap aksi kas kini membukukan barisnya
+
+| aksi | baris yang dibukukan |
+|---|---|
+| `tripStart` | `OPENING_ADVANCE` sebesar uang muka operasional SPJ |
+| `tripCashSale` | `CASH_SALE` positif |
+| `tripDeposit` | `OWNER_DEPOSIT` negatif, **plus** dokumen `sales_trip_setoran` |
+| `expenseReverse` | `REVERSAL` positif bila biayanya tunai — kas kembali |
+
+`uang_muka_operasional` juga mulai ditulis dan dibaca `spjSimpan`; sebelum v12 kolomnya tidak ada,
+sehingga trip yang dimulai berangkat dari kas nol padahal sales membawa uang.
+
+### Risiko baru batch ini: setoran tercatat di dua tempat
+
+Setoran kini menulis **dua** baris — dokumen `sales_trip_setoran` yang memegang nomor buktinya, dan
+baris buku kas `OWNER_DEPOSIT`. Kalau saldo kas ikut membaca dokumennya, setorannya terhitung dua
+kali.
+
+Aturannya tegas: **hanya bukunya yang dihitung.** Dokumen setoran menyimpan nomor bukti dan status,
+tidak ikut aritmetika. Blok 6 dan 7 uji kesetaraannya sepasang: blok 6 membuktikan saldonya 500.000
+dengan satu dokumen dan satu baris kas; blok 7 membuktikan rumus yang keliru — yang ikut
+mengurangkan dokumennya — menghasilkan 100.000, sehingga penggandaan itu memang terdeteksi contoh
+ini, bukan hanya mungkin secara teori.
+
+### `tripCashSale` tidak lagi ditolak, dan alasan penolakannya gugur dengan benar
+
+Penolakan sebelumnya bukan karena malas: menyisipkan nota sintetis akan menambah **jumlah nota**
+yang tidak bertambah pada jalur legacy. Alasan itu gugur karena v12 memberi rumah yang tepat —
+baris buku kas, bukan nota. Jumlah nota tidak tersentuh.
+
+### `expenseReverse` dipindahkan
+
+Bentuknya sama dengan jalur legacy: dokumen cermin bernilai negatif berstatus REVERSAL, menunjuk
+asalnya lewat `pembalik_dari_id`, asalnya ditandai DIBATALKAN, dan bila biayanya tunai satu baris
+`REVERSAL` positif mengembalikan kasnya. Sesi yang sudah ditutup tetap ditolak — snapshot penutupan
+tidak boleh berubah diam-diam.
+
+Dua medan legacy tidak punya kolom: `penerima` memang tidak ada pada `sales_trip_biaya`, sedangkan
+`alasanReversal` ditampung `reversal_log` — yang justru menyimpan lebih banyak daripada legacy,
+sebab pelaku dan waktunya ikut tercatat.
+
+Kuerinya sengaja diletakkan pada `SalesInventoryTripTenant`, bukan disalin ke
+`SalesInventoryReversalTenant`: biaya trip milik ranah trip, dan dua definisi untuk satu tabel
+adalah awal dari dua definisi yang berselisih.
+
+### Verifikasi
+
+Delapan blok `uji-kesetaraan-kas-trip.sql` LULUS, termasuk tiga penjaga:
+
+| blok | yang dibuktikan |
+|---|---|
+| 2 | rumus lama menghasilkan **−100.000** di tempat yang benar 500.000 — beda tanda |
+| 7 | rumus yang menggandakan setoran menghasilkan 100.000, jadi penggandaan terdeteksi |
+| 4 | kunci idempotensi kembar pada buku kas ditolak |
+
+Seluruh SQL kas yang **benar-benar dikeluarkan Java** juga dijalankan berurutan ke basis data: baca
+SPJ (lima kolom, uang muka di kolom kelima), bukukan baris pembuka, penjualan tunai, penagihan
+tunai, setoran berikut dokumennya, biaya tunai, lalu pembalikan biaya lengkap dengan kas
+kembalinya. Hasil akhirnya saldo **600.000**, uang muka awal **500.000** diturunkan dari buku, dan
+setoran tercatat satu dokumen + satu baris kas — tidak tergandakan.
+
+### Sisa Trip: 12 dari 19 aksi
+
+Naik dari 10. Yang masih tertutup dan penghalangnya:
+
+| penghalang | aksi |
+|---|---|
+| tabel nota bawaan bernilai tertagih | `spjNotaAssign`, `tripNotaResult`, `tripClose` |
+| master kategori biaya | `expenseCategoryList`, `expenseCategorySave`, `expenseCreate` |
+| tabel pembelian dalam trip | `tripPurchaseLink`, sisi pembelian `tripDetail` |
+
+`collectionReverse` di helper Reversal kini tinggal menunggu **satu** hal saja — nota bawaan —
+sebab sisi kasnya sudah dibuka v12.
+
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
 **Sebelas helper, 7.512 baris, belum satu pun kuerinya dipindah ke schema tenant.**

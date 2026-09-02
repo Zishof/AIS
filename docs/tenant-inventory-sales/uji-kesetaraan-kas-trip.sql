@@ -12,12 +12,15 @@
 --   biaya tunai 100.000, setoran ke pemilik 400.000.
 --   Saldo kas yang benar: 500 + 300 + 200 - 100 - 400 = 500.000.
 --
--- EMPAT HAL YANG DIUJI
+-- ENAM HAL YANG DIUJI (delapan blok, tiga di antaranya penjaga)
 --   1. Buku kas tenant menghasilkan saldo yang SAMA dengan buku kas legacy.
 --   2. Blok 2 penjaganya, dan inilah alasan v12 ada: rumus LAMA (nota tunai - setoran)
 --      menghasilkan -100.000. Bukan selisih kecil -- BEDA TANDA.
 --   3. Uang muka awal DITURUNKAN dari bukunya, bukan disimpan sebagai kolom kedua.
---   4. Biaya trip kini dapat dibalik berpasangan lewat pembalik_dari_id.
+--   4. Kunci idempotensi buku kas benar-benar mengikat.
+--   5. Biaya trip dapat dibalik berpasangan, dan pembalikan biaya TUNAI mengembalikan kas.
+--   6. Setoran tercatat di dua tempat (dokumen + buku) tetapi hanya DIHITUNG SEKALI.
+--      Blok 7 penjaganya: rumus yang menggandakannya menghasilkan 100.000.
 --
 -- Setiap blok mencetak LULUS/GAGAL. Satu GAGAL saja berarti jalur tenant tidak setara.
 -- =====================================================================================
@@ -167,6 +170,61 @@ SELECT
         AND (SELECT pembalik_dari_id FROM kas12.sales_trip_biaya WHERE id = 2) = 1
         AND (SELECT status FROM kas12.sales_trip_biaya WHERE id = 1) = 'DIBATALKAN'
        THEN 'LULUS' ELSE 'GAGAL' END AS hasil;
+
+-- =====================================================================================
+-- BLOK 6: setoran punya DOKUMEN sendiri, tetapi hanya BUKUNYA yang dihitung
+-- =====================================================================================
+-- Sejak aksi tripDeposit dipindahkan, setoran menulis DUA baris: dokumen
+-- sales_trip_setoran (nomor buktinya) dan baris buku kas OWNER_DEPOSIT. Kalau saldo
+-- kas ikut membaca dokumennya, setorannya akan terhitung DUA KALI.
+
+\echo ''
+\echo '== BLOK 6: setoran tercatat dua tempat, tetapi hanya dihitung SEKALI =============='
+
+SELECT
+  (SELECT COUNT(*) FROM kas12.sales_trip_setoran WHERE sales_trip_id = 1) AS "dokumen setoran",
+  (SELECT COUNT(*) FROM kas12.sales_trip_kas
+    WHERE sales_trip_id = 1 AND jenis = 'OWNER_DEPOSIT')                  AS "baris buku kas",
+  (SELECT COALESCE(SUM(nominal),0) FROM kas12.sales_trip_kas WHERE sales_trip_id = 1)
+                                                                          AS "saldo kas",
+  CASE WHEN (SELECT COUNT(*) FROM kas12.sales_trip_setoran WHERE sales_trip_id = 1) = 1
+        AND (SELECT COUNT(*) FROM kas12.sales_trip_kas
+              WHERE sales_trip_id = 1 AND jenis = 'OWNER_DEPOSIT') = 1
+        AND (SELECT COALESCE(SUM(nominal),0) FROM kas12.sales_trip_kas
+              WHERE sales_trip_id = 1) = 500000
+       THEN 'LULUS (tidak tergandakan)'
+       ELSE 'GAGAL' END AS hasil;
+
+\echo ''
+\echo '== BLOK 7 (PENJAGA): kalau dokumen setoran IKUT dikurangkan, saldonya salah ======='
+\echo '   Rumus yang keliru akan menghasilkan 100.000, bukan 500.000.'
+
+SELECT
+  ((SELECT COALESCE(SUM(nominal),0) FROM kas12.sales_trip_kas WHERE sales_trip_id = 1)
+   - (SELECT COALESCE(SUM(nilai),0) FROM kas12.sales_trip_setoran WHERE sales_trip_id = 1))
+     AS "saldo bila digandakan",
+  CASE WHEN ((SELECT COALESCE(SUM(nominal),0) FROM kas12.sales_trip_kas
+              WHERE sales_trip_id = 1)
+           - (SELECT COALESCE(SUM(nilai),0) FROM kas12.sales_trip_setoran
+              WHERE sales_trip_id = 1)) = 100000
+       THEN 'LULUS (penggandaan memang terdeteksi contoh ini)'
+       ELSE 'GAGAL (contoh tidak membedakan apa pun)' END AS hasil;
+
+-- =====================================================================================
+-- BLOK 8: pembalikan biaya tunai MENGEMBALIKAN kas
+-- =====================================================================================
+INSERT INTO kas12.sales_trip_kas (sales_trip_id, jenis, nominal, referensi, keterangan,
+                                  idempotency_key, waktu, dibuat_pada, oleh)
+  VALUES (1, 'REVERSAL', 100000, 'REV-BIAYA-1', 'Reversal biaya tunai: salah trip',
+          'REV-BIAYA-1', now(), now(), 'uji');
+
+\echo ''
+\echo '== BLOK 8: biaya tunai dibalik -- kas naik kembali sebesar biayanya =============='
+\echo '   Sebelum pembalikan 500.000; biayanya 100.000; sesudah dibalik harus 600.000.'
+
+SELECT COALESCE(SUM(nominal),0) AS "saldo sesudah pembalikan",
+       CASE WHEN COALESCE(SUM(nominal),0) = 600000 THEN 'LULUS' ELSE 'GAGAL' END AS hasil
+FROM kas12.sales_trip_kas WHERE sales_trip_id = 1;
 
 \echo ''
 \echo '== SELESAI. Setiap blok harus berbunyi LULUS. ====================================='

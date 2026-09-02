@@ -3,9 +3,10 @@ package ais.action.servlet.api;
 /**
  * <h3>Jalur schema tenant untuk Reversal &amp; Log Cetak (P4, helper kedelapan — SEBAGIAN).</h3>
  *
- * <p>Tiga dari tujuh aksi dipindahkan: {@code payablePaymentReverse}, {@code printLogCreate},
- * dan {@code printLogList}. Empat sisanya <b>ditolak</b> pada jalur tenant, dan keempatnya
- * karena model tenant tidak menyediakan tempatnya — bukan karena belum sempat ditulis.</p>
+ * <p>Empat dari tujuh aksi dipindahkan: {@code payablePaymentReverse}, {@code printLogCreate},
+ * {@code printLogList}, dan — sejak migrasi v12 — {@code expenseReverse}. Tiga sisanya
+ * <b>ditolak</b> pada jalur tenant, dan ketiganya karena model tenant tidak menyediakan
+ * tempatnya, bukan karena belum sempat ditulis.</p>
  *
  * <h4>Pembalikan hutang: model tenant justru lebih lengkap</h4>
  * <p>{@code pembayaran_hutang} punya {@code pembalik_dari_id}, {@code idempotency_key},
@@ -26,15 +27,14 @@ package ais.action.servlet.api;
  * tidak memberi nomor pada dokumen pembalik AP. Nomornya karena itu diturunkan sebagai
  * {@code "REV-" + nomor asal}, mengikuti pola yang sudah dipakai legacy pada sisi piutang.</p>
  *
- * <h4>EMPAT aksi yang ditolak, dan alasannya</h4>
+ * <h4>TIGA aksi yang ditolak, dan alasannya</h4>
  *
  * <p><b>{@code collectionReverse}</b> — jalur legacy mengerjakan lima hal; model tenant
  * mendukung tiga. Yang hilang dua, dan keduanya menyangkut uang:</p>
  * <ul>
- * <li><b>Tidak ada tabel kas trip.</b> Legacy menyisipkan baris {@code nota_sales_kas}
- * bernilai negatif supaya kas yang dipegang sales turun kembali. Katalog tenant tidak punya
- * {@code sales_trip_kas} — tidak ada tempat untuk baris itu. Tanpanya, membalik penagihan
- * tunai akan <b>tetap menampilkan sales memegang uang yang tidak pernah diterimanya</b>.</li>
+ * <li><b>Kas trip: sudah teratasi v12.</b> Legacy menyisipkan baris {@code nota_sales_kas}
+ * bernilai negatif supaya kas yang dipegang sales turun kembali; padanannya,
+ * {@code sales_trip_kas}, ada sejak bundel v12. Ini bukan lagi penghalang.</li>
  * <li><b>Tidak ada nota bawaan ber-nilai-tertagih.</b> Legacy memundurkan
  * {@code SpjSalesNota.nilaiTertagih} berikut statusnya (PARTIAL/CARRIED). Tabel tenant yang
  * namanya mirip, {@code sales_trip_nota}, adalah nota <b>penjualan yang diterbitkan</b> dalam
@@ -46,10 +46,10 @@ package ais.action.servlet.api;
  * <i>tanpa</i> membalik kasnya — persis kelas galat uang yang paling sulit ditemukan
  * belakangan. Karena itu aksinya ditolak utuh, bukan dipindahkan separuh.</p>
  *
- * <p><b>{@code expenseReverse}</b> — {@code sales_trip_biaya} adalah satu-satunya tabel
- * dokumen yang tidak punya {@code pembalik_dari_id}, tidak punya {@code status}, dan tidak
- * punya kolom metode pembayaran. Ketiganya dipakai jalur legacy. Ditambah ketiadaan tabel kas
- * trip yang sama seperti di atas.</p>
+ * <p><b>{@code expenseReverse} sudah TIDAK ditolak.</b> Dahulu {@code sales_trip_biaya} adalah
+ * satu-satunya tabel dokumen tanpa {@code pembalik_dari_id}, tanpa {@code status}, dan tanpa
+ * kolom metode pembayaran — ditambah tidak adanya tabel kas trip untuk mengembalikan uangnya.
+ * Bundel <b>v12</b> menambahkan keempatnya, dan aksinya dipindahkan bersama bundel itu.</p>
  *
  * <p><b>{@code payableBgStatus} dan {@code collectionBgStatus}</b> — model tenant menyimpan
  * {@code nomor_bg} dan {@code tanggal_bg}, tetapi <b>tidak menyimpan statusnya</b>. Melacak
@@ -57,8 +57,9 @@ package ais.action.servlet.api;
  * itu justru inti kedua aksi ini. Jalur legacy juga menerbitkan reversal otomatis saat giro
  * ditolak; pada sisi piutang, reversal itu sendiri sedang tertutup.</p>
  *
- * <p>Keempatnya menunggu keputusan katalog, dan ketiganya bermuara pada satu bundel yang sama
- * — lihat catatan celah C-11 pada {@code 04-refactor-si.md}.</p>
+ * <p>Ketiganya menunggu keputusan katalog. {@code collectionReverse} kini tinggal menunggu
+ * <b>satu</b> hal saja — tabel nota bawaan bernilai tertagih — sebab sisi kasnya sudah dibuka
+ * v12; kedua aksi giro menunggu kolom status giro.</p>
  */
 final class SalesInventoryReversalTenant {
 
@@ -78,7 +79,7 @@ final class SalesInventoryReversalTenant {
 	/** Benar bila aksi ini sudah punya jalur tenant. */
 	static boolean dukungAksi(String aksi) {
 		return "payablePaymentReverse".equals(aksi) || "printLogCreate".equals(aksi)
-				|| "printLogList".equals(aksi);
+				|| "printLogList".equals(aksi) || "expenseReverse".equals(aksi);
 	}
 
 	// ------------------------------------------------------------------ pembalikan pembayaran AP
