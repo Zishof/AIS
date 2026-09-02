@@ -251,6 +251,24 @@ public final class NewUiLaporanUmumController {
                         Filter.teks("judul", "Judul"),
                         Filter.teks("userid", "User ID")));
 
+        // --- Akademik dan Perpustakaan ---------------------------------------
+        // Dua layar laporan yang sebelumnya berongga: scaffold-nya terbit tanpa
+        // nuiServiceEntities sehingga dispatcher hanya menjawab stub SCAFFOLD.
+        // Nama dan tipe parameter di bawah diambil dari deklarasi <parameter>
+        // pada jrxml-nya, bukan dari nama widget layar ZK -- yang menentukan
+        // apakah laporan terisi adalah apa yang dituntut template.
+        REGISTRI.put("akademik_cover_absensi",
+                new Laporan("Laporan Cover Absensi", "LaporanCoverAbsensi",
+                        Filter.relasi("perkuliahan", "Perkuliahan",
+                                "ais.database.model.Perkuliahan", true).cari()));
+        REGISTRI.put("library_jumlah_eksemplar",
+                new Laporan("Jumlah Eksemplar", "library/jumlah_eksemplar",
+                        Filter.relasi("id", "Perpustakaan",
+                                "ais.database.model.library.Perpustakaan", true),
+                        Filter.teks("isbn", "ISBN"),
+                        Filter.teks("judul", "Judul"),
+                        Filter.teks("klasifikasi", "Klasifikasi")));
+
         // --- Anggaran (RAB) --------------------------------------------------
         REGISTRI.put("rab_realisasi_per_jenis",
                 new Laporan("Realisasi Anggaran Per Jenis Item",

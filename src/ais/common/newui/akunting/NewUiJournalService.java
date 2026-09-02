@@ -73,7 +73,16 @@ public final class NewUiJournalService {
     public BatchResult activateBatch(Filter f){Session s=HibernateUtil.openSession();try{Criteria c=criteria(s,f,false).add(Restrictions.isNotNull("postingHistory"));List<Long>ids=ids(c);BatchResult r=new BatchResult();for(Long id:ids)try{setPostingActive(id,true);r.success++;}catch(Exception e){r.errors.add(id+": "+e.getMessage());}return r;}finally{s.close();}}
 
     public MaintenanceResult cleanDuplicates(){Session s=HibernateUtil.openSession();Transaction tx=null;try{tx=s.beginTransaction();MaintenanceResult r=new MaintenanceResult();r.groups=s.createSQLQuery("delete from akunting.grup_transaksi where id in (select min(id) from akunting.grup_transaksi group by kode having count(*)>1)").executeUpdate();r.lines=s.createSQLQuery("delete from akunting.transaksi where id in (select min(id) from akunting.transaksi group by grup_transaksi,akun,debet,kredit having count(*)>1)").executeUpdate();tx.commit();return r;}catch(RuntimeException e){rollback(tx);throw e;}finally{s.close();}}
-    public MaintenanceResult deleteAll(){Session s=HibernateUtil.openSession();Transaction tx=null;try{tx=s.beginTransaction();MaintenanceResult r=new MaintenanceResult();r.groups=s.createSQLQuery("delete from akunting.grup_transaksi").executeUpdate();tx.commit();return r;}catch(RuntimeException e){rollback(tx);throw e;}finally{s.close();}}
+    /**
+     * Kosongkan seluruh jurnal: baris LEBIH DULU, baru grupnya.
+     *
+     * <p>Urutan itu bukan selera. {@code transaksi.grup_transaksi} menunjuk grup dan
+     * kolomnya {@code nullable}, jadi menghapus grup lebih dulu tidak selalu ditolak basis
+     * data -- yang tersisa adalah baris jurnal yang menunjuk grup yang sudah tidak ada.
+     * Sebelumnya hanya grup yang dihapus, sehingga {@code lines} yang dilaporkan ke layar
+     * selalu nol padahal barisnya memang tidak pernah disentuh.</p>
+     */
+    public MaintenanceResult deleteAll(){Session s=HibernateUtil.openSession();Transaction tx=null;try{tx=s.beginTransaction();MaintenanceResult r=new MaintenanceResult();r.lines=s.createSQLQuery("delete from akunting.transaksi").executeUpdate();r.groups=s.createSQLQuery("delete from akunting.grup_transaksi").executeUpdate();tx.commit();return r;}catch(RuntimeException e){rollback(tx);throw e;}finally{s.close();}}
 
     public ImportResult importCsv(String csv,Tbmuser user){if(clean(csv)==null)throw new IllegalArgumentException("Isi CSV kosong.");String[]rows=csv.replace("\r","").split("\n");Map<String,Draft> drafts=new LinkedHashMap<String,Draft>();for(int i=0;i<rows.length;i++){if(clean(rows[i])==null)continue;List<String>c=csvRow(rows[i]);if(i==0&&c.size()>0&&"kode".equalsIgnoreCase(c.get(0).trim()))continue;if(c.size()<8)throw new IllegalArgumentException("Baris "+(i+1)+" harus berisi kode,tanggal,jenis_transaksi_id,keterangan,akun_id,keterangan_detail,debet,kredit.");String code=c.get(0).trim();Draft d=drafts.get(code);if(d==null){d=new Draft();d.code=code;d.date=parseDate(c.get(1));d.typeId=longValue(c.get(2),"jenis transaksi");d.description=c.get(3);d.lines=new ArrayList<LineDraft>();drafts.put(code,d);}LineDraft l=new LineDraft();l.accountId=longValue(c.get(4),"akun");l.description=c.get(5);l.debit=number(c.get(6));l.credit=number(c.get(7));d.lines.add(l);}ImportResult r=new ImportResult();for(Draft d:drafts.values())try{r.ids.add(save(d,user));r.success++;}catch(Exception e){r.errors.add(d.code+": "+e.getMessage());}return r;}
 
