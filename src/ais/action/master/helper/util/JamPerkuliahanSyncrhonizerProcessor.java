@@ -110,7 +110,8 @@ public class JamPerkuliahanSyncrhonizerProcessor extends TimerTask {
 	}
 
 	/**
-	 * Memperbaiki baris {@link Detailperkuliahan} yang memiliki {@code semester > 0} tetapi
+	 * Memperbaiki baris {@link Detailperkuliahan} yang memiliki {@code semester >= 0}, termasuk
+	 * semester {@code 0} untuk KRS konversi, tetapi
 	 * {@code tahunAkademik} kosong, dengan memicu ulang {@code refreshUpdate} (yang diasumsikan
 	 * menghitung/mengisi tahun akademik dari semester lewat logika pada entitas/listener).
 	 * Kegagalan per-baris di-rollback dan dilewati tanpa menghentikan proses baris lain.
@@ -121,7 +122,7 @@ public class JamPerkuliahanSyncrhonizerProcessor extends TimerTask {
 		Session session = HibernateUtil.currentNativeSession();
 		try {
 			longs = session.createCriteria(Detailperkuliahan.class).setProjection(Projections.property("id"))
-					.add(Restrictions.gt("semester", 0)).add(Restrictions.isNull("tahunAkademik")).list();
+					.add(Restrictions.ge("semester", 0)).add(Restrictions.isNull("tahunAkademik")).list();
 		} finally {
 			HibernateUtil.closeSession();
 		}

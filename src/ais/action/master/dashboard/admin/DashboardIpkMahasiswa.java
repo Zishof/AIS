@@ -393,7 +393,7 @@ public class DashboardIpkMahasiswa extends MyWindow {
 
 													Criteria criteria = HibernateUtil.currentSession()
 													.createCriteria(KrsMahasiswa.class)
-													.add(Restrictions.gt("semester", Integer.valueOf(0)))
+											.add(Restrictions.ge("semester", Integer.valueOf(0)))
 													.add(Restrictions.eq("tahunAkademik", ta))
 															.add(Restrictions.sqlRestriction("semester%2="
 																	+ (smt.equals(Perkuliahan.GANJIL) ? 1 : 0) + ""))
@@ -472,7 +472,7 @@ public class DashboardIpkMahasiswa extends MyWindow {
 
 													Criteria criteria = HibernateUtil.currentSession()
 													.createCriteria(KrsMahasiswa.class)
-													.add(Restrictions.gt("semester", Integer.valueOf(0)))
+											.add(Restrictions.ge("semester", Integer.valueOf(0)))
 													.addOrder(Order.asc("ipk"))
 															.add(Restrictions.eq("tahunAkademik", ta))
 															.add(Restrictions.sqlRestriction("semester%2="
@@ -551,7 +551,7 @@ public class DashboardIpkMahasiswa extends MyWindow {
 
 													Criteria criteria = HibernateUtil.currentSession()
 													.createCriteria(KrsMahasiswa.class)
-													.add(Restrictions.gt("semester", Integer.valueOf(0)))
+											.add(Restrictions.ge("semester", Integer.valueOf(0)))
 													.addOrder(Order.desc("ipk"))
 															.add(Restrictions.eq("tahunAkademik", ta))
 															.add(Restrictions.sqlRestriction("semester%2="
@@ -653,7 +653,7 @@ row = new MyFormRow();
 					i++;
 
 					List<Object[]> dataIpk = session.createCriteria(KrsMahasiswa.class)
-							.add(Restrictions.gt("semester", Integer.valueOf(0)))
+							.add(Restrictions.ge("semester", Integer.valueOf(0)))
 							.createAlias("mahasiswa", "mahasiswa")
 
 							.add(statusKeluar == null ? Restrictions.sqlRestriction("true")

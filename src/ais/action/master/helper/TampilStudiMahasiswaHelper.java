@@ -814,10 +814,10 @@ public class TampilStudiMahasiswaHelper {
 			session = HibernateUtil.getSessionFactory().openSession();
 
 			List<Detailperkuliahan> detailperkuliahans = new ArrayList<Detailperkuliahan>();
-			if (mahasiswa != null && semesterMaksimal > 0) {
+			if (mahasiswa != null && semesterMaksimal >= 0) {
 				detailperkuliahans = session.createCriteria(Detailperkuliahan.class)
 						.add(Restrictions.eq("mahasiswa", mahasiswa))
-						.add(Restrictions.gt("semester", Integer.valueOf(0)))
+						.add(Restrictions.ge("semester", Integer.valueOf(0)))
 						.add(Restrictions.le("semester", Integer.valueOf(semesterMaksimal)))
 						.addOrder(Order.asc("semester"))
 						.addOrder(Order.asc("id")).list();
@@ -1778,14 +1778,15 @@ public class TampilStudiMahasiswaHelper {
 	}
 
 	/**
-	 * Hitung jumlah {@link Detailperkuliahan} mahasiswa pada semester akademik positif tertentu
+	 * Hitung jumlah {@link Detailperkuliahan} mahasiswa pada semester akademik non-negatif tertentu.
+	 * Semester {@code 0} adalah KRS konversi dan tetap merupakan data akademik yang sah
 	 * dengan {@code ikutiPerkuliahan} kosong dan status
 	 * {@code persetujuan} tertentu (dipakai untuk menghitung MK "Disetujui" vs "Belum Disetujui" di
 	 * panel Rekap KRS per Semester). Query {@code rowCount()}; 0 bila gagal.
 	 */
 	private static int hitungDetailPerkuliahan(org.hibernate.Session session, Mahasiswa mahasiswa, Integer semester,
 			Integer persetujuan) {
-		if (session == null || mahasiswa == null || semester == null || semester.intValue() <= 0) {
+		if (session == null || mahasiswa == null || semester == null || semester.intValue() < 0) {
 			return 0;
 		}
 		try {
@@ -1820,7 +1821,7 @@ public class TampilStudiMahasiswaHelper {
 	}
 
 	private static boolean semesterAkademikValid(Integer semester, int semesterMaksimal) {
-		return semester != null && semester.intValue() > 0 && semesterMaksimal > 0
+		return semester != null && semester.intValue() >= 0 && semesterMaksimal >= 0
 				&& semester.intValue() <= semesterMaksimal;
 	}
 
@@ -1849,7 +1850,7 @@ public class TampilStudiMahasiswaHelper {
 			return res;
 		}
 		int semesterMaksimal = semesterAkademikMaksimal(mahasiswa);
-		if (semesterMaksimal <= 0) {
+		if (semesterMaksimal < 0) {
 			return res;
 		}
 		Map<Integer, String> tahunAkademikKrs = tahunAkademikPerSemesterKrs(mahasiswa, semesterMaksimal);
@@ -1859,7 +1860,7 @@ public class TampilStudiMahasiswaHelper {
 			@SuppressWarnings("unchecked")
 			List<ais.database.model.KrsMahasiswa> list = session.createCriteria(ais.database.model.KrsMahasiswa.class)
 					.add(Restrictions.eq("mahasiswa", mahasiswa))
-					.add(Restrictions.gt("semester", Integer.valueOf(0)))
+					.add(Restrictions.ge("semester", Integer.valueOf(0)))
 					.add(Restrictions.le("semester", Integer.valueOf(semesterMaksimal)))
 					.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
 					.addOrder(Order.asc("semester")).addOrder(Order.asc("id")).list();
@@ -1879,7 +1880,8 @@ public class TampilStudiMahasiswaHelper {
 							String.valueOf(setuju), String.valueOf(belum),
 							krs.getIps() == null ? "-" : formatNumber(krs.getIps().doubleValue()),
 							krs.getIpk() == null ? "-" : formatNumber(krs.getIpk().doubleValue()),
-							tahunAkademikKrs.containsKey(sem) ? nzTrim(tahunAkademikKrs.get(sem)) : "-" });
+							tahunAkademikKrs.containsKey(sem) ? nzTrim(tahunAkademikKrs.get(sem))
+									: nzTrim(krs.getTahunAkademik()) });
 				} catch (Exception ex) {
 					ais.common.ErrorAuditUtil.record(ex, "auto-audit(row) TampilStudiMahasiswaHelper.dataKrsPerSemester");
 				}

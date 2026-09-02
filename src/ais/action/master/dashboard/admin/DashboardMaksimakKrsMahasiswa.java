@@ -451,7 +451,7 @@ public class DashboardMaksimakKrsMahasiswa extends MyWindow {
 
 		final List<KrsMahasiswa> krsMahasiswas = mahasiswas.isEmpty() ? new ArrayList<KrsMahasiswa>()
 				: session.createCriteria(KrsMahasiswa.class).add(Restrictions.in("mahasiswa", mahasiswas))
-						.add(Restrictions.gt("semester", Integer.valueOf(0)))
+						.add(Restrictions.ge("semester", Integer.valueOf(0)))
 						.add(Restrictions.lt("selisih", 0)).list();
 
 		HibernateUtil.closeSession();

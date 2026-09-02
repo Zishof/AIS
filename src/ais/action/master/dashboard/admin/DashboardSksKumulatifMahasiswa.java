@@ -381,7 +381,7 @@ public class DashboardSksKumulatifMahasiswa extends MyWindow {
 
 													Criteria criteria = HibernateUtil.currentSession()
 													.createCriteria(KrsMahasiswa.class)
-													.add(Restrictions.gt("semester", Integer.valueOf(0)))
+											.add(Restrictions.ge("semester", Integer.valueOf(0)))
 													.add(Restrictions.eq("tahunAkademik",
 																	Common.getCurrentTahunAkademik()))
 															.add(Restrictions.sqlRestriction("semester%2="
@@ -461,7 +461,7 @@ public class DashboardSksKumulatifMahasiswa extends MyWindow {
 
 													Criteria criteria = HibernateUtil.currentSession()
 													.createCriteria(KrsMahasiswa.class)
-													.add(Restrictions.gt("semester", Integer.valueOf(0)))
+											.add(Restrictions.ge("semester", Integer.valueOf(0)))
 													.addOrder(Order.asc("sksk"))
 															.add(Restrictions.eq("tahunAkademik",
 																	Common.getCurrentTahunAkademik()))
@@ -541,7 +541,7 @@ public class DashboardSksKumulatifMahasiswa extends MyWindow {
 
 													Criteria criteria = HibernateUtil.currentSession()
 													.createCriteria(KrsMahasiswa.class)
-													.add(Restrictions.gt("semester", Integer.valueOf(0)))
+											.add(Restrictions.ge("semester", Integer.valueOf(0)))
 													.addOrder(Order.desc("sksk"))
 															.add(Restrictions.eq("tahunAkademik",
 																	Common.getCurrentTahunAkademik()))
@@ -644,7 +644,7 @@ row = new MyFormRow();
 					i++;
 
 					List<Object[]> dataIpk = session.createCriteria(KrsMahasiswa.class)
-							.add(Restrictions.gt("semester", Integer.valueOf(0)))
+							.add(Restrictions.ge("semester", Integer.valueOf(0)))
 							.createAlias("mahasiswa", "mahasiswa")
 
 							.add(statusKeluar == null ? Restrictions.sqlRestriction("true")

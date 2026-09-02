@@ -7979,7 +7979,7 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 			java.util.List<KrsMahasiswa> raw = session.createCriteria(KrsMahasiswa.class)
 					.add(Restrictions.eq("mahasiswa", mahasiswa))
 					.add(Restrictions.isNull("semesterPendek"))
-					.add(Restrictions.gt("semester", Integer.valueOf(0)))
+					.add(Restrictions.ge("semester", Integer.valueOf(0)))
 					.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
 					.addOrder(Order.asc("semester"))
 					.addOrder(Order.asc("id"))
