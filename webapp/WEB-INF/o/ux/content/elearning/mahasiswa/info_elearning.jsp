@@ -27,8 +27,9 @@ KrsMahasiswa krsMahasiswa = tbmuser.getMahasiswa() == null ? null
 		: Common.singkronkanKrsMahasiswa(tbmuser.getMahasiswa(), semester, null, null);
 String foto = CommonMedia.getUrlFotoPengguna(tbmuser, 152, 114);
 
-String keteranganMahasiswa = tbmuser.getMahasiswa().rubahKeteranganPengambilanKRS(krsMahasiswa.getSemester(),
-		krsMahasiswa.getTahapan(), krsMahasiswa.getSemesterPendek(), false);
+String keteranganMahasiswa = ais.action.master.helper.KrsDetailHelper
+		.rubahKeteranganPengambilanKRS(tbmuser.getMahasiswa(), krsMahasiswa.getSemester(),
+				krsMahasiswa.getTahapan(), krsMahasiswa.getSemesterPendek(), krsMahasiswa, false);
 %>
 
 
