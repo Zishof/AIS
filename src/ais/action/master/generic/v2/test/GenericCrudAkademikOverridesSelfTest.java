@@ -184,7 +184,7 @@ public final class GenericCrudAkademikOverridesSelfTest {
         //    definisi di bawahnya. Diuji dengan meminjam route yang memang ada
         //    di DINAIKKAN lalu menukar entitasnya dengan Tbmuser.
         GenericCrudDefinition sensitif = definisi("root", "kurikulum",
-                ais.database.model.Tbmuser.class);
+                EntitasUserPalsu.class);
         sensitif.setLifecycleStatus(GenericCrudDefinition.READ_ONLY);
         sensitif.setCreateEnabled(false);
         sensitif.setUpdateEnabled(false);
@@ -209,5 +209,18 @@ public final class GenericCrudAkademikOverridesSelfTest {
                 "route di luar cabang Akademik tidak boleh diubah lapisan ini");
 
         System.out.println("PASS Generic CRUD Akademik overrides self-test");
+    }
+
+    /**
+     * Kelas boneka untuk menguji penjaga entitas sensitif.
+     *
+     * <p>Sengaja bukan {@code ais.database.model.Tbmuser}. Menyebut entitas
+     * Hibernate yang sungguhan di sini akan memicu inisialisasi SessionFactory
+     * dan uji ini menggantung menunggu basis data — padahal penjaganya hanya
+     * membaca <em>nama</em> kelas. Yang perlu diuji adalah nama itu; nama kelas
+     * ini mengandung token "user" persis seperti entitas aslinya.</p>
+     */
+    private static final class EntitasUserPalsu {
+        private EntitasUserPalsu() { }
     }
 }

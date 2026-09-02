@@ -314,13 +314,17 @@ public final class GenericCrudAkademikOverrides {
              * menu. Penjaga ini membuat kekeliruan seperti itu mustahil, bukan
              * sekadar tidak mungkin terjadi.
              */
-            try {
-                ais.common.ErrorAuditUtil.record(new IllegalStateException(
-                        "Route " + kunci + " menunjuk entitas sensitif ("
-                        + definition.getEntityClass().getName()
-                        + "); penaikan CRUD ditolak."),
-                        "GenericCrudAkademikOverrides");
-            } catch (Exception diabaikan) { }
+            /*
+             * Dicatat ke log, bukan ke tabel audit. ErrorAuditUtil membuka
+             * sesi Hibernate; penjaga ini berjalan saat definisi didaftarkan,
+             * kadang sebelum basis data siap, dan sebuah penjaga keamanan yang
+             * dapat menggantung atau melempar justru menjadi kerentanan yang
+             * hendak dicegahnya. Log selalu tersedia dan tidak pernah gagal.
+             */
+            log.error("GenericCrudAkademikOverrides: route " + kunci
+                    + " menunjuk entitas sensitif ("
+                    + definition.getEntityClass().getName()
+                    + "); penaikan CRUD ditolak.");
             return;
         }
         try {
@@ -378,6 +382,9 @@ public final class GenericCrudAkademikOverrides {
      * privat, dan sebuah penjaga keamanan lebih baik berlebihan daripada
      * bergantung pada satu tempat saja.</p>
      */
+    private static final org.apache.log4j.Logger log =
+            org.apache.log4j.Logger.getLogger(GenericCrudAkademikOverrides.class);
+
     private static final String[] TOKEN_SENSITIF = {
         "user", "role", "privilege", "permission", "hakakses", "menu",
         "password", "credential", "token", "secret", "session", "login",
