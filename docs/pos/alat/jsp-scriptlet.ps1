@@ -80,12 +80,19 @@ $pakai    = @($gen | Where-Object { $_.Name -notlike '_005f*' })
 ($pakai | ForEach-Object { $_.FullName }) | Set-Content "$kerja\daftar.txt"
 
 '--- 2/2 mengompilasi scriptlet'
-# 2>&1 | Out-File, bukan *>: redirection PowerShell menulis UTF-16 dan membungkus
-# stderr javac dalam format record galatnya sendiri, sehingga lognya tidak terbaca
-# grep/sed dan nomor barisnya pecah.
-& javac -source 1.7 -target 1.7 -encoding UTF-8 -nowarn -proc:none -J-Xmx3g -Xmaxerrs 20000 `
-        -cp ($cp -join ';') -d "$kerja\kelas" "@$kerja\daftar.txt" 2>&1 |
-        Out-File -Encoding utf8 "$kerja\galat.log"
+# Dijalankan lewat cmd, bukan langsung dari PowerShell. Baik "*>" maupun
+# "2>&1 | Out-File" tetap melewatkan stderr javac melalui pemformat record galat
+# PowerShell, yang MEMOTONG baris di lebar konsol -- jalur berkas terbelah dua
+# sehingga lognya tidak dapat diurai alat mana pun. Redirection cmd menulis
+# keluaran javac apa adanya.
+$opsi = @(
+    '-source', '1.7', '-target', '1.7', '-encoding', 'UTF-8', '-nowarn',
+    '-proc:none', '-Xmaxerrs', '20000',
+    '-cp', ($cp -join ';'),
+    '-d', ("$kerja" + '\kelas')
+) -join "`n"
+Set-Content -Encoding ascii "$kerja\opsi.txt" $opsi
+cmd /c "javac -J-Xmx3g `"@$kerja\opsi.txt`" `"@$kerja\daftar.txt`" 2> `"$kerja\galat.log`""
 $kode  = $LASTEXITCODE
 $galat = @(Select-String -Path "$kerja\galat.log" -Pattern 'error:' -EA SilentlyContinue).Count
 $hasil = @(Get-ChildItem "$kerja\kelas" -Recurse -Filter *.class -EA SilentlyContinue).Count

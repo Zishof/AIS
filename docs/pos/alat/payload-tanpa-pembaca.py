@@ -24,7 +24,11 @@ ditutup di sini:
 Batas yang disadari: alat ini bertanya "dibaca di mana pun?", bukan "dibaca oleh
 handler aksinya". Kunci yang dibaca handler LAIN akan lolos. Memetakan aksi ke
 handler menuntut penguraian yang rapuh, dan salah petakan menghasilkan tuduhan
-palsu. Payload yang dirakit dinamis (`payload['x'] = ...`) juga tidak terjaring.
+palsu.
+
+Bentuk `payload['x'] = ...` dulu juga tidak terjaring; sekarang terjaring lewat
+kunci_ditempel() (docs/pos/85). Yang MASIH lolos: penggabungan map utuh
+(`payload.addAll(petaLain)`) dan kunci yang bukan literal (`payload[v] = ...`).
 
 Alat ini MELAPORKAN saja, tidak menyunting apa pun.
 
@@ -82,19 +86,28 @@ UTANG = {
 }
 
 PANGGIL_DART = re.compile(r'(?<![A-Za-z])aksi\s*\(')
+# Variabel yang diserahkan apa adanya ke aksi(): `aksi('bayar', payload)`.
+VAR_DART = re.compile(
+    r"(?<![A-Za-z])aksi\s*\(\s*'[^']*'\s*,\s*([A-Za-z_][A-Za-z0-9_]*)\s*[,)]")
 PANGGIL_JS = re.compile(r'(?<![A-Za-z])fetchDataAPI[A-Za-z0-9_]*\s*\(')
 KUNCI_DART = re.compile(r"'([A-Za-z_][A-Za-z0-9_]*)'\s*:")
 KUNCI_JS = re.compile(r'(?m)^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:')
 
 
-def kumpulkan(akar, ekstensi):
-    potongan = []
+def berkas_demi_berkas(akar, ekstensi):
+    """(jalur, isi) per berkas -- perlu untuk analisis yang tidak boleh lintas berkas."""
+    hasil = []
     for dirpath, dirnames, filenames in os.walk(akar):
         dirnames[:] = [d for d in dirnames if d.lower() not in DILEWATI]
         for nama in filenames:
             if nama.lower().endswith(ekstensi):
-                potongan.append(akar_repo.baca(os.path.join(dirpath, nama)))
-    return '\n'.join(potongan)
+                p = os.path.join(dirpath, nama)
+                hasil.append((p, akar_repo.baca(p)))
+    return hasil
+
+
+def kumpulkan(akar, ekstensi):
+    return '\n'.join(t for _, t in berkas_demi_berkas(akar, ekstensi))
 
 
 def potong_payload(sumber, pola_panggil):
@@ -127,6 +140,32 @@ def potong_payload(sumber, pola_panggil):
     return '\n'.join(hasil)
 
 
+def kunci_ditempel(daftar_berkas):
+    """Kunci yang ditempel SESUDAH payload dirakit: `payload['x'] = ...`.
+
+    Titik buta yang dulu ditulis terus terang di kepala berkas ini, lalu ditutup
+    setelah contohnya benar-benar ditemukan: riwayat_penjualan_screen.dart
+    menempelkan input_supervisor, alasan_supervisor, dan kasir_user_id pada
+    payload hasil pemutaran ulang, jauh dari literal mana pun. Ketiganya ternyata
+    dibaca server -- tetapi alat ini tidak akan pernah tahu, dan itu justru
+    persoalannya: titik buta tidak memberi tahu kapan ia menutupi sesuatu.
+
+    Dibatasi PER BERKAS dan hanya pada variabel yang benar-benar diserahkan ke
+    `aksi(...)`. Mencocokkan sembarang `map['x'] =` akan menjaring setiap map di
+    aplikasi dan mengubah alat ini menjadi mesin tuduhan palsu.
+    """
+    hasil = []
+    for _, teks in daftar_berkas:
+        nama_var = set(VAR_DART.findall(teks))
+        for v in nama_var:
+            pola = re.compile(r'(?<![A-Za-z0-9_])' + re.escape(v) +
+                              r"\[\s*'([A-Za-z_][A-Za-z0-9_]*)'\s*\]\s*=(?!=)")
+            for k in pola.findall(teks):
+                if k not in hasil:
+                    hasil.append(k)
+    return hasil
+
+
 def main():
     akar_repo.pastikan_lengkap(perlu_pos=True)
     for akar in (AKAR_KLIEN_DART, AKAR_KLIEN_JSP, AKAR_SERVER):
@@ -134,7 +173,8 @@ def main():
             print('AKAR TIDAK KETEMU: ' + akar)
             return 1
 
-    dart = kumpulkan(AKAR_KLIEN_DART, ('.dart',))
+    berkas_dart = berkas_demi_berkas(AKAR_KLIEN_DART, ('.dart',))
+    dart = '\n'.join(t for _, t in berkas_dart)
     jsp = kumpulkan(AKAR_KLIEN_JSP, ('.jsp', '.js'))
     server = kumpulkan(AKAR_SERVER, ('.java',))
 
@@ -145,9 +185,14 @@ def main():
     for nama in KUNCI_JS.findall(potong_payload(jsp, PANGGIL_JS)):
         if nama not in dikirim:
             dikirim.append(nama)
+    ditempel = kunci_ditempel(berkas_dart)
+    for nama in ditempel:
+        if nama not in dikirim:
+            dikirim.append(nama)
 
     akar_repo.pastikan_terbaca()
     print('kunci payload yang dikirim klien : %d' % len(dikirim))
+    print('   di antaranya ditempel dinamis : %d' % len(ditempel))
     print('sumber server terbaca            : %d karakter' % len(server))
 
     yatim = [k for k in dikirim

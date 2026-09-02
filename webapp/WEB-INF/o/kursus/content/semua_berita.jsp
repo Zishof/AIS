@@ -44,7 +44,7 @@
 					<figure>
 						<img src="<%=img%>" alt="">
 						<figcaption>
-							<strong><%=calendar.get(Calendar.DATE)%></strong><%=ais.common.Common.monthFormat21.format(calendar.getTime())%>
+							<strong><%=calendar.get(Calendar.DATE)%></strong><%=ais.common.Common.monthFormat21.get().format(calendar.getTime())%>
 						</figcaption>
 					</figure>
 					<ul>
