@@ -1113,6 +1113,125 @@ Selain itu SQL yang **benar-benar dikeluarkan Java** dijalankan apa adanya ke ba
 alat sekali-pakai, bukan hanya salinan tangannya di berkas uji. Itu yang memastikan jumlah dan
 urutan kolomnya benar pada string yang dipakai program — bukan pada versi yang saya tulis ulang.
 
+## Helper ketujuh, tuntas kecuali satu: 11 dari 12 aksi
+
+Batch ini menambah `salesOrderSimpan` dan `salesOrderInvoice`. Yang tersisa hanya
+`collectionCreate`, dan ia terhalang C-11 — bukan menunggu giliran ditulis.
+
+### Penyaring status: bug yang lebih tajam daripada yang ditutup batch sebelumnya
+
+Batch sebelumnya menormalkan status yang **ditampilkan**. Yang belum tertutup adalah status yang
+**disaring**:
+
+```java
+if (!status.isEmpty()) where.append(" AND o.status = ?");
+```
+
+Klausa itu dipakai kedua jalur. Klien mengirim `DRAFT` (kosakata legacy), kolom tenant berisi
+`DRAF`, sehingga saringan "hanya draf" mengembalikan **kosong**. Bukan salah tampil — order yang
+hilang sama sekali dari daftar, tanpa pesan apa pun. Sekarang jalur tenant memakai ekspresi
+ternormalkan yang sama dengan sisi pembacaannya.
+
+Blok 1 ujinya membuktikan keduanya sekaligus: saringan mentah menemukan 0, saringan ternormalkan
+menemukan 1, atas baris yang sama.
+
+### `salesOrderSimpan`: tiga hal legacy tanpa rumah di tenant
+
+**1. Satuan jual — DITOLAK, bukan diabaikan.** Legacy menurunkan jumlah dasar dari
+`qty_input × faktor` lewat `KantinHelper.faktorUomInputKeDasar`, dan menyatakan tegas bahwa jumlah
+kiriman klien hanya pratinjau. Katalog tenant tidak punya tabel `satuan_produk` maupun kolom
+penampung `satuan_jual`/`qty_input`/`faktor_ke_dasar`.
+
+Menerima permintaan ber-`satuan_jual_id` berarti membiarkan angka pratinjau klien menjadi angka
+resmi — persis yang dijaga jalur legacy. Karena itu barisnya ditolak dengan pesan yang menyuruh
+mengirim jumlah dalam satuan dasar, bukan dikonversi diam-diam.
+
+**2. Salinan nama produk.** Sudah dicatat pada batch sebelumnya: baris order tenant menariknya
+lewat join, sehingga produk yang berganti nama tampil dengan nama sekarang.
+
+**3. Snapshot HPP per baris — celah C-12.** Legacy membekukan harga beli pada tiap baris order
+untuk perhitungan margin. Model tenant menaruh biaya pada `faktur_penjualan.hpp`: di tingkat
+faktur, bukan baris, dan pada saat pemfakturan, bukan pemesanan.
+
+Itu perbedaan rancangan yang koheren, tetapi akibatnya nyata — margin per baris order tidak dapat
+dihitung mundur pada tenant. Tidak ada kueri tenant yang membacanya saat ini, jadi tidak ada yang
+rusak hari ini; dicatat supaya tidak ditemukan sebagai kejutan saat laporan margin dipindahkan.
+
+**Nomor dokumen.** `sales_order.nomor_dokumen` berstatus `NOT NULL`, jadi barisnya disisipkan
+dengan nomor kosong lalu ditimpa setelah id-nya diketahui — sama persis dengan legacy yang
+menyimpan dulu baru memanggil `setNomor`. Aman karena indeks nomor pada `sales_order` tidak unik.
+
+**Tanggal.** Kolom tenant `NOT NULL` sedangkan legacy membolehkannya kosong; bila permintaan tidak
+menyertakannya, dipakai tanggal server hari ini.
+
+### `salesOrderInvoice`: satu dokumen legacy menjadi DUA dokumen tenant
+
+Legacy menerbitkan satu `PiutangCustomerDoc` yang merangkap faktur dan piutang. Model tenant
+memisahkannya:
+
+| peran | tabel tenant | memegang |
+|---|---|---|
+| dokumen penjualan | `faktur_penjualan` | `toko_id`, `sales_order_id`, nomor, total |
+| tagihan | `piutang_customer` | jatuh tempo, nilai, sisa |
+
+Keduanya lahir dalam **satu transaksi** bersama pemutakhiran status ordernya. Faktur tanpa piutang
+berarti barang terjual yang tak pernah ditagih; piutang tanpa faktur memutus seluruh penelusuran
+ke ordernya — termasuk saringan lingkup toko, yang pada model tenant memang ditempuh lewat faktur.
+
+**`dibayar_awal` ditolak.** Legacy menyimpannya sebagai kolom pada dokumen piutang. Pada model
+tenant uang muka bukan kolom melainkan **alokasi penerimaan**, sehingga menghormatinya berarti
+ikut menerbitkan dokumen penerimaan uang — jauh melampaui "menerbitkan faktur", dan menyentuh kas
+yang celahnya masih terbuka. Ditolak daripada dibuang diam-diam.
+
+**Nomor sementara harus unik.** `faktur_penjualan` dibatasi `UNIQUE (customer_id, nomor_faktur,
+tanggal)`. Menyisipkan nomor kosong seperti pada `sales_order` akan membuat dua faktur untuk
+customer yang sama pada hari yang sama bertabrakan. Nomor sementaranya karena itu memakai kunci
+idempotensinya (`SO-INV-<orderId>`), yang sudah unik per order.
+
+**Termin.** Diambil dari `customer_profile.syarat_bayar_hari`. Legacy menyaring profil yang
+`aktif`; profil tenant tidak punya kolom itu dan dibatasi `UNIQUE (customer_id)` — satu customer
+tepat satu profil, jadi tidak ada yang perlu disaring.
+
+### Idempotensi keduanya kini benar-benar mengikat
+
+`sales_order` dan `faktur_penjualan` termasuk sebelas tabel yang memperoleh indeks unik parsial
+dari v11. Kedua aksi ini memakai penjaga dua lapis yang sama dengan legacy: pemeriksaan kunci di
+muka untuk percobaan berurutan, dan pelanggaran batasan (`SQLState` kelas `23`) diperlakukan
+sebagai pengulangan yang sah. Blok 6 ujinya membuktikan kembar ditolak pada kedua tabel.
+
+### Koreksi metode: pola pencarian tabel saya punya titik buta
+
+Daftar tabel yang saya pakai untuk menyatakan sesuatu "tidak ada pada katalog tenant" dibangun
+dari pola `CREATE TABLE "<skema>".<nama>`. Bundel v1 membuat sebagian tabelnya dengan
+`CREATE TABLE IF NOT EXISTS`, dan tiga tabel — `brand`, `pedagang`, `toko` — karena itu **tidak
+pernah muncul** di daftar saya.
+
+Ditemukan saat `sales_order.toko_id` perlu divalidasi: `toko` di-referensi kunci asing tetapi
+tidak ada di daftar. Seluruh klaim "tidak ada" yang sudah terlanjur ditulis diperiksa ulang dengan
+pola yang benar: `sales_trip_kas`, `nota_sales_kas`, `work_order`, `pengajuan_pembelian_gudang`,
+`satuan_produk`, `spj_sales_nota`, dan kolom `produk.rute` memang **tidak ada**. C-11 dan
+penalaran MTO tetap berdiri.
+
+Jumlah tabel schema ERP yang sebenarnya: **74**.
+
+### Uji kesetaraan: `uji-kesetaraan-order-simpan-faktur.sql`
+
+Enam blok, seluruhnya LULUS pada klaster v1–v11:
+
+| blok | yang dibuktikan |
+|---|---|
+| 1 | **penjaga** — saringan mentah menemukan 0, ternormalkan menemukan 1, atas baris yang sama |
+| 2 | total header setara jumlah barisnya |
+| 3 | pengubahan MENGGANTI baris (bukan menambah), dan tanggal tidak hilang saat tidak dikirim |
+| 4 | faktur + piutang lahir bersama; jatuh tempo = tanggal + termin; order maju ke SIAP_TAGIH |
+| 5 | deep-link `salesOrderDetail` menemukan faktur yang baru terbit |
+| 6 | kunci idempotensi kembar ditolak pada `sales_order` **dan** `faktur_penjualan` |
+
+Seluruh SQL tulis yang **benar-benar dikeluarkan Java** juga dijalankan berurutan ke basis data —
+sisip order, sisip baris, finalisasi nomor, baca untuk ubah, hapus-dan-sisip-ulang, perbarui,
+baca untuk faktur, sisip faktur, finalisasi, sisip piutang, tandai siap tagih — dan bolak-baliknya
+terbukti benar: `sisipOrder` menulis `DRAF`, `orderUntukUbah` membacanya kembali sebagai `DRAFT`.
+
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
 **Sebelas helper, 7.512 baris, belum satu pun kuerinya dipindah ke schema tenant.**
