@@ -2141,6 +2141,105 @@ Tidak ada bundel migrasi baru: seluruh kolom yang dipakai sudah ada sejak v7, da
 pesan yang enak dibaca, dan dua permintaan serentak tetap berakhir pada pelanggaran batasan,
 bukan pada dua akun berkode sama.
 
+## §18 — uang muka faktur: dokumen, bukan kolom pengurang
+
+`salesOrderInvoice` menolak `dibayar_awal` sejak awal pemindahan. Alasannya ada dua, dan
+**keduanya sudah tidak berlaku**:
+
+| alasan waktu itu | keadaannya sekarang |
+|---|---|
+| "menghormatinya berarti menerbitkan dokumen penerimaan uang, jauh melampaui menerbitkan faktur" | benar — dan itulah yang dilakukan sekarang, dalam transaksi yang sama |
+| "menyentuh kas yang celahnya masih terbuka (C-11)" | **C-11 ditutup bundel v12** |
+
+Jadi yang tersisa bukan halangan, melainkan pekerjaan yang belum dikerjakan.
+
+### Mengapa bukan kolom
+
+Legacy menghitung sisa tagihan `total_faktur − dibayar_awal − Σalokasi`. Ada **dua pengurang**
+di sana, dan hanya satu di antaranya berasal dari dokumen. Uang mukanya mengurangi tagihan
+tanpa kwitansi yang bisa ditunjuk, tanpa cara bayar, dan tanpa pasangan di sisi kas.
+
+Model tenant menghitung `nilai − Σalokasi` — satu sumber. Karena itu uang muka di sini
+diterbitkan sebagai `penerimaan_piutang` sungguhan berikut barisnya di
+`alokasi_penerimaan_piutang`, **di dalam transaksi yang sama** dengan fakturnya. Fakturnya
+tetap bernilai penuh, dan yang berkurang adalah sisanya — sebagaimana mestinya.
+
+Ini keputusan yang sama dengan sisi hutang (v18, `purchaseTermsSave`), dan alasannya sama:
+pengurang kedua yang tidak berasal dari dokumen mana pun membuat rekonsiliasi terhadap kas
+kehilangan pasangannya.
+
+**Keduanya tidak boleh dipakai sekaligus.** Meniru kolom pengurang legacy *dan* menerbitkan
+alokasinya berarti menghitung uangnya dua kali: sisa tagihan yang seharusnya 700.000 menjadi
+400.000. Blok 3 uji kesetaraan penjaganya, dan ia menuntut angka itu memang 400.000 — contoh
+yang tidak membedakan apa pun akan GAGAL.
+
+### Yang berubah pada keluarannya
+
+Pada daftar piutang, `dibayarAwal` jalur tenant **tetap nol** dan uang mukanya muncul pada
+`teralokasi`. `outstanding` sama persis dengan legacy, sebab legacy menjumlahkan keduanya:
+
+| medan | legacy | tenant |
+|---|---|---|
+| `totalFaktur` | 1.000.000 | 1.000.000 |
+| `dibayarAwal` | 300.000 | **0** |
+| `teralokasi` | 0 | **300.000** |
+| `outstanding` | 700.000 | 700.000 |
+
+Klien yang menampilkan "uang muka" sebagai kolom tersendiri akan melihatnya nol; yang
+menampilkan sisa tagihan melihat angka yang sama. Dan sebagai gantinya ia mendapat sesuatu yang
+tidak dimiliki jalur legacy: **kwitansi yang bisa ditunjuk** — bernomor, bercara-bayar,
+bertanggal, dan bisa direkonsiliasi terhadap kas. Nomornya dikembalikan pada `uangMukaNomor`
+supaya bisa langsung dicetak.
+
+### `DISCOUNT` dan `RETUR` tidak diterima sebagai cara bayar uang muka
+
+Keduanya sah pada penagihan biasa, tetapi keduanya **bukan uang yang masuk** melainkan
+pengurang nilai tagihan. Memberikannya sebagai "uang muka" pada saat faktur lahir berarti
+menerbitkan faktur yang sejak detik pertama sudah dipotong, tanpa dokumen retur maupun
+persetujuan diskon yang menyertainya. Potongan semacam itu punya jalurnya sendiri lewat
+penagihan. Yang diterima: `TUNAI`, `TRANSFER`, `GIRO`.
+
+### `sales_trip_id` sengaja `NULL`, dan itu bukan kelalaian
+
+`sales_order` model tenant **tidak punya** kaitan trip, dan jalur legacy pun tidak mencatat
+pergerakan kas apa pun untuk `dibayar_awal`. Tidak ada trip yang bisa dibebani, dan mengarang
+satu akan menaruh uang di tas sales yang mungkin tidak pernah memegangnya.
+
+Konsekuensinya dicatat terus terang: **uang muka yang diterima sales di lapangan tidak masuk
+buku kas trip lewat jalur ini.** Jalur yang benar untuk itu adalah penagihan
+(`collectionCreate`), yang memang mengaitkan penerimaannya ke trip dan menulis
+`sales_trip_kas`. Jalur ini adalah pemfakturan kantor.
+
+### Idempotensi
+
+Kunci uang mukanya `SO-DP-<orderId>`, sejajar dengan `SO-INV-<orderId>` milik fakturnya. Karena
+keduanya lahir dalam satu transaksi, pengulangan permintaan yang sama tertolak pada indeks unik
+faktur lebih dulu — terbukti pada `SQLState 23505` — dan **tidak pernah sampai menerbitkan
+kwitansi kedua**.
+
+### Verifikasi
+
+SQL yang benar-benar dikeluarkan Java dijalankan berurutan dalam satu transaksi atas katalog
+v1–v18 (order 1.000.000, uang muka 300.000):
+
+| yang diuji | hasil |
+|---|---|
+| `piutang.nilai` sesudah uang muka | **1.000.000** — penuh |
+| `Σalokasi` | 300.000 |
+| sisa lewat `sisaSatuPiutang()` | **700.000** |
+| aritmetika legacy | 700.000 — **setara** |
+| penjaga dua pengurang | 400.000 — memang berbeda |
+| daftar piutang | `dibayarAwal` 0, `teralokasi` 300.000, `outstanding` 700.000 |
+| pengulangan permintaan | ditolak `SQLState 23505`; kwitansi tetap **satu** |
+| `metodeUangMukaSah` | `TUNAI` ya; `RETUR` dan `DISCOUNT` tidak |
+
+`uji-kesetaraan-uang-muka.sql` — enam blok, **tujuh LULUS, nol GAGAL**, satu di antaranya
+penjaga.
+
+Tidak ada bundel migrasi baru: `penerimaan_piutang` dan `alokasi_penerimaan_piutang` sudah ada,
+dan pernyataan yang dipakai persis yang sudah diverifikasi untuk `collectionCreate` — bukan cara
+kedua menulis kwitansi.
+
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
 **Sebelas helper, 7.512 baris, belum satu pun kuerinya dipindah ke schema tenant.**

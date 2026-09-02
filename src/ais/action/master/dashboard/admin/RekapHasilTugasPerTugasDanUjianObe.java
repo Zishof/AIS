@@ -680,7 +680,8 @@ public class RekapHasilTugasPerTugasDanUjianObe extends MyWindow {
 
 					if (!pertemuanPunyaUjians.isEmpty() && !hasilUjianMahasiswas.isEmpty()) {
 						List<HasilUjianMahasiswa> listHasil = sessionLocal.createCriteria(HasilUjianMahasiswa.class)
-								.add(Restrictions.isNotNull("keyhasil"))
+								.add(Restrictions.or(Restrictions.isNotNull("keyhasil"),
+										Restrictions.isNotNull("nilaiObe")))
 								.add(Restrictions.in("pertemuanPunyaUjian", pertemuanPunyaUjians))
 								.add(Restrictions.in("mahasiswa", hasilUjianMahasiswas)).list();
 						for (HasilUjianMahasiswa hum : listHasil) {
@@ -1190,6 +1191,21 @@ public class RekapHasilTugasPerTugasDanUjianObe extends MyWindow {
 		appendOverviewCard(sb, "Tertinggi", Common.numberFormat.get().format(info.maxScore), "Capaian komponen tertinggi");
 		appendOverviewCard(sb, "Tercapai", Common.numberFormat.get().format(info.passedCount), "Jumlah nilai >= target " + Common.numberFormat.get().format(info.target));
 		sb.append("</div>");
+		String sheetName = sheet.getSheetName() == null ? "" : sheet.getSheetName().toLowerCase();
+		if (("data".equals(sheetName) || sheetName.indexOf("penilaian") >= 0)
+				&& info.dataRows > 0 && info.columnCount <= 8) {
+			sb.append("<div style='margin-bottom:12px;padding:12px 14px;border:1px solid #f59e0b;"
+					+ "border-left:4px solid #d97706;border-radius:8px;background:#fffbeb;color:#78350f;"
+					+ "font-size:12px;line-height:1.6;'>")
+				.append("<div style='font-weight:800;margin-bottom:4px;'>Analisis kelengkapan data OBE</div>")
+				.append("Peserta kelas sudah ditemukan, tetapi belum ada kolom asesmen OBE yang dapat dihitung. ")
+				.append("Angka 0, nilai huruf T, dan status TL pada kondisi ini bukan bukti bahwa seluruh mahasiswa ")
+				.append("memperoleh nilai nol; artinya sistem belum menemukan pasangan lengkap antara Sub-CPMK, ")
+				.append("komponen tugas/ujian, bobot komponen, dan nilai OBE mahasiswa. Periksa RPS OBE, tautkan ")
+				.append("setiap tugas/ujian ke Sub-CPMK beserta bobotnya, pastikan nilai sudah tersimpan, lalu jalankan ")
+				.append("Hitung Ulang/Refresh Rekap Nilai OBE.")
+				.append("</div>");
+		}
 		sb.append("<div style='display:flex; flex-wrap:wrap; gap:12px; align-items:stretch;'>");
 		sb.append("<div style='flex:1 1 320px; min-width:280px; border:1px solid #e5e7eb; border-radius:14px; padding:12px; background:#f8fafc;'>");
 		sb.append("<div style='font-weight:800; color:#0f172a; margin-bottom:8px;'>Trend Komponen OBE</div>");

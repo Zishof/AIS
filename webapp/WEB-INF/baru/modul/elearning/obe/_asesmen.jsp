@@ -262,7 +262,7 @@ try {
 
             if (!pertemuanPunyaUjians.isEmpty() && !hasilUjianMahasiswas.isEmpty()) {
                 List<HasilUjianMahasiswa> listHasil = ConstantValues.simpleList(
-                    sess.createCriteria(HasilUjianMahasiswa.class).add(Restrictions.isNotNull("keyhasil")).add(Restrictions.in("pertemuanPunyaUjian", pertemuanPunyaUjians)).add(Restrictions.in("mahasiswa", hasilUjianMahasiswas)), HasilUjianMahasiswa.class
+                    sess.createCriteria(HasilUjianMahasiswa.class).add(Restrictions.or(Restrictions.isNotNull("keyhasil"), Restrictions.isNotNull("nilaiObe"))).add(Restrictions.in("pertemuanPunyaUjian", pertemuanPunyaUjians)).add(Restrictions.in("mahasiswa", hasilUjianMahasiswas)), HasilUjianMahasiswa.class
                 );
                 for (HasilUjianMahasiswa hum : listHasil) {
                     if (hum.getNilaiObe() != null) mapHasilObe.put(hum.getPertemuanPunyaUjian().getId() + "_" + hum.getMahasiswa().getId(), hum.getNilaiObe());

@@ -2099,7 +2099,8 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 	}
 
 	/**
-	 * Memeriksa apakah kombinasi kriteria pada form (angkatan, khusus/batasi mahasiswa tertentu,
+	 * Memeriksa apakah kombinasi kriteria pada form (angkatan, mode nilai khusus mahasiswa,
+	 * pembatasan mahasiswa untuk tagihan bulanan,
 	 * tahun-semester {@code ta} yang disusun dari tahun akademik + semester terpilih, rentang
 	 * semester min/maks, dan opsi ikut-settingan-di-sini) sudah dipakai oleh baris
 	 * {@link SettingBiaya} lain, untuk mencegah duplikasi aturan tagihan yang saling tumpang tindih.
@@ -2125,6 +2126,9 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 
 		}
 
+		boolean modeNilaiKhususMahasiswa = khususBuatMahasiswaTertentu.isChecked();
+		boolean modeBatasiMahasiswaBulanan = batasiMahasiswaTertentu.isChecked();
+
 		Integer settingBiayaCount;
 		Session session = HibernateUtil.currentSession();
 		settingBiayaCount = ((Number) session.createCriteria(SettingBiaya.class).setProjection(Projections.rowCount())
@@ -2133,11 +2137,10 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 						: Restrictions.eq("angkatan",
 								Integer.valueOf(angkatan.getSelectedItem().getValue().toString())))
 
-				.add(Restrictions.eq("khususBuatMahasiswaTertentu", khususBuatMahasiswaTertentu.isChecked()))
-				.add(batasiMahasiswaTertentu.isChecked()
-						? Restrictions.eq("batasiMahasiswaTertentu", Boolean.TRUE)
-						: Restrictions.or(Restrictions.isNull("batasiMahasiswaTertentu"),
-								Restrictions.eq("batasiMahasiswaTertentu", Boolean.FALSE)))
+				// Kedua kolom adalah mode yang berbeda dan wajib ikut menentukan duplikasi.
+				// NULL pada data lama setara dengan false agar perbandingan tetap konsisten.
+				.add(kriteriaBooleanNullSebagaiFalse("khususBuatMahasiswaTertentu", modeNilaiKhususMahasiswa))
+				.add(kriteriaBooleanNullSebagaiFalse("batasiMahasiswaTertentu", modeBatasiMahasiswaBulanan))
 
 				.add(Restrictions.ge("ta", ta))
 
@@ -2203,6 +2206,13 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 				.uniqueResult()).intValue();
 
 		return !settingBiayaCount.equals(0);
+	}
+
+	/** Membandingkan kolom boolean dengan kompatibilitas data lama: {@code null} dianggap {@code false}. */
+	private static Criterion kriteriaBooleanNullSebagaiFalse(String namaProperti, boolean nilai) {
+		return nilai ? Restrictions.eq(namaProperti, Boolean.TRUE)
+				: Restrictions.or(Restrictions.isNull(namaProperti),
+						Restrictions.eq(namaProperti, Boolean.FALSE));
 	}
 
 	

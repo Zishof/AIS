@@ -279,7 +279,7 @@ try {
         Map<String, String> mapHasilObe = new HashMap<String, String>();
 
         if (!pertemuanPunyaUjians.isEmpty()) {
-            List<HasilUjianMahasiswa> listHasil = ConstantValues.simpleList(sess.createCriteria(HasilUjianMahasiswa.class).add(Restrictions.isNotNull("keyhasil")).add(Restrictions.in("pertemuanPunyaUjian", pertemuanPunyaUjians)).add(Restrictions.eq("mahasiswa", mahasiswa)), HasilUjianMahasiswa.class);
+            List<HasilUjianMahasiswa> listHasil = ConstantValues.simpleList(sess.createCriteria(HasilUjianMahasiswa.class).add(Restrictions.or(Restrictions.isNotNull("keyhasil"), Restrictions.isNotNull("nilaiObe"))).add(Restrictions.in("pertemuanPunyaUjian", pertemuanPunyaUjians)).add(Restrictions.eq("mahasiswa", mahasiswa)), HasilUjianMahasiswa.class);
             for (HasilUjianMahasiswa hum : listHasil) if (hum.getNilaiObe() != null) mapHasilObe.put(hum.getPertemuanPunyaUjian().getId() + "_" + hum.getMahasiswa().getId(), hum.getNilaiObe());
         }
 

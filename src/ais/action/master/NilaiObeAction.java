@@ -2408,7 +2408,9 @@ public class NilaiObeAction extends GenericAutowireComposer {
 
 		if (pertemuanPunyaUjians != null && !pertemuanPunyaUjians.isEmpty()) {
 			List<HasilUjianMahasiswa> listHasil = ConstantValues.simpleList(
-					session.createCriteria(HasilUjianMahasiswa.class).add(Restrictions.isNotNull("keyhasil"))
+					session.createCriteria(HasilUjianMahasiswa.class)
+							.add(Restrictions.or(Restrictions.isNotNull("keyhasil"),
+									Restrictions.isNotNull("nilaiObe")))
 							.add(Restrictions.in("pertemuanPunyaUjian", pertemuanPunyaUjians))
 							.add(Restrictions.eq("mahasiswa", mhs)),
 					HasilUjianMahasiswa.class);
