@@ -2422,6 +2422,23 @@ public class FormatNilaiSkripsi extends GeneralValueObject {
 		this.tipeItem15 = tipeItem15;
 	}
 
+	/**
+	 * Mengembalikan daftar kode/nama mata kuliah tugas akhir yang harus ada di KRS mahasiswa
+	 * dengan hubungan <b>DAN</b> — seluruh token pada daftar ini harus terpenuhi, berbeda dari
+	 * {@link #getKodeMatakuliah()} yang cukup salah satu. Pada layar pemilihan format, keduanya
+	 * dirangkai menjadi satu kalimat: token {@code kodeMatakuliah} disambung dengan kata "atau",
+	 * token {@code kodeMatakuliahDan} dengan kata "dan".
+	 *
+	 * <p>Normalisasi koma, penulisan balik ke field, dan pengosongan paksa saat
+	 * {@link #getTidakWajibMengambilMkTertentu()} bernilai {@code true} <b>persis sama</b> dengan
+	 * {@link #getKodeMatakuliah()} — termasuk sifatnya sebagai getter berefek samping yang dapat
+	 * memicu {@code UPDATE} dan cabang {@code if (kodeMatakuliahDan == null)} yang tidak pernah
+	 * tercapai. Baca Javadoc method tersebut untuk rinciannya.</p>
+	 *
+	 * @return daftar kode/nama mata kuliah dipisah koma, atau string kosong; tidak pernah
+	 *         {@code null}
+	 * @see #getKodeMatakuliah()
+	 */
 	public String getKodeMatakuliahDan() {
 		kodeMatakuliahDan = (kodeMatakuliahDan == null || kodeMatakuliahDan.trim().equalsIgnoreCase(",") ? ""
 				: "," + kodeMatakuliahDan.trim() + ",").replaceAll(",,", ",").replaceAll(",,", ",")
@@ -2446,23 +2463,73 @@ public class FormatNilaiSkripsi extends GeneralValueObject {
 		return kodeMatakuliahDan;
 	}
 
+	/**
+	 * Menyetel daftar kode/nama mata kuliah berelasi DAN, apa adanya. Normalisasi baru terjadi
+	 * saat dibaca.
+	 *
+	 * @param kodeMatakuliahDan daftar kode/nama dipisah koma; {@code null} diterima
+	 * @see #getKodeMatakuliahDan()
+	 */
 	public void setKodeMatakuliahDan(String kodeMatakuliahDan) {
 		this.kodeMatakuliahDan = kodeMatakuliahDan;
 	}
 
+	/**
+	 * Mengembalikan angkatan yang disasar format ini (sudah di-{@code trim}, null-safe ke string
+	 * kosong). Kosong berarti format berlaku untuk semua angkatan.
+	 *
+	 * <p><b>Pencocokannya longgar dan berbasis substring</b>, bukan kesamaan persis: format
+	 * dianggap cocok bila teks pada kolom ini <i>mengandung</i> tahun angkatan mahasiswa
+	 * ({@code cocokTahunAngkatan}). Karena itu satu format dapat menyasar banyak angkatan sekaligus
+	 * dengan menuliskannya berurutan (mis. {@code "2019,2020,2021"}), tetapi konsekuensinya nilai
+	 * seperti {@code "2019"} juga akan cocok untuk mahasiswa angkatan {@code "201"} bila data
+	 * semacam itu ada. Bila tidak cocok, format tidak dimasukkan ke daftar pilihan sama sekali —
+	 * berbeda dari kriteria penargetan lain yang hanya memengaruhi urutan.</p>
+	 *
+	 * <p>Sebagai komponen skor kecocokan, angkatan bernilai paling rendah (1 poin); lihat
+	 * {@link #getJurusan()}.</p>
+	 *
+	 * @return teks angkatan sasaran, atau string kosong bila berlaku untuk semua angkatan
+	 */
 	@Column(name = "tahun_angkatan")
 	public String getTahunAngkatan() {
 		return tahunAngkatan == null ? "" : tahunAngkatan.trim();
 	}
 
+	/**
+	 * Menyetel angkatan sasaran, apa adanya (tanpa {@code trim} maupun validasi format).
+	 *
+	 * @param tahunAngkatan teks angkatan; {@code null}/kosong berarti semua angkatan
+	 * @see #getTahunAngkatan()
+	 */
 	public void setTahunAngkatan(String tahunAngkatan) {
 		this.tahunAngkatan = tahunAngkatan;
 	}
 
+	/**
+	 * Menyatakan bahwa biaya pada {@link #getKodeItemBiaya()} bersifat <b>sekali bayar</b> selama
+	 * masa studi, bukan per semester. Null-safe ke {@code false}.
+	 *
+	 * <p>Diteruskan sebagai argumen ke
+	 * {@code Mahasiswa.hitungTotalCicilanPembayaran(semester, sekaliBayar, null, kode)}: bila
+	 * {@code true}, pembayaran dicari di <b>seluruh</b> semester sehingga mahasiswa yang sudah
+	 * membayar biaya sidang pada percobaan sebelumnya tidak diminta membayar lagi; bila
+	 * {@code false}, hanya pembayaran pada semester berjalan yang dihitung.</p>
+	 *
+	 * @return {@code true} bila biaya cukup dibayar sekali seumur masa studi
+	 * @see #getKodeItemBiaya()
+	 */
 	public Boolean getSekaliBayar() {
 		return sekaliBayar == null ? false : sekaliBayar;
 	}
 
+	/**
+	 * Menyetel sifat sekali-bayar untuk biaya sidang.
+	 *
+	 * @param sekaliBayar {@code true} bila cukup dibayar sekali; {@code null} dibaca sebagai
+	 *                    {@code false}
+	 * @see #getSekaliBayar()
+	 */
 	public void setSekaliBayar(Boolean sekaliBayar) {
 		this.sekaliBayar = sekaliBayar;
 	}

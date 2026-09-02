@@ -1,5 +1,60 @@
 # Progres Javadoc Menyeluruh
 
+## `ais/database/model/PembombotanNilai.java` — SELESAI 100% (2 Sep 2026)
+
+Master **format/skema pembobotan nilai** perkuliahan. 1295 → 2642 baris,
+**101/101 method ber-Javadoc (100%)** (diaudit skrip). Revisi: **r83104**.
+Mirror `java/` diverifikasi byte-identik (`cmp`). `javac -implicit:none` lulus;
+`javadoc -Xdoclint:reference` bersih untuk berkas ini.
+
+**Koreksi asumsi awal**: entity ini BUKAN milik satu `Perkuliahan`. Ia baris
+MASTER yang dipakai ulang banyak kelas lewat `Perkuliahan.pembombotanNilai`,
+di-cache global (`ConstantValues.ambilBerdasarClass`), punya pemilik
+(`dimilikiOleh` → `Dosen`), penanda `aktif`/`defaultPembobotan`, dan mode
+"wajib di tahun akademik + semester tertentu" yang mengalahkan pilihan
+per-kelas. `ConstantValues.DEFAULT_PEMBOBOTAN_NILAI` (Tugas 20/UTS 30/UAS 50)
+dibuat `InitDataHelper` bila belum ada.
+
+**Typo historis dikonfirmasi & dicatat di Javadoc kelas** (TIDAK diganti):
+"PembombotanNilai" sudah merambat ke nama tabel `pembombotan_nilai`, kolom FK
+di `Perkuliahan`, properti Hibernate, dan tabel audit Envers. Asimetri: layar
+pengelolanya `ais.action.master.PembobotanNilaiAction` dieja BENAR. Typo lain
+di berkas yang sama: method `getTahunAkadmeik()` dan kunci konfigurasi
+`default_prentasi_uts`/`default_prentasi_uas`.
+
+**Temuan (didokumentasikan, tidak diperbaiki)**:
+- `getNama()` getter-yang-menulis: membangun ulang nama dari komponen, membuang
+  hasil `setNama()`, dan karena property-access ikut tersimpan ke kolom `nama`.
+- `getUts()`/`getUas()` memanggil `Common.getKonfigurasi(...)` yang AUTO-SEED
+  baris konfigurasi ke DB → membaca bobot bisa menerbitkan INSERT.
+- `getTahunAkadmeik()`/`getSemester()` MENGOSONGKAN field-nya sendiri saat
+  bendera "wajib" padam → periode tersimpan hilang hanya karena dibaca.
+- `compareTo()` induk memanggil `getNama()` → MENGURUTKAN koleksi entity ini
+  memicu semua efek samping di atas per elemen.
+- Nama `setDefaultPembobotan` dipakai untuk dua hal berbeda jauh: setter flag
+  vs method statis pencetak baris `FormatNilai`.
+- `dosen1..dosen5` ikut divalidasi ke total 100% oleh UI tapi TIDAK PERNAH
+  diterbitkan sebagai `FormatNilai` dan tidak muncul di `getNama()`.
+- Ambang komponen tidak konsisten: `>= 0,01` (getNama) vs `> 0,1`
+  (setDefaultPembobotan) → bobot 0,01–0,1 tampil di nama tapi tak jadi komponen.
+- Validasi "total 100%" hanya di UI (`PembobotanNilaiAction`), bukan di entity.
+- `getKeterangan()` mempersempit kontrak induk (induk jamin non-null, override
+  bisa null) → memengaruhi cabang terakhir `compareTo`.
+- `tampilkanFormat()` bernama "tampilkan" tapi BISA MENGUBAH DATA (pemulihan
+  otomatis format OBE lama) dan mengelola sesi Hibernate sendiri.
+- `keterhubungan` = `public static final Map` yang isinya mutable, tanpa
+  `unmodifiableMap`; pemanggil `get()` tanpa cek null.
+
+**Verifikasi pola berulang**: field audit shadow **ADA** (`oleh`, `olehId`,
+`tanggal_dirubah`) — dan lebih jauh dari entity sebelumnya: `id`, `nama`,
+`keterangan` pun ikut di-shadow. Getter-menulis-balik-ke-DB **ADA** (varian
+`Common.getKonfigurasi` auto-seed + `getNama()` property-access). Getter yang
+menutup sesi Hibernate **ADA** tapi hanya pada method statis
+`tampilkanFormat()`, bukan pada getter properti.
+
+**Kerapian berkas**: EOL berkas ini sebelumnya CAMPURAN (1204 CRLF dari 1295
+baris); dinormalkan ke CRLF murni dalam commit yang sama.
+
 ## `ais/database/model/BiodataDosen.java` — SELESAI 100% (2 Sep 2026)
 
 Entity biodata pribadi dosen (tabel `public.biodata_dosen`), pasangan

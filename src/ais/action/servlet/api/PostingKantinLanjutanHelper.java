@@ -258,6 +258,14 @@ public final class PostingKantinLanjutanHelper {
             return;
         }
         jalankan(jenis, terapkan, tbmuser, payload, hasil);
+        // Balasan DRAF membawa hak menerapkannya. Di layar, tombol Terapkan baru muncul
+        // sesudah draf tampil -- jadi di sinilah tempat paling awal memberi tahu bahwa
+        // tombol itu akan ditolak, bukan sesudah pengguna memeriksa seluruh barisnya.
+        if (!terapkan && !hasil.has("hak")) {
+            JSONObject hak = new JSONObject();
+            hak.put("create", bolehAksiMenu(tbmuser, "posting_" + jenis, "create"));
+            hasil.put("hak", hak);
+        }
     }
 
     private static void jalankan(String jenis, boolean terapkan, Tbmuser tbmuser, JSONObject payload,
