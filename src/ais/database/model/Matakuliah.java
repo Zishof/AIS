@@ -1064,10 +1064,27 @@ public class Matakuliah extends GeneralValueObject {
 		return merupakanMkTeori;
 	}
 
+	/**
+	 * Menyetel penanda mata kuliah teori. Tidak berpengaruh — lihat
+	 * {@link #getMerupakanMkTeori()}.
+	 *
+	 * @param merupakanMkTeori nilai yang praktis diabaikan
+	 */
 	public void setMerupakanMkTeori(Boolean merupakanMkTeori) {
 		this.merupakanMkTeori = merupakanMkTeori;
 	}
 
+	/**
+	 * Menyatakan apakah mata kuliah ini sebenarnya kegiatan ekstrakurikuler.
+	 *
+	 * <p>Berbeda dengan keluarga {@code getTerdapat*}, bendera ini <b>disimpan sungguhan</b>
+	 * dan hanya dinormalisasi dari {@code null} menjadi {@code false}. Konsumen terpentingnya
+	 * adalah {@code LaporanKHS}, yang mengecualikan mata kuliah ber-{@code true} dari KHS —
+	 * jadi menyalakannya menyembunyikan mata kuliah dari kartu hasil studi, bukan sekadar
+	 * memberi label.</p>
+	 *
+	 * @return {@code true} bila ekstrakurikuler; tidak pernah null
+	 */
 	public Boolean getExtraKulikuler() {
 		if (extraKulikuler == null) {
 			extraKulikuler = false;
@@ -1075,10 +1092,25 @@ public class Matakuliah extends GeneralValueObject {
 		return extraKulikuler;
 	}
 
+	/**
+	 * Menyetel penanda kegiatan ekstrakurikuler.
+	 *
+	 * @param extraKulikuler {@code true} bila ekstrakurikuler; null akan dibaca sebagai
+	 *                       {@code false}
+	 */
 	public void setExtraKulikuler(Boolean extraKulikuler) {
 		this.extraKulikuler = extraKulikuler;
 	}
 
+	/**
+	 * Mengembalikan rincian SKS untuk bentuk pembelajaran praktik lapangan.
+	 *
+	 * <p>Nilai {@code null} diisi 0 ke field. Ikut dijumlahkan {@link #getSksDiskusi()} saat
+	 * menentukan apakah rincian sudah pernah diisi, dan menjadi dasar
+	 * {@link #getTerdapatPraktekLapangan()}.</p>
+	 *
+	 * @return SKS praktik lapangan; 0 bila belum diisi, tidak pernah null
+	 */
 	public Integer getSksPraktekLapangan() {
 		if (sksPraktekLapangan == null) {
 			sksPraktekLapangan = 0;
@@ -1086,10 +1118,23 @@ public class Matakuliah extends GeneralValueObject {
 		return sksPraktekLapangan;
 	}
 
+	/**
+	 * Menyetel rincian SKS praktik lapangan.
+	 *
+	 * @param sksPraktekLapangan SKS praktik lapangan; null akan dibaca sebagai 0
+	 */
 	public void setSksPraktekLapangan(Integer sksPraktekLapangan) {
 		this.sksPraktekLapangan = sksPraktekLapangan;
 	}
 
+	/**
+	 * Mengembalikan rincian SKS untuk bentuk pembelajaran simulasi.
+	 *
+	 * <p>Nilai {@code null} diisi 0 ke field. Ikut dijumlahkan {@link #getSksDiskusi()} dan
+	 * menjadi dasar {@link #getTerdapatSimulasi()}.</p>
+	 *
+	 * @return SKS simulasi; 0 bila belum diisi, tidak pernah null
+	 */
 	public Integer getSksSimulasi() {
 		if (sksSimulasi == null) {
 			sksSimulasi = 0;
@@ -1097,28 +1142,72 @@ public class Matakuliah extends GeneralValueObject {
 		return sksSimulasi;
 	}
 
+	/**
+	 * Menyetel rincian SKS simulasi.
+	 *
+	 * @param sksSimulasi SKS simulasi; null akan dibaca sebagai 0
+	 */
 	public void setSksSimulasi(Integer sksSimulasi) {
 		this.sksSimulasi = sksSimulasi;
 	}
 
+	/**
+	 * Menyatakan apakah mata kuliah ini mengandung komponen simulasi.
+	 *
+	 * <p>Nilai turunan dari {@code getSksSimulasi() > 0} dengan perilaku penimpaan yang sama
+	 * seperti {@link #getTerdapatPraktek()}.</p>
+	 *
+	 * @return {@code true} bila {@code sksSimulasi} lebih dari 0
+	 */
 	public Boolean getTerdapatSimulasi() {
 		terdapatSimulasi = getSksSimulasi() > 0;
 		return terdapatSimulasi;
 	}
 
+	/**
+	 * Menyetel penanda ada-tidaknya simulasi. Tidak berpengaruh — lihat
+	 * {@link #getTerdapatSimulasi()}.
+	 *
+	 * @param terdapatSimulasi nilai yang praktis diabaikan
+	 */
 	public void setTerdapatSimulasi(Boolean terdapatSimulasi) {
 		this.terdapatSimulasi = terdapatSimulasi;
 	}
 
+	/**
+	 * Menyatakan apakah mata kuliah ini mengandung komponen praktik lapangan.
+	 *
+	 * <p>Nilai turunan dari {@code getSksPraktekLapangan() > 0} dengan perilaku penimpaan yang
+	 * sama seperti {@link #getTerdapatPraktek()}.</p>
+	 *
+	 * @return {@code true} bila {@code sksPraktekLapangan} lebih dari 0
+	 */
 	public Boolean getTerdapatPraktekLapangan() {
 		terdapatPraktekLapangan = getSksPraktekLapangan() > 0;
 		return terdapatPraktekLapangan;
 	}
 
+	/**
+	 * Menyetel penanda ada-tidaknya praktik lapangan. Tidak berpengaruh — lihat
+	 * {@link #getTerdapatPraktekLapangan()}.
+	 *
+	 * @param terdapatPraktekLapangan nilai yang praktis diabaikan
+	 */
 	public void setTerdapatPraktekLapangan(Boolean terdapatPraktekLapangan) {
 		this.terdapatPraktekLapangan = terdapatPraktekLapangan;
 	}
 
+	/**
+	 * Penanda administratif: SAP (Satuan Acara Perkuliahan) sudah tersedia.
+	 *
+	 * <p>Salah satu dari lima penanda kelengkapan perangkat ajar
+	 * ({@code adaSap}, {@code adaSilabus}, {@code adaBahanAjar}, {@code adaAcaraPraktek},
+	 * {@code adaDiktat}) yang dipakai laporan kelengkapan. Diisi manual — tidak ada mekanisme
+	 * yang memverifikasi bahwa berkasnya benar-benar terunggah. Nilai {@code null}
+	 * dinormalisasi menjadi {@code false}.</p>
+	 *
+	 * @return {@code true} bila SAP dinyatakan ada; tidak pernah null
+	 */
 	public Boolean getAdaSap() {
 		if (adaSap == null) {
 			adaSap = false;
@@ -1126,10 +1215,21 @@ public class Matakuliah extends GeneralValueObject {
 		return adaSap;
 	}
 
+	/**
+	 * Menyetel penanda ketersediaan SAP.
+	 *
+	 * @param adaSap {@code true} bila SAP tersedia; null dibaca sebagai {@code false}
+	 */
 	public void setAdaSap(Boolean adaSap) {
 		this.adaSap = adaSap;
 	}
 
+	/**
+	 * Penanda administratif: silabus sudah tersedia. Lihat {@link #getAdaSap()} untuk
+	 * penjelasan keluarga penanda ini.
+	 *
+	 * @return {@code true} bila silabus dinyatakan ada; tidak pernah null
+	 */
 	public Boolean getAdaSilabus() {
 		if (adaSilabus == null) {
 			adaSilabus = false;
@@ -1137,10 +1237,23 @@ public class Matakuliah extends GeneralValueObject {
 		return adaSilabus;
 	}
 
+	/**
+	 * Menyetel penanda ketersediaan silabus.
+	 *
+	 * @param adaSilabus {@code true} bila silabus tersedia; null dibaca sebagai {@code false}
+	 */
 	public void setAdaSilabus(Boolean adaSilabus) {
 		this.adaSilabus = adaSilabus;
 	}
 
+	/**
+	 * Penanda administratif: bahan ajar sudah tersedia. Lihat {@link #getAdaSap()}.
+	 *
+	 * <p>Jangan tertukar dengan {@link MatakuliahPunyaBukuBahanAjar}, yang menyimpan daftar
+	 * buku bahan ajar sesungguhnya; penanda ini tidak diturunkan dari daftar tersebut.</p>
+	 *
+	 * @return {@code true} bila bahan ajar dinyatakan ada; tidak pernah null
+	 */
 	public Boolean getAdaBahanAjar() {
 		if (adaBahanAjar == null) {
 			adaBahanAjar = false;
@@ -1148,10 +1261,20 @@ public class Matakuliah extends GeneralValueObject {
 		return adaBahanAjar;
 	}
 
+	/**
+	 * Menyetel penanda ketersediaan bahan ajar.
+	 *
+	 * @param adaBahanAjar {@code true} bila bahan ajar tersedia; null dibaca sebagai {@code false}
+	 */
 	public void setAdaBahanAjar(Boolean adaBahanAjar) {
 		this.adaBahanAjar = adaBahanAjar;
 	}
 
+	/**
+	 * Penanda administratif: acara praktek sudah tersedia. Lihat {@link #getAdaSap()}.
+	 *
+	 * @return {@code true} bila acara praktek dinyatakan ada; tidak pernah null
+	 */
 	public Boolean getAdaAcaraPraktek() {
 		if (adaAcaraPraktek == null) {
 			adaAcaraPraktek = false;
@@ -1159,10 +1282,21 @@ public class Matakuliah extends GeneralValueObject {
 		return adaAcaraPraktek;
 	}
 
+	/**
+	 * Menyetel penanda ketersediaan acara praktek.
+	 *
+	 * @param adaAcaraPraktek {@code true} bila acara praktek tersedia; null dibaca sebagai
+	 *                        {@code false}
+	 */
 	public void setAdaAcaraPraktek(Boolean adaAcaraPraktek) {
 		this.adaAcaraPraktek = adaAcaraPraktek;
 	}
 
+	/**
+	 * Penanda administratif: diktat sudah tersedia. Lihat {@link #getAdaSap()}.
+	 *
+	 * @return {@code true} bila diktat dinyatakan ada; tidak pernah null
+	 */
 	public Boolean getAdaDiktat() {
 		if (adaDiktat == null) {
 			adaDiktat = false;
@@ -1170,44 +1304,118 @@ public class Matakuliah extends GeneralValueObject {
 		return adaDiktat;
 	}
 
+	/**
+	 * Menyetel penanda ketersediaan diktat.
+	 *
+	 * @param adaDiktat {@code true} bila diktat tersedia; null dibaca sebagai {@code false}
+	 */
 	public void setAdaDiktat(Boolean adaDiktat) {
 		this.adaDiktat = adaDiktat;
 	}
 
+	/**
+	 * Mengembalikan awal masa berlaku definisi mata kuliah (presisi DATE, tanpa jam).
+	 *
+	 * <p>Bersama {@link #getTanggalSampai()} dimaksudkan untuk menandai rentang berlakunya
+	 * sebuah definisi mata kuliah. Perhatikan tidak ada satu pun logika di kelas ini yang
+	 * menegakkan rentang tersebut: {@link #getAktif()} sepenuhnya terpisah, dan penyaringan
+	 * berdasarkan tanggal (bila ada) sepenuhnya urusan pemanggil.</p>
+	 *
+	 * @return tanggal mulai berlaku, atau {@code null} bila tidak dibatasi
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getTanggalMulai() {
 		return tanggalMulai;
 	}
 
+	/**
+	 * Menyetel awal masa berlaku definisi mata kuliah.
+	 *
+	 * @param tanggalMulai tanggal mulai; boleh null
+	 */
 	public void setTanggalMulai(Date tanggalMulai) {
 		this.tanggalMulai = tanggalMulai;
 	}
 
+	/**
+	 * Mengembalikan akhir masa berlaku definisi mata kuliah (presisi DATE, tanpa jam).
+	 * Lihat catatan pada {@link #getTanggalMulai()}.
+	 *
+	 * @return tanggal akhir berlaku, atau {@code null} bila tidak dibatasi
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getTanggalSampai() {
 		return tanggalSampai;
 	}
 
+	/**
+	 * Menyetel akhir masa berlaku definisi mata kuliah.
+	 *
+	 * @param tanggalSampai tanggal akhir; boleh null
+	 */
 	public void setTanggalSampai(Date tanggalSampai) {
 		this.tanggalSampai = tanggalSampai;
 	}
 
+	/**
+	 * Mengembalikan metode/bahasan perkuliahan sebagai teks bebas.
+	 *
+	 * <p>Diekspor ke Feeder PDDikti pada dua tempat sekaligus: sebagai {@code metode_kuliah}
+	 * dan — dipotong maksimal 20 karakter oleh {@code Common.maxPanjang} — sebagai
+	 * {@code bahasan}. Tidak divalidasi terhadap daftar nilai apa pun.</p>
+	 *
+	 * @return metode kuliah, atau {@code null}
+	 */
 	public String getMetodeKuliah() {
 		return metodeKuliah;
 	}
 
+	/**
+	 * Menyetel metode/bahasan perkuliahan.
+	 *
+	 * @param metodeKuliah teks metode kuliah; boleh null
+	 */
 	public void setMetodeKuliah(String metodeKuliah) {
 		this.metodeKuliah = metodeKuliah;
 	}
 
+	/**
+	 * Mengembalikan id mata kuliah di Feeder PDDikti ({@code id_matkul}).
+	 *
+	 * <p>Kunci sinkronisasi ke sistem nasional: {@code FeederExporter} memakainya (bersama
+	 * {@code kurikulum.getFeeder()}) untuk memutuskan apakah sebuah mata kuliah perlu
+	 * di-<i>insert</i> atau di-<i>update</i> di Feeder. String kosong dinormalisasi menjadi
+	 * {@code null} justru agar pengecekan "belum pernah tersinkron" cukup satu bentuk
+	 * ({@code == null}) — normalisasi ini hanya pada nilai kembali, field tidak diubah.</p>
+	 *
+	 * @return id Feeder ter-trim, atau {@code null} bila belum pernah tersinkron
+	 */
 	public String getFeeder() {
 		return feeder == null || feeder.trim().isEmpty() ? null : feeder.trim();
 	}
 
+	/**
+	 * Menyetel id mata kuliah di Feeder PDDikti.
+	 *
+	 * @param feeder id Feeder; kosong akan dibaca sebagai {@code null}
+	 */
 	public void setFeeder(String feeder) {
 		this.feeder = feeder;
 	}
 
+	/**
+	 * Menyatakan apakah kelas dari mata kuliah ini menyelenggarakan UTS.
+	 *
+	 * <p>Nilai bawaan {@code true}, dan {@code null} dinormalisasi menjadi {@code true} pada
+	 * field (bukan hanya nilai kembali) — sehingga baris lama otomatis dianggap ber-UTS.</p>
+	 *
+	 * <p><b>Dampak finansial, bukan sekadar tampilan.</b> Selain menentukan apakah komponen
+	 * UTS muncul pada format nilai dan jadwal ujian,
+	 * {@code PembayaranNominalModifikasiHelper} memakai bendera ini saat menyusun tagihan
+	 * biaya ujian mahasiswa. Mematikannya mengubah nominal yang ditagihkan.</p>
+	 *
+	 * @return {@code true} bila ada UTS; tidak pernah null
+	 */
 	@Column(name = "terdapat_uts")
 	public Boolean getTerdapatUts() {
 		if (terdapatUts == null) {

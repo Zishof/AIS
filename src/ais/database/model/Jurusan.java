@@ -1325,6 +1325,16 @@ public class Jurusan extends GeneralValueObject {
 		this.labelPejabat3 = labelPejabat3;
 	}
 
+	/**
+	 * Mengembalikan {@link Pegawai} pengisi slot pejabat pertama prodi, setelah proxy lazy
+	 * diresolusi lewat {@link GeneralValueObject#check(Object)}.
+	 *
+	 * <p>Nama jabatannya ditentukan {@link #getLabelPejabat1()}. Slot ini menampung pejabat
+	 * struktural selain kaprodi (yang punya kolom sendiri, {@link #getKaprodi()}) dan bertipe
+	 * {@link Pegawai}, bukan {@link Dosen} — jadi tenaga kependidikan pun bisa mengisinya.</p>
+	 *
+	 * @return pegawai pejabat slot pertama, atau {@code null} bila slot kosong
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pegawai1", nullable = true)
 	public Pegawai getPegawai1() {
@@ -1332,10 +1342,22 @@ public class Jurusan extends GeneralValueObject {
 		return pegawai1;
 	}
 
+	/**
+	 * Menyetel pegawai pengisi slot pejabat pertama. Tanpa validasi unit kerja pegawai.
+	 *
+	 * @param pegawai1 pegawai baru untuk slot pertama
+	 */
 	public void setPegawai1(Pegawai pegawai1) {
 		this.pegawai1 = pegawai1;
 	}
 
+	/**
+	 * Mengembalikan {@link Pegawai} pengisi slot pejabat kedua prodi (label:
+	 * {@link #getLabelPejabat2()}), setelah proxy lazy diresolusi. Berlaku seluruh catatan pada
+	 * {@link #getPegawai1()}.
+	 *
+	 * @return pegawai pejabat slot kedua, atau {@code null} bila slot kosong
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pegawai2", nullable = true)
 	public Pegawai getPegawai2() {
@@ -1343,10 +1365,22 @@ public class Jurusan extends GeneralValueObject {
 		return pegawai2;
 	}
 
+	/**
+	 * Menyetel pegawai pengisi slot pejabat kedua. Tanpa validasi.
+	 *
+	 * @param pegawai2 pegawai baru untuk slot kedua
+	 */
 	public void setPegawai2(Pegawai pegawai2) {
 		this.pegawai2 = pegawai2;
 	}
 
+	/**
+	 * Mengembalikan {@link Pegawai} pengisi slot pejabat ketiga prodi (label:
+	 * {@link #getLabelPejabat3()}), setelah proxy lazy diresolusi. Berlaku seluruh catatan pada
+	 * {@link #getPegawai1()}.
+	 *
+	 * @return pegawai pejabat slot ketiga, atau {@code null} bila slot kosong
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pegawai3", nullable = true)
 	public Pegawai getPegawai3() {
@@ -1354,58 +1388,157 @@ public class Jurusan extends GeneralValueObject {
 		return pegawai3;
 	}
 
+	/**
+	 * Menyetel pegawai pengisi slot pejabat ketiga. Tanpa validasi.
+	 *
+	 * @param pegawai3 pegawai baru untuk slot ketiga
+	 */
 	public void setPegawai3(Pegawai pegawai3) {
 		this.pegawai3 = pegawai3;
 	}
 
+	/**
+	 * Mengembalikan nomor WhatsApp operator prodi (spasi tepi dipangkas), atau string kosong bila
+	 * belum diisi — bentuk ini dipakai layar publik untuk memutuskan apakah tombol kontak
+	 * ditampilkan ({@code isEmpty()} lebih dipilih daripada pemeriksaan {@code null}).
+	 *
+	 * <p>Tidak ada normalisasi format nomor (kode negara, tanda plus, spasi di tengah) — nilai
+	 * disimpan persis seperti yang diketik operator.</p>
+	 *
+	 * @return nomor WhatsApp operator; {@code ""} bila belum diisi, tidak pernah {@code null}
+	 */
 	public String getWa() {
 		return wa == null ? "" : wa.trim();
 	}
 
+	/**
+	 * Menyetel nomor WhatsApp operator prodi. Tanpa validasi format.
+	 *
+	 * @param wa nomor WhatsApp baru
+	 */
 	public void setWa(String wa) {
 		this.wa = wa;
 	}
 
+	/**
+	 * Mengembalikan nilai/skor akreditasi <b>LAM-PTKes</b> terakhir apa adanya.
+	 *
+	 * <p>Kelompok field berakhiran {@code Kes} adalah set akreditasi <b>kedua</b>, untuk Lembaga
+	 * Akreditasi Mandiri Pendidikan Tinggi Kesehatan yang mengakreditasi prodi rumpun kesehatan
+	 * (kedokteran, keperawatan, kebidanan, farmasi, ...). Set ini berdiri sendiri dan sama sekali
+	 * tidak dibaca oleh logika yang memakai field BAN-PT: prodi kesehatan biasanya mengisi
+	 * keduanya, prodi non-kesehatan membiarkan set ini kosong.</p>
+	 *
+	 * @return nilai akreditasi LAM-PTKes, atau {@code null} bila belum diisi
+	 * @see #getAkreditasi()
+	 */
 	public String getAkreditasiKes() {
 		return akreditasiKes;
 	}
 
+	/**
+	 * Menyetel nilai/skor akreditasi LAM-PTKes terakhir. Tanpa validasi.
+	 *
+	 * @param akreditasiKes nilai akreditasi LAM-PTKes baru
+	 */
 	public void setAkreditasiKes(String akreditasiKes) {
 		this.akreditasiKes = akreditasiKes;
 	}
 
+	/**
+	 * Mengembalikan status akreditasi LAM-PTKes terakhir apa adanya.
+	 *
+	 * <p>Berbeda dari padanannya {@link #getStatusAkreditasi()}, isian ini berupa <b>teks bebas</b>
+	 * (Textbox, bukan combobox {@link #SEMUA_STATUS}) dan <b>tidak punya nilai default</b> —
+	 * sehingga bisa {@code null}.</p>
+	 *
+	 * @return status akreditasi LAM-PTKes, atau {@code null} bila belum diisi
+	 */
 	public String getStatusAkreditasiKes() {
 		return statusAkreditasiKes;
 	}
 
+	/**
+	 * Menyetel status akreditasi LAM-PTKes terakhir. Tanpa validasi.
+	 *
+	 * @param statusAkreditasiKes status baru
+	 */
 	public void setStatusAkreditasiKes(String statusAkreditasiKes) {
 		this.statusAkreditasiKes = statusAkreditasiKes;
 	}
 
+	/**
+	 * Mengembalikan peringkat akreditasi LAM-PTKes terakhir apa adanya.
+	 *
+	 * @return peringkat akreditasi LAM-PTKes, atau {@code null} bila belum diisi
+	 * @see #getPeringkatAkreditasi()
+	 */
 	public String getPeringkatAkreditasiKes() {
 		return peringkatAkreditasiKes;
 	}
 
+	/**
+	 * Menyetel peringkat akreditasi LAM-PTKes terakhir. Tanpa validasi.
+	 *
+	 * @param peringkatAkreditasiKes peringkat baru
+	 */
 	public void setPeringkatAkreditasiKes(String peringkatAkreditasiKes) {
 		this.peringkatAkreditasiKes = peringkatAkreditasiKes;
 	}
 
+	/**
+	 * Mengembalikan nomor SK akreditasi LAM-PTKes terakhir apa adanya.
+	 *
+	 * @return nomor SK akreditasi LAM-PTKes, atau {@code null} bila belum diisi
+	 */
 	public String getNoSkAkreditasiKes() {
 		return noSkAkreditasiKes;
 	}
 
+	/**
+	 * Menyetel nomor SK akreditasi LAM-PTKes terakhir. Tanpa validasi.
+	 *
+	 * @param noSkAkreditasiKes nomor SK baru
+	 */
 	public void setNoSkAkreditasiKes(String noSkAkreditasiKes) {
 		this.noSkAkreditasiKes = noSkAkreditasiKes;
 	}
 
+	/**
+	 * Mengembalikan tanggal SK akreditasi LAM-PTKes terakhir.
+	 *
+	 * <p>Berbeda dari {@link #getTanggalAkreditasi()} yang beranotasi {@code @Temporal(DATE)},
+	 * property ini tidak diberi anotasi {@code @Temporal} sehingga presisi kolomnya ditentukan
+	 * pemetaan default provider (umumnya {@code TIMESTAMP}) — jangan berasumsi bagian jamnya nol
+	 * saat membandingkan dua tanggal akreditasi kesehatan.</p>
+	 *
+	 * @return tanggal SK akreditasi LAM-PTKes, atau {@code null} bila belum diisi
+	 */
 	public Date getTanggalAkreditasiKes() {
 		return tanggalAkreditasiKes;
 	}
 
+	/**
+	 * Menyetel tanggal SK akreditasi LAM-PTKes terakhir. Tanpa validasi.
+	 *
+	 * @param tanggalAkreditasiKes tanggal SK baru
+	 */
 	public void setTanggalAkreditasiKes(Date tanggalAkreditasiKes) {
 		this.tanggalAkreditasiKes = tanggalAkreditasiKes;
 	}
 
+	/**
+	 * Mengembalikan {@link ais.database.model.rab.SatuanKerja} — unit kerja penganggaran yang
+	 * menaungi prodi — setelah proxy lazy diresolusi lewat
+	 * {@link GeneralValueObject#check(Object)}.
+	 *
+	 * <p>Menjadi jembatan antara data akademik dan modul RAB/akunting: transaksi yang berasal dari
+	 * prodi dibebankan ke satuan kerja ini. Bersama
+	 * {@link #getDosenHarusPakaiSatuanKerja()}, nilai ini juga dipakai saat menentukan satuan
+	 * kerja default seorang dosen.</p>
+	 *
+	 * @return satuan kerja prodi, atau {@code null} bila belum dipetakan
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "satuan_kerja", nullable = true)
 	public SatuanKerja getSatuanKerja() {
@@ -1413,18 +1546,88 @@ public class Jurusan extends GeneralValueObject {
 		return satuanKerja;
 	}
 
+	/**
+	 * Menyetel satuan kerja penganggaran prodi. Tanpa validasi.
+	 *
+	 * @param satuanKerja satuan kerja baru
+	 */
 	public void setSatuanKerja(SatuanKerja satuanKerja) {
 		this.satuanKerja = satuanKerja;
 	}
 
+	/**
+	 * Mengembalikan penanda "dosen prodi ini wajib memakai satuan kerja", dengan default
+	 * {@code false} bila belum diisi.
+	 *
+	 * <p>Dipakai pada penentuan satuan kerja seorang dosen: kode pemanggil (mis. layar biodata
+	 * pegawai) menelusuri berjenjang — jurusan dulu, lalu {@link Fakultas}, lalu
+	 * {@link PerguruanTinggi} — dan memakai satuan kerja dari tingkat <b>pertama</b> yang penanda
+	 * ini bernilai {@code true}. Jadi menyalakannya di sini akan menimpa aturan tingkat
+	 * fakultas/institusi untuk dosen prodi bersangkutan.</p>
+	 *
+	 * @return {@code true} bila dosen prodi ini wajib bersatuan kerja; tidak pernah {@code null}
+	 */
 	public Boolean getDosenHarusPakaiSatuanKerja() {
 		return dosenHarusPakaiSatuanKerja == null ? false : dosenHarusPakaiSatuanKerja;
 	}
 
+	/**
+	 * Menyetel penanda kewajiban satuan kerja bagi dosen prodi ini. Menyetel {@code null} sama
+	 * artinya dengan {@code false}.
+	 *
+	 * @param dosenHarusPakaiSatuanKerja penanda baru
+	 */
 	public void setDosenHarusPakaiSatuanKerja(Boolean dosenHarusPakaiSatuanKerja) {
 		this.dosenHarusPakaiSatuanKerja = dosenHarusPakaiSatuanKerja;
 	}
 
+	/**
+	 * Menyisipkan berkas <b>kop surat</b> dan <b>stempel</b> milik prodi ini ke dalam peta
+	 * parameter laporan JasperReports.
+	 *
+	 * <p>Satu-satunya method non-accessor di kelas ini. Dipanggil dari perakit dokumen — antara
+	 * lain {@code SuratUtil} saat mencetak surat dan {@code ManajemenProperty} saat menyiapkan
+	 * parameter laporan — berpasangan dengan method senama di {@link Fakultas} dan
+	 * {@link PerguruanTinggi}, sehingga template bisa memilih kop tingkat prodi, fakultas, atau
+	 * institusi.</p>
+	 *
+	 * <h3>Alur untuk masing-masing dari dua jenis berkas</h3>
+	 * <ol>
+	 *   <li>Cari berkas jadi di folder berkas aplikasi lewat
+	 *   {@code FileFoto.fileAdaDiFolder(jenis, id)} (berkas bernama {@code <jenis>_<id>.jpg}).</li>
+	 *   <li>Bila berkas itu ada dan lolos {@code Common.isGambarLaporanValid} (ada, tidak
+	 *   berukuran nol, dan benar-benar gambar), jalur cepat ini yang dipakai.</li>
+	 *   <li>Bila tidak, ambil lampiran dari tabel lewat
+	 *   {@code LampiranLain.ambil(false, id, jenis)} lalu pakai {@code ambilFile()}-nya bila
+	 *   gambarnya valid. Jalur ini <b>membuka session Hibernate sendiri</b> (bukan session
+	 *   pemanggil, dan session tersebut ditutupnya sendiri) dan <b>menulis berkas cache JSON
+	 *   lokasi lampiran</b> — jadi method ini bisa menyentuh database dan disk, bukan sekadar
+	 *   mengisi map.</li>
+	 * </ol>
+	 *
+	 * <h3>Kunci yang ditulis ke {@code parameters}</h3>
+	 * <p>Untuk tiap berkas yang ditemukan, ditulis <b>tiga</b> kunci berisi path absolut yang
+	 * sama: kunci polos ({@code "KOP_JURUSAN"} / {@code "STEMPEL_JURUSAN"}), kunci berimbuhan id
+	 * ({@code "KOP_JURUSAN_<id>"}), dan kunci berimbuhan nama prodi
+	 * ({@code "KOP_JURUSAN_<nama>"}). Bentuk berimbuhan memungkinkan satu laporan memuat kop
+	 * beberapa prodi sekaligus. Perhatikan konsekuensinya: bila method ini dipanggil untuk
+	 * beberapa jurusan pada map yang sama, kunci polosnya akan <b>saling menimpa</b> sehingga yang
+	 * bertahan adalah prodi yang diproses terakhir — template yang harus tepat wajib memakai
+	 * varian berimbuhan. Kunci berimbuhan nama juga ikut membawa spasi dan tanda baca nama prodi
+	 * apa adanya, dan memakai {@link #getNama()} sehingga terpengaruh normalisasi (dan efek
+	 * samping) getter tersebut.</p>
+	 *
+	 * <p>Bila berkas tidak ditemukan atau tidak valid, method <b>tidak menulis apa pun</b> dan
+	 * tidak melempar exception — template laporan harus tahan terhadap parameter kop/stempel yang
+	 * tidak ada.</p>
+	 *
+	 * @param parameters peta parameter laporan yang akan diisi; dimodifikasi di tempat, tidak
+	 *                   boleh {@code null}. Bertipe {@code Map} mentah mengikuti API
+	 *                   JasperReports, karenanya ada {@code @SuppressWarnings} di sini.
+	 * @see Fakultas#putFile(java.util.Map)
+	 * @see ais.database.model.file.LampiranLain#KOP_JURUSAN
+	 * @see ais.database.model.file.LampiranLain#STEMPEL_JURUSAN
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void putFile(Map parameters) {
 		Jurusan jurusan = this;

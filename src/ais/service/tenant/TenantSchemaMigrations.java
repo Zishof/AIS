@@ -139,10 +139,11 @@ public final class TenantSchemaMigrations {
 			new Migrasi("v7-inventory-accounting-erp", TARGET_ERP, TenantSchemaMigrationsV7.ERP),
 			new Migrasi("v8-inventory-import-erp", TARGET_ERP, TenantSchemaMigrationsV8.ERP),
 			new Migrasi("v9-pos-ebisnis-erp", TARGET_ERP, TenantSchemaMigrationsV9.ERP),
+			new Migrasi("v10-celah-p4-erp", TARGET_ERP, TenantSchemaMigrationsV10.ERP),
 	};
 
 	/** Versi schema efektif setelah seluruh migrasi terpasang (dicatat ke registry.schemaVersion). */
-	public static final String VERSI_TERKINI = "v9-pos-ebisnis";
+	public static final String VERSI_TERKINI = "v10-celah-p4";
 
 	/** Tabel yang WAJIB ada pasca-migrasi (dipakai VERIFY_SCHEMA). */
 	public static final String[] TABEL_WAJIB_ERP = {

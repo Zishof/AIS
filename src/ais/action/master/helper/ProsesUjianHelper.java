@@ -2692,48 +2692,6 @@ public class ProsesUjianHelper extends MyWindow {
 	}
 
 	/**
-	 * Menyelesaikan sesi ujian: menghitung nilai akhir, menyimpan ke database, menutup jendela CBT,
-	 * dan memicu callback pasca-ujian (refresh UI, sertifikat, dll.).
-	 *
-	 * <p><b>Tujuan:</b> Ini adalah titik akhir dari siklus hidup {@link ProsesUjianHelper}.
-	 * Dipanggil ketika peserta menekan "Akhiri Ujian", waktu habis (dipicu ZK Timer), atau
-	 * sistem mendeteksi kondisi terminasi (batas pelanggaran anti-curang tercapai).</p>
-	 *
-	 * <p><b>Cara kerja (urutan eksekusi):</b></p>
-	 * <ol>
-	 *   <li>Memanggil {@link #generateHasilUjian(List,HasilUjianMahasiswa,PertemuanPunyaUjian,Map)}
-	 *       untuk menghitung nilai akhir (skor total, lama pengerjaan, OBE mapping) dan
-	 *       menyimpannya ke database. Jika gagal (return false), onSelesai tidak dilanjutkan.</li>
-	 *   <li>Setelah berhasil, membersihkan state recompute via
-	 *       {@code UjianRecomputeUtil.bersihkan(hasilId)} — menjaga konsistensi dengan
-	 *       mekanisme autosave recompute.</li>
-	 *   <li>Untuk pengguna tamu/calon mahasiswa, memanggil {@code Clients.confirmClose(null)}
-	 *       untuk menonaktifkan dialog "Yakin meninggalkan halaman?".</li>
-	 *   <li>Menghentikan timer ZK ({@code timer.stop()}) dan thread countdown
-	 *       ({@code waktuTimer.stop = true}).</li>
-	 *   <li>Via {@code Common.createDefaultTimer}: membersihkan {@link #kuotaUjian} (mengurangi
-	 *       counter peserta aktif) dan invalidasi cache hasil ujian di entitas terkait
-	 *       (mahasiswa/calon/siswa via {@code put("", "hasilUjianMahasiswa")}).</li>
-	 *   <li>Via timer kedua (setelah cleanup): memuat ulang {@code hasilUjianMahasiswa} dari
-	 *       database (refresh), menandai {@code telahIkutUjian=true}, menyimpan kembali,
-	 *       memanggil {@code eventListener.onEvent()} agar UI pemanggil memperbarui dirinya,
-	 *       lalu menutup jendela via {@code ProsesUjianHelper.this.detach()}.</li>
-	 *   <li>Bila peserta lulus dan ujian memiliki sertifikat, memanggil
-	 *       {@code SertifikatAction.cetakSertifikat} secara otomatis.</li>
-	 * </ol>
-	 *
-	 * <p><b>Penanganan error:</b> Exception dari langkah refresh/simpan ditangkap dan dicetak
-	 * ke stderr. Jendela tetap ditutup ({@code detach()}) meskipun terjadi error saat menyimpan
-	 * status akhir — peserta tidak terblokir di jendela ujian yang sudah selesai.</p>
-	 *
-	 * <p><b>Pemeliharaan:</b> Urutan dua timer sangat penting — timer pertama membersihkan
-	 * resource, timer kedua menyimpan dan menutup. Jangan gabungkan keduanya karena cleanup
-	 * harus terjadi sebelum penyimpanan akhir untuk menghindari race condition pada
-	 * {@link #kuotaUjian}.</p>
-	 *
-	 * @throws Exception bila ZK event atau Hibernate melempar exception yang tidak tertangkap
-	 */
-	/**
 	 * Menghentikan seluruh <b>mode pengawasan ujian (anti-curang)</b> di sisi browser saat
 	 * ujian selesai atau jendela ujian ditutup. Metode ini adalah pasangan penutup dari
 	 * skrip yang dipasang {@code buildCbtAntiCheatScript(...)} / {@code buildCbtAntiCheatScriptDefault(...)}
@@ -2785,6 +2743,48 @@ public class ProsesUjianHelper extends MyWindow {
 		super.detach();
 	}
 
+	/**
+	 * Menyelesaikan sesi ujian: menghitung nilai akhir, menyimpan ke database, menutup jendela CBT,
+	 * dan memicu callback pasca-ujian (refresh UI, sertifikat, dll.).
+	 *
+	 * <p><b>Tujuan:</b> Ini adalah titik akhir dari siklus hidup {@link ProsesUjianHelper}.
+	 * Dipanggil ketika peserta menekan "Akhiri Ujian", waktu habis (dipicu ZK Timer), atau
+	 * sistem mendeteksi kondisi terminasi (batas pelanggaran anti-curang tercapai).</p>
+	 *
+	 * <p><b>Cara kerja (urutan eksekusi):</b></p>
+	 * <ol>
+	 *   <li>Memanggil {@link #generateHasilUjian(List,HasilUjianMahasiswa,PertemuanPunyaUjian,Map)}
+	 *       untuk menghitung nilai akhir (skor total, lama pengerjaan, OBE mapping) dan
+	 *       menyimpannya ke database. Jika gagal (return false), onSelesai tidak dilanjutkan.</li>
+	 *   <li>Setelah berhasil, membersihkan state recompute via
+	 *       {@code UjianRecomputeUtil.bersihkan(hasilId)} — menjaga konsistensi dengan
+	 *       mekanisme autosave recompute.</li>
+	 *   <li>Untuk pengguna tamu/calon mahasiswa, memanggil {@code Clients.confirmClose(null)}
+	 *       untuk menonaktifkan dialog "Yakin meninggalkan halaman?".</li>
+	 *   <li>Menghentikan timer ZK ({@code timer.stop()}) dan thread countdown
+	 *       ({@code waktuTimer.stop = true}).</li>
+	 *   <li>Via {@code Common.createDefaultTimer}: membersihkan {@link #kuotaUjian} (mengurangi
+	 *       counter peserta aktif) dan invalidasi cache hasil ujian di entitas terkait
+	 *       (mahasiswa/calon/siswa via {@code put("", "hasilUjianMahasiswa")}).</li>
+	 *   <li>Via timer kedua (setelah cleanup): memuat ulang {@code hasilUjianMahasiswa} dari
+	 *       database (refresh), menandai {@code telahIkutUjian=true}, menyimpan kembali,
+	 *       memanggil {@code eventListener.onEvent()} agar UI pemanggil memperbarui dirinya,
+	 *       lalu menutup jendela via {@code ProsesUjianHelper.this.detach()}.</li>
+	 *   <li>Bila peserta lulus dan ujian memiliki sertifikat, memanggil
+	 *       {@code SertifikatAction.cetakSertifikat} secara otomatis.</li>
+	 * </ol>
+	 *
+	 * <p><b>Penanganan error:</b> Exception dari langkah refresh/simpan ditangkap dan dicetak
+	 * ke stderr. Jendela tetap ditutup ({@code detach()}) meskipun terjadi error saat menyimpan
+	 * status akhir — peserta tidak terblokir di jendela ujian yang sudah selesai.</p>
+	 *
+	 * <p><b>Pemeliharaan:</b> Urutan dua timer sangat penting — timer pertama membersihkan
+	 * resource, timer kedua menyimpan dan menutup. Jangan gabungkan keduanya karena cleanup
+	 * harus terjadi sebelum penyimpanan akhir untuk menghindari race condition pada
+	 * {@link #kuotaUjian}.</p>
+	 *
+	 * @throws Exception bila ZK event atau Hibernate melempar exception yang tidak tertangkap
+	 */
 	public void onSelesai() throws Exception {
 
 		// Hentikan pengawasan anti-curang & keluar layar penuh begitu ujian diselesaikan.

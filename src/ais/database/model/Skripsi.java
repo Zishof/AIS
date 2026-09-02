@@ -1118,10 +1118,41 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return this.totalNilai;
 	}
 
+	/**
+	 * Menyetel nilai akhir gabungan secara manual. Perlu diingat {@link #getTotalNilai()} akan
+	 * menghitung ulang dan menimpa nilai ini bila format nilai dan nilai per slot tersedia.
+	 *
+	 * @param totalNilai nilai akhir; {@code null} akan dinormalkan menjadi {@code 0.0} oleh getter
+	 */
 	public void setTotalNilai(Double totalNilai) {
 		this.totalNilai = totalNilai;
 	}
 
+	/**
+	 * Menghitung ulang lalu mengembalikan <b>nilai huruf</b> tugas akhir (mis. {@code "A"},
+	 * {@code "B+"}).
+	 *
+	 * <p>Nilai huruf tidak disimpan sebagai angka mati: ia dipetakan dari
+	 * {@link #getTotalNilai()} oleh {@code Common.getNilaiHuruf(...)} dengan mempertimbangkan
+	 * tahun angkatan mahasiswa, jurusan, fakultas, tahun akademik, jenis semester, kode mata
+	 * kuliah, dan {@code JenisNilaiHurufMatakuliah}. Bila {@link FormatNilaiSkripsi} menetapkan
+	 * jenis nilai huruf sendiri, jenis itulah yang menang atas jenis milik mata kuliah.</p>
+	 *
+	 * <p><b>Pengaman lazy-load (penting):</b> getter entity juga dipanggil Hibernate saat
+	 * dirty-check dan oleh laporan atas object yang sudah detached. Karena itu method ini
+	 * memeriksa {@code Hibernate.isInitialized(...)} untuk {@code mahasiswa}, {@code jurusan},
+	 * dan {@code fakultas}; bila salah satunya masih proxy yang belum termuat, perhitungan
+	 * dilewati dan nilai huruf tersimpan dikembalikan apa adanya. Untuk skripsi yang baru dibuat
+	 * dan belum punya mahasiswa/jurusan, hasilnya {@code "-"}.</p>
+	 *
+	 * <p><b>Efek samping:</b> menulis field {@link #totalNilai} dan {@link #nilaiHuruf}.
+	 * Exception apa pun ditelan (dicatat ke audit) sehingga nilai lama dipertahankan.</p>
+	 *
+	 * @return nilai huruf yang sudah dipangkas spasinya, atau {@code "-"} bila belum bisa
+	 *         ditentukan; tidak pernah {@code null}
+	 * @see #getTotalNilai()
+	 * @see #getLulus()
+	 */
 	@Column(name = "nilai_huruf", length = 50)
 	public String getNilaiHuruf() {
 		totalNilai = getTotalNilai();
@@ -1173,10 +1204,27 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return this.nilaiHuruf == null ? "-" : this.nilaiHuruf.trim();
 	}
 
+	/**
+	 * Menyetel nilai huruf secara manual. Nilai ini akan dihitung ulang oleh
+	 * {@link #getNilaiHuruf()} setiap kali relasi mahasiswa/jurusan/fakultas tersedia.
+	 *
+	 * @param nilaiHuruf nilai huruf, mis. {@code "A"}
+	 */
 	public void setNilaiHuruf(String nilaiHuruf) {
 		this.nilaiHuruf = nilaiHuruf;
 	}
 
+	/**
+	 * Mengembalikan tanggal pelaksanaan sidang tugas akhir.
+	 *
+	 * <p>Bila tanggal belum diisi sendiri tetapi skripsi sudah tertaut ke sebuah
+	 * {@link JadwalSidangTugasAkhir}, tanggal mulai jadwal itu diambil dan <b>ditulis ke
+	 * field</b> — sehingga jadwal berlaku sebagai sumber kebenaran untuk skripsi yang belum
+	 * pernah diisi manual. Sebaliknya, tanggal yang sudah terisi <b>tidak</b> akan tergeser
+	 * meskipun jadwal berubah.</p>
+	 *
+	 * @return tanggal sidang, atau {@code null} bila belum dijadwalkan sama sekali
+	 */
 	@Temporal(TemporalType.DATE)
 	@Column(name = "tanggal_sidang", length = 0)
 	public Date getTanggalSidang() {
@@ -1186,26 +1234,64 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return this.tanggalSidang;
 	}
 
+	/**
+	 * Menyetel tanggal sidang secara manual. Nilai non-{@code null} membuat
+	 * {@link #getTanggalSidang()} berhenti mengambil tanggal dari jadwal sidang.
+	 *
+	 * @param tanggalSidang tanggal sidang, boleh {@code null}
+	 */
 	public void setTanggalSidang(Date tanggalSidang) {
 		this.tanggalSidang = tanggalSidang;
 	}
 
+	/**
+	 * Mengembalikan pola perulangan penjadwalan bimbingan (mis. {@code "Mingguan"}), dipakai saat
+	 * membangkitkan agenda pertemuan bimbingan secara berulang.
+	 *
+	 * @return pola perulangan; {@code "Mingguan"} bila belum diatur
+	 */
 	public String getJenis() {
 		return jenis == null ? "Mingguan" : jenis;
 	}
 
+	/**
+	 * Menyetel pola perulangan penjadwalan bimbingan.
+	 *
+	 * @param jenis pola perulangan, mis. {@code "Mingguan"}
+	 */
 	public void setJenis(String jenis) {
 		this.jenis = jenis;
 	}
 
+	/**
+	 * Menyatakan apakah pembangkitan jadwal bimbingan harus melompati hari libur nasional.
+	 *
+	 * @return {@code true} bila hari libur dilewati; <b>default {@code true}</b> untuk data lama
+	 *         yang kolomnya masih {@code null}
+	 */
 	public Boolean getLewatiTanggalMerahNasional() {
 		return lewatiTanggalMerahNasional == null ? true : lewatiTanggalMerahNasional;
 	}
 
+	/**
+	 * Menyetel apakah pembangkitan jadwal bimbingan melompati hari libur nasional.
+	 *
+	 * @param lewatiTanggalMerahNasional {@code true} untuk melewati hari libur
+	 */
 	public void setLewatiTanggalMerahNasional(Boolean lewatiTanggalMerahNasional) {
 		this.lewatiTanggalMerahNasional = lewatiTanggalMerahNasional;
 	}
 
+	/**
+	 * Mengembalikan mahasiswa pemilik tugas akhir ini — relasi inti entity ini dan satu-satunya
+	 * kolom relasi yang {@code NOT NULL}. Hasilnya dilewatkan
+	 * {@link GeneralValueObject#check(Object)} sehingga proxy yang sudah detached tetap dapat
+	 * dipakai (dengan konsekuensi {@code check} bisa membuka session sendiri).
+	 *
+	 * @return mahasiswa pemilik skripsi; secara praktis tidak pernah {@code null} untuk baris
+	 *         yang sudah tersimpan
+	 * @see Mahasiswa
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "mahasiswa", nullable = false)
 	public Mahasiswa getMahasiswa() {
@@ -1213,14 +1299,37 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return mahasiswa;
 	}
 
+	/**
+	 * Menyetel mahasiswa pemilik tugas akhir ini.
+	 *
+	 * @param mahasiswa mahasiswa pemilik; wajib terisi sebelum baris disimpan
+	 */
 	public void setMahasiswa(Mahasiswa mahasiswa) {
 		this.mahasiswa = mahasiswa;
 	}
 
+	/**
+	 * Menyetel penanda sudah/belum sidang.
+	 *
+	 * @param telahSidang {@code 1} bila sudah sidang, {@code 0} bila belum
+	 */
 	public void setTelahSidang(Integer telahSidang) {
 		this.telahSidang = telahSidang;
 	}
 
+	/**
+	 * Mengembalikan penanda apakah sidang tugas akhir sudah berlangsung.
+	 *
+	 * <p>Selain menormalkan {@code null} menjadi {@code 0}, getter ini <b>menyimpulkan sendiri</b>
+	 * bahwa sidang sudah terjadi begitu nilai akhir melebihi 1,0. Perhatikan bahwa yang dibaca
+	 * adalah field {@link #totalNilai} <i>mentah</i>, bukan {@link #getTotalNilai()}, sehingga
+	 * pada object yang baru dimuat dan belum pernah dihitung ulang penanda ini bisa masih
+	 * {@code 0} walau nilai per slot sudah terisi.</p>
+	 *
+	 * <p><b>Efek samping:</b> menulis field {@link #telahSidang}.</p>
+	 *
+	 * @return {@code 1} bila sudah sidang, {@code 0} bila belum; tidak pernah {@code null}
+	 */
 	@Column(name = "telah_sidang", length = 1)
 	public Integer getTelahSidang() {
 		if (telahSidang == null) {
@@ -1234,10 +1343,25 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return telahSidang;
 	}
 
+	/**
+	 * Menyetel jam mulai sidang.
+	 *
+	 * @param waktuSidang jam dalam format {@code Common.timeFormat}, mis. {@code "08:00"}
+	 */
 	public void setWaktuSidang(String waktuSidang) {
 		this.waktuSidang = waktuSidang;
 	}
 
+	/**
+	 * Mengembalikan jam mulai sidang.
+	 *
+	 * <p><b>Efek samping yang mudah mengecoh:</b> bila jam belum diisi, field <i>diisi dengan jam
+	 * saat ini</i> (waktu server) dan dikembalikan. Artinya membuka layar detail skripsi yang
+	 * belum dijadwalkan akan memunculkan jam "sekarang" — dan bila entity kemudian di-flush, jam
+	 * tersebut ikut tersimpan seolah-olah dijadwalkan.</p>
+	 *
+	 * @return jam mulai sidang; tidak pernah kosong
+	 */
 	@Column(name = "waktu_sidang", length = 50)
 	public String getWaktuSidang() {
 		if (waktuSidang == null || waktuSidang.trim().isEmpty()) {
@@ -1247,10 +1371,22 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return waktuSidang;
 	}
 
+	/**
+	 * Menyetel jam selesai sidang.
+	 *
+	 * @param waktuSampaiSidang jam dalam format {@code Common.timeFormat}
+	 */
 	public void setWaktuSampaiSidang(String waktuSampaiSidang) {
 		this.waktuSampaiSidang = waktuSampaiSidang;
 	}
 
+	/**
+	 * Mengembalikan jam selesai sidang, dengan efek samping yang sama seperti
+	 * {@link #getWaktuSidang()}: jam yang belum diisi akan diisi dengan waktu server saat ini.
+	 *
+	 * @return jam selesai sidang; tidak pernah kosong
+	 * @see #getWaktuSidang()
+	 */
 	@Column(name = "waktu_sampai_sidang", length = 50)
 	public String getWaktuSampaiSidang() {
 		if (waktuSampaiSidang == null || waktuSampaiSidang.trim().isEmpty()) {
@@ -1259,10 +1395,26 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return waktuSampaiSidang;
 	}
 
+	/**
+	 * Menyetel tanggal seminar proposal.
+	 *
+	 * @param tanggalSeminar tanggal seminar, boleh {@code null}
+	 */
 	public void setTanggalSeminar(Date tanggalSeminar) {
 		this.tanggalSeminar = tanggalSeminar;
 	}
 
+	/**
+	 * Mengembalikan tanggal seminar proposal.
+	 *
+	 * <p>Berbeda dari {@link #getTanggalSidang()} yang hanya mengisi bila kosong, di sini
+	 * tanggal dari {@link MahasiswaRequestTugasAkhir} <b>selalu menang</b> bila tersedia:
+	 * nilai lokal ditimpa setiap kali getter dipanggil. Karena getter ini memanggil
+	 * {@link #getMahasiswaRequestTugasAkhir()}, ia juga mewarisi efek samping penulisan kolom
+	 * {@code skr} pada entity pengajuan tersebut.</p>
+	 *
+	 * @return tanggal seminar proposal, atau {@code null} bila belum ada
+	 */
 	@Temporal(TemporalType.DATE)
 	@Column(name = "tanggal_seminar", length = 0)
 	public Date getTanggalSeminar() {
@@ -1273,19 +1425,46 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return tanggalSeminar;
 	}
 
+	/**
+	 * Menyetel nilai ujian komprehensif.
+	 *
+	 * @param nilaikomprehensif nilai angka ujian komprehensif
+	 */
 	public void setNilaikomprehensif(Double nilaikomprehensif) {
 		this.nilaikomprehensif = nilaikomprehensif;
 	}
 
+	/**
+	 * Mengembalikan nilai ujian komprehensif. Nilai ini <b>tidak</b> ikut dihitung ke
+	 * {@link #getTotalNilai()}; ia hanya dicatat dan ditampilkan/dilaporkan terpisah.
+	 *
+	 * <p>Berbeda dari getter nilai slot lain, method ini <b>tidak null-safe</b> — ia dapat
+	 * mengembalikan {@code null} untuk baris lama, jadi pemanggil harus berhati-hati saat
+	 * meng-unbox.</p>
+	 *
+	 * @return nilai komprehensif, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "nilaikomprehensif", nullable = true, precision = 15)
 	public Double getNilaikomprehensif() {
 		return nilaikomprehensif;
 	}
 
+	/**
+	 * Menyetel abstrak naskah tugas akhir.
+	 *
+	 * @param abstrack teks abstrak
+	 */
 	public void setAbstrack(String abstrack) {
 		this.abstrack = abstrack;
 	}
 
+	/**
+	 * Mengembalikan abstrak naskah tugas akhir (ejaan kolomnya memang {@code abstrack}).
+	 * Bila masih {@code null}, field diisi string kosong lebih dulu — jadi getter ini pun
+	 * mengubah state.
+	 *
+	 * @return teks abstrak; string kosong bila belum diisi, tidak pernah {@code null}
+	 */
 	@Column(name = "abstrack", columnDefinition = "text")
 	public String getAbstrack() {
 		if (abstrack == null) {
@@ -1294,37 +1473,88 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return abstrack;
 	}
 
+	/**
+	 * Menyetel nilai dari penguji III. Nilai &gt; 0,1 membuat {@link #getPersetujuanPenguji3()}
+	 * otomatis melaporkan sudah disetujui.
+	 *
+	 * @param nilaiPenguji3 nilai angka; {@code null} berarti "belum dinilai"
+	 */
 	public void setNilaiPenguji3(Double nilaiPenguji3) {
 		this.nilaiPenguji3 = nilaiPenguji3;
 	}
 
+	/**
+	 * Mengembalikan nilai dari penguji III ({@link #getPenguji3()}), null-safe ke {@code 0.0}.
+	 *
+	 * @return nilai penguji III; {@code 0.0} bila belum dinilai
+	 */
 	@Column(name = "nilai_penguji_3", nullable = true, precision = 15)
 	public Double getNilaiPenguji3() {
 		return nilaiPenguji3 == null ? 0.0 : nilaiPenguji3;
 	}
 
+	/**
+	 * Menyetel nilai dari penguji IV. Nilai &gt; 0,1 membuat {@link #getPersetujuanPenguji4()}
+	 * otomatis melaporkan sudah disetujui.
+	 *
+	 * @param nilaiPenguji4 nilai angka; {@code null} berarti "belum dinilai"
+	 */
 	public void setNilaiPenguji4(Double nilaiPenguji4) {
 		this.nilaiPenguji4 = nilaiPenguji4;
 	}
 
+	/**
+	 * Mengembalikan nilai dari penguji IV ({@link #getPenguji4()}), null-safe ke {@code 0.0}.
+	 *
+	 * @return nilai penguji IV; {@code 0.0} bila belum dinilai
+	 */
 	@Column(name = "nilai_penguji_4", nullable = true, precision = 15)
 	public Double getNilaiPenguji4() {
 		return nilaiPenguji4 == null ? 0.0 : nilaiPenguji4;
 	}
 
+	/**
+	 * Menyetel nilai dari penguji V. Nilai &gt; 0,1 membuat {@link #getPersetujuanPenguji5()}
+	 * otomatis melaporkan sudah disetujui.
+	 *
+	 * @param nilaiPenguji5 nilai angka; {@code null} berarti "belum dinilai"
+	 */
 	public void setNilaiPenguji5(Double nilaiPenguji5) {
 		this.nilaiPenguji5 = nilaiPenguji5;
 	}
 
+	/**
+	 * Mengembalikan nilai dari penguji V ({@link #getPenguji5()}), null-safe ke {@code 0.0}.
+	 *
+	 * @return nilai penguji V; {@code 0.0} bila belum dinilai
+	 */
 	@Column(name = "nilai_penguji_5", nullable = true, precision = 15)
 	public Double getNilaiPenguji5() {
 		return nilaiPenguji5 == null ? 0.0 : nilaiPenguji5;
 	}
 
+	/**
+	 * Menyetel format nilai skripsi (konfigurasi slot dosen dan bobotnya).
+	 *
+	 * @param formatNilaiSkripsi konfigurasi penilaian; {@code null} membuat
+	 *                           {@link #getTotalNilai()} berhenti menghitung ulang
+	 */
 	public void setFormatNilaiSkripsi(FormatNilaiSkripsi formatNilaiSkripsi) {
 		this.formatNilaiSkripsi = formatNilaiSkripsi;
 	}
 
+	/**
+	 * Mengembalikan konfigurasi penilaian yang berlaku untuk skripsi ini: label dan bendera
+	 * aktif tiap slot dosen, persentase bobot tiap slot, serta jenis nilai huruf. Nyaris seluruh
+	 * logika penilaian di class ini bergantung padanya —
+	 * {@link #getTotalNilai()}, {@link #dataDosen(boolean)},
+	 * {@link #cariNilaiDariDosen(Dosen, String, Boolean)}, {@link #simpanDosen(Dosen, String)},
+	 * dan getter slot dosen.
+	 *
+	 * @return konfigurasi penilaian, atau {@code null} bila skripsi belum ditautkan ke format
+	 *         nilai mana pun
+	 * @see FormatNilaiSkripsi
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "format_nilai_skripsi", nullable = true)
 	public FormatNilaiSkripsi getFormatNilaiSkripsi() {
@@ -1332,10 +1562,24 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return formatNilaiSkripsi;
 	}
 
+	/**
+	 * Menyetel dosen penguji III (slot {@code dosen5}).
+	 *
+	 * @param penguji3 dosen penguji III, boleh {@code null}
+	 */
 	public void setPenguji3(Dosen penguji3) {
 		this.penguji3 = penguji3;
 	}
 
+	/**
+	 * Mengembalikan dosen slot {@code dosen5} (label default "Penguji III", kolom
+	 * {@code penguji3}). Perilakunya identik dengan {@link #getPenguji1()}, dengan bendera aktif
+	 * {@code dosen5Aktif}.
+	 *
+	 * @return dosen penguji III, atau {@code null} bila belum ditetapkan atau slotnya
+	 *         dinonaktifkan
+	 * @see #getPenguji1()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "penguji3", nullable = true)
 	public Dosen getPenguji3() {
@@ -1348,10 +1592,23 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return penguji3;
 	}
 
+	/**
+	 * Menyetel dosen penguji IV (slot {@code dosen6}).
+	 *
+	 * @param penguji4 dosen penguji IV, boleh {@code null}
+	 */
 	public void setPenguji4(Dosen penguji4) {
 		this.penguji4 = penguji4;
 	}
 
+	/**
+	 * Mengembalikan dosen slot {@code dosen6} (label default "Penguji IV", kolom
+	 * {@code penguji4}), dengan bendera aktif {@code dosen6Aktif}.
+	 *
+	 * @return dosen penguji IV, atau {@code null} bila belum ditetapkan atau slotnya
+	 *         dinonaktifkan
+	 * @see #getPenguji1()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "penguji4", nullable = true)
 	public Dosen getPenguji4() {
@@ -1365,10 +1622,26 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return penguji4;
 	}
 
+	/**
+	 * Menyetel dosen penguji V (slot {@code dosen7}).
+	 *
+	 * @param penguji5 dosen penguji V, boleh {@code null}
+	 */
 	public void setPenguji5(Dosen penguji5) {
 		this.penguji5 = penguji5;
 	}
 
+	/**
+	 * Mengembalikan dosen slot {@code dosen7} (label default "Penguji V", kolom
+	 * {@code penguji5}), dengan bendera aktif {@code dosen7Aktif}.
+	 *
+	 * <p>Slot ini ditambahkan belakangan, sehingga beberapa method lama belum menyertakannya —
+	 * lihat {@link #populateDosenPenguji()} dan
+	 * {@link #checkMaksSksDosen(Dosen, String, String, Integer)}.</p>
+	 *
+	 * @return dosen penguji V, atau {@code null} bila belum ditetapkan atau slotnya dinonaktifkan
+	 * @see #getPenguji1()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "penguji5", nullable = true)
 	public Dosen getPenguji5() {
@@ -1382,46 +1655,109 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return penguji5;
 	}
 
+	/**
+	 * Menyetel jalur tugas akhir.
+	 *
+	 * @param jalurSkripsi nama jalur (teks bebas sesuai master perguruan tinggi)
+	 */
 	public void setJalurSkripsi(String jalurSkripsi) {
 		this.jalurSkripsi = jalurSkripsi;
 	}
 
+	/**
+	 * Mengembalikan jalur tugas akhir yang ditempuh mahasiswa (mis. skripsi, non-skripsi, atau
+	 * jalur khusus program studi). Disimpan sebagai teks bebas, bukan relasi ke master.
+	 *
+	 * @return nama jalur, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "jalur_skripsi")
 	public String getJalurSkripsi() {
 		return jalurSkripsi;
 	}
 
+	/**
+	 * Menyetel tipe/kategori tugas akhir.
+	 *
+	 * @param tipeSkripsi nama tipe (teks bebas)
+	 */
 	public void setTipeSkripsi(String tipeSkripsi) {
 		this.tipeSkripsi = tipeSkripsi;
 	}
 
+	/**
+	 * Mengembalikan tipe/kategori tugas akhir (teks bebas, bukan relasi ke master).
+	 *
+	 * @return nama tipe, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "tipe_skripsi")
 	public String getTipeSkripsi() {
 		return tipeSkripsi;
 	}
 
+	/**
+	 * Menyetel tanggal mulai masa bimbingan.
+	 *
+	 * @param awalBimbingan tanggal mulai bimbingan
+	 */
 	public void setAwalBimbingan(Date awalBimbingan) {
 		this.awalBimbingan = awalBimbingan;
 	}
 
+	/**
+	 * Mengembalikan tanggal mulai masa bimbingan. Bersama {@link #getAkhirBimbingan()} menjadi
+	 * dasar perhitungan {@link #getSelesaiDalamBulan()}.
+	 *
+	 * @return tanggal mulai bimbingan, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "awal_bimbingan")
 	public Date getAwalBimbingan() {
 		return awalBimbingan;
 	}
 
+	/**
+	 * Menyetel tanggal akhir masa bimbingan.
+	 *
+	 * @param akhirBimbingan tanggal akhir bimbingan
+	 */
 	public void setAkhirBimbingan(Date akhirBimbingan) {
 		this.akhirBimbingan = akhirBimbingan;
 	}
 
+	/**
+	 * Mengembalikan tanggal akhir masa bimbingan.
+	 *
+	 * @return tanggal akhir bimbingan, atau {@code null} bila belum diisi
+	 * @see #getSelesaiDalamBulan()
+	 */
 	@Column(name = "akhir_bimbingan")
 	public Date getAkhirBimbingan() {
 		return akhirBimbingan;
 	}
 
+	/**
+	 * Menyetel dosen pembimbing III (slot {@code dosen21}).
+	 *
+	 * @param pembimbing3 dosen pembimbing III, boleh {@code null}
+	 */
 	public void setPembimbing3(Dosen pembimbing3) {
 		this.pembimbing3 = pembimbing3;
 	}
 
+	/**
+	 * Mengembalikan dosen slot {@code dosen21} (label default "Pembimbing III", kolom
+	 * {@code pembimbing3}).
+	 *
+	 * <p>Seperti dua slot pembimbing lain, nilainya dapat diambil dari
+	 * {@link MahasiswaRequestTugasAkhir} — namun <b>hanya bila field lokal masih kosong</b>
+	 * (berbeda dari {@link #getPembimbing()}/{@link #getKetuaSidang()} yang selalu ditimpa).
+	 * Bila slot {@code dosen21} dinonaktifkan pada format nilai, field di-null-kan. Seluruh
+	 * bagian ini dibungkus {@code try/catch} yang menelan exception, sehingga kegagalan
+	 * memuat proxy pengajuan proposal tidak menggagalkan pembacaan.</p>
+	 *
+	 * @return dosen pembimbing III, atau {@code null} bila belum ditetapkan atau slotnya
+	 *         dinonaktifkan
+	 * @see #getPembimbing()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pembimbing3")
 	public Dosen getPembimbing3() {
@@ -1444,10 +1780,26 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return pembimbing3;
 	}
 
+	/**
+	 * Menyetel ruang sidang secara manual.
+	 *
+	 * @param ruangSidang ruang sidang, boleh {@code null}
+	 */
 	public void setRuangSidang(Ruang ruangSidang) {
 		this.ruangSidang = ruangSidang;
 	}
 
+	/**
+	 * Mengembalikan ruang pelaksanaan sidang.
+	 *
+	 * <p>Bila skripsi tertaut ke {@link JadwalSidangTugasAkhir} yang sudah menentukan ruang,
+	 * <b>ruang jadwal selalu menang</b> dan menimpa field lokal (berbeda dari
+	 * {@link #getTanggalSidang()} yang hanya mengisi bila kosong). Jadi memindahkan ruang lewat
+	 * {@link #setRuangSidang(Ruang)} tidak akan bertahan selama jadwal sidang masih menyebut
+	 * ruang lain.</p>
+	 *
+	 * @return ruang sidang, atau {@code null} bila belum ditentukan
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "ruang_sidang", nullable = true)
 	public Ruang getRuangSidang() {
@@ -1459,31 +1811,73 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return ruangSidang;
 	}
 
+	/**
+	 * Menyetel status pemenuhan syarat TOEFL.
+	 *
+	 * @param lulusToefl {@code true} bila syarat TOEFL sudah dipenuhi
+	 */
 	public void setLulusToefl(Boolean lulusToefl) {
 		this.lulusToefl = lulusToefl;
 	}
 
+	/**
+	 * Mengembalikan status pemenuhan syarat TOEFL sebagai prasyarat sidang/kelulusan.
+	 * Tidak null-safe: {@code null} berarti "belum pernah diisi", bukan "tidak lulus".
+	 *
+	 * @return {@code true}/{@code false}/{@code null}
+	 */
 	@Column(name = "lulusToefl")
 	public Boolean getLulusToefl() {
 		return lulusToefl;
 	}
 
+	/**
+	 * Mengembalikan status pemenuhan syarat TOAFL (tes bahasa Arab), padanan
+	 * {@link #getLulusToefl()} untuk perguruan tinggi keagamaan. Tidak null-safe.
+	 *
+	 * @return {@code true}/{@code false}/{@code null}
+	 */
 	public Boolean getLulusToafl() {
 		return lulusToafl;
 	}
 
+	/**
+	 * Menyetel status pemenuhan syarat TOAFL.
+	 *
+	 * @param lulusToafl {@code true} bila syarat TOAFL sudah dipenuhi
+	 */
 	public void setLulusToafl(Boolean lulusToafl) {
 		this.lulusToafl = lulusToafl;
 	}
 
+	/**
+	 * Mengembalikan referensi ke item keuangan/tagihan yang terkait pendaftaran sidang. Class ini
+	 * tidak pernah menafsirkan nilainya — hanya menyimpan dan mengembalikannya untuk modul
+	 * keuangan.
+	 *
+	 * @return id item terkait, atau {@code null} bila tidak ada
+	 */
 	public Long getItemRef() {
 		return itemRef;
 	}
 
+	/**
+	 * Menyetel referensi item keuangan terkait.
+	 *
+	 * @param itemRef id item terkait
+	 */
 	public void setItemRef(Long itemRef) {
 		this.itemRef = itemRef;
 	}
 
+	/**
+	 * Mengembalikan jadwal sidang tugas akhir yang diikuti skripsi ini. Jadwal inilah pemasok
+	 * tanggal dan ruang sidang bagi {@link #getTanggalSidang()} dan {@link #getRuangSidang()},
+	 * serta pemicu {@link #getSetujuiSidang()} menjadi {@code true}.
+	 *
+	 * @return jadwal sidang, atau {@code null} bila belum dijadwalkan
+	 * @see JadwalSidangTugasAkhir
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jadwal_sidang_tugas_akhir", nullable = true)
 	public JadwalSidangTugasAkhir getJadwalSidangTugasAkhir() {
@@ -1491,10 +1885,32 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return jadwalSidangTugasAkhir;
 	}
 
+	/**
+	 * Menautkan skripsi ini ke sebuah jadwal sidang.
+	 *
+	 * @param jadwalSidangTugasAkhir jadwal sidang, boleh {@code null} untuk membatalkan
+	 */
 	public void setJadwalSidangTugasAkhir(JadwalSidangTugasAkhir jadwalSidangTugasAkhir) {
 		this.jadwalSidangTugasAkhir = jadwalSidangTugasAkhir;
 	}
 
+	/**
+	 * Mengembalikan pengajuan/permintaan tugas akhir (tahap proposal) yang melahirkan skripsi
+	 * ini. Entity itu membayangi beberapa data skripsi: dosen pembimbing
+	 * ({@link #getPembimbing()}, {@link #getKetuaSidang()}, {@link #getPembimbing3()}), tanggal
+	 * seminar ({@link #getTanggalSeminar()}), dan daftar referensi ({@link #getReferensi()}).
+	 *
+	 * <p><b>EFEK SAMPING PENTING — getter ini menulis ke entity lain.</b> Bila skripsi sudah
+	 * punya id, method memanggil {@code setSkr(id)} pada {@link MahasiswaRequestTugasAkhir},
+	 * yang menyunting kolom JSON entity tersebut. Bila pengajuan itu masih terpasang pada
+	 * session, Hibernate akan mendeteksinya kotor dan menerbitkan {@code UPDATE} terhadap tabel
+	 * {@code mahasiswa_request_tugas_akhir} pada flush berikutnya — padahal pemanggil merasa
+	 * hanya membaca. Ini varian dari pola "getter yang diam-diam menulis ke database" yang juga
+	 * ditemukan pada entity biodata AIS lain.</p>
+	 *
+	 * @return pengajuan tugas akhir terkait, atau {@code null} bila skripsi dibuat langsung tanpa
+	 *         melalui pengajuan
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "mahasiswa_request_tugas_akhir", nullable = true)
 	public MahasiswaRequestTugasAkhir getMahasiswaRequestTugasAkhir() {
@@ -1505,10 +1921,29 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return mahasiswaRequestTugasAkhir;
 	}
 
+	/**
+	 * Menautkan skripsi ini ke pengajuan tugas akhir tahap proposal.
+	 *
+	 * @param mahasiswaRequestTugasAkhir pengajuan terkait, boleh {@code null}
+	 */
 	public void setMahasiswaRequestTugasAkhir(MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir) {
 		this.mahasiswaRequestTugasAkhir = mahasiswaRequestTugasAkhir;
 	}
 
+	/**
+	 * Mengembalikan baris kartu hasil studi tempat tugas akhir ini tercatat sebagai mata kuliah,
+	 * bila memang dikonversi. Relasi inilah yang memasok mata kuliah, tahun akademik, dan jenis
+	 * semester ke {@link #getNilaiHuruf()} sehingga pemetaan nilai huruf memakai aturan periode
+	 * yang tepat; bila {@code null}, {@link #getNilaiHuruf()} memakai periode akademik berjalan.
+	 *
+	 * <p>Berbeda dari getter relasi lain, method ini <b>tidak</b> memanggil
+	 * {@link GeneralValueObject#check(Object)}, jadi ia bisa mengembalikan proxy yang belum
+	 * terinisialisasi dan melempar {@code LazyInitializationException} di pemanggil bila session
+	 * sudah tertutup. Relasi ini juga dipetakan {@code FetchMode.SELECT} dan tanpa
+	 * {@code FetchType.LAZY} eksplisit.</p>
+	 *
+	 * @return baris KHS terkait, atau {@code null} bila tugas akhir belum dikonversi
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "detail_perkuliahan", nullable = true)
@@ -1516,10 +1951,34 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return detailperkuliahan;
 	}
 
+	/**
+	 * Menautkan skripsi ini ke sebuah baris kartu hasil studi.
+	 *
+	 * @param detailperkuliahan baris KHS terkait, boleh {@code null}
+	 */
 	public void setDetailperkuliahan(Detailperkuliahan detailperkuliahan) {
 		this.detailperkuliahan = detailperkuliahan;
 	}
 
+	/**
+	 * Mengembalikan status persetujuan pelaksanaan sidang.
+	 *
+	 * <p>Nilainya sebagian besar <b>diturunkan</b>, bukan diisi manual:</p>
+	 * <ul>
+	 * <li>bila belum pernah diisi, statusnya {@code false}, kecuali skripsi sudah tertaut ke
+	 * sebuah {@link JadwalSidangTugasAkhir} — penjadwalan dianggap sebagai persetujuan;</li>
+	 * <li>bila {@link #getTelahSidang()} sudah bernilai {@code 1}, status dipaksa {@code true}
+	 * (sidang yang sudah terjadi tidak mungkin belum disetujui) — pemaksaan ini berlaku
+	 * <b>walaupun</b> sebelumnya sudah disetel {@code false} secara manual.</li>
+	 * </ul>
+	 *
+	 * <p>Pemeriksaan jadwal memakai field {@link #jadwalSidangTugasAkhir} mentah, bukan
+	 * getternya, sehingga proxy yang belum diresolusi tetap dianggap "ada". <b>Efek samping:</b>
+	 * menulis field {@link #setujuiSidang} (dan lewat {@link #getTelahSidang()} juga
+	 * {@link #telahSidang}).</p>
+	 *
+	 * @return {@code true} bila sidang sudah disetujui; tidak pernah {@code null}
+	 */
 	public Boolean getSetujuiSidang() {
 		if (setujuiSidang == null) {
 			setujuiSidang = false;
@@ -1535,10 +1994,30 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return setujuiSidang;
 	}
 
+	/**
+	 * Menyetel status persetujuan sidang secara manual. Ingat {@link #getSetujuiSidang()} dapat
+	 * memaksanya kembali menjadi {@code true} bila sidang sudah tercatat berlangsung.
+	 *
+	 * @param setujuiSidang {@code true} bila sidang disetujui
+	 */
 	public void setSetujuiSidang(Boolean setujuiSidang) {
 		this.setujuiSidang = setujuiSidang;
 	}
 
+	/**
+	 * Mengembalikan semester tempuh mahasiswa saat mengerjakan tugas akhir.
+	 *
+	 * <p>Bila belum diisi, diturunkan dari {@code Mahasiswa.currentSemester()} — memakai field
+	 * {@link #mahasiswa} mentah (bukan {@link #getMahasiswa()}), sehingga pada object detached
+	 * pemanggilan ini bisa melempar {@code LazyInitializationException}. Bila tetap tidak dapat
+	 * ditentukan, nilainya dinormalkan menjadi {@code 0}. Paritas angka inilah yang dipakai
+	 * {@link #ambilJenisSemester()} dan {@link #getSmt()} untuk menyimpulkan ganjil/genap
+	 * (ganjil = ganjil, genap = genap), termasuk untuk nilai {@code 0} yang berarti genap.</p>
+	 *
+	 * <p><b>Efek samping:</b> menulis field {@link #semester}.</p>
+	 *
+	 * @return semester tempuh; tidak pernah {@code null}
+	 */
 	@Column(name = "semester", nullable = true)
 	public Integer getSemester() {
 		if (semester == null && mahasiswa != null) {

@@ -525,22 +525,6 @@ public abstract class FileFoto extends GeneralValueObject {
 	}
 
 	/**
-	 * Nama berkas pada folder cadangan datar ({@link Common#folder}) yang UNIK per baris.
-	 *
-	 * <p><b>Kenapa ada.</b> Sebelumnya berkas cadangan dinamai {@code <jenis>_<ref>.<ext>} saja.
-	 * Kunci itu TIDAK memuat identitas baris: {@code ref} adalah angka mentah yang menunjuk ke
-	 * tabel BERBEDA-BEDA tergantung fiturnya (ref lampiran soal = BankSoal.id, ref foto absen =
-	 * id entitas absensi, dst), dan seluruh fitur berbagi SATU folder datar. Begitu dua baris
-	 * berbeda menghasilkan nama yang sama, {@code getPathfile()}/{@code ambilFileDariCacheAtauDisk()}
-	 * mengembalikan berkas milik baris LAIN sebagai berkas resmi -- inilah yang membuat gambar
-	 * soal ujian bisa tampil sebagai foto absensi. Dengan menyertakan nama kelas + PK baris,
-	 * tabrakan nama menjadi mustahil.</p>
-	 *
-	 * <p>Berkas cadangan lama (berpola lawas) sengaja TIDAK dibaca lagi; bila belum ada berkas
-	 * kanonik, isinya dibangun ulang dari blob -- lebih lambat sekali di awal, tetapi tidak
-	 * pernah menyajikan gambar milik orang lain.</p>
-	 */
-	/**
 	 * Nama kelas entitas untuk penamaan folder berkas. Memakai {@code getClass()} langsung TIDAK
 	 * aman karena Hibernate bisa menyodorkan proxy ({@code LampiranLain_$$_javassist_42}), yang
 	 * akan membuat folder berbeda untuk baris yang sama. {@code Hibernate.getClass} membuka
@@ -624,6 +608,22 @@ public abstract class FileFoto extends GeneralValueObject {
 		return false;
 	}
 
+	/**
+	 * Nama berkas pada folder cadangan datar ({@link Common#folder}) yang UNIK per baris.
+	 *
+	 * <p><b>Kenapa ada.</b> Sebelumnya berkas cadangan dinamai {@code <jenis>_<ref>.<ext>} saja.
+	 * Kunci itu TIDAK memuat identitas baris: {@code ref} adalah angka mentah yang menunjuk ke
+	 * tabel BERBEDA-BEDA tergantung fiturnya (ref lampiran soal = BankSoal.id, ref foto absen =
+	 * id entitas absensi, dst), dan seluruh fitur berbagi SATU folder datar. Begitu dua baris
+	 * berbeda menghasilkan nama yang sama, {@code getPathfile()}/{@code ambilFileDariCacheAtauDisk()}
+	 * mengembalikan berkas milik baris LAIN sebagai berkas resmi -- inilah yang membuat gambar
+	 * soal ujian bisa tampil sebagai foto absensi. Dengan menyertakan nama kelas + PK baris,
+	 * tabrakan nama menjadi mustahil.</p>
+	 *
+	 * <p>Berkas cadangan lama (berpola lawas) sengaja TIDAK dibaca lagi; bila belum ada berkas
+	 * kanonik, isinya dibangun ulang dari blob -- lebih lambat sekali di awal, tetapi tidak
+	 * pernah menyajikan gambar milik orang lain.</p>
+	 */
 	private File berkasCadanganUnik(String extension) {
 		if (Common.folder == null || !Common.folder.exists() || getId() == null) {
 			return null;

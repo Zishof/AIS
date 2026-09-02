@@ -3536,20 +3536,6 @@ public class TampilStudiMahasiswaHelper {
 	}
 
 	/**
-	 * Renderer lokal untuk layar/komponen {@link TampilStudiMahasiswaHelper}. Kelas ini menerjemahkan satu item
-	 * data menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
-	 *
-	 * <p><b>Scope:</b> setiap instance terikat pada instance {@link TampilStudiMahasiswaHelper} dan dapat
-	 * mengakses state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-	 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code boolean keDatabase}; operasi lokal:
-	 * {@code render}(). Aturan bisnis bersama tetap berada pada kelas induk atau service yang dipanggilnya.</p>
-	 * <p><b>Efek samping:</b> operasi dapat mengubah komponen ZK dan memanggil alur kelas induk. Jalankan pada
-	 * event thread dengan konteks pengguna/session aktif; jangan menyalin query atau validasi domain ke
-	 * renderer/listener ini.</p>
-	 *
-	 * @see TampilStudiMahasiswaHelper
-	 */
-	/**
 	 * Perender baris grid KRS pada tab KRS/KRS SP/Remedial: satu baris {@code MyGrid} = satu
 	 * semester (data string array dari {@code Common.generateSemestersForGrid}, indeks 0=tahun
 	 * ajaran, 1=semester(,tahap lama), 3=tahap). Nested class instance (bukan statis) karena

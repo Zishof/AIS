@@ -799,20 +799,6 @@ public class Pajak extends GeneralValueObject {
 	}
 
 	/**
-	 * Telusuri kode INDUK pengadaan (PR / Permintaan Pengadaan) dari sebuah PO. Kode induk dipakai
-	 * sebagai kode baris Pajak PPh termin (permintaan: samakan kode pajak termin dengan kode PR induk).
-	 *
-	 * <p>PO menyimpan referensi PR sebagai CSV id {@code PermintaanPengadaanMasterAssetDetail} pada
-	 * {@code getPermintaanPengadaanMasterAssets()} (lihat PemesananPengadaanMasterAssetAction.onSave).
-	 * Ambil id pertama yang valid, muat PR-detail, lalu kembalikan
-	 * {@code getPermintaanPengadaanMasterAsset().getKode()}. Bila PO tak punya referensi PR (mis. dibuat
-	 * "tanpa permintaan") kembalikan {@code null} agar pemanggil memakai fallback.</p>
-	 *
-	 * @param session sesi Hibernate yang sedang aktif (dipakai untuk memuat PR-detail)
-	 * @param po      PO induk termin; boleh {@code null}
-	 * @return kode PR induk, atau {@code null} bila tak ada
-	 */
-	/**
 	 * Telusuri kode INDUK level penerimaan/tagihan dari sebuah PO, dengan prioritas:
 	 * (1) Kode Terima Tagihan = {@code SaldoAwalMasterAsset.getKodeTagihan()} (fallback {@code getKode()})
 	 * yang tertaut ke BAST; (2) bila tak ada → Kode BAST = {@code PenerimaanPengadaanMasterAsset.getKode()}.
@@ -859,6 +845,20 @@ public class Pajak extends GeneralValueObject {
 		return null;
 	}
 
+	/**
+	 * Telusuri kode INDUK pengadaan (PR / Permintaan Pengadaan) dari sebuah PO. Kode induk dipakai
+	 * sebagai kode baris Pajak PPh termin (permintaan: samakan kode pajak termin dengan kode PR induk).
+	 *
+	 * <p>PO menyimpan referensi PR sebagai CSV id {@code PermintaanPengadaanMasterAssetDetail} pada
+	 * {@code getPermintaanPengadaanMasterAssets()} (lihat PemesananPengadaanMasterAssetAction.onSave).
+	 * Ambil id pertama yang valid, muat PR-detail, lalu kembalikan
+	 * {@code getPermintaanPengadaanMasterAsset().getKode()}. Bila PO tak punya referensi PR (mis. dibuat
+	 * "tanpa permintaan") kembalikan {@code null} agar pemanggil memakai fallback.</p>
+	 *
+	 * @param session sesi Hibernate yang sedang aktif (dipakai untuk memuat PR-detail)
+	 * @param po      PO induk termin; boleh {@code null}
+	 * @return kode PR induk, atau {@code null} bila tak ada
+	 */
 	private static String cariKodePermintaanInduk(Session session,
 			ais.database.model.asset.PemesananPengadaanMasterAsset po) {
 		if (po == null || session == null) {

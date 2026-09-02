@@ -611,12 +611,6 @@ public class DaftarPengajuanTransfer extends DataSop {
 	}
 
 	/**
-	 * Masukkan reimbursement yang telah DISETUJUI ke daftar DPC (transfer pool).
-	 * Idempoten: hanya membuat satu baris DaftarPengajuanTransfer per dokumen dan
-	 * menautkan balik lewat {@code daftar_pengajuan_transfer}. Klon
-	 * {@link #simpanUangMuka} untuk pola yang identik.
-	 */
-	/**
 	 * Pembayaran hutang supplier TOKO (modul Inventory &amp; Sales). Ditambahkan 2026-08-20 supaya
 	 * pembayaran ke pemasok toko ikut muncul di menu Pembayaran Transfer, sejajar dengan pembayaran
 	 * pengadaan aset yang sudah lebih dulu tertaut. Idempoten seperti simpanXxx lainnya.
@@ -668,6 +662,12 @@ public class DaftarPengajuanTransfer extends DataSop {
 		this.pembayaranHutangSupplier = pembayaranHutangSupplier;
 	}
 
+	/**
+	 * Masukkan reimbursement yang telah DISETUJUI ke daftar DPC (transfer pool).
+	 * Idempoten: hanya membuat satu baris DaftarPengajuanTransfer per dokumen dan
+	 * menautkan balik lewat {@code daftar_pengajuan_transfer}. Klon
+	 * {@link #simpanUangMuka} untuk pola yang identik.
+	 */
 	public static void simpanReimbursement(ReimbursementPegawai reimbursementPegawai) {
 
 		if (reimbursementPegawai != null && reimbursementPegawai.getDaftarPengajuanTransfer() != null) {
