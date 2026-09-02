@@ -114,6 +114,7 @@ import ais.action.master.helper.KrsDetailHelper;
 import ais.action.master.helper.ParameterTambahanAlumniListener;
 import ais.action.master.helper.RevisiHelper;
 import ais.action.master.helper.RevisiMahasiswaHelper;
+import ais.action.master.helper.SemesterMahasiswaAnalisisHelper;
 import ais.action.master.helper.TampilStudiMahasiswaHelper;
 import ais.action.master.helper.impor.ImportFromEpsbedHelper;
 import ais.action.master.helper.util.PerguruanTinggiUtil;
@@ -4707,8 +4708,21 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 				arg0.setValign("top");
 				// TODO Auto-generated method stub
 				final Mahasiswa mahasiswa = (Mahasiswa) arg1;
+				final SemesterMahasiswaAnalisisHelper.RingkasanSemester analisisSemester =
+						SemesterMahasiswaAnalisisHelper.ringkas(mahasiswa);
+				final Integer semester = analisisSemester.getSemesterEfektif();
+				final Integer tahap = (ConstantValues.aktifkanTahapan
+						&& ConstantValues.getJumlahTahapan(mahasiswa.getProgram(), mahasiswa.getJurusan()) > 2)
+								? mahasiswa.currentTahapan(semester)
+								: null;
+				/*
+				 * Renderer wajib read-only. Versi lama memanggil singkronkanKrsMahasiswa() di sini,
+				 * sehingga sekadar membuka daftar dapat membuat kepala KRS pada semester hasil fallback.
+				 */
+				final KrsMahasiswa krsMahasiswa = Common.ambilKrsMahasiswaTanpaSinkronisasi(
+						mahasiswa, semester, tahap, null);
 				final StatusMahasiswa statusMahasiswa = ais.action.master.helper.HistoryStatusMahasiswaUtil
-						.currentStatus(mahasiswa).ambilStatusMahasiswa(mahasiswa.currentSemester());
+						.currentStatus(krsMahasiswa).ambilStatusMahasiswa(semester);
 				if (selectedStatusMahasiswa != null && statusMahasiswa != null
 						&& !statusMahasiswa.getId().equals(selectedStatusMahasiswa.getId())) {
 					arg0.setVisible(false);
@@ -4935,13 +4949,6 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 					ais.common.Common.tampilErrorJikaAdmin(e);
 				}
 
-				Integer semester = mahasiswa.currentSemester();
-				Integer tahap = (ConstantValues.aktifkanTahapan
-						&& ConstantValues.getJumlahTahapan(mahasiswa.getProgram(), mahasiswa.getJurusan()) > 2)
-								? mahasiswa.currentTahapan()
-								: null;
-				KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa, semester, tahap, null);
-
 				new Label(mahasiswa.getKelas().trim().isEmpty() ? (krsMahasiswa == null ? "" : krsMahasiswa.getKelas())
 						: mahasiswa.getKelas()).setParent(arg0);
 
@@ -4959,7 +4966,8 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 								: " / " + mahasiswa.getKonsentrasi().getNama()))
 						.setParent(arg0);
 
-				final Html status = new ais.ui.util.MyHtml("..");
+				final Hbox status = new Hbox();
+				status.setSpacing("0");
 				status.setParent(arg0);
 
 				final Html htmlKrs = new ais.ui.util.MyHtml("");
@@ -5362,19 +5370,25 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 
 						));
 
-				status.setContent(
-						(mahasiswa.getStatusKeluar() == null ? "" : mahasiswa.getStatusKeluar().getNama() + "/")
-								+ (statusMahasiswa == null ? "" : statusMahasiswa.getNama()) + "/"
-								+ (mahasiswa.getKelompokMahasiswa() != null ? mahasiswa.getKelompokMahasiswa().getNama()
-										: (mahasiswa.getStatusAwalMahasiswa() == null ? ""
-												: mahasiswa.getStatusAwalMahasiswa().getNama()))
-								+ ((statusMahasiswa != null
-										&& statusMahasiswa.getNama().equalsIgnoreCase(ConstantValues.LULUS.getNama()))
-												? ""
-												: "/" + mahasiswa.currentSemester() + "/" + mahasiswa.getSemesterMulai()
-														+ ((ConstantValues.aktifkanTahapanTerhubungKeKeuangan
-																&& tahap != null && tahap > 0) ? "/ Thp:" + tahap
-																		: "")));
+				String statusPrefix = (mahasiswa.getStatusKeluar() == null ? ""
+						: mahasiswa.getStatusKeluar().getNama() + "/")
+						+ (statusMahasiswa == null ? "" : statusMahasiswa.getNama()) + "/"
+						+ (mahasiswa.getKelompokMahasiswa() != null ? mahasiswa.getKelompokMahasiswa().getNama()
+								: (mahasiswa.getStatusAwalMahasiswa() == null ? ""
+										: mahasiswa.getStatusAwalMahasiswa().getNama()));
+				new Label(statusPrefix).setParent(status);
+				if (statusMahasiswa == null
+						|| !statusMahasiswa.getNama().equalsIgnoreCase(ConstantValues.LULUS.getNama())) {
+					new Label("/").setParent(status);
+					A linkSemester = new A();
+					ais.ui.util.SemesterMahasiswaAnalisisPopupHelper.pasangLink(
+							linkSemester, mahasiswa, analisisSemester);
+					linkSemester.setParent(status);
+					new Label("/" + mahasiswa.getSemesterMulai()
+							+ ((ConstantValues.aktifkanTahapanTerhubungKeKeuangan
+									&& tahap != null && tahap > 0) ? "/ Thp:" + tahap : ""))
+							.setParent(status);
+				}
 
 				Common.checkDosenPa(krsMahasiswa);
 				Dosen dosen = krsMahasiswa.getDosenPa();
