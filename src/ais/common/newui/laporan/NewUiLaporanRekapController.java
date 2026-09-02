@@ -11,6 +11,14 @@ import org.json.JSONObject;
 
 import ais.common.Common;
 import ais.common.newui.NewUiRouteGuard;
+import org.hibernate.Criteria;
+import org.hibernate.Session;
+import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Restrictions;
+import ais.database.hibernate.HibernateUtil;
+import ais.database.model.Dosen;
+import ais.database.model.Fakultas;
+import ais.database.model.Jurusan;
 import ais.database.model.Tbmuser;
 
 /**
@@ -77,6 +85,7 @@ public final class NewUiLaporanRekapController {
             Tbmuser user = Common.getCurrentUser(request);
             if (user == null) throw new SecurityException("Sesi tidak dikenal.");
             if ("meta".equals(action)) meta(json, jenis);
+            else if ("lookup".equals(action)) lookup(json, request);
             else if ("export".equals(action) || "export_pdf".equals(action)) cetak(json, request, jenis);
             else throw new IllegalArgumentException("Aksi tidak dikenal.");
             json.put("ok", true);
@@ -97,12 +106,18 @@ public final class NewUiLaporanRekapController {
         JSONArray filter = new JSONArray();
         filter.put(deskripsi("tahunAkademik", "Tahun Akademik", "teks", true));
         if (JENIS_ANGKET_DOSEN.equals(jenis)) {
-            filter.put(deskripsi("genapGanjil", "Ganjil/Genap", "teks", false));
+            // Ketiga nilai ini yang diterima template Jasper; sebagai teks
+            // bebas pengguna harus menebak ejaannya persis.
+            filter.put(deskripsi("genapGanjil", "Ganjil/Genap", "pilihan", false)
+                    .put("opsi", new JSONArray().put("Semua").put("Ganjil").put("Genap")));
             filter.put(deskripsi("dosenId", "Dosen", "relasi", false));
             filter.put(deskripsi("fakultasId", "Fakultas", "relasi", false));
             filter.put(deskripsi("jurusanId", "Jurusan", "relasi", false));
             filter.put(deskripsi("program", "Program", "teks", false));
-            filter.put(deskripsi("aktif", "Hanya yang aktif", "boolean", false));
+            // "bendera", bukan "boolean": klien laporan hanya mengenal nama
+            // yang pertama, dan tipe asing jatuh ke kolom teks bebas sehingga
+            // penyaring ini praktis tidak dapat dipakai.
+            filter.put(deskripsi("aktif", "Hanya yang aktif", "bendera", false));
         }
         j.put("filter", filter);
     }
@@ -128,13 +143,13 @@ public final class NewUiLaporanRekapController {
             parameters.put("tahun_akademik", text(r.getParameter("tahunAkademik"), "Semua"));
             Long dosen = id(r, "dosenId");
             parameters.put("dosen", dosen == null ? Long.valueOf(-1L) : dosen);
-            parameters.put("nama_dosen", text(r.getParameter("namaDosen"), ""));
+            parameters.put("nama_dosen", text(r.getParameter("namaDosen"), namaEntitas(Dosen.class, dosen)));
             Long fakultas = id(r, "fakultasId");
             parameters.put("fakultas", fakultas == null ? Long.valueOf(-1L) : fakultas);
-            parameters.put("fakultas_nama", text(r.getParameter("namaFakultas"), ""));
+            parameters.put("fakultas_nama", text(r.getParameter("namaFakultas"), namaEntitas(Fakultas.class, fakultas)));
             Long jurusan = id(r, "jurusanId");
             parameters.put("jurusan", jurusan == null ? Long.valueOf(-1L) : jurusan);
-            parameters.put("jurusan_nama", text(r.getParameter("namaJurusan"), ""));
+            parameters.put("jurusan_nama", text(r.getParameter("namaJurusan"), namaEntitas(Jurusan.class, jurusan)));
             parameters.put("program", text(r.getParameter("program"), "-1"));
             parameters.put("aktif", Boolean.valueOf("true".equalsIgnoreCase(text(r.getParameter("aktif"), "false"))));
         }
@@ -149,6 +164,66 @@ public final class NewUiLaporanRekapController {
     }
 
     // ------------------------------------------------------------------- util
+    // --------------------------------------------------------------- lookup
+    /**
+     * Isi ketiga penyaring relasi. Tanpa aksi ini dropdown Dosen, Fakultas, dan
+     * Jurusan selalu kosong, sehingga layar mengumumkan penyaring yang tidak
+     * pernah dapat dipakai — kontraknya lengkap tetapi layarnya tidak berguna.
+     */
+    private static void lookup(JSONObject j, HttpServletRequest r) throws Exception {
+        String nama = text(r.getParameter("filter"), "");
+        String q = text(r.getParameter("q"), "");
+        Class<?> kelas;
+        if ("dosenId".equals(nama)) kelas = Dosen.class;
+        else if ("fakultasId".equals(nama)) kelas = Fakultas.class;
+        else if ("jurusanId".equals(nama)) kelas = Jurusan.class;
+        else throw new IllegalArgumentException("Filter relasi tidak dikenal.");
+
+        JSONArray arr = new JSONArray();
+        Session s = HibernateUtil.openSession();
+        try {
+            Criteria c = s.createCriteria(kelas).setMaxResults(50);
+            if (q.length() >= 2) c.add(Restrictions.ilike("nama", "%" + q + "%"));
+            c.addOrder(Order.asc("nama"));
+            // Jurusan disaring oleh fakultas yang sudah dipilih; tanpa ini
+            // daftarnya bercampur antar-fakultas dan pengguna memilih jurusan
+            // yang tidak mungkin muncul pada laporannya.
+            Long fakultas = id(r, "fakultasId");
+            if (Jurusan.class.equals(kelas) && fakultas != null) {
+                c.add(Restrictions.eq("fakultas.id", fakultas));
+            }
+            for (Object o : c.list()) {
+                arr.put(new JSONObject().put("id", namaProperti(o, "getId"))
+                        .put("nama", String.valueOf(namaProperti(o, "getNama"))));
+            }
+        } finally { s.close(); }
+        j.put("pilihan", arr).put("total", arr.length());
+    }
+
+    private static Object namaProperti(Object o, String getter) {
+        try { return o.getClass().getMethod(getter, new Class[0]).invoke(o, new Object[0]); }
+        catch (Exception e) { return ""; }
+    }
+
+    /**
+     * Nama tampil untuk header laporan, dicari dari id yang dipilih.
+     *
+     * <p>Template Jasper meminta {@code nama_dosen}, {@code fakultas_nama}, dan
+     * {@code jurusan_nama}, sementara klien hanya memegang id hasil lookup.
+     * Menuntut klien mengirim namanya membuat parameter itu selalu kosong —
+     * jadi server yang mencarinya.</p>
+     */
+    private static String namaEntitas(Class<?> kelas, Long id) {
+        if (id == null) return "";
+        Session s = HibernateUtil.openSession();
+        try {
+            Object o = s.get(kelas, id);
+            return o == null ? "" : String.valueOf(namaProperti(o, "getNama"));
+        } catch (Exception e) {
+            return "";
+        } finally { s.close(); }
+    }
+
     private static Long id(HttpServletRequest r, String nama) {
         String v = r.getParameter(nama);
         if (v == null || v.trim().length() == 0) return null;
