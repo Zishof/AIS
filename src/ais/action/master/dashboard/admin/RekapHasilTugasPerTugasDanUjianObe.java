@@ -679,6 +679,12 @@ public class RekapHasilTugasPerTugasDanUjianObe extends MyWindow {
 					Map<String, String> mapHasilObe = new HashMap<String, String>();
 
 					if (!pertemuanPunyaUjians.isEmpty() && !hasilUjianMahasiswas.isEmpty()) {
+						/*
+						 * Jangan menyaring hanya dengan keyhasil. Sebagian baris warisan/import memiliki
+						 * keyhasil NULL tetapi nilai_obe sudah berisi JSON yang sah. Rekap hanya memakai
+						 * nilaiObe, sehingga baris seperti itu tetap merupakan sumber nilai yang valid.
+						 * Syarat OR mempertahankan baris ujian normal sekaligus memulihkan data OBE lama.
+						 */
 						List<HasilUjianMahasiswa> listHasil = sessionLocal.createCriteria(HasilUjianMahasiswa.class)
 								.add(Restrictions.or(Restrictions.isNotNull("keyhasil"),
 										Restrictions.isNotNull("nilaiObe")))

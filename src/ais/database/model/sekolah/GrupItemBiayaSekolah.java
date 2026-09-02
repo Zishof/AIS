@@ -86,6 +86,7 @@ public class GrupItemBiayaSekolah extends GeneralValueObject {
 				? new HashSet<ItemBiayaSekolah>() : itemBiayaSekolahs;
 	}
 
+	@javax.persistence.Transient
 	public String getLabelTampilan() {
 		return (getKode().isEmpty() ? "" : getKode() + " - ") + getNama();
 	}

@@ -1,5 +1,63 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 22 — SELESAI 100% (3 Sep 2026)
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
+`-implicit:none` bersih, mirror `java/` diverifikasi `cmp` byte-identik, nol
+perubahan logika:
+
+- **`ais/database/model/PengajuanIzinTidakMasukPerkuliahan.java`** (r83442)
+  — 162→586 baris, 100% (22 method + 10 field). **TEMUAN TERBESAR seluruh
+  inisiatif sejauh ini — dieskalasi sebagai `task_b1e610b6` (task BARU,
+  sengaja, bukan perluasan task lain)**: endpoint CRUD reflektif generik
+  `/Data` (`ElearningApiUtil.prosesSimpan`/`simpanData`/`simpanProperty`)
+  TIDAK PUNYA otorisasi per-kelas — hanya 2 kelas master e-Kantin yang
+  dikunci hardcoded, SEMUA kelas lain (termasuk entity finansial/akademik)
+  bebas diubah lewat POST langsung. LEBIH PARAH: flag `tanpaLogin` dibaca
+  dari JSON permintaan KLIEN dan melewati pemeriksaan login sepenuhnya
+  untuk beberapa aksi tulis (`simpanDataRinci`, `simpanBatchDataRinci`,
+  `simpanBatchProduk`, `hapusDataRinci`) yang TIDAK masuk daftar blokir
+  `aksiSqlTulis`. Radius ledakan berpotensi mencakup SEMUA entity yang
+  lewat `DynamicFormGenerator`, bukan cuma 1 file — perlu enumerasi
+  terpisah. Prioritas TERTINGGI untuk audit lanjutan.
+- **`ais/database/model/KelompokMahasiswa.java`** (r83443) — 212→710
+  baris, 100% (52 anggota). "Kelompok kebijakan" — menimpa status awal
+  mahasiswa (3 slot) DAN sumber diskon biaya prioritas pertama. Efek
+  samping besar: menyimpan mahasiswa ke kelompok ini bisa memicu UPDATE
+  SQL massal yang memaksa SELURUH riwayat status mahasiswa jadi AKTIF.
+  Unggah massal UI-only lagi (masuk lingkup `task_1214dd58`, dampak
+  finansial+akademik sekaligus, retroaktif).
+- **`ais/database/model/PesanRuangan.java`** (r83443) — 208→768 baris,
+  100% (46 anggota). Bug double-booking NYATA: predikat `BETWEEN` di
+  `checkPemakaian()` tidak menangkap kasus pemesanan lama yang
+  MEMBUNGKUS pemesanan baru — bisa menimpa slot terisi. Fail-open varian
+  baru: kombo TA/semester kosong → deteksi bentrok jadwal kuliah
+  dimatikan total (`1!=1`). Dua jalur tulis (ZK vs API perpustakaan)
+  dengan aturan validasi berbeda untuk tabel sama — cocok `task_5b47d41b`,
+  direkomendasikan diperluas cakupannya. `toString()` membocorkan
+  userId/nama dosen/tujuan pemesanan orang lain via dialog peringatan
+  bentrok.
+- **`ais/database/model/Berkas.java`** (r83443) — 202→612 baris, 100%
+  (24 method + 13 field). Investigasi IDOR HASIL NEGATIF — bersih, entity
+  ini terpisah total dari `LampiranLain`, tanpa jalur unduh. Ditemukan
+  fitur yatim (tak dikonsumsi modul manapun) dengan layar CRUD-nya sendiri
+  kemungkinan rusak total (NPE saat load + QueryException laten + grid
+  misalignment) — sisa refactor tak lengkap.
+- **`ais/database/model/PaketPerkuliahan.java`** (r83443) — 207→709
+  baris, 100% (45 anggota). CONTOH POSITIF — gerbang `CommonPrivilages`
+  lengkap di layar utama. Bug fungsional: kolom `statusSemesterPendek`
+  dibaca tapi tak pernah ditulis (`setStatusSemesterPendek` nol pemanggil)
+  → fitur paket semester pendek efektif MATI total.
+
+**REKAP status task eskalasi setelah batch 22**: sekarang **7 task
+keamanan aktif** kategori otorisasi (bertambah `task_b1e610b6` — endpoint
+`/Data` generik, radius ledakan terluas & prioritas tertinggi sejauh ini).
+`task_5b47d41b` (penjagaan tak merata antar Action/Helper) kini punya 2
+kandidat perluasan: `PaketPerkuliahanHelper`/`MatakuliahKurikulumHelper`
+dan `PesanRuanganAction`/`LibraryEngagementApi`.
+
+Total akumulasi 22 sesi: **288 file** dari 7.401 (~3,9%).
+
 ## Batch 21 — SELESAI 100% (3 Sep 2026)
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi

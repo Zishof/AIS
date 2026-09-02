@@ -307,7 +307,7 @@ public final class DistribusiPengirimanApiHelper {
 		}catch(Exception e){try{session.connection().rollback();}catch(Exception ignored){ais.common.ErrorAuditUtil.record(ignored,"auto-audit DistribusiPengirimanApiHelper.ubahStatus.rollback");}throw e;}finally{tutup(rs);tutup(ps);HibernateUtil.closeSessionQuietly(session);}
 	}
 
-	private static boolean memengaruhiStok(String jenis){return "penerimaan_transfer_outlet".equals(jenis)||"reverse_logistics".equals(jenis);}
+	static boolean memengaruhiStok(String jenis){return "penerimaan_transfer_outlet".equals(jenis)||"reverse_logistics".equals(jenis);}
 
 	private static boolean validasiKelengkapanStatus(String jenis,String status,String pengangkut,String pelacakan,String penerima,String bukti,String nomorTagihan,BigDecimal nilaiTagihan,JSONObject hasil)throws Exception{
 		if(("IN_PROGRESS".equals(status)||"COMPLETED".equals(status))&&"shipment_tracking".equals(jenis)&&(kosong(pengangkut)||kosong(pelacakan))){tolak(hasil,"Pengangkut dan nomor pelacakan wajib diisi sebelum shipment dijalankan.");return false;}
@@ -352,5 +352,5 @@ public final class DistribusiPengirimanApiHelper {
 		}finally{tutup(mutasiRs);tutup(cekRs);tutup(rs);tutup(jejak);tutup(mutasi);tutup(cek);tutup(lines);}
 	}
 
-	private static boolean transisiBoleh(String a,String b){if(a==null||b==null||a.equals(b))return false;if("DRAFT".equals(a))return "SUBMITTED".equals(b)||"CANCELLED".equals(b);if("SUBMITTED".equals(a))return "APPROVED".equals(b)||"REJECTED".equals(b)||"CANCELLED".equals(b);if("APPROVED".equals(a))return "IN_PROGRESS".equals(b)||"COMPLETED".equals(b)||"CANCELLED".equals(b);if("IN_PROGRESS".equals(a))return "COMPLETED".equals(b)||"CANCELLED".equals(b);if("REJECTED".equals(a))return "DRAFT".equals(b);if("COMPLETED".equals(a))return "REVERSED".equals(b);return false;}
+	static boolean transisiBoleh(String a,String b){if(a==null||b==null||a.equals(b))return false;if("DRAFT".equals(a))return "SUBMITTED".equals(b)||"CANCELLED".equals(b);if("SUBMITTED".equals(a))return "APPROVED".equals(b)||"REJECTED".equals(b)||"CANCELLED".equals(b);if("APPROVED".equals(a))return "IN_PROGRESS".equals(b)||"COMPLETED".equals(b)||"CANCELLED".equals(b);if("IN_PROGRESS".equals(a))return "COMPLETED".equals(b)||"CANCELLED".equals(b);if("REJECTED".equals(a))return "DRAFT".equals(b);if("COMPLETED".equals(a))return "REVERSED".equals(b);return false;}
 }
