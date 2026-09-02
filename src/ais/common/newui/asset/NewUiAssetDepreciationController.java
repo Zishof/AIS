@@ -41,7 +41,7 @@ public final class NewUiAssetDepreciationController {
             else if("job".equals(a))job(j);
             else if("sync".equals(a)){csrf(q);start(s,requiredDate(q.getParameter("targetDate")));job(j);}
             else throw new IllegalArgumentException("Aksi tidak dikenal.");
-            j.put("ok",true);
+            j.put("csrfHeader",ais.common.newui.NewUiCsrfUtil.LEGACY_HEADER).put("csrfToken",ais.common.newui.NewUiCsrfUtil.getTokenOkFlat(q));j.put("ok",true);
         }catch(SecurityException e){r.setStatus(403);fail(j,"FORBIDDEN",e.getMessage());}
         catch(IllegalArgumentException e){r.setStatus(422);fail(j,"VALIDATION_FAILED",e.getMessage());}
         catch(Exception e){r.setStatus(500);fail(j,"INTERNAL_ERROR","Gagal memproses penyusutan aset.");try{ais.common.ErrorAuditUtil.record(e,"NewUiAssetDepreciationController");}catch(Exception ignored){}}

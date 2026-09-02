@@ -42,7 +42,7 @@ public final class NewUiInstallmentPaymentController {
             else if("options".equals(action)){options(j,s.options());j.put("canReverse",!scope.restricted&&canReverse(user)).put("selfScoped",scope.restricted);}
             else if("history".equals(action))history(j,s.history(requiredId(q.getParameter("id")),scope.studentId,scope.candidateId));
             else if("reverse".equals(action)){csrf(q);if(scope.restricted||!canReverse(user))throw new SecurityException("Reversal hanya tersedia untuk administrator yang dikonfigurasi.");s.reverse(requiredId(q.getParameter("id")),null,null);}
-            else throw new IllegalArgumentException("Aksi tidak dikenal.");j.put("ok",true);
+            else throw new IllegalArgumentException("Aksi tidak dikenal.");j.put("csrfHeader",ais.common.newui.NewUiCsrfUtil.LEGACY_HEADER).put("csrfToken",ais.common.newui.NewUiCsrfUtil.getTokenOkFlat(q));j.put("ok",true);
         }catch(SecurityException e){r.setStatus(403);fail(j,"FORBIDDEN",e.getMessage());}
         catch(IllegalArgumentException e){r.setStatus(422);fail(j,"VALIDATION_FAILED",e.getMessage());}
         catch(Exception e){r.setStatus(500);fail(j,"INTERNAL_ERROR","Gagal memproses cicilan pembayaran.");try{ais.common.ErrorAuditUtil.record(e,"NewUiInstallmentPaymentController");}catch(Exception ignored){}}

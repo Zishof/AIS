@@ -44,7 +44,7 @@ public final class NewUiPenggunaanAnggaranController {
             } else if("reprocess_status".equals(action)){
                 Job job=JOBS.get(req.getParameter("jobId"));if(job==null||!req.getSession().getId().equals(job.owner))throw new IllegalArgumentException("Pekerjaan proses ulang tidak ditemukan atau sudah kedaluwarsa.");encodeJob(json,job);
             } else throw new IllegalArgumentException("Aksi tidak dikenal.");
-            json.put("ok",true);
+            json.put("csrfHeader",ais.common.newui.NewUiCsrfUtil.LEGACY_HEADER).put("csrfToken",ais.common.newui.NewUiCsrfUtil.getTokenOkFlat(req));json.put("ok",true);
         }catch(SecurityException e){resp.setStatus(403);fail(json,"CSRF_INVALID",e.getMessage());}
         catch(IllegalArgumentException e){resp.setStatus(422);fail(json,"VALIDATION_FAILED",e.getMessage());}
         catch(Exception e){resp.setStatus(500);fail(json,"INTERNAL_ERROR","Gagal memproses penggunaan anggaran.");try{ais.common.ErrorAuditUtil.record(e,"NewUiPenggunaanAnggaranController");}catch(Exception ignored){}}

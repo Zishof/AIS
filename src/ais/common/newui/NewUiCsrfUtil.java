@@ -20,6 +20,10 @@ public final class NewUiCsrfUtil {
     public static final String PARAM = "nui_csrf";
     public static final String HEADER = "X-NUI-CSRF";
 
+    /** Namespace CSRF keluarga controller beramplop {@code ok}. */
+    public static final String LEGACY_SESSION_KEY = "newUiCsrfToken";
+    public static final String LEGACY_HEADER = "X-CSRF-Token";
+
     private NewUiCsrfUtil() {
     }
 
@@ -35,6 +39,36 @@ public final class NewUiCsrfUtil {
         String token = UUID.randomUUID().toString().replace("-", "");
         session.setAttribute(SESSION_KEY, token);
         return token;
+    }
+
+    /**
+     * Terbitkan token untuk keluarga controller beramplop {@code ok}.
+     *
+     * <p>Keluarga itu memvalidasi CSRF dengan atribut sesi
+     * {@code newUiCsrfToken} dan header {@code X-CSRF-Token} — namespace yang
+     * terpisah dari {@link #SESSION_KEY}/{@link #HEADER} di kelas ini. Yang
+     * memvalidasinya ada enam belas controller, sedangkan yang menerbitkannya
+     * semula hanya lima; sisanya hanya berfungsi bila pengguna kebetulan
+     * membuka salah satu dari lima layar itu lebih dulu pada sesi yang sama.
+     * Ketergantungan antarlayar itu tidak pernah dinyatakan, dan tidak berlaku
+     * sama sekali pada klien native yang membuka menunya langsung.</p>
+     *
+     * <p>Nilainya diambil dari token sesi yang sama supaya kedua namespace
+     * tidak berbeda isi, lalu dipasang sekali (get-or-set) agar pemanggilan
+     * berikutnya tidak menggeser token yang sedang dipakai klien.</p>
+     */
+    public static String getTokenOkFlat(HttpServletRequest request) {
+        if (request == null) {
+            return "";
+        }
+        HttpSession session = request.getSession(true);
+        String token = getToken(session);
+        Object ada = session.getAttribute(LEGACY_SESSION_KEY);
+        if (ada == null || String.valueOf(ada).length() == 0) {
+            session.setAttribute(LEGACY_SESSION_KEY, token);
+            return token;
+        }
+        return String.valueOf(ada);
     }
 
     /** true bila token pada request cocok dengan token session. */
