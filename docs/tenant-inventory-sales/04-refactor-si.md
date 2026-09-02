@@ -1731,6 +1731,39 @@ SQL yang benar-benar dikeluarkan Java dijalankan berurutan ke basis data v1–v1
 | buku kas | **−100.000** |
 | **penjaga** — kategori diganti nama | biaya ikut berubah, bukan beku |
 
+## `tripPurchaseLink` — Trip 18 dari 19
+
+Pembelian dalam perjalanan kini dapat dicatat. Bagian yang dibayar dari kas yang dipegang sales
+ikut membukukan satu baris `PURCHASE_PAYMENT` bertanda negatif — itu sebabnya aksi ini menunggu
+**dua** bundel: v12 untuk buku kasnya dan v16 untuk dokumen pembeliannya.
+
+Kaitan faktur pengadaan dan pemasok divalidasi bila disebut, dan dibiarkan kosong bila tidak —
+mengikuti legacy.
+
+### Verifikasi
+
+SQL yang benar-benar dikeluarkan Java dijalankan berurutan ke basis data v1–v16: faktur 500.000
+dengan 200.000 dibayar dari kas.
+
+| | hasil |
+|---|---|
+| daftar pembelian | supplier terisi, total 500.000, dibayar 200.000, **sisa 300.000 (turunan)** |
+| saldo kas trip | **−200.000** |
+| **penjaga** — `dibayar_trip` dinaikkan ke 500.000 | sisa hutang turun sendiri ke **0** |
+
+Penjaga itu semula **lulus tanpa membuktikan apa pun**: ia menargetkan `id = 1` sementara id
+serialnya sudah bergeser, sehingga `UPDATE` mengenai nol baris dan angkanya tampak konsisten
+karena memang tidak berubah. Sekarang ia menargetkan barisnya lewat kunci idempotensi, dan
+`UPDATE 1` membuktikan ia benar-benar menyentuh datanya.
+
+### Sisa Trip: satu aksi
+
+`tripDetail` sengaja tidak dikerjakan pada batch ini. Ia bukan lagi terhalang — seluruh bagiannya
+kini ada — tetapi ia aksi baca terbesar pada helper ini: header, blok SPJ berikut barangnya, tiga
+larik (biaya, pembelian, kas), dan lima belas medan rumus. Menggabungkannya ke batch ini berarti
+banyak kode dengan verifikasi tipis, dan pencocokan jumlah kolom adalah justru tempat kesalahan
+paling sering terjadi pada pemindahan ini.
+
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
 **Sebelas helper, 7.512 baris, belum satu pun kuerinya dipindah ke schema tenant.**

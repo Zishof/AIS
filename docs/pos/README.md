@@ -158,6 +158,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [88-kanal-zul-tanpa-gerbang.md](88-kanal-zul-tanpa-gerbang.md) | 1.557 berkas ZUL tak pernah diperiksa; 15 rujukan kelas menggantung, dua diperbaiki, delapan halaman mati masih dirujuk |
 | [89-butir-menu-yang-tujuannya-hilang.md](89-butir-menu-yang-tujuannya-hilang.md) | 39 butir menu menunjuk halaman/kelas yang tak ada, dan snapshot-nya memulihkannya tiap startup |
 | [90-include-runtime-dan-lima-cacat-alat.md](90-include-runtime-dan-lima-cacat-alat.md) | 8.790 include runtime diperiksa, satu tujuan hilang; dua dari tiga temuan pertama ternyata cacat alatnya |
+| [91-templat-laporan-dan-pohon-web.md](91-templat-laporan-dan-pohon-web.md) | Subreport sehat; "sumber transkrip hilang" ternyata ada di pohon ^/web; empat templat benar-benar tanpa sumber |
 | [ATURAN-NATIVE-SQL-CAST.md](ATURAN-NATIVE-SQL-CAST.md) | Aturan wajib cast pada native SQL |
 | [BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md](BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md) | Pengamanan Pembayaran Kedaluwarsa Bankaltimtara |
 | [PERBAIKAN_ERROR_2026-08-24_1936.md](PERBAIKAN_ERROR_2026-08-24_1936.md) | Perbaikan Error POS/eBisnis 24 Agustus 2026 19:36 |

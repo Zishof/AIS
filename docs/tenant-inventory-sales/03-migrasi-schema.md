@@ -613,6 +613,43 @@ konsistensi lapisan: lapisan tenant menyatakan dirinya 9.3-aman, dan kode saya m
 Katalog v1–v15 dijalankan utuh, bersih. Self-test LULUS — 17 migrasi, versi `v15-kategori-biaya`,
 checksum `f41013db03ed`. Sembilan kategori tersemai; penyemaian ulang tetap sembilan.
 
+## Bundel v16 — pembelian yang dilakukan sales dalam perjalanan
+
+Satu tabel: `sales_trip_pembelian`. Penghalang katalog **terakhir** pada helper Trip.
+
+Sales yang berkeliling kadang menebus faktur pemasok di jalan, membayar sebagiannya dari kas yang
+dipegang, dan memutuskan barangnya masuk ke mobil atau ke gudang. Tanpa tabel ini dua hal ikut
+hilang: pembayaran pemasok dari kas trip tidak punya dokumen pendamping, dan rekap penutupan tidak
+dapat menyatakan berapa yang dibayarkan — angka yang selama ini terpaksa dinyatakan **nol menurut
+definisi** pada `tripClose`.
+
+### `sisaHutang` tidak dibuatkan kolom
+
+Entitas legacy menyimpannya di samping `totalFaktur` dan `dibayarSesi`. Nilainya persis
+`totalFaktur − dibayarSesi` — aritmetika dua kolom pada baris yang sama.
+
+Kolom semacam itu tidak menambah apa pun kecuali kesempatan berselisih: satu pembaruan yang lupa
+menyentuhnya sudah cukup membuat sisa hutang berbohong sementara kedua angka penyusunnya benar.
+Diturunkan saat dibaca, dan jalan SQL membuktikannya — `dibayar_trip` dinaikkan dari 200.000 ke
+500.000, sisa hutang turun sendiri dari 300.000 ke nol.
+
+### Dua kaitan yang boleh kosong
+
+`pembelian_id` dan `supplier_id` keduanya nullable, mengikuti legacy. Sales di lapangan tidak
+selalu tahu nomor faktur pengadaan saat mencatat, dan memaksanya akan menunda pencatatan sampai
+kembali ke kantor — persis yang hendak dihindari fitur ini.
+
+### Tabel ini tidak menyentuh persediaan
+
+`tujuan_stok` hanyalah keterangan niat (`MOBIL_SALES` atau `GUDANG`); barangnya baru benar-benar
+masuk lewat jalur penerimaan tersendiri. Legacy pun begitu. Menjadikannya pemicu mutasi stok akan
+membukukan barang dua kali.
+
+### Diverifikasi pada PostgreSQL 16
+
+Katalog v1–v16 bersih. Self-test LULUS — 18 migrasi, versi `v16-pembelian-trip`, checksum
+`e20510aa87a1`.
+
 ## Yang BELUM dikerjakan
 
 - **Belum ada satu pun kueri yang memakai tabel ini.** Menyambungkan `si_*` ke schema
