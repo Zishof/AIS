@@ -1,5 +1,303 @@
 # Progres Javadoc Menyeluruh
 
+## `ais/database/model/BukuBahanAjar.java` — SELESAI 100% (2 Sep 2026)
+
+Entity **buku/diktat/bahan ajar karya dosen** (tabel `public.buku_bahan_ajar`,
+`@Audited`, `dynamicInsert/dynamicUpdate`, turunan langsung
+`GeneralValueObject`). **60 method + konstruktor + 26 field**
+terdokumentasi (100%), 389 → 1161 baris. Revisi **r83342**, mirror
+`java/` verifikasi `cmp` identik. Hanya Javadoc/komentar; nol perubahan
+logika (dibuktikan dengan membandingkan sumber tanpa komentar/spasi
+terhadap HEAD r73618 — identik persis).
+
+**Struktur:** kepengarangan datar **5 slot dosen** (`dosenPengarang1` =
+ketua/penulis utama, 2–5 = anggota) + **3 slot nama penulis luar** berupa
+teks bebas (`pengarang1..3`) + `editorDanKontributor` (teks). Dua
+klasifikasi lookup: `TahapanPenyusunanBuku` dan `JenisPeredaranBuku` —
+**keduanya wajib tidak null** agar buku ikut dinilai BKD. Nol koleksi:
+semua relasi ditarik dari sisi anak (`MatakuliahPunyaBukuBahanAjar`,
+`MatapelajaranPunyaBukuBahanAjar`, `DataPunyaBukuBahanAjar`,
+`FileBukuBahanAjar`, `AsesemenPenilaian`, `DspaceInformation`).
+Perhatikan `FileBukuBahanAjar` menautkan lewat kolom `Long bukuBahanAjar`
+berisi id mentah, **bukan** relasi Hibernate — hapus buku tidak
+meng-cascade ke berkasnya.
+
+**Delapan pintu masuk** terverifikasi: menu "Buku Bahan Ajar"
+(`BukuBahanAjarAction`), menu "Cari Buku Ajar"
+(`BacaBukuBahanAjarAction`), BKD bidang Pendidikan komponen "Penulis
+Buku" (`AsesementAction` + `BkdPenulisHelper`), profil/biodata dosen
+(`?dosen=<id>`), matakuliah & matapelajaran sekolah, berkas lampiran,
+ekspor DSpace tipe `Book` + sitasi CSL, dan `DataPunyaBukuBahanAjar`.
+
+**Hubungan dengan `PenghargaanDosen` (r83317):** mirip bentuk, **beda
+konsep**. `PenghargaanDosen` = karya ber-HKI/paten, menu "Karya Dosen",
+sumber SAPTO `LaporanKaryaDosen_A_7_1_5`, kepemilikan satu dosen.
+`BukuBahanAjar` = penerbitan buku/diktat dengan 5 penulis berperingkat,
+siklus penyusunan + jangkauan peredaran sendiri, dipakai ganda sebagai
+materi ajar matakuliah. Kesamaan struktural nyata: keduanya menempel ke
+pipeline BKD (`AsesemenPenilaian`/`PenilaianAsesor`) dan bisa diekspor
+ke DSpace. `serialVersionUID` keduanya sama persis
+(`2463821577548439808L`) karena tersalin dari template hbm2java — bukan
+penanda kekerabatan.
+
+**Verifikasi pola berulang (3 kategori getter tidak-murni):**
+
+1. **Resolusi proxy lazy via `check()`** — kelima `getDosenPengarangN()`
+   menjalankan `dosenPengarangN = check(dosenPengarangN)`. Pola standar;
+   bisa membuka+menutup Session baru diam-diam dari dalam `check()`.
+2. **Getter yang MENULIS BALIK dan ikut ter-UPDATE ke DB** —
+   `getSemester()`, `getTahunAkademik()`, `getPengarangAdalahDosen()`.
+   Ketiganya kolom terpetakan + property access ⇒ dirty-check menulisnya
+   ke database pada flush, dan Envers mencatat revisi baru, **tanpa ada
+   yang menyunting buku**. Sekadar menampilkan daftar buku / ekspor
+   DSpace / pengisian BKD massal sudah cukup memicunya.
+3. **Default sementara TANPA tulis balik** — `getTahun()`,
+   `getTanggal()`, `getMasaPenugasan()`, `getPengarang1..3()`,
+   `getAbstrak()`, `getLink()`, `getEditorDanKontributor()`,
+   `getNama()`.
+
+**Tidak ada** getter penghapus data di file ini (berbeda dari
+`JadwalUjianPMB.getRuanganYgIkut()`), dan **tidak ada** method yang
+membuka/menutup Session sendiri — penutupan session hanya terjadi di
+dalam `check()`.
+
+**Kuirk/bug yang dicatat (tidak diperbaiki):**
+- `getSemester()`/`getTahunAkademik()` bergantung pada kalender
+  **pengguna yang sedang login** (`Common.getCurrentUser()`), dan bila
+  `tanggal` juga null acuannya jadi **hari pembacaan**. Dua pengguna
+  berbeda yang membuka baris lama yang sama bisa menuliskan nilai
+  berbeda, permanen (tidak pernah dihitung ulang).
+- `getPengarangAdalahDosen()` **searah**: memaksa `true` selama field
+  `dosenPengarang1` terisi, jadi `setPengarangAdalahDosen(false)` selalu
+  ditimpa; mengosongkan slot dosen kemudian hari tidak mengembalikannya
+  ke `false`.
+- `toString()` membaca **field** `nama` mentah — bisa `null`, tidak
+  di-`trim()`, berbeda hasil dari `getNama()`. Muncul di bilah progres
+  BKD sebagai teks `"null"`.
+- `getKeterangan()` di sini mengembalikan `null`, sedangkan versi induk
+  `GeneralValueObject.getKeterangan()` menjamin tidak pernah `null` —
+  jebakan saat kode berpindah dari tipe induk ke tipe konkret.
+- `getTahapanPenyusunanBuku()`/`getJenisPeredaranBuku()` dianotasi
+  `@Fetch(FetchMode.SELECT)` **tanpa** `fetch = LAZY` dan **tanpa**
+  `check()` ⇒ eager, satu SELECT tambahan per baris (N+1) di layar
+  daftar.
+- Batas keras 5 slot dosen merembet: `Dosen.reInitBukuBahanAjar`,
+  `BukuBahanAjarAction.initCriteria`, `BacaBukuBahanAjarAction` semuanya
+  menyusun 5 `Restrictions.or(...)` bertingkat.
+- `setNama()` tidak `trim()` dan tidak memvalidasi panjang padahal
+  kolomnya `NOT NULL length 255`.
+- `populateDosen()`/`populateDosenAnggota()` memakai kunci Map
+  `"<idBuku>-<idDosen>"`; untuk buku yang belum tersimpan kuncinya jadi
+  `"null-<idDosen>"` sehingga dua buku baru bertabrakan bila Map-nya
+  digabung.
+
+**TEMUAN KEAMANAN (instance KETIGA pola broken access control):**
+`ais/action/master/BukuBahanAjarAction.java` baris 419–426 membaca
+`execution.getParameter("dosen")` lalu `Restrictions.idEq(...)` **tanpa
+cek kepemilikan sama sekali** — persis pola `PenghargaanDosenAction`
+(`task_c27d18e4`) dan beasiswa (`task_51f767ec`). `setDisabled(true)`
+pada kotak pencarian hanya menyembunyikan kontrol di UI, bukan
+otorisasi. Dampak lebih ringan dari dua kasus sebelumnya (data buku
+umumnya publik), tapi mengonfirmasi pola sistemik. Bonus: baris 432
+`System.out.println("dosen => " + ...)` membocorkan parameter ke log.
+Masuk cakupan audit `task_c27d18e4` ("audit pola serupa di action
+lain") — tidak dibuatkan task baru.
+
+## `ais/database/model/MahasiswaDapatKelompokPkl.java` — SELESAI 100% (2 Sep 2026)
+
+Entity **keanggotaan mahasiswa dalam kelompok PKL** (tabel
+`public.mahasiswa_dapat_kelompok_kelompok_pkl` — kata `kelompok` memang
+tertulis DUA KALI, bukan salah ketik), `@Audited`, `dynamicInsert/
+dynamicUpdate`, turunan langsung `GeneralValueObject`, implementasi
+`VOPesertaPembelajaran`. **42 method + konstruktor** terdokumentasi (100%),
+534 → 1378 baris. Revisi **r83345**, mirror `java/` verifikasi `cmp`
+identik. Hanya Javadoc/komentar; nol perubahan logika (dibuktikan dengan
+membandingkan sumber tanpa komentar/spasi terhadap r76904 — identik persis).
+
+**Alur:** hilir modul PKL — `Pkl` (program) → `KelompokPkl` (tempat magang +
+pembimbing) → **kelas ini** (anggota). TIDAK ada FK langsung ke `pkl`; kode
+selalu dua hop lewat `createAlias("kelompokPkl",…)` +
+`Restrictions.eq("kelompokPkl.pkl", pkl)`. Mahasiswa memilih kelompok di
+`PklUntukMahasiswaAction` (baris dibuat, `diterima` belum true) → panitia
+menyetujui lewat checkbox di `KelompokPklHelper` (DUA ARAH, bisa dicabut) →
+penilaian di `PenilaianPklHelper` → nilai disalin ke `Detailperkuliahan`
+matakuliah PKL agar masuk KHS/IPK → sertifikat + ekspor Feeder.
+
+**Format `detailNilai`** (kolom `text`, dipakai juga oleh `Detailperkuliahan`,
+`Skripsi`, `MahasiswaDapatKelompokKkn`): ruas dipisah `;`, tiap ruas lima
+medan `idKomponen,nilai,0,bobot,verifikasi`. Medan 3 selalu literal `0` dan
+tidak pernah dibaca. Medan 4 adalah **bobot** komponen (disalin saat tulis),
+walau variabel penampungnya di `hitungTotalNilai` bernama `persen`. Bobot
+tidak wajib berjumlah 100 — `hitungTotalNilai` menormalkan sendiri.
+
+**Temuan / cacat (dicatat, TIDAK diperbaiki):**
+- `reloadPklPunyaKomponenPenilaianPkl(Session)` menyaring properti `parent`,
+  `persen`, `statusPertemuan` yang **tidak ada** pada
+  `PklPunyaKomponenPenilaianPkl` → `QueryException` bila dijalankan. **Nol
+  pemanggil** di seluruh pohon sumber = kode mati. Cacat **identik** ada di
+  `MahasiswaDapatKelompokKkn.reloadKknPunyaKomponenPenilaianKkn` — pola
+  salin-tempel lintas 2 modul, sama seperti bug syarat SKS/IPK Pkl/Kkn.
+- `bersihkanNilaiKeDefault(List)` memanggil `Long.parseLong` **tanpa**
+  try/catch (berbeda dari method sejenis di kelas yang sama) — satu ruas
+  rusak menggagalkan seluruh alur penilaian.
+- `getLulus()` memaksa `lulus=false` bila `nilaiHuruf` null, **menimpa**
+  nilai yang sudah diset eksplisit lewat `setLulus`.
+- `hitungTotalNilai` menampung ruas dalam `Map` berkunci id (ruas ganda
+  menang-yang-terakhir) TAPI bobotnya sudah terlanjur dijumlahkan ke pembagi
+  → rincian dengan ruas ganda menghasilkan nilai lebih rendah dari semestinya.
+- **Tidak ada unique constraint** pada (`mahasiswa`, `kelompok_pkl`); semua
+  pemanggil melindungi diri manual dengan `setMaxResults(1)`/hitung-dulu.
+
+**Verifikasi pola berulang:** getter yang menulis balik ke field ADA
+(`getKelompokPkl`/`getMahasiswa` via `check()` — tidak mengubah data;
+`getLulus` mengoreksi `lulus` dari master NilaiHuruf; `getNamaDosen`
+**menimpa kolom terpetakan** `namaDosen` tiap kali dibaca; `toString()`).
+Getter yang **menutup session Hibernate: TIDAK ADA**. Getter **penghapus
+data: TIDAK ADA** (beda dari `JadwalUjianPMB.getRuanganYgIkut`).
+`refreshNilaiKeDefault`/`bersihkanNilaiKeDefault` memakai
+`HibernateUtil.currentSession()` dan sengaja tidak menutupnya; keduanya
+membaca field `kelompokPkl` LANGSUNG (bukan getter) → NPE bila belum terisi.
+Flag `diterima`: **dua arah** (bukan satu arah); blok lama yang meng-auto-
+approve kelompok non-pilihan-mahasiswa sudah dinonaktifkan (tinggal komentar).
+
+**Perbandingan dengan `MahasiswaDapatKelompokKkn`** (567 baris, dikerjakan
+sesi paralel): struktur **sama persis** — field, urutan method, format
+`detailNilai`, bahkan cacat `reload*` yang sama. Beda hanya penamaan
+(`kelompokKkn`/`KknPunyaKomponenPenilaianKkn`) dan nama tabel. Kembaran
+ketiga: `SiswaDapatKelompokPkl` (jalur sekolah).
+
+**Catatan lingkungan:** saat kompilasi verifikasi, `ais/common/OnlineBmtUtil.java`
+(r83339, sesi paralel, 2 Sep 22:08) **gagal kompilasi** — 3 × `unreported
+exception JSONException` di baris 76-78. Bukan akibat pekerjaan ini:
+`Pkl.java` yang tidak disentuh mereproduksi galat identik. HEAD sedang rusak.
+
+## `ais/database/model/GrupPertemuan.java` — SELESAI 100% (2 Sep 2026)
+
+Entity **sesi konsultasi terjadwal** (tabel `public.grup_pertemuan`, `@Audited`,
+`dynamicInsert/dynamicUpdate`). **62 method + konstruktor + 4 konstanta + 26
+field** terdokumentasi (100%), 395 → 1102 baris. Revisi **r83344**, mirror
+`java/` verifikasi `cmp` identik. Hanya Javadoc/komentar; nol perubahan logika
+(dibuktikan dengan membandingkan sumber tanpa komentar/spasi terhadap HEAD —
+identik persis).
+
+**Koreksi hierarki:** bukan turunan langsung `GeneralValueObject`, melainkan
+`GrupPertemuan` → `VOPembelajaran` → `VoKunci` → `sop.DataSop` →
+`GeneralValueObject`.
+
+**Struktur relasi (mengejutkan, diverifikasi dari kode):** meski namanya "grup
+pertemuan", entity ini **BUKAN koleksi `Pertemuan`** dan **tidak punya satu pun
+field koleksi**. Yang dikelompokkan adalah *peserta*, lewat entity penghubung
+`PertemuanPunyaGrupPertemuan` yang menautkan `grupPertemuan` + `mahasiswa` +
+`pertemuan`. Arah relasi **terbalik**: `Pertemuan.getPertemuanPunyaGrupPertemuan()`
+menunjuk ke penghubung, bukan ke `GrupPertemuan`. Satu sesi dengan 20 peserta
+menghasilkan **20 baris `Pertemuan` terpisah**, masing-masing menempel pada
+`KrsMahasiswa`/`MahasiswaRequestTugasAkhir`/`Skripsi` milik mahasiswa itu
+sendiri; `GrupPertemuan` hanya mengikatnya secara logis (nomor pertemuan, jam,
+ruang, catatan, presensi, file/audio/video).
+
+**Empat jenis konsultasi** (konstanta `jenis`, menentukan populasi calon
+peserta di `GrupPertemuanAction#loadMahasiswa`/`#saveDetail`): `KRS_MAHASISWA`
+(dosen PA → `Mahasiswa.dosen`, pertemuan digantung ke `KrsMahasiswa`),
+`BIMBINGAN` (`MahasiswaRequestTugasAkhir.dosen1..dosen5`), `SIDANG`
+(`Skripsi` pembimbing/ketua sidang/penguji1..4), `LAINNYA` (semua mahasiswa
+aktif).
+
+**Kuirk arsitektural utama — mesin pertemuan warisan yang inert:** dari
+`VOPembelajaran`, class ini mewarisi seluruh mesin pertemuan
+(`ambilPertemuan()`, `populatePertemuan()`, `reInitPertemuan/Tugas/Ujian`),
+tetapi **semuanya mati**: rantai `instanceof` di `VOPembelajaran` hanya
+mengenali 14 subtipe dan **tidak ada cabang `GrupPertemuan`** — kueri jatuh ke
+`Restrictions.sqlRestriction("false")` dan selalu kosong. Yang terdaftar sebagai
+subtipe sah justru `PertemuanPunyaGrupPertemuan`. Penelusuran seluruh pohon
+sumber tidak menemukan satu pun pemanggilan mesin itu atas instance
+`GrupPertemuan`, jadi tidak ada kerusakan nyata — tapi jangan diandalkan.
+
+**Verifikasi pola berulang (getter tidak murni):** `getFakultas()` menimpa field
+`jurusan` **dan** `fakultas` (sehingga `setFakultas()` efektif diabaikan setiap
+kali jurusan terisi); `getTahunAkademik()`, `getJenisSemester()`, dan
+`getTahun()` menulis balik ke field; `getDikunci()`/`getJurusan()`/`getRuang()`/
+`getDosen()`/`getJenisLayananKepadaMahasiswa()` menugaskan hasil `check()`
+kembali ke field. **Tidak ada** getter di file ini yang membuka/menutup
+`Session` Hibernate sendiri, dan **tidak ada** getter penghapus data.
+
+**Kuirk lain yang dicatat (tidak diperbaiki):**
+- `getPertemuanKe()` default `0` padahal field diinisialisasi `1` — beda hanya
+  terlihat pada baris migrasi lama yang kolomnya `NULL`.
+- `getTahun()` membaca **field** `tahunAkademik` langsung (bukan getter-nya),
+  jadi hasilnya bergantung urutan pemanggilan: tanpa `getTahunAkademik()` lebih
+  dulu, hasilnya `null` walau tahun akademik punya default berjalan.
+- `getJenis()` tanpa default meski kolomnya `NOT NULL`; beberapa pemanggil di
+  `GrupPertemuanAction` dan `AmbilDataMahasiswaForGrupPertemuanDosenPaHelper`
+  memanggil `getJenis().equals(...)` tanpa cek null.
+- `getTahunAngkatan()` menghasilkan default dinamis "6 tahun terakhir" yang
+  tidak ditulis balik — daftar bergeser sendiri tiap pergantian tahun.
+- `dosenPengganti` disimpan sebagai `Long` telanjang, **bukan** relasi
+  `@ManyToOne` seperti `dosen` — tanpa jaminan integritas referensial; pemanggil
+  memuat manual dengan `Restrictions.idEq(...)`.
+
+**Temuan build (di luar cakupan, tidak disentuh):** `ais/common/OnlineBmtUtil.java`
+baris 76-78 **gagal kompilasi** — `JSONObject.put(String, Object)` melempar
+checked `JSONException` pada versi org.json di classpath, tapi tidak
+ditangkap/dideklarasikan. File itu tidak dimodifikasi lokal (sudah tercommit
+sesi lain) dan tidak berkaitan dengan `GrupPertemuan`; ia hanya ikut tertarik
+lewat `-sourcepath`. `GrupPertemuan.class` sendiri tetap terbentuk.
+
+## `ais/database/model/MahasiswaDapatKelompokKkn.java` — SELESAI 100% (2 Sep 2026)
+
+Entity **keanggotaan mahasiswa pada satu kelompok KKN** sekaligus kartu
+nilainya (tabel `public.mahasiswa_dapat_kelompok_kelompok_kkn` — kata
+"kelompok" memang dobel, jangan "dirapikan"; `@Audited`,
+`dynamicInsert/dynamicUpdate`, turunan `GeneralValueObject`,
+pengimplementasi `VOPesertaPembelajaran`). **46 method + konstruktor +
+seluruh field** terdokumentasi (100%), 567 → 1297 baris. Revisi
+**r83343**, mirror `java/` verifikasi `cmp` identik byte. Hanya
+Javadoc/komentar; sumber tanpa komentar/spasi identik persis dengan HEAD
+sebelum commit (r77693).
+
+**Alur:** lapis ketiga modul KKN — `Kkn` (gelaran) → `MahasiswaDaftarKkn`
+(seleksi, harus `DITERIMA`) → `KelompokKkn` → **entity ini** → penilaian
+→ konversi ke `Detailperkuliahan` (KRS/IPK) → `Sertifikat`. **Tidak ada
+FK langsung ke `kkn`**: gelaran hanya dicapai dua hop lewat
+`kelompokKkn.kkn`, sehingga semua query memakai
+`createAlias("kelompokKkn","kelompokKkn")`. Nol koleksi. Dua jalur
+pembuatan baris: mahasiswa memilih sendiri (`KknUntukMahasiswaAction`)
+atau operator menempatkan (`AmbilDataMahasiswaKelompokKknHelper`,
+`KelompokKknHelper`). Flag `diterima` **dua arah** (operator bisa
+mencentang & membatalkan).
+
+**Nilai disimpan sebagai string**, bukan baris tabel: kolom `detailNilai`
+bertipe `text` berformat `idKomponen,nilai,0,bobot,terverifikasi;…`
+(kolom indeks 2 selalu literal `0`, slot warisan yang tak pernah dibaca;
+indeks 0 adalah id `KomponenPenilaianKkn`, BUKAN
+`KknPunyaKomponenPenilaianKkn` walau variabel lokalnya terlanjur dinamai
+begitu). `hitungTotalNilai` = rata-rata terbobot ternormalisasi.
+
+**Temuan (dicatat, TIDAK diperbaiki):**
+- `reloadKknPunyaKomponenPenilaianKkn(Session)` **rusak & dead code** —
+  menyaring properti `parent`/`persen`/`statusPertemuan` yang TIDAK ADA
+  pada `KknPunyaKomponenPenilaianKkn` (entity itu cuma punya id, nama,
+  keterangan, kkn, komponenPenilaianKkn + field audit) → `QueryException`
+  begitu dieksekusi, dan kriteria dibangun **di luar** blok `try` jadi
+  merambat ke pemanggil. Bentuknya identik penyaringan sah di modul
+  perkuliahan (`PertemuanPunyaFormatNilai`) → sisa salin-tempel.
+- Getter penulis-balik (pola berulang, terverifikasi dari kode):
+  `getKelompokKkn`/`getMahasiswa` (`check()`), `getLulus` (menimpa `lulus`
+  dari master Nilai Huruf + menormalkan `nilaiHuruf`), `getNamaDosen`
+  (menghitung ulang nama pembimbing ke kolom persisten), `toString`, dan
+  `refreshNilaiKeDefault` yang dipanggil dari hampir semua method nilai —
+  termasuk `retreiveDetailNilai` yang "baca saja". Membaca bisa memicu
+  `UPDATE` lewat dirty-checking.
+- **Tidak ada method yang membuka/menutup session** — semua memakai
+  `HibernateUtil.currentSession()` milik thread pemanggil.
+- `getDiterima()` menormalkan `null`→`false`, tetapi query menyaring
+  langsung ke kolom (`Restrictions.eq("diterima", false)`) sehingga baris
+  ber-`NULL` tak terjaring filter "belum diterima".
+- Duplikat id pada `detailNilai` menambah pembagi `totalPersen` tanpa
+  menambah nilai (Map menimpa) → nilai akhir mengecil; jalur
+  `hitungTotalNilai(true)` aman karena dibersihkan dulu.
+- `getNamaDosen()` tanpa `@Transient` → kolom persisten berisi data
+  turunan yang baru ikut berubah kalau barisnya kebetulan dibaca lagi.
+
 ## Batch "5 entity Kkn/Pkl/PMB/karya/billing" — SELESAI 100% (2 Sep 2026, dikonsolidasi orkestrator)
 
 Semua 5 file TUNTAS 100% method, dikompilasi, dikommit, di-mirror ke `java/`:
