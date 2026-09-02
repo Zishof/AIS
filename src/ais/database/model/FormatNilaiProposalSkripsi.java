@@ -1567,27 +1567,113 @@ public class FormatNilaiProposalSkripsi extends GeneralValueObject {
 		return kodeMatakuliahDan;
 	}
 
+	/**
+	 * Mengisi daftar kode matakuliah prasyarat "DAN". Disimpan apa adanya; penormalan dikerjakan
+	 * {@link #getKodeMatakuliahDan()}.
+	 *
+	 * @param kodeMatakuliahDan daftar kode dipisah koma; boleh {@code null}
+	 * @see #getKodeMatakuliahDan()
+	 */
 	public void setKodeMatakuliahDan(String kodeMatakuliahDan) {
 		this.kodeMatakuliahDan = kodeMatakuliahDan;
 	}
 
+	/**
+	 * Daftar tahun angkatan mahasiswa yang boleh memakai format ini.
+	 *
+	 * <p>Penyaring ruang lingkup keempat (bersama {@link #getJurusan()}, {@link #getProgram()},
+	 * dan {@link #getStatusAwalMahasiswa()}). Berisi satu atau beberapa tahun angkatan yang
+	 * dituliskan sebagai teks bebas, mis. {@code "2021"} atau {@code "2021,2022"}.</p>
+	 *
+	 * <p><b>Pencocokannya berbasis {@code contains(...)}</b>, bukan pemisahan per koma — lihat
+	 * {@code MahasiswaRequestTugasAkhirAction} yang memeriksa
+	 * {@code getTahunAngkatan().contains(mahasiswa.getTahunangkatan().toString())}. Konsekuensinya
+	 * nilai seperti {@code "2021"} juga akan cocok dengan angkatan {@code "202"} bila format
+	 * angkatan itu ada, dan sebaliknya angkatan {@code "2021"} cocok dengan isian
+	 * {@code "12021x"}. Isi kolom ini dengan hati-hati.</p>
+	 *
+	 * <p><b>Kosong berarti berlaku untuk SEMUA angkatan</b>; pemanggil memang memeriksa
+	 * {@code isEmpty()} lebih dulu sebelum menerapkan penyaringan.</p>
+	 *
+	 * @return daftar tahun angkatan yang sudah di-{@code trim()}, atau {@code ""} bila berlaku
+	 *         untuk semua angkatan; tidak pernah {@code null}
+	 */
 	@Column(name = "tahun_angkatan")
 	public String getTahunAngkatan() {
 		return tahunAngkatan == null ? "" : tahunAngkatan.trim();
 	}
 
+	/**
+	 * Mengisi daftar tahun angkatan yang boleh memakai format ini.
+	 *
+	 * @param tahunAngkatan daftar tahun angkatan; {@code null}/kosong berarti semua angkatan
+	 * @see #getTahunAngkatan()
+	 */
 	public void setTahunAngkatan(String tahunAngkatan) {
 		this.tahunAngkatan = tahunAngkatan;
 	}
 
+	/**
+	 * Apakah setelah tahapan ini selesai masih ada agenda <b>sidang</b> yang perlu dikelola.
+	 *
+	 * <p>Bila {@code true}, {@code AktifitasTugasAkhirHelper} menambahkan tab "Sidang" pada
+	 * layar aktivitas tugas akhir mahasiswa, sehingga penjadwalan dan berita acara sidang bisa
+	 * dikerjakan dari sana. Bila {@code false}, tahapan dianggap tuntas begitu penilaian selesai
+	 * (mis. tahapan "Pengajuan Judul" yang tidak berujung sidang).</p>
+	 *
+	 * <p><b>Default {@code true}</b> untuk kolom {@code NULL}, sehingga tab sidang tetap muncul
+	 * pada format-format lama.</p>
+	 *
+	 * @return {@code true} bila ada sidang setelah tahapan ini; tidak pernah {@code null}
+	 */
 	public Boolean getTerdapatSidangSetelahSelesai() {
 		return terdapatSidangSetelahSelesai == null ? true : terdapatSidangSetelahSelesai;
 	}
 
+	/**
+	 * Mengatur ada/tidaknya agenda sidang setelah tahapan ini selesai.
+	 *
+	 * @param terdapatSidangSetelahSelesai {@code false} untuk menyembunyikan tab sidang;
+	 *                                     {@code null} berarti default ({@code true})
+	 * @see #getTerdapatSidangSetelahSelesai()
+	 */
 	public void setTerdapatSidangSetelahSelesai(Boolean terdapatSidangSetelahSelesai) {
 		this.terdapatSidangSetelahSelesai = terdapatSidangSetelahSelesai;
 	}
 
+	/**
+	 * Memuat format tahapan yang menjadi <b>prasyarat</b> tahapan ini dari database.
+	 *
+	 * <p>Bersama {@link #getAlurSebelumnya()} inilah mekanisme <b>rantai tahapan</b> pengajuan
+	 * tugas akhir: sebuah format boleh menunjuk format lain yang wajib sudah dilalui mahasiswa
+	 * lebih dulu. {@code MahasiswaRequestTugasAkhirAction} menolak pengajuan bila mahasiswa belum
+	 * punya {@link MahasiswaRequestTugasAkhir} atas format prasyarat itu dengan status
+	 * {@code AKTIF}, {@code SEMINAR}, atau {@code LULUS} — dan pesan penolakannya menyebut
+	 * {@link #getNama()} kedua format. Operator masih bisa menimpa pilihan prasyarat lewat combo
+	 * "Syarat Sebelumnya" pada form pengajuan, termasuk memilih "tidak ada" untuk melewatinya.</p>
+	 *
+	 * <p><b>Method model yang menyentuh database.</b> Membuka
+	 * {@code HibernateUtil.currentSession()} (sesi yang terikat ke thread/permintaan berjalan —
+	 * <b>tidak</b> ditutup oleh method ini, jadi tidak mengganggu pemanggil) lalu menjalankan
+	 * satu {@code Criteria} berdasarkan id. Karena itu:</p>
+	 * <ul>
+	 *   <li>Setiap panggilan berpotensi satu <i>round-trip</i> database — jangan dipanggil di
+	 *       dalam perulangan panjang.</li>
+	 *   <li>Hanya aman dipanggil di dalam konteks yang punya sesi Hibernate aktif.</li>
+	 * </ul>
+	 *
+	 * <p><b>Tidak ada perlindungan terhadap rantai melingkar.</b> Bila format A menunjuk B dan B
+	 * menunjuk A, penelusuran berulang oleh pemanggil bisa berputar tanpa henti; entity ini hanya
+	 * menyediakan satu langkah ke belakang.</p>
+	 *
+	 * <p>Bila {@link #getAlurSebelumnya()} bernilai {@code null}, method langsung mengembalikan
+	 * {@code null} tanpa menyentuh database. Bila id-nya terisi tetapi barisnya sudah dihapus,
+	 * hasilnya juga {@code null} (referensi menggantung tidak terdeteksi sebagai kesalahan).</p>
+	 *
+	 * @return format tahapan prasyarat, atau {@code null} bila tidak ada / barisnya tidak ditemukan
+	 * @see #getAlurSebelumnya()
+	 * @see MahasiswaRequestTugasAkhir
+	 */
 	public FormatNilaiProposalSkripsi ambilSebelumnya() {
 		if (getAlurSebelumnya() == null) {
 			return null;
@@ -1597,14 +1683,57 @@ public class FormatNilaiProposalSkripsi extends GeneralValueObject {
 				.add(Restrictions.idEq(getAlurSebelumnya())).uniqueResult();
 	}
 
+	/**
+	 * Id format tahapan yang menjadi prasyarat tahapan ini.
+	 *
+	 * <p><b>Disimpan sebagai {@code Long} mentah, bukan relasi {@code @ManyToOne}</b> — sengaja,
+	 * karena relasi ini menunjuk ke tabel yang sama (referensi diri) dan tidak dipetakan sebagai
+	 * asosiasi. Akibatnya: tidak ada <i>foreign key</i> yang menjaga integritasnya (id bisa
+	 * menggantung ke baris yang sudah dihapus), tidak ada pemuatan malas, dan penelusuran harus
+	 * dilakukan manual lewat {@link #ambilSebelumnya()}.</p>
+	 *
+	 * <p>{@code null} berarti tahapan ini adalah tahapan awal (tanpa prasyarat tahapan lain).</p>
+	 *
+	 * @return id format prasyarat, atau {@code null}
+	 * @see #ambilSebelumnya()
+	 */
 	public Long getAlurSebelumnya() {
 		return alurSebelumnya;
 	}
 
+	/**
+	 * Mengisi id format tahapan prasyarat.
+	 *
+	 * <p>Form master mengambil nilainya dari combo "Alur Sebelumnya" dan menyimpan
+	 * {@code getId()} dari format terpilih. Tidak ada validasi bahwa id benar-benar ada,
+	 * maupun bahwa rantai prasyarat tidak melingkar.</p>
+	 *
+	 * @param alurSebelumnya id format prasyarat; {@code null} berarti tanpa prasyarat tahapan
+	 * @see #getAlurSebelumnya()
+	 */
 	public void setAlurSebelumnya(Long alurSebelumnya) {
 		this.alurSebelumnya = alurSebelumnya;
 	}
 
+	/**
+	 * Format penilaian <b>sidang akhir</b> ({@link FormatNilaiSkripsi}) yang menjadi kelanjutan
+	 * tahapan proposal ini.
+	 *
+	 * <p>Inilah <b>jembatan antara alur proposal dan alur sidang akhir</b>: setelah mahasiswa
+	 * menuntaskan tahapan proposal, format sidang akhir yang akan dipakai untuk {@link Skripsi}-nya
+	 * bisa ditentukan dari sini. {@code null} berarti tahapan ini tidak menunjuk format sidang
+	 * tertentu.</p>
+	 *
+	 * <p>Perhatikan bedanya dengan {@link #getAlurSebelumnya()}: yang itu menunjuk <b>ke belakang</b>
+	 * pada sesama format proposal (prasyarat), yang ini menunjuk <b>ke depan</b> pada format
+	 * penilaian sidang akhir — entity yang sama sekali berbeda.</p>
+	 *
+	 * <p>Menerapkan pola {@code check(...)} yang sama seperti {@link #getJurusan()}.</p>
+	 *
+	 * @return format penilaian sidang akhir yang ditunjuk, atau {@code null}
+	 * @see FormatNilaiSkripsi
+	 * @see #getJurusan()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "format_nilai_skripsi")
 	public FormatNilaiSkripsi getFormatNilaiSkripsi() {
@@ -1612,610 +1741,1923 @@ public class FormatNilaiProposalSkripsi extends GeneralValueObject {
 		return formatNilaiSkripsi;
 	}
 
+	/**
+	 * Mengisi format penilaian sidang akhir yang menjadi kelanjutan tahapan ini.
+	 *
+	 * @param formatNilaiSkripsi format sidang akhir; boleh {@code null}
+	 * @see #getFormatNilaiSkripsi()
+	 */
 	public void setFormatNilaiSkripsi(FormatNilaiSkripsi formatNilaiSkripsi) {
 		this.formatNilaiSkripsi = formatNilaiSkripsi;
 	}
 
+	/**
+	 * Apakah tagihan dari {@link #getKodeItemBiaya()} cukup dibayar <b>sekali</b>.
+	 *
+	 * <p>Diteruskan sebagai parameter saat tagihan dibangkitkan di
+	 * {@code MahasiswaRequestTugasAkhirAction}: bila {@code true}, mahasiswa yang sudah pernah
+	 * membayar item biaya tersebut tidak ditagih lagi pada pengajuan berikutnya. Relevan terutama
+	 * untuk tahapan yang boleh diulang (lihat {@link #getHanyaBisaDilakukanSekali()}).</p>
+	 *
+	 * <p><b>Default {@code false}</b> untuk kolom {@code NULL} — tiap pengajuan menimbulkan
+	 * tagihan baru.</p>
+	 *
+	 * @return {@code true} bila biaya cukup dibayar sekali; tidak pernah {@code null}
+	 * @see #getKodeItemBiaya()
+	 */
 	public Boolean getSekaliBayar() {
 		return sekaliBayar == null ? false : sekaliBayar;
 	}
 
+	/**
+	 * Mengatur apakah biaya tahapan ini cukup dibayar sekali.
+	 *
+	 * @param sekaliBayar {@code true} agar tidak ditagih ulang; {@code null} berarti default
+	 *                    ({@code false})
+	 * @see #getSekaliBayar()
+	 */
 	public void setSekaliBayar(Boolean sekaliBayar) {
 		this.sekaliBayar = sekaliBayar;
 	}
 
+	/**
+	 * Label berkas unggahan slot 1 — <b>method rujukan untuk seluruh pola
+	 * {@code getUploadLampiranN()} (N = 1..20)</b>.
+	 *
+	 * <p>Yang disimpan adalah <b>nama berkas yang diminta</b> (mis. "Kartu Bimbingan",
+	 * "Sertifikat TOEFL", "Lembar Pengesahan"), bukan isi atau lokasi berkasnya. Berkas
+	 * sesungguhnya diunggah mahasiswa dan tersimpan sebagai {@code LampiranLain} yang menempel
+	 * pada {@link MahasiswaRequestTugasAkhir}.</p>
+	 *
+	 * <p><b>Label kosong = slot tidak dipakai.</b> Inilah saklar tampil/tidaknya baris unggahan
+	 * ke-N pada form pengajuan: {@code MahasiswaRequestTugasAkhirAction} hanya membangun baris
+	 * unggah bila {@code !format.getUploadLampiranN().isEmpty()}. Jadi mematikan sebuah slot
+	 * dilakukan dengan mengosongkan labelnya, bukan lewat flag tersendiri.</p>
+	 *
+	 * <p>Tiap slot punya dua atribut pendamping yang harus dibaca pada indeks yang sama:
+	 * {@link #getUploadLampiran1Wajib()} (wajib atau opsional) dan {@link #getTipeItem1()}
+	 * (kategori berkas). Ketiganya adalah tiga larik sejajar berukuran 20, bukan satu daftar
+	 * objek — konsekuensi dari pemetaan Hibernate satu kolom per slot.</p>
+	 *
+	 * <p>Mengembalikan {@code ""} (sudah di-{@code trim()}) untuk kolom {@code NULL}, tidak pernah
+	 * {@code null}, sehingga pemanggil aman memanggil {@code isEmpty()} langsung.</p>
+	 *
+	 * @return label berkas slot 1, atau {@code ""} bila slot tidak dipakai; tidak pernah
+	 *         {@code null}
+	 * @see #getUploadLampiran1Wajib()
+	 * @see #getTipeItem1()
+	 */
 	public String getUploadLampiran1() {
 		return uploadLampiran1 == null ? "" : uploadLampiran1.trim();
 	}
 
+	/**
+	 * Mengisi label berkas unggahan slot 1 — <b>setter rujukan untuk seluruh pola
+	 * {@code setUploadLampiranN()}</b>.
+	 *
+	 * <p>Disimpan apa adanya; {@code trim} dilakukan saat dibaca. Mengisi {@code null} atau string
+	 * kosong berarti <b>mematikan slot ini</b> (barisnya tidak lagi tampil pada form pengajuan);
+	 * berkas yang terlanjur diunggah mahasiswa tidak ikut terhapus, hanya tidak lagi
+	 * ditampilkan.</p>
+	 *
+	 * @param uploadLampiran1 label berkas yang diminta; {@code null}/kosong mematikan slot
+	 * @see #getUploadLampiran1()
+	 */
 	public void setUploadLampiran1(String uploadLampiran1) {
 		this.uploadLampiran1 = uploadLampiran1;
 	}
 
+	/**
+	 * Label berkas unggahan slot 2; {@code ""} bila slot tidak dipakai (baris unggah ke-2
+	 * tidak ditampilkan pada form pengajuan). Makna, penormalan, dan seluruh perilakunya
+	 * persis sama dengan {@link #getUploadLampiran1()} — baca method itu untuk penjelasan
+	 * lengkap pola tiga larik sejajar label/wajib/tipe.
+	 *
+	 * @return label berkas slot 2, atau {@code ""}; tidak pernah {@code null}
+	 * @see #getUploadLampiran1()
+	 * @see #getUploadLampiran2Wajib()
+	 * @see #getTipeItem2()
+	 */
 	public String getUploadLampiran2() {
 		return uploadLampiran2 == null ? "" : uploadLampiran2.trim();
 	}
 
+	/**
+	 * Mengisi label berkas unggahan slot 2; {@code null}/kosong mematikan slot.
+	 *
+	 * @param uploadLampiran2 label berkas yang diminta; {@code null}/kosong mematikan slot
+	 * @see #setUploadLampiran1(String)
+	 */
 	public void setUploadLampiran2(String uploadLampiran2) {
 		this.uploadLampiran2 = uploadLampiran2;
 	}
 
+	/**
+	 * Label berkas unggahan slot 3; {@code ""} bila slot tidak dipakai (baris unggah ke-3
+	 * tidak ditampilkan pada form pengajuan). Makna, penormalan, dan seluruh perilakunya
+	 * persis sama dengan {@link #getUploadLampiran1()} — baca method itu untuk penjelasan
+	 * lengkap pola tiga larik sejajar label/wajib/tipe.
+	 *
+	 * @return label berkas slot 3, atau {@code ""}; tidak pernah {@code null}
+	 * @see #getUploadLampiran1()
+	 * @see #getUploadLampiran3Wajib()
+	 * @see #getTipeItem3()
+	 */
 	public String getUploadLampiran3() {
 		return uploadLampiran3 == null ? "" : uploadLampiran3.trim();
 	}
 
+	/**
+	 * Mengisi label berkas unggahan slot 3; {@code null}/kosong mematikan slot.
+	 *
+	 * @param uploadLampiran3 label berkas yang diminta; {@code null}/kosong mematikan slot
+	 * @see #setUploadLampiran1(String)
+	 */
 	public void setUploadLampiran3(String uploadLampiran3) {
 		this.uploadLampiran3 = uploadLampiran3;
 	}
 
+	/**
+	 * Label berkas unggahan slot 4; {@code ""} bila slot tidak dipakai (baris unggah ke-4
+	 * tidak ditampilkan pada form pengajuan). Makna, penormalan, dan seluruh perilakunya
+	 * persis sama dengan {@link #getUploadLampiran1()} — baca method itu untuk penjelasan
+	 * lengkap pola tiga larik sejajar label/wajib/tipe.
+	 *
+	 * @return label berkas slot 4, atau {@code ""}; tidak pernah {@code null}
+	 * @see #getUploadLampiran1()
+	 * @see #getUploadLampiran4Wajib()
+	 * @see #getTipeItem4()
+	 */
 	public String getUploadLampiran4() {
 		return uploadLampiran4 == null ? "" : uploadLampiran4.trim();
 	}
 
+	/**
+	 * Mengisi label berkas unggahan slot 4; {@code null}/kosong mematikan slot.
+	 *
+	 * @param uploadLampiran4 label berkas yang diminta; {@code null}/kosong mematikan slot
+	 * @see #setUploadLampiran1(String)
+	 */
 	public void setUploadLampiran4(String uploadLampiran4) {
 		this.uploadLampiran4 = uploadLampiran4;
 	}
 
+	/**
+	 * Label berkas unggahan slot 5; {@code ""} bila slot tidak dipakai (baris unggah ke-5
+	 * tidak ditampilkan pada form pengajuan). Makna, penormalan, dan seluruh perilakunya
+	 * persis sama dengan {@link #getUploadLampiran1()} — baca method itu untuk penjelasan
+	 * lengkap pola tiga larik sejajar label/wajib/tipe.
+	 *
+	 * @return label berkas slot 5, atau {@code ""}; tidak pernah {@code null}
+	 * @see #getUploadLampiran1()
+	 * @see #getUploadLampiran5Wajib()
+	 * @see #getTipeItem5()
+	 */
 	public String getUploadLampiran5() {
 		return uploadLampiran5 == null ? "" : uploadLampiran5.trim();
 	}
 
+	/**
+	 * Mengisi label berkas unggahan slot 5; {@code null}/kosong mematikan slot.
+	 *
+	 * @param uploadLampiran5 label berkas yang diminta; {@code null}/kosong mematikan slot
+	 * @see #setUploadLampiran1(String)
+	 */
 	public void setUploadLampiran5(String uploadLampiran5) {
 		this.uploadLampiran5 = uploadLampiran5;
 	}
 
+	/**
+	 * Label berkas unggahan slot 6; {@code ""} bila slot tidak dipakai (baris unggah ke-6
+	 * tidak ditampilkan pada form pengajuan). Makna, penormalan, dan seluruh perilakunya
+	 * persis sama dengan {@link #getUploadLampiran1()} — baca method itu untuk penjelasan
+	 * lengkap pola tiga larik sejajar label/wajib/tipe.
+	 *
+	 * @return label berkas slot 6, atau {@code ""}; tidak pernah {@code null}
+	 * @see #getUploadLampiran1()
+	 * @see #getUploadLampiran6Wajib()
+	 * @see #getTipeItem6()
+	 */
 	public String getUploadLampiran6() {
 		return uploadLampiran6 == null ? "" : uploadLampiran6.trim();
 	}
 
+	/**
+	 * Mengisi label berkas unggahan slot 6; {@code null}/kosong mematikan slot.
+	 *
+	 * @param uploadLampiran6 label berkas yang diminta; {@code null}/kosong mematikan slot
+	 * @see #setUploadLampiran1(String)
+	 */
 	public void setUploadLampiran6(String uploadLampiran6) {
 		this.uploadLampiran6 = uploadLampiran6;
 	}
 
+	/**
+	 * Label berkas unggahan slot 7; {@code ""} bila slot tidak dipakai (baris unggah ke-7
+	 * tidak ditampilkan pada form pengajuan). Makna, penormalan, dan seluruh perilakunya
+	 * persis sama dengan {@link #getUploadLampiran1()} — baca method itu untuk penjelasan
+	 * lengkap pola tiga larik sejajar label/wajib/tipe.
+	 *
+	 * @return label berkas slot 7, atau {@code ""}; tidak pernah {@code null}
+	 * @see #getUploadLampiran1()
+	 * @see #getUploadLampiran7Wajib()
+	 * @see #getTipeItem7()
+	 */
 	public String getUploadLampiran7() {
 		return uploadLampiran7 == null ? "" : uploadLampiran7.trim();
 	}
 
+	/**
+	 * Mengisi label berkas unggahan slot 7; {@code null}/kosong mematikan slot.
+	 *
+	 * @param uploadLampiran7 label berkas yang diminta; {@code null}/kosong mematikan slot
+	 * @see #setUploadLampiran1(String)
+	 */
 	public void setUploadLampiran7(String uploadLampiran7) {
 		this.uploadLampiran7 = uploadLampiran7;
 	}
 
+	/**
+	 * Label berkas unggahan slot 8; {@code ""} bila slot tidak dipakai (baris unggah ke-8
+	 * tidak ditampilkan pada form pengajuan). Makna, penormalan, dan seluruh perilakunya
+	 * persis sama dengan {@link #getUploadLampiran1()} — baca method itu untuk penjelasan
+	 * lengkap pola tiga larik sejajar label/wajib/tipe.
+	 *
+	 * @return label berkas slot 8, atau {@code ""}; tidak pernah {@code null}
+	 * @see #getUploadLampiran1()
+	 * @see #getUploadLampiran8Wajib()
+	 * @see #getTipeItem8()
+	 */
 	public String getUploadLampiran8() {
 		return uploadLampiran8 == null ? "" : uploadLampiran8.trim();
 	}
 
+	/**
+	 * Mengisi label berkas unggahan slot 8; {@code null}/kosong mematikan slot.
+	 *
+	 * @param uploadLampiran8 label berkas yang diminta; {@code null}/kosong mematikan slot
+	 * @see #setUploadLampiran1(String)
+	 */
 	public void setUploadLampiran8(String uploadLampiran8) {
 		this.uploadLampiran8 = uploadLampiran8;
 	}
 
+	/**
+	 * Label berkas unggahan slot 9; {@code ""} bila slot tidak dipakai (baris unggah ke-9
+	 * tidak ditampilkan pada form pengajuan). Makna, penormalan, dan seluruh perilakunya
+	 * persis sama dengan {@link #getUploadLampiran1()} — baca method itu untuk penjelasan
+	 * lengkap pola tiga larik sejajar label/wajib/tipe.
+	 *
+	 * @return label berkas slot 9, atau {@code ""}; tidak pernah {@code null}
+	 * @see #getUploadLampiran1()
+	 * @see #getUploadLampiran9Wajib()
+	 * @see #getTipeItem9()
+	 */
 	public String getUploadLampiran9() {
 		return uploadLampiran9 == null ? "" : uploadLampiran9.trim();
 	}
 
+	/**
+	 * Mengisi label berkas unggahan slot 9; {@code null}/kosong mematikan slot.
+	 *
+	 * @param uploadLampiran9 label berkas yang diminta; {@code null}/kosong mematikan slot
+	 * @see #setUploadLampiran1(String)
+	 */
 	public void setUploadLampiran9(String uploadLampiran9) {
 		this.uploadLampiran9 = uploadLampiran9;
 	}
 
+	/**
+	 * Label berkas unggahan slot 10; {@code ""} bila slot tidak dipakai (baris unggah ke-10
+	 * tidak ditampilkan pada form pengajuan). Makna, penormalan, dan seluruh perilakunya
+	 * persis sama dengan {@link #getUploadLampiran1()} — baca method itu untuk penjelasan
+	 * lengkap pola tiga larik sejajar label/wajib/tipe.
+	 *
+	 * @return label berkas slot 10, atau {@code ""}; tidak pernah {@code null}
+	 * @see #getUploadLampiran1()
+	 * @see #getUploadLampiran10Wajib()
+	 * @see #getTipeItem10()
+	 */
 	public String getUploadLampiran10() {
 		return uploadLampiran10 == null ? "" : uploadLampiran10.trim();
 	}
 
+	/**
+	 * Mengisi label berkas unggahan slot 10; {@code null}/kosong mematikan slot.
+	 *
+	 * @param uploadLampiran10 label berkas yang diminta; {@code null}/kosong mematikan slot
+	 * @see #setUploadLampiran1(String)
+	 */
 	public void setUploadLampiran10(String uploadLampiran10) {
 		this.uploadLampiran10 = uploadLampiran10;
 	}
 
+	/**
+	 * Apakah berkas pada slot unggahan 1 <b>wajib</b> diunggah — <b>method rujukan untuk seluruh
+	 * pola {@code getUploadLampiranNWajib()} (N = 1..20)</b>.
+	 *
+	 * <p>Bila {@code true}, {@code MahasiswaRequestTugasAkhirAction} menolak penyimpanan pengajuan
+	 * sampai berkasnya ada, dengan pesan yang menyebut label dari
+	 * {@link #getUploadLampiran1()}; pada daftar berkas, label slot wajib juga diberi tanda
+	 * bintang. Bila {@code false}, berkas bersifat opsional.</p>
+	 *
+	 * <p><b>Hanya bermakna bila slotnya hidup.</b> Flag ini tidak diperiksa terpisah dari
+	 * labelnya: slot dengan label kosong tidak pernah ditampilkan maupun divalidasi, sehingga
+	 * {@code wajib = true} pada slot berlabel kosong tidak berefek apa-apa.</p>
+	 *
+	 * <p><b>Default {@code false}</b> untuk kolom {@code NULL} — slot lama bersifat opsional
+	 * kecuali dinyatakan sebaliknya.</p>
+	 *
+	 * @return {@code true} bila berkas slot 1 wajib; tidak pernah {@code null}
+	 * @see #getUploadLampiran1()
+	 */
 	public Boolean getUploadLampiran1Wajib() {
 		return uploadLampiran1Wajib == null ? false : uploadLampiran1Wajib;
 	}
 
+	/**
+	 * Mengatur wajib/opsionalnya berkas pada slot unggahan 1 — <b>setter rujukan untuk seluruh
+	 * pola {@code setUploadLampiranNWajib()}</b>.
+	 *
+	 * @param uploadLampiran1Wajib {@code true} agar berkas wajib; {@code null} berarti default
+	 *                             ({@code false})
+	 * @see #getUploadLampiran1Wajib()
+	 */
 	public void setUploadLampiran1Wajib(Boolean uploadLampiran1Wajib) {
 		this.uploadLampiran1Wajib = uploadLampiran1Wajib;
 	}
 
+	/**
+	 * Apakah berkas pada slot unggahan 2 wajib diunggah; default {@code false}.
+	 * Perilakunya persis {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila berkas slot 2 wajib; tidak pernah {@code null}
+	 * @see #getUploadLampiran1Wajib()
+	 * @see #getUploadLampiran2()
+	 */
 	public Boolean getUploadLampiran2Wajib() {
 		return uploadLampiran2Wajib == null ? false : uploadLampiran2Wajib;
 	}
 
+	/**
+	 * Mengatur wajib/opsionalnya berkas pada slot unggahan 2.
+	 *
+	 * @param uploadLampiran2Wajib {@code true} agar berkas wajib; {@code null} berarti default
+	 *                              ({@code false})
+	 * @see #setUploadLampiran1Wajib(Boolean)
+	 */
 	public void setUploadLampiran2Wajib(Boolean uploadLampiran2Wajib) {
 		this.uploadLampiran2Wajib = uploadLampiran2Wajib;
 	}
 
+	/**
+	 * Apakah berkas pada slot unggahan 3 wajib diunggah; default {@code false}.
+	 * Perilakunya persis {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila berkas slot 3 wajib; tidak pernah {@code null}
+	 * @see #getUploadLampiran1Wajib()
+	 * @see #getUploadLampiran3()
+	 */
 	public Boolean getUploadLampiran3Wajib() {
 		return uploadLampiran3Wajib == null ? false : uploadLampiran3Wajib;
 	}
 
+	/**
+	 * Mengatur wajib/opsionalnya berkas pada slot unggahan 3.
+	 *
+	 * @param uploadLampiran3Wajib {@code true} agar berkas wajib; {@code null} berarti default
+	 *                              ({@code false})
+	 * @see #setUploadLampiran1Wajib(Boolean)
+	 */
 	public void setUploadLampiran3Wajib(Boolean uploadLampiran3Wajib) {
 		this.uploadLampiran3Wajib = uploadLampiran3Wajib;
 	}
 
+	/**
+	 * Apakah berkas pada slot unggahan 4 wajib diunggah; default {@code false}.
+	 * Perilakunya persis {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila berkas slot 4 wajib; tidak pernah {@code null}
+	 * @see #getUploadLampiran1Wajib()
+	 * @see #getUploadLampiran4()
+	 */
 	public Boolean getUploadLampiran4Wajib() {
 		return uploadLampiran4Wajib == null ? false : uploadLampiran4Wajib;
 	}
 
+	/**
+	 * Mengatur wajib/opsionalnya berkas pada slot unggahan 4.
+	 *
+	 * @param uploadLampiran4Wajib {@code true} agar berkas wajib; {@code null} berarti default
+	 *                              ({@code false})
+	 * @see #setUploadLampiran1Wajib(Boolean)
+	 */
 	public void setUploadLampiran4Wajib(Boolean uploadLampiran4Wajib) {
 		this.uploadLampiran4Wajib = uploadLampiran4Wajib;
 	}
 
+	/**
+	 * Apakah berkas pada slot unggahan 5 wajib diunggah; default {@code false}.
+	 * Perilakunya persis {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila berkas slot 5 wajib; tidak pernah {@code null}
+	 * @see #getUploadLampiran1Wajib()
+	 * @see #getUploadLampiran5()
+	 */
 	public Boolean getUploadLampiran5Wajib() {
 		return uploadLampiran5Wajib == null ? false : uploadLampiran5Wajib;
 	}
 
+	/**
+	 * Mengatur wajib/opsionalnya berkas pada slot unggahan 5.
+	 *
+	 * @param uploadLampiran5Wajib {@code true} agar berkas wajib; {@code null} berarti default
+	 *                              ({@code false})
+	 * @see #setUploadLampiran1Wajib(Boolean)
+	 */
 	public void setUploadLampiran5Wajib(Boolean uploadLampiran5Wajib) {
 		this.uploadLampiran5Wajib = uploadLampiran5Wajib;
 	}
 
+	/**
+	 * Apakah berkas pada slot unggahan 6 wajib diunggah; default {@code false}.
+	 * Perilakunya persis {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila berkas slot 6 wajib; tidak pernah {@code null}
+	 * @see #getUploadLampiran1Wajib()
+	 * @see #getUploadLampiran6()
+	 */
 	public Boolean getUploadLampiran6Wajib() {
 		return uploadLampiran6Wajib == null ? false : uploadLampiran6Wajib;
 	}
 
+	/**
+	 * Mengatur wajib/opsionalnya berkas pada slot unggahan 6.
+	 *
+	 * @param uploadLampiran6Wajib {@code true} agar berkas wajib; {@code null} berarti default
+	 *                              ({@code false})
+	 * @see #setUploadLampiran1Wajib(Boolean)
+	 */
 	public void setUploadLampiran6Wajib(Boolean uploadLampiran6Wajib) {
 		this.uploadLampiran6Wajib = uploadLampiran6Wajib;
 	}
 
+	/**
+	 * Apakah berkas pada slot unggahan 7 wajib diunggah; default {@code false}.
+	 * Perilakunya persis {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila berkas slot 7 wajib; tidak pernah {@code null}
+	 * @see #getUploadLampiran1Wajib()
+	 * @see #getUploadLampiran7()
+	 */
 	public Boolean getUploadLampiran7Wajib() {
 		return uploadLampiran7Wajib == null ? false : uploadLampiran7Wajib;
 	}
 
+	/**
+	 * Mengatur wajib/opsionalnya berkas pada slot unggahan 7.
+	 *
+	 * @param uploadLampiran7Wajib {@code true} agar berkas wajib; {@code null} berarti default
+	 *                              ({@code false})
+	 * @see #setUploadLampiran1Wajib(Boolean)
+	 */
 	public void setUploadLampiran7Wajib(Boolean uploadLampiran7Wajib) {
 		this.uploadLampiran7Wajib = uploadLampiran7Wajib;
 	}
 
+	/**
+	 * Apakah berkas pada slot unggahan 8 wajib diunggah; default {@code false}.
+	 * Perilakunya persis {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila berkas slot 8 wajib; tidak pernah {@code null}
+	 * @see #getUploadLampiran1Wajib()
+	 * @see #getUploadLampiran8()
+	 */
 	public Boolean getUploadLampiran8Wajib() {
 		return uploadLampiran8Wajib == null ? false : uploadLampiran8Wajib;
 	}
 
+	/**
+	 * Mengatur wajib/opsionalnya berkas pada slot unggahan 8.
+	 *
+	 * @param uploadLampiran8Wajib {@code true} agar berkas wajib; {@code null} berarti default
+	 *                              ({@code false})
+	 * @see #setUploadLampiran1Wajib(Boolean)
+	 */
 	public void setUploadLampiran8Wajib(Boolean uploadLampiran8Wajib) {
 		this.uploadLampiran8Wajib = uploadLampiran8Wajib;
 	}
 
+	/**
+	 * Apakah berkas pada slot unggahan 9 wajib diunggah; default {@code false}.
+	 * Perilakunya persis {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila berkas slot 9 wajib; tidak pernah {@code null}
+	 * @see #getUploadLampiran1Wajib()
+	 * @see #getUploadLampiran9()
+	 */
 	public Boolean getUploadLampiran9Wajib() {
 		return uploadLampiran9Wajib == null ? false : uploadLampiran9Wajib;
 	}
 
+	/**
+	 * Mengatur wajib/opsionalnya berkas pada slot unggahan 9.
+	 *
+	 * @param uploadLampiran9Wajib {@code true} agar berkas wajib; {@code null} berarti default
+	 *                              ({@code false})
+	 * @see #setUploadLampiran1Wajib(Boolean)
+	 */
 	public void setUploadLampiran9Wajib(Boolean uploadLampiran9Wajib) {
 		this.uploadLampiran9Wajib = uploadLampiran9Wajib;
 	}
 
+	/**
+	 * Apakah berkas pada slot unggahan 10 wajib diunggah; default {@code false}.
+	 * Perilakunya persis {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila berkas slot 10 wajib; tidak pernah {@code null}
+	 * @see #getUploadLampiran1Wajib()
+	 * @see #getUploadLampiran10()
+	 */
 	public Boolean getUploadLampiran10Wajib() {
 		return uploadLampiran10Wajib == null ? false : uploadLampiran10Wajib;
 	}
 
+	/**
+	 * Mengatur wajib/opsionalnya berkas pada slot unggahan 10.
+	 *
+	 * @param uploadLampiran10Wajib {@code true} agar berkas wajib; {@code null} berarti default
+	 *                              ({@code false})
+	 * @see #setUploadLampiran1Wajib(Boolean)
+	 */
 	public void setUploadLampiran10Wajib(Boolean uploadLampiran10Wajib) {
 		this.uploadLampiran10Wajib = uploadLampiran10Wajib;
 	}
 
+	/**
+	 * Label berkas unggahan slot 11; {@code ""} bila slot tidak dipakai (baris unggah ke-11
+	 * tidak ditampilkan pada form pengajuan). Makna, penormalan, dan seluruh perilakunya
+	 * persis sama dengan {@link #getUploadLampiran1()} — baca method itu untuk penjelasan
+	 * lengkap pola tiga larik sejajar label/wajib/tipe.
+	 *
+	 * @return label berkas slot 11, atau {@code ""}; tidak pernah {@code null}
+	 * @see #getUploadLampiran1()
+	 * @see #getUploadLampiran11Wajib()
+	 * @see #getTipeItem11()
+	 */
 	public String getUploadLampiran11() {
 		return uploadLampiran11 == null ? "" : uploadLampiran11.trim();
 	}
 
+	/**
+	 * Mengisi label berkas unggahan slot 11; {@code null}/kosong mematikan slot.
+	 *
+	 * @param uploadLampiran11 label berkas yang diminta; {@code null}/kosong mematikan slot
+	 * @see #setUploadLampiran1(String)
+	 */
 	public void setUploadLampiran11(String uploadLampiran11) {
 		this.uploadLampiran11 = uploadLampiran11;
 	}
 
+	/**
+	 * Label berkas unggahan slot 12; {@code ""} bila slot tidak dipakai (baris unggah ke-12
+	 * tidak ditampilkan pada form pengajuan). Makna, penormalan, dan seluruh perilakunya
+	 * persis sama dengan {@link #getUploadLampiran1()} — baca method itu untuk penjelasan
+	 * lengkap pola tiga larik sejajar label/wajib/tipe.
+	 *
+	 * @return label berkas slot 12, atau {@code ""}; tidak pernah {@code null}
+	 * @see #getUploadLampiran1()
+	 * @see #getUploadLampiran12Wajib()
+	 * @see #getTipeItem12()
+	 */
 	public String getUploadLampiran12() {
 		return uploadLampiran12 == null ? "" : uploadLampiran12.trim();
 	}
 
+	/**
+	 * Mengisi label berkas unggahan slot 12; {@code null}/kosong mematikan slot.
+	 *
+	 * @param uploadLampiran12 label berkas yang diminta; {@code null}/kosong mematikan slot
+	 * @see #setUploadLampiran1(String)
+	 */
 	public void setUploadLampiran12(String uploadLampiran12) {
 		this.uploadLampiran12 = uploadLampiran12;
 	}
 
+	/**
+	 * Label berkas unggahan slot 13; {@code ""} bila slot tidak dipakai (baris unggah ke-13
+	 * tidak ditampilkan pada form pengajuan). Makna, penormalan, dan seluruh perilakunya
+	 * persis sama dengan {@link #getUploadLampiran1()} — baca method itu untuk penjelasan
+	 * lengkap pola tiga larik sejajar label/wajib/tipe.
+	 *
+	 * @return label berkas slot 13, atau {@code ""}; tidak pernah {@code null}
+	 * @see #getUploadLampiran1()
+	 * @see #getUploadLampiran13Wajib()
+	 * @see #getTipeItem13()
+	 */
 	public String getUploadLampiran13() {
 		return uploadLampiran13 == null ? "" : uploadLampiran13.trim();
 	}
 
+	/**
+	 * Mengisi label berkas unggahan slot 13; {@code null}/kosong mematikan slot.
+	 *
+	 * @param uploadLampiran13 label berkas yang diminta; {@code null}/kosong mematikan slot
+	 * @see #setUploadLampiran1(String)
+	 */
 	public void setUploadLampiran13(String uploadLampiran13) {
 		this.uploadLampiran13 = uploadLampiran13;
 	}
 
+	/**
+	 * Label berkas unggahan slot 14; {@code ""} bila slot tidak dipakai (baris unggah ke-14
+	 * tidak ditampilkan pada form pengajuan). Makna, penormalan, dan seluruh perilakunya
+	 * persis sama dengan {@link #getUploadLampiran1()} — baca method itu untuk penjelasan
+	 * lengkap pola tiga larik sejajar label/wajib/tipe.
+	 *
+	 * @return label berkas slot 14, atau {@code ""}; tidak pernah {@code null}
+	 * @see #getUploadLampiran1()
+	 * @see #getUploadLampiran14Wajib()
+	 * @see #getTipeItem14()
+	 */
 	public String getUploadLampiran14() {
 		return uploadLampiran14 == null ? "" : uploadLampiran14.trim();
 	}
 
+	/**
+	 * Mengisi label berkas unggahan slot 14; {@code null}/kosong mematikan slot.
+	 *
+	 * @param uploadLampiran14 label berkas yang diminta; {@code null}/kosong mematikan slot
+	 * @see #setUploadLampiran1(String)
+	 */
 	public void setUploadLampiran14(String uploadLampiran14) {
 		this.uploadLampiran14 = uploadLampiran14;
 	}
 
+	/**
+	 * Label berkas unggahan slot 15; {@code ""} bila slot tidak dipakai (baris unggah ke-15
+	 * tidak ditampilkan pada form pengajuan). Makna, penormalan, dan seluruh perilakunya
+	 * persis sama dengan {@link #getUploadLampiran1()} — baca method itu untuk penjelasan
+	 * lengkap pola tiga larik sejajar label/wajib/tipe.
+	 *
+	 * @return label berkas slot 15, atau {@code ""}; tidak pernah {@code null}
+	 * @see #getUploadLampiran1()
+	 * @see #getUploadLampiran15Wajib()
+	 * @see #getTipeItem15()
+	 */
 	public String getUploadLampiran15() {
 		return uploadLampiran15 == null ? "" : uploadLampiran15.trim();
 	}
 
+	/**
+	 * Mengisi label berkas unggahan slot 15; {@code null}/kosong mematikan slot.
+	 *
+	 * @param uploadLampiran15 label berkas yang diminta; {@code null}/kosong mematikan slot
+	 * @see #setUploadLampiran1(String)
+	 */
 	public void setUploadLampiran15(String uploadLampiran15) {
 		this.uploadLampiran15 = uploadLampiran15;
 	}
 
+	/**
+	 * Apakah berkas pada slot unggahan 11 wajib diunggah; default {@code false}.
+	 * Perilakunya persis {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila berkas slot 11 wajib; tidak pernah {@code null}
+	 * @see #getUploadLampiran1Wajib()
+	 * @see #getUploadLampiran11()
+	 */
 	public Boolean getUploadLampiran11Wajib() {
 		return uploadLampiran11Wajib == null ? false : uploadLampiran11Wajib;
 	}
 
+	/**
+	 * Mengatur wajib/opsionalnya berkas pada slot unggahan 11.
+	 *
+	 * @param uploadLampiran11Wajib {@code true} agar berkas wajib; {@code null} berarti default
+	 *                              ({@code false})
+	 * @see #setUploadLampiran1Wajib(Boolean)
+	 */
 	public void setUploadLampiran11Wajib(Boolean uploadLampiran11Wajib) {
 		this.uploadLampiran11Wajib = uploadLampiran11Wajib;
 	}
 
+	/**
+	 * Apakah berkas pada slot unggahan 12 wajib diunggah; default {@code false}.
+	 * Perilakunya persis {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila berkas slot 12 wajib; tidak pernah {@code null}
+	 * @see #getUploadLampiran1Wajib()
+	 * @see #getUploadLampiran12()
+	 */
 	public Boolean getUploadLampiran12Wajib() {
 		return uploadLampiran12Wajib == null ? false : uploadLampiran12Wajib;
 	}
 
+	/**
+	 * Mengatur wajib/opsionalnya berkas pada slot unggahan 12.
+	 *
+	 * @param uploadLampiran12Wajib {@code true} agar berkas wajib; {@code null} berarti default
+	 *                              ({@code false})
+	 * @see #setUploadLampiran1Wajib(Boolean)
+	 */
 	public void setUploadLampiran12Wajib(Boolean uploadLampiran12Wajib) {
 		this.uploadLampiran12Wajib = uploadLampiran12Wajib;
 	}
 
+	/**
+	 * Apakah berkas pada slot unggahan 13 wajib diunggah; default {@code false}.
+	 * Perilakunya persis {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila berkas slot 13 wajib; tidak pernah {@code null}
+	 * @see #getUploadLampiran1Wajib()
+	 * @see #getUploadLampiran13()
+	 */
 	public Boolean getUploadLampiran13Wajib() {
 		return uploadLampiran13Wajib == null ? false : uploadLampiran13Wajib;
 	}
 
+	/**
+	 * Mengatur wajib/opsionalnya berkas pada slot unggahan 13.
+	 *
+	 * @param uploadLampiran13Wajib {@code true} agar berkas wajib; {@code null} berarti default
+	 *                              ({@code false})
+	 * @see #setUploadLampiran1Wajib(Boolean)
+	 */
 	public void setUploadLampiran13Wajib(Boolean uploadLampiran13Wajib) {
 		this.uploadLampiran13Wajib = uploadLampiran13Wajib;
 	}
 
+	/**
+	 * Apakah berkas pada slot unggahan 14 wajib diunggah; default {@code false}.
+	 * Perilakunya persis {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila berkas slot 14 wajib; tidak pernah {@code null}
+	 * @see #getUploadLampiran1Wajib()
+	 * @see #getUploadLampiran14()
+	 */
 	public Boolean getUploadLampiran14Wajib() {
 		return uploadLampiran14Wajib == null ? false : uploadLampiran14Wajib;
 	}
 
+	/**
+	 * Mengatur wajib/opsionalnya berkas pada slot unggahan 14.
+	 *
+	 * @param uploadLampiran14Wajib {@code true} agar berkas wajib; {@code null} berarti default
+	 *                              ({@code false})
+	 * @see #setUploadLampiran1Wajib(Boolean)
+	 */
 	public void setUploadLampiran14Wajib(Boolean uploadLampiran14Wajib) {
 		this.uploadLampiran14Wajib = uploadLampiran14Wajib;
 	}
 
+	/**
+	 * Apakah berkas pada slot unggahan 15 wajib diunggah; default {@code false}.
+	 * Perilakunya persis {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila berkas slot 15 wajib; tidak pernah {@code null}
+	 * @see #getUploadLampiran1Wajib()
+	 * @see #getUploadLampiran15()
+	 */
 	public Boolean getUploadLampiran15Wajib() {
 		return uploadLampiran15Wajib == null ? false : uploadLampiran15Wajib;
 	}
 
+	/**
+	 * Mengatur wajib/opsionalnya berkas pada slot unggahan 15.
+	 *
+	 * @param uploadLampiran15Wajib {@code true} agar berkas wajib; {@code null} berarti default
+	 *                              ({@code false})
+	 * @see #setUploadLampiran1Wajib(Boolean)
+	 */
 	public void setUploadLampiran15Wajib(Boolean uploadLampiran15Wajib) {
 		this.uploadLampiran15Wajib = uploadLampiran15Wajib;
 	}
 
+	/**
+	 * Id {@code TipeItem} (kategori berkas) untuk slot unggahan 1 — <b>method rujukan untuk
+	 * seluruh pola {@code getTipeItemN()} (N = 1..20)</b>.
+	 *
+	 * <p>Menentukan berkas slot ini digolongkan sebagai jenis dokumen apa, sehingga berkas yang
+	 * diunggah mahasiswa bisa dikenali modul lain (arsip dokumen, verifikasi berkas). Form master
+	 * menampilkannya sebagai combo {@code TipeItem} dan menyimpan id terpilih.</p>
+	 *
+	 * <p><b>Disimpan sebagai {@code Long} mentah, bukan relasi {@code @ManyToOne}</b> — sama
+	 * seperti {@link #getAlurSebelumnya()}. Tidak ada <i>foreign key</i>, tidak ada pemuatan
+	 * malas: pemanggil harus membungkusnya sendiri, mis. {@code new TipeItem(getTipeItem1())}.
+	 * Menyimpan dua puluh relasi sungguhan pada satu entity memang akan sangat mahal, jadi pilihan
+	 * ini disengaja.</p>
+	 *
+	 * <p><b>Tidak memberi default</b>: {@code null} dikembalikan apa adanya dan berarti "slot ini
+	 * tidak dikategorikan" — pemanggil wajib memeriksanya (pola yang dipakai
+	 * {@code FormatNilaiProposalSkripsiAction}).</p>
+	 *
+	 * @return id {@code TipeItem} untuk slot 1, atau {@code null} bila tidak dikategorikan
+	 * @see #getUploadLampiran1()
+	 */
 	public Long getTipeItem1() {
 		return tipeItem1;
 	}
 
+	/**
+	 * Mengisi id {@code TipeItem} untuk slot unggahan 1 — <b>setter rujukan untuk seluruh pola
+	 * {@code setTipeItemN()}</b>.
+	 *
+	 * @param tipeItem1 id {@code TipeItem}; {@code null} berarti tidak dikategorikan
+	 * @see #getTipeItem1()
+	 */
 	public void setTipeItem1(Long tipeItem1) {
 		this.tipeItem1 = tipeItem1;
 	}
 
+	/**
+	 * Id {@code TipeItem} (kategori berkas) untuk slot unggahan 2; {@code null} bila tidak
+	 * dikategorikan. Perilakunya persis {@link #getTipeItem1()}, termasuk alasan disimpan
+	 * sebagai id mentah dan bukan relasi.
+	 *
+	 * @return id {@code TipeItem} untuk slot 2, atau {@code null}
+	 * @see #getTipeItem1()
+	 * @see #getUploadLampiran2()
+	 */
 	public Long getTipeItem2() {
 		return tipeItem2;
 	}
 
+	/**
+	 * Mengisi id {@code TipeItem} untuk slot unggahan 2.
+	 *
+	 * @param tipeItem2 id {@code TipeItem}; {@code null} berarti tidak dikategorikan
+	 * @see #setTipeItem1(Long)
+	 */
 	public void setTipeItem2(Long tipeItem2) {
 		this.tipeItem2 = tipeItem2;
 	}
 
+	/**
+	 * Id {@code TipeItem} (kategori berkas) untuk slot unggahan 3; {@code null} bila tidak
+	 * dikategorikan. Perilakunya persis {@link #getTipeItem1()}, termasuk alasan disimpan
+	 * sebagai id mentah dan bukan relasi.
+	 *
+	 * @return id {@code TipeItem} untuk slot 3, atau {@code null}
+	 * @see #getTipeItem1()
+	 * @see #getUploadLampiran3()
+	 */
 	public Long getTipeItem3() {
 		return tipeItem3;
 	}
 
+	/**
+	 * Mengisi id {@code TipeItem} untuk slot unggahan 3.
+	 *
+	 * @param tipeItem3 id {@code TipeItem}; {@code null} berarti tidak dikategorikan
+	 * @see #setTipeItem1(Long)
+	 */
 	public void setTipeItem3(Long tipeItem3) {
 		this.tipeItem3 = tipeItem3;
 	}
 
+	/**
+	 * Id {@code TipeItem} (kategori berkas) untuk slot unggahan 4; {@code null} bila tidak
+	 * dikategorikan. Perilakunya persis {@link #getTipeItem1()}, termasuk alasan disimpan
+	 * sebagai id mentah dan bukan relasi.
+	 *
+	 * @return id {@code TipeItem} untuk slot 4, atau {@code null}
+	 * @see #getTipeItem1()
+	 * @see #getUploadLampiran4()
+	 */
 	public Long getTipeItem4() {
 		return tipeItem4;
 	}
 
+	/**
+	 * Mengisi id {@code TipeItem} untuk slot unggahan 4.
+	 *
+	 * @param tipeItem4 id {@code TipeItem}; {@code null} berarti tidak dikategorikan
+	 * @see #setTipeItem1(Long)
+	 */
 	public void setTipeItem4(Long tipeItem4) {
 		this.tipeItem4 = tipeItem4;
 	}
 
+	/**
+	 * Id {@code TipeItem} (kategori berkas) untuk slot unggahan 5; {@code null} bila tidak
+	 * dikategorikan. Perilakunya persis {@link #getTipeItem1()}, termasuk alasan disimpan
+	 * sebagai id mentah dan bukan relasi.
+	 *
+	 * @return id {@code TipeItem} untuk slot 5, atau {@code null}
+	 * @see #getTipeItem1()
+	 * @see #getUploadLampiran5()
+	 */
 	public Long getTipeItem5() {
 		return tipeItem5;
 	}
 
+	/**
+	 * Mengisi id {@code TipeItem} untuk slot unggahan 5.
+	 *
+	 * @param tipeItem5 id {@code TipeItem}; {@code null} berarti tidak dikategorikan
+	 * @see #setTipeItem1(Long)
+	 */
 	public void setTipeItem5(Long tipeItem5) {
 		this.tipeItem5 = tipeItem5;
 	}
 
+	/**
+	 * Id {@code TipeItem} (kategori berkas) untuk slot unggahan 6; {@code null} bila tidak
+	 * dikategorikan. Perilakunya persis {@link #getTipeItem1()}, termasuk alasan disimpan
+	 * sebagai id mentah dan bukan relasi.
+	 *
+	 * @return id {@code TipeItem} untuk slot 6, atau {@code null}
+	 * @see #getTipeItem1()
+	 * @see #getUploadLampiran6()
+	 */
 	public Long getTipeItem6() {
 		return tipeItem6;
 	}
 
+	/**
+	 * Mengisi id {@code TipeItem} untuk slot unggahan 6.
+	 *
+	 * @param tipeItem6 id {@code TipeItem}; {@code null} berarti tidak dikategorikan
+	 * @see #setTipeItem1(Long)
+	 */
 	public void setTipeItem6(Long tipeItem6) {
 		this.tipeItem6 = tipeItem6;
 	}
 
+	/**
+	 * Id {@code TipeItem} (kategori berkas) untuk slot unggahan 7; {@code null} bila tidak
+	 * dikategorikan. Perilakunya persis {@link #getTipeItem1()}, termasuk alasan disimpan
+	 * sebagai id mentah dan bukan relasi.
+	 *
+	 * @return id {@code TipeItem} untuk slot 7, atau {@code null}
+	 * @see #getTipeItem1()
+	 * @see #getUploadLampiran7()
+	 */
 	public Long getTipeItem7() {
 		return tipeItem7;
 	}
 
+	/**
+	 * Mengisi id {@code TipeItem} untuk slot unggahan 7.
+	 *
+	 * @param tipeItem7 id {@code TipeItem}; {@code null} berarti tidak dikategorikan
+	 * @see #setTipeItem1(Long)
+	 */
 	public void setTipeItem7(Long tipeItem7) {
 		this.tipeItem7 = tipeItem7;
 	}
 
+	/**
+	 * Id {@code TipeItem} (kategori berkas) untuk slot unggahan 8; {@code null} bila tidak
+	 * dikategorikan. Perilakunya persis {@link #getTipeItem1()}, termasuk alasan disimpan
+	 * sebagai id mentah dan bukan relasi.
+	 *
+	 * @return id {@code TipeItem} untuk slot 8, atau {@code null}
+	 * @see #getTipeItem1()
+	 * @see #getUploadLampiran8()
+	 */
 	public Long getTipeItem8() {
 		return tipeItem8;
 	}
 
+	/**
+	 * Mengisi id {@code TipeItem} untuk slot unggahan 8.
+	 *
+	 * @param tipeItem8 id {@code TipeItem}; {@code null} berarti tidak dikategorikan
+	 * @see #setTipeItem1(Long)
+	 */
 	public void setTipeItem8(Long tipeItem8) {
 		this.tipeItem8 = tipeItem8;
 	}
 
+	/**
+	 * Id {@code TipeItem} (kategori berkas) untuk slot unggahan 9; {@code null} bila tidak
+	 * dikategorikan. Perilakunya persis {@link #getTipeItem1()}, termasuk alasan disimpan
+	 * sebagai id mentah dan bukan relasi.
+	 *
+	 * @return id {@code TipeItem} untuk slot 9, atau {@code null}
+	 * @see #getTipeItem1()
+	 * @see #getUploadLampiran9()
+	 */
 	public Long getTipeItem9() {
 		return tipeItem9;
 	}
 
+	/**
+	 * Mengisi id {@code TipeItem} untuk slot unggahan 9.
+	 *
+	 * @param tipeItem9 id {@code TipeItem}; {@code null} berarti tidak dikategorikan
+	 * @see #setTipeItem1(Long)
+	 */
 	public void setTipeItem9(Long tipeItem9) {
 		this.tipeItem9 = tipeItem9;
 	}
 
+	/**
+	 * Id {@code TipeItem} (kategori berkas) untuk slot unggahan 10; {@code null} bila tidak
+	 * dikategorikan. Perilakunya persis {@link #getTipeItem1()}, termasuk alasan disimpan
+	 * sebagai id mentah dan bukan relasi.
+	 *
+	 * @return id {@code TipeItem} untuk slot 10, atau {@code null}
+	 * @see #getTipeItem1()
+	 * @see #getUploadLampiran10()
+	 */
 	public Long getTipeItem10() {
 		return tipeItem10;
 	}
 
+	/**
+	 * Mengisi id {@code TipeItem} untuk slot unggahan 10.
+	 *
+	 * @param tipeItem10 id {@code TipeItem}; {@code null} berarti tidak dikategorikan
+	 * @see #setTipeItem1(Long)
+	 */
 	public void setTipeItem10(Long tipeItem10) {
 		this.tipeItem10 = tipeItem10;
 	}
 
+	/**
+	 * Id {@code TipeItem} (kategori berkas) untuk slot unggahan 11; {@code null} bila tidak
+	 * dikategorikan. Perilakunya persis {@link #getTipeItem1()}, termasuk alasan disimpan
+	 * sebagai id mentah dan bukan relasi.
+	 *
+	 * @return id {@code TipeItem} untuk slot 11, atau {@code null}
+	 * @see #getTipeItem1()
+	 * @see #getUploadLampiran11()
+	 */
 	public Long getTipeItem11() {
 		return tipeItem11;
 	}
 
+	/**
+	 * Mengisi id {@code TipeItem} untuk slot unggahan 11.
+	 *
+	 * @param tipeItem11 id {@code TipeItem}; {@code null} berarti tidak dikategorikan
+	 * @see #setTipeItem1(Long)
+	 */
 	public void setTipeItem11(Long tipeItem11) {
 		this.tipeItem11 = tipeItem11;
 	}
 
+	/**
+	 * Id {@code TipeItem} (kategori berkas) untuk slot unggahan 12; {@code null} bila tidak
+	 * dikategorikan. Perilakunya persis {@link #getTipeItem1()}, termasuk alasan disimpan
+	 * sebagai id mentah dan bukan relasi.
+	 *
+	 * @return id {@code TipeItem} untuk slot 12, atau {@code null}
+	 * @see #getTipeItem1()
+	 * @see #getUploadLampiran12()
+	 */
 	public Long getTipeItem12() {
 		return tipeItem12;
 	}
 
+	/**
+	 * Mengisi id {@code TipeItem} untuk slot unggahan 12.
+	 *
+	 * @param tipeItem12 id {@code TipeItem}; {@code null} berarti tidak dikategorikan
+	 * @see #setTipeItem1(Long)
+	 */
 	public void setTipeItem12(Long tipeItem12) {
 		this.tipeItem12 = tipeItem12;
 	}
 
+	/**
+	 * Id {@code TipeItem} (kategori berkas) untuk slot unggahan 13; {@code null} bila tidak
+	 * dikategorikan. Perilakunya persis {@link #getTipeItem1()}, termasuk alasan disimpan
+	 * sebagai id mentah dan bukan relasi.
+	 *
+	 * @return id {@code TipeItem} untuk slot 13, atau {@code null}
+	 * @see #getTipeItem1()
+	 * @see #getUploadLampiran13()
+	 */
 	public Long getTipeItem13() {
 		return tipeItem13;
 	}
 
+	/**
+	 * Mengisi id {@code TipeItem} untuk slot unggahan 13.
+	 *
+	 * @param tipeItem13 id {@code TipeItem}; {@code null} berarti tidak dikategorikan
+	 * @see #setTipeItem1(Long)
+	 */
 	public void setTipeItem13(Long tipeItem13) {
 		this.tipeItem13 = tipeItem13;
 	}
 
+	/**
+	 * Id {@code TipeItem} (kategori berkas) untuk slot unggahan 14; {@code null} bila tidak
+	 * dikategorikan. Perilakunya persis {@link #getTipeItem1()}, termasuk alasan disimpan
+	 * sebagai id mentah dan bukan relasi.
+	 *
+	 * @return id {@code TipeItem} untuk slot 14, atau {@code null}
+	 * @see #getTipeItem1()
+	 * @see #getUploadLampiran14()
+	 */
 	public Long getTipeItem14() {
 		return tipeItem14;
 	}
 
+	/**
+	 * Mengisi id {@code TipeItem} untuk slot unggahan 14.
+	 *
+	 * @param tipeItem14 id {@code TipeItem}; {@code null} berarti tidak dikategorikan
+	 * @see #setTipeItem1(Long)
+	 */
 	public void setTipeItem14(Long tipeItem14) {
 		this.tipeItem14 = tipeItem14;
 	}
 
+	/**
+	 * Id {@code TipeItem} (kategori berkas) untuk slot unggahan 15; {@code null} bila tidak
+	 * dikategorikan. Perilakunya persis {@link #getTipeItem1()}, termasuk alasan disimpan
+	 * sebagai id mentah dan bukan relasi.
+	 *
+	 * @return id {@code TipeItem} untuk slot 15, atau {@code null}
+	 * @see #getTipeItem1()
+	 * @see #getUploadLampiran15()
+	 */
 	public Long getTipeItem15() {
 		return tipeItem15;
 	}
 
+	/**
+	 * Mengisi id {@code TipeItem} untuk slot unggahan 15.
+	 *
+	 * @param tipeItem15 id {@code TipeItem}; {@code null} berarti tidak dikategorikan
+	 * @see #setTipeItem1(Long)
+	 */
 	public void setTipeItem15(Long tipeItem15) {
 		this.tipeItem15 = tipeItem15;
 	}
 
+	/**
+	 * Label berkas unggahan slot 16; {@code ""} bila slot tidak dipakai (baris unggah ke-16
+	 * tidak ditampilkan pada form pengajuan). Makna, penormalan, dan seluruh perilakunya
+	 * persis sama dengan {@link #getUploadLampiran1()} — baca method itu untuk penjelasan
+	 * lengkap pola tiga larik sejajar label/wajib/tipe.
+	 *
+	 * @return label berkas slot 16, atau {@code ""}; tidak pernah {@code null}
+	 * @see #getUploadLampiran1()
+	 * @see #getUploadLampiran16Wajib()
+	 * @see #getTipeItem16()
+	 */
 	public String getUploadLampiran16() {
 		return uploadLampiran16 == null ? "" : uploadLampiran16.trim();
 	}
 
+	/**
+	 * Mengisi label berkas unggahan slot 16; {@code null}/kosong mematikan slot.
+	 *
+	 * @param uploadLampiran16 label berkas yang diminta; {@code null}/kosong mematikan slot
+	 * @see #setUploadLampiran1(String)
+	 */
 	public void setUploadLampiran16(String uploadLampiran16) {
 		this.uploadLampiran16 = uploadLampiran16;
 	}
 
+	/**
+	 * Label berkas unggahan slot 17; {@code ""} bila slot tidak dipakai (baris unggah ke-17
+	 * tidak ditampilkan pada form pengajuan). Makna, penormalan, dan seluruh perilakunya
+	 * persis sama dengan {@link #getUploadLampiran1()} — baca method itu untuk penjelasan
+	 * lengkap pola tiga larik sejajar label/wajib/tipe.
+	 *
+	 * @return label berkas slot 17, atau {@code ""}; tidak pernah {@code null}
+	 * @see #getUploadLampiran1()
+	 * @see #getUploadLampiran17Wajib()
+	 * @see #getTipeItem17()
+	 */
 	public String getUploadLampiran17() {
 		return uploadLampiran17 == null ? "" : uploadLampiran17.trim();
 	}
 
+	/**
+	 * Mengisi label berkas unggahan slot 17; {@code null}/kosong mematikan slot.
+	 *
+	 * @param uploadLampiran17 label berkas yang diminta; {@code null}/kosong mematikan slot
+	 * @see #setUploadLampiran1(String)
+	 */
 	public void setUploadLampiran17(String uploadLampiran17) {
 		this.uploadLampiran17 = uploadLampiran17;
 	}
 
+	/**
+	 * Label berkas unggahan slot 18; {@code ""} bila slot tidak dipakai (baris unggah ke-18
+	 * tidak ditampilkan pada form pengajuan). Makna, penormalan, dan seluruh perilakunya
+	 * persis sama dengan {@link #getUploadLampiran1()} — baca method itu untuk penjelasan
+	 * lengkap pola tiga larik sejajar label/wajib/tipe.
+	 *
+	 * @return label berkas slot 18, atau {@code ""}; tidak pernah {@code null}
+	 * @see #getUploadLampiran1()
+	 * @see #getUploadLampiran18Wajib()
+	 * @see #getTipeItem18()
+	 */
 	public String getUploadLampiran18() {
 		return uploadLampiran18 == null ? "" : uploadLampiran18.trim();
 	}
 
+	/**
+	 * Mengisi label berkas unggahan slot 18; {@code null}/kosong mematikan slot.
+	 *
+	 * @param uploadLampiran18 label berkas yang diminta; {@code null}/kosong mematikan slot
+	 * @see #setUploadLampiran1(String)
+	 */
 	public void setUploadLampiran18(String uploadLampiran18) {
 		this.uploadLampiran18 = uploadLampiran18;
 	}
 
+	/**
+	 * Label berkas unggahan slot 19; {@code ""} bila slot tidak dipakai (baris unggah ke-19
+	 * tidak ditampilkan pada form pengajuan). Makna, penormalan, dan seluruh perilakunya
+	 * persis sama dengan {@link #getUploadLampiran1()} — baca method itu untuk penjelasan
+	 * lengkap pola tiga larik sejajar label/wajib/tipe.
+	 *
+	 * @return label berkas slot 19, atau {@code ""}; tidak pernah {@code null}
+	 * @see #getUploadLampiran1()
+	 * @see #getUploadLampiran19Wajib()
+	 * @see #getTipeItem19()
+	 */
 	public String getUploadLampiran19() {
 		return uploadLampiran19 == null ? "" : uploadLampiran19.trim();
 	}
 
+	/**
+	 * Mengisi label berkas unggahan slot 19; {@code null}/kosong mematikan slot.
+	 *
+	 * @param uploadLampiran19 label berkas yang diminta; {@code null}/kosong mematikan slot
+	 * @see #setUploadLampiran1(String)
+	 */
 	public void setUploadLampiran19(String uploadLampiran19) {
 		this.uploadLampiran19 = uploadLampiran19;
 	}
 
+	/**
+	 * Label berkas unggahan slot 20; {@code ""} bila slot tidak dipakai (baris unggah ke-20
+	 * tidak ditampilkan pada form pengajuan). Makna, penormalan, dan seluruh perilakunya
+	 * persis sama dengan {@link #getUploadLampiran1()} — baca method itu untuk penjelasan
+	 * lengkap pola tiga larik sejajar label/wajib/tipe.
+	 *
+	 * @return label berkas slot 20, atau {@code ""}; tidak pernah {@code null}
+	 * @see #getUploadLampiran1()
+	 * @see #getUploadLampiran20Wajib()
+	 * @see #getTipeItem20()
+	 */
 	public String getUploadLampiran20() {
 		return uploadLampiran20 == null ? "" : uploadLampiran20.trim();
 	}
 
+	/**
+	 * Mengisi label berkas unggahan slot 20; {@code null}/kosong mematikan slot.
+	 *
+	 * @param uploadLampiran20 label berkas yang diminta; {@code null}/kosong mematikan slot
+	 * @see #setUploadLampiran1(String)
+	 */
 	public void setUploadLampiran20(String uploadLampiran20) {
 		this.uploadLampiran20 = uploadLampiran20;
 	}
 
+	/**
+	 * Apakah berkas pada slot unggahan 16 wajib diunggah; default {@code false}.
+	 * Perilakunya persis {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila berkas slot 16 wajib; tidak pernah {@code null}
+	 * @see #getUploadLampiran1Wajib()
+	 * @see #getUploadLampiran16()
+	 */
 	public Boolean getUploadLampiran16Wajib() {
 		return uploadLampiran16Wajib == null ? false : uploadLampiran16Wajib;
 	}
 
+	/**
+	 * Mengatur wajib/opsionalnya berkas pada slot unggahan 16.
+	 *
+	 * @param uploadLampiran16Wajib {@code true} agar berkas wajib; {@code null} berarti default
+	 *                              ({@code false})
+	 * @see #setUploadLampiran1Wajib(Boolean)
+	 */
 	public void setUploadLampiran16Wajib(Boolean uploadLampiran16Wajib) {
 		this.uploadLampiran16Wajib = uploadLampiran16Wajib;
 	}
 
+	/**
+	 * Apakah berkas pada slot unggahan 17 wajib diunggah; default {@code false}.
+	 * Perilakunya persis {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila berkas slot 17 wajib; tidak pernah {@code null}
+	 * @see #getUploadLampiran1Wajib()
+	 * @see #getUploadLampiran17()
+	 */
 	public Boolean getUploadLampiran17Wajib() {
 		return uploadLampiran17Wajib == null ? false : uploadLampiran17Wajib;
 	}
 
+	/**
+	 * Mengatur wajib/opsionalnya berkas pada slot unggahan 17.
+	 *
+	 * @param uploadLampiran17Wajib {@code true} agar berkas wajib; {@code null} berarti default
+	 *                              ({@code false})
+	 * @see #setUploadLampiran1Wajib(Boolean)
+	 */
 	public void setUploadLampiran17Wajib(Boolean uploadLampiran17Wajib) {
 		this.uploadLampiran17Wajib = uploadLampiran17Wajib;
 	}
 
+	/**
+	 * Apakah berkas pada slot unggahan 18 wajib diunggah; default {@code false}.
+	 * Perilakunya persis {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila berkas slot 18 wajib; tidak pernah {@code null}
+	 * @see #getUploadLampiran1Wajib()
+	 * @see #getUploadLampiran18()
+	 */
 	public Boolean getUploadLampiran18Wajib() {
 		return uploadLampiran18Wajib == null ? false : uploadLampiran18Wajib;
 	}
 
+	/**
+	 * Mengatur wajib/opsionalnya berkas pada slot unggahan 18.
+	 *
+	 * @param uploadLampiran18Wajib {@code true} agar berkas wajib; {@code null} berarti default
+	 *                              ({@code false})
+	 * @see #setUploadLampiran1Wajib(Boolean)
+	 */
 	public void setUploadLampiran18Wajib(Boolean uploadLampiran18Wajib) {
 		this.uploadLampiran18Wajib = uploadLampiran18Wajib;
 	}
 
+	/**
+	 * Apakah berkas pada slot unggahan 19 wajib diunggah; default {@code false}.
+	 * Perilakunya persis {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila berkas slot 19 wajib; tidak pernah {@code null}
+	 * @see #getUploadLampiran1Wajib()
+	 * @see #getUploadLampiran19()
+	 */
 	public Boolean getUploadLampiran19Wajib() {
 		return uploadLampiran19Wajib == null ? false : uploadLampiran19Wajib;
 	}
 
+	/**
+	 * Mengatur wajib/opsionalnya berkas pada slot unggahan 19.
+	 *
+	 * @param uploadLampiran19Wajib {@code true} agar berkas wajib; {@code null} berarti default
+	 *                              ({@code false})
+	 * @see #setUploadLampiran1Wajib(Boolean)
+	 */
 	public void setUploadLampiran19Wajib(Boolean uploadLampiran19Wajib) {
 		this.uploadLampiran19Wajib = uploadLampiran19Wajib;
 	}
 
+	/**
+	 * Apakah berkas pada slot unggahan 20 wajib diunggah; default {@code false}.
+	 * Perilakunya persis {@link #getUploadLampiran1Wajib()}.
+	 *
+	 * @return {@code true} bila berkas slot 20 wajib; tidak pernah {@code null}
+	 * @see #getUploadLampiran1Wajib()
+	 * @see #getUploadLampiran20()
+	 */
 	public Boolean getUploadLampiran20Wajib() {
 		return uploadLampiran20Wajib == null ? false : uploadLampiran20Wajib;
 	}
 
+	/**
+	 * Mengatur wajib/opsionalnya berkas pada slot unggahan 20.
+	 *
+	 * @param uploadLampiran20Wajib {@code true} agar berkas wajib; {@code null} berarti default
+	 *                              ({@code false})
+	 * @see #setUploadLampiran1Wajib(Boolean)
+	 */
 	public void setUploadLampiran20Wajib(Boolean uploadLampiran20Wajib) {
 		this.uploadLampiran20Wajib = uploadLampiran20Wajib;
 	}
 
+	/**
+	 * Id {@code TipeItem} (kategori berkas) untuk slot unggahan 16; {@code null} bila tidak
+	 * dikategorikan. Perilakunya persis {@link #getTipeItem1()}, termasuk alasan disimpan
+	 * sebagai id mentah dan bukan relasi.
+	 *
+	 * @return id {@code TipeItem} untuk slot 16, atau {@code null}
+	 * @see #getTipeItem1()
+	 * @see #getUploadLampiran16()
+	 */
 	public Long getTipeItem16() {
 		return tipeItem16;
 	}
 
+	/**
+	 * Mengisi id {@code TipeItem} untuk slot unggahan 16.
+	 *
+	 * @param tipeItem16 id {@code TipeItem}; {@code null} berarti tidak dikategorikan
+	 * @see #setTipeItem1(Long)
+	 */
 	public void setTipeItem16(Long tipeItem16) {
 		this.tipeItem16 = tipeItem16;
 	}
 
+	/**
+	 * Id {@code TipeItem} (kategori berkas) untuk slot unggahan 17; {@code null} bila tidak
+	 * dikategorikan. Perilakunya persis {@link #getTipeItem1()}, termasuk alasan disimpan
+	 * sebagai id mentah dan bukan relasi.
+	 *
+	 * @return id {@code TipeItem} untuk slot 17, atau {@code null}
+	 * @see #getTipeItem1()
+	 * @see #getUploadLampiran17()
+	 */
 	public Long getTipeItem17() {
 		return tipeItem17;
 	}
 
+	/**
+	 * Mengisi id {@code TipeItem} untuk slot unggahan 17.
+	 *
+	 * @param tipeItem17 id {@code TipeItem}; {@code null} berarti tidak dikategorikan
+	 * @see #setTipeItem1(Long)
+	 */
 	public void setTipeItem17(Long tipeItem17) {
 		this.tipeItem17 = tipeItem17;
 	}
 
+	/**
+	 * Id {@code TipeItem} (kategori berkas) untuk slot unggahan 18; {@code null} bila tidak
+	 * dikategorikan. Perilakunya persis {@link #getTipeItem1()}, termasuk alasan disimpan
+	 * sebagai id mentah dan bukan relasi.
+	 *
+	 * @return id {@code TipeItem} untuk slot 18, atau {@code null}
+	 * @see #getTipeItem1()
+	 * @see #getUploadLampiran18()
+	 */
 	public Long getTipeItem18() {
 		return tipeItem18;
 	}
 
+	/**
+	 * Mengisi id {@code TipeItem} untuk slot unggahan 18.
+	 *
+	 * @param tipeItem18 id {@code TipeItem}; {@code null} berarti tidak dikategorikan
+	 * @see #setTipeItem1(Long)
+	 */
 	public void setTipeItem18(Long tipeItem18) {
 		this.tipeItem18 = tipeItem18;
 	}
 
+	/**
+	 * Id {@code TipeItem} (kategori berkas) untuk slot unggahan 19; {@code null} bila tidak
+	 * dikategorikan. Perilakunya persis {@link #getTipeItem1()}, termasuk alasan disimpan
+	 * sebagai id mentah dan bukan relasi.
+	 *
+	 * @return id {@code TipeItem} untuk slot 19, atau {@code null}
+	 * @see #getTipeItem1()
+	 * @see #getUploadLampiran19()
+	 */
 	public Long getTipeItem19() {
 		return tipeItem19;
 	}
 
+	/**
+	 * Mengisi id {@code TipeItem} untuk slot unggahan 19.
+	 *
+	 * @param tipeItem19 id {@code TipeItem}; {@code null} berarti tidak dikategorikan
+	 * @see #setTipeItem1(Long)
+	 */
 	public void setTipeItem19(Long tipeItem19) {
 		this.tipeItem19 = tipeItem19;
 	}
 
+	/**
+	 * Id {@code TipeItem} (kategori berkas) untuk slot unggahan 20; {@code null} bila tidak
+	 * dikategorikan. Perilakunya persis {@link #getTipeItem1()}, termasuk alasan disimpan
+	 * sebagai id mentah dan bukan relasi.
+	 *
+	 * @return id {@code TipeItem} untuk slot 20, atau {@code null}
+	 * @see #getTipeItem1()
+	 * @see #getUploadLampiran20()
+	 */
 	public Long getTipeItem20() {
 		return tipeItem20;
 	}
 
+	/**
+	 * Mengisi id {@code TipeItem} untuk slot unggahan 20.
+	 *
+	 * @param tipeItem20 id {@code TipeItem}; {@code null} berarti tidak dikategorikan
+	 * @see #setTipeItem1(Long)
+	 */
 	public void setTipeItem20(Long tipeItem20) {
 		this.tipeItem20 = tipeItem20;
 	}
 
+	/**
+	 * Apakah format ini <b>disembunyikan dari mahasiswa</b> sehingga hanya bisa dipakai operator.
+	 *
+	 * <p>Berguna untuk tahapan yang pendaftarannya dikerjakan bagian akademik, bukan diajukan
+	 * sendiri oleh mahasiswa lewat portal.</p>
+	 *
+	 * <p>Bedakan dari {@link #getAktif()}: yang itu mematikan format bagi semua pengguna,
+	 * sedangkan yang ini hanya menyembunyikannya dari mahasiswa. Perhatikan juga <b>arah
+	 * penamaannya terbalik</b> dari kebanyakan flag lain di class ini — {@code true} berarti
+	 * <i>tidak</i> boleh, jadi jangan dibaca sebagai izin.</p>
+	 *
+	 * <p><b>Default {@code false}</b> untuk kolom {@code NULL}: format lama tetap bisa dipilih
+	 * mahasiswa.</p>
+	 *
+	 * @return {@code true} bila format disembunyikan dari mahasiswa; tidak pernah {@code null}
+	 * @see #getAktif()
+	 */
 	public Boolean getTidakBolehDipilihMahasiswa() {
 		return tidakBolehDipilihMahasiswa == null ? false : tidakBolehDipilihMahasiswa;
 	}
 
+	/**
+	 * Mengatur penyembunyian format ini dari daftar pilihan mahasiswa.
+	 *
+	 * @param tidakBolehDipilihMahasiswa {@code true} untuk menyembunyikan; {@code null} berarti
+	 *                                   default ({@code false})
+	 * @see #getTidakBolehDipilihMahasiswa()
+	 */
 	public void setTidakBolehDipilihMahasiswa(Boolean tidakBolehDipilihMahasiswa) {
 		this.tidakBolehDipilihMahasiswa = tidakBolehDipilihMahasiswa;
 	}
 
+	/**
+	 * Apakah slot penilai 1 ({@link #getDosen1()}) dipakai pada format ini — <b>method rujukan
+	 * untuk seluruh pola {@code getDosenNAktif()} (N = 1..6)</b>.
+	 *
+	 * <p>Menentukan apakah baris slot ini muncul di layar penilaian, di
+	 * {@code MahasiswaRequestTugasAkhir.dataDosen(boolean)} (yang menjadi sumber daftar dosen
+	 * untuk penilaian maupun ekspor Feeder), dan di berbagai cetakan.</p>
+	 *
+	 * <h4>Default turunan, bukan konstanta</h4>
+	 * <p>Berbeda dari flag {@code Boolean} lain di class ini, nilai default untuk kolom
+	 * {@code NULL} <b>dihitung dari bobotnya</b>: slot dianggap aktif bila bobot pasangannya
+	 * lebih besar dari {@code 0.1}. Ambang {@code 0.1} — bukan {@code 0} — dipakai untuk
+	 * menghindari masalah pembulatan bilangan pecahan; efek sampingnya, <b>bobot sah yang sangat
+	 * kecil (mis. {@code 0.05}%) akan membuat slot dianggap TIDAK aktif</b>.</p>
+	 * <p>Aturan ini membuat format lama yang belum pernah menyentuh kolom {@code dosenNAktif}
+	 * tetap berperilaku benar: slot yang berbobot nol otomatis tersembunyi. Begitu kolomnya diisi
+	 * eksplisit, nilai eksplisit itulah yang menang — termasuk kombinasi "aktif tetapi berbobot
+	 * nol" (slot tampil dan dinilai, tetapi tidak menyumbang nilai akhir) yang memang kadang
+	 * dipakai untuk peran pengamat.</p>
+	 *
+	 * <p><b>Risiko {@link NullPointerException}</b>: karena
+	 * {@link #getProsentasiNilaiPembimbing1()} bisa mengembalikan {@code null} (lihat
+	 * {@link #getProsentasiNilaiPenguji1()}), perbandingan {@code > 0.1} di jalur default akan
+	 * gagal saat <i>auto-unboxing</i> pada baris format lama yang kolom bobotnya {@code NULL}
+	 * <b>dan</b> kolom {@code dosen1_aktif}-nya juga {@code NULL}. Mengisi salah satu dari
+	 * keduanya menghindarkan masalah ini.</p>
+	 *
+	 * @return {@code true} bila slot 1 dipakai; tidak pernah {@code null}
+	 * @throws NullPointerException bila kolom {@code dosen1Aktif} dan bobot pasangannya
+	 *                              sama-sama {@code NULL}
+	 * @see #getDosen1()
+	 * @see #getProsentasiNilaiPembimbing1()
+	 */
 	public Boolean getDosen1Aktif() {
 		return dosen1Aktif == null ? getProsentasiNilaiPembimbing1() > 0.1 : dosen1Aktif;
 	}
 
+	/**
+	 * Mengatur dipakai/tidaknya slot penilai 1 — <b>setter rujukan untuk seluruh pola
+	 * {@code setDosenNAktif()}</b>.
+	 *
+	 * <p>Mengisi {@code null} mengembalikan slot ke perilaku default yang diturunkan dari
+	 * bobotnya; lihat {@link #getDosen1Aktif()}.</p>
+	 *
+	 * @param dosen1Aktif status pemakaian slot; {@code null} berarti ikut bobot
+	 * @see #getDosen1Aktif()
+	 */
 	public void setDosen1Aktif(Boolean dosen1Aktif) {
 		this.dosen1Aktif = dosen1Aktif;
 	}
 
+	/**
+	 * Apakah slot penilai 2 ({@link #getDosen2()}) dipakai; default diturunkan dari
+	 * {@link #getProsentasiNilaiPembimbing2()}. Perilakunya persis {@link #getDosen1Aktif()},
+	 * termasuk risiko {@link NullPointerException}-nya.
+	 *
+	 * @return {@code true} bila slot 2 dipakai; tidak pernah {@code null}
+	 * @see #getDosen1Aktif()
+	 */
 	public Boolean getDosen2Aktif() {
 		return dosen2Aktif == null ? getProsentasiNilaiPembimbing2() > 0.1 : dosen2Aktif;
 	}
 
+	/**
+	 * Mengatur dipakai/tidaknya slot penilai 2.
+	 *
+	 * @param dosen2Aktif status pemakaian slot; {@code null} berarti ikut bobot
+	 * @see #setDosen1Aktif(Boolean)
+	 */
 	public void setDosen2Aktif(Boolean dosen2Aktif) {
 		this.dosen2Aktif = dosen2Aktif;
 	}
 
+	/**
+	 * Apakah slot penilai 3 ({@link #getDosen3()}) dipakai; default diturunkan dari
+	 * {@link #getProsentasiNilaiPembimbing3()}. Perilakunya persis {@link #getDosen1Aktif()}.
+	 *
+	 * @return {@code true} bila slot 3 dipakai; tidak pernah {@code null}
+	 * @see #getDosen1Aktif()
+	 */
 	public Boolean getDosen3Aktif() {
 		return dosen3Aktif == null ? getProsentasiNilaiPembimbing3() > 0.1 : dosen3Aktif;
 	}
 
+	/**
+	 * Mengatur dipakai/tidaknya slot penilai 3.
+	 *
+	 * @param dosen3Aktif status pemakaian slot; {@code null} berarti ikut bobot
+	 * @see #setDosen1Aktif(Boolean)
+	 */
 	public void setDosen3Aktif(Boolean dosen3Aktif) {
 		this.dosen3Aktif = dosen3Aktif;
 	}
 
+	/**
+	 * Apakah slot penilai 4 ({@link #getDosen4()}) dipakai; default diturunkan dari
+	 * {@link #getProsentasiNilaiPenguji1()}. Perilakunya persis {@link #getDosen1Aktif()}.
+	 *
+	 * @return {@code true} bila slot 4 dipakai; tidak pernah {@code null}
+	 * @see #getDosen1Aktif()
+	 */
 	public Boolean getDosen4Aktif() {
 		return dosen4Aktif == null ? getProsentasiNilaiPenguji1() > 0.1 : dosen4Aktif;
 	}
 
+	/**
+	 * Mengatur dipakai/tidaknya slot penilai 4.
+	 *
+	 * @param dosen4Aktif status pemakaian slot; {@code null} berarti ikut bobot
+	 * @see #setDosen1Aktif(Boolean)
+	 */
 	public void setDosen4Aktif(Boolean dosen4Aktif) {
 		this.dosen4Aktif = dosen4Aktif;
 	}
 
+	/**
+	 * Apakah slot penilai 5 ({@link #getDosen5()}) dipakai; default diturunkan dari
+	 * {@link #getProsentasiNilaiPenguji2()}. Perilakunya persis {@link #getDosen1Aktif()}.
+	 *
+	 * @return {@code true} bila slot 5 dipakai; tidak pernah {@code null}
+	 * @see #getDosen1Aktif()
+	 */
 	public Boolean getDosen5Aktif() {
 		return dosen5Aktif == null ? getProsentasiNilaiPenguji2() > 0.1 : dosen5Aktif;
 	}
 
+	/**
+	 * Mengatur dipakai/tidaknya slot penilai 5.
+	 *
+	 * @param dosen5Aktif status pemakaian slot; {@code null} berarti ikut bobot
+	 * @see #setDosen1Aktif(Boolean)
+	 */
 	public void setDosen5Aktif(Boolean dosen5Aktif) {
 		this.dosen5Aktif = dosen5Aktif;
 	}
 
+	/**
+	 * Apakah slot penilai 6 ({@link #getDosen6()}) dipakai; default diturunkan dari
+	 * {@link #getProsentasiNilaiPenguji3()}.
+	 *
+	 * <p><b>Titik perbedaan konkret dengan {@link FormatNilaiSkripsi}</b>: di sana
+	 * {@code getDosen6Aktif()} membaca {@code getProsentasiNilaiPenguji4()}, di sini
+	 * {@code getProsentasiNilaiPenguji3()} — karena entity ini hanya punya enam slot. Jangan
+	 * menyalin logika antar kedua class tanpa menyesuaikan pemetaan ini.</p>
+	 *
+	 * @return {@code true} bila slot 6 dipakai; tidak pernah {@code null}
+	 * @see #getDosen1Aktif()
+	 */
 	public Boolean getDosen6Aktif() {
 		return dosen6Aktif == null ? getProsentasiNilaiPenguji3() > 0.1 : dosen6Aktif;
 	}
 
+	/**
+	 * Mengatur dipakai/tidaknya slot penilai 6.
+	 *
+	 * @param dosen6Aktif status pemakaian slot; {@code null} berarti ikut bobot
+	 * @see #setDosen1Aktif(Boolean)
+	 */
 	public void setDosen6Aktif(Boolean dosen6Aktif) {
 		this.dosen6Aktif = dosen6Aktif;
 	}
 
+	/**
+	 * Kode kategori kegiatan <b>Feeder/PDDikti</b> untuk slot penilai 1 ({@link #getDosen1()}) —
+	 * <b>method rujukan untuk seluruh pola {@code getKodeN()} (N = 1..6)</b>.
+	 *
+	 * <p>Nilainya ikut dibawa {@code MahasiswaRequestTugasAkhir.dataDosen(boolean)} sebagai
+	 * atribut pendamping tiap dosen, lalu dipakai
+	 * {@code EksporPesertaDosenBimbinganFeeder} sebagai kode kategori kegiatan pada berkas ekspor
+	 * — menyatakan peran dosen tersebut menurut kodifikasi PDDikti.</p>
+	 *
+	 * <p><b>Bila kosong, eksportir menebak kodenya dari LABEL slot</b>: label yang mengandung kata
+	 * "penguji" (tidak peka huruf besar/kecil) memakai {@code "110500"}, selain itu
+	 * {@code "110400"} (pembimbing). Dua akibatnya:</p>
+	 * <ul>
+	 *   <li>Format yang memakai istilah lokal — mis. "Reviewer" atau "Pembahas" untuk peran yang
+	 *       sebenarnya penguji — akan <b>salah kategori</b> di ekspor Feeder kecuali kolom
+	 *       {@code kodeN} diisi eksplisit.</li>
+	 *   <li>Mengganti label slot ({@link #getDosen1()}) dapat mengubah hasil ekspor Feeder secara
+	 *       diam-diam, walau tidak ada konfigurasi Feeder yang disentuh.</li>
+	 * </ul>
+	 *
+	 * <p><b>Tidak memberi default</b>: {@code null} dikembalikan apa adanya, dan {@code null}
+	 * maupun string kosong sama-sama memicu penebakan di atas.</p>
+	 *
+	 * @return kode kategori kegiatan Feeder untuk slot 1, atau {@code null} bila ditebak otomatis
+	 * @see #getDosen1()
+	 */
 	public String getKode1() {
 		return kode1;
 	}
 
+	/**
+	 * Mengisi kode kategori kegiatan Feeder untuk slot penilai 1 — <b>setter rujukan untuk
+	 * seluruh pola {@code setKodeN()}</b>. Form master menyimpannya sudah di-{@code trim()}.
+	 *
+	 * @param kode1 kode kategori kegiatan PDDikti; {@code null}/kosong berarti ditebak dari label
+	 * @see #getKode1()
+	 */
 	public void setKode1(String kode1) {
 		this.kode1 = kode1;
 	}
 
+	/**
+	 * Kode kategori kegiatan Feeder untuk slot penilai 2 ({@link #getDosen2()}).
+	 * Perilakunya persis {@link #getKode1()}.
+	 *
+	 * @return kode kategori kegiatan Feeder untuk slot 2, atau {@code null}
+	 * @see #getKode1()
+	 */
 	public String getKode2() {
 		return kode2;
 	}
 
+	/**
+	 * Mengisi kode kategori kegiatan Feeder untuk slot penilai 2.
+	 *
+	 * @param kode2 kode kategori kegiatan PDDikti; {@code null}/kosong berarti ditebak dari label
+	 * @see #setKode1(String)
+	 */
 	public void setKode2(String kode2) {
 		this.kode2 = kode2;
 	}
 
+	/**
+	 * Kode kategori kegiatan Feeder untuk slot penilai 3 ({@link #getDosen3()}).
+	 * Perilakunya persis {@link #getKode1()}.
+	 *
+	 * @return kode kategori kegiatan Feeder untuk slot 3, atau {@code null}
+	 * @see #getKode1()
+	 */
 	public String getKode3() {
 		return kode3;
 	}
 
+	/**
+	 * Mengisi kode kategori kegiatan Feeder untuk slot penilai 3.
+	 *
+	 * @param kode3 kode kategori kegiatan PDDikti; {@code null}/kosong berarti ditebak dari label
+	 * @see #setKode1(String)
+	 */
 	public void setKode3(String kode3) {
 		this.kode3 = kode3;
 	}
 
+	/**
+	 * Kode kategori kegiatan Feeder untuk slot penilai 4 ({@link #getDosen4()}).
+	 * Perilakunya persis {@link #getKode1()}.
+	 *
+	 * @return kode kategori kegiatan Feeder untuk slot 4, atau {@code null}
+	 * @see #getKode1()
+	 */
 	public String getKode4() {
 		return kode4;
 	}
 
+	/**
+	 * Mengisi kode kategori kegiatan Feeder untuk slot penilai 4.
+	 *
+	 * @param kode4 kode kategori kegiatan PDDikti; {@code null}/kosong berarti ditebak dari label
+	 * @see #setKode1(String)
+	 */
 	public void setKode4(String kode4) {
 		this.kode4 = kode4;
 	}
 
+	/**
+	 * Kode kategori kegiatan Feeder untuk slot penilai 5 ({@link #getDosen5()}).
+	 * Perilakunya persis {@link #getKode1()}.
+	 *
+	 * @return kode kategori kegiatan Feeder untuk slot 5, atau {@code null}
+	 * @see #getKode1()
+	 */
 	public String getKode5() {
 		return kode5;
 	}
 
+	/**
+	 * Mengisi kode kategori kegiatan Feeder untuk slot penilai 5.
+	 *
+	 * @param kode5 kode kategori kegiatan PDDikti; {@code null}/kosong berarti ditebak dari label
+	 * @see #setKode1(String)
+	 */
 	public void setKode5(String kode5) {
 		this.kode5 = kode5;
 	}
 
+	/**
+	 * Kode kategori kegiatan Feeder untuk slot penilai 6 ({@link #getDosen6()}).
+	 * Perilakunya persis {@link #getKode1()}.
+	 *
+	 * @return kode kategori kegiatan Feeder untuk slot 6, atau {@code null}
+	 * @see #getKode1()
+	 */
 	public String getKode6() {
 		return kode6;
 	}
 
+	/**
+	 * Mengisi kode kategori kegiatan Feeder untuk slot penilai 6.
+	 *
+	 * @param kode6 kode kategori kegiatan PDDikti; {@code null}/kosong berarti ditebak dari label
+	 * @see #setKode1(String)
+	 */
 	public void setKode6(String kode6) {
 		this.kode6 = kode6;
 	}
 
+	/**
+	 * Kode jenis kegiatan mahasiswa dalam bentuk <b>teks bebas</b> — kolom warisan.
+	 *
+	 * <p>Pendahulu relasi {@link #getJenisKegiatanMahasiswa()}. <b>Tidak ada satu pun form yang
+	 * menulis kolom ini lagi</b> ({@code FormatNilaiProposalSkripsiAction} hanya menyimpan
+	 * relasinya), sehingga isinya hanya berasal dari data lama atau SQL langsung.</p>
+	 *
+	 * <p>Fungsinya kini semata sebagai <b>sumber migrasi</b>: bila relasi
+	 * {@code jenisKegiatanMahasiswa} masih kosong, {@link #getJenisKegiatanMahasiswa()} mencari
+	 * {@link JenisKegiatanMahasiswa} yang kodenya sama dengan teks ini dan memakainya. Jangan
+	 * dijadikan acuan baru; pakai relasinya.</p>
+	 *
+	 * <p>Dikembalikan apa adanya, tanpa {@code trim} dan tanpa default — bisa {@code null}.</p>
+	 *
+	 * @return kode jenis kegiatan sebagai teks, atau {@code null}
+	 * @see #getJenisKegiatanMahasiswa()
+	 */
 	public String getJenis() {
 		return jenis;
 	}
 
+	/**
+	 * Mengisi kode jenis kegiatan berbentuk teks (kolom warisan).
+	 *
+	 * <p>Tidak dipanggil kode aplikasi mana pun; disediakan untuk kelengkapan pemetaan Hibernate
+	 * dan migrasi data. Untuk menetapkan jenis kegiatan, pakai
+	 * {@link #setJenisKegiatanMahasiswa(JenisKegiatanMahasiswa)}.</p>
+	 *
+	 * @param jenis kode jenis kegiatan sebagai teks; boleh {@code null}
+	 * @see #getJenis()
+	 */
 	public void setJenis(String jenis) {
 		this.jenis = jenis;
 	}
 
+	/**
+	 * Jenis kegiatan mahasiswa yang diwakili tahapan ini, menurut kodifikasi PDDikti.
+	 *
+	 * <p>Dipakai {@code FeederExporter} saat mengekspor aktivitas mahasiswa: kode dari relasi
+	 * inilah yang dikirim sebagai jenis aktivitas. {@code null} berarti tahapan tidak dipetakan
+	 * ke jenis kegiatan mana pun (dan ekspornya mengirim {@code null}).</p>
+	 *
+	 * <h4>Getter ini melakukan BACKFILL — ada efek samping</h4>
+	 * <p>Selain pola {@code check(...)} yang biasa (lihat {@link #getJurusan()}), getter ini
+	 * <b>mengisi sendiri relasi yang masih kosong</b> dari kolom teks warisan
+	 * {@link #getJenis()}: bila relasinya {@code null} sedangkan {@code jenis} terisi, seluruh
+	 * {@link JenisKegiatanMahasiswa} di cache {@code ConstantValues} ditelusuri dan yang kodenya
+	 * cocok (tidak peka huruf besar/kecil) dipasang ke field. Ini jembatan migrasi dari kolom
+	 * teks ke relasi sungguhan.</p>
+	 * <p>Karena entity memakai <i>property access</i>, hasil <i>backfill</i> tersebut terlihat
+	 * oleh <i>dirty checking</i> Hibernate — <b>membaca properti ini pada object yang masih
+	 * <i>attached</i> dapat menghasilkan {@code UPDATE} nyata</b> ke kolom
+	 * {@code jenis_kegiatan_mahasiswa}. Efeknya memang dikehendaki (data lama ikut termigrasi
+	 * sambil jalan), tetapi perlu diketahui: sebuah getter di sini bukan operasi baca murni.</p>
+	 *
+	 * <p><b>Kegagalan ditelan diam-diam.</b> Dua lapis {@code try/catch} membungkus penelusuran —
+	 * satu di dalam perulangan, satu di luarnya — dan keduanya hanya mencetak <i>stack trace</i>
+	 * serta mencatat lewat {@code ErrorAuditUtil} (penanda {@code auto-audit} berasal dari
+	 * inisiatif audit blok {@code catch} kosong, bukan dari inisiatif Javadoc ini). Bila cache
+	 * kosong atau tidak tersedia, hasilnya sekadar {@code null} — tidak ada kesalahan yang naik ke
+	 * pemanggil. Rancangan ini disengaja: kegagalan pemetaan tidak boleh menggagalkan pemuatan
+	 * entity.</p>
+	 *
+	 * <p>Penelusuran berhenti pada kecocokan pertama; bila ada dua jenis kegiatan berkode sama,
+	 * yang terpilih bergantung urutan iterasi cache.</p>
+	 *
+	 * @return jenis kegiatan mahasiswa untuk tahapan ini, atau {@code null} bila tidak dipetakan
+	 * @see #getJenis()
+	 * @see #getJurusan()
+	 * @see JenisKegiatanMahasiswa
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_kegiatan_mahasiswa", nullable = true)
 	public JenisKegiatanMahasiswa getJenisKegiatanMahasiswa() {
@@ -2240,10 +3682,35 @@ public class FormatNilaiProposalSkripsi extends GeneralValueObject {
 		return jenisKegiatanMahasiswa;
 	}
 
+	/**
+	 * Mengisi jenis kegiatan mahasiswa untuk tahapan ini.
+	 *
+	 * <p>Inilah jalur penetapan yang benar (form master memakainya); kolom teks
+	 * {@link #setJenis(String)} sudah tidak dipakai lagi. Mengisi relasi ini juga mematikan
+	 * <i>backfill</i> pada {@link #getJenisKegiatanMahasiswa()}.</p>
+	 *
+	 * @param jenisKegiatanMahasiswa jenis kegiatan menurut kodifikasi PDDikti; boleh {@code null}
+	 * @see #getJenisKegiatanMahasiswa()
+	 */
 	public void setJenisKegiatanMahasiswa(JenisKegiatanMahasiswa jenisKegiatanMahasiswa) {
 		this.jenisKegiatanMahasiswa = jenisKegiatanMahasiswa;
 	}
 
+	/**
+	 * Skema konversi nilai angka menjadi <b>nilai huruf</b> yang dipakai tahapan ini.
+	 *
+	 * <p>Menentukan rentang mana yang menjadi A, B, C, dan seterusnya ketika total nilai proposal
+	 * yang sudah terbobot dikonversi. {@code PenilaianProposalSkripsiHelper} mengambil skema dari
+	 * sini bila terisi, dan jatuh ke skema default sistem bila {@code null} — sehingga sebuah
+	 * program studi bisa memakai skala huruf yang berbeda untuk seminar proposal tanpa mengubah
+	 * skala matakuliah biasa.</p>
+	 *
+	 * <p>Menerapkan pola {@code check(...)} yang sama seperti {@link #getJurusan()}.</p>
+	 *
+	 * @return skema nilai huruf untuk tahapan ini, atau {@code null} bila memakai skema default
+	 * @see #getJurusan()
+	 * @see JenisNilaiHurufMatakuliah
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_nilai_huruf", nullable = true)
 	public JenisNilaiHurufMatakuliah getJenisNilaiHuruf() {
@@ -2251,15 +3718,46 @@ public class FormatNilaiProposalSkripsi extends GeneralValueObject {
 		return jenisNilaiHuruf;
 	}
 
+	/**
+	 * Mengisi skema konversi nilai huruf untuk tahapan ini.
+	 *
+	 * @param jenisNilaiHuruf skema nilai huruf; {@code null} berarti pakai skema default sistem
+	 * @see #getJenisNilaiHuruf()
+	 */
 	public void setJenisNilaiHuruf(JenisNilaiHurufMatakuliah jenisNilaiHuruf) {
 		this.jenisNilaiHuruf = jenisNilaiHuruf;
 	}
 
+	/**
+	 * Apakah <b>mahasiswa</b> (bukan hanya dosen/operator) boleh mengubah agenda atau jadwal
+	 * bimbingan pada tahapan ini.
+	 *
+	 * <p>Dibaca {@code PenjadwalanTugasAkhirHelper} untuk memutuskan apakah kendali pengubahan
+	 * jadwal ditampilkan dan aktif bagi mahasiswa. Setel {@code false} pada tahapan yang
+	 * penjadwalannya harus dikunci oleh dosen pembimbing atau bagian akademik.</p>
+	 *
+	 * <p><b>Default {@code true}</b> untuk kolom {@code NULL} — jadi tahapan lama bersifat
+	 * permisif, dan pengetatan harus dilakukan eksplisit.</p>
+	 *
+	 * <p>Kembarannya pada alur sidang akhir adalah
+	 * {@code FormatNilaiSkripsi.getMahasiswaBolehMengubahAgendaAtauJadwalBimbingan()}, yang dibaca
+	 * {@code PenjadwalanSkripsiHelper} dengan pola serupa.</p>
+	 *
+	 * @return {@code true} bila mahasiswa boleh mengubah agenda/jadwal bimbingan; tidak pernah
+	 *         {@code null}
+	 */
 	public Boolean getMahasiswaBolehMengubahAgendaAtauJadwalBimbingan() {
 		return mahasiswaBolehMengubahAgendaAtauJadwalBimbingan == null ? true
 				: mahasiswaBolehMengubahAgendaAtauJadwalBimbingan;
 	}
 
+	/**
+	 * Mengatur boleh/tidaknya mahasiswa mengubah agenda atau jadwal bimbingan pada tahapan ini.
+	 *
+	 * @param mahasiswaBolehMengubahAgendaAtauJadwalBimbingan {@code false} untuk mengunci
+	 *        penjadwalan dari sisi mahasiswa; {@code null} berarti default ({@code true})
+	 * @see #getMahasiswaBolehMengubahAgendaAtauJadwalBimbingan()
+	 */
 	public void setMahasiswaBolehMengubahAgendaAtauJadwalBimbingan(
 			Boolean mahasiswaBolehMengubahAgendaAtauJadwalBimbingan) {
 		this.mahasiswaBolehMengubahAgendaAtauJadwalBimbingan = mahasiswaBolehMengubahAgendaAtauJadwalBimbingan;
