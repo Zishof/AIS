@@ -72,7 +72,9 @@ final class SalesInventoryTripTenant {
 	 * {@code false} dan ditolak pemanggilnya -- lihat catatan kelas.
 	 */
 	static boolean dukungAksi(String aksi) {
-		return "spjList".equals(aksi) || "tripList".equals(aksi);
+		return "spjList".equals(aksi) || "tripList".equals(aksi)
+				|| "spjSimpan".equals(aksi) || "spjDetail".equals(aksi)
+				|| "spjStatus".equals(aksi);
 	}
 
 	/**
@@ -150,5 +152,136 @@ final class SalesInventoryTripTenant {
 	/** Nama kolom sales pada trip, untuk saringan. */
 	static String kolomSalesTrip() {
 		return "ns.salesperson_id";
+	}
+
+	// ------------------------------------------------------------------ kelompok SPJ
+
+	/**
+	 * <h4>Tiga celah model yang membentuk jalur SPJ</h4>
+	 *
+	 * <p><b>1. Lingkup: permintaan membawa toko, model tenant menuntut gudang.</b>
+	 * {@code surat_perintah_sales.gudang_id} boleh kosong, tetapi mengosongkannya membuat SPJ
+	 * <b>tidak terlihat</b> oleh saringan lingkup toko — yang justru menegakkan lewat
+	 * {@code gudang.toko_id}. Satu toko boleh punya beberapa gudang, sehingga memilihkannya
+	 * secara sepihak berarti menebak. Jalur tenant karena itu <b>menuntut {@code gudang_id}
+	 * eksplisit</b> pada permintaan.</p>
+	 *
+	 * <p><b>2. Idempotensi tidak punya tempat.</b> {@code surat_perintah_sales} tidak memiliki
+	 * {@code idempotency_key} maupun {@code correlation_id}. Jalur legacy memakai
+	 * {@code kode_unik} untuk mencegah SPJ ganda saat permintaan diulang. Bila permintaan
+	 * membawa {@code kode_unik}, jalur tenant <b>menolaknya</b> alih-alih mengabaikannya:
+	 * menerima kunci idempotensi lalu tidak menghormatinya lebih buruk daripada berterus terang,
+	 * sebab pemanggil akan mengira pengulangan aman.</p>
+	 *
+	 * <p><b>3. Penyetuju tidak tersimpan.</b> Tidak ada kolom {@code disetujui_oleh} pada SPJ
+	 * tenant. Perpindahan status tetap ditegakkan; identitas penyetujunya yang tidak tercatat.
+	 * Kebutuhan yang sama dengan alasan nonaktif pada helper Master — keduanya menunggu
+	 * {@code TenantAuditWriter}.</p>
+	 */
+	static boolean dukungIdempotensiSpj() {
+		return false;
+	}
+
+	/** Benar bila model tenant menyimpan identitas penyetuju SPJ. */
+	static boolean dukungPenyetujuSpj() {
+		return false;
+	}
+
+	/**
+	 * Benar bila model tenant mengenal penugasan piutang ke SPJ.
+	 *
+	 * <p>Jalur legacy menautkan dokumen piutang ke SPJ lewat {@code spj_sales_nota} — rencana
+	 * penagihan sebelum berangkat. Model tenant tidak punya konsep itu: {@code sales_trip_nota}
+	 * menautkan <b>trip ke faktur penjualan</b>, yakni nota yang <b>dihasilkan</b> selama
+	 * perjalanan, bukan piutang yang <b>direncanakan</b> untuk ditagih.</p>
+	 *
+	 * <p>Keduanya berbeda arah waktu dan berbeda maksud. Memetakan salah satu ke yang lain akan
+	 * membuat daftar rencana penagihan menampilkan hasil penjualan.</p>
+	 */
+	static boolean dukungNotaSpj() {
+		return false;
+	}
+
+	/** Keberadaan satu SPJ di schema tenant. */
+	static String adaSpj(String skema) {
+		return "SELECT COUNT(*) FROM " + skema + "surat_perintah_sales WHERE id = ?";
+	}
+
+	/** Status dan pemilik SPJ, untuk memeriksa wewenang sebelum mengubah. */
+	static String statusSpj(String skema) {
+		return "SELECT COALESCE(j.status,''), j.salesperson_id, j.gudang_id"
+				+ " FROM " + skema + "surat_perintah_sales j WHERE j.id = ?";
+	}
+
+	/**
+	 * Rinci SPJ. Kolom berurutan: id, nomor, status, tanggalBerangkat, rute, kendaraan,
+	 * uangMuka, catatan, salesId, salesNama, tokoId, sesiId.
+	 *
+	 * <p>{@code rute} dan {@code uangMuka} tidak ada pada model tenant; {@code kendaraan}
+	 * melekat pada trip, bukan SPJ. {@code tokoId} diturunkan dari gudangnya.</p>
+	 */
+	static String sqlDetailSpj(String skema) {
+		return "SELECT j.id, COALESCE(j.nomor_dokumen,''), COALESCE(j.status,''), j.tanggal, '', "
+				+ "COALESCE((SELECT t.kendaraan FROM " + skema + "sales_trip t"
+				+ " WHERE t.surat_perintah_sales_id = j.id ORDER BY t.id DESC LIMIT 1),''), "
+				+ "NULL, COALESCE(j.keterangan,''), j.salesperson_id, COALESCE(s.nama,''), "
+				+ "COALESCE((SELECT g.toko_id FROM " + skema + "gudang g WHERE g.id = j.gudang_id),0), "
+				+ "(SELECT t2.id FROM " + skema + "sales_trip t2"
+				+ " WHERE t2.surat_perintah_sales_id = j.id ORDER BY t2.id DESC LIMIT 1)"
+				+ " FROM " + skema + "surat_perintah_sales j"
+				+ " LEFT JOIN " + skema + "salesperson s ON j.salesperson_id = s.id"
+				+ " WHERE j.id = ?";
+	}
+
+	/** Baris barang SPJ: produkId, kode, nama, qtyRencana. */
+	static String sqlBarangSpj(String skema) {
+		return "SELECT d.produk_id, COALESCE(p.kode,''), COALESCE(p.nama,''), "
+				+ "COALESCE(d.kuantitas,0)"
+				+ " FROM " + skema + "surat_perintah_sales_detail d"
+				+ " JOIN " + skema + "produk p ON d.produk_id = p.id"
+				+ " WHERE d.surat_perintah_sales_id = ? ORDER BY d.id ASC";
+	}
+
+	// ---------- tulis ----------
+
+	static String sisipSpj(String skema) {
+		return "INSERT INTO " + skema + "surat_perintah_sales"
+				+ " (nomor_dokumen, tanggal, salesperson_id, gudang_id, keterangan, status,"
+				+ " dibuat_pada, oleh) VALUES (?, ?, ?, ?, ?, 'DRAFT', now(), ?)";
+	}
+
+	static String ubahSpj(String skema) {
+		return "UPDATE " + skema + "surat_perintah_sales SET tanggal = ?, salesperson_id = ?,"
+				+ " gudang_id = ?, keterangan = ?, tanggal_dirubah = now(), oleh = ? WHERE id = ?";
+	}
+
+	/** Nomor dokumen final, disusun sesudah id terbentuk -- sama pola dengan jalur legacy. */
+	static String ubahNomorSpj(String skema) {
+		return "UPDATE " + skema + "surat_perintah_sales SET nomor_dokumen = ? WHERE id = ?";
+	}
+
+	static String hapusDetailSpj(String skema) {
+		return "DELETE FROM " + skema + "surat_perintah_sales_detail"
+				+ " WHERE surat_perintah_sales_id = ?";
+	}
+
+	static String sisipDetailSpj(String skema) {
+		return "INSERT INTO " + skema + "surat_perintah_sales_detail"
+				+ " (surat_perintah_sales_id, produk_id, kuantitas, dibuat_pada, oleh)"
+				+ " VALUES (?, ?, ?, now(), ?)";
+	}
+
+	static String adaProduk(String skema) {
+		return "SELECT COUNT(*) FROM " + skema + "produk WHERE id = ?";
+	}
+
+	/** Gudang milik toko tertentu, untuk memvalidasi gudang_id yang dikirim. */
+	static String gudangMilikToko(String skema) {
+		return "SELECT COUNT(*) FROM " + skema + "gudang WHERE id = ? AND toko_id = ?";
+	}
+
+	static String ubahStatusSpj(String skema) {
+		return "UPDATE " + skema + "surat_perintah_sales SET status = ?, tanggal_dirubah = now(),"
+				+ " oleh = ? WHERE id = ?";
 	}
 }

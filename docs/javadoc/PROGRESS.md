@@ -1,5 +1,46 @@
 # Progres Javadoc Menyeluruh
 
+## Batch "4 entity besar tambahan" — SELESAI 100% (2 Sep 2026, dikonsolidasi orkestrator)
+
+Lanjutan batch `GeneralValueObject`+`Mahasiswa`+`Dosen`+`Perkuliahan`. Semua 4
+file berikut TUNTAS 100% method, dikompilasi, dikommit bertahap, di-mirror ke
+`java/` (verifikasi `cmp` byte-identik setelah `svn update` menyeluruh):
+- `BiodataMahasiswa.java` — 229/229 method. 2000→4000 baris. r83000-83012.
+- `Pegawai.java` — 361/361 method. 3711→6756 baris. r82998-83040. Field
+  bayangan dikonfirmasi (16 field dari `Karyawan`, mirip `Dosen.java`) + bug
+  perbandingan ID lintas-entity di `createDataPegawaiDariDosen`.
+- `BiodataCalonMahasiswa.java` — 388/388 method. 3799→6792 baris. r82997-83043.
+- `Pertemuan.java` — 395/395 method, entity TERBESAR (6529→11100 baris,
+  bahkan lebih besar dari `Mahasiswa.java`). r83006-83051. **Koreksi penting**:
+  bukan "1 sesi dari 1 Perkuliahan" seperti diasumsikan brief awal — tabel
+  `pertemuan` dipakai bersama **16 jenis entity induk** (perkuliahan, KKN,
+  PKL, skripsi, wisuda, dst.), rantai if/else di ~24 tempat per method.
+
+**Pola berulang lintas 3 entity biodata** (BiodataMahasiswa/BiodataCalonMahasiswa
+sesi ini + gejala serupa di Mahasiswa.java sesi lalu): getter yang DIAM-DIAM
+menulis baris master baru ke DB (`findOrCreatePropinsi` dkk, pencocokan
+Levenshtein), getter yang menutup sesi Hibernate pemanggil, field audit
+(`oleh`/`olehId`/`tanggal_dirubah`) di-shadow ulang padahal sudah ada di
+`GeneralValueObject`. Pola ini kemungkinan ADA JUGA di entity biodata lain
+yang belum digarap (`BiodataPegawai.java`?) — cek saat menggarapnya.
+
+**Bug data-correctness paling serius ditemukan sesi ini** (di `Pertemuan.java`,
+BUKAN diperbaiki, hanya didokumentasikan): `removePertemuanFileContent`/
+`removeVideoPertemuan`/`removeAudioPertemuan` memakai id ANAK sebagai id
+PERTEMUAN saat baca/tulis peta lokasi berkas JSON → menyentuh peta yang salah.
+`ambilTugasTotalSemua()` menggabung 2 tabel dengan `putAll` berkunci id
+lintas-tabel → tabrakan id bisa menghilangkan tugas diam-diam. Lihat Javadoc
+method masing-masing untuk detail lengkap — TIDAK dieskalasi sebagai task
+terpisah (beda dengan hashCode/password) karena orkestrator menilai severity
+belum jelas cukup tinggi untuk mengganggu pengguna lagi setelah 2 eskalasi
+sebelumnya; pengguna bisa minta perbaikan langsung bila diinginkan.
+
+**Total akumulasi 4 sesi kerja**: 190 (sesi 1-3) + 4 (`GeneralValueObject`+
+`Mahasiswa`+`Dosen`+`Perkuliahan`) + 4 (`BiodataMahasiswa`+`Pegawai`+
+`BiodataCalonMahasiswa`+`Pertemuan`) = **198 file** dari 7.401 (~2,7%), tapi
+mencakup SEMUA entity paling sentral (>2000 method individual di file-file
+besar ini saja).
+
 ## `ais/database/model/Pertemuan.java` — SELESAI 100% (2 Sep 2026)
 
 Entity **terbesar** di `ais.database.model` setelah `Mahasiswa.java`: 6529 → 11100

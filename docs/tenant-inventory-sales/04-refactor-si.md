@@ -669,12 +669,51 @@ legacy berjalan — berarti membaca dan, pada aksi bermuatan uang, **menulis** k
 bersama. Layar yang tidak tersedia jauh lebih baik daripada setoran satu tenant mendarat di
 pembukuan tenant lain.
 
-### BELUM: uji kesetaraan
+### Kelompok SPJ selesai: 5 dari 19 aksi
 
-Kedua aksi yang dipindahkan sudah diuji **kesahihan SQL-nya** pada schema tenant sungguhan,
-tetapi **belum ada uji kesetaraan angka**. Untuk dua aksi daftar risikonya kecil; untuk
-tujuh belas sisanya, uji kesetaraan wajib ditulis **bersamaan** dengan pemindahannya —
-bukan sesudahnya.
+`spjSimpan`, `spjDetail`, dan `spjStatus` menyusul `spjList` dan `tripList`. Empat belas aksi
+sisanya masih ditolak.
+
+**Tiga celah model yang membentuk jalur SPJ, dan cara menanganinya:**
+
+**Lingkup: permintaan membawa toko, model tenant menuntut gudang.** `gudang_id` boleh kosong,
+tetapi mengosongkannya membuat SPJ **tidak terlihat** oleh saringan lingkup — yang justru
+menegakkan lewat `gudang.toko_id`. Satu toko boleh punya beberapa gudang, sehingga
+memilihkannya sepihak berarti menebak. Jalur tenant **menuntut `gudang_id` eksplisit**, dan
+memverifikasi gudang itu memang milik toko aktor.
+
+**Idempotensi tidak punya tempat.** `surat_perintah_sales` tidak punya `idempotency_key`
+maupun `correlation_id`. Bila permintaan membawa `kode_unik`, jalur tenant **menolaknya**
+alih-alih mengabaikannya: menerima kunci idempotensi lalu tidak menghormatinya lebih buruk
+daripada berterus terang, sebab pemanggil akan mengira pengulangan aman.
+
+**Penugasan piutang ke SPJ tidak ada padanannya.** Legacy menautkan dokumen piutang ke SPJ
+lewat `spj_sales_nota` — rencana penagihan sebelum berangkat. Model tenant punya
+`sales_trip_nota`, tetapi itu menautkan **trip ke faktur penjualan**: nota yang *dihasilkan*
+selama perjalanan, bukan piutang yang *direncanakan* untuk ditagih. Berbeda arah waktu dan
+berbeda maksud. Daftar nota pada rinci SPJ karena itu selalu kosong, dan `spjNotaAssign`
+tetap ditolak.
+
+### Uji kesetaraan: `uji-kesetaraan-spj.sql`
+
+| Blok | Hasil |
+|---|---|
+| Rinci SPJ (nomor, status, kendaraan, toko, sesi) | **SETARA** |
+| Baris barang (termasuk kuantitas pecahan 15,5) | **SETARA** |
+| **Saringan lingkup toko** | **SETARA** — toko 1 melihat 1 SPJ, toko 2 melihat 0 |
+
+Blok 3 adalah yang terpenting: ia membuktikan saringan lingkup lewat `gudang.toko_id`
+menghasilkan **visibilitas yang sama persis** dengan saringan langsung legacy — termasuk
+sisi negatifnya, yakni toko lain tetap tidak melihat apa pun. Saringan lingkup yang bocor
+tidak akan terlihat dari blok 1 maupun 2.
+
+Blok 1 juga membuktikan dua turunan bekerja: kendaraan ditarik dari trip (di model tenant ia
+melekat pada trip, bukan SPJ), dan toko diturunkan dari gudangnya.
+
+### BELUM: empat belas aksi sisanya
+
+Termasuk keenam aksi bermuatan uang. Ujinya wajib ditulis **bersamaan** dengan
+pemindahannya, bukan sesudahnya.
 
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
