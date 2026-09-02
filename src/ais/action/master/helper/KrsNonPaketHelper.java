@@ -490,7 +490,13 @@ public class KrsNonPaketHelper implements DataLoader {
 					HistoryStatusMahasiswa historyStatusMahasiswa = ais.action.master.helper.HistoryStatusMahasiswaUtil.getHistoryStatusMahasiswa(krsMahasiswa);
 
 					StatusMahasiswa statusMahasiswa = historyStatusMahasiswa.ambilStatusMahasiswa(semester);
-					if (statusMahasiswa.getId().equals(ConstantValues.AKTIF.getId())) {
+					// Tanda seru di bawah sempat hilang, sehingga gerbang ini terbalik:
+					// mahasiswa AKTIF ditolak dan yang tidak aktif diloloskan. Arah yang
+					// benar ditegakkan tiga layar KRS bersaudara -- KrsPaketHelper,
+					// KrsKurikulumHelper, dan KrsHelper -- yang semuanya memakai negasi,
+					// dan oleh bunyi pesan di bawah yang meminta pembacanya memastikan
+					// statusnya sudah Aktif. Diperbaiki 2 September 2026.
+					if (!statusMahasiswa.getId().equals(ConstantValues.AKTIF.getId())) {
 						MyMessageboxConfig.showFormat(
 								"Mohon maaf, status kemahasiswaan Anda saat ini adalah \"{V1}\" sehingga Anda belum dapat mengambil KRS. Langkah yang dapat dilakukan: (1) pastikan status Anda telah Aktif pada semester berjalan; (2) hubungi Admin atau bagian Akademik untuk memperbarui status Anda; (3) setelah status Aktif, ambil kembali KRS ini.",
 								"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION,

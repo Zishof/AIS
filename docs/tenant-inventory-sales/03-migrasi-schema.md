@@ -650,6 +650,41 @@ membukukan barang dua kali.
 Katalog v1–v16 bersih. Self-test LULUS — 18 migrasi, versi `v16-pembelian-trip`, checksum
 `e20510aa87a1`.
 
+## Bundel v17 — status giro
+
+Empat kolom: `status_bg` dan `tanggal_status_bg` pada `pembayaran_hutang` dan
+`penerimaan_piutang`. **Penghalang katalog terakhir pada seluruh P4.**
+
+### Menyimpan nomor giro tanpa statusnya adalah setengah catatan
+
+Model tenant sudah menyimpan `nomor_bg`, `nama_bank`, dan `tanggal_bg`. Yang hilang justru medan
+yang menentukan: apakah gironya **cair atau ditolak**. Tanpa itu keduanya tampak sama pada layar —
+dokumen berisi nomor giro, tanpa keterangan apa pun tentang nasibnya. Untuk pembayaran hutang, itu
+berarti tidak ada cara mengetahui apakah supplier sudah benar-benar menerima uangnya.
+
+### `NULL` berarti DITERIMA, dan bukan diisi bawaan
+
+Jalur legacy memperlakukan `null` sebagai "baru diterima, belum ada kabarnya". Kolomnya karena itu
+dibiarkan `NULL`, **bukan** diberi bawaan `'DITERIMA'`: bawaan akan membuat setiap dokumen
+non-giro yang lampau ikut mengaku punya giro yang sedang ditunggu.
+
+### Dua tanggal yang mudah tertukar
+
+`tanggal_bg` adalah tanggal jatuh tempo pada lembar gironya; `tanggal_status_bg` adalah kapan
+nasibnya diketahui. Giro bertanggal 30 Desember yang ditolak bank pada 11 Desember punya dua
+tanggal berbeda, dan menyatukannya menghilangkan salah satunya.
+
+### Penolakan menerbitkan pembalikan
+
+Inilah yang membuat kolom status bukan sekadar keterangan: giro yang ditolak berarti uangnya tidak
+pernah benar-benar berpindah, sehingga hutang atau piutangnya harus hidup kembali. Kedua jalur
+pembalikan itu sudah tersedia sejak v11–v13, sehingga v17 melengkapi bagian terakhirnya.
+
+### Diverifikasi pada PostgreSQL 16
+
+Katalog v1–v17 bersih. Self-test LULUS — 19 migrasi, versi `v17-status-giro`, checksum
+`f105ced42e36`.
+
 ## Yang BELUM dikerjakan
 
 - **Belum ada satu pun kueri yang memakai tabel ini.** Menyambungkan `si_*` ke schema

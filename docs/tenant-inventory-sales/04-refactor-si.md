@@ -1837,6 +1837,49 @@ belum dimuat.
 Sembilan belas dari sembilan belas aksi berjalan pada schema tenant. Tidak ada lagi aksi Trip yang
 gagal-tertutup.
 
+## Siklus status giro — dan `statusBg` yang berhenti `NULL`
+
+`payableBgStatus` dan `collectionBgStatus` dipindahkan bersama v17. Keduanya melalui satu metode
+`bgStatus`, sehingga satu cabang tenant melayani dua aksi.
+
+### Pembalikan dipanggil, bukan disalin
+
+Giro yang ditolak menerbitkan dokumen pembalik. Jalur tenant **memanggil aksi publiknya sendiri** —
+`payablePaymentReverse` atau `collectionReverse` — yang keduanya sudah mengenali jalur tenant dan
+sudah idempoten lewat kunci `REV-PHS-<id>` / `REV-KWT-<id>`.
+
+Menyalin isinya akan melahirkan jalan kedua yang bisa berselisih dengan yang pertama; memanggilnya
+kembali membuat keduanya mustahil berbeda.
+
+Pembalikannya dijalankan **sesudah** status giro tersimpan, sama seperti legacy. Bila pembalikannya
+gagal, statusnya sudah tercatat dan pembalikannya dapat diulang tanpa menggandakan —
+kebalikannya akan menyembunyikan penolakan gironya sama sekali.
+
+### Dua daftar berhenti mengembalikan `NULL`
+
+`selectRiwayat` (Payable) dan `selectPenagihan` (Piutang) sama-sama mengembalikan `NULL` pada kolom
+`statusBg`, dengan javadoc yang menyatakan model tenant tidak menyimpannya. Benar saat ditulis,
+salah sejak v17.
+
+Keduanya kini membaca kolomnya. Ini pola ketiga kalinya pada pemindahan ini: pernyataan yang benar
+saat ditulis lalu berhenti benar ketika sebuah bundel mendarat — tidak pernah gagal, hanya
+diam-diam berhenti melaporkan data yang sudah ada.
+
+### Verifikasi
+
+Seluruh kueri yang benar-benar dikeluarkan Java dijalankan ke basis data v1–v17. `giroUntukStatus`
+membaca `NULL` (DITERIMA), `ubahStatusGiro` memindahkannya ke CAIR, pembacaan berikutnya
+mengembalikan CAIR — final. Sisi piutang berpindah ke TOLAK. Kedua daftar kini menampilkan
+statusnya: `CAIR` pada riwayat pembayaran, `TOLAK` pada riwayat penagihan.
+
+`uji-kesetaraan-status-giro.sql` — enam blok LULUS, satu di antaranya penjaga: sebelum pembalikan
+sisa piutang masih 300.000, sesudahnya pulih ke 600.000. Tanpa blok penjaga itu, blok berikutnya
+bisa lulus hanya karena sisanya kebetulan sudah penuh sejak awal.
+
+Blok terakhir memeriksa hal yang mudah terlewat: dokumen asal menjadi DIBATALKAN **tetapi**
+`status_bg` tetap TOLAK. Sebab pembatalannya harus tetap terbaca; dokumen yang dibatalkan tanpa
+keterangan mengapa adalah catatan yang setengah.
+
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
 **Sebelas helper, 7.512 baris, belum satu pun kuerinya dipindah ke schema tenant.**
