@@ -511,9 +511,16 @@ public class CommonAcademicKrsNilaiHelper extends Common {
 									sembunyikanNilaiJikaBelumDiverifikasi = detailperkuliahan.getPerkuliahan()
 											.getSembunyikanNilaiJikaBelumDiverifikasi();
 								}
-								List<FormatNilai> formatNilais = detailperkuliahan.getPerkuliahan() == null ? null
-										: detailperkuliahan.getPerkuliahan().ambilFormatNilai(session);
-								detailperkuliahan.reloadFormatNilai(formatNilais, sembunyikanNilaiJikaBelumDiverifikasi);
+							List<FormatNilai> formatNilais = detailperkuliahan.getPerkuliahan() == null ? null
+									: detailperkuliahan.getPerkuliahan().ambilFormatNilai(session);
+							if (!Detailperkuliahan.formatNilaiSiapDihitung(formatNilais)) {
+								ais.common.ErrorAuditUtil.record(new IllegalStateException(
+										"Hitung ulang nilai dibatalkan: format kosong atau total bobot bukan 100%."),
+										"reloadNilai mahasiswa=" + mahasiswa.getId() + ", detailperkuliahan="
+												+ detailperkuliahan.getId());
+								continue;
+							}
+							detailperkuliahan.reloadFormatNilai(formatNilais, sembunyikanNilaiJikaBelumDiverifikasi);
 								Double totalNilai = detailperkuliahan.hitungTotalNilai(true, formatNilais);
 								if (totalNilai != null && totalNilai > 0.1) {
 
@@ -1367,6 +1374,19 @@ public class CommonAcademicKrsNilaiHelper extends Common {
 		final List<FormatNilai> formatNilais = Common.getFormatNilais(perkuliahan);
 		final List<Long> ids = new ArrayList<Long>(detailperkuliahans);
 		int jml = ids.size();
+		if (!Detailperkuliahan.formatNilaiSiapDihitung(formatNilais)) {
+			ais.common.ErrorAuditUtil.record(new IllegalStateException(
+					"Hitung ulang paralel dibatalkan: format kosong atau total bobot bukan 100%."),
+					"realoadNilaiLangsungParalel perkuliahan="
+							+ (perkuliahan == null ? null : perkuliahan.getId()));
+			if (diproses != null && jml > 0) {
+				diproses.addAndGet(jml);
+			}
+			if (eventListener != null) {
+				eventListener.onEvent(null);
+			}
+			return;
+		}
 		if (jml <= 1 || maxThread <= 1) {
 			// 1 mahasiswa / tak perlu paralel -> pakai jalur sekuensial yang sudah ada.
 			realoadNilaiLangsung(perkuliahan, sembunyikanNilaiJikaBelumDiverifikasi, eventListener, detailperkuliahans);
@@ -1488,6 +1508,16 @@ public class CommonAcademicKrsNilaiHelper extends Common {
 
 			try {
 				List<FormatNilai> formatNilais = Common.getFormatNilais(perkuliahan);
+				if (!Detailperkuliahan.formatNilaiSiapDihitung(formatNilais)) {
+					ais.common.ErrorAuditUtil.record(new IllegalStateException(
+							"Hitung ulang dibatalkan: format kosong atau total bobot bukan 100%."),
+						"realoadNilaiLangsung perkuliahan="
+								+ (perkuliahan == null ? null : perkuliahan.getId()));
+					if (eventListener != null) {
+						eventListener.onEvent(null);
+					}
+					return;
+				}
 				for (Long detailperkuliahanid : detailperkuliahans) {
 					Detailperkuliahan detailperkuliahan = (Detailperkuliahan) GeneralValueObject
 							.ambilData(Detailperkuliahan.class, detailperkuliahanid.toString());

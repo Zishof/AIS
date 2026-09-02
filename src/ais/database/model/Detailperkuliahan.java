@@ -207,7 +207,30 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return idSmt;
 	}
 
+	/**
+	 * Memastikan satu set format aman dipakai untuk menghitung ulang nilai akhir. Rekalkulasi massal
+	 * wajib ditolak bila format kosong, komponen tidak aktif, atau jumlah bobot tidak mendekati 100%.
+	 * Tanpa penjaga ini, kegagalan membangun format OBE dapat mengubah nilai sah menjadi 0 (E).
+	 */
+	public static boolean formatNilaiSiapDihitung(List<FormatNilai> formatNilais) {
+		if (formatNilais == null || formatNilais.isEmpty()) {
+			return false;
+		}
+		double totalBobot = 0.0;
+		for (FormatNilai formatNilai : formatNilais) {
+			if (formatNilai != null && formatNilai.getStatusPertemuan() != null
+					&& formatNilai.getStatusPertemuan().getAktif()
+					&& formatNilai.getPersen() != null && formatNilai.getPersen().doubleValue() > 0.01) {
+				totalBobot += formatNilai.getPersen().doubleValue();
+			}
+		}
+		return totalBobot >= 99.0 && totalBobot <= 101.0;
+	}
+
 	public void reloadFormatNilai(List<FormatNilai> formatNilais, Boolean sembunyikanNilaiJikaBelumDiverifikasi) {
+		if (!formatNilaiSiapDihitung(formatNilais)) {
+			return;
+		}
 		perkuliahan = getPerkuliahan();
 		refreshNilaiKeDefault();
 

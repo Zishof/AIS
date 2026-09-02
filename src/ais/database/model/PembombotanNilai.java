@@ -775,13 +775,11 @@ public class PembombotanNilai extends GeneralValueObject {
 	 * {@code true}. Bila tidak, method langsung mengembalikan {@code List} kosong (bukan
 	 * {@code null}) tanpa menyentuh apa pun.
 	 *
-	 * <h3>Langkah 1 &mdash; menolkan semua komponen lama</h3>
-	 * Semua {@link FormatNilai} milik kelas dibaca urut {@code id}, persennya <b>disetel 0,0</b>
-	 * dan disimpan; peta lokasi format nilai pada {@link Perkuliahan} juga dikosongkan
-	 * ({@code tulisLokasiFormatNilai("{}")}). Artinya baris komponen lama <b>tidak dihapus</b>,
-	 * hanya dinolkan &mdash; sisa komponen yang tidak lagi relevan akan tetap ada di tabel dengan
-	 * persen 0. Ini disengaja supaya nilai mahasiswa yang sudah terlanjur terisi pada komponen
-	 * lama tidak ikut terhapus oleh perubahan format.
+	 * <h3>Langkah 1 &mdash; mengambil snapshot format lama</h3>
+	 * Semua {@link FormatNilai} milik kelas dibaca urut {@code id}; bobot dan peta lokasi lamanya
+	 * disimpan sebagai snapshot. Format lama <b>tidak boleh dinolkan di awal</b>. Rekonstruksi OBE
+	 * dapat gagal karena CPMK/Sub-CPMK belum lengkap, dan menolkan lebih dahulu pernah membuat
+	 * hitung ulang massal menyimpan 0 (E) untuk seluruh peserta kelas.
 	 *
 	 * <h3>Langkah 2a &mdash; jalur OBE</h3>
 	 * Bila kurikulum kelas berstatus OBE (dengan <i>fallback</i> kurikulum/matakuliah lewat
@@ -808,9 +806,9 @@ public class PembombotanNilai extends GeneralValueObject {
 	 * {@code statusPertemuan}-nya terlanjur {@code null} akibat bug sesi-tertutup ikut
 	 * diperbaiki di sini.</p>
 	 *
-	 * <p>Seluruh jalur OBE dibungkus {@code try/catch} yang menelan exception (dicetak ke
-	 * {@code stderr} dan dicatat ke audit), sehingga kegagalan sebagian tidak membatalkan
-	 * proses &mdash; tetapi juga tidak terlihat oleh pemanggil.</p>
+	 * <p>Jalur OBE memiliki pencatatan exception lokal, tetapi hasil akhirnya tetap wajib melewati
+	 * validasi jumlah bobot. Daftar kosong, komponen tanpa status aktif, atau total bobot di luar
+	 * rentang 99-101% dibatalkan dan snapshot lama dipulihkan.</p>
 	 *
 	 * <h3>Langkah 2b &mdash; jalur konvensional</h3>
 	 * Untuk kelas non-OBE, skema diambil dari {@code perkuliahan.getPembombotanNilai()} dan tiap
@@ -830,6 +828,13 @@ public class PembombotanNilai extends GeneralValueObject {
 	 * {@link #getNama()}, sehingga bobot sangat kecil bisa tampil di nama tetapi tidak
 	 * menghasilkan komponen nilai.</p>
 	 *
+	 * <h3>Commit logis dan pemulihan</h3>
+	 * Format lama yang tidak lagi terpilih baru dinolkan <b>setelah</b> format pengganti lengkap
+	 * dan total bobotnya tervalidasi. Peta lokasi kemudian dibangun ulang hanya dari format baru.
+	 * Bila salah satu tahap gagal, bobot lama dan peta lokasi lama dipulihkan; format baru hasil
+	 * percobaan dinonaktifkan. Pola ini harus dipertahankan agar tombol Sinkronkan/Hitung Ulang
+	 * bersifat fail-safe dan tidak mengubah nilai sah menjadi nol akibat konfigurasi yang rusak.
+	 *
 	 * <h3>Transaksi &amp; sesi</h3>
 	 * Method <b>tidak</b> membuka atau menutup {@link Session} maupun transaksi sendiri &mdash;
 	 * keduanya tanggung jawab pemanggil. Sesi sengaja diterima lewat parameter (bukan
@@ -837,9 +842,6 @@ public class PembombotanNilai extends GeneralValueObject {
 	 * ditutup. Penyimpanan memakai {@code Common.refreshSaveOrUpdate}, dan tiap baris hasil
 	 * didaftarkan ke cache entity lewat {@code masukkanData(FormatNilai.class, ...)} serta ke peta
 	 * lokasi kelas lewat {@code perkuliahan.populateFormatNilai(...)}.
-	 *
-	 * <p>Kuirk kecil: di akhir jalur konvensional ada penugasan {@code formatNilais = null;} yang
-	 * tidak berpengaruh apa-apa (variabel lokal yang tidak dipakai lagi).</p>
 	 *
 	 * @param perkuliahan kelas yang komponen nilainya dicetak ulang; <b>tidak boleh</b>
 	 *        {@code null} (dipakai langsung tanpa penjagaan)
@@ -861,15 +863,15 @@ public class PembombotanNilai extends GeneralValueObject {
 			List<FormatNilai> formatNilaisPilih = new ArrayList<FormatNilai>();
 			List<FormatNilai> formatNilais = session.createCriteria(FormatNilai.class).addOrder(Order.asc("id"))
 					.add(Restrictions.eq("perkuliahan", perkuliahan)).list();
-			perkuliahan.tulisLokasiFormatNilai(new JSONObject().toString());
-
+			String lokasiFormatNilaiLama = perkuliahan.ambilLokasiFormatNilai();
+			Map<Long, Double> persenFormatNilaiLama = new HashMap<Long, Double>();
 			for (FormatNilai formatNilai : formatNilais) {
-				formatNilai.setPersen(0.0);
-				Common.refreshUpdate(session, formatNilai, false);
-				perkuliahan.populateFormatNilai(formatNilai, true);
-				masukkanData(FormatNilai.class, formatNilai);
+				if (formatNilai != null && formatNilai.getId() != null) {
+					persenFormatNilaiLama.put(formatNilai.getId(), formatNilai.getPersen());
+				}
 			}
 
+			try {
 			KurikulumPunyaMatakuliah kpmObe = perkuliahan.getKurikulumPunyaMatakuliah();
 			Kurikulum kurikulumObe = perkuliahan.getKurikulum();
 			Matakuliah matakuliahObe = perkuliahan.getMatakuliah();
@@ -1307,9 +1309,77 @@ public class PembombotanNilai extends GeneralValueObject {
 					formatNilaisPilih.add(formatNilai);
 					masukkanData(FormatNilai.class, formatNilai);
 				}
-				formatNilais = null;
+			}
+			if (!Detailperkuliahan.formatNilaiSiapDihitung(formatNilaisPilih)) {
+				throw new IllegalStateException("Format pengganti tidak lengkap: jumlah komponen aktif="
+						+ formatNilaisPilih.size() + " dan total bobot harus mendekati 100%.");
+			}
+
+			// Commit logis dilakukan paling akhir. Format lama baru dinonaktifkan setelah format
+			// pengganti lulus validasi, sehingga kegagalan OBE tidak dapat menghapus bobot produksi.
+			Set<Long> idFormatTerpilih = new HashSet<Long>();
+			for (FormatNilai formatNilai : formatNilaisPilih) {
+				if (formatNilai != null && formatNilai.getId() != null) {
+					idFormatTerpilih.add(formatNilai.getId());
+				}
+			}
+			for (FormatNilai formatNilai : formatNilais) {
+				if (formatNilai != null && formatNilai.getId() != null
+						&& !idFormatTerpilih.contains(formatNilai.getId())) {
+					formatNilai.setPersen(0.0);
+					Common.refreshUpdate(session, formatNilai, false);
+					masukkanData(FormatNilai.class, formatNilai);
+				}
+			}
+			perkuliahan.tulisLokasiFormatNilai(new JSONObject().toString());
+			for (FormatNilai formatNilai : formatNilaisPilih) {
+				perkuliahan.populateFormatNilai(formatNilai, true);
 			}
 			return formatNilaisPilih;
+			} catch (Exception e) {
+				// Rollback aplikatif diperlukan karena helper persistence warisan dapat melakukan flush
+				// per komponen. Pulihkan bobot dan flag store lama sebelum keluar dari method.
+				for (FormatNilai formatNilai : formatNilais) {
+					if (formatNilai != null && formatNilai.getId() != null
+							&& persenFormatNilaiLama.containsKey(formatNilai.getId())) {
+						formatNilai.setPersen(persenFormatNilaiLama.get(formatNilai.getId()));
+						try {
+							Common.refreshUpdate(session, formatNilai, false);
+							masukkanData(FormatNilai.class, formatNilai);
+						} catch (Exception restoreError) {
+							ais.common.ErrorAuditUtil.record(restoreError,
+									"gagal memulihkan FormatNilai id=" + formatNilai.getId());
+						}
+					}
+				}
+				for (FormatNilai formatNilai : formatNilaisPilih) {
+					if (formatNilai != null && formatNilai.getId() != null
+							&& !persenFormatNilaiLama.containsKey(formatNilai.getId())) {
+						formatNilai.setPersen(0.0);
+						try {
+							Common.refreshUpdate(session, formatNilai, false);
+							masukkanData(FormatNilai.class, formatNilai);
+						} catch (Exception restoreError) {
+							ais.common.ErrorAuditUtil.record(restoreError,
+									"gagal menonaktifkan FormatNilai baru id=" + formatNilai.getId());
+						}
+					}
+				}
+				perkuliahan.tulisLokasiFormatNilai(lokasiFormatNilaiLama);
+				ais.common.ErrorAuditUtil.record(e,
+						"setDefaultPembobotan dibatalkan dan format lama dipulihkan, perkuliahan="
+								+ perkuliahan.getId());
+
+				List<FormatNilai> formatNilaiLamaAktif = new ArrayList<FormatNilai>();
+				for (FormatNilai formatNilai : formatNilais) {
+					Double persenLama = formatNilai == null || formatNilai.getId() == null ? null
+							: persenFormatNilaiLama.get(formatNilai.getId());
+					if (persenLama != null && persenLama.doubleValue() > 0.01) {
+						formatNilaiLamaAktif.add(formatNilai);
+					}
+				}
+				return formatNilaiLamaAktif;
+			}
 		} else {
 			return new ArrayList<FormatNilai>();
 		}

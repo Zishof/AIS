@@ -475,10 +475,13 @@ pembelian pada helper ketiga — pembelian tunai adalah `pembelian` tanpa `hutan
 
 ### Yang ditolak, bukan dijalankan sebagian
 
-**Riwayat audit.** `auditHistory` membaca lewat Envers, yang menaruh seluruh barisnya pada
-satu schema yang ditetapkan **statis per SessionFactory** (`default_schema=new_audit`).
-Membiarkannya berjalan berarti menyajikan riwayat perubahan **seluruh instalasi** kepada satu
-tenant — kebocoran, bukan sekadar hasil yang salah.
+**Riwayat audit — DIBUKA pada §20 untuk tiga entitas.** `auditHistory` membaca lewat Envers,
+yang menaruh seluruh barisnya pada satu schema yang ditetapkan **statis per SessionFactory**
+(`default_schema=new_audit`). Membiarkannya berjalan berarti menyajikan riwayat perubahan
+**seluruh instalasi** kepada satu tenant — kebocoran, bukan sekadar hasil yang salah. Sejak §20
+jalur tenant membaca jejaknya sendiri, yang ditulis `TenantAuditWriter` ke schema audit tenant;
+`supplier`, `customer`, dan `sales` sudah punya penulisnya, dan empat entitas transaksional
+lainnya ditolak dengan menyebut namanya.
 
 **Pembuatan akun baru — DIBUKA pada §17.** `akun` model tenant mewajibkan kolom `tipe` yang
 tidak pernah dibawa permintaan legacy, dan mengarangnya berarti menebak klasifikasi akun. Yang
@@ -2329,6 +2332,105 @@ pada katalog v1–v19:
 
 `uji-kesetaraan-satuan-jual.sql` — enam blok, **sembilan LULUS, nol GAGAL**, dua di antaranya
 penjaga.
+
+## §20 — riwayat audit tenant: pembacanya dan penulisnya, dalam satu batch
+
+`auditHistory` ditolak sejak awal dengan alasan yang benar dan tetap benar:
+`org.hibernate.envers.default_schema` bersifat **statis per SessionFactory**, sehingga baris
+audit seluruh tenant berkumpul di satu schema. Membacanya untuk satu tenant berarti menyajikan
+riwayat perubahan **seluruh instalasi** kepadanya — kebocoran, bukan sekadar hasil yang salah.
+
+`TenantAuditWriter` sudah ada sejak P4 awal, lengkap dan benar, tetapi **tanpa satu pun
+pemanggil**. Tabelnya pun sudah ada sejak bundel v2: `revinfo` diperluas dengan konteks §11.6,
+dan `audit_baris` generik. Yang kurang hanya dua ujungnya — yang menulis, dan yang membaca.
+
+### Mengapa keduanya harus satu batch
+
+Menulis pembacanya saja akan membuat `auditHistory` mengembalikan daftar kosong. Daftar kosong
+**tidak dapat dibedakan dari "tidak pernah berubah"** — pernyataan yang keliru tentang record
+yang jelas pernah berubah, dan persis kekeliruan yang penolakan lama justru hindari. Itu akan
+menukar penolakan yang jujur dengan jawaban yang salah.
+
+Ini pola yang sama dengan §17 (`coaList` + `coaSave`): dua ujung yang saling mengunci, dan
+mengerjakan satu saja membuat keadaannya lebih buruk, bukan lebih baik.
+
+### Cakupan disebutkan, bukan disamarkan
+
+`auditHistory` melayani tujuh jenis entitas. Batch ini memasang penulisnya untuk **tiga**:
+`supplier`, `customer`, `sales`. Ketiganya dipilih bukan karena mudah, melainkan karena
+ketiganya bertemu pada **tiga corong** di `SalesInventoryMasterHelper` — `simpanMitraTenant`,
+`simpanSalesTenant`, dan `nonaktifkanTenant` — sehingga seluruh jalur simpan/ubah/nonaktifkan
+tercakup oleh tiga pemasangan, bukan sembilan.
+
+Empat sisanya (`piutang`, `penerimaan`, `order`, `spj`) **ditolak dengan menyebut namanya**, dan
+penolakannya menyebutkan entitas mana yang sudah terliput. Bukan dijawab kosong.
+
+Daftar cakupannya satu tempat, `ENTITAS_TERAUDIT`, dan ia yang menggerakkan penolakannya.
+Menambah entitas ke daftar itu hanya sah bersamaan dengan memasang penulisnya — daftar dan
+kenyataan tidak bisa berselisih tanpa terlihat.
+
+### Riwayat dimulai saat pencatatannya dipasang
+
+Tidak ada pengisian surut, dan tidak bisa ada: perubahan yang terjadi sebelum penulisnya
+terpasang memang tidak terekam, dan merekayasanya belakangan berarti mengarang jejak audit —
+justru hal yang paling tidak boleh dilakukan pada jejak audit.
+
+Karena itu jawaban yang kosong disertai `peringatan` yang mengatakannya, alih-alih dibiarkan
+terbaca sebagai "record ini tidak pernah disentuh".
+
+### Penonaktifan dicatat DEL, bukan MOD
+
+Barisnya memang masih ada dan hanya satu kolom yang berubah. Tetapi bagi pemakai data, itulah
+**penghapusannya** — dan riwayat yang menyebutnya sekadar perubahan satu kolom menyembunyikan
+peristiwa yang justru paling ingin ditelusuri. Pengaktifan kembali tetap `MOD`.
+
+### Muatan menyebut kolomnya satu per satu, bukan `SELECT *`
+
+Dua sebabnya:
+
+1. **§11.6 melarang audit memuat rahasia.** `SELECT *` akan menyeret kolom apa pun yang
+   ditambahkan bundel berikutnya — termasuk yang tidak boleh ikut.
+2. Muatan yang isinya berubah-ubah mengikuti skema membuat riwayat lama dan baru **tidak lagi
+   dapat dibandingkan**.
+
+Kolom jejak (`oleh`, `tanggal_dirubah`) sengaja tidak ikut: "siapa dan kapan" sudah ada pada
+`revinfo`, dan menyalinnya ke muatan membuat setiap perubahan tampak berbeda pada kolom yang
+bukan isi datanya.
+
+Perhatikan yang **tidak** disimpan: tidak ada kolom "apa yang berubah". Itu turunan dari
+pasangan `sebelum`/`sesudah`, dan blok 2 uji kesetaraan menunjukkan keduanya terbaca tanpa
+kolom tambahan mana pun.
+
+### Berjalan pada transaksi pemanggil
+
+Baris audit **wajib** berada di transaksi yang sama dengan perubahan datanya. Audit yang commit
+terpisah dapat bertahan padahal perubahannya dibatalkan, atau hilang padahal perubahannya jadi.
+Karena itu `catatAuditMaster` menerima `Session` pemanggil dan tidak pernah membuka sendiri, dan
+pemanggilannya berada **sebelum** `tx.commit()`.
+
+### Verifikasi
+
+SQL yang benar-benar dikeluarkan Java dijalankan atas schema tenant berikut schema auditnya:
+
+| yang diuji | hasil |
+|---|---|
+| tiga peristiwa satu supplier | `ADD`, `MOD`, `DEL` terbaca terbaru-dulu |
+| apa yang berubah | rev 2 hanya nama; rev 3 hanya `aktif` |
+| penjaga isolasi entitas | supplier/7 = **3**, customer/7 = **1**, saringan id-saja = 4 |
+| penjaga `totalRevisi` | ditampilkan **25**, total **30** |
+| satu revisi, tiga baris | 1 `revinfo`, 3 `audit_baris` |
+| muatan `salesperson` | memuat `oleh`? **false** |
+
+`uji-kesetaraan-riwayat-audit.sql` — enam blok, **sembilan LULUS, nol GAGAL**, dua di antaranya
+penjaga.
+
+Tidak ada bundel migrasi baru: `revinfo` yang diperluas dan `audit_baris` sudah ada sejak v2.
+
+### Yang masih tersisa sesudah ini
+
+Empat entitas transaksional (`piutang`, `penerimaan`, `order`, `spj`) belum punya penulis, dan
+penolakannya menyebut itu. Memasangnya menuntut penelusuran seluruh jalur tulis transaksionalnya
+— pekerjaan tersendiri, bukan tempelan pada batch ini.
 
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 

@@ -1337,6 +1337,14 @@ public class PenilaianAction extends GenericAutowireComposer implements DataCrit
 										Session session = HibernateUtil.currentNativeSession();
 										List<FormatNilai> formatNilais = perkuliahan.ambilFormatNilai(session);
 										HibernateUtil.closeSession();
+										if (!Detailperkuliahan.formatNilaiSiapDihitung(formatNilais)) {
+											ais.common.ErrorAuditUtil.record(new IllegalStateException(
+												"Hitung ulang semua dibatalkan untuk kelas ini: format nilai kosong "
+														+ "atau total bobot bukan 100%."),
+												"PenilaianAction perkuliahan=" + perkuliahan.getId());
+											i++;
+											continue;
+										}
 
 										for (Long detailperkuliahanid : perkuliahan.ambilDetailperkuliahan()) {
 											Detailperkuliahan detailperkuliahan = (Detailperkuliahan) GeneralValueObject

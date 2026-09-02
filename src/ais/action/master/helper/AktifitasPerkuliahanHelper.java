@@ -92,6 +92,7 @@ import ais.database.model.PerguruanTinggi;
 import ais.database.model.Perkuliahan;
 import ais.database.model.Pertemuan;
 import ais.database.model.PertemuanPunyaUjian;
+import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
 import ais.database.model.TugasKelompok;
 import ais.database.model.TugasPertemuan;
@@ -220,6 +221,46 @@ public class AktifitasPerkuliahanHelper {
 		this.biodataCalonMahasiswa = biodataCalonMahasiswa;
 		this.tampilLangsungRinci = tampilLangsungRinci;
 		tbmuser = Common.getCurrentUser();
+	}
+
+	/**
+	 * Menentukan apakah panel sedang dipakai oleh peserta didik. Pemeriksaan tidak boleh hanya
+	 * mengandalkan {@link Tbmuser#getMahasiswa()}, karena getter tersebut sengaja mengembalikan
+	 * {@code null} ketika akun mempunyai asosiasi pegawai/dosen atau role aktifnya berubah. Konteks
+	 * eksplisit dari constructor adalah sumber utama, sedangkan role aktif menjadi pertahanan kedua.
+	 */
+	private boolean penggunaAdalahPesertaDidik() {
+		if (mahasiswa != null || biodataCalonMahasiswa != null) {
+			return true;
+		}
+		if (tbmuser == null) {
+			return false;
+		}
+		try {
+			Tbmrole roleAktif = tbmuser.hakAkses();
+			String roleId = roleAktif == null ? null : roleAktif.getRoleId();
+			if (roleId != null && (roleId.equalsIgnoreCase(Tbmrole.MAHASISWA)
+					|| roleId.equalsIgnoreCase(Tbmrole.MAHASISWAPASCASARJANA)
+					|| roleId.equalsIgnoreCase(Tbmrole.SISWA)
+					|| roleId.equalsIgnoreCase(Tbmrole.PESERTA_KURSUS))) {
+				return true;
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"audit otorisasi laporan kelas AktifitasPerkuliahanHelper");
+		}
+		return false;
+	}
+
+	private boolean bolehMelihatLaporanKelas() {
+		return !penggunaAdalahPesertaDidik();
+	}
+
+	private void tampilkanPenolakanLaporanKelas() throws InterruptedException {
+		MyMessageboxConfig.show(
+				"Laporan rekap kelas hanya dapat dibuka oleh dosen atau petugas yang berwenang. "
+						+ "Peserta didik hanya dapat melihat nilai miliknya sendiri melalui menu nilai/KHS.",
+				"Akses dibatasi", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
 	}
 
 	/**
@@ -1782,6 +1823,7 @@ public class AktifitasPerkuliahanHelper {
 
 		final MyTabConfig tabLaporan = new MyTabConfig("Lap.", "/img/print.png");
 		tabLaporan.setParent(tabs);
+		tabLaporan.setVisible(bolehMelihatLaporanKelas());
 
 		/*
 		 * PERINGATAN ZK 5 — JANGAN HAPUS tabpanel.setVisible(true) DI TIAP onClick
@@ -2065,6 +2107,10 @@ public class AktifitasPerkuliahanHelper {
 
 			@Override
 			public void onEvent(Event arg0) throws Exception {
+				if (!bolehMelihatLaporanKelas()) {
+					tampilkanPenolakanLaporanKelas();
+					return;
+				}
 				tabLaporan.setSelected(true);           // sinkronisasi state; sembunyikan panel lain
 				tabpanelLaporan.setVisible(true);       // WAJIB: ZK5 tidak auto-show panel dari onClick
 				if (tabpanelLaporan.getChildren().size() == 0) {
@@ -2101,23 +2147,19 @@ public class AktifitasPerkuliahanHelper {
 
 					final MyTabConfig tabRekapitulasKehadiran = new MyTabConfig("Kehadiran");
 					tabRekapitulasKehadiran.setParent(tabs);
-					tabRekapitulasKehadiran.setVisible(
-							tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null);
+					tabRekapitulasKehadiran.setVisible(bolehMelihatLaporanKelas());
 
 					final MyTabConfig tabRekapitulasNilai = new MyTabConfig("Nilai");
 					tabRekapitulasNilai.setParent(tabs);
-					tabRekapitulasNilai.setVisible(
-							tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null);
+					tabRekapitulasNilai.setVisible(bolehMelihatLaporanKelas());
 
 					final MyTabConfig tabRekapitulasKehadiranNilai = new MyTabConfig("Kehadiran & Nilai");
 					tabRekapitulasKehadiranNilai.setParent(tabs);
-					tabRekapitulasKehadiranNilai.setVisible(
-							tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null);
+					tabRekapitulasKehadiranNilai.setVisible(bolehMelihatLaporanKelas());
 
 					final MyTabConfig tabRekapitulasKetidakhadiran = new MyTabConfig("Ketidakhadiran");
 					tabRekapitulasKetidakhadiran.setParent(tabs);
-					tabRekapitulasKetidakhadiran.setVisible(
-							tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null);
+					tabRekapitulasKetidakhadiran.setVisible(bolehMelihatLaporanKelas());
 
 					// Pola sama seperti tab luar: setiap onClick wajib setSelected(true)+setVisible(true)
 					// agar panel tidak tetap display:none di ZK 5. Tab pertama ditangani di onClick-nya sendiri.
@@ -2264,8 +2306,7 @@ public class AktifitasPerkuliahanHelper {
 
 					final Tabpanel tabpanelRekapitulasKehadiran = new ais.ui.util.MyTabpanel();
 					tabpanelRekapitulasKehadiran.setParent(tabpanels);
-					tabRekapitulasKehadiran.setVisible(
-							tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null);
+					tabRekapitulasKehadiran.setVisible(bolehMelihatLaporanKelas());
 					tabRekapitulasKehadiran.addEventListener("onClick", new EventListener() {
 
 						@Override
