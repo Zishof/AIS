@@ -475,6 +475,25 @@ public class CommonHelperClass {
 	 * {@link ais.common.ErrorAuditUtil} dan tidak dilempar ulang — cache yang gagal dimuat akan
 	 * tetap bernilai {@code null}/nilai lama.
 	 *
+	 * <p><b>Kontrak khusus cache syarat keaktifan.</b> Kolom
+	 * {@code JenisKegiatan.digunakanSyaratKeaktifan} mempunyai tiga keadaan di database, tetapi
+	 * bukan boolean tiga keadaan pada aturan bisnis. Nilai {@code true} adalah opt-in eksplisit,
+	 * {@code false} adalah opt-out eksplisit, sedangkan {@code NULL} pada data legacy secara umum
+	 * juga berarti tidak dipakai. Pengecualian hanya diberikan oleh getter domain
+	 * {@link JenisKegiatan#getDigunakanSyaratKeaktifan()} kepada jenis pendaftaran kanonik. Karena
+	 * itu query cache {@link #jenisKegiatansUntukSyaratAktif} wajib memilih hanya nilai
+	 * {@code true}; dua jenis kanonik kemudian ditambahkan melalui
+	 * {@link #tambahkanJenisKegiatanSyaratAktifDefault(Set, JenisKegiatan)}. Jangan mengubah filter
+	 * ini menjadi {@code IS NULL OR = true}. Pola tersebut memasukkan semua kegiatan legacy ke
+	 * daftar kewajiban pembayaran dan dapat membuat mahasiswa tetap Nonaktif meskipun tagihan
+	 * Daftar Ulang yang benar sudah dibayar.</p>
+	 *
+	 * <p>Cache ini statis dan berlaku lintas request. Setelah perubahan konfigurasi jenis
+	 * kegiatan, panggil method ini atau restart node aplikasi supaya set dibangun ulang. Mesin
+	 * status tetap melakukan validasi kedua melalui getter domain pada setiap kegiatan; validasi
+	 * itu sengaja dipertahankan agar cache yang sempat stale saat hot-deploy tidak dapat mengubah
+	 * kegiatan non-syarat menjadi syarat aktif.</p>
+	 *
 	 * @param session sesi Hibernate native aktif yang dipakai untuk seluruh query pada method ini
 	 */
 	@SuppressWarnings("unchecked")

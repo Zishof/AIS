@@ -340,3 +340,153 @@ Sebelum merge perubahan billing:
 - `src/ais/action/master/helper/SettingBiayaMahasiswaSelector.java`
 - `src/ais/action/master/NewDetailBiayaExcelAction.java`
 - `src/ais/action/master/DaftarUlangMahasiswaLamaAction.java`
+
+## Status mahasiswa setelah cicilan dihapus dan dibayar kembali
+
+Bagian ini mendokumentasikan insiden ketika status mahasiswa mula-mula Aktif,
+berubah menjadi Nonaktif setelah cicilan dihapus, tetapi tidak kembali Aktif
+setelah cicilan dibuat lagi. Gejala tersebut mudah disalahartikan sebagai cache
+cicilan, keterlambatan commit, atau nilai rekap `Kegiatan.bulans` yang belum
+diperbarui. Tiga hal itu memang harus diperiksa, tetapi pada insiden September
+2026 bukti debug menunjukkan jalur pembayaran sudah sehat: `DetailBiaya` yang
+dipilih benar, satu baris `CicilanPembayaran` sudah terlihat dari sesi database
+baru, jumlah bayar lebih besar daripada nilai tagihan, dan renderer juga
+menampilkan pembayaran tersebut. Jadi status Nonaktif bukan disebabkan oleh
+cicilan yang tidak terbaca.
+
+### Sumber masalah
+
+Mesin status menggunakan
+`CommonHelperClass.jenisKegiatansUntukSyaratAktif` untuk menentukan jenis
+tagihan yang boleh memengaruhi status mahasiswa. Sebelumnya cache ini dibangun
+dengan kondisi berikut:
+
+```text
+digunakanSyaratKeaktifan IS NULL OR digunakanSyaratKeaktifan = true
+```
+
+Kondisi itu tidak sama dengan aturan pada model `JenisKegiatan`. Getter
+`getDigunakanSyaratKeaktifan()` membaca `NULL` sebagai `false` untuk kegiatan
+biasa. Hanya jenis pendaftaran kanonik, seperti Daftar Ulang mahasiswa lama dan
+pendaftaran ulang mahasiswa baru, yang mempunyai default domain khusus. Dengan
+kata lain, `NULL` adalah data legacy yang belum memilih fitur syarat keaktifan,
+bukan persetujuan implisit bahwa kegiatan itu wajib lunas.
+
+Akibat query lama, hampir semua jenis kegiatan lama yang kolomnya masih
+`NULL` masuk ke cache syarat aktif. Mahasiswa pada kasus contoh mempunyai 18
+kegiatan pada semester yang diperiksa. Walaupun kegiatan Daftar Ulang sudah
+lunas, satu atau lebih kegiatan lain yang seharusnya tidak relevan dapat belum
+memiliki pembayaran. Algoritma promosi Nonaktif ke Aktif mensyaratkan seluruh
+kegiatan yang benar-benar menjadi syarat aktif telah memenuhi pembayaran.
+Karena cache berisi kewajiban palsu, hasil akhirnya selalu `false`.
+
+Asimetri gejala juga dapat dijelaskan. Ketika layar pertama kali dibuka, status
+Aktif lama dapat berasal dari history atau cache. Penghapusan cicilan memicu
+evaluasi ulang dan menemukan daftar kewajiban yang tercemar, sehingga status
+turun menjadi Nonaktif. Saat cicilan dibuat kembali, evaluasi memang berjalan
+lagi dan cicilan baru terbaca, tetapi kewajiban palsu yang lain tetap belum
+lunas. Karena itu tombol Refresh tidak membantu. Refresh status tidak dapat
+memperbaiki himpunan aturan yang sejak awal salah.
+
+### Kontrak yang benar
+
+Kolom `digunakanSyaratKeaktifan` harus diperlakukan sebagai berikut:
+
+| Nilai database | Arti untuk kegiatan biasa | Arti untuk jenis kanonik |
+|---|---|---|
+| `true` | Menjadi syarat aktif | Menjadi syarat aktif |
+| `false` | Bukan syarat aktif | Mengikuti getter domain jenis tersebut |
+| `NULL` | Bukan syarat aktif | Mengikuti default getter domain |
+
+Cache kini mengambil hanya baris dengan nilai database `true`. Setelah query,
+jenis kanonik ditambahkan satu per satu hanya bila getter domainnya menghasilkan
+`true`. Pendekatan ini menjaga kompatibilitas data lama tanpa menjadikan semua
+nilai `NULL` sebagai opt-in.
+
+Ada pertahanan kedua di
+`HistoryStatusMahasiswaUtil.kegiatanSyaratAktifBerlaku`. Setiap kegiatan yang
+dikembalikan dari pencarian mahasiswa tetap diperiksa lagi melalui
+`getDigunakanSyaratKeaktifan()`. Pertahanan ini penting karena cache jenis
+kegiatan bersifat statis untuk satu JVM. Pada hot-deploy atau node yang belum
+di-restart, cache lama mungkin masih berisi anggota yang salah. Kegiatan itu
+akan ditolak sebelum persentase pembayarannya ikut menentukan status.
+
+### Dua arah transisi yang tidak boleh disatukan
+
+Mesin status sengaja memakai semantik berbeda untuk dua arah transisi:
+
+1. Aktif ke Nonaktif: bila tidak ada kegiatan syarat aktif sama sekali,
+   mahasiswa tidak boleh dihukum. Nilai default pemeriksaan adalah lulus.
+2. Nonaktif ke Aktif: harus ada minimal satu tagihan syarat aktif yang berlaku
+   dan semua tagihan tersebut harus memenuhi ambang pembayaran. Tanpa bukti
+   tagihan, mahasiswa tidak boleh dipromosikan otomatis.
+
+Perbedaan ini mencegah dua kegagalan berlawanan. Menyamakan arah pertama dengan
+arah kedua dapat menonaktifkan mahasiswa yang belum mempunyai tagihan. Menyamakan
+arah kedua dengan arah pertama dapat mengaktifkan mahasiswa tanpa tagihan dan
+tanpa pembayaran. Refactor berikutnya tidak boleh mengganti kedua helper itu
+dengan satu ekspresi boolean tanpa mempertahankan semantik tersebut.
+
+Nilai pembayaran untuk evaluasi status harus dibaca dari baris
+`CicilanPembayaran` yang sudah committed melalui sesi baru, bukan hanya dari
+rekap asynchronous `Kegiatan.bulans`. Dengan demikian, setelah transaksi bayar
+selesai, proses sinkronisasi pasca-commit dan tombol Refresh melihat sumber data
+yang sama. Namun pembacaan data segar hanya menyelesaikan masalah staleness;
+filter jenis kegiatan tetap harus benar seperti kontrak di atas.
+
+### Prosedur diagnosis
+
+Saat kasus serupa muncul, baca log secara berurutan:
+
+1. Pastikan `getDetailBiayaDefault` memilih `SettingBiaya` dan `DetailBiaya`
+   yang sesuai semester, tahun akademik, program, prodi, status awal, serta
+   status pembayaran efektif mahasiswa.
+2. Pastikan query cicilan dari sesi baru menemukan baris yang baru disimpan.
+   Bandingkan total bayar dengan `Kegiatan.hitungTagihan()`.
+3. Catat semua ID pada `keydataUtama`. Jumlah ID yang besar bukan bukti error,
+   tetapi menjadi petunjuk untuk memeriksa berapa jenis kegiatan yang ikut dalam
+   cache syarat aktif.
+4. Periksa `digunakan_syarat_keaktifan` untuk setiap jenis kegiatan. Hanya nilai
+   `true` atau default kanonik yang boleh ikut.
+5. Pastikan semester kegiatan cocok. Pendaftaran ulang mahasiswa baru tidak
+   boleh menjadi syarat untuk semester lebih besar dari satu.
+6. Pastikan status tersimpan dievaluasi sesudah commit pembayaran, bukan dari
+   event yang berjalan sebelum transaksi selesai.
+
+Contoh SQL audit, dengan nama kolom disesuaikan terhadap mapping instalasi:
+
+```sql
+select jk.id, jk.nama_kegiatan, jk.digunakan_syarat_keaktifan
+from jenis_kegiatan jk
+where jk.id in (:id_jenis_kegiatan)
+order by jk.nama_kegiatan;
+```
+
+Jangan memperbaiki insiden dengan mengubah semua `NULL` menjadi `true`. Tindakan
+itu justru meresmikan kewajiban palsu. Bila institusi memang ingin satu jenis
+kegiatan menjadi syarat keaktifan, atur jenis itu secara eksplisit melalui
+konfigurasi sehingga kolom bernilai `true`.
+
+### Uji regresi wajib
+
+`HistoryStatusMahasiswaPaymentRuleSelfTest` menyediakan uji Java 8 tanpa
+database untuk pagar dasar: kegiatan biasa dengan `NULL` harus ditolak, flag
+`false` harus ditolak, flag `true` harus diterima, dan Daftar Ulang mahasiswa
+lama dengan data legacy `NULL` tetap diterima melalui default domain. Selain
+uji tersebut, lakukan uji integrasi dengan urutan keadaan berikut:
+
+1. Buat tagihan Daftar Ulang yang menjadi syarat aktif dan lunasi; status harus
+   Aktif.
+2. Hapus satu-satunya cicilan; setelah commit, status harus Nonaktif.
+3. Buat cicilan kembali hingga ambang terpenuhi; setelah commit, status harus
+   Aktif tanpa perlu menunggu rekap asynchronous.
+4. Klik Refresh beberapa kali; hasil harus stabil dan tidak berganti kembali.
+5. Tambahkan kegiatan legacy biasa dengan flag `NULL` tanpa pembayaran; status
+   tidak boleh terpengaruh.
+6. Ubah kegiatan tersebut menjadi flag `true`; setelah cache dimuat ulang,
+   kegiatan itu memang harus ikut menentukan status.
+
+Saat deployment, restart seluruh node aplikasi atau panggil
+`CommonHelperClass.reloadJenisKegiatans()` setelah perubahan konfigurasi. Restart
+memastikan cache statis lama hilang. Pertahanan lapis kedua tetap diperlukan,
+tetapi bukan alasan untuk mengabaikan konsistensi cache antar-node.

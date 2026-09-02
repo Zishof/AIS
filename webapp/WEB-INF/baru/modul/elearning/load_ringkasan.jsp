@@ -25,7 +25,7 @@
     Session sessStream = null;
     try {
         sess = HibernateUtil.openSession();
-        try { sessStream = StreamingHibernateUtil.openSession(); } catch (Exception exStr) { ais.common.ErrorAuditUtil.record(exStr, "auto-audit(empty-catch) webapp/WEB-INF/baru/modul/elearning/load_ringkasan.jsp:28");}
+        try { sessStream = StreamingHibernateUtil.getInstance().openSession(); } catch (Exception exStr) { ais.common.ErrorAuditUtil.record(exStr, "auto-audit(empty-catch) webapp/WEB-INF/baru/modul/elearning/load_ringkasan.jsp:28");}
 
         out.print("<style>");
         out.print(".stat-box-reload { background-color: #f8f9fa; border: 1px solid #edf2f7; border-radius: 6px; padding: 8px 4px; text-align: center; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: all 0.2s; }");
@@ -294,6 +294,6 @@
     } finally {
         ais.common.ElearningSessionUtil.closeQuietly(sess);
         HibernateUtil.closeSessionQuietly(sess);
-        StreamingHibernateUtil.closeSessionQuietly(sessStream);
+        HibernateUtil.closeSessionQuietly(sessStream);
     }
 %>
