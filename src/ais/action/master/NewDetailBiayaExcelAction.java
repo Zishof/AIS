@@ -3278,10 +3278,10 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 						: Restrictions.ilike("nilaiTambahan1", nilaiTambahan1, MatchMode.EXACT))
 
 				.add(nilaiTambahan2 == null ? Restrictions.isNull("nilaiTambahan2")
-						: Restrictions.ilike("nilaiTambahan2", nilaiTambahan1, MatchMode.EXACT))
+						: Restrictions.ilike("nilaiTambahan2", nilaiTambahan2, MatchMode.EXACT))
 
 				.add(nilaiTambahan3 == null ? Restrictions.isNull("nilaiTambahan3")
-						: Restrictions.ilike("nilaiTambahan3", nilaiTambahan1, MatchMode.EXACT))
+						: Restrictions.ilike("nilaiTambahan3", nilaiTambahan3, MatchMode.EXACT))
 
 				.add(Restrictions.or(Restrictions.isNull("paket"), Restrictions.eq("paket", paket)))
 

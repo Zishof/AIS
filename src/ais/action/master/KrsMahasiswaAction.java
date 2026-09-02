@@ -9,6 +9,7 @@ import java.util.List;
 import org.apache.commons.io.FileUtils;
 import org.hibernate.Criteria;
 import org.hibernate.Session;
+import org.hibernate.Transaction;
 import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
@@ -60,6 +61,9 @@ import ais.ui.util.MyLabelAgakKecil;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.action.master.helper.FilterLanjutHelper;
+import ais.action.ws.util.CommonUtil;
+import ais.ui.util.MyDatebox;
+import ais.ui.util.MyWindow;
 
 /**
  * Controller/action ZK untuk krs mahasiswa. Tipe ini merupakan titik masuk UI yang menghubungkan
@@ -482,6 +486,12 @@ public class KrsMahasiswaAction extends GenericAutowireComposer implements DataC
 
 	public static void displayRow(Component arg0, final KrsMahasiswa krsMahasiswa, Html html, Html komentarshtml,
 			MyLabelAgakKecil catatan, MyLabelAgakKecil catatanKhs, final EventListener eventListener) throws Exception {
+		displayRow(arg0, krsMahasiswa, html, komentarshtml, catatan, catatanKhs, eventListener, false);
+	}
+
+	private static void displayRow(final Component arg0, final KrsMahasiswa krsMahasiswa, Html html,
+			Html komentarshtml, MyLabelAgakKecil catatan, MyLabelAgakKecil catatanKhs,
+			final EventListener eventListener, boolean bolehUbahSk) throws Exception {
 		AuditListener.prosesUntukElearning(krsMahasiswa, "", krsMahasiswa.getId());
 		Mahasiswa mahasiswa = krsMahasiswa.getMahasiswa();
 		Double[] batas = Common.getMinDanMaxIPK(mahasiswa, krsMahasiswa.getSemester(),
@@ -551,6 +561,23 @@ public class KrsMahasiswaAction extends GenericAutowireComposer implements DataC
 		String kom = komentars == 0 ? "Tidak ada komentar" : "Terdapat " + komentars + " komentar";
 		komentarshtml.setContent(kom);
 		komentarshtml.setParent(vbox);
+
+		String tanggalSk = krsMahasiswa.getTglSk() == null ? "-"
+				: Common.dateFormat1.get().format(krsMahasiswa.getTglSk());
+		vbox.appendChild(new MyLabelAgakKecil("No. SK Tugas PA: "
+				+ (krsMahasiswa.getNoSk().isEmpty() ? "-" : krsMahasiswa.getNoSk())));
+		vbox.appendChild(new MyLabelAgakKecil("Tanggal SK Tugas PA: " + tanggalSk));
+		if (bolehUbahSk) {
+			MyToolbarbuttonConfig ubahSk = new MyToolbarbuttonConfig("Ubah SK Tugas PA", "/img/edit.gif");
+			ubahSk.setTooltiptext("Isi nomor dan tanggal SK untuk ekspor Bimbingan Akademik ke Neo Feeder");
+			ubahSk.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					tampilkanFormSkTugas(arg0, krsMahasiswa, eventListener);
+				}
+			});
+			vbox.appendChild(ubahSk);
+		}
 
 		if (Common.getApakahAdminBolehAksesFeeder()
 				&& Common.bolehKonfigurasi("aktifkan_terhubung_langsung_ke_feeder")) {
@@ -675,6 +702,100 @@ public class KrsMahasiswaAction extends GenericAutowireComposer implements DataC
 		}
 	}
 
+	private static void tampilkanFormSkTugas(Component host, final KrsMahasiswa krsMahasiswa,
+			final EventListener setelahSimpan) throws Exception {
+		final MyWindow window = new MyWindow("SK Tugas Bimbingan PA", "normal", true);
+		window.setWidth(Common.isMobile() ? "96%" : "520px");
+		window.setHeight("330px");
+		window.setParent(host.getPage().getFirstRoot());
+
+		Vbox isi = new Vbox();
+		isi.setWidth("100%");
+		isi.setStyle("box-sizing:border-box;padding:16px;gap:8px;");
+		isi.setParent(window);
+		new Label(krsMahasiswa.getMahasiswa().getNim() + " - "
+				+ krsMahasiswa.getMahasiswa().getNama()).setParent(isi);
+		new MyLabelAgakKecil("TA " + krsMahasiswa.getTahunAkademik() + ", semester "
+				+ krsMahasiswa.getSemester()).setParent(isi);
+
+		new Label("Nomor SK Tugas *").setParent(isi);
+		final Textbox nomorSk = new Textbox(krsMahasiswa.getNoSk());
+		nomorSk.setWidth("95%");
+		nomorSk.setMaxlength(255);
+		nomorSk.setParent(isi);
+
+		new Label("Tanggal SK Tugas *").setParent(isi);
+		final MyDatebox tanggalSk = new MyDatebox(krsMahasiswa.getTglSk());
+		tanggalSk.setFormat(Common.dateFormat1.get().toPattern());
+		tanggalSk.setParent(isi);
+
+		Hbox tombol = new Hbox();
+		tombol.setStyle("padding-top:10px;");
+		tombol.setParent(isi);
+		MyToolbarbuttonConfig batal = new MyToolbarbuttonConfig("Batal", "/img/cancel.gif");
+		batal.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				window.detach();
+			}
+		});
+		batal.setParent(tombol);
+
+		MyToolbarbuttonConfig simpan = new MyToolbarbuttonConfig("Simpan", "/img/save.gif");
+		simpan.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				String nomor = nomorSk.getValue() == null ? "" : nomorSk.getValue().trim();
+				if (nomor.isEmpty() != (tanggalSk.getValue() == null)) {
+					MyMessageboxConfig.show("Nomor dan tanggal SK harus diisi bersamaan.", "Peringatan",
+							MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+					return;
+				}
+
+				Session session = null;
+				Transaction transaction = null;
+				try {
+					session = HibernateUtil.getSessionFactory().openSession();
+					transaction = session.beginTransaction();
+					KrsMahasiswa tersimpan = (KrsMahasiswa) session.get(KrsMahasiswa.class,
+							krsMahasiswa.getId());
+					if (tersimpan == null) {
+						throw new IllegalStateException("Data KRS sudah tidak tersedia.");
+					}
+					tersimpan.setNoSk(nomor);
+					tersimpan.setTglSk(tanggalSk.getValue());
+					transaction.commit();
+				} catch (Exception e) {
+					Common.rollbackQuietly(transaction);
+					Common.tampilErrorJikaAdmin(e);
+					MyMessageboxConfig.show("Nomor dan tanggal SK belum berhasil disimpan.", "Peringatan",
+							MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+					return;
+				} finally {
+					if (session != null && session.isOpen()) {
+						session.close();
+					}
+				}
+
+				krsMahasiswa.setNoSk(nomor);
+				krsMahasiswa.setTglSk(tanggalSk.getValue());
+				String cacheKey = KrsMahasiswa.class.getSimpleName() + "_"
+						+ krsMahasiswa.getMahasiswa().getId() + "-" + krsMahasiswa.getSemester() + "-"
+						+ krsMahasiswa.getTahapan() + "-" + krsMahasiswa.getSemesterPendek();
+				CommonUtil.reset(cacheKey);
+				AuditListener.prosesUntukElearning(krsMahasiswa, "", krsMahasiswa.getId());
+				window.detach();
+				if (setelahSimpan != null) {
+					setelahSimpan.onEvent(event);
+				}
+				MyMessageboxConfig.show("Nomor dan tanggal SK Tugas PA berhasil disimpan.", "Informasi",
+						MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			}
+		});
+		simpan.setParent(tombol);
+		window.onModal();
+	}
+
 	/**
 	 * Renderer lokal untuk layar/komponen {@link KrsMahasiswaAction}. Kelas ini menerjemahkan satu item data
 	 * menjadi baris atau komponen ZK dengan memakai state dan aturan tampilan milik kelas induk.
@@ -760,7 +881,8 @@ public class KrsMahasiswaAction extends GenericAutowireComposer implements DataC
 				}
 			});
 
-			KrsMahasiswaAction.displayRow(arg0, krsMahasiswa, html, komentarshtml, catatan, catatanKhs, event);
+			KrsMahasiswaAction.displayRow(arg0, krsMahasiswa, html, komentarshtml, catatan, catatanKhs, event,
+					edit);
 		}
 
 	}
