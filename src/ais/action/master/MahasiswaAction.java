@@ -2600,6 +2600,7 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 				Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
 
 		Common.insertComboDanSemua(searchstatus, new String[] { "nama", "kodeEpsbed" }, StatusMahasiswa.class);
+		hapusPilihanStatusMahasiswaDuplikat(searchstatus);
 
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 
@@ -2664,7 +2665,9 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 		}
 		if (execution.getParameter("selectedStatusMahasiswa") != null) {
 			Long selectedStatusMahasiswa = Long.parseLong(execution.getParameter("selectedStatusMahasiswa"));
-			Common.selectComboItem(searchstatus, new StatusMahasiswa(selectedStatusMahasiswa));
+			StatusMahasiswa statusDiminta = (StatusMahasiswa) ConstantValues.ambil(
+					StatusMahasiswa.class.getName(), selectedStatusMahasiswa);
+			pilihStatusMahasiswaSemantik(searchstatus, statusDiminta);
 		}
 		if (execution.getParameter("statusKeluar") != null) {
 			Common.selectComboItem(searchstatusKeluar,
@@ -4724,7 +4727,7 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 				final StatusMahasiswa statusMahasiswa = ais.action.master.helper.HistoryStatusMahasiswaUtil
 						.currentStatus(krsMahasiswa).ambilStatusMahasiswa(semester);
 				if (selectedStatusMahasiswa != null && statusMahasiswa != null
-						&& !statusMahasiswa.getId().equals(selectedStatusMahasiswa.getId())) {
+						&& !statusMahasiswaFilterSama(statusMahasiswa, selectedStatusMahasiswa)) {
 					arg0.setVisible(false);
 				}
 
@@ -8612,6 +8615,59 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 		onSearchDefault(event);
 	}
 
+	private static String kunciFilterStatusMahasiswa(StatusMahasiswa status) {
+		if (status == null) {
+			return "";
+		}
+		String kode = status.getKodeEpsbed() == null ? "" : status.getKodeEpsbed().trim();
+		if (!kode.isEmpty()) {
+			return "K:" + kode.toUpperCase(java.util.Locale.ROOT);
+		}
+		String nama = status.getNama() == null ? "" : status.getNama().trim();
+		return nama.isEmpty() ? ""
+				: "N:" + nama.toUpperCase(java.util.Locale.ROOT).replaceAll("[^A-Z0-9]+", "");
+	}
+
+	private static boolean statusMahasiswaFilterSama(StatusMahasiswa satu, StatusMahasiswa dua) {
+		String kunciSatu = kunciFilterStatusMahasiswa(satu);
+		String kunciDua = kunciFilterStatusMahasiswa(dua);
+		if (!kunciSatu.isEmpty() && kunciSatu.equals(kunciDua)) {
+			return true;
+		}
+		return satu != null && dua != null && satu.getId() != null && satu.getId().equals(dua.getId());
+	}
+
+	private static void hapusPilihanStatusMahasiswaDuplikat(Combobox combo) {
+		if (combo == null) {
+			return;
+		}
+		java.util.Set<String> kunciTerlihat = new java.util.LinkedHashSet<String>();
+		for (Comboitem item : new ArrayList<Comboitem>(combo.getItems())) {
+			Object nilai = item.getValue();
+			if (!(nilai instanceof StatusMahasiswa)) {
+				continue;
+			}
+			String kunci = kunciFilterStatusMahasiswa((StatusMahasiswa) nilai);
+			if (!kunci.isEmpty() && !kunciTerlihat.add(kunci)) {
+				item.detach();
+			}
+		}
+	}
+
+	private static void pilihStatusMahasiswaSemantik(Combobox combo, StatusMahasiswa statusDiminta) {
+		if (combo == null || statusDiminta == null) {
+			return;
+		}
+		for (Comboitem item : combo.getItems()) {
+			Object nilai = item.getValue();
+			if (nilai instanceof StatusMahasiswa
+					&& statusMahasiswaFilterSama((StatusMahasiswa) nilai, statusDiminta)) {
+				combo.setSelectedItem(item);
+				return;
+			}
+		}
+	}
+
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(final Event event) {
 		if (searchnama == null) {
@@ -8663,8 +8719,8 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 						KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa, semester, null, null);
 						HistoryStatusMahasiswa historyStatusMahasiswa = Common.getHistoryStatusMahasiswa(krsMahasiswa);
 						if (historyStatusMahasiswa != null && historyStatusMahasiswa.getStatusMahasiswa() != null
-								&& historyStatusMahasiswa.getStatusMahasiswa().getId()
-										.equals(selectedStatusMahasiswa.getId())) {
+								&& statusMahasiswaFilterSama(historyStatusMahasiswa.getStatusMahasiswa(),
+										selectedStatusMahasiswa)) {
 							mhss.add(mahasiswa.getId());
 						}
 					}
