@@ -1,5 +1,103 @@
 # Progres Javadoc Menyeluruh
 
+## Batch "kluster akunting — persetujuan dana" — SELESAI 100% (2 Sep 2026, dikonsolidasi orkestrator, sempat kena rate limit & dilanjutkan)
+
+Semua 5 file TUNTAS 100% method, dikompilasi, dikommit, di-mirror ke `java/`.
+**Catatan proses**: 3 agent (KasBesar/PenggantianKasKecil/KasKecil) sempat
+terkena rate limit API di tengah jalan TAPI sudah sempat commit sebelum
+terputus (tidak ada kerja hilang); 2 agent lain (DanaTalangan,
+DaftarPengajuanTransfer) dilanjutkan lewat `SendMessage` resume setelah
+limit reset dan berhasil tuntas.
+
+- `KasKecil.java` — 64/64. 504→1348 baris. r83243.
+- `KasBesar.java` — 63/63. 521→1403 baris. r83248.
+- `DanaTalangan.java` — 53/53. 428→1362 baris. r83251.
+- `PenggantianKasKecil.java` — 55/55. 442→1250 baris. r83244.
+- `DaftarPengajuanTransfer.java` — 103/103. 2161→3647 baris. 9 commit
+  bertahap (r83242-r83271).
+
+### Kesimpulan LENGKAP pola "flag aktif satu-arah" (5 file + `PengajuanMahasiswa` sesi 11)
+
+**Terbelah dua kelompok, bukan satu pola seragam seperti dugaan awal:**
+- **Murni satu-arah** (`false` permanen, TIDAK PERNAH ada jalur pemulih ke
+  `true` di dalam class): `KasKecil`, `KasBesar`, `DaftarPengajuanTransfer`
+  (+ `PengajuanMahasiswa` dari sesi 11). `DaftarPengajuanTransfer` punya SATU
+  pengecualian sempit dari LUAR class (`BreakdownTagihanVendorHelper`, hanya
+  untuk baris tipe `Pajak`).
+- **Dua-arah bersyarat** (ADA blok pemulih `aktif=true` saat status mencapai
+  "Disetujui", TAPI sebelum status itu tercapai tetap satu-arah seperti
+  kelompok pertama): `DanaTalangan`, `PenggantianKasKecil`. Konsekuensi nyata
+  untuk `DanaTalangan`: penonaktifan manual operator DIBATALKAN DIAM-DIAM
+  begitu dokumen disetujui.
+
+Semua varian sepakat pada SATU hal: kolom `aktif` adalah properti terpetakan
+sungguhan (bukan `@Transient`), jadi nilai hasil logika getter SELALU
+ikut ter-`UPDATE` permanen ke DB saat entity di-flush — baik versi
+satu-arah maupun dua-arah bersyarat.
+
+**Tidak ada eskalasi keamanan baru** dari batch ini (dicek eksplisit tiap
+file, semua akses DB lewat Criteria API terparameterisasi).
+
+**Total akumulasi 12 sesi kerja**: 233 (sesi 1-11) + 5 = **238 file** dari
+7.401 (~3,2%).
+
+## `ais/database/model/akunting/KasKecil.java` — SELESAI 100% (2 Sep 2026)
+
+Entity **pengajuan kas kecil** (tabel `akunting.kas_kecil`, `@Audited`,
+`dynamicInsert/dynamicUpdate`, turunan `DataSop` → `GeneralValueObject`).
+**64/64 anggota** terdokumentasi (100%), 504 → 1348 baris. Revisi **r83243**,
+mirror `java/` verifikasi `cmp` identik. Hanya Javadoc/komentar; nol perubahan
+logika (dibuktikan dengan membandingkan sumber tanpa komentar/spasi terhadap
+HEAD — identik persis, baris `@PreUpdate onUpdate()` + `tanggal_dirubah`
+dibiarkan menyatu seperti aslinya).
+
+**Alur:** master `JenisKasKecil` (dompet: saldo awal, akun kas kecil, akun
+penutup) → pengajuan `KasKecil` (nilai, keperluan, `formula` JSON berisi
+banyak baris debet) → disposisi/persetujuan SOP → `PenggantianKasKecil`
+(pengisian ulang) / `KasBesar` (sumber dana) → posting jurnal
+`PostingKasKecilAction` → `PostingHistory`.
+
+**Verifikasi pola "flag `aktif` satu arah" — IDENTIK** dengan
+`PengajuanMahasiswa` (r83227), baris demi baris. `getAktif()` memaksa
+`aktif = false` bila disposisi nonaktif atau alur berhenti di simpul
+penolakan, dan tidak pernah mengembalikannya ke `true`; `aktif` properti
+terpetakan sehingga nilai itu ikut ter-flush ke DB saat membaca daftar.
+**Konsekuensi khusus kas kecil (lebih tajam daripada di
+`PengajuanMahasiswa`):** `JenisKasKecilAction.hitungSaldo(...)` hanya
+menjumlahkan `nilai` dari baris `aktif IS NULL OR aktif = true`, jadi sekali
+pengajuan dipaksa nonaktif, nilainya **berhenti mengurangi saldo dompet secara
+permanen** meski penolakannya kemudian dicabut.
+
+**Pola berulang lain:** 14 getter menulis balik ke properti terpetakan
+(`getAktif`, `getJenisKasKecil`, `getDibuatOleh`, `getDisetujuiOleh`,
+`getTanggalPersetujuan`, `getStatus`, `getSatuanKerja`, `getKodeUnik`,
+`getDisposisiSop`, `getTahun`, `getBulan`, `getNomorSuratAlurKeuangan`,
+`getTanggalTransaksi`, `getSisa`) — tiga di antaranya menulis **tanpa syarat**
+tiap pembacaan (`getKodeUnik`, `getTanggalTransaksi`, `getSisa`). **Tidak ada**
+getter yang membuka/menutup session Hibernate langsung di file ini; biaya itu
+hanya muncul lewat `check(...)` milik `GeneralValueObject`.
+`getTanggalPersetujuan()` menelan `LazyInitializationException` lewat
+`try/catch` bertanda `auto-audit(empty-catch)`.
+
+**Kuirk/bug dicatat (tidak diperbaiki):**
+- `getDisetujuiOleh()`/`getTanggalPersetujuan()` diakhiri blok yang memaksa
+  `null` bila disposisi ada tetapi belum punya langkah "setuju" — **menimpa**
+  hasil pencarian `kasBesar`/`penggantianKasKecil` di atasnya, sehingga cabang
+  itu efektif hanya berlaku bagi pengajuan tanpa disposisi.
+- `setDisposisiSop()` mengandung ternary **kode mati** (kondisinya mustahil
+  benar setelah guard di barisnya sendiri) → efektif penugasan biasa.
+- `getKodeUnik()` derivatif tapi dipetakan `@Column(unique = true)`; bila
+  `kode` masih `null` hasilnya string harfiah `"null_<id>"`, dan dua baris
+  tanpa kode maupun id bisa sama-sama menghasilkan `"null_null"` →
+  berpotensi menabrak batasan unik.
+- `toString()` membaca field `nama` mentah (bukan `getNama()`) → bisa `null`.
+- `DEFAULT_FORMULA` `public static` tapi **tidak** `final`.
+- `getSisa()` = snapshot `saldo` − `nilai`; karena `saldo` hanya snapshot saat
+  penyimpanan, `sisa` ikut basi bila saldo dompet berubah setelahnya — padahal
+  nilai ini dipakai sebagai nominal debet akun penutup saat posting.
+
+Tidak ditemukan kerentanan keamanan di file ini.
+
 ## Batch "5 entity prestasi/beasiswa/pengajuan/kalender" — SELESAI 100% (2 Sep 2026, dikonsolidasi orkestrator)
 
 Semua 5 file TUNTAS 100% method, dikompilasi, dikommit, di-mirror ke `java/`:

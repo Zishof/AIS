@@ -143,10 +143,11 @@ public final class TenantSchemaMigrations {
 			new Migrasi("v11-idempotensi-erp", TARGET_ERP, TenantSchemaMigrationsV11.ERP),
 			new Migrasi("v12-kas-trip-erp", TARGET_ERP, TenantSchemaMigrationsV12.ERP),
 			new Migrasi("v13-nota-bawaan-erp", TARGET_ERP, TenantSchemaMigrationsV13.ERP),
+			new Migrasi("v14-kas-fisik-erp", TARGET_ERP, TenantSchemaMigrationsV14.ERP),
 	};
 
 	/** Versi schema efektif setelah seluruh migrasi terpasang (dicatat ke registry.schemaVersion). */
-	public static final String VERSI_TERKINI = "v13-nota-bawaan";
+	public static final String VERSI_TERKINI = "v14-kas-fisik";
 
 	/** Tabel yang WAJIB ada pasca-migrasi (dipakai VERIFY_SCHEMA). */
 	public static final String[] TABEL_WAJIB_ERP = {

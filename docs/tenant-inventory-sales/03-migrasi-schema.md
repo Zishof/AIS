@@ -524,6 +524,50 @@ Tidak ada pengisian data, dan tidak ada penugasan yang dibentuk surut untuk SPJ 
 berjalan. Menebak nota mana yang dulu dibawa hanya melahirkan riwayat penagihan yang tampak sahih
 tanpa dasar.
 
+## Bundel v14 — kas fisik pada rekonsiliasi penutupan trip
+
+Satu kolom: `sales_trip_rekonsiliasi.kas_fisik_aktual`. Bundel terkecil pada katalog ini, dan
+sengaja demikian.
+
+### Koreksi: `tripClose` ternyata TIDAK bebas hambatan
+
+Catatan sebelumnya menyatakan `tripClose` "tidak terhalang apa pun lagi — tinggal ditulis". Itu
+**salah**. Saat sepuluh medan ringkasan penutupan legacy dicocokkan satu per satu terhadap
+`sales_trip_rekonsiliasi`, satu di antaranya tidak punya tempat dan tidak dapat diturunkan.
+
+| medan legacy | pada tenant |
+|---|---|
+| `totalBiaya`, `totalSetoran`, `selisihKas`, `catatanPenutupan` | sudah ada kolomnya |
+| `waktuTutup`, `disetujuiOleh` | sudah ada kolomnya |
+| `totalPenerimaanTunai` / `NonTunai` | **tidak perlu kolom** — diturunkan dari `penerimaan_piutang` yang menunjuk trip, dipilah `cara_bayar` |
+| `totalPembayaranPembelian` | **tidak perlu kolom** — nol menurut definisi; model tenant belum punya pembelian dalam trip |
+| `kasFisikAktual` | **tidak ada, dan tidak dapat diturunkan** |
+
+### Kas fisik adalah masukan, bukan turunan
+
+Angka ini datang dari penghitungan uang di tangan saat sesi ditutup. Tidak ada tabel yang dapat
+menghasilkannya kembali — buku kas hanya tahu berapa uang **seharusnya** ada.
+
+Menyimpan `selisih` saja tidak cukup meskipun selisih itu turunan keduanya: begitu buku kasnya
+bertambah satu baris, `kas_seharusnya` berubah dan kas fisik yang dulu dihitung tidak lagi dapat
+direkonstruksi dari selisihnya. Justru pada penutupan — saat angka dibekukan dan disetujui —
+kehilangan masukan aslinya paling merugikan.
+
+### Yang tidak ditambahkan: status pada barang trip
+
+Jalur legacy menandai tiap baris `SpjSalesBarang` RECONCILED saat sesi ditutup. Pada model tenant
+kefinalan itu **sudah dinyatakan status tripnya** yang menjadi CLOSED; menyalinnya ke tiap baris
+hanya melahirkan penanda kedua yang bisa berselisih dengan induknya.
+
+Nota bawaan berbeda dan memang ditandai: `surat_perintah_sales_nota.status` menyimpan hasil
+kunjungan per nota, jadi RECONCILED di sana adalah keadaan nota itu sendiri, bukan salinan keadaan
+tripnya.
+
+### Diverifikasi pada PostgreSQL 16
+
+Katalog v1–v14 dijalankan utuh, bersih. Self-test LULUS — 16 migrasi, versi `v14-kas-fisik`,
+checksum `1fb5b5cbc41d` dipatok.
+
 ## Yang BELUM dikerjakan
 
 - **Belum ada satu pun kueri yang memakai tabel ini.** Menyambungkan `si_*` ke schema

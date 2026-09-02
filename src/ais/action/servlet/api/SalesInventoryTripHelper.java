@@ -1482,13 +1482,6 @@ public final class SalesInventoryTripHelper {
 	/** Tutup sesi (RECONCILING -> CLOSED) -- WAJIB Pemilik/Admin; snapshot dua rumus. */
 	public static void tripClose(EbisnisActorContextResolver.ActorContext ctx, Tbmuser tbmuser,
 			JSONObject request, JSONObject hasil) throws Exception {
-		if (SalesInventoryTripTenant.aktif(ctx)) {
-			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
-			// aksi bermuatan uang, MENULIS -- ke schema BERSAMA. Ditolak sampai jalur
-			// tenantnya ditulis beserta uji kesetaraannya; lihat SalesInventoryTripTenant.
-			tolak(hasil, "Sales Lapangan belum tersedia pada tenant berschema.");
-			return;
-		}
 		if (!pemilikAtauAdmin(ctx)) {
 			tolak(hasil, "Penutupan sesi hanya oleh Pemilik/Admin (approval eksplisit).");
 			return;
@@ -1497,6 +1490,10 @@ public final class SalesInventoryTripHelper {
 		BigDecimal kasAktual = optBigDecimal(request, "kas_fisik_aktual");
 		if (id == null || kasAktual == null) {
 			tolak(hasil, "session_id dan kas_fisik_aktual wajib diisi.");
+			return;
+		}
+		if (SalesInventoryTripTenant.aktif(ctx)) {
+			tripCloseTenant(ctx, tbmuser, id, kasAktual, request, hasil);
 			return;
 		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
@@ -2645,6 +2642,180 @@ public final class SalesInventoryTripHelper {
 			throw e;
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+	/**
+	 * Menutup sesi trip pada schema tenant.
+	 *
+	 * <p>Seluruh angkanya dibaca dari sumbernya masing-masing pada saat penutupan, lalu
+	 * dibekukan menjadi satu baris {@code sales_trip_rekonsiliasi}. Buku kas tetap sumber
+	 * kebenaran kas seharusnya — sama seperti jalur legacy membaca {@code nota_sales_kas}.</p>
+	 *
+	 * <p>Dua angka legacy tidak dibaca dari kolom di sini. Pemilahan penerimaan tunai dan
+	 * non-tunai <b>diturunkan</b> dari {@code penerimaan_piutang} yang menunjuk trip ini.
+	 * Pembayaran pembelian bernilai <b>nol menurut definisi</b>: model tenant belum punya
+	 * pembelian dalam trip, sehingga tidak ada yang bisa terlewat — angkanya nol karena memang
+	 * tidak ada, bukan karena hilang.</p>
+	 *
+	 * <p>Barang yang dibawa tidak ditandai satu per satu. Kefinalannya sudah dinyatakan status
+	 * tripnya yang menjadi CLOSED; penanda kedua hanya akan berselisih dengan induknya.</p>
+	 */
+	private static void tripCloseTenant(EbisnisActorContextResolver.ActorContext ctx,
+			Tbmuser tbmuser, Long tripId, BigDecimal kasAktual, JSONObject request,
+			JSONObject hasil) throws Exception {
+		String skema = SalesInventoryTripTenant.skema(ctx);
+		String oleh = tbmuser == null || tbmuser.getUserId() == null ? "" : tbmuser.getUserId();
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		Transaction tx = null;
+		try {
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(
+					SalesInventoryTripTenant.tripUntukStatus(skema));
+			ps.setLong(1, tripId.longValue());
+			java.sql.ResultSet rs = ps.executeQuery();
+			if (!rs.next()) {
+				rs.close();
+				ps.close();
+				tolak(hasil, "Sesi tidak ditemukan.");
+				return;
+			}
+			String status = str(rs.getString(1));
+			Long spjId = rs.getObject(3) == null ? null : Long.valueOf(rs.getLong(3));
+			rs.close();
+			ps.close();
+			if (!NotaSalesSession.STATUS_RECONCILING.equals(status)) {
+				tolak(hasil, "Hanya sesi RECONCILING yang bisa ditutup (status: " + status + ").");
+				return;
+			}
+
+			double kasSeharusnya = 0, setoran = 0;
+			java.sql.PreparedStatement psK = session.connection().prepareStatement(
+					SalesInventoryTripTenant.ringkasanKasTutup(skema));
+			try {
+				psK.setLong(1, tripId.longValue());
+				java.sql.ResultSet rsK = psK.executeQuery();
+				if (rsK.next()) {
+					kasSeharusnya = rsK.getDouble(1);
+					setoran = rsK.getDouble(2);
+				}
+				rsK.close();
+			} finally {
+				psK.close();
+			}
+			double totalBiaya = satuAngka(session,
+					SalesInventoryTripTenant.totalBiayaTrip(skema), tripId);
+			double totalPenjualan = satuAngka(session,
+					SalesInventoryTripTenant.nilaiPenjualanTrip(skema), tripId);
+			double totalTertagih = 0, tertagihTunai = 0;
+			java.sql.PreparedStatement psT = session.connection().prepareStatement(
+					SalesInventoryTripTenant.ringkasanTagihTrip(skema));
+			try {
+				psT.setLong(1, tripId.longValue());
+				java.sql.ResultSet rsT = psT.executeQuery();
+				if (rsT.next()) {
+					totalTertagih = rsT.getDouble(1);
+					tertagihTunai = rsT.getDouble(2);
+				}
+				rsT.close();
+			} finally {
+				psT.close();
+			}
+			double barangBawa = 0, barangKembali = 0;
+			java.sql.PreparedStatement psB = session.connection().prepareStatement(
+					SalesInventoryTripTenant.nilaiBarangTrip(skema));
+			try {
+				psB.setLong(1, tripId.longValue());
+				java.sql.ResultSet rsB = psB.executeQuery();
+				if (rsB.next()) {
+					barangBawa = rsB.getDouble(1);
+					barangKembali = rsB.getDouble(2);
+				}
+				rsB.close();
+			} finally {
+				psB.close();
+			}
+			// Pembelian dalam trip belum ada pada model tenant: nol menurut definisi.
+			double totalBeli = 0;
+			double selisih = kasAktual.doubleValue() - kasSeharusnya;
+
+			tx = session.beginTransaction();
+			java.sql.PreparedStatement psR = session.connection().prepareStatement(
+					SalesInventoryTripTenant.simpanRekonsiliasi(skema));
+			try {
+				psR.setLong(1, tripId.longValue());
+				psR.setBigDecimal(2, new BigDecimal(String.valueOf(barangBawa)));
+				psR.setBigDecimal(3, new BigDecimal(String.valueOf(barangKembali)));
+				psR.setBigDecimal(4, new BigDecimal(String.valueOf(totalPenjualan)));
+				psR.setBigDecimal(5, new BigDecimal(String.valueOf(totalBiaya)));
+				psR.setBigDecimal(6, new BigDecimal(String.valueOf(setoran)));
+				psR.setBigDecimal(7, new BigDecimal(String.valueOf(selisih)));
+				psR.setBigDecimal(8, kasAktual);
+				psR.setString(9, request.optString("catatan", "").trim());
+				psR.setString(10, oleh);
+				psR.setString(11, oleh);
+				psR.executeUpdate();
+			} finally {
+				psR.close();
+			}
+			java.sql.PreparedStatement psC = session.connection().prepareStatement(
+					SalesInventoryTripTenant.tutupTrip(skema));
+			try {
+				psC.setString(1, oleh);
+				psC.setLong(2, tripId.longValue());
+				psC.executeUpdate();
+			} finally {
+				psC.close();
+			}
+			if (spjId != null) {
+				java.sql.PreparedStatement psS = session.connection().prepareStatement(
+						SalesInventoryTripTenant.ubahStatusSpj(skema));
+				try {
+					psS.setString(1, SuratPerintahSalesJalan.STATUS_CLOSED);
+					psS.setString(2, oleh);
+					psS.setLong(3, spjId.longValue());
+					psS.executeUpdate();
+				} finally {
+					psS.close();
+				}
+				java.sql.PreparedStatement psN = session.connection().prepareStatement(
+						SalesInventoryTripTenant.rekonsiliasiNotaSpj(skema));
+				try {
+					psN.setLong(1, spjId.longValue());
+					psN.executeUpdate();
+				} finally {
+					psN.close();
+				}
+			}
+			tx.commit();
+			hasil.put("status", "00");
+			hasil.put("hasilBersih", totalTertagih - totalBiaya - totalBeli);
+			hasil.put("kasFisikSeharusnya", kasSeharusnya);
+			hasil.put("selisihKas", selisih);
+			hasil.put("penerimaanTunai", tertagihTunai);
+			hasil.put("penerimaanNonTunai", totalTertagih - tertagihTunai);
+		} catch (Exception e) {
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** Menjalankan kueri berparameter satu id yang mengembalikan satu angka. */
+	private static double satuAngka(Session session, String sql, Long id) throws Exception {
+		java.sql.PreparedStatement ps = session.connection().prepareStatement(sql);
+		try {
+			ps.setLong(1, id.longValue());
+			java.sql.ResultSet rs = ps.executeQuery();
+			double v = rs.next() ? rs.getDouble(1) : 0;
+			rs.close();
+			return v;
+		} finally {
+			ps.close();
 		}
 	}
 }

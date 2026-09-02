@@ -78,7 +78,7 @@ final class SalesInventoryTripTenant {
 				|| "tripBarangUpdate".equals(aksi) || "tripDeposit".equals(aksi)
 				|| "tripReturn".equals(aksi) || "tripReconcile".equals(aksi)
 				|| "tripCashSale".equals(aksi) || "spjNotaAssign".equals(aksi)
-				|| "tripNotaResult".equals(aksi);
+				|| "tripNotaResult".equals(aksi) || "tripClose".equals(aksi);
 	}
 
 	/**
@@ -701,5 +701,112 @@ final class SalesInventoryTripTenant {
 				+ " WHERE a.piutang_customer_id = " + aliasNota + ".piutang_customer_id"
 				+ " AND t.surat_perintah_sales_id = " + aliasNota
 				+ ".surat_perintah_sales_id),0)";
+	}
+	// ------------------------------------------------------------------ penutupan trip (v14)
+
+	/**
+	 * <h4>Snapshot penutupan: dari buku, ke satu baris rekonsiliasi</h4>
+	 *
+	 * <p>Jalur legacy menyimpan sepuluh medan ringkasan pada sesinya sendiri. Model tenant
+	 * menaruhnya pada {@code sales_trip_rekonsiliasi} — satu baris per trip, dijaga
+	 * {@code UNIQUE (sales_trip_id)} — dan tidak semuanya perlu kolom: pemilahan penerimaan
+	 * tunai/non-tunai diturunkan, dan pembayaran pembelian bernilai nol menurut definisi sebab
+	 * model tenant belum punya pembelian dalam trip.</p>
+	 */
+	static String ringkasanKasTutup(String skema) {
+		return "SELECT COALESCE(SUM(k.nominal),0),"
+				+ " COALESCE(SUM(CASE WHEN k.jenis = '"
+				+ ais.service.tenant.TenantKasTrip.OWNER_DEPOSIT
+				+ "' THEN -k.nominal ELSE 0 END),0)"
+				+ " FROM " + skema + "sales_trip_kas k WHERE k.sales_trip_id = ?";
+	}
+
+	/**
+	 * Total biaya trip. Baris pembalik bernilai negatif, sehingga penjumlahan menghasilkan
+	 * biaya BERSIH — sama seperti jalur legacy menjumlahkan seluruh barisnya.
+	 */
+	static String totalBiayaTrip(String skema) {
+		return "SELECT COALESCE(SUM(b.nilai),0) FROM " + skema + "sales_trip_biaya b"
+				+ " WHERE b.sales_trip_id = ?";
+	}
+
+	/** DUA kolom: total tertagih dan bagian tunainya. */
+	static String ringkasanTagihTrip(String skema) {
+		return "SELECT COALESCE(SUM(p.nilai),0),"
+				+ " COALESCE(SUM(CASE WHEN p.cara_bayar = 'TUNAI' THEN p.nilai ELSE 0 END),0)"
+				+ " FROM " + skema + "penerimaan_piutang p WHERE p.sales_trip_id = ?";
+	}
+
+	/**
+	 * DUA kolom: nilai barang dibawa dan nilai barang kembali.
+	 *
+	 * <p>Keduanya dinilai memakai {@code harga_satuan} pada baris barang yang dibawa — harga
+	 * yang berlaku saat pemuatan, bukan harga sekarang. Menilai barang kembali dengan harga
+	 * sekarang akan membuat rekonsiliasi berubah angka setiap kali daftar harga diperbarui.</p>
+	 */
+	static String nilaiBarangTrip(String skema) {
+		return "SELECT COALESCE(SUM(COALESCE(b.kuantitas_bawa,0)"
+				+ " * COALESCE(b.harga_satuan,0)),0),"
+				+ " COALESCE(SUM(COALESCE(h.kuantitas_kembali,0)"
+				+ " * COALESCE(b.harga_satuan,0)),0)"
+				+ " FROM " + skema + "sales_trip_barang b"
+				+ " LEFT JOIN " + skema + "sales_trip_hasil h"
+				+ " ON h.sales_trip_id = b.sales_trip_id AND h.produk_id = b.produk_id"
+				+ " WHERE b.sales_trip_id = ?";
+	}
+
+	static String nilaiPenjualanTrip(String skema) {
+		return "SELECT COALESCE(SUM(n.total),0) FROM " + skema + "sales_trip_nota n"
+				+ " WHERE n.sales_trip_id = ?";
+	}
+
+	/**
+	 * Menyimpan rekonsiliasi penutupan. DUA BELAS parameter: tripId, nilaiBarangBawa,
+	 * nilaiBarangKembali, nilaiPenjualan, nilaiBiaya, nilaiSetoran, selisih, kasFisikAktual,
+	 * keterangan, disetujuiOleh, oleh.
+	 *
+	 * <p>{@code ON CONFLICT} atas {@code sales_trip_id}: satu trip hanya punya satu
+	 * rekonsiliasi. Penutupan yang diulang memperbarui barisnya alih-alih gagal — dan karena
+	 * penutupan hanya sah dari status RECONCILING, pengulangan itu hanya mungkin bila
+	 * transaksinya sempat gagal di tengah.</p>
+	 */
+	static String simpanRekonsiliasi(String skema) {
+		return "INSERT INTO " + skema + "sales_trip_rekonsiliasi (sales_trip_id, tanggal,"
+				+ " nilai_barang_bawa, nilai_barang_kembali, nilai_penjualan, nilai_biaya,"
+				+ " nilai_setoran, selisih, kas_fisik_aktual, keterangan, disetujui_oleh,"
+				+ " disetujui_pada, status, dibuat_pada, oleh)"
+				+ " VALUES (?, CURRENT_DATE, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), 'CLOSED',"
+				+ " now(), ?)"
+				+ " ON CONFLICT (sales_trip_id) DO UPDATE SET"
+				+ " nilai_barang_bawa = EXCLUDED.nilai_barang_bawa,"
+				+ " nilai_barang_kembali = EXCLUDED.nilai_barang_kembali,"
+				+ " nilai_penjualan = EXCLUDED.nilai_penjualan,"
+				+ " nilai_biaya = EXCLUDED.nilai_biaya,"
+				+ " nilai_setoran = EXCLUDED.nilai_setoran,"
+				+ " selisih = EXCLUDED.selisih,"
+				+ " kas_fisik_aktual = EXCLUDED.kas_fisik_aktual,"
+				+ " keterangan = EXCLUDED.keterangan,"
+				+ " disetujui_oleh = EXCLUDED.disetujui_oleh,"
+				+ " disetujui_pada = EXCLUDED.disetujui_pada,"
+				+ " status = EXCLUDED.status, tanggal_dirubah = now()";
+	}
+
+	/** DUA parameter: oleh, tripId. */
+	static String tutupTrip(String skema) {
+		return "UPDATE " + skema + "sales_trip SET status = 'CLOSED', oleh = ?,"
+				+ " tanggal_dirubah = now() WHERE id = ?";
+	}
+
+	/**
+	 * Menandai seluruh nota bawaan SPJ ini RECONCILED.
+	 *
+	 * <p>Barang yang dibawa TIDAK ikut ditandai: jalur legacy menyetel status per baris barang,
+	 * sedangkan pada model tenant kefinalan itu sudah dinyatakan status tripnya yang menjadi
+	 * CLOSED. Nota berbeda — statusnya menyimpan hasil kunjungan per nota, jadi RECONCILED di
+	 * sana adalah keadaan nota itu sendiri.</p>
+	 */
+	static String rekonsiliasiNotaSpj(String skema) {
+		return "UPDATE " + skema + "surat_perintah_sales_nota SET status = 'RECONCILED',"
+				+ " tanggal_dirubah = now() WHERE surat_perintah_sales_id = ?";
 	}
 }

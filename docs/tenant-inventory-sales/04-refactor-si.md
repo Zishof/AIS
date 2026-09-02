@@ -1627,6 +1627,62 @@ lapangan tetap 0 — terikat trip, sebagaimana seharusnya.
 Penghalang katalog yang tersisa tinggal tiga, semuanya kecil: master kategori biaya (3 aksi Trip),
 tabel pembelian dalam trip (`tripPurchaseLink` dan `tripDetail`), serta kolom status giro (2 aksi
 Reversal). `tripClose` tidak terhalang apa pun lagi — tinggal ditulis.
+## `tripClose`: penutupan sesi — Trip 14 dari 19
+
+Seluruh angka penutupan dibaca dari sumbernya masing-masing pada saat penutupan, lalu dibekukan
+menjadi satu baris `sales_trip_rekonsiliasi`. Buku kas tetap sumber kebenaran "kas seharusnya",
+sama seperti jalur legacy membaca `nota_sales_kas`.
+
+### Dua angka legacy yang tidak dibaca dari kolom
+
+**Pemilahan penerimaan tunai/non-tunai diturunkan** dari `penerimaan_piutang` yang menunjuk trip
+ini, dipilah `cara_bayar`. Legacy menyimpannya sebagai dua kolom; di sini tidak perlu.
+
+**Pembayaran pembelian bernilai nol menurut definisi.** Model tenant belum punya pembelian dalam
+trip, sehingga tidak ada yang bisa terlewat — angkanya nol karena memang tidak ada, bukan karena
+hilang. Itu perbedaan penting: bila kelak tabelnya ditambahkan, angka ini harus mulai dibaca, dan
+catatan ini yang mengingatkannya.
+
+### `ON CONFLICT` alih-alih gagal
+
+`sales_trip_rekonsiliasi` dijaga `UNIQUE (sales_trip_id)` — satu trip satu rekonsiliasi.
+Penyimpanannya memakai `ON CONFLICT ... DO UPDATE` sehingga penutupan yang diulang memperbarui
+barisnya alih-alih gagal. Karena penutupan hanya sah dari status RECONCILING, pengulangan itu
+hanya mungkin bila transaksinya sempat gagal di tengah — dan justru di situlah gagal keras akan
+menyulitkan.
+
+### Barang dibawa tidak ditandai satu per satu
+
+Legacy menyetel status RECONCILED pada tiap baris barang. Model tenant tidak: kefinalannya sudah
+dinyatakan status tripnya yang menjadi CLOSED. Penanda kedua hanya akan berselisih dengan
+induknya.
+
+### Verifikasi
+
+SQL yang **benar-benar dikeluarkan Java** dijalankan berurutan ke basis data v1–v14, atas
+skenario: panjar 500.000, jual tunai 300.000, tagih tunai 200.000, biaya 100.000, setoran 400.000,
+barang dibawa 10 @15.000 dengan 3 kembali, kas fisik dihitung 480.000.
+
+| angka | hasil |
+|---|---|
+| total biaya | 100.000 |
+| nilai penjualan | 300.000 |
+| tertagih / tunai | 200.000 / 200.000 |
+| barang dibawa / kembali | 150.000 / 45.000 |
+| kas fisik aktual | 480.000 |
+| selisih | **−20.000** |
+| status trip / SPJ / nota | CLOSED / CLOSED / RECONCILED |
+
+`simpanRekonsiliasi` dijalankan **dua kali** berturut-turut; barisnya tetap satu — `ON CONFLICT`
+memperbarui, tidak menggandakan.
+
+### Sisa Trip: 5 dari 19
+
+| penghalang | aksi |
+|---|---|
+| master kategori biaya | `expenseCategoryList`, `expenseCategorySave`, `expenseCreate` |
+| tabel pembelian dalam trip | `tripPurchaseLink`, `tripDetail` |
+
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
 **Sebelas helper, 7.512 baris, belum satu pun kuerinya dipindah ke schema tenant.**
