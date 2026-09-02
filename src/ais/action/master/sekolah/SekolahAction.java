@@ -45,6 +45,7 @@ import ais.action.servlet.landing.SchoolWebsiteConfig;
 import ais.common.Common;
 import ais.common.CommonPrivilages;
 import ais.common.ConstantValues;
+import ais.common.OnlineBmtUtil;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.hibernate.StreamingHibernateUtil;
 import ais.database.model.GeneralValueObject;
@@ -183,6 +184,16 @@ public class SekolahAction extends GenericAutowireComposer implements DataCriter
 
 	private MyCheckboxConfig aktfkanPembayaranViaEsmartlink;
 	private MyCheckboxConfig aktfkanPembayaranViaOnlineBmt;
+	private Textbox onlineBmtPrefixInvoice;
+	private MyDoublebox onlineBmtBiayaAdministrasi;
+	private Textbox onlineBmtKodeMitra;
+	private Textbox onlineBmtNamaMitra;
+	private Textbox onlineBmtKodeMerchant;
+	private Textbox onlineBmtNamaMerchant;
+	private Textbox onlineBmtApiKey;
+	private Textbox onlineBmtEncryptionKey;
+	private Textbox onlineBmtHmacKey;
+	private Textbox onlineBmtRequestTimeTolerance;
 	private Textbox usernameEsmartlink;
 	private Textbox passwordEsmartlink;
 	private MyDoublebox biayaAdminEsmartlink;
@@ -1217,6 +1228,7 @@ public class SekolahAction extends GenericAutowireComposer implements DataCriter
 		row.appendChild(new ais.ui.util.MyLabelConfig(""));
 		row.appendChild(aktfkanPembayaranViaOnlineBmt = new MyCheckboxConfig("Aktifkan Pembayaran Via Online BMT"));
 		aktfkanPembayaranViaOnlineBmt.setChecked(sekolah.getAktfkanPembayaranViaOnlineBmt());
+		initOnlineBmtFields(rows, sekolah);
 
 		row = new MyFormRow();
 		row.setParent(rows);
@@ -1334,6 +1346,65 @@ public class SekolahAction extends GenericAutowireComposer implements DataCriter
 			Common.freezeGanti(center, true);
 		}
 
+	}
+
+	/**
+	 * Menampilkan override Online BMT milik sekolah. Nilai kosong sengaja tidak
+	 * disubstitusi di layar karena kosong memiliki arti domain: gunakan konfigurasi
+	 * global. Dengan demikian admin dapat melihat apakah sebuah nilai berasal dari
+	 * sekolah atau masih mengikuti default instalasi.
+	 */
+	private void initOnlineBmtFields(Rows rows, Sekolah value) {
+		MyFormRow row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Prefix Invoice (kosong = ikut global)"));
+		row.appendChild(onlineBmtPrefixInvoice = new Textbox(value.getOnlineBmtPrefixInvoice()));
+		onlineBmtPrefixInvoice.setWidth("90%");
+
+		row = new MyFormRow(); row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Biaya Administrasi (kosong = ikut global)"));
+		row.appendChild(onlineBmtBiayaAdministrasi = new MyDoublebox(value.getOnlineBmtBiayaAdministrasi()));
+
+		row = new MyFormRow(); row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Kode Mitra BMT"));
+		row.appendChild(onlineBmtKodeMitra = new Textbox(value.getOnlineBmtKodeMitra()));
+		onlineBmtKodeMitra.setWidth("90%");
+
+		row = new MyFormRow(); row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Nama Mitra BMT"));
+		row.appendChild(onlineBmtNamaMitra = new Textbox(value.getOnlineBmtNamaMitra()));
+		onlineBmtNamaMitra.setWidth("90%");
+
+		row = new MyFormRow(); row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Kode Merchant Online BMT"));
+		row.appendChild(onlineBmtKodeMerchant = new Textbox(value.getOnlineBmtKodeMerchant()));
+		onlineBmtKodeMerchant.setWidth("90%");
+
+		row = new MyFormRow(); row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Nama Merchant Online BMT"));
+		row.appendChild(onlineBmtNamaMerchant = new Textbox(value.getOnlineBmtNamaMerchant()));
+		onlineBmtNamaMerchant.setWidth("90%");
+
+		row = new MyFormRow(); row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("API Key (kosong = ikut global)"));
+		row.appendChild(onlineBmtApiKey = new Textbox(value.getOnlineBmtApiKey()));
+		onlineBmtApiKey.setType("password"); onlineBmtApiKey.setWidth("90%");
+
+		row = new MyFormRow(); row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Encryption Key AES"));
+		row.appendChild(onlineBmtEncryptionKey = new Textbox(value.getOnlineBmtEncryptionKey()));
+		onlineBmtEncryptionKey.setType("password"); onlineBmtEncryptionKey.setWidth("90%");
+
+		row = new MyFormRow(); row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("HMAC Key"));
+		row.appendChild(onlineBmtHmacKey = new Textbox(value.getOnlineBmtHmacKey()));
+		onlineBmtHmacKey.setType("password"); onlineBmtHmacKey.setWidth("90%");
+
+		row = new MyFormRow(); row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Toleransi Request 30-3600 Detik (kosong = ikut global)"));
+		Integer tolerance = value.getOnlineBmtRequestTimeTolerance();
+		row.appendChild(onlineBmtRequestTimeTolerance = new Textbox(tolerance == null ? "" : tolerance.toString()));
+		onlineBmtRequestTimeTolerance.setWidth("90%");
 	}
 
 	private void initKelengkapanBerkas(Rows rows, Sekolah sekolah) {
@@ -1479,6 +1550,17 @@ public class SekolahAction extends GenericAutowireComposer implements DataCriter
 
 		KanalPembayaran kanal = (KanalPembayaran) (kanalPembayaran.getSelectedItem() == null ? null
 				: kanalPembayaran.getSelectedItem().getValue());
+		Integer onlineBmtTolerance;
+		try {
+			onlineBmtTolerance = OnlineBmtUtil.parseOptionalTolerance(onlineBmtRequestTimeTolerance.getValue());
+			OnlineBmtUtil.validateOverrides(onlineBmtPrefixInvoice.getValue(), onlineBmtBiayaAdministrasi.getValue(),
+					onlineBmtApiKey.getValue(), onlineBmtEncryptionKey.getValue(), onlineBmtHmacKey.getValue(),
+					onlineBmtTolerance);
+		} catch (IllegalArgumentException e) {
+			MyMessageboxConfig.show(e.getMessage(), "Peringatan", MyMessageboxConfig.OK,
+					MyMessageboxConfig.INFORMATION);
+			return false;
+		}
 
 		try {
 			Session session = HibernateUtil.currentSession();
@@ -1569,6 +1651,16 @@ public class SekolahAction extends GenericAutowireComposer implements DataCriter
 			sekolah.setBiayaAdminEsmartlink(biayaAdminEsmartlink.getValue());
 			sekolah.setVariableBiayaAdminEsmartlink(variableBiayaAdminEsmartlink.getValue());
 			sekolah.setAktfkanPembayaranViaOnlineBmt(aktfkanPembayaranViaOnlineBmt.isChecked());
+			sekolah.setOnlineBmtPrefixInvoice(OnlineBmtUtil.emptyToNull(onlineBmtPrefixInvoice.getValue()));
+			sekolah.setOnlineBmtBiayaAdministrasi(onlineBmtBiayaAdministrasi.getValue());
+			sekolah.setOnlineBmtKodeMitra(OnlineBmtUtil.emptyToNull(onlineBmtKodeMitra.getValue()));
+			sekolah.setOnlineBmtNamaMitra(OnlineBmtUtil.emptyToNull(onlineBmtNamaMitra.getValue()));
+			sekolah.setOnlineBmtKodeMerchant(OnlineBmtUtil.emptyToNull(onlineBmtKodeMerchant.getValue()));
+			sekolah.setOnlineBmtNamaMerchant(OnlineBmtUtil.emptyToNull(onlineBmtNamaMerchant.getValue()));
+			sekolah.setOnlineBmtApiKey(OnlineBmtUtil.emptyToNull(onlineBmtApiKey.getValue()));
+			sekolah.setOnlineBmtEncryptionKey(OnlineBmtUtil.emptyToNull(onlineBmtEncryptionKey.getValue()));
+			sekolah.setOnlineBmtHmacKey(OnlineBmtUtil.emptyToNull(onlineBmtHmacKey.getValue()));
+			sekolah.setOnlineBmtRequestTimeTolerance(onlineBmtTolerance);
 
 			sekolah.setAktfkanPembayaranViaFinpay(aktfkanPembayaranViaFinpay.isChecked());
 			sekolah.setApiKeyFinpay(apiKeyFinpay.getValue().trim());

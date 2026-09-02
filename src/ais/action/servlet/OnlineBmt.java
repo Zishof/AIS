@@ -14,6 +14,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -39,7 +40,6 @@ import ais.common.Common;
 import ais.common.ErrorAuditUtil;
 import ais.common.OnlineBmtUtil;
 import ais.database.hibernate.HibernateUtil;
-import ais.database.model.Konfigurasi;
 import ais.database.model.VirtualAccountBank;
 import ais.ui.util.WaktuUtil;
 
@@ -114,48 +114,66 @@ public class OnlineBmt extends HttpServlet {
 		if (!OnlineBmtUtil.isGlobalEnabled()) {
 			throw new ApiException(503, "503", "Kanal Online BMT belum diaktifkan.");
 		}
-		String apiKey = config(Konfigurasi.ONLINE_BMT_API_KEY);
-		String encryptionKey = config(Konfigurasi.ONLINE_BMT_ENCRYPTION_KEY);
-		String hmacKey = config(Konfigurasi.ONLINE_BMT_HMAC_KEY);
-		if (apiKey.length() == 0 || encryptionKey.length() == 0 || hmacKey.length() == 0) {
-			throw new ApiException(503, "503", "Konfigurasi keamanan Online BMT belum lengkap.");
-		}
-
 		JSONObject envelope = parseEnvelope(readBody(request));
-		String receivedApiKey = envelope.optString("API_KEY", "");
-		if (!constantTimeEquals(apiKey, receivedApiKey)) {
+		String receivedApiKey = envelope.optString("API_KEY", "").trim();
+		List<OnlineBmtUtil.Settings> candidates = OnlineBmtUtil.findCredentialCandidates(receivedApiKey);
+		if (candidates.isEmpty()) {
 			throw new ApiException(401, "401", "API_KEY tidak valid.");
 		}
 		String encrypted = envelope.optString("DATA", "").trim();
 		if (encrypted.length() == 0) {
 			throw new ApiException(400, "400", "Parameter DATA tidak ditemukan.");
 		}
-		JSONObject data = decrypt(encrypted, encryptionKey, hmacKey);
-		validateFreshness(data);
+		JSONObject data = null;
+		VirtualAccountBank invoice = null;
+		OnlineBmtUtil.Settings settings = null;
+		boolean decrypted = false;
+		for (OnlineBmtUtil.Settings candidate : candidates) {
+			try {
+				JSONObject candidateData = decrypt(encrypted, candidate.getEncryptionKey(), candidate.getHmacKey());
+				decrypted = true;
+				String invoiceNo = requiredMax(candidateData, "NO_INVOICE", 255);
+				VirtualAccountBank candidateInvoice = findInvoice(invoiceNo);
+				validateInvoiceChannel(candidateInvoice);
+				OnlineBmtUtil.Settings invoiceSettings = OnlineBmtUtil.resolveSettings(candidateInvoice);
+				if (candidate.sameSecurity(invoiceSettings)) {
+					data = candidateData;
+					invoice = candidateInvoice;
+					settings = invoiceSettings;
+					break;
+				}
+			} catch (ApiException ignoredCandidate) {
+				/* Semua kandidat dicoba tanpa membocorkan key/scope mana yang hampir cocok. */
+			}
+		}
+		if (settings == null) {
+			throw new ApiException(401, "401", decrypted
+					? "Credential Online BMT tidak berlaku untuk pemilik invoice."
+					: "DATA terenkripsi atau signature/HMAC tidak valid.");
+		}
+		validateFreshness(data, settings);
 		String type = required(data, "JENIS_REQUEST").toUpperCase(Locale.ENGLISH);
 		reserveNonce(required(data, "NONCE"), type);
 
 		if ("INQUIRY".equals(type)) {
-			return inquiry(data);
+			return inquiry(data, invoice, settings);
 		}
 		if ("PAYMENT".equals(type)) {
-			return payment(data);
+			return payment(data, settings);
 		}
 		if ("CHECK_STATUS_PAYMENT".equals(type)) {
-			return checkStatus(data);
+			return checkStatus(data, settings);
 		}
 		throw new ApiException(404, "404", "JENIS_REQUEST tidak dikenali.");
 	}
 
-	private JSONObject inquiry(JSONObject data) throws Exception {
+	private JSONObject inquiry(JSONObject data, VirtualAccountBank invoice, OnlineBmtUtil.Settings settings) throws Exception {
 		String invoiceNo = requiredMax(data, "NO_INVOICE", 255);
-		VirtualAccountBank invoice = findInvoice(invoiceNo);
-		validateInvoiceChannel(invoice);
 		validateNotExpired(invoice);
 		if (VirtualAccountBank.isSudahTerbayar(invoice)) {
 			throw new ApiException(409, "01", "Tagihan sudah lunas.");
 		}
-		MerchantIdentity merchantIdentity = requireMerchantIdentity();
+		MerchantIdentity merchantIdentity = requireMerchantIdentity(settings);
 
 		JSONObject value = new JSONObject();
 		value.put("NO_INVOICE", invoiceNo);
@@ -168,7 +186,7 @@ public class OnlineBmt extends HttpServlet {
 		value.put("NM_MITRA_BMT", merchantIdentity.namaMitra);
 		value.put("KD_MERCHANT", merchantIdentity.kodeMerchant);
 		value.put("NM_MERCHANT", merchantIdentity.namaMerchant);
-		return success("Request berhasil.", value);
+		return success("Request berhasil.", value, settings);
 	}
 
 	/**
@@ -178,10 +196,9 @@ public class OnlineBmt extends HttpServlet {
 	 * BMT, walaupun autentikasi dan nominalnya benar. Karena itu konfigurasi setengah
 	 * lengkap diperlakukan sebagai layanan belum siap, bukan sebagai inquiry sukses.
 	 */
-	private static MerchantIdentity requireMerchantIdentity() throws ApiException {
-		MerchantIdentity identity = new MerchantIdentity(config(Konfigurasi.ONLINE_BMT_KODE_MITRA),
-				config(Konfigurasi.ONLINE_BMT_NAMA_MITRA), config(Konfigurasi.ONLINE_BMT_KODE_MERCHANT),
-				config(Konfigurasi.ONLINE_BMT_NAMA_MERCHANT));
+	private static MerchantIdentity requireMerchantIdentity(OnlineBmtUtil.Settings settings) throws ApiException {
+		MerchantIdentity identity = new MerchantIdentity(settings.getKodeMitra(), settings.getNamaMitra(),
+				settings.getKodeMerchant(), settings.getNamaMerchant());
 		if (!identity.isComplete()) {
 			throw new ApiException(503, "503",
 					"Konfigurasi identitas mitra dan merchant Online BMT belum lengkap.");
@@ -189,7 +206,7 @@ public class OnlineBmt extends HttpServlet {
 		return identity;
 	}
 
-	private JSONObject payment(JSONObject data) throws Exception {
+	private JSONObject payment(JSONObject data, OnlineBmtUtil.Settings settings) throws Exception {
 		PaymentInput input = PaymentInput.parse(data);
 		validateChannel(input.channel);
 
@@ -210,6 +227,7 @@ public class OnlineBmt extends HttpServlet {
 
 			VirtualAccountBank invoice = findInvoice(input.invoiceNo);
 			validateInvoiceChannel(invoice);
+			validateInvoiceCredentials(invoice, settings);
 			validateNotExpired(invoice);
 			validateAmount(invoice, input.amount);
 			boolean invoicePaid = VirtualAccountBank.isSudahTerbayar(invoice);
@@ -222,14 +240,14 @@ public class OnlineBmt extends HttpServlet {
 							"Status transaksi memerlukan rekonsiliasi karena bukti pembayaran tidak ditemukan.");
 				}
 				ledgerTx.commit();
-				return transactionResult("00", "Transaksi Berhasil (idempoten).");
+				return transactionResult("00", "Transaksi Berhasil (idempoten).", settings);
 			}
 			if (invoicePaid) {
 				if (ledger != null && "PROCESSING".equals(ledger.status)) {
 					updateLedger(lockSession, input.transactionNo, "SUCCESS", "00",
 							"Transaksi Berhasil (dipulihkan dari hasil posting invoice)");
 					ledgerTx.commit();
-					return transactionResult("00", "Transaksi Berhasil (status dipulihkan).");
+					return transactionResult("00", "Transaksi Berhasil (status dipulihkan).", settings);
 				}
 				throw new ApiException(409, "01", "Transaksi gagal. Tagihan sudah lunas oleh transaksi lain.");
 			}
@@ -245,12 +263,13 @@ public class OnlineBmt extends HttpServlet {
 				postCanonicalPayment(invoice, input, data.toString());
 			} catch (Exception postingError) {
 				VirtualAccountBank afterError = findInvoice(input.invoiceNo);
+				validateInvoiceCredentials(afterError, settings);
 				ledgerTx = lockSession.beginTransaction();
 				if (VirtualAccountBank.isSudahTerbayar(afterError)) {
 					updateLedger(lockSession, input.transactionNo, "SUCCESS", "00",
 							"Transaksi Berhasil (posting selesai sebelum respons internal terputus)");
 					ledgerTx.commit();
-					return transactionResult("00", "Transaksi Berhasil (status dipulihkan).");
+					return transactionResult("00", "Transaksi Berhasil (status dipulihkan).", settings);
 				}
 				updateLedger(lockSession, input.transactionNo, "FAILED", "96",
 						"Posting pembayaran gagal: " + safeErrorMessage(postingError));
@@ -259,6 +278,7 @@ public class OnlineBmt extends HttpServlet {
 			}
 
 			VirtualAccountBank refreshed = findInvoice(input.invoiceNo);
+			validateInvoiceCredentials(refreshed, settings);
 			ledgerTx = lockSession.beginTransaction();
 			if (!VirtualAccountBank.isSudahTerbayar(refreshed)) {
 				updateLedger(lockSession, input.transactionNo, "FAILED", "96",
@@ -268,7 +288,7 @@ public class OnlineBmt extends HttpServlet {
 			}
 			updateLedger(lockSession, input.transactionNo, "SUCCESS", "00", "Transaksi Berhasil");
 			ledgerTx.commit();
-			return transactionResult("00", "Transaksi Berhasil");
+			return transactionResult("00", "Transaksi Berhasil", settings);
 		} catch (Exception e) {
 			if (ledgerTx != null && ledgerTx.isActive()) {
 				try { ledgerTx.rollback(); } catch (Exception rollback) {
@@ -285,7 +305,7 @@ public class OnlineBmt extends HttpServlet {
 		}
 	}
 
-	private JSONObject checkStatus(JSONObject data) throws Exception {
+	private JSONObject checkStatus(JSONObject data, OnlineBmtUtil.Settings settings) throws Exception {
 		PaymentInput input = PaymentInput.parse(data);
 		validateChannel(input.channel);
 		Session session = null;
@@ -302,6 +322,7 @@ public class OnlineBmt extends HttpServlet {
 			 * lunas walaupun PAYMENT sudah commit selama CHECK_STATUS menunggu. */
 			VirtualAccountBank invoice = findInvoice(input.invoiceNo);
 			validateInvoiceChannel(invoice);
+			validateInvoiceCredentials(invoice, settings);
 			validateAmount(invoice, input.amount);
 			Ledger ledger = findLedger(session, input.transactionNo);
 			ledger = bindLegacyChannel(session, ledger, input);
@@ -322,7 +343,7 @@ public class OnlineBmt extends HttpServlet {
 			boolean paid = pairMatches && invoicePaid && "SUCCESS".equals(ledger.status);
 			tx.commit();
 			return transactionResult(paid ? "00" : "01",
-					paid ? "Tagihan Sudah Terbayar" : "Pembayaran belum terkonfirmasi");
+					paid ? "Tagihan Sudah Terbayar" : "Pembayaran belum terkonfirmasi", settings);
 		} catch (Exception e) {
 			if (tx != null && tx.isActive()) {
 				try { tx.rollback(); } catch (Exception rollback) {
@@ -396,6 +417,20 @@ public class OnlineBmt extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Otorisasi kedua setelah DATA berhasil dibuka. API key hanya memilih kandidat
+	 * dekripsi; invoice menentukan tenant sebenarnya. Ketiga credential harus sama
+	 * dengan konfigurasi efektif invoice agar credential sekolah/kanal A tidak dapat
+	 * dipakai untuk inquiry atau pembayaran milik sekolah/kanal B.
+	 */
+	private static void validateInvoiceCredentials(VirtualAccountBank invoice,
+			OnlineBmtUtil.Settings requestSettings) throws ApiException {
+		OnlineBmtUtil.Settings current = OnlineBmtUtil.resolveSettings(invoice);
+		if (!requestSettings.sameSecurity(current)) {
+			throw new ApiException(401, "401", "Credential Online BMT tidak berlaku untuk pemilik invoice.");
+		}
+	}
+
 	private static void validateAmount(VirtualAccountBank invoice, BigDecimal amount) throws ApiException {
 		if (!sameAmount(BigDecimal.valueOf(OnlineBmtUtil.payableAmount(invoice)), amount)) {
 			throw new ApiException(422, "01", "Nominal pembayaran tidak sama dengan nominal invoice.");
@@ -415,20 +450,14 @@ public class OnlineBmt extends HttpServlet {
 		}
 	}
 
-	private static void validateFreshness(JSONObject data) throws ApiException {
+	private static void validateFreshness(JSONObject data, OnlineBmtUtil.Settings settings) throws ApiException {
 		long timestamp;
 		try {
 			timestamp = data.getLong("TIMESTAMP");
 		} catch (Exception e) {
 			throw new ApiException(400, "400", "TIMESTAMP tidak valid.");
 		}
-		long tolerance = 300L;
-		try {
-			tolerance = Long.parseLong(config(Konfigurasi.ONLINE_BMT_REQUEST_TIME_TOLERANCE));
-		} catch (Exception ignore) {
-			tolerance = 300L;
-		}
-		if (tolerance < 30L || tolerance > 3600L) tolerance = 300L;
+		long tolerance = settings.getRequestTimeTolerance();
 		if (Math.abs((System.currentTimeMillis() / 1000L) - timestamp) > tolerance) {
 			throw new ApiException(408, "408", "Request sudah kedaluwarsa.");
 		}
@@ -573,17 +602,17 @@ public class OnlineBmt extends HttpServlet {
 		return Base64.decodeBase64(value);
 	}
 
-	private static String encrypt(JSONObject data) throws Exception {
+	private static String encrypt(JSONObject data, OnlineBmtUtil.Settings settings) throws Exception {
 		byte[] iv = new byte[16];
 		new java.security.SecureRandom().nextBytes(iv);
 		Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
 		cipher.init(Cipher.ENCRYPT_MODE,
-				new SecretKeySpec(sha256(config(Konfigurasi.ONLINE_BMT_ENCRYPTION_KEY)), "AES"),
+				new SecretKeySpec(sha256(settings.getEncryptionKey()), "AES"),
 				new IvParameterSpec(iv));
 		String payload = "v1." + Base64.encodeBase64String(iv) + "."
 				+ Base64.encodeBase64String(cipher.doFinal(data.toString().getBytes(StandardCharsets.UTF_8)));
 		return Base64.encodeBase64String((payload + "."
-				+ Base64.encodeBase64String(hmac(payload, config(Konfigurasi.ONLINE_BMT_HMAC_KEY))))
+				+ Base64.encodeBase64String(hmac(payload, settings.getHmacKey())))
 				.getBytes(StandardCharsets.UTF_8));
 	}
 
@@ -597,24 +626,19 @@ public class OnlineBmt extends HttpServlet {
 		return MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
 	}
 
-	private static boolean constantTimeEquals(String expected, String actual) throws Exception {
-		return MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8),
-				actual.getBytes(StandardCharsets.UTF_8));
-	}
-
-	private static JSONObject success(String message, JSONObject data) throws Exception {
+	private static JSONObject success(String message, JSONObject data, OnlineBmtUtil.Settings settings) throws Exception {
 		JSONObject result = new JSONObject(); result.put("STATUS", true); result.put("KODE_STATUS", "00");
 		result.put("KETERANGAN", message);
 		/* Konfirmasi BMT tanggal 3 September 2026: parameter DATA pada response
 		 * wajib dienkripsi. Jangan kembalikan JSONObject plaintext walaupun konfigurasi
 		 * legacy online_bmt_enkripsi_response pernah disetel tidak aktif. */
-		result.put("DATA", encrypt(data));
+		result.put("DATA", encrypt(data, settings));
 		return result;
 	}
 
-	private static JSONObject transactionResult(String code, String message) throws Exception {
+	private static JSONObject transactionResult(String code, String message, OnlineBmtUtil.Settings settings) throws Exception {
 		JSONObject data = new JSONObject(); data.put("STATUS_TRANSAKSI", code); data.put("DESKRIPSI_STATUS", message);
-		return success("00".equals(code) ? "" : message, data);
+		return success("00".equals(code) ? "" : message, data, settings);
 	}
 
 	private static JSONObject failure(String code, String message) {
@@ -638,12 +662,6 @@ public class OnlineBmt extends HttpServlet {
 			throw new ApiException(400, "400", key + " terlalu panjang.");
 		}
 		return value;
-	}
-
-	private static String config(String key) {
-		Konfigurasi konfigurasi = Common.getKonfigurasi(key, "");
-		String value = konfigurasi == null ? null : konfigurasi.getNilai();
-		return value == null ? "" : value.trim();
 	}
 
 	private static JSONObject parseEnvelope(String body) throws ApiException {

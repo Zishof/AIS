@@ -1099,6 +1099,30 @@ public class VirtualAccountBank extends GeneralValueObject {
 			}
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/VirtualAccountBank.java:638");
 		}
+		/* Callback multi-tenant Online BMT memerlukan pemilik sekolah dan kanal sesudah
+		 * session lookup ditutup. Hidrasi sampai sekolah agar resolver credential tidak
+		 * jatuh kembali ke konfigurasi global hanya karena proxy sudah detached. */
+		try {
+			if (va.getSiswa() != null) {
+				va.getSiswa().getId();
+				if (va.getSiswa().getSekolah() != null) va.getSiswa().getSekolah().getId();
+			}
+		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "VirtualAccountBank.initialise.siswaSekolah"); }
+		try {
+			if (va.getCalonSiswa() != null) {
+				va.getCalonSiswa().getId();
+				if (va.getCalonSiswa().getSekolah() != null) va.getCalonSiswa().getSekolah().getId();
+			}
+		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "VirtualAccountBank.initialise.calonSiswaSekolah"); }
+		try {
+			if (va.getAnggotaKoperasi() != null) va.getAnggotaKoperasi().getId();
+		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "VirtualAccountBank.initialise.anggotaKoperasi"); }
+		try {
+			if (va.getKanalPembayaran() != null) {
+				va.getKanalPembayaran().getId();
+				if (va.getKanalPembayaran().getSekolah() != null) va.getKanalPembayaran().getSekolah().getId();
+			}
+		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "VirtualAccountBank.initialise.kanalPembayaran"); }
 	}
 
 	/**
