@@ -73,12 +73,30 @@ final class SalesInventoryFinanceTenant {
 	 * indukKode, indukNama.
 	 *
 	 * <p>{@code keterangan} tidak ada pada {@code akun} model tenant; kolomnya dikembalikan
-	 * kosong agar bentuk JSON tetap. {@code debit_credit} legacy menjadi {@code saldo_normal},
-	 * dan {@code parent} menjadi {@code induk_id}.</p>
+	 * kosong agar bentuk JSON tetap. {@code parent} menjadi {@code induk_id}.</p>
+	 *
+	 * <h4>Kolom kelima wajib berupa BILANGAN, bukan huruf</h4>
+	 * <p>Pembacanya memanggil {@code rs.getInt(5)}. {@code saldo_normal} pada model tenant
+	 * bertipe {@code varchar}, dan {@code getInt} atas kolom teks berisi {@code 'D'}
+	 * <b>melempar</b> {@code PSQLException: Bad value for type int} — juga saat kolomnya kosong.
+	 * Karena itu pemetaannya dilakukan di SQL, bukan diserahkan ke driver.</p>
+	 * <p>Sandinya mengikuti {@code Akun.DEBET = 1} dan {@code Akun.CREDIT = -1}, yakni pasangan
+	 * yang dipakai laporan keuangan untuk <b>mengalikan</b> saldo dengan saldo normalnya. Ada
+	 * jalur legacy lain ({@code KodeAkunApiHelper}) yang menulis {@code 2} untuk kredit ke kolom
+	 * yang sama; perselisihan itu tidak dibawa masuk ke model tenant. Akun tanpa saldo normal
+	 * memberi {@code 0} — persis yang dikembalikan {@code getInt} atas kolom legacy yang
+	 * {@code NULL}.</p>
 	 */
 	static String selectCoa() {
-		return "SELECT a.id, a.kode, a.nama, '', COALESCE(a.saldo_normal,''), "
+		return "SELECT a.id, a.kode, a.nama, '', " + kolomSaldoNormal("a") + ", "
 				+ "COALESCE(p.kode,''), COALESCE(p.nama,'')";
+	}
+
+	/** {@code saldo_normal} sebagai bilangan bersandi legacy: D=1, K=-1, tak diisi=0. */
+	static String kolomSaldoNormal(String alias) {
+		return "CASE WHEN " + alias + ".saldo_normal = '" + SALDO_DEBET + "' THEN 1"
+				+ " WHEN " + alias + ".saldo_normal = '" + SALDO_KREDIT + "' THEN -1"
+				+ " ELSE 0 END";
 	}
 
 	static String dasarCoa(String skema, String where) {
@@ -86,19 +104,167 @@ final class SalesInventoryFinanceTenant {
 				+ where + " ORDER BY a.kode LIMIT 500";
 	}
 
+	// ------------------------------------------------------- kelas akun dan saldo normalnya
+
+	/** Aset. Bertambah di debet. */
+	static final String TIPE_ASET = "ASET";
+	/** Kewajiban. Bertambah di kredit. */
+	static final String TIPE_KEWAJIBAN = "KEWAJIBAN";
+	/** Ekuitas. Bertambah di kredit. */
+	static final String TIPE_EKUITAS = "EKUITAS";
+	/** Pendapatan. Bertambah di kredit. */
+	static final String TIPE_PENDAPATAN = "PENDAPATAN";
+	/** Beban. Bertambah di debet. */
+	static final String TIPE_BEBAN = "BEBAN";
+
+	static final String SALDO_DEBET = "D";
+	static final String SALDO_KREDIT = "K";
+
+	/**
+	 * Kelas akun yang diterima layar Master Akun tenant.
+	 *
+	 * <p>Nilainya adalah <b>kelas akuntansi</b>, bukan sandi tipe vendor. Bagan akun yang
+	 * diunggah dari Accurate memakai sandi lain ({@code BANK}, {@code AREC}, {@code OEXP} …)
+	 * yang disimpan jalur legacy pada {@code akun.tipe_akun}. Menerima kedua kosakata pada satu
+	 * kolom akan membuat indeks {@code idx_akun_tipe} memuat campuran, dan laporan mana pun yang
+	 * mengelompokkan menurut kelas akun tidak lagi punya dasar. Layar ini karena itu menolak
+	 * nilai di luar daftar ini dan menyebutkan daftarnya pada pesan penolakan.</p>
+	 */
+	static final String[] TIPE_SAH = { TIPE_ASET, TIPE_KEWAJIBAN, TIPE_EKUITAS, TIPE_PENDAPATAN,
+			TIPE_BEBAN };
+
+	/** Benar bila {@code tipe} termasuk kelas akun yang diterima. */
+	static boolean tipeSah(String tipe) {
+		for (int i = 0; i < TIPE_SAH.length; i++) {
+			if (TIPE_SAH[i].equals(tipe)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** Daftar kelas akun untuk pesan penolakan. */
+	static String daftarTipe() {
+		StringBuilder sb = new StringBuilder();
+		for (int i = 0; i < TIPE_SAH.length; i++) {
+			if (i > 0) {
+				sb.append(", ");
+			}
+			sb.append(TIPE_SAH[i]);
+		}
+		return sb.toString();
+	}
+
+	/**
+	 * Saldo normal bawaan menurut kelas akunnya.
+	 *
+	 * <p><b>Ini bawaan, bukan turunan.</b> {@code saldo_normal} tetap disimpan justru karena
+	 * kelas akun tidak menentukannya: akun lawan seperti Akumulasi Penyusutan berkelas
+	 * {@code ASET} tetapi bersaldo normal KREDIT. Repositori ini sudah memperlakukannya begitu —
+	 * lihat {@code KodeAkunApiHelper.posisiDariTipeAccurate}, yang menempatkan {@code DEPR} pada
+	 * sisi kredit bersama kewajiban dan ekuitas. Menurunkan saldo normal dari kelasnya akan
+	 * membalik tanda setiap akun lawan pada laporan keuangan.</p>
+	 */
+	static String saldoNormalBawaan(String tipe) {
+		return TIPE_ASET.equals(tipe) || TIPE_BEBAN.equals(tipe) ? SALDO_DEBET : SALDO_KREDIT;
+	}
+
+	/**
+	 * Terjemahan {@code debet_credit} permintaan menjadi saldo normal tenant, atau {@code null}
+	 * bila sandinya tidak dikenali.
+	 *
+	 * <p>Sisi kredit menerima {@code -1} maupun {@code 2}. Keduanya benar-benar beredar pada
+	 * kolom legacy yang sama: {@code Akun.CREDIT} bernilai {@code -1}, sedangkan
+	 * {@code KodeAkunApiHelper} menulis {@code 2}. Perselisihan itu milik schema bersama;
+	 * di sini keduanya diterima pada masukan dan disimpan sebagai satu huruf.</p>
+	 */
+	static String saldoNormalDariSandi(int sandi) {
+		if (sandi == 1) {
+			return SALDO_DEBET;
+		}
+		if (sandi == -1 || sandi == 2) {
+			return SALDO_KREDIT;
+		}
+		return null;
+	}
+
+	// ------------------------------------------------------------------ simpan bagan akun
+
 	/** Keberadaan satu akun DI DALAM schema tenant, untuk jalur simpan. */
 	static String adaAkun(String skema) {
 		return "SELECT COUNT(*) FROM " + skema + "akun WHERE id = ?";
 	}
 
+	/** SATU kolom: {@code tipe} akun yang dirujuk. Dipakai mewarisi kelas dari induknya. */
+	static String tipeAkun(String skema) {
+		return "SELECT tipe FROM " + skema + "akun WHERE id = ?";
+	}
+
 	/**
-	 * Pembaruan akun pada jalur tenant. Entitas {@code Akun} mematok
-	 * {@code @Table(schema = "akunting")}, sehingga {@code session.saveOrUpdate()} akan menulis
-	 * ke bagan akun bersama berapa pun tenant yang aktif.
+	 * Pemakaian kode akun oleh baris LAIN. Dua parameter: kode, dan id yang dikecualikan
+	 * (pakai {@code 0} saat menyisipkan, karena {@code id} tabel ini selalu positif).
+	 *
+	 * <p>Pemeriksaan ini hanya untuk pesan yang enak dibaca. Jaminannya tetap pada
+	 * {@code uq_..._akun_kode}; dua permintaan serentak tetap berakhir pada pelanggaran
+	 * batasan, bukan pada dua akun berkode sama.</p>
+	 */
+	static String kodeAkunDipakai(String skema) {
+		return "SELECT nama FROM " + skema + "akun WHERE kode = ? AND id <> ? LIMIT 1";
+	}
+
+	/**
+	 * Benar bila {@code induk} yang diusulkan berada di dalam keturunan {@code akun} — yaitu
+	 * bila memasangnya akan membentuk lingkaran. Dua parameter: id akunnya, id induk usulan.
+	 *
+	 * <p>Kedalamannya dibatasi 64 supaya penelusuran tetap berhenti walau tabelnya sudah
+	 * terlanjur berlingkar karena sebab lain.</p>
+	 */
+	static String indukBerlingkar(String skema) {
+		return "WITH RECURSIVE turunan(id, dalam) AS ("
+				+ " SELECT id, 1 FROM " + skema + "akun WHERE induk_id = ?"
+				+ " UNION ALL"
+				+ " SELECT a.id, t.dalam + 1 FROM " + skema + "akun a"
+				+ " JOIN turunan t ON a.induk_id = t.id WHERE t.dalam < 64)"
+				+ " SELECT COUNT(*) FROM turunan WHERE id = ?";
+	}
+
+	/**
+	 * Penyisipan akun. ENAM parameter: kode, nama, tipe, indukId, saldoNormal, oleh.
+	 *
+	 * <p><b>{@code level} sengaja tidak diisi.</b> Ia adalah kedalaman pada pohon
+	 * {@code induk_id} — turunan penuh, tanpa kekecualian, tidak seperti {@code saldo_normal}
+	 * yang punya akun lawan. Menyimpannya berarti menanggung kebenarannya selamanya: memindahkan
+	 * satu akun ke induk lain membuat level seluruh keturunannya salah, dan salahnya tidak
+	 * kelihatan sampai ada yang menggambar pohonnya. Kolomnya dibiarkan {@code NULL}; pembaca
+	 * yang memerlukan kedalaman menghitungnya dari {@code induk_id}.</p>
+	 */
+	static String sisipAkun(String skema) {
+		return "INSERT INTO " + skema + "akun (kode, nama, tipe, induk_id, saldo_normal,"
+				+ " posting_diizinkan, aktif, dibuat_pada, oleh)"
+				+ " VALUES (?, ?, ?, ?, ?, true, true, now(), ?) RETURNING id";
+	}
+
+	/**
+	 * Pembaruan akun pada jalur tenant. ENAM parameter: kode, nama, indukId, saldoNormal, oleh,
+	 * id. Entitas {@code Akun} mematok {@code @Table(schema = "akunting")}, sehingga
+	 * {@code session.saveOrUpdate()} akan menulis ke bagan akun bersama berapa pun tenant yang
+	 * aktif.
+	 *
+	 * <p>{@code saldo_normal} dan {@code induk_id} memakai pola "ganti bila diberi": parameternya
+	 * {@code NULL} berarti permintaan tidak menyebut kolom itu, dan nilainya dipertahankan.
+	 * Tanpa itu, permintaan yang hanya mengubah nama akan menghapus induk dan saldo normal
+	 * akun — jalur legacy pun hanya menyentuh kolom yang benar-benar dikirim.</p>
+	 *
+	 * <p>{@code tipe} tidak ikut diperbarui di sini. Kelas akun menentukan letak sebuah akun
+	 * pada laporan keuangan; mengubahnya sesudah ada jurnal yang menunjuknya memindahkan angka
+	 * yang sudah dilaporkan tanpa jejak apa pun. Pemindahan kelas adalah pekerjaan penataan
+	 * bagan akun, bukan penyuntingan satu baris.</p>
 	 */
 	static String ubahAkun(String skema) {
-		return "UPDATE " + skema + "akun SET nama = ?, tanggal_dirubah = now(), oleh = ?"
-				+ " WHERE id = ?";
+		return "UPDATE " + skema + "akun SET kode = ?, nama = ?,"
+				+ " induk_id = COALESCE(?, induk_id),"
+				+ " saldo_normal = COALESCE(?, saldo_normal),"
+				+ " tanggal_dirubah = now(), oleh = ? WHERE id = ?";
 	}
 
 	// ------------------------------------------------------------------ kas & jurnal

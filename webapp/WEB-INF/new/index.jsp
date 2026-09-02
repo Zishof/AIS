@@ -5,6 +5,7 @@
 <%@ page import="ais.common.newui.menu.NewUiHybridMenuNode" %><%@ page import="ais.common.newui.menu.NewUiHybridMenuRouteGuard" %>
 <%@ page import="ais.common.newui.menu.NewUiHybridMenuRouteRegistry" %><%@ page import="ais.common.newui.menu.NewUiHybridMenuSnapshot" %>
 <%@ page import="ais.common.newui.menu.NewUiNativeJspResolver" %>
+<%@ page import="ais.common.newui.menu.NewUiUnavailableRouteRegistry" %>
 <%@ page import="ais.common.newui.menu.NewUiNativeSubrouteRegistry" %>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%!
@@ -60,7 +61,11 @@ if(groupMenuId!=null){
         module=selected.getNewUiModule();pageName=selected.getNewUiPage()==null?"index":selected.getNewUiPage();
         if("_shared".equals(module)&&"native_menu".equals(pageName)){
             NewUiNativeJspResolver.Result nativeRoute=NewUiNativeJspResolver.resolve(application,selected.getExistingUrl(),service);
-            if(nativeRoute==null){target="/WEB-INF/new/_shared/"+(service?"services/native_menu_service.jsp":"uiux/native_menu.jsp");}
+            if(nativeRoute==null){
+                NewUiUnavailableRouteRegistry.Entry unavailable=NewUiUnavailableRouteRegistry.find(selected.getExistingUrl());
+                if(unavailable!=null)request.setAttribute("nui_unavailable_route",unavailable);
+                target="/WEB-INF/new/_shared/"+(service?"services/native_menu_service.jsp":"uiux/native_menu.jsp");
+            }
             else{module=nativeRoute.getModule();pageName=nativeRoute.getPage();target=nativeRoute.getTarget();request.setAttribute("nui_native_module",module);request.setAttribute("nui_native_page",pageName);}
         }else target="/WEB-INF/new/"+module+(service?"/services/":"/uiux/")+pageName+(service?"_service.jsp":".jsp");
         }

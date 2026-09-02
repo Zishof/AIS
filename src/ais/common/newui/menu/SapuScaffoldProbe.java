@@ -63,7 +63,7 @@ public final class SapuScaffoldProbe {
             if (isiMemuat(WEBAPP + p, "_shared/services/dispatcher.jsp")) scaffold.add(p);
         }
 
-        int total = 0, tanpaAdaptor = 0, masihScaffold = 0, siap = 0;
+        int total = 0, tanpaAdaptor = 0, tidakTersedia = 0, masihScaffold = 0, siap = 0;
         int berentitas = 0, berongga = 0, takTerpetakan = 0;
         Map<String, List<String>> perModul = new TreeMap<String, List<String>>();
         for (int i = 0; i < ais.common.MenuSnapshotData.DATA.length; i++) {
@@ -72,6 +72,14 @@ public final class SapuScaffoldProbe {
             String id = k[0], label = k[3], url = k[4];
             if (url == null || url.trim().length() == 0) continue;   // cabang, bukan daun
             total++;
+            NewUiUnavailableRouteRegistry.Entry unavailable =
+                    NewUiUnavailableRouteRegistry.find(url);
+            if (unavailable != null) {
+                tidakTersedia++;
+                catat(perModul, "(fungsi tidak tersedia)", id + "\t" + label + "\t"
+                        + unavailable.getCode() + "\t" + url);
+                continue;
+            }
             NewUiNativeJspResolver.Result r = null;
             // Lapisan pertama resolve(): keputusan pemetaan eksplisit.
             ais.common.newui.menu.NewUiRuteEksplisitRegistry.Tujuan eksplisit =
@@ -141,6 +149,7 @@ public final class SapuScaffoldProbe {
         System.out.println("sudah native     : " + siap);
         System.out.println("masih scaffold   : " + masihScaffold);
         System.out.println("tanpa adaptor    : " + tanpaAdaptor);
+        System.out.println("fungsi tak tersedia (eksplisit) : " + tidakTersedia);
         System.out.println("  scaffold + entitas (mungkin Generic CRUD) : " + berentitas);
         System.out.println("  scaffold TANPA entitas (pasti berongga)   : " + berongga);
         System.out.println("  scaffold dgn entitas TAK TERPETAKAN       : " + takTerpetakan);

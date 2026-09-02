@@ -725,27 +725,172 @@ public final class SalesInventoryFinanceHelper {
 	/**
 	 * Simpan akun pada schema tenant, lewat SQL asli.
 	 *
-	 * <p>Hanya <b>pembaruan nama</b> yang dilayani. Pembuatan akun baru ditolak, dan itu bukan
-	 * kemalasan: kolom {@code tipe} pada {@code akun} model tenant bersifat {@code NOT NULL}
-	 * sedangkan permintaan legacy tidak pernah membawanya. Mengarangnya berarti menebak
-	 * klasifikasi akun -- kesalahan yang baru terlihat saat laporan keuangan disusun.</p>
+	 * <h4>Pembuatan akun bukan pelengkap; tanpanya bagan akun tenant tidak dapat dihuni</h4>
+	 * <p>Tidak ada penyemai bagan akun di katalog migrasi, dan aksi ini satu-satunya penulis
+	 * {@code akun} pada schema tenant. Selama pembuatan ditolak, tabelnya tetap kosong
+	 * selamanya — dan {@code jurnal_detail.akun_id} bersifat {@code NOT NULL REFERENCES akun(id)},
+	 * sehingga satu baris jurnal pun tidak akan pernah bisa ditulis. Yang tertutup bukan satu
+	 * layar master, melainkan seluruh pembukuan tenant.</p>
 	 *
-	 * <p>{@code keterangan} tidak ada pada model tenant, dan {@code debet_credit} legacy bertipe
-	 * bilangan sedangkan {@code saldo_normal} tenant bertipe teks. Keduanya karena itu tidak
-	 * ikut diperbarui; mengubahnya menuntut pemetaan nilai yang belum diputuskan.</p>
+	 * <h4>Kelas akun: diminta, atau diwarisi dari induknya</h4>
+	 * <p>{@code tipe} bersifat {@code NOT NULL} sedangkan permintaan legacy tidak membawanya.
+	 * Ada dua jalan keluar yang keduanya bukan tebakan. Yang pertama: permintaan menyebut
+	 * {@code tipe} sendiri. Yang kedua: akun anak <b>mewarisi</b> kelas induknya — sub-akun dari
+	 * sebuah akun aset adalah aset, dan itu definisi, bukan dugaan. Bila permintaan tidak
+	 * menyebut kelas maupun induk, barulah ditolak, dan penolakannya menyebutkan kedua jalannya.</p>
+	 * <p>Yang tetap TIDAK dilakukan: menyimpulkan kelas dari awalan kode akun. Konvensi
+	 * "1=aset, 2=kewajiban" memang lazim, tetapi ia konvensi satu bagan akun, bukan aturan; salah
+	 * menebaknya menaruh akun pada sisi neraca yang keliru dan baru terlihat saat laporan
+	 * disusun.</p>
+	 *
+	 * <h4>{@code keterangan} tetap tidak punya tempat</h4>
+	 * <p>Model tenant tidak punya kolomnya. Permintaan yang mengirimnya tidak ditolak — itu akan
+	 * mematahkan klien yang selalu mengirim medan itu — melainkan dijawab dengan
+	 * {@code peringatan}, supaya pemanggil tahu keterangannya tidak tersimpan alih-alih
+	 * mengiranya tersimpan.</p>
 	 */
 	private static void simpanAkunTenant(EbisnisActorContextResolver.ActorContext ctx,
 			Tbmuser tbmuser, JSONObject request, JSONObject hasil, Session session, String kode,
 			String nama) throws Exception {
-		Long id = optLong(request, "akun_id");
-		if (id == null) {
-			tolak(hasil, "Pembuatan akun baru belum tersedia pada tenant berschema: kolom tipe "
-					+ "akun wajib diisi dan tidak ada pada permintaan ini. Buat akunnya lewat "
-					+ "penyiapan bagan akun tenant.");
-			return;
-		}
 		String sk = SalesInventoryFinanceTenant.skema(ctx);
 		String oleh = tbmuser == null || tbmuser.getUserId() == null ? "" : tbmuser.getUserId();
+		Long id = optLong(request, "akun_id");
+		Long indukId = optLong(request, "parent_id");
+
+		// -------------------------------------------------------------- induk, bila disebut
+		String tipeInduk = null;
+		if (indukId != null) {
+			if (id != null && indukId.equals(id)) {
+				tolak(hasil, "Induk akun tidak boleh dirinya sendiri.");
+				return;
+			}
+			tipeInduk = satuTeks(session, SalesInventoryFinanceTenant.tipeAkun(sk), indukId);
+			if (tipeInduk == null) {
+				tolak(hasil, "Akun induk tidak ditemukan pada tenant ini.");
+				return;
+			}
+		}
+
+		// -------------------------------------------------------------- saldo normal, bila disebut
+		String saldoNormal = null;
+		if (!request.isNull("debet_credit")) {
+			saldoNormal = SalesInventoryFinanceTenant
+					.saldoNormalDariSandi(request.optInt("debet_credit", 0));
+			if (saldoNormal == null) {
+				tolak(hasil, "debet_credit tidak dikenali: pakai 1 untuk debet, -1 atau 2 untuk"
+						+ " kredit.");
+				return;
+			}
+		}
+
+		if (id == null) {
+			buatAkunTenant(request, hasil, session, sk, kode, nama, indukId, tipeInduk,
+					saldoNormal, oleh);
+		} else {
+			ubahAkunTenant(request, hasil, session, sk, kode, nama, id, indukId, saldoNormal,
+					oleh);
+		}
+	}
+
+	/** Satu kolom teks dari satu baris ber-id, atau {@code null} bila barisnya tidak ada. */
+	private static String satuTeks(Session session, String sql, Long id) throws Exception {
+		java.sql.PreparedStatement ps = session.connection().prepareStatement(sql);
+		try {
+			ps.setLong(1, id.longValue());
+			java.sql.ResultSet rs = ps.executeQuery();
+			String nilai = rs.next() ? rs.getString(1) : null;
+			rs.close();
+			return nilai;
+		} finally {
+			ps.close();
+		}
+	}
+
+	/**
+	 * Nama akun lain yang sudah memakai kode ini, atau {@code null} bila kodenya bebas.
+	 * {@code kecuali} = id yang tidak dihitung (0 saat menyisipkan).
+	 */
+	private static String pemakaiKode(Session session, String skema, String kode, long kecuali)
+			throws Exception {
+		java.sql.PreparedStatement ps = session.connection().prepareStatement(
+				SalesInventoryFinanceTenant.kodeAkunDipakai(skema));
+		try {
+			ps.setString(1, kode);
+			ps.setLong(2, kecuali);
+			java.sql.ResultSet rs = ps.executeQuery();
+			String nama = rs.next() ? rs.getString(1) : null;
+			rs.close();
+			return nama;
+		} finally {
+			ps.close();
+		}
+	}
+
+	/** Akun baru pada schema tenant. */
+	private static void buatAkunTenant(JSONObject request, JSONObject hasil, Session session,
+			String sk, String kode, String nama, Long indukId, String tipeInduk,
+			String saldoNormal, String oleh) throws Exception {
+		String tipe = request.optString("tipe", "").trim().toUpperCase();
+		if (tipe.isEmpty()) {
+			tipe = tipeInduk; // sub-akun mewarisi kelas induknya
+		}
+		if (tipe == null || tipe.isEmpty()) {
+			tolak(hasil, "Kelas akun (tipe) wajib diisi saat membuat akun baru pada tenant"
+					+ " berschema: sebutkan tipe (" + SalesInventoryFinanceTenant.daftarTipe()
+					+ "), atau sebutkan parent_id supaya kelasnya diwarisi dari akun induk.");
+			return;
+		}
+		if (!SalesInventoryFinanceTenant.tipeSah(tipe)) {
+			tolak(hasil, "Kelas akun \"" + tipe + "\" tidak dikenali. Yang diterima: "
+					+ SalesInventoryFinanceTenant.daftarTipe() + ".");
+			return;
+		}
+		String dipakai = pemakaiKode(session, sk, kode, 0L);
+		if (dipakai != null) {
+			tolak(hasil, "Kode akun " + kode + " sudah dipakai (" + str(dipakai) + ").");
+			return;
+		}
+		if (saldoNormal == null) {
+			saldoNormal = SalesInventoryFinanceTenant.saldoNormalBawaan(tipe);
+		}
+		Transaction tx = null;
+		try {
+			tx = session.beginTransaction();
+			long baru;
+			java.sql.PreparedStatement ins = session.connection().prepareStatement(
+					SalesInventoryFinanceTenant.sisipAkun(sk));
+			try {
+				ins.setString(1, kode);
+				ins.setString(2, nama);
+				ins.setString(3, tipe);
+				if (indukId == null) {
+					ins.setNull(4, java.sql.Types.BIGINT);
+				} else {
+					ins.setLong(4, indukId.longValue());
+				}
+				ins.setString(5, saldoNormal);
+				ins.setString(6, oleh);
+				java.sql.ResultSet rs = ins.executeQuery();
+				baru = rs.next() ? rs.getLong(1) : 0L;
+				rs.close();
+			} finally {
+				ins.close();
+			}
+			tx.commit();
+			hasil.put("status", "00");
+			hasil.put("id", Long.valueOf(baru));
+			hasil.put("tipe", tipe);
+			peringatanKeterangan(request, hasil);
+		} catch (Exception e) {
+			batalkan(tx);
+			throw e;
+		}
+	}
+
+	/** Pembaruan akun pada schema tenant. */
+	private static void ubahAkunTenant(JSONObject request, JSONObject hasil, Session session,
+			String sk, String kode, String nama, Long id, Long indukId, String saldoNormal,
+			String oleh) throws Exception {
 		java.sql.PreparedStatement cek = session.connection().prepareStatement(
 				SalesInventoryFinanceTenant.adaAkun(sk));
 		boolean ada;
@@ -761,15 +906,32 @@ public final class SalesInventoryFinanceHelper {
 			tolak(hasil, "Akun tidak ditemukan pada tenant ini.");
 			return;
 		}
+		String dipakai = pemakaiKode(session, sk, kode, id.longValue());
+		if (dipakai != null) {
+			tolak(hasil, "Kode akun " + kode + " sudah dipakai (" + str(dipakai) + ").");
+			return;
+		}
+		if (indukId != null && berlingkar(session, sk, id, indukId)) {
+			tolak(hasil, "Akun induk yang dipilih berada di bawah akun ini; pemasangannya akan"
+					+ " membentuk lingkaran pada bagan akun.");
+			return;
+		}
 		Transaction tx = null;
 		try {
 			tx = session.beginTransaction();
 			java.sql.PreparedStatement upd = session.connection().prepareStatement(
 					SalesInventoryFinanceTenant.ubahAkun(sk));
 			try {
-				upd.setString(1, nama);
-				upd.setString(2, oleh);
-				upd.setLong(3, id.longValue());
+				upd.setString(1, kode);
+				upd.setString(2, nama);
+				if (indukId == null) {
+					upd.setNull(3, java.sql.Types.BIGINT);
+				} else {
+					upd.setLong(3, indukId.longValue());
+				}
+				upd.setString(4, saldoNormal);
+				upd.setString(5, oleh);
+				upd.setLong(6, id.longValue());
 				upd.executeUpdate();
 			} finally {
 				upd.close();
@@ -777,15 +939,51 @@ public final class SalesInventoryFinanceHelper {
 			tx.commit();
 			hasil.put("status", "00");
 			hasil.put("id", id);
+			peringatanKeterangan(request, hasil);
 		} catch (Exception e) {
-			try {
-				if (tx != null && tx.isActive()) {
-					tx.rollback();
-				}
-			} catch (Exception ignore) {
-				// rollback gagal tidak boleh menutupi galat aslinya
-			}
+			batalkan(tx);
 			throw e;
+		}
+	}
+
+	/** Benar bila memasang {@code indukId} sebagai induk {@code id} akan membentuk lingkaran. */
+	private static boolean berlingkar(Session session, String skema, Long id, Long indukId)
+			throws Exception {
+		java.sql.PreparedStatement ps = session.connection().prepareStatement(
+				SalesInventoryFinanceTenant.indukBerlingkar(skema));
+		try {
+			ps.setLong(1, id.longValue());
+			ps.setLong(2, indukId.longValue());
+			java.sql.ResultSet rs = ps.executeQuery();
+			boolean ya = rs.next() && rs.getLong(1) > 0;
+			rs.close();
+			return ya;
+		} finally {
+			ps.close();
+		}
+	}
+
+	/**
+	 * Beri tahu pemanggil bila ia mengirim {@code keterangan}: model tenant tidak punya kolomnya,
+	 * dan diam akan membuatnya mengira keterangannya tersimpan.
+	 */
+	private static void peringatanKeterangan(JSONObject request, JSONObject hasil)
+			throws Exception {
+		if (!request.isNull("keterangan")
+				&& !request.optString("keterangan", "").trim().isEmpty()) {
+			hasil.put("peringatan", "Keterangan akun tidak disimpan pada tenant berschema:"
+					+ " model tenant tidak punya kolomnya.");
+		}
+	}
+
+	/** Rollback yang tidak boleh menutupi galat aslinya. */
+	private static void batalkan(Transaction tx) {
+		try {
+			if (tx != null && tx.isActive()) {
+				tx.rollback();
+			}
+		} catch (Exception ignore) {
+			// rollback gagal tidak boleh menutupi galat aslinya
 		}
 	}
 }

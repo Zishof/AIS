@@ -1,5 +1,69 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 19 — SELESAI 100% (2 Sep 2026)
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
+`-implicit:none` bersih, mirror `java/` diverifikasi `cmp` byte-identik, nol
+perubahan logika:
+
+- **`ais/database/model/MasaPerkuliahan.java`** (r83405) — 218→830 baris,
+  100% (28 accessor + 14 field). Master rentang tanggal KBM. Komentar
+  generator hbm2java DIKONFIRMASI salah salin-tempel ("JamPerkuliahan").
+  **TEMUAN KEAMANAN PENTING — varian pola BARU "penjagaan terbalik"**: di
+  `AmbilDataMasaPerkuliahanBanbox.java` negasi hilang pada kondisi admin
+  (`&& Common.getApakahAdmin()` seharusnya `&& !...`), sehingga saat
+  konfigurasi pengetatan admin-only DIAKTIFKAN, justru ADMIN yang dibatasi
+  hanya-baca dan PENGGUNA BIASA yang mendapat akses tulis. Juga checkbox
+  "Default" tanpa gerbang hak akses sama sekali (siapapun bisa memindahkan
+  default sistem).
+- **`ais/database/model/GelombangPendaftaranSidangTugasAkhir.java`**
+  (r83403) — 214→756 baris, 100% (22 accessor + 14 field). Komentar
+  generator DIKONFIRMASI salah ("JamPerkuliahan"). **Dikonfirmasi BEDA
+  konsep** dari `JadwalSidangTugasAkhir` (pendaftaran+kuota vs
+  pelaksanaan+ruang) — `Skripsi` punya 2 FK terpisah ke keduanya, bukan
+  duplikat. `serialVersionUID` sama di 3 entity kembar salin-tempel
+  (`JadwalSidangTugasAkhir`/`JadwalSeminarTugasAkhir`/file ini).
+- **`ais/database/model/PertemuanPunyaGrupPertemuan.java`** (r83406) —
+  232→695 baris, 100% (21 method + 12 field). **Mengonfirmasi PENUH**
+  kesimpulan sesi 15 (`GrupPertemuan.java`): inilah entity penghubung
+  sesungguhnya (`grupPertemuan`+`mahasiswa`+`pertemuan`), dengan kunci unik
+  alami `kodeUnik` yang tak disebut sesi 15. `getKodeUnik()` NPE nyata bila
+  `grupPertemuan` kosong. `getPertemuan()` memutasi entity `Pertemuan` lain
+  saat dibaca.
+- **`ais/database/model/BuktiPembayaran.java`** (r83407) — 238→862 baris,
+  100% (22 method + 15 field). **Koreksi temuan sesi 18**: data
+  `BuktiPembayaran` TIDAK hilang saat round-trip cicilan gagal↔sukses —
+  hanya PENUNJUK dari sisi cicilan yang putus, bukti bayar jadi "yatim"
+  tapi tetap ada di tabel ini. **TEMUAN KEAMANAN SERIUS**: IDOR di servlet
+  `ais/action/servlet/AmbilLampiran.java` — token enkripsi bisa dilewati
+  total via parameter mentah `ref`/`clazz`/`usingId`, id berurutan
+  memungkinkan unduh SELURUH isi `lampiran_lain` lintas pengguna. Repo
+  sudah punya `SECURITY_FINDING_AmbilLampiran_IDOR.md` (status TERBUKA)
+  tapi belum mencakup jalur bukti pembayaran. Juga upload tanpa autentikasi
+  di `DoUpload.java` (`tanpaLogin=true` tanpa validasi kepemilikan).
+- **`ais/database/model/Jenjang.java`** (r83404) — 244→813 baris, 100%
+  (34 method + 17 field, ~353 file merujuk). Temuan: satu tabel dipakai
+  untuk 2 master berbeda (jenjang akademik via flag `aktif` + pendidikan
+  orang tua via flag `aktifDipilih`) yang saling BOCOR karena kedua Action
+  tidak konsisten menyetel flag pembedanya — baris baru dari satu layar
+  otomatis muncul di combobox layar lainnya.
+
+**Pola keamanan berulang — REKAP setelah 3 batch (17-19)**:
+1. **Fail-open** (himpunan/filter kosong → `1=1`): 3+ instance
+   (`PrestasiPegawaiAction`, `JenisPembayaranAction`, `GrupPertemuanAction`)
+   — terkonsentrasi di modul **akunting** menurut temuan `BuktiPembayaran`.
+2. **Kontrol keamanan semu** (field terlihat seperti pembatas tapi tak
+   ditegakkan): 3 instance (`Ruang.ip`, `Menu.aktif`,
+   `BuktiPembayaranAction` tanpa predikat kepemilikan).
+3. **Penjagaan terbalik** (negasi hilang, kebalikan dari maksud) — BARU
+   ditemukan batch 19, `AmbilDataMasaPerkuliahanBanbox`. Baru 1 instance,
+   perlu diverifikasi apakah ini pola tersebar atau kasus tunggal.
+4. **IDOR pada servlet unduh berkas** (`AmbilLampiran`) — sudah ada
+   dokumen `SECURITY_FINDING_AmbilLampiran_IDOR.md` terpisah di repo,
+   TERBUKA, kini terbukti relevan juga untuk modul pembayaran.
+
+Total akumulasi 19 sesi: **273 file** dari 7.401 (~3,7%).
+
 ## Batch 18 — SELESAI 100% (2 Sep 2026)
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi

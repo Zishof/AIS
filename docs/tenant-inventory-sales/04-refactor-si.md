@@ -480,9 +480,13 @@ satu schema yang ditetapkan **statis per SessionFactory** (`default_schema=new_a
 Membiarkannya berjalan berarti menyajikan riwayat perubahan **seluruh instalasi** kepada satu
 tenant — kebocoran, bukan sekadar hasil yang salah.
 
-**Pembuatan akun baru.** `akun` model tenant mewajibkan kolom `tipe` yang tidak pernah dibawa
-permintaan legacy. Mengarangnya berarti menebak klasifikasi akun — kesalahan yang baru
-terlihat saat laporan keuangan disusun. Pembaruan nama tetap dilayani.
+**Pembuatan akun baru — DIBUKA pada §17.** `akun` model tenant mewajibkan kolom `tipe` yang
+tidak pernah dibawa permintaan legacy, dan mengarangnya berarti menebak klasifikasi akun. Yang
+tidak tercatat di sini waktu itu adalah akibatnya: `coaSave` satu-satunya penulis tabel itu dan
+tidak ada penyemai bagan akun, sehingga penolakan ini membuat `jurnal_detail` — yang
+`akun_id`-nya `NOT NULL REFERENCES akun(id)` — tidak akan pernah bisa ditulis. Sejak §17,
+kelasnya diminta dari permintaan atau **diwarisi** dari akun induk; menebaknya dari awalan kode
+tetap tidak dilakukan.
 
 ### Saringan lingkup toko tetap ditegakkan
 
@@ -1991,6 +1995,145 @@ SQL yang benar-benar dikeluarkan Java dijalankan atas dua toko: Gula distok di k
 | stok turunan Harga | se-tenant 530 lawan Toko 1 **30** |
 
 `uji-kesetaraan-lingkup-toko.sql` — lima blok LULUS, dua di antaranya penjaga.
+
+## §17 — bagan akun tenant: yang tertutup bukan satu layar, melainkan seluruh pembukuan
+
+`coaSave` menolak pembuatan akun sejak awal pemindahan, dengan alasan yang benar sejauh
+alasannya berjalan: `akun.tipe` bersifat `NOT NULL` sedangkan permintaan legacy tidak pernah
+membawanya, dan mengarangnya berarti menebak klasifikasi akun.
+
+Yang tidak tercatat waktu itu adalah **akibatnya**. Tidak ada penyemai bagan akun di katalog
+migrasi — v7 membuat tabelnya, tidak ada satu pun `INSERT` yang mengisinya — dan `coaSave`
+adalah **satu-satunya penulis** `akun` pada schema tenant. Selama pembuatan ditolak, tabel itu
+kosong selamanya. Dan `jurnal_detail.akun_id` bersifat `NOT NULL REFERENCES akun(id)`.
+
+Artinya: pada tenant berschema, **satu baris jurnal pun tidak akan pernah bisa ditulis**. Yang
+tertutup bukan satu layar master, melainkan seluruh pembukuan tenant.
+
+### Kelas akun: diminta, atau diwarisi — tidak ditebak
+
+Ada dua jalan keluar dan keduanya bukan tebakan.
+
+| jalan | dari mana kelasnya |
+|---|---|
+| permintaan menyebut `tipe` | pemakainya sendiri yang menentukan |
+| permintaan menyebut `parent_id` | **diwarisi** dari akun induk |
+
+Pewarisan bukan dugaan: sub-akun dari sebuah akun aset **adalah** aset. Itu definisi. Bila
+permintaan tidak menyebut kelas maupun induk, barulah ditolak — dan penolakannya menyebutkan
+kedua jalannya, bukan hanya berkata "belum tersedia".
+
+Yang tetap **tidak** dilakukan: menyimpulkan kelas dari awalan kode akun. Konvensi
+"1 = aset, 2 = kewajiban" memang lazim, tetapi ia konvensi satu bagan akun, bukan aturan. Salah
+menebaknya menaruh akun pada sisi neraca yang keliru, dan salahnya baru terlihat saat laporan
+disusun.
+
+Kosakata `tipe` adalah **kelas akuntansi** — `ASET`, `KEWAJIBAN`, `EKUITAS`, `PENDAPATAN`,
+`BEBAN` — bukan sandi tipe vendor. Bagan akun yang diunggah dari Accurate memakai sandi lain
+(`BANK`, `AREC`, `OEXP` …) yang disimpan jalur legacy pada kolomnya sendiri. Menerima kedua
+kosakata pada satu kolom akan membuat `idx_akun_tipe` memuat campuran, dan laporan mana pun yang
+mengelompokkan menurut kelas akun tidak lagi punya dasar. Nilai di luar daftar ditolak, dan
+daftarnya disebutkan pada pesannya.
+
+### `saldo_normal` disimpan justru karena kelas akun TIDAK menentukannya
+
+Aturan "turunkan, jangan simpan" berlaku sepanjang nilainya memang turunan. Yang ini bukan.
+
+Akun lawan seperti **Akumulasi Penyusutan** berkelas `ASET` tetapi bersaldo normal **KREDIT**.
+Repositori ini sudah memperlakukannya begitu: `KodeAkunApiHelper.posisiDariTipeAccurate`
+menempatkan `DEPR` di sisi kredit bersama kewajiban dan ekuitas. Menurunkan saldo normal dari
+kelasnya akan **membalik tanda setiap akun lawan** pada laporan keuangan.
+
+Karena itu kelasnya hanya memberi **bawaan** — `ASET`/`BEBAN` → `D`, sisanya → `K` — yang boleh
+ditimpa `debet_credit` dari permintaan. Blok 2 uji kesetaraan penjaganya: ia menuntut nilai
+tersimpan berbeda dari nilai turunan, sehingga contoh yang tidak membedakan apa pun akan GAGAL.
+
+Sisi kredit menerima `-1` maupun `2` pada masukan. Keduanya benar-benar beredar pada kolom
+legacy yang sama: `Akun.CREDIT` bernilai `-1`, sedangkan `KodeAkunApiHelper` menulis `2`.
+Perselisihan itu milik schema bersama; di sini keduanya diterima dan disimpan sebagai satu huruf.
+
+### `level` sengaja tidak diisi
+
+`level` adalah kedalaman pada pohon `induk_id` — turunan penuh, tanpa kekecualian, tidak seperti
+`saldo_normal`. Menyimpannya berarti menanggung kebenarannya selamanya: memindahkan satu akun ke
+induk lain membuat level **seluruh keturunannya** salah, dan salahnya tidak kelihatan sampai ada
+yang menggambar pohonnya. Kolomnya dibiarkan `NULL`; pembaca yang memerlukan kedalaman
+menghitungnya dari `induk_id`. Level yang `NULL` tidak bisa berbohong; level yang basi bisa.
+
+### Dua cacat lain yang ikut ketahuan, dan keduanya harus diperbaiki bersamaan
+
+**1. `coaList` melempar pada setiap baris.** Jalur tenant memilih
+`COALESCE(a.saldo_normal,'')` untuk kolom kelima, sedangkan pembacanya memanggil
+`rs.getInt(5)`. `saldo_normal` bertipe `varchar`. Dibuktikan lewat JDBC sungguhan atas ketiga
+kemungkinan isinya:
+
+```
+kode=1000 saldo_normal='D' -> getInt(5) = LEMPAR PSQLException: Bad value for type int : D
+kode=1900 saldo_normal=''  -> getInt(5) = LEMPAR PSQLException: Bad value for type int :
+kode=2000 saldo_normal='K' -> getInt(5) = LEMPAR PSQLException: Bad value for type int : K
+```
+
+Kolomnya yang kosong pun melempar, jadi tidak ada isi yang aman.
+
+**Kedua cacat ini terkunci satu sama lain, dan itu sebabnya keduanya satu batch.** Selama
+pembuatan akun ditolak, tabelnya kosong, `while (rs.next())` tidak pernah berjalan, dan
+`coaList` diam-diam mengembalikan daftar kosong tanpa melempar apa pun. Membuka pembuatan
+tanpa memperbaiki pembacaan akan mengubah layar yang diam-diam kosong menjadi layar yang
+**jatuh** — persis pada hari pertama tenant memakai bagan akunnya.
+
+Pemetaannya karena itu dipindah ke SQL, bukan diserahkan ke driver, dengan sandi legacy
+`Akun.DEBET = 1` / `Akun.CREDIT = -1` — pasangan yang dipakai laporan keuangan untuk
+**mengalikan** saldo dengan saldo normalnya. Akun tanpa saldo normal memberi `0`, persis yang
+dikembalikan `getInt` atas kolom legacy yang `NULL`.
+
+**2. Pembaruan diam-diam mengabaikan kode.** `ubahAkun` lama hanya menyentuh `nama`, sementara
+jalur legacy juga menyimpan `kode` dan `parent`. Mengganti kode akun pada tenant karena itu
+melaporkan sukses dan tidak mengubah apa pun. Sekarang keduanya ikut disimpan, dengan pemeriksaan
+kode ganda yang mengecualikan dirinya sendiri, dan dengan penjaga lingkaran saat induk diganti
+(`WITH RECURSIVE`, kedalaman dibatasi 64 supaya penelusuran tetap berhenti walau tabelnya sudah
+terlanjur berlingkar karena sebab lain).
+
+`induk_id` dan `saldo_normal` memakai pola **"ganti bila diberi"** — `COALESCE(?, kolom)` —
+sebab permintaan yang hanya mengganti nama mengirim keduanya sebagai `NULL`. Tanpa itu, mengganti
+nama akan menghapus induk dan saldo normal akun. Blok 5 uji penjaganya: ia menjalankan pola polos
+`induk_id = ?` atas baris salinan dan menuntut hasilnya memang kosong.
+
+`tipe` **tidak** ikut diperbarui. Kelas akun menentukan letak sebuah akun pada laporan keuangan;
+mengubahnya sesudah ada jurnal yang menunjuknya memindahkan angka yang sudah dilaporkan tanpa
+jejak apa pun. Pemindahan kelas adalah pekerjaan penataan bagan akun, bukan penyuntingan satu
+baris.
+
+### `keterangan` dijawab, bukan didiamkan
+
+Model tenant tidak punya kolomnya. Permintaan yang mengirimnya tidak ditolak — itu akan
+mematahkan klien yang selalu mengirim medan itu — melainkan dijawab dengan medan `peringatan`,
+pola yang sama dengan `purchaseTermsSave` pada §15. Pemanggilnya jadi tahu keterangannya tidak
+tersimpan, alih-alih mengiranya tersimpan.
+
+### Verifikasi
+
+SQL yang benar-benar dikeluarkan Java dijalankan atas klaster sekali-pakai berisi katalog v1–v18:
+
+| yang diuji | hasil |
+|---|---|
+| buat `1000 Kas` (`tipe` disebut) | tersimpan, `saldo_normal = D` |
+| buat `1100 Kas Kecil` (hanya `parent_id`) | `tipe` **diwarisi** `ASET` |
+| buat `1900 Akm. Penyusutan` (`debet_credit = -1`) | `ASET` bersaldo normal **`K`** |
+| buat `2000 Hutang` (tanpa `debet_credit`) | bawaan `K` dari `KEWAJIBAN` |
+| `coaList` → `rs.getInt(5)` | `1, 1, -1, -1` — tidak melempar |
+| kode ganda | ketemu saat menyisip; bebas saat mengubah dirinya sendiri |
+| penjaga lingkaran | anak sebagai induk terdeteksi; bukan-keturunan lolos |
+| ganti kode | benar-benar berubah (dulu diabaikan) |
+| ganti nama saja | induk dan saldo normal **bertahan** |
+| `level` | `NULL` pada keempat baris |
+
+`uji-kesetaraan-bagan-akun.sql` — enam blok, **sepuluh LULUS, nol GAGAL**, tiga di antaranya
+penjaga.
+
+Tidak ada bundel migrasi baru: seluruh kolom yang dipakai sudah ada sejak v7, dan
+`uq_..._akun_kode` tetap jaminan sesungguhnya atas kode ganda — pemeriksaan di Java hanya untuk
+pesan yang enak dibaca, dan dua permintaan serentak tetap berakhir pada pelanggaran batasan,
+bukan pada dua akun berkode sama.
 
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
