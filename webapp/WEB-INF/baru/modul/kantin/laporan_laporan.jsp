@@ -379,12 +379,15 @@ if (!lockTokoLap) {
   // daftar khusus per laporan.
   function dimensiBaris(kol, baris){
     var d = {};
+    var laporanPiutang = current && current.id === "ar_saldo";
+    if (laporanPiutang) d.hanyaPiutang = true;
     for (var i=0;i<kol.length && i<baris.length;i++){
       if ((kol[i].t||"text") !== "text") continue;
       var nilai = String(baris[i]==null?"":baris[i]).trim();
       if (!nilai || nilai === "-") continue;
       var label = String(kol[i].l||"").toLowerCase();
-      if (label.indexOf("kode")>=0 && !d.kodeProduk) d.kodeProduk = nilai;
+      if (label.indexOf("kode")>=0 && laporanPiutang && !d.kodePelanggan) d.kodePelanggan = nilai;
+      else if (label.indexOf("kode")>=0 && !d.kodeProduk) d.kodeProduk = nilai;
       else if ((label.indexOf("nama produk")>=0 || label.indexOf("barang")>=0) && !d.namaProduk) d.namaProduk = nilai;
       else if (label.indexOf("kasir")>=0 && !d.kasir) d.kasir = nilai;
       else if ((label.indexOf("metode")>=0 || label.indexOf("kas/bank")>=0) && !d.metode) d.metode = nilai;
@@ -424,21 +427,25 @@ if (!lockTokoLap) {
           wadah.innerHTML = '<div class="small text-muted">Tidak ada transaksi yang cocok pada rentang tanggal ini.</div>';
           return;
         }
+        var rincianPiutang = current && current.id === "ar_saldo";
         var h = '<div class="fw-bold small mb-1">Transaksi penyusun angka ini</div>'
               + '<div class="table-responsive"><table class="table table-sm table-bordered small mb-1"><thead><tr>'
               + '<th>Waktu</th><th>No. Nota</th><th>Kasir</th><th>Pelanggan</th><th>Produk</th>'
-              + '<th class="text-end">Qty</th><th class="text-end">Harga</th><th class="text-end">Total</th></tr></thead><tbody>';
+              + (rincianPiutang ? '<th>Jenis Piutang</th><th class="text-end">Piutang Faktur</th>' : '')
+              + '<th class="text-end">Qty</th><th class="text-end">Harga</th><th class="text-end">Total Produk</th></tr></thead><tbody>';
         for (var i=0;i<rows.length;i++){
           var r0 = rows[i];
           h += '<tr><td>' + esc(String(r0.waktu||"").split(".")[0]) + '</td><td>' + esc(r0.nota||"")
              + '</td><td>' + esc(r0.kasir||"") + '</td><td>' + esc(r0.pelanggan||"")
              + '</td><td>' + esc(r0.produk||"")
+             + (rincianPiutang ? '</td><td>' + esc(r0.jenisPiutang||"") + '</td><td class="text-end">' + fmtAmt(r0.nilaiPiutang) : '')
              + '</td><td class="text-end">' + fmtInt(r0.qty)
              + '</td><td class="text-end">' + fmtAmt(r0.harga)
              + '</td><td class="text-end">' + fmtAmt(r0.total) + '</td></tr>';
         }
         h += '</tbody></table></div><div class="small fst-italic text-muted">' + rows.length
-           + ' baris transaksi · total ' + fmtAmt(res.totalNilai)
+           + ' baris produk · total nilai produk ' + fmtAmt(res.totalNilai)
+           + (rincianPiutang ? ' · total piutang unik per faktur ' + fmtAmt(res.totalPiutang) : '')
            + (res.dibatasi ? ' (dibatasi, masih ada baris lain)' : '') + '</div>';
         wadah.innerHTML = h;
       })

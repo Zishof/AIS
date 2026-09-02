@@ -4,7 +4,7 @@ package ais.action.master.koperasi.helper;
  * Test harness tanpa JUnit dan tanpa basis data untuk aturan SQL laporan kantin.
  *
  * <p>Yang dijaga di sini bukan "kuerinya berjalan" — itu sudah dibuktikan harness ber-database
- * saat perubahan dibuat — melainkan lima keputusan yang mudah rusak diam-diam saat seseorang
+ * saat perubahan dibuat — melainkan keputusan yang mudah rusak diam-diam saat seseorang
  * menyunting SQL laporan di kemudian hari. Setiap keputusan pernah menjadi cacat nyata
  * (dok. 65, dok. 67):</p>
  *
@@ -20,6 +20,8 @@ package ais.action.master.koperasi.helper;
  *       web sama dengan laporan di aplikasi kasir untuk periode yang sama.</li>
  *   <li><b>Ada batas jumlah baris</b>, supaya satu laporan bertahun-tahun tidak menghabiskan
  *       memori server dan menjatuhkan seluruh aplikasi.</li>
+ *   <li><b>Piutang hanya berasal dari Kasbon efektif</b>, bukan dari selisih kolom bayar
+ *       ringkas yang juga dapat nol pada transaksi Voucher/QRIS.</li>
  * </ol>
  *
  * <p>Jalankan: {@code java ais.action.master.koperasi.helper.LaporanKantinSqlSelfTest}.
@@ -82,6 +84,17 @@ public final class LaporanKantinSqlSelfTest {
                         && LaporanKantinUtil.BATAS_BARIS_LAPORAN <= 100000,
                 "ada batas jumlah baris laporan yang masuk akal ("
                         + LaporanKantinUtil.BATAS_BARIS_LAPORAN + ")");
+
+        String kasbon = LaporanKantinUtil.sqlSumberKasbon().toLowerCase();
+        check(kasbon.indexOf("masuk_sebagai_hutang") >= 0
+                        && kasbon.indexOf("like '%kasbon%'") >= 0,
+                "sumber piutang mewajibkan flag hutang DAN identitas metode Kasbon");
+        check(kasbon.indexOf("bayar_tunai") < 0 && kasbon.indexOf("bayar_non_tunai") < 0,
+                "sumber piutang tidak memakai selisih kolom bayar ringkas");
+        check(kasbon.indexOf("coalesce(ip.aktif,true)=true") >= 0,
+                "nota tanpa item aktif tidak boleh masuk laporan piutang");
+        check(kasbon.split("union all", -1).length == 5,
+                "seluruh lima slot split-payment diperiksa tepat satu kali");
 
         System.out.println(gagal == 0
                 ? "SEMUA ATURAN SQL LAPORAN TERJAGA"

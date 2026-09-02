@@ -5,7 +5,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.hibernate.Session;
 import org.json.JSONArray;
@@ -46,6 +48,8 @@ public final class LaporanRincianTransaksiUtil {
 		public String kasir;
 		public String metode;
 		public String pelanggan;
+		/** Kode anggota persis; dipakai laporan saldo agar kolom Kode tidak keliru dianggap kode produk. */
+		public String kodePelanggan;
 
 		/**
 		 * Baris laporan yang pelanggannya berupa label sintetis "Umum / Non-Anggota"
@@ -59,6 +63,9 @@ public final class LaporanRincianTransaksiUtil {
 		/** Hanya nota yang nilai bayarnya kurang dari total (dipakai laporan piutang). */
 		public boolean hanyaBelumLunas;
 
+		/** Hanya transaksi dengan slot pembayaran Kasbon yang efektif sebagai piutang. */
+		public boolean hanyaPiutang;
+
 		private static String bersih(String v) {
 			return v == null ? "" : v.trim();
 		}
@@ -66,8 +73,75 @@ public final class LaporanRincianTransaksiUtil {
 		public boolean kosong() {
 			return bersih(kodeProduk).length() == 0 && bersih(namaProduk).length() == 0
 					&& bersih(kasir).length() == 0 && bersih(metode).length() == 0
-					&& bersih(pelanggan).length() == 0 && !pelangganKosong && !hanyaBelumLunas;
+					&& bersih(pelanggan).length() == 0 && bersih(kodePelanggan).length() == 0
+					&& !pelangganKosong && !hanyaBelumLunas && !hanyaPiutang;
 		}
+	}
+
+	/** Nominal slot pembayaran pertama; slot pertama tidak mempunyai kolom nominal tersendiri. */
+	static String nominalSlotSatu(String headerAlias) {
+		return "GREATEST(0, COALESCE(" + headerAlias + ".total_biaya,0)"
+				+ " - COALESCE(" + headerAlias + ".nominal_bayar_2,0)"
+				+ " - COALESCE(" + headerAlias + ".nominal_bayar_3,0)"
+				+ " - COALESCE(" + headerAlias + ".nominal_bayar_4,0)"
+				+ " - COALESCE(" + headerAlias + ".nominal_bayar_5,0))";
+	}
+
+	/**
+	 * Gerbang piutang yang fail-closed: flag master harus aktif DAN kode/nama harus benar-benar
+	 * Kasbon. Dengan demikian salah flag pada Voucher/QRIS tidak boleh mencemari piutang.
+	 */
+	static String syaratKasbon(String caraAlias) {
+		return "(COALESCE(" + caraAlias + ".masuk_sebagai_hutang,false)=true"
+				+ " AND LOWER(COALESCE(" + caraAlias + ".kode,'') || ' ' || COALESCE("
+				+ caraAlias + ".nama,'')) LIKE '%kasbon%')";
+	}
+
+	/** Label bisnis yang stabil walau nama master memakai spasi/underscore/ejaan lama. */
+	static String labelJenisKasbon(String caraAlias) {
+		String sumber = "LOWER(COALESCE(" + caraAlias + ".kode,'') || ' ' || COALESCE("
+				+ caraAlias + ".nama,''))";
+		return "(CASE WHEN " + sumber + " LIKE '%divisi%' THEN 'Kasbon Divisi'"
+				+ " WHEN " + sumber + " LIKE '%pejuang%' THEN 'Kasbon Pejuang'"
+				+ " WHEN " + sumber + " LIKE '%operasional%' THEN 'Kasbon Operasional'"
+				+ " ELSE COALESCE(NULLIF(TRIM(" + caraAlias + ".nama),''),'Kasbon') END)";
+	}
+
+	/** Nilai Kasbon satu nota, termasuk kombinasi sampai lima slot pembayaran. */
+	static String nilaiPiutangNota(String headerAlias, String[] caraAliases) {
+		String[] nominal = { nominalSlotSatu(headerAlias),
+				"COALESCE(" + headerAlias + ".nominal_bayar_2,0)",
+				"COALESCE(" + headerAlias + ".nominal_bayar_3,0)",
+				"COALESCE(" + headerAlias + ".nominal_bayar_4,0)",
+				"COALESCE(" + headerAlias + ".nominal_bayar_5,0)" };
+		StringBuilder out = new StringBuilder("(");
+		for (int i = 0; i < caraAliases.length && i < nominal.length; i++) {
+			if (i > 0) out.append(" + ");
+			out.append("CASE WHEN ").append(syaratKasbon(caraAliases[i])).append(" THEN ")
+					.append(nominal[i]).append(" ELSE 0 END");
+		}
+		return out.append(")").toString();
+	}
+
+	/** Daftar jenis Kasbon pada satu nota split-payment. */
+	static String jenisPiutangNota(String[] caraAliases) {
+		StringBuilder out = new StringBuilder("CONCAT_WS(', '");
+		for (int i = 0; i < caraAliases.length; i++) {
+			out.append(", CASE WHEN ").append(syaratKasbon(caraAliases[i])).append(" THEN ")
+					.append(labelJenisKasbon(caraAliases[i])).append(" ELSE NULL END");
+		}
+		return out.append(")").toString();
+	}
+
+	static String joinCaraPembayaranNota(String headerAlias, String[] caraAliases) {
+		StringBuilder out = new StringBuilder();
+		for (int i = 0; i < caraAliases.length; i++) {
+			String sufiks = i == 0 ? "" : "_" + (i + 1);
+			out.append(" LEFT JOIN koperasi.cara_pembayaran_koperasi ").append(caraAliases[i])
+					.append(" ON ").append(caraAliases[i]).append(".id=").append(headerAlias)
+					.append(".cara_pembayaran_koperasi").append(sufiks);
+		}
+		return out.toString();
 	}
 
 	/**
@@ -116,14 +190,22 @@ public final class LaporanRincianTransaksiUtil {
 			// dan yang menentukan baris masuk kelompok "Umum / Non-Anggota" di laporan
 			// adalah FK itu.
 			w.append(" AND pak.anggota_koperasi IS NULL ");
+		} else if (isi(d.kodePelanggan)) {
+			w.append(" AND COALESCE(ak.kode,ak.kode_identitas,'')=? ");
+			prm.add(d.kodePelanggan.trim());
 		} else if (isi(d.pelanggan)) {
 			w.append(" AND COALESCE(ak.nama,a.member,'') ILIKE ? ");
 			prm.add("%" + d.pelanggan.trim() + "%");
 		}
-		if (d.hanyaBelumLunas) {
+		String[] caraAliases = { "c1", "c2", "c3", "c4", "c5" };
+		String nilaiPiutang = nilaiPiutangNota("pak", caraAliases);
+		if (d.hanyaPiutang) {
+			w.append(" AND ").append(nilaiPiutang).append(" > 0 ");
+		} else if (d.hanyaBelumLunas) {
 			w.append(" AND (COALESCE(pak.bayar_tunai,0)+COALESCE(pak.bayar_non_tunai,0))"
 					+ " < COALESCE(pak.total_biaya,0) ");
 		}
+		w.append(" AND COALESCE(a.aktif,true)=true ");
 
 		String sql = "SELECT a.waktu, COALESCE(pak.kode,'') nota,"
 				+ " COALESCE(NULLIF(TRIM(pak.kasir_login_nama),''),'-') kasir,"
@@ -132,11 +214,14 @@ public final class LaporanRincianTransaksiUtil {
 				+ " COALESCE(pr.kode,'') kode_produk,"
 				+ " COALESCE(a.qty,0) qty, COALESCE(a.hargasatuan,0) harga,"
 				+ " COALESCE(a.diskon,0) diskon, COALESCE(a.total,0) total,"
-				+ " COALESCE(NULLIF(TRIM(a.carabayar),''),'-') metode"
+				+ " COALESCE(NULLIF(TRIM(a.carabayar),''),'-') metode,"
+				+ " " + jenisPiutangNota(caraAliases) + " jenis_piutang,"
+				+ " " + nilaiPiutang + " nilai_piutang, CAST(pak.id AS text) id_transaksi"
 				+ " FROM koperasi.pembelian a"
 				+ " LEFT JOIN koperasi.pembelian_anggota_koperasi pak ON pak.id=a.pembelian_anggota_koperasi"
 				+ " LEFT JOIN koperasi.produk pr ON pr.id=a.produk"
 				+ " LEFT JOIN koperasi.anggota_koperasi ak ON ak.id=pak.anggota_koperasi"
+				+ joinCaraPembayaranNota("pak", caraAliases)
 				+ w + " ORDER BY a.waktu DESC LIMIT " + batas;
 
 		Connection conn = session.connection();
@@ -152,7 +237,8 @@ public final class LaporanRincianTransaksiUtil {
 			}
 			ResultSet rs = ps.executeQuery();
 			JSONArray data = new JSONArray();
-			double totalQty = 0, totalNilai = 0;
+			double totalQty = 0, totalNilai = 0, totalPiutang = 0;
+			Set<String> fakturPiutangTerhitung = new HashSet<String>();
 			while (rs.next()) {
 				JSONObject o = new JSONObject();
 				Timestamp t = rs.getTimestamp(1);
@@ -167,6 +253,14 @@ public final class LaporanRincianTransaksiUtil {
 				o.put("diskon", rs.getDouble(9));
 				o.put("total", rs.getDouble(10));
 				o.put("metode", teks(rs.getString(11)));
+				o.put("jenisPiutang", teks(rs.getString(12)));
+				double nilaiPiutangFaktur = rs.getDouble(13);
+				o.put("nilaiPiutang", nilaiPiutangFaktur);
+				String idTransaksi = teks(rs.getString(14));
+				o.put("idTransaksi", idTransaksi);
+				if (nilaiPiutangFaktur > 0 && fakturPiutangTerhitung.add(idTransaksi)) {
+					totalPiutang += nilaiPiutangFaktur;
+				}
 				totalQty += rs.getDouble(7);
 				totalNilai += rs.getDouble(10);
 				data.put(o);
@@ -177,6 +271,7 @@ public final class LaporanRincianTransaksiUtil {
 			hasil.put("jumlahBaris", data.length());
 			hasil.put("totalQty", totalQty);
 			hasil.put("totalNilai", totalNilai);
+			hasil.put("totalPiutang", totalPiutang);
 			// Ditandai supaya jumlah baris yang tampil tidak disalahartikan sbg
 			// jumlah sebenarnya ketika hasilnya terpotong batas.
 			hasil.put("dibatasi", data.length() >= batas);

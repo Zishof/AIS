@@ -41,6 +41,10 @@ try {
         dim.kasir = request.getParameter("kasir");
         dim.metode = request.getParameter("metode");
         dim.pelanggan = request.getParameter("pelanggan");
+        dim.kodePelanggan = request.getParameter("kodePelanggan");
+        dim.pelangganKosong = "true".equalsIgnoreCase(request.getParameter("pelangganKosong"));
+        dim.hanyaBelumLunas = "true".equalsIgnoreCase(request.getParameter("hanyaBelumLunas"));
+        dim.hanyaPiutang = "true".equalsIgnoreCase(request.getParameter("hanyaPiutang"));
         int batasRinc = 0;
         String pBatas = request.getParameter("batas");
         if (pBatas != null && Common.isNumber(pBatas.trim())) { batasRinc = Integer.parseInt(pBatas.trim()); }

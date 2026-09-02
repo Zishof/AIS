@@ -255,6 +255,37 @@ public final class LaporanKantinUtil {
         return sql.toString();
     }
 
+    /**
+     * Sumber tunggal transaksi Kasbon per slot pembayaran. Setiap baris mewakili satu slot
+     * Kasbon efektif pada satu nota; Voucher, QRIS, Tunai, dan Transfer tidak dapat masuk walau
+     * flag master mereka salah, karena gerbang juga mewajibkan kode/nama mengandung "kasbon".
+     */
+    static String sqlSumberKasbon() {
+        String[] fk = { "h.cara_pembayaran_koperasi", "h.cara_pembayaran_koperasi_2",
+                "h.cara_pembayaran_koperasi_3", "h.cara_pembayaran_koperasi_4",
+                "h.cara_pembayaran_koperasi_5" };
+        String[] nominal = { LaporanRincianTransaksiUtil.nominalSlotSatu("h"),
+                "COALESCE(h.nominal_bayar_2,0)", "COALESCE(h.nominal_bayar_3,0)",
+                "COALESCE(h.nominal_bayar_4,0)", "COALESCE(h.nominal_bayar_5,0)" };
+        StringBuilder sql = new StringBuilder();
+        for (int i = 0; i < fk.length; i++) {
+            if (i > 0) { sql.append(" UNION ALL "); }
+            String cara = "ck" + (i + 1);
+            sql.append("SELECT h.id id_nota, h.kode kode_nota, h.tanggal_pembayaran tanggal,")
+                    .append(" h.toko, h.anggota_koperasi, COALESCE(h.total_biaya,0) total_nota,")
+                    .append(" ").append(LaporanRincianTransaksiUtil.labelJenisKasbon(cara))
+                    .append(" jenis_piutang, ").append(nominal[i]).append(" nilai_piutang")
+                    .append(" FROM koperasi.pembelian_anggota_koperasi h")
+                    .append(" JOIN koperasi.cara_pembayaran_koperasi ").append(cara)
+                    .append(" ON ").append(cara).append(".id=").append(fk[i])
+                    .append(" WHERE ").append(LaporanRincianTransaksiUtil.syaratKasbon(cara))
+                    .append(" AND h.anggota_koperasi IS NOT NULL AND ").append(nominal[i]).append(" > 0")
+                    .append(" AND EXISTS (SELECT 1 FROM koperasi.pembelian ip WHERE")
+                    .append(" ip.pembelian_anggota_koperasi=h.id AND COALESCE(ip.aktif,true)=true)");
+        }
+        return sql.toString();
+    }
+
     /** Klausa lingkup toko (kolom FK toko) + isi parameter :tokoId (idempoten). */
     private static String kondToko(String kolom, Long tokoId, Map<String, Object> p) {
         if (tokoId == null) { return ""; }
@@ -1000,35 +1031,36 @@ public final class LaporanKantinUtil {
                 kolom.add(new Kolom("Kategori","text")); kolom.add(new Kolom("Masuk","num")); kolom.add(new Kolom("Keluar","num")); kolom.add(new Kolom("Penyesuaian","num"));
                 kolom.add(new Kolom("Pakai Bahan","num")); kolom.add(new Kolom("Stok Akhir","num"));
 
-            } else if ("ar_faktur_belum_lunas".equals(r)) {
+            } else if ("ar_faktur_belum_lunas".equals(r)) { tokoIdCol = "u.toko";
                 judul = "Faktur Belum Lunas";
-                StringBuilder w = new StringBuilder(" where (coalesce(h.bayar_tunai,0)+coalesce(h.bayar_non_tunai,0)) < coalesce(h.total_biaya,0) ");
-                w.append(kondToko("h.toko", tokoId, prm));
-                w.append(klausaTanggal("h.tanggal_pembayaran", tglMulai, tglSampai, prm));
+                catatan = "Hanya slot pembayaran Kasbon yang menjadi piutang. Voucher, QRIS, Tunai, dan Transfer tidak termasuk.";
+                StringBuilder w = new StringBuilder(" where 1=1 ");
+                w.append(kondToko("u.toko", tokoId, prm));
+                w.append(klausaTanggal("u.tanggal", tglMulai, tglSampai, prm));
                 if (qc != null) { w.append(" and (lower(coalesce(a.nama,'')) like :qc or lower(coalesce(a.kode,'')) like :qc or lower(coalesce(a.kode_identitas,'')) like :qc) "); prm.put("qc", qc); }
-                sql = "select h.tanggal_pembayaran, h.kode, t.nama, coalesce(a.nama,'Umum'), coalesce(h.total_biaya,0), "
-                    + " (coalesce(h.bayar_tunai,0)+coalesce(h.bayar_non_tunai,0)), "
-                    + " (coalesce(h.total_biaya,0)-(coalesce(h.bayar_tunai,0)+coalesce(h.bayar_non_tunai,0))) "
-                    + " from koperasi.pembelian_anggota_koperasi h join koperasi.toko t on t.id=h.toko "
-                    + " left join koperasi.anggota_koperasi a on a.id=h.anggota_koperasi " + w
-                    + " order by h.tanggal_pembayaran desc ";
-                tipe = new String[]{"tgl","text","text","text","num","num","num"};
+                sql = "select u.tanggal, u.kode_nota, t.nama, coalesce(a.nama,'Umum'), max(u.total_nota), "
+                    + " string_agg(distinct u.jenis_piutang, ', '), sum(u.nilai_piutang) "
+                    + " from (" + sqlSumberKasbon() + ") u join koperasi.toko t on t.id=u.toko "
+                    + " join koperasi.anggota_koperasi a on a.id=u.anggota_koperasi " + w
+                    + " group by u.id_nota,u.tanggal,u.kode_nota,u.toko,t.nama,a.nama order by u.tanggal desc ";
+                tipe = new String[]{"tgl","text","text","text","num","text","num"};
                 kolom.add(new Kolom("Tanggal","tgl")); kolom.add(new Kolom("No. Faktur","text")); kolom.add(new Kolom("Toko","text")); kolom.add(new Kolom("Pelanggan","text"));
-                kolom.add(new Kolom("Total","num")); kolom.add(new Kolom("Dibayar","num")); kolom.add(new Kolom("Sisa Piutang","num"));
+                kolom.add(new Kolom("Total Nota","num")); kolom.add(new Kolom("Jenis Piutang","text")); kolom.add(new Kolom("Nilai Piutang","num"));
 
-            } else if ("ar_saldo".equals(r)) { tokoIdCol = "h.toko";
+            } else if ("ar_saldo".equals(r)) { tokoIdCol = "u.toko";
                 judul = "Daftar Saldo Piutang Customer";
-                StringBuilder w = new StringBuilder(" where (coalesce(h.bayar_tunai,0)+coalesce(h.bayar_non_tunai,0)) < coalesce(h.total_biaya,0) ");
-                w.append(kondToko("h.toko", tokoId, prm));
-                w.append(klausaTanggal("h.tanggal_pembayaran", tglMulai, tglSampai, prm));
+                catatan = "Piutang dihitung dari nominal setiap slot Kasbon (Divisi/Pejuang/Operasional). Voucher, QRIS, Tunai, dan Transfer tidak masuk. Klik jumlah faktur atau nilai piutang untuk melihat nota, jenis Kasbon, dan produk penyusunnya.";
+                StringBuilder w = new StringBuilder(" where 1=1 ");
+                w.append(kondToko("u.toko", tokoId, prm));
+                w.append(klausaTanggal("u.tanggal", tglMulai, tglSampai, prm));
                 if (qc != null) { w.append(" and (lower(coalesce(a.nama,'')) like :qc or lower(coalesce(a.kode,'')) like :qc or lower(coalesce(a.kode_identitas,'')) like :qc) "); prm.put("qc", qc); }
-                sql = "select coalesce(a.kode, a.kode_identitas, '-'), coalesce(a.nama,'Umum / Non-Anggota'), count(*), "
-                    + " sum(coalesce(h.total_biaya,0)-(coalesce(h.bayar_tunai,0)+coalesce(h.bayar_non_tunai,0))) "
-                    + " from koperasi.pembelian_anggota_koperasi h join koperasi.toko t on t.id=h.toko "
-                    + " left join koperasi.anggota_koperasi a on a.id=h.anggota_koperasi " + w
-                    + " group by a.kode, a.kode_identitas, a.nama order by 4 desc ";
-                tipe = new String[]{"text","text","num","num"};
-                kolom.add(new Kolom("Kode","text")); kolom.add(new Kolom("Pelanggan","text")); kolom.add(new Kolom("Jml Faktur","num")); kolom.add(new Kolom("Saldo Piutang","num"));
+                sql = "select coalesce(a.kode, a.kode_identitas, '-'), coalesce(a.nama,'Umum / Non-Anggota'), count(distinct u.id_nota), "
+                    + " string_agg(distinct u.jenis_piutang, ', '), sum(u.nilai_piutang) "
+                    + " from (" + sqlSumberKasbon() + ") u join koperasi.anggota_koperasi a on a.id=u.anggota_koperasi " + w
+                    + " group by a.kode, a.kode_identitas, a.nama order by 5 desc ";
+                tipe = new String[]{"text","text","num","text","num"};
+                kolom.add(new Kolom("Kode","text")); kolom.add(new Kolom("Pelanggan","text")); kolom.add(new Kolom("Jml Faktur","num"));
+                kolom.add(new Kolom("Jenis Piutang","text")); kolom.add(new Kolom("Saldo Piutang","num"));
 
             } else if ("akn_bb_pembantu_piutang".equals(r)) {
                 judul = "Buku Besar Pembantu Piutang (per Pelanggan)"; grupIdx = 0;
@@ -2077,20 +2109,19 @@ public final class LaporanKantinUtil {
                 tipe = new String[]{"text","text","num","num","num"};
                 kolom.add(new Kolom("Kode","text")); kolom.add(new Kolom("Produk","text")); kolom.add(new Kolom("Qty","num")); kolom.add(new Kolom("Total Diskon","num")); kolom.add(new Kolom("Nilai Kotor","num"));
 
-            } else if ("ar_umur_piutang".equals(r)) {
+            } else if ("ar_umur_piutang".equals(r)) { tokoIdCol = "u.toko";
                 judul = "Umur Piutang (Aging)";
-                catatan = "Sisa piutang dikelompokkan berdasarkan umur (dihitung dari tanggal transaksi sampai hari ini).";
-                String sisa = "(coalesce(h.total_biaya,0)-(coalesce(h.bayar_tunai,0)+coalesce(h.bayar_non_tunai,0)))";
-                String umur = "(current_date - cast(h.tanggal_pembayaran as date))";
-                StringBuilder w = new StringBuilder(" where " + sisa + " > 0 ");
-                w.append(kondToko("h.toko", tokoId, prm));
+                catatan = "Nilai Kasbon dikelompokkan berdasarkan umur transaksi. Voucher, QRIS, Tunai, dan Transfer tidak termasuk.";
+                String umur = "(current_date - cast(u.tanggal as date))";
+                StringBuilder w = new StringBuilder(" where u.nilai_piutang > 0 ");
+                w.append(kondToko("u.toko", tokoId, prm));
                 if (qc != null) { w.append(" and (lower(coalesce(a.nama,'')) like :qc or lower(coalesce(a.kode,'')) like :qc) "); prm.put("qc", qc); }
                 sql = "select coalesce(a.nama,'Umum / Non-Anggota'), "
-                    + " sum(case when " + umur + " <= 30 then " + sisa + " else 0 end), "
-                    + " sum(case when " + umur + " between 31 and 60 then " + sisa + " else 0 end), "
-                    + " sum(case when " + umur + " between 61 and 90 then " + sisa + " else 0 end), "
-                    + " sum(case when " + umur + " > 90 then " + sisa + " else 0 end), sum(" + sisa + ") "
-                    + " from koperasi.pembelian_anggota_koperasi h left join koperasi.anggota_koperasi a on a.id=h.anggota_koperasi "
+                    + " sum(case when " + umur + " <= 30 then u.nilai_piutang else 0 end), "
+                    + " sum(case when " + umur + " between 31 and 60 then u.nilai_piutang else 0 end), "
+                    + " sum(case when " + umur + " between 61 and 90 then u.nilai_piutang else 0 end), "
+                    + " sum(case when " + umur + " > 90 then u.nilai_piutang else 0 end), sum(u.nilai_piutang) "
+                    + " from (" + sqlSumberKasbon() + ") u join koperasi.anggota_koperasi a on a.id=u.anggota_koperasi "
                     + w + " group by a.nama order by 6 desc ";
                 tipe = new String[]{"text","num","num","num","num","num"};
                 kolom.add(new Kolom("Pelanggan","text")); kolom.add(new Kolom("0-30 hr","num")); kolom.add(new Kolom("31-60 hr","num")); kolom.add(new Kolom("61-90 hr","num")); kolom.add(new Kolom(">90 hr","num")); kolom.add(new Kolom("Total Piutang","num"));
@@ -2565,19 +2596,18 @@ public final class LaporanKantinUtil {
 
             } else if ("ar_sisa_kredit".equals(r)) {
                 judul = "Limit & Sisa Kredit Pelanggan";
-                catatan = "Plafon kredit anggota vs piutang terpakai. Sisa = Limit - Piutang; NEGATIF = melebihi limit. Isi limit di menu Pengaturan > Limit Kredit Anggota (butuh RESTART agar kolom limit_kredit terbentuk).";
+                catatan = "Plafon kredit anggota vs nominal transaksi Kasbon. Voucher, QRIS, Tunai, dan Transfer tidak memakai limit piutang. Sisa = Limit - Piutang; NEGATIF = melebihi limit.";
                 StringBuilder w = new StringBuilder(" where a.aktif = true ");
-                StringBuilder ws = new StringBuilder(" where (coalesce(h.bayar_tunai,0)+coalesce(h.bayar_non_tunai,0)) < coalesce(h.total_biaya,0) ");
-                ws.append(kondToko("h.toko", tokoId, prm));
-                ws.append(klausaSampai("h.tanggal_pembayaran", tglSampai, prm));
+                StringBuilder ws = new StringBuilder(" where u.nilai_piutang > 0 ");
+                ws.append(kondToko("u.toko", tokoId, prm));
+                ws.append(klausaSampai("u.tanggal", tglSampai, prm));
                 if (qc != null) { w.append(" and (lower(coalesce(a.nama,'')) like :qc or lower(coalesce(a.kode,'')) like :qc or lower(coalesce(a.kode_identitas,'')) like :qc) "); prm.put("qc", qc); }
                 sql = "select coalesce(a.kode, a.kode_identitas, '-'), coalesce(a.nama,'-'), "
                     + " coalesce(a.limit_kredit,0), coalesce(pi.piutang,0), "
                     + " coalesce(a.limit_kredit,0) - coalesce(pi.piutang,0) as sisa "
                     + " from koperasi.anggota_koperasi a "
-                    + " left join ( select h.anggota_koperasi as aid, "
-                    + "   sum(coalesce(h.total_biaya,0)-(coalesce(h.bayar_tunai,0)+coalesce(h.bayar_non_tunai,0))) as piutang "
-                    + "   from koperasi.pembelian_anggota_koperasi h " + ws + " group by h.anggota_koperasi ) pi on pi.aid = a.id "
+                    + " left join ( select u.anggota_koperasi as aid, sum(u.nilai_piutang) as piutang "
+                    + "   from (" + sqlSumberKasbon() + ") u " + ws + " group by u.anggota_koperasi ) pi on pi.aid = a.id "
                     + w
                     + " and ( coalesce(a.limit_kredit,0) > 0 or coalesce(pi.piutang,0) > 0 ) "
                     + " order by sisa asc ";
@@ -3724,8 +3754,8 @@ public final class LaporanKantinUtil {
                 String wc = " where pr.aktif=true " + kondToko("pr.toko", tokoId, pc);
                 double persediaan = execScalar(session, "select coalesce(sum(coalesce(pr.stok,0)*coalesce(pr.hargabeli,0)),0) from koperasi.produk pr " + wc, pc);
                 Map<String,Object> pd = new LinkedHashMap<String,Object>();
-                String wd = " where (coalesce(h.bayar_tunai,0)+coalesce(h.bayar_non_tunai,0)) < coalesce(h.total_biaya,0) " + kondToko("h.toko", tokoId, pd) + klausaSampai("h.tanggal_pembayaran", tglSampai, pd);
-                double piutang = execScalar(session, "select coalesce(sum(coalesce(h.total_biaya,0)-(coalesce(h.bayar_tunai,0)+coalesce(h.bayar_non_tunai,0))),0) from koperasi.pembelian_anggota_koperasi h " + wd, pd);
+                String wd = " where u.nilai_piutang > 0 " + kondToko("u.toko", tokoId, pd) + klausaSampai("u.tanggal", tglSampai, pd);
+                double piutang = execScalar(session, "select coalesce(sum(u.nilai_piutang),0) from (" + sqlSumberKasbon() + ") u " + wd, pd);
                 double totalAktiva = kas + persediaan + piutang;
                 double utang = 0.0;
                 double modal = totalAktiva - utang;

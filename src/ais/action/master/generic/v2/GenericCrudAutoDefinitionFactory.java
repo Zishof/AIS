@@ -573,7 +573,40 @@ public final class GenericCrudAutoDefinitionFactory {
         try { if (metadata.getPropertyType("nim").getReturnedClass() == String.class) return "nim"; } catch (Exception ignored) { }
         return metadata.getIdentifierPropertyName();
     }
-    private static boolean isBlockedClass(Class type) { return containsToken(type.getName(), BLOCKED_CLASS_TOKENS); }
+    /**
+     * Kelas yang namanya kebetulan memuat token terlarang, tetapi isinya sama
+     * sekali bukan data sensitif.
+     *
+     * <p>{@link #BLOCKED_CLASS_TOKENS} dicocokkan sebagai substring pada nama
+     * kelas yang sudah dinormalisasi, dan itu memang disengaja agar gagal ke
+     * sisi aman. Harganya: sejumlah layar ikut terkunci read-only tanpa alasan.
+     * "BankSoal" tertangkap token {@code bank} padahal ia bank soal ujian,
+     * bukan rekening. Akibatnya menu Bank Soal pada Sistem Informasi Akademik
+     * hanya bisa dibaca, sedangkan layar ZK lamanya bisa disunting penuh.</p>
+     *
+     * <p>Daftar ini sengaja berisi nama kelas utuh, bukan pelonggaran aturan
+     * pencocokan. Melonggarkan pencocokan akan membuka kembali kelas yang
+     * memang harus terkunci; menyebut namanya satu per satu membuat setiap
+     * pembukaan menjadi keputusan yang tercatat.</p>
+     */
+    private static final String[] ALLOWED_CLASS_NAMES = new String[] {
+        "BankSoal", "BankSoalDetail", "KategoriBankSoal", "PenjelasanBankSoal"
+    };
+
+    private static boolean isAllowedClass(Class type) {
+        String name = type == null ? "" : type.getName();
+        int dot = name.lastIndexOf(46);
+        String simple = dot < 0 ? name : name.substring(dot + 1);
+        for (int i = 0; i < ALLOWED_CLASS_NAMES.length; i++) {
+            if (ALLOWED_CLASS_NAMES[i].equals(simple)) return true;
+        }
+        return false;
+    }
+
+    private static boolean isBlockedClass(Class type) {
+        if (isAllowedClass(type)) return false;
+        return containsToken(type.getName(), BLOCKED_CLASS_TOKENS);
+    }
     private static boolean isAutoCreateBlocked(Class type) {
         String name = type == null ? "" : type.getName();
         for (int i = 0; i < AUTO_CREATE_BLOCKED_CLASSES.length; i++) {

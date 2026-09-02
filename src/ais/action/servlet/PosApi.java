@@ -5183,8 +5183,10 @@ public class PosApi extends HttpServlet {
 		dim.kasir = payload.optString("kasir", "");
 		dim.metode = payload.optString("metode", "");
 		dim.pelanggan = payload.optString("pelanggan", "");
+		dim.kodePelanggan = payload.optString("kodePelanggan", "");
 		dim.pelangganKosong = payload.optBoolean("pelangganKosong", false);
 		dim.hanyaBelumLunas = payload.optBoolean("hanyaBelumLunas", false);
+		dim.hanyaPiutang = payload.optBoolean("hanyaPiutang", false);
 		int batas = payload.optInt("batas", 0);
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
@@ -5204,6 +5206,7 @@ public class PosApi extends HttpServlet {
 			hasil.put("jumlahBaris", rincian.optInt("jumlahBaris"));
 			hasil.put("totalQty", rincian.optDouble("totalQty", 0));
 			hasil.put("totalNilai", rincian.optDouble("totalNilai", 0));
+			hasil.put("totalPiutang", rincian.optDouble("totalPiutang", 0));
 			hasil.put("dibatasi", rincian.optBoolean("dibatasi", false));
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);

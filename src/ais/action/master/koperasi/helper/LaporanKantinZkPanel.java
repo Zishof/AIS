@@ -649,6 +649,8 @@ public final class LaporanKantinZkPanel {
 	 */
 	private static String dimensiQuery(LaporanKantinUtil.Hasil H, Object[] row) {
 		String kodeProduk = null, namaProduk = null, kasir = null, metode = null, pelanggan = null;
+		String kodePelanggan = null;
+		boolean laporanPiutang = "Daftar Saldo Piutang Customer".equals(H.judul);
 		for (int i = 0; i < H.tipe.length && i < H.kolom.size() && i < row.length; i++) {
 			if (!"text".equals(H.tipe[i])) {
 				continue;
@@ -658,7 +660,9 @@ public final class LaporanKantinZkPanel {
 				continue;
 			}
 			String label = H.kolom.get(i).label == null ? "" : H.kolom.get(i).label.toLowerCase();
-			if (label.indexOf("kode") >= 0 && kodeProduk == null) {
+			if (label.indexOf("kode") >= 0 && laporanPiutang && kodePelanggan == null) {
+				kodePelanggan = nilai;
+			} else if (label.indexOf("kode") >= 0 && kodeProduk == null) {
 				kodeProduk = nilai;
 			} else if ((label.indexOf("nama produk") >= 0 || label.indexOf("barang") >= 0) && namaProduk == null) {
 				namaProduk = nilai;
@@ -672,6 +676,8 @@ public final class LaporanKantinZkPanel {
 			}
 		}
 		StringBuilder q = new StringBuilder();
+		if (laporanPiutang) { tambahParam(q, "hanyaPiutang", "true"); }
+		tambahParam(q, "kodePelanggan", kodePelanggan);
 		tambahParam(q, "kodeProduk", kodeProduk);
 		tambahParam(q, "namaProduk", namaProduk);
 		tambahParam(q, "kasir", kasir);
@@ -744,22 +750,27 @@ public final class LaporanKantinZkPanel {
 				+ "      jud.style.cssText='font-weight:700;font-size:12.5px;margin-bottom:6px';"
 				+ "      jud.textContent = 'Transaksi penyusun angka ini'; trx.appendChild(jud);"
 				+ "      var t2 = document.createElement('table'); t2.style.cssText='width:100%;font-size:11.5px;border-collapse:collapse';"
-				+ "      var judulKolom = ['Waktu','No. Nota','Kasir','Pelanggan','Produk','Qty','Harga','Total'];"
+				+ "      var rincianPiutang = dim.indexOf('hanyaPiutang=true') >= 0;"
+				+ "      var judulKolom = ['Waktu','No. Nota','Kasir','Pelanggan','Produk'];"
+				+ "      if (rincianPiutang) { judulKolom.push('Jenis Piutang'); judulKolom.push('Piutang Faktur'); }"
+				+ "      judulKolom.push('Qty'); judulKolom.push('Harga'); judulKolom.push('Total Produk');"
+				+ "      var numerikMulai = rincianPiutang ? 6 : 5;"
 				+ "      var trh = document.createElement('tr');"
 				+ "      for (var k=0;k<judulKolom.length;k++){"
 				+ "        var th = document.createElement('th');"
-				+ "        th.style.cssText='text-align:'+(k>=5?'right':'left')+';padding:3px 5px;border-bottom:1px solid #e2e8f0;color:#475569';"
+				+ "        th.style.cssText='text-align:'+(k>=numerikMulai?'right':'left')+';padding:3px 5px;border-bottom:1px solid #e2e8f0;color:#475569';"
 				+ "        th.textContent = judulKolom[k]; trh.appendChild(th);"
 				+ "      }"
 				+ "      t2.appendChild(trh);"
 				+ "      var fmt = function(v){ return new Intl.NumberFormat('id-ID',{maximumFractionDigits:2}).format(Number(v)||0); };"
 				+ "      for (var j=0;j<rows.length;j++){"
 				+ "        var r2 = rows[j]; var tr2 = document.createElement('tr');"
-				+ "        var isi = [String(r2.waktu||'').split('.')[0], r2.nota||'', r2.kasir||'', r2.pelanggan||'',"
-				+ "                   r2.produk||'', fmt(r2.qty), fmt(r2.harga), fmt(r2.total)];"
+				+ "        var isi = [String(r2.waktu||'').split('.')[0], r2.nota||'', r2.kasir||'', r2.pelanggan||'', r2.produk||''];"
+				+ "        if (rincianPiutang) { isi.push(r2.jenisPiutang||''); isi.push(fmt(r2.nilaiPiutang)); }"
+				+ "        isi.push(fmt(r2.qty)); isi.push(fmt(r2.harga)); isi.push(fmt(r2.total));"
 				+ "        for (var c=0;c<isi.length;c++){"
 				+ "          var td = document.createElement('td');"
-				+ "          td.style.cssText='padding:3px 5px;border-bottom:1px solid #f1f5f9;text-align:'+(c>=5?'right':'left');"
+				+ "          td.style.cssText='padding:3px 5px;border-bottom:1px solid #f1f5f9;text-align:'+(c>=numerikMulai?'right':'left');"
 				+ "          td.textContent = isi[c]; tr2.appendChild(td);"
 				+ "        }"
 				+ "        t2.appendChild(tr2);"
@@ -767,7 +778,8 @@ public final class LaporanKantinZkPanel {
 				+ "      trx.appendChild(t2);"
 				+ "      var ket = document.createElement('div');"
 				+ "      ket.style.cssText='margin-top:6px;font-size:11px;font-style:italic;color:#64748b';"
-				+ "      ket.textContent = rows.length + ' baris transaksi · total ' + fmt(res.totalNilai)"
+				+ "      ket.textContent = rows.length + ' baris produk · total nilai produk ' + fmt(res.totalNilai)"
+				+ "        + (rincianPiutang ? ' · total piutang unik per faktur ' + fmt(res.totalPiutang) : '')"
 				+ "        + (res.dibatasi ? ' (dibatasi, masih ada baris lain)' : '');"
 				+ "      trx.appendChild(ket);"
 				+ "    }).catch(function(){ trx.style.color='#b91c1c'; trx.textContent = 'Rincian transaksi tidak dapat dimuat.'; });"
