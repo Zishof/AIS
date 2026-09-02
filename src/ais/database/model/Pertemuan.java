@@ -7831,6 +7831,14 @@ public class Pertemuan extends Tugas {
 		return server;
 	}
 
+	/**
+	 * Tautan grup/percakapan WhatsApp pertemuan ini.
+	 *
+	 * <p>Mengikuti pola pemungutan URL yang dijelaskan pada {@link #getZoomLink()}.</p>
+	 *
+	 * @return URL WhatsApp, atau {@code null} bila belum diisi
+	 * @see #getOnlineMenggunakan()
+	 */
 	@Column(columnDefinition = "text")
 	public String getWaLink() {
 //		if (waLink == null || waLink.trim().isEmpty()) {
@@ -7852,6 +7860,12 @@ public class Pertemuan extends Tugas {
 		return waLink == null || waLink.trim().isEmpty() ? null : waLink.trim();
 	}
 
+	/**
+	 * Setel tautan WhatsApp pertemuan ini.
+	 *
+	 * @param waLink URL atau teks undangan WhatsApp
+	 * @see #getWaLink()
+	 */
 	public void setWaLink(String waLink) {
 //		try {
 //			if (waLink != null && !waLink.trim().isEmpty()) {
@@ -7866,6 +7880,25 @@ public class Pertemuan extends Tugas {
 		this.waLink = waLink;
 	}
 
+	/**
+	 * Daftar id peserta yang DIKECUALIKAN dari pertemuan ini, sebagai teks berpembatas koma.
+	 *
+	 * <p>Formatnya sengaja dibuat {@code ",id1,id2,id3,"} — diawali DAN diakhiri koma — supaya
+	 * pemeriksaan keanggotaan cukup dilakukan dengan mencari substring {@code ",id,"} tanpa
+	 * risiko id "1" ikut cocok dengan id "12".</p>
+	 *
+	 * <p><b>Getter ini mengubah keadaan objek</b>: setiap kali dipanggil, nilainya dirakit ulang
+	 * dengan menambahkan koma pembungkus lalu meringkas koma ganda (dengan tiga kali
+	 * {@code replaceAll(",,", ",")}), dan hasilnya ditulis balik ke field. Beberapa bentuk yang
+	 * tersisa berupa koma saja ({@code ","}, {@code ",,"}, {@code ",,,"}) dinormalkan menjadi
+	 * string kosong.</p>
+	 *
+	 * <p>Tiga kali peringkasan cukup untuk data nyata, tetapi tidak menjamin habis untuk deretan
+	 * koma yang sangat panjang. Pola yang sama dipakai {@link #getMhsBolehUploadUlang()}.</p>
+	 *
+	 * @return daftar id berpembatas koma, atau string kosong; tidak pernah {@code null}
+	 * @see #getMhsBolehUploadUlang()
+	 */
 	@Column(columnDefinition = "text")
 	public String getMhsYgTidakIkut() {
 		mhsYgTidakIkut = (mhsYgTidakIkut == null || mhsYgTidakIkut.trim().equalsIgnoreCase(",") ? ""
@@ -7881,10 +7914,38 @@ public class Pertemuan extends Tugas {
 		return mhsYgTidakIkut == null ? "" : mhsYgTidakIkut.trim();
 	}
 
+	/**
+	 * Setel daftar id peserta yang dikecualikan dari pertemuan ini.
+	 *
+	 * @param mhsYgTidakIkut daftar id berpembatas koma
+	 * @see #getMhsYgTidakIkut()
+	 */
 	public void setMhsYgTidakIkut(String mhsYgTidakIkut) {
 		this.mhsYgTidakIkut = mhsYgTidakIkut;
 	}
 
+	/**
+	 * Daftar mahasiswa peserta pertemuan ini.
+	 *
+	 * <p>Sumber pesertanya berbeda-beda menurut jenis induk: peserta kelas kuliah, anggota
+	 * kelompok KKN/PKL, mahasiswa bimbingan/skripsi/KRS (satu orang saja), peserta yang mendaftar
+	 * lewat {@link FormulirKegiatan}, atau mahasiswa pemilik keanggotaan grup pertemuan.</p>
+	 *
+	 * <p>Seperti {@link #ambilDosen()}, seluruh asosiasi induk disegarkan lebih dulu lewat
+	 * getter-nya — komentar KE-20 di dalam method mencatat bahwa proxy {@code kelompokKkn} yang
+	 * basi pernah menyebabkan {@code LazyInitializationException}.</p>
+	 *
+	 * <p><b>Mahal:</b> setiap cabang menjalankan query. Untuk pertemuan sekolah, hasilnya SELALU
+	 * kosong — pakai {@link #ambilSiswa()}. Seluruh exception ditelan sehingga kegagalan hanya
+	 * tampak sebagai daftar yang lebih pendek atau kosong.</p>
+	 *
+	 * <p>Perhatikan bahwa daftar ini TIDAK memperhitungkan {@link #getMhsYgTidakIkut()};
+	 * penyaringan peserta yang dikecualikan adalah tanggung jawab pemanggil.</p>
+	 *
+	 * @return daftar mahasiswa peserta; kosong bila jenis induk tidak mengenal mahasiswa
+	 * @see #ambilSiswa()
+	 * @see #apakahMahasiswaPesertaDisetujuiLangsung(Mahasiswa)
+	 */
 	public List<Mahasiswa> ambilMahasiswa() {
 		List<Mahasiswa> mahasiswas = new ArrayList<Mahasiswa>();
 		try {
@@ -7938,6 +7999,24 @@ public class Pertemuan extends Tugas {
 	/**
 	 * Validasi peserta yang selalu membaca database untuk pertemuan perkuliahan.
 	 * Pertemuan non-perkuliahan tetap memakai sumber pesertanya masing-masing.
+	 *
+	 * <p>Apakah seorang mahasiswa memang peserta sah pertemuan ini? Jawabannya ditempuh lewat dua
+	 * jalur berbeda, dan perbedaan itu disengaja:</p>
+	 * <ul>
+	 *   <li><b>Pertemuan perkuliahan</b> — pertanyaan diteruskan ke
+	 *       {@link Perkuliahan#apakahMahasiswaPesertaDisetujuiLangsung(Mahasiswa)} yang SELALU
+	 *       membaca basis data. Ini penting karena peserta kelas kuliah dapat berubah (KRS
+	 *       disetujui/dibatalkan) dan jawaban dari cache berisiko usang — misalnya membiarkan
+	 *       mahasiswa yang sudah membatalkan KRS tetap dapat mengisi absensi.</li>
+	 *   <li><b>Jenis induk lain</b> — dicocokkan terhadap hasil {@link #ambilMahasiswa()}, yaitu
+	 *       sumber peserta masing-masing induk.</li>
+	 * </ul>
+	 *
+	 * <p>Mahasiswa {@code null} atau yang belum punya id selalu ditolak.</p>
+	 *
+	 * @param mahasiswa mahasiswa yang diperiksa
+	 * @return {@code true} bila mahasiswa itu peserta sah pertemuan ini
+	 * @see #ambilMahasiswa()
 	 */
 	public boolean apakahMahasiswaPesertaDisetujuiLangsung(Mahasiswa mahasiswa) {
 		if (mahasiswa == null || mahasiswa.getId() == null) {
@@ -7955,6 +8034,21 @@ public class Pertemuan extends Tugas {
 		return false;
 	}
 
+	/**
+	 * Daftar siswa peserta pertemuan ini.
+	 *
+	 * <p>Padanan sekolah dari {@link #ambilMahasiswa()}, jauh lebih sederhana: hanya pertemuan
+	 * dengan induk {@link ais.database.model.sekolah.JadwalPelajaran} yang punya siswa, dan
+	 * daftarnya diambil dari anggota kelas ({@code KelasSiswaPunyaSiswa}) pada jadwal itu.</p>
+	 *
+	 * <p>Membuka {@code Session} Hibernate native sendiri, tetapi TIDAK menutupnya — session
+	 * mengandalkan pengelolaan siklus hidup per-thread di tempat lain. Seluruh exception ditelan
+	 * sehingga kegagalan hanya tampak sebagai daftar kosong.</p>
+	 *
+	 * @return daftar siswa peserta; kosong bila pertemuan ini bukan pertemuan jadwal pelajaran
+	 * @see #ambilMahasiswa()
+	 * @see #ambilGuru()
+	 */
 	public List<Siswa> ambilSiswa() {
 		List<Siswa> siswas = new ArrayList<Siswa>();
 		try {
@@ -7972,6 +8066,24 @@ public class Pertemuan extends Tugas {
 		return siswas;
 	}
 
+	/**
+	 * Haruskah kehadiran pertemuan daring ini mengikuti jadwal yang ditetapkan?
+	 *
+	 * <p>Saklar penentu apakah batas waktu absensi diberlakukan. Bila {@code true},
+	 * {@link #apakahTerlewat()} dapat melaporkan pertemuan sudah lewat dan
+	 * {@link #bolehUbahAbsen(Tbmuser)} menolak pengubahan; bila {@code false}, absensi boleh
+	 * diisi kapan saja.</p>
+	 *
+	 * <p>Nilai bawaannya {@code true} (bukan {@code false}) — jadi pertemuan yang tidak pernah
+	 * diatur bersifat KETAT terhadap jadwal.</p>
+	 *
+	 * <p>Perhatikan ejaan nama propertinya: {@code Perkulaiahn}, salah ketik yang sudah terlanjur
+	 * dipakai di kolom basis data dan di seluruh pemanggil, sehingga tidak dapat diperbaiki tanpa
+	 * migrasi.</p>
+	 *
+	 * @return {@code true} bila kehadiran harus sesuai jadwal; tidak pernah {@code null}
+	 * @see #apakahTerlewat()
+	 */
 	public Boolean getPerkulaiahnOnlineHarusSesuaiJadwal() {
 //		if (perkuliahan != null && perkuliahan.getWaktuPerkuliahanOnlineBebas()) {
 //			perkulaiahnOnlineHarusSesuaiJadwal = true;
@@ -7979,10 +8091,46 @@ public class Pertemuan extends Tugas {
 		return perkulaiahnOnlineHarusSesuaiJadwal == null ? true : perkulaiahnOnlineHarusSesuaiJadwal;
 	}
 
+	/**
+	 * Setel saklar "kehadiran harus sesuai jadwal".
+	 *
+	 * @param perkulaiahnOnlineHarusSesuaiJadwal {@code true} untuk memberlakukan batas waktu;
+	 *                                           {@code null} berarti kembali ke bawaan {@code true}
+	 * @see #getPerkulaiahnOnlineHarusSesuaiJadwal()
+	 */
 	public void setPerkulaiahnOnlineHarusSesuaiJadwal(Boolean perkulaiahnOnlineHarusSesuaiJadwal) {
 		this.perkulaiahnOnlineHarusSesuaiJadwal = perkulaiahnOnlineHarusSesuaiJadwal;
 	}
 
+	/**
+	 * Nilai isian dinamis pertemuan ini dalam bentuk SIAP TAMPIL, sebagai satu string berformat
+	 * khusus.
+	 *
+	 * <p>Bersama {@link #getParameterTambahanInds()}, kolom ini menyimpan jawaban atas
+	 * parameter-parameter tambahan yang didefinisikan administrator (lihat
+	 * {@link #ambilKelompokParameterTambahanPertemuanTotal()}). Keduanya ditulis sekaligus oleh
+	 * {@link #populateParameterTambahan(java.util.List)}.</p>
+	 *
+	 * <p><b>Format:</b> baris dipisah baris baru ({@code '\n'}), kolom dipisah penanda tiga
+	 * karakter {@code "<=>"}. Urutan kolomnya:</p>
+	 * <pre>
+	 * 0 label       "namaKelompok-&gt;labelInputan" (siap ditampilkan)
+	 * 1 nilai
+	 * 2 url         tautan lampiran, bila parameternya mewajibkan lampiran
+	 * 3 nomorUrut
+	 * 4 idParameterTambahan
+	 * 5 idKelompokParameterTambahanPertemuan
+	 * 6 indexKe
+	 * 7 keterangan
+	 * </pre>
+	 *
+	 * <p>Untuk MEMBACA isinya, pakai {@link #ambilDataParameterTambahan()} — jangan mengurai
+	 * string ini sendiri.</p>
+	 *
+	 * @return string parameter tambahan; string kosong bila belum ada, tidak pernah {@code null}
+	 * @see #getParameterTambahanInds()
+	 * @see #ambilDataParameterTambahan()
+	 */
 	@Column(columnDefinition = "text")
 	public String getParameterTambahan() {
 		if (parameterTambahan == null) {
@@ -7992,10 +8140,43 @@ public class Pertemuan extends Tugas {
 		return parameterTambahan;
 	}
 
+	/**
+	 * Setel string parameter tambahan siap tampil.
+	 *
+	 * <p>Normalnya diisi oleh {@link #populateParameterTambahan(java.util.List)}, bukan langsung
+	 * oleh kode lain.</p>
+	 *
+	 * @param parameterTambahan string berformat {@code "<=>"} (lihat {@link #getParameterTambahan()})
+	 */
 	public void setParameterTambahan(String parameterTambahan) {
 		this.parameterTambahan = parameterTambahan;
 	}
 
+	/**
+	 * Urai {@link #getParameterTambahan()} menjadi daftar {@link CommonVO} yang siap ditampilkan,
+	 * terurut menurut nomor urut.
+	 *
+	 * <p>Pemetaan kolom ke properti {@link CommonVO}:</p>
+	 * <ul>
+	 *   <li>kolom 0 &rarr; {@code name} (label);</li>
+	 *   <li>kolom 1 &rarr; {@code name1} (nilai);</li>
+	 *   <li>kolom 2 &rarr; {@code name2} (url lampiran);</li>
+	 *   <li>kolom 3 &rarr; {@code nomorUrut}, gagal urai menjadi {@code 1};</li>
+	 *   <li>kolom 4 &rarr; {@code id}, gagal urai menjadi {@code 1}.</li>
+	 * </ul>
+	 *
+	 * <p>Baris tak lengkap tidak dilewati melainkan diisi nilai kosong, sehingga string parameter
+	 * yang kosong pun tetap menghasilkan SATU entri kosong (karena {@code "".split("\n")}
+	 * menghasilkan array berisi satu string kosong). Pemanggil perlu menyadari hal ini bila
+	 * memakai ukuran daftar sebagai penanda "ada isian atau tidak".</p>
+	 *
+	 * <p>Pengurutan akhir memakai {@link Comparable} milik {@link CommonVO}, yang berbasis
+	 * {@code nomorUrut}.</p>
+	 *
+	 * @return daftar isian dinamis terurut; tidak pernah {@code null}
+	 * @see #getParameterTambahan()
+	 * @see #populateParameterTambahan(java.util.List)
+	 */
 	public List<CommonVO> ambilDataParameterTambahan() {
 		List<CommonVO> commonVOs = new ArrayList<CommonVO>();
 		String[] splNama = getParameterTambahan().split("\n");
@@ -8030,6 +8211,61 @@ public class Pertemuan extends Tugas {
 		return commonVOs;
 	}
 
+	/**
+	 * Baca nilai isian dinamis dari baris-baris komponen ZK dan simpan ke
+	 * {@link #getParameterTambahan()} serta {@link #getParameterTambahanInds()}.
+	 *
+	 * <p>Method terpanjang di kelas ini, dan satu-satunya yang MENGAMBIL data langsung dari
+	 * komponen UI. Tiap {@link Row} diharapkan membawa atribut {@code "parameterTambahan"},
+	 * opsional {@code "parameterTambahan_2"}, {@code "kelompokParameterTambahanPertemuan"},
+	 * {@code "indexKe"}, dan {@code "keterangan"} (sebuah {@link Textbox}).</p>
+	 *
+	 * <h4>Tiga mode penyimpanan nilai</h4>
+	 * <p>Inilah bagian yang paling mudah salah dipahami. Satu parameter dapat menyimpan nilainya
+	 * sebagai teks biasa ATAU sebagai JSON objek berkunci, tergantung sifat kelompoknya:</p>
+	 * <ul>
+	 *   <li><b>Biasa</b> — nilai disimpan apa adanya, satu nilai untuk seluruh pertemuan.</li>
+	 *   <li><b>{@code untukDosenDanAdmin}</b> — nilai lama diurai sebagai JSON, lalu nilai baru
+	 *       dimasukkan dengan kunci <b>id PERTEMUAN</b>. Dengan begitu satu parameter dapat
+	 *       menyimpan jawaban berbeda per pertemuan.</li>
+	 *   <li><b>{@code diisiPerPeserta}</b> — sama, tetapi kuncinya <b>id MAHASISWA</b> (atau id
+	 *       SISWA bila penggunanya siswa), diambil dari {@code Common.getCurrentUser()}. Jadi
+	 *       jawaban tersimpan per peserta.</li>
+	 * </ul>
+	 * <p>Keterangan diperlakukan persis sama seperti nilai pada ketiga mode itu.</p>
+	 *
+	 * <h4>Dua string yang ditulis</h4>
+	 * <p>{@link #getParameterTambahan()} menyimpan bentuk SIAP TAMPIL (memakai nama kelompok dan
+	 * label inputan), sedangkan {@link #getParameterTambahanInds()} menyimpan bentuk BERBASIS ID
+	 * (memakai {@code "idKelompok->idParameter"}). Yang kedua itulah yang dibaca kembali di awal
+	 * method ini untuk mengambil nilai lama sebelum digabung.</p>
+	 *
+	 * <h4>Parameter bertingkat</h4>
+	 * <p>Bila baris membawa {@code parameterTambahan_2}, satu entri TAMBAHAN ditulis dengan kunci
+	 * bertingkat {@code "idKelompok->idParameter2->idParameter"}, untuk isian yang bergantung pada
+	 * jawaban isian lain.</p>
+	 *
+	 * <h4>Efek samping dan catatan</h4>
+	 * <ul>
+	 *   <li>Kedua kolom ditulis lewat setter di akhir method; tidak ada penyimpanan ke basis data
+	 *       — pemanggil yang harus menyimpan {@link Pertemuan}-nya.</li>
+	 *   <li>Untuk parameter yang mewajibkan lampiran, tautannya diambil dari
+	 *       {@code LampiranLain.ambil(getId(), jenis)}.</li>
+	 *   <li><b>Ada {@code System.out.println("ket => " ...)} yang tertinggal</b> dan dijalankan
+	 *       untuk SETIAP baris pada setiap penyimpanan — sisa penelusuran yang mengotori log
+	 *       produksi.</li>
+	 *   <li>Kegagalan per baris ditangkap {@code Common.tampilErrorJikaAdmin(e)}, sehingga hanya
+	 *       terlihat oleh admin; baris yang gagal tidak masuk hasil tanpa pemberitahuan ke
+	 *       pengguna biasa.</li>
+	 *   <li>{@code parameterRows} yang {@code null} atau kosong membuat method langsung berhenti —
+	 *       nilai lama TIDAK terhapus.</li>
+	 * </ul>
+	 *
+	 * @param parameterRows baris-baris komponen ZK yang memuat isian dinamis
+	 * @see #getParameterTambahan()
+	 * @see #getParameterTambahanInds()
+	 * @see #ambilKelompokParameterTambahanPertemuanTotal()
+	 */
 	public void populateParameterTambahan(List<Row> parameterRows) {
 		if (parameterRows == null || parameterRows.isEmpty()) {
 			return;
