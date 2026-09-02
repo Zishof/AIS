@@ -95,6 +95,35 @@ public final class NewUiRuteEksplisitRegistry {
                 new Tujuan("root/report", "format1/rab/laporan_realisasi_tiap_bulan",
                         "ZUL tanpa apply=; kandidat tunggal berawalan laporan_"));
 
+        // --- Menu SIRS yang URL-nya menyisipkan segmen sirs/ ---------------
+        // Empat menu SIRS menunjuk berkas yang tidak pernah ada: URL-nya sama
+        // dengan varian non-SIRS, hanya disisipi segmen "sirs/". Akibatnya
+        // keempatnya rusak di ZK lama maupun di New UI.
+        //
+        // Keempatnya sempat ditahan dengan alasan layar tujuannya "bercabang
+        // menurut id menu sehingga perilakunya belum terverifikasi". Alasan itu
+        // KELIRU, dan sudah diperiksa: GajiTabahanAction maupun
+        // KonfigurasiAction tidak membaca id menu sama sekali. Pada data menu
+        // pun dua menu non-SIRS -- "Variable Penggajian" (940223) dan "Variable
+        // Pembayaran Absensi" (3747) -- sudah menunjuk satu ZUL yang sama tanpa
+        // pembeda apa pun. Jadi memetakan menu SIRS ke halaman yang sama tidak
+        // menghadirkan perilaku baru; ia memulihkan menu yang selama ini mati.
+        //
+        // Perbaikan yang lebih tepat tetap membetulkan kolom url pada data
+        // menu. Pemetaan ini memulihkannya tanpa migrasi, dan uji mandiri
+        // memastikan halaman tujuannya benar-benar ada.
+        m.put("/pages/master/sirs/konfigurasi_detail.zul",
+                new Tujuan("root", "konfigurasi",
+                        "URL menyisipkan sirs/; KonfigurasiAction tidak membaca id menu"));
+        m.put("/pages/master/sirs/payroll/absensi_kehadiran_pegawai_harian.zul",
+                new Tujuan("root", "absens_kehadiran_pegawai_harian",
+                        "URL menyisipkan sirs/; kedua varian ZUL memakai "
+                        + "AbsensKehadiranPegawaiHarianAction yang sama"));
+        m.put("/pages/master/sirs/payroll/gaji_tambahan.zul",
+                new Tujuan("payroll", "gaji_tabahan",
+                        "URL menyisipkan sirs/; melayani menu 7771361223 dan 77713612213, "
+                        + "sebagaimana 940223 dan 3747 pun berbagi satu ZUL"));
+
         RUTE = Collections.unmodifiableMap(m);
     }
 

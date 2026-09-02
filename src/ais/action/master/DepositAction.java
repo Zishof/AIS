@@ -2163,7 +2163,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		row.appendChild(waktu = new MyDatebox(
 				formTopupSiswa && deposit.getWaktu() == null ? new Date() : deposit.getWaktu()));
 		waktu.setFormat(Common.dateFormat.get().toPattern());
-		waktu.setReadonly(true);
+		waktu.setReadonly(!formTopupSiswa);
 		waktu.setWidth("90%");
 
 		// Tanggal Expired/Kadaluarsa: OPSIONAL. Kosong = saldo tidak pernah hangus (perilaku lama,
@@ -2229,7 +2229,8 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 
 		Toolbar toolbar = new Toolbar();
 		toolbar.setParent(south);
-		MyToolbarbuttonConfig cancel = new MyToolbarbuttonConfig("Selesai", "/img/cancel.gif");
+		MyToolbarbuttonConfig cancel = new MyToolbarbuttonConfig(formTopupSiswa ? "Batal" : "Selesai",
+				"/img/cancel.gif");
 		cancel.setTooltiptext("Tutup");
 		cancel.addEventListener("onClick", new EventListener() {
 			@Override
@@ -2249,11 +2250,11 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 			public void onEvent(Event event) throws Exception {
 				if (onSave(event)) {
 					onSearchDefault(null);
+					addWindow.setVisible(false);
+					modeTopupSiswa = false;
 					if (formTopupSiswa) {
 						initMutasiTabungan("");
 					}
-					addWindow.setVisible(false);
-					modeTopupSiswa = false;
 				}
 			}
 		});

@@ -29,11 +29,13 @@ public class InitIndex {
 	/**
 	 * Menyiapkan ledger idempotensi callback Online BMT.
 	 *
-	 * <p>Nonce dan nomor transaksi diberi unique index terpisah. Nonce menahan replay
-	 * payload identik, sedangkan nomor transaksi menjamin retry PAYMENT dengan nonce
-	 * baru tetap merujuk hasil yang sama. Tabel ini tidak menyimpan secret atau data
-	 * kartu/nasabah. DDL idempoten sehingga aman dijalankan pada setiap startup dan
-	 * pada beberapa node aplikasi secara bersamaan.</p>
+	 * <p>Nonce memakai primary key pada tabel ringkas khusus untuk menahan replay
+	 * payload identik. Nomor transaksi memakai unique index pada ledger agar retry
+	 * PAYMENT dengan nonce baru tetap merujuk hasil yang sama. Index nonce yang
+	 * dahulu sempat dibuat pada ledger dihapus secara idempoten karena menduplikasi
+	 * primary key tabel nonce dan tidak melayani query bisnis apa pun. Tabel-tabel
+	 * ini tidak menyimpan secret atau data kartu/nasabah. DDL idempoten sehingga aman
+	 * dijalankan pada setiap startup dan pada beberapa node aplikasi bersamaan.</p>
 	 */
 	static void initOnlineBmtRequestGuard() {
 		String[] ddl = new String[] {
