@@ -772,13 +772,17 @@ public final class SalesInventoryFinanceHelper {
 		}
 
 		// -------------------------------------------------------------- saldo normal, bila disebut
+		// Nol berarti "tidak disebut", bukan sandi yang salah. Klien yang selalu mengirim
+		// debet_credit dengan bawaan 0 tetap dapat membuat akun -- saldo normalnya lalu diambil
+		// dari kelas akunnya. Menyimpan nol justru merusak: laporan keuangan MENGALIKAN saldo
+		// dengan sandi ini, sehingga akun bersandi nol selalu tampil nol.
 		String saldoNormal = null;
-		if (!request.isNull("debet_credit")) {
-			saldoNormal = SalesInventoryFinanceTenant
-					.saldoNormalDariSandi(request.optInt("debet_credit", 0));
+		int sandi = request.isNull("debet_credit") ? 0 : request.optInt("debet_credit", 0);
+		if (sandi != 0) {
+			saldoNormal = SalesInventoryFinanceTenant.saldoNormalDariSandi(sandi);
 			if (saldoNormal == null) {
 				tolak(hasil, "debet_credit tidak dikenali: pakai 1 untuk debet, -1 atau 2 untuk"
-						+ " kredit.");
+						+ " kredit, atau kosongkan supaya diambil dari kelas akunnya.");
 				return;
 			}
 		}

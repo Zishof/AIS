@@ -2052,6 +2052,12 @@ Sisi kredit menerima `-1` maupun `2` pada masukan. Keduanya benar-benar beredar 
 legacy yang sama: `Akun.CREDIT` bernilai `-1`, sedangkan `KodeAkunApiHelper` menulis `2`.
 Perselisihan itu milik schema bersama; di sini keduanya diterima dan disimpan sebagai satu huruf.
 
+`debet_credit = 0` berarti **"tidak disebut"**, bukan sandi yang salah, dan jatuh ke bawaan
+kelasnya. Jalur legacy menyimpan nol itu apa adanya; menirunya akan merusak, sebab laporan
+keuangan **mengalikan** saldo dengan sandi ini — akun bersandi nol selalu tampil nol. Menolaknya
+juga salah: klien yang selalu mengirim `debet_credit` dengan bawaan `0` akan kehilangan
+kemampuan membuat akun sama sekali. Nilai lain yang tidak dikenali tetap ditolak.
+
 ### `level` sengaja tidak diisi
 
 `level` adalah kedalaman pada pohon `induk_id` — turunan penuh, tanpa kekecualian, tidak seperti

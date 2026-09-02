@@ -276,15 +276,41 @@ public class OnlineBmt extends HttpServlet {
 		validateInvoiceChannel(invoice);
 		validateAmount(invoice, input.amount);
 		Session session = null;
+		Transaction tx = null;
 		try {
 			session = HibernateUtil.openSession();
+			lockTransaction(session, input.transactionNo, true);
+			tx = session.beginTransaction();
 			Ledger ledger = findLedger(session, input.transactionNo);
-			boolean paid = ledger != null && ledger.invoiceNo.equals(input.invoiceNo)
-					&& sameAmount(ledger.amount, input.amount) && "SUCCESS".equals(ledger.status)
-					&& VirtualAccountBank.isSudahTerbayar(invoice);
+			boolean pairMatches = ledger != null && ledger.invoiceNo.equals(input.invoiceNo)
+					&& sameAmount(ledger.amount, input.amount);
+			boolean invoicePaid = VirtualAccountBank.isSudahTerbayar(invoice);
+
+			/* Bila proses sebelumnya berhenti sesudah bukti pembayaran tersimpan tetapi
+			 * sebelum ledger SUCCESS, CHECK_STATUS harus dapat menyelesaikan rekonsiliasi.
+			 * Hanya PROCESSING dengan pasangan transaksi-invoice-nominal identik yang
+			 * boleh dipulihkan; FAILED tetap memerlukan audit/retry PAYMENT kanonik. */
+			if (pairMatches && invoicePaid && "PROCESSING".equals(ledger.status)) {
+				updateLedger(session, input.transactionNo, "SUCCESS", "00",
+						"Transaksi Berhasil (dipulihkan oleh pemeriksaan status)");
+				ledger = new Ledger(ledger.invoiceNo, ledger.amount, "SUCCESS");
+			}
+			boolean paid = pairMatches && invoicePaid && "SUCCESS".equals(ledger.status);
+			tx.commit();
 			return transactionResult(paid ? "00" : "01",
 					paid ? "Tagihan Sudah Terbayar" : "Pembayaran belum terkonfirmasi");
+		} catch (Exception e) {
+			if (tx != null && tx.isActive()) {
+				try { tx.rollback(); } catch (Exception rollback) {
+					ErrorAuditUtil.record(rollback, "OnlineBmt.checkStatus.rollback");
+				}
+			}
+			throw e;
 		} finally {
+			if (session != null) {
+				try { lockTransaction(session, input.transactionNo, false); }
+				catch (Exception unlock) { ErrorAuditUtil.record(unlock, "OnlineBmt.checkStatus.unlock"); }
+			}
 			HibernateUtil.closeSessionQuietly(session);
 		}
 	}

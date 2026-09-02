@@ -205,6 +205,37 @@ public final class NewUiIkutPerkuliahanController {
         j.put("baris", baris);
         j.put("total", baris.length());
         j.put("semester", semester);
+        // Tahun ajaran semester ini. Tanpa ini alur "tambah" tidak dapat
+        // dipakai sama sekali: `lookup` mewajibkan tahunAjaran, sedangkan tidak
+        // ada satu pun aksi lain yang pernah memberitahukannya kepada klien.
+        // Diturunkan dengan cara yang sama seperti layar lama, yaitu dari baris
+        // pertama generateSemestersForGrid untuk semester tersebut.
+        j.put("tahunAjaran", tahunAjaran(mahasiswa, semester, semesterPendek));
+    }
+
+    /**
+     * Tahun ajaran sebuah semester bagi mahasiswa ini.
+     *
+     * <p>Memakai sumber yang sama dengan layar lama daripada menyusunnya dari
+     * tahun berjalan: tahun ajaran seorang mahasiswa bergantung pada angkatan
+     * dan riwayat statusnya, sehingga menghitungnya sendiri akan meleset satu
+     * periode bagi mahasiswa yang pernah cuti.</p>
+     *
+     * @return tahun ajaran, atau string kosong bila tidak dapat ditentukan
+     */
+    static String tahunAjaran(Mahasiswa mahasiswa, int semester, Integer semesterPendek) {
+        try {
+            List<String[]> datas = Common.generateSemestersForGrid(
+                    mahasiswa, semester, semester, semesterPendek);
+            for (int i = 0; datas != null && i < datas.size(); i++) {
+                String[] data = datas.get(i);
+                if (data != null && data.length > 0 && data[0] != null
+                        && data[0].trim().length() > 0) {
+                    return data[0];
+                }
+            }
+        } catch (Exception diabaikan) { }
+        return "";
     }
 
     private static JSONObject barisDetail(Mahasiswa mahasiswa, Long id) throws JSONException {

@@ -177,6 +177,9 @@ final class SalesInventoryFinanceTenant {
 	 * kolom legacy yang sama: {@code Akun.CREDIT} bernilai {@code -1}, sedangkan
 	 * {@code KodeAkunApiHelper} menulis {@code 2}. Perselisihan itu milik schema bersama;
 	 * di sini keduanya diterima pada masukan dan disimpan sebagai satu huruf.</p>
+	 *
+	 * <p>Pemanggilnya menyaring {@code 0} lebih dulu: nol berarti "tidak disebut", bukan sandi
+	 * yang salah.</p>
 	 */
 	static String saldoNormalDariSandi(int sandi) {
 		if (sandi == 1) {
