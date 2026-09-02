@@ -317,7 +317,7 @@ public class AmbilDataMahasiswaForDosenPAHelper {
 				nama.setValue("");
 				dariNim.setValue("");
 				sampaiNim.setValue("");
-				tahunangkatan.setValue(null);
+				tahunangkatan.setValue((java.math.BigDecimal) null);
 				searchkelas.setAttribute("kelas", null);
 				searchkelas.setValue("");
 				if (searchfakultas.getItemCount() > 0) searchfakultas.setSelectedIndex(0);
