@@ -73,3 +73,63 @@ Karena itu langkah ini belum dipasang sebagai gerbang seperti tiga alat sebelumn
 berguna adalah **menyaring ragam galatnya**: "cannot find symbol: method/class" menandakan
 rujukan yang basi, sedangkan "cannot find symbol: variable" hampir selalu berarti berkasnya
 sebuah potongan.
+
+## 4. Sapuan penuh: 10.374 berkas, dua halaman rusak
+
+Seluruh hasil terjemahan dikompilasi sekaligus terhadap pohon kelas proyek. Menariknya,
+menyusun **semuanya dalam satu jalan** menghilangkan hampir seluruh derau potongan JSP —
+javac melihat berkas-berkas itu bersamaan, jadi 59 galat `variable vm` pada uji 300 berkas
+tinggal nol. Yang tersisa hanya lima galat, dari dua berkas.
+
+### `karir/setelah_login.jsp:8` — escape petik ganda salah tulis
+
+```java
+.replace("\\"", "&quot;")
+```
+
+Itu string berisi backslash, lalu petik ganda menggantung: empat galat sintaks beruntun
+dari satu salah ketik. Maksudnya jelas `.replace("\"", "&quot;")`.
+
+### `presensi/_service_presensi_harian.jsp:161` — lambda pada kanal yang mengompilasi Java 1.6
+
+```java
+java.util.function.Function<Double, String> formatDurasi = (Double hours) -> { ... };
+```
+
+Tomcat mengompilasi JSP pada `compilerSourceVM` **bawaan 1.6**, dan setelan itu tidak
+di-override di mana pun — tidak di `WEB-INF/web.xml`, tidak di `conf/web.xml` Tomcat
+(hanya disebut di blok komentar). Lambda karenanya ditolak.
+
+Diubah menjadi kelas anonim yang setara. Semua pemanggil `.apply(...)` tidak tersentuh,
+dan hasilnya selaras dengan basis kode yang memang dikompilasi pada `-source 1.7`.
+Alternatifnya menyetel `compilerSourceVM=1.8`, tetapi itu mengubah konfigurasi penyebaran
+seluruh aplikasi demi satu halaman.
+
+Keduanya di r83174, diverifikasi: terjemahan 0 galat, kompilasi scriptlet 0 galat,
+**3 kelas dihasilkan**.
+
+## 5. Yang membuat temuan ini mudah terlewat
+
+Ketiga halaman yang diperbaiki hari ini — `load_ringkasan`, `setelah_login`,
+`_service_presensi_harian` — tidak akan pernah muncul di pemeriksaan mana pun yang ada
+sebelumnya:
+
+| Pemeriksaan | Menangkapnya? |
+|---|---|
+| kompilasi `.java` (doc 81, 82) | tidak — JSP bukan `.java` |
+| terjemahan JSP (doc 83) | tidak — sintaks JSP-nya sah, yang salah Java di dalamnya |
+| penyapu commit | tidak — tidak memeriksa apa pun |
+| pemakaian sehari-hari | hanya bila ada yang kebetulan membuka halaman itu |
+
+Tiga halaman rusak, dan satu-satunya cara menemukannya adalah membuka halamannya satu per
+satu — atau melakukan apa yang dilakukan Tomcat, lebih awal.
+
+## 6. Batas yang jujur
+
+Pemeriksaan ini memakai pohon kelas hasil kompilasi penuh terakhir. Bila pohon itu basi,
+hasilnya ikut basi: metode yang baru dihapus pagi ini tidak akan terdeteksi sampai pohon
+kelasnya dibangun ulang. Urutannya karena itu penting — kompilasi `.java` dulu, baru
+scriptlet JSP.
+
+Dan seperti doc 83: lolosnya kompilasi tidak berarti halamannya benar. Tidak ada satu pun
+halaman yang benar-benar dijalankan di sini.
