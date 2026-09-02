@@ -1,5 +1,115 @@
 # Progres Javadoc Menyeluruh
 
+## Batch "5 entity prestasi/beasiswa/pengajuan/kalender" — SELESAI 100% (2 Sep 2026, dikonsolidasi orkestrator)
+
+Semua 5 file TUNTAS 100% method, dikompilasi, dikommit, di-mirror ke `java/`:
+- `PrestasiMahasiswa.java` — 73/73. 457→1306 baris. r83225/83226. SQL
+  injection tingkat-dua berisiko RENDAH ditemukan di
+  `DashboardRekapPrestasiMahasiswa.java` (butuh akses tulis data master
+  dulu) — TIDAK dieskalasi terpisah (severity di bawah ambang task baru).
+- `Beasiswa.java` — 56/56. 354→1136 baris. r83229. Nama field `bolehGanda`
+  maknanya TERBALIK (true = tidak boleh ganda). Kemungkinan bug arah
+  perbandingan syarat penghasilan ortu (kandidat &gt;batas malah lolos).
+- `PengajuanMahasiswa.java` — 60/60. 499→1340 baris. r83227. Entity GENERIK
+  lintas-jenis (bukan spesifik beasiswa). Pola "flag `aktif` satu-arah"
+  dikonfirmasi berulang di ≥5 class sejenis (`KasKecil`/`KasBesar`/
+  `DanaTalangan`/`PenggantianKasKecil`/`DaftarPengajuanTransfer` — kandidat
+  leverage utk sesi mendatang, semua kemungkinan share pola sama).
+- `KalenderAkademik.java` — 53/53. 379→1258 baris. r83228. Bug crash:
+  `getHari()` index array pakai `Calendar.WEEK_OF_MONTH` bukan
+  `DAY_OF_WEEK` → `ArrayIndexOutOfBoundsException` bisa terjadi. Melengkapi
+  pemahaman 2 jalur gerbang waktu `Konfigurasi` (relasi langsung +
+  `KonfigurasiKalenderAkademikProcessor`).
+- `TunggakanMahasiswaDetail.java` — 43/43. 286→912 baris. r83221/83224.
+  BUKAN bagian rantai transaksi billing (snapshot pelaporan terpisah,
+  fotokopi `DetailBiaya`). Bug logika lucu: `compareTo()` panggil `.trim()`
+  SEBELUM cek null-nya sendiri → NPE yang harusnya dicegah malah terpicu.
+
+**Total akumulasi 11 sesi kerja**: 228 (sesi 1-10) + 5 = **233 file** dari
+7.401 (~3,1%). 3 task eskalasi aktif tetap: `task_15f5001e`, `task_b0a90191`,
+`task_78a5b1ab`.
+
+## `ais/database/model/KalenderAkademik.java` — SELESAI 100% (2 Sep 2026)
+
+Entity **kalender akademik** (tabel `public.kalender_akademik`, `@Audited`,
+`dynamicInsert/dynamicUpdate`). **53/53 anggota** terdokumentasi (100%),
+379 → 1258 baris. Revisi **r83228**, mirror `java/` verifikasi `cmp` identik.
+Hanya Javadoc/komentar; nol perubahan logika (dibuktikan dengan membandingkan
+sumber tanpa komentar/spasi — satu-satunya beda adalah pemecahan baris
+deklarasi `tanggal_dirubah` dari baris `onUpdate()`, murni tata letak).
+
+**Peran ganda entity (yang kedua sering terlewat):** (1) kalender informatif
+untuk grid/dasbor/laporan, dan (2) **gerbang waktu untuk `Konfigurasi`**. Ada
+DUA jalur gerbang yang keduanya masih hidup:
+- **Jalur A** — relasi langsung `Konfigurasi.kalenderAkademik` (`@ManyToOne`).
+  Langkah 3 `Konfigurasi.getNilai()` **menimpa** nilai jadi `AKTIF`/`TIDAK_AKTIF`
+  murni dari rentang tanggal, lalu menyalin `tahunAjaran` → `tahunAkademik` dan
+  `ganjilGenap` → `info1`. Kolom `nilai` jadi tak relevan begitu kalender ditaut.
+- **Jalur B** — tabel penghubung `KonfigurasiKalenderAkademik` +
+  `KonfigurasiManager.fetchKonfigurasiKalender` (dibungkus
+  `Common.checkKonfigurasiDenganKalenderAkademik[Aktif]`), dipakai `KrsHelper`,
+  `KrsPaketHelper`, `KrsNonPaketHelper`, `KrsKurikulumHelper`, `AngketUtil`,
+  `ChecklistPenilaianDosenOlehMhsAction`/`GuruOlehMhsAction`. Plus penjadwal
+  latar `KonfigurasiKalenderAkademikProcessor` (`TimerTask`).
+
+Semantik ruang lingkup: **`NULL` = "berlaku untuk semua"** (UI: "Semua"). Dua
+mode saling eksklusif: fakultas/jurusan/jenjang/program (PT) vs yayasan/sekolah.
+
+**Verifikasi pola "getter yang menulis balik" — 8 getter, mayoritas bukan getter
+polos:** `getTanggalMulai`, `getTanggalSelesai` (isi hari ini bila `null`),
+`getTahunAjaran`, `getFakultas`, `getJenjang`, `getHari`, `getStatus`,
+`getWarna`, `getJumlahHari`. Tidak ada getter yang membuka/menutup sesi
+Hibernate sendiri di kelas ini — penutupan sesi tersembunyi ada di
+`GeneralValueObject.check()` (tahap 3 reload), yang dipanggil 5 getter relasi
+(`jenisKegiatan`, `jurusan`, `fakultas`, `jenjang`, `yayasan`, `sekolah`).
+Getter yang **tidak** menulis balik (pengecualian menarik): `getGanjilGenap`,
+`getProgram`, `getMasukDiSmt`, `getAktif` — normalisasi/default baca-saja.
+
+**Temuan (dicatat, TIDAK diperbaiki):**
+1. **`getHari()` salah tulis konstanta** — mengindeks `Common.haris` (larik nama
+   HARI) dengan `Calendar.WEEK_OF_MONTH`, bukan `DAY_OF_WEEK`. Nilainya selalu
+   salah, `"Sabtu"` **tak pernah** bisa muncul (WEEK_OF_MONTH maks 6 → indeks 5),
+   dan bila `WEEK_OF_MONTH == 0` indeksnya `-1` →
+   **`ArrayIndexOutOfBoundsException`**. `DasbordKalenderAkademik` membungkus
+   pembacaan turunan dengan `try/catch`, pemanggil lain tidak.
+2. **Penyempitan ruang lingkup diam-diam** — `getFakultas()` dan `getJenjang()`
+   menimpa nilai tersimpan dengan turunan dari `getJurusan()`. Baris ber-lingkup
+   "Semua fakultas"/"Semua jenjang" berubah jadi spesifik **hanya dengan
+   dibaca**, lalu ikut ter-`UPDATE` pada `flush` berikutnya — padahal query
+   gerbang menyaring `fakultas IS NULL OR = ?` / `jenjang IS NULL OR = ?`.
+   Pola sekeluarga dengan `JenjangProgramStudi.getNama()` (sesi batch 5 entity).
+3. **`getTahunAjaran()` mematikan opsi "Semua tahun ajaran"** — mengisi
+   `Common.getCurrentTahunAkademik()` ke baris yang kosong dan menulisnya balik.
+   Akibat lanjutan: cabang `"Semua"` di `KalenderAkademikAction` (uji
+   `getTahunAjaran()` kosong) praktis **dead code**.
+4. **Empat properti turunan ternyata PERSISTEN** — `hari`, `status`, `warna`,
+   `jumlahHari` tidak diberi `@Transient`; dengan property-access +
+   `hbm2ddl.auto=update`, kolomnya nyata dan ikut diaudit Envers. Kolom `warna`
+   benar-benar menyimpan teks CSS `"background-color: rgba(252, 214, 202,0.4)"`.
+   Nilai tersimpan di keempat kolom itu hanyalah sisa render terakhir.
+5. **Centang "Aktif" tidak menggerbang apa pun** — `getAktif()` hanya dibaca
+   satu tempat (checkbox grid `KalenderAkademikAction:457`); tidak ada
+   `Restrictions` atas kolom ini di `KonfigurasiManager`, dan
+   `Konfigurasi.getNilai()` pun tak melihatnya. **Melepas centang tidak
+   menonaktifkan kalender** — satu-satunya cara adalah mengubah tanggal atau
+   memutus tautan konfigurasi.
+6. **Tiga implementasi "hari ini di dalam rentang"** dengan perlakuan batas hari
+   berbeda: `getStatus()`/`getWarna()` (geser −1 hari pada dua acuan sekaligus,
+   efektif inklusif), `Konfigurasi.getNilai()` (banding string `dateFormat1`),
+   `KonfigurasiManager` (awal/akhir hari di SQL). Sumber ketidaksinkronan label
+   layar vs perilaku fitur di sekitar tengah malam.
+7. Kolom salah eja `descripsi_kegiatan_akademik`; `toString()` membaca **field**
+   langsung (bukan getter) sehingga bisa `"null_null"` dan tidak layak tampil;
+   `ditetapkanOleh` kolomnya `nullable = false` tetapi UI tidak mewajibkannya;
+   `getProgram()` merapikan spasi hanya saat dibaca sehingga nilai `" "`
+   tersimpan gagal cocok di query gerbang meski terlihat "Semua" di layar;
+   `getMasukDiSmt()` memakai `isEmpty()` (bukan `trim().isEmpty()`) sehingga
+   `" "` tidak dinormalkan. `setYayasan`/`setSekolah` membuang object tanpa ID.
+
+**Tidak ditemukan kerentanan keamanan** di berkas ini (tidak ada SQL mentah,
+tidak ada kredensial, tidak ada I/O). Temuan di atas bersifat korupsi/kehilangan
+data dan salah-gerbang fungsional, bukan keamanan.
+
 ## `ais/database/model/PrestasiMahasiswa.java` — SELESAI 100% (2 Sep 2026)
 
 Entity **prestasi/kejuaraan mahasiswa** (tabel `public.prestasi_mahasiswa`,
