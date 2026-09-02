@@ -1,5 +1,138 @@
 # Progres Javadoc Menyeluruh
 
+## `ais/database/model/JadwalUjianPMB.java` — SELESAI 100% (2 Sep 2026, sesi 14)
+
+Entity **sesi ujian PMB daring** (tabel `public.jadwal_ujian_pmb`, `@Audited`,
+`dynamicInsert/dynamicUpdate`). **40 method + konstruktor + 19 field**
+terdokumentasi (100%), 273 → 858 baris. Revisi **r83312**, mirror `java/`
+verifikasi `cmp` identik byte. Hanya Javadoc/komentar; nol perubahan logika
+(dibuktikan membandingkan sumber tanpa komentar/spasi terhadap HEAD — identik).
+
+**Koreksi penting terhadap asumsi awal**: file ini **BUKAN** turunan langsung
+`GeneralValueObject`. Silsilahnya `JadwalUjianPMB → VOPembelajaran → VoKunci →
+DataSop → GeneralValueObject`. Artinya ia anggota keluarga **unit pembelajaran**
+dan mewarisi cuma-cuma seluruh mesin pertemuan/e-learning/Google Classroom —
+itulah sebabnya "jadwal ujian PMB" bisa diperlakukan persis seperti `Perkuliahan`
+oleh layar e-learning, absensi, dan dasbor timeline. Deklarasi ulang field audit
+(`id`/`oleh`/`olehId`/`tanggal_dirubah`) tetap keharusan teknis seperti biasa.
+
+**Verifikasi rantai relasi yang diklaim `UjianPMB.java` (r83292)**: rantai
+`UjianPMB → JadwalUjianPMB → Pertemuan → PertemuanPunyaUjian → Ujian → BankSoal`
+**benar, tetapi hanya mata rantai pertamanya relasi Hibernate biasa**
+(`@ManyToOne` kolom `ujian_pmb`, `nullable = false`; tak ada `@OneToMany` balik).
+Mata rantai `JadwalUjianPMB → Pertemuan` **tidak ada sebagai properti sama
+sekali** — arahnya terbalik (`Pertemuan.jadwalUjianPMB`), dan penelusuran maju
+lewat `VOPembelajaran.ambilPertemuanList()` yang **membaca berkas JSON pendamping
+di disk** (`Common.getFileLocation(this, "pertemuan_" + id)`), bukan query
+langsung. Bila berkas itu hilang/tak sinkron, daftar pertemuan tampak kosong
+padahal barisnya ada di DB — di situlah `RecoveryPertemuanHelper` bermain.
+
+**Penentuan peserta** (tak ada relasi ke `BiodataCalonMahasiswa`, dihitung ulang
+tiap kali oleh `AbsensiHelper`/`HasilUjianMahasiswaHelper`), berurutan:
+1. `pesertaUjianHarusTelahUjian` → dari `HasilUjianMahasiswa` pertemuan itu;
+2. `ruanganYgIkut` tak kosong → penghuni `RuangPaketPMB` ruang terdaftar;
+3. selain itu → seluruh calon aktif pada gelombang induk, disaring `paket`.
+`pesertaUjianHarusPunyaNomorUjian` filter tambahan di semua cabang.
+
+**Kuirk (dicatat, tidak diperbaiki)**:
+- `getRuanganYgIkut()` getter berefek samping yang **menghapus data**: bila
+  `getBerlakuUntukSemuaRuangan()` true — **termasuk saat kolomnya masih `null`,
+  karena getter itu default `true`** — daftar ruang dikosongkan permanen di
+  field. Baris lama tanpa flag itu tak pernah bisa menahan daftar ruang sampai
+  kolomnya ditulis `false` eksplisit. Keluarga sama dengan getter destruktif
+  `UjianPMB.getTanggalUjian2..10` (r83292).
+- `getWaktuMulai()`/`getWaktuSampai()` mengisi field dengan waktu server bila
+  `null` (kolom `nullable = false`) — baris lama "menjadi hari ini" saat dibaca.
+- Cabang mati di `getRuanganYgIkut()`: `equals(",,")`/`equals(",,,")` tak
+  terjangkau setelah rangkaian `replaceAll(",,", ",")`; cek `null` pada `return`
+  juga mustahil.
+- `ambilJumlahDetailperkuliahanLangsung()` stub `return 0` → semua UI generik
+  (`TampilanELearningAction`, `CommonUiFactoryHelper`, `ElearningApiUtil`)
+  menampilkan **0 peserta** untuk kartu jadwal ujian PMB.
+- Properti `dikunci` **dorman**: hanya memenuhi kontrak `VoKunci`, tak satu pun
+  layar/helper PMB pernah menulis atau membacanya.
+- `getCourse()` tak pernah `null`/kosong (kembalikan `"{}"`) — itulah yang
+  menyelamatkan `ClassRoomUtil` dari NPE pada sinkronisasi pertama.
+- `serialVersionUID` identik dengan `Ujian` dan `UjianPMB` (salin-tempel).
+- **Injeksi tingkat-dua (risiko rendah, tidak dieskalasi)**: nilai
+  `getRuanganYgIkut()` disambung mentah ke
+  `Restrictions.sqlRestriction("ruang_pmb in (-1" + … + "-1)")` di
+  `AbsensiHelper`, `HasilUjianMahasiswaHelper`, `DashboardTimelinePertemuan`,
+  dan `JadwalUjianPMBAction`; getter hanya merapikan koma, **tidak memvalidasi
+  isinya numerik**. Butuh akses tulis DB lebih dulu.
+
+**Catatan alat**: kali ini `grep -cU` dan cross-check `perl`/`od -c` **sepakat**
+(273/273 sebelum, 858/858 sesudah) — tidak ada anomali CRLF pada file ini.
+
+## `ais/database/model/PembayaranMahasiswa.java` — SELESAI 100% (2 Sep 2026, sesi 14)
+
+**46 method + konstruktor + 19 field** terdokumentasi (100%), 288 → 790 baris.
+Revisi **r83311**, mirror `java/` verifikasi `cmp` identik. Hanya
+Javadoc/komentar; nol perubahan logika (sumber tanpa komentar/spasi identik
+persis dengan HEAD r73618). Lulus `javac 1.7 -implicit:none`.
+
+**TEMUAN STRUKTURAL BESAR**: file ini **BUKAN entity tabel tersendiri**.
+Anotasinya `@Table(schema = "public", name = "kegiatan")` — SAMA PERSIS dengan
+`Kegiatan.java`. Jadi `PembayaranMahasiswa` adalah **pemetaan JPA KEDUA yang
+ramping atas tabel tagihan `public.kegiatan`** (±19 kolom inti vs ±2.100 baris
+`Kegiatan.java`). Bukti copy-paste: `serialVersionUID` identik
+(`2413822577548439808L`), komentar generator & tanggal hbm2java sama, salah
+ketik properti `semster` ikut terbawa. Jawaban pertanyaan brief: ia **BAGIAN
+rantai billing utama** (`ItemBiaya→DetailBiaya→…`, `Kegiatan ≡
+PembayaranMahasiswa → DetailKegiatan/CicilanPembayaran`), **bukan** snapshot
+pelaporan seperti kasus sesi 12.
+
+**Pemakai tipe yang sesungguhnya cuma 3** (dari 99 berkas yang menyebut string
+"PembayaranMahasiswa", mayoritas hanya substring nama lain seperti
+`PembayaranMahasiswaAction`/`checkStatusPembayaranMahasiswa`):
+1. REST mobile `MahasiswaResource#lihatPembayaran` / `#lihatDetailPembayaran`
+   lewat `PembayaranUtil#checkPembayaranMahasiswa` (Criteria
+   `mahasiswa+jenisKegiatan+semster`, `HibernateUtil.closeSession()` dipanggil
+   SEBELUM objek dikembalikan → objek diterima *detached*; aman selama semua
+   relasi `@ManyToOne`).
+2. Dasbor CRUD generik v2 (`StudentPaymentWorkflowGenericCrudAdapter`, natural
+   key `kodeunik`, kolom urut `tanggal`) — dan **masuk daftar
+   `AUTO_CREATE_BLOCKED_CLASSES`** di `GenericCrudAutoDefinitionFactory`
+   sehingga baris baru tak bisa dibuat dari dasbor.
+3. Menu `NewUiModuleDashboardService` (dipasang 2×: "Pembayaran Mahasiswa" dan
+   "Pembayaran").
+
+**Kuirk/bug yang dicatat (tidak diperbaiki)**:
+- `getKodeunik()` = **getter berefek samping** (menulis ke field SENDIRI, bukan
+  ke objek lain) yang **meng-`null`-kan kolom `nullable=false`** bila
+  `mahasiswa`/`jenisKegiatan`/`semster` tak lengkap. Karena akses Hibernate
+  bertipe *property* (`@Id` di getter), Hibernate memanggilnya sendiri saat
+  dirty-check/INSERT/UPDATE → `null value in column kodeunik violates not-null
+  constraint`. **Fallback `Common.getGeneratedBarCode()` yang SUDAH diterapkan
+  & berkomentar panjang di `Kegiatan.getKodeunik()` tidak pernah disalin ke
+  sini** — perbaikan hanya menyentuh satu dari dua entity tabel yang sama.
+- **Format `kodeunik` beda untuk baris yang sama**: di sini
+  `""+idMhs+idJenis+smt` (tanpa awalan/pemisah) vs
+  `Kegiatan.generateKodeUnik()` `"MHS_<idMhs>-<idJenis>-<smt>"`. Risiko (a)
+  tabrakan pada kolom `unique` (mhs 1/jenis 23/smt 4 dan mhs 12/jenis 3/smt 4
+  sama-sama `"1234"`), (b) pencarian `Restrictions.eq("kodeunik", …)` di
+  `KegiatanHelper` (baris 840, 965) dan `VOMahasiswa` (744) meleset. Baru
+  menggigit pada operasi TULIS; jalur baca REST aman.
+- `getAmountTerhutang()` di sini membaca kolom mentah, sedangkan
+  `Kegiatan.getAmountTerhutang()` menghitung ulang `tagihan-dibayar` tiap
+  dibaca → nilai REST bisa basi.
+- `toString()` mengembalikan `refNumber` mentah → **dapat `null`** (melanggar
+  kontrak `Object.toString()`); dipakai sebagai label baris dasbor generik.
+- Kolom `calon_mahasiswa` tidak dipetakan → tagihan PMB terbaca dengan
+  `mahasiswa == null` tanpa cara tahu pemiliknya.
+- **Envers ganda**: dua entity `@Audited` menulis revisi untuk tabel audit yang
+  sama; riwayat satu baris bisa campuran dua himpunan kolom.
+- Tidak ada `equals`/`hashCode` → baris sama yang dibaca sebagai `Kegiatan` dan
+  sebagai `PembayaranMahasiswa` tak pernah `equals`.
+
+**Verifikasi pola berulang**: TIDAK ditemukan getter yang menulis ke objek LAIN,
+dan TIDAK ada getter yang menutup sesi Hibernate di dalam entity (penutupan sesi
+ada di pemanggil `PembayaranUtil`, bukan di entity). Satu-satunya getter
+berefek samping adalah `getKodeunik()` (menulis ke field sendiri).
+
+**Catatan alat**: `grep -cU $'\r$'` kali ini AKUR dengan cross-check
+`perl`/`od -c` (288/288 lalu 790/790 CRLF).
+
 ## Batch "5 entity beasiswa/prasyarat/pengaduan/PMB" — SELESAI 100% (2 Sep 2026, dikonsolidasi orkestrator)
 
 Semua 5 file TUNTAS 100% method, dikompilasi, dikommit, di-mirror ke `java/`:
