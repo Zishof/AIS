@@ -1188,6 +1188,30 @@ public class InitIndex {
 	}
 
 
+	/**
+	 * Index khusus pembacaan cicilan terbaru untuk kalkulasi status mahasiswa.
+	 * Query utamanya berbentuk {@code WHERE kegiatan = ? ORDER BY id ASC}, sehingga
+	 * satu index B-tree {@code (kegiatan, id)} menangani filter sekaligus pengurutan
+	 * tanpa sort tambahan.
+	 *
+	 * <p>{@code idx_cp_kegiatan (kegiatan)} adalah prefix penuh dari index kanonik
+	 * tersebut. Index lama baru dihapus setelah index kanonik dipastikan tersedia,
+	 * agar startup yang gagal membuat index baru tidak meninggalkan tabel tanpa
+	 * index untuk pencarian kegiatan.</p>
+	 */
+	private static void initIndexStatusPembayaranRealtime() {
+		String[] ddlBerurutan = new String[] {
+				"CREATE INDEX IF NOT EXISTS idx_cicilan_kegiatan_id_cover "
+						+ "ON public.cicilan_pembayaran (kegiatan, id)",
+				"DO $$ BEGIN "
+						+ "IF EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n "
+						+ "ON n.oid = c.relnamespace WHERE n.nspname = 'public' "
+						+ "AND c.relname = 'idx_cicilan_kegiatan_id_cover' AND c.relkind = 'i') THEN "
+						+ "DROP INDEX IF EXISTS public.idx_cp_kegiatan; "
+						+ "END IF; END $$" };
+		eksekusiKelompokDdlBerurutan(ddlBerurutan);
+	}
+
 	private static void initIndexDepositTabunganSuperFast() {
 		/*
 		 * INDEX KHUSUS DEPOSIT / TABUNGAN
@@ -2744,6 +2768,7 @@ public class InitIndex {
 		initIndexDashboardStatistikPmbSuperFast();
 		initIndexDepositTabunganSuperFast();
 		initIndexVirtualAccountPaymentSuperFast();
+		initIndexStatusPembayaranRealtime();
 		initIndexDaftarUlangPembayaranSuperFast();
 		initIndexAlurSopWorkflowSuperFast();
 		initIndexSekolahElearningSuperFast();
@@ -2897,10 +2922,7 @@ public class InitIndex {
 				"DROP INDEX IF EXISTS sekolah.idx_pemsis_siswa_tabungan_partial",
 				// REDUNDAN (prefix dari idx_pembayaran_siswa_tabungan_calon_tgl, WHERE sama) → DROP.
 				"DROP INDEX IF EXISTS sekolah.idx_pemsis_calon_tabungan_partial",
-				// REDUNDAN (prefix dari idx_cicilan_kegiatan_id_cover (kegiatan,id)) → DROP.
-				"DROP INDEX IF EXISTS idx_cp_kegiatan",
 				"CREATE INDEX IF NOT EXISTS idx_keg_ta_jk ON kegiatan (tahun_akademik, jenis_kegiatan)",
-				"CREATE INDEX IF NOT EXISTS idx_cicilan_kegiatan_id_cover ON cicilan_pembayaran (kegiatan, id)",
 				// REDUNDAN (prefix dari idx_keg_mhs_reinit_cover (mahasiswa,semster,jenis_kegiatan,id,aktif)) → DROP.
 				"DROP INDEX IF EXISTS idx_keg_mahasiswa",
 				// REDUNDAN (prefix dari idx_keg_calon_reinit_cover (calon_mahasiswa,semster,jenis_kegiatan,id,aktif)) → DROP.
