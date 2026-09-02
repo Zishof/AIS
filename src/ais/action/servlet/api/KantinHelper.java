@@ -4544,6 +4544,13 @@ public class KantinHelper {
 			if (!request.optBoolean("izin_harga_modal_tinggi", false)
 					&& hargaJualFinal > 0.0 && hargaModalFinal > hargaJualFinal * 10.0) {
 				hasil.put("status", "91");
+				// Kode stabil supaya klien dapat MENAWARKAN persetujuan yang dijanjikan
+				// kalimat di bawah. Sebelum ini pesannya menyuruh "simpan ulang dengan
+				// persetujuan harga modal tinggi", padahal izin_harga_modal_tinggi tidak
+				// pernah dikirim klien mana pun: jalan keluarnya tidak ada, dan barisnya
+				// terparkir GAGAL di outbox (lihat docs/pos/86). Klien mencocokkan KODE,
+				// bukan teks pesannya -- teks boleh berubah tanpa mematahkan apa pun.
+				hasil.put("kode", "HARGA_MODAL_TINGGI");
 				hasil.put("description", "Harga modal (" + Common.numberFormat.get().format(hargaModalFinal)
 						+ ") lebih dari 10 kali harga jual (" + Common.numberFormat.get().format(hargaJualFinal)
 						+ "). Nilai sebesar ini biasanya salah ketik dan membuat Laporan Laba Rugi keliru. "
