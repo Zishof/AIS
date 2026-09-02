@@ -4655,18 +4655,6 @@
       "search": "Laporan Tracer LaporanTracerWindow ais.action.report.format1.sirs.helper report format1 / sirs / helper"
     },
     {
-      "page": "format1/sirs/helper/pemeriksaan_report_helper",
-      "title": "Pemeriksaan Report Helper",
-      "sourceClass": "PemeriksaanReportHelper",
-      "sourcePackage": "ais.action.report.format1.sirs.helper",
-      "sourcePath": "src/ais/action/report/format1/sirs/helper/PemeriksaanReportHelper.java",
-      "pageType": "report",
-      "methodCount": 1,
-      "legacyRefCount": 0,
-      "subpackage": "format1 / sirs / helper",
-      "search": "Pemeriksaan Report Helper PemeriksaanReportHelper ais.action.report.format1.sirs.helper report format1 / sirs / helper"
-    },
-    {
       "page": "format1/sirs/inventory/laporan_harga_beli_item",
       "title": "Laporan Harga Beli Item",
       "sourceClass": "LaporanHargaBeliItem",

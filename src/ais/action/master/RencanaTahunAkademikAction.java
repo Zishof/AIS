@@ -1084,7 +1084,13 @@ public class RencanaTahunAkademikAction extends GenericAutowireComposer {
 			return score;
 		}
 		if (requestValue == null) {
-			return score;
+			/*
+			 * RTA yang mempunyai scope khusus tidak boleh dianggap cocok ketika konteks
+			 * pemanggil tidak mempunyai nilai pembanding. Perilaku lama meloloskannya dengan
+			 * skor nol; admin global kemudian dapat memperoleh RTA prodi/sekolah lain hanya
+			 * karena tanggal mulainya paling baru.
+			 */
+			return -1;
 		}
 
 		try {

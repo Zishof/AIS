@@ -144,7 +144,9 @@ public final class SemesterMahasiswaAnalisisHelper {
 		Set<String> periodeSudahDiperiksa = new HashSet<String>();
 		if (Common.rencanaTahunAkademiks == null) return null;
 
-		for (RencanaTahunAkademik item : Common.rencanaTahunAkademiks) {
+		List<RencanaTahunAkademik> snapshot = new ArrayList<RencanaTahunAkademik>(
+				Common.rencanaTahunAkademiks);
+		for (RencanaTahunAkademik item : snapshot) {
 			if (item == null || item.getNama() == null || item.getSemester() == null) continue;
 			String key = item.getNama() + "|" + item.getSemester();
 			if (!periodeSudahDiperiksa.add(key)) continue;
