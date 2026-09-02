@@ -88,6 +88,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [77-gerbang-oversell-dan-penjaga-field-yatim.md](77-gerbang-oversell-dan-penjaga-field-yatim.md) | Sakelar "Cegah Oversell" yang tak pernah dibaca jalur API + penjaga otomatis field yang dikirim server tanpa pembaca |
 | [78-penjaga-arah-sebaliknya.md](78-penjaga-arah-sebaliknya.md) | Penjaga kunci payload yang dikirim klien tetapi tidak pernah dibaca server (arah cacat dok. 45) |
 | [79-enam-belas-utang-ditelusuri.md](79-enam-belas-utang-ditelusuri.md) | Vonis 16 field yatim satu per satu: 5 peringatan rekonsiliasi kas yang tak sampai ke siapa pun, 11 sisanya tidak merugikan |
+| [80-satu-saluran-peringatan-pasca-transaksi.md](80-satu-saluran-peringatan-pasca-transaksi.md) | Enam peringatan lepas jadi satu saluran; biaya menambah peringatan berikutnya turun dari 9 titik jadi 1 |
 
 > Catatan penomoran: ada **dua** berkas bernomor 10 — `10-pengadaan.md` dan
 > `10-pesan-galat-dan-detail-error.md` — karena ditulis dua sesi kerja yang berjalan

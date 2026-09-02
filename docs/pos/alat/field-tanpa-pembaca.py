@@ -79,29 +79,16 @@ DIIZINKAN = {
 #
 # Tiga kelompok, dan hanya kelompok pertama yang benar-benar merugikan.
 UTANG = {
-    # --- KELOMPOK 1: peringatan pasca-transaksi yang TIDAK sampai ke siapa pun.
-    # Bentuknya sama persis dgn peringatanStok sebelum dok. 76: transaksi diterima,
-    # tetapi ada yang perlu direkonsiliasi dan kliennya diberi tahu -- lalu tidak ada
-    # yang membaca. Keempatnya lahir dari insiden Toko Al Bahjah yang dicatat di
-    # komentar kodenya sendiri.
-    'sesi_kas_sudah_tutup':
-        'transaksi masuk ke sesi kas yang SUDAH DITUTUP. Komentar kodenya menyatakan '
-        'niatnya sendiri: "dikembalikan ke klien supaya bagian keuangan punya jejaknya" '
-        '-- dan tidak ada klien yang membacanya. TEMUAN TERKUAT dari 16.',
-    'sesi_kas_asal':
-        'kode sesi kas asal transaksi terlambat; pendamping sesi_kas_sudah_tutup, '
-        'tanpa nilai ini jejaknya tidak dapat ditelusuri ke sesi mana pun.',
-    'sesi_kas_tidak_dikenal':
-        'kode sesi dari payload tidak dikenal server; transaksinya tetap diterima dan '
-        'diikat ke sesi yang sedang terbuka. Kasir tidak pernah tahu transaksinya '
-        'berpindah sesi (insiden 61 transaksi, 21-08-2026).',
-    'sesi_kas_direkonsiliasi':
-        'server menemukan sesi yang benar-benar terbuka pada waktu transaksi lalu '
-        'mengikat ulang ke sana. Perpindahan yang tidak pernah diberitahukan.',
-    'peringatanPengajuanLimit':
-        'penandaan "persetujuan limit sudah dipakai" GAGAL sesudah transaksi final. '
-        'Belum dibayar: jarang, dan sudah tercatat permanen di Error Log server lewat '
-        'ErrorAuditUtil berikut jejak tumpukannya.',
+    # --- KELOMPOK 1 sudah LUNAS (dok. 80).
+    # Kelimanya dahulu berupa field lepas yang tidak pernah dibaca kanal mana pun:
+    # sesi_kas_sudah_tutup, sesi_kas_asal, sesi_kas_tidak_dikenal,
+    # sesi_kas_direkonsiliasi, peringatanPengajuanLimit.
+    #
+    # Sekarang seluruhnya mengalir lewat SATU saluran `peringatanTransaksi` yang
+    # dibaca lima titik klien. Yang membuktikan lunasnya bukan pernyataan ini,
+    # melainkan pemeriksaan "utang yang sudah LUNAS tetapi masih terdaftar" pada
+    # alat ini sendiri -- ia menyebut kelimanya dan menolak hijau sampai daftar
+    # ini dibersihkan.
 
     # --- KELOMPOK 2: pendamping yang saudaranya MEMANG dibaca klien.
     # Diverifikasi satu per satu; klien memakai saudaranya, bukan nilai ini.

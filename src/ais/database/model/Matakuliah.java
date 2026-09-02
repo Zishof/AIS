@@ -1424,10 +1424,25 @@ public class Matakuliah extends GeneralValueObject {
 		return terdapatUts;
 	}
 
+	/**
+	 * Menyetel penanda penyelenggaraan UTS.
+	 *
+	 * @param terdapatUts {@code false} bila mata kuliah ini tanpa UTS; null dibaca sebagai
+	 *                    {@code true}
+	 */
 	public void setTerdapatUts(Boolean terdapatUts) {
 		this.terdapatUts = terdapatUts;
 	}
 
+	/**
+	 * Menyatakan apakah kelas dari mata kuliah ini menyelenggarakan UAS.
+	 *
+	 * <p>Kembaran {@link #getTerdapatUts()} dengan perilaku dan dampak yang persis sama,
+	 * termasuk normalisasi {@code null} menjadi {@code true} dan pengaruhnya pada perhitungan
+	 * tagihan biaya ujian.</p>
+	 *
+	 * @return {@code true} bila ada UAS; tidak pernah null
+	 */
 	@Column(name = "terdapat_uas")
 	public Boolean getTerdapatUas() {
 		if (terdapatUas == null) {
@@ -1436,10 +1451,26 @@ public class Matakuliah extends GeneralValueObject {
 		return terdapatUas;
 	}
 
+	/**
+	 * Menyetel penanda penyelenggaraan UAS.
+	 *
+	 * @param terdapatUas {@code false} bila mata kuliah ini tanpa UAS; null dibaca sebagai
+	 *                    {@code true}
+	 */
 	public void setTerdapatUas(Boolean terdapatUas) {
 		this.terdapatUas = terdapatUas;
 	}
 
+	/**
+	 * Mengembalikan cadangan/riwayat id Feeder selain {@link #getFeeder()} (kolom {@code text}).
+	 *
+	 * <p>Dipakai ketika satu mata kuliah pernah dikenal dengan lebih dari satu id di Feeder
+	 * PDDikti (mis. setelah penggabungan data atau pergantian kurikulum). Nilai {@code null}
+	 * dinormalisasi menjadi string kosong <b>pada field</b>, sehingga membaca getter ini pada
+	 * entity attached dapat memicu {@code UPDATE} ringan.</p>
+	 *
+	 * @return riwayat id Feeder; string kosong bila belum diisi, tidak pernah null
+	 */
 	@Column(columnDefinition = "text")
 	public String getFeeders() {
 		if (feeders == null) {
@@ -1448,28 +1479,73 @@ public class Matakuliah extends GeneralValueObject {
 		return feeders;
 	}
 
+	/**
+	 * Menyetel cadangan/riwayat id Feeder.
+	 *
+	 * @param feeders riwayat id Feeder; null akan dibaca sebagai string kosong
+	 */
 	public void setFeeders(String feeders) {
 		this.feeders = feeders;
 	}
 
+	/**
+	 * Mengembalikan deskripsi pembelajaran mata kuliah (teks panjang, kolom {@code text}).
+	 *
+	 * <p>Bagian dari berkas kurikulum/OBE; muncul di RPS, cetakan kurikulum, dan ekspor Feeder.
+	 * Berbeda dari kebanyakan getter di kelas ini, normalisasi di sini murni pada nilai kembali
+	 * ({@code null} menjadi string kosong, sisanya di-trim) — field tidak diubah, jadi bebas
+	 * efek samping.</p>
+	 *
+	 * @return deskripsi pembelajaran ter-trim; string kosong bila belum diisi, tidak pernah null
+	 */
 	@Column(columnDefinition = "text")
 	public String getDeskripsiPembelajaran() {
 		return deskripsiPembelajaran == null ? "" : deskripsiPembelajaran.trim();
 	}
 
+	/**
+	 * Menyetel deskripsi pembelajaran.
+	 *
+	 * @param deskripsiPembelajaran teks deskripsi; boleh null
+	 */
 	public void setDeskripsiPembelajaran(String deskripsiPembelajaran) {
 		this.deskripsiPembelajaran = deskripsiPembelajaran;
 	}
 
+	/**
+	 * Mengembalikan capaian pembelajaran tingkat prodi (teks panjang, kolom {@code text}).
+	 *
+	 * <p>Teks bebas, bukan daftar id — bedakan dari
+	 * {@link #getCapaianPembelajaranLulusan()} yang menyimpan CSV id. Bebas efek samping,
+	 * sama seperti {@link #getDeskripsiPembelajaran()}.</p>
+	 *
+	 * @return capaian pembelajaran prodi ter-trim; string kosong bila belum diisi
+	 */
 	@Column(columnDefinition = "text")
 	public String getCapaianPembelajaranProdi() {
 		return capaianPembelajaranProdi == null ? "" : capaianPembelajaranProdi.trim();
 	}
 
+	/**
+	 * Menyetel capaian pembelajaran tingkat prodi.
+	 *
+	 * @param capaianPembelajaranProdi teks capaian; boleh null
+	 */
 	public void setCapaianPembelajaranProdi(String capaianPembelajaranProdi) {
 		this.capaianPembelajaranProdi = capaianPembelajaranProdi;
 	}
 
+	/**
+	 * Menyatakan apakah definisi mata kuliah ini masih dipakai.
+	 *
+	 * <p>Penonaktifan adalah pengganti penghapusan: baris mata kuliah nyaris tidak pernah
+	 * dihapus karena masih dirujuk {@link Perkuliahan}, {@code Detailperkuliahan}, dan
+	 * transkrip lama. Nilai {@code null} dinormalisasi menjadi {@code true} pada field, jadi
+	 * baris lama otomatis aktif. Penegakan bendera ini ada di pemanggil (penyaring daftar
+	 * mata kuliah), bukan di kelas ini.</p>
+	 *
+	 * @return {@code true} bila masih aktif; tidak pernah null
+	 */
 	public Boolean getAktif() {
 		if (aktif == null) {
 			aktif = true;
@@ -1477,42 +1553,134 @@ public class Matakuliah extends GeneralValueObject {
 		return aktif;
 	}
 
+	/**
+	 * Menyetel status aktif definisi mata kuliah.
+	 *
+	 * @param aktif {@code false} untuk menonaktifkan; null akan dibaca sebagai {@code true}
+	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
 
+	/**
+	 * Menyatakan apakah mata kuliah ini dipecah menjadi modul-modul (sub mata kuliah).
+	 *
+	 * <p>Bila {@code true}, yang ditampilkan sebagai bobot pada layar kurikulum bukan
+	 * {@link #getSks()} melainkan {@link #getSksSubMk()} (lihat
+	 * {@code AmbilDataMatakuliahKurikulumHelper}). Normalisasi {@code null} hanya pada nilai
+	 * kembali — field tidak diubah, jadi bebas efek samping.</p>
+	 *
+	 * @return {@code true} bila berbentuk modul; tidak pernah null
+	 */
 	public Boolean getMerupakanModul() {
 		return merupakanModul == null ? false : merupakanModul;
 	}
 
+	/**
+	 * Menyetel penanda mata kuliah bermodul.
+	 *
+	 * @param merupakanModul {@code true} bila dipecah menjadi modul; boleh null
+	 */
 	public void setMerupakanModul(Boolean merupakanModul) {
 		this.merupakanModul = merupakanModul;
 	}
 
+	/**
+	 * Mengembalikan bobot SKS per sub-mata-kuliah untuk mata kuliah bermodul.
+	 *
+	 * <p>Bertipe {@code Double} (bukan {@code Integer} seperti {@link #getSks()}) karena bobot
+	 * modul kerap pecahan. Hanya bermakna bila {@link #getMerupakanModul()} bernilai
+	 * {@code true}; di luar itu tetap terbaca 0.0 dan diabaikan. Bebas efek samping.</p>
+	 *
+	 * @return bobot SKS sub mata kuliah; 0.0 bila belum diisi, tidak pernah null
+	 */
 	public Double getSksSubMk() {
 		return sksSubMk == null ? 0.0 : sksSubMk;
 	}
 
+	/**
+	 * Menyetel bobot SKS per sub-mata-kuliah.
+	 *
+	 * @param sksSubMk bobot SKS modul; null akan dibaca sebagai 0.0
+	 */
 	public void setSksSubMk(Double sksSubMk) {
 		this.sksSubMk = sksSubMk;
 	}
 
+	/**
+	 * Menyatakan apakah mata kuliah ini merupakan pra-perkuliahan (matrikulasi).
+	 *
+	 * <p>Bebas efek samping. <b>Jangan tertukar</b> dengan bendera bernama sama milik
+	 * {@link Perkuliahan}: yang dibaca modul penjadwalan, presensi, dan penilaian
+	 * ({@code PenjadwalanUtil}, {@code Detailperkuliahan}, {@code DetailperkuliahanHelper})
+	 * adalah {@code perkuliahan.getMerupakanPraPerkuliahan()}, yakni penanda pada kelasnya.
+	 * Bendera di kelas ini hanya dibaca layar master mata kuliah, dan tidak ada kode yang
+	 * menyalinnya otomatis ke {@code Perkuliahan} saat kelas dibuat — keduanya harus diisi
+	 * konsisten secara manual.</p>
+	 *
+	 * @return {@code true} bila mata kuliah pra-perkuliahan; tidak pernah null
+	 */
 	public Boolean getMerupakanPraPerkuliahan() {
 		return merupakanPraPerkuliahan == null ? false : merupakanPraPerkuliahan;
 	}
 
+	/**
+	 * Menyetel penanda pra-perkuliahan (matrikulasi).
+	 *
+	 * @param merupakanPraPerkuliahan {@code true} bila pra-perkuliahan; boleh null
+	 */
 	public void setMerupakanPraPerkuliahan(Boolean merupakanPraPerkuliahan) {
 		this.merupakanPraPerkuliahan = merupakanPraPerkuliahan;
 	}
 
+	/**
+	 * Menyatakan apakah mata kuliah ini berstatus perkuliahan umum (lintas prodi).
+	 *
+	 * <p>Bebas efek samping. Penelusuran pohon sumber hanya menemukan satu pemakai (layar
+	 * master mata kuliah), jadi saat ini bendera ini praktis hanya bersifat penanda — tidak
+	 * ada penyaringan atau perhitungan yang memakainya. Pembatasan pengambilan lintas prodi
+	 * yang benar-benar berlaku ada pada {@link #getBolehDiambilProdiLain()}.</p>
+	 *
+	 * @return {@code true} bila perkuliahan umum; tidak pernah null
+	 */
 	public Boolean getMerupakanPerkuliahanUmum() {
 		return merupakanPerkuliahanUmum == null ? false : merupakanPerkuliahanUmum;
 	}
 
+	/**
+	 * Menyetel penanda perkuliahan umum.
+	 *
+	 * @param merupakanPerkuliahanUmum {@code true} bila perkuliahan umum; boleh null
+	 */
 	public void setMerupakanPerkuliahanUmum(Boolean merupakanPerkuliahanUmum) {
 		this.merupakanPerkuliahanUmum = merupakanPerkuliahanUmum;
 	}
 
+	/**
+	 * Membaca isi <i>flag store</i> ekivalensi mata kuliah ini dari berkas JSON di luar
+	 * basis data.
+	 *
+	 * <p><b>Bentuk data.</b> Berkas disimpan dengan kunci {@code "ekivalen_<id>"} lewat
+	 * {@code Common.getFileLocation(this, key)} dan berisi satu {@code JSONObject} berupa peta
+	 * <code>{ "&lt;id MatakuliahEkivalen&gt;": "&lt;path berkas MatakuliahEkivalen&gt;" }</code>.
+	 * Entri yang nilainya string kosong berarti "sudah dihapus" (lihat
+	 * {@link #removeEkivalen(Serializable)}) — peta memang tidak pernah menyusut, hanya
+	 * dikosongkan nilainya.</p>
+	 *
+	 * <p><b>Kegagalan.</b> Berkas hilang, tidak terbaca, atau kosong sama-sama menghasilkan
+	 * {@code VOMahasiswa.dataJSON} (JSON kosong yang valid), sehingga pemanggil tidak perlu
+	 * menjaga null dan {@code new JSONObject(...)} tidak akan melempar exception. Exception
+	 * apa pun ditelan dan hanya dicatat ke audit.</p>
+	 *
+	 * <p><b>NPE pada entity baru.</b> {@code getId().toString()} dipanggil tanpa penjagaan dan
+	 * berada DI LUAR blok {@code try}, sehingga mata kuliah yang belum pernah tersimpan
+	 * ({@code id} masih null) membuat method ini melempar {@code NullPointerException} ke
+	 * pemanggil, bukan mengembalikan JSON kosong. Berlaku sama untuk
+	 * {@link #tulisLokasiEkivalen(String)}.</p>
+	 *
+	 * @return isi berkas JSON, atau JSON kosong bila tidak ada/gagal dibaca; tidak pernah null
+	 * @see #tulisLokasiEkivalen(String)
+	 */
 	public String ambilLokasiEkivalen() {
 		File file = Common.getFileLocation(this, "ekivalen_" + getId().toString());
 		try {
@@ -1524,6 +1692,22 @@ public class Matakuliah extends GeneralValueObject {
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Menimpa isi <i>flag store</i> ekivalensi mata kuliah ini dengan {@code data}.
+	 *
+	 * <p>Menulis ke berkas yang sama dengan yang dibaca {@link #ambilLokasiEkivalen()}
+	 * (kunci {@code "ekivalen_<id>"}). Isi lama <b>diganti seluruhnya</b>, bukan digabung;
+	 * pemanggil yang ingin menambah satu entri harus membaca dulu, memodifikasi, lalu menulis
+	 * ulang — persis yang dilakukan {@link #populateEkivalen(MatakuliahEkivalen)} dan
+	 * {@link #removeEkivalen(Serializable)}.</p>
+	 *
+	 * <p>Kegagalan penulisan ditelan (dicetak ke {@code stderr} dan dicatat ke audit), sehingga
+	 * pemanggil tidak pernah tahu bila peta gagal tersimpan; gejalanya baru muncul sebagai
+	 * ekivalensi yang "hilang" sampai {@link #reInitEkivalen()} dijalankan lagi.</p>
+	 *
+	 * @param data teks JSON yang akan ditulis; tidak divalidasi bentuknya
+	 * @see #ambilLokasiEkivalen()
+	 */
 	public void tulisLokasiEkivalen(String data) {
 		File file = Common.getFileLocation(this, "ekivalen_" + getId().toString());
 		try {
@@ -1534,6 +1718,44 @@ public class Matakuliah extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Membangun ulang <i>flag store</i> ekivalensi mata kuliah ini langsung dari basis data.
+	 *
+	 * <p><b>Alur.</b> Membuka {@code Session} Hibernate native, menjalankan satu {@code Criteria}
+	 * atas {@link MatakuliahEkivalen} dengan dua syarat: (1) {@code aktif} bernilai {@code true}
+	 * atau masih {@code null} (baris lama yang belum pernah diisi ikut dianggap aktif), dan
+	 * (2) {@code this} muncul di <b>salah satu dari dua sisi</b> relasi —
+	 * {@code matakuliah == this OR matakuliahEkivalen == this}. Untuk setiap baris hasil,
+	 * {@code getOrCreateFileLocation()} memastikan berkas JSON baris itu benar-benar ada
+	 * (menulisnya bila belum), lalu pasangan <code>id &rarr; path</code> dikumpulkan dan
+	 * ditulis sekaligus lewat {@link #tulisLokasiEkivalen(String)} — menimpa peta lama, jadi
+	 * entri basi ikut tersapu.</p>
+	 *
+	 * <p><b>Simetri yang disengaja.</b> Pencarian dua arah itulah yang membuat dua mata kuliah
+	 * berpasangan menghasilkan "matakuliah kanonik" yang sama pada
+	 * {@code EkivalenNilaiUtil.saringNilaiTertinggi}, sehingga nilai ganda bisa dikelompokkan.
+	 * Perhatikan {@link #ambilEkivalen(String)} justru <b>tidak</b> simetris: ia hanya
+	 * meresolusi baris yang {@code this}-nya berada di sisi sumber. Jadi peta ini sengaja
+	 * memuat lebih banyak entri daripada yang nanti dipakai.</p>
+	 *
+	 * <p><b>Efek samping berat — menutup sesi pemanggil.</b> Method ini menutup {@code Session}
+	 * yang dibukanya ({@code disconnect} + {@code close}) DAN memanggil
+	 * {@link HibernateUtil#closeSession()} di luar blok {@code try}, yang menutup sesi
+	 * thread-local. Karena {@code HibernateUtil.currentNativeSession()} umumnya mengembalikan
+	 * sesi thread-local yang sedang dipakai pemanggil, memanggil method ini di tengah sebuah
+	 * transaksi akan <b>membuat entity lain yang masih lazy menjadi tidak bisa di-inisialisasi
+	 * lagi</b>. Pola yang sama muncul di {@link #ambilEkivalen(String)}. Panggil di awal atau
+	 * akhir satu unit kerja, jangan di tengah.</p>
+	 *
+	 * <p><b>Dipanggil dari.</b> {@code MatakuliahEkivalenAction} sesudah menyimpan/mengubah
+	 * pemetaan (pada KEDUA sisi), dan {@code CommonHelperClass.getMatakuliahApakahEkivalen(...,
+	 * refresh = true)}. Biaya satu query + N penulisan berkas, jadi jangan dipanggil di dalam
+	 * perulangan per mahasiswa.</p>
+	 *
+	 * @return daftar {@link MatakuliahEkivalen} yang menyangkut mata kuliah ini (dua arah);
+	 *         daftar kosong bila tidak ada atau bila terjadi kegagalan
+	 * @see #ambilEkivalen(String)
+	 */
 	public List<MatakuliahEkivalen> reInitEkivalen() {
 		List<MatakuliahEkivalen> matakuliahEkivalens = new ArrayList<MatakuliahEkivalen>();
 		try {
@@ -1562,6 +1784,52 @@ public class Matakuliah extends GeneralValueObject {
 		return matakuliahEkivalens;
 	}
 
+	/**
+	 * Mengembalikan daftar pemetaan ekivalensi yang berlaku bagi mata kuliah ini, dibaca dari
+	 * <i>flag store</i> agar tidak perlu menembak basis data.
+	 *
+	 * <p><b>Alur.</b> Peta JSON dibaca lewat {@link #ambilLokasiEkivalen()}, lalu setiap
+	 * kuncinya (id {@link MatakuliahEkivalen}) diresolusi dari cache entity
+	 * ({@code DataUtil.ambilData}). Id yang tidak ada di cache dikumpulkan dulu, kemudian
+	 * diambil sekaligus dengan satu query {@code Restrictions.in("id", ...)} dan dimasukkan
+	 * kembali ke cache lewat {@code masukkanData} — jadi query hanya terjadi pada cache-miss,
+	 * dan hanya satu kali untuk semua id yang meleset.</p>
+	 *
+	 * <p><b>Penyaringan arah (penting).</b> Berbeda dari {@link #reInitEkivalen()} yang
+	 * mengumpulkan baris dua arah, di sini hanya baris yang {@code this}-nya berada di sisi
+	 * <i>sumber</i> ({@code matakuliahEkivalen.getMatakuliah().getId().equals(getId())}),
+	 * bertarget tidak null, dan {@code aktif} yang diterima. Tanpa penyaringan itu, mata kuliah
+	 * yang menjadi TARGET satu pemetaan sekaligus SUMBER pemetaan lain bisa salah teresolusi ke
+	 * dirinya sendiri (lihat komentar di dalam kode). Penyaringan yang sama diulang persis pada
+	 * cabang cache-miss.</p>
+	 *
+	 * <p><b>Ekivalensi khusus mahasiswa.</b> Bila {@code nim} diisi DAN baris pemetaan punya
+	 * {@code khususUntukNim} yang tidak kosong, baris hanya diterima jika daftar itu mengandung
+	 * {@code ",<nim>,"}. Bila {@code khususUntukNim} kosong, pemetaan berlaku umum. Bila
+	 * {@code nim} sendiri kosong/null, pemetaan khusus-NIM ikut diterima tanpa penyaringan —
+	 * jadi memanggil tanpa NIM memberi hasil yang <i>lebih longgar</i>, bukan lebih ketat.</p>
+	 *
+	 * <p><b>Pemulihan otomatis.</b> Bila terjadi exception di jalur utama (mis. peta JSON
+	 * rusak), method jatuh balik ke {@link #reInitEkivalen()} — yang membangun ulang peta dari
+	 * DB dan mengembalikan hasil <b>dua arah tanpa penyaringan arah maupun penyaringan NIM</b>.
+	 * Jadi pada jalur pemulihan, bentuk hasil berbeda dari jalur normal.</p>
+	 *
+	 * <p><b>Efek samping.</b> Pada cabang cache-miss, {@code Session} yang dibuka ditutup dan
+	 * {@link HibernateUtil#closeSession()} ikut dipanggil — sesi thread-local milik pemanggil
+	 * bisa ikut tertutup, sama seperti pada {@link #reInitEkivalen()}. Method ini juga masih
+	 * mencetak jejak {@code System.out.println} untuk setiap pasangan yang ditemukan.</p>
+	 *
+	 * <p><b>Dipanggil dari.</b> {@code CommonHelperClass.getMatakuliahApakahEkivalen}
+	 * (pintu masuk utama, hanya memakai elemen pertama hasil),
+	 * {@code Mahasiswa} pada perhitungan transkrip/konversi, dan
+	 * {@code LaporanKurikulumMahasiswa}.</p>
+	 *
+	 * @param nim NIM mahasiswa untuk menyaring pemetaan khusus-mahasiswa; boleh {@code null}
+	 *            atau kosong, yang berarti tanpa penyaringan NIM
+	 * @return daftar pemetaan yang berlaku; kosong bila tidak ada. Tidak pernah null
+	 * @see #reInitEkivalen()
+	 * @see ais.action.master.helper.EkivalenNilaiUtil
+	 */
 	@SuppressWarnings("unchecked")
 	public List<MatakuliahEkivalen> ambilEkivalen(String nim) {
 		List<MatakuliahEkivalen> matakuliahEkivalens = new ArrayList<MatakuliahEkivalen>();
@@ -1658,6 +1926,24 @@ public class Matakuliah extends GeneralValueObject {
 		return matakuliahEkivalens;
 	}
 
+	/**
+	 * Menambahkan/memperbarui satu entri pada <i>flag store</i> ekivalensi mata kuliah ini.
+	 *
+	 * <p>Penambalan inkremental yang lebih murah daripada {@link #reInitEkivalen()}: peta JSON
+	 * dibaca, satu pasangan <code>id &rarr; path berkas</code> disisipkan lewat
+	 * {@code getOrCreateFileLocation()} (yang menulis berkas baris itu bila belum ada), lalu
+	 * peta ditulis ulang. Entri yang sudah ada dengan id sama akan ditimpa.</p>
+	 *
+	 * <p><b>Dipanggil dari.</b> {@code AuditListener} pada peristiwa simpan/ubah
+	 * {@link MatakuliahEkivalen} dan {@code JamPerkuliahanSyncrhonizerProcessor} — keduanya
+	 * memanggil pada KEDUA sisi ({@code getMatakuliah()} dan {@code getMatakuliahEkivalen()}),
+	 * konsisten dengan sifat dua arah peta ini.</p>
+	 *
+	 * <p>Kegagalan ditelan dan dicatat ke audit; peta tetap seperti sebelumnya.</p>
+	 *
+	 * @param matakuliahEkivalen baris pemetaan yang baru disimpan/diubah; id-nya wajib sudah ada
+	 * @see #removeEkivalen(Serializable)
+	 */
 	public void populateEkivalen(MatakuliahEkivalen matakuliahEkivalen) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiEkivalen());
@@ -1668,6 +1954,21 @@ public class Matakuliah extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Menonaktifkan satu entri pada <i>flag store</i> ekivalensi mata kuliah ini.
+	 *
+	 * <p><b>Kunci tidak dihapus</b>, hanya nilainya dikosongkan ({@code put(id, "")}). Itulah
+	 * sebabnya {@link #ambilEkivalen(String)} melewati entri bernilai kosong alih-alih
+	 * mengandalkan ketiadaan kunci. Konsekuensinya peta hanya bisa tumbuh; ia baru menyusut
+	 * ketika {@link #reInitEkivalen()} menimpanya seluruhnya.</p>
+	 *
+	 * <p><b>Dipanggil dari.</b> {@code AuditListener} pada peristiwa hapus
+	 * {@link MatakuliahEkivalen}, pada KEDUA sisi relasi. Kegagalan ditelan diam-diam.</p>
+	 *
+	 * @param id id baris {@link MatakuliahEkivalen} yang dihapus; dipakai apa adanya lewat
+	 *           {@code toString()}
+	 * @see #populateEkivalen(MatakuliahEkivalen)
+	 */
 	public void removeEkivalen(Serializable id) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiEkivalen());
@@ -1677,14 +1978,40 @@ public class Matakuliah extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Mengembalikan pagu SKS KRS yang berlaku bila mahasiswa mengambil mata kuliah ini.
+	 *
+	 * <p>Dipakai validasi beban studi di {@code MatakuliahAction}: mata kuliah tertentu
+	 * (mis. KKN, skripsi, PKL) dapat memaksa pagu SKS lebih rendah daripada pagu normal
+	 * mahasiswa. Nilai bawaan <b>30</b> bila kolom belum diisi — angka ini sengaja longgar
+	 * sehingga mata kuliah biasa tidak ikut membatasi. Normalisasi hanya pada nilai kembali;
+	 * field tidak diubah, jadi bebas efek samping.</p>
+	 *
+	 * @return pagu SKS; 30 bila belum diisi, tidak pernah null
+	 */
 	public Integer getJumlahMaksimalSksJikaAmbilMkIni() {
 		return jumlahMaksimalSksJikaAmbilMkIni == null ? 30 : jumlahMaksimalSksJikaAmbilMkIni;
 	}
 
+	/**
+	 * Menyetel pagu SKS KRS bila mata kuliah ini diambil.
+	 *
+	 * @param jumlahMaksimalSksJikaAmbilMkIni pagu SKS; null akan dibaca sebagai 30
+	 */
 	public void setJumlahMaksimalSksJikaAmbilMkIni(Integer jumlahMaksimalSksJikaAmbilMkIni) {
 		this.jumlahMaksimalSksJikaAmbilMkIni = jumlahMaksimalSksJikaAmbilMkIni;
 	}
 
+	/**
+	 * Mengembalikan kelompok/rumpun mata kuliah (MKU, MKDK, MKK, ...).
+	 *
+	 * <p>Relasi opsional, LAZY, diresolusi {@link GeneralValueObject#check(Object)}. Ini
+	 * kelompok <b>utama</b> yang tersimpan sebagai kolom; keanggotaan mata kuliah pada
+	 * banyak kelompok sekaligus disimpan terpisah di {@link KelompokMatakuliahPunyaMatakuliah}.
+	 * Jangan mengandalkan kolom ini sebagai satu-satunya sumber pengelompokan.</p>
+	 *
+	 * @return master kelompok mata kuliah, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kelompok_matakuliah", nullable = true)
 	public KelompokMatakuliah getKelompokMatakuliah() {
@@ -1692,10 +2019,48 @@ public class Matakuliah extends GeneralValueObject {
 		return kelompokMatakuliah;
 	}
 
+	/**
+	 * Menyetel kelompok/rumpun mata kuliah.
+	 *
+	 * @param kelompokMatakuliah master kelompok; boleh null
+	 */
 	public void setKelompokMatakuliah(KelompokMatakuliah kelompokMatakuliah) {
 		this.kelompokMatakuliah = kelompokMatakuliah;
 	}
 
+	/**
+	 * Mengembalikan daftar id {@code BahanKajian} yang ditautkan ke mata kuliah ini, dalam
+	 * bentuk CSV berpembungkus koma ({@code ",12,45,"}).
+	 *
+	 * <p><b>Bentuk data.</b> Bukan relasi, melainkan kolom {@code text} berisi id-id yang
+	 * dipisah koma dan dibungkus koma di kedua ujungnya. Bentuk berpembungkus dipilih agar
+	 * pemeriksaan keanggotaan cukup {@code contains(",12,")} tanpa salah kena pada id yang
+	 * berawalan sama. Pemanggil seperti {@code ObeAiJspHelper} dan
+	 * {@code AmbilDataBanyakObeAgendaHelper} mengurainya kembali menjadi daftar id.</p>
+	 *
+	 * <p><b>Normalisasi dan efek sampingnya.</b> Setiap pembacaan: koma ganda dirapatkan
+	 * (tiga kali {@code replaceAll(",,", ",")} berurutan — cukup untuk deretan koma yang lazim,
+	 * tapi bukan penggantian menyeluruh), beberapa bentuk "hanya koma" dikosongkan, lalu
+	 * seluruh elemen dimasukkan ke {@link java.util.HashSet} untuk membuang duplikat.
+	 * Hasilnya ditulis balik ke field, sedangkan yang dikembalikan adalah versi
+	 * berpembungkus koma — jadi field dan nilai kembali sengaja berbeda bentuk. Karena
+	 * pemetaan memakai <i>property access</i>, versi berpembungkus itulah yang akhirnya
+	 * tersimpan; untungnya normalisasi bersifat idempoten sehingga pembacaan berulang tidak
+	 * menumbuhkan koma.</p>
+	 *
+	 * <p><b>Urutan tidak dipertahankan.</b> Penggunaan {@code HashSet} membuat urutan id
+	 * setelah normalisasi menjadi tidak menentu (dan bisa berubah antar-pemanggilan pada JVM
+	 * berbeda). Jangan pakai kolom ini bila urutan bahan kajian bermakna.</p>
+	 *
+	 * <p><b>Sisa kode mati.</b> Pemeriksaan {@code bahanKajian == null} pada baris {@code return}
+	 * tidak pernah bernilai benar: field sudah dipastikan non-null beberapa baris sebelumnya.
+	 * Daftar kosong karena itu dikembalikan sebagai {@code ",,"}, bukan {@code ""} — pemanggil
+	 * yang menguji "kosong" harus memperhitungkan bentuk ini. Empat getter CSV OBE di kelas ini
+	 * ({@code bahanKajian}, {@code capaianLulusan}, {@code capaianPembelajaranLulusan},
+	 * {@code profilLulusan}) adalah salinan algoritma yang sama, termasuk sisa kode matinya.</p>
+	 *
+	 * @return CSV id berpembungkus koma; {@code ",,"} untuk daftar kosong. Tidak pernah null
+	 */
 	@Column(name = "bahan_kajian", nullable = true, columnDefinition = "text")
 	public String getBahanKajian() {
 
@@ -1723,10 +2088,30 @@ public class Matakuliah extends GeneralValueObject {
 		return bahanKajian == null ? "" : "," + bahanKajian.trim() + ",";
 	}
 
+	/**
+	 * Menyetel daftar id bahan kajian.
+	 *
+	 * <p>Nilai disimpan apa adanya; perapian, pembuangan duplikat, dan pembungkusan koma baru
+	 * terjadi saat dibaca lewat {@link #getBahanKajian()}. Tidak ada pemeriksaan bahwa id-id
+	 * yang disebut benar-benar ada di master {@code BahanKajian} — id yatim akan diabaikan
+	 * diam-diam saat diuraikan pemanggil.</p>
+	 *
+	 * @param bahanKajian CSV id bahan kajian; boleh null
+	 */
 	public void setBahanKajian(String bahanKajian) {
 		this.bahanKajian = bahanKajian;
 	}
 
+	/**
+	 * Mengembalikan daftar id capaian lulusan dalam bentuk CSV berpembungkus koma.
+	 *
+	 * <p>Algoritma normalisasi, efek samping penulisan balik ke field, hilangnya urutan karena
+	 * {@link java.util.HashSet}, dan bentuk {@code ",,"} untuk daftar kosong persis sama dengan
+	 * {@link #getBahanKajian()} — lihat penjelasan lengkap di sana.</p>
+	 *
+	 * @return CSV id berpembungkus koma; tidak pernah null
+	 * @see #getBahanKajian()
+	 */
 	@Column(name = "capaian_lulusan", nullable = true, columnDefinition = "text")
 	public String getCapaianLulusan() {
 
@@ -1756,10 +2141,32 @@ public class Matakuliah extends GeneralValueObject {
 		return capaianLulusan == null ? "" : "," + capaianLulusan.trim() + ",";
 	}
 
+	/**
+	 * Menyetel daftar id capaian lulusan. Perilaku sama seperti
+	 * {@link #setBahanKajian(String)}.
+	 *
+	 * @param capaianLulusan CSV id capaian lulusan; boleh null
+	 */
 	public void setCapaianLulusan(String capaianLulusan) {
 		this.capaianLulusan = capaianLulusan;
 	}
 
+	/**
+	 * Mengembalikan skema konversi nilai angka ke nilai huruf khusus mata kuliah ini.
+	 *
+	 * <p>Relasi opsional, LAZY, diresolusi {@link GeneralValueObject#check(Object)}. Bila
+	 * {@code null}, konversi memakai skema global sistem; bila terisi, skema inilah yang
+	 * dipakai. Kontrak "null berarti pakai global" itu tampak jelas pada pemanggilnya, yang
+	 * lazim menulis {@code matakuliah == null ? null : matakuliah.getJenisNilaiHuruf()} lalu
+	 * meneruskan hasilnya apa adanya ke utilitas konversi (lihat {@code ImporNilaiFeeder},
+	 * {@code RekapHasilTugasPerTugasDanUjianObe}).</p>
+	 *
+	 * <p>Ini salah satu relasi yang paling banyak dibaca dari kelas ini — mengubahnya berdampak
+	 * ke seluruh nilai huruf mata kuliah bersangkutan, termasuk yang sudah terlanjur tercetak
+	 * di KHS periode lampau, karena konversi dihitung ulang saat ditampilkan.</p>
+	 *
+	 * @return skema nilai huruf khusus, atau {@code null} bila memakai skema global
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_nilai_huruf", nullable = true)
 	public JenisNilaiHurufMatakuliah getJenisNilaiHuruf() {
@@ -1767,10 +2174,28 @@ public class Matakuliah extends GeneralValueObject {
 		return jenisNilaiHuruf;
 	}
 
+	/**
+	 * Menyetel skema konversi nilai huruf khusus mata kuliah ini.
+	 *
+	 * @param jenisNilaiHuruf skema nilai huruf; {@code null} berarti kembali memakai skema
+	 *                        global
+	 */
 	public void setJenisNilaiHuruf(JenisNilaiHurufMatakuliah jenisNilaiHuruf) {
 		this.jenisNilaiHuruf = jenisNilaiHuruf;
 	}
 
+	/**
+	 * Mengembalikan daftar id capaian pembelajaran lulusan (CPL) dalam bentuk CSV
+	 * berpembungkus koma.
+	 *
+	 * <p>Kolom OBE yang paling banyak dibaca di repo ini. Algoritma normalisasi, efek samping,
+	 * hilangnya urutan, dan bentuk {@code ",,"} untuk daftar kosong sama persis dengan
+	 * {@link #getBahanKajian()}. Jangan tertukar dengan
+	 * {@link #getCapaianPembelajaranProdi()}, yang berupa teks bebas, bukan daftar id.</p>
+	 *
+	 * @return CSV id CPL berpembungkus koma; tidak pernah null
+	 * @see #getBahanKajian()
+	 */
 	@Column(name = "capaian_pembelajaran_lulusan", nullable = true, columnDefinition = "text")
 	public String getCapaianPembelajaranLulusan() {
 		capaianPembelajaranLulusan = (capaianPembelajaranLulusan == null
@@ -1801,10 +2226,25 @@ public class Matakuliah extends GeneralValueObject {
 		return capaianPembelajaranLulusan == null ? "" : "," + capaianPembelajaranLulusan.trim() + ",";
 	}
 
+	/**
+	 * Menyetel daftar id capaian pembelajaran lulusan. Perilaku sama seperti
+	 * {@link #setBahanKajian(String)}.
+	 *
+	 * @param capaianPembelajaranLulusan CSV id CPL; boleh null
+	 */
 	public void setCapaianPembelajaranLulusan(String capaianPembelajaranLulusan) {
 		this.capaianPembelajaranLulusan = capaianPembelajaranLulusan;
 	}
 
+	/**
+	 * Mengembalikan daftar id profil lulusan dalam bentuk CSV berpembungkus koma.
+	 *
+	 * <p>Anggota keempat keluarga kolom CSV OBE; algoritma dan seluruh jebakannya sama dengan
+	 * {@link #getBahanKajian()}.</p>
+	 *
+	 * @return CSV id profil lulusan berpembungkus koma; tidak pernah null
+	 * @see #getBahanKajian()
+	 */
 	@Column(name = "profil_lulusan", nullable = true, columnDefinition = "text")
 	public String getProfilLulusan() {
 		profilLulusan = (profilLulusan == null || profilLulusan.trim().equalsIgnoreCase(",") ? ""
@@ -1833,6 +2273,11 @@ public class Matakuliah extends GeneralValueObject {
 		return profilLulusan == null ? "" : "," + profilLulusan.trim() + ",";
 	}
 
+	/**
+	 * Menyetel daftar id profil lulusan. Perilaku sama seperti {@link #setBahanKajian(String)}.
+	 *
+	 * @param profilLulusan CSV id profil lulusan; boleh null
+	 */
 	public void setProfilLulusan(String profilLulusan) {
 		this.profilLulusan = profilLulusan;
 	}
