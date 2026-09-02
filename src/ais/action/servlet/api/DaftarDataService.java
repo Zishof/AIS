@@ -254,19 +254,44 @@ public class DaftarDataService { // Sesuaikan nama class dengan file asli
 		return jsonArray;
 	}
 
+	/**
+	 * Mengubah nama kelas dari klien menjadi {@code Class} entitas dengan AMAN.
+	 *
+	 * <p>Endpoint {@code /Data} (load/proses) menerima nama kelas dari klien lalu memakainya
+	 * sebagai {@link GeneralValueObject}. {@code Class.forName(String)} akan MENGINISIALISASI
+	 * kelas yang disebut — menjalankan static initializer-nya — meski akhirnya kelas itu bukan
+	 * entitas yang sah, dan sebagian aksi baca dapat dipanggil tanpa login. Di sini kelas dimuat
+	 * TANPA inisialisasi lalu dipastikan turunan {@link GeneralValueObject} lebih dulu; kelas lain
+	 * ditolak sebagai {@link ClassNotFoundException} (identik dengan penanganan nama tak dikenal
+	 * yang sudah ada) sebelum static initializer-nya sempat berjalan. Sejalan dengan pengerasan
+	 * unggahan pada {@code DoUpload.resolveKelasLampiran} (dok. 73).</p>
+	 */
+	@SuppressWarnings({ "rawtypes" })
+	private static Class resolveKelasEntitas(String namaKelas) throws ClassNotFoundException {
+		if (namaKelas == null || namaKelas.trim().isEmpty()) {
+			throw new ClassNotFoundException("Nama class kosong.");
+		}
+		Class c = Class.forName(namaKelas.trim(), false,
+				DaftarDataService.class.getClassLoader());
+		if (!GeneralValueObject.class.isAssignableFrom(c)) {
+			throw new ClassNotFoundException("Bukan entitas yang sah: " + namaKelas.trim());
+		}
+		return c;
+	}
+
 	@SuppressWarnings({ "rawtypes" })
 	public static JSONObject load(HttpServletRequest req, JSONObject request, Tbmuser tbmuser) throws Exception {
 		JSONObject jsonObject = new JSONObject();
 		String clazzName = request.getString("class").trim();
-		
+
 		int deep = 1;
 		try {
 			deep = request.isNull("deep") ? 1 : Integer.parseInt(request.get("deep").toString().trim());
 		}catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/api/DaftarDataService.java:223");
 			// TODO: handle exception
 		}
-		
-		Class clazz = Class.forName(clazzName);
+
+		Class clazz = resolveKelasEntitas(clazzName);
 		JSONObject data = new JSONObject();
 		GeneralValueObject generalValueObject = GeneralValueObject.ambilData(clazz, request.get("id") + "", true);
 		Common.insertProperty(clazz, generalValueObject, data, "", deep);
@@ -290,7 +315,7 @@ public class DaftarDataService { // Sesuaikan nama class dengan file asli
 		String clazzName = request.getString("class").trim();
 		Class clazz;
 		try {
-			clazz = Class.forName(clazzName);
+			clazz = resolveKelasEntitas(clazzName);
 		} catch (ClassNotFoundException cnfe) {
 			// KE-13: nama class dari klien API tidak dikenal (mis. "ais.database.model.employ.SatuanKerja"
 			// yang tak ada — yang benar "ais.database.model.rab.SatuanKerja" atau
