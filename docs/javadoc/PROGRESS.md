@@ -1,5 +1,83 @@
 # Progres Javadoc Menyeluruh
 
+## `ais/database/model/Skripsi.java` — SELESAI 100% (2 Sep 2026)
+
+Entity tugas akhir/skripsi satu mahasiswa. 1803 → 3703 baris, **187/187 method
+ber-Javadoc (100%)** (diaudit skrip, 0 tersisa). Revisi: r83076, r83080 (bagian 2
+tersapu ke revisi gabungan sesi paralel setelah WC sempat ter-lock; isi
+diverifikasi lewat penanda teks di HEAD), r83088. Mirror `java/` diverifikasi
+byte-identik dengan `cmp`.
+
+**Struktur**: `Skripsi extends VOPembelajaran extends VoKunci extends
+sop.DataSop extends GeneralValueObject`, sekaligus `implements
+VOPesertaPembelajaran` (mengembalikan dirinya sendiri sebagai objek
+pembelajaran). Alur hidup: pengajuan judul (`MahasiswaRequestTugasAkhir`) →
+penetapan pembimbing → bimbingan (baris `pertemuan` berkolom `skripsi`) →
+seminar proposal → gelombang pendaftaran + `JadwalSidangTugasAkhir` → sidang &
+penilaian per komponen → nilai huruf/kelulusan → konversi ke `Detailperkuliahan`
+(KHS) dan ekspor Feeder.
+
+**Temuan struktural terpenting — penamaan kolom slot 1/2 tertukar**:
+`FormatNilaiSkripsi` menyediakan 8 slot dosen (`dosen1`, `dosen2`, `dosen21`,
+`dosen3`..`dosen7`). Untuk dua slot pertama, kolom ORANG dan kolom NILAI
+tertukar namanya: orang slot 1 di kolom `pembimbing` tetapi nilainya di kolom
+`nilai_ketua_sidang`; orang slot 2 di kolom `ketua_sidang` dengan nilai di
+`nilai_pembimbing`. Silang ini KONSISTEN di seluruh aplikasi (`dataDosen`/
+`simpanDosen` memakai kolom orang, `cariNilaiDariDosen`/`getTotalNilai` memakai
+kolom nilai, dan `dosen1Aktif` pun default dari `prosentasiNilaiKetuaSidang`),
+jadi tampilan aplikasi benar — yang salah hanya NAMANYA. Query SQL langsung dan
+laporan ad-hoc atas tabel `skripsi` akan salah baca. Tabel pemetaan lengkap ada
+di Javadoc class.
+
+**Pola berulang yang DIKONFIRMASI ada di sini** (dicek dari kode, bukan
+diasumsikan):
+- *Field audit di-shadow ulang*: ADA — `oleh`/`olehId`/`tanggal_dirubah`
+  dideklarasikan lagi padahal `GeneralValueObject` sudah punya.
+- *Getter yang menulis ke DB*: ADA dalam bentuk lintas-entity —
+  `getMahasiswaRequestTugasAkhir()` memanggil `setSkr(id)` pada
+  `MahasiswaRequestTugasAkhir` (menyunting kolom JSON-nya), sehingga membaca
+  relasi memicu UPDATE tabel lain saat flush. Tidak ditemukan pola
+  `findOrCreate*` gaya entity biodata.
+- *Getter yang menutup sesi Hibernate pemanggil*: TIDAK ditemukan langsung;
+  yang ada efek `check()` warisan `GeneralValueObject` (bisa membuka session
+  sendiri untuk object detached).
+- *Peta lokasi berkas JSON + kuintet `ambilLokasi/tulisLokasi/...`*: TIDAK ADA
+  di entity ini.
+
+**Temuan/kuirk lain (dicatat, TIDAK diperbaiki)**:
+- `retreiveDetailVerifikasiNilai(SkripsiPunyaKomponenPenilaianSkripsi, Dosen)`
+  membandingkan token pertama `detailNilai` (yang berisi id
+  `KomponenPenilaianSkripsi`) dengan id `SkripsiPunyaKomponenPenilaianSkripsi` —
+  DUA RUANG ID BERBEDA, sehingga bendera verifikasi praktis selalu `false`.
+  Ini pola yang sama dengan bug id anak vs id utama di `Pertemuan.java`. Dampak
+  saat ini terbatas: satu-satunya pemanggilnya,
+  `reloadSkripsiPunyaKomponenPenilaianSkripsi`, sudah tidak dipanggil dari mana
+  pun (kode mati).
+- `getLulus()` menyimpulkan LULUS untuk skripsi yang BELUM DINILAI, karena
+  `getNilaiHuruf()` mengembalikan `"-"` (tidak kosong, tidak memuat D/E/T).
+  Cabang `if (nilaiHuruf == null) lulus = false;` karenanya tidak pernah
+  tercapai.
+- `checkMaksSksDosen` tidak menghitung slot `penguji5`; `populateDosenPenguji()`
+  juga melewatkan penguji V. Pemeriksaan `dosen == null` di dalamnya kode mati.
+- `getTotalNilai()` selalu membagi 100, bukan jumlah persentase slot aktif —
+  total mengecil bila konfigurasi bobot tidak berjumlah 100.
+- `refreshNilaiKeDefault(dosen)` membangkitkan rincian nilai atas nama dosen yang
+  kebetulan membuka layar; dosen berikutnya melihat nilai nol karena rincian
+  sudah tidak kosong.
+- Parameter/variabel bernama `skripsiPunyaKomponenPenilaianSkripsis` sebenarnya
+  berisi id `KomponenPenilaianSkripsi`.
+- Getter yang mengisi field saat dibaca: `getWaktuSidang()`/
+  `getWaktuSampaiSidang()` mengisi jam server saat ini, `getTahunAkademik()`
+  mengisi periode berjalan, `getCatatanPenting()` mengisi teks baku 14 hari
+  kerja, `getSmt()`/`getTahun()`/`getSemester()`/`getTelahSidang()`/
+  `getSetujuiSidang()`/`getLulus()`/`getNilaiHuruf()`/`getTotalNilai()` menulis
+  state.
+- Getter slot dosen dapat MENG-NULL-KAN relasi di memori bila slot dinonaktifkan
+  di `FormatNilaiSkripsi` — bila entity lalu di-flush, relasi hilang dari DB.
+- `setDisposisiSop(null)` diabaikan diam-diam: tautan SOP tidak bisa dilepas
+  lewat setter.
+- Import `ais.ui.util.MyMessageboxConfig` tidak terpakai.
+
 ## `ais/database/model/Matakuliah.java` — SELESAI 100% (2 Sep 2026)
 
 Entity **definisi mata kuliah** di kurikulum (kode/nama/SKS, tanpa keterikatan waktu).
