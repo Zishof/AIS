@@ -94,6 +94,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [81-lima-salinan-payload-jadi-satu.md](81-lima-salinan-payload-jadi-satu.md) | Lima salinan payload bayar yang sudah menyebabkan tiga cacat, disatukan; payloadnya diverifikasi dijalankan, bukan dibaca |
 | [82-penjaga-yang-tidak-ikut-terversi.md](82-penjaga-yang-tidak-ikut-terversi.md) | Harness yang diklaim menjaga ternyata tak terversi; `src/test` (18 UAT Java) di luar SVN |
 | [83-penjaga-yang-hanya-berjalan-di-satu-mesin.md](83-penjaga-yang-hanya-berjalan-di-satu-mesin.md) | Alat penjaga ternyata hanya jalan di satu mesin; ujinya menemukan dua cara alat itu melapor salah tanpa suara |
+| [84-sakelar-yang-tidak-menyalakan-apa-apa.md](84-sakelar-yang-tidak-menyalakan-apa-apa.md) | Sakelar Konfigurasi yang tak dibaca siapa pun; POS bersih, 218 kandidat di modul lain, dan alasan penjaganya sengaja tidak dibuat |
 
 | [35-lampiran-gambar.md](35-lampiran-gambar.md) | Lampiran gambar — blob, maksimum 500 KB, dikecilkan di klien |
 | [52-fase-b-satuan-jual.md](52-fase-b-satuan-jual.md) | 52. Fase B — Satuan Jual per Baris Transaksi |
@@ -144,6 +145,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [82-gerbang-yang-hampir-berbohong.md](82-gerbang-yang-hampir-berbohong.md) | Gerbang kompilasi cepat (hanya berkas berubah), dan cacat pada gerbang itu sendiri yang melaporkan BERSIH tanpa mengompilasi apa pun |
 | [83-kanal-jsp-tanpa-gerbang.md](83-kanal-jsp-tanpa-gerbang.md) | JSP tak pernah dikompilasi sebelum dibuka pengguna; gerbang Jasper luring, dan sapuan 10.374 JSP bersih dalam 82 detik |
 | [84-scriptlet-jsp-yang-tak-pernah-dikompilasi.md](84-scriptlet-jsp-yang-tak-pernah-dikompilasi.md) | Java di dalam scriptlet tidak pernah dikompilasi; tiga halaman yang pasti gagal dibuka, ditemukan dan diperbaiki |
+| [85-gerbang-keempat-dan-koreksi-doc-84.md](85-gerbang-keempat-dan-koreksi-doc-84.md) | Gerbang scriptlet JSP; koreksi klaim doc 84 yang salah; tiga halaman rusak lagi |
 | [ATURAN-NATIVE-SQL-CAST.md](ATURAN-NATIVE-SQL-CAST.md) | Aturan wajib cast pada native SQL |
 | [BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md](BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md) | Pengamanan Pembayaran Kedaluwarsa Bankaltimtara |
 | [PERBAIKAN_ERROR_2026-08-24_1936.md](PERBAIKAN_ERROR_2026-08-24_1936.md) | Perbaikan Error POS/eBisnis 24 Agustus 2026 19:36 |

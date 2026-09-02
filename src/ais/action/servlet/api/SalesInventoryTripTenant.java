@@ -75,7 +75,96 @@ final class SalesInventoryTripTenant {
 		return "spjList".equals(aksi) || "tripList".equals(aksi)
 				|| "spjSimpan".equals(aksi) || "spjDetail".equals(aksi)
 				|| "spjStatus".equals(aksi) || "tripStart".equals(aksi)
-				|| "tripBarangUpdate".equals(aksi);
+				|| "tripBarangUpdate".equals(aksi) || "tripDeposit".equals(aksi)
+				|| "tripReturn".equals(aksi) || "tripReconcile".equals(aksi);
+	}
+
+	/**
+	 * Benar bila penjualan tunai dapat dibukukan pada model tenant.
+	 *
+	 * <p>Tidak bisa, dan alasannya berbeda dari setoran. Legacy mencatat keduanya sebagai baris
+	 * buku kas sesi: {@code CASH_SALE} positif dan {@code OWNER_DEPOSIT} negatif. Model tenant
+	 * tidak punya buku kas (celah C-11), tetapi <b>punya</b> rumah untuk setoran —
+	 * {@code sales_trip_setoran} — sehingga setoran tetap dapat dicatat setara.</p>
+	 *
+	 * <p>Penjualan tunai tidak punya rumah yang setara. Satu-satunya kandidat,
+	 * {@code sales_trip_nota}, adalah <b>nota penjualan</b> berkop nomor dan tanggal, sedangkan
+	 * aksi ini hanya menerima nominal. Menyisipkan nota sintetis akan menambah jumlah nota yang
+	 * dilaporkan layar SPJ dan rekonsiliasi — angka yang tidak bertambah pada jalur legacy,
+	 * sebab di sana yang bertambah hanya baris buku kas.</p>
+	 */
+	static boolean dukungPenjualanTunai() {
+		return false;
+	}
+
+	// ------------------------------------------------------------------ status trip & setoran
+
+	/** TIGA kolom: status, salespersonId, suratPerintahSalesId. */
+	static String tripUntukStatus(String skema) {
+		return "SELECT COALESCE(t.status,''), t.salesperson_id, t.surat_perintah_sales_id"
+				+ " FROM " + skema + "sales_trip t WHERE t.id = ?";
+	}
+
+	/**
+	 * EMPAT parameter: status, tanggalKembali (boleh NULL), oleh, id.
+	 *
+	 * <p>{@code tanggal_kembali} hanya diisi pada transisi ke RETURNED; pada transisi lain
+	 * parameternya NULL dan kolomnya dibiarkan seperti semula.</p>
+	 *
+	 * <p>Jalur legacy juga menyetel {@code spj.tanggalKembaliAktual}. Kolom itu tidak ada pada
+	 * {@code surat_perintah_sales} tenant — tanggal kembali sesungguhnya melekat pada tripnya,
+	 * dan SPJ hanya punya satu trip, sehingga angkanya tetap dapat ditelusuri lewat trip itu.</p>
+	 */
+	static String ubahStatusTrip(String skema) {
+		return "UPDATE " + skema + "sales_trip SET status = ?,"
+				+ " tanggal_kembali = COALESCE(?, tanggal_kembali), oleh = ?,"
+				+ " tanggal_dirubah = now() WHERE id = ?";
+	}
+
+	/**
+	 * Barang yang belum habis teralokasi, sebagai penjaga masuk RECONCILING.
+	 *
+	 * <p>Invarian legacy: {@code dimuat = terjual + kembali + rusak + hilang}. Model tenant
+	 * memisahkan rencana ({@code sales_trip_barang.kuantitas_bawa}) dari hasil
+	 * ({@code sales_trip_hasil}), dan memetakan {@code qty_hilang} legacy ke {@code selisih} —
+	 * pemetaan yang sama sudah dipakai {@code tripBarangUpdate}.</p>
+	 *
+	 * <p>{@code LEFT JOIN} disengaja: produk yang dibawa tetapi belum punya baris hasil sama
+	 * sekali harus <b>ikut tertangkap</b> sebagai belum teralokasi, bukan hilang dari
+	 * pemeriksaan.</p>
+	 *
+	 * <p>DUA kolom: namaProduk dan sisanya.</p>
+	 */
+	static String barangBelumHabis(String skema) {
+		String sisa = "(COALESCE(b.kuantitas_bawa,0) - COALESCE(h.kuantitas_terjual,0)"
+				+ " - COALESCE(h.kuantitas_kembali,0) - COALESCE(h.kuantitas_rusak,0)"
+				+ " - COALESCE(h.selisih,0))";
+		return "SELECT COALESCE(pr.nama,''), " + sisa
+				+ " FROM " + skema + "sales_trip_barang b"
+				+ " JOIN " + skema + "produk pr ON b.produk_id = pr.id"
+				+ " LEFT JOIN " + skema + "sales_trip_hasil h"
+				+ " ON h.sales_trip_id = b.sales_trip_id AND h.produk_id = b.produk_id"
+				+ " WHERE b.sales_trip_id = ? AND ABS(" + sisa + ") > 0.001"
+				+ " ORDER BY pr.nama";
+	}
+
+	/**
+	 * Setoran kas ke pemilik. ENAM parameter: tripId, tanggal, caraBayar, nomorBukti, nilai,
+	 * oleh.
+	 *
+	 * <p>Legacy mencatatnya sebagai baris buku kas {@code OWNER_DEPOSIT} bernilai negatif; di
+	 * sini ia dokumen tersendiri. Arahnya tetap sama terhadap saldo kas: rumus
+	 * {@link #saldoKas(String)} mengurangkan setoran, persis seperti penjumlahan bertanda pada
+	 * jalur legacy.</p>
+	 *
+	 * <p><b>{@code keterangan} tidak punya kolom di sini</b> — {@code sales_trip_setoran} hanya
+	 * menyediakan {@code nomor_bukti}. Isian itu tidak disimpan, dan hal itu disampaikan balik
+	 * pada respons alih-alih dibuang diam-diam; lihat celah C-13.</p>
+	 */
+	static String sisipSetoran(String skema) {
+		return "INSERT INTO " + skema + "sales_trip_setoran (sales_trip_id, tanggal, cara_bayar,"
+				+ " nomor_bukti, nilai, status, dibuat_pada, oleh)"
+				+ " VALUES (?, ?, ?, ?, ?, 'AKTIF', now(), ?)";
 	}
 
 	/**

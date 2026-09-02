@@ -76,7 +76,12 @@ sebuah potongan.
 
 ## 4. Sapuan penuh: 10.374 berkas, dua halaman rusak
 
-Seluruh hasil terjemahan dikompilasi sekaligus terhadap pohon kelas proyek. Menariknya,
+Seluruh hasil terjemahan dikompilasi sekaligus terhadap pohon kelas proyek. > **KOREKSI (doc 85): alinea berikut SALAH.** Sapuan itu berhenti pada galat *sintaks*
+> sebelum javac sampai ke analisis semantik, jadi derau `vm` tidak pernah diperiksa --
+> bukan hilang. Sesudah galat sintaksnya diperbaiki, deraunya muncul utuh: 124 galat dari
+> 25 berkas. Lihat [85-gerbang-keempat-dan-koreksi-doc-84.md](85-gerbang-keempat-dan-koreksi-doc-84.md).
+
+Menariknya,
 menyusun **semuanya dalam satu jalan** menghilangkan hampir seluruh derau potongan JSP —
 javac melihat berkas-berkas itu bersamaan, jadi 59 galat `variable vm` pada uji 300 berkas
 tinggal nol. Yang tersisa hanya lima galat, dari dua berkas.

@@ -1232,6 +1232,106 @@ sisip order, sisip baris, finalisasi nomor, baca untuk ubah, hapus-dan-sisip-ula
 baca untuk faktur, sisip faktur, finalisasi, sisip piutang, tandai siap tagih — dan bolak-baliknya
 terbukti benar: `sisipOrder` menulis `DRAF`, `orderUntukUbah` membacanya kembali sebagai `DRAFT`.
 
+## Helper keenam, lanjutan: Trip — 10 dari 19 aksi
+
+Batch ini menambah tiga aksi: `tripDeposit`, `tripReturn`, `tripReconcile`. Sembilan sisanya
+tetap tertutup, dan sekarang alasannya dapat dipisahkan dengan tegas.
+
+| aksi | jalur tenant | sebab |
+|---|---|---|
+| `tripDeposit` | **dipindahkan** | setoran punya rumah: `sales_trip_setoran` |
+| `tripReturn` | **dipindahkan** | murni transisi status |
+| `tripReconcile` | **dipindahkan** | penjaga barangnya dapat dinyatakan ulang |
+| `tripCashSale` | ditolak | tidak ada buku kas, dan nota bukan padanannya |
+| `spjNotaAssign`, `tripNotaResult` | ditolak | tidak ada tabel nota bawaan bernilai tertagih |
+| `tripDetail`, `tripClose` | ditolak | keduanya membaca/menutup buku kas |
+| `expenseCategoryList`, `expenseCategorySave` | ditolak | tidak ada master kategori biaya |
+| `expenseCreate` | ditolak | sisi kasnya tidak punya rumah |
+| `tripPurchaseLink` | ditolak | tidak ada tabel pembelian dalam trip |
+
+### Setoran bisa, penjualan tunai tidak — dan bedanya bukan kebetulan
+
+Jalur legacy mencatat keduanya sebagai baris buku kas sesi: `CASH_SALE` positif dan
+`OWNER_DEPOSIT` negatif, lewat satu fungsi `catatKasSederhana`. Sekilas keduanya sama-sama
+terhalang C-11.
+
+Ternyata tidak. Model tenant memang tidak punya buku kas, tetapi **punya rumah untuk setoran** —
+`sales_trip_setoran`, dokumen tersendiri — dan rumus `saldoKas` yang sudah dipakai `tripList`
+memang mengurangkan setoran. Jadi arah dan besarannya setara: legacy menjumlahkan baris bertanda,
+tenant mengurangkan dokumen.
+
+Penjualan tunai tidak punya padanan itu. Satu-satunya kandidat, `sales_trip_nota`, adalah **nota
+penjualan** berkop nomor dan tanggal, sedangkan aksinya hanya menerima nominal. Menyisipkan nota
+sintetis akan menambah **jumlah nota** yang dilaporkan layar SPJ dan rekonsiliasi — angka yang
+tidak bertambah pada jalur legacy, sebab di sana yang bertambah hanya baris buku kas. Ditolak.
+
+### `keterangan` setoran tidak punya kolom — dan itu dikatakan, bukan disembunyikan
+
+`sales_trip_setoran` menyediakan `nomor_bukti` tetapi tidak `keterangan`. Dua pilihan yang
+sama-sama buruk: menolak setoran (uang tidak tercatat gara-gara catatan opsional) atau membuang
+isiannya diam-diam.
+
+Yang dipilih ketiga: setorannya dicatat, dan bila `keterangan` memang diisi, faktanya
+dikembalikan pada medan `peringatan`. Medan itu aditif — klien lama mengabaikannya, sama seperti
+pola `aktorInventorySales`. Uangnya tercatat benar dan kehilangannya terlihat. Dicatat sebagai
+celah C-13; kolomnya sekali tambah bila diputuskan perlu.
+
+### Penjaga masuk RECONCILING: satu `LEFT JOIN` yang menentukan
+
+Invarian legacy: `dimuat = terjual + kembali + rusak + hilang`, dan sisanya harus nol. Legacy
+membacanya dari satu baris `spj_sales_barang` yang memuat rencana sekaligus hasil.
+
+Model tenant memisahkannya: `sales_trip_barang` (yang dibawa) dan `sales_trip_hasil` (yang
+terjadi). Pemeriksaannya karena itu menjadi join — dan **join-nya wajib `LEFT`**. Produk yang
+dibawa tetapi belum punya baris hasil sama sekali adalah justru kasus terpenting: nol dari sepuluh
+teralokasi. `INNER JOIN` akan melewatkannya, sehingga trip bisa masuk rekonsiliasi dengan seluruh
+barangnya belum dipertanggungjawabkan.
+
+Blok 3 dan 4 ujinya adalah pasangan: blok 3 membuktikan `LEFT JOIN` menangkap kedua produk, blok
+4 membuktikan `INNER JOIN` menangkap **nol** — jadi perbedaannya nyata, bukan teoretis.
+
+`qty_hilang` legacy dipetakan ke `selisih` tenant, meneruskan pemetaan yang sudah dipakai
+`tripBarangUpdate`. Blok 5 membuktikannya: Kopi 5 dibawa, 2 terjual, 3 selisih — alokasi baru
+habis bila selisih ikut dihitung.
+
+### `tanggal_kembali` diisi sekali, tidak tertimpa
+
+`ubahStatusTrip` memakai `COALESCE(?, tanggal_kembali)`: transisi ke RETURNED mengisinya, transisi
+berikutnya mengirim NULL dan kolomnya dibiarkan. Tanpa itu, masuk RECONCILING akan menghapus
+tanggal kembali yang baru saja dicatat.
+
+Jalur legacy juga menyetel `spj.tanggalKembaliAktual`. Kolom itu **tidak ada** pada
+`surat_perintah_sales` tenant — tanggal kembali sesungguhnya melekat pada tripnya, dan satu SPJ
+hanya punya satu trip, sehingga angkanya tetap dapat ditelusuri. Perbedaan tempat penyimpanan,
+bukan informasi yang hilang.
+
+Status SPJ ikut dimajukan dalam transaksi yang sama: trip yang mengaku sudah kembali sementara
+SPJ-nya masih berjalan adalah dua catatan yang saling membantah.
+
+### Penjaga `tripCashSale` dipindah supaya pesannya jujur
+
+Penjaga lama berdiri di baris pertama `tripCashSale` dan memberi pesan generik "belum tersedia".
+Karena `catatKasSederhana` kini punya cabang tenant yang menolak penjualan tunai dengan alasan
+sebenarnya, penjaga lama itu membuat cabang tersebut **tidak terjangkau**. Dilepas: sekarang hak
+akses diperiksa dulu, lalu penolakannya menyebut sebabnya.
+
+### Uji kesetaraan: `uji-kesetaraan-trip-setoran-status.sql`
+
+Enam blok, seluruhnya LULUS pada klaster v1–v11:
+
+| blok | yang dibuktikan |
+|---|---|
+| 1 | saldo kas sesudah setoran setara legacy (600.000 dari 1.000.000 tunai − 400.000 setoran) |
+| 2 | **penjaga** — tanpa mengurangkan setoran angkanya 1.000.000, jadi contohnya membedakan |
+| 3 | kedua produk tertangkap belum teralokasi sebelum hasilnya diisi |
+| 4 | **penjaga** — `INNER JOIN` menangkap nol, jadi `LEFT JOIN` memang menentukan |
+| 5 | alokasi habis di kedua jalur; `qty_hilang` legacy = `selisih` tenant |
+| 6 | status maju, `tanggal_kembali` bertahan, status SPJ ikut |
+
+SQL yang **benar-benar dikeluarkan Java** juga dijalankan berurutan ke basis data: baca status
+trip, periksa barang belum habis, sisip setoran, hitung saldo kas, ubah status trip dan SPJ, isi
+hasil, periksa ulang, lalu transisi kedua — dan `tanggal_kembali` terbukti bertahan.
+
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
 **Sebelas helper, 7.512 baris, belum satu pun kuerinya dipindah ke schema tenant.**

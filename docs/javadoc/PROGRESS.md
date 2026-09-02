@@ -1,10 +1,149 @@
 # Progres Javadoc Menyeluruh
 
+## `ais/database/model/LogLogin.java` — SELESAI 100% (2 Sep 2026)
+
+Entity **jejak audit login** (tabel `public.log_login`, `dynamicInsert/dynamicUpdate`,
+**tidak** `@Audited`). 440 → 1174 baris, **60/60 method** terdokumentasi, r83197
+(pesan utuh, tidak tersapu), mirror `java/` identik byte.
+
+Struktur: satu baris = satu percobaan login (sukses MAUPUN gagal, pembeda
+`success_status`). Dibuat HANYA di `ais/common/FilterLoginAis.java:172`, disimpan
+best-effort oleh `saveLoginAndCheckBlacklist(...)`, lalu dipakai sebagai identitas
+sesi (atribut session `"login"`). Hirarki log: `LogLogin` → `DetailLogLogin`
+(ditulis `AutoStarter`) → `LogUserActifity`.
+
+**Retensi ADA**: `LogCleanerProcessor` menghapus baris > 3 bulan, dijadwalkan
+`ScheduledTimerTask` (delay & period 864.000.000 ms ≈ 10 hari) di
+`applicationContext-business.xml`, gerbang konfigurasi `log_cleaner_processor`.
+Kuirk: ambang memakai `tanggal_dirubah` (ter-reset tiap `UPDATE`), penghapusan
+`detail_log_login` dikomentari padahal induknya dihapus (risiko gagal FK →
+seluruh transaksi pembersihan batal), dan jadwal pertama baru jalan setelah
+aplikasi hidup 10 hari.
+
+**Pola berulang terverifikasi**: 9 getter menulis balik ke field (`getDosen`,
+`getGuru`, `getTbmuser`, `getJurusan`, `getFakultas`, `getSekolah`, `getYayasan`,
+`getSatuanKerja`, `getIp`) — akses properti, jadi pada instance *attached* nilai
+turunan ikut ter-*flush*: menampilkan log bisa MENGUBAH log. TIDAK ada getter
+yang membuka/menutup session Hibernate sendiri (semua lewat `check()`).
+
+**Kuirk menonjol**: `getTbmuser()` MENIHILKAN field `tbmuser` bila pelaku
+mahasiswa/siswa → tautan akun bisa terhapus di DB hanya karena baris dibaca.
+
+### TEMUAN KEAMANAN (perlu eskalasi terpisah — bukan di entity, di pemanggilnya)
+
+1. **Password plaintext masuk kolom `description`** — `FilterLoginAis` baris
+   215/256/276/318: `"... menggunakan password " + password + ", namun gagal login"`
+   pada 4 jalur (Dosen/Admin, Siswa, Penduduk, Mahasiswa). Tampil di layar
+   `log_login.zul`.
+2. **Dump header HTTP tanpa penyaringan** — `MServet.getHeadersInfo()` menyalin
+   SEMUA header (termasuk `Cookie`/`JSESSIONID` dan `Authorization`) ke kolom
+   `header` bertipe `text`. Bandingkan `ApiMobileLogger` yang memanggil
+   `redactSensitive(...)`; penyaringan itu tidak ada di jalur ini.
+3. **`sessionid` disimpan utuh tanpa hash**.
+4. **IP bisa dipalsukan** — `getIp()` percaya `Cf-Connecting-Ip`/`X-Forwarded-For`/
+   `X-Real-IP` tanpa cek proxy tepercaya → jejak audit bisa dipalsukan DAN gerbang
+   `BlacklistIp.chek(login.getIp())` bisa dilewati dengan satu header.
+5. Entity **tidak `@Audited`** padahal `LogLoginAction` tetap memasang tombol
+   `RevisiHelper.createNewRevisi(...)` (riwayat akan kosong).
+6. Pengguna **tidak bisa menghapus** log miliknya lewat jalur normal (layar
+   dilindungi `CommonPrivilages`, tanpa aksi hapus); penghapusan hanya lewat
+   retensi atau kaskade `delete from log_login where dosen/pegawai in (...)` oleh
+   operator.
+
+## `ais/database/model/Kurikulum.java` — SELESAI 100% (2 Sep 2026, sesi 10)
+
+Entity **kurikulum** (tabel `public.kurikulum`, `@Audited`,
+`dynamicInsert/dynamicUpdate`) — mis. "Kurikulum 2018", "Kurikulum 2023".
+**55/55 method** (termasuk konstruktor) + class-level Javadoc + Javadoc
+`serialVersionUID`. 392 → 1093 baris. **r83191** (pesan utuh, tidak tersapu),
+mirror `java/` sudah diverifikasi byte-identik. Kompilasi `-implicit:none`
+lulus; kode terbukti tidak berubah (perbandingan baris non-Javadoc identik).
+
+### Struktur
+
+Tujuh kelompok method: jejak audit (`oleh`/`olehId`/`tanggal_dirubah` + hook
+`@PreUpdate`), identitas & relasi, masa berlaku, aturan pengambilan per
+angkatan, aturan kelulusan (SKS wajib/pilihan/lulus), ambang OBE, integrasi
+Feeder/PDDikti. Dua method bisnis nyata: `bolehAmbil(Mahasiswa)` dan
+`apakahObe(String, String)`. **Tidak ada method utilitas/query statis sama
+sekali** di kelas ini — seluruh query kurikulum ada di pemanggil
+(`KurikulumAction`, `ImporKrsFeeder`, dst).
+
+Relasi: `Jurusan` (LAZY, lewat `check()`), `Program` (`FetchMode.SELECT`), dan
+— penting — **`KurikulumPunyaMatakuliah` TIDAK dipetakan sebagai koleksi
+`@OneToMany`** di sini; selalu diquery dari sisi join table (satu kurikulum
+bisa ratusan baris berisi RPS besar).
+
+### Konfirmasi temuan sesi 8
+
+`serialVersionUID = 2461822577548439808L` **memang identik** dengan
+`KurikulumPunyaMatakuliah` — dan cakupannya ternyata lebih luas:
+`BeasiswaPunyaItemBiayaTambahan` dan `UjianPunyaSoal` memakai angka yang sama
+juga (**total 4 kelas**). Tanpa dampak fungsional (dicocokkan per kelas).
+
+### Verifikasi pola berulang
+
+- **Getter menulis balik ke field/DB: ADA, dominan.** Sembilan getter:
+  `getTahun()` (→ tahun berjalan!), `getNama()`, `getTahunAkademik()`,
+  `getJenisSemester()`, tiga `getJumlahAturanSks*()`, `getFeeders()`,
+  `getNamaAsli()`, `getJurusan()`, dan `getTaObe()`.
+- **Getter MURNI (tidak menulis balik):** `getAktif()`, `getObe()`,
+  `getNonAktifkanYgTerlanjur...()`, `getFeeder()`, seluruh getter
+  `tahunAngkatan*`/`*Obe` selain `getTaObe()`.
+- **Getter menutup sesi Hibernate: TIDAK ADA.** Kelas ini bahkan tidak
+  meng-import `HibernateUtil`; satu-satunya akses DB implisit lewat
+  `GeneralValueObject.check()` di `getJurusan()`.
+
+### Kuirk/bug (dicatat, TIDAK diperbaiki)
+
+1. **`getNama()` memotong bagian yang salah.** Bila rakitan >60 karakter, yang
+   disimpan `substring(nama.length() - 59)` — **59 karakter TERAKHIR**,
+   sehingga nama program + jurusan di depan justru terbuang, menyisakan
+   "...knik Informatika thn 2023 - ID: 412". Ambang 60 juga tidak sejalan
+   dengan `@Column(length = 255)` pada kolom yang sama.
+2. **`getNama()` membaca field `jurusan` langsung, bukan `getJurusan()`**, jadi
+   melewati `check()` — `jurusan.getNama()` berpotensi
+   `LazyInitializationException` pada instance detached. Ironisnya
+   `getProgram()` di baris yang sama dipanggil lewat getter.
+3. **`getProgram()` tidak memanggil `check()`** sedangkan `getJurusan()`
+   memanggil — inkonsistensi pola antar dua relasi di kelas yang sama.
+4. **`setTaObe()` praktis tidak berguna.** `getTaObe()` **selalu** menghitung
+   ulang dari `tahunAkademikObe`+`semesterObe` dan **selalu** menimpa field
+   (bukan hanya saat `null`) — kolom `taObe` adalah nilai turunan yang redundan.
+   Karena `apakahObe()` memanggilnya tiap evaluasi, dan `apakahObe()` dipanggil
+   di dalam perulangan dasbor/penilaian, entity kurikulum yang attached bisa
+   berulang kali ditandai kotor.
+5. **Asimetri gagal-terbuka/gagal-tertutup di jalur OBE.** Ambang `getTaObe()`
+   yang gagal diurai jatuh ke `0` ⇒ OBE berlaku sejak kapan pun
+   (gagal-TERBUKA); sedangkan semester yang dinilai gagal diurai juga jatuh ke
+   `0` ⇒ OBE tidak berlaku (gagal-TERTUTUP). Dua arah berlawanan dari formula
+   yang identik.
+6. **Digit semester bersifat "sisanya Ganjil"** — apa pun selain
+   "Genap"/"Semester Pendek" (termasuk salah ketik) dipetakan ke `"1"`. Tanpa
+   validasi.
+7. **`getAktif()` membaca `null` sebagai `true` tanpa menulis balik**, jadi
+   setiap query wajib `or(isNull("aktif"), eq("aktif", true))`. Menulis
+   `eq("aktif", true)` saja akan menyembunyikan seluruh kurikulum lama.
+   Default-nya juga **berlawanan arah** dengan
+   `getNonAktifkanYgTerlanjur...()` yang default `false`.
+8. **`getFeeders()` menumpuk tanpa deduplikasi/batas.** `FeederJSONImport`
+   menambah dengan `setFeeders(getFeeder() + ";" + existing.getFeeders())`;
+   impor berulang membuat kolom `text` itu membengkak berisi id kembar.
+9. **`getNonAktifkanYgTerlanjurMengambilTidakSesuaiTahunAngkatan()` berdampak
+   retroaktif dan destruktif.** Di `Detailperkuliahan`, kombinasi flag ini +
+   `!bolehAmbil()` menurunkan status KRS menjadi `BELUM_DISETUJUI` — jadi
+   mencentangnya di layar bisa **membatalkan KRS yang sudah disetujui secara
+   massal**.
+
+**Tidak ditemukan kerentanan keamanan** di file ini (tidak ada SQL dirakit
+manual, tidak ada I/O berkas, tidak ada keluaran HTML mentah).
+
 ## `ais/database/model/PendaftaranWisuda.java` — SELESAI 100% (2 Sep 2026)
 
 Entity **pendaftaran wisuda mahasiswa** (tabel `public.pendaftaran_wisuda`,
-`@Audited`, `dynamicInsert/dynamicUpdate`). 56/56 method terdokumentasi
-(100%), 346 → 1000 baris. Commit **r83192** (pesan utuh, tidak tersapu),
+`@Audited`, `dynamicInsert/dynamicUpdate`). 59/59 anggota terdokumentasi
+(100%) — 57 getter/setter + 1 konstruktor + 1 kait `@PreUpdate` —
+346 → 1000 baris. Commit **r83192** (pesan utuh, tidak tersapu),
 mirror `java/` diverifikasi byte-identik. Kompilasi javac 1.7
 `-implicit:none` lulus; sumber tanpa komentar dibandingkan dengan HEAD →
 identik, jadi **nol perubahan kode**.

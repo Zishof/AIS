@@ -1071,26 +1071,12 @@ public final class SalesInventoryTripHelper {
 	 *  dipaksa -- ledger append-only; klien memakai outbox P7 dgn satu tembakan). */
 	public static void tripCashSale(EbisnisActorContextResolver.ActorContext ctx, Tbmuser tbmuser,
 			JSONObject request, JSONObject hasil) throws Exception {
-		if (SalesInventoryTripTenant.aktif(ctx)) {
-			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
-			// aksi bermuatan uang, MENULIS -- ke schema BERSAMA. Ditolak sampai jalur
-			// tenantnya ditulis beserta uji kesetaraannya; lihat SalesInventoryTripTenant.
-			tolak(hasil, "Sales Lapangan belum tersedia pada tenant berschema.");
-			return;
-		}
 		catatKasSederhana(ctx, request, hasil, NotaSalesKas.JENIS_CASH_SALE, false);
 	}
 
 	/** Setoran kas ke pemilik di tengah/akhir sesi -> kas OWNER_DEPOSIT (negatif). */
 	public static void tripDeposit(EbisnisActorContextResolver.ActorContext ctx, Tbmuser tbmuser,
 			JSONObject request, JSONObject hasil) throws Exception {
-		if (SalesInventoryTripTenant.aktif(ctx)) {
-			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
-			// aksi bermuatan uang, MENULIS -- ke schema BERSAMA. Ditolak sampai jalur
-			// tenantnya ditulis beserta uji kesetaraannya; lihat SalesInventoryTripTenant.
-			tolak(hasil, "Sales Lapangan belum tersedia pada tenant berschema.");
-			return;
-		}
 		catatKasSederhana(ctx, request, hasil, NotaSalesKas.JENIS_OWNER_DEPOSIT, true);
 	}
 
@@ -1104,6 +1090,18 @@ public final class SalesInventoryTripHelper {
 		BigDecimal nominal = optBigDecimal(request, "nominal");
 		if (id == null || nominal == null || nominal.signum() <= 0) {
 			tolak(hasil, "session_id dan nominal (>0) wajib diisi.");
+			return;
+		}
+		if (SalesInventoryTripTenant.aktif(ctx)) {
+			if (!NotaSalesKas.JENIS_OWNER_DEPOSIT.equals(jenis)) {
+				// Penjualan tunai tidak punya rumah setara pada model tenant; menyisipkan nota
+				// sintetis akan menambah jumlah nota yang tidak bertambah pada jalur legacy.
+				tolak(hasil, "Penjualan tunai belum tersedia pada schema tenant: model tenant"
+						+ " belum punya buku kas trip, dan nota penjualan bukan padanannya.");
+				return;
+			}
+			tripDepositTenant(ctx, id, nominal, request.optString("referensi", "").trim(),
+					request.optString("keterangan", "").trim(), hasil);
 			return;
 		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
@@ -1404,26 +1402,12 @@ public final class SalesInventoryTripHelper {
 
 	public static void tripReturn(EbisnisActorContextResolver.ActorContext ctx, Tbmuser tbmuser,
 			JSONObject request, JSONObject hasil) throws Exception {
-		if (SalesInventoryTripTenant.aktif(ctx)) {
-			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
-			// aksi bermuatan uang, MENULIS -- ke schema BERSAMA. Ditolak sampai jalur
-			// tenantnya ditulis beserta uji kesetaraannya; lihat SalesInventoryTripTenant.
-			tolak(hasil, "Sales Lapangan belum tersedia pada tenant berschema.");
-			return;
-		}
 		ubahStatusSesi(ctx, tbmuser, request, hasil, NotaSalesSession.STATUS_ACTIVE,
 				NotaSalesSession.STATUS_RETURNED, false);
 	}
 
 	public static void tripReconcile(EbisnisActorContextResolver.ActorContext ctx, Tbmuser tbmuser,
 			JSONObject request, JSONObject hasil) throws Exception {
-		if (SalesInventoryTripTenant.aktif(ctx)) {
-			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
-			// aksi bermuatan uang, MENULIS -- ke schema BERSAMA. Ditolak sampai jalur
-			// tenantnya ditulis beserta uji kesetaraannya; lihat SalesInventoryTripTenant.
-			tolak(hasil, "Sales Lapangan belum tersedia pada tenant berschema.");
-			return;
-		}
 		ubahStatusSesi(ctx, tbmuser, request, hasil, NotaSalesSession.STATUS_RETURNED,
 				NotaSalesSession.STATUS_RECONCILING, true);
 	}
@@ -1436,6 +1420,10 @@ public final class SalesInventoryTripHelper {
 			return;
 		}
 		Long id = optLong(request, "session_id");
+		if (SalesInventoryTripTenant.aktif(ctx)) {
+			ubahStatusSesiTenant(ctx, tbmuser, id, dari, ke, cekBarang, hasil);
+			return;
+		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		Transaction tx = null;
 		try {
@@ -2236,6 +2224,190 @@ public final class SalesInventoryTripHelper {
 				// rollback gagal tidak boleh menutupi galat aslinya
 			}
 			throw e;
+		}
+	}
+	// =============================================================================================
+	// Jalur schema tenant -- setoran kas dan transisi status trip
+	// =============================================================================================
+
+	/**
+	 * Setoran kas ke pemilik pada schema tenant.
+	 *
+	 * <p>Legacy mencatatnya sebagai baris buku kas {@code OWNER_DEPOSIT} bernilai negatif; model
+	 * tenant menyediakan dokumen tersendiri, {@code sales_trip_setoran}. Arahnya terhadap saldo
+	 * kas tetap sama — rumus {@code saldoKas} mengurangkan setoran.</p>
+	 *
+	 * <p>{@code keterangan} tidak punya kolom pada tabel setoran. Isian itu tidak disimpan, dan
+	 * karena menyembunyikan hal itu sama saja dengan membuangnya diam-diam, faktanya
+	 * dikembalikan pada medan {@code peringatan}. Medan itu aditif; klien lama mengabaikannya.</p>
+	 */
+	private static void tripDepositTenant(EbisnisActorContextResolver.ActorContext ctx, Long tripId,
+			BigDecimal nominal, String referensi, String keterangan, JSONObject hasil)
+			throws Exception {
+		String skema = SalesInventoryTripTenant.skema(ctx);
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		Transaction tx = null;
+		try {
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(
+					SalesInventoryTripTenant.tripUntukStatus(skema));
+			ps.setLong(1, tripId.longValue());
+			java.sql.ResultSet rs = ps.executeQuery();
+			if (!rs.next()) {
+				rs.close();
+				ps.close();
+				tolak(hasil, "Sesi tidak ditemukan / sudah ditutup.");
+				return;
+			}
+			String status = str(rs.getString(1));
+			Long salesId = rs.getObject(2) == null ? null : Long.valueOf(rs.getLong(2));
+			rs.close();
+			ps.close();
+			if (!NotaSalesSession.STATUS_ACTIVE.equals(status)
+					&& !NotaSalesSession.STATUS_RETURNED.equals(status)
+					&& !NotaSalesSession.STATUS_RECONCILING.equals(status)) {
+				tolak(hasil, "Sesi tidak ditemukan / sudah ditutup.");
+				return;
+			}
+			if (aktorSales(ctx) && (salesId == null || ctx.salesId == null
+					|| !ctx.salesId.equals(salesId))) {
+				tolak(hasil, "Sesi ini bukan milik sales Anda.");
+				return;
+			}
+			tx = session.beginTransaction();
+			java.sql.PreparedStatement ins = session.connection().prepareStatement(
+					SalesInventoryTripTenant.sisipSetoran(skema));
+			ins.setLong(1, tripId.longValue());
+			ins.setDate(2, new java.sql.Date(ais.ui.util.WaktuUtil.getDate().getTime()));
+			ins.setString(3, "TUNAI");
+			ins.setString(4, referensi);
+			ins.setBigDecimal(5, nominal);
+			ins.setString(6, ctx.userId);
+			ins.executeUpdate();
+			ins.close();
+			tx.commit();
+			hasil.put("status", "00");
+			if (!keterangan.isEmpty()) {
+				hasil.put("peringatan", "Keterangan setoran tidak disimpan: tabel setoran pada"
+						+ " schema tenant hanya menyediakan nomor bukti.");
+			}
+		} catch (Exception e) {
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * Transisi status trip pada schema tenant (ACTIVE &rarr; RETURNED &rarr; RECONCILING).
+	 *
+	 * <p>Penjaga masuk RECONCILING disalin utuh: seluruh barang yang dibawa harus habis
+	 * teralokasi. Model tenant memisahkan rencana dari hasil, sehingga pemeriksaannya menjadi
+	 * join antara {@code sales_trip_barang} dan {@code sales_trip_hasil} — dan produk yang belum
+	 * punya baris hasil sama sekali tetap tertangkap sebagai belum teralokasi.</p>
+	 *
+	 * <p>Status SPJ ikut dimajukan dalam transaksi yang sama. Trip yang mengaku sudah kembali
+	 * sementara SPJ-nya masih berjalan adalah dua catatan yang saling membantah.</p>
+	 */
+	private static void ubahStatusSesiTenant(EbisnisActorContextResolver.ActorContext ctx,
+			Tbmuser tbmuser, Long tripId, String dari, String ke, boolean cekBarang,
+			JSONObject hasil) throws Exception {
+		String skema = SalesInventoryTripTenant.skema(ctx);
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		Transaction tx = null;
+		try {
+			if (tripId == null) {
+				tolak(hasil, "Sesi tidak ditemukan.");
+				return;
+			}
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(
+					SalesInventoryTripTenant.tripUntukStatus(skema));
+			ps.setLong(1, tripId.longValue());
+			java.sql.ResultSet rs = ps.executeQuery();
+			if (!rs.next()) {
+				rs.close();
+				ps.close();
+				tolak(hasil, "Sesi tidak ditemukan.");
+				return;
+			}
+			String status = str(rs.getString(1));
+			Long salesId = rs.getObject(2) == null ? null : Long.valueOf(rs.getLong(2));
+			Long spjId = rs.getObject(3) == null ? null : Long.valueOf(rs.getLong(3));
+			rs.close();
+			ps.close();
+			if (aktorSales(ctx) && (salesId == null || ctx.salesId == null
+					|| !ctx.salesId.equals(salesId))) {
+				tolak(hasil, "Sesi ini bukan milik sales Anda.");
+				return;
+			}
+			if (!dari.equals(status)) {
+				tolak(hasil, "Transisi " + status + " -> " + ke + " tidak diizinkan.");
+				return;
+			}
+			if (cekBarang) {
+				java.sql.PreparedStatement psB = session.connection().prepareStatement(
+						SalesInventoryTripTenant.barangBelumHabis(skema));
+				psB.setLong(1, tripId.longValue());
+				java.sql.ResultSet rsB = psB.executeQuery();
+				StringBuilder gagal = new StringBuilder();
+				while (rsB.next()) {
+					if (gagal.length() > 0) {
+						gagal.append(", ");
+					}
+					gagal.append(str(rsB.getString(1))).append(" (sisa ")
+							.append(rsB.getBigDecimal(2)).append(")");
+				}
+				rsB.close();
+				psB.close();
+				if (gagal.length() > 0) {
+					tolak(hasil, "Barang belum habis dialokasikan (terjual/kembali/rusak/hilang): "
+							+ gagal);
+					return;
+				}
+			}
+			tx = session.beginTransaction();
+			java.sql.PreparedStatement psU = session.connection().prepareStatement(
+					SalesInventoryTripTenant.ubahStatusTrip(skema));
+			psU.setString(1, ke);
+			if (NotaSalesSession.STATUS_RETURNED.equals(ke)) {
+				psU.setDate(2, new java.sql.Date(ais.ui.util.WaktuUtil.getDate().getTime()));
+			} else {
+				psU.setNull(2, java.sql.Types.DATE);
+			}
+			psU.setString(3, tbmuser.getUserId());
+			psU.setLong(4, tripId.longValue());
+			psU.executeUpdate();
+			psU.close();
+			if (spjId != null) {
+				String statusSpj = NotaSalesSession.STATUS_RETURNED.equals(ke)
+						? SuratPerintahSalesJalan.STATUS_RETURNED
+						: SuratPerintahSalesJalan.STATUS_RECONCILING;
+				java.sql.PreparedStatement psS = session.connection().prepareStatement(
+						SalesInventoryTripTenant.ubahStatusSpj(skema));
+				psS.setString(1, statusSpj);
+				psS.setString(2, tbmuser.getUserId());
+				psS.setLong(3, spjId.longValue());
+				psS.executeUpdate();
+				psS.close();
+			}
+			tx.commit();
+			hasil.put("status", "00");
+			hasil.put("statusBaru", ke);
+		} catch (Exception e) {
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
 		}
 	}
 }
