@@ -413,8 +413,10 @@ String rnd = Common.getGeneratedBarCode(7);
         var h = "";
         for (var i=0;i<anggaranData.length;i++){
           var a = anggaranData[i];
+          // idTeks, dan dikutip: id anggaran 19 digit yang disisipkan sebagai
+          // ANGKA ke sumber JS dibulatkan ke kelipatan 1.024 terdekat.
           h += '<a href="javascript:void(0)" class="list-group-item list-group-item-action" onclick="prPilihAnggaran'
-             + RND + '(' + a.id + ')">'
+             + RND + '(&quot;' + a.idTeks + '&quot;)">'
              + '<div class="d-flex justify-content-between"><span class="fw-bold">'
              + esc(a.kode || "") + " " + esc(a.nama || "")
              + '</span><span>sisa ' + rp(a.sisa) + '</span></div>'
@@ -427,9 +429,9 @@ String rnd = Common.getGeneratedBarCode(7);
   };
   window["prPilihAnggaran" + RND] = function(id){
     for (var i=0;i<anggaranData.length;i++){
-      if (String(anggaranData[i].id) !== String(id)) continue;
+      if (String(anggaranData[i].idTeks) !== String(id)) continue;
       var a = anggaranData[i];
-      el("prAnggaran").value = a.id;
+      el("prAnggaran").value = a.idTeks;
       el("prAnggaranNama").value = (a.kode || "") + " " + (a.nama || "");
       el("prAnggaranInfo").textContent = "Pagu " + rp(a.pagu) + " - realisasi "
         + rp(a.realisasi) + " - sisa " + rp(a.sisa);
@@ -477,7 +479,7 @@ String rnd = Common.getGeneratedBarCode(7);
       el("prKeterangan").disabled = terkunci;
       el("prTanpaAnggaran").checked = prAktif.tanpaAnggaran === true;
       el("prTanpaAnggaran").disabled = terkunci;
-      setelAnggaranAwal(prAktif.workspace_id || null, prAktif.anggaran || "");
+      setelAnggaranAwal(prAktif.workspace_idTeks || null, prAktif.anggaran || "");
       el("prTombolAnggaran").disabled = terkunci;
       window["prGantiAnggaran" + RND]();
       baris = (d.detail || []).map(function(x){

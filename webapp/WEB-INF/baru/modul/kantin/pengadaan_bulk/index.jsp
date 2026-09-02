@@ -219,7 +219,8 @@ if (jenisAwal == null || !(jenisAwal.equals("pr") || jenisAwal.equals("po") || j
             : '<option value="">(belum ada anggaran aktif)</option>';
       for (var i=0;i<anggaranOpsiBulk.length;i++){
         var a = anggaranOpsiBulk[i];
-        h += '<option value="' + a.id + '">' + esc(a.kode || "") + " " + esc(a.nama || "")
+        // idTeks: id anggaran 19 digit rusak bila dibaca sebagai angka JS.
+        h += '<option value="' + a.idTeks + '">' + esc(a.kode || "") + " " + esc(a.nama || "")
            + " - sisa " + rp(a.sisa) + '</option>';
       }
       el("bkAnggaran").innerHTML = h;

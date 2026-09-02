@@ -584,6 +584,10 @@ public final class PengadaanPosApiHelper {
 			h.put("alasanDitolak", pr.getAlasanDitolak() == null ? "" : pr.getAlasanDitolak());
 			h.put("tanpaAnggaran", Boolean.TRUE.equals(pr.getTanpaAnggaran()));
 			h.put("workspace_id", pr.getWorkspace() == null ? JSONObject.NULL : pr.getWorkspace().getId());
+			// Lihat catatan presisi di cariAnggaran: saat PR lama dibuka kembali,
+			// anggaran terpilihnya ikut rusak bila dibaca dari angka.
+			h.put("workspace_idTeks", pr.getWorkspace() == null ? ""
+					: String.valueOf(pr.getWorkspace().getId()));
 			h.put("anggaran", pr.getWorkspace() == null ? ""
 					: ((pr.getWorkspace().getKode() == null ? "" : pr.getWorkspace().getKode() + " ")
 							+ (pr.getWorkspace().getNama() == null ? "" : pr.getWorkspace().getNama())).trim());
@@ -3997,6 +4001,12 @@ public final class PengadaanPosApiHelper {
 				double proses = w.getRealisasiProses() == null ? 0 : w.getRealisasiProses().doubleValue();
 				JSONObject o = new JSONObject();
 				o.put("id", w.getId());
+				// Id workspace berbentuk -(Long.MAX_VALUE - n): 19 digit, jauh di atas
+				// 2^53. Sebagai ANGKA JSON, JavaScript membulatkannya ke kelipatan 1024
+				// terdekat -- 1.024 anggaran berurutan runtuh menjadi satu nilai yang
+				// sama. Klien JSP wajib memakai idTeks. Klien Flutter tidak terpengaruh
+				// (int Dart 64-bit di build native), jadi "id" tetap dikirim apa adanya.
+				o.put("idTeks", w.getId() == null ? "" : String.valueOf(w.getId()));
 				o.put("kode", w.getKode() == null ? "" : w.getKode());
 				o.put("nama", w.getNama() == null ? "" : w.getNama());
 				o.put("tahun", w.getTahunWorkspace() == null ? JSONObject.NULL : w.getTahunWorkspace());
