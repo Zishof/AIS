@@ -1,5 +1,37 @@
 # Progres Javadoc Menyeluruh
 
+## Batch "5 entity penilaian/skripsi" — SELESAI 100% (2 Sep 2026, dikonsolidasi orkestrator)
+
+Semua 5 file TUNTAS 100% method, dikompilasi, dikommit bertahap, di-mirror ke
+`java/` (verifikasi `cmp` byte-identik):
+- `FormatNilaiSkripsi.java` — 245/245 method. 1249→3519 baris. r83105/83110/83113.
+- `FormatNilaiProposalSkripsi.java` — 243/243 method. 1247→3765 baris.
+  r83110/83114/83119/83120.
+- `PembombotanNilai.java` — 101/101 method. 1295→2642 baris. r83104/83106.
+- `BiodataDosen.java` — 125/125 method. 729→1828 baris. r83101/83103.
+- `MahasiswaRequestTugasAkhir.java` — 145/145 method. 1472→3150 baris.
+  r83110/83112.
+
+**AUDIT TERPISAH DIBUAT** (`task_15f5001e`, di luar inisiatif dokumentasi ini)
+untuk kluster temuan arsitektur yang sudah cukup banyak & serius setelah 11+
+entity digarap: getter Hibernate "cerdas" yang diam-diam menulis/MENGHAPUS
+data saat dibaca (beberapa kasus kehilangan data nyata di `PembombotanNilai`,
+`FormatNilaiSkripsi`/`FormatNilaiProposalSkripsi`, `MahasiswaRequestTugasAkhir`,
+`BiodataDosen`), bug penamaan kolom dosen 1/2 di `FormatNilaiSkripsi.java`
+(terkonfirmasi sisi MASTER dari bug yang sama di `Skripsi.java` sesi
+sebelumnya) plus SATU inkonsistensi arah pemetaan yang mungkin bug fungsional
+nyata (`VOPembelajaran` vs method lain di file yang sama), dan bug id
+anak-vs-induk yang muncul independen di 2 tempat (`Skripsi`+
+`MahasiswaRequestTugasAkhir`, pola kemungkinan copy-paste). **PENTING**:
+bug label/kolom tertukar itu TIDAK ada di `FormatNilaiProposalSkripsi.java`
+(penamaannya konsisten bersih) — jangan generalisasi berlebihan, itu spesifik
+`FormatNilaiSkripsi.java` saja.
+
+**Total akumulasi 6 sesi kerja**: 203 (sesi 1-5) + 5 = **208 file** dari 7.401
+(~2,8%). Field audit shadow sekarang terkonfirmasi 100% konsisten di
+**11 entity berturut-turut** — anggap SELALU ADA di entity manapun yang
+belum digarap.
+
 ## `ais/database/model/FormatNilaiProposalSkripsi.java` — SELESAI 100% (2 Sep 2026)
 
 Entity master **format penilaian seminar/pengajuan proposal skripsi** (tabel

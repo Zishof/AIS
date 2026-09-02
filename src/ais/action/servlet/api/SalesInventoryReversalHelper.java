@@ -90,6 +90,10 @@ public final class SalesInventoryReversalHelper {
 			tolak(hasil, "pembayaran_id dan alasan wajib diisi.");
 			return;
 		}
+		if (SalesInventoryReversalTenant.aktif(ctx)) {
+			payablePaymentReverseTenant(ctx, tbmuser, id, alasan, hasil);
+			return;
+		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		Transaction tx = null;
 		try {
@@ -169,6 +173,15 @@ public final class SalesInventoryReversalHelper {
 		String alasan = request.optString("alasan", "").trim();
 		if (id == null || alasan.isEmpty()) {
 			tolak(hasil, "penerimaan_id dan alasan wajib diisi.");
+			return;
+		}
+		if (SalesInventoryReversalTenant.aktif(ctx)) {
+			// Model tenant belum punya buku kas trip maupun nota bawaan bernilai tertagih.
+			// Membalik piutangnya tanpa membalik kasnya akan menampilkan sales memegang uang
+			// yang tidak pernah diterimanya -- lihat javadoc SalesInventoryReversalTenant.
+			tolak(hasil, "Reversal penagihan belum tersedia pada schema tenant: pembalikan"
+					+ " piutangnya tidak dapat disertai pembalikan kas trip. Koreksi lewat"
+					+ " dokumen penyesuaian kantor.");
 			return;
 		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
@@ -296,6 +309,13 @@ public final class SalesInventoryReversalHelper {
 			tolak(hasil, "biaya_id dan alasan wajib diisi.");
 			return;
 		}
+		if (SalesInventoryReversalTenant.aktif(ctx)) {
+			// sales_trip_biaya tidak punya pembalik_dari_id, status, maupun metode pembayaran.
+			tolak(hasil, "Reversal biaya trip belum tersedia pada schema tenant: tabel biaya"
+					+ " belum punya penunjuk dokumen pembalik, sehingga baris pembalik tidak"
+					+ " dapat dipasangkan dengan baris aslinya.");
+			return;
+		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		Transaction tx = null;
 		try {
@@ -389,6 +409,13 @@ public final class SalesInventoryReversalHelper {
 			tolak(hasil, "id dan status_bg (CAIR|TOLAK) wajib diisi.");
 			return;
 		}
+		if (SalesInventoryReversalTenant.aktif(ctx)) {
+			// Model tenant menyimpan nomor_bg dan tanggal_bg, tetapi tidak statusnya; giro yang
+			// sudah cair tidak dapat dibedakan dari yang ditolak.
+			tolak(hasil, "Siklus status giro belum tersedia pada schema tenant: model tenant"
+					+ " belum menyimpan status giro.");
+			return;
+		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		Transaction tx = null;
 		try {
@@ -467,6 +494,10 @@ public final class SalesInventoryReversalHelper {
 			tolak(hasil, "jenis_dokumen wajib diisi.");
 			return;
 		}
+		if (SalesInventoryReversalTenant.aktif(ctx)) {
+			printLogCreateTenant(ctx, tbmuser, request, jenis, hasil);
+			return;
+		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		Transaction tx = null;
 		try {
@@ -497,6 +528,10 @@ public final class SalesInventoryReversalHelper {
 		}
 		String jenis = request.optString("jenis_dokumen", "").trim();
 		String referensi = request.optString("referensi", "").trim();
+		if (SalesInventoryReversalTenant.aktif(ctx)) {
+			printLogListTenant(ctx, jenis, referensi, hasil);
+			return;
+		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			org.hibernate.Criteria c = session.createCriteria(LogCetak.class);
@@ -515,6 +550,259 @@ public final class SalesInventoryReversalHelper {
 				r.put("waktu", str(l.getWaktu()));
 				arr.put(r);
 			}
+			hasil.put("status", "00");
+			hasil.put("rows", arr);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	// =============================================================================================
+	// Jalur schema tenant
+	// =============================================================================================
+
+	/**
+	 * Pembalikan pembayaran hutang pada schema tenant.
+	 *
+	 * <p>Urutannya sengaja sama dengan jalur legacy: periksa kunci idempotensi, ambil dokumen
+	 * asal, tolak bila statusnya bukan AKTIF, lalu dalam SATU transaksi terbitkan dokumen cermin
+	 * bernilai negatif, cerminkan alokasinya, tandai dokumen asal DIBATALKAN, dan catat
+	 * alasannya pada {@code reversal_log}.</p>
+	 *
+	 * <p>Keempatnya harus satu transaksi. Dokumen pembalik tanpa alokasi pembalik akan
+	 * mengembalikan uangnya tetapi TIDAK mengembalikan sisa hutangnya, dan itu justru keadaan
+	 * yang paling menyesatkan -- lihat blok 2 pada {@code uji-kesetaraan-reversal.sql}.</p>
+	 *
+	 * <p>Penjaga pengulangan ada dua lapis: pemeriksaan kunci di muka menangani percobaan
+	 * berurutan (klik ganda, klien mengulang setelah waktu habis), dan indeks unik parsial dari
+	 * migrasi v11 menangani dua permintaan yang benar-benar bersamaan. Lapis kedua itulah yang
+	 * sebelum v11 tidak ada sama sekali.</p>
+	 */
+	private static void payablePaymentReverseTenant(EbisnisActorContextResolver.ActorContext ctx,
+			Tbmuser tbmuser, Long id, String alasan, JSONObject hasil) throws Exception {
+		String skema = SalesInventoryReversalTenant.skema(ctx);
+		String kodeRev = "REV-PHS-" + id;
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		Transaction tx = null;
+		try {
+			java.sql.PreparedStatement psCek = session.connection().prepareStatement(
+					SalesInventoryReversalTenant.cariPembalik(skema));
+			psCek.setString(1, kodeRev);
+			java.sql.ResultSet rsCek = psCek.executeQuery();
+			boolean sudahAda = rsCek.next();
+			long idSudah = sudahAda ? rsCek.getLong(1) : 0;
+			rsCek.close();
+			psCek.close();
+			if (sudahAda) {
+				hasil.put("status", "00");
+				hasil.put("id", idSudah);
+				hasil.put("idempotentReplay", true);
+				return;
+			}
+
+			java.sql.PreparedStatement psAsal = session.connection().prepareStatement(
+					SalesInventoryReversalTenant.asalPembayaran(skema));
+			psAsal.setLong(1, id.longValue());
+			java.sql.ResultSet rsAsal = psAsal.executeQuery();
+			if (!rsAsal.next()) {
+				rsAsal.close();
+				psAsal.close();
+				tolak(hasil, "Pembayaran tidak ditemukan.");
+				return;
+			}
+			String nomorAsal = str(rsAsal.getString(1));
+			long supplierId = rsAsal.getLong(2);
+			BigDecimal nilai = rsAsal.getBigDecimal(3);
+			String caraBayar = rsAsal.getString(4);
+			String nomorBg = rsAsal.getString(5);
+			String namaBank = rsAsal.getString(6);
+			String statusAsal = str(rsAsal.getString(7));
+			rsAsal.close();
+			psAsal.close();
+			if (!PembayaranHutangSupplier.DOK_AKTIF.equals(statusAsal)) {
+				tolak(hasil, "Dokumen berstatus " + statusAsal + " tidak bisa direversal.");
+				return;
+			}
+
+			tx = session.beginTransaction();
+			java.sql.PreparedStatement psRev = session.connection().prepareStatement(
+					SalesInventoryReversalTenant.sisipPembalikPembayaran(skema),
+					java.sql.Statement.RETURN_GENERATED_KEYS);
+			// nomor_dokumen wajib pada model tenant; jalur legacy tidak memberi nomor pada
+			// dokumen pembalik AP, jadi nomornya diturunkan dari nomor asalnya.
+			psRev.setString(1, "REV-" + nomorAsal);
+			psRev.setLong(2, supplierId);
+			psRev.setString(3, caraBayar);
+			psRev.setString(4, nomorBg);
+			psRev.setString(5, namaBank);
+			psRev.setBigDecimal(6, nilai.negate());
+			psRev.setString(7, "REVERSAL pembayaran #" + id + ": " + alasan);
+			psRev.setString(8, kodeRev);
+			psRev.setLong(9, id.longValue());
+			psRev.setString(10, tbmuser.getUserId());
+			psRev.executeUpdate();
+			long idRev = 0;
+			java.sql.ResultSet gk = psRev.getGeneratedKeys();
+			if (gk.next()) {
+				idRev = gk.getLong(1);
+			}
+			gk.close();
+			psRev.close();
+			if (idRev <= 0) {
+				tx.rollback();
+				tolak(hasil, "Dokumen pembalik gagal disimpan.");
+				return;
+			}
+
+			java.sql.PreparedStatement psAlok = session.connection().prepareStatement(
+					SalesInventoryReversalTenant.cerminkanAlokasi(skema));
+			psAlok.setLong(1, idRev);
+			psAlok.setString(2, tbmuser.getUserId());
+			psAlok.setLong(3, id.longValue());
+			psAlok.executeUpdate();
+			psAlok.close();
+
+			java.sql.PreparedStatement psBatal = session.connection().prepareStatement(
+					SalesInventoryReversalTenant.batalkanAsal(skema));
+			psBatal.setString(1, alasan);
+			psBatal.setLong(2, id.longValue());
+			psBatal.executeUpdate();
+			psBatal.close();
+
+			java.sql.PreparedStatement psLog = session.connection().prepareStatement(
+					SalesInventoryReversalTenant.catatReversal(skema));
+			psLog.setLong(1, id.longValue());
+			psLog.setString(2, alasan);
+			psLog.setString(3, tbmuser.getUserId());
+			psLog.executeUpdate();
+			psLog.close();
+
+			tx.commit();
+			hasil.put("status", "00");
+			hasil.put("id", idRev);
+		} catch (java.sql.SQLException dup) {
+			// Indeks unik v11 pada idempotency_key: dua permintaan kembar yang bersamaan.
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+			}
+			if (dup.getSQLState() != null && dup.getSQLState().startsWith("23")) {
+				hasil.put("status", "00");
+				hasil.put("idempotentReplay", true);
+			} else {
+				throw dup;
+			}
+		} catch (Exception e) {
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * Pencatatan riwayat cetak pada schema tenant.
+	 *
+	 * <p>{@code parameter} legacy disimpan pada kolom {@code alasan} -- satu-satunya kolom teks
+	 * bebas yang tersedia. Namanya tidak cocok, tetapi membuang isian yang pada jalur legacy
+	 * tersimpan jelas lebih buruk.</p>
+	 */
+	private static void printLogCreateTenant(EbisnisActorContextResolver.ActorContext ctx,
+			Tbmuser tbmuser, JSONObject request, String jenis, JSONObject hasil) throws Exception {
+		String skema = SalesInventoryReversalTenant.skema(ctx);
+		String referensi = request.optString("referensi", "").trim();
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		Transaction tx = null;
+		try {
+			tx = session.beginTransaction();
+			int cetakanKe = 1;
+			java.sql.PreparedStatement psNo = session.connection().prepareStatement(
+					SalesInventoryReversalTenant.cetakanBerikut(skema));
+			psNo.setString(1, jenis);
+			psNo.setString(2, referensi);
+			java.sql.ResultSet rsNo = psNo.executeQuery();
+			if (rsNo.next()) {
+				cetakanKe = rsNo.getInt(1);
+			}
+			rsNo.close();
+			psNo.close();
+
+			java.sql.PreparedStatement ins = session.connection().prepareStatement(
+					SalesInventoryReversalTenant.sisipLogCetak(skema),
+					java.sql.Statement.RETURN_GENERATED_KEYS);
+			ins.setString(1, jenis);
+			ins.setString(2, referensi);
+			ins.setInt(3, cetakanKe);
+			ins.setString(4, tbmuser.getUserId());
+			ins.setString(5, request.optString("perangkat", "").trim());
+			ins.setString(6, request.optString("parameter", "").trim());
+			ins.executeUpdate();
+			long idBaru = 0;
+			java.sql.ResultSet gk = ins.getGeneratedKeys();
+			if (gk.next()) {
+				idBaru = gk.getLong(1);
+			}
+			gk.close();
+			ins.close();
+			tx.commit();
+			hasil.put("status", "00");
+			hasil.put("id", idBaru);
+		} catch (Exception e) {
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** Riwayat cetak pada schema tenant: ENAM medan yang sama dengan jalur legacy. */
+	private static void printLogListTenant(EbisnisActorContextResolver.ActorContext ctx,
+			String jenis, String referensi, JSONObject hasil) throws Exception {
+		String skema = SalesInventoryReversalTenant.skema(ctx);
+		StringBuilder where = new StringBuilder(" WHERE 1=1");
+		if (!jenis.isEmpty()) {
+			where.append(" AND l.dokumen_tipe = ?");
+		}
+		if (!referensi.isEmpty()) {
+			where.append(" AND l.nomor_dokumen = ?");
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(
+					SalesInventoryReversalTenant.selectLogCetak(skema, where.toString()));
+			int ix = 1;
+			if (!jenis.isEmpty()) {
+				ps.setString(ix++, jenis);
+			}
+			if (!referensi.isEmpty()) {
+				ps.setString(ix++, referensi);
+			}
+			java.sql.ResultSet rs = ps.executeQuery();
+			JSONArray arr = new JSONArray();
+			while (rs.next()) {
+				JSONObject r = new JSONObject();
+				r.put("id", rs.getLong(1));
+				r.put("jenisDokumen", str(rs.getString(2)));
+				r.put("referensi", str(rs.getString(3)));
+				r.put("userId", str(rs.getString(4)));
+				r.put("perangkat", str(rs.getString(5)));
+				r.put("waktu", str(rs.getTimestamp(6)));
+				arr.put(r);
+			}
+			rs.close();
+			ps.close();
 			hasil.put("status", "00");
 			hasil.put("rows", arr);
 		} finally {

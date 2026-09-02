@@ -425,8 +425,10 @@ public final class NewUiLaporanSirsController {
                     .put("wajib", false).put("cari", true);
         }
         if (S_PASIEN.equals(nama)) {
+            boolean wajib = jenis.kode.endsWith("_kartu_pasien")
+                    || jenis.kode.endsWith("_status_pasien");
             return d.put("label", "Pasien").put("tipe", "relasi")
-                    .put("wajib", false).put("cari", true);
+                    .put("wajib", wajib).put("cari", true);
         }
         if (S_TRANSAKSI.equals(nama)) {
             return d.put("label", "Transaksi").put("tipe", "relasi")

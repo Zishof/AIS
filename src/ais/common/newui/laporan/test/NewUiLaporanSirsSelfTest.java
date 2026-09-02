@@ -64,6 +64,7 @@ public final class NewUiLaporanSirsSelfTest {
         Object poliBaruLama = null;
         Object hargaBeli = null;
         Object penggunaanApotik = null;
+        Object kartuPasien = null;
         for (Map.Entry<String, String> e : laporan.entrySet()) {
             check(NewUiLaporanSirsController.jenisDikenal(e.getKey()),
                     "laporan tidak dikenal: " + e.getKey());
@@ -91,6 +92,7 @@ public final class NewUiLaporanSirsSelfTest {
             if ("rajal_poli_baru_lama".equals(e.getKey())) poliBaruLama = nilai;
             if ("inventory_harga_beli".equals(e.getKey())) hargaBeli = nilai;
             if ("apotik_penggunaan_item".equals(e.getKey())) penggunaanApotik = nilai;
+            if ("umum_kartu_pasien".equals(e.getKey())) kartuPasien = nilai;
         }
         check(!NewUiLaporanSirsController.jenisDikenal("laporan_karangan"),
                 "laporan tak terdaftar harus ditolak");
@@ -120,6 +122,9 @@ public final class NewUiLaporanSirsSelfTest {
         JSONObject satker = (JSONObject) filter.invoke(null, penggunaanApotik, "satker");
         check("relasi".equals(satker.getString("tipe")) && satker.getBoolean("cari"),
                 "satker apotek harus dapat dicari dan tetap opsional");
+        JSONObject pasienKartu = (JSONObject) filter.invoke(null, kartuPasien, "pasien");
+        check(pasienKartu.getBoolean("wajib") && pasienKartu.getBoolean("cari"),
+                "cetak kartu pasien harus mewajibkan satu pasien yang dapat dicari");
 
         System.out.println("NewUiLaporanSirsSelfTest OK (" + laporan.size() + " laporan)");
     }
