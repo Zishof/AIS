@@ -42,6 +42,27 @@ public final class JasperPdfUtil {
             throws Exception {
         java.io.File pdf = ais.action.report.Report.generateFileReportSimple(
                 ais.action.report.Report.PDF, parameters, template);
+        kirim(json, pdf, kunci, judul);
+    }
+
+    /** Render JRXML yang lokasinya berasal dari lampiran terverifikasi. */
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    public static void tulisFile(JSONObject json, String jrxml, Map parameters,
+            String kunci, String judul) throws Exception {
+        if (jrxml == null || jrxml.trim().length() == 0) {
+            throw new IllegalArgumentException("Template laporan tidak tersedia.");
+        }
+        java.io.File sumber = new java.io.File(jrxml);
+        if (!sumber.exists() || !sumber.isFile()) {
+            throw new IllegalArgumentException("Berkas template laporan tidak ditemukan.");
+        }
+        java.io.File pdf = ais.action.report.Report.generateCompileFileReport(
+                ais.action.report.Report.PDF, parameters, sumber.getAbsolutePath(), new Date());
+        kirim(json, pdf, kunci, judul);
+    }
+
+    private static void kirim(JSONObject json, java.io.File pdf, String kunci, String judul)
+            throws Exception {
         if (pdf == null || !pdf.exists()) {
             throw new IllegalStateException("PDF laporan gagal dibuat.");
         }
