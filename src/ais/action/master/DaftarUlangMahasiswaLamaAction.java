@@ -995,7 +995,9 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 //		cicilanPembayaransTemp.clear();
 		Session sessionObj = null;
 
-		if (event != null && event.getTarget() instanceof Button) {
+		boolean refreshDiminta = refresh || (event != null
+				&& (event.getTarget() instanceof Button || event.getTarget() instanceof Toolbarbutton));
+		if (refreshDiminta) {
 			try {
 				sessionObj = HibernateUtil.openSession();
 				if (mahasiswa != null && mahasiswa.getId() != null) {
