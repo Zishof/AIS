@@ -92,6 +92,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [79-enam-belas-utang-ditelusuri.md](79-enam-belas-utang-ditelusuri.md) | Vonis 16 field yatim satu per satu: 5 peringatan rekonsiliasi kas yang tak sampai ke siapa pun, 11 sisanya tidak merugikan |
 | [80-satu-saluran-peringatan-pasca-transaksi.md](80-satu-saluran-peringatan-pasca-transaksi.md) | Enam peringatan lepas jadi satu saluran; biaya menambah peringatan berikutnya turun dari 9 titik jadi 1 |
 | [81-lima-salinan-payload-jadi-satu.md](81-lima-salinan-payload-jadi-satu.md) | Lima salinan payload bayar yang sudah menyebabkan tiga cacat, disatukan; payloadnya diverifikasi dijalankan, bukan dibaca |
+| [82-penjaga-yang-tidak-ikut-terversi.md](82-penjaga-yang-tidak-ikut-terversi.md) | Harness yang diklaim menjaga ternyata tak terversi; `src/test` (18 UAT Java) di luar SVN |
 
 | [35-lampiran-gambar.md](35-lampiran-gambar.md) | Lampiran gambar — blob, maksimum 500 KB, dikecilkan di klien |
 | [52-fase-b-satuan-jual.md](52-fase-b-satuan-jual.md) | 52. Fase B — Satuan Jual per Baris Transaksi |
