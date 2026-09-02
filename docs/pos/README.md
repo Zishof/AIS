@@ -166,6 +166,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [91-templat-laporan-dan-pohon-web.md](91-templat-laporan-dan-pohon-web.md) | Subreport sehat; "sumber transkrip hilang" ternyata ada di pohon ^/web; empat templat benar-benar tanpa sumber |
 | [92-koreksi-topologi-dan-cocok-nama.md](92-koreksi-topologi-dan-cocok-nama.md) | Koreksi doc 91: ^/web adalah webapp sendiri, dan pencocokan nama vs jalur penuh |
 | [93-sumber-templat-yang-benar-benar-hilang.md](93-sumber-templat-yang-benar-benar-hilang.md) | Kembaran senama dibuktikan bukan sumbernya; enam templat laporan benar-benar tanpa sumber |
+| [94-ikon-menu-webxml-dan-satu-penjalan.md](94-ikon-menu-webxml-dan-satu-penjalan.md) | Ikon menu (2 hilang, 34 "temuan" ternyata kelas CSS); web.xml bersih; satu penjalan untuk semua pemeriksa |
 | [ATURAN-NATIVE-SQL-CAST.md](ATURAN-NATIVE-SQL-CAST.md) | Aturan wajib cast pada native SQL |
 | [BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md](BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md) | Pengamanan Pembayaran Kedaluwarsa Bankaltimtara |
 | [PERBAIKAN_ERROR_2026-08-24_1936.md](PERBAIKAN_ERROR_2026-08-24_1936.md) | Perbaikan Error POS/eBisnis 24 Agustus 2026 19:36 |
