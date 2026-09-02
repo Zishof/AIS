@@ -52,7 +52,11 @@ import ais.ui.util.WaktuUtil;
  * {@code DATA}. DATA wajib memakai envelope {@code v1.iv.ciphertext.hmac} yang
  * di-Base64, AES-256-CBC, dan HMAC-SHA256 seperti contoh BMT. API key, kunci AES,
  * dan kunci HMAC berasal dari konfigurasi server dengan default kosong. Fitur
- * sendiri default OFF; tidak ada secret contoh dari ZIP yang disalin ke source.</p>
+ * sendiri default OFF; tidak ada secret contoh dari ZIP yang disalin ke source.
+ * Berdasarkan konfirmasi tertulis tim BMT, {@code DATA} pada setiap respons sukses
+ * juga wajib dienkripsi dengan envelope yang sama. Kewajiban ini tidak dibuat
+ * sebagai sakelar runtime agar perubahan konfigurasi tidak diam-diam memutus
+ * kontrak SIT/UAT atau membocorkan isi respons sebagai JSON terbuka.</p>
  *
  * <h3>Idempotensi</h3>
  * <p>Validasi timestamp saja tidak cukup. Setiap nonce disimpan permanen dan
@@ -148,6 +152,9 @@ public class OnlineBmt extends HttpServlet {
 		VirtualAccountBank invoice = findInvoice(invoiceNo);
 		validateInvoiceChannel(invoice);
 		validateNotExpired(invoice);
+		if (VirtualAccountBank.isSudahTerbayar(invoice)) {
+			throw new ApiException(409, "01", "Tagihan sudah lunas.");
+		}
 		MerchantIdentity merchantIdentity = requireMerchantIdentity();
 
 		JSONObject value = new JSONObject();
@@ -281,15 +288,21 @@ public class OnlineBmt extends HttpServlet {
 	private JSONObject checkStatus(JSONObject data) throws Exception {
 		PaymentInput input = PaymentInput.parse(data);
 		validateChannel(input.channel);
-		VirtualAccountBank invoice = findInvoice(input.invoiceNo);
-		validateInvoiceChannel(invoice);
-		validateAmount(invoice, input.amount);
 		Session session = null;
 		Transaction tx = null;
 		try {
 			session = HibernateUtil.openSession();
 			lockTransaction(session, input.transactionNo, true);
 			tx = session.beginTransaction();
+
+			/* Invoice sengaja dibaca setelah advisory lock diperoleh. Jika PAYMENT
+			 * dengan nomor transaksi yang sama sedang berjalan, CHECK_STATUS menunggu
+			 * sampai proses itu selesai lalu membaca bukti pembayaran terbaru. Membaca
+			 * sebelum lock menghasilkan object detached yang dapat tetap berstatus belum
+			 * lunas walaupun PAYMENT sudah commit selama CHECK_STATUS menunggu. */
+			VirtualAccountBank invoice = findInvoice(input.invoiceNo);
+			validateInvoiceChannel(invoice);
+			validateAmount(invoice, input.amount);
 			Ledger ledger = findLedger(session, input.transactionNo);
 			ledger = bindLegacyChannel(session, ledger, input);
 			boolean pairMatches = ledger != null && input.invoiceNo.equals(ledger.invoiceNo)
@@ -592,8 +605,10 @@ public class OnlineBmt extends HttpServlet {
 	private static JSONObject success(String message, JSONObject data) throws Exception {
 		JSONObject result = new JSONObject(); result.put("STATUS", true); result.put("KODE_STATUS", "00");
 		result.put("KETERANGAN", message);
-		if (Common.bolehKonfigurasi(Konfigurasi.ONLINE_BMT_ENKRIPSI_RESPONSE, Konfigurasi.AKTIF)) result.put("DATA", encrypt(data));
-		else result.put("DATA", data);
+		/* Konfirmasi BMT tanggal 3 September 2026: parameter DATA pada response
+		 * wajib dienkripsi. Jangan kembalikan JSONObject plaintext walaupun konfigurasi
+		 * legacy online_bmt_enkripsi_response pernah disetel tidak aktif. */
+		result.put("DATA", encrypt(data));
 		return result;
 	}
 

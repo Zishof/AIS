@@ -3873,7 +3873,10 @@ public class CommonReportHelper {
 			}
 		}
 
-		Report.tampil(fileGabungan, parameters, "PAKEM Aktifitas Mahasiswa");
+		// Argumen varargs pada Report.tampil adalah nama TEMPLATE tambahan, bukan judul popup.
+		// PDF Form A dan Form B sudah digabung, jadi tampilkan langsung tanpa membuat tab
+		// yang mencoba mencari template fiktif "PAKEM Aktifitas Mahasiswa".
+		Report.tampil(fileGabungan, parameters);
 	}
 
 	public static void onCetakAngkaKreditSiswa(Siswa siswa) throws Exception {

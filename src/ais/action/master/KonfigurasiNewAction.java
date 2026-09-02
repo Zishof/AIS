@@ -12305,7 +12305,9 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 		rows.appendChild(createRowNilai("Online BMT encryption key (secret AES; wajib diisi sebelum aktivasi)", Konfigurasi.ONLINE_BMT_ENCRYPTION_KEY, ""));
 		rows.appendChild(createRowNilai("Online BMT HMAC key (secret; wajib diisi sebelum aktivasi)", Konfigurasi.ONLINE_BMT_HMAC_KEY, ""));
 		rows.appendChild(createRowNilai("Toleransi waktu request Online BMT dalam detik (30-3600)", Konfigurasi.ONLINE_BMT_REQUEST_TIME_TOLERANCE, "300"));
-		rows.appendChild(createRowActiveDefault("Enkripsi DATA response Online BMT", Konfigurasi.ONLINE_BMT_ENKRIPSI_RESPONSE, Konfigurasi.AKTIF));
+		/* DATA respons Online BMT wajib selalu terenkripsi sesuai konfirmasi BMT.
+		 * Toggle legacy sengaja tidak ditampilkan agar operator tidak dapat membuat
+		 * kontrak callback berbeda dari spesifikasi mitra. */
 		rows.appendChild(createRowActiveDefault("Aktifkan pembayaran via bank online smartlink 2 — dipakai di: TampilanPaymentGateway", "aktifkan_pembayaran_via_bank_online_smartlink_2", Konfigurasi.TIDAK_AKTIF));
 		rows.appendChild(createRowActiveDefault("Aktifkan pembayaran via bank otto — dipakai di: DaftarUlangMahasiswaBaruAction, TampilanPaymentGateway", "aktifkan_pembayaran_via_bank_otto", Konfigurasi.TIDAK_AKTIF));
 		rows.appendChild(createRowActiveDefault("Aktifkan pembayaran via bank qris — dipakai di: DaftarUlangMahasiswaBaruAction, TampilanPaymentGateway", "aktifkan_pembayaran_via_bank_qris", Konfigurasi.TIDAK_AKTIF));

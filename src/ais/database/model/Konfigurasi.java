@@ -234,7 +234,15 @@ public class Konfigurasi extends GeneralValueObject {
 	public static final String ONLINE_BMT_HMAC_KEY = "online_bmt_hmac_key";
 	/** Batas umur request Online BMT dalam detik; nilai aman bawaan 300 detik. */
 	public static final String ONLINE_BMT_REQUEST_TIME_TOLERANCE = "online_bmt_request_time_tolerance";
-	/** Mengaktifkan enkripsi DATA pada response sesuai kontrak BMT. */
+	/**
+	 * Kunci legacy untuk enkripsi respons Online BMT.
+	 *
+	 * @deprecated Berdasarkan konfirmasi tertulis BMT, DATA respons sukses wajib
+	 *             selalu terenkripsi. Nilai konfigurasi ini dipertahankan hanya
+	 *             agar data instalasi lama tetap dapat dibaca, tetapi tidak lagi
+	 *             boleh mengubah perilaku endpoint.
+	 */
+	@Deprecated
 	public static final String ONLINE_BMT_ENKRIPSI_RESPONSE = "online_bmt_enkripsi_response";
 	/** Biaya administrasi yang ditambahkan pada invoice Online BMT. */
 	public static final String ONLINE_BMT_BIAYA_ADMINISTRASI = "online_bmt_biaya_administrasi";

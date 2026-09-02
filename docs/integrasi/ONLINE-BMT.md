@@ -11,7 +11,7 @@ Content-Type: application/json; charset=utf-8
 
 `https://ecampus.staialbahjah.ac.id/albahjah/` adalah context root aplikasi, sedangkan `/OnlineBmt` adalah mapping servlet pada `WEB-INF/web.xml`. BMT memanggil alamat tersebut dari server BMT menuju eCampus. Alamat ini bukan URL yang dipanggil aplikasi mobile/desktop untuk membuat invoice dan bukan halaman yang dibuka pengguna. Pengguna membuat invoice dari UI/API eCampus; sesudah itu BMT menggunakan callback untuk menanyakan invoice, memberi konfirmasi pembayaran, atau memeriksa status transaksi.
 
-Endpoint hanya menerima `POST`. Reverse proxy harus meneruskan body JSON apa adanya, tidak mengubah encoding Base64, dan tidak mengalihkan `POST` menjadi `GET`. TLS wajib berakhir pada sertifikat publik yang valid. Firewall/WAF boleh membatasi IP sumber BMT setelah daftar IP resmi diterima, tetapi API key, HMAC, timestamp, dan nonce tetap wajib karena allowlist IP bukan pengganti autentikasi pesan. Health check sebaiknya tidak mengirim transaksi tiruan; `GET` pada endpoint akan menghasilkan kegagalan protokol `405` di dalam body JSON.
+Endpoint hanya menerima `POST`. Reverse proxy harus meneruskan body JSON apa adanya, tidak mengubah encoding Base64, dan tidak mengalihkan `POST` menjadi `GET`. TLS wajib berakhir pada sertifikat publik yang valid. Berdasarkan konfirmasi tim BMT tanggal 3 September 2026, request BMT akan berasal dari `103.157.96.112` atau `103.27.207.203`. Kedua alamat tersebut adalah **IP sumber server BMT yang perlu di-allowlist pada firewall/WAF/reverse proxy eCampus**, bukan alamat server eCampus dan bukan URL callback. Pembatasan sebaiknya dilakukan sebelum request mencapai Tomcat. Jangan mempercayai `X-Forwarded-For` langsung di servlet kecuali reverse proxy yang menulis header itu telah ditetapkan sebagai trusted proxy, sebab header dari internet dapat dipalsukan. API key, HMAC, timestamp, dan nonce tetap wajib karena allowlist IP bukan pengganti autentikasi pesan. Health check sebaiknya tidak mengirim transaksi tiruan; `GET` pada endpoint akan menghasilkan kegagalan protokol `405` di dalam body JSON.
 
 ## Tujuan dan ruang lingkup
 
@@ -25,7 +25,7 @@ Online BMT bersifat fail-closed. Instalasi baru maupun instalasi lama tetap OFF 
 
 Aturan efektifnya adalah sebagai berikut. Invoice mahasiswa atau calon mahasiswa memerlukan sakelar global dan sakelar PT. Invoice siswa atau calon siswa memerlukan sakelar global, sakelar sekolah, serta sakelar kanal jika sekolah/tagihan memakai `KanalPembayaran`. Top-up anggota koperasi memerlukan sakelar global dan sakelar `KanalPembayaran`. Pemeriksaan dilakukan saat opsi ditampilkan, saat invoice dibuat, dan sekali lagi ketika callback diterima. Pemeriksaan berulang ini disengaja: daftar kanal dari klien tidak dipercaya, dan invoice lama tidak boleh tetap dapat dibayar apabila kanal telah dinonaktifkan karena insiden operasional.
 
-Konfigurasi tambahan adalah `online_bmt_prefix_invoice` dengan default `BMT`, `online_bmt_biaya_administrasi` dengan default `0.0`, `online_bmt_api_key`, `online_bmt_encryption_key`, dan `online_bmt_hmac_key`. Secret wajib diisi dari secret manager atau administrasi konfigurasi produksi, tidak boleh ditulis ke source control, dokumentasi, log, maupun aplikasi mobile. Nilai contoh dalam ZIP hanya contoh kontrak dan harus dianggap tidak layak untuk produksi. `online_bmt_request_time_tolerance` dapat mengatur toleransi timestamp dalam detik; nilai efektif dibatasi antara 30 dan 3600 detik, dengan default 300 detik. `online_bmt_enkripsi_response` default aktif agar respons mengikuti envelope terenkripsi kontrak.
+Konfigurasi tambahan adalah `online_bmt_prefix_invoice` dengan default `BMT`, `online_bmt_biaya_administrasi` dengan default `0.0`, `online_bmt_api_key`, `online_bmt_encryption_key`, dan `online_bmt_hmac_key`. Secret wajib diisi melalui administrasi konfigurasi berotorisasi atau mekanisme secret server, tidak boleh ditulis ke source control, dokumentasi, log, maupun aplikasi mobile. Tim BMT mengizinkan credential pada sample code dipakai sementara untuk SIT. Izin ini berarti nilainya boleh dimasukkan ke konfigurasi **lingkungan SIT saja**, bukan disalin menjadi konstanta/default Java. Setelah SIT, credential perlu diganti untuk UAT/produksi dan disepakati pada kedua sisi. `online_bmt_request_time_tolerance` dapat mengatur toleransi timestamp dalam detik; nilai efektif dibatasi antara 30 dan 3600 detik, dengan default 300 detik. Berdasarkan konfirmasi tertulis BMT, `DATA` pada setiap respons sukses wajib selalu dienkripsi; perilaku ini dikunci di endpoint dan tidak dapat dimatikan oleh konfigurasi.
 
 Konfigurasi lengkap yang perlu diperiksa sebelum aktivasi:
 
@@ -45,7 +45,7 @@ Konfigurasi lengkap yang perlu diperiksa sebelum aktivasi:
 | `online_bmt_encryption_key` | kosong | Material pembentuk key AES-256. |
 | `online_bmt_hmac_key` | kosong | Material pembentuk key HMAC-SHA256. |
 | `online_bmt_request_time_tolerance` | `300` | Selisih waktu request terhadap server, dalam detik. |
-| `online_bmt_enkripsi_response` | `aktif` | Mengenkripsi field `DATA` pada respons sukses. |
+| `online_bmt_enkripsi_response` | legacy/diabaikan | Dipertahankan agar data instalasi lama kompatibel. Respons sukses selalu terenkripsi dan layar konfigurasi tidak lagi menawarkan sakelar ini. |
 
 Empat identitas mitra/merchant diwajibkan bersama-sama. `INQUIRY` ditolak dengan kode `503` bila salah satunya kosong. Keputusan fail-closed ini mencegah respons yang secara teknis sukses tetapi tidak dapat dipetakan oleh BMT. Konfigurasi secret juga diwajibkan sebelum payload diproses. Jangan mengaktifkan sakelar global terlebih dahulu sambil membiarkan konfigurasi lain kosong, karena hasil yang diharapkan pada kondisi tersebut memang penolakan layanan.
 
@@ -148,9 +148,9 @@ Respons luar selalu memiliki empat field:
 }
 ```
 
-Saat `online_bmt_enkripsi_response=aktif`, `DATA` dienkripsi dengan algoritma yang sama. Sesuai workbook dan sample `api.php`, plaintext hasil decrypt inquiry berisi tepat sembilan field: `NO_INVOICE`, `NAMA`, `TGL`, `DESKRIPSI`, `NOMINAL`, `KD_MITRA_BMT`, `NM_MITRA_BMT`, `KD_MERCHANT`, dan `NM_MERCHANT`. Jangan menambahkan `STATUS_TRANSAKSI` pada hasil inquiry karena status itu hanya menjadi kontrak respons `PAYMENT` dan `CHECK_STATUS_PAYMENT`. Plaintext hasil decrypt payment/check berisi `STATUS_TRANSAKSI` dan `DESKRIPSI_STATUS`.
+`DATA` pada setiap respons sukses selalu dienkripsi dengan algoritma yang sama. Sesuai workbook, sample `api.php`, dan konfirmasi WA BMT, plaintext hasil decrypt inquiry berisi tepat sembilan field: `NO_INVOICE`, `NAMA`, `TGL`, `DESKRIPSI`, `NOMINAL`, `KD_MITRA_BMT`, `NM_MITRA_BMT`, `KD_MERCHANT`, dan `NM_MERCHANT`. Jangan menambahkan `STATUS_TRANSAKSI` pada hasil inquiry karena status itu hanya menjadi kontrak respons `PAYMENT` dan `CHECK_STATUS_PAYMENT`. Plaintext hasil decrypt payment/check berisi `STATUS_TRANSAKSI` dan `DESKRIPSI_STATUS`.
 
-Ada ketidakkonsistenan kecil pada contoh ZIP: komentar `config.php` menyebut enkripsi respons dapat dimatikan dan default contoh `false`, tetapi `api.php` tetap memanggil `encryptData()` pada semua respons sukses. Implementasi eCampus menyediakan sakelar untuk kompatibilitas, dengan default `aktif`. Nilai produksi harus disepakati secara tertulis dengan tim BMT dan diuji menggunakan test vector; jangan hanya mengandalkan komentar di file contoh.
+Ada ketidakkonsistenan pada contoh ZIP: komentar `config.php` menyebut enkripsi respons dapat dimatikan dan default contoh `false`, tetapi `api.php` tetap memanggil `encryptData()` pada semua respons sukses. Konfirmasi WA BMT menyelesaikan ketidakkonsistenan itu: parameter `DATA` pada respons wajib dienkripsi. Karena itu implementasi eCampus selalu mengenkripsi respons sukses. Kunci konfigurasi lama tetap dikenal untuk kompatibilitas data, tetapi nilainya sengaja diabaikan dan tidak ditampilkan lagi sebagai sakelar admin.
 
 Kesalahan autentikasi, validasi, invoice, atau bisnis memakai `STATUS=false` dan `DATA={}`. Sesuai contoh BMT, kesalahan protokol tersebut tetap dikirim melalui HTTP 200; integrator wajib membaca `STATUS` dan `KODE_STATUS`. Hanya exception internal yang tidak tertangani yang memakai HTTP 500. Kode umum meliputi `400` untuk payload/field/channel tidak valid, `401` untuk API key, `408` untuk timestamp kedaluwarsa, `409` untuk nonce atau nomor transaksi yang konflik, `01` untuk kegagalan bisnis invoice/transaksi, dan `503` untuk kanal atau konfigurasi yang belum siap.
 
@@ -170,11 +170,11 @@ Nominal dibandingkan memakai `BigDecimal` dengan toleransi satu sen terhadap `to
 
 ### Urutan callback dan keputusan sistem
 
-Pada `INQUIRY`, servlet memvalidasi envelope, menyimpan nonce, mencari `VirtualAccountBank` berdasarkan nomor persis tanpa mewajibkan `BankHost`, memverifikasi marker bank `Online BMT`, memeriksa gerbang tenant, tanggal kedaluwarsa, identitas merchant, lalu mengembalikan nominal server. BMT harus memakai nominal dari inquiry sebagai sumber kebenaran dan tidak menghitung biaya admin sendiri.
+Pada `INQUIRY`, servlet memvalidasi envelope, menyimpan nonce, mencari `VirtualAccountBank` berdasarkan nomor persis tanpa mewajibkan `BankHost`, memverifikasi marker bank `Online BMT`, memeriksa gerbang tenant, tanggal kedaluwarsa, status belum lunas, identitas merchant, lalu mengembalikan nominal server. BMT harus memakai nominal dari inquiry sebagai sumber kebenaran dan tidak menghitung biaya admin sendiri. Invoice lunas ditolak agar teller/aplikasi BMT tidak menawarkan pembayaran kedua untuk tagihan yang sudah selesai.
 
 Pada `PAYMENT`, servlet memvalidasi field dan mengambil advisory lock berdasarkan `NO_TRANSAKSI_BMT`. Di bawah lock, pasangan nomor transaksi, invoice, nominal, dan channel dibandingkan dengan ledger. Jika transaksi yang sama sudah `SUCCESS`, respons sukses idempoten dikembalikan. Jika invoice sudah lunas oleh transaksi berbeda, request ditolak. Jika baru, ledger `PROCESSING` di-commit terlebih dahulu, kemudian mesin posting kanonik dijalankan. Setelah bukti pembayaran terbentuk, ledger menjadi `SUCCESS`. Bila posting gagal tanpa bukti pembayaran, ledger menjadi `FAILED`. Bila proses terputus sesudah bukti terbentuk tetapi sebelum ledger sukses, retry dengan nonce baru dan nomor transaksi sama akan mendeteksi invoice lunas lalu memulihkan ledger tanpa posting kedua.
 
-Pada `CHECK_STATUS_PAYMENT`, server tidak menganggap request BMT sebagai bukti bayar. Status `00` hanya diberikan bila ledger untuk nomor transaksi, invoice, nominal, dan channel yang sama berstatus `SUCCESS` sekaligus invoice mempunyai bukti lunas pada domain eCampus. Ada satu mekanisme pemulihan terkendali: bila ledger masih `PROCESSING`, keempat nilai tersebut identik, dan bukti lunas sudah ada, pemeriksaan status menaikkan ledger menjadi `SUCCESS` di bawah advisory lock yang sama dengan payment. Kondisi `FAILED` tidak dipulihkan otomatis oleh check status karena membutuhkan audit atau retry payment kanonik. Bila data tidak cocok, hasilnya tetap belum terkonfirmasi. BMT harus membuat nonce baru pada setiap pemeriksaan status; memakai ulang nonce lama akan ditolak sebagai replay.
+Pada `CHECK_STATUS_PAYMENT`, server tidak menganggap request BMT sebagai bukti bayar. Status `00` hanya diberikan bila ledger untuk nomor transaksi, invoice, nominal, dan channel yang sama berstatus `SUCCESS` sekaligus invoice mempunyai bukti lunas pada domain eCampus. Ada satu mekanisme pemulihan terkendali: bila ledger masih `PROCESSING`, keempat nilai tersebut identik, dan bukti lunas sudah ada, pemeriksaan status menaikkan ledger menjadi `SUCCESS` di bawah advisory lock yang sama dengan payment. Invoice dibaca **setelah** advisory lock diperoleh. Urutan ini penting: bila PAYMENT sedang berjalan, CHECK_STATUS menunggu commit-nya lalu membaca bukti terbaru, bukan memakai object invoice lama yang terambil sebelum menunggu lock. Kondisi `FAILED` tidak dipulihkan otomatis oleh check status karena membutuhkan audit atau retry payment kanonik. Bila data tidak cocok, hasilnya tetap belum terkonfirmasi. BMT harus membuat nonce baru pada setiap pemeriksaan status; memakai ulang nonce lama akan ditolak sebagai replay.
 
 Pemetaan posting berdasarkan pemilik invoice:
 
@@ -217,10 +217,10 @@ Urutan rollout yang disarankan:
 
 1. Deploy aplikasi yang memuat servlet, kolom sakelar, tabel nonce, dan ledger. Jangan aktifkan kanal.
 2. Pastikan startup berhasil membuat `online_bmt_nonce` dan `online_bmt_request_guard` beserta index transaksi/invoice.
-3. Isi identitas mitra/merchant produksi dan tiga secret yang disepakati melalui konfigurasi berotorisasi.
+3. Untuk SIT, masukkan credential sample yang disetujui BMT ke konfigurasi server SIT; jangan masukkan ke source/default. Isi pula identitas mitra/merchant yang disepakati. Sebelum UAT/produksi, rotasi menjadi credential lingkungan tujuan.
 4. Sinkronkan jam server eCampus dan BMT melalui NTP; selisih lebih dari toleransi akan ditolak.
 5. Daftarkan callback `https://ecampus.staialbahjah.ac.id/albahjah/OnlineBmt` pada BMT.
-6. Sepakati apakah response `DATA` terenkripsi; default implementasi adalah terenkripsi.
+6. Verifikasi dengan test vector bahwa response `DATA` dapat didekripsi BMT. Enkripsi response bersifat wajib dan tidak memiliki sakelar OFF.
 7. Aktifkan global, satu PT/sekolah uji, dan satu kanal uji saja.
 8. Jalankan pengujian positif dan negatif, lalu cocokkan invoice, ledger, pembayaran, cicilan, dan deposit.
 9. Aktifkan tenant lain bertahap sambil memantau error dan transaksi `PROCESSING/FAILED`.
@@ -230,6 +230,7 @@ Checklist pengujian minimum:
 | Skenario | Hasil yang diharapkan |
 | --- | --- |
 | Inquiry invoice valid | Identitas, nama, tanggal, deskripsi, dan nominal persis dikembalikan. |
+| Inquiry invoice sudah lunas | Ditolak dengan kode bisnis `01`; tidak ditawarkan untuk pembayaran ulang. |
 | API key/HMAC salah | Ditolak tanpa decrypt/posting finansial. |
 | Timestamp lebih tua dari toleransi | Kode `408`. |
 | Nonce digunakan ulang | Kode `409`, tidak ada posting kedua. |
@@ -259,6 +260,14 @@ WHERE nonce = '<NONCE>';
 ```
 
 Jika tombol tidak muncul, periksa sakelar global, sakelar PT atau sekolah, sakelar kanal, serta filter `JenisKegiatan.namaBankPembayaran` yang harus kosong atau mengandung `;online_bmt;`. Jika invoice tidak dapat dibuat, periksa tagihan terpilih, jadwal pembayaran, waktu kedaluwarsa, dan log generator `VirtualAccountBank`. Jika inquiry ditolak, pastikan nomor invoice berasal dari kanal Online BMT dan tenant masih aktif. Jika payment ditolak, periksa nominal total plus admin, channel, timestamp, nonce, dan pasangan transaksi-invoice pada ledger. Jika BMT melaporkan sukses tetapi saldo belum berubah, cari `NO_TRANSAKSI_BMT` di `online_bmt_request_guard`, lalu audit error posting kanonik. Jangan memperbaiki kondisi tersebut dengan insert saldo manual sebelum memastikan callback dan ledger, karena tindakan itu berisiko menggandakan saldo ketika callback dicoba ulang.
+
+### Data yang perlu dikirim kepada BMT untuk memulai SIT
+
+Sesudah aplikasi dan migrasi terpasang, operator eCampus perlu mengaktifkan gerbang global serta **hanya satu** PT/sekolah/kanal uji, lalu membuat invoice Online BMT kecil yang belum lunas dan belum kedaluwarsa. Nomor yang dikirim kepada BMT harus berasal dari invoice tersebut, bukan nomor pembayaran lama, bukan NIM, dan bukan placeholder dokumentasi. Tim BMT meminta contoh invoice agar mereka dapat menjalankan simulasi `INQUIRY`; setelah invoice dibuat, kirim `NO_INVOICE`, nominal yang diharapkan, nama pemilik yang boleh diverifikasi, dan batas waktu berlaku melalui kanal koordinasi SIT. Jangan mengirim API key, encryption key, atau HMAC key ke grup umum.
+
+Di sisi infrastruktur, allowlist `103.157.96.112` dan `103.27.207.203` untuk akses `POST /albahjah/OnlineBmt`. Bila aplikasi berada di belakang CDN atau load balancer, aturan dibuat pada lapisan publik yang pertama menerima koneksi. Catat alamat sumber yang benar-benar terlihat pada access log saat uji pertama. Jika yang terlihat adalah alamat proxy internal, jangan menambah filter servlet berbasis `remoteAddr` secara tergesa-gesa; pastikan rantai trusted proxy dan aturan WAF lebih dahulu. Setelah request pertama masuk, cocokkan waktu server, hasil validasi HMAC, nonce, jenis request, dan nomor invoice. Respons sukses harus berbentuk envelope JSON dengan `STATUS=true`, `KODE_STATUS=00`, serta `DATA` string terenkripsi; BMT kemudian mendekripsi `DATA` untuk membaca payload bisnis.
+
+Urutan SIT minimum adalah: `INQUIRY` invoice aktif; `PAYMENT` dengan nominal dan channel benar; `CHECK_STATUS_PAYMENT` menggunakan nonce baru; retry `PAYMENT` memakai nomor transaksi sama tetapi nonce baru; lalu pengujian negatif untuk HMAC salah, nonce berulang, nominal berbeda, invoice lunas, dan channel tidak dikenal. Setelah payment positif, verifikasi bukan hanya respons API, tetapi juga satu dokumen pembayaran/cicilan atau satu mutasi deposit, status invoice lunas, dan tepat satu ledger `SUCCESS`. Dengan pemeriksaan berlapis ini, status sukses tidak hanya berarti endpoint menjawab, melainkan uang telah dibukukan oleh mesin domain yang sama dengan kanal pembayaran lain.
 
 Interpretasi status ledger: `PROCESSING` berarti request sudah diterima dan posting belum dipastikan selesai; lakukan `CHECK_STATUS_PAYMENT` atau retry `PAYMENT` dengan nonce baru dan nomor transaksi sama. `SUCCESS` berarti ledger dan bukti domain telah berhasil dipastikan. `FAILED` berarti posting tidak menghasilkan bukti lunas; penyebab teknis tersimpan secara ringkas pada `response_message` dan detail exception berada pada audit error aplikasi. Jangan mengubah `FAILED` menjadi `SUCCESS` melalui SQL. Retry kanonik diperlukan agar seluruh relasi cicilan, jurnal, status, dan saldo tetap konsisten.
 
