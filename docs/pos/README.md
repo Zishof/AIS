@@ -106,6 +106,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [93-berapa-banyak-yang-kamu-lihat.md](93-berapa-banyak-yang-kamu-lihat.md) | Audit cakupan kedelapan alat; satu aplikasi utuh (ecanteen) tak pernah dipindai, cakupan kini dicetak |
 | [94-persetujuan-sebelum-diantrekan.md](94-persetujuan-sebelum-diantrekan.md) | Satu baris membunuh seluruh posting faktur; persetujuan kini pra-kirim, dan utang jalur terakhir lunas |
 | [95-setelan-yang-tidak-menahan-apa-apa.md](95-setelan-yang-tidak-menahan-apa-apa.md) | "Minimal Saldo Mengendap" ditegakkan hanya di satu layar klien; lima setelan lain tak dibaca kode mana pun |
+| [96-alasan-yang-wajib-diketik-dan-tak-pernah-dibaca.md](96-alasan-yang-wajib-diketik-dan-tak-pernah-dibaca.md) | Alasan reversal wajib diketik Pemilik lalu tak pernah ditampilkan; 18 kolom hanya-ditulis |
 
 | [35-lampiran-gambar.md](35-lampiran-gambar.md) | Lampiran gambar — blob, maksimum 500 KB, dikecilkan di klien |
 | [52-fase-b-satuan-jual.md](52-fase-b-satuan-jual.md) | 52. Fase B — Satuan Jual per Baris Transaksi |
