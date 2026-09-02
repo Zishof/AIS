@@ -526,3 +526,72 @@ Popup hanya merender snapshot melalui HTML yang seluruh nilainya sudah di-escape
 Jangan menambahkan query atau aturan bisnis ke popup. Bila aturan status baru
 ditambahkan, perluas `analisisStatus` dan ujinya; renderer popup cukup membaca
 fakta, temuan, rincian pembayaran, jejak aturan, serta saran dari snapshot.
+
+### Kontrak penyajian analisis status kepada pengguna
+
+Popup analisis tidak boleh hanya menampilkan tabel fakta lalu meminta operator
+menebak sendiri penyebab status. `AnalisisStatusMahasiswa` membagi hasil menjadi
+empat tingkat makna yang berbeda. `keputusanUtama` adalah jawaban langsung atas
+pertanyaan "mengapa status ini muncul?". `penghambatUtama` hanya berisi kondisi
+yang benar-benar menahan atau mengubah status akhir pada jalur aturan yang sedang
+berlaku. `kondisiTerpenuhi` berisi bukti yang sudah benar dan secara eksplisit
+bukan penyebab masalah. `perhatianTambahan` memuat anomali sekunder yang perlu
+diperiksa, tetapi tidak boleh disamakan dengan akar masalah. Pembagian ini adalah
+bagian dari kontrak bisnis, bukan sekadar pilihan warna antarmuka.
+
+Contoh penting: bila Daftar Ulang telah dibayar 30%, Biaya Uang Semester masih
+0%, dan KRS masih 0 SKS, maka hasil harus dibaca sebagai berikut. Biaya Uang
+Semester adalah penghambat utama karena merupakan tagihan berflag syarat aktif
+yang belum memiliki cicilan committed melewati ambang bukti 0,1%. Daftar Ulang
+30% harus masuk kelompok kondisi terpenuhi dan dinyatakan bukan penyebab status.
+KRS 0 SKS masuk perhatian tambahan selama kendala pembayaran yang lebih langsung
+masih ditemukan. Setelah pembayaran Biaya Uang Semester dicatat atau divalidasi,
+KRS dapat menjadi faktor berikutnya yang perlu ditinjau. Popup tidak boleh
+menghasilkan kalimat umum seperti "belum bayar" tanpa menyebut nama tagihan yang
+gagal, sebab kalimat itu dapat membuat pengguna mengulang pembayaran yang sudah
+tercatat pada jenis tagihan lain.
+
+Ambang 0,1% berasal dari semantik mesin status saat ini: pemeriksaan mencari
+keberadaan bukti pembayaran yang diakui, bukan mewajibkan pelunasan 100% untuk
+setiap tagihan. Karena itu, persentase harus selalu ditampilkan bersama maknanya.
+Nilai di atas atau sama dengan 0,1% ditulis "memenuhi bukti pembayaran"; nilai di
+bawah ambang ditulis "belum ada pembayaran yang diakui". Jangan mengganti teks
+ini menjadi "lunas" kecuali aturan bisnis juga diubah menjadi pelunasan penuh.
+Sumber persentase tetap `CicilanPembayaran` yang committed melalui sesi database
+baru. Rekap asynchronous `Kegiatan.bulans` tidak boleh menjadi sumber keputusan
+popup karena dapat tertinggal sesaat setelah cicilan ditambah atau dihapus.
+
+Klasifikasi penghambat juga harus mengikuti status akhir. Tagihan 0% tidak boleh
+ditampilkan sebagai penghambat utama bila mahasiswa tetap Aktif karena bypass,
+Paksa Aktif, atau aturan semester pertama. Demikian pula pada Cuti, Lulus, Drop
+Out, dan Keluar, pembayaran dapat dicantumkan sebagai bukti teknis, tetapi status
+akhir dijelaskan oleh aturan yang prioritasnya lebih tinggi. Untuk status
+terminal, popup harus menyampaikan bahwa perubahan pembayaran atau KRS saja tidak
+akan mengubah status. Untuk Cuti, popup harus membedakan persetujuan cuti yang
+ditemukan dari status Cuti yang hanya berasal dari history tanpa bukti pengajuan
+pada konteks semester tersebut.
+
+Urutan visual wajib dimulai dari `Jawaban Singkat`, kemudian `Penghambat Utama`,
+`Yang Sudah Benar dan Bukan Penyebab`, `Perhatian Tambahan`, dan `Yang Harus
+Dilakukan Sekarang`. Fakta mentah, rincian tagihan, serta jejak algoritma berada
+setelah bagian keputusan. Urutan ini menjaga agar operator mendapatkan jawaban
+operasional terlebih dahulu, tetapi tetap dapat mengaudit seluruh bukti. Bagian
+yang tidak memiliki data tidak perlu ditampilkan, terutama penghambat utama,
+agar status yang normal tidak tampak seolah-olah bermasalah.
+
+Setiap saran harus spesifik dan berurutan. Untuk kegagalan pembayaran, sebut nama
+tagihan, minta operator memastikan cicilan tersimpan pada semester/tagihan yang
+sama dan sudah committed, lalu jalankan Refresh. Bila seluruh pembayaran dan KRS
+telah benar tetapi history tetap Nonaktif, jangan menyuruh pengguna membayar
+ulang; arahkan pemeriksaan ke sinkronisasi history atau penetapan akademik/manual.
+Jika analisis mengalami exception, popup wajib mengakui bahwa kesimpulan tidak
+lengkap, mengarahkan pemeriksaan ke audit error, dan tidak mengarang penyebab dari
+data parsial.
+
+Renderer `StatusMahasiswaAnalisisPopupHelper` tidak boleh melakukan query,
+menghitung persentase, atau menambahkan interpretasi baru. Semua kalimat keputusan
+harus sudah tersedia di snapshot agar teks dalam tanda kurung, popup, profil, dan
+halaman lain tetap konsisten. Saat menambahkan aturan status baru, pengembang
+harus memperbarui klasifikasi snapshot, contoh regresi, dan dokumentasi ini pada
+saat yang sama. Dengan kontrak tersebut, analisis tetap dapat digunakan ulang
+tanpa tiap layar menciptakan versi penyebab statusnya sendiri.

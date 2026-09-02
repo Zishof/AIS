@@ -60,14 +60,30 @@ public final class StatusMahasiswaAnalisisPopupHelper {
 		html.append("<div style='font-family:Arial,sans-serif;color:#172033;font-size:13px;line-height:1.5;'>");
 		html.append("<div style='background:#174a7e;color:white;padding:16px 18px;'>")
 				.append("<div style='font-size:19px;font-weight:bold;'>Analisis Status Mahasiswa</div>")
-				.append("<div style='font-size:12px;margin-top:3px;opacity:.94;'>Analisis membaca history status, semester, KRS/SKS, cuti, status keluar, paksa aktif, bypass, tagihan syarat aktif, dan cicilan committed.</div>")
+				.append("<div style='font-size:12px;margin-top:3px;opacity:.94;'>Penjelasan keputusan status berdasarkan bukti aktual yang dibaca sistem.</div>")
 				.append("</div><div style='padding:16px 18px;'>");
 
-		html.append("<div style='background:#eef6ff;border:1px solid #b9d8f5;border-radius:8px;padding:13px;margin-bottom:12px;'>")
-				.append("<div style='font-size:15px;font-weight:bold;color:#123e6b;'>Status: ")
+		html.append("<div style='background:#eef6ff;border:1px solid #8fc1ee;border-left:5px solid #1769aa;border-radius:6px;padding:14px 15px;margin-bottom:12px;'>")
+				.append("<div style='font-size:12px;font-weight:bold;color:#315b7d;text-transform:uppercase;'>Jawaban Singkat</div>")
+				.append("<div style='font-size:17px;font-weight:bold;color:#123e6b;margin-top:3px;'>Status: ")
 				.append(esc(analisis.getStatusNama())).append("</div>")
-				.append("<div style='margin-top:5px;'><b>Kesimpulan cerdas:</b> ")
-				.append(esc(analisis.getRingkasan())).append(".</div></div>");
+				.append("<div style='font-size:14px;margin-top:7px;font-weight:bold;'>")
+				.append(esc(analisis.getKeputusanUtama())).append("</div>")
+				.append("<div style='margin-top:7px;color:#334155;'><b>Artinya:</b> ")
+				.append(esc(analisis.getArtiBagiPengguna())).append("</div></div>");
+
+		tambahDaftarJikaAda(html, "Penghambat Utama", analisis.getPenghambatUtama(),
+				"#fff1f2", "#fda4af", "#9f1239");
+		tambahDaftarJikaAda(html, "Yang Sudah Benar dan Bukan Penyebab", analisis.getKondisiTerpenuhi(),
+				"#f0fdf4", "#86efac", "#166534");
+		tambahDaftarJikaAda(html, "Perhatian Tambahan", analisis.getPerhatianTambahan(),
+				"#fffbeb", "#fcd34d", "#854d0e");
+		tambahDaftar(html, "Yang Harus Dilakukan Sekarang", analisis.getSaran(),
+				"#eff6ff", "#93c5fd", "#1e3a8a");
+
+		html.append("<div style='font-size:14px;font-weight:bold;color:#334155;margin:18px 0 8px;'>Bukti dan Cara Sistem Memutuskan</div>");
+		tambahDaftar(html, "Rincian Tagihan Syarat Aktif", analisis.getRincianPembayaran(),
+				"#f8fafc", "#cbd5e1", "#334155");
 
 		html.append("<div style='background:white;border:1px solid #d7e0ea;border-radius:8px;padding:12px;margin-bottom:12px;'>")
 				.append("<div style='font-weight:bold;margin-bottom:8px;'>Fakta yang Dibaca Sistem</div>")
@@ -79,18 +95,20 @@ public final class StatusMahasiswaAnalisisPopupHelper {
 		}
 		html.append("</table></div>");
 
-		tambahDaftar(html, "Temuan Utama", analisis.getTemuan(), "#fff7ed", "#fed7aa", "#9a3412");
-		tambahDaftar(html, "Rincian Tagihan Syarat Aktif", analisis.getRincianPembayaran(),
-				"#f0fdf4", "#bbf7d0", "#166534");
+		tambahDaftar(html, "Penjelasan Pendukung", analisis.getTemuan(), "#fff7ed", "#fed7aa", "#9a3412");
 		tambahDaftar(html, "Jejak Keputusan Algoritma", analisis.getJejakAturan(),
 				"#f8fafc", "#cbd5e1", "#334155");
-		tambahDaftar(html, "Tindakan yang Disarankan", analisis.getSaran(),
-				"#fefce8", "#fde68a", "#854d0e");
 
 		html.append("<div style='font-size:11px;color:#64748b;margin-top:10px;'>")
-				.append("Catatan: analisis menjelaskan bukti yang tersedia saat halaman dihitung. Setelah pembayaran, perubahan KRS, persetujuan cuti, atau koreksi status, gunakan Refresh agar history dihitung ulang.")
+				.append("Catatan: persentase pembayaran menunjukkan bukti pembayaran yang diakui terhadap tagihan, bukan selalu syarat pelunasan 100%. Analisis memakai cicilan yang sudah committed di database. Setelah pembayaran, perubahan KRS, persetujuan cuti, atau koreksi status, gunakan Refresh agar history dihitung ulang.")
 				.append("</div></div></div>");
 		return html.toString();
+	}
+
+	private static void tambahDaftarJikaAda(StringBuilder html, String judul, List<String> values,
+			String background, String border, String color) {
+		if (values == null || values.isEmpty()) return;
+		tambahDaftar(html, judul, values, background, border, color);
 	}
 
 	private static void tambahDaftar(StringBuilder html, String judul, List<String> values,

@@ -15,7 +15,7 @@
 			</center>
 		</borderlayout>
 
-		<window use="ais.ui.util.MyWindow" id="addWindow" title="Pendataan Jenis Pembayaran" mode="popup" position="center,center" border="normal" width="1000px" height="90%" contentStyle="overflow:auto;">
+		<window use="ais.ui.util.MyWindow" id="addWindow" title="Pendataan Jenis Pembayaran" mode="popup" position="center,center" border="normal" width="1000px" height="90%" sclass="jenis-kegiatan-form-window" contentStyle="overflow:hidden;">
 		</window>
 
 		<zscript><![CDATA[

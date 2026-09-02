@@ -13971,6 +13971,42 @@ html body .ais-obe-cpl-scroll-content > .ais-crud-data-card .z-grid-body {
     overflow-y: visible !important;
 }
 
+/* Form Jenis Kegiatan/Pembayaran sangat panjang. ZK merender form sebagai Grid;
+   aturan scroll global pada .z-grid-body sebelumnya membuat scroll bersarang dan
+   scrollbar luar tampak sudah mentok sebelum baris terakhir. Center dialog menjadi
+   satu-satunya pemilik scroll, sedangkan Grid mengikuti tinggi seluruh isinya. */
+html body .jenis-kegiatan-form-window .z-window-modal-cnt,
+html body .jenis-kegiatan-form-window .z-window-highlighted-cnt {
+    overflow: hidden !important;
+}
+
+html body .jenis-kegiatan-form-scroll-center,
+html body .jenis-kegiatan-form-scroll-center > .z-center-body,
+html body .jenis-kegiatan-form-scroll-center > .z-center-body-noborder {
+    min-height: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    box-sizing: border-box !important;
+    -webkit-overflow-scrolling: touch;
+}
+
+html body .jenis-kegiatan-form-scroll-content,
+html body .jenis-kegiatan-form-grid,
+html body .jenis-kegiatan-form-grid > .z-grid-body,
+html body .jenis-kegiatan-form-grid > .z-grid-inner,
+html body .jenis-kegiatan-form-grid > .z-grid-inner > .z-grid-body {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+}
+
+html body .jenis-kegiatan-form-grid > .z-grid-body > table,
+html body .jenis-kegiatan-form-grid > .z-grid-inner > .z-grid-body > table {
+    height: auto !important;
+    width: 100% !important;
+}
+
 /* Pola filter field modern yang dipakai halaman ZUL baru. Dibuat generik agar
    halaman berikutnya cukup memakai class ini tanpa membuat CSS per modul. */
 html body .ecampus-zul-filter-fields {

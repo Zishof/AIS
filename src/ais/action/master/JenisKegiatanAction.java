@@ -257,17 +257,22 @@ public class JenisKegiatanAction extends GenericCrudAction<JenisKegiatan> {
 
         // ---- Center: scrollable card ----
         org.zkoss.zul.Center center = new org.zkoss.zul.Center();
-        center.setStyle("overflow:auto;padding:12px;background:#f0f4f8;");
+        center.setSclass("jenis-kegiatan-form-scroll-center");
+        center.setAutoscroll(true);
+        center.setStyle("overflow:auto;padding:12px;background:#f0f4f8;min-height:0;");
         center.setParent(borderlayout);
         ZkCompat.setFlex(center, true);
 
         org.zkoss.zul.Div cardWrap = new org.zkoss.zul.Div();
-        cardWrap.setStyle(FormBuilder.STYLE_CARD_WRAP);
+        cardWrap.setSclass("jenis-kegiatan-form-scroll-content");
+        cardWrap.setStyle(FormBuilder.STYLE_CARD_WRAP + "height:auto;overflow:visible;");
         cardWrap.setParent(center);
 
 
         org.zkoss.zul.Grid grid = new org.zkoss.zul.Grid();
-        grid.setStyle("border:none;width:100%;");
+        grid.setSclass("jenis-kegiatan-form-grid");
+        grid.setHeight("auto");
+        grid.setStyle("border:none;width:100%;height:auto;overflow:visible;");
         grid.setParent(cardWrap);
 
         Rows rows = new Rows();
