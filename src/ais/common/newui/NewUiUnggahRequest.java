@@ -37,9 +37,9 @@ import org.apache.commons.fileupload.servlet.ServletFileUpload;
  *
  * <h3>Batas yang disengaja</h3>
  * <ul>
- *   <li><b>Satu berkas per permintaan.</b> Yang dilayani jalur ini adalah unggah
- *       satu berkas .xlsx; menerima banyak berkas berarti menerima pekerjaan
- *       yang belum ada penanganannya.</li>
+ *   <li><b>Satu berkas per permintaan.</b> Import Feeder tetap wajib .xlsx;
+ *       controller lampiran boleh menerima dokumen lain setelah jenis berkas
+ *       berbahaya ditolak dan batas ukuran diverifikasi kembali.</li>
  *   <li><b>Batas ukuran tegas.</b> Tanpa batas, satu permintaan dapat mengisi
  *       disk server. Berkas yang melampauinya ditolak sebagai galat, bukan
  *       dipotong diam-diam.</li>
@@ -66,13 +66,15 @@ public final class NewUiUnggahRequest extends HttpServletRequestWrapper {
     private final Map<String, String[]> field;
     private final File berkas;
     private final String namaBerkas;
+    private final String mimeType;
 
     private NewUiUnggahRequest(HttpServletRequest asli, Map<String, String[]> field,
-            File berkas, String namaBerkas) {
+            File berkas, String namaBerkas, String mimeType) {
         super(asli);
         this.field = field;
         this.berkas = berkas;
         this.namaBerkas = namaBerkas;
+        this.mimeType = mimeType;
     }
 
     /** Apakah permintaan ini membawa badan multipart. */
@@ -85,8 +87,8 @@ public final class NewUiUnggahRequest extends HttpServletRequestWrapper {
      * Urai permintaan multipart menjadi pembungkus yang berperilaku seperti
      * permintaan form biasa.
      *
-     * @throws IllegalArgumentException bila berkasnya melampaui batas, bukan
-     *         .xlsx, atau tidak ada sama sekali
+     * @throws IllegalArgumentException bila berkasnya melampaui batas, tidak
+     *         sesuai konteks aksi, berbahaya, atau tidak ada sama sekali
      */
     public static NewUiUnggahRequest urai(HttpServletRequest request) throws Exception {
         DiskFileItemFactory pabrik = new DiskFileItemFactory();
@@ -99,6 +101,7 @@ public final class NewUiUnggahRequest extends HttpServletRequestWrapper {
         Map<String, List<String>> kumpul = new HashMap<String, List<String>>();
         File berkas = null;
         String namaBerkas = "";
+        String mimeType = "application/octet-stream";
 
         List<?> bagian = pengurai.parseRequest(request);
         for (int i = 0; i < bagian.size(); i++) {
@@ -114,13 +117,13 @@ public final class NewUiUnggahRequest extends HttpServletRequestWrapper {
             }
             if (item.getName() == null || item.getName().trim().length() == 0) continue;
             if (berkas != null) {
+                hapusSementara(berkas);
                 throw new IllegalArgumentException("Kirim satu berkas saja dalam satu permintaan.");
             }
             namaBerkas = namaAman(item.getName());
-            if (!namaBerkas.toLowerCase().endsWith(".xlsx")) {
-                throw new IllegalArgumentException("Berkas harus berformat .xlsx.");
-            }
-            berkas = File.createTempFile("nui_unggah_", ".xlsx");
+            mimeType = item.getContentType() == null || item.getContentType().trim().length() == 0
+                    ? "application/octet-stream" : item.getContentType().trim();
+            berkas = File.createTempFile("nui_unggah_", ".tmp");
             item.write(berkas);
             item.delete();
         }
@@ -129,7 +132,35 @@ public final class NewUiUnggahRequest extends HttpServletRequestWrapper {
         for (Map.Entry<String, List<String>> e : kumpul.entrySet()) {
             field.put(e.getKey(), e.getValue().toArray(new String[e.getValue().size()]));
         }
-        return new NewUiUnggahRequest(request, field, berkas, namaBerkas);
+        if (berkas == null) {
+            throw new IllegalArgumentException("Berkas unggahan wajib dipilih.");
+        }
+        String[] action = field.get("action");
+        String aksi = action == null || action.length == 0 ? "" : action[0];
+        if ("import_mulai".equalsIgnoreCase(aksi)
+                && !namaBerkas.toLowerCase().endsWith(".xlsx")) {
+            hapusSementara(berkas);
+            throw new IllegalArgumentException("Berkas impor harus berformat .xlsx.");
+        }
+        if (ekstensiBerbahaya(namaBerkas)) {
+            hapusSementara(berkas);
+            throw new IllegalArgumentException(
+                    "Jenis berkas ini tidak diizinkan. Kompres berkas menjadi .zip atau .rar terlebih dahulu.");
+        }
+        return new NewUiUnggahRequest(request, field, berkas, namaBerkas, mimeType);
+    }
+
+    /** Sama dengan penjaga upload ZK: berkas yang dapat dieksekusi browser/server ditolak. */
+    private static boolean ekstensiBerbahaya(String nama) {
+        String v = nama == null ? "" : nama.toLowerCase();
+        return v.endsWith(".jsp") || v.endsWith(".jspx") || v.endsWith(".zul")
+                || v.endsWith(".html") || v.endsWith(".htm") || v.endsWith(".exe")
+                || v.endsWith(".sh") || v.endsWith(".php");
+    }
+
+    private static void hapusSementara(File file) {
+        try { if (file != null && file.exists()) file.delete(); }
+        catch (Exception ignored) { }
     }
 
     /**
@@ -156,6 +187,11 @@ public final class NewUiUnggahRequest extends HttpServletRequestWrapper {
     /** Nama berkas sebagaimana disebut klien; hanya untuk ditampilkan. */
     public String getNamaBerkas() {
         return namaBerkas;
+    }
+
+    /** MIME yang dilaporkan klien; controller tetap wajib melakukan validasi konteksnya. */
+    public String getMimeType() {
+        return mimeType;
     }
 
     @Override
