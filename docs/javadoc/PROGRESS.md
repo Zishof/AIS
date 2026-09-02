@@ -6,6 +6,142 @@ orkestrator/pengguna memecahnya jadi beberapa file per-topik (mis.
 `PROGRESS-catatan-sesi.md`) di sesi mendatang bila makin sulit dikelola —
 belum dilakukan sesi ini, hanya dicatat sebagai pertimbangan.
 
+## `ais/database/model/Fakultas.java` — SELESAI 100% (2 Sep 2026)
+
+Entity master **fakultas** (tabel `public.fakultas`, `@Audited`,
+`dynamicInsert/dynamicUpdate`) — tingkat tengah hierarki
+`PerguruanTinggi` → `Fakultas` → `Jurusan`. 394 → 1192 baris,
+**57/57 method ber-Javadoc (100%)** plus semua field didokumentasi. Revisi
+**r83177**, mirror `java/` diverifikasi byte-identik (`cmp`). **Kode terbukti
+tidak berubah**: bytecode `javap -c -p` identik dengan HEAD sebelum edit.
+
+**Struktur**: `extends GeneralValueObject` langsung; 55 accessor + 2
+konstruktor + `putFile(Map)` (satu-satunya method non-accessor, mengisi
+parameter kop/stempel JasperReports — sama persis pola `Jurusan.putFile`).
+**Tidak ada koleksi `List<Jurusan>`** — relasi fakultas–jurusan dipetakan
+satu arah dari sisi `Jurusan` saja, jadi tidak ada navigasi ke bawah dan
+tidak ada cascade ke prodi. Dirujuk sangat luas: ~97 entity di
+`ais.database.model` punya field `private Fakultas`, ~932 berkas menyebut
+nama kelasnya (setara level `Jurusan`).
+
+**Verifikasi pola berulang** (dibandingkan dengan `Jurusan.java`):
+- *Getter menulis balik ke field*: **ADA**, 4 buah — `getNama()` (→ `""`),
+  `getDeskripsi()` (→ `""`), `getWarna()` (→ default `"#3300ff"`),
+  `getRgb()` (selalu menimpa dengan hasil `Common.hex2Rgb`). Karena
+  pemetaan property-access, nilai sulihan ikut tertulis ke DB.
+- *Getter membuka session Hibernate*: **ADA**, 8 getter relasi memanggil
+  `check()` (`dekan`, `pudek1..3`, `perguruanTinggi`, `satuanKerja`,
+  `pegawai1..3`).
+- *Getter yang men-`save`/`insert` ke tabel master lain*: **TIDAK ADA**
+  (sama seperti `Jurusan`).
+- *Field audit shadow* (`id`/`oleh`/`olehId`/`tanggal_dirubah`): ADA —
+  keharusan teknis, bukan bug (`GeneralValueObject` bukan `@MappedSuperclass`).
+
+**Temuan/kuirk (dicatat, TIDAK diperbaiki):**
+1. `getPerguruanTinggi()` **mengisi dirinya sendiri dari konteks request**
+   (`PerguruanTinggiUtil.getPerguruanTinggi()` → tebak dari user login /
+   HttpSession / nama domain → default statis) lalu menugaskan hasilnya ke
+   field. Tidak ada padanannya di `Jurusan`. Untuk fakultas **baru**, induk
+   hasil tebakan itu ikut tersimpan. Di jalur non-web (batch/penjadwal/impor
+   Feeder) yang terpilih adalah `perguruanTinggiDefault` statis — berpotensi
+   salah tenant pada pemasangan multi-tenant.
+2. `getRgb()` **bisa melempar exception**: `Common.hex2Rgb` mengiris
+   `substring(1,3/5/7)` + `Integer.valueOf(...,16)`, sedangkan `setWarna`
+   dan layar `FakultasAction:637` menyimpan isi Textbox apa adanya tanpa
+   validasi. Warna `"merah"`/`"#fff"` → `StringIndexOutOfBoundsException` /
+   `NumberFormatException`, dan karena property `rgb` dipetakan (tanpa
+   `@Transient`) kegagalannya bisa muncul saat Hibernate menyimpan, jauh
+   dari layar pengisinya.
+3. `getNama()` punya **cek mati**: `return this.nama == null ? null : ...`
+   tidak pernah bernilai benar karena baris sebelumnya sudah menjamin
+   non-null.
+4. `toString()` membaca **field** `nama` langsung (bukan `getNama()`) →
+   bisa mengembalikan `null`. Menyimpang dari `GeneralValueObject`
+   (`"kode - nama"`) dan dari `Jurusan` (`"id-nama"`).
+5. `getKode()` **tanpa normalisasi** sama sekali (beda dengan
+   `Jurusan.getKode()` yang menyulih `"--"`).
+6. `setRgb()` praktis tidak berguna (selalu tertimpa `getRgb()`).
+7. Kunci polos `KOP_FAKULTAS`/`STEMPEL_FAKULTAS` di `putFile` saling
+   menimpa bila dipanggil untuk beberapa fakultas pada map yang sama.
+
+**Tidak ada temuan keamanan** (dicek eksplisit: tidak ada SQL string
+concat, tidak ada kredensial, tidak ada I/O path dari input pengguna).
+
+## `ais/database/model/HistoryStatusMahasiswa.java` — SELESAI 100% (2 Sep 2026)
+
+Entity **riwayat status kemahasiswaan per semester** (tabel
+`public.history_status_mahasiswa`, `@Audited`, `dynamicInsert/dynamicUpdate`).
+525 → 1106 baris, **41/41 method ber-Javadoc (100%)** plus 15 field
+didokumentasi. Revisi **r83176**, mirror `java/` diverifikasi byte-identik
+(`cmp`). **Kode terbukti tidak berubah**: sumber yang dilucuti seluruh
+komentar identik baris-per-baris dengan HEAD sebelum edit (410 baris kode
+di kedua sisi); lulus `javac 1.7 -implicit:none`.
+
+**Temuan arsitektur — ini SATU-SATUNYA tempat status per semester.**
+`Mahasiswa` sama sekali TIDAK punya properti `statusMahasiswa`. Yang ada
+di sana hanya `statusKeluar` (status terminal Lulus/Keluar/DO — nasib
+akhir, bukan per semester), `kelompokStatusMahasiswa` (override rentang
+`smtMulai..smtSampai` → satu status), dan `paksaAktifSemester`. Jadi nama
+"History…" menyesatkan: ini bukan tabel arsip pendamping kolom "status
+sekarang" — "status terkini" hanyalah baris riwayat pada semester berjalan
+(`HistoryStatusMahasiswaUtil.currentStatus(...)`).
+
+**Verifikasi pola berulang (getter tidak pasif).** `@Id` ada di
+*getter* (`getId()`) → Hibernate memakai **property access**, sehingga
+getter-getter inilah yang dibaca saat dirty-check/flush. Tujuh di antaranya
+menulis balik ke field: `getMahasiswa()` (`check()`), `getStatusMahasiswa()`
+(memicu SELURUH mesin aturan `ambilStatusMahasiswa`), `getSemester()`
+(hitung lazy dari tahun akademik+angkatan, gagal → `0` bukan `null`),
+`getGanjilGenap()`, `getStatusAwalMahasiswa()`, `getProgram()`, dan
+`toString()`. Akibatnya **membaca bisa menulis ke DB** — satu `UPDATE`
+plus satu revisi audit Envers — hanya karena baris riwayat ditampilkan di
+layar. `getSks()` menormalkan `null`→`0`, jadi kolom `NULL` ikut tertulis
+ulang jadi `0` saat flush. **Tidak ada getter yang menutup sesi Hibernate
+sendiri** di file ini (resolusi session sepenuhnya didelegasikan ke
+`GeneralValueObject.check()`).
+
+**Setter dengan efek samping ke luar**: `setStatusAwalMahasiswa()` menulis
+id status awal ke penyimpanan kunci-nilai milik `Mahasiswa` dengan kunci
+`"sts_<semester>"` (`mahasiswa.put(nilai, kunci)` — urutan argumen
+nilai-dulu), yang dibaca kembali oleh `ambilStatusAwal()`.
+`setOleh()`/`setOlehId()` mengabaikan `null`/kosong (pola audit repo).
+
+**Kuirk & bug tercatat (TIDAK diperbaiki, sesuai instruksi):**
+1. `getGanjilGenap()` memanggil `getMahasiswa()` di baris pertama tetapi
+   **hasilnya tidak dipakai sama sekali** — biaya `check()` sia-sia.
+2. `getStatusAwalMahasiswa()` mengirim **field** `semester` mentah ke
+   `ambilStatusAwal`, bukan `getSemester()`. Bila `semester` masih `null`
+   semua aturan rentang semester terlewat. Beda perilaku dengan
+   `getStatusMahasiswa()` yang memaksa `getSemester()` dulu.
+3. `getProgram()` jalur "selalu ikut data utama" memanggil `getMahasiswa()`
+   **tiga kali** dan mengembalikan program mahasiswa TANPA memperbarui
+   field — nilai tampil bisa beda dari nilai kolom. Langkah berikutnya
+   memakai field `mahasiswa`/`semester` mentah, bukan getter.
+4. `ambilStatusAwal()`: ekspresi `(statusAwalMahasiswa == null ||
+   mahasiswa.getStatusAwalSelaluIkutDataUtama()) && mahasiswa != null`
+   men-dereference `mahasiswa` SEBELUM cek null-nya (aman hanya karena ada
+   early-return `mahasiswa == null` di atas — cek `mahasiswa != null` itu
+   dead code).
+5. Pemetaan status membingungkan di `ambilStatusMahasiswa()`: nama status
+   keluar yang mengandung `"keluar"` dipetakan ke **DROP_OUT**, sedangkan
+   `ConstantValues.KELUAR` baru dipakai di cabang dalam untuk status keluar
+   bernama lain.
+6. Aturan tumpang tindih dengan `HistoryStatusMahasiswaUtil.kalkulasi
+   StatusLogikaLanjutan` (Lulus/Keluar/DO retroaktif dievaluasi di KEDUA
+   lapis) → mengubah salah satu saja menghasilkan status berbeda tergantung
+   jalur pemanggilan (cache Util vs getter entity).
+7. `retreive("checkStatusPembayaranMahasiswa")` bukan kolom DB, melainkan
+   penyimpanan kunci-nilai per-instance `GeneralValueObject`; satu-satunya
+   penulisnya `BaypassPembayaranMahasiswaAction`. Di luar jalur itu flag
+   selalu kosong dan dua cabang aturan pembayaran tidak pernah aktif.
+8. Beberapa `statusMahasiswa.getId().equals(...)` tanpa jaga `getId()!=null`
+   — hanya selamat karena dibungkus `try/catch` terluar.
+
+**Tidak ada temuan keamanan** (dicek eksplisit: tidak ada SQL string,
+tidak ada kredensial, tidak ada I/O berkas berbasis input pengguna).
+Field audit shadow (`id`/`oleh`/`olehId`/`tanggal_dirubah`) dideklarasi
+ulang — sesuai arsitektur (`GeneralValueObject` bukan `@MappedSuperclass`).
+
 ## Batch "5 entity formulir/soal/pengumuman" — SELESAI 100% (2 Sep 2026, dikonsolidasi orkestrator)
 
 Semua 5 file TUNTAS 100% method, dikompilasi, dikommit, di-mirror ke `java/`:
