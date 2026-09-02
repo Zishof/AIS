@@ -67,6 +67,13 @@ public final class MutasiIdempotenEBisnisUtil {
 			"jenis_produk_simpan",
 			"kebijakan_retur_hapus",
 			"kebijakan_retur_simpan",
+			// Faktur Kulakan (harga beli/pengadaan) menambah stok; tanpa idempotensi,
+			// kiriman ulang antrean (lost-ack / retry offline) membuat faktur DAN stok
+			// ganda. Layar kulakan memakai prosesSimpanMaster -> antreLokal (client_mutation_id
+			// stabil per submit), jadi mendaftarkan aksi ini di sini menutup penuh dobel
+			// tersebut. Jalur sinkron dari BAST memanggil helper langsung (bukan dispatch ini)
+			// dan sudah dijaga advisory lock per-BAST (dok. 79), jadi tidak terpengaruh.
+			"kulakan_faktur_simpan",
 			"layar_pelanggan_screensaver_config_simpan",
 			"layar_pelanggan_slide_hapus",
 			"layar_pelanggan_slide_ubah",
