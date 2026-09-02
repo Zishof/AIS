@@ -46,6 +46,101 @@ public final class ApotikLaporanHelper {
 	}
 
 	// =============================================================================================
+	// apotik_laporan_pembayaran -- rekap uang masuk per metode (dasar rekonsiliasi kas apotek)
+	// =============================================================================================
+
+	/**
+	 * Rekap pembayaran apotek per metode untuk satu periode.
+	 *
+	 * <p><b>Kenapa aksi ini perlu ada padahal sudah ada {@code sesi_kas_*}.</b> Laporan tutup kas
+	 * POS umum ({@code SesiKasUtil}) menghitung uang dari {@code koperasi.pembelian_anggota_koperasi}.
+	 * Penjualan apotek TIDAK ditulis ke sana -- jejaknya ada di {@code sirs.detail_transaksi_pasien}
+	 * (kode {@code AJ}) dan pembayarannya di {@code sirs.apotik_pembayaran_transaksi}. Memakai ulang
+	 * {@code sesi_kas_*} apa adanya karena itu akan melaporkan penjualan tunai apotek sebesar NOL dan
+	 * memunculkan selisih kas sebesar seluruh penerimaan hari itu -- angka yang salah, bukan sekadar
+	 * kurang lengkap.</p>
+	 *
+	 * <p>Sifat tunai/non-tunai diambil dari {@code cara_pembayaran_koperasi.ada_kembalian} (fallback
+	 * ke nama yang mengandung "tunai", sama dengan aturan yang sudah dipakai laporan shift POS umum),
+	 * supaya definisi "uang di laci" tidak dikarang ulang di sini.</p>
+	 *
+	 * <p><b>Yang sengaja ditampilkan apa adanya:</b> {@code penjualanLedger} (nilai penjualan AJ pada
+	 * periode yang sama) dan {@code selisihTanpaMetode} = penjualan dikurangi seluruh pembayaran
+	 * tercatat. Selisih ini BUKAN kekurangan kas; ia adalah penjualan yang metodenya tidak pernah
+	 * tercatat -- terutama transaksi sebelum pencatatan metode diaktifkan, atau transaksi yang
+	 * dikirim tanpa {@code cara_bayar_id}. Menyembunyikannya akan membuat rekonsiliasi tampak rapi
+	 * padahal ada uang yang tidak diketahui asal metodenya.</p>
+	 */
+	public static void laporanPembayaran(JSONObject request, JSONObject hasil) throws Exception {
+		String[] p = periode(request);
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			String rentang = " WHERE b.waktu >= CAST(? AS date) "
+					+ "AND b.waktu < (CAST(? AS date) + interval '1 day') ";
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(
+					"SELECT COALESCE(NULLIF(TRIM(b.nama_cara_bayar),''), COALESCE(c.nama,'(tanpa metode)')), "
+							+ "COALESCE(c.ada_kembalian, COALESCE(c.nama,'') ilike '%tunai%'), "
+							+ "COUNT(DISTINCT b.transaksi), COALESCE(SUM(b.nominal),0) "
+							+ "FROM sirs.apotik_pembayaran_transaksi b "
+							+ "LEFT JOIN koperasi.cara_pembayaran_koperasi c ON c.id = b.cara_bayar "
+							+ rentang + "GROUP BY 1, 2 ORDER BY 1");
+			ps.setString(1, p[0]);
+			ps.setString(2, p[1]);
+			java.sql.ResultSet rs = ps.executeQuery();
+			JSONArray perMetode = new JSONArray();
+			double totalTunai = 0, totalNonTunai = 0;
+			long jumlahTransaksi = 0;
+			while (rs.next()) {
+				boolean tunai = rs.getBoolean(2);
+				double nominal = rs.getDouble(4);
+				JSONObject j = new JSONObject();
+				j.put("nama", str(rs.getString(1)));
+				j.put("tunai", tunai);
+				j.put("jumlahTransaksi", rs.getLong(3));
+				j.put("nominal", nominal);
+				perMetode.put(j);
+				jumlahTransaksi += rs.getLong(3);
+				if (tunai) {
+					totalTunai += nominal;
+				} else {
+					totalNonTunai += nominal;
+				}
+			}
+			rs.close();
+			ps.close();
+
+			// Nilai penjualan pada periode yang sama, dari ledger yang sama dengan
+			// apotik_laporan_penjualan -- pembanding untuk melihat penjualan yang
+			// metodenya tidak tercatat.
+			java.sql.PreparedStatement psJual = session.connection().prepareStatement(
+					"SELECT COALESCE(SUM(d.hasilpenghitungantotal),0) "
+							+ "FROM sirs.detail_transaksi_pasien d "
+							+ "JOIN sirs.kode_transaksi_medis k ON d.kode_transaksi = k.id "
+							+ "WHERE k.kode = 'AJ' AND d.tanggal BETWEEN CAST(? AS date) "
+							+ "AND (CAST(? AS date) + interval '1 day')");
+			psJual.setString(1, p[0]);
+			psJual.setString(2, p[1]);
+			java.sql.ResultSet rj = psJual.executeQuery();
+			double penjualan = rj.next() ? rj.getDouble(1) : 0;
+			rj.close();
+			psJual.close();
+
+			hasil.put("status", "00");
+			hasil.put("dari", p[0]);
+			hasil.put("sampai", p[1]);
+			hasil.put("perMetode", perMetode);
+			hasil.put("totalTunai", totalTunai);
+			hasil.put("totalNonTunai", totalNonTunai);
+			hasil.put("totalPembayaran", totalTunai + totalNonTunai);
+			hasil.put("jumlahTransaksi", jumlahTransaksi);
+			hasil.put("penjualanLedger", penjualan);
+			hasil.put("selisihTanpaMetode", penjualan - (totalTunai + totalNonTunai));
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	// =============================================================================================
 	// apotik_laporan_penjualan -- agregat penjualan (total, per item, per golongan)
 	// =============================================================================================
 

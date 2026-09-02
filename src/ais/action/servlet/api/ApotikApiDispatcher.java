@@ -86,6 +86,8 @@ public final class ApotikApiDispatcher {
 			ApotikPersediaanHelper.batchMonitor(payload, hasil);
 		} else if ("apotik_laporan_penjualan".equals(action)) {
 			ApotikLaporanHelper.laporanPenjualan(payload, hasil);
+		} else if ("apotik_laporan_pembayaran".equals(action)) {
+			ApotikLaporanHelper.laporanPembayaran(payload, hasil);
 		} else if ("apotik_laporan_terkendali".equals(action)) {
 			ApotikLaporanHelper.laporanTerkendali(payload, hasil);
 		} else if ("apotik_laporan_kedaluwarsa".equals(action)) {

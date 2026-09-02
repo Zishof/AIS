@@ -1287,10 +1287,13 @@ public class HistoryStatusMahasiswaUtil {
             }
             if (!adaTagihanSyaratAktif) semuaTagihanMemenuhi = false;
 
-            if (belumAdaKrs && statusAktifAtauNonaktif) {
+            boolean statusNonaktifKarenaPembayaran = statusSama(statusTampil, ConstantValues.TIDAK_AKTIF)
+                    && !tagihanBelumMemenuhi.isEmpty() && !bypassPembayaran;
+            if (belumAdaKrs && (statusSama(statusTampil, ConstantValues.AKTIF)
+                    || statusNonaktifKarenaPembayaran)) {
                 hasil.perhatianTambahan.add("KRS semester ini masih 0 SKS bukan konversi. Kondisi ini perlu "
                         + "diperiksa sebagai masalah akademik tambahan setelah kendala utama diselesaikan.");
-            } else if (statusAktifAtauNonaktif) {
+            } else if (!belumAdaKrs && statusAktifAtauNonaktif) {
                 hasil.kondisiTerpenuhi.add("KRS semester ini berisi "
                         + krsMahasiswa.getSksBukanKonversi() + " SKS bukan konversi.");
             }
@@ -1414,24 +1417,50 @@ public class HistoryStatusMahasiswaUtil {
             } else if (statusSama(statusTampil, ConstantValues.AKTIF)) {
                 if (paksaAktif) {
                     hasil.ringkasan = "semester ini tercantum pada konfigurasi Paksa Aktif";
+                    hasil.keputusanUtama = "Status Aktif berlaku karena semester ini tercantum dalam Paksa Aktif.";
+                    hasil.artiBagiPengguna = "Paksa Aktif mengalahkan pemeriksaan pembayaran dan KRS biasa, "
+                            + "kecuali bila mahasiswa memiliki status terminal.";
                 } else if (semester != null && semester.intValue() == 1) {
                     hasil.ringkasan = "semester pertama menggunakan aturan status Aktif awal";
+                    hasil.keputusanUtama = "Status Aktif berlaku karena semester pertama menggunakan aturan status awal.";
+                    hasil.artiBagiPengguna = "Pada semester pertama, status awal mahasiswa menjadi dasar aktivasi utama.";
                 } else if (bypassPembayaran) {
                     hasil.ringkasan = "status akademik Aktif dan bypass pembayaran berlaku";
+                    hasil.keputusanUtama = "Status Aktif berlaku karena bypass pembayaran ditemukan pada konteks ini.";
+                    hasil.artiBagiPengguna = "Tagihan yang belum dibayar tidak dipakai untuk menurunkan status selama bypass berlaku.";
                 } else if (adaTagihanSyaratAktif && semuaTagihanMemenuhi) {
                     hasil.ringkasan = "seluruh tagihan syarat aktif telah memiliki pembayaran yang diakui";
+                    hasil.keputusanUtama = "Status Aktif didukung oleh seluruh tagihan syarat aktif yang telah "
+                            + "memiliki pembayaran yang diakui.";
+                    hasil.artiBagiPengguna = "Tidak ada tagihan syarat aktif tanpa bukti pembayaran pada semester ini.";
+                } else if (!tagihanBelumMemenuhi.isEmpty()) {
+                    hasil.ringkasan = "status history masih Aktif, tetapi pembayaran "
+                            + gabungkanAlasan(tagihanBelumMemenuhi) + " belum terdeteksi";
+                    hasil.keputusanUtama = "Status masih tampil Aktif dari history, tetapi bukti pembayaran saat ini "
+                            + "belum mendukungnya karena " + gabungkanAlasan(tagihanBelumMemenuhi)
+                            + " belum memiliki pembayaran yang diakui.";
+                    hasil.artiBagiPengguna = "Ini adalah ketidaksesuaian yang perlu dihitung ulang. Jangan menyimpulkan "
+                            + "tagihan sudah benar hanya karena status masih Aktif.";
+                    hasil.perhatianTambahan.add("Pembayaran untuk " + gabungkanAlasan(tagihanBelumMemenuhi)
+                            + " belum melewati ambang 0,1%, tetapi history masih Aktif.");
+                    hasil.saran.add("Klik Refresh untuk menghitung ulang status dari pembayaran committed terbaru.");
+                    hasil.saran.add("Jika tetap Aktif, periksa history status, konfigurasi syarat aktif, dan audit error.");
                 } else if (!belumAdaKrs) {
                     hasil.ringkasan = "history akademik Aktif dengan pengambilan "
                             + krsMahasiswa.getSksBukanKonversi() + " SKS";
+                    hasil.keputusanUtama = "Status Aktif berasal dari history akademik dan didukung oleh pengambilan "
+                            + krsMahasiswa.getSksBukanKonversi() + " SKS.";
+                    hasil.artiBagiPengguna = "Tidak ditemukan tagihan syarat aktif yang menahan status pada konteks ini.";
                 } else {
                     hasil.ringkasan = "status Aktif berasal dari history akademik; belum ditemukan aturan yang menurunkannya";
+                    hasil.keputusanUtama = "Status Aktif berasal dari history akademik; analyzer tidak menemukan "
+                            + "aturan berprioritas lebih tinggi yang mengubahnya.";
+                    hasil.artiBagiPengguna = "KRS masih perlu diperiksa, tetapi status yang tersimpan saat ini tetap Aktif.";
                 }
-                hasil.keputusanUtama = "Status Aktif berlaku karena tidak ada aturan berprioritas lebih tinggi yang "
-                        + "mengubahnya, dan dasar aktivasi yang relevan telah terpenuhi atau dikecualikan.";
-                hasil.artiBagiPengguna = "Mahasiswa diperlakukan Aktif pada semester ini. Rincian di bawah menunjukkan "
-                        + "apakah dasar utamanya pembayaran, KRS, bypass, Paksa Aktif, atau aturan semester pertama.";
                 hasil.temuan.add("Tidak ditemukan aturan berprioritas lebih tinggi yang mengubah status akhir menjadi status lain.");
-                hasil.saran.add("Tidak diperlukan tindakan bila status, pembayaran, dan KRS pada rincian sudah sesuai.");
+                if (hasil.saran.isEmpty()) {
+                    hasil.saran.add("Tidak diperlukan tindakan bila status, pembayaran, dan KRS pada rincian sudah sesuai.");
+                }
             } else {
                 hasil.ringkasan = "status berasal dari history atau penetapan akademik khusus";
                 hasil.keputusanUtama = "Status " + hasil.statusNama

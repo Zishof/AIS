@@ -24,10 +24,13 @@ import ais.common.Common;
 import ais.common.newui.NewUiCsrfUtil;
 import ais.common.newui.NewUiRouteGuard;
 import ais.database.hibernate.HibernateUtil;
+import ais.database.model.Agama;
 import ais.database.model.Tbmuser;
 import ais.database.model.asset.Lokasi;
+import ais.database.model.employ.Pendidikan;
 import ais.database.model.library.JenisItem;
 import ais.database.model.library.Penyedia;
+import ais.database.model.sirs.Asuransi;
 import ais.database.model.sirs.Dokter;
 import ais.database.model.sirs.DiagnosaPenyakit;
 import ais.database.model.sirs.Instalasi;
@@ -43,7 +46,7 @@ import ais.database.model.sirs.TransaksiMedis;
 import ais.action.report.helper.CommonReport;
 
 /**
- * Kontrak native tiga puluh tujuh laporan SIRS.
+ * Kontrak native empat puluh satu laporan SIRS.
  *
  * <h3>Koreksi atas anggapan sebelumnya</h3>
  * <p>Enam laporan awal pernah dinyatakan tidak dapat dikonversi karena
@@ -132,9 +135,19 @@ public final class NewUiLaporanSirsController {
     static final String S_MENULAR = "menular";
     static final String S_INSTALASI = "instalasi";
     static final String S_JENIS_TINDAKAN = "jenis_tindakan";
+    static final String S_PENDIDIKAN = "pendidikan";
+    static final String S_JENIS_KELAMIN = "jenis_kelamin";
+    static final String S_ASURANSI = "asuransi";
+    static final String S_PEKERJAAN = "pekerjaan";
+    static final String S_STATUS_PERKAWINAN = "status_perkawinan";
+    static final String S_AGAMA = "agama";
+    static final String S_MR = "mr";
+    static final String S_NAMA_PASIEN = "nama_pasien";
+    static final String S_ALAMAT = "alamat";
+    static final String S_TELP = "telp";
 
     /**
-     * Tiga puluh tujuh laporan yang dilayani kontrak ini.
+     * Empat puluh satu laporan yang dilayani kontrak ini.
      *
      * <p>Kode laporan sengaja sama dengan nama template Jasper-nya supaya
      * hubungan keduanya tidak perlu ditelusuri lewat tabel lain.</p>
@@ -306,6 +319,32 @@ public final class NewUiLaporanSirsController {
                     new String[] { S_TAHUN, S_BULAN, S_JENIS_PASIEN,
                             S_MENULAR, S_INSTALASI });
         }
+        if ("umum_kemhan_bulanan".equals(kode)) {
+            return new Jenis(kode, "Laporan Kunjungan Pasien Kemhan",
+                    "sirs/laporan_pasien_kemhan",
+                    new String[] { S_TAHUN, S_BULAN, S_RAJAL_RANAP });
+        }
+        if ("umum_kemhan_periode".equals(kode)) {
+            return new Jenis(kode, "Laporan Kunjungan Pasien Kemhan Per Periode",
+                    "sirs/laporan_pasien_kemhan",
+                    new String[] { S_MULAI, S_SAMPAI, S_RAJAL_RANAP });
+        }
+        if ("umum_kiup".equals(kode)) {
+            return new Jenis(kode, "Laporan KIUP", "sirs/laporan_kiup",
+                    new String[] { S_TAHUN, S_BULAN, S_PENDIDIKAN,
+                            S_JENIS_KELAMIN, S_JENIS_PASIEN, S_SATKER,
+                            S_ASURANSI, S_PEKERJAAN, S_STATUS_PERKAWINAN,
+                            S_AGAMA, S_MR, S_NAMA_PASIEN, S_ALAMAT, S_TELP },
+                    ais.action.report.Report.XLS);
+        }
+        if ("umum_kiup_periode".equals(kode)) {
+            return new Jenis(kode, "Laporan KIUP Per Periode", "sirs/laporan_kiup_periode",
+                    new String[] { S_MULAI, S_SAMPAI, S_PENDIDIKAN,
+                            S_JENIS_KELAMIN, S_JENIS_PASIEN, S_SATKER,
+                            S_ASURANSI, S_PEKERJAAN, S_STATUS_PERKAWINAN,
+                            S_AGAMA, S_MR, S_NAMA_PASIEN, S_ALAMAT, S_TELP },
+                    ais.action.report.Report.XLS);
+        }
         throw new IllegalArgumentException("Jenis laporan SIRS tidak dikenal.");
     }
 
@@ -417,6 +456,8 @@ public final class NewUiLaporanSirsController {
                 || "inventory_transfer".equals(jenis.kode)
                 || "inventory_tracking_stok".equals(jenis.kode)
                 || "apotik_penggunaan_item".equals(jenis.kode)
+                || "umum_kemhan_periode".equals(jenis.kode)
+                || "umum_kiup_periode".equals(jenis.kode)
                 || "ranap_laporan_perruangan_periode".equals(jenis.kode)) {
             mulai.add(java.util.Calendar.MONTH, -1);
         }
@@ -468,10 +509,14 @@ public final class NewUiLaporanSirsController {
                     .put("wajib", true).put("cari", true);
         }
         if (S_MULAI.equals(nama)) {
-            return d.put("label", "Tanggal Mulai").put("tipe", "tanggal").put("wajib", true);
+            boolean wajib = !"umum_kemhan_periode".equals(jenis.kode)
+                    && !"umum_kiup_periode".equals(jenis.kode);
+            return d.put("label", "Tanggal Mulai").put("tipe", "tanggal").put("wajib", wajib);
         }
         if (S_SAMPAI.equals(nama)) {
-            return d.put("label", "Tanggal Sampai").put("tipe", "tanggal").put("wajib", true);
+            boolean wajib = !"umum_kemhan_periode".equals(jenis.kode)
+                    && !"umum_kiup_periode".equals(jenis.kode);
+            return d.put("label", "Tanggal Sampai").put("tipe", "tanggal").put("wajib", wajib);
         }
         if (S_JENIS_PASIEN.equals(nama)) {
             boolean wajib = !"rajal_poli_baru_lama".equals(jenis.kode)
@@ -527,7 +572,9 @@ public final class NewUiLaporanSirsController {
             return d.put("label", "Status Lunas").put("tipe", "relasi").put("wajib", false);
         }
         if (S_RAJAL_RANAP.equals(nama)) {
-            return d.put("label", "Rawat Jalan/Inap").put("tipe", "relasi").put("wajib", false);
+            boolean wajib = jenis.kode.startsWith("umum_kemhan_");
+            return d.put("label", "Rawat Jalan/Inap").put("tipe", "relasi")
+                    .put("wajib", wajib).put("pilihPertama", wajib);
         }
         if (S_SATKER.equals(nama)) {
             return d.put("label", "Satuan Kerja").put("tipe", "relasi")
@@ -544,6 +591,37 @@ public final class NewUiLaporanSirsController {
         if (S_JENIS_TINDAKAN.equals(nama)) {
             return d.put("label", "Jenis Tindakan").put("tipe", "relasi")
                     .put("wajib", false);
+        }
+        if (S_PENDIDIKAN.equals(nama)) {
+            return d.put("label", "Pendidikan").put("tipe", "relasi").put("wajib", false);
+        }
+        if (S_JENIS_KELAMIN.equals(nama)) {
+            return d.put("label", "Jenis Kelamin").put("tipe", "relasi").put("wajib", false);
+        }
+        if (S_ASURANSI.equals(nama)) {
+            return d.put("label", "Asuransi").put("tipe", "relasi")
+                    .put("wajib", false).put("cari", true);
+        }
+        if (S_PEKERJAAN.equals(nama)) {
+            return d.put("label", "Pekerjaan").put("tipe", "relasi").put("wajib", false);
+        }
+        if (S_STATUS_PERKAWINAN.equals(nama)) {
+            return d.put("label", "Status Perkawinan").put("tipe", "relasi").put("wajib", false);
+        }
+        if (S_AGAMA.equals(nama)) {
+            return d.put("label", "Agama").put("tipe", "relasi").put("wajib", false);
+        }
+        if (S_MR.equals(nama)) {
+            return d.put("label", "MR").put("tipe", "teks").put("wajib", false);
+        }
+        if (S_NAMA_PASIEN.equals(nama)) {
+            return d.put("label", "Nama").put("tipe", "teks").put("wajib", false);
+        }
+        if (S_ALAMAT.equals(nama)) {
+            return d.put("label", "Alamat").put("tipe", "teks").put("wajib", false);
+        }
+        if (S_TELP.equals(nama)) {
+            return d.put("label", "Telepon").put("tipe", "teks").put("wajib", false);
         }
         throw new IllegalArgumentException("Filter tidak dikenal: " + nama);
     }
@@ -698,6 +776,36 @@ public final class NewUiLaporanSirsController {
                     Satker x = (Satker) o;
                     arr.put(pilihan(x.getId(), "", x.getNama(), null));
                 }
+            } else if (S_PENDIDIKAN.equals(nama)) {
+                Criteria c = s.createCriteria(Pendidikan.class);
+                cocok(c, q, "nama");
+                for (Object o : c.addOrder(Order.asc("nama")).setMaxResults(BATAS_CARI).list()) {
+                    Pendidikan x = (Pendidikan) o;
+                    arr.put(pilihan(x.getId(), "", x.getNama(), null));
+                }
+            } else if (S_ASURANSI.equals(nama)) {
+                Criteria c = s.createCriteria(Asuransi.class);
+                cocok(c, q, "nama");
+                for (Object o : c.addOrder(Order.asc("nama")).setMaxResults(BATAS_CARI).list()) {
+                    Asuransi x = (Asuransi) o;
+                    arr.put(pilihan(x.getId(), "", x.getNama(), null));
+                }
+            } else if (S_AGAMA.equals(nama)) {
+                Criteria c = s.createCriteria(Agama.class);
+                cocok(c, q, "nama");
+                for (Object o : c.addOrder(Order.asc("nama")).setMaxResults(BATAS_CARI).list()) {
+                    Agama x = (Agama) o;
+                    arr.put(pilihan(x.getId(), "", x.getNama(), null));
+                }
+            } else if (S_JENIS_KELAMIN.equals(nama)) {
+                tambahPilihanTeks(arr, new String[] { "Laki-laki", "Perempuan" });
+            } else if (S_PEKERJAAN.equals(nama)) {
+                tambahPilihanTeks(arr, new String[] { "BUMN", "BURUH", "PNS", "PROFESI",
+                        "PURNABAKTI", "SWASTA", "TGG KELUARGA", "TNI", "POLRI",
+                        "WIRASWASTA", "IBU RUMAH TANGGA" });
+            } else if (S_STATUS_PERKAWINAN.equals(nama)) {
+                tambahPilihanTeks(arr,
+                        new String[] { "Belum Menikah", "Menikah", "Duda", "Janda" });
             } else if (S_MENULAR.equals(nama)) {
                 for (String v : new String[] {
                         DiagnosaPenyakit.TIDAK_MENULAR, DiagnosaPenyakit.MENULAR }) {
@@ -726,6 +834,13 @@ public final class NewUiLaporanSirsController {
             j.put("batas", BATAS_CARI);
         } finally {
             s.close();
+        }
+    }
+
+    /** Tambahkan pilihan statis dengan nilai parameter dan label yang sama. */
+    private static void tambahPilihanTeks(JSONArray arr, String[] nilai) throws Exception {
+        for (String v : nilai) {
+            arr.put(new JSONObject().put("id", v).put("nama", v));
         }
     }
 
@@ -1032,9 +1147,17 @@ public final class NewUiLaporanSirsController {
         return "";
     }
 
-    /** Parameter empat laporan umum: tindakan, pendaftaran, 10 ICD, dan penyakit. */
+    /** Parameter laporan umum SIRS yang tidak termasuk keluarga lain. */
     @SuppressWarnings({ "rawtypes", "unchecked" })
     private static void umum(Map parameters, HttpServletRequest r, Session s, Jenis jenis) {
+        if (jenis.kode.startsWith("umum_kemhan_")) {
+            kemhan(parameters, r, jenis);
+            return;
+        }
+        if (jenis.kode.startsWith("umum_kiup")) {
+            kiup(parameters, r, s, jenis);
+            return;
+        }
         if ("umum_biaya_tindakan".equals(jenis.kode)) {
             JenisTindakan tindakan = (JenisTindakan) muat(s, JenisTindakan.class,
                     r.getParameter(S_JENIS_TINDAKAN));
@@ -1095,6 +1218,74 @@ public final class NewUiLaporanSirsController {
             parameters.put("nama_instalasi", teks(instalasi.getNama()));
         }
         CommonReport.inputParameterTanggal(parameters, bulan, tahun);
+    }
+
+    /** Parameter dua variasi laporan kunjungan Kemhan. */
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    private static void kemhan(Map parameters, HttpServletRequest r, Jenis jenis) {
+        String rawat = pilihanTertutup(r.getParameter(S_RAJAL_RANAP),
+                "Jenis rawat", new String[] { Pendaftaran.RAWAT_JALAN, Pendaftaran.RAWAT_INAP });
+        if (rawat.length() == 0) {
+            throw new IllegalArgumentException("Jenis pelayanan Rawat Jalan atau Rawat Inap belum dipilih.");
+        }
+        parameters.put("jenis", rawat);
+        if ("umum_kemhan_bulanan".equals(jenis.kode)) {
+            Integer tahun = angka(r.getParameter(S_TAHUN), "Tahun");
+            Integer bulan = angka(r.getParameter(S_BULAN), "Bulan");
+            if (tahun == null) throw new IllegalArgumentException("Tahun laporan belum dipilih.");
+            if (bulan == null || bulan.intValue() < 1 || bulan.intValue() > 12) {
+                throw new IllegalArgumentException("Bulan laporan harus berada pada rentang 1..12.");
+            }
+            parameters.put("tahun", tahun);
+            parameters.put("bulan", bulan);
+        } else {
+            parameters.put("tgl1", tanggalAtauAwal(r.getParameter(S_MULAI), "Tanggal mulai"));
+            parameters.put("tgl2", tanggalAtauAwal(r.getParameter(S_SAMPAI), "Tanggal sampai"));
+        }
+    }
+
+    /** Parameter bersama KIUP bulanan dan KIUP per periode. */
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    private static void kiup(Map parameters, HttpServletRequest r, Session s, Jenis jenis) {
+        Pendidikan pendidikan = (Pendidikan) muat(s, Pendidikan.class,
+                r.getParameter(S_PENDIDIKAN));
+        JenisPasien jenisPasien = (JenisPasien) muat(s, JenisPasien.class,
+                r.getParameter(S_JENIS_PASIEN));
+        Satker satker = (Satker) muat(s, Satker.class, r.getParameter(S_SATKER));
+        Asuransi asuransi = (Asuransi) muat(s, Asuransi.class, r.getParameter(S_ASURANSI));
+        Agama agama = (Agama) muat(s, Agama.class, r.getParameter(S_AGAMA));
+
+        parameters.put("mr", "%" + text(r.getParameter(S_MR), "").trim() + "%");
+        parameters.put("nama", "%" + text(r.getParameter(S_NAMA_PASIEN), "").trim() + "%");
+        parameters.put("alamat", "%" + text(r.getParameter(S_ALAMAT), "").trim() + "%");
+        parameters.put("telp", "%" + text(r.getParameter(S_TELP), "").trim() + "%");
+        parameters.put("pendidikan", pendidikan == null ? Long.valueOf(-1L) : pendidikan.getId());
+        parameters.put("jenisKelamin", pilihanTertutup(r.getParameter(S_JENIS_KELAMIN),
+                "Jenis kelamin", new String[] { "Laki-laki", "Perempuan" }));
+        parameters.put("jenisPasien", jenisPasien == null ? Long.valueOf(-1L) : jenisPasien.getId());
+        parameters.put("satker", satker == null ? Long.valueOf(-1L) : satker.getId());
+        parameters.put("asuransi", asuransi == null ? Long.valueOf(-1L) : asuransi.getId());
+        parameters.put("pekerjaan", pilihanTertutup(r.getParameter(S_PEKERJAAN), "Pekerjaan",
+                new String[] { "BUMN", "BURUH", "PNS", "PROFESI", "PURNABAKTI", "SWASTA",
+                        "TGG KELUARGA", "TNI", "POLRI", "WIRASWASTA", "IBU RUMAH TANGGA" }));
+        parameters.put("statusPerkawinan", pilihanTertutup(
+                r.getParameter(S_STATUS_PERKAWINAN), "Status perkawinan",
+                new String[] { "Belum Menikah", "Menikah", "Duda", "Janda" }));
+        parameters.put("agama", agama == null ? Long.valueOf(-1L) : agama.getId());
+
+        if ("umum_kiup".equals(jenis.kode)) {
+            Integer tahun = angka(r.getParameter(S_TAHUN), "Tahun");
+            Integer bulan = angka(r.getParameter(S_BULAN), "Bulan");
+            if (tahun == null) throw new IllegalArgumentException("Tahun laporan belum dipilih.");
+            if (bulan == null || bulan.intValue() < 1 || bulan.intValue() > 12) {
+                throw new IllegalArgumentException("Bulan laporan harus berada pada rentang 1..12.");
+            }
+            parameters.put("tahun", tahun);
+            parameters.put("bulan", bulan);
+        } else {
+            parameters.put("tgl1", tanggalAtauAwal(r.getParameter(S_MULAI), "Tanggal mulai"));
+            parameters.put("tgl2", tanggalAtauAwal(r.getParameter(S_SAMPAI), "Tanggal sampai"));
+        }
     }
 
     /** Parameter rentang tanggal bertipe teks yyyy-MM-dd seperti layar ZK. */
@@ -1369,6 +1560,23 @@ public final class NewUiLaporanSirsController {
                 throw new IllegalArgumentException(label + " bukan tanggal yang sah.");
             }
         }
+    }
+
+    /** Layar legacy KIUP/Kemhan mengirim 2000-01-01 ketika datebox dikosongkan. */
+    private static String tanggalAtauAwal(String nilai, String label) {
+        String v = text(nilai, "").trim();
+        return v.length() == 0 ? "2000-01-01"
+                : Common.databaseDateFormat.get().format(tanggalWajib(v, label));
+    }
+
+    /** Validasi nilai combobox statis; kosong tetap berarti tanpa penyaring. */
+    private static String pilihanTertutup(String nilai, String label, String[] pilihan) {
+        String v = text(nilai, "").trim();
+        if (v.length() == 0) return "";
+        for (String p : pilihan) {
+            if (p.equals(v)) return v;
+        }
+        throw new IllegalArgumentException(label + " tidak sah.");
     }
 
     private static Integer angka(String nilai, String label) {
