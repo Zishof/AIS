@@ -1,5 +1,71 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 18 — SELESAI 100% (2 Sep 2026)
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
+`-implicit:none` bersih, mirror `java/` diverifikasi `cmp` byte-identik, nol
+perubahan logika:
+
+- **`ais/database/model/CicilanPembayaranGagal.java`** (r83393) — 274→755
+  baris, 100% (2 konstruktor + 36 method + 18 field). Baris status TIDAK
+  disimpan sebagai flag — dipindah fisik antar tabel `cicilan_pembayaran`
+  ↔ `cicilan_pembayaran_gagal`. Temuan serius: `getTanggal()` DESTRUKTIF
+  (menge-null-kan tanggal bila nilai ≤0.01, beda dari kembarannya
+  `CicilanPembayaran`), dan round-trip gagal→sukses **menghapus permanen**
+  `buktiPembayaran`/`idLampiran` (bukti bayar mahasiswa hilang) plus 13
+  properti lain yang tak ada di skema tabel gagal. Penghapusan baris pakai
+  SQL native → lolos dari Envers (`@Audited` tapi riwayat hapus tak
+  tercatat). Keamanan: tombol admin-only ("Diyatakan Gagal"/"Tidak Gagal")
+  hanya `setVisible()` di UI, tanpa pengecekan peran ulang di `onClick`
+  atau `CommonPrivilages` — masuk cakupan `task_c27d18e4`/`task_4180ddb8`.
+- **`ais/database/model/Menu.java`** (r83394) — 267→785 baris, 100% (54
+  anggota). Entity MASTER menu/navigasi + unit hak akses granular (~78 file
+  merujuk). Hierarki BUKAN id/parentId biasa — `child`=kode node sendiri,
+  `root`=kode induk, tanpa FK formal. **3 temuan keamanan signifikan**
+  (masuk cakupan task audit-luas): (a) `GenericCrudRoutePrivilegeResolver`
+  mencocokkan hak akses lewat SUBSTRING URL menu — bisa bocor lintas route;
+  (b) flag `aktif=false` HANYA menyembunyikan item di UI, TIDAK mencabut
+  akses di resolver hak akses — kontrol keamanan semu (pola sama dengan
+  `Ruang.ip` batch 17); (c) `bukaHalamanBaru` + `setUrl()` tanpa validasi →
+  potensi open-redirect yang membocorkan token SSO terenkripsi user ke host
+  eksternal manapun bila operator master menu disusupi/lalai.
+- **`ais/database/model/JamPerkuliahan.java`** (r83398) — 255→805 baris,
+  100% (43 anggota). Entity MASTER slot jam kuliah (~30 file). Waktu
+  tersimpan GANDA (kolom `TIME` + teks `"HH.mm"`) yang bisa desinkron
+  permanen (`ParseException` ditelan diam-diam). `getFakultas()` destruktif
+  (selalu ditimpa dari `jurusan`). Ditemukan 2 file TAMBAHAN dengan komentar
+  generator hbm2java salah salin-tempel: `MasaPerkuliahan.java`,
+  `GelombangPendaftaranSidangTugasAkhir.java` (kandidat baik utk batch
+  selanjutnya, melengkapi `JadwalSidangTugasAkhir`/`JadwalSeminarTugasAkhir`
+  dari batch 17).
+- **`ais/database/model/JenisPembayaran.java`** (r83397) — 257→798 baris,
+  100% (31 anggota + 12 field). Entity MASTER cara/jenis pembayaran (141
+  file), jembatan ke akunting (tiap baris → 1 `Akun`). Bug: `reloadDefault()`
+  bisa membuat baris "Tunai" KEDUA tanpa `akun` karena seed awal tak
+  menandai `defaultPembayaran=true`. Keamanan: pola FAIL-OPEN yang SAMA
+  dengan `PrestasiPegawaiAction` (batch 17) ditemukan lagi di
+  `JenisPembayaranAction.initCriteria` — sekarang 2 instance pola
+  "himpunan satuan kerja kosong → filter diganti `1=1`" — kemungkinan besar
+  ini TEMPLATE yang disalin ke banyak Action master lain, layak jadi fokus
+  utama audit `task_c27d18e4`/`task_4180ddb8`.
+- **`ais/database/model/JadwalPembayaran.java`** (r83400) — 257→933 baris,
+  100% (30 accessor + 17 field). Entity jendela waktu+sasaran pembayaran —
+  **sumbu berbeda** dari `PengaturanPembayaranBulanan` (KAPAN/SIAPA vs
+  BERAPA), tidak tumpang tindih, tanpa FK dua arah. Bug: `formatNim` tidak
+  membuang tab/newline dari textbox multibaris → NIM per baris gagal cocok
+  pencarian. Bug terpisah di `JadwalPembayaranAction.onSave` (dicatat di
+  Javadoc kelas): cabang null-check deteksi jadwal duplikat tertukar
+  (jenjang↔tahunAkademik).
+
+**Pola FAIL-OPEN kini instance ke-2** (`PrestasiPegawaiAction` batch 17 +
+`JenisPembayaranAction` batch 18) — dicurigai kuat sebagai template yang
+disalin ke banyak Action master data lain. **Pola "kontrol keamanan semu"
+kini instance ke-2** (`Ruang.ip` batch 17 + `Menu.aktif` batch 18). Kedua
+pola berulang ini sebaiknya jadi prioritas pencarian eksplisit saat audit
+`task_c27d18e4`/`task_4180ddb8` dijalankan.
+
+Total akumulasi 18 sesi: **268 file** dari 7.401 (~3,6%).
+
 ## Batch 17 — SELESAI 100% (2 Sep 2026)
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
