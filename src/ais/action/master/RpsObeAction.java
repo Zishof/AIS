@@ -7617,6 +7617,10 @@ public class RpsObeAction extends GenericAutowireComposer {
 			Auxhead auxhead = new Auxhead();
 			auxhead.setParent(grid);
 
+			// Kolom pertama dipakai komponen Detail pada setiap Row. Header kosong ini
+			// wajib ada agar seluruh judul berikutnya sejajar dengan cell datanya.
+			new Auxheader().setParent(auxhead);
+
 			Auxheader auxheader = new Auxheader();
 			MyLabelConfig label = new MyLabelConfig(Common.getBahasaConfig("Minggu Ke"));
 			label.setMultiline(true);
@@ -7639,7 +7643,8 @@ public class RpsObeAction extends GenericAutowireComposer {
 			auxheader.setParent(auxhead);
 
 			auxheader = new Auxheader();
-			auxheader.setColspan(4);
+			// Metode, pembelajaran luring, dan pembelajaran daring.
+			auxheader.setColspan(3);
 			label = new MyLabelConfig(
 					Common.getBahasaConfig("Bentuk Pembelajaran, Metode Pembelajaran, Penugasan Mahasiswa"));
 			label.setMultiline(true);
