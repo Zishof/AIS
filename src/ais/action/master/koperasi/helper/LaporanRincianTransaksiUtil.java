@@ -133,6 +133,19 @@ public final class LaporanRincianTransaksiUtil {
 		return out.append(")").toString();
 	}
 
+	/** Daftar metode pembayaran faktur, termasuk seluruh slot split-payment. */
+	static String daftarMetodePembayaranNota(String[] caraAliases) {
+		StringBuilder out = new StringBuilder("CONCAT_WS(', '");
+		for (int i = 0; i < caraAliases.length; i++) {
+			String cara = caraAliases[i];
+			out.append(", CASE WHEN ").append(cara).append(".id IS NOT NULL THEN ")
+					.append("COALESCE(NULLIF(TRIM(").append(cara).append(".nama),''),")
+					.append("NULLIF(TRIM(").append(cara).append(".kode),''),'Metode Pembayaran')")
+					.append(" ELSE NULL END");
+		}
+		return out.append(")").toString();
+	}
+
 	static String joinCaraPembayaranNota(String headerAlias, String[] caraAliases) {
 		StringBuilder out = new StringBuilder();
 		for (int i = 0; i < caraAliases.length; i++) {
@@ -214,7 +227,8 @@ public final class LaporanRincianTransaksiUtil {
 				+ " COALESCE(pr.kode,'') kode_produk,"
 				+ " COALESCE(a.qty,0) qty, COALESCE(a.hargasatuan,0) harga,"
 				+ " COALESCE(a.diskon,0) diskon, COALESCE(a.total,0) total,"
-				+ " COALESCE(NULLIF(TRIM(a.carabayar),''),'-') metode,"
+				+ " COALESCE(NULLIF(" + daftarMetodePembayaranNota(caraAliases)
+				+ ",''),NULLIF(TRIM(a.carabayar),''),'-') metode,"
 				+ " " + jenisPiutangNota(caraAliases) + " jenis_piutang,"
 				+ " " + nilaiPiutang + " nilai_piutang, CAST(pak.id AS text) id_transaksi"
 				+ " FROM koperasi.pembelian a"

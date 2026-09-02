@@ -96,6 +96,12 @@ public final class LaporanKantinSqlSelfTest {
         check(kasbon.split("union all", -1).length == 5,
                 "seluruh lima slot split-payment diperiksa tepat satu kali");
 
+        String metode = LaporanRincianTransaksiUtil.daftarMetodePembayaranNota(
+                new String[]{"c1", "c2", "c3", "c4", "c5"}).toLowerCase();
+        check(metode.split("\\.id is not null", -1).length - 1 == 5
+                        && metode.indexOf("concat_ws") >= 0,
+                "rincian audit menampilkan seluruh lima metode split-payment");
+
         System.out.println(gagal == 0
                 ? "SEMUA ATURAN SQL LAPORAN TERJAGA"
                 : ("ADA " + gagal + " ATURAN YANG DILANGGAR"));

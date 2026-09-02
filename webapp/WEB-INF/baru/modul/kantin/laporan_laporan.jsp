@@ -431,14 +431,14 @@ if (!lockTokoLap) {
         var h = '<div class="fw-bold small mb-1">Transaksi penyusun angka ini</div>'
               + '<div class="table-responsive"><table class="table table-sm table-bordered small mb-1"><thead><tr>'
               + '<th>Waktu</th><th>No. Nota</th><th>Kasir</th><th>Pelanggan</th><th>Produk</th>'
-              + (rincianPiutang ? '<th>Jenis Piutang</th><th class="text-end">Piutang Faktur</th>' : '')
+              + (rincianPiutang ? '<th>Metode Pembayaran</th><th>Jenis Piutang</th><th class="text-end">Piutang Faktur</th>' : '')
               + '<th class="text-end">Qty</th><th class="text-end">Harga</th><th class="text-end">Total Produk</th></tr></thead><tbody>';
         for (var i=0;i<rows.length;i++){
           var r0 = rows[i];
           h += '<tr><td>' + esc(String(r0.waktu||"").split(".")[0]) + '</td><td>' + esc(r0.nota||"")
              + '</td><td>' + esc(r0.kasir||"") + '</td><td>' + esc(r0.pelanggan||"")
              + '</td><td>' + esc(r0.produk||"")
-             + (rincianPiutang ? '</td><td>' + esc(r0.jenisPiutang||"") + '</td><td class="text-end">' + fmtAmt(r0.nilaiPiutang) : '')
+             + (rincianPiutang ? '</td><td>' + esc(r0.metode||"") + '</td><td>' + esc(r0.jenisPiutang||"") + '</td><td class="text-end">' + fmtAmt(r0.nilaiPiutang) : '')
              + '</td><td class="text-end">' + fmtInt(r0.qty)
              + '</td><td class="text-end">' + fmtAmt(r0.harga)
              + '</td><td class="text-end">' + fmtAmt(r0.total) + '</td></tr>';
