@@ -1,5 +1,150 @@
 # Progres Javadoc Menyeluruh
 
+## `ais/database/model/VirtualAccountBank.java` — SELESAI 100% (2 Sep 2026)
+
+Entity **tagihan Virtual Account** (tabel `public.virtual_account_bank`, `@Audited`)
+— satu baris = satu permintaan pembayaran yang diterbitkan AIS untuk dibayar lewat
+bank/payment gateway. 2376 → 3949 baris, **135/135 method ber-Javadoc (100%)**
+(diaudit skrip, 0 tersisa) plus 45 field entity didokumentasi. Revisi **r83134**.
+Mirror `java/` diverifikasi byte-identik (`cmp`). **Kode terbukti tidak berubah**:
+bytecode `javap -c -p` (kelas utama + anonymous `VirtualAccountBank$1`) identik
+dengan versi HEAD sebelum edit.
+
+**Struktur**: `extends GeneralValueObject` langsung. Bukan sekadar entity — di
+dalamnya tinggal **mesin pembayaran VA** berupa method static yang dipanggil
+langsung oleh 17 servlet callback bank (`ais/action/servlet/Briva`, `BSI`,
+`Bankaltimtara`, `Bjb`, `BCA`, `Mandiri`, `Nagari`, `OcbcNisp`, `MncBank`,
+`Finpay`, `Flip`, `Esmartlink`, `Otto`, `Maja`, `Jaring`, `BMS`, `Va`) dan oleh
+`ais/action/master/helper/virtualaccount/*`. Dua jalur posting terpisah:
+`bayarVa()` (mahasiswa/calon mahasiswa → `Kegiatan` + `CicilanPembayaran`) dan
+`bayarSiswa()` (siswa/calon siswa → `PembayaranSiswa` + `PembayaranSiswaDetail`),
+plus `bayarTopup()` untuk saldo `Deposit`. Enam alternatif pemilik tagihan
+(mahasiswa, calon mahasiswa, siswa, calon siswa, anggota koperasi, peserta
+kursus). Rincian biaya disimpan sebagai **token teks** di kolom `cicilan`, dan
+**format token itu berbeda antara jalur mahasiswa** (`Bulanan-`/`Item-`/
+`Keranjang-`) **dan jalur siswa** (`<apa saja>-<idTagihan>[-<nilai>]`).
+
+**Field audit shadow TERKONFIRMASI lagi** (entity ke-12 berturut-turut, 100%):
+- `getWaktuBayar()` **mengosongkan** `waktuBayar` bila 3 penanda posting kosong;
+- `getAkunPembayaranSiswa()` **mengosongkan** field bila akun tabungan/manual →
+  risiko FK ternull saat flush;
+- `getKegiatan()` membaca **cache berkas samping** (`retreive("k")`/`"hapus"`) dan
+  bisa menyetel `kegiatan = null`; `setKegiatan()` menulis berkas itu;
+- menimpa field tanpa mengosongkan: `getKode()`, `getNama()`, `getBank()`,
+  `getSemester()`, `getTahunAkademik()`, `getBiayaAdmin()`, `getAmount()`,
+  `getKadaluarsa()`, `getKadaluarsaWaktu()`, `getPt()`, `getKanalPembayaran()`,
+  `getKelas()`, `getChannel()`, bahkan `toString()`.
+- Getter yang **membuka & menutup session Hibernate sendiri**: `ambilVa()` (3
+  overload), `ambilLink()`, `ambilByNisAja()`, `updateVa()`, `updateTotal()` —
+  `ambilVa`/`ambilLink` bahkan **memperbaiki baris di DB** (mengisi `waktuBayar`,
+  `bankHost`, membuat `Va`) saat sekadar dicari.
+
+**Temuan lain (dicatat, TIDAK diperbaiki)**:
+1. `buatAtauChekTagihan()` memakai `Restrictions.eq("refTagihan", tag)` padahal
+   entity **tidak punya properti `refTagihan`** (grep seluruh pohon: hanya muncul
+   di baris ini). Query dieksekusi di luar `try` → `QueryException` merambat ke
+   `ambilByNisAja()` yang menelannya, jadi **jalur pembuatan VA otomatis dari NIS
+   praktis mati total**. Memperbaikinya justru MENGAKTIFKAN fitur yang selama ini
+   tidak jalan — perlu pengujian, bukan patch buta.
+2. `getAmount()` cabang e-Smartlink non-SUCCESS menghitung `amount = total + total`
+   padahal syarat cabangnya memeriksa `biayaAdmin != null` (mestinya
+   `total + biayaAdmin`, seperti cabang terakhir).
+3. `getTahunAkademik()` argumen fakultas:
+   `mahasiswa == null || mahasiswa.getJurusan() != null ? null : mahasiswa.getJurusan().getFakultas()`
+   — cabang else hanya tercapai saat jurusan `null`, jadi pasti NPE. Kondisi
+   tampak terbalik; method tidak menangkap exception.
+4. `updateTotal()` menulis kolom `total` lewat **thread terpisah** yang `sleep(500)`
+   dulu, SQL native, session sendiri → method kembali sebelum DB berubah, kegagalan
+   tidak pernah sampai ke pemanggil.
+5. Cache statis `sukses` (`Set<Long>`) tidak pernah dikosongkan massal → tumbuh
+   selama JVM hidup dan tidak dibagi antar node. Sudah didampingi pengecekan
+   permanen ke DB, jadi bukan bug korektnes, tapi catat untuk deployment multi-node.
+6. `getTotalAman()` redundan — `getTotal()` sudah menormalkan `null` ke `0.0`.
+7. `updateVirtualAccountSiswaMinimal()` sengaja memakai bulk update HQL +
+   `FlushMode.MANUAL` justru **untuk menghindari getter-getter perusak di atas**.
+   Ini bukti tim sudah menyadari masalahnya dan menambal per kasus.
+
+**KEAMANAN — perlu diwaspadai (dicatat di Javadoc, nilai TIDAK disentuh)**:
+`curlSmartlink()` / `curlSmartlinkGet()` mengubah username+password e-Smartlink
+menjadi header `Authorization: Basic ...` lalu menaruhnya sebagai **argumen baris
+perintah `curl`**; bila konfigurasi `curl_e_smartlink_via_server_lain` aktif,
+header itu menjadi bagian string perintah yang dieksekusi shell di host lain lewat
+`ssh` (terbaca lewat `ps`/riwayat shell). Payload `postData.toString()` disisipkan
+di antara kutip tunggal `--data-raw '...'` → **berpotensi command injection** bila
+JSON memuat kutip tunggal. Default relay ter-hardcode di kode: IP `38.47.178.46`,
+port `22031`, user `zishof` — dan `Common.getKonfigurasi` **menulis default ke DB**
+bila barisnya belum ada, sehingga default ini bisa menjadi nilai produksi. Tidak
+ada password/API key literal di file ini (username/password diterima sebagai
+parameter dari pemanggil).
+
+## `ais/database/model/ItemBiaya.java` — SELESAI 100% (2 Sep 2026)
+
+Entity master **item biaya** (tabel `item_biaya`) — katalog komponen tagihan (SPP,
+uang gedung, uang praktikum, denda, diskon). 946 → 2263 baris, **70/70 method
+ber-Javadoc (100%)** (diaudit skrip) + seluruh 37 konstanta mode penghitungan,
+`PENGHITUNGAN_MAP`, blok inisialisasi statis, dan semua field privat.
+Revisi **r83133**. Mirror `java/` diverifikasi byte-identik dengan `cmp`. Kode
+diverifikasi TIDAK berubah sama sekali (perbandingan sumber lama vs baru setelah
+seluruh komentar dilucuti → `IDENTICAL`).
+
+**Struktur**: `extends GeneralValueObject` langsung. **TIDAK menyimpan nominal
+sama sekali** — nominal ada di `DetailSettingBiaya.defaultBiaya` (template) dan
+`DetailBiaya.nilaiBiaya`/`nilaiBiayaBaru` (baris tagihan nyata). Rantai:
+`ItemBiaya` → `SettingBiaya`/`DetailSettingBiaya` → `DetailBiaya` →
+`DetailKegiatan` → `CicilanPembayaran`/`BuktiPembayaran`/`DendaPembayaran`.
+Kelompok anggota: (1) katalog mode penghitungan, (2) jejak audit, (3) identitas
+item, (4) aturan penghitungan nominal, (5) aturan denda, (6) aturan cicilan &
+tampilan, (7) batas semester/tanggal, (8) **8 method resolver akun** (`ambilAkun`,
+`ambilPiutang`, `ambilDibayarDimuka`, `ambilPendapatanDenda`, masing-masing 2
+bentuk) — satu-satunya kelompok yang menyentuh DB.
+
+**Resolusi akun**: 5 tabel jembatan (`ItemBiayaPunyaAkun`/`Piutang`/
+`DibayarDimuka`/`PendapatanDenda`/`Diskon`; yang terakhir TIDAK punya resolver di
+entity). Algoritma pencarian berjenjang **8 tahap identik** di keempat resolver,
+didokumentasikan lengkap sekali di `ambilAkun(Fakultas,Jurusan,String,String)`,
+tiga lainnya `@see` ke sana (strategi reference-class+link).
+
+**Pola field audit shadow — TERKONFIRMASI (entity ke-12 berturut-turut)**:
+- `getDeskripsi()` menulis `getNama()` ke field bila kosong → **kolom `deskripsi`
+  permanen berisi salinan nama** setelah sekali dibaca dalam session ter-flush.
+- `getAktif()`→`true`, `getPenghitungan()`→`TIDAK_ADA_PENGHITUNGAN`,
+  `getMaxSmt()`→`30`, `getAutoCreate()`/`getNilaiBisaDiubah()`/
+  `getTerhubungKeNilaiTambahan()`→`false` semuanya menulis balik ke field.
+- `getParameterTambahan()`/`getJenisPembayaran()` menulis hasil `check()` (pola
+  standar, disengaja).
+- Sisanya memakai bentuk aman `x == null ? default : x`. **Tidak ada** getter yang
+  membuka/menutup session Hibernate di file ini.
+
+**Temuan lain (dicatat, TIDAK diperbaiki)**:
+- `tidakDitagihDiSmtGanjil`/`Genap` **tidak pernah ditegakkan** — hanya dibaca &
+  ditulis `ItemBiayaAction`. Operator bisa salah kira item tak ditagih.
+- `minSmt`/`maxSmt` hanya memicu teks peringatan di `DaftarUlangMahasiswa*Action`,
+  bukan penyaring tagihan.
+- `setAutoCreate(true)` tidak pernah dipanggil kode Java mana pun.
+- `DIAMBIL_DARI_DENDA_PERPUSTAKAAN` ("456") bisa dipilih operator tapi **tanpa
+  penangan** di mana pun.
+- `DIKALI_JUMLAH_SKS_UAS_REMDIAL` ("5592") **kehilangan cabang** di jalur
+  `DetailBiaya` biasa `PembayaranNominalModifikasiHelper` — tempatnya terisi blok
+  **kembar persis** `DIKALI_JUMLAH_SKS_UTS_REMEDIAL` (baris ~1098 dan ~1131, cabang
+  kedua tak terjangkau). Penangannya hanya ada di jalur tagihan bulanan.
+- 7 konstanta blok "BARU" (`DIKALI_JUMLAH_PERTEMUAN` dkk) tidak ada di
+  `PENGHITUNGAN_MAP` dan tidak dirujuk di mana pun.
+- **Salah eja load-bearing**: teks `DIKALI_SATU_JIKA_AMBIL_MK_TERTENTU` berbunyi
+  "suatau" dan itulah yang tersimpan di DB — memperbaikinya akan mematikan mode ini
+  pada data lama. Nama kolom `dendaAkanBerlipatTerlambaHari` ikut salah eja karena
+  `MyNamingStrategy` (turunan `DefaultNamingStrategy`) memakai nama properti apa
+  adanya.
+- `ambilAkun(...)` TIDAK dibungkus `try/catch` sementara tiga saudaranya dibungkus
+  → kegagalan query merambat ke pemanggil pada akun pendapatan saja.
+- Denda: bila `JenisKegiatan.getDendaJikaTerlambat()` true, **seluruh** parameter
+  denda diambil dari `JenisKegiatan` dan pengaturan di `ItemBiaya` diabaikan
+  (`DetailBiaya.checkDenda`).
+- Di luar file ini: `ItemBiayaAction` memanggil
+  `session.createCriteria(ItemBiayaPunyaDenda.class)` padahal
+  `ais.action.master.akunting.helper.ItemBiayaPunyaDenda` adalah **helper UI ZK,
+  bukan entity** (entity-nya `ItemBiayaPunyaPendapatanDenda`). Perlu diperiksa
+  sesi lain.
+
 ## `ais/database/model/CicilanPembayaran.java` — SELESAI 100% (2 Sep 2026)
 
 Entity **transaksi cicilan/angsuran pembayaran** mahasiswa & calon mahasiswa
