@@ -1,5 +1,102 @@
 # Progres Javadoc Menyeluruh
 
+## `ais/database/model/MatakuliahPrasyarat.java` — SELESAI 100% (2 Sep 2026)
+
+Entity **aturan prasyarat mata kuliah** (tabel `public.matakuliah_prasyarat`,
+`@Entity`, `@Audited`, `dynamicInsert/dynamicUpdate`, turunan
+`GeneralValueObject`). **63/63 anggota** terdokumentasi (100%: 45
+method/konstruktor + 18 field), 281 → 818 baris. Revisi **r83286**, mirror
+`java/` verifikasi `cmp` identik. Hanya Javadoc/komentar; nol perubahan logika
+(dibuktikan dengan membandingkan sumber tanpa komentar/spasi terhadap HEAD —
+identik, kecuali pemisahan baris gabungan `@PreUpdate onUpdate()` +
+`tanggal_dirubah` menjadi dua baris, murni whitespace, mengikuti gaya
+`Matakuliah.java`).
+
+### Pertanyaan terbuka sesi 10 TERJAWAB
+
+Sesi 10 (`Matakuliah.java`, r83072-83087) menemukan bahwa relasi prasyarat
+TIDAK tersimpan sebagai field di `Matakuliah`. **Terkonfirmasi: file inilah
+pemiliknya.** Tidak ada sisi terbalik (`inverse`) yang dipetakan sama sekali —
+`Matakuliah` tidak punya `getMatakuliahPrasyarats()` dan memang tidak pernah
+punya. Satu-satunya jalan menemukan prasyarat sebuah mata kuliah adalah query
+Criteria eksplisit `Restrictions.eq("matakuliah", matakuliah)` yang digabung
+`Restrictions.or(isNull("aktif"), eq("aktif", true))`.
+
+### Struktur aturan: OR di dalam baris, AND antar baris
+
+- Satu baris = satu "kelompok syarat" untuk satu `matakuliah` (sisi kiri,
+  `nullable = false`).
+- Dalam satu baris ada **10 slot** `matakuliahPrasyarat`..`matakuliahPrasyarat10`
+  yang bersifat **alternatif (OR)** — baris terpenuhi bila salah satu slot lulus
+  (pesan validasi memakai kata "atau" untuk slot 2 ke atas).
+- Satu mata kuliah boleh punya **banyak baris**, dan semuanya harus terpenuhi →
+  **AND antar baris**.
+- Tiga jenis syarat bisa dicampur dalam satu baris: (1) kelulusan MK slot +
+  `minimalNilaiLulus` vs `Detailperkuliahan.getTotalNilai()` (hanya yang
+  `persetujuan == DISETUJUI`, `matakuliahKonversi` diutamakan di atas
+  `perkuliahan.matakuliah`); (2) `minimalSks` vs `KrsMahasiswa.getSksk()`;
+  (3) `minimalIpk` vs `KrsMahasiswa.getIpk()`.
+- `hanyaBerdasarkanKode` (default **true**) memilih pencocokan riwayat kuliah
+  by **kode** MK (semua baris `Matakuliah` berkode sama diakui — penting karena
+  revisi kurikulum melahirkan baris MK baru berkode sama) vs by **id** (ketat,
+  bisa menahan mahasiswa angkatan lama).
+
+### Mesin validasi tunggal
+
+Semua aturan dievaluasi **satu** method:
+`CommonAcademicSyncHelper.checkMatakuliahPrasyarat(Matakuliah, Mahasiswa, Integer)`
+lewat fasad `Common.checkMatakuliahPrasyarat(...)`. **Menampilkan messagebox ZK
+saat gagal**, jadi hanya boleh dipanggil dari event thread UI. Tujuh pemanggil,
+semuanya jalur pengisian KRS: `AmbilDataPerkuliahanHelper`,
+`AmbilDataPerkuliahanNonPaketHelper`, `AmbilDataMahasiswaHelper`,
+`AmbilDataMahasiswaForPaketPerkuliahanHelper`, `AmbilDataPaketPerkuliahanHelper`,
+`AmbilDataKurikulumPerkuliahanHelper`, `GenerateKRSPaketMahasiswaOtomatisWindow`.
+
+### Verifikasi pola berulang
+
+- **Getter menulis balik ke field**: 11 getter relasi (`getMatakuliah` +
+  `getMatakuliahPrasyarat`..`10`) melakukan `x = check(x)` — resolusi proxy lazy
+  dengan tulis balik. `getAktif()` menulis balik `true` saat field `null`;
+  `aktif` adalah properti terpetakan sungguhan (**bukan** `@Transient`) dan
+  pemetaan memakai *property access*, jadi hasil logika getter itulah yang
+  tertulis ke DB. Justru karena baris warisan di DB masih bisa `NULL`, query
+  mesin validasi sengaja memakai `isNull("aktif") OR aktif = true`. Konsisten
+  dengan kesimpulan pola "flag aktif" batch akunting.
+- `getMinimalNilaiLulus`/`getMinimalSks`/`getMinimalIpk`/`getHanyaBerdasarkanKode`
+  menormalkan `null` **hanya pada nilai kembalian**, tidak menugaskan balik ke
+  field (beda dengan `getAktif`).
+- `toString()` **bukan operasi baca murni** — memanggil dua getter relasi lalu
+  menugaskan hasilnya ke field.
+- **Getter yang menutup Session Hibernate: TIDAK ADA** di kelas ini (beda dengan
+  `Matakuliah.reInitEkivalen()`/`ambilEkivalen()`). Satu-satunya jalur yang bisa
+  membuka session sendiri adalah `check()` milik kelas induk, dan itu ditutupnya
+  sendiri.
+- Field `id`/`oleh`/`olehId`/`tanggal_dirubah` yang dideklarasikan ULANG
+  didokumentasikan sebagai **keharusan teknis** (`GeneralValueObject` bukan
+  `@Entity`/`@MappedSuperclass`), bukan duplikasi yang lupa dibersihkan.
+- Kolom tanpa `@Column` (`minimalNilaiLulus`, `minimalSks`, `minimalIpk`,
+  `hanyaBerdasarkanKode`, `aktif`, `keterangan`, `tanggal_dirubah`) jatuh ke
+  `MyNamingStrategy` (turunan `DefaultNamingStrategy`: nama kolom = nama
+  properti apa adanya, camelCase tidak dikonversi).
+
+### Kuirk dicatat apa adanya (TIDAK diperbaiki)
+
+1. **Slot 1 null mematikan slot 2..10.** Mesin validasi `continue` bila
+   `getMatakuliahPrasyarat() == null`, jadi baris yang slot 1-nya kosong tetapi
+   slot 2..10 terisi **tidak diperiksa sama sekali**. Perangkap data-entry nyata.
+2. **Ambang penyaring IPK `> 0.01`, bukan `> 0`.** Syarat `minimalIpk` bernilai
+   0.01 ke bawah diabaikan diam-diam.
+3. **Urutan deklarasi**: pasangan getter/setter slot **5 berada sebelum slot 4**
+   di berkas sumber. Tidak berpengaruh pada pemetaan, tapi membingungkan.
+4. `toString()` hanya menampilkan slot 1; slot 2..10 tak pernah muncul. Bila
+   slot 1 kosong, hasilnya berakhir dengan literal `"null"`.
+5. Pencocokan by kode **tidak menyaring prodi/kurikulum** — kode yang kebetulan
+   sama antar prodi saling diakui.
+6. Batas 10 alternatif bersifat **keras** (slot = kolom, bukan koleksi).
+
+**Tidak ada temuan keamanan** — seluruh akses DB lewat Criteria API
+terparameterisasi.
+
 ## Batch "kluster akunting — persetujuan dana" — SELESAI 100% (2 Sep 2026, dikonsolidasi orkestrator, sempat kena rate limit & dilanjutkan)
 
 Semua 5 file TUNTAS 100% method, dikompilasi, dikommit, di-mirror ke `java/`.
