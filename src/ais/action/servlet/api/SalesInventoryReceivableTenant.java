@@ -167,9 +167,9 @@ final class SalesInventoryReceivableTenant {
 	 * EMPAT BELAS kolom: id, nomor, tanggal, nominal, metode, noBg, namaBank, keterangan,
 	 * custId, custNama, salesNama, daftarFaktur, statusDok, statusBg.
 	 *
-	 * <p>{@code status_bg} tidak ada pada model tenant: legacy melacak status giro terpisah
-	 * dari status dokumennya. Dikembalikan {@code NULL}, bukan disamakan dengan status
-	 * dokumen -- menyamakannya membuat giro yang belum cair tampak sudah beres.</p>
+	 * <p>{@code status_bg} ada sejak bundel v17. Sebelumnya dikembalikan {@code NULL}, dan
+	 * sengaja tidak disamakan dengan status dokumen — menyamakannya membuat giro yang belum cair
+	 * tampak sudah beres.</p>
 	 */
 	static String selectPenagihan(String skema) {
 		return "SELECT p.id, COALESCE(p.nomor_dokumen,''), p.tanggal, COALESCE(p.nilai,0), "
@@ -179,7 +179,7 @@ final class SalesInventoryReceivableTenant {
 				+ " FROM " + skema + "alokasi_penerimaan_piutang a"
 				+ " JOIN " + skema + "piutang_customer d2 ON a.piutang_customer_id = d2.id"
 				+ " WHERE a.penerimaan_piutang_id = p.id) AS faktur, "
-				+ "COALESCE(p.status,'AKTIF'), NULL";
+				+ "COALESCE(p.status,'AKTIF'), COALESCE(p.status_bg,'')";
 	}
 
 	/** Nama kolom customer dan sales pada penerimaan, untuk saringan. */

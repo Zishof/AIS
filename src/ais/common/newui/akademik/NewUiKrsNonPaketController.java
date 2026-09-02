@@ -169,15 +169,19 @@ public final class NewUiKrsNonPaketController {
                 .put("ditulisKeBasisData", keDatabase);
     }
 
-    private static JSONObject grup(Mahasiswa mahasiswa, String tahunAjaran, int semester,
+    static JSONObject grup(Mahasiswa mahasiswa, String tahunAjaran, int semester,
             int tahapan, Integer semesterPendek, boolean keDatabase) throws Exception {
-        Integer tahap = tahapan <= 0 ? null : Integer.valueOf(tahapan);
+        // KrsAction/KrsNonPaketAction meneruskan nilai tahapan hasil parsing
+        // apa adanya (termasuk 0 dan -1). Mengubah 0 menjadi null dapat memilih
+        // kelompok KRS yang berbeda pada instalasi yang mengaktifkan tahapan.
+        Integer tahap = Integer.valueOf(tahapan);
         KrsMahasiswa krs = Common.singkronkanKrsMahasiswa(mahasiswa, Integer.valueOf(semester),
                 tahap, semesterPendek, keDatabase, false);
         boolean sudahBayar = Common.checkStatusPembayaranMahasiswa(
                 Integer.valueOf(semester), tahap, mahasiswa, false, false);
         List<Long> ids = Common.getDetailperkuliahans(mahasiswa, Integer.valueOf(semester),
-                null, semesterPendek, false, false, Boolean.valueOf(keDatabase));
+                tahap, null, semesterPendek, false, false, false,
+                Boolean.valueOf(keDatabase));
         JSONArray rows = new JSONArray();
         int totalSks = 0;
         boolean approved = false, pending = false;
@@ -211,7 +215,7 @@ public final class NewUiKrsNonPaketController {
     }
 
     @SuppressWarnings("unchecked")
-    private static void hapus(JSONObject j, HttpServletRequest request, Mahasiswa mahasiswa)
+    static void hapus(JSONObject j, HttpServletRequest request, Mahasiswa mahasiswa)
             throws JSONException {
         Long id = longValue(request.getParameter("id"));
         if (id == null) throw new IllegalArgumentException("Baris yang dihapus harus disebutkan.");

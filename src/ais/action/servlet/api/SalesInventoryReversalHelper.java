@@ -402,10 +402,7 @@ public final class SalesInventoryReversalHelper {
 			return;
 		}
 		if (SalesInventoryReversalTenant.aktif(ctx)) {
-			// Model tenant menyimpan nomor_bg dan tanggal_bg, tetapi tidak statusnya; giro yang
-			// sudah cair tidak dapat dibedakan dari yang ditolak.
-			tolak(hasil, "Siklus status giro belum tersedia pada schema tenant: model tenant"
-					+ " belum menyimpan status giro.");
+			bgStatusTenant(ctx, tbmuser, id, statusBaru, alasan, hasil, sisiHutang);
 			return;
 		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
@@ -1222,6 +1219,98 @@ public final class SalesInventoryReversalHelper {
 			return id;
 		} finally {
 			ps.close();
+		}
+	}
+	/**
+	 * Siklus status giro pada schema tenant.
+	 *
+	 * <p>Bentuknya sama dengan jalur legacy: hanya dokumen bermetode GIRO, hanya dari keadaan
+	 * DITERIMA (yang pada basis data berarti {@code NULL}), dan hanya sekali — sesudah CAIR atau
+	 * TOLAK statusnya final.</p>
+	 *
+	 * <p><b>TOLAK menerbitkan pembalikan.</b> Giro yang ditolak berarti uangnya tidak pernah
+	 * benar-benar berpindah, sehingga hutang atau piutangnya harus hidup kembali. Pembalikannya
+	 * dipanggil lewat aksi publiknya sendiri — {@code payablePaymentReverse} atau
+	 * {@code collectionReverse} — yang keduanya sudah mengenali jalur tenant dan sudah idempoten
+	 * lewat kunci {@code REV-PHS-<id>} / {@code REV-KWT-<id>}. Memanggilnya kembali, bukan
+	 * menyalin isinya, membuat kedua jalan itu tidak mungkin berselisih.</p>
+	 *
+	 * <p>Pembalikannya sengaja dijalankan <b>sesudah</b> status giro tersimpan, sama seperti
+	 * legacy: bila pembalikannya gagal, statusnya sudah tercatat dan pembalikannya dapat diulang
+	 * tanpa menggandakan — kebalikannya akan menyembunyikan penolakan gironya sama sekali.</p>
+	 */
+	private static void bgStatusTenant(EbisnisActorContextResolver.ActorContext ctx,
+			Tbmuser tbmuser, Long id, String statusBaru, String alasan, JSONObject hasil,
+			boolean sisiHutang) throws Exception {
+		String skema = SalesInventoryReversalTenant.skema(ctx);
+		String tabel = sisiHutang ? "pembayaran_hutang" : "penerimaan_piutang";
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		Transaction tx = null;
+		try {
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(
+					SalesInventoryReversalTenant.giroUntukStatus(skema, tabel));
+			ps.setLong(1, id.longValue());
+			java.sql.ResultSet rs = ps.executeQuery();
+			if (!rs.next()) {
+				rs.close();
+				ps.close();
+				tolak(hasil, sisiHutang ? "Pembayaran tidak ditemukan."
+						: "Penerimaan tidak ditemukan.");
+				return;
+			}
+			String metode = str(rs.getString(1));
+			String statusLama = rs.getString(2);
+			rs.close();
+			ps.close();
+			if (!"GIRO".equals(metode)) {
+				tolak(hasil, "Status BG hanya utk dokumen metode GIRO.");
+				return;
+			}
+			// NULL berarti DITERIMA -- baru diterima, belum ada kabarnya.
+			if (statusLama != null && !"DITERIMA".equals(statusLama)) {
+				tolak(hasil, "Status BG sudah final (" + statusLama + ").");
+				return;
+			}
+			tx = session.beginTransaction();
+			java.sql.PreparedStatement upd = session.connection().prepareStatement(
+					SalesInventoryReversalTenant.ubahStatusGiro(skema, tabel));
+			try {
+				upd.setString(1, statusBaru);
+				upd.setDate(2, new java.sql.Date(ais.ui.util.WaktuUtil.getDate().getTime()));
+				upd.setLong(3, id.longValue());
+				upd.executeUpdate();
+			} finally {
+				upd.close();
+			}
+			tx.commit();
+			hasil.put("status", "00");
+			hasil.put("statusBg", statusBaru);
+		} catch (Exception e) {
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+		// Di luar sesi di atas, supaya pembalikannya membuka sesinya sendiri -- sama seperti
+		// jalur legacy yang memanggil aksinya kembali, bukan menyalin isinya.
+		if ("TOLAK".equals(statusBaru)) {
+			JSONObject reqRev = new JSONObject();
+			String alasanRev = "BG ditolak bank" + (alasan.isEmpty() ? "" : (": " + alasan));
+			JSONObject hasilRev = new JSONObject();
+			reqRev.put("alasan", alasanRev);
+			if (sisiHutang) {
+				reqRev.put("pembayaran_id", id);
+				payablePaymentReverse(ctx, tbmuser, reqRev, hasilRev);
+			} else {
+				reqRev.put("penerimaan_id", id);
+				collectionReverse(ctx, tbmuser, reqRev, hasilRev);
+			}
+			hasil.put("reversal", hasilRev);
 		}
 	}
 }

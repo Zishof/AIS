@@ -231,10 +231,10 @@ final class SalesInventoryPayableTenant {
 	 * nama, nominal, metode, noBg, namaBank, tanggalBg, keterangan, oleh, kodeUnik, ringkasan
 	 * alokasi, statusDok, statusBg.
 	 *
-	 * <p><b>{@code status_bg} tidak ada pada model tenant.</b> Legacy melacak status giro
-	 * terpisah dari status dokumennya; model tenant hanya punya {@code status}. Kolomnya
-	 * dikembalikan kosong agar bentuk JSON tetap, bukan diisi dengan status dokumen -- menyamakan
-	 * keduanya akan membuat giro yang belum cair tampak sudah beres.</p>
+	 * <p>{@code status_bg} ada sejak bundel v17. Sebelumnya kolom ini dikembalikan
+	 * {@code NULL} sebab model tenant memang belum menyimpannya — dan sengaja tidak disamakan
+	 * dengan status dokumen, karena menyamakannya membuat giro yang belum cair tampak sudah
+	 * beres.</p>
 	 */
 	static String selectRiwayat(String skema) {
 		return "SELECT b.id, b.tanggal, b.supplier_id, COALESCE(s.kode,''), COALESCE(s.nama,''), "
@@ -246,7 +246,7 @@ final class SalesInventoryPayableTenant {
 				+ " FROM " + skema + "alokasi_pembayaran_hutang a2"
 				+ " JOIN " + skema + "hutang_supplier h2 ON a2.hutang_supplier_id = h2.id"
 				+ " WHERE a2.pembayaran_hutang_id = b.id), "
-				+ "COALESCE(b.status,'AKTIF'), NULL";
+				+ "COALESCE(b.status,'AKTIF'), COALESCE(b.status_bg,'')";
 	}
 
 	static String urutRiwayat() {

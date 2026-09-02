@@ -60,6 +60,7 @@ public final class TenantSchemaMigrasiSelfTest {
 			{ "v14-kas-fisik-erp", "1fb5b5cbc41d" },
 			{ "v15-kategori-biaya-erp", "f41013db03ed" },
 			{ "v16-pembelian-trip-erp", "e20510aa87a1" },
+			{ "v17-status-giro-erp", "f105ced42e36" },
 	};
 
 	/** Penghitung kegagalan lintas kedua blok uji; bukan JUnit sehingga dikelola manual. */

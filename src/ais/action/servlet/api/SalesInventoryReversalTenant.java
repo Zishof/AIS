@@ -72,7 +72,8 @@ final class SalesInventoryReversalTenant {
 	static boolean dukungAksi(String aksi) {
 		return "payablePaymentReverse".equals(aksi) || "printLogCreate".equals(aksi)
 				|| "printLogList".equals(aksi) || "expenseReverse".equals(aksi)
-				|| "collectionReverse".equals(aksi);
+				|| "collectionReverse".equals(aksi) || "payableBgStatus".equals(aksi)
+				|| "collectionBgStatus".equals(aksi);
 	}
 
 	// ------------------------------------------------------------------ pembalikan pembayaran AP
@@ -258,5 +259,36 @@ final class SalesInventoryReversalTenant {
 	static String catatReversalPenerimaan(String skema) {
 		return "INSERT INTO " + skema + "reversal_log (dokumen_tipe, dokumen_id, alasan,"
 				+ " user_id, waktu) VALUES ('PENERIMAAN_PIUTANG', ?, ?, ?, now())";
+	}
+	// ------------------------------------------------------------------ siklus giro (v17)
+
+	/**
+	 * <h4>Siklus giro: DITERIMA &rarr; CAIR atau TOLAK</h4>
+	 *
+	 * <p>Kedua kolomnya ada sejak bundel v17. Sebelumnya model tenant menyimpan nomor giro dan
+	 * tanggalnya tetapi tidak nasibnya, sehingga giro yang sudah cair tidak dapat dibedakan dari
+	 * yang ditolak.</p>
+	 *
+	 * <p>{@code NULL} berarti DITERIMA — baru diterima, belum ada kabarnya. Dari sana ia hanya
+	 * boleh berpindah sekali, dan sesudah itu final.</p>
+	 *
+	 * <p>DUA kolom: caraBayar dan statusBg. Nama tabelnya diberikan pemanggil sebab kedua sisi —
+	 * pembayaran hutang dan penerimaan piutang — punya bentuk kolom yang sama persis.</p>
+	 */
+	static String giroUntukStatus(String skema, String tabel) {
+		return "SELECT COALESCE(cara_bayar,''), status_bg FROM " + skema + tabel
+				+ " WHERE id = ?";
+	}
+
+	/**
+	 * TIGA parameter: statusBaru, tanggalStatus, id.
+	 *
+	 * <p>{@code tanggal_status_bg} sengaja terpisah dari {@code tanggal_bg}: yang pertama kapan
+	 * nasib gironya diketahui, yang kedua tanggal jatuh tempo pada lembarnya. Giro bertanggal 30
+	 * Juni yang ditolak bank pada 3 Juli punya dua tanggal berbeda.</p>
+	 */
+	static String ubahStatusGiro(String skema, String tabel) {
+		return "UPDATE " + skema + tabel + " SET status_bg = ?, tanggal_status_bg = ?,"
+				+ " tanggal_dirubah = now() WHERE id = ?";
 	}
 }
