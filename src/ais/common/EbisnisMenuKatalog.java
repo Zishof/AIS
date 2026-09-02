@@ -113,7 +113,15 @@ public final class EbisnisMenuKatalog {
 		// diklaim di sini padahal tidak ada halaman JSP yang menyebutnya sama sekali.
 		DAFTAR.add(new Entri(MODUL_POS, "pengadaan_sinkron", "Pengadaan: Sinkronisasi Penerimaan ke Kulakan", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "diskon", "Aturan Diskon", "desktop", "android"));
+		// Idem untuk pencairanDiskonSimpan/Hapus -- lihat catatan di returpembelian.
+		DAFTAR.add(new Entri(MODUL_POS, "pencairandiskon", "Pencairan Diskon", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "returpenjualan", "Retur Penjualan", "desktop", "android"));
+		// Gerbangnya sudah ada di KantinHelper.returPembelianSimpan/Hapus, tetapi
+		// kuncinya tidak pernah terdaftar di sini. Kunci di luar KUNCI_CRUD membuat
+		// bolehAksi() mengembalikan aksiLegacy = TRUE untuk create/update/delete,
+		// sehingga gerbangnya meloloskan setiap peran dan izinnya tak pernah dapat
+		// dicabut -- grid CRUD tidak pernah menawarkan barisnya. Lihat docs/pos/89.
+		DAFTAR.add(new Entri(MODUL_POS, "returpembelian", "Retur Pembelian", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "riwayatpenjualan", "Riwayat Penjualan", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "laporantransaksi", "Laporan Transaksi", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "laporan", "Laporan Katalog", "desktop", "android"));
@@ -493,7 +501,7 @@ public final class EbisnisMenuKatalog {
 			"produk", "grup_produk", "hotel_properti", "hotel_kamar", "hotel_reservasi", "hotel_checkin", "hotel_folio",
 			"hotel_tiket_dapur", "hotel_kontrak_pemilik", "hotel_laporan_pemilik", "anggota", "diskon", "kulakan",
 			// Pengadaan POS: tampil secara bawaan, hak per-aksi tetap dapat dibatasi admin.
-			"pengadaan_pr", "pengadaan_po", "pengadaan_bast", "pengadaan_tagihan", "pengadaan_dpc", "pengadaan_bdp", "pengadaan_sinkron", "pengadaan_pajak", "returpenjualan", "riwayatpenjualan", "stokopname", "pesanan",
+			"pengadaan_pr", "pengadaan_po", "pengadaan_bast", "pengadaan_tagihan", "pengadaan_dpc", "pengadaan_bdp", "pengadaan_sinkron", "pengadaan_pajak", "returpenjualan", "returpembelian", "pencairandiskon", "riwayatpenjualan", "stokopname", "pesanan",
 			"pembayaran", "pedagang", "penyedia", "limitkredit", "kaskasir", "setorantenant",
 			"jadwalopname", "mutasirekening", "produksi",
 			// varian Inventory & Sales (default aksi ikut KUNCI_DEFAULT_NONAKTIF: false)

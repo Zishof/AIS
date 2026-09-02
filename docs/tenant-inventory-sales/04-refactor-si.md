@@ -1547,6 +1547,86 @@ kas, dan pembelian sekaligus — dan pembeliannya belum punya tabel.
 
 Dan pada helper Piutang, `collectionCreate` serta `collectionReverse` kini **tidak lagi terhalang
 apa pun** — keduanya tinggal ditulis.
+## Penagihan piutang dan pembalikannya: Piutang TUNTAS 12 dari 12
+
+`collectionCreate` dan `collectionReverse` adalah dua aksi yang paling lama tertahan pada P4 —
+keduanya menunggu **dua bundel sekaligus**. Sisi kasnya menunggu v12: penagihan tunai di lapangan
+menaikkan uang yang dipegang sales, dan tanpa buku kas tidak ada tempat mencatatnya. Sisi notanya
+menunggu v13: penagihan memutakhirkan status nota bawaan yang ditugaskan pada SPJ.
+
+Memindahkan salah satu saja berarti mencatat uang masuk yang tidak terlihat di kas, atau nota yang
+tidak pernah berubah status. Itu sebabnya keduanya ditolak utuh selama ini, bukan dipindahkan
+separuh.
+
+**Helper Piutang kini tuntas: 12 dari 12 aksi.** Tidak ada lagi aksi Piutang yang gagal-tertutup.
+Helper Reversal naik ke 5 dari 7 — sisanya hanya kedua aksi status giro.
+
+### Satu langkah legacy yang HILANG, dan itu perbaikan
+
+Jalur legacy menaikkan `SpjSalesNota.nilaiTertagih` saat penagihan dicatat, lalu menurunkannya saat
+dibalik — dan harus menjepitnya ke nol supaya tidak menjadi negatif. Dua penulis untuk satu angka,
+dengan penjepit yang menyembunyikan kelupaan.
+
+Model tenant tidak menyimpan angka itu; ia diturunkan dari alokasi (bundel v13). Alokasi pembalik
+memang bernilai negatif, jadi **jumlahnya turun sendiri**. Kedua jalur tenant karena itu tidak
+menulis apa pun ke sana — yang tersisa hanyalah memutakhirkan **statusnya**, dan status memang
+bukan turunan: PAID/PARTIAL ditentukan sisa tagihan, tetapi PROMISE_TO_PAY atau DISPUTED datang
+dari kunjungan.
+
+### Kosakata status piutang, sekali lagi
+
+Legacy mengunci faktur dengan syarat `status = 'AKTIF'`; katalog tenant memakai `'TERBUKA'`.
+Alih-alih memilih salah satu, penjaganya dibalik menjadi **bukan** dokumen yang dibatalkan
+(`NOT IN ('BATAL','DIBATALKAN')`) — itu yang sebenarnya dimaksud, dan tahan terhadap kosakata mana
+pun yang dipakai baris hasil impor.
+
+`FOR UPDATE` disalin apa adanya dari legacy dan bukan hiasan: tanpa kunci baris, dua penagihan
+bersamaan atas faktur yang sama sama-sama membaca sisa yang masih penuh, lalu sama-sama lolos — dan
+faktur tertagih melebihi nilainya.
+
+### Verifikasi
+
+Seluruh SQL yang **benar-benar dikeluarkan Java** dijalankan berurutan ke basis data v1–v13, untuk
+kedua alur. Hasilnya:
+
+| | sesudah penagihan | sesudah pembalikan |
+|---|---|---|
+| sisa piutang | 600.000 | 1.000.000 |
+| nilai tertagih (turunan) | 400.000 | **0** |
+| saldo kas trip | 400.000 | 0 |
+| status dokumen asal | AKTIF | DIBATALKAN |
+| jejak `reversal_log` | — | 1 |
+
+Angka tertagih kembali ke nol **tanpa satu pun pengurang ditulis**.
+
+Jalan SQL itu meninggalkan satu jalur tidak teruji — `UPDATE 0` pada pemunduran order, sebab di
+skenario itu ordernya memang belum lunas. `uji-kesetaraan-penagihan.sql` menutupnya dengan skenario
+pelunasan penuh:
+
+| blok | yang dibuktikan |
+|---|---|
+| 1 | sisa nol, kas naik, nota PAID |
+| 2 | pelunasan penuh memajukan order ke LUNAS |
+| 3 | pembalikan memulihkan sisa, kas, dan status asal |
+| 4 | order **mundur** dari LUNAS ke SIAP_TAGIH — jalur yang tadi terlewat |
+| 5 | **inti** — turunan memperbaiki diri sendiri; kolom legacy yang terlupa tetap 1.000.000 |
+| 6 | **penjaga** — turunannya terikat TRIP: pembayaran kantor tidak diakui hasil lapangan |
+
+Blok 6 penting: tanpa itu, rumus turunan bisa saja benar karena kebetulan menghitung *semua*
+pembayaran. Pembayaran kantor 250.000 menurunkan sisa piutang menjadi 750.000 tetapi tertagih
+lapangan tetap 0 — terikat trip, sebagaimana seharusnya.
+
+### Sisa P4
+
+| helper | keadaan |
+|---|---|
+| Piutang & Sales Order | **12 dari 12 — tuntas** |
+| Reversal & Log Cetak | 5 dari 7 — sisa kedua aksi status giro |
+| Trip | 13 dari 19 |
+
+Penghalang katalog yang tersisa tinggal tiga, semuanya kecil: master kategori biaya (3 aksi Trip),
+tabel pembelian dalam trip (`tripPurchaseLink` dan `tripDetail`), serta kolom status giro (2 aksi
+Reversal). `tripClose` tidak terhalang apa pun lagi — tinggal ditulis.
 ## Yang BELUM dikerjakan — dan ini bagian terbesar P4
 
 **Sebelas helper, 7.512 baris, belum satu pun kuerinya dipindah ke schema tenant.**

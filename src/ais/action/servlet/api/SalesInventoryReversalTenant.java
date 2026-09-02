@@ -3,10 +3,10 @@ package ais.action.servlet.api;
 /**
  * <h3>Jalur schema tenant untuk Reversal &amp; Log Cetak (P4, helper kedelapan — SEBAGIAN).</h3>
  *
- * <p>Empat dari tujuh aksi dipindahkan: {@code payablePaymentReverse}, {@code printLogCreate},
- * {@code printLogList}, dan — sejak migrasi v12 — {@code expenseReverse}. Tiga sisanya
- * <b>ditolak</b> pada jalur tenant, dan ketiganya karena model tenant tidak menyediakan
- * tempatnya, bukan karena belum sempat ditulis.</p>
+ * <p>Lima dari tujuh aksi dipindahkan: {@code payablePaymentReverse}, {@code printLogCreate},
+ * {@code printLogList}, {@code expenseReverse} (sejak v12), dan {@code collectionReverse}
+ * (sejak v13). Dua sisanya — kedua aksi status giro — <b>ditolak</b> karena model tenant tidak
+ * menyimpan status giro, bukan karena belum sempat ditulis.</p>
  *
  * <h4>Pembalikan hutang: model tenant justru lebih lengkap</h4>
  * <p>{@code pembayaran_hutang} punya {@code pembalik_dari_id}, {@code idempotency_key},
@@ -27,24 +27,16 @@ package ais.action.servlet.api;
  * tidak memberi nomor pada dokumen pembalik AP. Nomornya karena itu diturunkan sebagai
  * {@code "REV-" + nomor asal}, mengikuti pola yang sudah dipakai legacy pada sisi piutang.</p>
  *
- * <h4>TIGA aksi yang ditolak, dan alasannya</h4>
+ * <h4>DUA aksi yang ditolak, dan alasannya</h4>
  *
- * <p><b>{@code collectionReverse}</b> — jalur legacy mengerjakan lima hal; model tenant
- * mendukung tiga. Yang hilang dua, dan keduanya menyangkut uang:</p>
- * <ul>
- * <li><b>Kas trip: sudah teratasi v12.</b> Legacy menyisipkan baris {@code nota_sales_kas}
- * bernilai negatif supaya kas yang dipegang sales turun kembali; padanannya,
- * {@code sales_trip_kas}, ada sejak bundel v12. Ini bukan lagi penghalang.</li>
- * <li><b>Tidak ada nota bawaan ber-nilai-tertagih.</b> Legacy memundurkan
- * {@code SpjSalesNota.nilaiTertagih} berikut statusnya (PARTIAL/CARRIED). Tabel tenant yang
- * namanya mirip, {@code sales_trip_nota}, adalah nota <b>penjualan yang diterbitkan</b> dalam
- * trip ({@code faktur_penjualan_id}, {@code tunai}, {@code kredit}) — konsep yang berbeda, dan
- * tidak punya kolom nilai tertagih.</li>
- * </ul>
- * <p>Tiga bagian sisanya sebenarnya bisa: dokumen cermin, alokasi negatif, dan pemunduran
- * status sales order dari LUNAS. Tetapi memindahkan sebagian berarti membalik piutangnya
- * <i>tanpa</i> membalik kasnya — persis kelas galat uang yang paling sulit ditemukan
- * belakangan. Karena itu aksinya ditolak utuh, bukan dipindahkan separuh.</p>
+ * <p><b>{@code collectionReverse} sudah TIDAK ditolak.</b> Dahulu ia menunggu dua hal
+ * sekaligus: buku kas trip, dan nota bawaan bernilai tertagih. Bundel v12 menutup yang pertama,
+ * v13 yang kedua.</p>
+ * <p>v13 bahkan membuat separuh pekerjaannya lenyap. Jalur legacy harus menurunkan
+ * {@code SpjSalesNota.nilaiTertagih} secara eksplisit lalu menjepitnya ke nol supaya tidak
+ * negatif; pada model tenant angka itu diturunkan dari alokasi, dan alokasi pembalik memang
+ * bernilai negatif — jumlahnya turun sendiri, tanpa penjepit dan tanpa pengurang yang bisa
+ * terlupa.</p>
  *
  * <p><b>{@code expenseReverse} sudah TIDAK ditolak.</b> Dahulu {@code sales_trip_biaya} adalah
  * satu-satunya tabel dokumen tanpa {@code pembalik_dari_id}, tanpa {@code status}, dan tanpa
@@ -79,7 +71,8 @@ final class SalesInventoryReversalTenant {
 	/** Benar bila aksi ini sudah punya jalur tenant. */
 	static boolean dukungAksi(String aksi) {
 		return "payablePaymentReverse".equals(aksi) || "printLogCreate".equals(aksi)
-				|| "printLogList".equals(aksi) || "expenseReverse".equals(aksi);
+				|| "printLogList".equals(aksi) || "expenseReverse".equals(aksi)
+				|| "collectionReverse".equals(aksi);
 	}
 
 	// ------------------------------------------------------------------ pembalikan pembayaran AP
@@ -188,5 +181,82 @@ final class SalesInventoryReversalTenant {
 				+ " COALESCE(l.user_id,''), COALESCE(l.device_id,''), l.waktu"
 				+ " FROM " + skema + "print_log l" + where
 				+ " ORDER BY l.id DESC LIMIT 200";
+	}
+	// ------------------------------------------------------------------ pembalikan penagihan
+
+	/**
+	 * <h4>Pembalikan penagihan: penghalang terakhirnya jatuh bersama v13</h4>
+	 *
+	 * <p>Aksi ini dahulu ditolak karena dua hal sekaligus — tidak ada buku kas trip, dan tidak
+	 * ada nota bawaan bernilai tertagih. Bundel v12 menutup yang pertama, v13 yang kedua.</p>
+	 *
+	 * <p><b>Dan v13 membuat separuh pekerjaannya lenyap.</b> Jalur legacy harus menurunkan
+	 * {@code SpjSalesNota.nilaiTertagih} secara eksplisit, lalu menjepitnya ke nol supaya tidak
+	 * negatif. Pada model tenant angka itu diturunkan dari alokasi, dan alokasi pembalik memang
+	 * bernilai negatif — jumlahnya turun sendiri, tanpa penjepit, tanpa pengurang yang bisa
+	 * terlupa. Yang tersisa hanyalah memutakhirkan <b>statusnya</b>.</p>
+	 */
+	static String cariPembalikPenerimaan(String skema) {
+		return "SELECT id FROM " + skema + "penerimaan_piutang WHERE idempotency_key = ? LIMIT 1";
+	}
+
+	/**
+	 * SEPULUH kolom dokumen asal berikut konteks tripnya: nomor, customerId, salespersonId,
+	 * nilai, caraBayar, nomorBg, namaBank, status, salesTripId, statusTrip, spjId.
+	 *
+	 * <p>Status trip dan SPJ-nya ikut dibaca di sini supaya penjaga "sesi sudah ditutup" dan
+	 * pemutakhiran nota bawaan tidak menuntut kueri tambahan. {@code LEFT JOIN} sebab penerimaan
+	 * di kantor memang tidak punya trip.</p>
+	 */
+	static String asalPenerimaan(String skema) {
+		return "SELECT COALESCE(p.nomor_dokumen,''), p.customer_id, p.salesperson_id,"
+				+ " COALESCE(p.nilai,0), COALESCE(p.cara_bayar,''), p.nomor_bg, p.nama_bank,"
+				+ " COALESCE(p.status,'DRAF'), p.sales_trip_id, COALESCE(t.status,''),"
+				+ " t.surat_perintah_sales_id"
+				+ " FROM " + skema + "penerimaan_piutang p"
+				+ " LEFT JOIN " + skema + "sales_trip t ON p.sales_trip_id = t.id"
+				+ " WHERE p.id = ?";
+	}
+
+	/** DUA kolom per baris: piutangId dan nilainya. */
+	static String alokasiPenerimaan(String skema) {
+		return "SELECT a.piutang_customer_id, COALESCE(a.nilai,0)"
+				+ " FROM " + skema + "alokasi_penerimaan_piutang a"
+				+ " WHERE a.penerimaan_piutang_id = ? ORDER BY a.id ASC";
+	}
+
+	/**
+	 * Dokumen pembalik: nilainya negatif, berstatus REVERSAL, menunjuk asalnya.
+	 *
+	 * <p>SEBELAS parameter: nomor, customerId, salespersonId, caraBayar, nomorBg, namaBank,
+	 * nilai, keterangan, idempotencyKey, pembalikDariId, salesTripId, oleh.</p>
+	 */
+	static String sisipPembalikPenerimaan(String skema) {
+		return "INSERT INTO " + skema + "penerimaan_piutang (nomor_dokumen, tanggal, customer_id,"
+				+ " salesperson_id, cara_bayar, nomor_bg, nama_bank, nilai, keterangan,"
+				+ " idempotency_key, pembalik_dari_id, sales_trip_id, status, dibuat_pada, oleh)"
+				+ " VALUES (?, CURRENT_DATE, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'REVERSAL', now(), ?)";
+	}
+
+	/** Mencerminkan seluruh alokasi dokumen asal secara negatif dalam satu pernyataan. */
+	static String cerminkanAlokasiPiutang(String skema) {
+		return "INSERT INTO " + skema + "alokasi_penerimaan_piutang (penerimaan_piutang_id,"
+				+ " piutang_customer_id, nilai, dibuat_pada, oleh)"
+				+ " SELECT ?, a.piutang_customer_id, -a.nilai, now(), ?"
+				+ " FROM " + skema + "alokasi_penerimaan_piutang a"
+				+ " WHERE a.penerimaan_piutang_id = ?";
+	}
+
+	/** Menandai penerimaan asal DIBATALKAN berikut alasannya. */
+	static String batalkanPenerimaan(String skema) {
+		return "UPDATE " + skema + "penerimaan_piutang SET status = 'DIBATALKAN',"
+				+ " dibatalkan = true, dibatalkan_pada = now(), alasan_batal = ?,"
+				+ " tanggal_dirubah = now() WHERE id = ?";
+	}
+
+	/** Jejak pembalikan penagihan pada tabel umum {@code reversal_log}. */
+	static String catatReversalPenerimaan(String skema) {
+		return "INSERT INTO " + skema + "reversal_log (dokumen_tipe, dokumen_id, alasan,"
+				+ " user_id, waktu) VALUES ('PENERIMAAN_PIUTANG', ?, ?, ?, now())";
 	}
 }

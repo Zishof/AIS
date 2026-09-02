@@ -1,11 +1,12 @@
 package ais.action.servlet.api;
 
 /**
- * <h3>Jalur schema tenant untuk Piutang &amp; Sales Order (P4, helper ketujuh — SEBAGIAN).</h3>
+ * <h3>Jalur schema tenant untuk Piutang &amp; Sales Order (P4, helper ketujuh — TUNTAS).</h3>
  *
- * <p>Enam aksi yang murni membaca dipindahkan di sini. Enam sisanya — yang menulis lewat
- * entitas Hibernate, termasuk {@code collectionCreate} yang mencatat penerimaan uang —
- * <b>ditolak</b> pada jalur tenant sampai ditulis beserta uji kesetaraannya.</p>
+ * <p><b>Kedua belas aksinya kini berjalan pada schema tenant.</b> Enam yang murni membaca
+ * dipindahkan lebih dulu; enam penulis menyusul bertahap, dan yang terakhir —
+ * {@code collectionCreate} — menunggu dua bundel katalog sekaligus: v12 untuk buku kas trip dan
+ * v13 untuk nota bawaan. Tidak ada lagi aksi Piutang yang gagal-tertutup.</p>
  *
  * <h4>Sisa piutang: dihitung, bukan dibaca dari kolom</h4>
  * <p>{@code piutang_customer} menyediakan {@code terbayar} dan {@code sisa}. Jalur ini
@@ -50,7 +51,7 @@ final class SalesInventoryReceivableTenant {
 				|| "receivableAgingSales".equals(aksi)
 				|| "salesOrderDetail".equals(aksi) || "salesOrderStatus".equals(aksi)
 				|| "collectionReceipt".equals(aksi) || "salesOrderSimpan".equals(aksi)
-				|| "salesOrderInvoice".equals(aksi);
+				|| "salesOrderInvoice".equals(aksi) || "collectionCreate".equals(aksi);
 	}
 
 	// ------------------------------------------------------------------ kosakata status
@@ -552,5 +553,124 @@ final class SalesInventoryReceivableTenant {
 	static String tandaiSiapTagih(String skema) {
 		return "UPDATE " + skema + "sales_order SET status = 'SIAP_TAGIH', oleh = ?,"
 				+ " tanggal_dirubah = now() WHERE id = ?";
+	}
+	// ------------------------------------------------------------------ catat penagihan (v12+v13)
+
+	/**
+	 * <h4>Penagihan piutang: aksi yang paling lama tertahan, dan sebabnya ada dua</h4>
+	 *
+	 * <p>Aksi ini menunggu <b>dua</b> bundel sekaligus. Sisi kasnya menunggu v12 —
+	 * penagihan tunai di lapangan menaikkan uang yang dipegang sales, dan tanpa buku kas tidak
+	 * ada tempat mencatatnya. Sisi notanya menunggu v13 — penagihan memutakhirkan status nota
+	 * bawaan yang ditugaskan pada SPJ. Memindahkan salah satu saja berarti mencatat uang masuk
+	 * yang tidak terlihat di kas, atau nota yang tidak pernah berubah status.</p>
+	 *
+	 * <h4>Satu langkah legacy yang HILANG di sini, dan itu benar</h4>
+	 * <p>Jalur legacy menaikkan {@code SpjSalesNota.nilaiTertagih} pada tiap alokasi. Model
+	 * tenant tidak menyimpan angka itu — ia diturunkan dari alokasinya sendiri (bundel v13),
+	 * sehingga menuliskannya justru akan menciptakan sumber kedua. Yang tersisa untuk
+	 * dimutakhirkan hanyalah <b>statusnya</b>, dan itu memang bukan turunan: PAID/PARTIAL
+	 * ditentukan sisa tagihan, tetapi PROMISE_TO_PAY atau DISPUTED datang dari kunjungan.</p>
+	 *
+	 * <h4>Kosakata status piutang</h4>
+	 * <p>Legacy mengunci faktur dengan syarat {@code status = 'AKTIF'}. Katalog tenant memakai
+	 * {@code 'TERBUKA'} sebagai bawaan. Alih-alih memilih salah satu, penjaganya dibalik menjadi
+	 * <b>bukan</b> dokumen yang dibatalkan — itu yang sebenarnya dimaksud, dan tahan terhadap
+	 * kosakata mana pun yang dipakai baris hasil impor.</p>
+	 */
+	static String cariPenerimaanByKunci(String skema) {
+		return "SELECT id, COALESCE(nomor_dokumen,'') FROM " + skema + "penerimaan_piutang"
+				+ " WHERE idempotency_key = ? LIMIT 1";
+	}
+
+	/**
+	 * Mengunci satu dokumen piutang milik customer tersebut. DUA parameter: piutangId,
+	 * customerId.
+	 *
+	 * <p>{@code FOR UPDATE} disalin dari jalur legacy dan bukan hiasan: tanpa kunci baris, dua
+	 * penagihan bersamaan atas faktur yang sama sama-sama membaca sisa yang masih penuh, lalu
+	 * sama-sama lolos — dan faktur tertagih melebihi nilainya.</p>
+	 */
+	static String kunciPiutang(String skema) {
+		return "SELECT d.id FROM " + skema + "piutang_customer d"
+				+ " WHERE d.id = ? AND d.customer_id = ?"
+				+ " AND COALESCE(d.status,'TERBUKA') NOT IN ('BATAL','DIBATALKAN')"
+				+ " FOR UPDATE";
+	}
+
+	/** Sisa satu dokumen piutang; dihitung dari alokasi, bukan dibaca kolom ringkasan. */
+	static String sisaSatuPiutang(String skema) {
+		return "SELECT COALESCE(d.nilai,0) - COALESCE((SELECT SUM(a.nilai)"
+				+ " FROM " + skema + "alokasi_penerimaan_piutang a"
+				+ " WHERE a.piutang_customer_id = d.id),0)"
+				+ " FROM " + skema + "piutang_customer d WHERE d.id = ?";
+	}
+
+	/**
+	 * SEMBILAN parameter: nomorSementara, customerId, salespersonId, caraBayar, nomorBg,
+	 * namaBank, tanggalBg, nilai, keterangan — lalu idempotencyKey, salesTripId, oleh.
+	 *
+	 * <p>Nomor sementara memakai kunci idempotensinya, yang sudah unik per permintaan; nomor
+	 * final memuat id yang baru lahir sesudah INSERT, sama pola dengan jalur legacy.</p>
+	 */
+	static String sisipPenerimaan(String skema) {
+		return "INSERT INTO " + skema + "penerimaan_piutang (nomor_dokumen, tanggal, customer_id,"
+				+ " salesperson_id, cara_bayar, nomor_bg, nama_bank, tanggal_bg, nilai,"
+				+ " keterangan, idempotency_key, sales_trip_id, status, dibuat_pada, oleh)"
+				+ " VALUES (?, CURRENT_DATE, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'AKTIF', now(), ?)";
+	}
+
+	static String finalisasiNomorPenerimaan(String skema) {
+		return "UPDATE " + skema + "penerimaan_piutang SET nomor_dokumen = ?,"
+				+ " tanggal_dirubah = now() WHERE id = ?";
+	}
+
+	/** EMPAT parameter: penerimaanId, piutangId, nilai, oleh. */
+	static String sisipAlokasiPenerimaan(String skema) {
+		return "INSERT INTO " + skema + "alokasi_penerimaan_piutang (penerimaan_piutang_id,"
+				+ " piutang_customer_id, nilai, dibuat_pada, oleh) VALUES (?, ?, ?, now(), ?)";
+	}
+
+	/** DUA kolom: status trip dan SPJ-nya, untuk penjaga sesi dan penelusuran nota bawaan. */
+	static String tripUntukPenerimaan(String skema) {
+		return "SELECT COALESCE(t.status,''), t.surat_perintah_sales_id"
+				+ " FROM " + skema + "sales_trip t WHERE t.id = ?";
+	}
+
+	/**
+	 * Memutakhirkan status satu nota bawaan. TIGA parameter: status, spjId, piutangId.
+	 *
+	 * <p>Hanya statusnya. Nilai tertagihnya diturunkan, sehingga tidak ada yang perlu ditambah
+	 * maupun dikurangi di sini — lihat bundel v13.</p>
+	 */
+	static String ubahStatusNotaBawaan(String skema) {
+		return "UPDATE " + skema + "surat_perintah_sales_nota SET status = ?,"
+				+ " tanggal_dirubah = now()"
+				+ " WHERE surat_perintah_sales_id = ? AND piutang_customer_id = ?";
+	}
+
+	/**
+	 * Sales order asal satu dokumen piutang, lewat fakturnya.
+	 *
+	 * <p>Legacy menyimpan {@code PiutangCustomerDoc.salesOrder} langsung; model tenant
+	 * menempuhnya lewat {@code faktur_penjualan}. Dikembalikan {@code NULL} bila piutangnya
+	 * memang tidak berasal dari order.</p>
+	 */
+	static String orderDariPiutang(String skema) {
+		return "SELECT f.sales_order_id FROM " + skema + "piutang_customer d"
+				+ " JOIN " + skema + "faktur_penjualan f ON d.faktur_penjualan_id = f.id"
+				+ " WHERE d.id = ?";
+	}
+
+	/** DUA parameter: oleh, orderId. */
+	static String ubahStatusOrderLunas(String skema) {
+		return "UPDATE " + skema + "sales_order SET status = 'LUNAS', oleh = ?,"
+				+ " tanggal_dirubah = now() WHERE id = ?";
+	}
+
+	/** DUA parameter: oleh, orderId. Dipakai pembalikan: LUNAS mundur ke SIAP_TAGIH. */
+	static String ubahStatusOrderSiapTagih(String skema) {
+		return "UPDATE " + skema + "sales_order SET status = 'SIAP_TAGIH', oleh = ?,"
+				+ " tanggal_dirubah = now() WHERE id = ? AND status = 'LUNAS'";
 	}
 }

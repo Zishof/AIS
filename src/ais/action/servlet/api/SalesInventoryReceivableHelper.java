@@ -19,6 +19,8 @@ import ais.database.model.koperasi.AlokasiPenerimaanPiutangCustomer;
 import ais.database.model.koperasi.AnggotaKoperasi;
 import ais.database.model.koperasi.CustomerInventoryProfile;
 import ais.database.model.koperasi.PenerimaanPiutangCustomer;
+import ais.database.model.koperasi.SpjSalesNota;
+import ais.database.model.koperasi.NotaSalesSession;
 import ais.database.model.koperasi.PiutangCustomerDoc;
 import ais.database.model.koperasi.SalesInventory;
 import ais.database.model.koperasi.SalesOrderLapangan;
@@ -870,15 +872,6 @@ public final class SalesInventoryReceivableHelper {
 
 	public static void collectionCreate(EbisnisActorContextResolver.ActorContext ctx, Tbmuser tbmuser,
 			JSONObject request, JSONObject hasil) throws Exception {
-		if (SalesInventoryReceivableTenant.aktif(ctx)) {
-			// TERHALANG, bukan sekadar belum ditulis. Aksi ini mencatat penerimaan tunai ke
-			// buku kas sesi (NotaSalesKas) dan memundurkan nota bawaan (SpjSalesNota); model
-			// tenant tidak punya keduanya -- celah C-11. Memindahkan sisanya saja berarti
-			// mencatat uang masuk tanpa menaikkan kas yang dipegang sales.
-			tolak(hasil, "Pencatatan penagihan belum tersedia pada schema tenant: penerimaan"
-					+ " tunainya tidak dapat dibukukan ke kas trip.");
-			return;
-		}
 		if (!ctx.bolehAksi("piutang", "create")) {
 			tolak(hasil, "Akun Anda tidak berhak mencatat penerimaan piutang.");
 			return;
@@ -904,6 +897,11 @@ public final class SalesInventoryReceivableHelper {
 		if (PenerimaanPiutangCustomer.METODE_GIRO.equals(metode)
 				&& request.optString("no_bg", "").trim().isEmpty()) {
 			tolak(hasil, "Metode GIRO wajib menyertakan no_bg.");
+			return;
+		}
+		if (SalesInventoryReceivableTenant.aktif(ctx)) {
+			collectionCreateTenant(ctx, tbmuser, request, hasil, customerId, nominal, metode,
+					kodeUnik, alokasi);
 			return;
 		}
 
@@ -2218,6 +2216,298 @@ public final class SalesInventoryReceivableHelper {
 			throw e;
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+	/**
+	 * Mencatat penerimaan piutang pada schema tenant.
+	 *
+	 * <p>Aksi ini menunggu dua bundel sekaligus — v12 untuk buku kasnya dan v13 untuk nota
+	 * bawaannya — dan urutan langkahnya disalin utuh dari jalur legacy: kunci tiap faktur,
+	 * periksa sisanya, terbitkan penerimaan, alokasikan, bukukan kas bila tunai, mutakhirkan
+	 * status nota bawaan, lalu tandai order LUNAS bila fakturnya habis.</p>
+	 *
+	 * <p><b>Satu langkah legacy sengaja tidak ada di sini.</b> Legacy menaikkan
+	 * {@code SpjSalesNota.nilaiTertagih}; model tenant menurunkan angka itu dari alokasinya
+	 * sendiri, sehingga menuliskannya akan menciptakan sumber kedua yang bisa berselisih.</p>
+	 */
+	private static void collectionCreateTenant(EbisnisActorContextResolver.ActorContext ctx,
+			Tbmuser tbmuser, JSONObject request, JSONObject hasil, Long customerId,
+			BigDecimal nominal, String metode, String kodeUnik, JSONArray alokasi)
+			throws Exception {
+		String skema = SalesInventoryReceivableTenant.skema(ctx);
+		String oleh = tbmuser == null || tbmuser.getUserId() == null ? "" : tbmuser.getUserId();
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		Transaction tx = null;
+		try {
+			java.sql.PreparedStatement psCek = session.connection().prepareStatement(
+					SalesInventoryReceivableTenant.cariPenerimaanByKunci(skema));
+			psCek.setString(1, kodeUnik);
+			java.sql.ResultSet rsCek = psCek.executeQuery();
+			boolean sudah = rsCek.next();
+			long idSudah = sudah ? rsCek.getLong(1) : 0;
+			String nomorSudah = sudah ? str(rsCek.getString(2)) : "";
+			rsCek.close();
+			psCek.close();
+			if (sudah) {
+				hasil.put("status", "00");
+				hasil.put("id", idSudah);
+				hasil.put("nomor", nomorSudah);
+				hasil.put("idempotentReplay", true);
+				return;
+			}
+			if (!adaTenant(session, skema, "customer", customerId)) {
+				tolak(hasil, "Customer tidak ditemukan.");
+				return;
+			}
+			double jumlahAlokasi = 0;
+			for (int i = 0; i < alokasi.length(); i++) {
+				jumlahAlokasi += alokasi.getJSONObject(i).optDouble("nominal", 0);
+			}
+			if (Math.abs(jumlahAlokasi - nominal.doubleValue()) > 0.01) {
+				tolak(hasil, "Total alokasi (" + jumlahAlokasi
+						+ ") harus sama dengan nominal penerimaan (" + nominal + ").");
+				return;
+			}
+			Long salesId = aktorSales(ctx) ? ctx.salesId : optLong(request, "sales_id");
+			Long tripId = optLong(request, "trip_session_id");
+
+			tx = session.beginTransaction();
+			Long spjId = null;
+			if (tripId != null) {
+				java.sql.PreparedStatement psT = session.connection().prepareStatement(
+						SalesInventoryReceivableTenant.tripUntukPenerimaan(skema));
+				psT.setLong(1, tripId.longValue());
+				java.sql.ResultSet rsT = psT.executeQuery();
+				boolean adaTrip = rsT.next();
+				String statusTrip = adaTrip ? str(rsT.getString(1)) : "";
+				if (adaTrip && rsT.getObject(2) != null) {
+					spjId = Long.valueOf(rsT.getLong(2));
+				}
+				rsT.close();
+				psT.close();
+				if (!adaTrip || NotaSalesSession.STATUS_CLOSED.equals(statusTrip)) {
+					tx.rollback();
+					tolak(hasil, "Sesi Nota Sales tidak ditemukan / sudah ditutup.");
+					return;
+				}
+			}
+
+			// Kunci tiap faktur lalu periksa sisanya -- keduanya di dalam transaksi.
+			for (int i = 0; i < alokasi.length(); i++) {
+				JSONObject a = alokasi.getJSONObject(i);
+				long did = a.optLong("piutang_id", -1);
+				double n = a.optDouble("nominal", 0);
+				if (did <= 0 || n <= 0) {
+					tx.rollback();
+					tolak(hasil, "Baris alokasi tidak valid (piutang_id/nominal).");
+					return;
+				}
+				java.sql.PreparedStatement lock = session.connection().prepareStatement(
+						SalesInventoryReceivableTenant.kunciPiutang(skema));
+				lock.setLong(1, did);
+				lock.setLong(2, customerId.longValue());
+				java.sql.ResultSet rsLock = lock.executeQuery();
+				boolean ada = rsLock.next();
+				rsLock.close();
+				lock.close();
+				if (!ada) {
+					tx.rollback();
+					tolak(hasil, "Faktur piutang " + did
+							+ " tidak ditemukan / bukan milik customer ini.");
+					return;
+				}
+				double sisa = sisaPiutangTenant(session, skema, did);
+				if (n > sisa + 0.01) {
+					tx.rollback();
+					tolak(hasil, "Alokasi " + n + " melebihi outstanding faktur " + did + " ("
+							+ sisa + ").");
+					return;
+				}
+			}
+
+			java.sql.PreparedStatement ins = session.connection().prepareStatement(
+					SalesInventoryReceivableTenant.sisipPenerimaan(skema),
+					java.sql.Statement.RETURN_GENERATED_KEYS);
+			// Nomor sementara memakai kunci idempotensinya: sudah unik per permintaan.
+			ins.setString(1, kodeUnik);
+			ins.setLong(2, customerId.longValue());
+			if (salesId == null) {
+				ins.setNull(3, java.sql.Types.BIGINT);
+			} else {
+				ins.setLong(3, salesId.longValue());
+			}
+			ins.setString(4, metode);
+			ins.setString(5, request.optString("no_bg", "").trim());
+			ins.setString(6, request.optString("nama_bank", "").trim());
+			java.util.Date tglBg = optTanggal(request, "tanggal_bg");
+			if (tglBg == null) {
+				ins.setNull(7, java.sql.Types.DATE);
+			} else {
+				ins.setDate(7, new java.sql.Date(tglBg.getTime()));
+			}
+			ins.setBigDecimal(8, nominal);
+			ins.setString(9, request.optString("keterangan", "").trim());
+			ins.setString(10, kodeUnik);
+			if (tripId == null) {
+				ins.setNull(11, java.sql.Types.BIGINT);
+			} else {
+				ins.setLong(11, tripId.longValue());
+			}
+			ins.setString(12, oleh);
+			ins.executeUpdate();
+			long terimaId = 0;
+			java.sql.ResultSet gk = ins.getGeneratedKeys();
+			if (gk.next()) {
+				terimaId = gk.getLong(1);
+			}
+			gk.close();
+			ins.close();
+			if (terimaId <= 0) {
+				tx.rollback();
+				tolak(hasil, "Penerimaan gagal disimpan.");
+				return;
+			}
+			String nomor = fmtNomor("KWT", ctx.tokoId, Long.valueOf(terimaId));
+			java.sql.PreparedStatement psN = session.connection().prepareStatement(
+					SalesInventoryReceivableTenant.finalisasiNomorPenerimaan(skema));
+			psN.setString(1, nomor);
+			psN.setLong(2, terimaId);
+			psN.executeUpdate();
+			psN.close();
+
+			for (int i = 0; i < alokasi.length(); i++) {
+				JSONObject a = alokasi.getJSONObject(i);
+				java.sql.PreparedStatement psA = session.connection().prepareStatement(
+						SalesInventoryReceivableTenant.sisipAlokasiPenerimaan(skema));
+				psA.setLong(1, terimaId);
+				psA.setLong(2, a.optLong("piutang_id"));
+				psA.setBigDecimal(3, new BigDecimal(String.valueOf(a.optDouble("nominal"))));
+				psA.setString(4, oleh);
+				psA.executeUpdate();
+				psA.close();
+			}
+
+			if (tripId != null) {
+				if (PenerimaanPiutangCustomer.METODE_TUNAI.equals(metode)) {
+					// Kas yang dipegang sales naik. Bertanda POSITIF.
+					java.sql.PreparedStatement kas = session.connection().prepareStatement(
+							SalesInventoryTripTenant.sisipKas(skema));
+					try {
+						kas.setLong(1, tripId.longValue());
+						kas.setString(2, ais.service.tenant.TenantKasTrip.COLLECTION_CASH);
+						kas.setBigDecimal(3, nominal);
+						kas.setString(4, nomor);
+						kas.setString(5, "Penagihan tunai");
+						kas.setString(6, "KAS-KWT-" + terimaId);
+						kas.setString(7, oleh);
+						kas.executeUpdate();
+					} finally {
+						kas.close();
+					}
+				}
+				if (spjId != null) {
+					// HANYA statusnya. Nilai tertagihnya diturunkan dari alokasi.
+					for (int i = 0; i < alokasi.length(); i++) {
+						long did = alokasi.getJSONObject(i).optLong("piutang_id");
+						double sisa = sisaPiutangTenant(session, skema, did);
+						java.sql.PreparedStatement psS = session.connection().prepareStatement(
+								SalesInventoryReceivableTenant.ubahStatusNotaBawaan(skema));
+						try {
+							psS.setString(1, sisa <= 0.009 ? SpjSalesNota.STATUS_PAID
+									: SpjSalesNota.STATUS_PARTIAL);
+							psS.setLong(2, spjId.longValue());
+							psS.setLong(3, did);
+							psS.executeUpdate();
+						} finally {
+							psS.close();
+						}
+					}
+				}
+			}
+
+			// Order asal menjadi LUNAS bila fakturnya kini habis.
+			for (int i = 0; i < alokasi.length(); i++) {
+				long did = alokasi.getJSONObject(i).optLong("piutang_id");
+				if (sisaPiutangTenant(session, skema, did) > 0.009) {
+					continue;
+				}
+				Long orderId = orderDariPiutangTenant(session, skema, did);
+				if (orderId == null) {
+					continue;
+				}
+				java.sql.PreparedStatement psO = session.connection().prepareStatement(
+						SalesInventoryReceivableTenant.ubahStatusOrderLunas(skema));
+				try {
+					psO.setString(1, oleh);
+					psO.setLong(2, orderId.longValue());
+					psO.executeUpdate();
+				} finally {
+					psO.close();
+				}
+			}
+
+			tx.commit();
+			hasil.put("status", "00");
+			hasil.put("id", terimaId);
+			hasil.put("nomor", nomor);
+		} catch (java.sql.SQLException dup) {
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+			}
+			if (dup.getSQLState() != null && dup.getSQLState().startsWith("23")) {
+				hasil.put("status", "00");
+				hasil.put("idempotentReplay", true);
+			} else {
+				throw dup;
+			}
+		} catch (Exception e) {
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** Sisa satu dokumen piutang pada schema tenant; dihitung dari alokasinya. */
+	private static double sisaPiutangTenant(Session session, String skema, long piutangId)
+			throws Exception {
+		java.sql.PreparedStatement ps = session.connection().prepareStatement(
+				SalesInventoryReceivableTenant.sisaSatuPiutang(skema));
+		try {
+			ps.setLong(1, piutangId);
+			java.sql.ResultSet rs = ps.executeQuery();
+			double sisa = rs.next() ? rs.getDouble(1) : -1;
+			rs.close();
+			return sisa;
+		} finally {
+			ps.close();
+		}
+	}
+
+	/** Sales order asal satu dokumen piutang, lewat fakturnya; {@code null} bila tidak ada. */
+	private static Long orderDariPiutangTenant(Session session, String skema, long piutangId)
+			throws Exception {
+		java.sql.PreparedStatement ps = session.connection().prepareStatement(
+				SalesInventoryReceivableTenant.orderDariPiutang(skema));
+		try {
+			ps.setLong(1, piutangId);
+			java.sql.ResultSet rs = ps.executeQuery();
+			Long id = null;
+			if (rs.next() && rs.getObject(1) != null) {
+				id = Long.valueOf(rs.getLong(1));
+			}
+			rs.close();
+			return id;
+		} finally {
+			ps.close();
 		}
 	}
 }

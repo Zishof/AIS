@@ -176,12 +176,7 @@ public final class SalesInventoryReversalHelper {
 			return;
 		}
 		if (SalesInventoryReversalTenant.aktif(ctx)) {
-			// Model tenant belum punya buku kas trip maupun nota bawaan bernilai tertagih.
-			// Membalik piutangnya tanpa membalik kasnya akan menampilkan sales memegang uang
-			// yang tidak pernah diterimanya -- lihat javadoc SalesInventoryReversalTenant.
-			tolak(hasil, "Reversal penagihan belum tersedia pada schema tenant: pembalikan"
-					+ " piutangnya tidak dapat disertai pembalikan kas trip. Koreksi lewat"
-					+ " dokumen penyesuaian kantor.");
+			collectionReverseTenant(ctx, tbmuser, id, alasan, hasil);
 			return;
 		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
@@ -956,6 +951,268 @@ public final class SalesInventoryReversalHelper {
 			throw e;
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+	/**
+	 * Pembalikan penerimaan piutang pada schema tenant.
+	 *
+	 * <p>Lima hal yang dikerjakan jalur legacy dikerjakan juga di sini: dokumen cermin bernilai
+	 * negatif, alokasi negatif, kas trip turun bila penagihannya tunai, status nota bawaan
+	 * mundur, dan status sales order mundur dari LUNAS. Dokumen asal ditandai DIBATALKAN dan
+	 * tetap terbaca di riwayat.</p>
+	 *
+	 * <p><b>Satu langkah legacy lenyap, dan itu perbaikan.</b> Legacy menurunkan
+	 * {@code SpjSalesNota.nilaiTertagih} lalu menjepitnya ke nol supaya tidak negatif. Model
+	 * tenant menurunkan angka itu dari alokasi, dan alokasi pembalik memang negatif — jumlahnya
+	 * turun sendiri. Tidak ada pengurang yang bisa terlupa, dan tidak ada penjepit yang
+	 * menyembunyikan kelupaan itu.</p>
+	 *
+	 * <p>Sesi yang sudah ditutup tetap ditolak: snapshot penutupan tidak boleh berubah
+	 * diam-diam.</p>
+	 */
+	private static void collectionReverseTenant(EbisnisActorContextResolver.ActorContext ctx,
+			Tbmuser tbmuser, Long id, String alasan, JSONObject hasil) throws Exception {
+		String skema = SalesInventoryReversalTenant.skema(ctx);
+		String oleh = tbmuser == null || tbmuser.getUserId() == null ? "" : tbmuser.getUserId();
+		String kodeRev = "REV-KWT-" + id;
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		Transaction tx = null;
+		try {
+			java.sql.PreparedStatement psCek = session.connection().prepareStatement(
+					SalesInventoryReversalTenant.cariPembalikPenerimaan(skema));
+			psCek.setString(1, kodeRev);
+			java.sql.ResultSet rsCek = psCek.executeQuery();
+			boolean sudah = rsCek.next();
+			long idSudah = sudah ? rsCek.getLong(1) : 0;
+			rsCek.close();
+			psCek.close();
+			if (sudah) {
+				hasil.put("status", "00");
+				hasil.put("id", idSudah);
+				hasil.put("idempotentReplay", true);
+				return;
+			}
+
+			java.sql.PreparedStatement psAsal = session.connection().prepareStatement(
+					SalesInventoryReversalTenant.asalPenerimaan(skema));
+			psAsal.setLong(1, id.longValue());
+			java.sql.ResultSet rsAsal = psAsal.executeQuery();
+			if (!rsAsal.next()) {
+				rsAsal.close();
+				psAsal.close();
+				tolak(hasil, "Penerimaan tidak ditemukan.");
+				return;
+			}
+			String nomorAsal = str(rsAsal.getString(1));
+			long customerId = rsAsal.getLong(2);
+			Long salesId = rsAsal.getObject(3) == null ? null : Long.valueOf(rsAsal.getLong(3));
+			BigDecimal nilai = rsAsal.getBigDecimal(4);
+			String caraBayar = str(rsAsal.getString(5));
+			String nomorBg = rsAsal.getString(6);
+			String namaBank = rsAsal.getString(7);
+			String statusAsal = str(rsAsal.getString(8));
+			Long tripId = rsAsal.getObject(9) == null ? null : Long.valueOf(rsAsal.getLong(9));
+			String statusTrip = str(rsAsal.getString(10));
+			Long spjId = rsAsal.getObject(11) == null ? null : Long.valueOf(rsAsal.getLong(11));
+			rsAsal.close();
+			psAsal.close();
+			if (!PenerimaanPiutangCustomer.DOK_AKTIF.equals(statusAsal)) {
+				tolak(hasil, "Dokumen berstatus " + statusAsal + " tidak bisa direversal.");
+				return;
+			}
+			if (tripId != null && NotaSalesSession.STATUS_CLOSED.equals(statusTrip)) {
+				tolak(hasil, "Penerimaan ini bagian sesi yang SUDAH DITUTUP -- snapshot penutupan"
+						+ " tidak boleh berubah. Koreksi lewat dokumen penyesuaian kantor.");
+				return;
+			}
+
+			tx = session.beginTransaction();
+			java.sql.PreparedStatement psRev = session.connection().prepareStatement(
+					SalesInventoryReversalTenant.sisipPembalikPenerimaan(skema),
+					java.sql.Statement.RETURN_GENERATED_KEYS);
+			psRev.setString(1, "REV-" + nomorAsal);
+			psRev.setLong(2, customerId);
+			if (salesId == null) {
+				psRev.setNull(3, java.sql.Types.BIGINT);
+			} else {
+				psRev.setLong(3, salesId.longValue());
+			}
+			psRev.setString(4, caraBayar);
+			psRev.setString(5, nomorBg);
+			psRev.setString(6, namaBank);
+			psRev.setBigDecimal(7, nilai.negate());
+			psRev.setString(8, "REVERSAL kwitansi " + nomorAsal + ": " + alasan);
+			psRev.setString(9, kodeRev);
+			psRev.setLong(10, id.longValue());
+			if (tripId == null) {
+				psRev.setNull(11, java.sql.Types.BIGINT);
+			} else {
+				psRev.setLong(11, tripId.longValue());
+			}
+			psRev.setString(12, oleh);
+			psRev.executeUpdate();
+			long idRev = 0;
+			java.sql.ResultSet gk = psRev.getGeneratedKeys();
+			if (gk.next()) {
+				idRev = gk.getLong(1);
+			}
+			gk.close();
+			psRev.close();
+			if (idRev <= 0) {
+				tx.rollback();
+				tolak(hasil, "Dokumen pembalik gagal disimpan.");
+				return;
+			}
+
+			// Daftar alokasi asal dibaca SEBELUM dicerminkan, supaya turunannya sesudah
+			// pencerminan dapat dibandingkan terhadap dokumen yang tepat.
+			java.util.List<Long> piutangIds = new java.util.ArrayList<Long>();
+			java.sql.PreparedStatement psAl = session.connection().prepareStatement(
+					SalesInventoryReversalTenant.alokasiPenerimaan(skema));
+			psAl.setLong(1, id.longValue());
+			java.sql.ResultSet rsAl = psAl.executeQuery();
+			while (rsAl.next()) {
+				piutangIds.add(Long.valueOf(rsAl.getLong(1)));
+			}
+			rsAl.close();
+			psAl.close();
+
+			java.sql.PreparedStatement psMirror = session.connection().prepareStatement(
+					SalesInventoryReversalTenant.cerminkanAlokasiPiutang(skema));
+			psMirror.setLong(1, idRev);
+			psMirror.setString(2, oleh);
+			psMirror.setLong(3, id.longValue());
+			psMirror.executeUpdate();
+			psMirror.close();
+
+			if (tripId != null
+					&& PenerimaanPiutangCustomer.METODE_TUNAI.equals(caraBayar)) {
+				// Kas yang dipegang sales turun kembali. Bertanda NEGATIF.
+				java.sql.PreparedStatement kas = session.connection().prepareStatement(
+						SalesInventoryTripTenant.sisipKas(skema));
+				try {
+					kas.setLong(1, tripId.longValue());
+					kas.setString(2, ais.service.tenant.TenantKasTrip.REVERSAL);
+					kas.setBigDecimal(3, nilai.negate());
+					kas.setString(4, kodeRev);
+					kas.setString(5, "Reversal penagihan tunai: " + alasan);
+					kas.setString(6, kodeRev);
+					kas.setString(7, oleh);
+					kas.executeUpdate();
+				} finally {
+					kas.close();
+				}
+			}
+
+			for (int i = 0; i < piutangIds.size(); i++) {
+				long did = piutangIds.get(i).longValue();
+				double sisa = sisaPiutangReversal(session, skema, did);
+				if (spjId != null) {
+					// HANYA statusnya; nilai tertagihnya sudah turun sendiri lewat alokasi
+					// pembalik yang bernilai negatif.
+					java.sql.PreparedStatement psS = session.connection().prepareStatement(
+							SalesInventoryReceivableTenant.ubahStatusNotaBawaan(skema));
+					try {
+						psS.setString(1, sisa > 0.009 ? SpjSalesNota.STATUS_PARTIAL
+								: SpjSalesNota.STATUS_PAID);
+						psS.setLong(2, spjId.longValue());
+						psS.setLong(3, did);
+						psS.executeUpdate();
+					} finally {
+						psS.close();
+					}
+				}
+				if (sisa > 0.009) {
+					// Outstanding hidup lagi: order yang sempat LUNAS mundur ke SIAP_TAGIH.
+					java.sql.PreparedStatement psO = session.connection().prepareStatement(
+							SalesInventoryReceivableTenant.ubahStatusOrderSiapTagih(skema));
+					try {
+						psO.setString(1, oleh);
+						psO.setLong(2, orderDariPiutangReversal(session, skema, did));
+						psO.executeUpdate();
+					} finally {
+						psO.close();
+					}
+				}
+			}
+
+			java.sql.PreparedStatement psBatal = session.connection().prepareStatement(
+					SalesInventoryReversalTenant.batalkanPenerimaan(skema));
+			psBatal.setString(1, alasan);
+			psBatal.setLong(2, id.longValue());
+			psBatal.executeUpdate();
+			psBatal.close();
+
+			java.sql.PreparedStatement psLog = session.connection().prepareStatement(
+					SalesInventoryReversalTenant.catatReversalPenerimaan(skema));
+			psLog.setLong(1, id.longValue());
+			psLog.setString(2, alasan);
+			psLog.setString(3, oleh);
+			psLog.executeUpdate();
+			psLog.close();
+
+			tx.commit();
+			hasil.put("status", "00");
+			hasil.put("id", idRev);
+			hasil.put("nomor", "REV-" + nomorAsal);
+		} catch (java.sql.SQLException dup) {
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+			}
+			if (dup.getSQLState() != null && dup.getSQLState().startsWith("23")) {
+				hasil.put("status", "00");
+				hasil.put("idempotentReplay", true);
+			} else {
+				throw dup;
+			}
+		} catch (Exception e) {
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** Sisa satu dokumen piutang pada schema tenant; dihitung dari alokasinya. */
+	private static double sisaPiutangReversal(Session session, String skema, long piutangId)
+			throws Exception {
+		java.sql.PreparedStatement ps = session.connection().prepareStatement(
+				SalesInventoryReceivableTenant.sisaSatuPiutang(skema));
+		try {
+			ps.setLong(1, piutangId);
+			java.sql.ResultSet rs = ps.executeQuery();
+			double sisa = rs.next() ? rs.getDouble(1) : -1;
+			rs.close();
+			return sisa;
+		} finally {
+			ps.close();
+		}
+	}
+
+	/** Sales order asal satu piutang; 0 bila tidak berasal dari order. */
+	private static long orderDariPiutangReversal(Session session, String skema, long piutangId)
+			throws Exception {
+		java.sql.PreparedStatement ps = session.connection().prepareStatement(
+				SalesInventoryReceivableTenant.orderDariPiutang(skema));
+		try {
+			ps.setLong(1, piutangId);
+			java.sql.ResultSet rs = ps.executeQuery();
+			long id = 0;
+			if (rs.next() && rs.getObject(1) != null) {
+				id = rs.getLong(1);
+			}
+			rs.close();
+			return id;
+		} finally {
+			ps.close();
 		}
 	}
 }

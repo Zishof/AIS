@@ -2093,6 +2093,37 @@ public class DaftarPengajuanTransfer extends DataSop {
 		this.nominal = nominal;
 	}
 
+	/**
+	 * Mengembalikan <b>bank rekening TUJUAN</b> transfer.
+	 *
+	 * <p><b>Nama properti menyesatkan.</b> Meski disebut "sumber" (dan kolomnya
+	 * {@code bank_sumber_id}), yang dikembalikan adalah bank <b>penerima</b> uang: bank utama
+	 * penyedia/vendor untuk pengadaan, bank pegawai untuk reimbursement, atau bank yang
+	 * tertaut pada akun kas/bank tujuan untuk uang muka, kas besar, kas kecil, dan seterusnya.
+	 * Komentar di dalam cabang reimbursement menegaskan hal ini. Perlakukan trio
+	 * {@code bankSumber}/{@link #getAtasNamaSumber()}/{@link #getNoRekSumber()} sebagai satu
+	 * kesatuan data rekening tujuan.</p>
+	 *
+	 * <p><b>Getter turunan yang menulis balik</b>: memanggil {@code check(...)} untuk
+	 * meresolusi proxy lazy, lalu menelusuri rantai {@code if / else if} atas 16 tipe dokumen
+	 * sumber dan menugaskan hasilnya ke field — nilai itu ikut tersimpan ke database.</p>
+	 *
+	 * <p>Pola penurunannya dua macam: dari <b>penyedia/pegawai</b> (rekening pihak ketiga)
+	 * atau dari <b>akun</b> milik jenis dokumen ({@code jenisUangMuka.akun},
+	 * {@code jenisKasBesar.akun}, {@code jenisKasKecil.akun}, {@code akunUtangDiskon},
+	 * {@code jenisPajakBarang.akun}, {@code jenisTransaksiPegawai.akun},
+	 * {@code caraPembayaranKoperasi.akun}). Cabang reimbursement punya tiga tingkat cadangan
+	 * berurutan: bank pegawai → bank akun pembayaran → bank akun, dibungkus {@code try/catch}
+	 * yang mencatat kegagalan ke {@code ErrorAuditUtil}.</p>
+	 *
+	 * <p><i>Celah yang perlu diketahui:</i> tidak ada cabang untuk
+	 * {@link #getPembayaranHutangSupplier()}, sehingga baris hutang supplier toko tidak pernah
+	 * mendapat bank tujuan secara otomatis.</p>
+	 *
+	 * @return bank rekening tujuan, atau {@code null} bila tidak ada cabang yang cocok dan
+	 *         kolomnya belum pernah terisi
+	 * @see ais.database.model.GeneralValueObject#check(Object)
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "bank_sumber_id", nullable = true)
 	public Bank getBankSumber() {
@@ -2202,10 +2233,31 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return bankSumber;
 	}
 
+	/**
+	 * Menyetel bank rekening tujuan secara manual. Akan ditimpa oleh {@link #getBankSumber()}
+	 * bila dokumen sumbernya punya cabang penurunan.
+	 *
+	 * @param bankSumber bank rekening tujuan; boleh {@code null}
+	 */
 	public void setBankSumber(Bank bankSumber) {
 		this.bankSumber = bankSumber;
 	}
 
+	/**
+	 * Mengembalikan <b>nama pemilik rekening TUJUAN</b> ("atas nama") transfer.
+	 *
+	 * <p>Sama seperti {@link #getBankSumber()}, penamaan "sumber" menyesatkan: isinya adalah
+	 * pihak <b>penerima</b> uang. Getter turunan yang menulis balik ke field, menelusuri
+	 * rantai {@code if / else if} atas 15 tipe dokumen sumber: nama "atas nama" penyedia untuk
+	 * pengadaan/termin/DP, <b>nama pegawai</b> untuk reimbursement, dan "atas nama" akun
+	 * terkait untuk sisanya.</p>
+	 *
+	 * <p><i>Celah yang perlu diketahui:</i> tidak ada cabang untuk
+	 * {@link #getPembayaranHutangSupplier()}, sehingga baris hutang supplier toko tidak pernah
+	 * mendapat nama penerima otomatis.</p>
+	 *
+	 * @return nama pemilik rekening tujuan, atau {@code null} bila tidak ada cabang yang cocok
+	 */
 	public String getAtasNamaSumber() {
 
 		if (getSaldoAwalMasterAsset() != null && saldoAwalMasterAsset.getPenyedia() != null) {
@@ -2303,10 +2355,39 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return atasNamaSumber;
 	}
 
+	/**
+	 * Menyetel nama pemilik rekening tujuan secara manual. Akan ditimpa oleh
+	 * {@link #getAtasNamaSumber()} bila dokumen sumbernya punya cabang penurunan.
+	 *
+	 * @param atasNamaSumber nama pemilik rekening tujuan; boleh {@code null}
+	 */
 	public void setAtasNamaSumber(String atasNamaSumber) {
 		this.atasNamaSumber = atasNamaSumber;
 	}
 
+	/**
+	 * Mengembalikan <b>nomor rekening TUJUAN</b> transfer — data paling kritis di baris ini,
+	 * karena inilah rekening yang benar-benar dikirimi uang.
+	 *
+	 * <p>Penamaan "sumber" menyesatkan sama seperti dua saudaranya; isinya rekening
+	 * <b>penerima</b>. Getter turunan yang menulis balik ke field, dengan rantai
+	 * {@code if / else if} atas 15 tipe dokumen sumber.</p>
+	 *
+	 * <p>Cabang <b>reimbursement</b> paling perlu diperhatikan karena punya prioritas
+	 * bertingkat: kolom {@code rekeningPenerima} yang diisi manual dipakai lebih dulu bila
+	 * tidak kosong, baru jatuh ke nomor rekening pada profil pegawai. Pemeriksaannya dibungkus
+	 * {@code try/catch} yang mencatat kegagalan ke {@code ErrorAuditUtil}.</p>
+	 *
+	 * <p>Berbeda dari dua saudaranya, nilai kembalian di sini <b>dinormalisasi</b>: string
+	 * kosong dipetakan menjadi {@code null}, dan hasil non-kosong di-{@code trim}. Yang
+	 * di-{@code trim} hanya nilai kembalian — field-nya tetap menyimpan bentuk asli.</p>
+	 *
+	 * <p><i>Celah yang perlu diketahui:</i> tidak ada cabang untuk
+	 * {@link #getPembayaranHutangSupplier()}.</p>
+	 *
+	 * @return nomor rekening tujuan tanpa spasi tepi, atau {@code null} bila kosong/tidak ada
+	 *         cabang yang cocok
+	 */
 	public String getNoRekSumber() {
 
 		if (getSaldoAwalMasterAsset() != null && saldoAwalMasterAsset.getPenyedia() != null) {
@@ -2412,10 +2493,26 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return noRekSumber == null || noRekSumber.isEmpty() ? null : noRekSumber.trim();
 	}
 
+	/**
+	 * Menyetel nomor rekening tujuan secara manual. Akan ditimpa oleh
+	 * {@link #getNoRekSumber()} bila dokumen sumbernya punya cabang penurunan.
+	 *
+	 * @param noRekSumber nomor rekening tujuan; boleh {@code null}
+	 */
 	public void setNoRekSumber(String noRekSumber) {
 		this.noRekSumber = noRekSumber;
 	}
 
+	/**
+	 * Mengembalikan <b>batch transfer</b> yang memuat baris ini.
+	 *
+	 * <p>Relasi ini adalah penanda utama tahap hidup baris DPT: selama {@code null}, baris
+	 * masih menganggur di kolam antrean dan bisa dipilih petugas keuangan; begitu terisi,
+	 * baris sudah masuk satu {@link ProsesTransfer} dan tidak boleh dimasukkan ke batch lain
+	 * (dijaga di {@code NewUiTransferWorkflowService#createProcess}). Getter relasi polos.</p>
+	 *
+	 * @return batch transfer pemilik baris ini, atau {@code null} bila belum diproses
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@NotFound(action = NotFoundAction.IGNORE)
 	@Fetch(FetchMode.SELECT)
@@ -2424,10 +2521,20 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return prosesTransfer;
 	}
 
+	/**
+	 * Memasukkan baris ini ke sebuah batch transfer.
+	 *
+	 * @param prosesTransfer batch transfer; {@code null} mengembalikan baris ke kolam antrean
+	 */
 	public void setProsesTransfer(ProsesTransfer prosesTransfer) {
 		this.prosesTransfer = prosesTransfer;
 	}
 
+	/**
+	 * Mengembalikan dokumen dana talangan yang menjadi sumber baris ini. Getter relasi polos.
+	 *
+	 * @return dokumen dana talangan, atau {@code null} bila baris ini bertipe lain
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@NotFound(action = NotFoundAction.IGNORE)
 	@Fetch(FetchMode.SELECT)
@@ -2436,10 +2543,21 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return danaTalangan;
 	}
 
+	/**
+	 * Menautkan baris ini ke sebuah dokumen dana talangan.
+	 *
+	 * @param danaTalangan dokumen sumber; boleh {@code null}
+	 */
 	public void setDanaTalangan(DanaTalangan danaTalangan) {
 		this.danaTalangan = danaTalangan;
 	}
 
+	/**
+	 * Mengembalikan detail pembayaran termin yang menjadi sumber baris ini. Getter relasi
+	 * polos.
+	 *
+	 * @return detail pembayaran termin, atau {@code null} bila baris ini bertipe lain
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@NotFound(action = NotFoundAction.IGNORE)
 	@Fetch(FetchMode.SELECT)
@@ -2448,11 +2566,22 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return pembayaranTerminMasterAssetDetail;
 	}
 
+	/**
+	 * Menautkan baris ini ke sebuah detail pembayaran termin.
+	 *
+	 * @param pembayaranTerminMasterAssetDetail dokumen sumber; boleh {@code null}
+	 */
 	public void setPembayaranTerminMasterAssetDetail(
 			PembayaranTerminMasterAssetDetail pembayaranTerminMasterAssetDetail) {
 		this.pembayaranTerminMasterAssetDetail = pembayaranTerminMasterAssetDetail;
 	}
 
+	/**
+	 * Mengembalikan detail pembayaran DP pemesanan yang menjadi sumber baris ini. Getter
+	 * relasi polos.
+	 *
+	 * @return detail pembayaran DP, atau {@code null} bila baris ini bertipe lain
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@NotFound(action = NotFoundAction.IGNORE)
 	@Fetch(FetchMode.SELECT)
@@ -2461,12 +2590,34 @@ public class DaftarPengajuanTransfer extends DataSop {
 		return pembayaranDpMasterAssetDetail;
 	}
 
+	/**
+	 * Menautkan baris ini ke sebuah detail pembayaran DP pemesanan.
+	 *
+	 * @param pembayaranDpMasterAssetDetail dokumen sumber; boleh {@code null}
+	 */
 	public void setPembayaranDpMasterAssetDetail(PembayaranDpMasterAssetDetail pembayaranDpMasterAssetDetail) {
 		this.pembayaranDpMasterAssetDetail = pembayaranDpMasterAssetDetail;
 	}
 
+	/** Kode unik/barcode baris, dibangkitkan sekali secara malas oleh {@link #getKodeUnik()}. */
 	private String kodeUnik = null;
 
+	/**
+	 * Mengembalikan kode unik (barcode) baris ini, membangkitkannya bila belum ada.
+	 *
+	 * <p><b>Getter yang menulis balik, dengan pembangkitan malas</b>: pada pembacaan pertama
+	 * setelah baris punya ID, nilai dibentuk sebagai
+	 * {@code Common.getGeneratedBarCode() + "_" + getId()} lalu ditugaskan ke field — dan
+	 * karena kolomnya {@code unique}, nilai itu tersimpan permanen pada flush berikutnya.
+	 * Pembacaan berikutnya mengembalikan nilai yang sama.</p>
+	 *
+	 * <p>Penambahan {@code "_" + id} membuat tabrakan praktis mustahil meski
+	 * {@code getGeneratedBarCode()} kebetulan menghasilkan nilai kembar. Untuk object yang
+	 * belum tersimpan ({@code getId() == null}) method mengembalikan {@code null} tanpa
+	 * membangkitkan apa pun.</p>
+	 *
+	 * @return kode unik baris, atau {@code null} bila baris belum pernah disimpan
+	 */
 	@Column(unique = true)
 	public String getKodeUnik() {
 		if (kodeUnik == null && getId() != null) {
