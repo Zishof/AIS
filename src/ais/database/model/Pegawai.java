@@ -450,13 +450,33 @@ public class Pegawai extends Karyawan {
 	private String keteranganBadanCiriKhas;
 	private String keteranganBadanCacat;
 
+	/** Nilai {@code jenis}: pegawai dengan jabatan fungsional. @see #getJenis() */
 	public static final String JENIS_FUNGSIONAL = "Fungsional";
+	/** Nilai {@code jenis}: pegawai dengan jabatan struktural. @see #getJenis() */
 	public static final String JENIS_STRUKTURAL = "Struktural";
+	/** Nilai {@code jenis}: pegawai honorer/kontrak. @see #getJenis() */
 	public static final String JENIS_HONORER = "Honorer";
+	/**
+	 * Nilai {@code jenis}: tenaga alih daya (<i>outsourcing</i>). Ejaan konstanta memang
+	 * "Outsourching" dan nilainya tersimpan apa adanya di basis data — jangan diperbaiki tanpa
+	 * migrasi data.
+	 *
+	 * @see #getJenis()
+	 */
 	public static final String JENIS_OUTSOURCHING = "Outsourching";
 
+	/**
+	 * Nilai {@code caraPembayaran}: gaji ditransfer ke rekening bank. Ini <b>default</b> untuk slot
+	 * pembayaran pertama ({@link #getCaraPembayaran()}). Ejaan konstanta memang kurang satu huruf
+	 * ("DITRASFER"); nilai stringnya benar.
+	 */
 	public static final String CARA_BAYAR_DITRASFER = "Transfer";
+	/** Nilai {@code caraPembayaran}: gaji dibayar tunai. */
 	public static final String CARA_BAYAR_TUNAI = "Tunai";
+	/**
+	 * Nilai {@code caraPembayaran}: cara pembayaran lain. Ini default untuk slot pembayaran
+	 * ke-2 sampai ke-5 ({@link #getCaraPembayaran2()} dan seterusnya).
+	 */
 	public static final String CARA_BAYAR_LAINNYA = "Lain-lain";
 
 	private String jenis;
@@ -563,6 +583,20 @@ public class Pegawai extends Karyawan {
 	private FormatItemGaji formatItemGaji4;
 	private FormatItemGaji formatItemGaji5;
 
+	/**
+	 * Varian "berdiri sendiri" dari {@link #createDataPegawaiDariDosen(Session, Dosen)} yang
+	 * membuka {@code currentNativeSession()} sendiri, mengerjakan provisioning, lalu menutup sesi
+	 * itu kembali.
+	 *
+	 * <p><b>Kapan memakai yang mana:</b> gunakan varian ini hanya dari konteks yang <i>tidak</i>
+	 * sedang berada di dalam unit-of-work request (mis. job latar atau utilitas baris perintah).
+	 * Dari dalam event ZK atau servlet, pakai varian bersession agar tidak membuka koneksi kedua
+	 * yang bisa saling mengunci baris yang sama.</p>
+	 *
+	 * @param dosen dosen yang ingin dipastikan punya baris {@code Pegawai}
+	 * @return baris {@code Pegawai} milik dosen tersebut (yang sudah ada atau yang baru dibuat)
+	 * @see #createDataPegawaiDariDosen(Session, Dosen)
+	 */
 	public static Pegawai createDataPegawaiDariDosen(Dosen dosen) {
 		Session session = HibernateUtil.currentNativeSession();
 		Pegawai pegawai = createDataPegawaiDariDosen(session, dosen);
@@ -575,6 +609,45 @@ public class Pegawai extends Karyawan {
 		return pegawai;
 	}
 
+	/**
+	 * <b>Auto-provisioning kepegawaian untuk seorang dosen</b>: memastikan setiap {@link Dosen}
+	 * punya tepat satu baris {@code Pegawai} yang aktif, dan bahwa kedua baris saling menunjuk.
+	 * Ini adalah jembatan utama antara modul akademik dan modul kepegawaian/payroll.
+	 *
+	 * <p>Alur kerjanya:</p>
+	 * <ol>
+	 * <li>Pastikan {@code session} masih terbuka lewat {@code HibernateUtil.ensureOpenSession()}
+	 * (lihat komentar AKAR di dalam kode — pemanggil bisa mengoper sesi yang sudah tertutup).</li>
+	 * <li>Cari {@code Pegawai} dengan {@code dosen} = dosen ini dan {@code aktif} null/true,
+	 * ambil ID terbesar. Bila tidak ada, ulangi pencarian tanpa syarat {@code aktif} (mengambil
+	 * kembali baris yang sudah dinonaktifkan alih-alih membuat duplikat).</li>
+	 * <li>Bila tetap tidak ada, <b>buat baris baru</b> dalam transaksinya sendiri, lalu salin foto
+	 * dosen ({@link FotoDosen}) menjadi foto pegawai ({@link FotoPegawai}) melalui
+	 * {@code StreamingHibernateUtil} — sesi terpisah khusus data biner besar.</li>
+	 * <li>Terakhir, tulis balik {@code Dosen.pegawaiId} agar tautan dua arah lengkap. Dosen dimuat
+	 * <b>ulang</b> di sesi yang sama sebelum di-update untuk menghindari galat "illegally attempted
+	 * to associate a proxy with two open Sessions".</li>
+	 * </ol>
+	 *
+	 * <p><b>Efek samping:</b> menulis ke basis data (INSERT {@code pegawai}, INSERT
+	 * {@code foto_pegawai}, UPDATE {@code dosen}) dan mengelola transaksinya sendiri. Kegagalan
+	 * pada langkah penulisan balik <b>tidak</b> dilempar ke pemanggil, hanya ditampilkan lewat
+	 * {@code Common.tampilErrorJikaAdmin()}, sehingga login dosen tidak ikut gagal.</p>
+	 *
+	 * <p><b>Dipanggil dari:</b> jalur login/otorisasi dosen ({@code FilterLoginAis} lewat
+	 * {@code checkBlokirDanKuotaDosen()}) dan layar-layar master kepegawaian yang perlu menyiapkan
+	 * data pegawai untuk dosen yang belum terdaftar di HRD.</p>
+	 *
+	 * <p><b>Kuirk yang ditemukan (tidak diperbaiki di sini):</b> syarat penulisan balik berbunyi
+	 * {@code dosen.getPegawaiId() == null || !dosen.getId().equals(pegawai.getId())} — bagian kedua
+	 * membandingkan PK <i>dosen</i> dengan PK <i>pegawai</i>, dua ruang ID yang tidak berhubungan.
+	 * Kemungkinan yang dimaksud adalah {@code dosen.getPegawaiId()}. Akibatnya blok update
+	 * hampir selalu dieksekusi ulang (boros, tapi idempoten).</p>
+	 *
+	 * @param session sesi Hibernate milik pemanggil; boleh sudah tertutup, akan diganti otomatis
+	 * @param dosen   dosen yang ingin dipastikan punya baris {@code Pegawai}
+	 * @return baris {@code Pegawai} milik dosen tersebut, tidak pernah {@code null}
+	 */
 	public static Pegawai createDataPegawaiDariDosen(Session session, Dosen dosen) {
 
 		// FIX SessionException "Session is closed!" (ForeignKeys$Nullifier.errorIfClosed) saat
@@ -649,6 +722,21 @@ public class Pegawai extends Karyawan {
 		return pegawai;
 	}
 
+	/**
+	 * Varian praktis {@link #createDataPegawaiDariGuru(Session, Guru)} yang memakai
+	 * {@code HibernateUtil.currentSession()} — <b>unit-of-work request yang sedang berjalan</b>,
+	 * bukan sesi native baru.
+	 *
+	 * <p>Perbedaannya dengan padanan untuk dosen memang disengaja dan penting: method ini biasanya
+	 * dipanggil dari event ZK yang baru saja menyimpan {@link Guru}. Membuka sesi native kedua lalu
+	 * meng-{@code UPDATE} baris {@code guru} yang sama akan membuat koneksi kedua menunggu lock
+	 * milik transaksi request sendiri sampai {@code statement_timeout} (deadlock diri sendiri).
+	 * Karena itu sesi request dipakai ulang dan <b>tidak boleh</b> ditutup manual di sini.</p>
+	 *
+	 * @param guru guru yang ingin dipastikan punya baris {@code Pegawai}
+	 * @return baris {@code Pegawai} milik guru tersebut
+	 * @see #createDataPegawaiDariGuru(Session, Guru)
+	 */
 	public static Pegawai createDataPegawaiDariGuru(Guru guru) {
 		// Dipanggil dari event ZK yang baru saja menyimpan Guru lewat currentSession().
 		// Membuka currentNativeSession() kedua lalu UPDATE baris Guru yang sama membuat
@@ -658,6 +746,36 @@ public class Pegawai extends Karyawan {
 		return createDataPegawaiDariGuru(HibernateUtil.currentSession(), guru);
 	}
 
+	/**
+	 * <b>Auto-provisioning kepegawaian untuk seorang guru sekolah</b> — padanan
+	 * {@link #createDataPegawaiDariDosen(Session, Dosen)} pada jalur {@link Guru}.
+	 *
+	 * <p>Alurnya sejajar: cari {@code Pegawai} aktif milik guru ini, jatuh ke pencarian tanpa
+	 * syarat {@code aktif} bila tidak ketemu, lalu buat baru sambil menyalin {@link FotoGuru}
+	 * menjadi {@link FotoPegawai} lewat {@code StreamingHibernateUtil}. Terakhir tautan balik
+	 * {@code Guru.pegawai} diisi. Berbeda dengan jalur dosen, di sini tautannya adalah relasi
+	 * Hibernate penuh, bukan sekadar kolom ID.</p>
+	 *
+	 * <p><b>Penanganan transaksi yang perlu diperhatikan.</b> Method ini mendeteksi apakah
+	 * {@code session} sudah punya transaksi aktif milik pemanggil:</p>
+	 * <ul>
+	 * <li><b>Ada transaksi pemanggil</b> — method menumpang di dalamnya dan tidak commit sendiri.
+	 * Bila terjadi galat, galat itu <b>dilempar ulang</b> sebagai {@link RuntimeException} karena
+	 * transaksi request sudah tidak aman dilanjutkan dan harus di-rollback oleh framework.</li>
+	 * <li><b>Tidak ada transaksi pemanggil</b> — method membuka dan menutup transaksinya sendiri,
+	 * dan galat hanya dilaporkan lewat {@code Common.tampilErrorJikaAdmin()}.</li>
+	 * </ul>
+	 *
+	 * <p><b>Efek samping:</b> INSERT {@code pegawai}, INSERT {@code foto_pegawai}, UPDATE
+	 * {@code guru}. Guru dimuat ulang di sesi yang sama sebelum di-update untuk menghindari
+	 * "illegally attempted to associate a proxy with two open Sessions".</p>
+	 *
+	 * @param session sesi Hibernate yang akan dipakai; boleh membawa transaksi aktif
+	 * @param guru    guru yang ingin dipastikan punya baris {@code Pegawai}
+	 * @return baris {@code Pegawai} milik guru tersebut
+	 * @throws RuntimeException bila penulisan tautan balik gagal <i>dan</i> transaksi milik
+	 *                          pemanggil sedang aktif
+	 */
 	public static Pegawai createDataPegawaiDariGuru(Session session, Guru guru) {
 
 		Pegawai pegawai = (Pegawai) (ConstantValues.simpleObject(session.createCriteria(Pegawai.class)
@@ -736,13 +854,37 @@ public class Pegawai extends Karyawan {
 		return pegawai;
 	}
 
+	/**
+	 * Konstruktor kosong yang diwajibkan Hibernate/JPA untuk instansiasi lewat refleksi. Juga
+	 * dipakai layar input saat membuat pegawai baru.
+	 */
 	public Pegawai() {
 	}
 
+	/**
+	 * Membuat instance "kerangka" yang hanya membawa ID. Berguna untuk membangun kriteria/relasi
+	 * tanpa memuat baris penuh.
+	 *
+	 * <p><b>Perhatian:</b> objek hasil konstruktor ini <i>transient</i>, bukan hasil
+	 * {@code session.load()}. Seluruh field lain masih {@code null}, jadi jangan disimpan
+	 * ({@code save}/{@code update}) karena akan menimpa baris asli dengan nilai kosong.</p>
+	 *
+	 * @param id PK baris {@code pegawai}
+	 */
 	public Pegawai(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Membuat proyeksi kepegawaian dari sebuah {@link Dosen} <b>tanpa menyentuh basis data</b>.
+	 * Bila dosen sudah punya tautan {@code pegawaiId}, ID itu ikut dipasang sehingga objek ini
+	 * merujuk baris yang benar; bila belum, objek tetap tanpa ID (belum tersimpan).
+	 *
+	 * <p>Ini jalur "ringan": tidak membuat baris baru dan tidak menyalin foto. Untuk provisioning
+	 * yang sungguhan pakai {@link #createDataPegawaiDariDosen(Session, Dosen)}.</p>
+	 *
+	 * @param dosen dosen sumber; boleh {@code null}
+	 */
 	public Pegawai(Dosen dosen) {
 		if (dosen != null && dosen.getPegawaiId() != null) {
 			this.id = dosen.getPegawaiId();
@@ -750,6 +892,18 @@ public class Pegawai extends Karyawan {
 		this.dosen = dosen;
 	}
 
+	/**
+	 * Konstruktor biodata ringkas warisan hasil <i>generate</i> hbm2java. Mengisi langsung field
+	 * lokal tanpa melewati setter, jadi tidak ada penulisan balik ke {@link Dosen}/{@link Guru}.
+	 *
+	 * @param nama         nama lengkap pegawai
+	 * @param alamat       alamat bebas-teks
+	 * @param email        alamat surel (boleh beberapa, dipisah koma)
+	 * @param telp         nomor telepon
+	 * @param kelamin      jenis kelamin ("Laki-laki"/"Perempuan", lihat {@link #getKelamin()})
+	 * @param tempatlahir  kota kelahiran
+	 * @param tanggallahir tanggal lahir
+	 */
 	public Pegawai(String nama, String alamat, String email, String telp, String kelamin, String tempatlahir,
 			Date tanggallahir) {
 		this.nama = nama;
