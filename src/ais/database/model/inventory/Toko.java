@@ -335,13 +335,6 @@ public class Toko extends GeneralValueObject {
 	}
 
 	/**
-	 * Daftar {@code Tbmrole.roleId} (hak akses / grup pengguna) yang boleh mengubah harga
-	 * ketika {@link #getSemuaBolehUbahHarga()} bernilai {@code false}. Bersifat OR terhadap
-	 * {@link #getUserBolehUbahHarga()}: pengguna boleh mengubah harga bila userId-nya
-	 * terdaftar ATAU role-nya terdaftar. Format CSV berpembatas koma dgn koma pembungkus,
-	 * sama seperti daftar pengguna.
-	 */
-	/**
 	 * Pesanan yang belum lunas dan sudah LEWAT hari (melewati jam 24) ditandai
 	 * terbayar secara otomatis.
 	 *
@@ -381,6 +374,13 @@ public class Toko extends GeneralValueObject {
 		this.otomatisLayaniSetelahJam24 = otomatisLayaniSetelahJam24;
 	}
 
+	/**
+	 * Daftar {@code Tbmrole.roleId} (hak akses / grup pengguna) yang boleh mengubah harga
+	 * ketika {@link #getSemuaBolehUbahHarga()} bernilai {@code false}. Bersifat OR terhadap
+	 * {@link #getUserBolehUbahHarga()}: pengguna boleh mengubah harga bila userId-nya
+	 * terdaftar ATAU role-nya terdaftar. Format CSV berpembatas koma dgn koma pembungkus,
+	 * sama seperti daftar pengguna.
+	 */
 	@Column(name = "role_boleh_ubah_harga", columnDefinition = "text", nullable = true)
 	public String getRoleBolehUbahHarga() {
 		return roleBolehUbahHarga;

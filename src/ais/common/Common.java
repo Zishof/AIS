@@ -704,12 +704,30 @@ public class Common {
 	public static int ROWS_COUNT_ON_PAGE_15 = 15;
 
 	/**
-	 * Passphrase DES LEGACY (DIPERBAIKI 2026-09-02 — lihat riwayat keamanan pada javadoc
-	 * {@link DesEncrypter}): sejak perbaikan tersebut, {@link DesEncrypter#encrypt(String)} tidak
-	 * lagi memakai nilai ini sama sekali — seluruh enkripsi baru memakai AES-256-GCM dengan kunci
-	 * acak per-instalasi. Konstanta ini DIPERTAHANKAN hanya agar {@link DesEncrypter#decrypt(String)}
-	 * masih bisa membaca ciphertext DES lama yang ditulis SEBELUM perbaikan tersebut (password akun,
-	 * cookie, link lama). JANGAN dipakai untuk enkripsi baru di kode mana pun.
+	 * <p>
+	 * <b>PERINGATAN KEAMANAN</b> — passphrase DES yang dipakai {@link DesEncrypter} (lewat
+	 * {@link #desEncrypter}) untuk SELURUH enkripsi/dekripsi reversibel di AIS, termasuk password
+	 * akun ({@code Tbmuser.userPassword} dan kolom {@code pass}/{@code passOrtu} sejenis yang
+	 * sengaja disimpan reversibel agar admin bisa lihat/reset/download apa adanya), cookie
+	 * "remember me", dan link resend email. Nilai ini TETAP dan SAMA untuk seluruh instalasi AIS
+	 * mana pun, tertanam langsung di kode sumber — siapa pun yang membaca kode ini (termasuk lewat
+	 * riwayat kontrol versi) otomatis punya kunci untuk mendekripsi seluruh data yang pernah
+	 * dienkripsi lewat {@link DesEncrypter} di semua instalasi yang berbagi codebase ini. DES
+	 * sendiri (kunci efektif 56-bit) sudah lama dianggap usang secara kriptografi.
+	 * </p>
+	 * <p>
+	 * <b>Riwayat — migrasi ke AES-256-GCM dicoba lalu DIBATALKAN (2026-09-02)</b>: sempat dicoba
+	 * mengganti {@link DesEncrypter#encrypt(String)} ke AES-256-GCM dengan kunci acak per-instalasi
+	 * (bukan lagi tertanam di kode), namun langsung di-<i>revert</i> karena MEMATIKAN LOGIN —
+	 * sebagian pemanggil (mis. jalur login {@code ais.database.model.Mahasiswa} di
+	 * {@code ais.common.CommonSecurityLoginHelper#checkLogin}, dan beberapa titik lain) memverifikasi
+	 * password dengan meng-enkripsi input lalu membandingkan CIPHERTEXT-KE-CIPHERTEXT langsung pada
+	 * query database, pola yang HANYA berfungsi bila enkripsi bersifat deterministik (DES pada
+	 * {@link DesEncrypter} bersifat begitu; AES-GCM yang benar tidak, karena memakai IV acak per
+	 * panggilan). Detail lengkap dan implikasinya bagi upaya perbaikan berikutnya ada pada javadoc
+	 * kelas {@link DesEncrypter}. Nilai ini untuk saat ini TETAP dipakai apa adanya oleh
+	 * {@link #desEncrypter} untuk enkripsi baru maupun lama.
+	 * </p>
 	 */
 	public static final String DES_PASS_PHRASE = "AIS_UIN";
 
