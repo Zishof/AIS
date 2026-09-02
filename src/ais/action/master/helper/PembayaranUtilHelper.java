@@ -887,6 +887,8 @@ public class PembayaranUtilHelper {
 				}
 			}
 
+			// Satu kontrak untuk relasi modern dan DetailBiaya legacy tanpa induk. Jangan
+			// di-inline: UI admin dan H2H harus selalu berubah bersama.
 			criteria = batasiPembacaanDetailBiayaKeSettingTerpilih(criteria, settingBiayaTerpilih);
 			filterCriteriaDenganNilaiTambahan(criteria, session, mahasiswa, null);
 
@@ -1294,6 +1296,7 @@ public class PembayaranUtilHelper {
 					: session.createCriteria(DetailBiaya.class)
 							.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
 			
+			// Berlaku juga bagi calon mahasiswa; seluruh filter profil di bawah tetap wajib.
 			criteria = batasiPembacaanDetailBiayaKeSettingTerpilih(criteria, settingBiayaTerpilih);
 			filterCriteriaDenganNilaiTambahan(criteria, session, null, biodataCalonMahasiswa);
 

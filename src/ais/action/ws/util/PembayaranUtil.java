@@ -1717,6 +1717,8 @@ public class PembayaranUtil {
 
 		}
 
+		// Gunakan kontrak sumber yang sama dengan UI admin agar inquiry H2H tidak
+		// menghasilkan nol untuk DetailBiaya legacy yang masih sah.
 		criteria = PembayaranUtilHelper.batasiPembacaanDetailBiayaKeSettingTerpilih(criteria,
 				settingBiayaTerpilih);
 		filterCriteriaDenganNilaiTambahan(criteria, session, mahasiswa, null);
@@ -2207,6 +2209,7 @@ public class PembayaranUtil {
 				? session.createCriteria(PengaturanPembayaranBulanan.class)
 						.setProjection(Projections.property("detailBiaya")).createCriteria("detailBiaya")
 				: session.createCriteria(DetailBiaya.class);
+		// Jalur calon mahasiswa juga wajib mengikuti kontrak sumber kanonis.
 		criteria = PembayaranUtilHelper.batasiPembacaanDetailBiayaKeSettingTerpilih(criteria,
 				settingBiayaTerpilih);
 		filterCriteriaDenganNilaiTambahan(criteria, session, null, biodataCalonMahasiswa);

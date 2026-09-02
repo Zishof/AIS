@@ -3031,6 +3031,37 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 		}
 	}
 
+	/**
+	 * Mengambil atau membuat template {@link DetailBiaya} dari layar Pengaturan Tagihan langsung.
+	 *
+	 * <p><b>Kontrak legacy yang disengaja:</b> ketika {@code settingBiayaBulanan == null}, layar ini
+	 * tidak sedang mengedit satu {@code SettingBiaya}. Karena itu baris yang dibuat oleh method ini
+	 * mempunyai atribut profil lengkap, tetapi tidak mempunyai relasi {@code settingBiaya},
+	 * {@code detailSettingBiaya}, maupun {@code settingBiayaDetail}. Jangan menambahkan salah satu
+	 * relasi tersebut dengan menebak setting berdasarkan item saja; satu item dapat dipakai oleh
+	 * beberapa cohort dan prioritas setting yang berbeda.</p>
+	 *
+	 * <p>Baris tanpa relasi ini tetap merupakan sumber tagihan yang sah. Query baca pembayaran
+	 * wajib mempertahankan kompatibilitasnya melalui
+	 * {@link ais.action.master.helper.PembayaranUtilHelper#batasiPembacaanDetailBiayaKeSettingTerpilih}.
+	 * Keamanan pencocokan berasal dari gabungan item milik setting terpilih dan atribut profil yang
+	 * ditulis di bawah: periode, semester, angkatan, jenjang, prodi, program, status, status awal,
+	 * semester mulai, jenis kegiatan, jenis seleksi, kewarganegaraan, paket, gelombang, kelas,
+	 * tempat tinggal, dan nilai tambahan.</p>
+	 *
+	 * <p>Bila {@code settingBiayaBulanan != null}, method mendelegasikan ke jalur modern
+	 * {@link #getDefaultDetailBiayaSettingBulanan} yang menyimpan relasi setting secara eksplisit.
+	 * Perbedaan kedua bentuk data ini wajib dipertahankan sampai tersedia migrasi data yang dapat
+	 * menentukan induk setiap baris lama tanpa ambigu.</p>
+	 *
+	 * @param maps indeks template yang sudah ditemukan berdasarkan seluruh atribut profil
+	 * @param semester semester tujuan tagihan
+	 * @param tahunAjaran tahun akademik dalam format label aplikasi
+	 * @param itemBiaya jenis item yang nominalnya akan diatur
+	 * @param jurusan prodi tujuan; dapat {@code null} sesuai filter layar
+	 * @param program program perkuliahan tujuan
+	 * @return template yang sudah ada atau baris legacy baru dengan profil lengkap
+	 */
 	private DetailBiaya getDefaultDetailBiaya(Map<String, DetailBiaya> maps, Integer semester, String tahunAjaran,
 			ItemBiaya itemBiaya, Jurusan jurusan, String program) {
 		if (settingBiayaBulanan != null) {
@@ -3114,6 +3145,13 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 		return myBiayas;
 	}
 
+	/**
+	 * Memuat indeks baris Pengaturan Tagihan langsung untuk mencegah pembuatan duplikat sebelum
+	 * nominal disimpan. Query ini sengaja mencocokkan atribut profil, bukan relasi SettingBiaya,
+	 * karena baris yang dibuat oleh overload pasangan dapat berasal dari model legacy tanpa induk.
+	 * Jangan memperketat query dengan {@code Restrictions.eq("settingBiaya", ...)} kecuali layar
+	 * telah diubah sepenuhnya menjadi editor satu setting dan seluruh data lama sudah dimigrasikan.
+	 */
 	@SuppressWarnings("unchecked")
 	private Map<String, DetailBiaya> getDefaultDetailBiaya(Integer semester, String tahunAjaran, boolean semuaProgram) {
 		if (settingBiayaBulanan != null) {

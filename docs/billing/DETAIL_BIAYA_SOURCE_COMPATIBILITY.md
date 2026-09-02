@@ -79,6 +79,22 @@ setting, tetapi dari filter profil rinci pada query produksi, antara lain:
 - kewarganegaraan;
 - kelas, tempat tinggal, dan parameter tambahan bila fitur terkait aktif.
 
+Bukti pembentuk data ini berada pada
+`NewDetailBiayaExcelAction.getDefaultDetailBiaya(...)`. Saat editor bulanan
+tidak sedang terikat ke sebuah `SettingBiaya`, method tersebut membentuk
+`DetailBiaya` dan mengisi seluruh atribut profil, tetapi memang tidak memanggil
+`setSettingBiaya`, `setDetailSettingBiaya`, atau `setSettingBiayaDetail`.
+Sebaliknya, `getDefaultDetailBiayaSettingBulanan(...)` adalah jalur modern yang
+menyimpan `settingBiaya` dan `detailSettingBiaya`. Jadi bentuk all-null bukan
+dugaan berdasarkan gejala UI, melainkan konsekuensi eksplisit dari dua jalur
+pembentukan yang masih hidup berdampingan di kode produksi.
+
+Jangan memperbaiki masalah ini dengan menebak induk lalu menulis relasi pada
+baris lama ketika dibaca. Satu `ItemBiaya` dapat digunakan oleh beberapa
+setting dengan cohort dan prioritas berbeda. Migrasi relasi hanya aman bila
+memiliki prosedur terpisah yang membuktikan tepat satu setting cocok untuk
+setiap baris dan menyediakan laporan konflik untuk kasus ambigu.
+
 ## Algoritma pemilihan
 
 Urutan algoritma untuk mahasiswa lama adalah:
@@ -278,4 +294,3 @@ Sebelum merge perubahan billing:
 - `src/ais/action/master/helper/SettingBiayaMahasiswaSelector.java`
 - `src/ais/action/master/NewDetailBiayaExcelAction.java`
 - `src/ais/action/master/DaftarUlangMahasiswaLamaAction.java`
-
