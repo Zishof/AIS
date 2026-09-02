@@ -400,6 +400,35 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
     };
 
     // Mencegah error "not defined" akibat block-scoping dengan `var` / `window`
+    /**
+     * Kalimat peringatan PASCA-TRANSAKSI dari sebuah respons bayar.
+     *
+     * Satu-satunya tempat halaman ini membaca saluran itu. Sebelumnya tiap
+     * peringatan berupa field lepas dan tiap penambahan menuntut lima titik
+     * disentuh -- lima dari enam akhirnya tidak pernah dibaca sama sekali
+     * (docs/pos/79). Peringatan berikutnya tidak menuntut baris ini diubah.
+     *
+     * Bentuk lama (`peringatanStok`, satu string) tetap diterima sebagai
+     * cadangan supaya halaman yang diperbarui lebih dulu daripada servernya
+     * tidak mendadak berhenti memperingatkan.
+     */
+    window.peringatanTransaksi<%=rnd%> = function(res) {
+        if (!res) return [];
+        var daftar = res.peringatanTransaksi;
+        if (Array.isArray(daftar)) {
+            var hasil = [];
+            for (var i = 0; i < daftar.length; i++) {
+                var e = daftar[i];
+                var pesan = (e && typeof e === 'object') ? (e.pesan || '') : ('' + e);
+                pesan = ('' + pesan).trim();
+                if (pesan) hasil.push(pesan);
+            }
+            if (hasil.length > 0) return hasil;
+        }
+        var tunggal = ('' + (res.peringatanStok || '')).trim();
+        return tunggal ? [tunggal] : [];
+    };
+
     window.showToastUI<%=rnd%> = function(msg, colorClass) {
         if(typeof tampilkanToast === "function") {
             tampilkanToast(msg, colorClass);
@@ -516,9 +545,10 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
                             // Sukses tetapi stok minus -- server menitipkan peringatanStok.
                             // Ditumpangkan pada pesan hasil supaya operator tahu ada saldo
                             // stok yang perlu diopname, tanpa menggagalkan apa pun.
-                            if (resBayar.peringatanStok) {
-                                pesanPeringatan.push(draft.kode + ': ' + resBayar.peringatanStok);
-                                console.warn('Peringatan stok utk draft ' + draft.kode + ':', resBayar.peringatanStok);
+                            var peringatan = peringatanTransaksi<%=rnd%>(resBayar);
+                            for (var w = 0; w < peringatan.length; w++) {
+                                pesanPeringatan.push(draft.kode + ': ' + peringatan[w]);
+                                console.warn('Peringatan pasca-transaksi utk draft ' + draft.kode + ':', peringatan[w]);
                             }
                         } else {
                             // Kegagalan TIDAK boleh diam-diam: insiden 2026-08-18, seluruh verifikasi
@@ -1431,9 +1461,10 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
                 // Transaksi tercatat, tetapi saldo stoknya tidak mencukupi. Ini bukan
                 // kegagalan -- karena itu tidak memblokir apa pun -- tetapi juga tidak
                 // boleh diam: inilah satu-satunya tanda bahwa stok perlu diopname.
-                if (res.peringatanStok) {
-                    showToastUI<%=rnd%>(res.peringatanStok, 'bg-warning text-dark');
-                    console.warn('Peringatan stok:', res.peringatanStok);
+                var peringatan = peringatanTransaksi<%=rnd%>(res);
+                if (peringatan.length > 0) {
+                    showToastUI<%=rnd%>(peringatan.join(' '), 'bg-warning text-dark');
+                    console.warn('Peringatan pasca-transaksi:', peringatan);
                 }
 
                 // Tutup Modal
@@ -1670,9 +1701,10 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
                         // Transaksi sukses tetapi stoknya minus: server menitipkan
                         // peringatanStok. Satu-satunya tanda bahwa saldo stok perlu
                         // diopname -- membuangnya sama saja membuatnya tidak pernah ada.
-                        if (resBayar.peringatanStok) {
-                            catatanRinci.push(draft.kode + ': ' + resBayar.peringatanStok);
-                            console.warn('Peringatan stok utk draft ' + draft.kode + ':', resBayar.peringatanStok);
+                        var peringatan = peringatanTransaksi<%=rnd%>(resBayar);
+                        for (var w = 0; w < peringatan.length; w++) {
+                            catatanRinci.push(draft.kode + ': ' + peringatan[w]);
+                            console.warn('Peringatan pasca-transaksi utk draft ' + draft.kode + ':', peringatan[w]);
                         }
                     } else {
                         failCount++;
@@ -1820,9 +1852,10 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
                         // Transaksi sukses tetapi stoknya minus: server menitipkan
                         // peringatanStok. Satu-satunya tanda bahwa saldo stok perlu
                         // diopname -- membuangnya sama saja membuatnya tidak pernah ada.
-                        if (resBayar.peringatanStok) {
-                            catatanRinci.push(draft.kode + ': ' + resBayar.peringatanStok);
-                            console.warn('Peringatan stok utk draft ' + draft.kode + ':', resBayar.peringatanStok);
+                        var peringatan = peringatanTransaksi<%=rnd%>(resBayar);
+                        for (var w = 0; w < peringatan.length; w++) {
+                            catatanRinci.push(draft.kode + ': ' + peringatan[w]);
+                            console.warn('Peringatan pasca-transaksi utk draft ' + draft.kode + ':', peringatan[w]);
                         }
                     } else {
                         failCount++;
@@ -2019,9 +2052,10 @@ boolean otomatisLayaniSetelahJam24 = ais.action.master.koperasi.OtomatisPesananU
                             // Sukses tetapi stok minus -- server menitipkan peringatanStok.
                             // Ditumpangkan pada pesan hasil supaya operator tahu ada saldo
                             // stok yang perlu diopname, tanpa menggagalkan apa pun.
-                            if (resBayar.peringatanStok) {
-                                pesanPeringatan.push(draft.kode + ': ' + resBayar.peringatanStok);
-                                console.warn('Peringatan stok utk draft ' + draft.kode + ':', resBayar.peringatanStok);
+                            var peringatan = peringatanTransaksi<%=rnd%>(resBayar);
+                            for (var w = 0; w < peringatan.length; w++) {
+                                pesanPeringatan.push(draft.kode + ': ' + peringatan[w]);
+                                console.warn('Peringatan pasca-transaksi utk draft ' + draft.kode + ':', peringatan[w]);
                             }
                         } else {
                             // Kegagalan TIDAK boleh diam-diam: insiden 2026-08-18, seluruh verifikasi

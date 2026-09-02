@@ -357,6 +357,33 @@ public class DoUpload extends HttpServlet {
 		return null;
 	}
 
+	/**
+	 * Mengubah nama kelas dari klien menjadi {@code Class} dengan AMAN.
+	 *
+	 * <p>Endpoint ini melayani unggahan yang sebagiannya sah tanpa login (bukti bayar PMB,
+	 * dokumen calon anggota sebelum berakun), sehingga nama kelas yang dikirim tidak selalu
+	 * berasal dari pengguna tepercaya. {@code Class.forName(String)} akan MENGINISIALISASI kelas
+	 * yang disebut — menjalankan static initializer-nya — dan {@code newInstance()} berikutnya
+	 * menjalankan konstruktor tanpa-argumen, keduanya SEBELUM cast ke {@link FileFotoLain} gagal.
+	 * Artinya nama kelas sembarang di classpath dapat memicu efek samping konstruksi meski
+	 * akhirnya ditolak.</p>
+	 *
+	 * <p>Di sini kelas dimuat TANPA inisialisasi lalu diperiksa keturunannya lebih dulu; hanya
+	 * subkelas {@link FileFotoLain} — satu-satunya jenis yang memang diunggah layar mana pun —
+	 * yang diteruskan. Kelas lain ditolak sebelum static initializer maupun konstruktornya
+	 * sempat berjalan.</p>
+	 */
+	private static Class<?> resolveKelasLampiran(String namaKelas) throws Exception {
+		if (namaKelas == null || namaKelas.trim().isEmpty()) {
+			throw new IllegalArgumentException("Kelas lampiran wajib diisi.");
+		}
+		Class<?> c = Class.forName(namaKelas.trim(), false, DoUpload.class.getClassLoader());
+		if (!FileFotoLain.class.isAssignableFrom(c)) {
+			throw new IllegalArgumentException("Kelas lampiran tidak sah: " + namaKelas.trim());
+		}
+		return c;
+	}
+
 	private void handleUserProfileUpload(HttpServletRequest request, JSONObject jsonObject, Map<String, String> fields,
 			File file) throws Exception {
 		for (Map.Entry<String, String> entry : fields.entrySet())
@@ -411,7 +438,7 @@ public class DoUpload extends HttpServlet {
 				tx.commit();
 			} else {
 				Serializable ref = (id != null && Common.isNumber(id.trim())) ? Long.parseLong(id.trim()) : 0L;
-				Class c = Class.forName(clazz);
+				Class c = resolveKelasLampiran(clazz);
 				
 				boolean isDrive = "true".equalsIgnoreCase(fields.get("toDrive"));
 				boolean isConnected = false;

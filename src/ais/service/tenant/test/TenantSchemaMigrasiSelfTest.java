@@ -53,6 +53,7 @@ public final class TenantSchemaMigrasiSelfTest {
 			{ "v7-inventory-accounting-erp", "4f03b3b8dc12" },
 			{ "v8-inventory-import-erp", "7f1cacf8f3c4" },
 			{ "v9-pos-ebisnis-erp", "866f7b5e4324" },
+			{ "v10-celah-p4-erp", "0f15688a9184" },
 	};
 
 	/** Penghitung kegagalan lintas kedua blok uji; bukan JUnit sehingga dikelola manual. */

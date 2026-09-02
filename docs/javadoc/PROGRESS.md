@@ -1,5 +1,72 @@
 # Progres Javadoc Menyeluruh
 
+## `ais/database/model/KrsMahasiswa.java` — SELESAI 100% (2 Sep 2026)
+
+748 → 1695 baris, **87/87 method ber-Javadoc (100%)** (diaudit skrip, 0 tersisa).
+Kompilasi `-implicit:none` lulus; kode diverifikasi tidak berubah (diff setelah
+seluruh komentar dilucuti = identik). Commit tersapu ke revisi gabungan sesi
+paralel **r83076** (pesan kosong — normal di WC ini), isi diverifikasi lewat
+`svn diff -c 83076` (992 baris tambahan) dan penanda teks di HEAD. Mirror
+`java/` sudah `svn update` + `cmp` byte-identik (r83080).
+
+**Koreksi asumsi penugasan** (penting untuk sesi berikutnya): `KrsMahasiswa`
+BUKAN "pendaftaran mahasiswa ke satu `Perkuliahan`". Satu baris =
+1 mahasiswa × 1 semester × 1 tahapan × 1 penanda semester pendek — yaitu
+**kepala/rekap KRS per semester** (kunci alami `kodeUnik` =
+`idMahasiswa-semester-tahapan-semesterPendek`, kolom `unique`). Pengambilan mata
+kuliah per baris DAN status persetujuan dosen PA (`getPersetujuan()`,
+`BELUM_DISETUJUI`/`DISETUJUI`) tinggal di `Detailperkuliahan` — entity ini tidak
+punya field approve/reject sama sekali. Yang ada hanya `dikunci` (Tbmuser
+pengunci) dan `aktif`. Isinya angka rekap (SKS diambil/kumulatif/lulus, SKS
+konversi vs bukan konversi, IPS, IPK, jumlah komentar, dosen PA, kelas) yang
+dihitung ulang oleh `KrsDanSkripsiHelper.singkronkanKrsMahasiswa(...)`.
+
+**Peran kedua**: `extends VOPembelajaran implements VOPesertaPembelajaran`
+bukan karena KRS adalah mata kuliah, melainkan karena kepala KRS adalah salah
+satu dari 16 induk tabel `pertemuan` — yakni **bimbingan/konsultasi dosen PA**
+(`Pertemuan.getKrsMahasiswa()`). Field `jenis`, `tanggalAwalBimbingan`,
+`lewatiTanggalMerahNasional`, `course`, `urutkanotomatis`, `noSk`, `tglSk`
+melayani peran ini (dibaca `PenjadwalanHelper`), bukan peran rekap nilai.
+
+**Pola berulang lintas entity — hasil verifikasi di file ini:**
+- *Getter berefek samping menulis balik properti ter-map*: **ADA, banyak** —
+  `getNama`, `getKodeUnik`, `getTahunAkademik`, `getNoUts`, `getNoUas`,
+  `getSksYangDiambil`, `getIpk`, `getDosenPa`, `getKelas`. Merender layar bisa
+  memicu `UPDATE` saat flush. `getNoUts`/`getNoUas` bahkan **membangkitkan**
+  nomor ujian (yyMM + 6 digit acak) pada pembacaan pertama — nomor "terbit"
+  tanpa aksi pengguna, kolomnya tidak `unique` sehingga tabrakan mungkin.
+- *Getter menulis baris master baru ke DB (pola `findOrCreate*`)*: **TIDAK ADA**
+  di file ini. Tapi `getKelas()` mendekati: ia menulis ke entity LAIN
+  (`mahasiswa.setKelas(...)`) dan menelusuri mundur semester demi semester
+  memanggil `Common.singkronkanKrsMahasiswa(..., jikaTidakAdaKembali=true)` —
+  tidak membuat baris baru, tapi bisa membuka session/transaksi sendiri.
+- *Getter menutup sesi Hibernate pemanggil*: **TIDAK ADA** langsung di file ini
+  (penutupan sesi terjadi di `KrsDanSkripsiHelper`, bukan di entity).
+- *Field audit di-shadow ulang*: **ADA** — `id`, `nama`, `keterangan`, `oleh`,
+  `olehId`, `tanggal_dirubah` dideklarasikan ulang padahal `GeneralValueObject`
+  sudah punya; field induk jadi mati untuk entity ini.
+
+**Temuan/kuirk lain (dicatat, TIDAK diperbaiki):**
+- `getKelas()` memanggil `mahasiswa.getKelas()` di baris pertama padahal cek
+  `mahasiswa != null` baru ada di baris ke-4 blok — NPE bila relasi kosong.
+- `getDosenPa()` menelan exception tanpa audit (`e.printStackTrace()` sengaja
+  dikomentari) dan membandingkan `jumlah_semester < semester` memakai **field**
+  `semester` mentah → NPE senyap bila semester null.
+- `getNama()`/`getKodeUnik()` memakai field `mahasiswa` langsung (tanpa
+  `check()`), sedangkan `getTahunAkademik()` memakai `getMahasiswa()` — tidak
+  konsisten.
+- Kolom warisan menyesatkan: `sksKonversi` → kolom `mkbelumdiniali` (salah ketik
+  aslinya), `sksBukanKonversi` → `mkkbelumdinilai`. Nama kolom tidak lagi
+  mencerminkan isi.
+- `sksYangDiambilS`/`skskS` = CSV id `Detailperkuliahan` yang disisipkan apa
+  adanya ke `Restrictions.sqlRestriction("id in (" + sks + ")")` di
+  `PenilaianUtil.downloadSemuaKRS` — aman selama tetap mesin yang mengisi.
+- `parameterData(...)` mengisi `ip_round_i`/`ip_round` dengan `Math.floor(...)`,
+  bukan `Math.round(...)` — beda dengan pasangan `ipk_round` di atasnya.
+- `public transient boolean berubah` tidak pernah dibaca/ditulis di mana pun.
+- `VOPembelajaran.ambilSemester()`/`ambilJenisSemester()` sudah punya cabang
+  `instanceof KrsMahasiswa`, jadi override di sini redundan (dibiarkan).
+
 ## `ais/database/model/BiodataPegawai.java` — SELESAI 100% (2 Sep 2026)
 
 707 → 1633 baris, **94/94 method ber-Javadoc (100%)**. Revisi **r83069**. Dikompilasi

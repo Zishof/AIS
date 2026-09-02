@@ -188,6 +188,89 @@ Skrip menghasilkan 74 tabel sedangkan `TABEL_WAJIB_ERP` berisi 75. Yang tidak ik
 sendiri, bukan oleh bundel DDL. Selisih satu ini **wajar dan harus tetap ada**; kalau suatu
 saat skrip menghasilkan 75, berarti ada bundel yang keliru ikut membuat tabel riwayat.
 
+## Bundel v10 — tiga celah yang menghadang P4
+
+Bundel pertama yang **tidak menambah tabel**. Ia menutup tiga celah yang masing-masing
+menghentikan satu bagian pemindahan `si_*`, dan ketiganya ditemukan dengan cara yang sama:
+mencocokkan kueri legacy terhadap schema tenant sungguhan, bukan membaca dokumen.
+
+| | Celah | Yang tadinya terhalang |
+|---|---|---|
+| J-10.1 | `harga_jual_customer.customer_id` `NOT NULL` | harga umum pada helper Harga |
+| J-10.2 | `sales_trip_biaya` tanpa idempotensi | seluruh kelompok biaya trip |
+| J-10.3 | `penerimaan_piutang` tanpa kaitan trip | `tripDetail` |
+
+### Mengapa bundel baru, bukan menyunting v1–v9
+
+Katalog bersifat **append-only ber-checksum**. Menyunting DDL bundel terrilis membuat
+`terapkanMigrasi` gagal keras pada **setiap** tenant yang sudah di-provision. Perubahan schema
+karena itu selalu berupa bundel baru berisi `ALTER`.
+
+Swauji membuktikan tidak ada yang tersentuh: ia memeriksa checksum v1–v9 terhadap patokan, dan
+lulus.
+
+### J-10.1 — harga umum
+
+Legacy menyatakan harga umum sebagai baris `harga_jual_customer` dengan
+`anggota_koperasi IS NULL`. Kolom tenant semula `NOT NULL`, sehingga baris semacam itu
+mustahil ada.
+
+Alternatif yang ditolak: memakai `produk.harga_jual_standar`. Keduanya berbeda maksud —
+harga jual standar adalah **atribut produk**, sedangkan harga umum adalah **versi
+berharga-berlaku** yang punya tanggal mulai, tanggal akhir, dan riwayat. Menyamakannya
+menghilangkan riwayat harga umum.
+
+Indeks uniknya **parsial** (`WHERE customer_id IS NULL`): satu harga umum per produk per
+tanggal berlaku, tanpa mengusik aturan harga khusus pelanggan.
+
+### J-10.2 — idempotensi biaya trip
+
+Legacy **mewajibkan** `kode_unik` saat mencatat biaya trip; itu bukan pilihan. Tanpa kolom
+penampungnya, satu permintaan yang diulang membukukan biaya **dua kali** dan langsung merusak
+total biaya trip pada rekonsiliasi.
+
+Indeksnya parsial (`WHERE idempotency_key IS NOT NULL`) supaya baris lama tanpa kunci tetap
+sah dan tidak saling bentrok sebagai NULL ganda.
+
+### J-10.3 — penerimaan piutang per trip
+
+Tanpa kaitan ini, jumlah penagihan selama satu trip hanya dapat ditempuh lewat rantai
+`sales_trip_nota` → `faktur_penjualan` → `piutang_customer` → alokasi. Rantai itu **tidak
+setara**: ia hanya menemukan penagihan atas faktur yang terbit pada trip yang sama, sedangkan
+sales juga menagih **piutang lama** saat berkeliling — dan justru itulah yang biasanya jadi
+alasan perjalanannya.
+
+Kolomnya `NULL`-able: penerimaan di kantor memang tidak punya trip.
+
+### Diverifikasi pada PostgreSQL 16.4
+
+**Dua jalur**, keduanya nol galat:
+
+1. Schema baru dengan v1–v10 sekaligus — 319 pernyataan
+2. **Jalur naik-versi**: schema dibangun sampai v9 saja (seperti tenant yang sudah
+   di-provision), lalu keenam pernyataan v10 menyusul di atasnya
+
+Jalur kedua yang menentukan. Bundel yang hanya diuji pada schema kosong tidak membuktikan
+apa pun tentang tenant yang sudah berjalan.
+
+**Perilakunya diuji dua arah**, bukan hanya "berhasil":
+
+| Yang diuji | Hasil |
+|---|---|
+| Sisip harga umum (`customer_id` NULL) | diterima |
+| Harga umum ganda pada tanggal sama | **ditolak** |
+| Biaya trip berkunci baru | diterima |
+| Permintaan diulang dengan kunci sama | **ditolak** |
+| Dua biaya lama tanpa kunci | diterima (indeks parsial) |
+| Penerimaan bertrip, dan penerimaan kantor tanpa trip | keduanya diterima |
+| Penerimaan menunjuk trip yang tidak ada | **ditolak** |
+
+### Yang TIDAK dilakukan bundel ini
+
+Tidak ada pengisian data. Baris yang sudah ada tetap `NULL` pada ketiga kolom baru, dan itu
+benar: menebak trip mana yang menagih suatu penerimaan lama, atau kunci idempotensi mana yang
+dulu dipakai, hanya melahirkan data yang tampak sahih tanpa dasar.
+
 ## Yang BELUM dikerjakan
 
 - **Belum ada satu pun kueri yang memakai tabel ini.** Menyambungkan `si_*` ke schema

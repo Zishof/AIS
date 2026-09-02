@@ -30,11 +30,27 @@ public final class SapuScaffoldProbe {
         Set<String> paths = new HashSet<String>();
         kumpulkan(new File(WEBAPP + "/WEB-INF/new"), "/WEB-INF/new", paths);
 
-        // Service JSP yang masih hasil pembangkit scaffold.
+        // Ada DUA dispatcher, dan membedakannya menentukan arti hasil sapuan:
+        //
+        //   _shared/services/dispatcher.jsp
+        //       dispatcher scaffold. Mencoba Generic CRUD lebih dulu, dan bila
+        //       pabrik menolak barulah mengembalikan stub SCAFFOLD.
+        //   _shared/generic-crud/services/dispatcher.jsp
+        //       service Generic CRUD tulisan tangan yang menyetel
+        //       genericCrudEntityKey sendiri. Ini halaman yang sudah jadi,
+        //       bukan scaffold.
+        //
+        // Menyamakan keduanya -- cukup dengan mencari "dispatcher.jsp" --
+        // membuat halaman Generic CRUD tulisan tangan terhitung sebagai
+        // scaffold, dan karena ia tidak mendeklarasikan nuiServiceEntities ia
+        // lalu terhitung pula sebagai "pasti berongga". Itulah yang membuat
+        // Agama dan Mahasiswa sempat dilaporkan berongga padahal keduanya
+        // dilayani dengan baik.
         Set<String> scaffold = new HashSet<String>();
         for (String p : paths) {
             if (!p.endsWith("_service.jsp")) continue;
-            if (isiMemuat(WEBAPP + p, "dispatcher.jsp")) scaffold.add(p);
+            if (isiMemuat(WEBAPP + p, "_shared/generic-crud/services/dispatcher.jsp")) continue;
+            if (isiMemuat(WEBAPP + p, "_shared/services/dispatcher.jsp")) scaffold.add(p);
         }
 
         int total = 0, tanpaAdaptor = 0, masihScaffold = 0, siap = 0;

@@ -71,6 +71,22 @@ public final class GrupProdukApiHelper {
 				EbisnisMenuKatalog.urai(role.getEbisnisMenu()), "grup_produk", aksi);
 	}
 
+	/**
+	 * Hak per aksi menu {@code grup_produk}, dikirim bersama daftar supaya layar dapat
+	 * MEMADAMKAN tombol yang sudah pasti ditolak.
+	 *
+	 * <p>Bukan gerbang: gerbang sebenarnya tetap {@link #bolehAksi(Tbmuser, String)} di
+	 * tiap metode. Layar ini sudah fail-closed pada VISIBILITAS menu, tetapi visibilitas
+	 * menu tidak mengatakan apa-apa tentang boleh-tidaknya menambah atau menghapus.</p>
+	 */
+	private static JSONObject hakAksesJson(Tbmuser tbmuser) throws Exception {
+		JSONObject j = new JSONObject();
+		j.put("create", bolehAksi(tbmuser, "create"));
+		j.put("update", bolehAksi(tbmuser, "update"));
+		j.put("delete", bolehAksi(tbmuser, "delete"));
+		return j;
+	}
+
 	/** Daftar grup + jumlah produk anggota. Param opsional: {@code cari} (ilike nama/kode),
 	 *  {@code hanya_aktif} (default true). */
 	public static void daftar(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
@@ -493,6 +509,11 @@ public final class GrupProdukApiHelper {
 		// kontrak & bentuk respons sama persis dgn daftar().
 		if ("grup_produk_daftar".equals(action) || "grup_produk_list".equals(action)) {
 			daftar(tbmuser, request, hasil);
+			// Hanya bila daftarnya sendiri berhasil: bila menunya tidak aktif, daftar()
+			// sudah menolak dan menempelkan hak di atas penolakan hanya membingungkan.
+			if (!hasil.has("hak") && "00".equals(hasil.optString("status", "00"))) {
+				hasil.put("hak", hakAksesJson(tbmuser));
+			}
 			return true;
 		}
 		if ("grup_produk_simpan".equals(action)) {

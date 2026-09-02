@@ -2030,10 +2030,26 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return semester;
 	}
 
+	/**
+	 * Menyetel semester tempuh.
+	 *
+	 * @param semester nomor semester tempuh mahasiswa
+	 */
 	public void setSemester(Integer semester) {
 		this.semester = semester;
 	}
 
+	/**
+	 * Mengembalikan tahun akademik pelaksanaan tugas akhir (mis. {@code "2025/2026"}).
+	 *
+	 * <p>Bila belum diisi, diisi dengan tahun akademik <b>yang sedang berjalan</b>
+	 * ({@code Common.getCurrentTahunAkademik()}) dan ditulis ke field. Ini berarti data lama yang
+	 * kolomnya kosong akan "menempel" ke periode saat baris itu pertama kali dibaca, bukan ke
+	 * periode sebenarnya. Blok yang mengambil tahun akademik dari
+	 * {@link #getDetailperkuliahan()} sengaja dinonaktifkan (dikomentari) di kode.</p>
+	 *
+	 * @return tahun akademik; tidak pernah {@code null}
+	 */
 	@Column(name = "tahun_akademik", nullable = true)
 	public String getTahunAkademik() {
 		if (tahunAkademik == null) {
@@ -2048,19 +2064,56 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return tahunAkademik;
 	}
 
+	/**
+	 * Menyetel tahun akademik pelaksanaan.
+	 *
+	 * @param tahunAkademik tahun akademik, mis. {@code "2025/2026"}
+	 */
 	public void setTahunAkademik(String tahunAkademik) {
 		this.tahunAkademik = tahunAkademik;
 	}
 
+	/**
+	 * Mengembalikan kata kunci naskah (dipakai pencarian repositori tugas akhir), sudah dipangkas
+	 * spasi tepinya.
+	 *
+	 * @return kata kunci; string kosong bila belum diisi, tidak pernah {@code null}
+	 */
 	@Column(columnDefinition = "text")
 	public String getKeyword() {
 		return keyword == null ? "" : keyword.trim();
 	}
 
+	/**
+	 * Menyetel kata kunci naskah.
+	 *
+	 * @param keyword kata kunci, biasanya dipisah koma
+	 */
 	public void setKeyword(String keyword) {
 		this.keyword = keyword;
 	}
 
+	/**
+	 * Menyimpulkan apakah mahasiswa <b>lulus</b> tugas akhir.
+	 *
+	 * <p>Kesimpulan diambil dari {@link #getNilaiHuruf()}: dianggap tidak lulus bila nilai huruf
+	 * kosong atau mengandung huruf {@code D}, {@code E}, atau {@code T} (tunda); selain itu
+	 * lulus. Kesimpulan ini hanya dibuat sekali — begitu field {@link #lulus} terisi (baik oleh
+	 * getter ini maupun oleh {@link #setLulus(Boolean)}), nilai itulah yang dipakai seterusnya
+	 * dan tidak dihitung ulang meski nilai berubah.</p>
+	 *
+	 * <p><b>Kuirk yang perlu diketahui (tidak diperbaiki):</b> {@link #getNilaiHuruf()} tidak
+	 * pernah mengembalikan {@code null} — bila nilai belum bisa ditentukan ia mengembalikan
+	 * {@code "-"}. String {@code "-"} tidak kosong dan tidak memuat D/E/T, sehingga <b>skripsi
+	 * yang sama sekali belum dinilai akan disimpulkan LULUS</b>. Konsekuensinya cabang
+	 * {@code if (nilaiHuruf == null) lulus = false;} di akhir method tidak pernah tercapai.</p>
+	 *
+	 * <p><b>Efek samping:</b> menulis field {@link #nilaiHuruf} dan {@link #lulus}, serta
+	 * seluruh efek samping {@link #getNilaiHuruf()}/{@link #getTotalNilai()}.</p>
+	 *
+	 * @return {@code true} bila dinyatakan lulus; tidak pernah {@code null}
+	 * @see #getNilaiHuruf()
+	 */
 	public Boolean getLulus() {
 		nilaiHuruf = getNilaiHuruf();
 		if (lulus == null && nilaiHuruf != null) {
@@ -2081,18 +2134,65 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		return lulus;
 	}
 
+	/**
+	 * Menyetel status kelulusan secara manual. Nilai non-{@code null} membuat
+	 * {@link #getLulus()} berhenti menyimpulkan sendiri dari nilai huruf.
+	 *
+	 * @param lulus {@code true} bila dinyatakan lulus
+	 */
 	public void setLulus(Boolean lulus) {
 		this.lulus = lulus;
 	}
 
+	/**
+	 * Mengembalikan bobot indeks prestasi tugas akhir. Nilai ini hanya disimpan dan dibaca modul
+	 * lain; class ini tidak pernah menghitungnya.
+	 *
+	 * @return bobot IP; {@code 0.0} bila belum diisi
+	 */
 	public Double getTotalIP() {
 		return totalIP == null ? 0.0 : totalIP;
 	}
 
+	/**
+	 * Menyetel bobot indeks prestasi tugas akhir.
+	 *
+	 * @param totalIP bobot IP
+	 */
 	public void setTotalIP(Double totalIP) {
 		this.totalIP = totalIP;
 	}
 
+	/**
+	 * Membangun ulang seluruh isi {@link #detailNilai} untuk satu dosen berdasarkan daftar
+	 * komponen penilaian yang <b>saat ini berlaku</b> pada {@link FormatNilaiSkripsi} skripsi ini.
+	 *
+	 * <p>Alurnya: {@link #refreshNilaiKeDefault(Dosen)} dipanggil lebih dulu (mengisi rincian dari
+	 * total nilai bila rincian masih kosong), lalu seluruh
+	 * {@link SkripsiPunyaKomponenPenilaianSkripsi} milik format nilai ini diambil — dibatasi pada
+	 * komponen tingkat atas ({@code parent} kosong), berbobot &gt; 0,01, dan berstatus pertemuan
+	 * aktif — dan untuk tiap komponen nilai lama serta bendera verifikasinya dibaca kembali,
+	 * kemudian ditulis ulang menjadi string CSV baru. Hasilnya menggantikan
+	 * {@link #detailNilai} <b>seluruhnya</b>, sehingga entri milik dosen lain yang sebelumnya ada
+	 * akan hilang.</p>
+	 *
+	 * <p><b>Temuan (tidak diperbaiki):</b></p>
+	 * <ul>
+	 * <li>Nilai lama dibaca dengan {@link #retreiveDetailNilai(KomponenPenilaianSkripsi, Dosen)}
+	 * (kunci = id {@code KomponenPenilaianSkripsi}), tetapi bendera verifikasinya dibaca dengan
+	 * {@link #retreiveDetailVerifikasiNilai(SkripsiPunyaKomponenPenilaianSkripsi, Dosen)} yang
+	 * membandingkan token kunci yang sama terhadap id
+	 * {@code SkripsiPunyaKomponenPenilaianSkripsi} — <b>dua ruang id yang berbeda</b>. Akibatnya
+	 * bendera verifikasi praktis selalu terbaca {@code false} dan hilang setiap kali method ini
+	 * dijalankan, kecuali kedua id kebetulan sama.</li>
+	 * <li>Method ini <b>tidak dipanggil dari mana pun</b> di pohon sumber saat ini (kode mati);
+	 * jalur yang hidup adalah {@link #hitungTotalNilai(Boolean, Dosen, List)}.</li>
+	 * </ul>
+	 *
+	 * @param session session Hibernate aktif yang dipakai untuk query komponen penilaian; tidak
+	 *                ditutup oleh method ini
+	 * @param dosen   dosen pemilik rincian nilai yang dibangun ulang; tidak boleh {@code null}
+	 */
 	@SuppressWarnings("unchecked")
 	public void reloadSkripsiPunyaKomponenPenilaianSkripsi(Session session, Dosen dosen) {
 

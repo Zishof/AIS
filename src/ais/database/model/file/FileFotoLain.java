@@ -868,6 +868,14 @@ public abstract class FileFotoLain extends FileFoto {
 	public static FileFotoLain createFileFotoLain(Tbmuser tbmuser, Session session, Class clazz, Boolean usingId,
 			Serializable ref, String jenis, FileFotoLain source, File file, String nama) throws Exception {
 
+		// Lapis kedua (chokepoint tunggal): apa pun pemanggilnya, hanya subkelas FileFotoLain
+		// yang boleh dikonstruksi. Diperiksa SEBELUM newInstance sehingga konstruktor kelas
+		// asing tidak pernah berjalan meski nama kelasnya lolos dari pemanggil. Lihat
+		// DoUpload.resolveKelasLampiran untuk lapis pertama pada input klien.
+		if (clazz == null || !FileFotoLain.class.isAssignableFrom(clazz)) {
+			throw new IllegalArgumentException("Kelas lampiran tidak sah: "
+					+ (clazz == null ? "null" : clazz.getName()));
+		}
 		FileFotoLain target = (FileFotoLain) clazz.newInstance();
 
 		if (file != null && file.exists()) {
