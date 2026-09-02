@@ -1,5 +1,64 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 23 — SELESAI 100% (3 Sep 2026)
+
+5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
+`-implicit:none` bersih, mirror `java/` diverifikasi `cmp` byte-identik, nol
+perubahan logika:
+
+- **`ais/database/model/TunggakanMahasiswa.java`** (r83458) — 197→854
+  baris, 100% (43 anggota). Fail-open instance ke-5 (gerbang H2H bank,
+  `dianggapLunas` tri-state + `OR isNull` meloloskan baris ber-tunggakan
+  besar). Inversi hak akses lagi: tombol hapus baris tunggakan SENGAJA
+  dikomentari cek DELETE-nya (`// delete = CommonPrivilages...`) sementara
+  checkbox "Lunas" tetap dijaga — kebalikan dari yang seharusnya
+  diproteksi lebih ketat. Konfirmasi `task_b1e610b6` mencakup entity ini.
+  Bug TRUNCATE CASCADE yang gagal ter-commit (kondisi ganda salah ketik).
+- **`ais/database/model/MatakuliahBerbayar.java`** (r83453) — 194→629
+  baris, 100% (45 anggota). Nama menyesatkan total: TIDAK ADA relasi ke
+  `Matakuliah` maupun kolom nominal biaya — bahkan Javadoc `Matakuliah.java`
+  sendiri keliru mendaftarkannya. Fitur yatim, salin-tempel dari
+  `KalenderAkademik` yang tak dituntaskan. Bug data-corruption di hulu:
+  kotak "Deskripsi" diisi dari `getNama()`, bukan `getDeskripsi()`.
+- **`ais/database/model/MenuMobile.java`** (r83454) — 193→626 baris, 100%
+  (44 anggota). Entity YATIM TOTAL — nol pembaca/penulis di seluruh
+  codebase, sisa desain 2009. Menu mobile Flutter sebenarnya dari
+  konfigurasi JSON kunci `menu_mobile` di tabel `konfigurasi` — cuma
+  tabrakan nama. Dikonfirmasi masuk radius `task_b1e610b6` sebagai contoh
+  "entity terpetakan tanpa pemilik" (risiko laten, bukan aktif).
+- **`ais/database/model/LogUserActifity.java`** (r83461) — 187→662 baris,
+  100% (24 method + 12 field). **Kluster kebocoran kredensial `LogLogin`
+  (sesi 10) TERKONFIRMASI BERULANG**: `CommonPrivilages.buildKeterangan`
+  menyalin SELURUH properti Hibernate entity sumber ke kolom log tanpa
+  daftar-hitam — untuk `Tbmuser`, ciphertext DES password (bisa dibalik,
+  kunci statis aplikasi) ikut tersalin setiap akun disimpan/diubah. Uji
+  eksploitasi bug substring-URL sesi 18 (contoh `log_user_actifity.zul`)
+  hasilnya NEGATIF — teruji langsung atas 3.857 nilai `nuiPage`, nol
+  kecocokan. Ditemukan layar dashboard log tanpa `checkPrevilages()` sama
+  sekali (hanya mengandalkan lapis menu) — masuk `task_44ea51dd`.
+- **`ais/database/model/RekonsiliasiHostToHost.java`** (r83456) — 186→716
+  baris, 100% (36 anggota). Entity yang mendasari layar rekonsiliasi H2H
+  sesi 18. **TEMUAN SISTEMIK BESAR — dieskalasi sebagai task BARU
+  `task_9b7ff647`**: `CommonPrivilages.doCheckSecurity()` yang dipanggil
+  di RATUSAN layar sebagai "pemeriksaan keamanan" ternyata hanya benar-
+  benar menegakkan pemeriksaan untuk 12 halaman hardcoded di whitelist
+  `MUST_CHECKED` — semua layar lain lolos tanpa diperiksa sama sekali,
+  meski tampak terjaga. Contoh konkret: layar ini bisa memicu DELETE SQL
+  native finansial tapi tidak ada di whitelist. Juga: jalur tanpa
+  autentikasi sama sekali via `ReconsilePembayaranHostToHost
+  SyncrhonizerProcessor` (proses terjadwal tiap 6 jam, cukup taruh CSV di
+  direktori konfigurasi) + `Class.forName` tanpa allow-list dari kolom
+  master (`namaKelas`) — rantai ke `task_b1e610b6`.
+
+**7 task eskalasi sekarang aktif** — bertambah `task_9b7ff647` (whitelist
+`MUST_CHECKED` tidak lengkap, temuan sistemik terbesar setelah
+`task_b1e610b6`). Kedua task ini saling melengkapi gambaran besar "kontrol
+akses AIS jauh lebih longgar dari yang terlihat" tapi akar penyebab beda
+(whitelist tak lengkap vs endpoint generik tanpa gerbang per-kelas) —
+JANGAN digabung.
+
+Total akumulasi 23 sesi: **293 file** dari 7.401 (~4,0%).
+
 ## Batch 22 — SELESAI 100% (3 Sep 2026)
 
 5 entity selesai didokumentasikan penuh (100% method/field), semua dikompilasi
