@@ -1,10 +1,163 @@
 # Progres Javadoc Menyeluruh
 
+## Batch "5 entity ujian/organisasi/konfigurasi" — SELESAI 100% (2 Sep 2026, dikonsolidasi orkestrator)
+
+Semua 5 file TUNTAS 100% method, dikompilasi, dikommit, di-mirror ke `java/`:
+- `Ujian.java` — 66/66 method. 607→1506 baris. r83178/83181. Memperjelas 3
+  lapis: `Ujian`=cetakan/master, `PertemuanPunyaUjian`=jadwal+durasi,
+  `HasilUjianMahasiswa`=hasil (brief awal keliru taruh jadwal/durasi di
+  `Ujian`, sudah dikoreksi). XSS tersimpan berhak-istimewa (dosen→mahasiswa)
+  di teks tata tertib — akar penyebab SAMA dengan filter lemah yang sudah
+  terdokumentasi di `GeneralValueObject`, bukan kerentanan baru terpisah.
+- `HasilUjianMahasiswa.java` — 77/77 method. r83184 (pesan lengkap, tidak
+  tersapu). 4 relasi peserta saling eksklusif (Mahasiswa/BiodataCalon
+  Mahasiswa/Siswa/CalonSiswa).
+- `Fakultas.java` — 57/57 method. 394→1192 baris. r83177/83180. Dirujuk ~97
+  entity, setara level `Jurusan`. **Risiko integritas multi-tenant**:
+  `getPerguruanTinggi()` menebak tenant dari konteks HTTP request — di jalur
+  batch/non-web (tanpa request) jatuh ke default statis, berpotensi salah
+  tenant.
+- `Konfigurasi.java` — 41/41 method. 408→1200 baris. r83183/83185.
+  **Dokumentasi mekanisme auto-seed PALING LENGKAP sejauh ini** (lihat
+  bagian khusus di bawah — juga sudah dipindahkan ke memory lintas-sesi).
+- `HistoryStatusMahasiswa.java` — 41/41 method. 525→1106 baris. r83176/83179.
+  `Mahasiswa` TERNYATA tidak punya properti status sendiri — file ini
+  SATU-SATUNYA sumber kebenaran status per semester, bukan sekadar "riwayat".
+
+### Mekanisme auto-seed `Common.getKonfigurasi` — referensi lengkap
+
+Logika ada di `ais/common/KonfigurasiManager.java:67`, entity `Konfigurasi`
+hanya wadahnya. 7 langkah: (1) kunci kosong → singleton `konfigurasiKosong`
+dibagi seluruh JVM, (2) cache MapDB dengan `catch(Throwable)` khusus store
+tertutup, (3) baca DB terisolasi `order by id desc limit 1` (kolom `nama`
+SENGAJA tidak unik — baris terbaru menang), (4) **seed**: kunci belum ada →
+buat baris baru berisi `defaultValue` hardcode dari kode PEMANGGIL, commit
+permanen ke produksi, (5) penanganan balapan lewat tabrakan PRIMARY KEY
+(bukan `nama`) + perbaikan sequence via `lock table`, (6) `finally` tutup
+sesi, (7) isi cache. **Race window TIDAK terkunci** antara baca(3) dan
+tulis(4) — baris duplikat senama masih mungkin terbentuk (tidak merusak,
+karena pembaca selalu ambil id terbesar). Kredensial default hardcode YANG
+SUDAH TER-SEED bertahan permanen di DB + Envers + backup; mengubah default
+di kode TIDAK mengubah baris lama. Cek keberadaan kunci TANPA memicu seed:
+`cariKonfigurasi(nama)`/`kumpulanNamaKonfigurasi()`. Getter `Konfigurasi`
+menulis balik ke field HANYA berlaku untuk instance *attached*
+(dari session Hibernate aktif) — instance hasil deserialisasi cache MapDB
+adalah *detached*, jadi gejala "kadang tersimpan kadang tidak" pada
+penulisan getter adalah hal yang diharapkan, bukan bug acak.
+
+**Total akumulasi 9 sesi kerja**: 218 (sesi 1-8) + 5 = **223 file** dari
+7.401 (~3,0%).
+
 **CATATAN UKURAN FILE**: tracker ini sudah >2400 baris. Pertimbangkan minta
 orkestrator/pengguna memecahnya jadi beberapa file per-topik (mis.
 `PROGRESS-action-helper.md`, `PROGRESS-database-model.md`,
 `PROGRESS-catatan-sesi.md`) di sesi mendatang bila makin sulit dikelola —
 belum dilakukan sesi ini, hanya dicatat sebagai pertimbangan.
+
+## `ais/database/model/HasilUjianMahasiswa.java` — SELESAI 100% (2 Sep 2026)
+
+Entity **hasil ujian per peserta** (tabel `public.hasil_ujian_mahasiswa`,
+`@Audited`, `dynamicInsert/dynamicUpdate`) — induk dari
+`HasilUjianMahasiswaDetail` (satu baris per jawaban soal). 1184 → 2455 baris,
+**77/77 method + 2 konstruktor + seluruh field ber-Javadoc (100%)**. Revisi
+**r83184**, mirror `java/` diverifikasi byte-identik (`cmp`). Kompilasi
+`javac 1.7 -implicit:none` lulus; kode tidak diubah sama sekali.
+
+**Struktur**: `extends GeneralValueObject` langsung. Empat relasi peserta yang
+saling eksklusif dalam satu tabel — `Mahasiswa` / `BiodataCalonMahasiswa` (PMB)
+/ `Siswa` / `CalonSiswa` (PPDB) — tanpa constraint DB yang memaksa "tepat
+satu"; itu murni konvensi kode, dan urutan pemeriksaannya (mhs → cal_mhs →
+siswa → cal_siswa) menentukan di `genKey`. Relasi ke `PertemuanPunyaUjian`
+wajib dan menjadi sumber hampir semua parameter perhitungan. Relasi ke
+`HasilUjianMahasiswaDetail` **sengaja tidak dipetakan** sebagai koleksi
+Hibernate — diambil manual lewat `ambilDataAsli()` supaya bisa di-cache.
+
+**Method berlogika nyata** (bukan sekadar getter/setter):
+`getNilai()` (koreksi otomatis pilihan ganda, 2 penyebut berjenjang + clamp
+100), `getLulus()`, `getJumlahSoal()`, `getLamaPengerjaan()`,
+`getSisaWaktuPengerjaan()`, `getSelesaiPada()`, `getKeyhasil()`, `reset()`,
+`ambilDataAsli()` (mesin cache statik + session terdedikasi),
+`ambilHasilUjianMahasiswaDetail(boolean,int,Label,MyArrayList)` (deduplikasi
+jawaban ganda — method paling berlogika di file),
+`ambilUjianPunyaSoals()` (menyusun ulang lembar ujian untuk "lanjutkan"),
+`genKey()`, `ambilByKey()` (get-or-create), `tampilkanUjianKembali()`.
+
+**Verifikasi pola berulang (sesuai instruksi)**
+- **Getter yang menulis balik ke field/DB — ADA, banyak.** `getNilai`,
+  `getLulus`, `getJumlahSoal`, `getLamaPengerjaan`, `getSisaWaktuPengerjaan`,
+  `getSelesaiPada`, `getKeyhasil`, `getJawabanBenar`, plus 5 getter relasi
+  (lewat `check()`). Karena kelas ini memakai **akses properti** (anotasi di
+  getter), Hibernate memanggilnya saat dirty-check/flush → hasil hitungan ikut
+  **tersimpan ke DB** walau tak ada setter yang dipanggil aplikasi. Mengubah
+  rumus di getter = mengubah data tersimpan.
+- **Getter yang menutup sesi Hibernate — TIDAK ADA di getter.** Yang menutup
+  sesi adalah `ambilDataAsli()` (private; sengaja `openSession()` terdedikasi
+  lalu `clear`→`disconnect`→`close` di `finally`, justru supaya TIDAK menutup
+  sesi pemanggil) dan `ambilByKey()` (statik; menutup `currentNativeSession()`
+  + `HibernateUtil.closeSession()` — pemanggil `HasilUjianMahasiswaHelper`
+  memang sengaja membuang sesinya dulu sebelum memanggil).
+
+**Temuan/kuirk (dicatat, TIDAK diperbaiki)**
+1. **`ambilByKey` menulis ke DB meski namanya "ambil"** — get-or-create: buat
+   + `save` baris baru, atau `update` untuk mengisi `keyhasil` baris warisan.
+   Transaksi di-`commit` tanpa `rollback` di jalur gagal; `masukkanDataLangsung`
+   dipanggil di luar `try` sehingga bisa menerima argumen `null` saat exception.
+2. **`getKeyhasil()` menghitung ulang & menimpa kolom `unique`** — mengubah
+   relasi peserta/sesi pada baris tersimpan mengubah kunci uniknya diam-diam;
+   bila bentrok, `UPDATE` gagal di tempat yang tampak tak berhubungan. Bila
+   keempat peserta kosong, `genKey` mengembalikan `null` → kunci tersimpan ikut
+   terhapus.
+3. **`getSisaWaktuPengerjaan()` menimpa kolom DB dengan isi cache berkas**
+   (`retreive()`), akurat saat ujian berjalan tapi basi setelahnya. Ini akar
+   dua insiden lama ("waktu selesai di masa depan", "lama pengerjaan ngawur")
+   yang sudah dijinakkan penjaga `if (selesaiPada != null)` /
+   `if (lamaPengerjaan != null)` — penjaga itu **jangan dilepas**. Normalisasi
+   jam > 22 → `00:00:01` menangani pengurangan waktu yang membalik lewat
+   tengah malam.
+4. **Kode mati** (dipastikan lewat pencarian seluruh repo): `ambilJumlahTerjawab`,
+   `ambilHasilUjianMahasiswaDetail(Session, Collection, BankSoalDetail)`, dan
+   `ambilHasilUjianMahasiswaDetail(int, MyArrayList, BankSoal)`.
+5. **Parameter tak terpakai**: `session` pada overload `(Session, Collection,
+   BankSoalDetail)`; `label` pada `ambilHasilUjianMahasiswaDetail(boolean, int,
+   Label, MyArrayList)` (pemanggil tetap mengoper `new Label()` sebagai pengisi).
+6. **`ambilUjianPunyaSoals` lintasan pertama tidak cek duplikat** (hanya
+   lintasan kedua yang cek) → id `UjianPunyaSoal` bisa masuk dua kali bila
+   peserta punya >1 baris jawaban untuk soal yang sama. Persentase progres
+   memakai penyebut jumlah *detail*, bukan `maxSize`, jadi bisa tak sampai 100%.
+7. **`setMulaiPada` sekali-tulis** — argumen diabaikan bila field sudah terisi
+   (melindungi waktu mulai asli saat peserta keluar-masuk). Akibatnya waktu
+   mulai tidak bisa dikoreksi/dikosongkan lewat setter; hanya `reset()` yang
+   bisa, karena menyentuh field langsung.
+8. **`getJumlahSoal()` membuat kolomnya jadi bayangan** — selalu ditimpa
+   `pertemuanPunyaUjian.getJmlDitampilkan()`, jadi mengubah konfigurasi jumlah
+   soal ikut mengubah angka historis peserta lama.
+9. **`ambilBankSoalIdTerjawabDinilai` memakai ambang `> 0.01`** → soal esai yang
+   sudah dikoreksi tapi bernilai **nol** tampak "belum dinilai" di filter
+   `KoreksiHasilUjian`. Method ini juga satu-satunya yang memanggil
+   `getBankSoal().getId()` tanpa cek null (aman dalam praktik karena
+   `ambilDataAsli` sudah menyaring `isNotNull("bankSoal")`).
+10. **`reset()` tidak menghapus jawaban** (`HasilUjianMahasiswaDetail`) — itu
+    tanggung jawab pemanggil; ia hanya mengosongkan field + menulis
+    `put("1","index")` (posisi soal kembali ke awal).
+11. **Idiom "buang referensi" yang tak berefek**: `terjawab = null`,
+    `hasilUjianMahasiswaDetailsa = null` atas *parameter* — muncul berulang,
+    tidak berpengaruh bagi pemanggil.
+12. `toString()` mahal: memicu resolusi 3 relasi lazy + menulis balik ke field,
+    dan menampilkan field `nilai` mentah (bukan `getNilai()`).
+
+**Keamanan**: tidak ada kerentanan yang bisa dieksploitasi hari ini.
+`Restrictions.sqlRestriction("true")` adalah literal konstan (bukan gabungan
+input) → **bukan** SQL injection. Satu catatan pengerasan defensif:
+`tampilkanUjianKembali(String)` **tidak memverifikasi kepemilikan** — id apa
+pun yang dioper akan dimuat & ditampilkan. Aman sekarang karena satu-satunya
+pemanggil (`MainAction`/`MainAction2`) mengambil id dari cache berkas milik
+pengguna yang sedang login, bukan dari input HTTP; tapi bila kelak ada
+pemanggil yang mengambil id dari parameter permintaan, ini menjadi IDOR.
+Sudah dicatat di Javadoc method tersebut.
+
+**Konfirmasi ulang fakta arsitektur**: field `id`/`oleh`/`olehId`/
+`tanggal_dirubah` dideklarasikan ulang di file ini karena `GeneralValueObject`
+bukan `@Entity`/`@MappedSuperclass` — **keharusan teknis**, bukan duplikasi.
 
 ## `ais/database/model/Konfigurasi.java` — SELESAI 100% (2 Sep 2026)
 
