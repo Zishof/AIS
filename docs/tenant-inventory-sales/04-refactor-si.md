@@ -1500,7 +1500,7 @@ sebab sisi kasnya sudah dibuka v12.
 
 ## Memakai nota bawaan v13: `spjNotaAssign` dan `tripNotaResult`
 
-Trip naik ke **14 dari 19 aksi**. Dua aksi yang murni tentang tabel baru ini dipindahkan; tiga
+Trip naik ke **13 dari 19 aksi**. Dua aksi yang murni tentang tabel baru ini dipindahkan; tiga
 aksi uang yang juga memakainya (`tripClose`, `collectionCreate`, `collectionReverse`) menyusul.
 
 ### `spjNotaAssign`: penggantian menyeluruh, dan potret yang harus benar
@@ -1534,13 +1534,16 @@ berstatus ASSIGNED, hasil kunjungan tersimpan sebagai PROMISE_TO_PAY dengan janj
 penagihan 300.000 di skenario itu sudah dibalik. Tidak ada kolom yang perlu diingat untuk
 diturunkan.
 
-### Sisa Trip: 5 dari 19 aksi masih tertutup
+### Sisa Trip: 6 dari 19 aksi masih tertutup
 
 | penghalang | aksi |
 |---|---|
 | master kategori biaya | `expenseCategoryList`, `expenseCategorySave`, `expenseCreate` |
-| tabel pembelian dalam trip | `tripPurchaseLink`, sisi pembelian `tripDetail` |
+| tabel pembelian dalam trip | `tripPurchaseLink`, dan `tripDetail` yang ikut membaca pembelian trip |
 | (v13 tersedia, tinggal ditulis) | `tripClose` |
+
+Enam aksi, bukan lima: `tripDetail` tertutup **utuh**, bukan sebagian, sebab ia merangkum biaya,
+kas, dan pembelian sekaligus — dan pembeliannya belum punya tabel.
 
 Dan pada helper Piutang, `collectionCreate` serta `collectionReverse` kini **tidak lagi terhalang
 apa pun** — keduanya tinggal ditulis.

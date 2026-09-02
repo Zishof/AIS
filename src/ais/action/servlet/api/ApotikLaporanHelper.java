@@ -109,6 +109,22 @@ public final class ApotikLaporanHelper {
 			rs.close();
 			ps.close();
 
+			// IR-11: uang tunai yang benar-benar diterima dan dikembalikan.
+			// Kas laci tetap dihitung dari `nominal` (diterima dikurangi
+			// kembalian = nominal), jadi dua angka ini bukan pengganti
+			// melainkan alat bukti: kembalian yang tidak wajar terlihat di
+			// sini tanpa harus membuka satu per satu transaksinya.
+			java.sql.PreparedStatement psTunai = session.connection().prepareStatement(
+					"SELECT COALESCE(SUM(b.tunai),0), COALESCE(SUM(b.kembalian),0) "
+							+ "FROM sirs.apotik_pembayaran_transaksi b " + rentang);
+			psTunai.setString(1, p[0]);
+			psTunai.setString(2, p[1]);
+			java.sql.ResultSet rtk = psTunai.executeQuery();
+			double uangDiterima = 0, uangKembalian = 0;
+			if (rtk.next()) { uangDiterima = rtk.getDouble(1); uangKembalian = rtk.getDouble(2); }
+			rtk.close();
+			psTunai.close();
+
 			// Nilai penjualan pada periode yang sama, dari ledger yang sama dengan
 			// apotik_laporan_penjualan -- pembanding untuk melihat penjualan yang
 			// metodenya tidak tercatat.
@@ -133,6 +149,8 @@ public final class ApotikLaporanHelper {
 			hasil.put("totalNonTunai", totalNonTunai);
 			hasil.put("totalPembayaran", totalTunai + totalNonTunai);
 			hasil.put("jumlahTransaksi", jumlahTransaksi);
+			hasil.put("totalUangDiterima", uangDiterima);
+			hasil.put("totalKembalian", uangKembalian);
 			hasil.put("penjualanLedger", penjualan);
 			hasil.put("selisihTanpaMetode", penjualan - (totalTunai + totalNonTunai));
 		} finally {

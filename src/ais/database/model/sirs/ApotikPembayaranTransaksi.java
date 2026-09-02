@@ -30,8 +30,19 @@ import ais.database.model.koperasi.CaraPembayaranKoperasi;
  * Tabel BARU dibuat otomatis oleh {@code hbm2ddl=update} berikut tabel
  * auditnya, sehingga tidak ada migrasi manual sama sekali.</p>
  *
- * <p>Satu transaksi boleh punya lebih dari satu baris (rintisan split payment);
- * penjumlahan nominal divalidasi pemanggil, bukan entity ini.</p>
+ * <p>Satu transaksi boleh punya lebih dari satu baris; sejak IR-11 hal itu
+ * benar-benar dipakai untuk pembayaran terpisah (mis. sebagian tunai,
+ * sebagian QRIS). Penjumlahan nominal divalidasi pemanggil ({@code bayar}),
+ * bukan entity ini.</p>
+ *
+ * <p><b>PERHATIAN untuk perubahan berikutnya.</b> Kalimat di atas tentang
+ * "tidak ada migrasi manual" hanya berlaku saat tabel ini BELUM ada di
+ * produksi. Sejak ia terbentuk, {@code hbm2ddl=update} menambah kolom baru ke
+ * tabel utama tetapi TIDAK ke tabel {@code __audit}-nya, sehingga INSERT audit
+ * gagal dan seluruh transaksi ter-rollback. Kolom {@code tunai}/{@code kembalian}
+ * (IR-11) karena itu disertai
+ * {@code webapp/sql/migrasi_apotik_ir11_pembayaran.sql} yang WAJIB dijalankan
+ * sebelum restart.</p>
  */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
@@ -48,6 +59,18 @@ public class ApotikPembayaranTransaksi extends GeneralValueObject {
 	/** Salinan nama metode saat transaksi -- master boleh berubah/dinonaktifkan. */
 	private String namaCaraBayar;
 	private Double nominal;
+
+	/**
+	 * Uang tunai yang DITERIMA kasir dan kembalian yang diberikan (IR-11).
+	 *
+	 * <p>Keduanya hanya bermakna untuk metode yang memberi kembalian. Sebelum
+	 * kolom ini ada, angka tersebut hanya hidup di layar kasir dan hilang
+	 * begitu transaksi selesai -- akibatnya rekonsiliasi laci tidak dapat
+	 * membedakan "kembalian belum diberikan" dari "uang kurang". Nominal tetap
+	 * jumlah yang DIBUKUKAN; tunai/kembalian adalah catatan penyerahan uang.</p>
+	 */
+	private Double tunai;
+	private Double kembalian;
 	private String referensi;
 	private Date waktu;
 	private String oleh;
@@ -89,6 +112,14 @@ public class ApotikPembayaranTransaksi extends GeneralValueObject {
 	public void setNominal(Double nominal) { this.nominal = nominal; }
 
 	/** Nomor referensi kanal (mis. nomor approval EDC / QRIS) bila ada. */
+	@Column(name = "tunai")
+	public Double getTunai() { return tunai; }
+	public void setTunai(Double tunai) { this.tunai = tunai; }
+
+	@Column(name = "kembalian")
+	public Double getKembalian() { return kembalian; }
+	public void setKembalian(Double kembalian) { this.kembalian = kembalian; }
+
 	@Column(name = "referensi", length = 160)
 	public String getReferensi() { return referensi; }
 	public void setReferensi(String referensi) { this.referensi = referensi; }

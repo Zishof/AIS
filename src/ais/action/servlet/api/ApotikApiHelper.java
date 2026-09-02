@@ -775,6 +775,51 @@ public final class ApotikApiHelper {
 				}
 			}
 
+			// IR-11: pembayaran TERPISAH (split). Bila klien mengirim larik
+			// "pembayaran", ia menang atas cara_bayar_id tunggal di atas.
+			// Klien baru mengirim KEDUANYA supaya server lama tetap membukukan
+			// metode pertama alih-alih kehilangan jejak metode sama sekali.
+			JSONArray pembayaranArr = request != null && !request.isNull("pembayaran")
+					? request.optJSONArray("pembayaran") : null;
+			java.util.List<ais.database.model.koperasi.CaraPembayaranKoperasi> bayarCara =
+					new java.util.ArrayList<ais.database.model.koperasi.CaraPembayaranKoperasi>();
+			java.util.List<Double> bayarNominal = new java.util.ArrayList<Double>();
+			java.util.List<Double> bayarTunai = new java.util.ArrayList<Double>();
+			java.util.List<Double> bayarKembalian = new java.util.ArrayList<Double>();
+			java.util.List<String> bayarReferensi = new java.util.ArrayList<String>();
+			if (pembayaranArr != null && pembayaranArr.length() > 0) {
+				for (int i = 0; i < pembayaranArr.length(); i++) {
+					JSONObject b = pembayaranArr.getJSONObject(i);
+					Long cbId = optLong(b, "cara_bayar_id");
+					if (cbId == null) {
+						tolak(hasil, "Baris pembayaran ke-" + (i + 1)
+								+ " tidak menyebut metode pembayaran.");
+						return;
+					}
+					ais.database.model.koperasi.CaraPembayaranKoperasi cb =
+							(ais.database.model.koperasi.CaraPembayaranKoperasi) session.get(
+									ais.database.model.koperasi.CaraPembayaranKoperasi.class, cbId);
+					if (cb == null || !Boolean.TRUE.equals(cb.getAktif())) {
+						tolak(hasil, "Metode pembayaran pada baris ke-" + (i + 1)
+								+ " tidak dikenal atau sudah nonaktif.");
+						return;
+					}
+					double nominalBaris = b.optDouble("nominal", 0);
+					if (nominalBaris <= 0) {
+						tolak(hasil, "Nominal pembayaran pada baris ke-" + (i + 1)
+								+ " harus lebih dari 0.");
+						return;
+					}
+					bayarCara.add(cb);
+					bayarNominal.add(Double.valueOf(nominalBaris));
+					bayarTunai.add(b.isNull("tunai") ? null
+							: Double.valueOf(b.optDouble("tunai", 0)));
+					bayarKembalian.add(b.isNull("kembalian") ? null
+							: Double.valueOf(b.optDouble("kembalian", 0)));
+					bayarReferensi.add(b.optString("referensi", "").trim());
+				}
+			}
+
 			session.save(trx);
 
 			double total = 0;
@@ -849,27 +894,79 @@ public final class ApotikApiHelper {
 					session.save(log);
 				}
 			}
-			// IR-07: catat metode pembayaran DI DALAM transaksi yang sama supaya
+			// IR-07/IR-11: catat pembayaran DI DALAM transaksi yang sama supaya
 			// tidak pernah ada transaksi tanpa jejak metode saat metode dikirim.
-			if (caraBayar != null) {
+			JSONArray metodeDipakai = new JSONArray();
+			StringBuilder namaGabung = new StringBuilder();
+			if (!bayarCara.isEmpty()) {
+				// Jumlah seluruh baris WAJIB sama dengan total. Tanpa pagar ini
+				// pembayaran terpisah bisa membukukan penjualan yang uangnya
+				// tidak pernah lengkap -- dan selisihnya baru ketahuan saat
+				// tutup kas, ketika transaksinya sudah tidak dapat ditelusuri.
+				double jumlahBayar = 0;
+				for (int i = 0; i < bayarNominal.size(); i++) {
+					jumlahBayar += bayarNominal.get(i).doubleValue();
+				}
+				if (Math.abs(jumlahBayar - total) > 0.5) {
+					tolak(hasil, "Jumlah pembayaran (Rp " + Math.round(jumlahBayar)
+							+ ") tidak sama dengan total transaksi (Rp " + Math.round(total)
+							+ "). Selisih Rp " + Math.round(Math.abs(jumlahBayar - total)) + ".");
+					return;
+				}
+				for (int i = 0; i < bayarCara.size(); i++) {
+					ais.database.model.koperasi.CaraPembayaranKoperasi cb = bayarCara.get(i);
+					ApotikPembayaranTransaksi bayarRow = new ApotikPembayaranTransaksi();
+					bayarRow.setTransaksi(trx);
+					bayarRow.setCaraBayar(cb);
+					bayarRow.setNamaCaraBayar(str(cb.getNama()));
+					bayarRow.setNominal(bayarNominal.get(i));
+					bayarRow.setTunai(bayarTunai.get(i));
+					bayarRow.setKembalian(bayarKembalian.get(i));
+					bayarRow.setReferensi(bayarReferensi.get(i));
+					bayarRow.setWaktu(new Date());
+					bayarRow.setOleh(tbmuser.getUserId());
+					bayarRow.setOlehId(tbmuser.getUserId());
+					session.save(bayarRow);
+
+					JSONObject m = new JSONObject();
+					m.put("nama", str(cb.getNama()));
+					m.put("nominal", bayarNominal.get(i).doubleValue());
+					metodeDipakai.put(m);
+					if (namaGabung.length() > 0) namaGabung.append(" + ");
+					namaGabung.append(str(cb.getNama()));
+				}
+			} else if (caraBayar != null) {
 				ApotikPembayaranTransaksi bayarRow = new ApotikPembayaranTransaksi();
 				bayarRow.setTransaksi(trx);
 				bayarRow.setCaraBayar(caraBayar);
 				bayarRow.setNamaCaraBayar(str(caraBayar.getNama()));
 				bayarRow.setNominal(Double.valueOf(total));
+				if (request != null && !request.isNull("tunai")) {
+					bayarRow.setTunai(Double.valueOf(request.optDouble("tunai", 0)));
+				}
+				if (request != null && !request.isNull("kembalian")) {
+					bayarRow.setKembalian(Double.valueOf(request.optDouble("kembalian", 0)));
+				}
 				bayarRow.setReferensi(request == null ? null
 						: request.optString("referensi_bayar", "").trim());
 				bayarRow.setWaktu(new Date());
 				bayarRow.setOleh(tbmuser.getUserId());
 				bayarRow.setOlehId(tbmuser.getUserId());
 				session.save(bayarRow);
+
+				JSONObject m = new JSONObject();
+				m.put("nama", str(caraBayar.getNama()));
+				m.put("nominal", total);
+				metodeDipakai.put(m);
+				namaGabung.append(str(caraBayar.getNama()));
 			}
 			tx.commit();
 			hasil.put("status", "00");
 			hasil.put("id", trx.getId());
 			hasil.put("kode", str(trx.getKode()));
 			hasil.put("total", total);
-			hasil.put("caraBayar", caraBayar == null ? "" : str(caraBayar.getNama()));
+			hasil.put("caraBayar", namaGabung.toString());
+			hasil.put("pembayaran", metodeDipakai);
 		} catch (Exception e) {
 			try { if (tx != null && tx.isActive()) tx.rollback(); } catch (Exception ignore) { }
 			ais.common.ErrorAuditUtil.record(e, "ApotikApiHelper.bayar");

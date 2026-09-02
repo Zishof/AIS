@@ -56,6 +56,28 @@ $antj = @(Get-ChildItem "$Ant\lib\*.jar" -EA SilentlyContinue | ForEach-Object {
 if ($tom.Count -lt 20 -or $antj.Count -lt 1) { 'classpath Tomcat/Ant tidak lengkap.'; exit 1 }
 
 "pohon kelas   : $jml kelas"
+
+# Kesegaran pohon kelas diperiksa, bukan diandaikan. Repositori ini disunting
+# beberapa sesi sekaligus: pada 2026-09-02 dua kelas ditulis SATU MENIT sesudah
+# pohonnya selesai dibangun, dan gerbang ini lalu melaporkan keduanya "tidak
+# ditemukan" -- hantu. Yang berbahaya bukan galat palsunya, melainkan godaan
+# untuk "memperbaiki" kode yang sebenarnya benar agar cocok dgn pohon usang.
+$sumber = 'C:\opt\AIS\ais\src\main\java'
+$acuan = (Get-ChildItem $Kelas -Recurse -Filter *.class -EA SilentlyContinue |
+          Sort-Object LastWriteTime -Descending | Select-Object -First 1).LastWriteTime
+if ($acuan) {
+    $lebihBaru = @(Get-ChildItem $sumber -Recurse -Filter *.java -EA SilentlyContinue |
+                   Where-Object { $_.LastWriteTime -gt $acuan })
+    if ($lebihBaru.Count -gt 0) {
+        ''
+        "PERINGATAN: $($lebihBaru.Count) berkas .java lebih baru daripada pohon kelas."
+        '  Galat "cannot find symbol" atas kelas/metode BARU kemungkinan hantu, bukan cacat.'
+        '  Bangun ulang dgn alat/kompilasi-penuh.sh sebelum mempercayai daftarnya.'
+        ($lebihBaru | Sort-Object LastWriteTime -Descending | Select-Object -First 3 |
+            ForEach-Object { '    ' + $_.Name + '  ' + $_.LastWriteTime.ToString('HH:mm:ss') })
+        ''
+    }
+}
 '--- 1/2 menerjemahkan JSP'
 & java -Xmx2g -cp (($tom + $antj) -join ';') org.apache.jasper.JspC `
       -uriroot $Webapp -d "$kerja\gen" -webapp $Webapp *> "$kerja\terjemah.log"

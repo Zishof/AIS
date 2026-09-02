@@ -812,6 +812,20 @@ public class DaftarPengajuanTransfer extends DataSop {
 		closeNativeSessionSafely(session);
 	}
 
+	/**
+	 * Mendaftarkan <b>penggantian (pengisian ulang) kas kecil</b> ke kolam antrean pembayaran.
+	 *
+	 * <p>Mengikuti resep {@code simpanXxx} standar, dengan <b>satu gerbang tambahan</b>: bila
+	 * kas kecil yang bersangkutan ditandai {@code merupakanPenutupanKasKecil}, method berhenti
+	 * tanpa membuat baris DPT. Alasannya, penutupan kas kecil adalah pengembalian dana
+	 * <i>ke</i> lembaga, bukan pengeluaran <i>dari</i> lembaga — jadi tidak ada yang perlu
+	 * ditransfer.</p>
+	 *
+	 * @param penggantianKasKecil dokumen penggantian kas kecil; diabaikan bila sudah punya
+	 *                            baris DPT atau bila kas kecilnya merupakan penutupan
+	 * @see #simpanPembayaranDpMasterAssetDetail(PembayaranDpMasterAssetDetail) untuk penjelasan
+	 *      lengkap resep {@code simpanXxx}
+	 */
 	public static void simpanPenggantianKasKecil(PenggantianKasKecil penggantianKasKecil) {
 
 		if (penggantianKasKecil != null   && penggantianKasKecil.getDaftarPengajuanTransfer() != null) {
@@ -848,6 +862,17 @@ public class DaftarPengajuanTransfer extends DataSop {
 		closeNativeSessionSafely(session);
 	}
 
+	/**
+	 * Mendaftarkan pengajuan <b>kas besar</b> ke kolam antrean pembayaran.
+	 *
+	 * <p>Resep {@code simpanXxx} standar tanpa gerbang tambahan; nama baris disusun sebagai
+	 * "Pembayaran kas besar &lt;nama kas besar&gt;".</p>
+	 *
+	 * @param kasBesar dokumen kas besar yang hendak diantrekan; diabaikan bila sudah punya
+	 *                 baris DPT
+	 * @see #simpanPembayaranDpMasterAssetDetail(PembayaranDpMasterAssetDetail) untuk penjelasan
+	 *      lengkap resep {@code simpanXxx}
+	 */
 	public static void simpanKasBesar(KasBesar kasBesar) {
 
 		if (kasBesar != null && kasBesar.getDaftarPengajuanTransfer() != null) {
@@ -879,6 +904,29 @@ public class DaftarPengajuanTransfer extends DataSop {
 		closeNativeSessionSafely(session);
 	}
 
+	/**
+	 * Mendaftarkan <b>dana talangan</b> (pinjaman sementara atas sebuah uang muka) ke kolam
+	 * antrean pembayaran. Nama baris memuat nama dana talangan dan nama workspace/kegiatan
+	 * uang muka induknya bila ada.
+	 *
+	 * <p><b>Menyimpang dari resep standar dalam satu hal:</b> tautan balik
+	 * {@code danaTalangan.setDaftarPengajuanTransfer(...)} dipasang <b>sebelum</b> baris DPT
+	 * disimpan, dan setelah itu <b>hanya baris DPT</b> yang di-{@code saveOrUpdate}
+	 * (satu transaksi, bukan dua). Dokumen {@code DanaTalangan} sendiri tidak pernah disimpan
+	 * eksplisit di sini, jadi tautan baliknya baru bertahan bila object itu kebetulan masih
+	 * <i>attached</i> pada session lain milik pemanggil dan ikut ter-flush. Bila tidak,
+	 * tautan balik hilang — namun pemanggilan berikutnya masih menemukan baris DPT lama lewat
+	 * langkah "cari-atau-buat", sehingga tidak menghasilkan baris ganda.</p>
+	 *
+	 * <p><i>Kuirk:</i> penyusunan nama memanggil {@code danaTalangan.getUangMuka()} tanpa
+	 * pemeriksaan {@code null}; dana talangan tanpa uang muka induk akan memicu
+	 * {@code NullPointerException}.</p>
+	 *
+	 * @param danaTalangan dokumen dana talangan yang hendak diantrekan; diabaikan bila sudah
+	 *                     punya baris DPT
+	 * @see #simpanPembayaranDpMasterAssetDetail(PembayaranDpMasterAssetDetail) untuk penjelasan
+	 *      lengkap resep {@code simpanXxx}
+	 */
 	public static void simpanDanaTalangan(DanaTalangan danaTalangan) {
 
 		if (danaTalangan != null && danaTalangan.getDaftarPengajuanTransfer() != null) {
@@ -908,6 +956,26 @@ public class DaftarPengajuanTransfer extends DataSop {
 		closeNativeSessionSafely(session);
 	}
 
+	/**
+	 * Mendaftarkan <b>setoran PPh</b> ke kolam antrean pembayaran. Baris hasilnya adalah
+	 * pasangan dari baris pembayaran vendor: vendor menerima nominal <i>netto</i>, sedangkan
+	 * pajak yang dipotong disetorkan lewat baris tersendiri ini, sehingga berlaku
+	 * <code>netto(vendor) + Σ(baris pajak) = bruto</code>.
+	 *
+	 * <p>Resep {@code simpanXxx} standar, dengan <b>pengamanan transaksi tambahan</b>:
+	 * {@code Common.refreshSaveOrUpdate} dapat melakukan <i>rollback</i> sendiri saat gagal
+	 * (mis. pelanggaran constraint atau prosedur pemulihan). Bila itu terjadi, memanggil
+	 * {@code commit()} tanpa syarat akan melempar "Transaction not successfully started".
+	 * Karena itu kedua {@code commit()} di sini dibungkus pemeriksaan
+	 * {@code getTransaction().isActive()} — pola yang <b>tidak</b> dipakai saudara-saudaranya
+	 * dan sebaiknya ditiru bila kelak menemukan gejala serupa di method lain.</p>
+	 *
+	 * @param pajak entitas pajak (PPh) yang hendak diantrekan; diabaikan bila sudah punya
+	 *              baris DPT
+	 * @see #hitungTotalPphSaldoAwal(SaldoAwalMasterAsset)
+	 * @see #simpanPembayaranDpMasterAssetDetail(PembayaranDpMasterAssetDetail) untuk penjelasan
+	 *      lengkap resep {@code simpanXxx}
+	 */
 	public static void simpanPajak(Pajak pajak) {
 
 		if (pajak != null && pajak.getDaftarPengajuanTransfer() != null) {
