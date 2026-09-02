@@ -53,6 +53,14 @@ public final class NewUiKrsPaketSelfTest {
         periksa(!NewUiKrsPaketController.mengubah("meta"),
                 "meta tidak boleh digolongkan mengubah data");
 
+        // Evaluasi gerbang hanya membaca keadaan; menggolongkannya sebagai
+        // pengubah akan menuntut izin Update untuk sekadar melihat mengapa
+        // seseorang belum boleh mengambil KRS.
+        periksa(NewUiKrsPaketController.aksiDikenal("options"),
+                "options harus dikenal sebagai evaluasi gerbang");
+        periksa(!NewUiKrsPaketController.mengubah("options"),
+                "options hanya membaca, jadi tidak boleh menuntut POST + CSRF");
+
         // Kata kerja sendiri akan ditolak NewUiRouteGuard yang fail-closed.
         periksa(!NewUiKrsPaketController.aksiDikenal("segarkan"),
                 "kata kerja sendiri tidak dikenal penjaga; pakai 'update'");

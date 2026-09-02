@@ -135,3 +135,28 @@ perlu dipastikan ada yang bisa melakukannya.
 klien menempel dinamis (dok. 85), dan sekarang server-menuntut→klien-tak-kirim.
 Yang keempat ini paling sulit diukur karena "klien" ternyata mencakup callback
 bank dan server itu sendiri.
+
+## 7. Koreksi atas paragraf 5: `kasir_screen` tidak pernah dapat menabraknya
+
+Paragraf 5 menyebut dua layar yang "masih menampilkan penolakan tanpa menawarkan
+persetujuan". Untuk `kasir_screen.dart` itu **salah**.
+
+Tambah-produk-cepat dari Kasir mengirim harga modal yang dipatok nol:
+
+```dart
+'harga_beli': 0,
+```
+
+Gerbangnya berbunyi `hargaModalFinal > hargaJualFinal * 10.0`. Dengan harga modal
+nol, syarat itu tidak pernah dapat terpenuhi. Layar itu tidak menampilkan
+penolakan apa pun — ia tidak dapat memicunya.
+
+Keduanya saya kelompokkan menjadi satu karena sama-sama "layar lain yang
+menyimpan produk", padahal yang menentukan bukan itu, melainkan **apakah layar
+itu mengirim harga modal sungguhan.** `kulakan_bulk_entry_screen.dart`
+mengirim `row.hppUnit`, jadi ia memang dapat menabraknya dan penundaannya tetap
+berlaku.
+
+Pembebasan `kasir_screen` kini tercatat di `alat/pintu-darurat-tanpa-kunci.py`
+lengkap dengan alasannya, sehingga penjaga per-jalur (dok. 91) tidak menuduhnya
+lagi — dan alasannya dapat diperiksa ulang siapa pun.

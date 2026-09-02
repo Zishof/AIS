@@ -1294,13 +1294,6 @@ public final class SalesInventoryTripHelper {
 
 	public static void tripPurchaseLink(EbisnisActorContextResolver.ActorContext ctx, Tbmuser tbmuser,
 			JSONObject request, JSONObject hasil) throws Exception {
-		if (SalesInventoryTripTenant.aktif(ctx)) {
-			// BELUM dipindahkan. Menjalankan jalur legacy di sini akan membaca -- dan pada
-			// aksi bermuatan uang, MENULIS -- ke schema BERSAMA. Ditolak sampai jalur
-			// tenantnya ditulis beserta uji kesetaraannya; lihat SalesInventoryTripTenant.
-			tolak(hasil, "Sales Lapangan belum tersedia pada tenant berschema.");
-			return;
-		}
 		if (!ctx.bolehAksi("pembelian_sales", "create") && !ctx.bolehAksi("nota_sales", "update")) {
 			tolak(hasil, "Akun Anda tidak berhak mencatat pembelian sesi.");
 			return;
@@ -1320,6 +1313,11 @@ public final class SalesInventoryTripHelper {
 		if (dibayar == null) dibayar = BigDecimal.ZERO;
 		if (dibayar.signum() < 0 || dibayar.doubleValue() > totalFaktur.doubleValue() + 0.01) {
 			tolak(hasil, "dibayar_sesi harus 0..total_faktur.");
+			return;
+		}
+		if (SalesInventoryTripTenant.aktif(ctx)) {
+			tripPurchaseLinkTenant(ctx, tbmuser, request, hasil, sesiId, totalFaktur, dibayar,
+					kodeUnik);
 			return;
 		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
@@ -3119,6 +3117,169 @@ public final class SalesInventoryTripHelper {
 			throw e;
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+	/**
+	 * Mencatat pembelian yang dilakukan sales dalam perjalanan, pada schema tenant.
+	 *
+	 * <p>Bagian yang dibayar dari kas yang dipegang sales ikut membukukan satu baris
+	 * {@code PURCHASE_PAYMENT} bertanda negatif. Itu sebabnya aksi ini menunggu dua bundel: v12
+	 * untuk buku kasnya dan v16 untuk dokumen pembeliannya.</p>
+	 *
+	 * <p>{@code sisaHutang} legacy tidak ditulis: nilainya {@code total_faktur − dibayar_trip},
+	 * dan kolom yang hanya mengulang aritmetika dua kolom sebaris tidak menambah apa pun kecuali
+	 * kesempatan untuk berselisih.</p>
+	 *
+	 * <p>Kaitan faktur pengadaan dan pemasok keduanya boleh kosong, mengikuti jalur legacy —
+	 * sales di lapangan tidak selalu tahu nomor fakturnya saat mencatat.</p>
+	 */
+	private static void tripPurchaseLinkTenant(EbisnisActorContextResolver.ActorContext ctx,
+			Tbmuser tbmuser, JSONObject request, JSONObject hasil, Long tripId,
+			BigDecimal totalFaktur, BigDecimal dibayar, String kodeUnik) throws Exception {
+		String skema = SalesInventoryTripTenant.skema(ctx);
+		String oleh = tbmuser == null || tbmuser.getUserId() == null ? "" : tbmuser.getUserId();
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		Transaction tx = null;
+		try {
+			java.sql.PreparedStatement psK = session.connection().prepareStatement(
+					SalesInventoryTripTenant.cariPembelianTripByKunci(skema));
+			psK.setString(1, kodeUnik);
+			java.sql.ResultSet rsK = psK.executeQuery();
+			boolean sudah = rsK.next();
+			long idSudah = sudah ? rsK.getLong(1) : 0;
+			rsK.close();
+			psK.close();
+			if (sudah) {
+				hasil.put("status", "00");
+				hasil.put("id", idSudah);
+				hasil.put("idempotentReplay", true);
+				return;
+			}
+
+			java.sql.PreparedStatement psT = session.connection().prepareStatement(
+					SalesInventoryTripTenant.tripUntukStatus(skema));
+			psT.setLong(1, tripId.longValue());
+			java.sql.ResultSet rsT = psT.executeQuery();
+			if (!rsT.next()) {
+				rsT.close();
+				psT.close();
+				tolak(hasil, "Sesi tidak ditemukan / sudah ditutup.");
+				return;
+			}
+			String statusTrip = str(rsT.getString(1));
+			Long salesId = rsT.getObject(2) == null ? null : Long.valueOf(rsT.getLong(2));
+			rsT.close();
+			psT.close();
+			if (NotaSalesSession.STATUS_CLOSED.equals(statusTrip)) {
+				tolak(hasil, "Sesi tidak ditemukan / sudah ditutup.");
+				return;
+			}
+			if (aktorSales(ctx) && (salesId == null || ctx.salesId == null
+					|| !ctx.salesId.equals(salesId))) {
+				tolak(hasil, "Sesi ini bukan milik sales Anda.");
+				return;
+			}
+
+			Long fakturId = optLong(request, "faktur_id");
+			if (fakturId != null && !adaBarisTenantSederhana(session, skema, "pembelian",
+					fakturId)) {
+				tolak(hasil, "Faktur pengadaan " + fakturId + " tidak ditemukan pada tenant ini.");
+				return;
+			}
+			Long supplierId = optLong(request, "supplier_id");
+			if (supplierId != null && !adaBarisTenantSederhana(session, skema, "supplier",
+					supplierId)) {
+				tolak(hasil, "Supplier " + supplierId + " tidak ditemukan pada tenant ini.");
+				return;
+			}
+
+			tx = session.beginTransaction();
+			java.sql.PreparedStatement ins = session.connection().prepareStatement(
+					SalesInventoryTripTenant.sisipPembelianTrip(skema),
+					java.sql.Statement.RETURN_GENERATED_KEYS);
+			long idBaru = 0;
+			try {
+				ins.setLong(1, tripId.longValue());
+				if (fakturId == null) {
+					ins.setNull(2, java.sql.Types.BIGINT);
+				} else {
+					ins.setLong(2, fakturId.longValue());
+				}
+				if (supplierId == null) {
+					ins.setNull(3, java.sql.Types.BIGINT);
+				} else {
+					ins.setLong(3, supplierId.longValue());
+				}
+				ins.setBigDecimal(4, totalFaktur);
+				ins.setBigDecimal(5, dibayar);
+				ins.setString(6, request.optString("tujuan_stok", "MOBIL_SALES").trim()
+						.toUpperCase());
+				ins.setString(7, request.optString("keterangan", "").trim());
+				ins.setString(8, kodeUnik);
+				ins.setString(9, oleh);
+				ins.executeUpdate();
+				java.sql.ResultSet gk = ins.getGeneratedKeys();
+				if (gk.next()) {
+					idBaru = gk.getLong(1);
+				}
+				gk.close();
+			} finally {
+				ins.close();
+			}
+			if (idBaru <= 0) {
+				tx.rollback();
+				tolak(hasil, "Pembelian gagal disimpan.");
+				return;
+			}
+			if (dibayar.signum() > 0) {
+				// Kas yang dipegang sales berkurang. Bertanda NEGATIF.
+				bukukanKas(session, skema, tripId,
+						ais.service.tenant.TenantKasTrip.PURCHASE_PAYMENT, dibayar.negate(),
+						"BELI-" + idBaru, "Pembayaran pembelian dalam sesi",
+						"KAS-BELI-" + idBaru, oleh);
+			}
+			tx.commit();
+			hasil.put("status", "00");
+			hasil.put("id", idBaru);
+		} catch (java.sql.SQLException dup) {
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+			}
+			if (dup.getSQLState() != null && dup.getSQLState().startsWith("23")) {
+				hasil.put("status", "00");
+				hasil.put("idempotentReplay", true);
+			} else {
+				throw dup;
+			}
+		} catch (Exception e) {
+			try {
+				if (tx != null && tx.isActive()) {
+					tx.rollback();
+				}
+			} catch (Exception ignore) {
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** Keberadaan satu baris induk pada schema tenant. */
+	private static boolean adaBarisTenantSederhana(Session session, String skema, String tabel,
+			Long id) throws Exception {
+		java.sql.PreparedStatement ps = session.connection().prepareStatement(
+				SalesInventoryTripTenant.adaBarisTenant(skema, tabel));
+		try {
+			ps.setLong(1, id.longValue());
+			java.sql.ResultSet rs = ps.executeQuery();
+			boolean ada = rs.next();
+			rs.close();
+			return ada;
+		} finally {
+			ps.close();
 		}
 	}
 }

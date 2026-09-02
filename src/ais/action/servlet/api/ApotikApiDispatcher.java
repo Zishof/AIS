@@ -86,6 +86,14 @@ public final class ApotikApiDispatcher {
 			ApotikPersediaanHelper.batchMonitor(payload, hasil);
 		} else if ("apotik_laporan_penjualan".equals(action)) {
 			ApotikLaporanHelper.laporanPenjualan(payload, hasil);
+		} else if ("apotik_sesi_kas_status".equals(action)) {
+			ApotikSesiKasHelper.status(tbmuser, payload, hasil);
+		} else if ("apotik_sesi_kas_buka".equals(action)) {
+			ApotikSesiKasHelper.buka(tbmuser, payload, hasil);
+		} else if ("apotik_sesi_kas_tutup".equals(action)) {
+			ApotikSesiKasHelper.tutup(tbmuser, payload, hasil);
+		} else if ("apotik_sesi_kas_list".equals(action)) {
+			ApotikSesiKasHelper.daftar(tbmuser, payload, hasil);
 		} else if ("apotik_metrik_operasional".equals(action)) {
 			ApotikMetrikHelper.metrikOperasional(payload, hasil);
 		} else if ("apotik_laporan_pembayaran".equals(action)) {

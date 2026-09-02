@@ -2405,6 +2405,12 @@ public class PosApi extends HttpServlet {
 					|| menu.optBoolean("apotik_racikan", false)
 					|| menu.optBoolean("apotik_kasir", false);
 		}
+		// IR-06: sesi kas apotek. Membuka/menutup laci adalah wewenang kasir
+		// apotik; gerbangnya WAJIB di server karena klien yang dimodifikasi
+		// dapat memanggil API ini langsung.
+		if (action.startsWith("apotik_sesi_kas_")) {
+			return menu.optBoolean("apotik_kasir", false);
+		}
 		// IR-10: metrik dasbor adalah rangkuman angka yang sudah dilihat lewat
 		// layar masing-masing, jadi cukup salah satu haknya -- bukan hak laporan
 		// penuh, supaya kasir tetap melihat dasbornya.

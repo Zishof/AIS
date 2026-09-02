@@ -80,7 +80,7 @@ final class SalesInventoryTripTenant {
 				|| "tripCashSale".equals(aksi) || "spjNotaAssign".equals(aksi)
 				|| "tripNotaResult".equals(aksi) || "tripClose".equals(aksi)
 				|| "expenseCategoryList".equals(aksi) || "expenseCategorySave".equals(aksi)
-				|| "expenseCreate".equals(aksi);
+				|| "expenseCreate".equals(aksi) || "tripPurchaseLink".equals(aksi);
 	}
 
 	/**
@@ -462,8 +462,15 @@ final class SalesInventoryTripTenant {
 	 * menjumlahkannya bersama penerimaan piutang — yang juga tidak punya kaitan ke trip —
 	 * aksinya tetap ditolak sampai kedua jalurnya diputuskan.</p>
 	 */
+	/**
+	 * Benar bila pembelian dalam perjalanan dapat dicatat. Sejak migrasi v16: bisa.
+	 *
+	 * <p>Sebelumnya model tenant tidak punya tabelnya sama sekali, sehingga pembayaran pemasok
+	 * dari kas trip tidak punya dokumen pendamping dan rekap penutupan terpaksa menyatakan
+	 * angkanya nol menurut definisi.</p>
+	 */
 	static boolean dukungPembelianTrip() {
-		return false;
+		return true;
 	}
 
 	/** Status dan kepemilikan SPJ beserta gudangnya, untuk memulai trip. */
@@ -899,5 +906,52 @@ final class SalesInventoryTripTenant {
 				+ " keterangan, nilai, tanggal, cara_bayar, penerima, nomor_bukti,"
 				+ " idempotency_key, status, dibuat_pada, oleh)"
 				+ " VALUES (?, ?, ?, ?, CURRENT_DATE, ?, ?, ?, ?, 'AKTIF', now(), ?)";
+	}
+	// ------------------------------------------------------------------ pembelian dalam trip (v16)
+
+	static String cariPembelianTripByKunci(String skema) {
+		return "SELECT id FROM " + skema + "sales_trip_pembelian"
+				+ " WHERE idempotency_key = ? LIMIT 1";
+	}
+
+	/**
+	 * DELAPAN parameter: tripId, pembelianId, supplierId, totalFaktur, dibayarTrip, tujuanStok,
+	 * keterangan, idempotencyKey, oleh.
+	 *
+	 * <p>{@code sisa_hutang} legacy tidak punya kolom di sini: nilainya persis
+	 * {@code total_faktur − dibayar_trip}, aritmetika dua kolom sebaris. Diturunkan saat dibaca
+	 * lewat {@link #sisaHutangPembelianTrip()}.</p>
+	 */
+	static String sisipPembelianTrip(String skema) {
+		return "INSERT INTO " + skema + "sales_trip_pembelian (sales_trip_id, pembelian_id,"
+				+ " supplier_id, total_faktur, dibayar_trip, tujuan_stok, keterangan,"
+				+ " idempotency_key, dibuat_pada, oleh)"
+				+ " VALUES (?, ?, ?, ?, ?, ?, ?, ?, now(), ?)";
+	}
+
+	/** Sisa hutang pembelian trip: diturunkan, tidak disimpan. */
+	static String sisaHutangPembelianTrip() {
+		return "(COALESCE(b.total_faktur,0) - COALESCE(b.dibayar_trip,0))";
+	}
+
+	/**
+	 * Daftar pembelian satu trip. ENAM kolom, berurutan sama dengan keluaran JSON legacy:
+	 * id, supplierNama, fakturId, totalFaktur, dibayarSesi, sisaHutang, tujuanStok.
+	 *
+	 * <p>Tujuh sebenarnya — {@code tujuanStok} kolom ketujuh; legacy menyusunnya dalam urutan
+	 * yang sama.</p>
+	 */
+	static String daftarPembelianTrip(String skema) {
+		return "SELECT b.id, COALESCE(s.nama,''), b.pembelian_id, COALESCE(b.total_faktur,0),"
+				+ " COALESCE(b.dibayar_trip,0), " + sisaHutangPembelianTrip() + ","
+				+ " COALESCE(b.tujuan_stok,'')"
+				+ " FROM " + skema + "sales_trip_pembelian b"
+				+ " LEFT JOIN " + skema + "supplier s ON b.supplier_id = s.id"
+				+ " WHERE b.sales_trip_id = ? ORDER BY b.id ASC";
+	}
+
+	/** Keberadaan satu baris induk pada schema tenant; dipakai memvalidasi kaitan opsional. */
+	static String adaBarisTenant(String skema, String tabel) {
+		return "SELECT 1 FROM " + skema + tabel + " WHERE id = ?";
 	}
 }

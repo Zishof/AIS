@@ -114,6 +114,7 @@ public final class NewUiKrsPaketController {
 
             if ("meta".equals(action)) meta(json, request, mahasiswa);
             else if ("list".equals(action)) daftar(json, request, mahasiswa, false);
+            else if ("options".equals(action)) gerbang(json, request, mahasiswa);
             else if ("update".equals(action)) daftar(json, request, mahasiswa, true);
             else hapus(json, request, mahasiswa);
             json.put("ok", true);
@@ -140,7 +141,7 @@ public final class NewUiKrsPaketController {
      * sesuai karena aksi itu menulis. Kata kerja sendiri akan ditolak penjaga.</p>
      */
     static boolean aksiDikenal(String action) {
-        return "meta".equals(action) || "list".equals(action)
+        return "meta".equals(action) || "list".equals(action) || "options".equals(action)
                 || "update".equals(action) || "delete".equals(action);
     }
 
@@ -325,6 +326,155 @@ public final class NewUiKrsPaketController {
         // pada Ikut Perkuliahan. Perbedaan itu dipertahankan.
         session.delete(detail);
         j.put("dihapus", id);
+    }
+
+    // --------------------------------------------------------------- gerbang
+
+    /**
+     * Evaluasi gerbang pengambilan paket, tanpa mengambil apa pun.
+     *
+     * <p>Layar lama memeriksa empat hal berurutan lalu berhenti pada yang
+     * pertama gagal, sehingga mahasiswa hanya melihat satu alasan meskipun
+     * beberapa syarat belum terpenuhi. Kontrak ini mengevaluasi seluruhnya dan
+     * mengembalikan semuanya — memberitahukannya satu per satu memaksa
+     * mahasiswa bolak-balik tanpa keperluan.</p>
+     *
+     * <p>Aturan tiap gerbang disalin apa adanya, termasuk bawaan
+     * konfigurasinya ({@code Konfigurasi.AKTIF}). Gerbang yang dimatikan
+     * institusi harus tetap dianggap lolos; menyalakannya sendiri akan menolak
+     * mahasiswa yang selama ini boleh mengambil KRS.</p>
+     *
+     * <p>Baca saja: tidak ada paket yang diambil di sini, dan sinkronisasi
+     * dipanggil dengan {@code keDatabase} bernilai false.</p>
+     */
+    @SuppressWarnings("unchecked")
+    private static void gerbang(JSONObject j, HttpServletRequest request, Mahasiswa mahasiswa)
+            throws JSONException {
+        int batas = batasSemester(mahasiswa.getSemesterLulus());
+        int bawaan = semesterBawaan(mahasiswa.getSemesterLulus(),
+                NewUiKuesionerMahasiswaController.semesterSekarang(mahasiswa));
+        int semester = angka(request.getParameter("semester"), bawaan);
+        if (semester < 1 || semester > batas) {
+            throw new IllegalArgumentException("Semester harus antara 1 dan " + batas + ".");
+        }
+        Integer tahapan = angkaOpsional(request.getParameter("tahapan"));
+        Integer semesterPendek = semesterPendek(request);
+
+        KrsMahasiswa krs = Common.singkronkanKrsMahasiswa(mahasiswa, Integer.valueOf(semester),
+                tahapan, semesterPendek, false, false);
+
+        JSONArray daftar = new JSONArray();
+        boolean semuaLolos = true;
+
+        // 1. Syarat ujian yang menyaratkan KRS.
+        StringBuilder peringatan = new StringBuilder();
+        try {
+            List<ais.database.model.SyaratUjian> syarats = ConstantValues.simpleList(
+                    HibernateUtil.currentSession()
+                            .createCriteria(ais.database.model.SyaratUjian.class)
+                            .add(Restrictions.eq("krs", Boolean.TRUE))
+                            .add(Restrictions.or(Restrictions.isNull("aktif"),
+                                    Restrictions.eq("aktif", Boolean.TRUE))),
+                    ais.database.model.SyaratUjian.class);
+            List<String> warnings = new java.util.ArrayList<String>();
+            for (int i = 0; syarats != null && i < syarats.size(); i++) {
+                ais.action.master.SyaratUjianAction.checkSyaratSyaratUjian(
+                        syarats.get(i), null, mahasiswa, Integer.valueOf(semester),
+                        "Ambil KRS", warnings);
+            }
+            for (int i = 0; i < warnings.size(); i++) {
+                if (peringatan.length() > 0) peringatan.append("\n\n");
+                peringatan.append(warnings.get(i));
+            }
+        } catch (Exception e) {
+            // Gagal memeriksa bukan berarti lolos.
+            peringatan.append("Syarat pengambilan KRS tidak dapat diperiksa saat ini.");
+        }
+        boolean lolosSyarat = peringatan.length() == 0;
+        semuaLolos = semuaLolos && lolosSyarat;
+        daftar.put(gerbangJson("syarat_ujian", lolosSyarat,
+                lolosSyarat ? "" : peringatan.toString()));
+
+        // 2. Dosen Pembimbing Akademik.
+        boolean wajibPa = konfigurasiAktif("dosen_pa_harus_ada_sebelum_isi_krs");
+        Object dosenPa = krs == null ? null : krs.getDosenPa();
+        boolean lolosPa = !wajibPa || dosenPa != null;
+        semuaLolos = semuaLolos && lolosPa;
+        daftar.put(gerbangJson("dosen_pa", lolosPa, lolosPa ? ""
+                : "Mohon maaf, Anda belum memiliki Dosen Pembimbing Akademik sehingga belum dapat "
+                + "mengambil KRS. Hubungi bagian Akademik atau Admin Fakultas/Prodi untuk "
+                + "mendaftarkannya."));
+
+        // 3. Pembayaran.
+        boolean wajibBayar = konfigurasiAktif("mahasiswa_harus_bayar_sebelum_isi_krs");
+        boolean lolosBayar = true;
+        if (wajibBayar) {
+            try {
+                if (!Common.checkStatusPembayaranMahasiswa(Integer.valueOf(semester), tahapan,
+                        mahasiswa, false, false) && semester >= 1) {
+                    lolosBayar = false;
+                }
+                if (lolosBayar && !ais.action.master.helper.UtsDanUasCheckerHelper
+                        .checkPembayaranSebelumKRSSudahMemenuhi(mahasiswa,
+                                Integer.valueOf(semester), tahapan)) {
+                    lolosBayar = false;
+                }
+            } catch (Exception e) {
+                lolosBayar = false;
+            }
+        }
+        semuaLolos = semuaLolos && lolosBayar;
+        daftar.put(gerbangJson("pembayaran", lolosBayar, lolosBayar ? ""
+                : "Mohon maaf, pembayaran biaya perkuliahan pada semester " + semester
+                + " belum selesai. Lakukan pembayaran terlebih dahulu, lalu ambil kembali KRS ini."));
+
+        // 4. Status keaktifan mahasiswa.
+        boolean wajibAktif = konfigurasiAktif("status_mahasiswa_harus_aktif_sebelum_isi_krs");
+        boolean lolosAktif = true;
+        String namaStatus = "";
+        if (wajibAktif) {
+            try {
+                ais.database.model.StatusMahasiswa status =
+                        ais.action.master.helper.HistoryStatusMahasiswaUtil
+                                .getHistoryStatusMahasiswa(krs)
+                                .ambilStatusMahasiswa(Integer.valueOf(semester));
+                namaStatus = status == null || status.getNama() == null ? "" : status.getNama();
+                lolosAktif = status != null && status.getId() != null
+                        && status.getId().equals(ConstantValues.AKTIF.getId());
+            } catch (Exception e) {
+                lolosAktif = false;
+            }
+        }
+        semuaLolos = semuaLolos && lolosAktif;
+        daftar.put(gerbangJson("status_aktif", lolosAktif, lolosAktif ? ""
+                : "Mohon maaf, status kemahasiswaan Anda saat ini adalah \"" + namaStatus
+                + "\" sehingga Anda belum dapat mengambil KRS."));
+
+        j.put("gerbang", daftar);
+        j.put("bolehAmbilPaket", semuaLolos);
+        j.put("semester", semester);
+        // Meski seluruh gerbang lolos, pengambilannya sendiri belum dilayani
+        // kontrak ini; klien tidak boleh menyimpulkan sebaliknya.
+        j.put("ambilPaketTersedia", false);
+    }
+
+    private static JSONObject gerbangJson(String kode, boolean lolos, String pesan)
+            throws JSONException {
+        return new JSONObject().put("kode", kode).put("lolos", lolos)
+                .put("pesan", pesan == null ? "" : pesan);
+    }
+
+    /** Konfigurasi bernilai AKTIF; bawaannya AKTIF, sama seperti layar lama. */
+    private static boolean konfigurasiAktif(String kunci) {
+        try {
+            ais.database.model.Konfigurasi k = Common.getKonfigurasi(kunci,
+                    ais.database.model.Konfigurasi.AKTIF);
+            return k != null && ais.database.model.Konfigurasi.AKTIF.equals(k.getNilai());
+        } catch (Exception e) {
+            // Tidak terbaca berarti diperlakukan menyala, sesuai bawaannya --
+            // bukan dimatikan diam-diam.
+            return true;
+        }
     }
 
     // --------------------------------------------------------------- utilitas
