@@ -2075,13 +2075,26 @@ public final class SalesInventoryReceivableHelper {
 				tolak(hasil, "Total order 0 -- tidak ada yang difakturkan.");
 				return;
 			}
-			// Uang muka pada model tenant bukan kolom melainkan alokasi penerimaan; menghormatinya
-			// berarti ikut menerbitkan dokumen penerimaan uang. Ditolak daripada dibuang diam-diam.
+			// Uang muka pada model tenant bukan kolom melainkan DOKUMEN penerimaan berikut
+			// alokasinya; ia diterbitkan di bawah, dalam transaksi yang sama dengan fakturnya.
 			BigDecimal dibayarAwal = optBigDecimal(request, "dibayar_awal");
-			if (dibayarAwal != null && dibayarAwal.signum() > 0) {
-				tolak(hasil, "dibayar_awal belum tersedia pada schema tenant: uang muka di sini"
-						+ " berupa alokasi penerimaan, jadi harus dicatat sebagai penagihan"
-						+ " tersendiri.");
+			if (dibayarAwal != null && dibayarAwal.signum() < 0) {
+				tolak(hasil, "dibayar_awal tidak boleh negatif.");
+				return;
+			}
+			if (dibayarAwal != null
+					&& dibayarAwal.doubleValue() > total.doubleValue() + 0.01) {
+				tolak(hasil, "dibayar_awal melebihi total order.");
+				return;
+			}
+			String metodeDp = request.optString("dp_metode", "").trim().toUpperCase();
+			if (metodeDp.isEmpty()) {
+				metodeDp = PenerimaanPiutangCustomer.METODE_TUNAI;
+			}
+			if (dibayarAwal != null && dibayarAwal.signum() > 0
+					&& !SalesInventoryReceivableTenant.metodeUangMukaSah(metodeDp)) {
+				tolak(hasil, "dp_metode tidak dikenali: "
+						+ SalesInventoryReceivableTenant.daftarMetodeUangMuka() + ".");
 				return;
 			}
 			int termin = 0;
@@ -2188,11 +2201,75 @@ public final class SalesInventoryReceivableHelper {
 			psS.executeUpdate();
 			psS.close();
 
+			// Uang muka: dokumen penerimaan berikut alokasinya, di dalam transaksi yang sama.
+			// Bukan kolom pengurang -- lihat catatan pada uangMukaFaktur().
+			long uangMukaId = 0;
+			String nomorUangMuka = null;
+			if (dibayarAwal != null && dibayarAwal.signum() > 0) {
+				String idemDp = "SO-DP-" + orderId;
+				java.sql.PreparedStatement insD = session.connection().prepareStatement(
+						SalesInventoryReceivableTenant.sisipPenerimaan(skema),
+						java.sql.Statement.RETURN_GENERATED_KEYS);
+				// Nomor sementara memakai kunci idempotensinya: sudah unik per order.
+				insD.setString(1, idemDp);
+				insD.setLong(2, customerId);
+				if (salesId == null) {
+					insD.setNull(3, java.sql.Types.BIGINT);
+				} else {
+					insD.setLong(3, salesId.longValue());
+				}
+				insD.setString(4, metodeDp);
+				insD.setString(5, "");
+				insD.setString(6, "");
+				insD.setNull(7, java.sql.Types.DATE);
+				insD.setBigDecimal(8, dibayarAwal);
+				insD.setString(9, "Uang muka faktur " + nomorInv);
+				insD.setString(10, idemDp);
+				insD.setNull(11, java.sql.Types.BIGINT);
+				insD.setString(12, oleh);
+				insD.executeUpdate();
+				java.sql.ResultSet gkD = insD.getGeneratedKeys();
+				if (gkD.next()) {
+					uangMukaId = gkD.getLong(1);
+				}
+				gkD.close();
+				insD.close();
+				if (uangMukaId <= 0) {
+					tx.rollback();
+					tolak(hasil, "Dokumen uang muka gagal disimpan.");
+					return;
+				}
+				nomorUangMuka = fmtNomor("KWT", tokoId, Long.valueOf(uangMukaId));
+				java.sql.PreparedStatement psDn = session.connection().prepareStatement(
+						SalesInventoryReceivableTenant.finalisasiNomorPenerimaan(skema));
+				psDn.setString(1, nomorUangMuka);
+				psDn.setLong(2, uangMukaId);
+				psDn.executeUpdate();
+				psDn.close();
+
+				java.sql.PreparedStatement psDa = session.connection().prepareStatement(
+						SalesInventoryReceivableTenant.sisipAlokasiPenerimaan(skema));
+				psDa.setLong(1, uangMukaId);
+				psDa.setLong(2, piutangId);
+				psDa.setBigDecimal(3, dibayarAwal);
+				psDa.setString(4, oleh);
+				psDa.executeUpdate();
+				psDa.close();
+			}
+
 			tx.commit();
 			hasil.put("status", "00");
 			hasil.put("piutangDocId", piutangId);
 			hasil.put("nomor", nomorInv);
 			hasil.put("jatuhTempo", str(jatuhTempo));
+			if (uangMukaId > 0) {
+				// Uang mukanya adalah dokumen, dan nomornya perlu sampai ke pemanggil supaya
+				// kwitansinya bisa dicetak. Pada jalur legacy ia hanya angka pada kolom, tanpa
+				// dokumen yang bisa ditunjuk.
+				hasil.put("uangMukaId", uangMukaId);
+				hasil.put("uangMukaNomor", nomorUangMuka);
+				hasil.put("uangMukaMetode", metodeDp);
+			}
 		} catch (java.sql.SQLException dup) {
 			try {
 				if (tx != null && tx.isActive()) {

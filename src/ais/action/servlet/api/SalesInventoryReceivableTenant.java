@@ -15,7 +15,9 @@ package ais.action.servlet.api;
  * <p>Alasannya sama dengan sisi hutang: kolom ringkasan adalah turunan yang bisa basi, dan
  * piutang yang basi berarti menagih pelanggan yang sudah membayar.</p>
  * <p>{@code dibayar_awal} legacy tidak punya kolom tersendiri di sini — pada model tenant uang
- * muka sudah berupa alokasi penerimaan biasa, sehingga tercakup penjumlahan alokasi.</p>
+ * muka sudah berupa alokasi penerimaan biasa, sehingga tercakup penjumlahan alokasi. Sejak
+ * §18 pemfakturan pun menerbitkannya sebagai dokumen penerimaan sungguhan, bukan
+ * menolaknya — lihat {@link #catatanUangMuka()}.</p>
  *
  * <h4>Piutang tenant tidak menyimpan toko maupun order</h4>
  * <p>{@code piutang_customer} menautkan dirinya ke {@code faktur_penjualan}, dan fakturnya
@@ -482,11 +484,15 @@ final class SalesInventoryReceivableTenant {
 	 * yang tidak pernah ditagih; piutang tanpa faktur memutus seluruh penelusuran ke ordernya —
 	 * termasuk saringan lingkup toko, yang pada model tenant memang ditempuh lewat faktur.</p>
 	 *
-	 * <p><b>{@code dibayar_awal} ditolak.</b> Legacy menyimpannya sebagai kolom pada dokumen
-	 * piutang. Pada model tenant uang muka bukan kolom melainkan <b>alokasi penerimaan</b>,
-	 * sehingga menghormatinya berarti ikut menerbitkan dokumen penerimaan uang — jauh melampaui
-	 * "menerbitkan faktur", dan menyentuh kas yang celahnya masih terbuka (C-11). Ditolak
-	 * daripada diam-diam dibuang.</p>
+	 * <p><b>{@code dibayar_awal} kini DILAYANI (§18).</b> Legacy menyimpannya sebagai kolom
+	 * pada dokumen piutang. Pada model tenant uang muka bukan kolom melainkan <b>dokumen
+	 * penerimaan berikut alokasinya</b>, dan sejak celah C-11 ditutup bundel v12 tidak ada lagi
+	 * alasan menundanya. Dokumennya lahir dalam transaksi yang sama dengan fakturnya — lihat
+	 * {@link #catatanUangMuka()}.</p>
+	 * <p>{@code sales_trip_id}-nya {@code NULL}, dan itu benar: {@code sales_order} model tenant
+	 * tidak punya kaitan trip, dan jalur legacy pun tidak mencatat pergerakan kas apa pun untuk
+	 * {@code dibayar_awal}. Uang muka yang diterima sales <b>di lapangan</b> punya jalurnya
+	 * sendiri lewat penagihan, yang memang mengaitkannya ke trip dan menulis buku kasnya.</p>
 	 */
 	static String orderUntukFaktur(String skema) {
 		return "SELECT " + statusOrder("o") + ", o.salesperson_id, o.toko_id, o.customer_id,"
@@ -629,6 +635,74 @@ final class SalesInventoryReceivableTenant {
 	static String sisipAlokasiPenerimaan(String skema) {
 		return "INSERT INTO " + skema + "alokasi_penerimaan_piutang (penerimaan_piutang_id,"
 				+ " piutang_customer_id, nilai, dibuat_pada, oleh) VALUES (?, ?, ?, now(), ?)";
+	}
+
+	// ------------------------------------------------------------------ uang muka faktur
+
+	/**
+	 * Cara bayar yang diterima untuk uang muka saat faktur diterbitkan.
+	 *
+	 * <p>{@code DISCOUNT} dan {@code RETUR} sengaja TIDAK termasuk, walau keduanya sah pada
+	 * penagihan biasa. Keduanya bukan uang yang masuk melainkan pengurang nilai tagihan, dan
+	 * memberikannya sebagai "uang muka" pada saat faktur lahir berarti menerbitkan faktur yang
+	 * sejak detik pertama sudah dipotong tanpa dokumen retur maupun persetujuan diskon yang
+	 * menyertainya. Potongan semacam itu punya jalurnya sendiri lewat penagihan.</p>
+	 */
+	private static final String[] METODE_UANG_MUKA = {
+			ais.database.model.koperasi.PenerimaanPiutangCustomer.METODE_TUNAI,
+			ais.database.model.koperasi.PenerimaanPiutangCustomer.METODE_TRANSFER,
+			ais.database.model.koperasi.PenerimaanPiutangCustomer.METODE_GIRO };
+
+	/** Benar bila {@code metode} boleh dipakai sebagai cara bayar uang muka. */
+	static boolean metodeUangMukaSah(String metode) {
+		for (int i = 0; i < METODE_UANG_MUKA.length; i++) {
+			if (METODE_UANG_MUKA[i].equals(metode)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** Daftar cara bayar uang muka untuk pesan penolakan. */
+	static String daftarMetodeUangMuka() {
+		StringBuilder sb = new StringBuilder();
+		for (int i = 0; i < METODE_UANG_MUKA.length; i++) {
+			if (i > 0) {
+				sb.append(", ");
+			}
+			sb.append(METODE_UANG_MUKA[i]);
+		}
+		return sb.toString();
+	}
+
+	/**
+	 * <h4>Uang muka faktur adalah DOKUMEN, bukan kolom pengurang</h4>
+	 *
+	 * <p>Jalur legacy menyimpan {@code dibayar_awal} sebagai kolom pada dokumen piutang, dan
+	 * menghitung sisanya {@code total_faktur − dibayar_awal − Σalokasi}. Ada
+	 * <b>dua</b> pengurang di sana, dan hanya satu di antaranya yang berasal dari dokumen: uang
+	 * mukanya mengurangi tagihan tanpa ada kwitansi yang bisa ditunjuk, tanpa cara bayar, dan
+	 * tanpa pasangan di sisi kas.</p>
+	 * <p>Model tenant menghitung sisa {@code nilai − Σalokasi} — satu sumber. Karena
+	 * itu uang muka di sini diterbitkan sebagai {@code penerimaan_piutang} sungguhan berikut
+	 * barisnya di {@code alokasi_penerimaan_piutang}, di dalam <b>transaksi yang sama</b> dengan
+	 * fakturnya. Fakturnya tetap bernilai penuh, dan yang berkurang adalah sisanya —
+	 * sebagaimana mestinya.</p>
+	 *
+	 * <h4>Yang berubah pada keluarannya</h4>
+	 * <p>Pada daftar piutang, {@code dibayarAwal} jalur tenant tetap nol dan uang mukanya muncul
+	 * pada {@code teralokasi}. {@code outstanding} sama persis dengan legacy, sebab legacy
+	 * menjumlahkan keduanya. Klien yang menampilkan "uang muka" sebagai kolom tersendiri akan
+	 * melihatnya nol; yang menampilkan sisa tagihan melihat angka yang sama.</p>
+	 *
+	 * <h4>Idempotensi</h4>
+	 * <p>Kunci uang mukanya {@code SO-DP-<orderId>}, sejajar dengan {@code SO-INV-<orderId>}
+	 * milik fakturnya. Karena keduanya lahir dalam satu transaksi, pengulangan permintaan yang
+	 * sama tertolak pada indeks unik faktur lebih dulu dan tidak pernah sampai menerbitkan
+	 * kwitansi kedua.</p>
+	 */
+	static String catatanUangMuka() {
+		return "uang muka = penerimaan_piutang + alokasi, bukan kolom";
 	}
 
 	/** DUA kolom: status trip dan SPJ-nya, untuk penjaga sesi dan penelusuran nota bawaan. */
