@@ -169,6 +169,7 @@ paket `apps/ebisnis`), dengan sisi servernya berupa API JSON di
 | [93-sumber-templat-yang-benar-benar-hilang.md](93-sumber-templat-yang-benar-benar-hilang.md) | Kembaran senama dibuktikan bukan sumbernya; enam templat laporan benar-benar tanpa sumber |
 | [94-ikon-menu-webxml-dan-satu-penjalan.md](94-ikon-menu-webxml-dan-satu-penjalan.md) | Ikon menu (2 hilang, 34 "temuan" ternyata kelas CSS); web.xml bersih; satu penjalan untuk semua pemeriksa |
 | [95-snapshot-menu-parsial-dan-larangan-yang-saya-langgar.md](95-snapshot-menu-parsial-dan-larangan-yang-saya-langgar.md) | Skema snapshot dibaca salah; snapshot parsial (155 induk hilang); dan larangan sunting manual yang terlanggar |
+| [96-dua-pohon-cermin-yang-terus-bergeser.md](96-dua-pohon-cermin-yang-terus-bergeser.md) | java/ dan src/ wajib identik; 5 berkas menyimpang, 4 disamakan, 1 milik sesi lain |
 | [ATURAN-NATIVE-SQL-CAST.md](ATURAN-NATIVE-SQL-CAST.md) | Aturan wajib cast pada native SQL |
 | [BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md](BANKALTIMTARA-KADALUARSA-H2H-2026-08-26.md) | Pengamanan Pembayaran Kedaluwarsa Bankaltimtara |
 | [PERBAIKAN_ERROR_2026-08-24_1936.md](PERBAIKAN_ERROR_2026-08-24_1936.md) | Perbaikan Error POS/eBisnis 24 Agustus 2026 19:36 |
