@@ -758,6 +758,57 @@ Blok 3 yang terpenting: ia membuktikan pemisahan menjadi dua tabel **tidak merus
 keseimbangan kuantitas**. Kesalahan pemetaan `hilang`→`selisih` akan terlihat di sini
 sebagai ketidakseimbangan, bukan sekadar angka berbeda.
 
+### CACAT YANG SUDAH TERKIRIM, dan koreksinya
+
+Jalur tenant `tripList` yang dikirim pada r83047 menghitung saldo kas sesi sebagai
+`SUM(sales_trip_setoran.nilai)` — yakni **total setoran**.
+
+Itu salah. Legacy menghitungnya dari `nota_sales_kas`, dan pada buku kas itu penjualan tunai
+bertanda **positif** sedangkan setoran ke pemilik **dinegatifkan** oleh `catatKas()`. Yang
+dimaksud legacy adalah **kas yang masih dipegang sales**, bukan yang sudah disetor.
+
+Untuk trip bertunai 1.000.000 dan setoran 800.000: legacy **200.000**, versi keliru
+**800.000**. Empat kali lipat, pada kolom yang dibaca sebagai uang di tangan.
+
+**Koreksinya**: model tenant memisahkan bagian tunai tiap nota (`sales_trip_nota.tunai`) dari
+setorannya (`sales_trip_setoran.nilai`, seluruhnya positif karena tabelnya khusus setoran).
+Saldo kas = tunai − setoran, sebagaimana penjumlahan bertanda pada jalur legacy.
+
+**Mengapa lolos**: uji kesetaraan untuk kelompok SPJ dan trip non-uang tidak memuat blok kas
+sama sekali. Kuerinya sah, kolomnya cocok, dan compiler tidak punya cara mengetahui bahwa dua
+angka bertipe sama punya arti berbeda.
+
+`uji-kesetaraan-trip-kas.sql` ada supaya tidak terulang. Blok 1-nya memuat **penjaga**: ia
+memeriksa bahwa contoh ujinya memang membedakan rumus benar dari rumus keliru — sebab contoh
+yang membuat keduanya kebetulan sama akan lulus tanpa membuktikan apa pun.
+
+| Blok | Hasil |
+|---|---|
+| Saldo kas sesi (tunai − setoran) | **SETARA** 200.000 = 200.000 |
+| Penjaga: versi keliru memang berbeda | **BERBEDA** (800.000) |
+| Total setoran | **SETARA** |
+| Penjualan tunai | **SETARA** |
+| Perpindahan status ACTIVE → RETURNED | **SETARA** |
+
+### Kelompok biaya: TERHALANG, bukan tertunda
+
+`expenseCategoryList`, `expenseCategorySave`, dan `expenseCreate` tidak dipindahkan karena
+dua celah katalog:
+
+**Tidak ada tabel master kategori biaya.** Legacy mengelolanya sebagai master ber-kode,
+ber-nama, dan ber-status aktif. Model tenant menaruh kategorinya sebagai kolom
+`varchar(64)` pada `sales_trip_biaya`. `expenseCategorySave` karena itu tidak punya sasaran
+tulis sama sekali.
+
+**Tidak ada kolom idempotensi pada `sales_trip_biaya`**, sedangkan legacy **mewajibkan**
+`kode_unik` untuk `expenseCreate` — aksi yang menulis uang. Tanpa kolom itu, satu permintaan
+yang diulang (gangguan jaringan, klien mencoba lagi) akan **membukukan biaya dua kali**, dan
+langsung merusak total biaya trip pada rekonsiliasi.
+
+Yang kedua bukan sesuatu yang pantas dilewati dengan catatan. Perbaikannya migrasi **v10**
+yang menambahkan `idempotency_key` pada `sales_trip_biaya` — keputusan Anda, bukan efek
+samping pemindahan kueri.
+
 ### BELUM: dua belas aksi sisanya
 
 Termasuk keenam aksi bermuatan uang, dan dua aksi kelompok ini yang tertahan pada celah

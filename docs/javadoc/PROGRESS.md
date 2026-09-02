@@ -1,5 +1,48 @@
 # Progres Javadoc Menyeluruh
 
+## `ais/database/model/BiodataPegawai.java` — SELESAI 100% (2 Sep 2026)
+
+707 → 1633 baris, **94/94 method ber-Javadoc (100%)**. Revisi **r83069**. Dikompilasi
+(`-implicit:none`, KantinHelper.java yang sedang `M` oleh sesi lain dioverlay dari
+HEAD), CRLF utuh, mirror `java/` byte-identik.
+
+**Jawaban atas hipotesis "pola biodata berulang"** (dicek langsung, bukan asumsi):
+
+- Getter yang diam-diam menulis baris master baru ke DB — **ADA, tapi BENTUKNYA
+  BEDA**. Tidak ada field wilayah/propinsi/kota sama sekali di entity ini, jadi
+  `findOrCreatePropinsi()`/pencocokan Levenshtein ala `BiodataMahasiswa`/
+  `BiodataCalonMahasiswa` **TIDAK ADA**. Yang ada: helper privat
+  `ambilBiodataDosen()` → `Pegawai.getDosen().ambilBiodata()` yang sama dengan
+  `ambilBiodata(true)` → bila dosen belum punya biodata, method itu membuka
+  transaksi sendiri dan **INSERT baris `biodata_dosen` baru**. Karena
+  `ambilBiodataDosen()` dipanggil di awal hampir SEMUA getter, membaca
+  `getHobi()` saja bisa menulis ke DB.
+- Getter yang menutup session Hibernate pemanggil — **ADA (transitif)**.
+  `Dosen.ambilBiodata()` memanggil `HibernateUtil.closeSession()` di cabang
+  pencarian maupun cabang penyimpanan.
+- Field audit di-shadow padahal sudah ada di `GeneralValueObject` — **ADA, empat
+  properti**: `id`, `oleh`, `olehId`, `tanggal_dirubah` dideklarasikan ulang
+  lengkap dengan getter/setter-nya.
+
+**Temuan khas file ini** (dicatat, TIDAK diperbaiki):
+
+- Hampir semua getter **menimpa field lokalnya** dari `BiodataDosen` bila pegawai
+  merangkap dosen. Dengan `dynamicUpdate = true`, membaca biodata bisa memicu
+  `UPDATE biodata_pegawai` saat flush, dan nilai yang baru diset lewat setter bisa
+  "hilang" pada pembacaan berikutnya.
+- **Bug salah tempel**: `getSuratIzinMengemudi()` menimpa SIM dengan
+  `ambilBiodataDosen().getHp()` — nomor HP, bukan SIM.
+- **Bug pemetaan**: `@Column(name = "alamat_asal_s2")` terpasang di **setter**
+  `setAlamatAsalS2`, bukan getter. Entity ini pakai property access (`@Id` di
+  `getId()`), jadi anotasi di setter diabaikan Hibernate; nama kolom jatuh ke
+  strategi bawaan dan — karena `hbm2ddl.auto=update` — kolom duplikat kemungkinan
+  dibuat otomatis, sehingga nilai tidak mendarat di `alamat_asal_s2`.
+- `toString()` membaca field `pegawai` mentah tanpa `check()`, bisa menghasilkan
+  teks `"null"` untuk entity detached.
+- Salah eja skema permanen: kolom `keahliah1`..`keahliah5` (hanya slot ke-1 yang
+  nama method-nya ikut salah eja: `getKeahliah1`).
+- Komentar generator lama keliru menyebut "BiodataMahasiswa" — sudah diganti.
+
 ## Batch "4 entity besar tambahan" — SELESAI 100% (2 Sep 2026, dikonsolidasi orkestrator)
 
 Lanjutan batch `GeneralValueObject`+`Mahasiswa`+`Dosen`+`Perkuliahan`. Semua 4

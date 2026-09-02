@@ -108,10 +108,37 @@ public final class JurnalUmumApiHelper {
         return false;
     }
 
+    /**
+     * Hak keempat wewenang menu Jurnal Umum, dikirim bersama daftar supaya layar dapat
+     * MEMADAMKAN tombol yang sudah pasti ditolak.
+     *
+     * <p>Keempatnya sengaja terpisah: {@code approve} (memposting ke buku besar) bukan
+     * turunan dari {@code create} (menyimpan draf), dan {@code reject} (membatalkan
+     * posting) berbeda lagi. Menggabungkannya akan memberi wewenang yang tidak pernah
+     * diberikan admin.</p>
+     *
+     * <p>Memakai pemeriksa yang tidak menulis pesan penolakan ke {@code hasil} -- di sini
+     * kita sedang MELAPORKAN hak, bukan menolak permintaan.</p>
+     */
+    private static JSONObject hakAksesJson(Tbmuser tbmuser) throws Exception {
+        JSONObject j = new JSONObject();
+        String[] aksi = { "create", "update", "delete", "approve", "reject" };
+        boolean admin = ais.common.Common.getApakahAdminLain(tbmuser);
+        ais.database.model.Tbmrole role = tbmuser == null ? null : tbmuser.hakAkses();
+        for (int i = 0; i < aksi.length; i++) {
+            boolean boleh = admin || role == null
+                    || ais.common.EbisnisMenuKatalog.bolehAksiAkuntansi(role.getEbisnisMenu(),
+                            role.getRoleId(), "jurnal_umum", aksi[i]);
+            j.put(aksi[i], boleh);
+        }
+        return j;
+    }
+
     public static void proses(String action, Tbmuser tbmuser, JSONObject payload, JSONObject hasil)
             throws Exception {
         if ("jurnal_umum_list".equals(action)) {
             daftar(payload, hasil);
+            hasil.put("hak", hakAksesJson(tbmuser));
         } else if ("jurnal_umum_detail".equals(action)) {
             detail(payload, hasil);
         } else if ("jurnal_umum_simpan".equals(action)) {

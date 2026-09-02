@@ -137,9 +137,31 @@ final class SalesInventoryTripTenant {
 		return "SELECT ns.id, COALESCE(ns.nomor_dokumen,''), COALESCE(ns.status,''), "
 				+ "ns.tanggal_berangkat, ns.tanggal_kembali, "
 				+ "COALESCE(ns.surat_perintah_sales_id,0), COALESCE(j.nomor_dokumen,''), "
-				+ "COALESCE(s.nama,''), "
-				+ "COALESCE((SELECT SUM(k.nilai) FROM " + skema + "sales_trip_setoran k"
-				+ " WHERE k.sales_trip_id = ns.id),0)";
+				+ "COALESCE(s.nama,''), " + saldoKas(skema);
+	}
+
+	/**
+	 * <h4>Saldo kas sesi: kas yang MASIH DIPEGANG sales, bukan total setoran</h4>
+	 *
+	 * <p>Legacy menyimpan penjualan tunai dan setoran pada satu buku kas
+	 * ({@code nota_sales_kas}): tunai masuk bertanda positif, setoran ke pemilik
+	 * <b>dinegatifkan</b>. Jumlahnya karena itu adalah kas bersih yang masih ada di tangan
+	 * sales.</p>
+	 *
+	 * <p>Model tenant memisahkannya: bagian tunai tiap nota ada di
+	 * {@code sales_trip_nota.tunai}, setoran ada di {@code sales_trip_setoran.nilai} dan
+	 * seluruhnya positif karena tabelnya memang khusus setoran.</p>
+	 *
+	 * <p><b>Menjumlahkan setoran saja bukan padanan saldo kas</b> -- itu angka yang berbeda
+	 * arah maknanya. Untuk trip bertunai 1.000.000 dan setoran 800.000, saldo kas adalah
+	 * 200.000 (yang masih dipegang), bukan 800.000 (yang sudah disetor). Rumus di bawah
+	 * mengurangkan keduanya, sebagaimana penjumlahan bertanda pada jalur legacy.</p>
+	 */
+	static String saldoKas(String skema) {
+		return "(COALESCE((SELECT SUM(n.tunai) FROM " + skema + "sales_trip_nota n"
+				+ " WHERE n.sales_trip_id = ns.id),0)"
+				+ " - COALESCE((SELECT SUM(k.nilai) FROM " + skema + "sales_trip_setoran k"
+				+ " WHERE k.sales_trip_id = ns.id),0))";
 	}
 
 	static String dasarTrip(String skema, String where) {

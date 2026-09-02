@@ -816,18 +816,51 @@ public class Matakuliah extends GeneralValueObject {
 		return milikUniversitas;
 	}
 
+	/**
+	 * Menyetel penanda "milik universitas".
+	 *
+	 * <p><b>Tidak berpengaruh.</b> Apa pun yang disetel di sini akan ditimpa menjadi
+	 * {@code true} pada pembacaan berikutnya — lihat penjelasan cacat di
+	 * {@link #getMilikUniversitas()}.</p>
+	 *
+	 * @param milikUniversitas nilai yang praktis diabaikan
+	 */
 	public void setMilikUniversitas(Boolean milikUniversitas) {
 		this.milikUniversitas = milikUniversitas;
 	}
 
+	/**
+	 * Mengembalikan nama mata kuliah dalam Bahasa Inggris.
+	 *
+	 * <p>Dipakai pada tampilan/laporan berbahasa Inggris dan pada transkrip dwibahasa. Tidak
+	 * di-trim dan tidak diberi cadangan, jadi bisa {@code null}; pemanggil umumnya jatuh balik
+	 * ke {@link #getNama()} sendiri.</p>
+	 *
+	 * @return nama Bahasa Inggris, atau {@code null} bila belum diisi
+	 */
 	public String getNamaEn() {
 		return namaEn;
 	}
 
+	/**
+	 * Menyetel nama mata kuliah dalam Bahasa Inggris.
+	 *
+	 * @param namaEn nama Bahasa Inggris; boleh null
+	 */
 	public void setNamaEn(String namaEn) {
 		this.namaEn = namaEn;
 	}
 
+	/**
+	 * Menyatakan apakah mahasiswa dari prodi lain boleh mengambil mata kuliah ini.
+	 *
+	 * <p>Melengkapi {@link #getJurusan()}: prodi pemilik menentukan siapa yang mengelola,
+	 * bendera ini menentukan siapa yang boleh mengambil. Nilai bawaan {@code true} (terbuka),
+	 * dan bila kolom masih {@code null} field ikut diisi {@code true} — jadi baris lama yang
+	 * belum pernah diisi akan diperlakukan sebagai terbuka, bukan tertutup.</p>
+	 *
+	 * @return {@code true} bila terbuka untuk prodi lain; tidak pernah null
+	 */
 	public Boolean getBolehDiambilProdiLain() {
 		if (bolehDiambilProdiLain == null) {
 			bolehDiambilProdiLain = true;
@@ -835,28 +868,83 @@ public class Matakuliah extends GeneralValueObject {
 		return bolehDiambilProdiLain;
 	}
 
+	/**
+	 * Menyetel izin pengambilan oleh prodi lain.
+	 *
+	 * @param bolehDiambilProdiLain {@code false} untuk membatasi ke prodi pemilik; null akan
+	 *                              dibaca sebagai {@code true}
+	 */
 	public void setBolehDiambilProdiLain(Boolean bolehDiambilProdiLain) {
 		this.bolehDiambilProdiLain = bolehDiambilProdiLain;
 	}
 
+	/**
+	 * Menyatakan apakah mata kuliah ini mengandung komponen praktikum.
+	 *
+	 * <p><b>Nilai turunan, bukan kolom yang dipercaya.</b> Dihitung ulang setiap pemanggilan
+	 * sebagai {@code getSksPraktek() > 0} dan hasilnya <b>menimpa</b> field {@code terdapatPraktek};
+	 * isi kolom di DB maupun nilai yang disetel lewat {@link #setTerdapatPraktek(Boolean)} tidak
+	 * pernah dipakai. Karena pemetaan memakai <i>property access</i>, nilai turunan inilah yang
+	 * ikut di-flush, sehingga kolom {@code terdapat_praktek} perlahan menyesuaikan diri dengan
+	 * {@code sksPraktek}. Konsekuensinya, jangan menyaring baris dengan
+	 * {@code Restrictions.eq("terdapatPraktek", true)} — pakai {@code sksPraktek > 0}.</p>
+	 *
+	 * @return {@code true} bila {@code sksPraktek} lebih dari 0
+	 */
 	public Boolean getTerdapatPraktek() {
 		terdapatPraktek = getSksPraktek() > 0;
 		return terdapatPraktek;
 	}
 
+	/**
+	 * Menyetel penanda ada-tidaknya praktikum.
+	 *
+	 * <p>Tidak berpengaruh: nilainya ditimpa hasil hitungan pada pembacaan berikutnya
+	 * ({@link #getTerdapatPraktek()}). Untuk mengubah hasilnya, ubah
+	 * {@link #setSksPraktek(Integer)}.</p>
+	 *
+	 * @param terdapatPraktek nilai yang praktis diabaikan
+	 */
 	public void setTerdapatPraktek(Boolean terdapatPraktek) {
 		this.terdapatPraktek = terdapatPraktek;
 	}
 
+	/**
+	 * Menyatakan apakah mata kuliah ini mengandung komponen tatap muka/teori ("diskusi").
+	 *
+	 * <p>Nilai turunan dari {@code getSksDiskusi() > 0} dengan perilaku penimpaan yang sama
+	 * seperti {@link #getTerdapatPraktek()}. Perhatikan bahwa {@link #getSksDiskusi()} sendiri
+	 * mengisi diri dengan {@link #getSks()} bila seluruh rincian nol — sehingga mata kuliah
+	 * ber-SKS yang belum dirinci akan selalu terbaca "ada diskusi".</p>
+	 *
+	 * @return {@code true} bila {@code sksDiskusi} lebih dari 0
+	 */
 	public Boolean getTerdapatDiskusi() {
 		terdapatDiskusi = getSksDiskusi() > 0;
 		return terdapatDiskusi;
 	}
 
+	/**
+	 * Menyetel penanda ada-tidaknya tatap muka/teori. Tidak berpengaruh — lihat
+	 * {@link #getTerdapatDiskusi()}.
+	 *
+	 * @param terdapatDiskusi nilai yang praktis diabaikan
+	 */
 	public void setTerdapatDiskusi(Boolean terdapatDiskusi) {
 		this.terdapatDiskusi = terdapatDiskusi;
 	}
 
+	/**
+	 * Mengembalikan rincian SKS untuk bentuk pembelajaran praktikum.
+	 *
+	 * <p>Nilai {@code null} diisi 0 ke field (efek samping ringan). Angka ini diekspor ke
+	 * Feeder PDDikti sebagai {@code sks_praktikum} dan menjadi dasar
+	 * {@link #getTerdapatPraktek()} serta {@link #getMerupakanMkPraktek()}. Rincian tidak
+	 * divalidasi terhadap {@link #getSks()}: jumlah seluruh rincian boleh saja melebihi atau
+	 * kurang dari bobot total tanpa ada yang mengeluh.</p>
+	 *
+	 * @return SKS praktikum; 0 bila belum diisi, tidak pernah null
+	 */
 	public Integer getSksPraktek() {
 		if (sksPraktek == null) {
 			sksPraktek = 0;
@@ -865,10 +953,34 @@ public class Matakuliah extends GeneralValueObject {
 		return sksPraktek;
 	}
 
+	/**
+	 * Menyetel rincian SKS praktikum.
+	 *
+	 * @param sksPraktek SKS praktikum; null akan dibaca sebagai 0
+	 */
 	public void setSksPraktek(Integer sksPraktek) {
 		this.sksPraktek = sksPraktek;
 	}
 
+	/**
+	 * Mengembalikan rincian SKS untuk bentuk pembelajaran tatap muka/teori ("diskusi").
+	 *
+	 * <p><b>Efek samping paling perlu diwaspadai di kelas ini.</b> Selain mengubah {@code null}
+	 * menjadi 0, method ini menjumlahkan keempat rincian
+	 * ({@code sksDiskusi + sksPraktek + sksPraktekLapangan + sksSimulasi}); bila totalnya nol
+	 * SEDANGKAN {@link #getSks()} lebih dari nol, field {@code sksDiskusi} <b>diisi sendiri</b>
+	 * dengan bobot SKS total. Artinya mata kuliah yang bobotnya belum pernah dirinci akan
+	 * otomatis dianggap 100% tatap muka, dan nilai bentukan itu ikut tersimpan ke basis data
+	 * pada flush berikutnya (kelas ini memakai <i>property access</i> dan ber-{@link Audited},
+	 * jadi baris revisi Envers baru ikut lahir).</p>
+	 *
+	 * <p>Perilaku ini disengaja agar ekspor Feeder PDDikti — yang mewajibkan
+	 * {@code sks_tatap_muka} terisi ({@code FeederExporterGenerator}) — tidak mengirim nol.
+	 * Efek sampingnya: begitu pengisian otomatis terjadi, totalnya tidak lagi nol sehingga
+	 * pengisian tidak akan terulang, dan rincian yang "benar" harus diisi manual.</p>
+	 *
+	 * @return SKS tatap muka/teori; tidak pernah null
+	 */
 	public Integer getSksDiskusi() {
 		if (sksDiskusi == null) {
 			sksDiskusi = 0;
@@ -882,10 +994,27 @@ public class Matakuliah extends GeneralValueObject {
 		return sksDiskusi;
 	}
 
+	/**
+	 * Menyetel rincian SKS tatap muka/teori.
+	 *
+	 * @param sksDiskusi SKS tatap muka; null akan dibaca sebagai 0 lalu berpeluang diisi
+	 *                   otomatis oleh {@link #getSksDiskusi()}
+	 */
 	public void setSksDiskusi(Integer sksDiskusi) {
 		this.sksDiskusi = sksDiskusi;
 	}
 
+	/**
+	 * Menyatakan apakah mata kuliah ini tergolong mata kuliah praktek.
+	 *
+	 * <p>Nilai turunan: {@code true} bila {@link #getSksPraktek()} lebih dari 0, dan hasilnya
+	 * menimpa field {@code merupakanMkPraktek}. Sama seperti {@link #getTerdapatPraktek()},
+	 * nilai yang tersimpan di DB atau disetel pemanggil tidak pernah dipakai. Perhatikan bahwa
+	 * mata kuliah bisa sekaligus "praktek" dan "teori" bila kedua rincian SKS terisi — kedua
+	 * bendera tidak saling meniadakan.</p>
+	 *
+	 * @return {@code true} bila {@code sksPraktek} lebih dari 0
+	 */
 	public Boolean getMerupakanMkPraktek() {
 		if (merupakanMkPraktek == null) {
 			merupakanMkPraktek = false;
@@ -900,10 +1029,27 @@ public class Matakuliah extends GeneralValueObject {
 		return merupakanMkPraktek;
 	}
 
+	/**
+	 * Menyetel penanda mata kuliah praktek. Tidak berpengaruh — lihat
+	 * {@link #getMerupakanMkPraktek()}.
+	 *
+	 * @param merupakanMkPraktek nilai yang praktis diabaikan
+	 */
 	public void setMerupakanMkPraktek(Boolean merupakanMkPraktek) {
 		this.merupakanMkPraktek = merupakanMkPraktek;
 	}
 
+	/**
+	 * Menyatakan apakah mata kuliah ini tergolong mata kuliah teori.
+	 *
+	 * <p>Nilai turunan: {@code true} bila {@link #getSksDiskusi()} lebih dari 0, dengan
+	 * perilaku penimpaan yang sama seperti {@link #getMerupakanMkPraktek()}. Karena
+	 * {@code getSksDiskusi()} mengisi dirinya sendiri dari {@link #getSks()} saat rincian
+	 * masih kosong, hampir semua mata kuliah yang bobotnya terisi akan terbaca sebagai
+	 * mata kuliah teori sampai rinciannya disunting.</p>
+	 *
+	 * @return {@code true} bila {@code sksDiskusi} lebih dari 0
+	 */
 	public Boolean getMerupakanMkTeori() {
 		if (merupakanMkTeori == null) {
 			merupakanMkTeori = false;

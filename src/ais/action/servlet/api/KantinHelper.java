@@ -1326,7 +1326,11 @@ public class KantinHelper {
 									 * itu tetap harus dapat masuk; ia diikat ke sesi yang sedang
 									 * terbuka, persis seperti payload tanpa kode sesi. */
 									sesiAsalSah = true;
-									hasil.put("sesi_kas_tidak_dikenal", kodeSesiDiminta);
+									tambahPeringatanTransaksi(hasil, PERINGATAN_SESI_KAS_TIDAK_DIKENAL,
+											"Kode sesi kas \"" + kodeSesiDiminta + "\" tidak dikenal server."
+													+ " Transaksi tetap dicatat dan diikat ke sesi kas yang"
+													+ " sedang terbuka. Periksa rekap sesi bila angkanya"
+													+ " tidak sesuai.");
 									/* KE-FIX LANJUTAN (Toko Al Bahjah, 23-08-2026, kasir Agung): baris di
 									 * atas mencegah transaksinya HILANG -- itu tetap benar dan tidak
 									 * disentuh. Yang belum tertutup adalah TEMPAT ia dicatat: dibiarkan
@@ -1345,7 +1349,11 @@ public class KantinHelper {
 									sesiKasTransaksi = ais.action.master.koperasi.helper.SesiKasUtil
 											.sesiPadaWaktu(session, toko.getId(), idKasir[0], idKasir[1], currentWaktu);
 									if (sesiKasTransaksi != null) {
-										hasil.put("sesi_kas_direkonsiliasi", sesiKasTransaksi.getKode());
+										tambahPeringatanTransaksi(hasil, PERINGATAN_SESI_KAS_DIREKONSILIASI,
+												"Transaksi dicatat pada sesi kas " + sesiKasTransaksi.getKode()
+														+ " -- sesi yang benar-benar terbuka pada waktu transaksi"
+														+ " terjadi, bukan kode sesi yang dikirim perangkat."
+														+ " Rekap sesi tsb ikut berubah.");
 										System.out.println("[POS-REKONSILIASI-SESI] Transaksi " + kodeUnik
 												+ " membawa kode sesi kas '" + kodeSesiDiminta
 												+ "' yang tidak ada; diikat ke sesi kas " + sesiKasTransaksi.getKode()
@@ -1386,8 +1394,14 @@ public class KantinHelper {
 										 * dikembalikan ke klien supaya bagian keuangan punya jejaknya. */
 										if (SesiKasKasir.STATUS_TUTUP.equalsIgnoreCase(
 												sesiAsal.getStatus() == null ? "" : sesiAsal.getStatus().trim())) {
-											hasil.put("sesi_kas_sudah_tutup", true);
-											hasil.put("sesi_kas_asal", sesiAsal.getKode());
+											// Inilah peringatan yang komentar di atas maksud dgn "supaya bagian
+											// keuangan punya jejaknya" -- sebelum dok. 80 kalimat itu tidak pernah
+											// terwujud karena tidak ada kanal yang membacanya.
+											tambahPeringatanTransaksi(hasil, PERINGATAN_SESI_KAS_TUTUP,
+													"Transaksi masuk ke sesi kas " + sesiAsal.getKode()
+															+ " yang SUDAH DITUTUP. Rekap sesi itu kini tidak lagi sama"
+															+ " dengan yang sudah dicetak/dicocokkan; serahkan catatan ini"
+															+ " ke bagian keuangan.");
 											System.err.println("[POS-TRANSAKSI-TERLAMBAT] Transaksi " + kodeUnik
 													+ " masuk ke sesi kas " + sesiAsal.getKode()
 													+ " yang sudah ditutup; transaksi tetap direkonsiliasi ke sesi asal.");
@@ -1523,9 +1537,16 @@ public class KantinHelper {
 					// pernah dibuka siapa pun.
 					if (stokKurang != null && stokKurang.semuaKurang != null
 							&& !stokKurang.semuaKurang.isEmpty()) {
-						hasil.put("peringatanStok", "Transaksi tetap dicatat, tetapi saldo stok produk"
+						String pesanStok = "Transaksi tetap dicatat, tetapi saldo stok produk"
 								+ " berikut tidak mencukupi: " + gabungkanDenganKoma(stokKurang.semuaKurang)
-								+ ". Lakukan Stok Opname agar saldo stok kembali sesuai fisik.");
+								+ ". Lakukan Stok Opname agar saldo stok kembali sesuai fisik.";
+						tambahPeringatanTransaksi(hasil, PERINGATAN_STOK_KURANG, pesanStok);
+						// `peringatanStok` DIPERTAHANKAN -- beda dgn lima peringatan lain yang
+						// dipindahkan seluruhnya. Field ini SUDAH punya pembaca yang terpasang di
+						// perangkat kasir (dok. 76); menghapusnya membuat versi aplikasi yang belum
+						// diperbarui kehilangan peringatannya. Nilainya dirakit SEKALI di atas, jadi
+						// saluran baru dan field lama tidak mungkin berbunyi berbeda.
+						hasil.put("peringatanStok", pesanStok);
 					}
 
 					TotalHitung th = hitungTotalDiskonCashback(jsonObject, transaksiRata, "bayarHitungTotal");
@@ -1933,8 +1954,9 @@ public class KantinHelper {
 						} catch (Exception exPengajuanLimit) {
 							// Transaksi sudah final dan persetujuan terikat ke kode nota unik;
 							// jangan membatalkan penjualan, tetapi jangan menyembunyikan kegagalan audit.
-							hasil.put("peringatanPengajuanLimit",
-									"Transaksi tersimpan, status pemakaian persetujuan perlu direkonsiliasi.");
+							tambahPeringatanTransaksi(hasil, PERINGATAN_PERSETUJUAN_LIMIT,
+									"Transaksi tersimpan, tetapi status pemakaian persetujuan limit"
+											+ " member gagal ditandai dan perlu direkonsiliasi.");
 							ais.common.ErrorAuditUtil.record(exPengajuanLimit,
 									"KantinHelper.bayar-tandaiPengajuanLimitDipakai");
 						}
@@ -2183,6 +2205,57 @@ public class KantinHelper {
 	 * <p>Aturan sesederhana ini pantas berdiri sendiri supaya dapat diuji tanpa basis data: yang
 	 * regresi kemarin bukan kuerinya, melainkan satu perbandingan boolean di tengah kueri itu.</p>
 	 */
+	/** Kode peringatan pasca-transaksi -- lihat {@link #tambahPeringatanTransaksi}. */
+	static final String PERINGATAN_STOK_KURANG = "STOK_KURANG";
+	static final String PERINGATAN_SESI_KAS_TUTUP = "SESI_KAS_SUDAH_TUTUP";
+	static final String PERINGATAN_SESI_KAS_TIDAK_DIKENAL = "SESI_KAS_TIDAK_DIKENAL";
+	static final String PERINGATAN_SESI_KAS_DIREKONSILIASI = "SESI_KAS_DIREKONSILIASI";
+	static final String PERINGATAN_PERSETUJUAN_LIMIT = "PERSETUJUAN_LIMIT_PERLU_REKONSILIASI";
+
+	/**
+	 * Titipkan satu peringatan PASCA-TRANSAKSI pada respons.
+	 *
+	 * <h3>Kenapa satu saluran, bukan satu field per peringatan</h3>
+	 * Peringatan semacam ini semuanya berbentuk sama: <b>transaksi DITERIMA, tetapi ada
+	 * sesuatu yang perlu direkonsiliasi belakangan.</b> Sebelum ini ada enam, masing-masing
+	 * sebagai field lepas -- dan penelusuran docs/pos/79 menemukan LIMA di antaranya tidak
+	 * pernah dibaca kanal mana pun. Salah satunya ({@code sesi_kas_sudah_tutup}) bahkan
+	 * membawa niat yang tertulis di komentarnya sendiri: "dikembalikan ke klien supaya
+	 * bagian keuangan punya jejaknya" -- niat yang tidak pernah terwujud.
+	 *
+	 * <p>Sebabnya struktural, bukan kelalaian: setiap field baru menuntut LIMA titik klien
+	 * disentuh (bayar massal, bayar tunggal, outbox, struk, JSP). Yang ketujuh akan terlupa
+	 * juga. Dengan satu saluran, peringatan berikutnya cukup memanggil method ini dan
+	 * langsung sampai ke seluruh kanal tanpa satu pun klien diubah.</p>
+	 *
+	 * <p>Tiap entri membawa {@code kode} (untuk mesin) dan {@code pesan} (untuk manusia).
+	 * Pesannya WAJIB lengkap sendiri -- memuat kode sesi/nama produk di dalam kalimatnya --
+	 * supaya klien tidak perlu merakit ulang apa pun, dan supaya kanal yang hanya
+	 * menampilkan teks tetap memberi keterangan yang utuh.</p>
+	 *
+	 * @param hasil respons yang sedang dirakit
+	 * @param kode  salah satu konstanta {@code PERINGATAN_*} di atas
+	 * @param pesan kalimat lengkap yang dapat langsung ditampilkan apa adanya
+	 * @throws Exception dari {@code JSONObject.put} -- versi org.json di sini melempar
+	 *                   JSONException terperiksa; pemanggilnya (bayar) sudah
+	 *                   mendeklarasikannya, jadi tidak ada yang perlu menelan galat.
+	 */
+	static void tambahPeringatanTransaksi(JSONObject hasil, String kode, String pesan)
+			throws Exception {
+		if (hasil == null || pesan == null || pesan.trim().length() == 0) {
+			return;
+		}
+		JSONArray daftar = hasil.optJSONArray("peringatanTransaksi");
+		if (daftar == null) {
+			daftar = new JSONArray();
+			hasil.put("peringatanTransaksi", daftar);
+		}
+		JSONObject satu = new JSONObject();
+		satu.put("kode", kode);
+		satu.put("pesan", pesan);
+		daftar.put(satu);
+	}
+
 	static boolean wajibDiblokirKarenaStok(Boolean izinkanJualMinusStok,
 			boolean cegahOversellAktif) {
 		// Dikunci admin: SELALU memblokir, terlepas dari sakelar global. Itulah gunanya
