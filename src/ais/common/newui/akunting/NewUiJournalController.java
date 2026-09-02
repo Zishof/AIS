@@ -45,7 +45,7 @@ public final class NewUiJournalController {
         try{String privilege=privilege(action,q);if(!NewUiRouteGuard.isActionAuthorized(q,"akunting",routePage(q),privilege)){r.setStatus(403);fail(j,"ACTION_FORBIDDEN","Hak akses jurnal tidak tersedia.");write(r,j);return;}NewUiJournalService s=new NewUiJournalService();Tbmuser user=Common.getCurrentUser(q);
             if("list".equals(action))encode(j,s.load(filter(q)));
             else if("detail".equals(action))j.put("row",row(s.detail(requiredId(q.getParameter("id")))));
-            else if("options".equals(action)){options(j,s.options());j.put("admin",Common.getApakahAdmin()).put("deleteAllEnabled",Common.getApakahAdmin()&&Common.bolehKonfigurasi("tampilkan_bersihkan_jurnal",ais.database.model.Konfigurasi.TIDAK_AKTIF));}
+            else if("options".equals(action)){options(j,s.options());j.put("admin",Common.getApakahAdmin()).put("deleteAllEnabled",Common.getApakahAdmin()&&Common.bolehKonfigurasi("tampilkan_bersihkan_jurnal",ais.database.model.Konfigurasi.TIDAK_AKTIF)).put("csrfHeader","X-CSRF-Token").put("csrfToken",csrfToken(q));}
             else if("history".equals(action))history(j,s.history(requiredId(q.getParameter("id"))));
             else if("save".equals(action)){csrf(q);j.put("id",s.save(draft(q),user));}
             else if("delete".equals(action)){csrf(q);s.delete(requiredId(q.getParameter("id")));}
@@ -79,6 +79,16 @@ public final class NewUiJournalController {
     private static void export(HttpServletRequest q,HttpServletResponse r)throws Exception{if(!NewUiRouteGuard.isActionAuthorized(q,"akunting",routePage(q),"list")){r.sendError(403);return;}Filter f=filter(q);f.page=0;f.size=100;NewUiJournalService s=new NewUiJournalService();r.setContentType("text/csv; charset=UTF-8");r.setHeader("Content-Disposition","attachment; filename=\"grup-transaksi.csv\"");PrintWriter w=r.getWriter();w.write('\ufeff');w.println("kode,tanggal,jenis_transaksi,keterangan,no_bukti,status,total_debet,total_kredit,satuan_kerja,workspace");int read=0,total=1;while(read<total){Snapshot x=s.load(f);total=x.total;for(Row z:x.rows){csv(w,z.code);w.print(',');csv(w,format(z.date));w.print(',');csv(w,z.type);w.print(',');csv(w,z.description);w.print(',');csv(w,z.postingId);w.print(',');csv(w,z.closingId!=null?"CLOSING":z.postingId!=null?"POSTED":"DRAFT");w.print(',');w.print(z.debit);w.print(',');w.print(z.credit);w.print(',');csv(w,z.workUnit);w.print(',');csv(w,z.workspace);w.println();read++;}f.page++;if(x.rows.isEmpty())break;}w.flush();}
     private static void stream(HttpServletResponse r,File f,String type,String disposition)throws Exception{if(f==null||!f.isFile()){r.sendError(404);return;}r.setContentType(type);r.setHeader("Cache-Control","no-store");r.setHeader("Content-Disposition",disposition);if(f.length()<=Integer.MAX_VALUE)r.setContentLength((int)f.length());FileInputStream in=new FileInputStream(f);try{OutputStream out=r.getOutputStream();byte[]b=new byte[8192];int n;while((n=in.read(b))>=0)out.write(b,0,n);out.flush();}finally{in.close();}}
     private static void csv(PrintWriter w,Object v){String s=v==null?"":String.valueOf(v);w.print('"');w.print(s.replace("\"","\"\""));w.print('"');}
+    /**
+     * Terbitkan token CSRF pada aksi bootstrap baca ({@code options}).
+     *
+     * <p>Sebelumnya {@link #csrf} menuntut atribut sesi {@code newUiCsrfToken}
+     * yang tidak pernah diterbitkan controller ini, sehingga seluruh jalur
+     * tulis jurnal hanya berhasil bila pengguna kebetulan sudah membuka salah
+     * satu layar lain yang mencetaknya pada sesi yang sama. Idiomnya sama
+     * dengan {@code NewUiPembelianController.csrfToken}.</p>
+     */
+    private static String csrfToken(HttpServletRequest q){String t=ais.common.newui.NewUiCsrfUtil.getToken(q.getSession(true));if(q.getSession().getAttribute("newUiCsrfToken")==null)q.getSession().setAttribute("newUiCsrfToken",t);return String.valueOf(q.getSession().getAttribute("newUiCsrfToken"));}
     private static void csrf(HttpServletRequest q){if(!"POST".equalsIgnoreCase(q.getMethod()))throw new SecurityException("Metode HTTP tidak valid.");Object e=q.getSession().getAttribute("newUiCsrfToken");String v=q.getHeader("X-CSRF-Token");if(e==null||v==null||!String.valueOf(e).equals(v))throw new SecurityException("Token CSRF tidak valid.");}
     private static List<Long>ids(String csv){List<Long>o=new ArrayList<Long>();if(clean(csv)!=null)for(String v:csv.split(",")){Long x=id(v);if(x!=null&&!o.contains(x))o.add(x);}return o;}
     private static Long jsonId(JSONObject o,String k){Object v=o.opt(k);return v==null||JSONObject.NULL.equals(v)||clean(String.valueOf(v))==null?null:id(String.valueOf(v));}
