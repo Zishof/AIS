@@ -177,6 +177,131 @@ import ais.database.model.obe.CapaianPembelajaranLulusan;
 public class PembombotanNilai extends GeneralValueObject {
 
 
+	/** Kondisi bisnis yang wajar ketika rancangan OBE belum siap diterbitkan sebagai FormatNilai. */
+	private static final class FormatPenggantiBelumSiapException extends IllegalStateException {
+		private static final long serialVersionUID = 1L;
+
+		private FormatPenggantiBelumSiapException(String message) {
+			super(message);
+		}
+	}
+
+	/** Mengambil kembali format produksi lama tanpa mengubah bobot atau state Hibernate-nya. */
+	private static List<FormatNilai> ambilFormatLamaAktif(List<FormatNilai> formatNilais,
+			Map<Long, Double> persenFormatNilaiLama) {
+		List<FormatNilai> hasil = new ArrayList<FormatNilai>();
+		for (FormatNilai formatNilai : formatNilais) {
+			Double persen = formatNilai == null || formatNilai.getId() == null ? null
+					: persenFormatNilaiLama.get(formatNilai.getId());
+			if (persen != null && persen.doubleValue() > 0.01) {
+				hasil.add(formatNilai);
+			}
+		}
+		return hasil;
+	}
+
+	/**
+	 * Memeriksa sumber CPMK/Sub-CPMK sebelum satu pun FormatNilai ditulis. Nilai {@code null}
+	 * berarti sumber siap; selain itu berisi alasan mengapa format lama harus dipertahankan.
+	 */
+	private static String analisisKesiapanSumberObe(KurikulumPunyaMatakuliah kpm,
+			List<CapaianPembelajaranLulusan> capaianPembelajaranLulusans) {
+		boolean gunakanCpmk = kpm != null && kpm.getNilaiMenggunakanCpmk();
+		int jumlahKomponen = 0;
+		int jumlahCpmkTanpaKode = 0;
+		double totalBobot = 0.0;
+
+		for (CapaianPembelajaranLulusan cpl : capaianPembelajaranLulusans) {
+			if (cpl == null) {
+				continue;
+			}
+			JSONArray formula = null;
+			boolean adaSubCpmk = false;
+			try {
+				formula = new JSONArray(cpl.getFormula() == null ? "[]" : cpl.getFormula());
+				for (int i = 0; i < formula.length(); i++) {
+					if (!formula.getJSONObject(i).isNull("key")) {
+						adaSubCpmk = true;
+						break;
+					}
+				}
+			} catch (Exception formulaTidakValid) {
+				// Samakan dengan perilaku pembangun lama: formula rusak dianggap belum punya Sub-CPMK,
+				// sehingga CPMK induk masih dapat dipakai bila kode dan bobotnya lengkap.
+				formula = null;
+				adaSubCpmk = false;
+			}
+
+			if (gunakanCpmk || !adaSubCpmk) {
+				String kode = cpl.getKode() == null ? "" : cpl.getKode().trim();
+				if (kode.length() == 0) {
+					jumlahCpmkTanpaKode++;
+					continue;
+				}
+				double bobot = cpl.getBobot() == null ? 0.0 : cpl.getBobot().doubleValue();
+				if (bobot > 0.01) {
+					jumlahKomponen++;
+					totalBobot += bobot;
+				}
+			} else if (formula != null) {
+				for (int i = 0; i < formula.length(); i++) {
+					JSONObject subCpmk = formula.getJSONObject(i);
+					if (subCpmk.isNull("key")) {
+						continue;
+					}
+					double bobot = 0.0;
+					if (!subCpmk.isNull("bobot")) {
+						try {
+							bobot = Double.parseDouble(subCpmk.get("bobot") + "");
+						} catch (Exception bobotTidakValid) {
+							bobot = 0.0;
+						}
+					}
+					if (bobot > 0.01) {
+						jumlahKomponen++;
+						totalBobot += bobot;
+					}
+				}
+			}
+		}
+
+		if (jumlahKomponen == 0 || totalBobot < 99.0 || totalBobot > 101.0 || jumlahCpmkTanpaKode > 0) {
+			return "Rancangan OBE belum siap: komponen berbobot=" + jumlahKomponen + ", total bobot="
+					+ totalBobot + "%, CPMK tanpa kode=" + jumlahCpmkTanpaKode
+					+ ". Format lama tetap dipakai sampai total bobot mendekati 100% dan setiap CPMK memiliki kode.";
+		}
+		return null;
+	}
+
+	/** Menjelaskan hasil FormatNilai yang gagal validasi setelah seluruh relasi diperiksa. */
+	private static String ringkasanFormatTidakSiap(List<FormatNilai> formatNilais) {
+		int aktif = 0;
+		int tanpaStatus = 0;
+		int statusTidakAktif = 0;
+		int bobotKosong = 0;
+		double totalBobot = 0.0;
+		for (FormatNilai formatNilai : formatNilais) {
+			if (formatNilai == null || formatNilai.getStatusPertemuan() == null) {
+				tanpaStatus++;
+				continue;
+			}
+			if (!formatNilai.getStatusPertemuan().getAktif()) {
+				statusTidakAktif++;
+				continue;
+			}
+			Double persen = formatNilai.getPersen();
+			if (persen == null || persen.doubleValue() <= 0.01) {
+				bobotKosong++;
+				continue;
+			}
+			aktif++;
+			totalBobot += persen.doubleValue();
+		}
+		return "Format pengganti belum siap: komponen layak=" + aktif + ", total bobot aktif=" + totalBobot
+				+ "%, tanpa status=" + tanpaStatus + ", status tidak aktif=" + statusTidakAktif
+				+ ", bobot kosong/nol=" + bobotKosong + ".";
+	}
+
 	/**
 	 * Jenis pembobotan untuk kelas kuliah biasa (tatap muka/daring reguler). Nilai inilah yang
 	 * dianggap default oleh layar pengelola bila {@link #getJenisPembobotan()} masih {@code null}.
@@ -910,6 +1035,10 @@ public class PembombotanNilai extends GeneralValueObject {
 									.addOrder(Order.asc("kode")).addOrder(Order.asc("nama"))
 									.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))),
 							CapaianPembelajaranLulusan.class);
+					String masalahSumberObe = analisisKesiapanSumberObe(kpmObe, capaianPembelajaranLulusans);
+					if (masalahSumberObe != null) {
+						return ambilFormatLamaAktif(formatNilais, persenFormatNilaiLama);
+					}
 					int index = 1;
 					for (final CapaianPembelajaranLulusan capaianPembelajaranLulusan : capaianPembelajaranLulusans) {
 
@@ -1311,8 +1440,7 @@ public class PembombotanNilai extends GeneralValueObject {
 				}
 			}
 			if (!Detailperkuliahan.formatNilaiSiapDihitung(formatNilaisPilih)) {
-				throw new IllegalStateException("Format pengganti tidak lengkap: jumlah komponen aktif="
-						+ formatNilaisPilih.size() + " dan total bobot harus mendekati 100%.");
+				throw new FormatPenggantiBelumSiapException(ringkasanFormatTidakSiap(formatNilaisPilih));
 			}
 
 			// Commit logis dilakukan paling akhir. Format lama baru dinonaktifkan setelah format
@@ -1366,19 +1494,12 @@ public class PembombotanNilai extends GeneralValueObject {
 					}
 				}
 				perkuliahan.tulisLokasiFormatNilai(lokasiFormatNilaiLama);
-				ais.common.ErrorAuditUtil.record(e,
-						"setDefaultPembobotan dibatalkan dan format lama dipulihkan, perkuliahan="
-								+ perkuliahan.getId());
-
-				List<FormatNilai> formatNilaiLamaAktif = new ArrayList<FormatNilai>();
-				for (FormatNilai formatNilai : formatNilais) {
-					Double persenLama = formatNilai == null || formatNilai.getId() == null ? null
-							: persenFormatNilaiLama.get(formatNilai.getId());
-					if (persenLama != null && persenLama.doubleValue() > 0.01) {
-						formatNilaiLamaAktif.add(formatNilai);
-					}
+				if (!(e instanceof FormatPenggantiBelumSiapException)) {
+					ais.common.ErrorAuditUtil.record(e,
+							"setDefaultPembobotan gagal dan format lama dipulihkan, perkuliahan="
+									+ perkuliahan.getId());
 				}
-				return formatNilaiLamaAktif;
+				return ambilFormatLamaAktif(formatNilais, persenFormatNilaiLama);
 			}
 		} else {
 			return new ArrayList<FormatNilai>();
